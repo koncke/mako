@@ -138,7 +138,7 @@ Estado: ✓ hecho · ◐ a medias · ✗ falta y se puede copiar · ⊘ fuera.
 | Clip combinado · Agrupar | ✗ | el motor no los tiene |
 | Altura de la pista | ✗ | |
 | Reemplazar el clip | ✓ | 15/10, `_opencut/reemplazo/`: menú, «Sustituir» en las muestras de plantilla y soltar sobre una muestra; sin ver en Chrome |
-| Atajos I/O, Shift+X, Ctrl+R, Shift+B, Ctrl+J, Tab | ✗ | `actions/definitions.ts` |
+| ~~Atajos I/O, Shift+X, Ctrl+R, Shift+B, Ctrl+J~~ · Tab | ◐ | ~~faltaban~~ — 10/11/2026, `rango/` y `speed/abrir.ts` (más Alt+X, que pasó del «deselect-all» al rango); sin ver en Chrome. Ctrl+J = «Agregar ritmo» (la acción la dedujo el relevamiento). Tab sigue sin hacer: el relevamiento trae sólo su nombre |
 
 ### Exportar (12)
 | Función | | Nota |
@@ -147,7 +147,7 @@ Estado: ✓ hecho · ◐ a medias · ✗ falta y se puede copiar · ⊘ fuera.
 | Resolución | ◐ | 2K y 4K se estiran desde el lienzo |
 | Audio | ◐ | AAC/MP3/WAV; falta FLAC |
 | Portada incrustada | ✗ | |
-| Flujo óptico · Marca de agua · Superresolución · Clips seleccionados · Rango I/O · 10 bits | ✗ | `export/opciones.ts` |
+| Flujo óptico · Marca de agua · Superresolución · Clips seleccionados · ~~Rango I/O~~ (10/11/2026, `rango/` + `export/exportar.ts`: video, audio, subtítulos y GIF; sin ver en Chrome) · 10 bits | ✗ | `export/opciones.ts` |
 | Comprobación de copyright | ⊘ | compara sólo contra TikTok |
 | 8K · ProRes | ⊘ | el navegador no los codifica (se dibujan apagados) |
 

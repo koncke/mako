@@ -10,9 +10,10 @@
 //   Agregar subtítulos      «Ingresar manualmente»: el texto se divide solo.
 //
 // Lo que CapCut tiene acá y no se hace en v1 se dibuja APAGADO con su rótulo:
-// «Subtítulos bilingües» (fuera de alcance, docs/diseno-editor-video.md §1) y
-// «Emojis de IA». «Resaltar palabras clave automáticamente» anda desde el 6/11/2026
-// (pedido de Leila, 30/10): elige la palabra que pesa de cada subtítulo (../claves.ts).
+// «Subtítulos bilingües» (fuera de alcance, docs/diseno-editor-video.md §1). «Resaltar palabras clave
+// automáticamente» anda desde el 6/11/2026 (pedido de Leila, 30/10): elige la palabra que pesa de cada subtítulo
+// (../claves.ts). «Emojis automáticos» (era «Emojis de IA», apagado) anda desde el 10/11/2026: un emoji encima de
+// cada subtítulo que dice algo que se puede dibujar (../emojis.ts), sin IA y gratis, como las palabras clave.
 //
 // Plantillas lleva arriba los PRESETS de la marca (los estilos guardados del negocio,
 // ../presets.ts), con su tacho; elegir uno lo aplica a todos, con sus palabras clave.
@@ -38,6 +39,7 @@ import {
 	ZonaImportar,
 } from "@/app/video-editor/_opencut/components/editor/panels/assets/views/biblioteca-ui";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
+import { rotuloProgresoSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { cssFamilia, useFuenteMuestra } from "@/app/video-editor/_opencut/fonts/muestras";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
@@ -47,7 +49,7 @@ import type { TranscriptionLanguage } from "@/app/video-editor/_opencut/transcri
 import { dividirTextoEnSubtitulos } from "@/app/video-editor/_opencut/transcription/caption";
 import { maxCaracteresPara } from "@/app/video-editor/_opencut/transcription/caption-defaults";
 import { EXTENSIONES_SUBTITULOS, parseSubtitleFile } from "../parse";
-import { PLANTILLAS_SUBTITULO, paramsDePlantilla, plantillaPorId, type PlantillaSubtitulo } from "../estilos";
+import { PLANTILLAS_SUBTITULO, cajaDePlantilla, paramsDePlantilla, plantillaPorId, textoConCaja, type PlantillaSubtitulo } from "../estilos";
 import { pxTrazo } from "@/app/video-editor/_opencut/text/estilo";
 import { tieneTiemposPorPalabra } from "@/app/video-editor/_opencut/text/resaltado";
 import { usePreferenciasSubtitulos, useTrabajoSubtitulos } from "../estado";
@@ -139,17 +141,8 @@ const OPCIONES_IDIOMA = [
 	...LANGUAGES.map((l) => ({ id: l.code, etiqueta: l.name })),
 ];
 
-function rotuloProgreso(fase: string, progreso: number): string {
-	switch (fase) {
-		case "modelo":
-			// La primera vez baja el modelo (~250 MB); después sale de la caché.
-			return `Descargando… ${progreso} %`;
-		case "transcribiendo":
-			return `Generando subtítulos… ${progreso} %`;
-		default:
-			return "Generando subtítulos…";
-	}
-}
+// El rótulo vive en ../resultado.ts: lo usa también la tarjeta del chat mientras aplica (9/11/2026).
+const rotuloProgreso = rotuloProgresoSubtitulos;
 
 export function SubtitulosAutomaticosView() {
 	const editor = useEditor();
@@ -245,7 +238,7 @@ export function SubtitulosAutomaticosView() {
 						activo={prefs.claves}
 						onCambio={(v) => prefs.fijar({ claves: v })}
 					/>
-					<FilaInterruptor rotulo="Emojis de IA" activo={false} desactivado />
+					<FilaInterruptor rotulo="Emojis automáticos" activo={prefs.emojis} onCambio={(v) => prefs.fijar({ emojis: v })} />
 					<FilaInterruptor
 						rotulo="Identificar las muletillas"
 						activo={prefs.muletillas}
@@ -277,7 +270,7 @@ function MiniaturaPlantilla({
 		ref: refTexto,
 		familia: plantilla.fuente,
 		peso: plantilla.negrita ? 700 : 400,
-		texto: plantilla.mayusculas ? texto.toUpperCase() : texto,
+		texto: textoConCaja(texto, plantilla),
 	});
 	return (
 		<button
@@ -310,7 +303,7 @@ function MiniaturaPlantilla({
 						? `${(pxTrazo(plantilla.trazo.grosor, 13 * escala) * 2).toFixed(1)}px ${plantilla.trazo.color}`
 						: undefined,
 					paintOrder: plantilla.trazo ? "stroke fill" : undefined,
-					textTransform: plantilla.mayusculas ? "uppercase" : undefined,
+					textTransform: cajaDePlantilla(plantilla),
 					textShadow: plantilla.sombra ? "1px 1px 2px rgba(0, 0, 0, 0.9)" : undefined,
 				}}
 			>

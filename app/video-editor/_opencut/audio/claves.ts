@@ -147,6 +147,27 @@ export function dbNormalizacion(params: ParamValues): number {
 	return Math.max(NORMALIZAR_MIN_DB, Math.min(NORMALIZAR_MAX_DB, db));
 }
 
+/**
+ * Hasta cuántos LU puede apartarse un pedazo de la medida de su video para llevar la MISMA ganancia que el resto (la
+ * «Edición automática» normaliza los pedazos de un video juntos: audio/normalizar.ts → normalizarJuntos). Un pedazo
+ * más flojo que eso es otra toma (lejos del micrófono): con la ganancia del conjunto quedaría casi mudo, y además la
+ * compuerta relativa de −10 LU lo saca de la medida (revisión del 9/11/2026). Ése va con la suya.
+ */
+export const TOLERANCIA_PEDAZO_LU = 6;
+
+/** La medida que se escribe en cada pedazo: la del conjunto, salvo el que se aparta más de la tolerancia. */
+export function medidaDePedazos(
+	propias: readonly (number | null)[],
+	conjunta: number | null,
+	tolerancia = TOLERANCIA_PEDAZO_LU,
+): (number | null)[] {
+	return propias.map((p) => {
+		if (conjunta === null) return p;
+		if (p === null) return conjunta;
+		return Math.abs(p - conjunta) <= tolerancia ? conjunta : p;
+	});
+}
+
 /** La ganancia lineal de la normalización (1 si no hay). */
 export function gananciaNormalizacion(params: ParamValues): number {
 	const db = dbNormalizacion(params);

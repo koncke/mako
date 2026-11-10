@@ -26,6 +26,13 @@ export type MotivoAbrir = "sin-proyecto" | "ocupado" | "no-se-copio" | "no-se-ar
 
 export type ResultadoAbrir = { ok: true; id: string; aviso: string | null } | { ok: false; motivo: MotivoAbrir };
 
+/** Lo que se dice si al pasar a vertical se sacaron fotogramas clave de posición o escala (./cubrir.ts). */
+export function avisoDeAnimaciones(clips: number): string | null {
+	if (!(clips > 0)) return null;
+	const cuales = clips === 1 ? "del video" : `de ${clips} clips del video`;
+	return `Saqué las animaciones de posición y escala ${cuales}: eran del cuadro horizontal. Si las quieres, anímalas de nuevo en el vertical.`;
+}
+
 export const TEXTO_MOTIVO_ABRIR: Readonly<Record<MotivoAbrir, string>> = {
 	"sin-proyecto": "Abre el proyecto del video largo primero.",
 	ocupado: "Ya se está abriendo un clip. Espera a que termine.",

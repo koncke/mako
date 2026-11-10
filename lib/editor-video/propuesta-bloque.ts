@@ -16,8 +16,9 @@
 // Puro y sin `server-only`: lo leen el runner de la API y los tests.
 // =============================================================================
 
-import type { OperacionChat } from './chat-catalogo';
+import { textoValoresMotion, type OperacionChat } from './chat-catalogo';
 import { OPERACIONES_API } from './chat-api';
+import { PLANTILLAS as DEF_MOTION } from '../motion/plantillas';
 
 /** Cuántas filas lleva la tarjeta: el tope del bloque G4 (lib/chat-bloques.ts). */
 export const MAX_FILAS_TARJETA = 12;
@@ -48,7 +49,8 @@ const segundos = (n: number): string => `${String(Math.round(n * 10) / 10).repla
 const entre = (a: number, b: number): string => `de ${tiempo(a)} a ${tiempo(b)}`;
 const comillas = (s: string, max = 80): string => `«${s.length > max ? `${s.slice(0, max)}…` : s}»`;
 
-type Elemento = { nombre: string; inicio?: number; fin?: number };
+/** `tipo`: el de la vista («video», «imagen», «texto»…), para decir «otro video» y no «otra imagen». */
+type Elemento = { nombre: string; inicio?: number; fin?: number; tipo?: string };
 
 /** Los elementos de la copia, con su nombre y sus tiempos (la vista que guarda lib/editor-video/espejo.ts). */
 export function elementosDeVista(vista: unknown): Map<string, Elemento> {
@@ -57,13 +59,14 @@ export function elementosDeVista(vista: unknown): Map<string, Elemento> {
   for (const p of Array.isArray(v.pistas) ? v.pistas : []) {
     const els = (p as { elementos?: unknown })?.elementos;
     for (const e of Array.isArray(els) ? els : []) {
-      const x = e as { ref?: unknown; texto?: unknown; nombre?: unknown; inicio?: unknown; fin?: unknown };
+      const x = e as { ref?: unknown; texto?: unknown; nombre?: unknown; inicio?: unknown; fin?: unknown; tipo?: unknown };
       if (typeof x.ref !== 'string') continue;
       const nombre = typeof x.texto === 'string' ? comillas(x.texto, 40) : typeof x.nombre === 'string' ? x.nombre.slice(0, 40) : x.ref;
       out.set(x.ref, {
         nombre,
         ...(typeof x.inicio === 'number' ? { inicio: x.inicio } : {}),
         ...(typeof x.fin === 'number' ? { fin: x.fin } : {}),
+        ...(typeof x.tipo === 'string' ? { tipo: x.tipo } : {}),
       });
     }
   }
@@ -85,7 +88,7 @@ function comoEsta(ref: string, els: Map<string, Elemento>): string {
 /** Lo que queda después de la operación, en palabras. Exhaustivo: una operación nueva sin texto no compila. */
 export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Map()): string {
   switch (op.op) {
-    case 'agregar_texto': return `Texto ${comillas(op.texto)} ${entre(op.inicio, op.inicio + op.duracion)}`;
+    case 'agregar_texto': return `Texto ${comillas(op.texto)}${op.plantilla ? ` con la plantilla ${comillas(op.plantilla)}` : ''} ${entre(op.inicio, op.inicio + op.duracion)}`;
     case 'cambiar_texto': return comillas(op.texto);
     case 'borrar': return 'Se borra';
     case 'mover': return `Empieza en ${tiempo(op.inicio)}`;
@@ -120,11 +123,43 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
     case 'borrar_silencios': return 'Sin los silencios (se buscan al aceptar)';
     case 'reemplazar_clip': return `Con el archivo ${els.get(op.medio)?.nombre ?? op.medio}`;
     case 'usar_plantilla': return `La plantilla ${comillas(op.id)}, con ${Object.keys(op.textos).length} textos y ${Object.keys(op.clips).length} clips`;
-    case 'palabras_clave': return op.modo === 'ninguna' ? 'Sin palabras clave' : op.modo === 'auto' ? 'Con las palabras clave de color' : `Con ${(op.palabras ?? []).map((w) => comillas(w)).join(', ')} de color`;
+    case 'palabras_clave':
+      return op.modo === 'ninguna'
+        ? 'Sin palabras clave'
+        : op.modo === 'auto'
+          ? 'Con las palabras clave de color'
+          : op.modo === 'quitar'
+            ? `Sin ${(op.palabras ?? []).map((w) => comillas(w)).join(', ')} de color`
+            : `Con ${(op.palabras ?? []).map((w) => comillas(w)).join(', ')} de color`;
+    case 'animar_palabras': return op.animacion === 'ninguna' ? 'La palabra que se dice, quieta' : op.animacion === 'pop' ? 'La palabra que se dice salta' : 'La palabra que se dice crece';
     case 'usar_preset_subtitulos': return `Con el preset ${comillas(op.preset)}`;
-    case 'broll': return op.planos === false ? 'Con B-roll propuesto' : 'Con B-roll y cambios de plano propuestos';
+    case 'broll': {
+      const que = op.videos ? 'B-roll en video' : 'B-roll';
+      return op.planos === false ? `Con ${que} propuesto` : `Con ${que} y cambios de plano propuestos`;
+    }
+    case 'cambiar_broll': {
+      // La vista dice si el B-roll es un video o una foto; sin saberlo, no se afirma ninguno de los dos.
+      const tipo = els.get(op.ref)?.tipo;
+      const que = tipo === 'video' ? 'Otro video' : tipo === 'imagen' ? 'Otra imagen' : 'Otro archivo';
+      return `${que} de la misma búsqueda, en el mismo lugar`;
+    }
     case 'clips_magicos': return `Los ${op.cuantos ?? 5} mejores momentos, para abrir aparte`;
     case 'edicion_automatica': return 'Editado de una por los agentes (se ve en «Edición automática»)';
+    case 'emojis_subtitulos': return op.activar ? 'Con un emoji encima de los subtítulos que lo piden' : 'Sin los emojis de los subtítulos';
+    case 'agregar_motion': {
+      const def = DEF_MOTION[op.plantilla];
+      const campos = textoValoresMotion(op.valores, op.plantilla);
+      return `Motion ${comillas(def.nombre)}${campos ? ` (${campos})` : ''} ${entre(op.inicio, op.inicio + (op.duracion ?? def.duracionMs / 1000))}`;
+    }
+    case 'editar_motion': return textoValoresMotion(op.valores) || 'Sin cambios';
+    case 'duplicar': return 'Una copia encima, en el mismo tiempo';
+    case 'fondo_lienzo': return op.color !== undefined ? `Fondo del lienzo ${op.color}` : `Fondo del lienzo desenfocado (${op.desenfoque})`;
+    case 'efecto_texto': return op.id ? `Efecto de texto ${comillas(op.id)}` : 'Sin efecto de texto';
+    case 'agregar_emoji': return `Emoji ${op.emoji} ${entre(op.inicio, op.inicio + op.duracion)}`;
+    case 'encuadre':
+      if ('quitar' in op) return 'El cuadro entero, sin recortar';
+      if ('proporcion' in op) return `El cuadro recortado a ${op.proporcion}`;
+      return `El cuadro recortado (${[['izquierda', op.izquierda], ['arriba', op.arriba], ['derecha', op.derecha], ['abajo', op.abajo]].filter(([, n]) => Number(n) > 0).map(([k, n]) => `${k} ${String(n).replace('.', ',')} %`).join(', ')})`;
     default: {
       const nunca: never = op;
       return String((nunca as { op?: unknown }).op ?? '');
@@ -138,8 +173,8 @@ export function antesDe(op: OperacionChat, els: Map<string, Elemento> = new Map(
   if (op.op === 'cortar_frase') return comillas(op.frase);
   if (op.op === 'borrar') return op.refs.map((r) => comoEsta(r, els)).join('; ');
   const ref = (op as { ref?: unknown }).ref;
-  // agregar_texto y capa_efecto llevan `ref` para NOMBRAR lo nuevo, no algo que exista.
-  if (typeof ref === 'string' && op.op !== 'agregar_texto' && op.op !== 'capa_efecto') return comoEsta(ref, els);
+  // agregar_texto, capa_efecto, agregar_motion y agregar_emoji llevan `ref` para NOMBRAR lo nuevo, no algo que exista.
+  if (typeof ref === 'string' && op.op !== 'agregar_texto' && op.op !== 'capa_efecto' && op.op !== 'agregar_motion' && op.op !== 'agregar_emoji') return comoEsta(ref, els);
   return '—';
 }
 

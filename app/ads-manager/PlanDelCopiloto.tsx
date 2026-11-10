@@ -12,8 +12,12 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { ConversacionCerebro, MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import { CajaDeOrden } from './Hoy';
+import { PanelDelFunnel } from './PanelDelFunnel';
+import { CSS_OFFER } from '@/app/offer/estilos';
+
+const SUGERENCIAS_DE_APERTURA = ['¿Qué hago esta semana?', '¿Y si pruebo otro funnel?', 'Revisemos mis números'] as const;
 import { funnelElegido, medirDe, propuestaDe, tareasDeLaSemana, type PerfilCopiloto, type SeccionCopiloto } from '@/lib/media-buyer/copiloto';
 
 const ROTULO: Record<SeccionCopiloto, string> = { hoy: 'Hoy', plan: 'Plan', campanas: 'Campañas', biblioteca: 'Biblioteca', semana: 'Esta semana', medir: 'Qué medir' };
@@ -69,7 +73,47 @@ export function SeccionMedir({ perfil }: { perfil: PerfilCopiloto }) {
   );
 }
 
-/** La pantalla de un funnel sin anuncios: tres secciones, sin Campañas, sin cuenta de Meta. */
+/**
+ * La pantalla de la COMPUTADORA de un funnel sin anuncios (9/11/2026): la de la charla, en dos columnas. MaKo a la izquierda (el
+ * Cerebro con el contexto del CoPilot, como la tarjeta de Create: ConversacionCerebro) y a la derecha el panel del funnel «En marcha»
+ * con Tu funnel · Esta semana · Qué medir (PanelDelFunnel.tsx). El teléfono sigue con `SinAnuncios` (abajo), que tiene su hoja de MaKo.
+ */
+export function EstrategiaCopiloto({ perfil }: { perfil: PerfilCopiloto }) {
+  const f = funnelElegido(perfil);
+  const [vista, setVista] = useState<'chat' | 'funnel'>('funnel');
+  const [pedido, setPedido] = useState<{ texto: string; vez: number } | null>(null);
+  // Lo primero que dice MaKo aquí (si el Cerebro no tiene nada más reciente): las tres cosas que se hacen con un funnel en marcha, como
+  // los arranques sugeridos de las referencias (Zapier, HubSpot). Cada una sale al chat tal cual, con el contexto del CoPilot.
+  const apertura = (
+    <div className="cp-apertura">
+      <p>{f ? `Tu funnel está en marcha: ${f.nombre}. ¿Qué miramos?` : '¿Qué miramos de tu estrategia?'}</p>
+      <div className="aa-rapidas" role="group" aria-label="Para empezar">
+        {SUGERENCIAS_DE_APERTURA.map((s) => <button key={s} type="button" className="of-pill" onClick={() => { setVista('chat'); setPedido({ texto: s, vez: Date.now() }); }}>{s}</button>)}
+      </div>
+    </div>
+  );
+  return (
+    <div className="aa aa-dos aa-copiloto">
+      <style>{CSS_OFFER}</style>
+      <h1 className="cp-oculto">Marketing CoPilot</h1>
+      <div className="cp" data-vista={vista}>
+        <div className="cp-switch" role="group" aria-label="Qué ver">
+          <button type="button" aria-pressed={vista === 'chat'} onClick={() => setVista('chat')}>MaKo</button>
+          <button type="button" aria-pressed={vista === 'funnel'} onClick={() => setVista('funnel')}>Tu funnel</button>
+        </div>
+        <section className="cp-chat" aria-label="MaKo en Marketing CoPilot">
+          <div className="cp-chat-cerebro">
+            <ConversacionCerebro tab="Marketing CoPilot" titulo="MaKo" apertura={apertura} pedido={pedido} onMandado={() => setPedido(null)}
+              pantalla={`Marketing CoPilot · ${f?.nombre ?? 'sin funnel'} · el panel muestra su funnel, esta semana y qué medir`} />
+          </div>
+        </section>
+        <PanelDelFunnel perfil={perfil} modo="listo" />
+      </div>
+    </div>
+  );
+}
+
+/** La pantalla de un funnel sin anuncios EN EL TELÉFONO: tres secciones, sin Campañas, sin cuenta de Meta. */
 export function SinAnuncios({ perfil }: { perfil: PerfilCopiloto }) {
   const f = funnelElegido(perfil);
   const [sec, setSec] = useState<'semana' | 'plan' | 'medir'>('semana');

@@ -646,10 +646,20 @@ export const RUNNERS: Runners = {
   usar_plantilla_video: { ...enElEditor('usar_plantilla_video') },
   borrar_silencios_video: { ...enElEditor('borrar_silencios_video') },
   resaltar_claves_subtitulos: { ...enElEditor('resaltar_claves_subtitulos') },
+  animar_palabras_video: { ...enElEditor('animar_palabras_video') },
   usar_preset_subtitulos: { ...enElEditor('usar_preset_subtitulos') },
   proponer_broll_video: { ...enElEditor('proponer_broll_video') },
   buscar_clips_video: { ...enElEditor('buscar_clips_video') },
   editar_video_automatico: { ...enElEditor('editar_video_automatico') },
+  poner_emojis_subtitulos: { ...enElEditor('poner_emojis_subtitulos') },
+  agregar_motion_video: { ...enElEditor('agregar_motion_video') },
+  editar_motion_video: { ...enElEditor('editar_motion_video') },
+  duplicar_elemento_video: { ...enElEditor('duplicar_elemento_video') },
+  cambiar_fondo_lienzo: { ...enElEditor('cambiar_fondo_lienzo') },
+  poner_efecto_texto_video: { ...enElEditor('poner_efecto_texto_video') },
+  agregar_emoji_video: { ...enElEditor('agregar_emoji_video') },
+  encuadrar_clip_video: { ...enElEditor('encuadrar_clip_video') },
+  otra_imagen_broll: { ...enElEditor('otra_imagen_broll') },
 
   ver_contexto_video: {
     leer: async () => {

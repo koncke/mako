@@ -14,7 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { sanearHoja, esElemento, MAX_COMPONENTES, type Componente, type Hoja } from '../lib/graficos-catalogo';
 import { HOJA_DE_ROL, PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla, type PlantillaHoja } from '../lib/graficos-plantillas';
@@ -227,7 +227,9 @@ test('11 · «Velocidad de llamada» (Código Inmobiliario): tarjetas copiadas q
     for (const k of parteDe(d.id, d.parte)!.lee) assert.ok(h.componentes.some((c) => c.id === d.piezas[k]), `${d.id}/${d.parte}: la pieza ${k} existe`);
   }
   assert.ok(panelesALaVista(h.componentes).length <= 14);
-  assert.deepEqual(panelesALaVista(h.componentes).map((c) => c.clase), Array(9).fill('elemento'), 'a la vista, sólo las tarjetas');
+  // A la vista, las tarjetas y (9/11/2026) la tabla «Cada lead nuevo» después del primer contacto: lo que preguntó Juanfran es por
+  // CADA lead (tests/dashboard-velocidad-codigo.test.ts).
+  assert.deepEqual(panelesALaVista(h.componentes).map((c) => c.clase), ['elemento', 'elemento', 'grafico', ...Array(7).fill('elemento')], 'a la vista, las tarjetas y la tabla de cada lead');
   assert.equal(sinSuperposicion(h.componentes), null);
   assert.equal(h.controles.find((c) => c.tipo === 'periodo')?.preset, 'ult30');
   // Nombra leads (el primer contacto, a quién llamaste): ni el closer ni el setter la ven (cada uno tiene su hoja única).
@@ -260,7 +262,7 @@ test('12 · ninguna hoja fija su modo: cada diseño trae su paleta oscura bajo e
   const archivos = readdirSync(join(RAIZ, 'app/dashboard/disenos')).filter((f) => f.endsWith('-css.ts'));
   assert.equal(archivos.length, Object.keys(DISENOS).length, 'una hoja de estilos por diseño');
   for (const f of archivos) {
-    const mod = await import(join(RAIZ, 'app/dashboard/disenos', f)) as Record<string, unknown>;
+    const mod = await import(pathToFileURL(join(RAIZ, 'app/dashboard/disenos', f)).href) as Record<string, unknown>;
     const css = String(Object.values(mod).find((v) => typeof v === 'string' && v.length > 2000)).replace(/\/\*[\s\S]*?\*\//g, '');
     const raiz = /\n\.([a-z][a-z0-9-]*)\s*\{/.exec(css)?.[1];
     assert.ok(raiz, `${f}: sin raíz`);

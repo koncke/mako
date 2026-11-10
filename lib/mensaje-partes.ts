@@ -28,7 +28,7 @@
 // Módulo PURO y sin `server-only`: lo usan el editor (cliente), el motor (lib/nutricion.ts),
 // `setSecuenciaPasos`, «Probar» (lib/simulador-grafo.ts) y tests/mensaje-partes.test.ts.
 
-import { proveedorDelPaso } from './nutricion-canal';
+import { proveedorDelPaso, textoDelPaso } from './nutricion-canal';
 
 /**
  * Una burbuja. Un audio no lleva texto (WhatsApp no tiene pie de audio: el texto es otra parte).
@@ -348,6 +348,20 @@ export function formaGuardada(lista: readonly ParteMensaje[], ia = false): Campo
 
 /** ¿Es un solo texto? Ahí viven las variantes («↻ N») y «MaKo lo adapta». */
 export const esUnTexto = (lista: readonly ParteMensaje[]): boolean => lista.length === 1 && lista[0].tipo === 'texto';
+
+/**
+ * LAS PARTES QUE SALEN EN ESTE ENVÍO por Instagram o Messenger (9/11/2026, el ticket #67 de Leandro: «Quiero que esa respuesta
+ * pública no sea siempre igual: que rote entre…»): las del paso, y si es UN texto con otras formas de decirlo («↻ N»), una de ellas
+ * para esta persona, con el mismo sorteo del WhatsApp por QR (`textoDelPaso`, lib/nutricion-canal.ts). Antes un DM no sorteaba: la
+ * ficha de la API mostraba «variantes: 0» y no había dónde cargarlas. Sale igual el DM y la respuesta pública debajo del comentario.
+ * `sortear` es el sorteo (el test lo fija).
+ */
+export function partesParaEnviar(p: PasoConPartes & { variantes?: string[] | null }, sortear: (paso: { tipo?: string | null; cuerpo: string; variantes?: string[] | null }) => string = textoDelPaso): ParteMensaje[] {
+  const partes = partesDe(p);
+  if (!esUnTexto(partes) || !(p.variantes ?? []).some((v) => typeof v === 'string' && v.trim())) return partes;
+  const solo = partes[0] as Extract<ParteMensaje, { tipo: 'texto' }>;
+  return [{ ...solo, cuerpo: sortear({ tipo: 'texto', cuerpo: solo.cuerpo, variantes: p.variantes }) }];
+}
 
 /**
  * Qué pasa con las variantes («↻ N») cuando cambia el mensaje de un paso (25/10/2026, la revisión del tren-k). Son otras formas

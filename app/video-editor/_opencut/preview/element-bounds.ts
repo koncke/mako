@@ -1,7 +1,7 @@
 import type { SceneTracks, TimelineElement } from "@/app/video-editor/_opencut/timeline";
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import { STICKER_INTRINSIC_SIZE_FALLBACK } from "@/app/video-editor/_opencut/stickers/intrinsic-size";
-import { DEFAULT_GRAPHIC_SOURCE_SIZE } from "@/app/video-editor/_opencut/graphics";
+import { tamanoFuenteGrafico } from "@/app/video-editor/_opencut/graphics";
 import { measureTextElement } from "@/app/video-editor/_opencut/text/measure-element";
 import {
 	getElementLocalTime,
@@ -166,11 +166,15 @@ function getElementBounds({
 			animations: element.animations,
 			localTime,
 		});
+		const tamano = tamanoFuenteGrafico({
+			definitionId: element.definitionId,
+			lienzo: { width: canvasWidth, height: canvasHeight },
+		});
 		return getVisualElementBounds({
 			canvasWidth,
 			canvasHeight,
-			sourceWidth: DEFAULT_GRAPHIC_SOURCE_SIZE,
-			sourceHeight: DEFAULT_GRAPHIC_SOURCE_SIZE,
+			sourceWidth: tamano.width,
+			sourceHeight: tamano.height,
 			transform,
 		});
 	}

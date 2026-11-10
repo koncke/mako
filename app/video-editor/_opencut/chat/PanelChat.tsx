@@ -50,7 +50,8 @@ import { AperturaMako, useApertura } from "@/app/_chat/AperturaMako";
 import { SUPERFICIE_VIDEO } from "@/lib/aperturas/video";
 import { subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
 import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar";
-import { textoDeSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
+import { rotuloProgresoSubtitulos, textoDeSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
+import { useTrabajoSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
@@ -64,6 +65,8 @@ import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
 import { marcarCerrada, resolverEnServidor, traerPropuestas } from "./propuestas";
 import { useChatAbierto } from "./estado";
+import { esConfirmacion, propuestaQueConfirma } from "./confirmar";
+import { descartesDelPedido, textoSinCambios } from "./respuesta";
 import { storageService } from "@/app/video-editor/_opencut/services/storage/service";
 import Link from "@/app/_ui/Link";
 import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, objetosDeProyectos, textoActual } from "./pedidos";
@@ -212,6 +215,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		mediosSinAudio: datos.mediosSinAudio,
 		conPalabras: datos.conPalabras,
 		medios: datos.medios,
+		fondo: datos.fondo,
 	});
 
 	if (vista.json.length > TOPES_CHAT.vistaMax) {
@@ -234,9 +238,12 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	const { operaciones, descartes: deForma } = validarOperaciones(r.operaciones);
 	const revision = revisarOperaciones({ operaciones, vista, alcance: alcanceReal, transcripcion: datos.transcripcion });
 	// `deForma` es casi siempre vacío: la ruta ya filtró, y lo que tiró viene en `r.descartes`.
-	const descartes = [...(r.descartes ?? []), ...deForma, ...revision.descartes];
+	// Tres subtítulos con el mismo motivo son UN motivo (./respuesta.ts).
+	const descartes = descartesDelPedido({ ruta: r.descartes, forma: deForma, revision: revision.descartes });
 	if (!revision.resueltas.length) {
-		terminar({ de: "mako", texto: r.resumen || "Sin cambios.", descartes: descartes.length ? descartes : undefined });
+		// El resumen del modelo afirma lo que IBA a hacer: si propuso algo y no quedó nada, lo dice el código (./respuesta.ts).
+		const propuso = (Array.isArray(r.operaciones) ? r.operaciones.length : 0) + (r.descartes?.length ?? 0);
+		terminar({ de: "mako", texto: textoSinCambios({ resumen: r.resumen, propuso }), descartes: descartes.length ? descartes : undefined });
 		return;
 	}
 	// Las refs de los elementos y de los medios («m2» tiene que seguir siendo el mismo al aceptar).
@@ -312,10 +319,11 @@ function RevisionPropuesta({
 }) {
 	const [vista, setVista] = useState<"original" | "modificado">("modificado");
 	const armado = useArmado(mensajeId);
+	const trabajoSubtitulos = useTrabajoSubtitulos();
 	const filas = cambios.slice(0, MAX_FILAS);
 	const boton = "flex h-7 cursor-pointer items-center rounded-[4px] px-3 text-[12px] font-medium";
 	return (
-		<div className="grid gap-2 rounded-[8px] bg-(--surface-2) p-2.5">
+		<div className="grid grid-cols-1 gap-2 rounded-[8px] bg-(--surface-2) p-2.5">
 			<div className="flex items-center justify-between gap-2">
 				<span className="min-w-0 truncate text-[12px] font-semibold text-(--ink)">{resumenDeCambios(cambios) || "Sin cambios"}</span>
 				<div className="flex shrink-0 rounded-[4px] bg-(--surface) p-0.5" role="group" aria-label="Comparar">
@@ -332,11 +340,11 @@ function RevisionPropuesta({
 					))}
 				</div>
 			</div>
-			<ul className="grid gap-1.5">
+			<ul className="grid grid-cols-1 gap-1.5">
 				{filas.map((c, i) => {
 					const lado = vista === "original" ? c.antes : c.despues;
 					return (
-						<li key={`${c.tipo}:${i}`} className="grid gap-0.5 rounded-[6px] bg-(--surface) px-2.5 py-2">
+						<li key={`${c.tipo}:${i}`} className="grid grid-cols-1 gap-0.5 rounded-[6px] bg-(--surface) px-2.5 py-2">
 							<div className="flex min-w-0 items-center gap-1.5">
 								<span
 									className="shrink-0 rounded-[3px] px-1.5 py-px text-[10px] font-semibold"
@@ -382,7 +390,15 @@ function RevisionPropuesta({
 						<button type="button" onClick={onAceptar} className={`${boton} bg-(--primary) text-(--on-primary) hover:bg-(--primary-strong)`}>Aceptar</button>
 					</>
 				)}
-				{estado === "aplicando" && <span className="mr-auto size-4 animate-spin rounded-full border-2 border-(--faint) border-t-transparent" aria-label="Aplicando" />}
+				{estado === "aplicando" && (
+					<span className="mr-auto flex min-w-0 items-center gap-2">
+						<span className="size-4 shrink-0 animate-spin rounded-full border-2 border-(--faint) border-t-transparent" aria-label="Aplicando" />
+						{/* Los subtítulos tardan (la primera vez baja el reconocedor): se dice qué está haciendo, como el panel. */}
+						{trabajoSubtitulos.fase !== "inactivo" && (
+							<span className="truncate text-[11.5px] text-(--dim)" aria-live="polite">{rotuloProgresoSubtitulos(trabajoSubtitulos.fase, trabajoSubtitulos.progreso)}</span>
+						)}
+					</span>
+				)}
 				{estado === "sin-version" && (
 					<>
 						<button type="button" onClick={onDescartar} className={`${boton} text-(--dim) hover:bg-(--velo-hover)`}>Descartar</button>
@@ -479,6 +495,15 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		if (hilo.corriendo || (!instruccion.trim() && !op.archivos?.length) || !proyectoId || appEscritorio.bloqueada) return;
 		// Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
 		if (!op.dejarCaja) instruccion = cita.con(instruccion.slice(0, TOPES_CHAT.instruccion - cita.reserva), !!op.archivos?.length);
+		// «sí, hazlo» debajo de una propuesta que espera = su «Aceptar» (./confirmar.ts): la IA del chat no ve la charla y
+		// contestaba «"Si hazlo" es muy vago» (Leandro, 28/10/2026). Con una cita o un archivo ya no es un «sí» suelto.
+		const queConfirma = !op.archivos?.length && esConfirmacion(instruccion) ? propuestaQueConfirma(leerHilo(proyectoId).mensajes) : null;
+		if (queConfirma && queConfirma.de === "mako") {
+			cambiarHilo(proyectoId, (h) => ({ ...h, mensajes: [...h.mensajes, conId({ de: "yo", texto: instruccion.trim(), alcance: null })] }));
+			if (!op.dejarCaja) { setTexto(""); cita.soltar(); }
+			void aceptar(queConfirma);
+			return;
+		}
 		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, { ...op, intencion });
 		if (!op.dejarCaja) { setTexto(""); cita.soltar(); }
 	};

@@ -190,6 +190,8 @@ function PlayPauseButton() {
 			<button
 				type="button"
 				aria-label={isPlaying ? "Pausar" : "Reproducir"}
+				// Sólo mira: la «Edición automática» no lo cuenta como un toque que cambia la línea (enjambre/plan.ts).
+				data-ce-solo-mira=""
 				onClick={() => alternarReproduccion(editor)}
 				className="flex size-7 cursor-pointer items-center justify-center rounded text-[var(--cc-text)] outline-none hover:bg-[var(--cc-raised)] focus-visible:ring-1 focus-visible:ring-ring"
 			>
@@ -389,6 +391,7 @@ function PantallaCompletaBoton({ pantalla }: { pantalla: PantallaCompleta }) {
 			<button
 				type="button"
 				aria-label={texto}
+				data-ce-solo-mira=""
 				onClick={pantalla.alternar}
 				className="flex size-6 cursor-pointer items-center justify-center rounded text-[var(--cc-text-2)] outline-none hover:bg-[var(--cc-raised)] hover:text-[var(--cc-text)] focus-visible:ring-1 focus-visible:ring-ring"
 			>

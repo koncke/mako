@@ -23,6 +23,7 @@ import { pestanasInspector, subpestanasInspector } from "@/app/video-editor/ce/r
 import { isMaskableElement } from "@/app/video-editor/_opencut/timeline/element-utils";
 import { MascaraCe } from "@/app/video-editor/_opencut/masks/components/masks-tab";
 import { FormaCe } from "@/app/video-editor/_opencut/graphics/components/graphic-tab";
+import { PREFIJO_MOTION } from "@/app/video-editor/_opencut/graphics/definitions/motion";
 import { VideoBasico } from "./video/basico";
 import { marcarRespaldo } from "./respaldo";
 import { RespaldoAudio, RespaldoEfecto, RespaldoTexto } from "./respaldo-contenido";
@@ -60,7 +61,16 @@ pestanasInspector.registrar({
 	id: "formas",
 	etiqueta: "Formas",
 	orden: 5,
-	aplica: ({ element }) => element.type === "graphic",
+	aplica: ({ element }) => element.type === "graphic" && !element.definitionId.startsWith(PREFIJO_MOTION),
+	Contenido: FormaCe,
+});
+
+// Un motion graphic (lib/motion) es un `graphic` animado: su pestaña se llama «Motion» y muestra sus textos y su estilo.
+pestanasInspector.registrar({
+	id: "motion",
+	etiqueta: "Motion",
+	orden: 5,
+	aplica: ({ element }) => element.type === "graphic" && element.definitionId.startsWith(PREFIJO_MOTION),
 	Contenido: FormaCe,
 });
 

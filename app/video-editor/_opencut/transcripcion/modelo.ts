@@ -132,6 +132,13 @@ export function tramosDePalabras({
  * el mismo criterio (transcription/muletillas.ts: los sonidos siempre; «este», «o
  * sea»… sólo si suenan a muletilla).
  */
+/**
+ * Lo que dice «sacar las muletillas» cuando la transcripción no tiene ninguna (chat/linea.ts). No es una falla: lo lee
+ * también la «Edición automática» (enjambre/plan.ts → esNadaQueHacer) para no contar un video grabado con guion como
+ * «no pudo». Un texto, un lugar: con dos copias, una cambia y el video sin muletillas vuelve a salir como falla.
+ */
+export const NO_HAY_MULETILLAS = "no se identificaron muletillas";
+
 export function muletillasDe(parrafos: readonly ParrafoTx[], idioma: string): Set<string> {
 	const ids = new Set<string>();
 	const dichas: Array<PalabraTranscrita & { id: string }> = [];

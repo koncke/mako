@@ -50,7 +50,7 @@ import { tabEnCapa } from '@/lib/capas';
 import { sinSuHoja } from './redireccion';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { leerInformeGeneral, leerTablero, type LecturaTablero } from '@/lib/graficos-tablero';
-import { hojaDeRol, hojaDestino, informeDeRol, llamadaDeUrl } from '@/lib/graficos-plantillas';
+import { esHojaDeAgencia, hojaDeRol, hojaDestino, informeDeRol, llamadaDeUrl } from '@/lib/graficos-plantillas';
 import { datosDeGraficos } from '@/lib/graficos-datos';
 import type { Hoja, Tablero } from '@/lib/graficos-catalogo';
 import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
@@ -77,8 +77,11 @@ export const revalidate = 0;
 type Busqueda = { hoja?: string | string[]; llamada?: string | string[]; probar?: string | string[]; plantillas?: string | string[] };
 
 const corta = (h: Hoja): HojaCorta => ({ id: h.id, nombre: h.nombre, emoji: h.emoji });
-/** Las hojas que la tira muestra de un informe: ninguna si la persona no armó ninguna (el inicial viaja por dentro). */
-const hojasDe = (l: LecturaTablero): Hoja[] => (l.estado === 'inicial' || l.tablero.enBlanco ? [] : l.tablero.hojas);
+/**
+ * Las hojas que la tira muestra de un informe: ninguna si la persona no armó ninguna (el inicial viaja por dentro), salvo la de su
+ * AGENCIA (9/11/2026, `esHojaDeAgencia`: «Velocidad de llamada» para los clientes de Código Inmobiliario), que se ve sin armarla.
+ */
+const hojasDe = (l: LecturaTablero): Hoja[] => (l.estado === 'inicial' ? l.tablero.hojas.filter(esHojaDeAgencia) : l.tablero.enBlanco ? [] : l.tablero.hojas);
 
 export default async function Page({ searchParams }: { searchParams: Promise<Busqueda> }) {
   await requireRolWs(['closer', 'setter'], { nav: 'graphics' });
@@ -147,10 +150,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
     lleno = !!destino.lleno;
     hoja = agregar ?? tablero.hojas.find((h) => h.id === destino.hojaId) ?? tablero.hojas[0];
     if (lectura.estado === 'inicial') {
-      // Si llegó pidiendo una (`?hoja=`, las rutas viejas de los Analysts), ésa es su primera y ÚNICA página, y se
-      // guarda al abrir como cualquier hoja agregada. Si no pidió nada, la pantalla en blanco.
-      const pedidaHoja = pedida ? (agregar ?? tablero.hojas.find((h) => h.id === destino.hojaId) ?? null) : null;
-      if (pedidaHoja) { tablero = { ...tablero, hojas: [] }; agregar = pedidaHoja; hoja = pedidaHoja; lleno = false; }
+      // La hoja de su AGENCIA (9/11/2026, Martín por Código Inmobiliario: «un dashboard especial para sus clientes», que lo vean sin
+      // armarlo): se MUESTRA y no se guarda al abrir —el informe se escribe cuando la persona toca algo, como siempre—.
+      const deAgencia = tablero.hojas.filter(esHojaDeAgencia);
+      const enAgencia = deAgencia.find((h) => h.id === destino.hojaId) ?? (pedida ? undefined : deAgencia[0]);
+      // Si llegó pidiendo una (`?hoja=`, las rutas viejas de los Analysts), ésa es su primera y ÚNICA página (con la de su agencia
+      // adelante), y se guarda al abrir como cualquier hoja agregada. Si no pidió nada, la pantalla en blanco.
+      const pedidaHoja = pedida && !enAgencia ? (agregar ?? tablero.hojas.find((h) => h.id === destino.hojaId) ?? null) : null;
+      if (enAgencia) { tablero = { ...tablero, hojas: deAgencia }; agregar = null; hoja = enAgencia; lleno = false; }
+      else if (pedidaHoja) { tablero = { ...tablero, hojas: deAgencia.filter((h) => h.id !== pedidaHoja.id) }; agregar = pedidaHoja; hoja = pedidaHoja; lleno = false; }
       else sinPaginas = true;
     } else if (tablero.enBlanco && !agregar) {
       // Se eliminaron todas las hojas (quedaron en Archivados): la pantalla en blanco, como quien nunca armó una.

@@ -8,6 +8,7 @@ import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { getRulerConfig, shouldShowLabel } from "@/app/video-editor/_opencut/timeline/ruler-utils";
 import { useScrollPosition } from "@/app/video-editor/_opencut/timeline/hooks/use-scroll-position";
 import { TimelineTick } from "./timeline-tick";
+import { RangoEnRegla } from "@/app/video-editor/_opencut/rango/components/rango-regla";
 
 interface TimelineRulerProps {
 	zoomLevel: number;
@@ -128,6 +129,8 @@ export function TimelineRuler({
 				}}
 				onMouseDown={handleRulerMouseDown}
 			>
+				{/* El rango I / O, detrás de las marcas (rango/components/rango-regla.tsx). */}
+				<RangoEnRegla zoomLevel={zoomLevel} />
 				{timelineTicks}
 			</div>
 		</div>
