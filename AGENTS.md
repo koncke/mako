@@ -1011,6 +1011,12 @@ Reglas que salen de eso:
   Se comprueba en un comando, después de commitear:
   `git log -1 --format='%(trailers:key=Claude-Cuenta,valueonly)'`.
 
+- ⚠️ **El AUTOR de cada commit es `Claude <martinkoncke@gmail.com>`, también en la nube.** La nube trae
+  `noreply@anthropic.com` por default. Con ese autor, Vercel no despliega, y `punta → main` frena en «Lo que cambió la punta».
+  Antes del primer commit: `git config user.email martinkoncke@gmail.com && git config user.name Claude`. Siete puntas de la nube
+  quedaron rojas por esto el 9-10/11/2026. Cómo se re-firma una ya subida: `docs/hallazgos-infra.md`, «la punta la firmó
+  `noreply@anthropic.com`».
+
 - ⚠️ **Antes de firmar, RELEÉ el marcador; lo que te inyectó el hook es una foto del
   arranque.** El contexto de `SessionStart` se calcula una vez y no se entera si Martín
   cambia de cuenta con la sesión abierta. Pasó el 27/09: tres sesiones arrancaron 10:12,
@@ -2775,6 +2781,17 @@ textos pegados de la llamada). El arnés lo veía, y se corrió después del dep
   pregunta sobre el flujo. Lo que se cambia para una falla rompe otra cosa que nadie estaba mirando.
 - **El test que fija la regla tal como la escribiste no es una prueba de uso.** Prueba que el código dice lo que pensaste,
   no que lo que pensaste sirve.
+- **Un agente que RECOMIENDA (el Marketing CoPilot, 9/11/2026) se mide con conversaciones enteras**, con la persona
+  simulada por otro modelo que sabe más de lo que dice: lo que el agente no pregunta, no aparece. Con 21 tests en verde,
+  la batería del CoPilot dio 5,1 de 12 (`scripts/probar-chats/copiloto.mts`, docs/relevo/marketing-copilot-pruebas.md).
+
+# Una ficha de referente que la persona NO eligió no viaja con sus reglas de atribución (9/11/2026)
+
+Las fichas de lib/asesores viajan con `reglasDe` (lib/asesores/contexto.ts), que dice «ATRIBUYE SIEMPRE» y «este chat está
+inspirado en X». Usada como relleno (la ficha «por defecto» de un funnel), el agente firmaba cada mensaje «inspirado en»
+alguien que nadie eligió, contra su propia regla de no nombrar fuentes. **La regla:** `contextoDeReferente` sólo para el
+referente que la persona ELIGIÓ; una ficha que entra por el tema va sin sus reglas de atribución, como material de apoyo
+(molde: `fichaDeApoyo` en lib/media-buyer/copiloto-contexto.ts). Y si no hace falta, no viaja: son ~5.000 caracteres por mensaje.
 
 # Leer texto libre con reglas falla en lo obvio: la red es que la persona CONFIRME lo que se entendió
 

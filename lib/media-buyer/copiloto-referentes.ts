@@ -199,7 +199,10 @@ export function quienesEnsenan(f: IdFunnel, sin: IdAsesor | null = null): IdAses
  * formulario, Marcos Razzetti (su «máquina de selección natural»: registro, video, agenda y formulario de aplicación) y no Juan ADS,
  * que enseña la campaña y no el embudo.
  */
-export const FICHA_POR_FUNNEL: Readonly<Record<IdFunnel, IdAsesor>> = {
+export const FICHA_POR_FUNNEL: Readonly<Record<IdFunnel, IdAsesor | null>> = {
   'vsl-llamada': 'marcos-razzetti', mensajes: 'felipe-vergara', formulario: 'marcos-razzetti', carrito: 'juan-ads',
   webinar: 'francisco-doglio', 'lead-magnet': 'sofia-contreras', youtube: 'sergio-begueria', organico: 'julian-otalora',
+  // Email a la lista (9/11/2026): ningún curso de lib/asesores lo enseña como funnel propio (lo tocan dentro del lead magnet o del
+  // lanzamiento). Sin ficha: el agente usa su conocimiento de canales (copiloto-conocimiento.ts → CONOCIMIENTO_CANALES).
+  email: null,
 };

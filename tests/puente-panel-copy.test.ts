@@ -137,6 +137,10 @@ export function soloCopy(crudo: string): string {
  */
 export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
   {
+    ruta: 'lib/media-buyer/copiloto-pedido.ts',
+    porque: 'detector de lo que ESCRIBE la persona en el Marketing CoPilot («dale, guardalo», «hacelo»): reconoce su voseo para saber si pide o pregunta; no le habla a nadie',
+  },
+  {
     ruta: 'app/video-editor/_opencut/chat/confirmar.ts',
     porque: 'detector de lo que ESCRIBE la persona en el chat del Video Editor: «hacelo», «aplicalo», «mandale» son los «sí» que hay que reconocer (Leandro escribió «si hazlo»); no se muestran',
   },

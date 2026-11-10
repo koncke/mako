@@ -25,7 +25,7 @@ import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
 import { copilotoListo, aplicarCambio, conCampanas, funnelElegido } from '@/lib/media-buyer/copiloto';
 import { MediaBuyer } from './MediaBuyer';
 import { PrimeraEntrada } from './PrimeraEntrada';
-import { SinAnuncios } from './PlanDelCopiloto';
+import { EstrategiaCopiloto } from './PlanDelCopiloto';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -75,7 +75,8 @@ export default async function MediaBuyerPage({ searchParams }: { searchParams: P
   // Esta semana · Plan · Qué medir, sin «Campañas» (Martín, 6/11/2026). `?vista=campanas` sigue llevando a la pantalla de siempre.
   const elegido = funnelElegido(perfil);
   if (elegido && copilotoListo(perfil) && !conCampanas(elegido.id, perfil.presupuestoMes) && sp.vista !== 'campanas') {
-    return <Pagina ancho="completo" style={A_SANGRE}><SinAnuncios perfil={perfil} /></Pagina>;
+    // En dos columnas desde el 9/11/2026: MaKo a la izquierda y el panel del funnel (Tu funnel · Esta semana · Qué medir).
+    return <Pagina ancho="completo" style={A_SANGRE}><EstrategiaCopiloto perfil={perfil} /></Pagina>;
   }
   const vista = await vistaMediaBuyer(ws, config.kpi, config.objetivo);
 
