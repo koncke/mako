@@ -70,6 +70,13 @@ export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
     },
   },
   {
+    archivo: 'app/image-editor/carruseles/ReplicarGuiado.tsx', chat: 'el guiado de replicar un carrusel en Image (9/11/2026: la oferta, el avatar y qué cambiar)',
+    falta: {
+      adjuntos: 'no corresponde: es una apertura guiada, lo escrito contesta la pregunta de MaKo y no va a ninguna IA (no leería un archivo)',
+      voz: 'no corresponde: ídem (transcribirla sería pagar una IA para contestar un botón)',
+    },
+  },
+  {
     archivo: 'app/ads-manager/Hoy.tsx', chat: 'la orden de una línea del Media Buyer',
     falta: {
       adjuntos: 'no corresponde: la orden va al MaKo de la tab, que tiene la caja entera', voz: 'no corresponde: ídem',
