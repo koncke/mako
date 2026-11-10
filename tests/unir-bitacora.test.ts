@@ -26,7 +26,9 @@ import { unirAgregados, insercion, sonElementosCompletos } from '../scripts/unir
 import { correrPaso, leerWorkflow } from './_workflow';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
-const DRIVER = join(RAIZ, 'scripts', 'unir-bitacora.mjs');
+// Con barras normales: git corre el driver con sh, y en Windows sh se come las barras invertidas de `join`
+// (node no encontraba el script, la mezcla salía 1 y el filtro de antes de subir daba un falso rojo, 10/11/2026).
+const DRIVER = join(RAIZ, 'scripts', 'unir-bitacora.mjs').replace(/\\/g, '/');
 const hayGit = !spawnSync('git', ['--version']).error;
 
 const hito = (titulo: string, extra = '') => [
