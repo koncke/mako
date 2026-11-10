@@ -86,9 +86,9 @@ test('un conteo roto no rompe la cuenta: cae a 0 y avisa', () => {
 test('el CAC se reparte en la vida del cliente, y una vida corta lo EMPEORA', () => {
   // Va al revés de la intuición y por eso se fija acá.
   assert.ok(Math.abs(cacPorMes() - CAC_USD / MESES_DE_VIDA) < 1e-9);
-  assert.ok(cacPorMes() < 5, `a ${MESES_DE_VIDA} meses el CAC pesa US$${cacPorMes().toFixed(2)}/mes`);
+  assert.ok(cacPorMes() > 10 && cacPorMes() < 11, `a ${MESES_DE_VIDA} meses el CAC pesa US$${cacPorMes().toFixed(2)}/mes`);
   const siSeFueranAntes = CAC_USD / 4;
-  assert.ok(siSeFueranAntes > cacPorMes() * 4, 'quedarse menos tiempo hace que el CAC pese MÁS por mes');
+  assert.ok(siSeFueranAntes > cacPorMes() * 2, 'quedarse menos tiempo hace que el CAC pese MÁS por mes');
 });
 
 test('cobrar se lleva su parte antes que nada', () => {

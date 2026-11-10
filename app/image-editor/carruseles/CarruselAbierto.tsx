@@ -14,6 +14,7 @@ import {
 } from '@/lib/carruseles/explorar';
 import { rotuloAire } from '@/lib/carruseles/anuncios';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
+import { useImagenesVivas } from './imagenes-vivas';
 import s from './explorar.module.css';
 
 const fechaLarga = (iso: string | null): string => {
@@ -37,9 +38,11 @@ export function CarruselAbierto({ c, guardado, nParecidos, creadoresParecidos, o
   onCerrar: () => void;
   telefono: boolean;
 }) {
-  const imagenes = imagenesDe(c);
+  // Una que no carga (un 403 de Instagram) se saca: sin ninguna, el respaldo de «sin portada», nunca el ícono roto.
+  const { vivas: imagenes, alFallar } = useImagenesVivas(imagenesDe(c));
   const total = imagenes.length;
-  const [i, setI] = useState(0);
+  const [elegida, setI] = useState(0);
+  const i = Math.max(0, Math.min(elegida, total - 1));
   // En un celular «Editar» va en el pie fijo de la caja (siempre a la vista); en la computadora, en el panel.
   const [celular, setCelular] = useState(telefono);
   useEffect(() => {
@@ -77,7 +80,7 @@ export function CarruselAbierto({ c, guardado, nParecidos, creadoresParecidos, o
           <div className={s.visorMarco} data-anuncio={anuncio ? 'si' : undefined}>
             {total ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={imagenes[i]} alt={i === 0 && titulo ? `Portada: ${titulo.slice(0, 80)}` : `Lámina ${i + 1}`} referrerPolicy="no-referrer" draggable={false} />
+              <img src={imagenes[i]} alt={i === 0 && titulo ? `Portada: ${titulo.slice(0, 80)}` : `Lámina ${i + 1}`} referrerPolicy="no-referrer" draggable={false} onError={() => alFallar(imagenes[i])} />
             ) : <span className={s.sinFoto}>{titulo.slice(0, 200) || 'Sin portada'}</span>}
           </div>
           {total > 1 && (

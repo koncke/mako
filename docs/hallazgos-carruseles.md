@@ -80,20 +80,35 @@ producción, las 24 se resguardaron en la PC (`C:/dev/carrusel-mako/portadas-ins
 4. `laminas` pone la lámina 1 de portada cuando la portada no es nuestra (si no, se pagaban las láminas y la tarjeta seguía rota),
    y `--carpeta <dir>` sube las láminas que ya están bajadas en la PC sin pagarlas. `portadas` (gratis) arregla lo que no pide Apify.
 
-**Lo que quedó en los datos (al subir esto, 10/11 de madrugada): todavía nada.** Escribir en producción y gastar crédito esperan
-el sí de Martín. Queda listo para correr desde la PC (`node --env-file=<.env.local> --conditions=react-server --import tsx
-scripts/carruseles-biblioteca.mts …`):
-- **Gratis:** `portadas --de-verdad --carpeta C:/dev/carrusel-mako/portadas-instagram-0911` (20 portadas que salen de la lámina 1,
-  las 24 resguardadas y las que todavía bajen) y `laminas --carpeta C:/dev/carrusel-mako/growithalex --solo-carpeta --de-verdad`
-  (2 carruseles de @growithalex con sus láminas ya bajadas en la PC).
-- **Pago:** `laminas --de-verdad`, unos 166 links a US$0,0027 ≈ **US$0,45**. Con la lámina 1 arregla también las ~45 portadas de
-  carrusel que ya no bajan. La clave de Spy no tiene crédito libre (US$1,92 con US$2 de reserva): hace falta la «clave 2 de
-  Spy» (`APIFY_INSTAGRAM_TOKEN_2`), que Martín pega en MaKo.
-- Las 2 imágenes con la portada muerta: `links <url> --de-nuevo` (una relectura, también paga).
+⚠️ **Trampa de tipos: el spread de `Record<string, unknown> & { ref: string }` PIERDE el índice.** `{ ...f, canal, miniatura }`
+queda tipado como `{ canal; miniatura; ref }`, y desestructurar `laminas_imagenes` de eso da TS2339. Revisado a mano, parecía que
+conservaba el índice, y no lo conserva. La PC no tenía RAM para el tsc acotado (99 tres veces) y lo encontró Actions (corrida 865).
+El Cerebro lo arregló tipando explícito el `map`: `(f): FilaDePieza & { canal: string; miniatura: string | null } => …`
+(`a8f531879`). Con filas de columnas abiertas, el tipo del objeto armado va escrito, no inferido.
 
-**Sin hacer:** la 0411 (`revisada_en`) sigue sin aplicar en producción al 9/11: la columna no existe, así que todo lo visible se
-muestra sin revisar. La pantalla (que una tarjeta sin portada no rompa la grilla y que todo carrusel tenga flechas) la arregla
-el chat de la nube «Carruseles en MaKo: replicar guiado, outliers primero».
+**Lo que quedó en los datos (10/11, 18:30-19:00, medido antes y después):** de las 91 portadas visibles en Instagram, **44 pasaron
+a nuestro bucket**: 20 desde su lámina 1, 19 bajadas o subidas de la carpeta resguardada y 5 achicadas (ver la trampa de abajo).
+Los 2 carruseles de @growithalex quedaron con sus láminas de la PC. **Quedan 47 portadas que Instagram ya no sirve** (45 carruseles
+y 2 imágenes) y **166 carruseles sin láminas**. Sin crédito libre en Apify no se pueden leer: `laminas` da «Puede gastar hasta
+US$0.00» (la clave 1 tiene US$1,92 y la reserva de Spy es US$2). Lo destraba la «clave 2 de Spy» o cargar crédito, y eso es
+decisión de Martín. El arreglo de datos de un bug nuestro va sin preguntar (memoria «aprobacion-prod-en-el-chat», 30/10), el gasto no.
+@lifeofarjav «01 / 06» es uno de esos 166: `DaZFc_kkttt` tiene 6 láminas en Instagram y ninguna guardada.
+
+⚠️ **Trampa: el tope de 2 MB del bucket tira EN SILENCIO las portadas grandes de Instagram.** De las 24 resguardadas, 5 no subieron
+y `portadas` las contaba como «ya no bajan (403 o vencidas)». Pesaban de 2,3 a 3,7 MB porque Instagram sirve algunas portadas a
+2160×2700 o hasta 3277×4096. `subirImagen` devuelve null por `PESO_MAXIMO` y no avisa por qué. Se subieron achicadas a 1440 px
+de ancho (el máximo de Instagram), con sharp, de 0,4 a 0,9 MB. Las láminas que trae Apify vienen a 1080 px y no lo pasan (la más
+pesada de 44 carruseles de @growithalex: 1,5 MB). **Sin hacer:** `subirImagen` (lib/spy-miniaturas.ts) debería achicar en vez de
+tirar; hoy una portada nueva así queda sin portada, y con la regla de arriba cae a la lámina 1.
+
+**La pantalla (10/11):** una imagen que no carga ya no se dibuja (`app/image-editor/carruseles/imagenes-vivas.ts`, en la tarjeta,
+el carrusel abierto y «Tu versión»). Se saca de la lista, las flechas y el contador cuentan sólo las que se ven, y sin ninguna
+queda el respaldo de «sin portada» con el gancho. Nunca el ícono roto con el texto alternativo, que es lo que vio Martín. «Tu
+versión» con sólo la portada dice «Tiene N láminas; todavía sólo está guardada la portada.», la misma nota del carrusel abierto.
+Lo fija `tests/carruseles-imagen-rota.test.ts`, que dibuja el visor real en jsdom y le tira el `error` a la imagen.
+
+**Sin hacer:** la 0411 (`revisada_en`) sigue sin aplicar en producción al 10/11: la columna no existe, así que todo lo visible
+se muestra sin revisar.
 
 ## Revisar lo que entró sin que nadie lo mire: el banco no mide ancho y la referencia no mide píxeles (7/11/2026)
 
