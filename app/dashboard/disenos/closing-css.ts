@@ -322,5 +322,9 @@ export const CSS_CLOSING = `
 .hc-contacto__stats dd{font-size:20px;font-weight:800;letter-spacing:-.6px;line-height:24px;margin-top:3px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .hc-contacto__fila{display:flex;align-items:center;gap:12px;width:100%;color:inherit;text-decoration:none}
 .hc-contacto__nota{grid-column:1/-1;font-size:12px;color:var(--muted);line-height:17.4px}
+.hc-contacto__grabar{display:flex;flex-direction:column;gap:8px;padding:14px 16px;border-radius:12px;background:var(--amber-bg);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--amber) 30%,transparent)}
+.hc-contacto__grabar-t{margin:0;font-size:13.5px;line-height:19.5px;color:var(--ink)}
+.hc-contacto__pasos{margin:0;padding-left:20px;font-size:13px;line-height:19px;color:var(--ink);display:flex;flex-direction:column;gap:2px}
+.hc-contacto__grabar .hc-btn{align-self:flex-start;height:36px;padding:0 16px;font-size:13.5px}
 @container hc (max-width:1040px){ .hc-o-9{order:9} .hc-contacto{grid-template-columns:minmax(0,1fr);gap:16px} }
 `;

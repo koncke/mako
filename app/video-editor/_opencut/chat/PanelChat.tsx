@@ -212,6 +212,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		mediosSinAudio: datos.mediosSinAudio,
 		conPalabras: datos.conPalabras,
 		medios: datos.medios,
+		fondo: datos.fondo,
 	});
 
 	if (vista.json.length > TOPES_CHAT.vistaMax) {

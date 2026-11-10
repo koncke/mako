@@ -18,11 +18,12 @@ export const usePreferenciasClips = create<Preferencias>()(
 	}),
 );
 
-export type FaseClips = "inactivo" | "escuchando" | "eligiendo" | "abriendo";
+export type FaseClips = "inactivo" | "escuchando" | "eligiendo" | "encuadrando" | "abriendo";
 
 export const TEXTO_FASE_CLIPS: Readonly<Record<Exclude<FaseClips, "inactivo">, string>> = {
 	escuchando: "Escuchando el video…",
 	eligiendo: "Buscando los mejores momentos…",
+	encuadrando: "Buscando a la persona para encuadrar el vertical…",
 	abriendo: "Armando el clip en un proyecto nuevo…",
 };
 

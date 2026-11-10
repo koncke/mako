@@ -7,7 +7,7 @@
 //   → DÓNDE: los huecos, con reglas (lib/editor-video/broll.ts), fuera de lo que la persona ya editó
 //   → QUÉ: la IA del negocio elige entre esos huecos y escribe qué buscar (/api/video-editor/broll, `elegir`);
 //     sin IA, las palabras de cada frase
-//   → las fotos de Pexels con la clave del negocio (`buscar` y la foto), a Multimedia
+//   → las fotos (o los videos cortos, con `medio: "videos"`) de Pexels con la clave del negocio, a Multimedia (./red.ts)
 //   → UN paso de deshacer: las fotos en la pista «B-roll» y los acercamientos en «Planos» (./pistas.ts), con la marca
 //     de propuesta. La persona deja o saca cada una desde el panel (./components/broll-view.tsx) o el chat.
 //
@@ -15,12 +15,11 @@
 
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { TracksSnapshotCommand } from "@/app/video-editor/_opencut/commands/timeline/tracks-snapshot";
-import { processMediaAssets } from "@/app/video-editor/_opencut/media/processing";
 import { useTrabajoSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { buildEffectElement, buildElementFromMedia } from "@/app/video-editor/_opencut/timeline/element-utils";
-import type { EffectElement, ImageElement } from "@/app/video-editor/_opencut/timeline";
+import type { EffectElement, ImageElement, VideoElement } from "@/app/video-editor/_opencut/timeline";
 import { generateUUID } from "@/app/video-editor/_opencut/utils/id";
-import { mediaTimeFromSeconds, TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
+import { mediaTimeFromSeconds, TICKS_PER_SECOND, type MediaTime } from "@/app/video-editor/_opencut/wasm";
 import { cubrirCelda, paramsDeCubrir } from "@/app/video-editor/_opencut/plantillas/geometria";
 import {
 	huecosParaBroll,
@@ -31,9 +30,11 @@ import {
 	type HuecoBroll,
 	type Ritmo,
 } from "@/lib/editor-video/broll";
-import { fotosElegidas, orientacionDeLienzo, type FotoBroll, type OrientacionBroll } from "@/lib/editor-video/broll-pexels";
+import { fotosElegidas, orientacionDeLienzo, type FotoBroll, type VideoBroll } from "@/lib/editor-video/broll-pexels";
 import {
 	conPropuestas,
+	idsEnUso,
+	type MedioBroll,
 	PARAM_AUTOR,
 	PARAM_BUSQUEDA,
 	PARAM_FOTO,
@@ -45,15 +46,19 @@ import {
 import { frasesDelVideo } from "./frases-del-video";
 import { useTrabajoBroll, type FaseBroll } from "./estado";
 import { resumenDeBroll, textoDeBroll, type ResultadoBroll } from "./resultado";
-
-const RUTA = "/api/video-editor/broll";
+import { aMultimedia, bajarDePexels, pedirJson } from "./red";
 
 let enCurso = false;
+
+/** Un video tiene que durar lo que el hueco y un poco más (el redondeo a ticks no lo deja corto). */
+const MARGEN_VIDEO_S = 0.1;
 
 type OpcionesBroll = {
 	ritmo?: Ritmo;
 	broll?: boolean;
 	planos?: boolean;
+	/** Qué traer de Pexels: fotos (sin esto) o videos cortos. */
+	medio?: MedioBroll;
 	/**
 	 * Lo que se dice, ya leído (la «Edición automática», enjambre/correr.ts): el B-roll y los planos son dos agentes, y sin
 	 * esto cada uno volvía a transcribir el video entero con Whisper cuando no había subtítulos (revisión del 9/11/2026).
@@ -63,47 +68,13 @@ type OpcionesBroll = {
 	alLeerFrases?: (frases: Frase[]) => void;
 };
 
-/** Lo que dice la ruta cuando no sale: el texto, y si es porque falta conectar Pexels. */
-type FallaRuta = { error: string; faltaPexels: boolean; status: number };
-
-async function pedirJson<T>(cuerpo: object, plazoMs: number): Promise<{ ok: true; datos: T } | { ok: false; falla: FallaRuta }> {
-	try {
-		const r = await fetch(RUTA, {
-			method: "POST",
-			headers: { "content-type": "application/json" },
-			body: JSON.stringify(cuerpo),
-			signal: AbortSignal.timeout(plazoMs),
-		});
-		const j = (await r.json().catch(() => null)) as ({ ok?: boolean; error?: string; falta?: { servicio?: string } } & T) | null;
-		if (!r.ok || !j || j.ok === false) {
-			return { ok: false, falla: { error: j?.error ?? `El servidor contestó ${r.status}.`, faltaPexels: j?.falta?.servicio === "pexels", status: r.status } };
-		}
-		return { ok: true, datos: j };
-	} catch {
-		return { ok: false, falla: { error: "", faltaPexels: false, status: 0 } };
-	}
-}
-
-async function bajarFoto(id: number, orientacion: OrientacionBroll): Promise<{ archivo: File; autor: string } | null> {
-	try {
-		const r = await fetch(`${RUTA}?foto=${id}&orientacion=${orientacion}`, { signal: AbortSignal.timeout(30_000) });
-		if (!r.ok) return null;
-		const blob = await r.blob();
-		if (!blob.type.startsWith("image/")) return null;
-		const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
-		let autor = "";
-		try { autor = decodeURIComponent(r.headers.get("x-foto-autor") ?? ""); } catch { /* sin crédito */ }
-		return { archivo: new File([blob], `pexels-${id}.${ext}`, { type: blob.type }), autor };
-	} catch {
-		return null;
-	}
-}
-
 export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll = {}): Promise<ResultadoBroll> {
 	const trabajo = useTrabajoBroll.getState();
 	const conBroll = opciones.broll !== false;
 	const conPlanos = opciones.planos !== false;
 	const ritmo = opciones.ritmo ?? "normal";
+	const medio: MedioBroll = opciones.medio === "videos" ? "videos" : "fotos";
+	const conVideos = medio === "videos";
 	const terminar = (r: ResultadoBroll): ResultadoBroll => {
 		trabajo.fijar({
 			fase: "inactivo",
@@ -114,7 +85,8 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 		});
 		return r;
 	};
-	if (enCurso || useTrabajoSubtitulos.getState().fase !== "inactivo") return { ok: false, motivo: "ocupado" };
+	// «Cambiar por otra» (./cambiar.ts) trabaja sobre un B-roll que esta propuesta puede reemplazar: una cosa a la vez.
+	if (enCurso || trabajo.cambiando || useTrabajoSubtitulos.getState().fase !== "inactivo") return { ok: false, motivo: "ocupado" };
 	const proyecto = editor.project.getActiveOrNull();
 	if (!proyecto || !editor.scenes.getActiveSceneOrNull() || editor.timeline.getTotalDuration() <= 0) {
 		return terminar({ ok: false, motivo: "sin-proyecto" });
@@ -139,7 +111,7 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 		// Lo pendiente de un tipo se reemplaza sólo si ese tipo se volvió a calcular entero: si Pexels falló, lo que ya
 		// estaba propuesto se queda.
 		let brollRehecho = conBroll;
-		const imagenes: ImageElement[] = [];
+		const imagenes: Array<ImageElement | VideoElement> = [];
 		if (conBroll) {
 			const { huecos, objetivo } = huecosParaBroll({ frases, duracion, ocupados: tramosOcupados(base, tps, "broll"), ritmo });
 			// Sin Pexels no hay fotos: se pregunta ANTES de pedirle a la IA del negocio que elija (antes se gastaba esa
@@ -159,8 +131,8 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 				const elegidos = eleccion.datos.elegidos ?? [];
 				if (elegidos.length) {
 					fase("buscando");
-					const busqueda = await pedirJson<{ resultados: Array<{ consulta: string; fotos: FotoBroll[] }> }>(
-						{ accion: "buscar", orientacion, consultas: elegidos.map((e) => e.busqueda) },
+					const busqueda = await pedirJson<{ resultados: Array<{ consulta: string; fotos?: FotoBroll[]; videos?: VideoBroll[] }> }>(
+						{ accion: "buscar", orientacion, medio, consultas: elegidos.map((e) => e.busqueda) },
 						120_000,
 					);
 					if (!busqueda.ok && busqueda.falla.faltaPexels) {
@@ -169,43 +141,71 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 					} else if (!busqueda.ok) {
 						return terminar({ ok: false, motivo: busqueda.falla.status ? "pexels" : "red", ...(busqueda.falla.error ? { detalle: busqueda.falla.error } : {}) });
 					} else {
-						const pares = fotosElegidas(elegidos, busqueda.datos.resultados ?? []);
-						if (pares.length < elegidos.length) avisos.push("Alguna búsqueda no trajo fotos y quedó afuera.");
 						const porHueco = new Map<number, HuecoBroll>(huecos.map((h) => [h.i, h]));
+						const resultados = (busqueda.datos.resultados ?? []).map((r) => ({
+							consulta: r.consulta,
+							fotos: (conVideos ? r.videos : r.fotos) ?? [],
+						}));
+						// Lo que la persona ya DEJÓ no se repite en otro lugar; un video tiene que durar lo que su hueco.
+						const pares = fotosElegidas<FotoBroll | VideoBroll>(elegidos, resultados, {
+							yaUsadas: idsEnUso(base, medio),
+							sirve: (item, e) => {
+								if (!("duracion" in item)) return true;
+								const h = porHueco.get(e.hueco);
+								return !!h && item.duracion >= h.fin - h.inicio + MARGEN_VIDEO_S;
+							},
+						});
+						if (pares.length < elegidos.length) {
+							avisos.push(conVideos ? "Alguna búsqueda no trajo un video que sirva y quedó afuera." : "Alguna búsqueda no trajo fotos y quedó afuera.");
+						}
 						let n = 0;
+						let pesados = 0;
 						for (const { elegido, foto } of pares) {
 							fase("bajando", Math.round((n++ / pares.length) * 100));
 							const hueco = porHueco.get(elegido.hueco);
-							const bajada = hueco ? await bajarFoto(foto.id, orientacion) : null;
-							if (!hueco || !bajada) continue;
-							const [procesado] = await processMediaAssets({ files: [bajada.archivo] });
-							if (!procesado) continue;
-							const medio = await editor.media.addMediaAsset({ projectId: proyecto.metadata.id, asset: procesado });
-							if (!medio) continue;
-							const fuente = { width: medio.width ?? lienzo.width, height: medio.height ?? lienzo.height };
+							if (!hueco) continue;
+							const bajada = await bajarDePexels(foto.id, medio, orientacion);
+							if (!bajada.ok) {
+								if (/pesa demasiado/.test(bajada.error)) pesados++;
+								continue;
+							}
+							const asset = await aMultimedia(editor, proyecto.metadata.id, bajada.archivo);
+							if (!asset) continue;
+							const largo = hueco.fin - hueco.inicio;
+							if (conVideos && !((asset.duration ?? 0) >= largo)) continue;
+							const fuente = { width: asset.width ?? lienzo.width, height: asset.height ?? lienzo.height };
+							const enLinea = mediaTimeFromSeconds({ seconds: largo });
 							const creado = buildElementFromMedia({
-								mediaId: medio.id,
-								mediaType: "image",
+								mediaId: asset.id,
+								mediaType: conVideos ? "video" : "image",
 								name: `B-roll: ${elegido.busqueda}`,
-								duration: mediaTimeFromSeconds({ seconds: hueco.fin - hueco.inicio }),
+								duration: enLinea,
 								startTime: mediaTimeFromSeconds({ seconds: hueco.inicio }),
 							});
+							// Un video entra con su fuente entera (se usa el principio, como «Reemplazar») y sin sonido: el
+							// B-roll va encima de quien habla, y lo que se oye es su voz.
+							const fuenteVideo = conVideos ? mediaTimeFromSeconds({ seconds: asset.duration ?? largo }) : null;
 							imagenes.push({
 								...creado,
 								id: generateUUID(),
+								...(fuenteVideo != null
+									? { sourceDuration: fuenteVideo, trimEnd: Math.max(0, fuenteVideo - enLinea) as MediaTime }
+									: {}),
 								params: {
 									...creado.params,
 									...paramsDeCubrir(cubrirCelda({ fuente, celda: { x: 0, y: 0, ancho: lienzo.width, alto: lienzo.height }, lienzo })),
+									...(conVideos ? { muted: true } : {}),
 									[PARAM_PROPUESTA]: "broll",
 									[PARAM_BUSQUEDA]: elegido.busqueda,
 									[PARAM_AUTOR]: bajada.autor || foto.autor,
 									[PARAM_FOTO]: String(foto.id),
 									[PARAM_MOTIVO]: elegido.motivo,
 								},
-							} as ImageElement);
+							} as ImageElement | VideoElement);
 						}
+						if (pesados) avisos.push(pesados === 1 ? "Un video pesaba demasiado para traerlo y quedó afuera." : `${pesados} videos pesaban demasiado para traerlos y quedaron afuera.`);
 						if (pares.length && !imagenes.length) {
-							avisos.push("No se pudieron bajar las fotos de Pexels.");
+							avisos.push(conVideos ? "No se pudieron bajar los videos de Pexels." : "No se pudieron bajar las fotos de Pexels.");
 							brollRehecho = false;
 						}
 					}

@@ -40,10 +40,22 @@
 // la duración, los huecos y sus topes: una plantilla nueva entra sola al prompt. Van en el
 // orden de la pestaña, con las sugeridas para el negocio primero y marcadas
 // (`catalogoParaPrompt(senales)`; las señales las lee ./ia.ts en el server).
+//
+// Los motion graphics (lib/motion; traídos el 10/11/2026 de rescate/motion-imagen-2610): agregar_motion y editar_motion.
+// Su validación es la del motor (`normalizarMotion` estricto, lib/motion/plantillas.ts), envuelta en
+// `valoresMotionValidos`: un campo que no es de la plantilla o un texto más largo que su tope se RECHAZA con su motivo,
+// nunca se recorta. Al AGREGAR desde el chat o la API no quedan los textos de ejemplo de la plantilla («Ana Pérez»,
+// «+1250», cinco estrellas): no son de la persona (`valoresAlAgregar`); la biblioteca sí los pone, porque ahí la persona
+// los edita a mano en el panel.
 // =============================================================================
 
 import { PLANTILLAS, huecosDe, plantillaPorId, plantillasEnOrden, validarValores, type Plantilla } from './plantillas';
 import type { SenalesNegocio } from '../plantillas-sugeridas';
+import {
+  PLANTILLAS as DEF_MOTION, ROTULO_TONO, camposDe, catalogoMotionParaPrompt, esPlantilla, normalizarMotion, valoresPorDefecto,
+} from '../motion/plantillas';
+import { PLANTILLAS_MOTION, type CampoMotion, type IdPlantilla, type Tono, type ValoresMotion } from '../motion/tipos';
+import { numeroParaMostrar } from '../motion/numeros';
 
 /** Entrada · Salida · Combinado (video e imagen) · Bucle (texto, sticker y forma). */
 export type CategoriaAnimChat = 'entrada' | 'salida' | 'combinado' | 'bucle';
@@ -122,9 +134,27 @@ export type EstiloTextoChat = {
 /** Posición en px del lienzo desde el centro, con Y hacia ARRIBA (como el panel de CapCut). */
 export type TransformChat = { x?: number; y?: number; escala?: number; rotacion?: number; opacidad?: number; mezcla?: string };
 
+/**
+ * «Fondo › Desenfoque» del panel Proyecto (background/blur.ts, BACKGROUND_BLUR_INTENSITY_PRESETS: Light, Medium y
+ * Heavy), con el nombre que dice la persona. Lo fija el test contra el motor.
+ */
+export const DESENFOQUES_FONDO = { suave: 100, medio: 200, fuerte: 500 } as const;
+export type DesenfoqueFondo = keyof typeof DESENFOQUES_FONDO;
+
+/**
+ * Las proporciones del diálogo «Recortar» (params/extra/recorte.ts, PROPORCIONES_RECORTE), sin «Libre», que no es una
+ * proporción: para recortar libre van los lados. Lo fija el test contra el motor.
+ */
+export const PROPORCIONES_ENCUADRE = ['original', '16:9', '9:16', '1:1', '4:3', '3:4', '2:1', '2.35:1', '1.85:1'] as const;
+export type ProporcionEncuadre = (typeof PROPORCIONES_ENCUADRE)[number];
+/** Los lados de un encuadre, en % de la fuente que se le saca a cada uno. */
+export type LadosEncuadre = { izquierda: number; arriba: number; derecha: number; abajo: number };
+const LADOS_ENCUADRE = ['izquierda', 'arriba', 'derecha', 'abajo'] as const;
+
 /** Lo que la IA puede devolver. Los tiempos van en SEGUNDOS de la línea de tiempo. */
 export type OperacionChat =
-  | { op: 'agregar_texto'; texto: string; inicio: number; duracion: number; ref?: string }
+  /** `plantilla`: una «Plantilla de texto» de la biblioteca (DISPONIBLES.plantillas_texto): su fuente, tamaño, efecto y animación. */
+  | { op: 'agregar_texto'; texto: string; inicio: number; duracion: number; ref?: string; plantilla?: string }
   | { op: 'cambiar_texto'; ref: string; texto: string }
   | { op: 'borrar'; refs: string[] }
   | { op: 'mover'; ref: string; inicio: number }
@@ -180,13 +210,37 @@ export type OperacionChat =
   /** Un preset de subtítulos de la marca (DISPONIBLES.presets_subtitulos), a TODOS los subtítulos. */
   | { op: 'usar_preset_subtitulos'; preset: string }
   /** «B-roll de MaKo» (app/video-editor/_opencut/broll): propone fotos y cambios de plano que la persona deja o saca. */
-  | { op: 'broll'; ritmo?: 'poco' | 'normal' | 'mucho'; planos?: boolean }
+  | { op: 'broll'; ritmo?: 'poco' | 'normal' | 'mucho'; planos?: boolean; videos?: boolean }
   /** «Clips mágicos» (app/video-editor/_opencut/clips): busca los mejores momentos para abrir cada uno en un proyecto nuevo. */
   | { op: 'clips_magicos'; cuantos?: number }
   /** «Edición automática» (app/video-editor/_opencut/enjambre): el equipo de agentes edita todo, de una y a la vista. */
   | { op: 'edicion_automatica' }
   /** «Emojis automáticos» (Submagic: «Auto emojis», app/video-editor/_opencut/subtitles/emojis.ts): ponerlos o sacarlos. */
-  | { op: 'emojis_subtitulos'; activar: boolean };
+  | { op: 'emojis_subtitulos'; activar: boolean }
+  /**
+   * Un motion graphic nuevo. `valores`: SÓLO los campos que vinieron, ya normalizados (lo que se inserta lo arma
+   * `valoresAlAgregar`); `duracion` sin poner = la de la plantilla.
+   */
+  | { op: 'agregar_motion'; plantilla: IdPlantilla; valores: ValoresMotion; inicio: number; duracion?: number; ref?: string }
+  /** Campos de un motion graphic que ya está (la plantilla no se cambia). */
+  | { op: 'editar_motion'; ref: string; valores: ValoresMotion }
+  // ── 10/11/2026: lo que el chat no sabía hacer (docs/editor-video/pendientes-video-editor.md §9.1), cada uno con el
+  // MISMO camino que su botón (chat/comandos.ts).
+  /** «Duplicar» de la línea de tiempo: una copia en el mismo tiempo, encima, en una pista nueva. `copia`: su ref nueva. */
+  | { op: 'duplicar'; ref: string; copia?: string }
+  /** El fondo del lienzo (Proyecto › Fondo): un color o el desenfoque. Uno de los dos. */
+  | { op: 'fondo_lienzo'; color: string; desenfoque?: undefined }
+  | { op: 'fondo_lienzo'; desenfoque: DesenfoqueFondo; color?: undefined }
+  /** Un «Efecto de texto» del panel Texto (text/estilos-predefinidos.ts); `id` null = «Ninguno». */
+  | { op: 'efecto_texto'; ref: string; id: string | null }
+  /** Un emoji de la biblioteca (Stickers › Emojis), como sticker en su pista. */
+  | { op: 'agregar_emoji'; emoji: string; inicio: number; duracion: number; ref?: string }
+  /** «Recortar» el cuadro de un clip: una proporción centrada, los lados en %, o `quitar` (entero). Uno de los tres. */
+  | { op: 'encuadre'; ref: string; proporcion: ProporcionEncuadre }
+  | ({ op: 'encuadre'; ref: string } & LadosEncuadre)
+  | { op: 'encuadre'; ref: string; quitar: true }
+  /** «Otra» de «B-roll de MaKo»: la siguiente foto (o video) de la MISMA búsqueda, en el mismo lugar y tiempo. */
+  | { op: 'cambiar_broll'; ref: string };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -258,12 +312,55 @@ function paraUsarPlantilla(senales?: SenalesNegocio | null): string {
   ].join('\n');
 }
 
+/**
+ * Lo que lee la IA de agregar_motion: las reglas de las skills de motion (los textos TAL CUAL, nunca inventar un dato,
+ * UN tono), dichas como el resto del catálogo: una ORDEN al modelo («nunca los inventes», como «no lo inventes» de
+ * usar_plantilla), no una descripción. Las plantillas van aparte (`catalogoMotionChat` en el prompt del chat; en la
+ * API, `catalogoMotionCompacto` en el parámetro "plantilla"): este texto es también la descripción de la API, que tiene
+ * presupuesto (12.000 caracteres por turno) y PUNTÚA por sus palabras contra el pedido (lib/api-mako/registro.ts,
+ * ordenarPorRelevancia): con el catálogo adentro (título, nombre, precio…) le ganaba el lugar a editar_motion en «cambia
+ * el título del motion», y con la palabra «textos» dejaba sin cambiar_estilo_texto a «agrega un texto amarillo» (medido
+ * el 27/10/2026 con scripts/presupuesto-turno-app.mts). Por eso tampoco dice «texto».
+ */
+const PARA_AGREGAR_MOTION =
+  'Agrega un MOTION GRAPHIC (una animación ya diseñada que ocupa el cuadro, en su propia pista): "plantilla", y "valores" {campo: valor} sólo con lo que pones, dentro del tope de cada campo; "inicio" en segundos; "duracion" opcional (la de la plantilla). Lo que dice va TAL CUAL lo dijo la persona: nombres, cifras, precios, citas y calificaciones, nunca los inventes (si falta un obligatorio, pídelo en el resumen). Lo que no pones queda vacío (las estrellas, en 0). UN "tono" para todos los motion del video. "ref" nueva opcional ("n1"…).';
+
+/** Las plantillas de motion para el prompt del chat: el catálogo del motor, como sublista de agregar_motion. */
+function catalogoMotionChat(): string {
+  return catalogoMotionParaPrompt().split('\n').map((l) => `  · ${l.replace(/^- /, '')}`).join('\n');
+}
+
+/** Lo que un motion AGREGADO por el chat o la API necesita de la persona, además de sus textos obligatorios. */
+const DATOS_MOTION: Partial<Record<IdPlantilla, readonly string[]>> = { cifra: ['numero'] };
+
+/** «titulo*≤90»: un campo de motion en pocas letras (la API tiene presupuesto). `*` = tiene que venir al agregar. */
+function campoCompacto(c: CampoMotion, obligatorio: boolean): string {
+  const marca = obligatorio ? '*' : '';
+  if (c.tipo === 'texto') return `${c.clave}${marca}≤${c.max}`;
+  if (c.tipo === 'numero') return `${c.clave}${marca}${c.min < -1000 ? '' : ` ${c.min}-${c.max}`}`;
+  return c.clave;
+}
+
+/**
+ * Las plantillas de motion en un párrafo, para el parámetro "plantilla" de la API (lib/editor-video/chat-api.ts): cada
+ * id con sus campos y topes (* = obligatorio al agregar) y los comunes. Sale del MISMO catálogo del motor que lee el chat.
+ */
+export function catalogoMotionCompacto(): string {
+  const propias = PLANTILLAS_MOTION.map((p) => {
+    const campos = DEF_MOTION[p].campos.map((c) => campoCompacto(c, (c.tipo === 'texto' && !!c.obligatorio) || !!DATOS_MOTION[p]?.includes(c.clave)));
+    return `${p} (${campos.join(', ')})`;
+  }).join('; ');
+  const tono = camposDe('titular').find((c) => c.clave === 'tono');
+  const opciones = tono && tono.tipo === 'opcion' ? tono.opciones.map((o) => o.valor).join('|') : '';
+  return `La plantilla. Sus campos (* = obligatorio): ${propias}. Comunes: tono (${opciones}), colorFondo, colorTexto y colorAcento (#RRGGBB), conFondo (true/false), fuente.`;
+}
+
 /** Las operaciones, para el texto que lee la IA. El orden es el de la lista que se le muestra. */
 export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: string }> = [
   {
     op: 'agregar_texto',
     forma: '{"op":"agregar_texto","texto":"…","inicio":0,"duracion":3,"ref":"n1"}',
-    para: 'Agrega un texto en pantalla, en una pista de texto libre, con el estilo predeterminado (Arial 15, blanco, centrado en el lienzo). "ref" es opcional: si le pones una nueva ("n1", "n2"…), las operaciones que siguen pueden cambiarle el estilo, la posición o la animación en este mismo pedido.',
+    para: 'Agrega un texto en pantalla, en una pista de texto libre, con el estilo predeterminado (Arial 15, blanco, centrado en el lienzo). "ref" es opcional: si le pones una nueva ("n1", "n2"…), las operaciones que siguen pueden cambiarle el estilo, la posición o la animación en este mismo pedido. "plantilla" (opcional): el id de una «Plantilla de texto» de DISPONIBLES.plantillas_texto, y el texto nace con su fuente, su tamaño, su efecto y su animación.',
   },
   {
     op: 'cambiar_texto',
@@ -427,7 +524,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'broll',
     forma: '{"op":"broll","ritmo":"normal","planos":true}',
-    para: 'B-roll automático, como Submagic: según lo que se dice, propone fotos con licencia (de Pexels) encima del video y, con "planos": true, cambios de plano (acercamientos al ritmo de las frases). "ritmo" (opcional): "poco", "normal" o "mucho". No elige ni inventa fotos ni tiempos: lo hace al aceptar, y la persona deja o saca cada una en la línea de tiempo. Úsala cuando pidan B-roll, imágenes de apoyo, tomas de recurso, cambios de plano o zooms automáticos. Se aplica al final.',
+    para: 'B-roll automático, como Submagic: según lo que se dice, propone fotos con licencia (de Pexels) encima del video y, con "planos": true, cambios de plano (acercamientos al ritmo de las frases). "ritmo" (opcional): "poco", "normal" o "mucho". Con "videos": true trae videos cortos de Pexels, sin sonido, en vez de fotos. No elige ni inventa fotos ni tiempos: lo hace al aceptar, y la persona deja o saca cada una en la línea de tiempo. Úsala cuando pidan B-roll, imágenes de apoyo, tomas de recurso, cambios de plano o zooms automáticos. Se aplica al final.',
   },
   {
     op: 'clips_magicos',
@@ -444,6 +541,48 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     forma: '{"op":"emojis_subtitulos","activar":true}',
     para: 'Emojis automáticos, como Submagic: con "activar": true pone un emoji animado encima de cada subtítulo que dice algo que se puede dibujar (dinero, tiempo, una idea, un error…), en su pista «Emojis», reemplazando los de antes; con false los saca. No elige ni inventa los emojis: los elige el editor al aceptar, con la palabra clave de cada subtítulo. Los de ahora van marcados "emoji_de_subtitulo". Se aplica al final, después de generar los subtítulos.',
   },
+  // Los motion graphics (10/11/2026), al FINAL (AGENTS.md: una operación nueva no le saca el lugar a las de antes).
+  {
+    op: 'agregar_motion',
+    forma: '{"op":"agregar_motion","plantilla":"titular","valores":{"titulo":"…","tono":"energico"},"inicio":0,"ref":"n1"}',
+    para: PARA_AGREGAR_MOTION,
+  },
+  {
+    op: 'editar_motion',
+    forma: '{"op":"editar_motion","ref":"g1","valores":{"titulo":"…"}}',
+    para: 'Cambia lo que dice (el título, el nombre, la cifra…), el tono, los colores o la fuente de un motion graphic que ya está ("tipo":"motion", con sus "valores" de ahora): "valores" {campo: valor} sólo con lo que cambia, con los campos y topes de SU plantilla (vacío saca uno que no es obligatorio). La plantilla no se cambia.',
+  },
+  // Lo que el chat no sabía hacer (10/11/2026), también al FINAL.
+  {
+    op: 'duplicar',
+    forma: '{"op":"duplicar","ref":"t1","copia":"n1"}',
+    para: 'Duplica un elemento, como el botón «Duplicar»: la copia es igual (estilo, efectos, animaciones) y queda en el mismo tiempo, encima, en una pista nueva. "copia" (opcional): una ref nueva ("n1"…) para moverla con mover o cambiarla en este mismo pedido.',
+  },
+  {
+    op: 'fondo_lienzo',
+    forma: '{"op":"fondo_lienzo","color":"#000000"}',
+    para: 'El fondo del lienzo (el del panel Proyecto, en Fondo), lo que se ve donde el video no llena el cuadro, en TODO el proyecto: "color" (#RRGGBB) o "desenfoque" ("suave", "medio" o "fuerte": el mismo video, desenfocado). Uno de los dos. El de ahora va en "fondo_lienzo" de la vista.',
+  },
+  {
+    op: 'efecto_texto',
+    forma: '{"op":"efecto_texto","ref":"t1","id":"neon-rosa"}',
+    para: `Un «Efecto de texto» del panel Texto en un texto o un subtítulo: su color, trazo, sombra, brillo y fondo de una vez, sin tocar la fuente, el tamaño ni lo que dice. ${IDS('efectos_texto')}; "ninguno" lo deja blanco y sin nada. Para un solo detalle, estilo_texto.`,
+  },
+  {
+    op: 'agregar_emoji',
+    forma: '{"op":"agregar_emoji","emoji":"🔥","inicio":2,"duracion":2,"ref":"n1"}',
+    para: 'Agrega UN emoji de la biblioteca de emojis del panel Stickers como sticker, en su propia pista y en el centro del cuadro: "emoji" (🔥, 💰, ✅, 👉…), "inicio" y "duracion" en segundos. "ref" nueva opcional ("n1"…) para moverlo o achicarlo con transformar en este mismo pedido. Uno encima de cada subtítulo es emojis_subtitulos.',
+  },
+  {
+    op: 'encuadre',
+    forma: '{"op":"encuadre","ref":"v1","proporcion":"9:16"}',
+    para: `«Recortar» el CUADRO de un clip de video o imagen, como el diálogo de la barra (el tiempo se recorta con recortar). Uno de tres: "proporcion" (${PROPORCIONES_ENCUADRE.join(', ')}; "original" es la del archivo) deja el rectángulo más grande con esa forma, centrado en el de ahora; o "izquierda", "arriba", "derecha" y "abajo", el % del archivo que se le saca a cada lado (de 0 a 95; lo que no pongas, 0; entre dos lados opuestos queda al menos el 2 %); o "quitar": true lo devuelve entero. El de ahora va en "encuadre" del elemento.`,
+  },
+  {
+    op: 'cambiar_broll',
+    forma: '{"op":"cambiar_broll","ref":"v3"}',
+    para: 'Cambia la foto (o el video) de UN B-roll de MaKo que ya está (los que llevan "broll" en la vista, con su búsqueda) por la siguiente de la MISMA búsqueda de Pexels, en el mismo lugar y el mismo tiempo. No elige cuál: trae la siguiente que no se vio en ese lugar. Para buscar otra cosa, broll de nuevo. Se aplica al final.',
+  },
 ];
 
 /**
@@ -451,7 +590,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
  * para que la IA lo DIGA en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT =
-  'agregar a la línea de tiempo videos, imágenes, música, sonidos, stickers o formas de la biblioteca (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos de apoyo según lo que se dice, sí: broll; emojis encima de los subtítulos, sí: emojis_subtitulos); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto; guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
+  'agregar a la línea de tiempo videos, imágenes, música, sonidos, formas o stickers de la biblioteca que no son emojis (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos o videos de apoyo según lo que se dice, sí: broll; otra foto para un B-roll que ya está, sí: cambiar_broll; un emoji, sí: agregar_emoji; emojis encima de los subtítulos, sí: emojis_subtitulos; un motion graphic, sí: agregar_motion); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo de un clip o chroma key (el fondo del LIENZO, sí: fondo_lienzo); guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); guardar un efecto de texto propio («Guardar como parámetro predefinido», en el panel); pegar atributos de un elemento en otro; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
 
 const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 
@@ -459,7 +598,10 @@ const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 export function catalogoParaPrompt(senales?: SenalesNegocio | null): string {
   return [
     // usar_plantilla se rearma con las señales: sus plantillas van en el orden de la pestaña, con las sugeridas primero.
-    ...OPERACIONES_CHAT.map((o) => `- ${o.forma} → ${o.op === 'usar_plantilla' ? paraUsarPlantilla(senales) : o.para}`),
+    // agregar_motion lleva debajo el catálogo del motor (lib/motion), que no va en su `para` (es también la API).
+    ...OPERACIONES_CHAT.map((o) => `- ${o.forma} → ${
+      o.op === 'usar_plantilla' ? paraUsarPlantilla(senales) : o.op === 'agregar_motion' ? `${o.para} Las plantillas:\n${catalogoMotionChat()}` : o.para
+    }`),
     '',
     `NO SE PUEDE DESDE EL CHAT (dilo en el resumen, no lo simules): ${NO_SE_PUEDE_CHAT}.`,
   ].join('\n');
@@ -663,6 +805,102 @@ function valoresDePlantilla(
   return { ok: true, ...salida };
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Los motion graphics (lib/motion): la validación es la del motor, estricta
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Cada campo de motion y su tipo. Una clave tiene el MISMO tipo en todas las plantillas (lo fija el test): de eso viven
+ * editar_motion (que no sabe la plantilla hasta mirar la línea de tiempo) y la API (que recibe todo como texto).
+ */
+export const TIPO_CAMPO_MOTION: ReadonlyMap<string, CampoMotion['tipo']> = new Map(
+  PLANTILLAS_MOTION.flatMap((p) => camposDe(p).map((c) => [c.clave, c.tipo] as const)),
+);
+
+export type ValidaMotion = { ok: true; valores: ValoresMotion } | { ok: false; motivo: string };
+
+/**
+ * Los "valores" de un motion graphic contra SU plantilla, con `normalizarMotion` ESTRICTO (la única validación del
+ * motor): un campo que no es de la plantilla, un texto más largo que su tope, un obligatorio vacío, un color o un número
+ * malos se RECHAZAN con su motivo, nunca se recortan. Devuelve sólo los campos que vinieron, normalizados (validar lo
+ * ya validado da lo mismo). `alAgregar`: además, los textos obligatorios y los datos de la persona tienen que venir.
+ */
+export function valoresMotionValidos(plantilla: IdPlantilla, raw: unknown, { alAgregar = false }: { alAgregar?: boolean } = {}): ValidaMotion {
+  const nombre = DEF_MOTION[plantilla].nombre;
+  if (raw !== undefined && !esObjeto(raw)) return { ok: false, motivo: '"valores" va como {"campo": valor}' };
+  const entrada = (raw ?? {}) as Record<string, unknown>;
+  const claves = Object.keys(entrada);
+  if (!alAgregar && !claves.length) return { ok: false, motivo: 'un cambio de motion graphic sin valores' };
+  if ('plantilla' in entrada) return { ok: false, motivo: 'la plantilla de un motion graphic no se cambia: bórralo y agrega otro con agregar_motion' };
+  const { spec, descartes } = normalizarMotion({ plantilla, valores: entrada }, { estricto: true });
+  if (descartes.length) return { ok: false, motivo: `el motion «${nombre}»: ${descartes.slice(0, 3).join('; ')}`.slice(0, 300) };
+  if (alAgregar) {
+    const faltan = camposDe(plantilla).filter(
+      (c) => ((c.tipo === 'texto' && c.obligatorio) || DATOS_MOTION[plantilla]?.includes(c.clave)) && !(c.clave in entrada),
+    );
+    if (faltan.length) {
+      return { ok: false, motivo: `el motion «${nombre}» necesita ${faltan.map((c) => `"${c.clave}"`).join(' y ')}: sale de lo que dijo la persona, no se inventa` };
+    }
+  }
+  return { ok: true, valores: Object.fromEntries(claves.map((k) => [k, spec.valores[k]])) };
+}
+
+/**
+ * Lo que se INSERTA al agregar desde el chat o la API: el estilo de la plantilla (tono, colores, fondo, fuente), sin sus
+ * textos ni sus estrellas de EJEMPLO («Ana Pérez», «+1250», cinco estrellas no son de la persona: las skills de motion,
+ * «nunca inventes un nombre, una cifra o una calificación»), y encima lo pedido.
+ */
+export function valoresAlAgregar(plantilla: IdPlantilla, valores: ValoresMotion): ValoresMotion {
+  const base = valoresPorDefecto(plantilla);
+  for (const c of camposDe(plantilla)) {
+    if (c.tipo === 'texto') base[c.clave] = '';
+    else if (c.clave === 'estrellas') base[c.clave] = 0;
+  }
+  return { ...base, ...valores };
+}
+
+/** «Título «50% off» · Tono Enérgico»: unos campos de motion en palabras (la revisión, la tarjeta de la propuesta). */
+export function textoValoresMotion(valores: ValoresMotion, plantilla?: IdPlantilla | null): string {
+  const campo = (k: string): CampoMotion | undefined =>
+    (plantilla ? camposDe(plantilla) : PLANTILLAS_MOTION.flatMap((p) => camposDe(p))).find((c) => c.clave === k);
+  return Object.entries(valores).map(([k, v]) => {
+    const c = campo(k);
+    const rotulo = (c?.rotulo ?? k).replace(/ \(.*$/, '');
+    if (c?.tipo === 'texto' || (typeof v === 'string' && !c)) {
+      const s = String(v).replace(/\s+/g, ' ').trim();
+      return s ? `${rotulo} «${s.length > 60 ? `${s.slice(0, 59)}…` : s}»` : `${rotulo} vacío`;
+    }
+    if (c?.tipo === 'opcion') return `${rotulo} ${c.clave === 'tono' ? (ROTULO_TONO[v as Tono] ?? String(v)) : String(v)}`;
+    if (typeof v === 'boolean') return `${rotulo} ${v ? 'sí' : 'no'}`;
+    // El número como lo dibuja el video («1.250», «4,5»): lib/motion/numeros.ts, el mismo del panel.
+    return `${rotulo} ${typeof v === 'number' ? numeroParaMostrar(v) : String(v)}`;
+  }).join(' · ');
+}
+
+/**
+ * La FORMA de los valores de editar_motion, que todavía no sabe de qué plantilla es el elemento (eso lo mira la
+ * revisión contra la línea de tiempo, con `valoresMotionValidos`): cada campo tiene que existir en alguna plantilla y
+ * su valor ser válido para alguna de las que lo tienen. Lo que no, se rechaza con el motivo del motor.
+ */
+function valoresMotionDeForma(raw: unknown): ValidaMotion {
+  if (!esObjeto(raw) || !Object.keys(raw).length) return { ok: false, motivo: 'un cambio de motion graphic sin "valores" ({"campo": valor})' };
+  const valores: ValoresMotion = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (k === 'plantilla') return { ok: false, motivo: 'la plantilla de un motion graphic no se cambia: bórralo y agrega otro con agregar_motion' };
+    const con = PLANTILLAS_MOTION.filter((p) => camposDe(p).some((c) => c.clave === k));
+    if (!con.length) return { ok: false, motivo: `«${k.slice(0, 30)}» no es un campo de ningún motion graphic` };
+    let primera: ValidaMotion | null = null;
+    for (const p of con) {
+      const r = valoresMotionValidos(p, { [k]: v });
+      if (r.ok) { valores[k] = r.valores[k]; primera = r; break; }
+      primera ??= r;
+    }
+    // Sin el nombre de la plantilla: todavía no se sabe de cuál es el elemento.
+    if (primera && !primera.ok) return { ok: false, motivo: primera.motivo.replace(/^el motion «[^»]*»: /, '') };
+  }
+  return { ok: true, valores };
+}
+
 const ENVUELTAS: Record<string, string> = { estilo_texto: 'estilo', transformar: 'cambios', ajustar_color: 'valores' };
 
 /**
@@ -696,7 +934,12 @@ export function validarOperacion(crudo: unknown): Validada {
       if (!enRango(inicio, 0, TOPES_CHAT.tiempoMax)) return { ok: false, motivo: 'un texto sin inicio válido' };
       if (!enRango(duracion, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax)) return { ok: false, motivo: 'un texto sin duración válida' };
       if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'un texto nuevo con una ref que no es «n1», «n2»…' };
-      return { ok: true, op: { op: 'agregar_texto', texto, inicio: centesima(inicio), duracion: centesima(duracion), ...(ref ? { ref } : {}) } };
+      const plantilla = raw.plantilla === undefined ? undefined : idCatalogo(raw.plantilla, false);
+      if (plantilla === undefined && raw.plantilla !== undefined) return { ok: false, motivo: 'un texto nuevo con una plantilla sin forma (el id de DISPONIBLES.plantillas_texto)' };
+      return {
+        ok: true,
+        op: { op: 'agregar_texto', texto, inicio: centesima(inicio), duracion: centesima(duracion), ...(ref ? { ref } : {}), ...(plantilla ? { plantilla } : {}) },
+      };
     }
     case 'cambiar_texto': {
       const texto = textoValido(raw.texto);
@@ -971,12 +1214,21 @@ export function validarOperacion(crudo: unknown): Validada {
       return { ok: true, op: { op: 'usar_preset_subtitulos', preset } };
     }
     case 'broll': {
-      const extra = sobrantes(raw, ['ritmo', 'planos']);
+      const extra = sobrantes(raw, ['ritmo', 'planos', 'videos']);
       if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo del B-roll` };
       const ritmo = raw.ritmo === undefined ? undefined : raw.ritmo;
       if (ritmo !== undefined && ritmo !== 'poco' && ritmo !== 'normal' && ritmo !== 'mucho') return { ok: false, motivo: 'un B-roll con un ritmo que no es «poco», «normal» ni «mucho»' };
       if (raw.planos !== undefined && typeof raw.planos !== 'boolean') return { ok: false, motivo: 'un B-roll con «planos» que no es sí o no' };
-      return { ok: true, op: { op: 'broll', ...(ritmo ? { ritmo } : {}), ...(typeof raw.planos === 'boolean' ? { planos: raw.planos } : {}) } };
+      if (raw.videos !== undefined && typeof raw.videos !== 'boolean') return { ok: false, motivo: 'un B-roll con «videos» que no es sí o no' };
+      return {
+        ok: true,
+        op: {
+          op: 'broll',
+          ...(ritmo ? { ritmo } : {}),
+          ...(typeof raw.planos === 'boolean' ? { planos: raw.planos } : {}),
+          ...(raw.videos === true ? { videos: true } : {}),
+        },
+      };
     }
     case 'clips_magicos': {
       const extra = sobrantes(raw, ['cuantos']);
@@ -997,6 +1249,107 @@ export function validarOperacion(crudo: unknown): Validada {
       if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de los emojis de los subtítulos` };
       if (typeof raw.activar !== 'boolean') return { ok: false, motivo: 'unos emojis de subtítulos sin «activar» (true o false)' };
       return { ok: true, op: { op: 'emojis_subtitulos', activar: raw.activar } };
+    }
+    case 'agregar_motion': {
+      const extra = sobrantes(raw, ['plantilla', 'valores', 'inicio', 'duracion']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de agregar_motion${TIPO_CAMPO_MOTION.has(extra) ? ': los campos van dentro de "valores"' : ''}` };
+      const plantilla = typeof raw.plantilla === 'string' ? raw.plantilla.trim().toLowerCase() : '';
+      if (!esPlantilla(plantilla)) {
+        return { ok: false, motivo: `«${String(raw.plantilla ?? '').slice(0, 30)}» no es un motion graphic (son: ${PLANTILLAS_MOTION.join(', ')})` };
+      }
+      const inicio = numero(raw.inicio);
+      const duracion = raw.duracion === undefined ? undefined : numero(raw.duracion);
+      if (!enRango(inicio, 0, TOPES_CHAT.tiempoMax)) return { ok: false, motivo: 'un motion graphic sin inicio válido' };
+      if (duracion !== undefined && !enRango(duracion, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax)) return { ok: false, motivo: 'un motion graphic sin duración válida' };
+      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'un motion graphic nuevo con una ref que no es «n1», «n2»…' };
+      const v = valoresMotionValidos(plantilla, raw.valores, { alAgregar: true });
+      if (!v.ok) return v;
+      return {
+        ok: true,
+        op: { op: 'agregar_motion', plantilla, valores: v.valores, inicio: centesima(inicio), ...(duracion != null ? { duracion: centesima(duracion) } : {}), ...(ref ? { ref } : {}) },
+      };
+    }
+    case 'editar_motion': {
+      if (!esRef(ref)) return { ok: false, motivo: 'un cambio de motion graphic sin elemento' };
+      if (raw.plantilla !== undefined) return { ok: false, motivo: 'la plantilla de un motion graphic no se cambia: bórralo y agrega otro con agregar_motion' };
+      const extra = sobrantes(raw, ['valores']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de editar_motion${TIPO_CAMPO_MOTION.has(extra) ? ': los campos van dentro de "valores"' : ''}` };
+      const v = valoresMotionDeForma(raw.valores);
+      return v.ok ? { ok: true, op: { op: 'editar_motion', ref, valores: v.valores } } : v;
+    }
+    case 'duplicar': {
+      const extra = sobrantes(raw, ['copia']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de duplicar` };
+      if (!esRef(ref)) return { ok: false, motivo: 'un duplicar sin elemento' };
+      if (raw.copia !== undefined && !esRefNueva(raw.copia)) return { ok: false, motivo: 'una copia con una ref que no es «n1», «n2»…' };
+      return { ok: true, op: { op: 'duplicar', ref, ...(raw.copia !== undefined ? { copia: raw.copia as string } : {}) } };
+    }
+    case 'fondo_lienzo': {
+      const extra = sobrantes(raw, ['color', 'desenfoque']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo del fondo del lienzo` };
+      if ((raw.color === undefined) === (raw.desenfoque === undefined)) return { ok: false, motivo: 'un fondo del lienzo va con "color" o con "desenfoque" (uno de los dos)' };
+      if (raw.color !== undefined) {
+        const c = colorHex(raw.color);
+        if (!c) return { ok: false, motivo: 'un fondo del lienzo con un color que no es #RRGGBB' };
+        return { ok: true, op: { op: 'fondo_lienzo', color: c } };
+      }
+      const d = typeof raw.desenfoque === 'string' ? raw.desenfoque.trim().toLowerCase() : '';
+      if (!Object.hasOwn(DESENFOQUES_FONDO, d)) return { ok: false, motivo: 'un fondo desenfocado va «suave», «medio» o «fuerte»' };
+      return { ok: true, op: { op: 'fondo_lienzo', desenfoque: d as DesenfoqueFondo } };
+    }
+    case 'efecto_texto': {
+      const extra = sobrantes(raw, ['id']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de un efecto de texto` };
+      const id = idCatalogo(raw.id, true);
+      if (!esRef(ref) || id === undefined) return { ok: false, motivo: 'un efecto de texto incompleto' };
+      return { ok: true, op: { op: 'efecto_texto', ref, id } };
+    }
+    case 'agregar_emoji': {
+      const extra = sobrantes(raw, ['emoji', 'inicio', 'duracion']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de agregar_emoji` };
+      const emoji = typeof raw.emoji === 'string' ? raw.emoji.trim() : '';
+      // UN emoji: corto, sin espacios y con un pictograma (o una bandera). Que esté en la biblioteca lo mira la revisión.
+      if (!emoji || emoji.length > 16 || /\s/.test(emoji) || !/\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u.test(emoji)) {
+        return { ok: false, motivo: 'un emoji que no es UN emoji (🔥, 💰, ✅…)' };
+      }
+      const inicio = numero(raw.inicio);
+      const duracion = numero(raw.duracion);
+      if (!enRango(inicio, 0, TOPES_CHAT.tiempoMax)) return { ok: false, motivo: 'un emoji sin inicio válido' };
+      if (!enRango(duracion, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax)) return { ok: false, motivo: 'un emoji sin duración válida' };
+      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'un emoji nuevo con una ref que no es «n1», «n2»…' };
+      return { ok: true, op: { op: 'agregar_emoji', emoji, inicio: centesima(inicio), duracion: centesima(duracion), ...(ref ? { ref } : {}) } };
+    }
+    case 'encuadre': {
+      const extra = sobrantes(raw, ['proporcion', 'quitar', ...LADOS_ENCUADRE]);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo del encuadre` };
+      if (!esRef(ref)) return { ok: false, motivo: 'un encuadre sin elemento' };
+      const conLados = LADOS_ENCUADRE.some((k) => raw[k] !== undefined);
+      const formas = [raw.proporcion !== undefined, raw.quitar !== undefined, conLados].filter(Boolean).length;
+      if (formas !== 1) return { ok: false, motivo: 'un encuadre va con "proporcion", con los lados o con "quitar" (uno de los tres)' };
+      if (raw.quitar !== undefined) {
+        if (raw.quitar !== true) return { ok: false, motivo: 'un encuadre con «quitar» que no es true' };
+        return { ok: true, op: { op: 'encuadre', ref, quitar: true } };
+      }
+      if (raw.proporcion !== undefined) {
+        const p = typeof raw.proporcion === 'string' ? raw.proporcion.trim().toLowerCase() : '';
+        if (!(PROPORCIONES_ENCUADRE as readonly string[]).includes(p)) return { ok: false, motivo: `«${String(raw.proporcion).slice(0, 20)}» no es una proporción (son: ${PROPORCIONES_ENCUADRE.join(', ')})` };
+        return { ok: true, op: { op: 'encuadre', ref, proporcion: p as ProporcionEncuadre } };
+      }
+      const lados = {} as LadosEncuadre;
+      for (const k of LADOS_ENCUADRE) {
+        const n = raw[k] === undefined ? 0 : numero(raw[k]);
+        if (!enRango(n, 0, 95)) return { ok: false, motivo: `un encuadre con «${k}» fuera de 0 a 95 %` };
+        lados[k] = decima(n);
+      }
+      if (lados.izquierda + lados.derecha > 98 + EPS || lados.arriba + lados.abajo > 98 + EPS) return { ok: false, motivo: 'un encuadre que deja el cuadro sin nada (entre dos lados opuestos queda al menos el 2 %)' };
+      if (LADOS_ENCUADRE.every((k) => lados[k] === 0)) return { ok: false, motivo: 'un encuadre sin nada que recortar (para dejarlo entero, "quitar": true)' };
+      return { ok: true, op: { op: 'encuadre', ref, ...lados } };
+    }
+    case 'cambiar_broll': {
+      const extra = sobrantes(raw, []);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de cambiar un B-roll` };
+      if (!esRef(ref)) return { ok: false, motivo: 'un cambio de B-roll sin elemento' };
+      return { ok: true, op: { op: 'cambiar_broll', ref } };
     }
   }
 }

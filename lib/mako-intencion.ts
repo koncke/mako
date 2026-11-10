@@ -1549,7 +1549,12 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // `offer`: la tab se llama así («mostrame la conclusión de Offer» caía en experimentos, 14/10/2026).
   negocio: /\b(avatar(es)?|razon(es)? de compra|ofertas?|offer\b|productos?|precios?|persona de marca|voz de marca|onboarding|conocimiento|metodolog[ií]a|fase del negocio|tutorial)/i,
   contenido: /\b(guion(es)?|reels?|carrusel(es)?|carousels?|stor(y|ies)|historias|contenido|copy|ideas? de contenido|youtube|miniatura)/i,
-  video: /\b(videos?|clips?|flow\b|escenas?|montaje)/i,
+  // «motion» (10/11/2026, la revisión de los motion graphics): «agrega un motion graphic que diga Vende más» no nombraba
+  // el área y `agregar_motion_video` no viajaba. Pero NO en una frase que nombra una landing, una página o la web: ahí es
+  // una animación de la landing (cambiar_animacion_landing), y con el área video las herramientas del editor de video le
+  // sacaban el lugar a las de la landing en el presupuesto (medido: «agrega un motion graphic a la landing…» perdía
+  // guardar_landing y listar_landings). Lo fija tests/ops-center-clasificador-app.test.ts.
+  video: /\b(videos?|clips?|flow\b|escenas?|montaje|(?<!\b(?:landing|p[aá]gina|web|sitio)\b[^.!?\n]*)motions?(?: graphics?)?(?![^.!?\n]*\b(?:landing|p[aá]gina|web|sitio)\b))/i,
   // El Image Editor (15/10/2026): «armame un diseño», «el flyer de la promo», «cambiá el texto del banner». «plantilla»
   // sola NO (es de WhatsApp y del Dashboard) y «miniatura» tampoco (es de YouTube, área contenido).
   imagen: /\b(dise[ñn]os?|image editor|editor de im[aá]gen(es)?|canva\b|flyers?|volantes?|banners?)/i,

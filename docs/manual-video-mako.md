@@ -72,6 +72,7 @@ Reglas dictadas por Martín el 9/11/2026, más todo lo medido hasta esa fecha.
 7. **Los créditos se gastan recién con el OK del usuario a la imagen. Nunca antes.**
    «Cuando el usuario da el ok, generar el video: ahí recién se pasa a gastar los créditos.» «Para que no sea culpa nuestra casi nunca.»
 
+   **Duración = palabras, y el clip se transcribe antes de entregar** (Martín, 9/11): «porque elegiste una duración más larga de la que debería… repitió una palabra, eso no debería pasar… contar las palabras para determinar cuántos segundos le vas a mandar a la instrucción. Y de paso también se ahorran tokens». Si el video dura más que la frase, Omni repite palabras («…en vendehumo, en vendehumos», clip 3 con 16 palabras en 8 s). Ritmo real de Omni (transcripción): ~3,3 palabras/s quieto, ~2,8 con un gesto; el habla arranca ~0,8 s. Duración = el valor más chico de Flow (3–10 s, 3 créditos/s) que cubra `0,8 + palabras/ritmo + 0,3`. Antes de entregar: `node C:/dev/reel-mentores/voz/chequear-guion.mjs <clip.mp4> "<guion>"` (ElevenLabs speech-to-text) marca palabras REPETIDAS, faltantes o cambiadas.
    **Y nunca variaciones de video** (9/11): «no debería generar variaciones de video, de imágenes sí tienes libertad absoluta porque básicamente imagen no gasta casi nada, pero video sí gasta, entonces prefiero de última que el usuario te lo valide.» De imagen, todas las muestras que hagan falta; de video, uno por pedido, con el OK a su imagen.
 8. **Una sola referencia y un prompt simple. Siempre.**
    «No le pases muchas referencias porque ahí lo hace mal la inteligencia artificial.» Cada referencia de más compite con las otras.
@@ -168,6 +169,8 @@ Hasta el paso 5 todo es gratis (imágenes). **Los créditos empiezan en el paso 
 - El avatar no sale de una imagen de referencia de look: el que se hizo así (`avatar-delante-v1.jpg`) Martín lo rechazó, «no me gusta el avatar».
 - Una persona por imagen. Dos personas son dos avatares, cada uno en su propia cadena.
 - Un cambio por edición, anclando lo que no cambia: «La persona queda igual, con la misma ropa…».
+- **«Tal cual, pero X»: se edita la imagen que le gustó y se pide sólo X.** Si se regenera desde el original con otra descripción, el modelo inventa otro diseño (9/11: el CRM del celular pasado a modo claro). Frase que funcionó: «La pantalla del celular pasa a modo claro: el mismo diseño, las mismas columnas, tarjetas, fotos y etiquetas de colores, pero con fondo blanco y letras oscuras. Todo lo demás, él, su mano y el cuarto, queda exactamente igual.»
+- **Un objeto con pantalla (celular, notebook):** se agrega en el avatar, como la polaroid, describiendo la pantalla por lo que se ve (colores, formas, tipo de app) y sin pedir textos: el modelo los escribe mal. Grabar la pantalla real no hace falta (9/11: el CRM inventado por Flow se reconoce como app).
 - La pose se pide con una foto de referencia y una frase: «que haga la misma pose que la foto que adjunto».
 - Checklist de avatar (§5.1) y el del template (por ejemplo, en «Mensaje para…», el avatar con iluminación y fondo blanco).
 - Win: 1K original guardado como el **avatar original** de esa persona, con su contexto.
@@ -216,6 +219,14 @@ Hasta el paso 5 todo es gratis (imágenes). **Los créditos empiezan en el paso 
 ### Paso 9 · La edición y el montaje
 - Según el template: orden de tomas, insertos, subtítulos, música y cierre.
 - Se monta sin recomprimir donde se pueda (`-c:v copy`).
+- Template «Mensaje para…»: `reel-mentores/montaje/montar-v2.mjs` arma todo de una con la gramática MEDIDA del reel de
+  Josep (§8.3) y se vuelve a correr cuando cambia una toma (30-70 s). Las duraciones van en cuadros enteros, y los tiempos
+  del .ass se redondean SIEMPRE hacia abajo: redondeando al más cercano, el subtítulo quedaba un cuadro sobre el inserto.
+  Antes de entregar, transcribir el reel entero con `chequear-guion.mjs` (un recorte puede comerse una palabra).
+- **Regla de Martín (9/11): el montaje copia el RITMO de la referencia.** Se mide en la referencia y en lo nuestro: cuánto
+  dura cada tramo hablado antes de cada corte, sílabas/palabras por segundo, huecos entre palabras y entre frases. No
+  quedan silencios muertos: una animación se corta o se acelera (sólo la imagen). La voz se acelera con `atempo`, que
+  conserva el tono (medido: 130,6 → 130,6 Hz); `asetrate` la sube 9,7 %: voz de ardilla.
 
 ### Paso 10 · La entrega
 - Clip más su contexto.md. Lo que el usuario aprueba se guarda como win.
@@ -287,6 +298,7 @@ Se recorren mirando la imagen, antes de mostrarla. Se suman el del template (§7
 - [ ] `volumedetect`, medido apenas baja: el nivel tiene sentido (un clip puede volver mudo, o ponerse a hablar solo).
 - [ ] Tira de 5 fotogramas: la cara sigue siendo la misma de principio a fin.
 - [ ] La boca dice la frase entera, sin pausas raras, y dice exactamente el guion.
+- [ ] **Transcripto y comparado con el guion** (`node C:/dev/reel-mentores/voz/chequear-guion.mjs <clip.mp4> "<guion>"`): ni una palabra repetida, faltante o cambiada. La duración se eligió contando palabras.
 - [ ] El cuerpo hace sólo lo pedido: lo quieto quedó quieto.
 - [ ] El modelo no inventó texto ni subtítulos.
 - [ ] El acento es el pedido (se escucha).
@@ -461,6 +473,12 @@ Va junto a cada `<clip>.mp4` como `<clip>.contexto.md`, y se escribe al generar:
 | Unas 40 caras repetidas | «Llenándolo» | Dar el número: «estas doce caras, una sola vez cada una» |
 | Relleno de luz o fondo plano de recorte | Negativos en el prompt | Pedir en positivo |
 | Una luz en la cara cuando se quería contraluz | «Que la cara siga legible» | Una frase con el efecto: «a contraluz contra un fondo blanco» |
+| El cuarto de la referencia se metió en la toma (se perdió el fondo blanco) | Una referencia con su escena (la polaroid en la mano, delante del corcho) | Recortar la referencia al objeto solo: la polaroid, el celular |
+| «Gurú» en el prompt dio gurús de la India | La palabra | Darle las caricaturas reales: un abanico armado a mano con las de `public/asesores/grandes/` (`reel-mentores/blancas/abanico.py`) |
+| «A contraluz» casi no cambia la imagen | Nano Banana no reilumina a la persona | La silueta la da el video (las tomas blancas de la noche salieron así) |
+| Una «risa» o un «gruñido» en un hueco sin voz | El voice-to-voice pasó el soplido del efecto (humo) por la voz | En el montaje se calla la pista de voz entre la última palabra y la siguiente; la música sostiene. La transcripción lo marca como «[gruñido]» |
+| «No se parece a mí» en una toma nueva (el perfil) | La base fue una toma ya generada (la blanca de la noche), no su personaje | Base = SIEMPRE `omni/personaje-bueno-original.jpg`. De a un cambio: 1) «Sin la foto en la mano y sobre un fondo blanco liso, con todo lo demás igual»; 2) la pose y la luz con una referencia que tenga su misma ropa (la de Josep le copió la camisa). Tres cuartos se parece más que perfil puro |
+| La luz de las tomas blancas no queda como las otras («no tiene la iluminación que estábamos teniendo») | Se cambió pose y fondo sin pasar la luz | Una edición más: «Copiá SÓLO la luz y la exposición de la referencia; no cambies ni la persona ni la pose ni el encuadre», con una toma NUESTRA ya aprobada como referencia (el abanico). Con el cuadro de Josep, Flow reemplazó la imagen entera por la de él |
 | «Detectamos actividad inusual» | Unas 15 ediciones en una hora | Esperar unos minutos |
 | «No es mi voz» | Clon profesional en voice-to-voice | Clon «wav nivelado» |
 | Voz «súper grave» | `use_speaker_boost` en true | false |
@@ -616,8 +634,29 @@ Un tablero de corcho con las caricaturas de los gurús unidas por hilo rojo, en 
 
 Los parámetros completos y sus trampas están en `docs/edicion-video-automatica.md`. Lo central:
 - Música medida y llevada a −33 LUFS, con fade in de 0,8 s y fade out de 2,5 s. Nunca un «−20 dB» a ojo.
+- **Template «Mensaje para…» (medido en el reel de Josep, 9/11): la música NO va bajo la voz.** Josep la apaga del todo
+  mientras habla (piso de −49,7 dBFS). La música entra SÓLO como golpe en cada inserto blanco: el mismo pedazo de la
+  canción, desde el «1» de una frase (808 + hats), con el corte de imagen en el golpe o un cuadro antes, cortado en seco
+  al volver la voz; la palabra roja aparece en el cuadro del corte. Inserto corto = 1,3 beats (0,6 s, 15 cuadros a 24 fps);
+  el largo, 2,1 beats (1,0 s). El cierre mudo arranca con la canción en su 0:00 y sigue continua; ahí los cortes siguen la
+  acción. La música suena ~4,5 LU por encima de la voz. Detalle: `docs/hallazgos-video-editor.md` → «Cortar al ritmo de
+  una referencia».
+- **Cuántos golpes y dónde (Martín, 9/11: «pusiste demasiadas partes de música»):** los MISMOS que la referencia. Josep pone
+  5 en lo hablado, uno al CERRAR cada bloque del guion (disparo, nombre, credencial, producto, beneficio), ninguno adentro
+  de un bloque ni en el remate. El v3 tenía 8 (partía bloques y le ponía golpe al humo) y se sentía recargado.
+- **Efectos, de a uno (Martín, 9/11: «no seas exagerado»):** el v4 sumó zoom «punch-in» + whoosh en la transformación,
+  whoosh de vuelta y dos efectos en el humo; quedó sólo el del humo al desvanecerse (ElevenLabs Sound Effects,
+  `reel-mentores/voz/efecto.mjs`). Un efecto que suene a soplido pegado a la voz se lee como un suspiro del personaje.
+- El v1 del 9/11 ponía la música bajo la voz con `sidechaincompress`: es la gramática de un anuncio, no la de este template.
+- Se entrega siempre también una versión SIN música, para ponerle el audio desde Instagram (la canción de Josep es «WE ON GO»,
+  de BIA; no se verificó que esté en la biblioteca de Instagram de una cuenta de empresa).
+- Si no hay música elegida: UNA pista de ElevenLabs Music (`reel-mentores/voz/musica.mjs`, `music_v1`, instrumental;
+  48 s tardaron 7 s). El archivo arranca con ~2 s de silencio: se entra en el segundo 2.
 - Mezcla con `amix=inputs=2:normalize=0`, y loudnorm de dos pasadas sobre la mezcla (I=-14:TP=-1:LRA=11, linear) forzando `-ar 48000`.
 - Fuente de los subtítulos: Anton o Montserrat ExtraBold. libass no falla si falta la fuente: cae a Arial en silencio.
+- **Los subtítulos nunca tapan la cara (Martín, 9/11):** van justo debajo del mentón, y el mentón se mide en CADA clip
+  porque cambia con la distancia a cámara (en el reel de mentores: ~615-630 en los clips 1-3, ~765 en el 4 y después del
+  humo, la barba de Hormozi hasta ~795; sobre 1280). A la altura de Josep (610) le tapaban la boca. `SUB_Y` en `montar-v2.mjs`.
 - Se recortan los «eh» y espasmos del modelo: es la diferencia entre «un video con IA» y un anuncio.
 - Los subtítulos del template mandan sobre los del pipeline de anuncios (en «Mensaje para…», blancos y a media altura).
 

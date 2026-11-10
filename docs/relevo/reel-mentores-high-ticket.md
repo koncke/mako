@@ -5,6 +5,72 @@ Si Martín escribe «Continua», este documento es el punto de partida: está to
 
 ---
 
+## 0000000 · 10/11 ~00:05 UTC (claude4): v6 mandado, con el perfil nuevo
+
+- **Lo vigente es el v6** (`montaje/REEL-v6.mp4`, 37,2 s, guion exacto). Se rearma con `node montaje/montar-v2.mjs v7`.
+- **Perfil nuevo** aprobado por Martín: `blancas/perfil-D-personaje-contraluz.jpg` (base = su personaje original; sobre blanco
+  sin la foto → tres cuartos → la luz copiada del ABANICO, porque con el cuadro de Josep Flow reemplazó la imagen entera) y su
+  video `blancas/CLIP-perfil-manos.mp4` (4 s, 12 cr; el viejo quedó como `CLIP-perfil-manos-NOCHE-viejo.mp4`).
+- Copias en Descargas › «5 - Montaje».
+
+## 000000 · 9/11 ~23:30 UTC (claude4): v5 mandado; la toma de perfil nueva espera el OK
+
+- **v5** (`montaje/REEL-v5.mp4`): 5 golpes en lo hablado, como Josep (HIGH TICKET, MARTÍN, GURÚS, celular al cerrar el clip 3,
+  dedo al cerrar el clip 4); el humo sin golpe y con UN efecto (al desvanecerse). Sin zoom ni efectos en Hormozi: Martín los
+  probó en el v4 y no le gustaron.
+- **Perfil nuevo:** `blancas/perfil-C-personaje.jpg` (Flow `/edit/fe70beec-…`): base = su personaje original, 1) sin la foto
+  sobre blanco, 2) tres cuartos con la pose y la luz de `blancas/perfil-B-tres-cuartos.jpg`. Mandado; con el OK: un video de
+  4 s («La boca cerrada y quieta. Mueve apenas los dedos de las manos.»), guardarlo como `blancas/CLIP-perfil-manos.mp4`
+  (el viejo se renombra) y rearmar con `node montaje/montar-v2.mjs v6`. Va en dos lugares: HIGH TICKET y el final del cierre.
+
+## 00000 · 9/11 ~22:30 UTC (claude4): MONTAJE v3 al ritmo de Josep, mandado
+
+**Lo vigente es el v3:** `C:/dev/reel-mentores/montaje/REEL-v3.mp4` (38,25 s) y `REEL-v3-SIN-MUSICA.mp4`; copias en Descargas ›
+«5 - Montaje». Se rearma con `node C:/dev/reel-mentores/montaje/montar-v2.mjs v4` (~35 s). Gramática medida de Josep en
+`docs/manual-video-mako.md` §8.3 y `docs/hallazgos-video-editor.md` → «Cortar al ritmo de una referencia».
+- **Canción de Josep: «WE ON GO», de BIA** (Shazam en los tramos sin voz + un comentario del reel). El v3 usa ese audio sacado
+  del reel de Josep (`josep/josep-audio.wav`): golpe desde 27,985 s y cierre desde 20,633 s. Para publicar: la versión sin
+  música + la canción desde Instagram (no se verificó que la cuenta de empresa la tenga).
+- **Martín (9/11), regla:** sin silencios muertos, animaciones cortadas o aceleradas, voz acelerada sin ardilla, tramos y
+  velocidad de habla como la referencia (`memory/edicion-ritmo-de-la-referencia.md`).
+- **Tomas blancas nuevas:** el abanico con Ramiro Cubría, Francisco Doglio, Víctor Heras, Hormozi y Razzetti (elegidos por
+  Martín), con la luz de Josep pasada como referencia en una segunda edición («Copiá SÓLO la luz y la exposición…»):
+  `blancas/abanico-5-contraluz.jpg` y su video `blancas/VIDEO-abanico.mp4` (4 s, 12 cr); el celular a contraluz
+  `blancas/celular-contraluz.jpg` (foto quieta en el montaje). Las tres de la noche llevan `curves` en el montaje.
+- **Sin hacer:** el video del celular (12 cr, falta el OK); regenerar las tres de la noche con la luz nueva (si Martín lo pide).
+
+## 0000 · 9/11 ~19:40 UTC (claude4): MONTAJE v1 HECHO y mandado; faltan 2 videos de fondo blanco
+
+**Dónde está:** `C:/dev/reel-mentores/montaje/REEL-v1.mp4` (44,7 s, con música) y `REEL-v1-SIN-MUSICA.mp4` (para
+ponerle un audio de Instagram). Copias en Descargas › «Reel mentores high ticket (9-11)» › «5 - Montaje».
+**Se rearma con** `node C:/dev/reel-mentores/montaje/montar.mjs v2` (30 s): ahí están los cortes, los carteles, las
+palabras rojas y la mezcla. Si existen `blancas/VIDEO-abanico.mp4` y `blancas/VIDEO-celular.mp4` los usa solos; si no,
+pone la imagen quieta con zoom lento (así está el v1).
+
+**Orden:** clip 1 → (blanca perfil «HIGH TICKET») → clip 2 hasta «Martín,» → (blanca brazos «MARTÍN») → resto del
+clip 2 → (abanico «GURÚS») → clip 3 → (celular) → clip 4 → (dedo) → clip 5 (humo 0,35–6,10 y 7,15–11,90: en esos dos
+cuadros coincide el encuadre) → cierre mudo: brazos 3 s, celular «COMENTÁ "APP"», dedo «1 SEMANA GRATIS», abanico,
+perfil. Transcripción del reel entero: guion exacto (sólo «25» → «veinticinco»).
+
+**Tomas blancas nuevas (pedido de Martín):** el **plano detalle del celular con MaKo** (`blancas/celular-detalle.jpg`)
+y **él con un abanico de polaroids de los gurús del corcho, que suelta de a una** (`blancas/abanico-frente.jpg`;
+Martín: «con las dos manos… como un abanico… como si fueran cartas»). Reemplaza a los pistachos que tira Josep.
+La de Hormozi sobre blanco **no va** (Martín: «con esa me sobrarían»). Las dos imágenes están **mandadas, esperando su
+OK** para hacer UN video de cada una (abanico 5 s: «suelta las polaroids de a una»; celular 4 s, quieto).
+Ambas salieron del editor de Flow `/edit/70132b4d-…` (base = `blancas/CEL-paso2-contraluz.jpg`, la blanca de la noche).
+
+**Música:** no estaba decidida en ningún lado (el catálogo de la app está vacío hasta Epidemic). Se generó UNA pista con
+ElevenLabs Music (`voz/musica.mjs`, `montaje/musica-eleven.mp3`, 48 s). Martín preguntó «¿tienes en claro ya la
+música?»: se le contestó eso; si quiere otra, se cambia el archivo y se rearma.
+
+**La risa del clip 5:** era el soplido del humo pasado por el cambio de voz (sonaba a risa/gruñido). En el montaje se
+calla la pista de voz entre «PDF» y «Mejor»; ya no aparece en la transcripción.
+
+**Sin hacer:** los dos videos de fondo blanco (esperan el OK), el v2 del montaje, y el «1 semana de prueba» contra la
+prueba gratis apagada el 30/10 (sigue sin respuesta).
+
+---
+
 ## 000 · 9/11 ~12:35 UTC: Martín RECHAZÓ los clips nuevos — «muy de IA»; se rehace todo por separado
 
 Martín, textual: «salió tanto la imagen como el pizarrón de atrás muy de IA… quiero que lo vuelvas a hacer todo por
@@ -408,4 +474,24 @@ Eso fue lo que destrabó el clip 2.
   - ✅ **(~15:38) Clips 1 y 2 hechos y mandados a Martín:** `C:/dev/reel-mentores/clips-espanol/CLIP1-ESPANOL-CON-TU-VOZ.mp4` (5,06 s, voz a 27 ms) y `CLIP2-ESPANOL-CON-TU-VOZ.mp4` (8,08 s, 38 ms). De Flow: `clip1-flow.mp4`, `clip2-flow.mp4` (720p original). Voz con `voz/poner-voz-wavnivel.sh`. **Falta su OK.** (Ojo: `clips-final/` tiene los clips VIEJOS rechazados; los nuevos están en `clips-espanol/`.)
   - Martín pidió MEDIR los tiempos de cada paso y preguntarse después si se podía más rápido sin perder calidad: planilla `C:/dev/reel-mentores/tiempos.csv`, resumen y respuestas en `docs/manual-video-mako.md` §6.11.
   - **(~15:40) Martín:** «el primer clip queda cien por ciento… me gusta que tenga algo de movimiento». Guardar el clip 2, pero probar una VARIACIÓN: desde el último fotograma del clip 1, que diga la frase 2 y «en lo que va diciendo la frase, que tire la tarjetita que tiene en la mano». (Excepción pedida por él a «cada clip desde el avatar original».) Último fotograma: `C:/dev/reel-mentores/clips-espanol/clip1-ultimo-fotograma.png` (720×1280, PNG). Prompt del clip 2 con: «While he speaks, he tosses the polaroid photo card he is holding out of the frame with a casual flick of his hand.» 8 s, 24 créditos. A las 15:43 Flow lo frenó con «Detectamos actividad inusual» (unas 30 generaciones en 75 min): no se generó; se espera 5 min y se relanza.
+  - ✅ **(~16:08) Variación del clip 2 hecha y mandada:** `C:/dev/reel-mentores/clips-espanol/CLIP2-VARIACION-CON-TU-VOZ.mp4` (8 s; tira la polaroid a los 0,6 s). Se relanzó a las 16:04 tras dos rechazos de «actividad inusual» (15:43 y 15:49, sin video). El clip 1 quedó APROBADO («queda cien por ciento»).
+  - ✅ **(~16:20) Clip 3 hecho y mandado:** imagen `omni/clip3-imagen-b.jpg` (Martín: «está perfecto», 2.ª muestra; la 1.ª salió corrida y chica), frase «Por eso creé una app para que no tengas que gastarte miles de dólares en vendehumos.», 8 s, 24 créditos medidos (684 → 660), sin la polaroid por continuidad con el clip 2. `clips-espanol/CLIP3-CON-TU-VOZ.mp4`. Frase de la imagen que funcionó: «Agrega a esta persona en el centro, con el mismo encuadre de cerca que en el original, como un selfie: se ve del pecho para arriba, de frente a cámara, con las manos abajo y el corcho detrás. …»
+  - Reglas nuevas de Martín (9/11 tarde): continuidad entre clips; de video NO se hacen variaciones (cada video espera el OK a su imagen); medir los tiempos. Están en AGENTS.md y en el manual.
+  - **(~16:30) Martín sobre el clip 3:** Omni REPITIÓ palabras («…en vendehumo, en vendehumos») porque se le dieron 8 s para 16 palabras → regla de duración por palabras (AGENTS.md, manual) y chequeo con `C:/dev/reel-mentores/voz/chequear-guion.mjs` (transcribe y compara). Y lo quiere mostrando el celular con MaKo (Segundo Cerebro). No se graba la pantalla (la app /m/ desde la PC manda al Ops Center): la pantalla la inventa Flow.
+    - Asset nuevo `omni/avatar-celular.jpg` (versión `0acbe592`): base = avatar original, sin referencia: «En vez de la foto, sostiene un celular con la pantalla mirando a cámara. En la pantalla se ve una app oscura con un mapa de puntos azules y celestes unidos por líneas finas, como una red de ideas. Su rostro, sus expresiones, su pelo, su ropa y el cuarto quedan exactamente igual.»
+    - Combinación `omni/clip3-celular.jpg` (versión `c1fa94ce`): base = `fondo-espanol-6`, ref = avatar-celular, la frase del clip 1 con «sosteniendo el celular como en el original». Mandada a Martín para su OK. Video previsto: 7 s (16 palabras con gesto → 0,8 + 5,7 + 0,3), 21 créditos.
+  - **(~16:40) Martín prefirió un CRM al Segundo Cerebro.** `omni/avatar-crm.jpg` (versión `4e14400c`, desde el avatar original): «En vez de la foto, sostiene un celular con la pantalla mirando a cámara. En la pantalla se ve una app de ventas oscura, como un CRM: columnas con tarjetas de clientes, cada una con una foto redonda y una etiqueta de color azul, verde o naranja. …». Pidió probarlo en modo claro: rehacerlo desde el original con «clara, de fondo blanco» dio OTRO diseño (Martín: «algo mal le diste en el prompt»); lo correcto fue editar la imagen que le gustó: «La pantalla del celular pasa a modo claro: el mismo diseño, las mismas columnas, tarjetas, fotos y etiquetas de colores, pero con fondo blanco y letras oscuras. …» → `avatar-crm-blanco.jpg`, idéntico en claro. **Regla: «tal cual, pero X» = editar la imagen aprobada pidiendo sólo X, nunca regenerar.** Al final eligió el OSCURO.
+  - ✅ **(~16:58) Clip 3 final:** `omni/clip3-crm-oscuro.jpg` (versión `00dff70c`: fondo-espanol-6 + avatar-crm de referencia, la frase de siempre con «sosteniendo el celular como en el original») → video 7 s (16 palabras), 21 créditos, chequeo del guion EXACTO (habla 0,78–6,10 s) → `clips-espanol/CLIP3-CRM-CON-TU-VOZ.mp4`. Mandado.
+  - **(~18:00) Clip 4:** Martín cambió el guion a «Vas a poder crear y editar videos como el que estás viendo en este momento.» Se transforma en la caricatura de Hormozi de la app (`public/asesores/hormozi.png`; la cara REAL de Hormozi no se genera: sería su imagen en un anuncio) y vuelve: dos videos de 4 s con fotograma inicial y final (vos → caricatura «Vas a poder crear y editar videos»; caricatura → vos «como el que estás viendo en este momento»). Fotogramas sin celular: `clip4/clip4-martin-sin-celular.jpg` y `clip4/clip4-caricatura-sin-celular.jpg` (pedido corto «Que sea la persona de la referencia, tal cual.» + la caricatura de la app: la más fiel). **Regla: con la foto de referencia alcanza; el pedido largo la aleja (Martín: «Dale la foto y sabrá, no tanto prompt»).**
+  - La variación del clip 2 hecha desde el último fotograma del clip 1 DERIVÓ la cara (Martín: «el 2 creo que no es»): se rehace desde `omni/clip1-final-a.jpg`, 7 s. Confirma la regla: cada clip desde la imagen original, nunca desde un cuadro de video.
+  - ✅ **(~18:20) Clips listos y mandados** (en `C:/dev/reel-mentores/clips-espanol/` y en Descargas › «Reel mentores high ticket (9-11)» › «1 - Clips finales con tu voz»): clip 1 (aprobado), clip 2 variación V2 (desde `clip1-final-a.jpg`, 7 s, guion exacto), clip 2 señalando (guardado), clip 3 CRM (7 s, exacto), clip 4 = 4a vos→caricatura «Vas a poder crear y editar videos» + 4b caricatura→vos «como el que estás viendo en este momento» (4 s c/u, guion exacto), unidos en `CLIP4-CON-TU-VOZ.mp4`. Créditos al cierre: medir de nuevo (684 a las 16:15; clip 3 = 21, clip 4 = 24, variación = 21).
+  - **(~18:30) Clip 5, guion nuevo de Martín:** «Dejá de comentarle a los vendehumos que solo te dan un PDF… Mejor comentá "App" y te regalo 1 semana de prueba.» Martín: se hace HUMO durante la primera frase. Dos videos lanzados en Flow (18:31 y 18:33 UTC): 5a = inicio `clip4/clip4-martin-sin-celular.jpg`, final `omni/fondo-espanol-6.jpg` (cuarto vacío), 7 s, se disuelve en humo gris al terminar la frase; 5b = inicio el cuarto vacío, final su imagen, reaparece desde el humo y dice el CTA, 5 s. Falta: bajarlos (el más nuevo es el 5b), `voz/chequear-guion.mjs`, `voz/poner-voz-wavnivel.sh`, unirlos en `CLIP5-CON-TU-VOZ.mp4` (concat como el clip 4) y mandarlos.
+  - ✅ **(~18:40) Clip 5 hecho y mandado:** `clips-espanol/CLIP5-CON-TU-VOZ.mp4` (12 s = 5a 7 s + 5b 5 s, guion exacto en las dos; el humo funcionó con fotograma inicial/final). En Descargas › «1 - Clips finales con tu voz». **Sigue: el cierre mudo (~10 s, CTA «COMENTÁ "APP"» y «1 SEMANA GRATIS») y el montaje con subtítulos.**
+  - **(~18:50) Martín sobre el clip 5:** «No me gusta mucho el efecto… que se vaya convirtiendo en humo MIENTRAS va diciendo eso… más realista, no tan caricaturesco», y «cuando digo mejor comentá App ahí ya no debería ser humo». PENDIENTE (Flow frenó por actividad inusual a las 18:51; reintentar ~19:06):
+    - 5a (7 s, 21 cr): inicio `clip4/clip4-martin-sin-celular.jpg`, final `omni/fondo-espanol-6.jpg`, prompt: «Vertical 9:16, one continuous handheld shot, no cuts, photorealistic. The young man looks straight at the camera and says, IN SPANISH, exactly this and nothing else: «Dejá de comentarle a los vendehumos que solo te dan un PDF.» He speaks CONTINUOUSLY, taking about 4.3 seconds. Serious, direct tone, young man from Uruguay. From his first words, his body slowly and gradually turns into thin, translucent wisps of real smoke, like incense smoke drifting in the room, starting at his shoulders and spreading while he keeps talking, until by the last word he has completely faded away, leaving the empty room of the last frame. No on-screen text, no subtitles.»
+    - 5b (5 s, 15 cr): Martín: «tiene que tener un efecto de reaparición, porque si no es como medio aparezco así de la nada». Inicio = `omni/fondo-espanol-6.jpg` (cuarto vacío), final = `clip4/clip4-martin-sin-celular.jpg`. Prompt: el mismo humo realista (thin translucent wisps, like incense smoke) se junta en el primer segundo y lo forma; ya entero, sin humo, mira a cámara y dice «Mejor comentá App y te regalo una semana de prueba.» (about 3 seconds), photorealistic.
+    - Después: chequear-guion, poner-voz-wavnivel, concat → `CLIP5-CON-TU-VOZ.mp4` (reemplaza al de la nube grande), mandar y actualizar Descargas.
+  - ✅ **(~19:10) Clip 5 V2 hecho y mandado:** `clips-espanol/CLIP5-V2-CON-TU-VOZ.mp4` (5a humo realista que lo disuelve mientras habla + 5b reaparece desde el humo y dice el CTA sin humo; guion exacto en las dos). Reemplazó al de la nube caricaturesca en Descargas. **Sigue: cierre mudo (~10 s) y montaje con subtítulos.**
+  - **(~19:15) Martín prefirió el clip 5 DEL INICIO** (CLIP5-CON-TU-VOZ.mp4, la nube): «salió bastante mal el efecto… prefiero el del inicio. Dale libertad sobre todo a Flow que lo genere como le parezca». Restaurado en Descargas. Regla: un efecto se pide corto (qué y cuándo), sin la receta.
+  - (viejo) clip 5 (bloque 5: «Dejá de comentarle a los que te dan un triste PDF. Mejor comentá "App" y te regalo 1 semana de prueba.»), el cierre mudo de ~10 s y el montaje. Cada imagen primero para el OK; duración por palabras; chequeo del guion. (bloques 4 y 5 del guion), el cierre mudo y el montaje — cada imagen se manda primero para el OK.
   - **Con el OK:** en Flow, Fotogramas · Omni 1.2 Flash · 720p · 9:16 · x1, desde la imagen que apruebe (hoy `omni/clip2-imagen-B.jpg`, 1K original), frase 2: «Me llamo Martín, tengo 25 años y me estudié a todos los gurús que conoces.», prompt en inglés con la receta de CLIP-wavnivel (sin la polaroid). Después `bash voz/poner-voz-wavnivel.sh`.

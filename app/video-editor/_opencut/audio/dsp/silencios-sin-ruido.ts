@@ -14,10 +14,12 @@
 //
 // Una voz limpia da lo mismo que antes: donde el canal no tiene ruido (su piso bajo −75 dBFS), la
 // cadena no toca nada (./ruido.ts, la guarda). Lo prueba tests/video-editor-silencios.test.ts.
+//
+// Quién reduce el ruido lo dice el que llama (`reducir`): «Borrar silencios» lo manda al worker
+// (../ruido-hilo/cliente.ts, `reducirRuidoEnSegundoPlano`); los tests, a la cuenta en su hilo.
 
 import type { Trozo } from "../decodificar";
-import type { MotorRnnoise } from "./rnnoise";
-import { reducirRuido } from "./ruido";
+import type { ReductorRuido } from "../ruido-hilo/cliente";
 import { MedidorVentanas, rangosDeSilencio, type OpcionesSilencio } from "./silencios";
 
 /** La intensidad de «Reducir el ruido» (audio/cadena.ts: la de CapCut). */
@@ -65,14 +67,14 @@ function mezcla(canales: readonly Float32Array[]): Float32Array {
 /** Los silencios del bloque, en segundos de la FUENTE, buscados en el audio sin ruido. */
 export async function silenciosSinRuido({
 	audio,
-	motor,
+	reducir,
 	opciones,
 }: {
 	audio: Trozo;
-	motor: MotorRnnoise;
+	reducir: ReductorRuido;
 	opciones?: OpcionesSilencio;
 }): Promise<[number, number][]> {
-	const [limpio] = await reducirRuido({ canales: [mezcla(audio.canales)], sampleRate: audio.sampleRate, intensidad: INTENSIDAD, motor });
+	const [limpio] = await reducir({ canales: [mezcla(audio.canales)], sampleRate: audio.sampleRate, intensidad: INTENSIDAD });
 	const medidor = new MedidorVentanas();
 	medidor.agregar({ canales: [limpio], sampleRate: audio.sampleRate, inicio: audio.inicio });
 	return rangosDeSilencio(medidor.resultado(), opciones);

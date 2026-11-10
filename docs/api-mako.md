@@ -40,7 +40,7 @@
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge` · `sumar_documento_second_brain` · `ver_kits_marca` · `guardar_kit_marca` · `elegir_kit_marca` · `borrar_kit_marca` · `ver_plantillas_oferta`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `animar_palabras_video` · `usar_preset_subtitulos` · `proponer_broll_video` · `buscar_clips_video` · `editar_video_automatico` · `poner_emojis_subtitulos` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos` · `ver_plantillas_avatar`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video` · `resaltar_claves_subtitulos` · `animar_palabras_video` · `usar_preset_subtitulos` · `proponer_broll_video` · `buscar_clips_video` · `editar_video_automatico` · `poner_emojis_subtitulos` · `agregar_motion_video` · `editar_motion_video` · `duplicar_elemento_video` · `cambiar_fondo_lienzo` · `poner_efecto_texto_video` · `agregar_emoji_video` · `encuadrar_clip_video` · `otra_imagen_broll` · `listar_presets_subtitulos` · `guardar_preset_subtitulos` · `borrar_preset_subtitulos` · `ver_plantillas_avatar`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `escribir_en_grupo` · `configurar_horario_envio`
@@ -8648,14 +8648,14 @@ curl -L \
 
 ### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}` — Botones de un DM de Instagram
 
-SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. Con «en_comentario» true su texto se publica debajo del comentario, a la vista de todos, en vez de ir por privado. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.
+SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. Con «en_comentario» true su texto se publica debajo del comentario, a la vista de todos, en vez de ir por privado. Con «variantes», otras formas de decir ese texto: a cada persona le toca una al azar (el texto o una de ellas), también en la respuesta pública; la lista reemplaza a las de antes y [] las saca. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/cambiar_botones_mensaje`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Automations»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** reemplaza el texto, los botones o la respuesta en el comentario de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)
+- **Escribe:** reemplaza el texto, los botones, las otras formas de decirlo o la respuesta en el comentario de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -8671,6 +8671,7 @@ SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos
 | `botones.link` | string | no | o la dirección https que abre. |
 | `texto` | string | no | opcional: el texto nuevo (con botones, Instagram corta en 640). Admite {{nombre}}. |
 | `en_comentario` | boolean | no | opcional: true = su texto se publica debajo del comentario que disparó el flujo, a la vista de todos (con un CRON de comentario; sólo texto, sin botones); false = vuelve a ir por mensaje privado. |
+| `variantes` | string[] | no | opcional: hasta 8 otras formas de decir el texto (cada una hasta 1000 caracteres); a cada persona le toca una al azar, el texto o una de ellas. Reemplaza a las de antes; [] las saca. Sólo en un mensaje de UN texto. |
 
 ```bash
 curl -L \
@@ -15837,7 +15838,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 18 lecturas · 44 acciones.
+Tab **Video Generator** (`/video-generator`). 18 lecturas · 52 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -16205,7 +16206,7 @@ curl -L \
 
 ### `POST /api/v1/video/proyectos/{proyecto}/propuestas/agregar-texto` — Agregar un texto al video
 
-PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Agrega un texto en pantalla, en una pista de texto libre, con el estilo predeterminado (Arial 15, blanco, centrado en el lienzo). "ref" es opcional: si le pones una nueva ("n1", "n2"…), las operaciones que siguen pueden cambiarle el estilo, la posición o la animación en este mismo pedido.
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Agrega un texto en pantalla, en una pista de texto libre, con el estilo predeterminado (Arial 15, blanco, centrado en el lienzo). "ref" es opcional: si le pones una nueva ("n1", "n2"…), las operaciones que siguen pueden cambiarle el estilo, la posición o la animación en este mismo pedido. "plantilla" (opcional): el id de una «Plantilla de texto» de DISPONIBLES.plantillas_texto, y el texto nace con su fuente, su tamaño, su efecto y su animación.
 
 - **Ruta por operación:** `POST /api/v1/video/agregar_texto_video`
 - **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
@@ -16224,6 +16225,7 @@ PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el na
 | `inicio` | number | sí | En qué segundo aparece. |
 | `duracion` | number | sí | Cuántos segundos dura. |
 | `ref` | string | no | Opcional: una ref nueva («n1», «n2»…) para que otra operación de la misma propuesta la cambie. |
+| `plantilla` | string | no | Opcional: el id de DISPONIBLES.plantillas_texto de ver_proyecto_video (su fuente, tamaño, efecto y animación). |
 
 ```bash
 curl -L \
@@ -17430,7 +17432,7 @@ curl -L \
 
 ### `POST /api/v1/video/proyectos/{proyecto}/propuestas/broll` — Proponer B-roll y cambios de plano
 
-PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. B-roll automático, como Submagic: según lo que se dice, propone fotos con licencia (de Pexels) encima del video y, con "planos": true, cambios de plano (acercamientos al ritmo de las frases). "ritmo" (opcional): "poco", "normal" o "mucho". No elige ni inventa fotos ni tiempos: lo hace al aceptar, y la persona deja o saca cada una en la línea de tiempo. Úsala cuando pidan B-roll, imágenes de apoyo, tomas de recurso, cambios de plano o zooms automáticos. Se aplica al final.
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. B-roll automático, como Submagic: según lo que se dice, propone fotos con licencia (de Pexels) encima del video y, con "planos": true, cambios de plano (acercamientos al ritmo de las frases). "ritmo" (opcional): "poco", "normal" o "mucho". Con "videos": true trae videos cortos de Pexels, sin sonido, en vez de fotos. No elige ni inventa fotos ni tiempos: lo hace al aceptar, y la persona deja o saca cada una en la línea de tiempo. Úsala cuando pidan B-roll, imágenes de apoyo, tomas de recurso, cambios de plano o zooms automáticos. Se aplica al final.
 
 - **Ruta por operación:** `POST /api/v1/video/proponer_broll_video`
 - **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
@@ -17447,6 +17449,7 @@ PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el na
 | `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
 | `ritmo` | string (poco \\| normal \\| mucho) | no | Opcional: cuántas imágenes («normal», una cada 9 s). |
 | `planos` | boolean | no | Opcional: proponer también los acercamientos (sin esto, sí). |
+| `videos` | boolean | no | Opcional: true trae videos cortos sin sonido en vez de fotos. |
 
 ```bash
 curl -L \
@@ -17540,6 +17543,265 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/emojis-subtitulos" \
   -d '{"activar":true}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/agregar-motion` — Agregar un motion graphic
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Agrega un MOTION GRAPHIC (una animación ya diseñada que ocupa el cuadro, en su propia pista): "plantilla", y "valores" {campo: valor} sólo con lo que pones, dentro del tope de cada campo; "inicio" en segundos; "duracion" opcional (la de la plantilla). Lo que dice va TAL CUAL lo dijo la persona: nombres, cifras, precios, citas y calificaciones, nunca los inventes (si falta un obligatorio, pídelo en el resumen). Lo que no pones queda vacío (las estrellas, en 0). UN "tono" para todos los motion del video. "ref" nueva opcional ("n1"…).
+
+- **Ruta por operación:** `POST /api/v1/video/agregar_motion_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `plantilla` | string (titular \\| palabras \\| cifra \\| tercio \\| logo \\| barras \\| testimonio \\| oferta \\| cierre) | sí | La plantilla. Sus campos (* = obligatorio): titular (antetitulo≤40, titulo*≤90, bajada≤140); palabras (frase1*≤40, frase2≤40, frase3≤40); cifra (prefijo≤4, numero*, decimales 0-2, sufijo≤8, etiqueta*≤60, nota≤90); tercio (nombre*≤32, rol≤40, colorPanel); logo (marca*≤24, lema≤60); barras (titulo≤60, datos*≤240, unidad≤6); testimonio (cita*≤160, nombre*≤40, cargo≤50, estrellas 0-5); oferta (antetitulo≤30, descuento*≤10, producto≤60, precio≤20, precioAntes≤20, boton≤28); cierre (titulo*≤60, boton*≤28, detalle≤60). Comunes: tono (premium\|corporativo\|energico\|jugueton), colorFondo, colorTexto y colorAcento (#RRGGBB), conFondo (true/false), fuente. |
+| `valores` | object[] | no | Los campos que pones: [{campo, valor}]. |
+| `valores.campo` | string | sí | El campo de la plantilla. |
+| `valores.valor` | string | no | El valor (un texto vacío saca uno opcional). |
+| `inicio` | number | sí | En qué segundo aparece. |
+| `duracion` | number | no | Opcional: los segundos que dura (sin ella, los de la plantilla). |
+| `ref` | string | no | Opcional: una ref nueva («n1», «n2»…) para que otra operación de la misma propuesta la cambie. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/agregar-motion" \
+  -d '{"plantilla":"titular","inicio":0}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/editar-motion` — Editar un motion graphic
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Cambia lo que dice (el título, el nombre, la cifra…), el tono, los colores o la fuente de un motion graphic que ya está ("tipo":"motion", con sus "valores" de ahora): "valores" {campo: valor} sólo con lo que cambia, con los campos y topes de SU plantilla (vacío saca uno que no es obligatorio). La plantilla no se cambia.
+
+- **Ruta por operación:** `POST /api/v1/video/editar_motion_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `valores` | object[] | sí | Los campos que cambian: [{campo, valor}]. |
+| `valores.campo` | string | sí | El campo de la plantilla. |
+| `valores.valor` | string | no | El valor (un texto vacío saca uno opcional). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/editar-motion" \
+  -d '{"ref":"REF","valores":[]}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/duplicar` — Duplicar un elemento
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Duplica un elemento, como el botón «Duplicar»: la copia es igual (estilo, efectos, animaciones) y queda en el mismo tiempo, encima, en una pista nueva. "copia" (opcional): una ref nueva ("n1"…) para moverla con mover o cambiarla en este mismo pedido.
+
+- **Ruta por operación:** `POST /api/v1/video/duplicar_elemento_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `copia` | string | no | Opcional: una ref nueva («n1», «n2»…) para la copia, para moverla o cambiarla en la misma propuesta. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/duplicar" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/fondo-lienzo` — Cambiar el fondo del lienzo
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. El fondo del lienzo (el del panel Proyecto, en Fondo), lo que se ve donde el video no llena el cuadro, en TODO el proyecto: "color" (#RRGGBB) o "desenfoque" ("suave", "medio" o "fuerte": el mismo video, desenfocado). Uno de los dos. El de ahora va en "fondo_lienzo" de la vista.
+
+- **Ruta por operación:** `POST /api/v1/video/cambiar_fondo_lienzo`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `color` | string | no | Opcional: un color #RRGGBB. Va «color» o «desenfoque». |
+| `desenfoque` | string (suave \\| medio \\| fuerte) | no | Opcional: el mismo video, desenfocado. Va «color» o «desenfoque». |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/fondo-lienzo"
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/efecto-texto` — Poner un efecto de texto
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Un «Efecto de texto» del panel Texto en un texto o un subtítulo: su color, trazo, sombra, brillo y fondo de una vez, sin tocar la fuente, el tamaño ni lo que dice. "id" es uno de DISPONIBLES.efectos_texto (copia el id exacto; no inventes otros); "ninguno" lo deja blanco y sin nada. Para un solo detalle, estilo_texto.
+
+- **Ruta por operación:** `POST /api/v1/video/poner_efecto_texto_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `id` | string | sí | El id de DISPONIBLES.efectos_texto de ver_proyecto_video (copia el id exacto); «ninguno» lo saca. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/efecto-texto" \
+  -d '{"ref":"REF","id":"ID"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/agregar-emoji` — Agregar un emoji
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Agrega UN emoji de la biblioteca de emojis del panel Stickers como sticker, en su propia pista y en el centro del cuadro: "emoji" (🔥, 💰, ✅, 👉…), "inicio" y "duracion" en segundos. "ref" nueva opcional ("n1"…) para moverlo o achicarlo con transformar en este mismo pedido. Uno encima de cada subtítulo es emojis_subtitulos.
+
+- **Ruta por operación:** `POST /api/v1/video/agregar_emoji_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `emoji` | string | sí | UN emoji de la biblioteca (🔥, 💰, ✅…). |
+| `inicio` | number | sí | En qué segundo aparece. |
+| `duracion` | number | sí | Cuántos segundos dura. |
+| `ref` | string | no | Opcional: una ref nueva («n1», «n2»…) para que otra operación de la misma propuesta la cambie. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/agregar-emoji" \
+  -d '{"emoji":"EMOJI","inicio":0,"duracion":0.2}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/encuadre` — Recortar el cuadro de un clip
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Recortar» el CUADRO de un clip de video o imagen, como el diálogo de la barra (el tiempo se recorta con recortar). Uno de tres: "proporcion" (original, 16:9, 9:16, 1:1, 4:3, 3:4, 2:1, 2.35:1, 1.85:1; "original" es la del archivo) deja el rectángulo más grande con esa forma, centrado en el de ahora; o "izquierda", "arriba", "derecha" y "abajo", el % del archivo que se le saca a cada lado (de 0 a 95; lo que no pongas, 0; entre dos lados opuestos queda al menos el 2 %); o "quitar": true lo devuelve entero. El de ahora va en "encuadre" del elemento.
+
+- **Ruta por operación:** `POST /api/v1/video/encuadrar_clip_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `proporcion` | string (original \\| 16:9 \\| 9:16 \\| 1:1 \\| 4:3 \\| 3:4 \\| 2:1 \\| 2.35:1 \\| 1.85:1) | no | Opcional: la forma del cuadro, centrada. Va «proporcion», los lados o «quitar». |
+| `izquierda` | number | no | Opcional: el % que se le saca de ese lado, de 0 a 95. |
+| `arriba` | number | no | Opcional: el % que se le saca de ese lado, de 0 a 95. |
+| `derecha` | number | no | Opcional: el % que se le saca de ese lado, de 0 a 95. |
+| `abajo` | number | no | Opcional: el % que se le saca de ese lado, de 0 a 95. |
+| `quitar` | boolean | no | Opcional: true lo deja entero. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/encuadre" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/cambiar-broll` — Traer otra imagen para un B-roll
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Cambia la foto (o el video) de UN B-roll de MaKo que ya está (los que llevan "broll" en la vista, con su búsqueda) por la siguiente de la MISMA búsqueda de Pexels, en el mismo lugar y el mismo tiempo. No elige cuál: trae la siguiente que no se vio en ese lugar. Para buscar otra cosa, broll de nuevo. Se aplica al final.
+
+- **Ruta por operación:** `POST /api/v1/video/otra_imagen_broll`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/cambiar-broll" \
+  -d '{"ref":"REF"}'
 ```
 
 ### `GET /api/v1/video/presets-subtitulos` — Presets de subtítulos de la marca

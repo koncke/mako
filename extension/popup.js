@@ -817,8 +817,8 @@ async function recargarMakoYConectar() {
 //     · Flow → lo de siempre (`pintar`, arriba): conectar este navegador recién ahí, cuando la persona eligió Flow.
 // Al abrir: la extracción que está corriendo (el worker abre este desplegable al empezarla), y si no, donde se dejó.
 let vista = { pantalla: 'inicio' };
-const ATRAS = { flow: 'inicio', scraper: 'inicio', extraccion: 'scraper', spy: 'inicio', perfil: 'inicio' };
-const DONDE = { flow: 'Google Flow', scraper: 'Scraper de WhatsApp', extraccion: 'Scraper de WhatsApp', spy: 'Competitors Spy', perfil: 'CRM' };
+const ATRAS = { flow: 'inicio', scraper: 'inicio', extraccion: 'scraper', spy: 'inicio', perfil: 'inicio', replica: 'inicio' };
+const DONDE = { flow: 'Google Flow', scraper: 'Scraper de WhatsApp', extraccion: 'Scraper de WhatsApp', spy: 'Competitors Spy', perfil: 'CRM', replica: 'Web Generator' };
 /** Una extracción sin noticias hace tanto se cortó (el navegador cerró la extensión a la mitad). */
 const CORTADA_MS = 3 * 60000;
 
@@ -910,6 +910,12 @@ function dibujarInicio(lista) {
     opcion(MakoPerfil.rotulo(), MakoPerfil.detalle(perfil.hay),
       ['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2', 'M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M19 8v6M22 11h-6'], '#c2410c', 'rgba(194,65,12,.12)',
       () => void abrirPerfil());
+  }
+  // «Replicar esta página»: cualquier página que no sea de MaKo, sólo con la pestaña que dio Chrome (ver `prepararReplica`).
+  if (replica.hay) {
+    opcion('Replicar esta página', 'Cópiala tal cual en tu Web Generator',
+      ['M9 9h11v11H9z', 'M5 15H4V4h11v1'], '#0f766e', 'rgba(15,118,110,.12)',
+      () => void replicarPagina({ ...replica.hay, desdeInicio: true }));
   }
 }
 
@@ -1216,6 +1222,100 @@ async function capturarPagina(p) {
   window.close();
 }
 
+// ── «Replicar esta página» (0.79.0, 9/11/2026) ─────────────────────────────────────────────────────────
+// Martín: «habíamos quedado en actualizar la extensión de Mako para que se pueda replicar por allí». La foto de la copia
+// idéntica sale en ESTA pestaña, con lo que la persona ya ve: si había que comprobar que es una persona, ya lo hizo ella. Dos
+// entradas: la pestaña que abrió Replicar de MaKo («Replicar con la extensión», anotada en `replicas` por el worker), o
+// cualquier página desde el inicio. La lectura la inyecta este desplegable con `func: MakoReplicaLeer` (replica-leer.js, el
+// mismo código que el lector de MaKo, generado desde lib/): corre en el mundo aislado, baja por la página, vuelve a donde
+// estaba y manda la foto al worker, que se la da a MaKo. El desplegable puede cerrarse: la lectura sigue sola.
+let replica = { hay: null };
+
+/**
+ * La réplica que MaKo pidió para ESTA pestaña, si la hay y sigue valiendo. Lo decide el worker (`REPLICA_PENDIENTE`): la
+ * pendiente es del SITIO que se pidió, así que en una pestaña que la persona llevó a otro sitio tocar el ícono no copia nada.
+ */
+async function replicaPendiente() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+  if (!tab?.id || !tab.url) return null;
+  const r = await enviar({ tipo: 'REPLICA_PENDIENTE', tabId: tab.id });
+  return r && r.pedida === true && typeof r.url === 'string' ? { tabId: tab.id, url: r.url, pedida: true } : null;
+}
+
+/** ¿Esta pestaña se puede replicar? Lo dice el worker (`destinoReplicable`: una página web pública que no sea de MaKo). */
+async function prepararReplica() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => []);
+  if (!tab?.id || !/^https?:[/][/]/.test(String(tab.url || ''))) return false;
+  const r = await enviar({ tipo: 'REPLICA_PUEDE', tabId: tab.id });
+  if (!r || typeof r.url !== 'string') return false;
+  replica = { hay: { tabId: tab.id, url: r.url } };
+  return true;
+}
+
+/** Lo que dice el desplegable cuando la foto no salió (el motivo lo manda la lectura, o el worker). */
+const RAZON_REPLICA = {
+  vacia: ['No vi nada que copiar', 'Espera a que la página termine de cargar y vuelve a tocar el ícono de MaKo.'],
+  pesada: ['Esta página pesa demasiado', 'Es muy grande para copiarla tal cual. En MaKo puedes replicarla como «Landing».'],
+  excepcion: ['No pude copiarla', 'Recárgala y vuelve a tocar el ícono de MaKo.'],
+  ocupada: ['Ya la estoy copiando', 'Espera unos segundos.'],
+  prohibida: ['Chrome no deja copiar esta página', 'Pasa con la tienda de Chrome, un PDF o una página del navegador.'],
+  destino: ['Esta página no se puede copiar', 'Sólo se copian páginas web públicas que no sean de MaKo.'],
+};
+const razonReplica = (motivo) => RAZON_REPLICA[motivo] || RAZON_REPLICA.excepcion;
+
+/**
+ * Lo que va llegando (con SU nonce): el avance de la lectura y, del worker, si la foto quedó guardada. «Copiada» se dice
+ * recién con `REPLICA_GUARDADA`: la lectura pudo terminar bien y el worker no poder guardarla.
+ */
+function escucharReplica(nonce) {
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (!msg || msg.nonce !== nonce || vista.pantalla !== 'replica') return false;
+    if (msg.tipo === 'REPLICA_AVANCE') {
+      const n = Math.max(0, Math.min(100, Number(msg.hecho) || 0));
+      pantallaSpy(msg.fase === 'foto' ? 'Sacando la foto…' : `Copiando esta página… ${n} %`, 'Bajo por la página para que cargue entera y vuelvo arriba. No la toques mientras tanto.');
+    } else if (msg.tipo === 'REPLICA_FOTO') {
+      if (msg.ok === true) pantallaSpy('Guardando la copia…');
+      else pantallaSpy(...razonReplica(msg.motivo));
+    } else if (msg.tipo === 'REPLICA_GUARDADA') {
+      if (msg.ok === true) {
+        pantallaSpy('Copiada', 'Sigue en MaKo: ahí eliges qué replicar.');
+        setTimeout(() => window.close(), 1500);
+      } else pantallaSpy(...razonReplica(msg.motivo));
+    }
+    return false;
+  });
+}
+
+async function replicarPagina(p) {
+  vista = { pantalla: 'replica' };
+  $('atras').hidden = !p.desdeInicio;
+  $('donde').textContent = DONDE.replica;
+  pantallaSpy('Preparando…');
+  const r = await enviar({ tipo: 'REPLICA_EMPEZAR', tabId: p.tabId });
+  if (!r?.ok || typeof r.nonce !== 'string') {
+    if (r?.motivo === 'destino') pantallaSpy(...razonReplica('destino'));
+    else pantallaSpy('No pude copiar esta pestaña', 'Recárgala y vuelve a tocar el ícono de MaKo.');
+    return;
+  }
+  escucharReplica(r.nonce);
+  if (!r.yaLeyendo) {
+    let res = null;
+    let motivo = 'excepcion';
+    try {
+      const [x] = await chrome.scripting.executeScript({ target: { tabId: p.tabId }, world: 'ISOLATED', func: MakoReplicaLeer, args: [{ nonce: r.nonce }] });
+      res = x?.result ?? null;
+      if (res && !res.ok && typeof res.motivo === 'string') motivo = res.motivo;
+    } catch { motivo = 'prohibida'; }
+    if (!res?.ok) {
+      // Sin esto, MaKo seguía en «copiando» hasta que se cansaba de esperar.
+      await enviar({ tipo: 'REPLICA_FALLO', tabId: p.tabId, nonce: r.nonce, motivo });
+      pantallaSpy(...razonReplica(motivo));
+      return;
+    }
+  }
+  pantallaSpy('Copiando esta página…', 'Bajo por la página para que cargue entera y vuelvo arriba. No la toques mientras tanto.');
+}
+
 /** «hoy 10:32» o «24/10 10:32». */
 function cuandoFue(ms) {
   const d = new Date(Number(ms) || 0);
@@ -1449,19 +1549,23 @@ async function arrancar() {
   const lista = await registro();
   let guardada = null;
   try { guardada = (await chrome.storage.local.get('popupVista')).popupVista || null; } catch { /* nada */ }
+  // La pestaña que abrió «Replicar con la extensión» de MaKo: tocar el ícono es copiarla (lo mismo que con «Capturar»).
+  const aReplicar = await replicaPendiente().catch(() => null);
+  if (aReplicar) { await replicarPagina(aReplicar); return; }
   // La pestaña que abrió «Capturar» de Spy: tocar el ícono es capturarla, y no hay otra cosa que hacer acá.
   const pendiente = await capturaPendiente().catch(() => null);
   if (pendiente) { await capturarPagina(pendiente); return; }
   const viva = lista.find(enCurso);
   const conSpy = await prepararSpy().catch(() => false);
   const conPerfil = await prepararPerfil().catch(() => false);
+  await prepararReplica().catch(() => false);
   if (viva) vista = { pantalla: 'extraccion', id: viva.id };
   // Abierto sobre el perfil de una persona, «Guardar en MaKo» está en el inicio: la pantalla donde se dejó lo escondería.
   else if (conPerfil) vista = { pantalla: 'inicio' };
   // Abierto sobre lo que ya es de un competidor o sobre sus anuncios, esto es lo que se vino a hacer: la
   // pantalla donde se dejó la última vez lo escondería.
   else if (conSpy && (spy.ficha || spy.hay?.tipo === 'anuncios')) vista = { pantalla: 'inicio' };
-  else if (guardada && guardada.pantalla !== 'spy' && guardada.pantalla !== 'perfil' && ATRAS[guardada.pantalla] !== undefined) {
+  else if (guardada && guardada.pantalla !== 'spy' && guardada.pantalla !== 'perfil' && guardada.pantalla !== 'replica' && ATRAS[guardada.pantalla] !== undefined) {
     // Una extracción terminada hace rato no es «donde se dejó»: su lugar es el registro.
     const e = guardada.pantalla === 'extraccion' ? lista.find((x) => x.id === guardada.id) : null;
     vista = guardada.pantalla === 'extraccion' && (!e || Date.now() - (Number(e.actualizado) || 0) > 10 * 60000) ? { pantalla: 'scraper' } : guardada;

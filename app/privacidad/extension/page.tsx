@@ -20,7 +20,7 @@ export const metadata = {
   description: 'Qué datos usa la extensión de MaKo, y cuáles no.',
 };
 
-const ACTUALIZADO = '6 de noviembre de 2026';
+const ACTUALIZADO = '9 de noviembre de 2026';
 
 export default function Page() {
   return (
@@ -32,8 +32,9 @@ export default function Page() {
         <strong>su propia cuenta de Google Flow</strong>, desde su propio navegador, que
         complete los datos de sus contactos con lo que ya ve en <strong>su propio WhatsApp
         Web</strong>, que guarde en Competitors Spy la página o los anuncios de un competidor que
-        está mirando, y que guarde como lead de su CRM el perfil de Instagram o de LinkedIn que tiene
-        abierto. Esta política describe exactamente qué datos toca y qué hace con ellos.
+        está mirando, que guarde como lead de su CRM el perfil de Instagram o de LinkedIn que tiene
+        abierto, y que copie en su Web Generator la página que está mirando. Esta política describe
+        exactamente qué datos toca y qué hace con ellos.
       </>}
     >
 
@@ -157,6 +158,34 @@ export default function Page() {
         guarda en tu navegador, y no lee ninguna otra pestaña.
       </p>
 
+      {/* ⚠️ DESDE LA 0.79.0 (9/11/2026) «REPLICAR ESTA PÁGINA». Tiene que coincidir con extension/replica-leer.js (qué lee; lo genera
+          lib/editor-landing/replica-extension-script.ts, donde está la regla de esta lectura), extension/popup.js y
+          extension/background.js (cuándo y a dónde va). Es la ÚNICA lectura que baja por una página ajena: se dice acá. */}
+      <H>Al replicar una página en tu Web Generator</H>
+      <p>
+        Si en Replicar del Web Generator tocas «Copiar con la extensión», la extensión{' '}
+        <strong>abre esa página en una pestaña, a la vista</strong>; también puedes estar en cualquier
+        página y elegir «Replicar esta página» al tocar el ícono de MaKo. Abrirla no lee nada. Si la
+        página pide comprobar que eres una persona, lo haces tú: la extensión no toca nada ni resuelve
+        nada por ti.
+      </p>
+      <p>
+        <strong>Recién cuando tocas el ícono de MaKo en esa pestaña</strong>, la extensión la copia una
+        vez: <strong>baja por la página</strong> para que se cargue entera, la vuelve a dejar donde
+        estabas y copia lo que se ve, con sus estilos y su texto. Es lo único
+        que hace en la página: no la toca, no escribe y no envía nada desde ella. De un campo de un
+        formulario copia sólo su indicación (lo que dice cuando está vacío), nunca lo que escribiste tú, y
+        lo que escribiste en una caja de texto de la página tampoco viaja. La dirección va sin lo que trae
+        en la consulta. No envía cookies ni lo que el sitio guarda en tu navegador.
+      </p>
+      <p>
+        La copia pasa a tu pestaña de MaKo, que la convierte en una landing de tu espacio de trabajo;
+        hasta entonces queda en la memoria de la extensión, se borra al cerrar el navegador, y la
+        pestaña que abrió la extensión se cierra. Si en ese sitio tienes tu sesión iniciada, la copia
+        lleva lo que el sitio te muestra a ti: para copiarla como la ve un visitante, ábrela sin tu
+        sesión.
+      </p>
+
       {/* ⚠️ DESDE LA 0.77.0 (6/11/2026) «GUARDAR EN MAKO» SOBRE UN PERFIL. Tiene que coincidir con extension/perfil-leer.js (qué lee),
           extension/perfil-reglas.js y extension/popup.js (cuándo) y lib/perfil-captura-db.ts (qué se guarda). */}
       <H>Al guardar un perfil en tu CRM</H>
@@ -249,7 +278,8 @@ export default function Page() {
           Por su cuenta no accede a ningún sitio fuera de <code>labs.google</code>,{' '}
           <code>flow.google.com</code>, <code>aisandbox-pa.googleapis.com</code>,{' '}
           <code>web.whatsapp.com</code> y <code>hola-mako.com</code>. Otro sitio lo lee sólo si tú
-          tocas «Guardar en la ficha de…» o «Agregar como competidor» en su pestaña (ver arriba).
+          tocas «Guardar en la ficha de…», «Agregar como competidor» o «Replicar esta página» en su
+          pestaña (ver arriba).
         </li>
         <li>No recopila datos de uso, analítica, publicidad ni seguimiento de ningún tipo.</li>
         <li>No vende, comparte ni transfiere información a terceros.</li>
@@ -263,7 +293,8 @@ export default function Page() {
           <code>flow.google.com</code>) agrega un script propio para poder hacer, con tu
           sesión, los mismos pedidos que harías tú a mano; en WhatsApp Web, mientras extrae un
           grupo, muestra arriba un aviso de MaKo que dice qué está haciendo (ver arriba); en
-          cualquier otro sitio no agrega nada, y sólo lee la pestaña en la que tú lo pides.
+          cualquier otro sitio no agrega nada, y sólo lee la pestaña en la que tú lo pides. Al
+          replicar una página, baja por ella y la vuelve a dejar donde estabas (ver arriba).
         </li>
       </ul>
 
@@ -286,8 +317,8 @@ export default function Page() {
           <strong>scripting</strong> — insertar en la página de Google Flow el script que
           hace los pedidos con tu sesión. Es el mismo trabajo que harías tú a mano en esa
           pestaña; sin este permiso no hay forma de hacerlo. Con el permiso de abajo, también
-          leer la pestaña en la que tocaste «Guardar en la ficha de…», «Agregar como competidor» o
-          «Guardar en MaKo».
+          leer la pestaña en la que tocaste «Guardar en la ficha de…», «Agregar como competidor»,
+          «Guardar en MaKo» o «Replicar esta página».
         </li>
         <li>
           <strong>activeTab</strong> — acceder a la pestaña que estás mirando sólo cuando tocas

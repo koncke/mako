@@ -1,6 +1,7 @@
 import { buildGraphicPreviewUrl, buildDefaultGraphicInstance, graphicsRegistry, registerDefaultGraphics } from "@/app/video-editor/_opencut/graphics";
 import type { ParamValues } from "@/app/video-editor/_opencut/params";
 import { buildStickerId, parseStickerId } from "../sticker-id";
+import { formasNuevasDelRegistro } from "./formas-reglas";
 import type {
 	StickerBrowseResult,
 	StickerItem,
@@ -57,15 +58,9 @@ const PRESETS_FORMAS: ShapeGraphicPreset[] = [
 function getShapePresets(): ShapeGraphicPreset[] {
 	registerDefaultGraphics();
 	const conocidas = new Set(PRESETS_FORMAS.map((preset) => preset.definitionId));
-	// Una definición nueva del registro que no está en la lista aparece igual, con su nombre.
-	const nuevas = graphicsRegistry
-		.getAll()
-		.filter((definition) => !conocidas.has(definition.id))
-		.map((definition) => ({
-			shapeKey: definition.id,
-			name: definition.name,
-			definitionId: definition.id,
-		}));
+	// Una definición nueva del registro que no está en la lista aparece igual, con su nombre. ⚠️ Menos las ANIMADAS: un
+	// motion graphic también vive en este registro y no es una forma (formas-reglas.ts).
+	const nuevas = formasNuevasDelRegistro(graphicsRegistry.getAll(), conocidas);
 	return [
 		...PRESETS_FORMAS.filter((preset) => graphicsRegistry.has(preset.definitionId)),
 		...nuevas,

@@ -451,8 +451,10 @@ export const esSeccionDePiezas = (c: Componente): boolean =>
 export function sinBloquesDeDiseno<T extends Componente>(componentes: readonly T[]): T[] {
   const seccion = componentes.find(esSeccionDePiezas);
   const corrida = seccion ? seccion.y + seccion.h : 0;
+  // Lo que está ARRIBA de «Todas las piezas» y no es un bloque también es del diseño en bloques (9/11/2026): una pieza puesta entre
+  // las tarjetas, como «Cada lead nuevo» de «Velocidad de llamada». La migración deja todo lo de antes DEBAJO de la sección.
   return componentes
-    .filter((c) => !(c.clase === 'elemento' && c.tipo === 'diseno') && c !== seccion)
+    .filter((c) => !(c.clase === 'elemento' && c.tipo === 'diseno') && c !== seccion && !(seccion && c.y < seccion.y))
     .map((c) => (corrida && c.y >= corrida ? { ...c, y: c.y - corrida } : c));
 }
 

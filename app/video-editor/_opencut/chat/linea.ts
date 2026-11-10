@@ -32,6 +32,13 @@
 // lista los medios de Multimedia con una ref corta (m1, m2…), que usan reemplazar_clip y
 // usar_plantilla. usar_plantilla va SOLA y con la línea de tiempo vacía: se revisa antes que
 // todo lo demás.
+//
+// Los motion graphics (lib/motion, traídos el 10/11/2026 de rescate/motion-imagen-2610): un
+// `graphic` con `definitionId` «motion-…» (graphics/definitions/motion.ts) la IA lo ve como
+// "tipo":"motion", con su "plantilla" y sus "valores" de AHORA (sólo los de la plantilla, con
+// `valoresDeParams`: sus params tienen también la posición y la opacidad del elemento).
+// agregar_motion lo inserta como la biblioteca y editar_motion escribe sus params con el
+// `updateElements` del panel, validados contra SU plantilla (`valoresMotionValidos`).
 // =============================================================================
 
 import type { SceneTracks, TimelineElement, TimelineTrack, ElementType } from "@/app/video-editor/_opencut/timeline/types";
@@ -39,12 +46,17 @@ import type { ParamValue, ParamValues } from "@/app/video-editor/_opencut/params
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import {
 	AJUSTES_COLOR,
+	DESENFOQUES_FONDO,
 	MEZCLAS,
 	OBJETIVOS_NORMALIZAR,
 	TOPES_CHAT,
 	colorHex,
+	textoValoresMotion,
+	valoresAlAgregar,
+	valoresMotionValidos,
 	type CategoriaAnimChat,
 	type ClaveAjuste,
+	type DesenfoqueFondo,
 	type EstiloTextoChat,
 	type OperacionChat,
 	type TransformChat,
@@ -89,8 +101,31 @@ import type { Disponibles } from "./disponibles";
 import { clavesNombradas, codificarClaves, elegirClaves, leerClaves, PARAM_CLAVES, quitarClaves, sumarClaves } from "@/app/video-editor/_opencut/subtitles/claves";
 import { PAUSA_MIN_S, segundosDeAviso } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 import { PARAM_EMOJI_DE } from "@/app/video-editor/_opencut/subtitles/emojis";
+import { plantillaDeDefinicion, valoresDeParams } from "@/app/video-editor/_opencut/graphics/definitions/motion";
+import { PLANTILLAS as DEF_MOTION, valoresPorDefecto } from "@/lib/motion/plantillas";
+import type { IdPlantilla, ValoresMotion } from "@/lib/motion/tipos";
+import type { TBackground } from "@/app/video-editor/_opencut/project/types";
+import { brollDe } from "@/app/video-editor/_opencut/broll/pistas";
+import { EFECTOS_TEXTO, PLANTILLAS_TEXTO, SIN_EFECTO, paramsParaLienzo } from "@/app/video-editor/_opencut/text/estilos-predefinidos";
+import { curvaBloqueada } from "@/app/video-editor/_opencut/text/estilo";
+import { EMOJIS_PROVIDER_ID, GRUPOS_EMOJI, TENDENCIAS_EMOJI, emojiAValor, separarEmojis } from "@/app/video-editor/_opencut/stickers/providers/emojis";
+import { buildStickerId } from "@/app/video-editor/_opencut/stickers/sticker-id";
+import {
+	RECT_COMPLETO,
+	esRectCompleto,
+	normalizarRect,
+	paramsDeRect,
+	proporcionDeParams,
+	rectConProporcion,
+	rectDeParams,
+	valorProporcion,
+	type RectRecorte,
+} from "@/app/video-editor/_opencut/recorte/geometria";
 
-export type TipoRef = "video" | "imagen" | "texto" | "audio" | "sticker" | "grafico" | "efecto";
+export type TipoRef = "video" | "imagen" | "texto" | "audio" | "sticker" | "grafico" | "efecto" | "motion";
+
+/** Un motion graphic: su plantilla y los valores de sus campos (lib/motion). */
+export type MotionLeido = { plantilla: IdPlantilla; valores: ValoresMotion };
 
 /** El estilo de un texto como lo lee la IA (las claves de estilo_texto), con los colores de lo apagado aparte. */
 export type EstiloLeido = Required<Omit<EstiloTextoChat, "sombra">> & {
@@ -142,7 +177,24 @@ export type EstadoElemento = {
 	capa?: string;
 	/** Las propiedades con fotogramas clave (cambiar su valor base no se vería). */
 	fotogramas?: string[];
+	/** Un motion graphic: su plantilla y sus valores de ahora. */
+	motion?: MotionLeido;
+	/** Un texto curvado (text/estilo.ts): un efecto con fondo no se le aplica, como en el panel. */
+	curvado?: boolean;
+	/** Un texto: los params que escribe un «Efecto de texto» (CLAVES_APARIENCIA), como están. */
+	apariencia?: ParamValues;
+	/** Video e imagen: el encuadre de «Recortar» (recorte/geometria.ts) y el tamaño del archivo, si se sabe. */
+	encuadre?: { rect: RectRecorte; proporcion: string };
+	fuente?: { ancho: number; alto: number };
+	/** Un B-roll de MaKo (broll/pistas.ts → `brollDe`): lo que se buscó en Pexels. «Otra» (cambiar_broll) trae la siguiente. */
+	broll?: string;
 };
+
+/** Lo que escribe algún «Efecto de texto» (o «Ninguno»): para saber si elegir uno cambia algo. */
+const CLAVES_APARIENCIA: readonly string[] = [...new Set([SIN_EFECTO, ...EFECTOS_TEXTO.map((x) => x.params)].flatMap((p) => Object.keys(p)))];
+
+/** El fondo del lienzo como lo lee la revisión: un color, o el desenfoque (con su nombre, si es uno de los del panel). */
+export type FondoLeido = { tipo: "color"; color: string } | { tipo: "desenfoque"; nivel: DesenfoqueFondo | null; intensidad: number };
 
 export type RefElemento = {
 	ref: string;
@@ -190,8 +242,8 @@ export type RefElemento = {
 /** Un medio de Multimedia que el chat puede usar (reemplazar_clip, usar_plantilla). `duracion` en segundos, sin redondear. */
 export type RefMedio = { ref: string; mediaId: string; nombre: string; tipo: "video" | "imagen"; duracion?: number; sinAudio?: boolean };
 
-/** Lo que la vista lee de un medio de Multimedia (MediaAsset). */
-export type MedioVista = Pick<MediaAsset, "id" | "name" | "type" | "duration" | "ephemeral" | "hasAudio">;
+/** Lo que la vista lee de un medio de Multimedia (MediaAsset). `width` y `height`: el encuadre por proporción. */
+export type MedioVista = Pick<MediaAsset, "id" | "name" | "type" | "duration" | "ephemeral" | "hasAudio"> & Partial<Pick<MediaAsset, "width" | "height">>;
 
 export type VistaLinea = {
 	/** Lo que se le manda a la IA. */
@@ -204,7 +256,48 @@ export type VistaLinea = {
 	elegidos: string[];
 	disponibles: Disponibles;
 	lienzo: { ancho: number; alto: number } | null;
+	/** El fondo del lienzo (Proyecto › Fondo), o null si no se sabe. */
+	fondo: FondoLeido | null;
 };
+
+/** El fondo del proyecto como lo lee el chat: el desenfoque con su nombre si es uno de los del panel. */
+export function leerFondo(b: TBackground | null | undefined): FondoLeido | null {
+	if (!b) return null;
+	if (b.type === "color") return { tipo: "color", color: colorHex(b.color) ?? b.color };
+	const nivel = (Object.keys(DESENFOQUES_FONDO) as DesenfoqueFondo[]).find((k) => DESENFOQUES_FONDO[k] === b.blurIntensity) ?? null;
+	return { tipo: "desenfoque", nivel, intensidad: b.blurIntensity };
+}
+
+/** «negro (#000000)», «desenfoque medio»: el fondo en palabras, para la revisión. */
+function textoFondo(f: FondoLeido | null): string {
+	if (!f) return "el de ahora";
+	if (f.tipo === "color") return `color ${f.color}`;
+	return f.nivel ? `desenfoque ${f.nivel}` : `desenfoque (${f.intensidad})`;
+}
+
+/** Los emojis de la biblioteca (Stickers › Emojis), para que el chat no agregue uno que la pestaña no tiene. */
+let EMOJIS_BIBLIOTECA: Set<string> | null = null;
+/** El emoji como está en la biblioteca (con o sin el selector de variante U+FE0F), o null si no está. */
+export function emojiDeLaBiblioteca(emoji: string): string | null {
+	EMOJIS_BIBLIOTECA ??= new Set([...GRUPOS_EMOJI.flatMap((g) => separarEmojis(g.emojis)), ...separarEmojis(TENDENCIAS_EMOJI)]);
+	const sinVariante = emoji.replace(/\uFE0F/g, "");
+	for (const e of [emoji, sinVariante, `${sinVariante}\uFE0F`]) if (EMOJIS_BIBLIOTECA.has(e)) return e;
+	return null;
+}
+
+/** «sin recortar», «9:16 · se saca izquierda 21,9 % · derecha 21,9 %»: el encuadre en palabras. */
+function textoEncuadre(x: { rect: RectRecorte; proporcion: string } | undefined): string {
+	if (!x || esRectCompleto(x.rect)) return "sin recortar";
+	const lados = encuadreJson(x.rect);
+	const partes = Object.entries(lados).filter(([, n]) => n > 0).map(([k, n]) => `${k} ${String(n).replace(".", ",")} %`);
+	return `${x.proporcion !== "libre" ? `${x.proporcion} · ` : ""}se saca ${partes.join(" · ")}`;
+}
+
+/** Un encuadre en % de cada lado (lo que lee la IA y lo que pide `encuadre`). */
+function encuadreJson(r: RectRecorte): { izquierda: number; arriba: number; derecha: number; abajo: number } {
+	const p = (n: number) => r1(Math.max(0, n) * 100);
+	return { izquierda: p(r.x), arriba: p(r.y), derecha: p(1 - r.x - r.ancho), abajo: p(1 - r.y - r.alto) };
+}
 
 /** Sin lo del motor: todo nombre se descarta («no existe…»). Los tests y un editor sin cargar. */
 export const DISPONIBLES_VACIOS: Disponibles = {
@@ -223,13 +316,15 @@ const TIPO: Record<TimelineElement["type"], TipoRef> = {
 	video: "video", image: "imagen", text: "texto", audio: "audio", sticker: "sticker", graphic: "grafico", effect: "efecto",
 };
 const MOTOR: Record<TipoRef, ElementType> = {
-	video: "video", imagen: "image", texto: "text", audio: "audio", sticker: "sticker", grafico: "graphic", efecto: "effect",
+	video: "video", imagen: "image", texto: "text", audio: "audio", sticker: "sticker", grafico: "graphic", efecto: "effect", motion: "graphic",
 };
+/** Un `graphic` de una plantilla de motion se ve como "motion"; el resto, por su tipo del motor. */
+const tipoDe = (el: TimelineElement): TipoRef => (el.type === "graphic" && plantillaDeDefinicion(el.definitionId) ? "motion" : TIPO[el.type]);
 const TIPO_PISTA: Record<TimelineTrack["type"], string> = {
 	video: "video", text: "texto", audio: "audio", graphic: "grafico", effect: "efecto",
 };
 const ROTULO: Record<TipoRef, string> = {
-	video: "Video", imagen: "Imagen", texto: "Texto", audio: "Audio", sticker: "Sticker", grafico: "Forma", efecto: "Efecto",
+	video: "Video", imagen: "Imagen", texto: "Texto", audio: "Audio", sticker: "Sticker", grafico: "Forma", efecto: "Efecto", motion: "Motion",
 };
 /** «combo» del motor es «combinado» para la IA (el rótulo de CapCut). */
 const CATEGORIA_MOTOR: Record<CategoriaAnimChat, CategoriaAnimacion> = { entrada: "entrada", salida: "salida", combinado: "combo", bucle: "bucle" };
@@ -358,7 +453,13 @@ function leerTransform(p: ParamValues): TransformLeido {
 }
 
 /** Lo que la revisión y la IA necesitan saber de un elemento, según su tipo. */
-function leerEstado(el: TimelineElement, tipo: TipoRef, tps: number, mediosSinAudio: ReadonlySet<string>): EstadoElemento {
+function leerEstado(
+	el: TimelineElement,
+	tipo: TipoRef,
+	tps: number,
+	mediosSinAudio: ReadonlySet<string>,
+	tamanos: ReadonlyMap<string, { ancho: number; alto: number }> = new Map(),
+): EstadoElemento {
 	const p = el.params ?? {};
 	const e: EstadoElemento = {};
 	const fotogramas = fotogramasDe(el);
@@ -394,6 +495,12 @@ function leerEstado(el: TimelineElement, tipo: TipoRef, tps: number, mediosSinAu
 			if (v !== 0) e.ajustes[clave] = v;
 		}
 		e.reflejo = { horizontal: p[REFLEJO_HORIZONTAL] === true, vertical: p[REFLEJO_VERTICAL] === true };
+		// Como lo abre el diálogo «Recortar» (recorte/dialogo-recorte.tsx): el rectángulo y la proporción guardados.
+		e.encuadre = { rect: rectDeParams(p), proporcion: proporcionDeParams(p) };
+		const tamano = tamanos.get(el.mediaId);
+		if (tamano) e.fuente = tamano;
+		const broll = brollDe(el);
+		if (broll) e.broll = broll.busqueda;
 	}
 	if (VISUALES.has(tipo)) {
 		e.anim = {};
@@ -403,8 +510,17 @@ function leerEstado(el: TimelineElement, tipo: TipoRef, tps: number, mediosSinAu
 		}
 		e.transform = leerTransform(p);
 	}
-	if (el.type === "text") e.estilo = leerEstilo(p);
+	if (el.type === "text") {
+		e.estilo = leerEstilo(p);
+		// La regla del panel «Efectos» (text/components/pestana-texto.tsx → aplicarEfecto).
+		if (p[TEXTO.curvaActiva] === true && !curvaBloqueada(p)) e.curvado = true;
+		e.apariencia = Object.fromEntries(CLAVES_APARIENCIA.filter((k) => p[k] !== undefined).map((k) => [k, p[k]]));
+	}
 	if (el.type === "effect") e.capa = el.effectType;
+	if (tipo === "motion" && el.type === "graphic") {
+		const plantilla = plantillaDeDefinicion(el.definitionId);
+		if (plantilla) e.motion = { plantilla, valores: valoresDeParams(plantilla, p) };
+	}
 	return e;
 }
 
@@ -499,8 +615,32 @@ function estadoJson(r: RefElemento, d: Disponibles, estiloSubtitulos: string | n
 		const filtro = e.capa.startsWith(PREFIJO_FILTRO);
 		o.capa = { tipo: filtro ? "filtro" : "efecto", id: filtro ? e.capa.slice(PREFIJO_FILTRO.length) : idEfecto(d, e.capa) };
 	}
+	if (e.encuadre && !esRectCompleto(e.encuadre.rect)) {
+		o.encuadre = { ...encuadreJson(e.encuadre.rect), ...(e.encuadre.proporcion !== "libre" ? { proporcion: e.encuadre.proporcion } : {}) };
+	}
+	if (e.curvado) o.curvado = true;
+	if (e.broll) o.broll = e.broll;
 	if (e.fotogramas?.length) o.fotogramas = e.fotogramas;
 	return o;
+}
+
+/** Lo que se le muestra de un texto de motion (el tope más largo de una plantilla: los datos de las barras). */
+const MOTION_TEXTO_VISTA = 240;
+
+/**
+ * Un motion graphic como lo lee la IA: su plantilla y sus valores de AHORA. De sus campos, los que no están vacíos; de
+ * los comunes, el tono siempre (UN tono para todo el video) y los demás sólo si no están en su valor por defecto.
+ */
+function motionJson(m: MotionLeido): Record<string, unknown> {
+	const porDefecto = valoresPorDefecto(m.plantilla);
+	const propios = new Set(DEF_MOTION[m.plantilla].campos.map((c) => c.clave));
+	const valores: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(m.valores)) {
+		if (propios.has(k)) {
+			if (v !== "") valores[k] = typeof v === "string" ? corto(v, MOTION_TEXTO_VISTA) : v;
+		} else if (k === "tono" || v !== porDefecto[k]) valores[k] = v;
+	}
+	return { plantilla: m.plantilla, valores };
 }
 
 /** Lo disponible del motor como lo lee la IA: id → nombre en español. */
@@ -515,6 +655,8 @@ function disponiblesJson(d: Disponibles): Record<string, unknown> | undefined {
 		efectos: mapa(d.efectos),
 		curvas_velocidad: Object.fromEntries(d.curvas.map((c) => [c.id, `${c.nombre} (media ${textoNumero(c.media)}×)`])),
 		fuentes_sugeridas: d.fuentes.sugeridas,
+		...(d.efectosTexto?.length ? { efectos_texto: mapa(d.efectosTexto) } : {}),
+		...(d.plantillasTexto?.length ? { plantillas_texto: mapa(d.plantillasTexto) } : {}),
 		...(d.presets?.length
 			? { presets_subtitulos: Object.fromEntries(d.presets.map((p) => [p.id, `${p.nombre}${p.marca ? ` (${p.marca})` : ""}: ${p.resumen}`])) }
 			: {}),
@@ -554,6 +696,7 @@ export function vistaDeLinea({
 	mediosSinAudio = new Set<string>(),
 	conPalabras = false,
 	medios = [],
+	fondo = null,
 }: {
 	tracks: SceneTracks;
 	tps: number;
@@ -569,8 +712,13 @@ export function vistaDeLinea({
 	mediosSinAudio?: ReadonlySet<string>;
 	/** Hay subtítulos con tiempos por palabra (cortar_frase, eliminar_muletillas). */
 	conPalabras?: boolean;
+	/** El fondo del lienzo (proyecto.settings.background): fondo_lienzo. */
+	fondo?: TBackground | null;
 }): VistaLinea {
 	const refs = new Map<string, RefElemento>();
+	// El tamaño de cada archivo: el encuadre por proporción lo necesita (como el diálogo «Recortar»).
+	const tamanos = new Map<string, { ancho: number; alto: number }>();
+	for (const m of medios) if (m.width && m.height && m.width > 0 && m.height > 0) tamanos.set(m.id, { ancho: m.width, alto: m.height });
 	const usadas = new Set(refsPrevias ? [...refsPrevias.values()] : []);
 	const contador: Record<string, number> = {};
 	const nueva = (prefijo: string) => {
@@ -596,7 +744,7 @@ export function vistaDeLinea({
 		const lista = [...(track.elements as TimelineElement[])]
 			.sort((a, b) => a.startTime - b.startTime)
 			.map((el) => {
-				const tipo = TIPO[el.type];
+				const tipo = tipoDe(el);
 				const ref = refsPrevias?.get(el.id) ?? nueva(PREFIJO[el.type]);
 				const inicio = seg(el.startTime, tps);
 				const finEl = seg(el.startTime + el.duration, tps);
@@ -624,7 +772,7 @@ export function vistaDeLinea({
 					...(el.type === "audio" && typeof el.params?.[EXTRAIDO_DE] === "string" ? { extraido: true } : {}),
 					...(el.type === "video" || el.type === "image" ? { mediaId: el.mediaId, acepta: aceptaDe(el.params ?? {}) } : {}),
 					...deHueco(el, leerMarcas(el.params)),
-					estado: leerEstado(el, tipo, tps, mediosSinAudio),
+					estado: leerEstado(el, tipo, tps, mediosSinAudio, tamanos),
 				};
 				refs.set(ref, r);
 				return { r, texto, sonoro };
@@ -657,6 +805,7 @@ export function vistaDeLinea({
 			...(r.muestra ? { muestra: true, ...(r.opcional ? { opcional: true } : {}) } : {}),
 			...(r.acepta && r.acepta !== "ambos" ? { acepta: r.acepta } : {}),
 			...(r.maxCaracteres ? { max_caracteres: r.maxCaracteres } : {}),
+			...(r.estado.motion ? motionJson(r.estado.motion) : {}),
 			...estadoJson(r, disponibles, estiloSubtitulos),
 		})),
 	}));
@@ -687,10 +836,12 @@ export function vistaDeLinea({
 
 	const porId = new Map([...refs.values()].map((r) => [r.elementId, r.ref] as const));
 	const refsElegidas = elegidos.map((e) => porId.get(e.elementId)).filter((r): r is string => !!r);
+	const fondoLeido = leerFondo(fondo);
 	const json = JSON.stringify({
 		duracion_total: fin,
 		cabezal: seg(cabezal, tps),
 		...(lienzo ? { lienzo } : {}),
+		...(fondoLeido ? { fondo_lienzo: fondoLeido.tipo === "color" ? { color: fondoLeido.color } : { desenfoque: fondoLeido.nivel ?? fondoLeido.intensidad } } : {}),
 		elegidos: refsElegidas,
 		...(primerSubtitulo ? { transcripcion_por_palabra: conPalabras } : {}),
 		...(estiloSubtitulos ? { estilo_subtitulos: JSON.parse(estiloSubtitulos) } : {}),
@@ -699,7 +850,7 @@ export function vistaDeLinea({
 		...(usables.length > TOPES_CHAT.medios ? { medios_sin_listar: usables.length - TOPES_CHAT.medios } : {}),
 		...(disponiblesJson(disponibles) ? { disponibles: disponiblesJson(disponibles) } : {}),
 	});
-	return { json, refs, medios: mediosRefs, elegidos: refsElegidas, disponibles, lienzo };
+	return { json, refs, medios: mediosRefs, elegidos: refsElegidas, disponibles, lienzo, fondo: fondoLeido };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -715,7 +866,10 @@ export type CambioChat = {
 
 /** Una operación que se puede aplicar, con sus elementos ya resueltos (chat/comandos.ts la vuelve un comando). */
 export type OperacionResuelta =
-	| { op: "agregar_texto"; texto: string; inicio: number; duracion: number; ref?: string }
+	/** `params`: los de una «Plantilla de texto», ya llevados al lienzo (paramsParaLienzo), como los agrega la biblioteca. */
+	| { op: "agregar_texto"; texto: string; inicio: number; duracion: number; ref?: string; params?: ParamValues }
+	/** `valores`: TODOS los params de la plantilla que se insertan (`valoresAlAgregar`); `duracion` ya resuelta. */
+	| { op: "agregar_motion"; plantilla: IdPlantilla; valores: ValoresMotion; inicio: number; duracion: number; ref?: string }
 	| { op: "cambiar_texto"; el: RefElemento; texto: string }
 	| { op: "borrar"; els: RefElemento[] }
 	| { op: "mover"; el: RefElemento; inicio: number }
@@ -760,22 +914,30 @@ export type OperacionResuelta =
 	/** Un preset de la marca a TODOS los subtítulos (subtitles/presets.ts → aplicarPreset): vuelve a partir los renglones, después del lote. */
 	| { op: "usar_preset_subtitulos"; preset: string }
 	/** «B-roll de MaKo» (broll/proponer.ts): propone fotos y cambios de plano, después del lote (lee los subtítulos de ESE momento). */
-	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean }
+	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean; videos: boolean }
+	/** «Otra» de «B-roll de MaKo» (broll/cambiar.ts): la siguiente de la misma búsqueda, después del lote (baja de Pexels). */
+	| { op: "cambiar_broll"; el: RefElemento; busqueda: string }
 	/** «Clips mágicos» (clips/buscar.ts): busca los momentos, después del lote; no cambia este proyecto. */
 	| { op: "clips_magicos"; cuantos: number }
 	/** «Emojis automáticos» (subtitles/emojis-poner.ts): ponerlos o sacarlos, al final de todo (lee los subtítulos de ESE momento). */
 	| { op: "emojis_subtitulos"; activar: boolean }
 	/** «Edición automática» (enjambre/correr.ts): los agentes, cada uno con su paso; SOLA, después del lote. */
-	| { op: "edicion_automatica" };
+	| { op: "edicion_automatica" }
+	/** «Duplicar» (DuplicateElementsCommand, el del botón): `copia`, la ref nueva de la copia. */
+	| { op: "duplicar"; el: RefElemento; copia?: string }
+	/** El fondo del lienzo: UpdateProjectSettingsCommand, el del panel Proyecto › Fondo. */
+	| { op: "fondo_lienzo"; fondo: TBackground }
+	/** Un emoji de la biblioteca como sticker (`stickerId` «emojis:1f525»), como la tarjeta de Stickers › Emojis. */
+	| { op: "agregar_emoji"; emoji: string; stickerId: string; inicio: number; duracion: number; ref?: string };
 
 export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[] };
 
 /** La transcripción del momento (transcripcion/modelo.ts) y el idioma de las muletillas. */
 export type TranscripcionChat = { parrafos: readonly ParrafoTx[]; idioma: string };
 
-const CON_DURACION_LIBRE = new Set<TipoRef>(["texto", "imagen", "sticker", "grafico", "efecto"]);
+const CON_DURACION_LIBRE = new Set<TipoRef>(["texto", "imagen", "sticker", "grafico", "efecto", "motion"]);
 const SONOROS = new Set<TipoRef>(["video", "audio"]);
-const VISUALES = new Set<TipoRef>(["video", "imagen", "texto", "sticker", "grafico"]);
+const VISUALES = new Set<TipoRef>(["video", "imagen", "texto", "sticker", "grafico", "motion"]);
 const CLIPS = new Set<TipoRef>(["video", "imagen"]);
 /** Un corte a menos de esto de un borde deja un pedazo que no se ve. */
 const MARGEN_CORTE = 0.05;
@@ -855,6 +1017,45 @@ function aplicarEstilo(actual: EstiloLeido, e: EstiloTextoChat): { nuevo: Estilo
 	return { nuevo, params };
 }
 
+/**
+ * El estilo después de un «Efecto de texto»: sólo cambia lo que el efecto escribe (`applyElementUpdate` MEZCLA los
+ * params), así que un color o un grosor que el efecto no trae quedan como estaban.
+ */
+function estiloConEfecto(actual: EstiloLeido, params: ParamValues): EstiloLeido {
+	const leido = leerEstilo({ ...params });
+	const trae = (k: string) => params[k] !== undefined;
+	const colores = {
+		trazo: trae(TEXTO.trazoColor) ? leido.colores.trazo : actual.colores.trazo,
+		sombra: trae(TEXTO.sombraColor) ? leido.colores.sombra : actual.colores.sombra,
+		fondo: trae("background.color") ? leido.colores.fondo : actual.colores.fondo,
+		resplandor: trae(TEXTO.brilloColor) ? leido.colores.resplandor : actual.colores.resplandor,
+	};
+	const activo = (clave: string, antes: string | false, c: string): string | false =>
+		trae(clave) ? (params[clave] === true ? c : false) : antes === false ? false : c;
+	return {
+		...actual,
+		color: trae("color") ? leido.color : actual.color,
+		colores,
+		trazo: activo(TEXTO.trazoActivo, actual.trazo, colores.trazo),
+		grosor_trazo: trae(TEXTO.trazoGrosor) ? leido.grosor_trazo : actual.grosor_trazo,
+		sombra: activo(TEXTO.sombraActiva, actual.sombra, colores.sombra),
+		fondo: activo("background.enabled", actual.fondo, colores.fondo),
+		opacidad_fondo: trae(TEXTO.fondoOpacidad) ? leido.opacidad_fondo : actual.opacidad_fondo,
+		resplandor: activo(TEXTO.brilloActivo, actual.resplandor, colores.resplandor),
+	};
+}
+
+/** «color #ffffff · trazo #000000 · fondo #e5283a»: la apariencia de un texto (lo que cambia un efecto), en una frase. */
+function textoApariencia(s: EstiloLeido): string {
+	return [
+		`color ${s.color}`,
+		s.trazo ? `trazo ${s.trazo}` : "",
+		s.sombra ? "sombra" : "",
+		s.resplandor ? `brillo ${s.resplandor}` : "",
+		s.fondo ? `fondo ${s.fondo}${s.opacidad_fondo < 100 ? ` al ${s.opacidad_fondo} %` : ""}` : "",
+	].filter(Boolean).join(" · ");
+}
+
 /** Las animaciones activas de un elemento, en una frase («entrada Rebote 0,5 s · salida Caída 0,5 s»). */
 function textoAnimaciones(anim: ParamValues | undefined, d: Disponibles): string {
 	const partes: string[] = [];
@@ -879,13 +1080,16 @@ export function revisarOperaciones({
 	transcripcion,
 }: {
 	operaciones: readonly OperacionChat[];
-	vista: Pick<VistaLinea, "refs" | "elegidos"> & Partial<Pick<VistaLinea, "disponibles" | "medios">>;
+	vista: Pick<VistaLinea, "refs" | "elegidos"> & Partial<Pick<VistaLinea, "disponibles" | "medios" | "lienzo" | "fondo">>;
 	alcance: "video" | "seleccion";
 	/** Los subtítulos con tiempos por palabra (cortar_frase, eliminar_muletillas). */
 	transcripcion?: TranscripcionChat;
 }): Revision {
 	const d = vista.disponibles ?? DISPONIBLES_VACIOS;
 	const medios = vista.medios ?? new Map<string, RefMedio>();
+	const lienzo = vista.lienzo ?? null;
+	// El fondo del lienzo, simulado: un segundo fondo_lienzo en el mismo pedido parte del primero.
+	let fondo = vista.fondo ?? null;
 	const resueltas: OperacionResuelta[] = [];
 	const cambios: CambioChat[] = [];
 	const descartes: string[] = [];
@@ -982,6 +1186,16 @@ export function revisarOperaciones({
 		if (el.bloqueada) return { motivo: `${el.titulo} está en una pista bloqueada` };
 		if (alcance === "seleccion" && !el.nuevo && !elegidos.has(ref)) return { motivo: `${el.titulo} no está elegido` };
 		return { el };
+	};
+	/**
+	 * Para lo que corre DESPUÉS del lote (cambiar_broll, revertir, congelar, normalizar, borrar_silencios con ref): busca el
+	 * clip por su id, y lo que agrega este mismo pedido (la copia de un duplicar, un texto nuevo) todavía no lo tiene. Sin
+	 * esto, la revisión lo aceptaba y al aplicar fallaba con un motivo falso («no es un B-roll de MaKo», «no se pudo revertir»).
+	 */
+	const resolverExistente = (ref: string): { el: RefElemento } | { motivo: string } => {
+		const r = resolver(ref);
+		if ("motivo" in r || !r.el.nuevo) return r;
+		return { motivo: `${r.el.titulo} todavía no existe (se crea al aceptar este pedido): pídelo en otro pedido` };
 	};
 
 	/** ¿El tramo [ini, fin) pisa a otro elemento vivo de la misma pista? */
@@ -1104,7 +1318,7 @@ export function revisarOperaciones({
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
 		if (op.op === "edicion_automatica") continue; // Ya se resolvió arriba, sola.
 		if (op.op === "cortar_frase" || op.op === "cortar_tramo" || op.op === "eliminar_muletillas") { cortes.push(op); continue; }
-		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll" || op.op === "clips_magicos" || op.op === "emojis_subtitulos") { diferidas.push(op); continue; }
+		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll" || op.op === "cambiar_broll" || op.op === "clips_magicos" || op.op === "emojis_subtitulos") { diferidas.push(op); continue; }
 		if (op.op === "reemplazar_en_subtitulos") {
 			// Sin distinguir mayúsculas, como «Buscar y reemplazar» (subtitles/palabras.ts → reemplazarEnTexto).
 			const b = op.buscar.toLowerCase();
@@ -1260,10 +1474,59 @@ export function revisarOperaciones({
 		}
 		if (op.op === "agregar_texto") {
 			const titulo = `«${corto(op.texto.replace(/\s+/g, " "), 40)}»`;
-			const estadoNuevo: EstadoElemento = { anim: {}, transform: leerTransform({}), estilo: leerEstilo({}) };
+			// Una «Plantilla de texto» (Biblioteca › Texto): sus params, con el tamaño llevado al lienzo como al agregarla.
+			let params: ParamValues | undefined;
+			let nombrePlantilla = "";
+			if (op.plantilla) {
+				const opcion = (d.plantillasTexto ?? []).find((x) => x.id === op.plantilla);
+				const plantilla = opcion ? PLANTILLAS_TEXTO.find((x) => x.id === opcion.id) : undefined;
+				if (!plantilla) { descartes.push(`no existe la plantilla de texto «${corto(op.plantilla, 30)}»`); continue; }
+				params = paramsParaLienzo(plantilla.params, lienzo ? { width: lienzo.ancho, height: lienzo.alto } : null);
+				nombrePlantilla = plantilla.nombre;
+			}
+			const anim: ParamValues = {};
+			for (const c of categoriasPara("text")) for (const k of [ANIM[c].id, ANIM[c].duracion]) if (params?.[k] !== undefined) anim[k] = params[k];
+			const estadoNuevo: EstadoElemento = { anim, transform: leerTransform({}), estilo: leerEstilo(params ?? {}) };
 			if (!registrarNuevo(op.ref, "texto", titulo, op.inicio, op.inicio + op.duracion, estadoNuevo, op.texto)) continue;
-			resueltas.push({ op: "agregar_texto", texto: op.texto, inicio: op.inicio, duracion: op.duracion, ...(op.ref ? { ref: op.ref } : {}) });
-			cambios.push({ tipo: "agrega", titulo: "Texto nuevo", antes: "", despues: `«${corto(op.texto, 80)}» · de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + op.duracion)}` });
+			resueltas.push({ op: "agregar_texto", texto: op.texto, inicio: op.inicio, duracion: op.duracion, ...(op.ref ? { ref: op.ref } : {}), ...(params ? { params } : {}) });
+			cambios.push({
+				tipo: "agrega",
+				titulo: nombrePlantilla ? `Texto nuevo · plantilla «${nombrePlantilla}»` : "Texto nuevo",
+				antes: "",
+				despues: `«${corto(op.texto, 80)}» · de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + op.duracion)}`,
+			});
+			continue;
+		}
+		if (op.op === "agregar_emoji") {
+			// Como la tarjeta de Stickers › Emojis (stickers/components/assets-view.tsx): sólo lo que la biblioteca tiene.
+			const emoji = emojiDeLaBiblioteca(op.emoji);
+			if (!emoji) { descartes.push(`${corto(op.emoji, 8)} no está en la biblioteca de emojis`); continue; }
+			const stickerId = buildStickerId({ providerId: EMOJIS_PROVIDER_ID, providerValue: emojiAValor(emoji) });
+			if (!registrarNuevo(op.ref, "sticker", `Emoji ${emoji}`, op.inicio, op.inicio + op.duracion, { anim: {}, transform: leerTransform({}) })) continue;
+			resueltas.push({ op: "agregar_emoji", emoji, stickerId, inicio: op.inicio, duracion: op.duracion, ...(op.ref ? { ref: op.ref } : {}) });
+			cambios.push({ tipo: "agrega", titulo: `Emoji ${emoji}`, antes: "", despues: `de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + op.duracion)}, en el centro del cuadro` });
+			continue;
+		}
+		if (op.op === "fondo_lienzo") {
+			// Como Proyecto › Fondo (components/editor/panels/assets/views/settings/background.tsx): de todo el proyecto.
+			const nuevo: TBackground = op.color !== undefined ? { type: "color", color: op.color } : { type: "blur", blurIntensity: DESENFOQUES_FONDO[op.desenfoque] };
+			const leido = leerFondo(nuevo);
+			if (textoFondo(leido) === textoFondo(fondo)) continue;
+			cambios.push({ tipo: "cambia", titulo: "Fondo del lienzo", antes: textoFondo(fondo), despues: textoFondo(leido) });
+			fondo = leido;
+			resueltas.push({ op: "fondo_lienzo", fondo: nuevo });
+			continue;
+		}
+		if (op.op === "agregar_motion") {
+			// Como la tarjeta de la biblioteca (motion/components/biblioteca-motion.tsx), sin los textos de ejemplo.
+			const def = DEF_MOTION[op.plantilla];
+			const duracion = op.duracion ?? def.duracionMs / 1000;
+			const valores = valoresAlAgregar(op.plantilla, op.valores);
+			const estadoNuevo: EstadoElemento = { anim: {}, transform: leerTransform({}), motion: { plantilla: op.plantilla, valores } };
+			if (!registrarNuevo(op.ref, "motion", `Motion · ${def.nombre}`, op.inicio, op.inicio + duracion, estadoNuevo)) continue;
+			resueltas.push({ op: "agregar_motion", plantilla: op.plantilla, valores, inicio: op.inicio, duracion, ...(op.ref ? { ref: op.ref } : {}) });
+			const campos = textoValoresMotion(op.valores, op.plantilla);
+			cambios.push({ tipo: "agrega", titulo: `Motion «${def.nombre}»`, antes: "", despues: `${campos ? `${campos} · ` : ""}de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + duracion)}` });
 			continue;
 		}
 		if (op.op === "capa_efecto") {
@@ -1312,6 +1575,7 @@ export function revisarOperaciones({
 
 		switch (op.op) {
 			case "cambiar_texto": {
+				if (el.tipo === "motion") { descartes.push(`${el.titulo} es un motion graphic: sus textos se cambian con editar_motion`); break; }
 				if (el.tipo !== "texto") { descartes.push(`${el.titulo} no es un texto`); break; }
 				if (op.texto === st.texto) break;
 				// El tope del hueco es el mismo que al usar la plantilla (lib/editor-video/plantillas.ts → validarValores).
@@ -1668,6 +1932,7 @@ export function revisarOperaciones({
 				break;
 			}
 			case "estilo_texto": {
+				if (el.tipo === "motion") { descartes.push(`${el.titulo} es un motion graphic: su tono, colores y fuente se cambian con editar_motion`); break; }
 				if (el.tipo !== "texto" || !e.estilo) { descartes.push(`${el.titulo} no es un texto`); break; }
 				const pedidos = Object.keys(op.estilo) as Array<keyof EstiloTextoChat>;
 				if (el.subtitulo && pedidos.some((k) => ESTILO_QUE_PARTE.includes(k))) {
@@ -1714,6 +1979,116 @@ export function revisarOperaciones({
 				const sufijo: Partial<Record<keyof TransformChat, string>> = { escala: " %", rotacion: "°", opacidad: " %" };
 				const fila = filaCampos(el.titulo, campos.map((k) => [ETIQUETA_TRANSFORM[k], t[k], nuevo[k], sufijo[k]] as [string, unknown, unknown, string?]));
 				e.transform = nuevo;
+				escribir(params, fila);
+				break;
+			}
+			case "editar_motion": {
+				const m = e.motion;
+				if (el.tipo !== "motion" || !m) { descartes.push(`${el.titulo} no es un motion graphic`); break; }
+				// Contra los campos y topes de SU plantilla (el catálogo sólo pudo mirar la forma).
+				const v = valoresMotionValidos(m.plantilla, op.valores);
+				if (!v.ok) { descartes.push(v.motivo); break; }
+				const cambian = Object.keys(v.valores).filter((k) => v.valores[k] !== m.valores[k]);
+				if (!cambian.length) break;
+				const nuevos: ValoresMotion = Object.fromEntries(cambian.map((k) => [k, v.valores[k]]));
+				const fila: CambioChat = {
+					tipo: "cambia",
+					titulo: el.titulo,
+					antes: textoValoresMotion(Object.fromEntries(cambian.map((k) => [k, m.valores[k] ?? ""])), m.plantilla),
+					despues: textoValoresMotion(nuevos, m.plantilla),
+				};
+				e.motion = { ...m, valores: { ...m.valores, ...nuevos } };
+				// El `updateElements` del panel (graphic-tab.tsx): `applyElementUpdate` MEZCLA los params.
+				escribir({ ...nuevos }, fila);
+				break;
+			}
+			case "duplicar": {
+				// Un subtítulo repetido se diría dos veces en la transcripción (cortar_frase, las muletillas): no se copia.
+				if (el.subtitulo) { descartes.push(`${el.titulo} es un subtítulo: duplicarlo lo repetiría en la transcripción (un texto aparte es agregar_texto)`); break; }
+				const titulo = `Copia de ${el.titulo}`;
+				if (op.copia) {
+					// La copia es el mismo elemento en otra pista (encima): lo que siga en el pedido parte de cómo está AHORA.
+					if (refs.has(op.copia)) { descartes.push(`la ref «${op.copia}» ya existe`); break; }
+					const copia: RefElemento = {
+						...el,
+						ref: op.copia,
+						trackId: "",
+						elementId: "",
+						titulo: corto(titulo, 50),
+						inicio: st.inicio,
+						fin: st.fin,
+						bloqueada: false,
+						principal: false,
+						nuevo: true,
+						// Como está AHORA en el pedido (un «ocultar» o un «silenciar» de antes ya corrió), no al empezar:
+						// `simular` arma el estado de la copia con estos campos.
+						oculto: st.oculto,
+						silenciado: st.silenciado,
+						volumenDb: st.volumenDb,
+						muestra: st.muestra,
+						...(st.texto !== undefined ? { texto: st.texto } : {}),
+						estado: JSON.parse(JSON.stringify(e)) as EstadoElemento,
+					};
+					refs.set(copia.ref, copia);
+					simular(copia);
+				}
+				cambios.push({ tipo: "agrega", titulo, antes: "", despues: `de ${textoSegundos(st.inicio)} a ${textoSegundos(st.fin)}, encima, en una pista nueva` });
+				resueltas.push({ op: "duplicar", el, ...(op.copia ? { copia: op.copia } : {}) });
+				break;
+			}
+			case "efecto_texto": {
+				if (el.tipo === "motion") { descartes.push(`${el.titulo} es un motion graphic: sus colores se cambian con editar_motion`); break; }
+				if (el.tipo !== "texto" || !e.estilo) { descartes.push(`${el.titulo} no es un texto`); break; }
+				const opcion = op.id === null ? null : (d.efectosTexto ?? []).find((x) => x.id === op.id);
+				const efecto = opcion ? EFECTOS_TEXTO.find((x) => x.id === opcion.id) : undefined;
+				if (op.id !== null && !efecto) { descartes.push(`no existe el efecto de texto «${corto(op.id, 30)}»`); break; }
+				const params = efecto ? efecto.params : SIN_EFECTO;
+				// Como el panel: un efecto con fondo no se le pone a un texto curvado (lo enderezaría sin que nadie lo pida).
+				if (e.curvado && params["background.enabled"] === true) { descartes.push(`${el.titulo} está curvado: un efecto con fondo no se le aplica`); break; }
+				if (conFotograma(el, st, "color") || conFotograma(el, st, "fondo")) break;
+				// Lo que ya está así no cambia nada (elegir el efecto que ya tiene no es una fila).
+				const apariencia = e.apariencia ?? {};
+				if (Object.keys(params).every((k) => apariencia[k] === params[k] || (apariencia[k] === undefined && SIN_EFECTO[k] === params[k]))) break;
+				const nuevo = estiloConEfecto(e.estilo, params);
+				const antesTxt = textoApariencia(e.estilo);
+				const despuesTxt = textoApariencia(nuevo);
+				e.estilo = nuevo;
+				e.apariencia = { ...apariencia, ...params };
+				escribir({ ...params }, { tipo: "cambia", titulo: el.titulo, antes: antesTxt, despues: `${efecto ? `«${efecto.nombre}»` : "sin efecto"} · ${despuesTxt}` });
+				break;
+			}
+			case "encuadre": {
+				if (!solo(CLIPS, "es un clip de video o imagen (el encuadre se recorta en el cuadro de un clip)")) break;
+				const actual = e.encuadre ?? { rect: RECT_COMPLETO, proporcion: "libre" };
+				let rect: RectRecorte;
+				let proporcion: string;
+				if ("quitar" in op) {
+					rect = RECT_COMPLETO;
+					proporcion = "libre";
+				} else if ("proporcion" in op) {
+					// Como el desplegable del diálogo «Recortar»: el rectángulo más grande con esa forma, centrado en el de ahora.
+					if (!e.fuente) { descartes.push(`no sé el tamaño del archivo de ${el.titulo}: elige la proporción en «Recortar», en la barra`); break; }
+					const archivo = { width: e.fuente.ancho, height: e.fuente.alto };
+					const valor = valorProporcion(op.proporcion, archivo);
+					if (!valor) { descartes.push(`«${op.proporcion}» no es una proporción`); break; }
+					rect = rectConProporcion(actual.rect, valor, archivo);
+					proporcion = op.proporcion;
+				} else {
+					rect = normalizarRect({
+						x: op.izquierda / 100,
+						y: op.arriba / 100,
+						ancho: 1 - (op.izquierda + op.derecha) / 100,
+						alto: 1 - (op.arriba + op.abajo) / 100,
+					});
+					proporcion = "libre";
+				}
+				// Lo que guarda «Confirmar» del diálogo (recorte/dialogo-recorte.tsx): `paramsDeRect(normalizarRect(rect), proporcion)`.
+				const params = paramsDeRect(normalizarRect(rect), proporcion);
+				const antes = paramsDeRect(normalizarRect(actual.rect), actual.proporcion);
+				if (Object.keys(params).every((k) => params[k] === antes[k])) break;
+				const nuevo = { rect: rectDeParams(params), proporcion };
+				const fila = { tipo: "cambia" as const, titulo: el.titulo, antes: textoEncuadre(actual), despues: textoEncuadre(nuevo) };
+				e.encuadre = nuevo;
 				escribir(params, fila);
 				break;
 			}
@@ -1805,7 +2180,7 @@ export function revisarOperaciones({
 				: [...refs.values()].filter((r) => !r.nuevo && SONOROS.has(r.tipo) && (alcance === "seleccion" ? elegidos.has(r.ref) : r.principal)).map((r) => r.ref);
 			const els: RefElemento[] = [];
 			for (const ref of pedidos) {
-				const r = resolver(ref);
+				const r = resolverExistente(ref);
 				if ("motivo" in r) { descartes.push(r.motivo); continue; }
 				const el = r.el;
 				const e = estado.get(el.ref)!.e;
@@ -1835,12 +2210,30 @@ export function revisarOperaciones({
 			const conSonido = [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !estado.get(r.ref)?.borrado);
 			if (!conSonido) { descartes.push("no hay video con voz para proponer B-roll"); continue; }
 			const planos = op.planos !== false;
-			resueltas.push({ op: "broll", ritmo: op.ritmo ?? "normal", planos });
+			const videos = op.videos === true;
+			resueltas.push({ op: "broll", ritmo: op.ritmo ?? "normal", planos, videos });
 			cambios.push({
 				tipo: "agrega",
 				titulo: "B-roll de MaKo",
 				antes: "",
-				despues: `fotos de Pexels${planos ? " y cambios de plano" : ""} según lo que se dice, propuestos al aceptar: dejas o sacas cada uno`,
+				despues: `${videos ? "videos cortos" : "fotos"} de Pexels${planos ? " y cambios de plano" : ""} según lo que se dice, propuestos al aceptar: dejas o sacas cada uno`,
+			});
+			continue;
+		}
+		if (op.op === "cambiar_broll") {
+			const r = resolverExistente(op.ref);
+			if ("motivo" in r) { descartes.push(r.motivo); continue; }
+			const el = r.el;
+			const busqueda = estado.get(el.ref)!.e.broll;
+			if (!busqueda) { descartes.push(`${el.titulo} no es un B-roll de MaKo (para cambiar su archivo, reemplazar_clip)`); continue; }
+			// Por la ref: cada elemento tiene la suya, y el id de lo que agrega el pedido es "" (dos copias serían «el mismo»).
+			if (resueltas.some((x) => x.op === "cambiar_broll" && x.el.ref === el.ref)) { descartes.push(`${el.titulo} ya se cambia por otra en este mismo pedido`); continue; }
+			resueltas.push({ op: "cambiar_broll", el, busqueda });
+			cambios.push({
+				tipo: "cambia",
+				titulo: el.titulo,
+				antes: el.tipo === "video" ? "el video de ahora" : "la foto de ahora",
+				despues: `${el.tipo === "video" ? "el siguiente video" : "la siguiente foto"} de «${corto(busqueda, 40)}» en Pexels, en el mismo lugar (se trae al aceptar)`,
 			});
 			continue;
 		}
@@ -1878,7 +2271,7 @@ export function revisarOperaciones({
 			continue;
 		}
 		if (op.op !== "revertir" && op.op !== "congelar" && op.op !== "normalizar") continue;
-		const r = resolver(op.ref);
+		const r = resolverExistente(op.ref);
 		if ("motivo" in r) { descartes.push(r.motivo); continue; }
 		const el = r.el;
 		const st = estado.get(el.ref)!;

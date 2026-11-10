@@ -652,6 +652,14 @@ export const RUNNERS: Runners = {
   buscar_clips_video: { ...enElEditor('buscar_clips_video') },
   editar_video_automatico: { ...enElEditor('editar_video_automatico') },
   poner_emojis_subtitulos: { ...enElEditor('poner_emojis_subtitulos') },
+  agregar_motion_video: { ...enElEditor('agregar_motion_video') },
+  editar_motion_video: { ...enElEditor('editar_motion_video') },
+  duplicar_elemento_video: { ...enElEditor('duplicar_elemento_video') },
+  cambiar_fondo_lienzo: { ...enElEditor('cambiar_fondo_lienzo') },
+  poner_efecto_texto_video: { ...enElEditor('poner_efecto_texto_video') },
+  agregar_emoji_video: { ...enElEditor('agregar_emoji_video') },
+  encuadrar_clip_video: { ...enElEditor('encuadrar_clip_video') },
+  otra_imagen_broll: { ...enElEditor('otra_imagen_broll') },
 
   ver_contexto_video: {
     leer: async () => {

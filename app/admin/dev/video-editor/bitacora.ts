@@ -563,4 +563,41 @@ export const BITACORA: Hito[] = [
     ],
     revisar: "/video-editor",
   },
+  {
+    fecha: "10 nov", hora: "—", chat: "Video Editor: pendientes (nube)", sesion: "cli_899d9bf8-5e22-5c18-bb6c-4f077c3d9e08", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Motion graphics en el editor: nueve plantillas animadas, también por chat y por la API",
+    puntos: [
+      "Biblioteca › Plantillas › Motion: titular, palabras, cifra, tercio inferior, logo, barras, testimonio, oferta y cierre, con cuatro tonos y en 9:16, 1:1 o 16:9; cada una se edita en su pestaña.",
+      "La cifra respeta lo que escribes: «4,5» se ve 4,5 y «1.250» se ve mil doscientos cincuenta. Un campo vacío no se llena con un ejemplo inventado.",
+      "Por el chat del editor («agrega un titular que diga…») y por la API de MaKo (agregar_motion_video, editar_motion_video).",
+      "No se miró en un navegador (la nube no corre el editor).",
+    ],
+    archivos: [
+      "lib/motion/ — el motor (iart.ai, MIT) y el lector de números",
+      "app/video-editor/_opencut/motion/ — la biblioteca y la pestaña",
+      "tests/motion.test.ts · tests/video-editor-motion.test.ts · tests/video-editor-chat-motion.test.ts",
+    ],
+    revisar: "/video-editor",
+  },
+  {
+    fecha: "10 nov", hora: "—", chat: "Video Editor: pendientes (nube)", sesion: "cli_899d9bf8-5e22-5c18-bb6c-4f077c3d9e08", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El editor no se traba al limpiar la voz, los clips siguen a la persona, el chat hace más y el B-roll trae videos",
+    puntos: [
+      "«Reducir el ruido» corre aparte: un clip largo ya no traba el editor.",
+      "Clips mágicos encuadra el vertical siguiendo a la persona en vez de cortar al centro.",
+      "El chat del editor ahora duplica, cambia el fondo del lienzo, pone efectos y plantillas de texto, agrega emojis y recorta el cuadro de un clip; también por la API de MaKo.",
+      "El B-roll puede traer videos cortos de Pexels, y «Otra» cambia cualquier B-roll por el siguiente de la misma búsqueda.",
+      "Atajos de CapCut: I y O marcan el rango, Shift+X y Alt+X, Ctrl+R y Shift+B abren la velocidad, Ctrl+J agrega un ritmo; y se exporta sólo el rango.",
+      "No se miró en un navegador (la nube no corre el editor).",
+    ],
+    archivos: [
+      "app/video-editor/_opencut/audio/ruido-hilo/ — el worker",
+      "app/video-editor/_opencut/clips/seguir.ts — dónde está la persona",
+      "app/video-editor/_opencut/broll/cambiar.ts · lib/pexels.ts — «Otra» y los videos",
+      "app/video-editor/_opencut/rango/ — el rango I/O",
+    ],
+    revisar: "/video-editor",
+  },
 ];

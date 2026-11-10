@@ -14,12 +14,14 @@ agregar_bloque_general
 agregar_bloque_landing
 agregar_capa_efecto_video
 agregar_dependencia_plan
+agregar_emoji_video
 agregar_en_bloque_a_crm
 agregar_escenario_secuencia
 agregar_etapa
 agregar_filtro_dashboard
 agregar_grafico_dashboard
 agregar_link_fathom
+agregar_motion_video
 agregar_nota_lead
 agregar_objetivo_custom
 agregar_seccion_landing
@@ -95,6 +97,7 @@ cambiar_estado_comentario_landing
 cambiar_estilo_texto_video
 cambiar_fecha_tarea_plan
 cambiar_ficha_funnel
+cambiar_fondo_lienzo
 cambiar_icono_landing
 cambiar_imagen_landing
 cambiar_like_comentario_comunidad
@@ -223,6 +226,7 @@ dividir_clip_video
 duplicados_lead
 duplicar_curso
 duplicar_diseno_imagen
+duplicar_elemento_video
 duplicar_hoja_dashboard
 duplicar_landing
 editar_about_comunidad
@@ -243,6 +247,7 @@ editar_hoja_dashboard
 editar_hoja_general_con_ia
 editar_lead_magnet
 editar_meta_secuencia_email
+editar_motion_video
 editar_obligacion_deal
 editar_pagina_reserva
 editar_pasos_secuencia_email
@@ -265,6 +270,7 @@ eliminar_muletillas_video
 embudo_closing
 empezar_mi_plan_ya
 empezar_prueba_ab
+encuadrar_clip_video
 enlaces_documento_copywriter
 enlazar_email_calendario
 enviar_broadcast
@@ -498,6 +504,7 @@ opciones_siguiente_paso_guion
 ordenar_categorias_comunidad
 ordenar_etapas
 ordenar_modulos_curso
+otra_imagen_broll
 pagina_captura_magnet
 panorama_closing
 papelera_documento_copywriter
@@ -509,6 +516,7 @@ plan_retro
 plantillas_meta_de_secuencia
 plazo_etapa
 poner_animacion_video
+poner_efecto_texto_video
 poner_efecto_video
 poner_emojis_subtitulos
 poner_enlace_landing

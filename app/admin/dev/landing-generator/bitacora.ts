@@ -36,6 +36,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Crear con IA en la tab y el chat con links', detalle: 'Tanda 6: Pegar texto · Generar · Importar · Analizar · Replicar (Presentación / Landing / Página web, copiando colores, fuentes e imágenes) en /landing-generator; el «+» sólo adjunta; el link pegado sale en azul · tanda 7: la tab se llama Web Generator (/web-generator) y es UN cuadro con modos (Generar · Importar · Analizar landing · Replicar landing): «Pegar texto» es pegar en el cuadro · falta en MaKo Mobile (/m/landing)', estado: 'hecha' },
   { titulo: 'Animaciones y video de fondo', detalle: 'Relevado el 14/10 (docs/hallazgos-editor-landing.md → «Animaciones»): CSS nativo + nuestro script (GSAP prohibido por licencia), presets por sección, replicar las de una web, y el video IA de fondo cuando el puente a Flow lo haga · el parpadeo del hero, arreglado y en main (landing-parpadeo) · Lottie relevado el 15/10 · los diseños con animaciones esperan landing-anim-panel y landing-anim-default', estado: 'cola' },
   { titulo: 'Lo de Gamma que no entró', detalle: 'Edición en tiempo real, controles de columnas, «Copiar en…» y «Exportar sección», Formato libre, Google Slides', estado: 'cola' },
+  { titulo: 'Replicar a la vista: los varios mouse del reel', detalle: 'Tanda 1 (9/11): doce cursores con nombre trazan una caja por sección, escriben su título y pintan el diseño, atados a los eventos reales de la réplica (replicar-escena.ts) · faltan el anillo en el paso «Leer» y la página real adentro de cada caja (docs/relevo/web-replicate-nube.md)', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -1679,6 +1680,35 @@ export const BITACORA: Hito[] = [
       'lib/editor-landing/css.ts — VENTA y el celular en movil()',
       'lib/api-mako/areas/landing-contenido.helpers.ts — planBloqueVenta; landing-editor.def.ts/.run.ts — la operación',
       'tests/bloques-venta-landing.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '9 nov', hora: '08:45', chat: 'Web Replicate (nube)', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Web Replicate: copiar el reel, sobre todo los varios mouse',
+    pedido: 'PARA WEB REPLICATE, COPIAR ESTO: https://www.instagram.com/reel/DfZFAfzs3Ng/ … Sobre todo la animación de los multiples mouse actuando',
+    puntos: [
+      'Llegó por el Cerebro, con el reel ya bajado en la rama referencias/reels-0911 (web-replicate.mp4); el «…» es como llegó. La hora es la de este chat, no la del pedido.',
+      'El reel cuadro por cuadro, en docs/relevo/web-replicate-nube.md.',
+    ],
+  },
+  {
+    fecha: '9 nov', hora: '09:20', chat: 'Web Replicate (nube)', sesion: 'cli_a8750092-2101-59d1-bb8f-d245776f8939', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Replicar se ve armarse con doce mouse, como en el reel',
+    puntos: [
+      'Mientras MaKo replica, arriba de las fases aparece el escenario del reel: el anillo «Leyendo la página», los doce cursores con su nombre que salen disparados, una caja azul por sección con su etiqueta («Textos · 690 × 140»), el título que se escribe letra por letra y el diseño que se pinta con el color de la original.',
+      'Todo lo que avanza sale de lo que de verdad pasa: una caja se escribe sólo cuando su sección se armó, con su título real. Al terminar se juntan abajo y se abre el editor.',
+      'La página baja sola siguiendo lo que se escribe. Los cursores sin tarea dan tirones cortos y frenan al llegar, como en el reel.',
+      'La barra dice la fase real («Escribiendo · 3 de 8») y «Ver todo» muestra de una lo que ya llegó. Del reel no se copiaron «12 agents live» ni «STOP»: serían mentira.',
+      'Con «reducir movimiento» del sistema, todo quieto en su estado final. En el teléfono la barra se achica y al final van de a tres.',
+    ],
+    archivos: [
+      'lib/editor-landing/replicar-escena.ts — de los eventos a la escena: cajas, estados en el tiempo, etiquetas, cursores y cámara',
+      'app/_ui/enjambre.ts — los doce, el tirón y el tecleo · app/_ui/CursorAgente.tsx — la flecha y la pastilla',
+      'app/web-generator/crear/EscenarioReplica.tsx — el escenario (un requestAnimationFrame que escribe por ref)',
+      'app/_ui/ArmadoEnVivo.tsx — `escena`, con la misma cadencia que la cuenta · app/web-generator/crear/Replicar.tsx — el enchufe',
+      'tests/web-replicate-agentes.test.ts — 10 tests que ejecutan el código, probado rompiéndolo (22 roturas)',
     ],
     revisar: '/web-generator',
   },

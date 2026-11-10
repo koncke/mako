@@ -20,6 +20,7 @@ import { blurEffectDefinition } from "@/app/video-editor/_opencut/effects/defini
 import { PRESETS_CURVA, mediaCurva } from "@/app/video-editor/_opencut/retime/curva";
 import { SYSTEM_FONTS } from "@/app/video-editor/_opencut/fonts/system-fonts";
 import type { FontAtlas } from "@/app/video-editor/_opencut/fonts/types";
+import { EFECTOS_TEXTO, PLANTILLAS_TEXTO } from "@/app/video-editor/_opencut/text/estilos-predefinidos";
 
 export type OpcionChat = { id: string; nombre: string };
 
@@ -38,6 +39,9 @@ export type Disponibles = {
 	presets?: Array<{ id: string; nombre: string; marca: string | null; resumen: string }>;
 	/** Las palabras que la marca resalta siempre (las del preset elegido en Subtítulos). */
 	palabrasDeMarca?: string[];
+	/** Texto › «Efectos de texto» y «Plantilla de texto» (text/estilos-predefinidos.ts): efecto_texto y agregar_texto. */
+	efectosTexto?: OpcionChat[];
+	plantillasTexto?: OpcionChat[];
 	fuentes: {
 		/** minúsculas → como se escribe («bebas neue» → «Bebas Neue»). */
 		todas: ReadonlyMap<string, string>;
@@ -96,5 +100,7 @@ export function disponiblesDelMotor({
 			media: Math.round(mediaCurva(c) * 1000) / 1000,
 		})),
 		fuentes: { todas, completa: atlas !== null, sugeridas },
+		efectosTexto: EFECTOS_TEXTO.map((e) => ({ id: e.id, nombre: e.nombre })),
+		plantillasTexto: PLANTILLAS_TEXTO.map((p) => ({ id: p.id, nombre: p.nombre })),
 	};
 }

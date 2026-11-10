@@ -17,7 +17,8 @@ import type { TActionWithOptionalArgs } from "./types";
 //
 // Fuera del preset a propósito: Ctrl+N (Nuevo proyecto) y Ctrl+W (Cerrar), que
 // Chrome no deja tomar desde una página; Agrupar/Clip combinado (Ctrl+G /
-// Alt+G), que el motor no tiene.
+// Alt+G), que el motor no tiene; y Tab («Cambiar el panel de los materiales»):
+// el relevamiento trae sólo el nombre, no qué hace, y no se inventa.
 
 export type TActionCategory = "linea" | "reproductor" | "basico" | "interno";
 
@@ -220,6 +221,36 @@ export const ACTIONS = {
 		description: "Ir al marcador anterior",
 		category: "linea",
 	},
+	// El rango (I / O · Shift+X · Alt+X): rango/acciones.ts; «solo se exporta
+	// ese rango» (export/exportar.ts).
+	"punto-entrada": {
+		// CapCut dice «En el punto» (traducción literal de «In point»); se corrige
+		// como su par, «Punto de salida» (relevamiento §13, decisión 2b).
+		description: "Punto de entrada",
+		category: "linea",
+	},
+	"punto-salida": {
+		description: "Punto de salida",
+		category: "linea",
+	},
+	"seleccionar-por-clip": {
+		description: "Seleccionar por clip",
+		category: "linea",
+	},
+	"quitar-rango": {
+		// Literal de CapCut (Alt+X, «Deselect»): es el par de «Seleccionar por
+		// clip» y quita el RANGO, no la selección de clips (ésa es Esc).
+		description: "Anular selección",
+		category: "linea",
+	},
+	"panel-velocidad": {
+		description: "Mostrar el panel de velocidad",
+		category: "linea",
+	},
+	"velocidad-curva": {
+		description: "Velocidad de la curva",
+		category: "linea",
+	},
 	"volumen-subir": {
 		description: "Volumen +0.1 dB",
 		category: "linea",
@@ -236,8 +267,19 @@ export const ACTIONS = {
 		description: "Seleccionar todo",
 		category: "linea",
 	},
+	// Sin tecla propia desde el 10/11/2026: Alt+X es «Anular selección» del
+	// RANGO (`quitar-rango`). Los clips se dejan de elegir con Esc
+	// (`cancel-interaction` cae acá).
 	"deselect-all": {
-		description: "Anular selección",
+		description: "Anular la selección de clips",
+		category: "interno",
+	},
+	"agregar-ritmo": {
+		// Ctrl+J. CapCut lo rotula «Corte paralelo» (`Match cut / mark beat`,
+		// confirmación P del relevamiento §10: la tecla sale de su tabla y la acción
+		// se dedujo); hace lo del «Agregar ritmo» de su menú de ritmos
+		// (audio/ritmos.ts → alternarRitmoEnCabezal), que es como se llama acá.
+		description: "Agregar ritmo",
 		category: "linea",
 	},
 	"cancel-interaction": {
@@ -330,6 +372,12 @@ const ACTION_DEFAULT_SHORTCUTS = [
 	["marcador-nuevo-color", ["alt+m"]],
 	["marcador-siguiente", ["shift+m"]],
 	["marcador-anterior", ["alt+shift+m"]],
+	["punto-entrada", ["i"]],
+	["punto-salida", ["o"]],
+	["seleccionar-por-clip", ["shift+x"]],
+	["quitar-rango", ["alt+x"]],
+	["panel-velocidad", ["ctrl+r"]],
+	["velocidad-curva", ["shift+b"]],
 	["volumen-subir", ["ctrl+."]],
 	["volumen-bajar", ["ctrl+,"]],
 	["panel-fotogramas-clave", ["alt+k"]],
@@ -339,7 +387,7 @@ const ACTION_DEFAULT_SHORTCUTS = [
 	["copiar-atributos", ["ctrl+shift+c"]],
 	["pegar-atributos", ["ctrl+shift+v"]],
 	["select-all", ["ctrl+a"]],
-	["deselect-all", ["alt+x"]],
+	["agregar-ritmo", ["ctrl+j"]],
 	["cancel-interaction", ["escape"]],
 	// Básico
 	["undo", ["ctrl+z"]],

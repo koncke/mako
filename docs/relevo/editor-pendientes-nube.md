@@ -22,7 +22,7 @@ Cerebro las vuelva a firmar. El árbol no cambia, así que el `Veredicto:` del m
 | 1 | `punta/edicion-arreglos-0911` | `101042780` (7227 tests de 722 archivos + tsc entero, Node 24) | Los bugs de la revisión de la edición automática (§2.2). Trae debajo `punta/edicion-reel-0911` (la edición automática misma) |
 | 2 | `punta/subtitulos-submagic-0911` | `8af141aff` (7263 tests de 724 archivos + tsc entero, Node 24) | Subtítulos de Submagic (§1.2, §1.3, §1.4, §1.5), con lo que encontró su revisión. Trae debajo la tanda 1 |
 | 3 | `punta/motion-0911` | `947524c66` (7150 tests de 716 archivos + tsc entero, Node 24) | Motion graphics por partes (§3.1), con lo que encontró su revisión. Trae debajo las tandas 1 y 2 |
-| 4 | `punta/editor-tanda4-0911` | (en revisión) | Ruido en un worker (§7.2), seguir a la persona en Clips (§5.1), el chat suma cinco botones (§9.1), B-roll «Otra» y videos de Pexels (§4.1), atajos y exportar el rango I/O (§10.1). Trae debajo la tanda 3 |
+| 4 | `punta/editor-tanda4-0911` | `d88a80fd8` (7306 tests de 735 archivos + tsc entero, Node 24) | Ruido en un worker (§7.2), seguir a la persona en Clips (§5.1), el chat suma cinco botones (§9.1), B-roll «Otra» y videos de Pexels (§4.1), atajos y exportar el rango I/O (§10.1). Trae debajo la tanda 3 |
 
 La rama designada de la sesión, `claude/magical-tesla-t2stbc`, sigue la última punta.
 

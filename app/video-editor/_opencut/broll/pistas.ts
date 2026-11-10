@@ -17,19 +17,38 @@
 // pendiente (`sinPendientes`); lo que la persona dejó cuenta como ocupado.
 //
 // Los tiempos llegan en SEGUNDOS y salen en ticks con el `tps` que pasa quien llama (las pruebas no cargan el `wasm`).
+//
+// «Cambiar por otra» (10/11/2026, pendientes-video-editor.md §4.1): un B-roll de MaKo (propuesto o ya dejado: lleva su
+// búsqueda y el id de Pexels) cambia de archivo en el MISMO lugar y tiempo. Las cuentas son las de «Reemplazar el clip»
+// (../reemplazo/puro.ts → `elementoReemplazado`: mismo id, inicio, duración, animaciones y efectos; un video que no
+// alcanza se rechaza; el sonido queda como estaba: un video propuesto entra silenciado y, si la persona le prendió el
+// sonido, lo conserva), más lo propio del B-roll, que el reemplazo no conserva porque son params sin declarar: las marcas
+// de MaKo y el archivo nuevo cubriendo el rectángulo donde se veía el viejo.
 // =============================================================================
 
 import type { Frase, Tramo } from "@/lib/editor-video/broll";
 import type {
 	EffectElement,
+	ElementRef,
 	EffectTrack,
 	ImageElement,
 	OverlayTrack,
 	SceneTracks,
 	TimelineElement,
+	VideoElement,
 	VideoTrack,
 } from "@/app/video-editor/_opencut/timeline";
 import { buildEmptyTrack } from "@/app/video-editor/_opencut/timeline/placement/track-factory";
+import {
+	buscarClip,
+	conElementos,
+	elementoReemplazado,
+	rectoMostrado,
+	type BaseParams,
+	type MedioReemplazo,
+	type MotivoReemplazo,
+} from "@/app/video-editor/_opencut/reemplazo/puro";
+import { cubrirCelda, paramsDeCubrir, type Tamano } from "@/app/video-editor/_opencut/plantillas/geometria";
 
 export const PARAM_PROPUESTA = "mako.propuesta";
 /** Lo que se buscó y de quién es la foto (el crédito que pide Pexels), en el elemento. */
@@ -37,6 +56,13 @@ export const PARAM_BUSQUEDA = "mako.broll.busqueda";
 export const PARAM_AUTOR = "mako.broll.autor";
 export const PARAM_FOTO = "mako.broll.foto";
 export const PARAM_MOTIVO = "mako.broll.motivo";
+/** Los ids de Pexels que ya se vieron en ese lugar («Cambiar por otra» no vuelve a ellos), separados por coma. */
+export const PARAM_VISTAS = "mako.broll.vistas";
+/** Lo que se guarda de las vistas: las últimas, para que el param no crezca sin fin. */
+const MAX_VISTAS = 40;
+
+/** Qué trae el B-roll de Pexels: fotos o videos. */
+export type MedioBroll = "fotos" | "videos";
 
 export type TipoPropuesta = "broll" | "plano";
 
@@ -48,7 +74,8 @@ export function propuestaDe(el: TimelineElement | null | undefined): TipoPropues
 	return v === "broll" || v === "plano" ? v : null;
 }
 
-export type Pendiente = { trackId: string; element: TimelineElement; tipo: TipoPropuesta };
+/** `bloqueada`: su pista está bloqueada (el botón «Otra» no la cambia, como no la cambia ninguna herramienta). */
+export type Pendiente = { trackId: string; element: TimelineElement; tipo: TipoPropuesta; bloqueada?: true };
 
 /** Lo que MaKo propuso y la persona todavía no dejó ni sacó, en el orden del video. */
 export function pendientesDe(tracks: SceneTracks | null | undefined): Pendiente[] {
@@ -57,7 +84,7 @@ export function pendientesDe(tracks: SceneTracks | null | undefined): Pendiente[
 	for (const t of tracks.overlay) {
 		for (const el of t.elements as TimelineElement[]) {
 			const tipo = propuestaDe(el);
-			if (tipo) lista.push({ trackId: t.id, element: el, tipo });
+			if (tipo) lista.push({ trackId: t.id, element: el, tipo, ...(t.locked === true ? { bloqueada: true as const } : {}) });
 		}
 	}
 	return lista.sort((a, b) => a.element.startTime - b.element.startTime);
@@ -145,6 +172,139 @@ function quitar(tracks: SceneTracks, sale: (el: TimelineElement) => boolean): Sc
 	return cambio ? { ...tracks, overlay } : tracks;
 }
 
+const ID_PEXELS = /^\d{1,12}$/;
+
+/** Un B-roll de MaKo, propuesto o ya dejado: qué se buscó, si es foto o video, y el id de Pexels de lo que muestra. */
+export type BrollPuesto = { busqueda: string; medio: MedioBroll; foto: number };
+
+/** El B-roll que trajo MaKo en ese elemento, o null si no es uno (una foto de la persona no lleva su búsqueda). */
+export function brollDe(el: TimelineElement | null | undefined): BrollPuesto | null {
+	if (!el || (el.type !== "image" && el.type !== "video")) return null;
+	const busqueda = el.params?.[PARAM_BUSQUEDA];
+	const foto = el.params?.[PARAM_FOTO];
+	if (typeof busqueda !== "string" || !busqueda.trim() || typeof foto !== "string" || !ID_PEXELS.test(foto)) return null;
+	return { busqueda: busqueda.trim(), medio: el.type === "video" ? "videos" : "fotos", foto: Number(foto) };
+}
+
+/** El B-roll de MaKo que la persona ya DEJÓ (sin marca de propuesta), en el orden del video: «Otra» también le sirve. */
+export function brollsDejados(tracks: SceneTracks | null | undefined): Pendiente[] {
+	const lista: Pendiente[] = [];
+	for (const t of tracks?.overlay ?? []) {
+		for (const el of t.elements as TimelineElement[]) {
+			if (brollDe(el) && !propuestaDe(el)) lista.push({ trackId: t.id, element: el, tipo: "broll", ...(t.locked === true ? { bloqueada: true as const } : {}) });
+		}
+	}
+	return lista.sort((a, b) => a.element.startTime - b.element.startTime);
+}
+
+/** Los ids que ya se vieron en el lugar de ese B-roll (sin el de ahora). */
+export function vistasDe(el: TimelineElement): number[] {
+	const v = el.params?.[PARAM_VISTAS];
+	if (typeof v !== "string") return [];
+	return v.split(",").filter((x) => ID_PEXELS.test(x)).map(Number);
+}
+
+/**
+ * Lo que «Cambiar por otra» no vuelve a traer para ese B-roll: lo que muestra hoy, lo que ya se vio en ese lugar y lo
+ * de su mismo medio que ya está en otro lugar de la línea de tiempo (dos huecos no llevan la misma foto).
+ */
+export function noRepetirEn(tracks: SceneTracks, el: TimelineElement): Set<number> {
+	const propio = brollDe(el);
+	if (!propio) return new Set(vistasDe(el));
+	return new Set([...vistasDe(el), propio.foto, ...idsEnUso(tracks, propio.medio)]);
+}
+
+/** Los ids de Pexels de ese medio que ya están en la línea de tiempo (propuestos o dejados). */
+export function idsEnUso(tracks: SceneTracks | null | undefined, medio: MedioBroll): Set<number> {
+	const ids = new Set<number>();
+	for (const t of tracks?.overlay ?? []) {
+		for (const el of t.elements as TimelineElement[]) {
+			const b = brollDe(el);
+			if (b && b.medio === medio) ids.add(b.foto);
+		}
+	}
+	return ids;
+}
+
+/** El primero de la búsqueda que no se repite y que sirve (un video que dure lo que el lugar). */
+export function siguienteBroll<T extends { id: number }>(
+	candidatos: readonly T[],
+	fuera: ReadonlySet<number>,
+	sirve: (c: T) => boolean = () => true,
+): T | null {
+	return candidatos.find((c) => !fuera.has(c.id) && sirve(c)) ?? null;
+}
+
+export type MotivoOtroBroll = MotivoReemplazo | "sin-broll" | "bloqueada";
+
+/**
+ * ¿Se puede cambiar el B-roll `ref` en la línea `tracks`? «Otra» lo pregunta ANTES de bajar el archivo y otra vez al
+ * volver (mientras se bajaba, la persona pudo sacarlo o bloquear su pista): `falta` = ya no está; `no-broll` = está pero
+ * no es un B-roll de MaKo; `bloqueada` = su pista está bloqueada.
+ */
+export type PuedeCambiarBroll = "si" | "falta" | "no-broll" | "bloqueada";
+
+export function puedeCambiarBroll(tracks: SceneTracks, ref: ElementRef): PuedeCambiarBroll {
+	const clip = buscarClip(tracks, ref);
+	if (!clip) {
+		const existe = [...tracks.overlay, tracks.main, ...tracks.audio].some((t) => (t.elements as TimelineElement[]).some((e) => e.id === ref.elementId));
+		return existe ? "no-broll" : "falta";
+	}
+	if (!brollDe(clip.element)) return "no-broll";
+	return clip.track.locked === true ? "bloqueada" : "si";
+}
+
+/**
+ * La línea con el B-roll `ref` mostrando el archivo `medio` (de Pexels, `foto`): mismo id, lugar y tiempo, las marcas de
+ * MaKo y el archivo nuevo cubriendo el rectángulo donde se veía el viejo. Foto por foto y video por video, así el sonido
+ * de un video queda como lo dejó la persona. Lo de antes queda en las vistas (no se vuelve a traer).
+ */
+export function lineaConOtroBroll({
+	tracks,
+	ref,
+	medio,
+	foto,
+	tps,
+	lienzo,
+	tamanoDe,
+	base,
+}: {
+	tracks: SceneTracks;
+	ref: ElementRef;
+	medio: MedioReemplazo;
+	foto: { id: number; autor: string };
+	tps: number;
+	lienzo: Tamano;
+	tamanoDe: (mediaId: string) => Tamano | null;
+	base: BaseParams;
+}): { ok: true; tracks: SceneTracks } | { ok: false; motivo: MotivoOtroBroll } {
+	const puede = puedeCambiarBroll(tracks, ref);
+	if (puede === "bloqueada") return { ok: false, motivo: "bloqueada" };
+	const clip = buscarClip(tracks, ref);
+	const actual = clip ? brollDe(clip.element) : null;
+	if (puede !== "si" || !clip || !actual) return { ok: false, motivo: "sin-broll" };
+	if ((actual.medio === "videos") !== (medio.type === "video")) return { ok: false, motivo: "tipo" };
+	const fuenteActual = tamanoDe(clip.element.mediaId) ?? lienzo;
+	const r = elementoReemplazado({ elemento: clip.element, medio, tps, lienzo, fuenteActual, base });
+	if (!r.ok) return r;
+	const celda = rectoMostrado({ params: clip.element.params, fuente: fuenteActual, lienzo });
+	const fuente = medio.width && medio.height ? { width: medio.width, height: medio.height } : lienzo;
+	const marcas = Object.fromEntries(
+		Object.entries(clip.element.params).filter(([k]) => k === PARAM_PROPUESTA || k.startsWith("mako.broll.")),
+	);
+	const vistas = [...new Set([...vistasDe(clip.element), actual.foto])].filter((id) => id !== foto.id).slice(-MAX_VISTAS);
+	const params = {
+		...r.elemento.params,
+		...paramsDeCubrir(cubrirCelda({ fuente, celda, lienzo })),
+		...marcas,
+		[PARAM_FOTO]: String(foto.id),
+		[PARAM_AUTOR]: foto.autor,
+		[PARAM_VISTAS]: vistas.join(","),
+	};
+	const elemento = { ...r.elemento, name: clip.element.name, params } as TimelineElement;
+	return { ok: true, tracks: conElementos(tracks, new Map([[clip.element.id, elemento]])) };
+}
+
 /** Se pisan dos tramos en ticks. */
 const pisa = (a: { startTime: number; duration: number }, b: { startTime: number; duration: number }) =>
 	a.startTime < b.startTime + b.duration && b.startTime < a.startTime + a.duration;
@@ -160,7 +320,8 @@ export function conPropuestas({
 	nuevoId,
 }: {
 	tracks: SceneTracks;
-	imagenes: readonly ImageElement[];
+	/** Las fotos o los videos del B-roll (la misma pista los lleva). */
+	imagenes: readonly (ImageElement | VideoElement)[];
 	capas: readonly EffectElement[];
 	nuevoId: () => string;
 }): SceneTracks {
