@@ -12260,3 +12260,12 @@ sumaban unos 6 GB; lo que rompió fue el proceso de los tests.
 **Lo que quedó SIN hacer:**
 - medir por qué `tests-afectados` arma un proceso de ese tamaño (en GitHub, con 10 GB libres, no pasa);
 - ponerle un techo de memoria, con `--max-old-space-size` por proceso, en `scripts/tests-afectados.mjs`.
+
+**Corrección (el chat de Image, 10/11 ~22:15): lo más probable es que NO fuera la suite de afectados.** A las 22:02:17 el vigía
+mató un tercer `node.exe` de **14.871 MB**, con la misma línea de comando (la del hijo que arma `node --test`), y a esa hora lo
+único que corría era el chat de Image verificando `tests/carruseles-imagen-rota.test.ts` rompiéndolo (arrancó a las 22:01:45).
+Ese test hacía `assert.equal(elementoDeJsdom, null)`: al fallar, `assert` arma la diferencia inspeccionando el grafo entero de
+jsdom y el proceso crece hasta comerse la memoria (docs/hallazgos-pruebas.md). El comando que se cortó a las 21:42 corría DOS
+verificaciones así, una detrás de la otra, que encaja con los dos procesos de 21:42 y 21:44. La suite del CoPilot arrancó a las
+21:38 y no se puede descartar, pero el vigía no registra la sesión de lo que mata. **Lo que falta:** que `[vigia] MATO` anote la
+sesión y el archivo de test (el `--test` hijo no lo lleva en la línea de comando), así una causa no se adivina por el horario.

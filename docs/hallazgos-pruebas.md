@@ -4,6 +4,19 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+## Un `assert.equal` con un elemento de jsdom que falla agota la memoria (10/11/2026)
+
+**Síntoma:** al verificar rompiéndolo `tests/carruseles-imagen-rota.test.ts`, el corredor contó «tests 1» y terminó: los casos
+2 a 4 no aparecían, sin ningún error. Con `--test-reporter=tap` salió `RangeError: Array buffer allocation failed` en el 2.
+
+**Lo obvio era la PC sin RAM, y no:** había 7,7 GB libres. Lo que pasaba es que `assert.equal(v.img(), null)`, al fallar, arma el
+mensaje de diferencia inspeccionando `actual`, y `actual` era un `HTMLImageElement` de jsdom. Su grafo de objetos (la ventana,
+el documento, todo) no entra en memoria. El reporte por defecto se come el error: cuenta sólo los tests que terminaron.
+
+**La regla:** en un test con jsdom, se compara un DATO del elemento (`img?.getAttribute('src') ?? null`), nunca el elemento.
+Y un «tests N» menor que la cantidad de `test(` del archivo es un proceso que se murió, no una pasada: se vuelve a correr con
+`--test-reporter=tap`.
+
 ## El juez decide UNA vez, en el horizonte del plan: medido con pruebas A/A (25/10/2026)
 
 **El síntoma (lo midió la crítica):** mirar todos los días y declarar ganador con «95 % dos días seguidos» daba entre 10 y
