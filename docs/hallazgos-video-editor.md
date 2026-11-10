@@ -32,7 +32,13 @@ andan: importa, subtitula (~70 s la primera vez) y borra los silencios (21 → 1
   231. Con `grid-cols-1` (`minmax(0,1fr)`) el `truncate` funciona: medido en la página antes de tocar el código.
 - **Lo que confunde a la IA está en el `para` del catálogo**: `fundido` es SÓLO el sonido (pidió «que empiece desde negro» y
   puso transiciones en los cortes), una transición no va al principio ni al final, «un poco más rápido» le daba 2×, y un título
-  «al inicio» corría todos los clips 3 s. Van dicho en `chat-catalogo.ts`.
+  «al inicio» corría todos los clips 3 s. Van dicho en `chat-catalogo.ts`. Re-medido con el arnés, 2 de 2 cada uno: el
+  fundido sale como animación de entrada del primer clip y de salida del último, «un poco más rápido» da 1,2× y el título
+  queda encima sin mover nada.
+- **Con la propuesta bien armada, el modelo a veces suma `[[no-pude: …]]`** (1 de 2 en «ponelo todo un poco más rápido»:
+  «no pude aplicar la velocidad a toda la pista en un solo comando»). En producción eso abre un ticket y le dice al cliente
+  «Quedó el ticket #N» al lado de un cambio que salió. Este chat no ejecuta (sólo propone): con operaciones, `[[no-pude]]` se
+  saca sin ticket y `[[no-existe]]` se queda (`lib/editor-video/marcas-chat.ts`).
 - **Mientras se generan los subtítulos la tarjeta era un círculo mudo un minuto**: el store `useTrabajoSubtitulos` ya tenía
   fase y %, el panel lo mostraba y el chat no. El rótulo vive en `subtitles/resultado.ts` (`rotuloProgresoSubtitulos`).
 - ⚠️ **«Pushear no es desplegar» también para medir**: la edición automática con los agentes y sus cursores entró a main a las

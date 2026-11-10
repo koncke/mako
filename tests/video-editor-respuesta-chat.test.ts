@@ -13,12 +13,14 @@
 // PROBADO ROMPIÉNDOLO (9/11/2026, cada uno dio rojo y se volvió atrás):
 //   · `propuso === 0` → `propuso >= 0`: el titular afirmativo volvía (rojo el 1.º);
 //   · sin la búsqueda de la línea del ticket: «Quedó el ticket #73…» se perdía (rojo el 1.º);
-//   · `new Set(...)` → la lista tal cual: el motivo salía tres veces (rojo el 2.º).
+//   · `new Set(...)` → la lista tal cual: el motivo salía tres veces (rojo el de los motivos);
+//   · en marcas-chat.ts, `<= 0` → `< 0` y `sacarNoPude(resumen).texto` → `resumen`: rojo el del «no pude» de más.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SIN_CAMBIOS, sinRepetir, textoSinCambios } from '../app/video-editor/_opencut/chat/respuesta';
 import { rotuloProgresoSubtitulos } from '../app/video-editor/_opencut/subtitles/resultado';
+import { resumenParaTickets } from '../lib/editor-video/marcas-chat';
 
 test('con operaciones propuestas y ninguna aplicable, el titular no afirma: «No cambié nada.»', () => {
   assert.equal(textoSinCambios({ resumen: 'Aquí tienes la limpieza de muletillas para dejar el video al hueso.', propuso: 1 }), SIN_CAMBIOS);
@@ -39,6 +41,17 @@ test('mientras se generan los subtítulos, la tarjeta del chat dice qué hace (l
   assert.equal(rotuloProgresoSubtitulos('modelo', 40), 'Descargando… 40 %');
   assert.equal(rotuloProgresoSubtitulos('transcribiendo', 75), 'Generando subtítulos… 75 %');
   assert.equal(rotuloProgresoSubtitulos('audio', 10), 'Generando subtítulos…');
+});
+
+test('con operaciones propuestas, un «no pude» no levanta ticket; «no existe» sí (lib/editor-video/marcas-chat.ts)', () => {
+  // El caso medido con el arnés: la propuesta bien armada y la marca de más.
+  const conMarca = 'Ajusto la velocidad de todos los clips al 1.2x.\n[[no-pude: no pude aplicar la velocidad a toda la pista en un solo comando]]';
+  assert.equal(resumenParaTickets(conMarca, 3), 'Ajusto la velocidad de todos los clips al 1.2x.');
+  // Sin operaciones, la marca es la respuesta entera y se queda (el server la saca y levanta el ticket).
+  assert.equal(resumenParaTickets(conMarca, 0), conMarca);
+  // Lo que no está en el catálogo se sigue levantando aunque haya operaciones para el resto del pedido.
+  const mixto = 'Pongo los subtítulos en amarillo; la música todavía no se puede.\n[[no-existe: agregar música de fondo]]';
+  assert.equal(resumenParaTickets(mixto, 1), mixto);
 });
 
 test('los motivos van una vez cada uno, en el orden en que llegaron', () => {
