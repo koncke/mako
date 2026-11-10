@@ -785,6 +785,13 @@ una tarjeta de diseño no se podían cambiar (el panel no tenía campos). «No s
   mirar si la pantalla lo muestra: el inicial y lo que se ve no son lo mismo.**
 - **Mirar «como el cliente» con `?ws=` NO muestra el Dashboard del cliente:** el superadmin ve SU informe en ese negocio (su `sub`).
   Coinciden sólo mientras ninguno de los dos guardó; para ver el de una persona hay que leer su fila.
+- **⛔ 10/11: Martín rechazó la hoja «Velocidad de llamada» tal como quedó («la más fea de todas»).** Estaba armada con tarjetas de
+  tres diseños ya copiados (Cold Calling, Closing y la tabla de Marketing), más una tabla y textos propios: el aviso de grabar, el
+  título de «Cada lead nuevo». Pasaba el test de «trae diseño copiado» y era inventar igual. La rehace un chat en la nube copiando UN
+  demo entero (Tend, rama `punta/velocidad-tend`), y la regla quedó arriba de todo en AGENTS.md («PROHIBIDO INVENTAR»). De esta
+  sección sigue valiendo lo que es MECANISMO: el costado, los textos editables, el Dashboard por persona, que el inicial no se ve y
+  `esHojaDeAgencia`. Lo que es CONTENIDO de la hoja (las piezas, el aviso y sus textos, la tabla) no se reusa. El pedido de Martín
+  del 9/11 («que diga que salen sin contactar porque no graban, y cómo grabar») sigue vivo: si el demo no tiene dónde, decide él.
 
 **Vive en:** lib/graficos-conectores.ts, app/dashboard/Conectores.tsx, lib/disenos-textos.ts, app/dashboard/disenos/textos-de-bloque.ts,
 app/dashboard/disenos/TapaDeDiseno.tsx, lib/primer-contacto.ts, app/dashboard/disenos/HojaClosing.tsx, lib/graficos-plantillas.ts
