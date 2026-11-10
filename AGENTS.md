@@ -2222,6 +2222,12 @@ código nuevo:
     a la derecha» del 18/10. La pieza es `<MakoEnLaTab tab="…" />` (app/_chat/MakoEnLaTab.tsx): lo que se escribe va al chat
     «Cerebro» de la persona, el del Ops Center, con su motor y sus piezas. Ninguna tab abre un chat de MaKo suelto a la derecha.
     Lo propio de la tab entra por la pieza (`arriba`, `aviso`) y el lugar se lo deja con `var(--ancho-panel-mako, 0px)`.
+    **Y UNA TAB CUYA CHARLA ES LA PANTALLA TIENE SU HILO** (10/11/2026; Martín vio en el MaKo de Image «desde Marketing CoPilot:
+    Volvamos a empezar» y la respuesta del CoPilot): la conversación es una, pero los turnos de una tab de
+    `TABS_CON_HILO_PROPIO` (lib/chat-desde.ts; hoy el CoPilot) no se dibujan en otra tab ni el modelo los lee de historial
+    desde otra, y en esa tab va sólo lo suyo. Todo lo que dibuje o mande al modelo un hilo de tab pasa por `delHiloDeLaTab`
+    (el panel, la hoja del teléfono, `historialParaModelo` en turnoApp). El Ops Center, sin tab, sigue viendo todo.
+    tests/hilo-propio-de-tab.test.ts.
     **Y DESDE DÓNDE (OC6, 22/10/2026, lib/chat-desde.ts):** una tab con algo abierto pasa `entidad` ({ tipo, id, titulo }: el lead
     de la ficha, la automatización del lienzo), y una pantalla que mira sin editar pasa `modo="analizar"`. Las herramientas toman
     la entidad por defecto, y en «analizar» el servidor no deja nada que escriba. Un tipo de entidad nuevo va en `ENTIDADES`,
