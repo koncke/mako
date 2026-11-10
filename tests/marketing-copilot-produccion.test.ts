@@ -12,7 +12,8 @@
 //   5. «Tu funnel está en marcha. ¿Qué miramos?» y sus botones seguían debajo de la respuesta: en el CoPilot se van al escribir;
 //   6. «Lanzar el primer anuncio» era el único paso de «Esta semana» sin botón: va a Nueva campaña;
 //   7. Ajustes juzgaba el funnel con `presupuestoMes ?? 0` y `llamadas ?? 'yo'`;
-//   8. «← Media Buyer», «Ir al Media Buyer» y el cargando decían el nombre viejo de la tab.
+//   8. «← Media Buyer», «Ir al Media Buyer» y el cargando decían el nombre viejo de la tab;
+//   9. «desde Marketing CoPilot» + «Marketing CoPilot: Volvamos a empezar»: el nombre iba dos veces.
 //
 // Correr: node --import tsx --test tests/marketing-copilot-produccion.test.ts
 // PROBADO ROMPIÉNDOLO, ver el pie.
@@ -107,6 +108,10 @@ test('8. la tab se nombra Marketing CoPilot en lo que se ve y se lee (el agente 
   assert.match(leer('app/ads-manager/Automatizaciones.tsx'), /label: 'Marketing CoPilot'/);
   assert.doesNotMatch(leer('app/ads-manager/NuevaCampana.tsx'), /Ir al Media Buyer/);
   assert.match(leer('app/ads-manager/loading.tsx'), /que="Marketing CoPilot"/);
+});
+
+test('9. lo que se pide desde la tab no lleva «Marketing CoPilot:» delante: el chip «desde» ya lo dice', () => {
+  for (const r of ['app/ads-manager/MediaBuyer.tsx', 'app/ads-manager/PlanDelCopiloto.tsx']) assert.doesNotMatch(leer(r), /texto: `Marketing CoPilot: \$\{texto\}`/, r);
 });
 
 // PROBADO ROMPIÉNDOLO (10/11/2026):

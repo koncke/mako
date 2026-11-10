@@ -159,7 +159,8 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
     await recargar();
   }, [recargar, show]);
 
-  const pedir = (texto: string) => setPedidoMako({ texto: `Marketing CoPilot: ${texto}`, vez: Date.now() });
+  // Sin «Marketing CoPilot:» delante (10/11/2026): el chip «desde Marketing CoPilot» ya lo dice, y se leía dos veces.
+  const pedir = (texto: string) => setPedidoMako({ texto, vez: Date.now() });
   const avatar = <Criatura nombre="MaKo" size={18} estrella />;
   const producto = (d: Decision) => productoDeAccion(productoDe, d);
   const conectada = tieneMeta || !!zernio?.conectado;

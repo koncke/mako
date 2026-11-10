@@ -133,7 +133,7 @@ export function SinAnuncios({ perfil }: { perfil: PerfilCopiloto }) {
         <div className="aa-top-der">{f ? <span className="aa-etiqueta">{f.nombre}</span> : null}</div>
       </nav>
       <div className="aa-pagina">
-        <CajaDeOrden placeholder="Pídele algo a MaKo" onPedir={(texto) => setPedido({ texto: `Marketing CoPilot: ${texto}`, vez: Date.now() })} />
+        <CajaDeOrden placeholder="Pídele algo a MaKo" onPedir={(texto) => setPedido({ texto, vez: Date.now() })} />
         {sec === 'semana' && <SeccionSemana perfil={perfil} />}
         {sec === 'plan' && <SeccionPlan perfil={perfil} />}
         {sec === 'medir' && <SeccionMedir perfil={perfil} />}
