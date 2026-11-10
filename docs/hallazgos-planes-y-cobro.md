@@ -10,6 +10,53 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Revenue no veía lo que una agencia paga por su LIBRO: un cobro que escribe su propio registro queda fuera de todo lector de `pagos` (10/11/2026, nube)
+
+**Vive en:** `lib/admin-ingresos-libro.ts` (nuevo, puro: del libro a pagos de Revenue), `lib/admin-ingresos.ts` (`libroDeLasAgencias`, la
+tercera fuente), `lib/admin-ingresos-reglas.ts` (`conElLibro`), `lib/agencia-mes-reglas.ts` (`leerOrden`, mudado de `lib/agencia-mes.ts`).
+Lo fija `tests/admin-ingresos-libro.test.ts`, con el lector real sobre un PostgREST de mentira (`tests/_admin-ingresos-libro-hijo.ts`).
+El relevo: [relevo/nube-ingresos-agencia.md](relevo/nube-ingresos-agencia.md).
+
+- **El síntoma.** Martín, 10/11: «recibimos un pago de Código por el cliente de Patricia y no se cargó automáticamente en admin». La
+  entrada (9/11, 40 USDT por Binance) quedó en el libro de la agencia (`agencia.mensualidad.13.orden.<orden>` y `.entrada.22` en
+  `app_settings` de la plataforma), salió su recibo 0003, y Revenue no la vio.
+- **La causa no es un bug del libro: es una decisión correcta que dejó un agujero.** «Cargar pago» registra el pago en el CRM, y
+  `emitirReciboManual` NO, a propósito («también la llama el flujo de agencias, que ya marcó su mes en su propio registro»,
+  lib/recibos-reglas.ts). Con eso el libro quedó afuera de TODO lo que lee `pagos` (Revenue, Metrics, Top Customers, el cash del
+  margen). **Cuando un cobro escribe su propio registro, o cada lector de «lo que entró» lo lee, o hay un solo escritor.**
+- **Se eligió LEERLO, no escribir `pagos`.** Cubre lo pasado y lo que viene sin cargar nada a mano, y no abre un segundo camino de
+  escritura. Y escribir tenía un costo que no se veía: medido en el hijo, un pago que NO es la mensualidad (la entrada de 40) en la
+  casa de un lead de suscripción sube la mensualidad que la historia del CRM infiere (el MRR pasa de 238 a 278). La alternativa del
+  encargo (`aplicarPagoDeAgencia` escribe el pago) habría inflado el MRR de Código con cada entrada.
+- **⚠️ La columna que dice «esta orden ya está en el CRM» no es `pagos.proveedor_pago_id`.** Es lo primero que aparece y no sirve:
+  `pagos.proveedor` tiene un CHECK con `stripe | mercadopago | creem` (mig 0358), así que un pago de Binance no puede llevar su orden
+  ahí. La que ata es `recibo_pagos.pago_id` (mig 0408), por (medio, referencia). Se compara con `claveDelCobro` (la referencia
+  normalizada que usa «Cargar pago»: una orden escrita con espacios es la misma). Un recibo del libro sin pago (`pago_id` null) NO
+  ata: es lo normal, y es el caso de Patricia.
+- **⚠️ Lo RECIBIDO no es lo APLICADO.** Patricia debía 40,73 y entraron 40: la orden guarda `montoUsd: 40` y `aplicado` con 40,73. Lo que
+  se suma es lo recibido; una orden repartida (un mes y una entrada) se parte en proporción a `aplicado`, y la última parte se lleva el
+  redondeo para que la suma sea exacta.
+- **⚠️ El día de una orden es el que anota el libro (`fecha.slice(0, 10)`), no `diaEnLaZona`.** El comprobante guarda
+  `${fecha}T${hora}:00` SIN zona: `Date.parse` lo lee en la zona del server (UTC en Vercel) y, pasado a la de la plataforma, un pago de
+  las 22:40 cae al día siguiente. El libro ya decide el día así (`aplicarPagoDeAgencia` → `pagadoEl`).
+- **⚠️ La mensualidad del libro y la del CRM son LA MISMA PLATA con dos claves.** Hasta noviembre la de Código se cargó a mano en el CRM
+  (`lead:<id>:<crm>`); desde diciembre la lleva el libro (`agencia:13`). Sin `conElLibro`, al pagar diciembre por el libro el tramo del
+  CRM seguía vivo por la gracia (15 días): MRR 238 + 300 dos semanas, y después un «Se cortó» y un «Volvió» que no pasaron. La regla:
+  el tramo del CRM termina el día que arranca el del libro (UN movimiento), no cuenta si nace con el libro vivo, y vuelve a contar si
+  el libro se apaga. Y la historia mes a mes del CRM no ve el libro: diría que diciembre se debe, así que «Por cobrar» no la mira.
+- **Un dato que no se puede leer no es un cero.** Si el libro no se lee, un aviso («No pude leer los pagos de las agencias…»). Si no se
+  pueden leer los recibos, tampoco se cuenta el libro (sin saber qué está atado contaría dos veces) y se dice. Sin la mig 0397 (la tabla
+  no existe), nada está atado. Un mes marcado pagado a mano SIN orden no tiene cuánto entró ni con qué atarse: no suma, y se avisa.
+
+**Lo que quedó sin hacer** (medido, no tocado):
+- **Sales › Subscriptions sigue leyendo la historia del CRM** (`suscripcionesDeLaPlataforma`, app/admin/_polar/datos/ventas-server.ts):
+  desde diciembre va a decir «Atrasada» sobre la suscripción del CRM de Código aunque el libro la haya cobrado. Revenue y Customers ya
+  no. Decide quien lleve Sales si ahí la suscripción de una agencia pasa a ser la del libro.
+- **Sales › Orders no lista las órdenes del libro como pedidos** (su filtro es `^[pc]:\d+$`): muestra su recibo como «cargado a mano», que
+  es la misma plata una vez. No hay doble conteo en una pantalla, pero el pedido no dice «Binance · orden …».
+- **El movimiento «sube» de noviembre aparece el 1/12 cuando hoy es diciembre**, con o sin el libro: es de la historia mes a mes
+  (`conMensualidad` sobre una mensualidad inferida). Medido en el hijo; no es de esta punta.
+
 ## Al cliente de una agencia los carteles de tope le vendían un SEGUNDO plan, y el fail-closed de agencias no aplicaba acá (6/11/2026, #494)
 
 **Vive en:** `app/_components/CtaPasarAPro.tsx` (nuevo) y `app/_components/useClienteDeAgencia.ts`, `lib/plan-esencial-reglas.ts`
