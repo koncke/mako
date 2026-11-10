@@ -55,7 +55,7 @@ import {
   disparadoresDe, sanearDisparadores, firmaLista, nuevoIdDisparador, problemaDeDisparador, textoDeDisparador, deSiempreDisparador,
   valoresQuien, quienTrasTocar, valorEtiqueta, conValorEtiqueta, alternarIgnorar, textoQuien, VALOR_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA, TEXTO_GRUPO,
-  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, conPalabras, conPublicacion,
+  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, conPalabras, conPublicacion, queSeComparaConPalabras,
   type ClaseDisparador, type ClaseDeEventos, type Disparador, type EstadoCanales,
 } from '@/lib/disparadores';
 // Las palabras clave del CRON de comentario (ticket #17 de Leandro, 28/10/2026: «Tal cual como lo hace manychat»).
@@ -378,6 +378,8 @@ export function PalabrasClave({ d, onCambiar, disabled }: {
   d: Disparador; onCambiar: (palabras: string[], coincidencia: Coincidencia) => void; disabled?: boolean;
 }) {
   const guardadas = (d.palabras ?? []).join(', ');
+  // El comentario o el mensaje (10/11/2026: también un DM y la respuesta a una historia, como ManyChat).
+  const que = queSeComparaConPalabras(d.subtipo);
   const [texto, setTexto] = useState(guardadas);
   const coincidencia: Coincidencia = d.coincidencia ?? 'contiene';
   // Una palabra que no se lee («?») se DICE y no se guarda: tirarla callada dejaba la caja vacía, que es «cualquier comentario».
@@ -394,9 +396,9 @@ export function PalabrasClave({ d, onCambiar, disabled }: {
     <div data-palabras-clave="" style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '120px minmax(0, 1fr)', alignItems: 'center', gap: 8 }}>
       <Dropdown value={coincidencia} width="100%" buttonStyle={BOTON_CAMPO_CRON} disabled={disabled}
         options={COINCIDENCIAS.map((o) => ({ value: o.value, label: o.label }))}
-        onChange={(v) => guardar(texto, v === 'exacta' ? 'exacta' : 'contiene')} ariaLabel="Cómo se compara el comentario" />
-      <input type="text" value={texto} disabled={disabled} aria-label="Palabras clave del comentario"
-        placeholder="fiesta, guía (vacío = cualquier comentario)"
+        onChange={(v) => guardar(texto, v === 'exacta' ? 'exacta' : 'contiene')} ariaLabel={`Cómo se compara el ${que}`} />
+      <input type="text" value={texto} disabled={disabled} aria-label={`Palabras clave del ${que}`}
+        placeholder={`fiesta, guía (vacío = cualquier ${que})`}
         onChange={(e) => setTexto(e.target.value)}
         onBlur={() => guardar(texto, coincidencia)}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); guardar(texto, coincidencia); } }}

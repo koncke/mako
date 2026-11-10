@@ -37,7 +37,7 @@ import {
 } from '@/lib/setting-secuencias';
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
 import { estadoCanalesDisparo } from '@/lib/disparadores-canales';
-import { opcionesCronIA, disparadorDeValorIA, recurrenteDeValorIA, PIDE_ANUNCIO, type CanalesConectadosIA } from '@/lib/disparadores';
+import { opcionesCronIA, disparadorDeValorIA, recurrenteDeValorIA, PIDE_ANUNCIO, PIDE_MENCION, type CanalesConectadosIA } from '@/lib/disparadores';
 import { catalogosDe, etapasDeCondicion } from '@/lib/condiciones-catalogos';
 import { catalogosRemotos } from '@/lib/condiciones-catalogo-datos';
 import { listarEtiquetas, crearEtiqueta } from '@/lib/etiquetas';
@@ -122,7 +122,7 @@ async function canalesConectados(): Promise<CanalesConectadosIA> {
  * DUODÉCIMA TANDA (12/10/2026, docs/diseno-duodecima-tanda.md §2.2 y §2.3): el CRON y las condiciones salen de las
  * MISMAS funciones que la pantalla (`opcionesCronIA`, `catalogosDe` + `catalogosRemotos`).
  */
-export async function armarContexto(ws: number, pedido: string, o: { textos?: string; anuncio?: boolean } = {}): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
+export async function armarContexto(ws: number, pedido: string, o: { textos?: string; anuncio?: boolean; mencion?: boolean } = {}): Promise<{ ctx: CtxIA; perfil: string; voz: string | null }> {
   const [etiquetas, productos, audios, archivos, accionesWs, entregables, video, agenda, perfil, voz, conectados, remotos] = await Promise.all([
     listarEtiquetas({ incluirArchivadas: true }),
     productosConEtapas().catch(() => []),
@@ -165,6 +165,8 @@ export async function armarContexto(ws: number, pedido: string, o: { textos?: st
     // También si lo nombró en «Otra cosa» (`textos`) o si el CRON guardado ES el del anuncio (`anuncio`, la ruta al explicar o
     // editar): sin eso «¿Qué hace esta automatización?» no encontraba su CRON y contestaba «no tiene CRON».
     anuncio: o.anuncio === true || PIDE_ANUNCIO.test(o.textos ? `${pedido}\n${o.textos}` : pedido),
+    // La mención en una historia (10/11/2026), con la misma regla y por el mismo techo.
+    mencion: o.mencion === true || PIDE_MENCION.test(o.textos ? `${pedido}\n${o.textos}` : pedido),
   }));
   // LAS CONDICIONES: el MISMO catálogo que arma el editor (`catalogosDe`), con las etapas y los productos como se los
   // pasa el lienzo (`etapasDeCondicion`).

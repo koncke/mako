@@ -158,6 +158,9 @@ export type EventoCanal = { subtipo: string; label: string; apagado?: string };
 export const EVENTOS_INSTAGRAM: readonly EventoCanal[] = [
   { subtipo: 'comentario', label: 'El usuario comenta tu publicación o Reel' },
   { subtipo: 'historia', label: 'El usuario responde a tu historia' },
+  // La MENCIÓN en una historia (10/11/2026, paridad con ManyChat): llegaba por el webhook y no la escuchaba nadie. Abre la
+  // ventana de 24 h como un mensaje (la persona le escribe a la cuenta al mencionarla), así que la respuesta sale como un DM.
+  { subtipo: 'mencion', label: 'El usuario te menciona en su historia' },
   { subtipo: 'dm', label: 'El usuario envía un mensaje' },
   { subtipo: 'anuncio', label: 'El usuario hace clic en un anuncio de Instagram' },
   { subtipo: 'en_vivo', label: 'El usuario comenta en tu En vivo' },
@@ -400,7 +403,7 @@ export function eventosDe(clase: ClaseDisparador | 'otro' | null): readonly Even
  * null = el evento no lo escucha ningún CRON de ese canal (una mención en una historia, por ejemplo).
  */
 const SUBTIPO_DEL_WEBHOOK: Readonly<Record<string, string>> = {
-  mensaje: 'dm', historia: 'historia', comentario: 'comentario', comentario_vivo: 'en_vivo',
+  mensaje: 'dm', historia: 'historia', mencion_historia: 'mencion', comentario: 'comentario', comentario_vivo: 'en_vivo',
   anuncio: 'anuncio', referencia: 'ref', qr: 'qr', tienda: 'tienda',
 };
 export function subtipoDelEvento(canal: 'instagram' | 'messenger', subtipoDelWebhook: string | null | undefined): string | null {
@@ -495,9 +498,18 @@ const CON_IGNORAR: ReadonlySet<string> = new Set([TRIGGER_ETIQUETA_AGREGADA, TRI
 /** Las que llevan `subtipo` (el evento de MaKo también: cuál de `EVENTOS_MAKO`). */
 const CON_SUBTIPO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO, TRIGGER_PAGO]);
 
-/** ¿Este CRON lleva palabras clave? El comentario a una publicación o Reel (y al En vivo) de Instagram o Messenger. */
+/**
+ * ¿Este CRON lleva palabras clave? El comentario a una publicación o Reel (y al En vivo) de Instagram o Messenger y, desde el
+ * 10/11/2026 (paridad con ManyChat: «DM keyword»), el MENSAJE directo y la respuesta a una historia. El texto que se mira es el de
+ * ESE mensaje (`disparaPorEvento` con `ctx.texto`, que el webhook manda en los dos casos), y sin palabras arranca con cualquiera,
+ * como siempre: lo que ya andaba no cambia.
+ */
+const SUBTIPOS_CON_PALABRAS: ReadonlySet<string> = new Set(['comentario', 'en_vivo', 'dm', 'historia']);
 export const conPalabras = (t: string, subtipo: string | null | undefined): boolean =>
-  (t === TRIGGER_INSTAGRAM || t === TRIGGER_MESSENGER) && (subtipo === 'comentario' || subtipo === 'en_vivo');
+  (t === TRIGGER_INSTAGRAM || t === TRIGGER_MESSENGER) && !!subtipo && SUBTIPOS_CON_PALABRAS.has(subtipo);
+/** Lo que se compara, como lo ve la persona: el comentario o el mensaje. */
+export const queSeComparaConPalabras = (subtipo: string | null | undefined): 'comentario' | 'mensaje' =>
+  (subtipo === 'dm' || subtipo === 'historia' ? 'mensaje' : 'comentario');
 
 /** ¿Este CRON puede elegir la publicación (ticket #25)? Sólo el comentario a una publicación o Reel: un En vivo no se elige de antemano. */
 export const conPublicacion = (t: string, subtipo: string | null | undefined): boolean =>
@@ -1245,10 +1257,18 @@ export type EntradaCronIA = {
    * opciones más (Instagram y Messenger) y el prompt de Crear con IA está en el techo de Groq (tests/crear-ia-tercera).
    */
   anuncio?: boolean;
+  /**
+   * Ofrecer «te menciona en su historia» (10/11/2026): con la misma regla que el anuncio, SÓLO si el pedido habla de
+   * menciones (`PIDE_MENCION`). Con todo conectado dejaba el prompt 8 tokens arriba del techo de Groq (tests/crear-ia-tercera).
+   * En el CRON de la pantalla y por la API (`cambiar_crons_secuencia`, subtipo `mencion`) está siempre.
+   */
+  mencion?: boolean;
 };
 
 /** ¿El pedido habla de anuncios? Entonces la IA ve el CRON «clic en un anuncio» (`opcionesCronIA`). */
 export const PIDE_ANUNCIO = /\banuncios?\b|\bads?\b|publicidad/i;
+/** ¿El pedido habla de que lo mencionen? Entonces la IA ve el CRON «te menciona en su historia». */
+export const PIDE_MENCION = /\bmenci[oó]n(?:a|e|an|en|ó|o|es)?\b|\bmencionad[oa]s?\b|\bmencionar(?:me|nos|te)?\b|\btag(?:uea|ue[an]?)\b|\betiquet\w* en (?:su|una|las?) historias?\b/i;
 
 /** El título de la sección de cada clase: el rótulo de su botón en la primera pantalla del CRON. */
 const tituloDeClase = (clase: ClaseDisparador): string => CLASES_DISPARADOR.find((c) => c.clase === clase)?.label ?? clase;
@@ -1292,7 +1312,7 @@ export function opcionesCronIA(e: EntradaCronIA): Array<{ title: string; options
   });
   for (const clase of CLASES_DE_EVENTOS) {
     if (e.conectados[clase] !== true) continue;
-    const options = eventosParaIA(clase).filter((ev) => ev.subtipo !== 'anuncio' || e.anuncio === true)
+    const options = eventosParaIA(clase).filter((ev) => (ev.subtipo !== 'anuncio' || e.anuncio === true) && (ev.subtipo !== 'mencion' || e.mencion === true))
       .map((ev) => ({ value: valorEventoIA(clase, ev.subtipo), label: ev.label }));
     if (options.length) out.push({ title: tituloDeClase(clase), options });
   }

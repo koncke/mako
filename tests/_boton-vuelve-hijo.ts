@@ -11,7 +11,8 @@
 // Corre con: node --conditions=react-server --experimental-test-module-mocks --no-warnings --import tsx tests/_boton-vuelve-hijo.ts <escenario>
 // Escenarios: 'gate' (el caso del ticket #29), 'tope' (el tope de toques) y 'publicacion' (la publicación o el Reel del CRON,
 // ticket #25: tests/comentario-publicacion.test.ts) y 'duplicadas' / '_texto' / '_ajeno' (el toque de un DM viejo con varias
-// automatizaciones copiadas de la misma, ticket #33: tests/boton-dm-viejo.test.ts). Imprime un JSON en la última línea.
+// automatizaciones copiadas de la misma, ticket #33: tests/boton-dm-viejo.test.ts) y 'dm_y_mencion' (las palabras clave de un DM y la
+// mención en una historia, paridad con ManyChat del 10/11/2026: tests/instagram-dm-palabras-mencion.test.ts). Imprime un JSON en la última línea.
 // =============================================================================
 import { mock } from 'node:test';
 import { createHmac, createHash } from 'node:crypto';
@@ -206,7 +207,7 @@ const anotar = (n: string, extra: Record<string, unknown> = {}) => {
   };
 };
 
-if (ESC !== 'publicacion' && !ESC.startsWith('duplicadas')) {
+if (ESC !== 'publicacion' && !ESC.startsWith('duplicadas') && ESC !== 'dm_y_mencion') {
   await llega(comentario());
   await tick();
   anotar('0_comento');
@@ -282,6 +283,43 @@ if (ESC.startsWith('duplicadas')) {
   ultima.estado = 'completada'; ultima.nodo_actual = null;
   await llega(toque('m1', 'Obtener recurso', insc(707), ESC === 'duplicadas_texto' ? 'ninguno' : ESC === 'duplicadas_ajeno' ? 'ajeno' : 'mako'));
   anotar('1_toca_el_viejo', { estados: db.nutricion_inscripciones.map((i) => `${i.secuencia_id}:${i.estado}:${i.nodo_actual}`) });
+}
+
+if (ESC === 'dm_y_mencion') {
+  // LAS PALABRAS DE UN DM Y LA MENCIÓN EN UNA HISTORIA (10/11/2026, paridad con ManyChat), por el webhook REAL.
+  // La 680 escucha ahora un DM con «guia»; una segunda (la 681) escucha la mención en una historia.
+  const base = db.nutricion_secuencias[0];
+  base.disparadores = [{ id: 'd1', trigger_tipo: 'instagram', subtipo: 'dm', palabras: ['guia'] }];
+  db.nutricion_secuencias.push({ ...base, id: 681, clave: 's681', nombre: 'Te mencionó', disparadores: [{ id: 'd1', trigger_tipo: 'instagram', subtipo: 'mencion' }],
+    pasos: [{ id: 'entrada', nodo: 'inicio', canal: 'instagram', cuerpo: '', siguiente: 'm1' }, { id: 'm1', canal: 'instagram', cuerpo: '¡Gracias por mencionarnos!', siguiente: null }] });
+  let n = 900;
+  const persona = (id: string, username: string) => ({ id, username, name: username });
+  const conv = (p: { id: string; name: string }) => ({ id: `conv_${p.id}`, platformConversationId: p.id, participantId: p.id, participantName: p.name, status: 'active' });
+  const dm = (p: { id: string; username: string; name: string }, texto: string) => ({
+    id: `ev${++n}`, event: 'message.received', timestamp: now(),
+    message: { id: `mid${n}`, conversationId: `conv_${p.id}`, platform: 'instagram', platformMessageId: `mid.${n}`, direction: 'incoming', text: texto, attachments: [], sender: p, sentAt: now(), isRead: false },
+    conversation: conv(p), account: CUENTA, metadata: null,
+  });
+  const mencion = (p: { id: string; username: string; name: string }) => ({
+    id: `ev${++n}`, event: 'message.received', timestamp: now(),
+    message: { id: `mid${n}`, conversationId: `conv_${p.id}`, platform: 'instagram', platformMessageId: `mid.${n}`, direction: 'incoming', text: null,
+      attachments: [{ type: 'share', originalType: 'story_mention', url: 'https://cdn.test/historia' }], sender: p, sentAt: now(), isRead: false },
+    conversation: conv(p), account: CUENTA, metadata: null,
+  });
+  const BETO = persona('ig_beto', 'beto');
+  const CARO = persona('ig_caro', 'caro');
+  // 1. Un DM sin la palabra: nadie lo escucha, no nace el lead.
+  await llega(dm(BETO, 'hola, ¿cómo están?'));
+  await tick();
+  anotar('1_dm_sin_palabra', { leads: db.leads.length });
+  // 2. Un DM con la palabra (con mayúsculas y tilde): nace el lead, se inscribe en la 680 y le llega su DM.
+  await llega(dm(BETO, 'Hola! quiero la GUÍA'));
+  await tick();
+  anotar('2_dm_con_palabra', { leads: db.leads.length, secuencias: db.nutricion_inscripciones.map((i) => Number(i.secuencia_id)) });
+  // 3. Otra persona menciona la cuenta en su historia: la 681 la escucha y le contesta por DM.
+  await llega(mencion(CARO));
+  await tick();
+  anotar('3_mencion', { leads: db.leads.length, secuencias: db.nutricion_inscripciones.map((i) => Number(i.secuencia_id)) });
 }
 
 process.stdout.write(`\n@@R@@${JSON.stringify({ pasos, otros, sinMock: [...(pg.sinMock ?? [])] })}\n`);

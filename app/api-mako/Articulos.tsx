@@ -374,7 +374,7 @@ function InstagramPalabrasBotones() {
   return (
     <>
       <h2 id="palabras">Las palabras clave del disparador</h2>
-      <p>El disparador «Comenta tu publicación o Reel» (y el de «en vivo») arranca con <strong>cualquier comentario</strong>, o sólo con los que tienen alguna de sus palabras clave. Se ponen en Automations, en la tarjeta del disparador: hasta 20 palabras, de hasta 60 letras cada una. Por la API todavía no se pueden cambiar.</p>
+      <p>El disparador «Comenta tu publicación o Reel» (y el de «en vivo»), «Envía un mensaje» y «Responde a tu historia» arrancan con <strong>cualquier comentario o mensaje</strong>, o sólo con los que tienen alguna de sus palabras clave. Se ponen en Automations, en la tarjeta del disparador: hasta 20 palabras, de hasta 60 letras cada una. Por la API van en <code>palabras</code> y <code>coincidencia</code> de <code>cambiar_crons_secuencia</code> (PUT de los disparadores de la automatización).</p>
       <table className="gh-tabla">
         <thead><tr><th style={{ width: 160 }}>Cómo se busca</th><th>Qué comentario arranca</th></tr></thead>
         <tbody>

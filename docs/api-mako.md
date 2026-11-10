@@ -8709,10 +8709,10 @@ PROPONE reemplazar la lista de CRON de una automatización (lo que la hace arran
 | `crons.producto_id` | number | no | con entrega_actual: el producto cuya entrega se mira. |
 | `crons.etiqueta_id` | number | no | con etiqueta_puesta: la etiqueta (de listar_etiquetas, área crm). |
 | `crons.ignorar` | string[] | no | con etiqueta_agregada o etiqueta_quitada: los ids de las etiquetas que NO la disparan, como textos ("12", "15"). |
-| `crons.subtipo` | string | no | con instagram, messenger, email_recibido o pago: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido. Pago: aprobado, rechazado, reembolsado, suscripcion_cancelada. |
+| `crons.subtipo` | string | no | con instagram, messenger, email_recibido o pago: el evento. Instagram: comentario, historia, mencion, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido. Pago: aprobado, rechazado, reembolsado, suscripcion_cancelada. |
 | `crons.grupo` | boolean | no | con horario: además (o en vez) de la cohorte, le escribe al grupo de WhatsApp de MaKo del negocio. |
-| `crons.palabras` | string[] | no | con subtipo comentario o en_vivo: arranca sólo si el comentario tiene una de estas palabras (sin mayúsculas ni acentos). Vacía = cualquier comentario. |
-| `crons.coincidencia` | string (contiene \\| exacta) | no | con palabras: contiene (la palabra está en el comentario, default) o exacta (el comentario es la palabra). |
+| `crons.palabras` | string[] | no | con subtipo comentario, en_vivo, dm o historia: arranca sólo si el texto tiene una de estas palabras (sin mayúsculas ni acentos). Vacía = cualquiera. |
+| `crons.coincidencia` | string (contiene \\| exacta) | no | con palabras: contiene (la palabra está en el texto, default) o exacta (el texto es la palabra). |
 | `crons.publicacion` | string | no | con subtipo comentario: el link o el id de la publicación o Reel. Vacío = cualquiera. |
 | `crons.cron` | object | no | opcional: el horario de un Recurrente. Con horario, el CRON no arranca por el evento: sale en cada ocurrencia, a los que están en la cohorte. |
 | `crons.cron.unidad` | string (hora \\| dia \\| semana \\| mes \\| anio) | sí | cada cuánto: hora, dia, semana, mes o anio. |

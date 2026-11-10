@@ -192,8 +192,8 @@ export async function procesarEventoSocial(e: EventoSocial, body: unknown): Prom
   // Otra app de la página atiende la charla (handover de Meta): se guarda y no se dispara nada,
   // como hace Zernio con sus propias automatizaciones (`metadata.standby`).
   if (e.standby) return { accion: `${accion}_standby`, leadId: yaEraLead, disparar: false, pausar };
-  // Una mención en una historia no la escucha ningún disparador (lib/canal-social.ts).
-  if (e.subtipo === 'mencion_historia') return { accion, leadId: yaEraLead, disparar: false, pausar };
+  // Una mención en una historia (10/11/2026): la escucha su propio CRON («Te menciona en su historia»). No pausa nada —no es
+  // una respuesta a lo que se le mandó (`ES_RESPUESTA`)— y crea el lead sólo si hay quien la escuche, como cualquier otro evento.
 
   let leadId = yaEraLead;
   if (leadId == null) {

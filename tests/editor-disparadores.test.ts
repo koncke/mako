@@ -105,9 +105,10 @@ const ESTADO = (conectado: boolean | null): EstadoCanales => ({
 const eventos = (clase: 'instagram' | 'messenger' | 'email' | 'pagos', estado: EstadoCanales | null | undefined, d: Partial<Disparador> = {}) =>
   renderToStaticMarkup(createElement(EventosDeCanal, { clase, d: { id: 'd1', trigger_tipo: 'manual', ...d } as Disparador, estado, onElegir: () => {} }));
 
-test('Instagram conectado: los seis eventos de ManyChat, todos prendidos (el del anuncio, desde el 28/10/2026)', () => {
+test('Instagram conectado: los siete eventos de ManyChat, todos prendidos (el del anuncio desde el 28/10/2026, la mención desde el 10/11)', () => {
   const html = eventos('instagram', ESTADO(true));
-  assert.equal(cuantos(html, /<button/g), 6);
+  assert.equal(cuantos(html, /<button/g), 7);
+  assert.match(html, /te menciona en su historia/);
   assert.equal(botonesApagados(html), 0);
   assert.match(html, /hace clic en un anuncio de Instagram/);
   assert.doesNotMatch(html, /Todavía no/);
@@ -124,7 +125,7 @@ test('Instagram conectado: los seis eventos de ManyChat, todos prendidos (el del
 // al link a /integraciones): 9 pass / 1 fail; restaurado: 10 / 0.
 test('sin conectar: TODOS apagados, con el motivo y «Conectar» ahí mismo (Instagram, Messenger y el email, el modal; los pagos, /integraciones)', () => {
   const ig = eventos('instagram', ESTADO(false));
-  assert.equal(botonesApagados(ig), 6);
+  assert.equal(botonesApagados(ig), 7);
   assert.match(ig, /Sin conectar/);
   assert.match(ig, /<button type="button" data-conectar-canal="instagram" aria-haspopup="dialog"[^>]*>Conectar<\/button>/);
   assert.doesNotMatch(ig, /href="\/integraciones"/, 'Instagram volvió a mandar a la página de Facebook');
@@ -153,10 +154,10 @@ test('sin conectar: TODOS apagados, con el motivo y «Conectar» ahí mismo (Ins
   assert.doesNotMatch(em, /href="\/email"/);
   // «No pude comprobarlo» también apaga: un evento que no puede llegar no arranca nunca.
   const nulo = eventos('instagram', null);
-  assert.equal(botonesApagados(nulo), 6);
+  assert.equal(botonesApagados(nulo), 7);
   assert.match(nulo, /No pude comprobarlo/);
   // Y el ya ELEGIDO no se apaga (se puede ver cuál era aunque se haya desconectado).
-  assert.equal(botonesApagados(eventos('instagram', ESTADO(false), { trigger_tipo: 'instagram', subtipo: 'dm' })), 5);
+  assert.equal(botonesApagados(eventos('instagram', ESTADO(false), { trigger_tipo: 'instagram', subtipo: 'dm' })), 6);
 });
 
 test('Recurrente: los bloques del Plan (cada N, VARIOS días, inicio, hora, huso con país) y «A quién» con el grupo de MaKo', () => {

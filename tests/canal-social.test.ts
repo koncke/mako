@@ -149,6 +149,8 @@ test('cada disparador disponible lo produce un cuerpo de verdad del webhook', ()
     ['instagram', 'referencia', mensaje('instagram', {}, { referral: { ref: 'promo-octubre', source: 'IGME-SOURCE-LINK', type: 'OPEN_THREAD' } })],
     ['instagram', 'comentario', comentario('instagram')],
     ['instagram', 'comentario_vivo', comentario('instagram', { isLive: true })],
+    // La mención en una historia (10/11/2026): tiene su CRON, así que tiene que llegar con su subtipo.
+    ['instagram', 'mencion_historia', mensaje('instagram', { attachments: [{ type: 'share', originalType: 'story_mention', url: 'https://cdn/y' }] })],
     ['messenger', 'mensaje', mensaje('facebook')],
     ['messenger', 'anuncio', referral('facebook', { ad_id: '555', source: 'ADS' })],
     ['messenger', 'referencia', referral('facebook', { ref: 'feria', source: 'SHORTLINK' })],
@@ -167,8 +169,8 @@ test('cada disparador disponible lo produce un cuerpo de verdad del webhook', ()
   assert.deepEqual(disponibles.filter((d) => !vistos.has(d)), [], 'un disparador «disponible» que ningún evento produce');
 });
 
-test('la tabla de ManyChat: seis por canal, y sólo la tienda de Facebook va apagada, con su motivo', () => {
-  assert.equal(DISPARADORES_SOCIALES.filter((d) => d.canal === 'instagram').length, 6);
+test('la tabla de ManyChat: siete de Instagram (con la mención, 10/11/2026), seis de Messenger, y sólo la tienda de Facebook va apagada', () => {
+  assert.equal(DISPARADORES_SOCIALES.filter((d) => d.canal === 'instagram').length, 7);
   assert.equal(DISPARADORES_SOCIALES.filter((d) => d.canal === 'messenger').length, 6);
   const apagados = DISPARADORES_SOCIALES.filter((d) => !d.disponible);
   assert.deepEqual(apagados.map((d) => `${d.canal}/${d.subtipo}`), ['messenger/tienda']);
@@ -187,7 +189,7 @@ test('lo que NO dispara: lo nuestro, la cuenta comentando, un evento ajeno; y lo
   assert.ok('ignorar' in eventoSocialDe(comentario('instagram', { author: { id: 'yo', isOwnAccount: true } })));
   assert.ok('ignorar' in eventoSocialDe({ id: 'x', event: 'post.published' }));
   assert.ok('ignorar' in eventoSocialDe('basura'));
-  // Una mención en una historia llega, y no la escucha ningún disparador (no es «te envía un mensaje»).
+  // Una mención en una historia llega con su propio subtipo: la escucha su CRON (10/11/2026), no «te envía un mensaje».
   const mencion = evento(mensaje('instagram', { attachments: [{ type: 'share', originalType: 'story_mention', url: 'https://cdn/y' }] }));
   assert.equal(mencion.subtipo, 'mencion_historia');
   // Otra app de la página atiende la charla: se marca y el webhook no dispara.

@@ -181,8 +181,9 @@ test('el clic en un anuncio (prendido el 28/10/2026): la IA lo ve SÓLO si el pe
   for (const t of ['cuando comentan fiesta', 'Martín anunció la promo', 'un DM de bienvenida']) assert.doesNotMatch(t, PIDE_ANUNCIO);
 });
 
-test('los eventos de ManyChat: seis de Instagram y seis de Messenger; apagada sólo la tienda, que Zernio no avisa (el anuncio, prendido el 28/10)', () => {
-  assert.equal(EVENTOS_INSTAGRAM.length, 6);
+test('los eventos de ManyChat: siete de Instagram (la mención, 10/11) y seis de Messenger; apagada sólo la tienda, que Zernio no avisa (el anuncio, prendido el 28/10)', () => {
+  assert.equal(EVENTOS_INSTAGRAM.length, 7);
+  assert.ok(EVENTOS_INSTAGRAM.some((e) => e.subtipo === 'mencion'), 'la mención en una historia tiene su CRON');
   assert.equal(EVENTOS_MESSENGER.length, 6);
   assert.deepEqual(EVENTOS_INSTAGRAM.filter((e) => e.apagado).map((e) => e.subtipo), []);
   // La tienda de Facebook, apagada desde la segunda pasada (09/10/2026): Zernio no la avisa

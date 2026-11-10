@@ -473,8 +473,8 @@ export function filasDeCharlaSocial(
 
 /**
  * Qué hizo la persona. `tienda` no lo produce ningún evento (Zernio no lo entrega): existe para que el
- * disparador se dibuje apagado con su nombre. `mencion_historia` sí llega y no lo pidió nadie: no lo
- * escucha ningún disparador, y por eso una mención NO cuenta como «te envía un mensaje».
+ * disparador se dibuje apagado con su nombre. `mencion_historia` llega y, desde el 10/11/2026, la escucha su propio
+ * disparador («Te menciona en su historia»); sigue sin contar como «te envía un mensaje» ni como una respuesta (no pausa).
  */
 export type SubtipoSocial =
   | 'mensaje' | 'historia' | 'mencion_historia' | 'comentario' | 'comentario_vivo' | 'anuncio' | 'referencia' | 'qr' | 'tienda';
@@ -510,6 +510,8 @@ export const DISPARADORES_SOCIALES: readonly DisparadorSocial[] = [
   { canal: 'instagram', subtipo: 'comentario', rotulo: 'Comenta tu publicación o Reel', evento: 'comment.received', disponible: true,
     ojo: 'La respuesta es privada, una sola y dentro de los 7 días. A quien no te sigue sólo le llega texto.' },
   { canal: 'instagram', subtipo: 'historia', rotulo: 'Responde a tu historia', evento: 'message.received (metadata.storyReply)', disponible: true },
+  { canal: 'instagram', subtipo: 'mencion_historia', rotulo: 'Te menciona en su historia', evento: 'message.received (metadata.isStoryMention)', disponible: true,
+    ojo: 'La mención abre la ventana de 24 h: la respuesta sale como un mensaje directo.' },
   { canal: 'instagram', subtipo: 'mensaje', rotulo: 'Te envía un mensaje', evento: 'message.received', disponible: true },
   { canal: 'instagram', subtipo: 'anuncio', rotulo: 'Hace clic en tu anuncio', evento: 'message.received (metadata.referral.ad_id)', disponible: true,
     ojo: 'Meta manda primero el post del anuncio sin referral y el referral en el mensaje que sigue.' },

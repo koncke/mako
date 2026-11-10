@@ -77,12 +77,15 @@ test('la lista: sin vacías ni repetidas (por cómo se comparan), con tope; y lo
 
 const COMENTA = (extra: Partial<Disparador> = {}): Disparador => ({ id: 'd1', trigger_tipo: 'instagram', subtipo: 'comentario', palabras: ['fiesta', 'guía'], ...extra });
 
-test('el CRON: las palabras sólo en uno de comentario, y cuentan en la firma', () => {
+test('el CRON: las palabras en uno de comentario, de En vivo, de mensaje o de historia, y cuentan en la firma', () => {
   assert.deepEqual(sanearDisparador(COMENTA({ coincidencia: 'exacta' })), { id: 'd1', trigger_tipo: 'instagram', subtipo: 'comentario', palabras: ['fiesta', 'guía'], coincidencia: 'exacta' });
   // «contiene» es lo de siempre: no se guarda.
   assert.ok(!('coincidencia' in sanearDisparador(COMENTA({ coincidencia: 'contiene' }))!));
-  // En un DM, un filtro que nadie ve: se va.
-  assert.ok(!('palabras' in sanearDisparador(COMENTA({ subtipo: 'dm' }))!));
+  // En un DM y en la respuesta a una historia SÍ (10/11/2026, «DM keyword» de ManyChat); en un anuncio o un ref, no: se va.
+  assert.deepEqual(sanearDisparador(COMENTA({ subtipo: 'dm' }))!.palabras, ['fiesta', 'guía']);
+  assert.deepEqual(sanearDisparador(COMENTA({ subtipo: 'historia' }))!.palabras, ['fiesta', 'guía']);
+  assert.ok(!('palabras' in sanearDisparador(COMENTA({ subtipo: 'anuncio' }))!));
+  assert.ok(!('palabras' in sanearDisparador(COMENTA({ subtipo: 'mencion' }))!), 'una mención no trae texto que comparar');
   assert.ok(!('palabras' in sanearDisparador({ id: 'd1', trigger_tipo: 'etapa_actual', etapa: 'nuevo', palabras: ['x'] } as Disparador)!));
   assert.equal(conPalabras('messenger', 'comentario'), true);
   assert.equal(conPalabras('instagram', 'en_vivo'), true);
@@ -103,8 +106,12 @@ test('el evento: arranca sólo si el comentario de ESTE evento tiene la palabra;
   assert.equal(disparaPorEvento(d, 'instagram', { subtipo: 'comentario' }), false, 'sin el texto del comentario, no arranca');
   assert.equal(disparaPorEvento(COMENTA({ palabras: undefined }), 'instagram', { subtipo: 'comentario', texto: 'lo que sea' }), true, 'sin palabras, cualquier comentario');
   assert.equal(disparaPorEvento(COMENTA({ palabras: undefined }), 'instagram', { subtipo: 'comentario' }), true, 'lo de hoy no se rompe');
-  // Un DM no mira palabras (aunque una fila vieja las traiga).
-  assert.equal(disparaPorEvento({ ...d, subtipo: 'dm' }, 'instagram', { subtipo: 'dm', texto: 'hola' }), true);
+  // Un DM con palabras (10/11/2026): arranca sólo si ESTE mensaje las tiene; sin palabras, con cualquiera, como siempre.
+  assert.equal(disparaPorEvento({ ...d, subtipo: 'dm' }, 'instagram', { subtipo: 'dm', texto: 'hola' }), false);
+  assert.equal(disparaPorEvento({ ...d, subtipo: 'dm' }, 'instagram', { subtipo: 'dm', texto: 'Hola, quiero la GUIA' }), true);
+  assert.equal(disparaPorEvento({ ...d, subtipo: 'dm', palabras: undefined }, 'instagram', { subtipo: 'dm', texto: 'hola' }), true);
+  assert.equal(disparaPorEvento({ ...d, subtipo: 'dm' }, 'messenger', { subtipo: 'dm', texto: 'fiesta' }), false, 'un CRON de Instagram no escucha Messenger');
+  assert.equal(disparaPorEvento({ ...d, trigger_tipo: 'messenger', subtipo: 'dm' }, 'messenger', { subtipo: 'dm', texto: 'fiesta' }), true);
   // «¿Hay quien escuche?» (antes de crear el lead) hace la MISMA pregunta.
   const sec: SecuenciaConDisparo = { id: 680, trigger_tipo: 'instagram', etapa: '', etapas: [], funnel_id: null, producto_id: null, etiqueta_id: null, cron: null, cron_proxima_at: null, disparadores: [d] };
   assert.equal(escuchaElEvento([sec], 'instagram', { subtipo: 'comentario', texto: 'FIESTA!' }), true);

@@ -28,7 +28,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   opcionesCronIA, disparadorDeValorIA, eventosParaIA, sanearDisparadores, problemaDeDisparadores, columnasDeDisparador,
-  EVENTOS_INSTAGRAM, EVENTOS_MESSENGER, EVENTOS_EMAIL, EVENTOS_PAGO, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA,
+  EVENTOS_INSTAGRAM, EVENTOS_MESSENGER, EVENTOS_EMAIL, EVENTOS_PAGO, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA, PIDE_MENCION,
   type CanalesConectadosIA, type EntradaCronIA,
 } from '../lib/disparadores';
 import { seccionesDisparo } from '../lib/flujo-conversacion';
@@ -54,7 +54,7 @@ const PRODUCTOS: EntradaCronIA['productos'] = [
 ];
 const ETIQUETAS: EntradaCronIA['etiquetas'] = [{ id: 7, nombre: 'Cualificado' }, { id: 8, nombre: 'Vieja', archivada_at: '2026-01-01T00:00:00Z' }];
 // `anuncio`: el «clic en un anuncio» (prendido el 28/10/2026) la IA lo ve sólo si el pedido habla de anuncios (`PIDE_ANUNCIO`).
-const entrada = (conectados: CanalesConectadosIA, anuncio = false): EntradaCronIA => ({ productos: PRODUCTOS, etiquetas: ETIQUETAS, conectados, anuncio });
+const entrada = (conectados: CanalesConectadosIA, anuncio = false, mencion = anuncio): EntradaCronIA => ({ productos: PRODUCTOS, etiquetas: ETIQUETAS, conectados, anuncio, mencion });
 const valores = (secs: ReadonlyArray<{ options: ReadonlyArray<{ value: string }> }>) => secs.flatMap((s) => s.options.map((o) => o.value));
 const seccion = (secs: ReadonlyArray<{ title: string; options: ReadonlyArray<{ value: string; label: string }> }>, title: string) => secs.find((s) => s.title === title);
 
@@ -103,9 +103,14 @@ test('1: ningún evento «apagado», y están TODOS los que no lo están', () =>
   }
   // Y la misma lista con que se valida al guardar (`eventosParaIA`), sin apagados.
   for (const c of ['instagram', 'messenger', 'email', 'pagos'] as const) assert.ok(eventosParaIA(c).every((e) => !e.apagado));
-  // Sin un pedido de anuncios, el anuncio no va (el techo de Groq, tests/crear-ia-tercera).
+  // Sin un pedido de anuncios, el anuncio no va (el techo de Groq, tests/crear-ia-tercera). La mención, igual (10/11/2026).
   const sin = valores(opcionesCronIA(entrada(TODOS)));
   assert.ok(!sin.includes('instagram:anuncio') && !sin.includes('messenger:anuncio'));
+  assert.ok(!sin.includes('instagram:mencion'), 'la mención sin un pedido que la nombre');
+  assert.ok(valores(opcionesCronIA(entrada(TODOS, false, true))).includes('instagram:mencion'));
+  // Lo que la nombra: «me menciona», «mencionen», «menciones», «me etiquetan en su historia».
+  for (const p of ['cuando me mencionen en una historia', 'si alguien me menciona', 'las menciones de mis historias', 'cuando me etiquetan en su historia']) assert.ok(PIDE_MENCION.test(p), p);
+  for (const p of ['mandale el recurso a quien comente', 'quiero mencionar el precio en el mensaje'.replace('mencionar', 'decir')]) assert.ok(!PIDE_MENCION.test(p), p);
 });
 
 test('1: los valores EXACTOS de §3.1', () => {

@@ -281,7 +281,7 @@ export async function POST(req: NextRequest) {
         // catálogo sólo si el pedido lo nombra (el techo de Groq), y «¿Qué hace esta automatización?» no lo nombra: el rótulo
         // del CRON no se encontraba y MaKo contestaba «no tiene CRON».
         const disparadorActual = await cronGuardado();
-        const leido = await armarContexto(ws, pedido, { anuncio: /:anuncio$/.test(disparadorActual ?? ''), textos: textosDeRespuestas(respuestas) });
+        const leido = await armarContexto(ws, pedido, { anuncio: /:anuncio$/.test(disparadorActual ?? ''), mencion: /:mencion$/.test(disparadorActual ?? ''), textos: textosDeRespuestas(respuestas) });
         const { perfil, voz } = leido;
         const leyendo = leyendoDe(leido.ctx, perfil);
         send({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });

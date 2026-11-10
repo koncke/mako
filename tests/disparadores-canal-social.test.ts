@@ -34,7 +34,9 @@ test('cada evento que el webhook entrega cae en UN evento del CRON de su canal',
   assert.equal(subtipoDelEvento('instagram', 'comentario_vivo'), 'en_vivo');
   assert.equal(subtipoDelEvento('messenger', 'referencia'), 'ref');
   // Lo que no escucha nadie, y un evento de un canal en el otro.
-  assert.equal(subtipoDelEvento('instagram', 'mencion_historia'), null);
+  // La mención en una historia tiene su CRON desde el 10/11/2026 (paridad con ManyChat): antes llegaba y no la escuchaba nadie.
+  assert.equal(subtipoDelEvento('instagram', 'mencion_historia'), 'mencion');
+  assert.equal(subtipoDelEvento('messenger', 'mencion_historia'), null, 'Messenger no tiene historias');
   assert.equal(subtipoDelEvento('messenger', 'historia'), null, 'Messenger no tiene historias');
   assert.equal(subtipoDelEvento('instagram', 'qr'), null);
   assert.equal(subtipoDelEvento('instagram', null), null);
