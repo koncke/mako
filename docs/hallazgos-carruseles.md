@@ -107,6 +107,13 @@ queda el respaldo de «sin portada» con el gancho. Nunca el ícono roto con el 
 versión» con sólo la portada dice «Tiene N láminas; todavía sólo está guardada la portada.», la misma nota del carrusel abierto.
 Lo fija `tests/carruseles-imagen-rota.test.ts`, que dibuja el visor real en jsdom y le tira el `error` a la imagen.
 
+**El recorrido de Image (10/11, en producción):** en Anuncios recién abierto y en Guardados vacío salían «Quitar filtros» y
+«Guardar búsqueda» sin ningún filtro puesto. Los anuncios arrancan ordenados por días al aire (`irA`), pero «hay filtros» se
+medía contra los de Carruseles, que ordenan por outlier, y `reiniciar` los pasaba a outlier. Ahora cada lado se mide contra los
+suyos (`filtrosInicialesDe`, `sinFiltrosDe`, lib/carruseles/explorar.ts; lo fija tests/carruseles-anuncios.test.ts). Guardados
+vacío no tiene filtro que quitar: su botón es «Volver», como «parecidos», y saca de Guardados. Thumbnails, Filtros, el carrusel
+abierto, el editor y el oscuro se vieron bien. El celular no se pudo capturar: con la extensión, la ventana no cambia de ancho.
+
 **Sin hacer:** la 0411 (`revisada_en`) sigue sin aplicar en producción al 10/11: la columna no existe, así que todo lo visible
 se muestra sin revisar.
 
