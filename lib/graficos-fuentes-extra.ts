@@ -343,7 +343,8 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
       // Un promedio de tiempos mentiría (uno de diez días lo arrastra todo): mediana y p90, como `conversaciones`.
       atributo('minutos_contacto', 'Minutos hasta el primer contacto'),
       // Hasta el contacto, o esperando si nadie lo contactó (9/11/2026): la tabla de cada lead nunca queda vacía por no contactar.
-      atributo('minutos_espera', 'Minutos hasta el contacto, o esperando'),
+      // En SEGUNDOS para que se lea como duración («26 días 5 h», `fmtValor`), no «37790» minutos.
+      { ...m('espera', 'Cuánto tardó, o lleva esperando', 'segundos'), sinTotal: true },
       menos(percentil('mediana_contacto', 'Mediana del primer contacto (min)', 'minutos_contacto', 50)),
       menos(percentil('p90_contacto', 'Primer contacto más lento, p90 (min)', 'minutos_contacto', 90)),
       m('con_automatico', 'Les escribió primero una automatización'),
