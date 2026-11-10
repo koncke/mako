@@ -4,6 +4,23 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
+# PROHIBIDO INVENTAR: cada pantalla, hoja o pieza COPIA una referencia ENTERA
+
+Martín, 10/11/2026, al ver la hoja «Velocidad de llamada» del Dashboard: *«se inventó cosas en lugar de copiar los templates
+que ya estábamos copiando… Tienes que tener una regla que todos los chats sepan que tienen prohibido inventar cosas. Porque ya
+no sé cuántas veces te dije lo mismo»*. Vale para TODO chat, local o en la nube, y para cualquier tamaño de encargo:
+
+- **Antes de escribir una línea de interfaz se elige UNA referencia y se abre** (una app real, un demo, un repo). El
+  procedimiento completo está más abajo, en «NINGUNA pantalla se diseña de cero».
+- **Juntar pedazos de varias copias también es inventar.** «Velocidad de llamada» se armó con tarjetas de tres diseños ya
+  copiados (Cold Calling, Closing y la tabla de Marketing), más una tabla y textos propios. Pasaba el test de «trae diseño
+  copiado», y Martín la vio como la más fea de todas. Una hoja nueva del Dashboard copia UN demo entero de
+  `demo.codeandchill.store` (`docs/diseno/mockups-dashboard/README.md`, el molde es `closing/`).
+- **Ningún texto, aviso, botón ni pieza que la referencia no tenga.** Ni carteles que expliquen, ni subtítulos de ayuda, ni
+  una tarjeta «por las dudas». Si un dato o una función no tiene lugar en la referencia, se anota en el relevo y decide Martín.
+- **Si ninguna referencia calza, se frena y se le dice a Martín ANTES de construir.** Entregar algo inventado y explicarlo
+  después es justo lo que no se hace más.
+
 # Quién es quién: MaKo es de Martín. Mauricio es un CLIENTE
 
 **«El dueño», en todo este repo, es Martín Koncke**: el que decide, el que reporta y el que
