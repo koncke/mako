@@ -95,7 +95,8 @@ test('3. el motivo nombra la palabra y dice qué hacer, en tú', () => {
 function correrCartero(dir: string, args: string[], extra: Record<string, string> = {}) {
   return spawnSync(process.execPath, [CARTERO, ...args], {
     encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 60_000,
-    env: { PATH: process.env.PATH ?? '', HOME: dir, USERPROFILE: dir, CARTERO_DIR: dir, CLAUDE_CODE_HOST_SESSION_ID: LOCAL, ...extra },
+    // Un env limpio (sin los GIT_* ni las claves de afuera); `as unknown as` porque ProcessEnv exige NODE_ENV (AGENTS.md).
+    env: { PATH: process.env.PATH ?? '', HOME: dir, USERPROFILE: dir, CARTERO_DIR: dir, CLAUDE_CODE_HOST_SESSION_ID: LOCAL, ...extra } as unknown as NodeJS.ProcessEnv,
   });
 }
 
@@ -138,7 +139,7 @@ test('5. el hook de AskUserQuestion le pasa al chat el motivo de la técnica', (
         PATH: process.env.PATH ?? '', HOME: raiz, USERPROFILE: raiz, CLAUDE_PROJECT_DIR: proyecto, CLAUDE_CODE_HOST_SESSION_ID: LOCAL,
         CARTERO_DIR: cartero, MAKO_SIN_ASK_LIB: CARTERO, MAKO_SIN_ASK_CARTERO: CARTERO, MAKO_SIN_ASK_CONFIG: config,
         MAKO_SIN_ASK_LOG: join(raiz, 'guardia.log'), MAKO_SIN_ASK_DUP: join(raiz, 'dup'), MAKO_SIN_ASK_SESIONES: join(raiz, 'sesiones'),
-      },
+      } as unknown as NodeJS.ProcessEnv,
     });
     const motivoDe = (r: ReturnType<typeof correr>) => JSON.parse(r.stdout).hookSpecificOutput as { permissionDecision: string; permissionDecisionReason: string };
     const tecnica = correr([{ question: '¿Liberás RAM para que corra el tsc acotado ahora?', header: 'RAM', options: [{ label: 'Sí (Recommended)' }, { label: 'No' }] }]);

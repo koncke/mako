@@ -289,6 +289,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const secciones = useMemo(() => seccionesDeChats(enLista, avisos, esperanRespuesta), [enLista, avisos, esperanRespuesta]);
   // Un grupo por TAB, con sus chats de tarea plegados (10/11/2026, como la computadora: PiezasCentro.tsx → GruposPorJefe).
   const [gruposAbiertos, setGruposAbiertos] = useState<Set<string>>(() => new Set());
+  const indiceTabs = centro.indiceTabs;
   const tabDe = useMemo(() => (indiceTabs ? (c: ChatCentro) => tabDeChat(c, indiceTabs) : undefined), [indiceTabs]);
 
   // ── Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): el menú, su Info y Reenviar (adentro de ESTA hoja, con
@@ -342,7 +343,6 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // `trabado`: con una pregunta de la app de Claude abierta, lo que se le escribe espera, y la línea del envío lo dice ya.
   // Con CUALQUIERA abierta, también una técnica que Martín no ve (10/11/2026): el chat no lee igual.
   const trabado = chatTrabadoEnLaApp(lineas);
-  const indiceTabs = centro.indiceTabs;
   const vivo = useMemo(() => (elegido ? { chat: elegido, carteros, trabado, indiceTabs } : undefined), [elegido, carteros, trabado, indiceTabs]);
 
   // El grupo (3/11/2026): sólo sin `parte`. En dos partes, esta lista va debajo de la del cliente (SecondBrainCentroM.tsx), que ya lo dibuja: saldría doble.

@@ -65,5 +65,7 @@ cp scripts/claude-hooks/guardia/sin-ask.mjs ~/.claude/guardia/sin-ask.mjs
 - **Cambié:** «perfil» y «documentación» no agrupan solas cuando aparecen adentro de un título («Arreglar filaPropia del perfil» caía
   en la tab Perfil).
 - **Cambié:** un chat de tarea solo en su tab es su propia fila, sin el nombre de la tab arriba.
+- **Arreglé** un error que habría tirado el Ops Center del teléfono (el índice de tabs usado antes de declararse): los tests dieron
+  verde porque ninguno dibuja esa pantalla, y lo cazó el chequeo de tipos completo.
 - **Descarté** la cola del Cerebro para las preguntas técnicas: sin la firma de Martín, nadie podría contestarlas.
 - **Descarté** marcar las dormidas «para el Cerebro» con un estado nuevo: salen de la lista y quedan en la API como siempre.

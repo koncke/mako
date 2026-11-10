@@ -66,6 +66,12 @@ tipos-ci-tiempo (CRLF) en otra punta?», «¿Liberás RAM para que corra el tsc 
   `GruposPorJefe.tsx` (y re-exportada), el test la dibuja con `renderToStaticMarkup`, y tres tests que copiaban su línea pasaron a
   mirar lo que dibuja.
 
+- ⚠️ **Una constante usada en las dependencias de un `useMemo` antes de declararla TIRA LA PANTALLA ENTERA**, y ningún test lo vio:
+  en `app/m/operaciones/ChatsMovil.tsx` el `[indiceTabs]` del `tabDe` se evaluaba en el render, treinta líneas antes de
+  `const indiceTabs = …` (TDZ: «Cannot access before initialization»). Los 7.573 tests de la tanda dieron verde porque ninguno
+  dibuja esa pantalla; lo cazó el tsc entero del veredicto (TS2448). Al sumar una lectura de props en un componente largo, se
+  declara ARRIBA de su primer uso.
+
 **El rótulo del «Completado»** (`rotuloDelCompletado`): la tab del chat, y la función del sub-chat, del título de un chat de tarea
 o, si el chat ES la tab, de su «Voy a trabajar en…» de ESE tramo. Sin nada, «Completado» como antes. Vive aparte de
 `lib/centro-chats.ts` porque `lib/centro-plan-auto-reglas.ts` (el «Voy a trabajar en…») ya importa de ahí.

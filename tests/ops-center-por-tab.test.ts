@@ -100,7 +100,7 @@ test('3. adentro van plegados, salvo lo que espera, trabaja o se mira; uno solo 
   // La computadora: «Mostrar 2 chats» debajo de la cabeza.
   const html = renderToStaticMarkup(createElement(GruposPorJefe<ChatCentro>, {
     chats: [chat('Image'), chat('Image › Portadas'), chat('Image › Fuentes')], fila: (c) => createElement('p', { key: c.clave }, c.titulo),
-    tabDe: (c) => tabDeChat(c, INDICE), plegado: { abiertos: new Set(), alternar: () => {}, siempre: () => false },
+    tabDe: (c) => tabDeChat(c, INDICE), plegado: { abiertos: new Set<string>(), alternar: () => {}, siempre: () => false },
   }));
   assert.match(html, /<p>Image<\/p>/);
   assert.doesNotMatch(html, /Image › Portadas/);
