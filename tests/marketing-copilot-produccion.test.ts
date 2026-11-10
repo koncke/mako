@@ -13,7 +13,10 @@
 //   6. «Lanzar el primer anuncio» era el único paso de «Esta semana» sin botón: va a Nueva campaña;
 //   7. Ajustes juzgaba el funnel con `presupuestoMes ?? 0` y `llamadas ?? 'yo'`;
 //   8. «← Media Buyer», «Ir al Media Buyer» y el cargando decían el nombre viejo de la tab;
-//   9. «desde Marketing CoPilot» + «Marketing CoPilot: Volvamos a empezar»: el nombre iba dos veces.
+//   9. «desde Marketing CoPilot» + «Marketing CoPilot: Volvamos a empezar»: el nombre iba dos veces;
+//  10. al aceptar el funnel que propuso MaKo, su aviso pasaba a «¿Seguimos?» y la respuesta a «Sí, cambiemos»;
+//  11. la propuesta de mensajes contaba agendas «por llamada calificada»; 12. «Llamada de venta contigo» antes de preguntar quién llama;
+//  13. sin Meta conectada, «¿En qué te ayudo hoy?» tapaba la barra (Plan, Ajustes) de un negocio que ya tenía su estrategia.
 //
 // Correr: node --import tsx --test tests/marketing-copilot-produccion.test.ts
 // PROBADO ROMPIÉNDOLO, ver el pie.
@@ -23,7 +26,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FUNNELS, compararFunnels, datosDeDecision, datosDichos, faltaParaComparar, funnelsDelReferente, pasosDeLaSemana, type PerfilCopiloto } from '../lib/media-buyer/copiloto';
+import { FUNNELS, interpretarEscrito, mensajesDeCopiloto, propuestaDe, recorridoDe, compararFunnels, datosDeDecision, datosDichos, faltaParaComparar, funnelsDelReferente, pasosDeLaSemana, type PerfilCopiloto } from '../lib/media-buyer/copiloto';
 import { negocioDelCopiloto } from '../lib/media-buyer/copiloto-contexto';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -112,6 +115,38 @@ test('8. la tab se nombra Marketing CoPilot en lo que se ve y se lee (el agente 
 
 test('9. lo que se pide desde la tab no lleva «Marketing CoPilot:» delante: el chip «desde» ya lo dice', () => {
   for (const r of ['app/ads-manager/MediaBuyer.tsx', 'app/ads-manager/PlanDelCopiloto.tsx']) assert.doesNotMatch(leer(r), /texto: `Marketing CoPilot: \$\{texto\}`/, r);
+});
+
+test('10. aceptar el funnel que propone MaKo no borra de la charla por qué se cambió', () => {
+  const base: PerfilCopiloto = { entrada: 'funnel', funnel: 'vsl-llamada', ticket: 1000, presupuestoMes: 600, llamadas: 'yo' };
+  const r = interpretarEscrito(base, 'Sí, anuncios a mensajes');
+  assert.ok('perfil' in r, 'el botón se entiende');
+  const despues = 'perfil' in r ? r.perfil : base;
+  assert.equal(despues.funnel, 'mensajes');
+  const textos = mensajesDeCopiloto(despues, 'Martín').map((m) => m.texto).join(' | ');
+  assert.match(textos, /El VSL con llamada pide una venta de unos \$3,000/, 'el aviso sigue en la charla');
+  assert.match(textos, /Sí, anuncios a mensajes/, 'y lo que tocó, como lo tocó');
+  assert.doesNotMatch(textos, /¿Seguimos\?|Sí, cambiemos/);
+});
+
+test('11. la propuesta de mensajes no cuenta agendas ni «llamadas calificadas»', () => {
+  const mensajes = propuestaDe({ entrada: 'funnel', funnel: 'mensajes', ticket: 1000, presupuestoMes: 600, llamadas: 'yo' })!;
+  const t = mensajes.puntos.join(' ');
+  assert.doesNotMatch(t, /agenda|llamada calificada/);
+  assert.match(t, /conversación calificada/);
+  assert.match(propuestaDe({ entrada: 'funnel', funnel: 'vsl-llamada', ticket: 3000, presupuestoMes: 2000, llamadas: 'yo' })!.puntos.join(' '), /agendas al mes/, 'el VSL sí');
+});
+
+test('12. el recorrido no dice con quién es la llamada antes de preguntarlo', () => {
+  const sin = recorridoDe({ entrada: 'funnel', funnel: 'vsl-llamada' });
+  assert.match(sin.find((e) => e.id === 'cerrar')!.que, /^Llamada de venta\.$/);
+  assert.match(recorridoDe({ entrada: 'funnel', funnel: 'vsl-llamada', llamadas: 'equipo' }).find((e) => e.id === 'cerrar')!.que, /con tu equipo/);
+});
+
+test('13. sin Meta conectada y con su estrategia, la tab no se tapa con la bienvenida: Plan y Ajustes siguen a mano', () => {
+  const mb = leer('app/ads-manager/MediaBuyer.tsx');
+  assert.match(mb, /const bienvenida = nueva && !perfil;/);
+  assert.match(mb, /if \(bienvenida\) \{\s*return \(/, 'la pantalla entera de bienvenida, sólo sin estrategia');
 });
 
 // PROBADO ROMPIÉNDOLO (10/11/2026):
