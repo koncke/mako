@@ -335,7 +335,7 @@ function MenuProyecto({ nombre, acciones }: { nombre: string; acciones: readonly
     try { await a.hacer(); } finally { setHaciendo(false); }
   };
   return (
-    <div className="cr-menu" ref={raiz}>
+    <div className="cr-menu" ref={raiz} data-abierto={abierto ? 'si' : undefined}>
       <button type="button" className="cr-menu__boton" aria-haspopup="menu" aria-expanded={abierto} disabled={haciendo}
         aria-label={`Más opciones de ${nombre}`} title="Más opciones" onClick={() => setAbierto((v) => !v)}>
         {haciendo ? <span className="cr-giro" /> : '⋯'}

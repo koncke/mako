@@ -44,8 +44,8 @@ import { ancla } from '@/app/_ui/guia/ancla';
 import { Dropdown } from '@/app/components/Dropdown';
 import {
   FILTROS_INICIALES, ORDENES_CARRUSEL, QUE_VER_CARRUSEL,
-  contadorCorto, creadoresDe, creadoresParecidos, filtrarCarruseles, filtrosDeQuery, formatosDe, imagenesDe, nivelDeMultiplo, nombreDeBusqueda,
-  parecidosA, queryDeFiltros, rotuloCta, rotuloFormato, rotuloOutlier, sinFiltros,
+  contadorCorto, creadoresDe, creadoresParecidos, filtrarCarruseles, filtrosDeQuery, filtrosInicialesDe, formatosDe, imagenesDe, nivelDeMultiplo, nombreDeBusqueda,
+  parecidosA, queryDeFiltros, rotuloCta, rotuloFormato, rotuloOutlier, sinFiltrosDe,
   type BusquedaGuardada, type Carrusel, type FiltrosCarrusel, type OrdenCarrusel, type QueVer,
 } from '@/lib/carruseles/explorar';
 import { FILTROS_THUMBNAIL, queryDeThumbnails, type FiltrosThumbnail, type Thumbnail } from '@/lib/thumbnails/explorar';
@@ -54,6 +54,7 @@ import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { EditarCarrusel } from './EditarCarrusel';
 import { CarruselAbierto } from './CarruselAbierto';
 import { FiltrosCarruselModal } from './FiltrosCarruselModal';
+import { useImagenesVivas } from './imagenes-vivas';
 import { PanelThumbnails, type DatosThumbnails } from './Thumbnails';
 import { borrarBusquedaAction, guardarBusquedaAction, guardarCarruselAction, guardarThumbnailAction } from './actions';
 import s from './explorar.module.css';
@@ -193,7 +194,8 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
   const cambiarT = useCallback((cambio: Partial<FiltrosThumbnail>) => {
     setFt((prev) => { const nuevo = { ...prev, ...cambio }; escribirEnLaUrl(queryDeThumbnails(nuevo)); return nuevo; });
   }, []);
-  const reiniciar = () => { const nuevo = { ...FILTROS_INICIALES, que: f.que }; setF(nuevo); escribirEnLaUrl(queryDeFiltros(nuevo)); setCuantas(DE_A); };
+  // Los de entrada de SU lado: Anuncios vuelve a ordenarse por días al aire, no por outlier (filtrosInicialesDe).
+  const reiniciar = () => { const nuevo = filtrosInicialesDe(f.que); setF(nuevo); escribirEnLaUrl(queryDeFiltros(nuevo)); setCuantas(DE_A); };
   /** Carruseles · Anuncios · Thumbnails: cada lado con sus filtros (las cuentas y los tipos de uno no son los del otro). */
   const irA = (que: QueVer) => {
     setParecidosDe(null);
@@ -377,8 +379,8 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
                   buttonStyle={chip(f.creadores.length > 0)} />
               )}
               <span className={s.espacio} />
-              {!sinFiltros({ ...f, que: 'carruseles' }) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
-              {!sinFiltros(f) && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
+              {!sinFiltrosDe(f) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
+              {!sinFiltrosDe(f) && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
               {telefono ? null : (
                 <span className={s.total}>
                   {contadorCorto(vistos.length)} {f.que === 'anuncios' ? (vistos.length === 1 ? 'anuncio' : 'anuncios') : (vistos.length === 1 ? 'carrusel' : 'carruseles')}
@@ -419,9 +421,11 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
                     ? 'Todavía no hay anuncios de las cuentas que sigues. Spy los trae de la Biblioteca de Anuncios al leer cada cuenta.'
                     : 'Ningún ejemplo pasa estos filtros.'}</p>
                 {parecidosDe ? <button type="button" className={s.boton} onClick={() => setParecidosDe(null)}>Volver</button>
+                  // Guardados vacío (10/11/2026): no hay filtro que quitar, hay que volver a buscar qué guardar.
+                  : guardadosVista && !guardados.size ? <button type="button" className={s.boton} onClick={() => cambiar({ vista: 'todos' })}>Volver</button>
                   : f.que === 'anuncios' && !anuncios
                     ? <Link href="/competitor-spy" className={s.boton}>Abrir Competitors Spy</Link>
-                    : !sinFiltros({ ...f, que: 'carruseles' }) ? <button type="button" className={s.boton} onClick={reiniciar}>Quitar filtros</button> : null}
+                    : !sinFiltrosDe(f) ? <button type="button" className={s.boton} onClick={reiniciar}>Quitar filtros</button> : null}
               </div>
             ) : (
               <>
@@ -466,7 +470,8 @@ const pastilla = (activo: boolean, telefono = false) => ({ ...chip(activo), heig
 
 /** Las láminas dentro de la tarjeta: se pasan con las flechas o deslizando (el dedo en el teléfono). */
 function Laminas({ c, titulo }: { c: Carrusel; titulo: string }) {
-  const imagenes = imagenesDe(c);
+  // Una que no carga (un 403 de Instagram) se saca: sin ninguna, el respaldo de «sin portada», nunca el ícono roto.
+  const { vivas: imagenes, alFallar } = useImagenesVivas(imagenesDe(c));
   const pista = useRef<HTMLDivElement | null>(null);
   const [i, setI] = useState(0);
   const total = imagenes.length;
@@ -487,14 +492,14 @@ function Laminas({ c, titulo }: { c: Carrusel; titulo: string }) {
         onKeyDown={(e) => { if (e.key === 'ArrowRight') { e.preventDefault(); ir(i + 1); } else if (e.key === 'ArrowLeft') { e.preventDefault(); ir(i - 1); } }}>
         {imagenes.map((src, k) => (
           // eslint-disable-next-line @next/next/no-img-element
-          <img key={src} src={src} alt={k === 0 && titulo ? `Portada: ${titulo.slice(0, 80)}` : `Lámina ${k + 1}`} loading="lazy" referrerPolicy="no-referrer" draggable={false} />
+          <img key={src} src={src} alt={k === 0 && titulo ? `Portada: ${titulo.slice(0, 80)}` : `Lámina ${k + 1}`} loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => alFallar(src)} />
         ))}
       </div>
       {total > 1 && (
         <>
           {i > 0 && <button type="button" className={s.ant} onClick={() => ir(i - 1)} aria-label="Lámina anterior"><Flecha izq /></button>}
           {i < total - 1 && <button type="button" className={s.sig} onClick={() => ir(i + 1)} aria-label="Lámina siguiente"><Flecha /></button>}
-          <span className={s.indice}>{i + 1}/{total}</span>
+          <span className={s.indice}>{Math.min(i, total - 1) + 1}/{total}</span>
         </>
       )}
     </>
