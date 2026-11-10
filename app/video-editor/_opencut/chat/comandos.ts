@@ -24,12 +24,29 @@
 //                                              vuelve a partir y ubicar con su ancla
 //   usar una plantilla                         usarPlantilla (plantillas/instanciar.ts), LARGA:
 //                                              la corre chat/aplicar.ts después del lote
+//   agregar un motion graphic                  InsertElementCommand(buildGraphicElement), lo
+//                                              mismo que la tarjeta de la biblioteca
+//                                              (motion/components/biblioteca-motion.tsx)
+//   editar un motion graphic                   UpdateElementsCommand con sus params («params»),
+//                                              como `updateElements` del panel (graphic-tab.tsx)
 //   borrar los silencios                       quitarSilencios (audio/borrar-silencios.ts: el del
 //                                              botón de la barra), LARGA y la última
 //   palabras clave                             UpdateElementsCommand con `subtitulo.claves` (el
 //                                              «Palabras clave» del panel del subtítulo)
 //   usar un preset de subtítulos               aplicarPreset (subtitles/presets.ts: el de la
 //                                              pestaña Plantillas), LARGA
+//   duplicar                                   DuplicateElementsCommand (el de «Duplicar» y
+//                                              Ctrl+D, actions/use-editor-actions.ts)
+//   el fondo del lienzo                        UpdateProjectSettingsCommand con `background`,
+//                                              el `updateSettings` de Proyecto › Fondo
+//   un efecto de texto                         UpdateElementsCommand con sus params («params»),
+//                                              como la pestaña Texto › Efectos
+//   una plantilla de texto                     buildTextElement con sus params, como la tarjeta
+//                                              de Biblioteca › Texto › «Plantilla de texto»
+//   un emoji                                   InsertElementCommand(buildStickerElement), la
+//                                              tarjeta de Stickers › Emojis
+//   el encuadre                                UpdateElementsCommand con `recorte.*` («params»),
+//                                              lo que guarda «Confirmar» del diálogo «Recortar»
 //
 // Todo va en UN BatchCommand (chat/aplicar.ts). Los comandos que dependen de cómo quedó
 // el elemento después de los anteriores del lote (los efectos se REEMPLAZAN como lista, los
@@ -47,6 +64,7 @@ import { Command, type CommandResult } from "@/app/video-editor/_opencut/command
 import {
 	AddClipEffectCommand,
 	DeleteElementsCommand,
+	DuplicateElementsCommand,
 	InsertElementCommand,
 	RemoveClipEffectCommand,
 	SplitElementsCommand,
@@ -63,7 +81,10 @@ import { CortarTramosCommand } from "@/app/video-editor/_opencut/commands/timeli
 import { paramsConTexto, ReemplazarSubtitulosCommand } from "@/app/video-editor/_opencut/subtitles/editar";
 import { conLoVinculado } from "@/app/video-editor/_opencut/ripple/iman";
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
-import { buildEffectElement, buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
+import { buildEffectElement, buildGraphicElement, buildStickerElement, buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
+import { UpdateProjectSettingsCommand } from "@/app/video-editor/_opencut/commands/project";
+import { idDefinicionMotion } from "@/app/video-editor/_opencut/graphics/definitions/motion";
+import { PLANTILLAS as DEF_MOTION } from "@/lib/motion/plantillas";
 import { findTrackInSceneTracks } from "@/app/video-editor/_opencut/timeline/track-element-update";
 import type { ElementRef, RetimeConfig, SceneTracks, TimelineElement, VisualElement } from "@/app/video-editor/_opencut/timeline/types";
 import { computeGroupResize } from "@/app/video-editor/_opencut/timeline/group-resize";
@@ -81,8 +102,8 @@ import { partirYUbicar } from "@/app/video-editor/_opencut/subtitles/build-subti
 import type { OperacionResuelta, RefElemento } from "./linea";
 
 /** Lo que se aplica después del lote, con su propio paso de deshacer (tarda). */
-export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" | "usar_plantilla" | "borrar_silencios" | "usar_preset_subtitulos" | "broll" | "clips_magicos" | "edicion_automatica" | "emojis_subtitulos" }>;
-const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos", "usar_preset_subtitulos", "broll", "clips_magicos", "edicion_automatica", "usar_plantilla", "borrar_silencios", "emojis_subtitulos"]);
+export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" | "usar_plantilla" | "borrar_silencios" | "usar_preset_subtitulos" | "estilo_subtitulos" | "broll" | "cambiar_broll" | "clips_magicos" | "edicion_automatica" | "emojis_subtitulos" }>;
+const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos", "usar_preset_subtitulos", "estilo_subtitulos", "broll", "cambiar_broll", "clips_magicos", "edicion_automatica", "usar_plantilla", "borrar_silencios", "emojis_subtitulos"]);
 export const esLarga = (r: OperacionResuelta): r is OperacionLarga => LARGAS.has(r.op);
 
 /** Un comando que se arma al EJECUTAR, contra la línea de tiempo de ese momento del lote. */
@@ -105,6 +126,41 @@ class Diferido extends Command {
 		return this.execute();
 	}
 }
+
+/** Lo nuevo del lote sabe dónde quedó recién al ejecutarse: una inserción o una copia. */
+type Ubicable = { getTrackId(): string | null | undefined; getElementId(): string };
+
+/**
+ * «Duplicar», armado al EJECUTAR: el original puede ser algo nuevo de este mismo lote (su id se sabe recién ahí). La
+ * copia la hace el comando del botón (DuplicateElementsCommand: el mismo tiempo, encima, en una pista nueva).
+ */
+class Duplicar extends Command implements Ubicable {
+	private real: DuplicateElementsCommand | null = null;
+	constructor(private readonly origen: () => ElementRef | null) {
+		super();
+	}
+	execute(): CommandResult | undefined {
+		const o = this.origen();
+		this.real = o ? new DuplicateElementsCommand({ elements: [o] }) : null;
+		return this.real?.execute();
+	}
+	undo(): void {
+		this.real?.undo();
+	}
+	redo(): CommandResult | undefined {
+		// Se vuelve a ARMAR, como Diferido: al rehacer, el original nuevo del lote tiene otro id.
+		return this.execute();
+	}
+	getTrackId(): string | undefined {
+		return this.real?.getDuplicatedElements()[0]?.trackId;
+	}
+	getElementId(): string {
+		return this.real?.getDuplicatedElements()[0]?.elementId ?? "";
+	}
+}
+
+/** Lado del PNG de un emoji (stickers/providers/emojis.ts y subtitles/emojis-pista.ts): su tamaño propio. */
+const LADO_EMOJI = 512;
 
 /** Cuánto se corrió el elemento desde donde lo vio la revisión (`base`), en segundos. */
 const corrimiento = (actual: TimelineElement, base: number) => actual.startTime / TICKS_PER_SECOND - base;
@@ -131,13 +187,14 @@ export type LoteChat = {
  */
 export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: { idioma: string }): LoteChat {
 	registerDefaultEffects();
-	const nuevos = new Map<string, InsertElementCommand>();
+	const nuevos = new Map<string, Ubicable>();
 	/** Dónde está el elemento: lo nuevo de este lote lo dice su inserción, al ejecutarse. */
 	const objetivo = (el: RefElemento): ElementRef | null => {
 		if (!el.nuevo) return { trackId: el.trackId, elementId: el.elementId };
 		const insercion = nuevos.get(el.ref);
 		const trackId = insercion?.getTrackId();
-		return insercion && trackId ? { trackId, elementId: insercion.getElementId() } : null;
+		const elementId = insercion?.getElementId();
+		return insercion && trackId && elementId ? { trackId, elementId } : null;
 	};
 	/** Un comando sobre UN elemento, armado al ejecutar con el elemento de ese momento. */
 	const sobre = (el: RefElemento, armar: (o: ElementRef, actual: TimelineElement) => Command | null) =>
@@ -156,10 +213,11 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 		if (esLarga(r)) continue;
 		switch (r.op) {
 			case "agregar_texto": {
-				// Lo mismo que «Texto predeterminado» (text/components/assets-view.tsx), con el texto pedido.
+				// Lo mismo que «Texto predeterminado» (text/components/assets-view.tsx), con el texto pedido; con una plantilla,
+				// lo mismo que su tarjeta (text/components/biblioteca-estilos.tsx): sus params y el texto encima.
 				const insercion = new InsertElementCommand({
 					element: buildTextElement({
-						raw: { name: r.texto.slice(0, 40), duration: segundos(r.duracion), params: { content: r.texto } },
+						raw: { name: r.texto.slice(0, 40), duration: segundos(r.duracion), params: { ...(r.params ?? {}), content: r.texto } },
 						startTime: segundos(r.inicio),
 					}),
 					placement: { mode: "auto", trackType: "text" },
@@ -168,6 +226,46 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 				comandos.push(insercion);
 				break;
 			}
+			case "agregar_motion": {
+				// La tarjeta de la biblioteca (motion/components/biblioteca-motion.tsx), en el tramo pedido y con los
+				// valores ya resueltos por la revisión (sin los textos de ejemplo de la plantilla).
+				const element = buildGraphicElement({
+					definitionId: idDefinicionMotion(r.plantilla),
+					name: `Motion · ${DEF_MOTION[r.plantilla].nombre}`,
+					startTime: segundos(r.inicio),
+					params: r.valores,
+				});
+				element.duration = segundos(r.duracion);
+				const insercion = new InsertElementCommand({ element, placement: { mode: "auto" } });
+				if (r.ref) nuevos.set(r.ref, insercion);
+				comandos.push(insercion);
+				break;
+			}
+			case "agregar_emoji": {
+				// La tarjeta de Stickers › Emojis (stickers/components/assets-view.tsx), en el tramo pedido.
+				const element = buildStickerElement({
+					stickerId: r.stickerId,
+					name: r.emoji,
+					startTime: segundos(r.inicio),
+					intrinsicWidth: LADO_EMOJI,
+					intrinsicHeight: LADO_EMOJI,
+				});
+				element.duration = segundos(r.duracion);
+				const insercion = new InsertElementCommand({ element, placement: { mode: "auto" } });
+				if (r.ref) nuevos.set(r.ref, insercion);
+				comandos.push(insercion);
+				break;
+			}
+			case "duplicar": {
+				const copia = new Duplicar(() => objetivo(r.el));
+				if (r.copia) nuevos.set(r.copia, copia);
+				comandos.push(copia);
+				break;
+			}
+			case "fondo_lienzo":
+				// El `updateSettings` de Proyecto › Fondo (con historial): su comando, adentro del lote.
+				comandos.push(new UpdateProjectSettingsCommand({ background: r.fondo }));
+				break;
 			case "capa_efecto": {
 				// El ⊕ de la biblioteca (effects/capas.ts, agregarCapaEfecto) en el tramo pedido.
 				const insercion = new InsertElementCommand({

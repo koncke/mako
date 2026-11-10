@@ -106,12 +106,24 @@ export async function instanciarRnnoise(bytes: BufferSource): Promise<MotorRnnoi
 
 let cargando: Promise<MotorRnnoise> | null = null;
 
-/** El motor del navegador: se baja e instancia una vez; si falla, el próximo pedido reintenta. */
+/**
+ * La dirección del binario, armada contra el ORIGEN de la página. En el worker de «Reducir el ruido»
+ * (audio/ruido-hilo/worker.ts) `location` no es la página: Turbopack arranca los workers desde un `blob:` que hace
+ * `importScripts` de sus chunks (`getWorkerBlobURL` en su runtime, con `TURBOPACK_WORKER_LOCATION = location.origin`),
+ * y contra un `blob:` una ruta como `/ve/wasm/…` no se resuelve: `fetch` tira. Su `location.origin` sí es el de la página.
+ */
+export function direccionWasmRnnoise(origen: string | null = typeof location === "undefined" ? null : location.origin): string {
+	// Un origen opaco («null»: un worker de `data:`) no sirve de base: queda la ruta, como antes.
+	return origen && origen !== "null" ? new URL(URL_WASM_RNNOISE, origen).href : URL_WASM_RNNOISE;
+}
+
+/** El motor del navegador (o del worker): se baja e instancia una vez; si falla, el próximo pedido reintenta. */
 export function motorRnnoise(): Promise<MotorRnnoise> {
 	if (!cargando) {
 		cargando = (async () => {
-			const respuesta = await fetch(URL_WASM_RNNOISE);
-			if (!respuesta.ok) throw new Error(`No se pudo bajar la reducción de ruido (${respuesta.status} en ${URL_WASM_RNNOISE})`);
+			const url = direccionWasmRnnoise();
+			const respuesta = await fetch(url);
+			if (!respuesta.ok) throw new Error(`No se pudo bajar la reducción de ruido (${respuesta.status} en ${url})`);
 			return instanciarRnnoise(await respuesta.arrayBuffer());
 		})().catch((error: unknown) => {
 			cargando = null;

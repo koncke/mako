@@ -33,7 +33,7 @@ import {
 import { recorrerFuente, type ClipConAudio } from "./decodificar";
 import { tramosQueQuedan } from "./dsp/silencios";
 import { JuntadorDeTrozos, silenciosSinRuido } from "./dsp/silencios-sin-ruido";
-import { motorRnnoise } from "./dsp/rnnoise";
+import { reducirRuidoEnSegundoPlano } from "./ruido-hilo/cliente";
 import { quedaAlgo, quedaAlgoEnLaLinea, silenciosEnLaLinea } from "./silencios-plan";
 import { PAUSA_MIN_S, avisoBotonSinSilencios, clipsConSonido } from "./silencios-aviso";
 
@@ -106,7 +106,8 @@ export async function quitarSilencios(
 	enCurso = true;
 	try {
 		const mediaAssets = editor.media.getAssets();
-		const motor = await motorRnnoise();
+		// La red corre en un worker (./ruido-hilo/): con un clip largo, el editor sigue respondiendo mientras escucha.
+		const reducir = reducirRuidoEnSegundoPlano;
 		const planes: PlanDeSilencios[] = [];
 		let todoSilencio = 0;
 		let sinAudio = 0;
@@ -140,7 +141,7 @@ export async function quitarSilencios(
 			}
 			escuchados++;
 			segundosEscuchados += duracion;
-			const silencios = await silenciosSinRuido({ audio, motor, opciones: { minSilencioS: minimoS } });
+			const silencios = await silenciosSinRuido({ audio, reducir, opciones: { minSilencioS: minimoS } });
 			if (silencios.length === 0) continue;
 			if (!quedaAlgo(tramosQueQuedan({ desde, hasta, silencios }))) {
 				todoSilencio++;

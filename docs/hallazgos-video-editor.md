@@ -6,6 +6,59 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Tanda 4: ruido en un worker, seguir a la persona, cinco botones al chat, B-roll con videos y el rango I/O (10/11/2026)
+
+**Vive en:** `audio/ruido-hilo/` · `clips/seguir.ts` y `seguir-en-editor.ts` · `chat/linea.ts` (duplicar, fondo, efecto y plantilla de
+texto, emoji, recorte) · `broll/cambiar.ts` y `lib/pexels.ts` · `rango/` y `export/exportar.ts`. Punta `punta/editor-tanda4-0911`.
+
+- **Un worker que arranca desde un `blob:` (Turbopack) no resuelve un `fetch("/ve/wasm/…")` relativo**: la dirección del
+  `.wasm` se arma contra `location.origin`. Y transferir `getChannelData` VACÍA el AudioBuffer de quien llama: se copia antes.
+- **El reflejo se aplica DESPUÉS de medir**: el centro de la persona se mide en el cuadro sin reflejar y el gancho `ce-reflejo`
+  da vuelta la capa al dibujar, así que con «Reflejar» el encuadre la sacaba del cuadro. El test de la geometría copiaba la
+  fórmula del compositor a mano y daba verde: ahora dibuja con el gancho real.
+- **Una copia del mismo pedido no tiene ids todavía**: lo que corre después del lote (cambiar el B-roll, revertir, congelar,
+  borrar silencios) la aceptaba y fallaba al aplicar con un mensaje falso. Se rechaza en la revisión, y la copia se simula con
+  el estado del original EN ESE MOMENTO del pedido.
+- **Agregar un archivo a Multimedia puede subir los fps del proyecto fuera del historial** (`ratchetFpsForImportedMedia`):
+  un video de Pexels a 60 fps dejaba el proyecto en 60 y apagaba «Restaurar» del chat, que comparaba los ajustes enteros. El
+  B-roll agrega sin el ratchet y el chat compara sólo el fondo.
+- **Exportar un rango mezclaba (y le reducía el ruido a) toda la línea de tiempo** antes de recortar: ahora saltea lo que
+  no se cruza con el tramo.
+- **Seguridad de la bajada de Pexels**: el único `fetch` directo va a un host fijo (api.pexels.com); los archivos de video se
+  bajan sólo si vinieron en la respuesta y son de sus hosts, con `validarDestino` en cada salto; el navegador manda un id,
+  nunca una URL. La guarda de SSRF lo fija (O6).
+
+**Lo que quedó sin hacer:** Tab (el relevamiento no dice qué hace) y el DIBUJO del rango copiado de CapCut (capcut.com está
+fuera de la red de la nube); leer los términos y la documentación de videos de Pexels (pexels.com, igual); el acercamiento a
+la cara del B-roll; verlo todo en Chrome (lista en `docs/relevo/editor-pendientes-nube.md`).
+
+## Motion graphics traído por partes, y lo que encontró su revisión (10/11/2026)
+
+**Vive en:** `lib/motion/` (el motor, con `LICENSE-IART` y `LICENSE-WEBKIT`) · `app/video-editor/_opencut/motion/` ·
+`app/video-editor/_opencut/graphics/definitions/motion*` · `lib/editor-video/chat-catalogo.ts` (`agregar_motion`,
+`editar_motion`) · `lib/editor-video/chat-api.ts` (`agregar_motion_video`, `editar_motion_video`). Punta `punta/motion-0911`.
+
+- **Mezclar la rama vieja eran 97 conflictos; traerlo por partes (motor → elemento → chat y API) sobre el código de hoy,
+  ninguno.** El bloque motion del Web Generator, que vivía en la misma etiqueta, no vino: es de otro chat.
+- **Tres lectores de números con `replace(',', '.')` leían «1.250» como 1,25** (la cifra, la API y el panel), mientras
+  las barras leían bien. El motor escribía «1.250» y después no leía lo que había escrito. Ahora hay UNO
+  (`lib/motion/numeros.ts`: un separador seguido de exactamente tres cifras es de miles), y lo ambiguo que manda la IA
+  o la API se rechaza con las dos lecturas y qué escribir.
+- **Un render que normaliza «sin ser estricto» reemplaza en silencio lo que no pasa por el EJEMPLO de la plantilla**: un
+  nombre o una cita inventados en el video de un cliente, o el color de fábrica porque el selector devolvía el alfa.
+  La validación va donde se escribe (la pestaña, al salir del campo, con el motivo) y el render, ante un obligatorio
+  vacío, deja la capa vacía.
+- **Una escena con un tope propio (60 s) dentro de un clip que puede durar 600 s** se vaciaba al minuto con el fondo
+  tapando el video: la escena dura lo que el clip.
+- **El aviso de un port**: `curvas.ts` era el UnitBezier.h de WebKit (BSD, Apple) sin su aviso; va el texto literal.
+- **«motion» no estaba en las palabras del área video**: en el chat de la app, «agrega un motion graphic…» llegaba sin
+  `agregar_motion_video`. Se sumó, salvo en una frase que nombra una landing o una web (ahí se llevaba las
+  herramientas de la landing). El margen del presupuesto quedó en 319 (piso 300).
+
+**Lo que quedó sin hacer:** dividir un motion repite la entrada en la mitad derecha (decisión para Martín, en
+`docs/editor-video/pendientes-video-editor.md` §3.1); marquesina, pasos con íconos, el logo desde un SVG y exportar con
+transparencia; verlo en Chrome.
+
 ## Subtítulos de Submagic: la palabra que salta, las claves a mano y los emojis automáticos (10/11/2026)
 
 **Vive en:** `app/video-editor/_opencut/text/resaltado.ts` · `text/dibujar.ts` · `subtitles/emojis.ts` · `subtitles/emojis-pista.ts` ·
@@ -78,6 +131,105 @@ clon (lo que pide AGENTS.md para pushear desde un worktree), `npm ci` **borra el
 `node_modules` real en el worktree. El clon principal quedó con la carpeta vacía y otro agente que trabajaba sobre él perdió `tsx` a la
 mitad, con errores que no nombraban la causa («Cannot find module»). La regla: **el worktree del veredicto lleva su `node_modules` propio**
 (sin enlace), y si ya pasó, `npm ci` en el clon.
+## La edición por prompt, medida en producción con los pedidos de los clientes (9/11/2026)
+
+**El pedido** (Martín, 9/11): «revisá que todos los tickets del editor estén resueltos, que se pueda editar perfectamente por
+prompting». Los tickets del editor eran cuatro (#15 importar, #23 subtítulos, #31 y #32 silencios) y estaban cerrados: se
+volvieron a medir en producción (ws 9, proyecto «1109», clips con la voz de Martín y una pausa de 1,5 s armada con ffmpeg) y
+andan: importa, subtitula (~70 s la primera vez) y borra los silencios (21 → 15 s, 7 de 7). La batería de pedidos salió de
+`video_editor_chats` (lo que escribieron Leila, Leandro y Mauricio) y corre sin pantalla con
+`scripts/probar-chats/video-editor.mts` (ws 9, sin levantar tickets: anota cuál habría salido).
+
+- ⚠️ **El diagnóstico obvio («la IA entiende mal») era el equivocado en la mitad de los casos: la IA acertaba y el EDITOR
+  descartaba.** «Los subtítulos en amarillo y en Bebas Neue» → la IA mandó bien un `estilo_texto` por subtítulo y la revisión
+  (`chat/linea.ts`) tiraba la operación ENTERA porque traía la fuente: no cambiaba ni el color. Ahora lo que cambia el ancho
+  del renglón va a `estilo_subtitulos` (`aplicarEstiloASubtitulos` de subtitles/insert.ts, el de «Aplicar en todos», con
+  `solo`), después del lote.
+- **El titular del chat es el `resumen` del modelo, escrito ANTES de que el editor revise**: afirmaba lo que no quedó («Aquí
+  tienes la limpieza de muletillas» con «no se identificaron muletillas» debajo y sin tarjeta). Con operaciones propuestas y
+  ninguna aplicable, el titular lo pone el código: «No cambié nada.» (`chat/respuesta.ts`), y cada motivo va una vez (el mismo
+  salía tres veces, uno por subtítulo).
+- **El chat no ve la charla** (lib/editor-video/ia.ts manda sólo el pedido y la línea de tiempo): «si hazlo» debajo de una
+  propuesta contestaba «es muy vago» (Leandro, 28/10) y, desde la regla de lo que no existe, **levantaba un ticket «no existe:
+  si hazlo»**. Ahora un «sí» suelto debajo de una propuesta que espera es su «Aceptar» (`chat/confirmar.ts`), sin ir a la IA.
+- **Una tarjeta con un nombre de archivo largo cortaba el «Aceptar» y corría el chat entero a la izquierda.** Un `grid` con
+  columna `auto` toma el ancho mínimo de sus hijos, y un `truncate` (sin cortes) mide el texto entero: 296 px en una burbuja de
+  231. Con `grid-cols-1` (`minmax(0,1fr)`) el `truncate` funciona: medido en la página antes de tocar el código.
+- **Lo que confunde a la IA está en el `para` del catálogo**: `fundido` es SÓLO el sonido (pidió «que empiece desde negro» y
+  puso transiciones en los cortes), una transición no va al principio ni al final, «un poco más rápido» le daba 2×, y un título
+  «al inicio» corría todos los clips 3 s. Van dicho en `chat-catalogo.ts`. Re-medido con el arnés, 2 de 2 cada uno: el
+  fundido sale como animación de entrada del primer clip y de salida del último, «un poco más rápido» da 1,2× y el título
+  queda encima sin mover nada.
+- **Con la propuesta bien armada, el modelo a veces suma `[[no-pude: …]]`** (1 de 2 en «ponelo todo un poco más rápido»:
+  «no pude aplicar la velocidad a toda la pista en un solo comando»). En producción eso abre un ticket y le dice al cliente
+  «Quedó el ticket #N» al lado de un cambio que salió. Este chat no ejecuta (sólo propone): con operaciones, `[[no-pude]]` se
+  saca sin ticket y `[[no-existe]]` se queda (`lib/editor-video/marcas-chat.ts`).
+- **Mientras se generan los subtítulos la tarjeta era un círculo mudo un minuto**: el store `useTrabajoSubtitulos` ya tenía
+  fase y %, el panel lo mostraba y el chat no. El rótulo vive en `subtitles/resultado.ts` (`rotuloProgresoSubtitulos`).
+- ⚠️ **«Pushear no es desplegar» también para medir**: la edición automática con los agentes y sus cursores entró a main a las
+  12:30 UTC y el despliegue diario es a las 11:05 UTC (lib/desplegar-main.ts): en producción, «usá la edición automática»
+  contestaba «eso no existe», y era cierto. Antes de medir algo en producción, mirá si su commit es anterior al último
+  despliegue.
+- **Leer el lienzo del reproductor por JS no mide nada**: `drawImage` de un canvas WebGPU sin `preserveDrawingBuffer` da negro
+  o el último cuadro. Para ver si el video se traba, capturas reales mientras corre.
+- **El arnés local**: con `C:/dev/mako-api/.env.local` dos cuentas de Gemini de la plataforma contestan «API key not valid» y
+  la cascada sigue con las otras (10 a 60 s por pedido). Es la copia local; no se midió si producción tiene las mismas.
+
+**Sin hacer (derivado al chat de la nube «Video Editor: todos los pendientes»):** agregar un medio de Multimedia a la línea de
+tiempo por chat (ticket #73 del ws 9: la vista ni lista los audios, `mediosParaReemplazo(medios, "ambos")`; pide su gemela en la
+API); fotogramas clave por chat; música de biblioteca (vacía a propósito: falta una con licencia comercial, decisión de
+producto). **Sin reproducir:** «se bugguea el video» de Leila (2/11) después de poner «Mezclar» en cada corte: con la misma
+transición en «1109» el video corre de punta a punta. **Sin medir en producción:** los cursores de la edición automática
+(llegan con el despliegue del 10/11).
+
+## Cortar al ritmo de una referencia: lo que mide un reel que funciona (9/11/2026)
+
+**Síntoma.** El reel de mentores (template «Mensaje para…», copiado del de Josep / Tacho, `instagram.com/reel/DdTdIIPDzHU`)
+se sentía lento y «sin tren» al lado del original, con el mismo guion y la misma estructura.
+
+**El diagnóstico obvio era el equivocado, dos veces:**
+- «Le falta música de fondo, bien mezclada»: no. **Josep NO tiene música bajo la voz** (piso de −49,7 dBFS en sus pausas);
+  la música entra SÓLO como golpe pegado en cada inserto blanco y, continua, en el cierre mudo. El v1 la ponía debajo de
+  todo con `sidechaincompress`: es la gramática de un anuncio, no la de este template.
+- «Martín habla lento»: tampoco. A 1,10 (atempo) dice 7,45 sílabas/s contra 7,08 de Josep, con los mismos huecos entre
+  palabras (36 contra 40 ms). La lentitud eran 3 s de silencio digital en las animaciones (Hormozi quieto, el humo) y un
+  tramo de 7,8 s sin ningún golpe (Josep nunca pasa de 3,6 s).
+
+**La gramática medida** (`C:/dev/reel-mentores/josep/analisis/ritmo-josep.json`, verificada por un segundo agente con otro
+método; el montaje que la aplica es `C:/dev/reel-mentores/montaje/montar-v2.mjs`, fuera del repo):
+- 130,95 BPM (beat 0,458 s), 4/4 en half-time de trap. El 129,2 que da librosa por defecto es un escalón de su grilla
+  (hop 512 a 22.050 Hz), no la medición: hay que medir el período por regresión sobre los beats del tramo sin voz.
+- Cada inserto usa el MISMO pedazo de canción (correlación 0,98-0,99), desde el «1» de una frase; el corte de imagen cae en
+  el golpe o hasta un cuadro antes (−4 a −42 ms), nunca después; la palabra roja aparece en ese mismo cuadro y se va con el
+  corte de salida. Inserto corto = 1,30 beats (0,596 s); el largo, 2,1 beats. El audio se corta en seco al volver la voz.
+- Tramos hablados de 2,9 s de media (máximo 3,6); ningún hueco sin voz ni música de más de 0,52 s.
+- Cierre mudo: la canción desde su 0:00, continua, ~4,5 LU por encima de la voz; ahí los cortes siguen la acción, no el beat.
+  El dominio titila 2 cuadros sí / 2 no durante ~0,93 s y queda fijo.
+
+**Herramientas (para el corte automático de MaKo).** `audio/dsp/ritmos.ts` ya marca beats como librosa, pero no sabe dónde
+cae el «1» del compás: su Ritmo 1 («uno cada dos») no es el downbeat. Lo que suma es **Beat This!** (CPJKU, código y pesos
+MIT, el modelo chico pesa 8 MB y corre en CPU: devuelve beats + downbeats) en un paso Python del worker, con **Demucs**
+(htdemucs, MIT) antes cuando hay voz encima (además cubre «Aislar voz»). No: madmom/BeatNet (sus MODELOS son CC BY-NC-SA,
+no comerciales), Essentia (AGPL), Spotify audio-analysis (cerrada desde el 27/11/2024). Para «¿qué música es?»: AudD (API
+HTTP con precio público); Shazam (`shazamio`) sólo reconoce en ventanas SIN voz encima (con voz: 0 de 9).
+
+**Trampas que costaron una vuelta:**
+- Acelerar la voz: `atempo` conserva el tono (130,6 → 130,6 Hz); `asetrate` lo sube 9,7 %, la voz de ardilla.
+- Los .ass van en centésimas: redondear al más cercano (2,708 → 2,71) deja el subtítulo un cuadro sobre el inserto y la
+  palabra roja entra un cuadro tarde. Se redondea hacia abajo. Y una hoja de contacto con `fps=2` no sirve para medir
+  cortes: muestrea el cuadro equivocado. Se mide con `select` por número de cuadro.
+- El voice-to-voice convierte el soplido de un efecto (humo) en un zumbido con tono (f0 142 Hz) que suena a risa: en los
+  huecos sin voz se calla la pista de voz y va el golpe.
+- `python -I` ignora los paquetes de `pip install --user`: `shazamio` daba ModuleNotFoundError estando instalado. Se
+  arregla con `sys.path.append(site.getusersitepackages())`.
+- La palabra roja pintada encima tapa el pelo y el celular; Josep pone al sujeto DELANTE del texto. Se compone con una
+  máscara «donde el cuadro es blanco» (`maskedmerge`); y en el cierre la toma se corre hacia abajo para que el texto
+  quede libre (achicarla deja costuras duras a los costados).
+
+**Sin hacer:** el plano del celular es una foto quieta (falta su video, 12 créditos); las tres tomas blancas de la noche
+llevan la luz corregida en el montaje con `curves`, no regeneradas; no se verificó que «WE ON GO» (BIA) esté en la
+biblioteca de Instagram de una cuenta de empresa; a 1,10 queda un micro-tirón cada 10 cuadros (`fps=24` descarta uno de
+cada 11).
 
 ## `toast.error` lleva «Reportar a Soporte»: se envuelve UNA vez, en el Toaster (23/10/2026)
 

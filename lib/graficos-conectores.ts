@@ -54,6 +54,20 @@ export function puntoDeLado(c: Caja, lado: Lado): Punto {
   }
 }
 
+/** Cuánto queda AFUERA de la tarjeta el centro de un tirador (el punto de unir), en píxeles.
+ *  Martín (9/11/2026): «no son editables». Medido en producción: el tirador iba en el MEDIO de cada lado, encima
+ *  del cuadradito de agrandar por el costado (app/dashboard/editor-css.ts): agarrar el costado creaba una flecha en
+ *  vez de agrandar. Afuera, con el radio entero (7 px) fuera del borde, los dos se agarran por separado, y el
+ *  disco cabe en el hueco entre tarjetas (MARGEN = 16 px, app/dashboard/EditorInforme.tsx): no pisa la vecina. */
+export const SEPARACION_TIRADOR = 9;
+/** El radio del tirador dibujado (`.lk-tirador`, 14 px de lado). */
+export const RADIO_TIRADOR = 7;
+
+/** Dónde va el tirador de un lado: el medio del lado, corrido hacia afuera de la tarjeta. */
+export function puntoDelTirador(c: Caja, lado: Lado): Punto {
+  return mover(puntoDeLado(c, lado), NORMAL[lado], SEPARACION_TIRADOR);
+}
+
 /** Por qué lado sale (de `a`) y por cuál entra (en `b`): los que se miran. */
 export function ladosEnfrentados(a: Caja, b: Caja): [Lado, Lado] {
   const aireX = Math.max(b.left - (a.left + a.width), a.left - (b.left + b.width));

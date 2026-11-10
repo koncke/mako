@@ -26,6 +26,7 @@ import {
 	SeccionCe,
 } from "@/app/video-editor/_opencut/components/editor/panels/properties/components/kit";
 import type { ContextoInspector } from "@/app/video-editor/ce/ranuras";
+import { MotionTab } from "@/app/video-editor/_opencut/motion/components/pestana-motion";
 
 registerDefaultGraphics();
 
@@ -77,7 +78,11 @@ export function GraphicTab({
 	element: GraphicElement;
 	trackId: string;
 }) {
+	// Un `graphic` cuya definición ya no existe (un `motion-<x>` de una plantilla que se sacó) no tiene qué editar: el
+	// panel no tira, como no tira el render (graphics/index.ts → getGraphicDefinition).
+	if (!graphicsRegistry.has(element.definitionId)) return null;
 	const definition = graphicsRegistry.get(element.definitionId);
+	if (definition.animado) return <MotionTab element={element} trackId={trackId} params={definition.params} />;
 	const forma = definition.params.filter((p) => p.group !== "stroke");
 	const trazo = definition.params.filter((p) => p.group === "stroke");
 	const relleno = forma.filter((p) => p.key === "fill");
@@ -103,6 +108,8 @@ export function GraphicTab({
 		</div>
 	);
 }
+
+// Un motion graphic (lib/motion) tiene su pestaña, con los campos validados al confirmar: motion/components/pestana-motion.tsx.
 
 function Campo({
 	element,

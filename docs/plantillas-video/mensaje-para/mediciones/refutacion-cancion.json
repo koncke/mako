@@ -1,0 +1,25 @@
+{
+  "afirmacion": "La cancion del reel de Josep es WE ON GO de BIA",
+  "veredicto": "se sostiene (la identidad del tema); los desfasajes 0:00 y 1:52,6 no se verificaron por otra via",
+  "medido_en_el_reel": {
+    "tempo_cierre_20.65_30.75": "130,9-131,0 BPM (autocorrelacion de onsets con hop 64 a 44,1 kHz, refuta_bpm_fino.py y refuta_bpm_tramos.py)",
+    "tempo_cierre_por_mitades": {"21-25,8": "131,0", "25,8-30,7": "130,75"},
+    "ojo_129_2": "el 129,2 BPM de librosa por defecto es un escalon de la grilla (hop 512 a 22.050 Hz: lag 20 cuadros = 129,2, lag 19 = 136,0), no la medicion. Periodo real ~0,458 s, no 0,464 s",
+    "notas_medios_por_compas": "E, A, C dominan en 5 de 6 compases (acorde La menor A-C-E); graves en E1 con F1",
+    "tonalidad_krumhansl_cierre": "E mayor 0,565 / E menor 0,494 / A menor 0,423 (el bajo en E sesga la correlacion)",
+    "tempo_bajo_la_voz": "no confiable (124,8-126,3 segun ventana; la voz mete onsets)"
+  },
+  "fuentes_externas": {
+    "songbpm.com/@bia/we-on-go-tnnwz": "131 BPM, tonalidad A (modo mayor), 2:49 (pagina abierta)",
+    "deezer_api_track_3343819681": "WE ON GO, BIA, ISRC USSM12500842, 168 s, 2025-05-02, bpm=0 (Deezer no lo trae)",
+    "deezer_versiones": "RAGE MIX 156 s, INSTRUMENTAL 163 s, II feat. Denzel Curry 195 s, III 165 s",
+    "busqueda_web_sin_abrir": "Beatport (original e instrumental) y Tunebat: 131 BPM segun el resumen del buscador; paginas devuelven 403",
+    "soundmatcha.com/sound/we-on-go-bia": "228K reels de Instagram con este sonido al 07/11/2026",
+    "comentario_info_json": "@prosperocapital360: 'Canciones: we on go' (verificado en josep-reel.info.json)"
+  },
+  "no_verificado": [
+    "comparacion de huella contra el audio publicado (el preview de 30 s de Deezer existe pero no se bajo: bajar el archivo pide permiso)",
+    "que el cierre sea el 0:00-0:10 del tema y que bajo la voz vaya el 1:52,6",
+    "prensa: productor Honorable C.N.O.T.E., ESPN Final Four, WNBA 2025 (la busqueda no lo encontro)"
+  ]
+}

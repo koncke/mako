@@ -159,7 +159,7 @@ import {
   type CanalSocial, type ConversacionesPorLead,
 } from '@/lib/canal-social';
 import { enviarPasoSocial, conversacionesDeLeads, siguenEnInstagram, charlaSocialDelLead } from '@/lib/canal-zernio';
-import { partesDe } from '@/lib/mensaje-partes';
+import { partesParaEnviar } from '@/lib/mensaje-partes';
 // Puro: la CONDITION sobre los datos de un evento (16/10/2026), que sólo va en una fila de evento.
 import { datoDeCampo } from '@/lib/dato-evento';
 // El TURNO del motor por negocio (sexta tanda): lo toman las dos rutas del cron y, desde la
@@ -5708,7 +5708,7 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           // el renglón opcional (`partesConDatos`): Zernio recibe el texto final y ningún dato más.
           const varsSocial = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead ?? {}, { negocio, noSon }), { ws: wsCorrida, leadId: insc.lead_id });
           const r = await enviarPasoSocial({
-            ws: wsCorrida, leadId: insc.lead_id, canal: paso.canal, partes: partesConDatos(partesDe(paso), varsSocial),
+            ws: wsCorrida, leadId: insc.lead_id, canal: paso.canal, partes: partesConDatos(partesParaEnviar(paso), varsSocial),
             // La clave lleva la VUELTA (`claveDeEnvio`, lib/reentrada.ts): la inscripción reusada de «Volver a probar» no reusa la de antes.
             vars: {}, idempotencia: claveDeEnvio(insc.id, insc.inscripto_at, idDe(paso, insc.paso_actual), yaSalio + 1), desde,
             // Por la cuenta que eligió la tarjeta, si eligió una (decimocuarta tanda): sin conversación con ESA, falla.
@@ -7464,7 +7464,7 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
     if (ws == null) return no('No le contesté: no sé de qué negocio es.');
     const negocioSocial = await getWorkspace(ws).then((w) => w?.nombre ?? '').catch(() => '');
     const varsSocial = await datosParaElLead(JSON.stringify(p), valoresVariablesLead(lead ?? {}, { negocio: negocioSocial, noSon: await noSonDelNegocio() }), { ws, leadId });
-    const partes = partesConDatos(partesDe(p), varsSocial);
+    const partes = partesConDatos(partesParaEnviar(p), varsSocial);
     const textoPartes = partes.map((pt) => (pt.tipo === 'texto' ? pt.cuerpo : pt.tipo === 'media' ? (pt.cuerpo?.trim() || '(un archivo)') : '(una nota de voz)'))
       .map((t) => t.trim()).filter(Boolean).join('\n\n');
     if (!textoPartes) return no('Un mensaje de la rama estaba vacío: no salió.');

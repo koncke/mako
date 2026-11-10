@@ -745,6 +745,56 @@ Las trampas, medidas:
 Lo que quedó SIN hacer: borrar los bloques de General viejos (sólo con el sí de Martín: tienen opciones que las tarjetas no tienen; la
 tabla de candidatos está en docs/relevo/nube-dashboards.md).
 
+## 37. «No son editables» y la hoja de Código: lo que tapaba el costado, textos que viven en el JSX, y un dashboard que es por persona (9/11/2026)
+
+**Síntoma:** Martín, 9/11: «los dashboard hoy no son editables… que esté 100 % finalizado», y el dashboard especial para los clientes de
+Código Inmobiliario («cuánto tarda cada inmobiliario en contactar a un lead», con el botón de grabar).
+
+**Lo medido en producción (Chrome de Martín, superadmin, ws 3):** mover, agrandar por la esquina, duplicar, borrar y deshacer
+ANDABAN. Lo que no: (a) el cuadradito del medio de cada costado creaba una flecha en vez de agrandar, y (b) el título y los textos de
+una tarjeta de diseño no se podían cambiar (el panel no tenía campos). «No son editables» era esas dos cosas, no la grilla.
+
+- **⚠️ El diagnóstico obvio era el equivocado: no era react-resizable ni el CSS de los tiradores de tamaño.** Era OTRO módulo
+  encima: los cuatro tiradores de unir con flecha (`.lk-tirador`, app/dashboard/Conectores.tsx, z-index 6) van en el MEDIO de cada
+  lado de la tarjeta elegida, exactamente encima del cuadradito de agrandar (z-index 3). Se agarraba el tirador. Ahora van afuera
+  del borde (`puntoDelTirador`, lib/graficos-conectores.ts: el disco entero fuera de la tarjeta y dentro del hueco de 16 px, así no
+  pisa la vecina). **Antes de tocar un gesto que «no anda», mirar qué elemento recibe el puntero ahí (`elementsFromPoint`).**
+- **Los textos de una tarjeta copiada están escritos en el JSX del diseño** (22 componentes): no hay un `titulo` que editar. Lo que
+  quedó: el bloque guarda `diseno.textos` = { original → nuevo } (lib/disenos-textos.ts) y la tarjeta lo aplica en el DOM
+  (app/dashboard/disenos/textos-de-bloque.ts); dos toques sobre un texto, editando, abren un campo encima (TapaDeDiseno.tsx).
+  - Por el TEXTO y no por la posición: si el diseño suma una fila, el cambio sigue en su texto.
+  - **No contentEditable:** escribir dentro de un nodo de React le rompe la reconciliación. El campo va encima.
+  - **React reescribe `nodeValue` cuando llega otro dato:** el bloque recuerda (WeakMap) qué puso en cada nodo; si lo que hay no es
+    lo que puso, eso es el original nuevo y se vuelve a aplicar (MutationObserver con `characterData`).
+  - Fuera quedan `svg` (los gráficos), `tbody` (las filas son datos) y las cifras (`esTextoEditable`).
+  - **El saneo de la hoja tira lo que no conoce:** sin sumar `textos` a `sanearComponente`, el cambio se veía y se perdía al recargar.
+- **En los clientes de Código casi todos los leads salen «Sin contactar»** (Natalia 123 de 126, Brigitte 41 de 41; la 0396 ya estaba
+  aplicada). La métrica dice la verdad: llaman desde el celular sin grabar, y lo que su línea de WhatsApp manda va a otros chats, no
+  a los leads. Sin explicarlo parece que nadie llamó. Ahora la tarjeta «Primer contacto» lo dice cuando la mayoría sale sin contactar
+  (`faltaGrabar`, lib/primer-contacto.ts) y trae el botón «Grabar llamada» (la grabadora de la ficha) en el lugar de la lista de los
+  más lentos —cabe en la tarjeta sin agrandarla—. «Velocidad de llamada» suma, a la vista, la tabla «Cada lead nuevo» (conjunto
+  `primer_contacto`, por lead, con el tramo y el canal).
+- **El Dashboard es POR PERSONA** (`app_settings`, `graficos.tablero.<sub>`): «instalar una hoja para un cliente» es escribir una fila
+  por cada usuario de cada negocio. Lo que nadie guardó se resuelve en el CÓDIGO: `HOJA_DE_AGENCIA` (lib/graficos-plantillas.ts) pone
+  «Velocidad de llamada» en el negocio de cada cliente aprobado de la agencia 13, sin escribir nada. Sólo quien ya guardó el suyo
+  necesita que se le escriba (con el sí de Martín).
+- **⚠️ El diagnóstico obvio equivocado, otra vez: «alcanza con ponerla en el informe inicial».** Se desplegó así y en producción la
+  pantalla de Giselle (ws 17) siguió EN BLANCO: desde el 12/10 quien nunca guardó no ve el inicial («que no le salga ninguna
+  página», app/dashboard/page.tsx, `sinPaginas`); el inicial viaja por dentro. Lo que la muestra es la página: `esHojaDeAgencia`
+  la saca del inicial y la pone en la tira y como hoja, SIN `agregar` (que guarda al abrir). **Antes de cambiar el informe inicial,
+  mirar si la pantalla lo muestra: el inicial y lo que se ve no son lo mismo.**
+- **Mirar «como el cliente» con `?ws=` NO muestra el Dashboard del cliente:** el superadmin ve SU informe en ese negocio (su `sub`).
+  Coinciden sólo mientras ninguno de los dos guardó; para ver el de una persona hay que leer su fila.
+
+**Vive en:** lib/graficos-conectores.ts, app/dashboard/Conectores.tsx, lib/disenos-textos.ts, app/dashboard/disenos/textos-de-bloque.ts,
+app/dashboard/disenos/TapaDeDiseno.tsx, lib/primer-contacto.ts, app/dashboard/disenos/HojaClosing.tsx, lib/graficos-plantillas.ts
+(`VELOCIDAD_LLAMADA`, `HOJA_DE_AGENCIA`), lib/graficos-tablero.ts. Tests: graficos-conectores, dashboard-textos-de-bloque,
+dashboard-velocidad-codigo.
+
+**Lo que quedó SIN hacer:** la API de MaKo (lib/api-mako/areas/dashboard.run.ts:167, sin persona) sigue leyendo el inicial sin la hoja
+de la agencia; una vista de la AGENCIA con una fila por cliente (lo literal de Juanfran: «cada inmobiliario») no existe todavía; los
+Dashboards ya guardados en los negocios de Código (los lista docs/relevo/dashboards-codigo.md) reciben la hoja sólo con el sí de Martín.
+
 ## 11. Lo que quedó SIN hacer
 
 - **Ninguna hoja se vio dibujada con datos reales**: esta sesión no tiene producción. Se verificó la composición (qué

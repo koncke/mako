@@ -206,7 +206,14 @@ test('el Panel monta Crear con IA y Replicar a la derecha; adentro de Crear, «V
   assert.match(src, /onSalir=\{volverACaja\}\s+onAnalizar=\{abrirAnalizar\}/);
   assert.match(src, /const volverACaja = useCallback\(\(s\?: SemillaCaja\) => setDerecha\(derechaDeVuelta\(s\)\), \[\]\);/);
   // 28/10/2026: con los temas propios del negocio («Tu diseño», cuando no se copia el de la original).
-  assert.match(src, /\} else if \(derecha\.tipo === 'replicar'\) \{\s*contenido = <ReplicarUnaPagina key=\{derecha\.url \?\? ''\} url=\{derecha\.url\} formato=\{derecha\.formato\} adaptar=\{derecha\.adaptar\} auto=\{derecha\.auto\} propios=\{props\.propios\} \/>;/);
+  // Lo que cuida: Replicar a la derecha recibe todo lo que trae la derecha (9/11/2026: también la foto de la extensión, `entrega`),
+  // y se vuelve a montar si cambia la dirección o la entrega.
+  const montaje = /\} else if \(derecha\.tipo === 'replicar'\) \{\s*contenido = (<ReplicarUnaPagina [^\n]*\/>);/.exec(src)?.[1] ?? '';
+  assert.ok(montaje, 'el Panel monta Replicar');
+  for (const prop of ['url={derecha.url}', 'formato={derecha.formato}', 'adaptar={derecha.adaptar}', 'auto={derecha.auto}', 'entrega={derecha.entrega}', 'propios={props.propios}']) {
+    assert.ok(montaje.includes(prop), `Replicar recibe ${prop}`);
+  }
+  assert.match(montaje, /key=\{`\$\{derecha\.url \?\? ''\}\|\$\{derecha\.entrega \?\? ''\}`\}/, 'otra dirección u otra entrega es otro Replicar');
   assert.match(src, /\.gp \.gp-contenido\[data-vista="ia"\] \{ padding: 0; \}/);
   // Con el Panel montado, un <Link> a su propia ruta no le cambia la derecha (es un useState).
   const crear = fuente(CREAR);
@@ -323,7 +330,8 @@ test('Replicar: 3 formatos con su ícono, `{ url, formato, lectura?, texto? }`, 
   // la falla lo ofrece como botón, acá y en el Diagnóstico (L5 al pie). Tanda 7: con la ventana abierta en ESE clic.
   // 28/10/2026: la falla de la réplica viene DESPUÉS de leer la página: «Replicar como…» usa la lectura. La copia idéntica
   // («Página web») abre la ventana EN ESE clic: ahí el lector saca la foto (copia-identica-script.ts).
-  assert.match(src, /<FallaReplicar\s+error=\{estado\.error\}\s+probar=\{estado\.probar\}\s+onProbar=\{\(f\) => \{ setFormato\(f\); replicarLeida\(f, f === 'web' \? abrirEnElClic\(\) : undefined\); \}\}/);
+  // La «Página web» abre la ventana de la foto en el clic, salvo que la foto ya la haya traído la extensión (9/11/2026).
+  assert.match(src, /<FallaReplicar\s+error=\{estado\.error\}\s+probar=\{estado\.probar\}\s+onProbar=\{\(f\) => \{ setFormato\(f\); replicarLeida\(f, f === 'web' && !conFotoExt \? abrirEnElClic\(\) : undefined\); \}\}/);
   assert.match(src, /\{probar && \(\s*<button type="button" className="gp-btn gp-btn-contorno"[^>]*onClick=\{\(\) => onProbar\(probar\)\}>/);
   // 28/10/2026: el lector (o el texto pegado) vuelve a LEER la página; la réplica sale después, de lo leído.
   // Con la copia idéntica (las cuatro partes), sin pagar los ángulos: no los usa (revisión de 45a8e5234 y la copia idéntica).

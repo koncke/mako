@@ -20,7 +20,7 @@ Cerebro las vuelva a firmar. El árbol no cambia, así que el `Veredicto:` del m
 | Tanda | Punta | Commit con VERDE | Qué trae |
 |---|---|---|---|
 | 1 | `punta/edicion-arreglos-0911` | `101042780` (7227 tests de 722 archivos + tsc entero, Node 24) | Los bugs de la revisión de la edición automática (§2.2). Trae debajo `punta/edicion-reel-0911` (la edición automática misma) |
-| 2 | `punta/subtitulos-submagic-0911` | (se completa al sacar el veredicto) | Subtítulos de Submagic (§1.2, §1.3, §1.4, §1.5) |
+| 2 | `punta/subtitulos-submagic-0911` | `8af141aff` (7263 tests de 724 archivos + tsc entero, Node 24) | Subtítulos de Submagic (§1.2, §1.3, §1.4, §1.5), con lo que encontró su revisión. Trae debajo la tanda 1 |
 | 3 | `punta/motion-0911` | (en curso) | Motion graphics por partes (§3.1) |
 
 La rama designada de la sesión, `claude/magical-tesla-t2stbc`, sigue la última punta.
@@ -44,7 +44,11 @@ La rama designada de la sesión, `claude/magical-tesla-t2stbc`, sigue la última
 - «Emojis automáticos»: el interruptor al generar ya anda, la sección «Emojis» en la pestaña Subtítulos, sin IA.
 - Por chat: `animar_palabras`, `palabras_clave` (con `tamano`, `sumar`, `quitar`), `emojis_subtitulos`. Por la API de MaKo:
   `animar_palabras_video`, `poner_emojis_subtitulos`, y los presets con `animacion_palabra` y `tamano_claves`.
-- Tests: `tests/video-editor-subtitulos-submagic.test.ts` (14 casos, 33 roturas en su cabecera).
+- Tests: `tests/video-editor-subtitulos-submagic.test.ts` (21 casos, con sus roturas al final).
+- Revisión adversarial (render real con node-canvas): la palabra que crece pisaba a las vecinas («HOYDINEROYA») y los
+  emojis no seguían a su subtítulo. Arreglado en `39abf3f61`: el renglón reserva el lugar (en la medición) y
+  `sincronizarEmojis` corre en `timeline.updateTracks`. Más: pista oculta o bloqueada, emoji dentro del cuadro,
+  subtítulos cortos, falsos positivos del diccionario, la vista compacta del chat.
 - **No hecho:** el subtítulo escalonado (§1.6): no hay descripción en el repo de cómo se ve el «Stagger Stack» y copiarlo de memoria es
   diseñarlo; hace falta mirar el reel (`origin/referencias/reels-0911:edicion-mako.mp4`).
 

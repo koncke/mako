@@ -13,6 +13,21 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## «Copiar su sitio» abría el Diagnóstico, no Replicar (9/11/2026, nube)
+
+**Vive en:** `app/competitor-spy/SusPaginas.tsx` («Copiar su sitio»), `lib/editor-landing/replica-extension-cliente.ts`
+(`hrefReplicar`), `app/web-generator/panel-reglas.ts` (`?replicar=`).
+
+- **El síntoma:** «Copiar su sitio» sobre una página que Spy no podía mostrar (Beacons de Den Borg) fallaba otra vez. **La causa:**
+  el botón llevaba a `/web-generator?analizar=<url>`, que abre el DIAGNÓSTICO: vuelve a bajar la página por el servidor (el mismo
+  que no la pudo bajar para la vista previa) y, aunque la bajara, no replica nada.
+- **No había ninguna dirección que abriera Replicar con una página**: `?vista=replicar` abre el cuadro vacío y la dirección sólo
+  llegaba desde la caja. Se sumó `?replicar=<url>` (arranca leyendo, como el link pegado en la caja), y «Copiar su sitio» la usa.
+  Si el servidor no la baja, Replicar ofrece «Copiar con la extensión» (hallazgos-editor-landing.md, 9/11).
+- **Lo capturado con «Capturar» todavía no guarda el diseño, y ya no hace falta para replicar**: la réplica se saca en la pestaña
+  real cuando se pide, con la extensión. Guardar el HTML ajeno en un bucket privado (`lib/spy-pagina-capturada.ts`, la migración
+  que pedía un número) sólo serviría para replicar SIN volver a abrir la página; queda anotado, no se hizo.
+
 ## El diagnóstico obvio era el equivocado
 
 ### Un anuncio en video se guardaba sin decir que lo era, y el arreglo había ido a la otra fuente (6/11/2026, tarde)

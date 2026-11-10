@@ -25,9 +25,12 @@ import { ENTREGA_MAX_INTENTOS } from './tickets-aviso';
 import { fotoDePersonaSegura } from './foto-perfil';
 import {
   TOPE_AUTOMATICOS_POR_DIA, TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, delegadoQueDecideMartin, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
-  type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
-  ESTADOS, PRIORIDADES, esRefDelSistema, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
+  type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type PersonaDelNegocio, type Prioridad, type TipoTicket, type Triage,
+  ESTADOS, PRIORIDADES, emailDelTelefono, esRefDelSistema, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, triageAlSumarLaPersona, TOPES,
 } from './tickets-reglas';
+
+/** El número del dueño que cargó el negocio: la misma clave que `KEY_NUMERO_DUENO` (lib/mako-grupo.ts, lib/mako-bot.ts). */
+const KEY_NUMERO_DUENO = 'mako.numero_dueno';
 
 const T = 'tickets';
 
@@ -188,10 +191,14 @@ export async function identidadDelActor(ws: number, actor: string | null | undef
   const plan = async () => { const w = await getWorkspace(ws).catch(() => null); return w ? capaDef((w as { capa?: string | null }).capa ?? null).nombre : null; };
   const tel = telefonoDelActor(a);
   if (tel) {
-    const { data } = await getSupabaseServer().from('usuarios').select('email, perfil')
-      .eq('workspace_id', ws).neq('estado', 'suspendido').limit(200);
-    const iguales = (data ?? []).filter((u) => mismoTelefono((u.perfil as { telefono?: string } | null)?.telefono, tel));
-    if (iguales.length === 1) return identidadDe(ws, String(iguales[0].email));
+    const db = getSupabaseServer();
+    // El número del dueño cuenta como el dueño (`emailDelTelefono`, 9/11/2026): sin él, el dueño en su grupo no era nadie.
+    const [{ data }, { data: dueno }] = await Promise.all([
+      db.from('usuarios').select('id, email, rol_ws, created_at, perfil').eq('workspace_id', ws).neq('estado', 'suspendido').limit(200),
+      db.from('app_settings').select('value').eq('workspace_id', ws).eq('key', KEY_NUMERO_DUENO).maybeSingle(),
+    ]);
+    const email = emailDelTelefono((data ?? []) as PersonaDelNegocio[], tel, (dueno?.value as string | null | undefined) ?? null);
+    if (email) return identidadDe(ws, email);
     return { ws, email: `whatsapp:${tel}`, nombre: '', usuarioId: null, rol: 'por WhatsApp', plan: await plan() };
   }
   const n = nombreDelActor(crudo);
@@ -437,16 +444,38 @@ export async function esAdminDeMaKoPorTelefono(telefono: string | null | undefin
  * Lo que se dijo en el GRUPO sobre un pedido que ya está abierto (la marca `[[ya-pedido: #N]]`): se suma al ticket como un
  * comentario del cliente, en vez de abrir otro. Sólo un ticket abierto de ESE negocio; si no, nada.
  */
-export async function sumarAlPedidoDelNegocio(ws: number, id: number, texto: string): Promise<boolean> {
+export async function sumarAlPedidoDelNegocio(ws: number, id: number, texto: string, quien?: Identidad | null): Promise<boolean> {
   const t = taparClaves(texto.trim()).texto;
   if (!t) return false;
   const db = getSupabaseServer();
-  const { data: tk } = await db.from(T).select('id, estado').eq('id', id).eq('workspace_id', ws).maybeSingle();
+  const { data: tk } = await db.from(T).select('id, estado, ref, titulo, descripcion, contexto').eq('id', id).eq('workspace_id', ws).maybeSingle();
   if (!tk || CERRADOS.includes(tk.estado as EstadoTicket)) return false;
   await anotar(id, 'cliente', 'comentario', `Por el grupo de WhatsApp: ${t}`);
   // Si el equipo le había preguntado, la respuesta lo devuelve a la bandeja (como `comentarComoCliente`).
   await db.from(T).update({ estado: tk.estado === 'esperando_cliente' ? 'esperando_decision' : tk.estado, updated_at: new Date().toISOString() }).eq('id', id);
+  // LO SUMA LA PERSONA a uno que abrió MaKo solo (9/11/2026, el #67 de Leandro): desde ahí es suyo, con la regla de su negocio.
+  // Sólo con `quien`: lo pasa el TICKET que la persona pide en el grupo (lib/tickets-del-grupo.ts), nunca un invitado.
+  if (quien) await retriagarSiEsDeLaPersona(ws, tk, t).catch((e) => {
+    console.error(`[tickets] #${id}: no pude reclasificar lo que sumó la persona: ${e instanceof Error ? e.message : String(e)}`);
+  });
   return true;
+}
+
+/** `triageAlSumarLaPersona`, con lo que lee la base: si ahora va al arreglo, pasa a `en_curso` por el Runner. Sin cambio, nada. */
+async function retriagarSiEsDeLaPersona(ws: number, tk: Record<string, unknown>, comentario: string): Promise<void> {
+  const regla = reglaDelNegocio(ws);
+  if (!regla || tk.estado !== 'esperando_decision' || !esRefDelSistema(tk.ref as string | null)) return;
+  const [apagado, arreglosHoy] = await Promise.all([autoArregloApagado(), arreglosDeHoy()]);
+  const triage = triageAlSumarLaPersona(
+    { ref: tk.ref as string | null, estado: String(tk.estado), titulo: String(tk.titulo ?? ''), descripcion: String(tk.descripcion ?? ''), contexto: sanearContexto(tk.contexto) },
+    comentario, { aprobadoPorRegla: regla.nombre, hastaUnDia: regla.hastaUnDia, apagado, arreglosHoy },
+  );
+  if (!triage) return;
+  const { data, error } = await getSupabaseServer().from(T)
+    .update({ estado: estadoInicial(triage), triage, tipo: triage.tipo, prioridad: triage.prioridad, despacho: 'runner', updated_at: new Date().toISOString() })
+    .eq('id', tk.id as number).eq('estado', 'esperando_decision').select('id');
+  if (error) throw new Error(error.message);
+  if (data?.length) await anotar(Number(tk.id), 'triage', 'clasificado', triage.porque.join(' '), { tipo: triage.tipo, autoArreglo: true, confianza: triage.confianza });
 }
 
 /** La persona contesta su ticket (cuando Martín le preguntó algo, o para sumar un dato). Vuelve a la bandeja. */

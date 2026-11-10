@@ -1,0 +1,244 @@
+{
+ "que_es": "Verificación independiente del análisis de ritmo y cortes del reel de Josep (Tacho). Todo medido de nuevo con métodos distintos al primero: cortes por diferencia de cuadros propia + ffmpeg scene; tempo por ajuste lineal de 44 hi-hats y por autocorrelación de onsets (sin librosa.beat); insertos por correlación cruzada muestra a muestra; texto rojo por conteo de píxeles por cuadro; sonoridad con ffmpeg ebur128.",
+ "fecha": "2026-11-09",
+ "veredicto_general": "El análisis se sostiene en lo grueso (tempo, música apagada bajo la voz, pedazo copiado y pegado, palabra roja en el cuadro del corte, cierre en el 1 del loop, titileo). Hay que corregir varios milisegundos y una frase: «nunca después» no se sostiene al milisegundo en FLOJOS y JOSEP. Y hay dos errores en el CONTEXTO que nos pasaron: no hay música bajo la voz y el tempo no es 129,2 BPM.",
+ "errores_del_contexto": [
+  "«Josep habla de 0 a ~20,5 s con música por debajo»: FALSO. Bajo la voz no hay música. El grave (<70 Hz) da -53,3 dBFS de mediana bajo la voz contra -15,0 en el cierre, o sea 38 dB menos. El pulso de hats tiene autocorrelación de -0,06 a 0,05 en los 5 tramos hablados, contra 0,67 en el cierre.",
+  "«librosa ~129,2 BPM» y su lista de beats desde 0,70 s: FALSO. El tempo es 130,95 ± 0,02 BPM y antes de 20,67 s no hay beats que marcar, porque no hay música."
+ ],
+ "tempo": {
+  "metodo_1": "Ajuste lineal de 44 onsets de hi-hat (>8 kHz) en el cierre (20,67 a 30,53 s): corchea de 0,22909 ± 0,00004 s, beat de 0,45818 s, 130,95 ± 0,02 BPM. Error mediano de 1,2 ms y máximo de 10,6 ms en 42 de 44 hats.",
+  "metodo_2": "Autocorrelación de onsets de banda ancha con hop de 2 ms. Los picos en 1, 2, 4, 8 y 16 beats dan de 130,96 a 131,01 BPM.",
+  "bpm": 130.95,
+  "periodo_s": 0.45818,
+  "t0_grilla_hats_s": 20.6714,
+  "compas": "De 4 beats. El clap cae en los beats 2, 6, 10, 14 y 18 contados desde 20,6714 s, o sea en el 3 de cada compás.",
+  "loop": "De 2 compases (8 beats). La similitud espectral es 0,646 a 8 beats y 0,664 a 16, contra 0,255 a 4. El pedazo del golpe vuelve a aparecer en los beats 0, 3, 5, 8, 11, 13 y 16.",
+  "dos_golpes_fuera_de_grilla": "Hay dos percusiones adelantadas 25 y 22 ms, en 23,394 y 27,063 s. Caen en la misma posición del loop (beat 5,94), así que son parte de la canción y no un corte del audio."
+ },
+ "cortes": {
+  "metodo": "Diferencia media absoluta entre cuadros (180x320) más ffmpeg scene>0,08. Los dos métodos dan los mismos 15 cortes y nada más: el corte más flojo da 53,1 y el mayor movimiento que no es corte da 7,8.",
+  "cuadros": [
+   87,
+   105,
+   136,
+   154,
+   258,
+   288,
+   377,
+   396,
+   492,
+   511,
+   619,
+   713,
+   759,
+   801,
+   874
+  ],
+  "segundos": [
+   2.9,
+   3.5,
+   4.533,
+   5.133,
+   8.6,
+   9.6,
+   12.567,
+   13.2,
+   16.4,
+   17.033,
+   20.633,
+   23.767,
+   25.3,
+   26.7,
+   29.133
+  ],
+  "coincide_con_el_otro_agente": true
+ },
+ "insertos": [
+  {
+   "toma": 2,
+   "palabra": "FLOJOS",
+   "corte_in": 2.9,
+   "clip_alineado": 2.9,
+   "clip_vs_corte_ms": 0.0,
+   "ataque_s": 2.894,
+   "corte_menos_ataque_ms": 6,
+   "corr_vs_FLOJOS": 1.0,
+   "corte_out": 3.5,
+   "cuadros": 18,
+   "audio_muere_s": 3.5218,
+   "audio_tras_corte_ms": 21.8
+  },
+  {
+   "toma": 4,
+   "palabra": "JOSEP",
+   "corte_in": 4.533,
+   "clip_alineado": 4.5333,
+   "clip_vs_corte_ms": 0.0,
+   "ataque_s": 4.528,
+   "corte_menos_ataque_ms": 5,
+   "corr_vs_FLOJOS": 0.9991,
+   "corte_out": 5.133,
+   "cuadros": 18,
+   "audio_muere_s": 5.1549,
+   "audio_tras_corte_ms": 21.6
+  },
+  {
+   "toma": 6,
+   "palabra": "PISTACHOS",
+   "corte_in": 8.6,
+   "clip_alineado": 8.6333,
+   "clip_vs_corte_ms": 33.3,
+   "ataque_s": 8.628,
+   "corte_menos_ataque_ms": -28,
+   "corr_vs_FLOJOS": 0.9975,
+   "corte_out": 9.6,
+   "cuadros": 30,
+   "audio_muere_s": 9.6225,
+   "audio_tras_corte_ms": 22.5
+  },
+  {
+   "toma": 8,
+   "palabra": "(bote)",
+   "corte_in": 12.567,
+   "clip_alineado": 12.6,
+   "clip_vs_corte_ms": 33.3,
+   "ataque_s": 12.594,
+   "corte_menos_ataque_ms": -27,
+   "corr_vs_FLOJOS": 0.999,
+   "corte_out": 13.2,
+   "cuadros": 19,
+   "audio_muere_s": 13.2218,
+   "audio_tras_corte_ms": 21.8
+  },
+  {
+   "toma": 10,
+   "palabra": "(dedo)",
+   "corte_in": 16.4,
+   "clip_alineado": 16.4333,
+   "clip_vs_corte_ms": 33.3,
+   "ataque_s": 16.428,
+   "corte_menos_ataque_ms": -28,
+   "corr_vs_FLOJOS": 0.999,
+   "corte_out": 17.033,
+   "cuadros": 19,
+   "audio_muere_s": 17.0549,
+   "audio_tras_corte_ms": 21.6
+  },
+  {
+   "toma": 12,
+   "palabra": "(cierre)",
+   "corte_in": 20.633,
+   "ataque_s": 20.672,
+   "corte_menos_ataque_ms": -39
+  }
+ ],
+ "insertos_nota": "Ganancia idéntica entre insertos (±0,01 dB). El mismo pedazo aparece en el cierre en 28,0023 s con r = 0,9905, que es el beat 16, el arranque del loop. «Ataque» es el instante en que empieza a subir el golpe. Medido en el pico, todos los valores se corren unos 6 ms.",
+ "reglas": [
+  {
+   "n": 1,
+   "veredicto": "se sostiene",
+   "mio": "La música está apagada bajo la voz. Las pausas de la voz dan -46,5 dBFS de mediana (RMS de 50 ms, 40 ventanas) contra -10,0 de mediana en el cierre. El grave (<70 Hz) da -53,3 bajo la voz contra -15,0 en el cierre. La autocorrelación de hats da de -0,06 a 0,05 contra 0,67. Las bandas no caen parejo (el grave cae 42 dB y los agudos 30), así que el piso es ruido de sala y no música bajada.",
+   "corrige": "El piso da -46,5, no -49,7 (depende de la ventana). La conclusión no cambia."
+  },
+  {
+   "n": 2,
+   "veredicto": "se sostiene con corrección",
+   "mio": "Lo exacto es esto: el MISMO clip se pega justo en el cuadro del corte (FLOJOS y JOSEP, 0,0 ms) o justo 1 cuadro después (PISTACHOS, bote y dedo, +33,3 ms), con precisión de una muestra. Medido contra el ataque, el corte queda en +6, +5, -28, -27, -28 y -39 ms, con promedio de -18,5.",
+   "corrige": "En FLOJOS y JOSEP el corte cae 5 a 6 ms DESPUÉS de que empieza el ataque, así que «nunca después» no vale al milisegundo (igual es imperceptible y cae en el mismo cuadro). El promedio es -18,5 ms y no -27; el valor depende de cómo se defina el golpe. Lo robusto es contarlo en cuadros: 0 o 1 cuadro."
+  },
+  {
+   "n": 3,
+   "veredicto": "se sostiene",
+   "mio": "Correlación de 0,9975 a 0,9991 entre insertos y ganancia igual (±0,01 dB). Contra el cierre da r = 0,9905 en 28,0023 s, que es el beat 16 y el arranque del loop de 2 compases. Las fases en la grilla extendida dan 0,20 / 0,77 / 0,71 / 0,37 / 0,74, con un error de extrapolación de ±3 ms. Entre golpes hay 3,57 / 8,95 / 8,66 / 8,37 beats, ninguno entero.",
+   "corrige": "El 1 del pedazo está en 28,002 s, no en 28,006."
+  },
+  {
+   "n": 4,
+   "veredicto": "se sostiene con corrección",
+   "mio": "La imagen sale 0,605 a 0,606 s después del ataque, que son 1,32 beats, con 18/18/19/19 cuadros. Sale 148 ms después del beat 2 contando desde el ataque, o 142 ms contando desde el clip alineado. Cae entre el hat del beat 2 (0,458 s) y el de la corchea siguiente (0,687 s). El audio se corta en seco entre 21,6 y 22,5 ms después del corte de imagen, en los 5 insertos.",
+   "corrige": "El audio se corta a +22 ms, no entre 23 y 28. Es muy constante (±0,5 ms)."
+  },
+  {
+   "n": 5,
+   "veredicto": "se sostiene con corrección",
+   "mio": "PISTACHOS sale 0,972 s después del ataque (2,12 beats). El clap está en 9,540 s: la imagen sale 60 ms después del clap y el audio 82 ms después.",
+   "corrige": "Sale 56 a 60 ms después del clap, no 46. Igual pasa el clap: la regla vale."
+  },
+  {
+   "n": 6,
+   "veredicto": "se sostiene",
+   "mio": "La voz se apaga 222 / 62 / 658 / 297 / 287 / 402 ms antes del ataque (mediana 292, umbral de -35 dBFS en 300 a 3000 Hz). Vuelve 93 / 133 / 49 / 113 / 88 ms después del corte de salida, o sea de 1,5 a 4 cuadros.",
+   "corrige": "El mínimo antes del golpe es 62 ms y no 74; el máximo es 658 y no 626. Después de PISTACHOS la voz vuelve a +49 ms, menos que el mínimo de 58 que se reportó. Ojo: entre 8,56 y 8,62 s hay 3 clicks agudos (>8 kHz, hasta -18 dBFS) que no son voz ni canción. Un detector sin filtro los confunde con la voz."
+  },
+  {
+   "n": 7,
+   "veredicto": "se sostiene",
+   "mio": "Hay píxeles rojos exactamente en los cuadros 87–104, 136–153 y 258–287: aparecen en el cuadro del corte y se van en el de salida (3 de 3).",
+   "corrige": "Precisión: en PISTACHOS el golpe llega 1 cuadro DESPUÉS que la palabra."
+  },
+  {
+   "n": 8,
+   "veredicto": "se sostiene",
+   "mio": "El corte va en 20,633 s y el ataque en 20,672 s (-39 ms). Antes hay silencio de -47 dBFS. Grave, medios y agudos atacan en el mismo milisegundo. Es el arranque del loop de 8 beats.",
+   "corrige": "Da -39 ms y no -42. El clap del beat 1 no se puede separar del ataque del 808; los claps medidos están en el 3 de cada compás."
+  },
+  {
+   "n": 9,
+   "veredicto": "se sostiene con corrección",
+   "mio": "La mediana del cierre da -12,6 LUFS momentáneo y la de la voz -16,8, o sea +4,2 LU. El pico de los 5 insertos da -10,4 / -10,5 / -10,4 / -10,4 / -10,5 LUFS, idénticos como corresponde a un mismo clip.",
+   "corrige": "La diferencia es +4,2 LU y no +4,5. Los picos de los insertos dan -10,4 a -10,5 y no -11,4 a -12,6: son 1 a 2 LU más fuertes y no varían."
+  },
+  {
+   "n": 10,
+   "veredicto": "se sostiene",
+   "mio": "Los cortes internos dan: 23,767 = -112 ms del beat 7, en una semicorchea sin golpe (a +3 ms de ella). 25,300 = +47 ms después del clap del beat 10. 26,700 = +72 ms después del 808 del beat 13. 29,133 = -14 ms de la corchea 18,5. Las tomas duran 6,84 / 3,35 / 3,06 / 5,31 / 3,56 beats. A la semicorchea más cercana quedan a 3 / 47 / 42 / 14 ms, con promedio de 26,5: lo mismo que daría el azar (28,6). La música es continua: 42 hats entran en la grilla con un error mediano de 1,2 ms.",
+   "corrige": "En la corchea de 29,148 s sólo mido un hat (+30 dB en >8 kHz); el grave no vuelve a atacar porque el 808 viene sonando. «Con 808» no se confirma."
+  },
+  {
+   "n": 11,
+   "veredicto": "se sostiene",
+   "mio": "En los cuadros 713–740 titila: 2 encendidos y 2 apagados, 7 destellos (ciclo de 133 ms contra una semicorchea de 114,5). Queda fijo desde el cuadro 741 (24,700 s), o sea 0,933 s después del corte, hasta el corte de 25,3.",
+   "corrige": ""
+  },
+  {
+   "n": 12,
+   "veredicto": "se sostiene",
+   "mio": "0,45818 × 30 = 13,75 cuadros por beat, 55 por compás y 110 por frase de 2 compases.",
+   "corrige": ""
+  }
+ ],
+ "advertencia": "Los milisegundos absolutos (golpe contra corte) suponen que el audio y el video del mp4 están en sincronía, y eso no se puede comprobar al milisegundo con un video de 30 fps. Los +22 ms constantes de la salida del audio coinciden con un bloque AAC (1024 muestras = 21,3 ms), así que podrían ser retraso de codificación. Lo que no depende de esto: los cuadros y la posición relativa de los insertos (0 o 1 cuadro). Al replicar, copiar CUADROS, no milisegundos.",
+ "para_el_editor": [
+  "La música va apagada del todo mientras Josep habla. No se baja: se apaga.",
+  "Cada inserto blanco lleva el MISMO pedazo de 0,62 s: el 1 del loop de 2 compases (808 + hats). El golpe cae en el cuadro del corte o 1 cuadro después.",
+  "El inserto corto dura 18 o 19 cuadros y sale unos 0,6 s después del golpe, entre dos hats. El audio corta seco unos 22 ms (2/3 de cuadro) después de la imagen.",
+  "El inserto largo (PISTACHOS, 30 cuadros) se estira hasta pasar el clap del 3.",
+  "El cierre arranca en el 1 del loop, con el golpe 1 cuadro después del corte, y la música sigue continua. Los cortes internos van por la acción, no por el beat.",
+  "La palabra roja entra en el cuadro del corte y sale en el de salida. tachocream.com titila 2 cuadros sí y 2 no durante 28 cuadros y después queda fijo."
+ ],
+ "como_reproducir": {
+  "carpeta": "C:/dev/reel-mentores/josep/analisis/verif/",
+  "decodificar": [
+   "ffmpeg -i ../../josep-reel.mp4 -map 0:v:0 -vf scale=180:320:flags=area -pix_fmt rgb24 -f rawvideo frames_180x320.rgb",
+   "ffmpeg -i ../../josep-reel.mp4 -map 0:a:0 -ac 1 -ar 48000 -f f32le audio48_mono.f32"
+  ],
+  "scripts_en_orden": [
+   "cortes.py",
+   "bandas.py",
+   "onsets.py",
+   "grilla.py",
+   "insertos.py",
+   "fino.py <t>",
+   "xcorr.py",
+   "salida2.py",
+   "entrada2.py",
+   "bajo_voz.py",
+   "patron.py",
+   "frase.py",
+   "rojo.py",
+   "voz.py"
+  ],
+  "nota": "El .wav de 44,1 kHz y el audio del mp4 están alineados a 0 muestras (medido). Se borraron los crudos pesados (frames .rgb, .f32 y bandas.npz); se regeneran con los comandos de arriba."
+ }
+}

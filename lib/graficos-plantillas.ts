@@ -230,14 +230,22 @@ const conPortadaDe = (p: PlantillaHoja): PlantillaHoja => ({ ...p, armar: (id) =
 const LUGARES_VELOCIDAD: ReadonlyArray<readonly [DisenoId, string, number, number, number, number]> = [
   ['cold-calling', 'cabecera', 0, 0, 12, 3],
   ['closing', 'contacto', 0, 3, 12, 9],
-  ['cold-calling', 'numeros', 0, 12, 12, 3],
-  ['cold-calling', 'llamadas', 0, 15, 8, 10],
-  ['cold-calling', 'siguen', 8, 15, 4, 10],
-  ['cold-calling', 'llamados', 0, 25, 6, 12],
-  ['cold-calling', 'quien', 6, 25, 3, 12],
-  ['cold-calling', 'terminan', 9, 25, 3, 12],
-  ['marketing', 'tabla', 0, 37, 12, 15],
+  // (y = 12: «Cada lead nuevo», la tabla de abajo, LUGAR_CADA_LEAD)
+  ['cold-calling', 'numeros', 0, 24, 12, 3],
+  ['cold-calling', 'llamadas', 0, 27, 8, 10],
+  ['cold-calling', 'siguen', 8, 27, 4, 10],
+  ['cold-calling', 'llamados', 0, 37, 6, 12],
+  ['cold-calling', 'quien', 6, 37, 3, 12],
+  ['cold-calling', 'terminan', 9, 37, 3, 12],
+  ['marketing', 'tabla', 0, 49, 12, 15],
 ];
+/**
+ * «Cada lead nuevo» (9/11/2026): la pregunta de Juanfran (Código Inmobiliario) es por CADA lead —«cuánto tarda cada inmobiliario
+ * en contactar a un lead desde que ingresa al CRM»—, y la tarjeta de Closing muestra la mediana y los cinco más lentos. Esta tabla
+ * los lista a todos, con cuánto tardó (el tramo), por dónde y los minutos; la fila abre la ficha del lead. Es una pieza del
+ * catálogo (el conjunto `primer_contacto`, lib/graficos-fuentes-extra.ts): se configura como cualquier gráfico.
+ */
+const LUGAR_CADA_LEAD = { x: 0, y: 12, w: 12, h: 12 } as const;
 type Armada = { controles: Array<Record<string, unknown>>; componentes: Array<Componente & { h: number }>; diseno: { piezas: Record<string, string> } };
 
 export const VELOCIDAD_LLAMADA: PlantillaHoja = {
@@ -256,7 +264,12 @@ export const VELOCIDAD_LLAMADA: PlantillaHoja = {
     const leen: Record<string, Record<string, string>> = { 'cold-calling': cc.diseno.piezas, closing: {}, marketing: deMk };
     const usados = new Set(piezas.map((c) => c.id));
     const bloques = LUGARES_VELOCIDAD.map(([d, parte, x, y, w, h]) => ({ ...bloqueDeDiseno(idDeBloque(hojaId, parte, usados), d, parteDe(d, parte)!, leen[d], 0), x, y, w, h }));
-    const fondo = bloques.reduce((m, b) => Math.max(m, b.y + b.h), 0);
+    const cadaLead = sanearComponente({
+      id: id('pc-leads'), clase: 'grafico', controles: [], tipo: 'tabla', fuente: 'primer_contacto', dimension: 'lead',
+      metricas: ['espera'], titulo: 'Cada lead nuevo: cuánto tardaron en contactarlo', limite: 100,
+      tabla: { acciones: true, columnas: ['tramo', 'canal'] }, ...LUGAR_CADA_LEAD,
+    })!;
+    const fondo = [...bloques, cadaLead].reduce((m, b) => Math.max(m, b.y + b.h), 0);
     const seccion = seccionDePiezas(hojaId, fondo, usados);
     // Plegadas, sin huecos: en filas de 12 columnas, una al lado de la otra mientras entren (los números van de a tres).
     const plegadas: Array<Componente & { h: number }> = [];
@@ -270,7 +283,7 @@ export const VELOCIDAD_LLAMADA: PlantillaHoja = {
     const controles = cc.controles.map((k) => (k.tipo === 'periodo' ? { ...k, preset: 'ult30' } : k));
     return {
       id: hojaId, nombre: 'Velocidad de llamada', subtitulo: 'Cuánto tardas en llamar a cada lead nuevo, y qué pasa en la llamada.',
-      entrada: 'suben', controles, componentes: [...bloques, seccion, ...plegadas],
+      entrada: 'suben', controles, componentes: [...bloques.slice(0, 2), cadaLead, ...bloques.slice(2), seccion, ...plegadas],
     };
   },
 };
@@ -346,6 +359,37 @@ function fija(p: PlantillaHoja): Hoja {
  */
 export function tableroInicial(): Tablero {
   return { v: 3, nombre: NOMBRE_INICIAL, hojas: [fija(conPortadaDe(MARKETING)), fija(conPortadaDe(COMERCIAL))] };
+}
+
+/**
+ * LA HOJA QUE UNA AGENCIA LES PONE PRIMERO A SUS CLIENTES (9/11/2026). Martín, por Código Inmobiliario (ws 13): «Les estoy
+ * creando un dashboard especial para sus clientes», y que lo vean sin armarlo. Quien nunca guardó su Dashboard en el negocio de un
+ * cliente APROBADO de la agencia arranca con esa hoja adelante; nada se escribe en el negocio del cliente (es el informe inicial,
+ * que se guarda recién cuando la persona lo toca). Quien ya guardó el suyo lo conserva tal cual: agregársela ahí es escribir en su
+ * negocio, y eso lo decide Martín (docs/relevo/dashboards-codigo.md).
+ */
+export const HOJA_DE_AGENCIA: Readonly<Record<number, string>> = { 13: 'velocidad-llamada' };
+
+/** El prefijo de los ids fijos de la hoja de una agencia en el informe inicial. */
+const PREFIJO_AGENCIA = 'ag-';
+
+/**
+ * ¿Es la hoja de la agencia del informe inicial? ⚠️ La pantalla de quien nunca guardó es EN BLANCO (12/10/2026, Martín: «que no le
+ * salga ninguna página»): el inicial viaja por dentro y no se muestra. La hoja de la agencia SÍ se muestra (app/dashboard/page.tsx),
+ * y por eso se la reconoce: es lo único del inicial que se ve, y no se guarda hasta que la persona toca algo.
+ */
+export const esHojaDeAgencia = (h: Pick<Hoja, 'id' | 'plantilla'>): boolean =>
+  h.id.startsWith(PREFIJO_AGENCIA) && !!h.plantilla && Object.values(HOJA_DE_AGENCIA).includes(h.plantilla);
+
+/** El informe inicial en un negocio que llevan estas agencias (las aprobadas): sus hojas adelante, con ids fijos. */
+export function tableroInicialDe(agencias: readonly number[]): Tablero {
+  const base = tableroInicial();
+  const ids = [...new Set(agencias.map((a) => HOJA_DE_AGENCIA[a]).filter((x): x is string => !!x))];
+  const extra = ids.flatMap((id) => {
+    const p = plantillaHojaDe(id);
+    return p ? [sanearHoja({ ...p.armar((local) => `${PREFIJO_AGENCIA}${local}`), plantilla: p.id }, 0)!] : [];
+  });
+  return extra.length ? { ...base, hojas: [...extra, ...base.hojas].slice(0, MAX_HOJAS) } : base;
 }
 
 /** Los componentes de una plantilla (para los tests y el modal). */

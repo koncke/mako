@@ -108,6 +108,7 @@ function leer(editor: EditorCore, estiloLibre = false): { vista: VistaLinea; est
 		mediosSinAudio: datos.mediosSinAudio,
 		conPalabras: datos.conPalabras,
 		medios: datos.medios,
+		fondo: datos.fondo,
 	});
 	const propuestas = pendientesDe(escena.tracks).map((p) => p.element.startTime / TICKS_PER_SECOND);
 	return { vista, estado: estadoDeLinea(vista.refs.values(), { conPalabras: datos.conPalabras, estiloLibre, propuestas }) };

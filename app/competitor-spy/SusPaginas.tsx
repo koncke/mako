@@ -27,6 +27,7 @@ import { EsqueletoPagina } from './Esqueletos';
 import { useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { srcPaginaDiagnostico } from '@/lib/editor-landing/diagnostico';
+import { hrefReplicar } from '@/lib/editor-landing/replica-extension-cliente';
 import { marcoVerificado, type AvisoDelMarco } from '@/lib/pagina-real';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../_components/icons';
@@ -270,8 +271,10 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
           <span className="spy-navegador__puntos" aria-hidden><i /><i /><i /></span>
           <span className="spy-navegador__url" title={destino}><Icon name="web" size={14} /><span>{nombreDePagina(destino)}</span></span>
           <span className="spy-navegador__acciones">
-            {/* ⚠️ El parámetro es `?analizar=`, el que el Web Generator entiende (`derechaDeQuery`, app/web-generator/panel-reglas.ts). */}
-            <a href={`/web-generator?analizar=${encodeURIComponent(destino)}`} className="spy-boton">Copiar su sitio</a>
+            {/* ⚠️ `?replicar=` (9/11/2026): «Copiar su sitio» abre REPLICAR con esta página (`derechaDeQuery`, app/web-generator/
+                panel-reglas.ts). Con `?analizar=` abría el Diagnóstico, que vuelve a bajar la página por el servidor y no replica: una
+                página bloqueada fallaba otra vez. En Replicar, si el servidor no la baja, se copia con la extensión. */}
+            <a href={conWs(hrefReplicar(destino), ws)} className="spy-boton">Copiar su sitio</a>
             {(!conAbrirGrande || conFoto) && <a href={destino} target="_blank" rel="noreferrer noopener" className="spy-boton">Abrir</a>}
           </span>
         </div>

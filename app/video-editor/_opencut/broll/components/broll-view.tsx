@@ -10,8 +10,11 @@
 //   · la lista sale de la LÍNEA DE TIEMPO (lo que lleva la marca de propuesta, ../pistas.ts → `pendientesDe`): se
 //     calcula, no se recuerda, así que sobrevive a recargar y a un Ctrl+Z;
 //   · tocar una fila lleva el cabezal a su tramo; «Dejar» y «Sacar» son un paso de deshacer (../acciones.ts);
+//   · «Otra» (10/11/2026) trae la siguiente foto o video de la MISMA búsqueda al mismo lugar, en un paso de deshacer
+//     (../cambiar.ts, el mismo del chat);
+//   · «Fotos» o «Videos» (10/11/2026): qué trae de Pexels. Un video es un archivo chico (540p o menos) y sin sonido;
 //   · sin Pexels conectado, el modal de Pexels se abre ACÁ (la regla de las integraciones: nunca se sale de la tab).
-// Las fotos son de Pexels con su licencia, y cada una dice quién la sacó (lo pide su API).
+// Las fotos y los videos son de Pexels con su licencia, y cada uno dice quién lo sacó o lo filmó (lo pide su API).
 
 import { useMemo } from "react";
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
@@ -25,8 +28,9 @@ import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
 import type { Ritmo } from "@/lib/editor-video/broll";
 import { dejar, sacar } from "../acciones";
 import { TEXTO_FASE, usePreferenciasBroll, useTrabajoBroll } from "../estado";
-import { pendientesDe, PARAM_AUTOR, PARAM_BUSQUEDA, PARAM_MOTIVO, type Pendiente } from "../pistas";
+import { brollDe, brollsDejados, pendientesDe, PARAM_AUTOR, PARAM_BUSQUEDA, PARAM_MOTIVO, type MedioBroll, type Pendiente } from "../pistas";
 import { proponerBroll } from "../proponer";
+import { cambiarBroll } from "../cambiar";
 
 const OPCIONES_RITMO: Array<{ id: Ritmo; etiqueta: string }> = [
 	{ id: "poco", etiqueta: "Pocas imágenes" },
@@ -34,21 +38,29 @@ const OPCIONES_RITMO: Array<{ id: Ritmo; etiqueta: string }> = [
 	{ id: "mucho", etiqueta: "Muchas imágenes" },
 ];
 
+const OPCIONES_MEDIO: Array<{ id: MedioBroll; etiqueta: string }> = [
+	{ id: "fotos", etiqueta: "Fotos" },
+	{ id: "videos", etiqueta: "Videos cortos" },
+];
+
 const reloj = (s: number) => {
 	const t = Math.max(0, Math.round(s));
 	return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, "0")}`;
 };
 
-function FilaPropuesta({ p, url }: { p: Pendiente; url: string | null }) {
+function FilaPropuesta({ p, url, ocupado, dejado = false }: { p: Pendiente; url: string | null; ocupado: boolean; dejado?: boolean }) {
 	const editor = useEditor();
+	const cambiando = useTrabajoBroll((t) => t.cambiando === p.element.id);
 	const inicio = p.element.startTime / TICKS_PER_SECOND;
 	const fin = (p.element.startTime + p.element.duration) / TICKS_PER_SECOND;
 	const esFoto = p.tipo === "broll";
+	const broll = brollDe(p.element);
+	const esVideo = broll?.medio === "videos";
 	const busqueda = String(p.element.params[PARAM_BUSQUEDA] ?? "");
 	const autor = String(p.element.params[PARAM_AUTOR] ?? "");
 	const motivo = String(p.element.params[PARAM_MOTIVO] ?? "");
 	return (
-		<li className="flex items-center gap-2.5 rounded-md border border-dashed border-(--cc-line-2) p-2">
+		<li className={`flex items-center gap-2.5 rounded-md border border-(--cc-line-2) p-2 ${dejado ? "" : "border-dashed"}`}>
 			<button
 				type="button"
 				className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left"
@@ -61,7 +73,7 @@ function FilaPropuesta({ p, url }: { p: Pendiente; url: string | null }) {
 					<img src={url} alt="" className="size-10 shrink-0 rounded object-cover" />
 				) : (
 					<span className="flex size-10 shrink-0 items-center justify-center rounded bg-(--cc-raised) text-[11px] text-(--cc-text-2)">
-						{esFoto ? "Foto" : "Zoom"}
+						{esFoto ? (esVideo ? "Video" : "Foto") : "Zoom"}
 					</span>
 				)}
 				<span className="flex min-w-0 flex-col">
@@ -70,24 +82,41 @@ function FilaPropuesta({ p, url }: { p: Pendiente; url: string | null }) {
 					</span>
 					<span className="truncate text-[11px] text-(--cc-text-3)">
 						{reloj(inicio)}–{reloj(fin)}
-						{esFoto && autor ? ` · Foto: ${autor} (Pexels)` : ""}
+						{esFoto && autor ? ` · ${esVideo ? "Video" : "Foto"}: ${autor} (Pexels)` : ""}
 					</span>
 				</span>
 			</button>
-			<button
-				type="button"
-				className="shrink-0 cursor-pointer rounded px-2 py-1 text-[11px] text-(--cc-text-2) hover:bg-(--cc-raised) hover:text-(--cc-text)"
-				onClick={() => sacar(editor, [p.element.id])}
-			>
-				Sacar
-			</button>
-			<button
-				type="button"
-				className="shrink-0 cursor-pointer rounded bg-(--cc-raised) px-2 py-1 text-[11px] text-(--cc-text) hover:opacity-90"
-				onClick={() => dejar(editor, [p.element.id])}
-			>
-				Dejar
-			</button>
+			{broll && (
+				<button
+					type="button"
+					className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-2 py-1 text-[11px] text-(--cc-text-2) hover:bg-(--cc-raised) hover:text-(--cc-text) disabled:cursor-default disabled:opacity-50"
+					disabled={ocupado || p.bloqueada === true}
+					onClick={() => void cambiarBroll(editor, { trackId: p.trackId, elementId: p.element.id })}
+					title={p.bloqueada ? "Su pista está bloqueada: desbloquéala para cambiarlo" : `Traer ${esVideo ? "otro video" : "otra foto"} de «${broll.busqueda}»`}
+					aria-label={`Cambiar por ${esVideo ? "otro video" : "otra foto"}`}
+				>
+					{cambiando && <Spinner className="size-3" />}
+					Otra
+				</button>
+			)}
+			{!dejado && (
+				<>
+					<button
+						type="button"
+						className="shrink-0 cursor-pointer rounded px-2 py-1 text-[11px] text-(--cc-text-2) hover:bg-(--cc-raised) hover:text-(--cc-text)"
+						onClick={() => sacar(editor, [p.element.id])}
+					>
+						Sacar
+					</button>
+					<button
+						type="button"
+						className="shrink-0 cursor-pointer rounded bg-(--cc-raised) px-2 py-1 text-[11px] text-(--cc-text) hover:opacity-90"
+						onClick={() => dejar(editor, [p.element.id])}
+					>
+						Dejar
+					</button>
+				</>
+			)}
 		</li>
 	);
 }
@@ -95,17 +124,19 @@ function FilaPropuesta({ p, url }: { p: Pendiente; url: string | null }) {
 export function BrollView() {
 	const editor = useEditor();
 	const prefs = usePreferenciasBroll();
-	const { fase, progreso, mensaje, error, faltaPexels } = useTrabajoBroll();
+	const { fase, progreso, mensaje, error, faltaPexels, cambiando } = useTrabajoBroll();
 	const tracks = useEditor((e) => e.scenes.getActiveSceneOrNull()?.tracks ?? null);
 	const assets = useEditor((e) => e.media.getAssets());
 	const hayLinea = useEditor((e) => e.timeline.getTotalDuration() > 0);
 	const pendientes = useMemo(() => pendientesDe(tracks), [tracks]);
+	const dejados = useMemo(() => brollsDejados(tracks), [tracks]);
 	const urlDe = useMemo(() => {
-		const m = new Map(assets.map((a) => [a.id, a.url ?? null] as const));
+		// Un video se ve por su miniatura: un <img> no dibuja un video.
+		const m = new Map(assets.map((a) => [a.id, (a.type === "video" ? a.thumbnailUrl : a.url) ?? null] as const));
 		return (p: Pendiente) => ("mediaId" in p.element ? (m.get(p.element.mediaId) ?? null) : null);
 	}, [assets]);
 	const trabajando = fase !== "inactivo";
-	const proponer = () => void proponerBroll(editor, { ritmo: prefs.ritmo, planos: prefs.planos });
+	const proponer = () => void proponerBroll(editor, { ritmo: prefs.ritmo, planos: prefs.planos, medio: prefs.medio });
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">
@@ -118,6 +149,15 @@ export function BrollView() {
 							opciones={OPCIONES_RITMO}
 							onCambio={(id) => prefs.fijar({ ritmo: id as Ritmo })}
 							ariaLabel="Cuántas imágenes"
+						/>
+					</div>
+					<div className="flex flex-col gap-1.5">
+						<span className="text-[12px] text-(--cc-text-2)">Qué traer</span>
+						<SelectCe
+							valor={prefs.medio}
+							opciones={OPCIONES_MEDIO}
+							onCambio={(id) => prefs.fijar({ medio: id as MedioBroll })}
+							ariaLabel="Fotos o videos"
 						/>
 					</div>
 					<label className="flex min-h-7 cursor-pointer items-center justify-between gap-3 text-[12px] text-(--cc-text-2)">
@@ -151,7 +191,17 @@ export function BrollView() {
 							</div>
 							<ul className="flex flex-col gap-1.5">
 								{pendientes.map((p) => (
-									<FilaPropuesta key={p.element.id} p={p} url={urlDe(p)} />
+									<FilaPropuesta key={p.element.id} p={p} url={urlDe(p)} ocupado={trabajando || cambiando !== null} />
+								))}
+							</ul>
+						</div>
+					)}
+					{dejados.length > 0 && (
+						<div className="flex flex-col gap-2">
+							<span className="text-[12px] text-(--cc-text-2)">En el video ({dejados.length})</span>
+							<ul className="flex flex-col gap-1.5">
+								{dejados.map((p) => (
+									<FilaPropuesta key={p.element.id} p={p} url={urlDe(p)} ocupado={trabajando || cambiando !== null} dejado />
 								))}
 							</ul>
 						</div>
@@ -162,7 +212,7 @@ export function BrollView() {
 						rel="noopener noreferrer"
 						className="text-[11px] text-(--cc-text-3) hover:text-(--cc-text-2)"
 					>
-						Fotos de Pexels
+						Fotos y videos de Pexels
 					</a>
 				</div>
 			</div>
@@ -179,7 +229,7 @@ export function BrollView() {
 							</span>
 						</div>
 					) : (
-						<Button type="button" className="w-full" disabled={!hayLinea} onClick={proponer}>
+						<Button type="button" className="w-full" disabled={!hayLinea || cambiando !== null} onClick={proponer}>
 							{pendientes.length ? "Proponer de nuevo" : "Proponer"}
 						</Button>
 					)}

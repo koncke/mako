@@ -71,6 +71,7 @@ import { ADAPTAR_USER as COPYWRITER_ADAPTAR_USER, EXPERTO_COPY as COPYWRITER_EXP
 import { PROMPTS_NEWSLETTER } from './newsletter-ia-reglas';
 import { PROMPTS_IG } from './ig-writer';
 import { PROMPTS_METODOLOGIA_IG } from './ig-metodologia';
+import { PROMPTS_COPILOTO } from './media-buyer/copiloto-contexto';
 import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { BROLL_SYSTEM_TEMPLATE, BROLL_USER_TEMPLATE } from './editor-video/broll-prompts';
@@ -1662,6 +1663,36 @@ export const REGISTRY: Group[] = [
         scope: 'full', sensitive: false,
         default: SPY_ANALISIS_USER_TEMPLATE,
         context: 'Arma el pedido con lo guardado del competidor y lo que vende el negocio. {{negocio}} es la mitad que importa: sin eso la respuesta es «este competidor promete X», que es la Biblioteca de Anuncios con otro diseño. El cruce contra la oferta propia es lo que ninguna herramienta de afuera puede hacer, porque ninguna conoce el negocio. En {{piezas}}, un contador que el competidor no publica viaja como «no lo publica» y no como 0, y un gasto viaja como el TRAMO que dijo Meta («1K-5K»), nunca como un número: el modelo tiene que poder distinguirlos igual que la pantalla. Conserva los tres slots.',
+      },
+    ],
+  },
+  {
+    // 9/11/2026. Lo arma lib/media-buyer/copiloto-contexto.ts y lo resuelve copiloto-contexto-vigente.ts en cada mensaje de la tab.
+    // Entre estos tres textos va, armado por el código, lo que se sabe del negocio (no se edita: son sus datos).
+    group: 'Marketing CoPilot',
+    icon: '🧭',
+    blurb: 'El agente de la tab Marketing CoPilot: el estratega que descubre qué funnel necesita el negocio (anuncios, orgánico, YouTube, email, webinar, lead magnet), lo recomienda con sus números y lo baja a la semana.',
+    entries: [
+      {
+        key: PROMPTS_COPILOTO.reglas.key, source: 'override',
+        label: 'Quién es y sus reglas (system)', kind: 'system', dynamic: false, variables: [],
+        scope: 'full', sensitive: true,
+        default: PROMPTS_COPILOTO.reglas.tpl,
+        context: 'Cómo trabaja el CoPilot (entender, recomendar uno, bajarlo a la semana, guardarlo) y las once reglas que no se negocian. Ojo con las que protegen: la 4 y la 5 (no nombrar a las fuentes internas y nunca decir ser un referente), la 6 (nada engañoso, garantías de resultados no), la 8 (lo que mueve plata se propone y espera el sí) y la 9 (sin cifras de Google ni LinkedIn). Los nombres de las herramientas (copiloto_media_buyer, calcular_presupuesto_anuncios, ver_media_buyer, leer_modulo_knowledge, preguntar_al_usuario) tienen que quedar escritos tal cual: con otro nombre el modelo no las encuentra. Debajo de este texto el código pone EL NEGOCIO, con LO QUE YA SABES, LO QUE TE FALTA y LOS FUNNELS PARA ESTE NEGOCIO: las reglas los nombran así.',
+      },
+      {
+        key: PROMPTS_COPILOTO.canales.key, source: 'override',
+        label: 'Lo que sabe de los otros caminos', kind: 'instruction', dynamic: false, variables: [],
+        scope: 'full', sensitive: false,
+        default: PROMPTS_COPILOTO.canales.tpl,
+        context: 'Tienda online, negocio local o inmobiliaria, Instagram orgánico, YouTube, email, lead magnet, LinkedIn y referidos, y qué hacer cuando la persona pide pasar de un funnel a otro. Criterio general sin cifras de nadie: si agregas un número, di de dónde sale. Pesa en cada mensaje: lo que sumes, sácalo de otro lado.',
+      },
+      {
+        key: PROMPTS_COPILOTO.anuncios.key, source: 'override',
+        label: 'Lo que sabe de anuncios para servicios caros', kind: 'instruction', dynamic: false, variables: [],
+        scope: 'full', sensitive: true,
+        default: PROMPTS_COPILOTO.anuncios.tpl,
+        context: 'Destilado de docs/conocimiento/anuncios-high-ticket.md: qué funnel conviene, presupuesto de arranque, números de referencia con su contexto, qué mirar por etapa, cuándo escalar y cuándo apagar. NO nombres a ninguna de las fuentes del documento (son internas y casi todas venden algo) y deja cada cifra con su contexto («como referencia conservadora, de un practicante de EE. UU., 2026»). Si cambias el documento, cambia esto.',
       },
     ],
   },

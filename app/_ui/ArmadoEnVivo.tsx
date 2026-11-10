@@ -12,9 +12,12 @@
 //   · «Ver todo» lo muestra de una (se puede saltear);
 //   · con «reducir movimiento» del sistema, sin cadencia ni animación;
 //   · colores de la regla de la app (app/_ui/LEEME.md): dorado = MaKo trabajando, verde = terminado.
+// 9/11/2026 (el reel de Web Replicate): `escena` dibuja lo armado A LA VISTA (los varios mouse de Replicar,
+// crear/EscenarioReplica.tsx) con la MISMA cadencia que la cuenta: recibe `visibles` de acá, así el escenario y el número
+// nunca dicen cosas distintas. Con escena, la lista y su «Ver todo» los pone el escenario.
 // =============================================================================
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { visiblesAhora, type FaseArmado } from './armado-en-vivo';
 
 export type PiezaArmada = {
@@ -55,7 +58,10 @@ export function useRevelado(llegadas: number): { visibles: number; saltear: () =
   return { visibles: Math.min(visibles, llegadas), saltear: () => setSalteado(true), salteado };
 }
 
-export function ArmadoEnVivo({ titulo, fases, piezas, total, unidad, terminado = false, onTodoVisible }: {
+/** Lo que recibe un escenario: cuántas se ven (la cadencia de esta pieza), cuántas llegaron y cómo saltear. */
+export type ReveladoEscena = { visibles: number; llegadas: number; saltear: () => void; salteado: boolean };
+
+export function ArmadoEnVivo({ titulo, fases, piezas, total, unidad, terminado = false, onTodoVisible, escena }: {
   titulo: string;
   fases: readonly FaseArmado[];
   /** Lo que YA se armó, en el orden en que se armó. */
@@ -67,8 +73,10 @@ export function ArmadoEnVivo({ titulo, fases, piezas, total, unidad, terminado =
   terminado?: boolean;
   /** Una vez, cuando el trabajo terminó y ya se ve todo (para seguir: abrir lo armado, cerrar el panel). */
   onTodoVisible?: () => void;
+  /** Lo armado a la vista (los varios mouse de Replicar): reemplaza a la lista y a los puntos. */
+  escena?: (r: ReveladoEscena) => ReactNode;
 }) {
-  const { visibles, saltear } = useRevelado(piezas.length);
+  const { visibles, saltear, salteado } = useRevelado(piezas.length);
   const avisado = useRef(false);
   useEffect(() => {
     if (!terminado || visibles < piezas.length || avisado.current) return;
@@ -86,7 +94,8 @@ export function ArmadoEnVivo({ titulo, fases, piezas, total, unidad, terminado =
           {visibles}{puntos ? <small> de {puntos} {unidad}</small> : <small> {unidad}</small>}
         </p>
       </div>
-      {puntos > 0 && (
+      {escena ? escena({ visibles, llegadas: piezas.length, saltear, salteado }) : null}
+      {puntos > 0 && !escena && (
         <div className="ae-puntos" aria-hidden>
           {Array.from({ length: puntos }, (_, i) => <i key={i} className={i < visibles ? 'ae-listo' : ''} />)}
         </div>
@@ -99,7 +108,7 @@ export function ArmadoEnVivo({ titulo, fases, piezas, total, unidad, terminado =
           </li>
         ))}
       </ol>
-      {vistas.length > 0 && (
+      {vistas.length > 0 && !escena && (
         <ol className="ae-piezas">
           {vistas.map((p, i) => (
             <li key={p.id} className="ae-pieza">
@@ -112,7 +121,7 @@ export function ArmadoEnVivo({ titulo, fases, piezas, total, unidad, terminado =
           ))}
         </ol>
       )}
-      {visibles < piezas.length && (
+      {visibles < piezas.length && !escena && (
         <button type="button" className="ae-saltear" onClick={saltear}>Ver todo</button>
       )}
     </section>

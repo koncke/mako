@@ -27,5 +27,6 @@ import '../_opencut/plantillas/registro';
 import '../_opencut/enjambre/registro';
 import '../_opencut/broll/registro';
 import '../_opencut/clips/registro';
+import '../_opencut/motion/registro';
 
 export {};

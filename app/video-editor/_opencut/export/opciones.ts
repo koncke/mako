@@ -13,6 +13,7 @@
 // apagada se entiende (decisión 7 del relevamiento §13).
 
 import { canEncodeAudio, canEncodeVideo, Quality } from "mediabunny";
+import type { Tramo } from "@/app/video-editor/_opencut/rango/reglas";
 
 // ── Resolución ──────────────────────────────────────────────────────────────
 
@@ -193,6 +194,12 @@ export type OpcionesExportar = {
 	audio: { activo: boolean; formato: FormatoAudioId };
 	subtitulos: { activo: boolean; formato: FormatoSubtituloId };
 	gif: { activo: boolean; resolucion: ResolucionGifId };
+	/**
+	 * El rango I / O (rango/reglas.ts), en ticks: «solo se exporta ese rango», como
+	 * en CapCut. Sin rango, la línea entera. Lo pone el diálogo al abrirse y NO se
+	 * recuerda (guardarRecuerdo): es de este proyecto y de este momento.
+	 */
+	tramo?: Tramo | null;
 };
 
 // ── El pie: duración y tamaño estimado ──────────────────────────────────────

@@ -163,6 +163,8 @@ export const CSS = `
 .lk-comp--diseno[data-vacio] { visibility: hidden; }
 .lk-pila > .lk-comp--diseno[data-vacio] { display: none; }
 .lk-diseno-tapa { position: absolute; inset: 0; z-index: 3; border-radius: 14px; cursor: move; }
+/* El campo para cambiar un texto de la tarjeta (9/11/2026, ./disenos/TapaDeDiseno.tsx): encima del texto, con su letra. */
+.lk-diseno-texto { position: absolute; z-index: 7; box-sizing: border-box; padding: 2px 6px; border: 1.5px solid var(--primary); border-radius: 6px; background: var(--surface); color: var(--ink); outline: none; box-shadow: 0 4px 14px rgba(0,0,0,.16); line-height: 1.2; }
 .lk--editando .lk-comp--diseno:hover > .lk-diseno-tapa { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent); }
 /* Un bloque de General es una TARJETA DE LA HOJA, como un gráfico (14/10/2026, Martín: «no están interactuando con el
    diseño de la página»): el marco del tema, y adentro el bloque (app/general/bloques/comun.tsx). --gb-fondo es el fondo

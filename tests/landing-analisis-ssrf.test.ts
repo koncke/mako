@@ -62,6 +62,9 @@ test('todo llamador de producción de analizarLanding le pasa fetchSeguro', () =
 // su porqué; un archivo nuevo acá es una decisión, no un descuido.
 const FETCH_A_HOSTS_FIJOS: Record<string, string> = {
   'lib/imagenes-stock.ts': 'picsum, MyMemory y Openverse: hosts escritos en el código; lo del usuario va por su bajada con validarDestino',
+  // 10/11/2026, los videos del B-roll: el video pide 4 MB y 30 s (fetchSeguro topea en 3 MB y 12 s), así que va por
+  // bajarWebSegura con validarDestino; el `fetch` pelado es sólo a la API, un host fijo.
+  'lib/pexels.ts': 'api.pexels.com: host escrito en el código (ORIGEN_API_PEXELS); fotos y videos se bajan con fetchSeguro o bajarWebSegura + validarDestino',
 };
 
 test('quien valida un destino con validarDestino no hace después un fetch pelado', () => {

@@ -160,6 +160,18 @@ if ! node --import tsx scripts/sync-boq-respuesta.mjs --check; then
   exit 1
 fi
 
+echo "[pre-push] Chequeando que la foto de Replicar de la extension este al dia..."
+if ! node --import tsx scripts/sync-replica-extension.mjs --check; then
+  echo ""
+  echo "  X PUSH BLOQUEADO: extension/replica-leer.js quedo viejo."
+  echo "  Es la foto de la copia identica que saca la extension en la pestana real:"
+  echo "  tiene que ser la misma que la del lector de la ventana."
+  echo ""
+  echo "  Corre: node --import tsx scripts/sync-replica-extension.mjs"
+  echo ""
+  exit 1
+fi
+
 echo "[pre-push] Chequeando que el juicio de puede-filmar este al dia..."
 if ! node --import tsx scripts/sync-puede-filmar.mjs --check; then
   echo ""
