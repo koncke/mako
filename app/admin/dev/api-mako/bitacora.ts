@@ -633,6 +633,24 @@ export const BITACORA: Hito[] = [
     revisar: '/api-mako',
   },
   {
+    fecha: '10 nov', hora: '20:16', chat: 'Tickets', sesion: 'local_dd6bb6fb-b110-49de-8105-e2755bc74490', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Cuando tu Claude consulta el dominio de una landing, MaKo ya le dice dónde se conecta: en el Web Generator, en Publicar → Dominios',
+    puntos: [
+      '**El 404 era la puerta cerrada a propósito; lo que mentía era el texto.** `ver_dominio_landing` (sale por HTTP) contestaba «Se conecta con conectar_dominio_landing», y esa operación es `SIN_HTTP` desde el 15/10: suma el dominio al proyecto de Vercel de MaKo, que es de todos los negocios. El Claude de Fiesta Music la pidió, recibió 404 y no la encontró en el OpenAPI.',
+      '**No se abrió por HTTP**: el criterio del código es que el dominio de email sí sale (va a la cuenta de Resend DEL negocio) y el de la landing no (va al proyecto de MaKo, y reclamarlo es global). Ahora la nota, por HTTP, manda a Web Generator → Publicar → «Dominios»; en la app y por WhatsApp sigue nombrando las operaciones, que MaKo sí tiene.',
+      '**La landing «perdida» del 2/11 no existió**: ese día el token sólo creó la 91 (Skills) desde cero, y la secuencia de `landing_docs` no tiene huecos entre la 91 y la 92. La de la formación es la 92, «Formación Fiesta Music»: la duplicó su Claude el 7/11, diez minutos después del ticket, y es un borrador sin publicar. `listar_landings_creadas` no filtraba mal.',
+    ],
+    archivos: [
+      'lib/api-mako/areas/landing-contenido.helpers.ts — `dominioParaApi` con `porHttp` y `DOMINIO_EN_LA_APP`',
+      'lib/api-mako/areas/landing-editor.run.ts — el runner le pasa `ctx.canal === \'http\'`',
+      'lib/api-mako/areas/landing-editor.def.ts — la descripción (va al OpenAPI) y el porqué del SIN_HTTP',
+      'tests/api-mako-dominio-landing.test.ts — 7 pruebas contra el registro; probado rompiéndolo (4 roturas, las 4 rojas)',
+    ],
+    revisar: '/api-mako',
+    tickets: [61],
+  },
+  {
     fecha: '10 nov', hora: '20:20', chat: 'Tickets', sesion: 'local_dd6bb6fb-b110-49de-8105-e2755bc74490', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
     titulo: 'La API ya da la retención de tu video minuto a minuto, por landing y por fechas: GET /api/v1/landing/landings/retencion (los clics del botón están en GET /api/v1/landing/landings/clics)',
     puntos: [

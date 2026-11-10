@@ -12622,7 +12622,7 @@ curl -L \
 
 ### `GET /api/v1/landing/documentos/{id}/dominio` — Dominio propio de una landing
 
-El dominio propio de una landing del editor del Web Generator, según lo guardado: cuál es, si está verificado o pendiente, desde cuándo, y si la reserva de un pendiente venció (72 horas). No sale a mirar el DNS: para saber qué registros faltan y verificarlo está verificar_dominio_landing. Necesita el id (de listar_landings_creadas).
+El dominio propio de una landing del editor del Web Generator, según lo guardado: cuál es, si está verificado o pendiente, desde cuándo, y si la reserva de un pendiente venció (72 horas). No sale a mirar el DNS: qué registros faltan y verificarlo lo dice verificar_dominio_landing, que como conectar_dominio_landing sale sólo en la app y por WhatsApp; por la API HTTP, las dos se hacen en la pantalla (Web Generator → Publicar → «Dominios»). Necesita el id (de listar_landings_creadas).
 
 - **Ruta por operación:** `GET /api/v1/landing/ver_dominio_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
