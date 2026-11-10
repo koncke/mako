@@ -51,7 +51,7 @@
 //   reclasificar [--de-verdad]   Vuelve a clasificar lo guardado con su texto (el tipo, el cierre, si parece contenido y,
 //                                con la 0404, el CTA «Comenta X palabra»). GRATIS: no le pide nada a Apify. Sólo llena lo
 //                                que falta. En seco por defecto: dice cuántos piden una palabra y muestra unos de cada lado.
-//   laminas [--de-verdad] [--techo-usd 1] [--max 400]   (6/11/2026, 0404) Las imágenes de cada lámina de los carruseles que
+//   laminas [--de-verdad] [--techo-usd 1] [--max 400] [--reserva-usd <n>]   (6/11/2026, 0404) Las imágenes de cada lámina de los carruseles que
 //                                no las tienen: lee cada publicación POR SU LINK (de a 40, ~US$0,0027 cada una: la receta de
 //                                docs/hallazgos-carruseles.md) y las baja a nuestro bucket. En seco dice cuántas, cuánto, en
 //                                cuántas tandas y, si no entran todas, POR QUÉ (crédito, tu tope, o nada que leer).
@@ -683,9 +683,18 @@ async function laminas() {
   const { ks, por: por0, total: c0 } = await clavesParaGastar();
   // El techo Y DE DÓNDE SALE (6/11/2026): un techo de cero porque no hay crédito y un techo chico porque el crédito no llega a
   // lo pedido no se ven iguales. El número solo es `B.techoConCredito`, que es lo que usa `leer`.
-  const tope = B.motivoDelTecho(techoPedido, c0, B.RESERVA_CREDITO_USD) as { techo: number | null; motivo: string; porque: string };
+  // La reserva de Spy (10/11/2026): la de siempre, salvo que `--reserva-usd <n>` la baje para ESTA corrida. Es para cuando Martín
+  // decide pagar de ahí (el lote de las 166 láminas, con la clave 2 sin cargar: «Usá la reserva»), nunca por defecto. Se lee
+  // aparte de `num` porque `num` toma el 0 por «no dijo».
+  const crudaReserva = args.op.get('reserva-usd');
+  const pedidaReserva = typeof crudaReserva === 'string' ? Number(crudaReserva.replace(',', '.')) : NaN;
+  const reserva = Number.isFinite(pedidaReserva) && pedidaReserva >= 0 ? Math.min(pedidaReserva, B.RESERVA_CREDITO_USD) : B.RESERVA_CREDITO_USD;
+  const tope = B.motivoDelTecho(techoPedido, c0, reserva) as { techo: number | null; motivo: string; porque: string };
   const techo = tope.techo ?? 0;
   imprimirCredito(ks, por0);
+  if (reserva < B.RESERVA_CREDITO_USD) {
+    console.log(`  ⚠ Usa la reserva de Spy: deja ${usd(reserva)} en vez de ${usd(B.RESERVA_CREDITO_USD)} (lo pediste con --reserva-usd).`);
+  }
   console.log(`  Puede gastar hasta ${usd(techo)} — ${tope.porque}.`);
   // El plan de tandas, también en seco: cuántos links entran en el techo y cuántos NO (antes esto sólo se sabía al cortar).
   const plan = B.planDeTandas(porLeer, { techoUsd: techo }) as {
