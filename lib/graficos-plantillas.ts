@@ -266,7 +266,7 @@ export const VELOCIDAD_LLAMADA: PlantillaHoja = {
     const bloques = LUGARES_VELOCIDAD.map(([d, parte, x, y, w, h]) => ({ ...bloqueDeDiseno(idDeBloque(hojaId, parte, usados), d, parteDe(d, parte)!, leen[d], 0), x, y, w, h }));
     const cadaLead = sanearComponente({
       id: id('pc-leads'), clase: 'grafico', controles: [], tipo: 'tabla', fuente: 'primer_contacto', dimension: 'lead',
-      metricas: ['minutos_espera'], titulo: 'Cada lead nuevo: cuánto tardaron en contactarlo', limite: 100,
+      metricas: ['espera'], titulo: 'Cada lead nuevo: cuánto tardaron en contactarlo', limite: 100,
       tabla: { acciones: true, columnas: ['tramo', 'canal'] }, ...LUGAR_CADA_LEAD,
     })!;
     const fondo = [...bloques, cadaLead].reduce((m, b) => Math.max(m, b.y + b.h), 0);

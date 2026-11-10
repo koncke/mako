@@ -14,6 +14,17 @@
 //   · cada cliente de Código la ve PRIMERO sin armarla y sin que se escriba nada en su negocio: es su informe inicial
 //     (`tableroInicialDe`, lib/graficos-plantillas.ts, leído por lib/graficos-tablero.ts con las agencias aprobadas del negocio).
 // Correr: npx tsx --test tests/dashboard-velocidad-codigo.test.ts
+//
+// ── Roturas (9/11/2026, una por vez, con copia y verificada por hash, nunca con git). Base 5 / 0; al final 5 / 0:
+//   · `faltaGrabar` sin descontar a los que están a tiempo                 -> 4 / 1  «el aviso de grabar va…»
+//   · el aviso ADEMÁS de la lista de los más lentos                        -> 4 / 1  «la tarjeta «Primer contacto»…»
+//   · el botón «Grabar llamada» también en un link compartido              -> 4 / 1  «la tarjeta «Primer contacto»…»
+//   · la tabla con `minutos_contacto` (vacía si nadie contactó)            -> 4 / 1  «la hoja trae «Cada lead nuevo»…»
+//     (medido con `minutos_espera`, que después pasó a `espera` en segundos: la misma guarda)
+//   · la tabla plegada en «Todas las piezas» (y = 200)                     -> 4 / 1  «la hoja trae «Cada lead nuevo»…»
+//   · `HOJA_DE_AGENCIA` vacío                                              -> 3 / 2  «cada cliente…», «quien nunca guardó…»
+//   · la página la pasa como `agregar` (se guardaría al abrir)             -> 4 / 1  «quien nunca guardó…»
+//   · la tira sin la hoja de la agencia                                    -> 4 / 1  «quien nunca guardó…»
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -60,9 +71,11 @@ test('la hoja trae «Cada lead nuevo» a la vista, debajo del primer contacto, p
   assert.equal(t.dimension, 'lead', 'una fila por lead');
   // Hasta el contacto o esperando (9/11/2026, medido en Giselle, ws 17): con `minutos_contacto`, donde nadie contactó a nadie
   // todas las filas venían sin valor y la tabla decía «Sin datos en este período».
-  assert.deepEqual(t.metricas, ['minutos_espera']);
+  // Y en segundos, para que se lea como duración («26 días 5 h») y no «37790» minutos.
+  assert.deepEqual(t.metricas, ['espera']);
   const lector = leer('lib/graficos-datos-extra.ts');
-  assert.match(lector, /pc\.estado === 'sin_contactar' && pc\.esperandoMinutos != null \? \{ minutos_espera: Math\.round\(pc\.esperandoMinutos\) \}/, 'un lead sin contactar trae lo que lleva esperando');
+  assert.match(lector, /pc\.estado === 'sin_contactar' && pc\.esperandoMinutos != null \? \{ espera: Math\.round\(pc\.esperandoMinutos\) \* 60 \}/, 'un lead sin contactar trae lo que lleva esperando');
+  assert.match(leer('lib/graficos-fuentes-extra.ts'), /\{ \.\.\.m\('espera', 'Cuánto tardó, o lleva esperando', 'segundos'\), sinTotal: true \}/, 'con formato de duración');
   assert.deepEqual(t.tabla?.columnas, ['tramo', 'canal'], 'cuánto tardó (el tramo) y por dónde');
   assert.equal(t.tabla?.acciones, true, 'la fila abre la ficha del lead');
   const contacto = vista.find((c) => esElemento(c) && c.tipo === 'diseno' && c.diseno?.parte === 'contacto');

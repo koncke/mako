@@ -484,12 +484,78 @@ nombra, no cuando se ve en `/conocimientos`.**
 (la lección escrita y el subtítulo), nunca un video sacado rompiendo su cifrado. Y un «0 de N» que
 contradice lo que se ve en la pantalla es un parser hasta que se demuestre lo contrario.
 
-**Lo que quedó sin hacer:** el texto de los 90 videos sin subtítulo (la única forma sería transcribir
-el audio mientras se reproduce, ~9 h a 2x en el Chrome de Martín: decisión suya) y el examen final.
+**Lo que quedó sin hacer:** el examen final. El texto de los 90 videos sin subtítulo se sacó GRABANDO las
+clases mientras se reproducen (decisión de Martín, 9/11): ver la sección siguiente.
 
 **Vive en:** `scripts/thenet-lab-pagina.js` · `scripts/curso-recibir.mjs` ·
 `scripts/thenet-lab-plan.mjs` · `scripts/curso-a-drive.mjs` (los links con su clase) ·
 `C:\cursos\programa-meta-ads-the-net-lab\`
+
+---
+
+## ⚠️ Grabar las clases que no se bajan: video + audio a 2x desde el Chrome de Martín (THE NET LAB, 10/11/2026)
+
+Martín: «no estaríamos intentando descargar nada, sino simplemente grabar mi propia pantalla… con audio de todas
+las clases», y después «tenemos que grabar video también». Se graba lo que el reproductor oficial muestra y suena,
+como un grabador de pantalla: no se toca el cifrado. Tres procesos sin cortes toda la noche y un control en la pestaña;
+los scripts quedan en `scripts/curso-grabar/` (rutas de este curso adentro: es el molde para el próximo).
+
+**Las piezas:** audio por loopback WASAPI (`grabar_continuo.py`, PyAudioWPatch) · video con `ffmpeg -f lavfi -i
+gfxcapture=window_title=…` (Windows Graphics Capture, sin cursor, recortado al rectángulo del video) bajo un supervisor
+(`video_supervisor.py`) · un control pegado en la pestaña (`control.js`) que pasa las lecciones y maneja el reproductor
+· una marca de sincronía (destello + pitido de 1 kHz) al empezar y terminar cada video, con la que `procesar.py` junta
+audio y video sin recomprimir · `despues.py` revisa cada clase (duración, nivel, huecos, desfase, video quieto) y la
+transcribe (ElevenLabs scribe sobre el audio bajado a 1x).
+
+**Spotlightr se maneja por postMessage, no por la pantalla.** El reproductor de este curso no tiene controles
+(`showControls: false`): no hay tuerca de velocidad que tocar. Su API acepta `{videoId: <id en base64>, api: true,
+method, params}` y para lo que no conoce llama `videoJsPlayer[method](params[0])`: `playbackRate [2]`, `pause`,
+`getDuration`, `onEnded`, `showOverlays [0]`. Dos trampas: **el despachador descarta los parámetros falsy**
+(`muted [false]` y `currentTime [0]` leen en vez de escribir: va `volume [1]` y `currentTime [0.01]`), y **su `play`
+SILENCIA a propósito** si el video no había arrancado (`PLAY_WITH_EXTERNAL_BUTTON`): se perdían las primeras palabras.
+La cura: al primer avance, pausa → `volume [1]` → `currentTime [0.01]` → play.
+
+**El sonido necesita UN clic real por tanda.** Chrome no deja sonar un iframe sin activación; después del primer clic,
+las lecciones siguientes (navegaciones del mismo iframe, mismo origen) arrancaron con sonido por la API.
+
+**El diagnóstico obvio que no era: «se trabó en el segundo 400 por el SMART Focus de Spotlightr».** El script de la
+página (`spotlightr.js`) sí pausa el video si cree que salió de la vista o que la ventana perdió el foco, y eso
+explicaba todo. Medido: esos listeners ni siquiera estaban registrados en la lección. La causa de esa traba no quedó
+probada; lo que la cubre es el guardián de la página (apaga las capas programadas y, si el video se queda quieto 8 s,
+play y luego saltos de 0,2-1 s).
+
+**Windows Graphics Capture tiene tres modos de fallar sin error:** (1) sólo manda cuadros cuando la ventana cambia: con
+la página quieta los últimos quedan en el codificador (un punto de 2 px que parpadea lo resuelve); (2) una ventana
+minimizada no se captura (`gfxcapture` arrancó a 183×26 y murió); (3) **una sesión se puede congelar** (00:51): ffmpeg
+sigue escribiendo el último cuadro repetido (`dup` sube 30 por segundo) y tres clases quedaron con la imagen quieta y
+el audio bien. De ahí el supervisor. ⚠️ **Y «lenta» no es «congelada»:** a la 01:15 mi propio armado (decodificaba el
+video entero buscando cuadros quietos) dejó sin CPU a la captura, que corría con prioridad baja; el supervisor leyó
+«pocos cuadros» como congelada y la reinició dos veces, partiendo dos clases. Ahora: captura con prioridad normal,
+armado con prioridad mínima y mirando sólo keyframes, y reinicia sólo con ~30 cuadros/s casi todos repetidos.
+
+**La pantalla completa la niega Chrome bajo control remoto** (`requestFullscreen` → «not granted», con
+`fullscreenEnabled` en true y la función nativa). Y la barra «Claude empezó a depurar este navegador» aparece cada vez
+que se usa la extensión y achica la página 56 px: el video va con tamaño FIJO (1152×648 CSS) pegado ABAJO, que es el
+borde que no se mueve, y la captura recorta ese rectángulo.
+
+**El loopback:** viene ANTES del volumen de Windows (medido con un tono: se puede bajar el volumen a 0 y graba igual);
+no entrega paquetes cuando nada suena (un oscilador a −80 dB en la página deja abierta la salida de Chrome); y **pierde
+paquetes de 70-160 ms cuando la PC se carga**: la clase 2 quedó 0,47 s más corta que su video. Estirar parejo deja
+desfases de 0,2 s en el medio; lo que anda es rellenar con silencio lo perdido, tramo por tramo, con el registro de
+reloj y muestras que el grabador escribe cada 10 s (desfase final medido: 20-45 ms).
+
+**ffmpeg mide `-ss` desde el comienzo del ARCHIVO, aunque se use `-copyts`** (le suma su `start_time`): en el segundo
+tramo de 30 min (pts desde 1800) el corte caía media hora después y no encontraba nada. Va `pts − start_time`, y una
+clase que cruza de tramo se corta por partes. Y con `format=yuv420p` el blanco puro mide **235**, no 255 (rango
+limitado): un destello blanco no se distingue de la página blanca que queda detrás, por eso la marca es MAGENTA (U≈202,
+V≈223), un color que no aparece en una clase.
+
+**La transcripción:** scribe a 2x sale casi igual que a 1x; a 1x acierta un par de palabras más. Y sale mejor que el
+subtítulo que publicaba la plataforma para las 7 que lo tenían («Mad» por «Meta»): se reemplazó.
+
+**Vive en:** `scripts/curso-grabar/` · el material y lo grabado en `C:\cursos\programa-meta-ads-the-net-lab\`
+(`video/`, `audio/1x/`, `transcripciones/`, `grabar/hecho.json`, `grabar/repetir.json`) · el relevo,
+`docs/relevo/grabar-clases-thenet.md`.
 
 ---
 
