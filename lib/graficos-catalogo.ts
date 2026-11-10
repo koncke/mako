@@ -1371,7 +1371,9 @@ export type Hoja = {
 //   interesados por etapa es la pieza nueva (salió el mapa de visitas). Lintel (la de la propuesta) quedó sin medir completa.
 // · 'cold-calling' (6/11/2026, la copia de Corvane): del Dashboard, con las siete piezas de Cold Calling (`cold-calling`) y el botón
 //   «Grabar llamada» arriba.
-export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad', 'contenido', 'curso', 'servicio', 'instagram', 'anuncio', 'hooks', 'vsl', 'inmobiliaria', 'cold-calling'] as const;
+// · 'velocidad' (10/11/2026, la copia de Tend, «Today»): del Dashboard, con las diez piezas de «Velocidad de llamada»
+//   (`velocidad-llamada`, la hoja de los clientes de Código Inmobiliario). Reemplaza la hoja hecha con tarjetas de tres diseños.
+export const DISENOS_HOJA = ['closing', 'cobranza', 'foco', 'mi-dia', 'general', 'operacion', 'comercial', 'marketing', 'landing', 'chat', 'automatizaciones', 'cs', 'productividad', 'contenido', 'curso', 'servicio', 'instagram', 'anuncio', 'hooks', 'vsl', 'inmobiliaria', 'cold-calling', 'velocidad'] as const;
 /**
  * `v: 2` (6/11/2026): la hoja ya está en BLOQUES (lib/disenos-partes.ts, `conBloquesDeDiseno`): cada tarjeta es un elemento de la
  * grilla y `diseno` queda como la marca de qué diseño es (la miniatura de «Nueva hoja», la animación de entrada). Sin `v`, la hoja

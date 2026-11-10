@@ -9,8 +9,9 @@
 //     no cuando el negocio ya contacta (ni cuenta a los que entraron hace menos de una hora: todavía están a tiempo);
 //   · la tarjeta «Primer contacto» (app/dashboard/disenos/HojaClosing.tsx) pone el aviso con el botón «Grabar llamada» (la misma
 //     grabadora de la ficha) en el lugar de la lista de los más lentos, y nunca el botón en un link compartido;
-//   · la hoja trae, a la vista y debajo del primer contacto, la tabla «Cada lead nuevo» del conjunto `primer_contacto`, por lead,
-//     con cuánto tardó y por dónde, y la fila abre la ficha;
+//   · la hoja (desde el 10/11/2026, la copia de Tend: lib/velocidad-diseno.ts) trae cada lead que espera, con lo que lleva esperando,
+//     y «Grabar llamada» arriba; a la vista no hay tabla ni explicación propia (Tend no las tiene). La tarjeta «Primer contacto» con
+//     el aviso de grabar sigue siendo de la hoja de Closing;
 //   · cada cliente de Código la ve PRIMERO sin armarla y sin que se escriba nada en su negocio: es su informe inicial
 //     (`tableroInicialDe`, lib/graficos-plantillas.ts, leído por lib/graficos-tablero.ts con las agencias aprobadas del negocio).
 // Correr: npx tsx --test tests/dashboard-velocidad-codigo.test.ts
@@ -19,9 +20,9 @@
 //   · `faltaGrabar` sin descontar a los que están a tiempo                 -> 4 / 1  «el aviso de grabar va…»
 //   · el aviso ADEMÁS de la lista de los más lentos                        -> 4 / 1  «la tarjeta «Primer contacto»…»
 //   · el botón «Grabar llamada» también en un link compartido              -> 4 / 1  «la tarjeta «Primer contacto»…»
-//   · la tabla con `minutos_contacto` (vacía si nadie contactó)            -> 4 / 1  «la hoja trae «Cada lead nuevo»…»
-//     (medido con `minutos_espera`, que después pasó a `espera` en segundos: la misma guarda)
-//   · la tabla plegada en «Todas las piezas» (y = 200)                     -> 4 / 1  «la hoja trae «Cada lead nuevo»…»
+//   · (10/11/2026, la copia de Tend; base 5 / 0) «Sin contactar» con `minutos_contacto`  -> 4 / 1  «la hoja es la copia de Tend…»
+//   · «MaKo sólo ve las llamadas…» devuelto a HojaVelocidad                             -> 4 / 1  el mismo
+//   · `puedeGrabar` sin `!compartido` (grabaría desde un link compartido)                  -> 4 / 1  el mismo
 //   · `HOJA_DE_AGENCIA` vacío                                              -> 3 / 2  «cada cliente…», «quien nunca guardó…»
 //   · la página la pasa como `agregar` (se guardaría al abrir)             -> 4 / 1  «quien nunca guardó…»
 //   · la tira sin la hoja de la agencia                                    -> 4 / 1  «quien nunca guardó…»
@@ -60,28 +61,37 @@ test('la tarjeta «Primer contacto» explica cómo grabar y trae el botón, en e
   assert.match(src, /const GrabarEnFrio = dynamic\(\(\) => import\('@\/app\/_components\/grabar\/GrabarEnFrio'\)/);
 });
 
-test('la hoja trae «Cada lead nuevo» a la vista, debajo del primer contacto, por lead y con cuánto tardó', () => {
+test('la hoja es la copia de Tend: cada lead que espera, con lo que lleva esperando, y «Grabar llamada» arriba; sin tabla ni textos propios', () => {
+  // 10/11/2026, Martín: «Tiene una cantidad de texto innecesario… cosas flotando sin sentido… el más feo de todos». La de antes traía
+  // la tabla «Cada lead nuevo» y la explicación de cómo grabar (`faltaGrabar`); Tend no tiene ninguna de las dos. Lo que preguntó
+  // Juanfran (cuánto tarda cada inmobiliario con CADA lead) lo contesta ahora el «Flujo de leads» de la copia, lead por lead.
   const h = sanearHoja(instanciarPlantilla(VELOCIDAD_LLAMADA), 0) as Hoja;
-  const vista = panelesALaVista(h.componentes);
-  const i = vista.findIndex((c) => esGrafico(c) && c.fuente === 'primer_contacto');
-  assert.ok(i >= 0, 'la tabla está a la vista (no plegada en «Todas las piezas»)');
-  const t = vista[i];
-  assert.ok(esGrafico(t));
-  assert.equal(t.tipo, 'tabla');
-  assert.equal(t.dimension, 'lead', 'una fila por lead');
-  // Hasta el contacto o esperando (9/11/2026, medido en Giselle, ws 17): con `minutos_contacto`, donde nadie contactó a nadie
-  // todas las filas venían sin valor y la tabla decía «Sin datos en este período».
-  // Y en segundos, para que se lea como duración («26 días 5 h») y no «37790» minutos.
-  assert.deepEqual(t.metricas, ['espera']);
+  assert.equal(h.diseno?.id, 'velocidad', 'el diseño es la copia de Tend');
+  const pieza = (k: string) => h.componentes.find((c) => c.id === h.diseno?.piezas[k]);
+  for (const k of ['recien', 'esperan']) {
+    const t = pieza(k);
+    assert.ok(t && esGrafico(t), `${k}: la pieza existe`);
+    assert.equal(t.fuente, 'primer_contacto');
+    assert.equal(t.tipo, 'tabla');
+    assert.equal(t.dimension, 'lead', `${k}: una fila por lead`);
+    // Hasta el contacto o esperando (9/11/2026, medido en Giselle, ws 17): con `minutos_contacto`, donde nadie contactó a nadie
+    // todas las filas venían sin valor. Y en segundos, para que se lea como duración («26 días 5 h») y no «37790» minutos.
+    assert.deepEqual(t.metricas, ['espera']);
+    assert.equal(t.tabla?.acciones, true, `${k}: la fila abre la ficha del lead`);
+    assert.deepEqual(t.controles.find((c) => c.tipo === 'lista')?.valores, ['Sin contactar'], `${k}: sólo los que esperan`);
+  }
   const lector = leer('lib/graficos-datos-extra.ts');
   assert.match(lector, /pc\.estado === 'sin_contactar' && pc\.esperandoMinutos != null \? \{ espera: Math\.round\(pc\.esperandoMinutos\) \* 60 \}/, 'un lead sin contactar trae lo que lleva esperando');
   assert.match(leer('lib/graficos-fuentes-extra.ts'), /\{ \.\.\.m\('espera', 'Cuánto tardó, o lleva esperando', 'segundos'\), sinTotal: true \}/, 'con formato de duración');
-  assert.deepEqual(t.tabla?.columnas, ['tramo', 'canal'], 'cuánto tardó (el tramo) y por dónde');
-  assert.equal(t.tabla?.acciones, true, 'la fila abre la ficha del lead');
-  const contacto = vista.find((c) => esElemento(c) && c.tipo === 'diseno' && c.diseno?.parte === 'contacto');
-  assert.ok(contacto, 'la tarjeta de primer contacto');
-  assert.equal(t.y, contacto.y + contacto.h, 'justo debajo del primer contacto');
-  assert.equal(t.w, 12, 'a lo ancho');
+  // A la vista, sólo las tarjetas de la copia: nada del conjunto suelto.
+  assert.deepEqual(panelesALaVista(h.componentes).filter((c) => !(esElemento(c) && c.tipo === 'diseno')), [], 'ni tabla ni título propio a la vista');
+  // El componente: «Grabar llamada» abre la MISMA grabadora de la ficha, nunca en un link compartido, y sin la explicación de antes.
+  const src = leer('app/dashboard/disenos/HojaVelocidad.tsx').replace(/^[ \t]*\/\/.*$/gm, '');
+  assert.match(src, /const GrabarEnFrio = dynamic\(\(\) => import\('@\/app\/_components\/grabar\/GrabarEnFrio'\)/);
+  assert.match(src, /const puedeGrabar = !compartido && !quieta;/, 'el botón no graba en un link compartido ni en la miniatura');
+  assert.match(src, /\{puedeGrabar\n\s+\? <button type="button" className="vt-btn vt-btn--wa" onClick=\{\(\) => setGrabando\(null\)\}>/);
+  assert.match(src, /<GrabarEnFrio inicial=\{grabando\} \/>/, '«Llamar» en una tarjeta abre la grabadora con ese lead');
+  assert.doesNotMatch(src, /faltaGrabar|AvisoGrabar|MaKo sólo ve las llamadas/, 'la explicación de cómo grabar no está en Tend');
 });
 
 test('cada cliente de Código arranca con «Velocidad de llamada» adelante, sin escribir nada en su negocio', () => {

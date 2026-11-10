@@ -68,6 +68,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Vigía de aprobaciones (App Store, Google Play, la extensión, Meta, Google y Resend) | `Lee docs/relevo/nube-aprobaciones.md y seguimos desde ahí.` |
 | Agency Dashboard: la mensualidad de una agencia (14 días sin costo, un pago por mes por Binance) | `Lee docs/relevo/nube-agencia-cobro.md y seguimos desde ahí.` |
 | Código Inmobiliario: el primer contacto, los tickets de una agencia y el aviso de Meta (5/11) | `Lee docs/relevo/nube-codigo.md y seguimos desde ahí.` |
+| «Velocidad de llamada» rehecha como la copia de Tend («Today»), la hoja de los clientes de Código (10/11, en `punta/velocidad-tend`) | `Lee docs/relevo/nube-velocidad-tend.md y seguimos desde ahí.` |
 | Approvals (la pestaña, los paneles sin API y la extensión que se publica sola, 5/11) | `Lee docs/relevo/nube-approvals.md y seguimos desde ahí.` |
 | Ops Center: la fecha y el «Ignorar» de lo que espera a Martín (migración 0394 sin aplicar) | `Lee docs/relevo/nube-ops-ignorar.md y seguimos desde ahí.` |
 | Black November de Leila (la rampa del número, el horario de las prendidas y los bloques de venta de las landings, 5/11) | `Lee docs/relevo/nube-black-november.md y seguimos desde ahí.` |

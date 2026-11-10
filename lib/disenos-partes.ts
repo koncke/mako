@@ -356,6 +356,24 @@ export const DISENOS: Readonly<Record<DisenoId, InfoDiseno>> = {
       p('terminan', 'Cómo terminan', ['terminan'], 8, 28, 4, 9),
     ],
   },
+  // 10/11/2026: la copia de Tend («Today»), la hoja «Velocidad de llamada». Los altos salen de las tarjetas de la copia a 1440 en la
+  // grilla de 30 + 16 px: «Patient flow» 753 px (17 filas), «WhatsApp» las dos filas de al lado (26), «Clinicians today» 387 (9),
+  // «Reminders» y «Visits» 348 (8), las tres de abajo 442 (10).
+  velocidad: {
+    nombre: 'Velocidad de llamada', plantilla: 'velocidad-llamada', informe: 'dashboard',
+    partes: [
+      p('cabecera', 'Saludo y grabar llamada', ['resumen'], 0, 0, 12, 2),
+      p('numeros', 'Cuatro números', ['resumen'], 0, 2, 12, 3),
+      p('flujo', 'Flujo de leads', ['resumen', 'recien', 'contactados', 'antes'], 0, 5, 8, 17),
+      p('chats', 'WhatsApp', ['chats'], 8, 5, 4, 26),
+      p('llamadas', 'Llamadas de hoy', ['hoy'], 0, 22, 8, 9),
+      p('tardaron', 'Cuánto tardaron', ['tramos', 'resumen'], 0, 31, 4, 8),
+      p('dias', 'Leads por día', ['dias'], 4, 31, 8, 8),
+      p('esperan', 'Los que más esperan', ['esperan', 'resumen'], 0, 39, 4, 10),
+      p('carga', 'Carga por setter', ['carga'], 4, 39, 4, 10),
+      p('actividad', 'Actividad del equipo', ['hoy'], 8, 39, 4, 10),
+    ],
+  },
 };
 
 export const partesDe = (id: string): readonly ParteDiseno[] => (DISENOS as Record<string, InfoDiseno | undefined>)[id]?.partes ?? [];

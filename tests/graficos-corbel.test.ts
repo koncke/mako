@@ -222,10 +222,11 @@ const formaDe = (c: Array<Record<string, any>>) => [...new Set(c.map((x) => x.y)
 test('CADA PLANTILLA TIENE SU ESTRUCTURA: la asignación escrita es la que se usa, con su porqué, y ninguna forma domina', () => {
   const m = MEDIDO_DENSO();
   const portadas = portadasDashboard() as Record<string, { molde?: string }>;
-  // Una plantilla armada con TARJETAS de diseños copiados (6/11/2026, «Velocidad de llamada»: lib/graficos-plantillas.ts) no tiene
-  // molde ni portada: su lugar es el de sus tarjetas. Las demás, sí.
+  // Una plantilla armada con TARJETAS de diseños copiados no tendría molde ni portada. Hubo una («Velocidad de llamada», 6/11/2026) y
+  // se rehízo el 10/11 como la copia de Tend, con su molde como las demás: no queda ninguna (y una hoja ofrecida no puede mezclar
+  // diseños, tests/dashboard-un-solo-diseno.test.ts).
   const deTarjetas = (p: (typeof PLANTILLAS_HOJA)[number]) => (p.armar((l) => l) as { componentes: Array<{ tipo?: string }> }).componentes.some((c) => c.tipo === 'diseno');
-  assert.deepEqual(PLANTILLAS_HOJA.filter(deTarjetas).map((p) => p.id), ['velocidad-llamada']);
+  assert.deepEqual(PLANTILLAS_HOJA.filter(deTarjetas).map((p) => p.id), []);
   for (const p of PLANTILLAS_HOJA.filter((x) => !deTarjetas(x))) {
     const [molde, porque] = m.asignacion.dashboard[p.id];
     assert.equal(portadas[p.id]?.molde, molde, p.id);

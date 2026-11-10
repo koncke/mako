@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tend — la copia (Velocidad de llamada)</title>
+<!-- La copia de la página «Today» de Tend, desde lo medido (demos/tend/). Código nuestro: ni el código de la tienda ni sus íconos. -->
+<link rel="stylesheet" href="tend.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 16 16"><path d="M8 13.5s-5-3-5-7a2.7 2.7 0 0 1 5-1.5A2.7 2.7 0 0 1 13 6.5c0 4-5 7-5 7zM5.5 8h1.5l1-1.5 1 3 1-1.5h1.5"/></symbol>
+  <symbol id="i-pulse" viewBox="0 0 16 16"><path d="M1.5 8h3l1.5-3.5 3 7 1.5-3.5h4"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 16 16"><path d="M2.5 9.5l1.6-5.2c.2-.5.6-.8 1.1-.8h5.6c.5 0 .9.3 1.1.8l1.6 5.2v3a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1zM2.5 9.5h3l1 1.5h3l1-1.5h3"/></symbol>
+  <symbol id="i-users" viewBox="0 0 16 16"><path d="M6 7.5a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6zM1.8 13.2c.4-2.2 2.1-3.4 4.2-3.4s3.8 1.2 4.2 3.4M10.6 3.1a2.2 2.2 0 0 1 0 4.2M12 9.9c1.2.4 2 1.6 2.2 3.3"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 16 16"><path d="M2.5 3.5h11v10h-11zM2.5 6.5h11M5.5 2v3M10.5 2v3"/></symbol>
+  <symbol id="i-megaphone" viewBox="0 0 16 16"><path d="M2.5 6.5v3h2l5 3v-9l-5 3zM11.5 6a2.5 2.5 0 0 1 0 4M4.5 9.5l.8 3.5"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 16 16"><path d="M2.5 13.5h11M4.5 11V8M7.5 11V5M10.5 11V7.5"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 16 16"><path d="M8 5.8a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4zM8 1.8v1.6M8 12.6v1.6M1.8 8h1.6M12.6 8h1.6M3.6 3.6l1.1 1.1M11.3 11.3l1.1 1.1M3.6 12.4l1.1-1.1M11.3 4.7l1.1-1.1"/></symbol>
+  <symbol id="i-wa" viewBox="0 0 16 16"><path d="M8 2.2a5.8 5.8 0 0 0-5 8.8l-.8 2.8 2.9-.8A5.8 5.8 0 1 0 8 2.2zM6 5.6c.2-.3.5-.3.7-.1l.7 1.1c.1.2 0 .5-.2.7l-.4.3c.4.8 1.1 1.5 1.9 1.9l.3-.4c.2-.2.5-.3.7-.2l1.1.7c.2.2.2.5-.1.7-.5.6-1.3.8-2 .5A6 6 0 0 1 5.6 7.6c-.3-.7-.1-1.5.4-2z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><path d="M7 2.8a4.2 4.2 0 1 0 0 8.4 4.2 4.2 0 0 0 0-8.4zM10.2 10.2l3.3 3.3"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 16 16"><path d="M13 9.6A5.5 5.5 0 1 1 6.4 3a4.4 4.4 0 0 0 6.6 6.6z"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 16 16"><path d="M4 11.5V7.5a4 4 0 0 1 8 0v4l1 1H3zM6.5 13.5a1.6 1.6 0 0 0 3 0"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-calplus" viewBox="0 0 16 16"><path d="M2.5 3.5h11v10h-11zM2.5 6.5h11M5.5 2v3M10.5 2v3M8 8.3v3.4M6.3 10h3.4"/></symbol>
+  <symbol id="i-door" viewBox="0 0 16 16"><path d="M4 13.5V2.5h8v11M2.5 13.5h11M9.5 8h.01"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 16 16"><path d="M6 10l4.5-4.5M6.5 5.5h4v4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-6.5"/></symbol>
+  <symbol id="i-hour" viewBox="0 0 16 16"><path d="M4.5 2.5h7M4.5 13.5h7M5 2.5c0 2.5 3 3.5 3 5.5s-3 3-3 5.5M11 2.5c0 2.5-3 3.5-3 5.5s3 3 3 5.5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16"><path d="M8 2.4a5.6 5.6 0 1 0 0 11.2A5.6 5.6 0 0 0 8 2.4zM8 5v3.2l2 1.3"/></symbol>
+  <symbol id="i-steth" viewBox="0 0 16 16"><path d="M4 2.5v3.5a3 3 0 0 0 6 0V2.5M7 9v1.5a3 3 0 0 0 6 0V9M13 9a1.2 1.2 0 1 0 0-.01"/></symbol>
+  <symbol id="i-dots" viewBox="0 0 16 16"><path d="M3.5 8h.01M8 8h.01M12.5 8h.01"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 16 16"><path d="M6 3.5L10.5 8 6 12.5"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 16 16"><path d="M4.5 7.5h7v6h-7zM6 7.5V5.5a2 2 0 0 1 4 0v2"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 16 16"><path d="M2 11.5l4-4 2.5 2.5L14 4.5M10.5 4.5H14V8"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5"/></symbol>
+  <symbol id="i-tray" viewBox="0 0 16 16"><path d="M2.5 9.5h3.2l.8 1.5h3l.8-1.5h3.2M3.5 3.5h9l1 6v4h-11v-4z"/></symbol>
+  <symbol id="i-userplus" viewBox="0 0 16 16"><path d="M6.5 7.5a2.3 2.3 0 1 0 0-4.6 2.3 2.3 0 0 0 0 4.6zM2.3 13.2c.4-2.2 2.1-3.4 4.2-3.4 1 0 1.9.3 2.6.8M12.5 9v4M10.5 11h4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 16 16"><path d="M4 2.5h6l2.5 2.5v8.5H4zM6.5 7h4M6.5 9.5h4M6.5 12h2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 16 16"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11"/></symbol>
+</svg>
+
+<aside class="side">
+  <a class="brand" href="#"><span class="brand__mark"><svg class="i" aria-hidden="true"><use href="#i-logo"/></svg></span><span><b>tend</b><small>Northside Family Clinic</small></span></a>
+  <p class="nav__label">Clinic</p>
+  <nav>
+    <a class="nav__item is-on" href="#"><svg class="i" aria-hidden="true"><use href="#i-pulse"/></svg>Today</a>
+    <a class="nav__item" href="#"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg>Inbox<span class="nav__badge">6</span></a>
+    <a class="nav__item" href="#"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Patients</a>
+    <a class="nav__item" href="#"><svg class="i" aria-hidden="true"><use href="#i-cal"/></svg>Schedule</a>
+    <a class="nav__item" href="#"><svg class="i" aria-hidden="true"><use href="#i-megaphone"/></svg>Campaigns</a>
+    <a class="nav__item" href="#"><svg class="i" aria-hidden="true"><use href="#i-chart"/></svg>Reports</a>
+    <a class="nav__item" href="#"><svg class="i" aria-hidden="true"><use href="#i-gear"/></svg>Settings</a>
+  </nav>
+  <div class="side__foot">
+    <a class="wa-status" href="#"><span class="wa-status__ic"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg></span><b>WhatsApp connected</b><small>+1 (415) 555-0142 · quality high</small></a>
+    <button class="me" type="button"><span class="me__av">NH</span><span><b>Nadia Haque</b><small>Front desk lead</small></span><span class="me__dots"><svg class="i" aria-hidden="true"><use href="#i-dots"/></svg></span></button>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="top">
+    <span class="top__brand"><span class="brand__mark"><svg class="i" aria-hidden="true"><use href="#i-logo"/></svg></span>tend</span>
+    <button class="finder-btn" type="button"><svg class="i" aria-hidden="true"><use href="#i-search"/></svg>Search patients, conversations, pages…<kbd>⌘K</kbd></button>
+    <div class="top__right">
+      <span class="clock"><i></i><b>8:57 AM</b><small>Clinic open</small></span>
+      <button class="ibtn--glass" type="button" data-tema aria-label="Theme"><svg class="i" aria-hidden="true"><use href="#i-moon"/></svg></button>
+      <button class="ibtn--glass" type="button" aria-label="Notifications"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg><span class="dot"></span></button>
+      <button class="btn btn--primary top__new" type="button"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg><span>New</span></button>
+      <button class="ibtn--glass top__search" type="button" aria-label="Search"><svg class="i" aria-hidden="true"><use href="#i-search"/></svg></button>
+    </div>
+  </div>
+
+  <header class="head">
+    <div><p class="head__eyebrow">Wednesday, November 4 · Northside Family Clinic</p><h1 class="head__title">Good morning, Nadia</h1></div>
+    <div class="head__actions">
+      <button class="btn btn--ghost" type="button"><svg class="i" aria-hidden="true"><use href="#i-calplus"/></svg>New appointment</button>
+      <button class="btn btn--wa" type="button"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg>Remind tomorrow · 47</button>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat"><div class="stat__top"><span class="stat__ico"><svg class="i" aria-hidden="true"><use href="#i-cal"/></svg></span><span class="stat__l">Appointments today</span></div><div class="stat__v"><b>82</b><span class="pill">4 seen</span></div></div>
+    <div class="stat"><div class="stat__top"><span class="stat__ico"><svg class="i" aria-hidden="true"><use href="#i-door"/></svg></span><span class="stat__l">In the waiting room</span></div><div class="stat__v"><b>6</b><span class="pill pill--good">avg 9 min</span></div></div>
+    <div class="stat"><div class="stat__top"><span class="stat__ico"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg></span><span class="stat__l">Unread on WhatsApp</span></div><div class="stat__v"><b>6</b><span class="pill">reply in ~8 min</span></div></div>
+    <div class="stat"><div class="stat__top"><span class="stat__ico"><svg class="i" aria-hidden="true"><use href="#i-pulse"/></svg></span><span class="stat__l">No-shows, last 30 days</span></div><div class="stat__v"><b>4.5%</b><span class="pill pill--good">was 14% before reminders</span></div></div>
+  </div>
+
+  <div class="grid">
+    <section class="card td-flow">
+      <div class="card__h"><h2 class="card__t"><svg class="i" aria-hidden="true"><use href="#i-pulse"/></svg>Patient flow</h2><span class="card__aside">6 waiting · 0 rooms free</span><button class="ibtn" type="button" aria-label="Expand"><svg class="i" aria-hidden="true"><use href="#i-expand"/></svg></button></div>
+      <div class="td-lanes">
+        <section class="td-lane td-lane--upcoming"><div class="td-lane__h"><i class="td-lane__dot"></i>Expected<span class="td-lane__n">67</span></div>
+        <article class="td-card td-card--upcoming"><button class="td-card__open" type="button" aria-label="Freya Nelson"></button>
+          <div class="td-card__who"><span class="av av--mint">FN</span><span><b class="td-card__name">Freya Nelson</b><span class="td-card__meta"><i style="background:var(--mint)"></i><span>9:20 AM · Dr. Silva</span></span></span></div>
+          <div class="td-card__foot"><span class="td-ok"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg><span>Confirmed</span></span><button class="btn btn--xs btn--soft" type="button"><svg class="i" aria-hidden="true"><use href="#i-door"/></svg>Check in</button></div>
+        </article>
+        <article class="td-card td-card--upcoming"><button class="td-card__open" type="button" aria-label="Noah Wilson"></button>
+          <div class="td-card__who"><span class="av av--sky">NW</span><span><b class="td-card__name">Noah Wilson</b><span class="td-card__meta"><i style="background:var(--sky)"></i><span>9:30 AM · Dr. Okafor</span></span></span></div>
+          <div class="td-card__foot"><span class="td-ok"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg><span>Confirmed</span></span><button class="btn btn--xs btn--soft" type="button"><svg class="i" aria-hidden="true"><use href="#i-door"/></svg>Check in</button></div>
+        </article>
+        <article class="td-card td-card--upcoming"><button class="td-card__open" type="button" aria-label="Hassan Kowalski"></button>
+          <div class="td-card__who"><span class="av av--apricot">HK</span><span><b class="td-card__name">Hassan Kowalski</b><span class="td-card__meta"><i style="background:var(--sand)"></i><span>9:30 AM · Nurse Berg</span></span></span></div>
+          <div class="td-card__foot"><span class="td-ok"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg><span>Confirmed</span></span><button class="btn btn--xs btn--soft" type="button"><svg class="i" aria-hidden="true"><use href="#i-door"/></svg>Check in</button></div>
+        </article>
+        <article class="td-card td-card--upcoming"><button class="td-card__open" type="button" aria-label="Kenji Reed"></button>
+          <div class="td-card__who"><span class="av av--teal">KR</span><span><b class="td-card__name">Kenji Reed</b><span class="td-card__meta"><i style="background:var(--teal)"></i><span>9:35 AM · Dr. Silva</span></span></span></div>
+          <div class="td-card__foot"><span class="td-ok"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg><span>Confirmed</span></span><button class="btn btn--xs btn--soft" type="button"><svg class="i" aria-hidden="true"><use href="#i-door"/></svg>Check in</button></div>
+        </article>
+        <article class="td-card td-card--upcoming"><button class="td-card__open" type="button" aria-label="Aaliyah James"></button>
+          <div class="td-card__who"><span class="av av--apricot">AJ</span><span><b class="td-card__name">Aaliyah James</b><span class="td-card__meta"><i style="background:var(--sky)"></i><span>9:40 AM · Dr. Rahman</span></span></span></div>
+          <div class="td-card__foot"><span class="td-ok"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg><span>Confirmed</span></span><button class="btn btn--xs btn--soft" type="button"><svg class="i" aria-hidden="true"><use href="#i-door"/></svg>Check in</button></div>
+        </article>
+          <a class="td-more" href="#">+62 more today</a>
+        </section>
+        <section class="td-lane td-lane--arrived"><div class="td-lane__h"><i class="td-lane__dot"></i>Waiting room<span class="td-lane__n">6</span></div>
+        <article class="td-card td-card--arrived"><button class="td-card__open" type="button" aria-label="Yasmin Stewart"></button>
+          <div class="td-card__who"><span class="av av--teal">YS</span><span><b class="td-card__name">Yasmin Stewart</b><span class="td-card__meta"><i style="background:var(--mint)"></i><span>9:05 AM · Dr. Silva</span></span></span></div>
+          <div class="td-card__foot"><span class="td-wait"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg>13 min</span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-steth"/></svg>Call in</button></div>
+        </article>
+        <article class="td-card td-card--arrived"><button class="td-card__open" type="button" aria-label="Leo Jackson"></button>
+          <div class="td-card__who"><span class="av av--mint">LJ</span><span><b class="td-card__name">Leo Jackson</b><span class="td-card__meta"><i style="background:var(--mint)"></i><span>9:25 AM · Dr. Rahman</span></span></span></div>
+          <div class="td-card__foot"><span class="td-wait"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg>13 min</span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-steth"/></svg>Call in</button></div>
+        </article>
+        <article class="td-card td-card--arrived"><button class="td-card__open" type="button" aria-label="Ayesha Islam"></button>
+          <div class="td-card__who"><span class="av av--sand">AI</span><span><b class="td-card__name">Ayesha Islam</b><span class="td-card__meta"><i style="background:var(--coral)"></i><span>9:35 AM · Dr. Lin</span></span></span></div>
+          <div class="td-card__foot"><span class="td-wait"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg>13 min</span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-steth"/></svg>Call in</button></div>
+        </article>
+        <article class="td-card td-card--arrived"><button class="td-card__open" type="button" aria-label="Karim Foster"></button>
+          <div class="td-card__who"><span class="av av--sky">KF</span><span><b class="td-card__name">Karim Foster</b><span class="td-card__meta"><i style="background:var(--teal)"></i><span>9:05 AM · Dr. Rahman</span></span></span></div>
+          <div class="td-card__foot"><span class="td-wait"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg>9 min</span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-steth"/></svg>Call in</button></div>
+        </article>
+        <article class="td-card td-card--arrived"><button class="td-card__open" type="button" aria-label="Javier Sanders"></button>
+          <div class="td-card__who"><span class="av av--lilac">JS</span><span><b class="td-card__name">Javier Sanders</b><span class="td-card__meta"><i style="background:var(--teal)"></i><span>9:00 AM · Dr. Okafor</span></span></span></div>
+          <div class="td-card__foot"><span class="td-wait"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg>4 min</span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-steth"/></svg>Call in</button></div>
+        </article>
+        <article class="td-card td-card--arrived"><button class="td-card__open" type="button" aria-label="Zoe Ali"></button>
+          <div class="td-card__who"><span class="av av--sand">ZA</span><span><b class="td-card__name">Zoe Ali</b><span class="td-card__meta"><i style="background:var(--apricot)"></i><span>9:15 AM · Nurse Berg</span></span></span></div>
+          <div class="td-card__foot"><span class="td-wait"><svg class="i" aria-hidden="true"><use href="#i-clock"/></svg>3 min</span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-steth"/></svg>Call in</button></div>
+        </article>
+        </section>
+        <section class="td-lane td-lane--in-consult"><div class="td-lane__h"><i class="td-lane__dot"></i>In consult<span class="td-lane__n">5</span></div>
+        <article class="td-card td-card--in-consult"><button class="td-card__open" type="button" aria-label="Emeka Larsen"></button>
+          <div class="td-card__who"><span class="av av--mint">EL</span><span><b class="td-card__name">Emeka Larsen</b><span class="td-card__meta"><i style="background:var(--lilac)"></i><span>8:45 AM · Dr. Silva</span></span></span></div>
+          <div class="td-card__foot"><span class="td-room"><span class="td-room__bar"><i style="width:25%"></i></span><span>Room 4</span></span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Finish</button></div>
+        </article>
+        <article class="td-card td-card--in-consult"><button class="td-card__open" type="button" aria-label="Ayesha Zhang"></button>
+          <div class="td-card__who"><span class="av av--sky">AZ</span><span><b class="td-card__name">Ayesha Zhang</b><span class="td-card__meta"><i style="background:var(--coral)"></i><span>8:50 AM · Dr. Lin</span></span></span></div>
+          <div class="td-card__foot"><span class="td-room"><span class="td-room__bar"><i style="width:10%"></i></span><span>Room 3</span></span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Finish</button></div>
+        </article>
+        <article class="td-card td-card--in-consult"><button class="td-card__open" type="button" aria-label="Ingrid Watson"></button>
+          <div class="td-card__who"><span class="av av--mint">IW</span><span><b class="td-card__name">Ingrid Watson</b><span class="td-card__meta"><i style="background:var(--sand)"></i><span>8:45 AM · Nurse Berg</span></span></span></div>
+          <div class="td-card__foot"><span class="td-room"><span class="td-room__bar"><i style="width:60%"></i></span><span>Treatment room</span></span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Finish</button></div>
+        </article>
+        <article class="td-card td-card--in-consult"><button class="td-card__open" type="button" aria-label="Ibrahim Clark"></button>
+          <div class="td-card__who"><span class="av av--apricot">IC</span><span><b class="td-card__name">Ibrahim Clark</b><span class="td-card__meta"><i style="background:var(--teal)"></i><span>8:45 AM · Dr. Okafor</span></span></span></div>
+          <div class="td-card__foot"><span class="td-room"><span class="td-room__bar"><i style="width:55%"></i></span><span>Room 2</span></span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Finish</button></div>
+        </article>
+        <article class="td-card td-card--in-consult"><button class="td-card__open" type="button" aria-label="David Rossi"></button>
+          <div class="td-card__who"><span class="av av--teal">DR</span><span><b class="td-card__name">David Rossi</b><span class="td-card__meta"><i style="background:var(--teal)"></i><span>8:45 AM · Dr. Rahman</span></span></span></div>
+          <div class="td-card__foot"><span class="td-room"><span class="td-room__bar"><i style="width:50%"></i></span><span>Room 1</span></span><button class="btn btn--xs btn--primary" type="button"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg>Finish</button></div>
+        </article>
+        </section>
+        <section class="td-lane td-lane--done"><div class="td-lane__h"><i class="td-lane__dot"></i>Seen<span class="td-lane__n">4</span></div>
+        <article class="td-card td-card--done"><button class="td-card__open" type="button" aria-label="Valentina Uddin"></button>
+          <div class="td-card__who"><span class="av av--sand">VU</span><span><b class="td-card__name">Valentina Uddin</b><span class="td-card__meta"><i style="background:var(--teal)"></i><span>8:30 AM · Dr. Lin</span></span></span></div>
+        </article>
+        <article class="td-card td-card--done"><button class="td-card__open" type="button" aria-label="James Adeyemi"></button>
+          <div class="td-card__who"><span class="av av--apricot">JA</span><span><b class="td-card__name">James Adeyemi</b><span class="td-card__meta"><i style="background:var(--mint)"></i><span>8:30 AM · Dr. Silva</span></span></span></div>
+        </article>
+        <article class="td-card td-card--done"><button class="td-card__open" type="button" aria-label="Nusrat Watson"></button>
+          <div class="td-card__who"><span class="av av--apricot">NW</span><span><b class="td-card__name">Nusrat Watson</b><span class="td-card__meta"><i style="background:var(--mint)"></i><span>8:30 AM · Dr. Rahman</span></span></span></div>
+        </article>
+        <article class="td-card td-card--done"><button class="td-card__open" type="button" aria-label="Nusrat Johnson"></button>
+          <div class="td-card__who"><span class="av av--sky">NJ</span><span><b class="td-card__name">Nusrat Johnson</b><span class="td-card__meta"><i style="background:var(--apricot)"></i><span>8:30 AM · Nurse Berg</span></span></span></div>
+        </article>
+        </section>
+      </div>
+    </section>
+
+    <section class="card td-inbox">
+      <div class="card__h"><h2 class="card__t"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</h2><span class="card__aside">6 waiting on us</span></div>
+      <div class="td-chats">
+        <a class="td-chat is-unread" href="#"><span class="av av--sky">AS</span><span class="td-chat__body"><span class="td-chat__row"><b class="td-chat__name">Ana Souza</b><span class="td-chat__time">8:54 AM</span></span><span class="td-chat__row"><span class="td-chat__msg">Hi! I just moved to the area and would like to register as a new patient</span><span class="td-chat__n">1</span></span></span></a>
+        <a class="td-chat is-unread is-urgent" href="#"><span class="av av--sand">NB</span><span class="td-chat__body"><span class="td-chat__row"><b class="td-chat__name">Noah Bennett</b><span class="td-chat__time">8:49 AM</span></span><span class="td-chat__row"><span class="td-chat__msg">Hello, my son Noah has a fever of 39.2 since last night</span><span class="td-chat__n">1</span></span><span class="td-tag">Urgent</span></span></a>
+        <a class="td-chat is-unread" href="#"><span class="av av--apricot">MW</span><span class="td-chat__body"><span class="td-chat__row"><b class="td-chat__name">Marcus Webb</b><span class="td-chat__time">8:45 AM</span></span><span class="td-chat__row"><span class="td-chat__msg">Thursday 11:15 please</span><span class="td-chat__n">1</span></span></span></a>
+        <a class="td-chat is-unread" href="#"><span class="av av--sky">AK</span><span class="td-chat__body"><span class="td-chat__row"><b class="td-chat__name">Amina Khan</b><span class="td-chat__time">8:32 AM</span></span><span class="td-chat__row"><span class="td-chat__msg">Anything after 10 works for me</span><span class="td-chat__n">2</span></span></span></a>
+        <a class="td-chat is-unread" href="#"><span class="av av--apricot">ER</span><span class="td-chat__body"><span class="td-chat__row"><b class="td-chat__name">Elena Rossi</b><span class="td-chat__time">8:10 AM</span></span><span class="td-chat__row"><span class="td-chat__msg">Do you have parking at the clinic? First time visiting</span><span class="td-chat__n">1</span></span></span></a>
+        <a class="td-chat" href="#"><span class="av av--sand">KM</span><span class="td-chat__body"><span class="td-chat__row"><b class="td-chat__name">Kwame Mensah</b><span class="td-chat__time">Yesterday</span></span><span class="td-chat__row"><span class="td-chat__msg">Book a visit</span><span class="td-chat__lock"><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg></span></span></span></a>
+      </div>
+      <a class="btn btn--soft td-inbox__all" href="#">Open inbox <svg class="i" aria-hidden="true"><use href="#i-chev"/></svg></a>
+    </section>
+
+    <section class="card td-rem">
+      <div class="card__h"><h2 class="card__t"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>Reminders · Tomorrow</h2></div>
+      <p class="td-big"><b>74</b><span>appointments tomorrow</span></p>
+      <div class="td-meter"><span>Reminder sent</span><span class="td-meter__track"><i style="width:25.7%;--c:var(--teal)"></i></span><b>19</b></div>
+      <div class="td-meter"><span>Delivered</span><span class="td-meter__track"><i style="width:25.7%;--c:var(--mint)"></i></span><b>19</b></div>
+      <div class="td-meter"><span>Read</span><span class="td-meter__track"><i style="width:24.3%;--c:var(--sky)"></i></span><b>18</b></div>
+      <div class="td-meter"><span>Confirmed</span><span class="td-meter__track"><i style="width:13.5%;--c:var(--wa)"></i></span><b>10</b></div>
+      <div class="td-rem__foot"><button class="btn btn--sm btn--wa" type="button"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg>Send 47 reminders</button><small>8 without WhatsApp consent</small></div>
+    </section>
+
+    <section class="card td-line">
+      <div class="card__h"><h2 class="card__t"><svg class="i" aria-hidden="true"><use href="#i-cal"/></svg>Clinicians today</h2><a class="btn btn--sm btn--ghost" href="#">Open schedule</a><button class="ibtn" type="button" aria-label="Expand"><svg class="i" aria-hidden="true"><use href="#i-expand"/></svg></button></div>
+      <div class="td-tl" id="td-tl">
+        <div class="td-tl__hours"></div>
+        <div class="td-tl__names" style="grid-column:1;grid-row:2">
+          <div class="td-tl__who"><span class="av av--mint">AR</span><span><b>Dr. Rahman</b><small>76% booked</small></span></div>
+          <div class="td-tl__who"><span class="av av--sky">DO</span><span><b>Dr. Okafor</b><small>65% booked</small></span></div>
+          <div class="td-tl__who"><span class="av av--lilac">ML</span><span><b>Dr. Lin</b><small>75% booked</small></span></div>
+          <div class="td-tl__who"><span class="av av--apricot">TS</span><span><b>Dr. Silva</b><small>78% booked</small></span></div>
+          <div class="td-tl__who"><span class="av av--mint">HB</span><span><b>Nurse Berg</b><small>56% booked</small></span></div>
+        </div>
+        <div class="td-tl__body" style="grid-row:2"></div>
+        <div class="td-legend">
+          <span style="--c:var(--mint)"><i></i>Follow-up</span><span style="--c:var(--teal)"><i></i>Consultation</span><span style="--c:var(--apricot)"><i></i>Vaccination</span><span style="--c:var(--lilac)"><i></i>Video visit</span><span style="--c:var(--sand)"><i></i>Blood test</span><span style="--c:var(--coral)"><i></i>Minor procedure</span><span style="--c:var(--sky)"><i></i>Annual check-up</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="card td-trend">
+      <div class="card__h"><h2 class="card__t"><svg class="i" aria-hidden="true"><use href="#i-trend"/></svg>Visits</h2><div class="td-seg" role="group" aria-label="Range"><span class="td-seg__pill"></span><button type="button" aria-pressed="true" data-r="2w">2W</button><button type="button" aria-pressed="false" data-r="30d">30D</button></div><button class="ibtn" type="button" aria-label="Expand"><svg class="i" aria-hidden="true"><use href="#i-expand"/></svg></button></div>
+      <p class="td-trend__big" id="td-trend-big"><b>732</b><span>patients seen in the last 14 days · 4.4% no-shows</span></p>
+      <div class="td-keys"><span style="--c:var(--teal)"><i></i>Seen</span><span style="--c:var(--coral)"><i></i>No-shows</span></div>
+      <div class="td-chart" id="td-chart"></div>
+    </section>
+
+    <section class="card td-recall">
+      <div class="card__h"><h2 class="card__t"><svg class="i" aria-hidden="true"><use href="#i-refresh"/></svg>Recalls due</h2><span class="card__aside">69 in the next 2 weeks</span><button class="ibtn" type="button" aria-label="Expand"><svg class="i" aria-hidden="true"><use href="#i-expand"/></svg></button></div>
+      <div class="td-rows">
+        <div class="td-row"><span class="av av--sky">LR</span><span class="td-row__txt"><b>Leah Reed</b><small>Type 2 diabetes · <em>21 d overdue</em></small></span><button class="btn btn--xs btn--soft" type="button"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg>Recall</button></div>
+        <div class="td-row"><span class="av av--sky">DB</span><span class="td-row__txt"><b>David Brooks</b><small>Migraine · <em>21 d overdue</em></small></span><button class="btn btn--xs btn--soft" type="button"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg>Recall</button></div>
+        <div class="td-row"><span class="av av--lilac">CM</span><span class="td-row__txt"><b>Chiamaka Morris</b><small>Eczema · <em>21 d overdue</em></small></span><button class="btn btn--xs btn--soft" type="button"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg>Recall</button></div>
+        <div class="td-row"><span class="av av--lilac">AM</span><span class="td-row__txt"><b>Ava Moore</b><small>Annual review · <em>20 d overdue</em></small></span><button class="btn btn--xs btn--soft" type="button"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg>Recall</button></div>
+        <div class="td-row"><span class="av av--lilac">AP</span><span class="td-row__txt"><b>Ava Price</b><small>Annual review · <em>19 d overdue</em></small></span><button class="btn btn--xs btn--soft" type="button"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg>Recall</button></div>
+      </div>
+    </section>
+
+    <section class="card td-docs">
+      <div class="card__h"><h2 class="card__t"><svg class="i" aria-hidden="true"><use href="#i-steth"/></svg>Clinician load</h2></div>
+      <div class="td-load">
+        <div class="td-load__row"><span class="av av--mint">AR</span><span class="td-load__txt"><span class="td-load__top"><b>Dr. Rahman</b><span>With David</span></span><span class="td-load__bar"><i style="width:76%"></i></span><small>76% booked · next 9:05 AM</small></span></div>
+        <div class="td-load__row"><span class="av av--sky">DO</span><span class="td-load__txt"><span class="td-load__top"><b>Dr. Okafor</b><span>With Ibrahim</span></span><span class="td-load__bar"><i style="width:65%"></i></span><small>65% booked · next 9:00 AM</small></span></div>
+        <div class="td-load__row"><span class="av av--lilac">ML</span><span class="td-load__txt"><span class="td-load__top"><b>Dr. Lin</b><span>With Ayesha</span></span><span class="td-load__bar"><i style="width:75%"></i></span><small>75% booked · next 9:35 AM</small></span></div>
+        <div class="td-load__row"><span class="av av--apricot">TS</span><span class="td-load__txt"><span class="td-load__top"><b>Dr. Silva</b><span>With Emeka</span></span><span class="td-load__bar"><i style="width:78%"></i></span><small>78% booked · next 9:05 AM</small></span></div>
+        <div class="td-load__row"><span class="av av--mint">HB</span><span class="td-load__txt"><span class="td-load__top"><b>Nurse Berg</b><span>With Ingrid</span></span><span class="td-load__bar"><i style="width:56%"></i></span><small>56% booked · next 9:15 AM</small></span></div>
+      </div>
+    </section>
+
+    <section class="card td-act">
+      <div class="card__h"><h2 class="card__t"><svg class="i" aria-hidden="true"><use href="#i-tray"/></svg>Team activity</h2></div>
+      <ul class="td-feed">
+        <li><span class="td-feed__ic"><svg class="i" aria-hidden="true"><use href="#i-cal"/></svg></span><p><b>Leo</b> checked in Noah Bennett<small>4 min ago</small></p></li>
+        <li><span class="td-feed__ic"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg></span><p><b>You</b> replied to Marcus Webb on WhatsApp<small>45 min ago</small></p></li>
+        <li><span class="td-feed__ic"><svg class="i" aria-hidden="true"><use href="#i-cal"/></svg></span><p><b>Leo</b> booked Sofia Alvarez with Dr. Lin<small>1 h ago</small></p></li>
+        <li><span class="td-feed__ic"><svg class="i" aria-hidden="true"><use href="#i-megaphone"/></svg></span><p><b>You</b> scheduled Annual check-up recall · Q4<small>2 h ago</small></p></li>
+        <li><span class="td-feed__ic"><svg class="i" aria-hidden="true"><use href="#i-userplus"/></svg></span><p><b>Leo</b> registered Olivia Grant as a new patient<small>3 h ago</small></p></li>
+        <li><span class="td-feed__ic"><svg class="i" aria-hidden="true"><use href="#i-doc"/></svg></span><p><b>You</b> submitted holiday_hours for approval<small>3 h ago</small></p></li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<nav class="tabbar">
+  <a class="is-on" href="#"><svg class="i" aria-hidden="true"><use href="#i-pulse"/></svg>Today</a><a href="#"><svg class="i" aria-hidden="true"><use href="#i-wa"/></svg>Inbox<span class="nav__badge">6</span></a><a href="#"><svg class="i" aria-hidden="true"><use href="#i-users"/></svg>Patients</a><a href="#"><svg class="i" aria-hidden="true"><use href="#i-cal"/></svg>Schedule</a><a href="#"><svg class="i" aria-hidden="true"><use href="#i-dots"/></svg>More</a>
+</nav>
+
+<script>
+// Los datos de la copia, leídos de la captura (demos/tend/captura/pagina-1440.png).
+const H = (h, m = 0) => h + m / 60;
+window.TEND_DATOS = {
+  linea: {
+    desde: 8, hasta: 17, ahora: H(8, 57), ahoraTxt: '8:57 AM', almuerzo: [12, 13],
+    filas: [
+      { nombre: 'Dr. Rahman', bloques: [
+        { h: H(8,30), d: .25, c: 'mint', e: 'done' }, { h: H(8,45), d: .3, c: 'teal', e: 'in-consult' }, { h: H(9,5), d: .3, c: 'teal', e: 'arrived' }, { h: H(9,25), d: .3, c: 'apricot', e: 'arrived' },
+        { h: H(9,45), d: .5, c: 'sky', t: 'Aaliyah' }, { h: H(10,15), d: .25, c: 'teal' }, { h: H(10,30), d: .25, c: 'mint' }, { h: H(10,45), d: .25, c: 'teal' }, { h: H(11,5), d: .3, c: 'lilac' },
+        { h: H(11,45), d: .5, c: 'sky', t: 'Hiro' }, { h: H(13,25), d: .25, c: 'lilac' }, { h: H(14,0), d: .3, c: 'teal' }, { h: H(14,20), d: .3, c: 'mint' }, { h: H(15,0), d: .3, c: 'mint' },
+        { h: H(15,40), d: .5, c: 'sky', t: 'Maya' }, { h: H(16,15), d: .2, c: 'mint' }, { h: H(16,30), d: .4, c: 'sky', e: 'booked', t: 'Isla' } ] },
+      { nombre: 'Dr. Okafor', bloques: [
+        { h: H(8,45), d: .25, c: 'apricot', e: 'arrived' }, { h: H(9,0), d: .4, c: 'sky', e: 'arrived', t: 'Javier' }, { h: H(9,30), d: .4, c: 'sky', t: 'Nina' }, { h: H(10,30), d: .3, c: 'teal' },
+        { h: H(10,50), d: .25, c: 'mint' }, { h: H(11,5), d: .25, c: 'apricot' }, { h: H(11,25), d: .4, c: 'sky', t: 'Kofi' }, { h: H(13,40), d: .25, c: 'mint' }, { h: H(14,0), d: .4, c: 'sky', e: 'booked', t: 'Lars' },
+        { h: H(14,25), d: .25, c: 'mint' }, { h: H(15,20), d: .3, c: 'teal' }, { h: H(15,40), d: .25, c: 'mint' }, { h: H(15,55), d: .4, c: 'sky', t: 'Sara' }, { h: H(16,35), d: .25, c: 'mint' }, { h: H(16,50), d: .25, c: 'mint' } ] },
+      { nombre: 'Dr. Lin', bloques: [
+        { h: H(8,30), d: .25, c: 'mint', e: 'done' }, { h: H(8,50), d: .7, c: 'coral', e: 'in-consult', t: 'Ayesha' }, { h: H(9,35), d: .7, c: 'coral', e: 'arrived', t: 'Ayesha' },
+        { h: H(10,20), d: .3, c: 'teal' }, { h: H(10,40), d: .3, c: 'teal' }, { h: H(11,0), d: .3, c: 'teal' }, { h: H(14,5), d: .7, c: 'coral', t: 'Helen' }, { h: H(14,50), d: .3, c: 'teal', e: 'booked' },
+        { h: H(15,10), d: .6, c: 'coral', e: 'booked', t: 'Hiro' }, { h: H(15,50), d: .3, c: 'mint' }, { h: H(16,10), d: .3, c: 'teal' }, { h: H(16,25), d: .6, c: 'coral', t: 'Nadia' } ] },
+      { nombre: 'Dr. Silva', bloques: [
+        { h: H(8,30), d: .25, c: 'mint', e: 'done' }, { h: H(8,45), d: .3, c: 'lilac', e: 'in-consult' }, { h: H(9,5), d: .25, c: 'mint', e: 'arrived' }, { h: H(9,20), d: .25, c: 'mint' },
+        { h: H(9,35), d: .25, c: 'teal', e: 'booked' }, { h: H(10,0), d: .3, c: 'teal' }, { h: H(10,20), d: .3, c: 'teal' }, { h: H(10,40), d: .25, c: 'lilac' }, { h: H(11,0), d: .3, c: 'teal' },
+        { h: H(11,45), d: .45, c: 'sky', t: 'Sam' }, { h: H(13,10), d: .25, c: 'mint' }, { h: H(13,25), d: .25, c: 'mint' }, { h: H(13,40), d: .25, c: 'mint' }, { h: H(14,40), d: .4, c: 'sky', e: 'booked', t: 'Ravi' },
+        { h: H(15,5), d: .3, c: 'teal' }, { h: H(15,25), d: .3, c: 'teal' }, { h: H(15,45), d: .25, c: 'teal' }, { h: H(16,0), d: .25, c: 'mint', e: 'booked' } ] },
+      { nombre: 'Nurse Berg', bloques: [
+        { h: H(8,30), d: .25, c: 'apricot', e: 'done' }, { h: H(8,45), d: .25, c: 'sky', e: 'in-consult' }, { h: H(9,15), d: .25, c: 'apricot', e: 'arrived' }, { h: H(9,30), d: .2, c: 'sand' },
+        { h: H(9,45), d: .2, c: 'sand', e: 'booked' }, { h: H(10,0), d: .2, c: 'sand' }, { h: H(11,25), d: .2, c: 'sand' }, { h: H(11,40), d: .2, c: 'sand' }, { h: H(11,55), d: .25, c: 'sand' },
+        { h: H(13,0), d: .25, c: 'apricot', e: 'booked' }, { h: H(13,45), d: .2, c: 'sand' }, { h: H(14,45), d: .2, c: 'sand' }, { h: H(15,0), d: .2, c: 'sand' }, { h: H(15,15), d: .2, c: 'sand' },
+        { h: H(15,50), d: .2, c: 'apricot' }, { h: H(16,5), d: .25, c: 'apricot', e: 'booked' }, { h: H(16,20), d: .2, c: 'sand' } ] },
+    ],
+  },
+  visitas: {
+    tope: 100, corto: 12, aria: 'Seen and no-shows, day by day',
+    dias: [
+      ...[58, 61, 55, 64, 70, 52, 47, 60, 66, 58, 62, 57, 64, 59, 63, 55, 68].map((a, i) => ({ r: `Oct ${i + 4}`, a, b: 3 })),
+      { r: 'Oct 21', a: 65, b: 3 }, { r: 'Oct 22', a: 60, b: 5 }, { r: 'Oct 23', a: 70, b: 2 }, { r: 'Oct 24', a: 22, b: 0 }, { r: 'Oct 26', a: 70, b: 1 }, { r: 'Oct 27', a: 66, b: 2 },
+      { r: 'Oct 28', a: 73, b: 0 }, { r: 'Oct 29', a: 63, b: 2 }, { r: 'Oct 30', a: 85, b: 4 }, { r: 'Oct 31', a: 22, b: 0 }, { r: 'Nov 2', a: 60, b: 0 }, { r: 'Nov 3', a: 72, b: 4 },
+    ],
+    // 30D no está medido: el número se cuenta de la serie, con la frase de 2W.
+    resumen: (r) => {
+      if (r === '2w') return '<b>732</b><span>patients seen in the last 14 days · 4.4% no-shows</span>';
+      const d = window.TEND_DATOS.visitas.dias, a = d.reduce((s, x) => s + x.a, 0), b = d.reduce((s, x) => s + x.b, 0);
+      return `<b>${a.toLocaleString('en-US')}</b><span>patients seen in the last 30 days · ${(b / Math.max(1, a + b) * 100).toFixed(1)}% no-shows</span>`;
+    },
+  },
+};
+</script>
+<script src="tend.js"></script>
+</body>
+</html>

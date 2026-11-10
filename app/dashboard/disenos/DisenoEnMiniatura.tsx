@@ -75,6 +75,9 @@ import { datosInmobiliariaMuestra } from '@/lib/inmobiliaria-diseno-muestra';
 import { HojaColdCalling } from './HojaColdCalling';
 import { vistaColdCalling } from '@/lib/cold-calling-diseno';
 import { datosColdCallingMuestra } from '@/lib/cold-calling-diseno-muestra';
+import { HojaVelocidad } from './HojaVelocidad';
+import { vistaVelocidad } from '@/lib/velocidad-diseno';
+import { datosVelocidadMuestra } from '@/lib/velocidad-diseno-muestra';
 import { vistaCurso } from '@/lib/curso-diseno';
 import { calendarioCursoMuestra, datosCursoMuestra } from '@/lib/curso-diseno-muestra';
 
@@ -548,6 +551,10 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   // La de «Cold Calling», igual: el MISMO vistaColdCalling que la hoja de verdad, con los datos de la adaptación (cold-calling-corvane/captura/mako-1200.png).
   'cold-calling': ({ hoja, hoy }) => (
     <HojaColdCalling hoja={hoja} vista={vistaColdCalling(hoja, datosColdCallingMuestra(hoja, hoy))} titulo="Cold Calling" hoy={hoy} periodo="Últimos 7 días" quieta />
+  ),
+  // La de «Velocidad de llamada», igual: el MISMO vistaVelocidad que la hoja de verdad, con los datos de la adaptación (velocidad-tend/velocidad.html).
+  velocidad: ({ hoja, hoy }) => (
+    <HojaVelocidad hoja={hoja} vista={vistaVelocidad(hoja, datosVelocidadMuestra(hoja, hoy), 'Últimos 30 días')} saludo="Buenos días, Ana" negocio="Inmobiliaria del Valle" hoy={hoy} periodo="Últimos 30 días" quieta />
   ),
 };
 

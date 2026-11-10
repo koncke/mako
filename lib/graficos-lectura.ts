@@ -26,6 +26,18 @@ export const fechaTj = (iso: unknown): string | null => {
   const ms = Date.parse(iso);
   return Number.isFinite(ms) ? hoyEnTijuana(new Date(ms)) : null;
 };
+/**
+ * La HORA de un instante («09:40»), en la zona que se le pasa: la del NEGOCIO (10/11/2026, «Velocidad de llamada»: la línea de las
+ * llamadas de hoy por quién llama, al lado de un «Buenos días» que ya va en su zona). Una fecha sin hora no tiene: null.
+ */
+export const horaEn = (iso: unknown, tz: string): string | null => {
+  if (typeof iso !== 'string' || !iso || /^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  const p = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(ms));
+  const h = p.find((x) => x.type === 'hour')?.value, m = p.find((x) => x.type === 'minute')?.value;
+  return h && m ? `${h === '24' ? '00' : h}:${m}` : null;
+};
 export const lindo = (s: string | null) => (s ? s.charAt(0).toUpperCase() + s.slice(1).replace(/[_-]+/g, ' ') : null);
 /** La ruta de una URL sin el dominio ni la query: «/vsl», no «https://hola-mako.com/vsl?fbclid=…». */
 export const ruta = (u: unknown): string | null => {

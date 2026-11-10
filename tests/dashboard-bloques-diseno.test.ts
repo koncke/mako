@@ -2,7 +2,7 @@
 // Haz que todo sea funcional y editable». Cada tarjeta de un diseño es un elemento de la grilla (lib/disenos-partes.ts,
 // app/dashboard/disenos/BloqueDeDiseno.tsx): se ve igual mirando y editando, y se mueve, se configura y se borra como las demás.
 //
-// Recorre las 22 plantillas con diseño (las del Dashboard y las de General): cada una nace en bloques, sin perder ninguna pieza, con
+// Recorre las 23 plantillas con diseño (las del Dashboard y las de General): cada una nace en bloques, sin perder ninguna pieza, con
 // cada bloque leyendo componentes que existen, sin encimarse, y leer dos veces no la migra dos veces. Una hoja GUARDADA con su
 // diseño entero (el modelo hasta el 6/11, la de Mauricio) se migra al leerse sin perder nada. Y el catálogo dice lo mismo que cada
 // componente de diseño: cada `<Parte id>` del archivo está en el catálogo y al revés.
@@ -28,7 +28,7 @@ import { ENTRADAS, entradaEfectiva, sanearEntrada } from '../lib/graficos-entrad
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HOY = '2026-11-06';
 
-/** Las plantillas con diseño propio (las 22), con su diseño. */
+/** Las plantillas con diseño propio (las 23), con su diseño. */
 function conDiseno(): Array<{ p: PlantillaHoja; diseno: string }> {
   const out: Array<{ p: PlantillaHoja; diseno: string }> = [];
   for (const p of [...PLANTILLAS_HOJA, ...PLANTILLAS_GENERAL]) {
@@ -47,9 +47,10 @@ function guardadaDeAntes(p: PlantillaHoja): Record<string, unknown> {
 
 const bloques = (h: Hoja) => h.componentes.filter((c) => esElemento(c) && c.tipo === 'diseno');
 
-test('1 · las 22 plantillas con diseño nacen en bloques: una tarjeta por bloque, en el orden del catálogo', () => {
+test('1 · las 23 plantillas con diseño nacen en bloques: una tarjeta por bloque, en el orden del catálogo', () => {
   const lista = conDiseno();
-  assert.equal(lista.length, 22, `son ${lista.length}`);
+  // 23 desde el 10/11/2026: «Velocidad de llamada» dejó de ser tarjetas de tres diseños y es la copia de Tend (`velocidad`).
+  assert.equal(lista.length, 23, `son ${lista.length}`);
   for (const { p, diseno } of lista) {
     const h = instanciarPlantilla(p);
     assert.equal(h.diseno?.v, 2, `${p.id}: no quedó en bloques`);
@@ -137,6 +138,7 @@ test('8 · el catálogo dice lo mismo que cada componente de diseño: cada <Part
     comercial: 'HojaComercial', marketing: 'HojaMarketing', landing: 'HojaLanding', chat: 'HojaChat', automatizaciones: 'HojaAutomatizaciones',
     cs: 'HojaCs', productividad: 'HojaProductividad', contenido: 'HojaContenido', curso: 'HojaCurso', servicio: 'HojaServicio',
     instagram: 'HojaInstagram', anuncio: 'HojaAnuncio', hooks: 'HojaHooks', vsl: 'HojaVsl', inmobiliaria: 'HojaInmobiliaria', 'cold-calling': 'HojaColdCalling',
+    velocidad: 'HojaVelocidad',
   };
   assert.deepEqual(Object.keys(ARCHIVO).sort(), Object.keys(DISENOS).sort());
   for (const [d, archivo] of Object.entries(ARCHIVO)) {
@@ -211,28 +213,28 @@ function sinSuperposicion(cs: readonly Componente[]): string | null {
   return null;
 }
 
-test('11 · «Velocidad de llamada» (Código Inmobiliario): tarjetas copiadas que leen piezas que existen, y nunca para un closer ni un setter', () => {
+test('11 · «Velocidad de llamada» (Código Inmobiliario): la copia de Tend, en bloques de UN diseño que leen piezas que existen, y nunca para un closer ni un setter', () => {
   // Lo que ofrece la galería es PLANTILLAS_OFRECIDAS, no PLANTILLAS_HOJA: con esta línea mirando la otra lista, la hoja estuvo un día
   // escrita, en verde y sin poder crearse (lib/graficos-plantillas.ts, `traeDisenoCopiado`).
   const p = PLANTILLAS_OFRECIDAS.find((x) => x.id === 'velocidad-llamada')!;
   assert.ok(p, 'se ofrece en «Nueva hoja» y en la API');
   const h = instanciarPlantilla(p);
-  const tarjetas = bloques(h).map((b) => { const d = (b as { diseno: { id: string; parte: string; piezas: Record<string, string> } }).diseno; return `${d.id}/${d.parte}`; });
-  assert.deepEqual(tarjetas, [
-    'cold-calling/cabecera', 'closing/contacto', 'cold-calling/numeros', 'cold-calling/llamadas', 'cold-calling/siguen',
-    'cold-calling/llamados', 'cold-calling/quien', 'cold-calling/terminan', 'marketing/tabla',
-  ], 'el título con «Grabar llamada» arriba, el primer contacto después');
+  // 10/11/2026, Martín: «se inventó cosas en lugar de copiar los templates… Y que quede como los otros que tenemos». La de antes
+  // juntaba tarjetas de Cold Calling, Closing y Marketing con una tabla propia; ésta son las diez tarjetas de la copia de Tend
+  // («Today»), en el orden de su catálogo (lib/disenos-partes.ts).
+  const tarjetas = bloques(h).map((b) => { const d = (b as { diseno: { id: string; parte: string } }).diseno; return `${d.id}/${d.parte}`; });
+  assert.deepEqual(tarjetas, partesDe('velocidad').map((x) => `velocidad/${x.id}`), 'las tarjetas de la copia de Tend, de un solo diseño');
+  assert.deepEqual(tarjetas.slice(0, 3), ['velocidad/cabecera', 'velocidad/numeros', 'velocidad/flujo'], 'el saludo con «Grabar llamada», los cuatro números y el flujo de leads');
   for (const b of bloques(h)) {
     const d = (b as { diseno: { id: string; parte: string; piezas: Record<string, string> } }).diseno;
     for (const k of parteDe(d.id, d.parte)!.lee) assert.ok(h.componentes.some((c) => c.id === d.piezas[k]), `${d.id}/${d.parte}: la pieza ${k} existe`);
   }
   assert.ok(panelesALaVista(h.componentes).length <= 14);
-  // A la vista, las tarjetas y (9/11/2026) la tabla «Cada lead nuevo» después del primer contacto: lo que preguntó Juanfran es por
-  // CADA lead (tests/dashboard-velocidad-codigo.test.ts).
-  assert.deepEqual(panelesALaVista(h.componentes).map((c) => c.clase), ['elemento', 'elemento', 'grafico', ...Array(7).fill('elemento')], 'a la vista, las tarjetas y la tabla de cada lead');
+  // A la vista, SÓLO las tarjetas de Tend: ni la tabla «Cada lead nuevo» ni un título propio (eran las cosas que Tend no tiene).
+  assert.deepEqual(panelesALaVista(h.componentes).map((c) => c.clase), Array(partesDe('velocidad').length).fill('elemento'), 'a la vista, sólo las tarjetas de la copia');
   assert.equal(sinSuperposicion(h.componentes), null);
   assert.equal(h.controles.find((c) => c.tipo === 'periodo')?.preset, 'ult30');
-  // Nombra leads (el primer contacto, a quién llamaste): ni el closer ni el setter la ven (cada uno tiene su hoja única).
+  // Nombra leads (los que esperan, a quién llamaron hoy): ni el closer ni el setter la ven (cada uno tiene su hoja única).
   assert.ok(Object.values(HOJA_DE_ROL).every((r) => r?.plantilla !== 'velocidad-llamada'));
   // Dos instancias no comparten ids, y leer dos veces no la cambia.
   const otra = instanciarPlantilla(p);

@@ -225,7 +225,7 @@ export function turnosDeChats(mensajes: readonly MensajeChat[]): TurnoChat[] {
  * horas. Sólo las que tienen un lead: un chat sin lead suele ser un contacto personal del número (medido en el
  * relevo: incluirlos es ruido). Devuelve una entrada por chat con lead, con `espera` = sí / no.
  */
-export function chatsEsperando(mensajes: readonly MensajeChat[], ahora: number, horas = 24): Array<{ linea: string | null; chat: string; leadId: number; espera: boolean }> {
+export function chatsEsperando(mensajes: readonly MensajeChat[], ahora: number, horas = 24): Array<{ linea: string | null; chat: string; leadId: number; espera: boolean; esperandoMs: number | null }> {
   const ultimo = new Map<string, MensajeChat>();
   const lead = new Map<string, number>();
   for (const m of mensajes) {
@@ -235,11 +235,13 @@ export function chatsEsperando(mensajes: readonly MensajeChat[], ahora: number, 
     if (!u || m.t > u.t) ultimo.set(k, m);
     if (m.leadId != null) lead.set(k, m.leadId);
   }
-  const out: Array<{ linea: string | null; chat: string; leadId: number; espera: boolean }> = [];
+  // `esperandoMs` (10/11/2026, la hoja «Velocidad de llamada»): si el último mensaje es de la persona, hace cuánto lo escribió, sin
+  // el umbral de las 24 h (`espera`): es lo que lista «WhatsApp, te esperan» de la copia de Tend. Con el último nuestro, null.
+  const out: Array<{ linea: string | null; chat: string; leadId: number; espera: boolean; esperandoMs: number | null }> = [];
   for (const [k, u] of ultimo) {
     const l = lead.get(k);
     if (l == null) continue;
-    out.push({ linea: u.linea, chat: u.chat, leadId: l, espera: !u.deMi && ahora - u.t > horas * 3_600_000 });
+    out.push({ linea: u.linea, chat: u.chat, leadId: l, espera: !u.deMi && ahora - u.t > horas * 3_600_000, esperandoMs: u.deMi ? null : Math.max(0, ahora - u.t) });
   }
   return out;
 }

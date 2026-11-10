@@ -22,6 +22,7 @@ import type { ExtrasAutomatizaciones } from './AutomatizacionesVivo';
 import type { ExtrasProductividad } from './ProductividadVivo';
 import type { ExtrasCs } from './CsVivo';
 import type { ExtrasContenido } from './ContenidoVivo';
+import type { ExtrasVelocidad } from './VelocidadVivo';
 
 const FocusVivo = dynamic(() => import('./FocusVivo'));
 const MiDiaVivo = dynamic(() => import('./MiDiaVivo'));
@@ -43,12 +44,13 @@ const HooksVivo = dynamic(() => import('./HooksVivo'));
 const VslVivo = dynamic(() => import('./VslVivo'));
 const InmobiliariaVivo = dynamic(() => import('./InmobiliariaVivo'));
 const ColdCallingVivo = dynamic(() => import('./ColdCallingVivo'));
+const VelocidadVivo = dynamic(() => import('./VelocidadVivo'));
 
 /** Lo que leen los diseños y ningún componente lee (la agenda, quién mira, las etapas): lo arma la página. */
 export type ExtrasDisenos = {
   closing?: ExtrasClosing | null; cobranza?: ExtrasCobranza | null; comercial?: ExtrasComercial | null; marketing?: ExtrasMarketing | null;
   landing?: ExtrasLanding | null; chat?: ExtrasChat | null; automatizaciones?: ExtrasAutomatizaciones | null; cs?: ExtrasCs | null;
-  productividad?: ExtrasProductividad | null; contenido?: ExtrasContenido | null;
+  productividad?: ExtrasProductividad | null; contenido?: ExtrasContenido | null; velocidad?: ExtrasVelocidad | null;
 };
 
 export type PropsDisenoVivo = {
@@ -100,6 +102,7 @@ export function DisenoVivo({ hoja, datos, hoy, periodo, compartido, extras, conG
     case 'inmobiliaria': return <InmobiliariaVivo {...comunes} datos={datos} periodo={periodo} onFila={onFila} />;
     case 'cold-calling': return <ColdCallingVivo {...comunes} datos={datos} periodo={periodo} onFila={onFila} onCambio={onCambio} />;
     case 'vsl': return <VslVivo {...comunes} datos={datos} periodo={periodo} onFila={onFila} />;
+    case 'velocidad': return <VelocidadVivo {...comunes} datos={datos} extras={extras?.velocidad ?? null} periodo={periodo} onFila={onFila} onCambio={onCambio} />;
     default: return null;
   }
 }

@@ -33,7 +33,7 @@
 import 'server-only';
 import { SinConexionError, type Fila } from './graficos-agregar';
 import { rangoDe, type Grafico } from './graficos-catalogo';
-import { enRango, queTableroLeer, fechaTj, funnelsAgregados, leer, leerPorIds, lindo, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
+import { enRango, queTableroLeer, fechaTj, horaEn, funnelsAgregados, leer, leerPorIds, lindo, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { conversorGastoMeta } from './moneda-meta';
 import { integracionConectada } from './credenciales';
@@ -64,7 +64,8 @@ import { sinRecurrentes } from './plan-recurrentes';
 import { CUADRANTE_ROTULO, DAY, cuadranteDe, deadlineMoves, metricasProductividad, ultActividad } from './productividad-metricas';
 import { nombreDeLlamada } from './llamadas-modelo';
 import { diasAntes, hoyEnTijuana, TZ_TIJUANA } from './date-utils';
-import { hoyEnWorkspace } from './timezone';
+import { ZONA_POR_DEFECTO } from './zona-negocio-reglas';
+import { hoyEnWorkspace, zonaDelNegocio } from './timezone';
 import { getMrrActivo } from './queries';
 import { getPorCobrar } from './pagos';
 import { ventasDeCrms } from './ventas-crm';
@@ -837,7 +838,7 @@ async function filasConversaciones(fecha: string, rg: Rango): Promise<Fila[]> {
   }));
   const leadIds = [...new Set(mensajes.map((m) => m.leadId).filter((x): x is number => x != null))];
   const [info, rot] = await Promise.all([
-    leerPorIds<{ id: number; setter: string | null; pipeline_stage: string | null; funnel_id: number | null }>('leads', 'id, setter, pipeline_stage, funnel_id', 'id', leadIds),
+    leerPorIds<{ id: number; nombre: string | null; setter: string | null; pipeline_stage: string | null; funnel_id: number | null }>('leads', 'id, nombre, setter, pipeline_stage, funnel_id', 'id', leadIds),
     rotulosDelCrm(),
   ]);
   const lead = new Map(info.map((x) => [Number(x.id), x] as const));
@@ -850,7 +851,9 @@ async function filasConversaciones(fecha: string, rg: Rango): Promise<Fila[]> {
   };
   if (actual) {
     return chatsEsperando(mensajes, Date.now()).map((c) => ({
-      f: null, d: dimsDe(c.linea, c.leadId), v: { sin_responder: c.espera ? 1 : 0 }, u: { chats: `${c.linea ?? ''}|${c.chat}` },
+      f: null, d: { ...dimsDe(c.linea, c.leadId), lead: txt(lead.get(c.leadId)?.nombre) ?? `Lead #${c.leadId}` }, r: { lead: String(c.leadId) },
+      v: { sin_responder: c.espera ? 1 : 0, ...(c.esperandoMs != null ? { espera_respuesta: Math.round(c.esperandoMs / 1000) } : {}) },
+      u: { chats: `${c.linea ?? ''}|${c.chat}` },
     }));
   }
   const out: Fila[] = [];
@@ -890,8 +893,16 @@ async function filasLlamadasGrabadas(rg: Rango): Promise<Fila[]> {
   }
   const leads = rows.length ? await leerPorIds<{ id: number; nombre: string | null }>('leads', 'id, nombre', 'id', rows.map((x) => x.lead_id)) : [];
   const nombre = new Map(leads.map((l) => [Number(l.id), txt(l.nombre)]));
+  // La hora va en la zona del NEGOCIO (la del saludo de la hoja), no en la del día de la fila (`fechaTj`): una llamada de las 9 en
+  // Ciudad de México se dibujaba a las 7. Sin negocio, la zona por defecto.
+  const ws = rows.length ? await getWorkspaceActual().catch(() => null) : null;
+  const tz = ws != null ? await zonaDelNegocio(ws) : ZONA_POR_DEFECTO;
   return rows
-    .map((x) => filaDeLlamadaGrabada(x, { fecha: fechaTj(x.created_at), lead: nombre.get(Number(x.lead_id)) ?? null }))
+    .map((x) => {
+      const fila = filaDeLlamadaGrabada(x, { fecha: fechaTj(x.created_at), lead: nombre.get(Number(x.lead_id)) ?? null });
+      // `llamada` y `hora` (10/11/2026, «Velocidad de llamada»): una fila por llamada, con el lead como su referencia, y su hora.
+      return { ...fila, d: { ...fila.d, llamada: `Llamada #${x.id}`, hora: horaEn(x.created_at, tz) }, r: { ...fila.r, llamada: fila.r.lead } };
+    })
     .filter((x) => enRango(x.f, rg));
 }
 
@@ -926,6 +937,7 @@ async function filasPrimerContacto(rg: Rango): Promise<Fila[]> {
         en_1h: pc.estado === 'contactado' && (pc.minutos ?? Infinity) <= 60 ? 1 : 0, base_1h: cuentaParaLaPrimeraHora(pc) ? 1 : 0,
         con_automatico: pc.automaticoMinutos != null && pc.estado !== 'antes' ? 1 : 0,
         ...(pc.estado === 'contactado' && pc.minutos != null ? { minutos_contacto: pc.minutos } : {}),
+        ...(pc.estado === 'sin_contactar' && pc.esperandoMinutos != null ? { minutos_esperando: pc.esperandoMinutos } : {}),
         // 9/11/2026: hasta el contacto, o lo que lleva esperando. Con sólo `minutos_contacto`, un negocio donde nadie contactó a
         // nadie (los clientes de Código) veía la tabla «Cada lead nuevo» vacía: todas las filas sin valor son «Sin datos».
         ...(pc.estado === 'contactado' && pc.minutos != null ? { espera: Math.round(pc.minutos) * 60 }
