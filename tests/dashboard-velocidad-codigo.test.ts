@@ -14,6 +14,16 @@
 //   · cada cliente de Código la ve PRIMERO sin armarla y sin que se escriba nada en su negocio: es su informe inicial
 //     (`tableroInicialDe`, lib/graficos-plantillas.ts, leído por lib/graficos-tablero.ts con las agencias aprobadas del negocio).
 // Correr: npx tsx --test tests/dashboard-velocidad-codigo.test.ts
+//
+// ── Roturas (9/11/2026, una por vez, con copia y verificada por hash, nunca con git). Base 5 / 0; al final 5 / 0:
+//   · `faltaGrabar` sin descontar a los que están a tiempo                 -> 4 / 1  «el aviso de grabar va…»
+//   · el aviso ADEMÁS de la lista de los más lentos                        -> 4 / 1  «la tarjeta «Primer contacto»…»
+//   · el botón «Grabar llamada» también en un link compartido              -> 4 / 1  «la tarjeta «Primer contacto»…»
+//   · la tabla con `minutos_contacto` (vacía si nadie contactó)            -> 4 / 1  «la hoja trae «Cada lead nuevo»…»
+//   · la tabla plegada en «Todas las piezas» (y = 200)                     -> 4 / 1  «la hoja trae «Cada lead nuevo»…»
+//   · `HOJA_DE_AGENCIA` vacío                                              -> 3 / 2  «cada cliente…», «quien nunca guardó…»
+//   · la página la pasa como `agregar` (se guardaría al abrir)             -> 4 / 1  «quien nunca guardó…»
+//   · la tira sin la hoja de la agencia                                    -> 4 / 1  «quien nunca guardó…»
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
