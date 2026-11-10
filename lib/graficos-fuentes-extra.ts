@@ -342,6 +342,8 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
       r('pct_1h', 'Contactados en la primera hora (%)', 'pct', 'en_1h', 'base_1h', 100),
       // Un promedio de tiempos mentiría (uno de diez días lo arrastra todo): mediana y p90, como `conversaciones`.
       atributo('minutos_contacto', 'Minutos hasta el primer contacto'),
+      // Hasta el contacto, o esperando si nadie lo contactó (9/11/2026): la tabla de cada lead nunca queda vacía por no contactar.
+      atributo('minutos_espera', 'Minutos hasta el contacto, o esperando'),
       menos(percentil('mediana_contacto', 'Mediana del primer contacto (min)', 'minutos_contacto', 50)),
       menos(percentil('p90_contacto', 'Primer contacto más lento, p90 (min)', 'minutos_contacto', 90)),
       m('con_automatico', 'Les escribió primero una automatización'),

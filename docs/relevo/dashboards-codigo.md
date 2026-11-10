@@ -16,8 +16,8 @@ Código Inmobiliario»: cuánto tarda cada inmobiliario en contactar a un lead d
 - **«Velocidad de llamada»**: tabla «Cada lead nuevo» a la vista (por lead, tramo, canal, minutos; la fila abre la ficha) debajo del
   primer contacto.
 - **La tarjeta «Primer contacto»**: cuando la mayoría sale sin contactar, explica que MaKo sólo ve lo grabado y trae «Grabar llamada».
-- **Cada cliente aprobado de Código (agencia 13) arranca con «Velocidad de llamada» adelante** si nunca guardó su Dashboard
-  (`HOJA_DE_AGENCIA`): no se escribe nada en su negocio.
+- **Cada cliente aprobado de Código (agencia 13) ve «Velocidad de llamada»** si nunca guardó su Dashboard (`HOJA_DE_AGENCIA`, y
+  app/dashboard/page.tsx la muestra con `esHojaDeAgencia`): no se escribe nada en su negocio hasta que la persona toca algo.
 
 ## Producción: qué se escribió y qué no
 
@@ -26,6 +26,16 @@ ws 15 (sub 10) y ws 23 (sub 27). Script, que sin `--escribir` sólo mira:
 `C:\Users\marti\AppData\Local\Temp\claude\fb1d94a1aca5ced3\59eaa8ef-0b34-4e77-b927-ff2bd794a546\scratchpad\instalar-velocidad.mts`
 (se corre desde el worktree con `node --conditions=react-server --env-file=<clon>/.env.local --import tsx <script>`). Va sólo con el
 sí de Martín escrito en el chat.
+
+## El mensaje para Juanfran (borrador, NO enviado: lo manda Martín)
+
+> Juanfran, ya está en MaKo. Cada cliente tuyo tiene en su Dashboard la hoja «Velocidad de llamada»:
+> • Arriba, el botón «Grabar llamada»: eligen el lead y graban.
+> • «Primer contacto»: cuánto tardan en contactar a un lead desde que entra al CRM (la mediana, el % en la primera hora y
+>   cuántos siguen sin contactar).
+> • «Cada lead nuevo»: cada lead con lo que tardaron.
+> Ojo: MaKo sólo ve el contacto si la llamada se graba con ese botón (o si le escriben por WhatsApp desde la línea conectada).
+> Hoy casi todos salen «sin contactar» porque llaman del celular sin grabar. Si graban cada llamada, el número es real.
 
 ## Lo que falta
 
