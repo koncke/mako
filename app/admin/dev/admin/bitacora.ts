@@ -625,6 +625,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin',
   },
+  {
+    fecha: '10 nov', hora: '17:03', chat: 'Admin', sesion: 'cli_64315a72-4021-5d70-a2c0-b9952e7a27a5', cuenta: 'nube', actor: 'claude', tipo: 'correccion',
+    titulo: 'Los cinco números que encontró la revisión de Revenue con el libro',
+    puntos: [
+      'Un revisor que no escribió el código encontró cinco números mal. **El MRR de la agencia era el de su último pago**, no el de su mes: un mes pagado en dos partes daba la mitad, y dos meses juntos el doble. Ahora el libro dice cuánto entró para cada mes, y eso es el MRR.',
+      '«Por cobrar» volvía a reclamar diciembre por la otra clave de la misma suscripción, y con el libro pagado tarde. Ahora no.',
+      'Sólo se reemplaza la suscripción que es la mensualidad de la agencia: otra cosa que le vendimos no se toca.',
+      'Una entrada marcada a mano anotaba lo que se debía como cobrado: no suma y se avisa. En Sales › Orders, el recibo de una orden del libro ahora suma (decía «No suma»).',
+      'Probado rompiéndolo: 23 roturas, las 23 en rojo.',
+    ],
+    commits: [{ sha: '1d626465b', msg: 'Revenue y el libro de las agencias: los arreglos de la revisión independiente', lineas: 400, archivos: 7 }],
+    archivos: [
+      'lib/admin-ingresos-libro.ts — `historiaDelLibro`: lo que entró para cada mes y lo próximo, con el día 5',
+      'lib/admin-ingresos-reglas.ts — `conElLibro` con `mensualidades`, y «Por cobrar» por la historia',
+      'app/admin/_polar/datos/ventas.ts — el recibo de una orden del libro suma en Orders',
+    ],
+    revisar: '/admin',
+  },
 ];
 
 export const PARTES: Parte[] = [

@@ -48,12 +48,30 @@ El relevo: [relevo/nube-ingresos-agencia.md](relevo/nube-ingresos-agencia.md).
   pueden leer los recibos, tampoco se cuenta el libro (sin saber qué está atado contaría dos veces) y se dice. Sin la mig 0397 (la tabla
   no existe), nada está atado. Un mes marcado pagado a mano SIN orden no tiene cuánto entró ni con qué atarse: no suma, y se avisa.
 
+- **⚠️ La revisión independiente encontró cinco números mal que los tests no probaban (y era plata):**
+  - **El MRR de una suscripción sin historia es el de su ÚLTIMO PAGO**, no el de su mes (`periodosDe` junta pagos a menos de 7
+    días). Un mes del libro pagado en dos partes con 9 días entre ellas daba 150 de 300; dos meses en una orden, 600. El libro SABE
+    de qué mes es cada parte, así que lleva su historia (`historiaDelLibro`) y `conMensualidad` le pone a cada mes lo suyo. **Cuando
+    la fuente dice el período de un pago, el período sale de ahí, no de la fecha.**
+  - **Dos claves de la misma suscripción comparten la historia** (`proximosDeSuscripciones` pone la misma en `lead:<id>:casa` y
+    `lead:<id>:<crm>`): saltear la clave reemplazada dejaba a la otra reclamando la deuda. Se saltea por la clave Y por la historia.
+  - **«Reemplazada» no es sólo «cortada»:** si el libro arranca después de que el CRM se cortó por la gracia, no hay nada que cortar
+    y la historia igual reclama diciembre. La regla es «su último tramo es anterior a un arranque del libro».
+  - **Cortar «la suscripción del CRM de la agencia» corta todo lo que le vendimos.** Se corta sólo la que es su mensualidad
+    (`es_mensualidad`, que el lector pasa como `PagoIngreso.mensualidad`).
+  - **Una orden `AMANO…` no es una orden**: `marcarEntradaPagada` sin pago la anota por lo que SE DEBÍA. Se trata como un mes marcado
+    a mano: no suma y se avisa.
+  - Y Sales › Orders decía «No suma — Overview no lo ve» sobre el recibo 0003, que desde esta punta Overview sí ve: el recibo de una
+    orden del libro suma (`pedidosDe`).
+
 **Lo que quedó sin hacer** (medido, no tocado):
 - **Sales › Subscriptions sigue leyendo la historia del CRM** (`suscripcionesDeLaPlataforma`, app/admin/_polar/datos/ventas-server.ts):
   desde diciembre va a decir «Atrasada» sobre la suscripción del CRM de Código aunque el libro la haya cobrado. Revenue y Customers ya
   no. Decide quien lleve Sales si ahí la suscripción de una agencia pasa a ser la del libro.
-- **Sales › Orders no lista las órdenes del libro como pedidos** (su filtro es `^[pc]:\d+$`): muestra su recibo como «cargado a mano», que
-  es la misma plata una vez. No hay doble conteo en una pantalla, pero el pedido no dice «Binance · orden …».
+- **Sales › Orders no lista las órdenes del libro como pedidos** (su filtro es `^[pc]:\d+$`): las muestra por su recibo, que ahora suma.
+  Una orden sin recibo no aparece en Orders y sí en Revenue.
+- **Una orden cargada también a mano en la ficha del CRM se cuenta dos veces**: un pago de la ficha no guarda la orden (sólo la
+  pasarela llena `proveedor_pago_id`), así que sólo se ata por el recibo. Y una orden repartida cuenta como dos pagos en los conteos.
 - **El movimiento «sube» de noviembre aparece el 1/12 cuando hoy es diciembre**, con o sin el libro: es de la historia mes a mes
   (`conMensualidad` sobre una mensualidad inferida). Medido en el hijo; no es de esta punta.
 
