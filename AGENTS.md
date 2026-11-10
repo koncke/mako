@@ -2775,6 +2775,17 @@ textos pegados de la llamada). El arnés lo veía, y se corrió después del dep
   pregunta sobre el flujo. Lo que se cambia para una falla rompe otra cosa que nadie estaba mirando.
 - **El test que fija la regla tal como la escribiste no es una prueba de uso.** Prueba que el código dice lo que pensaste,
   no que lo que pensaste sirve.
+- **Un agente que RECOMIENDA (el Marketing CoPilot, 9/11/2026) se mide con conversaciones enteras**, con la persona
+  simulada por otro modelo que sabe más de lo que dice: lo que el agente no pregunta, no aparece. Con 21 tests en verde,
+  la batería del CoPilot dio 5,1 de 12 (`scripts/probar-chats/copiloto.mts`, docs/relevo/marketing-copilot-pruebas.md).
+
+# Una ficha de referente que la persona NO eligió no viaja con sus reglas de atribución (9/11/2026)
+
+Las fichas de lib/asesores viajan con `reglasDe` (lib/asesores/contexto.ts), que dice «ATRIBUYE SIEMPRE» y «este chat está
+inspirado en X». Usada como relleno (la ficha «por defecto» de un funnel), el agente firmaba cada mensaje «inspirado en»
+alguien que nadie eligió, contra su propia regla de no nombrar fuentes. **La regla:** `contextoDeReferente` sólo para el
+referente que la persona ELIGIÓ; una ficha que entra por el tema va sin sus reglas de atribución, como material de apoyo
+(molde: `fichaDeApoyo` en lib/media-buyer/copiloto-contexto.ts). Y si no hace falta, no viaja: son ~5.000 caracteres por mensaje.
 
 # Leer texto libre con reglas falla en lo obvio: la red es que la persona CONFIRME lo que se entendió
 

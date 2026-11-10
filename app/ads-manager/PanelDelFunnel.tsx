@@ -19,7 +19,7 @@ import Link from '@/app/_ui/Link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   compararFunnels, cuentaDe, datosDeDecision, fichaDelNegocio, funnelElegido, medirDe, propuestaDe, recomendarFunnel, recorridoDe, tareasDeLaSemana,
-  funnelPorId, type ClaveDato, type IdFunnel, type PerfilCopiloto,
+  funnelPorId, RUTAS_COPILOTO, type ClaveDato, type IdFunnel, type PerfilCopiloto,
 } from '@/lib/media-buyer/copiloto';
 
 export type VistaPanel = 'funnel' | 'semana' | 'medir';
@@ -40,6 +40,13 @@ type Props = {
   arriba?: ReactNode;
   /** «Inspirado en X», sólo si eligió un referente que enseña este funnel (lib/asesores/catalogo.ts → `inspiradoEn`). */
   inspirado?: string | null;
+};
+
+/** El nombre de la pantalla de MaKo de cada ruta del CoPilot: el botón dice a dónde lleva, no «Ir». */
+const PANTALLA_DE: Readonly<Record<string, string>> = {
+  [RUTAS_COPILOTO.copywriter]: 'Copywriting', [RUTAS_COPILOTO.video]: 'Video', [RUTAS_COPILOTO.web]: 'Web Generator', [RUTAS_COPILOTO.leadMagnets]: 'Lead Magnet',
+  [RUTAS_COPILOTO.carruseles]: 'Carruseles', [RUTAS_COPILOTO.calendario]: 'Calendario', [RUTAS_COPILOTO.competencia]: 'Competitor Spy', [RUTAS_COPILOTO.email]: 'Email',
+  [RUTAS_COPILOTO.chats]: 'Chats', [RUTAS_COPILOTO.crm]: 'CRM', [RUTAS_COPILOTO.avatar]: 'AI Avatar', [RUTAS_COPILOTO.integraciones]: 'Integraciones',
 };
 
 /** Las claves del perfil que cambiaron (para marcarlas un momento). */
@@ -78,7 +85,7 @@ export function PanelDelFunnel({ perfil, modo, onPreguntar, onFunnel, onUsar, pu
   const semana = useMemo(() => {
     const t = tareasDeLaSemana(perfil);
     if (t.length) return t.map((x) => ({ texto: x.titulo, detalle: x.detalle, href: x.href, accion: x.accion }));
-    return (propuestaDe(perfil)?.pasos ?? []).map((x) => ({ texto: x.texto, detalle: '', href: x.href, accion: x.href ? 'Ir' : '' }));
+    return (propuestaDe(perfil)?.pasos ?? []).map((x) => ({ texto: x.texto, detalle: '', href: x.href, accion: x.href ? PANTALLA_DE[x.href] ?? 'Abrir' : '' }));
   }, [perfil]);
   const faltan = ficha.falta.slice(0, 3);
   const masFaltan = ficha.falta.length - faltan.length;

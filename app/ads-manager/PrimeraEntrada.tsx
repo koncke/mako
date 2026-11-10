@@ -38,7 +38,7 @@ import type { ElegidoChat } from '@/lib/chat-mako-reglas';
 import {
   RUTAS_COPILOTO, REFERENTES_COPILOTO, SIN_REFERENTE, acuseDeVolver, aplicarCambio, desdeDelCopiloto, funnelElegido, funnelPorId, interpretarEscrito, mensajesDeCopiloto,
   nombreDelReferente, pasoDeCopiloto, pasosRespondidos, plano, preguntaDeCopiloto, propuestaDe, textoDeFuera, volverUnPaso,
-  PREGUNTAS_DE_DATO, esPregunta, leerDato, opcionesDeCopiloto,
+  PREGUNTAS_DE_DATO, esPregunta, fichaDelNegocio, leerDato, opcionesDeCopiloto,
   type ClaveDato, type IdFunnel, type PasoCopiloto, type PerfilCopiloto,
 } from '@/lib/media-buyer/copiloto';
 import { PanelDelFunnel } from './PanelDelFunnel';
@@ -63,7 +63,7 @@ async function leerGuardado(): Promise<PerfilCopiloto | null> {
 }
 
 /** Algo que dijo MaKo (o la persona) fuera del guion, pegado a la pregunta en la que pasó. */
-type Nota = { id: string; paso: PasoCopiloto; de: 'mako' | 'yo'; texto: string; opciones?: Array<{ texto: string; perfil: PerfilCopiloto | null; deshacer?: boolean }>; visible: boolean };
+type Nota = { id: string; paso: PasoCopiloto; de: 'mako' | 'yo'; texto: string; opciones?: Array<{ texto: string; perfil: PerfilCopiloto | null; deshacer?: boolean; dato?: true }>; visible: boolean };
 /** Un mensaje para MaKo: sale por el motor, en orden. */
 type Envio = { vez: number; paso: PasoCopiloto; texto: string; enviado: boolean; visible: boolean; fallo?: boolean };
 
@@ -239,29 +239,46 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
     const q = PREGUNTAS_DE_DATO[k];
     setVistaChica('chat');
     setDatoPendiente(k);
-    nota({ paso, de: 'mako', texto: q.pregunta, opciones: q.opciones.map((o) => { const c = leerDato(k, o); return { texto: o, perfil: c ? aplicarCambio(p, c) : null }; }) });
+    nota({ paso, de: 'mako', texto: q.pregunta, opciones: q.opciones.map((o) => { const c = leerDato(k, o); return { texto: o, perfil: c ? aplicarCambio(p, c) : null, dato: true as const }; }) });
+  };
+  /**
+   * Guardar un DATO (la meta, el país…): no mueve la charla, así que NO pasa por `ir`. `ir` esconde lo hablado en el paso al que se
+   * «vuelve», y un dato no cambia el paso: con `ir`, contestar el país borraba la pregunta y lo que se había charlado en ese paso.
+   */
+  const fijarDato = (sig: PerfilCopiloto, dijo: string) => {
+    setDatoPendiente(null);
+    setP(sig);
+    setError(null);
+    void guardarYa(sig);
+    nota({ paso, de: 'yo', texto: dijo });
+    nota({ paso, de: 'mako', texto: 'Anotado en tu funnel.' });
   };
   /** Otro funnel, elegido en la comparación del panel: se cambia como si lo hubiera elegido en la charla, y MaKo sigue con lo que falte. */
   const cambiarFunnel = (id: IdFunnel) => {
     const nuevo = funnelPorId(id);
     if (!nuevo) return;
     setVistaChica('chat');
-    nota({ paso, de: 'yo', texto: `Quiero probar con ${nuevo.nombre.toLowerCase()}` });
-    nota({ paso, de: 'mako', texto: `Listo, cambiado: ${nuevo.nombre}. Te pregunto lo que cambia con este funnel.` });
-    ir(aplicarCambio(p, { entrada: p.entrada ?? 'funnel', funnel: id, ajuste: undefined, antesDelAjuste: undefined, aceptado: undefined }));
+    const sig = aplicarCambio(p, { entrada: p.entrada ?? 'funnel', funnel: id, ajuste: undefined, antesDelAjuste: undefined, aceptado: undefined });
+    // Primero el cambio (que esconde lo de los pasos que se vuelven a preguntar) y DESPUÉS el acuse, en el paso nuevo: al revés, lo escondía.
+    const pasoNuevo = pasoDeCopiloto(sig);
+    ir(sig);
+    nota({ paso: pasoNuevo, de: 'yo', texto: `Quiero probar con ${nuevo.nombre.toLowerCase()}` });
+    nota({ paso: pasoNuevo, de: 'mako', texto: `Listo, cambiado: ${nuevo.nombre}.${pasoNuevo === 'propuesta' ? '' : ' Te pregunto lo que cambia con este funnel.'}` });
   };
   /** «Usar este funnel» del panel: lo mismo que la pastilla de la propuesta. */
   const usarElFunnel = () => { if (paso === 'propuesta') responderPastilla(opcionesDeCopiloto('propuesta', p)[0]); };
 
   const escribir = (t: string) => {
     // La respuesta al dato que MaKo preguntó desde el panel (un número, un país): sin IA. Una pregunta va a MaKo, como siempre.
+    // Lo escrito se CONFIRMA antes de guardarse (AGENTS.md, «Leer texto libre con reglas falla en lo obvio: la red es que la persona
+    // CONFIRME»): «Entendí México. ¿Lo anoto?». Una pastilla ya es el toque y se guarda directo.
     if (datoPendiente && !esPregunta(t)) {
       const c = leerDato(datoPendiente, t);
       if (c) {
-        setDatoPendiente(null);
+        const sig = aplicarCambio(p, c);
+        const valor = fichaDelNegocio(sig).sabe.find((d) => d.clave === datoPendiente)?.valor ?? t;
         nota({ paso, de: 'yo', texto: t });
-        nota({ paso, de: 'mako', texto: 'Anotado en tu funnel.' });
-        ir(aplicarCambio(p, c));
+        nota({ paso, de: 'mako', texto: `Entendí: ${valor}. ¿Lo anoto?`, opciones: [{ texto: 'Sí, anótalo', perfil: sig, dato: true }, { texto: 'No, es otra cosa', perfil: null, dato: true }] });
         return;
       }
     }
@@ -384,8 +401,13 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
                 onClick={() => {
                   if (o.deshacer) { deshacerEmpezar(); return; }
                   setNotas((ns) => ns.map((x) => (x.id === n.id ? { ...x, opciones: undefined } : x)));
-                  // Una respuesta rápida contesta el dato pendiente; «Otro» (sin perfil) lo deja abierto para escribirlo.
-                  if (o.perfil) { setDatoPendiente(null); ir(o.perfil); }
+                  // Una respuesta rápida a un DATO se guarda sin mover la charla (`fijarDato`); «Otro» (sin perfil) lo deja abierto
+                  // para escribirlo. Las demás (fuera del referente, «Deshacer») mueven la charla, como siempre.
+                  if (o.dato) {
+                    if (o.perfil) fijarDato(o.perfil, o.texto);
+                    else { nota({ paso, de: 'yo', texto: o.texto }); nota({ paso, de: 'mako', texto: 'Escríbelo abajo y lo anoto.' }); }
+                  }
+                  else if (o.perfil) { setDatoPendiente(null); ir(o.perfil); }
                 }}>{o.texto}</button>
             ))}
           </div>

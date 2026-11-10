@@ -29,6 +29,14 @@ test('la primera entrada: quien nunca operó el Media Buyer o tiene la cuenta va
   const pe = sinComentarios(leer('app/ads-manager/PrimeraEntrada.tsx'));
   assert.match(pe, /<PanelDelFunnel perfil=\{p\} modo="charla"[^>]*onPreguntar=\{preguntarDato\} onFunnel=\{cambiarFunnel\} onUsar=\{usarElFunnel\}/);
   assert.match(sinComentarios(leer('app/ads-manager/PlanDelCopiloto.tsx')), /<PanelDelFunnel perfil=\{perfil\} modo="listo" \/>/);
+  // Un DATO se guarda sin mover la charla: por `ir` (el camino de «Volver») escondía la pregunta y lo hablado en el paso (9/11/2026).
+  const fijar = pe.slice(pe.indexOf('const fijarDato'), pe.indexOf('const cambiarFunnel'));
+  assert.ok(fijar.includes('setP(sig)') && !/\bir\(/.test(fijar), 'fijarDato no pasa por ir');
+  // Lo ESCRITO se confirma antes de guardarse (AGENTS.md, «la red es que la persona CONFIRME»); una pastilla ya es el toque.
+  assert.match(pe, /Entendí: \$\{valor\}\. ¿Lo anoto\?/);
+  // Y al cambiar de funnel el acuse va DESPUÉS del cambio, en el paso nuevo (antes, `ir` lo escondía).
+  const cambiar = pe.slice(pe.indexOf('const cambiarFunnel'), pe.indexOf('const usarElFunnel'));
+  assert.ok(cambiar.indexOf('ir(sig)') < cambiar.indexOf('nota({ paso: pasoNuevo'), 'el acuse va después de ir');
   assert.match(leer('app/ads-manager/page.tsx'), /sp\.estrategia === '1'/, '«Cambiar mi estrategia» reabre la charla');
   // En el teléfono también (6/11/2026): el link es el mismo (/ads-manager?estrategia=1) y el desvío lo deja viajar.
   const m = sinComentarios(leer('app/m/ads/page.tsx'));

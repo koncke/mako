@@ -93,3 +93,38 @@
 - **Regla (la de AGENTS.md, «Leer texto libre con reglas falla en lo obvio»):** lo que termina algo sin vuelta (aceptar la propuesta) pide una lectura estrecha; lo dudoso va a MaKo, que tiene el contexto. Y lo que se puede deshacer (empezar de nuevo) se puede leer más ancho porque el «Deshacer» devuelve todo.
 - **Trampa repetida:** `\b` después de «sí» no corta (es ASCII): «Sí, investígala» dejó de entenderse con un `^s[ií]\b`. Va `(?![a-záéíóúñ])`.
 - **Y el veredicto cazó lo que el filtro chico no:** «acá» y «cambialo» en archivos nuevos. El guard de voseo barre con `git ls-files`: un archivo sin `git add` es invisible para él.
+
+## La batería con el turno de verdad: los tests miraban el system, no lo que contesta (9/11/2026)
+
+- **Síntoma:** con 21 tests del agente en verde, siete conversaciones reales (`scripts/probar-chats/copiloto.mts`, el `turnoApp` de producción en el ws 9) dieron 5,1 de 12. Hacía de redactor (el anuncio, el post, el guion al segundo mensaje), no preguntaba la meta en ningún caso, a una tienda no le preguntó el presupuesto ni el margen, se contradijo con MaKo (VSL sin saber el precio, y al turno siguiente «con US$1.000 no alcanza»), y en 56 turnos no guardó nada ni usó `calcular_presupuesto_anuncios`. El detalle: `docs/relevo/marketing-copilot-pruebas.md`.
+- **Causa:** los tests probaban que el system TRAE lo correcto (la regla AGENTS.md «El test que fija la regla tal como la escribiste no es una prueba de uso»). El system traía reglas de anuncios de ticket alto y casi nada de cómo descubrir un negocio: ningún orden de trabajo, ninguna lista de lo que falta, y para una tienda, un local o el email, nada.
+- **Regla:** un cambio en el agente del CoPilot corre la batería ANTES de la punta (dos tandas en paralelo, unos 40 min por la red del ws 9). El arnés pone el negocio de cada caso en memoria (perfil del negocio, Second Brain, lecturas de la cuenta), el perfil del CoPilot en memoria, y la persona la hace Haiku con una ficha que tiene MÁS de lo que dice sola: lo que MaKo no pregunta, no aparece.
+- **Trampa del arnés:** `contextoDelCopiloto(perfil)` a secas deja el turno mudo a la edición de /configuraciones: el arnés y la ruta pasan por `contextoDelCopilotoVigente`.
+
+## «Inspirado en Juan Osorio» en cada mensaje: no era el modelo, era la ficha por defecto (9/11/2026)
+
+- **Síntoma:** en cuatro de siete casos el agente firmaba casi cada mensaje «inspirado en la metodología de Juan Osorio», también a una nutricionista que quería YouTube, y a una inmobiliaria «la máquina de selección natural de Marcos Razzetti». Nadie los había elegido.
+- **El diagnóstico obvio era el equivocado:** parecía un modelo chico que no sigue la regla 4. La causa estaba en el código: sin funnel ni referente, `fichasDelCopiloto` mandaba la ficha de Juan ADS, y toda ficha viaja con `reglasDe` (lib/asesores/contexto.ts), que dice «ATRIBUYE SIEMPRE». La regla 4 y la ficha se contradecían, y ganaba la ficha.
+- **Dónde vive:** `lib/media-buyer/copiloto-contexto.ts` → `fichasDelCopiloto` (sin funnel, ninguna) y `fichaDeApoyo` (la del funnel, sin nombre ni «inspirado en»). Sólo el referente ELEGIDO viaja con `contextoDeReferente`. Lo fija `tests/marketing-copilot-agente.test.ts` («qué fichas viajan»).
+- **Regla:** una ficha de lib/asesores que la persona no eligió no viaja con sus reglas de atribución: va como material de apoyo.
+
+## En el ws 9 el CoPilot contesta con gemini-flash-lite, y tarda hasta 4 minutos (9/11/2026)
+
+- **Síntoma:** turnos de 15 a 270 s, y respuestas con errores de modelo chico («ispirado», «expiar» por exprimir, una marca `[no-pude: …]` a la vista).
+- **Causa:** la cascada de la plataforma prueba las cuatro claves de Gemini del ws 9 (`credenciales`, la misma base en local y producción): `GEMINI_API_KEY` y `_4` dan 401 «API key not valid», `_2` da 429 (cuota diaria gratis agotada) y `_3` se pasa de tiempo con flash y rota a flash-lite. Un negocio con su propio Claude o GPT no pasa por acá.
+- **Sin hacer:** renovar o sacar las dos claves vencidas del ws 9 (es de Martín). Y el doer saca `[[no-pude: …]]` pero no `[no-pude: …]` con un corchete (lib/doer-salida.ts): un modelo chico lo escribe mal y queda a la vista.
+
+## El panel y el agente leen la MISMA pieza (9/11/2026)
+
+- **Dónde vive:** `fichaDelNegocio`, `recorridoDe`, `cuentaDe`, `compararFunnels` y `datosDeDecision` (lib/media-buyer/copiloto.ts, puro). El system del agente («LO QUE YA SABES», «LO QUE TE FALTA», «LOS FUNNELS PARA ESTE NEGOCIO», «LA CUENTA») y el panel de la tab (`app/ads-manager/PanelDelFunnel.tsx`) salen de ahí. Lo fija `tests/marketing-copilot-descubrir.test.ts`.
+- **Trampa que se cazó escribiéndolo:** `completar` pone el presupuesto en 0 cuando el funnel no lleva anuncios; sin funnel, eso convertía «no lo dijo» en «no tiene plata», y toda la comparación salía «no le sirve» para los anuncios. `datosDeDecision` decide sólo con lo que la persona dijo.
+- **Trampa de la pantalla:** guardar un DATO (la meta, el país) por `ir` (el camino de la charla) escondía la pregunta y lo hablado en ese paso: `ir` lo toma como «volver al mismo paso». Un dato va por `fijarDato`, y el acuse de un cambio de funnel va DESPUÉS de `ir`, en el paso nuevo. Lo fija `tests/marketing-copilot-pantallas.test.ts`.
+- **Trampa de CSS:** `display: contents` en el `<li>` de una ficha le borraba la caja (borde y relleno) y las fichas salían como texto suelto. Se vio en la captura, no en un test.
+- **Lo escrito se confirma:** una respuesta escrita a un dato («Uruguay») se muestra como «Entendí: Uruguay. ¿Lo anoto?» antes de guardarse (AGENTS.md, «la red es que la persona CONFIRME»); una pastilla ya es el toque.
+
+## Sin hacer (9/11/2026)
+
+- **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
+- **El Funnel Coach del Ops Center y el CoPilot guardan el funnel en dos lugares** (`guardar_plan_funnel` en lib/funnel-plan-db.ts y `marketing-copilot.perfil`). Hablan de lo mismo con dos memorias.
+- **La pantalla de un funnel CON anuncios** (Hoy · Campañas · Plan · Biblioteca, `MediaBuyer.tsx`) sigue con su diseño: la de dos columnas se hizo para la charla y para los funnels sin anuncios.
+- **Knowledge de anuncios y de orgánico está vacío** (`mako_knowledge`, áreas `ads` y `organico`). El CoPilot ya lleva `leer_modulo_knowledge`: cuando llegue el curso de gestión de campañas, lo usa sin tocar nada acá.

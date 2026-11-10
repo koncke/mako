@@ -15,6 +15,9 @@ import { useState } from 'react';
 import { ConversacionCerebro, MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import { CajaDeOrden } from './Hoy';
 import { PanelDelFunnel } from './PanelDelFunnel';
+import { CSS_OFFER } from '@/app/offer/estilos';
+
+const SUGERENCIAS_DE_APERTURA = ['¿Qué hago esta semana?', '¿Y si pruebo otro funnel?', 'Revisemos mis números'] as const;
 import { funnelElegido, medirDe, propuestaDe, tareasDeLaSemana, type PerfilCopiloto, type SeccionCopiloto } from '@/lib/media-buyer/copiloto';
 
 const ROTULO: Record<SeccionCopiloto, string> = { hoy: 'Hoy', plan: 'Plan', campanas: 'Campañas', biblioteca: 'Biblioteca', semana: 'Esta semana', medir: 'Qué medir' };
@@ -78,8 +81,20 @@ export function SeccionMedir({ perfil }: { perfil: PerfilCopiloto }) {
 export function EstrategiaCopiloto({ perfil }: { perfil: PerfilCopiloto }) {
   const f = funnelElegido(perfil);
   const [vista, setVista] = useState<'chat' | 'funnel'>('funnel');
+  const [pedido, setPedido] = useState<{ texto: string; vez: number } | null>(null);
+  // Lo primero que dice MaKo aquí (si el Cerebro no tiene nada más reciente): las tres cosas que se hacen con un funnel en marcha, como
+  // los arranques sugeridos de las referencias (Zapier, HubSpot). Cada una sale al chat tal cual, con el contexto del CoPilot.
+  const apertura = (
+    <div className="cp-apertura">
+      <p>{f ? `Tu funnel está en marcha: ${f.nombre}. ¿Qué miramos?` : '¿Qué miramos de tu estrategia?'}</p>
+      <div className="aa-rapidas" role="group" aria-label="Para empezar">
+        {SUGERENCIAS_DE_APERTURA.map((s) => <button key={s} type="button" className="of-pill" onClick={() => { setVista('chat'); setPedido({ texto: s, vez: Date.now() }); }}>{s}</button>)}
+      </div>
+    </div>
+  );
   return (
     <div className="aa aa-dos aa-copiloto">
+      <style>{CSS_OFFER}</style>
       <h1 className="cp-oculto">Marketing CoPilot</h1>
       <div className="cp" data-vista={vista}>
         <div className="cp-switch" role="group" aria-label="Qué ver">
@@ -88,7 +103,8 @@ export function EstrategiaCopiloto({ perfil }: { perfil: PerfilCopiloto }) {
         </div>
         <section className="cp-chat" aria-label="MaKo en Marketing CoPilot">
           <div className="cp-chat-cerebro">
-            <ConversacionCerebro tab="Marketing CoPilot" titulo="MaKo" pantalla={`Marketing CoPilot · ${f?.nombre ?? 'sin funnel'} · el panel muestra su funnel, esta semana y qué medir`} />
+            <ConversacionCerebro tab="Marketing CoPilot" titulo="MaKo" apertura={apertura} pedido={pedido} onMandado={() => setPedido(null)}
+              pantalla={`Marketing CoPilot · ${f?.nombre ?? 'sin funnel'} · el panel muestra su funnel, esta semana y qué medir`} />
           </div>
         </section>
         <PanelDelFunnel perfil={perfil} modo="listo" />

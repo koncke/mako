@@ -431,7 +431,9 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
 .aa.aa-dos { padding: 14px 16px 14px calc(16px + var(--ancho-panel-mako, 0px)); container-type: inline-size; container-name: copiloto; }
 .cp { height: calc(100dvh - 28px); min-height: 560px; display: grid; grid-template-columns: minmax(340px, 420px) minmax(0, 1fr); gap: 14px; }
 .cp-chat { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.cp-chat .aa-arranque-hilo { flex: 1; border-top-width: 1px; }
+.cp-chat .aa-arranque-hilo { flex: 1; border-top: 1px solid var(--border); }
+.cp-apertura { display: grid; gap: 10px; padding: 4px 0 8px; }
+.cp-apertura p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
 .cp-chat-cerebro { flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
 .cp-chat-cerebro > .co-panel, .cp-chat .aa-arranque-hilo > .co-panel { flex: 1; min-height: 0; }
 /* El hilo y la caja a la medida de la TARJETA, como en Create (app/_crear/crear.css → `.cr-tarjeta`): centro.css les da un aire que
@@ -460,7 +462,7 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
 .cp-link:hover { text-decoration-color: currentColor; }
 /* Lo que MaKo sabe: fichas chicas; lo que falta, punteado en el dorado de MaKo y se toca (MaKo lo pregunta en el chat). */
 .cp-datos { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.cp-datos > li { display: contents; }
+.cp-datos > li:has(> .cp-falta) { display: flex; }
 .cp-dato { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 112px; max-width: 260px; padding: 7px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); text-align: left; transition: border-color .2s ease, box-shadow .3s ease; }
 .cp-dato span { font-size: 11px; font-weight: 600; color: var(--faint); }
 .cp-dato b { font-size: 13.5px; font-weight: 650; color: var(--ink); line-height: 1.3; }
