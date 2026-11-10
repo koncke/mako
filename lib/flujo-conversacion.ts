@@ -50,6 +50,7 @@
 
 // Puro (sólo importa ./template-vars): la pregunta «¿este HTML tiene algo que leer?» del saneo del email.
 import { htmlEmailVacio } from './email-html-seguro';
+import { corcheteDe, problemaDeCorchete } from './flujo-relleno';
 // Instagram y Messenger (sexta tanda, parte «canales»): sus tarjetas, su ＋ y su «Probar». Puro.
 import { esCanalSocial, logoSocialSvg, VENTANA_META_MS, type CanalSocial } from './canal-social';
 import { botonesDeFlujo, puertoDeBoton } from './botones-social';
@@ -693,6 +694,10 @@ export function faltaEscribir(pasos: readonly PasoGrafo[]): { id: string; error:
     if (claseDe(p) !== 'mensaje') continue;
     const id = idDe(p, i);
     if (mensajeVacio(p)) return { id, error: `Falta completar «${nombreDeTarjeta(pasos, id)}»` };
+    // UN TEXTO ENTRE CORCHETES (10/11/2026, la auditoría para un usuario nuevo): «Hola [nombre]» no sale NUNCA y
+    // «[tu link …]» le llega literal al lead. Se frena acá, con la tarjeta marcada (lib/flujo-relleno.ts).
+    const corchete = problemaDeCorchete(p, nombreDeTarjeta(pasos, id));
+    if (corchete) return { id, error: corchete };
   }
   return null;
 }
@@ -712,7 +717,7 @@ export function tarjetasIncompletas(pasos: readonly PasoGrafo[]): Set<string> {
     if (t) out.add(t);
   }
   pasos.forEach((p, i) => {
-    const vacia = esMako(p) ? makoVacia(p) || !!problemaDeEmailMako(paramsDeMakoDe(p)) : claseDe(p) === 'mensaje' && mensajeVacio(p);
+    const vacia = esMako(p) ? makoVacia(p) || !!problemaDeEmailMako(paramsDeMakoDe(p)) : claseDe(p) === 'mensaje' && (mensajeVacio(p) || !!corcheteDe(p));
     if (vacia) out.add(idDe(p, i));
   });
   return out;

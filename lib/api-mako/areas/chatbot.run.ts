@@ -92,6 +92,7 @@ import { getContactoReportes } from '@/lib/perfil';
 import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { getFunnelDefault } from '@/lib/funnels';
 import { enAutomatizaciones } from '@/lib/automatizaciones-del-lead';
+import { RX_RELLENO } from '@/lib/flujo-relleno';
 import {
   secuenciaFila, inscripcionesVivas, handoffFila, inscripcionesDeLead, TOPE_INSCRIPCIONES_LEAD,
   estadoCanalWhatsapp, etapasParaSecuencia, leerObjetivosCustom, esObjetivoDelCatalogo, agregarObjetivoCustom, TOPE_OBJETIVOS_CUSTOM,
@@ -431,9 +432,8 @@ function dondeEntra(pasos: readonly PasoGrafo[], titulo: string): string {
   return `como escenario del AI Step${c ? ` (${ROTULO_LIBERTAD[libertadDeCaso(c)]})` : ''}`;
 }
 
-/** El detector de copy sin terminar del motor (RX_RELLENO en lib/nutricion.ts, que no lo exporta):
- *  un paso con un [corchete] que no sea [tu link …] NO sale nunca y se reprograma cada 24 h. */
-const RX_RELLENO = /\[(?!tu link)[^\]\n]{2,80}\]/i;
+// El detector de copy sin terminar del motor es UNO (`RX_RELLENO`, lib/flujo-relleno.ts, 10/11/2026; antes estaba copiado
+// acá): un paso con un [corchete] que no sea [tu link …] NO sale nunca y se reprograma cada 24 h.
 
 // ── runners ──────────────────────────────────────────────────────────────────
 

@@ -49,6 +49,7 @@ import {
   CATALOGO_AVISOS, AVISOS_DEL_CLIENTE, seEditaElTexto, textoLoArmaElCodigo, correSuFlujo,
 } from '../lib/avisos-catalogo';
 import { AVISOS_POR_EVENTO } from '../lib/aviso-evento';
+import { pasoConRelleno, RX_RELLENO } from '../lib/flujo-relleno';
 import type { Flujo } from '../lib/flujos-tipos';
 import { grafoDeAviso, disparadorCorto } from '../lib/flujo-aviso';
 import { EVENTOS, EVENTOS_SIN_EMISOR, rotuloDeEvento, describirDisparador } from '../lib/flujos-tipos';
@@ -307,12 +308,10 @@ test('9. el esqueleto de `crear_secuencia_mensajes` nace como tarjetas y su rell
   assert.ok(e.some((x) => claseDe(x) === 'esperar' && x.espera?.minutos === 48 * 60), 'perdió las 48 h entre el email y el WhatsApp');
   const mensajes = e.filter((x) => claseDe(x) === 'mensaje');
   assert.deepEqual(mensajes.map((x) => x.canal), ['email', 'whatsapp']);
-  // El relleno lo tiene que reconocer el motor (`RX_RELLENO`, lib/nutricion.ts): si no, el esqueleto sale.
-  const m = /const RX_RELLENO = \/(.+)\/i;/.exec(leer('lib/nutricion.ts'));
-  assert.ok(m, 'no encontré RX_RELLENO en lib/nutricion.ts');
-  const rx = new RegExp(m[1], 'i');
-  for (const x of mensajes) assert.match(x.cuerpo, rx);
-  assert.match(RELLENO_ESQUELETO, rx);
+  // El relleno lo tiene que reconocer el motor: si no, el esqueleto sale. Desde el 10/11/2026 el detector es UNO
+  // (lib/flujo-relleno.ts, el que importa lib/nutricion.ts) y se EJECUTA, en vez de sacar su regex del fuente.
+  for (const x of mensajes) assert.ok(pasoConRelleno(x), `el motor mandaría el esqueleto «${x.cuerpo.slice(0, 40)}»`);
+  assert.match(RELLENO_ESQUELETO, RX_RELLENO);
   assert.doesNotMatch(RELLENO_ESQUELETO, /paso de redacción/, 'el relleno volvió a mandar a un wizard que no existe');
   assert.match(FUENTES.get('lib/setting-secuencias.ts')!, /pasos: pasosDeEsqueleto\(\)/);
 });

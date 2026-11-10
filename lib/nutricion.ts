@@ -170,6 +170,7 @@ import { quedaDondeLoPusieron } from '@/app/crm/origen-lead';
 import { ORIGEN_MIGRACION, quitarMigrados } from '@/lib/migracion-leads';
 // Lo que no se arregla reintentando: el teléfono que falta o no tiene dígitos, y los leads de prueba de Meta (23/10/2026).
 import { esLeadDePruebaDeMeta, MOTIVO_PRUEBA_META, telefonoSinArreglo } from '@/lib/lead-sin-arreglo';
+import { pasoConRelleno } from '@/lib/flujo-relleno';
 
 export type CanalNutricion = 'email' | 'whatsapp' | CanalSocial;
 
@@ -1768,12 +1769,9 @@ function proximoEnvioDePaso(paso: PasoSecuencia | undefined, juntas: JuntasLead 
   return enHorasISO(paso?.delay_horas ?? 0);
 }
 
-// Copy que sigue con texto de relleno del seed ([tu problema], [resultado]…).
-// Los [tu link …] son placeholders del SISTEMA (se reemplazan al enviar) y no
-// cuentan. Espejo del heurístico de la UI (NutricionGenerar).
-const RX_RELLENO = /\[(?!tu link)[^\]\n]{2,80}\]/i;
-const pasoConRelleno = (p: PasoSecuencia): boolean =>
-  RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? '');
+// Copy que sigue con texto de relleno del seed ([tu problema], [resultado]…): no sale nunca. El detector vive en
+// lib/flujo-relleno.ts (10/11/2026), que también usan la API de MaKo y lo que frena Publicar en el lienzo.
+// ⚠️ El comentario de antes decía que los [tu link …] «se reemplazan al enviar»: era FALSO, salen literales.
 
 // ── Inscripción ──────────────────────────────────────────────────────────────
 export type PlanInscripcion = {
