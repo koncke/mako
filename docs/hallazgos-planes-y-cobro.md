@@ -2757,3 +2757,43 @@ curl -sL "https://dlocalgo.com/en/terms-and-conditions" -o terms.html
 
 **Sin hacer:** preguntarle a dLocal **qué ítem del Anexo 1** consideran que incumplimos, y a Whop lo mismo.
 Preguntar no gasta el intento; aplicar sí.
+
+## Cuánto ceder a un socio que vende el anual: lo que limita la comisión no es la IA (10/11/2026, trato con P2P)
+
+**Síntoma:** Juanfran (P2P, socio de Código) no quiere el 100% del primer mes del programa de Partners; pide un % recurrente
+(citó el 40% de por vida de la academia de Ema) y venderles el anual a sus alumnos. Martín nunca había calculado cuánto pagarle a
+quien vende un anual. El número y la oferta están en [referidos.md](referidos.md) §11.
+
+- **⚠️ El diagnóstico obvio era el equivocado: «MaKo tiene costos por usuario, el 40% es el doble del techo».** Esa cuenta
+  (referidos.md §4.3) es de cuando la IA de texto la pagaba MaKo. Desde el 22/10 la paga cada negocio. Medido el 10/11 en
+  `anthropic_usage`: US$0 por negocio que paga. WhatsApp es un fijo (Evolution), los mails y Apify son BYOK. Antes de la comisión,
+  un anual deja el 95-97%. Lo que de verdad baja el techo es esto:
+  - **el impuesto escalonado**: el 8,36% del monotributo es la tasa EFECTIVA de la categoría H sobre US$50.000, no una alícuota;
+    en la K es ~15% y como Responsable Inscripto 22-24% (estrategia-financiera-mako.md:44-46, :128);
+  - **la pasarela fuera de Argentina**: «Whop 5,4% + US$0,30» no incluye el retiro (5% + US$1 en cripto, o US$23 por
+    transferencia) ni la conversión del 1-2% (proveedores-de-cobro.md:113, :253-254);
+  - **el soporte**, que no figura en el modelo del 7/11;
+  - **el cupo de video que está HOY en el código** (US$24,25 y 11,75 por mes, `lib/mako-tokens-reglas.ts:48-52`), no el nuevo
+    sin aprobar.
+- **La comisión de un socio ES su CAC** (`lib/economia-unitaria.ts:26-30`). Con un % sobre cada cobro, LTV:CAC = m ÷ p: el techo a
+  3:1 es p = m ÷ 3. Esto vale sólo si todos los costos son proporcionales al ingreso. El onboarding, el soporte, el almacenamiento
+  que se acumula, el descuento y la prueba gratis no lo son, así que en clientes que duran poco el ratio da de más.
+- **«Acreditado» no es «disponible»**: Mercado Pago acredita a los 35 días, y Whop retiene 120 días en cuentas nuevas y puede
+  reservar hasta el 100% durante 180 (proveedores-de-cobro.md:249-250). Pagarle al socio «cuando se acredita» puede ser pagarle con
+  plata que todavía no se puede retirar.
+- **El 25% de uso del cupo de video no sale de `lib/uso-del-cupo.ts`** (ese archivo dice que la tasa se MIDE). Es el valor inicial
+  del deslizador de `docs/tableros/numeros-mako.html:67`: es un SUPUESTO.
+- **Una comisión de canal se SUMA con la de Partners** si nada lo impide. Un alumno que además es MaKo Partner haría que en el mes
+  1 de un Pro se vaya el 125% del cobro. Hace falta la regla «una sola comisión por cuenta».
+- **El anual nunca se vendió** (0 cobros de US$400 o más en el ws9, medido el 10/11). Se cobra a mano (`lib/planes-mako.ts:58-60`),
+  y el código de partners acreditaría un anual recién en el mes 13 (`lib/partners-programa.ts:317-329` con
+  `PAGOS_PARA_ACREDITAR = 2`). Esto último está DEDUCIDO, no probado.
+- **«Lo pagado no se reembolsa»** (`app/reembolsos/page.tsx:88`) choca con los 10 días de arrepentimiento de la Ley 24.240
+  (art. 34) en una compra a distancia. Lo tiene que mirar el contador.
+
+**Lo que quedó SIN hacer:**
+- decidir quién factura: el MRR declarado (unos US$7.440 al año) casi llena la categoría A de Leandro, y el primer anual la pasa;
+- aprobar los cupos de video nuevos (`docs/pendientes-martin.md:160`);
+- la decisión de Martín entre payback y 3:1 (`app/admin/dev/pricing/modelo.ts:1727-1729`), de la que depende si el 40% está
+  descartado;
+- si se firma con P2P, la regla de una sola comisión por cuenta en el código.

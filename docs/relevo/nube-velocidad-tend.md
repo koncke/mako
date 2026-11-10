@@ -82,4 +82,10 @@ Las capturas están en `docs/diseno/mockups-dashboard/velocidad-tend/captura/`: 
 
 ## 5. Lo que espera una decisión de Martín
 
-Nada nuevo. La única pendiente es la de siempre: reescribir los Dashboards ya guardados de los clientes de Código (sección 4).
+1. **El aviso de «salen sin contactar porque no graban» (su pedido del 9/11) no tiene lugar en Tend**: la página «Today» no trae ningún
+   cartel que explique, así que la hoja nueva no lo lleva (AGENTS.md, «PROHIBIDO INVENTAR»). Lo que sí queda: «Grabar llamada · N» arriba
+   y «Llamar» en cada lead que espera, que abren la misma grabadora de la ficha. Si igual lo quiere, dónde va lo decide él. La tarjeta
+   con el aviso sigue en la hoja de Closing.
+2. **Reescribir los Dashboards ya guardados** de los clientes de Código (ws 15 y 23), con su script (docs/relevo/dashboards-codigo.md):
+   el id sigue siendo `velocidad-llamada`, así que el script la reconoce; se corre desde un checkout que ya tenga esta versión.
+3. **El mensaje para Juanfran** (borrador en docs/relevo/dashboards-codigo.md) describe la hoja de antes: hay que reescribirlo con ésta.

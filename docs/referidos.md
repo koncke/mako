@@ -502,3 +502,59 @@ No uso el dato de «45-50 días hasta la primera venta de un partner»: la revis
 - (b) El plan Agencia de 297 solo existe en la tabla vieja `UNIT`, no en `UNIT_V2`. No hay que mezclarlas.
 - (c) El plan de 97 «no se vende hasta el mes 13» (`modelo.ts:1445`), así que todo referido de software es Pro.
 - (d) Paddle no acepta el grupal (`docs/embudo-y-high-ticket.md:547`): la comisión del grupal no puede pasar por Paddle.
+
+## 11. Socio de canal: cuánto ceder en el anual (trato con P2P, 10/11/2026)
+
+**De dónde sale.** En la llamada Fathom «Codigo <> Martin» (30/10, min 42-59), Martín ofreció el 100% del primer mes. Juanfran lo
+rechazó (00:53:13): quiere un ingreso recurrente, citó el 40% de por vida de Ema (00:54:32), y dijo que puede empujar a sus alumnos
+al anual (00:58:12). El 10/11 Martín pidió el número. Lo que cambió desde §4.3: la IA de texto la paga cada negocio desde el 22/10, así
+que la cuenta de «el 40% es el doble del techo» ya no vale. Las trampas de esta cuenta están en
+[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «Cuánto ceder a un socio que vende el anual».
+
+**La vara:** la comisión es el costo de adquisición y la regla es LTV:CAC ≥ 3 (`modelo.ts:246`). Con un % sobre cada cobro, el
+techo es margen ÷ 3.
+
+| Anual | Precio | Le queda a MaKo antes de la comisión: Mercado Pago, sin impuesto | Realista: alumno de afuera (Whop con retiro, monotributo H, soporte, video 25%) | Techo 3:1, realista | 20% para el socio |
+|---|---:|---:|---:|---:|---:|
+| Esencial | 470 | 456 (97%) | ≈ 362 (77%) | 25,7% ≈ US$121 | **US$94** |
+| Pro | 970 | 917 (95%) | ≈ 702 (72%) | 24,1% ≈ US$234 | **US$194** |
+
+Cómo baja el techo en el Pro:
+- con el cupo de video que está hoy en el código: 22,6-23,4%;
+- en la categoría K: 21,9-23,4%;
+- como Responsable Inscripto: 19,2-20,8%.
+
+**La oferta:** 20% de lo COBRADO NETO, sobre cada cobro. Hay dos formas:
+- **(a)** 20% el primer año y 10% en las renovaciones, con tope de 24 meses. LTV:CAC realista de 3,6 a 3,9 aunque nadie renueve.
+- **(b)** Si exige «de por vida», 20% parejo.
+- El techo negociable es ~24%.
+- El 25% cierra sólo si se cobra por Mercado Pago o Binance y el impuesto no pasa de la K.
+
+**El 40% de Ema:** no hace perder plata en cada venta (de un Pro anual realista quedan ~US$314), pero deja el LTV:CAC en ~1,8.
+
+**La alternativa más limpia: precio mayorista.** Juanfran paga el anual por adelantado, por Binance, al 80% de la lista: US$376 el
+Esencial y US$776 el Pro. Lo incluye en su programa P2P y cobra él.
+- Margen de 78-83% y LTV:CAC de ~4.
+- Tiene caja al instante, que es lo que dijo necesitar (01:01:16).
+- El cobro, los reembolsos y los contracargos quedan de su lado.
+- Le resuelve a MaKo que no tiene pasarela fuera de Argentina.
+
+**La cláusula mínima:**
+- Es un X% de lo cobrado neto de pasarela, impuestos y reembolsos.
+- Corre sólo sobre cuentas NUEVAS que entren con el código P2P. Quedan afuera los ws 13 y 14, los clientes de agencia de Código y
+  toda cuenta que ya existía.
+- Es una sola comisión por cuenta: no se suma con Partners.
+- Se liquida por mes, sobre la plata ya DISPONIBLE y con 30 días desde el cobro.
+- Un reembolso o un contracargo se descuenta de la liquidación siguiente; si no alcanza, el socio lo devuelve en 30 días.
+- Las renovaciones se pagan mientras el acuerdo esté vigente: hay salida con 60 días de aviso, y el % se revisa si cambian los
+  costos.
+
+**Lo que no está medido:**
+- la renovación del anual (supuesta al 40%: nunca se vendió un anual);
+- el uso real del cupo de video (hoy nadie genera);
+- la tasa de contracargos.
+
+Antes de vender la primera tanda falta decidir quién factura y aprobar los cupos nuevos de video.
+
+El cálculo (dos refutaciones independientes; ninguna sostuvo el 25% de la primera vuelta) se corrió el 10/11 con un workflow. Los
+scripts quedaron fuera del repo (`calculo-p2p.mjs`, `refutacion-cfo.mjs`, `refuta-calc.mjs`).

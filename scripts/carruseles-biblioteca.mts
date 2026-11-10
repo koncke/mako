@@ -55,6 +55,14 @@
 //                                no las tienen: lee cada publicación POR SU LINK (de a 40, ~US$0,0027 cada una: la receta de
 //                                docs/hallazgos-carruseles.md) y las baja a nuestro bucket. En seco dice cuántas, cuánto, en
 //                                cuántas tandas y, si no entran todas, POR QUÉ (crédito, tu tope, o nada que leer).
+//        [--carpeta <dir>] [--solo-carpeta]   (9/11/2026) Las ya bajadas en la PC (`<dir>/<ref>/01.jpg, 02.jpg…`) suben de ahí,
+//                                gratis, y no se pagan. Con láminas nuevas, si la portada no es nuestra pasa a ser la lámina 1.
+//   portadas [--de-verdad] [--todas] [--carpeta <dir>]   (9/11/2026) Las portadas que no están en nuestro bucket: la lámina 1 si ya es nuestra,
+//                                o la bajada de Instagram mientras su URL sirva. GRATIS: no le pide nada a Apify. En seco por
+//                                defecto. `--carpeta`: las que ya no bajan pero se resguardaron en la PC (`<dir>/<ref>.jpg`).
+//                                Las demás que ya no bajan las arregla `laminas` (pone la lámina 1 de portada).
+// ⚠️ LA BIBLIOTECA GUARDA SÓLO IMÁGENES NUESTRAS (9/11/2026): una portada o unas láminas que no bajaron van SIN su columna,
+//    nunca con la URL de Instagram, y sin el tope de 9 s de Vercel (lib/carruseles/biblioteca-imagenes.ts).
 //   sumar @usuario --nombre "Nombre" [--referente id]   Suma una cuenta a la lista (confírmala antes con `verificar`).
 //   sacar @usuario --motivo "Lo pidió"                  Saca a un creador: sus carruseles dejan de verse en todos lados.
 //   tema '#hashtag' --nombre "Nombre"                   Suma un tema (el # entre comillas, o sin el #).
@@ -98,6 +106,17 @@ const { clavesApifyDeSpy } = await imp('lib/instagram-perfil-server.ts');
 const { conLaPrimeraConCredito, resumenDeCredito, rotuloDeClave } = await imp('lib/spy-claves.ts');
 const { APIFY_ACTOR_PUBLICACIONES, creditoDeApify, creditoTotal, entradaDePublicaciones, esFaltaDeCredito } = await imp('lib/spy-todo-reglas.ts');
 const { getSupabaseServer } = await imp('lib/supabase.ts');
+const M = await imp('lib/spy-miniaturas.ts');
+const I = await imp('lib/carruseles/biblioteca-imagenes.ts');
+
+/** Los bajadores de verdad, SIN el tope de 9 s de Vercel: acá no hay función que se corte, y la biblioteca no vuelve a leer
+ *  una pieza ya guardada (lo que no baja en esta vuelta no baja nunca). lib/carruseles/biblioteca-imagenes.ts. */
+const SIN_TOPE = { presupuestoMs: Infinity };
+const bajadores = {
+  bajarPortadas: <T,>(p: readonly T[]) => M.guardarMiniaturas(p, SIN_TOPE),
+  bajarLaminas: (ref: string, urls: readonly string[]) => S.bajarLaminas(ref, urls, SIN_TOPE),
+  esNuestra: M.esNuestra,
+};
 
 const API = 'https://api.apify.com/v2';
 const usd = (n: number) => `US$${n.toFixed(2)}`;
@@ -382,21 +401,19 @@ async function guardarLeidas(
   for (const c of (ids.data ?? []) as Array<{ id: number; instagram: string; estado: string }>) if (c.estado === 'activa') idDe.set(c.instagram, c.id);
   const conId = filas.filter((f: { creador: string }) => idDe.has(f.creador));
   if (!conId.length) return { ...vacio, conPortada };
-  // La miniatura se BAJA a nuestro bucket (la del CDN de Instagram vence y da 403 desde otro dominio).
-  const conFoto = await (await imp('lib/spy-miniaturas.ts')).guardarMiniaturas(conId.map((f: Record<string, unknown>) => ({ ...f, canal: 'instagram' })));
-  // Las láminas (0404): se bajan a nuestro bucket; si no bajaron todas, no se guardan (la próxima `laminas` las completa).
+  // Portada y láminas a NUESTRO bucket, sin el tope de 9 s de Vercel (9/11/2026). Lo que no bajó va SIN su columna, nunca
+  // con la URL de Instagram: la portada cae a la lámina 1 si bajó, y lo guardado antes no se pisa con NULL porque cada grupo
+  // de columnas va en su propio upsert (lib/carruseles/biblioteca-imagenes.ts, tests/carruseles-biblioteca-imagenes.test.ts).
+  const conImagenes = await I.imagenesANuestroBucket(conId, bajadores, { conLaminas: o.con0404 });
   let conLaminas = 0;
-  for (const f of conFoto as Array<Record<string, unknown>>) {
-    const urls = Array.isArray(f.laminas_imagenes) ? (f.laminas_imagenes as string[]) : [];
-    f.laminas_imagenes = o.con0404 && urls.length ? await S.bajarLaminas(String(f.ref), urls) : null;
+  const aGuardar = conImagenes.map(({ creador, alt: _a, parece_contenido, cta, cta_via, ...f }: Record<string, unknown>) => {
     if (f.laminas_imagenes) conLaminas += 1;
+    return { ...f, ...(o.conContenido ? { parece_contenido } : {}), ...(o.con0404 ? { cta, cta_via } : {}), cuenta_id: idDe.get(String(creador)) };
+  });
+  for (const grupo of I.gruposParaUpsert(aGuardar) as Array<Array<Record<string, unknown>>>) {
+    const up = await db.from(S.T_PIEZAS).upsert(grupo, { onConflict: 'ref' });
+    if (up.error) return { ...vacio, conPortada, error: `no pude guardar (${up.error.message}). Sigue con la próxima.` };
   }
-  const aGuardar = conFoto.map(({ canal: _c, creador, alt: _a, parece_contenido, laminas_imagenes, cta, cta_via, ...f }: Record<string, unknown>) => ({
-    ...f, ...(o.conContenido ? { parece_contenido } : {}), ...(o.con0404 ? { cta, cta_via, ...(laminas_imagenes ? { laminas_imagenes } : {}) } : {}),
-    cuenta_id: idDe.get(String(creador)),
-  }));
-  const up = await db.from(S.T_PIEZAS).upsert(aGuardar, { onConflict: 'ref' });
-  if (up.error) return { ...vacio, conPortada, error: `no pude guardar (${up.error.message}). Sigue con la próxima.` };
   return { carruseles: aGuardar.filter((f: { medio?: unknown }) => f.medio === 'carrusel'), total: aGuardar.length, conLaminas, conPortada };
 }
 
@@ -618,15 +635,46 @@ async function laminas() {
   const { leerPorPaginas } = await imp('lib/supabase-paginado.ts');
   const { entradaDeUnaPublicacion } = await imp('lib/spy-todo-reglas.ts');
   const db = getSupabaseServer();
-  const filas: Array<{ id: number; ref: string; url: string | null; laminas: number | null; texto: string | null; cta: string | null }> = [];
+  type FilaSinLaminas = { id: number; ref: string; url: string | null; laminas: number | null; texto: string | null; cta: string | null; miniatura: string | null };
+  const filas: FilaSinLaminas[] = [];
   // ⚠️ Lo que nadie miró todavía NO se paga (0411): es el mismo error de «primero limpiar, después leer láminas» (169 de las
   // 770 láminas pagadas el 6/11 eran de carruseles que después se escondieron). La columna se pide sólo si existe: pedir una
   // que falta hace que PostgREST rechace la consulta entera.
   const colRevisada = (await hayColumnaRevisada()) ? ', revisada_en' : '';
-  await leerPorPaginas(db, S.T_PIEZAS, `id, ref, url, laminas, texto, cta, medio, laminas_imagenes, dejo_de_verse_en${colRevisada}`, (p: Array<Record<string, unknown>>) => {
+  await leerPorPaginas(db, S.T_PIEZAS, `id, ref, url, laminas, texto, cta, medio, miniatura, laminas_imagenes, dejo_de_verse_en${colRevisada}`, (p: Array<Record<string, unknown>>) => {
     for (const f of p) if (f.medio === 'carrusel' && !f.dejo_de_verse_en && B.estaRevisada(f) && !(Array.isArray(f.laminas_imagenes) && f.laminas_imagenes.length)) filas.push(f as never);
   });
-  const conLink = filas.filter((f) => typeof f.url === 'string' && /^https:\/\/(?:www\.)?instagram\.com\//.test(f.url)).slice(0, max);
+  /** Guarda las láminas ya nuestras y, si la portada no es nuestra, la lámina 1 de portada (9/11/2026: sin esto, un carrusel
+   *  con la portada vencida seguía roto aunque se le pagaran las láminas). */
+  const guardarLaminas = async (f: FilaSinLaminas, nuestras: string[]): Promise<boolean> => {
+    const cambio: Record<string, unknown> = { laminas_imagenes: nuestras };
+    if (f.laminas == null && nuestras.length >= 2) cambio.laminas = Math.min(20, nuestras.length);
+    const portada = I.portadaNuestra(f.miniatura, nuestras, M.esNuestra);
+    if (portada && portada !== f.miniatura) cambio.miniatura = portada;
+    const u = await db.from(S.T_PIEZAS).update(cambio).eq('id', f.id);
+    if (u.error) { console.log(`  ✖ ${f.ref}: ${u.error.message}`); return false; }
+    return true;
+  };
+  // Las que ya están bajadas en la PC (`--carpeta <dir>`, con `<dir>/<ref>/01.jpg, 02.jpg…`) suben de ahí y NO se pagan
+  // (9/11/2026: las de @growithalex de C:/dev/carrusel-mako/growithalex). GRATIS, y también en seco dice cuántas son.
+  const carpeta = txt('carpeta');
+  const { existsSync, readdirSync, readFileSync } = await import('node:fs');
+  const enCarpeta = carpeta ? filas.filter((f) => existsSync(`${carpeta}/${f.ref}`)) : [];
+  if (carpeta) console.log(`  En ${carpeta}: ${enCarpeta.length} de los ${filas.length} sin láminas (suben de la PC, gratis).`);
+  if (deVerdad && enCarpeta.length) {
+    let subidas = 0;
+    for (const f of enCarpeta) {
+      const archivos = readdirSync(`${carpeta}/${f.ref}`).filter((x) => /^\d+\.(jpe?g|png|webp)$/i.test(x)).sort((a, b) => parseInt(a, 10) - parseInt(b, 10)).slice(0, 20);
+      const urls: Array<string | null> = [];
+      for (const [i, a] of archivos.entries()) urls.push(await M.subirImagen('carruseles', `${f.ref}-${i + 1}`, new Uint8Array(readFileSync(`${carpeta}/${f.ref}/${a}`))));
+      if (!urls.length || urls.some((u) => !u)) { console.log(`  ✖ ${f.ref}: no subieron todas sus láminas de la PC (${urls.filter(Boolean).length} de ${archivos.length}).`); continue; }
+      if (await guardarLaminas(f, urls as string[])) subidas += 1;
+    }
+    console.log(`  ✔ De la PC: ${subidas} de ${enCarpeta.length} carruseles con sus láminas.`);
+  }
+  // `--solo-carpeta`: sube lo de la PC y termina, sin tocar Apify (lo gratis se puede hacer sin decidir todavía lo que paga).
+  if (args.op.get('solo-carpeta') === true) return;
+  const conLink = filas.filter((f) => !enCarpeta.includes(f) && typeof f.url === 'string' && /^https:\/\/(?:www\.)?instagram\.com\//.test(f.url)).slice(0, max);
   const porLeer = conLink.length;
   // Lo probable, al precio MEDIDO por link (US$0,0027: el de lista subestima la factura). El techo de cada tanda es otra cosa.
   const probable = Math.round(porLeer * B.USD_POR_LINK_MEDIDO * 100) / 100;
@@ -680,13 +728,10 @@ async function laminas() {
     for (const f of links) {
       const p = porRef.get(f.ref);
       if (!p?.imagenes?.length) { sinImagenes += 1; continue; }
-      const nuestras = await S.bajarLaminas(f.ref, p.imagenes);
+      // Ya pagadas: se bajan sin el tope de 9 s, que dejaba sin láminas a un carrusel por una sola que no entraba a tiempo.
+      const nuestras = await bajadores.bajarLaminas(f.ref, p.imagenes);
       if (!nuestras) { sinImagenes += 1; continue; }
-      const cambio: Record<string, unknown> = { laminas_imagenes: nuestras };
-      if (f.laminas == null && nuestras.length >= 2) cambio.laminas = Math.min(20, nuestras.length);
-      const u = await db.from(S.T_PIEZAS).update(cambio).eq('id', f.id);
-      if (u.error) { console.log(`  ✖ ${f.ref}: ${u.error.message}`); continue; }
-      guardadas += 1;
+      if (await guardarLaminas(f, nuestras)) guardadas += 1;
     }
     console.log(`  ✔ Tanda ${nTanda}: ${links.length} links → ${guardadas} con sus láminas hasta acá (Apify cobró ${usd(cobrado)} de ${usd(techo)}).`);
   }
@@ -696,6 +741,66 @@ async function laminas() {
   // Por qué no siguió, con el número: nunca un «al techo» mudo. Un corte de Apify a mitad se dice como tal, no como el techo.
   console.log(`  ${B.porQueParo({ corte, motivo: tope.motivo, porque: tope.porque, techo: tope.techo, quedanFuera: conLink.length - pedidos, gastado })}`);
   if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)}.`);
+}
+
+/**
+ * Las portadas que NO están en nuestro bucket (9/11/2026). GRATIS: no le pide nada a Apify. En seco por defecto.
+ *   1. Si sus láminas ya están en el bucket, la portada pasa a ser la lámina 1.
+ *   2. Si no, baja la portada de Instagram mientras la URL sirva. Vence en días, y algunas dan 403 ANTES de su `oe` (27 de
+ *      60 el 9/11, con el `oe` en el día siguiente): no se espera a que venza.
+ *   3. Las que ya no bajan quedan contadas: las arregla `laminas`, que pone la lámina 1 de portada (ésa sí paga).
+ * Sólo las que se ven; `--todas` suma las escondidas.
+ */
+async function portadas() {
+  const deVerdad = args.op.get('de-verdad') === true;
+  const todas = args.op.get('todas') === true;
+  console.log(deVerdad ? '▶ Portadas DE VERDAD (escribe en la base y el bucket; no gasta crédito).' : '▶ En seco: no baja ni escribe nada. Para hacerlo, agrega --de-verdad.');
+  if (!(await hayTablas())) { console.log('✖ Falta aplicar la migración 0392.'); process.exit(2); }
+  const con0404 = await hayColumnas0404();
+  const { leerPorPaginas } = await imp('lib/supabase-paginado.ts');
+  const db = getSupabaseServer();
+  type FilaPortada = { id: number; ref: string; medio: string | null; miniatura: string | null; laminas_imagenes?: string[] | null; dejo_de_verse_en: string | null };
+  const filas: FilaPortada[] = [];
+  await leerPorPaginas(db, S.T_PIEZAS, `id, ref, medio, miniatura, dejo_de_verse_en${con0404 ? ', laminas_imagenes' : ''}`, (p: FilaPortada[]) => {
+    for (const f of p) if ((todas || !f.dejo_de_verse_en) && !M.esNuestra(f.miniatura)) filas.push(f);
+  });
+  const desdeLamina = filas.filter((f) => I.portadaNuestra(null, f.laminas_imagenes, M.esNuestra));
+  const aBajar = filas.filter((f) => !desdeLamina.includes(f) && typeof f.miniatura === 'string' && f.miniatura.startsWith('https://'));
+  const sinNada = filas.length - desdeLamina.length - aBajar.length;
+  console.log(`  Portadas fuera de nuestro bucket: ${filas.length}${todas ? '' : ' (sólo las que se ven; --todas suma las escondidas)'}.`);
+  console.log(`    · desde su lámina 1, que ya es nuestra: ${desdeLamina.length}`);
+  console.log(`    · a bajar de Instagram mientras sirva: ${aBajar.length}`);
+  if (sinNada) console.log(`    · sin portada ni láminas: ${sinNada} (las arregla \`laminas\`)`);
+  if (!deVerdad) return;
+  let ok = 0;
+  for (const f of desdeLamina) {
+    const u = await db.from(S.T_PIEZAS).update({ miniatura: I.portadaNuestra(null, f.laminas_imagenes, M.esNuestra) }).eq('id', f.id);
+    if (u.error) console.log(`  ✖ ${f.ref}: ${u.error.message}`); else ok += 1;
+  }
+  console.log(`  ✔ Desde su lámina 1: ${ok} de ${desdeLamina.length}.`);
+  const bajadas = await M.guardarMiniaturas(aBajar.map((f) => ({ canal: 'instagram', ref: f.ref, miniatura: f.miniatura, id: f.id, medio: f.medio })), SIN_TOPE);
+  let bajo = 0;
+  const muertas: Array<{ ref: string; medio: string | null }> = [];
+  // `--carpeta <dir>`: las que ya no bajan de Instagram pero se resguardaron antes en la PC (`<dir>/<ref>.jpg|png|webp`) suben
+  // de ahí (9/11/2026: resguardadas sin escribir en producción mientras se esperaba el sí de Martín).
+  const carpeta = txt('carpeta');
+  const { existsSync, readFileSync } = await import('node:fs');
+  for (const b of bajadas as Array<{ id: number; ref: string; miniatura: string | null; medio: string | null }>) {
+    if (!M.esNuestra(b.miniatura) && carpeta) {
+      const local = ['jpg', 'png', 'webp'].map((e) => `${carpeta}/${b.ref}.${e}`).find((r) => existsSync(r));
+      if (local) b.miniatura = (await M.subirImagen('instagram', b.ref, new Uint8Array(readFileSync(local)))) ?? b.miniatura;
+    }
+    if (!M.esNuestra(b.miniatura)) { muertas.push(b); continue; }
+    const u = await db.from(S.T_PIEZAS).update({ miniatura: b.miniatura }).eq('id', b.id);
+    if (u.error) console.log(`  ✖ ${b.ref}: ${u.error.message}`); else bajo += 1;
+  }
+  console.log(`  ✔ Bajadas de Instagram${carpeta ? ` o subidas de ${carpeta}` : ''}: ${bajo} de ${aBajar.length}.`);
+  const muertosCarrusel = muertas.filter((m) => m.medio === 'carrusel').length;
+  if (muertas.length) {
+    console.log(`  ⚠ ${muertas.length} ya no bajan de Instagram (403 o vencidas): ${muertosCarrusel} carruseles los arregla \`laminas\` (pone la lámina 1 de portada; paga)`
+      + (muertas.length > muertosCarrusel ? `, y ${muertas.length - muertosCarrusel} imágenes sueltas se vuelven a leer con \`links <url> --de-nuevo\`` : '') + '.');
+  }
+  console.log(`▶ Listo: ${ok + bajo} portadas pasaron a nuestro bucket.`);
 }
 
 /**
@@ -827,6 +932,7 @@ switch (args.comando) {
   case 'reclasificar': await reclasificar(); break;
   case 'revisar': await revisar(); break;
   case 'laminas': await laminas(); break;
+  case 'portadas': await portadas(); break;
   case 'links': await links(); break;
   case 'sumar':
     if (!args.posicional) { console.log('Falta el @usuario.'); process.exit(1); }
@@ -841,6 +947,6 @@ switch (args.comando) {
     await cambio({ que: 'tema', accion: 'sumar', valor: args.posicional, nombre: txt('nombre') ?? args.posicional.replace(/^#/, '') });
     break;
   default:
-    console.log(`No conozco «${args.comando}». Comandos: estado, leer, links, buscar, verificar, reclasificar, revisar, laminas, sumar, sacar, tema (ver la cabecera del script).`);
+    console.log(`No conozco «${args.comando}». Comandos: estado, leer, links, buscar, verificar, reclasificar, revisar, laminas, portadas, sumar, sacar, tema (ver la cabecera del script).`);
     process.exit(1);
 }

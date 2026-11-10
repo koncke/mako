@@ -95,21 +95,33 @@ async function guardarUna(p: Pieza): Promise<string | null> {
 
     const buf = new Uint8Array(await r.arrayBuffer());
     if (!buf.length || buf.length > PESO_MAXIMO) return url;
-    const tipo = tipoDeImagen(buf);
-    // Lo que no es una imagen de verdad no entra: un CDN puede contestar 200 con una página de error.
-    if (!tipo) return url;
-
-    const ruta = rutaDeMiniatura(p.canal, p.ref, tipo.ext);
-    const db = getSupabaseServer();
-    const { error } = await db.storage.from(BUCKET_MINIATURAS)
-      .upload(ruta, buf, { contentType: tipo.mime, upsert: true, cacheControl: '31536000' });
-    if (error) return url;
-
-    const { data } = db.storage.from(BUCKET_MINIATURAS).getPublicUrl(ruta);
-    return data?.publicUrl || url;
+    // Lo que no es una imagen de verdad no entra (`subirImagen` lo mira): un CDN puede contestar 200 con una página de error.
+    return (await subirImagen(p.canal, p.ref, buf)) ?? url;
   } catch {
     // Un CDN que no contesta, un timeout, un bucket que no existe todavía: se sigue con la de él.
     return url;
+  }
+}
+
+/**
+ * Sube a nuestro bucket una imagen que ya está en memoria (bajada de un CDN, o leída de un archivo de la PC: las láminas
+ * de @growithalex que ya estaban en `C:/dev/carrusel-mako`, 9/11/2026) y devuelve su URL pública, o null si no es una
+ * imagen que aceptamos, pesa de más o no subió. El tipo sale de sus bytes, nunca de la extensión. Nunca tira.
+ */
+export async function subirImagen(canal: string, ref: string, buf: Uint8Array): Promise<string | null> {
+  try {
+    if (!buf.length || buf.length > PESO_MAXIMO) return null;
+    const tipo = tipoDeImagen(buf);
+    if (!tipo) return null;
+    const ruta = rutaDeMiniatura(canal, ref, tipo.ext);
+    const db = getSupabaseServer();
+    const { error } = await db.storage.from(BUCKET_MINIATURAS)
+      .upload(ruta, buf, { contentType: tipo.mime, upsert: true, cacheControl: '31536000' });
+    if (error) return null;
+    const { data } = db.storage.from(BUCKET_MINIATURAS).getPublicUrl(ruta);
+    return data?.publicUrl || null;
+  } catch {
+    return null;
   }
 }
 
@@ -118,14 +130,19 @@ async function guardarUna(p: Pieza): Promise<string | null> {
  * `miniatura` ya apuntando a la nuestra donde se pudo.
  *
  * Las que no tienen miniatura, o ya la tienen guardada, no cuestan nada: salen por el camino corto.
+ *
+ * `presupuestoMs` (9/11/2026): los 9 s son para una acción de Vercel. Un script de la PC (la biblioteca de carruseles) no
+ * tiene ese tope y NUNCA vuelve a leer una pieza ya guardada, así que el «converge en dos o tres vueltas» de Spy ahí no
+ * existe: con el tope de Vercel, de una tanda de 40 sólo bajaban las primeras y el resto quedaba con la URL de Instagram
+ * para siempre (91 portadas visibles el 9/11, docs/hallazgos-carruseles.md). El script pasa `Infinity`.
  */
-export async function guardarMiniaturas<T extends Pieza>(piezas: readonly T[]): Promise<T[]> {
+export async function guardarMiniaturas<T extends Pieza>(piezas: readonly T[], o: { presupuestoMs?: number } = {}): Promise<T[]> {
   const out = piezas.slice() as T[];
   const pendientes = out
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => !!p.miniatura && !esNuestra(p.miniatura));
 
-  const hasta = Date.now() + PRESUPUESTO_MS;
+  const hasta = Date.now() + (o.presupuestoMs ?? PRESUPUESTO_MS);
   for (let desde = 0; desde < pendientes.length; desde += EN_PARALELO) {
     // Se corta ANTES de empezar una tanda nueva, nunca en el medio de una: cortar a mitad dejaría
     // subidas a medio hacer. Las que no entraron quedan con su URL original y las toma la próxima.
