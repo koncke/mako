@@ -114,7 +114,7 @@ def keyframe_antes(pts):
     s = seg_de(pts)
     p = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-skip_frame", "nokey", "-show_entries", "frame=pts_time",
                         "-read_intervals", f"{max(0, pts - 8):.3f}%{pts + 0.05:.3f}", "-of", "csv=p=0", s["f"]], capture_output=True, text=True, encoding='utf-8', errors='replace')
-    ks = [float(x) for x in p.stdout.split() if x.strip() and float(x) <= pts + 1e-3]
+    ks = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", p.stdout) if float(x) <= pts + 1e-3]   # ffprobe a veces deja «0.067000,»
     return max(ks) if ks else s["ini"]
 
 marca_ini = e.get("marcaIniExtra") or e["marcaIni"]
