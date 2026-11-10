@@ -42,6 +42,7 @@ import { identidadDe } from './graficos-identidad';
 import { destinoDe } from './graficos-destinos';
 import { TOPE_FRASE } from './graficos-frase';
 import { conBloquesDeDiseno } from './disenos-partes';
+import { sanearTextos } from './disenos-textos';
 import { sanearEntrada } from './graficos-entradas';
 
 export { AREAS };
@@ -1262,8 +1263,9 @@ export type Elemento = {
   /**
    * Bloque (6/11/2026, lib/disenos-partes.ts): una TARJETA de una hoja con diseño propio. `id`, el diseño; `parte`, la tarjeta
    * (una clave del catálogo); `piezas`, de qué componentes de la hoja lee (los nombres son los de `Hoja.diseno.piezas`).
+   * `textos` (9/11/2026, lib/disenos-textos.ts): los textos de la tarjeta que se cambiaron, { original → nuevo }.
    */
-  diseno?: { id: DisenoHoja['id']; parte: string; piezas: Record<string, string> };
+  diseno?: { id: DisenoHoja['id']; parte: string; piezas: Record<string, string>; textos?: Record<string, string> };
   /** La portada (15/10/2026), como la de un gráfico: un bloque de General o un texto pintados con su color. */
   portada?: string;
   x: number; y: number; w: number; h: number;
@@ -1868,7 +1870,8 @@ export function sanearElemento(raw: unknown, ctx: ContextoSaneo = {}): Elemento 
     if (ctx.enPopup || !id || !parte) return null;
     const piezas: Record<string, string> = {};
     if (d && esObj(d.piezas)) for (const [k, v] of Object.entries(d.piezas).slice(0, 30)) { const i = idValido(v); if (PIEZA_DISENO.test(k) && i) piezas[k] = i; }
-    tipoEspecial.diseno = { id, parte, piezas };
+    const textos = sanearTextos(d?.textos);
+    tipoEspecial.diseno = { id, parte, piezas, ...(textos ? { textos } : {}) };
   } else if (info.id === 'general') {
     // Un bloque de General vive en una hoja (en un pop-up no hay General que dibujar), y uno que no dice cuál, no dibuja nada.
     const pieza = esObj(o.general) ? o.general.pieza : null;
