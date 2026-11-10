@@ -162,6 +162,18 @@ function useVentanaAngosta(): boolean {
 export function barraFija(guardada: boolean, plegadaAca: boolean, abiertaAca: boolean): boolean {
   return plegadaAca ? abiertaAca : guardada;
 }
+/** El velo de la guía mientras señala (app/_ui/guia/VeloGuia.tsx): sólo está en el DOM cuando dibuja. */
+export const SELECTOR_VELO = '[data-guia-velo]';
+/**
+ * ¿El rail se abre al pasarle el cursor? (10/11/2026). Fija ya está abierta. Y NO mientras el velo de la guía señala una
+ * pregunta: Martín, en Image, con «Contesta aquí para seguir.» a la vista, pasó el cursor por la barra y se abrió ENCIMA del
+ * chat de MaKo. El velo deja un hueco donde está el chat, así que por ahí se veía la barra a medias («…láminas). Antes,
+ * …ortas»), los globitos «5» y «84» adentro del recuadro de la pregunta, y el globo flotando suelto sobre la barra. Con el
+ * velo, todo lo de afuera del chat está opacado a propósito y un toque afuera pausa la guía: después de ese toque se abre.
+ */
+export function seAbreAlPasar(fija: boolean, hayVelo: boolean): boolean {
+  return !fija && !hayVelo;
+}
 /**
  * Qué guarda la flecha (`null`: nada). DESPLEGARLA SE RECUERDA SIEMPRE, también donde la barra se pliega sola: así la
  * próxima tab la encuentra abierta. Plegarla en una de esas pantallas es de ese rato y no se guarda (22/10: «si antes la tenía
@@ -741,7 +753,11 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
     window.location.href = href;
   };
 
-  const onEnter = () => { if (fija) return; if (collapseTimer.current) clearTimeout(collapseTimer.current); setExpanded(true); };
+  const onEnter = () => {
+    if (!seAbreAlPasar(fija, !!document.querySelector(SELECTOR_VELO))) return;
+    if (collapseTimer.current) clearTimeout(collapseTimer.current);
+    setExpanded(true);
+  };
 
   /**
    * PLEGAR, PERO SOLO SI EL CURSOR SE FUE DE VERDAD.

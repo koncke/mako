@@ -12,6 +12,22 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## La barra que se abre al pasar el cursor, debajo del velo de la guía (10/11/2026)
+
+**Síntoma:** Martín, en Image, con la pregunta de MaKo marcada («Contesta aquí para seguir.»): el panel de MaKo «queda debajo y
+cortado» (`…láminas). Antes, …ortas`), un «recuadro negro fantasma con otro 9» y el globo «flotando suelto».
+
+**Lo obvio era que el panel de Image estaba mal ubicado, y no:** fija, la barra empuja el contenido y el chat se ve entero.
+Pasa con la barra PLEGADA, que es como queda con MaKo abierto (`makoAbierto`): al pasarle el cursor se abre ENCIMA del contenido
+(z 60), y el velo de la guía, que va más arriba, deja un hueco con la forma del chat. Por ese hueco se veía la barra brillante
+tapando el chat, con los globitos de Chats y CRM («5», «84») adentro del recuadro de la pregunta. El «recuadro negro» es el aro
+de la pregunta, y el globo señalaba una pregunta que quedó debajo de la barra. Reproducido en producción a 1536×730.
+
+**La regla:** mientras el velo señala, el rail no se abre al pasar el cursor (`seAbreAlPasar`, app/_components/Sidebar.tsx;
+`[data-guia-velo]` está en el DOM sólo mientras el velo dibuja). Todo lo de afuera del chat está opacado a propósito, y un toque
+afuera pausa la guía; después del toque se abre como siempre. Cualquier capa que se abra ENCIMA del contenido choca con los
+huecos del velo: o se calla mientras el velo está, o va arriba del velo entera.
+
 ## El menú «⋯» de una lista «sin fondo»: lo TAPABAN las filas de abajo (10/11/2026)
 
 **Síntoma:** Martín, en la lista de diseños de Image: el «⋯» (Cambiar nombre, Duplicar, Guardar como plantilla, Eliminar) «sale
