@@ -473,7 +473,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_ingresos_de_mako', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver los ingresos de MaKo',
-    descripcion: 'Sólo para la plataforma: lo que entró a MaKo, como Admin › Analytics › Metrics. El MRR de hoy y al cierre del mes pasado, lo de este mes y desde siempre, y mes a mes (12) el MRR, la plata que entró y sus movimientos: nuevos, volvieron, subieron, bajaron, se cortaron. Cada cliente con lo que paga por mes, lo que pagó en total, su estado y su próximo vencimiento; y lo que vence en 31 días. Sale de lo registrado a mano en el CRM de la plataforma y de la pasarela.',
+    descripcion: 'Sólo para la plataforma: lo que entró a MaKo, como Admin › Analytics › Metrics. El MRR de hoy y al cierre del mes pasado, lo de este mes y desde siempre, y mes a mes (12) el MRR, la plata que entró y sus movimientos: nuevos, volvieron, subieron, bajaron, se cortaron. Cada cliente con lo que paga por mes, lo que pagó en total, su estado y su próximo vencimiento; y lo que vence en 31 días. Sale del CRM de la plataforma, de la pasarela y del libro de las agencias.',
     parametros: [],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },

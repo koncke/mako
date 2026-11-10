@@ -67,7 +67,7 @@ export function diaEnLaZona(iso: string, tz: string | null | undefined): string 
 
 /** Un pago que ENTRÓ, ya normalizado por el lector. */
 export type PagoIngreso = {
-  /** Único y estable (`p:<id de pagos>`, `c:<id de cobros>`). */
+  /** Único y estable (`p:<id de pagos>`, `c:<id de cobros>`, `a:<agencia>:<orden>:<clave>` del libro de una agencia). */
   id: string;
   /** La clave del cliente que pagó (`ws:<n>` si tiene cuenta, `lead:<id>` si no). */
   cliente: string;
@@ -89,6 +89,11 @@ export type PagoIngreso = {
   proveedor?: string | null;
   /** El id del pago en la pasarela (`pagos.proveedor_pago_id`, o el del cobro): cuál pago de un cobro es (Admin › Sales). */
   proveedorPagoId?: string | null;
+  /**
+   * Registrado COMO la mensualidad (`pagos.es_mensualidad`, mig 0323). Lo pone el lector; con él `conElLibro` sabe cuál
+   * suscripción del CRM de una agencia es su mensualidad (la que pasa a llevar el libro) y no toca otra que le haya comprado.
+   */
+  mensualidad?: boolean;
 };
 
 /** Quién es cada cliente, para dibujarlo. */
@@ -526,18 +531,71 @@ export function conMensualidad(tramos: readonly Tramo[], proximos: ReadonlyMap<s
   return out;
 }
 
+// ── El libro de una agencia reemplaza a su suscripción del CRM (10/11/2026) ────────────────────────────────────────
+
+/** La suscripción de la mensualidad de una agencia, según su libro (lib/admin-ingresos-libro.ts): una por agencia. */
+export const suscripcionDelLibro = (agenciaWs: number): string => `agencia:${agenciaWs}`;
+export const esDelLibro = (suscripcion: string): boolean => suscripcion.startsWith('agencia:');
+
+/**
+ * ⚠️ LA MENSUALIDAD DE UNA AGENCIA ES UNA SOLA, AUNQUE LA LLEVEN DOS LIBROS. Hasta noviembre de 2026 la de Código se cargó A MANO
+ * como pagos del CRM de la plataforma (`lead:<id>:<crm>`, `es_mensualidad`); desde diciembre la lleva su libro
+ * (lib/agencia-mes.ts, `agencia:<ag>`). Son la MISMA plata mes a mes con dos claves, y sin esto el MRR la contaba dos veces
+ * mientras el tramo del CRM seguía vivo (la gracia), y después salía un «Se cortó» y un «Volvió» que no pasaron. Así que, para
+ * cada cliente con tramos del libro, cada tramo de una suscripción del CRM que es SU MENSUALIDAD (`mensualidades`: la que tiene
+ * pagos registrados como la mensualidad; otra cosa que la agencia le haya comprado a MaKo no se toca, revisión del 10/11):
+ *   · nace cuando el libro ya estaba vivo → no cuenta (el libro mandaba; el pago sigue sumando al cash);
+ *   · el libro arranca mientras está vivo → termina ese día (UN movimiento: de su monto al del libro, no un corte y un vuelve);
+ *   · el libro arranca después de que se cortó por la gracia → queda (fue un atraso de verdad: «Se cortó» y «Volvió»);
+ *   · si el libro se apaga y la mensualidad vuelve al CRM, lo nuevo del CRM cuenta.
+ * `reemplazadas`: las suscripciones del CRM cuyo ÚLTIMO tramo es anterior a un arranque del libro (lo cortó, lo tapó, o ya se había
+ * cortado sola). Su historia mes a mes (la de la ficha) no ve los pagos del libro y diría que debe diciembre: `porCobrarDe` no las mira.
+ */
+export function conElLibro(tramos: readonly Tramo[], mensualidades: ReadonlySet<string>): { tramos: Tramo[]; reemplazadas: Set<string> } {
+  const delLibro = new Map<string, Tramo[]>();
+  for (const t of tramos) if (esDelLibro(t.suscripcion)) delLibro.set(t.cliente, [...(delLibro.get(t.cliente) ?? []), t]);
+  const reemplazadas = new Set<string>();
+  if (!delLibro.size) return { tramos: [...tramos], reemplazadas };
+  const delCrm = (t: Tramo) => !esDelLibro(t.suscripcion) && mensualidades.has(t.suscripcion) && delLibro.has(t.cliente);
+  const ultimo = new Map<string, string>();
+  for (const t of tramos) {
+    if (!delCrm(t)) continue;
+    const u = ultimo.get(t.suscripcion);
+    if (u == null || t.inicio > u) ultimo.set(t.suscripcion, t.inicio);
+  }
+  const vivoEn = (l: Tramo, f: string) => l.inicio <= f && (l.fin == null || f < l.fin);
+  const out: Tramo[] = [];
+  for (const t of tramos) {
+    if (!delCrm(t)) { out.push(t); continue; }
+    const libro = delLibro.get(t.cliente)!;
+    const esUltimo = ultimo.get(t.suscripcion) === t.inicio;
+    if (libro.some((l) => vivoEn(l, t.inicio))) { if (esUltimo) reemplazadas.add(t.suscripcion); continue; }
+    if (esUltimo && libro.some((l) => l.inicio > t.inicio)) reemplazadas.add(t.suscripcion);
+    const corte = libro.map((l) => l.inicio).filter((f) => f > t.inicio && (t.fin == null || f < t.fin)).sort()[0];
+    out.push(corte ? { ...t, fin: corte } : t);
+  }
+  return { tramos: out, reemplazadas };
+}
+
 /**
  * Lo que se espera cobrar: cada suscripción viva con su vencimiento (atrasada o en los próximos `dias`), lo más cercano primero.
  * `proximos` (por clave de suscripción, `lead:<id>:<crm>`): las que tienen su historia mes a mes la usan (fecha y monto); las
  * demás —la pasarela, o sin historia— siguen con la regla de los tramos (el último cobro más un mes). Viva o cortada lo siguen
  * diciendo los tramos, como el MRR: la historia sólo pone CUÁNDO y CUÁNTO.
  */
-export function porCobrarDe(tramos: readonly Tramo[], hoy: string, dias = 31, proximos?: ReadonlyMap<string, ProximoDeSuscripcion>): PorCobrar[] {
+export function porCobrarDe(tramos: readonly Tramo[], hoy: string, dias = 31, proximos?: ReadonlyMap<string, ProximoDeSuscripcion>, reemplazadas?: ReadonlySet<string>): PorCobrar[] {
   const hasta = masDias(hoy, dias);
   const out: PorCobrar[] = [];
   // Dos claves de la misma suscripción (pagos con y sin su CRM) apuntan a la MISMA historia: se cuenta una vez.
   const usadas = new Set<ProximoDeSuscripcion>();
+  // La que reemplazó el libro de su agencia (`conElLibro`): lo que viene lo dice el libro, no la historia del CRM. Por la clave Y por
+  // la historia: las dos claves de la misma suscripción (con y sin su CRM) comparten la historia, y la otra la volvía a reclamar.
+  const historiasReemplazadas = new Set<ProximoDeSuscripcion>();
+  for (const k of reemplazadas ?? []) { const h = proximos?.get(k); if (h) historiasReemplazadas.add(h); }
   for (const t of tramos) {
+    if (reemplazadas?.has(t.suscripcion)) continue;
+    const h = proximos?.get(t.suscripcion);
+    if (h && historiasReemplazadas.has(h)) continue;
     const p = proximos?.get(t.suscripcion);
     // ⚠️ LA HISTORIA MANDA, AUNQUE EL TRAMO ESTÉ CORTADO (punto 9): pasada la gracia el tramo se da por cortado, pero su historia
     // sigue diciendo que debe, y el moroso salía de «Por cobrar» a los 15 días sin que nadie cobrara. `t.fin` descarta sólo a las
@@ -629,7 +687,9 @@ export function pagosRecientes(pagos: readonly PagoIngreso[], quien: ReadonlyMap
 export function calcularIngresos(pagos: readonly PagoIngreso[], quien: ReadonlyMap<string, ClienteIngreso>, hoy: string, n = 12, proximos?: ReadonlyMap<string, ProximoDeSuscripcion>): Ingresos {
   const periodos = periodosDe(pagos, hoy);
   // Las suscripciones con su historia valen su MENSUALIDAD, y su corte guardado las corta ese día (punto 10, `conMensualidad`).
-  const tramos = conMensualidad(tramosDe(periodos, hoy), proximos, hoy);
+  // Y la mensualidad de una agencia que pasó a su libro es UNA: el libro termina su suscripción del CRM (`conElLibro`).
+  const mensualidades = new Set(pagos.filter((p) => p.mensualidad === true && p.suscripcion != null).map((p) => p.suscripcion as string));
+  const { tramos, reemplazadas } = conElLibro(conMensualidad(tramosDe(periodos, hoy), proximos, hoy), mensualidades);
   const movimientos = movimientosDe(tramos);
   const meses = mesesDe(pagos, tramos, movimientos, hoy, n);
   const clientes = clientesDe(pagos, tramos, quien, hoy, proximos);
@@ -652,7 +712,7 @@ export function calcularIngresos(pagos: readonly PagoIngreso[], quien: ReadonlyM
     meses,
     movimientos,
     clientes,
-    porCobrar: porCobrarDe(tramos, hoy, 31, proximos),
+    porCobrar: porCobrarDe(tramos, hoy, 31, proximos, reemplazadas),
     pagos: pagosRecientes(pagos, quien, hoy),
     entradas: entradasDe(pagos, quien, hoy),
   };

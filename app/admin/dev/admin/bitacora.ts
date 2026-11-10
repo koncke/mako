@@ -599,6 +599,50 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin',
   },
+  {
+    fecha: '10 nov', hora: '15:22', chat: 'Admin', sesion: 'cli_64315a72-4021-5d70-a2c0-b9952e7a27a5', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Los pagos de una agencia tienen que aparecer solos en Admin',
+    pedido: 'Todo eso debería estar en admin, y por ejemplo, recibimos un pago de Código por el cliente de Patricia y no se cargó automáticamente en admin eso',
+    puntos: [
+      'Llegó por el Cerebro, en el encargo docs/relevo/encargos-admin-10-11.md («Encargo 1»), con lo medido en producción: la entrada de la cliente entró por el libro de la mensualidad de la agencia (lib/agencia-mes.ts) y no hay fila en `pagos`. La hora es la del commit del encargo.',
+    ],
+  },
+  {
+    fecha: '10 nov', hora: '16:46', chat: 'Admin', sesion: 'cli_64315a72-4021-5d70-a2c0-b9952e7a27a5', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Revenue y Customers leen el libro de las agencias: la entrada de la cliente aparece sola',
+    puntos: [
+      'El libro es la TERCERA fuente de Revenue, al leer y sin escribir en `pagos`: cada orden es un pago de la AGENCIA, por lo que se recibió (40, no los 40,73 que se debían) y con el día del libro. Lo de un mes es MRR; lo de una entrada, cash.',
+      'Una orden que «Cargar pago» ya ató a un pago del CRM (`recibo_pagos.pago_id`) no se cuenta dos veces. Si el libro o los recibos no se leen, sale el aviso «Puede faltar algo».',
+      'Desde que el libro cobra un mes, la mensualidad del CRM de esa agencia termina ese día: el MRR no se cuenta dos veces y «Por cobrar» no reclama lo que se pagó por el libro.',
+      'Probado con el lector de verdad sobre una base de mentira, y rompiéndolo: 13 roturas, las 13 en rojo.',
+    ],
+    commits: [{ sha: '4840e901', msg: 'Admin › Revenue lee el libro de la mensualidad de las agencias: la entrada de la cliente de Código aparece sola', lineas: 618, archivos: 7 }],
+    archivos: [
+      'lib/admin-ingresos-libro.ts — del libro a pagos de Revenue (puro)',
+      'lib/admin-ingresos.ts — la tercera fuente (`libroDeLasAgencias`) y su aviso',
+      'lib/admin-ingresos-reglas.ts — `conElLibro`: la mensualidad del libro reemplaza a la del CRM',
+      'docs/relevo/nube-ingresos-agencia.md — el relevo; docs/hallazgos-planes-y-cobro.md — lo aprendido',
+    ],
+    revisar: '/admin',
+  },
+  {
+    fecha: '10 nov', hora: '17:03', chat: 'Admin', sesion: 'cli_64315a72-4021-5d70-a2c0-b9952e7a27a5', cuenta: 'nube', actor: 'claude', tipo: 'correccion',
+    titulo: 'Los cinco números que encontró la revisión de Revenue con el libro',
+    puntos: [
+      'Un revisor que no escribió el código encontró cinco números mal. **El MRR de la agencia era el de su último pago**, no el de su mes: un mes pagado en dos partes daba la mitad, y dos meses juntos el doble. Ahora el libro dice cuánto entró para cada mes, y eso es el MRR.',
+      '«Por cobrar» volvía a reclamar diciembre por la otra clave de la misma suscripción, y con el libro pagado tarde. Ahora no.',
+      'Sólo se reemplaza la suscripción que es la mensualidad de la agencia: otra cosa que le vendimos no se toca.',
+      'Una entrada marcada a mano anotaba lo que se debía como cobrado: no suma y se avisa. En Sales › Orders, el recibo de una orden del libro ahora suma (decía «No suma»).',
+      'Probado rompiéndolo: 23 roturas, las 23 en rojo.',
+    ],
+    commits: [{ sha: '1d626465b', msg: 'Revenue y el libro de las agencias: los arreglos de la revisión independiente', lineas: 400, archivos: 7 }],
+    archivos: [
+      'lib/admin-ingresos-libro.ts — `historiaDelLibro`: lo que entró para cada mes y lo próximo, con el día 5',
+      'lib/admin-ingresos-reglas.ts — `conElLibro` con `mensualidades`, y «Por cobrar» por la historia',
+      'app/admin/_polar/datos/ventas.ts — el recibo de una orden del libro suma en Orders',
+    ],
+    revisar: '/admin',
+  },
 ];
 
 export const PARTES: Parte[] = [

@@ -175,7 +175,10 @@ async function esperar() {
       console.log(`⛔ ROJO NUEVO EN GITHUB. Léelo ahora y vuelve a armar este vigía.\n${nuevos.map((r) => `- id ${r.id}: ${lineaDe(r)}`).join('\n')}`);
       return;
     }
-    if (e.error) {
+    // 10/11/2026: un corte suelto (git credential lento con la PC cargada, o el estado tomado por otro proceso) no corta el
+    // vigía: el 10/11 se cayó cinco veces así con la lectura siguiente en verde. Sólo avisa si hace 15 min que no lee bien.
+    const sinLeerBien = e.leidoAt ? Date.now() - Date.parse(e.leidoAt) : Infinity;
+    if (e.error && sinLeerBien > 15 * 60_000) {
       console.log(`⚠️ El vigía de GitHub no pudo leer (${e.error}): no puedo saber si hay rojos. Míralo y vuelve a armar este vigía.`);
       return;
     }

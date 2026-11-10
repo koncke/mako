@@ -9,6 +9,10 @@
 //      cobro lo asienta `registrarCobroDeProveedor` como un pago con su `cobro_id` (lib/pagos.ts).
 //   2. `cobros` de la plataforma PAGADOS que ningún pago nombra (`cobro_id`): un lugar de agencia o un alta sin lead.
 //      Así no se cuenta dos veces lo mismo.
+//   3. (10/11/2026) EL LIBRO DE LA MENSUALIDAD DE LAS AGENCIAS (lib/agencia-mes.ts, `app_settings` de la plataforma): cada orden de
+//      Binance que anotó, menos las que ya cuenta un pago del CRM (`recibo_pagos.pago_id`, mig 0408). Al leer, sin escribir en
+//      `pagos`: la entrada de Patricia (9/11) entró por ahí y Revenue no la veía. Las reglas, en lib/admin-ingresos-libro.ts; que la
+//      mensualidad del libro y la del CRM no se cuenten dos veces, en `conElLibro` (lib/admin-ingresos-reglas.ts).
 //
 // QUÉ ES RECURRENTE (MRR) Y QUÉ ES CASH SOLO (el porqué, en las reglas):
 //   · un pago registrado COMO la mensualidad (`es_mensualidad`, mig 0323): siempre;
@@ -41,6 +45,8 @@ import { cobradoDelLead, type Cobrado, type CobroParaCobrado } from './cobrado-l
 import { esDelTrato } from './pagos-crm';
 import { leerCambiosDeSuscripcion } from './suscripcion-movimientos';
 import type { PagoDeSuscripcion } from './suscripcion-meses';
+import { ordenesAtadas, pagosDelLibro, PREFIJO_LIBRO, type CobroDeRecibo, type FilaLibro } from './admin-ingresos-libro';
+import { leadDeLaCuenta } from './recibos-reglas';
 
 type FilaPago = {
   id: number; lead_id: number; funnel_id: number | null; monto_usd: number | null; fecha_pago: string | null;
@@ -90,6 +96,48 @@ async function cobrosPagados(plataforma: number): Promise<FilaCobro[]> {
   return [];
 }
 
+/** Una tabla que todavía no existe (la mig 0397 sin aplicar): sin recibos, ninguna orden está atada a un pago del CRM. */
+const faltaLaTabla = (msg: string) => /Could not find the table|relation .* does not exist|PGRST205|42P01/.test(msg);
+
+/**
+ * El libro de las agencias (todas las filas de `PREFIJO_LIBRO` de la plataforma, paginadas: el libro crece con cada aviso) y las
+ * órdenes que ya cuenta un pago del CRM (los cobros de los recibos atados a un pago, `recibo_pagos.pago_id`). «No pude leer» tira:
+ * sin saber cuáles están atadas, una orden se contaría dos veces.
+ */
+async function libroDeLasAgencias(plataforma: number): Promise<{ filas: FilaLibro[]; atadas: Set<string> }> {
+  const db = getSupabaseServer();
+  const [filas, cobros] = await Promise.all([
+    leerTodo<{ key: string; value: unknown }>(db, 'app_settings', 'key, value', {
+      eq: { workspace_id: plataforma }, filtros: (q) => q.like('key', `${PREFIJO_LIBRO}%`), orden: 'key',
+    }),
+    // Con `*`: sin la mig 0408 no hay `pago_id`, y entonces ninguna orden está atada (como lee Admin › Sales).
+    leerTodo<CobroDeRecibo>(db, 'recibo_pagos', '*', { eq: { medio: 'binance' }, orden: 'id' }).catch((e) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (faltaLaTabla(msg)) return [] as CobroDeRecibo[];
+      throw new Error(`no pude ver cuáles ya están en el CRM: ${msg}`);
+    }),
+  ]);
+  return {
+    filas: filas.filter((f) => typeof f.value === 'string').map((f) => ({ key: f.key, value: f.value as string })),
+    atadas: ordenesAtadas(cobros.map((c) => ({ ...c, pago_id: c.pago_id ?? null, anulado: c.anulado === true }))),
+  };
+}
+
+/** La ficha del CRM de la plataforma de cada agencia (`leads.cliente_ws`), para el link de su renglón. */
+async function fichasDeAgencias(plataforma: number, agencias: readonly number[]): Promise<Map<number, number>> {
+  const out = new Map<number, number>();
+  if (!agencias.length) return out;
+  const { data, error } = await getSupabaseServer().from('leads').select('id, cliente_ws, estado_lead, venta_tipo')
+    .eq('workspace_id', plataforma).in('cliente_ws', [...agencias]);
+  if (error) throw new Error(error.message);
+  const filas = (data ?? []) as Array<{ id: number; cliente_ws: number; estado_lead: string | null; venta_tipo: string | null }>;
+  for (const ag of agencias) {
+    const l = leadDeLaCuenta(filas.filter((f) => Number(f.cliente_ws) === ag));
+    if (l.ok) out.set(ag, l.id);
+  }
+  return out;
+}
+
 export type VistaIngresos = Ingresos & {
   /** Lo que no se pudo leer: lo que se muestra puede quedarse corto. */
   avisos: string[];
@@ -113,13 +161,15 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
   const plataforma = await wsSuperAdmin();
   const avisos: string[] = [];
   const db = getSupabaseServer();
-  const [pagos, cobros, wss, tz] = await Promise.all([
+  const [pagos, cobros, wss, tz, libroLeido] = await Promise.all([
     // Si esto falla, la sección no tiene qué mostrar: el error sube (la pantalla dice «No pude leer tus ingresos»).
     leerTodo<FilaPago>(db, 'pagos', 'id, lead_id, funnel_id, monto_usd, fecha_pago, es_mensualidad, nacio_cobrada, resto_de, metodo, proveedor, cobro_id, concepto, proveedor_pago_id',
       { eq: { workspace_id: plataforma, pagado: true }, orden: 'id' }),
     cobrosPagados(plataforma).catch((e) => { avisos.push(`los cobros de la pasarela: ${e instanceof Error ? e.message : String(e)}`); return [] as FilaCobro[]; }),
     listarWorkspaces().catch((e) => { avisos.push(`los nombres de los negocios: ${e instanceof Error ? e.message : String(e)}`); return []; }),
     zonaDelNegocio(plataforma).catch(() => 'UTC'),
+    // Si el libro no se lee, lo de las agencias no suma y SE DICE: no es un cero.
+    libroDeLasAgencias(plataforma).catch((e) => { avisos.push(`los pagos de las agencias por su mensualidad: ${e instanceof Error ? e.message : String(e)}`); return null; }),
   ]);
   const hoy = hoyEnTz(tz, ahora);
   const nombreWs = new Map(wss.map((w) => [w.id, w.nombre]));
@@ -156,6 +206,8 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
       cobroId: p.cobro_id != null ? Number(p.cobro_id) : null,
       proveedor: p.proveedor ?? null,
       proveedorPagoId: p.proveedor_pago_id ?? null,
+      // Cuál suscripción del CRM es la mensualidad de una agencia: la que pasa a llevar su libro (`conElLibro`).
+      mensualidad: p.es_mensualidad === true,
     });
   }
   for (const c of cobros) {
@@ -181,10 +233,25 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
       proveedor: c.proveedor, proveedorPagoId: c.proveedor_pago_id ?? null,
     });
   }
+  // 3. El libro de las agencias: cada orden, de la agencia que paga (`ws:<ag>`), como un cobro de un lugar de agencia. Su historia
+  //    (lo que entró para cada mes) va con las de las suscripciones: el MRR de un mes es lo de ese mes, no el último pago.
+  const historiasDelLibro = new Map<string, ProximoDeSuscripcion>();
+  if (libroLeido) {
+    const libro = pagosDelLibro(libroLeido.filas, { atadas: libroLeido.atadas, nombreWs, hoy });
+    for (const [k, h] of libro.proximos) historiasDelLibro.set(k, h);
+    avisos.push(...libro.avisos);
+    const sinRenglon = libro.agencias.filter((ag) => !quien.has(`ws:${ag}`));
+    const fichas = await fichasDeAgencias(plataforma, sinRenglon)
+      .catch((e) => { avisos.push(`la ficha en el CRM de las agencias: ${e instanceof Error ? e.message : String(e)}`); return new Map<number, number>(); });
+    for (const ag of sinRenglon) quien.set(`ws:${ag}`, { clave: `ws:${ag}`, nombre: nombreWs.get(ag) ?? `Workspace ${ag}`, ws: ag, leadId: fichas.get(ag) ?? null });
+    normalizados.push(...libro.pagos);
+  }
   // El próximo cobro de cada suscripción manual sale de su historia mes a mes (la de la ficha), no del último pago más un mes.
   const subs = await suscripcionesDeLaPlataforma(plataforma, hoy);
   avisos.push(...subs.avisos);
-  return { ...calcularIngresos(normalizados, quien, hoy, 12, proximosDeSuscripciones(subs.lista, hoy)), avisos };
+  const proximos = proximosDeSuscripciones(subs.lista, hoy);
+  for (const [k, h] of historiasDelLibro) proximos.set(k, h);
+  return { ...calcularIngresos(normalizados, quien, hoy, 12, proximos), avisos };
 }
 
 // ── Las suscripciones mes a mes de la plataforma ─────────────────────────────────────────────────────────────────────
