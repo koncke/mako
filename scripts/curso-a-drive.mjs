@@ -372,8 +372,13 @@ for (const [sub, nivel] of [['pdfs', 'clase'], ['recursos', 'modulo']]) {
 const enlaces = [...idxRecursos.values()]
   .filter((i) => i.tipo === 'link' && i.url)
   .map((i) => ({
-    archivo: i.nombre, nivel: 'modulo', tipo: 'link', url: i.url,
+    archivo: i.nombre, nivel: i.nivel ?? 'modulo', tipo: 'link', url: i.url,
     modulo: i.modulo ?? null, submodulo: i.submodulo ?? null,
+    // ⚠️ `clases` y `tituloReal` viajan también para los LINKS (9/11/2026). Es la misma terna que los
+    // archivos ya arrastran (ver arriba): sin esto un link que el origen cuelga de UNA lección —el
+    // workbook de Canva de «Branding #01» en THE NET LAB— terminaba repartido entre todas las clases
+    // de su módulo, con el nombre del archivo en vez de su título.
+    clases: i.clases ?? undefined, tituloReal: i.tituloReal ?? undefined,
   }));
 
 const recursos = [];
