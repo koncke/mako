@@ -23,10 +23,12 @@ const FIJO_TODO = 1144.25;   // si pagara también lo de Mauricio
 // 10/11/2026: cobrar pasó del 15% (con Creem adentro, que rechazó la tienda el 5/11) a 1,80% de Mercado Pago + 8,36% de
 // impuesto = 10,16% (lib/economia-unitaria.ts). Los números de abajo se movieron con eso: 78,08 → 82,78, 342,56 → 389,50,
 // 1.123,36 → 1.217,26, y pagando todo el fijo el equilibrio pasó de 15 a 14.
-test('un cliente de US$97 deja US$82,78: se le resta cobrar y el CAC, NO su IA', () => {
+// 10/11/2026, más tarde: la vida del cliente bajó de 22,2 a 9 meses (decisión de Martín). El CAC pesa US$10,78 por mes y no 4,37:
+// 82,78 → 76,37, 389,50 → 325,42, 1.217,26 → 1.089,09, y pagando todo el fijo el equilibrio vuelve a 15.
+test('un cliente de US$97 deja US$76,37: se le resta cobrar y el CAC, NO su IA', () => {
   const deja = dejaUnCliente(PLAN_97);
   assert.ok(Math.abs(deja - (97 - 97 * PARTE_DE_COBRAR - cacPorMes())) < 1e-9);
-  assert.ok(Math.abs(deja - 82.78) < 0.01, `dio US$${deja.toFixed(2)}`);
+  assert.ok(Math.abs(deja - 76.37) < 0.01, `dio US$${deja.toFixed(2)}`);
   // ⚠️ La IA del cliente la paga él (BYOK): restarla acá la contaría dos veces.
   assert.ok(deja > 97 * 0.8, 'si alguien suma un costo de IA por cliente, este número se desploma y hay que discutirlo');
 });
@@ -34,8 +36,8 @@ test('un cliente de US$97 deja US$82,78: se le resta cobrar y el CAC, NO su IA',
 test('el resultado NO es lineal aunque cada cliente deje lo mismo: el fijo se paga UNA vez', () => {
   const diez = loQueQueda(10, PLAN_97, FIJO_HOY);
   const veinte = loQueQueda(20, PLAN_97, FIJO_HOY);
-  assert.ok(Math.abs(diez - 389.5) < 0.05, `con 10 quedan US$${diez.toFixed(2)}`);
-  assert.ok(Math.abs(veinte - 1217.26) < 0.05, `con 20 quedan US$${veinte.toFixed(2)}`);
+  assert.ok(Math.abs(diez - 325.42) < 0.05, `con 10 quedan US$${diez.toFixed(2)}`);
+  assert.ok(Math.abs(veinte - 1089.09) < 0.05, `con 20 quedan US$${veinte.toFixed(2)}`);
   // Es la pregunta de Martín: el doble de clientes da MÁS del doble, no el doble.
   assert.ok(veinte > diez * 2, 'pasar de 10 a 20 más que duplica: la segunda decena no vuelve a pagar el fijo');
 });
@@ -46,9 +48,9 @@ test('con pocos clientes se PIERDE, y el número es negativo y no cero', () => {
   assert.ok(loQueQueda(6, PLAN_97, FIJO_HOY) > 0, 'con 6 ya gana');
 });
 
-test('el equilibrio: 6 clientes hoy, 14 si pagara TODO el fijo', () => {
+test('el equilibrio: 6 clientes hoy, 15 si pagara TODO el fijo', () => {
   assert.equal(clientesParaNoPerder(PLAN_97, FIJO_HOY), 6);
-  assert.equal(clientesParaNoPerder(PLAN_97, FIJO_TODO), 14);
+  assert.equal(clientesParaNoPerder(PLAN_97, FIJO_TODO), 15);
 });
 
 test('el plan de 47 necesita el doble de clientes que el de 97, o más', () => {
