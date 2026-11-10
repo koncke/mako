@@ -86,18 +86,32 @@ conservaba el índice, y no lo conserva. La PC no tenía RAM para el tsc acotado
 El Cerebro lo arregló tipando explícito el `map`: `(f): FilaDePieza & { canal: string; miniatura: string | null } => …`
 (`a8f531879`). Con filas de columnas abiertas, el tipo del objeto armado va escrito, no inferido.
 
-**Lo que quedó en los datos (10/11, 18:30-19:00, medido antes y después):** de las 91 portadas visibles en Instagram, **44 pasaron
-a nuestro bucket**: 20 desde su lámina 1, 19 bajadas o subidas de la carpeta resguardada y 5 achicadas (ver la trampa de abajo).
-Los 2 carruseles de @growithalex quedaron con sus láminas de la PC. **Quedan 47 portadas que Instagram ya no sirve** (45 carruseles
-y 2 imágenes) y **166 carruseles sin láminas**. Sin crédito libre en Apify no se pueden leer: `laminas` da «Puede gastar hasta
-US$0.00» (la clave 1 tiene US$1,92 y la reserva de Spy es US$2). Lo destraba la «clave 2 de Spy» o cargar crédito, y eso es
-decisión de Martín. El arreglo de datos de un bug nuestro va sin preguntar (memoria «aprobacion-prod-en-el-chat», 30/10), el gasto no.
-@lifeofarjav «01 / 06» es uno de esos 166: `DaZFc_kkttt` tiene 6 láminas en Instagram y ninguna guardada.
+**Lo que quedó en los datos (10/11, medido antes y después en las 990 piezas visibles):**
+- **Portadas en Instagram: de 91 a 3.** 44 gratis (20 desde la lámina 1, 19 bajadas o resguardadas, 5 achicadas) y el resto con
+  la lámina 1 del lote pago.
+- **Carruseles sin láminas: de 168 a 20.** 2 de @growithalex desde la PC; el lote pago (Martín: «Sí, gastalo», desde la reserva de
+  Spy) dejó 107, y otros 39 salieron GRATIS de los datasets de esas mismas corridas (ver abajo). Los 20 que quedan no tienen
+  arreglo: 17 son publicaciones que ya no existen (Apify: «Post does not exist») y 3 tienen acceso restringido. No se escondieron:
+  esconder es una pasada a ojo (`dejo_de_verse_en`), y su portada ya está en el bucket.
+- **El gasto: US$0,44** (la clave 1 pasó de US$8,09 a US$8,53 de US$10; le quedan US$1,47 hasta el 21/11, y Spy gastó US$0,01 a
+  0,04 por día esa semana). @lifeofarjav «01 / 06» tiene sus 6 láminas.
+- En pantalla (navegador de la app, el mismo 10/11): de las primeras 40 tarjetas, 37 con flecha y 0 portadas rotas (antes, 8).
 
-**Pagar desde la reserva de Spy (10/11):** `laminas --reserva-usd <n>` baja la reserva SÓLO para esa corrida (por defecto sigue
-en US$2). Es para cuando Martín decide pagar de ahí, como con el lote de las 166 láminas. Medido con `usage/monthly` de Apify: el
-ciclo de la clave 1 va del 22 al 21, y de los US$8,09 del ciclo, US$7,85 fueron un solo día (el 4/11). El resto de la semana, Spy
-gastó US$0,01 a 0,04 por día. Antes de usar la reserva se mira ese ritmo, no el total del mes.
+⚠️ **El diagnóstico obvio del lote era el equivocado.** El script dijo «107 con sus láminas; 59 sin imágenes (borrados, privados o
+el actor no las dio)», y 40 de esos 59 eran de la tanda 1, que Apify sí había cobrado. Releídos los datasets: **37 tenían alguna
+lámina de más de 2 MB** (el mismo tope de abajo, que tiraba la lámina y con ella el carrusel), **2 tardaban 4,5 s por lámina** y
+`guardarUna` corta a los 4 s (`ESPERA_MS`, pensada para Vercel), y sólo 20 vinieron de verdad sin imágenes. El script mezclaba
+«Apify no las dio» con «no se pudieron bajar»; ahora las cuenta aparte.
+
+⚠️ **Lo que Apify ya cobró se relee GRATIS.** Cada `run-sync-get-dataset-items` deja su dataset en Apify (`/acts/<actor>/runs` →
+`defaultDatasetId` → `/datasets/<id>/items`), y leerlo no cuesta. Los 39 recuperados salieron de ahí, sin volver a pagar. Si una
+corrida pagada no guardó, primero se relee su dataset; recién después se paga otra.
+
+**Las reglas que quedaron:** `subirImagen` ACHICA lo que pasa los 2 MB (`achicarImagen`, sharp, 1440 px de ancho, lo fija
+tests/spy-miniaturas.test.ts) en vez de tirarlo, y se bajan hasta 20 MB. `guardarMiniaturas` acepta `esperaMs` y el script
+pasa 20 s. **Sin hacer:** las publicaciones de Competitors Spy (las cuentas que sigue el negocio) nunca guardan láminas, así que
+un carrusel de Spy muestra «5 láminas» con una sola imagen y sin flecha (@leilahormozi el 10/11). Es de lib/spy.ts, no de la
+biblioteca.
 
 ⚠️ **Trampa: el tope de 2 MB del bucket tira EN SILENCIO las portadas grandes de Instagram.** De las 24 resguardadas, 5 no subieron
 y `portadas` las contaba como «ya no bajan (403 o vencidas)». Pesaban de 2,3 a 3,7 MB porque Instagram sirve algunas portadas a
