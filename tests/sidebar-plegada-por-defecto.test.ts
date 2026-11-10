@@ -17,6 +17,10 @@
 // Verificado ROMPIÉNDOLO (25/10/2026): la fórmula de antes en `barraFija` → 1 rojo (el último test); desplegar en una pantalla
 // que pliega sin guardar → 1; plegar con MaKo abierto guardando «no» → 1.
 //
+// EL VELO DE LA GUÍA (10/11/2026). Martín, en Image: con «Contesta aquí para seguir.» a la vista, la barra se abría ENCIMA del
+// chat de MaKo al pasarle el cursor, y por el hueco del velo se veía a medias. Mientras el velo señala, el rail no se abre al
+// pasar (`seAbreAlPasar`); un toque afuera pausa la guía y después se abre. Verificado rompiéndolo: sin mirar el velo → 1 rojo.
+//
 // Verificado ROMPIÉNDOLO (24/10/2026, base 4 / 0), de a una y restaurando a mano:
 //   · `leerFija` con `!== 'no'` (el default de antes, abierta)                         → 3 / 1
 //   · la clave vuelve a `mk-nav-fija`                                                  → 3 / 1
@@ -26,7 +30,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { leerFija, barraFija, loQueGuardaLaFlecha } from '../app/_components/Sidebar';
+import { leerFija, barraFija, loQueGuardaLaFlecha, seAbreAlPasar } from '../app/_components/Sidebar';
 
 const fuente = readFileSync(new URL('../app/_components/Sidebar.tsx', import.meta.url), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
@@ -118,4 +122,11 @@ test('donde la barra se pliega sola, manda lo que hizo la flecha en esa visita, 
   assert.equal(loQueGuardaLaFlecha(true, true), true);
   assert.equal(loQueGuardaLaFlecha(false, true), null);
   assert.equal(loQueGuardaLaFlecha(false, false), false);
+});
+
+test('mientras el velo de la guía señala una pregunta, el rail no se abre al pasarle el cursor', () => {
+  assert.equal(seAbreAlPasar(false, false), true, 'plegada y sin velo: el cursor la abre, como siempre');
+  assert.equal(seAbreAlPasar(false, true), false, 'con el velo, se abriría ENCIMA del chat que la guía está señalando');
+  assert.equal(seAbreAlPasar(true, false), false, 'fija ya está abierta');
+  assert.equal(seAbreAlPasar(true, true), false);
 });

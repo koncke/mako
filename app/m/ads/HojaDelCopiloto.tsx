@@ -25,6 +25,8 @@ import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { ORIGEN_COPILOTO, desdeDelCopiloto } from '@/lib/media-buyer/copiloto';
 import type { ElegidoChat } from '@/lib/chat-mako-reglas';
+import { delHiloDeLaTab } from '@/lib/chat-desde';
+import { origenDelItem } from '@/app/m/mako/chat-ui';
 
 export function HojaDelCopiloto({ pantalla = null, pedido = null, onCerrar }: {
   /** Lo que la pantalla tiene a la vista («Hoy · 3 cambios»), para el turno (Desde.pantalla). */
@@ -40,7 +42,9 @@ export function HojaDelCopiloto({ pantalla = null, pedido = null, onCerrar }: {
   // Siempre el Cerebro, como la estrella de la computadora: al llegar la lista lo elige solo. Se NOMBRA «MaKo» (como la tarjeta de
   // Create, ConversacionCerebro → `titulo`): la caja dice «Escribe a MaKo» y no «Escribe a Ops Center» adentro del CoPilot.
   const base = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: true, chatInicial: null, opcionArmar: '', busca: '', caja, desde });
-  const k = { ...base, nombre: 'MaKo' };
+  // Y sólo la charla del CoPilot (10/11/2026, lib/chat-desde.ts → delHiloDeLaTab): lo de Image o del CRM no va en esta hoja.
+  const items = useMemo(() => delHiloDeLaTab(base.items, ORIGEN_COPILOTO, origenDelItem), [base.items]);
+  const k = { ...base, items, nombre: 'MaKo' };
   // El pedido sale una vez, cuando el Cerebro está abierto, cargado y libre (`enviar` dice si salió), como ConversacionCerebro.
   const mandado = useRef<number | null>(null);
   useEffect(() => {

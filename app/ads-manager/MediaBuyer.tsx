@@ -329,7 +329,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
 
       {vista === 'plan' && perfil && (
         // El mismo panel de la charla y de los funnels sin anuncios (9/11/2026): Tu funnel · Esta semana · Qué medir, leído del perfil.
-        <div className="aa-pagina"><PanelDelFunnel perfil={perfil} modo="listo" /></div>
+        <div className="aa-pagina aa-plan-funnel"><PanelDelFunnel perfil={perfil} modo="listo" /></div>
       )}
 
       {vista === 'biblioteca' && (
