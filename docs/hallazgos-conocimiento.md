@@ -441,7 +441,18 @@ con lista blanca de etiquetas y las clases `ugc-*`) y «Transcripción» (cuando
 link a la lección original. La transcripción NO va a `public/cono-tx/`: ese archivo se nombra por el
 `videoId` de Drive y una clase sin video no lo tiene. ⚠️ Consecuencia: el Second Brain de un
 referente (`scripts/generar-clases-de-referentes.mjs`) sólo lee clases con `videoId`, así que este
-curso no le llega por ahí; si un agente lo necesita, lee los `cono-doc`.
+curso no le llega por ahí.
+
+⚠️ **Y lo que más importa: subir un curso al PORTAL no lo pone al alcance de ningún agente.** El
+pedido era «para que lo use el Marketing CoPilot», y el portal es para PERSONAS: los agentes leen
+Knowledge con `leer_modulo_knowledge` → `metodoDeModulo` (lib/api-mako/areas/negocio.run.ts:1151),
+que consulta `mako_knowledge` por módulo (el de anuncios es el área `ads`, lib/knowledge-modulos.ts:56)
+y por negocio. Ningún archivo de `lib/` lee `public/cono-doc/` ni la ficha del curso. Según el chat del
+CoPilot (9/11), el área `ads` estaba vacía y sus filas copiadas en ws1 y ws4. El CoPilot lo resolvió
+en su rama (`punta/marketing-copilot-agente`): destiló el texto de `C:\cursos\…\texto\` a
+`lib/media-buyer/copiloto-metodo-anuncios.ts`, más una herramienta de lectura. La regla, que es la
+misma de los 5.050 emails: **un curso está en manos de un agente cuando un archivo de código lo
+nombra, no cuando se ve en `/conocimientos`.**
 
 **Las trampas del camino, cada una con su síntoma:**
 
