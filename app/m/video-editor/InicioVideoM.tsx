@@ -38,7 +38,7 @@ import { formatoDuracionTarjeta, formatoPeso, useTamanoProyecto } from '@/app/vi
 import type { TProjectMetadata } from '@/app/video-editor/_opencut/project/types';
 import type { EditorCore } from '@/app/video-editor/_opencut/core';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
-import { GENERAR_CON_IA, destinoDe, plantillasNuevoVideo, rutaDePlantilla, type LienzoNuevo } from '@/app/video-editor/plantillas-crear';
+import { GENERAR_CON_IA, PERSONAJE_CON_IA, destinoDe, plantillasNuevoVideo, rutaDePlantilla, sinGuiadas, type LienzoNuevo } from '@/app/video-editor/plantillas-crear';
 import {
   ComputadoraM, FilaM, ListaM, PieM, SeccionM, SheetM, SkeletonFilas, VacioM, useToastM,
 } from '@/app/m/_ui';
@@ -112,7 +112,8 @@ export function InicioVideoM({ senales = null }: { senales?: SenalesNegocio | nu
   const toast = useToastM();
   const cargando = useEditor((e) => e.project.getIsLoading() || !e.project.getIsInitialized());
   const proyectos = useEditor((e) => e.project.getFilteredAndSortedProjects({ searchQuery: '', sortOption: 'updatedAt-desc' }));
-  const plantillas = useMemo(() => plantillasNuevoVideo(senales), [senales]);
+  // Sin las guiadas: su guía vive en el chat del editor de la computadora (docs/relevo/nube-tab-video.md §4).
+  const plantillas = useMemo(() => sinGuiadas(plantillasNuevoVideo(senales)), [senales]);
   const galeria = useRef<HTMLInputElement>(null);
   // El lienzo elegido en «Nuevo video», mientras la galería está abierta.
   const lienzo = useRef<LienzoNuevo | null>(null);
@@ -133,7 +134,10 @@ export function InicioVideoM({ senales = null }: { senales?: SenalesNegocio | nu
     const d = destinoDe(id);
     if (!d) return;
     if (d.tipo === 'ia') { router.push(GENERAR_CON_IA.movil); return; }
+    if (d.tipo === 'personaje') { router.push(PERSONAJE_CON_IA.movil); return; }
     if (d.tipo === 'plantilla') { router.push(rutaDePlantilla(d.id, true)); return; }
+    // Las guiadas no se ofrecen acá (`sinGuiadas`): la guía vive en el chat del editor de la computadora.
+    if (d.tipo === 'guia') return;
     lienzo.current = d.lienzo;
     setHoja(null);
     galeria.current?.click();

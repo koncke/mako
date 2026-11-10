@@ -212,7 +212,10 @@ test('7. el panel, la barra y la pastilla «en vivo» están registrados', () =>
   assert.match(registro, /seccionesBiblioteca\.registrar\(\{[\s\S]*?id: SECCION_ENJAMBRE,[\s\S]*?Contenido: EnjambreView,/);
   assert.match(registro, /herramientasLinea\.registrar\(\{[\s\S]*?id: "linea-edicion-automatica",[\s\S]*?correrEnjambre\(editor\)/);
   const cabecera = sinComentarios(leer('app/video-editor/_opencut/components/editor/editor-header.tsx'));
-  assert.match(cabecera, /<EnVivo \/>\s*<MenuDiseno \/>/, 'la pastilla de los agentes en vivo, en la barra de arriba');
+  // En la barra de arriba, a la derecha (con Publicar y Exportar): el lugar, no el vecino (el modo simple esconde «Diseño», 9/11/2026).
+  const derecha = /<div className="flex min-w-0 items-center justify-end[^"]*">([\s\S]*?)<PublicarButton \/>/.exec(cabecera);
+  assert.ok(derecha, 'la barra de arriba perdió su lado derecho');
+  assert.match(derecha[1], /<EnVivo \/>/, 'la pastilla de los agentes en vivo, en la barra de arriba');
 });
 
 test('8. cada agente usa la MISMA función que su botón; «Aceptar» corre a los agentes y cuenta sus pasos', () => {

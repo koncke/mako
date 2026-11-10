@@ -36,9 +36,15 @@ export type EstadoGuia = {
   abrirChat: number;
   /** En una ventana angosta, el chat se aparta mientras se señala algo de la tab. */
   apartar: boolean;
+  /**
+   * Una pregunta de MaKo pide la atención (la tab Video, 9/11/2026): sin objetivo de la guía, el velo opaca todo menos los
+   * chats y marca el mensaje `[data-mako-destacado]` (lib/guia/huecos.ts → dibujoDestacado). Lo prende y lo apaga quien
+   * muestra la pregunta (`destacarEnElChat`).
+   */
+  destacado: boolean;
 };
 
-const VACIO: EstadoGuia = { guia: null, hechos: {}, dice: null, charla: [], objetivo: null, pausado: null, esperando: false, abrirChat: 0, apartar: false };
+const VACIO: EstadoGuia = { guia: null, hechos: {}, dice: null, charla: [], objetivo: null, pausado: null, esperando: false, abrirChat: 0, apartar: false, destacado: false };
 let estado: EstadoGuia = VACIO;
 /** Qué hacer al contestar la pregunta de la primera vez (marcar lo visto): lo pone quien pregunta. */
 let alContestar: ((yaSabe: boolean) => void) | null = null;
@@ -160,6 +166,9 @@ export function noEsta(porque: 'no-esta' | 'modal'): void {
 }
 
 export function apartarChat(si: boolean): void { if (estado.apartar !== si) poner({ apartar: si }); }
+
+/** Prende o apaga el velo de una pregunta de MaKo (ver `destacado`). Con un objetivo de la guía señalando, manda la guía. */
+export function destacarEnElChat(si: boolean): void { if (estado.destacado !== si) poner({ destacado: si }); }
 
 // ── Lo que toca la persona en el chat ───────────────────────────────────────────────────────────────────────────────
 

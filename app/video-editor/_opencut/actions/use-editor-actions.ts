@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "@/app/_ui/Link";
 import { rutaEditor } from "@/app/video-editor/ruta";
+import { RUTA_CREAR_VIDEO } from "@/app/video-editor/vista";
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
 import { useActionHandler } from "@/app/video-editor/_opencut/actions/use-action-handler";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
@@ -750,7 +751,7 @@ export function useEditorActions() {
 				console.error("Failed to prepare project exit:", error);
 			} finally {
 				editor.project.closeProject();
-				router.push(rutaEditor("/video-editor"));
+				router.push(rutaEditor(RUTA_CREAR_VIDEO));
 			}
 		},
 		undefined,

@@ -13,6 +13,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, ComputerIcon } from "@hugeicons/core-free-icons";
 import { useRouter } from "@/app/_ui/Link";
 import { rutaEditor } from "@/app/video-editor/ruta";
+import { RUTA_CREAR_VIDEO } from "@/app/video-editor/vista";
 
 const STORAGE_KEY = "mobile-acknowledged";
 
@@ -45,7 +46,7 @@ export function MobileGate({ children }: { children: React.ReactNode }) {
 		<div className="relative flex h-full w-full flex-col overflow-hidden bg-(--cc-app)">
 			<button
 				type="button"
-				onClick={() => router.push(rutaEditor("/video-editor"))}
+				onClick={() => router.push(rutaEditor(RUTA_CREAR_VIDEO))}
 				className="absolute top-5 left-4 flex cursor-pointer items-center gap-1 text-[13px] text-(--cc-text-2)"
 			>
 				<HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />

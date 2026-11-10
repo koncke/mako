@@ -18,7 +18,8 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { destinoDe, FORMATOS_VIDEO, GENERAR_CON_IA, plantillasNuevoVideo, rutaDePlantilla, EJEMPLOS_NUEVO_VIDEO } from '@/app/video-editor/plantillas-crear';
+import { ANTES_DE_LOS_LIENZOS, destinoDe, FORMATOS_VIDEO, GENERAR_CON_IA, GRUPO_REPLICAR, PERSONAJE_CON_IA, plantillasNuevoVideo, rutaDePlantilla, sinGuiadas, EJEMPLOS_NUEVO_VIDEO } from '@/app/video-editor/plantillas-crear';
+import { PLANTILLAS_GUIADAS } from '@/lib/video-plantillas';
 import { PLANTILLAS } from '@/lib/editor-video/plantillas';
 import { proporcion } from '@/app/_crear/reglas';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
@@ -27,8 +28,14 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 const vivo = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
-test('1. «Nuevo video»: los cuatro lienzos primero, después «Generar con IA» y las plantillas de anuncio', () => {
-  const t = plantillasNuevoVideo(null);
+test('1. «Nuevo video»: lo guiado primero («Replicar un outlier»), los cuatro lienzos, «Generar con IA» y las plantillas de anuncio', () => {
+  const todas = plantillasNuevoVideo(null);
+  // 9/11/2026 (la tab Video): primero las plantillas GUIADAS y «Tu personaje con IA», en la sección «Replicar un outlier».
+  const antes = todas.slice(0, ANTES_DE_LOS_LIENZOS);
+  assert.deepEqual(antes.map((p) => p.id), [...PLANTILLAS_GUIADAS.map((p) => `guia:${p.id}`), 'personaje:nuevo']);
+  for (const p of antes) assert.equal(p.grupo, GRUPO_REPLICAR, `${p.nombre}: fuera de «Replicar un outlier»`);
+  assert.ok(todas.slice(ANTES_DE_LOS_LIENZOS).every((p) => !p.grupo), 'lo de siempre, sin sección: va debajo, como antes');
+  const t = todas.slice(ANTES_DE_LOS_LIENZOS);
   assert.deepEqual(t.slice(0, 4).map((p) => [p.nombre, p.formato, p.rotulo]), [
     ['Reel o TikTok', '9 / 16', '1080 × 1920'],
     ['YouTube', '16 / 9', '1920 × 1080'],
@@ -49,8 +56,8 @@ test('2. con señales del negocio, las sugeridas primero y con «Sugerida» en e
   // Un negocio que cierra con llamadas y cuyo cuello es la conversión: «Testimonio» le sirve
   // (lib/editor-video/plantillas-etiquetas.ts).
   const senales = { canales: ['llamadas'], entradas: [], cobros: [], cuello: 'conversion' } as unknown as SenalesNegocio;
-  const con = plantillasNuevoVideo(senales).slice(5);
-  const sin = plantillasNuevoVideo(null).slice(5);
+  const con = plantillasNuevoVideo(senales).slice(ANTES_DE_LOS_LIENZOS + 5);
+  const sin = plantillasNuevoVideo(null).slice(ANTES_DE_LOS_LIENZOS + 5);
   assert.equal(con.length, sin.length, 'ordenar no saca ni agrega plantillas');
   assert.equal(con[0].id, 'plantilla:testimonio', 'la sugerida va primera');
   assert.match(con[0].rotulo ?? '', /^Sugerida · 15 s$/);
@@ -58,7 +65,7 @@ test('2. con señales del negocio, las sugeridas primero y con «Sugerida» en e
   assert.deepEqual(con.slice(0, sugeridas.length).map((p) => p.id), sugeridas.map((p) => p.id), 'las sugeridas, todas arriba');
   for (const p of sin) assert.match(p.rotulo ?? '', /^\d+ s$/, 'sin señales, el rótulo es la duración');
   // Los lienzos y «Generar con IA» no se reordenan.
-  assert.deepEqual(plantillasNuevoVideo(senales).slice(0, 5).map((p) => p.id), plantillasNuevoVideo(null).slice(0, 5).map((p) => p.id));
+  assert.deepEqual(plantillasNuevoVideo(senales).slice(0, ANTES_DE_LOS_LIENZOS + 5).map((p) => p.id), plantillasNuevoVideo(null).slice(0, ANTES_DE_LOS_LIENZOS + 5).map((p) => p.id));
   // Roto: el rótulo sin «Sugerida» → 1 fallo; las señales ignoradas (`plantillasEnOrden(null)`) → 1.
 });
 
@@ -82,6 +89,15 @@ test('3. qué hace cada tarjeta: el lienzo fija su proporción (el primer clip n
   assert.equal(destinoDe('lienzo:no-existe'), null);
   assert.equal(destinoDe('cualquier-cosa'), null);
   assert.deepEqual(destinoDe('ia:generar'), { tipo: 'ia' });
+  // La guiada arma un proyecto VERTICAL con su nombre; una que no existe, nada. «Tu personaje con IA» va al estudio.
+  assert.deepEqual(destinoDe('guia:mensaje-para'), { tipo: 'guia', id: 'mensaje-para', nombre: 'Mensaje para…', lienzo: { canvasSize: { width: 1080, height: 1920 }, relacion: '9:16', canvasSizeMode: 'preset' } });
+  assert.equal(destinoDe('guia:no-existe'), null);
+  assert.deepEqual(destinoDe('personaje:nuevo'), { tipo: 'personaje' });
+  assert.deepEqual(PERSONAJE_CON_IA, { escritorio: '/ai-avatar', movil: '/m/ai-avatar' });
+  // El teléfono no ofrece las guiadas (su guía vive en el chat del editor de la computadora), y sí todo lo demás.
+  const movil = sinGuiadas(plantillasNuevoVideo(null));
+  assert.ok(movil.every((p) => destinoDe(p.id)?.tipo !== 'guia'));
+  assert.equal(movil.length, plantillasNuevoVideo(null).length - PLANTILLAS_GUIADAS.length);
   assert.equal(rutaDePlantilla('antes-despues'), '/video-editor/nuevo?plantilla=antes-despues');
   assert.equal(rutaDePlantilla('antes-despues', true), '/m/video-editor/nuevo?plantilla=antes-despues');
   assert.deepEqual(GENERAR_CON_IA, { escritorio: '/video-generator', movil: '/m/video' });

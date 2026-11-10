@@ -132,6 +132,15 @@ function guardarPlegada(tab: string, v: boolean) {
   try { window.localStorage.setItem(clavePlegada(tab), v ? 'si' : 'no'); } catch { /* sin almacenamiento: vale la memoria */ }
   for (const avisar of avisosPlegada) avisar();
 }
+/**
+ * Abre la tarjeta de una tab que se plegó (9/11/2026, la tab Video): cuando MaKo tiene una pregunta para la persona (un paso de
+ * una plantilla guiada) y la tarjeta está plegada, la pregunta quedaba adentro de una sección escondida y no se veía nada. Lo
+ * llama quien pregunta; la persona la puede volver a plegar.
+ */
+export function desplegarCrear(tab: string): void {
+  if (leerPlegada(tab)) guardarPlegada(tab, false);
+}
+
 function usePlegada(tab: string): boolean {
   return useSyncExternalStore(
     (avisar) => { avisosPlegada.add(avisar); return () => { avisosPlegada.delete(avisar); }; },

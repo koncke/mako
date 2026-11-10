@@ -6,6 +6,65 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## La tab Video: outliers primero, la plantilla guiada «Mensaje para…» y el modo simple (9/11/2026, nube)
+
+**El pedido** (Martín, 9/11): unificar Video Editor y AI Avatar en UNA tab «Video», con los outliers primero (como Image), la
+plantilla del reel de mentores guiada por MaKo («pásame una foto o selecciona de estas», con el resto opacado y su pregunta
+marcada), menos botones y los cursores de MaKo. El diseño y lo que queda: [relevo/nube-tab-video.md](relevo/nube-tab-video.md).
+
+- **El modo simple dejó de cargar la fila de pestañas en su test, y el error no lo nombraba.** `crear-qa-pantallas` arma
+  `tabbar.tsx` con esbuild en CJS, y al sumarle `useModoSimple` (que leía el proyecto con `useEditor`) entró el motor entero:
+  «Top-level await is currently not supported with the "cjs" output format» en `_opencut/wasm/opencut.ts`. La regla de
+  siempre («`_opencut/wasm` no carga en node») mordió por un import de un hook. **Lo que sólo pregunta un dato del proyecto no
+  importa el motor**: la cabecera del editor (que ya lo tiene) fija el proyecto abierto (`fijarProyectoAbierto`, guia/estado.ts)
+  y el modo simple lo lee de ahí. Las listas del modo simple van aparte (`guia/modo-simple-reglas.ts`), en POSITIVO.
+- **La memoria de las aperturas no sirve de estado de un proyecto, ni para callar.** `respuestasDeMemoria` (lib/aperturas/reglas.ts)
+  descarta a propósito las claves con entidad (`|`): un paso contestado de un proyecto no vuelve como respuesta, sólo calla esa
+  clave. Y callar también rompía: la primera versión envolvía `useApertura`, y como la guía muestra sólo el primer paso que
+  falta, «Ahora no» en ese paso (14 días, el segundo para siempre) o tres vistas sin respuesta **callaban la guía entera**.
+  Lo cazó la revisión adversarial, no un test: los EJEMPLOS de la superficie no pueden ver la memoria. **Una superficie que
+  lleva pasos de UNA cosa (un proyecto) guarda en esa cosa lo contestado Y lo salteado** (`app/video-editor/guia/estado.ts`,
+  con el workspace en la clave), arma su `EstadoApertura` sin `useApertura`, saltea lo salteado y deja retomarlo
+  (`pasosDeLaGuia`, la lista «Tu video»).
+- **«Mientras MaKo pregunta» no es «el proyecto es guiado».** Las píldoras y la pregunta de los subtítulos callaban con la marca
+  del proyecto: con todo contestado, el chat quedaba sin sugerencias para siempre. Calla sólo con la pregunta a la vista
+  (`onHablando`). Y la tarjeta del chat plegada escondía la pregunta: quien pregunta la despliega (`desplegarCrear`).
+- **El velo de la guía vive ARRIBA de la pila de modales** (z 400 contra 130). Su modo nuevo, la pregunta marcada
+  (`destacarEnElChat`, `dibujoDestacado` en lib/guia/huecos.ts), no se dibuja con un modal abierto: si no, opacaba el editor
+  del guion que la misma pregunta acababa de abrir. Y nunca marca algo que no está ADENTRO de un chat.
+- **El chat del editor no llevaba `data-mako-chat`**: sin la marca, el velo no le deja hueco y lo opaca junto con todo. Toda
+  tarjeta de chat donde MaKo pueda preguntar con el velo la lleva.
+- **La galería de fotos es de la pieza de todos** (`Apertura.galeria`, `AperturaMako`), no de la tab: cualquier superficie la
+  usa. Cada opción es una `respuesta`; su imagen tiene que ser https o de la app (una `data:` o un `javascript:` no se dibuja).
+- **El manual da dos ritmos para un clip con gesto**: 2,8 palabras/s (§3 regla 7, medido con la transcripción de Omni) y 2,1
+  (§7.1 regla 12, sin medir). `duracionDeClip` usa el medido (regla 29: gana el que se puede medir) y el §7.1 se corrigió en el mismo commit.
+- **Un test que no veía un paso.** Saltear el paso del guion (R13) daba 9/9 en tests/video-tab.test.ts: lo cubría sólo
+  tests/aperturas.test.ts por los EJEMPLOS de la superficie. Se sumó el caso al test 5. Contar las roturas que dan 0 es lo que
+  lo encontró.
+- **Lo que se reusó y no se reescribió:** subir la foto es `/api/onboarding/persona` (la del estudio del personaje; su
+  `useSubirFoto` no está exportado y la llamada se copió en guia/GuiaEnElChat.tsx: si cambia la respuesta, cambian las dos),
+  clonar la voz es `ModalClonar` (app/automations/VozAIStep.tsx, exportado para esto) y las fotos y personajes salen de
+  `inicioAvatarAction`.
+- **Sacar AI Avatar de la barra dejaba a un Esencial sin su personaje, y nada lo marcaba.** Video es sólo de Pro
+  (`NAV_SOLO_PRO`, lib/plan-esencial-reglas.ts) y AI Avatar es de los tres planes: unificarlas es también una decisión de qué
+  ve cada plan, que es de Martín. La fila se quedó; el test la ata a esa condición. **Antes de mudar una tab adentro de otra,
+  se mira si las dos las ven los mismos planes y roles.**
+- **Un link «al inicio» cambia de destino cuando la portada cambia.** `/video-editor` pasó a ser los outliers, y «Volver al
+  inicio», borrar el proyecto abierto y el link «Ir al inicio» del chat seguían yendo ahí, lejos de la lista de proyectos. Van a
+  `RUTA_CREAR_VIDEO` (`?ver=crear`), como Image con su `RUTA_CREAR`.
+
+**Sin hacer** (docs/relevo/nube-tab-video.md §8): MaKo no filma sola los clips, las tomas blancas ni el montaje (lleva al
+estudio y al Video Generator); la corrida del montaje con los cursores del enjambre (los `agentes` de cada paso ya están en la
+plantilla); las carpetas en Multimedia (definidas en `lib/video-plantillas/piezas.ts`, sin dibujar); la voz voice-to-voice
+(`convertirVoz` en lib/elevenlabs.ts no tiene llamador en la app); la fuente de outliers del chat «Outliers de reels y
+anuncios» (se enchufa en `FUENTES_OUTLIERS_VIDEO`); el teléfono no ofrece la plantilla guiada; si AI Avatar sale de la barra
+(decide Martín, por los planes). Nada se miró en un navegador.
+
+**Vive en:** `lib/video-plantillas/` · `lib/video-outliers.ts` · `lib/video-outliers-servidor.ts` · `lib/aperturas/video-guia.ts` ·
+`app/video-editor/guia/` · `app/video-editor/OutliersVideo.tsx` · `app/video-editor/vista.ts` · `app/_ui/guia/VeloGuia.tsx` ·
+`lib/guia/huecos.ts` · test `tests/video-tab.test.ts`.
+
+*9/11/2026, sesión en la nube (`cli_0c6817ed-9a7f-5be0-bade-2bb8adac6555`).*
 ## Tanda 4: ruido en un worker, seguir a la persona, cinco botones al chat, B-roll con videos y el rango I/O (10/11/2026)
 
 **Vive en:** `audio/ruido-hilo/` · `clips/seguir.ts` y `seguir-en-editor.ts` · `chat/linea.ts` (duplicar, fondo, efecto y plantilla de

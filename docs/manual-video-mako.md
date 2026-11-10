@@ -551,7 +551,7 @@ Otros posibles: «El Pique», «El Zasca» (en Argentina, «El Palito»), «Esti
 9. **La imagen de cada clip sale del avatar original y del fondo original, nunca del último fotograma del clip anterior.** La continuidad la dan los mismos originales. Martín: «siempre se debe partir desde el avatar original… si no, van a haber discordancias seguro en los avatares».
 10. **El prompt de un clip hablado lleva el acento, la frase entre comillas y lo quieto.** El vigente es el de la receta aprobada (§6.2): en inglés, con la frase en español entre comillas y «young man from Uruguay». Antes también salió a la primera en Flow, en español: «Habla con acento argentino de Buenos Aires. El cuerpo queda quieto y habla a cámara diciendo: "…". Al principio abre la mano y deja caer la foto.»
 11. **El guion del cliente es textual y no se toca.** Además, cambiar el copy despega los labios.
-12. **La duración de cada clip sale del texto:** unas 3 palabras por segundo si habla quieto, 2,1 si hace una acción.
+12. **La duración de cada clip sale del texto:** unas 3,3 palabras por segundo si habla quieto y 2,8 si hace un gesto (lo medido con la transcripción de Omni, §3 regla 7; acá decía «2,1», sin medir). La cuenta la hace `duracionDeClip` (lib/video-plantillas/medidas.ts).
 
 **Checklist del template.**
 - [ ] El disparo nombra al destinatario en los primeros 3 s.
