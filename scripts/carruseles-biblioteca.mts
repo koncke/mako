@@ -111,7 +111,7 @@ const I = await imp('lib/carruseles/biblioteca-imagenes.ts');
 
 /** Los bajadores de verdad, SIN el tope de 9 s de Vercel: acá no hay función que se corte, y la biblioteca no vuelve a leer
  *  una pieza ya guardada (lo que no baja en esta vuelta no baja nunca). lib/carruseles/biblioteca-imagenes.ts. */
-const SIN_TOPE = { presupuestoMs: Infinity };
+const SIN_TOPE = { presupuestoMs: Infinity, esperaMs: 20_000 };
 const bajadores = {
   bajarPortadas: <T,>(p: readonly T[]) => M.guardarMiniaturas(p, SIN_TOPE),
   bajarLaminas: (ref: string, urls: readonly string[]) => S.bajarLaminas(ref, urls, SIN_TOPE),
@@ -708,6 +708,10 @@ async function laminas() {
   const pagan = conCredito(ks, por0);
   let guardadas = 0;
   let sinImagenes = 0;
+  // Las que Apify SÍ trajo y no se pudieron bajar o subir (10/11/2026): antes se contaban con las de arriba, como «borrados o
+  // privados», y 37 de 59 eran láminas de más de 2 MB que el bucket tiraba en silencio. Pagadas: se pueden rehacer sin pagar,
+  // releyendo el dataset de la corrida (docs/hallazgos-carruseles.md).
+  let noBajaron = 0;
   let pedidos = 0;   // cuántos links ya se pidieron
   let cobrado = 0;   // lo que Apify cobró, contado por lo que LLEGÓ (no por el techo de la tanda, que lleva margen)
   let nTanda = 0;
@@ -739,14 +743,14 @@ async function laminas() {
       if (!p?.imagenes?.length) { sinImagenes += 1; continue; }
       // Ya pagadas: se bajan sin el tope de 9 s, que dejaba sin láminas a un carrusel por una sola que no entraba a tiempo.
       const nuestras = await bajadores.bajarLaminas(f.ref, p.imagenes);
-      if (!nuestras) { sinImagenes += 1; continue; }
+      if (!nuestras) { noBajaron += 1; continue; }
       if (await guardarLaminas(f, nuestras)) guardadas += 1;
     }
     console.log(`  ✔ Tanda ${nTanda}: ${links.length} links → ${guardadas} con sus láminas hasta acá (Apify cobró ${usd(cobrado)} de ${usd(techo)}).`);
   }
   const { total: c1 } = await creditos(ks);
   const gastado = c1 ? Math.max(0, Math.round((c1.usado - c0.usado) * 100) / 100) : null;
-  console.log(`▶ Listo: ${guardadas} carruseles con sus láminas; ${sinImagenes} sin imágenes (borrados, privados o el actor no las dio).`);
+  console.log(`▶ Listo: ${guardadas} carruseles con sus láminas; ${sinImagenes} sin imágenes en lo que dio Apify (borrados, privados o el actor no las dio)${noBajaron ? `; ${noBajaron} con imágenes que NO bajaron (pagados: se rehacen releyendo el dataset de su corrida, sin pagar)` : ''}.`);
   // Por qué no siguió, con el número: nunca un «al techo» mudo. Un corte de Apify a mitad se dice como tal, no como el techo.
   console.log(`  ${B.porQueParo({ corte, motivo: tope.motivo, porque: tope.porque, techo: tope.techo, quedanFuera: conLink.length - pedidos, gastado })}`);
   if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)}.`);

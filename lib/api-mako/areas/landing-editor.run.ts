@@ -271,7 +271,8 @@ export const RUNNERS_EDITOR: Runners = {
         return errorLectura(`No pude leer el dominio de la landing ${id} (${mensaje(e)}).`);
       }
       if (!f) return errorLectura(noExisteCreada(id));
-      return json(dominioParaApi(id, f as unknown as Parameters<typeof dominioParaApi>[1], Date.now()));
+      // Por HTTP no hay conectar ni verificar (canales SIN_HTTP): la nota manda a la pantalla, no a un 404 (#61).
+      return json(dominioParaApi(id, f as unknown as Parameters<typeof dominioParaApi>[1], Date.now(), ctx.canal === 'http'));
     },
   },
 
