@@ -79,7 +79,7 @@ import {
 	REDUCIR_RUIDO,
 	EXTRAIDO_DE,
 } from "@/app/video-editor/_opencut/audio/claves";
-import { buscarFrase, muletillasDe, palabrasEnOrden, type ParrafoTx } from "@/app/video-editor/_opencut/transcripcion/modelo";
+import { buscarFrase, muletillasDe, NO_HAY_MULETILLAS, palabrasEnOrden, type ParrafoTx } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import type { Disponibles } from "./disponibles";
 import { clavesNombradas, codificarClaves, elegirClaves, leerClaves, PARAM_CLAVES } from "@/app/video-editor/_opencut/subtitles/claves";
 import { PAUSA_MIN_S, segundosDeAviso } from "@/app/video-editor/_opencut/audio/silencios-aviso";
@@ -1717,7 +1717,7 @@ export function revisarOperaciones({
 			continue;
 		}
 		const ids = muletillasDe(parrafos, transcripcion?.idioma ?? "es");
-		if (!ids.size) { descartes.push("no se identificaron muletillas"); continue; }
+		if (!ids.size) { descartes.push(NO_HAY_MULETILLAS); continue; }
 		const ejemplos = [...new Set([...ids].map((id) => palabraPorId.get(id)?.texto.toLowerCase()).filter(Boolean))].slice(0, 4);
 		resueltas.push({ op: "eliminar_muletillas" });
 		cambios.push({ tipo: "quita", titulo: ids.size === 1 ? "1 muletilla" : `${ids.size} muletillas`, antes: ejemplos.map((m) => `«${m}»`).join(", "), despues: "" });

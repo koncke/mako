@@ -50,7 +50,16 @@ const RUTA = "/api/video-editor/broll";
 
 let enCurso = false;
 
-type OpcionesBroll = { ritmo?: Ritmo; broll?: boolean; planos?: boolean };
+type OpcionesBroll = {
+	ritmo?: Ritmo;
+	broll?: boolean;
+	planos?: boolean;
+	/**
+	 * Lo que se dice, ya leído (la «Edición automática», enjambre/correr.ts): el B-roll y los planos son dos agentes, y sin
+	 * esto cada uno volvía a transcribir el video entero con Whisper cuando no había subtítulos (revisión del 9/11/2026).
+	 */
+	frases?: Frase[];
+};
 
 /** Lo que dice la ruta cuando no sale: el texto, y si es porque falta conectar Pexels. */
 type FallaRuta = { error: string; faltaPexels: boolean; status: number };
@@ -119,7 +128,7 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 		const base = sinPendientes(editor.scenes.getActiveScene().tracks);
 
 		fase("escuchando");
-		const frases = await frasesDelVideo(editor, (p) => fase("escuchando", p));
+		const frases = opciones.frases ?? (await frasesDelVideo(editor, (p) => fase("escuchando", p)));
 		if (!frases.length) return terminar({ ok: false, motivo: "sin-voz" });
 
 		const avisos: string[] = [];
@@ -130,7 +139,13 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 		const imagenes: ImageElement[] = [];
 		if (conBroll) {
 			const { huecos, objetivo } = huecosParaBroll({ frases, duracion, ocupados: tramosOcupados(base, tps, "broll"), ritmo });
-			if (huecos.length && objetivo) {
+			// Sin Pexels no hay fotos: se pregunta ANTES de pedirle a la IA del negocio que elija (antes se gastaba esa
+			// llamada y recién `buscar` decía que faltaba la conexión). Si la pregunta falla, se sigue como antes.
+			const pexels = huecos.length && objetivo ? await pedirJson<{ conectado: boolean }>({ accion: "pexels" }, 15_000) : null;
+			if (pexels?.ok && pexels.datos.conectado === false) {
+				faltaPexels = true;
+				brollRehecho = false;
+			} else if (huecos.length && objetivo) {
 				fase("eligiendo");
 				const eleccion = await pedirJson<{ elegidos: BrollElegido[]; aviso: string | null }>(
 					{ accion: "elegir", objetivo, huecos: huecos.map(({ i, inicio, fin, frase, palabras, puntaje }) => ({ i, inicio, fin, frase, palabras, puntaje })) },

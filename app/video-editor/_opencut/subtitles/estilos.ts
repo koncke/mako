@@ -250,6 +250,21 @@ export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
 
 export const PLANTILLA_POR_DEFECTO = PLANTILLAS_SUBTITULO[0];
 
+/**
+ * Cómo se ve la caja de letra de una plantilla en su tarjeta: la MISMA regla que el render (`paramsDePlantilla`:
+ * mayúsculas gana). Hasta el 10/11/2026 la tarjeta sólo miraba `mayusculas`, y «Lima» —que va en minúsculas— se
+ * mostraba con la caja de lo escrito.
+ */
+export function cajaDePlantilla(p: Pick<PlantillaSubtitulo, "mayusculas" | "minusculas">): "uppercase" | "lowercase" | undefined {
+	return p.mayusculas ? "uppercase" : p.minusculas ? "lowercase" : undefined;
+}
+
+/** El texto de muestra de una tarjeta con la caja de su plantilla (para medir la fuente con lo que se dibuja). */
+export function textoConCaja(texto: string, p: Pick<PlantillaSubtitulo, "mayusculas" | "minusculas">): string {
+	const caja = cajaDePlantilla(p);
+	return caja === "uppercase" ? texto.toUpperCase() : caja === "lowercase" ? texto.toLowerCase() : texto;
+}
+
 export function plantillaPorId(id: string | null | undefined): PlantillaSubtitulo {
 	return PLANTILLAS_SUBTITULO.find((p) => p.id === id) ?? PLANTILLA_POR_DEFECTO;
 }

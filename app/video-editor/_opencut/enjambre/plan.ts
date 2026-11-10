@@ -22,6 +22,7 @@
 import type { OperacionChat } from "@/lib/editor-video/chat-catalogo";
 import { NO_ENCONTRE } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
+import { NO_HAY_MULETILLAS } from "@/app/video-editor/_opencut/transcripcion/modelo";
 
 // ── Los agentes ──────────────────────────────────────────────────────────────
 
@@ -83,6 +84,17 @@ export const PASOS: readonly Paso[] = [
 ];
 
 export const pasoPorId = (id: PasoId): Paso => PASOS.find((p) => p.id === id) ?? PASOS[0];
+
+/**
+ * La pastilla de la barra de arriba (el «16 agents live» del reel). Trabajan de a UNO (dos comandos a la vez sobre la
+ * misma línea de tiempo se pisan), así que dice cuál va y en qué paso: «en vivo · Subtítulos · paso 2 de 10». Hasta el
+ * 10/11/2026 decía «10 agentes en vivo», que afirmaba diez trabajando a la vez (revisión del 9/11/2026).
+ */
+export function textoPastilla(paso: PasoId | null): string {
+	const i = paso ? PASOS.findIndex((p) => p.id === paso) : -1;
+	if (i < 0) return "en vivo";
+	return `en vivo · ${agentePorId(PASOS[i].agente).rol} · paso ${i + 1} de ${PASOS.length}`;
+}
 
 // ── Lo que se mira de la línea de tiempo ─────────────────────────────────────
 
@@ -244,7 +256,83 @@ export function elegirEstilo(pruebas: readonly PruebaEstilo[]): { elegido: strin
  */
 export function esNadaQueHacer(error: string): boolean {
 	const t = error.replace(/^No se aplica: /, "");
-	return t.startsWith(NO_ENCONTRE) || /^Ya no hay nada que cambiar/.test(t) || /^no se cortó las muletillas/.test(t) || t === MOTIVO_SUBTITULOS["sin-voz"];
+	// «no se identificaron muletillas» (chat/linea.ts) es el caso NORMAL de un video grabado con guion: hasta el 10/11/2026
+	// no estaba acá, y cualquier video sin muletillas terminaba con «1 no pudo» y «Reportar a Soporte».
+	return (
+		t.startsWith(NO_ENCONTRE) ||
+		/^Ya no hay nada que cambiar/.test(t) ||
+		t.startsWith(NO_HAY_MULETILLAS) ||
+		/^no se cortó las muletillas/.test(t) ||
+		t === MOTIVO_SUBTITULOS["sin-voz"]
+	);
+}
+
+/** Cómo terminó un paso. «detenido»: la persona apretó «Detener» y el paso se cortó; no es una falla de nadie. */
+export type ComoTermina = "hecho" | "salteado" | "fallo" | "detenido";
+
+/**
+ * Un pedido al editor que no salió: ¿no había nada que hacer, se detuvo, o falló? «Detener» corta la transcripción
+ * (subtitles/generar.ts → «se cancelaron los subtítulos…») y hasta el 10/11/2026 eso se contaba como «1 no pudo»,
+ * con su «Reportar a Soporte», sobre algo que la persona pidió.
+ */
+export function comoTerminaFalla({ nada, detener }: { nada: boolean; detener: boolean }): ComoTermina {
+	if (nada) return "salteado";
+	return detener ? "detenido" : "fallo";
+}
+
+/**
+ * Los pedazos que se normalizan juntos: los del MISMO video (después de «Borrar silencios» un video son muchos
+ * pedazos). Cada grupo se mide como uno y a todos les toca la misma ganancia (audio/normalizar.ts →
+ * normalizarJuntos); sin esto cada pedazo subía o bajaba por su cuenta y el volumen saltaba en cada corte. Un clip sin
+ * video de origen conocido va solo. El orden de los grupos es el del primer pedazo de cada uno en la línea de tiempo.
+ */
+export function gruposPorFuente<T extends { inicio: number; fuente: string | null }>(clips: readonly T[]): T[][] {
+	const grupos = new Map<string, T[]>();
+	let solos = 0;
+	for (const c of [...clips].sort((a, b) => a.inicio - b.inicio)) {
+		const clave = c.fuente ? `f:${c.fuente}` : `solo:${solos++}`;
+		const g = grupos.get(clave);
+		if (g) g.push(c);
+		else grupos.set(clave, [c]);
+	}
+	return [...grupos.values()];
+}
+
+// ── ¿La persona tocó el editor mientras trabajaban? ──────────────────────────
+
+/** Las teclas que sólo miran o mueven el cabezal (reproducir, ir y venir): no cambian la línea de tiempo. */
+const TECLAS_QUE_SOLO_MIRAN = new Set([" ", "k", "j", "l", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "Escape", "Tab", "Shift", "Control", "Alt", "Meta", "CapsLock"]);
+
+/**
+ * Si un toque o una tecla de la persona pudo cambiar la línea de tiempo mientras los agentes trabajaban (y entonces su
+ * cambio queda mezclado en los pasos que cuenta la corrida, y «Deshacer todo» no se ofrece). Revisión del 9/11/2026:
+ * con el foco fuera de los paneles (en la página), un atajo como Supr no contaba; y apretar «Reproducir» —que no cambia
+ * nada— sí, y sacaba «Deshacer todo». La red de verdad está al deshacer (correr.ts → deshacerEnjambre: si el deshacer no
+ * vuelve exacto a la línea de antes, rehace y no hace nada); esto es para decirlo antes, sin sacarlo por reproducir.
+ *   · La biblioteca (donde está el panel de la edición) nunca cuenta.
+ *   · Tecla: las de reproducir y moverse no cuentan; escribir en un campo fuera de los paneles (el chat) tampoco;
+ *     cualquier otra, en cualquier lugar, sí.
+ *   · Toque: en la línea de tiempo y en las propiedades, sí; en el reproductor, sólo si no es uno de sus botones (los
+ *     de reproducir y la vista), porque arrastrar un texto en la vista previa sí lo mueve.
+ */
+export function cuentaComoToque(e: {
+	tipo: "tecla" | "puntero";
+	zona: string | null;
+	tecla?: string;
+	/** El foco o el toque está en un campo de texto. */
+	enEditable?: boolean;
+	/** El toque cayó en un botón. */
+	enBoton?: boolean;
+}): boolean {
+	if (e.zona === "biblioteca") return false;
+	if (e.tipo === "tecla") {
+		if (e.tecla && TECLAS_QUE_SOLO_MIRAN.has(e.tecla)) return false;
+		if (e.enEditable && !e.zona) return false;
+		return true;
+	}
+	if (e.zona === "linea" || e.zona === "propiedades") return true;
+	if (e.zona === "reproductor") return !e.enBoton;
+	return false;
 }
 
 // ── La revisión final («QA ✓» del reel) ──────────────────────────────────────

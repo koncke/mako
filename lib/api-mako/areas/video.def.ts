@@ -244,6 +244,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'color', rotulo: 'Color de la letra', tipo: 'string', max: 7, descripcion: '#RRGGBB.' },
       { nombre: 'escala', rotulo: 'Tamaño', tipo: 'number', minimo: 0.3, maximo: 4, descripcion: 'Veces el tamaño de siempre (1).' },
       { nombre: 'mayusculas', rotulo: 'Mayúsculas', tipo: 'boolean', descripcion: 'Opcional.' },
+      { nombre: 'minusculas', rotulo: 'Minúsculas', tipo: 'boolean', descripcion: 'Opcional. Todo en minúsculas (como «Lima»); saca las mayúsculas.' },
       { nombre: 'contorno', rotulo: 'Contorno', tipo: 'string', max: 7, descripcion: 'Un color #RRGGBB, o «no» para sacarlo.' },
       { nombre: 'grosor_contorno', rotulo: 'Grosor del contorno', tipo: 'number', minimo: 0, maximo: 100, descripcion: 'De 0 a 100 (sin esto, 20).' },
       { nombre: 'fondo', rotulo: 'Fondo', tipo: 'string', max: 7, descripcion: 'Un color #RRGGBB detrás del texto, o «no» para sacarlo.' },

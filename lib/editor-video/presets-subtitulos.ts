@@ -296,6 +296,14 @@ export function presetDesdeApi(input: Record<string, unknown>, existente: Preset
       delete estilo.minusculas;
     } else delete estilo.mayusculas;
   }
+  // «Lima» (la plantilla del reel) va en minúsculas: sin esto la API no podía guardar ni sacar ese estilo (revisión del
+  // 9/11/2026). Las dos no van juntas: la que se prende saca a la otra.
+  if (input.minusculas !== undefined) {
+    if (input.minusculas === true) {
+      estilo.minusculas = true;
+      delete estilo.mayusculas;
+    } else delete estilo.minusculas;
+  }
   if (input.sombra !== undefined) {
     if (input.sombra === true) estilo.sombra = true;
     else delete estilo.sombra;

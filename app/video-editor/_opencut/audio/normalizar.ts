@@ -99,3 +99,75 @@ export async function alternarNormalizacion({
 	});
 	return objetivo;
 }
+
+/**
+ * «Normalizar» varios pedazos del MISMO video como uno solo (la «Edición automática», enjambre/correr.ts): se mide la
+ * sonoridad de todos juntos, en el orden en que suenan, y a todos se les escribe la MISMA medida, así les toca la misma
+ * ganancia. Medidos de a uno, después de «Borrar silencios» cada pedazo quedaba con su propio nivel (uno casi todo
+ * respiración subía más que uno con la voz entera) y el volumen saltaba de corte en corte (revisión del 9/11/2026).
+ * UN paso de deshacer. Devuelve cuántos pedazos quedaron normalizados (0 si no había sonido que medir).
+ */
+export async function normalizarJuntos({
+	editor,
+	clips,
+	mediaAssets,
+	objetivo,
+	onProgreso,
+}: {
+	editor: EditorCore;
+	clips: ReadonlyArray<{ trackId: string; element: ClipConAudio }>;
+	mediaAssets: readonly MediaAsset[];
+	/** El valor del motor (`OBJETIVOS_NORMALIZAR[...]`, en LUFS como texto). */
+	objetivo: string;
+	onProgreso?: (fraccion: number) => void;
+}): Promise<number> {
+	if (!clips.length) return 0;
+	const ordenados = [...clips].sort((a, b) => a.element.startTime - b.element.startTime);
+	const estado = { medidor: null as MedidorIntensidad | null, sampleRate: 0, mezcla: false };
+	let leidos = 0;
+	for (const { element } of ordenados) {
+		const duracion = element.duration / TICKS_PER_SECOND;
+		const desde = element.trimStart / TICKS_PER_SECOND;
+		const tramo = getSourceTimeAtClipTime({ clipTime: duracion, retime: element.retime, clipDuration: duracion });
+		const ok = await recorrerFuente({
+			element,
+			mediaAssets,
+			desde,
+			hasta: desde + tramo,
+			alTrozo: ({ canales, sampleRate }) => {
+				if (estado.sampleRate && sampleRate !== estado.sampleRate) {
+					estado.mezcla = true;
+					return;
+				}
+				estado.sampleRate = sampleRate;
+				estado.medidor ??= new MedidorIntensidad(sampleRate);
+				estado.medidor.agregar(canales);
+			},
+		});
+		if (ok) leidos++;
+		onProgreso?.(leidos / ordenados.length);
+	}
+	// Dos frecuencias de muestreo no se miden en el mismo medidor (los filtros dependen de ella): no pasa con los
+	// pedazos de un mismo archivo; si pasara, cada pedazo se mide solo, como el botón.
+	if (estado.mezcla) {
+		let hechos = 0;
+		for (const { trackId, element } of ordenados) {
+			const clip = { ...element, params: { ...element.params, [NORMALIZAR_OBJETIVO]: objetivo } } as ClipConAudio;
+			if (await alternarNormalizacion({ editor, trackId, element: clip, mediaAssets, activar: true }).catch(() => null)) hechos++;
+		}
+		return hechos;
+	}
+	const lufs = estado.medidor?.resultado();
+	if (lufs === undefined || !Number.isFinite(lufs)) return 0;
+	const medida = Math.round(lufs * 100) / 100;
+	// Se escribe sobre los clips ACTUALES: medir tarda y la persona pudo cambiar algo.
+	const actuales = editor.timeline.getElementsWithTracks({ elements: ordenados.map(({ trackId, element }) => ({ trackId, elementId: element.id })) });
+	const updates = actuales.map(({ track, element }) => ({
+		trackId: track.id,
+		elementId: element.id,
+		patch: { params: { ...element.params, [NORMALIZAR]: true, [INTENSIDAD_MEDIDA]: medida, [NORMALIZAR_OBJETIVO]: objetivo } },
+	}));
+	if (!updates.length) return 0;
+	editor.timeline.updateElements({ updates });
+	return updates.length;
+}

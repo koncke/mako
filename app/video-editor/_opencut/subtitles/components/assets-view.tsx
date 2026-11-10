@@ -47,7 +47,7 @@ import type { TranscriptionLanguage } from "@/app/video-editor/_opencut/transcri
 import { dividirTextoEnSubtitulos } from "@/app/video-editor/_opencut/transcription/caption";
 import { maxCaracteresPara } from "@/app/video-editor/_opencut/transcription/caption-defaults";
 import { EXTENSIONES_SUBTITULOS, parseSubtitleFile } from "../parse";
-import { PLANTILLAS_SUBTITULO, paramsDePlantilla, plantillaPorId, type PlantillaSubtitulo } from "../estilos";
+import { PLANTILLAS_SUBTITULO, cajaDePlantilla, paramsDePlantilla, plantillaPorId, textoConCaja, type PlantillaSubtitulo } from "../estilos";
 import { pxTrazo } from "@/app/video-editor/_opencut/text/estilo";
 import { tieneTiemposPorPalabra } from "@/app/video-editor/_opencut/text/resaltado";
 import { usePreferenciasSubtitulos, useTrabajoSubtitulos } from "../estado";
@@ -277,7 +277,7 @@ function MiniaturaPlantilla({
 		ref: refTexto,
 		familia: plantilla.fuente,
 		peso: plantilla.negrita ? 700 : 400,
-		texto: plantilla.mayusculas ? texto.toUpperCase() : texto,
+		texto: textoConCaja(texto, plantilla),
 	});
 	return (
 		<button
@@ -310,7 +310,7 @@ function MiniaturaPlantilla({
 						? `${(pxTrazo(plantilla.trazo.grosor, 13 * escala) * 2).toFixed(1)}px ${plantilla.trazo.color}`
 						: undefined,
 					paintOrder: plantilla.trazo ? "stroke fill" : undefined,
-					textTransform: plantilla.mayusculas ? "uppercase" : undefined,
+					textTransform: cajaDePlantilla(plantilla),
 					textShadow: plantilla.sombra ? "1px 1px 2px rgba(0, 0, 0, 0.9)" : undefined,
 				}}
 			>

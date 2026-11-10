@@ -3,6 +3,7 @@
 // =============================================================================
 // POST json { accion: 'elegir', huecos, objetivo }        → { ok, elegidos, conIA, aviso }
 // POST json { accion: 'buscar', consultas, orientacion }  → { ok, resultados: [{ consulta, fotos }] }
+// POST json { accion: 'pexels' }                         → { ok, conectado }: ¿hay clave de Pexels? (antes de pagar la IA)
 // GET  ?foto=<id de Pexels>&orientacion=vertical           → los bytes de la foto (content-type por magic bytes)
 //
 // Pedido de Leila (30/10/2026), «al estilo de Submagic». DÓNDE lo decide el editor con reglas
@@ -59,6 +60,15 @@ export async function POST(req: NextRequest) {
   if (!crudo || crudo.length > TOPE_CUERPO) return fallo('Pedido inválido.', 400);
   let body: { accion?: unknown; huecos?: unknown; objetivo?: unknown; consultas?: unknown; orientacion?: unknown };
   try { body = JSON.parse(crudo) as typeof body; } catch { return fallo('Pedido inválido.', 400); }
+
+  if (body.accion === 'pexels') {
+    // Sólo si está la clave, sin usarla: el B-roll lo pregunta antes de pedirle a la IA que elija (no gasta una
+    // llamada a la IA del negocio para después decir que falta Pexels). «No pude leer» no es «no está»: 503.
+    const clave = await clavePexels(p.ws);
+    if (clave.ok) return responder({ ok: true, conectado: true });
+    if (clave.falta) return responder({ ok: true, conectado: false });
+    return fallo(clave.error, clave.status);
+  }
 
   if (body.accion === 'elegir') {
     if (!rateLimit(`video-editor:broll-ia:${p.ws}`, 20, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);

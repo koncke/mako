@@ -17527,6 +17527,7 @@ PROPONE crear un preset de subtítulos de la marca, o cambiar uno (con «preset�
 | `color` | string | no | #RRGGBB. |
 | `escala` | number | no | Veces el tamaño de siempre (1). |
 | `mayusculas` | boolean | no | Opcional. |
+| `minusculas` | boolean | no | Opcional. Todo en minúsculas (como «Lima»); saca las mayúsculas. |
 | `contorno` | string | no | Un color #RRGGBB, o «no» para sacarlo. |
 | `grosor_contorno` | number | no | De 0 a 100 (sin esto, 20). |
 | `fondo` | string | no | Un color #RRGGBB detrás del texto, o «no» para sacarlo. |
