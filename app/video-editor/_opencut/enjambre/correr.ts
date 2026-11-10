@@ -2,8 +2,10 @@
 // enjambre/correr — la «Edición automática»: los agentes trabajan uno detrás de otro, a la vista
 // =============================================================================
 // Cada paso de ./plan.ts corre con la MISMA función que su botón o su operación del chat, así se porta igual:
-//   · lo del chat (pausas, subtítulos, muletillas, palabras clave, voz limpia, volumen) va por `aceptarPropuesta`
+//   · lo del chat (pausas, subtítulos, muletillas, palabras clave, voz limpia) va por `aceptarPropuesta`
 //     (../chat/aplicar.ts): la misma revisión contra la línea de tiempo de AHORA, los mismos comandos del motor;
+//   · el volumen, por `normalizarJuntos` (../audio/normalizar.ts): los pedazos del MISMO video se miden juntos (un
+//     paso de deshacer por video), así no salta el volumen en cada corte (revisión del 9/11/2026);
 //   · el B-roll y los cambios de plano, por `proponerBroll` (../broll/proponer.ts): quedan PROPUESTOS, con su borde
 //     punteado, para dejar o sacar cada uno como siempre;
 //   · el estilo de los subtítulos, con `aplicarEstiloASubtitulos` (el de Subtítulos › Plantillas).
@@ -24,11 +26,11 @@ import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { mediaTimeFromSeconds, TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { useAssetsPanelStore } from "@/app/video-editor/_opencut/components/editor/panels/assets/assets-panel-store";
 import { cancelarGeneracion } from "@/app/video-editor/_opencut/subtitles/generar";
+import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { usePreferenciasSubtitulos, useTrabajoSubtitulos, type FaseGenerar } from "@/app/video-editor/_opencut/subtitles/estado";
 import { aplicarEstiloASubtitulos, lienzoDe, subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
 import { paramsDePlantilla, PLANTILLA_POR_DEFECTO, plantillaPorId } from "@/app/video-editor/_opencut/subtitles/estilos";
 import { proponerBroll } from "@/app/video-editor/_opencut/broll/proponer";
-import { frasesDelVideo } from "@/app/video-editor/_opencut/broll/frases-del-video";
 import { normalizarJuntos } from "@/app/video-editor/_opencut/audio/normalizar";
 import type { ClipConAudio } from "@/app/video-editor/_opencut/audio/decodificar";
 import { OBJETIVOS_NORMALIZAR } from "@/lib/editor-video/chat-catalogo";
@@ -130,9 +132,12 @@ type Contexto = {
 	 * Lo que se dice en el video, leído UNA vez para el B-roll y los planos (dos agentes). Null mientras nadie lo pidió.
 	 * Sin esto, sin subtítulos, cada uno transcribía el video entero con Whisper (revisión del 9/11/2026).
 	 */
-	frases: { lista: Frase[] | null };
-	/** Los subtítulos de esta corrida fallaron (no «no había voz»): no se vuelve a transcribir para el B-roll. */
-	subtitulosFallaron: boolean;
+	frases: { lista: Frase[] | null; fallo: boolean };
+	/**
+	 * Los subtítulos de esta corrida se intentaron y no salieron (fallaron, o no se reconoció la voz): transcribir otra
+	 * vez para el B-roll va a dar lo mismo.
+	 */
+	subtitulosNoSalieron: boolean;
 };
 
 /** ¿Sigue abierto el proyecto y la escena de la corrida? Entre dos esperas la persona pudo abrir otro. */
@@ -188,7 +193,7 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 			for (const a of r.avisos) anotar(agente, "mira", renglon(a));
 			return null;
 		}
-		const como = comoTerminaFalla({ nada: r.nada, detener: useEnjambre.getState().detener });
+		const como = comoTerminaFalla({ nada: r.nada, detener: useEnjambre.getState().detener, cancelado: r.texto === MOTIVO_SUBTITULOS.cancelado });
 		if (como === "detenido") anotar(agente, "salta", "se detuvo antes de terminar");
 		else anotar(agente, como === "salteado" ? "salta" : "falla", renglon(r.texto));
 		return como;
@@ -308,32 +313,30 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 		case "broll":
 		case "planos": {
 			const esBroll = paso.id === "broll";
-			// Si los subtítulos de esta misma corrida fallaron, transcribir otra vez para elegir dónde va a fallar igual.
-			if (ctx.subtitulosFallaron && !antes.estado.subtitulos.length) {
+			// Si los subtítulos de esta misma corrida no salieron, transcribir otra vez para elegir dónde va a dar lo mismo.
+			if (ctx.subtitulosNoSalieron && !antes.estado.subtitulos.length) {
 				anotar(agente, "salta", "los subtítulos no salieron: sin saber qué se dice no elige dónde");
 				return "salteado";
 			}
+			// El agente de antes ya intentó leer lo que se dice y no pudo: no se vuelve a transcribir para fallar igual.
+			if (ctx.frases.fallo) {
+				anotar(agente, "salta", "no se pudo leer lo que se dice en el video");
+				return "salteado";
+			}
 			anotar(agente, "mira", esBroll ? "lee lo que se dice y busca qué mostrar" : "lee las frases para elegir dónde acercar");
-			// Lo que se dice se lee UNA vez para los dos agentes: de los subtítulos si hay; si no, transcripto acá.
-			if (!ctx.frases.lista) {
-				if (!antes.estado.subtitulos.length) anotar(agente, "mira", "transcribe en tu navegador para saber qué se dice");
-				try {
-					ctx.frases.lista = await frasesDelVideo(editor, () => {});
-				} catch (error) {
-					console.error("[enjambre] frases", error);
-					anotar(agente, "falla", "no se pudo leer lo que se dice en el video");
-					return "fallo";
-				}
-			}
-			if (useEnjambre.getState().detener) {
-				anotar(agente, "salta", "se detuvo antes de proponer");
-				return "detenido";
-			}
-			const frases = ctx.frases.lista;
-			const r = await proponerBroll(
-				editor,
-				esBroll ? { broll: true, planos: false, ritmo: usePreferenciasBroll.getState().ritmo, frases } : { broll: false, planos: true, frases },
-			);
+			// Lo que se dice se lee UNA vez para los dos agentes, ADENTRO de proponerBroll (su candado: el botón de B-roll y
+			// «Subtítulos automáticos» no usan Whisper a la vez, y se ve «escuchando»): el primero lo lee y el segundo lo reusa.
+			const r = await proponerBroll(editor, {
+				broll: esBroll,
+				planos: !esBroll,
+				...(esBroll ? { ritmo: usePreferenciasBroll.getState().ritmo } : {}),
+				...(ctx.frases.lista ? { frases: ctx.frases.lista } : {}),
+				alLeerFrases: (f) => {
+					ctx.frases.lista = f;
+				},
+			});
+			// Se cayó leyendo (no llegó a leer): el próximo agente no lo vuelve a intentar.
+			if (!r.ok && r.motivo === "red" && !ctx.frases.lista) ctx.frases.fallo = true;
 			if (!r.ok) {
 				const nada = r.motivo === "sin-huecos" || r.motivo === "sin-voz";
 				anotar(agente, nada ? "salta" : "falla", renglon(textoDeBroll(r)));
@@ -450,13 +453,14 @@ function vigilarToques(): { tocado: () => boolean; soltar: () => void } {
 		const el = e.target instanceof Element ? e.target : null;
 		const zona = el?.closest("[data-ce-zona]")?.getAttribute("data-ce-zona") ?? null;
 		const enEditable = !!el && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || (el instanceof HTMLElement && el.isContentEditable));
-		const teclado = e instanceof KeyboardEvent;
-		if (cuentaComoToque({ tipo: teclado ? "tecla" : "puntero", zona, tecla: teclado ? e.key : undefined, enEditable, enBoton: !!el?.closest("button") }))
-			tocado = true;
+		const tipo = e instanceof KeyboardEvent ? "tecla" : e.type === "drop" ? "soltar" : "puntero";
+		const tecla = e instanceof KeyboardEvent ? e.key : undefined;
+		if (cuentaComoToque({ tipo, zona, tecla, enEditable, soloMira: !!el?.closest("[data-ce-solo-mira]") })) tocado = true;
 	};
 	try {
 		document.addEventListener("pointerdown", mirar, true);
 		document.addEventListener("keydown", mirar, true);
+		document.addEventListener("drop", mirar, true);
 	} catch {
 		/* sin documento (no pasa en el editor) */
 	}
@@ -466,6 +470,7 @@ function vigilarToques(): { tocado: () => boolean; soltar: () => void } {
 			try {
 				document.removeEventListener("pointerdown", mirar, true);
 				document.removeEventListener("keydown", mirar, true);
+				document.removeEventListener("drop", mirar, true);
 			} catch {
 				/* idem */
 			}
@@ -506,8 +511,8 @@ export async function correrEnjambre(
 	let esperada = tracksIniciales;
 	let tocadaEntrePasos = false;
 	let tocado = false;
-	const frases: Contexto["frases"] = { lista: null };
-	let subtitulosFallaron = false;
+	const frases: Contexto["frases"] = { lista: null, fallo: false };
+	let subtitulosNoSalieron = false;
 
 	try {
 		for (const paso of pasos) {
@@ -515,7 +520,7 @@ export async function correrEnjambre(
 			useEnjambre.setState({ paso: paso.id });
 			fijarAgente(paso.agente, "trabajando");
 			anotar(paso.agente, "empieza", renglon(paso.titulo));
-			const ctx: Contexto = { editor, paso, agente: paso.agente, quietos, ...lugar, frases, subtitulosFallaron };
+			const ctx: Contexto = { editor, paso, agente: paso.agente, quietos, ...lugar, frases, subtitulosNoSalieron };
 			let como: ComoTermina;
 			try {
 				if (!enSuLugar(ctx)) {
@@ -539,9 +544,12 @@ export async function correrEnjambre(
 			esperada = editor.scenes.getActiveSceneOrNull()?.tracks ?? esperada;
 			fijarAgente(paso.agente, como === "hecho" ? "listo" : como === "fallo" ? "fallo" : "salteado");
 			if (paso.id === "subtitulos" && como === "hecho") subtitulosNuevos = true;
-			if (paso.id === "subtitulos" && como === "fallo") subtitulosFallaron = true;
+			if (paso.id === "subtitulos" && como !== "hecho") subtitulosNoSalieron = true;
 			// Lo que cambia la línea de tiempo deja viejo lo que se leyó: después de las muletillas, otra vez.
-			if (como === "hecho" && (paso.id === "pausas" || paso.id === "subtitulos" || paso.id === "muletillas")) frases.lista = null;
+			if (como === "hecho" && (paso.id === "pausas" || paso.id === "subtitulos" || paso.id === "muletillas")) {
+				frases.lista = null;
+				frases.fallo = false;
+			}
 			if (como === "hecho") hechos++;
 			else if (como === "salteado") saltados++;
 			else if (como === "fallo") fallas++;

@@ -11,7 +11,7 @@ import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import { getSourceTimeAtClipTime } from "@/app/video-editor/_opencut/retime";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
-import { INTENSIDAD_MEDIDA, NORMALIZAR, NORMALIZAR_OBJETIVO, OBJETIVO_PREDETERMINADO } from "./claves";
+import { INTENSIDAD_MEDIDA, medidaDePedazos, NORMALIZAR, NORMALIZAR_OBJETIVO, OBJETIVO_PREDETERMINADO } from "./claves";
 import { recorrerFuente, type ClipConAudio } from "./decodificar";
 import { MedidorIntensidad } from "./dsp/intensidad";
 
@@ -105,7 +105,8 @@ export async function alternarNormalizacion({
  * sonoridad de todos juntos, en el orden en que suenan, y a todos se les escribe la MISMA medida, así les toca la misma
  * ganancia. Medidos de a uno, después de «Borrar silencios» cada pedazo quedaba con su propio nivel (uno casi todo
  * respiración subía más que uno con la voz entera) y el volumen saltaba de corte en corte (revisión del 9/11/2026).
- * UN paso de deshacer. Devuelve cuántos pedazos quedaron normalizados (0 si no había sonido que medir).
+ * Cada pedazo se mide también solo: el que se aparta más de `TOLERANCIA_PEDAZO_LU` del conjunto es otra toma y va con
+ * la suya (claves.ts → medidaDePedazos), así una toma lejos del micrófono no queda casi muda. UN paso de deshacer. Devuelve cuántos pedazos quedaron normalizados (0 si no había sonido que medir).
  */
 export async function normalizarJuntos({
 	editor,
@@ -124,8 +125,11 @@ export async function normalizarJuntos({
 	if (!clips.length) return 0;
 	const ordenados = [...clips].sort((a, b) => a.element.startTime - b.element.startTime);
 	const estado = { medidor: null as MedidorIntensidad | null, sampleRate: 0, mezcla: false };
+	// Cada pedazo también se mide solo: el que se aparta mucho del conjunto (otra toma) va con su medida (claves.ts).
+	const propias: Array<number | null> = [];
 	let leidos = 0;
 	for (const { element } of ordenados) {
+		const propio = { medidor: null as MedidorIntensidad | null };
 		const duracion = element.duration / TICKS_PER_SECOND;
 		const desde = element.trimStart / TICKS_PER_SECOND;
 		const tramo = getSourceTimeAtClipTime({ clipTime: duracion, retime: element.retime, clipDuration: duracion });
@@ -142,8 +146,12 @@ export async function normalizarJuntos({
 				estado.sampleRate = sampleRate;
 				estado.medidor ??= new MedidorIntensidad(sampleRate);
 				estado.medidor.agregar(canales);
+				propio.medidor ??= new MedidorIntensidad(sampleRate);
+				propio.medidor.agregar(canales);
 			},
 		});
+		const suyo = ok && propio.medidor ? propio.medidor.resultado() : Number.NaN;
+		propias.push(Number.isFinite(suyo) ? suyo : null);
 		if (ok) leidos++;
 		onProgreso?.(leidos / ordenados.length);
 	}
@@ -158,15 +166,23 @@ export async function normalizarJuntos({
 		return hechos;
 	}
 	const lufs = estado.medidor?.resultado();
-	if (lufs === undefined || !Number.isFinite(lufs)) return 0;
-	const medida = Math.round(lufs * 100) / 100;
-	// Se escribe sobre los clips ACTUALES: medir tarda y la persona pudo cambiar algo.
+	const conjunta = lufs !== undefined && Number.isFinite(lufs) ? lufs : null;
+	const medidas = medidaDePedazos(propias, conjunta);
+	const porId = new Map(ordenados.map(({ element }, i) => [element.id, medidas[i]] as const));
+	// Se escribe sobre los clips ACTUALES: medir tarda y la persona pudo cambiar algo. Un pedazo sin sonido que medir
+	// (ni él ni el conjunto) queda como estaba.
 	const actuales = editor.timeline.getElementsWithTracks({ elements: ordenados.map(({ trackId, element }) => ({ trackId, elementId: element.id })) });
-	const updates = actuales.map(({ track, element }) => ({
-		trackId: track.id,
-		elementId: element.id,
-		patch: { params: { ...element.params, [NORMALIZAR]: true, [INTENSIDAD_MEDIDA]: medida, [NORMALIZAR_OBJETIVO]: objetivo } },
-	}));
+	const updates = actuales.flatMap(({ track, element }) => {
+		const medida = porId.get(element.id);
+		if (medida === null || medida === undefined) return [];
+		return [
+			{
+				trackId: track.id,
+				elementId: element.id,
+				patch: { params: { ...element.params, [NORMALIZAR]: true, [INTENSIDAD_MEDIDA]: Math.round(medida * 100) / 100, [NORMALIZAR_OBJETIVO]: objetivo } },
+			},
+		];
+	});
 	if (!updates.length) return 0;
 	editor.timeline.updateElements({ updates });
 	return updates.length;

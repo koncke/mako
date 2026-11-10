@@ -59,6 +59,8 @@ type OpcionesBroll = {
 	 * esto cada uno volvía a transcribir el video entero con Whisper cuando no había subtítulos (revisión del 9/11/2026).
 	 */
 	frases?: Frase[];
+	/** Lo que se leyó (o transcribió), para que otro agente de la misma corrida lo reuse sin volver a transcribir. */
+	alLeerFrases?: (frases: Frase[]) => void;
 };
 
 /** Lo que dice la ruta cuando no sale: el texto, y si es porque falta conectar Pexels. */
@@ -129,6 +131,7 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 
 		fase("escuchando");
 		const frases = opciones.frases ?? (await frasesDelVideo(editor, (p) => fase("escuchando", p)));
+		opciones.alLeerFrases?.(frases);
 		if (!frases.length) return terminar({ ok: false, motivo: "sin-voz" });
 
 		const avisos: string[] = [];

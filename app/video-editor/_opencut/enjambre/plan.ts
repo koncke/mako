@@ -275,9 +275,11 @@ export type ComoTermina = "hecho" | "salteado" | "fallo" | "detenido";
  * (subtitles/generar.ts → «se cancelaron los subtítulos…») y hasta el 10/11/2026 eso se contaba como «1 no pudo»,
  * con su «Reportar a Soporte», sobre algo que la persona pidió.
  */
-export function comoTerminaFalla({ nada, detener }: { nada: boolean; detener: boolean }): ComoTermina {
+export function comoTerminaFalla({ nada, detener, cancelado }: { nada: boolean; detener: boolean; cancelado: boolean }): ComoTermina {
 	if (nada) return "salteado";
-	return detener ? "detenido" : "fallo";
+	// Sólo lo que cortó «Detener» (la cancelación de los subtítulos): una falla real con «Detener» apretado sigue siendo
+	// una falla (la IA del negocio caída mientras corrían las palabras clave), con su «no pudo» (revisión del 9/11).
+	return detener && cancelado ? "detenido" : "fallo";
 }
 
 /**
@@ -305,34 +307,37 @@ const TECLAS_QUE_SOLO_MIRAN = new Set([" ", "k", "j", "l", "ArrowLeft", "ArrowRi
 
 /**
  * Si un toque o una tecla de la persona pudo cambiar la línea de tiempo mientras los agentes trabajaban (y entonces su
- * cambio queda mezclado en los pasos que cuenta la corrida, y «Deshacer todo» no se ofrece). Revisión del 9/11/2026:
- * con el foco fuera de los paneles (en la página), un atajo como Supr no contaba; y apretar «Reproducir» —que no cambia
- * nada— sí, y sacaba «Deshacer todo». La red de verdad está al deshacer (correr.ts → deshacerEnjambre: si el deshacer no
- * vuelve exacto a la línea de antes, rehace y no hace nada); esto es para decirlo antes, sin sacarlo por reproducir.
- *   · La biblioteca (donde está el panel de la edición) nunca cuenta.
- *   · Tecla: las de reproducir y moverse no cuentan; escribir en un campo fuera de los paneles (el chat) tampoco;
- *     cualquier otra, en cualquier lugar, sí.
- *   · Toque: en la línea de tiempo y en las propiedades, sí; en el reproductor, sólo si no es uno de sus botones (los
- *     de reproducir y la vista), porque arrastrar un texto en la vista previa sí lo mueve.
+ * cambio queda mezclado en los pasos que cuenta la corrida, y «Deshacer todo» no se ofrece). Ante la duda, CUENTA: el
+ * costo de contar de más es que «Deshacer todo» no se ofrece (queda Ctrl+Z); el de contar de menos es que «Deshacer
+ * todo» le borre a la persona su cambio sin avisar (deshacerEnjambre deshace N pasos y, si el de ella cae adentro, el
+ * resultado vuelve igual a la línea de antes). Revisión del 9/11/2026, dos vueltas:
+ *   · Tecla: los atajos del editor corren con el foco en CUALQUIER lugar (también en la biblioteca, después de tocar un
+ *     renglón del registro), así que cuenta toda tecla salvo las que sólo reproducen o mueven, y salvo escribir en un
+ *     campo de texto que no es de las propiedades (el chat, un buscador).
+ *   · Toque: en la biblioteca (donde está el panel de la edición) no cuenta; arrastrar de ahí a la línea se cuenta por
+ *     el `drop`. En el reproductor cuenta todo menos lo marcado `data-ce-solo-mira` (Reproducir, Pantalla completa): las
+ *     manijas de escalar y el menú «Relación» también son botones y SÍ cambian. Fuera de los paneles (un menú en un
+ *     portal, «Aceptar» del chat) cuenta, salvo un campo de texto.
  */
 export function cuentaComoToque(e: {
-	tipo: "tecla" | "puntero";
+	tipo: "tecla" | "puntero" | "soltar";
 	zona: string | null;
 	tecla?: string;
 	/** El foco o el toque está en un campo de texto. */
 	enEditable?: boolean;
-	/** El toque cayó en un botón. */
-	enBoton?: boolean;
+	/** El toque cayó en un control marcado `data-ce-solo-mira` (reproducir, pantalla completa). */
+	soloMira?: boolean;
 }): boolean {
-	if (e.zona === "biblioteca") return false;
+	if (e.tipo === "soltar") return e.zona !== "biblioteca";
 	if (e.tipo === "tecla") {
 		if (e.tecla && TECLAS_QUE_SOLO_MIRAN.has(e.tecla)) return false;
-		if (e.enEditable && !e.zona) return false;
+		if (e.enEditable && e.zona !== "propiedades") return false;
 		return true;
 	}
-	if (e.zona === "linea" || e.zona === "propiedades") return true;
-	if (e.zona === "reproductor") return !e.enBoton;
-	return false;
+	if (e.zona === "biblioteca") return false;
+	if (e.soloMira) return false;
+	if (e.zona === null && e.enEditable) return false;
+	return true;
 }
 
 // ── La revisión final («QA ✓» del reel) ──────────────────────────────────────
