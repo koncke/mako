@@ -6,6 +6,32 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Tanda 4: ruido en un worker, seguir a la persona, cinco botones al chat, B-roll con videos y el rango I/O (10/11/2026)
+
+**Vive en:** `audio/ruido-hilo/` · `clips/seguir.ts` y `seguir-en-editor.ts` · `chat/linea.ts` (duplicar, fondo, efecto y plantilla de
+texto, emoji, recorte) · `broll/cambiar.ts` y `lib/pexels.ts` · `rango/` y `export/exportar.ts`. Punta `punta/editor-tanda4-0911`.
+
+- **Un worker que arranca desde un `blob:` (Turbopack) no resuelve un `fetch("/ve/wasm/…")` relativo**: la dirección del
+  `.wasm` se arma contra `location.origin`. Y transferir `getChannelData` VACÍA el AudioBuffer de quien llama: se copia antes.
+- **El reflejo se aplica DESPUÉS de medir**: el centro de la persona se mide en el cuadro sin reflejar y el gancho `ce-reflejo`
+  da vuelta la capa al dibujar, así que con «Reflejar» el encuadre la sacaba del cuadro. El test de la geometría copiaba la
+  fórmula del compositor a mano y daba verde: ahora dibuja con el gancho real.
+- **Una copia del mismo pedido no tiene ids todavía**: lo que corre después del lote (cambiar el B-roll, revertir, congelar,
+  borrar silencios) la aceptaba y fallaba al aplicar con un mensaje falso. Se rechaza en la revisión, y la copia se simula con
+  el estado del original EN ESE MOMENTO del pedido.
+- **Agregar un archivo a Multimedia puede subir los fps del proyecto fuera del historial** (`ratchetFpsForImportedMedia`):
+  un video de Pexels a 60 fps dejaba el proyecto en 60 y apagaba «Restaurar» del chat, que comparaba los ajustes enteros. El
+  B-roll agrega sin el ratchet y el chat compara sólo el fondo.
+- **Exportar un rango mezclaba (y le reducía el ruido a) toda la línea de tiempo** antes de recortar: ahora saltea lo que
+  no se cruza con el tramo.
+- **Seguridad de la bajada de Pexels**: el único `fetch` directo va a un host fijo (api.pexels.com); los archivos de video se
+  bajan sólo si vinieron en la respuesta y son de sus hosts, con `validarDestino` en cada salto; el navegador manda un id,
+  nunca una URL. La guarda de SSRF lo fija (O6).
+
+**Lo que quedó sin hacer:** Tab (el relevamiento no dice qué hace) y el DIBUJO del rango copiado de CapCut (capcut.com está
+fuera de la red de la nube); leer los términos y la documentación de videos de Pexels (pexels.com, igual); el acercamiento a
+la cara del B-roll; verlo todo en Chrome (lista en `docs/relevo/editor-pendientes-nube.md`).
+
 ## Motion graphics traído por partes, y lo que encontró su revisión (10/11/2026)
 
 **Vive en:** `lib/motion/` (el motor, con `LICENSE-IART` y `LICENSE-WEBKIT`) · `app/video-editor/_opencut/motion/` ·
