@@ -143,6 +143,9 @@ Lo que esta corrida cazó y se arregló después (`66c110f10`):
   prompt no alcanzó. Se pasó al CÓDIGO: `copiloto_media_buyer` no propone cambiar de funnel si el mensaje es una pregunta así
   (`esPreguntaHipotetica`, lib/media-buyer/copiloto.ts; la guarda en lib/api-mako/areas/ads.run.ts; test en
   tests/marketing-copilot-descubrir.test.ts).
+  **Verificado con el turno real** (`ccfb159c4`, la infoproductora hasta el turno 6): ante la misma pregunta ahora compara («ir 100%
+  orgánico por miedo a perder plata te exige publicar todos los días durante meses; con US$600 al mes comprás datos»), recomienda
+  combinar los dos y pregunta por dónde seguir. No propone ningún cambio.
 - **Tienda:** usa el margen («cada venta te deja US$27»), no inventa presupuesto, enfoca los US$1.500 en anuncios hasta que haya tracción.
 - **Lo que sigue apareciendo:** dice «te dejo la tarjeta» en un turno donde la herramienta no viajó (regla D ajustada: sólo si la
   llamó en ESE turno), alguna cifra suelta («la prueba social reduce el riesgo a la mitad»), y la meta sólo la pregunta si la charla
