@@ -21,6 +21,7 @@ import type { Curva } from './curvas';
 import {
   PLANTILLAS, FUENTE_MOTION_DEFECTO, FUENTES_MOTION, color, datosDeBarras, numero, pesoDisponible, texto, normalizarMotion,
 } from './plantillas';
+import { decimalesDe, formatearNumero } from './numeros';
 import type {
   Capa, CapaCaja, CapaCifra, CapaForma, CapaTexto, Efecto, Escena, MotionSpec, Partir, Tono, Tramo, Alineacion,
 } from './tipos';
@@ -183,23 +184,10 @@ export function tintaSobre(fondo: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Números (a mano, sin Intl: el mismo texto en el server, el navegador y los tests)
+// Números: el lector y el formato viven en ./numeros.ts (los mismos para el panel, el chat y la API)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** 1250 → «1.250»; 3.5 con un decimal → «3,5». */
-export function formatearNumero(n: number, decimales: number): string {
-  const neg = n < 0;
-  const fijo = Math.abs(n).toFixed(Math.max(0, Math.min(2, Math.round(decimales))));
-  const [ent, dec] = fijo.split('.');
-  const miles = ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `${neg ? '-' : ''}${miles}${dec ? `,${dec}` : ''}`;
-}
-
-/** Cuántos decimales TIENE un número (hasta 2, que es lo que acepta una cifra): 4,5 → 1; 1250 → 0; 3,14 → 2. */
-export function decimalesDe(n: number): number {
-  for (let d = 0; d < 2; d++) if (Math.abs(Math.round(n * 10 ** d) / 10 ** d - n) < 1e-9) return d;
-  return 2;
-}
+export { decimalesDe, formatearNumero };
 
 /**
  * Los decimales con que se MUESTRA una cifra: los del número que dio la persona, y `decimales` como mínimo (para
@@ -265,6 +253,9 @@ export function altoTexto(c: Pick<CapaTexto, 'lineas' | 'tam' | 'interlineado'>,
   return Math.max(1, c.lineas.length) * c.tam * c.interlineado * a;
 }
 
+/** Cuántas líneas ocupa un texto (al menos una: un texto vacío reserva su lugar). */
+const lineasDe = (c: Pick<CapaTexto, 'lineas'>): number => Math.max(1, c.lineas.length);
+
 /** Ancho estimado (fracción del ancho) de la línea más larga de un texto. */
 function anchoTexto(c: CapaTexto): number {
   return Math.max(0, ...c.lineas.map((l) => anchoEm(l, c.familia, c.peso, c.mayus, c.tracking))) * c.tam;
@@ -284,8 +275,10 @@ function apilar(items: Array<{ alto: number; poner: (y: number) => void; aire?: 
 function pildora(ctx: Ctx, id: string, etiqueta: string, entra: Tramo, latidoDesde: number | null): { caja: CapaCaja; label: CapaTexto; alto: number; poner: (y: number) => void } {
   const label = capaTexto(ctx, { id: `${id}-texto`, s: etiqueta, maxLineas: 1, ancho: ctx.M.ancho * 0.8, tamMax: 34, tamMin: 22, peso: 700, partir: 'linea', color: tintaSobre(ctx.acento), entra });
   const w = Math.min(ctx.M.ancho, anchoTexto(label) + label.tam * 2.4);
-  const hAncho = label.tam * 2.5;
-  const caja: CapaCaja = { k: 'caja', id, x: 0.5 - w / 2, y: 0, w, h: ctx.M.alto(hAncho), color: ctx.acento, radio: hAncho / 2, entra };
+  // El alto sale de las líneas que quedaron (un texto largo escrito a mano se parte aunque se pida una): una caja
+  // pensada para una línea con dos adentro dejaba el texto afuera. El radio, el de una línea: con más, esquinas redondas.
+  const hAncho = label.tam * (2.5 + (lineasDe(label) - 1) * label.interlineado);
+  const caja: CapaCaja = { k: 'caja', id, x: 0.5 - w / 2, y: 0, w, h: ctx.M.alto(hAncho), color: ctx.acento, radio: label.tam * 1.25, entra };
   if (latidoDesde !== null) {
     const latido = { t0: latidoDesde, periodo: 900, veces: 3, escala: 1.06 };
     caja.latido = latido;
@@ -361,8 +354,10 @@ function cifra(ctx: Ctx): Capa[] {
   const { R, M, v } = ctx;
   const capas: Capa[] = [];
   const pila: Array<{ alto: number; poner: (y: number) => void; aire?: number }> = [];
-  const textoNumero = formatearNumero(numero(v, 'numero'), decimalesAMostrar(numero(v, 'numero'), numero(v, 'decimales')));
-  const pre = texto(v, 'prefijo');
+  const n = numero(v, 'numero');
+  const textoNumero = formatearNumero(n, decimalesAMostrar(n, numero(v, 'decimales')));
+  // Un «+» delante de un negativo dibujaba «+-3»: con el signo menos, el «+» del prefijo sobra.
+  const pre = textoNumero.startsWith('-') ? texto(v, 'prefijo').replace(/\+/g, '') : texto(v, 'prefijo');
   const suf = texto(v, 'sufijo');
   const completo = `${pre}${textoNumero}${suf}`;
   const base = capaTexto(ctx, { id: 'numero', s: completo, maxLineas: 1, tamMax: 220, tamMin: 80, peso: 800, tracking: -0.02, interlineado: 1.05, partir: 'linea', entra: tramo('rodar', 200, 1000, 'cubica', 70) });
@@ -401,8 +396,10 @@ function tercio(ctx: Ctx): Capa[] {
   const nombre = capaTexto(ctx, { id: 'nombre', s: texto(v, 'nombre'), maxLineas: 1, ancho: Math.min(0.62, M.ancho * 0.85), tamMax: 62, tamMin: 30, peso: 700, tracking: -0.01, interlineado: 1.2, partir: 'linea', alinear: 'izquierda', color: tintaSobre(panelColor), entra: tramo('subir', tIn + 350, 400, 'cubica') });
   const rolS = texto(v, 'rol');
   const rol = rolS ? capaTexto(ctx, { id: 'rol', s: rolS, maxLineas: 1, ancho: Math.min(0.55, M.ancho * 0.8), tamMax: Math.round(62 * 0.42), tamMin: 14, peso: 700, mayus: true, tracking: 0.12, interlineado: 1.2, partir: 'linea', alinear: 'izquierda', color: tintaSobre(ctx.acento), entra: tramo('aparecer', tIn + 550, 300, 'cubica') }) : null;
-  const panelH = M.alto(nombre.tam * 1.55);
-  const tabH = rol ? M.alto(rol.tam * 2) : 0;
+  // El panel y la pestaña miden las líneas que quedaron: con una sola pensada, un nombre largo escrito a mano se partía
+  // en dos y se salía del panel.
+  const panelH = M.alto(nombre.tam * (1.55 + (lineasDe(nombre) - 1) * nombre.interlineado));
+  const tabH = rol ? M.alto(rol.tam * (2 + (lineasDe(rol) - 1) * rol.interlineado)) : 0;
   const bottom = M.vertical ? 0.72 : 1 - M.b;
   const yPanel = bottom - panelH - tabH;
   const panelW = Math.min(1 - x0 - M.r - barra, anchoTexto(nombre) + padX * 2);
@@ -487,7 +484,8 @@ function barras(ctx: Ctx): Capa[] {
   const zonaAlto = Math.max(0.1, abajo - arriba - M.alto(tamValor * 1.6));
   const slot = M.ancho / n;
   const w = slot * 0.62;
-  const decimales = datos.some((d) => !Number.isInteger(d.valor)) ? 1 : 0;
+  // Los decimales del dato que más tiene: «3,14» se muestra «3,14», nunca «3,1» (el mismo bug que la cifra con 4,5).
+  const decimales = Math.max(0, ...datos.map((d) => decimalesDe(d.valor)));
   datos.forEach((d, i) => {
     const h = zonaAlto * Math.max(0, d.valor) / max;
     const x = M.l + slot * i + (slot - w) / 2;
@@ -549,9 +547,11 @@ function oferta(ctx: Ctx): Capa[] {
     pila.push({ alto: altoTexto(k, M.a), poner: (y) => { k.y = y; } });
   }
   // El sello: 16 puntas, interior 0,78 (la ráfaga de los showcases de ad-video). En un tono serio, sin rebote.
-  const r = M.fr(M.vertical ? 150 : 120);
+  const r0 = M.fr(M.vertical ? 150 : 120);
+  const desc = capaTexto(ctx, { id: 'descuento', s: texto(v, 'descuento'), maxLineas: 1, ancho: r0 * 1.5, tamMax: 80, tamMin: 24, peso: 800, tracking: -0.02, interlineado: 1, partir: 'linea', color: tintaSobre(ctx.acento), entra: tramo('girar', 0, 450, R.pop) });
+  // El sello crece si el descuento se partió en varias líneas (escrito a mano): el texto entra en su círculo.
+  const r = Math.max(r0, (lineasDe(desc) * desc.tam * desc.interlineado) / 2 / 0.55);
   const sello: CapaForma = { k: 'forma', id: 'sello', cx: 0.5, cy: 0, r, puntas: 16, interior: 0.8, color: ctx.acento, entra: tramo('girar', 0, 450, R.pop) };
-  const desc = capaTexto(ctx, { id: 'descuento', s: texto(v, 'descuento'), maxLineas: 1, ancho: r * 1.5, tamMax: 80, tamMin: 24, peso: 800, tracking: -0.02, interlineado: 1, partir: 'linea', color: tintaSobre(ctx.acento), entra: tramo('girar', 0, 450, R.pop) });
   capas.push(sello, desc);
   pila.push({ alto: M.alto(r * 2), poner: (y) => { sello.cy = y + M.alto(r); desc.y = sello.cy - altoTexto(desc, M.a) / 2; }, aire: M.alto(M.fr(16)) });
   const prod = texto(v, 'producto');
@@ -605,6 +605,54 @@ function cierre(ctx: Ctx): Capa[] {
   return capas;
 }
 
+/**
+ * Cuánto se sale del cuadro (en fracciones del lado) la capa que más se sale: 0 si todo entra. Un texto escrito a mano
+ * puede ser tan largo que, aun con la letra en su mínimo y las cajas crecidas, la pila no entra: el panel lo mide con
+ * esto antes de guardarlo (./panel.ts).
+ */
+export function desbordeDelCuadro(e: Escena): number {
+  const a = e.aspecto;
+  let peor = 0;
+  for (const c of e.capas) {
+    let x0: number, x1: number, y0: number, y1: number;
+    if (c.k === 'caja') [x0, x1, y0, y1] = [c.x, c.x + c.w, c.y, c.y + c.h];
+    else if (c.k === 'forma') [x0, x1, y0, y1] = [c.cx - c.r, c.cx + c.r, c.cy - c.r * a, c.cy + c.r * a];
+    else [x0, x1, y0, y1] = [c.x, c.x + c.ancho, c.y, c.y + (c.k === 'texto' ? lineasDe(c) : 1) * c.tam * c.interlineado * a];
+    peor = Math.max(peor, -x0, x1 - 1, -y0, y1 - 1);
+  }
+  return Math.max(0, peor);
+}
+
+/**
+ * Los tramos [desde, hasta) de la escena en que ALGO se mueve (una entrada, una salida, un latido). Afuera de todos, el
+ * cuadro es el mismo: cada capa está antes de empezar, quieta en su estado final o ya se fue.
+ */
+function tramosQueSeMueven(e: Escena): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  for (const c of e.capas) {
+    const n = Math.max(1, pedazos(c));
+    // `Math.max(1, dur)`: el mismo divisor que usa el avance (./evaluar.ts).
+    for (const tr of [c.entra, c.sale]) if (tr) out.push([tr.t0, tr.t0 + (n - 1) * tr.paso + Math.max(1, tr.dur)]);
+    if (c.latido) out.push([c.latido.t0, c.latido.t0 + c.latido.periodo * c.latido.veces]);
+  }
+  return out;
+}
+
+/**
+ * El instante que DIBUJA el cuadro t: t mismo si algo se mueve; si no, el comienzo del tramo quieto que lo contiene
+ * (todos los cuadros de un tramo quieto son idénticos). El Video Editor lo usa en la clave del dibujo
+ * (graphics/definitions/motion.ts → `instanteDeDibujo`): sin esto el motion se redibujaba en CADA cuadro también en los
+ * segundos del medio, donde no cambia nada (la clave llevaba el milisegundo).
+ */
+export function instanteQueDibuja(e: Escena, t: number): number {
+  let quieto = 0;
+  for (const [a, b] of tramosQueSeMueven(e)) {
+    if (t >= a && t < b) return t;
+    if (b <= t && b > quieto) quieto = b;
+  }
+  return quieto;
+}
+
 const ARMAR: Record<MotionSpec['plantilla'], (ctx: Ctx) => Capa[]> = { titular, palabras, cifra, tercio, logo, barras, testimonio, oferta, cierre };
 
 /** La salida de un clip: todo se apaga con el tono, de abajo hacia arriba, y el último cuadro queda limpio. */
@@ -625,11 +673,15 @@ export type OpcionesEscena = {
 
 /** El spec (ya normalizado o no: pasa otra vez por `normalizarMotion`) → la escena. */
 export function armarEscena(spec: unknown, op: OpcionesEscena): Escena {
-  const { spec: s } = normalizarMotion(spec, { estricto: false });
+  // Modo `dibujo`: lo que hay, tal cual. Un obligatorio vacío deja su capa vacía, nunca el texto de ejemplo.
+  const { spec: s } = normalizarMotion(spec, { dibujo: true });
   const a = Number.isFinite(op.aspecto) && op.aspecto > 0.2 && op.aspecto < 5 ? op.aspecto : 16 / 9;
   const def = PLANTILLAS[s.plantilla];
   const video = !!op.video;
-  const durMs = Math.max(1000, Math.min(60_000, Math.round(op.durMs ?? def.duracionMs)));
+  // La escena dura lo que el clip, sin tope: entre que termina de entrar y empieza a salir queda en su estado final.
+  // ⚠️ Hasta el 10/11/2026 topaba en 60 s, y un motion de más (el chat acepta hasta 600 s, el arrastre lo que sea) se
+  // vaciaba a los ~59,7 s con el clip todavía corriendo.
+  const durMs = Math.max(1000, Math.round(Number.isFinite(op.durMs) ? (op.durMs as number) : def.duracionMs));
   const tono = (typeof s.valores.tono === 'string' ? s.valores.tono : 'corporativo') as Tono;
   const R = RITMOS[tono] ?? RITMOS.corporativo;
   const fuente = typeof s.valores.fuente === 'string' && FUENTES_MOTION[s.valores.fuente] ? s.valores.fuente : FUENTE_MOTION_DEFECTO;

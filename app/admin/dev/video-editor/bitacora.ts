@@ -563,4 +563,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: "/video-editor",
   },
+  {
+    fecha: "10 nov", hora: "—", chat: "Video Editor: pendientes (nube)", sesion: "cli_899d9bf8-5e22-5c18-bb6c-4f077c3d9e08", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Motion graphics en el editor: nueve plantillas animadas, también por chat y por la API",
+    puntos: [
+      "Biblioteca › Plantillas › Motion: titular, palabras, cifra, tercio inferior, logo, barras, testimonio, oferta y cierre, con cuatro tonos y en 9:16, 1:1 o 16:9; cada una se edita en su pestaña.",
+      "La cifra respeta lo que escribes: «4,5» se ve 4,5 y «1.250» se ve mil doscientos cincuenta. Un campo vacío no se llena con un ejemplo inventado.",
+      "Por el chat del editor («agrega un titular que diga…») y por la API de MaKo (agregar_motion_video, editar_motion_video).",
+      "No se miró en un navegador (la nube no corre el editor).",
+    ],
+    archivos: [
+      "lib/motion/ — el motor (iart.ai, MIT) y el lector de números",
+      "app/video-editor/_opencut/motion/ — la biblioteca y la pestaña",
+      "tests/motion.test.ts · tests/video-editor-motion.test.ts · tests/video-editor-chat-motion.test.ts",
+    ],
+    revisar: "/video-editor",
+  },
 ];

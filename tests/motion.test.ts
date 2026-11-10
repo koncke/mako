@@ -27,12 +27,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CURVAS, aplicarCurva, cssDeCurva, type Curva } from '../lib/motion/curvas';
-import { armarEscena, anchoEm, finDeEntrada, formatearNumero, fragmentosDeTexto, pedazos, RITMOS, contraste } from '../lib/motion/escena';
+import { readFileSync } from 'node:fs';
+import { armarEscena, altoTexto, anchoEm, desbordeDelCuadro, finDeEntrada, formatearNumero, fragmentosDeTexto, instanteQueDibuja, pedazos, RITMOS, contraste } from '../lib/motion/escena';
+import { validarCampoDelPanel } from '../lib/motion/panel';
+import { leerNumero, numeroParaMostrar } from '../lib/motion/numeros';
 import { DESDE, entrada, escalaLatido, estadoPedazo, inicioPedazo } from '../lib/motion/evaluar';
 import { CSS_MOTION, KEYFRAMES_ENTRADA, KEYFRAMES_SALIDA, nombreEntrada, nombreSalida } from '../lib/motion/css';
 import { arbolDeEscena, type NodoHtml } from '../lib/motion/html';
 import { dibujarEscena } from '../lib/motion/canvas';
-import { PLANTILLAS, camposDe, datosDeBarras, normalizarMotion, valoresPorDefecto } from '../lib/motion/plantillas';
+import { PLANTILLAS, camposDe, datosDeBarras, leerDatosDeBarras, normalizarMotion, topeDuro, validarCampoMotion, valoresPorDefecto } from '../lib/motion/plantillas';
 import { EFECTOS, PLANTILLAS_MOTION, TONOS_MOTION, type Capa, type CapaCifra, type CapaTexto, type Escena, type IdPlantilla } from '../lib/motion/tipos';
 import { htmlDeArbol, type NodoArbol } from '../lib/editor-landing/grafico-svg';
 
@@ -127,7 +130,9 @@ test('datos de barras: «Etiqueta: valor» con miles y decimales en castellano',
     { etiqueta: 'Marzo', valor: 12 },
   ]);
   assert.deepEqual(datosDeBarras('sin número\n: 4'), []);
-  assert.equal(datosDeBarras(Array.from({ length: 9 }, (_, i) => `D${i}: ${i}`).join('\n')).length, 6);
+  // Para DIBUJAR no se corta nada en silencio: lo que no entra lo frena antes `leerDatosDeBarras` (más abajo).
+  assert.equal(datosDeBarras(Array.from({ length: 9 }, (_, i) => `D${i}: ${i}`).join('\n')).length, 9);
+  assert.equal(datosDeBarras('Un mes con un nombre larguísimo: 4')[0].etiqueta, 'Un mes con un nombre larguísimo');
   assert.equal(formatearNumero(1250, 0), '1.250');
   assert.equal(formatearNumero(-3.456, 2), '-3,46');
   assert.equal(formatearNumero(1234567.5, 1), '1.234.567,5');
@@ -389,3 +394,214 @@ test('lienzo: en el medio dibuja cada texto de la escena; en el cuadro 0 y en el
     }
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La revisión adversarial del 10/11/2026: un solo lector de números, el panel que valida, el render sin ejemplos
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('R1 números: UN lector para la cifra, las barras, el chat, la API y el panel («1.250» y «1,250» son 1250)', () => {
+  const panel = (s: string) => { const r = leerNumero(s, { estricto: false }); return r.ok ? r.n : r.motivo; };
+  // El separador con EXACTAMENTE 3 cifras detrás es de miles; con 1, 2 o 4+, la coma decimal.
+  assert.equal(panel('1.250'), 1250);
+  assert.equal(panel('1,250'), 1250);
+  assert.equal(panel('1.234.567'), 1234567);
+  assert.equal(panel('4,5'), 4.5);
+  assert.equal(panel('4.5'), 4.5);
+  assert.equal(panel('3,14'), 3.14);
+  assert.equal(panel('0,250'), 0.25, 'un 0 solo antes del separador no es de miles');
+  assert.equal(panel('1234,567'), 1234.567, 'con 4 cifras antes no puede ser de miles');
+  assert.equal(panel('1.234,5'), 1234.5);
+  assert.equal(panel('1,234.5'), 1234.5);
+  assert.equal(panel('-3'), -3);
+  assert.equal(panel('+12'), 12);
+  for (const malo of ['', ' ', '1e3', '0x10', '1 250', 'Infinity', '12.34.567', '1.2.3', '1,,5', '1.', ',5', '1.234,5,6', '30%'])
+    assert.equal(panel(malo), 'no es un número', `«${malo}»`);
+  // Estricto (la IA, la API): lo ambiguo se rechaza y el motivo dice las dos lecturas y qué escribir.
+  const amb = leerNumero('1.250');
+  assert.ok(!amb.ok && amb.ambiguo);
+  assert.equal(!amb.ok && amb.motivo, '«1.250» puede ser 1250 o 1,25: escribe 1250 (sin separador) o 1,25');
+  const neg = leerNumero('-1,250');
+  assert.equal(!neg.ok && neg.motivo, '«-1,250» puede ser -1250 o -1,25: escribe -1250 (sin separador) o -1,25');
+  assert.deepEqual(leerNumero('1.234,5'), { ok: true, n: 1234.5 }, 'con los dos separadores no hay ambigüedad');
+  assert.deepEqual(leerNumero('4,5'), { ok: true, n: 4.5 });
+  assert.deepEqual(leerNumero(1250), { ok: true, n: 1250 }, 'un número de un JSON no es ambiguo');
+  // El saneo usa el mismo lector: «1.250» del panel es 1250 y la cifra dibuja «1.250», nunca «1,25».
+  const delPanel = normalizarMotion({ plantilla: 'cifra', valores: { numero: '1.250' } }, { estricto: false });
+  assert.equal(delPanel.spec.valores.numero, 1250);
+  assert.equal(cifraDibujada({ numero: '1.250' }, { estricto: false }).dibujo, '1.250');
+  assert.match(normalizarMotion({ plantilla: 'cifra', valores: { numero: '1,250' } }).descartes[0], /^Número: «1,250» puede ser 1250 o 1,25/);
+  // Y lo que el panel MUESTRA se vuelve a leer a sí mismo (lo de la caja es lo que dibuja el video).
+  for (const n of [0, 4.5, 12, 1250, 1234.5, 1234567.89, -3.14, 999_999_999, -0.5, 0.05])
+    assert.equal(panel(numeroParaMostrar(n)), n, `${n} → «${numeroParaMostrar(n)}» → ${n}`);
+  assert.equal(numeroParaMostrar(4.5), '4,5', 'el panel muestra la coma, como el video');
+});
+
+test('R2 barras: «Etiqueta: valor» de 1 a 6, cada línea legible; lo que no entra se rechaza con su motivo', () => {
+  const motivo = (s: string, estricto = true) => { const r = leerDatosDeBarras(s, { estricto }); return r.ok ? 'ok' : r.motivo; };
+  assert.equal(motivo('Enero: 30%\nFebrero: 45%'), 'el valor de «Enero» tiene que ser sólo un número (un «%» o un «$» va en Unidad)');
+  assert.equal(motivo('Enero: $1.200'), 'el valor de «Enero» tiene que ser sólo un número (un «%» o un «$» va en Unidad)');
+  assert.equal(motivo('Enero: 120, Febrero: 180'), '«Enero: 120, Febrero: 180» tiene más de un dato: va uno por línea');
+  assert.equal(motivo('Enero 120'), '«Enero 120» no tiene «:» (escribe «Etiqueta: valor», uno por línea)');
+  assert.equal(motivo(': 4'), '«: 4» no tiene etiqueta antes de «:»');
+  assert.equal(motivo(Array.from({ length: 7 }, (_, i) => `D${i}: ${i}`).join('\n')), 'tiene 7 datos y el tope es 6');
+  assert.equal(motivo('Un mes con un nombre larguísimo: 4'), 'la etiqueta «Un mes con un nombre larguísimo» tiene 31 caracteres y el tope es 24');
+  assert.match(motivo('Ventas: 1.250'), /^en «Ventas», «1\.250» puede ser 1250 o 1,25/, 'estricto: lo ambiguo, con su motivo');
+  assert.equal(motivo('Ventas: 1.250', false), 'ok', 'el panel lo lee como 1250');
+  assert.equal(motivo('Enero: 120\nFebrero = 3,5; Marzo: -2'), 'ok');
+  // El saneo estricto (el chat, la API) y el del panel los rechazan con el rótulo corto.
+  assert.deepEqual(normalizarMotion({ plantilla: 'barras', valores: { datos: 'Enero: 30%' } }).descartes,
+    ['Datos: el valor de «Enero» tiene que ser sólo un número (un «%» o un «$» va en Unidad)']);
+  const r = validarCampoMotion('barras', 'datos', 'Enero: 120, Febrero: 180');
+  assert.ok(!r.ok && /tiene más de un dato/.test(r.motivo));
+  // Un dato con decimales se dibuja con los suyos (3,14 nunca «3,1»).
+  const e = armarEscena({ plantilla: 'barras', valores: { datos: 'A: 3,14\nB: 2' } }, { aspecto: 16 / 9 });
+  assert.deepEqual(e.capas.filter((c): c is CapaTexto => c.k === 'texto' && c.id.startsWith('valor')).map((c) => c.lineas.join(' ')), ['3,14', '2,00']);
+});
+
+test('R3 render: un obligatorio vacío deja su capa vacía, nunca el texto de EJEMPLO; lo largo y el color con alfa se dibujan', () => {
+  for (const [p, campo, ejemplo] of [
+    ['tercio', 'nombre', 'Ana Pérez'], ['testimonio', 'cita', 'duplicamos'], ['testimonio', 'nombre', 'Juan Gómez'], ['cifra', 'etiqueta', 'clientes felices'],
+    ['titular', 'titulo', 'Vende más'], ['barras', 'datos', 'Enero'], ['oferta', 'descuento', '-50%'], ['cierre', 'boton', 'Probar gratis'],
+  ] as const) {
+    const e = armarEscena({ plantilla: p, valores: { ...valoresPorDefecto(p), [campo]: '' } }, { aspecto: 16 / 9, video: true });
+    assert.ok(!e.texto.includes(ejemplo), `${p}.${campo} vacío: «${e.texto}» no lleva el ejemplo «${ejemplo}»`);
+  }
+  // Más largo que el tope duro del panel: se dibuja lo que hay (el panel no lo deja guardar), no el ejemplo.
+  const largo = 'María Fernanda González de la Torre y Asociados '.repeat(6).trim();
+  assert.ok(largo.length > topeDuro(32));
+  assert.ok(armarEscena({ plantilla: 'tercio', valores: { nombre: largo } }, { aspecto: 16 / 9, video: true }).texto.startsWith('María Fernanda'));
+  // Un color con transparencia que quedó guardado se dibuja con su color, sin la transparencia (no el de fábrica).
+  assert.equal(armarEscena({ plantilla: 'titular', valores: { colorFondo: '#FF000080' } }, { aspecto: 1 }).fondo, '#ff0000');
+  // Lo estricto y el panel lo siguen rechazando, con su motivo.
+  assert.deepEqual(validarCampoMotion('titular', 'colorFondo', '#ff000080'), { ok: false, motivo: 'Fondo: «#ff000080» no es un color #RRGGBB' });
+  assert.deepEqual(validarCampoMotion('tercio', 'nombre', '  '), { ok: false, motivo: 'Nombre: no puede quedar vacío' });
+  assert.deepEqual(validarCampoMotion('tercio', 'nombre', 'x'.repeat(topeDuro(32) + 1)), { ok: false, motivo: `Nombre: tiene ${topeDuro(32) + 1} caracteres y el tope es ${topeDuro(32)}` });
+  assert.deepEqual(validarCampoMotion('cifra', 'numero', '1.250'), { ok: true, valor: 1250 });
+  assert.deepEqual(validarCampoMotion('testimonio', 'estrellas', '4,3'), { ok: true, valor: 4.5 }, 'el panel lleva al paso');
+  assert.deepEqual(validarCampoMotion('cifra', 'numero', 'muchos'), { ok: false, motivo: 'Número: no es un número' });
+});
+
+test('R4 duración: la escena dura lo que el clip (sin el tope de 60 s) y queda quieta hasta la salida', () => {
+  const e = armarEscena({ plantilla: 'tercio', valores: { nombre: 'Ana' } }, { aspecto: 16 / 9, video: true, durMs: 120_000 });
+  assert.equal(e.durMs, 120_000);
+  for (const t of [5_000, 59_700, 61_000, 100_000, 118_000]) assert.ok(seVe(e, t), `a los ${t} ms se ve`);
+  assert.equal(seVe(e, 120_000), false, 'el último cuadro, vacío');
+  assert.equal(armarEscena({ plantilla: 'tercio' }, { aspecto: 1, video: true, durMs: Number.NaN }).durMs, PLANTILLAS.tercio.duracionMs, 'sin una duración que sirva, la de la plantilla');
+});
+
+const BOTON_LARGO = 'Agenda hoy mismo tu llamada gratis de diagnóstico con todo nuestro equipo comercial y te contamos cómo crecer este año con todo';
+const DESCUENTO_LARGO = '-50% de descuento en todo el plan anual, sólo por hoy y sólo para los primeros cien clientes que se inscriban antes de las doce de la noche';
+
+test('R5 cajas de una línea: si el texto escrito a mano se parte, la caja crece con él', () => {
+  const dentro = (txt: CapaTexto, y0: number, y1: number, a: number) => txt.y >= y0 - 1e-6 && txt.y + altoTexto(txt, a) <= y1 + 1e-6;
+  for (const a of ASPECTOS) {
+    const t = armarEscena({ plantilla: 'tercio', valores: { nombre: 'María Fernanda González de la Torre Ruiz y Asociados', rol: 'Directora comercial regional para Latinoamérica y el Caribe' } }, { aspecto: a, video: true });
+    const nombre = t.capas.find((c) => c.id === 'nombre') as CapaTexto;
+    const panel = t.capas.find((c) => c.id === 'panel') as Extract<Capa, { k: 'caja' }>;
+    const rol = t.capas.find((c) => c.id === 'rol') as CapaTexto;
+    const tab = t.capas.find((c) => c.id === 'pestana') as Extract<Capa, { k: 'caja' }>;
+    assert.ok(dentro(nombre, panel.y, panel.y + panel.h, a), `${a.toFixed(2)}: el nombre (${nombre.lineas.length} líneas) entra en su panel`);
+    assert.ok(dentro(rol, tab.y, tab.y + tab.h, a), `${a.toFixed(2)}: el cargo (${rol.lineas.length} líneas) entra en su pestaña`);
+    const c = armarEscena({ plantilla: 'cierre', valores: { boton: BOTON_LARGO } }, { aspecto: a, video: true });
+    const label = c.capas.find((x) => x.id === 'boton-texto') as CapaTexto;
+    const boton = c.capas.find((x) => x.id === 'boton') as Extract<Capa, { k: 'caja' }>;
+    assert.ok(dentro(label, boton.y, boton.y + boton.h, a), `${a.toFixed(2)}: el botón (${label.lineas.length} líneas) entra en su píldora`);
+    const o = armarEscena({ plantilla: 'oferta', valores: { descuento: DESCUENTO_LARGO } }, { aspecto: a, video: true });
+    const desc = o.capas.find((x) => x.id === 'descuento') as CapaTexto;
+    const sello = o.capas.find((x) => x.id === 'sello') as Extract<Capa, { k: 'forma' }>;
+    assert.ok(dentro(desc, sello.cy - sello.r * a * 0.8, sello.cy + sello.r * a * 0.8, a), `${a.toFixed(2)}: el descuento (${desc.lineas.length} líneas) entra en su sello`);
+  }
+  // Las de esta prueba se parten de verdad en vertical, y en más líneas de las que entran en la caja de una (si no, no
+  // prueban nada: la caja de una línea tiene aire para dos en la píldora y en el sello).
+  const lineas = (p: IdPlantilla, campo: string, s: string, id: string) =>
+    (armarEscena({ plantilla: p, valores: { [campo]: s } }, { aspecto: 9 / 16, video: true }).capas.find((c) => c.id === id) as CapaTexto).lineas.length;
+  assert.ok(lineas('tercio', 'nombre', 'María Fernanda González de la Torre Ruiz y Asociados', 'nombre') > 1);
+  assert.ok(lineas('cierre', 'boton', BOTON_LARGO, 'boton-texto') >= 3);
+  assert.ok(lineas('oferta', 'descuento', DESCUENTO_LARGO, 'descuento') >= 3);
+});
+
+test('R6 cifra: un «+» delante de un negativo no se dibuja «+-3»', () => {
+  assert.equal(cifraDibujada({ prefijo: '+', numero: -3 }).dibujo, '-3');
+  assert.equal(cifraDibujada({ prefijo: '+', numero: 3 }).dibujo, '+3');
+  assert.equal(cifraDibujada({ prefijo: '$', numero: -3 }).dibujo, '$-3', 'otro prefijo se queda');
+});
+
+test('R7 la curva de WebKit lleva su aviso de licencia (BSD, Copyright (C) 2008 Apple Inc.)', () => {
+  const aviso = readFileSync(new URL('../lib/motion/LICENSE-WEBKIT', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(aviso.split('\n').some((l) => l.trim() === 'Copyright (C) 2008 Apple Inc. All rights reserved.'));
+  assert.match(aviso, /1\. Redistributions of source code must retain the above copyright\n {3}notice, this list of conditions and the following disclaimer\./);
+  assert.match(aviso, /2\. Redistributions in binary form must reproduce the above copyright/);
+  assert.match(aviso, /EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE\./);
+  assert.doesNotMatch(aviso, /<html|404: Not Found/i);
+  assert.match(readFileSync(new URL('../lib/motion/curvas.ts', import.meta.url), 'utf8'), /\.\/LICENSE-WEBKIT/, 'curvas.ts lo nombra');
+});
+
+test('R8 tramo quieto: en el medio todos los cuadros dibujan lo mismo, y el instante que dibuja es uno', () => {
+  for (const p of PLANTILLAS_MOTION) {
+    const e = armarEscena({ plantilla: p, valores: valoresPorDefecto(p) }, { aspecto: 16 / 9, video: true, durMs: 20_000 });
+    const entro = Math.max(...e.capas.map(finDeEntrada), ...e.capas.flatMap((c) => (c.latido ? [c.latido.t0 + c.latido.periodo * c.latido.veces] : [])));
+    const sale = Math.min(...e.capas.flatMap((c) => (c.sale ? [c.sale.t0] : [])));
+    if (p === 'palabras') {
+      // Las frases entran y salen a lo largo del clip: tiene más de un tramo quieto, y adentro de cada uno el instante es uno.
+      assert.ok(e.capas.length > 1);
+    } else {
+      assert.ok(sale - entro > 5_000, `${p}: un tramo quieto largo`);
+      const a = entro + 100, b = sale - 100;
+      assert.equal(instanteQueDibuja(e, a), instanteQueDibuja(e, b), `${p}: el mismo instante de ${a} a ${b}`);
+      const dibujo = (t: number) => { const x = ctxAnotador(); dibujarEscena(x.ctx, e, t, 1920, 1080); return x.textos.join('|'); };
+      assert.equal(dibujo(instanteQueDibuja(e, b)), dibujo(b), `${p}: lo que dibuja el instante es lo que dibuja el cuadro`);
+    }
+    // Mientras algo se mueve, cada cuadro es el suyo: también mientras late un botón (después de entrar todo).
+    for (const c of e.capas) if (c.latido) {
+      const tl = c.latido.t0 + c.latido.periodo / 4;
+      assert.equal(instanteQueDibuja(e, tl), tl, `${p} ${c.id}: latiendo, el instante es el cuadro`);
+    }
+    const t = e.capas[0].entra.t0 + 1;
+    assert.equal(instanteQueDibuja(e, t), t, `${p}: entrando, el instante es el cuadro`);
+    const saliendo = Math.min(...e.capas.flatMap((c) => (c.sale ? [c.sale.t0] : []))) + 10;
+    assert.equal(instanteQueDibuja(e, saliendo), saliendo, `${p}: saliendo, también`);
+    // Y cuando todo se fue, el último cuadro es uno solo (vacío).
+    assert.equal(instanteQueDibuja(e, e.durMs - 5), instanteQueDibuja(e, e.durMs), `${p}: ya salió todo`);
+  }
+  // Antes de que entre nada, el cuadro 0 (el tercio inferior espera su LEAD de 0,2 s vacío).
+  const ter = armarEscena({ plantilla: 'tercio', valores: valoresPorDefecto('tercio') }, { aspecto: 16 / 9, video: true });
+  assert.equal(instanteQueDibuja(ter, 150), 0);
+});
+
+test('R9 panel: un texto que, aun con la letra más chica, saca la escena del cuadro no se guarda', () => {
+  const v = valoresPorDefecto('oferta');
+  const largo = 'Descuento enorme '.repeat(13).trim();
+  assert.ok(largo.length <= topeDuro(10), 'está dentro del tope duro: lo frena el cuadro, no el largo');
+  for (const a of [1, 16 / 9]) {
+    assert.ok(desbordeDelCuadro(armarEscena({ plantilla: 'oferta', valores: { ...v, descuento: largo } }, { aspecto: a, video: true })) > 0.01, 'se sale de verdad');
+    const r = validarCampoDelPanel('oferta', 'descuento', largo, { valores: v, aspecto: a });
+    assert.deepEqual(r, { ok: false, motivo: `Descuento: es muy largo para el cuadro aun con la letra más chica; acórtalo (tiene ${largo.length} caracteres)` });
+  }
+  // Lo que entra pasa, y sin proporción (no se sabe el cuadro) sólo se valida el valor.
+  assert.deepEqual(validarCampoDelPanel('oferta', 'descuento', '-50% hoy', { valores: v, aspecto: 1 }), { ok: true, valor: '-50% hoy' });
+  assert.deepEqual(validarCampoDelPanel('oferta', 'descuento', largo, { valores: v }), { ok: true, valor: largo });
+  // Lo que no vale se rechaza antes, con su motivo.
+  assert.deepEqual(validarCampoDelPanel('oferta', 'descuento', ' ', { valores: v, aspecto: 1 }), { ok: false, motivo: 'Descuento: no puede quedar vacío' });
+  // Y si ya se salía por OTRO campo, achicar éste no se frena (no se sale MÁS).
+  const yaSeSale = { ...v, descuento: largo };
+  assert.equal(validarCampoDelPanel('oferta', 'boton', 'Ok', { valores: yaSeSale, aspecto: 1 }).ok, true);
+  // Las plantillas con sus textos de ejemplo entran todas.
+  for (const p of PLANTILLAS_MOTION) for (const a of ASPECTOS) assert.equal(desbordeDelCuadro(armarEscena({ plantilla: p, valores: valoresPorDefecto(p) }, { aspecto: a, video: true })), 0, `${p} ${a}`);
+});
+
+// PROBADO ROMPIÉNDOLO (10/11/2026, la revisión adversarial; base 23/0, Node 24, cada rotura restaurada de memoria):
+//   · `leerNumero` con 3 cifras = decimal (el `replace(',', '.')` de antes)          -> 19/4 (R1, R2, R3, barras)
+//   · lo ambiguo NO se rechaza en estricto                                           -> 21/2 (R1, R2)
+//   · `numeroParaMostrar` con punto decimal (el «4.5» del panel)                     -> 22/1 (R1)
+//   · `leerDatosDeBarras` sin el tope de 6 / sin el de la etiqueta / sin «más de un dato» -> 22/1 cada una (R2)
+//   · las barras con 1 decimal fijo (`decimales` de antes)                          -> 22/1 (R2)
+//   · `armarEscena` con `estricto: false` en vez de `dibujo` (vuelve el ejemplo)      -> 22/1 (R3)
+//   · el color con alfa sin recortar en el dibujo                                    -> 22/1 (R3)
+//   · la escena con el tope de 60 s                                                  -> 22/1 (R4)
+//   · el panel del tercio / la píldora con el alto de UNA línea                     -> 22/1 cada una (R5)
+//   · el sello sin crecer con sus líneas                                             -> 21/2 (R5, R9)
+//   · el «+» con un negativo                                                         -> 22/1 (R6)
+//   · curvas.ts sin nombrar ./LICENSE-WEBKIT                                         -> 22/1 (R7)
+//   · `instanteQueDibuja` devuelve siempre t / ignora los latidos                     -> 22/1 cada una (R8)
+//   · `validarCampoDelPanel` sin medir el cuadro / sin comparar con lo de antes      -> 22/1 cada una (R9)
+//   · sin efecto: renombrar la local `quieto` de `instanteQueDibuja`                  -> 23/0

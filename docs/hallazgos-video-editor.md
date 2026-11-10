@@ -6,6 +6,33 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Motion graphics traído por partes, y lo que encontró su revisión (10/11/2026)
+
+**Vive en:** `lib/motion/` (el motor, con `LICENSE-IART` y `LICENSE-WEBKIT`) · `app/video-editor/_opencut/motion/` ·
+`app/video-editor/_opencut/graphics/definitions/motion*` · `lib/editor-video/chat-catalogo.ts` (`agregar_motion`,
+`editar_motion`) · `lib/editor-video/chat-api.ts` (`agregar_motion_video`, `editar_motion_video`). Punta `punta/motion-0911`.
+
+- **Mezclar la rama vieja eran 97 conflictos; traerlo por partes (motor → elemento → chat y API) sobre el código de hoy,
+  ninguno.** El bloque motion del Web Generator, que vivía en la misma etiqueta, no vino: es de otro chat.
+- **Tres lectores de números con `replace(',', '.')` leían «1.250» como 1,25** (la cifra, la API y el panel), mientras
+  las barras leían bien. El motor escribía «1.250» y después no leía lo que había escrito. Ahora hay UNO
+  (`lib/motion/numeros.ts`: un separador seguido de exactamente tres cifras es de miles), y lo ambiguo que manda la IA
+  o la API se rechaza con las dos lecturas y qué escribir.
+- **Un render que normaliza «sin ser estricto» reemplaza en silencio lo que no pasa por el EJEMPLO de la plantilla**: un
+  nombre o una cita inventados en el video de un cliente, o el color de fábrica porque el selector devolvía el alfa.
+  La validación va donde se escribe (la pestaña, al salir del campo, con el motivo) y el render, ante un obligatorio
+  vacío, deja la capa vacía.
+- **Una escena con un tope propio (60 s) dentro de un clip que puede durar 600 s** se vaciaba al minuto con el fondo
+  tapando el video: la escena dura lo que el clip.
+- **El aviso de un port**: `curvas.ts` era el UnitBezier.h de WebKit (BSD, Apple) sin su aviso; va el texto literal.
+- **«motion» no estaba en las palabras del área video**: en el chat de la app, «agrega un motion graphic…» llegaba sin
+  `agregar_motion_video`. Se sumó, salvo en una frase que nombra una landing o una web (ahí se llevaba las
+  herramientas de la landing). El margen del presupuesto quedó en 319 (piso 300).
+
+**Lo que quedó sin hacer:** dividir un motion repite la entrada en la mitad derecha (decisión para Martín, en
+`docs/editor-video/pendientes-video-editor.md` §3.1); marquesina, pasos con íconos, el logo desde un SVG y exportar con
+transparencia; verlo en Chrome.
+
 ## Subtítulos de Submagic: la palabra que salta, las claves a mano y los emojis automáticos (10/11/2026)
 
 **Vive en:** `app/video-editor/_opencut/text/resaltado.ts` · `text/dibujar.ts` · `subtitles/emojis.ts` · `subtitles/emojis-pista.ts` ·
@@ -33,8 +60,27 @@ Pedido de Martín (9/11): «duplicar Submagic para el tema de los subtítulos».
 - **Un guard que pedía la ÚLTIMA línea de `LARGAS`** («"usar_plantilla", "borrar_silencios"])») cayó con el cableado bien al sumar una
   operación al final. Se volvió una prueba de lo que cuida: que `borrar_silencios` esté en la lista (`tests/video-editor-chat.test.ts`, 51).
 
+- **La revisión adversarial (render real con node-canvas) encontró que la palabra agrandada PISABA a las vecinas:**
+  «HOY DINERO YA» salía «HOYDINEROYA» con «Hormozi», y la clave al 130 % tapaba letras. Escalar una palabra en su
+  lugar no le hace lugar: el renglón tiene que RESERVARLO. La reserva es la del pico (`escalaMaximaDePalabra`, no la
+  del instante: así el renglón no baila) y va en la MEDICIÓN (`reservas`, sumada al ancho del bloque), no sólo en el
+  dibujo: si no, el fondo y el recuadro de selección quedan cortos. La ubicación es una función pura
+  (`ubicarPalabras`) porque `dibujar.ts` arrastra el motor y no carga en node. Y la palabra con forma va en una
+  pasada COMPLETA aparte (contorno y relleno): con el contorno de todas antes que todos los rellenos, el relleno de la
+  vecina le pisaba el contorno.
+- **Un emoji colocado UNA vez no sigue a su subtítulo**: cambiar de plantilla lo dejaba encima del texto, y borrar o
+  regenerar los subtítulos dejaba emojis huérfanos. La regla (`sincronizarEmojis`) corre en `timeline.updateTracks`,
+  como el imán: recoloca si cambió el subtítulo, saca el huérfano, y si la persona tocó o duplicó el emoji le saca la
+  marca (queda suyo). ⚠️ El orden importa: si el subtítulo cambió, manda el subtítulo, porque un «Deshacer» trae los
+  dos cambiados y, preguntando primero «¿lo tocó a mano?», deshacer un cambio de estilo le sacaba la marca.
+- **La vista del chat crecía ~190 caracteres por emoji** (animaciones y posición) y un video largo pasaba su tope:
+  el emoji automático va compacto.
+
 **Lo que quedó sin hacer:** el subtítulo escalonado («Stagger Stack», §1.6 de los pendientes: no hay descripción en el repo y copiarlo de
-memoria es diseñarlo); verlo todo en Chrome (la lista está en `docs/relevo/editor-pendientes-nube.md`).
+memoria es diseñarlo); verlo todo en Chrome (la lista está en `docs/relevo/editor-pendientes-nube.md`); la palabra
+que BAJA con «Salta» no entra en lo medido (sobresale apenas del recuadro de selección); la alineación izquierda o
+derecha del subtítulo no mueve el emoji (se centra en su `x`); y el reparto de renglones (`partirYUbicar`, 82 % del
+ancho) no cuenta la reserva, así que una clave al 160 % al final de un renglón lleno podría salirse del lienzo.
 
 ## Edición automática: los arreglos de la revisión (10/11/2026)
 

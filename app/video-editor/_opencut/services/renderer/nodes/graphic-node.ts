@@ -66,14 +66,20 @@ export class GraphicNode extends VisualNode<
 			lienzo: lienzo ?? { width: 0, height: 0 },
 		});
 		const animado = !!definition.animado;
-		// Un animado cambia en cada cuadro: el tiempo (redondeado al milisegundo) entra en la clave.
+		// Un animado cambia en cada cuadro: el tiempo (redondeado al milisegundo) entra en la clave. Pero el que entra es el
+		// instante que DIBUJA ese cuadro: en un tramo quieto (un motion graphic que ya entró y no sale todavía) es el mismo
+		// para todos, y no se redibuja (graphics/types.ts → `instanteDeDibujo`).
+		const instante =
+			animado && tiempo !== undefined && definition.instanteDeDibujo
+				? definition.instanteDeDibujo({ params: resolvedParams, tiempo, duracion, width, height })
+				: tiempo;
 		const cacheKey = claveDeFuente({
 			definitionId: this.params.definitionId,
 			params: resolvedParams,
 			width,
 			height,
 			animado,
-			tiempo,
+			tiempo: instante,
 			duracion,
 		});
 		if (this.cachedSource && this.cachedKey === cacheKey) {
@@ -91,7 +97,7 @@ export class GraphicNode extends VisualNode<
 			params: resolvedParams,
 			width,
 			height,
-			...(animado ? { tiempo: tiempo ?? 0, duracion } : {}),
+			...(animado ? { tiempo: instante ?? 0, duracion } : {}),
 		});
 
 		this.cachedKey = cacheKey;

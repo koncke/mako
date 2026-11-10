@@ -121,6 +121,65 @@ function leerClavesEscala(v: unknown): number {
 }
 
 /**
+ * El tamaño más grande que puede llegar a tener `palabra` (la animación en su pico, una clave con su tamaño). El
+ * renglón le reserva ese lugar (./measure-element.ts → `reservas`, ./dibujar.ts → armarPiezas): sin la reserva, la
+ * palabra agrandada se comía el espacio y tapaba a las vecinas («HOYDINEROYA», revisión del 10/11/2026). La reserva
+ * es la del pico y no la del instante: así el renglón no baila cuando una palabra crece.
+ */
+export function escalaMaximaDePalabra(r: ResaltadoTexto, palabra: number): number {
+	const anim = r.anim === "pop" ? Math.max(...CURVA_POP.map((p) => p.escala)) : r.anim === "crecer" ? ESCALA_CRECER : 1;
+	return Math.max(anim, r.claves.includes(palabra) ? r.clavesEscala : 1);
+}
+
+/**
+ * Lo que se le reserva a cada renglón: Σ (escala máxima − 1) × ancho de cada palabra, medido con `anchoDe` (el
+ * `measureText` con la fuente y el interletrado del texto). Puro: lo usan la medición y el test.
+ */
+export function reservasDeRenglones(r: ResaltadoTexto, renglones: readonly string[], anchoDe: (texto: string) => number): number[] {
+	const primeras = primerasPalabras(renglones);
+	return renglones.map((renglon, i) => {
+		let total = 0;
+		for (const p of palabrasDeRenglon(renglon, primeras[i] ?? 0)) {
+			const m = escalaMaximaDePalabra(r, p.palabra);
+			if (m > 1) total += (m - 1) * anchoDe(p.texto);
+		}
+		return total;
+	});
+}
+
+/**
+ * Dónde va cada palabra de un renglón recto: donde caería en el renglón entero (el ancho de lo que la precede,
+ * medido como «hasta el fin de la palabra − la palabra», así da igual si el navegador cuenta el espaciado de la
+ * última letra) más las reservas de las de antes, y centrada en la suya. `x0` es el inicio del renglón CON su reserva.
+ * Puro (el dibujo pasa el `measureText` del lienzo): lo usa ./dibujar.ts → armarPiezas y lo prueba el test.
+ */
+export function ubicarPalabras({
+	renglon,
+	primera,
+	x0,
+	anchoDe,
+	escalaMax,
+}: {
+	renglon: string;
+	primera: number;
+	x0: number;
+	anchoDe: (texto: string) => number;
+	/** La escala máxima de cada palabra; sin ella, sin reserva. */
+	escalaMax?: (palabra: number) => number;
+}): Array<{ texto: string; palabra: number; x: number; ancho: number }> {
+	const salida: Array<{ texto: string; palabra: number; x: number; ancho: number }> = [];
+	let corrido = 0;
+	for (const p of palabrasDeRenglon(renglon, primera)) {
+		const ancho = anchoDe(p.texto);
+		const antes = p.desde === 0 ? 0 : anchoDe(renglon.slice(0, p.desde + p.texto.length)) - ancho;
+		const reserva = escalaMax ? Math.max(0, escalaMax(p.palabra) - 1) * ancho : 0;
+		salida.push({ texto: p.texto, palabra: p.palabra, x: x0 + antes + corrido + reserva / 2, ancho });
+		corrido += reserva;
+	}
+	return salida;
+}
+
+/**
  * La forma con que se dibuja la palabra `palabra`: la que se dice, con su animación; una clave, con su tamaño (si es
  * la que se dice, gana la más grande); las demás, como siempre. `subida` va en veces el tamaño de la letra.
  */

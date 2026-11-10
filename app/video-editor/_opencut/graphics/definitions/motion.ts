@@ -14,7 +14,7 @@
 // =============================================================================
 
 import type { ParamDefinition, ParamValues } from "@/app/video-editor/_opencut/params";
-import { armarEscena } from "@/lib/motion/escena";
+import { armarEscena, instanteQueDibuja } from "@/lib/motion/escena";
 import { dibujarEscena } from "@/lib/motion/canvas";
 import { cargarFuentesMotion, familiasDe, fuentesListas } from "@/lib/motion/fuentes";
 import { PLANTILLAS, camposDe } from "@/lib/motion/plantillas";
@@ -82,6 +82,10 @@ function definicion(p: IdPlantilla): GraphicDefinition {
 		render({ ctx, params, width, height, tiempo, duracion }) {
 			const e = escenaDe(p, params, width / height, tiempo === undefined ? undefined : duracion);
 			dibujarEscena(ctx, e, tiempo === undefined ? e.durMs : tiempo * 1000, width, height);
+		},
+		// En los tramos quietos (todo entró y nada sale todavía) todos los cuadros son el mismo: el nodo no redibuja.
+		instanteDeDibujo({ params, tiempo, duracion, width, height }) {
+			return instanteQueDibuja(escenaDe(p, params, width / height, duracion), tiempo * 1000) / 1000;
 		},
 		preparar(params) {
 			const familias = familiasDe(escenaDe(p, params, 16 / 9, undefined));
