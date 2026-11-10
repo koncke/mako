@@ -80,3 +80,9 @@
 /* «Carruseles que funcionan» (4/11/2026): la fila que abre el explorador (app/image-editor/carruseles), con su flecha. */
 .m-image-editor-carruseles { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 48px; padding: 0 16px; margin: 4px 0 12px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-weight: 600; text-decoration: none; }
 .m-image-editor-carruseles span:last-child { color: var(--faint); font-size: 22px; line-height: 1; }
+
+/* El guiado de «Editar» (10/11/2026, ./EjemplosM.tsx): el MISMO de la computadora, apilado. La tarjeta de MaKo (.cr-tarjeta de
+   app/_crear/crear.css, que a ≤ 760 px ya va a todo el ancho) con un alto propio, porque apilada no tiene un padre que la estire;
+   debajo, las láminas del original. */
+.m-image-editor-guiado { display: flex; flex-direction: column; }
+[data-m] .m-image-editor-guiado__chat { flex: none; height: min(62dvh, 540px); margin: 0 0 16px; }

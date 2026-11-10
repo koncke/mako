@@ -131,4 +131,23 @@ export const BITACORA: Hito[] = [
     commits: [{ sha: 'f0589d4db', msg: 'Email: cada negocio manda con SU cuenta de Resend, y la API guía el camino entero', lineas: 1726, archivos: 32 }],
     revisar: '/api-mako?tab=docs&art=campana-email',
   },
+  {
+    fecha: '10 nov', hora: '19:35', chat: 'Tickets', sesion: 'local_dd6bb6fb-b110-49de-8105-e2755bc74490', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El envío de correos ya no se apaga por una cuenta partida: el freno mira tus últimos 100 correos enviados, desde que prendiste el envío',
+    puntos: [
+      '**El diagnóstico obvio era el equivocado.** El 10/11 a las 9:01 (Tijuana) el freno apagó el email del ws1 con «3 de 52 (5,8 %)», pero ningún envío estaba mal: Piloto A, 3 de 100 (3 %); Piloto B, 2 de 78 (2,6 %). La ventana de 24 h tenía la COLA del envío de ayer (con 2 de sus 3 rebotes) y los primeros 7 de hoy.',
+      '**Ahora cuenta los últimos 100 emails enviados** (de las secuencias y los broadcasts juntos), de 7 días como mucho. Los umbrales no cambian: 50 o más, rebotes de 5 % o quejas de 0,3 %.',
+      '**Y arranca cuando una persona prende el envío**: los rebotes que ya lo apagaron no lo vuelven a apagar con el próximo.',
+      'Los 22 de Piloto B que quedaron sin salir por el apagado: se le contestó a Mauricio en su grupo con las tres opciones del calendario (el tope de 100 en 24 h no da para los 22 hoy y los 97 de Piloto A mañana a las 9:00). Ticket #78, abierto.',
+    ],
+    archivos: [
+      'lib/email-freno.ts — `conteoDeLosUltimos` y `desdeDelFreno`, puros',
+      'lib/email-reputacion.ts — `conteoEmailDelFreno` (antes `conteoEmailUltimas24h`)',
+      'lib/api-mako/areas/chatbot.run.ts — `ver_limites_envio` dice la regla nueva y `freno.ultimos_envios`',
+      'tests/email-campana-topes.test.ts — 13/13, con los envíos reales del 9 y el 10/11; probado rompiéndolo (2 mutaciones, las 2 rojas)',
+    ],
+    revisar: '/email',
+    tickets: [76],
+  },
 ];
