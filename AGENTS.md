@@ -1011,6 +1011,12 @@ Reglas que salen de eso:
   Se comprueba en un comando, después de commitear:
   `git log -1 --format='%(trailers:key=Claude-Cuenta,valueonly)'`.
 
+- ⚠️ **El AUTOR de cada commit es `Claude <martinkoncke@gmail.com>`, también en la nube.** La nube trae
+  `noreply@anthropic.com` por default. Con ese autor, Vercel no despliega, y `punta → main` frena en «Lo que cambió la punta».
+  Antes del primer commit: `git config user.email martinkoncke@gmail.com && git config user.name Claude`. Siete puntas de la nube
+  quedaron rojas por esto el 9-10/11/2026. Cómo se re-firma una ya subida: `docs/hallazgos-infra.md`, «la punta la firmó
+  `noreply@anthropic.com`».
+
 - ⚠️ **Antes de firmar, RELEÉ el marcador; lo que te inyectó el hook es una foto del
   arranque.** El contexto de `SessionStart` se calcula una vez y no se entera si Martín
   cambia de cuenta con la sesión abierta. Pasó el 27/09: tres sesiones arrancaron 10:12,

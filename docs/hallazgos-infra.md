@@ -1169,6 +1169,14 @@ aparecen, no sólo el que se vio primero.** Acá los que aparecen son dos: el bo
 GitHub; frenarlo dejaría afuera a gente del equipo. Al bot lo agarra el `[bot]` del nombre, no el dominio. Está fijado con un test
 para que nadie lo "arregle" de más.
 
+**Desde que la guarda frena (9-10/11/2026): siete puntas de la nube rojas por lo mismo**: tab-video, carruseles-guiado, outliers-video,
+automations-manychat, editor-tanda4-0911, motion-0911 y subtitulos-submagic-0911. El chat de la nube termina, nadie re-firma, y la
+punta queda roja días. **Se previene** con `git config user.email martinkoncke@gmail.com` (y `user.name Claude`) antes del primer
+commit: la regla está en `AGENTS.md`. **Se repara sin checkout**, porque la guarda mira sólo el ÚLTIMO commit: se rehace ese commit
+con el mismo árbol, el mismo padre y el mismo mensaje (`git commit-tree <árbol> -p <padre> -F msg`, con `GIT_AUTHOR_*` y
+`GIT_COMMITTER_*` del equipo y la fecha de autor original), se comprueba que el árbol es el mismo y se sube con
+`--force-with-lease=refs/heads/punta/<x>:<sha viejo>`. La punta se relanza sola.
+
 ## Sin veredicto, la punta llegó a main sin correr un test: `null != '0'` es falso en GitHub (4/11/2026)
 
 **Vive en:** `.github/workflows/punta.yml` (las condiciones de «Tests afectados…» y «Los tests los cubre el veredicto») ·
