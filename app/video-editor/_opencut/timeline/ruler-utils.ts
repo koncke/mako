@@ -10,6 +10,26 @@ import { frameRateToFloat } from "@/app/video-editor/_opencut/fps/utils";
 const LABEL_FRAME_INTERVALS = [2, 3, 5, 10, 15] as const;
 
 /**
+ * LOS RÓTULOS CAEN EN CADA SEGUNDO (10/11/2026). Medido en producción con dos clips de 24 fps
+ * (el proyecto toma los fps del primero): la regla decía «00:00, 15f, 6f, 21f, 12f, 3f…», porque
+ * 15 cuadros no dividen 24 y los rótulos se corrían del segundo, que no aparecía nunca. Con fps
+ * que no admiten la serie de CapCut (24, 25, 50…), los rótulos van cada un DIVISOR de los fps
+ * (a 24: 2, 3, 4, 6, 8, 12): el segundo siempre tiene el suyo. A 30 y 60 la serie no cambia.
+ */
+const DIVISORES_DE_RESPALDO = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30] as const;
+
+/** Los intervalos de rótulo (en cuadros) que caen en cada segundo a estos fps. */
+export function intervalosDeRotulo(fps: number): readonly number[] {
+	const porSegundo = Math.round(fps);
+	if (LABEL_FRAME_INTERVALS.every((n) => porSegundo % n === 0)) {
+		return LABEL_FRAME_INTERVALS;
+	}
+	return DIVISORES_DE_RESPALDO.filter(
+		(n) => n < porSegundo && porSegundo % n === 0,
+	);
+}
+
+/**
  * frame intervals for ticks - can go down to 1 for max granularity.
  */
 const TICK_FRAME_INTERVALS = [1, 2, 3, 5, 10, 15] as const;
@@ -67,7 +87,7 @@ export function getRulerConfig({
 		pixelsPerSecond,
 		fps: fpsFloat,
 		minSpacingPx: MIN_LABEL_SPACING_PX,
-		frameIntervals: LABEL_FRAME_INTERVALS,
+		frameIntervals: intervalosDeRotulo(fpsFloat),
 	});
 
 	const rawTickIntervalSeconds = findOptimalInterval({
@@ -202,39 +222,16 @@ export function formatRulerLabel({
 	timeInSeconds: number;
 	fps: FrameRate;
 }): string {
-	if (isSecondBoundary({ timeInSeconds })) {
-		return formatTimestamp({ timeInSeconds });
+	// Por NÚMERO DE CUADRO, como el código de tiempo (10/11/2026): a 23,976 fps el cuadro 24 cae
+	// en 1,001 s, y con la cuenta en segundos ese rótulo decía «0f» en vez de «00:01».
+	const fpsFloat = frameRateToFloat(fps);
+	const porSegundo = Math.round(fpsFloat);
+	const cuadro = Math.round(timeInSeconds * fpsFloat);
+	const enElSegundo = cuadro % porSegundo;
+	if (enElSegundo === 0) {
+		return formatTimestamp({ timeInSeconds: cuadro / porSegundo });
 	}
-
-	const frameWithinSecond = getFrameWithinSecond({ timeInSeconds, fps: frameRateToFloat(fps) });
-	return `${frameWithinSecond}f`;
-}
-
-/**
- * checks if a time falls exactly on a second boundary.
- */
-function isSecondBoundary({
-	timeInSeconds,
-}: {
-	timeInSeconds: number;
-}): boolean {
-	const epsilon = 0.0001;
-	const remainder = timeInSeconds % 1;
-	return remainder < epsilon || remainder > 1 - epsilon;
-}
-
-/**
- * gets the frame number within the current second.
- */
-function getFrameWithinSecond({
-	timeInSeconds,
-	fps,
-}: {
-	timeInSeconds: number;
-	fps: number;
-}): number {
-	const fractionalPart = timeInSeconds % 1;
-	return Math.round(fractionalPart * fps);
+	return `${enElSegundo}f`;
 }
 
 /**
