@@ -21,7 +21,8 @@ Cerebro las vuelva a firmar. El árbol no cambia, así que el `Veredicto:` del m
 |---|---|---|---|
 | 1 | `punta/edicion-arreglos-0911` | `101042780` (7227 tests de 722 archivos + tsc entero, Node 24) | Los bugs de la revisión de la edición automática (§2.2). Trae debajo `punta/edicion-reel-0911` (la edición automática misma) |
 | 2 | `punta/subtitulos-submagic-0911` | `8af141aff` (7263 tests de 724 archivos + tsc entero, Node 24) | Subtítulos de Submagic (§1.2, §1.3, §1.4, §1.5), con lo que encontró su revisión. Trae debajo la tanda 1 |
-| 3 | `punta/motion-0911` | (en curso) | Motion graphics por partes (§3.1) |
+| 3 | `punta/motion-0911` | `947524c66` (7150 tests de 716 archivos + tsc entero, Node 24) | Motion graphics por partes (§3.1), con lo que encontró su revisión. Trae debajo las tandas 1 y 2 |
+| 4 | `punta/editor-tanda4-0911` | (en revisión) | Ruido en un worker (§7.2), seguir a la persona en Clips (§5.1), el chat suma cinco botones (§9.1), B-roll «Otra» y videos de Pexels (§4.1), atajos y exportar el rango I/O (§10.1). Trae debajo la tanda 3 |
 
 La rama designada de la sesión, `claude/magical-tesla-t2stbc`, sigue la última punta.
 
@@ -52,13 +53,17 @@ La rama designada de la sesión, `claude/magical-tesla-t2stbc`, sigue la última
 - **No hecho:** el subtítulo escalonado (§1.6): no hay descripción en el repo de cómo se ve el «Stagger Stack» y copiarlo de memoria es
   diseñarlo; hace falta mirar el reel (`origin/referencias/reels-0911:edicion-mako.mp4`).
 
-### Tanda 3 — motion graphics (§3.1), en curso
+### Tanda 3 — motion graphics (§3.1)
 - Portado por un agente en el worktree `.claude/worktrees/agent-a44eb269e818a7999`, rama `worktree-agent-a44eb269e818a7999`, 3 commits:
   `4ce9c4983` (el motor `lib/motion/` y `LICENSE-IART`), `10fad3f61` (el elemento del editor), `b621ac894` (chat y API).
 - Arreglados: la cifra 4,5 se ve «4,5» (paso de 0,01, coma decimal; lo que no entra se rechaza con su motivo) y el test M10 (se arregló
   el catálogo, no el test).
-- Abierto: `agregar_motion_video` (2.787 caracteres) deja afuera a `ver_proyecto_video` en un pedido de texto del chat de la app; y
-  «motion» no está en las palabras del área video de `lib/mako-intencion.ts` (lo comparte WhatsApp: no se tocó).
+- Revisión adversarial: 11 hallazgos, 10 arreglados (`cc85b23c4`, `bb4930f5c`): un solo lector de números («1.250» se
+  leía 1,25), la pestaña valida al salir del campo y un vacío no se llena con el ejemplo, las barras se validan, la
+  escena dura lo que el clip, las cajas crecen con los renglones, el aviso BSD de WebKit, «motion» nombra el área video
+  en el chat de la app (salvo con una landing o una web).
+- **Decisión para Martín:** dividir un motion repite la entrada en la mitad derecha (copiar CapCut con `trimStart` le
+  cortaría la entrada a quien acorta el clip por el borde izquierdo).
 
 ## Lo que falta probar en la PC (Chrome, ws9 o ws3; NUNCA ws1)
 
