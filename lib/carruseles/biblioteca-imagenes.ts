@@ -56,7 +56,9 @@ export type FilaConImagenes = FilaDePieza & { miniatura?: string; laminas_imagen
 export async function imagenesANuestroBucket(
   filas: readonly FilaDePieza[], b: Bajadores, o: { conLaminas: boolean },
 ): Promise<FilaConImagenes[]> {
-  const conFoto = await b.bajarPortadas(filas.map((f) => ({
+  // El tipo de la fila va explícito: un spread de `Record<string, unknown> & { ref }` pierde el índice, y T quedaba en
+  // { canal, miniatura, ref } sin `laminas_imagenes` (TS2339 en la punta, 10/11/2026).
+  const conFoto = await b.bajarPortadas(filas.map((f): FilaDePieza & { canal: string; miniatura: string | null } => ({
     ...f, canal: 'instagram', miniatura: typeof f.miniatura === 'string' ? f.miniatura : null,
   })));
   const out: FilaConImagenes[] = [];
