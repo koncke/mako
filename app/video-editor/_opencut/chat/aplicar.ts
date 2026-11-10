@@ -39,6 +39,7 @@ import type { OperacionChat } from "@/lib/editor-video/chat-catalogo";
 import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar";
 import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { aplicarPreset, PREFIJO_PRESET, usePresetsSubtitulos } from "@/app/video-editor/_opencut/subtitles/presets";
+import { aplicarEstiloASubtitulos } from "@/app/video-editor/_opencut/subtitles/insert";
 import { usePreferenciasSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { proponerBroll } from "@/app/video-editor/_opencut/broll/proponer";
 import { textoDeBroll } from "@/app/video-editor/_opencut/broll/resultado";
@@ -145,6 +146,12 @@ async function correrLarga(
 		if (n > 0) usePreferenciasSubtitulos.getState().fijar({ plantilla: `${PREFIJO_PRESET}${preset.id}` });
 		return n > 0 ? [] : ["no hay subtítulos"];
 	}
+	if (r.op === "estilo_subtitulos") {
+		// El MISMO de «Aplicar en todos los subtítulos» (subtitles/insert.ts): el estilo y los renglones vueltos a partir con la
+		// fuente nueva, en un paso de deshacer. Sólo los que nombró el pedido.
+		const n = await aplicarEstiloASubtitulos({ editor, estilo: r.params, solo: new Set(r.els.map((e) => e.elementId)) });
+		return n > 0 ? [] : ["esos subtítulos ya no están"];
+	}
 	if (r.op === "broll") {
 		// El MISMO de la sección «B-roll de MaKo»: propone, y la persona deja o saca cada uno en la línea de tiempo.
 		const hecho = await proponerBroll(editor, { ritmo: r.ritmo, planos: r.planos });
@@ -194,6 +201,7 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	usar_plantilla: "usar la plantilla",
 	borrar_silencios: "borrar los silencios",
 	usar_preset_subtitulos: "usar el preset",
+	estilo_subtitulos: "cambiar el estilo de los subtítulos",
 	broll: "proponer el B-roll",
 	clips_magicos: "buscar los clips",
 	edicion_automatica: "hacer la edición automática",
