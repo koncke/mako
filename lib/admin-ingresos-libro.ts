@@ -17,15 +17,21 @@
 //     (`entrada:<cliente>`) es cash, nunca MRR. Una orden repartida se parte según `aplicado`, en proporción a lo que se debía.
 //   · UNA VEZ: una orden atada a un pago del CRM (`recibo_pagos.pago_id`, mig 0408: «Cargar pago» la registró ahí) ya la cuenta
 //     ese pago. Se compara con la referencia normalizada de los recibos (`claveDelCobro`), la misma que usa «Cargar pago».
-//   · UN MES MARCADO A MANO SIN ORDEN (`marcarMesPagado` sin pago) no tiene cuánto entró ni con qué se ataría: no suma, y se dice.
+//   · LO MARCADO A MANO SIN ORDEN (un mes con `marcarMesPagado` sin pago, una entrada con `marcarEntradaPagada` sin pago, que
+//     anota una orden `AMANO…` por lo que SE DEBÍA): no se sabe cuánto entró ni con qué atarlo, y si se cargó también con «Cargar
+//     pago» se contaría dos veces. No suma, y se dice (revisión del 10/11: contaba lo debido como cobrado).
+//   · EL MRR POR MES (revisión del 10/11): el libro dice de qué MES es cada parte, y eso vale más que la fecha del pago. Un mes pagado
+//     en dos partes con más de 7 días entre ellas daba de MRR la última parte, y dos meses pagados juntos daban el doble. Así que
+//     cada agencia lleva su «historia» (`ProximoDeSuscripcion.mensualidad`: lo que entró para cada mes), y `conMensualidad`
+//     (lib/admin-ingresos-reglas.ts) le pone a cada mes lo suyo. Lo que viene, el día 5 del mes que falta (el límite del libro).
 // Que la mensualidad del libro y la del CRM no se cuenten dos veces lo decide `conElLibro` (lib/admin-ingresos-reglas.ts).
 //
 // Sin `server-only`: lo ejecutan los tests (tests/admin-ingresos-libro.test.ts). La lectura de la base, en lib/admin-ingresos.ts.
 // =============================================================================
 
-import { leerOrden, leerPagoDelMes, nombreDelMes } from './agencia-mes-reglas';
+import { cubre, diaLimite, leerOrden, leerPagoDelMes, mesSiguiente, nombreDelMes, type PagoDelMes } from './agencia-mes-reglas';
 import { claveDelCobro, referenciaNormal } from './recibos-reglas';
-import { suscripcionDelLibro, type PagoIngreso } from './admin-ingresos-reglas';
+import { suscripcionDelLibro, type PagoIngreso, type ProximoDeSuscripcion } from './admin-ingresos-reglas';
 
 /** El prefijo de todo el libro de las agencias en `app_settings` de la plataforma (lib/agencia-mes.ts, `PREFIJO`). */
 export const PREFIJO_LIBRO = 'agencia.mensualidad.';
@@ -46,6 +52,8 @@ export function ordenesAtadas(cobros: readonly CobroDeRecibo[]): Set<string> {
 export type LibroEnRevenue = {
   /** Los pagos que entran a Revenue (`a:<ag>:<orden>:<clave>`), uno por parte de cada orden. */
   pagos: PagoIngreso[];
+  /** Lo que el libro dice de cada mensualidad (`agencia:<ag>`): cuánto entró para cada mes y lo próximo. Va a `calcularIngresos`. */
+  proximos: Map<string, ProximoDeSuscripcion>;
   /** Las agencias que pagaron algo por su libro (para su nombre y su ficha en el CRM). */
   agencias: number[];
   /** Las órdenes que no se contaron porque ya las cuenta un pago del CRM. */
@@ -56,7 +64,11 @@ export type LibroEnRevenue = {
 
 const RE_ORDEN = /^agencia\.mensualidad\.([1-9]\d{0,11})\.orden\.(.+)$/;
 const RE_PAGO = /^agencia\.mensualidad\.([1-9]\d{0,11})\.pago\.(\d{4}-(?:0[1-9]|1[0-2]))$/;
+const RE_CONFIG = /^agencia\.mensualidad\.([1-9]\d{0,11})\.config$/;
 const RE_DIA = /^\d{4}-\d{2}-\d{2}$/;
+const RE_MES = /^\d{4}-(0[1-9]|1[0-2])$/;
+/** La orden que anota `marcarEntradaPagada` cuando no hay orden de verdad (lib/agencia-mes.ts): `AMANO<cliente><día>`. */
+const ES_A_MANO = /^AMANO/;
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Las partes de una orden: lo recibido repartido según lo que se aplicó a cada pendiente. La última se lleva el redondeo. */
@@ -75,50 +87,91 @@ function partes(montoUsd: number, aplicado: readonly unknown[]): Array<{ clave: 
 }
 
 /**
- * Las filas del libro (todas las de `PREFIJO_LIBRO` de la plataforma) como pagos de Revenue. `atadas`: las órdenes que ya cuenta un
- * pago del CRM (`ordenesAtadas`). `nombreWs`: el nombre de cada cuenta (el de la entrada de un cliente).
+ * Lo que el libro dice de la mensualidad de UNA agencia: lo que entró para cada mes y lo próximo. Lo próximo es lo que falta del
+ * último mes pagado (si se pagó a medias), o el mes siguiente entero, con su día límite (el 5): atrasado desde ese día. Con la
+ * mensualidad apagada (sin `config`), no se espera nada más.
  */
-export function pagosDelLibro(filas: readonly FilaLibro[], o: { atadas: ReadonlySet<string>; nombreWs: ReadonlyMap<number, string> }): LibroEnRevenue {
+function historiaDelLibro(porMes: ReadonlyMap<string, number>, pagoDe: ReadonlyMap<string, PagoDelMes>, prendida: boolean, hoy: string): ProximoDeSuscripcion {
+  const meses = [...porMes.keys()].sort();
+  const ultimo = meses[meses.length - 1];
+  const ultimoUsd = r2(porMes.get(ultimo) ?? 0);
+  const mensualidad = { meses: meses.map((mes) => ({ mes, usd: r2(porMes.get(mes) ?? 0) })), hoyUsd: porMes.get(hoy.slice(0, 7)) ?? ultimoUsd, corte: null };
+  if (!prendida) return { sinCobro: true, atrasado: null, siguiente: null, mensualidad };
+  const pago = pagoDe.get(ultimo);
+  const debe = pago && !cubre(pago.pagadoUsd, pago.totalUsd)
+    ? { fecha: diaLimite(ultimo), usd: r2(pago.totalUsd - pago.pagadoUsd) }
+    : { fecha: diaLimite(mesSiguiente(ultimo)), usd: ultimoUsd };
+  return debe.fecha <= hoy ? { sinCobro: false, atrasado: debe, siguiente: null, mensualidad } : { sinCobro: false, atrasado: null, siguiente: debe, mensualidad };
+}
+
+/**
+ * Las filas del libro (todas las de `PREFIJO_LIBRO` de la plataforma) como pagos de Revenue. `atadas`: las órdenes que ya cuenta un
+ * pago del CRM (`ordenesAtadas`). `nombreWs`: el nombre de cada cuenta (el de la entrada de un cliente). `hoy`: el día de la
+ * plataforma (lo próximo de cada mensualidad).
+ */
+export function pagosDelLibro(filas: readonly FilaLibro[], o: { atadas: ReadonlySet<string>; nombreWs: ReadonlyMap<number, string>; hoy: string }): LibroEnRevenue {
   const pagos: PagoIngreso[] = [];
   const agencias = new Set<number>();
+  const prendidas = new Set<number>();
+  const pagosDelMes = new Map<number, Map<string, PagoDelMes>>();
+  const porMes = new Map<number, Map<string, number>>();
   let atadas = 0;
-  let aManoSinOrden = 0;
+  let aMano = 0;
+  let ilegibles = 0;
   for (const f of filas) {
+    const mc = RE_CONFIG.exec(f.key);
+    if (mc) { prendidas.add(Number(mc[1])); continue; }
     const mp = RE_PAGO.exec(f.key);
     if (mp) {
       const pago = leerPagoDelMes(f.value);
-      if (pago && pago.mes === mp[2] && pago.ordenes.length === 0) aManoSinOrden += 1;
+      if (!pago || pago.mes !== mp[2]) continue;
+      if (pago.ordenes.length === 0) aMano += 1;
+      const ag = Number(mp[1]);
+      pagosDelMes.set(ag, (pagosDelMes.get(ag) ?? new Map()).set(pago.mes, pago));
       continue;
     }
     const mo = RE_ORDEN.exec(f.key);
     if (!mo) continue;
     const orden = leerOrden(f.value);
-    if (!orden || orden.orden !== mo[2] || !Number.isFinite(orden.montoUsd) || orden.montoUsd <= 0) continue;
+    const dia = orden?.fecha.slice(0, 10) ?? '';
+    if (!orden || orden.orden !== mo[2] || !Number.isFinite(orden.montoUsd) || orden.montoUsd <= 0 || !RE_DIA.test(dia)) { ilegibles += 1; continue; }
+    if (ES_A_MANO.test(orden.orden)) { aMano += 1; continue; }
     if (o.atadas.has(claveDelCobro('binance', orden.orden))) { atadas += 1; continue; }
-    const dia = orden.fecha.slice(0, 10);
-    if (!RE_DIA.test(dia)) continue;
     const ag = Number(mo[1]);
     agencias.add(ag);
-    const medio = referenciaNormal('binance', orden.orden) ? 'binance' : null;
+    // La orden de Binance, normalizada: con ella Admin › Sales ata la orden a su recibo (`claveDePago`, app/admin/_polar/datos/ventas.ts).
+    const ref = referenciaNormal('binance', orden.orden);
     for (const p of partes(orden.montoUsd, orden.aplicado)) {
-      const mes = p.clave?.startsWith('mes:') ? p.clave.slice(4) : null;
+      const mes = p.clave?.startsWith('mes:') && RE_MES.test(p.clave.slice(4)) ? p.clave.slice(4) : null;
       const entrada = p.clave?.startsWith('entrada:') ? Number(p.clave.slice(8)) : null;
       const quien = entrada != null && Number.isSafeInteger(entrada) && entrada > 0 ? (o.nombreWs.get(entrada) ?? `la cuenta ${entrada}`) : null;
+      if (mes != null) {
+        const delAg = porMes.get(ag) ?? new Map<string, number>();
+        delAg.set(mes, r2((delAg.get(mes) ?? 0) + p.usd));
+        porMes.set(ag, delAg);
+      }
       pagos.push({
         id: `a:${ag}:${orden.orden}:${p.clave ?? 'pago'}`,
         cliente: `ws:${ag}`,
-        suscripcion: mes != null && /^\d{4}-(0[1-9]|1[0-2])$/.test(mes) ? suscripcionDelLibro(ag) : null,
+        suscripcion: mes != null ? suscripcionDelLibro(ag) : null,
         fecha: dia,
         usd: p.usd,
-        medio,
+        medio: ref ? 'binance' : null,
         concepto: mes != null ? `Mensualidad de ${nombreDelMes(mes)} ${mes.slice(0, 4)}` : quien != null ? `Entrada de ${quien}` : 'Pago de la mensualidad',
-        // Binance no es una pasarela: sin `proveedor` ni `proveedorPagoId`, nadie le ofrece «Devolver el pago». La orden va en el id.
-        cobroId: null, proveedor: null, proveedorPagoId: null,
+        cobroId: null,
+        // Binance no es una pasarela: «Devolver el pago» lo ofrece sólo a un pedido de la pasarela (`c-`), y una orden del libro no
+        // es un pedido propio en Sales (su recibo lo es). La orden va acá para atarla a ese recibo.
+        proveedor: ref ? 'binance' : null,
+        proveedorPagoId: ref,
       });
     }
   }
-  const avisos = aManoSinOrden
-    ? [`lo que entró en ${aManoSinOrden === 1 ? '1 mes de agencia marcado' : `${aManoSinOrden} meses de agencia marcados`} pagado a mano sin su orden (no suma en Revenue)`]
-    : [];
-  return { pagos, agencias: [...agencias].sort((a, b) => a - b), atadas, avisos };
+  const proximos = new Map<string, ProximoDeSuscripcion>();
+  for (const [ag, meses] of porMes) {
+    proximos.set(suscripcionDelLibro(ag), historiaDelLibro(meses, pagosDelMes.get(ag) ?? new Map(), prendidas.has(ag), o.hoy));
+  }
+  const avisos: string[] = [];
+  if (aMano) avisos.push(`lo que entró en ${aMano === 1 ? '1 pago de agencia marcado' : `${aMano} pagos de agencia marcados`} a mano sin su orden (no suma en Revenue: si entró plata, cárgala con «Cargar pago»)`);
+  if (ilegibles) avisos.push(`${ilegibles === 1 ? '1 orden' : `${ilegibles} órdenes`} del libro de las agencias (no suman en Revenue)`);
+  return { pagos, proximos, agencias: [...agencias].sort((a, b) => a - b), atadas, avisos };
 }

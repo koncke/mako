@@ -206,6 +206,8 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
       cobroId: p.cobro_id != null ? Number(p.cobro_id) : null,
       proveedor: p.proveedor ?? null,
       proveedorPagoId: p.proveedor_pago_id ?? null,
+      // Cuál suscripción del CRM es la mensualidad de una agencia: la que pasa a llevar su libro (`conElLibro`).
+      mensualidad: p.es_mensualidad === true,
     });
   }
   for (const c of cobros) {
@@ -231,9 +233,12 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
       proveedor: c.proveedor, proveedorPagoId: c.proveedor_pago_id ?? null,
     });
   }
-  // 3. El libro de las agencias: cada orden, de la agencia que paga (`ws:<ag>`), como un cobro de un lugar de agencia.
+  // 3. El libro de las agencias: cada orden, de la agencia que paga (`ws:<ag>`), como un cobro de un lugar de agencia. Su historia
+  //    (lo que entró para cada mes) va con las de las suscripciones: el MRR de un mes es lo de ese mes, no el último pago.
+  const historiasDelLibro = new Map<string, ProximoDeSuscripcion>();
   if (libroLeido) {
-    const libro = pagosDelLibro(libroLeido.filas, { atadas: libroLeido.atadas, nombreWs });
+    const libro = pagosDelLibro(libroLeido.filas, { atadas: libroLeido.atadas, nombreWs, hoy });
+    for (const [k, h] of libro.proximos) historiasDelLibro.set(k, h);
     avisos.push(...libro.avisos);
     const sinRenglon = libro.agencias.filter((ag) => !quien.has(`ws:${ag}`));
     const fichas = await fichasDeAgencias(plataforma, sinRenglon)
@@ -244,7 +249,9 @@ async function calcularVistaDeIngresos(ahora: Date): Promise<VistaIngresos> {
   // El próximo cobro de cada suscripción manual sale de su historia mes a mes (la de la ficha), no del último pago más un mes.
   const subs = await suscripcionesDeLaPlataforma(plataforma, hoy);
   avisos.push(...subs.avisos);
-  return { ...calcularIngresos(normalizados, quien, hoy, 12, proximosDeSuscripciones(subs.lista, hoy)), avisos };
+  const proximos = proximosDeSuscripciones(subs.lista, hoy);
+  for (const [k, h] of historiasDelLibro) proximos.set(k, h);
+  return { ...calcularIngresos(normalizados, quien, hoy, 12, proximos), avisos };
 }
 
 // ── Las suscripciones mes a mes de la plataforma ─────────────────────────────────────────────────────────────────────

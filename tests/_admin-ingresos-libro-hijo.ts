@@ -47,10 +47,12 @@ const LIBRO_NOVIEMBRE = [
   // Una fila que no es del libro: no tiene que entrar.
   { workspace_id: PLATAFORMA, key: 'mako.timezone', value: 'America/Argentina/Buenos_Aires' },
 ];
-// Diciembre: la mensualidad ya la lleva el libro (300 el 3/12), y una orden repartida entre el mes y otra entrada.
+// Diciembre: la mensualidad ya la lleva el libro, pagada en DOS partes con 9 días entre ellas (150 el 3/12 y 150 el 12/12): el
+// MRR es el del mes (300), no el de la última parte.
 const LIBRO_DICIEMBRE = [
-  orden('555555555555555555', 300, '2026-12-03T10:00:00', [{ clave: 'mes:2026-12', montoUsd: 300 }]),
-  libro('pago.2026-12', { mes: '2026-12', pagadoEl: '2026-12-03', totalUsd: 300, pagadoUsd: 300, ordenes: ['555555555555555555'] }),
+  orden('555555555555555555', 150, '2026-12-03T10:00:00', [{ clave: 'mes:2026-12', montoUsd: 150 }]),
+  orden('555555555555555556', 150, '2026-12-12T10:00:00', [{ clave: 'mes:2026-12', montoUsd: 150 }]),
+  libro('pago.2026-12', { mes: '2026-12', pagadoEl: '2026-12-12', totalUsd: 300, pagadoUsd: 300, ordenes: ['555555555555555555', '555555555555555556'] }),
 ];
 
 /** Lo que falla a propósito en cada escena: la lectura del libro o la de los recibos (un 500 de verdad, no una tabla vacía). */
@@ -112,7 +114,7 @@ async function main(): Promise<void> {
   // 6. Diciembre: el mes pagado por el libro es el MRR, y la mensualidad del CRM no se cuenta dos veces.
   reset();
   db.app_settings.push(...LIBRO_DICIEMBRE.map((f) => ({ ...f })));
-  R.diciembre = await escena('2026-12-10');
+  R.diciembre = await escena('2026-12-14');
 
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(R)}`);
 }
