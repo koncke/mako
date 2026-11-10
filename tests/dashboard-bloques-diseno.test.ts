@@ -227,7 +227,9 @@ test('11 · «Velocidad de llamada» (Código Inmobiliario): tarjetas copiadas q
     for (const k of parteDe(d.id, d.parte)!.lee) assert.ok(h.componentes.some((c) => c.id === d.piezas[k]), `${d.id}/${d.parte}: la pieza ${k} existe`);
   }
   assert.ok(panelesALaVista(h.componentes).length <= 14);
-  assert.deepEqual(panelesALaVista(h.componentes).map((c) => c.clase), Array(9).fill('elemento'), 'a la vista, sólo las tarjetas');
+  // A la vista, las tarjetas y (9/11/2026) la tabla «Cada lead nuevo» después del primer contacto: lo que preguntó Juanfran es por
+  // CADA lead (tests/dashboard-velocidad-codigo.test.ts).
+  assert.deepEqual(panelesALaVista(h.componentes).map((c) => c.clase), ['elemento', 'elemento', 'grafico', ...Array(7).fill('elemento')], 'a la vista, las tarjetas y la tabla de cada lead');
   assert.equal(sinSuperposicion(h.componentes), null);
   assert.equal(h.controles.find((c) => c.tipo === 'periodo')?.preset, 'ult30');
   // Nombra leads (el primer contacto, a quién llamaste): ni el closer ni el setter la ven (cada uno tiene su hoja única).
