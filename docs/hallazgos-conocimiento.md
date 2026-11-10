@@ -460,6 +460,11 @@ curso no le llega por ahí; si un agente lo necesita, lee los `cono-doc`.
   «AuditorÃ­a». Se re-decodifica como UTF-8.
 - **Un Google Sheet nativo que no es público no da 403: da 200 con la página de login en HTML.** Se
   mira el `content-type`, y si es HTML el material queda como LINK al original.
+- **⚠️ Un slug de WordPress con emoji da 404 en el portal, y sólo en esas lecciones.** El slug llega
+  CODIFICADO (`%f0%9f%9f%a2-auditoria…`) y se usó tal cual como nombre del `cono-doc`: el navegador
+  pide `…%f0%9f…json`, el server lo decodifica a «🟢» y no encuentra el archivo. Eran 4 de 94, todas
+  las que el autor marcó con un emoji. Se vio en el `git status` (nombres con `%`), no en el
+  generador, que reportó 94/94 con archivo. El slug se reduce a `[a-z0-9-]` antes de escribir.
 - **Un link de material colgado de UNA lección perdía su clase en `curso-a-drive.mjs`**: los
   recursos tipo link no arrastraban `clases` ni `tituloReal`, y se repartían entre todo el módulo
   con el nombre de archivo como título. Arreglado ahí, para todos los cursos.
