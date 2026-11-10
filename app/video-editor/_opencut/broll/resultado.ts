@@ -73,12 +73,12 @@ export type ResultadoCambioBroll =
 	| { ok: false; motivo: MotivoCambioBroll; detalle?: string };
 
 export const TEXTO_MOTIVO_CAMBIO_BROLL: Readonly<Record<MotivoCambioBroll, string>> = {
-	ocupado: "MaKo ya está trayendo otra imagen. Espera a que termine.",
+	ocupado: "MaKo ya está trayendo el reemplazo. Espera a que termine.",
 	"sin-broll": "Ese elemento no es un B-roll de MaKo: se cambia con «Reemplazar».",
 	bloqueada: "Ese B-roll está en una pista bloqueada: desbloquéala para cambiarlo.",
 	sacado: "Lo sacaste mientras se traía: no se tocó nada.",
 	"sin-otra": "No hay otra imagen de esa búsqueda que no hayas visto. Saca esta o vuelve a proponer.",
-	"falta-pexels": "Conecta Pexels para traer otra imagen.",
+	"falta-pexels": "Conecta Pexels para traer otra foto o video.",
 	corto: "Ningún video de esa búsqueda dura lo que este lugar: acorta el B-roll en la línea de tiempo y vuelve a pedir otro, o elige fotos.",
 	"otro-proyecto": "Cambiaste de proyecto mientras se traía la imagen: no se tocó nada.",
 	red: "No pude hablar con MaKo. Revisa tu conexión y vuelve a intentar.",
