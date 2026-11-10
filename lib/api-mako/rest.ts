@@ -871,6 +871,12 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/mako/propuestas/{id}', 'ver_propuesta_accion'],
   // MaKo recomienda (26/10/2026): la lista de hoy y lo que se decide sobre una (GitHub: POST a la colección de decisiones).
   ['GET', '/mako/recomendaciones', 'que_recomienda_mako'],
+  // La Ticketera (10/11/2026, Martín: «en la API ni siquiera se pueden levantar tickets, y sí se debería»).
+  ['POST', '/mako/tickets', 'levantar_ticket'],
+  ['GET', '/mako/tickets', 'listar_tickets'],
+  ['GET', '/mako/tickets/mios', 'mis_tickets'],
+  ['GET', '/mako/tickets/{numero}', 'ver_ticket'],
+  ['POST', '/mako/tickets/{numero}/comentarios', 'responder_ticket'],
   ['POST', '/mako/recomendaciones/decisiones', 'decidir_recomendacion'],];
 
 type Compilada = { metodo: MetodoRest; ruta: string; operacion: string; segs: string[] };

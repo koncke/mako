@@ -105,8 +105,11 @@ test('por WhatsApp: quién lo pidió es su teléfono, y se le atribuye a la pers
   const p = propuestaPorFallo({ herramienta: 'mover_lead', error: 'boom' }, 'mové a Juan a agendado', 'Mover un lead de etapa');
   assert.deepEqual([p.tipo, p.titulo], ['bug', 'No se pudo: Mover un lead de etapa']);
   const run = sinComentarios(leer('lib/api-mako/areas/tickets.run.ts'));
-  // Las DOS operaciones (levantar_ticket y mis_tickets) resuelven quién es por `identidadDelActor`.
-  assert.equal(run.split('const quien = await identidadDelActor(ctx.ws, ctx.actor);').length - 1, 2);
+  // Quién pide lo resuelve UNA función (`quienPide`, con `quienPideElTicket` por canal: lib/tickets-api.ts) que termina en
+  // `identidadDelActor`, y la usan las operaciones que necesitan a alguien (10/11/2026: también por HTTP).
+  assert.match(run, /async function quienPide\(ctx: Ctx\) \{\s*const actor = quienPideElTicket\(ctx\);\s*return actor \? identidadDelActor\(ctx\.ws, actor\) : null;/);
+  assert.ok(run.split('await quienPide(ctx)').length - 1 >= 3, 'levantar, mis_tickets y responder pasan por quienPide');
+  assert.doesNotMatch(run, /identidadDelActor\(ctx\.ws, ctx\.actor\)/, 'nadie lee ctx.actor directo: por HTTP es el nombre del token');
   assert.doesNotMatch(run, /includes\('@'\)/, 'el runner ya no exige un email');
   assert.match(sinComentarios(leer('lib/tickets-cierre.ts')), /enviarAlGrupoMaKo\(ws, sanearSalida\(texto, \{ corrioHerramientas: true \}\)\.texto, \{ de: 'equipo', ticket: Number\(f\.id\) \}\)/);
 });

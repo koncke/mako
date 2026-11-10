@@ -353,6 +353,7 @@ leer_hoja_dashboard
 leer_modulo_knowledge
 leer_resumen_objetivos
 leer_segundo_cerebro_como_archivos
+levantar_ticket
 limites_formato_instagram
 link_agenda_calendly
 link_agenda_llamada
@@ -450,6 +451,7 @@ listar_tareas_plan
 listar_tareas_sin_datos
 listar_tareas_vencidas
 listar_temas_landing
+listar_tickets
 listar_trabajos_flow
 listar_triggers_email
 listar_versiones_landing
@@ -477,6 +479,7 @@ metricas_closers
 metricas_negocio
 migrar_contactos
 mis_creaciones
+mis_tickets
 modo_agente_media_buyer
 modo_media_buyer
 modulos_de_knowledge
@@ -601,6 +604,7 @@ resaltar_claves_subtitulos
 resaltar_palabras_video
 resolver_confirmacion_crm
 responder_pregunta_personalidad
+responder_ticket
 restablecer_informe_dashboard
 restaurar_clase_curso
 restaurar_curso
@@ -758,6 +762,7 @@ ver_tablero_kpis
 ver_tarea_plan
 ver_tendencias
 ver_textos_anuncio_meta
+ver_ticket
 ver_tramos_ciclo_venta
 ver_transcript_anuncio
 ver_trimestre_actual

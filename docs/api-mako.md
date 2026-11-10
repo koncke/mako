@@ -50,7 +50,7 @@
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion` · `guardar_como_plantilla` · `compartir_plantilla` · `ranking_creaciones`
 - **Lead magnets** (`leadmagnet`): `ver_plantillas_magnet` · `armar_magnet` · `pagina_captura_magnet` · `link_publico_magnet` · `primero_magnet` · `dejar_compartir_magnet` · `proponer_magnet`
 - **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos` · `ver_suscripcion_lead` · `cambiar_suscripcion`
-- **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion` · `cambiar_aprende_solo`
+- **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion` · `cambiar_aprende_solo` · `levantar_ticket` · `mis_tickets` · `listar_tickets` · `ver_ticket` · `responder_ticket`
 
 ## General — `general`
 
@@ -21702,7 +21702,7 @@ curl -L \
 
 ## MaKo (pendientes, propuestas, chats) — `mako`
 
-Tab **Second Brain** (`/second-brain`). 7 lecturas · 2 acciones · 2 controles.
+Tab **Second Brain** (`/second-brain`). 10 lecturas · 4 acciones · 2 controles.
 
 ### `GET /api/v1/mako/pendientes` — Acciones pendientes de confirmar
 
@@ -21959,4 +21959,128 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/mako/aprende-solo" \
   -d '{"prendido":true}'
+```
+
+### `POST /api/v1/mako/tickets` — Mandarle un ticket al equipo de MaKo
+
+PROPONE mandarle un ticket al equipo que desarrolla MaKo; la persona lo confirma con un botón. Úsala SÓLO cuando la persona lo pide («avísale a los desarrolladores», «reporta esto», «levanta un ticket»). Lo que FALLÓ y lo que MaKo todavía NO tiene no van por aquí: el sistema levanta ese ticket solo, con la marca [[no-pude: …]] o [[no-existe: …]] de tus reglas, y escribe la línea con su número. El título y el resumen los escribes tú, cortos y en palabras de la persona; el error y la pantalla los agrega el sistema solo: no los copies.
+
+- **Ruta por operación:** `POST /api/v1/mako/levantar_ticket`
+- **Token detallado:** permiso `mako=write` (Lectura y escritura en «MaKo (pendientes, propuestas, chats)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea un ticket para el equipo de MaKo (tabla tickets) con el contexto que juntó el sistema
+- **Reversible:** no
+- **Costo:** gratis
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tipo` | string (bug \\| pedido \\| pregunta) | sí | bug = algo que debería andar y no anda; pedido = algo nuevo que la app no tiene; pregunta = una duda sobre cómo se usa. |
+| `titulo` | string | sí | Qué pasó o qué pide, en una frase corta («No se guarda la etapa del lead», «Exportar los leads a Excel»). |
+| `descripcion` | string | no | Lo que intentó y lo que esperaba, en dos o tres frases, con las palabras de la persona. |
+| `noExiste` | boolean | no | true si lo que pidió la persona todavía no existe en MaKo (no hay herramienta ni pantalla para eso). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/mako/tickets" \
+  -d '{"tipo":"bug","titulo":"TITULO"}'
+```
+
+### `GET /api/v1/mako/tickets/mios` — Tus tickets al equipo de MaKo
+
+Los tickets que levantó esta persona al equipo de MaKo: número, título, en qué anda cada uno (Recibido, En curso, Espera tu respuesta, Resuelto, Cerrado) y lo último que le contestó el equipo. Úsala para «¿en qué quedó lo que reporté?». Sin parámetros.
+
+- **Ruta por operación:** `GET /api/v1/mako/mis_tickets`
+- **Token detallado:** permiso `mako=read` (Solo lectura en «MaKo (pendientes, propuestas, chats)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/mako/tickets/mios"
+```
+
+### `GET /api/v1/mako/tickets` — Los tickets del negocio al equipo de MaKo
+
+Los tickets que el negocio le levantó al equipo de MaKo, de cualquier persona del negocio: número, título, en qué anda (recibido, en_curso, tu_respuesta = el equipo preguntó algo, resuelto, cerrado), quién lo levantó, si entró por la vía libre del negocio (no espera la decisión del equipo) y la última respuesta del equipo. Los más recientes primero.
+
+- **Ruta por operación:** `GET /api/v1/mako/listar_tickets`
+- **Token detallado:** permiso `mako=read` (Solo lectura en «MaKo (pendientes, propuestas, chats)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `estado` | string (abiertos \\| cerrados \\| todos) | no | abiertos (los que siguen en curso o esperan algo), cerrados, o todos. Sin esto, todos. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/mako/tickets"
+```
+
+### `GET /api/v1/mako/tickets/{numero}` — Un ticket del negocio, con su conversación
+
+Un ticket del negocio por su número: en qué anda, si entró por la vía libre, la conversación con el equipo (lo que se escribió de cada lado) y cada cambio de estado con su fecha. Úsala después de levantarlo, o cuando el estado sea tu_respuesta para leer qué preguntó el equipo.
+
+- **Ruta por operación:** `GET /api/v1/mako/ver_ticket`
+- **Token detallado:** permiso `mako=read` (Solo lectura en «MaKo (pendientes, propuestas, chats)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `numero` | number | sí | El número del ticket (el 12 de «#12»), de listar_tickets o de la respuesta de levantar_ticket. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/mako/tickets/NUMERO"
+```
+
+### `POST /api/v1/mako/tickets/{numero}/comentarios` — Contestarle al equipo de MaKo en un ticket
+
+Le suma un mensaje a un ticket abierto del negocio: la respuesta a lo que preguntó el equipo (estado tu_respuesta) o un dato más. Si el equipo esperaba la respuesta, el ticket vuelve a su bandeja. Un ticket cerrado no se contesta: se levanta otro.
+
+- **Ruta por operación:** `POST /api/v1/mako/responder_ticket`
+- **Token detallado:** permiso `mako=write` (Lectura y escritura en «MaKo (pendientes, propuestas, chats)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** suma un mensaje al ticket (ticket_eventos) y, si el equipo esperaba la respuesta, lo devuelve a su bandeja
+- **Reversible:** no
+- **Costo:** gratis
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `numero` | number | sí | El número del ticket (el 12 de «#12»). |
+| `texto` | string | sí | Lo que le dices al equipo, en palabras de la persona. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/mako/tickets/NUMERO/comentarios" \
+  -d '{"texto":"TEXTO"}'
 ```

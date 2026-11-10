@@ -92,13 +92,16 @@ test('la migración: RLS y revoke en las dos tablas, y sus CHECK dicen lo mismo 
 });
 
 // ── 2. El modelo no escribe el error ────────────────────────────────────────────────────────────────────────────
-test('levantar_ticket: el contexto (el error) NO es un parámetro del modelo, y no sale por HTTP', () => {
+test('levantar_ticket: el contexto (el error) NO es un parámetro del modelo, ni de quien llama por HTTP', () => {
   // Rota: sumar un parámetro `error` a la def → este test falla (el modelo podría disfrazar un pedido de bug).
   const def = DEFS_TICKETS.find((d) => d.id === 'levantar_ticket')!;
   assert.ok(def && def.tipo === 'accion' && def.confirmacion === 'chat', 'levantar_ticket propone; una persona confirma');
   const nombres = def.parametros.map((p) => p.nombre);
   for (const prohibido of ['contexto', 'error', 'herramienta', 'ruta', 'email']) assert.ok(!nombres.includes(prohibido), `«${prohibido}» no lo escribe el modelo`);
-  for (const d of DEFS_TICKETS) assert.ok(!(d.canales as readonly string[]).includes('http'), `${d.id} no sale por HTTP: es otra decisión`);
+  // Desde el 10/11/2026 sale por HTTP (Martín, 9/11: «en la API ni siquiera se pueden levantar tickets, y sí se debería»), con
+  // las mismas reglas: quien llama tampoco escribe el error ni quién lo firma (tests/tickets-api.test.ts).
+  assert.ok((def.canales as readonly string[]).includes('http'), 'levantar_ticket sale por HTTP');
+  for (const d of DEFS_TICKETS) for (const prohibido of ['email', 'contexto', 'error']) assert.ok(!d.parametros.some((p) => p.nombre === prohibido), `${d.id}: «${prohibido}» no es un parámetro`);
   const run = sinComentarios(leer('lib/api-mako/areas/tickets.run.ts'));
   assert.match(run, /ctx\.contextoTicket\?\.\(\)/, 'el runner toma el contexto del TURNO');
   assert.doesNotMatch(run, /input\.(error|contexto|herramienta)/, 'el runner no lee el error de lo que manda el modelo');

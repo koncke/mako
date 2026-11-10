@@ -404,6 +404,31 @@ export async function miTicket(ws: number, email: string, id: number): Promise<{
 }
 
 /**
+ * LOS TICKETS DE TODO EL NEGOCIO, para la API de MaKo (10/11/2026, lib/tickets-api.ts): por HTTP pregunta el ADMIN del negocio
+ * (los dos tokens lo son: `autenticar` pone `rol: 'admin'`, y un detallado vale sólo mientras su creador administra), así que ve
+ * los de toda su gente, como el turno del grupo (`ticketsDelNegocio`). Los de su `ref` también: el `ref` es lo que dice si lo
+ * abrió MaKo solo (lib/tickets-api.ts → «levantado por»), y no viaja.
+ */
+export async function ticketsDeLaCuenta(ws: number, tope = 100): Promise<Lectura<(FilaTicket & { ref: string | null })[]>> {
+  const { data, error } = await getSupabaseServer().from(T).select(`${COLS}, ref`)
+    .eq('workspace_id', ws).order('updated_at', { ascending: false }).limit(Math.max(1, Math.min(tope, 200)));
+  if (error) return { ok: false, faltaTabla: faltaTabla(error), error: error.message };
+  return { ok: true, datos: (data ?? []).map((f) => ({ ...aFila(f as Record<string, unknown>), ref: (f as { ref?: string | null }).ref ?? null })) };
+}
+
+/** UN ticket del negocio con su historial, para la API (`ver_ticket`). Sólo de ESE negocio: un número de otro no existe. */
+export async function ticketDeLaCuenta(ws: number, id: number): Promise<{ ticket: FilaTicket & { ref: string | null }; eventos: Evento[] } | null> {
+  const db = getSupabaseServer();
+  const { data, error } = await db.from(T).select(`${COLS}, ref`).eq('id', id).eq('workspace_id', ws).maybeSingle();
+  // «supabase:» adelante: el ejecutor de la API lo reconoce como falla NUESTRA (500 genérico) y no le pasa el texto crudo a nadie.
+  if (error) throw new Error(`supabase: ${error.message}`);
+  if (!data) return null;
+  const { data: ev, error: e2 } = await db.from(T_EV).select('id, at, actor, tipo, texto, datos').eq('ticket_id', id).order('at');
+  if (e2) throw new Error(`supabase: ${e2.message}`);
+  return { ticket: { ...aFila(data as Record<string, unknown>), ref: (data as { ref?: string | null }).ref ?? null }, eventos: (ev ?? []) as Evento[] };
+}
+
+/**
  * Lo que el NEGOCIO ya le pidió o reportó al equipo, para el turno del grupo de WhatsApp (28/10/2026, el diagnóstico del
  * Cerebro, F2b; lib/pedidos-del-negocio.ts): los abiertos y los resueltos de los últimos días, de cualquier persona del
  * negocio (`misTickets` es de UNA persona, por su email). Lo lee el código: el modelo los ve como un bloque del system.
@@ -478,17 +503,24 @@ async function retriagarSiEsDeLaPersona(ws: number, tk: Record<string, unknown>,
   if (data?.length) await anotar(Number(tk.id), 'triage', 'clasificado', triage.porque.join(' '), { tipo: triage.tipo, autoArreglo: true, confianza: triage.confianza });
 }
 
-/** La persona contesta su ticket (cuando Martín le preguntó algo, o para sumar un dato). Vuelve a la bandeja. */
-export async function comentarComoCliente(ws: number, email: string, id: number, texto: string, adjuntos: readonly AdjuntoTicket[] = []): Promise<{ ok: true } | { ok: false; error: string }> {
+/**
+ * La persona contesta su ticket (cuando Martín le preguntó algo, o para sumar un dato). Vuelve a la bandeja.
+ * `email: null` (10/11/2026) = cualquier ticket del NEGOCIO: lo usa sólo la API de MaKo, donde contesta el admin del negocio
+ * (`responder_ticket`), y la firma va en `datos.por` para que se sepa quién fue.
+ */
+export async function comentarComoCliente(ws: number, email: string | null, id: number, texto: string, adjuntos: readonly AdjuntoTicket[] = [], por?: string): Promise<{ ok: true } | { ok: false; error: string }> {
   // Con archivos (28/10/2026, lib/tickets-adjuntos.ts) puede ir sin texto: el historial dice cuáles.
   const t = taparClaves(texto.trim()).texto || lineaDeAdjuntos(adjuntos.map((a) => a.nombre));
   if (!t) return { ok: false, error: 'Escribe tu respuesta' };
   if (t.length > TOPES.nota) return { ok: false, error: `Acórtala a ${TOPES.nota} caracteres` };
   const db = getSupabaseServer();
-  const { data: tk } = await db.from(T).select('id, estado').eq('id', id).eq('workspace_id', ws).eq('usuario_email', email.trim().toLowerCase()).maybeSingle();
+  let q = db.from(T).select('id, estado').eq('id', id).eq('workspace_id', ws);
+  if (email !== null) q = q.eq('usuario_email', email.trim().toLowerCase());
+  const { data: tk } = await q.maybeSingle();
   if (!tk) return { ok: false, error: 'No encuentro ese ticket' };
   if (tk.estado === 'resuelto' || tk.estado === 'rechazado' || tk.estado === 'duplicado') return { ok: false, error: 'Ese ticket ya está cerrado: levanta uno nuevo' };
-  await anotar(id, 'cliente', 'comentario', t, adjuntos.length ? { adjuntos } : undefined);
+  const datos = { ...(adjuntos.length ? { adjuntos } : {}), ...(por ? { por: por.slice(0, 160) } : {}) };
+  await anotar(id, 'cliente', 'comentario', t, Object.keys(datos).length ? datos : undefined);
   // Si Martín le había preguntado, la respuesta lo devuelve a la bandeja (Intercom: «Waiting on customer» → «In progress»).
   await db.from(T).update({ estado: tk.estado === 'esperando_cliente' ? 'esperando_decision' : tk.estado, updated_at: new Date().toISOString() }).eq('id', id);
   return { ok: true };
