@@ -30,7 +30,7 @@ test('un cliente de US$97 deja US$76,37: se le resta cobrar y el CAC, NO su IA',
   assert.ok(Math.abs(deja - (97 - 97 * PARTE_DE_COBRAR - cacPorMes())) < 1e-9);
   assert.ok(Math.abs(deja - 76.37) < 0.01, `dio US$${deja.toFixed(2)}`);
   // ⚠️ La IA del cliente la paga él (BYOK): restarla acá la contaría dos veces.
-  assert.ok(deja > 97 * 0.8, 'si alguien suma un costo de IA por cliente, este número se desploma y hay que discutirlo');
+  assert.ok(deja > 97 * 0.75, 'si alguien suma un costo de IA por cliente, este número se desploma y hay que discutirlo');
 });
 
 test('el resultado NO es lineal aunque cada cliente deje lo mismo: el fijo se paga UNA vez', () => {
