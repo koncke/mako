@@ -41,6 +41,11 @@ export function textoDeBroll(r: Extract<ResultadoBroll, { ok: false }>): string 
 	return r.detalle?.trim() || TEXTO_MOTIVO_BROLL[r.motivo];
 }
 
+/** El aviso cuando falta Pexels, con lo que se pidió (fotos o videos). */
+export function avisoFaltaPexels(medio: "fotos" | "videos"): string {
+	return `para ${medio === "videos" ? "los videos" : "las fotos"}, conecta Pexels en «B-roll de MaKo»`;
+}
+
 /** Lo que se dice cuando salió: cuántas de cada cosa, en una línea. */
 export function resumenDeBroll(r: Extract<ResultadoBroll, { ok: true }>): string {
 	const partes: string[] = [];
@@ -54,6 +59,8 @@ export function resumenDeBroll(r: Extract<ResultadoBroll, { ok: true }>): string
 export type MotivoCambioBroll =
 	| "ocupado"
 	| "sin-broll"
+	| "bloqueada"
+	| "sacado"
 	| "sin-otra"
 	| "falta-pexels"
 	| "corto"
@@ -68,13 +75,26 @@ export type ResultadoCambioBroll =
 export const TEXTO_MOTIVO_CAMBIO_BROLL: Readonly<Record<MotivoCambioBroll, string>> = {
 	ocupado: "MaKo ya está trayendo otra imagen. Espera a que termine.",
 	"sin-broll": "Ese elemento no es un B-roll de MaKo: se cambia con «Reemplazar».",
+	bloqueada: "Ese B-roll está en una pista bloqueada: desbloquéala para cambiarlo.",
+	sacado: "Lo sacaste mientras se traía: no se tocó nada.",
 	"sin-otra": "No hay otra imagen de esa búsqueda que no hayas visto. Saca esta o vuelve a proponer.",
 	"falta-pexels": "Conecta Pexels para traer otra imagen.",
-	corto: "Ningún video de esa búsqueda dura lo que este lugar.",
+	corto: "Ningún video de esa búsqueda dura lo que este lugar: acorta el B-roll en la línea de tiempo y vuelve a pedir otro, o elige fotos.",
 	"otro-proyecto": "Cambiaste de proyecto mientras se traía la imagen: no se tocó nada.",
 	red: "No pude hablar con MaKo. Revisa tu conexión y vuelve a intentar.",
 	pexels: "Pexels no contestó. Vuelve a intentar en un rato.",
 };
+
+/**
+ * Lo que «Otra» le dice a la persona si el B-roll no se puede cambiar (../pistas.ts → `puedeCambiarBroll`), ANTES de
+ * bajar el archivo o al VOLVER. Al volver, que ya no esté (o que ya no sea un B-roll) es que la persona lo sacó o lo
+ * reemplazó mientras se traía: no es «no es un B-roll». null = se puede.
+ */
+export function motivoSiNoSePuede(puede: "si" | "falta" | "no-broll" | "bloqueada", momento: "antes" | "despues"): MotivoCambioBroll | null {
+	if (puede === "si") return null;
+	if (puede === "bloqueada") return "bloqueada";
+	return momento === "despues" ? "sacado" : "sin-broll";
+}
 
 /** El texto de un cambio que no salió: el detalle (lo que dijo Pexels o el servidor), o el del motivo. */
 export function textoDeCambioBroll(r: Extract<ResultadoCambioBroll, { ok: false }>): string {

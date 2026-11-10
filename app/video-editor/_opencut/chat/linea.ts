@@ -1187,6 +1187,16 @@ export function revisarOperaciones({
 		if (alcance === "seleccion" && !el.nuevo && !elegidos.has(ref)) return { motivo: `${el.titulo} no está elegido` };
 		return { el };
 	};
+	/**
+	 * Para lo que corre DESPUÉS del lote (cambiar_broll, revertir, congelar, normalizar, borrar_silencios con ref): busca el
+	 * clip por su id, y lo que agrega este mismo pedido (la copia de un duplicar, un texto nuevo) todavía no lo tiene. Sin
+	 * esto, la revisión lo aceptaba y al aplicar fallaba con un motivo falso («no es un B-roll de MaKo», «no se pudo revertir»).
+	 */
+	const resolverExistente = (ref: string): { el: RefElemento } | { motivo: string } => {
+		const r = resolver(ref);
+		if ("motivo" in r || !r.el.nuevo) return r;
+		return { motivo: `${r.el.titulo} todavía no existe (se crea al aceptar este pedido): pídelo en otro pedido` };
+	};
 
 	/** ¿El tramo [ini, fin) pisa a otro elemento vivo de la misma pista? */
 	const pisa = (el: RefElemento, ini: number, fin: number): RefElemento | null => {
@@ -2010,6 +2020,12 @@ export function revisarOperaciones({
 						bloqueada: false,
 						principal: false,
 						nuevo: true,
+						// Como está AHORA en el pedido (un «ocultar» o un «silenciar» de antes ya corrió), no al empezar:
+						// `simular` arma el estado de la copia con estos campos.
+						oculto: st.oculto,
+						silenciado: st.silenciado,
+						volumenDb: st.volumenDb,
+						muestra: st.muestra,
 						...(st.texto !== undefined ? { texto: st.texto } : {}),
 						estado: JSON.parse(JSON.stringify(e)) as EstadoElemento,
 					};
@@ -2164,7 +2180,7 @@ export function revisarOperaciones({
 				: [...refs.values()].filter((r) => !r.nuevo && SONOROS.has(r.tipo) && (alcance === "seleccion" ? elegidos.has(r.ref) : r.principal)).map((r) => r.ref);
 			const els: RefElemento[] = [];
 			for (const ref of pedidos) {
-				const r = resolver(ref);
+				const r = resolverExistente(ref);
 				if ("motivo" in r) { descartes.push(r.motivo); continue; }
 				const el = r.el;
 				const e = estado.get(el.ref)!.e;
@@ -2205,12 +2221,13 @@ export function revisarOperaciones({
 			continue;
 		}
 		if (op.op === "cambiar_broll") {
-			const r = resolver(op.ref);
+			const r = resolverExistente(op.ref);
 			if ("motivo" in r) { descartes.push(r.motivo); continue; }
 			const el = r.el;
 			const busqueda = estado.get(el.ref)!.e.broll;
 			if (!busqueda) { descartes.push(`${el.titulo} no es un B-roll de MaKo (para cambiar su archivo, reemplazar_clip)`); continue; }
-			if (resueltas.some((x) => x.op === "cambiar_broll" && x.el.elementId === el.elementId)) { descartes.push(`${el.titulo} ya se cambia por otra en este mismo pedido`); continue; }
+			// Por la ref: cada elemento tiene la suya, y el id de lo que agrega el pedido es "" (dos copias serían «el mismo»).
+			if (resueltas.some((x) => x.op === "cambiar_broll" && x.el.ref === el.ref)) { descartes.push(`${el.titulo} ya se cambia por otra en este mismo pedido`); continue; }
 			resueltas.push({ op: "cambiar_broll", el, busqueda });
 			cambios.push({
 				tipo: "cambia",
@@ -2254,7 +2271,7 @@ export function revisarOperaciones({
 			continue;
 		}
 		if (op.op !== "revertir" && op.op !== "congelar" && op.op !== "normalizar") continue;
-		const r = resolver(op.ref);
+		const r = resolverExistente(op.ref);
 		if ("motivo" in r) { descartes.push(r.motivo); continue; }
 		const el = r.el;
 		const st = estado.get(el.ref)!;

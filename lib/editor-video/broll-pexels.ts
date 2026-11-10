@@ -215,3 +215,77 @@ export function siguienteArchivo(candidatos: readonly ArchivoVideoPexels[], prob
 export function esMp4(bytes: Uint8Array): boolean {
   return bytes.length > 12 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70;
 }
+
+// ── El plazo de traer UN video (revisión del 10/11/2026) ─────────────────────
+// Antes cada salto de redirección tenía sus 30 s: hasta 5 saltos × 3 archivos podían pasar de siete minutos, y la ruta
+// muere a los 120 s (`maxDuration` de app/api/video-editor/broll/route.ts) sin decir nada. Ahora el plazo es UNO, de
+// punta a punta (la pregunta a la API, cada archivo y cada salto), y entra en el de la ruta con margen para leer la
+// clave y mandar los bytes; y en el del navegador, que espera 110 s (app/video-editor/_opencut/broll/red.ts).
+
+/** Lo más que tarda traer un video, en total. */
+export const PLAZO_VIDEO_BROLL_MS = 90_000;
+/** Lo más que espera un pedido suelto (un salto de un archivo). */
+export const PLAZO_PEDIDO_VIDEO_MS = 30_000;
+/** Con menos que esto no se arranca otro pedido: no alcanzaría para bajar un archivo. */
+export const PLAZO_MINIMO_PEDIDO_MS = 2_000;
+
+/** Cuánto se le da al próximo pedido con el límite `limite`: hasta `tope`, nunca más de lo que queda; 0 = no se pide. */
+export function plazoDelPedido(limite: number, ahora: number, tope: number = PLAZO_PEDIDO_VIDEO_MS): number {
+  const resta = limite - ahora;
+  return resta < PLAZO_MINIMO_PEDIDO_MS ? 0 : Math.min(tope, resta);
+}
+
+/** Lo que devuelve bajar UN archivo (lib/pexels.ts, con la baranda de cada salto). */
+export type BajadaVideoPexels = { status: number; cuerpo: Uint8Array };
+export type MotivoVideoPexels = 'pesado' | 'plazo' | 'fallo';
+
+/** Lo que contesta la ruta cuando un video no se pudo traer: el texto (dice qué hacer) y el estado HTTP. */
+export const FALLA_VIDEO_PEXELS: Readonly<Record<MotivoVideoPexels, { error: string; status: number }>> = {
+  pesado: { error: 'Ese video de Pexels pesa demasiado para traerlo al editor: prueba con otro o elige fotos.', status: 413 },
+  plazo: { error: 'Pexels tardó demasiado en mandar el video. Vuelve a intentar.', status: 504 },
+  fallo: { error: 'No pude bajar el video de Pexels. Vuelve a intentar.', status: 502 },
+};
+
+/**
+ * El primer archivo del video que entra, dentro del plazo TOTAL `limite`: los de `archivosDeVideoPexels` en orden, hasta
+ * `intentos`. `bajar` recibe la URL y una función que dice cuánto le queda a CADA salto (0 = ya no queda: no lo pide).
+ * Uno que pasa del techo hace probar uno más chico; uno que no es un MP4, el siguiente; un MP4 cortado nunca se devuelve.
+ */
+export async function primerVideoQueEntra({
+  candidatos,
+  bajar,
+  reloj,
+  limite,
+  intentos = 3,
+  alFallar,
+}: {
+  candidatos: readonly ArchivoVideoPexels[];
+  bajar: (url: string, plazoDelSalto: () => number) => Promise<BajadaVideoPexels>;
+  reloj: () => number;
+  limite: number;
+  intentos?: number;
+  alFallar?: (error: unknown) => void;
+}): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; motivo: MotivoVideoPexels }> {
+  const probados = new Set<string>();
+  let techo = Infinity;
+  let pesado = false;
+  let sinTiempo = false;
+  for (let intento = 0; intento < intentos; intento++) {
+    if (plazoDelPedido(limite, reloj()) === 0) { sinTiempo = true; break; }
+    const archivo = siguienteArchivo(candidatos, probados, techo);
+    if (!archivo) break;
+    probados.add(archivo.url);
+    try {
+      const bajada = await bajar(archivo.url, () => plazoDelPedido(limite, reloj()));
+      if (bajada.status < 200 || bajada.status >= 300) continue;
+      if (bajada.cuerpo.length > MAX_BYTES_VIDEO_BROLL) { pesado = true; techo = archivo.lado; continue; }
+      if (!esMp4(bajada.cuerpo)) continue;
+      return { ok: true, bytes: bajada.cuerpo };
+    } catch (e) {
+      // Se cortó por el plazo (el del salto o el total): el próximo intento, si queda tiempo, prueba otro archivo.
+      if (plazoDelPedido(limite, reloj()) === 0) sinTiempo = true;
+      alFallar?.(e);
+    }
+  }
+  return { ok: false, motivo: pesado ? 'pesado' : sinTiempo ? 'plazo' : 'fallo' };
+}

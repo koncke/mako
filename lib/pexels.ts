@@ -20,15 +20,16 @@ import { bajarWebSegura, pedirClavado } from './archivero-bajada';
 import { validarDestino } from './landing-fetch';
 import { sniffImagen } from './editor-landing/server-reglas';
 import {
+  FALLA_VIDEO_PEXELS,
   MAX_BYTES_VIDEO_BROLL,
   ORIGEN_API_PEXELS,
+  PLAZO_VIDEO_BROLL_MS,
   TOPES_VIDEO_BROLL,
   archivosDeVideoPexels,
   errorDePexels,
-  esMp4,
   fotoDePexels,
   orientacionPexels,
-  siguienteArchivo,
+  primerVideoQueEntra,
   urlDeFotoPexels,
   videoDePexels,
   type FotoBroll,
@@ -137,38 +138,41 @@ export async function buscarVideosPexels(
   return { ok: true, videos };
 }
 
-/** Los bytes del video `id` (un MP4 de hasta `MAX_BYTES_VIDEO_BROLL`). La URL la dice Pexels, no el navegador. */
-export async function bajarVideoPexels(clave: string, id: number): Promise<{ ok: true; bytes: Uint8Array; autor: string } | FallaPexels> {
+/**
+ * Los bytes del video `id` (un MP4 de hasta `MAX_BYTES_VIDEO_BROLL`). La URL la dice Pexels, no el navegador. Todo dentro
+ * de UN plazo (`PLAZO_VIDEO_BROLL_MS`): la API, cada archivo y cada salto (lib/editor-video/broll-pexels.ts).
+ */
+export async function bajarVideoPexels(
+  clave: string,
+  id: number,
+  reloj: () => number = Date.now,
+): Promise<{ ok: true; bytes: Uint8Array; autor: string } | FallaPexels> {
+  const limite = reloj() + PLAZO_VIDEO_BROLL_MS;
   const r = await pedir(clave, `/videos/videos/${id}`);
   if (!r.ok) return r;
   const video = videoDePexels(r.cuerpo);
   const candidatos = archivosDeVideoPexels(r.cuerpo);
   if (!video || !candidatos.length) return { ok: false, error: 'Pexels no tiene ese video en un tamaño que sirva.', status: 404 };
-  const probados = new Set<string>();
-  let techo = Infinity;
-  let pesado = false;
   // Tres intentos como mucho: cada uno puede bajar hasta 4 MB.
-  for (let intento = 0; intento < 3; intento++) {
-    const archivo = siguienteArchivo(candidatos, probados, techo);
-    if (!archivo) break;
-    probados.add(archivo.url);
-    try {
-      const bajada = await bajarWebSegura(archivo.url, {
+  const hecho = await primerVideoQueEntra({
+    candidatos,
+    reloj,
+    limite,
+    alFallar: (e) => console.error('[pexels] no pude bajar el video', e),
+    bajar: async (url, plazoDelSalto) => {
+      const bajada = await bajarWebSegura(url, {
         validar: validarDestino,
         // `pedirClavado` CORTA en `maxBytes` (no falla): con un byte más que el techo, si lo llega a leer, el archivo
-        // pasa del techo y se prueba uno más chico. Nunca se devuelve un MP4 cortado a la mitad.
-        pedir: (u, ips) => pedirClavado(u, ips, undefined, { maxBytes: MAX_BYTES_VIDEO_BROLL + 1, timeoutMs: 30_000 }),
+        // pasa del techo y se prueba uno más chico. Nunca se devuelve un MP4 cortado a la mitad. Cada salto, con lo que
+        // queda del plazo total.
+        pedir: (u, ips) => {
+          const ms = plazoDelSalto();
+          if (!ms) throw new Error('Se terminó el plazo para traer el video.');
+          return pedirClavado(u, ips, undefined, { maxBytes: MAX_BYTES_VIDEO_BROLL + 1, timeoutMs: ms });
+        },
       });
-      if (bajada.status < 200 || bajada.status >= 300) continue;
-      if (bajada.cuerpo.length > MAX_BYTES_VIDEO_BROLL) { pesado = true; techo = archivo.lado; continue; }
-      const bytes = new Uint8Array(bajada.cuerpo);
-      if (!esMp4(bytes)) continue;
-      return { ok: true, bytes, autor: video.autor };
-    } catch (e) {
-      console.error('[pexels] no pude bajar el video', e);
-    }
-  }
-  return pesado
-    ? { ok: false, error: 'Ese video de Pexels pesa demasiado para traerlo al editor.', status: 413 }
-    : { ok: false, error: 'No pude bajar el video de Pexels.', status: 502 };
+      return { status: bajada.status, cuerpo: new Uint8Array(bajada.cuerpo) };
+    },
+  });
+  return hecho.ok ? { ok: true, bytes: hecho.bytes, autor: video.autor } : { ok: false, ...FALLA_VIDEO_PEXELS[hecho.motivo] };
 }

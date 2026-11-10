@@ -46,7 +46,7 @@ import { ponerEmojisEnSubtitulos } from "@/app/video-editor/_opencut/subtitles/e
 import { subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
 import { proponerBroll } from "@/app/video-editor/_opencut/broll/proponer";
 import { cambiarBroll } from "@/app/video-editor/_opencut/broll/cambiar";
-import { textoDeBroll, textoDeCambioBroll } from "@/app/video-editor/_opencut/broll/resultado";
+import { avisoFaltaPexels, textoDeBroll, textoDeCambioBroll } from "@/app/video-editor/_opencut/broll/resultado";
 import { buscarClips } from "@/app/video-editor/_opencut/clips/buscar";
 import { textoDeClips } from "@/app/video-editor/_opencut/clips/resultado";
 import { SECCION_CLIPS } from "@/app/video-editor/_opencut/clips/secciones";
@@ -63,6 +63,7 @@ import { revisarOperaciones, vistaDeLinea, type OperacionResuelta } from "./line
 import { armarLote, esLarga, type OperacionLarga } from "./comandos";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import type { ProgresoChat } from "./armado";
+import { mismoFondo } from "./fondo-proyecto";
 
 /** Lo que propuso la IA, con lo necesario para aplicarlo en la línea de tiempo correcta. */
 export type PropuestaChat = {
@@ -163,7 +164,7 @@ async function correrLarga(
 		// El MISMO de la sección «B-roll de MaKo»: propone, y la persona deja o saca cada uno en la línea de tiempo.
 		const hecho = await proponerBroll(editor, { ritmo: r.ritmo, planos: r.planos, medio: r.videos ? "videos" : "fotos" });
 		if (!hecho.ok) return [textoDeBroll(hecho)];
-		const avisos = [hecho.aviso, hecho.faltaPexels ? "para las fotos, conecta Pexels en «B-roll de MaKo»" : null].filter((x): x is string => !!x);
+		const avisos = [hecho.aviso, hecho.faltaPexels ? avisoFaltaPexels(r.videos ? "videos" : "fotos") : null].filter((x): x is string => !!x);
 		return avisos;
 	}
 	if (r.op === "cambiar_broll") {
@@ -220,7 +221,7 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	borrar_silencios: "borrar los silencios",
 	usar_preset_subtitulos: "usar el preset",
 	broll: "proponer el B-roll",
-	cambiar_broll: "traer otra imagen del B-roll",
+	cambiar_broll: "traer otra imagen o video del B-roll",
 	clips_magicos: "buscar los clips",
 	edicion_automatica: "hacer la edición automática",
 	emojis_subtitulos: "poner los emojis",
@@ -305,14 +306,15 @@ export async function aceptarPropuesta(
 	const lote = armarLote(resueltas, { idioma: datos.transcripcion.idioma });
 	const largas = resueltas.filter(esLarga);
 	const actuales = () => editor.scenes.getActiveSceneOrNull()?.tracks;
-	// El fondo del lienzo vive en los ajustes del proyecto, no en las pistas: cambiarlo también es un paso.
+	// El fondo del lienzo vive en los ajustes del proyecto, no en las pistas: cambiarlo también es un paso. Sólo el FONDO
+	// (./fondo-proyecto.ts): los fps que sube un archivo nuevo no son del chat ni están en el historial.
 	const ajustesDe = () => editor.project.getActiveOrNull()?.settings;
 	const ajustesAntes = ajustesDe();
 	let pasos = 0;
 	if (lote.comandos.length) {
 		const comandos = lote.comandos;
 		editor.command.execute({ command: comandos.length === 1 ? comandos[0] : new BatchCommand(comandos) });
-		if (actuales() !== antes || ajustesDe() !== ajustesAntes) pasos++;
+		if (actuales() !== antes || !mismoFondo(ajustesDe(), ajustesAntes)) pasos++;
 		for (const { que, comando } of lote.cortes) {
 			const hecho = comando.resumen();
 			if (!hecho) descartes.push(`no se cortó ${que}`);
@@ -358,7 +360,7 @@ export async function aceptarPropuesta(
 	}
 	const despues = actuales();
 	const ajustesDespues = ajustesDe();
-	const cambiaronAjustes = !!ajustesAntes && !!ajustesDespues && ajustesDespues !== ajustesAntes;
+	const cambiaronAjustes = !!ajustesAntes && !!ajustesDespues && !mismoFondo(ajustesAntes, ajustesDespues);
 	// Si nada cambió (ni la línea de tiempo ni el fondo), no se aplicó: decir «Aplicado» sería mentir.
 	if (!despues || (despues === antes && !cambiaronAjustes) || pasos === 0) return { ok: false, error: noSeAplica(descartes[0], "No se aplicó el cambio") };
 	return {
@@ -376,11 +378,12 @@ export async function aceptarPropuesta(
 export function deshacerPropuesta(editor: EditorCore, a: AplicadaChat): boolean {
 	const escena = editor.scenes.getActiveSceneOrNull();
 	if (!escena || escena.id !== a.escenaId || escena.tracks !== a.despues) return false;
-	// Lo mismo con los ajustes (el fondo): si alguien los cambió después, deshacer desharía lo suyo.
+	// Lo mismo con el fondo: si alguien lo cambió después, deshacer desharía lo suyo. Sólo el fondo: unos fps que subió
+	// un archivo (fuera del historial) no apagan «Restaurar».
 	const ajustes = () => editor.project.getActiveOrNull()?.settings;
-	if (a.ajustes && ajustes() !== a.ajustes.despues) return false;
+	if (a.ajustes && !mismoFondo(ajustes(), a.ajustes.despues)) return false;
 	for (let i = 0; i < a.pasos; i++) editor.command.undo();
-	if (editor.scenes.getActiveSceneOrNull()?.tracks === a.antes && (!a.ajustes || ajustes() === a.ajustes.antes)) return true;
+	if (editor.scenes.getActiveSceneOrNull()?.tracks === a.antes && (!a.ajustes || mismoFondo(ajustes(), a.ajustes.antes))) return true;
 	for (let i = 0; i < a.pasos; i++) editor.command.redo();
 	return false;
 }

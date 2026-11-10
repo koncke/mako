@@ -48,7 +48,7 @@ import { rectoMostrado, type MedioReemplazo } from '../app/video-editor/_opencut
 import { textoDeCambioBroll, resumenDeCambioBroll } from '../app/video-editor/_opencut/broll/resultado';
 import { validarOperacion } from '../lib/editor-video/chat-catalogo';
 import { OPERACIONES_API, operacionDesdeInput } from '../lib/editor-video/chat-api';
-import { despuesDe } from '../lib/editor-video/propuesta-bloque';
+import { despuesDe, elementosDeVista } from '../lib/editor-video/propuesta-bloque';
 import { refsDeOperacion } from '../lib/editor-video/propuestas';
 import { vistaDeLinea, revisarOperaciones, type OperacionResuelta } from '../app/video-editor/_opencut/chat/linea';
 import { disponiblesDelMotor } from '../app/video-editor/_opencut/chat/disponibles';
@@ -288,7 +288,12 @@ test('O5: la forma: «cambiar_broll» lleva sólo su ref, y «broll» puede trae
   const deBroll = OPERACIONES_API.find((o) => o.op === 'broll')!;
   assert.deepEqual(operacionDesdeInput(deBroll, { proyecto: 'p', videos: true }), { ok: true, op: { op: 'broll', videos: true } });
   assert.ok(deBroll.parametros.some((p) => p.nombre === 'videos'), 'la API también puede pedir videos');
-  assert.match(despuesDe({ op: 'cambiar_broll', ref: 'v2' }), /Otra imagen de la misma búsqueda/);
+  // La tarjeta dice si trae otro video u otra imagen (la vista dice el tipo); sin saberlo, no afirma ninguno.
+  const vistaGuardada = { pistas: [{ elementos: [{ ref: 'v2', tipo: 'video', nombre: 'B-roll' }, { ref: 'i1', tipo: 'imagen', nombre: 'B-roll' }] }] };
+  const deLaVista = (ref: string) => despuesDe({ op: 'cambiar_broll', ref }, elementosDeVista(vistaGuardada));
+  assert.equal(deLaVista('v2'), 'Otro video de la misma búsqueda, en el mismo lugar');
+  assert.equal(deLaVista('i1'), 'Otra imagen de la misma búsqueda, en el mismo lugar');
+  assert.equal(despuesDe({ op: 'cambiar_broll', ref: 'v2' }), 'Otro archivo de la misma búsqueda, en el mismo lugar');
   assert.match(despuesDe({ op: 'broll', videos: true }), /B-roll en video/);
   assert.deepEqual(refsDeOperacion({ op: 'cambiar_broll', ref: 'v2' }), { usa: ['v2'], medios: [], define: [] });
 });
@@ -339,10 +344,11 @@ test('O6: el botón, el chat y la API corren el MISMO cambio; la ruta pide el vi
   assert.match(ruta, /bajarVideoPexels\(clave\.clave, Number\(idVideo\)\)/);
   assert.doesNotMatch(ruta, /searchParams\.get\('url'\)|process\.env/);
   const pexels = sinComentarios(leer('lib/pexels.ts'));
-  assert.match(pexels, /bajarWebSegura\(archivo\.url, \{\s*validar: validarDestino,/, 'cada salto revalidado');
-  assert.match(pexels, /maxBytes: MAX_BYTES_VIDEO_BROLL \+ 1/);
-  assert.match(pexels, /if \(bajada\.cuerpo\.length > MAX_BYTES_VIDEO_BROLL\) \{ pesado = true; techo = archivo\.lado; continue; \}/, 'nunca un MP4 cortado');
-  assert.match(pexels, /if \(!esMp4\(bytes\)\) continue;/);
+  assert.match(pexels, /bajarWebSegura\(url, \{\s*validar: validarDestino,/, 'cada salto revalidado');
+  assert.match(pexels, /maxBytes: MAX_BYTES_VIDEO_BROLL \+ 1, timeoutMs: ms/, 'un byte más que el techo, y el plazo del salto');
+  // Qué archivo se devuelve (nunca un MP4 cortado, ni algo que no es un MP4) lo decide `primerVideoQueEntra`, que corre
+  // tests/video-editor-revision-chat-broll.test.ts (R6).
+  assert.match(pexels, /const hecho = await primerVideoQueEntra\(\{/);
   assert.doesNotMatch(pexels, /process\.env/);
   // lib/pexels.ts está en la lista de «fetch a hosts fijos» de tests/landing-analisis-ssrf.test.ts: el único `fetch`
   // pelado es el de la API, a un host escrito en el código.
@@ -373,7 +379,8 @@ test('O6: el botón, el chat y la API corren el MISMO cambio; la ruta pide el vi
 //   · la vista no dice "broll"                                                    -> 11/1 (O5b)
 //   · un video propuesto entra con sonido                                         -> 11/1 (O6)
 //   · el chat le pasa a cambiarBroll otro elemento                                -> 11/1 (O6)
-//   · la bajada devuelve lo leído aunque pase del techo                           -> 11/1 (O6)
+//   · la bajada devuelve lo leído aunque pase del techo                           -> 11/1 (O6; desde el 10/11/2026 lo
+//     ve R6 de tests/video-editor-revision-chat-broll.test.ts, que corre `primerVideoQueEntra`)
 //   · un `fetch` pelado a un archivo de video en lib/pexels.ts                    -> 11/1 (O6)
 //   · un cambio sin efecto (renombrar `CANDIDATAS` en cambiar.ts)                  -> 12/0
 // Lo que NO ve este archivo: la búsqueda y la bajada contra el Pexels de verdad (la sandbox no llega a su API), y que el

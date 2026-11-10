@@ -61,9 +61,13 @@ export async function bajarDePexels(id: number, medio: MedioBroll, orientacion: 
 	}
 }
 
-/** El archivo bajado, en Multimedia del proyecto (queda ahí aunque después se saque de la línea de tiempo). */
+/**
+ * El archivo bajado, en Multimedia del proyecto (queda ahí aunque después se saque de la línea de tiempo). Sin subir los
+ * fps del proyecto: un video de Pexels a 60 cuadros no es la persona importando su material, y ese cambio va fuera del
+ * historial (le apagaba «Restaurar» al chat).
+ */
 export async function aMultimedia(editor: EditorCore, projectId: string, archivo: File): Promise<MediaAsset | null> {
 	const [procesado] = await processMediaAssets({ files: [archivo] });
 	if (!procesado) return null;
-	return editor.media.addMediaAsset({ projectId, asset: procesado });
+	return editor.media.addMediaAsset({ projectId, asset: procesado, subirFps: false });
 }

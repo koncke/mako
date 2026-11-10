@@ -284,9 +284,10 @@ test('B10: cada una va por el comando de su BOTÓN, y el fondo cuenta como un pa
   // El botón «Duplicar» usa el mismo comando (core/managers/timeline-manager.ts).
   assert.match(sinComentarios(leer('app/video-editor/_opencut/core/managers/timeline-manager.ts')), /new DuplicateElementsCommand\(\{ elements \}\)/);
   const apl = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));
-  assert.match(apl, /if \(actuales\(\) !== antes \|\| ajustesDe\(\) !== ajustesAntes\) pasos\+\+/, 'un cambio sólo de fondo es un paso');
+  // Del FONDO, no de los ajustes enteros (chat/fondo-proyecto.ts, que corre R3 de tests/video-editor-revision-chat-broll.test.ts).
+  assert.match(apl, /if \(actuales\(\) !== antes \|\| !mismoFondo\(ajustesDe\(\), ajustesAntes\)\) pasos\+\+/, 'un cambio sólo de fondo es un paso');
   assert.match(apl, /despues === antes && !cambiaronAjustes/, 'y no se cuenta como «no se aplicó»');
-  assert.match(apl, /a\.ajustes && ajustes\(\) !== a\.ajustes\.despues/, '«Restaurar» no deshace un fondo que cambió otro');
+  assert.match(apl, /a\.ajustes && !mismoFondo\(ajustes\(\), a\.ajustes\.despues\)/, '«Restaurar» no deshace un fondo que cambió otro');
   // Las cinco miradas del editor (pedir, aceptar, el espejo, las propuestas y los agentes) le pasan el fondo a la vista.
   for (const archivo of ['chat/PanelChat.tsx', 'chat/aplicar.ts', 'chat/espejo.ts', 'chat/propuestas.ts', 'enjambre/correr.ts']) {
     assert.match(leer(`app/video-editor/_opencut/${archivo}`), /fondo: datos\.fondo,/, `${archivo} sin el fondo del lienzo`);

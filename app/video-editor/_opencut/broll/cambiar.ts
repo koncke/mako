@@ -21,9 +21,9 @@ import type { ElementRef } from "@/app/video-editor/_opencut/timeline";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { orientacionDeLienzo, type FotoBroll, type VideoBroll } from "@/lib/editor-video/broll-pexels";
 import { useTrabajoBroll } from "./estado";
-import { brollDe, lineaConOtroBroll, noRepetirEn, siguienteBroll } from "./pistas";
+import { brollDe, lineaConOtroBroll, noRepetirEn, puedeCambiarBroll, siguienteBroll } from "./pistas";
 import { aMultimedia, bajarDePexels, pedirJson } from "./red";
-import { resumenDeCambioBroll, textoDeCambioBroll, type ResultadoCambioBroll } from "./resultado";
+import { motivoSiNoSePuede, resumenDeCambioBroll, textoDeCambioBroll, type ResultadoCambioBroll } from "./resultado";
 
 /** Cuántas de la búsqueda se miran para encontrar la siguiente (el tope de la ruta). */
 const CANDIDATAS = 15;
@@ -47,6 +47,9 @@ export async function cambiarBroll(editor: EditorCore, ref: ElementRef): Promise
 	const escena = editor.scenes.getActiveSceneOrNull();
 	const clip = escena ? buscarClip(escena.tracks, ref) : null;
 	const broll = clip ? brollDe(clip.element) : null;
+	// Una pista bloqueada no la cambia ninguna herramienta (tampoco el chat, linea.ts): se corta antes de bajar nada.
+	const antes = motivoSiNoSePuede(escena ? puedeCambiarBroll(escena.tracks, ref) : "falta", "antes");
+	if (antes) return terminar({ ok: false, motivo: antes });
 	if (!proyecto || !escena || !clip || !broll) return terminar({ ok: false, motivo: "sin-broll" });
 	trabajo.fijar({ cambiando: clip.element.id, mensaje: null, error: false, faltaPexels: false });
 	try {
@@ -81,7 +84,10 @@ export async function cambiarBroll(editor: EditorCore, ref: ElementRef): Promise
 			// La persona pudo abrir otro proyecto, o borrar ese B-roll, mientras se bajaba: se mira la línea de AHORA.
 			if (editor.project.getActiveOrNull()?.metadata.id !== proyecto.metadata.id) return terminar({ ok: false, motivo: "otro-proyecto" });
 			const ahora = editor.scenes.getActiveSceneOrNull()?.tracks;
-			if (!ahora) return terminar({ ok: false, motivo: "sin-broll" });
+			if (!ahora) return terminar({ ok: false, motivo: "sacado" });
+			// Y lo mismo al VOLVER: la persona pudo sacarlo (o reemplazarlo) o bloquear su pista mientras se bajaba.
+			const despues = motivoSiNoSePuede(puedeCambiarBroll(ahora, { trackId: clip.track.id, elementId: clip.element.id }), "despues");
+			if (despues) return terminar({ ok: false, motivo: despues });
 			const assets = editor.media.getAssets();
 			const r = lineaConOtroBroll({
 				tracks: ahora,
@@ -99,7 +105,7 @@ export async function cambiarBroll(editor: EditorCore, ref: ElementRef): Promise
 			if (!r.ok) {
 				// Lo bajado era más corto de lo que decía Pexels: se prueba la siguiente.
 				if (r.motivo === "corto") continue;
-				return terminar({ ok: false, motivo: "sin-broll" });
+				return terminar({ ok: false, motivo: r.motivo === "bloqueada" ? "bloqueada" : "sin-broll" });
 			}
 			editor.command.execute({ command: new TracksSnapshotCommand({ before: ahora, after: r.tracks }) });
 			return terminar({ ok: true, medio: broll.medio, autor: bajada.autor || elegida.autor });

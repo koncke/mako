@@ -49,7 +49,8 @@ const segundos = (n: number): string => `${String(Math.round(n * 10) / 10).repla
 const entre = (a: number, b: number): string => `de ${tiempo(a)} a ${tiempo(b)}`;
 const comillas = (s: string, max = 80): string => `«${s.length > max ? `${s.slice(0, max)}…` : s}»`;
 
-type Elemento = { nombre: string; inicio?: number; fin?: number };
+/** `tipo`: el de la vista («video», «imagen», «texto»…), para decir «otro video» y no «otra imagen». */
+type Elemento = { nombre: string; inicio?: number; fin?: number; tipo?: string };
 
 /** Los elementos de la copia, con su nombre y sus tiempos (la vista que guarda lib/editor-video/espejo.ts). */
 export function elementosDeVista(vista: unknown): Map<string, Elemento> {
@@ -58,13 +59,14 @@ export function elementosDeVista(vista: unknown): Map<string, Elemento> {
   for (const p of Array.isArray(v.pistas) ? v.pistas : []) {
     const els = (p as { elementos?: unknown })?.elementos;
     for (const e of Array.isArray(els) ? els : []) {
-      const x = e as { ref?: unknown; texto?: unknown; nombre?: unknown; inicio?: unknown; fin?: unknown };
+      const x = e as { ref?: unknown; texto?: unknown; nombre?: unknown; inicio?: unknown; fin?: unknown; tipo?: unknown };
       if (typeof x.ref !== 'string') continue;
       const nombre = typeof x.texto === 'string' ? comillas(x.texto, 40) : typeof x.nombre === 'string' ? x.nombre.slice(0, 40) : x.ref;
       out.set(x.ref, {
         nombre,
         ...(typeof x.inicio === 'number' ? { inicio: x.inicio } : {}),
         ...(typeof x.fin === 'number' ? { fin: x.fin } : {}),
+        ...(typeof x.tipo === 'string' ? { tipo: x.tipo } : {}),
       });
     }
   }
@@ -135,7 +137,12 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
       const que = op.videos ? 'B-roll en video' : 'B-roll';
       return op.planos === false ? `Con ${que} propuesto` : `Con ${que} y cambios de plano propuestos`;
     }
-    case 'cambiar_broll': return 'Otra imagen de la misma búsqueda, en el mismo lugar';
+    case 'cambiar_broll': {
+      // La vista dice si el B-roll es un video o una foto; sin saberlo, no se afirma ninguno de los dos.
+      const tipo = els.get(op.ref)?.tipo;
+      const que = tipo === 'video' ? 'Otro video' : tipo === 'imagen' ? 'Otra imagen' : 'Otro archivo';
+      return `${que} de la misma búsqueda, en el mismo lugar`;
+    }
     case 'clips_magicos': return `Los ${op.cuantos ?? 5} mejores momentos, para abrir aparte`;
     case 'edicion_automatica': return 'Editado de una por los agentes (se ve en «Edición automática»)';
     case 'emojis_subtitulos': return op.activar ? 'Con un emoji encima de los subtítulos que lo piden' : 'Sin los emojis de los subtítulos';

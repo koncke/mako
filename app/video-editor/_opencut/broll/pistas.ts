@@ -74,7 +74,8 @@ export function propuestaDe(el: TimelineElement | null | undefined): TipoPropues
 	return v === "broll" || v === "plano" ? v : null;
 }
 
-export type Pendiente = { trackId: string; element: TimelineElement; tipo: TipoPropuesta };
+/** `bloqueada`: su pista está bloqueada (el botón «Otra» no la cambia, como no la cambia ninguna herramienta). */
+export type Pendiente = { trackId: string; element: TimelineElement; tipo: TipoPropuesta; bloqueada?: true };
 
 /** Lo que MaKo propuso y la persona todavía no dejó ni sacó, en el orden del video. */
 export function pendientesDe(tracks: SceneTracks | null | undefined): Pendiente[] {
@@ -83,7 +84,7 @@ export function pendientesDe(tracks: SceneTracks | null | undefined): Pendiente[
 	for (const t of tracks.overlay) {
 		for (const el of t.elements as TimelineElement[]) {
 			const tipo = propuestaDe(el);
-			if (tipo) lista.push({ trackId: t.id, element: el, tipo });
+			if (tipo) lista.push({ trackId: t.id, element: el, tipo, ...(t.locked === true ? { bloqueada: true as const } : {}) });
 		}
 	}
 	return lista.sort((a, b) => a.element.startTime - b.element.startTime);
@@ -190,7 +191,7 @@ export function brollsDejados(tracks: SceneTracks | null | undefined): Pendiente
 	const lista: Pendiente[] = [];
 	for (const t of tracks?.overlay ?? []) {
 		for (const el of t.elements as TimelineElement[]) {
-			if (brollDe(el) && !propuestaDe(el)) lista.push({ trackId: t.id, element: el, tipo: "broll" });
+			if (brollDe(el) && !propuestaDe(el)) lista.push({ trackId: t.id, element: el, tipo: "broll", ...(t.locked === true ? { bloqueada: true as const } : {}) });
 		}
 	}
 	return lista.sort((a, b) => a.element.startTime - b.element.startTime);
@@ -234,7 +235,24 @@ export function siguienteBroll<T extends { id: number }>(
 	return candidatos.find((c) => !fuera.has(c.id) && sirve(c)) ?? null;
 }
 
-export type MotivoOtroBroll = MotivoReemplazo | "sin-broll";
+export type MotivoOtroBroll = MotivoReemplazo | "sin-broll" | "bloqueada";
+
+/**
+ * ¿Se puede cambiar el B-roll `ref` en la línea `tracks`? «Otra» lo pregunta ANTES de bajar el archivo y otra vez al
+ * volver (mientras se bajaba, la persona pudo sacarlo o bloquear su pista): `falta` = ya no está; `no-broll` = está pero
+ * no es un B-roll de MaKo; `bloqueada` = su pista está bloqueada.
+ */
+export type PuedeCambiarBroll = "si" | "falta" | "no-broll" | "bloqueada";
+
+export function puedeCambiarBroll(tracks: SceneTracks, ref: ElementRef): PuedeCambiarBroll {
+	const clip = buscarClip(tracks, ref);
+	if (!clip) {
+		const existe = [...tracks.overlay, tracks.main, ...tracks.audio].some((t) => (t.elements as TimelineElement[]).some((e) => e.id === ref.elementId));
+		return existe ? "no-broll" : "falta";
+	}
+	if (!brollDe(clip.element)) return "no-broll";
+	return clip.track.locked === true ? "bloqueada" : "si";
+}
 
 /**
  * La línea con el B-roll `ref` mostrando el archivo `medio` (de Pexels, `foto`): mismo id, lugar y tiempo, las marcas de
@@ -260,9 +278,11 @@ export function lineaConOtroBroll({
 	tamanoDe: (mediaId: string) => Tamano | null;
 	base: BaseParams;
 }): { ok: true; tracks: SceneTracks } | { ok: false; motivo: MotivoOtroBroll } {
+	const puede = puedeCambiarBroll(tracks, ref);
+	if (puede === "bloqueada") return { ok: false, motivo: "bloqueada" };
 	const clip = buscarClip(tracks, ref);
 	const actual = clip ? brollDe(clip.element) : null;
-	if (!clip || !actual) return { ok: false, motivo: "sin-broll" };
+	if (puede !== "si" || !clip || !actual) return { ok: false, motivo: "sin-broll" };
 	if ((actual.medio === "videos") !== (medio.type === "video")) return { ok: false, motivo: "tipo" };
 	const fuenteActual = tamanoDe(clip.element.mediaId) ?? lienzo;
 	const r = elementoReemplazado({ elemento: clip.element, medio, tps, lienzo, fuenteActual, base });

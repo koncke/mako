@@ -90,9 +90,9 @@ function FilaPropuesta({ p, url, ocupado, dejado = false }: { p: Pendiente; url:
 				<button
 					type="button"
 					className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-2 py-1 text-[11px] text-(--cc-text-2) hover:bg-(--cc-raised) hover:text-(--cc-text) disabled:cursor-default disabled:opacity-50"
-					disabled={ocupado}
+					disabled={ocupado || p.bloqueada === true}
 					onClick={() => void cambiarBroll(editor, { trackId: p.trackId, elementId: p.element.id })}
-					title={`Traer ${esVideo ? "otro video" : "otra foto"} de «${broll.busqueda}»`}
+					title={p.bloqueada ? "Su pista está bloqueada: desbloquéala para cambiarlo" : `Traer ${esVideo ? "otro video" : "otra foto"} de «${broll.busqueda}»`}
 					aria-label={`Cambiar por ${esVideo ? "otro video" : "otra foto"}`}
 				>
 					{cambiando && <Spinner className="size-3" />}
