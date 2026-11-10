@@ -7,6 +7,73 @@ del código.
 
 ---
 
+## A Martín sólo le llegan sus decisiones: el juez va en la fuente Y en lo que ya llegó (10/11/2026)
+
+**Vive en:** `lib/pregunta-para-martin.ts` (el juez, puro) y su copia en `scripts/operaciones/cartero.mjs` (1.27.0, con test
+diferencial) · `scripts/claude-hooks/guardia/sin-ask.mjs` · `lib/centro-preguntas-chat.ts` (`esperaAMartinEnElChat`) ·
+`lib/centro-preguntas-chat-db.ts` (el recuento) · `app/admin/runway/decisiones.ts` (`esperaAMartin`, `sanearPublicada`). Lo fijan
+`tests/pregunta-para-martin.test.ts` y el banco `tests/fixtures/preguntas-ops-center.json` (52 preguntas reales y trampas).
+
+**Síntoma:** Martín contestó doce «sí» seguidos sin leer para sacarse de encima preguntas técnicas («¿Arreglo los 2 rojos de
+tipos-ci-tiempo (CRLF) en otra punta?», «¿Liberás RAM para que corra el tsc acotado?»). Seis afirmaban algo falso.
+
+**Lo que no se ve en el código, y costó:**
+
+- **Rechazar en la fuente no arregla lo que ya llegó.** El globito de cada chat sale de un mapa guardado
+  (`operaciones.preguntas-abiertas`) que se cuenta AL ESCRIBIR: con el juez nuevo, ese mapa seguía contando las técnicas de antes
+  hasta que el chat volviera a preguntar. Va un recuento de UNA vez, atado a la versión de la regla
+  (`operaciones.preguntas-abiertas.regla`), que corre en la primera vuelta del Runner después del deploy. Es «una regla que se
+  aplica al escribir no arregla ni una fila ya escrita», del lado de un contador.
+- **`estaAbierta` es el CICLO de una pregunta, no lo que se muestra.** Se respondió, se superó, se retiró: eso decide si sigue
+  viva. Que le llegue a Martín es otra pregunta (`esperaAMartinEnElChat = estaAbierta && llegaAMartin`). Y un tercer uso necesita
+  las dos: **«trabado» cuenta TODAS** (`chatTrabadoEnLaApp`), porque un AskUserQuestion técnico traba el turno del chat aunque no
+  suba al bloque de Martín. Con la lista filtrada, la caja ofrecía mandar mensajes a un chat que no los iba a leer.
+- **Por qué vuelve al chat y no a una cola del Cerebro:** las respuestas del Ops Center las FIRMA el dispositivo de Martín, así que
+  una cola que mira el Cerebro no tiene cómo contestar: la pregunta quedaría esperando para siempre en otro lado. Lo probable de
+  punta a punta es devolvérsela al chat en el momento (`cartero preguntar` sale con 3 y el motivo; el hook niega el
+  AskUserQuestion con el mismo motivo). Lo que ya había llegado se esconde de Martín y la API lo marca `para_el_chat: true`, para
+  que el Cerebro lo vea.
+- **El juez falla hacia el lado seguro, y el lado depende del lugar.** En la fuente rechaza (jerga, un hecho medible, el orden del
+  trabajo del chat) y el chat reescribe o decide. En el servidor esconde, pero el TEMA rescata: plata, clientes, accesos,
+  seguridad, fechas, campañas, «aprobar» pasan aunque traigan una palabra técnica, porque esconderle una decisión suya cuesta más
+  que mostrarle una técnica.
+- **Las palabras del producto se parecen a la jerga, y sólo el banco lo ve.** «Un push a los alumnos» es Web Push, «el
+  desplegable» no es un despliegue, «test A/B» y «tipos de plan» son del negocio, «recargas» es plata, «iOS» no es camelCase.
+  Medido rompiendo: la copia del cartero sin el `(?<!un )` del push dio VERDE hasta que se sumó «¿Mandamos un push con la promo
+  nueva?» al banco. Un juez de texto sin banco de casos reales no está probado.
+- **Lo que se escapa, contado:** «¿Abro la ventana?» y «¿Terminamos esto y después creamos otra landing?» (sin jerga ni hecho
+  claro). Van al banco como `escapa`: no se exigen, se cuentan. Si se vuelven molestas, se suma la regla con su caso.
+
+---
+
+## Un chat por tab en la lista: las palabras de todos los días no agrupan, y una pieza que se quiere dibujar en un test vive sola (10/11/2026)
+
+**Vive en:** `lib/centro-chats.ts` (`tabDeChat`, `porJefe` con `tabDe`, `plegarGrupo`, `filasDeGrupos`, `chatDormido`,
+`vaEnLaLista`, `esperasSinDormidos`) · `app/admin/operaciones/tabs.ts` (`indiceDeTabs`) · `app/admin/operaciones/GruposPorJefe.tsx`
+· `lib/centro-rotulo-completado.ts`. Lo fija `tests/ops-center-por-tab.test.ts`.
+
+- **De qué tab es un chat, en orden:** su nombre (o su jefe) contra los nombres de las tabs; el área de su bitácora; y por último
+  una tab nombrada adentro del título. ⚠️ **En ese último paso, una palabra de todos los días no cuenta** («plan», «perfil»,
+  «chats», «video», «email»…: `NOMBRES_COMUNES`): «Arreglar el plan de pagos» no es de la tab Plan. Como nombre ENTERO del chat,
+  sí. Medido: sin esa lista, «Arreglar filaPropia del perfil» caía en la tab Perfil.
+- **Un chat de tarea solo en su tab es su propia fila**, no «el nombre de la tab arriba y él adentro»: dos renglones para uno, y
+  plegado, uno que no decía nada.
+- **Plegar nunca esconde lo que espera, trabaja o se está mirando** (`siempre`), y un huérfano solo no se pliega.
+- **Dormido = tres días sin actividad** (`DIAS_DORMIDO`), y una foto vieja de «trabajando» no lo despierta. Sale de la lista y sus
+  preguntas no suben el globito; el Cerebro nunca duerme, y el que se está mirando o se busca, tampoco sale.
+- **Una pieza que un test tiene que DIBUJAR vive en su propio archivo.** `GruposPorJefe` estaba en `PiezasCentro.tsx`, que arrastra
+  `lib/tab-access.ts` y con él `server-only`: importarla en un test tiraba «cannot be imported from a Client Component». Mudada a
+  `GruposPorJefe.tsx` (y re-exportada), el test la dibuja con `renderToStaticMarkup`, y tres tests que copiaban su línea pasaron a
+  mirar lo que dibuja.
+
+**El rótulo del «Completado»** (`rotuloDelCompletado`): la tab del chat, y la función del sub-chat, del título de un chat de tarea
+o, si el chat ES la tab, de su «Voy a trabajar en…» de ESE tramo. Sin nada, «Completado» como antes. Vive aparte de
+`lib/centro-chats.ts` porque `lib/centro-plan-auto-reglas.ts` (el «Voy a trabajar en…») ya importa de ahí.
+
+**Lo que quedó SIN hacer:** mirar la lista y la tarjeta en pantalla (la nube no ve producción ni la base): se armaron con piezas que
+ya estaban («Mostrar más» de la lista, `co-jefe__nombre`, la fila del teléfono) y se verificaron dibujándolas en los tests. Y
+«Observer» no aparece en el repo: si Martín llama así a otra pantalla, falta saber cuál.
+
 ## «Escribe a Chat nuevo»: un texto armado con un nombre tiene que preguntar si el nombre existe (6/11/2026)
 
 **Vive en:** `app/admin/operaciones/Conversacion.tsx` (el `placeholder` de la caja) · `lib/chat-mako-reglas.ts`

@@ -48,7 +48,7 @@ const ask = JSON.stringify({
 
 test('1. el cartero sube las preguntas de un AskUserQuestion: una por pregunta, con su recomendada, y con el mismo id siempre', async () => {
   const { turnosDeLineas, VERSION } = await cartero();
-  assert.equal(VERSION, '1.26.1'); // 1.26.1: la revisión del servicio (tests/cartero-servicio.test.ts); 1.26.0: lo que espera un chat cerrado le llega al Cerebro; 1.24.0: el pedido delegado desde el grupo (tests/tickets-al-cerebro.test.ts); 1.23.0: los tickets que esperan a Martín le llegan al Cerebro (tests/tickets-al-cerebro.test.ts); 1.22.1: el pedido dice cómo se escribe el cierre; 1.22.0: los adjuntos del chat nuevo (tests/centro-nuevo-con-adjuntos.test.ts); 1.21.0: el resumen del wrap_up (tests/chat-en-el-acto.test.ts); 1.20.0: el ticket aprobado por regla (tests/feedback-2710-tanda1.test.ts); 1.18.1: «la última de cada chat», sólo de wrap_up; 1.19.0: los turnos, enteros (tests/turnos-enteros.test.ts)
+  assert.equal(VERSION, '1.27.0'); // 1.27.0: `preguntar` rechaza la pregunta técnica (tests/pregunta-para-martin.test.ts); 1.26.1: la revisión del servicio (tests/cartero-servicio.test.ts); 1.26.0: lo que espera un chat cerrado le llega al Cerebro; 1.24.0: el pedido delegado desde el grupo (tests/tickets-al-cerebro.test.ts); 1.23.0: los tickets que esperan a Martín le llegan al Cerebro (tests/tickets-al-cerebro.test.ts); 1.22.1: el pedido dice cómo se escribe el cierre; 1.22.0: los adjuntos del chat nuevo (tests/centro-nuevo-con-adjuntos.test.ts); 1.21.0: el resumen del wrap_up (tests/chat-en-el-acto.test.ts); 1.20.0: el ticket aprobado por regla (tests/feedback-2710-tanda1.test.ts); 1.18.1: «la última de cada chat», sólo de wrap_up; 1.19.0: los turnos, enteros (tests/turnos-enteros.test.ts)
   const r = turnosDeLineas([ask]);
   assert.equal(r.preguntas.length, 2);
   const [a, b] = r.preguntas;
@@ -121,7 +121,8 @@ test('4. el bloque: de a una con «1 de 2», la recomendada marcada y «otra cos
     const src = sinComentarios(leer(f));
     assert.match(src, /<BloqueDePreguntas key=\{`b-\$\{/, `${f}: el bloque`);
     assert.match(src, /deLaApp=\{deLaApp\} \/>/, `${f}: las de la app, en el mismo bloque`);
-    assert.match(src, /const bloque = preguntasParaElBloque\(lineas\);/);
+    // El bloque sale de las preguntas del bloque (10/11/2026: vacío si el chat duerme, tests/ops-center-por-tab.test.ts, 6).
+    assert.match(src, /const bloque = [^;\n]*preguntasParaElBloque\(lineas\);/);
   }
   assert.match(leer('app/admin/operaciones/centro.css'), /@media \(hover: none\) and \(pointer: coarse\) \{ \.co-preg--arriba \.co-preg__op \{ min-height: 48px; \}/, 'en el teléfono, del alto de un dedo');
 });

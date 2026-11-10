@@ -23,9 +23,10 @@ import { Button, Field, Input, Modal } from '@/app/_ui';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { Icon } from '@/app/_components/icons';
 import {
-  SECCION_CEREBRO, esPrioritario, esperaDe, nombreCuenta, partesDelNombre, porJefe, seccionesDeChats,
-  type ChatCentro, type GrupoJefe,
+  SECCION_CEREBRO, esPrioritario, esperaDe, nombreCuenta, partesDelNombre, seccionesDeChats, tabDeChat, vaEnLaLista,
+  type ChatCentro, type TabDelChat,
 } from '@/lib/centro-chats';
+import { GruposPorJefe, type PlegadoDeGrupos } from './GruposPorJefe';
 export { buscarChats } from '@/lib/centro-chats';
 import { elegidoPara, esCriaturaDeMako } from '@/lib/centro-munecos';
 import { ignoradasDelChat, preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
@@ -159,12 +160,25 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   // elimínalo»): una sola lista, y lo que trabaja o espera una respuesta arriba.
   const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set());
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
+  // Los grupos de una tab que Martín abrió (10/11/2026): sus chats de tarea van plegados hasta que los pida.
+  const [gruposAbiertos, setGruposAbiertos] = useState<Set<string>>(() => new Set());
   // Lo que espera a Martín arriba: una pregunta, o un «Completado» sin ver (el mismo aviso: `k.avisos`). Y PRIMERO lo que espera
   // su respuesta, antes de lo que trabaja (24/10/2026: `prioridadEnLista`): las preguntas solas, las del renglón de la fila.
   const { avisos } = k;
   const esperanRespuesta = useMemo(() => (c: ChatCentro) => esperaDe(c, k.esperas), [k.esperas]);
-  const secciones = useMemo(() => seccionesDeChats(visibles, avisos, esperanRespuesta), [visibles, avisos, esperanRespuesta]);
+  // Sin los dormidos (10/11/2026, `vaEnLaLista`): un chat sin actividad hace días no ocupa una fila; buscándolo, sí aparece.
+  const enLista = useMemo(() => visibles.filter((c) => vaEnLaLista(c, k.ahora, actual, buscando)), [visibles, k.ahora, actual, buscando]);
+  const secciones = useMemo(() => seccionesDeChats(enLista, avisos, esperanRespuesta), [enLista, avisos, esperanRespuesta]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
+  // Un grupo por TAB (10/11/2026): la fila es la tab y sus chats de tarea van adentro, plegados. Lo que espera a Martín, trabaja o se
+  // está mirando se ve siempre; buscando, todo abierto.
+  const indice = k.indiceTabs;
+  const tabDe = useMemo(() => (indice ? (c: ChatCentro) => tabDeChat(c, indice) : undefined), [indice]);
+  const plegado = useMemo<PlegadoDeGrupos<ChatCentro>>(() => ({
+    abiertos: gruposAbiertos,
+    alternar: (clave) => setGruposAbiertos((s) => alternar(s, clave)),
+    siempre: (c) => buscando || c.clave === actual || esPrioritario(c, avisos, esperanRespuesta),
+  }), [gruposAbiertos, buscando, actual, avisos, esperanRespuesta]);
   return (
     <>
       {secciones.map(({ clave, titulo, chats: lista }) => {
@@ -183,7 +197,7 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
             )}
             {/* Los sub-chats con su jefe, en las dos secciones (los del Cerebro, debajo de él); un grupo cuyo jefe no está en la
                 lista lleva su nombre arriba. */}
-            {!plegada && <GruposPorJefe chats={corte} fila={fila} />}
+            {!plegada && <GruposPorJefe chats={corte} fila={fila} tabDe={tabDe} plegado={plegado} />}
             {!plegada && !todas && lista.length > corte.length && (
               <button type="button" className="co-mas" onClick={() => setEnteras((s) => alternar(s, clave))}>{`Mostrar ${lista.length - corte.length} más`}</button>
             )}
@@ -197,30 +211,8 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   );
 }
 
-/**
- * Los chats agrupados por su jefe (`porJefe`): el jefe y, debajo, sus sub-chats corridos a la derecha; un grupo cuyo jefe no está
- * en la lista lleva su nombre arriba. UNO para las dos listas: la del super admin (`ListaCentro`) y la del cliente
- * (app/second-brain/ChatSecondBrain.tsx, sus chats agrupados por origen: 22/10/2026, «un orden como en Super Admin»).
- */
-export function GruposPorJefe<T extends { titulo: string }>({ chats, fila, jefe }: {
-  chats: readonly T[]; fila: (c: T, sub: boolean) => ReactNode;
-  /** La fila jefe de un grupo que no tiene chat propio (el cliente: lib/chat-mako-reglas.ts → jefeDelGrupo). Sin esto, su nombre. */
-  jefe?: (g: GrupoJefe<T>) => T | null;
-}) {
-  return (
-    <>
-      {porJefe(chats).map((g) => {
-        const cabeza = g.chat ?? jefe?.(g) ?? null;
-        return (
-          <div key={g.clave} className="co-jefe">
-            {cabeza ? fila(cabeza, false) : <p className="co-jefe__nombre">{g.jefe}</p>}
-            {g.subs.length > 0 && <div className="co-jefe__subs">{g.subs.map((s) => fila(s, true))}</div>}
-          </div>
-        );
-      })}
-    </>
-  );
-}
+// Los chats agrupados por su jefe o su tab viven en GruposPorJefe.tsx (10/11/2026: así los dibuja un test sin el servidor).
+export { GruposPorJefe, type PlegadoDeGrupos };
 
 /** La conversación de un chat con su caja: Conversacion.tsx, enchufada al motor. */
 export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; chat: ChatCentro; onVolver: () => void }) {
@@ -233,6 +225,8 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
       preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)} avisoCerrado={(p) => k.avisoDePregunta(chat, p)}
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       tareas={k.tareasDe(chat)}
+      // De qué tab es cada nombre (10/11/2026): el «Completado» dice «Tab · Función».
+      indiceTabs={k.indiceTabs}
       // El ✓ de sus «Completado» (18/10/2026): guardado en MaKo, vale en el teléfono.
       yaVisto={k.yaVistos?.[chat.clave] ?? null} onYaVisto={(i) => void k.marcarYaVisto(chat.clave, i)}
       aspecto={elegidoPara(k.munecos, chat.titulo)}

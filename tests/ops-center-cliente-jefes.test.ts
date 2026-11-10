@@ -18,6 +18,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { jefeDelGrupo, listaDelCliente } from '../lib/chat-mako-reglas';
 import { porJefe } from '../lib/centro-chats';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { GruposPorJefe } from '../app/admin/operaciones/GruposPorJefe';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -45,8 +48,16 @@ test('1. el grupo sin chat propio lleva su fila JEFE: su nombre, la hora del má
 });
 
 test('2. en la computadora y en el teléfono, con la pieza del super admin y sin títulos de sección', () => {
-  const pieza = sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx'));
-  assert.match(pieza, /const cabeza = g\.chat \?\? jefe\?\.\(g\) \?\? null;\n\s*return \(\n\s*<div key=\{g\.clave\} className="co-jefe">\n\s*\{cabeza \? fila\(cabeza, false\) :/);
+  // La pieza del super admin, DIBUJADA (10/11/2026: vive en GruposPorJefe.tsx; antes se miraba su línea en PiezasCentro): un grupo
+  // sin chat propio dibuja la fila jefe que le pasan, y sin ella, el nombre del grupo.
+  const subs = [{ titulo: 'Offer › Sprint 3 días' }, { titulo: 'Offer › Mi oferta' }];
+  const fila = (c: { titulo: string }, sub: boolean) => createElement('p', { key: c.titulo, 'data-sub': String(sub) }, c.titulo);
+  const conJefe = renderToStaticMarkup(createElement(GruposPorJefe<{ titulo: string }>, { chats: subs, fila, jefe: () => ({ titulo: 'Offer' }) }));
+  assert.match(conJefe, /<p data-sub="false">Offer<\/p>/, 'la fila jefe, como un chat más');
+  assert.doesNotMatch(conJefe, /co-jefe__nombre/, 'sin título de sección');
+  assert.match(conJefe, /<p data-sub="true">Offer › Sprint 3 días<\/p>/, 'los suyos, corridos debajo');
+  const sinJefe = renderToStaticMarkup(createElement(GruposPorJefe<{ titulo: string }>, { chats: subs, fila }));
+  assert.match(sinJefe, /<p class="co-jefe__nombre">Offer<\/p>/, 'sin la fila jefe, el nombre');
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   assert.match(sb, /<GruposPorJefe chats=\{corte\} fila=\{fila\} jefe=\{\(g\) => \{ const j = jefeDelGrupo\(g\);/, 'la computadora');
   assert.match(sb, /const actual = !verMapa && !enOtroChat && !f\.jefeDeGrupo && esFilaDe\(f, elegido\);/);
@@ -60,3 +71,6 @@ test('2. en la computadora y en el teléfono, con la pieza del super admin y sin
 //   · el jefe es «el abierto»                    → 1/1 (2)
 //   · la computadora vuelve al título            → 1/1 (2)
 //   · el teléfono, sin jefe                      → 1/1 (2)
+// Y el 10/11/2026, con la pieza dibujada (base 2/0):
+//   · GruposPorJefe sin usar `jefe` (cabeza = g.chat) → 1/1 (2)
+//   · los de adentro sin correrse                     → 1/1 (2)
