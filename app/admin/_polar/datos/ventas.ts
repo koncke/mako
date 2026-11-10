@@ -275,7 +275,9 @@ export function claveDePago(medio: string | null | undefined, referencia: string
  *      renovación: elegir uno sería darle el recibo de otro mes, que es lo que pasaba atando por el cobro).
  *
  * Un recibo cargado a mano que no se ató a ningún pago sale como `r-` y NO SUMA (`suma: false`, punto 4): Overview no lo ve, y si
- * el mismo pago está en el CRM se contaría dos veces.
+ * el mismo pago está en el CRM se contaría dos veces. ⚠️ SALVO el recibo de una orden del LIBRO de una agencia (10/11/2026): Revenue y
+ * Overview ya cuentan esa orden (`a:` en lo cobrado, lib/admin-ingresos-libro.ts), así que su recibo SUMA. La orden no es un pedido
+ * propio: es el recibo, atado por la orden de Binance (`claveDePago`).
  *
  * `zona`: la de la plataforma, para el día de un cobro devuelto sin recibo (punto 6).
  */
@@ -316,6 +318,14 @@ export function pedidosDe(e: {
   const usados = new Set<number>()
   const vistos = new Set<string>()
   const out: Pedido[] = []
+  // Los recibos de las órdenes del libro de una agencia: lo cobrado ya las cuenta, así que esos recibos suman.
+  const delLibro = new Set<number>()
+  for (const x of e.entradas) {
+    if (!x.id?.startsWith('a:') || !x.proveedorPagoId) continue
+    const clave = claveDePago(x.proveedor, x.proveedorPagoId)
+    const r = clave ? reciboDeClave.get(clave) : undefined
+    if (r) delLibro.add(r.id)
+  }
   for (const x of e.entradas) {
     if (!x.id || !/^[pc]:\d+$/.test(x.id)) continue
     vistos.add(x.id)
@@ -376,7 +386,7 @@ export function pedidosDe(e: {
       cobroId: r.cobroId,
       origen: 'recibo',
       proveedorPagoId: null,
-      suma: r.origen !== 'manual',
+      suma: r.origen !== 'manual' || delLibro.has(r.id),
     })
   }
   return out.sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : b.id.localeCompare(a.id)))

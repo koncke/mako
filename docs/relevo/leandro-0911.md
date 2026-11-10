@@ -13,13 +13,14 @@ Chat local, rama `punta/leandro-wa-aut-0911` (en main desde 0b8aac821). Cosecha 
 - Ya se le contestó en su grupo (9/11 22:40 UTC) lo que quedó sin respuesta por la línea sorda.
 - **Las variantes las cargó Leandro, 10/11 12:45-12:51 UTC, en el lienzo.** Primero lo intentó por la API (12:43, token
   «Conexión Claude Code») y le dio un 422: la guarda de duplicadas frenó la #706 («A la misma gente ya le escribe «IG - GUIA»»).
-  La API no tenía el «Publicar igual» del lienzo. Arreglado en `cambiar_botones_mensaje` y `cambiar_texto_mensaje` (rama
-  `punta/leandro-api-gemela-1011`), como ya estaba en `editar_pasos_secuencia_mensajes`. La causa de fondo es el punto 7, abajo.
+  La API no tenía el «Publicar igual» del lienzo. Arreglado en `cambiar_botones_mensaje` y `cambiar_texto_mensaje`
+  (4e226028c), como ya estaba en `editar_pasos_secuencia_mensajes`. La causa de fondo es el punto 7, abajo.
 - **De punta a punta con un comentario real, 10/11 12:58 UTC**: #707, lead 5972 (@thrashdragonlvt). La respuesta pública («¡Enviado!
   Revisá tus DMs ✨») y el DM del recurso salieron (`enviado`, sin error) y la inscripción 1228 quedó `completada`.
-- **Sin hacer, de su caso: que de verdad ROTA.** Con una sola respuesta no se ve. Hay que mirar `nutricion_envios.texto_enviado`
-  de la tarjeta `en_comentario` (706-712, desde 12:51:13 UTC) hasta ver dos formas distintas o juntar seis respuestas. Si salen
-  seis iguales, el sorteo no anda. Sin comentar nosotros en Instagram (público).
+- **ROTA (medido el 10/11, 19:55 UTC):** las dos primeras respuestas públicas desde que cargó las variantes salieron distintas
+  («¡Enviado! Revisá tus DMs ✨» y «¡Listo! Te lo mandé por privado 🎵»), con 0 fallos en 4 envíos.
+- **El arreglo de la API está en producción desde el 10/11 19:00 UTC** (deploy de 9818c63cb, que contiene 4e226028c). El aviso le
+  llegó a su grupo a las 19:05 (clave `commit:4e226028c`). Su caso queda cerrado: lo que sigue abierto es de la nube (puntos 7 y 8).
 
 ## Para el chat de la nube («Automations: todo lo de ManyChat, y todo en la API», `punta/automations-manychat`)
 

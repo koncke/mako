@@ -101,10 +101,11 @@ rama A».
 - **El sorteo es al azar por envío**, como el WhatsApp. La clave de idempotencia es por tarjeta y pasada: un reintento de Zernio
   devuelve lo que ya salió, no manda otra versión.
 
-**Sin hacer / sin medir:** «Probar» del lienzo muestra el texto, no una versión al azar. Lo probó un comentario real, el 10/11
+**Sin hacer:** «Probar» del lienzo muestra el texto, no una versión al azar. Lo probó un comentario real, el 10/11
 a las 12:58 UTC en la #707, después de que Leandro cargara las variantes: la respuesta pública y el DM salieron y la inscripción
-quedó completada. Que de verdad ROTA (más de una forma en `nutricion_envios.texto_enviado` de la tarjeta `en_comentario`) se está
-midiendo. Sin comentar nosotros en Instagram: es público.
+quedó completada. **ROTA, medido en producción el 10/11:** las dos primeras respuestas públicas después de cargarlas salieron
+distintas («¡Enviado! Revisá tus DMs ✨» y «¡Listo! Te lo mandé por privado 🎵», `nutricion_envios.texto_enviado` de la tarjeta
+`en_comentario`, 706-712), con 0 fallos en 4 envíos. Se midió leyendo la base, sin comentar nosotros en Instagram (es público).
 Test: tests/leandro-whatsapp-0911.test.ts (4 a 6).
 
 ## Los datos del pago NO son del CRON «Pagos» (6/11/2026, el pendiente 288: la plantilla del pago rechazado)
