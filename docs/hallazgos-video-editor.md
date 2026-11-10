@@ -33,8 +33,27 @@ Pedido de Martín (9/11): «duplicar Submagic para el tema de los subtítulos».
 - **Un guard que pedía la ÚLTIMA línea de `LARGAS`** («"usar_plantilla", "borrar_silencios"])») cayó con el cableado bien al sumar una
   operación al final. Se volvió una prueba de lo que cuida: que `borrar_silencios` esté en la lista (`tests/video-editor-chat.test.ts`, 51).
 
+- **La revisión adversarial (render real con node-canvas) encontró que la palabra agrandada PISABA a las vecinas:**
+  «HOY DINERO YA» salía «HOYDINEROYA» con «Hormozi», y la clave al 130 % tapaba letras. Escalar una palabra en su
+  lugar no le hace lugar: el renglón tiene que RESERVARLO. La reserva es la del pico (`escalaMaximaDePalabra`, no la
+  del instante: así el renglón no baila) y va en la MEDICIÓN (`reservas`, sumada al ancho del bloque), no sólo en el
+  dibujo: si no, el fondo y el recuadro de selección quedan cortos. La ubicación es una función pura
+  (`ubicarPalabras`) porque `dibujar.ts` arrastra el motor y no carga en node. Y la palabra con forma va en una
+  pasada COMPLETA aparte (contorno y relleno): con el contorno de todas antes que todos los rellenos, el relleno de la
+  vecina le pisaba el contorno.
+- **Un emoji colocado UNA vez no sigue a su subtítulo**: cambiar de plantilla lo dejaba encima del texto, y borrar o
+  regenerar los subtítulos dejaba emojis huérfanos. La regla (`sincronizarEmojis`) corre en `timeline.updateTracks`,
+  como el imán: recoloca si cambió el subtítulo, saca el huérfano, y si la persona tocó o duplicó el emoji le saca la
+  marca (queda suyo). ⚠️ El orden importa: si el subtítulo cambió, manda el subtítulo, porque un «Deshacer» trae los
+  dos cambiados y, preguntando primero «¿lo tocó a mano?», deshacer un cambio de estilo le sacaba la marca.
+- **La vista del chat crecía ~190 caracteres por emoji** (animaciones y posición) y un video largo pasaba su tope:
+  el emoji automático va compacto.
+
 **Lo que quedó sin hacer:** el subtítulo escalonado («Stagger Stack», §1.6 de los pendientes: no hay descripción en el repo y copiarlo de
-memoria es diseñarlo); verlo todo en Chrome (la lista está en `docs/relevo/editor-pendientes-nube.md`).
+memoria es diseñarlo); verlo todo en Chrome (la lista está en `docs/relevo/editor-pendientes-nube.md`); la palabra
+que BAJA con «Salta» no entra en lo medido (sobresale apenas del recuadro de selección); la alineación izquierda o
+derecha del subtítulo no mueve el emoji (se centra en su `x`); y el reparto de renglones (`partirYUbicar`, 82 % del
+ancho) no cuenta la reserva, así que una clave al 160 % al final de un renglón lleno podría salirse del lienzo.
 
 ## Edición automática: los arreglos de la revisión (10/11/2026)
 

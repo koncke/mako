@@ -83,7 +83,7 @@ import {
 	type ModoResaltar,
 } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import { tieneTiemposPorPalabra } from "@/app/video-editor/_opencut/text/resaltado";
-import { alternarClave, leerClaves, normalizarClave, palabrasDelTexto, PARAM_CLAVES } from "../claves";
+import { alternarClave, leerClaves, normalizarClave, palabrasDelTexto, PARAM_CLAVES, TOPES_CLAVES } from "../claves";
 import { plantillaDeParams } from "../estilos";
 import { PREFIJO_PRESET, presetDeId, usePresetsSubtitulos } from "../presets";
 import { usePreferenciasSubtitulos } from "../estado";
@@ -430,11 +430,17 @@ function PalabrasClave({ element, trackId, lista }: { element: TextElement; trac
 	const tamano = typeof vivo.params[PARAM_CLAVES_TAMANO] === "number" ? Number(vivo.params[PARAM_CLAVES_TAMANO]) : DEFAULTS_CLAVES.tamano;
 	// Marcar o desmarcar a mano UNA palabra de ESTE subtítulo (Submagic: «resaltar o enfatizar palabras específicas»).
 	const marcadas = new Set(leerClaves(element.params[PARAM_CLAVES]));
-	const palabras = palabrasDelTexto(String(element.params.content ?? ""));
-	const alternar = (palabra: string) =>
+	// Sin las que quedan vacías al normalizar («—», «…», un emoji): un botón que no marca nada se lee como roto.
+	const palabras = palabrasDelTexto(String(element.params.content ?? "")).filter((w) => normalizarClave(w) !== "");
+	const alternar = (palabra: string) => {
+		if (!marcadas.has(normalizarClave(palabra)) && marcadas.size >= TOPES_CLAVES.porSubtitulo) {
+			toast(`Hasta ${TOPES_CLAVES.porSubtitulo} palabras clave por subtítulo: desmarca una para marcar otra`);
+			return;
+		}
 		editor.timeline.updateElements({
 			updates: [{ trackId, elementId: element.id, patch: { params: { ...element.params, [PARAM_CLAVES]: alternarClave(element.params[PARAM_CLAVES], palabra) } } }],
 		});
+	};
 	const previsualizarTamano = (v: number) =>
 		editor.timeline.previewElements({
 			updates: lista.map(({ track, element: el }) => ({

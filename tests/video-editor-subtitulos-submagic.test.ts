@@ -21,7 +21,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { alternarClave, leerClaves, PARAM_CLAVES, quitarClaves, sumarClaves } from '../lib/editor-video/claves';
-import { CURVA_POP, ESCALA_CRECER, formaDeAnim, formaDePalabra, resaltadoDe } from '../app/video-editor/_opencut/text/resaltado';
+import { CURVA_POP, ESCALA_CRECER, escalaMaximaDePalabra, formaDeAnim, formaDePalabra, resaltadoDe, reservasDeRenglones, ubicarPalabras } from '../app/video-editor/_opencut/text/resaltado';
 import {
   DEFAULTS_CLAVES, PARAM_ANIM_PALABRA, PARAM_CLAVES_TAMANO, PARAM_RESALTAR, TOPES_CLAVES_TAMANO,
 } from '../app/video-editor/_opencut/params/extra/subtitulos';
@@ -29,9 +29,9 @@ import { codificarPalabras, PARAM_PALABRAS } from '../app/video-editor/_opencut/
 import { paramsDePlantilla, plantillaDeParams, PLANTILLAS_SUBTITULO } from '../app/video-editor/_opencut/subtitles/estilos';
 import { presetDesdeApi, resumenPreset, sanearPreset, type PresetSubtitulos } from '../lib/editor-video/presets-subtitulos';
 import {
-  elegirEmojis, emojiDePalabra, emojiDeSubtitulo, NOMBRE_PISTA_EMOJIS, PARAM_EMOJI_DE, posicionDelEmoji, SEPARACION_S, TAMANO_EMOJI,
+  DURACION_MINIMA_S, elegirEmojis, emojiDePalabra, emojiDeSubtitulo, NOMBRE_PISTA_EMOJIS, PARAM_EMOJI_DE, posicionDelEmoji, SEPARACION_S, TAMANO_EMOJI,
 } from '../app/video-editor/_opencut/subtitles/emojis';
-import { armarEmojis, conEmojis, cuantosEmojis, sinEmojis } from '../app/video-editor/_opencut/subtitles/emojis-pista';
+import { armarEmojis, conEmojis, cuantosEmojis, sincronizarEmojis, sinEmojis } from '../app/video-editor/_opencut/subtitles/emojis-pista';
 import { validarOperacion, catalogoParaPrompt, NO_SE_PUEDE_CHAT } from '../lib/editor-video/chat-catalogo';
 import { operacionApiPorId, operacionDesdeInput } from '../lib/editor-video/chat-api';
 import { vistaDeLinea, revisarOperaciones } from '../app/video-editor/_opencut/chat/linea';
@@ -344,6 +344,149 @@ test('6c: la API declara «poner_emojis_subtitulos» y «animar_palabras_video»
   assert.match(leer('docs/api-mako.md'), /poner_emojis_subtitulos/, 'la referencia regenerada');
 });
 
+// ── 7: lo que encontró la revisión (10/11/2026) ──────────────────────────────
+
+test('7: el renglón le RESERVA su lugar a la palabra que crece: ninguna pisa a la de al lado', () => {
+  const tiempos = codificarPalabras({ palabras: [{ texto: 'hoy', inicio: 0.1, fin: 0.4 }, { texto: 'dinero', inicio: 0.5, fin: 0.9 }, { texto: 'ya', inicio: 1, fin: 1.2 }], origen: 0, precision: 'palabra' });
+  const r = resaltadoDe({ params: { content: 'hoy dinero ya', [PARAM_PALABRAS]: tiempos, [PARAM_ANIM_PALABRA]: 'pop', [PARAM_CLAVES]: 'dinero', [PARAM_CLAVES_TAMANO]: 140 }, tiempo: 0.6, recorteInicio: 0 })!;
+  assert.equal(r.anim, 'pop', 'con los tiempos de ESTA frase');
+  const ancho = (t: string) => Array.from(t).length * 10;
+  // Cada palabra reserva (escala máxima − 1) × su ancho: la clave, la mayor entre su tamaño y el pico de «pop».
+  assert.equal(escalaMaximaDePalabra(r, 1), 1.4);
+  assert.equal(escalaMaximaDePalabra(r, 0), Math.max(...CURVA_POP.map((p) => p.escala)));
+  const [reserva] = reservasDeRenglones(r, ['hoy dinero ya'], ancho);
+  assert.ok(Math.abs(reserva - ((1.16 - 1) * 30 + (1.4 - 1) * 60 + (1.16 - 1) * 20)) < 1e-9, `reserva ${reserva}`);
+  // Las piezas: cada palabra, a su escala máxima, entra en su lugar sin tocar a la siguiente.
+  const total = ancho('hoy dinero ya') + reserva;
+  const piezas = ubicarPalabras({ renglon: 'hoy dinero ya', primera: 0, x0: -total / 2, anchoDe: ancho, escalaMax: (p) => escalaMaximaDePalabra(r, p) });
+  assert.equal(piezas.length, 3);
+  const extremos = piezas.map((p) => { const m = escalaMaximaDePalabra(r, p.palabra); const c = p.x + p.ancho / 2; return [c - (p.ancho * m) / 2, c + (p.ancho * m) / 2]; });
+  for (let i = 1; i < extremos.length; i++) assert.ok(extremos[i][0] >= extremos[i - 1][1] - 1e-9, `la palabra ${i} pisa a la ${i - 1}: ${JSON.stringify(extremos)}`);
+  // Sin reserva (la forma de antes) sí se pisaban: es lo que encontró la revisión.
+  const sin = ubicarPalabras({ renglon: 'hoy dinero ya', primera: 0, x0: -ancho('hoy dinero ya') / 2, anchoDe: ancho });
+  const pisan = sin.map((p) => { const m = escalaMaximaDePalabra(r, p.palabra); const c = p.x + p.ancho / 2; return [c - (p.ancho * m) / 2, c + (p.ancho * m) / 2]; });
+  assert.ok(pisan[1][0] < pisan[0][1], 'sin reserva, la clave pisa a la de antes');
+  // Centrado: el renglón (con la reserva) queda centrado en el 0.
+  assert.ok(Math.abs(extremos[0][0] + extremos.at(-1)![1]) < 15, `centrado: ${extremos[0][0]} … ${extremos.at(-1)![1]}`);
+  // Sin forma (ni animación ni claves más grandes), sin reserva: el karaoke solo no corre nada.
+  const k = resaltadoDe({ params: { content: 'hoy dinero ya', [PARAM_PALABRAS]: tiempos, [PARAM_RESALTAR]: 'palabra' }, tiempo: 0.6, recorteInicio: 0 })!;
+  assert.deepEqual(reservasDeRenglones(k, ['hoy dinero ya'], ancho), [0]);
+});
+
+test('7b: el dibujo y la medición usan la reserva (fondo, inicio del renglón) y las palabras con forma van en su propia pasada', () => {
+  const med = sinComentarios(leer('app/video-editor/_opencut/text/measure-element.ts'));
+  assert.match(med, /maxWidth: Math\.max\(\.\.\.measuredLayout\.lineMetrics\.map\(\(m, i\) => m\.width \+ \(reservas\[i\] \?\? 0\)\)\)/, 'el bloque (el fondo, la selección) incluye la reserva');
+  const dib = sinComentarios(leer('app/video-editor/_opencut/text/dibujar.ts'));
+  assert.match(dib, /armarPiezas\(d, medido, lineas, \(palabra\) => escalaMaximaDePalabra\(res, palabra\)\)/);
+  assert.match(dib, /const x0 = inicioDeLinea\(medido\.textAlign, l\.metrica\.width \+ \(medido\.reservas\?\.\[l\.indice\] \?\? 0\)\);\s*const ubicadas = ubicarPalabras\(/, 'el dibujo ubica con la función probada y arranca contando la reserva');
+  assert.match(dib, /\{ \.\.\.resaltado, piezas: conForma, separado: true, subrayar: false \}/, 'la pasada aparte, después de las demás');
+  assert.match(dib, /const f = p\.giro === null \? formaDe\?\.\(p\.palabra\) : undefined;/, 'curvado, sin forma');
+});
+
+const LIENZO_V = { width: 1080, height: 1920 };
+const conEmojisPuestos = () => {
+  const s = escena();
+  const emojis = armarEmojis({ subtitulos: subsDe(s), tps: TPS, lienzo: LIENZO_V, paramsBase: BASE_STICKER, nuevoId });
+  return conEmojis({ tracks: s, emojis, nuevoId });
+};
+const emojisDe = (s: SceneTracks) => s.overlay.flatMap((t) => t.elements as StickerElement[]).filter((e) => e.type === 'sticker' && e.id !== 'mio');
+const conSub = (s: SceneTracks, id: string, cambio: (el: TextElement) => TextElement): SceneTracks => ({
+  ...s,
+  overlay: s.overlay.map((t) => ({ ...t, elements: (t.elements as TextElement[]).map((el) => (el.id === id ? cambio(el) : el)) })) as SceneTracks['overlay'],
+});
+const conEmoji = (s: SceneTracks, cambio: (el: StickerElement) => StickerElement | StickerElement[]): SceneTracks => ({
+  ...s,
+  overlay: s.overlay.map((t) => ({ ...t, elements: (t.elements as StickerElement[]).flatMap((el) => (el.params?.[PARAM_EMOJI_DE] === 's1' ? cambio(el) : [el])) })) as SceneTracks['overlay'],
+});
+const sinc = (antes: SceneTracks | null, despues: SceneTracks) => sincronizarEmojis({ antes, despues, tps: TPS, lienzo: LIENZO_V });
+
+test('8: el emoji SIGUE a su subtítulo: otra plantilla, otro lugar o el imán lo recolocan; deshacer lo deja donde estaba', () => {
+  const a = conEmojisPuestos();
+  assert.equal(sinc(a, a), a, 'sin cambios: el mismo objeto');
+  const yAntes = Number(emojisDe(a).find((e) => e.params[PARAM_EMOJI_DE] === 's1')!.params['transform.positionY']);
+  // Otra plantilla: letra más grande y dos renglones.
+  const b = conSub(a, 's1', (el) => ({ ...el, params: { ...el.params, fontSize: 22, content: 'Gana dinero\nhoy' } }));
+  const bs = sinc(a, b);
+  const e = emojisDe(bs).find((x) => x.params[PARAM_EMOJI_DE] === 's1')!;
+  assert.ok(Number(e.params['transform.positionY']) < yAntes, `sube con el subtítulo más alto: ${yAntes} → ${e.params['transform.positionY']}`);
+  // Se movió o el imán lo corrió: el emoji va con él, con su tiempo.
+  const c = conSub(bs, 's1', (el) => ({ ...el, startTime: t(1) as TextElement['startTime'], params: { ...el.params, 'transform.positionY': 200 } }));
+  const cs = sinc(bs, c);
+  const ec = emojisDe(cs).find((x) => x.params[PARAM_EMOJI_DE] === 's1')!;
+  assert.equal(ec.startTime, t(1));
+  assert.ok(Number(ec.params['transform.positionY']) < 200);
+  // Deshacer: vuelve todo al estado de antes, y el emoji sigue siendo automático y en su lugar de antes.
+  const deshecho = sinc(cs, bs);
+  const ed = emojisDe(deshecho).find((x) => x.params[PARAM_EMOJI_DE] === 's1')!;
+  assert.equal(ed.params['transform.positionY'], e.params['transform.positionY']);
+  assert.equal(ed.startTime, e.startTime);
+});
+
+test('8b: sin su subtítulo se va; tocado a mano o duplicado deja de ser automático; una pista bloqueada no se toca', () => {
+  const a = conEmojisPuestos();
+  // Borraron el subtítulo (Supr, o se regeneraron con otros ids): su emoji se va.
+  const sinS1 = { ...a, overlay: a.overlay.map((t) => ({ ...t, elements: (t.elements as TextElement[]).filter((el) => el.id !== 's1') })) } as SceneTracks;
+  assert.ok(!emojisDe(sinc(a, sinS1)).some((x) => x.params[PARAM_EMOJI_DE] === 's1'));
+  // La persona lo movió: queda donde lo puso y ya no es automático (apagar no lo saca).
+  const movido = conEmoji(a, (el) => ({ ...el, params: { ...el.params, 'transform.positionX': 300 } }));
+  const ms = sinc(a, movido);
+  const em = emojisDe(ms).find((x) => x.params['transform.positionX'] === 300)!;
+  assert.ok(em, 'quedó donde lo puso');
+  assert.equal(em.params[PARAM_EMOJI_DE], undefined, 'sin la marca');
+  assert.ok(emojisDe(sinEmojis(ms)).some((x) => x.id === em.id), 'apagar no lo saca');
+  // Deshacer el movimiento le devuelve la marca (lo de antes estaba marcado).
+  assert.equal(emojisDe(sinc(ms, a)).find((x) => x.id === em.id)!.params[PARAM_EMOJI_DE], 's1');
+  // Duplicado (Ctrl+D, copiar y pegar): la copia es de la persona; el original sigue automático.
+  const dup = conEmoji(a, (el) => [el, { ...el, id: 'copia' }]);
+  const ds = sinc(a, dup);
+  assert.equal(emojisDe(ds).find((x) => x.id === 'copia')!.params[PARAM_EMOJI_DE], undefined);
+  assert.equal(emojisDe(ds).filter((x) => x.params[PARAM_EMOJI_DE] === 's1').length, 1);
+  // Pista bloqueada: ni se recoloca ni se borra.
+  const bloq = { ...a, overlay: a.overlay.map((t) => (t.name === NOMBRE_PISTA_EMOJIS ? { ...t, locked: true } : t)) } as SceneTracks;
+  const bloqSinS1 = { ...bloq, overlay: bloq.overlay.map((t) => ({ ...t, elements: (t.elements as TextElement[]).filter((el) => el.id !== 's1') })) } as SceneTracks;
+  assert.equal(sinc(bloq, bloqSinS1), bloqSinS1);
+  assert.equal(cuantosEmojis(sinEmojis(bloq)), cuantosEmojis(bloq), 'apagar no borra en una pista bloqueada');
+  // La regla corre donde pasa todo cambio de pistas, después del imán.
+  const tm = sinComentarios(leer('app/video-editor/_opencut/core/managers/timeline-manager.ts'));
+  assert.match(tm, /const conIman = [\s\S]*?const tracks = sincronizarEmojis\(\{[\s\S]*?despues: conIman,[\s\S]*?updateSceneTracks\(\{ tracks \}\)/);
+});
+
+test('8c: los emojis nuevos no van a una pista oculta, bloqueada ni donde pisan algo de la persona; adentro del cuadro; no en subtítulos cortos', () => {
+  const a = conEmojisPuestos();
+  for (const cambio of [{ hidden: true }, { locked: true }]) {
+    const s = { ...a, overlay: a.overlay.map((x) => (x.name === NOMBRE_PISTA_EMOJIS ? { ...x, ...cambio, elements: [] } : x)) } as SceneTracks;
+    const emojis = armarEmojis({ subtitulos: subsDe(s), tps: TPS, lienzo: LIENZO_V, paramsBase: BASE_STICKER, nuevoId });
+    const con = conEmojis({ tracks: s, emojis, nuevoId });
+    assert.equal(con.overlay.filter((x) => x.name === NOMBRE_PISTA_EMOJIS).length, 2, `con ${JSON.stringify(cambio)}: una pista nueva`);
+  }
+  const deLaPersona = { id: 'p1', type: 'sticker', name: 'Mío', stickerId: 'emojis:1f600', intrinsicWidth: 512, intrinsicHeight: 512, startTime: 0, duration: t(10), trimStart: 0, trimEnd: 0, params: { ...BASE_STICKER } };
+  const conMio = { ...a, overlay: a.overlay.map((x) => (x.name === NOMBRE_PISTA_EMOJIS ? { ...x, elements: [deLaPersona] } : x)) } as SceneTracks;
+  const emojis = armarEmojis({ subtitulos: subsDe(conMio), tps: TPS, lienzo: LIENZO_V, paramsBase: BASE_STICKER, nuevoId });
+  assert.equal(conEmojis({ tracks: conMio, emojis, nuevoId }).overlay.filter((x) => x.name === NOMBRE_PISTA_EMOJIS).length, 2, 'pisan lo de la persona: pista nueva');
+  // Un subtítulo arriba de todo: el emoji va debajo y entero adentro.
+  const arriba = posicionDelEmoji({ x: 0, y: -767, renglones: 2, pxLetra: 81, lienzo: LIENZO_V });
+  const lado = TAMANO_EMOJI * 1080;
+  assert.ok(arriba.y > -767, `debajo: ${arriba.y}`);
+  assert.ok(arriba.y - lado / 2 >= -960 && arriba.y + lado / 2 <= 960);
+  assert.ok(posicionDelEmoji({ x: 900, y: 0, renglones: 1, pxLetra: 60, lienzo: LIENZO_V }).x + lado / 2 <= 540, 'ni de costado');
+  // Un subtítulo de menos de DURACION_MINIMA_S no lleva emoji (el «Rebote» no llegaría a asentarse).
+  assert.deepEqual(elegirEmojis([{ texto: 'dinero', inicio: 0, fin: DURACION_MINIMA_S - 0.1 }]), []);
+});
+
+test('8d: el diccionario no agarra lo que empieza parecido', () => {
+  for (const w of ['amortizar', 'casado', 'segundo', 'plantilla', 'escalera', 'escalofrío', 'personal', 'pensión']) assert.equal(emojiDePalabra(w), null, w);
+  for (const [w, e] of [['amor', '❤️'], ['casa', '🏠'], ['segundos', '⏱️'], ['plan', '🗺️'], ['escalar', '📈'], ['escala', '📈'], ['persona', '👤'], ['pensar', '🤔']] as const) assert.equal(emojiDePalabra(w), e, w);
+});
+
+test('9: el chat ve los emojis compactos y dice cuando «sumar» o «quitar» no cambian nada', () => {
+  const con = conEmojisPuestos(); // armados de verdad: con su «Rebote» y su posición
+  const el = (JSON.parse(vistaChat(con).json).pistas as Array<{ elementos: Array<Record<string, unknown>> }>).flatMap((p) => p.elementos).find((x) => x.emoji_de_subtitulo);
+  assert.ok(el, 'el emoji está');
+  assert.deepEqual(Object.keys(el!).sort(), ['emoji_de_subtitulo', 'fin', 'inicio', 'nombre', 'ref', 'tipo'], 'sin estado (animaciones, posición)');
+  assert.match(revisar([{ op: 'palabras_clave', modo: 'sumar', palabras: ['brutal'] }]).descartes.join(' · '), /«brutal» ya era palabra clave/);
+  assert.match(revisar([{ op: 'palabras_clave', modo: 'quitar', palabras: ['dinero'] }]).descartes.join(' · '), /«dinero» no era palabra clave/);
+});
+
 // ── Probado rompiéndolo (10/11/2026; 14 tests, cada rotura sola y restaurada) ──
 // · «pop» con una curva continua en vez de la tabla ......................... rojo el 1 y 1b
 // · sin karaoke, la animación no busca la palabra que se dice ............... rojo el 1b y 2
@@ -365,3 +508,16 @@ test('6c: la API declara «poner_emojis_subtitulos» y «animar_palabras_video»
 //   los emojis / no es larga ................................................. rojo el 6b (las cuatro)
 // · la API sin su operación ................................................. rojo el 6c
 // · sacar «ninguna» a mano en presetDesdeApi: VERDE, y era código sin efecto (el saneo ya la saca): se borró.
+//
+// ── Y lo de la revisión (tests 7 a 9, 10/11/2026; 21 tests) ──────────────────
+// · ubicar las palabras sin la reserva / reservar el instante y no el pico .. rojo el 7 (las dos)
+// · el bloque (fondo, selección) sin la reserva / la palabra con forma en
+//   la misma pasada que las demás ............................................ rojo el 7b (las dos)
+// · la sincronía apagada en updateTracks / el huérfano queda / tocado a mano
+//   o duplicado conserva la marca / toca una pista bloqueada (sincronía y
+//   apagar) .................................................................. rojo el 8b (las seis)
+// · no recoloca / deshacer un cambio de estilo le saca la marca ............. rojo el 8 (las dos)
+// · usa la pista oculta / pisa lo de la persona / el emoji se sale del cuadro
+//   arriba o de costado / un subtítulo corto con emoji ....................... rojo el 8c (las cinco)
+// · «amor» agarra «amortizar» ............................................... rojo el 8d
+// · la vista del chat con el emoji entero / «sumar» lo ya marcado, callado .. rojo el 9 (las dos)
