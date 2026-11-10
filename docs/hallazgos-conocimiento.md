@@ -550,25 +550,47 @@ clase que cruza de tramo se corta por partes. Y con `format=yuv420p` el blanco p
 limitado): un destello blanco no se distingue de la página blanca que queda detrás, por eso la marca es MAGENTA (U≈202,
 V≈223), un color que no aparece en una clase.
 
-**Lo que cortó la tanda a las 09:24, y no tiene arreglo desde la máquina:** la extensión de Claude abrió sola una
-pestaña «Claude - Connect Browser» (para emparejar otro cliente) en la ventana de la grabación y la dejó ADELANTE. La
-pestaña grabada siguió sonando, pero la captura de ventana ve la pestaña activa, y en segundo plano Chrome reproduce mal el
-video (una clase de 11 min tardó 10 a 2x, otra «terminó» en 20 s). Ninguna herramienta la trae de vuelta: la extensión no
-activa pestañas, una navegación sólo de ancla (`#…`) no la activa, `window.focus()` con un clic real tampoco, y abrir y
-cerrar una pestaña desde la página tampoco devolvió el foco. La salida es un clic de una persona. **Para la próxima: grabar
-en una ventana DEDICADA que ningún otro chat use**, y que el supervisor avise apenas el título deja de ser el de la grabación.
+**Lo que cortó la tanda a las 09:24:** la extensión de Claude abrió sola una pestaña «Claude - Connect Browser» (para
+emparejar otro cliente) en la ventana de la grabación y la dejó ADELANTE. La pestaña grabada siguió sonando, pero la
+captura de ventana ve la pestaña activa, y en segundo plano Chrome reproduce mal el video (una clase de 11 min tardó 10 a
+2x, otra «terminó» en 20 s). Desde la máquina no se trae de vuelta: la extensión no activa pestañas, `window.focus()` con
+un clic real no la activa, y `tabs_context_mcp` con `createIfEmpty` NO abrió una ventana nueva esta vez (armó el grupo
+dentro de una ventana que ya había, de fondo). Y el clic de Martín en la pestaña tampoco alcanzó.
+
+**La salida: una ventana EMERGENTE propia.** Desde la pestaña del grupo, un clic de la extensión (es un clic de verdad:
+`isTrusted` y activación) sobre una capa que hace `window.open(url, 'makoGrabar', 'popup=yes,…')`. Sale una ventana sin
+pestañas, así que ninguna otra puede ponerse adelante. Es del mismo origen, y la pestaña que la abrió la maneja entera:
+`__pop.eval(<control.js>)` corre el control ADENTRO de la emergente (con sus temporizadores, no los de la pestaña de fondo,
+que Chrome frena). La extensión no la ve (no está en su grupo) y no puede hacer clic ahí. **No hizo falta**: el
+`AudioContext` de la emergente nació `running` sin ninguna activación, y el video sonó con `volume [1]` sin clic (el sitio
+ya tenía historial de reproducción con sonido).
+
+**Y tiene que quedar a la vista, aunque sea UN píxel.** ⚠️ El diagnóstico obvio era «otra pestaña la tapa». Pero con
+Martín usando la PC, la app de Claude maximizada adelante cubre la ventana ENTERA, y Chrome deja de dibujarla
+(`visibilityState: hidden`, 0 cuadros por segundo). La captura recibe siempre el mismo cuadro y el supervisor la reinicia
+en bucle: cuatro sesiones vacías en dos minutos. La ventana de Claude cuenta como opaca (`WS_EX_LAYERED` con alfa 255).
+Lo que anduvo (`grabar/ventana_fuera.ps1`): la emergente SIEMPRE ARRIBA (`HWND_TOPMOST`) y casi entera FUERA de la
+pantalla, con su borde derecho en x = 1, así que a la vista queda una columna de 1 píxel en el borde izquierdo. Chrome la
+dibuja a 145 cuadros por segundo, y **Windows Graphics Capture captura también lo que está fuera de la pantalla** (medido
+con un cuadro entero de 1916×1035). Martín usa la PC normal. El recorte de esa ventana es otro (238 · 225 · 238 · 0 para
+el mismo 1440×810): `video_supervisor.py --fuera` no la maximiza y la vuelve a poner en su lugar si se movió.
 
 **Trampas chicas del armado, cada una con su síntoma:** en el tramo de video que se está escribiendo NTFS informa la fecha
 de modificación vieja (la clase «no estaba cubierta» por la captura): para la sesión en curso manda la hora del supervisor ·
 con `-reset_timestamps 0`, Matroska informa como «duración» la marca final (el tramo 2 decía 3601 s y «abarcaba» al 3): el
 fin de un tramo es el inicio del siguiente · `ffprobe -of csv=p=0` a veces deja «0.067000,» con la coma pegada · Python lee
 la salida de node en cp1252 y un «Á» del nombre de la clase rompe el `subprocess` (va `encoding='utf-8'`) · el sitio llegó a
-tardar 100 s en cargar una lección, y en ese rato la captura no recibe cuadros: no es una traba.
+tardar 100 s en cargar una lección, y en ese rato la captura no recibe cuadros: no es una traba. · **la extensión
+SIMULA `visibilityState: visible` y `document.hasFocus()` en una pestaña de fondo**: lo que dice si Chrome la está
+dibujando es contar `requestAnimationFrame` en un segundo (2 de fondo, 120-145 a la vista) · en PowerShell `$H` y `$h`
+son la MISMA variable: un `$H = 1044` (el alto) pisó el identificador de la ventana y el `SetWindowPos` salió contra
+otro número (no existía: no movió nada) · el guardián vivía sólo pegado en la página y hubo que rescatarlo del
+transcript: ahora es `grabar/guardian.js`.
 
 **La transcripción:** scribe a 2x sale casi igual que a 1x; a 1x acierta un par de palabras más. Y sale mejor que el
 subtítulo que publicaba la plataforma para las 7 que lo tenían («Mad» por «Meta»): se reemplazó.
 
-**Vive en:** `scripts/curso-grabar/` · el material y lo grabado en `C:\cursos\programa-meta-ads-the-net-lab\`
+**Vive en:** `scripts/curso-grabar/` (con `guardian.js` y `ventana_fuera.ps1`) · el material y lo grabado en `C:\cursos\programa-meta-ads-the-net-lab\`
 (`video/`, `audio/1x/`, `transcripciones/`, `grabar/hecho.json`, `grabar/repetir.json`) · el relevo,
 `docs/relevo/grabar-clases-thenet.md`.
 

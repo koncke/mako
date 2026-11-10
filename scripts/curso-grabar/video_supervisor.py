@@ -6,14 +6,23 @@
 # Una captura nueva de la misma ventana andaba perfecto. Con el punto que parpadea en la página siempre hay cuadros
 # nuevos, así que «casi todos los cuadros son repetidos» = congelada.
 #
-#   python -I video_supervisor.py            (para con video/crudo/PARAR)
+#   python -I video_supervisor.py [--fuera]   (para con video/crudo/PARAR)
 # Cada arranque escribe en video/crudo/s<N>/ (los pts de cada sesión empiezan en 0; el nombre del tramo da la hora).
+#
+# --fuera (10/11/2026): la ventana es una emergente SIEMPRE ARRIBA y casi entera FUERA de la pantalla (ventana_fuera.ps1),
+# para que Martín use la PC mientras graba. Por qué: Chrome deja de dibujar una ventana que otra cubre ENTERA (la app de
+# Claude maximizada alcanza) y la captura recibe siempre el mismo cuadro. Con 1 px a la vista, Chrome la dibuja, y
+# Windows Graphics Capture captura también lo que queda fuera de la pantalla (medido). No se maximiza: el recorte es otro.
 import ctypes, json, os, subprocess, sys, time
 from ctypes import wintypes
 
 BASE = "C:/cursos/programa-meta-ads-the-net-lab/video/crudo"
 TITULO = "MaKo grabando clases"
 LOG = f"{BASE}/supervisor.log"
+FUERA = "--fuera" in sys.argv
+AYUDA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ventana_fuera.ps1")
+# recorte al rectángulo del video (1440x810, pegado abajo y centrado): maximizada vs. emergente fuera de la pantalla
+RECORTE = "crop_left=238:crop_top=225:crop_right=238:crop_bottom=0" if FUERA else "crop_left=240:crop_top=210:crop_right=240:crop_bottom=0"
 os.makedirs(BASE, exist_ok=True)
 user32 = ctypes.windll.user32
 
@@ -33,10 +42,21 @@ def ventana():
     user32.EnumWindows(cb, 0)
     return res[0] if res else None
 
+def ayuda(accion):
+    r = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", AYUDA, accion],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+    return r.stdout.strip()
+
 def preparar_ventana():
     h = ventana()
     if not h:
         log("no encuentro la ventana"); return False
+    if FUERA:
+        v = ayuda("ver")
+        if "topmost=True" in v and "visible=-1917,0,1," in v:
+            return True
+        log("pongo la ventana fuera de la pantalla: " + ayuda("poner")); time.sleep(1)
+        return True
     if user32.IsIconic(h) or not user32.IsZoomed(h):
         user32.ShowWindow(h, 3)   # SW_MAXIMIZE: minimizada no se captura
         log("ventana maximizada"); time.sleep(2)
@@ -50,7 +70,7 @@ def proxima_sesion():
 def correr():
     d = proxima_sesion()
     cmd = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-f", "lavfi", "-i",
-           f"gfxcapture=window_title='{TITULO}':capture_cursor=0:max_framerate=30:crop_left=240:crop_top=210:crop_right=240:crop_bottom=0",
+           f"gfxcapture=window_title='{TITULO}':capture_cursor=0:max_framerate=30:{RECORTE}",
            "-vf", "hwdownload,format=bgra", "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", "-pix_fmt", "yuv420p", "-g", "60",
            "-f", "segment", "-segment_time", "1800", "-reset_timestamps", "0", "-strftime", "1",
            f"{d}/v-%Y%m%d-%H%M%S.mkv", "-progress", "pipe:1", "-stats_period", "1"]
@@ -89,7 +109,7 @@ def correr():
     err.close()
     log(f"ffmpeg terminó (código {p.returncode})")
 
-log("supervisor arrancó")
+log("supervisor arrancó" + (" (ventana fuera de la pantalla)" if FUERA else ""))
 while not os.path.exists(f"{BASE}/PARAR"):
     if not preparar_ventana():
         time.sleep(10); continue
