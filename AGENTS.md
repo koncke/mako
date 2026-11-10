@@ -21,6 +21,38 @@ no sé cuántas veces te dije lo mismo»*. Vale para TODO chat, local o en la nu
 - **Si ninguna referencia calza, se frena y se le dice a Martín ANTES de construir.** Entregar algo inventado y explicarlo
   después es justo lo que no se hace más.
 
+# A MARTÍN SÓLO LE LLEGAN SUS DECISIONES, y en palabras de producto
+
+Martín, 10/11/2026: *«Me están llegando un montón de preguntas al Ops Center… Son preguntas técnicas… te pedí que resuelvas tú las
+preguntas que puedas resolver… Que solamente me llegan las preguntas de decisiones importantes. Y nunca tiene que ser con lenguaje
+técnico que yo no entiendo»*. Ese día contestó doce «sí» seguidos sin leer, para sacárselas de encima. Seis decían algo falso
+(«conecté Chrome», «liberé RAM», «me llegó el aviso») y el Cerebro las tuvo que cancelar.
+
+- **Lo técnico lo decide el chat, o el Cerebro, y lo cuenta en el cierre.** Ramas, puntas, tests, tipos, RAM, CI, qué arreglo va
+  primero, si generar un archivo, si seguir con el paso siguiente: se elige la opción recomendada y se hace.
+- **A Martín sólo le llega esto:**
+  - la plata: cobrar, gastar, precios;
+  - lo que se le manda o se le hace a un cliente real;
+  - los accesos de personas;
+  - la seguridad que no tiene vuelta atrás;
+  - una fecha;
+  - aprobar algo que tiene que VER, con la captura adentro de la pregunta.
+- **Nunca se le pregunta un hecho que el chat puede medir:** «¿te llegó?», «¿conectaste Chrome?», «¿liberaste RAM?». Se mide, o
+  queda anotado en el relevo.
+- **La pregunta va en palabras de producto:** sin nombres de archivos, ramas, tests, siglas ni «punta».
+
+# UN CHAT POR TAB (o por una función grande), nunca un chat por tarea
+
+Martín, 10/11/2026: *«se están creando una cantidad de chats impresionante… La idea justamente era tener un chat por cada tab de
+MaKo o cada funcionalidad que se esté desarrollando. Si no, no le veo el sentido»*. Medido ese día: la cuenta 1 tenía 178 chats,
+93 de ellos con actividad en tres días, casi todos con título de tarea («Borrar la co-edición del editor de imágenes», «Arreglar
+filaPropia…»). La regla ya existía desde el 15/10 (memoria `chat-jefe-por-tab`) y se dejó de cumplir.
+
+- **Antes de abrir un chat, se busca el de esa tab** (`list_sessions`) y se le manda el pedido a ése.
+- **El título es el nombre de la tab tal cual** («CRM», «Video Editor», «Dashboard»). Un sub-chat «Tab › Función» se abre sólo para
+  una función grande, y lo decide el chat de la tab.
+- **Las tareas chicas de una tab las hace su chat**, o un subagente adentro de ese chat. Nunca un chat nuevo por cada arreglo.
+
 # Quién es quién: MaKo es de Martín. Mauricio es un CLIENTE
 
 **«El dueño», en todo este repo, es Martín Koncke**: el que decide, el que reporta y el que
