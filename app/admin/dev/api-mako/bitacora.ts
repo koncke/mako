@@ -632,4 +632,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/api-mako',
   },
+  {
+    fecha: '10 nov', hora: '20:20', chat: 'Tickets', sesion: 'local_dd6bb6fb-b110-49de-8105-e2755bc74490', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La API ya da la retención de tu video minuto a minuto, por landing y por fechas: GET /api/v1/landing/landings/retencion (los clics del botón están en GET /api/v1/landing/landings/clics)',
+    puntos: [
+      '**Los clics ya salían por la API desde el ticket #66, pero en otra ruta.** El equipo de Mauricio consultaba `/landing/landings/comportamiento`, que nunca los trajo; los da `/landing/landings/clics` (`listar_clics_landing`). Medido en producción: 9 clics al botón de Stripe de sprint.mauriciobustos.com, de 4 personas, del 24/10 al 4/11.',
+      '**La retención por minuto no existía.** Los eventos sí (`vsl_events` con `segundos` y `video_id`) y la curva de 5 % también (la del VSL Analyst). `ver_retencion_video_landing` da cada video de la página por separado, minuto a minuto y en cortes de 5 %, con todos y sólo con los que le dieron play (el video del sprint arranca solo: 425 de 490 personas nunca le dieron play).',
+      '**El período por fechas** (`desde`/`hasta`, YYYY-MM-DD en UTC, inclusive) en la retención. En los clics NO: dos parámetros más en `listar_clics_landing`, que sale también por el chat, sacaron otra herramienta del tope y la batería del Ops Center dio rojo (corrida 892).',
+      'Sólo por HTTP, a propósito: una operación nueva en el chat de MaKo le saca lugar a las que ya estaban en el tope de herramientas.',
+    ],
+    archivos: [
+      'lib/landing-retencion.ts — lo puro: el punto más lejano por persona, la curva por minuto, el autoplay aparte, el período',
+      'lib/landing-retencion-server.ts — la lectura en tandas de 1000 (el techo de PostgREST corta sin error)',
+      'lib/api-mako/areas/landing.def.ts · landing.run.ts · lib/api-mako/rest.ts — la operación y su ruta',
+      'lib/landing-clics-server.ts — la respuesta dice el período leído (`desde`/`hasta`)',
+      'tests/landing-retencion.test.ts — 6/6; probado rompiéndolo (6 mutaciones, las 6 rojas)',
+    ],
+    revisar: '/api-mako?tab=docs',
+    tickets: [74, 69],
+  },
 ];
