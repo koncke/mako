@@ -913,6 +913,9 @@ export type OperacionResuelta =
 	| { op: "usar_plantilla"; plantilla: string; textos: Record<string, string>; medios: Record<string, string> }
 	/** Un preset de la marca a TODOS los subtítulos (subtitles/presets.ts → aplicarPreset): vuelve a partir los renglones, después del lote. */
 	| { op: "usar_preset_subtitulos"; preset: string }
+	/** Un estilo que cambia el ancho del renglón (fuente, tamaño…) a ESTOS subtítulos (subtitles/insert.ts →
+	 *  aplicarEstiloASubtitulos, el de «Aplicar en todos»): vuelve a partir los renglones, después del lote. */
+	| { op: "estilo_subtitulos"; els: RefElemento[]; params: ParamValues }
 	/** «B-roll de MaKo» (broll/proponer.ts): propone fotos y cambios de plano, después del lote (lee los subtítulos de ESE momento). */
 	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean; videos: boolean }
 	/** «Otra» de «B-roll de MaKo» (broll/cambiar.ts): la siguiente de la misma búsqueda, después del lote (baja de Pexels). */
@@ -943,7 +946,7 @@ const CLIPS = new Set<TipoRef>(["video", "imagen"]);
 const MARGEN_CORTE = 0.05;
 /** Lo mínimo que puede durar un clip después de un recorte o una velocidad (pc_clip_too_short). */
 const LARGO_MINIMO = 0.1;
-/** Un subtítulo se vuelve a partir si cambia esto (subtitles/repartir.ts): desde el chat no. */
+/** Un subtítulo se vuelve a partir si cambia esto (subtitles/repartir.ts): desde el chat, con `estilo_subtitulos`. */
 const ESTILO_QUE_PARTE: ReadonlyArray<keyof EstiloTextoChat> = ["fuente", "tamano", "negrita", "cursiva", "espaciado", "mayusculas"];
 
 const ETIQUETA_ESTILO: Record<keyof EstiloTextoChat, string> = {
@@ -1313,6 +1316,9 @@ export function revisarOperaciones({
 			((o.op === "recortar" || o.op === "velocidad" || o.op === "duracion" || o.op === "mover") && enPrincipal(o.ref)),
 	);
 	const subtitulaAhora = operaciones.some((o) => o.op === "generar_subtitulos");
+	// Los estilos de subtítulo que vuelven a partir los renglones: UNO por estilo (la IA manda uno por subtítulo), con
+	// todos los que lo piden. Van al final (`estilo_subtitulos`).
+	const estilosDeSubtitulos = new Map<string, { els: RefElemento[]; params: ParamValues; fila: CambioChat }>();
 
 	for (const op of operaciones) {
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
@@ -1935,10 +1941,6 @@ export function revisarOperaciones({
 				if (el.tipo === "motion") { descartes.push(`${el.titulo} es un motion graphic: su tono, colores y fuente se cambian con editar_motion`); break; }
 				if (el.tipo !== "texto" || !e.estilo) { descartes.push(`${el.titulo} no es un texto`); break; }
 				const pedidos = Object.keys(op.estilo) as Array<keyof EstiloTextoChat>;
-				if (el.subtitulo && pedidos.some((k) => ESTILO_QUE_PARTE.includes(k))) {
-					descartes.push(`la fuente, el tamaño, la negrita, la cursiva y el espaciado de un subtítulo se cambian en el panel Texto (vuelve a partir los renglones)`);
-					break;
-				}
 				if (pedidos.some((k) => conFotograma(el, st, FOTOGRAMA_ESTILO[k]))) break;
 				const estilo = { ...op.estilo };
 				if (estilo.fuente !== undefined) {
@@ -1955,6 +1957,17 @@ export function revisarOperaciones({
 					pedidos.map((k) => [ETIQUETA_ESTILO[k], e.estilo![k as keyof EstiloLeido], nuevo[k as keyof EstiloLeido]] as [string, unknown, unknown]),
 				);
 				e.estilo = nuevo;
+				// Un SUBTÍTULO con algo que cambia el ancho del renglón se vuelve a partir, como «Aplicar en todos los
+				// subtítulos» (`estilo_subtitulos`, después del lote). Hasta el 9/11/2026 se descartaba: «Los subtítulos en
+				// Bebas Neue y amarillo» no cambiaba NADA, ni el color (medido en producción).
+				if (el.subtitulo && pedidos.some((k) => ESTILO_QUE_PARTE.includes(k))) {
+					if (!fila || !Object.keys(params).length) break;
+					const clave = JSON.stringify(params);
+					const grupo = estilosDeSubtitulos.get(clave);
+					if (grupo) grupo.els.push(el);
+					else estilosDeSubtitulos.set(clave, { els: [el], params, fila });
+					break;
+				}
 				escribir(params, fila);
 				break;
 			}
@@ -2302,6 +2315,10 @@ export function revisarOperaciones({
 		if (desde < 0 || desde > st.fin - st.inicio - MARGEN_CORTE) { descartes.push(`el segundo ${textoSegundos(op.en)} cae fuera de ${el.titulo}`); continue; }
 		resueltas.push({ op: "congelar", el, desde });
 		cambios.push({ tipo: "agrega", titulo: "Cuadro congelado", antes: "", despues: `3 s de ${el.titulo} en ${textoSegundos(op.en)} (lo que sigue se corre)` });
+	}
+	for (const g of estilosDeSubtitulos.values()) {
+		resueltas.push({ op: "estilo_subtitulos", els: g.els, params: g.params });
+		cambios.push({ ...g.fila, titulo: g.els.length === 1 ? g.els[0].titulo : `${g.els.length} subtítulos`, despues: `${g.fila.despues} (vuelve a partir los renglones)` });
 	}
 	return { resueltas, cambios, descartes };
 }

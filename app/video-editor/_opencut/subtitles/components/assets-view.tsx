@@ -39,6 +39,7 @@ import {
 	ZonaImportar,
 } from "@/app/video-editor/_opencut/components/editor/panels/assets/views/biblioteca-ui";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
+import { rotuloProgresoSubtitulos } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { cssFamilia, useFuenteMuestra } from "@/app/video-editor/_opencut/fonts/muestras";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
@@ -140,17 +141,8 @@ const OPCIONES_IDIOMA = [
 	...LANGUAGES.map((l) => ({ id: l.code, etiqueta: l.name })),
 ];
 
-function rotuloProgreso(fase: string, progreso: number): string {
-	switch (fase) {
-		case "modelo":
-			// La primera vez baja el modelo (~250 MB); después sale de la caché.
-			return `Descargando… ${progreso} %`;
-		case "transcribiendo":
-			return `Generando subtítulos… ${progreso} %`;
-		default:
-			return "Generando subtítulos…";
-	}
-}
+// El rótulo vive en ../resultado.ts: lo usa también la tarjeta del chat mientras aplica (9/11/2026).
+const rotuloProgreso = rotuloProgresoSubtitulos;
 
 export function SubtitulosAutomaticosView() {
 	const editor = useEditor();

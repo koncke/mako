@@ -131,6 +131,57 @@ clon (lo que pide AGENTS.md para pushear desde un worktree), `npm ci` **borra el
 `node_modules` real en el worktree. El clon principal quedó con la carpeta vacía y otro agente que trabajaba sobre él perdió `tsx` a la
 mitad, con errores que no nombraban la causa («Cannot find module»). La regla: **el worktree del veredicto lleva su `node_modules` propio**
 (sin enlace), y si ya pasó, `npm ci` en el clon.
+## La edición por prompt, medida en producción con los pedidos de los clientes (9/11/2026)
+
+**El pedido** (Martín, 9/11): «revisá que todos los tickets del editor estén resueltos, que se pueda editar perfectamente por
+prompting». Los tickets del editor eran cuatro (#15 importar, #23 subtítulos, #31 y #32 silencios) y estaban cerrados: se
+volvieron a medir en producción (ws 9, proyecto «1109», clips con la voz de Martín y una pausa de 1,5 s armada con ffmpeg) y
+andan: importa, subtitula (~70 s la primera vez) y borra los silencios (21 → 15 s, 7 de 7). La batería de pedidos salió de
+`video_editor_chats` (lo que escribieron Leila, Leandro y Mauricio) y corre sin pantalla con
+`scripts/probar-chats/video-editor.mts` (ws 9, sin levantar tickets: anota cuál habría salido).
+
+- ⚠️ **El diagnóstico obvio («la IA entiende mal») era el equivocado en la mitad de los casos: la IA acertaba y el EDITOR
+  descartaba.** «Los subtítulos en amarillo y en Bebas Neue» → la IA mandó bien un `estilo_texto` por subtítulo y la revisión
+  (`chat/linea.ts`) tiraba la operación ENTERA porque traía la fuente: no cambiaba ni el color. Ahora lo que cambia el ancho
+  del renglón va a `estilo_subtitulos` (`aplicarEstiloASubtitulos` de subtitles/insert.ts, el de «Aplicar en todos», con
+  `solo`), después del lote.
+- **El titular del chat es el `resumen` del modelo, escrito ANTES de que el editor revise**: afirmaba lo que no quedó («Aquí
+  tienes la limpieza de muletillas» con «no se identificaron muletillas» debajo y sin tarjeta). Con operaciones propuestas y
+  ninguna aplicable, el titular lo pone el código: «No cambié nada.» (`chat/respuesta.ts`), y cada motivo va una vez (el mismo
+  salía tres veces, uno por subtítulo).
+- **El chat no ve la charla** (lib/editor-video/ia.ts manda sólo el pedido y la línea de tiempo): «si hazlo» debajo de una
+  propuesta contestaba «es muy vago» (Leandro, 28/10) y, desde la regla de lo que no existe, **levantaba un ticket «no existe:
+  si hazlo»**. Ahora un «sí» suelto debajo de una propuesta que espera es su «Aceptar» (`chat/confirmar.ts`), sin ir a la IA.
+- **Una tarjeta con un nombre de archivo largo cortaba el «Aceptar» y corría el chat entero a la izquierda.** Un `grid` con
+  columna `auto` toma el ancho mínimo de sus hijos, y un `truncate` (sin cortes) mide el texto entero: 296 px en una burbuja de
+  231. Con `grid-cols-1` (`minmax(0,1fr)`) el `truncate` funciona: medido en la página antes de tocar el código.
+- **Lo que confunde a la IA está en el `para` del catálogo**: `fundido` es SÓLO el sonido (pidió «que empiece desde negro» y
+  puso transiciones en los cortes), una transición no va al principio ni al final, «un poco más rápido» le daba 2×, y un título
+  «al inicio» corría todos los clips 3 s. Van dicho en `chat-catalogo.ts`. Re-medido con el arnés, 2 de 2 cada uno: el
+  fundido sale como animación de entrada del primer clip y de salida del último, «un poco más rápido» da 1,2× y el título
+  queda encima sin mover nada.
+- **Con la propuesta bien armada, el modelo a veces suma `[[no-pude: …]]`** (1 de 2 en «ponelo todo un poco más rápido»:
+  «no pude aplicar la velocidad a toda la pista en un solo comando»). En producción eso abre un ticket y le dice al cliente
+  «Quedó el ticket #N» al lado de un cambio que salió. Este chat no ejecuta (sólo propone): con operaciones, `[[no-pude]]` se
+  saca sin ticket y `[[no-existe]]` se queda (`lib/editor-video/marcas-chat.ts`).
+- **Mientras se generan los subtítulos la tarjeta era un círculo mudo un minuto**: el store `useTrabajoSubtitulos` ya tenía
+  fase y %, el panel lo mostraba y el chat no. El rótulo vive en `subtitles/resultado.ts` (`rotuloProgresoSubtitulos`).
+- ⚠️ **«Pushear no es desplegar» también para medir**: la edición automática con los agentes y sus cursores entró a main a las
+  12:30 UTC y el despliegue diario es a las 11:05 UTC (lib/desplegar-main.ts): en producción, «usá la edición automática»
+  contestaba «eso no existe», y era cierto. Antes de medir algo en producción, mirá si su commit es anterior al último
+  despliegue.
+- **Leer el lienzo del reproductor por JS no mide nada**: `drawImage` de un canvas WebGPU sin `preserveDrawingBuffer` da negro
+  o el último cuadro. Para ver si el video se traba, capturas reales mientras corre.
+- **El arnés local**: con `C:/dev/mako-api/.env.local` dos cuentas de Gemini de la plataforma contestan «API key not valid» y
+  la cascada sigue con las otras (10 a 60 s por pedido). Es la copia local; no se midió si producción tiene las mismas.
+
+**Sin hacer (derivado al chat de la nube «Video Editor: todos los pendientes»):** agregar un medio de Multimedia a la línea de
+tiempo por chat (ticket #73 del ws 9: la vista ni lista los audios, `mediosParaReemplazo(medios, "ambos")`; pide su gemela en la
+API); fotogramas clave por chat; música de biblioteca (vacía a propósito: falta una con licencia comercial, decisión de
+producto). **Sin reproducir:** «se bugguea el video» de Leila (2/11) después de poner «Mezclar» en cada corte: con la misma
+transición en «1109» el video corre de punta a punta. **Sin medir en producción:** los cursores de la edición automática
+(llegan con el despliegue del 10/11).
+
 ## Cortar al ritmo de una referencia: lo que mide un reel que funciona (9/11/2026)
 
 **Síntoma.** El reel de mentores (template «Mensaje para…», copiado del de Josep / Tacho, `instagram.com/reel/DdTdIIPDzHU`)

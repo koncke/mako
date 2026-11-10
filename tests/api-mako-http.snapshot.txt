@@ -478,6 +478,7 @@ medicion_experimento
 medir_fuente_kpi
 medir_tramo_r1_r2
 metas_media_buyer
+metodo_campanas_copiloto
 metricas_automatizacion
 metricas_chatbot
 metricas_closers
