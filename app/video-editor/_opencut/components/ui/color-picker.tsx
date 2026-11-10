@@ -46,6 +46,8 @@ interface ColorPickerContentProps {
 	onChangeEnd?: (value: string) => void;
 	side?: ComponentProps<typeof PopoverContent>["side"];
 	align?: ComponentProps<typeof PopoverContent>["align"];
+	/** Sin la barra de opacidad (el color de un motion graphic: el motor no dibuja transparencia). */
+	sinTransparencia?: boolean;
 }
 
 function ColorPickerContent({
@@ -54,6 +56,7 @@ function ColorPickerContent({
 	onChangeEnd,
 	side = "left",
 	align = "center",
+	sinTransparencia = false,
 }: ColorPickerContentProps) {
 	const [isDragging, setIsDragging] = useState<
 		"saturation" | "hue" | "opacity" | null
@@ -349,7 +352,7 @@ function ColorPickerContent({
 
 				<button
 					ref={opacityRef}
-					className="relative h-4 w-full overflow-hidden rounded-lg appearance-none border-0 p-0"
+					className={cn("relative h-4 w-full overflow-hidden rounded-lg appearance-none border-0 p-0", sinTransparencia && "hidden")}
 					type="button"
 					onMouseDown={handleOpacityMouseDown}
 				>
@@ -409,6 +412,12 @@ interface ColorPickerProps {
 	value?: string;
 	onChange?: (value: string) => void;
 	onChangeEnd?: (value: string) => void;
+	/**
+	 * Sin transparencia: no muestra la barra de opacidad y lo que devuelve es SIEMPRE «RRGGBB» (6 cifras), también lo
+	 * pegado o escrito con alfa. Lo usan los colores de un motion graphic (lib/motion): «#rrggbbaa» no es un color que el
+	 * motor acepte, y hasta el 10/11/2026 el color elegido volvía al de fábrica sin avisar.
+	 */
+	sinTransparencia?: boolean;
 	className?: string;
 	contentSide?: ComponentProps<typeof PopoverContent>["side"];
 	contentAlign?: ComponentProps<typeof PopoverContent>["align"];
@@ -419,15 +428,20 @@ const ColorPicker = forwardRef<HTMLDivElement, ColorPickerProps>(
 		{
 			className,
 			value = "FFFFFF",
-			onChange,
-			onChangeEnd,
+			onChange: onChangeDado,
+			onChangeEnd: onChangeEndDado,
+			sinTransparencia = false,
 			contentSide,
 			contentAlign,
 			...props
 		},
 		ref,
 	) => {
-		const { alpha } = parseHexAlpha({ hex: value });
+		const { alpha: alfaDelValor } = parseHexAlpha({ hex: value });
+		const alpha = sinTransparencia ? 1 : alfaDelValor;
+		const sinAlfa = (hex: string) => (sinTransparencia ? hex.slice(0, 6) : hex);
+		const onChange = onChangeDado && ((hex: string) => onChangeDado(sinAlfa(hex)));
+		const onChangeEnd = onChangeEndDado && ((hex: string) => onChangeEndDado(sinAlfa(hex)));
 
 		const [inputValue, setInputValue] = useState(value);
 
@@ -522,11 +536,12 @@ const ColorPicker = forwardRef<HTMLDivElement, ColorPickerProps>(
 					</div>
 				</div>
 				<ColorPickerContent
-					value={value}
+					value={sinAlfa(value)}
 					onChange={onChange}
 					onChangeEnd={onChangeEnd}
 					side={contentSide}
 					align={contentAlign}
+					sinTransparencia={sinTransparencia}
 				/>
 			</Popover>
 		);

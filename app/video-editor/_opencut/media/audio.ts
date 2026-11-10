@@ -32,6 +32,7 @@ import {
 	tieneFundidos,
 } from "@/app/video-editor/_opencut/audio/claves";
 import { procesarClip } from "@/app/video-editor/_opencut/audio/cadena";
+import { seCruzaConElTramo, type Tramo } from "@/app/video-editor/_opencut/rango/reglas";
 
 const MAX_AUDIO_CHANNELS = 2;
 const EXPORT_SAMPLE_RATE = 44100;
@@ -148,10 +149,13 @@ export async function collectAudioElements({
 	tracks,
 	mediaAssets,
 	audioContext,
+	tramo,
 }: {
 	tracks: SceneTracks;
 	mediaAssets: MediaAsset[];
 	audioContext: BaseAudioContext;
+	/** El rango que se exporta (ticks): lo que no se cruza con él no se decodifica (rango/reglas.ts). */
+	tramo?: Tramo | null;
 }): Promise<CollectedAudioElement[]> {
 	const candidates = collectAudibleCandidates({ tracks, mediaAssets });
 	const mediaMap = new Map<string, MediaAsset>(
@@ -171,6 +175,7 @@ export async function collectAudioElements({
 	};
 
 	for (const { element, mediaAsset } of candidates) {
+		if (!seCruzaConElTramo(element, tramo)) continue;
 		if (element.type === "audio") {
 			pendingElements.push(
 				resolveAudioBufferForElement({
@@ -652,12 +657,21 @@ export async function createTimelineAudioBuffer({
 	duration,
 	sampleRate = EXPORT_SAMPLE_RATE,
 	audioContext,
+	tramo,
+	signal,
 }: {
 	tracks: SceneTracks;
 	mediaAssets: MediaAsset[];
 	duration: number;
 	sampleRate?: number;
 	audioContext?: BaseAudioContext;
+	/**
+	 * Exportar un rango (export/exportar.ts): se mezcla sólo lo que suena en él (los clips que se cruzan, enteros: la
+	 * reducción de ruido necesita su contexto). La mezcla sigue cubriendo la línea entera; quien llama la recorta.
+	 */
+	tramo?: Tramo | null;
+	/** Cancelar el export: se mira antes de cada clip y corta la reducción de ruido en curso. */
+	signal?: AbortSignal;
 }): Promise<AudioBuffer | null> {
 	// Un contexto SIN CONEXIÓN alcanza para decodificar y crear búferes, y no
 	// queda vivo: el `AudioContext` que se creaba acá no se cerraba nunca, y
@@ -668,7 +682,9 @@ export async function createTimelineAudioBuffer({
 		tracks,
 		mediaAssets,
 		audioContext: context,
+		tramo,
 	});
+	signal?.throwIfAborted();
 
 	if (audioElements.length === 0) return null;
 
@@ -682,6 +698,7 @@ export async function createTimelineAudioBuffer({
 	);
 
 	for (const element of audioElements) {
+		signal?.throwIfAborted();
 		if (element.muted) continue;
 
 		// Reducir el ruido y el modificador de voz procesan el clip ENTERO ya en
@@ -704,7 +721,7 @@ export async function createTimelineAudioBuffer({
 					})
 				: undefined;
 		const renderedBuffer =
-			enSuTiempo && procesar ? await procesarClip({ buffer: enSuTiempo, params }) : enSuTiempo;
+			enSuTiempo && procesar ? await procesarClip({ buffer: enSuTiempo, params, signal }) : enSuTiempo;
 
 		mixAudioChannels({
 			element,

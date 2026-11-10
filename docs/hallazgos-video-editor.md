@@ -65,6 +65,181 @@ anuncios» (se enchufa en `FUENTES_OUTLIERS_VIDEO`); el teléfono no ofrece la p
 `lib/guia/huecos.ts` · test `tests/video-tab.test.ts`.
 
 *9/11/2026, sesión en la nube (`cli_0c6817ed-9a7f-5be0-bade-2bb8adac6555`).*
+## Tanda 4: ruido en un worker, seguir a la persona, cinco botones al chat, B-roll con videos y el rango I/O (10/11/2026)
+
+**Vive en:** `audio/ruido-hilo/` · `clips/seguir.ts` y `seguir-en-editor.ts` · `chat/linea.ts` (duplicar, fondo, efecto y plantilla de
+texto, emoji, recorte) · `broll/cambiar.ts` y `lib/pexels.ts` · `rango/` y `export/exportar.ts`. Punta `punta/editor-tanda4-0911`.
+
+- **Un worker que arranca desde un `blob:` (Turbopack) no resuelve un `fetch("/ve/wasm/…")` relativo**: la dirección del
+  `.wasm` se arma contra `location.origin`. Y transferir `getChannelData` VACÍA el AudioBuffer de quien llama: se copia antes.
+- **El reflejo se aplica DESPUÉS de medir**: el centro de la persona se mide en el cuadro sin reflejar y el gancho `ce-reflejo`
+  da vuelta la capa al dibujar, así que con «Reflejar» el encuadre la sacaba del cuadro. El test de la geometría copiaba la
+  fórmula del compositor a mano y daba verde: ahora dibuja con el gancho real.
+- **Una copia del mismo pedido no tiene ids todavía**: lo que corre después del lote (cambiar el B-roll, revertir, congelar,
+  borrar silencios) la aceptaba y fallaba al aplicar con un mensaje falso. Se rechaza en la revisión, y la copia se simula con
+  el estado del original EN ESE MOMENTO del pedido.
+- **Agregar un archivo a Multimedia puede subir los fps del proyecto fuera del historial** (`ratchetFpsForImportedMedia`):
+  un video de Pexels a 60 fps dejaba el proyecto en 60 y apagaba «Restaurar» del chat, que comparaba los ajustes enteros. El
+  B-roll agrega sin el ratchet y el chat compara sólo el fondo.
+- **Exportar un rango mezclaba (y le reducía el ruido a) toda la línea de tiempo** antes de recortar: ahora saltea lo que
+  no se cruza con el tramo.
+- **Seguridad de la bajada de Pexels**: el único `fetch` directo va a un host fijo (api.pexels.com); los archivos de video se
+  bajan sólo si vinieron en la respuesta y son de sus hosts, con `validarDestino` en cada salto; el navegador manda un id,
+  nunca una URL. La guarda de SSRF lo fija (O6).
+
+**Lo que quedó sin hacer:** Tab (el relevamiento no dice qué hace) y el DIBUJO del rango copiado de CapCut (capcut.com está
+fuera de la red de la nube); leer los términos y la documentación de videos de Pexels (pexels.com, igual); el acercamiento a
+la cara del B-roll; verlo todo en Chrome (lista en `docs/relevo/editor-pendientes-nube.md`).
+
+## Motion graphics traído por partes, y lo que encontró su revisión (10/11/2026)
+
+**Vive en:** `lib/motion/` (el motor, con `LICENSE-IART` y `LICENSE-WEBKIT`) · `app/video-editor/_opencut/motion/` ·
+`app/video-editor/_opencut/graphics/definitions/motion*` · `lib/editor-video/chat-catalogo.ts` (`agregar_motion`,
+`editar_motion`) · `lib/editor-video/chat-api.ts` (`agregar_motion_video`, `editar_motion_video`). Punta `punta/motion-0911`.
+
+- **Mezclar la rama vieja eran 97 conflictos; traerlo por partes (motor → elemento → chat y API) sobre el código de hoy,
+  ninguno.** El bloque motion del Web Generator, que vivía en la misma etiqueta, no vino: es de otro chat.
+- **Tres lectores de números con `replace(',', '.')` leían «1.250» como 1,25** (la cifra, la API y el panel), mientras
+  las barras leían bien. El motor escribía «1.250» y después no leía lo que había escrito. Ahora hay UNO
+  (`lib/motion/numeros.ts`: un separador seguido de exactamente tres cifras es de miles), y lo ambiguo que manda la IA
+  o la API se rechaza con las dos lecturas y qué escribir.
+- **Un render que normaliza «sin ser estricto» reemplaza en silencio lo que no pasa por el EJEMPLO de la plantilla**: un
+  nombre o una cita inventados en el video de un cliente, o el color de fábrica porque el selector devolvía el alfa.
+  La validación va donde se escribe (la pestaña, al salir del campo, con el motivo) y el render, ante un obligatorio
+  vacío, deja la capa vacía.
+- **Una escena con un tope propio (60 s) dentro de un clip que puede durar 600 s** se vaciaba al minuto con el fondo
+  tapando el video: la escena dura lo que el clip.
+- **El aviso de un port**: `curvas.ts` era el UnitBezier.h de WebKit (BSD, Apple) sin su aviso; va el texto literal.
+- **«motion» no estaba en las palabras del área video**: en el chat de la app, «agrega un motion graphic…» llegaba sin
+  `agregar_motion_video`. Se sumó, salvo en una frase que nombra una landing o una web (ahí se llevaba las
+  herramientas de la landing). El margen del presupuesto quedó en 319 (piso 300).
+
+**Lo que quedó sin hacer:** dividir un motion repite la entrada en la mitad derecha (decisión para Martín, en
+`docs/editor-video/pendientes-video-editor.md` §3.1); marquesina, pasos con íconos, el logo desde un SVG y exportar con
+transparencia; verlo en Chrome.
+
+## Subtítulos de Submagic: la palabra que salta, las claves a mano y los emojis automáticos (10/11/2026)
+
+**Vive en:** `app/video-editor/_opencut/text/resaltado.ts` · `text/dibujar.ts` · `subtitles/emojis.ts` · `subtitles/emojis-pista.ts` ·
+`subtitles/emojis-poner.ts` · `lib/editor-video/claves.ts` · `lib/editor-video/presets-subtitulos.ts` · `chat/linea.ts`.
+Pedido de Martín (9/11): «duplicar Submagic para el tema de los subtítulos». Relevo de la fuente: [editor-video/relevo-submagic.md](editor-video/relevo-submagic.md).
+
+- **Submagic no publica sus números.** Su sitio y su blog describen los dos estilos de Hormozi («pop-in de abajo hacia arriba», «más
+  grandes o de otro color») y nada más: ni curvas, ni tamaños, ni cuántos emojis pone. Lo que se copió con datos es eso; las cifras de
+  la animación (`CURVA_POP`, `ESCALA_CRECER`) son nuestras y lo dicen. La app pide cuenta y la nube no la abrió: el relevo lista qué
+  falta mirar con cuenta.
+- **La forma de la palabra va por una TABLA, no por una curva.** La textura del texto se vuelve a dibujar cuando cambia cualquier cosa
+  de lo medido (`collectTextNode`): una escala continua la redibujaba en cada cuadro de la palabra. Con cuatro renglones por palabra,
+  cambia cuatro veces. Es la misma razón de `cuantizarRevelado`.
+- **La animación necesita saber cuál se dice aunque no haya karaoke.** `resaltadoDe` buscaba los tiempos por palabra SÓLO con el modo
+  del karaoke puesto: con «Salta» y sin color, devolvía null y no animaba nada, sin error. Ahora los busca con cualquiera de los dos, y
+  sin karaoke nada se atenúa (`dichas` = todas).
+- **La palabra con otra forma se pinta AL FINAL** (`recorrerPiezas`): agrandada en su lugar, la tapaba el relleno de la de al lado.
+- **Una plantilla escribe SIEMPRE la animación** («ninguna» incluida), igual que el resaltado: si sólo la escribe la que la tiene,
+  «Clásico» después de «Hormozi» deja la palabra saltando.
+- **Los emojis son de su subtítulo por una MARCA** (`subtitulo.emojiDe`) y no por la pista: apagar los saca a ellos y deja el sticker que
+  puso la persona en cualquier pista. Prender dos veces reemplaza, no duplica. El diccionario va por raíz con `$` para la palabra entera
+  («auto$» no agarra «automatizar»; «año$» sin tilde es «ano» y no agarra «anotar») y una lista `NO_SON` («mesa», «planta», «ganas»).
+- **El chat los aplica AL FINAL de todo** (`diferidas`, después de generar los subtítulos y de borrar los silencios): van con el tiempo de
+  cada subtítulo, y antes de un corte quedan en el lugar viejo.
+- **Un guard que pedía la ÚLTIMA línea de `LARGAS`** («"usar_plantilla", "borrar_silencios"])») cayó con el cableado bien al sumar una
+  operación al final. Se volvió una prueba de lo que cuida: que `borrar_silencios` esté en la lista (`tests/video-editor-chat.test.ts`, 51).
+
+- **La revisión adversarial (render real con node-canvas) encontró que la palabra agrandada PISABA a las vecinas:**
+  «HOY DINERO YA» salía «HOYDINEROYA» con «Hormozi», y la clave al 130 % tapaba letras. Escalar una palabra en su
+  lugar no le hace lugar: el renglón tiene que RESERVARLO. La reserva es la del pico (`escalaMaximaDePalabra`, no la
+  del instante: así el renglón no baila) y va en la MEDICIÓN (`reservas`, sumada al ancho del bloque), no sólo en el
+  dibujo: si no, el fondo y el recuadro de selección quedan cortos. La ubicación es una función pura
+  (`ubicarPalabras`) porque `dibujar.ts` arrastra el motor y no carga en node. Y la palabra con forma va en una
+  pasada COMPLETA aparte (contorno y relleno): con el contorno de todas antes que todos los rellenos, el relleno de la
+  vecina le pisaba el contorno.
+- **Un emoji colocado UNA vez no sigue a su subtítulo**: cambiar de plantilla lo dejaba encima del texto, y borrar o
+  regenerar los subtítulos dejaba emojis huérfanos. La regla (`sincronizarEmojis`) corre en `timeline.updateTracks`,
+  como el imán: recoloca si cambió el subtítulo, saca el huérfano, y si la persona tocó o duplicó el emoji le saca la
+  marca (queda suyo). ⚠️ El orden importa: si el subtítulo cambió, manda el subtítulo, porque un «Deshacer» trae los
+  dos cambiados y, preguntando primero «¿lo tocó a mano?», deshacer un cambio de estilo le sacaba la marca.
+- **La vista del chat crecía ~190 caracteres por emoji** (animaciones y posición) y un video largo pasaba su tope:
+  el emoji automático va compacto.
+
+**Lo que quedó sin hacer:** el subtítulo escalonado («Stagger Stack», §1.6 de los pendientes: no hay descripción en el repo y copiarlo de
+memoria es diseñarlo); verlo todo en Chrome (la lista está en `docs/relevo/editor-pendientes-nube.md`); la palabra
+que BAJA con «Salta» no entra en lo medido (sobresale apenas del recuadro de selección); la alineación izquierda o
+derecha del subtítulo no mueve el emoji (se centra en su `x`); y el reparto de renglones (`partirYUbicar`, 82 % del
+ancho) no cuenta la reserva, así que una clave al 160 % al final de un renglón lleno podría salirse del lienzo.
+
+## Edición automática: los arreglos de la revisión (10/11/2026)
+
+**Vive en:** `app/video-editor/_opencut/enjambre/plan.ts` · `audio/normalizar.ts` · `audio/claves.ts` · `broll/proponer.ts` ·
+`transcripcion/modelo.ts`. Punta `punta/edicion-arreglos-0911` @ `101042780` (VERDE con Node 24: 7227 tests y el tsc entero).
+
+- **El «nada que hacer» de un agente salía de comparar TEXTOS escritos en dos archivos.** `esNadaQueHacer` buscaba «no se cortó las
+  muletillas» y `linea.ts` decía «no se identificaron muletillas»: todo video grabado con guion terminaba en «1 no pudo» con «Reportar
+  a Soporte». Ahora es una constante (`NO_HAY_MULETILLAS`) que usan los dos, y el test usa el texto real que devuelve `revisarOperaciones`.
+- **−14 LUFS por pedazo no es −14 LUFS.** Cortar las pausas parte una toma en pedazos, y medir cada uno por separado le da a cada uno su
+  ganancia: una frase baja salía más fuerte que la de al lado. Se mide la toma entera (`normalizarJuntos`) y un pedazo casi mudo, cuya
+  medida propia se dispara, usa la de su toma (`medidaDePedazos`, tolerancia 6 LU).
+- **«Detener» y «falló» son dos desenlaces** (`comoTerminaFalla`): un paso cancelado por la persona no se reporta.
+- **Una falla no puede multiplicar el gasto.** Con los subtítulos caídos, el B-roll y los planos volvían a transcribir cada uno; ahora
+  las frases se leen una vez (`alLeerFrases`) y sin Pexels se pregunta ANTES de gastar la IA del negocio.
+
+## ⚠️ El `npm ci` del veredicto, en un worktree con `node_modules` ENLAZADO, vacía el del clon (10/11/2026)
+
+**Vive en:** `scripts/veredicto.mjs` (corre `npm ci`) y la receta de `docs/relevo/nube-metodologia.md` (worktree limpio para sacarlo).
+El veredicto necesita un árbol limpio, así que se saca en un worktree aparte; si ese worktree tiene `node_modules` como enlace al del
+clon (lo que pide AGENTS.md para pushear desde un worktree), `npm ci` **borra el contenido del destino del enlace** y deja un
+`node_modules` real en el worktree. El clon principal quedó con la carpeta vacía y otro agente que trabajaba sobre él perdió `tsx` a la
+mitad, con errores que no nombraban la causa («Cannot find module»). La regla: **el worktree del veredicto lleva su `node_modules` propio**
+(sin enlace), y si ya pasó, `npm ci` en el clon.
+## La edición por prompt, medida en producción con los pedidos de los clientes (9/11/2026)
+
+**El pedido** (Martín, 9/11): «revisá que todos los tickets del editor estén resueltos, que se pueda editar perfectamente por
+prompting». Los tickets del editor eran cuatro (#15 importar, #23 subtítulos, #31 y #32 silencios) y estaban cerrados: se
+volvieron a medir en producción (ws 9, proyecto «1109», clips con la voz de Martín y una pausa de 1,5 s armada con ffmpeg) y
+andan: importa, subtitula (~70 s la primera vez) y borra los silencios (21 → 15 s, 7 de 7). La batería de pedidos salió de
+`video_editor_chats` (lo que escribieron Leila, Leandro y Mauricio) y corre sin pantalla con
+`scripts/probar-chats/video-editor.mts` (ws 9, sin levantar tickets: anota cuál habría salido).
+
+- ⚠️ **El diagnóstico obvio («la IA entiende mal») era el equivocado en la mitad de los casos: la IA acertaba y el EDITOR
+  descartaba.** «Los subtítulos en amarillo y en Bebas Neue» → la IA mandó bien un `estilo_texto` por subtítulo y la revisión
+  (`chat/linea.ts`) tiraba la operación ENTERA porque traía la fuente: no cambiaba ni el color. Ahora lo que cambia el ancho
+  del renglón va a `estilo_subtitulos` (`aplicarEstiloASubtitulos` de subtitles/insert.ts, el de «Aplicar en todos», con
+  `solo`), después del lote.
+- **El titular del chat es el `resumen` del modelo, escrito ANTES de que el editor revise**: afirmaba lo que no quedó («Aquí
+  tienes la limpieza de muletillas» con «no se identificaron muletillas» debajo y sin tarjeta). Con operaciones propuestas y
+  ninguna aplicable, el titular lo pone el código: «No cambié nada.» (`chat/respuesta.ts`), y cada motivo va una vez (el mismo
+  salía tres veces, uno por subtítulo).
+- **El chat no ve la charla** (lib/editor-video/ia.ts manda sólo el pedido y la línea de tiempo): «si hazlo» debajo de una
+  propuesta contestaba «es muy vago» (Leandro, 28/10) y, desde la regla de lo que no existe, **levantaba un ticket «no existe:
+  si hazlo»**. Ahora un «sí» suelto debajo de una propuesta que espera es su «Aceptar» (`chat/confirmar.ts`), sin ir a la IA.
+- **Una tarjeta con un nombre de archivo largo cortaba el «Aceptar» y corría el chat entero a la izquierda.** Un `grid` con
+  columna `auto` toma el ancho mínimo de sus hijos, y un `truncate` (sin cortes) mide el texto entero: 296 px en una burbuja de
+  231. Con `grid-cols-1` (`minmax(0,1fr)`) el `truncate` funciona: medido en la página antes de tocar el código.
+- **Lo que confunde a la IA está en el `para` del catálogo**: `fundido` es SÓLO el sonido (pidió «que empiece desde negro» y
+  puso transiciones en los cortes), una transición no va al principio ni al final, «un poco más rápido» le daba 2×, y un título
+  «al inicio» corría todos los clips 3 s. Van dicho en `chat-catalogo.ts`. Re-medido con el arnés, 2 de 2 cada uno: el
+  fundido sale como animación de entrada del primer clip y de salida del último, «un poco más rápido» da 1,2× y el título
+  queda encima sin mover nada.
+- **Con la propuesta bien armada, el modelo a veces suma `[[no-pude: …]]`** (1 de 2 en «ponelo todo un poco más rápido»:
+  «no pude aplicar la velocidad a toda la pista en un solo comando»). En producción eso abre un ticket y le dice al cliente
+  «Quedó el ticket #N» al lado de un cambio que salió. Este chat no ejecuta (sólo propone): con operaciones, `[[no-pude]]` se
+  saca sin ticket y `[[no-existe]]` se queda (`lib/editor-video/marcas-chat.ts`).
+- **Mientras se generan los subtítulos la tarjeta era un círculo mudo un minuto**: el store `useTrabajoSubtitulos` ya tenía
+  fase y %, el panel lo mostraba y el chat no. El rótulo vive en `subtitles/resultado.ts` (`rotuloProgresoSubtitulos`).
+- ⚠️ **«Pushear no es desplegar» también para medir**: la edición automática con los agentes y sus cursores entró a main a las
+  12:30 UTC y el despliegue diario es a las 11:05 UTC (lib/desplegar-main.ts): en producción, «usá la edición automática»
+  contestaba «eso no existe», y era cierto. Antes de medir algo en producción, mirá si su commit es anterior al último
+  despliegue.
+- **Leer el lienzo del reproductor por JS no mide nada**: `drawImage` de un canvas WebGPU sin `preserveDrawingBuffer` da negro
+  o el último cuadro. Para ver si el video se traba, capturas reales mientras corre.
+- **El arnés local**: con `C:/dev/mako-api/.env.local` dos cuentas de Gemini de la plataforma contestan «API key not valid» y
+  la cascada sigue con las otras (10 a 60 s por pedido). Es la copia local; no se midió si producción tiene las mismas.
+
+**Sin hacer (derivado al chat de la nube «Video Editor: todos los pendientes»):** agregar un medio de Multimedia a la línea de
+tiempo por chat (ticket #73 del ws 9: la vista ni lista los audios, `mediosParaReemplazo(medios, "ambos")`; pide su gemela en la
+API); fotogramas clave por chat; música de biblioteca (vacía a propósito: falta una con licencia comercial, decisión de
+producto). **Sin reproducir:** «se bugguea el video» de Leila (2/11) después de poner «Mezclar» en cada corte: con la misma
+transición en «1109» el video corre de punta a punta. **Sin medir en producción:** los cursores de la edición automática
+(llegan con el despliegue del 10/11).
 
 ## Cortar al ritmo de una referencia: lo que mide un reel que funciona (9/11/2026)
 

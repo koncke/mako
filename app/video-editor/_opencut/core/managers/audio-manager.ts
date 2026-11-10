@@ -62,6 +62,12 @@ export class AudioManager {
 	>();
 	private queuedSources = new Set<AudioBufferSourceNode>();
 	private preparedClipBuffers = new Map<string, Promise<AudioBuffer | null>>();
+	/**
+	 * Cómo cortar lo que se está preparando, por la misma clave. Con la reducción de ruido en un worker
+	 * (audio/ruido-hilo/), un clip que deja de pedirla no puede dejar al worker ocupado un minuto con lo viejo:
+	 * `podarCaches` la corta.
+	 */
+	private cortarPreparacion = new Map<string, AbortController>();
 	private decodedBuffers = new Map<string, Promise<AudioBuffer | null>>();
 	/** El GainNode de los fundidos de cada clip, en esta sesión de reproducción. */
 	private envolventes = new Map<string, GainNode>();
@@ -94,6 +100,8 @@ export class AudioManager {
 		this.unsubscribers = [];
 		this.disposeSinks();
 		this.preparedClipBuffers.clear();
+		for (const corte of this.cortarPreparacion.values()) corte.abort();
+		this.cortarPreparacion.clear();
 		this.decodedBuffers.clear();
 		if (this.audioContext) {
 			void this.audioContext.close();
@@ -641,7 +649,8 @@ export class AudioManager {
 			return existing;
 		}
 
-		const promise = (async () => {
+		const corte = new AbortController();
+		const promise: Promise<AudioBuffer | null> = (async () => {
 			const audioContext = this.ensureAudioContext();
 			if (!audioContext) {
 				return null;
@@ -663,16 +672,24 @@ export class AudioManager {
 			return await procesarClip({
 				buffer: enSuTiempo,
 				params: clip.timelineElement.params,
+				signal: corte.signal,
 			});
-		})().catch((error) => {
-			// Que un clip que no se pudo procesar no tumbe la reproducción: queda
-			// mudo y se reintenta con el próximo cambio (la caché lo suelta).
-			console.warn("[audio] no se pudo preparar el clip", error);
-			this.preparedClipBuffers.delete(cacheKey);
-			return null;
-		});
+		})()
+			.catch((error) => {
+				// Que un clip que no se pudo procesar no tumbe la reproducción: queda
+				// mudo y se reintenta con el próximo cambio (la caché lo suelta). Uno
+				// cortado a propósito ya salió de la caché: no es un error.
+				if (!corte.signal.aborted) console.warn("[audio] no se pudo preparar el clip", error);
+				// Sólo si sigue siendo ÉSTE: la misma clave pudo volver a pedirse mientras se cortaba.
+				if (this.preparedClipBuffers.get(cacheKey) === promise) this.preparedClipBuffers.delete(cacheKey);
+				return null;
+			})
+			.finally(() => {
+				if (this.cortarPreparacion.get(cacheKey) === corte) this.cortarPreparacion.delete(cacheKey);
+			});
 
 		this.preparedClipBuffers.set(cacheKey, promise);
+		this.cortarPreparacion.set(cacheKey, corte);
 		return promise;
 	}
 
@@ -780,7 +797,10 @@ export class AudioManager {
 	private podarCaches(clips: AudioClipSource[] = this.clips): void {
 		const claves = new Set(clips.map((clip) => this.buildPreparedClipCacheKey({ clip })));
 		for (const clave of [...this.preparedClipBuffers.keys()]) {
-			if (!claves.has(clave)) this.preparedClipBuffers.delete(clave);
+			if (claves.has(clave)) continue;
+			this.preparedClipBuffers.delete(clave);
+			this.cortarPreparacion.get(clave)?.abort();
+			this.cortarPreparacion.delete(clave);
 		}
 		const fuentes = new Set(
 			clips
@@ -817,7 +837,9 @@ export class AudioManager {
 					claveProcesado(element.params) !== null,
 			),
 		);
-		if (!conProceso) return;
+		// Sin nada que procesar igual se poda (revisión del 10/11/2026): lo que se estaba preparando —un «Reducir el
+		// ruido» que se acaba de apagar— se corta. Antes salía antes de podar y el worker seguía con lo viejo.
+		if (!conProceso && this.cortarPreparacion.size === 0 && this.preparedClipBuffers.size === 0) return;
 		const clips = await collectAudioClips({
 			tracks,
 			mediaAssets: this.editor.media.getAssets(),
@@ -825,6 +847,7 @@ export class AudioManager {
 		// Lo de una perilla anterior ya no sirve: sin podar acá, mover el Tono
 		// cinco veces dejaría cinco copias del clip procesado en memoria.
 		if (!this.editor.playback.getIsPlaying()) this.podarCaches(clips);
+		if (!conProceso) return;
 		for (const clip of clips) {
 			if (this.editor.playback.getIsPlaying()) return;
 			if (clip.muted || claveProcesado(clip.timelineElement.params) === null) continue;

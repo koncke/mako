@@ -42,6 +42,7 @@
 import { useEffect, useId, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { TIPOS_ELEMENTO, esGrafico, tituloDe, topeDeTextoElemento, urlDeEnlace, urlDeImagen, type Elemento, type Hoja, type TipoElemento, type VistaValores } from '@/lib/graficos-catalogo';
 import { nombreDeBloque, parteDe } from '@/lib/disenos-partes';
+import { conTextoCambiado } from '@/lib/disenos-textos';
 import { insertableDe, videoDe } from '@/lib/embeds';
 import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { Button } from '@/app/_ui';
@@ -752,7 +753,7 @@ export function PropsElemento(p: PropsPanelElemento) {
  * gráficos de «Todas las piezas»): cada una se abre acá para cambiar qué mide, de qué conjunto o con qué filtro. Una tarjeta sin
  * piezas se arma con lo que MaKo ya sabe del negocio (el Plan, el Calendario, el CRM) y no tiene qué configurar.
  */
-function PropsDiseno({ e, hoja, onElegirPieza }: { e: Elemento; hoja?: Hoja; onElegirPieza?: (id: string) => void }) {
+function PropsDiseno({ e, hoja, onElegirPieza, onCambiar }: { e: Elemento; hoja?: Hoja; onElegirPieza?: (id: string) => void; onCambiar: (p: Partial<Elemento>) => void }) {
   const d = e.diseno;
   const parte = d ? parteDe(d.id, d.parte) : undefined;
   if (!d || !parte) return null;
@@ -764,7 +765,24 @@ function PropsDiseno({ e, hoja, onElegirPieza }: { e: Elemento; hoja?: Hoja; onE
     vistas.add(id);
     return [{ id, titulo: tituloDe(c) }];
   });
+  const cambiados = Object.entries(d.textos ?? {});
   return (
+    <>
+    <Seccion titulo="Textos">
+      {/* 9/11/2026 (Martín: «no son editables»): los textos de la tarjeta se cambian en el lugar (./disenos/TapaDeDiseno.tsx). */}
+      <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Toca dos veces un texto de la tarjeta para cambiarlo.</p>
+      {cambiados.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+          {cambiados.map(([original, nuevo]) => (
+            <div key={original} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5 }}>
+              <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`Antes: ${original}`}>{nuevo}</span>
+              <button type="button" className="lk-pill" title={`Volver a «${original}»`}
+                onClick={() => onCambiar({ diseno: { ...d, textos: conTextoCambiado(d.textos, original, '') } })}>Volver al original</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Seccion>
     <Seccion titulo="Lee de">
       {piezas.length ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -781,6 +799,7 @@ function PropsDiseno({ e, hoja, onElegirPieza }: { e: Elemento; hoja?: Hoja; onE
         <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)' }}>Se arma con los datos del negocio: no tiene piezas que configurar.</p>
       )}
     </Seccion>
+    </>
   );
 }
 
@@ -823,7 +842,7 @@ function PanelElemento({ e, colores, onCambiar, onDuplicar, onBorrar, onCerrar, 
       {e.tipo === 'accion' && <PropsAccion e={e} entidad={entidad} onCambiar={onCambiar} />}
       {e.tipo === 'entidad' && <PropsEntidad e={e} entidad={entidad} onCambiar={onCambiar} />}
       {e.tipo === 'general' && <PropsGeneral e={e} onCambiar={onCambiar} />}
-      {e.tipo === 'diseno' && <PropsDiseno e={e} hoja={hoja} onElegirPieza={onElegirPieza} />}
+      {e.tipo === 'diseno' && <PropsDiseno e={e} hoja={hoja} onElegirPieza={onElegirPieza} onCambiar={onCambiar} />}
       {e.tipo === 'texto' && <AyudaVariables />}
 
       {CON_TAMANO.includes(e.tipo) && (

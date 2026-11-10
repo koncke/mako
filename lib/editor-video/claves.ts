@@ -78,6 +78,33 @@ export function leerClaves(param: unknown): string[] {
 	return param.split("|").map(normalizarClave).filter(Boolean).slice(0, TOPES_CLAVES.porSubtitulo);
 }
 
+// ── Marcar o desmarcar a mano (Submagic: «resaltar o enfatizar palabras específicas») ──
+
+/**
+ * Marca o desmarca UNA palabra como clave en un subtítulo (lo de Submagic: en «Edit Captions» se enfatiza a mano
+ * cualquier palabra). Devuelve lo que se guarda (`subtitulo.claves`). Las claves se guardan normalizadas, así que
+ * marcar «¡GRATIS!» marca también las otras «gratis» del mismo subtítulo, igual que las automáticas.
+ */
+export function alternarClave(param: unknown, palabra: string): string {
+	const n = normalizarClave(palabra);
+	const actuales = leerClaves(param);
+	if (!n) return codificarClaves(actuales);
+	return codificarClaves(actuales.includes(n) ? actuales.filter((c) => c !== n) : [...actuales, n]);
+}
+
+/** Las claves de un subtítulo más las `nombradas` que aparecen en su texto (sin sacar las que ya tenía). */
+export function sumarClaves(param: unknown, texto: string, nombradas: readonly string[]): string[] {
+	const pedidas = new Set(nombradas.map(normalizarClave).filter(Boolean));
+	const enTexto = palabrasDelTexto(texto).map(normalizarClave).filter((p) => pedidas.has(p));
+	return [...new Set([...leerClaves(param), ...enTexto])];
+}
+
+/** Las claves de un subtítulo menos las `nombradas`. */
+export function quitarClaves(param: unknown, nombradas: readonly string[]): string[] {
+	const sacar = new Set(nombradas.map(normalizarClave).filter(Boolean));
+	return leerClaves(param).filter((c) => !sacar.has(c));
+}
+
 // ── Lo que se calcula en cada cuadro, leído una vez ──────────────────────────
 
 const TOPE_CACHE = 512;

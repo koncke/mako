@@ -17,6 +17,7 @@ import {
 	mediaTimeFromSeconds,
 	minMediaTime,
 	subMediaTime,
+	TICKS_PER_SECOND,
 	ZERO_MEDIA_TIME,
 } from "@/app/video-editor/_opencut/wasm";
 import { useKeyframeSelection } from "@/app/video-editor/_opencut/timeline/hooks/element/use-keyframe-selection";
@@ -64,6 +65,15 @@ import {
 	irAPuntoDeCorte,
 	moverCuadros,
 } from "@/app/video-editor/_opencut/preview/navegacion";
+import {
+	marcarEntradaEnCabezal,
+	marcarRangoDelClip,
+	marcarSalidaEnCabezal,
+	quitarRango,
+} from "@/app/video-editor/_opencut/rango/acciones";
+import { mostrarPanelVelocidad, mostrarVelocidadCurva } from "@/app/video-editor/_opencut/speed/abrir";
+import { audioElegido } from "@/app/video-editor/_opencut/audio/components/ritmos";
+import { alternarRitmoEnCabezal } from "@/app/video-editor/_opencut/audio/ritmos";
 
 /** «Avanzar/Retroceder muchos fotogramas»: 10 cuadros (timelineLargeAdjustRange de CapCut). */
 const CUADROS_PASO_GRANDE = 10;
@@ -540,6 +550,34 @@ export function useEditorActions() {
 				.filter((t) => t < ahora - 1)
 				.pop();
 			if (previo !== undefined) irA(editor, previo);
+		},
+		undefined,
+	);
+
+	// El rango (I / O / Shift+X / Alt+X): rango/acciones.ts. «Solo se exporta ese
+	// rango» lo hace Exportar leyéndolo (export/exportar.ts → datosDelProyecto).
+	useActionHandler("punto-entrada", () => marcarEntradaEnCabezal(editor), undefined);
+	useActionHandler("punto-salida", () => marcarSalidaEnCabezal(editor), undefined);
+	useActionHandler("seleccionar-por-clip", () => marcarRangoDelClip(editor), undefined);
+	useActionHandler("quitar-rango", () => quitarRango(editor), undefined);
+
+	// Ctrl+R / Shift+B: abren la pestaña «Velocidad» del clip elegido (speed/abrir.ts).
+	useActionHandler("panel-velocidad", () => mostrarPanelVelocidad(editor), undefined);
+	useActionHandler("velocidad-curva", () => mostrarVelocidadCurva(editor), undefined);
+
+	// Ctrl+J: el «Agregar ritmo» del menú de ritmos, en el cabezal y sobre el audio
+	// elegido (audio/components/ritmos.tsx); si ya hay un ritmo ahí, lo saca.
+	useActionHandler(
+		"agregar-ritmo",
+		() => {
+			const elegido = audioElegido({ editor, seleccion: selectedElements });
+			if (!elegido) return;
+			alternarRitmoEnCabezal({
+				editor,
+				trackId: elegido.trackId,
+				element: elegido.element,
+				cabezalSegundos: editor.playback.getCurrentTime() / TICKS_PER_SECOND,
+			});
 		},
 		undefined,
 	);

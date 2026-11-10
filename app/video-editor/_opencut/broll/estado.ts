@@ -8,18 +8,22 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Ritmo } from "@/lib/editor-video/broll";
+import type { MedioBroll } from "./pistas";
 
 type Preferencias = {
 	ritmo: Ritmo;
 	/** Proponer también los cambios de plano (el efecto «Acercar»). */
 	planos: boolean;
+	/** Qué trae de Pexels: fotos (lo de siempre) o videos cortos. */
+	medio: MedioBroll;
 	fijar: (cambio: Partial<Omit<Preferencias, "fijar">>) => void;
 };
 
 export const usePreferenciasBroll = create<Preferencias>()(
 	persist(
-		(set) => ({ ritmo: "normal", planos: true, fijar: (cambio) => set(cambio) }),
-		{ name: "ve-broll", version: 1, partialize: ({ ritmo, planos }) => ({ ritmo, planos }) },
+		(set) => ({ ritmo: "normal", planos: true, medio: "fotos", fijar: (cambio) => set(cambio) }),
+		// Lo guardado antes de los videos no trae `medio`: se queda con el de arriba («fotos»).
+		{ name: "ve-broll", version: 1, partialize: ({ ritmo, planos, medio }) => ({ ritmo, planos, medio }) },
 	),
 );
 
@@ -41,6 +45,8 @@ type Trabajo = {
 	mensaje: string | null;
 	error: boolean;
 	faltaPexels: boolean;
+	/** El B-roll al que «Cambiar por otra» le está trayendo otro archivo (su id), o null. */
+	cambiando: string | null;
 	fijar: (cambio: Partial<Omit<Trabajo, "fijar">>) => void;
 };
 
@@ -50,5 +56,6 @@ export const useTrabajoBroll = create<Trabajo>()((set) => ({
 	mensaje: null,
 	error: false,
 	faltaPexels: false,
+	cambiando: null,
 	fijar: (cambio) => set(cambio),
 }));

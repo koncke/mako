@@ -49,7 +49,8 @@ import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES,
 import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, appDeEscritorio, referenteDeTab, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
 import { HERRAMIENTAS_DEL_COACH, contextoDeReferente, contextoDelFunnelCoach } from '@/lib/asesores/contexto';
 import { ORIGEN_COPILOTO } from '@/lib/media-buyer/copiloto';
-import { contextoDelCopiloto, HERRAMIENTAS_DEL_COPILOTO } from '@/lib/media-buyer/copiloto-contexto';
+import { HERRAMIENTAS_DEL_COPILOTO } from '@/lib/media-buyer/copiloto-contexto';
+import { contextoDelCopilotoVigente } from '@/lib/media-buyer/copiloto-contexto-vigente';
 import { leerPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
 import { asesorPorId, referentePedido } from '@/lib/asesores/catalogo';
 // Ya viene con el turno (lib/mako-turno-app.ts lo importa): estático, así la guarda de las rutas sin IA lo ve (tests/d6b-rutas.test.ts).
@@ -141,7 +142,8 @@ async function contextoDelChat(quien: PersonaChat, desde: Desde | null): Promise
   // reglas puras y lo que sabe de anuncios, Instagram y YouTube— y con sus operaciones a mano. lib/media-buyer/copiloto-contexto.ts.
   if (desde?.tab === ORIGEN_COPILOTO) {
     const perfil = await leerPerfilCopiloto(quien.ws);
-    return { contexto: contextoDelCopiloto(perfil), referente: perfil.referente ?? null, propias: HERRAMIENTAS_DEL_COPILOTO };
+    // Con los prompts editables vigentes (/configuraciones → Marketing CoPilot): lib/media-buyer/copiloto-contexto-vigente.ts.
+    return { contexto: await contextoDelCopilotoVigente(perfil), referente: perfil.referente ?? null, propias: HERRAMIENTAS_DEL_COPILOTO };
   }
   if (desde?.tab !== ORIGEN_FUNNEL_COACH) return { contexto: CONTEXTO_SECOND_BRAIN };
   // UN SOLO COACH (4/11/2026): el Funnel Coach también trabaja la oferta, con el referente que tenía cualquiera de los dos coaches.

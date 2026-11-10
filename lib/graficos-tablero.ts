@@ -43,7 +43,8 @@ import { setSetting } from './settings';
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual } from './workspace';
 import { sanearTablero, type Tablero } from './graficos-catalogo';
-import { tableroInicial } from './graficos-plantillas';
+import { tableroInicial, tableroInicialDe } from './graficos-plantillas';
+import { agenciasAprobadasDe } from './agencia';
 import { informeGeneralInicial } from './general-plantillas';
 import { claveInformeAutomatizacion, idDeInformeAutomatizacion, informeDeAutomatizacion, type InformeAutomatizacion } from './informe-automatizacion';
 
@@ -68,9 +69,13 @@ function claveDe(sub: string, informe: Informe): string {
   const id = idDeInformeAutomatizacion(informe);
   return id != null ? claveInformeAutomatizacion(id, sub) : clave(sub);
 }
-function inicialDe(informe: Informe): Tablero {
+async function inicialDe(informe: Informe, ws: number): Promise<Tablero> {
   if (informe === 'general') return informeGeneralInicial();
-  return idDeInformeAutomatizacion(informe) != null ? { v: 3, nombre: 'Métricas', hojas: [] } : tableroInicial();
+  if (idDeInformeAutomatizacion(informe) != null) return { v: 3, nombre: 'Métricas', hojas: [] };
+  // 9/11/2026: en el negocio de un cliente de una agencia, la hoja de la agencia adelante (`HOJA_DE_AGENCIA`). Si la cartera no
+  // se pudo leer, el inicial de siempre: es lo que se MUESTRA de entrada, no un permiso, y no se escribe nada.
+  const agencias = await agenciasAprobadasDe(ws).catch(() => [] as number[]);
+  return tableroInicialDe(agencias);
 }
 
 /**
@@ -173,12 +178,12 @@ export async function leerTableroVersionado(sub: string, informe: Informe = 'das
   const f = await filaDe(ws, sub, informe);
   const raw = f?.value ?? null;
   const version = versionDe(raw);
-  if (raw == null) return { estado: 'inicial', tablero: inicialDe(informe), version, actualizado: f?.updated_at ?? null };
+  if (raw == null) return { estado: 'inicial', tablero: await inicialDe(informe, ws), version, actualizado: f?.updated_at ?? null };
   let t: Tablero | null = null;
   try { t = sanearTablero(JSON.parse(raw)); } catch { t = null; }
   return t
     ? { estado: 'propio', tablero: t, version, actualizado: f?.updated_at ?? null }
-    : { estado: 'inicial', tablero: inicialDe(informe), version, actualizado: f?.updated_at ?? null };
+    : { estado: 'inicial', tablero: await inicialDe(informe, ws), version, actualizado: f?.updated_at ?? null };
 }
 
 /**

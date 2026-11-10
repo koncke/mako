@@ -25,6 +25,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Elemento, Hoja } from '@/lib/graficos-catalogo';
 import { nombreDeBloque } from '@/lib/disenos-partes';
 import { ParteSola } from './parte';
+import { aplicarTextos } from './textos-de-bloque';
 import { DisenoVivo, type PropsDisenoVivo } from './DisenoVivo';
 
 export const CSS_BLOQUE_DISENO = `
@@ -88,6 +89,19 @@ export function BloqueDeDiseno({ e, hoja, editando, enPila = false, onVacio, ...
     obs.observe(el, { childList: true, subtree: true });
     return () => { obs.disconnect(); window.clearTimeout(t); };
   }, []);
+  // LOS TEXTOS QUE EL BLOQUE CAMBIÓ (9/11/2026, lib/disenos-textos.ts): al dibujarse y cada vez que el diseño vuelve a escribir
+  // (llega otro dato, carga el componente). Antes de pintar: el observador corre antes del cuadro, así no parpadea el original.
+  const textos = d?.textos;
+  useLayoutEffect(() => {
+    const el = raiz.current;
+    if (!el) return;
+    aplicarTextos(el, textos);
+    if (!textos) return;
+    const obs = new MutationObserver(() => aplicarTextos(el, textos));
+    obs.observe(el, { childList: true, subtree: true, characterData: true });
+    return () => obs.disconnect();
+  }, [textos]);
+
   const avisar = useRef(onVacio);
   avisar.current = onVacio;
   useEffect(() => { if (vacio != null) avisar.current?.(vacio); }, [vacio]);

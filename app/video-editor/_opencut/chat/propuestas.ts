@@ -61,6 +61,7 @@ async function mensajeDe(editor: EditorCore, proyectoId: string, p: PropuestaSer
 		mediosSinAudio: datos.mediosSinAudio,
 		conPalabras: datos.conPalabras,
 		medios: datos.medios,
+		fondo: datos.fondo,
 	});
 	const { operaciones, descartes: deForma } = validarOperaciones(p.operaciones);
 	const revision = revisarOperaciones({ operaciones, vista, alcance: "video", transcripcion: datos.transcripcion });

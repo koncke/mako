@@ -23,6 +23,8 @@
 //   · `borrar` (EditorInforme) sin los conectores en el mismo cambio            -> 6 / 1  «borrar una tarjeta…»
 //   · un setState por cuadro en el rAF de la capa (Conectores.tsx)               -> 6 / 1  «la capa sigue…»
 //   · el gesto avisado por píxel (`onDrag` en vez de `onDragStop`)               -> 6 / 1  «la capa sigue…»
+//   · (9/11/2026, base 8 / 0) el tirador sin correrse (`SEPARACION_TIRADOR = 0`)    -> 7 / 1  «el tirador de unir va AFUERA…»
+//   · (9/11/2026) los botones del tirador en `puntoDeLado` (el borde) otra vez       -> 7 / 1  «el tirador de unir va AFUERA…»
 //   ⚠️ «el saneo de la hoja descarta el conector…» NO se rompió desde acá: lo prueba `sanearHoja`, que vive en
 //   lib/graficos-catalogo.ts (paquete del catálogo). Queda como afirmación hasta que ese paquete lo rompa.
 
@@ -31,7 +33,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { sanearHoja, type Conector } from '../lib/graficos-catalogo';
-import { PUNTA, conectorNuevo, geometriaConector, ladosEnfrentados, puedeConectar, puntoDeLado, sinConectoresDe, type Caja } from '../lib/graficos-conectores';
+import { PUNTA, RADIO_TIRADOR, conectorNuevo, geometriaConector, ladosEnfrentados, puedeConectar, puntoDeLado, puntoDelTirador, sinConectoresDe, type Caja, type Lado } from '../lib/graficos-conectores';
 
 const caja = (left: number, top: number, width = 100, height = 60): Caja => ({ left, top, width, height });
 const A = caja(0, 0);
@@ -126,4 +128,27 @@ test('la capa sigue a las tarjetas: posiciones del layout en reposo, el DOM en u
   const ed = readFileSync(join(__dirname, '..', 'app', 'dashboard', 'EditorInforme.tsx'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(ed, /onDragStart=\{alEmpezarGesto\}\s*onResizeStart=\{alEmpezarGesto\}\s*onDragStop=\{alTerminarGesto\}\s*onResizeStop=\{alTerminarGesto\}/);
   assert.doesNotMatch(ed, /onDrag=\{|onResize=\{/, 'un aviso por píxel');
+});
+
+test('el tirador de unir va AFUERA de la tarjeta: no tapa el cuadradito de agrandar por el costado', () => {
+  // Martín (9/11/2026), medido en producción: el tirador iba en el medio del lado, encima del cuadradito de agrandar,
+  // y agarrar el costado creaba una flecha. Su disco entero tiene que quedar afuera del borde y adentro del hueco
+  // entre tarjetas (16 px), para no pisar la vecina.
+  const B = caja(200, 100, 300, 120);
+  const HUECO = 16;
+  const afuera: Record<Lado, (p: { x: number; y: number }) => number> = {
+    izq: (p) => B.left - p.x, der: (p) => p.x - (B.left + B.width), arr: (p) => B.top - p.y, aba: (p) => p.y - (B.top + B.height),
+  };
+  for (const lado of ['izq', 'der', 'arr', 'aba'] as const) {
+    const p = puntoDelTirador(B, lado);
+    const d = afuera[lado](p);
+    assert.ok(d - RADIO_TIRADOR >= 0, `${lado}: el disco del tirador entra en la tarjeta (${d - RADIO_TIRADOR} px)`);
+    assert.ok(d + RADIO_TIRADOR <= HUECO, `${lado}: el tirador pisa la tarjeta de al lado (${d + RADIO_TIRADOR} px)`);
+    const medio = puntoDeLado(B, lado);
+    assert.ok(lado === 'izq' || lado === 'der' ? p.y === medio.y : p.x === medio.x, `${lado}: sigue en el medio del lado`);
+  }
+  // Y la pantalla los dibuja ahí (no en el borde).
+  const src = readFileSync(join(__dirname, '..', 'app', 'dashboard', 'Conectores.tsx'), 'utf8');
+  assert.match(src, /const p = puntoDelTirador\(cajaTirador, lado\)/, 'los botones del tirador van en puntoDelTirador');
+  assert.doesNotMatch(src, /puntoDeLado\(cajaTirador/, 'ningún tirador queda en el borde');
 });

@@ -24,7 +24,7 @@ import { useEffect, useRef, type PointerEvent as ReactPointerEvent, type RefObje
 import { calcGridItemPosition } from 'react-grid-layout/core';
 import { BotonBorrar, BotonCerrar } from '@/app/_ui/BotonBorrar';
 import { COLS, type Conector } from '@/lib/graficos-catalogo';
-import { geometriaConector, puntoDeLado, type Caja, type Lado } from '@/lib/graficos-conectores';
+import { geometriaConector, puntoDelTirador, type Caja, type Lado } from '@/lib/graficos-conectores';
 import { TINTA } from './Elemento';
 
 type Celda = { x: number; y: number; w: number; h: number };
@@ -116,7 +116,7 @@ export function CapaConectores({
     e.preventDefault();
     e.stopPropagation();
     const desde = tiradoresDe;
-    const p0 = puntoDeLado(cajaTirador, lado);
+    const p0 = puntoDelTirador(cajaTirador, lado);
     const boton = e.currentTarget;
     try { boton.setPointerCapture(e.pointerId); } catch { /* sin captura, igual llegan los eventos del botón */ }
     const mover = (ev: PointerEvent) => {
@@ -171,7 +171,7 @@ export function CapaConectores({
         </span>
       )}
       {cajaTirador && LADOS.map((lado) => {
-        const p = puntoDeLado(cajaTirador, lado);
+        const p = puntoDelTirador(cajaTirador, lado);
         return (
           <button key={lado} type="button" className="lk-tirador" style={{ left: p.x, top: p.y }} aria-label="Unir con otra tarjeta" title="Arrastra hasta otra tarjeta"
             onPointerDown={alApretar(lado)} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()} />

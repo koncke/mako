@@ -22,16 +22,22 @@
 // =============================================================================
 
 import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import dynamic from 'next/dynamic';
 import Link from '@/app/_ui/Link';
+import { Modal } from '@/app/_ui/Modal';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { conNombres } from '@/lib/graficos-analisis';
 import type { VistaCaja } from '@/lib/graficos-ia-elemento';
 import { cuandoEs, relojDe, rotuloDelDia, vistaClosing, type AgendaClosing, type ContactoClosing, type DatosPieza, type FilaLlamada } from '@/lib/closing-diseno';
-import { duracionLegible } from '@/lib/primer-contacto';
+import { duracionLegible, faltaGrabar } from '@/lib/primer-contacto';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { leerCaja } from '../ElementoIA';
 import { CSS_CLOSING } from './closing-css';
 import { Parte, useSeDibuja } from './parte';
+
+/** La grabadora de la ficha del lead (la de Cold Calling): sólo cuando se abre el aviso de grabar. */
+const GrabarEnFrio = dynamic(() => import('@/app/_components/grabar/GrabarEnFrio').then((m) => m.GrabarEnFrio), { ssr: false });
 
 /** Quién mira, para el saludo de Halden («Good morning, Amara»). La arma la página (app/dashboard/page.tsx). */
 export type QuienMira = { saludo: string; nombre: string; fecha: string };
@@ -146,7 +152,9 @@ function CuerpoContacto({ c, compartido }: { c: Extract<ContactoClosing, { resum
           <div><dt>Los más lentos</dt><dd>{duracionLegible(r.p90Minutos) ?? '—'}</dd></div>
         </dl>
       </div>
-      {c.esperaron.length > 0 && (
+      {/* Cuando la mayoría sale sin contactar, la lista de «los más lentos» serían todos los nombres esperando: en su lugar, cómo
+          hacer que cuenten (el aviso de grabar). La tabla «Cada lead nuevo» de «Velocidad de llamada» los lista a todos. */}
+      {faltaGrabar(r) ? <AvisoGrabar sinContactar={sinContactar} compartido={compartido} /> : c.esperaron.length > 0 && (
         <ul className="hc-deals">
           {c.esperaron.map((e, i) => {
             const fila = (
@@ -168,6 +176,34 @@ function CuerpoContacto({ c, compartido }: { c: Extract<ContactoClosing, { resum
         </ul>
       )}
       {r.noSeSabe > 0 && <p className="hc-contacto__nota">{entero(r.noSeSabe)} sin saber quién les escribió primero: son de antes de que MaKo separara lo automático.</p>}
+    </div>
+  );
+}
+
+/**
+ * EL AVISO DE GRABAR (9/11/2026). Martín: «En los clientes de Código casi todos salen "sin contactar" porque llaman sin grabar. Que
+ * el dashboard lo diga claro y les explique cómo grabar». Va cuando la mayoría sale sin contactar (`faltaGrabar`,
+ * lib/primer-contacto.ts), en el lugar de la lista de los más lentos (cabe en la tarjeta de siempre, sin agrandarla), con el botón
+ * de la misma grabadora de la ficha del lead (la de Cold Calling): elegir el lead y grabar.
+ */
+function AvisoGrabar({ sinContactar, compartido }: { sinContactar: number; compartido?: boolean }) {
+  const [grabando, setGrabando] = useState(false);
+  return (
+    <div className="hc-contacto__grabar" role="note" data-aviso-grabar>
+      <p className="hc-contacto__grabar-t"><b>¿Los llamaste por teléfono?</b> MaKo sólo ve las llamadas que se graban. Una llamada desde tu celular sin grabar no cuenta, y el lead sigue «Sin contactar» ({entero(sinContactar)} ahora).</p>
+      <ol className="hc-contacto__pasos">
+        <li>Toca <b>Grabar llamada</b> y elige el lead.</li>
+        <li>Llámalo en altavoz y deja a MaKo grabando en la computadora (una llamada del mismo celular no se graba).</li>
+        <li>Al cortar, marca cómo terminó. Desde ahí cuenta cuánto tardaste.</li>
+      </ol>
+      <p className="hc-contacto__nota">También se graba desde la ficha del lead, en el CRM. Un WhatsApp al lead cuenta si sale de la línea conectada a MaKo.</p>
+      {!compartido && <button type="button" className="hc-btn hc-btn--primary" onClick={() => setGrabando(true)}>Grabar llamada</button>}
+      {grabando && typeof document !== 'undefined' && createPortal(
+        <Modal titulo="Grabar llamada" anidada onCerrar={() => setGrabando(false)} ancho={520}>
+          <GrabarEnFrio />
+        </Modal>,
+        document.body,
+      )}
     </div>
   );
 }

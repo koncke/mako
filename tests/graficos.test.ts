@@ -157,6 +157,11 @@ test('fmtValor: plata, porcentaje, veces, segundos y lo que no se puede calcular
   assert.equal(fmtValor(12.5, 'pct'), '12,5%');
   assert.equal(fmtValor(2.345, 'veces'), '2,35x');
   assert.equal(fmtValor(125, 'segundos'), '2 min 5 s');
+  // Desde una hora, horas y días (9/11/2026: un lead esperando 26 días decía «37790 min 0 s»).
+  assert.equal(fmtValor(3600, 'segundos'), '1 h');
+  assert.equal(fmtValor(5400, 'segundos'), '1 h 30 min');
+  assert.equal(fmtValor(86_400, 'segundos'), '1 día');
+  assert.equal(fmtValor(37_790 * 60, 'segundos'), '26 días 5 h');
   assert.match(fmtValor(1234, 'usd'), /^US\$1\.234$/);
   assert.equal(fmtValor(0, 'usd'), 'US$0');
 });
