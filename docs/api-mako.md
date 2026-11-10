@@ -11459,9 +11459,7 @@ Cuántas veces tocaron cada enlace de una página y cuándo, según el Pixel: cl
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `url` | string | no | La landing (con o sin https). Sin ella, todas las del negocio. |
-| `dias` | number | no | Período hacia atrás. Por defecto 30. Se ignora si vienen desde o hasta. |
-| `desde` | string | no | Inicio, inclusive, YYYY-MM-DD (UTC). |
-| `hasta` | string | no | Fin, inclusive, YYYY-MM-DD (UTC). Sin él, hoy. |
+| `dias` | number | no | Período hacia atrás. Por defecto 30. |
 | `boton` | string | no | Un pedazo del texto del botón o de su link. Con esto viene el historial. |
 | `limite` | number | no | Cuántos clics del historial, los más nuevos primero. Por defecto 100. |
 
@@ -11470,7 +11468,7 @@ curl -L \
   -H "Accept: application/json" \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
-  "https://hola-mako.com/api/v1/landing/landings/clics?desde=2026-11-01&hasta=2026-11-10"
+  "https://hola-mako.com/api/v1/landing/landings/clics"
 ```
 
 ### `GET /api/v1/landing/landings/retencion` — Retención del video de una landing, por minuto

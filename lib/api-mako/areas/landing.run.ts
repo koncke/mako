@@ -368,13 +368,9 @@ export const RUNNERS: Runners = {
   // Ticket #66: los clics estaban guardados desde la migración 0133 y no había cómo pedirlos.
   listar_clics_landing: {
     leer: async (input) => {
-      const conFechas = str(input, 'desde') || str(input, 'hasta');
-      const p = conFechas ? periodoDeFechas({ desde: str(input, 'desde'), hasta: str(input, 'hasta') }, Date.now()) : null;
-      if (p && 'error' in p) return errorLectura(p.error);
       const r = await clicsDeLanding({
         url: str(input, 'url'),
         dias: num(input, 'dias') ?? undefined,
-        ...(p ? { desde: p.desde, hasta: p.hasta } : {}),
         boton: str(input, 'boton'),
         limite: num(input, 'limite') ?? undefined,
       });

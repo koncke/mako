@@ -170,14 +170,15 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Cuántas veces tocaron cada enlace de una página y cuándo, según el Pixel: clics y PERSONAS distintas, con el primero y el último. Las pruebas del Pixel no cuentan. ⚠️ Con «medido» en false la consulta falló: ese cero NO es un cero.',
     parametros: [
       { nombre: 'url', tipo: 'string', max: 500, descripcion: 'La landing (con o sin https). Sin ella, todas las del negocio.' },
-      { nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 365, descripcion: 'Período hacia atrás. Por defecto 30. Se ignora si vienen desde o hasta.' },
-      { nombre: 'desde', tipo: 'string', max: 10, descripcion: 'Inicio, inclusive, YYYY-MM-DD (UTC).', ejemplo: '2026-11-01' },
-      { nombre: 'hasta', tipo: 'string', max: 10, descripcion: 'Fin, inclusive, YYYY-MM-DD (UTC). Sin él, hoy.', ejemplo: '2026-11-10' },
+      { nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 365, descripcion: 'Período hacia atrás. Por defecto 30.' },
       { nombre: 'boton', tipo: 'string', max: 300, descripcion: 'Un pedazo del texto del botón o de su link. Con esto viene el historial.' },
       { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'Cuántos clics del historial, los más nuevos primero. Por defecto 100.' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_INTEG,
   },
+  // ⚠️ Y SIN `desde`/`hasta` EN LOS CLICS, por lo mismo (10/11/2026): dos parámetros más en `listar_clics_landing`, que sale
+  // también por el chat, sacaron una herramienta del tope y bajó el piso de tests/ops-center-bateria.test.ts. Las fechas van
+  // en la retención, que sale sólo por HTTP.
   // ⚠️ LA RETENCIÓN POR MINUTO NO SE PODÍA PEDIR (ticket #74, 10/11/2026). Los eventos estaban (lib/vsl-retencion.ts
   // dibuja la curva de 5 % en el VSL Analyst) y `ver_comportamiento_landing` sólo da el 50 % y el final. Sólo por HTTP, a
   // propósito: es lo que pidió el equipo de Mauricio para su Codex, y una operación nueva en el chat le saca lugar a las

@@ -32,14 +32,13 @@ export type ClicsDeLanding = {
  * `landing_url` devuelve un cero que parece una respuesta. Es el mismo criterio que ya usa
  * lib/landing-token.ts para contar visitas por página.
  */
-export async function clicsDeLanding(opts: { url?: string | null; dias?: number; boton?: string | null; limite?: number; desde?: string; hasta?: string }): Promise<ClicsDeLanding> {
+export async function clicsDeLanding(opts: { url?: string | null; dias?: number; boton?: string | null; limite?: number }): Promise<ClicsDeLanding> {
   const dias = Math.max(1, Math.min(365, Math.round(opts.dias ?? 30)));
   const urlPedida = opts.url?.trim() ? normalizarUrl(opts.url) : null;
   const boton = opts.boton?.trim() || null;
   const limite = Math.max(1, Math.min(500, Math.round(opts.limite ?? 100)));
-  // `desde`/`hasta` (ISO, `hasta` exclusivo) mandan sobre `dias` cuando vienen: los arma `periodoDeFechas` (lib/landing-retencion.ts).
-  const desde = opts.desde ?? new Date(Date.now() - dias * 86_400_000).toISOString();
-  const hasta = opts.hasta ?? new Date(Date.now() + 60_000).toISOString();
+  const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
+  const hasta = new Date(Date.now() + 60_000).toISOString();
   const vacio: ClicsDeLanding = {
     url: urlPedida, dias, desde, hasta, medido: false, clics: 0, personas: 0, botones: [], recortado: false,
     nota: 'No se pudo leer: esto NO es un cero. Vuelve a pedirlo antes de concluir que nadie tocó nada.',

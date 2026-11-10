@@ -168,9 +168,12 @@ en el primer minuto, cuando en buena parte nunca quisieron verlo. Va una curva c
 **Las trampas.** PostgREST corta en 1000 filas SIN error (la lectura va en tandas); `landing_url` llega con utm, fbclid y
 barra final (el filtro exacto va en JS con `normalizarUrl`, después de un `ilike` por dominio); los eventos de un Pixel
 anterior a la v12 no dicen de qué página vienen y no se atribuyen.
+Y una que dio rojo: sumarle `desde`/`hasta` a `listar_clics_landing`, que también sale por el chat y por WhatsApp, sacó otra
+herramienta del tope de caracteres (tests/ops-center-bateria.test.ts, «el piso bajó»). **Una operación que llega al chat no
+puede crecer sin pagarlo otra**: las fechas quedaron sólo en la retención, que sale sólo por HTTP.
 
 **Vive en:** lib/landing-retencion.ts · lib/landing-retencion-server.ts · lib/api-mako/areas/landing.{def,run}.ts ·
-lib/landing-clics-server.ts (`desde`/`hasta`) · tests/landing-retencion.test.ts
+tests/landing-retencion.test.ts · tests/ops-center-bateria.test.ts (el tope)
 *2026-11-10 claude4, chat Tickets*
 
 ### ⚠️ «De qué anuncio vino este lead»: el dato llegaba, se guardaba, y la pantalla decía que no
