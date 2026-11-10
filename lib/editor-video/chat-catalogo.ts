@@ -133,9 +133,27 @@ export type EstiloTextoChat = {
 /** Posición en px del lienzo desde el centro, con Y hacia ARRIBA (como el panel de CapCut). */
 export type TransformChat = { x?: number; y?: number; escala?: number; rotacion?: number; opacidad?: number; mezcla?: string };
 
+/**
+ * «Fondo › Desenfoque» del panel Proyecto (background/blur.ts, BACKGROUND_BLUR_INTENSITY_PRESETS: Light, Medium y
+ * Heavy), con el nombre que dice la persona. Lo fija el test contra el motor.
+ */
+export const DESENFOQUES_FONDO = { suave: 100, medio: 200, fuerte: 500 } as const;
+export type DesenfoqueFondo = keyof typeof DESENFOQUES_FONDO;
+
+/**
+ * Las proporciones del diálogo «Recortar» (params/extra/recorte.ts, PROPORCIONES_RECORTE), sin «Libre», que no es una
+ * proporción: para recortar libre van los lados. Lo fija el test contra el motor.
+ */
+export const PROPORCIONES_ENCUADRE = ['original', '16:9', '9:16', '1:1', '4:3', '3:4', '2:1', '2.35:1', '1.85:1'] as const;
+export type ProporcionEncuadre = (typeof PROPORCIONES_ENCUADRE)[number];
+/** Los lados de un encuadre, en % de la fuente que se le saca a cada uno. */
+export type LadosEncuadre = { izquierda: number; arriba: number; derecha: number; abajo: number };
+const LADOS_ENCUADRE = ['izquierda', 'arriba', 'derecha', 'abajo'] as const;
+
 /** Lo que la IA puede devolver. Los tiempos van en SEGUNDOS de la línea de tiempo. */
 export type OperacionChat =
-  | { op: 'agregar_texto'; texto: string; inicio: number; duracion: number; ref?: string }
+  /** `plantilla`: una «Plantilla de texto» de la biblioteca (DISPONIBLES.plantillas_texto): su fuente, tamaño, efecto y animación. */
+  | { op: 'agregar_texto'; texto: string; inicio: number; duracion: number; ref?: string; plantilla?: string }
   | { op: 'cambiar_texto'; ref: string; texto: string }
   | { op: 'borrar'; refs: string[] }
   | { op: 'mover'; ref: string; inicio: number }
@@ -204,7 +222,22 @@ export type OperacionChat =
    */
   | { op: 'agregar_motion'; plantilla: IdPlantilla; valores: ValoresMotion; inicio: number; duracion?: number; ref?: string }
   /** Campos de un motion graphic que ya está (la plantilla no se cambia). */
-  | { op: 'editar_motion'; ref: string; valores: ValoresMotion };
+  | { op: 'editar_motion'; ref: string; valores: ValoresMotion }
+  // ── 10/11/2026: lo que el chat no sabía hacer (docs/editor-video/pendientes-video-editor.md §9.1), cada uno con el
+  // MISMO camino que su botón (chat/comandos.ts).
+  /** «Duplicar» de la línea de tiempo: una copia en el mismo tiempo, encima, en una pista nueva. `copia`: su ref nueva. */
+  | { op: 'duplicar'; ref: string; copia?: string }
+  /** El fondo del lienzo (Proyecto › Fondo): un color o el desenfoque. Uno de los dos. */
+  | { op: 'fondo_lienzo'; color: string; desenfoque?: undefined }
+  | { op: 'fondo_lienzo'; desenfoque: DesenfoqueFondo; color?: undefined }
+  /** Un «Efecto de texto» del panel Texto (text/estilos-predefinidos.ts); `id` null = «Ninguno». */
+  | { op: 'efecto_texto'; ref: string; id: string | null }
+  /** Un emoji de la biblioteca (Stickers › Emojis), como sticker en su pista. */
+  | { op: 'agregar_emoji'; emoji: string; inicio: number; duracion: number; ref?: string }
+  /** «Recortar» el cuadro de un clip: una proporción centrada, los lados en %, o `quitar` (entero). Uno de los tres. */
+  | { op: 'encuadre'; ref: string; proporcion: ProporcionEncuadre }
+  | ({ op: 'encuadre'; ref: string } & LadosEncuadre)
+  | { op: 'encuadre'; ref: string; quitar: true };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -324,7 +357,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'agregar_texto',
     forma: '{"op":"agregar_texto","texto":"…","inicio":0,"duracion":3,"ref":"n1"}',
-    para: 'Agrega un texto en pantalla, en una pista de texto libre, con el estilo predeterminado (Arial 15, blanco, centrado en el lienzo). "ref" es opcional: si le pones una nueva ("n1", "n2"…), las operaciones que siguen pueden cambiarle el estilo, la posición o la animación en este mismo pedido.',
+    para: 'Agrega un texto en pantalla, en una pista de texto libre, con el estilo predeterminado (Arial 15, blanco, centrado en el lienzo). "ref" es opcional: si le pones una nueva ("n1", "n2"…), las operaciones que siguen pueden cambiarle el estilo, la posición o la animación en este mismo pedido. "plantilla" (opcional): el id de una «Plantilla de texto» de DISPONIBLES.plantillas_texto, y el texto nace con su fuente, su tamaño, su efecto y su animación.',
   },
   {
     op: 'cambiar_texto',
@@ -516,6 +549,32 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     forma: '{"op":"editar_motion","ref":"g1","valores":{"titulo":"…"}}',
     para: 'Cambia lo que dice (el título, el nombre, la cifra…), el tono, los colores o la fuente de un motion graphic que ya está ("tipo":"motion", con sus "valores" de ahora): "valores" {campo: valor} sólo con lo que cambia, con los campos y topes de SU plantilla (vacío saca uno que no es obligatorio). La plantilla no se cambia.',
   },
+  // Lo que el chat no sabía hacer (10/11/2026), también al FINAL.
+  {
+    op: 'duplicar',
+    forma: '{"op":"duplicar","ref":"t1","copia":"n1"}',
+    para: 'Duplica un elemento, como el botón «Duplicar»: la copia es igual (estilo, efectos, animaciones) y queda en el mismo tiempo, encima, en una pista nueva. "copia" (opcional): una ref nueva ("n1"…) para moverla con mover o cambiarla en este mismo pedido.',
+  },
+  {
+    op: 'fondo_lienzo',
+    forma: '{"op":"fondo_lienzo","color":"#000000"}',
+    para: 'El fondo del lienzo (el del panel Proyecto, en Fondo), lo que se ve donde el video no llena el cuadro, en TODO el proyecto: "color" (#RRGGBB) o "desenfoque" ("suave", "medio" o "fuerte": el mismo video, desenfocado). Uno de los dos. El de ahora va en "fondo_lienzo" de la vista.',
+  },
+  {
+    op: 'efecto_texto',
+    forma: '{"op":"efecto_texto","ref":"t1","id":"neon-rosa"}',
+    para: `Un «Efecto de texto» del panel Texto en un texto o un subtítulo: su color, trazo, sombra, brillo y fondo de una vez, sin tocar la fuente, el tamaño ni lo que dice. ${IDS('efectos_texto')}; "ninguno" lo deja blanco y sin nada. Para un solo detalle, estilo_texto.`,
+  },
+  {
+    op: 'agregar_emoji',
+    forma: '{"op":"agregar_emoji","emoji":"🔥","inicio":2,"duracion":2,"ref":"n1"}',
+    para: 'Agrega UN emoji de la biblioteca de emojis del panel Stickers como sticker, en su propia pista y en el centro del cuadro: "emoji" (🔥, 💰, ✅, 👉…), "inicio" y "duracion" en segundos. "ref" nueva opcional ("n1"…) para moverlo o achicarlo con transformar en este mismo pedido. Uno encima de cada subtítulo es emojis_subtitulos.',
+  },
+  {
+    op: 'encuadre',
+    forma: '{"op":"encuadre","ref":"v1","proporcion":"9:16"}',
+    para: `«Recortar» el CUADRO de un clip de video o imagen, como el diálogo de la barra (el tiempo se recorta con recortar). Uno de tres: "proporcion" (${PROPORCIONES_ENCUADRE.join(', ')}; "original" es la del archivo) deja el rectángulo más grande con esa forma, centrado en el de ahora; o "izquierda", "arriba", "derecha" y "abajo", el % del archivo que se le saca a cada lado (de 0 a 95; lo que no pongas, 0; entre dos lados opuestos queda al menos el 2 %); o "quitar": true lo devuelve entero. El de ahora va en "encuadre" del elemento.`,
+  },
 ];
 
 /**
@@ -523,7 +582,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
  * para que la IA lo DIGA en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT =
-  'agregar a la línea de tiempo videos, imágenes, música, sonidos, stickers o formas de la biblioteca (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos de apoyo según lo que se dice, sí: broll; emojis encima de los subtítulos, sí: emojis_subtitulos; un motion graphic, sí: agregar_motion); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto; guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
+  'agregar a la línea de tiempo videos, imágenes, música, sonidos, formas o stickers de la biblioteca que no son emojis (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos de apoyo según lo que se dice, sí: broll; un emoji, sí: agregar_emoji; emojis encima de los subtítulos, sí: emojis_subtitulos; un motion graphic, sí: agregar_motion); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo de un clip o chroma key (el fondo del LIENZO, sí: fondo_lienzo); guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); guardar un efecto de texto propio («Guardar como parámetro predefinido», en el panel); pegar atributos de un elemento en otro; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
 
 const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 
@@ -866,7 +925,12 @@ export function validarOperacion(crudo: unknown): Validada {
       if (!enRango(inicio, 0, TOPES_CHAT.tiempoMax)) return { ok: false, motivo: 'un texto sin inicio válido' };
       if (!enRango(duracion, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax)) return { ok: false, motivo: 'un texto sin duración válida' };
       if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'un texto nuevo con una ref que no es «n1», «n2»…' };
-      return { ok: true, op: { op: 'agregar_texto', texto, inicio: centesima(inicio), duracion: centesima(duracion), ...(ref ? { ref } : {}) } };
+      const plantilla = raw.plantilla === undefined ? undefined : idCatalogo(raw.plantilla, false);
+      if (plantilla === undefined && raw.plantilla !== undefined) return { ok: false, motivo: 'un texto nuevo con una plantilla sin forma (el id de DISPONIBLES.plantillas_texto)' };
+      return {
+        ok: true,
+        op: { op: 'agregar_texto', texto, inicio: centesima(inicio), duracion: centesima(duracion), ...(ref ? { ref } : {}), ...(plantilla ? { plantilla } : {}) },
+      };
     }
     case 'cambiar_texto': {
       const texto = textoValido(raw.texto);
@@ -1194,6 +1258,74 @@ export function validarOperacion(crudo: unknown): Validada {
       if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de editar_motion${TIPO_CAMPO_MOTION.has(extra) ? ': los campos van dentro de "valores"' : ''}` };
       const v = valoresMotionDeForma(raw.valores);
       return v.ok ? { ok: true, op: { op: 'editar_motion', ref, valores: v.valores } } : v;
+    }
+    case 'duplicar': {
+      const extra = sobrantes(raw, ['copia']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de duplicar` };
+      if (!esRef(ref)) return { ok: false, motivo: 'un duplicar sin elemento' };
+      if (raw.copia !== undefined && !esRefNueva(raw.copia)) return { ok: false, motivo: 'una copia con una ref que no es «n1», «n2»…' };
+      return { ok: true, op: { op: 'duplicar', ref, ...(raw.copia !== undefined ? { copia: raw.copia as string } : {}) } };
+    }
+    case 'fondo_lienzo': {
+      const extra = sobrantes(raw, ['color', 'desenfoque']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo del fondo del lienzo` };
+      if ((raw.color === undefined) === (raw.desenfoque === undefined)) return { ok: false, motivo: 'un fondo del lienzo va con "color" o con "desenfoque" (uno de los dos)' };
+      if (raw.color !== undefined) {
+        const c = colorHex(raw.color);
+        if (!c) return { ok: false, motivo: 'un fondo del lienzo con un color que no es #RRGGBB' };
+        return { ok: true, op: { op: 'fondo_lienzo', color: c } };
+      }
+      const d = typeof raw.desenfoque === 'string' ? raw.desenfoque.trim().toLowerCase() : '';
+      if (!Object.hasOwn(DESENFOQUES_FONDO, d)) return { ok: false, motivo: 'un fondo desenfocado va «suave», «medio» o «fuerte»' };
+      return { ok: true, op: { op: 'fondo_lienzo', desenfoque: d as DesenfoqueFondo } };
+    }
+    case 'efecto_texto': {
+      const extra = sobrantes(raw, ['id']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de un efecto de texto` };
+      const id = idCatalogo(raw.id, true);
+      if (!esRef(ref) || id === undefined) return { ok: false, motivo: 'un efecto de texto incompleto' };
+      return { ok: true, op: { op: 'efecto_texto', ref, id } };
+    }
+    case 'agregar_emoji': {
+      const extra = sobrantes(raw, ['emoji', 'inicio', 'duracion']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de agregar_emoji` };
+      const emoji = typeof raw.emoji === 'string' ? raw.emoji.trim() : '';
+      // UN emoji: corto, sin espacios y con un pictograma (o una bandera). Que esté en la biblioteca lo mira la revisión.
+      if (!emoji || emoji.length > 16 || /\s/.test(emoji) || !/\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u.test(emoji)) {
+        return { ok: false, motivo: 'un emoji que no es UN emoji (🔥, 💰, ✅…)' };
+      }
+      const inicio = numero(raw.inicio);
+      const duracion = numero(raw.duracion);
+      if (!enRango(inicio, 0, TOPES_CHAT.tiempoMax)) return { ok: false, motivo: 'un emoji sin inicio válido' };
+      if (!enRango(duracion, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax)) return { ok: false, motivo: 'un emoji sin duración válida' };
+      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'un emoji nuevo con una ref que no es «n1», «n2»…' };
+      return { ok: true, op: { op: 'agregar_emoji', emoji, inicio: centesima(inicio), duracion: centesima(duracion), ...(ref ? { ref } : {}) } };
+    }
+    case 'encuadre': {
+      const extra = sobrantes(raw, ['proporcion', 'quitar', ...LADOS_ENCUADRE]);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo del encuadre` };
+      if (!esRef(ref)) return { ok: false, motivo: 'un encuadre sin elemento' };
+      const conLados = LADOS_ENCUADRE.some((k) => raw[k] !== undefined);
+      const formas = [raw.proporcion !== undefined, raw.quitar !== undefined, conLados].filter(Boolean).length;
+      if (formas !== 1) return { ok: false, motivo: 'un encuadre va con "proporcion", con los lados o con "quitar" (uno de los tres)' };
+      if (raw.quitar !== undefined) {
+        if (raw.quitar !== true) return { ok: false, motivo: 'un encuadre con «quitar» que no es true' };
+        return { ok: true, op: { op: 'encuadre', ref, quitar: true } };
+      }
+      if (raw.proporcion !== undefined) {
+        const p = typeof raw.proporcion === 'string' ? raw.proporcion.trim().toLowerCase() : '';
+        if (!(PROPORCIONES_ENCUADRE as readonly string[]).includes(p)) return { ok: false, motivo: `«${String(raw.proporcion).slice(0, 20)}» no es una proporción (son: ${PROPORCIONES_ENCUADRE.join(', ')})` };
+        return { ok: true, op: { op: 'encuadre', ref, proporcion: p as ProporcionEncuadre } };
+      }
+      const lados = {} as LadosEncuadre;
+      for (const k of LADOS_ENCUADRE) {
+        const n = raw[k] === undefined ? 0 : numero(raw[k]);
+        if (!enRango(n, 0, 95)) return { ok: false, motivo: `un encuadre con «${k}» fuera de 0 a 95 %` };
+        lados[k] = decima(n);
+      }
+      if (lados.izquierda + lados.derecha > 98 + EPS || lados.arriba + lados.abajo > 98 + EPS) return { ok: false, motivo: 'un encuadre que deja el cuadro sin nada (entre dos lados opuestos queda al menos el 2 %)' };
+      if (LADOS_ENCUADRE.every((k) => lados[k] === 0)) return { ok: false, motivo: 'un encuadre sin nada que recortar (para dejarlo entero, "quitar": true)' };
+      return { ok: true, op: { op: 'encuadre', ref, ...lados } };
     }
   }
 }

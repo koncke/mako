@@ -21,7 +21,8 @@
 
 import type { Parametro } from '../api-mako/tipos';
 import {
-  AJUSTES_COLOR, MEZCLAS, OBJETIVOS_NORMALIZAR, OPERACIONES_CHAT, TIPO_CAMPO_MOTION, TOPES_CHAT, catalogoMotionCompacto, validarOperacion,
+  AJUSTES_COLOR, DESENFOQUES_FONDO, MEZCLAS, OBJETIVOS_NORMALIZAR, OPERACIONES_CHAT, PROPORCIONES_ENCUADRE, TIPO_CAMPO_MOTION, TOPES_CHAT,
+  catalogoMotionCompacto, validarOperacion,
   type IdOperacion, type OperacionChat,
 } from './chat-catalogo';
 import { PLANTILLAS } from './plantillas';
@@ -84,6 +85,7 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     seg('inicio', 'Inicio', 'En qué segundo aparece.'),
     seg('duracion', 'Duración', 'Cuántos segundos dura.', true, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax),
     REF_NUEVA,
+    texto('plantilla', 'Plantilla de texto', 'Opcional: el id de DISPONIBLES.plantillas_texto de ver_proyecto_video (su fuente, tamaño, efecto y animación).', false, 48),
   ] },
   { op: 'cambiar_texto', id: 'cambiar_texto_video', titulo: 'Cambiar un texto del video', parametros: [REF, texto('texto', 'Texto', 'El texto nuevo.')] },
   { op: 'reemplazar_clip', id: 'reemplazar_clip_video', titulo: 'Reemplazar el archivo de un clip', parametros: [
@@ -235,6 +237,27 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     REF_NUEVA,
   ] },
   { op: 'editar_motion', id: 'editar_motion_video', titulo: 'Editar un motion graphic', parametros: [REF, VALORES_MOTION(true)] },
+  // Lo que el chat no sabía hacer (10/11/2026, pendientes-video-editor.md §9.1), también al FINAL del área.
+  { op: 'duplicar', id: 'duplicar_elemento_video', titulo: 'Duplicar un elemento', parametros: [
+    REF, texto('copia', 'Copia', 'Opcional: una ref nueva («n1», «n2»…) para la copia, para moverla o cambiarla en la misma propuesta.', false, 6),
+  ] },
+  { op: 'fondo_lienzo', id: 'cambiar_fondo_lienzo', titulo: 'Cambiar el fondo del lienzo', parametros: [
+    texto('color', 'Color', 'Opcional: un color #RRGGBB. Va «color» o «desenfoque».', false, 7),
+    elegir('desenfoque', 'Desenfoque', Object.keys(DESENFOQUES_FONDO), 'Opcional: el mismo video, desenfocado. Va «color» o «desenfoque».', false),
+  ] },
+  { op: 'efecto_texto', id: 'poner_efecto_texto_video', titulo: 'Poner un efecto de texto', parametros: [REF, ID_CATALOGO('efectos_texto', true)] },
+  { op: 'agregar_emoji', id: 'agregar_emoji_video', titulo: 'Agregar un emoji', parametros: [
+    texto('emoji', 'Emoji', 'UN emoji de la biblioteca (🔥, 💰, ✅…).', true, 16),
+    seg('inicio', 'Inicio', 'En qué segundo aparece.'),
+    seg('duracion', 'Duración', 'Cuántos segundos dura.', true, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax),
+    REF_NUEVA,
+  ] },
+  { op: 'encuadre', id: 'encuadrar_clip_video', titulo: 'Recortar el cuadro de un clip', parametros: [
+    REF,
+    elegir('proporcion', 'Proporción', PROPORCIONES_ENCUADRE, 'Opcional: la forma del cuadro, centrada. Va «proporcion», los lados o «quitar».', false),
+    ...(['izquierda', 'arriba', 'derecha', 'abajo'] as const).map((k) => seg(k, k[0].toUpperCase() + k.slice(1), 'Opcional: el % que se le saca de ese lado, de 0 a 95.', false, 0, 95)),
+    si('quitar', 'Quitar', 'Opcional: true lo deja entero.', false),
+  ] },
 ];
 
 /** Lo de la API que acompaña al `para` del chat. */
@@ -296,6 +319,8 @@ export function operacionDesdeInput(o: OperacionApi, input: Record<string, unkno
     }
   }
   if (o.op === 'reemplazar_en_subtitulos' && raw.reemplazo === undefined) raw.reemplazo = '';
+  // «quitar»: false es no decirlo (el encuadre va con una sola de sus tres formas).
+  if (o.op === 'encuadre' && raw.quitar === false) delete raw.quitar;
   if ((o.op === 'agregar_motion' || o.op === 'editar_motion') && Array.isArray(campos.valores)) {
     // Sin `valor` (vacío no pasa `validarInput`) es un texto vacío: saca un campo opcional.
     raw.valores = Object.fromEntries((campos.valores as Array<Record<string, unknown>>).map((c) => [String(c.campo ?? ''), valorMotion(String(c.campo ?? ''), c.valor)]));

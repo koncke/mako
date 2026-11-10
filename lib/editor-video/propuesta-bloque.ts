@@ -86,7 +86,7 @@ function comoEsta(ref: string, els: Map<string, Elemento>): string {
 /** Lo que queda después de la operación, en palabras. Exhaustivo: una operación nueva sin texto no compila. */
 export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Map()): string {
   switch (op.op) {
-    case 'agregar_texto': return `Texto ${comillas(op.texto)} ${entre(op.inicio, op.inicio + op.duracion)}`;
+    case 'agregar_texto': return `Texto ${comillas(op.texto)}${op.plantilla ? ` con la plantilla ${comillas(op.plantilla)}` : ''} ${entre(op.inicio, op.inicio + op.duracion)}`;
     case 'cambiar_texto': return comillas(op.texto);
     case 'borrar': return 'Se borra';
     case 'mover': return `Empieza en ${tiempo(op.inicio)}`;
@@ -141,6 +141,14 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
       return `Motion ${comillas(def.nombre)}${campos ? ` (${campos})` : ''} ${entre(op.inicio, op.inicio + (op.duracion ?? def.duracionMs / 1000))}`;
     }
     case 'editar_motion': return textoValoresMotion(op.valores) || 'Sin cambios';
+    case 'duplicar': return 'Una copia encima, en el mismo tiempo';
+    case 'fondo_lienzo': return op.color !== undefined ? `Fondo del lienzo ${op.color}` : `Fondo del lienzo desenfocado (${op.desenfoque})`;
+    case 'efecto_texto': return op.id ? `Efecto de texto ${comillas(op.id)}` : 'Sin efecto de texto';
+    case 'agregar_emoji': return `Emoji ${op.emoji} ${entre(op.inicio, op.inicio + op.duracion)}`;
+    case 'encuadre':
+      if ('quitar' in op) return 'El cuadro entero, sin recortar';
+      if ('proporcion' in op) return `El cuadro recortado a ${op.proporcion}`;
+      return `El cuadro recortado (${[['izquierda', op.izquierda], ['arriba', op.arriba], ['derecha', op.derecha], ['abajo', op.abajo]].filter(([, n]) => Number(n) > 0).map(([k, n]) => `${k} ${String(n).replace('.', ',')} %`).join(', ')})`;
     default: {
       const nunca: never = op;
       return String((nunca as { op?: unknown }).op ?? '');
@@ -154,8 +162,8 @@ export function antesDe(op: OperacionChat, els: Map<string, Elemento> = new Map(
   if (op.op === 'cortar_frase') return comillas(op.frase);
   if (op.op === 'borrar') return op.refs.map((r) => comoEsta(r, els)).join('; ');
   const ref = (op as { ref?: unknown }).ref;
-  // agregar_texto, capa_efecto y agregar_motion llevan `ref` para NOMBRAR lo nuevo, no algo que exista.
-  if (typeof ref === 'string' && op.op !== 'agregar_texto' && op.op !== 'capa_efecto' && op.op !== 'agregar_motion') return comoEsta(ref, els);
+  // agregar_texto, capa_efecto, agregar_motion y agregar_emoji llevan `ref` para NOMBRAR lo nuevo, no algo que exista.
+  if (typeof ref === 'string' && op.op !== 'agregar_texto' && op.op !== 'capa_efecto' && op.op !== 'agregar_motion' && op.op !== 'agregar_emoji') return comoEsta(ref, els);
   return '—';
 }
 
