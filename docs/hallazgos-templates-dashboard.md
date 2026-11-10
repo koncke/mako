@@ -834,8 +834,15 @@ urgencia rehacer este dashboard. Y que quede como los otros que tenemos».
 - **Un reemplazo que no encuentra un texto copiado del archivo puede ser un espacio DURO** (U+00A0, en `ch === ' ' ? '\u00a0'`): el
   ancla se ve idéntica y no aparece. Antes de dudar del archivo: `cat -A` o buscar `\u00a0`.
 - **Lo que le faltaba a los conjuntos, y se sumó lo mínimo:** `conversaciones` por lead con lo que lleva esperando respuesta
-  (`espera_respuesta`, sin total), `primer_contacto` con lo que lleva esperando cada uno y su mediana, y `llamadas_grabadas` con la hora
-  (`horaTj`, en la misma zona que `fechaTj`: la de Tijuana, como todo lo que lee el Dashboard; no es la zona del negocio).
+  (`espera_respuesta`, sin total), `primer_contacto` con lo que lleva esperando cada uno y su mediana, y `llamadas_grabadas` con la
+  llamada misma y su hora en la zona del negocio (`horaEn`).
+- **⚠️ Una tabla agrupada por una ENTIDAD (el lead) no puede rehacer los EVENTOS de esa entidad desde sus columnas de texto.** Las
+  llamadas de hoy iban por lead, con quién llamó, el resultado y la hora como columnas: el agregador las junta en «a, b +N», y rehacer
+  cada llamada de ahí juntaba dos llamadas de la misma hora, cortaba después de la segunda y le daba a todas el primer autor. Lo cazó
+  el revisor, no un test (los tests pasaban con filas armadas a mano en esa forma). Si la tarjeta dibuja eventos, la pieza va por el
+  EVENTO (una dimensión por llamada, con el lead como referencia).
+- **⚠️ Y la hora que se DIBUJA va en la zona del negocio, no en la del día de la fila.** `fechaTj` (el día, en Tijuana para todos) es una
+  decisión del Dashboard entero; una hora en esa zona, al lado de un saludo en la del negocio, ponía a las 7 una llamada de las 9.
 - **En la nube no hay base:** la hoja se vio en el editor de verdad con un banco temporal (una ruta que monta `EditorInforme` con la
   muestra), que se borró antes del veredicto junto con `.next/dev` (§36). Editando abre su propio recorrido encima: hay que saltearlo.
 

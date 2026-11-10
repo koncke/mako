@@ -23,7 +23,7 @@ import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_OFRECIDAS, VELOCIDAD_LLAMADA, instanciarPlantilla } from '../lib/graficos-plantillas';
 import { ROTULO_RESULTADO, SIN_MARCAR } from '../lib/grabar-llamada-reglas';
 import {
-  CARGA, CHATS, ESPERAN, FILAS_LINEA, TARJETAS, TRAMOS, actividadDe, cargaDe, carrilesDe, chatsDe, corta, diasDe, esperanDe, lineaDe, llamadasDeHoy,
+  CARGA, CHATS, ESPERAN, FILAS_LINEA, TARJETAS, TRAMOS, actividadDe, cargaDe, carrilesDe, chatsDe, corta, diasDe, esperanDe, horaDeTexto, lineaDe, llamadasDeHoy,
   numerosDe, resumenDe, tramosDe, vistaVelocidad,
 } from '../lib/velocidad-diseno';
 import { datosVelocidadMuestra } from '../lib/velocidad-diseno-muestra';
@@ -58,7 +58,7 @@ test('los cuatro números: la píldora de cada uno, y «bueno» sólo cuando lo 
   const s = resumenDe(res(RESUMEN, [100, 60, 30, 85, 24, 75, 45, 10], { anterior: [80, 40, 32, null, null, null, null, null] }));
   const n = numerosDe(s, 'Últimos 30 días');
   assert.deepEqual(n.map((x) => x.nombre), ['Leads nuevos', 'Esperando contacto', 'Primer contacto', 'Sin contactar, últimos 30 días']);
-  assert.deepEqual(n.map((x) => x.texto), ['100', '30', '1 h', '30%']);
+  assert.deepEqual(n.map((x) => x.texto), ['100', '25', '1 h', '30%'], '«Esperando contacto» es el carril «Esperando» (más de una hora), no todos los sin contactar');
   assert.deepEqual(n.map((x) => x.pill), ['60 contactados', 'mediana 45 min', '28% en la primera hora', 'era 40% antes']);
   assert.deepEqual(n.map((x) => x.bueno), [false, true, false, true], 'la espera dentro de la hora y el % que bajó');
   const sin = numerosDe(resumenDe(null), 'Hoy');
@@ -93,26 +93,35 @@ test('WhatsApp: de la espera más corta a la más larga, «Urgente» pasadas 24 
   ]))!;
   assert.deepEqual(ch.filas.map((f) => [f.nombre, Math.round(f.minutos), f.urgente, f.etapa]), [['Cerca', 5, false, null], ['Lejos', 1800, true, 'Calificado']]);
   assert.equal(ch.total, 2);
+  assert.equal(ch.masDe, false, 'una fila que no espera dice que entraron todos');
   const muchos = chatsDe(filas(['espera_respuesta'], Array.from({ length: 9 }, (_, i) => ({ clave: `C${i}`, valores: [i * 60] }))))!;
-  assert.deepEqual([muchos.filas.length, muchos.total], [CHATS, 9]);
+  assert.deepEqual([muchos.filas.length, muchos.total, muchos.masDe], [CHATS, 9, false]);
+  const tope = chatsDe(filas(['espera_respuesta'], Array.from({ length: 50 }, (_, i) => ({ clave: `T${i}`, valores: [i * 60] })), { fuera: 70 }))!;
+  assert.deepEqual([tope.total, tope.masDe], [50, true], 'las 50 esperan y quedó algo afuera: «50+», no «120» (lo de afuera también cuenta chats contestados)');
   assert.equal(chatsDe(null), null);
 });
 
-test('las llamadas de hoy: una por hora, la fila por quién llama, «contestan» sin contar «No contestó», y la actividad de la más tarde', () => {
+test('las llamadas de hoy: una por llamada (dos al mismo lead son dos), la fila por quién llama, y la actividad de la más tarde', () => {
   const { agendo, hablo, no_contesto } = ROTULO_RESULTADO;
+  // El caso de la revisión (10/11/2026): Laura, llamada a las 9:10 por Marcos («No contestó») y a las 9:40 por Daniela («Habló»).
+  // Agrupada por lead, la pieza daba UNA llamada, de Daniela y «Habló»: Marcos desaparecía de la línea y de la actividad.
   const ll = llamadasDeHoy(filas(['llamadas', 'minutos'], [
-    { clave: 'Lead A', valores: [2, 20], extra: { autor: 'Ana, Luis', resultado: `${agendo}, ${hablo}`, hora: '09, 15' } },
-    { clave: 'Lead B', valores: [1, 4], extra: { autor: 'Ana', resultado: no_contesto, hora: '19' } },
-    { clave: 'Lead C', valores: [1, 6], extra: { autor: 'Luis', resultado: SIN_MARCAR, hora: '10' } },
-    { clave: 'Sin hora', valores: [1, 3], extra: { autor: 'Luis' } },
+    { clave: 'Llamada #1', valores: [1, 4], ref: '7', extra: { lead: 'Laura', autor: 'Marcos', resultado: no_contesto, hora: '09:10' } },
+    { clave: 'Llamada #2', valores: [1, 12], ref: '7', extra: { lead: 'Laura', autor: 'Daniela', resultado: hablo, hora: '09:40' } },
+    { clave: 'Llamada #3', valores: [1, 20], ref: '8', extra: { lead: 'Tomás', autor: 'Daniela', resultado: agendo, hora: '19:05' } },
+    { clave: 'Llamada #4', valores: [1, 6], ref: '9', extra: { lead: 'Sara', autor: 'Marcos', resultado: SIN_MARCAR, hora: '10:00' } },
+    { clave: 'Llamada #5', valores: [1, 3], ref: '9', extra: { lead: 'Sara', autor: 'Marcos' } },
   ]))!;
-  assert.deepEqual(ll.map((l) => [l.nombre, l.hora, l.quien]), [['Lead A', 9, 'Ana'], ['Lead A', 15, 'Ana'], ['Lead B', 19, 'Ana'], ['Lead C', 10, 'Luis']]);
+  assert.deepEqual(ll.map((l) => [l.nombre, Math.round(l.hora * 60), l.quien, l.resultado, l.ref]), [
+    ['Laura', 9 * 60 + 10, 'Marcos', no_contesto, '7'], ['Laura', 9 * 60 + 40, 'Daniela', hablo, '7'], ['Tomás', 19 * 60 + 5, 'Daniela', agendo, '8'], ['Sara', 600, 'Marcos', SIN_MARCAR, '9'],
+  ], 'una por llamada, con su lead, su autor y su resultado; sin hora no se dibuja');
   const linea = lineaDe(ll)!;
-  assert.deepEqual(linea.filas.map((f) => [f.quien, f.llamadas, f.contestaron]), [['Ana', 3, 2], ['Luis', 1, 0]]);
+  assert.deepEqual(linea.filas.map((f) => [f.quien, f.llamadas, f.contestaron]).sort(), [['Daniela', 2, 2], ['Marcos', 2, 0]], '«contestan» no cuenta «No contestó» ni «Sin marcar»');
   assert.deepEqual([linea.desde, linea.hasta], [8, 20], 'el día de la copia (8 a 17) se estira hasta la llamada de las 19');
-  assert.equal(linea.filas[0].bloques[0].color, 'teal', 'agendó, en el color de la copia');
+  assert.equal(linea.filas.find((f) => f.quien === 'Daniela')!.bloques[1].color, 'teal', 'agendó, en el color de la copia');
   const act = actividadDe(ll)!;
-  assert.deepEqual(act.map((a) => a.hora), [19, 15, 10, 9]);
+  assert.deepEqual(act.map((a) => a.quien), ['Daniela', 'Marcos', 'Daniela', 'Marcos'], 'de la más tarde a la más temprano');
+  assert.deepEqual([horaDeTexto('09:40'), horaDeTexto('24:00'), horaDeTexto('9'), horaDeTexto(null)], [9 + 40 / 60, null, null, null]);
   const varios = lineaDe(Array.from({ length: 8 }, (_, i) => ({ lead: `L${i}`, ref: null, nombre: `L${i}`, quien: `P${i}`, resultado: null, hora: 9, minutos: 5 })))!;
   assert.equal(varios.filas.length, FILAS_LINEA);
   assert.deepEqual([llamadasDeHoy(null), lineaDe(null), actividadDe(null)], [null, null, null]);
@@ -195,12 +204,23 @@ test('el cableado: la plantilla trae su diseño con sus diez piezas, se ofrece, 
   assert.ok((DISENOS_HOJA as readonly string[]).includes('velocidad'));
   assert.ok(PLANTILLAS_OFRECIDAS.some((p) => p.id === 'velocidad-llamada'), 'se ofrece en «Nueva hoja»');
   assert.deepEqual(Object.keys(h.diseno!.piezas).sort(), ['antes', 'carga', 'chats', 'contactados', 'dias', 'esperan', 'hoy', 'recien', 'resumen', 'tramos']);
+  // Las llamadas de hoy, UNA FILA POR LLAMADA: agrupadas por lead, dos llamadas a la misma persona se juntaban en una.
+  const hoyP = h.componentes.find((c) => c.id === h.diseno!.piezas.hoy);
+  assert.ok(hoyP && hoyP.clase === 'grafico');
+  assert.equal(hoyP.dimension, 'llamada');
+  assert.deepEqual(hoyP.tabla?.columnas, ['lead', 'autor', 'resultado', 'hora']);
   const src = leer('app/dashboard/disenos/HojaVelocidad.tsx');
   assert.ok(src.includes("import('@/app/_components/grabar/GrabarEnFrio')"), 'la grabadora es la de la ficha del lead');
   // UNA copia: la hoja no monta tarjetas de otro diseño (lo que hacía la de antes).
   assert.doesNotMatch(src, /from '\.\/Hoja(?!Velocidad)[A-Z]\w*'/, 'no importa otra hoja copiada');
   assert.match(leer('app/dashboard/disenos/DisenoEnMiniatura.tsx'), /velocidad: \(\{ hoja, hoy \}\) => \(/, 'la miniatura de «Nueva hoja» la dibuja');
-  assert.match(leer('app/dashboard/page.tsx'), /velocidad: hayDisenoVelocidad \? \{ quien \} : null,/, 'la página le pasa quién mira (el saludo y el negocio)');
+  const pagina = leer('app/dashboard/page.tsx');
+  assert.match(pagina, /velocidad: hayDisenoVelocidad \? \{ quien, zona \} : null,/, 'la página le pasa quién mira (el saludo y el negocio) y la zona del negocio');
+  assert.match(pagina, /const zonaVelocidad = hayDisenoVelocidad \? zonaDelCalendario\(\)/, 'la zona es la del negocio, la misma que el saludo');
+  // La hora de cada llamada sale en la zona del negocio (no en la de Tijuana de `fechaTj`): una de las 9 en Ciudad de México se
+  // dibujaba a las 7.
+  assert.match(leer('lib/graficos-datos-extra.ts'), /const tz = ws != null \? await zonaDelNegocio\(ws\) : ZONA_POR_DEFECTO;/);
+  assert.match(leer('lib/graficos-datos-extra.ts'), /hora: horaEn\(x\.created_at, tz\)/);
 });
 
 // ── Roturas (10/11/2026), cada una sola, con copia y verificada por hash. Base 10 / 0; al final 10 / 0:
@@ -211,3 +231,7 @@ test('el cableado: la plantilla trae su diseño con sus diez piezas, se ofrece, 
 //   · `puedeGrabar` sin `!compartido`                                          -> 9 / 1  «la hoja dibuja sus diez tarjetas…»
 //   · «Flujo de leads» devuelto a «Patient flow»                               -> 9 / 1  el mismo
 //   · el despachador sin el renglón de `velocidad`                             -> 9 / 1  «el cableado…»
+// Y la segunda tanda (10/11, lo que encontró la revisión), base 10 / 0:
+//   · la pieza `hoy` otra vez por `lead`                                       -> 9 / 1  «el cableado…»
+//   · «Esperando contacto» con todos los sin contactar                          -> 9 / 1  «los cuatro números…»
+//   · la hora de la llamada en la zona de Tijuana (`ZONA_POR_DEFECTO` siempre)  -> 9 / 1  «el cableado…»

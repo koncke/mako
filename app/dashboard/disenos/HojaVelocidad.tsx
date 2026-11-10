@@ -76,7 +76,7 @@ const fechaLarga = (hoy: string) => { const d = new Date(`${hoy}T12:00:00Z`); re
 const AVATARES = ['mint', 'sky', 'apricot', 'sand', 'lilac', 'teal'] as const;
 const avDe = (s: string) => AVATARES[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % AVATARES.length];
 /** «14:00» → «14 h»; la hora y los minutos de ahora → «9:02». */
-const horaTxt = (h: number) => `${Math.floor(h)}:${String(Math.round((h % 1) * 60)).padStart(2, '0')}`;
+const horaTxt = (h: number) => { const t = Math.round(h * 60); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
 
 /** El tamaño de una caja (el gráfico se dibuja a su tamaño real, como en Tend: un viewBox fijo deforma el texto). */
 function useTam<T extends HTMLElement>() {
@@ -170,7 +170,8 @@ function Linea({ linea, ahora, onLead }: { linea: NonNullable<VistaVelocidad['li
   const [ref, { w }] = useTam<HTMLDivElement>();
   // En una tarjeta angosta (el teléfono de la copia) la línea muestra una ventana de unas 2 h 40 min alrededor de ahora.
   const angosta = w > 0 && w < 520 && ahora != null;
-  const desde = angosta ? Math.max(linea.desde, Math.floor(ahora - 1) + 0.75) : linea.desde;
+  // …sin pasar del final de la línea: a las 23 h la de la copia llegaba a «25».
+  const desde = angosta ? Math.max(linea.desde, Math.min(Math.floor(ahora - 1) + 0.75, linea.hasta - 2.65)) : linea.desde;
   const hasta = angosta ? desde + 2.65 : linea.hasta;
   const pos = (h: number) => `${((h - desde) / (hasta - desde)) * 100}%`;
   const horas: number[] = [];
@@ -183,7 +184,7 @@ function Linea({ linea, ahora, onLead }: { linea: NonNullable<VistaVelocidad['li
     <div className="vt-td-tl" ref={ref}>
       <div className="vt-td-tl__hours">{horas.map((h) => <span key={h} style={{ left: pos(h) }}>{h}</span>)}</div>
       <div className="vt-td-tl__names" style={{ gridColumn: 1, gridRow: 2 }}>
-        {linea.filas.map((f) => <div key={f.quien} className="vt-td-tl__who"><span className={`vt-av vt-av--${avDe(f.quien)}`}>{f.iniciales}</span><span><b>{f.quien}</b><small title={f.llamadas ? `${pct((f.contestaron / f.llamadas) * 100)} contestan` : undefined}>{f.llamadas === 1 ? '1 llamada' : `${f.llamadas} llamadas`}</small></span></div>)}
+        {linea.filas.map((f) => <div key={f.quien} className="vt-td-tl__who"><span className={`vt-av vt-av--${avDe(f.quien)}`}>{f.iniciales}</span><span><b>{f.quien}</b><small>{f.llamadas === 1 ? '1 llamada' : `${f.llamadas} llamadas`}</small></span></div>)}
       </div>
       <div className="vt-td-tl__body" style={{ gridRow: 2 }}>
         {linea.filas.map((f) => (
@@ -192,7 +193,7 @@ function Linea({ linea, ahora, onLead }: { linea: NonNullable<VistaVelocidad['li
               const ini = Math.max(b.desde, desde), fin = Math.min(b.desde + b.dura, hasta);
               return (
                 <span key={`${b.lead}-${i}`} className={`vt-td-blk vt-td-blk--${b.color}`} style={{ left: pos(ini), width: `calc(${((fin - ini) / (hasta - desde)) * 100}% - 2px)` }}
-                  title={`${b.nombre} · ${b.hora} h${b.resultado ? ` · ${b.resultado}` : ''}`} {...accionDe(onLead(b.lead))} />
+                  title={`${b.nombre} · ${horaTxt(b.hora)}${b.resultado ? ` · ${b.resultado}` : ''}`} {...accionDe(onLead(b.lead))} />
               );
             })}
           </div>
@@ -226,7 +227,7 @@ function Tarjeta({ c, l, onAbrir, onLlamar }: { c: CarrilVelocidad['id']; l: Lea
   );
 }
 
-export function HojaVelocidad({ hoja, vista, saludo, negocio, hoy, periodo, ahora = null, onFila, onCambio, compartido = false, quieta = false }: {
+export function HojaVelocidad({ hoja, vista, saludo, negocio, hoy, ahora = null, onFila, onCambio, compartido = false, quieta = false }: {
   hoja: Hoja;
   vista: VistaVelocidad;
   /** «Buenos días, Ana» (sin quien mira, el nombre de la hoja). */
@@ -235,7 +236,7 @@ export function HojaVelocidad({ hoja, vista, saludo, negocio, hoy, periodo, ahor
   negocio: string | null;
   /** Hoy en el negocio (YYYY-MM-DD). */
   hoy: string;
-  /** El período de la hoja, como se lee en su control («Últimos 30 días»). */
+  /** El período de la hoja, como se lee en su control («Últimos 30 días»): lo dicen los números (`vista`), que lo reciben al armarse. */
   periodo: string;
   /** La hora de ahora (9.03 = 9:02), en la misma zona que las horas de las llamadas: la raya roja de «Llamadas de hoy». */
   ahora?: number | null;
@@ -321,7 +322,7 @@ export function HojaVelocidad({ hoja, vista, saludo, negocio, hoy, periodo, ahor
         {/* «WhatsApp · waiting on us» → los chats que esperan respuesta */}
         <Parte id="chats">
         <section className="vt-card vt-td-inbox">
-          <div className="vt-card__h"><h2 className="vt-card__t"><Icono id="wa" />WhatsApp</h2>{v.chats && <span className="vt-card__aside">{ent(v.chats.total)} esperan respuesta</span>}</div>
+          <div className="vt-card__h"><h2 className="vt-card__t"><Icono id="wa" />WhatsApp</h2>{v.chats && <span className="vt-card__aside">{ent(v.chats.total)}{v.chats.masDe ? '+' : ''} esperan respuesta</span>}</div>
           <div className="vt-td-chats">
             {(v.chats?.filas ?? []).map((c) => (
               <div key={c.clave} className={`vt-td-chat vt-is-unread${c.urgente ? ' vt-is-urgent' : ''}`} {...accionDe(abrir(p.chats, c.clave))}>
@@ -370,7 +371,7 @@ export function HojaVelocidad({ hoja, vista, saludo, negocio, hoy, periodo, ahor
             <Selector opciones={[{ id: 'corto', nombre: '2S' }, { id: 'todo', nombre: '30D' }] as const} valor={rango} onCambio={setRango} etiqueta="Cuántos días" />
             <Ir href="/crm" className="vt-ibtn" etiqueta="Abrir el CRM"><Icono id="expand" /></Ir>
           </div>
-          <p className="vt-td-trend__big"><b>{v.dias ? ent(contactadosDias) : '—'}</b><span>contactados {rango === 'corto' ? `en los últimos ${DIAS_CORTO} días` : periodo.trim().toLowerCase()}{contactadosDias + sinDias ? ` · ${pct((sinDias / (contactadosDias + sinDias)) * 100)} sin contactar` : ''}</span></p>
+          <p className="vt-td-trend__big"><b>{v.dias ? ent(contactadosDias) : '—'}</b><span>contactados en {dias.length === 1 ? 'el último día' : `los últimos ${dias.length} días`}{contactadosDias + sinDias ? ` · ${pct((sinDias / (contactadosDias + sinDias)) * 100)} sin contactar` : ''}</span></p>
           <div className="vt-td-keys"><span style={{ ['--c' as string]: 'var(--teal)' }}><i />Contactados</span><span style={{ ['--c' as string]: 'var(--coral)' }}><i />Sin contactar</span></div>
           <Curva dias={dias} />
         </section>
@@ -404,7 +405,7 @@ export function HojaVelocidad({ hoja, vista, saludo, negocio, hoy, periodo, ahor
               <div key={c.clave} className="vt-td-load__row" {...accionDe(abrir(p.carga, c.clave))}>
                 <span className={`vt-av vt-av--${avDe(c.nombre)}`}>{c.iniciales}</span>
                 <span className="vt-td-load__txt">
-                  <span className="vt-td-load__top"><b>{c.nombre}</b>{c.sinContactar > 0 && <span>{ent(c.sinContactar)} esperando</span>}</span>
+                  <span className="vt-td-load__top"><b>{c.nombre}</b>{c.sinContactar > 0 && <span>{ent(c.sinContactar)} sin contactar</span>}</span>
                   <span className="vt-td-load__bar"><i style={{ width: `${c.ancho * 100}%` }} /></span>
                   <small>{pct(c.ancho * 100)} contactados · {c.mediana != null ? `mediana ${corta(c.mediana)}` : `${ent(c.leads)} leads`}</small>
                 </span>
@@ -422,7 +423,7 @@ export function HojaVelocidad({ hoja, vista, saludo, negocio, hoy, periodo, ahor
             {(v.actividad ?? []).map((a, i) => (
               <li key={`${a.lead}-${i}`} {...accionDe(abrir(p.hoy, a.lead))}>
                 <span className="vt-td-feed__ic"><Icono id="telefono" /></span>
-                <p><b>{a.quien ?? 'Alguien'}</b> llamó a {a.nombre}{a.resultado && a.resultado !== SIN_MARCAR ? ` · ${a.resultado}` : ''}<small>hoy, {a.hora} h</small></p>
+                <p><b>{a.quien ?? 'Alguien'}</b> llamó a {a.nombre}{a.resultado && a.resultado !== SIN_MARCAR ? ` · ${a.resultado}` : ''}<small>hoy, {horaTxt(a.hora)}</small></p>
               </li>
             ))}
           </ul>

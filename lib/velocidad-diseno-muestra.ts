@@ -54,11 +54,16 @@ export function datosVelocidadMuestra(hoja: Pick<Hoja, 'diseno'>, hoy: string): 
   poner(p.antes, cat(['leads'], Array.from({ length: YA }, (_, k) => ({ ...fila(k + 14, 1, { dia: dd(k + 2), setter: SETTERS[k % 4], producto: FUNNELS[k % 2], tramo: k % 3 ? 'Ya hablaban antes' : 'No se sabe' }) })), [YA], ['dia', 'setter', 'producto', 'tramo']));
   poner(p.chats, cat(['espera_respuesta', 'sin_responder'], [6, 19, 47, 95, 260, 1600].map((m, k) => ({ clave: NOMBRES[(k + 4) % 20], etiqueta: NOMBRES[(k + 4) % 20], ref: String(9100 + k), valores: [m * 60, m > 1440 ? 1 : 0], extra: { etapa: ['Contacto nuevo', 'Calificado', 'Contacto nuevo', 'Agendó visita', 'Calificado', 'Contacto nuevo'][k] } })), [null, 1], ['etapa']));
   const RES = [ROTULO_RESULTADO.agendo, ROTULO_RESULTADO.hablo, ROTULO_RESULTADO.no_contesto, ROTULO_RESULTADO.hablo, SIN_MARCAR, ROTULO_RESULTADO.no_interesa, ROTULO_RESULTADO.no_contesto, ROTULO_RESULTADO.agendo];
-  const HORAS = ['09', '09', '10', '10', '11', '12', '13', '15', '16', '16', '17', '09', '11', '14'];
-  poner(p.hoy, cat(['llamadas', 'minutos'], HORAS.map((h, k) => ({
-    clave: NOMBRES[k % 20], etiqueta: NOMBRES[k % 20], ref: String(9200 + k), valores: [1, 3 + ((k * 5) % 14)],
-    extra: { autor: SETTERS[k % 3], resultado: RES[k % RES.length], hora: h },
-  })), [HORAS.length, 120], ['autor', 'resultado', 'hora']));
+  // Una fila por llamada (la pieza va por «Llamada»), con el lead, quién llamó, cómo terminó y su hora; la segunda a un mismo lead
+  // (Camila Rojas, a las 9:05 y a las 16:20) es otra fila.
+  const HORAS = ['09:05', '09:20', '10:10', '10:40', '11:15', '12:30', '13:05', '15:10', '16:20', '16:45', '17:00', '09:50', '11:35', '14:25'];
+  poner(p.hoy, cat(['llamadas', 'minutos'], HORAS.map((h, k) => {
+    const lead = k === 8 ? 0 : k;
+    return {
+      clave: `Llamada #${700 + k}`, etiqueta: `Llamada #${700 + k}`, ref: String(9200 + lead), valores: [1, 3 + ((k * 5) % 14)],
+      extra: { lead: NOMBRES[lead % 20], autor: SETTERS[k % 3], resultado: RES[k % RES.length], hora: h },
+    };
+  }), [HORAS.length, 120], ['lead', 'autor', 'resultado', 'hora']));
   poner(p.tramos, cat(['leads'], TRAMOS.map(([k, v]) => ({ clave: k, etiqueta: k, valores: [v] })), [CONTACTADOS]));
   poner(p.dias, { columnas: col(['contactados', 'sin_contactar']), fuera: 0, clase: 'tiempo', totales: [CONTACTADOS, SIN], filas: DIAS.map(([c, s], k) => { const d = dia(hoy, k - (DIAS.length - 1)); return { clave: d, etiqueta: d, valores: [c, s] }; }) });
   // Cada setter, su parte de los totales del resumen: las cuatro filas suman los leads, los contactados y los sin contactar de arriba.

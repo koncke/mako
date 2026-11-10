@@ -47,9 +47,10 @@ for (const pedazo of ['id="td-chart"', 'data-r="2w"', 'data-r="30d"', 'id="td-tr
 const dias = vista.dias ?? [];
 const max = Math.max(1, ...dias.map((d) => Math.max(d.contactados, d.sinContactar)));
 const tope = [2, 4, 10, 20, 40, 50, 100, 200, 500, 1000, 2000, 5000].find((p) => p >= max) ?? Math.ceil(max);
-const resumen = (ds: typeof dias, cuando: string) => {
+// El mismo texto que HojaVelocidad: los días que de verdad muestra.
+const resumen = (ds: typeof dias) => {
   const a = ds.reduce((s, d) => s + d.contactados, 0), b = ds.reduce((s, d) => s + d.sinContactar, 0);
-  return `<b>${a.toLocaleString('en-US')}</b><span>contactados ${cuando}${a + b ? ` · ${pct((b / (a + b)) * 100)} sin contactar` : ''}</span>`;
+  return `<b>${a.toLocaleString('en-US')}</b><span>contactados en los últimos ${ds.length} días${a + b ? ` · ${pct((b / (a + b)) * 100)} sin contactar` : ''}</span>`;
 };
 const datos = {
   linea: vista.linea && {
@@ -61,7 +62,7 @@ const datos = {
     dias: dias.map((d) => ({ r: d.rotulo, a: d.contactados, b: d.sinContactar })),
   },
 };
-const resumenes = { corto: resumen(dias.slice(-DIAS_CORTO), `en los últimos ${DIAS_CORTO} días`), todo: resumen(dias, PERIODO.toLowerCase()) };
+const resumenes = { corto: resumen(dias.slice(-DIAS_CORTO)), todo: resumen(dias) };
 
 const pagina = `<!doctype html>
 <html lang="es">

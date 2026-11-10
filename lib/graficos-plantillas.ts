@@ -265,10 +265,11 @@ export const VELOCIDAD_LLAMADA: PlantillaHoja = conPortadaDe(plantilla({
       local: 'chats', tipo: 'tabla', fuente: 'conversaciones', fecha: 'actual', dimension: 'lead', metricas: ['espera_respuesta', 'sin_responder'],
       ordenAsc: true, limite: 50, titulo: 'Esperan respuesta en WhatsApp', tabla: { acciones: true, columnas: ['etapa'] },
     },
-    // «Clinicians today» y «Team activity»: las llamadas grabadas hoy, con quién llamó, cómo terminó y a qué hora.
+    // «Clinicians today» y «Team activity»: las llamadas grabadas hoy, UNA FILA POR LLAMADA (por lead, dos llamadas al mismo lead se
+    // juntaban en una), con el lead, quién llamó, cómo terminó y a qué hora. Hasta 50 por día.
     {
-      local: 'hoy', tipo: 'tabla', fuente: 'llamadas_grabadas', dimension: 'lead', metricas: ['llamadas', 'minutos'], limite: 50,
-      titulo: 'Llamadas de hoy', tabla: { acciones: true, columnas: ['autor', 'resultado', 'hora'] }, controles: [{ tipo: 'periodo', preset: 'hoy', fijo: true }],
+      local: 'hoy', tipo: 'tabla', fuente: 'llamadas_grabadas', dimension: 'llamada', metricas: ['llamadas', 'minutos'], limite: 50,
+      titulo: 'Llamadas de hoy', tabla: { acciones: true, columnas: ['lead', 'autor', 'resultado', 'hora'] }, controles: [{ tipo: 'periodo', preset: 'hoy', fijo: true }],
     },
     // «Reminders · Tomorrow»: los contactados por cuánto tardaron.
     { local: 'tramos', tipo: 'barras', fuente: 'primer_contacto', dimension: 'tramo', metricas: ['leads'], titulo: 'Cuánto tardaron' },

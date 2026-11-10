@@ -19,8 +19,8 @@
 //     (una tabla trae 50 como mucho);
 //   · «WhatsApp · waiting on us» → `chats` (el conjunto `conversaciones` con la fecha «Hoy»): los chats de leads cuyo último mensaje es
 //     de la persona, con hace cuánto escribió. Más de 24 h es «Urgente», como la fila marcada de la copia;
-//   · «Clinicians today» → `hoy` (las llamadas grabadas HOY, por lead, con quién llamó, cómo terminó y a qué hora): una fila por quién
-//     llama y un bloque por llamada en su hora;
+//   · «Clinicians today» → `hoy` (las llamadas grabadas HOY, una fila por llamada, con el lead, quién llamó, cómo terminó y a qué hora,
+//     en la zona del negocio): una fila por quién llama y un bloque por llamada en su hora;
 //   · «Reminders · Tomorrow» → `tramos` (los contactados por cuánto tardaron);
 //   · «Visits» (2W · 30D) → `dias` (contactados y sin contactar, día por día);
 //   · «Recalls due» → `esperan` (los sin contactar, de la espera más larga a la más corta), con «Llamar»;
@@ -96,7 +96,9 @@ export function numerosDe(s: ResumenVelocidad, periodo: string): NumeroVelocidad
   const mejor = s.pctSin != null && s.pctSinAntes != null && s.pctSin < s.pctSinAntes;
   return [
     { id: 'leads', icono: 'cal', nombre: 'Leads nuevos', texto: ent(s.leads), pill: s.contactados != null ? `${ent(s.contactados)} contactados` : null, bueno: false },
-    { id: 'esperando', icono: 'door', nombre: 'Esperando contacto', texto: ent(s.sinContactar), pill: s.medianaEspera != null ? `mediana ${corta(s.medianaEspera)}` : null, bueno: s.medianaEspera != null && s.medianaEspera <= MINUTOS_A_TIEMPO },
+    // El mismo número que el carril «Esperando» y que «N esperando» del flujo (en Tend, el número y la sala de espera son el mismo 6): los
+    // sin contactar de más de una hora. Los de menos de una hora todavía están a tiempo (el carril «Entraron»).
+    { id: 'esperando', icono: 'door', nombre: 'Esperando contacto', texto: ent(s.esperando), pill: s.medianaEspera != null ? `mediana ${corta(s.medianaEspera)}` : null, bueno: s.medianaEspera != null && s.medianaEspera <= MINUTOS_A_TIEMPO },
     { id: 'contacto', icono: 'wa', nombre: 'Primer contacto', texto: corta(s.medianaContacto), pill: pctHora != null ? `${pct(pctHora)} en la primera hora` : null, bueno: false },
     { id: 'sin', icono: 'pulse', nombre: `Sin contactar, ${periodo.trim().toLowerCase()}`, texto: s.pctSin == null ? null : pct(s.pctSin), pill: s.pctSinAntes != null ? `era ${pct(s.pctSinAntes)} antes` : null, bueno: mejor },
   ];
@@ -140,14 +142,19 @@ export const CHATS = 6;
 /** Más que esto esperando es «Urgente» (el mismo umbral de 24 h con que la fuente cuenta «Esperando respuesta»). */
 export const HORAS_URGENTE = 24;
 export type ChatVelocidad = { clave: string; ref: string | null; nombre: string; iniciales: string; minutos: number; urgente: boolean; etapa: string | null };
-export function chatsDe(r: Resultado | null): { filas: ChatVelocidad[]; total: number } | null {
+export function chatsDe(r: Resultado | null): { filas: ChatVelocidad[]; total: number; masDe: boolean } | null {
   if (!r) return null;
-  const todos = filasDe(r).map((f) => {
+  const filas = filasDe(r);
+  const todos = filas.map((f) => {
     const seg = enFila(r, f, 'espera_respuesta');
     const nombre = f.etiqueta || f.clave;
     return seg == null ? null : { clave: f.clave, ref: f.ref ?? null, nombre, iniciales: iniciales(nombre), minutos: seg / 60, urgente: seg / 3600 > HORAS_URGENTE, etapa: extra(f, 'etapa') };
   }).filter((x): x is ChatVelocidad => x != null).sort((a, b) => a.minutos - b.minutos);
-  return { filas: todos.slice(0, CHATS), total: todos.length };
+  // La pieza trae hasta 50, de la espera más corta a la más larga y con los que ya contestamos al final: si alguna de las filas ya no
+  // espera, entraron todos los que esperan. Si las 50 esperan y quedó algo afuera, son «50 o más» (`masDe`): lo de afuera también
+  // cuenta los chats ya contestados, así que sumarlo inflaría el número.
+  const masDe = todos.length === filas.length && (r.fuera ?? 0) > 0;
+  return { filas: todos.slice(0, CHATS), total: todos.length, masDe };
 }
 
 // ── «Clinicians today» y «Team activity» → las llamadas de hoy ─────────────────────────────────────────────────────────────
@@ -156,23 +163,21 @@ export type LlamadaHoy = { lead: string; ref: string | null; nombre: string; qui
 export const COLOR_LLAMADA: Readonly<Record<string, 'teal' | 'mint' | 'sky' | 'coral' | 'sand'>> = {
   [ROTULO_RESULTADO.agendo]: 'teal', [ROTULO_RESULTADO.hablo]: 'mint', [ROTULO_RESULTADO.no_contesto]: 'sky', [ROTULO_RESULTADO.no_interesa]: 'coral', [SIN_MARCAR]: 'sand',
 };
-const horasDe = (v: string | null): number[] => (v ? v.split(/,\s*/).map((x) => Number.parseInt(x, 10)).filter((n) => Number.isFinite(n) && n >= 0 && n < 24) : []);
-/** Una llamada por hora de cada lead (la tabla agrupa por lead: dos llamadas a la misma persona son dos horas en su columna). */
+/** «09:40» → 9.67 (la hora como número, para ubicarla en la línea del día). */
+export function horaDeTexto(v: string | null): number | null {
+  const m = v ? /^(\d{1,2}):(\d{2})$/.exec(v.trim()) : null;
+  if (!m) return null;
+  const h = Number(m[1]), min = Number(m[2]);
+  return h < 24 && min < 60 ? h + min / 60 : null;
+}
+/** Una por llamada (la pieza tiene una fila por llamada, con el lead como su referencia); sin hora, no se dibuja. */
 export function llamadasDeHoy(r: Resultado | null): LlamadaHoy[] | null {
   if (!r) return null;
   const out: LlamadaHoy[] = [];
   for (const f of filasDe(r)) {
-    const nombre = f.etiqueta || f.clave;
-    const horas = horasDe(extra(f, 'hora'));
-    const n = Math.max(1, Math.round(enFila(r, f, 'llamadas') ?? horas.length));
-    const min = enFila(r, f, 'minutos');
-    const quien = (extra(f, 'autor') ?? '').split(/,\s*/)[0]?.replace(/ \+\d+$/, '') || null;
-    const resultado = (extra(f, 'resultado') ?? '').split(/,\s*/)[0]?.replace(/ \+\d+$/, '') || null;
-    for (let k = 0; k < Math.min(n, Math.max(1, horas.length)); k++) {
-      const hora = horas[k] ?? horas[0];
-      if (hora == null) continue;
-      out.push({ lead: f.clave, ref: f.ref ?? null, nombre, quien, resultado, hora, minutos: min == null ? null : min / n });
-    }
+    const hora = horaDeTexto(extra(f, 'hora'));
+    if (hora == null) continue;
+    out.push({ lead: f.clave, ref: f.ref ?? null, nombre: extra(f, 'lead') ?? f.etiqueta ?? f.clave, quien: extra(f, 'autor'), resultado: extra(f, 'resultado'), hora, minutos: enFila(r, f, 'minutos') });
   }
   return out;
 }
@@ -185,18 +190,18 @@ export function lineaDe(llamadas: LlamadaHoy[] | null): { filas: FilaLinea[]; de
   for (const l of llamadas) { const k = l.quien ?? 'Sin nombre'; por.set(k, [...(por.get(k) ?? []), l]); }
   const contesto = (r: string | null) => r === ROTULO_RESULTADO.agendo || r === ROTULO_RESULTADO.hablo || r === ROTULO_RESULTADO.no_interesa;
   const filas = [...por.entries()].map(([quien, ls]) => {
-    // Las de la misma hora, una al lado de la otra: la hora es todo lo que se sabe del momento.
     const enHora = new Map<number, number>();
     const bloques = ls.slice().sort((a, b) => a.hora - b.hora).map((l) => {
       const k = enHora.get(l.hora) ?? 0; enHora.set(l.hora, k + 1);
       const dura = Math.max(0.25, Math.min(1, (l.minutos ?? 10) / 60));
+      // Dos en el mismo minuto, una al lado de la otra.
       return { lead: l.lead, nombre: l.nombre, hora: l.hora, desde: l.hora + Math.min(0.75, k * 0.27), dura, color: COLOR_LLAMADA[l.resultado ?? SIN_MARCAR] ?? 'sand', resultado: l.resultado };
     });
     return { quien, iniciales: iniciales(quien), llamadas: ls.length, contestaron: ls.filter((l) => contesto(l.resultado)).length, bloques };
   }).sort((a, b) => b.llamadas - a.llamadas || a.quien.localeCompare(b.quien)).slice(0, FILAS_LINEA);
   const horas = llamadas.map((l) => l.hora);
   // El día de la copia va de las 8 a las 17; si alguien llamó antes o después, la línea se estira hasta esa hora.
-  const desde = Math.min(8, ...horas), hasta = Math.max(17, ...horas.map((h) => h + 1));
+  const desde = Math.min(8, ...horas.map(Math.floor)), hasta = Math.max(17, ...horas.map((h) => Math.floor(h) + 1));
   return { filas, desde, hasta };
 }
 export type ActividadVelocidad = { lead: string; ref: string | null; quien: string | null; nombre: string; resultado: string | null; hora: number };

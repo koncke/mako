@@ -374,8 +374,9 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
       escala(cat('resultado', 'Cómo terminó'), VALORES_RESULTADO, COLORES_RESULTADO),
       escala(cat('origen', 'Dónde se grabó'), [ROTULO_ORIGEN['cold-calling'], ROTULO_ORIGEN.ficha]),
       cat('autor', 'Quién llamó'), cat('lead', 'Lead'), cat('estado', 'Estado'),
-      // 10/11/2026 («Velocidad de llamada»): la hora del día de la llamada («09» … «23»), para la línea de las llamadas de hoy.
-      cat('hora', 'Hora'),
+      // 10/11/2026 («Velocidad de llamada»): la llamada misma (una fila por llamada, con el lead como referencia: agrupada por lead, dos
+      // llamadas al mismo lead se juntaban en una, con el primer autor y el primer resultado) y su hora («09:40», en la zona del negocio).
+      cat('llamada', 'Llamada'), cat('hora', 'Hora'),
     ],
     metricas: [
       m('llamadas', 'Llamadas'), m('contestaron', 'Contestaron'), m('agendaron', 'Agendaron'),

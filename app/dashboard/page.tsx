@@ -46,6 +46,7 @@ import { redirect } from 'next/navigation';
 import { Pagina } from '@/app/_ui';
 import { homeDeCapa, requireRolWs } from '@/lib/tab-access';
 import { getCapaActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
+import { zonaDelCalendario } from '@/lib/calendario';
 import { tabEnCapa } from '@/lib/capas';
 import { sinSuHoja } from './redireccion';
 import { hoyEnTijuana } from '@/lib/date-utils';
@@ -208,6 +209,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const hayDisenoContenido = hayDiseno('contenido');
   // La de «Velocidad de llamada» (la copia de Tend, app/dashboard/disenos/HojaVelocidad.tsx): el saludo y el negocio de la fecha de arriba.
   const hayDisenoVelocidad = hayDiseno('velocidad');
+  // Y la zona del negocio: las llamadas de hoy llegan en su hora («09:40», lib/graficos-datos-extra.ts) y la raya de «ahora» va en la misma.
+  const zonaVelocidad = hayDisenoVelocidad ? zonaDelCalendario().catch(() => null) : Promise.resolve(null);
   const etapasCs = hayDisenoCs ? etapasDeLaEntregaEnOrden() : Promise.resolve(null);
   const agendaComercial = hayDisenoComercial && !unica ? agendaParaComercial(hoy) : Promise.resolve(null);
   const agendaClosing = hayDisenoClosing && !unica ? agendaParaElClosing(hoy) : Promise.resolve(null);
@@ -216,8 +219,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const quienClosing = hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs || hayDisenoProductividad || hayDisenoContenido || hayDisenoVelocidad
     ? variablesDeQuienMira().then((q) => ({ saludo: q.saludo ?? 'Hola', nombre: q.nombre ?? '', fecha: q.fecha ?? '', negocio: q.negocio ?? '' })).catch(() => null)
     : Promise.resolve(null);
-  const [datos, senalesNegocio, closing, caida, agenda, quien, agendaHoy, etapas, contacto] = await Promise.all([
-    datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing, caidaClosing, agendaClosing, quienClosing, agendaComercial, etapasCs, contactoClosing,
+  const [datos, senalesNegocio, closing, caida, agenda, quien, agendaHoy, etapas, contacto, zona] = await Promise.all([
+    datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing, caidaClosing, agendaClosing, quienClosing, agendaComercial, etapasCs, contactoClosing, zonaVelocidad,
   ]);
 
   return (
@@ -258,7 +261,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
           cs: hayDisenoCs ? { quien, etapas } : null,
           productividad: hayDisenoProductividad ? { quien } : null,
           contenido: hayDisenoContenido ? { quien } : null,
-          velocidad: hayDisenoVelocidad ? { quien } : null,
+          velocidad: hayDisenoVelocidad ? { quien, zona } : null,
         } : null}
       />
     </Pagina>

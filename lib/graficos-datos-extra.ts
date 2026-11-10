@@ -33,7 +33,7 @@
 import 'server-only';
 import { SinConexionError, type Fila } from './graficos-agregar';
 import { rangoDe, type Grafico } from './graficos-catalogo';
-import { enRango, queTableroLeer, fechaTj, horaTj, funnelsAgregados, leer, leerPorIds, lindo, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
+import { enRango, queTableroLeer, fechaTj, horaEn, funnelsAgregados, leer, leerPorIds, lindo, num, rotulosDelCrm, ruta, txt, type Rango } from './graficos-lectura';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { conversorGastoMeta } from './moneda-meta';
 import { integracionConectada } from './credenciales';
@@ -64,7 +64,8 @@ import { sinRecurrentes } from './plan-recurrentes';
 import { CUADRANTE_ROTULO, DAY, cuadranteDe, deadlineMoves, metricasProductividad, ultActividad } from './productividad-metricas';
 import { nombreDeLlamada } from './llamadas-modelo';
 import { diasAntes, hoyEnTijuana, TZ_TIJUANA } from './date-utils';
-import { hoyEnWorkspace } from './timezone';
+import { ZONA_POR_DEFECTO } from './zona-negocio-reglas';
+import { hoyEnWorkspace, zonaDelNegocio } from './timezone';
 import { getMrrActivo } from './queries';
 import { getPorCobrar } from './pagos';
 import { ventasDeCrms } from './ventas-crm';
@@ -892,11 +893,15 @@ async function filasLlamadasGrabadas(rg: Rango): Promise<Fila[]> {
   }
   const leads = rows.length ? await leerPorIds<{ id: number; nombre: string | null }>('leads', 'id, nombre', 'id', rows.map((x) => x.lead_id)) : [];
   const nombre = new Map(leads.map((l) => [Number(l.id), txt(l.nombre)]));
+  // La hora va en la zona del NEGOCIO (la del saludo de la hoja), no en la del día de la fila (`fechaTj`): una llamada de las 9 en
+  // Ciudad de México se dibujaba a las 7. Sin negocio, la zona por defecto.
+  const ws = rows.length ? await getWorkspaceActual().catch(() => null) : null;
+  const tz = ws != null ? await zonaDelNegocio(ws) : ZONA_POR_DEFECTO;
   return rows
     .map((x) => {
       const fila = filaDeLlamadaGrabada(x, { fecha: fechaTj(x.created_at), lead: nombre.get(Number(x.lead_id)) ?? null });
-      // `hora` (10/11/2026, «Velocidad de llamada»): la hora del día de la llamada, en la misma zona que su fecha (`fechaTj`).
-      return { ...fila, d: { ...fila.d, hora: horaTj(x.created_at) } };
+      // `llamada` y `hora` (10/11/2026, «Velocidad de llamada»): una fila por llamada, con el lead como su referencia, y su hora.
+      return { ...fila, d: { ...fila.d, llamada: `Llamada #${x.id}`, hora: horaEn(x.created_at, tz) }, r: { ...fila.r, llamada: fila.r.lead } };
     })
     .filter((x) => enRango(x.f, rg));
 }
