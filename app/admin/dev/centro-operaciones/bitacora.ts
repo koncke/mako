@@ -2488,7 +2488,7 @@ export const BITACORA: Hito[] = [
       '**Lo tuyo sí, aunque diga una palabra técnica:** plata, clientes, accesos, seguridad, fechas, campañas y lo que tienes que ver pasan igual.',
       '**Las que ya estaban se esconden solas:** el bloque, el globito y la fila dejan de contar las técnicas que llegaron antes, y la Ticketera también.',
       '**Un chat por tab en la lista:** la fila es la tab, los chats de tarea van adentro y plegados detrás de «Mostrar N chats»; lo que espera tu respuesta o trabaja queda a la vista.',
-      '**Los dormidos se van:** un chat sin actividad hace tres días sale de la lista y sus preguntas viejas no suben el globito. El Cerebro, nunca.',
+      '**Los dormidos se van:** un chat sin actividad hace tres días sale de la lista, salvo que espere algo tuyo (una pregunta o un «Completado» sin ver). El Cerebro y los de la nube, nunca.',
       '**La tarjeta «Completado» dice qué se completó:** «Image · Portadas de carruseles», en el hilo y arriba de la caja, en la computadora y en el teléfono.',
     ],
     archivos: [

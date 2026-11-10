@@ -121,8 +121,7 @@ test('4. el bloque: de a una con «1 de 2», la recomendada marcada y «otra cos
     const src = sinComentarios(leer(f));
     assert.match(src, /<BloqueDePreguntas key=\{`b-\$\{/, `${f}: el bloque`);
     assert.match(src, /deLaApp=\{deLaApp\} \/>/, `${f}: las de la app, en el mismo bloque`);
-    // El bloque sale de las preguntas del bloque (10/11/2026: vacío si el chat duerme, tests/ops-center-por-tab.test.ts, 6).
-    assert.match(src, /const bloque = [^;\n]*preguntasParaElBloque\(lineas\);/);
+    assert.match(src, /const bloque = preguntasParaElBloque\(lineas\);/);
   }
   assert.match(leer('app/admin/operaciones/centro.css'), /@media \(hover: none\) and \(pointer: coarse\) \{ \.co-preg--arriba \.co-preg__op \{ min-height: 48px; \}/, 'en el teléfono, del alto de un dedo');
 });

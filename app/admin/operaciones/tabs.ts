@@ -30,11 +30,11 @@ const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerC
  * Un área que no es ninguna tab queda como su propia tab («Closing Analyst», «MaKo Mobile»).
  */
 export function indiceDeTabs(): TabDelIndice[] {
-  const porClave = new Map<string, { tab: string; nombres: Set<string> }>();
+  const porClave = new Map<string, { tab: string; nombres: Set<string>; propios: Set<string> }>();
   const tomar = (tab: string) => {
     const k = normal(tab);
     let t = porClave.get(k);
-    if (!t) { t = { tab: tab.trim(), nombres: new Set([k]) }; porClave.set(k, t); }
+    if (!t) { t = { tab: tab.trim(), nombres: new Set([k]), propios: new Set([k]) }; porClave.set(k, t); }
     return t;
   };
   const deNombre = new Map<string, string>();
@@ -53,6 +53,8 @@ export function indiceDeTabs(): TabDelIndice[] {
     if (!tabDeKey.has(i.key)) tabDeKey.set(i.key, tab);
     sumar(tab, tab);
     sumar(tab, i.label);
+    // Los de la barra son nombres PROPIOS de la tab: un chat que se llama así es su jefe. Los alias y las áreas, no.
+    tomar(tab).propios.add(normal(i.label));
   }
   // 2. Lo que dice funciones-mako de cada una: su área y los alias de varias palabras.
   const tabDeSlug = new Map<string, string>();
@@ -67,7 +69,7 @@ export function indiceDeTabs(): TabDelIndice[] {
     const tab = tabDeSlug.get(a.slug) ?? (a.grupo && porClave.has(normal(a.grupo)) ? porClave.get(normal(a.grupo))!.tab : null) ?? deNombre.get(normal(a.titulo)) ?? a.titulo;
     sumar(porClave.get(normal(tab))?.tab ?? tab, a.titulo);
   }
-  return [...porClave.values()].map((t) => ({ tab: t.tab, nombres: [...t.nombres] }));
+  return [...porClave.values()].map((t) => ({ tab: t.tab, nombres: [...t.nombres], propios: [...t.propios] }));
 }
 
 export function nombresDeTabs(): string[] {

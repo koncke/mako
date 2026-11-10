@@ -2180,9 +2180,9 @@ const CAMELLOS_DE_MARCA_P = new Set(['macos', 'ipados', 'tvos', 'watchos']);
 const SIGLAS_P = [/\bCI\b/g, /\bRAM\b/g, /\bPRs?\b/g];
 const PALABRAS_P = [
   /\bpuntas?\b/g,
-  /\b(?:otra|esta|una|su|nueva|misma)\s+rama\b/g,
+  /\ben\s+(?:otra|esta|una|su|la|nueva|misma)\s+rama\b/g,
   /\bramas?\s+(?:main|punta|claude|de git)\b/g,
-  /(?<!a\/b )\btests?\b(?!\s*a\s*\/\s*b)(?!\s+de\s+(?:personalidad|diagnostico|nivel))/g,
+  /(?<!a\/b )\btests?\b(?!\s*a\s*\/\s*b)(?!\s+(?:de|del|con|para|a)\b)/g,
   /\btesteos?\b/g,
   /\b(?:de|los|sus|en|con)\s+tipos\b(?!\s+de\b)/g,
   /\btipos\s+(?:rojos?|ci|en rojo)\b/g,
@@ -2191,16 +2191,17 @@ const PALABRAS_P = [
   /\bworktrees?\b/g, /\bmerge\w*/g, /\brebase\w*/g, /(?<!web )(?<!notificacion )(?<!notificaciones )(?<!un )\bpush(?!\s+(?:notification|a\s+(?:los|las|tus|sus|todos|todas)\b))\w*/g,
   /\bpull request/g, /\bbranch\w*/g,
   /\bbuild\w*/g, /\bbundle\w*/g, /\bnpm\b/g, /\bgit\b/g, /\bgithub actions\b/g,
-  /\bmigraci(?:on|ones)\b/g, /\bendpoints?\b/g, /\bwebhooks?\b/g, /\bhooks?\b/g, /(?<!closing )\bscripts?\b/g, /\brefactor\w*/g,
+  /\bmigraci(?:on|ones)\b/g, /\bendpoints?\b/g, /\bwebhooks?\b/g, /\bpre-?push\b/g, /\brefactor\w*/g,
   /\bheap\b/g, /\bpayloads?\b/g, /\bregex\w*/g, /\bjson\b/g, /\bcartero\b/g, /\bstaging\b/g, /\bbackend\b/g, /\bfrontend\b/g,
   /\bruntime\b/g, /\bsupabase\b/g, /\bvercel\b/g, /\btypescript\b/g,
 ];
-const DE_LA_MAQUINA_P = String.raw`(?:chrome|navegador|extension|pc|computadora|compu|maquina|terminal|runner|app de claude|claude|sesion(?:es)?|chats?|pestanas?|ventanas?|servidor|ram|memoria|disco|espacio|qr|whatsapp web)`;
+const DE_LA_MAQUINA_P = String.raw`(?:chrome|navegador|extension|pc|computadora|compu|maquina|terminal|runner|app de claude|claude|pestanas?|ventanas?|servidor|ram|memoria|disco|espacio en (?:el )?disco|qr|whatsapp web)`;
 const HECHOS_P = [
   /\b(?:te|le|les|me)\s+(?:llego|llegaron)\b/,
   /^[¿\s]*llego\b/,
   /\brecibiste\b/,
-  /\b(?:conect|instal|reinici|escane)(?:aste|as|es)\b/,
+  /\b(?:conect|instal|reinici|escane)aste\b/,
+  new RegExp(String.raw`\b(?:conect|instal|reinici|escane)(?:as|es)\b.*?\b${DE_LA_MAQUINA_P}\b`),
   new RegExp(String.raw`\bliber(?:aste|as|es)\b.*?\b${DE_LA_MAQUINA_P}\b`),
   new RegExp(String.raw`\b(?:abr(?:iste|is|es)|cerr(?:aste|as)|cierr(?:as|es))\b.*?\b${DE_LA_MAQUINA_P}\b`),
   /\b(?:probaste|pudiste)\b/,
@@ -2208,8 +2209,8 @@ const HECHOS_P = [
   new RegExp(String.raw`\bhay\s+(?:un|una|algun|alguna)\s+${DE_LA_MAQUINA_P}\b`),
   new RegExp(String.raw`\besta(?:n)?\s+(?:corriendo|prendid[oa]s?|abiert[oa]s?|conectad[oa]s?|encendid[oa]s?)\b.*?\b${DE_LA_MAQUINA_P}\b`),
 ];
-const ORDEN_P = /^[¿\s]*(?:sigo|seguimos|continuo|continuamos|avanzo|avanzamos|arranco|arrancamos|empiezo|empezamos|voy con|paso a|paso al|arreglo|lo arreglo|hago (?:primero|antes)|primero (?:hago|arreglo|sigo))\b/;
-const TEMA_P = /(?:\b(?:cobr\w*|precios?|pag(?:o|os|ar|an|ue|ues|amos)|usd|dolar\w*|factur\w*|gast(?:o|os|ar|amos)|presupuesto\w*|suscripci\w*|descuentos?|reembols\w*|devoluci\w*|clientes?|leads?|accesos?|permisos?|contrasenas?|invitaci\w*|invit(?:o|ar|amos)|seguridad|irreversible|para siempre|fechas?|deadline|aprob\w*|captura\w*|campanas?|anuncios?|lanzamientos?|lanzar|grupos?|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b|us\$|\$\s?\d)/;
+const ORDEN_P = /^[¿\s]*(?:sigo|continuo|avanzo|arranco|empiezo|voy con|paso a|paso al|arreglo|lo arreglo|hago (?:primero|antes)|primero (?:hago|arreglo|sigo))\b/;
+const TEMA_P = /(?:\b(?:cobr\w*|precios?|pag(?:o|os|ar|an|ue|ues|amos)|usd|dolar\w*|factur\w*|gast(?:o|os|ar|amos)|presupuesto\w*|suscripci\w*|descuentos?|reembols\w*|devoluci\w*|clientes?|leads?|accesos?|permisos?|contrasenas?|invitaci\w*|invit(?:o|ar|amos)|seguridad|irreversible|para siempre|fechas?|deadline|aprob\w*|campanas?|anuncios?|lanzamientos?|lanzar|grupos? de (?:whatsapp|mako|clientes|alumnos)|ofertas?|ventas?|vender|propuestas?|contratos?|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b|us\$|\$\s?\d)/;
 const textosDeP = (p) => {
   const out = [p?.pregunta ?? '', p?.contexto ?? ''];
   for (const o of p?.opciones ?? []) out.push(o?.titulo ?? o?.texto ?? '', o?.detalle ?? '');
@@ -2257,7 +2258,8 @@ export function juzgarPregunta(p) {
     hecho = cita.length > 60 ? `${cita.slice(0, 59).trimEnd()}…` : cita;
     break;
   }
-  const tema = TEMA_P.test(planoP(sinCodigoP(todo)).s);
+  const conTema = [p?.pregunta ?? '', ...(p?.opciones ?? []).map((o) => o?.titulo ?? o?.texto ?? '')].join('\n');
+  const tema = TEMA_P.test(planoP(sinCodigoP(conTema)).s);
   const orden = !tema && ORDEN_P.test(pl.s);
   const seAcepta = !jerga.length && !hecho && !orden;
   return { llega: seAcepta || tema, seAcepta, jerga, hecho, orden, tema };
@@ -2269,7 +2271,10 @@ export function motivoParaElChat(j) {
   const decidir = 'decídela tú con la opción recomendada, hazla y cuéntalo en tu cierre';
   const suya = 'Si de verdad la decide él (plata, un cliente real, un acceso, seguridad sin vuelta atrás, una fecha o algo que tiene que ver), escríbela en palabras de producto y vuelve a preguntar.';
   if (j.hecho) {
-    return `Esta pregunta no le llega a Martín: le pide un dato que puedes medir tú («${j.hecho}»). Mídelo, o déjalo anotado en tu relevo; si hace falta que él haga algo en su computadora, va en tu relevo, no como pregunta.${j.jerga.length ? ` Además dice ${citarP(j.jerga)}, que es lenguaje técnico.` : ''}`;
+    return `Esta pregunta no le llega a Martín: le pide un dato que puedes medir tú («${j.hecho}»). Mídelo, o déjalo anotado en tu relevo; si hace falta que él haga algo (en su computadora, o conectar una cuenta suya), díselo en tu mensaje con el paso exacto: no va como pregunta.${j.jerga.length ? ` Además dice ${citarP(j.jerga)}, que es lenguaje técnico.` : ''}`;
+  }
+  if (j.jerga.length && j.tema) {
+    return `Esta es una decisión de Martín, pero dice ${citarP(j.jerga)}, que es lenguaje técnico. Escríbela en palabras de producto (qué cambia para él o para sus clientes) y vuelve a preguntarla. No la decidas tú.`;
   }
   if (j.jerga.length) {
     return `Esta pregunta no le llega a Martín: dice ${citarP(j.jerga)}, que es lenguaje técnico. Si es técnica, ${decidir}. ${suya}`;
@@ -2351,7 +2356,7 @@ function preguntar(archivo) {
   const juicio = juzgarPregunta(q);
   if (!juicio.seAcepta) {
     log(`PREGUNTA rechazada de ${local}: ${juicio.hecho ? 'pide un dato medible' : juicio.jerga.length ? `jerga (${juicio.jerga.slice(0, 4).join(', ')})` : 'orden del chat'}`);
-    return { ok: false, rechazada: true, sesion: local, motivo: motivoParaElChat(juicio), jerga: juicio.jerga, hecho: juicio.hecho };
+    return { ok: false, rechazada: true, sesion: local, motivo: motivoParaElChat(juicio), jerga: juicio.jerga, hecho: juicio.hecho, tema: juicio.tema };
   }
   escribirJson(path.join(PREGUNTAS, `${q.id}.json`), q);
   log(`PREGUNTA ${q.id} de ${local}`);

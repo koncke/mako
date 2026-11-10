@@ -27,7 +27,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { FilaM, ListaM, PieM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
-import { chatDormido, chatTrabadoEnLaApp, filasDeGrupos, preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque, tabDeChat, vaEnLaLista } from '@/lib/centro-chats';
+import { chatTrabadoEnLaApp, filasDeGrupos, preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque, tabDeChat, vaEnLaLista } from '@/lib/centro-chats';
 import {
   TEXTO_SEGUNDO_RENGLON, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
   textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP,
@@ -257,11 +257,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     mirar(elegido);
     return () => mirar(null);
   }, [elegido?.clave, mirar, parte]); // eslint-disable-line react-hooks/exhaustive-deps
-  // Un chat dormido hace días (10/11/2026, lib/centro-chats.ts → chatDormido): lo que preguntó no espera a Martín, y sale del bloque.
-  const dormido = !!elegido && chatDormido(elegido, ahora);
-  const preguntas = elegido && !dormido ? preguntasDelChat(elegido, decisiones, carteros) : [];
-  const bloque = dormido ? [] : preguntasParaElBloque(lineas);
-  const deLaApp = dormido ? [] : preguntasDeLaApp(lineas);
+  const preguntas = elegido ? preguntasDelChat(elegido, decisiones, carteros) : [];
+  const bloque = preguntasParaElBloque(lineas);
+  const deLaApp = preguntasDeLaApp(lineas);
   // «Ignorar» lo que espera y «Ignoradas» (5/11/2026), lo mismo que en la computadora (PreguntasDelChat.tsx → armarIgnorar).
   const paraIgnorar = elegido && centro ? armarIgnorar({
     pregunta: (p, si) => centro.ignorarPregunta(elegido, p, si), decision: (d, si) => centro.ignorarDecision(d, si),
@@ -284,8 +282,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // renglón de cada fila: lib/centro-chats.ts → prioridadEnLista).
   const avisos = centro.avisos;
   const esperanRespuesta = useMemo(() => (c: ChatCentro) => esperaDe(c, esperas), [esperas]);
-  // Sin los dormidos (10/11/2026, `vaEnLaLista`): el chat abierto se queda.
-  const enLista = useMemo(() => chats.filter((c) => vaEnLaLista(c, ahora, elegido?.clave ?? null, false)), [chats, ahora, elegido?.clave]);
+  // Sin los dormidos (10/11/2026, `vaEnLaLista`): el chat abierto, y el que espera algo de Martín, se quedan.
+  const enLista = useMemo(() => chats.filter((c) => vaEnLaLista(c, ahora, elegido?.clave ?? null, false, esPrioritario(c, avisos, esperanRespuesta))), [chats, ahora, elegido?.clave, avisos, esperanRespuesta]);
   const secciones = useMemo(() => seccionesDeChats(enLista, avisos, esperanRespuesta), [enLista, avisos, esperanRespuesta]);
   // Un grupo por TAB, con sus chats de tarea plegados (10/11/2026, como la computadora: PiezasCentro.tsx → GruposPorJefe).
   const [gruposAbiertos, setGruposAbiertos] = useState<Set<string>>(() => new Set());

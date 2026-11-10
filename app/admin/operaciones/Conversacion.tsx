@@ -19,7 +19,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { Icon } from '@/app/_components/icons';
 import { PanelDeChat } from './PanelChat';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
-import { chatDormido, chatTrabadoEnLaApp, preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque, type TabDelIndice } from '@/lib/centro-chats';
+import { chatTrabadoEnLaApp, preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque, type TabDelIndice } from '@/lib/centro-chats';
 import { historialDelChat, tandaHasta, yaEstaSinVer, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, idDeLinea, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
@@ -46,8 +46,6 @@ import { animoDe } from './Muneco';
 
 const ESTADO_CHAT: Record<ChatCentro['estado'], string> = { trabajando: 'Trabajando', abierto: 'Abierto', cerrado: 'Cerrado', sin_dato: '' };
 const SIN_PUSHES: PushP[] = [];
-const SIN_PREGUNTAS: PreguntaChatT[] = [];
-const SIN_DECISIONES: Decision[] = [];
 
 /** Lo de WhatsApp que la conversación necesita del motor (useCentro.ts): lo arma PiezasCentro.tsx → ChatDelCentro. */
 export type WaDeConversacion = {
@@ -62,7 +60,7 @@ export type WaDeConversacion = {
 
 export function Conversacion({
   chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onGrabada, onCrearClave, onCopiarClave, onVolver,
-  aspecto, onMuneco, onRenombrar, preguntas: deLaTicketera, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
+  aspecto, onMuneco, onRenombrar, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
   preguntasChat = [], onResponder, avisoCerrado, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos, yaVisto = null, onYaVisto, ignorar,
   indiceTabs,
 }: {
@@ -130,11 +128,8 @@ export function Conversacion({
   onVolver: () => void;
 }) {
   const lineas = lineasDeFuera ?? historialDelChat(chat, pedidos, trabajos, respuestas, turnos, preguntasChat);
-  // Un chat dormido hace días (10/11/2026, lib/centro-chats.ts → chatDormido): lo que preguntó no espera a Martín, y sale del bloque.
-  const dormido = chatDormido(chat, ahora);
-  const bloque = dormido ? SIN_PREGUNTAS : preguntasParaElBloque(lineas);
-  const deLaApp = dormido ? SIN_PREGUNTAS : preguntasDeLaApp(lineas);
-  const preguntas = dormido ? SIN_DECISIONES : deLaTicketera;
+  const bloque = preguntasParaElBloque(lineas);
+  const deLaApp = preguntasDeLaApp(lineas);
   const paraIgnorar = armarIgnorar(ignorar, preguntasIgnoradas(lineas));
   // Lo que dijo el micrófono si no pudo (permiso, transcripción): va en la línea de estado de la caja.
   const [faltaMic, setFaltaMic] = useState<string | null>(null);

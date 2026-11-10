@@ -561,7 +561,8 @@ export type GrupoJefe<T extends { titulo: string } = ChatCentro> = { clave: stri
 // cómo se nombra; esto es cómo se ve cuando no se cumplió.
 
 /** Una tab y los nombres que la nombran, normalizados (app/admin/operaciones/tabs.ts → indiceDeTabs, en el servidor). */
-export type TabDelIndice = { tab: string; nombres: readonly string[] };
+/** `propios`: los nombres con que un chat ES el jefe de la tab (los de la barra); sin la lista, sólo el nombre de la tab. */
+export type TabDelIndice = { tab: string; nombres: readonly string[]; propios?: readonly string[] };
 /** De qué tab es un chat, y si es SU chat (se llama como ella, sin sub-chat). */
 export type TabDelChat = { tab: string; jefe: boolean };
 
@@ -569,13 +570,15 @@ export type TabDelChat = { tab: string; jefe: boolean };
  *  («arreglar el plan de pagos», «los chats», «el video del curso»). Como el nombre ENTERO del chat, sí valen. */
 const NOMBRES_COMUNES = new Set(['plan', 'general', 'chats', 'api', 'ideas', 'today', 'sales', 'create', 'marketing', 'dev', 'docs', 'grafo', 'web', 'copy', 'retro', 'email', 'video', 'mindset', 'calendario', 'pricing', 'perfil', 'documentacion']);
 const palabras = (s: string) => ` ${normal(s).replace(/[^a-z0-9ñ]+/g, ' ').trim()} `;
-const indicesArmados = new WeakMap<readonly TabDelIndice[], { porNombre: Map<string, string>; frases: Array<{ frase: string; tab: string }> }>();
+const indicesArmados = new WeakMap<readonly TabDelIndice[], { porNombre: Map<string, string>; propios: Set<string>; frases: Array<{ frase: string; tab: string }> }>();
 function armarIndice(indice: readonly TabDelIndice[]) {
   let a = indicesArmados.get(indice);
   if (!a) {
     const porNombre = new Map<string, string>();
+    const propios = new Set<string>();
     const frases: Array<{ frase: string; tab: string }> = [];
     for (const t of indice) {
+      for (const n of [t.tab, ...(t.propios ?? [])]) propios.add(normal(n));
       for (const n of t.nombres) {
         const k = normal(n);
         if (!k || porNombre.has(k)) continue;
@@ -585,7 +588,7 @@ function armarIndice(indice: readonly TabDelIndice[]) {
       }
     }
     frases.sort((x, y) => y.frase.length - x.frase.length);
-    a = { porNombre, frases };
+    a = { porNombre, propios, frases };
     indicesArmados.set(indice, a);
   }
   return a;
@@ -603,9 +606,16 @@ export function tabDeChat(c: { titulo: string; area?: string }, indice: readonly
   // El Cerebro y sus sub-chats son del Cerebro, aunque su título nombre una tab («Cerebro › Integración»).
   if (esCerebro(jefe)) return { tab: CEREBRO, jefe: !sub };
   if (!indice?.length) return null;
-  const { porNombre, frases } = armarIndice(indice);
+  const { porNombre, propios, frases } = armarIndice(indice);
+  // Es el JEFE sólo con un nombre propio de la tab («CRM», «Image Editor»); con un alias («Lead Insights») va adentro, con su nombre
+  // como la función (la revisión del 10/11/2026: si no, «Lead Insights» le sacaba la cabeza a «CRM»).
   const porSuNombre = porNombre.get(normal(jefe));
-  if (porSuNombre) return { tab: porSuNombre, jefe: !sub };
+  if (porSuNombre) return { tab: porSuNombre, jefe: !sub && propios.has(normal(jefe)) };
+  // «Stripe › Dashboard de cobros» es de su jefe, «Stripe» (la convención): se busca la tab sólo en esa parte, nunca en el sub.
+  if (sub) {
+    const f = frases.find((x) => palabras(jefe).includes(x.frase));
+    return f ? { tab: f.tab, jefe: false } : null;
+  }
   if (c.area) {
     const porArea = porNombre.get(normal(c.area));
     if (porArea) return { tab: porArea, jefe: false };
@@ -631,8 +641,11 @@ export function porJefe<T extends { titulo: string } = ChatCentro>(chats: readon
     const k = normal(nombre);
     if (!grupos.has(k)) grupos.set(k, { clave: `jefe:${k}`, jefe: nombre, chat: null, subs: [] });
     const g = grupos.get(k)!;
-    // Dos que se llaman como la tab («Image» y «Image Editor»): la cabeza es el primero, el otro va adentro.
-    if (esCabeza && !g.chat) { g.chat = c; g.jefe = c.titulo; } else g.subs.push(c);
+    // Dos que se llaman como la tab («Image» y «Image Editor»): la cabeza es el que se llama EXACTO como ella, y si no, el primero.
+    const exacto = (x: T) => normal(partesDelNombre(x.titulo).jefe) === k;
+    if (esCabeza && !g.chat) { g.chat = c; g.jefe = c.titulo; }
+    else if (esCabeza && t && exacto(c) && !exacto(g.chat!)) { g.subs.unshift(g.chat!); g.chat = c; g.jefe = c.titulo; }
+    else g.subs.push(c);
   }
   // Por tab, un chat de tarea SOLO en su tab es su propia fila: con el nombre de la tab arriba y él adentro, una tab de un chat
   // ocupaba dos renglones (y plegado, uno que no decía nada).
@@ -1467,33 +1480,21 @@ const DESFASE_AR = 3 * 3_600_000;
 /**
  * ¿Duerme? Sin actividad hace `DIAS_DORMIDO` días y sin estar trabajando AHORA (10/11/2026, Martín: «se están creando una cantidad de
  * chats impresionante»; ese día la cuenta 1 tenía 178 chats y 93 con actividad en tres días). Un chat dormido sale de la lista (se
- * encuentra buscándolo) y lo que preguntó no espera a Martín: no sale en el bloque ni sube el globito. La actividad es la de la app,
- * su último hito o lo último que se le mandó (`completarChats`): escribirle lo despierta.
+ * encuentra buscándolo), salvo que espere algo de Martín (`vaEnLaLista`). La actividad es la de la app, su último hito o lo último que
+ * se le mandó (`completarChats`): escribirle lo despierta.
  */
 export const DIAS_DORMIDO = 3;
+// ⚠️ SIN actividad conocida NO duerme (la revisión del 10/11/2026): los chats de la nube suben sin ella, y un «no sé» no esconde.
 export const chatDormido = (c: Pick<ChatCentro, 'estado' | 'viejo' | 'actividad'>, ahora: number): boolean =>
-  !(c.estado === 'trabajando' && !c.viejo) && (c.actividad == null || ahora - c.actividad >= DIAS_DORMIDO * 86_400_000);
+  !(c.estado === 'trabajando' && !c.viejo) && c.actividad != null && ahora - c.actividad >= DIAS_DORMIDO * 86_400_000;
 
 /**
- * Lo que espera a Martín en cada sesión, SIN los chats dormidos (`chatDormido`, 10/11/2026): sus preguntas viejas no suben el globito
- * ni dicen «Espera tu respuesta». El Cerebro nunca duerme. Devuelve el MISMO objeto si no sacó nada.
+ * ¿Va en la lista? Lo que no duerme, el Cerebro, el chat que se está mirando y el que ESPERA algo de Martín (`espera`: una pregunta
+ * suya o un «Completado» sin ver, `esPrioritario`): dormido o no, eso no se esconde (la revisión del 10/11/2026: un precio preguntado
+ * el viernes desaparecía el lunes, sin dónde contestarlo). Buscando, todo.
  */
-export function esperasSinDormidos(esperas: Readonly<Record<string, number>>, chats: readonly ChatCentro[], ahora: number): Readonly<Record<string, number>> {
-  let out: Record<string, number> | null = null;
-  for (const c of chats) {
-    if (esCerebro(partesDelNombre(c.titulo).jefe) || !chatDormido(c, ahora)) continue;
-    for (const k of c.miembros) {
-      if (!(k in esperas)) continue;
-      out ??= { ...esperas };
-      delete out[k];
-    }
-  }
-  return out ?? esperas;
-}
-
-/** ¿Va en la lista? Lo que no duerme, el Cerebro y el chat que se está mirando (10/11/2026). Buscando, todo. */
-export const vaEnLaLista = (c: ChatCentro, ahora: number, actual: string | null, buscando: boolean): boolean =>
-  buscando || c.clave === actual || esCerebro(partesDelNombre(c.titulo).jefe) || !chatDormido(c, ahora);
+export const vaEnLaLista = (c: ChatCentro, ahora: number, actual: string | null, buscando: boolean, espera = false): boolean =>
+  buscando || espera || c.clave === actual || esCerebro(partesDelNombre(c.titulo).jefe) || !chatDormido(c, ahora);
 
 export function grupoDeChat(c: Pick<ChatCentro, 'estado' | 'viejo' | 'actividad'>, ahora: number): GrupoChat {
   if (c.estado === 'trabajando' && !c.viejo) return 'ahora';

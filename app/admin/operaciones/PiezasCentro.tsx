@@ -166,8 +166,9 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   // su respuesta, antes de lo que trabaja (24/10/2026: `prioridadEnLista`): las preguntas solas, las del renglón de la fila.
   const { avisos } = k;
   const esperanRespuesta = useMemo(() => (c: ChatCentro) => esperaDe(c, k.esperas), [k.esperas]);
-  // Sin los dormidos (10/11/2026, `vaEnLaLista`): un chat sin actividad hace días no ocupa una fila; buscándolo, sí aparece.
-  const enLista = useMemo(() => visibles.filter((c) => vaEnLaLista(c, k.ahora, actual, buscando)), [visibles, k.ahora, actual, buscando]);
+  // Sin los dormidos (10/11/2026, `vaEnLaLista`): un chat sin actividad hace días no ocupa una fila; buscándolo, abierto o con algo
+  // que espera a Martín (una pregunta suya, un «Completado» sin ver), sí aparece.
+  const enLista = useMemo(() => visibles.filter((c) => vaEnLaLista(c, k.ahora, actual, buscando, esPrioritario(c, avisos, esperanRespuesta))), [visibles, k.ahora, actual, buscando, avisos, esperanRespuesta]);
   const secciones = useMemo(() => seccionesDeChats(enLista, avisos, esperanRespuesta), [enLista, avisos, esperanRespuesta]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
   // Un grupo por TAB (10/11/2026): la fila es la tab y sus chats de tarea van adentro, plegados. Lo que espera a Martín, trabaja o se

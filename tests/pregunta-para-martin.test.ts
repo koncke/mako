@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { juzgarPregunta, llegaAMartin, motivoParaElChat, type PreguntaAJuzgar } from '../lib/pregunta-para-martin';
+import { FIRMA_DEL_JUEZ, juzgarPregunta, llegaAMartin, motivoParaElChat, type PreguntaAJuzgar } from '../lib/pregunta-para-martin';
 import { esperaAMartinEnElChat, estaAbierta, type PreguntaChat } from '../lib/centro-preguntas-chat';
 import { chatTrabadoEnLaApp, esperasPorChat, piezaParaLaApi, preguntasDeLaApp, preguntasParaElBloque, type LineaChat } from '../lib/centro-chats';
 import { esperaAMartin, repartir, sanearPublicada, type Decision } from '../app/admin/runway/decisiones';
@@ -52,7 +52,7 @@ test('1. el banco: ninguna de Martín se pierde, y las técnicas no le llegan', 
   assert.equal(juzgarPregunta({ pregunta: '¿Liberás RAM para que corra el tsc acotado ahora?' }).hecho, 'Liberás RAM');
   assert.ok(juzgarPregunta({ pregunta: '¿Agrego {{pago_motivo}} con su propio alcance?' }).jerga.includes('{{pago_motivo}}'));
   assert.ok(!juzgarPregunta({ pregunta: '¿Agrego {{pago_motivo}} con su propio alcance?' }).tema, 'el «pago» de un nombre de variable no es un tema de plata');
-  assert.equal(juzgarPregunta({ pregunta: '¿Conectás Chrome para que mire la pantalla?' }).hecho, 'Conectás');
+  assert.equal(juzgarPregunta({ pregunta: '¿Conectás Chrome para que mire la pantalla?' }).hecho, 'Conectás Chrome');
 });
 
 test('1b. la jerga de una OPCIÓN también cuenta, y el tema rescata lo que ya llegó', () => {
@@ -88,6 +88,11 @@ test('3. el motivo nombra la palabra y dice qué hacer, en tú', () => {
   const orden = motivoParaElChat(juzgarPregunta({ pregunta: '¿Sigo con la tanda 2?' }))!;
   assert.match(orden, /qué haces primero/);
   assert.equal(motivoParaElChat(juzgarPregunta({ pregunta: '¿Cobramos US$47 o US$97?' })), null);
+  // Con el tema de Martín, se reescribe: nunca «decídela tú» sobre un precio (la revisión del 10/11/2026).
+  const precio = motivoParaElChat(juzgarPregunta({ pregunta: '¿Subimos el Esencial a US$97? (hay que hacer deploy de /planes)' }))!;
+  assert.match(precio, /decisión de Martín/);
+  assert.match(precio, /No la decidas tú/);
+  assert.doesNotMatch(precio, /decídela tú/);
   for (const m of [jerga, hecho, orden]) assert.doesNotMatch(m, /\b(?:decidila|vos|mandala|medilo)\b/i, `voseo en «${m}»`);
 });
 
@@ -150,6 +155,11 @@ test('5. el hook de AskUserQuestion le pasa al chat el motivo de la técnica', (
     assert.match(m.permissionDecisionReason, /NO la vuelvas a preguntar/);
     assert.doesNotMatch(m.permissionDecisionReason, /no se guardó|mandala/i, 'no es una falla del cartero');
     assert.equal(existsSync(join(cartero, 'preguntas')) ? readdirSync(join(cartero, 'preguntas')).length : 0, 0);
+    // Una de Martín con jerga: se le pide reescribirla y mandarla con `preguntar`, nunca decidirla (la revisión del 10/11/2026).
+    const precio = motivoDe(correr([{ question: '¿Subimos el Esencial a US$97? (hay que hacer deploy de /planes)', header: 'Precio', options: [{ label: 'Sí (Recommended)' }, { label: 'No' }] }]));
+    assert.equal(precio.permissionDecision, 'deny');
+    assert.match(precio.permissionDecisionReason, /Reescríbela sin lenguaje técnico y mándala con `.*preguntar`/);
+    assert.doesNotMatch(precio.permissionDecisionReason, /NO la vuelvas a preguntar|decídela y sigue/);
     const suya = correr([{ question: '¿Cobramos US$47 o US$97 por el plan Esencial?', header: 'Precio', options: [{ label: 'US$47 (Recommended)' }, { label: 'US$97' }] }]);
     assert.match(motivoDe(suya).permissionDecisionReason, /YA QUEDÓ GUARDADA/);
     assert.equal(readdirSync(join(cartero, 'preguntas')).length, 1);
@@ -164,6 +174,12 @@ const pregunta = (id: string, texto: string, extra: Partial<PreguntaChat> = {}):
 const lineaDe = (p: PreguntaChat): LineaChat => ({ tipo: 'pregunta', instante: Date.parse(p.at), pregunta: p, trabajo: null });
 
 test('6. lo que ya llegó: la técnica sigue abierta para su chat, pero no espera a Martín (y un AskUserQuestion técnico igual traba)', () => {
+  // El globito guardado se recuenta cuando cambian las reglas del juez: la regla del recuento es la FIRMA de sus listas, y lee TODOS
+  // los chats del mapa, sin corte (la revisión del 10/11/2026).
+  assert.match(FIRMA_DEL_JUEZ, /^[0-9a-z]+$/);
+  const db = readFileSync(join(REPO, 'lib', 'centro-preguntas-chat-db.ts'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(db, /export const REGLA_ABIERTAS = `para-martin-\$\{FIRMA_DEL_JUEZ\}`;/);
+  assert.doesNotMatch(db, /Object\.keys\(mapa\)\.slice\(/, 'el recuento no corta');
   const tecnica = pregunta('1', '¿Hago el commit en otra punta?');
   const suya = pregunta('2', '¿Cobramos US$47 o US$97?');
   const askTecnica = pregunta('3', '¿Liberás RAM?', { origen: 'ask' });
@@ -220,3 +236,10 @@ test('7. la Ticketera: la técnica no espera (ni en el globito ni en el mazo) y 
 //   · la Ticketera: `esperaAMartin` sin el juez                                   → 7/1 (7)
 //   · la Ticketera: `repartir` mandando a «ignoradas» lo que no espera            → 7/1 (7)
 //   · la Ticketera: publicar sin el juez                                          → 7/1 (7)
+// Y con lo que encontró la revisión (10/11/2026, base 8/0; el banco suma 10 casos):
+//   · «otra rama» / «hooks» sueltos otra vez                                      → 6/2 (1, 2) cada una
+//   · «seguimos» como orden, «conectás» sin la máquina                            → 6/2 (1, 2) cada una
+//   · el tema también del contexto, o «grupo» suelto en el tema                   → 6/2 (1, 2) cada una
+//   · el motivo sin la rama del tema («decídela tú» sobre un precio)              → 6/2 (2, 3)
+//   · el hook decide también la de Martín                                         → 7/1 (5)
+//   · la regla del recuento un texto fijo, o el recuento con corte                → 7/1 (6) cada una

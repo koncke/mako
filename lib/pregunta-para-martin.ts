@@ -81,10 +81,13 @@ const SIGLAS: readonly RegExp[] = [/\bCI\b/g, /\bRAM\b/g, /\bPRs?\b/g];
 /** Palabras de la cocina, sobre el texto sin tildes y en minúscula. */
 const PALABRAS: readonly RegExp[] = [
   /\bpuntas?\b/g,
-  /\b(?:otra|esta|una|su|nueva|misma)\s+rama\b/g,
+  // «Otra rama al flujo» es del producto (las ramas de Automations): la de git va «en otra rama» o con su nombre.
+  /\ben\s+(?:otra|esta|una|su|la|nueva|misma)\s+rama\b/g,
   /\bramas?\s+(?:main|punta|claude|de git)\b/g,
   // «test A/B» y el test que es un imán de leads («test de personalidad») son del producto.
-  /(?<!a\/b )\btests?\b(?!\s*a\s*\/\s*b)(?!\s+de\s+(?:personalidad|diagnostico|nivel))/g,
+  // «test A/B», «test de creativos», «test con usuarios», el test que es un imán de leads: del producto. Los de la cocina van
+  // sueltos («los tests», «un test rojo») o con lo que los delata («de tipos»).
+  /(?<!a\/b )\btests?\b(?!\s*a\s*\/\s*b)(?!\s+(?:de|del|con|para|a)\b)/g,
   /\btesteos?\b/g,
   /\b(?:de|los|sus|en|con)\s+tipos\b(?!\s+de\b)/g,
   /\btipos\s+(?:rojos?|ci|en rojo)\b/g,
@@ -95,14 +98,14 @@ const PALABRAS: readonly RegExp[] = [
   /\bworktrees?\b/g, /\bmerge\w*/g, /\brebase\w*/g, /(?<!web )(?<!notificacion )(?<!notificaciones )(?<!un )\bpush(?!\s+(?:notification|a\s+(?:los|las|tus|sus|todos|todas)\b))\w*/g,
   /\bpull request/g, /\bbranch\w*/g,
   /\bbuild\w*/g, /\bbundle\w*/g, /\bnpm\b/g, /\bgit\b/g, /\bgithub actions\b/g,
-  // «Closing Script» es una tab.
-  /\bmigraci(?:on|ones)\b/g, /\bendpoints?\b/g, /\bwebhooks?\b/g, /\bhooks?\b/g, /(?<!closing )\bscripts?\b/g, /\brefactor\w*/g,
+  // Sin «hooks» ni «scripts» sueltos: son los ganchos de un reel y los guiones de venta (la tab Closing Script).
+  /\bmigraci(?:on|ones)\b/g, /\bendpoints?\b/g, /\bwebhooks?\b/g, /\bpre-?push\b/g, /\brefactor\w*/g,
   /\bheap\b/g, /\bpayloads?\b/g, /\bregex\w*/g, /\bjson\b/g, /\bcartero\b/g, /\bstaging\b/g, /\bbackend\b/g, /\bfrontend\b/g,
   /\bruntime\b/g, /\bsupabase\b/g, /\bvercel\b/g, /\btypescript\b/g,
 ];
 
 /** Lo que la PC tiene y el chat puede mirar: el objeto de un hecho medible. */
-const DE_LA_MAQUINA = String.raw`(?:chrome|navegador|extension|pc|computadora|compu|maquina|terminal|runner|app de claude|claude|sesion(?:es)?|chats?|pestanas?|ventanas?|servidor|ram|memoria|disco|espacio|qr|whatsapp web)`;
+const DE_LA_MAQUINA = String.raw`(?:chrome|navegador|extension|pc|computadora|compu|maquina|terminal|runner|app de claude|claude|pestanas?|ventanas?|servidor|ram|memoria|disco|espacio en (?:el )?disco|qr|whatsapp web)`;
 
 /** Un hecho que el chat puede medir, sobre la pregunta sin tildes y en minúscula. */
 const HECHOS: readonly RegExp[] = [
@@ -110,7 +113,9 @@ const HECHOS: readonly RegExp[] = [
   /^[¿\s]*llego\b/,
   /\brecibiste\b/,
   // Sin «recargas»: también es un sustantivo de plata («¿hacemos recargas automáticas de saldo?»).
-  /\b(?:conect|instal|reinici|escane)(?:aste|as|es)\b/,
+  /\b(?:conect|instal|reinici|escane)aste\b/,
+  // «¿Conectás la cuenta de Stripe?» le pide algo suyo; «¿Conectás Chrome?», un hecho de la máquina.
+  new RegExp(String.raw`\b(?:conect|instal|reinici|escane)(?:as|es)\b.*?\b${DE_LA_MAQUINA}\b`),
   new RegExp(String.raw`\bliber(?:aste|as|es)\b.*?\b${DE_LA_MAQUINA}\b`),
   new RegExp(String.raw`\b(?:abr(?:iste|is|es)|cerr(?:aste|as)|cierr(?:as|es))\b.*?\b${DE_LA_MAQUINA}\b`),
   /\b(?:probaste|pudiste)\b/,
@@ -120,11 +125,22 @@ const HECHOS: readonly RegExp[] = [
 ];
 
 /** «¿Sigo con…?»: qué hace primero el chat (al principio de la pregunta). */
-const ORDEN = /^[¿\s]*(?:sigo|seguimos|continuo|continuamos|avanzo|avanzamos|arranco|arrancamos|empiezo|empezamos|voy con|paso a|paso al|arreglo|lo arreglo|hago (?:primero|antes)|primero (?:hago|arreglo|sigo))\b/;
+const ORDEN = /^[¿\s]*(?:sigo|continuo|avanzo|arranco|empiezo|voy con|paso a|paso al|arreglo|lo arreglo|hago (?:primero|antes)|primero (?:hago|arreglo|sigo))\b/;
 
 /** Los temas de Martín, sobre el texto sin código, sin tildes y en minúscula. */
 // Una campaña, un anuncio, un lanzamiento, un día o un grupo de un cliente también son de él: «¿Empezamos la campaña el lunes?».
-const TEMA = /(?:\b(?:cobr\w*|precios?|pag(?:o|os|ar|an|ue|ues|amos)|usd|dolar\w*|factur\w*|gast(?:o|os|ar|amos)|presupuesto\w*|suscripci\w*|descuentos?|reembols\w*|devoluci\w*|clientes?|leads?|accesos?|permisos?|contrasenas?|invitaci\w*|invit(?:o|ar|amos)|seguridad|irreversible|para siempre|fechas?|deadline|aprob\w*|captura\w*|campanas?|anuncios?|lanzamientos?|lanzar|grupos?|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b|us\$|\$\s?\d)/;
+const TEMA = /(?:\b(?:cobr\w*|precios?|pag(?:o|os|ar|an|ue|ues|amos)|usd|dolar\w*|factur\w*|gast(?:o|os|ar|amos)|presupuesto\w*|suscripci\w*|descuentos?|reembols\w*|devoluci\w*|clientes?|leads?|accesos?|permisos?|contrasenas?|invitaci\w*|invit(?:o|ar|amos)|seguridad|irreversible|para siempre|fechas?|deadline|aprob\w*|campanas?|anuncios?|lanzamientos?|lanzar|grupos? de (?:whatsapp|mako|clientes|alumnos)|ofertas?|ventas?|vender|propuestas?|contratos?|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b|us\$|\$\s?\d)/;
+
+/**
+ * La FIRMA de las reglas del juez (10/11/2026): cambia sola cuando cambia cualquiera de sus listas. Con ella se sabe si el globito
+ * guardado (lib/centro-preguntas-chat-db.ts) se contó con las reglas de hoy; sin ella, tocar una lista lo dejaba contando con las de antes.
+ */
+export const FIRMA_DEL_JUEZ: string = (() => {
+  const texto = [...CODIGO, CAMELLO, ...SIGLAS, ...PALABRAS, ...HECHOS, ORDEN, TEMA].map((re) => `${re.source}/${re.flags}`).join('\n');
+  let h = 5381;
+  for (let i = 0; i < texto.length; i++) h = ((h * 33) ^ texto.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+})();
 
 function textosDe(p: PreguntaAJuzgar): string[] {
   const out = [p.pregunta ?? '', p.contexto ?? ''];
@@ -183,7 +199,10 @@ export function juzgarPregunta(p: PreguntaAJuzgar): JuicioDePregunta {
     hecho = cita.length > 60 ? `${cita.slice(0, 59).trimEnd()}…` : cita;
     break;
   }
-  const tema = TEMA.test(plano(sinCodigo(todo)).s);
+  // El tema se lee de la PREGUNTA y de sus opciones, nunca del contexto: «frena los pagos de Leila» al lado de un CRLF no la vuelve
+  // una decisión de Martín (la revisión del 10/11/2026).
+  const conTema = [p.pregunta ?? '', ...(p.opciones ?? []).map((o) => o.titulo ?? o.texto ?? '')].join('\n');
+  const tema = TEMA.test(plano(sinCodigo(conTema)).s);
   const orden = !tema && ORDEN.test(pl.s);
   const seAcepta = !jerga.length && !hecho && !orden;
   return { llega: seAcepta || tema, seAcepta, jerga, hecho, orden, tema };
@@ -219,7 +238,11 @@ export function motivoParaElChat(j: JuicioDePregunta): string | null {
   const decidir = 'decídela tú con la opción recomendada, hazla y cuéntalo en tu cierre';
   const suya = 'Si de verdad la decide él (plata, un cliente real, un acceso, seguridad sin vuelta atrás, una fecha o algo que tiene que ver), escríbela en palabras de producto y vuelve a preguntar.';
   if (j.hecho) {
-    return `Esta pregunta no le llega a Martín: le pide un dato que puedes medir tú («${j.hecho}»). Mídelo, o déjalo anotado en tu relevo; si hace falta que él haga algo en su computadora, va en tu relevo, no como pregunta.${j.jerga.length ? ` Además dice ${citar(j.jerga)}, que es lenguaje técnico.` : ''}`;
+    return `Esta pregunta no le llega a Martín: le pide un dato que puedes medir tú («${j.hecho}»). Mídelo, o déjalo anotado en tu relevo; si hace falta que él haga algo (en su computadora, o conectar una cuenta suya), díselo en tu mensaje con el paso exacto: no va como pregunta.${j.jerga.length ? ` Además dice ${citar(j.jerga)}, que es lenguaje técnico.` : ''}`;
+  }
+  // Con el tema de Martín (plata, clientes, fechas…) la decisión es suya: se reescribe, nunca se decide por él.
+  if (j.jerga.length && j.tema) {
+    return `Esta es una decisión de Martín, pero dice ${citar(j.jerga)}, que es lenguaje técnico. Escríbela en palabras de producto (qué cambia para él o para sus clientes) y vuelve a preguntarla. No la decidas tú.`;
   }
   if (j.jerga.length) {
     return `Esta pregunta no le llega a Martín: dice ${citar(j.jerga)}, que es lenguaje técnico. Si es técnica, ${decidir}. ${suya}`;

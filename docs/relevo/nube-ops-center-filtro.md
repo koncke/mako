@@ -29,8 +29,11 @@ Chat: «Ops Center» en la nube (`cli_b4bb6cd6-f68b-5162-ae59-96d6e5078bd4`). Ra
 - **El globito guardado se recuenta una vez** (`recontarAbiertasSiCambioLaRegla`, en la vuelta del Runner): el mapa se contaba al
   escribir y seguía con las técnicas de antes.
 - **Un chat por tab:** la fila es la tab; los chats de tarea van adentro, plegados detrás de «Mostrar N chats» (teléfono: «Ver N
-  chats más»). Lo que espera, trabaja o se mira queda a la vista. Un chat sin actividad hace 3 días sale de la lista y no sube el
-  globito (el Cerebro nunca).
+  chats más»). Lo que espera, trabaja o se mira queda a la vista. Un chat sin actividad hace 3 días sale de la lista, salvo que espere
+  algo de Martín (una pregunta suya o un «Completado» sin ver): eso no se esconde nunca. El Cerebro y los chats de la nube, tampoco.
+- **Qué hice con «una pregunta de un chat dormido»:** el encargo daba dos caminos, sacarla del bloque o marcarla para el Cerebro.
+  Las técnicas ya salen por el juez, tengan la edad que tengan. Las de Martín se quedan donde él las contesta, porque sacarlas
+  escondía decisiones reales (lo encontró la revisión). Si una ya no vale, se ignora con el botón de siempre.
 - **«Completado» con qué:** «Image · Portadas de carruseles», en el hilo y arriba de la caja, computadora y teléfono. Sale del
   sub-chat, del título de un chat de tarea o del «Voy a trabajar en…» de ese tramo; sin nada, «Completado».
 
@@ -55,6 +58,9 @@ cp scripts/claude-hooks/guardia/sin-ask.mjs ~/.claude/guardia/sin-ask.mjs
 - **No se miró en pantalla:** la nube no ve producción ni la base. Se armó con piezas que ya estaban (el «Mostrar más» de la lista,
   `co-jefe__nombre`, la fila del teléfono) y se verificó dibujándolas en los tests.
 - **«Observer»:** no aparece en el repo. Si Martín llama así a otra pantalla, falta saber cuál.
+- **Las técnicas que ya estaban en la Ticketera:** desde hoy no se publican, pero las viejas no aparecen en ninguna lista de Martín ni
+  en «Ignoradas». No las medí: si alguna destrababa a un chat, ese chat sigue esperando. Falta decidir dónde se ven (no inventé una
+  lista nueva).
 - **Escapes conocidos del juez:** «¿Abro la ventana?» y «¿Terminamos esto y después creamos otra landing?». Están en el banco como
   `escapa`.
 
@@ -67,5 +73,11 @@ cp scripts/claude-hooks/guardia/sin-ask.mjs ~/.claude/guardia/sin-ask.mjs
 - **Cambié:** un chat de tarea solo en su tab es su propia fila, sin el nombre de la tab arriba.
 - **Arreglé** un error que habría tirado el Ops Center del teléfono (el índice de tabs usado antes de declararse): los tests dieron
   verde porque ninguno dibuja esa pantalla, y lo cazó el chequeo de tipos completo.
+- **La revisión independiente encontró nueve cosas, y las arreglé:**
+  - un chat dormido escondía decisiones reales, y los de la nube no aparecían nunca;
+  - el juez se comía palabras del producto («otra rama» del flujo, «hooks» de un reel, «scripts» de venta, «un test de creativos»);
+  - una pregunta de precio con jerga adentro se mandaba a decidir al chat, en vez de reescribirla;
+  - un alias le sacaba la cabeza a su tab, y «Jefe › Sub» se separaba de su jefe;
+  - el recuento del globito no se rehacía al cambiar las reglas.
 - **Descarté** la cola del Cerebro para las preguntas técnicas: sin la firma de Martín, nadie podría contestarlas.
 - **Descarté** marcar las dormidas «para el Cerebro» con un estado nuevo: salen de la lista y quedan en la API como siempre.

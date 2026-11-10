@@ -17,6 +17,7 @@ import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { DESTINO_RE, sanearTurnos } from './operaciones-reglas';
 import { esperaAMartinEnElChat, ignorarEnLaLista, mostrarDeNuevoEnLaLista, retirarDeLaLista, sanearPregunta, superarPreguntas, unirPreguntas, type PreguntaChat, type RespuestaPregunta, type TurnoQueSupera } from './centro-preguntas-chat';
+import { FIRMA_DEL_JUEZ } from './pregunta-para-martin';
 
 const PREFIJO = 'operaciones.preguntas.';
 /** Los turnos de cada chat (lib/centro-turnos-db.ts): una pregunta de wrap_up se supera con un turno posterior. */
@@ -60,15 +61,22 @@ async function anotarAbiertas(porChat: ReadonlyMap<string, readonly PreguntaChat
  * cuenta (los únicos que pueden estar de más). Lee estricto: si algo no se puede leer, no marca la regla y vuelve a probar.
  */
 const CLAVE_REGLA_ABIERTAS = 'operaciones.preguntas-abiertas.regla';
-export const REGLA_ABIERTAS = 'para-martin-1';
-const MAX_RECUENTO = 300;
+// Atada a la firma de las reglas del juez: cambiar una lista vuelve a recontar sola, sin que nadie se acuerde de subir un número.
+export const REGLA_ABIERTAS = `para-martin-${FIRMA_DEL_JUEZ}`;
+/** De a cuántas listas se leen a la vez: TODOS los chats del mapa, nunca un corte (cortado, quedaban contando con la regla vieja). */
+const DE_A = 20;
 export async function recontarAbiertasSiCambioLaRegla(): Promise<boolean> {
   const ws = await wsSuperAdmin();
   return runWithWorkspace(ws, async () => {
     if ((await getSettingEstricto(CLAVE_REGLA_ABIERTAS)) === REGLA_ABIERTAS) return false;
     const mapa = parsearMapa(await getSettingEstricto(CLAVE_ABIERTAS));
     const listas = new Map<string, PreguntaChat[]>();
-    for (const local of Object.keys(mapa).slice(0, MAX_RECUENTO)) listas.set(local, lista(parsear(await getSettingEstricto(PREFIJO + local))));
+    const locales = Object.keys(mapa);
+    for (let i = 0; i < locales.length; i += DE_A) {
+      const tanda = locales.slice(i, i + DE_A);
+      const leidas = await Promise.all(tanda.map(async (l) => lista(parsear(await getSettingEstricto(PREFIJO + l)))));
+      tanda.forEach((l, k) => listas.set(l, leidas[k]));
+    }
     if (listas.size && !(await anotarAbiertas(listas))) return false;
     await setSetting(CLAVE_REGLA_ABIERTAS, REGLA_ABIERTAS);
     return true;

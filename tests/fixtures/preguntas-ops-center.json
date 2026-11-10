@@ -53,6 +53,16 @@
     { "pregunta": "¿Hacemos recargas automáticas de saldo en Meta?", "esperado": "martin", "fuente": "trampa: «recargas» es un sustantivo de plata" },
     { "pregunta": "¿Armamos el test de personalidad como imán de leads?", "esperado": "martin", "fuente": "trampa: un test que es un imán de leads" },
     { "pregunta": "¿Cobramos US$47 o US$97 por el plan Esencial?", "esperado": "martin", "fuente": "trampa: precio" },
-    { "pregunta": "¿Apruebas el diseño de la portada? Va la captura.", "esperado": "martin", "fuente": "trampa: algo que tiene que ver" }
+    { "pregunta": "¿Apruebas el diseño de la portada? Va la captura.", "esperado": "martin", "fuente": "trampa: algo que tiene que ver" },
+    { "pregunta": "¿Hago merge del grupo de barredoras?", "esperado": "chat", "fuente": "la revisión del 10/11/2026: «grupo» suelto no la vuelve de Martín" },
+    { "pregunta": "¿Arreglo el CRLF en otra punta?", "contexto": "Frena los pagos de Leila.", "esperado": "chat", "fuente": "la revisión del 10/11/2026: el contexto no rescata" },
+    { "pregunta": "¿Subimos el Esencial a US$97? (hay que hacer deploy de /planes)", "esperado": "martin-reescribir", "fuente": "la revisión del 10/11/2026: es un precio, con jerga adentro" },
+    { "pregunta": "¿Le agregamos otra rama al flujo de bienvenida?", "esperado": "martin", "fuente": "trampa (revisión del 10/11): las ramas de Automations" },
+    { "pregunta": "¿Cuál de estos hooks va en el reel de Leila?", "esperado": "martin", "fuente": "trampa (revisión del 10/11): el gancho de un reel" },
+    { "pregunta": "¿Qué scripts ganadores grabamos?", "esperado": "martin", "fuente": "trampa (revisión del 10/11): los guiones de venta" },
+    { "pregunta": "¿Hacemos un test de creativos con Brigitte esta semana?", "esperado": "martin", "fuente": "trampa (revisión del 10/11): un test de anuncios" },
+    { "pregunta": "¿Seguimos con Mauricio después del Sprint?", "esperado": "martin", "fuente": "trampa (revisión del 10/11): «seguimos» es de los dos" },
+    { "pregunta": "¿Conectás la cuenta de Stripe de MaKo?", "esperado": "martin", "fuente": "trampa (revisión del 10/11): una cuenta suya, de plata" },
+    { "pregunta": "¿Abrís una sesión de preguntas para los alumnos?", "esperado": "martin", "fuente": "trampa (revisión del 10/11): una sesión de un curso" }
   ]
 }

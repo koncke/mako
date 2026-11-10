@@ -29,7 +29,7 @@ import { ERROR_SUBIDA, enMemoria } from './leer-adjunto';
 import {
   claveParaUrl, estadoDeLaPc, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, preguntaDeChatCerrado, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
-  avisosDe, esperaCheck, esperaDe, esperasSinDormidos, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type TabDelIndice, type VistosDeChats, type YaVistos,
+  avisosDe, esperaCheck, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type TabDelIndice, type VistosDeChats, type YaVistos,
 } from '@/lib/centro-chats';
 import { pedidosQueFaltan, type PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
@@ -318,15 +318,13 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   // vuelve, avisando como «Espera tu respuesta», cuando deja un incidente de verdad (Martín, 17/10/2026). Con lo último que
   // trajo el refresco: abrirlo no hace falta para saberlo.
   const esperasConVigia = useMemo(() => {
-    // Un chat dormido hace días (10/11/2026, lib/centro-chats.ts → chatDormido) no deja nada esperando a Martín: ni globito, ni «Espera
-    // tu respuesta», ni el primer lugar de la lista.
-    const m = { ...esperasSinDormidos(esperas, conVigia, ahoraLista) };
+    const m = { ...esperas };
     for (const c of conVigia) {
       const local = c.miembros.find((k) => DESTINO_RE.test(k));
       if (local && incidenteSinVer(c, turnosParaLaLista(c, turnos, ultimos, false), vistos?.chats[c.clave] ?? vistos?.desde ?? Infinity)) m[local] = (m[local] ?? 0) + 1;
     }
     return m;
-  }, [conVigia, esperas, turnos, ultimos, vistos, ahoraLista]);
+  }, [conVigia, esperas, turnos, ultimos, vistos]);
   const chats = useMemo(
     () => conVigia.filter((c) => !vigiaCallado(c, turnosParaLaLista(c, turnos, ultimos, false), esperaDe(c, esperasConVigia), mirando === c.clave)),
     [conVigia, turnos, ultimos, esperasConVigia, mirando],

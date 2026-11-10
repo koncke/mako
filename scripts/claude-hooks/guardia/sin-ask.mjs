@@ -193,7 +193,7 @@ try {
           salieron.push({ id: o.id, pregunta: q.pregunta });
           recordar(local, q.pregunta, o.id);
         } else if (o?.ok === false && o.rechazada === true && typeof o.motivo === 'string') {
-          rechazadas.push({ pregunta: q.pregunta, motivo: o.motivo.slice(0, 600) });
+          rechazadas.push({ pregunta: q.pregunta, motivo: o.motivo.slice(0, 600), deMartin: o.tema === true });
         } else {
           const por = r.error?.code || (r.status == null ? 'cortado' : `salió ${r.status}`);
           const err = String(r.stderr ?? '').trim().split('\n').find(Boolean)?.slice(0, 160) ?? '';
@@ -206,17 +206,19 @@ try {
 
     const sinArmar = Math.max(0, pedidas - qs.length);
     anotar(`${local.slice(0, 14)}: ${salieron.length} guardada(s)${salieron.some((s) => s.repetida) ? ' (alguna repetida)' : ''}, ${rechazadas.length} técnica(s), ${fallaron.length} sin confirmar, ${sinArmar} fuera de las reglas`);
-    // Las técnicas: el motivo de cada una, y que no se vuelva a preguntar (ni con AskUserQuestion ni con `preguntar`).
-    const tecnicas = rechazadas.length
-      ? `${rechazadas.map((x) => `«${x.pregunta.slice(0, 120)}»: ${x.motivo}`).join(' ')} NO la vuelvas a preguntar, ni con AskUserQuestion ni con \`preguntar\`: decídela y sigue con tu turno. `
-      : '';
+    // Las técnicas: el motivo de cada una. La que es de Martín (el cartero dice `tema`) se reescribe y se vuelve a preguntar con
+    // `preguntar`; la otra se decide y no se vuelve a preguntar (la revisión del 10/11/2026: un precio con «deploy» adentro no se
+    // decide por él).
+    const tecnicas = rechazadas.map((x) => `«${x.pregunta.slice(0, 120)}»: ${x.motivo} ${x.deMartin
+      ? `Reescríbela sin lenguaje técnico y mándala con \`${COMANDO} preguntar\` (no con AskUserQuestion).`
+      : 'NO la vuelvas a preguntar, ni con AskUserQuestion ni con `preguntar`: decídela y sigue con tu turno.'} `).join('');
     if (!salieron.length && rechazadas.length && !fallaron.length) {
       negar(`No se la mandé a Martín. ${tecnicas}`.trim());
     } else if (!salieron.length) {
       const porque = fallaron.length
         ? `el cartero no confirmó (${fallaron[0].por}). Antes de mandarla a mano, mirá si quedó en ~/.claude/operaciones/preguntas/, para no duplicarla`
         : 'no pasó las reglas del Ops Center (de 2 a 6 opciones con título)';
-      negar(`${APAGADO} Esta vez la pregunta NO se guardó: ${porque}. ${MANUAL}`);
+      negar(`${APAGADO} ${tecnicas}Esta vez la pregunta NO se guardó: ${porque}. ${MANUAL}`);
     } else {
       const lista = salieron.map((s) => `«${s.pregunta.slice(0, 120)}» [pregunta ${s.id}]`).join('; ');
       const faltan = fallaron.length + sinArmar;

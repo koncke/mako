@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  DIAS_DORMIDO, chatDormido, esperasSinDormidos, filasDeGrupos, plegarGrupo, porJefe, tabDeChat, vaEnLaLista, type ChatCentro, type LineaChat,
+  DIAS_DORMIDO, chatDormido, filasDeGrupos, plegarGrupo, porJefe, tabDeChat, vaEnLaLista, type ChatCentro, type LineaChat,
 } from '../lib/centro-chats';
 import { rotuloDelCompletado, voyDelCompletado } from '../lib/centro-rotulo-completado';
 import { indiceDeTabs } from '../app/admin/operaciones/tabs';
@@ -47,14 +47,19 @@ test('1. de qué tab es un chat: su nombre, su bitácora o una tab nombrada en s
   assert.ok(INDICE.length > 30, `el índice tiene ${INDICE.length} tabs: no se armó`);
   const tab = (titulo: string, area?: string) => tabDeChat({ titulo, area }, INDICE);
   assert.deepEqual(tab('Image'), { tab: 'Image', jefe: true });
-  assert.deepEqual(tab('Image Editor'), { tab: 'Image', jefe: true }, 'el área «Image Editor» es la tab «Image» (slugDev)');
+  // «Image Editor» es el área de la tab «Image» (slugDev), no su nombre en la barra: va adentro (y si está solo, es la fila de la tab).
+  assert.deepEqual(tab('Image Editor'), { tab: 'Image', jefe: false });
   assert.deepEqual(tab('Image › Portadas de carruseles'), { tab: 'Image', jefe: false });
   assert.deepEqual(tab('Borrar la co-edición del editor de imágenes'), { tab: 'Image', jefe: false }, 'un chat de tarea: por cómo le dice la gente');
   assert.deepEqual(tab('Arreglar filaPropia', 'Image Editor'), { tab: 'Image', jefe: false }, 'por el área de su bitácora');
   assert.deepEqual(tab('CRM'), { tab: 'CRM', jefe: true });
   assert.deepEqual(tab('CRM › Lead Detail'), { tab: 'CRM', jefe: false });
   assert.deepEqual(tab('Arreglar el kanban del CRM'), { tab: 'CRM', jefe: false });
-  assert.deepEqual(tab('Lead Insights'), { tab: 'CRM', jefe: true }, 'un área del grupo «CRM» es el CRM');
+  // Un alias o un área es de la tab, pero no su jefe: va adentro, con su nombre (la revisión del 10/11/2026).
+  assert.deepEqual(tab('Lead Insights'), { tab: 'CRM', jefe: false }, 'un área del grupo «CRM» es del CRM, y va adentro');
+  // «Jefe › Sub» es de su jefe: la tab se busca en el jefe, nunca en el sub.
+  assert.equal(tab('Stripe › Dashboard de cobros'), null, 'no se va al Dashboard: va con «Stripe»');
+  assert.deepEqual(tab('Editor de video › Subtítulos'), { tab: 'Video', jefe: false });
   assert.deepEqual(tab('Dashboard'), { tab: 'Dashboard', jefe: true });
   assert.deepEqual(tab('Cerebro › Integración'), { tab: 'Cerebro', jefe: false }, 'lo del Cerebro es del Cerebro');
   // Lo que no nombra ninguna: solo, como hasta ahora. Una palabra de todos los días no agrupa.
@@ -80,6 +85,16 @@ test('2. la lista agrupa por tab: la cabeza es el que se llama como ella, y uno 
   ]);
   // Sin el índice, lo de siempre (por el nombre del jefe): «Image › Portadas» va con «Image», la tarea va sola.
   assert.deepEqual(porJefe(lista).map((x) => x.jefe).slice(0, 2), ['Borrar la co-edición del editor de imágenes', 'Image']);
+  // La cabeza es el que se llama EXACTO como la tab, aunque otro con un nombre de la tab llegue antes (más actividad).
+  const [crm] = porJefe([chat('Lead Insights'), chat('CRM Automation'), chat('CRM')], tabDe);
+  assert.equal(crm.chat?.titulo, 'CRM');
+  const [img] = porJefe([chat('Image Editor'), chat('Image')], tabDe);
+  assert.deepEqual([img.chat?.titulo, img.subs.map((x) => x.titulo)], ['Image', ['Image Editor']]);
+  // Dos nombres de la barra para la misma tab («Ops Center» es la fila del jefe «Second Brain»): manda el que se llama como la tab.
+  const [sb] = porJefe([chat('Ops Center'), chat('Second Brain')], tabDe);
+  assert.deepEqual([sb.chat?.titulo, sb.subs.map((x) => x.titulo)], ['Second Brain', ['Ops Center']]);
+  // Y el «Completado» de un alias dice su nombre.
+  assert.equal(rotuloDelCompletado({ titulo: 'Lead Insights' }, INDICE, [], { at: '2026-11-10T12:00:00.000Z' }), 'CRM · Lead Insights');
 });
 
 test('3. adentro van plegados, salvo lo que espera, trabaja o se mira; uno solo sin cabeza no se pliega', () => {
@@ -107,7 +122,7 @@ test('3. adentro van plegados, salvo lo que espera, trabaja o se mira; uno solo 
   assert.match(html, /Mostrar 2 chats/);
 });
 
-test('4. un chat dormido hace días sale de la lista y no deja nada esperando; el Cerebro, el que se mira y el que trabaja, no', () => {
+test('4. un chat dormido hace días sale de la lista; el que espera a Martín, el de la nube, el Cerebro, el que se mira y el que trabaja, no', () => {
   const dias = (d: number) => AHORA - d * 24 * HORA;
   const dormido = chat('Arreglar algo viejo', { actividad: dias(DIAS_DORMIDO + 1) });
   const despierto = chat('CRM', { actividad: dias(1) });
@@ -117,10 +132,10 @@ test('4. un chat dormido hace días sale de la lista y no deja nada esperando; e
   assert.equal(chatDormido(despierto, AHORA), false);
   assert.equal(chatDormido(trabajando, AHORA), false);
   assert.equal(chatDormido({ ...trabajando, viejo: true }, AHORA), true, 'una foto vieja de «trabajando» no lo despierta');
-  const esperas = { [dormido.miembros[0]]: 2, [despierto.miembros[0]]: 1, [cerebro.miembros[0]]: 1 };
-  assert.deepEqual(esperasSinDormidos(esperas, [dormido, despierto, cerebro], AHORA), { [despierto.miembros[0]]: 1, [cerebro.miembros[0]]: 1 });
-  const nada = { [despierto.miembros[0]]: 1 };
-  assert.equal(esperasSinDormidos(nada, [dormido, despierto], AHORA), nada, 'sin nada que sacar, el mismo objeto');
+  // Sin actividad conocida no duerme: los chats de la nube suben sin ella (la revisión del 10/11/2026).
+  assert.equal(chatDormido(chat('De la nube', { actividad: null }), AHORA), false);
+  // Lo que espera a Martín (una pregunta suya, un «Completado» sin ver) no se esconde por dormido: un precio del viernes, el lunes.
+  assert.equal(vaEnLaLista(dormido, AHORA, null, false, true), true, 'espera a Martín');
   assert.equal(vaEnLaLista(dormido, AHORA, null, false), false);
   assert.equal(vaEnLaLista(dormido, AHORA, dormido.clave, false), true, 'el que se está mirando');
   assert.equal(vaEnLaLista(dormido, AHORA, null, true), true, 'buscándolo');
@@ -156,23 +171,21 @@ test('5. el «Completado» arranca con «Tab · Función»', () => {
   assert.match(arriba, /<span class="co-ya__rotulo">Dashboard · La hoja Velocidad de llamada<\/span>/);
 });
 
-test('6. las dos pantallas lo usan: la lista por tab y sin dormidos, el bloque sin dormidos, el «trabado» con todas', () => {
+test('6. las dos pantallas lo usan: la lista por tab y sin dormidos (salvo lo que espera a Martín), el «trabado» con todas', () => {
   const compu = leer('app/admin/operaciones/PiezasCentro.tsx');
-  assert.match(compu, /visibles\.filter\(\(c\) => vaEnLaLista\(c, k\.ahora, actual, buscando\)\)/);
+  assert.match(compu, /visibles\.filter\(\(c\) => vaEnLaLista\(c, k\.ahora, actual, buscando, esPrioritario\(c, avisos, esperanRespuesta\)\)\)/);
   assert.match(compu, /seccionesDeChats\(enLista, avisos, esperanRespuesta\)/);
   assert.match(compu, /<GruposPorJefe chats=\{corte\} fila=\{fila\} tabDe=\{tabDe\} plegado=\{plegado\} \/>/);
   assert.match(compu, /indiceTabs=\{k\.indiceTabs\}/, 'la conversación recibe el índice');
   const movil = leer('app/m/operaciones/ChatsMovil.tsx');
   assert.match(movil, /filasDeGrupos\(porJefe\(corte, tabDe\), gruposAbiertos, siempre\)/);
-  assert.match(movil, /chats\.filter\(\(c\) => vaEnLaLista\(c, ahora/);
+  assert.match(movil, /chats\.filter\(\(c\) => vaEnLaLista\(c, ahora, elegido\?\.clave \?\? null, false, esPrioritario\(c, avisos, esperanRespuesta\)\)\)/);
   for (const [nombre, src] of [['computadora', leer('app/admin/operaciones/Conversacion.tsx')], ['teléfono', movil]] as const) {
-    assert.match(src, /chatDormido\(/, `${nombre}: el bloque mira si el chat duerme`);
-    assert.match(src, /const bloque = dormido \? [^:\n]+ : preguntasParaElBloque\(lineas\);/, `${nombre}: dormido, sin preguntas`);
-    assert.match(src, /const deLaApp = dormido \? [^:\n]+ : preguntasDeLaApp\(lineas\);/, `${nombre}: dormido, sin las de la app`);
+    // El bloque no se vacía por dormido: lo que espera a Martín se contesta igual (la revisión del 10/11/2026).
+    assert.doesNotMatch(src, /chatDormido\(/, `${nombre}: el bloque no mira si el chat duerme`);
     assert.match(src, /const trabado = chatTrabadoEnLaApp\(lineas\)/, `${nombre}: «trabado» con todas las de la app`);
     assert.match(src, /indiceTabs=\{indiceTabs\}/, `${nombre}: el bloque de «Completado» con el índice`);
   }
-  assert.match(leer('app/admin/operaciones/useCentro.ts'), /esperasSinDormidos\(esperas, conVigia, ahoraLista\)/);
   for (const r of ['app/admin/operaciones/datos.ts', 'app/m/operaciones/page.tsx']) assert.match(leer(r), /indiceTabs: indiceDeTabs\(\)/, `${r} no manda el índice`);
 });
 
@@ -191,3 +204,10 @@ test('6. las dos pantallas lo usan: la lista por tab y sin dormidos, el bloque s
 //   · la computadora lista los dormidos / sin agrupar por tab                  → 5/1 (6) cada una
 //   · el globito cuenta a los dormidos                                         → 5/1 (6)
 //   · NEUTRO: renombrar una variable local del rótulo                          → 6/0 (verde, como tiene que ser)
+// Y con lo que encontró la revisión (10/11/2026, base 6/0):
+//   · la nube duerme otra vez (sin actividad = dormido)                        → 5/1 (4)
+//   · lo que espera a Martín se esconde por dormido                            → 5/1 (4)
+//   · «Jefe › Sub» busca la tab en el sub                                      → 5/1 (1)
+//   · un alias es jefe                                                         → 4/2 (1, 2)
+//   · la cabeza no prefiere el nombre exacto                                   → 5/1 (2)  (verde hasta sumar «Ops Center» / «Second Brain»)
+//   · la lista de la computadora sin lo que espera                             → 5/1 (6)

@@ -41,6 +41,13 @@ tipos-ci-tiempo (CRLF) en otra punta?», «¿Liberás RAM para que corra el tsc 
   desplegable» no es un despliegue, «test A/B» y «tipos de plan» son del negocio, «recargas» es plata, «iOS» no es camelCase.
   Medido rompiendo: la copia del cartero sin el `(?<!un )` del push dio VERDE hasta que se sumó «¿Mandamos un push con la promo
   nueva?» al banco. Un juez de texto sin banco de casos reales no está probado.
+- **Lo que la revisión encontró en el banco, y quedó como trampa:** «otra rama al flujo» (las ramas de Automations), «los hooks
+  del reel», «los scripts de venta», «un test de creativos», «¿Seguimos con Mauricio?» (plural: es de los dos), «¿Conectás la cuenta
+  de Stripe?» (una cuenta suya, no la máquina) y «una sesión de preguntas para los alumnos». Y del otro lado, el tema se leía también
+  del CONTEXTO y de palabras sueltas («grupo»): «¿Hago merge del grupo de barredoras?» le llegaba. Ahora el tema sale de la pregunta y
+  sus opciones, y una de Martín con jerga se le devuelve al chat para REESCRIBIRLA, nunca para decidirla.
+- **El recuento del globito se ata a la FIRMA de las reglas** (`FIRMA_DEL_JUEZ`): tocar una lista del juez vuelve a recontar solo.
+  Con un número a mano, el próximo cambio al banco lo dejaba contando con las reglas de antes.
 - **Lo que se escapa, contado:** «¿Abro la ventana?» y «¿Terminamos esto y después creamos otra landing?» (sin jerga ni hecho
   claro). Van al banco como `escapa`: no se exigen, se cuentan. Si se vuelven molestas, se suma la regla con su caso.
 
@@ -49,7 +56,7 @@ tipos-ci-tiempo (CRLF) en otra punta?», «¿Liberás RAM para que corra el tsc 
 ## Un chat por tab en la lista: las palabras de todos los días no agrupan, y una pieza que se quiere dibujar en un test vive sola (10/11/2026)
 
 **Vive en:** `lib/centro-chats.ts` (`tabDeChat`, `porJefe` con `tabDe`, `plegarGrupo`, `filasDeGrupos`, `chatDormido`,
-`vaEnLaLista`, `esperasSinDormidos`) · `app/admin/operaciones/tabs.ts` (`indiceDeTabs`) · `app/admin/operaciones/GruposPorJefe.tsx`
+`vaEnLaLista`) · `app/admin/operaciones/tabs.ts` (`indiceDeTabs`) · `app/admin/operaciones/GruposPorJefe.tsx`
 · `lib/centro-rotulo-completado.ts`. Lo fija `tests/ops-center-por-tab.test.ts`.
 
 - **De qué tab es un chat, en orden:** su nombre (o su jefe) contra los nombres de las tabs; el área de su bitácora; y por último
@@ -59,8 +66,20 @@ tipos-ci-tiempo (CRLF) en otra punta?», «¿Liberás RAM para que corra el tsc 
 - **Un chat de tarea solo en su tab es su propia fila**, no «el nombre de la tab arriba y él adentro»: dos renglones para uno, y
   plegado, uno que no decía nada.
 - **Plegar nunca esconde lo que espera, trabaja o se está mirando** (`siempre`), y un huérfano solo no se pliega.
-- **Dormido = tres días sin actividad** (`DIAS_DORMIDO`), y una foto vieja de «trabajando» no lo despierta. Sale de la lista y sus
-  preguntas no suben el globito; el Cerebro nunca duerme, y el que se está mirando o se busca, tampoco sale.
+- **Dormido = tres días sin actividad** (`DIAS_DORMIDO`), y una foto vieja de «trabajando» no lo despierta. Sale de la lista; el
+  Cerebro nunca duerme, y el que se está mirando o se busca, tampoco sale.
+- ⚠️ **Lo que espera a Martín NO se esconde por dormido, y «sin actividad conocida» NO es dormido** (la revisión del 10/11/2026, que
+  lo encontró en la primera versión). Un chat que preguntó y terminó su turno no tiene actividad: está ESPERANDO. Con la versión que
+  escondía a los dormidos y sus preguntas, un precio preguntado el viernes desaparecía el lunes de la lista, del globito y del bloque,
+  sin dónde contestarlo; y los chats de la nube, que suben sin actividad, no aparecían nunca. Ahora `vaEnLaLista` recibe si el chat
+  espera algo (`esPrioritario`: una pregunta suya o un «Completado» sin ver) y el bloque no mira si duerme. Las técnicas viejas ya las
+  saca el juez; lo que queda es de Martín, y se ignora a mano.
+- **El jefe de una tab es el que se llama con un nombre PROPIO de ella** (el de la barra: `propios`, `indiceDeTabs`). Un alias o un
+  área («Lead Insights», «Image Editor») es de la tab pero va adentro, con su nombre como la función del «Completado»: con el alias
+  como jefe, «Lead Insights» le sacaba la cabeza a «CRM» con sólo tener más actividad. Con dos nombres propios («Ops Center» es la
+  fila del jefe «Second Brain»), manda el que se llama exacto como la tab.
+- **«Jefe › Sub» es de su jefe:** la tab se busca en el jefe, nunca en el sub. «Stripe › Dashboard de cobros» se iba al grupo
+  Dashboard, separado de «Stripe».
 - **Una pieza que un test tiene que DIBUJAR vive en su propio archivo.** `GruposPorJefe` estaba en `PiezasCentro.tsx`, que arrastra
   `lib/tab-access.ts` y con él `server-only`: importarla en un test tiraba «cannot be imported from a Client Component». Mudada a
   `GruposPorJefe.tsx` (y re-exportada), el test la dibuja con `renderToStaticMarkup`, y tres tests que copiaban su línea pasaron a
