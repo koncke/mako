@@ -990,8 +990,8 @@ https://hola-mako.com/integraciones?abrir=anthropic — MaKo`,
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     // 4/11/2026, la campaña de email de Mauricio (punto 7): lo emite el webhook de Resend (`revisarFrenoEmail`,
     // lib/email-reputacion.ts) con la regla de lib/email-freno.ts. Uno por hora como mucho; apagado, no vuelve a avisar.
-    disparador: 'Llega un rebote o una queja de un email del negocio y, de lo enviado en las últimas 24 h (50 o más), rebotó el 5 % o más o se marcó como spam el 0,3 % o más. Apaga el envío de email.',
-    ejemplo: `Apagué el envío de email: 4 de 60 emails de las últimas 24 h rebotaron: esas direcciones no existen (6,7 %). Si sigue, Gmail y Outlook mandan tus emails a spam. Revisa la lista y vuelve a prenderlo desde Email.`,
+    disparador: 'Llega un rebote o una queja de un email del negocio y, de los últimos 100 emails enviados desde que se prendió el envío (50 o más), rebotó el 5 % o más o se marcó como spam el 0,3 % o más. Apaga el envío de email.',
+    ejemplo: `Apagué el envío de email: de los últimos 60 emails, 4 rebotaron: esas direcciones no existen (6,7 %). Si sigue, Gmail y Outlook mandan tus emails a spam. Revisa la lista y vuelve a prenderlo desde Email.`,
   },
   {
     id: 'social-tope', titulo: 'Instagram frenó los mensajes de tus automatizaciones', categoria: 'aviso', porDefecto: 'on',

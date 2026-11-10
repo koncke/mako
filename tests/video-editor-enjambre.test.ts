@@ -472,6 +472,18 @@ test('20. tocar el editor: reproducir no saca «Deshacer todo»; lo que cambia l
   assert.match(leer('app/video-editor/_opencut/preview/components/toolbar.tsx'), /aria-label=\{isPlaying \? "Pausar" : "Reproducir"\}\s*\/\/[^\n]*\n\s*data-ce-solo-mira=""/, 'el botón de reproducir lleva la marca');
 });
 
+test('21. el panel en producción: el rol de cada agente se lee y el pie no tapa el registro (10/11/2026)', () => {
+  // Medido en hola-mako.com: en el panel (212 px) la etiqueta, una barra de 48 px y un estado de 86 px fijos le dejaban
+  // 8 px al rol («S…», «E…», «Re…»); y con la ventana de 674 px de alto «Editar con MaKo» tapaba el registro.
+  const vista = leer('app/video-editor/_opencut/enjambre/components/enjambre-view.tsx');
+  assert.doesNotMatch(vista, /w-\[86px\] shrink-0/, 'el estado vuelve a tener un ancho fijo que se come el rol');
+  assert.doesNotMatch(vista, /h-1 w-12 shrink-0/, 'la barra vuelve a ocupar lugar en la fila');
+  assert.match(vista, /<li key=\{a\.id\} className="relative flex min-w-0 items-center gap-2 pb-1 text-\[11px\]">/);
+  assert.match(vista, /className="absolute inset-x-0 bottom-0 block h-0\.5 overflow-hidden rounded-full bg-\(--cc-raised\)"/, 'la barra, debajo de la fila');
+  assert.match(vista, /<div className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pt-3 pb-3">/, 'el cuerpo del panel se desplaza');
+  assert.match(vista, /<div className="flex flex-1 flex-col gap-1\.5">\s*<div className="flex items-center justify-between gap-2">\s*<span[^>]*>Actividad de los agentes/, 'el registro no baja de su mínimo');
+});
+
 // Probado rompiéndolo (base en verde), un cambio por vez y restaurado desde memoria, con su resultado:
 //   Tanda 1 (base 8 de 8):
 //   · PASOS con «subtitulos» antes de «pausas»                        → rojo el 1
@@ -520,6 +532,8 @@ test('20. tocar el editor: reproducir no saca «Deshacer todo»; lo que cambia l
 //   · la pastilla «10 agentes en vivo»                                 → rojo el 19
 //   · «Reproducir» contado como un toque que cambia la línea           → rojo el 20
 //   · un atajo con el foco fuera de los paneles sin contar             → rojo el 20
+//   El panel en producción (10/11/2026, base 21 de 21): el estado con `w-[86px] shrink-0` de vuelta → rojo el 21; el cuerpo
+//   sin `overflow-y-auto` → rojo el 21.
 //   Revisión adversarial de la tanda del 10/11 (base 20 de 20):
 //   · «Detener» con cualquier falla, no sólo la cancelación              → rojo el 16
 //   · los botones del reproductor (manijas, «Relación») sin contar       → rojo el 20

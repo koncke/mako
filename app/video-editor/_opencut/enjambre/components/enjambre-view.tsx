@@ -57,17 +57,19 @@ function FilaAgentes() {
 				const estado = agentes[a.id];
 				const n = porAgente.get(a.id) ?? 0;
 				return (
-					<li key={a.id} className="flex min-w-0 items-center gap-2 text-[11px]">
+					// La barra va DEBAJO de la fila, a lo ancho (10/11/2026, medido en producción): en el panel (212 px) la
+					// etiqueta, una barra de 48 px y un estado de 86 px fijos le dejaban 8 px al rol, que se leía «S…», «E…».
+					<li key={a.id} className="relative flex min-w-0 items-center gap-2 pb-1 text-[11px]">
 						<EtiquetaAgente id={a.id} chica />
 						<span className="min-w-0 flex-1 truncate text-(--cc-text-2)">{a.rol}</span>
-						<span className="block h-1 w-12 shrink-0 overflow-hidden rounded-full bg-(--cc-raised)" aria-hidden>
+						<span className="absolute inset-x-0 bottom-0 block h-0.5 overflow-hidden rounded-full bg-(--cc-raised)" aria-hidden>
 							<span
 								className="block h-full rounded-full transition-[width] duration-300"
 								style={{ width: `${Math.round((n / maximo) * 100)}%`, backgroundColor: a.color }}
 							/>
 						</span>
 						<span
-							className={`w-[86px] shrink-0 truncate text-right ${estado === "trabajando" ? "text-(--cc-text)" : "text-(--cc-text-3)"}`}
+							className={`max-w-[50%] shrink-0 truncate text-right ${estado === "trabajando" ? "text-(--cc-text)" : "text-(--cc-text-3)"}`}
 						>
 							{estado === "trabajando" ? (
 								<span className="inline-flex items-center gap-1">
@@ -118,7 +120,8 @@ function Registro() {
 	const ops = fase === "corriendo" ? opsPorSegundo(lineas, ahora) : 0;
 	const vistas = lineas.slice(0, visibles);
 	return (
-		<div className="flex min-h-0 flex-1 flex-col gap-1.5">
+		// Sin `min-h-0`: el cuerpo del panel se desplaza, y el registro no baja de su mínimo (los 120 px de la lista).
+		<div className="flex flex-1 flex-col gap-1.5">
 			<div className="flex items-center justify-between gap-2">
 				<span className="font-mono text-[10px] tracking-[0.08em] text-(--cc-text-3) uppercase">Actividad de los agentes</span>
 				<span className="font-mono text-[11px]" style={{ color: LIMA }} title="operaciones por segundo">
@@ -183,7 +186,9 @@ export function EnjambreView() {
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">
-			<div className="flex min-h-0 flex-1 flex-col gap-4 px-3 pt-3 pb-3">
+			{/* Con la ventana baja (674 px de alto, medido el 10/11/2026), el texto, los diez agentes y el registro (120 px
+			    como mínimo) no entraban y se desbordaban DEBAJO del pie: «Editar con MaKo» tapaba el registro. Se desplaza. */}
+			<div className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 pt-3 pb-3">
 				<p className="text-[12px] text-(--cc-text-2)">Un equipo de agentes edita tu video a la vista: cortes, subtítulos, B-roll y sonido.</p>
 				<FilaAgentes />
 				{/* Una corrida nueva arranca su registro de cero (también lo que se reveló con «Ver todo»). */}

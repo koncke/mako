@@ -26,7 +26,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { topeConRampa } from '../lib/goteo';
-import { decidirFrenoEmail, textoDelFreno } from '../lib/email-freno';
+import { conteoDeLosUltimos, decidirFrenoEmail, desdeDelFreno, textoDelFreno } from '../lib/email-freno';
 import { avisoDeRitmo } from '../lib/ritmo-al-activar';
 import { LIMITES_CONSTANTES } from '../lib/limites-envio';
 
@@ -56,7 +56,51 @@ test('el freno: desde 50 enviados, rebotes de 5 % o quejas de 0,3 %', () => {
   assert.equal(decidirFrenoEmail({ enviados: 1000, rebotes: 0, quejas: 2 }).frena, false, '0,2 %');
   const q = decidirFrenoEmail({ enviados: 1000, rebotes: 0, quejas: 3 });
   assert.equal(q.frena && q.motivo, 'quejas', '0,3 %');
-  if (r.frena) assert.match(textoDelFreno(r, { enviados: 60, rebotes: 3, quejas: 0 }), /^Apagué el envío de email: 3 de 60 emails/);
+  if (r.frena) assert.match(textoDelFreno(r, { enviados: 60, rebotes: 3, quejas: 0 }), /^Apagué el envío de email: de los últimos 60 emails, 3 rebotaron/);
+});
+
+// Ticket #76 (10/11/2026): el freno apagó el email de Mauricio a las 9:01 con «3 de 52». Ayer Piloto A mandó 100 entre las
+// 17:00:32 y las 17:02:34 UTC (rebotes a las 17:01:12, 17:02:11 y 17:02:18); hoy Piloto B arrancó a las 17:01:10 y su primer
+// rebote llegó con el 7.º envío. Con «las últimas 24 h», la ventana tenía la COLA de Piloto A (con 2 de sus 3 rebotes) y 7 de B.
+const ENVIO_A = Date.parse('2026-11-09T17:00:32Z');
+const ENVIO_B = Date.parse('2026-11-10T17:01:10Z');
+const enviosDeMauricio = (hastaB: number): Array<{ created_at: string; rebotado_at: string | null }> => {
+  const a = Array.from({ length: 100 }, (_, i) => ENVIO_A + i * 1220);
+  const cerca = (t: number) => a.reduce((m, x) => (Math.abs(x - t) < Math.abs(m - t) ? x : m));
+  const reboteA = new Set(['2026-11-09T17:01:12Z', '2026-11-09T17:02:11Z', '2026-11-09T17:02:18Z'].map((s) => cerca(Date.parse(s))));
+  const b = Array.from({ length: hastaB }, (_, i) => ENVIO_B + i * 4500);
+  return [
+    ...a.map((t) => ({ created_at: new Date(t).toISOString(), rebotado_at: reboteA.has(t) ? new Date(t).toISOString() : null })),
+    ...b.map((t, i) => ({ created_at: new Date(t).toISOString(), rebotado_at: i === 6 || i === 40 ? new Date(t).toISOString() : null })),
+  ];
+};
+
+test('el freno mira los últimos 100 envíos: no apaga un envío partido por el borde de las 24 h (ticket #76)', () => {
+  const filas = enviosDeMauricio(7);
+  const ahora = ENVIO_B + 6 * 4500 + 1000;
+  // Lo de antes, para que se vea por qué apagó: lo de las últimas 24 h.
+  const enLas24h = filas.filter((f) => Date.parse(f.created_at) >= ahora - 86_400_000);
+  const antes = { enviados: enLas24h.length, rebotes: enLas24h.filter((f) => f.rebotado_at).length, quejas: 0 };
+  assert.equal(decidirFrenoEmail(antes).frena, true, `con 24 h: ${antes.rebotes} de ${antes.enviados}`);
+  // Ahora: los últimos 100 (93 de Piloto A y 7 de B, con 4 rebotes): 4 %.
+  const c = conteoDeLosUltimos(filas);
+  assert.deepEqual(c, { enviados: 100, rebotes: 4, quejas: 0 });
+  assert.equal(decidirFrenoEmail(c).frena, false, '4 de 100');
+  // Piloto B entero (78, con 2 rebotes) tampoco: los últimos 100 son 22 de A y los 78 de B.
+  assert.equal(decidirFrenoEmail(conteoDeLosUltimos(enviosDeMauricio(78))).frena, false);
+  // Y una lista mala sí: 6 rebotes en los últimos 100.
+  const mala = Array.from({ length: 120 }, (_, i) => ({ created_at: new Date(ENVIO_B + i * 1000).toISOString(), rebotado_at: i >= 114 ? 'x' : null }));
+  assert.deepEqual(decidirFrenoEmail(conteoDeLosUltimos(mala)), { frena: true, motivo: 'rebotes', porcentaje: 6 });
+  // Dos tablas con 100 cada una no suman 200: se cortan los 100 más nuevos.
+  assert.equal(conteoDeLosUltimos([...mala, ...filas]).enviados, 100);
+});
+
+test('el freno cuenta desde que una persona prendió el envío, y si no, 7 días', () => {
+  const ahora = Date.parse('2026-11-10T22:00:00Z');
+  assert.equal(desdeDelFreno(ahora, '2026-11-10T20:49:53.563Z'), '2026-11-10T20:49:53.563Z', 'lo prendió Mauricio a las 12:49');
+  assert.equal(desdeDelFreno(ahora, null), '2026-11-03T22:00:00.000Z', 'sin la setting: 7 días');
+  assert.equal(desdeDelFreno(ahora, '2026-10-01T00:00:00Z'), '2026-11-03T22:00:00.000Z', 'prendido hace un mes: 7 días');
+  assert.equal(desdeDelFreno(ahora, 'no-es-fecha'), '2026-11-03T22:00:00.000Z');
 });
 
 test('al activar la campaña de Mauricio se dice cuánto tarda de verdad: 15.792 envíos y ~11 días entre email y email', () => {
@@ -104,7 +148,7 @@ test('el freno por el webhook: un rebote temporal no cuenta; al tercero permanen
   assert.equal(R.bajas, 3);
   assert.deepEqual(R.avisos.map((a: { titulo: string }) => a.titulo), ['Apagué el envío de email']);
   assert.equal(R.verDespues.email.envio_prendido, false);
-  assert.deepEqual(R.verDespues.email.freno.ultimas_24h, { enviados: 50, rebotes: 3, quejas: 0 });
+  assert.deepEqual(R.verDespues.email.freno.ultimos_envios, { enviados: 50, rebotes: 3, quejas: 0 });
 });
 
 test('cambiar los topes por la API: fuera de rango no; adentro guarda sólo lo que difiere; restaurar vuelve a fábrica', () => {
@@ -117,7 +161,7 @@ test('cambiar los topes por la API: fuera de rango no; adentro guarda sólo lo q
 
 test('ver los topes dice la regla del freno y la rampa', () => {
   assert.deepEqual(R.verAntes.email.rampa.primer_dia, 50);
-  assert.match(R.verAntes.email.freno.regla, /50 enviados/);
+  assert.match(R.verAntes.email.freno.regla, /últimos 100 emails enviados .*con 50 o más/);
   assert.equal(R.verAntes.whatsapp.por_dia, 40);
   // La rampa del número (5/11/2026): un negocio que no mandó ningún WhatsApp arranca hoy en 20.
   assert.equal(R.verAntes.whatsapp.tope_de_hoy, 20);
