@@ -27,7 +27,7 @@ import { leerCuentasConNombre } from '@/lib/centro-titulares-db';
 import { leerUltimosTurnos } from '@/lib/centro-turnos-db';
 import { leerYaVistosDe } from '@/lib/centro-ya-vistos-db';
 import { deshacerDecision, responderDecision } from '@/app/admin/runway/acciones';
-import { nombresDeTabs } from './tabs';
+import { indiceDeTabs, nombresDeTabs } from './tabs';
 import type { DatosCentro } from './useCentro';
 
 export async function datosDelCentroSiOpera(): Promise<DatosCentro | null> {
@@ -64,6 +64,7 @@ export async function datosDelCentroSiOpera(): Promise<DatosCentro | null> {
     ahora,
     sub: admin.sub,
     tabs: nombresDeTabs(),
+    indiceTabs: indiceDeTabs(),
     responder: responderDecision,
     deshacer: deshacerDecision,
   };

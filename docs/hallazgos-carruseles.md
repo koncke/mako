@@ -80,20 +80,73 @@ producción, las 24 se resguardaron en la PC (`C:/dev/carrusel-mako/portadas-ins
 4. `laminas` pone la lámina 1 de portada cuando la portada no es nuestra (si no, se pagaban las láminas y la tarjeta seguía rota),
    y `--carpeta <dir>` sube las láminas que ya están bajadas en la PC sin pagarlas. `portadas` (gratis) arregla lo que no pide Apify.
 
-**Lo que quedó en los datos (al subir esto, 10/11 de madrugada): todavía nada.** Escribir en producción y gastar crédito esperan
-el sí de Martín. Queda listo para correr desde la PC (`node --env-file=<.env.local> --conditions=react-server --import tsx
-scripts/carruseles-biblioteca.mts …`):
-- **Gratis:** `portadas --de-verdad --carpeta C:/dev/carrusel-mako/portadas-instagram-0911` (20 portadas que salen de la lámina 1,
-  las 24 resguardadas y las que todavía bajen) y `laminas --carpeta C:/dev/carrusel-mako/growithalex --solo-carpeta --de-verdad`
-  (2 carruseles de @growithalex con sus láminas ya bajadas en la PC).
-- **Pago:** `laminas --de-verdad`, unos 166 links a US$0,0027 ≈ **US$0,45**. Con la lámina 1 arregla también las ~45 portadas de
-  carrusel que ya no bajan. La clave de Spy no tiene crédito libre (US$1,92 con US$2 de reserva): hace falta la «clave 2 de
-  Spy» (`APIFY_INSTAGRAM_TOKEN_2`), que Martín pega en MaKo.
-- Las 2 imágenes con la portada muerta: `links <url> --de-nuevo` (una relectura, también paga).
+⚠️ **Trampa de tipos: el spread de `Record<string, unknown> & { ref: string }` PIERDE el índice.** `{ ...f, canal, miniatura }`
+queda tipado como `{ canal; miniatura; ref }`, y desestructurar `laminas_imagenes` de eso da TS2339. Revisado a mano, parecía que
+conservaba el índice, y no lo conserva. La PC no tenía RAM para el tsc acotado (99 tres veces) y lo encontró Actions (corrida 865).
+El Cerebro lo arregló tipando explícito el `map`: `(f): FilaDePieza & { canal: string; miniatura: string | null } => …`
+(`a8f531879`). Con filas de columnas abiertas, el tipo del objeto armado va escrito, no inferido.
 
-**Sin hacer:** la 0411 (`revisada_en`) sigue sin aplicar en producción al 9/11: la columna no existe, así que todo lo visible se
-muestra sin revisar. La pantalla (que una tarjeta sin portada no rompa la grilla y que todo carrusel tenga flechas) la arregla
-el chat de la nube «Carruseles en MaKo: replicar guiado, outliers primero».
+**Lo que quedó en los datos (10/11, medido antes y después en las 990 piezas visibles):**
+- **Portadas en Instagram: de 91 a 3.** 44 gratis (20 desde la lámina 1, 19 bajadas o resguardadas, 5 achicadas) y el resto con
+  la lámina 1 del lote pago.
+- **Carruseles sin láminas: de 168 a 20.** 2 de @growithalex desde la PC; el lote pago (Martín: «Sí, gastalo», desde la reserva de
+  Spy) dejó 107, y otros 39 salieron GRATIS de los datasets de esas mismas corridas (ver abajo). Los 20 que quedan no tienen
+  arreglo: 17 son publicaciones que ya no existen (Apify: «Post does not exist») y 3 tienen acceso restringido. No se escondieron:
+  esconder es una pasada a ojo (`dejo_de_verse_en`), y su portada ya está en el bucket.
+- **El gasto: US$0,44** (la clave 1 pasó de US$8,09 a US$8,53 de US$10; le quedan US$1,47 hasta el 21/11, y Spy gastó US$0,01 a
+  0,04 por día esa semana). @lifeofarjav «01 / 06» tiene sus 6 láminas.
+- En pantalla (navegador de la app, el mismo 10/11): de las primeras 40 tarjetas, 37 con flecha y 0 portadas rotas (antes, 8).
+
+⚠️ **El diagnóstico obvio del lote era el equivocado.** El script dijo «107 con sus láminas; 59 sin imágenes (borrados, privados o
+el actor no las dio)», y 40 de esos 59 eran de la tanda 1, que Apify sí había cobrado. Releídos los datasets: **37 tenían alguna
+lámina de más de 2 MB** (el mismo tope de abajo, que tiraba la lámina y con ella el carrusel), **2 tardaban 4,5 s por lámina** y
+`guardarUna` corta a los 4 s (`ESPERA_MS`, pensada para Vercel), y sólo 20 vinieron de verdad sin imágenes. El script mezclaba
+«Apify no las dio» con «no se pudieron bajar»; ahora las cuenta aparte.
+
+⚠️ **Lo que Apify ya cobró se relee GRATIS.** Cada `run-sync-get-dataset-items` deja su dataset en Apify (`/acts/<actor>/runs` →
+`defaultDatasetId` → `/datasets/<id>/items`), y leerlo no cuesta. Los 39 recuperados salieron de ahí, sin volver a pagar. Si una
+corrida pagada no guardó, primero se relee su dataset; recién después se paga otra.
+
+**Las reglas que quedaron:** `subirImagen` ACHICA lo que pasa los 2 MB (`achicarImagen`, sharp, 1440 px de ancho, lo fija
+tests/spy-miniaturas.test.ts) en vez de tirarlo, y se bajan hasta 20 MB. `guardarMiniaturas` acepta `esperaMs` y el script
+pasa 20 s. **Sin hacer:** las publicaciones de Competitors Spy (las cuentas que sigue el negocio) nunca guardan láminas, así que
+un carrusel de Spy muestra «5 láminas» con una sola imagen y sin flecha (@leilahormozi el 10/11). Es de lib/spy.ts, no de la
+biblioteca.
+
+⚠️ **Trampa: el tope de 2 MB del bucket tira EN SILENCIO las portadas grandes de Instagram.** De las 24 resguardadas, 5 no subieron
+y `portadas` las contaba como «ya no bajan (403 o vencidas)». Pesaban de 2,3 a 3,7 MB porque Instagram sirve algunas portadas a
+2160×2700 o hasta 3277×4096. `subirImagen` devuelve null por `PESO_MAXIMO` y no avisa por qué. Se subieron achicadas a 1440 px
+de ancho (el máximo de Instagram), con sharp, de 0,4 a 0,9 MB. Las láminas que trae Apify vienen a 1080 px y no lo pasan (la más
+pesada de 44 carruseles de @growithalex: 1,5 MB). **Sin hacer:** `subirImagen` (lib/spy-miniaturas.ts) debería achicar en vez de
+tirar; hoy una portada nueva así queda sin portada, y con la regla de arriba cae a la lámina 1.
+
+**La pantalla (10/11):** una imagen que no carga ya no se dibuja (`app/image-editor/carruseles/imagenes-vivas.ts`, en la tarjeta,
+el carrusel abierto y «Tu versión»). Se saca de la lista, las flechas y el contador cuentan sólo las que se ven, y sin ninguna
+queda el respaldo de «sin portada» con el gancho. Nunca el ícono roto con el texto alternativo, que es lo que vio Martín. «Tu
+versión» con sólo la portada dice «Tiene N láminas; todavía sólo está guardada la portada.», la misma nota del carrusel abierto.
+Lo fija `tests/carruseles-imagen-rota.test.ts`, que dibuja el visor real en jsdom y le tira el `error` a la imagen.
+
+**El recorrido de Image (10/11, en producción):** en Anuncios recién abierto y en Guardados vacío salían «Quitar filtros» y
+«Guardar búsqueda» sin ningún filtro puesto. Los anuncios arrancan ordenados por días al aire (`irA`), pero «hay filtros» se
+medía contra los de Carruseles, que ordenan por outlier, y `reiniciar` los pasaba a outlier. Ahora cada lado se mide contra los
+suyos (`filtrosInicialesDe`, `sinFiltrosDe`, lib/carruseles/explorar.ts; lo fija tests/carruseles-anuncios.test.ts). Guardados
+vacío no tiene filtro que quitar: su botón es «Volver», como «parecidos», y saca de Guardados. Thumbnails, Filtros, el carrusel
+abierto, el editor y el oscuro se vieron bien. El celular no se pudo capturar: con la extensión, la ventana no cambia de ancho.
+
+⚠️ **En el celular, «Editar» se saltea el guiado y arma solo (medido el 10/11 en el navegador de la app, a 375×812).** El guiado
+(MaKo pregunta la oferta, el avatar y qué cambiar ANTES de armar, el pedido de Martín del 9/11) vive sólo en la computadora:
+`ExplorarCarruseles` lo abre si quien la monta le pasa `onReplicar`, y `app/m/image-editor/page.tsx` no se lo pasa. Sin eso cae
+en `EditarCarrusel`, que lee las láminas, escribe con la IA del negocio y arma el diseño de una. En la prueba quedó creado un
+diseño en la cuenta de Martín («Del ejemplo de @reynardlowell», `/image-editor/af5cd5d3-e1ec-4b1e-9e30-294c5e176e96`) y se usó
+su IA (`borrarDiseno` sólo le pone `borrado_at`, pero «Eliminar» dice «No se puede deshacer»: no se tocó).
+**Arreglado el mismo día:** el teléfono monta el MISMO guiado (`useGuiado`, `ChatReplica`, `ReplicarGuiado`), apilado
+(app/m/image-editor/EjemplosM.tsx): MaKo arriba, que es donde se contesta, y el original debajo. La referencia es el guiado de
+la computadora, no una pantalla nueva (memoria «disenar-escritorio-y-celular»). Lo que el guiado sabe del negocio vive en
+app/image-editor/guiado-base.ts, que leen las dos pantallas. ⚠️ Las hojas del chat (centro.css, chat.css) en la computadora llegan
+con el panel de MaKo de la tab; el teléfono no las carga solo, así que van con la pieza. Lo fija tests/image-movil-guiado.test.ts.
+
+**Sin hacer:** la 0411 (`revisada_en`) sigue sin aplicar en producción al 10/11: la columna no existe, así que todo lo visible
+se muestra sin revisar.
 
 ## Revisar lo que entró sin que nadie lo mire: el banco no mide ancho y la referencia no mide píxeles (7/11/2026)
 

@@ -78,6 +78,10 @@
 .cr-fila { position: relative; display: flex; align-items: center; }
 .cr-fila > .cr-item { padding-right: 36px; }
 .cr-menu { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+/* El menú abierto, por ENCIMA de las filas de abajo (10/11/2026). Martín vio el «⋯» de Image «sin fondo»: cada .cr-fila es
+   position: relative, así que las filas siguientes se pintan después y TAPAN la lista; y el transform de .cr-menu encierra su
+   z-index: 20. Sube la caja entera, y sólo la abierta: si subieran todas, el «⋯» de la fila de abajo taparía un ítem. */
+.cr-menu[data-abierto="si"] { z-index: 30; }
 .cr-menu__boton {
   width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent;
   color: var(--dim); font-size: 16px; line-height: 1; cursor: pointer; opacity: 0;

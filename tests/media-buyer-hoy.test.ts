@@ -102,6 +102,9 @@ test('Campañas: la pastilla, y al pie el producto más barato y el más caro, o
   const f = (n: number) => `$${n}`;
   assert.equal(pildoraDeCampanas(6, 3), '6 campañas en 3 productos');
   assert.equal(pildoraDeCampanas(1, 1), '1 campaña');
+  // Producción, 10/11/2026: la cuenta vacía decía «0 campañas en 3 productos». El lienzo cuenta sólo los productos con campañas.
+  assert.equal(pildoraDeCampanas(0, 0), '0 campañas');
+  assert.match(readFileSync(join(import.meta.dirname, '..', 'app/ads-manager/Lienzo.tsx'), 'utf8'), /pildoraDeCampanas\(todas\.length, l\.productos\.filter\(\(p\) => p\.campanas\.length\)\.length\)/);
   const ps = [{ nombre: 'Curso', costo: 14 }, { nombre: 'Mentoría', costo: 8 }, { nombre: 'Comunidad', costo: null }];
   assert.equal(mensajeDeCampanas(ps, 0, 'lead', f), '«Mentoría» trae los leads más baratos ($8) y «Curso», los más caros ($14). Toca una campaña para ver sus números o cambiarla de producto.');
   assert.equal(mensajeDeCampanas([{ nombre: 'Curso', costo: 14 }], 2, 'agenda', f), '«Curso»: $14 por agenda este mes. 2 campañas no tienen producto: tócalas para asignarles uno.');

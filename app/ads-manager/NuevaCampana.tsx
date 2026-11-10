@@ -146,7 +146,7 @@ export function NuevaCampana() {
           <section className="mba-card" role="alert">
             <h2>Campaña creada en pausa: revísala antes de prenderla</h2>
             <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>{creada.map((a) => <li key={a}>{a}</li>)}</ul>
-            <Link href="/ads-manager" className="mb-secundario mba-volver-btn">Ir al Media Buyer</Link>
+            <Link href="/ads-manager" className="mb-secundario mba-volver-btn">Volver a Marketing CoPilot</Link>
             <ReportarASoporte />
           </section>
         )}

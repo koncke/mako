@@ -34,15 +34,17 @@ import type { TurnoChat } from '@/lib/operaciones-reglas';
  */
 export const TABS_DEL_MENU = [...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV];
 
-/** El chat del mensaje: su título trae su tab, y su clave y su sesión arman el link de «Revisar». */
-export type ChatDelYaEsta = Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'>;
+/** El chat del mensaje: su título trae su tab, y su clave y su sesión arman el link de «Revisar». `area`: la tab de su bitácora. */
+export type ChatDelYaEsta = Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'> & { area?: string };
 
 /** Cómo se dice en qué está la tarea del Plan de un «Ya está». */
 const estadoDe = (x: TareaDelChat) => (x.ya && x.estado === 'creada' ? 'Marcándola hecha' : ROTULO_TAREA[x.estado]);
 
 /** El «Ya está» de un chat, en su conversación: qué cambió, dónde revisarlo, su tarea del Plan y responder sobre esto. */
-export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaVisto }: {
+export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaVisto, rotulo = null }: {
   t: TurnoChat; chat?: ChatDelYaEsta; tareas?: readonly TareaDelChat[];
+  /** QUÉ SE COMPLETÓ, «Tab · Función» (10/11/2026, lib/centro-rotulo-completado.ts): va donde decía «Completado». null = «Completado». */
+  rotulo?: string | null;
   /** El ✓ (18/10/2026, Martín: «no desaparecer hasta que yo le dé un check al mensaje de completado»): hasta qué «Ya está»
    *  lo vio, y cómo lo marca. Sin `onYaVisto`, la tarjeta no lleva ✓. */
   yaVisto?: number | null; onYaVisto?: (instante: number) => void;
@@ -70,10 +72,12 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
   const instante = Date.parse(t.at);
   const visto = tieneCheck(instante, yaVisto);
   return (
-    <article className="co-ya" aria-label={`Completado: ${titulo}`}>
+    <article className="co-ya" aria-label={`Completado${rotulo ? ` · ${rotulo}` : ''}: ${titulo}`}>
       <header className="co-ya__cab">
         <span className="co-ya__sello" aria-hidden><Icon name="check" size={13} /></span>
-        <span className="co-ya__rotulo">Completado</span>
+        {/* Qué se completó (10/11/2026, Martín: «que yo rápidamente pueda identificar qué se completó… qué funcionalidad, qué
+            feature, qué tab»): «Image · Portadas de carruseles». El ✓ de al lado dice que está completado. */}
+        <span className="co-ya__rotulo">{rotulo ?? 'Completado'}</span>
         {/* Hasta que lo toca, el chat dice «Espera tu respuesta» en la lista (lib/centro-chats.ts → esperaCheck). */}
         {onYaVisto && Number.isFinite(instante) && (
           <button type="button" className={`co-ya__check${visto ? ' co-ya__check--ok' : ''}`} aria-pressed={visto} disabled={visto}

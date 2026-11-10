@@ -27,7 +27,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { FilaM, ListaM, PieM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
-import { preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque } from '@/lib/centro-chats';
+import { chatTrabadoEnLaApp, filasDeGrupos, preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque, tabDeChat, vaEnLaLista } from '@/lib/centro-chats';
 import {
   TEXTO_SEGUNDO_RENGLON, avisosDe, comoSale, esPrioritario, seguirChat, esperaDe, historialDelChat, partesDelNombre, porJefe, seccionesDeChats, segundoRenglon, trabajaSinEscribir,
   textoDeEnvio, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP,
@@ -282,7 +282,13 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // renglón de cada fila: lib/centro-chats.ts → prioridadEnLista).
   const avisos = centro.avisos;
   const esperanRespuesta = useMemo(() => (c: ChatCentro) => esperaDe(c, esperas), [esperas]);
-  const secciones = useMemo(() => seccionesDeChats(chats, avisos, esperanRespuesta), [chats, avisos, esperanRespuesta]);
+  // Sin los dormidos (10/11/2026, `vaEnLaLista`): el chat abierto, y el que espera algo de Martín, se quedan.
+  const enLista = useMemo(() => chats.filter((c) => vaEnLaLista(c, ahora, elegido?.clave ?? null, false, esPrioritario(c, avisos, esperanRespuesta))), [chats, ahora, elegido?.clave, avisos, esperanRespuesta]);
+  const secciones = useMemo(() => seccionesDeChats(enLista, avisos, esperanRespuesta), [enLista, avisos, esperanRespuesta]);
+  // Un grupo por TAB, con sus chats de tarea plegados (10/11/2026, como la computadora: PiezasCentro.tsx → GruposPorJefe).
+  const [gruposAbiertos, setGruposAbiertos] = useState<Set<string>>(() => new Set());
+  const indiceTabs = centro.indiceTabs;
+  const tabDe = useMemo(() => (indiceTabs ? (c: ChatCentro) => tabDeChat(c, indiceTabs) : undefined), [indiceTabs]);
 
   // ── Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): el menú, su Info y Reenviar (adentro de ESTA hoja, con
   //    su «‹», como Renombrar: en el teléfono nunca hay dos hojas) ──────────────────────────────────────────────────
@@ -333,8 +339,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   const datoAbierto = elegido ? trabajaSinEscribir(elegido, lineas) ?? metaDe(elegido) : '';
   const quien = useMemo(() => ({ titulo: elegido?.titulo ?? '', aspecto: aspectoAbierto, animo: animoAbierto, dato: datoAbierto }), [elegido?.titulo, aspectoAbierto, animoAbierto, datoAbierto]);
   // `trabado`: con una pregunta de la app de Claude abierta, lo que se le escribe espera, y la línea del envío lo dice ya.
-  const trabado = deLaApp.length > 0;
-  const vivo = useMemo(() => (elegido ? { chat: elegido, carteros, trabado } : undefined), [elegido, carteros, trabado]);
+  // Con CUALQUIERA abierta, también una técnica que Martín no ve (10/11/2026): el chat no lee igual.
+  const trabado = chatTrabadoEnLaApp(lineas);
+  const vivo = useMemo(() => (elegido ? { chat: elegido, carteros, trabado, indiceTabs } : undefined), [elegido, carteros, trabado, indiceTabs]);
 
   // El grupo (3/11/2026): sólo sin `parte`. En dos partes, esta lista va debajo de la del cliente (SecondBrainCentroM.tsx), que ya lo dibuja: saldría doble.
   const hojaDelGrupo = !parte && grupo != null ? (
@@ -444,9 +451,9 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     const corte = todas ? lista : lista.filter((c, i) => i < VISIBLES || esPrioritario(c, avisos));
     // Cada sub-chat con su jefe, en las dos secciones (los del Cerebro, debajo de él: lib/centro-chats.ts → seccionesDeChats). Uno
     // cuyo jefe no está en la lista va con su nombre entero, sin «↳»: corrido, parecía colgado del de arriba (23/10/2026).
-    const deLaSeccion = porJefe(corte)
-      .flatMap((g) => (g.chat ? [{ c: g.chat, sub: false }, ...g.subs.map((c) => ({ c, sub: true }))] : g.subs.map((c) => ({ c, sub: false }))))
-      .map(({ c, sub }) => ({ tipo: 'chat' as const, c, sub }));
+    // Plegados (10/11/2026): lo que espera, trabaja o está abierto se ve siempre; el resto, detrás de «Ver los N chats» de su tab.
+    const siempre = (c: ChatCentro) => c.clave === elegido?.clave || esPrioritario(c, avisos, esperanRespuesta);
+    const deLaSeccion = filasDeGrupos(porJefe(corte, tabDe), gruposAbiertos, siempre);
     return lista.length > corte.length ? [...deLaSeccion, { tipo: 'mas' as const, k, n: lista.length }] : deLaSeccion;
   });
   return (
@@ -485,6 +492,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             })}
             {filas.map((f) => (f.tipo === 'mas'
               ? <FilaM key={`mas-${f.k}`} titulo={`Ver los ${f.n} chats`} onClick={() => setEnteras((s) => new Set(s).add(f.k))} navegacion />
+              : f.tipo === 'plegados'
+              ? <FilaM key={`plegados-${f.clave}`} titulo={`Ver ${f.n} ${f.n === 1 ? 'chat' : 'chats'} más`} onClick={() => setGruposAbiertos((s) => new Set(s).add(f.clave))} navegacion />
+              : f.tipo === 'tab'
+              ? <FilaM key={`tab-${f.clave}`} titulo={<span className="m-operaciones-texto1">{f.nombre}</span>} />
               : <FilaChatM key={f.c.clave} c={f.c} sub={f.sub}
                 espera={esperaDe(f.c, esperas)} aspecto={elegidoPara(munecos, f.c.titulo)} ahora={ahora} onAbrir={abrirEstable} nuevo={centro.yaSinVer.has(f.c.clave)} />))}
           </ListaM>
@@ -545,7 +556,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. Y sus «Completado» sin ✓, en
                 el mismo marco y de a uno (BloqueCompletado.tsx, 25/10/2026): con una pregunta, en su tira. */}
             <BloqueCompletado key={`ya-${elegido.clave}`} chat={elegido} lineas={lineas} yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
-              hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} onResponderSobre={feedback} />
+              hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} onResponderSobre={feedback} indiceTabs={indiceTabs} />
             <BloqueDePreguntas key={`b-${elegido.clave}`} chat={elegido.clave} ticketera={preguntas} responderTicketera={responder}
               delChat={bloque} onResponder={responderPregunta} avisoCerrado={(p) => centro.avisoDePregunta(elegido, p)} ignorar={paraIgnorar} ahora={ahora} deLaApp={deLaApp} />
           </div>

@@ -42,7 +42,7 @@ import { guardarTitular } from './centro-titulares-db';
 import { guardarPasos } from './centro-pasos-db';
 import { after } from 'next/server';
 import { anotarTurnosDelPlan, aplicarPlanDeLosChats } from './centro-plan-auto';
-import { guardarPreguntas, preguntasParaDecidir } from './centro-preguntas-chat-db';
+import { guardarPreguntas, preguntasParaDecidir, recontarAbiertasSiCambioLaRegla } from './centro-preguntas-chat-db';
 import { cadenasDeSesiones } from './centro-chats';
 import { MOTIVO_IGNORADA, ignoradaQueContesta, preguntaDeTrabajo, sanearPreguntas, type PreguntaChat } from './centro-preguntas-chat';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
@@ -524,6 +524,9 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     // transcript, y con la marca adelante nadie la volvía a leer (la revisión de caja-voz, 20/10/2026).
     try { preguntasIds = await guardarPreguntas(preguntas, cadena); } catch (err) { turnosOk = false; console.error('[operaciones] preguntas:', err instanceof Error ? err.message : err); }
   }
+  // Una vez, cuando cambia lo que espera a Martín (10/11/2026): el conteo guardado de la lista se rehace con la regla nueva. Es UNA
+  // lectura por vuelta mientras no cambie; si falla, la vuelta sigue igual y lo vuelve a intentar en la próxima.
+  await recontarAbiertasSiCambioLaRegla().catch((err) => console.error('[operaciones] recuento de preguntas:', err instanceof Error ? err.message : err));
   // El Plan de cada chat se arma solo (17/10/2026, la D): «Voy a trabajar en…» crea su tarea y «Ya está» la marca hecha.
   // Anotarlo es rápido; aplicarlo en el Plan pasa por el Perro (hasta un minuto por paso) y va DESPUÉS de contestarle al
   // Runner, que corta a los 120 s (lib/centro-plan-auto.ts). Si falla, la vuelta sigue igual.

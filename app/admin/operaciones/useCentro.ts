@@ -29,7 +29,7 @@ import { ERROR_SUBIDA, enMemoria } from './leer-adjunto';
 import {
   claveParaUrl, estadoDeLaPc, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, preguntaDeChatCerrado, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
-  avisosDe, esperaCheck, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type VistosDeChats, type YaVistos,
+  avisosDe, esperaCheck, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type TabDelIndice, type VistosDeChats, type YaVistos,
 } from '@/lib/centro-chats';
 import { pedidosQueFaltan, type PedidoP } from '@/lib/progreso-reglas';
 import type { LecturaPushes } from '@/lib/progreso';
@@ -93,6 +93,9 @@ export type DatosCentro = {
   sub: string;
   /** Los nombres de las tabs: el jefe de un chat se llama como una (tabs.ts). */
   tabs: readonly string[];
+  /** De qué tab es cada nombre (tabs.ts → indiceDeTabs, 10/11/2026): la lista se agrupa por tab y el «Completado» dice la suya. Sin
+   *  esto, la lista se agrupa como antes (por el nombre del jefe). */
+  indiceTabs?: readonly TabDelIndice[];
   /** Las acciones de la Ticketera (app/admin/runway/acciones.ts): contestar acá es contestar allá. */
   responder: AccionResponder;
   deshacer?: AccionDeshacer;
@@ -120,6 +123,7 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
 
 export function useCentro(d: DatosCentro, avisar: Avisar) {
   const { base, sub, tabs, responder, deshacer } = d;
+  const indiceTabs = d.indiceTabs;
   // Los pedidos: los de la carga (lo sin terminar y lo terminado reciente) más los terminados viejos de cada chat que se abrió,
   // que se piden al abrirlo (23/10/2026, lib/progreso-reglas.ts → pedidosDeLaCarga). Se suman una vez: un pedido terminado no cambia.
   const [viejos, setViejos] = useState<PedidoP[]>([]);
@@ -858,7 +862,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   }
 
   return {
-    chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
+    chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, indiceTabs, firma, pedidos,
     turnosDe, preguntasDe, tareasDe, contestarPregunta, ignorarPregunta, ignorarDecision, avisoDePregunta, estadoPc, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,

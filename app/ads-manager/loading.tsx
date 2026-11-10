@@ -4,5 +4,5 @@
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 
 export default function Cargando() {
-  return <CargandoMako que="Media Buyer" />;
+  return <CargandoMako que="Marketing CoPilot" />;
 }

@@ -77,7 +77,7 @@ export function Automatizaciones({ config: inicial, decisiones, cupo, abrir = nu
   return (
     <div className="aa">
       <div className="aa-ajustes">
-        <TituloAjustes titulo="Automatizaciones" volver={{ href: '/ads-manager', label: 'Media Buyer' }} />
+        <TituloAjustes titulo="Automatizaciones" volver={{ href: '/ads-manager', label: 'Marketing CoPilot' }} />
 
         <GrupoAjustes titulo="Lo que hizo" accion={
           <span className="aa-seg" role="group" aria-label="Período">

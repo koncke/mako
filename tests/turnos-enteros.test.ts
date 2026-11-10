@@ -52,7 +52,7 @@ test('3. lo cortado se reconoce igual: justo 4000 (un cartero viejo) o el tope n
 test('4. el cartero 1.19.0: la misma copia del tope, sube entero, y reparte la vuelta por un presupuesto de texto', async () => {
   const c = await import('../scripts/operaciones/cartero.mjs');
   assert.equal(c.TOPE_TURNO, TOPE_TURNO, 'la copia del cartero y la del servidor, iguales');
-  assert.ok(['1.19.0', '1.20.0', '1.21.0', '1.22.0', '1.22.1', '1.23.0', '1.24.0', '1.25.0', '1.26.0', '1.26.1'].includes(c.VERSION), 'los turnos enteros llegaron en la 1.19.0');
+  assert.ok(['1.19.0', '1.20.0', '1.21.0', '1.22.0', '1.22.1', '1.23.0', '1.24.0', '1.25.0', '1.26.0', '1.26.1', '1.27.0'].includes(c.VERSION), 'los turnos enteros llegaron en la 1.19.0');
   const largo = 'Lo que contestó el chat. '.repeat(2000);
   const lineas = [
     JSON.stringify({ type: 'user', uuid: 'u-yo-00000009', timestamp: '2026-10-25T12:00:00Z', message: { content: 'contame todo' } }),

@@ -21,6 +21,38 @@ no sé cuántas veces te dije lo mismo»*. Vale para TODO chat, local o en la nu
 - **Si ninguna referencia calza, se frena y se le dice a Martín ANTES de construir.** Entregar algo inventado y explicarlo
   después es justo lo que no se hace más.
 
+# A MARTÍN SÓLO LE LLEGAN SUS DECISIONES, y en palabras de producto
+
+Martín, 10/11/2026: *«Me están llegando un montón de preguntas al Ops Center… Son preguntas técnicas… te pedí que resuelvas tú las
+preguntas que puedas resolver… Que solamente me llegan las preguntas de decisiones importantes. Y nunca tiene que ser con lenguaje
+técnico que yo no entiendo»*. Ese día contestó doce «sí» seguidos sin leer, para sacárselas de encima. Seis decían algo falso
+(«conecté Chrome», «liberé RAM», «me llegó el aviso») y el Cerebro las tuvo que cancelar.
+
+- **Lo técnico lo decide el chat, o el Cerebro, y lo cuenta en el cierre.** Ramas, puntas, tests, tipos, RAM, CI, qué arreglo va
+  primero, si generar un archivo, si seguir con el paso siguiente: se elige la opción recomendada y se hace.
+- **A Martín sólo le llega esto:**
+  - la plata: cobrar, gastar, precios;
+  - lo que se le manda o se le hace a un cliente real;
+  - los accesos de personas;
+  - la seguridad que no tiene vuelta atrás;
+  - una fecha;
+  - aprobar algo que tiene que VER, con la captura adentro de la pregunta.
+- **Nunca se le pregunta un hecho que el chat puede medir:** «¿te llegó?», «¿conectaste Chrome?», «¿liberaste RAM?». Se mide, o
+  queda anotado en el relevo.
+- **La pregunta va en palabras de producto:** sin nombres de archivos, ramas, tests, siglas ni «punta».
+
+# UN CHAT POR TAB (o por una función grande), nunca un chat por tarea
+
+Martín, 10/11/2026: *«se están creando una cantidad de chats impresionante… La idea justamente era tener un chat por cada tab de
+MaKo o cada funcionalidad que se esté desarrollando. Si no, no le veo el sentido»*. Medido ese día: la cuenta 1 tenía 178 chats,
+93 de ellos con actividad en tres días, casi todos con título de tarea («Borrar la co-edición del editor de imágenes», «Arreglar
+filaPropia…»). La regla ya existía desde el 15/10 (memoria `chat-jefe-por-tab`) y se dejó de cumplir.
+
+- **Antes de abrir un chat, se busca el de esa tab** (`list_sessions`) y se le manda el pedido a ése.
+- **El título es el nombre de la tab tal cual** («CRM», «Video Editor», «Dashboard»). Un sub-chat «Tab › Función» se abre sólo para
+  una función grande, y lo decide el chat de la tab.
+- **Las tareas chicas de una tab las hace su chat**, o un subagente adentro de ese chat. Nunca un chat nuevo por cada arreglo.
+
 # Quién es quién: MaKo es de Martín. Mauricio es un CLIENTE
 
 **«El dueño», en todo este repo, es Martín Koncke**: el que decide, el que reporta y el que
@@ -2222,6 +2254,12 @@ código nuevo:
     a la derecha» del 18/10. La pieza es `<MakoEnLaTab tab="…" />` (app/_chat/MakoEnLaTab.tsx): lo que se escribe va al chat
     «Cerebro» de la persona, el del Ops Center, con su motor y sus piezas. Ninguna tab abre un chat de MaKo suelto a la derecha.
     Lo propio de la tab entra por la pieza (`arriba`, `aviso`) y el lugar se lo deja con `var(--ancho-panel-mako, 0px)`.
+    **Y UNA TAB CUYA CHARLA ES LA PANTALLA TIENE SU HILO** (10/11/2026; Martín vio en el MaKo de Image «desde Marketing CoPilot:
+    Volvamos a empezar» y la respuesta del CoPilot): la conversación es una, pero los turnos de una tab de
+    `TABS_CON_HILO_PROPIO` (lib/chat-desde.ts; hoy el CoPilot) no se dibujan en otra tab ni el modelo los lee de historial
+    desde otra, y en esa tab va sólo lo suyo. Todo lo que dibuje o mande al modelo un hilo de tab pasa por `delHiloDeLaTab`
+    (el panel, la hoja del teléfono, `historialParaModelo` en turnoApp). El Ops Center, sin tab, sigue viendo todo.
+    tests/hilo-propio-de-tab.test.ts.
     **Y DESDE DÓNDE (OC6, 22/10/2026, lib/chat-desde.ts):** una tab con algo abierto pasa `entidad` ({ tipo, id, titulo }: el lead
     de la ficha, la automatización del lienzo), y una pantalla que mira sin editar pasa `modo="analizar"`. Las herramientas toman
     la entidad por defecto, y en «analizar» el servidor no deja nada que escriba. Un tipo de entidad nuevo va en `ENTIDADES`,
@@ -11498,6 +11536,8 @@ Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra
   `sticky` de una página que scrollea entera, o un `fixed` arriba. Lo que se pega ADENTRO de un modal o de un panel con
   scroll va en su número de siempre, porque ahí la barra no está. Si el mismo componente vive en los dos lugares, cada
   puerta dice dónde se pega (`arribaTabs` en la ficha del lead). Un `<aside>` ya lo baja la regla de globals.css.
+- **Y un ALTO de pantalla entera también la descuenta**: `calc(100dvh - N - var(--barra-agencia, 0px))`. Con `100dvh - N` a secas, el
+  pie del Marketing CoPilot quedaba 50 px debajo de la ventana y la página scrolleaba sola (producción, 10/11/2026).
 - **Un selector sobre el estilo en línea reconoce las DOS escrituras**: el navegador escribe «height: 100dvh» y el server
   escribe «height:100dvh», sin espacios, y la hidratación no lo reescribe. Con una sola, la regla falla justo en la carga
   del server, que es como se entra a inspeccionar. `tests/barra-inspeccion-alto.test.ts` lo fija.

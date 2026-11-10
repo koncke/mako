@@ -82,7 +82,7 @@ import { resolverPropuesta as resolverPropuestaDeVideo } from '@/lib/editor-vide
 import { descartarBorrador } from '@/lib/evolution-envio';
 import { getPendiente, resolverPendiente } from '@/lib/mako-pendientes';
 import { PREGUNTAR, TOOL_PREGUNTAR, ERROR_TRAS_PREGUNTAR, crearGuardiaDePregunta, retirar } from '@/lib/chat-pregunta';
-import { conDesde, conEntidadPorDefecto, contextoDesde, herramientasDelModo, pistaDesde, type Desde } from '@/lib/chat-desde';
+import { conDesde, conEntidadPorDefecto, contextoDesde, delHiloDeLaTab, herramientasDelModo, pistaDesde, sinDesde, type Desde } from '@/lib/chat-desde';
 import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude } from '@/lib/no-pude-server';
@@ -605,7 +605,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Al modelo va rol y texto, nada más: los `bloques` de la base vienen CRUDOS (`unknown`, los sanea quien los
     // dibuja) y no son los `Bloque[]` ya saneados de `MensajeChat`. Por eso el hilo viaja como `ChartMsg`.
     const hilo: readonly ChartMsg[] = previos;
-    const historial = historialParaModelo(hilo, 12);
+    // Sólo lo de esta tab (10/11/2026, lib/chat-desde.ts → delHiloDeLaTab): la entrevista del CoPilot no es historial de Image.
+    const historial = historialParaModelo(delHiloDeLaTab(hilo, desde?.tab, (m) => ({ dePersona: m.role === 'user', desde: m.role === 'user' ? sinDesde(m.content).desde : null })), 12);
     const vigentes = await pendientesVigentes(ws, canalKey);
     const claveAgenda = `mako.doer.agenda.${canalKey}`;
     const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());

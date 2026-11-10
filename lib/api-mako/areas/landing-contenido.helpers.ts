@@ -2147,12 +2147,30 @@ export function versionParaApi(id: number, v: { id: number; creado: string; moti
 
 export type FilaDominio = { dominio?: string | null; dominio_estado?: string | null; dominio_verificado_at?: string | null; dominio_reclamado_at?: string | null };
 
-/** `ver_dominio_landing`: lo que dice la fila, sin salir a Vercel ni al DNS (eso es verificar_dominio_landing). */
-export function dominioParaApi(id: number, f: FilaDominio | null, ahora: number) {
+/**
+ * Dónde se conecta y se verifica el dominio cuando la pregunta llega por HTTP (ticket #61, 7/11/2026). Conectar,
+ * verificar y quitar NO salen por /api/v1 a propósito: suman o sueltan el dominio en el proyecto de Vercel de MaKo,
+ * que es de todos los negocios, y reclamarlo es global (uno mal escrito se lo quita a otro). El dominio de email sí
+ * sale (`conectar_dominio_email`), porque se da de alta en la cuenta de Resend DEL negocio. Nombrarle
+ * `conectar_dominio_landing` a un tercero era mandarlo a un 404, que además no confirma que la operación existe.
+ */
+export const DOMINIO_EN_LA_APP = 'en MaKo: Web Generator → la landing → Publicar → pestaña «Dominios» («Añadir dominio»; con los registros DNS cargados, «Verificar de nuevo»), o pidiéndoselo a MaKo en la app';
+
+/** `ver_dominio_landing`: lo que dice la fila, sin salir a Vercel ni al DNS (eso es verificar_dominio_landing).
+ *  `porHttp`: la nota nombra sólo lo que ese canal puede hacer (por HTTP, la pantalla; en la app y WhatsApp, las operaciones). */
+export function dominioParaApi(id: number, f: FilaDominio | null, ahora: number, porHttp: boolean) {
   if (!f?.dominio || !f.dominio_estado) {
-    return { id, dominio: null, nota: 'No tiene dominio propio. Se conecta con conectar_dominio_landing.' };
+    return {
+      id, dominio: null,
+      nota: porHttp
+        ? `No tiene dominio propio. Por la API no se conecta: se conecta ${DOMINIO_EN_LA_APP}, que dice qué registros DNS cargar.`
+        : 'No tiene dominio propio. Se conecta con conectar_dominio_landing.',
+    };
   }
   const vencida = f.dominio_estado === 'pendiente' && pendienteVencido(f.dominio_reclamado_at ?? null, ahora);
+  const pendiente = porHttp
+    ? `Pendiente: falta cargar los registros DNS. Cuáles son, y verificarlo, está ${DOMINIO_EN_LA_APP}: por la API no se verifica.`
+    : 'Pendiente: falta cargar los registros DNS. verificar_dominio_landing dice cuáles y lo marca verificado si ya están.';
   return {
     id,
     dominio: f.dominio,
@@ -2162,7 +2180,7 @@ export function dominioParaApi(id: number, f: FilaDominio | null, ahora: number)
     reserva_vencida: vencida,
     nota: f.dominio_estado === 'verificado'
       ? 'Verificado: la landing publicada se ve en ese dominio.'
-      : `Pendiente: falta cargar los registros DNS. verificar_dominio_landing dice cuáles y lo marca verificado si ya están.${vencida ? ' La reserva venció (72 h): otra cuenta lo puede tomar; si nadie lo tomó, cargar el DNS lo sigue verificando.' : ''}`,
+      : `${pendiente}${vencida ? ' La reserva venció (72 h): otra cuenta lo puede tomar; si nadie lo tomó, cargar el DNS lo sigue verificando.' : ''}`,
   };
 }
 

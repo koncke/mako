@@ -28,6 +28,11 @@
 //     'ask'. MaKo descartaba la de `preguntar` por igual a la 'ask' abierta y la pregunta se perdía (2-5% de las veces). Lo
 //     arregla MaKo (unirPreguntas: la de `preguntar` reemplaza a la 'ask' igual); sin eso, este hook no se instala.
 //
+// UNA PREGUNTA TÉCNICA NO SE GUARDA (10/11/2026, cartero 1.27.0; Martín: «Que solamente me llegan las preguntas de decisiones
+// importantes. Y nunca tiene que ser con lenguaje técnico»). `cartero preguntar` la rechaza (sale con 3 y `{ rechazada, motivo }`) y
+// este hook le pasa ESE motivo al chat al negarle la herramienta: la decide él con la opción recomendada y sigue, en el mismo turno.
+// No es un error del cartero: no se le dice que la mande a mano.
+//
 // Para probar sin subir nada: CARTERO_DIR=<carpeta temporal> (el cartero real escribe ahí), o MAKO_SIN_ASK_CARTERO=<un .mjs
 // falso>; MAKO_SIN_ASK_LIB (el cartero del que salen las reglas), MAKO_SIN_ASK_CONFIG, MAKO_SIN_ASK_SESIONES y
 // MAKO_SIN_ASK_LOG y MAKO_SIN_ASK_DUP (la memoria de repetidas), para no leer ni escribir los de la PC.
@@ -166,6 +171,7 @@ try {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sin-ask-'));
     const salieron = [];
     const fallaron = [];
+    const rechazadas = [];
     try {
       qs.forEach((q, i) => {
         const ya = repetida(local, q.pregunta);
@@ -186,6 +192,8 @@ try {
         if (r.status === 0 && o?.ok === true && typeof o.id === 'string') {
           salieron.push({ id: o.id, pregunta: q.pregunta });
           recordar(local, q.pregunta, o.id);
+        } else if (o?.ok === false && o.rechazada === true && typeof o.motivo === 'string') {
+          rechazadas.push({ pregunta: q.pregunta, motivo: o.motivo.slice(0, 600), deMartin: o.tema === true });
         } else {
           const por = r.error?.code || (r.status == null ? 'cortado' : `salió ${r.status}`);
           const err = String(r.stderr ?? '').trim().split('\n').find(Boolean)?.slice(0, 160) ?? '';
@@ -197,16 +205,24 @@ try {
     }
 
     const sinArmar = Math.max(0, pedidas - qs.length);
-    anotar(`${local.slice(0, 14)}: ${salieron.length} guardada(s)${salieron.some((s) => s.repetida) ? ' (alguna repetida)' : ''}, ${fallaron.length} sin confirmar, ${sinArmar} fuera de las reglas`);
-    if (!salieron.length) {
+    anotar(`${local.slice(0, 14)}: ${salieron.length} guardada(s)${salieron.some((s) => s.repetida) ? ' (alguna repetida)' : ''}, ${rechazadas.length} técnica(s), ${fallaron.length} sin confirmar, ${sinArmar} fuera de las reglas`);
+    // Las técnicas: el motivo de cada una. La que es de Martín (el cartero dice `tema`) se reescribe y se vuelve a preguntar con
+    // `preguntar`; la otra se decide y no se vuelve a preguntar (la revisión del 10/11/2026: un precio con «deploy» adentro no se
+    // decide por él).
+    const tecnicas = rechazadas.map((x) => `«${x.pregunta.slice(0, 120)}»: ${x.motivo} ${x.deMartin
+      ? `Reescríbela sin lenguaje técnico y mándala con \`${COMANDO} preguntar\` (no con AskUserQuestion).`
+      : 'NO la vuelvas a preguntar, ni con AskUserQuestion ni con `preguntar`: decídela y sigue con tu turno.'} `).join('');
+    if (!salieron.length && rechazadas.length && !fallaron.length) {
+      negar(`No se la mandé a Martín. ${tecnicas}`.trim());
+    } else if (!salieron.length) {
       const porque = fallaron.length
         ? `el cartero no confirmó (${fallaron[0].por}). Antes de mandarla a mano, mirá si quedó en ~/.claude/operaciones/preguntas/, para no duplicarla`
         : 'no pasó las reglas del Ops Center (de 2 a 6 opciones con título)';
-      negar(`${APAGADO} Esta vez la pregunta NO se guardó: ${porque}. ${MANUAL}`);
+      negar(`${APAGADO} ${tecnicas}Esta vez la pregunta NO se guardó: ${porque}. ${MANUAL}`);
     } else {
       const lista = salieron.map((s) => `«${s.pregunta.slice(0, 120)}» [pregunta ${s.id}]`).join('; ');
       const faltan = fallaron.length + sinArmar;
-      negar(`${APAGADO} `
+      negar(`${APAGADO} ${tecnicas}`
         + `Tu pregunta YA QUEDÓ GUARDADA como \`cartero preguntar\` y sale a tu conversación del Ops Center en la próxima vuelta del Runner (segundos): ${lista}. `
         + (faltan ? `${faltan} de las que hiciste NO se guardaron (no pasaron las reglas o el cartero no confirmó): si hacen falta, mandalas con \`${COMANDO} preguntar\`. ` : '')
         + 'NO la repitas ni vuelvas a llamar AskUserQuestion: terminá el turno ahora, con una línea que diga que preguntaste. Si cerrás con wrap_up, poné sólo el resumen, sin pregunta ni botones para esta decisión (ya está en el Ops Center). '

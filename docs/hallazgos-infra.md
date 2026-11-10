@@ -12239,3 +12239,52 @@ rojo es ése.
 línea (`LARGAS` de `app/video-editor/_opencut/chat/comandos.ts`), pero estaban anidadas: la tanda 4 traía motion hasta su
 penúltimo commit, y Submagic entera. `git merge-base` entre las puntas lo muestra en un comando. Se resolvió la de afuera, y las
 otras dos mezclaron limpio. Antes de resolver tres choques iguales, fijate si son el mismo trabajo.
+
+## En una pestaña de FONDO del navegador de la app, nada se anima: un modal parece transparente (10/11/2026)
+
+- **Síntoma** (chat Marketing CoPilot, recorriendo su tab en el navegador integrado con su pestaña propia detrás de la «seed»): el modal
+  de Actividad salía translúcido, con la pantalla de atrás a través; en el teléfono la captura mostraba el splash de MaKo encima de
+  una pantalla que ya había cargado.
+- ⚠️ **El diagnóstico obvio («el modal de la casa está roto») era el equivocado.** `.mk-modal` y su fondo seguían en `opacity: 0` porque
+  sus animaciones de entrada (`mkPop`, `mkFade`) nunca avanzaron: medido, `requestAnimationFrame` dio **0 cuadros en 1,2 s** con
+  `document.visibilityState === 'visible'`. Una pestaña de fondo del panel no pinta cuadros: toda animación queda en su primer cuadro.
+- **La regla:** lo que dependa de una animación (un modal, un splash, un toast) se mira con la pestaña AL FRENTE (`tabs_select`), o se
+  mide en el DOM. Antes de anotar «invisible» o «transparente», medir los cuadros (`requestAnimationFrame` en un bucle de 1 s).
+- **Y dos más del mismo recorrido:** con el preset «mobile», la captura sale ampliada y cortada a la derecha aunque el DOM mida 375 px
+  sin nada afuera: un desborde se mide con `scrollWidth` y `getBoundingClientRect`, no con la captura. El oscuro de /m lo vuelve a sacar
+  `ShellM` si `mako.modo` no dice «oscuro», y esa preferencia la comparten todas las pestañas del panel (las de otros chats y la de
+  Martín): para mirar el oscuro sin cambiarla, se pisa `Storage.prototype.getItem` SÓLO en la página propia.
+
+## La PC se quedó sin RAM con cuatro chats revisando su tab: un assert sobre un nodo de jsdom (10/11/2026)
+
+**Síntoma:** a las 21:42 UTC se cayeron los cuatro chats locales a la vez (Image, Video Editor, Marketing CoPilot y el grabador
+de THE NET LAB). Estaban recorriendo su tab en el Chrome de Martín por pedido suyo. El vigía de RAM mató un `node.exe` con
+**26.912 MB privados**, cuando quedaban 91 MB libres, y a las 21:44 otro de 25.460 MB (`~/.claude/guardia/guardia.log`).
+
+**⚠️ El diagnóstico obvio era el equivocado, dos veces:**
+- no fueron «demasiados chats con Chrome»: los cuatro chats con 16 pestañas de Chrome sumaban unos 6 GB;
+- y tampoco la suite de afectados del CoPilot, que fue lo primero que anotó el Cerebro.
+
+Fue el chat Image, rompiendo a propósito `tests/carruseles-imagen-rota.test.ts`. Un `assert.equal(elementoDeJsdom, null)` que
+falla arma el mensaje de la diferencia inspeccionando TODO el grafo de jsdom, y crece hasta agotar la memoria. Al repetirlo con
+7,7 GB libres, dio «Array buffer allocation failed». El detalle está en `docs/hallazgos-pruebas.md`.
+
+**La regla:**
+- un test nunca compara un nodo del DOM (ni un objeto grande) con `assert.equal` o `deepEqual`: compara un dato chico, como su
+  `src`, su `textContent` o si existe (`=== null` dentro de un `assert.ok`);
+- con más de un chat trabajando, en la PC no se corre la suite de afectados: la corre la punta en GitHub.
+
+**Lo que quedó SIN hacer:**
+- medir por qué `tests-afectados` arma un proceso de ese tamaño (en GitHub, con 10 GB libres, no pasa);
+- ponerle un techo de memoria, con `--max-old-space-size` por proceso, en `scripts/tests-afectados.mjs`.
+
+**Corrección (el chat de Image, 10/11 ~22:15): lo más probable es que NO fuera la suite de afectados.** A las 22:02:17 el vigía
+mató un tercer `node.exe` de **14.871 MB**, con la misma línea de comando (la del hijo que arma `node --test`), y a esa hora lo
+único que corría era el chat de Image verificando `tests/carruseles-imagen-rota.test.ts` rompiéndolo (arrancó a las 22:01:45).
+Ese test hacía `assert.equal(elementoDeJsdom, null)`: al fallar, `assert` arma la diferencia inspeccionando el grafo entero de
+jsdom y el proceso crece hasta comerse la memoria (docs/hallazgos-pruebas.md). El comando que se cortó a las 21:42 corría DOS
+verificaciones así, una detrás de la otra, que encaja con los dos procesos de 21:42 y 21:44. La suite del CoPilot arrancó a las
+21:38 y no se puede descartar, pero el vigía no registra la sesión de lo que mata. **Lo que falta:** que `[vigia] MATO` anote la
+sesión y el archivo de test (el `--test` hijo no lo lleva en la línea de comando), así una causa no se adivina por el horario.
+**Lo que quedó SIN hacer:** ponerle un techo de memoria a cada proceso de test (`--max-old-space-size`) en
+`scripts/tests-afectados.mjs` y en el corredor de un archivo, para que un test así muera solo y no se lleve la PC.
