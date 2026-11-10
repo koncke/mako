@@ -12,6 +12,10 @@
 // reproductor: mientras se exporta, el reproductor muestra los cuadros que se
 // van dibujando (igual que en OpenCut). Al terminar se le pide un cuadro nuevo
 // (`refrescarReproductor`), si no se queda mostrando el último cuadro exportado.
+//
+// Con un rango marcado (I / O, rango/reglas.ts) «solo se exporta ese rango», como
+// en CapCut: el video, el audio aparte, los subtítulos y el GIF salen de la
+// entrada a la salida y arrancan en 0. El diálogo lo pone en `opciones.tramo`.
 
 import { mensajeDeExport } from "./mensaje-error";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
@@ -36,6 +40,15 @@ import { archivoSubtitulos, subtitulosDe } from "./subtitulos";
 import { exportarGif } from "./gif";
 import { guardarArchivo, nombreArchivo } from "./destino";
 import { EXPORT_MIME_TYPES } from "./mime-types";
+import { tramoVigente } from "@/app/video-editor/_opencut/rango/acciones";
+import {
+	muestrasDelTramo,
+	segundosAExportar,
+	subtitulosDelTramo,
+	tramoEfectivo,
+	tramoEnSegundos,
+	type Tramo,
+} from "@/app/video-editor/_opencut/rango/reglas";
 
 export type ResultadoExportar =
 	// `video`: el archivo de video que salió (para «Publicar», app/calendario/publicar-desde-crear.ts), o null si no hubo.
@@ -49,12 +62,19 @@ export function datosDelProyecto(editor: EditorCore) {
 	const tracks = editor.scenes.getActiveScene().tracks;
 	const mediaAssets = editor.media.getAssets();
 	const duracion = editor.timeline.getTotalDuration();
+	// El rango I / O que vale ahora (o null): lo que se exporta y lo que dice el pie.
+	const tramo = tramoVigente(editor);
 	return {
 		proyecto,
-		segundos: duracion / TICKS_PER_SECOND,
+		tramo,
+		/** Los segundos que se EXPORTAN: los del rango, o la línea entera. */
+		segundos: segundosAExportar(tramo, duracion, TICKS_PER_SECOND),
 		lienzo: proyecto.settings.canvasSize,
 		hayAudio: timelineHasAudio({ tracks, mediaAssets }),
-		subtitulos: subtitulosDe(tracks),
+		// Con rango, sólo los subtítulos que caen adentro (la casilla se apaga si no hay ninguno).
+		subtitulos: tramo
+			? subtitulosDelTramo(subtitulosDe(tracks), tramoEnSegundos(tramo, TICKS_PER_SECOND))
+			: subtitulosDe(tracks),
 	};
 }
 
@@ -86,7 +106,9 @@ export class Exportacion {
 			if (!proyecto || duracion <= 0) return { estado: "error", mensaje: "El proyecto está vacío." };
 
 			const lienzo = proyecto.settings.canvasSize;
-			const segundos = duracion / TICKS_PER_SECOND;
+			// El rango que puso el diálogo, vuelto a recortar a la duración de ahora.
+			const tramo = opciones.tramo ? tramoEfectivo({ entrada: opciones.tramo.desde, salida: opciones.tramo.hasta }, duracion) : null;
+			const segundos = segundosAExportar(tramo, duracion, TICKS_PER_SECOND);
 			const base = nombreArchivo(opciones.nombre);
 			const escena = buildScene({
 				tracks,
@@ -121,6 +143,7 @@ export class Exportacion {
 			if ((opciones.video.activo || opciones.audio.activo) && timelineHasAudio({ tracks, mediaAssets })) {
 				avance("audio", 0);
 				mezcla = await createTimelineAudioBuffer({ tracks, mediaAssets, duration: duracion });
+				if (mezcla && tramo) mezcla = recortarAudio(mezcla, tramo);
 			}
 			cerrarEtapa("audio");
 			if (this.cancelada) return { estado: "cancelado" };
@@ -154,7 +177,7 @@ export class Exportacion {
 					audioBitrate: AUDIO_BITRATE,
 				});
 				this.exportador.on("progress", (p) => avance("video", p));
-				const buffer = await this.exportador.export({ rootNode: escena });
+				const buffer = await this.exportador.export({ rootNode: escena, tramo });
 				this.exportador = null;
 				if (this.cancelada || !buffer) return this.cancelada ? { estado: "cancelado" } : { estado: "error", mensaje: "No se pudo exportar." };
 				archivos.push({
@@ -173,7 +196,8 @@ export class Exportacion {
 
 			// 4. Los subtítulos.
 			if (opciones.subtitulos.activo) {
-				const subtitulos = subtitulosDe(tracks);
+				const todos = subtitulosDe(tracks);
+				const subtitulos = tramo ? subtitulosDelTramo(todos, tramoEnSegundos(tramo, TICKS_PER_SECOND)) : todos;
 				if (subtitulos.length > 0) {
 					archivos.push({
 						blob: archivoSubtitulos({ subtitulos, formato: opciones.subtitulos.formato }),
@@ -191,6 +215,7 @@ export class Exportacion {
 					fps: proyecto.settings.fps,
 					onProgreso: (p) => avance("gif", p),
 					cancelado: () => this.cancelada,
+					tramo,
 				});
 				if (!blob) return { estado: "cancelado" };
 				archivos.push({ blob, nombre: `${base}.gif` });
@@ -234,8 +259,25 @@ export function refrescarReproductor(editor: EditorCore): void {
 	});
 }
 
-/** La portada: el primer cuadro, chico, como dataURL (columna izquierda del diálogo). */
-export async function portada(editor: EditorCore, ancho = 480): Promise<string | null> {
+/**
+ * Las muestras del tramo, en un búfer nuevo que arranca en 0 (la mezcla cubre la
+ * línea entera). Un tramo sin muestras deja el video sin audio.
+ */
+function recortarAudio(mezcla: AudioBuffer, tramo: Tramo): AudioBuffer | null {
+	const { inicio, cantidad } = muestrasDelTramo(tramo, TICKS_PER_SECOND, mezcla.sampleRate, mezcla.length);
+	if (cantidad <= 0) return null;
+	const recorte = new AudioBuffer({ length: cantidad, numberOfChannels: mezcla.numberOfChannels, sampleRate: mezcla.sampleRate });
+	for (let c = 0; c < mezcla.numberOfChannels; c++) {
+		recorte.copyToChannel(mezcla.getChannelData(c).subarray(inicio, inicio + cantidad), c);
+	}
+	return recorte;
+}
+
+/**
+ * La portada: el primer cuadro (el de la entrada, si hay un rango), chico, como
+ * dataURL (columna izquierda del diálogo).
+ */
+export async function portada(editor: EditorCore, ancho = 480, tiempo = 0): Promise<string | null> {
 	try {
 		const proyecto = editor.project.getActive();
 		const duracion = editor.timeline.getTotalDuration();
@@ -252,7 +294,7 @@ export async function portada(editor: EditorCore, ancho = 480): Promise<string |
 		const canvas = document.createElement("canvas");
 		canvas.width = ancho;
 		canvas.height = Math.max(2, Math.round((ancho * lienzo.height) / lienzo.width));
-		await renderer.renderToCanvas({ node: escena, time: 0, targetCanvas: canvas });
+		await renderer.renderToCanvas({ node: escena, time: Math.max(0, Math.min(tiempo, duracion)), targetCanvas: canvas });
 		return canvas.toDataURL("image/jpeg", 0.85);
 	} catch (error) {
 		console.warn("[exportar] no se pudo dibujar la portada", error);
