@@ -156,7 +156,9 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
 
 ## 3. Motion graphics y animaciones
 
-### 3.1 Motion graphics en el editor (motion-skills) — P2 · hecho a medias, fuera de main
+### ~~3.1 Motion graphics en el editor (motion-skills) — P2 · hecho a medias, fuera de main~~ — hecho el 10/11/2026 (`punta/motion-0911`)
+- **Hecho:** traído por partes sobre el código de hoy (el motor `lib/motion/` con `LICENSE-IART` → el elemento del editor con su pestaña → el chat y la API). La cifra ya no redondea 4,5 a 5 y lee «1.250» como mil doscientos cincuenta (un solo lector de números: `lib/motion/numeros.ts`); el test M10 vuelve a pedir la orden de no inventar. La revisión adversarial encontró 11 cosas y se arreglaron las 10 que tocaban: la pestaña valida al salir del campo, un obligatorio vacío deja la capa vacía (nunca el ejemplo), las barras se validan, la escena dura lo que el clip, las cajas crecen con los renglones, el aviso BSD de WebKit (`lib/motion/LICENSE-WEBKIT`) y «motion» nombra el área video en el chat de la app. Falta verlo en Chrome (§13).
+- **Decisión para Martín:** al DIVIDIR un motion, la mitad de la derecha vuelve a hacer la animación de entrada. Copiar CapCut (entrada a la izquierda, salida a la derecha) usaría `trimStart`, que es también lo que cambia al arrastrar el borde izquierdo: acortar el clip le cortaría la entrada.
 - **Qué es:** un motor propio de motion graphics, `lib/motion/`.
   - Tiene 9 plantillas (titular, palabras, cifra, tercio, logo, barras, testimonio, oferta y cierre), 4 tonos y 3 proporciones.
   - En el editor, un motion es el elemento `motion-<plantilla>`; aparece en Biblioteca › Plantillas › «Motion» y en una pestaña Motion.
