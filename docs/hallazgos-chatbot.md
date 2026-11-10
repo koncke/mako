@@ -82,11 +82,29 @@ rama A».
   Sólo en un mensaje de UN texto: con varios seguidos no hay qué sortear.
 - **Por la API:** `variantes` en `cambiar_botones_mensaje` (reemplaza; `[]` las saca: `vaciaEsValor`). Se descartan las vacías,
   las repetidas y la igual al texto. Cambiar el texto sin mandar variantes las suelta, como siempre.
+- ⚠️ **Por la API NO GUARDA en una automatización ACTIVA con una «gemela» (10/11/2026, Leandro, 12:43 UTC).** Leandro usó
+  `variantes` en la #706 y le salió un 422. El id de la tarjeta estaba bien (`preparar` pasó). Lo frenó `publicarPasos`
+  (lib/nutricion.ts) con `DuplicadaError`: «A la misma gente ya le escribe «IG - GUIA»». `mismaCohorte`
+  (lib/automatizacion-duplicada.ts) compara un CRON de comentario sólo por `subtipo` y no mira `palabras` ni `publicacion`, y
+  `duplicadaDe` no compara el texto (es «por hechos»): le alcanza con la misma cohorte y el mismo canal del primer mensaje. Con
+  DOS automatizaciones de comentario prendidas que escriben por Instagram (lo normal en ManyChat: una por palabra), la guarda
+  salta siempre, digan lo que digan. En el lienzo se pregunta y existe «Publicar igual»: así cargó él las 7, de 12:45 a 12:51.
+  En la API, `cambiar_botones_mensaje` y `cambiar_texto_mensaje` no tenían ese «igual»: con dos de esas prendidas, no se guardaba
+  ningún cambio de sus mensajes. `editar_pasos_secuencia_mensajes`, el canal y los CRON sí lo tenían desde el 21/10: la propuesta
+  dice «Ojo: a la misma gente ya le escribe…» y el «sí» lleva `aunqueDuplique`. Ahora las dos lo tienen igual
+  (tests/leandro-whatsapp-0911.test.ts, el 7, mira que toda llamada a `publicarPasos` de chatbot.run.ts lo pase).
+  **Regla: un camino nuevo que publica una activa mira la gemela en `preparar` y lleva el «igual» en el payload.** Falta decidir si
+  palabras clave o publicaciones distintas cuentan como gente distinta. Un comentario que dice «lista» y «guía» dispara las dos, y
+  el test que ata la guarda al motor (tests/automations-activar-todos-los-caminos.test.ts) pide avisar cuando el motor dispara las
+  dos con el mismo evento. Mientras tanto, la persona ve el aviso en cada «Publicar» y en cada propuesta. Quedó para el chat de la
+  nube (docs/relevo/leandro-0911.md, punto 7).
 - **El sorteo es al azar por envío**, como el WhatsApp. La clave de idempotencia es por tarjeta y pasada: un reintento de Zernio
   devuelve lo que ya salió, no manda otra versión.
 
-**Sin hacer / sin medir:** «Probar» del lienzo muestra el texto, no una versión al azar. Sin verificar con un comentario real en
-Instagram (es la cuenta de un cliente: la prueba va con «pruebafm» y se coordina, memoria instagram-prueba-fiesta-music).
+**Sin hacer / sin medir:** «Probar» del lienzo muestra el texto, no una versión al azar. Lo probó un comentario real, el 10/11
+a las 12:58 UTC en la #707, después de que Leandro cargara las variantes: la respuesta pública y el DM salieron y la inscripción
+quedó completada. Que de verdad ROTA (más de una forma en `nutricion_envios.texto_enviado` de la tarjeta `en_comentario`) se está
+midiendo. Sin comentar nosotros en Instagram: es público.
 Test: tests/leandro-whatsapp-0911.test.ts (4 a 6).
 
 ## Los datos del pago NO son del CRON «Pagos» (6/11/2026, el pendiente 288: la plantilla del pago rechazado)

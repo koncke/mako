@@ -140,6 +140,26 @@ test('6. el editor de Instagram y Messenger tiene el «↻» del WhatsApp, con l
   assert.match(leer('app/automations/EditorMensajeWhatsApp.tsx'), /<OtrasFormasDeDecirlo variantes=\{variantes\}/, 'el WhatsApp dejó de usar la pieza común');
 });
 
+// 10/11/2026: Leandro cargó las variantes de la #706 por la API y le dio 422: «A la misma gente ya le escribe «IG - GUIA»». Con dos
+// automatizaciones de comentario prendidas, la guarda las ve como la misma gente (lib/automatizacion-duplicada.ts), y la API no tenía
+// el «Publicar igual» del lienzo: no guardaba NADA. Como editar_pasos_secuencia_mensajes: la propuesta lo dice y el «sí» lo lleva.
+test('7. por la API, guardar un mensaje de una ACTIVA con gemela no se frena: la propuesta lo dice y el «sí» lleva el «igual»', () => {
+  const run = leer('lib/api-mako/areas/chatbot.run.ts');
+  const llamadas = [...run.matchAll(/await publicarPasos\(([^\n]*)\);/g)].map((m) => m[1]);
+  assert.ok(llamadas.length >= 4, 'cambió cuántas operaciones publican: revisar este test');
+  for (const a of llamadas) {
+    assert.match(a, /\{ aunqueDuplique: payload\.aunqueDuplique === true \}$/, `publicarPasos(${a}) no deja publicar «igual» lo que la propuesta ya avisó`);
+  }
+  for (const op of ['cambiar_botones_mensaje', 'cambiar_texto_mensaje']) {
+    const i = run.indexOf(`\n  ${op}: {`);
+    assert.ok(i > 0, `no encontré ${op}`);
+    const cuerpo = run.slice(i, run.indexOf('\n  },\n', i));
+    assert.match(cuerpo, /const otra = await duplicadaDeLaActivacion\(id, \{ pasos: r\.pasos, soloSiActiva: true \}\);/, `${op} no mira la gemela al proponer`);
+    assert.match(cuerpo, /payload: \{ secuenciaId: id, pasos: r\.pasos, \.\.\.\(otra \? \{ aunqueDuplique: true \} : \{\}\) \}/, `${op}: el «igual» sin que la propuesta lo diga`);
+    assert.match(cuerpo, /Ojo: \$\{avisoDuplicada\(otra\)\}/, `${op}: la propuesta no dice a quién más le escribe`);
+  }
+});
+
 // PROBADO ROMPIÉNDOLO (9/11/2026, con `node --import tsx --test tests/leandro-whatsapp-0911.test.ts`):
 //   R1 volver a poner `tarjeta` suelta en ZONA_SENSIBLE_TEXTO                    → fallan el 1 y el 3 («tarjeta» del lienzo leída como cobro)
 //   R2 sacar TARJETA_DE_PAGO de ZONA_SENSIBLE_TEXTO                              → falla el 1 (una tarjeta de pago dejó de ser delicada)
@@ -153,3 +173,8 @@ test('6. el editor de Instagram y Messenger tiene el «↻» del WhatsApp, con l
 //   V4 la def sin `vaciaEsValor`                                                → falla el 5
 //   V5 el editor social sin `OtrasFormasDeDecirlo`                               → falla el 6
 //   Un cambio sin efecto (renombrar `antes` por `primero` en emailDelTelefono)   → verde.
+// Y el 10/11/2026 (el 7, base 7 / 0):
+//   G1 el `ejecutar` de cambiar_botones_mensaje sin el «igual» (como antes)      → falla el 7
+//   G2 el `preparar` de cambiar_texto_mensaje sin la gemela en el payload         → falla el 7
+//   G3 la propuesta de cambiar_botones_mensaje sin el aviso de a quién más        → falla el 7
+//   Un cambio sin efecto (un comentario)                                         → verde.

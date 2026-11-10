@@ -1643,13 +1643,21 @@ export const RUNNERS: Runners = {
       if (!lista && nuevoTexto === undefined && enComentario === undefined && variantes === undefined) return { error: 'Pasa los botones ([] los saca), el texto, «en_comentario» o «variantes».', faltan: ['botones'] };
       const r = botonesParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), lista, String(s.nombre ?? ''), nuevoTexto, enComentario, variantes);
       if (!r.ok) return { error: r.error };
-      return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
+      // ⚠️ GUARDAR UNA ACTIVA ES PUBLICAR LO NUEVO, como en editar_pasos_secuencia_mensajes: si otra activa ya le escribe a la
+      // misma gente, la PROPUESTA lo dice y el «sí» lleva `aunqueDuplique`. Sin esto, la API no guardaba nada cuando había DOS
+      // automatizaciones de comentario prendidas, porque la guarda las ve como la misma gente sin importar las palabras (10/11/2026,
+      // Leandro: un 422 en las variantes de la #706, y las tuvo que cargar en el lienzo con «Publicar igual»).
+      const otra = await duplicadaDeLaActivacion(id, { pasos: r.pasos, soloSiActiva: true });
+      return {
+        payload: { secuenciaId: id, pasos: r.pasos, ...(otra ? { aunqueDuplique: true } : {}) },
+        resumen: `${r.resumen}${otra ? `. Ojo: ${avisoDuplicada(otra)}` : ''}`,
+      };
     },
     ejecutar: async (payload) => {
       const id = Number(payload.secuenciaId);
       if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
       try {
-        await publicarPasos(id, payload.pasos as PasoSecuencia[]);
+        await publicarPasos(id, payload.pasos as PasoSecuencia[], { aunqueDuplique: payload.aunqueDuplique === true });
       } catch (e) {
         if (e instanceof DuplicadaError) return { ok: false, resumen: `No guardé el mensaje de la automatización #${id}: ${e.message}.` };
         if (e instanceof PasosInvalidosError) return { ok: false, resumen: e.message };
@@ -1670,13 +1678,18 @@ export const RUNNERS: Runners = {
       if (texto === undefined && asunto === undefined) return { error: 'Pasa el texto, el asunto (en un email) o los dos.', faltan: ['texto'] };
       const r = textoParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), String(s.nombre ?? ''), { texto, asunto });
       if (!r.ok) return { error: r.error };
-      return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
+      // La gemela activa, como en cambiar_botones_mensaje: la propuesta lo dice y el «sí» lleva `aunqueDuplique` (10/11/2026).
+      const otra = await duplicadaDeLaActivacion(id, { pasos: r.pasos, soloSiActiva: true });
+      return {
+        payload: { secuenciaId: id, pasos: r.pasos, ...(otra ? { aunqueDuplique: true } : {}) },
+        resumen: `${r.resumen}${otra ? `. Ojo: ${avisoDuplicada(otra)}` : ''}`,
+      };
     },
     ejecutar: async (payload) => {
       const id = Number(payload.secuenciaId);
       if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
       try {
-        await publicarPasos(id, payload.pasos as PasoSecuencia[]);
+        await publicarPasos(id, payload.pasos as PasoSecuencia[], { aunqueDuplique: payload.aunqueDuplique === true });
       } catch (e) {
         if (e instanceof DuplicadaError) return { ok: false, resumen: `No guardé el mensaje de la automatización #${id}: ${e.message}.` };
         if (e instanceof PasosInvalidosError) return { ok: false, resumen: e.message };

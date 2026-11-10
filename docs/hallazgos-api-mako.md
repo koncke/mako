@@ -3189,3 +3189,23 @@ con la descripción larga del parámetro (~260 caracteres), «cambia el formular
 línea y se le sacó a la de la operación una frase que el código ya cumple (el link de la tarjeta): +18 caracteres en total (2057 →
 2075). La regla ya estaba escrita para las operaciones nuevas; vale igual para un parámetro: se mide antes de entregar.
 **Vive en:** lib/api-mako/areas/landing.def.ts y landing.run.ts · tests/api-mako-acciones-1710.test.ts
+
+## Un 422 de la escritura directa: Activity dice «ok» y el porqué está en `propuestas.resultado` (10/11/2026, Leandro)
+
+**Síntoma.** Leandro cargó las variantes de la #706 por la API (`cambiar_botones_mensaje`, token detallado que escribe) y le dio
+un 422. En `api_llamadas` figura `ok: false, status: 422`. En `actividad_acciones` (Admin › Activity) la misma llamada figura
+`ok: true`. Ninguna de las dos tablas guarda el cuerpo de la llamada ni la respuesta.
+
+**El diagnóstico obvio era el equivocado.** Un 422 en `cambiar_botones_mensaje`, sin un `ficha_secuencia_mensajes` antes, parece un
+id de tarjeta inventado. No lo era: el `ok: true` de Activity dice que `preparar` pasó, y `preparar` es justamente lo que valida la
+tarjeta. La escritura directa (`aplicarEnElActo`, lib/api-mako/flujo.ts) hace dos pasos: `ejecutarOperacion` arma la propuesta y
+la anota en Activity, y después `aplicarPropuestaGenerica` corre `ejecutar`. Si falla el segundo paso, Activity no se entera.
+El motivo queda en **`propuestas.resultado`** (`select resultado from propuestas where workspace_id = … and created_at …`). Ahí
+decía «No guardé el mensaje de la automatización #706: A la misma gente ya le escribe «IG - GUIA»…»: era la guarda de duplicadas
+(docs/hallazgos-chatbot.md, «Instagram y Messenger rotan…»).
+
+**Sin hacer.** Que Activity anote el resultado de `ejecutar` en la escritura directa, no el de la propuesta (relevo
+docs/relevo/leandro-0911.md, punto 8).
+
+**Vive en:** lib/api-mako/ejecutar.ts (`registrarAccionMako`) · lib/api-mako/flujo.ts (`aplicarEnElActo`) ·
+lib/api-mako/acciones.ts (`aplicarPropuestaGenerica`, `marcarResultado`)

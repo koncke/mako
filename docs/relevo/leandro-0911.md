@@ -11,10 +11,15 @@ Chat local, rama `punta/leandro-wa-aut-0911` (en main desde 0b8aac821). Cosecha 
   cargan, que «Probar» muestra siempre la primera y que a @jealoficial y @bigmouse_oficial ya no se les puede escribir, salió a las 01:54
   (clave `commit:85249b975`).
 - Ya se le contestó en su grupo (9/11 22:40 UTC) lo que quedó sin respuesta por la línea sorda.
-- **Sin hacer, de su caso: medir que rota de verdad.** Sus 7 tarjetas públicas (secuencias 706-712) no tienen variantes
-  cargadas: cargarlas es escribir en producción y Martín no contestó. Cuando Leandro (o quien Martín diga) las cargue, mirar
-  `nutricion_envios.texto_enviado` de los comentarios reales de esas secuencias: tienen que aparecer las distintas versiones.
-  No hace falta comentar en Instagram (público).
+- **Las variantes las cargó Leandro, 10/11 12:45-12:51 UTC, en el lienzo.** Primero lo intentó por la API (12:43, token
+  «Conexión Claude Code») y le dio un 422: la guarda de duplicadas frenó la #706 («A la misma gente ya le escribe «IG - GUIA»»).
+  La API no tenía el «Publicar igual» del lienzo. Arreglado en `cambiar_botones_mensaje` y `cambiar_texto_mensaje` (rama
+  `punta/leandro-api-gemela-1011`), como ya estaba en `editar_pasos_secuencia_mensajes`. La causa de fondo es el punto 7, abajo.
+- **De punta a punta con un comentario real, 10/11 12:58 UTC**: #707, lead 5972 (@thrashdragonlvt). La respuesta pública («¡Enviado!
+  Revisá tus DMs ✨») y el DM del recurso salieron (`enviado`, sin error) y la inscripción 1228 quedó `completada`.
+- **Sin hacer, de su caso: que de verdad ROTA.** Con una sola respuesta no se ve. Hay que mirar `nutricion_envios.texto_enviado`
+  de la tarjeta `en_comentario` (706-712, desde 12:51:13 UTC) hasta ver dos formas distintas o juntar seis respuestas. Si salen
+  seis iguales, el sorteo no anda. Sin comentar nosotros en Instagram (público).
 
 ## Para el chat de la nube («Automations: todo lo de ManyChat, y todo en la API», `punta/automations-manychat`)
 
@@ -39,6 +44,15 @@ Lo que apareció con Leandro y NO es de su caso. Cada punto es algo que un usuar
    no se disparó ni le llegó el aviso (`lib/tickets-cierre.ts`). Todo commit que resuelva un ticket lleva su número.
 6. **La ficha de la API mostraba «variantes: 0» sin forma de cargarlas.** Ahora está `variantes` en
    `cambiar_botones_mensaje`. Falta confirmar, con el deploy, que la ficha cuente bien las de una tarjeta de Instagram.
+7. **La guarda de duplicadas ve como «la misma gente» a dos automatizaciones de comentario cualquiera.** `mismaCohorte`
+   (lib/automatizacion-duplicada.ts) compara un CRON de comentario sólo por `subtipo`, sin `palabras` ni `publicacion`, y
+   `duplicadaDe` no compara el texto. El patrón de ManyChat, una automatización por palabra, avisa en cada «Publicar» de cada una
+   (Leandro tiene 7: lo vio 7 veces seguidas el 10/11). Hay que decidir si palabras o publicaciones distintas son gente distinta.
+   Un comentario con dos palabras dispara las dos, y el test que ata la guarda al motor
+   (tests/automations-activar-todos-los-caminos.test.ts, «por EVENTO») hoy pide avisar. Lo de la API ya está arreglado (ver Estado).
+8. **Admin › Activity dice «ok» para una escritura de la API que falló.** `ejecutarOperacion` anota el resultado de `preparar`
+   (la propuesta salió bien). En la escritura directa (`aplicarEnElActo`, lib/api-mako/flujo.ts) el `ejecutar` que falla después
+   no se anota. El 422 de Leandro figura como `cambiar_botones_mensaje · ok`. El motivo real está en `propuestas.resultado`.
 
 ## Para el Cerebro (no es de Automations)
 

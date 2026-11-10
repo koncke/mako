@@ -106,7 +106,8 @@ test('la operación: por HTTP, de pantalla, al FINAL del área, con su ruta; y e
   assert.match(leer('docs/api-mako.md'), /cambiar_texto_mensaje/);
   const run = leer('lib/api-mako/areas/chatbot.run.ts');
   assert.match(run, /const r = textoParaGuardar\(s\.pasos as PasoGrafo\[\], str\(input, 'tarjeta'\), String\(s\.nombre \?\? ''\), \{ texto, asunto \}\);/);
-  assert.match(run, /cambiar_texto_mensaje: \{[\s\S]*?await publicarPasos\(id, payload\.pasos as PasoSecuencia\[\]\);/, 'la misma puerta que el lienzo');
+  // Con el «igual» que la propuesta ya avisó (10/11/2026, tests/leandro-whatsapp-0911.test.ts, el 7).
+  assert.match(run, /cambiar_texto_mensaje: \{[\s\S]*?await publicarPasos\(id, payload\.pasos as PasoSecuencia\[\], \{ aunqueDuplique: payload\.aunqueDuplique === true \}\);/, 'la misma puerta que el lienzo');
   // `setSecuenciaPasos`: la clave AUSENTE conserva las de antes; un [] explícito es «ya no tiene».
   assert.ok(leer('lib/nutricion.ts').includes('const vs = Array.isArray(p.variantes) ? p.variantes : variantesPrevias.get(idDe(flujo, i));'));
 });
