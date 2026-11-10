@@ -46,14 +46,14 @@
 // FINAL del array, apuntando a la raíz de hoy: no corre el `paso_actual` de nadie).
 
 import {
-  type PasoGrafo,
+  type PasoGrafo, type MedioAIStep,
   ID_INICIO, TOPE_PARALELOS, TOPE_HILOS,
   claseDe, idDe, normalizar, puertosDe, raizRespuesta, descendientes, puedeTenerParalelos,
   indicePorId, nuevoId, conectarPuerto, leerPuertoParalelo, puertoParalelo, paralelosDeResultado,
   contarParalelos, fijarRaiz, validarParaGuardar, cruces, ciclosSinEspera,
   esPasoIA, medioDe, raicesRespuesta, puedeSumarAIStep,
 } from './flujo-grafo';
-import { nodoNuevo, esMako, type QueAgregar } from './flujo-conversacion';
+import { nodoNuevo, esMako, conMedioIA, type QueAgregar } from './flujo-conversacion';
 // Puro: las partes de un mensaje y cómo se guardan (partirConEspera).
 import { partesDe, formaGuardada, type ParteMensaje, type PasoConPartes } from './mensaje-partes';
 // Puro: las partes de una tarjeta «MaKo en WhatsApp» y la forma de sus `params` (partirConEspera, undécima).
@@ -336,15 +336,18 @@ const sinPausa = (x: ParteMensaje): ParteMensaje => {
  * sin flechas —ni le llega ni sale nada— y al final del array. Devuelve su id para que quien la crea
  * la ponga donde se hizo el click (`fijarPosicion`, lib/lienzo-posiciones.ts) y abra su editor.
  */
-export function crearSuelta<P extends PasoGrafo>(pasosIn: readonly P[], que: QueAgregar, rnd: () => number = Math.random): { pasos: P[]; id: string } {
+export function crearSuelta<P extends PasoGrafo>(pasosIn: readonly P[], que: QueAgregar, rnd: () => number = Math.random, o: { medioIA?: MedioAIStep } = {}): { pasos: P[]; id: string } {
   const { base, fijo } = paraEditar(pasosIn);
   // El AI STEP: UNO por medio (undécima tanda, `puedeSumarAIStep`: sin mezclarlo con un «Si responde» de los de
   // siempre, y no si ya hay uno). Si no se puede, `id` vacío lo dice (el motivo es `MOTIVO.topeAIStep`). Nace
   // colgado del CRON (sin `suelta`): no tiene flechas que le lleguen, así que «sin flechas» ya es su forma.
-  if (que === 'ai_step' && !puedeSumarAIStep(base)) return { pasos: base, id: '' };
+  // `medioIA` (10/11/2026): el medio del CRON (`medioIADeLosCron`): «ya hay uno» se pregunta por ESE medio, y nace con él.
+  const medioIA = o.medioIA ?? 'whatsapp';
+  if (que === 'ai_step' && !puedeSumarAIStep(base, medioIA)) return { pasos: base, id: '' };
   // La prueba A/B: una por automatización (tanda A3).
   if (que === 'ab' && base.some((p) => claseDe(p) === 'ab')) return { pasos: base, id: '' };
-  const n = { ...nodoNuevo(que, fijo, rnd), siguiente: null } as unknown as P;
+  const nuevo = nodoNuevo(que, fijo, rnd);
+  const n = { ...(que === 'ai_step' ? conMedioIA(nuevo, medioIA) : nuevo), siguiente: null } as unknown as P;
   const id = n.id!;
   return { pasos: normalizar([...fijo, n]), id };
 }

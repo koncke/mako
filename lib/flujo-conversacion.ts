@@ -68,7 +68,7 @@ import {
   claseDe, idDe, normalizar, puertosDe, raizSalida, raicesSalida, raizRespuesta, descendientes, puedeTenerParalelos, padresDe,
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, textoCasoRespuesta,
   RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos, rotuloSiNoDeRespuesta,
-  esPasoIA, erroresDelPasoIA, medioDe, raicesRespuesta, puedeSumarAIStep, juntarPasosIA,
+  esPasoIA, erroresDelPasoIA, medioDe, raicesRespuesta, puedeSumarAIStep, juntarPasosIA, cambioDeMedio,
   llegaTarde, minutosDeCerca, ramasABDe, CLAVES_AB, MAX_RAMAS_AB, MIN_RAMAS_AB, PASO_PCT_AB,
   type MedioAIStep, type Espera, type RamaAB,
 } from './flujo-grafo';
@@ -1463,11 +1463,12 @@ export const ICONOS_MAS = {
  *   salida: nace colgada del CRON, como «Si responde» (no tiene padre: es un evento), y la salida queda como
  *   estaba (`insertarDesdeLienzo`).
  */
-export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, medio: boolean, puerto?: string): OpcionMas[] {
+export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, medio: boolean, puerto?: string, medioIA: MedioAIStep = 'whatsapp'): OpcionMas[] {
   void medio; void puerto;
   const resp = raizRespuesta(pasos);
   const enRespuesta = nodoLienzo !== ID_ENTRADA && (nodoLienzo === resp || subarbolRespuesta(pasos).has(nodoLienzo));
-  const sinAIStep = !puedeSumarAIStep(pasos);
+  // `medioIA`: el medio con que nacería (`medioIADeLosCron`, 10/11/2026): «ya hay uno» se pregunta por ESE medio.
+  const sinAIStep = !puedeSumarAIStep(pasos, medioIA);
   // La prueba A/B (tanda A3): UNA por automatización (`validarGrafo`), nunca adentro de «Si responde» (`fueraDeRespuesta`).
   const sinAB = !puedeSumarPruebaAB(pasos);
   return MENU_MAS
@@ -1522,10 +1523,10 @@ export const MENU_MAS: ReadonlyArray<OpcionMas & { fueraDeRespuesta?: boolean }>
  * cualquier lugar). Lo mismo que el ＋, sin la restricción de «Si responde» (una tarjeta suelta no
  * cuelga de nada todavía) y sin «Si responde» (no se ofrece desde la cuarta tanda).
  */
-export function opcionesSueltas(pasos: readonly PasoGrafo[] = []): OpcionMas[] {
+export function opcionesSueltas(pasos: readonly PasoGrafo[] = [], medioIA: MedioAIStep = 'whatsapp'): OpcionMas[] {
   // «AI Step» sólo si se puede sumar (`puedeSumarAIStep`): con un «Si responde» de los de siempre, o con el AI
   // Step del medio ya puesto, no se publica. Sin `pasos`, lo de siempre (la lista entera).
-  const sinAIStep = !puedeSumarAIStep(pasos);
+  const sinAIStep = !puedeSumarAIStep(pasos, medioIA);
   const sinAB = !puedeSumarPruebaAB(pasos);
   return MENU_MAS.filter((o) => !(sinAIStep && o.value === 'ai_step') && !(sinAB && o.value === 'ab')).map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
 }
@@ -1623,6 +1624,14 @@ export function borradorAlAbrir<P extends PasoGrafo>(pasos: readonly P[]): P[] {
 }
 
 /**
+ * Un AI Step nuevo con el medio del CRON (`medioIADeLosCron`, lib/medios-automatizacion.ts; 10/11/2026). WhatsApp es lo de
+ * siempre (sin el campo); otro medio va por `cambioDeMedio`, la misma escritura que el chip del panel.
+ */
+export function conMedioIA<T extends PasoParaGrafo>(n: T, medio: MedioAIStep): T {
+  return medio === 'whatsapp' ? n : ({ ...n, ...cambioDeMedio(n as Pick<PasoGrafo, 'casos'>, medio) } as T);
+}
+
+/**
  * EL ＋ DE UN PUERTO INSERTA EN ESE PUERTO. Lo que colgaba de esa salida pasa a colgar de
  * la tarjeta nueva (`insertarNodo`). Devuelve el id nuevo, o null si no se insertó.
  *
@@ -1631,6 +1640,7 @@ export function borradorAlAbrir<P extends PasoGrafo>(pasos: readonly P[]): P[] {
  */
 export function insertarDesdeLienzo<P extends PasoParaGrafo>(
   pasos: readonly P[], nodo: string, puerto: string | undefined, que: QueAgregar, rnd: () => number = Math.random,
+  o: { medioIA?: MedioAIStep } = {},
 ): { pasos: P[]; id: string | null } {
   const base = normalizar(pasos);
   // ⚠️ EL AI STEP NO SE ENGANCHA EN EL ＋ QUE LO CREÓ (novena tanda). Es la que ESCUCHA (`respuesta`): no
@@ -1640,8 +1650,9 @@ export function insertarDesdeLienzo<P extends PasoParaGrafo>(
   // como estaba. Una sola por medio: si ya hay una, no se crea (el menú tampoco la ofrece).
   if (que === 'ai_step') {
     // Undécima: UNO por medio (`puedeSumarAIStep`), y no con un «Si responde» de los de siempre.
-    if (!puedeSumarAIStep(base)) return { pasos: base, id: null };
-    const n = nodoNuevo('ai_step', base, rnd) as unknown as P;
+    const medioIA = o.medioIA ?? 'whatsapp';
+    if (!puedeSumarAIStep(base, medioIA)) return { pasos: base, id: null };
+    const n = conMedioIA(nodoNuevo('ai_step', base, rnd), medioIA) as unknown as P;
     return { pasos: renumerar(normalizar([...base, n])), id: n.id! };
   }
   // La prueba A/B: una por automatización (el menú tampoco la ofrece si ya hay una).

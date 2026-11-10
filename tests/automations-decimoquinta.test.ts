@@ -132,7 +132,7 @@ test('punto 5: el click derecho del fondo sólo crea tarjetas: sin «Publicar»,
   assert.match(ctx, /: \(menuLienzo\?\.\(aGrafo\(e\.clientX, e\.clientY\)\) \?\? \[\]\);/);
   const menu = tramo(LIENZO_FLUJO, 'const menuLienzo = editable ?', ': undefined;', 600);
   assert.doesNotMatch(menu, /publicar|acomodar|Publicar|Acomodar/);
-  assert.match(menu, /opcionesSueltas\(pasos\)\.map\(/);
+  assert.match(menu, /opcionesSueltas\(pasos(?:, medioIA)?\)\.map\(/);
   assert.doesNotMatch(fuente('app/automations/SecuenciaPerfil.tsx'), /onPublicar=|puedePublicar=/);
   // «Centrar» sigue en el zoom y «Acomodar» al lado del deshacer.
   assert.match(fuente('app/_components/Lienzo.tsx'), /<BotonChico onClick=\{\(\) => encuadrar\(true\)\} rotulo="Centrar">/);

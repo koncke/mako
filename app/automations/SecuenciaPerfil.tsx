@@ -72,7 +72,7 @@ import { EmojiPickerMini } from '@/app/plan/board/EmojiPicker';
 import { abrirGuiaVoz } from '@/lib/chatbot-puerta';
 // Un medio sin conectar frena Publicar (409) y Activar (décima tanda, GENERAL 6): el modal de la tab lo conecta ahí mismo.
 import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
-import { medioDelError, medioQueFrena, mediosQueUsa, type Medio } from '@/lib/medios-automatizacion';
+import { medioDelError, medioIADeLosCron, medioQueFrena, mediosQueUsa, type Medio } from '@/lib/medios-automatizacion';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { MetricasAutomatizacion } from './MetricasAutomatizacion';
 import { RUTA_LINEAS } from './SalidaWhatsApp';
@@ -692,8 +692,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * (`insertarDesdeLienzo` → `insertarNodo`). Devuelve el id nuevo para que el lienzo abra
    * su panel. ⚠️ Ningún mensaje nace con espera: la espera es su propia tarjeta (punto 7).
    */
+  // Con qué medio nace un AI Step nuevo: el de los CRON si todos llegan por el mismo medio social (10/11/2026).
+  const medioIA = medioIADeLosCron(crons.lista);
   const agregarEn = (nodo: string, puerto: string | undefined, que: QueAgregar): string | null => {
-    const r = insertarDesdeLienzo(pasos, nodo, puerto, que);
+    const r = insertarDesdeLienzo(pasos, nodo, puerto, que, Math.random, { medioIA });
     if (!r.id) return null;
     fotoAntes();
     setPasos(r.pasos);
@@ -1455,6 +1457,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
         paraGuion={paraGuion} foco={foco} pendientesOtraCosa={pendientesOtraCosa}
         onPasos={onPasos}
         onAgregar={rolAdmin ? agregarEn : undefined}
+        medioIA={medioIA}
         onBorrar={rolAdmin ? borrar : undefined}
         onAudioNuevo={onAudioNuevo} onError={setErr}
         onModoIA={rolAdmin ? abrirGuiaSiFalta : undefined}

@@ -32,7 +32,7 @@
 //
 // ⚠️ SIN `server-only`: lo importan el lienzo, «Probar», la ruta y el motor, y su test.
 
-import { claseDe, esPasoIA, medioDe, type PasoGrafo } from './flujo-grafo';
+import { claseDe, esPasoIA, medioDe, type MedioAIStep, type PasoGrafo } from './flujo-grafo';
 import { proveedorDelPaso } from './nutricion-canal';
 import { esCanalSocial } from './canal-social';
 import { SIN_EMAIL_PROPIO } from './email-remitente';
@@ -116,6 +116,21 @@ export function medioDeDisparador(d: CronDeMedio | null | undefined): Medio | nu
   if (!d || typeof d !== 'object' || typeof d.trigger_tipo !== 'string') return null;
   const c = claseDeDisparador(d);
   return c === 'instagram' || c === 'messenger' ? c : null;
+}
+
+/**
+ * CON QUÉ MEDIO NACE UN AI STEP NUEVO (10/11/2026, la auditoría de Automations para un usuario nuevo). Nacía siempre en
+ * WhatsApp: en una automatización que dispara un DM o un comentario de Instagram, el AI Step escuchaba por WhatsApp, nadie le
+ * contestaba al lead en Instagram, y Activar le pedía conectar un WhatsApp a quien sólo usa Instagram. Sólo cambia cuando es
+ * INEQUÍVOCO: todos los CRON llegan por el MISMO medio social. Con un CRON de etapa (sin medio) o mezclados, WhatsApp, como
+ * siempre; el medio se sigue cambiando en el panel del AI Step.
+ */
+export function medioIADeLosCron(disparadores: readonly CronDeMedio[] | null | undefined): MedioAIStep {
+  const lista = (disparadores ?? []).filter((d) => d && typeof d === 'object');
+  if (!lista.length) return 'whatsapp';
+  const medios = lista.map(medioDeDisparador);
+  const primero = medios[0];
+  return (primero === 'instagram' || primero === 'messenger') && medios.every((m) => m === primero) ? primero : 'whatsapp';
 }
 
 /**

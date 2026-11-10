@@ -82,7 +82,7 @@ import { datosOfrecidos, type ContextoDatos } from '@/lib/variables-aviso';
 import type { AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import {
   claseDe, idDe, indicePorId, borrarNodo, condicionARespuesta, raizRespuesta, esPasoIA, TOPE_CASOS, OPCIONES_SI_AGENDA_CERCA, textoSiAgendaCerca,
-  type Espera, type NombresParaTexto,
+  type Espera, type NombresParaTexto, type MedioAIStep,
 } from '@/lib/flujo-grafo';
 import {
   grafoDeSecuencia, opcionesDelMas, opcionesSueltas, nombreDeTarjeta, agregarRama, quitarRama, agregarCaso, quitarCaso, cambiarNodo,
@@ -142,7 +142,7 @@ type Biblioteca = { estado: 'ok'; lista: AdjuntoDto[] } | { estado: 'error' } | 
 export function FlujoLienzo({
   pasos, disparador, secuencias, audios, negocio, rolAdmin, busy, envioAutoSecuencia,
   etiquetas, etapas, paraGuion, foco, pendientesOtraCosa,
-  onPasos, onAgregar, onBorrar, onAudioNuevo, onError, onModoIA,
+  onPasos, onAgregar, onBorrar, onAudioNuevo, onError, onModoIA, medioIA = 'whatsapp',
   chrome, herramientas, pie, editorEntrada, insetIzq, insetDer, muelles, revelar,
   onTarjetaAbierta, reservaAbajo, triggerTipo, eventoMako, productos, posiciones, onPosiciones, linea,
   disparadores, onNuevoDisparador, onAbrirDisparador, accionesTodo, secuenciaId, pieWhatsApp, comentarioEn,
@@ -220,6 +220,11 @@ export function FlujoLienzo({
   onPasos: CambioPasos;
   /** El ＋ de una salida (o del medio de una flecha). Devuelve el id de la tarjeta nueva. */
   onAgregar?: (nodo: string, puerto: string | undefined, que: QueAgregar) => string | null;
+  /**
+   * Con qué medio nace un AI Step nuevo (`medioIADeLosCron`, 10/11/2026): el del CRON si todos llegan por el mismo medio
+   * social. Sin él, WhatsApp. Lo usan el ＋, el click derecho y soltar una flecha en el vacío.
+   */
+  medioIA?: MedioAIStep;
   /** La papelera de la cabecera del panel. */
   onBorrar?: (id: string) => void;
   // (`onCrearRespuesta`, el ＋ de la fila «Si responde» del CRON, se fue con la fila en la segunda pasada
@@ -426,8 +431,8 @@ export function FlujoLienzo({
   const crearSueltaEn = (que: QueAgregar, punto: { x: number; y: number }) => {
     // Sólo lo que el menú ofrece ahora: un AI Step pasado el tope del medio, o con un «Si responde» de los de
     // siempre, no (`puedeSumarAIStep`; `crearSuelta` devuelve el flujo igual con el id vacío).
-    if (!opcionesSueltas(pasos).some((o) => o.value === que)) return;
-    const r = crearSuelta(pasos, que);
+    if (!opcionesSueltas(pasos, medioIA).some((o) => o.value === que)) return;
+    const r = crearSuelta(pasos, que, Math.random, { medioIA });
     onPasos(() => r.pasos, true);
     ponerEn(r.id, punto.x, punto.y);
     setSel(r.id);
@@ -481,7 +486,7 @@ export function FlujoLienzo({
     const o = desdeDe(a);
     const r1 = desconectar(pasos, o.desde, o.puerto, a.hasta);
     if (!r1.ok) { onError(errorLegible(r1.motivo, pasos)); return; }
-    const r2 = insertarDesdeLienzo(r1.pasos, o.desde, o.puerto, que as QueAgregar);
+    const r2 = insertarDesdeLienzo(r1.pasos, o.desde, o.puerto, que as QueAgregar, Math.random, { medioIA });
     if (!r2.id) return;
     onPasos(() => r2.pasos, true);
     ponerEn(r2.id, punto.x, punto.y - Y_ENTRADA);
@@ -576,7 +581,7 @@ export function FlujoLienzo({
    * (decimoquinta tanda, punto 5: «Elimina las opciones de "Publicar, acomodar y centrar" en el desplegable cuando le
    * doy click derecho»): Publicar está abajo a la derecha y Acomodar al lado del deshacer.
    */
-  const menuLienzo = editable ? (punto: { x: number; y: number }): ItemMenuLienzo[] => opcionesSueltas(pasos).map((o) => ({
+  const menuLienzo = editable ? (punto: { x: number; y: number }): ItemMenuLienzo[] => opcionesSueltas(pasos, medioIA).map((o) => ({
     id: `crear-${o.value}`, label: o.label, grupo: o.grupo, icono: iconoMenu(o.icono),
     onElegir: () => crearSueltaEn(o.value as QueAgregar, punto),
   })) : undefined;
@@ -680,7 +685,7 @@ export function FlujoLienzo({
       onReconectarANueva={editable ? reconectarANueva : undefined}
       onCopiar={editable ? textoCopiado : undefined}
       onPegar={editable ? (t, p) => { void pegarTexto(t, p); } : undefined}
-      opcionesEn={(nodo, puerto, medio) => opcionesDelMas(pasos, nodo, medio, puerto)}
+      opcionesEn={(nodo, puerto, medio) => opcionesDelMas(pasos, nodo, medio, puerto, medioIA)}
       onBorrar={rolAdmin && onBorrar ? borrarTarjeta : undefined}
       puedeBorrar={(id) => id !== ID_ENTRADA}
       onConectar={editable ? (desde, puerto, hacia) => { aplicar(conectar(pasos, desde, puerto, hacia)); } : undefined}

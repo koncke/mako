@@ -215,7 +215,7 @@ test('⚠️ FlujoLienzo edita por lib/flujo-edicion.ts (todo por `onPasos`), y 
   assert.match(FLUJO, /onQuitarFlecha=\{editable \? quitarFlecha : undefined\}/);
   assert.match(FLUJO, /menuLienzo=\{menuLienzo\} menuNodo=\{menuNodo\}/);
   assert.match(FLUJO, /herramientas=\{conAcomodar\}/);
-  assert.match(FLUJO, /const r = crearSuelta\(pasos, que\);\s*onPasos\(\(\) => r\.pasos, true\);\s*ponerEn\(r\.id, punto\.x, punto\.y\);/);
+  assert.match(FLUJO, /const r = crearSuelta\(pasos, que(?:, Math\.random, \{ medioIA \})?\);\s*onPasos\(\(\) => r\.pasos, true\);\s*ponerEn\(r\.id, punto\.x, punto\.y\);/);
   // La espera de una flecha se saca de la cadena (la flecha queda); las demás, con `eliminar` (por `onBorrar`).
   assert.match(FLUJO, /\?\.enFlecha\) \{ onPasos\(\(prev\) => borrarNodo\(prev, id\), true\); return; \}/);
   assert.match(PERFIL, /const r = eliminar\(pasos, id\);/, 'eliminar una tarjeta volvió a ser `borrarNodo` (se lleva lo de después)');
