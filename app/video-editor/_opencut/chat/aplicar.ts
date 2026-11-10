@@ -45,7 +45,8 @@ import { usePreferenciasSubtitulos } from "@/app/video-editor/_opencut/subtitles
 import { ponerEmojisEnSubtitulos } from "@/app/video-editor/_opencut/subtitles/emojis-poner";
 import { subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
 import { proponerBroll } from "@/app/video-editor/_opencut/broll/proponer";
-import { textoDeBroll } from "@/app/video-editor/_opencut/broll/resultado";
+import { cambiarBroll } from "@/app/video-editor/_opencut/broll/cambiar";
+import { textoDeBroll, textoDeCambioBroll } from "@/app/video-editor/_opencut/broll/resultado";
 import { buscarClips } from "@/app/video-editor/_opencut/clips/buscar";
 import { textoDeClips } from "@/app/video-editor/_opencut/clips/resultado";
 import { SECCION_CLIPS } from "@/app/video-editor/_opencut/clips/secciones";
@@ -160,10 +161,15 @@ async function correrLarga(
 	}
 	if (r.op === "broll") {
 		// El MISMO de la sección «B-roll de MaKo»: propone, y la persona deja o saca cada uno en la línea de tiempo.
-		const hecho = await proponerBroll(editor, { ritmo: r.ritmo, planos: r.planos });
+		const hecho = await proponerBroll(editor, { ritmo: r.ritmo, planos: r.planos, medio: r.videos ? "videos" : "fotos" });
 		if (!hecho.ok) return [textoDeBroll(hecho)];
 		const avisos = [hecho.aviso, hecho.faltaPexels ? "para las fotos, conecta Pexels en «B-roll de MaKo»" : null].filter((x): x is string => !!x);
 		return avisos;
+	}
+	if (r.op === "cambiar_broll") {
+		// El MISMO de «Otra» en la sección «B-roll de MaKo»: la siguiente de la misma búsqueda, en un paso de deshacer.
+		const hecho = await cambiarBroll(editor, { trackId: r.el.trackId, elementId: r.el.elementId });
+		return hecho.ok ? [] : [textoDeCambioBroll(hecho)];
 	}
 	if (r.op === "emojis_subtitulos") {
 		// El MISMO de la sección «Emojis» de la pestaña Subtítulos: un paso de deshacer.
@@ -214,6 +220,7 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	borrar_silencios: "borrar los silencios",
 	usar_preset_subtitulos: "usar el preset",
 	broll: "proponer el B-roll",
+	cambiar_broll: "traer otra imagen del B-roll",
 	clips_magicos: "buscar los clips",
 	edicion_automatica: "hacer la edición automática",
 	emojis_subtitulos: "poner los emojis",

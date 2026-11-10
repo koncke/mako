@@ -131,7 +131,11 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
             : `Con ${(op.palabras ?? []).map((w) => comillas(w)).join(', ')} de color`;
     case 'animar_palabras': return op.animacion === 'ninguna' ? 'La palabra que se dice, quieta' : op.animacion === 'pop' ? 'La palabra que se dice salta' : 'La palabra que se dice crece';
     case 'usar_preset_subtitulos': return `Con el preset ${comillas(op.preset)}`;
-    case 'broll': return op.planos === false ? 'Con B-roll propuesto' : 'Con B-roll y cambios de plano propuestos';
+    case 'broll': {
+      const que = op.videos ? 'B-roll en video' : 'B-roll';
+      return op.planos === false ? `Con ${que} propuesto` : `Con ${que} y cambios de plano propuestos`;
+    }
+    case 'cambiar_broll': return 'Otra imagen de la misma búsqueda, en el mismo lugar';
     case 'clips_magicos': return `Los ${op.cuantos ?? 5} mejores momentos, para abrir aparte`;
     case 'edicion_automatica': return 'Editado de una por los agentes (se ve en «Edición automática»)';
     case 'emojis_subtitulos': return op.activar ? 'Con un emoji encima de los subtítulos que lo piden' : 'Sin los emojis de los subtítulos';

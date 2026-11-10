@@ -219,6 +219,7 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
   { op: 'broll', id: 'proponer_broll_video', titulo: 'Proponer B-roll y cambios de plano', parametros: [
     elegir('ritmo', 'Ritmo', ['poco', 'normal', 'mucho'], 'Opcional: cuántas imágenes («normal», una cada 9 s).', false),
     si('planos', 'Cambios de plano', 'Opcional: proponer también los acercamientos (sin esto, sí).', false),
+    si('videos', 'Videos', 'Opcional: true trae videos cortos sin sonido en vez de fotos.', false),
   ] },
   { op: 'clips_magicos', id: 'buscar_clips_video', titulo: 'Buscar los mejores momentos (clips mágicos)', parametros: [
     { nombre: 'cuantos', rotulo: 'Cuántos', tipo: 'number', entero: true, minimo: 1, maximo: 10, descripcion: 'Opcional: cuántos clips (sin esto, 5).' },
@@ -258,6 +259,8 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     ...(['izquierda', 'arriba', 'derecha', 'abajo'] as const).map((k) => seg(k, k[0].toUpperCase() + k.slice(1), 'Opcional: el % que se le saca de ese lado, de 0 a 95.', false, 0, 95)),
     si('quitar', 'Quitar', 'Opcional: true lo deja entero.', false),
   ] },
+  // «Otra» del B-roll (10/11/2026), al FINAL del área. Sin «video» en el id ni en el título (lo llevan todas).
+  { op: 'cambiar_broll', id: 'otra_imagen_broll', titulo: 'Traer otra imagen para un B-roll', parametros: [REF] },
 ];
 
 /** Lo de la API que acompaña al `para` del chat. */

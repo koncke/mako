@@ -105,6 +105,7 @@ import { plantillaDeDefinicion, valoresDeParams } from "@/app/video-editor/_open
 import { PLANTILLAS as DEF_MOTION, valoresPorDefecto } from "@/lib/motion/plantillas";
 import type { IdPlantilla, ValoresMotion } from "@/lib/motion/tipos";
 import type { TBackground } from "@/app/video-editor/_opencut/project/types";
+import { brollDe } from "@/app/video-editor/_opencut/broll/pistas";
 import { EFECTOS_TEXTO, PLANTILLAS_TEXTO, SIN_EFECTO, paramsParaLienzo } from "@/app/video-editor/_opencut/text/estilos-predefinidos";
 import { curvaBloqueada } from "@/app/video-editor/_opencut/text/estilo";
 import { EMOJIS_PROVIDER_ID, GRUPOS_EMOJI, TENDENCIAS_EMOJI, emojiAValor, separarEmojis } from "@/app/video-editor/_opencut/stickers/providers/emojis";
@@ -185,6 +186,8 @@ export type EstadoElemento = {
 	/** Video e imagen: el encuadre de «Recortar» (recorte/geometria.ts) y el tamaño del archivo, si se sabe. */
 	encuadre?: { rect: RectRecorte; proporcion: string };
 	fuente?: { ancho: number; alto: number };
+	/** Un B-roll de MaKo (broll/pistas.ts → `brollDe`): lo que se buscó en Pexels. «Otra» (cambiar_broll) trae la siguiente. */
+	broll?: string;
 };
 
 /** Lo que escribe algún «Efecto de texto» (o «Ninguno»): para saber si elegir uno cambia algo. */
@@ -496,6 +499,8 @@ function leerEstado(
 		e.encuadre = { rect: rectDeParams(p), proporcion: proporcionDeParams(p) };
 		const tamano = tamanos.get(el.mediaId);
 		if (tamano) e.fuente = tamano;
+		const broll = brollDe(el);
+		if (broll) e.broll = broll.busqueda;
 	}
 	if (VISUALES.has(tipo)) {
 		e.anim = {};
@@ -614,6 +619,7 @@ function estadoJson(r: RefElemento, d: Disponibles, estiloSubtitulos: string | n
 		o.encuadre = { ...encuadreJson(e.encuadre.rect), ...(e.encuadre.proporcion !== "libre" ? { proporcion: e.encuadre.proporcion } : {}) };
 	}
 	if (e.curvado) o.curvado = true;
+	if (e.broll) o.broll = e.broll;
 	if (e.fotogramas?.length) o.fotogramas = e.fotogramas;
 	return o;
 }
@@ -906,7 +912,9 @@ export type OperacionResuelta =
 	/** Un preset de la marca a TODOS los subtítulos (subtitles/presets.ts → aplicarPreset): vuelve a partir los renglones, después del lote. */
 	| { op: "usar_preset_subtitulos"; preset: string }
 	/** «B-roll de MaKo» (broll/proponer.ts): propone fotos y cambios de plano, después del lote (lee los subtítulos de ESE momento). */
-	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean }
+	| { op: "broll"; ritmo: "poco" | "normal" | "mucho"; planos: boolean; videos: boolean }
+	/** «Otra» de «B-roll de MaKo» (broll/cambiar.ts): la siguiente de la misma búsqueda, después del lote (baja de Pexels). */
+	| { op: "cambiar_broll"; el: RefElemento; busqueda: string }
 	/** «Clips mágicos» (clips/buscar.ts): busca los momentos, después del lote; no cambia este proyecto. */
 	| { op: "clips_magicos"; cuantos: number }
 	/** «Emojis automáticos» (subtitles/emojis-poner.ts): ponerlos o sacarlos, al final de todo (lee los subtítulos de ESE momento). */
@@ -1298,7 +1306,7 @@ export function revisarOperaciones({
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
 		if (op.op === "edicion_automatica") continue; // Ya se resolvió arriba, sola.
 		if (op.op === "cortar_frase" || op.op === "cortar_tramo" || op.op === "eliminar_muletillas") { cortes.push(op); continue; }
-		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll" || op.op === "clips_magicos" || op.op === "emojis_subtitulos") { diferidas.push(op); continue; }
+		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios" || op.op === "broll" || op.op === "cambiar_broll" || op.op === "clips_magicos" || op.op === "emojis_subtitulos") { diferidas.push(op); continue; }
 		if (op.op === "reemplazar_en_subtitulos") {
 			// Sin distinguir mayúsculas, como «Buscar y reemplazar» (subtitles/palabras.ts → reemplazarEnTexto).
 			const b = op.buscar.toLowerCase();
@@ -2178,12 +2186,29 @@ export function revisarOperaciones({
 			const conSonido = [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !estado.get(r.ref)?.borrado);
 			if (!conSonido) { descartes.push("no hay video con voz para proponer B-roll"); continue; }
 			const planos = op.planos !== false;
-			resueltas.push({ op: "broll", ritmo: op.ritmo ?? "normal", planos });
+			const videos = op.videos === true;
+			resueltas.push({ op: "broll", ritmo: op.ritmo ?? "normal", planos, videos });
 			cambios.push({
 				tipo: "agrega",
 				titulo: "B-roll de MaKo",
 				antes: "",
-				despues: `fotos de Pexels${planos ? " y cambios de plano" : ""} según lo que se dice, propuestos al aceptar: dejas o sacas cada uno`,
+				despues: `${videos ? "videos cortos" : "fotos"} de Pexels${planos ? " y cambios de plano" : ""} según lo que se dice, propuestos al aceptar: dejas o sacas cada uno`,
+			});
+			continue;
+		}
+		if (op.op === "cambiar_broll") {
+			const r = resolver(op.ref);
+			if ("motivo" in r) { descartes.push(r.motivo); continue; }
+			const el = r.el;
+			const busqueda = estado.get(el.ref)!.e.broll;
+			if (!busqueda) { descartes.push(`${el.titulo} no es un B-roll de MaKo (para cambiar su archivo, reemplazar_clip)`); continue; }
+			if (resueltas.some((x) => x.op === "cambiar_broll" && x.el.elementId === el.elementId)) { descartes.push(`${el.titulo} ya se cambia por otra en este mismo pedido`); continue; }
+			resueltas.push({ op: "cambiar_broll", el, busqueda });
+			cambios.push({
+				tipo: "cambia",
+				titulo: el.titulo,
+				antes: el.tipo === "video" ? "el video de ahora" : "la foto de ahora",
+				despues: `${el.tipo === "video" ? "el siguiente video" : "la siguiente foto"} de «${corto(busqueda, 40)}» en Pexels, en el mismo lugar (se trae al aceptar)`,
 			});
 			continue;
 		}

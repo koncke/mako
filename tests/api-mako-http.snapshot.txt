@@ -504,6 +504,7 @@ opciones_siguiente_paso_guion
 ordenar_categorias_comunidad
 ordenar_etapas
 ordenar_modulos_curso
+otra_imagen_broll
 pagina_captura_magnet
 panorama_closing
 papelera_documento_copywriter

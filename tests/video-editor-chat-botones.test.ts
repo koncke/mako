@@ -325,8 +325,14 @@ test('B12: lo que lee la IA: las cinco en el catálogo, y «no se puede» ya no 
   assert.match(NO_SE_PUEDE_CHAT, /un emoji, sí: agregar_emoji/);
   assert.match(NO_SE_PUEDE_CHAT, /pegar atributos/, 'lo que sigue sin poder se sigue diciendo');
   // Las operaciones nuevas van al FINAL: no le sacan el lugar a las de antes (AGENTS.md).
-  assert.deepEqual(OPERACIONES_CHAT.slice(-5).map((o) => o.op), ['duplicar', 'fondo_lienzo', 'efecto_texto', 'agregar_emoji', 'encuadre']);
-  assert.deepEqual(OPERACIONES_API.slice(-5).map((o) => o.op), ['duplicar', 'fondo_lienzo', 'efecto_texto', 'agregar_emoji', 'encuadre']);
+  // Juntas y detrás de las de antes; después de ellas, sólo lo que se sumó más tarde («Otra» del B-roll, 10/11).
+  const CINCO = ['duplicar', 'fondo_lienzo', 'efecto_texto', 'agregar_emoji', 'encuadre'];
+  for (const lista of [OPERACIONES_CHAT.map((o) => o.op), OPERACIONES_API.map((o) => o.op)]) {
+    const i = lista.indexOf('duplicar');
+    assert.ok(i > lista.indexOf('agregar_motion') && lista.indexOf('agregar_motion') >= 0, 'van detrás de las que ya estaban');
+    assert.deepEqual(lista.slice(i, i + 5), CINCO);
+    assert.deepEqual(lista.slice(i + 5), ['cambiar_broll']);
+  }
 });
 
 // PROBADO ROMPIÉNDOLO (10/11/2026, base 12/0, cada rotura restaurada de memoria):

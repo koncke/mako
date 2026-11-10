@@ -16,15 +16,24 @@
 import 'server-only';
 import { credDelClienteEstricta } from './credenciales';
 import { fetchSeguro } from './fetch-seguro';
+import { bajarWebSegura, pedirClavado } from './archivero-bajada';
+import { validarDestino } from './landing-fetch';
 import { sniffImagen } from './editor-landing/server-reglas';
 import {
+  MAX_BYTES_VIDEO_BROLL,
   ORIGEN_API_PEXELS,
+  TOPES_VIDEO_BROLL,
+  archivosDeVideoPexels,
   errorDePexels,
+  esMp4,
   fotoDePexels,
   orientacionPexels,
+  siguienteArchivo,
   urlDeFotoPexels,
+  videoDePexels,
   type FotoBroll,
   type OrientacionBroll,
+  type VideoBroll,
 } from './editor-video/broll-pexels';
 
 export const CLAVE_PEXELS = 'PEXELS_API_KEY';
@@ -99,4 +108,67 @@ export async function bajarFotoPexels(
     console.error('[pexels] no pude bajar la foto', e);
     return { ok: false, error: 'No pude bajar la foto de Pexels.', status: 502 };
   }
+}
+
+// ── Los videos (10/11/2026, pendientes-video-editor.md §4.1) ─────────────────
+// Los mismos pasos que las fotos: el navegador manda el ID, la URL la dice la API, y sólo se baja de videos.pexels.com
+// con la baranda (`validarDestino` en cada salto, la IP clavada). La diferencia es el peso: la ruta devuelve los bytes y
+// Vercel corta la respuesta en ~4,5 MB, así que se prueba el archivo más chico que se ve bien y, si pasa del techo
+// (`MAX_BYTES_VIDEO_BROLL`), el siguiente; si ninguno entra, ese video no se usa (nunca un MP4 cortado a la mitad).
+
+/** Los primeros `cuantos` videos de hasta 30 s para una búsqueda, en la orientación del video. */
+export async function buscarVideosPexels(
+  clave: string,
+  consulta: string,
+  { orientacion, cuantos = 4 }: { orientacion: OrientacionBroll; cuantos?: number },
+): Promise<{ ok: true; videos: VideoBroll[] } | FallaPexels> {
+  const r = await pedir(clave, '/videos/search', {
+    query: consulta.slice(0, 80),
+    orientation: orientacionPexels(orientacion),
+    // Pide de más: los que duran más de 30 s se descartan acá.
+    per_page: String(Math.max(1, Math.min(30, cuantos * 2))),
+    locale: 'es-ES',
+  });
+  if (!r.ok) return r;
+  const videos = ((r.cuerpo as { videos?: unknown[] }).videos ?? [])
+    .map(videoDePexels)
+    .filter((v): v is VideoBroll => v !== null && v.duracion <= TOPES_VIDEO_BROLL.duracionMax)
+    .slice(0, Math.max(1, Math.min(15, cuantos)));
+  return { ok: true, videos };
+}
+
+/** Los bytes del video `id` (un MP4 de hasta `MAX_BYTES_VIDEO_BROLL`). La URL la dice Pexels, no el navegador. */
+export async function bajarVideoPexels(clave: string, id: number): Promise<{ ok: true; bytes: Uint8Array; autor: string } | FallaPexels> {
+  const r = await pedir(clave, `/videos/videos/${id}`);
+  if (!r.ok) return r;
+  const video = videoDePexels(r.cuerpo);
+  const candidatos = archivosDeVideoPexels(r.cuerpo);
+  if (!video || !candidatos.length) return { ok: false, error: 'Pexels no tiene ese video en un tamaño que sirva.', status: 404 };
+  const probados = new Set<string>();
+  let techo = Infinity;
+  let pesado = false;
+  // Tres intentos como mucho: cada uno puede bajar hasta 4 MB.
+  for (let intento = 0; intento < 3; intento++) {
+    const archivo = siguienteArchivo(candidatos, probados, techo);
+    if (!archivo) break;
+    probados.add(archivo.url);
+    try {
+      const bajada = await bajarWebSegura(archivo.url, {
+        validar: validarDestino,
+        // `pedirClavado` CORTA en `maxBytes` (no falla): con un byte más que el techo, si lo llega a leer, el archivo
+        // pasa del techo y se prueba uno más chico. Nunca se devuelve un MP4 cortado a la mitad.
+        pedir: (u, ips) => pedirClavado(u, ips, undefined, { maxBytes: MAX_BYTES_VIDEO_BROLL + 1, timeoutMs: 30_000 }),
+      });
+      if (bajada.status < 200 || bajada.status >= 300) continue;
+      if (bajada.cuerpo.length > MAX_BYTES_VIDEO_BROLL) { pesado = true; techo = archivo.lado; continue; }
+      const bytes = new Uint8Array(bajada.cuerpo);
+      if (!esMp4(bytes)) continue;
+      return { ok: true, bytes, autor: video.autor };
+    } catch (e) {
+      console.error('[pexels] no pude bajar el video', e);
+    }
+  }
+  return pesado
+    ? { ok: false, error: 'Ese video de Pexels pesa demasiado para traerlo al editor.', status: 413 }
+    : { ok: false, error: 'No pude bajar el video de Pexels.', status: 502 };
 }

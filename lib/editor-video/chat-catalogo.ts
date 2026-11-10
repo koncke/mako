@@ -209,7 +209,7 @@ export type OperacionChat =
   /** Un preset de subtítulos de la marca (DISPONIBLES.presets_subtitulos), a TODOS los subtítulos. */
   | { op: 'usar_preset_subtitulos'; preset: string }
   /** «B-roll de MaKo» (app/video-editor/_opencut/broll): propone fotos y cambios de plano que la persona deja o saca. */
-  | { op: 'broll'; ritmo?: 'poco' | 'normal' | 'mucho'; planos?: boolean }
+  | { op: 'broll'; ritmo?: 'poco' | 'normal' | 'mucho'; planos?: boolean; videos?: boolean }
   /** «Clips mágicos» (app/video-editor/_opencut/clips): busca los mejores momentos para abrir cada uno en un proyecto nuevo. */
   | { op: 'clips_magicos'; cuantos?: number }
   /** «Edición automática» (app/video-editor/_opencut/enjambre): el equipo de agentes edita todo, de una y a la vista. */
@@ -237,7 +237,9 @@ export type OperacionChat =
   /** «Recortar» el cuadro de un clip: una proporción centrada, los lados en %, o `quitar` (entero). Uno de los tres. */
   | { op: 'encuadre'; ref: string; proporcion: ProporcionEncuadre }
   | ({ op: 'encuadre'; ref: string } & LadosEncuadre)
-  | { op: 'encuadre'; ref: string; quitar: true };
+  | { op: 'encuadre'; ref: string; quitar: true }
+  /** «Otra» de «B-roll de MaKo»: la siguiente foto (o video) de la MISMA búsqueda, en el mismo lugar y tiempo. */
+  | { op: 'cambiar_broll'; ref: string };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -521,7 +523,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'broll',
     forma: '{"op":"broll","ritmo":"normal","planos":true}',
-    para: 'B-roll automático, como Submagic: según lo que se dice, propone fotos con licencia (de Pexels) encima del video y, con "planos": true, cambios de plano (acercamientos al ritmo de las frases). "ritmo" (opcional): "poco", "normal" o "mucho". No elige ni inventa fotos ni tiempos: lo hace al aceptar, y la persona deja o saca cada una en la línea de tiempo. Úsala cuando pidan B-roll, imágenes de apoyo, tomas de recurso, cambios de plano o zooms automáticos. Se aplica al final.',
+    para: 'B-roll automático, como Submagic: según lo que se dice, propone fotos con licencia (de Pexels) encima del video y, con "planos": true, cambios de plano (acercamientos al ritmo de las frases). "ritmo" (opcional): "poco", "normal" o "mucho". Con "videos": true trae videos cortos de Pexels, sin sonido, en vez de fotos. No elige ni inventa fotos ni tiempos: lo hace al aceptar, y la persona deja o saca cada una en la línea de tiempo. Úsala cuando pidan B-roll, imágenes de apoyo, tomas de recurso, cambios de plano o zooms automáticos. Se aplica al final.',
   },
   {
     op: 'clips_magicos',
@@ -575,6 +577,11 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     forma: '{"op":"encuadre","ref":"v1","proporcion":"9:16"}',
     para: `«Recortar» el CUADRO de un clip de video o imagen, como el diálogo de la barra (el tiempo se recorta con recortar). Uno de tres: "proporcion" (${PROPORCIONES_ENCUADRE.join(', ')}; "original" es la del archivo) deja el rectángulo más grande con esa forma, centrado en el de ahora; o "izquierda", "arriba", "derecha" y "abajo", el % del archivo que se le saca a cada lado (de 0 a 95; lo que no pongas, 0; entre dos lados opuestos queda al menos el 2 %); o "quitar": true lo devuelve entero. El de ahora va en "encuadre" del elemento.`,
   },
+  {
+    op: 'cambiar_broll',
+    forma: '{"op":"cambiar_broll","ref":"v3"}',
+    para: 'Cambia la foto (o el video) de UN B-roll de MaKo que ya está (los que llevan "broll" en la vista, con su búsqueda) por la siguiente de la MISMA búsqueda de Pexels, en el mismo lugar y el mismo tiempo. No elige cuál: trae la siguiente que no se vio en ese lugar. Para buscar otra cosa, broll de nuevo. Se aplica al final.',
+  },
 ];
 
 /**
@@ -582,7 +589,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
  * para que la IA lo DIGA en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT =
-  'agregar a la línea de tiempo videos, imágenes, música, sonidos, formas o stickers de la biblioteca que no son emojis (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos de apoyo según lo que se dice, sí: broll; un emoji, sí: agregar_emoji; emojis encima de los subtítulos, sí: emojis_subtitulos; un motion graphic, sí: agregar_motion); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo de un clip o chroma key (el fondo del LIENZO, sí: fondo_lienzo); guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); guardar un efecto de texto propio («Guardar como parámetro predefinido», en el panel); pegar atributos de un elemento en otro; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
+  'agregar a la línea de tiempo videos, imágenes, música, sonidos, formas o stickers de la biblioteca que no son emojis (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos o videos de apoyo según lo que se dice, sí: broll; otra foto para un B-roll que ya está, sí: cambiar_broll; un emoji, sí: agregar_emoji; emojis encima de los subtítulos, sí: emojis_subtitulos; un motion graphic, sí: agregar_motion); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo de un clip o chroma key (el fondo del LIENZO, sí: fondo_lienzo); guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); guardar un efecto de texto propio («Guardar como parámetro predefinido», en el panel); pegar atributos de un elemento en otro; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
 
 const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 
@@ -1205,12 +1212,21 @@ export function validarOperacion(crudo: unknown): Validada {
       return { ok: true, op: { op: 'usar_preset_subtitulos', preset } };
     }
     case 'broll': {
-      const extra = sobrantes(raw, ['ritmo', 'planos']);
+      const extra = sobrantes(raw, ['ritmo', 'planos', 'videos']);
       if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo del B-roll` };
       const ritmo = raw.ritmo === undefined ? undefined : raw.ritmo;
       if (ritmo !== undefined && ritmo !== 'poco' && ritmo !== 'normal' && ritmo !== 'mucho') return { ok: false, motivo: 'un B-roll con un ritmo que no es «poco», «normal» ni «mucho»' };
       if (raw.planos !== undefined && typeof raw.planos !== 'boolean') return { ok: false, motivo: 'un B-roll con «planos» que no es sí o no' };
-      return { ok: true, op: { op: 'broll', ...(ritmo ? { ritmo } : {}), ...(typeof raw.planos === 'boolean' ? { planos: raw.planos } : {}) } };
+      if (raw.videos !== undefined && typeof raw.videos !== 'boolean') return { ok: false, motivo: 'un B-roll con «videos» que no es sí o no' };
+      return {
+        ok: true,
+        op: {
+          op: 'broll',
+          ...(ritmo ? { ritmo } : {}),
+          ...(typeof raw.planos === 'boolean' ? { planos: raw.planos } : {}),
+          ...(raw.videos === true ? { videos: true } : {}),
+        },
+      };
     }
     case 'clips_magicos': {
       const extra = sobrantes(raw, ['cuantos']);
@@ -1326,6 +1342,12 @@ export function validarOperacion(crudo: unknown): Validada {
       if (lados.izquierda + lados.derecha > 98 + EPS || lados.arriba + lados.abajo > 98 + EPS) return { ok: false, motivo: 'un encuadre que deja el cuadro sin nada (entre dos lados opuestos queda al menos el 2 %)' };
       if (LADOS_ENCUADRE.every((k) => lados[k] === 0)) return { ok: false, motivo: 'un encuadre sin nada que recortar (para dejarlo entero, "quitar": true)' };
       return { ok: true, op: { op: 'encuadre', ref, ...lados } };
+    }
+    case 'cambiar_broll': {
+      const extra = sobrantes(raw, []);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de cambiar un B-roll` };
+      if (!esRef(ref)) return { ok: false, motivo: 'un cambio de B-roll sin elemento' };
+      return { ok: true, op: { op: 'cambiar_broll', ref } };
     }
   }
 }

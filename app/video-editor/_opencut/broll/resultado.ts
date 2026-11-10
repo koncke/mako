@@ -48,3 +48,41 @@ export function resumenDeBroll(r: Extract<ResultadoBroll, { ok: true }>): string
 	if (r.planos) partes.push(r.planos === 1 ? "1 cambio de plano" : `${r.planos} cambios de plano`);
 	return partes.length ? `Propuestas: ${partes.join(" y ")}. Deja o saca cada una.` : "No hubo nada que proponer.";
 }
+
+// ── «Cambiar por otra» (./cambiar.ts) ─────────────────────────────────────────
+
+export type MotivoCambioBroll =
+	| "ocupado"
+	| "sin-broll"
+	| "sin-otra"
+	| "falta-pexels"
+	| "corto"
+	| "otro-proyecto"
+	| "red"
+	| "pexels";
+
+export type ResultadoCambioBroll =
+	| { ok: true; medio: "fotos" | "videos"; autor: string }
+	| { ok: false; motivo: MotivoCambioBroll; detalle?: string };
+
+export const TEXTO_MOTIVO_CAMBIO_BROLL: Readonly<Record<MotivoCambioBroll, string>> = {
+	ocupado: "MaKo ya está trayendo otra imagen. Espera a que termine.",
+	"sin-broll": "Ese elemento no es un B-roll de MaKo: se cambia con «Reemplazar».",
+	"sin-otra": "No hay otra imagen de esa búsqueda que no hayas visto. Saca esta o vuelve a proponer.",
+	"falta-pexels": "Conecta Pexels para traer otra imagen.",
+	corto: "Ningún video de esa búsqueda dura lo que este lugar.",
+	"otro-proyecto": "Cambiaste de proyecto mientras se traía la imagen: no se tocó nada.",
+	red: "No pude hablar con MaKo. Revisa tu conexión y vuelve a intentar.",
+	pexels: "Pexels no contestó. Vuelve a intentar en un rato.",
+};
+
+/** El texto de un cambio que no salió: el detalle (lo que dijo Pexels o el servidor), o el del motivo. */
+export function textoDeCambioBroll(r: Extract<ResultadoCambioBroll, { ok: false }>): string {
+	return r.detalle?.trim() || TEXTO_MOTIVO_CAMBIO_BROLL[r.motivo];
+}
+
+/** Lo que se dice cuando salió, en una línea. */
+export function resumenDeCambioBroll(r: Extract<ResultadoCambioBroll, { ok: true }>): string {
+	const que = r.medio === "videos" ? "Otro video" : "Otra imagen";
+	return r.autor ? `${que} en su lugar (de ${r.autor}, en Pexels).` : `${que} en su lugar.`;
+}
