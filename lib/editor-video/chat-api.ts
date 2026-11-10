@@ -21,10 +21,11 @@
 
 import type { Parametro } from '../api-mako/tipos';
 import {
-  AJUSTES_COLOR, MEZCLAS, OBJETIVOS_NORMALIZAR, OPERACIONES_CHAT, TOPES_CHAT, validarOperacion,
+  AJUSTES_COLOR, MEZCLAS, OBJETIVOS_NORMALIZAR, OPERACIONES_CHAT, TIPO_CAMPO_MOTION, TOPES_CHAT, catalogoMotionCompacto, validarOperacion,
   type IdOperacion, type OperacionChat,
 } from './chat-catalogo';
 import { PLANTILLAS } from './plantillas';
+import { PLANTILLAS_MOTION } from '../motion/tipos';
 
 /** Una operación del chat, como acción de la API. */
 export type OperacionApi = { op: IdOperacion; id: string; titulo: string; parametros: readonly Parametro[] };
@@ -61,6 +62,19 @@ const COLOR = (nombre: string, rotulo: string, sacable: boolean): Parametro =>
   texto(nombre, rotulo, sacable ? 'Un color #RRGGBB, o «no» para sacarlo.' : 'Un color #RRGGBB.', false, 7);
 
 const DUR_EFECTO = seg('duracion', 'Duración', 'Opcional: en segundos.', false, TOPES_CHAT.efectoMin, TOPES_CHAT.duracionMax);
+
+/**
+ * Los campos de un motion graphic: dependen de la plantilla, y la API deja pasar SÓLO lo declarado, así que van como
+ * lista [{campo, valor}] (como los huecos de una plantilla) y `operacionDesdeInput` los devuelve a {campo: valor}.
+ */
+const VALORES_MOTION = (obligatorio: boolean): Parametro => ({
+  nombre: 'valores', rotulo: 'Campos', tipo: 'object[]', max: 20, ...(obligatorio ? { obligatorio: true } : {}),
+  descripcion: obligatorio ? 'Los campos que cambian: [{campo, valor}].' : 'Los campos que pones: [{campo, valor}].',
+  campos: [
+    texto('campo', 'Campo', 'El campo de la plantilla.', true, 30),
+    texto('valor', 'Valor', 'El valor (un texto vacío saca uno opcional).', false, 240),
+  ],
+});
 
 // ── La tabla: una fila por operación del chat ────────────────────────────────
 
@@ -203,6 +217,16 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     { nombre: 'cuantos', rotulo: 'Cuántos', tipo: 'number', entero: true, minimo: 1, maximo: 10, descripcion: 'Opcional: cuántos clips (sin esto, 5).' },
   ] },
   { op: 'edicion_automatica', id: 'editar_video_automatico', titulo: 'Edición automática con agentes', parametros: [] },
+  // Los motion graphics (10/11/2026), al FINAL del área: no le sacan el lugar a las de antes en el presupuesto.
+  { op: 'agregar_motion', id: 'agregar_motion_video', titulo: 'Agregar un motion graphic', parametros: [
+    // El catálogo va en el PARÁMETRO, no en la descripción: la descripción puntúa por sus palabras contra el pedido.
+    elegir('plantilla', 'Plantilla', PLANTILLAS_MOTION, catalogoMotionCompacto()),
+    VALORES_MOTION(false),
+    seg('inicio', 'Inicio', 'En qué segundo aparece.'),
+    seg('duracion', 'Duración', 'Opcional: los segundos que dura (sin ella, los de la plantilla).', false, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax),
+    REF_NUEVA,
+  ] },
+  { op: 'editar_motion', id: 'editar_motion_video', titulo: 'Editar un motion graphic', parametros: [REF, VALORES_MOTION(true)] },
 ];
 
 /** Lo de la API que acompaña al `para` del chat. */
@@ -228,6 +252,23 @@ const sacable = (v: unknown): unknown => {
 };
 
 /**
+ * Un valor de motion de la API a su tipo: todo llega como texto (`valor` es un string declarado), y la clave dice qué
+ * es (una clave tiene el mismo tipo en todas las plantillas: `TIPO_CAMPO_MOTION`). Lo que no se puede leer va tal cual,
+ * y `normalizarMotion` lo rechaza con su motivo.
+ */
+function valorMotion(campo: string, valor: unknown): unknown {
+  if (typeof valor !== 'string') return valor ?? '';
+  const t = valor.trim().toLowerCase();
+  const tipo = TIPO_CAMPO_MOTION.get(campo);
+  if (tipo === 'si-no') return t === 'true' || t === 'si' || t === 'sí' ? true : t === 'false' || t === 'no' ? false : valor;
+  if (tipo === 'numero') {
+    const n = Number(t.replace(',', '.'));
+    return t !== '' && Number.isFinite(n) ? n : valor;
+  }
+  return valor;
+}
+
+/**
  * La entrada de la API (ya pasada por `validarInput`) devuelta a la forma del chat y validada con la MISMA función que
  * el chat. El motivo de un rechazo lo lee el modelo (que se corrige solo) y la persona.
  */
@@ -247,6 +288,10 @@ export function operacionDesdeInput(o: OperacionApi, input: Record<string, unkno
     }
   }
   if (o.op === 'reemplazar_en_subtitulos' && raw.reemplazo === undefined) raw.reemplazo = '';
+  if ((o.op === 'agregar_motion' || o.op === 'editar_motion') && Array.isArray(campos.valores)) {
+    // Sin `valor` (vacío no pasa `validarInput`) es un texto vacío: saca un campo opcional.
+    raw.valores = Object.fromEntries((campos.valores as Array<Record<string, unknown>>).map((c) => [String(c.campo ?? ''), valorMotion(String(c.campo ?? ''), c.valor)]));
+  }
   const v = validarOperacion(raw);
   return v.ok ? { ok: true, op: v.op } : { ok: false, motivo: v.motivo };
 }

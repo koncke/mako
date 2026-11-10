@@ -24,6 +24,11 @@
 //                                              vuelve a partir y ubicar con su ancla
 //   usar una plantilla                         usarPlantilla (plantillas/instanciar.ts), LARGA:
 //                                              la corre chat/aplicar.ts después del lote
+//   agregar un motion graphic                  InsertElementCommand(buildGraphicElement), lo
+//                                              mismo que la tarjeta de la biblioteca
+//                                              (motion/components/biblioteca-motion.tsx)
+//   editar un motion graphic                   UpdateElementsCommand con sus params («params»),
+//                                              como `updateElements` del panel (graphic-tab.tsx)
 //   borrar los silencios                       quitarSilencios (audio/borrar-silencios.ts: el del
 //                                              botón de la barra), LARGA y la última
 //   palabras clave                             UpdateElementsCommand con `subtitulo.claves` (el
@@ -63,7 +68,9 @@ import { CortarTramosCommand } from "@/app/video-editor/_opencut/commands/timeli
 import { paramsConTexto, ReemplazarSubtitulosCommand } from "@/app/video-editor/_opencut/subtitles/editar";
 import { conLoVinculado } from "@/app/video-editor/_opencut/ripple/iman";
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
-import { buildEffectElement, buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
+import { buildEffectElement, buildGraphicElement, buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
+import { idDefinicionMotion } from "@/app/video-editor/_opencut/graphics/definitions/motion";
+import { PLANTILLAS as DEF_MOTION } from "@/lib/motion/plantillas";
 import { findTrackInSceneTracks } from "@/app/video-editor/_opencut/timeline/track-element-update";
 import type { ElementRef, RetimeConfig, SceneTracks, TimelineElement, VisualElement } from "@/app/video-editor/_opencut/timeline/types";
 import { computeGroupResize } from "@/app/video-editor/_opencut/timeline/group-resize";
@@ -164,6 +171,21 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 					}),
 					placement: { mode: "auto", trackType: "text" },
 				});
+				if (r.ref) nuevos.set(r.ref, insercion);
+				comandos.push(insercion);
+				break;
+			}
+			case "agregar_motion": {
+				// La tarjeta de la biblioteca (motion/components/biblioteca-motion.tsx), en el tramo pedido y con los
+				// valores ya resueltos por la revisión (sin los textos de ejemplo de la plantilla).
+				const element = buildGraphicElement({
+					definitionId: idDefinicionMotion(r.plantilla),
+					name: `Motion · ${DEF_MOTION[r.plantilla].nombre}`,
+					startTime: segundos(r.inicio),
+					params: r.valores,
+				});
+				element.duration = segundos(r.duracion);
+				const insercion = new InsertElementCommand({ element, placement: { mode: "auto" } });
 				if (r.ref) nuevos.set(r.ref, insercion);
 				comandos.push(insercion);
 				break;

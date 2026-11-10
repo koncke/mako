@@ -32,6 +32,13 @@
 // lista los medios de Multimedia con una ref corta (m1, m2…), que usan reemplazar_clip y
 // usar_plantilla. usar_plantilla va SOLA y con la línea de tiempo vacía: se revisa antes que
 // todo lo demás.
+//
+// Los motion graphics (lib/motion, traídos el 10/11/2026 de rescate/motion-imagen-2610): un
+// `graphic` con `definitionId` «motion-…» (graphics/definitions/motion.ts) la IA lo ve como
+// "tipo":"motion", con su "plantilla" y sus "valores" de AHORA (sólo los de la plantilla, con
+// `valoresDeParams`: sus params tienen también la posición y la opacidad del elemento).
+// agregar_motion lo inserta como la biblioteca y editar_motion escribe sus params con el
+// `updateElements` del panel, validados contra SU plantilla (`valoresMotionValidos`).
 // =============================================================================
 
 import type { SceneTracks, TimelineElement, TimelineTrack, ElementType } from "@/app/video-editor/_opencut/timeline/types";
@@ -43,6 +50,9 @@ import {
 	OBJETIVOS_NORMALIZAR,
 	TOPES_CHAT,
 	colorHex,
+	textoValoresMotion,
+	valoresAlAgregar,
+	valoresMotionValidos,
 	type CategoriaAnimChat,
 	type ClaveAjuste,
 	type EstiloTextoChat,
@@ -83,8 +93,14 @@ import { buscarFrase, muletillasDe, palabrasEnOrden, type ParrafoTx } from "@/ap
 import type { Disponibles } from "./disponibles";
 import { clavesNombradas, codificarClaves, elegirClaves, leerClaves, PARAM_CLAVES } from "@/app/video-editor/_opencut/subtitles/claves";
 import { PAUSA_MIN_S, segundosDeAviso } from "@/app/video-editor/_opencut/audio/silencios-aviso";
+import { plantillaDeDefinicion, valoresDeParams } from "@/app/video-editor/_opencut/graphics/definitions/motion";
+import { PLANTILLAS as DEF_MOTION, valoresPorDefecto } from "@/lib/motion/plantillas";
+import type { IdPlantilla, ValoresMotion } from "@/lib/motion/tipos";
 
-export type TipoRef = "video" | "imagen" | "texto" | "audio" | "sticker" | "grafico" | "efecto";
+export type TipoRef = "video" | "imagen" | "texto" | "audio" | "sticker" | "grafico" | "efecto" | "motion";
+
+/** Un motion graphic: su plantilla y los valores de sus campos (lib/motion). */
+export type MotionLeido = { plantilla: IdPlantilla; valores: ValoresMotion };
 
 /** El estilo de un texto como lo lee la IA (las claves de estilo_texto), con los colores de lo apagado aparte. */
 export type EstiloLeido = Required<Omit<EstiloTextoChat, "sombra">> & {
@@ -132,6 +148,8 @@ export type EstadoElemento = {
 	capa?: string;
 	/** Las propiedades con fotogramas clave (cambiar su valor base no se vería). */
 	fotogramas?: string[];
+	/** Un motion graphic: su plantilla y sus valores de ahora. */
+	motion?: MotionLeido;
 };
 
 export type RefElemento = {
@@ -211,13 +229,15 @@ const TIPO: Record<TimelineElement["type"], TipoRef> = {
 	video: "video", image: "imagen", text: "texto", audio: "audio", sticker: "sticker", graphic: "grafico", effect: "efecto",
 };
 const MOTOR: Record<TipoRef, ElementType> = {
-	video: "video", imagen: "image", texto: "text", audio: "audio", sticker: "sticker", grafico: "graphic", efecto: "effect",
+	video: "video", imagen: "image", texto: "text", audio: "audio", sticker: "sticker", grafico: "graphic", efecto: "effect", motion: "graphic",
 };
+/** Un `graphic` de una plantilla de motion se ve como "motion"; el resto, por su tipo del motor. */
+const tipoDe = (el: TimelineElement): TipoRef => (el.type === "graphic" && plantillaDeDefinicion(el.definitionId) ? "motion" : TIPO[el.type]);
 const TIPO_PISTA: Record<TimelineTrack["type"], string> = {
 	video: "video", text: "texto", audio: "audio", graphic: "grafico", effect: "efecto",
 };
 const ROTULO: Record<TipoRef, string> = {
-	video: "Video", imagen: "Imagen", texto: "Texto", audio: "Audio", sticker: "Sticker", grafico: "Forma", efecto: "Efecto",
+	video: "Video", imagen: "Imagen", texto: "Texto", audio: "Audio", sticker: "Sticker", grafico: "Forma", efecto: "Efecto", motion: "Motion",
 };
 /** «combo» del motor es «combinado» para la IA (el rótulo de CapCut). */
 const CATEGORIA_MOTOR: Record<CategoriaAnimChat, CategoriaAnimacion> = { entrada: "entrada", salida: "salida", combinado: "combo", bucle: "bucle" };
@@ -391,6 +411,10 @@ function leerEstado(el: TimelineElement, tipo: TipoRef, tps: number, mediosSinAu
 	}
 	if (el.type === "text") e.estilo = leerEstilo(p);
 	if (el.type === "effect") e.capa = el.effectType;
+	if (tipo === "motion" && el.type === "graphic") {
+		const plantilla = plantillaDeDefinicion(el.definitionId);
+		if (plantilla) e.motion = { plantilla, valores: valoresDeParams(plantilla, p) };
+	}
 	return e;
 }
 
@@ -487,6 +511,25 @@ function estadoJson(r: RefElemento, d: Disponibles, estiloSubtitulos: string | n
 	return o;
 }
 
+/** Lo que se le muestra de un texto de motion (el tope más largo de una plantilla: los datos de las barras). */
+const MOTION_TEXTO_VISTA = 240;
+
+/**
+ * Un motion graphic como lo lee la IA: su plantilla y sus valores de AHORA. De sus campos, los que no están vacíos; de
+ * los comunes, el tono siempre (UN tono para todo el video) y los demás sólo si no están en su valor por defecto.
+ */
+function motionJson(m: MotionLeido): Record<string, unknown> {
+	const porDefecto = valoresPorDefecto(m.plantilla);
+	const propios = new Set(DEF_MOTION[m.plantilla].campos.map((c) => c.clave));
+	const valores: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(m.valores)) {
+		if (propios.has(k)) {
+			if (v !== "") valores[k] = typeof v === "string" ? corto(v, MOTION_TEXTO_VISTA) : v;
+		} else if (k === "tono" || v !== porDefecto[k]) valores[k] = v;
+	}
+	return { plantilla: m.plantilla, valores };
+}
+
 /** Lo disponible del motor como lo lee la IA: id → nombre en español. */
 function disponiblesJson(d: Disponibles): Record<string, unknown> | undefined {
 	if (!d.transiciones.length && !d.filtros.length && !d.efectos.length) return undefined;
@@ -580,7 +623,7 @@ export function vistaDeLinea({
 		const lista = [...(track.elements as TimelineElement[])]
 			.sort((a, b) => a.startTime - b.startTime)
 			.map((el) => {
-				const tipo = TIPO[el.type];
+				const tipo = tipoDe(el);
 				const ref = refsPrevias?.get(el.id) ?? nueva(PREFIJO[el.type]);
 				const inicio = seg(el.startTime, tps);
 				const finEl = seg(el.startTime + el.duration, tps);
@@ -637,6 +680,7 @@ export function vistaDeLinea({
 			...(r.muestra ? { muestra: true, ...(r.opcional ? { opcional: true } : {}) } : {}),
 			...(r.acepta && r.acepta !== "ambos" ? { acepta: r.acepta } : {}),
 			...(r.maxCaracteres ? { max_caracteres: r.maxCaracteres } : {}),
+			...(r.estado.motion ? motionJson(r.estado.motion) : {}),
 			...estadoJson(r, disponibles, estiloSubtitulos),
 		})),
 	}));
@@ -696,6 +740,8 @@ export type CambioChat = {
 /** Una operación que se puede aplicar, con sus elementos ya resueltos (chat/comandos.ts la vuelve un comando). */
 export type OperacionResuelta =
 	| { op: "agregar_texto"; texto: string; inicio: number; duracion: number; ref?: string }
+	/** `valores`: TODOS los params de la plantilla que se insertan (`valoresAlAgregar`); `duracion` ya resuelta. */
+	| { op: "agregar_motion"; plantilla: IdPlantilla; valores: ValoresMotion; inicio: number; duracion: number; ref?: string }
 	| { op: "cambiar_texto"; el: RefElemento; texto: string }
 	| { op: "borrar"; els: RefElemento[] }
 	| { op: "mover"; el: RefElemento; inicio: number }
@@ -751,9 +797,9 @@ export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; 
 /** La transcripción del momento (transcripcion/modelo.ts) y el idioma de las muletillas. */
 export type TranscripcionChat = { parrafos: readonly ParrafoTx[]; idioma: string };
 
-const CON_DURACION_LIBRE = new Set<TipoRef>(["texto", "imagen", "sticker", "grafico", "efecto"]);
+const CON_DURACION_LIBRE = new Set<TipoRef>(["texto", "imagen", "sticker", "grafico", "efecto", "motion"]);
 const SONOROS = new Set<TipoRef>(["video", "audio"]);
-const VISUALES = new Set<TipoRef>(["video", "imagen", "texto", "sticker", "grafico"]);
+const VISUALES = new Set<TipoRef>(["video", "imagen", "texto", "sticker", "grafico", "motion"]);
 const CLIPS = new Set<TipoRef>(["video", "imagen"]);
 /** Un corte a menos de esto de un borde deja un pedazo que no se ve. */
 const MARGEN_CORTE = 0.05;
@@ -1198,6 +1244,18 @@ export function revisarOperaciones({
 			cambios.push({ tipo: "agrega", titulo: "Texto nuevo", antes: "", despues: `«${corto(op.texto, 80)}» · de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + op.duracion)}` });
 			continue;
 		}
+		if (op.op === "agregar_motion") {
+			// Como la tarjeta de la biblioteca (motion/components/biblioteca-motion.tsx), sin los textos de ejemplo.
+			const def = DEF_MOTION[op.plantilla];
+			const duracion = op.duracion ?? def.duracionMs / 1000;
+			const valores = valoresAlAgregar(op.plantilla, op.valores);
+			const estadoNuevo: EstadoElemento = { anim: {}, transform: leerTransform({}), motion: { plantilla: op.plantilla, valores } };
+			if (!registrarNuevo(op.ref, "motion", `Motion · ${def.nombre}`, op.inicio, op.inicio + duracion, estadoNuevo)) continue;
+			resueltas.push({ op: "agregar_motion", plantilla: op.plantilla, valores, inicio: op.inicio, duracion, ...(op.ref ? { ref: op.ref } : {}) });
+			const campos = textoValoresMotion(op.valores, op.plantilla);
+			cambios.push({ tipo: "agrega", titulo: `Motion «${def.nombre}»`, antes: "", despues: `${campos ? `${campos} · ` : ""}de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + duracion)}` });
+			continue;
+		}
 		if (op.op === "capa_efecto") {
 			const lista = op.tipo === "filtro" ? d.filtros : d.efectos;
 			const opcion = lista.find((o) => o.id === op.id);
@@ -1244,6 +1302,7 @@ export function revisarOperaciones({
 
 		switch (op.op) {
 			case "cambiar_texto": {
+				if (el.tipo === "motion") { descartes.push(`${el.titulo} es un motion graphic: sus textos se cambian con editar_motion`); break; }
 				if (el.tipo !== "texto") { descartes.push(`${el.titulo} no es un texto`); break; }
 				if (op.texto === st.texto) break;
 				// El tope del hueco es el mismo que al usar la plantilla (lib/editor-video/plantillas.ts → validarValores).
@@ -1600,6 +1659,7 @@ export function revisarOperaciones({
 				break;
 			}
 			case "estilo_texto": {
+				if (el.tipo === "motion") { descartes.push(`${el.titulo} es un motion graphic: su tono, colores y fuente se cambian con editar_motion`); break; }
 				if (el.tipo !== "texto" || !e.estilo) { descartes.push(`${el.titulo} no es un texto`); break; }
 				const pedidos = Object.keys(op.estilo) as Array<keyof EstiloTextoChat>;
 				if (el.subtitulo && pedidos.some((k) => ESTILO_QUE_PARTE.includes(k))) {
@@ -1647,6 +1707,26 @@ export function revisarOperaciones({
 				const fila = filaCampos(el.titulo, campos.map((k) => [ETIQUETA_TRANSFORM[k], t[k], nuevo[k], sufijo[k]] as [string, unknown, unknown, string?]));
 				e.transform = nuevo;
 				escribir(params, fila);
+				break;
+			}
+			case "editar_motion": {
+				const m = e.motion;
+				if (el.tipo !== "motion" || !m) { descartes.push(`${el.titulo} no es un motion graphic`); break; }
+				// Contra los campos y topes de SU plantilla (el catálogo sólo pudo mirar la forma).
+				const v = valoresMotionValidos(m.plantilla, op.valores);
+				if (!v.ok) { descartes.push(v.motivo); break; }
+				const cambian = Object.keys(v.valores).filter((k) => v.valores[k] !== m.valores[k]);
+				if (!cambian.length) break;
+				const nuevos: ValoresMotion = Object.fromEntries(cambian.map((k) => [k, v.valores[k]]));
+				const fila: CambioChat = {
+					tipo: "cambia",
+					titulo: el.titulo,
+					antes: textoValoresMotion(Object.fromEntries(cambian.map((k) => [k, m.valores[k] ?? ""])), m.plantilla),
+					despues: textoValoresMotion(nuevos, m.plantilla),
+				};
+				e.motion = { ...m, valores: { ...m.valores, ...nuevos } };
+				// El `updateElements` del panel (graphic-tab.tsx): `applyElementUpdate` MEZCLA los params.
+				escribir({ ...nuevos }, fila);
 				break;
 			}
 			case "reflejar": {

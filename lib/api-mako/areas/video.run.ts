@@ -650,6 +650,8 @@ export const RUNNERS: Runners = {
   proponer_broll_video: { ...enElEditor('proponer_broll_video') },
   buscar_clips_video: { ...enElEditor('buscar_clips_video') },
   editar_video_automatico: { ...enElEditor('editar_video_automatico') },
+  agregar_motion_video: { ...enElEditor('agregar_motion_video') },
+  editar_motion_video: { ...enElEditor('editar_motion_video') },
 
   ver_contexto_video: {
     leer: async () => {
