@@ -885,6 +885,27 @@ export function tareasDeLaSemana(p: PerfilCopiloto): Tarea[] {
   }
 }
 
+/** El nombre de la pantalla de MaKo de cada ruta del CoPilot: el botón dice a dónde lleva, y el agente la nombra igual. */
+export const PANTALLA_DE_RUTA: Readonly<Record<string, string>> = {
+  [RUTAS_COPILOTO.copywriter]: 'Copywriting', [RUTAS_COPILOTO.video]: 'Video', [RUTAS_COPILOTO.web]: 'Web Generator', [RUTAS_COPILOTO.leadMagnets]: 'Lead Magnet',
+  [RUTAS_COPILOTO.carruseles]: 'Carruseles', [RUTAS_COPILOTO.calendario]: 'Calendario', [RUTAS_COPILOTO.competencia]: 'Competitor Spy', [RUTAS_COPILOTO.email]: 'Email',
+  [RUTAS_COPILOTO.chats]: 'Chats', [RUTAS_COPILOTO.crm]: 'CRM', [RUTAS_COPILOTO.avatar]: 'AI Avatar', [RUTAS_COPILOTO.integraciones]: 'Integraciones',
+};
+
+export type PasoDeLaSemana = { texto: string; detalle: string; href?: string; pantalla: string | null; accion: string };
+
+/**
+ * ESTA SEMANA, en UNA pieza (9/11/2026): lo que dibuja el panel y lo que el agente dice cuando le preguntan «¿qué hago esta semana?».
+ * La batería lo pidió: sin esto, el agente contestaba el plan del lunes en una frase y sin nombrar ninguna pantalla de MaKo.
+ */
+export function pasosDeLaSemana(p: PerfilCopiloto): PasoDeLaSemana[] {
+  const t = tareasDeLaSemana(p);
+  if (t.length) return t.map((x) => ({ texto: x.titulo, detalle: x.detalle, href: x.href, pantalla: PANTALLA_DE_RUTA[x.href] ?? null, accion: x.accion }));
+  return (propuestaDe(p)?.pasos ?? []).map((x) => ({
+    texto: x.texto, detalle: '', href: x.href, pantalla: x.href ? PANTALLA_DE_RUTA[x.href] ?? null : null, accion: x.href ? PANTALLA_DE_RUTA[x.href] ?? 'Abrir' : '',
+  }));
+}
+
 export type Medida = { nombre: string; que: string; contexto?: string };
 
 /** Qué medir según el funnel, y qué número manda. Las cifras son de referencia (de otros negocios, sin auditar), nunca una meta. */
@@ -1076,23 +1097,24 @@ export function recorridoDe(p: PerfilCopiloto): Etapa[] {
   const dia = p.presupuestoMes ? Math.round(p.presupuestoMes / 30) : 0;
   const anuncio = dia ? `Anuncios en Meta (unos ${us(dia)} por día)` : 'Anuncios en Meta';
   const conCasos = p.casos === 'si' ? 'tus casos reales' : 'casos reales (cuando los tengas: nunca se inventan)';
-  const quien = p.llamadas === 'equipo' ? 'tu equipo' : 'tú';
+  // «con tu equipo» / «contigo» (no «con tú»: salió así en la primera captura del panel, 9/11/2026).
+  const conQuien = p.llamadas === 'equipo' ? 'con tu equipo' : 'contigo';
   switch (f) {
     case 'vsl-llamada': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} que filtran desde el texto.`, accion: { texto: 'Escribir los anuncios', href: R.copywriter } },
       { id: 'captar', titulo: 'Agendar', que: 'Página con el video de venta y la agenda en el mismo paso.', accion: { texto: 'Armar la página', href: R.web } },
       { id: 'convencer', titulo: 'Preparar', que: `Confirmación con un video corto y ${conCasos} antes de la llamada.`, accion: { texto: 'Escribir los correos', href: R.copywriter } },
-      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada de venta con ${quien}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada de venta ${conQuien}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'mensajes': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} que abren una conversación.`, accion: { texto: 'Escribir los anuncios', href: R.copywriter } },
       { id: 'captar', titulo: 'Conversar', que: 'WhatsApp o Instagram con un mensaje ya escrito. Responder rápido es la regla.', accion: { texto: 'Abrir Chats', href: R.chats } },
       { id: 'convencer', titulo: 'Convencer', que: `En la charla, ${conCasos} y una pregunta que filtre.` },
-      { id: 'cerrar', titulo: 'Cobrar', que: p.ticket != null && p.ticket <= UMBRALES.ticketCarrito ? 'Link de pago en la misma charla y un seguimiento a las 24 horas.' : `Llamada corta con ${quien} o link de pago.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cobrar', que: p.ticket != null && p.ticket <= UMBRALES.ticketCarrito ? 'Link de pago en la misma charla y un seguimiento a las 24 horas.' : `Llamada corta ${conQuien} o link de pago.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'formulario': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} con un formulario dentro de Meta.`, accion: { texto: 'Escribir los anuncios', href: R.copywriter } },
       { id: 'captar', titulo: 'Filtrar', que: 'Hasta tres preguntas: que es el lugar, la plata y el tiempo. Teléfono obligatorio.' },
       { id: 'convencer', titulo: 'Contactar', que: 'Llamar o escribir en minutos, no en horas: un lead frío no contesta.', accion: { texto: 'Abrir Chats', href: R.chats } },
-      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada o visita con ${quien}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada o visita ${conQuien}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'carrito': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} optimizados a compra, con el producto en uso.`, accion: { texto: 'Crear los anuncios', href: R.video } },
       { id: 'captar', titulo: 'Mostrar', que: 'Página del producto con fotos reales, precio claro y envío.', accion: { texto: 'Armar la página', href: R.web } },
@@ -1102,12 +1124,12 @@ export function recorridoDe(p: PerfilCopiloto): Etapa[] {
       { id: 'atraer', titulo: 'Atraer', que: dia ? `${anuncio} al registro.` : 'Tu contenido y tu lista, al registro.', accion: { texto: 'Armar el registro', href: R.web } },
       { id: 'captar', titulo: 'Registrar', que: 'Correos y recordatorios con valor, no sólo la hora.', accion: { texto: 'Escribirlos', href: R.copywriter } },
       { id: 'convencer', titulo: 'Enseñar', que: `Una clase de 45 a 60 minutos con ${conCasos} y la oferta al final.` },
-      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada con ${quien} para quien levantó la mano.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada ${conQuien} para quien levantó la mano.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'lead-magnet': return [
       { id: 'atraer', titulo: 'Atraer', que: dia ? `${anuncio} al regalo, no a la venta.` : 'Tu contenido, con el regalo como llamado.', accion: { texto: 'Crear el regalo', href: R.leadMagnets } },
       { id: 'captar', titulo: 'Captar', que: 'Una página con una promesa, una imagen y el formulario.', accion: { texto: 'Armar la página', href: R.web } },
       { id: 'convencer', titulo: 'Nutrir', que: 'Tres o cuatro correos que enseñan y terminan en una conversación.', accion: { texto: 'Escribir la secuencia', href: R.email } },
-      { id: 'cerrar', titulo: 'Cerrar', que: p.llamadas && p.llamadas !== 'nadie' ? `Conversación o llamada con ${quien}.` : 'Una oferta directa al final de la secuencia.', accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: p.llamadas && p.llamadas !== 'nadie' ? `Conversación o llamada ${conQuien}.` : 'Una oferta directa al final de la secuencia.', accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'email': return [
       { id: 'atraer', titulo: 'Reconectar', que: p.lista ? `Un correo corto a tus ${p.lista} contactos, en tandas, que invite a contestar.` : 'Un correo corto, en tandas, que invite a contestar.', accion: { texto: 'Escribirlo', href: R.copywriter } },
       { id: 'captar', titulo: 'Escuchar', que: 'Quien contesta es tu lead más caliente: se le escribe uno por uno.', accion: { texto: 'Abrir Chats', href: R.chats } },

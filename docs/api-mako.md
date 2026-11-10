@@ -6433,8 +6433,8 @@ PROPONE guardar lo que el negocio decidió o contó en el Marketing CoPilot: el 
 | `ritmo` | number | no | piezas (o videos en YouTube) por semana. |
 | `formato` | string (reels \\| stories \\| carruseles \\| mezcla \\| largos \\| shorts) | no | el formato con el que empieza. |
 | `vende` | string (servicio \\| curso \\| tienda \\| local) | no | qué vende: un servicio, un curso o programa, productos en una tienda online, o un negocio local. |
-| `meta` | number | no | cuántos clientes o pedidos quiere por mes. |
-| `ventasMes` | number | no | cuántos consigue hoy por mes. |
+| `meta` | number | no | su OBJETIVO: cuántos clientes o pedidos QUIERE por mes («quiero 2 o 3 por mes» va aquí, no en ventasMes). |
+| `ventasMes` | number | no | cuántos consigue HOY por mes, sin la meta (sólo si lo dijo). |
 | `margen` | number | no | en una tienda: el % de cada venta que le queda. |
 | `casos` | string (si \\| no) | no | si tiene casos reales de clientes para mostrar. |
 | `pais` | string | no | el país (o países) donde vende. |

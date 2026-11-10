@@ -93,9 +93,11 @@ reemplazar('lib/anthropic.ts', (r) => ({
     registro.system = system;
     registro.tools = tools.map((t) => t.name);
     const envuelto = async (n: string, i: unknown) => {
-      // Con el negocio del caso, una lectura de la CUENTA (Meta, CRM, el plan del ws 9) devuelve lo del caso: si no, el modelo
+      // Con el negocio del caso, una lectura de la CUENTA (Meta, CRM, el email, el plan del ws 9) devuelve lo del caso: si no, el modelo
       // leería la cuenta de MaKo y hablaría de otro negocio. Las del CoPilot, el cálculo y el método de los cursos pasan.
-      const deLaCuenta = NEGOCIO === 'caso' && /^(ver|listar|leer|buscar|consultar)_/.test(n) && !LECTURAS_QUE_PASAN.has(n);
+      // ⚠️ Por el TIPO del registro, no por el prefijo (9/11/2026): `kpis_email` no empezaba con ver_/listar_ y leyó el email del ws 9.
+      const lectura = (await import('../../lib/api-mako/registro')).porId?.(n)?.tipo === 'lectura' || /^(ver|listar|leer|buscar|consultar|kpis|metricas|analisis|contar|estado|resumen|catalogo)_/.test(n);
+      const deLaCuenta = NEGOCIO === 'caso' && lectura && !LECTURAS_QUE_PASAN.has(n);
       const out = deLaCuenta
         ? JSON.stringify(casoActual?.lecturas?.[n] ?? { ok: true, datos: null, nota: 'Este negocio todavía no tiene datos de eso en MaKo (no conectó la cuenta o no cargó nada).' })
         : await runTool(n, i);

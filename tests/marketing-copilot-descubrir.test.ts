@@ -10,9 +10,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FUNNELS, PREGUNTAS_DE_DATO, compararFunnels, cuentaDe, datosDeDecision, evaluarFunnel, fichaDelNegocio, leerDato, pasoDeCopiloto,
-  recomendarFunnel, recorridoDe, sanearPerfil, funnelDelTexto, type PerfilCopiloto,
+  recomendarFunnel, recorridoDe, sanearPerfil, funnelDelTexto, pasosDeLaSemana, type PerfilCopiloto,
 } from '../lib/media-buyer/copiloto';
-import { negocioDelCopiloto } from '../lib/media-buyer/copiloto-contexto';
+import { REGLAS_DEL_COPILOTO, negocioDelCopiloto } from '../lib/media-buyer/copiloto-contexto';
 
 test('email es un funnel: sin anuncios ni llamadas, con su propuesta, su semana y su recorrido', () => {
   assert.ok(FUNNELS.some((f) => f.id === 'email'));
@@ -122,6 +122,23 @@ test('el recorrido: cuatro etapas por funnel, y lo que NO tiene no se inventa (c
   assert.deepEqual(recorridoDe({}), []);
   const sinCasos = recorridoDe({ entrada: 'funnel', funnel: 'vsl-llamada', ticket: 5000, presupuestoMes: 2000, llamadas: 'yo' });
   assert.match(sinCasos[2].que, /nunca se inventan/);
+});
+
+test('lo que la segunda corrida de la batería cazó: «¿y si…?» no decide, proponer no es guardar, ninguna tasa inventada, la semana con pantallas', () => {
+  const R = REGLAS_DEL_COPILOTO;
+  assert.match(R, /«¿y si en vez de X hago Y\?» NO es una decisión/);
+  assert.match(R, /nunca digas «guardé» ni «cambié»/);
+  assert.match(R, /UNA vez; si dice que sí \(aunque agregue otra pregunta\), lo propones en ese turno/);
+  assert.match(R, /tampoco un porcentaje de caída, de cierre o de conversión/);
+  assert.match(R, /mientras falte algo IMPRESCINDIBLE, terminas con UNA pregunta de LO QUE TE FALTA/);
+  assert.match(R, /un dato que no dijo no se pone, tampoco como 0/);
+  // Sin las reglas corridas (nada guardado), los umbrales viajan igual: el negocio real del ws 9 recibió un VSL con US$1.500 de ticket.
+  for (const p of [{}, { entrada: 'funnel' as const }]) assert.match(negocioDelCopiloto(p), /LOS UMBRALES DE MAKO .*VSL con llamada, desde \$3,000 de ticket y \$1,500 al mes/);
+  assert.doesNotMatch(negocioDelCopiloto({ entrada: 'funnel', funnel: 'formulario', ticket: 3000, presupuestoMes: 1000, llamadas: 'equipo' }), /LOS UMBRALES DE MAKO/, 'con las reglas corridas no hace falta');
+  const n = negocioDelCopiloto({ entrada: 'funnel', funnel: 'formulario', ticket: 3000, presupuestoMes: 1000, llamadas: 'equipo' });
+  assert.match(n, /ESTA SEMANA \(lo que ve en su panel[^)]*\): 1\. Escribir el anuncio y las preguntas \(Copywriting\)/);
+  // La misma pieza que el panel.
+  assert.deepEqual(pasosDeLaSemana({ entrada: 'funnel', funnel: 'organico', ritmo: 3, objetivo: 'ventas' }).map((s) => s.pantalla), ['Copywriting', 'Carruseles', 'Copywriting', 'Calendario']);
 });
 
 test('los datos nuevos se guardan saneados (y basura no entra)', () => {

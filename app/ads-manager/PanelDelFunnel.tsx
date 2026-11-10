@@ -18,8 +18,8 @@
 import Link from '@/app/_ui/Link';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  compararFunnels, cuentaDe, datosDeDecision, fichaDelNegocio, funnelElegido, medirDe, propuestaDe, recomendarFunnel, recorridoDe, tareasDeLaSemana,
-  funnelPorId, RUTAS_COPILOTO, type ClaveDato, type IdFunnel, type PerfilCopiloto,
+  compararFunnels, cuentaDe, datosDeDecision, fichaDelNegocio, funnelElegido, medirDe, pasosDeLaSemana, recomendarFunnel, recorridoDe,
+  funnelPorId, type ClaveDato, type IdFunnel, type PerfilCopiloto,
 } from '@/lib/media-buyer/copiloto';
 
 export type VistaPanel = 'funnel' | 'semana' | 'medir';
@@ -40,13 +40,6 @@ type Props = {
   arriba?: ReactNode;
   /** «Inspirado en X», sólo si eligió un referente que enseña este funnel (lib/asesores/catalogo.ts → `inspiradoEn`). */
   inspirado?: string | null;
-};
-
-/** El nombre de la pantalla de MaKo de cada ruta del CoPilot: el botón dice a dónde lleva, no «Ir». */
-const PANTALLA_DE: Readonly<Record<string, string>> = {
-  [RUTAS_COPILOTO.copywriter]: 'Copywriting', [RUTAS_COPILOTO.video]: 'Video', [RUTAS_COPILOTO.web]: 'Web Generator', [RUTAS_COPILOTO.leadMagnets]: 'Lead Magnet',
-  [RUTAS_COPILOTO.carruseles]: 'Carruseles', [RUTAS_COPILOTO.calendario]: 'Calendario', [RUTAS_COPILOTO.competencia]: 'Competitor Spy', [RUTAS_COPILOTO.email]: 'Email',
-  [RUTAS_COPILOTO.chats]: 'Chats', [RUTAS_COPILOTO.crm]: 'CRM', [RUTAS_COPILOTO.avatar]: 'AI Avatar', [RUTAS_COPILOTO.integraciones]: 'Integraciones',
 };
 
 /** Las claves del perfil que cambiaron (para marcarlas un momento). */
@@ -82,11 +75,8 @@ export function PanelDelFunnel({ perfil, modo, onPreguntar, onFunnel, onUsar, pu
     return () => window.clearTimeout(t);
   }, [clave]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const semana = useMemo(() => {
-    const t = tareasDeLaSemana(perfil);
-    if (t.length) return t.map((x) => ({ texto: x.titulo, detalle: x.detalle, href: x.href, accion: x.accion }));
-    return (propuestaDe(perfil)?.pasos ?? []).map((x) => ({ texto: x.texto, detalle: '', href: x.href, accion: x.href ? PANTALLA_DE[x.href] ?? 'Abrir' : '' }));
-  }, [perfil]);
+  // Lo mismo que el agente dice de «esta semana» (`pasosDeLaSemana`, la misma pieza del system).
+  const semana = useMemo(() => pasosDeLaSemana(perfil), [perfil]);
   const faltan = ficha.falta.slice(0, 3);
   const masFaltan = ficha.falta.length - faltan.length;
   const funnelNuevo = nuevos.has('funnel') || nuevos.has('referente');
@@ -121,10 +111,14 @@ export function PanelDelFunnel({ perfil, modo, onPreguntar, onFunnel, onUsar, pu
                 ))}
                 {faltan.map((x) => (
                   <li key={x.clave}>
-                    <button type="button" className="cp-dato cp-falta" disabled={!onPreguntar || ocupado} onClick={() => onPreguntar?.(x.clave)}
-                      title={onPreguntar ? 'MaKo te lo pregunta en el chat' : undefined}>
-                      <span>{x.imprescindible ? 'Falta' : 'Sumaría'}</span><b>{x.pregunta}</b>
-                    </button>
+                    {/* Con la charla, se toca y MaKo lo pregunta; sin ella (un funnel en marcha), es información: se le dice a MaKo en el chat. */}
+                    {onPreguntar ? (
+                      <button type="button" className="cp-dato cp-falta" disabled={ocupado} onClick={() => onPreguntar(x.clave)} title="MaKo te lo pregunta en el chat">
+                        <span>{x.imprescindible ? 'Falta' : 'Sumaría'}</span><b>{x.pregunta}</b>
+                      </button>
+                    ) : (
+                      <span className="cp-dato cp-falta cp-falta--info" title="Cuéntaselo a MaKo en el chat"><span>{x.imprescindible ? 'Falta' : 'Sumaría'}</span><b>{x.pregunta}</b></span>
+                    )}
                   </li>
                 ))}
                 {masFaltan > 0 && <li className="cp-dato cp-mas"><span>Y</span><b>{masFaltan} más</b></li>}
