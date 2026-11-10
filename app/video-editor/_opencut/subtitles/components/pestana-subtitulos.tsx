@@ -22,7 +22,9 @@
 //
 // «Palabras clave» (../claves.ts, pedido de Leila del 30/10/2026): prender elige la que
 // pesa de cada subtítulo en todos; y «Guardar como preset» guarda el estilo de éste,
-// con nombre y marca, en el negocio (../presets.ts).
+// con nombre y marca, en el negocio (../presets.ts). «Emojis» (../emojis.ts, Submagic: «Auto
+// emojis», 10/11/2026): prender pone un emoji encima de cada subtítulo que dice algo que se
+// puede dibujar, en su pista; apagar los saca. Uno a uno se borran o se cambian como stickers.
 //
 // «Animaciones de subtítulos» (el karaoke de CapCut, text/resaltado.ts): «Subtítulos
 // pronunciados» (Ninguno · Palabra · Frase, y su color) y «Subtítulos no pronunciados»
@@ -65,20 +67,28 @@ import {
 import { useElementPreview } from "@/app/video-editor/_opencut/timeline/hooks/use-element-preview";
 import type { ParamValues } from "@/app/video-editor/_opencut/params";
 import {
+	ANIMS_PALABRA,
+	DEFAULTS_ANIM_PALABRA,
 	DEFAULTS_CLAVES,
 	DEFAULTS_RESALTADO,
 	MODOS_RESALTAR,
+	PARAM_ANIM_PALABRA,
 	PARAM_CLAVES_COLOR,
+	PARAM_CLAVES_TAMANO,
 	PARAM_NO_DICHAS_OPACIDAD,
 	PARAM_RESALTAR,
 	PARAM_RESALTAR_COLOR,
+	TOPES_CLAVES_TAMANO,
+	type AnimPalabra,
 	type ModoResaltar,
 } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import { tieneTiemposPorPalabra } from "@/app/video-editor/_opencut/text/resaltado";
-import { leerClaves, PARAM_CLAVES } from "../claves";
+import { alternarClave, leerClaves, normalizarClave, palabrasDelTexto, PARAM_CLAVES, TOPES_CLAVES } from "../claves";
 import { plantillaDeParams } from "../estilos";
 import { PREFIJO_PRESET, presetDeId, usePresetsSubtitulos } from "../presets";
 import { usePreferenciasSubtitulos } from "../estado";
+import { cuantosEmojis } from "../emojis-pista";
+import { ponerEmojisEnSubtitulos } from "../emojis-poner";
 
 // ⚠️ El panel derecho DESMONTA la pestaña cada vez que cambia el elemento elegido
 // (la cáscara le pone el id del elemento en la `key`). Y elegir una línea de esta
@@ -287,6 +297,13 @@ const OPCIONES_PRONUNCIADOS: ReadonlyArray<{ id: ModoResaltar; etiqueta: string 
 	{ id: "frase", etiqueta: "Frase" },
 ];
 
+/** «Palabra que se dice» (Submagic, estilo Hormozi): cómo se mueve la que se está diciendo. */
+const OPCIONES_ANIM: ReadonlyArray<{ id: AnimPalabra; etiqueta: string }> = [
+	{ id: "ninguna", etiqueta: "Quieta" },
+	{ id: "pop", etiqueta: "Salta" },
+	{ id: "crecer", etiqueta: "Crece" },
+];
+
 /** «Animaciones de subtítulos»: el resaltado de TODOS los subtítulos (ver el encabezado). */
 function AnimacionSubtitulos({
 	element,
@@ -307,6 +324,9 @@ function AnimacionSubtitulos({
 	const color = typeof p[PARAM_RESALTAR_COLOR] === "string" ? String(p[PARAM_RESALTAR_COLOR]) : DEFAULTS_RESALTADO.color;
 	const opacidad =
 		typeof p[PARAM_NO_DICHAS_OPACIDAD] === "number" ? Number(p[PARAM_NO_DICHAS_OPACIDAD]) : DEFAULTS_RESALTADO.noDichasOpacidad;
+	const anim: AnimPalabra = ANIMS_PALABRA.includes(p[PARAM_ANIM_PALABRA] as AnimPalabra)
+		? (p[PARAM_ANIM_PALABRA] as AnimPalabra)
+		: DEFAULTS_ANIM_PALABRA;
 	const conTiempos = useMemo(() => lista.some(({ element: el }) => tieneTiemposPorPalabra(el.params)), [lista]);
 	const esteConTiempos = tieneTiemposPorPalabra(element.params);
 
@@ -384,6 +404,12 @@ function AnimacionSubtitulos({
 							</FilaCe>
 						</>
 					)}
+					<p className="pt-2 pb-1.5 text-[12px] text-(--cc-text-2)">Palabra que se dice</p>
+					<SegmentadoCe
+						opciones={OPCIONES_ANIM}
+						valor={anim}
+						onCambio={(v) => v !== anim && aplicar({ [PARAM_ANIM_PALABRA]: v })}
+					/>
 					{!esteConTiempos && (
 						<p className="pt-1.5 text-[11.5px] text-(--cc-text-3)">Este subtítulo no tiene tiempos por palabra</p>
 					)}
@@ -401,6 +427,28 @@ function PalabrasClave({ element, trackId, lista }: { element: TextElement; trac
 	const editor = useEditor();
 	const { renderElement: vivo } = useElementPreview({ trackId, elementId: element.id, fallback: element });
 	const color = typeof vivo.params[PARAM_CLAVES_COLOR] === "string" ? String(vivo.params[PARAM_CLAVES_COLOR]) : DEFAULTS_CLAVES.color;
+	const tamano = typeof vivo.params[PARAM_CLAVES_TAMANO] === "number" ? Number(vivo.params[PARAM_CLAVES_TAMANO]) : DEFAULTS_CLAVES.tamano;
+	// Marcar o desmarcar a mano UNA palabra de ESTE subtítulo (Submagic: «resaltar o enfatizar palabras específicas»).
+	const marcadas = new Set(leerClaves(element.params[PARAM_CLAVES]));
+	// Sin las que quedan vacías al normalizar («—», «…», un emoji): un botón que no marca nada se lee como roto.
+	const palabras = palabrasDelTexto(String(element.params.content ?? "")).filter((w) => normalizarClave(w) !== "");
+	const alternar = (palabra: string) => {
+		if (!marcadas.has(normalizarClave(palabra)) && marcadas.size >= TOPES_CLAVES.porSubtitulo) {
+			toast(`Hasta ${TOPES_CLAVES.porSubtitulo} palabras clave por subtítulo: desmarca una para marcar otra`);
+			return;
+		}
+		editor.timeline.updateElements({
+			updates: [{ trackId, elementId: element.id, patch: { params: { ...element.params, [PARAM_CLAVES]: alternarClave(element.params[PARAM_CLAVES], palabra) } } }],
+		});
+	};
+	const previsualizarTamano = (v: number) =>
+		editor.timeline.previewElements({
+			updates: lista.map(({ track, element: el }) => ({
+				trackId: track.id,
+				elementId: el.id,
+				updates: { params: { ...el.params, [PARAM_CLAVES_TAMANO]: v } },
+			})),
+		});
 	const activas = useMemo(() => lista.some(({ element: el }) => leerClaves(el.params[PARAM_CLAVES]).length > 0), [lista]);
 	const presets = usePresetsSubtitulos((s) => s.presets);
 	const plantilla = usePreferenciasSubtitulos((s) => s.plantilla);
@@ -423,7 +471,51 @@ function PalabrasClave({ element, trackId, lista }: { element: TextElement; trac
 			clave="ce:subtitulos:claves"
 			casilla={{ marcada: activas, onCambio: prender }}
 		>
+			{palabras.length > 0 && (
+				<div className="flex flex-wrap gap-1 pb-1.5" role="group" aria-label="Marcar palabras clave en este subtítulo">
+					{palabras.map((w, i) => {
+						const marcada = marcadas.has(normalizarClave(w));
+						return (
+							<button
+								key={`${i}-${w}`}
+								type="button"
+								aria-pressed={marcada}
+								onClick={() => alternar(w)}
+								title={marcada ? "Sacar de las palabras clave" : "Marcar como palabra clave"}
+								className="cursor-pointer rounded-[4px] px-1.5 py-[1px] text-[12px] text-(--cc-text-2) ring-1 ring-(--cc-border) hover:bg-(--cc-raised) aria-pressed:text-(--cc-text)"
+								style={marcada ? { backgroundColor: `${color}33`, boxShadow: `inset 0 0 0 1px ${color}` } : undefined}
+							>
+								{w}
+							</button>
+						);
+					})}
+				</div>
+			)}
 			{activas ? (
+				<>
+				<FilaCe
+					rotulo="Tamaño"
+					acciones={
+						<BotonRestablecer
+							desactivado={tamano === DEFAULTS_CLAVES.tamano}
+							onClick={() => {
+								previsualizarTamano(DEFAULTS_CLAVES.tamano);
+								editor.timeline.commitPreview();
+							}}
+						/>
+					}
+				>
+					<DeslizadorValor
+						valor={tamano}
+						min={TOPES_CLAVES_TAMANO.min}
+						max={TOPES_CLAVES_TAMANO.max}
+						paso={5}
+						sufijo="%"
+						ariaLabel="Tamaño de las palabras clave"
+						onPrevisualizar={previsualizarTamano}
+						onConfirmar={() => editor.timeline.commitPreview()}
+					/>
+				</FilaCe>
 				<FilaCe
 					rotulo="Color"
 					acciones={
@@ -443,9 +535,32 @@ function PalabrasClave({ element, trackId, lista }: { element: TextElement; trac
 						}}
 					/>
 				</FilaCe>
+				</>
 			) : (
 				<p className="py-1 text-[12px] text-(--cc-text-3)">La palabra que pesa de cada subtítulo, de otro color</p>
 			)}
+		</SeccionCe>
+	);
+}
+
+/**
+ * «Emojis» (../emojis.ts): un emoji encima de cada subtítulo que dice algo que se puede dibujar.
+ * Prender los pone (reemplazando los de antes) en UN paso de deshacer; apagar los saca.
+ */
+function EmojisSubtitulos() {
+	const editor = useEditor();
+	const n = useEditor((e) => cuantosEmojis(e.scenes.getActiveSceneOrNull()?.tracks));
+	const prender = (v: boolean) => {
+		const puestos = ponerEmojisEnSubtitulos({ editor, activar: v });
+		if (v) toast(puestos > 0 ? `Emojis en ${puestos} ${puestos === 1 ? "subtítulo" : "subtítulos"}` : "Ningún subtítulo dice algo con emoji");
+	};
+	return (
+		<SeccionCe titulo="Emojis" clave="ce:subtitulos:emojis" casilla={{ marcada: n > 0, onCambio: prender }}>
+			<p className="py-1 text-[12px] text-(--cc-text-3)">
+				{n > 0
+					? `${n} ${n === 1 ? "emoji" : "emojis"} en la pista «Emojis»: tócalos para cambiarlos o borrarlos`
+					: "Un emoji encima de cada subtítulo que dice algo que se puede dibujar"}
+			</p>
 		</SeccionCe>
 	);
 }
@@ -654,6 +769,9 @@ export function PestanaSubtitulos({ element, track }: ContextoInspector) {
 			</div>
 			<div className="shrink-0 border-t border-(--cc-line-2)">
 				<PalabrasClave element={element as TextElement} trackId={track.id} lista={lista} />
+			</div>
+			<div className="shrink-0 border-t border-(--cc-line-2)">
+				<EmojisSubtitulos />
 			</div>
 			<div className="flex shrink-0 flex-col gap-2 border-t border-(--cc-line-2) p-3">
 				<Button

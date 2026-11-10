@@ -48,6 +48,7 @@
 import { FUNNELS } from '@/lib/funnel-plan';
 import type { Gating, OperacionDef, Parametro } from '../tipos';
 import { CTAS as CTAS_SUBIDA } from '@/lib/media-buyer/creativos';
+import { TEMAS_METODO } from '@/lib/media-buyer/copiloto-metodo-anuncios';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
@@ -921,10 +922,10 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'copiloto_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Elegir o cambiar el funnel del Marketing CoPilot',
-    descripcion: 'PROPONE guardar lo que el negocio decidió en el Marketing CoPilot: el funnel (vsl-llamada, mensajes, formulario, carrito, webinar, lead-magnet, youtube u organico) o un referente, el ticket, el presupuesto mensual en dólares (0 si no hay), quién toma las llamadas y, si es orgánico o YouTube, el objetivo, el ritmo y el formato. Sólo se cambia lo que se pasa. No toca la cuenta de Meta ni gasta nada.',
+    descripcion: 'PROPONE guardar lo que el negocio decidió o contó en el Marketing CoPilot: el funnel (vsl-llamada, mensajes, formulario, carrito, webinar, lead-magnet, email, youtube u organico) o un referente, el ticket, el presupuesto mensual en dólares (0 si no hay), quién toma las llamadas, si es orgánico o YouTube el objetivo, el ritmo y el formato, y los datos del negocio que se descubren charlando (qué vende, la meta y las ventas de hoy por mes, el margen de una tienda, si tiene casos, el país, la lista de email, las horas para contenido). Sólo se cambia lo que se pasa; un dato se guarda aunque todavía no haya funnel. Es lo que muestra su panel. No toca la cuenta de Meta ni gasta nada.',
     escribe: 'guarda el perfil en marketing-copilot.perfil (app_settings)',
     parametros: [
-      { nombre: 'funnel', tipo: 'string', enum: ['vsl-llamada', 'mensajes', 'formulario', 'carrito', 'webinar', 'lead-magnet', 'youtube', 'organico'], descripcion: 'el funnel que se arma.' },
+      { nombre: 'funnel', tipo: 'string', enum: ['vsl-llamada', 'mensajes', 'formulario', 'carrito', 'webinar', 'lead-magnet', 'email', 'youtube', 'organico'], descripcion: 'el funnel que se arma.' },
       { nombre: 'referente', tipo: 'string', descripcion: 'el id de un referente de MaKo que inspira la estrategia (ver_plan_funnel lo nombra), si sigue el de uno.' },
       { nombre: 'ticket', tipo: 'number', minimo: 0.01, descripcion: 'lo que deja una venta, en dólares.' },
       { nombre: 'presupuestoMes', tipo: 'number', minimo: 0, descripcion: 'lo que puede poner en anuncios por mes, en dólares (0 = nada por ahora).' },
@@ -932,8 +933,28 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'objetivo', tipo: 'string', enum: ['viralidad', 'ventas', 'mixto'], descripcion: 'sólo en orgánico: qué busca con el contenido.' },
       { nombre: 'ritmo', tipo: 'number', minimo: 1, maximo: 21, descripcion: 'piezas (o videos en YouTube) por semana.' },
       { nombre: 'formato', tipo: 'string', enum: ['reels', 'stories', 'carruseles', 'mezcla', 'largos', 'shorts'], descripcion: 'el formato con el que empieza.' },
+      { nombre: 'vende', tipo: 'string', enum: ['servicio', 'curso', 'tienda', 'local'], descripcion: 'qué vende: un servicio, un curso o programa, productos en una tienda online, o un negocio local.' },
+      { nombre: 'meta', tipo: 'number', minimo: 1, descripcion: 'su OBJETIVO: cuántos clientes o pedidos QUIERE por mes («quiero 2 o 3 por mes» va aquí, no en ventasMes).' },
+      { nombre: 'ventasMes', tipo: 'number', minimo: 0, descripcion: 'cuántos consigue HOY por mes, sin la meta (sólo si lo dijo).' },
+      { nombre: 'margen', tipo: 'number', minimo: 1, maximo: 95, descripcion: 'en una tienda: el % de cada venta que le queda.' },
+      { nombre: 'casos', tipo: 'string', enum: ['si', 'no'], descripcion: 'si tiene casos reales de clientes para mostrar.' },
+      { nombre: 'pais', tipo: 'string', max: 40, descripcion: 'el país (o países) donde vende.' },
+      { nombre: 'lista', tipo: 'number', minimo: 0, descripcion: 'contactos en su lista de email (0 si no tiene).' },
+      { nombre: 'horas', tipo: 'number', minimo: 0, maximo: 80, descripcion: 'horas por semana para hacer contenido.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  // El método de campañas de Meta (9/11/2026): el curso de gestión de campañas que Martín pidió para el CoPilot, destilado por tema en
+  // lib/media-buyer/copiloto-metodo-anuncios.ts (la fuente, interna: docs/conocimiento/meta-ads-gestion.md). En una herramienta y no en
+  // el system: son ~15.000 caracteres y cada mensaje los pagaría; así viaja sólo el tema que la pregunta pide.
+  {
+    id: 'metodo_campanas_copiloto', area: 'ads', tipo: 'lectura',
+    titulo: 'Ver el método de campañas de Meta',
+    // Corta a propósito: viaja en CADA turno del CoPilot y pesa contra los 12.000 del registro (tests/marketing-copilot-descubrir.test.ts
+    // mide el margen). Lo que trae cada tema está en INDICE_METODO, para quien lo quiera mostrar.
+    descripcion: 'Cómo se arma y se maneja una campaña de Meta Ads en 2026, por tema (criterio de un curso, no una promesa). Pídelo ANTES de aconsejar cómo configurar una campaña.',
+    parametros: [{ nombre: 'tema', tipo: 'string', obligatorio: true, enum: [...TEMAS_METODO], descripcion: 'algoritmo, estructura (CBO/ABO), presupuesto (aprendizaje, escala), tracking (píxel, API), publicos, creativos, metricas, numeros (break-even, ROAS), por-nicho.' }],
+    salida: 'markdown', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
   },
   {
     id: 'ver_biblioteca_media_buyer', area: 'ads', tipo: 'lectura',

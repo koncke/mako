@@ -79,6 +79,9 @@ const ENTRADAS_DE_PERSONA: Record<string, RegExp> = {
   'lib/mako-analyst-lead.ts': /getUsuarioActual\(\)/,
   // La prueba de punta a punta que se corre A MANO (nadie la programa) y sólo en el ws3, el cliente de prueba.
   'scripts/ia-pc/probar-punta-a-punta.mts': /if \(WS !== 3\) \{ console\.error\('⛔ sólo en el ws3/,
+  // La batería del Marketing CoPilot (9/11/2026), que se corre A MANO: sólo el ws 9 o uno de prueba, con una clave de chat de prueba
+  // y sin `quien` (la persona no es nadie: no hay PC de ninguna persona a la que mandarle el turno).
+  'scripts/probar-chats/copiloto.mts': /if \(!\[3, 4, 9\]\.includes\(WS\)\) throw new Error/,
 };
 // Los que envuelven a `turnoApp` con una persona ya armada: también se fija quién los llama (el mapa del 23/10).
 const ENVOLTORIOS: Record<string, { de: string; llaman: string[] }> = {

@@ -292,6 +292,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/ads/media-buyer/biblioteca', 'ver_biblioteca_media_buyer'],
   ['GET', '/ads/media-buyer/copiloto', 'ver_copiloto_media_buyer'],
   ['POST', '/ads/media-buyer/copiloto', 'copiloto_media_buyer'],
+  // El método de campañas del curso, por tema (9/11/2026): lo pide el CoPilot antes de aconsejar cómo configurar una campaña.
+  ['GET', '/ads/media-buyer/copiloto/metodo', 'metodo_campanas_copiloto'],
   ['GET', '/ads/media-buyer/campanas', 'ver_campanas_media_buyer'],
   ['POST', '/ads/media-buyer/campanas', 'proponer_crear_campana'],
   ['POST', '/ads/media-buyer/conjuntos/{adsetId}/creativos', 'subir_creativos_media_buyer'],

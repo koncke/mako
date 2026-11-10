@@ -18,7 +18,9 @@
 // Puro y sin `server-only`: lo leen el server, el editor y los tests.
 // =============================================================================
 
-import { TOPES_CHAT, type OperacionChat } from './chat-catalogo';
+import { TOPES_CHAT, textoValoresMotion, valoresMotionValidos, type OperacionChat } from './chat-catalogo';
+import { PLANTILLAS as DEF_MOTION, esPlantilla } from '../motion/plantillas';
+import type { IdPlantilla } from '../motion/tipos';
 
 /** Lo que se junta en una propuesta abierta: lo que llega por el mismo canal en este rato. */
 export const VENTANA_JUNTAR_MS = 2 * 60 * 60 * 1000;
@@ -31,35 +33,42 @@ export function refsDeOperacion(op: OperacionChat): { usa: string[]; medios: str
   const medios: string[] = [];
   const define: string[] = [];
   const o = op as Record<string, unknown>;
-  if (op.op === 'agregar_texto' || op.op === 'capa_efecto') {
+  if (op.op === 'agregar_texto' || op.op === 'capa_efecto' || op.op === 'agregar_motion' || op.op === 'agregar_emoji') {
     if (typeof o.ref === 'string') define.push(o.ref);
   } else if (typeof o.ref === 'string') usa.push(o.ref);
+  // La copia de un duplicar es una ref NUEVA (la de "ref" es el original, que existe).
+  if (op.op === 'duplicar' && op.copia) define.push(op.copia);
   if (op.op === 'borrar') usa.push(...op.refs);
   if (op.op === 'reemplazar_clip') medios.push(op.medio);
   if (op.op === 'usar_plantilla') medios.push(...Object.values(op.clips));
   return { usa, medios, define };
 }
 
-/** Lo que se lee de la vista de la copia (lib/editor-video/espejo.ts): cada ref con cómo se llama, y si está vacía. */
-export type LeidoDeVista = { elementos: Map<string, string>; medios: Map<string, string>; vacia: boolean };
+/**
+ * Lo que se lee de la vista de la copia (lib/editor-video/espejo.ts): cada ref con cómo se llama, si está vacía, y la
+ * plantilla de cada motion graphic (editar_motion se revisa contra los campos de SU plantilla).
+ */
+export type LeidoDeVista = { elementos: Map<string, string>; medios: Map<string, string>; vacia: boolean; motion?: Map<string, IdPlantilla> };
 
 export function leerVista(vista: unknown): LeidoDeVista {
   const elementos = new Map<string, string>();
   const medios = new Map<string, string>();
+  const motion = new Map<string, IdPlantilla>();
   const v = (vista && typeof vista === 'object' ? vista : {}) as { pistas?: unknown; medios?: unknown };
   for (const p of Array.isArray(v.pistas) ? v.pistas : []) {
     for (const e of Array.isArray((p as { elementos?: unknown })?.elementos) ? (p as { elementos: unknown[] }).elementos : []) {
-      const x = e as { ref?: unknown; texto?: unknown; nombre?: unknown };
+      const x = e as { ref?: unknown; texto?: unknown; nombre?: unknown; tipo?: unknown; plantilla?: unknown };
       if (typeof x.ref !== 'string') continue;
       const nombre = typeof x.texto === 'string' ? `«${x.texto.slice(0, 40)}»` : typeof x.nombre === 'string' ? x.nombre.slice(0, 40) : x.ref;
       elementos.set(x.ref, nombre);
+      if (x.tipo === 'motion' && esPlantilla(x.plantilla)) motion.set(x.ref, x.plantilla);
     }
   }
   for (const m of Array.isArray(v.medios) ? v.medios : []) {
     const x = m as { ref?: unknown; nombre?: unknown };
     if (typeof x.ref === 'string') medios.set(x.ref, typeof x.nombre === 'string' ? x.nombre.slice(0, 40) : x.ref);
   }
-  return { elementos, medios, vacia: elementos.size === 0 };
+  return { elementos, medios, vacia: elementos.size === 0, motion };
 }
 
 /**
@@ -89,6 +98,14 @@ export function revisarContraCopia(p: { op: OperacionChat; vista: LeidoDeVista |
   for (const r of define) {
     if (vista.elementos.has(r) || nuevas.has(r)) return { ok: false, motivo: `«${r}» ya se usa: una ref nueva va con otro número («n2», «n3»…)` };
   }
+  if (op.op === 'editar_motion') {
+    // Los campos y topes son los de SU plantilla: la de la copia, o la del agregar_motion de esta misma propuesta.
+    const agregada = previas.find((x): x is Extract<OperacionChat, { op: 'agregar_motion' }> => x.op === 'agregar_motion' && x.ref === op.ref);
+    const plantilla = agregada?.plantilla ?? vista.motion?.get(op.ref);
+    if (!plantilla) return { ok: false, motivo: `«${op.ref}» no es un motion graphic ("tipo":"motion" en ver_proyecto_video)` };
+    const v = valoresMotionValidos(plantilla, op.valores);
+    if (!v.ok) return v;
+  }
   return { ok: true };
 }
 
@@ -100,7 +117,8 @@ export function lineaDeOperacion(titulo: string, op: OperacionChat, vista: Leido
     ...medios.map((m) => vista?.medios.get(m) ?? m),
   ];
   const o = op as Record<string, unknown>;
-  const detalle = typeof o.texto === 'string' ? ` → «${o.texto.slice(0, 60)}»` : typeof o.frase === 'string' ? ` «${o.frase.slice(0, 60)}»` : '';
+  const motion = op.op === 'agregar_motion' ? ` → ${DEF_MOTION[op.plantilla].nombre}: ${textoValoresMotion(op.valores, op.plantilla)}` : op.op === 'editar_motion' ? ` → ${textoValoresMotion(op.valores)}` : '';
+  const detalle = typeof o.texto === 'string' ? ` → «${o.texto.slice(0, 60)}»` : typeof o.frase === 'string' ? ` «${o.frase.slice(0, 60)}»` : motion;
   return `${titulo}${nombres.length ? `: ${nombres.join(', ')}` : ''}${detalle}`.slice(0, 200);
 }
 

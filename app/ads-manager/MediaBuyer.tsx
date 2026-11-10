@@ -36,7 +36,7 @@ import { NOMBRE_TACTICA, aplicablesEnLote, deHoy, lineaDelMes, resultadoAplicar,
 import { AlertasProtect, Ic, TarjetaAccion } from './Autopilot';
 import type { Alerta } from '@/lib/media-buyer/protect';
 import { ArranqueMediaBuyer } from './ArranqueMediaBuyer';
-import { SeccionPlan } from './PlanDelCopiloto';
+import { PanelDelFunnel } from './PanelDelFunnel';
 import { funnelElegido, type PerfilCopiloto } from '@/lib/media-buyer/copiloto';
 import { LienzoCampanas, type Lienzo } from './Lienzo';
 import { ROTULO_PASO, cartelDeHoy, type PasoHoy } from '@/lib/media-buyer/cartel-hoy';
@@ -328,7 +328,8 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
       )}
 
       {vista === 'plan' && perfil && (
-        <div className="aa-pagina"><SeccionPlan perfil={perfil} /></div>
+        // El mismo panel de la charla y de los funnels sin anuncios (9/11/2026): Tu funnel · Esta semana · Qué medir, leído del perfil.
+        <div className="aa-pagina"><PanelDelFunnel perfil={perfil} modo="listo" /></div>
       )}
 
       {vista === 'biblioteca' && (

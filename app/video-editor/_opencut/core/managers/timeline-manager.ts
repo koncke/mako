@@ -11,7 +11,7 @@ import type {
 import { calculateTotalDuration } from "@/app/video-editor/_opencut/timeline";
 import { TimelineDragSource } from "@/app/video-editor/_opencut/timeline/drag-source";
 import { findTrackInSceneTracks } from "@/app/video-editor/_opencut/timeline/track-element-update";
-import { lastFrameMediaTime, type MediaTime, ZERO_MEDIA_TIME } from "@/app/video-editor/_opencut/wasm";
+import { lastFrameMediaTime, type MediaTime, TICKS_PER_SECOND, ZERO_MEDIA_TIME } from "@/app/video-editor/_opencut/wasm";
 import {
 	canElementBeHidden,
 	canElementHaveAudio,
@@ -29,6 +29,7 @@ import {
 } from "@/app/video-editor/_opencut/animation";
 import { resolveAnimationTarget } from "@/app/video-editor/_opencut/timeline/animation-targets";
 import { aplicarImanPrincipal } from "@/app/video-editor/_opencut/ripple/iman";
+import { sincronizarEmojis } from "@/app/video-editor/_opencut/subtitles/emojis-pista";
 import { BatchCommand } from "@/app/video-editor/_opencut/commands";
 import {
 	AddTrackCommand,
@@ -940,12 +941,16 @@ export class TimelineManager {
 		// transcripción y su deshacer). La regla de «lo que el cambio no tocó se corre con
 		// su clip» corre de más un elemento que quedó en el mismo instante: al deshacer un
 		// corte, un sticker que empezaba justo donde empezaba el tramo terminaba corrido.
-		const tracks = opciones.sinIman
-			? newTracks
-			: aplicarImanPrincipal({
-					antes: this.editor.scenes.getActiveSceneOrNull()?.tracks ?? null,
-					despues: newTracks,
-				});
+		const antes = this.editor.scenes.getActiveSceneOrNull()?.tracks ?? null;
+		const conIman = opciones.sinIman ? newTracks : aplicarImanPrincipal({ antes, despues: newTracks });
+		// Los emojis automáticos siguen a su subtítulo (subtitles/emojis-pista.ts): se recolocan si cambió, se van si
+		// ya no está, y dejan de ser automáticos si la persona los tocó. Acá, por la misma razón que el imán.
+		const tracks = sincronizarEmojis({
+			antes,
+			despues: conIman,
+			tps: TICKS_PER_SECOND,
+			lienzo: this.editor.project.getActiveOrNull()?.settings.canvasSize ?? null,
+		});
 		this.editor.scenes.updateSceneTracks({ tracks });
 		this.notify();
 	}

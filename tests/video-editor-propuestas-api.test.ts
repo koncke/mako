@@ -39,6 +39,10 @@ function entradaDeEjemplo(o: OperacionApi): Record<string, unknown> {
     campos.textos = Object.entries((campos.textos ?? {}) as Record<string, string>).map(([hueco, texto]) => ({ hueco, texto }));
     campos.clips = Object.entries((campos.clips ?? {}) as Record<string, string>).map(([hueco, medio]) => ({ hueco, medio }));
   }
+  // Los campos de un motion graphic, también en lista (dependen de la plantilla: no se pueden declarar uno por uno).
+  if (o.op === 'agregar_motion' || o.op === 'editar_motion') {
+    campos.valores = Object.entries((campos.valores ?? {}) as Record<string, unknown>).map(([campo, valor]) => ({ campo, valor }));
+  }
   // «…» es el hueco de los ejemplos: un texto de verdad, distinto por campo (un reemplazo igual a lo buscado no cambia nada).
   for (const [k, v] of Object.entries(campos)) if (v === '…') campos[k] = `Hola ${k}`;
   if (Array.isArray(campos.textos)) campos.textos = (campos.textos as Array<{ hueco: string; texto: string }>).map((t) => ({ ...t, texto: t.texto === '…' ? 'Lo recomiendo' : t.texto }));

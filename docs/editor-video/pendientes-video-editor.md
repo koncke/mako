@@ -54,22 +54,27 @@ Las prioridades se leen así:
   - VidIQ no va en el editor: quedó en Competitor Spy.
 - **Fuente:** `origin/main:docs/hallazgos-video-editor.md:2141-2184`; `docs/relevo/nube-video-clips.md`; `docs/relevo/pendientes-pc/pendientes-30-10.md:39,67`; `memory/leila-apps-y-pro-97.md:17-22`.
 
-### 1.2 Que la palabra clave salte o crezca («pop» tipo Hormozi) — P1 · no está
+### ~~1.2 Que la palabra clave salte o crezca («pop» tipo Hormozi) — P1 · no está~~ — hecho el 10/11/2026 (`punta/subtitulos-submagic-0911`)
+- **Hecho:** «Animación de la palabra» (`subtitulo.animPalabra`: «Salta» y «Crece», con o sin karaoke, por una tabla que no redibuja en cada cuadro: `text/resaltado.ts` → `formaDeAnim`) y «Tamaño de las palabras clave» (100 a 160 %). Dos plantillas nuevas, «Hormozi» y «Hormozi clásico», copiadas del blog de Submagic (`docs/editor-video/relevo-submagic.md`). Por chat `animar_palabras` y `palabras_clave` con `tamano`; por la API `animar_palabras_video` y los presets con `animacion_palabra` y `tamano_claves`. Tests: `tests/video-editor-subtitulos-submagic.test.ts`. Falta verlo en Chrome (§13).
 - **Qué es:** la palabra resaltada se agranda o rebota cuando se dice.
-- **Estado real:** en `subtitles/` no hay rebote ni tamaño por palabra. El único «rebote» del editor es la animación de entrada de un texto entero (`text/estilos-predefinidos.ts:176,224`). Para hacerlo hay que medir el renglón con dos tamaños en `text/dibujar.ts`.
+- **Estado real (6/11):** en `subtitles/` no hay rebote ni tamaño por palabra. El único «rebote» del editor es la animación de entrada de un texto entero (`text/estilos-predefinidos.ts:176,224`). Para hacerlo hay que medir el renglón con dos tamaños en `text/dibujar.ts`.
 - **Fuente:** `origin/main:docs/hallazgos-video-editor.md:2176`.
 
-### 1.3 Emojis de IA — P1 · apagado
-- **Estado real:** está a la vista pero apagado, con el cartel «Próximamente»: `assets-view.tsx:248`, `<FilaInterruptor rotulo="Emojis de IA" activo={false} desactivado />`. El «Próximamente» de `:120` es el cartel de ese mismo interruptor, no otra función.
+### ~~1.3 Emojis de IA — P1 · apagado~~ — hecho el 10/11/2026 (`punta/subtitulos-submagic-0911`)
+- **Hecho:** «Emojis automáticos» (`subtitles/emojis.ts`, sin IA y gratis, como las palabras clave): un emoji animado («Rebote») encima de cada subtítulo que dice algo que se puede dibujar, en su pista «Emojis», nunca dos iguales seguidos y separados 2,5 s. Se prenden al generar (el interruptor ya no está en «Próximamente») o en la sección «Emojis» de la pestaña Subtítulos; apagarlos saca sólo los suyos. Por chat `emojis_subtitulos`, por la API `poner_emojis_subtitulos`. El nombre cambió a «Emojis automáticos» porque no los elige una IA: lo dice el relevo de Submagic.
+- **Estado real (6/11):** está a la vista pero apagado, con el cartel «Próximamente»: `assets-view.tsx:248`, `<FilaInterruptor rotulo="Emojis de IA" activo={false} desactivado />`. El «Próximamente» de `:120` es el cartel de ese mismo interruptor, no otra función.
 
-### 1.4 Relevar Submagic mirando la app — P1 · no se hizo
+### ~~1.4 Relevar Submagic mirando la app — P1 · no se hizo~~ — hecho a medias el 10/11/2026
+- **Hecho:** `docs/editor-video/relevo-submagic.md`, leyendo el sitio, el blog y la documentación de Submagic (la app pide cuenta y no se abrió desde la nube). Ahí están qué se copió con datos (los dos estilos de Hormozi), qué Submagic no publica (los números de sus animaciones, cuántos emojis pone) y qué falta mirar en la app con cuenta.
 - **Qué es:** abrir Submagic y anotar sus estilos con nombre, los emojis, los sonidos y el acercamiento automático antes de seguir copiando. Lo pide la regla de copiar la app tal cual.
 - **Estado real:** en el repo no hay ningún relevamiento hecho mirando la app; la única referencia es el post del blog.
 
-### 1.5 Marcar o desmarcar a mano UNA palabra clave — P2 · no está
+### ~~1.5 Marcar o desmarcar a mano UNA palabra clave — P2 · no está~~ — hecho el 10/11/2026 (`punta/subtitulos-submagic-0911`)
+- **Hecho:** en la sección «Palabras clave» del subtítulo elegido, cada palabra es un botón que la marca o la desmarca (`claves.ts` → `alternarClave`), en un paso de deshacer. Por chat, `palabras_clave` con «sumar» y «quitar».
 - **Fuente:** `origin/main:docs/hallazgos-video-editor.md:2176`. No lo confirmé en el código.
 
 ### 1.6 Subtítulo escalonado («Stagger Stack» del reel) — P3 · no está
+- **10/11/2026, sin hacer:** no hay en el repo una descripción de cómo se ve el «Stagger Stack» y la nube no puede mirar el reel cuadro por cuadro con criterio; copiarlo de memoria es diseñarlo de cero. Para hacerlo: mirar `origin/referencias/reels-0911:edicion-mako.mp4` en el momento del subtítulo escalonado y anotar cómo entra cada renglón.
 - **Estado real:** buscar «stagger» o «escalonad» en las dos ramas no da nada. Pide medir y dibujar renglón por renglón en `text/dibujar.ts`.
 
 ### 1.7 Subtítulos bilingües — P3 · apagado
@@ -116,17 +121,17 @@ Las prioridades se leen así:
 - **Fuente:** `origin/claude/exciting-mccarthy-9rqrau:docs/relevo/edicion-reel-nube.md:60-130`; `origin/main:.github/workflows/punta.yml:98-134`.
 
 ### 2.2 Bugs que encontró la revisión (arreglar antes o junto con la subida)
-- **P1 · Un video sin muletillas termina como «falla».** Comprobado en el código:
+- ~~**P1 · Un video sin muletillas termina como «falla».**~~ — arreglado el 10/11/2026 en `punta/edicion-arreglos-0911` @ `101042780`: `NO_HAY_MULETILLAS` es una constante (`transcripcion/modelo.ts`) que usan `linea.ts` y `esNadaQueHacer`, con el texto real en el test 15. Comprobado en el código:
   - `enjambre/plan.ts:245-247` (`esNadaQueHacer`) reconoce «no se cortó las muletillas».
   - Pero `chat/linea.ts:1720` devuelve «no se identificaron muletillas».
   - Resultado: el resumen dice «1 no pudo» y ofrece «Reportar a Soporte» en cualquier video grabado con guion.
   - Arreglo: sumar `/^no se identificaron muletillas/` y probarlo con el texto real.
-- **P1 · −14 LUFS por pedazo.** El agente del volumen normaliza cada clip por separado, y después de cortar las pausas cada pedazo queda con su propio nivel. Hay que oírlo antes de usarlo con clientes.
-- **P2 · «Detener»** durante los subtítulos cuenta como falla.
-- **P2 · Si los subtítulos fallan,** el B-roll y los planos vuelven a transcribir todo dos veces más, y «Detener» no lo corta. Sin Pexels conectado, igual gasta una llamada a la IA del negocio.
-- **P2 · «Deshacer todo» y los toques de la persona:** sólo se detectan dentro de un panel con `data-ce-zona`. Un atajo con el foco en otra parte queda mezclado en el paso, y apretar play ya saca «Deshacer todo».
-- **P3 · La plantilla «Lima»** se muestra en la tarjeta sin minúsculas, y `presetDesdeApi` no deja poner `minusculas`.
-- **P3 · La pastilla** dice «10 agentes en vivo · paso N de 10» (`en-vivo.tsx:43`), aunque los agentes trabajan de a uno.
+- ~~**P1 · −14 LUFS por pedazo.**~~ — arreglado el 10/11/2026 (`101042780`): `normalizarJuntos` (`audio/normalizar.ts`) mide los pedazos de una misma toma JUNTOS y les pone la misma ganancia; un pedazo casi mudo usa la de su toma (`medidaDePedazos`). Falta OÍRLO en la PC (§13). El agente del volumen normaliza cada clip por separado, y después de cortar las pausas cada pedazo queda con su propio nivel. Hay que oírlo antes de usarlo con clientes.
+- ~~**P2 · «Detener»** durante los subtítulos cuenta como falla.~~ — arreglado el 10/11/2026 (`101042780`, `comoTerminaFalla`).
+- ~~**P2 · Si los subtítulos fallan,** el B-roll y los planos vuelven a transcribir todo dos veces más, y «Detener» no lo corta. Sin Pexels conectado, igual gasta una llamada a la IA del negocio.~~ — arreglado el 10/11/2026 (`101042780`): las frases se leen una vez y se pasan (`alLeerFrases`), y sin Pexels se pregunta ANTES de pedirle nada a la IA (`accion: 'pexels'`).
+- ~~**P2 · «Deshacer todo» y los toques de la persona:**~~ — arreglado el 10/11/2026 (`101042780`, `cuentaComoToque`: un atajo con el foco afuera cuenta, reproducir o pantalla completa no). Antes: sólo se detectan dentro de un panel con `data-ce-zona`. Un atajo con el foco en otra parte queda mezclado en el paso, y apretar play ya saca «Deshacer todo».
+- ~~**P3 · La plantilla «Lima»** se muestra en la tarjeta sin minúsculas, y `presetDesdeApi` no deja poner `minusculas`.~~ — arreglado el 10/11/2026 (`101042780`).
+- ~~**P3 · La pastilla** dice «10 agentes en vivo · paso N de 10» (`en-vivo.tsx:43`), aunque los agentes trabajan de a uno.~~ — arreglado el 10/11/2026 (`101042780`, `textoPastilla`: «en vivo · <agente> · paso N de 10»).
 - **P3 · Tests:** los casos 7, 8, 10 y 13 de `tests/video-editor-enjambre.test.ts` buscan texto en el código, y la corrida en sí no se prueba.
 
 ### 2.3 Lo del reel que todavía no está — P3
@@ -151,7 +156,9 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
 
 ## 3. Motion graphics y animaciones
 
-### 3.1 Motion graphics en el editor (motion-skills) — P2 · hecho a medias, fuera de main
+### ~~3.1 Motion graphics en el editor (motion-skills) — P2 · hecho a medias, fuera de main~~ — hecho el 10/11/2026 (`punta/motion-0911`)
+- **Hecho:** traído por partes sobre el código de hoy (el motor `lib/motion/` con `LICENSE-IART` → el elemento del editor con su pestaña → el chat y la API). La cifra ya no redondea 4,5 a 5 y lee «1.250» como mil doscientos cincuenta (un solo lector de números: `lib/motion/numeros.ts`); el test M10 vuelve a pedir la orden de no inventar. La revisión adversarial encontró 11 cosas y se arreglaron las 10 que tocaban: la pestaña valida al salir del campo, un obligatorio vacío deja la capa vacía (nunca el ejemplo), las barras se validan, la escena dura lo que el clip, las cajas crecen con los renglones, el aviso BSD de WebKit (`lib/motion/LICENSE-WEBKIT`) y «motion» nombra el área video en el chat de la app. Falta verlo en Chrome (§13).
+- **Decisión para Martín:** al DIVIDIR un motion, la mitad de la derecha vuelve a hacer la animación de entrada. Copiar CapCut (entrada a la izquierda, salida a la derecha) usaría `trimStart`, que es también lo que cambia al arrastrar el borde izquierdo: acortar el clip le cortaría la entrada.
 - **Qué es:** un motor propio de motion graphics, `lib/motion/`.
   - Tiene 9 plantillas (titular, palabras, cifra, tercio, logo, barras, testimonio, oferta y cierre), 4 tonos y 3 proporciones.
   - En el editor, un motion es el elemento `motion-<plantilla>`; aparece en Biblioteca › Plantillas › «Motion» y en una pestaña Motion.
@@ -205,6 +212,7 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
 ## 4. B-roll y cambios de plano
 
 ### 4.1 B-roll de MaKo: completarlo — P2 · hecho a medias
+- **10/11/2026 (`punta/editor-tanda4-0911`):** ~~sólo fotos~~ → «Fotos / Videos cortos» de Pexels (hasta 20 s, de 360 a 1080 de lado corto, sin sonido, sin subir los fps del proyecto); ~~no hay «Cambiar por otra»~~ → «Otra» en cada B-roll (propuesto o dejado), por chat `cambiar_broll` y por la API `otra_imagen_broll`. Sigue faltando: el acercamiento a la cara, correrlo con la IA real y verlo en el navegador; y **no se pudo leer la documentación ni los términos de Pexels de videos** (pexels.com está fuera de la red de la nube): las rutas `/videos/search` y `/videos/videos/:id` salen de cómo se conoce la API, sin probarlas.
 - **Qué es:** Multimedia › «B-roll de MaKo» propone fotos de Pexels (con la clave de cada negocio) donde se dice algo que se puede mostrar. Los cambios de plano son el efecto «Acercar». Por chat es `broll` y por la API `proponer_broll_video`.
 - **Pedido:** Leila, en la llamada del 30/10 (2.15), quería que el editor ubique solo los resaltados y los subtítulos, ponga el B-roll y haga el cambio de plano. Martín: «implementar Submagic, implementar B-roll».
 - **Estado real:** está en main (`app/video-editor/_opencut/broll/`). Lo que falta:
@@ -227,6 +235,7 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
 ## 5. Clips mágicos (tipo Opus Clip)
 
 ### 5.1 Seguir la cara al pasar a vertical — P2 · hecho a medias
+- **10/11/2026 (`punta/editor-tanda4-0911`):** ~~seguir la cara: recorta al centro~~ → sigue a la PERSONA con el segmentador de «Eliminación automática» (un cuadro por segundo, centro pesado por área, suavizado, nunca fuera del cuadro; con reflejo, al revés; girado, al centro): `clips/seguir.ts`. Sigue faltando: las fotos y los textos del horizontal, el «Trend», correrlo con la IA real y verlo. ⚠️ El segmentador baja su wasm (13 MB) de jsdelivr la primera vez: ya era así para quitar el fondo y ahora también al abrir un clip.
 - **Qué es:** Multimedia › «Clips mágicos» busca los mejores momentos, les pone puntaje de 0 a 99 y arma cada clip en un proyecto nuevo, en 9:16 y con subtítulos. Por chat es `clips_magicos` y por la API `buscar_clips_video`.
 - **Pedido:** Leila, 30/10 (2.8). Martín no tiene cita propia.
 - **Ejemplos:** https://github.com/SamurAIGPT/AI-Youtube-Shorts-Generator (MIT, usado de referencia).
@@ -272,7 +281,8 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
 - **Decide:** Martín (D7g).
 - **Fuente:** `origin/main:docs/editor-video/inventario-copia-capcut.md:80`; `docs/pendientes-depurados-7-11.md:781-783,1022`.
 
-### 7.2 Reducción de ruido en un worker — P2 · no está
+### ~~7.2 Reducción de ruido en un worker — P2 · no está~~ — hecho el 10/11/2026 (`punta/editor-tanda4-0911`)
+- **Hecho:** RNNoise corre en un Web Worker (`audio/ruido-hilo/`), con el mismo resultado byte a byte, cancelación, un tope de 45 s sin noticias y el hilo de la pantalla de respaldo. Exportar un rango ya no reduce el ruido de lo que queda afuera. Falta verlo en Chrome.
 - **Estado real:** RNNoise corre en el hilo principal, a unos 6 s por minuto y canal: un clip estéreo de 10 minutos traba el editor unos 2 minutos. En `audio/` no hay `new Worker`, y `audio/dsp/ruido.ts` ya es puro, listo para moverlo. Con un ventilador fuerte, «Borrar silencios» deja alguna pausa al límite.
 - **Fuente:** `origin/main:docs/hallazgos-video-editor.md:1615-1624`.
 
@@ -305,6 +315,7 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
 ## 9. Chat y API: editar todo por prompt
 
 ### 9.1 Lo que el chat todavía no sabe hacer — P2 · hecho a medias
+- **10/11/2026 (`punta/editor-tanda4-0911`):** salieron de `NO_SE_PUEDE_CHAT`, con su operación de la API: duplicar elementos, el fondo del lienzo, el efecto y la plantilla de texto al agregar un texto, un emoji como sticker y recortar el cuadro de un clip (y, en tandas anteriores, los emojis de los subtítulos y los motion graphics). Siguen sin poder: pegar atributos, guardar un efecto de texto propio, stickers que no son emojis, música y sonidos (licencia), voz, avatar, fotogramas clave, máscaras y quitar el fondo.
 - **Martín:**
   - 15/10: «En realidad debería saber hacer cualquier cosa que le pido... Si le pido que me subtitule todo, si le pido que me corte los silencios, si le pido que me haga una animación, transiciones específicas que le pida, si le pido corrección de color, corrección de audio, etc...».
   - 15/10: «tienen que pasarle absolutamente todos los botones. Todas las funciones a la API de MaKo».
@@ -353,7 +364,7 @@ Sale del relevo, `edicion-reel-nube.md:66-73`:
   - el pincel de Eliminación personalizada (`fondo/panel-eliminar-fondo.tsx:135`);
   - la portada incrustada (`timeline/components/portada-boton.tsx:315`).
 
-  Faltan también la Burbuja, más fotogramas clave, el seguimiento de cara, las Curvas, la estabilización, el clip combinado, atajos (I/O, Shift+X, Ctrl+R, Shift+B, Ctrl+J), la marca de agua, exportar un rango, el vúmetro, la cámara lenta fluida y Favoritos.
+  Faltan también la Burbuja, más fotogramas clave, el seguimiento de cara, las Curvas, la estabilización, el clip combinado, ~~atajos (I/O, Shift+X, Ctrl+R, Shift+B, Ctrl+J)~~ (10/11/2026, `rango/` y `speed/abrir.ts`, sin ver en Chrome; falta Tab, que el relevamiento no dice qué hace), la marca de agua, ~~exportar un rango~~ (10/11/2026, `export/exportar.ts`, sin ver en Chrome), el vúmetro, la cámara lenta fluida y Favoritos.
 - **Fuente:** `origin/main:docs/editor-video/inventario-copia-capcut.md:20-176`; `docs/hallazgos-video-editor.md:1523-1732`.
 
 ### 10.2 Chat fijo, proyectos en la barra del costado y colores de MaKo — P2 · hecho a medias

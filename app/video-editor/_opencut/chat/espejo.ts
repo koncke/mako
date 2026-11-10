@@ -75,6 +75,7 @@ export async function subirEspejo(editor: EditorCore): Promise<void> {
 		mediosSinAudio: datos.mediosSinAudio,
 		conPalabras: datos.conPalabras,
 		medios: datos.medios,
+		fondo: datos.fondo,
 	});
 	const actuales: Array<[string, string]> = [
 		...[...vista.refs.values()].map((x) => [x.elementId, x.ref] as [string, string]),
