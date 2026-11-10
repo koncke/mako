@@ -44,6 +44,7 @@ import { sumarProgreso, type ArmadoChat } from '../app/video-editor/_opencut/cha
 import { MOTIVO_SUBTITULOS, motivoDeLaFalla, textoDeSubtitulos } from '../app/video-editor/_opencut/subtitles/resultado';
 import { PAUSA_MIN_RANGO, PAUSA_MIN_S, avisoBotonSinSilencios, segundosDeAviso, textoSinSilencios } from '../app/video-editor/_opencut/audio/silencios-aviso';
 import { operacionApiPorId, operacionDesdeInput } from '../lib/editor-video/chat-api';
+import { descartesDelPedido } from '../app/video-editor/_opencut/chat/respuesta';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -507,7 +508,7 @@ test('31: recortar: como arrastrar el borde, y un video o un audio no se alargan
   assert.match(motivos(r), /vid2\.mp4 no tiene más material después/);
 });
 
-test('32: estilo de texto: los params del panel, la fuente de la lista, y en un subtítulo sólo lo que no lo vuelve a partir', () => {
+test('32: estilo de texto: los params del panel, la fuente de la lista, y en un subtítulo lo que lo vuelve a partir va aparte', () => {
   const r = revisar([
     { op: 'estilo_texto', ref: 't1', estilo: { color: '#ffd400', tamano: 24, negrita: true, trazo: '#000000', fuente: 'montserrat' } },
     { op: 'estilo_texto', ref: 't2', estilo: { tamano: 30 } },
@@ -515,16 +516,48 @@ test('32: estilo de texto: los params del panel, la fuente de la lista, y en un 
     { op: 'estilo_texto', ref: 't1', estilo: { fuente: 'Comic Neue Ultra' } },
     { op: 'estilo_texto', ref: 'v1', estilo: { color: '#ffffff' } },
   ]);
-  assert.equal(r.resueltas.length, 2);
+  assert.equal(r.resueltas.length, 3);
   assert.deepEqual((r.resueltas[0] as Params).params, { fontFamily: 'Montserrat', fontSize: 24, color: '#ffd400', fontWeight: 'bold', 'trazo.activo': true, 'trazo.color': '#000000' });
   assert.match(r.cambios[0].antes, /color #ffffff/);
   assert.match(r.cambios[0].despues, /fuente Montserrat/);
+  // El color de un subtítulo no le cambia el ancho al renglón: va directo, en el lote.
+  assert.deepEqual((r.resueltas[1] as Params).params, { color: '#ffd400' });
+  // El tamaño sí: va al final, a «Aplicar en todos los subtítulos» (estilo_subtitulos) para ESE subtítulo (9/11/2026:
+  // antes se descartaba y «los subtítulos en Bebas Neue» no cambiaba nada).
+  const aparte = r.resueltas[2] as Extract<OperacionResuelta, { op: 'estilo_subtitulos' }>;
+  assert.equal(aparte.op, 'estilo_subtitulos');
+  assert.deepEqual(aparte.els.map((e) => e.ref), ['t2']);
+  assert.deepEqual(aparte.params, { fontSize: 30 });
+  assert.match(r.cambios[r.cambios.length - 1].despues, /vuelve a partir los renglones/);
   const m = motivos(r);
-  assert.match(m, /subtítulo se cambian en el panel Texto/);
+  assert.doesNotMatch(m, /panel Texto/);
   assert.match(m, /no encontré la fuente «Comic Neue Ultra»/);
   assert.match(m, /no es un texto/);
 });
 
+test('32b: «los subtítulos en amarillo y en Bebas Neue» (el pedido medido en producción el 9/11/2026) es UN cambio para todos', () => {
+  // La IA manda una operación por subtítulo, con el mismo estilo. Antes: tres descartes iguales y ningún cambio (ni el color).
+  const tracks = escenaRica();
+  const sub = (id: string, ini: number, texto: string) => ({ id, type: 'text', name: id, startTime: t(ini), duration: t(2), trimStart: 0, trimEnd: 0, params: { content: texto, subtitulo: true, fontFamily: 'Montserrat', color: '#ffffff' } });
+  (tracks.overlay[1] as unknown as { elements: unknown[] }).elements = [sub('s1', 0, 'este es un mensaje'), sub('s2', 2, 'para los mentores'), sub('s3', 4, 'que venden caro')];
+  const v = vistaRica({}, tracks);
+  const subsRefs = [...v.refs.values()].filter((x) => x.subtitulo).map((x) => x.ref);
+  assert.equal(subsRefs.length, 3);
+  const r = revisarOperaciones({ operaciones: subsRefs.map((ref) => ({ op: 'estilo_texto', ref, estilo: { fuente: 'bebas neue', color: '#ffd400' } })) as never, vista: v, alcance: 'video' });
+  assert.equal(r.descartes.length, 0, motivos(r));
+  assert.equal(r.resueltas.length, 1);
+  const g = r.resueltas[0] as Extract<OperacionResuelta, { op: 'estilo_subtitulos' }>;
+  assert.equal(g.op, 'estilo_subtitulos');
+  assert.deepEqual(g.els.map((e) => e.ref), subsRefs);
+  assert.deepEqual(g.params, { fontFamily: 'Bebas Neue', color: '#ffd400' });
+  assert.equal(r.cambios.length, 1);
+  assert.equal(r.cambios[0].titulo, '3 subtítulos');
+  assert.match(r.cambios[0].despues, /fuente Bebas Neue/);
+  // Una fuente que no existe se sigue diciendo, y no se aplica nada de esa operación.
+  const mal = revisarOperaciones({ operaciones: [{ op: 'estilo_texto', ref: subsRefs[0], estilo: { fuente: 'Comic Neue Ultra' } }] as never, vista: v, alcance: 'video' });
+  assert.equal(mal.resueltas.length, 0);
+  assert.match(motivos(mal), /no encontré la fuente/);
+});
 test('33: transformar: Y hacia arriba, la escala conserva la proporción, y lo que tiene ◇ no se toca', () => {
   const tracks = escenaRica();
   const txt = tracks.overlay[0].elements[0] as unknown as { params: Record<string, unknown>; animations?: unknown };
@@ -697,10 +730,10 @@ test('41: lo que el corte por texto no puede acompañar va aparte, y nada toca l
   // Un subtítulo de una pista bloqueada no cuenta para cortar.
   const bloqueado = { transcripcion: { parrafos: parrafos.map((x) => ({ ...x, bloqueado: true })), idioma: 'es' } };
   assert.equal(revisar([{ op: 'cortar_frase', frase: 'hola mundo' }], bloqueado).resueltas.length, 0);
-  // Las mayúsculas cambian el ancho: en un subtítulo, como la fuente, van por el panel.
+  // Las mayúsculas cambian el ancho: en un subtítulo, como la fuente, se vuelve a partir (estilo_subtitulos).
   const may = revisar([{ op: 'estilo_texto', ref: 't2', estilo: { mayusculas: 'mayusculas' } }]);
-  assert.equal(may.resueltas.length, 0);
-  assert.match(motivos(may), /subtítulo se cambian en el panel Texto/);
+  assert.deepEqual(may.resueltas.map((x) => x.op), ['estilo_subtitulos']);
+  assert.equal(may.descartes.length, 0);
 });
 
 test('42: el chat cumple las reglas del botón y del panel: borrar con lo vinculado, y el texto de un subtítulo con sus tiempos', () => {
@@ -1173,6 +1206,14 @@ test('lo heredado del prototipo no es un valor válido, y un array no pasa por t
 });
 
 test('PanelChat muestra lo que tiró la ruta, no sólo lo que tira su segunda pasada', () => {
+  // La unión se EJECUTA (chat/respuesta.ts, 9/11/2026): las tres fuentes, en orden, y un motivo repetido una vez (tres
+  // subtítulos con el mismo motivo se leían tres veces en producción).
+  assert.deepEqual(
+    descartesDelPedido({ ruta: ['de la ruta', 'b'], forma: ['de la forma'], revision: ['b', 'de la revisión'] }),
+    ['de la ruta', 'b', 'de la forma', 'de la revisión'],
+  );
+  assert.deepEqual(descartesDelPedido({ ruta: undefined, forma: [], revision: ['x', 'x', ' x '] }), ['x']);
+  // Y PanelChat le pasa lo de la ruta (sin esto, lo que la ruta tiraba no se veía).
   const fuente = readFileSync(new URL('../app/video-editor/_opencut/chat/PanelChat.tsx', import.meta.url), 'utf8');
-  assert.match(fuente, /const descartes = \[\.\.\.\(r\.descartes \?\? \[\]\), \.\.\.deForma, \.\.\.revision\.descartes\];/);
+  assert.match(fuente, /descartesDelPedido\(\{ ruta: r\.descartes, forma: deForma, revision: revision\.descartes \}\)/);
 });

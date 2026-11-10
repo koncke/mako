@@ -4984,6 +4984,12 @@ que la lee ya no siente que lo están culpando — siente que está ciego.
 - **El test rápido antes de escribir un remedio:** ¿lo VISTE, o lo estás deduciendo
   de cómo era antes? Los tres mensajes de este caso salieron de recordar la app
   vieja.
+- **En un chat que PROPONE cambios, el resumen del modelo se escribió ANTES de que el
+  código revisara sus operaciones** (9/11/2026, Video Editor: «Aquí tienes la limpieza
+  de muletillas» con «no se identificaron muletillas» debajo y nada para aceptar). Si
+  la revisión descartó todo, el titular lo escribe el código («No cambié nada.») y
+  los motivos van debajo, una vez cada uno: `textoSinCambios` y `sinRepetir` en
+  app/video-editor/_opencut/chat/respuesta.ts. Un chat nuevo que propone, igual.
 
 # Un mensaje que sale solo no puede AFIRMAR lo que no verificó
 

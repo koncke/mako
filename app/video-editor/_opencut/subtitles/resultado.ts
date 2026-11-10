@@ -44,6 +44,22 @@ export function textoDeSubtitulos(motivo: MotivoSubtitulos): string {
 	return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
+/**
+ * Lo que va pasando mientras se generan, para el panel Y para la tarjeta del chat (9/11/2026: medido en producción, el
+ * chat mostraba sólo un círculo durante el minuto que tarda la primera vez, mientras baja el reconocedor).
+ */
+export function rotuloProgresoSubtitulos(fase: FaseGenerar, progreso: number): string {
+	switch (fase) {
+		case "modelo":
+			// La primera vez baja el modelo (~250 MB); después sale de la caché.
+			return `Descargando… ${progreso} %`;
+		case "transcribiendo":
+			return `Generando subtítulos… ${progreso} %`;
+		default:
+			return "Generando subtítulos…";
+	}
+}
+
 /** Algo lanzó: la fase en la que iba dice qué fue (Whisper ya probó WebGPU y WASM). */
 export function motivoDeLaFalla(fase: FaseGenerar): MotivoSubtitulos {
 	if (fase === "audio") return "audio";
