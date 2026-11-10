@@ -39,6 +39,8 @@ import { loQueSabemos } from '@/lib/landing-vigilancia';
 import { nombresDe } from '@/lib/landing-snapshot';
 import { replayDePrueba, replayDeLead } from '@/lib/replay-leer';
 import { clicsDeLanding } from '@/lib/landing-clics-server';
+import { retencionDeLanding } from '@/lib/landing-retencion-server';
+import { periodoDeFechas } from '@/lib/landing-retencion';
 import { textoDelVacio } from '@/lib/replay-ficha';
 import { tzActual } from '@/lib/timezone';
 import { linkApp } from '@/lib/app-url';
@@ -373,6 +375,15 @@ export const RUNNERS: Runners = {
         limite: num(input, 'limite') ?? undefined,
       });
       return json(r);
+    },
+  },
+
+  // Ticket #74: la retención de cada video de una landing, por minuto (los eventos ya estaban).
+  ver_retencion_video_landing: {
+    leer: async (input) => {
+      const p = periodoDeFechas({ dias: num(input, 'dias'), desde: str(input, 'desde'), hasta: str(input, 'hasta') }, Date.now());
+      if ('error' in p) return errorLectura(p.error);
+      return json(await retencionDeLanding({ url: str(input, 'url') ?? '', desde: p.desde, hasta: p.hasta, video: str(input, 'video') }));
     },
   },
 
