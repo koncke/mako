@@ -154,9 +154,36 @@
 - **Síntoma:** «punta → main» falló en guardas, tipos y tests; el filtro del pre-push había dicho «a medias» (sin RAM).
 - **Las cuatro, y su regla:** (1) un `Record<IdFunnel, …>` en un test (`MARCO_DE`) quedó sin `email`: al sumar un funnel, `git grep "Record<IdFunnel"` incluyendo `tests/`. (2) `getPromptText(x.key, …)` dentro de un ayudante: la guarda del registro de prompts sigue las keys por nombre; cada call site va con `PROMPTS_X.campo.key` literal. (3) Un script que llama a `turnoApp` tiene que estar en `ENTRADAS_DE_PERSONA` (tests/ia-pc-nunca-a-leads.test.ts) con la prueba de que no manda el turno a la PC de nadie. (4) Un detector del voseo de lo que ESCRIBE la persona («guardalo», «hacelo») va en un archivo propio declarado en `FUERA_DE_ALCANCE` (tests/puente-panel-copy.test.ts), no en el módulo grande, que así sigue barrido.
 
+## El recorrido en producción (10/11/2026): lo que los tests y el banco no veían
+
+Martín: «muchísimas cosas que se están rompiendo… es fácil ver e identificar eso». Se recorrió la tab en hola-mako.com (ws 9),
+escritorio, tablet y teléfono, claro y oscuro. Lo que vale para lo que venga:
+
+- **«Comparar funnels» inventaba un «$0 al mes».** Con Julián Otálora (enseña sólo orgánico) y el ticket contestado, cada funnel con
+  anuncios decía «Con $0 al mes los anuncios no juntan datos», Lead magnets salía «MaKo lo recomienda» y Email «Te sirve».
+  ⚠️ **El diagnóstico obvio, «no se preguntó el presupuesto», era el equivocado:** el perfil no tenía presupuesto y
+  `datosDeDecision` lo COMPLETABA con 0 porque el funnel elegido no lleva plata. Eso vale para juzgar ESE funnel y es falso para los
+  otros ocho. **La regla:** el veredicto del funnel elegido sale de `datosDeDecision`; recomendar uno y comparar los nueve, de
+  `datosDichos` (sólo lo que dijo), en el panel, en el contexto del agente y en `ver_copiloto_media_buyer`. Ajustes tenía la misma
+  suposición escrita a mano (`presupuestoMes ?? 0`, `llamadas ?? 'yo'`). Un email sin saber la lista no «sirve».
+- **El alto de la pantalla mira la ventana, y arriba puede estar la barra de inspección.** Con «Estás viendo el dashboard de…»
+  (Martín siempre la ve), `.cp` medía `100dvh - 28px` y el pie quedaba 50 px debajo: la página scrolleaba sola al elegir y se
+  cortaba la cabecera. Los altos de la tab descuentan `--barra-agencia` (regla en AGENTS.md, «La barra de inspección»).
+- **Un panel montado en otra pantalla no hereda el contenedor de sus reglas de ancho.** Las `@container copiloto` de PanelDelFunnel
+  miraban `.aa-dos`; en la vista Plan no había ninguno y a 390 el recorrido iba en cuatro columnas de una palabra.
+- **Sin números, una columna que dice lo mismo nueve veces es ruido.** Lo que falta va una vez arriba de la lista.
+- Menores: «Lanzar el primer anuncio» era el único paso sin pantalla; «0 campañas en 3 productos» contaba los del CRM sin campañas;
+  «← Media Buyer» y el cargando tenían el nombre viejo; los pedidos de la tab llevaban «Marketing CoPilot:» además del chip «desde».
+- Del chat de la tab (la estrella encima de la caja, el hilo de Image en el CoPilot y al revés): [hallazgos-chat.md](hallazgos-chat.md).
+  Del navegador en que se miró: [hallazgos-pruebas.md](hallazgos-pruebas.md).
+
+**Vive en:** lib/media-buyer/copiloto.ts (`datosDichos`, `faltaParaComparar`, `compararFunnels`) · app/ads-manager/PanelDelFunnel.tsx ·
+app/ads-manager/aa.css · tests/marketing-copilot-produccion.test.ts.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
 - **El Funnel Coach del Ops Center y el CoPilot guardan el funnel en dos lugares** (`guardar_plan_funnel` en lib/funnel-plan-db.ts y `marketing-copilot.perfil`). Hablan de lo mismo con dos memorias.
 - **La pantalla de un funnel CON anuncios** (Hoy · Campañas · Plan · Biblioteca, `MediaBuyer.tsx`) sigue con su diseño: la de dos columnas se hizo para la charla y para los funnels sin anuncios.
+- **(10/11) Un funnel elegido que no sirve propone otro con lo completado:** `evaluarFunnel(f, datosDeDecision(p))` arma su «mejor» con el `llamadas: 'yo'` que se completa para un funnel sin llamadas (una compra directa con ticket alto propone un VSL «con alguien que llama» sin saberlo). Hoy sólo pasa en el paso «ajuste»; el arreglo es armar `mejor` con `datosDichos` y, sin eso, no proponer.
 - **El curso de campañas lo usa sólo el CoPilot** (por `metodo_campanas_copiloto`). El Ads Writer y los demás leen Knowledge (`mako_knowledge`, área `ads`, vacía); si se quiere que lo usen, hay que resolver antes que Knowledge es por negocio. Y 90 de 97 videos del curso no tienen transcripción.

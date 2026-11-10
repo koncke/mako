@@ -12240,6 +12240,21 @@ línea (`LARGAS` de `app/video-editor/_opencut/chat/comandos.ts`), pero estaban 
 penúltimo commit, y Submagic entera. `git merge-base` entre las puntas lo muestra en un comando. Se resolvió la de afuera, y las
 otras dos mezclaron limpio. Antes de resolver tres choques iguales, fijate si son el mismo trabajo.
 
+## En una pestaña de FONDO del navegador de la app, nada se anima: un modal parece transparente (10/11/2026)
+
+- **Síntoma** (chat Marketing CoPilot, recorriendo su tab en el navegador integrado con su pestaña propia detrás de la «seed»): el modal
+  de Actividad salía translúcido, con la pantalla de atrás a través; en el teléfono la captura mostraba el splash de MaKo encima de
+  una pantalla que ya había cargado.
+- ⚠️ **El diagnóstico obvio («el modal de la casa está roto») era el equivocado.** `.mk-modal` y su fondo seguían en `opacity: 0` porque
+  sus animaciones de entrada (`mkPop`, `mkFade`) nunca avanzaron: medido, `requestAnimationFrame` dio **0 cuadros en 1,2 s** con
+  `document.visibilityState === 'visible'`. Una pestaña de fondo del panel no pinta cuadros: toda animación queda en su primer cuadro.
+- **La regla:** lo que dependa de una animación (un modal, un splash, un toast) se mira con la pestaña AL FRENTE (`tabs_select`), o se
+  mide en el DOM. Antes de anotar «invisible» o «transparente», medir los cuadros (`requestAnimationFrame` en un bucle de 1 s).
+- **Y dos más del mismo recorrido:** con el preset «mobile», la captura sale ampliada y cortada a la derecha aunque el DOM mida 375 px
+  sin nada afuera: un desborde se mide con `scrollWidth` y `getBoundingClientRect`, no con la captura. El oscuro de /m lo vuelve a sacar
+  `ShellM` si `mako.modo` no dice «oscuro», y esa preferencia la comparten todas las pestañas del panel (las de otros chats y la de
+  Martín): para mirar el oscuro sin cambiarla, se pisa `Storage.prototype.getItem` SÓLO en la página propia.
+
 ## La PC se quedó sin RAM con cuatro chats revisando su tab: un assert sobre un nodo de jsdom (10/11/2026)
 
 **Síntoma:** a las 21:42 UTC se cayeron los cuatro chats locales a la vez (Image, Video Editor, Marketing CoPilot y el grabador
