@@ -16,7 +16,8 @@
 //   9. «desde Marketing CoPilot» + «Marketing CoPilot: Volvamos a empezar»: el nombre iba dos veces;
 //  10. al aceptar el funnel que propuso MaKo, su aviso pasaba a «¿Seguimos?» y la respuesta a «Sí, cambiemos»;
 //  11. la propuesta de mensajes contaba agendas «por llamada calificada»; 12. «Llamada de venta contigo» antes de preguntar quién llama;
-//  13. sin Meta conectada, «¿En qué te ayudo hoy?» tapaba la barra (Plan, Ajustes) de un negocio que ya tenía su estrategia.
+//  13. sin Meta conectada, «¿En qué te ayudo hoy?» tapaba la barra (Plan, Ajustes) de un negocio que ya tenía su estrategia;
+//  14. una tienda no tenía su ticket ($50, $100) entre las opciones; 15. Nueva campaña sin Meta: «ni su Zernio» y ningún botón.
 //
 // Correr: node --import tsx --test tests/marketing-copilot-produccion.test.ts
 // PROBADO ROMPIÉNDOLO, ver el pie.
@@ -26,7 +27,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { FUNNELS, interpretarEscrito, mensajesDeCopiloto, propuestaDe, recorridoDe, compararFunnels, datosDeDecision, datosDichos, faltaParaComparar, funnelsDelReferente, pasosDeLaSemana, type PerfilCopiloto } from '../lib/media-buyer/copiloto';
+import { FUNNELS, interpretarEscrito, opcionesDeCopiloto, mensajesDeCopiloto, propuestaDe, recorridoDe, compararFunnels, datosDeDecision, datosDichos, faltaParaComparar, funnelsDelReferente, pasosDeLaSemana, type PerfilCopiloto } from '../lib/media-buyer/copiloto';
 import { negocioDelCopiloto } from '../lib/media-buyer/copiloto-contexto';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -147,6 +148,21 @@ test('13. sin Meta conectada y con su estrategia, la tab no se tapa con la bienv
   const mb = leer('app/ads-manager/MediaBuyer.tsx');
   assert.match(mb, /const bienvenida = nueva && !perfil;/);
   assert.match(mb, /if \(bienvenida\) \{\s*return \(/, 'la pantalla entera de bienvenida, sólo sin estrategia');
+});
+
+test('14. una tienda o un curso chico tiene su ticket entre las opciones (sin la app no se puede escribir)', () => {
+  const op = opcionesDeCopiloto('ticket', { entrada: 'funnel', funnel: 'carrito' });
+  assert.ok(op.includes('$50') && op.includes('$100'), op.join(' '));
+  const r = interpretarEscrito({ entrada: 'funnel', funnel: 'carrito' }, '$50');
+  assert.equal('perfil' in r ? r.perfil.ticket : null, 50);
+});
+
+test('15. Nueva campaña sin Meta ofrece conectar, en palabras de producto (no «ni su Zernio» y un callejón)', () => {
+  assert.doesNotMatch(leer('lib/media-buyer/datos.ts'), /ni su Zernio/);
+  const ruta = leer('app/api/media-buyer/route.ts');
+  assert.equal((ruta.match(/SinCuentaParaOperar\) return J\(\{ ok: false, error: e\.message, sinCuenta: true \}, 409\)/g) ?? []).length, 2);
+  const nc = leer('app/ads-manager/NuevaCampana.tsx');
+  assert.match(nc, /if \(sinCuenta\) return <div className="mb"><div className="mba-ajustes">\{cab\}\{conectar\}<\/div><\/div>;/);
 });
 
 // PROBADO ROMPIÉNDOLO (10/11/2026):

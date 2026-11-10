@@ -324,7 +324,8 @@ function completar(p: PerfilCopiloto): PerfilCopiloto {
 }
 
 const us = (n: number) => fmtDinero(n);
-export const TICKETS = [200, 500, 1000, 3000, 5000, 10000] as const;
+// $50 y $100 (10/11/2026): una tienda o un curso chico no tenía opción y, sin la app de escritorio, tampoco podía escribirlo.
+export const TICKETS = [50, 100, 200, 500, 1000, 3000, 5000, 10000] as const;
 export const PRESUPUESTOS = [300, 600, 1000, 2000, 5000] as const;
 const NADA = 'Nada por ahora';
 const RITMOS_ORGANICO = [3, 5, 7] as const;
