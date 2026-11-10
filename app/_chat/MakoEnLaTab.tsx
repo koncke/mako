@@ -293,9 +293,13 @@ function PanelDelCerebro({ tab, izquierda, apertura, arriba, trabajos, preguntas
  *   · `onCerrar`: el «volver» de la ventana angosta y el Escape. Sin esto (la tarjeta fija), no se cierra.
  *   · `antes`: lo que va antes de la criatura en la cabecera (la «←» a la lista de proyectos de Create).
  */
-export function ConversacionCerebro({ tab, apertura: aperturaDeLaTab = null, arriba = null, trabajos = [], preguntas = null, pedido = null, onMandado, entidad = null, modo = null, onModo,
+export function ConversacionCerebro({ tab, apertura: aperturaPedida = null, aperturaHastaEscribir = false, arriba = null, trabajos = [], preguntas = null, pedido = null, onMandado, entidad = null, modo = null, onModo,
   pantalla = null, onCerrar, esDeArriba, antes, titulo }: {
-  tab: string; apertura?: ReactNode | null; arriba?: ReactNode; trabajos?: readonly TrabajoTerminado[]; preguntas?: readonly PreguntaDeLaTab[] | null;
+  tab: string; apertura?: ReactNode | null;
+  /** La apertura de la tab sólo hasta que la persona escribe en esta visita (el CoPilot, 10/11/2026: «Tu funnel está en marcha. ¿Qué
+   *  miramos?» con sus tres botones seguía debajo de la respuesta). Sin esto, como siempre: después del último mensaje. */
+  aperturaHastaEscribir?: boolean;
+  arriba?: ReactNode; trabajos?: readonly TrabajoTerminado[]; preguntas?: readonly PreguntaDeLaTab[] | null;
   pedido?: { texto: string; vez: number } | null; onMandado?: () => void;
   entidad?: EntidadChat | null; modo?: ModoChat | null; onModo?: (m: ModoChat) => void; pantalla?: string | null;
   onCerrar?: () => void; esDeArriba?: () => boolean; antes?: ReactNode;
@@ -317,6 +321,11 @@ export function ConversacionCerebro({ tab, apertura: aperturaDeLaTab = null, arr
   // CoPilot no se dibuja la de las otras tabs. El Ops Center, que no pasa por acá, lo sigue viendo todo.
   const items = useMemo(() => delHiloDeLaTab(base.items, tab, origenDelItem), [base.items, tab]);
   const k = { ...base, items, ...(titulo ? { nombre: titulo } : {}) };
+  // Cuántos mensajes suyos había al cargar: si escribe uno más (o toca una sugerencia), la apertura ya dijo lo suyo.
+  const mios = items.filter((x) => x.k === 'msg' && x.role === 'user').length;
+  const alCargar = useRef<number | null>(null);
+  useEffect(() => { if (base.cargado && alCargar.current == null) alCargar.current = mios; }, [base.cargado, mios]);
+  const aperturaDeLaTab = aperturaHastaEscribir && alCargar.current != null && mios > alCargar.current ? null : aperturaPedida;
   // El pedido de la tab sale al Cerebro (no a otro chat) y cuando el hilo está listo y libre: `enviar` dice si salió.
   useEffect(() => {
     if (!pedido || !k.esJefe) return;

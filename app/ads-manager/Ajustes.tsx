@@ -31,7 +31,7 @@ import { leerMonto } from '@/lib/media-buyer/monto';
 import { fmtDinero } from '@/lib/format';
 import { HASTA_SIN_SUBIR_DIAS, type LugarZona } from '@/lib/media-buyer/zona';
 import { ElegirLugares } from './ElegirLugares';
-import { aplicarCambio, conCampanas, evaluarFunnel, funnelElegido, usaAnuncios, usaLlamadas, sanearPerfil, type Llamadas, type ObjetivoOrganico, type PerfilCopiloto } from '@/lib/media-buyer/copiloto';
+import { aplicarCambio, conCampanas, datosDeDecision, evaluarFunnel, funnelElegido, usaAnuncios, usaLlamadas, sanearPerfil, type Llamadas, type ObjetivoOrganico, type PerfilCopiloto } from '@/lib/media-buyer/copiloto';
 import { inspiradoEn, asesorPorId } from '@/lib/asesores/catalogo';
 import { ensenaElFunnel } from '@/lib/media-buyer/copiloto-referentes';
 
@@ -137,8 +137,9 @@ export function Ajustes({ config: inicial, cupo, perfil: perfilInicial = null }:
     if (!/^\s*\d{1,2}\s*$/.test(s) || Number(s) < 1 || Number(s) > 21) { show('Entre 1 y 21 por semana.', undefined, 'bad'); return false; }
     return guardarPerfil({ ritmo: Number(s) });
   };
-  const veredicto = perfil && funnel && perfil.ticket != null
-    ? evaluarFunnel(funnel.id, { ticket: perfil.ticket, presupuestoMes: perfil.presupuestoMes ?? 0, llamadas: perfil.llamadas ?? 'yo' }) : null;
+  // Con lo que dijo (`datosDeDecision`, 10/11/2026): antes un presupuesto sin contestar valía $0 y un VSL decía «Revisar: con $0 al mes…».
+  const decide = perfil ? datosDeDecision(perfil) : null;
+  const veredicto = funnel && decide ? evaluarFunnel(funnel.id, decide) : null;
   // «Inspirado en» sólo si el referente enseña ESTE funnel (medido en su curso: lib/media-buyer/copiloto-referentes.ts).
   const refInspirado = perfil?.referente && funnel && ensenaElFunnel(perfil.referente, funnel.id) ? asesorPorId(perfil.referente) : null;
   const txt = (n: number | null) => (n == null ? '' : String(n));
@@ -158,7 +159,7 @@ export function Ajustes({ config: inicial, cupo, perfil: perfilInicial = null }:
               detalle={veredicto && !veredicto.sirve ? <>{veredicto.motivo}{veredicto.mejor ? ' Habla con MaKo para ver qué conviene.' : ''}</> : refInspirado ? inspiradoEn(refInspirado) : funnel.que} />
             <FilaAjustes titulo="Una venta te deja" fin={<CampoFila etiqueta="Lo que te deja una venta" prefijo="US$" valor={txt(perfil.ticket ?? null)} placeholder="Sin dato" onGuardar={(s) => monto('ticket', s)} />} />
             {usaAnuncios(funnel.id) && (
-              <FilaAjustes titulo="Anuncios por mes" detalle={(perfil.presupuestoMes ?? 0) === 0 ? 'Con US$0 no hay Campañas: se difunde sin pagar' : null}
+              <FilaAjustes titulo="Anuncios por mes" detalle={perfil.presupuestoMes === 0 ? 'Con US$0 no hay Campañas: se difunde sin pagar' : null}
                 fin={<CampoFila etiqueta="Presupuesto en anuncios por mes" prefijo="US$" valor={txt(perfil.presupuestoMes ?? null)} placeholder="0" onGuardar={(s) => monto('presupuestoMes', s)} />} />
             )}
             {usaLlamadas(funnel.id) && (

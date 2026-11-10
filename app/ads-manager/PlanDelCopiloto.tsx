@@ -107,7 +107,7 @@ export function EstrategiaCopiloto({ perfil }: { perfil: PerfilCopiloto }) {
         </div>
         <section className="cp-chat" aria-label="MaKo en Marketing CoPilot">
           <div className="cp-chat-cerebro">
-            <ConversacionCerebro tab="Marketing CoPilot" titulo="MaKo" apertura={apertura} pedido={pedido} onMandado={() => setPedido(null)}
+            <ConversacionCerebro tab="Marketing CoPilot" titulo="MaKo" apertura={apertura} aperturaHastaEscribir pedido={pedido} onMandado={() => setPedido(null)}
               pantalla={`Marketing CoPilot · ${f?.nombre ?? 'sin funnel'} · el panel muestra su funnel, esta semana y qué medir`} />
           </div>
         </section>

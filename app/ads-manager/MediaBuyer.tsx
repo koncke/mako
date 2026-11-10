@@ -268,7 +268,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
 
   return (
     <div className="aa">
-      <nav className="aa-top" aria-label="Media Buyer">
+      <nav className="aa-top" aria-label="Marketing CoPilot">
         <div role="tablist" className="aa-tabs">
           {VISTAS.map(([v, t]) => (
             <button key={v} type="button" role="tab" className="aa-tab" aria-selected={vista === v} onClick={() => setVista(v)}>{t}</button>

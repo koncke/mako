@@ -8,7 +8,11 @@
 //      para los nueve. Ahora compara y recomienda `datosDichos` (sólo lo que dijo);
 //   2. sin números, cada fila repetía «Faltan tus números»: lo que falta va UNA vez arriba de la lista;
 //   3. la estrella de la barra (EstrellaDeLaApp) tapaba la caja del chat del CoPilot: las pantallas con el chat a la vista se anotan;
-//   4. con la franja «Estás viendo el dashboard de…», la pantalla medía 100dvh y el pie quedaba 50 px debajo: descuenta `--barra-agencia`.
+//   4. con la franja «Estás viendo el dashboard de…», la pantalla medía 100dvh y el pie quedaba 50 px debajo: descuenta `--barra-agencia`;
+//   5. «Tu funnel está en marcha. ¿Qué miramos?» y sus botones seguían debajo de la respuesta: en el CoPilot se van al escribir;
+//   6. «Lanzar el primer anuncio» era el único paso de «Esta semana» sin botón: va a Nueva campaña;
+//   7. Ajustes juzgaba el funnel con `presupuestoMes ?? 0` y `llamadas ?? 'yo'`;
+//   8. «← Media Buyer», «Ir al Media Buyer» y el cargando decían el nombre viejo de la tab.
 //
 // Correr: node --import tsx --test tests/marketing-copilot-produccion.test.ts
 // PROBADO ROMPIÉNDOLO, ver el pie.
@@ -18,7 +22,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compararFunnels, datosDeDecision, datosDichos, faltaParaComparar, funnelsDelReferente, type PerfilCopiloto } from '../lib/media-buyer/copiloto';
+import { FUNNELS, compararFunnels, datosDeDecision, datosDichos, faltaParaComparar, funnelsDelReferente, pasosDeLaSemana, type PerfilCopiloto } from '../lib/media-buyer/copiloto';
 import { negocioDelCopiloto } from '../lib/media-buyer/copiloto-contexto';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -76,6 +80,33 @@ test('4. el alto de la pantalla descuenta la franja de arriba', () => {
   const css = leer('app/ads-manager/aa.css');
   assert.match(css, /\.cp \{ height: calc\(100dvh - 28px - var\(--barra-agencia, 0px\)\);/);
   assert.doesNotMatch(css, /height: calc\(100dvh - \d+px\);/, 'ningún alto de la tab mira sólo la ventana');
+});
+
+test('5. en el CoPilot la apertura se va cuando la persona escribe (en las otras tabs, como siempre)', () => {
+  const panel = leer('app/_chat/MakoEnLaTab.tsx');
+  assert.match(panel, /const aperturaDeLaTab = aperturaHastaEscribir && alCargar\.current != null && mios > alCargar\.current \? null : aperturaPedida;/);
+  assert.match(panel, /aperturaHastaEscribir = false/, 'opcional: las demás tabs no cambian');
+  assert.match(leer('app/ads-manager/PlanDelCopiloto.tsx'), /<ConversacionCerebro tab="Marketing CoPilot" titulo="MaKo" apertura=\{apertura\} aperturaHastaEscribir/);
+});
+
+test('6. en «Esta semana» cada paso de un funnel con anuncios lleva su pantalla (lanzar, también)', () => {
+  for (const f of FUNNELS.filter((x) => x.anuncios === 'si')) {
+    const pasos = pasosDeLaSemana({ entrada: 'funnel', funnel: f.id, ticket: 3000, presupuestoMes: 2000, llamadas: 'yo', aceptado: true });
+    assert.ok(pasos.length, f.id);
+    for (const x of pasos) assert.ok(x.href && x.pantalla, `${f.id}: «${x.texto}» sin pantalla`);
+  }
+});
+
+test('7. Ajustes tampoco juzga el funnel con un $0 o un «lo atiendo yo» que nadie dijo', () => {
+  const a = leer('app/ads-manager/Ajustes.tsx');
+  assert.doesNotMatch(a, /presupuestoMes \?\? 0/);
+  assert.match(a, /const veredicto = funnel && decide \? evaluarFunnel\(funnel\.id, decide\) : null;/);
+});
+
+test('8. la tab se nombra Marketing CoPilot en lo que se ve y se lee (el agente «Media Buyer» sigue con su nombre)', () => {
+  assert.match(leer('app/ads-manager/Automatizaciones.tsx'), /label: 'Marketing CoPilot'/);
+  assert.doesNotMatch(leer('app/ads-manager/NuevaCampana.tsx'), /Ir al Media Buyer/);
+  assert.match(leer('app/ads-manager/loading.tsx'), /que="Marketing CoPilot"/);
 });
 
 // PROBADO ROMPIÉNDOLO (10/11/2026):

@@ -58,7 +58,7 @@ export function NuevoChat({ titulo, bajada, accion, onSugerencia, onPedir }: {
   onPedir: (texto: string) => void;
 }) {
   return (
-    <section className="aa-nuevo" aria-label="Media Buyer">
+    <section className="aa-nuevo" aria-label="Marketing CoPilot">
       <Criatura nombre="MaKo" size={44} estrella />
       <h1>{titulo}</h1>
       <p>{bajada}</p>
