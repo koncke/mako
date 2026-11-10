@@ -58,7 +58,11 @@ test('la hoja trae «Cada lead nuevo» a la vista, debajo del primer contacto, p
   assert.ok(esGrafico(t));
   assert.equal(t.tipo, 'tabla');
   assert.equal(t.dimension, 'lead', 'una fila por lead');
-  assert.deepEqual(t.metricas, ['minutos_contacto']);
+  // Hasta el contacto o esperando (9/11/2026, medido en Giselle, ws 17): con `minutos_contacto`, donde nadie contactó a nadie
+  // todas las filas venían sin valor y la tabla decía «Sin datos en este período».
+  assert.deepEqual(t.metricas, ['minutos_espera']);
+  const lector = leer('lib/graficos-datos-extra.ts');
+  assert.match(lector, /pc\.estado === 'sin_contactar' && pc\.esperandoMinutos != null \? \{ minutos_espera: Math\.round\(pc\.esperandoMinutos\) \}/, 'un lead sin contactar trae lo que lleva esperando');
   assert.deepEqual(t.tabla?.columnas, ['tramo', 'canal'], 'cuánto tardó (el tramo) y por dónde');
   assert.equal(t.tabla?.acciones, true, 'la fila abre la ficha del lead');
   const contacto = vista.find((c) => esElemento(c) && c.tipo === 'diseno' && c.diseno?.parte === 'contacto');

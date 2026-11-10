@@ -170,6 +170,7 @@ export async function aplicarEstiloASubtitulos({
 	excepto,
 	bordeComun,
 	porSubtitulo,
+	solo,
 }: {
 	editor: EditorCore;
 	estilo: Record<string, ParamValue>;
@@ -186,11 +187,13 @@ export async function aplicarEstiloASubtitulos({
 	 * deshacer: las palabras clave de un preset (./presets.ts), que son de su texto.
 	 */
 	porSubtitulo?: ReadonlyMap<string, ParamValues>;
+	/** Sólo estos subtítulos (ids): el chat de MaKo, con un estilo pedido para algunos (chat/aplicar.ts, `estilo_subtitulos`). */
+	solo?: ReadonlySet<string>;
 }): Promise<number> {
 	const lienzo = lienzoDe(editor);
 	await cargarFuentes([String(estilo.fontFamily ?? "")]);
 	const lista = subtitulosDe(editor.scenes.getActiveSceneOrNull()?.tracks).filter(
-		({ element }) => element.id !== excepto,
+		({ element }) => element.id !== excepto && (!solo || solo.has(element.id)),
 	);
 	const cambios = lista.map(({ track, element }) => {
 		const borde = bordeComun ?? bordeInferiorDe({ params: element.params, lienzo });

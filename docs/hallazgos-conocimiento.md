@@ -441,7 +441,18 @@ con lista blanca de etiquetas y las clases `ugc-*`) y «Transcripción» (cuando
 link a la lección original. La transcripción NO va a `public/cono-tx/`: ese archivo se nombra por el
 `videoId` de Drive y una clase sin video no lo tiene. ⚠️ Consecuencia: el Second Brain de un
 referente (`scripts/generar-clases-de-referentes.mjs`) sólo lee clases con `videoId`, así que este
-curso no le llega por ahí; si un agente lo necesita, lee los `cono-doc`.
+curso no le llega por ahí.
+
+⚠️ **Y lo que más importa: subir un curso al PORTAL no lo pone al alcance de ningún agente.** El
+pedido era «para que lo use el Marketing CoPilot», y el portal es para PERSONAS: los agentes leen
+Knowledge con `leer_modulo_knowledge` → `metodoDeModulo` (lib/api-mako/areas/negocio.run.ts:1151),
+que consulta `mako_knowledge` por módulo (el de anuncios es el área `ads`, lib/knowledge-modulos.ts:56)
+y por negocio. Ningún archivo de `lib/` lee `public/cono-doc/` ni la ficha del curso. Según el chat del
+CoPilot (9/11), el área `ads` estaba vacía y sus filas copiadas en ws1 y ws4. El CoPilot lo resolvió
+en su rama (`punta/marketing-copilot-agente`): destiló el texto de `C:\cursos\…\texto\` a
+`lib/media-buyer/copiloto-metodo-anuncios.ts`, más una herramienta de lectura. La regla, que es la
+misma de los 5.050 emails: **un curso está en manos de un agente cuando un archivo de código lo
+nombra, no cuando se ve en `/conocimientos`.**
 
 **Las trampas del camino, cada una con su síntoma:**
 
@@ -460,6 +471,11 @@ curso no le llega por ahí; si un agente lo necesita, lee los `cono-doc`.
   «AuditorÃ­a». Se re-decodifica como UTF-8.
 - **Un Google Sheet nativo que no es público no da 403: da 200 con la página de login en HTML.** Se
   mira el `content-type`, y si es HTML el material queda como LINK al original.
+- **⚠️ Un slug de WordPress con emoji da 404 en el portal, y sólo en esas lecciones.** El slug llega
+  CODIFICADO (`%f0%9f%9f%a2-auditoria…`) y se usó tal cual como nombre del `cono-doc`: el navegador
+  pide `…%f0%9f…json`, el server lo decodifica a «🟢» y no encuentra el archivo. Eran 4 de 94, todas
+  las que el autor marcó con un emoji. Se vio en el `git status` (nombres con `%`), no en el
+  generador, que reportó 94/94 con archivo. El slug se reduce a `[a-z0-9-]` antes de escribir.
 - **Un link de material colgado de UNA lección perdía su clase en `curso-a-drive.mjs`**: los
   recursos tipo link no arrastraban `clases` ni `tituloReal`, y se repartían entre todo el módulo
   con el nombre de archivo como título. Arreglado ahí, para todos los cursos.

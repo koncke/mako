@@ -141,6 +141,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'detector de lo que ESCRIBE la persona en el Marketing CoPilot («dale, guardalo», «hacelo»): reconoce su voseo para saber si pide o pregunta; no le habla a nadie',
   },
   {
+    ruta: 'app/video-editor/_opencut/chat/confirmar.ts',
+    porque: 'detector de lo que ESCRIBE la persona en el chat del Video Editor: «hacelo», «aplicalo», «mandale» son los «sí» que hay que reconocer (Leandro escribió «si hazlo»); no se muestran',
+  },
+  {
     ruta: 'lib/ai-avatar/voces-galeria.ts',
     porque: 'los ids públicos de las voces de ElevenLabs son hexadecimales y uno contiene «aca»; el texto que se muestra (nombre, tono) está en tú',
   },

@@ -87,11 +87,16 @@ test('3. CADA chat de MaKo en la app lleva la regla y procesa la marca (la perso
   assert.match(web, /discutirSystem, \{ idioma: bloqueIdiomaDelTexto\(\) \}\)\}\\n\\n\$\{REGLA_NO_EXISTE\}`/, '«Discutir» sin la regla');
   assert.match(web, /conPedidoDeNoExisteDeLaSesion\(limpiarTextoDelModelo\(salida\)/);
 
-  for (const [p, chat] of [['lib/image-editor/chat/ia.ts', 'image-editor'], ['lib/editor-video/ia.ts', 'video-editor']] as const) {
+  // El del video limpia antes el «no pude» de una propuesta armada (lib/editor-video/marcas-chat.ts, 9/11/2026: ese chat no
+  // ejecuta nada); lo que hace `resumenParaTickets` lo prueba ejecutándolo tests/video-editor-respuesta-chat.test.ts.
+  for (const [p, chat, resumen] of [
+    ['lib/image-editor/chat/ia.ts', 'image-editor', 'raw\\.resumen'],
+    ['lib/editor-video/ia.ts', 'video-editor', 'resumenParaTickets\\(raw\\.resumen, operaciones\\.length\\)'],
+  ] as const) {
     const src = fuente(p);
     assert.match(src, /\\n\\n\$\{reglaNoExisteEn\('resumen'\)\}`;/, `${chat} sin la regla`);
     // La marca sale ANTES de quedarse con la primera línea: si no, una marca en la primera línea le llegaba a la persona.
-    assert.match(src, new RegExp(`conPedidoDeNoExisteDeLaSesion\\(raw\\.resumen, \\{ chat: '${chat}'`));
+    assert.match(src, new RegExp(`conPedidoDeNoExisteDeLaSesion\\(${resumen}, \\{ chat: '${chat}'`));
     assert.match(src, /const resumenModelo = ne \? \[ne\.texto\.trim\(\)\.split\('\\n'\)\[0\]/);
   }
 
