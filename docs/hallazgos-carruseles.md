@@ -80,6 +80,12 @@ producción, las 24 se resguardaron en la PC (`C:/dev/carrusel-mako/portadas-ins
 4. `laminas` pone la lámina 1 de portada cuando la portada no es nuestra (si no, se pagaban las láminas y la tarjeta seguía rota),
    y `--carpeta <dir>` sube las láminas que ya están bajadas en la PC sin pagarlas. `portadas` (gratis) arregla lo que no pide Apify.
 
+⚠️ **Trampa de tipos: el spread de `Record<string, unknown> & { ref: string }` PIERDE el índice.** `{ ...f, canal, miniatura }`
+queda tipado como `{ canal; miniatura; ref }`, y desestructurar `laminas_imagenes` de eso da TS2339. Revisado a mano, parecía que
+conservaba el índice, y no lo conserva. La PC no tenía RAM para el tsc acotado (99 tres veces) y lo encontró Actions (corrida 865).
+El Cerebro lo arregló tipando explícito el `map`: `(f): FilaDePieza & { canal: string; miniatura: string | null } => …`
+(`a8f531879`). Con filas de columnas abiertas, el tipo del objeto armado va escrito, no inferido.
+
 **Lo que quedó en los datos (al subir esto, 10/11 de madrugada): todavía nada.** Escribir en producción y gastar crédito esperan
 el sí de Martín. Queda listo para correr desde la PC (`node --env-file=<.env.local> --conditions=react-server --import tsx
 scripts/carruseles-biblioteca.mts …`):
