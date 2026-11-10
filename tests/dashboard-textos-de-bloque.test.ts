@@ -24,12 +24,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { JSDOM } from 'jsdom';
+import { createRequire } from 'node:module';
 import { conTextoCambiado, esTextoEditable, sanearTextos, textoAMostrar, MAX_TEXTOS_BLOQUE } from '../lib/disenos-textos';
 import { sanearHoja, esElemento, type Hoja } from '../lib/graficos-catalogo';
 import { instanciarPlantilla, PLANTILLAS_HOJA } from '../lib/graficos-plantillas';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
+// jsdom no trae tipos en este repo (como tests/admin-polar-armazon.test.ts): se carga con require y la forma que se usa.
+type VentanaDom = { document: Document; NodeFilter: unknown; Text: unknown };
+const { JSDOM } = createRequire(import.meta.url)('jsdom') as { JSDOM: new (html: string) => { window: VentanaDom } };
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 
 test('qué se puede cambiar: un rótulo con letras, no una cifra ni un signo', () => {
@@ -67,11 +70,11 @@ test('lo que se muestra: el nuevo en el lugar del original, con sus espacios', (
 test('el saneo de la hoja guarda los textos de un bloque (si no, se pierden al recargar)', () => {
   const p = PLANTILLAS_HOJA.find((x) => x.id === 'velocidad-llamada') ?? PLANTILLAS_HOJA.find((x) => (x.armar((y) => y) as { diseno?: unknown }).diseno);
   assert.ok(p, 'una plantilla con diseño');
-  const h = sanearHoja(instanciarPlantilla(p)) as Hoja;
+  const h = sanearHoja(instanciarPlantilla(p), 0) as Hoja;
   const b = h.componentes.find((c) => esElemento(c) && c.tipo === 'diseno');
   assert.ok(b && esElemento(b) && b.diseno, 'la plantilla tiene bloques de diseño');
   const conTextos = { ...h, componentes: h.componentes.map((c) => (c === b ? { ...b, diseno: { ...b.diseno!, textos: { 'Tasa de cierre': 'Cierre del mes', '1.234': 'no', 'Vacío': '' } } } : c)) };
-  const releida = sanearHoja(JSON.parse(JSON.stringify(conTextos))) as Hoja;
+  const releida = sanearHoja(JSON.parse(JSON.stringify(conTextos)), 0) as Hoja;
   const b2 = releida.componentes.find((c) => c.id === b.id);
   assert.ok(b2 && esElemento(b2));
   assert.deepEqual(b2.diseno?.textos, { 'Tasa de cierre': 'Cierre del mes' }, 'guarda el cambio y descarta lo que no sirve');
