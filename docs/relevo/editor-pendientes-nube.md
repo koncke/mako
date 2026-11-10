@@ -65,6 +65,41 @@ La rama designada de la sesión, `claude/magical-tesla-t2stbc`, sigue la última
 - **Decisión para Martín:** dividir un motion repite la entrada en la mitad derecha (copiar CapCut con `trimStart` le
   cortaría la entrada a quien acorta el clip por el borde izquierdo).
 
+### Tanda 4 — ruido en un worker, seguir a la persona, el chat, el B-roll y el rango
+- Repartida en tres agentes, cada uno en su worktree sobre la tanda 3, e integrada en `tanda4b`:
+  - `7301fd967`: RNNoise en un Web Worker (`audio/ruido-hilo/`), igual byte a byte, con respaldo en la pantalla (§7.2).
+  - `976d67583`: Clips mágicos sigue a la persona con el segmentador que ya existía (`clips/seguir.ts`) (§5.1, una parte).
+  - `871911da8`: el chat y la API suman duplicar, fondo del lienzo, efecto y plantilla de texto, emoji y recorte (§9.1, una parte).
+  - `1efe8e50f`: B-roll «Otra» y videos cortos de Pexels (§4.1, una parte).
+  - `e743b6f53`: atajos I/O, Shift+X, Alt+X, Ctrl+R, Shift+B, Ctrl+J y exportar sólo el rango (§10.1, una parte).
+- Dos revisiones adversariales (seguridad de la bajada de Pexels: bien). Arreglado en `363863208` y `09c898556`: la copia de
+  un «duplicar» en el mismo pedido, los fps que subía un video de Pexels (y apagaban «Restaurar»), «Otra» en una pista
+  bloqueada, el reflejo que sacaba a la persona del cuadro, exportar un rango que mezclaba toda la línea, la poda del worker,
+  los fotogramas clave en los dos caminos, un archivo ilegible que cortaba el seguimiento de los demás, el aviso perdido del
+  segmentador y un tope de tiempo para el worker.
+- **No hecho, con su motivo:** Tab (el relevamiento sólo trae el nombre); el DIBUJO del rango copiado de CapCut y la ayuda de
+  CapCut (capcut.com no está en la red de esta sesión); la documentación y los términos de videos de Pexels (pexels.com,
+  igual: las rutas salen de cómo se conoce la API); el acercamiento a la cara del B-roll; el «Trend» y las fotos y textos del
+  horizontal en Clips.
+
+## Lo que NO se hizo de la lista, y por qué
+- §7.1 música y efectos con licencia, §11.2 render en servidor, §3.2 Lottie: fuera de esta tanda por pedido (decisiones de Martín).
+- §1.6 subtítulo escalonado: no hay en el repo una descripción de cómo se ve; hay que mirar el reel.
+- §6.1 plantillas reales de video: es trabajo de contenido con el agente experto (P3); no se empezó.
+- §6.2 plantillas propias con estrellas en Video: P3; no se empezó.
+- §8.2 «Mandar al grupo de MaKo» y publicar desde el editor por la API: le escribe a terceros (el grupo del cliente) o publica en
+  sus redes; necesita el navegador para exportar y una decisión de Martín sobre qué se manda sin un «sí». No se hizo.
+- §10.2 `/video-editor` en `RUTAS_QUE_PLIEGAN` (`app/_components/Sidebar.tsx`): ese archivo es del jefe «Sidebar»; pedírselo a él.
+- §10.3 la revisión de pantalla de la cabecera: necesita el banco de la PC (`C:/dev/revisiones/…`).
+- §13 verla andar en Chrome: es la lista de abajo.
+
+## Decisiones que esperan a Martín
+1. **Dividir un motion graphic** repite la animación de entrada en la mitad derecha. Copiar CapCut (entrada a la izquierda,
+   salida a la derecha) usaría `trimStart`, que también cambia al arrastrar el borde izquierdo: acortar el clip le cortaría la entrada.
+2. **El segmentador baja su wasm de 13 MB de jsdelivr** (ya era así para quitar el fondo; ahora también al abrir un clip en
+   Clips mágicos). La regla de la casa es servir los `.wasm` desde `public/ve/wasm/` con su sha256: mudarlo es una tarea aparte.
+3. **Ctrl/Cmd+R ya no recarga la página** en el editor (abre la velocidad, como en CapCut).
+
 ## Lo que falta probar en la PC (Chrome, ws9 o ws3; NUNCA ws1)
 
 En el Chrome de Martín, en el negocio de MaKo (ws9) o en el Cliente de Prueba (ws3). **Nunca en el ws1** (Mauricio, un cliente real):
@@ -92,10 +127,19 @@ el editor escribe preferencias y presets en el negocio. Con un video de prueba d
    - Exportar el video: la animación y los emojis salen en el MP4.
 3. **Motion graphics** (tanda 3): Biblioteca › Plantillas › Motion: agregar cada una de las 9, cambiar el tono y el formato; la cifra con
    «4,5». Por chat: «agrega un contador que diga 4,5 estrellas».
+4. **Tanda 4:**
+   - Reducir el ruido en un estéreo de 10 minutos: el editor sigue respondiendo, el `.wasm` vuelve 200 desde el worker y en
+     la consola no sale «sigo en este hilo». Apagarlo a mitad: el worker deja de usar CPU. El export suena igual que la vista previa.
+   - Clips mágicos con alguien a un costado: queda en el medio del vertical, sin bandas; reflejado, igual; girado, al centro.
+   - El chat: «duplica este texto y muévelo», «pon el fondo azul», «agrega un emoji de fuego», «recorta este clip a 9:16»,
+     «duplica este B-roll y cámbialo» (tiene que decir que la copia todavía no existe).
+   - B-roll con «Videos cortos» contra el Pexels de verdad: tarda razonable, entran sin sonido y el proyecto sigue en sus fps.
+     «Otra» en uno propuesto, en uno dejado y en uno movido; Ctrl+Z.
+   - I y O en dos lugares: la franja en la regla. Exportar con rango en MP4, MOV y WebM: medir con ffprobe que empieza en la
+     entrada, dura el rango y el audio va sincronizado. Shift+X, Alt+X, Ctrl+R, Shift+B, Ctrl+J.
 
 ## Para el que siga
 
-- Tanda 4 (B-roll con videos de Pexels y «Cambiar por otra» §4.1, clips mágicos §5.1, ruido en un worker §7.2, lo que el chat no sabe
-  §9.1) y lo que se pueda de §6, §8.2 y §10 sin navegador.
+- Lo que queda de la lista está arriba, en «Lo que NO se hizo de la lista, y por qué».
 - Al sacar un veredicto en un worktree, que ese worktree tenga su `node_modules` propio (ver «⚠️ El `npm ci` del veredicto…» en
   `docs/hallazgos-video-editor.md`).
