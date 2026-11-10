@@ -93,6 +93,14 @@ leen grupos. No se pudo mirar el log de Evolution (Railway, sin acceso desde el 
 alarma por lo que NO llega: horas sin un mensaje entrante en la línea de grupos mientras las otras líneas reciben, por EMAIL (la
 alarma de un canal no viaja por ese canal). La línea de Martín (`mako_ws9`) quedó sorda: necesita su propio QR.
 
+**Volvió a pasar el 10/11/2026 (ticket #79), con la instancia NUEVA del QR del 9/11.** Patricia (ws 22) le pidió a MaKo tres notas
+a las 23:17, 23:20 y 23:22 UTC, y no llegaron ni a Evolution (`/chat/findMessages` del grupo: lo último entrante, una reacción de
+las 16:55) ni a `mako_doer_buffer` (el último de CUALQUIER grupo, ws1 a las 21:46). `_count.Message` de `mako_superadmin_muylqv8r`
+quedó en 225 entre las 23:34 y las 23:38 mientras ws11 sumaba 20; MaKo seguía mandando (avisos del equipo a las 23:16 y 23:29).
+El cliente lo ve como «MaKo no toma mis mensajes»: **el diagnóstico obvio (el lote, la confirmación, el clasificador) era el
+equivocado**, porque nada llegó. Se mide así: el mensaje que la persona dice que mandó, ¿está en `findMessages` de la instancia?
+Si no está, es la línea, no MaKo. La alarma por lo que no llega sigue sin hacer.
+
 ## MaKo no le responde a Leandro: contestó cada mensaje y no resolvió ninguno (9/11/2026)
 
 **El síntoma:** Martín, 9/11: «Leandro le está escribiendo a MaKo en WhatsApp y no responde».
