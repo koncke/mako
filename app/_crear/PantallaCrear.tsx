@@ -100,6 +100,14 @@ export type PropsPantallaCrear = {
   creandoInicial?: boolean;
   /** Un EDITOR (Video, Image): con una pieza abierta, la tarjeta se puede plegar a una barra fina para darle el ancho. */
   plegable?: boolean;
+  /**
+   * Lo que la tab pone EN LUGAR de «¿Qué vas a crear hoy?» (la caja y las plantillas). Image, 9/11/2026 (Martín: «"Nuevo
+   * carrusel" muestra los OUTLIERS… se elimina la vista "¿Qué vas a crear hoy?"»): los ejemplos que mejor rindieron. Sin esto,
+   * las demás tabs se ven igual.
+   */
+  nueva?: ReactNode;
+  /** «Nuevo …» desde afuera de la portada (el editor de Image no tiene los ejemplos leídos): la tab navega a donde están. */
+  alNuevo?: () => void;
   /** La pieza abierta (el editor). Sin esto, el centro es «¿Qué vas a crear hoy?». */
   children?: ReactNode;
 };
@@ -169,7 +177,12 @@ export function PantallaCrear(p: PropsPantallaCrear) {
 
   // Volver al chat es volver a la pieza abierta: «Nuevo …» se cierra (el mismo gesto que el Web Generator).
   const alChat = useCallback(() => { setCara('chat'); if (hayPieza) setCreando(false); }, [hayPieza]);
-  const alNuevo = useCallback(() => { setCreando(true); setMovil('pieza'); }, []);
+  const { alNuevo: alNuevoDeLaTab } = p;
+  const alNuevo = useCallback(() => {
+    // La tab decide qué es «Nuevo …» (Image: los ejemplos); en el teléfono, igual se ve el centro.
+    if (alNuevoDeLaTab) { alNuevoDeLaTab(); setMovil('pieza'); return; }
+    setCreando(true); setMovil('pieza');
+  }, [alNuevoDeLaTab]);
   const { onPedido, trasCrear = 'pieza' } = p;
   /** Creado (con una plantilla o con lo escrito): «Nuevo …» se cierra y la tarjeta vuelve al chat, el del proyecto nuevo. */
   const alCreado = useCallback(() => { setCreando(false); setCara('chat'); setMovil(trasCrear); }, [trasCrear]);
@@ -233,10 +246,10 @@ export function PantallaCrear(p: PropsPantallaCrear) {
 
       <div className="cr-centro">
         {hayPieza && <div className="cr-pieza" hidden={centro === 'nueva'}>{children}</div>}
-        {centro === 'nueva' && (
+        {centro === 'nueva' && (p.nueva != null ? p.nueva : (
           <NuevaCrear tab={tab} plantillas={p.plantillas} onPlantilla={p.onPlantilla} titulo={p.tituloPlantillas} miniatura={p.miniatura}
             ejemplos={p.ejemplos} onPedido={alPedido} onCreado={alCreado} arriba={p.arribaDePlantillas} onVerEjemplo={p.onVerEjemplo} />
-        )}
+        ))}
       </div>
     </div>
   );

@@ -2,9 +2,10 @@
 // /image-editor — el Image Editor (copia de Canva sobre Doory): la portada de la tab son los EJEMPLOS
 // =============================================================================
 // Martín, 6/11/2026: «La tab de "Encuentra tu siguiente OUTLIER" tiene que ser la principal, no "¿Qué vas a crear hoy?"». Así:
-//   · `/image-editor` → los ejemplos para elegir uno y editarlo: carruseles, anuncios y miniaturas de YouTube
-//     (./carruseles/ExplorarCarruseles.tsx), a pantalla completa y SIN la tarjeta del chat de MaKo (Martín: «La barra lateral de
-//     MaKo no se muestra salvo mientras se edita»). Los filtros van en la URL y se leen acá.
+//   · `/image-editor` → los ejemplos para elegir uno y replicarlo: carruseles, anuncios y miniaturas de YouTube
+//     (./carruseles/ExplorarCarruseles.tsx). Desde el 9/11/2026 CON la tarjeta del chat de MaKo a la izquierda (Martín: «La barra
+//     del chat de MaKo nunca desaparece», para ver los carruseles que ya estaba creando) y su «Editar» abre el guiado, donde MaKo
+//     pregunta la oferta, el avatar y qué cambiar (./carruseles/ReplicarGuiado.tsx). Los filtros van en la URL y se leen acá.
 //   · `?ver=crear` → «Crear desde cero»: la pantalla de Create (app/_crear/PantallaCrear.tsx, desde ./ImageEditorCliente.tsx) con
 //     el chat de MaKo a la izquierda, sus diseños detrás de la «←» y las plantillas de «Nuevo diseño» (./plantillas-crear.ts).
 //   · `?ver=carruseles` (el link de antes, que viajó en avisos y en la API) → los ejemplos con sus filtros, sin redirigir (./vista.ts).
@@ -19,12 +20,36 @@ import { filtrosThumbnailDeQuery } from '@/lib/thumbnails/explorar';
 import { leerThumbnails } from '@/lib/thumbnails/servidor';
 import { nombreDelNegocio } from '@/lib/carruseles/marca';
 import { kitParaUsar } from '@/lib/marca/kits-server';
+import { listarOfertas } from '@/lib/ofertas';
+import { getPersona } from '@/lib/persona';
+import { leerLooks } from '@/app/ai-avatar/looks';
+import type { KitMarca } from '@/lib/marca/kits';
 import { requireEditorImagen } from './acceso';
+import type { BaseGuiado } from './carruseles/ReplicarGuiado';
 import { ImageEditorCliente } from './ImageEditorCliente';
 import { vistaDeImage } from './vista';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+/**
+ * Lo que el guiado sabe del negocio antes de preguntar (lib/carruseles/guiado.ts): sus ofertas ACTIVAS, si tiene una foto (la cara
+ * de marca o un look del AI Avatar) y si su kit tiene colores. Cada lectura que falla es «no sé», nunca «no tiene»: las ofertas en
+ * `null` (MaKo pide escribirla), las fotos y el kit en `false` (MaKo ofrece subir la foto). El server lo vuelve a leer al generar
+ * (lib/carruseles/replica-servidor.ts): esto sólo arma las preguntas.
+ */
+async function baseDelGuiado(kit: KitMarca | null): Promise<BaseGuiado> {
+  const [ofertas, persona, looks] = await Promise.all([
+    listarOfertas(true).then((xs) => xs.map((o) => ({ id: o.id, nombre: o.nombre, principal: o.es_principal }))).catch(() => null),
+    getPersona().catch(() => null),
+    leerLooks().catch(() => []),
+  ]);
+  return {
+    ofertas,
+    fotos: { cara: (persona?.fotos.length ?? 0) > 0, look: looks.some((l) => /^https:\/\//.test(l.url) && !l.error) },
+    kit: (kit?.colores.length ?? 0) > 0,
+  };
+}
 
 export default async function ImageEditorPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireEditorImagen();
@@ -38,9 +63,10 @@ export default async function ImageEditorPage({ searchParams }: { searchParams: 
     // La marca del negocio (5/11/2026): las miniaturas de los carruseles la muestran como se va a crear.
     kitParaUsar().catch(() => null),
   ]);
+  const base = ejemplos ? await baseDelGuiado(kit) : null;
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-      <ImageEditorCliente vista={ejemplos ? 'carruseles' : 'inicio'} ws={ws} negocio={negocio} kit={kit}
+      <ImageEditorCliente vista={ejemplos ? 'carruseles' : 'inicio'} ws={ws} negocio={negocio} kit={kit} guiado={base}
         explorador={explorador && explorador.ok
           ? {
             datos: {

@@ -7,6 +7,45 @@ El rediseño del 6/11/2026: `app/image-editor/carruseles/ExplorarCarruseles.tsx`
 El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, `lib/thumbnails/` (la tab Thumbnails) y la portada de
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
+
+## El guiado de los carruseles: tres tests que daban verde rompiéndolos, y la caja de Create que se cae sin ejemplos (9/11/2026)
+
+**Vive en:** `lib/carruseles/guiado.ts`, `app/image-editor/carruseles/ReplicarGuiado.tsx`, `lib/carruseles/replica-servidor.ts`,
+`lib/carruseles/tipografia-medida.ts`, `lib/carruseles/plancha.ts`, `app/_crear/PantallaCrear.tsx` (`nueva`, `alNuevo`). El diseño y
+lo que falta: `docs/relevo/nube-carruseles-guiado.md`.
+
+Martín, 9/11: «me llevó directamente al editor… ni siquiera me pregunta qué oferta». Ahora «Editar» abre una pestaña con el original
+y MaKo pregunta en la tarjeta (la oferta, el avatar sólo si hay persona, qué cambiar), con el velo de la guía señalando la pregunta.
+Lo que costó, y vale para el próximo:
+
+- **Un camino de prueba que se saltea la pieza no la prueba.** «Sin persona → no se baja ninguna foto» se probó en el orquestador
+  con `seco` (sin generar), y `seco` NUNCA baja la foto: la rotura daba verde. Se sacó a una función pura (`fotoDelGuiado`) con su
+  test. Antes de creerle a un verde en modo seco, preguntá si ese modo pasa por la línea que rompiste.
+- **Una métrica compuesta necesita un caso que decida cada término solo.** `parecidoDeTrazos` suma IoU, perfiles y proporción;
+  sacarle la proporción daba verde porque los casos de prueba diferían en todo a la vez. El caso que la aísla es la misma letra
+  ampliada por un factor entero exacto (IoU 1, perfiles iguales): ahí sólo puede decidir la proporción.
+- **Dos ofertas con el mismo nombre en páginas distintas no prueban el corte del rótulo.** El test pasaba con la rotura; con las dos
+  en la misma página, el «…» y el largo se miran de verdad.
+- **`renderToStaticMarkup(PantallaCrear)` llega a un `server-only`** por la cadena de una acción del servidor (en Next es una
+  referencia; en node se ejecuta). El test lo resuelve a `node_modules/server-only/empty.js`, la versión que el paquete usa en el
+  server (`tests/carruseles-guiado-pantalla.test.ts`).
+- **`useEjemploQueSeEscribe` (`app/automations/CrearConIA.tsx:102`) hace `ejemplos[0].length`**: una tab de Create con `ejemplos: []`
+  tira la pantalla entera. Hoy ninguna lo pasa vacío (son constantes); lo encontró el test. Queda anotado, sin tocar.
+- **El `tsc` acotado en la nube**: `scripts/tsc-acotado.mjs` contestó «NO SE PUDO CHEQUEAR (código undefined)». Se armó la config con
+  su `armarTsconfig` y se corrió `node_modules/typescript/bin/tsc -p` directo: con 3,5 GB murió sin memoria (`PantallaCrear` arrastra
+  medio app), con 9 GB terminó en 81 s. Los TS7016 de `soundtouchjs` y el `EyeDropper` de `app/video-editor/_opencut` que salen ahí
+  son del acotado (tipos ambientales que el completo trae), no del código.
+
+**Una decisión que cambió al implementar:** el diseño decía que `?ver=crear` abriera lo mismo que la portada. No se hizo: detrás de
+«Crear desde cero» viven las plantillas que guardó el negocio (las de Leila, 6/11) y las plantillas reales, y sacarlas las dejaba sin
+entrada en la computadora. «Nuevo carrusel» abre siempre los ejemplos (en la portada, suelta el que se replicaba; desde el editor o
+«Crear desde cero», navega a la portada) y «¿Qué vas a crear hoy?» no aparece en ningún camino por defecto. Sacarla del todo pide
+mudar primero esas plantillas: lo decide Martín.
+
+**Lo que quedó sin hacer:** la orquestación con Flow de la plancha (subir la lámina, pedir el cambio, esperar, guardar), el botón
+«Cambiar la palabra» del lettering en el editor, el pegamento del navegador que compara el recorte con las fuentes, y el teléfono
+(`app/m/image-editor`, sigue con «Editar» directo). La pantalla no se miró en un navegador: en la nube no hay base para levantarla.
+
 ## Revisar lo que entró sin que nadie lo mire: el banco no mide ancho y la referencia no mide píxeles (7/11/2026)
 
 Dos revisiones encargadas: el paquete del 6/11 contra lo que Martín pidió, y la pantalla contra las capturas de Top Carousels.

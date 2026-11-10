@@ -67,7 +67,8 @@ test('PantallaCrear: se pliega sólo un editor con la pieza a la vista, y la bar
   assert.match(src, /useSyncExternalStore\([\s\S]*?\(\) => leerPlegada\(tab\),\s*\(\) => false,\s*\)/);
   // Los dos editores la piden; Offer y el Copywriter no (su tarjeta ES la conversación de la pieza).
   assert.match(sinComentarios(leer('app/video-editor/VideoEditorCliente.tsx')), /<PantallaCrear[\s\S]*?\n\s*plegable\n\s*>/);
-  assert.match(sinComentarios(leer('app/image-editor/ImageEditorCliente.tsx')), /<PantallaCrear[\s\S]*?\n\s*plegable\n\s*>/);
+  // Image, sólo con un diseño abierto (9/11/2026): mientras se replica un ejemplo, la tarjeta es donde MaKo pregunta y no se pliega.
+  assert.match(sinComentarios(leer('app/image-editor/ImageEditorCliente.tsx')), /<PantallaCrear[\s\S]*?\n\s*plegable=\{!!abierto\}\n\s*>/);
   assert.doesNotMatch(leer('app/offer/OfferApp.tsx'), /\bplegable\b/);
 });
 

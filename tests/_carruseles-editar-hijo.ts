@@ -39,11 +39,11 @@ const AJENA = 'https://cualquier-cdn.example.com/portada.jpg';
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46, 0x49, 0x46, 0, 1, 0, 0, 0, 0]);
 
 const pg = crearPostgrest({
-  tablas: ['workspaces', 'credenciales', 'carruseles_biblioteca_piezas', 'carruseles_biblioteca_cuentas', 'app_settings', 'anthropic_usage', 'ia_cuotas', 'ia_rebotes'],
+  tablas: ['workspaces', 'credenciales', 'carruseles_biblioteca_piezas', 'carruseles_biblioteca_cuentas', 'app_settings', 'anthropic_usage', 'ia_cuotas', 'ia_rebotes', 'ofertas'],
 });
 
 /** Cada pedido que le llegó a una IA: por dónde salió, cuántas imágenes llevaba y cuánto lugar pidió para la respuesta. */
-export type PedidoIA = { via: 'vision-nativa' | 'chat' | 'claude'; modelo: string; imagenes: number; tope: number | null };
+export type PedidoIA = { via: 'vision-nativa' | 'chat' | 'claude'; modelo: string; imagenes: number; tope: number | null; texto?: string };
 let pedidos: PedidoIA[] = [];
 /** Los hosts que se pidieron afuera de la base: así se ve por qué camino bajó cada imagen. */
 let red: string[] = [];
@@ -83,6 +83,8 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
         via: 'vision-nativa', modelo: /models\/([^:]+):/.exec(u.pathname)?.[1] ?? '?',
         imagenes: partes.filter((p) => p.inline_data || p.inlineData).length,
         tope: ((b.generationConfig as { maxOutputTokens?: number } | undefined)?.maxOutputTokens) ?? null,
+        // El texto del pedido (el prompt): así se mira qué le LLEGA a la IA, no qué armó el código (la oferta del guiado).
+        texto: partes.map((p) => (typeof p.text === 'string' ? p.text : '')).join('\n'),
       });
     } else {
       pedidos.push({
@@ -135,7 +137,7 @@ const RESPUESTA_IA = JSON.stringify({
 });
 
 export type Salida = {
-  ok: boolean; sinIA?: boolean; aviso?: string | null; conectar?: string | null; vistas?: number; errores?: string[];
+  ok: boolean; error?: string; sinIA?: boolean; aviso?: string | null; conectar?: string | null; vistas?: number; errores?: string[];
   laminasMostradas: number; textos: string[]; pedidos: PedidoIA[]; red: string[]; paginas: number; permitida: boolean;
 };
 
@@ -148,21 +150,21 @@ async function main() {
   const { replicarEjemplo, esImagenPermitida } = await import('../lib/carruseles/replica-servidor');
 
   /** `conIA`: las claves que tiene cargadas el negocio (D6b: la IA que corre es la suya, nunca la de la plataforma). */
-  const correr = async (o: { portada: string | null; conIA: Array<'GEMINI_API_KEY' | 'ANTHROPIC_API_KEY'>; responde: typeof contesta }): Promise<Salida> => {
+  const correr = async (o: { portada: string | null; conIA: Array<'GEMINI_API_KEY' | 'ANTHROPIC_API_KEY'>; responde: typeof contesta; guiado?: import('../lib/carruseles/guiado').PedidoGuiado }): Promise<Salida> => {
     sembrar(o.portada);
     pg.db.credenciales.length = 0;
     for (const clave of o.conIA) pg.db.credenciales.push({ workspace_id: WS, clave, valor_enc: cifrarSecreto(`negocio-${'x'.repeat(30)}`, WS, clave), servicio: clave.split('_')[0].toLowerCase() });
     red = []; pedidos = []; contesta = o.responde;
     const mostradas: Array<Record<string, unknown>> = [];
     const r = await runWithWorkspace(WS, () => replicarEjemplo(WS, 'test', { que: 'carrusel', id: -55 }, {
-      seco: true, timeoutMs: 5_000,
+      seco: true, timeoutMs: 5_000, guiado: o.guiado ?? null,
       alEvento: (e) => { if (e.fase === 'lamina') mostradas.push(e.pagina); },
     }));
     const textos = mostradas.flatMap((p) => ((p.objects as Array<Record<string, unknown>>) ?? []).filter((x) => x.type === 'textbox').map((x) => String(x.text)));
     const doc = (r as { doc?: Record<string, unknown> }).doc;
     const paginas = Array.isArray(doc?.pages) ? doc.pages.length : 0;
     return {
-      ok: r.ok, sinIA: (r as { sinIA?: boolean }).sinIA, aviso: (r as { aviso?: string | null }).aviso ?? null,
+      ok: r.ok, error: (r as { error?: string }).error, sinIA: (r as { sinIA?: boolean }).sinIA, aviso: (r as { aviso?: string | null }).aviso ?? null,
       conectar: (r as { conectar?: string | null }).conectar ?? null, vistas: (r as { vistas?: number }).vistas,
       errores: (r as { errores?: string[] }).errores, laminasMostradas: mostradas.length, textos,
       pedidos: [...pedidos], red: [...new Set(red)], paginas, permitida: esImagenPermitida(o.portada ?? ''),
@@ -187,6 +189,14 @@ async function main() {
     // 7. Sin ninguna IA conectada: guías, y el modal NO queda en blanco.
     sinIA: await correr({ portada: NUESTRA, conIA: [], responde: {} }),
   };
+  // 8 y 9. El GUIADO (9/11/2026, lib/carruseles/guiado.ts): la oferta que eligió el dueño llega al pedido de la IA, y una de OTRO
+  // negocio (un id que manda el navegador) no existe en la base de éste. Martín: «ni siquiera me pregunta qué oferta».
+  pg.db.ofertas.push(
+    { id: 21, workspace_id: WS, nombre: 'Limpieza dental en una visita', precio_usd: 80, precio_nota: null, promesa: 'Dientes limpios en 40 minutos', incluye: null, garantia: null, bonos: [], para_quien: 'Adultos que no van al dentista hace años', activa: true, es_principal: true, orden: 0, desde_brief: false, origen: 'manual' },
+    { id: 22, workspace_id: 99, nombre: 'La oferta de OTRO negocio', precio_usd: 1, precio_nota: null, promesa: 'no debería llegar', incluye: null, garantia: null, bonos: [], para_quien: null, activa: true, es_principal: true, orden: 0, desde_brief: false, origen: 'manual' },
+  );
+  out.guiadoConOferta = await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { json: RESPUESTA_IA }, guiado: { ofertaId: 21, ofertaLibre: null, avatar: 'ninguno', cambio: 'textos', pedido: 'Que hable de la primera visita' } });
+  out.guiadoOfertaAjena = await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { json: RESPUESTA_IA }, guiado: { ofertaId: 22, ofertaLibre: null, avatar: null, cambio: 'textos', pedido: null } });
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

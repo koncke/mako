@@ -121,12 +121,24 @@ export const USD_POR_LAMINA_CLONADA = 0.0120;
  *
  * Va en inglés porque así se midió. No es una preferencia: es el texto que produjo el resultado bueno.
  */
-const NO_TOQUES = (que: string) => [
+const NO_TOQUES = (que: string, conserva: readonly string[] = CONSERVA_TODO) => [
   `This reference image is a ${que} and it is the only source of truth.`,
   'Keep it exactly as it is. Do not redraw it, do not restyle it, do not change the layout.',
-  'Keep the typography, the text, the colours, the framing, the background and the people unchanged.',
+  `Keep ${enumerar(conserva)} unchanged.`,
   'ONE change only:',
 ].join(' ');
+
+/**
+ * Lo que se conserva por defecto: TODO. El orden y las palabras son las del prompt medido el 7/11 (no se tocan sin medir).
+ *
+ * ⚠️ Un paso que CAMBIA una de estas cosas (la plancha saca el TEXTO, el avatar cambia a la PERSONA: lib/carruseles/plancha.ts)
+ * no puede pedir que se conserve lo mismo que cambia: «Keep the text unchanged. ONE change only: remove the text» es una orden
+ * que se contradice, y el modelo elige una de las dos. Por eso `promptDeClon` recibe qué se conserva.
+ */
+export const CONSERVA_TODO = ['the typography', 'the text', 'the colours', 'the framing', 'the background', 'the people'] as const;
+
+/** «a, b and c», como lo dice el prompt medido. */
+const enumerar = (xs: readonly string[]): string => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
 /**
  * El prompt del clonado: primero lo que se conserva, después el único cambio.
@@ -135,9 +147,9 @@ const NO_TOQUES = (que: string) => [
  * ESTILO con palabras; enumerar lo que hay que dejar quieto **ancla** en vez de competir. El prompt que
  * funcionó tenía ~470 caracteres y el que falló, menos.
  */
-export function promptDeClon(que: QueSeClona, pedido: string): string {
+export function promptDeClon(que: QueSeClona, pedido: string, conserva: readonly string[] = CONSERVA_TODO): string {
   const p = pedido.replace(/\s+/g, ' ').trim();
-  return `${NO_TOQUES(EN_INGLES[que])} ${p}`.trim();
+  return `${NO_TOQUES(EN_INGLES[que], conserva)} ${p}`.trim();
 }
 
 /** Sólo para los tests y para explicarlo en pantalla: el preámbulo que conserva la imagen. */
