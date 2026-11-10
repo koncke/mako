@@ -60,10 +60,11 @@ import { letrasVisibles } from "./curva";
 import { lineasReveladas } from "./revelado";
 import {
 	colorDePalabra,
+	escalaMaximaDePalabra,
 	formaDePalabra,
 	palabraDeCadaLetra,
-	palabrasDeRenglon,
 	primerasPalabras,
+	ubicarPalabras,
 	type ResaltadoTexto,
 } from "./resaltado";
 
@@ -181,8 +182,11 @@ type Pieza = {
  * medio escribir tampoco se re-centra) más el ancho de lo que la precede, medido
  * como «hasta el fin de la palabra − la palabra» (así da igual si el navegador
  * cuenta el espaciado de la última letra, y el interletrado con el espacio queda).
+ * `escalaMax` (la palabra que crece y las claves más grandes): cada palabra va centrada en su lugar más su reserva,
+ * (escala máxima − 1) × su ancho, y el renglón arranca contando las reservas (`medido.reservas`, ya en el ancho del
+ * bloque). Sin eso la palabra agrandada se comía el espacio y pisaba a las vecinas.
  */
-function armarPiezas(c: TextCanvasContext, medido: MeasuredTextElement, lineas: Linea[]): Pieza[] {
+function armarPiezas(c: TextCanvasContext, medido: MeasuredTextElement, lineas: Linea[], escalaMax?: (palabra: number) => number): Pieza[] {
 	const primeras = primerasPalabras(medido.lines);
 	const piezas: Pieza[] = [];
 	if (medido.arco) {
@@ -201,12 +205,15 @@ function armarPiezas(c: TextCanvasContext, medido: MeasuredTextElement, lineas: 
 	c.font = medido.fontString;
 	setCanvasLetterSpacing({ ctx: c, letterSpacingPx: medido.letterSpacing });
 	for (const l of lineas) {
-		const x0 = inicioDeLinea(medido.textAlign, l.metrica.width);
-		for (const p of palabrasDeRenglon(l.texto, primeras[l.indice] ?? 0)) {
-			const ancho = c.measureText(p.texto).width;
-			const antes = p.desde === 0 ? 0 : c.measureText(l.texto.slice(0, p.desde + p.texto.length)).width - ancho;
-			piezas.push({ texto: p.texto, x: x0 + antes, y: l.y, giro: null, palabra: p.palabra, ancho });
-		}
+		const x0 = inicioDeLinea(medido.textAlign, l.metrica.width + (medido.reservas?.[l.indice] ?? 0));
+		const ubicadas = ubicarPalabras({
+			renglon: l.texto,
+			primera: primeras[l.indice] ?? 0,
+			x0,
+			anchoDe: (t) => c.measureText(t).width,
+			escalaMax: medido.reservas ? escalaMax : undefined,
+		});
+		for (const p of ubicadas) piezas.push({ ...p, y: l.y, giro: null });
 	}
 	c.restore();
 	return piezas;
@@ -231,7 +238,8 @@ function recorrerPiezas(
 ) {
 	const conForma: Array<{ p: Pieza; f: { escala: number; subida: number } }> = [];
 	for (const p of piezas) {
-		const f = formaDe?.(p.palabra);
+		// Curvado, cada letra va sola sobre el arco: escalarla la monta sobre la de al lado. Sin forma.
+		const f = p.giro === null ? formaDe?.(p.palabra) : undefined;
 		if (f && !esIgual(f)) {
 			conForma.push({ p, f });
 			continue;
@@ -268,6 +276,8 @@ type ConResaltado = {
 	colorDe: (palabra: number) => string;
 	/** La forma de cada palabra (./resaltado.ts → formaDePalabra). */
 	formaDe?: FormaDe;
+	/** Ya partido en «las de siempre» y «las que tienen forma» (dibujarLetras se llama una vez por cada grupo). */
+	separado?: boolean;
 	/** El subrayado va una sola vez (con lo dicho), no en cada grupo. */
 	subrayar: boolean;
 };
@@ -281,6 +291,19 @@ function dibujarLetras(
 	enCapa: boolean,
 	resaltado?: ConResaltado,
 ) {
+	// Las palabras con otra forma van en una pasada COMPLETA aparte (contorno y relleno), después de las demás: en
+	// una sola pasada, el contorno de todas va antes que todos los rellenos y el relleno de la vecina le pisaba el
+	// contorno a la palabra agrandada (revisión del 10/11/2026).
+	if (resaltado?.formaDe && !resaltado.separado) {
+		const formaDe = resaltado.formaDe;
+		const conForma = resaltado.piezas.filter((p) => p.giro === null && !esIgual(formaDe(p.palabra)));
+		if (conForma.length) {
+			const normales = resaltado.piezas.filter((p) => !conForma.includes(p));
+			dibujarLetras(c, medido, lineas, textColor, textBaseline, enCapa, { ...resaltado, piezas: normales, separado: true });
+			dibujarLetras(c, medido, lineas, textColor, textBaseline, enCapa, { ...resaltado, piezas: conForma, separado: true, subrayar: false });
+			return;
+		}
+	}
 	const { trazo } = medido.estilo;
 	const w = trazo ? pxTrazo(trazo.grosor, medido.scaledFontSize) : 0;
 	c.font = medido.fontString;
@@ -322,9 +345,9 @@ function dibujarLetras(
 	}
 	if (medido.textDecoration !== "none" && !medido.arco && (!resaltado || resaltado.subrayar)) {
 		for (const l of lineas) {
-			const ancho = l.completa ? l.metrica.width : c.measureText(l.texto).width;
+			const ancho = l.completa ? l.metrica.width + (medido.reservas?.[l.indice] ?? 0) : c.measureText(l.texto).width;
 			c.save();
-			c.translate(l.completa ? 0 : inicioDeLinea(medido.textAlign, l.metrica.width), 0);
+			c.translate(l.completa ? 0 : inicioDeLinea(medido.textAlign, l.metrica.width + (medido.reservas?.[l.indice] ?? 0)), 0);
 			drawTextDecoration({
 				ctx: c,
 				textDecoration: medido.textDecoration,
@@ -369,7 +392,7 @@ function dibujarResaltado(
 	enCapa: boolean,
 	res: ResaltadoTexto,
 ) {
-	const piezas = armarPiezas(d, medido, lineas);
+	const piezas = armarPiezas(d, medido, lineas, (palabra) => escalaMaximaDePalabra(res, palabra));
 	const colorDe = (palabra: number) => colorDePalabra(res, palabra, textColor);
 	const formaDe: FormaDe = (palabra) => formaDePalabra(res, palabra);
 	if (res.noDichas >= 1) {

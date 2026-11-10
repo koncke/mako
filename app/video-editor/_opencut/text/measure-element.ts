@@ -15,7 +15,7 @@ import {
 } from "./layout";
 import { letrasEnArco, recuadroArco, type LetraEnArco } from "./curva";
 import { cuantizarRevelado } from "./revelado";
-import { resaltadoDe, type ResaltadoTexto } from "./resaltado";
+import { resaltadoDe, reservasDeRenglones, type ResaltadoTexto } from "./resaltado";
 import {
 	aplicarMayusculas,
 	leerEstiloTexto,
@@ -55,6 +55,12 @@ export interface MeasuredTextElement extends MeasuredTextLayout {
 	 * Cuantizado: sólo cambia cuando cambia la palabra (./resaltado.ts).
 	 */
 	resaltado: ResaltadoTexto | null;
+	/**
+	 * El ancho de más que lleva cada renglón para la palabra que crece y las claves más grandes (./resaltado.ts →
+	 * escalaMaximaDePalabra); `null` = ninguno. Ya está sumado en `block.maxWidth`, así el fondo y el recuadro de
+	 * selección lo incluyen; el renglón empieza en `inicioDeLinea(ancho + reserva)`.
+	 */
+	reservas: number[] | null;
 }
 
 let textMeasurementContext:
@@ -114,6 +120,21 @@ export function measureTextElement({
 		canvasHeight,
 		ctx,
 	});
+
+	const resaltado = resaltadoDe({
+		params: element.params,
+		tiempo: localTime / TICKS_PER_SECOND,
+		recorteInicio: element.trimStart / TICKS_PER_SECOND,
+	});
+	// Curvado, las letras van solas sobre el arco y la forma no se aplica (./dibujar.ts): sin reserva.
+	const curvado = !!leerEstiloTexto(element.params).curva;
+	const reservas = resaltado && !curvado ? reservasDe(ctx, measuredLayout, resaltado) : null;
+	if (reservas) {
+		measuredLayout.block = {
+			...measuredLayout.block,
+			maxWidth: Math.max(...measuredLayout.lineMetrics.map((m, i) => m.width + (reservas[i] ?? 0))),
+		};
+	}
 
 	const bg = buildTextBackgroundFromElement({ element });
 	const resolvedBackground: ResolvedTextBackground = {
@@ -184,12 +205,22 @@ export function measureTextElement({
 			revelacionTexto(element.params, localTime / TICKS_PER_SECOND, element.duration / TICKS_PER_SECOND),
 		),
 		arco,
-		resaltado: resaltadoDe({
-			params: element.params,
-			tiempo: localTime / TICKS_PER_SECOND,
-			recorteInicio: element.trimStart / TICKS_PER_SECOND,
-		}),
+		resaltado,
+		reservas,
 	};
+}
+
+/** Las reservas medidas con la fuente y el interletrado del texto; `null` si no hay ninguna. */
+function reservasDe(ctx: TextCanvasContext, layout: MeasuredTextLayout, resaltado: ResaltadoTexto): number[] | null {
+	ctx.save();
+	ctx.font = layout.fontString;
+	setCanvasLetterSpacing({ ctx, letterSpacingPx: layout.letterSpacing });
+	try {
+		const reservas = reservasDeRenglones(resaltado, layout.lines, (t) => ctx.measureText(t).width);
+		return reservas.some((x) => x > 0) ? reservas : null;
+	} finally {
+		ctx.restore();
+	}
 }
 
 /**

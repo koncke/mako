@@ -186,7 +186,10 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 
 test('12: la medida suma el recorte, y sin resaltado el dibujo va por el camino de siempre', () => {
   const medida = sinComentarios(leer('app/video-editor/_opencut/text/measure-element.ts'));
-  assert.match(medida, /resaltado: resaltadoDe\(\{\s*params: element\.params,\s*tiempo: localTime \/ TICKS_PER_SECOND,\s*recorteInicio: element\.trimStart \/ TICKS_PER_SECOND/);
+  // Lo que cuida es que la medida le pase el RECORTE (no la forma de la línea: desde el 10/11/2026 se calcula antes,
+  // porque la reserva de la palabra que crece entra al ancho del bloque).
+  assert.match(medida, /const resaltado = resaltadoDe\(\{\s*params: element\.params,\s*tiempo: localTime \/ TICKS_PER_SECOND,\s*recorteInicio: element\.trimStart \/ TICKS_PER_SECOND/);
+  assert.match(medida, /\n\t\tresaltado,\n/, 'y devuelve ese resaltado');
   const dibujo = sinComentarios(leer('app/video-editor/_opencut/text/dibujar.ts'));
   assert.match(dibujo, /if \(res\) dibujarResaltado\(ctx, [^)]*\);\s*else dibujarLetras\(ctx, medido, lineas, textColor, textBaseline, false\);/);
   assert.match(dibujo, /if \(res\) dibujarResaltado\(c, [^)]*\);\s*else dibujarLetras\(c, medido, lineas, textColor, textBaseline, true\);/);

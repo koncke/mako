@@ -640,7 +640,9 @@ export function vistaDeLinea({
 		tipo: TIPO_PISTA[track.type],
 		...(principal ? { principal: true } : {}),
 		...(bloqueada ? { bloqueada: true } : {}),
-		elementos: lista.map(({ r, texto, sonoro }) => ({
+		// Un emoji automático va compacto (sin estado: animaciones, posición): son uno por subtítulo y, enteros,
+		// duplicaban la vista de un video largo hasta pasar su tope (revisión del 10/11/2026).
+		elementos: lista.map(({ r, texto, sonoro }) => r.emojiSubtitulo ? { ref: r.ref, tipo: r.tipo, nombre: corto(r.titulo, 20), inicio: r.inicio, fin: r.fin, emoji_de_subtitulo: true } : ({
 			ref: r.ref,
 			tipo: r.tipo,
 			...(texto !== undefined ? { texto: corto(texto, TOPES_CHAT.texto) } : { nombre: corto(r.titulo, 60) }),
@@ -1220,7 +1222,13 @@ export function revisarOperaciones({
 				cuantos++;
 				for (const w of elegidas[i] ?? []) if (ejemplos.length < 4 && !ejemplos.includes(w)) ejemplos.push(w);
 			});
-			if (!cuantos) continue;
+			if (!cuantos) {
+				// «Sumar» lo que ya está marcado o «quitar» lo que no lo estaba no cambia nada: se dice, no se calla.
+				const nombradas = (op.palabras ?? []).map((w) => `«${corto(w, 20)}»`).join(", ");
+				if (op.modo === "sumar") descartes.push(`${nombradas} ya ${(op.palabras ?? []).length === 1 ? "era palabra clave" : "eran palabras clave"}`);
+				else if (op.modo === "quitar") descartes.push(`${nombradas} no ${(op.palabras ?? []).length === 1 ? "era palabra clave" : "eran palabras clave"}`);
+				continue;
+			}
 			const conAlguna = elegidas.filter((e) => e.length > 0).length;
 			cambios.push({
 				tipo: "cambia",

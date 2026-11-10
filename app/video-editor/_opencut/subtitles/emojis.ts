@@ -26,6 +26,9 @@ export const NOMBRE_PISTA_EMOJIS = "Emojis";
 /** Entre un emoji y el siguiente, como mínimo: uno en cada subtítulo de un reel rápido marea. */
 export const SEPARACION_S = 2.5;
 
+/** Un subtítulo más corto no lleva emoji: la entrada «Rebote» dura medio segundo y el emoji no llegaría a asentarse. */
+export const DURACION_MINIMA_S = 0.6;
+
 /**
  * Las raíces y su emoji. Una raíz va por el COMIENZO de la palabra normalizada (sin tildes ni mayúsculas): «diner»
  * agarra «dinero» y «dineros». Con «$» al final es la palabra ENTERA: «auto$» es el auto y no «automatizar», y «año$»
@@ -38,28 +41,28 @@ export const DICCIONARIO_EMOJIS: ReadonlyArray<readonly [string, string]> = [
 	["factur", "💰"], ["ganan", "💰"], ["millon", "💰"], ["ahorr", "🐷"], ["invers", "📈"], ["invert", "📈"],
 	["vend", "🤝"], ["venta", "🤝"], ["client", "🤝"], ["negoci", "💼"], ["empres", "🏢"], ["trabaj", "💼"],
 	["oferta", "🔥"], ["descuent", "🏷️"], ["gratis", "🎁"], ["regal", "🎁"], ["bonus", "🎁"], ["bono", "🎁"],
-	["crec", "📈"], ["escal", "📈"], ["result", "📊"], ["numer", "📊"], ["porcent", "📊"], ["estadist", "📊"],
-	["meta", "🎯"], ["objetiv", "🎯"], ["estrateg", "🧠"], ["plan", "🗺️"],
+	["crec", "📈"], ["escala$", "📈"], ["escalar", "📈"], ["escaland", "📈"], ["result", "📊"], ["numer", "📊"], ["porcent", "📊"], ["estadist", "📊"],
+	["meta", "🎯"], ["objetiv", "🎯"], ["estrateg", "🧠"], ["plan$", "🗺️"], ["planes$", "🗺️"],
 	// Tiempo
-	["tiempo", "⏰"], ["hora", "⏰"], ["minut", "⏱️"], ["segund", "⏱️"], ["rapid", "⚡"], ["urgent", "🚨"],
+	["tiempo", "⏰"], ["hora", "⏰"], ["minut", "⏱️"], ["segundos$", "⏱️"], ["rapid", "⚡"], ["urgent", "🚨"],
 	["hoy$", "📅"], ["mañana", "📅"], ["semana", "📅"], ["mes$", "📅"], ["meses$", "📅"], ["año$", "📅"], ["años$", "📅"], ["fecha", "📅"],
 	// Ideas y aprendizaje
 	["idea", "💡"], ["secret", "🤫"], ["truco", "🪄"], ["clave", "🔑"], ["aprend", "📚"], ["curso", "📚"],
-	["estudi", "📚"], ["libro", "📖"], ["pens", "🤔"], ["pregunt", "❓"], ["respuest", "💬"], ["cerebro", "🧠"],
+	["estudi", "📚"], ["libro", "📖"], ["pensa", "🤔"], ["pregunt", "❓"], ["respuest", "💬"], ["cerebro", "🧠"],
 	["mente", "🧠"], ["consej", "💡"],
 	// Bien y mal
 	["exito", "🏆"], ["gan", "🏆"], ["logr", "🏆"], ["mejor", "⭐"], ["perfect", "👌"], ["increibl", "🤯"],
 	["brutal", "🔥"], ["fuego", "🔥"], ["error", "❌"], ["problem", "⚠️"], ["cuidado", "⚠️"], ["peligr", "⚠️"],
 	["mal", "👎"], ["bien", "👍"], ["correct", "✅"], ["listo", "✅"], ["nunca", "🚫"], ["prohib", "🚫"],
-	["miedo", "😱"], ["feliz", "😄"], ["risa", "😂"], ["reir", "😂"], ["trist", "😢"], ["amor", "❤️"],
+	["miedo", "😱"], ["feliz", "😄"], ["risa", "😂"], ["reir", "😂"], ["trist", "😢"], ["amor$", "❤️"],
 	["encant", "😍"], ["corazon", "❤️"], ["energi", "⚡"], ["fuerz", "💪"], ["salud", "💪"],
 	// Cosas y lugares
 	["video", "🎬"], ["camara", "📸"], ["foto", "📸"], ["contenid", "🎬"], ["celular", "📱"], ["telefon", "📱"],
 	["mensaj", "💬"], ["whatsapp", "💬"], ["chat", "💬"], ["correo", "📧"], ["email", "📧"], ["comput", "💻"],
 	["instagram", "📲"], ["redes", "📲"], ["tiktok", "📲"], ["anunci", "📣"], ["publicid", "📣"],
-	["casa", "🏠"], ["hogar", "🏠"], ["propiedad", "🏠"], ["inmobil", "🏠"], ["depart", "🏢"], ["mundo", "🌎"],
+	["casa$", "🏠"], ["casas$", "🏠"], ["hogar", "🏠"], ["propiedad", "🏠"], ["inmobil", "🏠"], ["depart", "🏢"], ["mundo", "🌎"],
 	["viaj", "✈️"], ["auto$", "🚗"], ["autos$", "🚗"], ["coche", "🚗"], ["comid", "🍽️"], ["cafe", "☕"], ["music", "🎵"],
-	["famil", "👨‍👩‍👧"], ["hij", "👶"], ["equipo", "👥"], ["gente", "👥"], ["persona", "👤"],
+	["famil", "👨‍👩‍👧"], ["hij", "👶"], ["equipo", "👥"], ["gente", "👥"], ["persona$", "👤"], ["personas$", "👤"],
 	["mira", "👀"], ["ojo", "👀"], ["escuch", "👂"], ["habl", "🗣️"],
 ];
 
@@ -108,6 +111,7 @@ export function elegirEmojis(subtitulos: readonly SubtituloParaEmoji[], separaci
 	const salida: Array<{ indice: number; emoji: string }> = [];
 	let ultimo: { emoji: string; inicio: number; indice: number } | null = null;
 	subtitulos.forEach((s, i) => {
+		if (s.fin - s.inicio < DURACION_MINIMA_S) return;
 		const emoji = emojiDeSubtitulo(s.texto, s.claves ?? []);
 		if (!emoji) return;
 		if (ultimo && s.inicio - ultimo.inicio < separacionS) return;
@@ -122,12 +126,18 @@ export function elegirEmojis(subtitulos: readonly SubtituloParaEmoji[], separaci
 export const TAMANO_EMOJI = 0.11;
 
 /**
- * Dónde va el emoji: centrado sobre el subtítulo, apenas arriba de su primer renglón. `y` del subtítulo es su centro
- * (px desde el centro del lienzo, como `transform.positionY`); `renglones` y `pxLetra`, su alto.
+ * Dónde va el emoji: centrado sobre el subtítulo, apenas arriba de su primer renglón; si arriba no entra en el
+ * lienzo (un subtítulo arriba de todo), apenas debajo del último. Siempre entero adentro del cuadro. `y` del
+ * subtítulo es su centro (px desde el centro del lienzo, como `transform.positionY`); `renglones` y `pxLetra`, su alto.
  */
 export function posicionDelEmoji({ x, y, renglones, pxLetra, lienzo }: { x: number; y: number; renglones: number; pxLetra: number; lienzo: { width: number; height: number } }): { x: number; y: number; escala: number } {
 	const lado = Math.min(lienzo.width, lienzo.height);
 	const pxEmoji = TAMANO_EMOJI * lado;
-	const arriba = y - (Math.max(1, renglones) * pxLetra * 1.2) / 2;
-	return { x, y: Math.round((arriba - pxLetra * 0.25 - pxEmoji / 2) * 10) / 10, escala: TAMANO_EMOJI };
+	const medioAlto = (Math.max(1, renglones) * pxLetra * 1.2) / 2;
+	const topeY = lienzo.height / 2 - pxEmoji / 2;
+	const topeX = lienzo.width / 2 - pxEmoji / 2;
+	let yEmoji = y - medioAlto - pxLetra * 0.25 - pxEmoji / 2;
+	if (yEmoji < -topeY) yEmoji = y + medioAlto + pxLetra * 0.25 + pxEmoji / 2;
+	const dentro = (v: number, tope: number) => Math.max(-tope, Math.min(tope, v));
+	return { x: Math.round(dentro(x, topeX) * 10) / 10, y: Math.round(dentro(yEmoji, topeY) * 10) / 10, escala: TAMANO_EMOJI };
 }
