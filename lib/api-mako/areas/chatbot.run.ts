@@ -50,7 +50,8 @@ import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { partesExplicitas, pasosUsanAudio, problemaDePartes, sanearPartes } from '@/lib/mensaje-partes';
 import { partesDeMako, esTarjetaTalCual, armarAvisoDeTarjeta, resultadoDelAviso, textoDePreparadas, esPorEmail, asuntoDeMako, problemaDeEmailMako, sinGrupoDeMako, type PartePreparada } from '@/lib/mako-tarjeta';
 import { prepararPartesGrupo, problemaDePartesGrupo } from '@/lib/mako-tarjeta-envio';
-import { getSettingData, guardarEstrategia, probarSecuencia, escenarioDePrueba, muestraParaCriterio, productosConEtapas, setCronSecuencia, TriggerInvalidoError } from '@/lib/setting-secuencias';
+import { getSettingData, guardarEstrategia, probarSecuencia, escenarioDePrueba, muestraParaCriterio, productosConEtapas, setCronSecuencia, TriggerInvalidoError, renombrarSecuencia, setEmojiSecuencia, nombreDeSecuencia, SecuenciaNoExisteError } from '@/lib/setting-secuencias';
+import { enColaDeAutomatizacion } from '@/lib/en-cola-automatizacion';
 import { duplicarSecuencia, nombreDeCopia, type DbDuplicar } from '@/lib/secuencia-duplicar';
 import { escenariosDeLaSecuencia } from '@/lib/simulador-grafo';
 import {
@@ -928,7 +929,8 @@ export const RUNNERS: Runners = {
         return {
           ok: true,
           resumen: `Automatización «${r.nombre}» creada (#${r.id}), pausada.${falta}`,
-          datos: { secuenciaId: r.id },
+          // Por HTTP `paraLaPersona` se descarta: el link (que escribe el código) viaja en los datos.
+          datos: { secuenciaId: r.id, link },
           paraLaPersona: `🧩 «${r.nombre}» quedó pausada.${falta} Ábrela y actívala 👉 ${link}`,
         };
       } catch (e) {
@@ -961,7 +963,7 @@ export const RUNNERS: Runners = {
         return {
           ok: true,
           resumen: `Automatización «${r.nombre}» creada (#${r.id}), pausada.`,
-          datos: { secuenciaId: r.id },
+          datos: { secuenciaId: r.id, link },
           paraLaPersona: `🧩 «${r.nombre}» quedó pausada. Ábrela y actívala 👉 ${link}`,
         };
       } catch (e) {
@@ -2020,6 +2022,58 @@ export const RUNNERS: Runners = {
       const r = await plantillaDesdePaso(Number(payload.secuenciaId), Number(payload.orden));
       if (!r.ok) return { ok: false, resumen: r.error };
       return { ok: true, resumen: `Plantilla «${r.name}»: ${r.status}.${r.nota ? ` ${r.nota}` : ''}`, datos: { costo_usd: r.uso?.costUsd ?? null } };
+    },
+  },
+  // ── Sólo HTTP (10/11/2026): lo que la pantalla hace y la API no tenía ────────────────────────────────────────────────
+  renombrar_automatizacion: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const pideNombre = typeof input.nombre === 'string' && input.nombre.trim() !== '';
+      const pideEmoji = typeof input.emoji === 'string';
+      if (!pideNombre && !pideEmoji) return { error: 'Pasa el nombre nuevo, el emoji, o los dos.' };
+      const nombre = pideNombre ? nombreDeSecuencia(String(input.nombre)) : null;
+      if (pideNombre && !nombre) return { error: 'El nombre no puede quedar vacío.' };
+      const emoji = pideEmoji ? String(input.emoji).trim() : null;
+      const actual = (s as { emoji?: string | null }).emoji ?? null;
+      if ((!pideNombre || nombre === s.nombre) && (!pideEmoji || (emoji || null) === actual)) return { error: `«${s.nombre}» ya está así.`, yaEstaba: true };
+      const partes = [pideNombre && nombre !== s.nombre ? `el nombre a «${nombre}»` : '', pideEmoji ? (emoji ? `el emoji a ${emoji}` : 'el emoji al del objetivo') : ''].filter(Boolean);
+      return { payload: { secuenciaId: id, ...(pideNombre ? { nombre } : {}), ...(pideEmoji ? { emoji } : {}) }, resumen: `Cambiarle a «${s.nombre}» ${partes.join(' y ')}` };
+    },
+    ejecutar: async (p) => {
+      const id = Number(p.secuenciaId);
+      try {
+        // El emoji primero: si no es un emoji, se rechaza antes de tocar el nombre (las dos cosas, o ninguna).
+        if (typeof p.emoji === 'string') await setEmojiSecuencia(id, p.emoji);
+        if (typeof p.nombre === 'string') await renombrarSecuencia(id, p.nombre);
+        return { ok: true, resumen: 'Listo: quedó con el nombre y el emoji que pediste.', datos: { secuenciaId: id } };
+      } catch (e) {
+        if (e instanceof TriggerInvalidoError) return { ok: false, resumen: e.message };
+        if (e instanceof SecuenciaNoExisteError) return { ok: false, resumen: noExiste(id) };
+        throw e;
+      }
+    },
+  },
+
+  espera_por_tarjeta: {
+    leer: async (input): Promise<SalidaLectura> => {
+      const id = num(input, 'secuenciaId');
+      const r = await enColaDeAutomatizacion(id);
+      if (!r) return { content: noExiste(id), isError: true };
+      const pasos = (Array.isArray(r.automatizacion.pasos) ? r.automatizacion.pasos : []) as Array<{ id?: string; cuerpo?: string; asunto?: string }>;
+      // Qué tarjeta es, en palabras de la persona: el principio de su texto (o el asunto de un email). Nada de nombres de leads.
+      const deQue = (clave: string): string => {
+        const p = pasos.find((x, i) => (typeof x.id === 'string' && x.id ? x.id : `o${i}`) === clave);
+        const t = String(p?.asunto || p?.cuerpo || '').replace(/\s+/g, ' ').trim();
+        return t.length > 60 ? `${t.slice(0, 60)}…` : t;
+      };
+      const tarjetas = Object.entries(r.porPaso).map(([tarjeta, e]) => ({ tarjeta, texto: deQue(tarjeta), esperando: e.cuantos, chip: e.chip, porQue: e.texto }));
+      return JSON.stringify({
+        ok: true, automatizacion: { id: r.automatizacion.id, nombre: r.automatizacion.nombre, activa: r.automatizacion.activa === true },
+        tarjetas, total: tarjetas.reduce((n, t) => n + t.esperando, 0),
+        ...(tarjetas.length ? {} : { nota: 'Nadie está esperando en una tarjeta: o no hay nadie adentro, o a los que están les sale en su momento.' }),
+      });
     },
   },
 };

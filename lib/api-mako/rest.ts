@@ -409,6 +409,13 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/chatbot/secuencias/{secuenciaId}/pasos/{orden}', 'cambiar_espera_paso'],
   ['GET', '/chatbot/secuencias/{secuenciaId}/plantillas', 'plantillas_meta_de_secuencia'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/restauraciones', 'desarchivar_secuencia'],
+  // Lo que la pantalla de Automations hace y la API no tenía (10/11/2026, Martín: «todo tiene que estar documentado en la API»).
+  ['GET', '/chatbot/plantillas', 'listar_plantillas_automatizaciones'],
+  ['POST', '/chatbot/plantillas/{plantilla}/automatizaciones', 'crear_automatizacion_desde_plantilla'],
+  ['POST', '/chatbot/secuencias/{secuenciaId}/copias', 'duplicar_automatizacion'],
+  ['PATCH', '/chatbot/secuencias/{secuenciaId}', 'renombrar_automatizacion'],
+  ['GET', '/chatbot/secuencias/{secuenciaId}/en-espera', 'espera_por_tarjeta'],
+  ['POST', '/chatbot/secuencias/{secuenciaId}/leads/{leadId}/nueva-prueba', 'volver_a_probar_lead_secuencia'],
   // ── metricas ──────────────────────────────────────────────────────────────
   ['GET', '/metricas/agendas/comparacion', 'comparar_agendas_meta_crm'],
   ['GET', '/metricas/analisis', 'analisis_negocio'],

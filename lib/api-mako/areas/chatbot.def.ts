@@ -201,14 +201,15 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
-  // LA GALERÍA POR LA API (undécima tanda, docs/diseno-undecima-tanda.md §7): una plantilla por categoría. SIN http
-  // (decisión de la tanda: ninguna operación nueva sale por HTTP).
+  // LA GALERÍA POR LA API (undécima tanda, docs/diseno-undecima-tanda.md §7): una plantilla por categoría. POR HTTP desde el
+  // 10/11/2026 (Martín, 9/11: «todo tiene que estar documentado en la API»): el «SIN http» era una regla de la tanda, no un
+  // motivo de datos (una plantilla no tiene datos de nadie), y crear_automatizacion_con_ia ya salía por HTTP.
   {
     id: 'listar_plantillas_automatizaciones', area: 'chatbot', tipo: 'lectura',
     titulo: 'Plantillas de automatizaciones',
     descripcion: 'Las plantillas de la galería de Automations, una por categoría del embudo (Un Lead Entró, Un Lead Agendó Llamada, Un Lead No Asistió…): su id, nombre, para qué sirve, el objetivo, por dónde sale (WhatsApp, email, Instagram, Messenger o «MaKo en WhatsApp», el aviso al grupo) y qué etapa pide al crearla, o si ya trae su CRON puesto. Úsala antes de crear_automatizacion_desde_plantilla.',
     parametros: [],
-    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB },
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
   {
     id: 'listar_secuencias_archivadas', area: 'chatbot', tipo: 'lectura',
@@ -266,7 +267,8 @@ export const DEFS: readonly OperacionDef[] = [
   },
   // Crear desde la GALERÍA (undécima tanda): la MISMA función que «＋ Nueva» (`crearDesdePlantilla`, lib/plantilla-crear.ts),
   // con las puertas de siempre. `chat`: crea algo PAUSADO y gratis, y la automatización misma es la pantalla editable.
-  // SIN http (ninguna operación nueva sale por HTTP). Un flujo no la corre (`preparar` lo rechaza).
+  // Por HTTP desde el 10/11/2026 (crea algo PAUSADO, gratis y reversible, como crear_automatizacion_con_ia). Un flujo no la
+  // corre (`preparar` lo rechaza).
   {
     id: 'crear_automatizacion_desde_plantilla', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear una automatización desde una plantilla',
@@ -277,18 +279,18 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'producto', tipo: 'string', max: 120, descripcion: 'opcional: el producto de esa etapa, sólo si hay varias etapas con ese nombre.' },
     ],
     reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla (y su CRON, si se eligió la etapa)',
-    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // «Duplicar» de los tres puntos de la lista de /automations (lib/secuencia-duplicar.ts, 09/10/2026), por la API (17/10/2026).
-  // SIN http (ninguna operación de creación de automatizaciones sale por HTTP). Nace PAUSADA: una copia prendida le
-  // mandaría el mismo mensaje DOS veces a cada lead que entra.
+  // Por HTTP desde el 10/11/2026 (como crear desde una plantilla: algo pausado y reversible). Nace PAUSADA: una copia prendida
+  // le mandaría el mismo mensaje DOS veces a cada lead que entra.
   {
     id: 'duplicar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Duplicar una automatización',
     descripcion: 'PROPONE hacer una copia de una automatización vigente, como «Duplicar» en Automations: la copia se llama «Copia de …», tiene los mismos pasos y el mismo disparador y horario, y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. No copia a los leads inscriptos ni sus envíos. Una automatización que archivaste no se duplica. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
     reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con los mismos pasos, disparador y horario que la original (se deshace archivándola)',
-    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
     id: 'cambiar_espera_paso', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
@@ -468,6 +470,7 @@ export const DEFS: readonly OperacionDef[] = [
   // «Volver a probar» (28/10/2026, ticket #19 de Leandro): «un lead no vuelve a entrar a una secuencia en la que ya estuvo»,
   // ¿cómo prueba el negocio de nuevo con su cuenta? La ficha del lead tiene su botón (lib/automatizaciones-del-lead.ts). No
   // le manda nada ahora: marca la inscripción terminada y lo próximo que arranca la secuencia la vuelve a correr, una vez.
+  // Por HTTP desde el 10/11/2026 (Leandro lo pidió para su Claude, docs/relevo/automations.md): no le escribe a nadie.
   {
     id: 'volver_a_probar_lead_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Volver a probar una secuencia con un lead',
@@ -477,7 +480,7 @@ export const DEFS: readonly OperacionDef[] = [
       pSecuenciaId,
     ],
     reversible: false, escribe: 'marca su inscripción terminada en nutricion_inscripciones (desenlace volver_a_probar) para que el próximo evento la vuelva a correr, y deja historial del lead; no manda nada',
-    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // El «Otra cosa» de «Si responde» (08/10/2026): lo que antes era el hand-off —«MaKo se calla y
   // te avisa»— es ahora una tarjeta ⚡ Acción con esta operación, que el conversor de las
@@ -884,5 +887,26 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     reversible: true, escribe: 'guarda mako.limites_envio en app_settings (sólo lo que difiere de lo de fábrica)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // ── Sólo HTTP (10/11/2026, «todo MaKo se debe poder utilizar por API»): lo que la pantalla hace y la API no tenía. Sólo por
+  // HTTP a propósito: en el chat la pantalla ya lo hace con un toque, y sumarlas al turno le saca lugar a otras herramientas.
+  {
+    id: 'renombrar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cambiar el nombre o el emoji',
+    descripcion: 'PROPONE cambiarle el nombre (hasta 40 caracteres) y/o el emoji del título a una automatización vigente, como tocarlos en el lienzo. emoji vacío vuelve al del objetivo. Una archivada no se renombra.',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'nombre', tipo: 'string', max: 120, descripcion: 'opcional: el nombre nuevo.' },
+      { nombre: 'emoji', tipo: 'string', max: 16, descripcion: 'opcional: un emoji, o vacío para volver al del objetivo.' },
+    ],
+    reversible: true, escribe: 'cambia nombre y/o emoji de la fila en nutricion_secuencias',
+    canales: ['http'], costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  {
+    id: 'espera_por_tarjeta', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Quién espera en cada tarjeta y por qué',
+    descripcion: 'Por cada tarjeta de una automatización, cuántos leads están esperando ahí y por qué todavía no les sale (el horario del negocio, la pausa, el envío apagado, la línea, el goteo, los topes, un fallo de envío): el mismo chip que muestra el lienzo. Sin nombres de personas. Úsala para «¿por qué no le llegó?» antes de tocar nada.',
+    parametros: [pSecuenciaId],
+    salida: 'json', canales: ['http'], costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
 ];

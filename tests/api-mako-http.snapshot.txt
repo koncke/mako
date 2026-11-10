@@ -169,6 +169,7 @@ cortar_recordatorio_cuota
 cortar_tramo_video
 crear_alumno_curso
 crear_automatizacion_con_ia
+crear_automatizacion_desde_plantilla
 crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_categoria_comunidad
@@ -220,6 +221,7 @@ detener_prueba_ab
 diagnosticar_funnel
 dividir_clip_video
 duplicados_lead
+duplicar_automatizacion
 duplicar_curso
 duplicar_diseno_imagen
 duplicar_hoja_dashboard
@@ -274,6 +276,7 @@ escenarios_ensayo
 escenarios_secuencia
 escribir_en_grupo
 escribir_guion_anuncio
+espera_por_tarjeta
 esta_aviso_activo
 estado_analisis_lead
 estado_canal_whatsapp_chatbot
@@ -425,6 +428,7 @@ listar_pendientes
 listar_pendientes_arranque
 listar_pixeles_meta
 listar_plantillas_aprobadas
+listar_plantillas_automatizaciones
 listar_plantillas_copywriter
 listar_plantillas_imagen
 listar_plantillas_video
@@ -593,6 +597,7 @@ registrar_pago_suelto
 registrar_valor_kpi
 reiniciar_personalidad
 remitente_email
+renombrar_automatizacion
 renombrar_curso
 renombrar_documento_copywriter
 renombrar_etapa
@@ -778,5 +783,6 @@ vincular_cobro_etapa
 vincular_evento_etapa
 vista_experimentos
 volver_a_mostrar_sugerencia
+volver_a_probar_lead_secuencia
 votar_encuesta_comunidad
 zona_media_buyer
