@@ -145,6 +145,7 @@ import { CURSO_AGENCIA_6_CIFRAS_V2 } from './curso-agencia-6-cifras-v2';
 import { CURSO_METOLODOGIA_JADS } from './curso-metolodogia-jads';
 import { CURSO_HIGHER_LEVELS_AE_MASTERY } from './curso-higher-levels-ae-mastery';
 import { CURSO_FORMULA_VENTAS_ILIMITADAS_2024 } from './curso-formula-ventas-ilimitadas-2024';
+import { CURSO_PROGRAMA_META_ADS_THE_NET_LAB } from './curso-programa-meta-ads-the-net-lab';
 import { RECURSOS_UGC } from './curso-ugc-recursos';
 import { CURSO_ANALISIS } from './AnalisisNegocio.datos';
 import { CURSO_BRANDING } from './BrandingMaKo.datos';
@@ -984,6 +985,9 @@ const RESUMEN: Record<string, string> = {
   'linkedin-for-ceos': 'Construir presencia en LinkedIn como fundador: el perfil, el contenido que se publica y el sistema para sostenerlo.',
   'metodo-contenido-irresistible': 'Contenido orgánico para productos, servicios y marca personal: la estrategia, los fundamentos del formato, la edición en CapCut y la optimización de lo que ya publicaste.',
   'metolodogia-jads': 'Meta Ads en cinco fases: preparación de la cuenta, objetivos y segmentación, creativos y guiones, micro-experimentación, métricas y pixel, escalamiento y remarketing.',
+  // THE NET LAB (9/11/2026): no pasó por Drive ni por cursoselite, pero vale lo mismo: sale de los 14
+  // módulos del plan.json. Las lecciones son documento (el video está cifrado en la plataforma).
+  'programa-meta-ads-the-net-lab': 'Meta Ads 2026 de punta a punta: la IA de Meta, la cuenta bien configurada, tracking, presupuestos, creativos por nicho, públicos, retargeting, métricas y escala.',
   'tiktok-100k-jordi-segues': 'Crecer en TikTok: elegir nicho y armar el perfil, cómo funciona el algoritmo, los formatos que rinden, de dónde sacar ideas y cómo construir el video, grabando en vivo.',
   'universidad-de-youtube': 'Un canal de YouTube desde cero: nicho, planificación del contenido, miniaturas y títulos, el algoritmo, los requisitos de monetización y los canales automatizados.',
   'youtube-2026': 'Masterclass sobre cómo cambió YouTube y qué está funcionando hoy en la plataforma.',
@@ -1595,6 +1599,9 @@ export const CURSOS_TODOS: Curso[] = [
 
   // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
   CURSO_FORMULA_VENTAS_ILIMITADAS_2024,
+
+  // Sumados por scripts/curso-al-catalogo.mjs (ver el porqué en ese archivo).
+  CURSO_PROGRAMA_META_ADS_THE_NET_LAB,
 ].map((c) => ({
   ...c,
   categoria: CATEGORIA[c.slug] ?? c.categoria,
