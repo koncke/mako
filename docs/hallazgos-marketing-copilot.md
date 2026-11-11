@@ -272,6 +272,16 @@ anterior quedó como `maqueta-dos-columnas.html`, para comparar.
   con «Lo que ya hacés o lo que querés empezar» debajo.
 
   Prospección quedó afuera porque no se puede leer. La lectura de anuncios sale de la conexión con Meta.
+- **La cuarta vuelta (11/11): «Tu negocio» por canal**, en `maqueta-por-canal.html` (claude.ai/artifact/97pKNFeiPV4U8asB9ejLwn). Lo que
+  costó y vale para lo que venga:
+  - **El texto de MaKo salió con voseo** («¿Por dónde vendés?») aunque la regla existe desde julio (memoria
+    reglas-de-voz-y-nombres: español neutro con tú, la audiencia es México). Se cuela porque la charla con Martín es
+    rioplatense. Antes de publicar una maqueta o una pantalla, se busca el voseo con una expresión (vendés, tenés, podés, querés,
+    acá, vos): lo único que puede quedar son las citas de lo que publicó otro.
+  - **Los logos de las redes ya existen**: `SvcIcon` / `LogoRed` (app/_components/ServicioVisual.tsx, el glifo de Instagram en
+    lib/canal-social.ts). Un ícono genérico al lado de «YouTube» o «Meta» se nota enseguida, y Martín lo marcó.
+  - **Las pastillas del gráfico del Spy** (`.spyg-red`) viven en el CSS de GraficoSpy.tsx, no en el de SpyApp: sin ese CSS,
+    un selector sale como texto suelto.
 - **Los datos del competidor se leyeron sin escribir nada.** La ficha (`/competitor-spy?ws=9&competidor=20`) se recorrió en el
   navegador de la app: el texto de las pestañas Contenido y Funnel, el marcado de cada sección, y 62 textos de sus piezas,
   paginando la grilla. Las piezas no vienen en ningún JSON de la página: llegan por acciones del servidor.

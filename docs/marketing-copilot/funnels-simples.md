@@ -22,13 +22,13 @@ dice abajo, en «Donde los cursos no coinciden».
 
 | # | Funnel | Qué es | Cuándo sirve | El recorrido |
 |---|---|---|---|---|
-| 1 | 📸 **Orgánico en Instagram** | Publicás reels, carruseles e historias sin pagar. Quien te sigue comenta una palabra o te escribe, y se vende por mensaje o en una llamada. | Sin presupuesto para anuncios, con tiempo para publicar seguido. El precio decide cuánto hay que conversar antes de vender. | Contenido → Te siguen → Mensaje o palabra clave → Venta |
-| 2 | ▶️ **Orgánico en YouTube** | Videos que responden lo que tu cliente busca antes de comprar. Quien los mira te conoce y da un paso: anotarse, agendar o comprar. | Cuando el cliente busca el tema en YouTube o Google y podés grabar todos los meses. Sirve sobre todo para precios altos: llega gente ya educada. | Video → Te conoce → Siguiente paso → Venta |
+| 1 | 📸 **Orgánico en Instagram** | Publicas reels, carruseles e historias sin pagar. Quien te sigue comenta una palabra o te escribe, y se vende por mensaje o en una llamada. | Sin presupuesto para anuncios, con tiempo para publicar seguido. El precio decide cuánto hay que conversar antes de vender. | Contenido → Te siguen → Mensaje o palabra clave → Venta |
+| 2 | ▶️ **Orgánico en YouTube** | Videos que responden lo que tu cliente busca antes de comprar. Quien los mira te conoce y da un paso: anotarse, agendar o comprar. | Cuando el cliente busca el tema en YouTube o Google y puedes grabar todos los meses. Sirve sobre todo para precios altos: llega gente ya educada. | Video → Te conoce → Siguiente paso → Venta |
 | 3 | 🎥 **Anuncios a VSL con llamada** | El anuncio lleva a una página con un video que explica el servicio. Quien se convence contesta unas preguntas, agenda y compra en la llamada. | Precio alto (desde unos US$3.000), alguien que sepa cerrar por llamada y presupuesto para juntar llamadas. | Anuncio → Video → Agenda → Llamada |
 | 4 | 💬 **Anuncios a mensajes** | El anuncio abre un chat de WhatsApp, Instagram o Messenger, y se vende o se agenda conversando. | Precio medio, decenas de dólares por día, alguien que conteste rápido. Es el más directo para servicios locales y para quien ya vende por chat. | Anuncio → Te escriben → Charla → Pago o llamada |
 | 5 | 📝 **Anuncios a formulario** | La persona deja sus datos en un formulario de Meta o en una página, y alguien del negocio la contacta. | Cuando hay alguien que llama o escribe a cada contacto, y la venta se hace en una llamada o una visita. Inmobiliarias, servicios profesionales, equipos con CRM. | Anuncio → Formulario → Contacto → Venta |
 | 6 | 🛒 **Anuncios a compra directa** | El anuncio lleva a la página de un producto y se paga ahí, sin hablar con nadie. | Precios bajos (hasta unos US$50–100 para gente que no te conoce), margen que aguante el costo del anuncio. Tiendas y productos digitales. | Anuncio → Página → Pago → Otra compra |
-| 7 | ✉️ **Newsletter** | Una lista de correo propia a la que le escribís seguido con algo útil, y de a poco le vendés. | Para quien ya tiene o puede juntar una audiencia, casi siempre desde su orgánico. Es tuya aunque cambie un algoritmo. | Se anota → Bienvenida → Newsletter cada semana → Venta |
+| 7 | ✉️ **Newsletter** | Una lista de correo propia a la que le escribes seguido con algo útil, y de a poco le vendes. | Para quien ya tiene o puede juntar una audiencia, casi siempre desde su orgánico. Es tuya aunque cambie un algoritmo. | Se anota → Bienvenida → Newsletter cada semana → Venta |
 
 Fuentes de la tabla, por funnel:
 - **Instagram:** stories-master · 3; manychat-master-instagram · 15, 17; master-marca-personal-5-0 · 57; master-marca-personal-4-0 · 73; bluehacker · 339, 341.
@@ -67,10 +67,10 @@ Van grandes, de a una, en la pantalla de «Tu funnel» (el wizard de la casa). C
 
 | Pregunta | Opciones | Para qué | Fuente |
 |---|---|---|---|
-| ¿Qué vendés? | Un servicio · Un curso o una mentoría · Productos · Otra cosa | Separa compra directa (productos) de los funnels con conversación | vender-por-fb-e-ig-ads · 99, 101; ecommerce-0-a-17-millones · 1 |
-| ¿Cuánto cuesta lo que vendés? | Menos de US$100 · US$100 a 500 · US$500 a 2.000 · Más de US$2.000 | Es la que más decide. Barato: se compra solo. Caro: hace falta hablar | vender-por-fb-e-ig-ads · 9, 101; master-marca-personal-4-0 · 58; arcadia · 15; youtube-2026 · 1 |
-| ¿Cuánto podés poner en anuncios por mes? | Nada por ahora · Hasta US$300 · US$300 a 1.000 · Más de US$1.000 | Sin presupuesto, orgánico y newsletter. Con poco, mensajes o formulario. Con más, VSL | `docs/conocimiento/anuncios-high-ticket.md` §2; formula-ventas-ilimitadas-2024 · 60; programa-meta-ads-the-net-lab · 03, 18 |
-| ¿Cómo vendés hoy? | Por mensaje · En una llamada · Compran solos en la web · Todavía no vendí | Se arranca por lo que ya funciona | master-marca-personal-4-0 · 73; bluehacker · 341; programa-meta-ads-the-net-lab · 55 |
+| ¿Qué vendes? | Un servicio · Un curso o una mentoría · Productos · Otra cosa | Separa compra directa (productos) de los funnels con conversación | vender-por-fb-e-ig-ads · 99, 101; ecommerce-0-a-17-millones · 1 |
+| ¿Cuánto cuesta lo que vendes? | Menos de US$100 · US$100 a 500 · US$500 a 2.000 · Más de US$2.000 | Es la que más decide. Barato: se compra solo. Caro: hace falta hablar | vender-por-fb-e-ig-ads · 9, 101; master-marca-personal-4-0 · 58; arcadia · 15; youtube-2026 · 1 |
+| ¿Cuánto puedes poner en anuncios por mes? | Nada por ahora · Hasta US$300 · US$300 a 1.000 · Más de US$1.000 | Sin presupuesto, orgánico y newsletter. Con poco, mensajes o formulario. Con más, VSL | `docs/conocimiento/anuncios-high-ticket.md` §2; formula-ventas-ilimitadas-2024 · 60; programa-meta-ads-the-net-lab · 03, 18 |
+| ¿Cómo vendes hoy? | Por mensaje · En una llamada · Compran solos en la web · Todavía no vendí | Se arranca por lo que ya funciona | master-marca-personal-4-0 · 73; bluehacker · 341; programa-meta-ads-the-net-lab · 55 |
 
 **Cómo recomienda con esas cuatro** (y siempre se puede elegir otro):
 - Nada en anuncios → **Orgánico en Instagram**, o **YouTube** si el cliente busca el tema. Newsletter, si ya hay audiencia.
@@ -85,33 +85,33 @@ el anuncio, al mirar los números, o cuando la persona toca una propiedad «Vac�
 
 #### 📸 Orgánico en Instagram
 1. **¿Quién contesta los mensajes de Instagram?** Yo · Alguien de mi equipo · Nadie, se juntan · Un bot con palabras clave. *stories-master · 20; master-marca-personal-4-0 · 73; manychat-master-instagram · 12; growing-setters-3-0 · 44*
-2. **¿Cuántas veces por semana publicás reels o carruseles?** Casi nunca · 1 o 2 · 3 a 6 · Todos los días. *emprende-con-instagram · 21; bluehacker · 340, 342*
+2. **¿Cuántas veces por semana publicas reels o carruseles?** Casi nunca · 1 o 2 · 3 a 6 · Todos los días. *emprende-con-instagram · 21; bluehacker · 340, 342*
 3. **¿Qué le das a quien comenta una palabra o te escribe?** Nada todavía · Una guía · Una clase · Una muestra del servicio. *manychat-master-instagram · 8, 16; bluehacker · 336; emprende-con-instagram · 25*
 4. ¿Cuántos seguidores tiene la cuenta? Menos de 500 · 500 a 5.000 · 5.000 a 20.000 · Más de 20.000. *bluehacker · 336; master-marca-personal-4-0 · 73; stories-master · 3*
-5. ¿Cuántos días por semana subís historias? Ninguno · 1 o 2 · Casi todos · Todos, con algo para vender. *stories-master · 3, 17; bluehacker · 340; master-marca-personal-5-0 · 57*
+5. ¿Cuántos días por semana subes historias? Ninguno · 1 o 2 · Casi todos · Todos, con algo para vender. *stories-master · 3, 17; bluehacker · 340; master-marca-personal-5-0 · 57*
 6. ¿Cómo se cierra hoy la venta? Por mensaje con un link de pago · En una llamada · Con un formulario · Todavía no vendí por Instagram. *master-marca-personal-4-0 · 73; bluehacker · 341; instituto-de-marca-personal · 78*
-7. ¿Hace cuánto publicás con regularidad? Recién empiezo · Menos de 3 meses · 3 a 12 meses · Más de un año. *master-marca-personal-5-0 · 21; bluehacker · 342*
+7. ¿Hace cuánto publicas con regularidad? Recién empiezo · Menos de 3 meses · 3 a 12 meses · Más de un año. *master-marca-personal-5-0 · 21; bluehacker · 342*
 
 #### ▶️ Orgánico en YouTube
-1. **¿Cuántos videos tenés subidos a YouTube?** Ninguno · Menos de 10 · Más de 10. *masteryhaus · 160; metodo-fukuda-poder-organico · 61*
-2. **¿Cuántos videos podés grabar por mes?** Uno · 2 a 4 · Más de 4. *masteryhaus · 160; bluehacker · 404; imperio-afiliado · 86*
-3. **¿Qué querés que haga quien ve el video?** Que me escriba · Que agende una llamada · Que se anote a mi lista · Que compre. *aumenta-tu-valor-y-atv-advantage · 55; masteryhaus · 174; metodo-fukuda-poder-organico · 61; bluehacker · 404*
-4. ¿Tu cliente busca lo que vendés en YouTube o en Google antes de comprar? Sí, seguro · Algo sí · No sé. *imperio-afiliado · 84, 86; masteryhaus · 179; youtube-2026 · 1*
+1. **¿Cuántos videos tienes subidos a YouTube?** Ninguno · Menos de 10 · Más de 10. *masteryhaus · 160; metodo-fukuda-poder-organico · 61*
+2. **¿Cuántos videos puedes grabar por mes?** Uno · 2 a 4 · Más de 4. *masteryhaus · 160; bluehacker · 404; imperio-afiliado · 86*
+3. **¿Qué quieres que haga quien ve el video?** Que me escriba · Que agende una llamada · Que se anote a mi lista · Que compre. *aumenta-tu-valor-y-atv-advantage · 55; masteryhaus · 174; metodo-fukuda-poder-organico · 61; bluehacker · 404*
+4. ¿Tu cliente busca lo que vendes en YouTube o en Google antes de comprar? Sí, seguro · Algo sí · No sé. *imperio-afiliado · 84, 86; masteryhaus · 179; youtube-2026 · 1*
 5. ¿Quién edita tus videos? Yo · Un editor · Un equipo. *360-marca-personal · 25; masteryhaus · 160*
-6. ¿Tenés videos o clases ya grabadas que se puedan reciclar? Muchos · Algunos · Ninguno. *masteryhaus · 176, 160; linkedin-for-ceos · 15*
-7. ¿Subís videos cortos a Instagram o TikTok? Sí, seguido · A veces · No. *360-marca-personal · 24; instituto-de-marca-personal · 29; nuevo-organic-ecom-3-0-junio-2026 · 51*
+6. ¿Tienes videos o clases ya grabadas que se puedan reciclar? Muchos · Algunos · Ninguno. *masteryhaus · 176, 160; linkedin-for-ceos · 15*
+7. ¿Subes videos cortos a Instagram o TikTok? Sí, seguido · A veces · No. *360-marca-personal · 24; instituto-de-marca-personal · 29; nuevo-organic-ecom-3-0-junio-2026 · 51*
 
 #### 🎥 Anuncios a VSL con llamada
 1. **¿Quién atiende las llamadas de venta?** Yo · Mi equipo · Varias personas · Nadie todavía. *sell-your-knowledge · 71; growing-setters-3-0 · 3; arcadia · 22*
-2. **¿Cuántas llamadas de venta podés atender por semana?** Menos de 5 · 5 a 15 · 15 a 40 · Más de 40. *sell-your-knowledge · 70; bluehacker · 223*
-3. **¿Tenés un video que explique lo que hacés y para quién?** No · Uno corto · Uno largo · Sólo lo explico en vivo. *bluehacker · 313, 314; growing-amg · 64; aumenta-tu-valor-y-atv-advantage · 240*
-4. ¿Cuánto cobrás por cliente y cuánto entra en el momento? Todo junto · En cuotas · Una seña · Depende. *aumenta-tu-valor-y-atv-advantage · 112; bluehacker · 223; growing-amg · 68*
+2. **¿Cuántas llamadas de venta puedes atender por semana?** Menos de 5 · 5 a 15 · 15 a 40 · Más de 40. *sell-your-knowledge · 70; bluehacker · 223*
+3. **¿Tienes un video que explique lo que haces y para quién?** No · Uno corto · Uno largo · Sólo lo explico en vivo. *bluehacker · 313, 314; growing-amg · 64; aumenta-tu-valor-y-atv-advantage · 240*
+4. ¿Cuánto cobras por cliente y cuánto entra en el momento? Todo junto · En cuotas · Una seña · Depende. *aumenta-tu-valor-y-atv-advantage · 112; bluehacker · 223; growing-amg · 68*
 5. De las últimas llamadas de venta, ¿cuántas terminaron en compra? Casi ninguna · 1 de cada 5 · 1 de cada 3 · Más de la mitad · Todavía no hice. *bluehacker · 6; sell-your-knowledge · 71*
 6. ¿Alguien habla con la gente antes de la llamada? Nadie, sólo el formulario · Una persona por mensaje · Una llamada corta antes · Yo. *bluehacker · 24, 27; growing-amg · 21; aumenta-tu-valor-y-atv-advantage · 242*
 7. ¿Qué pasa con quien agenda y no se presenta? Nada · Le llega un recordatorio · Le escribimos · Video y mensaje. *bluehacker · 26; arcadia · 13; sell-your-knowledge · 74*
 8. ¿Qué tiene que cumplir alguien para que le des una llamada? Nada · Una facturación mínima · Un tipo de negocio · Aplicar y que lo revisemos. *bluehacker · 8, 70; masteryhaus · 119, 120*
-9. ¿Tenés un guion de venta y respuestas a las objeciones de siempre? Escrito · En la cabeza · Ninguno. *programa-meta-ads-the-net-lab · 11*
-10. Si alguien habló con vos y no compró, ¿le hacés seguimiento? No · A mano · Está armado. El 80% no cierra en el primer contacto. *programa-meta-ads-the-net-lab · 11*
+9. ¿Tienes un guion de venta y respuestas a las objeciones de siempre? Escrito · En la cabeza · Ninguno. *programa-meta-ads-the-net-lab · 11*
+10. Si alguien habló contigo y no compró, ¿le haces seguimiento? No · A mano · Está armado. El 80% no cierra en el primer contacto. *programa-meta-ads-the-net-lab · 11*
 
 THE NET LAB no enseña este funnel: en sus 97 clases no aparecen VSL, agenda, setter ni closer. Aporta lo de alrededor: que sin
 cierre humano el anuncio no alcanza (· 11), que arriba de US$100 conviene una clase gratis antes de vender (· 53) y el costo
@@ -122,13 +122,13 @@ máximo por venta (· 14).
 2. **Cuando alguien escribe, ¿cuánto tardan en contestarle?** Menos de 10 minutos · Menos de 1 hora · Ese día · Al día siguiente o más. *formula-ventas-ilimitadas-2024 · 58; vender-por-fb-e-ig-ads · 172*
 3. **¿La venta se cierra en el chat o en una llamada?** En el chat · En una llamada · En una visita · Un poco de cada. *programa-meta-ads-the-net-lab · 55, 56*
 4. De cada 100 que te escriben, ¿cuántos terminan comprando? Menos de 5 · 5 a 10 · 10 a 20 · Más de 20 · No sé. *vender-por-fb-e-ig-ads · 117; formula-ventas-ilimitadas-2024 · 35, 56; m5-95 · 112*
-5. ¿Tenés una página donde se pueda comprar? Sí, una tienda · Sólo una web informativa · No, vendo por redes y chat. *programa-meta-ads-the-net-lab · 42; vender-por-fb-e-ig-ads · 106*
+5. ¿Tienes una página donde se pueda comprar? Sí, una tienda · Sólo una web informativa · No, vendo por redes y chat. *programa-meta-ads-the-net-lab · 42; vender-por-fb-e-ig-ads · 106*
 6. ¿En qué país están la mayoría de tus clientes? Latinoamérica · España u otro de Europa · Estados Unidos · Varios. *vender-por-fb-e-ig-ads · 96, 97*
-7. A quien te escribe y no compra, ¿qué le hacés? Nada · Le escribo cuando me acuerdo · Hay mensajes de seguimiento · Un sistema con recordatorios. *m5-95 · 25; vender-por-fb-e-ig-ads · 172; programa-meta-ads-the-net-lab · 55, 56*
+7. A quien te escribe y no compra, ¿qué le haces? Nada · Le escribo cuando me acuerdo · Hay mensajes de seguimiento · Un sistema con recordatorios. *m5-95 · 25; vender-por-fb-e-ig-ads · 172; programa-meta-ads-the-net-lab · 55, 56*
 8. ¿Tu negocio tiene local o recibe pedidos por WhatsApp? Tengo local · Recibo pedidos por WhatsApp · Las dos · Ninguna. Decide el objetivo de la campaña: si la persona no tiene que volver a una web, va Interacción; si no, Ventas. *programa-meta-ads-the-net-lab · 55*
 9. Antes de comprar, ¿tu cliente suele tener muchas dudas? Compra casi directo · Pregunta bastante · Necesita un presupuesto a medida. *programa-meta-ads-the-net-lab · 18, 55*
-10. ¿Tenés WhatsApp Business conectado a la página de Facebook del negocio? Sí · Uso WhatsApp común · No tengo WhatsApp del negocio · No sé. *programa-meta-ads-the-net-lab · 26, 56*
-11. ¿Tenés mensaje de bienvenida y respuestas armadas? Sí · Algunas · Improviso. *programa-meta-ads-the-net-lab · 56; automatiza-tu-whatsapp · 12*
+10. ¿Tienes WhatsApp Business conectado a la página de Facebook del negocio? Sí · Uso WhatsApp común · No tengo WhatsApp del negocio · No sé. *programa-meta-ads-the-net-lab · 26, 56*
+11. ¿Tienes mensaje de bienvenida y respuestas armadas? Sí · Algunas · Improviso. *programa-meta-ads-the-net-lab · 56; automatiza-tu-whatsapp · 12*
 
 #### 📝 Anuncios a formulario
 1. **Cuando alguien deja sus datos, ¿quién lo llama o le escribe?** Yo · Un vendedor o varios · Nadie todavía. *vender-por-fb-e-ig-ads · 118; bluehacker · 27*
@@ -136,16 +136,16 @@ máximo por venta (· 14).
 3. **¿Hay requisitos para ser tu cliente?** No, cualquiera · Un presupuesto mínimo · Ciertas zonas · Un tamaño o tipo de empresa. *vender-por-fb-e-ig-ads · 118; masteryhaus · 120*
 4. De cada 100 contactos, ¿cuántos terminan siendo clientes? Menos de 3 · 3 a 5 · 5 a 10 · Más de 10 · No sé. *vender-por-fb-e-ig-ads · 79, 118*
 5. ¿Dónde se anotan los contactos que llegan? En un CRM · En una planilla · En el correo · En ningún lado. *vender-por-fb-e-ig-ads · 80, 118*
-6. ¿Tenés una página propia con formulario? Sí · No, sólo redes · La estoy armando. *programa-meta-ads-the-net-lab · 42; vender-por-fb-e-ig-ads · 76*
-7. ¿Le vendés a personas o a empresas? Personas · Empresas · Las dos. *vender-por-fb-e-ig-ads · 106; programa-meta-ads-the-net-lab · 75*
-8. ¿Hoy te llegan contactos que no son para vos? Casi nunca · A veces · La mayoría · Todavía no llegan. *vender-por-fb-e-ig-ads · 76, 118*
+6. ¿Tienes una página propia con formulario? Sí · No, sólo redes · La estoy armando. *programa-meta-ads-the-net-lab · 42; vender-por-fb-e-ig-ads · 76*
+7. ¿Le vendes a personas o a empresas? Personas · Empresas · Las dos. *vender-por-fb-e-ig-ads · 106; programa-meta-ads-the-net-lab · 75*
+8. ¿Hoy te llegan contactos que no son para ti? Casi nunca · A veces · La mayoría · Todavía no llegan. *vender-por-fb-e-ig-ads · 76, 118*
 9. Desde que alguien deja sus datos hasta que compra, ¿cuánto pasa? El mismo día · Unos días · Hasta un mes · Más. Decide el objetivo: si se compra rápido y en la web, Ventas; si hay que nutrir o se cierra afuera, Clientes potenciales. *programa-meta-ads-the-net-lab · 42*
-10. ¿Podés mandarle algo automático apenas deja sus datos? Sí, ya armado · No, lo hago a mano · No tengo cómo. *programa-meta-ads-the-net-lab · 54, 82*
+10. ¿Puedes mandarle algo automático apenas deja sus datos? Sí, ya armado · No, lo hago a mano · No tengo cómo. *programa-meta-ads-the-net-lab · 54, 82*
 11. ¿Ya le vendiste a gente que llegó por anuncios? Sí, a varios · A alguno · No, sólo por recomendación. Sin producto probado, el curso no compra tráfico. *programa-meta-ads-the-net-lab · 11, 12*
 
 #### 🛒 Anuncios a compra directa
 1. **¿Cuánto te queda de cada venta, después del producto, el envío y las comisiones?** Menos del 20% · 20 a 40% · Más del 40% · No sé. *programa-meta-ads-the-net-lab · 13, 14; vender-por-fb-e-ig-ads · 60, 147; ecommerce-0-a-17-millones · 56*
-2. **¿Te pagan antes de recibir el pedido o al recibirlo?** Antes · Al recibirlo · Las dos · Es digital. Si es al recibirlo, sigue: «De cada 10 pedidos que mandás, ¿cuántos llegan y se cobran?». *ecommerce-0-a-17-millones · 56, 57; master-escala-100k · 76, 167; formula-ventas-ilimitadas-2024 · 9*
+2. **¿Te pagan antes de recibir el pedido o al recibirlo?** Antes · Al recibirlo · Las dos · Es digital. Si es al recibirlo, sigue: «De cada 10 pedidos que mandas, ¿cuántos llegan y se cobran?». *ecommerce-0-a-17-millones · 56, 57; master-escala-100k · 76, 167; formula-ventas-ilimitadas-2024 · 9*
 3. **Después de que alguien te compra, ¿qué más le podrías vender en ese momento?** Otra unidad con descuento · Algo que va con lo que compró · Una versión mejor · Nada por ahora. *ecommerce-0-a-17-millones · 29; master-escala-100k · 141, 146; nuevo-organic-ecom-3-0-junio-2026 · 392; 100m-money-models · 15–17*
 4. ¿Es algo que se manda en una caja o algo digital? Físico mío · Físico de un proveedor · Digital · Otra cosa. *vender-por-fb-e-ig-ads · 99, 101; ecommerce-0-a-17-millones · 1*
 5. ¿Cuánto paga una persona por tu producto más vendido, con envío? Menos de US$20 · US$20 a 100 · Más de US$100. *vender-por-fb-e-ig-ads · 9, 101; programa-meta-ads-the-net-lab · 53*
@@ -161,27 +161,27 @@ Si contesta «No sé» en la 1, MaKo la desarma en partes que sí sabe: cuánto 
 producto listo para mandar, cuántos pedidos vuelven y si vende con promos o cuotas que paga el negocio (programa-meta-ads-the-net-lab · 13).
 
 #### ✉️ Newsletter
-1. **¿Cuántas personas tenés en tu lista de correo?** Nadie todavía · Menos de 100 · 100 a 1.000 · Más de 1.000. *masteryhaus · 205; master-marca-personal-5-0 · 91*
+1. **¿Cuántas personas tienes en tu lista de correo?** Nadie todavía · Menos de 100 · 100 a 1.000 · Más de 1.000. *masteryhaus · 205; master-marca-personal-5-0 · 91*
 2. **¿De dónde sale la gente que se anota?** Instagram · YouTube · LinkedIn · Un regalo gratis · Clientes · No se anota nadie. *masteryhaus · 205, 208; linkedin-for-ceos · 4; instituto-de-marca-personal · 29*
-3. **¿Cada cuánto le escribís a tu lista?** Nunca · De vez en cuando · Una vez por mes · Cada semana. *masteryhaus · 202; bluehacker · 328; master-marca-personal-5-0 · 91*
-4. ¿Tenés algo gratis para dar a cambio del correo? Sí · Lo puedo armar · No. *masteryhaus · 208; mentoria-4k · 25; emprende-con-instagram · 25*
-5. ¿Con qué mandás los correos? Gmail o similar · Una plataforma de newsletter · Todavía con nada. *aumenta-tu-valor-y-atv-advantage · 216; masteryhaus · 53*
+3. **¿Cada cuánto le escribes a tu lista?** Nunca · De vez en cuando · Una vez por mes · Cada semana. *masteryhaus · 202; bluehacker · 328; master-marca-personal-5-0 · 91*
+4. ¿Tienes algo gratis para dar a cambio del correo? Sí · Lo puedo armar · No. *masteryhaus · 208; mentoria-4k · 25; emprende-con-instagram · 25*
+5. ¿Con qué mandas los correos? Gmail o similar · Una plataforma de newsletter · Todavía con nada. *aumenta-tu-valor-y-atv-advantage · 216; masteryhaus · 53*
 6. ¿Tus correos salen desde un mail con el dominio de tu negocio? Sí · No, de una cuenta gratis · No sé. *master-marca-personal-5-0 · 92; bluehacker · 319*
-7. ¿Qué querés que haga quien lee tu newsletter? Que compre · Que agende una llamada · Que me responda · Sólo mantener la relación. *masteryhaus · 204; bluehacker · 328; master-marca-personal-5-0 · 92*
-8. ¿Sabés qué parte de tu lista abre tus correos? Menos del 15% · 15 a 30% · Más del 30% · No lo miro. *masteryhaus · 211; bluehacker · 322; aumenta-tu-valor-y-atv-advantage · 216*
+7. ¿Qué quieres que haga quien lee tu newsletter? Que compre · Que agende una llamada · Que me responda · Sólo mantener la relación. *masteryhaus · 204; bluehacker · 328; master-marca-personal-5-0 · 92*
+8. ¿Sabes qué parte de tu lista abre tus correos? Menos del 15% · 15 a 30% · Más del 30% · No lo miro. *masteryhaus · 211; bluehacker · 322; aumenta-tu-valor-y-atv-advantage · 216*
 
 #### 🎁 Lead magnet (pieza)
 1. ¿Qué te piden o preguntan antes de comprarte? Cuánto sale · Un ejemplo o resultado · Por dónde empezar · Una consulta gratis. *the-perfect-launch · 73; academia-de-lanzamiento · 25; sell-your-knowledge · 32*
 2. Cuando alguien te encuentra, ¿qué sabe de su problema? No sabe que lo tiene · Lo sabe y no conoce la solución · Conoce la solución y duda de quién · Ya te conoce. *sell-your-knowledge · 32; arcadia · 15*
 3. ¿Ya diste algo gratis que le sirvió a alguien? Una guía · Un video o clase · Una plantilla o calculadora · Nada. *the-perfect-launch · 75; mentoria-4k · 25; academia-de-lanzamiento · 25*
 4. ¿Cuánto tarda alguien en decidirse a comprarte? El mismo día · Unos días · Semanas · Meses. *sell-your-knowledge · 32; academia-five-stars · 13*
-5. Cuando alguien te deja el contacto, ¿cómo le escribís? Correo · WhatsApp · Instagram · Todavía no le escribo. *masteryhaus · 208; the-perfect-launch · 94; manychat-master-instagram · 19*
+5. Cuando alguien te deja el contacto, ¿cómo le escribes? Correo · WhatsApp · Instagram · Todavía no le escribo. *masteryhaus · 208; the-perfect-launch · 94; manychat-master-instagram · 19*
 
 #### 🎓 Webinar (pieza)
-1. ¿Tenés una fecha límite real para decidir? Cupos · El precio sube · Un bono por tiempo · Ninguna. *arcadia · 15; the-perfect-launch · 156*
-2. ¿A quién le vendés? Personas · Empresas · Las dos. *arcadia · 18*
+1. ¿Tienes una fecha límite real para decidir? Cupos · El precio sube · Un bono por tiempo · Ninguna. *arcadia · 15; the-perfect-launch · 156*
+2. ¿A quién le vendes? Personas · Empresas · Las dos. *arcadia · 18*
 3. ¿Cuánta gente te sigue o está en tus listas y nunca te compró? Casi nadie · Hasta 5.000 · Más de 5.000. *arcadia · 15; masteryhaus · 24; bluehacker · 6*
-4. ¿Cuánto tiempo seguido podés estar frente a tu audiencia? Un video corto · Una hora en vivo · Dos o tres horas · Varios días (reto). *mentoria-4k · 23; the-perfect-launch · 156; academia-de-lanzamiento · 31*
+4. ¿Cuánto tiempo seguido puedes estar frente a tu audiencia? Un video corto · Una hora en vivo · Dos o tres horas · Varios días (reto). *mentoria-4k · 23; the-perfect-launch · 156; academia-de-lanzamiento · 31*
 5. ¿Quién atiende a los que quedan después de la clase? Yo · Un equipo de ventas · Nadie todavía. *la-universidad-del-closer · 45; arcadia · 15; masteryhaus · 24*
 
 ### 3.3 La pregunta de plata, para todo funnel con anuncios
