@@ -314,3 +314,9 @@ mismo en el Ops Center, la estrella y la tarjeta de Create.
 - **La regla:** el alto de un campo que depende de su ancho se mide cuando cambia el ANCHO (`ResizeObserver`), no cuando cambia
   lo que tiene adentro. Sólo el ancho, porque el alto que se pone también dispara al observador. Vive en
   app/_chat/CajaChat.tsx (el efecto de la caja trabada); el test, en tests/copywriter.test.ts.
+- **⚠️ Y el observador del ancho TAMPOCO alcanzó** (desplegado otra vez y medido igual: 40 px). `ResizeObserver` avisa con los
+  cuadros de dibujo, y una pestaña de fondo (el panel del navegador de la app oculto, una pestaña detrás de otra) no dibuja: el
+  campo midió antes de que llegara el botón y el aviso no llegó nunca. Lo que sí avisa en segundo plano es `MutationObserver` sobre
+  la fila (el botón al llegar ES una mutación). Probado en vivo con la página oculta: 1 aviso y la medida pasa a 61 px.
+- **La regla, completa:** para re-medir cuando aparece algo al lado, se observan las MUTACIONES de la fila; el `ResizeObserver`
+  queda para cuando cambia la ventana. Y lo que depende de `requestAnimationFrame` no se puede probar con el panel oculto.

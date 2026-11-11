@@ -323,9 +323,15 @@ test('la caja trabada se vuelve a medir cuando llega su frase y cada vez que cam
   // La caja es la compartida (app/_chat/CajaChat.tsx); el panel de Copywriting es angosto y la frase ocupa dos renglones.
   // ⚠️ Medir sólo al llegar la frase NO alcanzó (desplegado y medido en producción: 40 px de alto con 61 de frase): el botón
   // «Instalar MaKo» es dinámico y angosta el campo DESPUÉS. Por eso mide con un observador del ancho.
+  // ⚠️⚠️ Y el del ancho TAMPOCO alcanzó (desplegado otra vez, con la página en segundo plano): `ResizeObserver` avisa con los cuadros
+  // de dibujo, y una pestaña de fondo no tiene. El de mutaciones de la fila sí avisa, y es el que ve llegar el botón.
   const caja = leer('app/_chat/CajaChat.tsx');
-  const efecto = caja.slice(caja.indexOf('if (!el || altoMax == null || !p.bloqueo'), caja.indexOf('}, [p.bloqueo?.frase, altoMax]);'));
+  const efecto = caja.slice(caja.indexOf('if (!el || altoMax == null || !p.bloqueo) return;'), caja.indexOf('}, [p.bloqueo?.frase, altoMax]);'));
   assert.ok(efecto.length > 0, 'hay un efecto de la caja trabada');
   assert.match(efecto, /el\.style\.height = altoDelCampo\(el\.scrollHeight, altoMax\);/);
-  assert.match(efecto, /new ResizeObserver\(\(\) => \{\n\s+const w = el\.getBoundingClientRect\(\)\.width;\n\s+if \(w !== ancho\) \{ ancho = w; medir\(\); \}/);
+  assert.match(efecto, /if \(el\.value \|\| w === ancho\) return;/, 'mide sólo si cambió el ancho (el alto que pone también avisa)');
+  assert.match(efecto, /new ResizeObserver\(medir\)/);
+  assert.match(efecto, /const fila = el\.parentElement\?\.parentElement \?\? null;/);
+  assert.match(efecto, /mo\?\.observe\(fila, \{ childList: true, subtree: true \}\);/);
+  assert.match(efecto, /return \(\) => \{ ro\?\.disconnect\(\); mo\?\.disconnect\(\); \};/);
 });

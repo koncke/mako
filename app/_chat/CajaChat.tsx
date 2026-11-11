@@ -231,18 +231,28 @@ function Caja({ p, grabacion: deLaPantalla, nota = null }: { p: PropsCajaChat; g
   // MaKo»). Se mide cada vez que cambia el ANCHO mientras está trabada: medir sólo al llegar la frase no alcanzó, porque el botón
   // «Instalar MaKo» se carga después (es dinámico) y recién ahí el campo se angosta. Vacío, el alto de un textarea cuenta su
   // placeholder. Sólo el ancho: el alto que se pone acá también dispara al observador.
+  // ⚠️ Y TAMBIÉN cuando cambia algo en su FILA (`MutationObserver`): el `ResizeObserver` avisa con los cuadros de dibujo, y en una
+  // pestaña de fondo no hay cuadros. Desplegado y medido en producción con la página en segundo plano: el campo midió antes de
+  // que llegara el botón y nunca más (40 px con una frase de 61). El de mutaciones avisa igual, y al llegar el botón vuelve a medir.
   useEffect(() => {
     const el = caja.current;
-    if (!el || altoMax == null || !p.bloqueo || typeof ResizeObserver === 'undefined') return;
-    const medir = () => { if (el.value) return; el.style.height = 'auto'; el.style.height = altoDelCampo(el.scrollHeight, altoMax); };
-    medir();
-    let ancho = el.getBoundingClientRect().width;
-    const ro = new ResizeObserver(() => {
+    if (!el || altoMax == null || !p.bloqueo) return;
+    let ancho = -1;
+    const medir = () => {
       const w = el.getBoundingClientRect().width;
-      if (w !== ancho) { ancho = w; medir(); }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+      if (el.value || w === ancho) return;
+      ancho = w;
+      el.style.height = 'auto';
+      el.style.height = altoDelCampo(el.scrollHeight, altoMax);
+    };
+    medir();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    ro?.observe(el);
+    // La fila: el campo vive en `.co-caja__campo`, y ese en la fila (con el «+», los emojis y el botón).
+    const fila = el.parentElement?.parentElement ?? null;
+    const mo = fila && typeof MutationObserver !== 'undefined' ? new MutationObserver(medir) : null;
+    if (fila) mo?.observe(fila, { childList: true, subtree: true });
+    return () => { ro?.disconnect(); mo?.disconnect(); };
   }, [p.bloqueo?.frase, altoMax]); // eslint-disable-line react-hooks/exhaustive-deps
   // Montada escondida (el chat del lienzo de Automations, en su ranura con `display: none`), se mide al APARECER: el ancho pasa
   // de 0 a algo (lib/centro-caja.ts → altoDelCampo, el texto que quedaba abajo y cortado, 23/10/2026).
