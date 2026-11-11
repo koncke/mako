@@ -7,7 +7,8 @@
 //   1. lo de la plataforma lo ven todos, y sólo lo revisado (la 0411, cuando se aplique);
 //   2. lo traído lo ve SÓLO su negocio, sin esperar la revisión (lo eligió él), y nunca otro negocio ni un script sin negocio;
 //   3. `traidaPor` lee el negocio venga como número o como texto (bigint de la base), y nada raro cuenta como negocio;
-//   4. `linkDeInstagram` se mudó a ./link.ts y la biblioteca lo sigue exportando igual.
+//   4. `linkDeInstagram` se mudó a ./link.ts y la biblioteca lo sigue exportando igual;
+//   5. el link pegado en el buscador encuentra ESA publicación si ya está (si no, ofrecía traer lo que ya estaba).
 //
 // Verificado rompiéndolo (11/11/2026, base 4/0): `seMuestraA` mostrando lo traído a cualquier negocio → cae 2; sin saltear la
 // revisión para lo traído → cae 2; `traidaPor` aceptando el 0 → cae 3.
@@ -18,6 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { linkDeInstagram as desdeLaBiblioteca, seMuestraA, traidaPor } from '../lib/carruseles/biblioteca';
 import { linkDeInstagram } from '../lib/carruseles/link';
+import { coincide, type Carrusel } from '../lib/carruseles/explorar';
 
 const REVISADA = '2026-11-10T10:00:00Z';
 
@@ -50,4 +52,11 @@ test('4 · `linkDeInstagram` vive en ./link.ts y la biblioteca lo sigue exportan
   assert.deepEqual(linkDeInstagram('instagram.com/reel/C97VsS3u6_P'), { ref: 'C97VsS3u6_P', url: 'https://www.instagram.com/p/C97VsS3u6_P/' });
   assert.equal(linkDeInstagram('nature'), null);
   assert.equal(linkDeInstagram('https://www.instagram.com/lifeofarjav/'), null, 'un perfil no es una publicación');
+});
+
+test('5 · el link pegado en el buscador encuentra ESA publicación si ya está entre los outliers', () => {
+  const c = { url: 'https://www.instagram.com/p/DaZFc_kkttt/', texto: 'Cómo vender más', gancho: null, creador: { nombre: 'Alguien', usuario: 'alguien' }, formato: null, cta: null } as unknown as Carrusel;
+  assert.equal(coincide(c, 'https://www.instagram.com/reel/DaZFc_kkttt/?igsh=abc'), true, 'el mismo shortcode, venga de /p/ o de /reel/');
+  assert.equal(coincide(c, 'https://www.instagram.com/p/OtroCodigo1/'), false, 'otro link no lo encuentra: queda el botón de traer');
+  assert.equal(coincide(c, 'vender'), true, 'la búsqueda por texto sigue igual');
 });
