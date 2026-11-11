@@ -16,3 +16,9 @@
 .deDonde {
   display: block; margin: 0 0 10px; font-size: 11.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--dim);
 }
+
+/* En el teléfono los botones van debajo del título, en una fila que se desliza: alineados a la izquierda (centrados, lo que
+   no entraba quedaba cortado de los DOS lados y el principio no se podía alcanzar). La clase doble gana a `.botones` de Image. */
+.botonesTelefono.botonesTelefono { justify-content: flex-start; }
+/* Y su fila ocupa el ancho de la pantalla: el encabezado centra a sus hijos, y la fila (más ancha que la pantalla) se salía por los dos lados. */
+.filaTelefono.filaTelefono { align-self: stretch; min-width: 0; }

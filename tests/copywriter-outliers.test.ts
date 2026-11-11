@@ -261,3 +261,12 @@ test('las frases del original que repite la réplica: 5 palabras seguidas o más
   assert.match(ia, /const copiadas = original && escrito \? frasesDelOriginal\(original, escrito\) : \[\];/);
   assert.match(ia, /Repite frases del original/);
 });
+
+test('teléfono: «Mis guiones» y «Crear desde cero» debajo del título, no al final de la fila de formatos (11/11, a 375 no se veían)', () => {
+  const portada = leer('app/copywriter/OutliersCopy.tsx');
+  assert.match(portada, /\{telefono \? <div className=\{`\$\{s\.filtros\} \$\{oc\.filaTelefono\}`\}>\{botones\}<\/div> : botones\}/);
+  assert.doesNotMatch(portada, /\{segmento\}\n\s+\{telefono \? botones : null\}/);
+  const css = leer('app/copywriter/outliers.module.css');
+  assert.match(css, /\.filaTelefono\.filaTelefono \{ align-self: stretch; min-width: 0; \}/);
+  assert.match(css, /\.botonesTelefono\.botonesTelefono \{ justify-content: flex-start; \}/);
+});

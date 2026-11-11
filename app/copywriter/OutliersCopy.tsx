@@ -26,6 +26,7 @@ import { OutlierAbierto } from './OutlierAbierto';
 import { RUTA_CREAR_COPY, RUTA_GUIONES_COPY } from './vista';
 import s from '@/app/image-editor/carruseles/explorar.module.css';
 import v from '@/app/video-editor/outliers.module.css';
+import oc from './outliers.module.css';
 
 const ORDENES: { value: OrdenCopy; label: string }[] = [
   { value: 'outlier', label: 'Mayor outlier' },
@@ -148,7 +149,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   };
 
   const botones = (
-    <div className={s.botones}>
+    <div className={telefono ? `${s.botones} ${oc.botonesTelefono}` : s.botones}>
       <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
       <Link href={rutaGuiones} className={s.pastilla}>Mis guiones</Link>
       <Link href={rutaCrear} className={s.crear}><span aria-hidden>＋</span> Crear desde cero</Link>
@@ -171,7 +172,10 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
       <div className={s.col}>
         <header className={s.cabeza}>
           <h1>Encuentra tu siguiente <mark>OUTLIER</mark></h1>
-          {telefono ? null : botones}
+          {/* En el teléfono, debajo del título como en la computadora (en su fila deslizable): 11/11/2026, en producción a 375, al
+              final de la fila de formatos («Todos · Anuncios · Reels · Carruseles · YouTube») quedaban fuera de la pantalla y
+              «Mis guiones» y «Crear desde cero» no se veían. */}
+          {telefono ? <div className={`${s.filtros} ${oc.filaTelefono}`}>{botones}</div> : botones}
           {portada.outliers.length > 0 && (
             <label className={s.busca}>
               <Lupa />
@@ -191,7 +195,6 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
 
         {portada.outliers.length === 0 ? (
           <>
-            {telefono ? <div className={s.filtros}>{botones}</div> : null}
             <div className={s.vacio}>
               <p>Sigue en Competitors Spy las cuentas de tu nicho y aquí aparecen sus anuncios, reels, carruseles y videos que mejor funcionan, para replicar el que te sirva.</p>
               <Link href="/competitor-spy" className={s.boton}>Abrir Competitors Spy</Link>
@@ -201,7 +204,6 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
           <>
             <div className={s.filtros}>
               {segmento}
-              {telefono ? botones : null}
               <span className={s.espacio} />
               {telefono ? null : (
                 <span className={s.total}>{contadorCorto(vistos.length)} {vistos.length === 1 ? 'outlier' : 'outliers'}</span>
