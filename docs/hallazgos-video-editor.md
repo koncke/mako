@@ -6,6 +6,12 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Remotion: lo que la nube hace y lo que no (11/11/2026)
+
+- **La nube de Remotion EXPORTA; no edita.** La vista previa (`<Player>`) corre siempre en el navegador; un render en Lambda tarda segundos (7,56 s caliente en su ejemplo más simple), sirve para exportar, no para mover el cabezal. Lo que baja la RAM es otra cosa: proxies livianos hechos en la nube, el `<Video>` de `@remotion/media` (descarga por partes, caché acotado), `maxCanvasSinkFrameSize`, y NO usar `prefetch()` (guarda el archivo entero en memoria). **Antes de migrar de OpenCut, medir dónde se va hoy la memoria**: cambiar de motor no la baja sola.
+- **12 de las 21 transiciones** (`dissolve`, `crossZoom`, `filmBurn`…) y los efectos sobre TEXTO necesitan `<HtmlInCanvas>`, que en la vista previa pide un flag de Chrome y sin él tira un error fatal. En el render andan todas.
+- **Licencias dentro de lo gratis:** de `@remotion/sfx` sólo 7 de 32 sonidos son CC0; los emojis animados piden atribución (CC BY 4.0). Detalle: docs/editor-video/remotion-a-fondo.md.
+
 ## La portada de outliers con UNA tarjeta gris (11/11/2026)
 
 Martín, con la captura de `/video-editor`: «Encuentra tu siguiente OUTLIER» tenía UNA tarjeta (la plantilla «Mensaje para…»),

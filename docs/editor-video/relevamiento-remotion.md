@@ -10,6 +10,8 @@ marcado.
 
 ---
 
+**A FONDO (11/11/2026, a pedido de Martín: «¿estás seguro de que no se puede editar en Remotion…?»):** [remotion-a-fondo.md](remotion-a-fondo.md). Editar con la vista previa en la nube no existe en Remotion (la nube sólo exporta, segundos por render); la edición fluida sale de PROXIES livianos hechos en la nube y del `<Video>` de `@remotion/media` (el modelo de Descript). Los «80 efectos» son 91, en 7 categorías, con corrección de color, LUT y curvas; quitar el fondo es `@remotion/video-matting` (WebGPU, no corre en Lambda).
+
 ## 1. Lo que Remotion ES, y lo que NO es
 
 - **Es** una forma de hacer videos con React: cada video es un componente (una «composition») que recibe sus datos
