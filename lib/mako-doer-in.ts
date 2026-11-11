@@ -73,6 +73,7 @@ import { AUDIO_DEL_LOTE_SIN_ESCUCHAR, audioCitadoDe, conElAudioCitado, conLaCita
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { conElDominioDeMaKo, linksConWs } from '@/lib/links-con-ws';
+import { llegoTarde } from '@/lib/linea-demora';
 import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro, nombraGoogleCalendar, type VeredictoIntencion } from '@/lib/mako-intencion';
 import { permisoCalendarioGoogle } from '@/lib/google-calendar';
@@ -264,6 +265,8 @@ async function abrirVentana(ws: number, jid: string): Promise<void> {
 /** `loteDeVarios`: el lote junta mensajes de MÁS de una persona (o de alguien sin teléfono): nunca va a la computadora del dueño. */
 type MsgIn = {
   key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string; participantAlt?: string }; message?: Record<string, unknown>; pushName?: string; base64?: string; loteDeVarios?: boolean;
+  /** La hora de WhatsApp (cuando se MANDÓ), en segundos: mide el atraso de la entrega (lib/linea-demora.ts). */
+  messageTimestamp?: unknown;
   /** Un lote: para quién era cada mensaje, ya decidido (lib/doer-para-quien.ts, `paraQuienDelLote`). */
   paraQuien?: ParaQuienDelLote;
   /** Un lote: las imágenes y los PDF que traía, ya bajados (`adjuntoDelLote`). Van como bloques al turno. */
@@ -762,6 +765,16 @@ async function atenderEntranteDoer(instance: string, data: MsgIn, jid: string): 
   if (jid !== suyo && !(await gruposDoer(OWNER_WS)).includes(jid)) {
     return { engaged: false, skip: 'grupo no habilitado' };
   }
+  // ⚠️ LO QUE WHATSAPP ENTREGA CON HORAS DE ATRASO (10/11/2026, lib/linea-demora.ts). Un comprobante del 9/11, ya resuelto a mano,
+  // volvió a entrar un día después por otra línea del grupo: MaKo le dijo a Joan «Recibí tu comprobante» y le mandó la revisión a
+  // Martín otra vez (ticket #80). Lo que llega con más de `TARDE_MS` de atraso no lo atiende MaKo sola: va a SuperAdmin. Antes del
+  // comprobante y de la cola. Lo del equipo (fromMe) sigue: su eco sólo se anota.
+  const tarde = data.key?.fromMe ? null : llegoTarde(data.messageTimestamp, Date.now());
+  if (tarde) {
+    await avisarQueLlegoTarde(wsData, jid, data, tarde.horas)
+      .catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude avisar el mensaje atrasado: ${e instanceof Error ? e.message : String(e)}`));
+    return { engaged: false, skip: `llegó tarde (${tarde.horas} h)` };
+  }
   // ⚠️ EL COMPROBANTE DE LA MENSUALIDAD DE UNA AGENCIA (6/11/2026, lib/agencia-mes-comprobante.ts). Martín: «MaKo pide ahí el
   // comprobante de Binance». Una foto o un PDF de una persona en el grupo de una agencia con la mensualidad prendida se lee como
   // comprobante ANTES del turno; si lo era, ya se contestó (lo arma el código) y el turno no corre: MaKo no contesta dos veces.
@@ -1131,6 +1144,29 @@ async function contestaAlEquipo(wsData: number, instance: string, jid: string, d
 }
 
 /** Que la respuesta al equipo no se pierda: a su ticket si el mensaje del equipo lo tenía; si no, al grupo de SuperAdmin. */
+/** Los mensajes atrasados ya avisados (por id): dos líneas en el mismo grupo entregan el mismo, y no se avisa dos veces. */
+const CLAVE_TARDE_AVISADOS = 'mako.tarde.avisados';
+
+/** Lo que llegó con horas de atraso, a SuperAdmin: MaKo no lo atendió sola (lib/linea-demora.ts). Una vez por mensaje. */
+async function avisarQueLlegoTarde(wsData: number, jid: string, data: MsgIn, horas: number): Promise<void> {
+  const id = data.key?.id ?? '';
+  if (id) {
+    const leido = await runWithWorkspace(wsData, () => getSettingEstricto(CLAVE_TARDE_AVISADOS)).then((v) => ({ v }), () => null);
+    if (leido) {
+      const r = conLaAvisada(leido.v, id);
+      if (r.yaEstaba) return;
+      await runWithWorkspace(wsData, () => setSetting(CLAVE_TARDE_AVISADOS, JSON.stringify(r.ids))).catch(() => {});
+    }
+  }
+  const quien = data.pushName?.trim() || 'Alguien del negocio';
+  const texto = textoDe(data).trim() || (audioDe(data) ? '(una nota de voz)' : adjuntoDe(data) ? '(una foto o un archivo)' : '(sin texto)');
+  const negocio = (await getWorkspace(wsData).catch(() => null))?.nombre ?? `ws${wsData}`;
+  const { enviarAlGrupoSuperAdmin } = await import('@/lib/mako-grupo');
+  const r = await enviarAlGrupoSuperAdmin(`📨 WhatsApp entregó con ${horas} h de atraso un mensaje de ${quien} en el grupo de ${negocio} (ws${wsData}):\n«${texto.slice(0, 600)}»\n\nMaKo no lo atendió sola: el contexto pudo cambiar. Contéstalo en su grupo si todavía hace falta.`);
+  if (!r.ok) throw new Error(r.error ?? 'no salió');
+  console.warn(`[mako-doer-in] ws=${wsData} ${jid} ${id}: llegó con ${horas} h de atraso, a SuperAdmin`);
+}
+
 async function registrarRespuestaAlEquipo(wsData: number, data: MsgIn, texto: string, a: DelEquipo): Promise<void> {
   const quien = data.pushName?.trim() || 'Alguien del negocio';
   // Una re-entrega del mismo mensaje (Evolution reintenta, otra línea lo entrega) no repite el aviso ni el comentario.
