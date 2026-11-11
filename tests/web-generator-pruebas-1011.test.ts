@@ -178,6 +178,15 @@ test('11. replicar: una fila de cifras (número y rótulo alternados) va como «
   assert.ok(tipos.includes('bulletList'), 'y el resto, como viñetas');
 });
 
+test('12. con la foto al costado, las cifras van de a pares (cuatro columnas de 103px no entran)', async () => {
+  // Medido en producción el 11/11/2026 en la réplica #98 de acquisition.com: la tarjeta «derecha» deja 466px de texto, cuatro
+  // columnas de 103px, y «10,000» a 3.2em mide 150px: «10,00081», «97.1%12,000» y los rótulos partidos a mitad de palabra.
+  const { CSS_CONTENIDO } = await import('../lib/editor-landing/css');
+  assert.match(CSS_CONTENIDO, /\.gm-tarjeta:is\(\[data-diseno="izquierda"\], \[data-diseno="derecha"\]\) \.gm-optimizado:is\(\[data-variante="numeros-grandes"\], \[data-variante="estadisticas-circulares"\]\):is\(\[data-cols="auto"\], :not\(\[data-cols\]\)\)[^{]*\{ --gm-n: var\(--gm-n-pares\); \}/);
+  // EN_PARES de 4 es 2 (REJILLA de 4 es 4): de eso depende.
+  assert.match(CSS_CONTENIDO, /\.gm-optimizado:has\(> \.gm-item:nth-child\(4\):last-child\)[^{]*\{[^}]*--gm-n-rejilla: 4; --gm-n-pares: 2;/);
+});
+
 // PROBADO ROMPIÉNDOLO (10/11/2026, base 6/0; cada rotura sobre el archivo real, restaurado y verificado por hash):
 //   · `textoDe` separando otra vez por el tipo del PADRE              → 5/1 (1)
 //   · `tituloDeTarjeta` mirando sólo los hijos directos               → 5/1 (2)

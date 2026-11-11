@@ -5,13 +5,35 @@
    ancha para que el titular se lea. */
 .grilla { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
 .mini { aspect-ratio: 16 / 10; display: block; }
-/* La captura es la página desde arriba: el titular, no el medio. */
+/* La captura del relevo es la página desde arriba: el titular, no el medio. */
 .arriba { object-position: top center; }
-/* Sin imagen: el sitio con su nombre, sobre el tono del acento (nunca un cuadro gris vacío). */
-.sitio {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
-  background: var(--primary-bg); color: var(--primary-strong, var(--primary));
+/* La imagen para compartir de una página de Spy, entera: puede ser un logo cuadrado (acquisition.com, 2000×2000) o un banner;
+   recortada en 16:10 el logo salía partido (11/11/2026). */
+.entera { object-fit: contain; background: var(--surface); }
+
+/* Sin imagen: la página dibujada con lo que ELLA dice de sí misma (su titular y su bajada), en una ventana con su dominio arriba.
+   Hasta el 11/11/2026 era el dominio solo sobre --primary-bg, que en el tema por defecto es un gris: «un cuadro gris». */
+.pagina { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--surface); }
+.barra {
+  flex: none; height: 44px; display: flex; align-items: center; justify-content: center; padding: 0 12px 0 72px;
+  background: var(--surface-2); border-bottom: 1px solid var(--border);
 }
-.sitio b { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; text-align: center; overflow-wrap: anywhere; }
+.dominio {
+  max-width: 100%; height: 22px; padding: 0 12px; border-radius: 999px; display: inline-flex; align-items: center;
+  background: var(--surface); border: 1px solid var(--border); color: var(--dim); font-size: 11.5px; font-weight: 600;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cuerpo {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  padding: 14px 22px 18px; text-align: center;
+}
+.titular {
+  font-size: 20px; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden;
+}
+.bajada {
+  font-size: 12.5px; line-height: 1.4; color: var(--dim);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
 
 @media (max-width: 520px) { .grilla { grid-template-columns: minmax(0, 1fr); gap: 20px; } }

@@ -182,7 +182,9 @@ const CIERRAN_P = new Set([...CONTENEDORES, 'p', 'h1', 'h2', 'h3', 'h4', 'h5', '
 
 /** Un <a> solo cuenta como CTA si parece un botón (clase/rol) o es texto corto de acción. */
 const RE_CTA_CLASE = /\b(btn|button|cta|action)\b/i;
-const RE_CTA_TEXTO = /^(agenda|reserva|solicita|quiero|empez|comenz|descarg|regist|contrat|compr|apl(i|í)ca|hablemos|ver\s|cont(a|á)ct|book|get|start|schedule)/i;
+// Los de inglés de las páginas del relevo de outliers (11/11/2026): el «I'M READY TO SCALE» del hero de acquisition.com es un
+// <a> sin clase de botón, y la réplica salía sin el botón del hero.
+const RE_CTA_TEXTO = /^(agenda|reserva|solicita|quiero|empez|comenz|descarg|regist|contrat|compr|apl(i|í)ca|hablemos|ver\s|cont(a|á)ct|book\b|get|start|schedule|i'?m ready|i['’]?m in|yes\b|join|claim|reserve|apply|register|sign ?up|enroll|buy|order|download|grab|unlock|send me|save my)/i;
 
 type Tipo = BloqueLanding['tipo'];
 /**
@@ -243,12 +245,61 @@ const RE_TOKEN = /<[!?][^>]*>|<(\/?)([a-zA-Z][\w:-]*)((?:[^>"']|"[^"]*"|'[^']*')
 /** Un bloque de copy más largo que esto no es copy: es un volcado (un JSON en un div, SEO de relleno). */
 const MAX_BLOQUE = 5_000;
 
+const SCRIPTS = /<script\b[^>]*>[\s\S]*?<\/script\s*>/gi;
+const escaparRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Dónde empieza el `</div>` que cierra el <div> abierto justo antes de `desde` (-1 si no cierra). */
+function cierreDeDiv(html: string, desde: number): number {
+  const re = /<div\b[^>]*>|<\/div\s*>/gi;
+  re.lastIndex = desde;
+  let nivel = 1;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    nivel += m[0][1] === '/' ? -1 : 1;
+    if (nivel === 0) return m.index;
+  }
+  return -1;
+}
+
+/**
+ * ⚠️ EL STREAMING DE REACT (11/11/2026, la réplica de acquisition.com en producción). Una página de Next.js con Suspense manda
+ * `<main>` con marcadores (`<template id="B:0"></template>`) y el contenido DESPUÉS del `<footer>`, en `<div hidden id="S:0">`;
+ * un script lo mueve a su lugar en el navegador. Leído en el orden del archivo, el pie quedaba ANTES del titular (y `template`
+ * es RUIDO: `<main>` salía vacío), y la réplica ponía el aviso legal del pie debajo del titular del hero. Esto hace lo que hace
+ * ese script: cada `S:N` en el lugar de su `B:N`. Sin streaming, el HTML vuelve tal cual.
+ */
+export function armarStreaming(html: string): string {
+  let out = html;
+  for (let vuelta = 0; vuelta < 200; vuelta++) {
+    let movio = false;
+    const re = /<div hidden id="S:([\w:-]+)">/g;
+    for (let m = re.exec(out); m; m = re.exec(out)) {
+      const marcador = new RegExp(`<template id="B:${escaparRe(m[1])}"[^>]*></template>`).exec(out);
+      const desde = m.index + m[0].length;
+      const fin = marcador ? cierreDeDiv(out, desde) : -1;
+      if (!marcador || fin < 0) continue;
+      const contenido = out.slice(desde, fin);
+      const oculto = [m.index, out.indexOf('>', fin) + 1] as const;
+      const lugar = [marcador.index, marcador.index + marcador[0].length] as const;
+      // El que está más atrás se corta primero: así el índice del otro no se mueve.
+      out = lugar[0] < oculto[0]
+        ? out.slice(0, lugar[0]) + contenido + out.slice(lugar[1], oculto[0]) + out.slice(oculto[1])
+        : out.slice(0, oculto[0]) + out.slice(oculto[1], lugar[0]) + contenido + out.slice(lugar[1]);
+      movio = true;
+      break;
+    }
+    if (!movio) return out;
+  }
+  return out;
+}
+
 /**
  * Los bloques de copy de un HTML (ya sin comentarios ni ruido, o crudo: se limpia igual), en orden y
  * sin repetidos. Ver la cabecera: cada texto va a UN bloque, el más cercano que lo contiene.
  */
 export function extraerBloques(htmlCrudo: string): BloqueLanding[] {
-  const html = htmlCrudo.replace(COMENTARIOS, ' ').replace(RUIDO, ' ');
+  // Sin comentarios ni scripts ANTES de armar el streaming (un `<div` dentro de un script no cuenta), y el RUIDO después: se
+  // lleva los <template>, que son los marcadores donde va el contenido.
+  const html = armarStreaming(htmlCrudo.replace(COMENTARIOS, ' ').replace(SCRIPTS, ' ')).replace(RUIDO, ' ');
   const out: BloqueLanding[] = [];
   const vistos = new Set<string>();
   const raiz: Marco = { tag: '#raiz', rol: 'bloque', tipo: 'texto', textual: false, partes: [], ctaPorClase: false, enNav: false, item: { pregunta: false, padre: null } };
