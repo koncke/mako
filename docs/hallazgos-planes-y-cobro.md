@@ -2862,3 +2862,37 @@ quien vende un anual. El número y la oferta están en [referidos.md](referidos.
 - la decisión de Martín entre payback y 3:1 (`app/admin/dev/pricing/modelo.ts:1727-1729`), de la que depende si el 40% está
   descartado;
 - si se firma con P2P, la regla de una sola comisión por cuenta en el código.
+
+## Stripe con la cuenta de Leila: la prueba de humo no se podía hacer desde Argentina (11/11/2026, chat «Planes y cobros»)
+
+Pedido de Martín (11/11, por el Cerebro): cobrar MaKo con la cuenta de Stripe que le prestó Leila Fittipaldi. La clave la
+conecta él en hola-mako.com/integraciones del negocio de MaKo; acá no se toca ninguna clave.
+
+- **Medido hoy (sólo lectura):** Stripe no está conectado en el negocio de MaKo (ws 9: sólo Mercado Pago) ni en el ws 3. Sí
+  en el de Mauricio (ws 1) y en el de Leandro (ws 10). La cuenta de Stripe no se puede conectar en dos negocios a la vez
+  (`reclamarCuenta`): si la de Leila fuera una de esas, MaKo lo rechaza con «esa cuenta ya está en otro negocio».
+- **El diagnóstico obvio era el equivocado («probar en el ws 3»):** la compra de un plan cobra SIEMPRE con la pasarela del
+  negocio de MaKo (`wsSuperAdmin`), no con la del ws 3. Una clave de prueba en el ws 3 prueba el «Cobrar con link» del CRM
+  (el mismo Stripe, el mismo aviso), pero no la compra del plan, el 50% del primer mes ni el alta automática.
+- **La trampa:** la prueba de humo del 23/10 era «la clave de PRUEBA en el negocio de MaKo, y la ve sólo el super admin».
+  Desde el 27/10 la pasarela depende del país, y en Argentina con Mercado Pago la respuesta es «sólo Mercado Pago»: la
+  Stripe de prueba quedaba tapada para el super admin, que está en Argentina. **Arreglado** (`pasarelasParaOfrecer`): al
+  super admin se le suman las de prueba sin el filtro del país; al público, igual que antes.
+- **La prueba de humo, en pasos (la hace Martín: la clave y la tarjeta son suyas):**
+  1. En el panel de Stripe de la cuenta de Leila, modo de PRUEBA, crear la clave restringida que pide /integraciones
+     (empieza con `rk_test_`) y pegarla en hola-mako.com/integraciones del negocio de MaKo, en Stripe.
+  2. Con su sesión de super admin, abrir hola-mako.com/planes/esencial, elegir «Tarjeta», usar un email nuevo y pagar con la
+     tarjeta de prueba 4242 4242 4242 4242 (cualquier fecha futura, cualquier código).
+  3. Lo que tiene que pasar: vuelve a la página de «listo», el cobro queda pagado en modo prueba y se crea la cuenta nueva
+     con su mail de bienvenida. Eso se mide leyendo la base, sin tocar nada.
+  4. Después, la cuenta de prueba que se creó se borra (es una escritura: con su sí), y recién ahí se pega la clave real
+     (`rk_live_`). Una clave real encima de la de prueba se acepta; al revés, no (`descubrirStripe`).
+- ⚠️ **Lo que Martín tiene que saber antes (no es técnico):** cobrar MaKo con la cuenta de Stripe de otra persona hace que
+  Stripe vea a Leila cobrando por un negocio que no es el suyo. Hasta donde sé, Stripe no lo permite (una cuenta es para el
+  negocio con el que se registró), y si lo detecta puede cerrarle la cuenta a Leila con fondos retenidos. **No lo verifiqué
+  contra el texto vigente del contrato de Stripe:** es lo primero a leer antes del primer cobro real.
+
+**Sin hacer:** el cobro real (necesita la clave real y el sí de Martín). La prueba de humo con Stripe de verdad. Leer el
+contrato de Stripe sobre cobrar por otro negocio.
+**Vive en:** lib/compra-plan-reglas.ts (`pasarelasParaOfrecer`) · lib/compra-plan.ts (`ofertaDelPlan`) ·
+lib/cobros-conexion.ts (`descubrirStripe`) · tests/prueba-de-humo-pasarela.test.ts.

@@ -212,7 +212,9 @@ test('el país es el encabezado de Vercel, dos letras; lo que no ubica es «no s
 });
 
 test('el país viaja: /planes, la página del plan y la compra lo leen de Vercel, y la oferta lo aplica', () => {
-  assert.match(cuerpo('lib/compra-plan.ts', 'ofertaDelPlan'), /return \{ plan, pasarelas: pasarelasDelPais\(opts\.pais \?\? null, pasarelas\) \};/);
+  // (Desde el 11/11/2026, por `pasarelasParaOfrecer`, que aplica `pasarelasDelPais` a las reales: tests/prueba-de-humo-pasarela.)
+  assert.match(cuerpo('lib/compra-plan.ts', 'ofertaDelPlan'), /return \{ plan, pasarelas: pasarelasParaOfrecer\(opts\.pais \?\? null, reales, deUnaPrueba\) \};/);
+  assert.match(fuente('lib/compra-plan-reglas.ts'), /const segunPais = pasarelasDelPais\(pais, reales\);/);
   assert.match(cuerpo('lib/compra-plan.ts', 'ofertasDeLosPlanes'), /cobrable: pasarelasDelPais\(pais, monedas\.filter\(\(m\) => precioEn\(plan, m\.moneda\) != null\)\)\.length > 0,/);
   const enc = "paisDelVisitante(req.headers.get('x-vercel-ip-country'))";
   assert.ok(fuente('app/api/planes/comprar/route.ts').includes(`pais: ${enc}`), 'la compra');
