@@ -6,6 +6,17 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**«Tests afectados» nombra como ROJO un archivo cuyo único «fallo» es un test `todo` (11/11/2026, chat Competitor Spy).**
+La punta `spy-pruebas` (corrida 941) salió con «Rojos: doer-recetas-video-imagen, knowledge-modulos», y el diagnóstico obvio
+(«las recetas de MaKo todavía nombran AI Avatar y Lead Magnet») era el equivocado: las recetas no nombran a ninguno. El rojo de
+verdad era sólo Knowledge. La tanda se juzga por el código de salida (bien), pero después `leerResultado`
+(scripts/tests-afectados.mjs) arma la lista de culpables con cada «test at <archivo>» del pie del runner, y Node 24 lista ahí
+TAMBIÉN los `todo` que fallan (con «⚠», aunque el pie diga `fail 0, todo 1`). Un archivo con un pendiente queda acusado cada vez
+que comparte tanda con un rojo real. Hay cinco archivos con `{ todo: … }` (doer-recetas-video-imagen, chats-mako-envio,
+ficha-automatizaciones-tarjeta, onboarding-llegada-superadmin, primer-mes). **Regla mientras no se arregle:** antes de tocar un
+archivo que figura como rojo, correrlo solo y mirar `ℹ fail`; si es 0 y hay `ℹ todo`, no es culpable. El arreglo es que
+`leerResultado` saltee el «test at» cuyo caso empieza con «⚠»; no se hizo en esta punta.
+
 **Mirar una pantalla de esta app en un worktree: el junction frena a Turbopack, y el editor se come 2,5 GB (8/11/2026, claude1).**
 
 **Síntoma.** Para mirar el editor de imagen sin la co-edición (encargo 146), `next dev` desde `C:/dev/wt-collab-fuera`

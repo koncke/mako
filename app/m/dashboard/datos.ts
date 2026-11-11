@@ -39,9 +39,10 @@ import {
 import { claveTiempo, clavesDelRango, fmtValor, periodoAnterior, type Resultado } from '@/lib/graficos-agregar';
 import { firmaDe, hojaDestino } from '@/lib/graficos-plantillas';
 import { cambioEnPalabras, fraseEnTexto, tramosDeFrase } from '@/lib/graficos-frase';
+import { fraseMarketing } from '@/lib/marketing-diseno';
 import { pedidosDeHoja } from '@/app/dashboard/exportar';
 import {
-  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, deltaDe, etiquetaBarra, faltaConectar, noSeLeyo, periodoDe,
+  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, conUnidad, deltaDe, esCostoSobreGasto, etiquetaBarra, faltaConectar, noSeLeyo, periodoDe,
   type BarraM, type GraficoM, type HojaM, type ModoDelta, type NumeroM, type PeriodoM,
 } from './modelo';
 
@@ -310,17 +311,27 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
       out.graficoError = ERROR_LECTURA;
     }
   }
+  // ⚠️ SIN GASTO NO HAY COSTO (11/11/2026, Marketing del ws 3 en el teléfono): «Costo por agenda US$0» decía que cada agenda salió
+  // gratis, sin anuncios. Con el gasto leído en cero, una razón sobre el gasto (costo por agenda, por lead…) va como «—».
+  const gastoCero = [...usados].some((id) => {
+    const r = datos[id];
+    if (!r?.ok) return false;
+    const i = r.resultado.columnas.findIndex((c) => c.id === 'gasto');
+    return i >= 0 && r.resultado.totales[i] === 0;
+  });
   out.numeros = numeros.map((g) => {
     const r = datos[g.id];
     if (!r?.ok || !r.resultado.columnas[0]) return { id: g.id, k: tituloDe(g), v: '—', delta: null };
     const res = r.resultado;
     const formato = res.columnas[0].formato;
     const tono = tonoDe(g.fuente, g.metricas[0]);
+    const fuente = fuenteDe(g.fuente);
+    if (gastoCero && esCostoSobreGasto(fuente ? metricaDe(fuente, g.metricas[0]) : undefined)) return { id: g.id, k: tituloDe(g), v: '—', delta: null };
     const v = res.totales[0] ?? null;
     return {
       id: g.id,
       k: tituloDe(g),
-      v: fmtValor(v, formato),
+      v: conUnidad(fmtValor(v, formato), fuente ? metricaDe(fuente, g.metricas[0])?.nombre : undefined, tituloDe(g)),
       delta: deltaDe(v, res.anterior?.[0] ?? null, modoDe(formato), tono === 'bueno' ? true : tono === 'malo' ? false : null),
     };
   });
@@ -337,8 +348,16 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
     const r = datos[frase.id];
     if (r?.ok) {
       const res = r.resultado;
-      const tramos = tramosDeFrase(frase.frase, res.columnas, (i) => (res.totales[i] == null ? null : fmtValor(res.totales[i], res.columnas[i].formato)), (i) => cambioEnPalabras(res.totales[i], res.anterior?.[i]));
-      out.frase = tramos.length ? fraseEnTexto(tramos) : null;
+      const total = (id: string) => { const i = res.columnas.findIndex((c) => c.id === id); return i >= 0 ? res.totales[i] ?? null : null; };
+      if (h.diseno?.id === 'marketing') {
+        // La hoja Marketing dice en el teléfono la MISMA frase que su diseño en la compu (lib/marketing-diseno.ts): la de la
+        // plantilla decía «Gastaste US$0 en anuncios · trajeron 3 agendas · cada una costó US$0» sin pauta (11/11/2026).
+        const t = fraseMarketing(total('gasto'), total('agendas'), total('cpa')).map((x) => x.s).join('');
+        out.frase = t || null;
+      } else {
+        const tramos = tramosDeFrase(frase.frase, res.columnas, (i) => (res.totales[i] == null ? null : fmtValor(res.totales[i], res.columnas[i].formato)), (i) => cambioEnPalabras(res.totales[i], res.anterior?.[i]));
+        out.frase = tramos.length ? fraseEnTexto(tramos) : null;
+      }
     }
   }
   return out;

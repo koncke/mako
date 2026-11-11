@@ -46,6 +46,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TODOS_LOS_ITEMS, USER_NAV, ADMIN_NAV } from '../app/_components/nav';
 import { NOMBRES_ICONO } from '../app/_components/icons';
+import { LEAD_MAGNET_EN_PRODUCCION } from '../lib/lead-magnets/archivado';
 import {
   DESTINOS_MOVIL, SECCIONES_MAS, HOME_MOVIL, RUTA_MAS, esRutaMovil, puedeVerKey, destinosVisibles, destinoActivo,
   barraMovil, gruposMas, seccionesMasVisibles, seccionDeRuta, rutaMovil, rutaMovilOHome, rutaEscritorio,
@@ -108,12 +109,13 @@ test('CRM · Chats · Ops Center · Dashboard · More; More por las familias de 
     ['offer', 'offer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
     // Competitor Spy (6/11/2026): fila de Marketing, debajo del CoPilot, con su pantalla del teléfono.
     ['competitor-spy', 'market-an', 'marketing', false],
-    // 29/10/2026 (Create sin pestañas): la fila Video abre el editor, como la sidebar.
-    ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'copywriter', 'create', false],
-    // AI Avatar, para todos desde el 29/10/2026: fila de Create, como Video.
-    ['ai-avatar', 'ai-avatar', 'create', false], ['landing', 'landing-writer', 'create', false],
+    // 29/10/2026 (Create sin pestañas): la fila Video abre el editor, como la sidebar. 11/11/2026 (Martín): Copywriting primero.
+    ['copywriting', 'copywriter', 'create', false], ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false],
+    // AI Avatar, oculta desde el 11/11/2026 (Martín: «no debería estar»): se abre desde Video, «Tu personaje con IA».
+    ['ai-avatar', 'ai-avatar', null, true], ['landing', 'landing-writer', 'create', false],
     // Lead Magnet (5/11/2026): sólo de la plataforma por ahora, oculta como Admin (More le arma la fila desde la sidebar).
-    ['lead-magnet', 'lead-magnet-generator', null, true],
+    // ARCHIVADO el 11/11/2026 por pedido de Martín (lib/lead-magnets/archivado.ts): con el interruptor apagado, la fila no está.
+    ...(LEAD_MAGNET_EN_PRODUCCION ? [['lead-magnet', 'lead-magnet-generator', null, true] as const] : []),
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
@@ -141,7 +143,8 @@ test('admin de un cliente completo: la barra de cinco y More con todo, una caja 
     // Competitor Spy (6/11/2026): fila de Marketing, debajo del CoPilot.
     ['plan'], ['calendario', 'automations', 'cs'], ['offer', 'ads', 'competitor-spy'],
     // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video; AI Avatar (de Pro) desde el 29/10/2026.
-    ['video', 'image', 'copywriting', 'ai-avatar', 'landing'],
+    // 11/11/2026 (Martín): Copywriting, Video, Image y Web Generator; AI Avatar se abre desde Video.
+    ['copywriting', 'video', 'image', 'landing'],
   ]);
   // Lo diario con título desde el 20/10/2026 (en escritorio lleva rótulo y el Ops Center adentro).
   assert.deepEqual(familias('admin', 'completo'), ['Today', 'Sales', 'Marketing', 'Create']);

@@ -271,6 +271,13 @@ Ordenado por memoria que ahorra contra trabajo que lleva. Son propuestas; ningun
      (`editor-provider.tsx:97`). Tocan cómo se arma y se desarma el editor entero, y se prueban con el editor abierto en
      producción, no en el banco.
 8. **Un tope al historial de deshacer** (por ejemplo, 100 pasos) y al «Restaurar» del chat.
+   - **HECHO el 11/11/2026 el historial** (rama `punta/tope-historial`): se queda con los últimos 200 pasos
+     (`MAX_PASOS_DESHACER`).
+     - `profundidad()` sigue contando los olvidados: con el historial lleno, la «Edición automática» restaba 0 y
+       «Deshacer todo» no deshacía nada.
+     - Lo fija `tests/video-editor-tope-historial.test.ts`.
+     - **Sin hacer:** el «Restaurar» del chat (`chat/aplicar.ts:79`) y el «Deshacer todo» de la edición automática
+       (`enjambre/estado.ts:20`) siguen sin tope.
 
 ## 8. ¿Y Remotion?
 
