@@ -22,7 +22,7 @@ import { cambiarSettingSi, getSetting } from './settings';
 import { getSupabaseServer } from './supabase';
 import { linkApp } from './app-url';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
-import { esEscritura, esRespuestaEnCurso, frenoVigente, instanciaDeRuta, nuevoFreno, senalDeRiesgo, textoDelFreno, type Freno } from './mako-salida-reglas';
+import { esEscritura, esRespuestaEnCurso, frenoSiguiente, frenoVigente, instanciaDeRuta, nuevoFreno, senalDeRiesgo, textoDelFreno, type Freno } from './mako-salida-reglas';
 import { respondiendoA } from './respuesta-en-curso';
 import { MOTIVO_ENVIO_EN_REVISION } from './cuenta-revision-reglas';
 import { enRevision } from './revision-guarda';
@@ -52,7 +52,7 @@ export async function frenoDeLinea(instancia: string): Promise<Freno | null> {
  * la respuesta al grupo donde una persona acaba de escribir pasa aunque la línea esté frenada (`esRespuestaEnCurso`, 11/11/2026:
  * «SIEMPRE debe responder»). La cuenta de revisión de las tiendas, no: ésa no escribe nunca.
  */
-export async function antesDeEscribir(ruta: string, destino?: string | null): Promise<string | null> {
+export async function antesDeEscribir(ruta: string, destino?: string | null | (() => string | null)): Promise<string | null> {
   if (!esEscritura(ruta)) return null;
   // La cuenta de revisión de las tiendas no escribe por NINGUNA línea, la de MaKo incluida (4/11/2026). `enviarTexto` y compañía ya
   // lo preguntaban; esto cubre lo que sale por el `ev` de lib/mako-grupo.ts (la voz de MaKo, sumar a un grupo, una invitación).
@@ -61,8 +61,10 @@ export async function antesDeEscribir(ruta: string, destino?: string | null): Pr
   if (!instancia) return null;
   const f = await frenoDeLinea(instancia);
   if (!f) return null;
-  if (esRespuestaEnCurso(ruta, destino, respondiendoA())) {
-    console.warn(`[linea-freno] ${instancia} está frenada (${f.tipo}), pero esto es la respuesta a quien escribió en ${destino}: sale`);
+  // El destino se lee recién acá (puede ser una función): con la línea sin freno no se parsea el cuerpo, que en un archivo son MB.
+  const a = typeof destino === 'function' ? destino() : destino;
+  if (esRespuestaEnCurso(ruta, a, respondiendoA())) {
+    console.warn(`[linea-freno] ${instancia} está frenada (${f.tipo}), pero esto es la respuesta a quien escribió en ${a}: sale`);
     return null;
   }
   return textoDelFreno(f);
@@ -87,12 +89,16 @@ export async function trasEscribir(ruta: string, status: number, cuerpo: unknown
   try {
     const plataforma = await wsSuperAdmin();
     const previo = await runWithWorkspace(plataforma, () => getSetting(keyFreno(instancia)));
-    // Ya frenada: la escritura que falló salió antes de que el memo se enterara. No se avisa dos veces.
-    if (frenoVigente(previo)) return null;
     const f = nuevoFreno(senal, ruta);
+    // Ya frenada: desde el 11/11 la respuesta sigue escribiendo con la línea frenada, así que puede llegar una señal MÁS grave (un 463
+    // durante un freno de 30 min por «rate») o la misma otra vez. La que dura más reemplaza al freno; el mail sale sólo si cambió el
+    // tipo (`frenoSiguiente`). Una que dura menos no toca nada.
+    const paso = frenoSiguiente(frenoVigente(previo), f);
+    if (!paso.guardar) return null;
     const gane = await runWithWorkspace(plataforma, () => cambiarSettingSi(keyFreno(instancia), previo, JSON.stringify(f)));
     memo.delete(instancia);
     if (!gane) return null;
+    if (!paso.avisar) { console.warn(`[linea-freno] ${instancia} sigue frenada (${f.tipo}), ahora hasta ${f.hasta}`); return f; }
     console.error(`[linea-freno] ⛔ ${instancia} frenada (${f.tipo}) hasta ${f.hasta}: ${ruta.split('?')[0]} contestó ${status}`);
     const ws = await wsDeLinea(instancia).catch(() => plataforma);
     const { avisarPorEmail } = await import('./canal-vigilante');

@@ -35,7 +35,7 @@ import { porId, aToolDef, parecidasQueNoViajaron } from '@/lib/api-mako/registro
 import { errorParaTicket, esPedidoDelegado, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { actorDeWhatsApp as actorPorWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
 import { conSalidaDelGrupo, esClaveDeLaApp, esIdDeLaApp, salidaPara, vozDeLaApp } from '@/lib/grupo-salida';
-import { conRespuestaA } from '@/lib/respuesta-en-curso';
+import { comoRespuesta, conRespuestaA } from '@/lib/respuesta-en-curso';
 import { motivoDeNoEntrega, respuestaNoEntregada } from '@/lib/mako-salida-reglas';
 import { filaPorIdDeMensaje, mediaDelMensaje } from '@/lib/grupo-app';
 import { leerParticipanteDeApp, participanteDeApp } from '@/lib/grupo-reglas';
@@ -196,14 +196,16 @@ const registrarEnviados = (ws: number, jid: string, ids: readonly string[]): Pro
 
 // ⚠️ UN CHAT 1 A 1 NUNCA SALE POR LA VOZ (3/11/2026). La voz puede ser el WhatsApp personal de Martín, y todo lo que este archivo manda pasa por estas dos: el turno es el mismo para un grupo
 // y para un chat, y sólo el grupo sale por la voz. Lo de una persona va por la puerta del bot (lib/mako-salida.ts), que además mira la ventana de 24 horas.
+// ⚠️ ESTAS DOS (y el «escribiendo…») SON LAS PUERTAS DE LA RESPUESTA (11/11/2026, lib/respuesta-en-curso.ts): lo que sale por acá es lo
+// que MaKo le contesta a quien escribió, y pasa el freno de la línea. Lo que el turno dispara por otro lado (un aviso, un flujo) no.
 async function enviarAGrupoJid(jid: string, texto: string, delayMs?: number): Promise<EnvioGrupo> {
-  if (jid.endsWith('@g.us')) return enviarAlGrupoPorJid(jid, texto, delayMs);
+  if (jid.endsWith('@g.us')) return comoRespuesta(() => enviarAlGrupoPorJid(jid, texto, delayMs));
   if (!jid || !texto.trim()) return { ok: false, error: 'faltan jid o texto' };
   const dm = await enviarAlChat(jid, texto, delayMs);
   return dm.ok ? { ok: true, id: dm.id } : { ok: false, error: dm.error };
 }
 const reaccionarMensaje = (jid: string, key: { id?: string; fromMe?: boolean; remoteJid?: string } | undefined, emoji: string): Promise<boolean> =>
-  (jid.endsWith('@g.us') ? reaccionarEnElGrupo(jid, key, emoji) : reaccionarEnElChat(jid, key, emoji));
+  (jid.endsWith('@g.us') ? comoRespuesta(() => reaccionarEnElGrupo(jid, key, emoji)) : reaccionarEnElChat(jid, key, emoji));
 async function registrarEnviado(ws: number, jid: string, id: string): Promise<void> {
   return registrarEnviados(ws, jid, [id]);
 }
@@ -815,7 +817,7 @@ export async function manejarEntranteDoerChat(wsData: number, instance: string, 
 
 /** «Escribiendo…»: en un grupo, por la línea que recibió; en un chat, por la puerta del bot. */
 function escribiendo(instance: string, jid: string, ms: number): Promise<void> {
-  return jid.endsWith('@g.us') ? enviarPresencia(instance, jid, 'composing', ms) : escribiendoEnElChat(jid, ms);
+  return jid.endsWith('@g.us') ? comoRespuesta(() => enviarPresencia(instance, jid, 'composing', ms)) : escribiendoEnElChat(jid, ms);
 }
 
 /**
@@ -829,8 +831,10 @@ export async function manejarEntranteDeLaApp(ws: number, data: MsgIn): Promise<R
   if (!jid || !quien) return { engaged: false, skip: 'no es un mensaje de la app' };
   const m = await miembrosDelGrupo(ws).catch(() => null);
   const unaPersona = !!m && m.conCuenta.length + m.invitadosSinCuenta.length <= 1;
-  return conSalidaDelGrupo({ ws, clave: jid, soloApp: true, hayInvitado: quien.letra === 'i', unaPersona },
-    () => runWithWorkspace(ws, () => bufferearYResponder(ws, '', data, undefined, { yaEnCola: true })));
+  // Con el mismo jid, la cola de la app y la de WhatsApp son UNA: si este turno se lleva mensajes de WhatsApp, contesta en WhatsApp, y esa
+  // respuesta también pasa el freno (la revisión del 11/11/2026). Con `soloApp` no toca Evolution.
+  return conRespuestaA(jid, () => conSalidaDelGrupo({ ws, clave: jid, soloApp: true, hayInvitado: quien.letra === 'i', unaPersona },
+    () => runWithWorkspace(ws, () => bufferearYResponder(ws, '', data, undefined, { yaEnCola: true }))));
 }
 
 /**
@@ -1626,6 +1630,28 @@ async function grupoOficialDe(ws: number): Promise<string> {
 }
 
 /** `acuse`: lo que hizo `bufferearYResponder` si el 👍 no salió (el cron de huérfanos no lo trae: ahí no hubo nadie). */
+/**
+ * ⚠️ UNA RESPUESTA QUE NO LLEGÓ A WHATSAPP NO SE DA POR DICHA EN SILENCIO (11/11/2026, Martín: «Mako en WhatsApp no responde... SIEMPRE
+ * debe responder»). Antes el turno la guardaba igual: el vigía no veía un silencio (había respuesta guardada) y el único rastro era un
+ * mail del freno. Deja su ticket con el motivo (la línea frenada, Evolution caído), por la huella global (lib/errores-app.ts). La usan
+ * las tres salidas del turno: la respuesta, la de un TICKET y la de un DEBUG. Nunca tira: lo que salió, ya salió.
+ */
+async function siNoLlego(ws: number, actor: string | null | undefined, soloApp: boolean, envios: readonly EnvioGrupo[]): Promise<void> {
+  const noLlego = respuestaNoEntregada(envios);
+  if (!noLlego) return;
+  // Un turno de la app no va a WhatsApp: lo que no llegó ahí es el hilo de la app, y el ticket lo dice así.
+  // `nombre` es un identificador (el saneo le saca los espacios); lo que lee el título va en `etiqueta`.
+  const [nombre, etiqueta, donde] = soloApp ? ['contestar_app', 'contestar en el grupo de la app', 'al grupo de la app'] : ['contestar_whatsapp', 'contestar en WhatsApp', 'a WhatsApp'];
+  console.error(`[mako-doer-in] ws=${ws} la respuesta NO llegó ${donde} (${noLlego.faltan} de ${noLlego.de}): ${noLlego.motivo}`);
+  try {
+    const quien = await identidadDelActor(ws, actor).catch(() => null);
+    const reg = await registrarError({ origen: 'mako', nombre, etiqueta, mensaje: `MaKo contestó y no llegó ${donde}: ${motivoDeNoEntrega(noLlego.motivo)}` }, quien);
+    if (!reg.ok) console.warn(`[mako-doer-in] ws=${ws} la respuesta perdida no se registró (${reg.motivo})`);
+  } catch (e) {
+    console.warn(`[mako-doer-in] ws=${ws} la respuesta perdida no se registró: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts: { acuse?: Acuse } = {}): Promise<ResultadoDoer> {
   const OPS = OWNER_WS; // settings operativos del doer (agencia), keyeados por jid
   try {
@@ -1962,9 +1988,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         : 'No pude abrir el ticket ahora: escríbeselo al equipo de MaKo por acá y lo ven.';
       const env = await enviarAGrupoJid(jid, dicho);
       if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+      await siNoLlego(wsData, actorDeWhatsApp(participante, data.pushName), soloApp, [env]);
       if (!hayInvitado) {
         await guardarTurno(wsData, jid, 'user', texto, msgId).catch(() => {});
-        await guardarTurno(wsData, jid, 'assistant', dicho, undefined).catch(() => {});
+        if (env.ok) await guardarTurno(wsData, jid, 'assistant', dicho, undefined).catch(() => {});
       }
       return { engaged: true, reply: dicho };
     }
@@ -2166,8 +2193,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       const dicho = respuestaDelDebug({ pedido: pedidoNegocio, leido, crudo, hechos: hechosDelDiagnostico(leido), ticket });
       const env = await enviarAGrupoJid(jid, dicho);
       if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+      await siNoLlego(wsData, actorDeWhatsApp(participante, data.pushName), soloApp, [env]);
       await guardarTurno(wsData, jid, 'user', texto, msgId).catch(() => {});
-      await guardarTurno(wsData, jid, 'assistant', dicho, undefined).catch(() => {});
+      if (env.ok) await guardarTurno(wsData, jid, 'assistant', dicho, undefined).catch(() => {});
       return { engaged: true, reply: dicho };
     }
     // `levantar_ticket` va con las de siempre, como en la app: es del área `mako` y ninguna palabra del pedido la trae.
@@ -3554,16 +3582,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // ⚠️ UNA RESPUESTA QUE NO LLEGÓ A WHATSAPP NO SE DA POR DICHA EN SILENCIO (11/11/2026, Martín: «Mako en WhatsApp no responde... SIEMPRE
       // debe responder»). Antes se guardaba igual en la conversación: el vigía no veía un silencio (había respuesta guardada) y el único
       // rastro era un mail del freno. Ahora deja su ticket, con el motivo (la línea frenada, Evolution caído), por la huella global.
-      const noLlego = respuestaNoEntregada(envios);
-      if (noLlego) {
-        // Un turno de la app no va a WhatsApp: lo que no llegó ahí es el hilo de la app, y el ticket lo dice así.
-        const donde = soloApp ? 'el grupo de la app' : 'WhatsApp';
-        console.error(`[mako-doer-in] ws=${wsData} la respuesta NO llegó a ${donde} (${noLlego.faltan} de ${noLlego.de}): ${noLlego.motivo}`);
-        const quien = await identidadDelActor(wsData, ctxApi.actor).catch(() => null);
-        const reg = await registrarError({ origen: 'mako', nombre: `contestar en ${donde}`, mensaje: `MaKo contestó y no llegó a ${donde}: ${motivoDeNoEntrega(noLlego.motivo)}` }, quien)
-          .catch((e: unknown) => { console.warn(`[mako-doer-in] ws=${wsData} la respuesta perdida no se registró: ${e instanceof Error ? e.message : String(e)}`); return null; });
-        if (reg && !reg.ok) console.warn(`[mako-doer-in] ws=${wsData} la respuesta perdida no se registró (${reg.motivo})`);
-      }
+      await siNoLlego(wsData, ctxApi.actor, soloApp, envios);
       // Lo que SÍ es conversación se guarda; el cartel de «no pude», no (ver arriba).
       // Y lo del código tampoco: el historial vuelve al modelo en el turno siguiente, y
       // la agenda no pasa por ninguno.

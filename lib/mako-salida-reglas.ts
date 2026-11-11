@@ -201,9 +201,20 @@ export function motivoDeNoEntrega(motivo: string): string {
   const freno = (Object.values(QUE_DIJO) as string[]).find((q) => m.startsWith(q));
   if (freno) return `la línea estaba frenada (${freno})`;
   if (/abort|time ?out|timed out|fetch failed|ECONN|socket|network/i.test(m)) return 'el servidor de WhatsApp no contestó';
-  const n = /^Evolution (\d{3})$/.exec(m)?.[1];
+  const n = /^Evolution (\d{3})\b/.exec(m)?.[1];
   if (n) return /^(429|503|529)$/.test(n) ? 'el servidor de WhatsApp estaba saturado o caído' : `el servidor de WhatsApp contestó con error ${n}`;
   return m.slice(0, 200) || 'no se pudo enviar';
+}
+
+/**
+ * Con la línea YA frenada llega otra señal (11/11/2026: la respuesta sigue escribiendo durante el freno). Se guarda si dura MÁS que la
+ * vigente (un 463 durante un «rate» de 30 min sube a 24 h; la misma señal otra vez, lo extiende), y se avisa por mail sólo si es la
+ * primera o si cambió el tipo: un mail por cada respuesta que rebota sería un mail por mensaje.
+ */
+export function frenoSiguiente(vigente: Freno | null, nuevo: Freno): { guardar: boolean; avisar: boolean } {
+  if (!vigente) return { guardar: true, avisar: true };
+  if (Date.parse(nuevo.hasta) <= Date.parse(vigente.hasta)) return { guardar: false, avisar: false };
+  return { guardar: true, avisar: nuevo.tipo !== vigente.tipo };
 }
 
 /** Lo que vuelve como error de un envío frenado, y la primera línea del aviso. Corto. */

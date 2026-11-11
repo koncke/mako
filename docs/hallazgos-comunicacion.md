@@ -91,8 +91,17 @@ un relevo de eso para que no ocurra más». El pedido no salió (la PC dormida d
   contesta a muchos grupos, y el sexto quedaba sin respuesta.
 
 **La regla que queda (AGENTS.md, «MaKo SIEMPRE contesta en su grupo»):** la respuesta al grupo donde una persona acaba de escribir,
-durante su turno, pasa el freno y el tope del mismo texto (`esRespuestaEnCurso`; el contexto lo abren las dos entradas del turno:
-el webhook y el cron que levanta lo que quedó sin contestar). Lo demás sigue frenado: avisos, flujos, altas, invitaciones, otro grupo.
+durante su turno, pasa el freno y el tope del mismo texto (`esRespuestaEnCurso`). Hacen falta DOS marcas (lib/respuesta-en-curso.ts):
+`conRespuestaA` la abren las entradas del turno (el webhook, el cron que levanta lo que quedó sin contestar y el turno de la app, que
+comparte la cola con WhatsApp), y `comoRespuesta` SÓLO las puertas por donde MaKo dice su respuesta (el texto, el 👍, el
+«escribiendo…»). Lo demás sigue frenado: avisos, flujos, altas, invitaciones, otro grupo.
+
+⚠️ **La primera versión tenía UNA marca, y la revisión independiente la tumbó:** abierta alrededor del turno entero, todo lo que el
+turno disparaba hacia ese grupo pasaba el freno. El caso: la persona dice «movelo a Agendado», el movimiento corre un flujo con la
+tarjeta «MaKo en WhatsApp», y ese aviso salía con la línea frenada (también un `after()` registrado en el turno: Next los envuelve con
+`bindSnapshot` y heredan el contexto). Con un contexto ambiental, la pregunta no es «¿estoy en el turno?» sino «¿esto ES la respuesta?».
+Y con la respuesta escribiendo durante un freno, una señal MÁS grave (un 463 durante un «rate») se tiraba: `frenoSiguiente` la guarda
+si dura más y avisa si cambió el tipo.
 Y una respuesta que no llegó a WhatsApp abre su ticket con el motivo (`respuestaNoEntregada` + `motivoDeNoEntrega`, que le saca la
 hora y las palabras que el filtro de ruido descarta: un 503 o un «timeout» son justo cuando MaKo quedó mudo); la que no salió por
 ningún lado tampoco se guarda como dicha, así el vigía la cuenta.
@@ -112,8 +121,10 @@ eso es sobre escribirle a gente NUEVA, y una respuesta en un grupo no lo es. Fue
 6. **Contestó y no resolvió** (9/11, Leandro): mirar `mako_doer_conv` y, si dice «Lo sumé al ticket #N», el estado de ese ticket.
 
 **Vive en:** lib/respuesta-en-curso.ts · lib/mako-salida-reglas.ts (`esRespuestaEnCurso`, `destinoDeEscritura`,
-`respuestaNoEntregada`, `motivoDeNoEntrega`) · lib/linea-freno.ts (`antesDeEscribir`) · lib/mako-grupo.ts (`ev`,
-`enviarTextoVozMaKo`, `enviarAGrupoJid`) · lib/mako-doer-in.ts (`manejarEntranteDoer`, `flushHuerfanos`, el envío del turno) ·
+`respuestaNoEntregada`, `motivoDeNoEntrega`, `frenoSiguiente`) · lib/linea-freno.ts (`antesDeEscribir`, `trasEscribir`) ·
+lib/mako-grupo.ts (`ev`, `enviarTextoVozMaKo`, `enviarAGrupoJid`) · lib/evolution.ts (`evFetch`) · lib/mako-doer-in.ts
+(`manejarEntranteDoer`, `manejarEntranteDeLaApp`, `flushHuerfanos`, las puertas `enviarAGrupoJid` / `reaccionarMensaje` /
+`escribiendo`, `siNoLlego`) ·
 scripts/diagnostico-mako-whatsapp.mts · tests/mako-responde-siempre.test.ts.
 
 **Sin hacer:**
@@ -125,6 +136,9 @@ scripts/diagnostico-mako-whatsapp.mts · tests/mako-responde-siempre.test.ts.
   levanta ticket. No se pudo mirar desde la nube.
 - **Una respuesta que dio 403 frena la línea igual** (para los avisos): está bien, pero si el 403 es de UN chat, frenar todo es de más.
   Frenar sólo ese chat necesita saber qué dice Evolution en cada caso (no medido).
+- **Lo que `siNoLlego` todavía no mira** (la revisión): los carteles de audio y archivo, y «Se me cortó…» del cron; y una respuesta que
+  salió a MEDIAS se guarda entera. La pendiente que propuso una respuesta perdida sigue viva y un «sí» de después la puede confirmar.
+- **El «listo» de un pedido delegado**, que vuelve al grupo cuando se cierra fuera del turno, sigue frenado con la línea frenada.
 
 ## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
 

@@ -22,7 +22,10 @@ código; lo que hay que medir lo dice el diagnóstico de abajo.
 - **Lo que WhatsApp no toma abre un ticket** con el motivo («la línea estaba frenada», «el servidor de WhatsApp no contestó»), en vez
   de guardarse como dicho. Lo que no salió por ningún lado tampoco se guarda: el vigía lo cuenta como silencio.
 - **`scripts/diagnostico-mako-whatsapp.mts`**: mira las seis causas en una corrida, sólo lee.
-- Tests: `tests/mako-responde-siempre.test.ts` (10, siete roturas, cada una cae; un renombre lo deja verde).
+- **Una señal más grave durante el freno lo sube** (un 463 durante un freno de 30 min pasa a 24 h y manda el mail).
+- Tests: `tests/mako-responde-siempre.test.ts` (12, catorce roturas, cada una cae; un renombre lo deja verde).
+- **La revisión independiente** (antes de subir) encontró 3 cosas medias y 5 chicas; las arreglé todas menos las anotadas abajo. La más
+  importante: con una sola marca, un aviso de un flujo que el turno disparaba hacia el mismo grupo también pasaba el freno.
 
 ## Lo que tiene que correr el Cerebro (en la PC)
 
@@ -47,11 +50,17 @@ código; lo que hay que medir lo dice el diagnóstico de abajo.
    esa línea» es sordera sin falsos positivos de noche. Hay que medir el eco antes, con la línea de verdad: lo hace el chat de WhatsApp
    en la PC.
 2. Frenar sólo el chat que dio 403, no la línea entera (hace falta saber qué devuelve Evolution en cada caso; no medido).
+3. Lo que la revisión dejó y no se tocó: los carteles de audio y archivo y «Se me cortó…» no pasan por `siNoLlego`; una respuesta que
+   salió a medias se guarda entera; la pendiente que propuso una respuesta perdida sigue viva; el «listo» de un pedido delegado, que
+   sale fuera del turno, sigue frenado.
 
 ## Autocrítica
 
 - **Cambié:** la excepción del freno es sólo para el MISMO grupo y sólo para mandar (no sumar gente, no invitar), y sólo para grupos:
   un chat 1 a 1 no la tiene (el bot está apagado y lo mira la ventana de 24 h).
+- **Cambié, por la revisión:** de una marca a dos. Con la del turno sola, todo lo que el turno disparaba hacia ese grupo pasaba (un
+  aviso de un flujo, un `after()`); ahora sólo lo que sale por las puertas de la respuesta. Y el turno de la app también abre el turno:
+  comparte la cola con WhatsApp y a veces contesta allá.
 - **Cambié:** el motivo del ticket se reescribe para que el filtro de ruido no lo tire: «Evolution 503» o un «timeout» se descartaban
   como ruido de la IA, y son justo los casos en que MaKo quedó mudo. Lo cazó el test, no una lectura.
 - **Cambié:** lo que no salió por ningún lado ya no se guarda como dicho: el turno siguiente creía que lo había dicho.

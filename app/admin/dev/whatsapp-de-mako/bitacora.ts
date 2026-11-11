@@ -216,7 +216,7 @@ export const BITACORA: Hito[] = [
       'lib/mako-salida-reglas.ts — `esRespuestaEnCurso`, `respuestaNoEntregada`, `motivoDeNoEntrega`',
       'lib/linea-freno.ts · lib/mako-grupo.ts · lib/mako-doer-in.ts — el cableado',
       'scripts/diagnostico-mako-whatsapp.mts — sólo lee',
-      'tests/mako-responde-siempre.test.ts — 10, siete roturas, cada una cae',
+      'tests/mako-responde-siempre.test.ts — 12, catorce roturas, cada una cae',
     ],
   },
 ];

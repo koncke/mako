@@ -162,7 +162,7 @@ async function ev(path: string, init?: RequestInit): Promise<EvOut> {
   if (!grupoConfigurado()) return { ok: false, status: 0, body: 'Evolution no configurado' };
   // ⛔ La línea frenada no escribe (4/11/2026, lib/linea-freno.ts), y una señal de riesgo la frena: la misma regla que `evFetch`.
   // Salvo la respuesta al grupo donde una persona acaba de escribir (11/11/2026): por eso va el destino, leído del cuerpo.
-  const frenada = await antesDeEscribir(path, destinoDeEscritura(init?.body)).catch(() => null);
+  const frenada = await antesDeEscribir(path, () => destinoDeEscritura(init?.body)).catch(() => null);
   if (frenada) return { ok: false, status: 0, body: frenada };
   try {
     const r = await fetch(`${BASE}${path}`, {
