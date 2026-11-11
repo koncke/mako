@@ -111,7 +111,11 @@ export function numeroDe(id: IdNumero, r: Resultado | null): NumeroMk {
  * «Gastaste US$2,460 en anuncios, trajeron 27 agendas y cada una costó US$91.11.» En UN renglón, como el de Kestrel: el cambio del
  * costo contra el período anterior ya está en su número (el primero de los seis), y repetido acá la frase pasaba a dos renglones.
  */
-export function fraseMarketing(gasto: number | null, agendas: number | null, cpa: number | null): Trozo[] {
+export function fraseMarketing(invertido: number | null, agendas: number | null, costo: number | null): Trozo[] {
+  // ⚠️ SIN PAUTA NO HAY «TRAJERON» (10/11/2026, ws 3 en producción): con US$0 invertidos decía «Gastaste US$0 en anuncios,
+  // trajeron 3 agendas y cada una costó US$0.00», como si los anuncios las hubieran traído. Cero gastado se dice como sin gasto.
+  const gasto = invertido === 0 ? null : invertido;
+  const cpa = invertido === 0 ? null : costo;
   if (gasto == null && agendas == null) return [];
   const t: Trozo[] = [];
   if (gasto != null) t.push({ tipo: 'texto', s: 'Gastaste ' }, { tipo: 'fuerte', s: plataEntera(gasto) }, { tipo: 'texto', s: ' en anuncios' });

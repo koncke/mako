@@ -40,6 +40,9 @@ test('la frase: lo gastado, lo que trajo y lo que costó cada agenda; sin «0» 
   assert.equal(texto(fraseMarketing(800, 0, null)), 'Gastaste US$800 en anuncios y no trajeron agendas.');
   assert.equal(texto(fraseMarketing(null, 1, null)), 'Llegaron 1 agenda.');
   assert.deepEqual(fraseMarketing(null, null, null), []);
+  // Sin pauta (ws 3, 10/11/2026): cero invertido no «trajo» nada ni costó US$0.00 cada una.
+  assert.equal(texto(fraseMarketing(0, 3, 0)), 'Llegaron 3 agendas.', 'cero gastado se dice como sin gasto');
+  assert.equal(texto(fraseMarketing(0, 0, null)), 'No llegaron agendas.');
 });
 
 test('los seis números: cada cambio en SU unidad, y bueno o malo según la métrica', () => {
