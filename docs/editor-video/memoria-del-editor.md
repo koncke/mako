@@ -243,6 +243,12 @@ Ordenado por memoria que ahorra contra trabajo que lleva. Son propuestas; ningun
      - Dónde vive: `services/video-cache/service.ts` (`podarInactivos`). Lo fija
        `tests/video-editor-tope-decodificadores.test.ts`. Medido: §12.
 5. **Terminar el hilo de Whisper** al terminar de subtitular (`services/transcription/service.ts`): ≈250 MB.
+   - **HECHO el 11/11/2026** (rama `punta/whisper-se-suelta`).
+     - Se termina al minuto sin uso (`WHISPER_INACTIVO_MS`): subtitular un clip y enseguida otro no recarga el modelo.
+     - Con un subtitulado en curso no se suelta.
+     - Lo fija `tests/video-editor-whisper-se-suelta.test.ts`.
+     - Sin medir en vivo: el banco no carga Whisper, porque bajaría 250 MB de Hugging Face. El tamaño sale de
+       `transcription/models.ts`.
 6. **Exportar sin juntar todo en memoria.**
    - Decodificar el audio fuente por fuente en vez de todo a la vez (`media/audio.ts:234`).
    - Escribir el MP4 a un archivo de OPFS con `StreamTarget` en vez del búfer en memoria (`scene-exporter.ts:161`).

@@ -44,7 +44,7 @@ Números y método en docs/editor-video/memoria-del-editor.md.
   2. ~~copias livianas al importar~~ **HECHO el 11/11** (`media/copia-liviana.ts`; 3 clips de +297 a +81 MB, memoria-del-editor.md §9);
   3. ~~un lienzo por capa que se reuse~~ **HECHO el 11/11 para el video** (`compositor/lienzo-de-subida.ts`; 1080: pico de la GPU de +198 a +152 MB, cuadros un 23 % más rápidos). Los efectos tipo CapCut siguen con un lienzo nuevo por llamada (`pases-ce.ts:347`), a propósito: el de su contexto se reusa abajo de quien lo lee;
   4. ~~tope de decodificadores abiertos~~ **HECHO el 11/11, con otra regla**: se cierra el que no pidió un cuadro en 5 s DE USO, y con el editor quieto no corre. Un tope fijo cerraría capas que se ven a la vez. Con 6 clips de celular, Chrome queda en +188 MB contra +411. ⚠️ La GPU no devuelve en el momento lo que se suelta: cerrar no la baja, la deja de hacer crecer, y con 2–4 clips no se nota;
-  5. terminar el hilo de Whisper;
+  5. ~~terminar el hilo de Whisper~~ **HECHO el 11/11**: se suelta al minuto sin uso, nunca con un subtitulado en curso (≈250–300 MB);
   6. exportar sin juntar todo en memoria;
   7. las fugas (`sounds-store.ts:225`, `image-node.ts:18`, `miniaturas.ts:42`, `EditorCore.reset()`).
 
