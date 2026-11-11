@@ -6,6 +6,44 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## La memoria del editor, medida: achicar la vista previa NO la baja, la copia liviana sí (11/11/2026)
+
+Martín preguntó si con Remotion se podía editar sin gastar la RAM del cliente. Antes de decidir, se midió dónde se va hoy.
+El código real (`VideoCache`, `WaveformCache`) corrió en un Chrome sin ventana: el banco `scripts/banco-memoria-editor/`.
+Números y método en docs/editor-video/memoria-del-editor.md.
+
+- **El diagnóstico obvio era el equivocado.** «1/2» y «1/4» en la vista previa (`canvas/escala-salida.ts`), igual que el
+  `maxCanvasSinkFrameSize` del `<Video>` de Remotion, achican el lienzo de SALIDA. Medido con 3 clips de 1080×1920:
+  - lienzo achicado: de +297 a +264 MB, casi nada;
+  - una COPIA liviana del archivo (540×960, 2 Mb/s): **+86 MB**.
+
+  El navegador decodifica a la resolución del archivo, y mediabunny guarda hasta 8 cuadros en cola antes del lienzo. En 4K
+  el pico baja de +529 a +26 MB, y cada cuadro sale 10 veces más rápido: de 11 a más de 30 cuadros por segundo. **Regla:**
+  para bajar la memoria de la vista previa se cambia lo que se DECODIFICA, no el tamaño en que se dibuja.
+- **El pico más grande es la forma de onda**, no el video: `services/waveform-cache/service.ts:64-79` lee el archivo
+  entero, lo copia (`.slice(0)`) y decodifica todo el audio. Mide 3,6 veces el archivo (76 MB → +275 MB) en cada carga del
+  proyecto; un video de celular de 1 GB pide ≈3,6 GB.
+- **Cada clip que se tocó deja su decodificador abierto** (≈100 MB en 1080×1920) hasta sacar el archivo o cambiar de
+  proyecto. Y el compositor copia cada cuadro a un `OffscreenCanvas` NUEVO (`wasm-compositor.ts:232`): en 4K sube el pico de
+  +529 a +762 MB, y la GPU lo suelta tarde.
+- **Trampas del banco, para la próxima medición:**
+  - En un Chrome sin ventana los lienzos viven en el proceso de la GPU: midiendo sólo el de la página, el video «no gasta
+    nada».
+  - Sumar todos los procesos de tipo renderer mete el `about:blank` inicial: se abre la página como ÚNICA pestaña.
+  - Muestrear cada ~0,5 s no ve un pico de 0,3 s: el pico sale de `PeakPageFileUsage` de Windows.
+  - Una llamada de CDP sin tope queda esperando para siempre si Chrome se cae. Ya pasó: lo cortó la guarda de RAM.
+- **Sin hacer** (orden y archivos en memoria-del-editor.md §7):
+  1. forma de onda por tramos (`waveform-cache/service.ts`);
+  2. copias livianas al importar, con el `Conversion` de mediabunny que ya usa `sounds/components/extraer-audio.ts`;
+  3. un lienzo por capa que se reuse;
+  4. tope de decodificadores abiertos;
+  5. terminar el hilo de Whisper;
+  6. exportar sin juntar todo en memoria;
+  7. las fugas (`sounds-store.ts:225`, `image-node.ts:18`, `miniaturas.ts:42`, `EditorCore.reset()`).
+
+  Sin medir en vivo: el editor ENTERO (la PC tenía 1,9 GB libres, y sigue el SIN RESOLVER de «Cargando…» en un Chrome sin
+  ventana), exportar y Whisper.
+
 ## Remotion: lo que la nube hace y lo que no (11/11/2026)
 
 - **La nube de Remotion EXPORTA; no edita.** La vista previa (`<Player>`) corre siempre en el navegador; un render en Lambda tarda segundos (7,56 s caliente en su ejemplo más simple), sirve para exportar, no para mover el cabezal. Lo que baja la RAM es otra cosa: proxies livianos hechos en la nube, el `<Video>` de `@remotion/media` (descarga por partes, caché acotado), `maxCanvasSinkFrameSize`, y NO usar `prefetch()` (guarda el archivo entero en memoria). **Antes de migrar de OpenCut, medir dónde se va hoy la memoria**: cambiar de motor no la baja sola.
