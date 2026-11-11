@@ -264,13 +264,17 @@ export function SpyM({ competidores, resumen, sugeridos, abierto, piezas }: {
             <ListaM etiqueta="Competidores">
               {competidores.map((x) => {
                 const r = resumen[x.id];
+                const conPiezas = !!r && r.vivas + r.idas > 0;
+                // Sin piezas, «Revisado hace…» va en la segunda línea y no a la derecha: ahí le quitaba 130 px al nombre, y
+                // «Acquisition.com» se veía «Acquisition.con», cortado sin «…» (mirado en producción a 375 px, 11/11/2026).
+                const canales = canalesEnLinea(x) || 'Sin canales todavía';
                 return (
                   <FilaM
                     key={x.id}
                     leading={<Cara c={x} />}
                     titulo={nombreDeTarjeta(x)}
-                    segunda={canalesEnLinea(x) || 'Sin canales todavía'}
-                    riel={r && r.vivas + r.idas > 0 ? `${r.vivas} ${r.vivas === 1 ? 'pieza' : 'piezas'}` : x.mirado_en ? `Revisado ${haceCuanto(x.mirado_en)}` : null}
+                    segunda={!conPiezas && x.mirado_en ? `${canales} · revisado ${haceCuanto(x.mirado_en)}` : canales}
+                    riel={conPiezas ? `${r.vivas} ${r.vivas === 1 ? 'pieza' : 'piezas'}` : null}
                     onClick={() => irA(x.id)}
                   />
                 );

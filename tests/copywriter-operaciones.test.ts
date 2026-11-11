@@ -72,6 +72,16 @@ test('una sección que el guion no tiene va al final, con su título', () => {
   assert.equal(r.nuevos.length, 2);
 });
 
+test('en una página vacía (la de «Replicar»), la primera sección ocupa el renglón vacío (11/11, quedaba «Escribe "/"…» arriba)', () => {
+  const vacia: JsonNodo = { type: 'doc', content: [{ type: 'paragraph', attrs: { bid: 'bvacio1' } }] };
+  const r = aplicarOperacion(vacia, { op: 'escribir_seccion', seccion: 'GANCHO', bloques: [{ tipo: 'texto', texto: 'un gancho' }] });
+  assert.deepEqual(bloquesDelDoc(r.doc).map((b) => [b.tipo, b.texto]), [['seccion', 'Gancho'], ['texto', 'un gancho']]);
+  // Con algo escrito, nada se borra: la sección va al final.
+  const conTexto: JsonNodo = { type: 'doc', content: [{ type: 'paragraph', attrs: { bid: 'bcon1' }, content: [{ type: 'text', text: 'mi nota' }] }] };
+  const r2 = aplicarOperacion(conTexto, { op: 'escribir_seccion', seccion: 'GANCHO', bloques: [{ tipo: 'texto', texto: 'un gancho' }] });
+  assert.deepEqual(bloquesDelDoc(r2.doc).map((b) => b.texto), ['mi nota', 'Gancho', 'un gancho']);
+});
+
 test('reemplazar, insertar y borrar apuntan por id; una sobre lo que borró otra se descarta', () => {
   const doc = guionPas();
   const [, p1, , p2] = bids(doc);

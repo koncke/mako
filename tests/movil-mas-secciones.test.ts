@@ -221,7 +221,7 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     'second-brain': ['area', 'vista', 'grupo'],
     experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'],
     offer: ['oferta', 'funnel', 'sesion'],
-    copywriting: ['nuevo'],
+    copywriting: ['nuevo', 'nueva', 'ver'],
     // La API de MaKo (17/10/2026): docs · tokens · registro, en los dos lados.
     'api-mako': ['tab'],
     curso: ['producto'],

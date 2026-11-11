@@ -226,15 +226,24 @@ function Caja({ p, grabacion: deLaPantalla, nota = null }: { p: PropsCajaChat; g
     } else if (h && document.activeElement === el && estaAbajo(h, 160)) h.scrollTop = h.scrollHeight;
     if (cursor.current != null) { el.setSelectionRange(cursor.current, cursor.current); cursor.current = null; }
   }, [texto]); // eslint-disable-line react-hooks/exhaustive-deps
-  // La frase de la caja TRABADA («Instala MaKo para escribir») llega después, con la respuesta del servidor, y en una caja angosta
-  // ocupa dos renglones: sin volver a medir quedaba cortada a la mitad (11/11/2026, en producción, el chat de Copywriting a 1440:
-  // un campo de 104 px junto a «Instalar MaKo»). Vacío, el alto de un textarea cuenta su placeholder.
-  useLayoutEffect(() => {
+  // La frase de la caja TRABADA («Instala MaKo para escribir»), en una caja angosta, ocupa dos renglones: sin volver a medir
+  // quedaba cortada a la mitad (11/11/2026, en producción, el chat de Copywriting a 1440: un campo de 104 px junto a «Instalar
+  // MaKo»). Se mide cada vez que cambia el ANCHO mientras está trabada: medir sólo al llegar la frase no alcanzó, porque el botón
+  // «Instalar MaKo» se carga después (es dinámico) y recién ahí el campo se angosta. Vacío, el alto de un textarea cuenta su
+  // placeholder. Sólo el ancho: el alto que se pone acá también dispara al observador.
+  useEffect(() => {
     const el = caja.current;
-    if (!el || altoMax == null || texto) return;
-    el.style.height = 'auto';
-    el.style.height = altoDelCampo(el.scrollHeight, altoMax);
-  }, [p.bloqueo?.frase]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!el || altoMax == null || !p.bloqueo || typeof ResizeObserver === 'undefined') return;
+    const medir = () => { if (el.value) return; el.style.height = 'auto'; el.style.height = altoDelCampo(el.scrollHeight, altoMax); };
+    medir();
+    let ancho = el.getBoundingClientRect().width;
+    const ro = new ResizeObserver(() => {
+      const w = el.getBoundingClientRect().width;
+      if (w !== ancho) { ancho = w; medir(); }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [p.bloqueo?.frase, altoMax]); // eslint-disable-line react-hooks/exhaustive-deps
   // Montada escondida (el chat del lienzo de Automations, en su ranura con `display: none`), se mide al APARECER: el ancho pasa
   // de 0 a algo (lib/centro-caja.ts → altoDelCampo, el texto que quedaba abajo y cortado, 23/10/2026).
   useEffect(() => {

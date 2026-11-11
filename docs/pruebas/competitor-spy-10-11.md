@@ -6,15 +6,70 @@ la tab en **producción** (hola-mako.com, el despliegue del 10/11), en el navega
 a 375, en claro y en oscuro. Se escribió **sólo en el ws 3 (Cliente de Prueba)**. **Apify: US$0 gastados** (el ws 3 no tiene
 clave de Spy; lo que se sumó se copió de lo que la plataforma ya había leído, y YouTube va por la cuota gratis de la API).
 
-**En números (las dos vueltas):**
-- **42 casos** probados el 10/11 y **17 pantallas miradas con captura** el 11/11.
-- **17 fallas** encontradas, **las 17 arregladas** (9 + 8), cada una con su test probado rompiéndolo
-  (`tests/spy-pruebas-10-11.test.ts`, 16 casos; 19 roturas, las 19 cazadas).
-- **8 observaciones** que no se arreglaron acá (abajo, con el porqué y dónde viven).
+**En números (las tres vueltas):**
+- **42 casos** probados el 10/11, **17 pantallas miradas con captura** el 11/11 a la madrugada y **20 capturas de producción**
+  el 11/11 a la tarde, con todo desplegado.
+- **27 fallas** encontradas, **las 27 arregladas** (9 + 8 + 10), cada una con su test probado rompiéndolo
+  (`tests/spy-pruebas-10-11.test.ts`, 16 casos y 19 roturas; `tests/mirada-prod-11-11.test.ts`, 11 casos y 11 roturas).
+- **8 observaciones** que no se arreglaron acá (abajo, con el porqué y dónde viven), más 4 de la tercera vuelta.
 - **4 casos sin probar** (abajo, con el porqué).
 
 Los arreglos van en la punta `punta/spy-pruebas`. Las capturas están en `docs/pruebas/competitor-spy-10-11/` (son de ANTES del
 arreglo: muestran la falla).
+
+## Tercera vuelta (11/11, 14:45–15:30 UTC): producción con TODO desplegado
+
+Producción con e14dd7cde (despliegue de las 11:05 UTC). Navegador de la app, sesión de Martín (super admin, comprobada con
+`/api/auth/me`), negocio de prueba (`?ws=3`), a **1440** y a **375**. Capturas en `docs/pruebas/competitor-spy-10-11/prod/`.
+
+**Lo que ya se ve bien (los arreglos de las dos vueltas, mirados):**
+
+| Qué | Captura | Se ve |
+|---|---|---|
+| Create en la barra a 1440 | 01 | Copywriting, Video, Image, Web Generator. Sin AI Avatar ni Lead Magnet |
+| Create en More del teléfono | 03 | El mismo orden, sin AI Avatar ni Lead Magnet |
+| `/lead-magnet-generator` y `/m/lead-magnet-generator` | 02, 07 | «Esta dirección no existe», con 404. La API (POST) da 404 «No existe» |
+| «Crear el regalo» del Marketing CoPilot (los 4 botones) | 08 | Lleva a `/copywriter?ws=3`. Ningún «Lead Magnet» en la pantalla |
+| Lista de Spy, ws 3 | 05, 06 | Leila con su caricatura; Sugeridos sin letras gigantes; Alex Hormozi con su dibujo |
+| Gráfico de Leila | 09 | **Con sus portadas** (237 de 242 bajadas; antes, cero) |
+| Ficha de Leila | 10 | «A dónde manda» + «Lo que mejor le fue» en una fila de dos, sin tapar «Todas sus piezas» |
+| Detalle de un video | 13 | El reproductor de YouTube carga (no es negro); sin la cifra cortada. En un reel: «Frente a su cuenta 15,7×» |
+| Funnel de Leila | 14 | «Su funnel · No se ve todavía» (antes, «Webinar en vivo» falso); «Sus páginas» muestra su landing |
+| «Sus páginas» de Acquisition.com | 16 | «Capturar / Abrir» (antes, su error en inglés) |
+| «Hacer uno así» en un reel | 17 | «Como Leila Hormozi: This is the skill that separates…» entero, y «117 mil me gusta» |
+| Teléfono, lista y ficha | 18, 19 | El título ya no queda tapado por la pastilla «Cliente de Prueba»; el gráfico con portadas |
+| Negocio de Martín (ws 9), sólo la lista | 20 | «Leila Hormozi · 637 piezas · 152 borradas» (antes, «80 piezas»); Alex, 64 |
+| Sumar un sugerido y «⋯ › Dejar de mirarlo» | — | Alex se suma (50 piezas copiadas, gratis) y desaparece de la lista sin recargar |
+
+**Lo que se vio mal, y su arreglo** (test: `tests/mirada-prod-11-11.test.ts`, 11 casos, 11 roturas cazadas):
+
+| # | Lo que se vio | Arreglo |
+|---|---|---|
+| P1 | Buscar «lead magnet» o «avatar» en la barra: **«Nothing found»** (04). El 404 de las rutas viejas dice que el buscador «entiende también los nombres viejos» | Alias: «lead magnet», «regalo» → Copywriting; «avatar», «ai avatar», «personaje» → Video (`lib/buscador-nav.ts`) |
+| P2 | «Crear el regalo» dejaba a la persona en la galería de outliers del Copywriter, sin nada que dijera regalo | Va a la pantalla de crear: `/copywriter?nueva`, «¿Qué vas a crear hoy?» con el campo para pedirlo |
+| P3 | More del teléfono: **66 px de hueco** entre Create y Settings (un título vacío que igual ocupa su lugar) | `SeccionM` sin título ni acción no dibuja la cabecera |
+| P4 | El 404 en el teléfono: **«presiona Ctrl K»** (07) | En un teléfono esa frase no va |
+| P5 | Spy: **14 de 15 nombres de videos de YouTube cortados** aun en dos renglones: el nombre tenía 104 px de 234 (11) | La píldora de vistas sube a la fila de su tipo y el nombre usa todo el ancho: **3 de 15** cortados (12, con el CSS nuevo puesto a mano en producción) |
+| P6 | Detalle de un video: la descripción, renglones de `https://www.acquisition.com/…?utm_source=youtube&utm_medium=…` | Cada link se lee como su sitio y su camino: `acquisition.com/fivescalingframeworks` (`linksLegibles`, lib/spy-vista.ts) |
+| P7 | Funnel: **«Conectar mi IA» se ve como texto suelto en una caja sin relleno** (14). Igual los otros cuatro botones de conectar de Spy | `BotonIntegracion` les pisaba la clase con estilos en línea: Spy le pasa `CON_SU_CLASE` (15, con el arreglo puesto a mano) |
+| P8 | Teléfono: **«Acquisition.con»**, cortado en seco sin «…» (18) | «Revisado hace…» pasa a la segunda línea cuando no hay piezas; y en todo el teléfono, una palabra más larga que la fila baja de renglón |
+| P9 | Alex, sumado desde Sugeridos y sacado, **no volvía a Sugeridos** hasta recargar | Al dejar de mirar a alguien, la pantalla vuelve a pedir los sugeridos |
+| P10 | Negocio de Martín: «la que más espera **lleva hace 1 d** en la cola» (20) | «lleva 1 d» |
+
+**Observaciones de esta vuelta, sin arreglar acá:**
+- **«¿Qué formatos le funcionan?» de Leila** tiene una sola fila («Tutorial», 302 piezas) con sus 40 mejores apiladas en 110 px.
+  Es el diseño (las de más arriba, para que no se tapen); con un solo formato, la tarjeta dice poco.
+- **Las caricaturas miden 200 px** (`spy/caricatura/instagram-leilahormozi.png`) en una tarjeta de 264 (528 en una pantalla
+  retina): se ven blandas. Las hace el Runner con Canva; agrandarlas es rehacerlas.
+- **Acquisition.com sigue siendo una «A» gigante**: es un competidor con sólo su web, sin cara de la que hacer caricatura.
+- **El teléfono tiene «Offer» en Marketing y la barra de la computadora no**: es de la tab Offer.
+- **«Todas sus piezas» le dice a un cliente «Conecta Apify»**: el nombre de un proveedor (es la regla de que cada negocio
+  conecta sus claves; el texto es de la tab).
+- Los carruseles de Leila en el ws 3 son una copia del 10/11, anterior al arreglo M7: dicen lo que decían. La próxima copia trae
+  su tipo.
+
+**Lo que quedó en el ws 3 de esta vuelta:** una página del Copywriter («Como Leila Hormozi: This is the skill that separates…»).
+Alex Hormozi se sumó y se sacó.
 
 ## Segunda vuelta (11/11): MIRADO con capturas, al lado de la referencia
 
@@ -163,6 +218,9 @@ del celular.
 4. **Un miembro que no es admin, en pantalla**: no se crean cuentas.
 
 ## Mirar en producción después del despliegue
+
+✅ **Hecho el 11/11 a la tarde: «Tercera vuelta», arriba.** Los ocho puntos se ven bien; el 3 (las fechas a la noche) se miró
+de día. Queda para después de ESTE despliegue: los diez arreglos P1–P10.
 
 En el navegador de la app, en `/competitor-spy?ws=3`, ficha de Leila Hormozi (`&competidor=42`):
 1. Bajar hasta «Todas sus piezas»: «A dónde manda» y «Lo que mejor le fue» ya no tapan la grilla.

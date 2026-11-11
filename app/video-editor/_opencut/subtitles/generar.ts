@@ -27,7 +27,7 @@ import { usePreferenciasSubtitulos, useTrabajoSubtitulos } from "./estado";
 import { insertarSubtitulos, lienzoDe, type ModoClaves } from "./insert";
 import { estiloDePreset, modoClavesDePreset, presetDeId, usePresetsSubtitulos } from "./presets";
 import { ponerEmojisEnSubtitulos } from "./emojis-poner";
-import { motivoDeLaFalla, textoDeSubtitulos, type MotivoSubtitulos, type ResultadoSubtitulos } from "./resultado";
+import { faltaAlgunArchivo, motivoDeLaFalla, textoDeSubtitulos, type MotivoSubtitulos, type ResultadoSubtitulos } from "./resultado";
 
 // Cada «Generar» lleva un número; cancelar lo cambia. Un trabajo que vuelve de
 // una espera y ya no es el actual (lo cancelaron, quizás arrancó otro) no escribe
@@ -59,6 +59,9 @@ export async function generarSubtitulos(editor: EditorCore): Promise<ResultadoSu
 	const prefs = usePreferenciasSubtitulos.getState();
 	const proyecto = editor.project.getActiveOrNull()?.metadata.id;
 	if (!proyecto || !editor.scenes.getActiveSceneOrNull()) return falla("sin-proyecto");
+	if (faltaAlgunArchivo(editor.scenes.getActiveScene().tracks, new Set(editor.media.getAssets().map((a) => a.id)))) {
+		return falla("falta-medio");
+	}
 
 	const mio = ++trabajoActual;
 	const cancelado = () => mio !== trabajoActual;

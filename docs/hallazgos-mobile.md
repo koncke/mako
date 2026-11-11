@@ -7,6 +7,18 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Un título vacío y una palabra larga: lo que el teléfono dibujaba de más y de menos (11/11/2026)
+
+**Vive en:** `app/m/_ui/SeccionM.tsx` · `app/m/m.css` (`.m-fila__t`). Lo fija `tests/mirada-prod-11-11.test.ts` (casos 3 y 7).
+
+- **More: 66 px de hueco entre Create y Settings.** El grupo de Settings no tiene título, pero `SeccionM` dibujaba igual su
+  cabecera (un `<h2>` vacío de 28 px más 10 de margen). Ahora, sin título ni acción, no hay cabecera.
+- **«Acquisition.com» se veía «Acquisition.con».** `.m-fila__t` corta a dos renglones con `-webkit-line-clamp`, pero una sola
+  palabra más ancha que la fila no tiene dónde partirse: se cortaba en seco, sin «…», y se leía como un error de tipeo. Ahora
+  `overflow-wrap: anywhere` la baja de renglón. En Spy, además, «Revisado hace 14 h» le quitaba 130 px desde el riel.
+
+**La regla:** lo que va a la derecha de una fila (`riel`) es corto: un número o una palabra. Un «hace cuánto» va en la segunda línea.
+
 ## «En mobile aparecen 2 dashboards»: la fila de las hojas quedó de antes del Dashboard unido (24/10/2026)
 
 **Síntoma** (Martín, Android, captura de More › Today): «Dashboard» y «Dashboard sheets», uno abajo del otro. **Causa:**
@@ -2092,3 +2104,12 @@ menos categorías que la compu (falló / falta conectar / sin datos).
 - **La unidad:** el catálogo la dice en el nombre de la métrica («Mediana de respuesta (min)») y la tarjeta tiene su propio título («Tiempo de
   respuesta»): el teléfono mostraba «10» a secas. `conUnidad` la suma si el título no la dice.
 - **Vive en:** app/m/dashboard/datos.ts (`hojaPropia`), modelo.ts (`esCostoSobreGasto`, `conUnidad`).
+
+## Una vista nueva por query se pierde en el teléfono: el paso a /m sólo lleva las claves que tiene anotadas (11/11/2026)
+
+- **Síntoma:** en Copywriting, «Crear desde cero» (`/copywriter?nueva=`) y «Mis guiones» (`?ver=guiones`) mostraban en el teléfono
+  la portada de outliers. En la computadora andaban.
+- **Causa:** el paso de la ruta de computadora a la del teléfono (lib/movil-creacion.ts → `conQuery`) conserva sólo las claves
+  de la lista de su fila (`query: ['nuevo']`), y además **descarta los parámetros vacíos**: `?nueva=` se caía aunque estuviera.
+- **La regla:** una pantalla que suma una vista por query anota la clave en DOS lugares: su fila de lib/movil-creacion.ts y
+  `QUERY_DE_SECCION` (lib/movil-rutas.ts, lo fija tests/movil-mas-secciones.test.ts). Y el link lleva un valor (`?nueva=1`).
