@@ -40,6 +40,13 @@ const parte = (n: number | null, de: number | null) => (n != null && de != null 
 /** Las filas de verdad: sin «(sin dato)» ni «Otros». */
 const filasDe = (r: Resultado) => r.filas.filter((f) => f.etiqueta && f.clave !== SIN_DATO && f.clave !== OTROS);
 
+/**
+ * La parte de una fila: «24%», y «<1%» si es más que nada pero redondea a cero. 1 llamada de 629 decía «0%», un cero que no es
+ * cero (11/11/2026, «Para qué se usa» en producción). `null` = no hay con qué calcularla.
+ */
+export const parteEnTexto = (p: number | null | undefined): string | null =>
+  p == null || !Number.isFinite(p) ? null : p > 0 && p < 0.5 ? '<1%' : `${Math.round(p)}%`;
+
 /** «US$1,463», con centavos debajo de US$100 («US$14.40») y con cuatro decimales debajo de 10 centavos («US$0.0021»). */
 export function dolares(n: number): string {
   const a = Math.abs(n), s = n < 0 ? '−' : '';

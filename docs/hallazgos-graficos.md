@@ -1959,3 +1959,13 @@ tabla. Van en `SINGULAR_FRASES` («no se presentaron», «te respondieron», «p
 `fmtValor` (lib/graficos-agregar.ts) sólo mostraba centavos: US$0.000038 por llamada salía «US$0», un cero que no es cero. Debajo de un
 centavo va con dos cifras significativas («US$0,000038»), como `dolares` (lib/contenido-diseno.ts) en la hoja con diseño. El eje del
 teléfono tenía lo mismo (ver docs/hallazgos-mobile.md).
+
+## «Les escribió MaKo» contaba a quien nunca le salió un mensaje (11/11/2026)
+
+- **Síntoma:** Automatizaciones decía «Salieron 0 mensajes» y, en el recorrido, «Les escribió MaKo · recibieron al menos un mensaje · 109».
+- **Causa:** el paso leía `leads` de la fuente `envios`: los leads distintos con CUALQUIER fila (acción, simulado, omitido). Medido en la
+  base el 11/11: ws 11 tenía 183 con filas y 37 con un mensaje salido; los clientes de Código, filas y CERO mensajes.
+- **Lo que quedó:** la métrica `escritos` (leads con un envío `enviado`). `leads` NO se tocó: «Cuántos llegan a cada tarjeta»
+  (lib/automatizacion-metricas.ts) cuenta también las tarjetas de acción, y ahí está bien.
+- **La trampa:** una métrica nueva en una plantilla NO llega a las hojas ya copiadas (no hay sincronización de piezas). Por eso el diseño
+  lee `escritos` y, si la hoja no la pide, el paso queda en «—» en vez de caer al número viejo.
