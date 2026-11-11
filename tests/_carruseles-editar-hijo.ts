@@ -47,8 +47,11 @@ export type PedidoIA = { via: 'vision-nativa' | 'chat' | 'claude'; modelo: strin
 let pedidos: PedidoIA[] = [];
 /** Los hosts que se pidieron afuera de la base: así se ve por qué camino bajó cada imagen. */
 let red: string[] = [];
-/** Qué contesta la IA en esta corrida: el JSON, o un status de error (429 sin cuota, 500 un bache). */
-let contesta: { json?: string; status?: number } = {};
+/**
+ * Qué contesta la IA en esta corrida: el JSON, o un status de error (429 sin cuota, 500 un bache). `cortaEn`: ese modelo de
+ * visión contesta la MITAD del JSON con `finishReason: MAX_TOKENS`, como `gemini-flash-latest` el 11/11/2026 en el ws9.
+ */
+let contesta: { json?: string; status?: number; cortaEn?: string } = {};
 
 const cuerpo = (init: RequestInit): Record<string, unknown> => {
   try { return JSON.parse(String(init.body ?? '{}')) as Record<string, unknown>; } catch { return {}; }
@@ -95,9 +98,10 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     if (contesta.status) {
       return new Response(JSON.stringify({ error: { code: contesta.status, message: contesta.status === 429 ? 'Resource has been exhausted: quota' : 'internal error' } }), { status: contesta.status, headers: { 'content-type': 'application/json' } });
     }
-    const texto = contesta.json ?? '';
+    const cortada = nativa && contesta.cortaEn != null && pedidos[pedidos.length - 1]?.modelo === contesta.cortaEn;
+    const texto = cortada ? (contesta.json ?? '').slice(0, Math.floor((contesta.json ?? '').length / 2)) : contesta.json ?? '';
     const resp = nativa
-      ? { candidates: [{ content: { parts: [{ text: texto }] }, finishReason: 'STOP' }] }
+      ? { candidates: [{ content: { parts: [{ text: texto }] }, finishReason: cortada ? 'MAX_TOKENS' : 'STOP' }] }
       : { choices: [{ message: { content: texto }, finish_reason: 'stop' }] };
     return new Response(JSON.stringify(resp), { status: 200, headers: { 'content-type': 'application/json' } });
   }
@@ -188,6 +192,8 @@ async function main() {
     sinCuota: await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { status: 429 } }),
     // 7. Sin ninguna IA conectada: guías, y el modal NO queda en blanco.
     sinIA: await correr({ portada: NUESTRA, conIA: [], responde: {} }),
+    // 10. El modelo que mira se queda sin tokens y corta el JSON a la mitad (11/11/2026, ws9): se prueba el modelo de respaldo.
+    cortado: await correr({ portada: NUESTRA, conIA: SU_GEMINI, responde: { json: RESPUESTA_IA, cortaEn: 'gemini-flash-latest' } }),
   };
   // 8 y 9. El GUIADO (9/11/2026, lib/carruseles/guiado.ts): la oferta que eligió el dueño llega al pedido de la IA, y una de OTRO
   // negocio (un id que manda el navegador) no existe en la base de éste. Martín: «ni siquiera me pregunta qué oferta».

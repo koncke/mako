@@ -356,6 +356,11 @@ la cascada (cuota, clave, demora, saturación) y de quién es; «no contestó» 
 
 **Vive en:** `lib/carruseles/replica-servidor.ts` (`replicarEjemplo`), `lib/carruseles/replica.ts` (`avisoSinIA`, `vuelveASinVer`).
 
+**11/11/2026, la otra mitad:** con el camino arreglado, «Editar» seguía fallando una de cada dos veces en el ws9 («no devolvió el
+diseño en un formato que pueda leer»). No era la IA, era el **formato**: Gemini escribía el JSON con sangría y se cortaba en
+el tope de 8.000 tokens. Ahora se pide compacto (3.273 tokens en vez de 5.374 a 7.996) y un JSON cortado pasa al modelo de
+respaldo. Medido y explicado en docs/hallazgos-ia.md → «Topes».
+
 ## «Editar» probado con la IA REAL: el arreglo estaba bien y el que mentía era el ARNÉS (6/11/2026)
 
 **Síntoma:** cuatro encargos distintos del 6/11 (ids 8, 109, 190, 384) decían lo mismo: el arreglo de «Editar» está escrito y
