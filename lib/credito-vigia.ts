@@ -23,7 +23,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 export type CorridaDelVigia = {
   ok: boolean; error?: string;
-  /** El % guardado, por nombre de clave. */
+  /** El % guardado, por nombre de clave. Sin él: no se guardó (de alguna cuenta no se supo el %). */
   uso?: Record<string, number>;
   avisos: Array<{ clave: string; r: 'avisado' | 'ya-estaba' | 'fallo' }>;
 };
@@ -47,8 +47,10 @@ export async function vigilarCreditoClaude(ahora = Date.now()): Promise<CorridaD
     const ws = await wsSuperAdmin();
     return await runWithWorkspace(ws, async () => {
       const ya = new Set((await getSettingsConPrefijo(PREFIJO_AVISO_DEL_CREDITO)).keys());
-      const { avisos, uso } = avisosDelCredito(lectura.filas, ya, ahora);
-      await setSetting(CLAVE_USO_DEL_CREDITO, JSON.stringify({ at: new Date(ahora).toISOString(), cuentas: uso }));
+      const { avisos, uso, completo } = avisosDelCredito(lectura.filas, ya, ahora);
+      // Con el % de alguna cuenta sin saber, NO se guarda: queda el último completo, que vence solo a las 2 h (`leerUsoDelCredito`).
+      // Guardarlo con huecos y la hora de ahora borraba el % de la cuenta que iba al 95%, y la plataforma volvía a usarla.
+      if (completo) await setSetting(CLAVE_USO_DEL_CREDITO, JSON.stringify({ at: new Date(ahora).toISOString(), cuentas: uso }));
       const hechos: CorridaDelVigia['avisos'] = [];
       for (const a of avisos) {
         const v = JSON.stringify({ at: new Date(ahora).toISOString(), nivel: a.nivel, cuenta: a.cuenta });
@@ -58,7 +60,7 @@ export async function vigilarCreditoClaude(ahora = Date.now()): Promise<CorridaD
         await borrarSettingSi(a.clave, v).catch(() => false);
         hechos.push({ clave: a.clave, r: 'fallo' });
       }
-      return { ok: true, uso, avisos: hechos };
+      return { ok: true, ...(completo ? { uso } : {}), avisos: hechos };
     });
   } catch (e) {
     console.error(`[credito-vigia] no pude vigilar el crédito de Claude: ${msg(e)}`);

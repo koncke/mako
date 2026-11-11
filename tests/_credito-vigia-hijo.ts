@@ -46,8 +46,10 @@ async function main() {
   out.al101 = await vigilarCreditoClaude(ahora + 1_200_000);
   out.campanitas = pg.db.notificaciones.map((f) => `${f.tipo}:${String(f.descripcion ?? '').slice(0, 60)}`);
   gastoIlegible = true;
+  const antes = uso();
   out.sinLeer = await vigilarCreditoClaude(ahora + 1_800_000);
   out.usoSinLeer = uso()?.cuentas ?? null;
+  out.usoSinLeerMismaHora = uso()?.at === antes?.at;
   process.stdout.write(`@@VIGIA@@${JSON.stringify(out)}\n`);
 }
 

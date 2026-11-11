@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readFileSync } from 'node:fs';
-import { avisosDelCredito, PREFIJO_AVISO_DEL_CREDITO, type FilaCredito } from '../lib/credito-api';
+import { avisosDelCredito, ordenDeLasCuentas, PREFIJO_AVISO_DEL_CREDITO, type FilaCredito } from '../lib/credito-api';
 
 const AHORA = Date.parse('2026-11-11T15:00:00Z');
 const fila = (cuenta: string, gastadoUsd: number | null, extra: Partial<FilaCredito> = {}): FilaCredito => ({
@@ -50,6 +50,18 @@ test('1. sin poder leer lo gastado, ningún %: se avisa «no pude leer» (una ve
   assert.deepEqual(r.uso, {}, 'se guardó un % inventado');
   assert.doesNotMatch(r.avisos[0].texto, /%/, 'el aviso de «no pude leer» trae un %');
   assert.deepEqual(niveles(avisosDelCredito([fila('claude2', null)], new Set(r.avisos.map((a) => a.clave)), AHORA + 3_600_000)), [], 'el mismo día se repitió');
+  // Con el % de alguna cuenta sin saber, el vigía no guarda (incompleto): lo gastado ilegible, o la clave ilegible.
+  assert.equal(r.completo, false, 'con lo gastado ilegible, el % se dio por completo');
+  assert.equal(avisosDelCredito([fila('claude1', 100), fila('claude2', 10, { vinculada: null })], new Set(), AHORA).completo, false, 'con la clave ilegible, el % se dio por completo');
+  assert.equal(avisosDelCredito([fila('claude1', 100), fila('claude5', 0, { vinculada: false })], new Set(), AHORA).completo, true, 'una cuenta sin vincular dejó el % incompleto');
+});
+
+test('1. para la plataforma, una cuenta que falta en el % es «no sé», nunca 0%: queda fuera (los grupos la usan, al final)', () => {
+  const C1 = 'ANTHROPIC_CREDITO_CUENTA1', C2 = 'ANTHROPIC_CREDITO_CUENTA2', C3 = 'ANTHROPIC_CREDITO_CUENTA3';
+  assert.deepEqual(ordenDeLasCuentas([C1, C2, C3], { [C1]: 40, [C3]: 95 }, 'plataforma', 0), [C1], 'la plataforma usó una cuenta sin %');
+  assert.deepEqual(ordenDeLasCuentas([C1, C2, C3], {}, 'plataforma', 0), [], 'un % vacío abrió la reserva de WhatsApp');
+  assert.deepEqual(ordenDeLasCuentas([C1, C2, C3], { [C1]: 40, [C3]: 95 }, 'grupos', 0), [C1, C3, C2]);
+  assert.deepEqual(ordenDeLasCuentas([C1, C2, C3], null, 'plataforma', 1), [C2, C3, C1], 'sin dato del vigía, el reparto de siempre');
 });
 
 let cache: Record<string, any> | null = null;
@@ -73,7 +85,10 @@ test('2. el vigía de verdad: guarda el %, avisa una vez por la campanita, y sin
   assert.equal(r.campanitas.length, 2);
   assert.ok(r.campanitas.every((c: string) => c.startsWith('credito-claude:claude2: ')), r.campanitas.join(' | '));
   assert.equal(r.sinLeer.ok, true);
-  assert.deepEqual(r.usoSinLeer, {}, 'sin poder leer el gasto, se guardó un %');
+  // Sin poder leer el gasto, no se inventa un % ni se pisa el último: queda el 101% de antes, con SU hora (vence solo).
+  assert.deepEqual(r.usoSinLeer, { ANTHROPIC_CREDITO_CUENTA2: 101 }, 'sin poder leer el gasto, se pisó el último % conocido');
+  assert.equal(r.usoSinLeerMismaHora, true, 'sin poder leer el gasto, el % viejo quedó con la hora de ahora');
+  assert.equal(r.sinLeer.uso, undefined, 'la corrida dice que guardó un %');
   assert.deepEqual(r.sinLeer.avisos.map((a: { clave: string }) => a.clave.split('.').slice(-2, -1)[0]), ['no-pude-leer']);
 });
 
@@ -90,3 +105,5 @@ test('3. corre desde la guardia de cada 10 minutos, y el «una vez» es un compa
 //   V2 con lo gastado ilegible, se toma como 0 (un % inventado)                    → fallan el 1 y el 2
 //   V3 el 80% sin el ciclo en la clave del aviso (un aviso para siempre)          → falla el 1
 //   V4 el vigía sin guardar el %                                                   → falla el 2
+//   V5 el vigía guarda aunque el % esté incompleto (pisa el último con {})         → falla el 2
+//   V6 la plataforma cuenta como 0% una cuenta que falta en el %                   → falla el 1

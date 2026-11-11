@@ -86,13 +86,15 @@ export function leerUsoDelCredito(valor: string | null | undefined, ahora: numbe
  * En qué orden se prueban las cuentas con clave. Sin dato del vigía, el reparto de siempre (una distinta primero en cada turno,
  * `giro`). Con dato: primero la que menos % gastó (lo que gasta el ws1 con su cuenta 1 se compensa solo), las de % desconocido
  * al final; y para la PLATAFORMA, sin las que llegaron al 90%. Los grupos las usan hasta que Anthropic diga que no hay saldo.
+ * ⚠️ Para la plataforma, una cuenta que FALTA en el % del vigía es «no sé», no 0%: queda fuera (puede ir al 95%, y ese último 10%
+ * es de WhatsApp). Antes contaba como 0 y un % vacío abría la reserva justo cuando no había dato.
  */
 export function ordenDeLasCuentas(con: readonly string[], uso: Readonly<Record<string, number>> | null, para: 'grupos' | 'plataforma', giro: number): string[] {
   if (!con.length) return [];
   const i = ((giro % con.length) + con.length) % con.length;
   const rotadas = [...con.slice(i), ...con.slice(0, i)];
   if (!uso) return rotadas;
-  const usables = para === 'plataforma' ? rotadas.filter((c) => !((uso[c] ?? 0) >= TOPE_DE_LA_PLATAFORMA_PCT)) : rotadas;
+  const usables = para === 'plataforma' ? rotadas.filter((c) => typeof uso[c] === 'number' && uso[c] < TOPE_DE_LA_PLATAFORMA_PCT) : rotadas;
   return usables
     .map((c, j) => ({ c, j, pct: uso[c] ?? Number.POSITIVE_INFINITY }))
     .sort((a, b) => (a.pct === b.pct ? a.j - b.j : a.pct - b.pct))
@@ -282,19 +284,24 @@ const usd = (n: number) => `US$${Math.round(n)}`;
  *   · con lo gastado sin poder leer, NINGÚN %: un aviso «no pude leer», uno por día, y esa cuenta fuera del % guardado;
  *   · sólo las cuentas vinculadas (una sin clave no gasta).
  * `uso` va por el NOMBRE de la clave (`ANTHROPIC_CREDITO_CUENTA2`), que es como lo lee el reparto (lib/credito-negocio.ts).
+ * `completo`: false si de alguna cuenta no se supo el % (lo gastado ilegible, o su clave ilegible: `vinculada` null). Con
+ * `completo` false el vigía NO guarda: un % con huecos y la hora de ahora pisaría el último que sí se conocía.
  */
 export function avisosDelCredito(
   filas: readonly FilaCredito[], yaAvisados: ReadonlySet<string>, ahora: number, cuentas: readonly CuentaDelCredito[] = CUENTAS_DEL_CREDITO,
-): { avisos: AvisoDelCredito[]; uso: Record<string, number> } {
+): { avisos: AvisoDelCredito[]; uso: Record<string, number>; completo: boolean } {
   const avisos: AvisoDelCredito[] = [];
   const uso: Record<string, number> = {};
+  let completo = true;
   const { y, m, d } = fechaAR(ahora);
   const hoy = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
   for (const f of filas) {
+    if (f.vinculada == null) completo = false;
     if (f.vinculada !== true) continue;
     const nombre = cuentas.find((c) => c.cuenta === f.cuenta)?.clave;
     const ciclo = f.desde.slice(0, 10);
     if (f.gastadoUsd == null) {
+      completo = false;
       const clave = `${PREFIJO_AVISO_DEL_CREDITO}${f.cuenta}.no-pude-leer.${hoy}`;
       if (!yaAvisados.has(clave)) avisos.push({ clave, cuenta: f.cuenta, nivel: 'no-pude-leer', texto: `${f.cuenta}: no pude leer cuánto lleva gastado del crédito de Claude en este ciclo, así que no sé si se está acabando. Míralo en SuperAdmin › Uso.` });
       continue;
@@ -314,5 +321,5 @@ export function avisosDelCredito(
       avisos.push({ clave: c80, cuenta: f.cuenta, nivel: '80', texto: `${f.cuenta}: ${de}. Desde el 90%, el espacio de MaKo deja de usar esta cuenta y el resto queda para WhatsApp.` });
     }
   }
-  return { avisos, uso };
+  return { avisos, uso, completo };
 }
