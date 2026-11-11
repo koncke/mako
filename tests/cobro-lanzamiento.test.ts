@@ -84,7 +84,10 @@ test('la pantalla: la casilla viene marcada en una suscripción viva, y «Cortar
 
 test('⚠️ una pasarela en modo prueba no se ofrece en /planes, salvo al super admin (la prueba de humo)', () => {
   const oferta = bloque(COMPRA, 'export async function ofertaDelPlan(');
-  assert.match(oferta, /\(await monedasDeLaPlataforma\(ws\)\)\.filter\(\(m\) => !m\.prueba \|\| opts\.conPrueba === true\)/);
+  // Desde el 11/11/2026 las de prueba van aparte (sin el filtro del país, para la prueba de humo desde Argentina), y sólo con
+  // `conPrueba`: tests/prueba-de-humo-pasarela.test.ts.
+  assert.match(oferta, /const reales = conPrecio\(monedas\.filter\(\(m\) => !m\.prueba\)\);/);
+  assert.match(oferta, /const deUnaPrueba = opts\.conPrueba === true \? conPrecio\(monedas\.filter\(\(m\) => m\.prueba\)\) : \[\];/);
   const monedas = bloque(COMPRA, 'async function monedasDeLaPlataforma(');
   assert.match(monedas, /prueba: modoDeClaveStripe\(await credDelCliente\('STRIPE_SECRET_KEY', ws\)\) === 'prueba'/);
   assert.match(monedas, /prueba: c\.modo === 'prueba'/);
