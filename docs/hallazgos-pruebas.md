@@ -17,7 +17,9 @@ libres esa noche), además, se congela. Los filtros y el orden sí andaban ahí,
 bien.
 
 **La regla:** antes de anotar una falla de algo que no reacciona en el navegador de la app, `tabs_context` dice si el panel está
-oculto. Si lo está, se repite en una ventana a la vista (el Chrome de Martín, en una pestaña propia) antes de creerle.
+oculto. Si lo está, se repite con el panel a la vista, o se le pide un turno al Cerebro, antes de creerle. ⚠️ **NO en el Chrome de
+la extensión:** tiene la sesión de LEANDRO (ws 10), un cliente real, y el `?ws=` se ignora. La prueba del 10/11 dejó ahí 2 usos
+de IA y una apertura vista (docs/pruebas/image-10-11.md, «Límites»).
 
 ## Un `assert.equal` con un elemento de jsdom que falla agota la memoria (10/11/2026)
 

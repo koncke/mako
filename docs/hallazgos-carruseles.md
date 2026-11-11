@@ -155,6 +155,12 @@ de esta tanda:
   ordena `filtrarCarruseles`. Comparando el orden crudo, ese Anuncios «tenía filtros» y mostraba los dos botones. `sinFiltrosDe`
   compara el orden que de verdad se usa (`ordenEfectivo`). Un filtro se mide contra lo que la pantalla HACE, no contra el campo.
 
+⚠️ **Abrir el guiado ya usa la IA del negocio.** Apenas se abre, `useGuiado` pide `/api/image-editor/carruseles/leer`, que manda
+hasta las primeras láminas a la IA para saber si hay una persona (`leerLoQueTiene`, feature `carrusel-replica`). No escribe
+nada del negocio, pero queda un uso en `anthropic_usage` a su nombre. Probándolo «sin escribir nada» en el Chrome de la extensión
+(que tiene la sesión de Leandro, ws 10) quedaron 2 usos en un cliente real (10/11). Para probar el guiado: el ws 3 o el de MaKo, nunca
+el negocio de un cliente.
+
 **Sin hacer:** la 0411 (`revisada_en`) sigue sin aplicar en producción al 10/11: la columna no existe, así que todo lo visible
 se muestra sin revisar.
 

@@ -46,7 +46,7 @@ Resultado: **PASA** · **FALLA** (sin arreglar) · **ARREGLADO** (en producción
 | 23 | Celular: «Editar» armaba la versión EN EL ACTO, con la IA del negocio, sin preguntar | 375 | **ARREGLADO, falta desplegar**: el mismo guiado de la computadora (659e6c1a3) | [09](image-10-11/09-celular-editar-arma-solo.jpg) |
 | 24 | Oscuro: la grilla y los filtros | 1536 | **PASA** | |
 | 25 | Thumbnails: 84 miniaturas, ninguna rota | 1536 | **PASA** | |
-| 26 | Guiado completo: oferta escrita a mano, «Sólo los textos», y «Listo: 11 láminas…» con «Generar las 11 láminas», «Cambiar algo» y «Ahora no» | 551, ws 10 (sólo lectura) | **PASA** | [12](image-10-11/12-guiado-listo-para-generar.jpg) |
+| 26 | Guiado completo: oferta escrita a mano, «Sólo los textos», y «Listo: 11 láminas…» con «Generar las 11 láminas», «Cambiar algo» y «Ahora no» | 551, ws 10 (ver abajo: NO fue sólo lectura) | **PASA** | [12](image-10-11/12-guiado-listo-para-generar.jpg) |
 | 27 | Guiado en una ventana angosta (551): abría en las láminas, con la pregunta escondida detrás de «MaKo» y sin el velo | 551 | **ARREGLADO, falta desplegar**: abre en el chat (`movilDeEntrada`) | [11](image-10-11/11-guiado-angosto-abre-en-laminas.jpg) |
 | 28 | «Generar» | — | **NO PROBADO**: escribe y usa la IA del negocio. En el ws 3, que no tiene IA, el panel oculto del navegador de la app no procesaba el clic de «Editar» (el mismo clic, en el Chrome a la vista, sí abre el guiado) | |
 | 29 | Anuncios entrando por el link (`?que=anuncios`): «Guardar búsqueda» sin filtros | 551 | **ARREGLADO, falta desplegar**. El arreglo del caso 11 lo empeoraba (salían los dos botones): se corrigió con el orden que de verdad se usa | [13](image-10-11/13-anuncios-por-link.jpg) |
@@ -71,7 +71,11 @@ Resultado: **PASA** · **FALLA** (sin arreglar) · **ARREGLADO** (en producción
 
 - **El navegador de la app, con el panel oculto, congela la página.** Un script sin esperas tardó más de 45 s, y una navegación
   quedó colgada 300 s con 1,9 GB libres. Además, un `setState` llamado a mano no cambiaba la pantalla. Lo que dependía de eso
-  (el guiado en el ws 3) se probó en el Chrome de Martín, a la vista, en el negocio de esa sesión (ws 10) y sin escribir nada.
+  (el guiado en el ws 3) se probó en el Chrome de la extensión, a la vista. ⚠️ **Ese Chrome tiene la sesión de LEANDRO (ws 10),
+  no la de Martín, y el `?ws=` se ignora.** Y abrir el guiado NO es sólo mirar: manda las láminas a la IA para saber si hay una
+  persona. Quedaron en su negocio 2 usos de IA (`anthropic_usage` 12812 y 12823, US$0,0067 pagados con el crédito de la
+  plataforma) y una apertura vista (`usuarios` 8, `perfil.aperturas["10:image:donde|dede717d…"]`, al abrir su diseño en el
+  editor). Ningún diseño, ningún ajuste y ningún mensaje. Se le avisó al Cerebro y no se borró nada.
 - **El celular** se vio a 375×812 en el navegador de la app: la grilla, el carrusel abierto y el «Editar» que armaba solo (caso
   23). El guiado nuevo del teléfono se ve después del despliegue.
 - **Las capturas** del navegador de la app salen achicadas a 800×500; las del Chrome, a 551 de ancho, que es el ancho que tenía
