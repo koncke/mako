@@ -14,6 +14,8 @@
 // Martín: los nombres de sección, en inglés); las frases y lo que mide cada gráfico, en español.
 // ⚠️ El gráfico y las fechas de las comparaciones se arman ACÁ, en el navegador (`metricasDeCostos`, `rangoDelMes`): del
 //    server llegan el mes y los días como texto. Armados allá (UTC), cada día salía con la fecha anterior (punto 5).
+// MaKo suma (10/11/2026), en Overview después de «What you keep»: lo que se va de una suscripción por plan, el primer mes, el
+// techo del CAC y los cupos (Suscripcion.tsx), armados con piezas copiadas de Polar y la función de lib/economia-unitaria.ts.
 // Se sacaron: «Anomalies» (los eventos por encima del p99 de su tipo: MaKo guarda el gasto agregado, no cada llamada con su
 // costo comparable), la cantidad de clientes de cada modelo y el detalle de un tipo (`costs/[spanId]`: no hay llamadas que
 // listar). En vez del rango de días de Polar, el mes (`resumenDelPeriodo` lee un mes), y el selector va a la URL (`?mes=`).
@@ -73,7 +75,9 @@ import {
 } from '@/app/admin/_polar/orbit/icons'
 import { useRouter } from '@/app/_ui/Link'
 import { useMemo } from 'react'
-import { fmtPct } from './utils'
+import { fmtPct, fmtUsd } from './utils'
+import { SectionHeader } from './SectionHeader'
+import { SuscripcionCosts } from './Suscripcion'
 
 /** El plan con el que se muestra «What you keep». Martín, 7/11: «quiero que tomes principalmente clientes de 97». */
 const PLAN_PARA_LA_TABLA = USD_DEL_PLAN.growth
@@ -100,6 +104,10 @@ export default function ClientPage({
 
   const fmt = formatCurrency('accounting')
   const fmtSub = formatCurrency('subcent')
+  // ⚠️ `fmt` es el de Polar y recibe CENTAVOS (divide por 100). El gasto de IA de `vista` ya viene en centavos; el fijo y la
+  // economía por cliente vienen en DÓLARES y van por `usd` (utils.ts). Hasta el 10/11/2026 iban directo a `fmt` y la página
+  // decía «US$ 4,38 al mes sale de tu bolsillo» con un fijo de US$438,25 (tests/costs-suscripcion.test.ts).
+  const usd = fmtUsd
   // El fijo: el tuyo y el total son distintos a propósito (hoy Mauricio paga una parte, y las
   // cuentas de Claude que no son suyas van a medias con Leandro). El equilibrio usa el TUYO.
   const fijoTuyo = fijoDeMartin()
@@ -263,7 +271,7 @@ export default function ClientPage({
                           {p.quienPaga === 'mauricio'
                             ? 'lo paga Mauricio'
                             : p.quienPaga === 'compartido'
-                              ? `a medias con Leandro · tu parte: ${fmt(mio, 'usd')}`
+                              ? `a medias con Leandro · tu parte: ${usd(mio)}`
                               : 'a tu cargo'}
                         </Text>
                         <Text as="span" variant="caption" color={viejo ? 'warning' : 'muted'}>
@@ -280,7 +288,7 @@ export default function ClientPage({
                     value={
                       <Box width={96} justifyContent="end">
                         <Text as="span" variant="default" tabularNums>
-                          {fmt(p.usdPorMes, 'usd')}
+                          {usd(p.usdPorMes)}
                         </Text>
                       </Box>
                     }
@@ -297,7 +305,7 @@ export default function ClientPage({
                 // clientes. Martín lo leyó como lo que le queda («¿cómo vendiendo 10 me quedo con 44 dólares?»), y tenía
                 // razón en no entenderlo: un número suelto en dólares al lado de «clientes» se lee como ganancia.
                 // Ahora la frase dice de quién es cada peso y no mezcla un costo repartido con un resultado.
-                `${fmt(fijoTuyo, 'usd')} al mes sale de tu bolsillo. El total es ${fmt(fijoTotal, 'usd')}: ` +
+                `${usd(fijoTuyo)} al mes sale de tu bolsillo. El total es ${usd(fijoTotal)}: ` +
                 `la diferencia la paga Mauricio hoy. Esto no depende de cuántos clientes haya.`
               }
             />
@@ -339,22 +347,22 @@ export default function ClientPage({
                   {
                     clave: 'fijo-por-cliente',
                     label: 'Gasto fijo por cliente',
-                    pie: [fmt(fijoTuyo, 'usd'), `entre ${economia.clientes} clientes`],
-                    valor: economia.fijoPorCliente == null ? '—' : fmt(economia.fijoPorCliente, 'usd'),
+                    pie: [usd(fijoTuyo), `entre ${economia.clientes} clientes`],
+                    valor: economia.fijoPorCliente == null ? '—' : usd(economia.fijoPorCliente),
                     pct: null as number | null,
                   },
                   {
                     clave: 'deja-cliente',
                     label: 'Lo que deja cada cliente',
-                    pie: ['ya sin cobrar ni IA', `CAC ${fmt(CAC_USD / MESES_DE_VIDA, 'usd')}/mes`],
-                    valor: economia.dejaCadaCliente == null ? '—' : fmt(economia.dejaCadaCliente, 'usd'),
+                    pie: ['ya sin cobrar ni IA', `CAC ${usd(CAC_USD / MESES_DE_VIDA)}/mes`],
+                    valor: economia.dejaCadaCliente == null ? '—' : usd(economia.dejaCadaCliente),
                     pct: null as number | null,
                   },
                   {
                     clave: 'resultado',
                     label: 'Queda este mes',
                     pie: ['ya con todo adentro', economia.margen == null ? 'no pude leer lo facturado' : 'de lo facturado'],
-                    valor: economia.resultadoDelMes == null ? '—' : fmt(economia.resultadoDelMes, 'usd'),
+                    valor: economia.resultadoDelMes == null ? '—' : usd(economia.resultadoDelMes),
                     pct: economia.margen,
                   },
                 ].map((t) => {
@@ -426,7 +434,7 @@ export default function ClientPage({
           <section>
             <SectionHeader
               title="What you keep"
-              description={`Lo que te queda cada mes con clientes del plan de ${fmt(PLAN_PARA_LA_TABLA, 'usd')}. Cada uno deja ${fmt(dejaUnCliente(PLAN_PARA_LA_TABLA), 'usd')}: lo que cobra, menos el ${Math.round(PARTE_DE_COBRAR * 100)}% de cobrarlo y su parte del CAC. Su IA no se resta: la paga él con su propia clave.`}
+              description={`Lo que te queda cada mes con clientes del plan de ${usd(PLAN_PARA_LA_TABLA)}. Cada uno deja ${usd(dejaUnCliente(PLAN_PARA_LA_TABLA))}: lo que cobra, menos el ${Math.round(PARTE_DE_COBRAR * 100)}% de cobrarlo y su parte del CAC. Su IA no se resta: la paga él con su propia clave.`}
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {[5, 10, 20, 50].map((n) => {
@@ -454,11 +462,11 @@ export default function ClientPage({
                     </div>
                     <div className="flex items-end justify-between gap-2">
                       <div className="dark:text-polar-500 flex flex-col gap-0.5 text-xs text-gray-400">
-                        <span>entra {fmt(PLAN_PARA_LA_TABLA * n, 'usd')}</span>
-                        <span>pagando todo: {fmt(todo, 'usd')}</span>
+                        <span>entra {usd(PLAN_PARA_LA_TABLA * n)}</span>
+                        <span>pagando todo: {usd(todo)}</span>
                       </div>
                       <span className="font-mono text-lg font-medium tabular-nums dark:text-white">
-                        {fmt(hoy, 'usd')}
+                        {usd(hoy)}
                       </span>
                     </div>
                   </div>
@@ -476,6 +484,9 @@ export default function ClientPage({
               }
             />
           </section>
+
+          {/* A dónde va una suscripción, el primer mes y los cupos (10/11/2026): Suscripcion.tsx */}
+          <SuscripcionCosts />
 
           {/* What changed */}
           {vista.previo && (
@@ -638,23 +649,6 @@ function MargenDelMesCards({ margen, mes }: { margen: MargenDelMes; mes: string 
         margen.margen != null ? `${margen.margen}%` : '–',
         `${mesTxt(mes)} · sólo resta la IA por API`,
       )}
-    </div>
-  )
-}
-
-function SectionHeader({
-  title,
-  description,
-}: {
-  title: string
-  description: string
-}) {
-  return (
-    <div className="mb-4">
-      <h2 className="text-lg font-medium dark:text-white">{title}</h2>
-      <p className="dark:text-polar-500 mt-0.5 text-sm text-gray-400">
-        {description}
-      </p>
     </div>
   )
 }

@@ -44,9 +44,10 @@ import { listarAnalizadas } from '@/lib/landing-analyst';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { TEMAS, temaPorId, urlFuentes } from '@/lib/editor-landing/temas';
 import type { LandingResumen, TemaPropio } from '@/lib/editor-landing/api-tipos';
-import { consultaDerecha, derechaDeQuery, esPanelPelado, landingMasReciente, type Analizada } from './panel-reglas';
-import { redirect } from 'next/navigation';
-import { rutaConWs } from '@/lib/workspace';
+import { consultaDerecha, derechaDeQuery, esPanelPelado, type Analizada } from './panel-reglas';
+import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
+import { leerOutliersLandings } from '@/lib/landing-outliers-servidor';
+import { OutliersLandings } from './OutliersLandings';
 import { Inicio } from './Inicio';
 import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
 
@@ -59,6 +60,18 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export default async function LandingGeneratorPage({ searchParams }: { searchParams: Promise<Query> }) {
   await requireRolWs([], { nav: 'landing-writer' });
   const sp = await searchParams;
+
+  // LA ENTRADA ES LA PORTADA DE OUTLIERS (11/11/2026, Martín: «lo mismo que venimos haciendo con el resto de tabs, de outliers»):
+  // sin nada en la URL (o sólo el ?ws= de la pestaña), «Encuentra tu siguiente OUTLIER», como Video e Image; «Crear desde cero»
+  // lleva al Panel (`?panel=1`) y «Replicar» a Replicar con esa página (`?replicar=`). Del 24/10 al 11/11 la pelada saltaba a la
+  // última landing tocada; las tuyas siguen a un clic, en el Panel y en la lista del editor.
+  if (esPanelPelado(sp)) {
+    return (
+      <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
+        <OutliersLandings portada={await leerOutliersLandings()} />
+      </Pagina>
+    );
+  }
 
   const [rLista, rTemas, rAnalizadas] = await Promise.all([
     listar().catch((e: unknown) => ({ ok: false as const, error: msg(e) })),
@@ -78,17 +91,8 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
   if (rAnalizadas.ok) analizadas = rAnalizadas.analizadas;
   else { errorAnalizadas = rAnalizadas.error; console.error('[web-generator] analizadas:', rAnalizadas.error); }
 
-  // ⚠️ EL PANEL YA NO ES LA ENTRADA (24/10/2026, Martín: «Ese "panel" principal, solo sale si un usuario no ha creado nunca
-  // ninguna landing»). Sin nada en la URL (o sólo el ?ws= de la pestaña) se abre la última landing tocada, como Automations
-  // abre la última automatización; las otras están a un clic en la lista de la tarjeta (editor/paneles/PanelLandings.tsx).
-  // El Panel sale sin landings, con `?panel=1` («Nueva landing», «Ver todo en el Panel») o con un pedido en la URL
-  // (crear, analizar, diagnóstico). Una lista que no se pudo leer tampoco salta: el Panel dice el error.
-  // ⚠️ En una carga directa salta ANTES el layout (./layout.tsx, ticket #9): acá adentro del loading.tsx el redirect va en
-  // el stream y tiró React #310. Esto queda para cuando se llega navegando (el layout no se vuelve a dibujar).
-  if (!errorLista && esPanelPelado(sp)) {
-    const ultima = landingMasReciente(docs);
-    if (ultima) redirect(await rutaConWs(`/web-generator/${ultima.id}`));
-  }
+  // El Panel sale con `?panel=1` («Crear desde cero», «Nueva landing», «Ver todo en el Panel») o con un pedido en la URL
+  // (crear, analizar, diagnóstico, replicar).
 
   let propios: TemaPropio[] = [];
   let errorTemas: string | null = null;

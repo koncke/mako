@@ -201,3 +201,28 @@ cada foto · 30 «Animar» con palabras partidas · 31 DESPUÉS: con el panel ab
 tira de secciones · 34 Temas · 35 Papelera · 36 Importar («elígelo») · 37 Analizar apagado · 38 teléfono: título tapado · 39
 DESPUÉS: el título entero · 40 lista del teléfono · 41 Análisis vacío · 42 plantillas de presentación · 43-44 la principal de
 MaKo · 45-46 «crear-landings» a 1440 y 375 · 47 menú del documento.
+
+## La tercera vuelta: la portada de outliers y replicar una de ellas (11/11/2026)
+
+Pedido de Martín (por el Cerebro): la portada «Encuentra tu siguiente OUTLIER» con la competencia de Spy y un relevo de páginas
+de gurús, y la prueba de punta a punta replicando una. El relevo y su criterio: docs/web-generator/outliers-landings.md.
+
+**Hecho:** la portada (copiada de la de Video, que copia a Image), la competencia de Spy primero (sin «link en la bio»), y 20
+landings verificadas con su captura. La hoja con todas las capturas, mirada antes de subirlas, es la 52: de 27, 7 quedaron
+afuera (bloqueadas al Chrome automático, tapadas por carteles o sin cargar), anotadas con su motivo.
+
+**Replicar la de Hormozi (acquisition.com, competencia del ws 3 en Spy), mirando:**
+
+| Paso | Resultado |
+|---|---|
+| «Replicar» de la tarjeta (`?replicar=`) | Abre Replicar con la página leída, SIN pedir la app de escritorio (captura 48) |
+| Lo que detecta | Las 9 secciones con sus títulos, el diseño (Poppins, sus colores) y qué replicar (captura 49) |
+| Ángulos y adaptar el copy a la oferta | No corren en el ws 3: no tiene IA («MaKo no pudo leer los ángulos»). Igual quedan tildados: menor |
+| «Página web» (la copia idéntica) | Abre una ventana para sacar la foto; el navegador de la app no abre ventanas, así que ahí no avanza. A probar en Chrome |
+| «Landing» | Réplica #97 en segundos, con 7 de 9 secciones con su imagen (Alex y Leila Hormozi, captura 50) |
+| La animación de los cursores | Duró segundos y no se alcanzó a capturar: a mirar en Chrome |
+| **Falla: las cifras** | La fila de estadísticas de la original («10,000 Businesses Advised · 81 NPS · 97.1% Client Retention») llegó como una LISTA con viñetas que alterna número y rótulo (captura 51). Gamma tiene «Números grandes» para eso. Vive en el armado de la estructura de la réplica (lib/editor-landing/replicar*.ts). Sin arreglar |
+| El título partido («Business / ?») | Es la letra del lienzo, ya arreglada en esta punta (falla 8) |
+
+**Sin hacer (queda para Chrome, con el turno):** la copia idéntica con su ventana, mirar los cursores, adaptar el copy en un
+negocio con IA, publicar la réplica, cada botón, y el teléfono.

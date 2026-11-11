@@ -6,7 +6,7 @@
 // rutas). Quién: la key de la sección y la puerta de escritorio (por ahora sólo la plataforma).
 // =============================================================================
 
-import { redirect } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
 import { HOME_MOVIL } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
@@ -14,6 +14,7 @@ import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { compartidosPorPieza, landingsDelNegocio, listarLeadMagnets } from '@/lib/lead-magnets/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { esLaPlataforma } from '@/app/lead-magnet-generator/puerta';
+import { LEAD_MAGNET_EN_PRODUCCION } from '@/lib/lead-magnets/archivado';
 import { vistaDeLeadMagnet, type LeadMagnetVista } from '@/app/lead-magnet-generator/reglas';
 import { propuestasGuardadas } from '@/lib/lead-magnets/proponer';
 import { LeadMagnetsM } from './LeadMagnetsM';
@@ -22,6 +23,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export default async function LeadMagnetsMovil({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  // Archivado el 11/11/2026 por pedido de Martín (lib/lead-magnets/archivado.ts): no existe para nadie.
+  if (!LEAD_MAGNET_EN_PRODUCCION) notFound();
   await requireMovil({ navKey: 'lead-magnet-generator' });
   // La sección es del super admin (como su escritorio): `getSesionAdmin()` y su negocio, no mirando a un cliente.
   if (!(await getSesionAdmin()) || !(await esLaPlataforma())) redirect(await rutaConWs(HOME_MOVIL));

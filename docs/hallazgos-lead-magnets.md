@@ -4,6 +4,27 @@ Lo que no se deduce leyendo el código del área (`app/lead-magnet-generator/`, 
 la tab y la fuente que se copia, en [investigacion-lead-magnets.md](investigacion-lead-magnets.md); lo que falta y lo que
 decide Martín, en [relevo/nube-lead-magnets.md](relevo/nube-lead-magnets.md).
 
+## ⚠️ ARCHIVADA el 11/11/2026, por pedido de Martín
+
+«en la parte de lead magnet sácalo… guárdalo o archívalo… pero no lo quiero en producción. Porque no está bien construido… luego
+en un momento lo haremos bien». El código sigue entero; lo apaga `LEAD_MAGNET_EN_PRODUCCION = false`
+(`lib/lead-magnets/archivado.ts`, que lista cada lugar que lee). Para rehacerla: ese interruptor en `true` devuelve todo tal cual.
+`tests/lead-magnet-archivado.test.ts` fija que nadie la vea (8 casos, 13 roturas cazadas). En la base no había nada (0 lead
+magnets, 0 links compartidos) y no se tocó. Lo que no se deduce:
+
+- **Sacar una fila de `nav.ts` no alcanza, y deja algo peor.** `funcionesMako()` arma el nombre, la ruta y «sólo el super admin»
+  DESDE la fila: sin ella, la entrada del catálogo quedaba con el nombre `lead-magnet-generator`, sin ruta y con
+  `soloSuperAdmin: false`, o sea que MaKo se la habría ofrecido a TODOS los negocios con la key cruda. Se apaga la entrada
+  también (y el test de funciones lo exige: «ninguna función nombra una key que no existe»). Lo mismo la fila del «More» del
+  teléfono, que vive en `SECCIONES_MAS` y no en `DESTINOS_MOVIL`.
+- **El Marketing CoPilot mandaba a un cliente a una pantalla que lo devolvía al inicio.** «Crear el regalo» llevaba a
+  `/lead-magnet-generator` para cualquier negocio, y su puerta era sólo de la plataforma: un botón roto desde el 5/11. Archivada,
+  va al Copywriter (donde se escribe una guía o un checklist), y el agente ya no nombra la pantalla «Lead Magnet».
+- **La API de MaKo se apaga en `gatingOk`, no sacando el área del registro**: así la referencia y su instantánea no cambian, MaKo
+  no la ofrece, la página «API de MaKo» no la lista y lo que estuviera propuesto no se confirma (esa función se repite al confirmar).
+- **Lo que queda a la vista a propósito**: «Lead Magnet» del Second Brain (los entregables del negocio, que usan las secuencias del
+  chatbot) y la plantilla «Clase grabada» del Web Generator. Son el concepto, no la tab.
+
 ## La tab, tanda 1 (nube, 6/11/2026)
 
 **Vive en:** `lib/lead-magnets/`, `app/lead-magnet-generator/`, `app/m/lead-magnet-generator/`,
