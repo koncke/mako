@@ -602,6 +602,10 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 			}));
 		});
 	};
+	// Sin la app de escritorio el envío se corta adentro de `enviar` (useAppDeEscritorio): un atajo prendido no hacía NADA al
+	// tocarlo y no decía por qué (probado en producción el 11/11/2026). Apagado, con la misma frase que la caja.
+	const atajoApagado = hilo.corriendo || appEscritorio.bloqueada;
+	const porQueApagado = appEscritorio.bloqueada ? appEscritorio.bloqueo?.frase : undefined;
 	const pildora = "cursor-pointer rounded-full border border-(--border) bg-(--surface) px-3 py-1.5 text-left text-[12px] text-(--ink) hover:bg-(--velo-hover) disabled:cursor-default disabled:opacity-50";
 	const chip = "flex h-[26px] min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-medium";
 
@@ -681,7 +685,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 							</div>
 							<div className="flex flex-wrap gap-1.5">
 								{visibles.map((s) => (
-									<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={hilo.corriendo}>{s.rotulo}</button>
+									<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={atajoApagado} title={porQueApagado}>{s.rotulo}</button>
 								))}
 							</div>
 						</>
@@ -697,7 +701,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 					{hilo.mensajes.length > 0 && !hilo.corriendo && !guiaHablando && (
 						<div className="flex flex-wrap gap-1.5">
 							{visibles.slice(0, 4).map((s) => (
-								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>
+								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={atajoApagado} title={porQueApagado}>{s.rotulo}</button>
 							))}
 						</div>
 					)}
