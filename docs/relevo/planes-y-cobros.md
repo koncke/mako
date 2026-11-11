@@ -60,5 +60,8 @@ Texto a mandar (TODAVÍA NO SALIÓ: espera el sí de Martín en el chat de Plane
 - 11/11, después: Martín dio el sí en este chat («Sí, mandala»). Medido: el navegador de la app no tiene sesión de Whop; el
   Chrome de la extensión tiene la cuenta **«scrubsoul0c»** (Ingeniero Pablo Nogués, AR; alta en julio de 2026; ningún negocio
   creado). No se sabe de quién es: el chat con el soporte de Whop del 6/11 salió de «la cuenta de Martín». En Whop no hay
-  formulario aparte: la solicitud es crear el negocio en esa cuenta, y el KYC lo hace el titular. **No salió**: espera que
-  Martín confirme si «scrubsoul0c» es de Leandro.
+  formulario aparte: la solicitud es crear el negocio en esa cuenta, y el KYC lo hace el titular.
+- 11/11, Martín en este chat: «Sí, es de Leandro» → «scrubsoul0c» es la cuenta de Whop de Leandro. Al ir a mandarla, la
+  extensión de Chrome se desconectó (Chrome abierto, `list_connected_browsers` vacío durante ~8 min) y antes la tenía ocupada
+  otro chat. **No salió**: espera que la extensión vuelva a conectarse. Lo que falta hacer, en la cuenta «scrubsoul0c»:
+  «Create a business», nombre MaKo, el texto final de docs/proveedores-de-cobro.md §10; KYC y banco los carga Leandro.
