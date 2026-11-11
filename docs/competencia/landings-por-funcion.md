@@ -16,27 +16,27 @@ después white-labels de GoHighLevel, setters con IA y fábricas de creativos; l
 
 | Función de MaKo | Ganadora (la estructura que se copia) | ¿Se abrió? | Landing de MaKo |
 |---|---|---|---|
-| **AI Avatar** | HeyGen, su página en español de anuncios UGC (`heygen.com/es-mx/business/marketing/ugc-video-ads`) | Sí | `/vsl/ai-avatar` (nueva) |
-| Chats (WhatsApp + Instagram) | respond.io (`respond.io/es`) | Sí | pendiente |
-| CRM | GoHighLevel (`gohighlevel.com`) | Sí | pendiente |
-| Automations / setter con IA | SetSmart (`setsmart.io/es`) | ver abajo | pendiente |
-| Agenda | iClosed (`iclosed.io`) | ver abajo | pendiente |
-| Closing Analyst | Voicit (`voicit.com`) | ver abajo | pendiente |
-| Cobranza | Rebill (`rebill.com`) | ver abajo | pendiente |
-| Marketing CoPilot / Media Buyer | Master Ads (`masterads.ai`) | Sí | pendiente |
-| Ads Analyst | Gethookd (`gethookd.ai`) | ver abajo | pendiente |
-| Competitor Spy | Foreplay (`foreplay.co`) | ver abajo | pendiente |
-| Dashboard y reportes | Reportei (`reportei.com/es`) | Sí | pendiente |
-| Video (editor) | Cherry Studio (`cherrysweet.app`) | Sí | pendiente |
-| Image (carruseles y creativos) | PostNitro (`postnitro.ai`) | ver abajo | pendiente |
-| Copywriting | The Copy Machine (`theoperatorstack.io/copy-machine`) | Sí | pendiente |
-| Web Generator | HighLevel AI Studio (`gohighlevel.com/ai-studio`) | Sí | pendiente |
-| Ops Center / Second Brain (MaKo, tu consultor) | Holo (`tryholo.ai`) | Sí | pendiente |
-| Plan (prioridades) | Motion (`usemotion.com`) | ver abajo | pendiente |
-| Offer | Atlas AI de DFY (`go.doneforyou.com/offer-formula`) | ver abajo | pendiente |
-| Funnels / embudo | Hyros (`hyros.com`) | ver abajo | pendiente |
-| Email marketing | beehiiv (`beehiiv.com`) | ver abajo | pendiente |
-| Classroom (curso y comunidad) | Skool (`skool.com`) | ver abajo | pendiente |
+| **AI Avatar** | HeyGen, su página en español de anuncios UGC (`heygen.com/es-mx/business/marketing/ugc-video-ads`) | Sí | **`/vsl/ai-avatar`** (nueva) |
+| Chats (WhatsApp, Instagram y Messenger) | Leadsales (`leadsales.io`); respond.io queda de contraste | Sí | **`/vsl/whatsapp`** (rehecha) |
+| CRM | GoHighLevel (`gohighlevel.com`) | Sí | **`/vsl/crm`** (rehecha) |
+| Automations / setter con IA | SetSmart (`setsmart.io/es`) | Sí | **`/vsl/seguimiento`** (rehecha) |
+| Dashboard y reportes | Reportei (`reportei.com/es`) | Sí | **`/vsl/dashboard`** (rehecha) |
+| Agenda | iClosed (`iclosed.io`) | Sí | falta |
+| Closing Analyst | **Sin ganadora**: Voicit graba reuniones de RR. HH., no analiza llamadas de venta | Sí | falta (`/vsl/closing` sigue como estaba) |
+| Cobranza | Rebill (`rebill.com`) | Sí | falta (`/vsl/cobranza` sigue como estaba) |
+| Marketing CoPilot / Media Buyer | Master Ads (`masterads.ai`) | Sí | falta (`/vsl/ads` sigue como estaba) |
+| Ads Analyst | Gethookd (`gethookd.ai`) | Sí | falta (`/vsl/script` sigue como estaba) |
+| Competitor Spy | Foreplay (`foreplay.co`) | Sí | falta |
+| Video (editor) | Cherry Studio (`cherrysweet.app`) | Sí | falta |
+| Image (carruseles y creativos) | PostNitro (`postnitro.ai`) | Sí | falta |
+| Copywriting | The Copy Machine (`theoperatorstack.io/copy-machine`) | Sí | falta |
+| Web Generator | HighLevel AI Studio (`gohighlevel.com/ai-studio`) | Sí | falta |
+| Ops Center / Second Brain (MaKo, tu consultor) | Holo (`tryholo.ai`) | Sí | falta (`/vsl/mako` sigue como estaba) |
+| Plan (prioridades) | Motion (`usemotion.com`) | Sí | falta (`/vsl/prioridades` sigue como estaba) |
+| Offer | Atlas AI de DFY (`go.doneforyou.com/offer-formula`) | Sí | falta |
+| Funnels / embudo | Hyros (`hyros.com`) | Sí | falta (`/vsl/funnel` sigue como estaba) |
+| Email marketing | beehiiv (`beehiiv.com`) | Sí | falta (`/vsl/email` sigue como estaba) |
+| Classroom (curso y comunidad) | Skool (`skool.com`) | **No**: su portada carga vacía sin sesión | falta |
 
 Newsletter, VSL Generator, Sales Email, Closing Script y Sales Roleplay **no se investigaron**: en el código están como
 «Coming soon» (`PRONTO`, sólo para el super admin), así que hoy no son funciones que se vendan.

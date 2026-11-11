@@ -99,7 +99,7 @@ function DibujarBloque({ b, icono }: { b: Bloque; icono: string[] }) {
       return (
         <section className={`mk-c-sec${b.fondo ? ' mk-c-fondo' : ''}`}>
           <Encabezado etiqueta={b.etiqueta} titulo={b.titulo} bajada={b.bajada} />
-          <div className={`mk-c-grilla mk-c-grilla-${b.columnas ?? 3}`}>
+          <div className={`mk-c-grilla mk-c-grilla-${b.columnas ?? 3}${(b.columnas ?? 3) === 3 && b.items.length % 3 ? ` mk-c-resto-${b.items.length % 3}` : ''}`}>
             {b.items.map((t) => (
               <div key={t.titulo} className="mk-c-tarjeta">
                 <span className="mk-c-tarjeta-ic"><Icon paths={t.icono ?? icono} size={20} /></span>
@@ -228,7 +228,7 @@ const CSS = `
 /* Cifras */
 .mk-c-cifras { margin: 56px 0 0; padding: 26px 0; border-top: 1px solid #EEF0F3; border-bottom: 1px solid #EEF0F3; }
 .mk-c-cifras-t { margin: 0 0 18px; text-align: center; font-size: 14px; font-weight: 600; color: #5B6472; }
-.mk-c-cifras-fila { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.mk-c-cifras-fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; }
 .mk-c-cifra { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; }
 .mk-c-cifra-v { font-size: 34px; line-height: 1.1; font-weight: 700; letter-spacing: -0.03em; color: #12151B; font-variant-numeric: tabular-nums; }
 .mk-c-cifra-l { font-size: 14px; line-height: 1.4; color: #5B6472; max-width: 200px; }
@@ -262,6 +262,13 @@ const CSS = `
 .mk-c-grilla { display: grid; gap: 16px; }
 .mk-c-grilla-3 { grid-template-columns: repeat(3, 1fr); }
 .mk-c-grilla-2 { grid-template-columns: repeat(2, 1fr); }
+/* La última fila incompleta va centrada: con 5 tarjetas en 3 columnas, el hueco a la derecha se leía como una que falta. */
+.mk-c-grilla-3.mk-c-resto-1, .mk-c-grilla-3.mk-c-resto-2 { grid-template-columns: repeat(6, 1fr); }
+.mk-c-resto-1 > *, .mk-c-resto-2 > * { grid-column: span 2; }
+.mk-c-resto-2 > :nth-last-child(2) { grid-column: 2 / span 2; }
+.mk-c-resto-1 > :last-child { grid-column: 3 / span 2; }
+/* Dos franjas de fondo seguidas (un bloque con fondo y el caso) se tocan: con el margen quedaba una raya blanca entre las dos. */
+.mk-c-fondo + .mk-c-fondo, .mk-c-fondo + .mk-hist, .mk-hist + .mk-c-fondo { margin-top: 0; }
 .mk-c-tarjeta { display: flex; flex-direction: column; gap: 10px; padding: 24px 22px; border-radius: 16px; background: #fff; border: 1px solid #E7ECF5; transition: transform .22s ease, box-shadow .22s ease; }
 .mk-c-tarjeta:hover { transform: translateY(-2px); box-shadow: 0 18px 40px -24px rgba(16,19,25,.22); }
 .mk-c-tarjeta-ic { width: 40px; height: 40px; border-radius: 11px; background: #EAF1FE; color: #2F6FED; display: flex; align-items: center; justify-content: center; }
@@ -319,15 +326,16 @@ const CSS = `
 @media (prefers-reduced-motion: reduce) { .mk-c-av-sub span { animation: none; } }
 
 @media (max-width: 960px) {
-  .mk-c-grilla-3, .mk-c-pasos { grid-template-columns: repeat(2, 1fr); }
-  .mk-c-cifras-fila { grid-template-columns: repeat(2, 1fr); row-gap: 24px; }
+  .mk-c-grilla-3, .mk-c-pasos, .mk-c-grilla-3.mk-c-resto-1, .mk-c-grilla-3.mk-c-resto-2 { grid-template-columns: repeat(2, 1fr); }
+  .mk-c-resto-1 > *, .mk-c-resto-2 > *, .mk-c-resto-2 > :nth-last-child(2), .mk-c-resto-1 > :last-child { grid-column: auto; }
+  .mk-c-cifras-fila { row-gap: 24px; }
 }
 @media (max-width: 768px) {
   .mk-c-hero .mk-h1 { font-size: 31px; }
   .mk-c-h2 { font-size: 27px; }
   .mk-c-sec { margin-top: 56px; }
   .mk-c-fondo { padding: 44px 0 48px; }
-  .mk-c-contraste, .mk-c-grilla-2, .mk-c-grilla-3, .mk-c-pasos { grid-template-columns: 1fr; }
+  .mk-c-contraste, .mk-c-grilla-2, .mk-c-grilla-3, .mk-c-grilla-3.mk-c-resto-1, .mk-c-grilla-3.mk-c-resto-2, .mk-c-pasos { grid-template-columns: 1fr; }
   .mk-c-cifra-v { font-size: 28px; }
 }
 @media (max-width: 480px) {
