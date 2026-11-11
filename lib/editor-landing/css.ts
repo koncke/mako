@@ -620,6 +620,14 @@ const OPTIMIZADO: string[] = [
   r(opt(D, ['galeria'], ' .gm-item-imagen'), 'aspect-ratio: 4 / 3;'),
   r(opt(D, ['galeria'], ' .gm-item-cuerpo'), 'font-size: 0.85em; color: var(--gm-texto-tenue, inherit);'),
   r(opt(D, ['imagenes-texto'], ' .gm-item-imagen'), 'aspect-ratio: 16 / 10;'),
+  // El lugar de la foto de un ítem SIN foto (prueba en producción del 10/11/2026): en la galería y en «Imágenes con texto» medía 0,
+  // y «Un vistazo a la guía» de la plantilla Lead magnet se veía como tres títulos sueltos (las redondas ya dejaban su círculo).
+  // En el editor y en la miniatura de trabajo se dibuja como la imagen vacía (arriba) y tocarlo elige la foto
+  // (editor/nodos/OptimizadoVista.tsx); la publicada no lo muestra.
+  r([...opt(D + '[data-modo="editor"]', ['galeria', 'imagenes-texto'], ' .gm-item-marca:empty'), ...opt(D + '[data-marcadores="si"]', ['galeria', 'imagenes-texto'], ' .gm-item-marca:empty')],
+    'display: grid; place-items: center; place-content: center; aspect-ratio: 4 / 3; border: 0.0625em dashed var(--gm-borde-neutro, rgba(0,0,0,0.2)); border-radius: var(--gm-radio-caja, 0.35em); background: var(--gm-superficie, rgba(127,127,127,0.08)); color: var(--gm-texto-tenue, inherit); font-size: 0.85em;'),
+  r([...opt(D + '[data-modo="editor"]', ['imagenes-texto'], ' .gm-item-marca:empty'), ...opt(D + '[data-marcadores="si"]', ['imagenes-texto'], ' .gm-item-marca:empty')], 'aspect-ratio: 16 / 10;'),
+  r(opt(D + '[data-modo="editor"]', ['galeria', 'imagenes-texto'], ' .gm-item-marca:empty::after'), 'content: "Agregar imagen"; cursor: pointer;'),
   r(opt(D, ['imagenes-circulares', 'equipo'], ' > .gm-item'), 'align-items: center; text-align: center;'),
   r(opt(D, ['imagenes-circulares', 'equipo'], ' .gm-item-marca'), 'display: flex; justify-content: center; width: min(70%, 9em); aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: var(--gm-superficie, rgba(127,127,127,0.12));'),
   r(opt(D, ['imagenes-circulares', 'equipo'], ' .gm-item-imagen'), 'width: 100%; height: 100%; aspect-ratio: 1; border-radius: 50%;'),

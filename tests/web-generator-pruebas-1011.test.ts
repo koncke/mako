@@ -119,6 +119,48 @@ test('6. la caja del chat sin la app de escritorio: la frase en un renglón ente
   assert.match(css, /:is\(\.co-instalar,:has\(\.co-instalar\)\)\{margin-left:auto\}/, 'el botón, a la derecha');
 });
 
+// ── La segunda vuelta (11/11/2026): MIRANDO cada pantalla con captura (docs/pruebas/web-generator-10-11.md) ──
+
+test('7. la galería sin fotos: en el editor se ve el lugar de cada foto y tocarlo la elige; la publicada no lo muestra', async () => {
+  const { CSS_CONTENIDO } = await import('../lib/editor-landing/css');
+  assert.match(CSS_CONTENIDO,
+    /\.gm-doc\[data-modo="editor"\] \.gm-optimizado\[data-variante="galeria"\] \.gm-item-marca:empty,[^{]*\{ display: grid; place-items: center; place-content: center; aspect-ratio: 4 \/ 3;/,
+    'el lugar de la foto en la galería, centrado');
+  // Cada selector de esas reglas va SÓLO en el editor o en la miniatura de trabajo: la publicada sigue sin dibujarlo.
+  const sinModo = CSS_CONTENIDO.replace(/\{[^}]*\}/g, '\n').split(/[,\n]/).map((s) => s.trim())
+    .filter((s) => /\[data-variante="(galeria|imagenes-texto)"\] \.gm-item-marca:empty/.test(s) && !/data-modo="editor"|data-marcadores="si"/.test(s));
+  assert.deepEqual(sinModo, [], 'ningún selector del lugar vacío llega a la publicada');
+  assert.match(CSS_CONTENIDO, /\[data-modo="editor"\] \.gm-optimizado\[data-variante="galeria"\] \.gm-item-marca:empty::after[^{]*\{ content: "Agregar imagen"/);
+  const vista = sinComentarios(leer('app/web-generator/editor/nodos/OptimizadoVista.tsx'));
+  assert.match(vista, /<NodeViewWrapper className="gmx-nv" data-activo=\{activo \? 'si' : undefined\} onClick=\{alTocarLugarDeFoto\}>/);
+  assert.match(vista, /if \(!marca \|\| marca\.childElementCount \|\| !cuerpo\) return;/, 'sólo el lugar VACÍO: una foto puesta se cambia desde la barra');
+  assert.match(vista, /tr\.setNodeMarkup\(pos, undefined, \{ \.\.\.n\.attrs, imagenSrc: url \}\);/);
+});
+
+test('8. el lienzo del editor: la letra base de una página sale del ancho del lienzo, no de la ventana', () => {
+  const ed = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  assert.match(ed, /const topePagina = !diapo && lienzo > 0 \? `\$\{Math\.round\(\(lienzo \/ 68\.5\) \* 100\) \/ 100\}px` : null;/);
+  assert.match(ed, /const t = tope \?\? topePagina;/);
+  assert.match(ed, /return \{ '--gm-base': `calc\(\$\{t \? `min\(\$\{normal\}, \$\{t\}\)` : normal\} \* \$\{z\}\)` \};/);
+  assert.match(ed, /baseDelLienzo\(dispositivo, zoom, fija \? \{ ancho: anchoLienzo \} : null, anchoLienzo\)/);
+  // Se mide SIEMPRE (no sólo con una diapositiva fija) y se vuelve a enganchar cuando el lienzo vuelve a montarse.
+  assert.match(ed, /if \(!el \|\| typeof ResizeObserver === 'undefined'\) return;\n\s*const medir = \(\) => setAnchoLienzo/);
+  assert.match(ed, /return \(\) => ro\.disconnect\(\);\n\s*\}, \[creando\]\);/);
+});
+
+test('9. la cabecera del teléfono: los costados miden lo suyo y el título se achica entre los dos', () => {
+  const css = leer('app/m/m.css');
+  const fila = /\.m-cabecera__fila \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.match(fila, /grid-template-columns: minmax\(max-content, 1fr\) minmax\(0, auto\) minmax\(max-content, 1fr\);/,
+    'con un tercio fijo por costado, la pastilla «Cliente de Prueba» se montaba sobre el título');
+  assert.match(css, /\.m-cabecera__titulo \{[^}]*text-overflow: ellipsis;/);
+});
+
+test('10. Importar: «Suelta tus archivos aquí o elígelos» (plural)', () => {
+  const caja = sinComentarios(leer('app/web-generator/CajaCrear.tsx'));
+  assert.match(caja, /Suelta tus archivos aquí o\{' '\}\n\s*<button type="button" className="gp-cc-soltar-elegir"[^\n]*>elígelos<\/button>/);
+});
+
 // PROBADO ROMPIÉNDOLO (10/11/2026, base 6/0; cada rotura sobre el archivo real, restaurado y verificado por hash):
 //   · `textoDe` separando otra vez por el tipo del PADRE              → 5/1 (1)
 //   · `tituloDeTarjeta` mirando sólo los hijos directos               → 5/1 (2)
@@ -128,3 +170,11 @@ test('6. la caja del chat sin la app de escritorio: la frase en un renglón ente
 //   · sin `grid-auto-rows: max-content`                                → 5/1 (5)
 //   · el nombre en oscuro con `--gma-t200`                             → 5/1 (5)
 //   · sin el `flex-wrap` de la caja bloqueada                          → 5/1 (6)
+// La segunda vuelta (11/11/2026, base 10/0):
+//   · el lugar de la foto también en la publicada                      → 9/1 (7)
+//   · sin centrar el «Agregar imagen»                                  → 9/1 (7)
+//   · tocar el lugar no hace nada (sin el onClick)                     → 9/1 (7)
+//   · la página vuelve a la letra de la ventana                        → 9/1 (8)
+//   · el lienzo se mide una sola vez (sin `[creando]`)                 → 9/1 (8)
+//   · la cabecera del teléfono vuelve a tercios fijos                  → 9/1 (9)
+//   · vuelve «elígelo»                                                 → 9/1 (10)
