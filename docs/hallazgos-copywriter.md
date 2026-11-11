@@ -454,6 +454,17 @@ app/m/copywriter/GuionM.tsx
   original citado adentro) y la portada de Copywriting tiene «Replicar» (la página nace vacía, atada al original, y MaKo la
   escribe). **Sin hacer:** que Spy use «Replicar» y quede uno solo.
 
+## Lo que la prueba en producción encontró en los outliers (11/11/2026, después del despliegue)
+
+- **«Todos» era una sola fila de carruseles:** las 24 primeras tarjetas eran carruseles en inglés de la biblioteca (de 1.219× a
+  29×), porque su «×» está en otra escala que el de los reels del nicho. Ahora cada vuelta trae el mejor de cada formato
+  (`intercalarFormatos`); dentro de un formato el orden no cambia.
+- **La réplica copiaba la frase del original:** «Cobrar mejor no es suerte, es sistema.» se replicó como «Cobrar más caro no es
+  suerte, es sistema.», con la regla «nunca copies sus frases» en el prompt. Segunda capa: `frasesDelOriginal` (5 palabras
+  seguidas) avisa en la propuesta con la frase. ⚠️ Una vez MaKo también «arregló» una línea editada a mano que no se le pidió
+  tocar; repetido con una edición limpia, la respetó: la primera vez, la frase que dejó la prueba estaba rota.
+- **El visor del modal era una caja blanca casi vacía** con un pie de dos renglones: ahora la pieza va arriba y el texto abajo.
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».

@@ -31,6 +31,10 @@ el estado con JS y se repitió. Ver docs/hallazgos-pruebas.md.
 | 17 | YouTube: el link de un video que no está, en «Thumbnails» | 1440 | **PASA**: «Ese video no está entre tus outliers.» y «Traer esta miniatura»; el buscador dice «…o pega un link de YouTube» | [15](image-11-11/15-youtube-no-esta-1440.png) |
 | 18 | «Traer esta miniatura» | 1440 | **PASA**: 1,5 s, y se abre (@andres__solis, 602 vistas, 21:04) | [16](image-11-11/16-youtube-traida-1440.png) |
 | 19 | YouTube en el teléfono | 375 | **PASA**: 1,0 s, ancho 375. **Crítica:** la hoja ocupa toda la pantalla y deja media en blanco entre los datos y los botones | [17](image-11-11/17-youtube-no-esta-375.jpg) · [18](image-11-11/18-youtube-traida-375.jpg) |
+| 21 | Error a propósito a 375: el link de una publicación que NO existe | 375 | **PASA**: «Instagram no me dio esa publicación: puede ser privada o estar borrada.» con «Reportar a Soporte». **Crítica:** tardó cerca de un minuto, con «Trayendo…» todo ese rato. ⚠️ No es gratis: Apify cobró US$0,0027 por el ítem del error (corrida `eQLBIKMeBGvP7dZ8f`) | [19](image-11-11/19-error-reportar-375.jpg) |
+| 22 | El duplicado en el editor del teléfono | 375 | **PASA**: abre con sus 11 páginas, sin scroll de costado. **Crítica:** la fila de la página se corta a la derecha (el nombre queda en «P», el último ícono a medias) y la barra de abajo corta «Herramientas» | [20](image-11-11/20-editor-375.jpg) |
+| 23 | Editar un texto en el teléfono y guardar | 375 | **PASA**: «1. Mira lo que funciona», «Se guardaron todos los cambios», y en la base (15:21:48 UTC) | [21](image-11-11/21-texto-editado-375.jpg) |
+| 24 | El guiado de «Editar», otra vez, en una pestaña nueva y con la sesión recién entrada | 1440 | **NO SE PUDO VER**: el panel seguía oculto y no abrió | — |
 | 20 | Oscuro | — | **NO PROBADO**: el tema de MaKo es un interruptor de la cuenta (no sigue al sistema), y cambiarlo es tocar la preferencia de Martín | — |
 
 ## Lo medido (costo y tiempo de UNA lectura)
@@ -50,7 +54,8 @@ después. Se lee de la corrida (`/actor-runs/{id}`: `usageTotalUsd` y `chargedEv
 - Traídos: 2 carruseles (`@den.borgg` −1594, desde la PC; `@vilmanunez` −1595, desde la pantalla) y 3 miniaturas (Victor Martin
   Formenti, Andrés Solís, Nexum AI). Sólo los ve ws 3.
 - Un diseño: «Carrusel · Lista o tips» (`26b5a830-d4aa-4b7d-8e70-a16a7699d2ea`), 11 páginas, editado.
-- Gasto: 3 lecturas de Instagram (US$0,0081) y 1 de Meta sin guardar (US$0,0058), con la clave de Apify de la plataforma.
+- Gasto: 4 lecturas de Instagram (US$0,0108, una de ellas el link inexistente) y 1 de Meta sin guardar (US$0,0058), con la clave de
+  Apify de la plataforma. En total, US$0,0166.
 
 ## Lo que falta
 

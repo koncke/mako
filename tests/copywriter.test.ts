@@ -319,10 +319,13 @@ test('después de «Aceptar», la tecla de deshacer sólo donde hay teclado, y l
   assert.match(panel, /p\.nuevos\.length === 1 \? 'nuevo, marcado' : 'nuevos, marcados'/);
 });
 
-test('la caja trabada se vuelve a medir cuando llega su frase (11/11/2026: «Instala MaKo / para escribir» cortada a 1440)', () => {
+test('la caja trabada se vuelve a medir cuando llega su frase y cada vez que cambia su ancho (11/11/2026: cortada a 1440)', () => {
   // La caja es la compartida (app/_chat/CajaChat.tsx); el panel de Copywriting es angosto y la frase ocupa dos renglones.
+  // ⚠️ Medir sólo al llegar la frase NO alcanzó (desplegado y medido en producción: 40 px de alto con 61 de frase): el botón
+  // «Instalar MaKo» es dinámico y angosta el campo DESPUÉS. Por eso mide con un observador del ancho.
   const caja = leer('app/_chat/CajaChat.tsx');
-  const efecto = caja.slice(caja.indexOf('if (!el || altoMax == null || texto) return;'), caja.indexOf('}, [p.bloqueo?.frase]);'));
-  assert.ok(efecto.length > 0, 'hay un efecto que depende de la frase de la traba');
+  const efecto = caja.slice(caja.indexOf('if (!el || altoMax == null || !p.bloqueo'), caja.indexOf('}, [p.bloqueo?.frase, altoMax]);'));
+  assert.ok(efecto.length > 0, 'hay un efecto de la caja trabada');
   assert.match(efecto, /el\.style\.height = altoDelCampo\(el\.scrollHeight, altoMax\);/);
+  assert.match(efecto, /new ResizeObserver\(\(\) => \{\n\s+const w = el\.getBoundingClientRect\(\)\.width;\n\s+if \(w !== ancho\) \{ ancho = w; medir\(\); \}/);
 });
