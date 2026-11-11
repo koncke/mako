@@ -185,6 +185,10 @@ test('12. con la foto al costado, las cifras van de a pares (cuatro columnas de 
   assert.match(CSS_CONTENIDO, /\.gm-tarjeta:is\(\[data-diseno="izquierda"\], \[data-diseno="derecha"\]\) \.gm-optimizado:is\(\[data-variante="numeros-grandes"\], \[data-variante="estadisticas-circulares"\]\):is\(\[data-cols="auto"\], :not\(\[data-cols\]\)\)[^{]*\{ --gm-n: var\(--gm-n-pares\); \}/);
   // EN_PARES de 4 es 2 (REJILLA de 4 es 4): de eso depende.
   assert.match(CSS_CONTENIDO, /\.gm-optimizado:has\(> \.gm-item:nth-child\(4\):last-child\)[^{]*\{[^}]*--gm-n-rejilla: 4; --gm-n-pares: 2;/);
+  // Y en el teléfono, la foto del costado pasa arriba como franja: se mira la parte de arriba (la #98 mostraba el torso de Alex
+  // Hormozi sin la cabeza), en la publicada (media query) y en la vista «Teléfono» del editor.
+  const arriba = CSS_CONTENIDO.match(/[^}]*\.gm-tarjeta:is\(\[data-diseno="izquierda"\], \[data-diseno="derecha"\]\) > \.gm-acento[^{]*\{ background-position: 50% 15%; \}/g) ?? [];
+  assert.ok(arriba.length >= 2, `la franja del teléfono mira arriba en la publicada y en el editor (${arriba.length})`);
 });
 
 // PROBADO ROMPIÉNDOLO (10/11/2026, base 6/0; cada rotura sobre el archivo real, restaurado y verificado por hash):

@@ -985,6 +985,9 @@ function movil(p: string): string[] {
     // La imagen al costado pasa arriba (12.5em), como en Gamma.
     r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"])', 'grid-template-columns: minmax(0, 1fr); grid-template-areas: "acento" "cuerpo"; grid-template-rows: auto 1fr; min-height: 0;'),
     r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"], [data-diseno="arriba"]) > .gm-acento', 'height: 12.5em; border-radius: var(--gm-radio-tarjeta, 0.6em) var(--gm-radio-tarjeta, 0.6em) 0 0;'),
+    // La del costado era una columna ALTA (un retrato entra con la cara); como franja apaisada, cortada por el medio, mostraba
+    // el torso sin la cabeza (11/11/2026, la réplica de acquisition.com en el teléfono). Se mira la parte de arriba.
+    r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"]) > .gm-acento', 'background-position: 50% 15%;'),
     r(p + ' .gm-tarjeta[data-diseno="fondo"]', 'min-height: 20em;'),
     r(p + ' .gm-tarjeta[data-alto="pantalla"]', 'min-height: calc(100vh - 3em); min-height: calc(100svh - 3em);'),
     r(p + ' h1.gm-titulo', tamTitulo(2.6)),
