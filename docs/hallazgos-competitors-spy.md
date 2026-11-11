@@ -13,6 +13,27 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## Después de `irA(null)` no sale NINGÚN pedido: lo que tiene que llegar al server, va antes (11/11/2026)
+
+**Vive en:** `app/competitor-spy/SpyApp.tsx` (`quitar`, `irA`). Lo fija `tests/mirada-prod-11-11.test.ts` (caso 9).
+
+**Síntoma:** en producción, «⋯ › Dejar de mirarlo» desde la ficha de Alex Hormozi lo sacaba de la lista, pero no lo devolvía a
+«Sugeridos» hasta recargar. El arreglo de la tercera vuelta (`recargarSugeridos()` después de volver a la lista) pasó sus tests y
+salió desplegado, y en producción no hizo nada.
+
+**El diagnóstico obvio era el equivocado:** parecía que `sugeridosAction` devolvía la lista vieja. El registro de pedidos del
+navegador decía otra cosa: después del borrado **no salió ningún pedido más**, ni el de los sugeridos ni el de la lista. Desde la
+papelera de la tarjeta (sin `irA`), el mismo código mandó los tres pedidos y Alex volvió. `irA` cambia la dirección con
+`window.history.pushState`; lo que se llama después no llega al server. Ya estaba escrito arriba de `sacarDeLaLista` para la
+lista (10/11), y por eso la lista se arregla a mano; los sugeridos cayeron en la misma trampa.
+
+**La regla:** en Spy, una acción del server que tiene que llegar se llama ANTES de `irA(...)`. Y un arreglo que depende de un
+pedido se mira en el registro de pedidos del navegador, no sólo en la pantalla: un test que lee el código no ve si el pedido sale.
+
+**En la misma vuelta:** la ficha decía «@AlexHormozi» (lo guardado) y su tarjeta «Alex Hormozi»: todo lo que se lee de la ficha
+pasa por `nombreDeTarjeta` (`nombreC`). Y el modal del detalle tiene alto FIJO (`min(90vh, 800px)`): una caja con tope en
+píxeles deja un hueco debajo en un video apaisado; el tope sale de ese alto menos lo demás.
+
 ## La tercera mirada, con todo desplegado: lo que la referencia no decía (11/11/2026)
 
 **Vive en:** `app/competitor-spy/SpyApp.tsx` (`.spy-pcard__pie`, `recargarSugeridos`, el aviso de la cola) · `lib/spy-vista.ts`

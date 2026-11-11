@@ -11,10 +11,13 @@
 // =============================================================================
 
 import 'server-only';
-import { CLAVE_INTERRUPTOR_CREDITO_GRUPOS, CREDITO_DE_UN_NEGOCIO, claveDelInterruptorDeCredito, esInterruptorPrendido, type CreditoDeUnNegocio } from './veto-claude';
-import { CLAVES_CREDITO_DE_LOS_GRUPOS } from './credito-api';
+import {
+  CLAVE_INTERRUPTOR_CREDITO_GRUPOS, CLAVE_INTERRUPTOR_CREDITO_PLATAFORMA, CREDITO_DE_UN_NEGOCIO, claveDelInterruptorDeCredito, esInterruptorPrendido,
+  type CreditoDeUnNegocio, type UsoDelCredito,
+} from './veto-claude';
+import { CLAVES_CREDITO_DE_LOS_GRUPOS, CLAVE_USO_DEL_CREDITO, leerUsoDelCredito, ordenDeLasCuentas } from './credito-api';
 import { credWsEstricta } from './credenciales';
-import { getSettingEstricto, setSetting } from './settings';
+import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { getWorkspaceActual, runWithWorkspace, wsSuperAdmin } from './workspace';
 
 /** El crédito asignado a ese negocio y si está prendido. null = no tiene. Tira si no pudo leer el interruptor. */
@@ -49,15 +52,20 @@ const g = globalThis as unknown as { __creditoGruposAgotado?: Map<string, number
 const agotadas = (g.__creditoGruposAgotado ??= new Map<string, number>());
 const reparto = (g.__creditoGruposTurno ??= { n: 0 });
 
+/** El interruptor de cada uso del crédito: los grupos de WhatsApp (28/10) y lo del espacio de MaKo (11/11). */
+const interruptorDe = (para: UsoDelCredito): string => (para === 'plataforma' ? CLAVE_INTERRUPTOR_CREDITO_PLATAFORMA : CLAVE_INTERRUPTOR_CREDITO_GRUPOS);
+
 /**
- * Las cuentas del crédito de los grupos que se pueden probar ahora, en orden: con clave (del entorno o de la fila de la
- * plataforma), sin agotar, y empezando por una distinta en cada turno (el REPARTO entre las cuentas). Vacío con el interruptor
- * apagado, o si algo no se pudo leer (falla cerrada: nunca se gasta por un bache). Devuelve NOMBRES, nunca claves.
+ * Las cuentas del crédito que se pueden probar ahora para ese uso, en orden: con clave (del entorno o de la fila de la
+ * plataforma), sin agotar, y repartidas (`ordenDeLasCuentas`: primero la que menos % gastó según el vigía; sin ese dato, una
+ * distinta primero en cada turno). La PLATAFORMA saltea la cuenta que llegó al 90%: ese resto queda para WhatsApp. Vacío con el
+ * interruptor de ese uso apagado, o si algo no se pudo leer (falla cerrada: nunca se gasta por un bache). Devuelve NOMBRES,
+ * nunca claves. Quién PUEDE usarlas lo decide `puedeUsarUnaCuentaDelCredito` (lib/veto-claude.ts), no esto.
  */
-export async function cuentasDelCreditoDeLosGrupos(): Promise<string[]> {
+export async function cuentasDelCredito(para: UsoDelCredito): Promise<string[]> {
   try {
     const wsSA = await wsSuperAdmin();
-    const valor = await runWithWorkspace(wsSA, () => getSettingEstricto(CLAVE_INTERRUPTOR_CREDITO_GRUPOS));
+    const valor = await runWithWorkspace(wsSA, () => getSettingEstricto(interruptorDe(para)));
     if (!esInterruptorPrendido(valor)) return [];
     const con: string[] = [];
     for (const nombre of CLAVES_CREDITO_DE_LOS_GRUPOS) {
@@ -66,23 +74,27 @@ export async function cuentasDelCreditoDeLosGrupos(): Promise<string[]> {
       if (k) con.push(nombre);
     }
     if (!con.length) return [];
-    const i = reparto.n++ % con.length;
-    return [...con.slice(i), ...con.slice(0, i)];
+    // El % del vigía ordena; si no se puede leer, el reparto de siempre (no es una falla: nada se gasta por esto).
+    const uso = leerUsoDelCredito(await runWithWorkspace(wsSA, () => getSetting(CLAVE_USO_DEL_CREDITO)).catch(() => null), Date.now());
+    return ordenDeLasCuentas(con, uso, para, reparto.n++);
   } catch (e) {
-    console.error(`[credito-negocio] no pude leer el crédito de los grupos: ${e instanceof Error ? e.message : String(e)}`);
+    console.error(`[credito-negocio] no pude leer el crédito (${para}): ${e instanceof Error ? e.message : String(e)}`);
     return [];
   }
 }
 
+/** Las cuentas del crédito de los GRUPOS de WhatsApp (el nombre de siempre: lo fija tests/doer-su-ia.test.ts). */
+export const cuentasDelCreditoDeLosGrupos = (): Promise<string[]> => cuentasDelCredito('grupos');
+
 /**
- * La clave de UNA cuenta del crédito de los grupos (la elige `cuentasDelCreditoDeLosGrupos`). null si no es de la lista, no está,
- * o el interruptor está apagado o no se pudo leer: la puerta 2 lo mira también, no sólo quien elige la cuenta.
+ * La clave de UNA cuenta del crédito (la elige `cuentasDelCredito`). null si no es de la lista, no está, o el interruptor de ESE
+ * uso está apagado o no se pudo leer: la puerta 2 lo mira también, no sólo quien elige la cuenta.
  */
-export async function claveDeLaCuentaDeLosGrupos(nombre: string): Promise<string | null> {
+export async function claveDeLaCuentaDeLosGrupos(nombre: string, para: UsoDelCredito = 'grupos'): Promise<string | null> {
   if (!CLAVES_CREDITO_DE_LOS_GRUPOS.includes(nombre)) return null;
   try {
     const wsSA = await wsSuperAdmin();
-    if (!esInterruptorPrendido(await runWithWorkspace(wsSA, () => getSettingEstricto(CLAVE_INTERRUPTOR_CREDITO_GRUPOS)))) return null;
+    if (!esInterruptorPrendido(await runWithWorkspace(wsSA, () => getSettingEstricto(interruptorDe(para))))) return null;
     return process.env[nombre]?.trim() || (await credWsEstricta(nombre, wsSA, { ilegibleTira: true }))?.trim() || null;
   } catch { return null; }
 }

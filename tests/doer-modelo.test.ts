@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pinDelDoer } from '../lib/doer-modelo';
+import { OPENAI_BARATO_DEL_DOER, pinDelDoer } from '../lib/doer-modelo';
 import { MODELO_SU_OPENAI_DEFAULT } from '../lib/chat-ia-reglas';
 import { estadoDeSuClave } from '../lib/su-clave-reglas';
 
@@ -27,10 +27,11 @@ test('1. con su IA y sin pin, su ChatGPT con el modelo de la app, nunca gpt-4o-m
 
 test('2. un pin a Groq (no contesta texto desde IA16) o a Claude (va por su camino) no manda en la capa barata', () => {
   assert.deepEqual(pinDelDoer({ provider: 'groq', model: 'openai/gpt-oss-20b' }, true), { provider: 'openai', model: MODELO_SU_OPENAI_DEFAULT });
-  assert.equal(pinDelDoer({ provider: 'groq', model: 'x' }, false), null);
-  assert.equal(pinDelDoer({ provider: 'anthropic', model: 'haiku' }, false), null);
-  // Sin su IA y sin pin, ninguno: la red, como hoy (no se apaga a nadie).
-  assert.equal(pinDelDoer(null, false), null);
+  // Sin su IA y sin pin (o con uno que no manda), el OpenAI barato, NUNCA ninguno (11/11/2026): con `null` el turno caía a la
+  // puerta 1 (Sonnet u Opus, que el veto corta) y se salteaba el «Claude primero» del grupo.
+  assert.deepEqual(pinDelDoer({ provider: 'groq', model: 'x' }, false), OPENAI_BARATO_DEL_DOER);
+  assert.deepEqual(pinDelDoer({ provider: 'anthropic', model: 'haiku' }, false), OPENAI_BARATO_DEL_DOER);
+  assert.deepEqual(pinDelDoer(null, false), OPENAI_BARATO_DEL_DOER);
 });
 
 test('3. bajar de modelo queda escrito en la base, y esa fila no cuenta como que su clave anduvo', () => {

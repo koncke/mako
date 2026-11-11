@@ -144,7 +144,10 @@ export type RecorridoAuto = {
 };
 export const FILAS_DESENLACE = 5;
 export function recorridoDe(rec: Resultado | null, tabla: Resultado | null, horas: Resultado | null): RecorridoAuto {
-  const pe = total(rec, 'personas'), re = total(rec, 'respondieron'), si = total(rec, 'en_curso'), le = total(tabla, 'leads');
+  // «Les escribió MaKo» son los que recibieron un mensaje que SALIÓ (`escritos`), no cualquiera con una fila de envío (`leads`: una
+  // acción, un simulado, un omitido). Medido el 11/11/2026: ws 19 tenía 21 leads con filas y ninguno con un mensaje salido. Una hoja
+  // copiada antes de esa métrica no la pide: el paso queda en «—», no en el número de antes.
+  const pe = total(rec, 'personas'), re = total(rec, 'respondieron'), si = total(rec, 'en_curso'), le = total(tabla, 'escritos');
   const pasos: PasoRecorrido[] = [
     { id: 'entraron', titulo: 'Entraron', sub: 'a una automatización', n: pe, pct: null },
     { id: 'escritos', titulo: 'Les escribió MaKo', sub: 'recibieron al menos un mensaje', n: le, pct: parte(le, pe) },

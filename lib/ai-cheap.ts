@@ -42,7 +42,7 @@ import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacio
 import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
 import { anotarColgadoEnElPedido, anotarSaturado, esSaturacion as dijoSaturado, esTimeout, fallaDeSaturacion, plazoEsperadoMs, primeroLosSanos } from '@/lib/ia-saturacion';
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
-import { CREDITO_HABILITADO_PARA } from '@/lib/veto-claude';
+import { esFallaPasajeraDelCredito, queHacerSiFallaElCredito } from '@/lib/veto-claude';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 /**
@@ -640,13 +640,17 @@ export const CASCADA_GRATIS: ProvName[] = ['gemini', 'openai'];
 //
 // Ahora la cascada lo resuelve sola. Ningún caller tiene que acordarse de pasar
 // `provs`: acordarse es exactamente lo que no pasó en ninguno de los doce.
-const TECHO_ENTRADA: Partial<Record<ProvName, number>> = {
+const TECHO_ENTRADA: Partial<Record<ProvName | 'anthropic', number>> = {
   groq: 7_000,        // 8k TPM del free tier, menos lo que reserva la salida
   cerebras: 30_000,
   openrouter: 30_000,
   mistral: 100_000,
   openai: 100_000,
   gemini: 900_000,    // 1M de contexto: es el único que come el tablero entero
+  // El crédito de Claude (11/11/2026): Haiku 4.5 tiene 200K de contexto (la tabla de modelos de la skill claude-api, 11/11/2026).
+  // 150K y no 200K porque `tokensAprox` cuenta a 3,5 caracteres por token y el tokenizador de Claude puede contar más: A
+  // VERIFICAR con `count_tokens` sobre un pedido grande real. Lo que no entra va directo a Gemini.
+  anthropic: 150_000,
 };
 
 /** Tokens aproximados de un prompt. 3,5 caracteres por token es el número del español
@@ -663,21 +667,6 @@ function soloElJson(t: string): string {
   if (ini < 0 || fin <= ini) return '';
   const s = t.slice(ini, fin + 1);
   try { JSON.parse(s); return s; } catch { return ''; }
-}
-
-/**
- * ¿Este pedido tiene, detrás de las gratis, el crédito de Claude de lo INTERNO de MaKo? El workspace de la plataforma si sí
- * (con él se llama a la puerta), o null. Martín, 26/10/2026: «1. Claude de la plataforma», sólo en el espacio de MaKo y sólo
- * para lo que `CREDITO_HABILITADO_PARA` marca `soloLaPlataforma`. «Está» lo dice la MISMA cuenta que hace la puerta
- * (`hayCreditoDeLaPlataforma`: claves cargadas, sin pausa, sin agotar): una opción que no corre no es una opción.
- */
-async function ultimoRecursoDeMaKo(feature?: string): Promise<number | null> {
-  if (!CREDITO_HABILITADO_PARA.some((h) => h.soloLaPlataforma && h.feature === (feature ?? '').trim())) return null;
-  const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
-  const sa = await wsSuperAdmin().catch(() => null);
-  if (sa == null || (await getWorkspaceActual().catch(() => null)) !== sa) return null;
-  const { hayCreditoDeLaPlataforma } = await import('./anthropic');
-  return (await hayCreditoDeLaPlataforma({ feature, wsCliente: sa }).catch(() => false)) ? sa : null;
 }
 
 /** El techo de entrada de un proveedor (prompt + salida), el mismo con el que la cascada lo saltea. */
@@ -736,7 +725,12 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
    * (su Claude, que va primero, y su GPT). Ni con su Gemini: la decisión del 22/10 para Image es «sin Gemini». Lo pone
    * `chatClaude` desde el catálogo; sin él, nada cambia.
    */
-  sinGemini?: boolean }): Promise<string> {
+  sinGemini?: boolean;
+  /**
+   * SIN EL CRÉDITO DE CLAUDE (11/11/2026): una función con `fallback: []` (lo pone `chatClaude` desde el catálogo) corre con UN
+   * solo proveedor, y probar primero el crédito mezclaría dos modelos en un juicio que nadie revisa (lib/model-catalogo.ts).
+   */
+  sinCredito?: boolean }): Promise<string> {
   const anotarQuien = (q: QuienContesto) => { if (opts.quienOut) Object.assign(opts.quienOut, q); };
   // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
   await exigirPermisoIa();
@@ -798,6 +792,45 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       opts.erroresOut?.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
     }
   }
+  // ── DESPUÉS, EL CRÉDITO DE CLAUDE, SÓLO EN EL ESPACIO DE MaKo (11/11/2026) ──────────────────────────────────────────────
+  // Martín, textual: «En general, yo creo que sería bueno que gastemos eso para todo esto en lugar de Gemini, porque es mucho
+  // más estable.» Va ANTES que sus Gemini, que quedan de respaldo. Quién puede lo decide la regla pura
+  // (`puedeUsarUnaCuentaDelCredito`, lib/veto-claude.ts) con «es la plataforma» calculado en la puerta: un negocio, el Plan o
+  // un cron sin workspace reciben [] y la cascada sigue como siempre. Las cuentas, de una en una (`cuentasDelCreditoParaElPedido`);
+  // sin saldo, 401 o 429 prueba la otra; plazo, 5xx u «overloaded», directo a Gemini (es el mismo Anthropic). Con `fallback: []`
+  // (`sinCredito`) no, y lo que no entra en el contexto de Haiku, tampoco. Sus errores son de la PLATAFORMA (`erroresPlataformaOut`).
+  // ⏱ EL CRÉDITO LE DEJA SU INTENTO A GEMINI (revisión del 11/11/2026). Con `hastaMs`, el crédito pide lo que queda MENOS un
+  // intento entero (`MIN_INTENTO_MS`), y si eso no llega a un intento, no se prueba. Antes pedía todo lo que quedaba: un Haiku
+  // colgado o lento (el AI Analyst por HTTP, 45 s) se comía el plazo y Gemini devolvía «sin tiempo» sin un solo pedido. No es la
+  // reserva que se sacó el 26/10 (hallazgo 17, la de `plazoDeIntento`): ésa recortaba al PRIMER proveedor, que antes tenía todo
+  // el plazo; el crédito es una capa NUEVA delante de él, y lo que no puede es dejar sin plazo a lo que antes iba primero.
+  // ⚠️ El umbral se mide contra lo que QUEDA del plazo, nunca contra el `timeoutMs` del intento: sin `hastaMs`, un pedido con
+  // `timeoutMs` de 5 s es sano y va con el crédito (tests/credito-plataforma-frontera.test.ts 3).
+  const quedanParaElCredito = (): number => quedan() - (opts.hastaMs == null ? 0 : MIN_INTENTO_MS);
+  const plazoDelCredito = (): number => Math.min(plazoDeIntento(), quedanParaElCredito());
+  if (!opts.sinCredito && quedanParaElCredito() >= MIN_INTENTO_MS && pesa <= (TECHO_ENTRADA.anthropic ?? 0)) {
+    const { conClaveDelNegocio, cuentasDelCreditoParaElPedido } = await import('./anthropic');
+    for (const cuenta of await cuentasDelCreditoParaElPedido(opts.feature).catch(() => [] as string[])) {
+      if (quedanParaElCredito() < MIN_INTENTO_MS) break;
+      avisar();
+      const r = await conClaveDelNegocio({
+        system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
+        feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDelCredito(), cuentaDeLosGrupos: cuenta,
+      }).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+      if (r && 'texto' in r) {
+        const t = opts.json ? soloElJson(r.texto) : r.texto;
+        if (t && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: 'anthropic', de: 'credito' }); return t; }
+        opts.erroresPlataformaOut?.push(`crédito de Claude (${cuenta}): la respuesta no tenía la forma pedida`);
+        break;
+      }
+      if (!r) break;
+      if ('error' in r) {
+        opts.erroresPlataformaOut?.push(`crédito de Claude (${cuenta}): ${r.error}`);
+        console.warn(`[ai-cheap] el crédito de Claude (${cuenta}) no contestó: ${r.error.slice(0, 300)}`);
+        if (queHacerSiFallaElCredito('status' in r ? r.status : null, r.error) !== 'otra_cuenta') break;
+      }
+    }
+  }
   // Las cuentas de cada proveedor, UNA vez: con ellas se sabe cuál es de verdad la última opción (revisión del tren-l, hallazgo
   // 18: un proveedor de la lista SIN clave contaba como «otra opción», y la última opción real perdía su reintento). La red de
   // la plataforma también es una opción, pero sólo si CORRE, y eso se le pregunta a la MISMA función que la arma
@@ -816,9 +849,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     hayRed = sa != null && (await getWorkspaceActual().catch(() => null)) !== sa
       && (await provsGratisDePlataforma().catch(() => [])).length > 0;
   }
-  // Y el crédito de lo interno de MaKo (abajo), si de verdad está para este pedido: con él esperando, un 503 de `flash-lite`
-  // no se reintenta (los reintentos le dejaban 15-17 s, que no alcanzan para una tanda).
-  const wsCredito = await ultimoRecursoDeMaKo(opts.feature);
+  // El crédito de Claude ya no espera detrás (11/11/2026: va ANTES, arriba): la última Gemini es la última opción real y
+  // recupera sus reintentos.
   for (const prov of orden as ProvName[]) {
     // DOS ejes de rotación, y este es el de adentro: todas las CUENTAS cargadas de
     // este proveedor antes de pasar al siguiente. El free tier se agota por cuenta,
@@ -866,7 +898,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       // ¿Queda OTRA opción REAL después de ésta (otro modelo de esta cuenta, otra cuenta, otro proveedor CON clave, la red de la
       // plataforma)? Entonces una saturación no se reintenta acá: se pasa a la siguiente. La última opción real sí insiste
       // (`ultimoRecurso`): contaba proveedores sin clave y no era la última nunca (con sólo su Gemini, 1 reintento y no 3).
-      const hayOtraOpcion = nroModelo < modelos.length - 1 || otraCuenta || prov !== ultimoProv || hayRed || wsCredito != null;
+      const hayOtraOpcion = nroModelo < modelos.length - 1 || otraCuenta || prov !== ultimoProv || hayRed;
       const ultimoRecurso = !hayOtraOpcion;
       const maxIntentos = ultimoRecurso ? 3 : 1;
       for (let intento = 0; intento <= maxIntentos; intento++) {
@@ -931,27 +963,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     }
   }
 
-  // ── LO INTERNO DE MaKo: el crédito de Claude de la plataforma como ÚLTIMO recurso (26/10/2026) ──
-  // Martín, en el Centro: «1. Claude de la plataforma». Sólo en el espacio de MaKo (el super admin: la red de abajo no corre
-  // ahí) y sólo para lo que `CREDITO_HABILITADO_PARA` marca `soloLaPlataforma` (el editor de landings, la réplica, el
-  // analizador). Llega acá DESPUÉS de que fallaron las gratis (sus Gemini, el respaldo de modelo incluido), nunca antes; con
-  // el mismo tope de tokens de la tarea (`maxTokens`), y cada llamada queda en anthropic_usage con la marca del crédito
-  // (lib/anthropic.ts, `conCreditoDeLaPlataforma`). Para un negocio no cambia nada: el veto lo frena aunque llegara.
-  if (wsCredito != null && quedan() >= MIN_INTENTO_MS) {
-    const { conCreditoDeLaPlataforma } = await import('./anthropic');
-    const c = await conCreditoDeLaPlataforma({
-      system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature,
-      motivo: `último recurso: las gratis no contestaron · ${opts.motivo ?? ''}`.trim(), timeoutMs: plazoDeIntento(), wsCliente: wsCredito,
-    }).catch(() => null);
-    if (c && 'texto' in c) {
-      const t = opts.json ? soloElJson(c.texto) : c.texto;
-      if (t && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: 'anthropic', de: 'credito' }); return t; }
-      opts.erroresPlataformaOut?.push('crédito de Claude de la plataforma (último recurso): la respuesta no tenía la forma pedida');
-    } else if (c && 'error' in c) {
-      opts.erroresPlataformaOut?.push(c.error);
-      console.error(`[ai-cheap] el último recurso del espacio de MaKo (crédito de Claude) no contestó: ${c.error.slice(0, 300)}`);
-    }
-  }
+  // (El «último recurso» del 26/10/2026 —el crédito DESPUÉS de las gratis, sólo para el editor de landings, la réplica y el
+  // analizador— se fue el 11/11/2026: el crédito va primero, arriba, para todo lo del espacio de MaKo menos el Plan.)
 
   // ── La red de plataforma: último recurso, gratis y REGISTRADO ──
   // La doctrina (y los tres límites) están en provsGratisDePlataforma. El molde es
@@ -977,6 +990,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       // tenemos infinitos... Por ahora solo en onboarding»): la lista es `CREDITO_HABILITADO_PARA`
       // (lib/veto-claude.ts) y hoy son las funciones del wizard, mientras el onboarding está en curso.
       // Para todo lo demás `conCreditoDeLaPlataforma` devuelve null y esto sigue como si no existiera.
+      // (Lo del espacio de MaKo no pasa por acá: desde el 11/11/2026 va PRIMERO, arriba, por la puerta 2. Esta red no corre en el
+      // super admin, y para un negocio el crédito sigue siendo sólo el del onboarding.)
       if (wsActual != null && quedan() >= MIN_INTENTO_MS) {
         const { conCreditoDeLaPlataforma } = await import('./anthropic');
         const c = await conCreditoDeLaPlataforma({
@@ -1198,6 +1213,32 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
       const r = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques }).catch(() => null);
       if (r && 'texto' in r) return { text: opts.json ? soloElJson(r.texto) || r.texto : r.texto, provider: 'anthropic' };
       if (r && 'error' in r) errores.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
+      // ── Y EL CRÉDITO DE CLAUDE (11/11/2026): en el espacio de MaKo para todo menos el Plan, y en CUALQUIER negocio para las
+      // fotos y los PDF de un grupo de WhatsApp (`MaKo en WhatsApp · adjunto`, `tambienLosGrupos`). Antes que Gemini, que
+      // queda de respaldo. Sus errores no van a la lista con la que se le habla al negocio: el crédito es nuestro.
+      // ⚠️ SÓLO SI NO TIENE SU CLAVE (`r` null), como el turno del grupo (`sin_su_claude`, lib/mako-doer-in.ts). Con su clave, el
+      // que falló es el SUYO, y la puerta 2 se lo daría otra vez en cada cuenta (su clave gana): 6 pedidos a su clave sin saldo,
+      // 6 fallos en su tarjeta y el crédito sin usar. Lo mismo con el crédito asignado (el ws1): la puerta le da ése de nuevo.
+      if (r === null) {
+        const { cuentasDelCreditoParaElPedido } = await import('./anthropic');
+        // Sin nada que mire DESPUÉS (un negocio sin su IA en su grupo: ni su Gemini ni su OpenAI), un 529 o un 5xx prueba UNA
+        // cuenta más (revisión del 11/11/2026): «al respaldo» era la foto sin leer. Un cuelgue no: dos serían 180 s del turno.
+        let pasajeras = 0;
+        let sinNadaDespues: Promise<boolean> | null = null;
+        const noHayQuienMire = () => (sinNadaDespues ??= Promise.all(VISION_CASCADE.filter((p) => !opts.sinGemini || p !== 'gemini').map((p) => provsDe(p).catch(() => [])))
+          .then((ls) => ls.every((l) => l.length === 0)));
+        for (const cuenta of await cuentasDelCreditoParaElPedido(opts.feature, { tambienLosGrupos: true }).catch(() => [] as string[])) {
+          const c = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques, cuentaDeLosGrupos: cuenta }).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+          if (c && 'texto' in c) return { text: opts.json ? soloElJson(c.texto) || c.texto : c.texto, provider: 'anthropic' };
+          if (!c) break;
+          console.warn(`[ai-cheap] leer con el crédito de Claude (${cuenta}) no pudo: ${c.error.slice(0, 200)}`);
+          const status = 'status' in c ? c.status : null;
+          const pasajera = esFallaPasajeraDelCredito(status, c.error) && !esTimeout(c.error);
+          const sinRespaldo = pasajera && (await noHayQuienMire());
+          if (queHacerSiFallaElCredito(status, c.error, { sinRespaldo, pasajerasAntes: pasajeras }) !== 'otra_cuenta') break;
+          if (pasajera) pasajeras++;
+        }
+      }
     }
   }
 

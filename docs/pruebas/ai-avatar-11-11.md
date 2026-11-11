@@ -166,3 +166,22 @@ plantillas de venta y los presets con foto; en el teléfono la barra en una fila
 - El chat de la izquierda con un mensaje viejo del Dashboard y «No te pude contestar esto» en rojo; «More» en inglés en el
   teléfono. Son del marco compartido.
 - Para crear el primer avatar hacen falta 3 pasos técnicos (extensión, conectar, Flow) antes de ver nada; en HeyGen, una foto.
+
+## Después del despliegue de las 15:55 UTC (`2507c11c7`, trae `b920e1dbb`)
+
+- **Teléfono, Video → «Nuevo video»: «Tu personaje con IA» ya muestra la foto** (antes, marco vacío). ✔
+  ![Teléfono: la tarjeta con su foto](ai-avatar-11-11/25-celular-video-con-imagen-produccion.jpg)
+- **Computadora, la misma tarjeta, con su foto.** ✔ (En el navegador de la app la foto tarda unos segundos en aparecer porque
+  carga diferida en un panel escondido; pedida, baja en 45 ms. No es una falla.)
+  ![Computadora](ai-avatar-11-11/26-video-tu-personaje-1440-1555.jpg)
+
+### Lo que hace falta para GENERAR desde la app (medido en la base, sólo lectura)
+
+La extensión del Chrome de Martín está en **0.78.0**, conectada a **su** negocio y con Flow «sin sesión»; el negocio de prueba
+**nunca se conectó**. La que sirve la app es la **0.80.0** (la que sube la foto soltándola). Hace falta, en un Chrome con la
+sesión de MaKo de Martín (no la de Leandro):
+1. la extensión en 0.80.0 (si es la desempaquetada: `node scripts/sync-extension-local.mjs` y ↻ en chrome://extensions);
+2. abrir MaKo en «Cliente de Prueba» y tocar «Conectar» en el ícono de MaKo (la extensión guarda UN negocio: la pasa del suyo al
+   de prueba, y después se vuelve a conectar al suyo igual);
+3. Google Flow abierto con su cuenta desde el ícono de MaKo.
+Con eso se genera un look en el ws 3 (las imágenes no gastan créditos) y, con el OK de Martín a esa imagen, un video.

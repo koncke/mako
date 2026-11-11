@@ -326,5 +326,43 @@ Todos con su test, corrido de a uno en la PC (los demás, GitHub). Se ven en pro
 
 ## Lo que falta
 
-- Mirar los arreglos 17 a 24 en producción, con el despliegue que los traiga.
+- ~~Mirar los arreglos 17 a 24 en producción~~: mirados abajo (16:05 UTC).
 - La captura 86 salió recortada a la derecha (la trampa del panel oculto); lo que muestra se leyó también del texto de la página.
+
+# Producción, segunda vuelta (11/11, 16:00 a 16:20 UTC, 2507c11c7): los arreglos 17 a 25 — capturas 94 a 103
+
+Despliegue de las 15:55 UTC (Vercel: `2507c11c7`). Mi pestaña del navegador de la app; `/api/auth/me`: Martín en ws 3 y en ws 19
+(Natalia, sólo mirando: todo lo que salió fue GET).
+
+| # | Arreglo | Captura | En producción |
+|---|---|---|---|
+| 17 | Singular de varias palabras | 98 | ✅ «1 no se presentó» |
+| 18 | El aviso de «falta conectar» va solo | 99 | ✅ sin «Todo · Todo» |
+| 19 | La respuesta es del último envío que salió | 97, 100 | ✅ «Te respondieron —» en la compu; «0 te respondieron» y tasa «—» en el teléfono |
+| 20 | La IA cuenta sólo llamadas | 94, 95 | ✅ «Usaste la IA 629 veces» (antes 705), sin «clase:no_reply» ni «cuota» |
+| 21 | Nombres en vez de claves | 95, 96 | ✅ «Crear una automatización con IA (A…», «Calendly», «Cargado a mano» (y las iniciales «CA») |
+| 22 | Costo de centavos | 94, 101 | ✅ «US$0.000043» en la compu, «US$0,000043» en el teléfono |
+| 23 | El eje en centavos | 101 | ✅ «0 · 0,01 · 0,02 · 0,03» |
+| 24 | El rótulo es lo que se dibuja | 98, 102, 103 | ✅ Comercial «Vendido»; Velocidad «Contactados · 0» y «Leads 135» (ws 3), «Leads 131» (Natalia) |
+| 25 | Los nombres largos con «…» | 95 | ✅ adentro de la tarjeta |
+
+## Lo que se vio mal en esta vuelta y se arregló (26 a 28; salen con el despliegue de mañana)
+
+26. **«Les escribió MaKo · recibieron al menos un mensaje · 109»** (97) con «Salieron 0 mensajes» arriba. El paso contaba los leads con
+    CUALQUIER fila de envío (una acción, un simulado, un omitido). Medido en la base (sólo lectura), no es sólo el ws 3: en 30 días, ws 11
+    tiene 183 leads con filas y 37 con un mensaje salido, y los clientes de Código (13, 15, 17, 19, 20, 22) tienen filas y CERO mensajes
+    salidos (Natalia: 21 y 0). Ahora hay una métrica `escritos` (los leads a los que les SALIÓ un mensaje); `leads` queda como estaba
+    porque «Cuántos llegan a cada tarjeta» sí cuenta las acciones. Una hoja copiada antes de esa métrica muestra «—» en ese paso, no el
+    número falso. `lib/graficos-catalogo.ts`, `lib/graficos-datos.ts`, `lib/graficos-plantillas-generales.ts`, `lib/automatizaciones-diseno.ts`,
+    `tests/dashboard-diseno-automatizaciones.test.ts`.
+27. **«Plan de arranque del cliente nuevo · 1 · 0%»** (95): una llamada de 629 no es el 0 %. Debajo de medio punto dice «<1%».
+    `lib/contenido-diseno.ts` (`parteEnTexto`), `app/dashboard/disenos/HojaContenido.tsx`, `tests/dashboard-diseno-contenido.test.ts`.
+28. **Automatizaciones en el teléfono decía otra frase que la compu** (100: «Salieron 0 mensajes · 4 fallaron · 0 te respondieron»; 97:
+    «Salieron 0 mensajes. 4 no salieron y esperan que los mires.»). El teléfono dice la del diseño, como Marketing (14).
+    `app/m/dashboard/datos.ts`.
+
+## Crítica de esta vuelta, al lado de Tend
+
+- **Velocidad en el teléfono (102, 103)**: ahora no miente, pero es «Contactados 0» y «Leads 131». La compu de Natalia (91) muestra 126
+  esperando, quién espera más y «Llamar»; Tend en el celular es esa lista. Sigue siendo la propuesta para Martín.
+- **«Qué modelo cuesta más» lista modelos de US$0.00** (95): son llamadas gratis de verdad (Gemini, gpt-oss), no un error.

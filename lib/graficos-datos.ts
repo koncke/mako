@@ -504,7 +504,8 @@ async function filasEnvios(rg: Rango): Promise<Fila[]> {
         enviados: x.estado === 'enviado' ? 1 : 0, fallaron: x.estado === 'fallo' ? 1 : 0,
         avisos: tipo === 'Aviso al equipo' && x.estado === 'accion' ? 1 : 0,
       },
-      u: { leads: x.lead_id != null ? String(x.lead_id) : null },
+      // `escritos`: los leads a los que les SALIÓ un mensaje («Les escribió MaKo»); `leads`, cualquiera con una fila.
+      u: { leads: x.lead_id != null ? String(x.lead_id) : null, escritos: x.lead_id != null && x.estado === 'enviado' ? String(x.lead_id) : null },
     };
   }).filter((x) => enRango(x.f, rg));
 }

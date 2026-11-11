@@ -87,9 +87,13 @@ test('el pulso: lo que salió y lo que falló por día, hoy marcado, y la línea
 
 test('el recorrido: cuatro pasos sobre los que entraron, en cuánto responden y cómo terminaron', () => {
   const rec = cat(['personas', 'respondieron', 'en_curso'], [['Terminó la secuencia', 168, 0, 0], ['Respondió', 71, 71, 0], ['(sin dato)', 4, 0, 0], ['Se dio de baja', 0, 0, 0]], [400, 100, 150]);
-  const tabla = cat(['envios', 'fallaron', 'respuestas', 'tasa_respuesta', 'leads'], [['A', 10, 0, 1, 10, 9], ['B', 5, 1, 0, 0, 4]], [15, 1, 1, 6.7, 380], { fuera: 2 });
+  const tabla = cat(['envios', 'fallaron', 'respuestas', 'tasa_respuesta', 'leads', 'escritos'], [['A', 10, 0, 1, 10, 9, 8], ['B', 5, 1, 0, 0, 4, 3]], [15, 1, 1, 6.7, 390, 380], { fuera: 2 });
   const r = recorridoDe(rec, tabla, res(['horas_respuesta', 'respondieron'], [5.8, 100]));
-  assert.deepEqual(r.pasos.map((x) => [x.id, x.n, x.pct]), [['entraron', 400, null], ['escritos', 380, 95], ['respondieron', 100, 25], ['siguen', 150, 37.5]]);
+  assert.deepEqual(r.pasos.map((x) => [x.id, x.n, x.pct]), [['entraron', 400, null], ['escritos', 380, 95], ['respondieron', 100, 25], ['siguen', 150, 37.5]],
+    '«Les escribió MaKo» son los que recibieron un mensaje que salió (`escritos`), no los 390 con alguna fila');
+  // Una hoja copiada antes de `escritos` (11/11/2026) no la pide: el paso queda en «—», no con los leads de cualquier fila.
+  const vieja = cat(['envios', 'fallaron', 'respuestas', 'tasa_respuesta', 'leads'], [['A', 10, 0, 1, 10, 9]], [10, 0, 1, 10, 21]);
+  assert.equal(recorridoDe(rec, vieja, null).pasos[1].n, null);
   assert.deepEqual([r.respondio, r.horas, r.automatizaciones], [25, 5.8, 4], 'las automatizaciones: las filas y las que no entraron (`fuera`)');
   assert.deepEqual(r.desenlaces.map((d) => [d.nombre, d.personas, d.pct, d.respondio]), [['Terminó la secuencia', 168, 42, false], ['Respondió', 71, 17.75, true]], 'sin el «sin dato» ni los vacíos');
   const nada = recorridoDe(null, null, null);
@@ -144,7 +148,7 @@ test('la plantilla trae el diseño, la muestra pasa por el mismo modelo, y el ed
   for (const k of ['apertura', 'entraron', 'respuesta']) assert.equal(pieza(k)?.comparar, true, `${k} se compara con el período anterior`);
   assert.deepEqual(pieza('dias')?.metricas, ['enviados', 'fallaron']);
   assert.deepEqual(pieza('recorrido')?.metricas, ['personas', 'respondieron', 'en_curso']);
-  assert.ok(pieza('tabla')?.metricas?.includes('leads'), 'les escribió MaKo: los leads distintos');
+  assert.ok(pieza('tabla')?.metricas?.includes('escritos'), 'les escribió MaKo: los leads a los que les salió un mensaje');
   for (const k of ['vol', 'fal']) assert.deepEqual([pieza(k)?.fuente, pieza(k)?.dimension, pieza(k)?.desglose], ['envios', 'dia', 'automatizacion']);
   assert.deepEqual([pieza('vol')?.metricas, pieza('fal')?.metricas], [['envios'], ['fallaron']]);
   // La muestra (la miniatura de «Nueva hoja») arma la vista entera con el modelo de verdad, y lo que dice cada tarjeta cuadra.

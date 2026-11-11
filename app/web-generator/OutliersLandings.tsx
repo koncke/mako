@@ -81,7 +81,8 @@ export function OutliersLandings({ portada, telefono = false, rutaCrear = RUTA_C
           <h1>Encuentra tu siguiente <mark>OUTLIER</mark></h1>
           <div className={s.botones}>
             <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
-            <Link href={rutaCrear} className={s.crear}><span aria-hidden>＋</span> Crear desde cero</Link>
+            {/* En el teléfono no se crea una landing (es de la computadora: la lista lo dice): el botón lleva a las tuyas. */}
+            <Link href={rutaCrear} className={s.crear}>{telefono ? 'Tus landings' : <><span aria-hidden>＋</span> Crear desde cero</>}</Link>
           </div>
         </header>
         {portada.caidas.map((c) => (
@@ -97,7 +98,9 @@ export function OutliersLandings({ portada, telefono = false, rutaCrear = RUTA_C
           </p>
         )}
         {total > 0 ? (
-          <ul className={`${s.grilla} ${l.grilla}`}>
+          // En el teléfono, de a una: una página apaisada en dos columnas medía 180px y no se leía (11/11/2026). Es la grilla
+          // ancha de Image (la de las miniaturas de YouTube), que en el teléfono va de a una.
+          <ul className={`${s.grilla} ${l.grilla}${telefono ? ` ${s.grillaAncha}` : ''}`}>
             {portada.outliers.map((x) => <Tarjeta key={x.id} x={x} telefono={telefono} />)}
           </ul>
         ) : (

@@ -19,15 +19,24 @@ export type PinDeFeature = { provider: string; model: string } | null;
 const NO_SON_DE_LA_CAPA_BARATA = new Set(['anthropic', 'groq']);
 
 /**
- * El pin de la capa barata del doer: el de /modelos-ia si es de un proveedor que contesta texto ahí; si no, con su IA, su
- * OpenAI con el modelo por defecto de la app (`MODELO_SU_OPENAI_DEFAULT`), nunca `gpt-4o-mini`; sin su IA, ninguno (la red,
- * como hoy). Un pin a Groq (lo que tenía un negocio el 27/10) se ignora: Groq no contesta texto desde IA16.
+ * Sin su IA y sin pin, el OpenAI barato (11/11/2026). Antes era `null`, y el turno caía en una rama que le pedía Sonnet u Opus a la
+ * puerta 1, que el veto corta: el grupo de un negocio sin su IA se quedaba sin el «Claude primero» (el crédito de los grupos)
+ * el día que alguien sacara el pin de /modelos-ia. Con un pin siempre, ese camino corre siempre; el OpenAI sólo lo usa quien
+ * tiene una clave suya (en el ws 9, la de la plataforma).
  */
-export function pinDelDoer(pin: PinDeFeature, suIA: boolean): { provider: string; model: string } | null {
+export const OPENAI_BARATO_DEL_DOER = { provider: 'openai', model: 'gpt-4o-mini' } as const;
+
+/**
+ * El pin de la capa barata del doer: el de /modelos-ia si es de un proveedor que contesta texto ahí; si no, con su IA, su
+ * OpenAI con el modelo por defecto de la app (`MODELO_SU_OPENAI_DEFAULT`), nunca `gpt-4o-mini`; sin su IA, el OpenAI barato
+ * (`OPENAI_BARATO_DEL_DOER`), NUNCA ninguno. Un pin a Groq (lo que tenía un negocio el 27/10) se ignora: Groq no contesta texto
+ * desde IA16.
+ */
+export function pinDelDoer(pin: PinDeFeature, suIA: boolean): { provider: string; model: string } {
   if (pin && !NO_SON_DE_LA_CAPA_BARATA.has(pin.provider)) {
     // Un pin viejo a gpt-4o-mini con su IA: el de la app (el admin no lo eligió en la app; es el default de antes).
     if (suIA && pin.provider === 'openai' && pin.model === 'gpt-4o-mini') return { provider: 'openai', model: MODELO_SU_OPENAI_DEFAULT };
     return pin;
   }
-  return suIA ? { provider: 'openai', model: MODELO_SU_OPENAI_DEFAULT } : null;
+  return suIA ? { provider: 'openai', model: MODELO_SU_OPENAI_DEFAULT } : { ...OPENAI_BARATO_DEL_DOER };
 }

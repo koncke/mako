@@ -99,7 +99,8 @@ test('5. el cableado: la pregunta en «⋯», su puerta, y la pantalla dice la v
 
   const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
   assert.match(app, /\{ value: 'pais', label: c\.pais \?/, 'la pregunta vive en «⋯ Más acciones», con el país que ya tiene');
-  assert.match(app, /<ModalPais nombre=\{c\.nombre\} actual=\{c\.pais\}/);
+  // Con el nombre de su tarjeta desde el 11/11 (`nombreC`, tests/mirada-prod-11-11.test.ts caso 11).
+  assert.match(app, /<ModalPais nombre=\{nombreC\} actual=\{c\.pais\}/);
   assert.match(app, /onElegir=\{\(iso\) => void guardarPais\(c\.id, iso\)\}/);
   assert.match(app, /ponerPaisAction\(id, iso\)/);
   // El alta NO lo pide: es un campo y un Enter («un paso por pantalla»), y sin el dato no se dibuja un «falta».
