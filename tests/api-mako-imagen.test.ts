@@ -92,7 +92,9 @@ test('3: no quedó ninguna de las 10 plantillas de Doory: ni en el panel «Dise�
   const propias = new Set(PLANTILLAS_IMAGEN.map((p) => p.id));
   const lista = (await panel.list({ page_size: 100 })).results;
   assert.ok(lista.length > 0, 'el panel «Diseño» quedó vacío otra vez');
-  for (const t of lista) assert.ok(propias.has(t.slug) && !DOORY.includes(t.slug), `«${t.slug}» no es una plantilla real de MaKo`);
+  // Un Set<string>: `DOORY` es `as const` y su `includes` sólo acepta sus propios ids (TS2345 con un slug cualquiera).
+  const deDoory = new Set<string>(DOORY);
+  for (const t of lista) assert.ok(propias.has(t.slug) && !deDoory.has(t.slug), `«${t.slug}» no es una plantilla real de MaKo`);
   assert.deepEqual((await panel.categories()).map((c) => c.name).sort(), [...new Set(PLANTILLAS_IMAGEN.map((p) => p.grupo))].sort(), 'las categorías son los grupos de MaKo, no las de Doory');
   await assert.rejects(() => panel.get(DOORY[0]), /no existe/i, 'una de Doory se puede volver a abrir');
   for (const slug of DOORY) {
