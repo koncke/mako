@@ -13,6 +13,47 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## La prueba en producción del 10/11/2026: lo que se rompía sin dar error
+
+Informe caso por caso: [pruebas/competitor-spy-10-11.md](pruebas/competitor-spy-10-11.md). Nueve fallas, nueve arregladas
+(`tests/spy-pruebas-10-11.test.ts`). Acá van las trampas, no el changelog.
+
+- **Un `.limit()` de más de 1000 no trae más de 1000.** `resumenDePiezas` pedía `.limit(5000)` y PostgREST devolvió 1000 sin
+  avisar: la tarjeta de Alex Hormozi decía «363 piezas» con 500 en su ficha, y en el ws 9 (~2.500 piezas) casi todas las
+  tarjetas estaban cortas. **Regla: toda lectura de `spy_piezas` que pueda pasar de 1000 filas va por `leerPorPaginas`.** Queda
+  una igual: `marcarDejadas` (`lib/spy.ts`), que con más de 1000 piezas vivas en un canal deja de marcar las de más allá.
+- **Un `<aside>` en una pantalla es un riel del alto de la ventana para quien mira como agencia.** La regla global
+  `[data-barra-agencia] aside` (app/globals.css) es para el menú lateral pero toma cualquier `<aside>`: el riel de la ficha
+  quedó en 850 px con 1.378 de contenido, y lo que sobraba se dibujaba encima de la grilla. Sólo se ve con la barra de agencia
+  arriba, así que el cliente no lo ve y Martín sí. Ya lo esquivaron el Dashboard, el Video y el Web Generator.
+- **Una fecha «corta» en UTC es el día siguiente todas las tardes en México.** `fechaCorta` usaba `getUTCDate()`: a las 22 h
+  de Argentina, «lo seguimos desde el 11 nov» el 10. Tampoco sirve la zona del navegador (la lista y la ficha se dibujan primero
+  en el servidor y la fecha distinta rompe la hidratación): va en la zona del producto, fija.
+- **El diagnóstico obvio era el equivocado, dos veces, con «Webinar en vivo».** Leila Hormozi salía como webinar por reels que
+  dicen «Episode 1 of Dear Leila is live» (= ya salió). El primer arreglo —descartar «is/now live»— dejó el webinar igual: quedaban
+  «unfiltered answers, live» (su programa en YouTube) y el verbo («Live Like the 1%»), y con «masterclass» en una sola pieza
+  alcanzaba la regla de dos débiles. **«live» suelto en inglés no es una señal**: ahora cuenta pegado a lo que se agenda («live
+  training/class/Q&A…») o en «join me live» (`SOLO_EN_CONTEXTO`, lib/spy-funnel-tipo.ts). Para medir: `clasificarFunnel` sobre
+  las piezas reales del competidor, bajadas de la base en lectura; con 637 piezas tarda un segundo.
+- **«Las portadas no cargan» no era el almacenamiento.** Las 180 del gráfico estaban guardadas y respondían 200; el gráfico
+  esperaba 3 s (`TOPE_PRECARGA_MS`) y lo que no llegaba no se dibujaba nunca. La causa de fondo es el PESO: 250 KB a 1 MB por
+  portada para una tarjeta de 200 px. Ahora llegan tarde; achicarlas al guardarlas sigue pendiente.
+- **«El borrado no se refleja» no era una carrera con otra lectura.** Medido con un registro de `fetch`: desde la ficha, después
+  de `irA(null)` (un `history.pushState`), la server action `competidoresAction` NO SE MANDA; desde la «×» de la tarjeta (sin
+  navegar) sí. La causa dentro de Next no se encontró; el arreglo no depende de ella (se saca de la lista en el acto). Si otra
+  acción tiene que correr justo después de un `pushState`, conviene medir que salga.
+- **«El cron de las traídas largas está roto» tampoco.** Corre cada hora (`cron.rotacion.spy-todo` se mueve), pero desde el 4/11
+  no empieza ninguna corrida: el crédito de Apify está bajo la reserva y `pasoDeCanal` contesta `sin-credito` sin decirlo en
+  ninguna pantalla. El registro `spy.todo` del ws 9 quieto desde el 4/11 es la señal. Los 17 competidores sólo con nombre siguen
+  vacíos por eso; es una decisión de plata.
+- **Abrir una ficha del ws 9 gasta la clave de Martín.** Una ficha de más de 24 h lee Instagram (Apify) al abrirse
+  (`debeLeerAlAbrir`), y `traerTodo` arranca la traída larga. Para probar sin gastar: en el ws 3 (sin clave), «Sumar» un sugerido
+  copia lo ya leído gratis, y el alta por YouTube va por la cuota gratis de la API.
+- **Los sugeridos sin ninguna red se dejan de ofrecer** (`tieneDondeLeerlo`, lib/spy-sugeridos.ts): «Sumar» uno así dejaba al
+  cliente una ficha vacía, porque sus anuncios no se copian a otro negocio.
+
+---
+
 ## Los outliers de video para la tab Video: lo que ya pagamos y tiramos (9/11/2026, nube)
 
 **Pedido** (Martín): conseguir los reels y anuncios que más funcionan, para que sean lo primero de la tab Video. El informe
