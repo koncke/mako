@@ -429,6 +429,26 @@ app/m/copywriter/GuionM.tsx
 - **Sin hacer:** los anuncios propios como fuente (`ad_transcripts` + el veredicto del Script Analyst), y transcribir al replicar
   (asegurarGuion de Spy tiene tope de 20 por día y cuesta).
 
+## En el negocio de prueba MaKo no escribe guiones: no es una falla del Copywriter (11/11/2026, prueba en producción)
+
+- **Síntoma:** en el ws 3, al contestar las preguntas de una plantilla, MaKo responde «No hay ninguna IA conectada, así que MaKo
+  no puede escribir…». A 1440, además, la caja dice «Instala MaKo para escribir» con el botón «Instalar MaKo».
+- **Son dos reglas de producto, no fallas:**
+  - el ws 3 no tiene Claude ni GPT conectado (cada negocio paga SU IA);
+  - en la computadora, sin la app de escritorio conectada, NINGÚN chat de MaKo deja escribir (Martín, 23 y 25/10: «Bloqueá
+    igual»; lib/chat-mako-reglas.ts → `appDeEscritorio`). En el teléfono no se traba: avisa y deja seguir.
+- **Lo que sí se prueba en el ws 3:** la plantilla, las preguntas de MaKo y las ofertas, escribir a mano, guardar y reabrir, «Ver
+  ejemplo», la portada de outliers, Replicar y «Ver el original». Que MaKo ESCRIBA se prueba en un negocio con IA (el encargo de
+  imágenes del 6/11 usa el ws 9), con el sí del Cerebro.
+- **Lo que esa prueba encontró y se arregló:** en el teléfono, la barra decía «Sin título» con el título ya escrito; «Ver ejemplo»
+  cortaba el texto a la derecha (el documento tomaba el ancho de su tabla); después de las preguntas aparecía una burbuja de más
+  que repetía las respuestas; y en la caja trabada la frase quedaba cortada a la mitad (app/_chat/CajaChat.tsx, compartida).
+- **Visto y NO arreglado (no es de esta tab):** en el teléfono, el super admin que mira un negocio ve el chip «Cliente de Prueba»
+  encima del título de la barra (app/m/_ui, la cabecera compartida). El cliente no lo ve.
+- **Dos caminos al mismo lugar:** Spy tiene «Copiar estructura» (lib/spy-detalle.ts → `textoParaCopiar`: la página nace con el
+  original citado adentro) y la portada de Copywriting tiene «Replicar» (la página nace vacía, atada al original, y MaKo la
+  escribe). **Sin hacer:** que Spy use «Replicar» y quede uno solo.
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
