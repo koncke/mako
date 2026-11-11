@@ -643,6 +643,32 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin',
   },
+  {
+    fecha: '10 nov', hora: '15:22', chat: 'Admin', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Toda la parte de costos, con gráficos, dentro de SuperAdmin',
+    pedido: 'Si todavía no está dentro de SuperAdmin toda la parte de costos con gráficos bien diseñada, eso debería estar.',
+    puntos: [
+      'Llegó por el Cerebro (docs/relevo/encargos-admin-10-11.md, «Encargo 2»): la torta de un cliente de 97 —cuánto le queda y a dónde va cada dólar—, el CAC de US$97 y lo del tablero local (los selectores, el primer mes, el techo del CAC y los cupos por plan).',
+    ],
+  },
+  {
+    fecha: '11 nov', hora: '06:36', chat: 'Admin', sesion: 'cli_b3407e4a-9d63-50ae-a576-74a8770b3caa', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Costs: a dónde va una suscripción, el primer mes, el techo del CAC y los cupos',
+    puntos: [
+      'Una sola función, `loQueSeVaDeUnaSuscripcion` (lib/economia-unitaria.ts), para Costs y la torta de /admin/estrategia: el 97 queda en 61,53 · 10,78 · 14,83 · 8,11 · 1,75 con los 9 meses de vida que decidió Martín el mismo 10/11 (el encargo decía 67,94 · 4,37, con 22,2), el primer mes en −24,69 y desde el segundo en 72,31.',
+      'Todo con piezas de Polar: el «Breakdown» de las cancelaciones (Polar no tiene gráfico de anillo), el Select de Orbit en la fila de filtros, las tarjetas de «Changes» y un Alert.',
+      '⚠️ Costs ya mostraba mal la plata: le pasaba dólares al formateador de Polar, que recibe centavos («US$ 4,38 al mes sale de tu bolsillo» con un fijo de US$438,25). Arreglado con `fmtUsd`.',
+      'El techo del CAC lleva el fijo adentro (72,31), no como el tablero (81,08): decide Martín (docs/relevo/nube-costs-suscripcion.md).',
+    ],
+    commits: [{ sha: '70611f4b', msg: 'Admin › Costs: a dónde va una suscripción del 47 y del 97, el primer mes, el techo del CAC y los cupos', lineas: 985, archivos: 17 }],
+    archivos: [
+      'lib/economia-unitaria.ts — loQueSeVaDeUnaSuscripcion, ESCENARIO_DEL_MODELO, PASARELAS',
+      'app/admin/(polar)/analytics/costs/Suscripcion.tsx — las tres secciones y los selectores',
+      'app/admin/_polar/web/Metrics/DistributionChart.tsx — la copia del Breakdown de Polar',
+      'app/admin/(polar)/analytics/costs/utils.ts — fmtUsd (dólares al formateador de Polar)',
+    ],
+    revisar: '/admin/analytics/costs',
+  },
 ];
 
 export const PARTES: Parte[] = [

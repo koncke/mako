@@ -54,6 +54,11 @@ export type PropsGuion = {
    * MaKo pregunta para qué es y a qué oferta adaptarla (./iniciativa.ts). No se muestra en las propiedades.
    */
   plantilla?: string | null;
+  /**
+   * El outlier que replica la página (lib/copywriter/outliers.ts, `spy:<id>` o `biblioteca:<id>`; 11/11/2026, D18): MaKo lo
+   * recibe como referencia en cada pedido y la barra ofrece «Ver el original». No se muestra en las propiedades.
+   */
+  outlier?: string | null;
 };
 
 /** Un nodo de ProseMirror como JSON (lo que guarda TipTap con `getJSON()`). */
@@ -140,5 +145,7 @@ export function sanearProps(v: unknown, tipoPorDefecto: TipoGuion = 'ad'): Props
   const tipo = esTipoGuion(o.tipo) ? o.tipo : tipoPorDefecto;
   const id = (x: unknown) => (typeof x === 'string' && /^[a-z0-9-]{1,60}$/.test(x) ? x : null);
   const d = typeof o.duracion === 'number' && Number.isFinite(o.duracion) ? Math.round(o.duracion) : null;
-  return { tipo, angulo: id(o.angulo), estructura: id(o.estructura), duracion: d != null && d > 0 && d <= 7_200 ? d : null, plantilla: id(o.plantilla) };
+  // El outlier sólo con su forma (`<fuente>:<id>`, lib/copywriter/outliers.ts): una página sin él no lo guarda (ni `null`).
+  const outlier = typeof o.outlier === 'string' && /^(spy|biblioteca):-?\d{1,12}$/.test(o.outlier) ? o.outlier : null;
+  return { tipo, angulo: id(o.angulo), estructura: id(o.estructura), duracion: d != null && d > 0 && d <= 7_200 ? d : null, plantilla: id(o.plantilla), ...(outlier ? { outlier } : {}) };
 }

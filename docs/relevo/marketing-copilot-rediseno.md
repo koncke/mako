@@ -15,7 +15,8 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
   | `maqueta-arranque.html` | LUyer4k7kV1sokRuBYeX44 |
   | `maqueta-por-canal.html` | 97pKNFeiPV4U8asB9ejLwn |
   | `maqueta-analisis.html` (los puntos 1 a 9 de abajo) | 6oFhRx6JnoHMVgFyoUxcNN |
-  | `maqueta-visual.html` (la vigente: la sexta vuelta) | F1WFdNi1nBJoWakPhVUxWU |
+  | `maqueta-visual.html` (la sexta vuelta) | F1WFdNi1nBJoWakPhVUxWU |
+  | `maqueta-accion.html` (la vigente: la séptima vuelta) | CqxfbFNRY54GZnTLFmxj6s |
 
   Todos los links son `claude.ai/artifact/<id>`.
 - **Cómo se arman** (en el scratchpad de la sesión 3b078c27, carpeta `maqueta/`):
@@ -100,6 +101,35 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
      - la estrategia y la cantidad.
 7. **El presupuesto de anuncios se pregunta en algún momento** (al principio o ahí mismo; no lo tiene claro): define cuántos creativos.
 
+## Lo que pidió Martín sobre la sexta maqueta (11/11, séptima vuelta): para hacer
+
+1. **Paso 1:**
+   - Si elige Anuncios, ahí mismo se pregunta cuánto quiere invertir y qué tipo de campaña hace o quiere hacer (mensajes, VSL con llamada, formulario, compra directa). Puede elegir más de uno, y la pestaña de anuncios abre en lo elegido.
+   - **También en el paso 1, para cualquiera de los tres:** cuánto tiempo tiene para crear. Las opciones de la sexta («Poco tiempo / Marca personal / Con equipo») no tienen sentido.
+2. **Tu oferta:** el bloque de la derecha y el de la izquierda del MISMO alto. «Lo que leí» se amolda y no deja aire.
+3. **Instagram y YouTube como Tu web:** el Instagram y el YouTube dibujados, con los comentarios encima.
+   - En los tres (web, Instagram, YouTube), además, un apartado con todos los comentarios y cosas como cada cuánto publicas.
+4. **Nada de texto innecesario, en todas las pestañas:** fuera «Tu perfil», «Tu canal», «5 de 6 puntos bien». Minimalista, que se entienda fácil, sin cosas chicas.
+5. **Anuncios:** los mejores anuncios siempre centrados.
+6. **«Ponerlo en marcha» no se entiende:** el botón es chico y no se entiende que lo de la lectura es el análisis y después viene la acción. Lo mismo «← El análisis» en la operación. Pensar cómo se entiende.
+7. **La operación:**
+   - el mapa conceptual NO dividido en anuncios, Instagram y YouTube: uno de anuncios, uno de Instagram, uno de YouTube;
+   - Martín no está seguro de que el mapa sea el mejor diseño: investigar cómo representarlo.
+8. **Tu máquina de contenido, separada por canal**, según lo elegido. Arriba, la estrategia que propone MaKo:
+   - **anuncios:**
+     - cuántos anuncios para encontrar el ganador, con la inversión y el tiempo;
+     - los de escala;
+     - los de retargeting;
+     - el presupuesto para experimentos (anuncios nuevos) y cuántos probar por mes;
+     - imágenes o video.
+   - **Instagram:**
+     - la estrategia de reels (con los reels de prueba), de historias (la secuencia: una semana de nutrición, otra de ventas), de carruseles y de lead magnets, para que todo lleve a los mensajes;
+     - automatizar esas respuestas con Automations de MaKo;
+     - cuánto publicar por día y cuántas historias.
+   - Investigar en los cursos de orgánico: Fran Doglio (historias), Juan Carrizo, Ramiro Cubría, etc.
+   - Aprovechar todo lo que ya existe en MaKo.
+9. **El diseño, mucho mejor:** «no me gusta para nada». Basarse en el diseño de los dashboards de la casa, el que mejor quede.
+
 ## El plan
 
 1. **Relevamiento, con agentes, de lo que hay que revisar por canal y de la máquina de contenido.** Sale de todos los cursos de Knowledge: el índice está en el scratchpad (`cursos-indice/`) y las transcripciones en `public/cono-tx/` y `C:/cursos/programa-meta-ads-the-net-lab/transcripciones/`. Va a `docs/marketing-copilot/analisis/` (`organico.md` y `anuncios.md`), con curso y clase en cada punto. Ojo: el texto de MaKo va en tú.
@@ -110,6 +140,8 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - la máquina de contenido;
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
+
+**Hecho (11/11, séptima vuelta):** `maqueta-accion.html` con los puntos 1 a 9 de la séptima, más el pedido de después: la acción como lugar de trabajo de MaKo (decisiones, lo que te toca, lo que hice), no como tablero. Los relevos: `analisis/estrategia.md` (la estrategia por canal) y `rediseno/diseno-referencias.md` (el molde de Fernly). El cuerpo vigente es `cuerpo-accion.html`, armado con `parte-accion-*.js`.
 
 **Hecho (11/11, sexta vuelta):** `maqueta-visual.html` con los puntos 1 a 7 de la sexta vuelta. Qué cambió y qué es de ejemplo: `esquema-descubrimiento.md`.
 

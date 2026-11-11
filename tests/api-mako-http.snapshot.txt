@@ -513,6 +513,7 @@ ordenar_categorias_comunidad
 ordenar_etapas
 ordenar_modulos_curso
 otra_imagen_broll
+outliers_copywriter
 pagina_captura_magnet
 panorama_closing
 papelera_documento_copywriter
@@ -615,6 +616,7 @@ renombrar_etapa
 renombrar_landing
 renombrar_modulo_curso
 renombrar_negocio
+replicar_outlier_copywriter
 requisitos_para_mover
 resaltar_claves_subtitulos
 resaltar_palabras_video

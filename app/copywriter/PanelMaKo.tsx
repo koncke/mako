@@ -42,7 +42,7 @@ import { escondida } from '@/lib/copywriter/arbol';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { aplicarTodo, cuadrosDeConstruccion, sanearOperaciones, type Descartada } from '@/lib/copywriter/operaciones';
 import { plantillaPorId } from '@/lib/copywriter/plantillas';
-import { pasoPendiente, pasosDeIniciativa, pedidoDeIniciativa, textoDeRespuesta, type OfertaCorta, type RespuestasIniciativa } from '@/lib/copywriter/iniciativa';
+import { pasoPendiente, pasosDeIniciativa, pasosDeReplica, pedidoDeIniciativa, pedidoDeReplica, textoDeRespuesta, type OfertaCorta, type RespuestasIniciativa } from '@/lib/copywriter/iniciativa';
 import { REF_OFERTA, buscarReferencias, consultaArroba, elegirReferencia, type Referencia } from '@/lib/copywriter/referencias-reglas';
 import { aceptar as aceptarEnDoc, construir, descartar as descartarEnDoc, type DocVivo } from './editor/propuesta';
 import type { ApiPagina } from './editor/EditorGuion';
@@ -134,7 +134,11 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
    * a qué oferta adaptarla, con botones. Las preguntas no llaman a la IA; la última respuesta, sí (`pedidoDeIniciativa`).
    */
   const [respIni, setRespIni] = useState<RespuestasIniciativa>({});
-  const pasosIni = useMemo(() => (plantilla ? pasosDeIniciativa(plantilla, ofertas) : []), [plantilla, ofertas]);
+  // Una página que replica un outlier (D18, `props.outlier`): una sola pregunta, para qué oferta. El original le llega a la IA
+  // por el server en cada pedido (lib/copywriter/ia.ts), así que el pedido es un «Editar» común, no «adaptar» una plantilla.
+  const replica = !plantilla && !!guion?.doc.props.outlier;
+  const pasosIni = useMemo(() => (plantilla ? pasosDeIniciativa(plantilla, ofertas) : replica ? pasosDeReplica(ofertas) : []), [plantilla, replica, ofertas]);
+  const pedidoIni = (r: RespuestasIniciativa) => (replica ? pedidoDeReplica(r, ofertas) : pedidoDeIniciativa(pasosIni, r, ofertas));
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [corriendo, setCorriendo] = useState(false);
   const [texto, setTexto] = useState('');
@@ -342,15 +346,15 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     const r = { ...respIni, [pasoIni.id]: valor };
     setRespIni(r);
     if (pasoPendiente(pasosIni, r)) return;
-    const pedido = pedidoDeIniciativa(pasosIni, r, ofertas);
-    if (pedido.adaptar) { void pedirEdicion(pedido.texto, [], [], true); return; }
-    setMensajes((xs) => [...xs, { id: nuevoId(), de: 'yo', texto: pedido.texto }, { id: nuevoId(), de: 'mako', texto: 'Listo: la estructura queda para ti. Cuando quieras, pídeme lo que necesites.' }]);
+    const pedido = pedidoIni(r);
+    if (pedido.adaptar) { if (replica) elegirIntencion('editar'); void pedirEdicion(pedido.texto, [], [], !replica); return; }
+    setMensajes((xs) => [...xs, { id: nuevoId(), de: 'yo', texto: pedido.texto }, { id: nuevoId(), de: 'mako', texto: replica ? 'Listo: el original está en «Ver el original». Cuando quieras, pídeme lo que necesites.' : 'Listo: la estructura queda para ti. Cuando quieras, pídeme lo que necesites.' }]);
   };
   /** Esa respuesta cierra las preguntas y pide a la IA: espera a que se pueda (editor listo, sin otro pedido corriendo). */
   const llamaALaIA = (valor: string) => {
     if (!pasoIni) return false;
     const r = { ...respIni, [pasoIni.id]: valor };
-    return !pasoPendiente(pasosIni, r) && pedidoDeIniciativa(pasosIni, r, ofertas).adaptar;
+    return !pasoPendiente(pasosIni, r) && pedidoIni(r).adaptar;
   };
 
   /** Lo escrito: a la pregunta de MaKo si hay una; si no, a «Discutir» o «Editar» (o a «adaptar», si MaKo preguntó un dato). */

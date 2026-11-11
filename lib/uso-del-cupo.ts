@@ -24,18 +24,13 @@
 // plata de esos meses ya se gastó. Acumular convierte un techo mensual en una deuda sin fecha.
 // =============================================================================
 
-import { CUPO_MENSUAL, usdDeMt, type Plan } from './mako-tokens-reglas';
-import { PARTE_DE_COBRAR, cacPorMes } from './economia-unitaria';
+import { type Plan } from './mako-tokens-reglas';
+import { PARTE_DE_COBRAR, cacPorMes, techoDeIa, USO_SUPUESTO } from './economia-unitaria';
 
-/**
- * El uso del cupo que se SUPONE mientras `tasaDeUsoMedida` no tenga meses: 25%, el valor inicial del deslizador de
- * docs/tableros/numeros-mako.html. Es un supuesto, no una medición: hoy nadie genera video (sin fila en `mako_tokens` el saldo
- * es null y falla cerrado). Lo usa la torta de /admin/estrategia.
- */
-export const USO_SUPUESTO = 0.25;
-
-/** Lo que cuesta, como mucho, la IA de un cliente de ese plan en un mes: su cupo entero. */
-export const techoDeIa = (plan: Plan): number => usdDeMt(CUPO_MENSUAL[plan]);
+// `USO_SUPUESTO` (el 25% del cupo que se supone usado) y `techoDeIa` (el cupo entero en dólares) se mudaron a
+// lib/economia-unitaria.ts el 10/11/2026: la función que reparte una suscripción vive ahí y los necesita, y este archivo
+// importa de aquél (un import de vuelta haría un ciclo). Se re-exportan para que nadie tenga que cambiar de dónde los lee.
+export { USO_SUPUESTO, techoDeIa };
 
 /**
  * Lo que deja un cliente de ese plan con una tasa de uso del cupo (0 = no genera nada; 1 = lo agota).
