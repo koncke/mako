@@ -161,6 +161,23 @@ test('10. Importar: «Suelta tus archivos aquí o elígelos» (plural)', () => {
   assert.match(caja, /Suelta tus archivos aquí o\{' '\}\n\s*<button type="button" className="gp-cc-soltar-elegir"[^\n]*>elígelos<\/button>/);
 });
 
+test('11. replicar: una fila de cifras (número y rótulo alternados) va como «Números grandes», no como viñetas', async () => {
+  const { cifrasEnPares } = await import('../lib/editor-landing/doc');
+  // Lo que llegó replicando acquisition.com (11/11/2026, en producción).
+  const hormozi = ['10,000', 'Businesses Advised', '81', 'NPS', '97.1%', 'Client Retention', '12,000', 'Workshop Participants', 'BRAND NEW', '$100m Scaling Roadmap'];
+  const r = cifrasEnPares(hormozi);
+  assert.deepEqual(r.cifras.map((c) => `${c.valor}|${c.titulo}`), ['10,000|Businesses Advised', '81|NPS', '97.1%|Client Retention', '12,000|Workshop Participants']);
+  assert.deepEqual(r.resto, ['BRAND NEW', '$100m Scaling Roadmap'], 'lo que sigue a las cifras queda como estaba');
+  assert.deepEqual(cifrasEnPares(['10,000', 'Clientes']).cifras, [], 'un solo par no es una fila');
+  assert.deepEqual(cifrasEnPares(['Rápido', 'Barato', 'Simple']).cifras, [], 'viñetas de texto: viñetas');
+  const { tarjetaDesdeEsquema } = await import('../lib/editor-landing/ia-reglas');
+  const t = tarjetaDesdeEsquema({ titulo: 'Learn from the team', puntos: hormozi } as never, false) as { content: { type: string; attrs?: Record<string, unknown> }[] };
+  const tipos = t.content.map((n) => n.type);
+  assert.ok(tipos.includes('optimizado'), `la réplica arma la fila de cifras: ${tipos.join(', ')}`);
+  assert.equal(t.content.find((n) => n.type === 'optimizado')?.attrs?.variante, 'numeros-grandes');
+  assert.ok(tipos.includes('bulletList'), 'y el resto, como viñetas');
+});
+
 // PROBADO ROMPIÉNDOLO (10/11/2026, base 6/0; cada rotura sobre el archivo real, restaurado y verificado por hash):
 //   · `textoDe` separando otra vez por el tipo del PADRE              → 5/1 (1)
 //   · `tituloDeTarjeta` mirando sólo los hijos directos               → 5/1 (2)

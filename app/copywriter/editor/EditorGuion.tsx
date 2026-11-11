@@ -39,7 +39,8 @@ import { docDeEstructura, sinTexto, textoDelDoc } from '@/lib/copywriter/doc';
 import { rutaDe } from '@/lib/copywriter/arbol';
 import { estructurasDelTipo, type CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { quienYCuando } from '@/lib/copywriter/editado';
-import { pedirGuardar, type GuardarGuion } from '../cliente';
+import { pedirGuardar, pedirOriginal, type GuardarGuion } from '../cliente';
+import { ROTULO_TEXTO, rotuloDeFormato, type OutlierCopy } from '@/lib/copywriter/outliers';
 import dynamic from 'next/dynamic';
 import { useCerrarAfuera } from './cerrar-afuera';
 import { useRouter } from '@/app/_ui/Link';
@@ -252,6 +253,17 @@ export function EditorGuion(p: PropsEditorGuion) {
    * Nunca entra solo a la página: sólo con «Usar como base», en UN paso de deshacer (Ctrl+Z, o «Deshacer» en el aviso).
    */
   const [verEjemplo, setVerEjemplo] = useState(false);
+  /**
+   * «Ver el original» (11/11/2026, D18): la página replica un outlier (`props.outlier`) y el original se ve APARTE, como el
+   * ejemplo de una plantilla. Se lee al abrirlo (la pantalla no lo trae: viaja entero sólo cuando se pide).
+   */
+  const [original, setOriginal] = useState<OutlierCopy | 'leyendo' | { error: string } | null>(null);
+  const verOriginal = async () => {
+    if (!props.outlier) return;
+    setOriginal('leyendo');
+    const r = await pedirOriginal(props.outlier);
+    setOriginal(r.ok ? r.outlier : { error: r.error });
+  };
   const ejemploDoc = useMemo(() => (verEjemplo && plantilla ? plantilla.contenido() : null), [verEjemplo, plantilla]);
   const usarComoBase = () => {
     setVerEjemplo(false);
@@ -389,6 +401,33 @@ export function EditorGuion(p: PropsEditorGuion) {
             </span>
             <button type="button" className="nt-miga nt-ver-ejemplo" onClick={() => setVerEjemplo(true)}>Ver ejemplo</button>
           </div>
+        )}
+        {!compartido && !plantilla && props.outlier && (
+          // De qué outlier nació la página y el original, aparte (la franja de «Ver ejemplo», D17). Lo que replica lo pide MaKo.
+          <div className="nt-aviso nt-restos" role="status">
+            <span>Réplica de un outlier</span>
+            <button type="button" className="nt-miga nt-ver-ejemplo" onClick={() => void verOriginal()}>Ver el original</button>
+          </div>
+        )}
+        {original && (
+          <Modal titulo={typeof original === 'object' && 'id' in original ? `El original: ${original.creador.usuario ? `@${original.creador.usuario}` : original.creador.nombre}` : 'El original'}
+            encabezado={typeof original === 'object' && 'id' in original ? rotuloDeFormato(original) : undefined} ancho={760} onCerrar={() => setOriginal(null)}
+            pie={(
+              <>
+                <Button variant="tertiary" onClick={() => setOriginal(null)}>Cerrar</Button>
+                {typeof original === 'object' && 'id' in original
+                  ? <a className="nt-miga" href={original.url} target="_blank" rel="noopener noreferrer">Ver original ↗</a> : null}
+              </>
+            )}>
+            {original === 'leyendo' ? <p className="nt-ejemplo-nota">Leyendo el original…</p>
+              : 'error' in original ? <p className="nt-ejemplo-nota" role="alert">No se pudo leer el original: {original.error} <ReportarASoporte /></p>
+                : (
+                  <>
+                    <p className="nt-ejemplo-nota">{ROTULO_TEXTO[original.deDonde]}. MaKo copia su estructura, su tipo de gancho y su ritmo, nunca sus frases.</p>
+                    <div className="nt-original">{original.texto}</div>
+                  </>
+                )}
+          </Modal>
         )}
         {verEjemplo && plantilla && ejemploDoc && (
           <Modal titulo={`Ejemplo: ${plantilla.ejemplo!.negocio}`} encabezado="Negocio ficticio" ancho={760} onCerrar={() => setVerEjemplo(false)}
