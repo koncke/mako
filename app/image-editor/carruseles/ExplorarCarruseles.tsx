@@ -350,16 +350,17 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
             <label className={s.busca}>
               <Lupa />
               {enThumbs ? (
-                <input type="search" value={ft.q} onChange={(e) => cambiarT({ q: e.target.value })} placeholder={telefono ? 'Busca miniaturas o @canales' : 'Busca miniaturas, temas o @canales'}
-                  aria-label="Buscar miniaturas por tema o por @canal" enterKeyHint="search" />
+                <input type="search" value={ft.q} onChange={(e) => cambiarT({ q: e.target.value })} placeholder={telefono ? 'Busca o pega un link de YouTube' : 'Busca miniaturas, temas o @canales, o pega un link de YouTube'}
+                  aria-label="Buscar miniaturas por tema o por @canal, o pegar el link de un video para traerlo" enterKeyHint="search" />
               ) : (
                 // En «Anuncios» la búsqueda es la misma, pero lo que se busca son anuncios: el texto decía «carruseles» con la
                 // pestaña de anuncios elegida (6/11/2026, revisión de las capturas).
                 <input type="search" value={f.q} onChange={(e) => { setParecidosDe(null); cambiar({ q: e.target.value }); }}
                   placeholder={f.que === 'anuncios'
                     ? (telefono ? 'Busca anuncios o @creadores' : 'Busca anuncios, temas o @creadores')
-                    : (telefono ? 'Busca carruseles o @creadores' : 'Busca carruseles, temas o @creadores')}
-                  aria-label={f.que === 'anuncios' ? 'Buscar anuncios por tema o por @creador' : 'Buscar carruseles por tema o por @creador'} enterKeyHint="search" />
+                    // «Traer tu outlier» (11/11/2026): el buscador también trae, y lo dice (si no se ve, la opción no existe).
+                    : (telefono ? 'Busca o pega un link de Instagram' : 'Busca carruseles, temas o @creadores, o pega un link de Instagram')}
+                  aria-label={f.que === 'anuncios' ? 'Buscar anuncios por tema o por @creador' : 'Buscar carruseles por tema o por @creador, o pegar el link de una publicación para traerla'} enterKeyHint="search" />
               )}
             </label>
           )}

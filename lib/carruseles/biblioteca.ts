@@ -27,6 +27,7 @@
 // =============================================================================
 
 import { usuarioInstagram } from '@/app/crm/campo-inline';
+import { traidaPor } from '../traida-por';
 import type { PiezaInstagram } from '../instagram-perfil';
 import { formatoDe } from '../spy-detalle';
 import { medioDeInstagram } from '../spy-medio';
@@ -98,13 +99,8 @@ export type PiezaBiblioteca = {
   workspace_id?: number | string | null;
 };
 
-/** ¿La trajo un negocio por su link? (mig 0413) El número del negocio, o null si es de la plataforma. */
-export function traidaPor(p: Partial<PiezaBiblioteca> | Record<string, unknown>): number | null {
-  const v = (p as { workspace_id?: unknown }).workspace_id;
-  if (v == null || v === '') return null;
-  const n = Number(v);
-  return Number.isSafeInteger(n) && n > 0 ? n : null;
-}
+/** ¿La trajo un negocio por su link? (mig 0413) Vive en lib/traida-por.ts: la misma lectura sirve a las miniaturas (0414). */
+export { traidaPor };
 
 /**
  * ¿El negocio `ws` ve esta publicación? (11/11/2026) Lo que trajo un negocio lo ve SÓLO ese negocio, y sin esperar la revisión

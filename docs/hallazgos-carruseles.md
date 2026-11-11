@@ -32,9 +32,26 @@ Guardados, las imágenes en el bucket y la lectura por link (`links` del script)
 negocio o, si no tiene, la de la plataforma (Martín lo aprobó). Tope de 20 por día por negocio (`TRAIDOS_POR_DIA`) y techo de
 US$0,01 por lectura. Lo que ya está no se paga de nuevo.
 
-**Sin hacer:** YouTube y los anuncios. YouTube va por la API oficial, y sin la enmienda III.L lo guardado de su API vence a los
-30 días (0409). Un anuncio de la Biblioteca de Meta va por el actor de anuncios de Spy, que falta medir. El múltiplo de lo traído
-tampoco se calcula: su creador no se lee entero (`fuente: 'tema'`), y lo que no se midió no se dice.
+**YouTube (11/11, mig 0414, aplicada: 1.811 videos y 93 canales antes y después):** en la tab «Thumbnails», el link de un
+video (watch, youtu.be, m., live) que no está ofrece «Traer esta miniatura» (lib/thumbnails/traer-servidor.ts). Es la misma
+idea en las tablas de la 0409. Lo que cambia:
+- **Es gratis:** va por la YouTube Data API con la clave de la plataforma (`videos.list` y `channels.list`, 1 unidad cada uno).
+  Nada de Apify. Medido en prod con ws3: 2,9 s. ws3 lo ve; ws5 y un script sin negocio, no. Traerlo otra vez no relee nada.
+- ⚠️ **El canal también lleva `workspace_id`**, y no por quién lo ve: **el cron que relee los canales (`canalesPorLeer`) lo
+  saltea**. Sin eso, un video traído metía su canal en la biblioteca y el cron se traía sus 50 videos para TODOS, con la cuota
+  de la plataforma. El riesgo no estaba en la lectura: estaba en la tarea programada que vino después.
+- **El rubro del canal queda vacío** (la 0414 afloja el NOT NULL de `nicho` e `idioma`). No se sabe, y uno inventado lo
+  mostraría en el filtro de un rubro que no es el suyo. El idioma sí se pone cuando YouTube lo dice (`defaultAudioLanguage`).
+- **Un Short no se trae** (su miniatura no se diseña); la pantalla lo dice.
+- **Vence a los 30 días**, como todo lo guardado de la API (`podarVencidos`): traerlo otra vez lo relee.
+- `traidaPor` pasó a lib/traida-por.ts, una para las dos bibliotecas. Test: tests/thumbnails-traidas.test.ts (roto a propósito,
+  cae donde dice).
+- El buscador ahora DICE que se puede pegar un link («…o pega un link de Instagram / de YouTube»): una opción escondida en un
+  buscador no es una opción.
+
+**Sin hacer:** los anuncios de la Biblioteca de Meta. Van por el actor de anuncios de Spy, cuyo costo falta medir, y hay que
+decidir dónde viven: los anuncios del explorador salen de `spy_piezas` de los competidores del negocio. Tampoco se calcula el
+múltiplo de lo traído: el creador no se lee entero (`fuente: 'tema'`), y lo que no se midió no se dice.
 
 ## El guiado de los carruseles: tres tests que daban verde rompiéndolos, y la caja de Create que se cae sin ejemplos (9/11/2026)
 

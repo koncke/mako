@@ -57,7 +57,7 @@ test('el encabezado de Top Carousels, sin la bajada ni las pestañas que se fuer
   const { ExplorarCarruseles } = await import('@/app/image-editor/carruseles/ExplorarCarruseles');
   const html = renderToStaticMarkup(createElement(ExplorarCarruseles, { datos: datos([carrusel({})]) }));
   assert.match(html, /<h1>Encuentra tu siguiente <mark>OUTLIER<\/mark><\/h1>/);
-  assert.match(html, /placeholder="Busca carruseles, temas o @creadores"/);
+  assert.match(html, /placeholder="Busca carruseles, temas o @creadores, o pega un link de Instagram"/);
   assert.doesNotMatch(html, /De las cuentas que sigues en/, 'la bajada se fue');
   assert.doesNotMatch(html, /Tamaño de la grilla|compacta/i, 'el botón «compacta» se fue');
   assert.doesNotMatch(html, /role="tab"/, 'las pestañas («Esta semana», «Cuentas») se fueron: son filtros');
