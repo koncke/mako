@@ -96,8 +96,10 @@ test('toda operación de video o imagen del registro está en un grupo (o es una
   // marca si hay dos iguales) lo pide su propio `preparar`.
   // Las miniaturas (6/11/2026): guardar_thumbnail es como guardar_carrusel, y editar_ejemplo_thumbnail es la misma función que
   // editar_ejemplo_carrusel (la IA del negocio lee el negocio; el chat sólo pasa el id).
+  // «Traer tu outlier» (traer_outlier, 11/11/2026): el chat sólo pasa el link que pegó la persona; si no es de Instagram ni de
+  // YouTube, o es un Short, lo dice su propio `preparar`. No toca ningún diseño: no hay receta que decirle.
   const ACCIONES_SIN_RECETA = new Set(['guardar_carrusel', 'crear_carrusel_desde_referencia', 'cambiar_biblioteca_carruseles', 'editar_ejemplo_carrusel', 'guardar_preset_subtitulos', 'borrar_preset_subtitulos',
-    'guardar_thumbnail', 'editar_ejemplo_thumbnail']);
+    'guardar_thumbnail', 'editar_ejemplo_thumbnail', 'traer_outlier']);
   const sinGrupo = REGISTRO
     .filter((d) => d.area === 'video' || d.area === 'imagen')
     .map((d) => d.id)

@@ -208,24 +208,76 @@ Ordenado por memoria que ahorra contra trabajo que lleva. Son propuestas; ningun
 1. **Forma de onda por tramos.** Es un archivo (`services/waveform-cache/service.ts`): leer sólo la pista de audio con
    `AudioBufferSink`, de a pedazos, y armar el resumen sobre la marcha. Saca el pico más grande (3,6 veces el archivo) y no
    cambia nada de lo que se ve.
+   - **HECHO el 11/11/2026** (rama `punta/onda-por-tramos`).
+     - Dónde vive: `media/onda-por-tramos.ts`, y los picos en `media/picos-por-tramos.ts`.
+     - Lo que mediabunny no lee, y la música de biblioteca, siguen por el camino de antes.
+     - Lo fija `tests/video-editor-onda-por-tramos.test.ts`. Medido en el banco: §10.
 2. **Copias livianas (proxies) al subir cada video.** Al importar se arma una copia de 540 px de lado corto con el
    `Conversion` de mediabunny, que el editor ya usa en `sounds/components/extraer-audio.ts:93`. Se guarda en OPFS al lado
    del original. La vista previa y las miniaturas usan la copia; exportar usa el original.
    - Ahorra 3,5 veces en 1080 y ≈20 veces en el pico de 4K.
    - Cada cuadro sale entre 2 y 10 veces más rápido: el 4K pasa de 11 a más de 30 cuadros por segundo.
    - Cuesta armar la copia una vez por archivo, en la PC del cliente o en la nube.
+   - **HECHO el 11/11/2026** (rama `punta/copias-livianas`).
+     - Dónde vive: `media/copia-liviana.ts` y `media/copia-liviana-reglas.ts`; la cola está en
+       `core/managers/media-manager.ts`.
+     - La vista previa la elige en `services/renderer/scene-builder.ts` (`fuenteDeVideo`), con otra clave del
+       `videoCache`. Exportar suelta los decodificadores del original al terminar.
+     - La miniatura del proyecto y la portada del cuadro de exportar salen de la copia.
+     - Lo fija `tests/video-editor-copia-liviana.test.ts`. Medido en el banco: §9.
 3. **Un lienzo por capa que se reusa**, en vez de uno nuevo por cuadro (`wasm-compositor.ts:232`, `pases-ce.ts:347`,
    `repartir-ce.ts`). Saca la basura de 250 MB/s a 1 GB/s.
+   - **HECHO el 11/11/2026 para los cuadros de video** (rama `punta/lienzo-por-capa`).
+     - Dónde vive: `services/renderer/compositor/lienzo-de-subida.ts`, usado por `wasm-compositor.ts`.
+     - Lo fija `tests/video-editor-lienzo-por-capa.test.ts`. Medido: §11.
+     - **Sin hacer:** los efectos tipo CapCut (`pases-ce.ts:347`, `repartir-ce.ts`) siguen devolviendo un lienzo nuevo por
+       llamada, a propósito: el de su contexto se reusa abajo de quien lo lee. Arreglarlo pide alternar dos lienzos por
+       capa, como `recorte/ganchos.ts`.
 4. **Cerrar los decodificadores de los clips que salieron de pantalla**, con un tope de unos 4 abiertos y cerrando el que
    se usó hace más tiempo (`video-cache/service.ts`). Con 10 clips de celular, de ≈1 GB pasa a ≈400 MB, y a ≈120 MB con
    copias livianas.
+   - **HECHO el 11/11/2026, con otra regla** (rama `punta/tope-decodificadores`).
+     - En vez de un tope fijo de abiertos, se cierra el que no pidió un cuadro en **5 s de uso**. El tiempo de uso no
+       corre con el editor quieto.
+     - Un tope fijo cerraría capas que se ven a la vez, y cada cuadro las reabriría.
+     - Dónde vive: `services/video-cache/service.ts` (`podarInactivos`). Lo fija
+       `tests/video-editor-tope-decodificadores.test.ts`. Medido: §12.
 5. **Terminar el hilo de Whisper** al terminar de subtitular (`services/transcription/service.ts`): ≈250 MB.
+   - **HECHO el 11/11/2026** (rama `punta/whisper-se-suelta`).
+     - Se termina al minuto sin uso (`WHISPER_INACTIVO_MS`): subtitular un clip y enseguida otro no recarga el modelo.
+     - Con un subtitulado en curso no se suelta.
+     - Lo fija `tests/video-editor-whisper-se-suelta.test.ts`.
+     - Sin medir en vivo: el banco no carga Whisper, porque bajaría 250 MB de Hugging Face. El tamaño sale de
+       `transcription/models.ts`.
 6. **Exportar sin juntar todo en memoria.**
    - Decodificar el audio fuente por fuente en vez de todo a la vez (`media/audio.ts:234`).
    - Escribir el MP4 a un archivo de OPFS con `StreamTarget` en vez del búfer en memoria (`scene-exporter.ts:161`).
    - O exportar en la nube: el render de Remotion en Lambda (parte 2) saca este pico de la PC del cliente.
+   - **HECHO el 11/11/2026 el primer punto** (rama `punta/exportar-audio-de-a-uno`).
+     - Las fuentes se decodifican en fila, y cada una suelta sus trozos y canales antes de remuestrear.
+     - Lo fija `tests/video-editor-exportar-audio-de-a-uno.test.ts`. Medido: §13.
+     - **Sin hacer:** el MP4 a OPFS con `StreamTarget`. Hoy el «fast start» en memoria pone el índice al principio, y
+       con un archivo que se escribe de a poco hay que elegir:
+       - el índice al final, que se reproduce igual pero no empieza a verse antes de bajarlo entero;
+       - o reservarle lugar al principio.
 7. **Las fugas de §6.** Cada una es chica, pero se suman en una sesión larga y al pasar de un negocio a otro.
+   - **HECHAS el 11/11/2026 cuatro** (rama `punta/fugas-editor`), fijadas en `tests/video-editor-fugas.test.ts`:
+     - IndexedDB cierra la conexión de cada operación. Además, una abierta dejaba esperando para siempre a
+       `deleteDatabase`.
+     - El caché de imágenes se vacía al cerrar el proyecto y al borrar el medio.
+     - El `AudioContext` de cada sonido de la biblioteca se cierra al decodificar.
+     - La tira de miniaturas cierra el `Input` de cada archivo al cerrar el proyecto y al borrar el medio.
+   - **Sin hacer:** `AudioManager.dispose()` y `EditorCore.reset()` sin limpieza, y salir del editor sin cerrar el proyecto
+     (`editor-provider.tsx:97`). Tocan cómo se arma y se desarma el editor entero, y se prueban con el editor abierto en
+     producción, no en el banco.
 8. **Un tope al historial de deshacer** (por ejemplo, 100 pasos) y al «Restaurar» del chat.
+   - **HECHO el 11/11/2026 el historial** (rama `punta/tope-historial`): se queda con los últimos 200 pasos
+     (`MAX_PASOS_DESHACER`).
+     - `profundidad()` sigue contando los olvidados: con el historial lleno, la «Edición automática» restaba 0 y
+       «Deshacer todo» no deshacía nada.
+     - Lo fija `tests/video-editor-tope-historial.test.ts`.
+     - **Sin hacer:** el «Restaurar» del chat (`chat/aplicar.ts:79`) y el «Deshacer todo» de la edición automática
+       (`enjambre/estado.ts:20`) siguen sin tope.
 
 ## 8. ¿Y Remotion?
 
@@ -259,3 +311,107 @@ node scripts/banco-memoria-editor/medir.mjs repro-1080 repro-proxy-1080 onda-60s
 
 Los videos se arman con ffmpeg; los comandos están en la cabecera de `medir.mjs`. Cada corrida deja su `resultado-*.json`
 al lado. Antes de correrlo tiene que haber al menos 1,5 GB libres, y si la PC baja de 1.250 MB el banco se corta solo.
+
+## 9. Después: la copia liviana del editor, medida (11/11/2026)
+
+Es la copia REAL que arma el editor (`media/copia-liviana.ts`), en el mismo banco y con el mismo video de celular (60 s,
+1080×1920, 10 Mb/s). El escenario es `copia-1080`.
+
+| | Antes: el original | Después: la copia del editor |
+|---|---|---|
+| 1 clip, queda en la GPU | +68 / +83 MB | +42 MB |
+| 3 clips, queda en la GPU | +215 / +297 MB | **+89 MB** |
+| 3 clips, todo Chrome | +314 / +260 MB | **+81 MB** |
+| 150 cuadros, tiempo | 520–543 ms | 370 ms |
+
+**Lo que cuesta armarla** (una vez por video, en segundo plano):
+
+- 60 s de video tardaron 27–30 s. Una vez, con la PC cargada por otros chats, pasó de 90 s;
+- pide +256 MB de pico mientras se arma (+113 en la GPU y +82 en la página): decodifica el original una vez;
+- pesa 6,1 MB (≈0,8 Mb/s), contra 76 MB del original.
+
+**Los tiempos se respetan:** comparando los primeros 60 cuadros desde el 0 y desde el segundo 10, los 120 caen en el
+mismo instante que en el original, con 0 diferencias.
+
+⚠️ La función del banco que compara esos tiempos (`mismosTiempos`) es pesada. El 11/11 llevó la GPU a +1,3 GB y la PC a
+437 MB libres. No va en ningún escenario: se llama a mano y con más de 3 GB libres.
+
+**Sin medir todavía:**
+
+- la copia del editor en 4K: la PC no tenía memoria libre para armarla sin riesgo;
+- el editor entero con varias copias en un proyecto real. Eso se mira en producción después del despliegue.
+
+## 10. Después: la forma de onda de a trozos, medida (11/11/2026)
+
+Es el `WaveformCache` REAL, que ahora lee el archivo con `media/onda-por-tramos.ts`, sobre los mismos videos y en el
+mismo banco (escenarios `onda-30s` y `onda-60s`).
+
+| Archivo | Pico antes | **Pico después** | Tarda antes → después |
+|---|---|---|---|
+| 38 MB (30 s) | +142 MB (3,7×) | **+37 MB** | 0,27 → 0,65 s |
+| 76 MB (60 s) | +275 MB (3,6×) | **+61 MB** | 0,43 → 1,31 s |
+
+- **El pico ya no es 3,6 veces el archivo.** Crece un poco con el largo (37 → 61 MB): son los trozos ya mirados que
+  esperan al basurero, no el archivo.
+- **Tarda unas 3 veces más,** pero corre aparte: la línea de tiempo se dibuja sin esperarla y la onda aparece cuando
+  está.
+- **Da el MISMO dibujo** (escenario `onda-igual-30s`, contra el camino de antes con el mismo archivo):
+  - 11.250 baldes con diferencia máxima 0;
+  - las dos lecturas a 48 kHz;
+  - la nueva trae 768 muestras de más al final, que son el relleno del códec AAC (16 ms).
+
+## 11. Después: un lienzo por capa, medido (11/11/2026)
+
+Es la función REAL del compositor (`compositor/lienzo-de-subida.ts`), cuadro a cuadro sobre el mismo clip, contra la
+copia de antes. Escenarios `repro-1080-subida` (antes) y `subida-reusada-1080` (después), corridos uno detrás del otro.
+
+| 1080×1920, 5 s con la subida de cada cuadro | Antes: lienzo nuevo por cuadro | Después: un lienzo por capa |
+|---|---|---|
+| Pico en la GPU | +198 MB | **+152 MB** |
+| 150 cuadros, tiempo | 737 ms | **568 ms** |
+| Queda en la GPU | +81 MB | +80 MB |
+
+Sin ninguna subida, el mismo clip da +128 a +162 MB de pico: la subida casi dejó de costar memoria. Lo que queda es el
+decodificador (§2).
+
+**Sin medir:** el 4K, que es donde más se notaba (+529 → +762 MB de pico). La PC tenía 2 GB libres, y el 4K la habría
+bajado de los 1.250 MB del corte. Se corre con `node scripts/banco-memoria-editor/medir.mjs repro-4k subida-reusada-4k`
+cuando haya 3 GB libres.
+
+## 12. Después: cerrar el decodificador de lo que salió de pantalla, medido (11/11/2026)
+
+Es el `VideoCache` REAL, compartido entre clips como en el editor, con un reloj simulado a 30 cuadros por segundo: el
+banco pide cuadros mucho más rápido que la reproducción, y con el reloj de verdad nunca pasarían 5 s de uso.
+
+- **Antes:** el mismo código con `inactivoMs` infinito.
+- **Escenarios:** `tope6-antes-1080` y `tope6-despues-1080`: 6 clips de celular de 6 s, uno detrás del otro.
+
+| Después de cada clip | Antes: abiertos / GPU / todo Chrome | Después: abiertos / GPU / todo Chrome |
+|---|---|---|
+| 1 | 1 / +113 / +205 MB | 1 / +85 / +117 MB |
+| 2 | 2 / +217 / +303 MB | 1 / +99 / +135 MB |
+| 3 | 3 / +238 / +332 MB | 1 / +218 / +231 MB |
+| 4 | 4 / +302 / +414 MB | 1 / +219 / +235 MB |
+| 5 | 5 / +393 / +447 MB | 1 / +223 / +173 MB |
+| 6 | 6 / +368 / +411 MB | **1 / +259 / +188 MB** |
+
+- **Antes, cada clip sumaba unos 60 MB en la GPU. Después se estabiliza** cerca de +220–260 MB, y Chrome entero queda en
+  menos de la mitad.
+- **La GPU no devuelve en el momento lo que se suelta:** cerrar 3 decodificadores no la baja, la deja de hacer crecer.
+  Chrome guarda esa memoria para reusarla. Por eso el beneficio se ve en un proyecto largo y no en uno de 2 clips: con 4
+  clips daba +309 contra +270 MB.
+
+## 13. Después: el audio de exportar de a una fuente, medido (11/11/2026)
+
+Es el `collectAudioElements` REAL de exportar, sobre una pista con 4 clips de 60 s, cada uno un archivo distinto con su
+decodificación. Escenario `exportar-audio-4`, corrido con el código de antes y con el de ahora.
+
+| 4 clips de 60 s | Antes: todas a la vez | Después: de a una |
+|---|---|---|
+| Pico del proceso de la página | +450 MB | **+200 MB** |
+| Lo que queda decodificado | 88 MB | 88 MB |
+| Tarda | 0,78 s | 1,42 s |
+
+El resultado es el mismo: 4 elementos y 88 MB. Tarda más porque no decodifica en paralelo, pero es una parte chica de
+exportar, porque el video se lleva casi todo el tiempo. Con más clips la diferencia crece: antes el pico era unas 5
+veces el audio de TODAS las fuentes; ahora es el audio de todas más el de UNA decodificándose.

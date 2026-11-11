@@ -4,6 +4,21 @@
 (`app/video-editor/avatar`) y en el motor del Video Generator (`app/video-generator/video-action.ts`,
 el puente a Flow). Lo de Flow, ElevenLabs y el lip-sync de antes vive en `hallazgos-generativa.md`.
 
+## Fuera de la barra desde el 11/11/2026: se usa desde Video, y la ruta NO redirige
+
+Martín, 11/11/2026: «en Create debería estar la parte de copywriting primero. Luego video, image y web generator… [AI Avatar] no
+debería estar, eso ya lo hablamos muchas veces». El ítem queda en `nav.ts` con `fueraDeLaBarra` (como Offer: la key `ai-avatar` es
+contrato de capas, API y teléfono), la fila del «More» queda oculta y MaKo lo ofrece como parte de la función Video
+(`lib/funciones-mako.ts`). Lo que no se deduce:
+
+- **Redirigir `/ai-avatar` a Video, como se pidió, lo rompía desde Video.** La tarjeta «Tu personaje con IA» de «Nuevo video» ES
+  un `router.push('/ai-avatar')` (`PERSONAJE_CON_IA`, app/video-editor/plantillas-crear.ts): con la redirección daba la vuelta y el
+  estudio quedaba inaccesible. Y hay seis botones más que llevan ahí (la biblioteca de anuncios, la guía de video, los carruseles,
+  el CoPilot, las subrutas viejas de HeyGen). La ruta sigue viva; lo que se fue es la fila.
+- **Video es sólo de Pro y AI Avatar de los tres planes** (`NAV_SOLO_PRO`, lib/plan-esencial-reglas.ts): sin la fila, un Esencial
+  llega a su personaje por esos botones. Si Video entra en Esencial es una decisión de plata, de Martín. `tests/video-tab.test.ts`
+  (9) y `tests/create-orden.test.ts` lo fijan.
+
 Pedido de Martín (17/10/2026, 04:55, desde el Centro de Operaciones): la tab «AI Avatar» de punta a
 punta, «algo como Heygen», investigando clones y alternativas (`github.com/topics/heygen-alternative`,
 `debpalash/VoiceStudio` para clonar la voz), con una «galería» de ejemplos o temas en imagen, video y voz.
@@ -551,12 +566,12 @@ lib/ai-avatar/plantillas-venta.ts · tests/ai-avatar-prueba-1011.test.ts
 
 ## La prueba del 10/11 se hizo LEYENDO, y no vio lo que se ve (11/11/2026)
 
-Martín abrió AI Avatar después de la prueba del 10/11 (35 casos, «12 fallas») y vio lo que la prueba no marcó: **34 de los 36
-presets son un degradado sin imagen**, en la grilla, en «Nuevo avatar» (un marco gris con un teléfono blanco vacío) y en el
+Martín abrió AI Avatar después de la prueba del 10/11 (35 casos, «12 fallas») y vio lo que la prueba no marcó: **31 de los 33
+presets eran un degradado sin imagen**, en la grilla, en «Nuevo avatar» (un marco gris con un teléfono blanco vacío) y en el
 teléfono. Informe con capturas: `docs/pruebas/ai-avatar-11-11.md`.
 
 - **Por qué no se vio:** estaba anotado desde el 29/10 en «Lo que quedó SIN hacer». Un pendiente anotado se leyó como «ya
-  sabido» y no se contó como falla, y la prueba se hizo leyendo el texto de la página, donde 36 presets aparecen con su nombre.
+  sabido» y no se contó como falla, y la prueba se hizo leyendo el texto de la página, donde los 33 presets aparecen con su nombre.
 - **La regla:** cada pantalla se MIRA con una captura, a 1440 y a 375, y se critica al lado de la referencia (HeyGen,
   Higgsfield): vacío, gris, cortado, pobre. **Una pantalla vacía o gris en producción es una falla aunque esté anotada como
   pendiente.** Y si la captura sale en blanco, no está probado.
@@ -566,6 +581,18 @@ teléfono. Informe con capturas: `docs/pruebas/ai-avatar-11-11.md`.
 - **Las imágenes arreglan cuatro pantallas a la vez.** El abanico de arriba toma las de los presets; desde el 11/11 las
   tarjetas de las plantillas de venta toman la de SU preset (`presetId`), y las de «Nuevo avatar» pasan su video para el
   mouse. O sea: con una imagen por preset se llenan la grilla, «Nuevo avatar», el abanico y las plantillas.
-- **SIN HACER:** generar las 34. Se hacen en Flow con la base del personaje de Martín (las imágenes no gastan créditos), una
-  por preset, con UNA referencia y un prompt simple, y se mira cada una antes de subirla. **Vive en:**
-  `lib/ai-avatar/plantillas.ts` (`ejemplo: { video, poster }`) y `public/formatos/`.
+- **Hecho el 11/11 (07:00 UTC):** las 31, en Flow desde el navegador de la app (tiene la cuenta de Google de Martín y no
+  compite por el turno de Chrome), 0 créditos, ~40 s cada una. Lo que sirvió: la referencia se elige del selector de Flow
+  (que lista los recursos de CUALQUIER proyecto; «Oldest» deja arriba las fotos reales de Martín, `1-headshot-saco.jpg`), el
+  prompt es el del producto (`promptDelLook`) y la baldosa nueva trae una url FIRMADA (`flow-content.google/image/…?Signature=`)
+  que baja el original (768×1376) sin la sesión. Las de la grilla (`flow.google.com/asb/…`) piden la sesión. El prompt copia la
+  ROPA de la foto: en la playa y en el gimnasio se agregó la ropa en el ajuste, como lo escribiría una persona. **Vive en:**
+  `lib/ai-avatar/plantillas.ts` y `plantillas-venta.ts` (`ejemplo: { poster }`, el video es opcional) y
+  `public/formatos/presets/`. Un test exige imagen en TODOS los presets (tests/ai-avatar-prueba-1111.test.ts).
+- **⚠️ `public/ai-avatar/` NO sirve para archivos: pasa por el proxy** (el primer intento, 11/11, rojo en la punta). `/ai-avatar`
+  es una ruta de la app, y el matcher de `proxy.ts` sólo deja pasar sin sesión los estáticos de la raíz y de una lista de
+  carpetas (`formatos/`, `logos/`, `replay/`…): sin sesión, la imagen respondía con el login. Lo frena
+  tests/proxy-matcher-completo.test.ts. **Regla:** un estático nuevo va en una carpeta de esa lista; una carpeta nueva se suma
+  al matcher Y al test.
+- **Y una de Flow que cambia el mapa:** Flow tiene «Avatars» (experimental): con un video selfie corto captura la cara Y LA
+  VOZ. Es la pieza que a AI Avatar le falta (la voz clonada no existe en la tab). Sin probar.

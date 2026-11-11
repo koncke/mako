@@ -9,9 +9,18 @@ interface CommandHistoryEntry {
 	selectionOverride?: EditorSelectionSnapshot;
 }
 
+/**
+ * Cuántos pasos se pueden deshacer. Antes no había tope: cada paso guarda una versión de las pistas, y subtítulos, emojis,
+ * B-roll y el chat rehacen pistas enteras (docs/editor-video/memoria-del-editor.md §5). Pasado el tope se olvida el más
+ * viejo.
+ */
+export const MAX_PASOS_DESHACER = 200;
+
 export class CommandManager {
 	public isRippleEnabled = false;
 	private history: CommandHistoryEntry[] = [];
+	/** Los pasos que se olvidaron por el tope: `profundidad()` los sigue contando (ver ahí). */
+	private olvidados = 0;
 	private redoStack: CommandHistoryEntry[] = [];
 	private reactors: Array<() => void> = [];
 
@@ -31,6 +40,7 @@ export class CommandManager {
 			previousSelection,
 			selectionOverride,
 		});
+		this.recortar();
 		this.redoStack = [];
 		return command;
 	}
@@ -40,7 +50,15 @@ export class CommandManager {
 			command,
 			previousSelection: this.getSelectionSnapshot(),
 		});
+		this.recortar();
 		this.redoStack = [];
+	}
+
+	private recortar(): void {
+		while (this.history.length > MAX_PASOS_DESHACER) {
+			this.history.shift();
+			this.olvidados++;
+		}
 	}
 
 	registerReactor(reactor: () => void): void {
@@ -87,6 +105,7 @@ export class CommandManager {
 			previousSelection,
 			selectionOverride,
 		});
+		this.recortar();
 	}
 
 	canUndo(): boolean {
@@ -102,7 +121,9 @@ export class CommandManager {
 	 * correr: sus agentes dejan un paso cada uno (algunos, más), y «Deshacer todo» deshace exactamente ésos.
 	 */
 	profundidad(): number {
-		return this.history.length;
+		// Con los olvidados por el tope: si no, con el historial lleno, correr 10 agentes dejaba la cuenta igual (entra uno,
+		// sale el más viejo) y «Deshacer todo» no deshacía nada.
+		return this.olvidados + this.history.length;
 	}
 
 	/**
@@ -116,6 +137,7 @@ export class CommandManager {
 	clear(): void {
 		this.history = [];
 		this.redoStack = [];
+		this.olvidados = 0;
 	}
 
 	private getSelectionSnapshot(): EditorSelectionSnapshot {

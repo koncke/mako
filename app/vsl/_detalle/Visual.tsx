@@ -592,7 +592,7 @@ function MakoAnswer(s: VisualSpec) {
       <rect x="62" y="82" width="314" height="176" rx="14" fill="#fff" stroke={LINE} />
       <text x="80" y="110" fontSize="13" fontWeight="700" fill={INK} fontFamily={SANS}>{clip(S(s.a, 'Una decisión, no un número.'), 40)}</text>
       <foreignObject x="80" y="120" width="280" height="82"><div style={{ fontSize: 12, lineHeight: 1.45, color: DIM, fontFamily: SANS }}>{clip(S(s.detail, ''), 150)}</div></foreignObject>
-      <rect x="80" y="216" width="150" height="30" rx="8" fill={BLUE} /><text x="155" y="236" textAnchor="middle" fontSize="11.5" fontWeight="600" fill="#fff" fontFamily={SANS}>Aplicá el cambio</text>
+      <rect x="80" y="216" width="150" height="30" rx="8" fill={BLUE} /><text x="155" y="236" textAnchor="middle" fontSize="11.5" fontWeight="600" fill="#fff" fontFamily={SANS}>Aplica el cambio</text>
     </Frame>
   );
 }

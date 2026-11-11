@@ -13,6 +13,15 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## En «Todas sus piezas», las publicaciones (carruseles e imágenes) salen sin miniatura (11/11/2026)
+
+Recorriendo la grilla de Federico Cristofari (ws 9, `competidor=20`) para la maqueta de Marketing CoPilot, ninguna tarjeta de tipo «Publicación» tenía `<img>` en las páginas 10 a 16. Son 71 piezas. Los reels y los videos sí la tienen: viven en el almacenamiento público `spy-miniaturas/spy/<red>/<id>.jpg`.
+
+En «Lo que mejor le fue» sí apareció una publicación con imagen (`instagram/DHSB3f3sMPl`, «Tarde de mates»). No lo seguí más.
+
+Es coherente con lo que dice el relevo orgánico: con Meta oficial, las láminas del carrusel quedan en null. Para mostrar los carruseles de alguien (la cara de su Instagram), hace falta la primera lámina.
+
+**Sin hacer:** confirmar la causa. Lo más probable es la de `lib/spy-miniaturas-relleno.ts`: las miniaturas que no se bajaron a tiempo quedan apuntando al CDN de la red, que vence y da 403, y el relleno sólo las rescata mientras la URL sirve. No lo verifiqué. Vive en `lib/spy-miniaturas.ts` y `lib/spy-miniaturas-relleno.ts`.
 ## «Su web» puede ser un acortador que abre un video de YouTube, y la oferta sale citada en inglés (11/11/2026)
 
 **Síntoma:** la nota de la oferta de Federico Cristofari (ws 9, `competidor=20`, 46/100) cita frases en inglés: «This event is for you if you own a business…», «We generated $145,000 in one month…», «October 26, 27, and 28». Es un creador argentino que publica en español.

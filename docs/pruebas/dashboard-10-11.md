@@ -221,3 +221,26 @@ que sigue abierta desde el 9/11: cómo se les dice que graben.
 - En la PC corrieron en verde, de a uno, los tests de lo tocado: Marketing, Contenido, Closing, General, Cobranza, el teléfono, la
   pantalla del Dashboard, la guarda de textos y «falta conectar» (éste, además, roto de tres formas). Los tipos los chequea GitHub.
 - La hoja «General» que quedó en el Dashboard propio de Martín: decide el Cerebro si se archiva.
+
+## El teléfono a 375, con captura (11/11, 05:30 UTC, producción 9818c63cb) — capturas 53 a 64
+
+Hechas en el navegador de la app con el método del Cerebro: `resize_window` en «mobile», recargar, y otra vez `resize_window` justo antes
+de cada captura (la segunda captura seguida vuelve como un pedazo de 800×600).
+
+| Hoja | Captura | Cómo se ve | Qué falla |
+|---|---|---|---|
+| Dashboard (Marketing / Comercial) | 53 | Bien | — |
+| Closing | 54 | Dos veces «No pudimos leer… No es nada tuyo» | Arreglado ayer (7), en main, sale a las 11:05 UTC |
+| Comercial | 55 | Bien | — |
+| Marketing | 56 | «Gastaste US$0 en anuncios · trajeron 3 agendas · cada una costó US$0» y «Costo por agenda US$0» | **Arreglado (14)**: el teléfono decía la frase de la plantilla, no la del diseño |
+| Anuncio ganador, Hooks | 57, 58 | Dos veces «No pudimos leer» | Arreglado (13), sale a las 11:05 |
+| Landing | 59 | «Entraron 3 visitas de **1 personas**» | **Arreglado (15)** |
+| VSL, CS, Productividad, Cobranza | 60, 62-64 | Bien (ceros y «—» del ws 3) | — |
+| Chat Analyst | 61 | «Tiempo de respuesta **10**», «Respuesta más lenta (p90) **10**», sin unidad | **Arreglado (16)** |
+
+14. **Marketing en el teléfono:** la hoja copiada dice la frase de su diseño (la misma de la compu, «Llegaron 3 agendas.»), y un costo sobre un
+    gasto de cero va «—». `app/m/dashboard/datos.ts`, `tests/m-dashboard-modelo.test.ts`.
+15. **«1 personas»:** después de un «1», la palabra de la plantilla va en singular («1 persona», «1 agendó»). Vale para la compu y el teléfono.
+    `lib/graficos-frase.ts`, `tests/dashboard-frase-y-destinos.test.ts`.
+16. **Números sin unidad en el teléfono:** la unidad que el catálogo dice entre paréntesis («(min)», «(días)») va con el valor si el título no
+    la dice. `app/m/dashboard/modelo.ts` (`conUnidad`).

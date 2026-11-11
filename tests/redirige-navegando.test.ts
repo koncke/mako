@@ -44,7 +44,8 @@ test('1. navegación del cliente: el router manda Next-Url y el navegador Sec-Fe
 test('2. /web-generator, /plan y el resumen de /crm: el layout redirige SÓLO en la carga; navegando, la página', () => {
   const wg = sinComentarios(leer('app/web-generator/layout.tsx'));
   assert.match(wg, /if \(cual && !\(await esNavegacionDelCliente\(\)\)\) \{/);
-  assert.match(sinComentarios(leer('app/web-generator/page.tsx')), /if \(!errorLista && esPanelPelado\(sp\)\) \{\s*const ultima = landingMasReciente\(docs\);\s*if \(ultima\) redirect\(/, 'navegando, salta la página');
+  // Desde el 11/11/2026 /web-generator pelada no salta (es la portada de outliers): el layout sólo redirige /analizar y /crear.
+  assert.doesNotMatch(sinComentarios(leer('app/web-generator/page.tsx')), /redirect\(/, 'la página ya no salta');
   const plan = sinComentarios(leer('app/plan/layout.tsx'));
   const antes = (destino: string) => new RegExp(`if \\(await esNavegacionDelCliente\\(\\)\\) return children;\\n\\s*redirect\\(await rutaConWs\\(\`${destino}`);
   assert.match(plan, antes('\\/plan\\/agencia'), '/plan → /plan/agencia');

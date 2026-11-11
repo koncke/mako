@@ -1306,6 +1306,13 @@ async function leerConGemini(key: string, o: DocOpts, cuenta = 1, modelPedido?: 
   const text = (j.candidates?.[0]?.content?.parts ?? []).map((p: { text?: string }) => p.text ?? '').join('').trim();
   const um = j.usageMetadata as { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number } | undefined;
   void recordUsage(o.feature || 'leer-documento', model, um ? { prompt_tokens: um.promptTokenCount, completion_tokens: um.candidatesTokenCount, total_tokens: um.totalTokenCount } : undefined, o.motivo, 'gemini', cuenta);
+  // ⚠️ UN JSON CORTADO NO ES UNA RESPUESTA (11/11/2026). «Editar» un carrusel de 6 láminas en el ws9: `gemini-flash-latest`
+  // escribió 7.996 de 8.000 tokens, el tope cortó el JSON a mitad de una clave y la pantalla dijo «La IA no devolvió el diseño
+  // en un formato que pueda leer» (y dejó guías). Devolverlo como texto lo daba por bueno y la rotación nunca probaba el
+  // respaldo. Con `json`, una respuesta que terminó por el tope tira: `probarCon` pasa al modelo siguiente. Sin `json` se
+  // devuelve como siempre (un texto cortado todavía sirve; un JSON cortado, no).
+  const fin = j.candidates?.[0]?.finishReason as string | undefined;
+  if (o.json && fin === 'MAX_TOKENS') throw new Error(`${model}: la respuesta se cortó en el tope de ${o.maxTokens ?? 'su'} tokens (finishReason=MAX_TOKENS)`);
   return text;
 }
 

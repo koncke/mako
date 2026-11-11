@@ -308,6 +308,42 @@ Martín pidió que «Tu negocio» sea un análisis y no una réplica de cada app
   Para no inventar lo de su oferta se leyó el desplegable de cada nota en producción, sin escribir nada. Los números de la conexión y de sus anuncios no existen: son de ejemplo, con su marca.
 - **Martín miró la maqueta ANTERIOR y creyó que se habían saltado sus pedidos** («te saltaste un montón de cosas»). La nueva todavía no estaba publicada porque la guardia de RAM frenó la captura. Cuando una vuelta tarda, se dice en el momento que lo que está mirando es la anterior, con su link.
 
+## La sexta maqueta: el análisis se MUESTRA sobre la cara de cada cosa, no en una lista (11/11/2026)
+
+Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables. Pidió volver a ver las publicaciones, las miniaturas, el chat, el VSL y el formulario, con el feedback encima: «así es fácil de ver». La maqueta es `docs/marketing-copilot/rediseno/maqueta-visual.html`.
+
+- **La regla que queda:** el análisis no reemplaza a la cara de la plataforma, va sobre ella. Para cada cosa:
+  - la sección con su forma (el perfil, la grilla de reels, el chat, el reproductor, el formulario);
+  - marcas o un popup con lo que le diría MaKo;
+  - abajo, los puntos de los cursos.
+- **Todo eso ya existe en la casa y se copió, no se inventó:**
+  - el recorrido del Web Analyst para «Tu web» (`app/web-generator/diagnostico/RecorridoDiagnostico.tsx`, su `CSS_RECORRIDO`);
+  - el árbol de Ads Manager para «Lo que está corriendo» (`app/ads-manager/Arbol.tsx` y `aa.css`);
+  - la calculadora de presupuesto para cuántos anuncios probar (`lib/calculadora-presupuesto-ads.ts`, con su elección por «sale de aprendizaje»: con US$3.000 elige 6 anuncios en dos rondas y no 9).
+- **Las miniaturas de verdad están en el almacenamiento público del Spy** (`spy-miniaturas/spy/<red>/<id>.jpg`): se pueden bajar, achicar y meter como data URI. Las publicaciones no tienen miniatura: ver `hallazgos-competitors-spy.md`.
+
+## La séptima maqueta: el molde de Fernly, y la acción como lugar de trabajo, no como tablero (11/11/2026)
+
+`docs/marketing-copilot/rediseno/maqueta-accion.html`. Lo que vale para lo que venga:
+
+- **El diseño sale de un dashboard de la casa, entero y sin mezclar.** Martín no quería el diseño de la sexta: «muchos textos y cosas muy pequeñas».
+  - Se eligió el dashboard Productividad, la copia de Fernly (`app/dashboard/disenos/productividad-css.ts`, todo dentro de `.frn`): números de 48 px, botones de 48 y una sola tarjeta invertida por fila.
+  - Las razones están en `docs/marketing-copilot/rediseno/diseno-referencias.md`.
+  - Trampas al pegarlo:
+    - `.frn button` hereda el color del texto, así que los botones de la casa (`mk-btn`) y las miniaturas quedan oscuros sobre oscuro si no se les da su color;
+    - `.frn-pill` sólo tiene estilo dentro de `.frn-tlist`;
+    - el teléfono va por `@container frn`.
+- **El diagnóstico obvio era el equivocado: «análisis → acción» no se entendía, y no era por la idea sino por el tamaño.** Las piezas de etapas de la app son chicas (pastillas de 12 px, puntos, barritas). Se resolvió con dos tarjetas de fase de 124 px arriba de las dos pantallas («Paso 1 de 2 · El análisis», «Paso 2 de 2 · La acción»), la actual invertida.
+- **La acción NO es un dashboard.** Martín: «no me gusta que todo parezca gráficos… se tiene que ver como accionables, las cosas que hizo MaKo». La regla sale de las apps de `docs/media-buyer/referencias/otras-apps/`:
+  - el mensaje de MaKo arriba;
+  - «Necesito tu OK»: una decisión por tarjeta, con el antes → después grande, el porqué, «dentro de tus topes» y un solo botón;
+  - «Te toca»;
+  - «Lo que hice», con «hice X porque Y» y «Deshacer».
+
+  Los números quedan en la máquina de contenido.
+- **El número de una tarjeta y lo que muestra su pestaña salen de la MISMA lista.** En la primera armada, YouTube decía «1 para mejorar» y su recorrido tenía 4 pasos, porque contaban cosas distintas.
+- **El ciclo de historias de Fran Doglio dura 10 días, no 7** (arcadia · 2). `lib/asesores/ficha-francisco-doglio.ts` y `referentes.md` dicen siete y omiten los días 8 a 10. No se corrigió: es del agente del CoPilot y se toca con su batería.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

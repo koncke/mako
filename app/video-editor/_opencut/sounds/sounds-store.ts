@@ -222,8 +222,9 @@ export const useSoundsStore = create<SoundsStore>((set, get) => ({
 				throw new Error(`Failed to download audio: ${response.statusText}`);
 
 			const arrayBuffer = await response.arrayBuffer();
+			// Un contexto sólo para decodificar, que se cierra: antes quedaba uno vivo por cada sonido insertado.
 			const audioContext = new AudioContext();
-			const buffer = await audioContext.decodeAudioData(arrayBuffer);
+			const buffer = await audioContext.decodeAudioData(arrayBuffer).finally(() => void audioContext.close());
 
 			const element = buildLibraryAudioElement({
 				sourceUrl: audioUrl,

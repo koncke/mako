@@ -186,6 +186,12 @@
 .nt[data-movil] .nt-prop-nombre { width: 110px; }
 .nt[data-movil] .nt-mako { width: 100%; border-right: 0; height: calc(100dvh - 160px); }
 .nt[data-movil] .nt-menu { width: min(324px, calc(100vw - 24px)); }
+/* Lo que sólo sirve con teclado (la tecla de deshacer después de «Aceptar»): en el teléfono no hay Ctrl+Z. */
+.nt[data-movil] .nt-solo-teclado { display: none; }
+/* En el teléfono las burbujas del chat van a 16 px (app/_chat); las preguntas de MaKo y lo contestado, igual. 11/11/2026, en
+   producción: la pregunta en 13,5 px y, debajo, la respuesta de MaKo en 16, una al lado de la otra. */
+.nt[data-movil] .nt-mako-bienvenida, .nt[data-movil] .nt-mako-respuesta { font-size: 16px; }
+.nt[data-movil] .nt-mako-pildora { font-size: 14px; }
 .nt[data-movil] .nt-bn input, .nt[data-movil] .nt-prop-valor select, .nt[data-movil] .nt-prop-valor input { font-size: 16px; }
 
 /* Una propiedad que se lee y no se cambia (con un link para editar) y «Última edición» (D9). Si lo último lo guardó
@@ -221,7 +227,13 @@
 .nt-aviso.nt-restos { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 10px; }
 /* «Ver ejemplo»: el ejemplo de la plantilla, de sólo lectura, dentro de la caja (no en la página). */
 .nt-ejemplo-nota { margin: 0 0 10px; font-size: 13px; color: var(--nt-suave); }
+/* «Ver el original» de una página que replica un outlier (D18): el texto tal cual, como se leyó. */
+.nt-original { white-space: pre-wrap; word-break: break-word; font-size: 15px; line-height: 1.6; color: var(--ink); }
 .nt.nt-ejemplo { height: auto; border: 1px solid var(--nt-linea); border-radius: 10px; padding: 6px 0 10px; overflow: visible; }
+/* ⚠️ El documento del ejemplo es hijo de una FILA flexible (`.nt`): sin `min-width: 0` toma el ancho de su tabla y el texto se
+   corta a la derecha. 11/11/2026, en producción a 375: «Ejemplo ficticio: Cierre Consultivo, me…» cortado y una barra de
+   scroll en todo el modal. Con esto el texto se acomoda y la tabla corre dentro de su caja (`.tableWrapper`). */
+.nt.nt-ejemplo > .nt-bn { min-width: 0; flex: 1 1 auto; }
 /* Las preguntas de MaKo al crear desde una plantilla (PanelMaKo): lo que ya contestó, como su burbuja. */
 .nt-mako-par { display: contents; }
 .nt-mako-respuesta { align-self: flex-end; max-width: 85%; padding: 6px 12px; border-radius: 14px; background: var(--nt-azul); color: #fff; font-size: 13.5px; }

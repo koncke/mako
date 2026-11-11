@@ -160,4 +160,25 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'cambia los bloques del documento (app_settings mako.copywriter.doc.<id>) y, si MaKo lo propone, el título o las propiedades',
     canales: TODOS, costo: 'ia', gating: G, lenta: true,
   },
+  // ── Los outliers de copy (11/11/2026, docs/diseno-copywriter.md D18): leerlos y replicar uno ──
+  {
+    id: 'outliers_copywriter', area: 'contenido', tipo: 'lectura',
+    titulo: 'Outliers de copy para replicar',
+    descripcion: 'Los anuncios, reels, carruseles y videos de YouTube que mejor funcionaron de las cuentas que el negocio sigue en Competitors Spy (y de la biblioteca de carruseles de MaKo), con su texto: el guion si ya se transcribió, si no el pie, la descripción o el copy del anuncio. Cada uno con su gancho, cuántas veces superó a su cuenta (el «×») o sus días al aire, y su link. El outlierId va a replicar_outlier_copywriter. No lee nada nuevo ni gasta: es lo que Spy ya trajo.',
+    parametros: [
+      { nombre: 'formato', tipo: 'string', enum: ['anuncio', 'reel', 'carrusel', 'youtube'], descripcion: 'Sólo los de ese formato.' },
+      { nombre: 'buscar', tipo: 'string', max: 120, descripcion: 'Texto o @creador a buscar en el gancho y el texto.' },
+      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'Cuántos devolver (default 12, del que más superó a su cuenta al que menos).' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G,
+  },
+  {
+    id: 'replicar_outlier_copywriter', area: 'contenido', tipo: 'accion',
+    titulo: 'Replicar un outlier en el Copywriter',
+    descripcion: 'Crea en el Copywriter una página para replicar un outlier de copy (de outliers_copywriter): del tipo del original (anuncio, reel, post o YouTube), vacía y atada al original. Al abrirla, MaKo pregunta para qué oferta y la escribe con la estructura, el tipo de gancho y el ritmo del original, nunca con sus frases. Devuelve el documentoId y su link. Queda pendiente hasta que la persona confirme.',
+    parametros: [{ nombre: 'outlierId', tipo: 'string', obligatorio: true, max: 40, descripcion: 'El id del outlier («spy:123» o «biblioteca:-45»), de outliers_copywriter.', ejemplo: 'spy:1234' }],
+    confirmacion: 'chat', reversible: true,
+    escribe: 'agrega un documento al Copywriter (app_settings mako.copywriter.indice y mako.copywriter.doc.<id>)',
+    canales: TODOS, costo: 'gratis', gating: G,
+  },
 ];

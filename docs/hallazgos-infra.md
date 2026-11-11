@@ -6,6 +6,17 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**«Tests afectados» nombra como ROJO un archivo cuyo único «fallo» es un test `todo` (11/11/2026, chat Competitor Spy).**
+La punta `spy-pruebas` (corrida 941) salió con «Rojos: doer-recetas-video-imagen, knowledge-modulos», y el diagnóstico obvio
+(«las recetas de MaKo todavía nombran AI Avatar y Lead Magnet») era el equivocado: las recetas no nombran a ninguno. El rojo de
+verdad era sólo Knowledge. La tanda se juzga por el código de salida (bien), pero después `leerResultado`
+(scripts/tests-afectados.mjs) arma la lista de culpables con cada «test at <archivo>» del pie del runner, y Node 24 lista ahí
+TAMBIÉN los `todo` que fallan (con «⚠», aunque el pie diga `fail 0, todo 1`). Un archivo con un pendiente queda acusado cada vez
+que comparte tanda con un rojo real. Hay cinco archivos con `{ todo: … }` (doer-recetas-video-imagen, chats-mako-envio,
+ficha-automatizaciones-tarjeta, onboarding-llegada-superadmin, primer-mes). **Regla mientras no se arregle:** antes de tocar un
+archivo que figura como rojo, correrlo solo y mirar `ℹ fail`; si es 0 y hay `ℹ todo`, no es culpable. El arreglo es que
+`leerResultado` saltee el «test at» cuyo caso empieza con «⚠»; no se hizo en esta punta.
+
 **Mirar una pantalla de esta app en un worktree: el junction frena a Turbopack, y el editor se come 2,5 GB (8/11/2026, claude1).**
 
 **Síntoma.** Para mirar el editor de imagen sin la co-edición (encargo 146), `next dev` desde `C:/dev/wt-collab-fuera`
@@ -585,6 +596,16 @@ cliente en su terminal.
   SIEMPRE, por diseño (AGENTS.md → «Qué elige `tests-afectados`»), así que una punta que no las corrió
   no está medida. Esta se escapó por correr «los tests que parecían del cambio» en vez de preguntarle al
   selector.
+  **Otra vez el 11/11/2026 («Traer tu outlier», corridas 963 y 973): CINCO barredoras, ninguna del área tocada, y la segunda
+  corrida mostró dos que la primera tapaba.**
+  - Una ruta nueva sin clasificar para la cuenta de revisión (tests/cuenta-revision-escrituras.test.ts: se regenera el snapshot).
+  - Un lector nuevo de la clave de Apify (tests/leads-scraper-retirado.test.ts: la lista va en orden alfabético).
+  - Un «acá» en un error (tests/puente-panel-copy.test.ts).
+  - Un `role="alert"` sin `<ReportarASoporte />` (tests/reportar-a-soporte.test.ts).
+  - Una columna `workspace_id` nueva, aunque sea en una tabla GLOBAL: va a `TABLAS_DE_INQUILINO`, y como no se lee con el
+    proxy, a `FUERA_DEL_PROXY` con su porqué (tests/tenant-tables-contract.test.ts, INVERSO 1 y 2).
+  Las cinco corren siempre, y la orden «corré sólo el test del archivo tocado» (por la RAM) no las incluye. Si la guardia de
+  RAM no deja correr el selector, estas cinco se corren a mano igual: son livianas, segundos cada una.
 - El mensaje del guard es bueno y hay que leerlo entero: trae archivo, línea, la forma y **con qué
   reemplazarla** («mandás» → «mandas»), más la salida legítima (`FUERA_DE_ALCANCE`, para un detector o
   un prompt que necesita NOMBRAR la forma). No hay que buscar la regla en ninguna parte.
@@ -12324,3 +12345,29 @@ Los scripts quedaron en el relevo del rediseño de Marketing CoPilot: `captura-w
 - con PowerShell para lo liviano (copiar un archivo, chequear la sintaxis con `node --check`).
 
 Chrome se abre recién cuando hay aire, uno solo y cerrándolo por su PID.
+
+## El vigía de GitHub moría sin avisar: `renameSync` da EPERM en Windows si otro proceso tiene el archivo (11/11/2026)
+
+- **Síntoma:** el vigía (`scripts/claude-hooks/guardia/vigia-ci.mjs esperar`) terminaba con un stack de `EPERM: operation not
+  permitted, rename ci-estado.json.<pid>.tmp -> ci-estado.json` y ya no avisaba de ningún rojo. Parecía un problema de permisos.
+- **Causa real:** no son permisos. En Windows el rename sobre un archivo que otro proceso tiene abierto en ese instante (otro
+  vigía de otro chat, el antivirus, OneDrive) falla con EPERM/EBUSY. En Linux no pasa, por eso el patrón «escribir .tmp y
+  renombrar» parece seguro.
+- **Regla:** todo `renameSync` atómico en scripts que corren en la PC reintenta ante EPERM/EBUSY/EACCES y, si sigue trabado,
+  escribe directo. Un vigía que se cae en silencio es peor que uno que escribe sin atomicidad.
+
+## Una dependencia nueva en main no llega sola al `node_modules` compartido: frena el pre-push de OTROS chats (11/11/2026)
+
+- **Síntoma:** Web Generator no podía subir: el filtro de antes de subir daba rojo en `tests/customers.test.ts` con «Cannot find
+  module 'date-fns'». El chat no había tocado nada de eso, y el rojo se leyó como «el filtro anda mal».
+- **Causa real:** los worktrees de `C:/dev/wt-*` usan un `node_modules` que es un enlace al de
+  `dashboard-marketing-main/dashboard-marketing/node_modules`. Cuando un commit de main suma una dependencia (el Admin de Studio
+  Admin, 6/11, trajo `date-fns`, `@dnd-kit/*`, `@tanstack/react-table`, `cmdk`, `react-day-picker`, `react-hook-form`,
+  `simple-icons` y `cn`), nadie la instala ahí: GitHub instala desde el lock y da verde, y la PC queda atrás sin avisar. Faltaban 17
+  paquetes, contando los transitivos.
+- **Regla:** cuando un commit cambia `package.json`, el Cerebro compara el lock de main con el `node_modules` compartido e instala
+  SÓLO lo que falta, a la versión del lock y con su integridad comprobada. Nunca un `npm install` entero: con seis chats usándolo,
+  cambiar una versión rompe a alguien a mitad de un test.
+- **La otra trampa del mismo día:** tres chats (Image, Copywriting y THE NET LAB) estaban quietos «esperando RAM» para correr sus
+  tests o el tsc completo antes de subir. `scripts/filtro-punta.mjs` NO espera RAM: si no alcanza, avisa y deja subir, y la suite
+  la corre «punta → main» en GitHub. Con varios chats abiertos, en la PC sólo el test del archivo tocado.

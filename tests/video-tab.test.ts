@@ -349,12 +349,17 @@ test('9. el cableado: el chat del editor lleva el hueco del velo y monta la guí
   // La foto nueva es la que no estaba antes (no la última de la lista), y lo que la ruta salteó se dice.
   assert.match(guia, /\.find\(\((\w+)\) => !\w+\.has\(\1\.id\)\)/);
   assert.match(guia, /for \(const (\w+) of \w+\.warnings \?\? \[\]\) toast\.error\(\1\)/);
-  // AI Avatar sigue como fila de Create MIENTRAS Video sea sólo de Pro: sacarla deja a un Esencial sin su personaje (la revisión del
-  // 9/11). Cuando Martín decida que Video entra en los tres planes, esta condición cambia y la fila se puede ir.
+  // AI Avatar FUERA DE LA BARRA desde el 11/11/2026: Martín, «[AI Avatar] no debería estar, eso ya lo hablamos muchas veces». El
+  // ítem queda (`fueraDeLaBarra`, su key es contrato) y la RUTA SIGUE: la abren «Tu personaje con IA» de Video y los botones de la
+  // biblioteca de anuncios, la guía de video, los carruseles y el CoPilot. Mientras Video sea sólo de Pro, ésas son las puertas de
+  // un Esencial a su personaje: si la ruta redirigiera a Video, un Esencial se quedaba sin ninguna.
   const create = FAMILIAS.find((f) => f.key === 'create');
-  const keys = new Set((create?.bloques ?? []).flat().map((it) => it.key));
-  assert.ok(keys.has('video-editor'));
-  if (NAV_SOLO_PRO.has('video-editor')) assert.ok(keys.has('ai-avatar'), 'Video es sólo de Pro: AI Avatar es la única puerta de un Esencial a su personaje');
+  const items = (create?.bloques ?? []).flat();
+  assert.ok(items.some((it) => it.key === 'video-editor'));
+  const avatar = items.find((it) => it.key === 'ai-avatar');
+  assert.ok(avatar, 'el ítem de AI Avatar sigue: su key es contrato');
+  assert.equal(avatar?.fueraDeLaBarra, true, 'y no se dibuja');
+  if (NAV_SOLO_PRO.has('video-editor')) assert.doesNotMatch(leer('app/ai-avatar/page.tsx'), /redirect\([^)]*video-editor/,'Video es sólo de Pro: /ai-avatar no puede mandar a Video');
 });
 
 test('10. «el inicio» del editor es la lista de proyectos, y «Replicar» no arma dos', () => {

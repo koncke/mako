@@ -28,7 +28,7 @@ import { wsSuperAdmin } from '../workspace';
 import { traerVideosDelCanal, type Buscador } from '../spy-youtube';
 import { limiteDeVigencia } from './explorar';
 import { filaDeCanal, filasDeVideos } from './carga';
-import { T_CANALES, T_VIDEOS } from './servidor';
+import { T_CANALES, T_VIDEOS, hayColumnaWsThumbnails } from './servidor';
 
 /** Cuántos canales como mucho relee una corrida. 79 hoy; el tope deja aire para que crezca sin colgar la función. */
 export const CANALES_POR_CORRIDA = 150;
@@ -65,11 +65,17 @@ const conEspera: Buscador = (url, init) => fetch(url, { ...init, signal: AbortSi
 
 // ── Releer ─────────────────────────────────────────────────────────────────────────────────────
 
-/** Los canales activos a los que les toca, los de lectura más vieja primero (así una corrida corta no deja a nadie atrás). */
+/**
+ * Los canales activos a los que les toca, los de lectura más vieja primero (así una corrida corta no deja a nadie atrás). Un canal
+ * que entró porque un negocio trajo UN video suyo por el link (mig 0414) no es de la biblioteca: no se relee (traería sus 50
+ * videos para todos y gastaría la cuota de la plataforma en lo que eligió un solo negocio).
+ */
 export async function canalesPorLeer(max: number = CANALES_POR_CORRIDA): Promise<CanalPorLeer[]> {
-  const r = await getSupabaseServer()
+  let q = getSupabaseServer()
     .from(T_CANALES).select('id, canal_id, nombre, nicho, idioma, leido_en')
-    .eq('estado', 'activo')
+    .eq('estado', 'activo');
+  if (await hayColumnaWsThumbnails()) q = q.is('workspace_id', null);
+  const r = await q
     .order('leido_en', { ascending: true, nullsFirst: true })
     .limit(Math.max(1, max));
   if (r.error) throw new Error(`${T_CANALES}: ${r.error.message}`);

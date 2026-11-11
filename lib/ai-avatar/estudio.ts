@@ -30,6 +30,18 @@ export type PiezaSinMotor = keyof typeof SIN_MOTOR;
  */
 export const CONSEJO_FOTO = 'Una foto tuya de frente, sola y con buena luz.';
 
+/**
+ * Lo que dice el botón «Generar» debajo de su nombre (11/11/2026). Apagado, decía «Gratis» igual, y el porqué quedaba en una
+ * línea chica debajo de la barra: el botón gris no explicaba nada. Ahora dice lo que falta, corto; listo, «Gratis».
+ */
+export function pieDeGenerar(p: { preset: boolean; pasosFaltan: number; foto: boolean; flowListo: boolean }): string {
+  if (!p.preset) return 'Falta el preset';
+  if (p.pasosFaltan > 0) return p.pasosFaltan === 1 ? 'Falta 1 paso' : `Faltan ${p.pasosFaltan} pasos`;
+  if (!p.foto) return 'Falta tu foto';
+  if (!p.flowListo) return 'Flow no está listo';
+  return 'Gratis';
+}
+
 /** El modelo que genera hoy: el único de la lista. */
 export const MODELO = Object.freeze({ nombre: 'Nano Banana', de: 'Google Flow' });
 

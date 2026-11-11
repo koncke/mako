@@ -358,6 +358,60 @@ blanco».
   sale de una función de las respuestas. La pantalla sólo dibuja pasos.
 
 
+## D18 · Los outliers de copy: la portada «Encuentra tu siguiente OUTLIER» (11/11/2026)
+
+Martín (11/11/2026, por el Cerebro): «lo mismo que te acabo de decir con web generator, aplícalo para copywriting, me gustaría
+traer outliers. Tenemos la transcripción de un montón de cosas, tanto de anuncios como de carruseles, como de reels, y videos de
+YouTube… podríamos mantener templates con ciertas estructuras, pero también traer los outliers».
+
+**La referencia es UNA: la portada de outliers de Image** (`app/image-editor/carruseles/ExplorarCarruseles.tsx`, que copia a Top
+Carousels), la misma que copió Video (`app/video-editor/OutliersVideo.tsx`). Con SUS clases (`explorar.module.css`):
+- la cabecera «Encuentra tu siguiente OUTLIER» con sus botones;
+- la fila de filtros, con el segmento y el orden;
+- la grilla;
+- la tarjeta de Image tal cual: la imagen arriba, y abajo el «×», el gancho, la cuenta, hace cuánto y los números. «Replicar» va
+  donde Image pone «Editar»;
+- el modal abierto de Image (`CarruselAbierto`): a la izquierda el TEXTO del original (lo que en Image son las láminas), a la
+  derecha el panel con el múltiplo, «Replicar» grande y «Ver original».
+
+Nada que la referencia no tenga.
+
+| Ruta | Qué muestra |
+|---|---|
+| `/copywriter` | la portada de outliers (como `/image-editor` y `/video-editor`) |
+| `/copywriter?nueva` (o `?nuevo=<tipo>`) | «Crear desde cero»: las plantillas de siempre (D16-D17), que QUEDAN |
+| `/copywriter?ver=guiones` | «Mis guiones»: la última página tocada (lo que antes hacía `/copywriter`) |
+| `/m/copywriter` | la misma portada en el teléfono; `?ver=guiones` es la lista de siempre |
+
+**De dónde salen** (fuentes enchufables, el contrato de Video: `lib/copywriter/outliers.ts`, puro, y `outliers-servidor.ts`).
+Lo que se midió en producción el 11/11 (el ws 3):
+
+| Fuente | Qué texto trae | Su número |
+|---|---|---|
+| Competitors Spy: reels, publicaciones y videos de YouTube de las cuentas que sigue el negocio (`spy_piezas`) | el pie o la descripción; el guion, si ya se transcribió al abrir su detalle en Spy (`spy.transcripcion.*`) | el «×» de toda la app (`multiplosDe`); YouTube no tiene (falta la enmienda) |
+| Competitors Spy: anuncios (`canal = 'anuncios'`) | el copy del anuncio (texto y título) | días al aire |
+| La biblioteca de carruseles de la plataforma (`carruseles_biblioteca_piezas`, para todos) | el pie | el «×» de su cuenta |
+
+⚠️ **Lo que NO hay**, y no se promete:
+- No hay transcripción masiva. En el ws 3 hay 0 guiones de Spy, y en toda la base, 11 (todos de otro negocio).
+- Las láminas de un carrusel no tienen su texto guardado (sólo las imágenes).
+- Los videos de Thumbnails no tienen descripción ni transcripción.
+
+La tarjeta dice qué texto es (el pie, el guion, la descripción o el copy del anuncio). La primera tanda no transcribe nada nuevo.
+Los anuncios propios (`ad_transcripts` + `script_analyses`, con su veredicto) son la fuente que sigue.
+
+**Replicar** (`POST /api/copywriter`, `accion: 'replicar'`):
+- se crea una página del tipo del original: anuncio → Ad, reel → Reel, carrusel → Post, YouTube → YouTube;
+- la página guarda `props.outlier` (el id), que no se ve en las propiedades;
+- el cuerpo arranca vacío: lo escribe MaKo, a la vista, como propuesta (D5);
+- MaKo toma la iniciativa como con una plantilla (D17), con UNA pregunta con botones: «¿Lo replico para tu oferta? ¿Para cuál?»;
+- la respuesta le pide escribirlo con la estructura, el tipo de gancho y el ritmo del original, con la oferta elegida;
+- el original le llega a MaKo como una referencia `@` del server (`tipo: 'outlier'`, lib/copywriter/referencias.ts), en CADA
+  pedido de esa página: no entra al documento, así MaKo no puede pisarlo;
+- la barra de la página ofrece «Ver el original», como «Ver ejemplo» con una plantilla.
+
+**API de MaKo**: `outliers_copywriter` (lectura) y `replicar_outlier_copywriter` (acción, chat).
+
 ## Qué queda para después
 
 - Borrar lo que quedó sin entrada: StoriesApp/OnboardingStories (D13) y el Ads Writer del teléfono cuando Martín decida

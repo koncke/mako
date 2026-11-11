@@ -4,6 +4,16 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+## Mirar la foto ACHICADA también engaña: el velo del recorrido «no estaba», y el píxel decía que sí (11/11/2026)
+
+**Síntoma:** en la sexta maqueta de Marketing CoPilot, la foto de 1440 × 900 del recorrido de «Tu web» se veía con la página clara. Parecía que el velo oscuro no se dibujaba.
+
+**El diagnóstico obvio era el equivocado.** Leyendo el color del píxel de la misma foto, la barra de arriba pasaba de `#e4e4e1` a `#5a5a59`: el velo estaba. Recortada a tamaño real, la foto mostraba el velo y el recorte con el aro alrededor del titular. Lo que engañó fue mirarla achicada.
+
+**Lo que queda:**
+- Ante «esto no se dibuja» en una captura grande, primero se recorta a tamaño real o se lee el píxel (System.Drawing alcanza).
+- Recién después se toca el código.
+- Y al revés: una captura achicada que «se ve bien» tampoco prueba detalles chicos.
 ## Probar leyendo no es mirar: la primera vuelta de Competitor Spy no vio un gráfico sin una sola portada (11/11/2026)
 
 Martín miró las pruebas del 10/11 y dijo que no funcionaron: en Video había un solo outlier, miniaturas grises, títulos cortados y
@@ -35,6 +45,27 @@ bien.
 oculto. Si lo está, se repite con el panel a la vista, o se le pide un turno al Cerebro, antes de creerle. ⚠️ **NO en el Chrome de
 la extensión:** tiene la sesión de LEANDRO (ws 10), un cliente real, y el `?ws=` se ignora. La prueba del 10/11 dejó ahí 2 usos
 de IA y una apertura vista (docs/pruebas/image-10-11.md, «Límites»).
+
+**11/11/2026, CÓMO MIRAR con el panel oculto (medido):** el panel mide 800 × 600 y la página se emula a 1440 × 900.
+- **Lo que anda:** después de `navigate`, un `zoom` de la región `[0, 0, 1440, 900]` devuelve la página ENTERA a 1440,
+  reducida a 800 × 500.
+- ⚠️ **Lo que lo rompe:** el primer clic con la herramienta (`computer` → `left_click`). Desde ahí cada captura es un RECORTE
+  de 800 × 500 de la esquina, aunque se vuelva a llamar `resize_window`. Una captura así parece buena y no muestra la mitad
+  derecha.
+- **Lo que lo mantiene:** el clic desde JS (`elemento.click()` en `javascript_tool`). La página reacciona igual (React) y la
+  captura sigue entera.
+- **La pintura llega tarde:** la primera captura después de un cambio puede ser la vieja (sin el modal recién abierto) o
+  tener las imágenes en blanco con `naturalWidth` 1080. Se mide el estado con JS (`[role=dialog]`, `naturalWidth`) y se repite
+  la captura antes de anotar una falla.
+- **A 375:** `resize_window` con `preset: mobile` + `navigate` (el servidor dibuja el armado de teléfono por el agente). La
+  captura normal sirve: el marco es 469 × 1015. Al volver a 1440 hay que navegar otra vez, porque la página quedó con el armado
+  de teléfono.
+**La captura de 1440 con el panel oculto (11/11/2026, prueba de Copywriting):** sale SIEMPRE el pedazo de arriba a la izquierda, y
+repetir `resize_window` no lo arregló (cinco veces). Si la sesión no está abierta en ninguna ventana, `show_pane` tampoco puede
+mostrarlo. Lo que sí sirvió: achicar sólo el DIBUJO de la página, que sigue armada a 1440 (`innerWidth` no cambia), con
+`document.documentElement.style.transform = 'scale(0.8)'` y `transformOrigin = '0 0'`. La captura cubre unos 1152 × 720 px de
+CSS, así que 1440 × 900 × 0,8 entra entera. Se saca antes de hacer clic: las coordenadas de la captura ya no son las de la página.
+En 375 la captura sale entera.
 
 ## Un `assert.equal` con un elemento de jsdom que falla agota la memoria (10/11/2026)
 
