@@ -48,7 +48,12 @@ const bajadores: Bajadores = {
   esNuestra,
 };
 
-export type Traido = { ok: true; carrusel: Carrusel; nuevo: boolean } | { ok: false; error: string };
+/**
+ * `reintentar`: la falla fue PASAJERA (Apify no contestó, algo nuestro reventó) y otro intento puede andar. Sin la marca, el error
+ * es definitivo (no existe, es un reel, falta configurar, el tope del día) y la pantalla NO vuelve a ofrecer «Traer»: cada intento
+ * es una lectura pagada (US$0,0027) que termina igual (la prueba en producción del 11/11/2026).
+ */
+export type Traido = { ok: true; carrusel: Carrusel; nuevo: boolean } | { ok: false; error: string; reintentar?: true };
 
 export async function traerCarrusel(ws: number, texto: string): Promise<Traido> {
   const link = linkDeInstagram(texto);
@@ -93,7 +98,7 @@ export async function traerCarrusel(ws: number, texto: string): Promise<Traido> 
     });
     if (!r || r.status < 200 || r.status >= 300 || !Array.isArray(r.cuerpo)) {
       console.error(`[carruseles-traer] Apify no leyó ${link.url}: HTTP ${r?.status ?? '—'} (ws=${ws})`);
-      return { ok: false, error: 'No pude leer ese link ahora. Vuelve a intentar en un rato.' };
+      return { ok: false, error: 'No pude leer ese link ahora. Vuelve a intentar en un rato.', reintentar: true };
     }
     const items = (r.cuerpo as Array<Record<string, unknown>>).filter((it) => it && typeof it === 'object' && !('error' in it && it.error));
     const item = items.find((it) => it.shortCode === link.ref) ?? items[0];
@@ -127,6 +132,6 @@ export async function traerCarrusel(ws: number, texto: string): Promise<Traido> 
     return c ? { ok: true, carrusel: c, nuevo: true } : { ok: false, error: 'Lo guardé, pero no lo pude mostrar. Recarga la página.' };
   } catch (e) {
     console.error(`[carruseles-traer] ${link.url} (ws=${ws}):`, e instanceof Error ? e.message : e);
-    return { ok: false, error: 'No pude traer ese carrusel. Vuelve a intentar.' };
+    return { ok: false, error: 'No pude traer ese carrusel. Vuelve a intentar.', reintentar: true };
   }
 }
