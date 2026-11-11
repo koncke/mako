@@ -6,6 +6,25 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## La portada de outliers con UNA tarjeta gris (11/11/2026)
+
+Martín, con la captura de `/video-editor`: «Encuentra tu siguiente OUTLIER» tenía UNA tarjeta (la plantilla «Mensaje para…»),
+las tomas eran rectángulos grises, los títulos se leían «Dis…», «Creden…», y decía «Sin datos de su cuenta». «Deberían haber
+detectado esto.»
+
+- **El recorrido del 10/11 no lo marcó porque lo miré como «pasa»**: la portada cargaba, sin error, con su tarjeta. **Una
+  pantalla vacía o pobre en producción ES una falla**, aunque no tire nada: se la compara con su referencia (la grilla de
+  Image, cientos de carruseles con imagen) y se la critica como Martín, no como un test.
+- **Los datos estaban**: Spy ya tenía, en ws9, 525 reels de Instagram con vistas y miniatura en nuestro bucket, el gancho
+  leído en 554 de 561, y la cuenta de cada uno con su foto. La portada tenía una sola fuente enchufada (la curada de MaKo). La
+  fuente «Ya» de `docs/investigacion-outliers-video.md` no gasta nada: lee `spy_piezas` como lo hace Image (`FUENTE_SPY`,
+  `outliersDeSpy`, con el múltiplo de toda la app sobre TODAS las piezas de la cuenta).
+- **«Sin datos de su cuenta» era el motivo del múltiplo de la plantilla**, puesto como chip. Para la persona no significa
+  nada. La tarjeta de la plantilla dice lo que dice en «Crear desde cero»: «MaKo te guía».
+- **Los títulos cortados eran la estructura en columnas** de ~40 px. Van en bandas horizontales, con el nombre entero.
+- **SIN HACER**: los reels propios por Zernio (la fuente «3» de la investigación), los Shorts de YouTube (sin «×» hasta la
+  enmienda III.L), los anuncios en video, y la portada del teléfono (`/m/video-editor` no muestra outliers).
+
 ## El recorrido de la tab en producción, con dos clips de 24 fps (10/11/2026)
 
 Martín pidió revisar la tab de punta a punta en producción. Proyecto de prueba: ws9 «1110», dos clips del teléfono con voz.
@@ -39,6 +58,27 @@ Martín pidió revisar la tab de punta a punta en producción. Proyecto de prueb
   de 86 px FIJOS le dejaban 8 px al rol. Un ancho fijo para el texto más largo («nada que hacer») se paga en todas las filas.
   Y con la ventana baja el cuerpo del panel se desbordaba DEBAJO del pie («Editar con MaKo» tapaba el registro): un cuerpo
   `flex-1 min-h-0` sin `overflow` no se achica, se sale.
+- **«Estilo Hormozi» por chat armaba OTRA cosa**: karaoke amarillo y salto, sin Anton, sin mayúsculas, sin el contorno, y
+  MaKo decía que resaltaba palabras clave sin proponerlo. El panel tiene esa plantilla («Hormozi», subtitles/estilos.ts),
+  pero el chat no veía la galería: sólo los presets de la MARCA. **Lo que el panel ofrece con nombre, el chat lo tiene que
+  ver con el mismo nombre** (`plantillas_subtitulos` en DISPONIBLES); si no, el modelo lo arma con piezas y sale parecido y
+  distinto. Se usa con `usar_preset_subtitulos` (la de la marca, si se llama igual, gana). SIN HACER: la API sigue aceptando
+  sólo los presets de la marca.
+- **La barra de Multimedia corría la sección de lado**: a 1440 px con el chat abierto, el panel mide 203 px y la barra 247. El
+  foco del «+» de una miniatura corrió la caja `overflow: hidden` 32 px. **Una caja que sólo recorta va con `overflow-clip`**:
+  `hidden` se puede correr con el foco o un `scrollIntoView`, y nadie la vuelve a su lugar.
+- **⚠️ Las pruebas «en ws9» desde Claude in Chrome fueron como LEANDRO, en su ws10** (un usuario real): ese Chrome tiene su
+  sesión y `?ws=9` no hace nada para quien no es super admin, sin avisar. Quedaron 2 proyectos de prueba, 1 hilo de chat y 3
+  llamadas a la IA en su negocio. La señal estaba: IndexedDB sólo tenía bases `mako-ws10-…`. **El primer paso de toda pasada
+  en un navegador es `fetch('/api/auth/me')`** (ya lo decía la memoria `verificar-en-navegador` desde el 15/10).
+- **El navegador de la app no sirve para el editor si la sesión no está en una ventana**: el panel queda oculto, la página
+  corre en segundo plano, la importación se cuelga en «Importando…», los cursores no se animan y el B-roll queda en
+  «Trabajando». Tampoco tiene subida de archivos ni deja pedirle nada a `127.0.0.1` desde https. Los videos de prueba
+  entraron por el fragmento `#` de una navegación (un puente en un servidor local que los pasa en base64, ≤ 2 MB).
+- **SIN HACER — al reabrir un proyecto en el navegador de la app, sus videos ya no estaban en OPFS** (la metadata sí). El
+  archivo se escribe ANTES que la metadata (`saveMediaAsset`) y quien borra medios borra las dos cosas, así que alguien los
+  sacó después. Un archivo de prueba en OPFS sobrevivió a la recarga. En Chrome no pasó. Y el editor no avisa: muestra una
+  biblioteca vacía y un video negro con los subtítulos encima.
 - **El teléfono no se pudo mirar desde acá**: la ventana de la extensión está maximizada (`resize_window` contesta «resized» y
   no cambia), la app no se deja enmarcar en un iframe y `/m/…` con la computadora redirige al escritorio.
 - **SIN HACER — la lista de proyectos es la de ESTE navegador**: en otro Chrome dice «Todavía no hay ninguno» aunque ws9 tenga 6

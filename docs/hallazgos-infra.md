@@ -107,7 +107,10 @@ ve nada raro. El `.gitattributes` del repo, que es lo que configura una persona,
 
 **Medido:** con `DRIVER` pasado a barras normales (`.replace(/\\/g, '/')`) quedan 10 pass / 1 fail; el rojo que sobra es el
 mismo bug en el OTRO lugar donde el test arma la config, el que simula el paso de `punta.yml` (la ruta sale de un temp
-`wf-paso-*`). **SIN HACER:** las dos rutas a barras normales. **Regla:** una ruta de Windows metida en un comando que git
+`wf-paso-*`). **Hecho el 10/11:** las dos rutas van con barras normales. **Y quedaba un rojo más, de otra causa (10/11):** el
+bash de Git para Windows convierte `git show origin/main:.gitattributes` en `origin\main;.gitattributes` (lo toma por una
+lista de rutas) antes de dárselo a git.exe; el `2>/dev/null` del paso lo calla, las reglas de main no llegan y el índice
+choca. Ese test le pasa `MSYS_NO_PATHCONV=1` al paso: 11 pass / 0 fail, y sin él vuelve el rojo. **Regla:** una ruta de Windows metida en un comando que git
 (o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`, nunca con `\`.
 **La guardia de RAM se dispara por el NOMBRE del archivo que un comando sólo LEE (6/11/2026, `scripts/claude-hooks/guardia/memoria.mjs`).**
 
@@ -11686,6 +11689,22 @@ panel no está logueada en claude.ai), pero **Chrome headless sí**:
 `chrome.exe --headless --disable-gpu --screenshot=<png> file:///<html>` rinde un arnés estático con los
 tokens reales de `globals.css` en un proceso corto, y el PNG se mira con Read. Sirve para verificar un
 patrón SVG, un contraste o una fila de tarjetas. **No reemplaza ver la app**, y conviene decirlo así.
+
+**Actualizado el 10/11/2026 (la maqueta del rediseño de Marketing CoPilot):** el panel SÍ abre un `localhost` nuestro si se
+levanta por su propio mecanismo: una entrada en `.claude/launch.json` con `runtimeExecutable: "node"` y un servidor estático de
+diez líneas (`http.createServer` que devuelve el HTML), y después `preview_start {name}`. Ahí el JS corre, se mide en el DOM y se
+fotografía. Lo que sigue sin servir: `navigate` a un `file://` fuera de la carpeta del proyecto lo abre como **foto estática sin
+JS** (una maqueta que se dibuja con JS sale en blanco), y un Artifact privado pide iniciar sesión en claude.ai, que el panel no
+tiene. Ojo: con el panel oculto, las capturas salen con el cuadro anterior; lo que vale es lo que se mide en el DOM.
+
+**Y para fotografiar una maqueta ANIMADA con el panel oculto (11/11/2026):** con el panel oculto, el navegador congela
+`requestAnimationFrame` y la Web Animations API, y los temporizadores van lentos. Lo que sirvió:
+- darle a la maqueta un enlace por estado (`#lectura`, `#negocio`);
+- fotografiarla con el Chrome de la PC sin ventana, con un perfil temporal propio y el reloj avanzando solo:
+  `chrome.exe --headless=new --user-data-dir=<carpeta temporal> --window-size=1440,900 --virtual-time-budget=<ms> --screenshot=<png> http://localhost:<puerto>/#<estado>`.
+- `--blink-settings=preferredColorScheme=1` la saca en claro, y `--dump-dom` muestra en qué estado terminó.
+- ⚠️ Ese Chrome tampoco termina siempre las animaciones (`animation.finished` puede no resolverse nunca): un flujo que
+  encadena pasos esperando una animación se queda trabado ahí. Por eso la maqueta avanza con su propio reloj.
 
 ## El tren tiene UN carril: pushear un coche nuevo CANCELA el run del anterior (31/10/2026)
 

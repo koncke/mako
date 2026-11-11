@@ -131,9 +131,30 @@ export type HojaM = {
   cobranzaError: string | null;
   /** La oración de apertura de la hoja (tipo `frase`, lib/graficos-frase.ts), ya escrita. Ausente o null = la hoja no tiene. */
   frase?: string | null;
+  /**
+   * Lo que FALTA CONECTAR para que la hoja tenga números («Conecta tu grabador de reuniones…»), el MISMO texto de la compu.
+   * Con esto la hoja no falló: no se dice «No es nada tuyo · Reportar a Soporte» (10/11/2026, Closing en el ws 3).
+   */
+  falta?: string | null;
 };
 
 export const ERROR_LECTURA = 'No pudimos leer estos números. No es nada tuyo.';
+
+/**
+ * Lo que falta conectar, si NADA de la hoja se leyó y lo que volvió es «falta conectar» (`sinConexion`, lib/graficos-datos.ts):
+ * ese texto, el mismo de la compu. Con una sola lectura buena, o sin ninguna `sinConexion`, null (es otra cosa).
+ */
+export function faltaConectar(lecturas: ReadonlyArray<{ ok: true } | { ok: false; error: string; sinConexion?: true } | undefined>): string | null {
+  if (lecturas.some((r) => r?.ok)) return null;
+  for (const r of lecturas) if (r && !r.ok && r.sinConexion) return r.error;
+  return null;
+}
+
+/**
+ * ¿No se pudo leer NADA? Sólo si hay lecturas y TODAS fallaron (o no llegaron). Leídas sin datos en el período no es «no pudimos
+ * leer»: con eso el teléfono decía «No es nada tuyo · Reportar a Soporte» de una hoja que se leyó bien (11/11/2026, ws 3).
+ */
+export const noSeLeyo = (lecturas: ReadonlyArray<{ ok: boolean } | undefined>): boolean => lecturas.length > 0 && lecturas.every((r) => !r?.ok);
 
 // ── La variación contra el período anterior ─────────────────────────────────────────────────
 

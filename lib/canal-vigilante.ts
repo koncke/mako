@@ -50,6 +50,8 @@ import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin, WS_NINGUNO } from './workspace';
 import { sendEmail } from './resend';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
+import { getSupabaseServer } from './supabase';
+import { demoraDeEntrega, textoDeLaDemora, VENTANA_DEMORA_MS, type Demora, type FilaDeEntrega } from './linea-demora';
 
 const KEY_ULTIMO_AVISO = 'mako.canal.caido.avisado';
 /** Desde cuándo está caída (ISO), para el «hace cuánto» de la alerta. '' = no está caída. */
@@ -360,4 +362,29 @@ export async function avisarPorEmail(ws: number, asunto: string, cuerpo: string)
     return { enviadoA: 0, error: r.error };
   }
   return { enviadoA: para.length };
+}
+
+// ── 10/11/2026: LA LÍNEA QUE ENTREGA TARDE (lib/linea-demora.ts) ──────────────────────────────────────────────────────────
+// Martín: «No funciona MaKo en WhatsApp». La voz estaba `open`, la sonda contestaba, y WhatsApp le entregaba los mensajes de los
+// grupos en tandas, hasta 78 minutos tarde (y un día, por la línea de Martín). Nada de lo de arriba lo veía: mira si el socket
+// contesta, y una línea atrasada o sorda contesta. Esto mide lo que LLEGA: el atraso de lo que entró a la cola en las últimas horas
+// (la hora de WhatsApp contra la de llegada), y avisa por EMAIL, como la voz caída. Una vez cada `REPETIR_DEMORA_MS` mientras dure.
+const KEY_DEMORA_AVISO = 'mako.linea.demora.avisado';
+const REPETIR_DEMORA_MS = 3 * 3_600_000;
+
+export async function vigilarDemoraDeLaLinea(ahora = Date.now()): Promise<{ demoras: Demora[]; aviso: 'sin-demora' | 'repetido' | 'enviado' | 'fallo'; error?: string }> {
+  const { data, error } = await getSupabaseServer().from('mako_doer_buffer')
+    .select('created_at, ts:payload->>messageTimestamp, instancia:payload->>instance')
+    .gte('created_at', new Date(ahora - VENTANA_DEMORA_MS).toISOString()).limit(500);
+  if (error) throw new Error(`no pude leer la cola: ${error.message}`);
+  const demoras = demoraDeEntrega((data ?? []) as FilaDeEntrega[], ahora);
+  if (!demoras.length) return { demoras, aviso: 'sin-demora' };
+  const wsSA = await wsSuperAdmin();
+  const ultimo = await runWithWorkspace(wsSA, () => getSetting(KEY_DEMORA_AVISO)).catch(() => null);
+  if (ultimo && ahora - Date.parse(ultimo) < REPETIR_DEMORA_MS) return { demoras, aviso: 'repetido' };
+  const { asunto, cuerpo } = textoDeLaDemora(demoras);
+  const r = await avisarPorEmail(wsSA, asunto, cuerpo);
+  if (r.error) return { demoras, aviso: 'fallo', error: r.error };
+  await runWithWorkspace(wsSA, () => setSetting(KEY_DEMORA_AVISO, new Date(ahora).toISOString()));
+  return { demoras, aviso: 'enviado' };
 }

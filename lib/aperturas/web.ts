@@ -8,11 +8,16 @@
 //
 // El dominio propio queda en el diálogo, donde ya está (preguntarlo primero era configuración antes del default). La segunda del
 // plan («¿Vas a pautar esta página en Meta?», el Pixel) necesita saber si el funnel lleva anuncios: queda en el relevo.
+//
+// PRUEBA EN PRODUCCIÓN DEL 10/11/2026 (docs/pruebas/web-generator-10-11.md): recién creada desde una plantilla, con 30 textos
+// «[a completar]» a la vista, MaKo ya preguntaba si estaba lista; y apenas la persona anulaba la publicación, volvía a
+// preguntarlo. Dos hechos más: `aCompletar` (los «[…]» que quedan en la página, lib/editor-landing/especificacion.ts) y que
+// `publicada` cuente también la que se despublicó en esta visita (eso lo arma quien junta los hechos: PanelAgente.tsx).
 // =============================================================================
 
 import type { Apertura, Respuestas, Superficie } from './reglas';
 
-export type HechosWeb = { pagina: string | null; publicada: boolean; charlaVacia: boolean };
+export type HechosWeb = { pagina: string | null; publicada: boolean; charlaVacia: boolean; aCompletar: number };
 
 export const ACCIONES_WEB = ['publicar'] as const;
 export type AccionWeb = (typeof ACCIONES_WEB)[number];
@@ -20,7 +25,7 @@ export type AccionWeb = (typeof ACCIONES_WEB)[number];
 export const ID_LISTA = 'web:lista';
 
 export function aperturaWeb(h: HechosWeb, _r: Respuestas): Apertura<AccionWeb> | null {
-  if (!h.pagina || h.publicada || !h.charlaVacia) return null;
+  if (!h.pagina || h.publicada || !h.charlaVacia || h.aCompletar > 0) return null;
   return {
     id: ID_LISTA, alcance: 'entidad', entidad: h.pagina,
     texto: '¿Ya está lista para que la vean?',
@@ -34,12 +39,13 @@ export function aperturaWeb(h: HechosWeb, _r: Respuestas): Apertura<AccionWeb> |
 export const SUPERFICIE_WEB: Superficie<HechosWeb, AccionWeb> = { id: 'web', acciones: ACCIONES_WEB, apertura: aperturaWeb };
 
 export const CATALOGO: readonly { id: string; cuando: string }[] = [
-  { id: ID_LISTA, cuando: 'La página abierta sin publicar, con la charla vacía.' },
+  { id: ID_LISTA, cuando: 'La página abierta sin publicar, sin textos por completar, con la charla vacía.' },
 ];
 
 const PAGINA = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e';
 export const EJEMPLOS: readonly { nombre: string; h: HechosWeb; r: Respuestas; espera: string | null; primerPaso?: true }[] = [
-  { nombre: 'sin publicar', h: { pagina: PAGINA, publicada: false, charlaVacia: true }, r: {}, espera: ID_LISTA, primerPaso: true },
-  { nombre: 'ya publicada', h: { pagina: PAGINA, publicada: true, charlaVacia: true }, r: {}, espera: null },
-  { nombre: 'con la charla empezada', h: { pagina: PAGINA, publicada: false, charlaVacia: false }, r: {}, espera: null },
+  { nombre: 'sin publicar', h: { pagina: PAGINA, publicada: false, charlaVacia: true, aCompletar: 0 }, r: {}, espera: ID_LISTA, primerPaso: true },
+  { nombre: 'ya publicada', h: { pagina: PAGINA, publicada: true, charlaVacia: true, aCompletar: 0 }, r: {}, espera: null },
+  { nombre: 'con la charla empezada', h: { pagina: PAGINA, publicada: false, charlaVacia: false, aCompletar: 0 }, r: {}, espera: null },
+  { nombre: 'con textos por completar', h: { pagina: PAGINA, publicada: false, charlaVacia: true, aCompletar: 12 }, r: {}, espera: null },
 ];

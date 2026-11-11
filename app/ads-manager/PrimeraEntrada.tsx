@@ -356,7 +356,8 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const ultimaNota = [...notas].reverse().find((n) => n.visible);
   const ultimoItem = items.at(-1);
   // Las pastillas del paso, salvo que lo último sea una nota con sus propias opciones (se contestan ésas).
-  const conOpcionesDeNota = !!ultimaNota?.opciones && ultimoItem?.id === ultimaNota.id;
+  // Un «Deshacer» solo no contesta el paso (10/11/2026, producción: tras «Empezar de nuevo» quedaba ÉSE y ningún botón para empezar).
+  const conOpcionesDeNota = !!ultimaNota?.opciones && ultimoItem?.id === ultimaNota.id && !ultimaNota.opciones.every((o) => o.deshacer);
   const ultimo = useMemo(() => mensajesDeCopiloto(p, nombre).at(-1), [p, nombre]);
   const opciones = !conOpcionesDeNota && ultimo?.de === 'mako' ? ultimo.opciones ?? [] : [];
   // Abajo de todo, salvo con los referentes a la vista: ahí se arranca por la pregunta y el buscador (la grilla es larga, y bajando

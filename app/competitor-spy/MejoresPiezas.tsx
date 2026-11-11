@@ -19,7 +19,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { mejoresPiezas, type PiezaDestacada } from '@/lib/spy-detalle';
 import { chipDeMultiplo, esFuerte, explicarMultiplo } from '@/lib/multiplo-rendimiento';
-import { miniaturaDePieza } from '@/lib/spy-vista';
+import { miniaturaChica } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
 import { LogoRed } from './LogoRed';
 
@@ -68,7 +68,7 @@ export function MejoresPiezas({ piezas, onAbrir }: { piezas: readonly PiezaVista
 
 function Fila({ d, p, onAbrir }: { d: PiezaDestacada; p: PiezaVista | undefined; onAbrir: (p: PiezaVista) => void }) {
   if (!p) return null;
-  const mini = miniaturaDePieza(p);
+  const mini = miniaturaChica(p);
   const red = redDe(p.canal);
   const titulo = p.titulo || p.analisis?.gancho || p.texto || 'Sin texto';
   return (

@@ -27,10 +27,12 @@ import { avisarPuente } from '@/app/video-generator/avisar-puente';
 import { CATEGORIAS, filtrarPresets, plantillaPorId, type Categoria, type PlantillaAvatar } from '@/lib/ai-avatar/plantillas';
 import { MAX_DETALLE } from '@/lib/ai-avatar/prompt-look';
 import { haceCuanto, mezclarPorId, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
-import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
+import { CONSEJO_FOTO, MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
 import { PieFijoM, SeccionM, SheetM, useConexion } from '@/app/m/_ui';
 import { CREDITOS, requisitosAvatar, type PasoRequisito } from '@/lib/ai-avatar/requisitos';
 import { CampoM, ErrorLineaM } from '../_creacion/escritor';
+import { descargarComo } from '@/app/video-generator/descargar';
+import { nombreDeArchivo } from '@/lib/ai-avatar/descarga';
 import { ChipM, ChipsM } from './piezas';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
@@ -71,6 +73,12 @@ export function EstudioM({ inicio, plantillaInicial, avatarInicial, ahora }: {
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => { escribirQuery(abiertoId, presetId); }, [abiertoId, presetId]);
+  // «No disponible todavía» se va solo: si se queda, tapa lo que FALTA para generar (como en la computadora, 10/11/2026).
+  useEffect(() => {
+    if (!(Object.values(SIN_MOTOR) as string[]).includes(linea)) return;
+    const t = setTimeout(() => setLinea(''), 6000);
+    return () => clearTimeout(t);
+  }, [linea]);
 
   const generando = looks.filter((l) => l.estado === 'generando').map((l) => l.id).join(',');
   useEffect(() => {
@@ -249,6 +257,7 @@ function PersonajeM({ fotos, fotoId, onElegir, onFotos, onLinea }: {
           </button>
         ))}
       </div>
+      {fotos.length === 0 && <p className="m-ai-avatar-pronto">{CONSEJO_FOTO}</p>}
       <Button variant="secondary" size="lg" full loading={subiendo} onClick={() => campo.current?.click()}>Subir una foto</Button>
       <p className="m-ai-avatar-pronto">{SIN_MOTOR.personaje}</p>
       <input ref={campo} type="file" accept="image/*" hidden onChange={(e) => void subir(e.target.files)} />
@@ -319,7 +328,10 @@ function ProyectoM({ p, inicio, ahora, enLinea, enviando, error, onRecrear, onEl
         </div>
         <div className="m-ai-avatar-cab__acciones">
           <button type="button" className="m-ai-avatar-icono" onClick={onRecrear} disabled={enviando || !inicio.puente.puede || !enLinea} aria-label="Recrear"><Icon name="regenerar" size={20} /></button>
-          {p.url && <a className="m-ai-avatar-icono" href={p.url} download target="_blank" rel="noreferrer" aria-label="Descargar"><Icon name="descargar" size={20} /></a>}
+          {/* Baja el archivo de Flow tal cual (calidad original). Un `<a download>` a otro origen lo ABRE en vez de bajarlo. */}
+          {p.url && <button type="button" className="m-ai-avatar-icono" aria-label="Descargar"
+            onClick={() => { void descargarComo(p.url, nombreDeArchivo(p.nombre, 'imagen')).catch(() => window.open(p.url, '_blank', 'noopener,noreferrer')); }}>
+            <Icon name="descargar" size={20} /></button>}
           <button type="button" className="m-ai-avatar-icono" onClick={() => setBorrar(true)} aria-label="Eliminar"><Icon name="trash" size={20} /></button>
         </div>
       </div>

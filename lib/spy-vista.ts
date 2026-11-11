@@ -12,16 +12,33 @@ import {
   dibujarContador, diasCorriendo, metricasVencidas, type EtapaTendencia, type TipoPieza,
 } from './spy-reglas';
 import { esShort } from './spy-youtube';
+import { TZ_TIJUANA } from './date-utils';
 import type { Competidor, LecturaCanalSpy, Pieza } from './spy';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/**
+ * La zona en que se dice qué DÍA fue: la del producto (`ZONA_POR_DEFECTO`, lib/zona-negocio-reglas.ts, que es esta misma).
+ *
+ * ⚠️ ERA UTC (10/11/2026, prueba en producción). A las 22 h de Argentina la ficha recién agregada decía «lo seguimos desde el
+ * 11 nov» y el gráfico terminaba en «11 nov»: era el 10. En México pasaba desde las 18 h, todas las tardes. Tampoco la zona del
+ * navegador: la lista y la ficha se dibujan primero en el servidor, y una fecha distinta en el navegador rompe la hidratación.
+ * Una zona fija da el mismo texto en los dos lados.
+ */
+const DIA_EN_LA_ZONA = new Intl.DateTimeFormat('en-US', { timeZone: TZ_TIJUANA, year: 'numeric', month: 'numeric', day: 'numeric' });
+function diaEnLaZona(d: Date): { dia: number; mes: number; anio: number } {
+  const p: Record<string, string> = {};
+  for (const x of DIA_EN_LA_ZONA.formatToParts(d)) p[x.type] = x.value;
+  return { dia: Number(p.day), mes: Number(p.month) - 1, anio: Number(p.year) };
+}
 
 /** «12 oct». Con el año sólo si no es el de `ahora`: una pieza de 2024 no es «de este octubre». */
 export function fechaCorta(iso: string, ahora: Date = new Date()): string {
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return '';
-  const base = `${d.getUTCDate()} ${MESES[d.getUTCMonth()]}`;
-  return d.getUTCFullYear() === ahora.getUTCFullYear() ? base : `${base} ${d.getUTCFullYear()}`;
+  const f = diaEnLaZona(d);
+  const base = `${f.dia} ${MESES[f.mes]}`;
+  return f.anio === diaEnLaZona(ahora).anio ? base : `${base} ${f.anio}`;
 }
 
 /** «hace 2 h». Dice cuándo se leyó, que es lo único que se sabe: no promete que se mire solo. */
@@ -118,6 +135,17 @@ export const miniaturaDePieza = (p: { canal: string; ref: string; miniatura?: st
     : p.canal === 'youtube' ? `https://i.ytimg.com/vi/${encodeURIComponent(p.ref)}/mqdefault.jpg`
     : null
 );
+
+/**
+ * La miniatura para lo CHICO: las tarjetitas del gráfico (34 px) y las filas de «Lo que mejor le fue» (44 px).
+ *
+ * ⚠️ UN VIDEO DE YOUTUBE VA CON LA CHICA DE YOUTUBE (11/11/2026, mirado con capturas). Nuestra copia guardada es la grande
+ * (85 KB la medida) y la `mqdefault` de YouTube pesa 4,7 KB, es la misma imagen y no vence. Con ~180 tarjetitas por gráfico,
+ * casi ninguna llegaba en el tope de la precarga y el gráfico de Leila Hormozi se vio con CERO portadas: todas las tarjetitas
+ * de color. Instagram no tiene una chica pública: va la guardada.
+ */
+export const miniaturaChica = (p: { canal: string; ref: string; miniatura?: string | null }, ahora: number = Date.now()): string | null =>
+  p.canal === 'youtube' && p.ref ? `https://i.ytimg.com/vi/${encodeURIComponent(p.ref)}/mqdefault.jpg` : miniaturaDePieza(p, ahora);
 
 export type FilaConteo = { rotulo: string; n: number; pct: number };
 

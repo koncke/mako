@@ -106,8 +106,8 @@ import { partirYUbicar } from "@/app/video-editor/_opencut/subtitles/build-subti
 import type { OperacionResuelta, RefElemento } from "./linea";
 
 /** Lo que se aplica después del lote, con su propio paso de deshacer (tarda). */
-export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" | "usar_plantilla" | "borrar_silencios" | "usar_preset_subtitulos" | "estilo_subtitulos" | "broll" | "cambiar_broll" | "clips_magicos" | "edicion_automatica" | "emojis_subtitulos" }>;
-const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos", "usar_preset_subtitulos", "estilo_subtitulos", "broll", "cambiar_broll", "clips_magicos", "edicion_automatica", "usar_plantilla", "borrar_silencios", "emojis_subtitulos"]);
+export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" | "usar_plantilla" | "borrar_silencios" | "usar_preset_subtitulos" | "usar_plantilla_subtitulos" | "estilo_subtitulos" | "broll" | "cambiar_broll" | "clips_magicos" | "edicion_automatica" | "emojis_subtitulos" }>;
+const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos", "usar_preset_subtitulos", "usar_plantilla_subtitulos", "estilo_subtitulos", "broll", "cambiar_broll", "clips_magicos", "edicion_automatica", "usar_plantilla", "borrar_silencios", "emojis_subtitulos"]);
 export const esLarga = (r: OperacionResuelta): r is OperacionLarga => LARGAS.has(r.op);
 
 /** Un comando que se arma al EJECUTAR, contra la línea de tiempo de ese momento del lote. */
