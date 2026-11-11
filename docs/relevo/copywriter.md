@@ -37,6 +37,23 @@ y editarlo.
   el aviso no miraba el título propuesto (`4322790ff`).
 - **Páginas de prueba de esta vuelta:** ws 9 `gzq1mp4ggrs`, borrada y comprobada en la base.
 
+## Tercera vuelta: lo que pidió Martín con capturas (11/11, noche) — SALE EL 12/11 A LAS 11:05 UTC
+
+- **En la punta (39dd39bbd y 9ced6db76):** Replicar escribe el guion ENTERO solo (oferta principal, sin «Aceptar»; las otras
+  ofertas, como botones debajo); la portada va en el centro de Create con el chat de MaKo a la izquierda y «Nueva página» vuelve a
+  ella; tarjetas de copy (texto primero, YouTube 16:9); fila de plantillas en la portada; la portada liviana. Recorrido y lista de
+  lo que frenaba: la nota `copywriting-recorrido-1111.md` en la carpeta de notas del Cerebro.
+- **ANTES de la velocidad** (producción 2507c11c7, ws 9, 1440): 7,5 MB de HTML, 3,8 s al primer byte, 5,3 s hasta poder usarla,
+  8,9 s a la carga entera, 2.291 tarjetas, 46.030 elementos, filtros Reels 1,0 s · Todos 1,7 s · YouTube 7,2 s · Todos 2,2 s.
+  Se mide igual: `performance.getEntriesByType('navigation')` y un `MutationObserver` alrededor del clic en el filtro.
+- **LA PRUEBA DE MAÑANA, apenas producción tenga 39dd39bbd o posterior** (con capturas a 1440 y 375, en el ws 9):
+  1. el DESPUÉS de la velocidad con los mismos números;
+  2. tres réplicas reales AL LADO de su original con el cuerpo entero: el YouTube «¿Se puede vivir como creador de contenidos en
+     Argentina?» (tiene transcripción, pieza 2605), el reel «Cobrar mejor no es suerte, es sistema» (pieza 1115) y un anuncio;
+  3. la ida y vuelta: portada → Replicar → guion → «←» → «Nueva página» → portada, con el chat a la izquierda;
+  4. las plantillas en la portada;
+  5. borrar las páginas de prueba (script de arriba) y comprobarlo en la base. La página de Martín `gd0cztjgxek` es SUYA: no se borra.
+
 ## Lo que falta
 
 - **Mirar en producción, después del próximo despliegue, los arreglos de arriba** (a 1440 y 375).
