@@ -822,10 +822,11 @@ export async function datosDeGraficos(pedidos: PedidoDatos[], opts: { plazoMs?: 
     const claveAnt = ant ? `${g.fuente}|${g.fecha}|${ant.desde}|${ant.hasta}|false${porDim}` : null;
     if (ant && claveAnt && !lecturas.has(claveAnt)) lecturas.set(claveAnt, leerConPlazo({ ...ant, sinRango: false }));
     try {
-      // La etiqueta con el nombre que la app ya usa («Calendly», no «calendly»); la clave no cambia (lib/graficos-nombres.ts).
-      const resultado = nombrarFilas(agregar(g, filtrarFilas(await lecturas.get(clave)!, filtros), p.desde, hasta), g.fuente, g.dimension);
+      const resultado = agregar(g, filtrarFilas(await lecturas.get(clave)!, filtros), p.desde, hasta);
       if (ant && claveAnt) resultado.anterior = agregar(g, filtrarFilas(await lecturas.get(claveAnt)!, filtros), ant.desde, ant.hasta).totales;
-      out[g.id] = { ok: true, resultado };
+      // La etiqueta con el nombre que la app ya usa («Calendly», no «calendly»); la clave no cambia (lib/graficos-nombres.ts).
+      // Al guardar, no al agregar: las dos líneas de arriba las fija tests/graficos-delta-sigue-al-filtro.test.ts.
+      out[g.id] = { ok: true, resultado: nombrarFilas(resultado, g.fuente, g.dimension) };
     } catch (e) {
       console.error(`[graficos] ${clave}: ${e instanceof Error ? e.message : String(e)}`);
       out[g.id] = e instanceof SinConexionError
