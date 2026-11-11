@@ -4,6 +4,16 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+## Mirar la foto ACHICADA también engaña: el velo del recorrido «no estaba», y el píxel decía que sí (11/11/2026)
+
+**Síntoma:** en la sexta maqueta de Marketing CoPilot, la foto de 1440 × 900 del recorrido de «Tu web» se veía con la página clara. Parecía que el velo oscuro no se dibujaba.
+
+**El diagnóstico obvio era el equivocado.** Leyendo el color del píxel de la misma foto, la barra de arriba pasaba de `#e4e4e1` a `#5a5a59`: el velo estaba. Recortada a tamaño real, la foto mostraba el velo y el recorte con el aro alrededor del titular. Lo que engañó fue mirarla achicada.
+
+**Lo que queda:**
+- Ante «esto no se dibuja» en una captura grande, primero se recorta a tamaño real o se lee el píxel (System.Drawing alcanza).
+- Recién después se toca el código.
+- Y al revés: una captura achicada que «se ve bien» tampoco prueba detalles chicos.
 ## Probar leyendo no es mirar: la primera vuelta de Competitor Spy no vio un gráfico sin una sola portada (11/11/2026)
 
 Martín miró las pruebas del 10/11 y dijo que no funcionaron: en Video había un solo outlier, miniaturas grises, títulos cortados y

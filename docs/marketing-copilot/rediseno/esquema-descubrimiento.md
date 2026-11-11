@@ -24,7 +24,8 @@ Las maquetas, en `docs/marketing-copilot/rediseno/`, una por vuelta para poder c
 
 | Maqueta | Qué cambia | Artifact |
 |---|---|---|
-| [`maqueta-analisis.html`](maqueta-analisis.html) | **La vigente.** Zernio en el paso 2; «Tu negocio» como análisis y sin chat; «Tu oferta» con «Mejorar oferta», la nota al costado y «Mejorar» / «Corregir» en cada nota; «Tu web» dibujada; el paso 5, la operación. | claude.ai/artifact/6oFhRx6JnoHMVgFyoUxcNN |
+| [`maqueta-visual.html`](maqueta-visual.html) | **La vigente.** Cada canal con su cara (las miniaturas de verdad) y el feedback encima; el popup de cada pieza; mensajes como un chat de WhatsApp, el VSL con su reproductor, el formulario dibujado; «Tu web» con el recorrido del Web Analyst; «Mejorar oferta» lleva al chat de Offer; la operación en dos: lo que corre (el árbol de Ads Manager) y tu máquina de contenido, con el presupuesto. | claude.ai/artifact/F1WFdNi1nBJoWakPhVUxWU |
+| [`maqueta-analisis.html`](maqueta-analisis.html) | Zernio en el paso 2; «Tu negocio» como análisis y sin chat; «Tu oferta» con «Mejorar oferta», la nota al costado y «Mejorar» / «Corregir» en cada nota; «Tu web» dibujada; el paso 5, la operación. | claude.ai/artifact/6oFhRx6JnoHMVgFyoUxcNN |
 | [`maqueta-por-canal.html`](maqueta-por-canal.html) | «Tu negocio» con una pestaña por canal, cada una con la cara de su app; logos reales; varios archivos de oferta; el texto en tú. | claude.ai/artifact/97pKNFeiPV4U8asB9ejLwn |
 | [`maqueta-arranque.html`](maqueta-arranque.html) | Botones primero, sin chat, y la lectura de lo que se cargó. | claude.ai/artifact/LUyer4k7kV1sokRuBYeX44 |
 | [`maqueta-descubrimiento.html`](maqueta-descubrimiento.html) | El chat desde el principio, pidiendo tu Instagram y tu web en el bloque. | claude.ai/artifact/XboRwCiqtwybpf4iPXQpqw |
@@ -34,6 +35,43 @@ Lo que hay que revisar en cada canal, con su curso y su clase, está en `docs/ma
 - `organico.md`: Instagram, YouTube, la web y la máquina de contenido;
 - `anuncios.md`: los cuatro tipos de funnel con anuncios, los anuncios en sí y su máquina;
 - `zernio.md`: qué trae de verdad la conexión.
+
+## Lo que cambió en la sexta vuelta (11/11)
+
+- **Tu oferta:**
+  - «Mejorar oferta» va al lado de la nota;
+  - «Lo que leí de tu oferta» es el segundo bloque del costado;
+  - «Mejorar oferta», o «Mejorar» en una nota, lleva al chat de Offer, que arranca por esa parte con su pregunta.
+- **Tu web:**
+  - la página casi a todo el ancho y nada abajo;
+  - los comentarios son el recorrido del Web Analyst (`RecorridoDiagnostico.tsx`): se oscurece todo, un recorte deja ver la parte y al lado va la tarjeta con «n de N», la severidad, «Mejorar», «Corregir», «Saltar», «Anterior» y «Siguiente»;
+  - se abre solo la primera vez, y «Ver los comentarios» lo vuelve a abrir.
+- **Instagram y YouTube:** secciones con su cara y el feedback debajo.
+  - **Instagram:** el perfil con marcas, los reels con sus miniaturas de verdad, qué te funciona, cada cuánto (un calendario) y las historias.
+  - **YouTube:** el canal, los videos, cada cuánto y lo que te piden en los comentarios.
+  - En las dos, los mejores van primero, y al tocar una pieza sale el popup con sus números y lo que le diría MaKo.
+- **Anuncios:** los mejores anuncios arriba (popup al tocarlos) y la vista de su destino:
+  - **mensajes:** un chat de WhatsApp con varias conversaciones y los comentarios de MaKo entre los mensajes;
+  - **VSL:** el reproductor, la caída minuto a minuto con marcas y la transcripción con sus comentarios;
+  - **formulario:** el formulario de Meta dibujado, con marcas;
+  - **compra directa:** la página.
+- **Se fueron** «Lo leí con» y «Con la cuenta conectada».
+- **La operación**, en dos subpestañas:
+  - **Lo que está corriendo:** el árbol de Ads Manager (`Arbol.tsx`) con una rama por canal y sus tarjetas: lo que MaKo hizo con «Deshacer», lo que propone con «Aplicar» y lo que te toca.
+  - **Tu máquina de contenido:** arriba, la estrategia del mes, con el ritmo y el presupuesto. Debajo, una tarjeta por pieza (historia, reel, carrusel, video de YouTube, anuncio), con:
+    - su formato dibujado y una referencia de verdad;
+    - cuántas y cada cuánto;
+    - los pasos, cada uno con «Ir a» la sección de MaKo donde se hace.
+- **El presupuesto se pregunta en la máquina**, que es donde cambia los números. La cantidad de anuncios sale de la calculadora de la casa (`lib/calculadora-presupuesto-ads.ts`, pasada tal cual):
+
+  | Presupuesto por mes | Anuncios |
+  |---|---|
+  | US$300 | 1, sin comparar |
+  | US$1.000 | 3 |
+  | US$3.000 | 6, en dos rondas |
+  | US$5.000 | 9 |
+
+  Con un costo por conversación de ejemplo de US$12. Martín no tenía claro si va al principio; también podría ir en el paso 2, al conectar Meta.
 
 ## Los pasos
 
@@ -120,6 +158,15 @@ Lo que hay que revisar en cada canal, con su curso y su clase, está en `docs/ma
   - sus anuncios y sus chats;
   - todo el paso 5.
 - **Las razones de compra** del paso 5 son frases de su página y sus reels.
+- **(Sexta vuelta)** Las miniaturas de sus reels, videos y su avatar son de verdad: se bajaron del almacenamiento público del Spy (`spy-miniaturas`) y van dentro de la maqueta, porque el visor de Artifacts no carga imágenes de afuera.
+  - Lo que MaKo le dice a cada pieza sale de sus números y su texto en el Spy. Por ejemplo, el reel cuyo texto es «caso de exito.mp4».
+  - Son de ejemplo:
+    - las conversaciones de WhatsApp;
+    - la transcripción y la caída del VSL;
+    - el formulario y la página de compra;
+    - los números de sus anuncios;
+    - las métricas que sólo da la conexión (guardados, tasa de salto, duración media).
+  - Los comentarios de su video de YouTube son de verdad.
 
 ## Lo que falta en el código para hacerlo de verdad
 
@@ -146,5 +193,7 @@ Viene de los tres relevos; el detalle está en cada documento.
 - **La recomendación del funnel** (antes la cerraba el chat): sin chat en el paso 4, falta decidir dónde va.
 - **Dónde vuelve el chat** y qué se ve al lado.
 - **Qué hace MaKo solo y qué te pregunta** en la operación: presupuesto, apagar, publicar. La maqueta lo hace solo con «Deshacer».
+- **Dónde se pregunta el presupuesto de anuncios:** la maqueta lo pregunta en la máquina de contenido. La otra opción es el paso 2, al conectar Meta.
+- **El costo por resultado** con el que la calculadora cuenta los anuncios: con la cuenta conectada sale de sus anuncios. Sin historia, hace falta un número de partida.
 - **Prospección** quedó afuera: su lectura no se puede hacer.
 - **Newsletter** no está entre los tres canales. Entra después, como funnel.

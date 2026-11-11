@@ -308,6 +308,20 @@ Martín pidió que «Tu negocio» sea un análisis y no una réplica de cada app
   Para no inventar lo de su oferta se leyó el desplegable de cada nota en producción, sin escribir nada. Los números de la conexión y de sus anuncios no existen: son de ejemplo, con su marca.
 - **Martín miró la maqueta ANTERIOR y creyó que se habían saltado sus pedidos** («te saltaste un montón de cosas»). La nueva todavía no estaba publicada porque la guardia de RAM frenó la captura. Cuando una vuelta tarda, se dice en el momento que lo que está mirando es la anterior, con su link.
 
+## La sexta maqueta: el análisis se MUESTRA sobre la cara de cada cosa, no en una lista (11/11/2026)
+
+Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables. Pidió volver a ver las publicaciones, las miniaturas, el chat, el VSL y el formulario, con el feedback encima: «así es fácil de ver». La maqueta es `docs/marketing-copilot/rediseno/maqueta-visual.html`.
+
+- **La regla que queda:** el análisis no reemplaza a la cara de la plataforma, va sobre ella. Para cada cosa:
+  - la sección con su forma (el perfil, la grilla de reels, el chat, el reproductor, el formulario);
+  - marcas o un popup con lo que le diría MaKo;
+  - abajo, los puntos de los cursos.
+- **Todo eso ya existe en la casa y se copió, no se inventó:**
+  - el recorrido del Web Analyst para «Tu web» (`app/web-generator/diagnostico/RecorridoDiagnostico.tsx`, su `CSS_RECORRIDO`);
+  - el árbol de Ads Manager para «Lo que está corriendo» (`app/ads-manager/Arbol.tsx` y `aa.css`);
+  - la calculadora de presupuesto para cuántos anuncios probar (`lib/calculadora-presupuesto-ads.ts`, con su elección por «sale de aprendizaje»: con US$3.000 elige 6 anuncios en dos rondas y no 9).
+- **Las miniaturas de verdad están en el almacenamiento público del Spy** (`spy-miniaturas/spy/<red>/<id>.jpg`): se pueden bajar, achicar y meter como data URI. Las publicaciones no tienen miniatura: ver `hallazgos-competitors-spy.md`.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
