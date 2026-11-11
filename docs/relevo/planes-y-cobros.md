@@ -51,3 +51,9 @@ Si aprueban, se cumple antes de la primera venta:
 4. El Acelerador (asesoría humana) no se cobra por Whop.
 5. Si vuelve la moderación de imágenes, recién ahí se puede decir que existe.
 Texto a mandar (TODAVÍA NO SALIÓ: espera el sí de Martín en el chat de Planes y cobros): docs/proveedores-de-cobro.md, sección 10, «El texto FINAL para mandar».
+
+## Whop, 11/11 (cont.)
+- Titular: **Leandro** (decisión de Martín por el Cerebro), como Creem y dLocal: la solicitud sale desde la cuenta de Whop de
+  Leandro, con su verificación de identidad.
+- No salió. Falta: el sí de Martín escrito en este chat (un relevo de otra sesión no alcanza para mandarle algo a un
+  tercero), y una sesión de Whop de Leandro abierta en un navegador (no se crean cuentas ni se escriben contraseñas).
