@@ -1159,9 +1159,9 @@ async function contestaAlEquipo(wsData: number, instance: string, jid: string, d
 const CLAVE_TARDE_AVISADOS = 'mako.tarde.avisados';
 
 /**
- * ¿El mensaje atrasado ya se atendió, o es de MaKo misma? Ya pasó por la cola (lo atendió MaKo cuando llegó por la otra línea), está
- * en el anillo de lo que mandó, o lo escribió la línea de la voz: visto desde otra línea del grupo, lo de MaKo llega como de una
- * persona, con su número en `participantAlt`. El anillo guarda 40: para lo de ayer no alcanza, el número sí.
+ * ¿El mensaje atrasado ya se atendió, o es de MaKo misma? Ya pasó por la cola (lo atendió MaKo cuando llegó por la otra línea), o lo
+ * escribió la línea de la voz: visto desde otra línea del grupo, lo de MaKo llega como de una persona, con su número en
+ * `participantAlt`. No va por el anillo (`esEcoDeMaKoAhora`): guarda 40 ids, y para lo de ayer no alcanza; el número sí.
  */
 async function atrasadoYaAtendido(instance: string, jid: string, data: MsgIn): Promise<boolean> {
   const id = data.key?.id ?? '';
@@ -1169,8 +1169,8 @@ async function atrasadoYaAtendido(instance: string, jid: string, data: MsgIn): P
     const { data: fila, error } = await getSupabaseServer().from('mako_doer_buffer').select('id').eq('grupo_jid', jid).eq('wa_message_id', id).limit(1);
     if (!error && fila?.length) return true;
   }
-  if (await esEcoDeMaKoAhora(instance, jid, data.key).catch(() => false)) return true;
-  const voz = await instanciaVoz().catch(() => null);
+  // La voz ESTRICTA: la otra convierte un error en «mako_ws1». Sin leerla, no se reconoce al autor y se avisa (el lado seguro).
+  const voz = await instanciaVoz({ estricto: true }).catch(() => null);
   const numeroVoz = voz ? (await numeroDeLaLinea(voz))?.replace(/\D/g, '') : null;
   const autor = [data.key?.participantAlt, data.key?.participant].map((j) => /^(\d{8,15})@s\.whatsapp\.net$/.exec(String(j ?? ''))?.[1]).find(Boolean);
   return !!numeroVoz && !!autor && autor.slice(-10) === numeroVoz.slice(-10);
