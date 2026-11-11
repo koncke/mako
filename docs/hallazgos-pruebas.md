@@ -4,6 +4,23 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+## El navegador de la app con el panel OCULTO congela la página: lo que no responde ahí no es una falla de la app (10/11/2026)
+
+**Síntoma:** en la prueba de punta a punta de Image, en el navegador de la app de Claude (`mcp__Claude_Browser__*`), «Editar» no
+abría el guiado: ni con un clic real, ni llamando a mano a `onReplicar`. El estado de React no cambiaba, no había errores en la
+consola y el botón era el que estaba arriba (`elementFromPoint`). Antes, un script sin esperas tardó más de 45 s y una
+navegación quedó colgada 300 s.
+
+**Lo obvio era una falla del guiado en el ws 3, y no:** en el Chrome de Martín, a la vista, el mismo «Editar» abre el guiado.
+Con la sesión de Claude sin ventana a la vista, el panel queda oculto y la página corre como pestaña de fondo; con poca RAM (1,9 GB
+libres esa noche), además, se congela. Los filtros y el orden sí andaban ahí, así que «a veces anda» no prueba que la página esté
+bien.
+
+**La regla:** antes de anotar una falla de algo que no reacciona en el navegador de la app, `tabs_context` dice si el panel está
+oculto. Si lo está, se repite con el panel a la vista, o se le pide un turno al Cerebro, antes de creerle. ⚠️ **NO en el Chrome de
+la extensión:** tiene la sesión de LEANDRO (ws 10), un cliente real, y el `?ws=` se ignora. La prueba del 10/11 dejó ahí 2 usos
+de IA y una apertura vista (docs/pruebas/image-10-11.md, «Límites»).
+
 ## Un `assert.equal` con un elemento de jsdom que falla agota la memoria (10/11/2026)
 
 **Síntoma:** al verificar rompiéndolo `tests/carruseles-imagen-rota.test.ts`, el corredor contó «tests 1» y terminó: los casos

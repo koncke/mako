@@ -254,6 +254,9 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
       chat={abierto && carga !== 'falla'
         ? (volver) => <ChatDelEditor disenoId={abierto} volver={volver} carga={carga} onRanura={setRanura} />
         : g ? (volver) => <ChatReplica g={g} volver={volver} /> : undefined}
+      // En una ventana angosta, el guiado abre en el chat: ahí está la pregunta (10/11/2026). La key cambia con el guiado, así que
+      // esto vale al entrar a cada uno.
+      movilDeEntrada={g ? 'mako' : undefined}
       // El lienzo necesita el ancho, como el Video Editor (29/10/2026): el chat se pliega a una barra fina. Mientras se replica,
       // NO: la tarjeta es donde MaKo pregunta.
       plegable={!!abierto}
