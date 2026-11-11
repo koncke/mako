@@ -7937,3 +7937,33 @@ habilitarla es decisión de Martín: habilitarla es volver a prestarle IA a un c
   error que ve el usuario no puede ser el texto técnico ni pedirle a la plataforma que «pegue una nueva».
 - **Sin hacer:** que la cascada salte y recuerde una cuenta muerta (`lib/ai-cheap.ts`), y el mensaje de `errorDeCascada`
   (`lib/ia-mensajes.ts`).
+
+## El crédito de Claude PRIMERO en el espacio de MaKo y en WhatsApp, Gemini de respaldo (11/11/2026)
+
+- **La decisión**, Martín, textual: «MaKo con WhatsApp ya habíamos dicho que eso se gaste con los tokens de las cuentas de
+  Claude 200 dólares que estoy pagando… En general, yo creo que sería bueno que gastemos eso para todo esto en lugar de Gemini,
+  porque es mucho más estable.» Lo que NO cambia: un negocio fuera de WhatsApp sigue con SU IA; el Plan queda afuera («JAMÁS
+  algo pago para el plan»); las funciones con `fallback: []` no usan el crédito; y en el grupo de un cliente sin IA propia, si
+  fallan las cuentas, queda el cartel (nunca el Gemini de la plataforma con datos de sus clientes). La regla para código nuevo
+  está en AGENTS.md (la tercera puerta del veto).
+- **El diagnóstico obvio era el equivocado: la puerta 3 parece la del crédito, y la que sirve es la 2.** `conCreditoDeLaPlataforma`
+  lee 2 de las 5 cuentas (y la 1 es la asignada a Mauricio), no acepta imágenes ni herramientas, y su test corta el cuerpo a
+  8.000 caracteres. La puerta 2 (la de los grupos de WhatsApp) ya tenía la lista única de cuentas, el reparto, la cuenta
+  agotada salteada, el interruptor, Haiku forzado, el Plan afuera y la marca «(cuenta N)». El cambio fue una regla (quién
+  puede usar una cuenta) y tres lugares que la consultan.
+- **WhatsApp ya corría con el crédito desde el 28/10; lo que mentía era el catálogo.** En la semana del 4 al 11/11, las 94
+  llamadas de `mako-doer-in` fueron Haiku con crédito, y el catálogo decía `def: GEMINI()`: figuraba entre «las 60 con Gemini».
+- **El override `mako.modelos` es global** (se guarda en OWNER_WS): no sirve para rutear sólo el ws 9. Y poner un `def` de
+  Anthropic manda la llamada a la puerta 1, que el veto frena. No se toca ni el `def` ni /modelos-ia.
+- **Trampas que estaban vivas:**
+  - el chat de WhatsApp SIN pin y sin IA propia caía a la puerta 1 con Sonnet u Opus, y el veto lo cortaba (hoy no pasaba
+    porque hay un pin; sacarlo en /modelos-ia lo rompía);
+  - el `fetch` del bucle con herramientas (`chatClaudeTools`) no tenía timeout, y el clasificador del grupo tampoco: un
+    Anthropic colgado trababa el turno hasta el corte de undici (~300 s);
+  - el agotamiento de una cuenta de los grupos no quedaba escrito: se marcaba sólo en la memoria de la instancia, sin la fila
+    «sin crédito hasta el próximo ciclo», así que el Uso (`sinCreditoAt`) nunca se enteraba; y el gasto de un negocio sin su
+    Claude quedaba anotado en el ws 9;
+  - `conClaveDelNegocio` anotaba un fallo de NUESTRO crédito en la tarjeta de «Tus cuentas de IA» del negocio.
+- **Costo, medido del 4/11 al 11/11** (Haiku a 1/5 US$ por millón): el ws 9 sin el Plan, unos US$28 por mes; WhatsApp fuera del
+  ws 9, US$1,4. Unos US$30 de los US$400 de las dos cuentas con clave. El pico del 9/11 todos los días serían US$163. Lo que
+  mide MaKo es lo REGISTRADO: Anthropic no deja leer el saldo, así que si las claves se usan fuera de MaKo el número se queda corto.

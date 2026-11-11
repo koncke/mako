@@ -5922,6 +5922,21 @@ nuevo:
   `ia.credito_grupos` de la plataforma lo apaga. ⚠️ **Las cuentas son UNA lista, la del Uso** (`CUENTAS_DEL_CREDITO`,
   lib/credito-api.ts → `CLAVES_CREDITO_DE_LOS_GRUPOS`): una cuenta nueva es una línea ahí, nunca otra copia de nombres. Una
   cuenta que paga y el Uso no conoce es gasto que no se ve.
+- ⚠️ **Y TODO LO DEL ESPACIO DE MaKo (el ws 9) MENOS EL PLAN, desde el 11/11/2026: el crédito PRIMERO y Gemini de respaldo.**
+  Martín, textual: «MaKo con WhatsApp ya habíamos dicho que eso se gaste con los tokens de las cuentas de Claude 200 dólares
+  que estoy pagando… En general, yo creo que sería bueno que gastemos eso para todo esto en lugar de Gemini, porque es mucho
+  más estable.» Lo que NO cambia: un negocio fuera de WhatsApp sigue con SU IA; el Plan (`FEATURES_DEL_PLAN`) queda afuera
+  («JAMÁS algo pago para el plan»); una función con `fallback: []` no usa el crédito (mezclaría dos modelos en un juicio); y
+  en el grupo de un cliente sin IA propia, si fallan las cuentas, queda el cartel, nunca el Gemini de la plataforma con datos
+  de sus clientes. Lo que gobierna código nuevo:
+  - **La regla es UNA función pura**, `puedeUsarUnaCuentaDelCredito` (lib/veto-claude.ts): las funciones de los grupos
+    (`FEATURES_DE_LOS_GRUPOS`) en cualquier negocio; cualquier otra que no sea del Plan, sólo en la plataforma y hasta la fecha
+    de `CREDITO_PARA_LA_PLATAFORMA`; «no sé» es no.
+  - **«Es la plataforma» se calcula ADENTRO de la puerta** (`getWorkspaceActual() === wsSuperAdmin()`, y si falla, no), nunca
+    con un dato que mande el que llama ni con `OWNER_WS`, que es Mauricio, un cliente. Un cron sin workspace no es la plataforma.
+  - **Entra por la puerta 2 (las cuentas de los grupos), no por la 3.** La 3 (`conCreditoDeLaPlataforma`) lee 2 de las 5
+    cuentas, no mira imágenes ni corre herramientas, y queda sólo para el onboarding. Por la 2 va con Haiku, con «(cuenta N)» y
+    el ws real en la fila, y se apaga sin deploy con `ia.credito_plataforma` («apagado»; sin fila, prendido).
 - **Y lo que lo gasta pasa por la GUARDIA del onboarding** (17/10/2026, `frenoDeIa`, lib/onboarding-guardia-server.ts:
   ráfaga por usuario e IP, un tope de turnos y documentos por onboarding en la base, el troleo que no llega a la IA y
   el bloqueo con aviso al equipo). Una acción nueva de /api/offer que pague IA se suma a `tipoIa` antes del `switch`;
