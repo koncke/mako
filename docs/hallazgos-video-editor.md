@@ -33,6 +33,15 @@ Números y método en docs/editor-video/memoria-del-editor.md.
   - La miniatura del proyecto y la portada del cuadro de exportar se arman sin `isPreview`, así que abrían el
     decodificador del ORIGINAL en cada guardado. Ahora van con la copia.
   - Exportar suelta los decodificadores del original al terminar.
+- **Dos rojos de GitHub que no eran del editor:**
+  - **TS2415 en el test del tope.** Un falso que EXTIENDE `VideoCache` y pisa `initializeSink` (privado) no compila,
+    aunque en la PC el test corra verde: `tsx` no chequea tipos. El falso va sobre la instancia
+    (`(c as unknown as {...}).initializeSink = …`).
+  - **El enjambre fijaba el cuerpo de `profundidad()` con un regex** (`tests/video-editor-enjambre.test.ts`). Cambiar la
+    función dio rojo en un test de otro archivo, que el filtro de la PC no corre. **Regla:** antes de cambiar el cuerpo de
+    una función del motor, buscar su texto en `tests/` (`grep -rn "return this.history" tests/`).
+  - Y una rama apilada hereda el rojo de la de abajo: el arreglo se pasa con cherry-pick a cada una, no hace falta
+    reescribirlas.
 - **Trampas del banco, para la próxima medición:**
   - En un Chrome sin ventana los lienzos viven en el proceso de la GPU: midiendo sólo el de la página, el video «no gasta
     nada».
