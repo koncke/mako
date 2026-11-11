@@ -51,7 +51,7 @@ function conectar(url) {
       // Con tope: si Chrome se cae, la llamada no queda esperando para siempre.
       send: (method, params = {}, sessionId) => new Promise((ok2, mal2) => {
         const i = ++id;
-        const tope = setTimeout(() => { esperando.delete(i); mal2(new Error(`${method}: sin respuesta en 90 s (¿se cayó Chrome?)`)); }, 90000);
+        const tope = setTimeout(() => { esperando.delete(i); mal2(new Error(`${method}: sin respuesta en 300 s (¿se cayó Chrome?)`)); }, 300000);
         esperando.set(i, { ok: (v) => { clearTimeout(tope); ok2(v); }, mal: (e) => { clearTimeout(tope); mal2(e); } });
         ws.send(JSON.stringify({ id: i, method, params, sessionId }));
       }),
@@ -162,6 +162,19 @@ const A1 = 'v1080-30.mp4', A2 = 'v1080-60.mp4', K = 'v4k-20.mp4';
 const ESCENARIOS = [
   ['onda-30s', [['cargar 38 MB', `prueba.cargar('${A1}')`], ['forma de onda', `prueba.onda('${A1}')`]]],
   ['onda-60s', [['cargar 76 MB', `prueba.cargar('${A2}')`], ['forma de onda', `prueba.onda('${A2}')`]]],
+  ['onda-igual-30s', [['cargar 38 MB', `prueba.cargar('${A1}')`], ['comparar con la de antes', `prueba.ondaComparar('${A1}')`]]],
+  // DESPUÉS del lienzo por capa (compositor/lienzo-de-subida.ts): lo mismo que repro-1080-subida y repro-4k.
+  ['subida-reusada-1080', [['cargar', `prueba.cargar('${A2}')`], ['reproducir 5 s con la subida de cada cuadro', `prueba.reproducir({nombres:['${A2}'],segundos:5,subir:'reusado'})`]]],
+  ['subida-reusada-4k', [['cargar', `prueba.cargar('${K}')`], ['reproducir 5 s', `prueba.reproducir({nombres:['${K}'],segundos:5})`],
+    ['con la subida de cada cuadro', `prueba.reproducir({nombres:['${K}'],segundos:5,subir:'reusado'})`]]],
+  // El tope de decodificadores (services/video-cache, 5 s de uso): 4 clips seguidos, el último 7 s.
+  ...['antes', 'despues'].map((m) => [`tope-${m}-1080`, [['cargar', `prueba.cargar('${A2}')`],
+    ...[2, 2, 2, 7].map((s, i) => [`clip ${i + 1}, ${s} s`, `prueba.reproducir({nombres:['${A2}'],segundos:${s},compartido:'${m}'})`])]]),
+  // Un proyecto más largo: 6 clips de 6 s seguidos. Lo que importa es si la memoria deja de CRECER.
+  ...['antes', 'despues'].map((m) => [`tope6-${m}-1080`, [['cargar', `prueba.cargar('${A2}')`],
+    ...[1, 2, 3, 4, 5, 6].map((i) => [`clip ${i}, 6 s`, `prueba.reproducir({nombres:['${A2}'],segundos:6,compartido:'${m}'})`])]]),
+  // Exportar: el audio de 4 clips de 60 s (collectAudioElements real). Antes: todos a la vez; después: de a uno.
+  ['exportar-audio-4', [['cargar', `prueba.cargar('${A2}')`], ['el audio de 4 clips', `prueba.exportarAudio({ nombre: '${A2}', clips: 4 })`]]],
   ['repro-1080', [['cargar', `prueba.cargar('${A2}')`], ['reproducir 5 s', `prueba.reproducir({nombres:['${A2}'],segundos:5})`],
     ['2º clip', `prueba.reproducir({nombres:['${A2}'],segundos:2})`], ['3º clip', `prueba.reproducir({nombres:['${A2}'],segundos:2})`]]],
   ['repro-1080-liviano', [['cargar', `prueba.cargar('${A2}')`], ['reproducir 5 s', `prueba.reproducir({nombres:['${A2}'],segundos:5,liviano:[540,960]})`],
@@ -173,6 +186,13 @@ const ESCENARIOS = [
     ['con la subida de cada cuadro', `prueba.reproducir({nombres:['${K}'],segundos:5,liviano:[960,540],subir:true})`]]],
   ['repro-proxy-1080', [['cargar', `prueba.cargar('p540-60.mp4')`], ['reproducir 5 s', `prueba.reproducir({nombres:['p540-60.mp4'],segundos:5})`],
     ['2º clip', `prueba.reproducir({nombres:['p540-60.mp4'],segundos:2})`], ['3º clip', `prueba.reproducir({nombres:['p540-60.mp4'],segundos:2})`]]],
+  // DESPUÉS: la copia que arma el editor (media/copia-liviana.ts), con lo que cuesta armarla y si respeta los tiempos.
+  ['copia-1080', [['cargar', `prueba.cargar('${A2}')`], ['armar la copia', `prueba.copia('${A2}')`],
+    ['reproducir 5 s', `prueba.reproducir({nombres:['${A2}.liviana'],segundos:5})`],
+    ['2º clip', `prueba.reproducir({nombres:['${A2}.liviana'],segundos:2})`], ['3º clip', `prueba.reproducir({nombres:['${A2}.liviana'],segundos:2})`]]],
+  ['copia-4k', [['cargar', `prueba.cargar('${K}')`], ['armar la copia', `prueba.copia('${K}')`],
+    ['reproducir 5 s', `prueba.reproducir({nombres:['${K}.liviana'],segundos:5})`],
+    ['con la subida de cada cuadro', `prueba.reproducir({nombres:['${K}.liviana'],segundos:5,subir:true})`]]],
   ['repro-proxy-4k', [['cargar', `prueba.cargar('p4k-20.mp4')`], ['reproducir 5 s', `prueba.reproducir({nombres:['p4k-20.mp4'],segundos:5})`],
     ['con la subida de cada cuadro', `prueba.reproducir({nombres:['p4k-20.mp4'],segundos:5,subir:true})`]]],
 ];

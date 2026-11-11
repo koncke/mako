@@ -232,7 +232,9 @@ test('8. cada agente usa la MISMA función que su botón; «Aceptar» corre a lo
   // Si la persona tocó el editor mientras trabajaban, sus cambios están en esa cuenta: no hay «Deshacer todo», y se dice.
   assert.match(correr, /const puedeDeshacer = !desdeElChat && !tocado && pasosHistorial > 0/);
   assert.match(correr, /if \(cuentaComoToque\(\{[\s\S]*?\}\)\)\s*tocado = true;/, 'el toque de la persona marca la corrida');
-  assert.match(sinComentarios(leer('app/video-editor/_opencut/core/managers/commands.ts')), /profundidad\(\): number \{\s*return this\.history\.length;/);
+  // Con el tope del historial (11/11/2026) cuenta también los pasos olvidados: si no, con el historial lleno la resta de
+  // «Deshacer todo» daba 0 (tests/video-editor-tope-historial.test.ts).
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/core/managers/commands.ts')), /profundidad\(\): number \{\s*return this\.olvidados \+ this\.history\.length;/);
 });
 
 // ─── Los cursores (tanda 2) ─────────────────────────────────────────────────

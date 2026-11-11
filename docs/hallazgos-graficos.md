@@ -1912,3 +1912,9 @@ izquierda y tapa la hoja (el de un gráfico va a la derecha) y el PDF que se baj
   (`lk-aviso-hoja`, la de «Conecta tu Claude»). No es un texto nuevo: es el del lector.
 - **La regla:** una pantalla que dibuja su propio vacío tiene que seguir mostrando POR QUÉ está vacía, si la causa la sabe alguien.
   **Vive en:** app/dashboard/falta-conectar.ts, EditorInforme.tsx (`faltaConectar`), Grafico.tsx (`EstadoDatos`).
+
+## La frase de una plantilla no conjugaba el «1» (11/11/2026)
+
+«Entraron 3 visitas de 1 personas»: las palabras de las frases de las plantillas están en plural fijo. `tramosDeFrase` pasa a singular la palabra
+que sigue a un número «1», con una tabla CERRADA de las que usan las plantillas (`SINGULAR`, lib/graficos-frase.ts: «personas», «agendaron»,
+«veces»…). Una palabra nueva en una frase que vaya después de un número entra a esa tabla; si no, queda en plural.

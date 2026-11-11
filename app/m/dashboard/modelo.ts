@@ -156,6 +156,19 @@ export function faltaConectar(lecturas: ReadonlyArray<{ ok: true } | { ok: false
  */
 export const noSeLeyo = (lecturas: ReadonlyArray<{ ok: boolean } | undefined>): boolean => lecturas.length > 0 && lecturas.every((r) => !r?.ok);
 
+/** ¿Es un costo sobre el gasto (costo por agenda, por lead…)? Con el gasto en cero no hay costo que medir: va «—» (11/11/2026). */
+export const esCostoSobreGasto = (met: { razon?: { num: string } } | undefined): boolean => met?.razon?.num === 'gasto';
+
+/**
+ * El valor con la unidad que el catálogo dice entre paréntesis («Mediana de respuesta (min)») y el título de la tarjeta no
+ * («Tiempo de respuesta»): «10» → «10 min», «3» → «3 días». Sin eso el teléfono decía «Tiempo de respuesta 10» (11/11/2026).
+ */
+export function conUnidad(valor: string, nombreMetrica: string | undefined, titulo: string): string {
+  const u = /\((min|días)\)\s*$/.exec(nombreMetrica ?? '')?.[1];
+  if (!u || valor === '—' || new RegExp(`\\b${u}\\b`, 'i').test(titulo)) return valor;
+  return u === 'días' && valor === '1' ? '1 día' : `${valor} ${u}`;
+}
+
 // ── La variación contra el período anterior ─────────────────────────────────────────────────
 
 /**

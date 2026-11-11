@@ -12324,3 +12324,29 @@ Los scripts quedaron en el relevo del rediseño de Marketing CoPilot: `captura-w
 - con PowerShell para lo liviano (copiar un archivo, chequear la sintaxis con `node --check`).
 
 Chrome se abre recién cuando hay aire, uno solo y cerrándolo por su PID.
+
+## El vigía de GitHub moría sin avisar: `renameSync` da EPERM en Windows si otro proceso tiene el archivo (11/11/2026)
+
+- **Síntoma:** el vigía (`scripts/claude-hooks/guardia/vigia-ci.mjs esperar`) terminaba con un stack de `EPERM: operation not
+  permitted, rename ci-estado.json.<pid>.tmp -> ci-estado.json` y ya no avisaba de ningún rojo. Parecía un problema de permisos.
+- **Causa real:** no son permisos. En Windows el rename sobre un archivo que otro proceso tiene abierto en ese instante (otro
+  vigía de otro chat, el antivirus, OneDrive) falla con EPERM/EBUSY. En Linux no pasa, por eso el patrón «escribir .tmp y
+  renombrar» parece seguro.
+- **Regla:** todo `renameSync` atómico en scripts que corren en la PC reintenta ante EPERM/EBUSY/EACCES y, si sigue trabado,
+  escribe directo. Un vigía que se cae en silencio es peor que uno que escribe sin atomicidad.
+
+## Una dependencia nueva en main no llega sola al `node_modules` compartido: frena el pre-push de OTROS chats (11/11/2026)
+
+- **Síntoma:** Web Generator no podía subir: el filtro de antes de subir daba rojo en `tests/customers.test.ts` con «Cannot find
+  module 'date-fns'». El chat no había tocado nada de eso, y el rojo se leyó como «el filtro anda mal».
+- **Causa real:** los worktrees de `C:/dev/wt-*` usan un `node_modules` que es un enlace al de
+  `dashboard-marketing-main/dashboard-marketing/node_modules`. Cuando un commit de main suma una dependencia (el Admin de Studio
+  Admin, 6/11, trajo `date-fns`, `@dnd-kit/*`, `@tanstack/react-table`, `cmdk`, `react-day-picker`, `react-hook-form`,
+  `simple-icons` y `cn`), nadie la instala ahí: GitHub instala desde el lock y da verde, y la PC queda atrás sin avisar. Faltaban 17
+  paquetes, contando los transitivos.
+- **Regla:** cuando un commit cambia `package.json`, el Cerebro compara el lock de main con el `node_modules` compartido e instala
+  SÓLO lo que falta, a la versión del lock y con su integridad comprobada. Nunca un `npm install` entero: con seis chats usándolo,
+  cambiar una versión rompe a alguien a mitad de un test.
+- **La otra trampa del mismo día:** tres chats (Image, Copywriting y THE NET LAB) estaban quietos «esperando RAM» para correr sus
+  tests o el tsc completo antes de subir. `scripts/filtro-punta.mjs` NO espera RAM: si no alcanza, avisa y deja subir, y la suite
+  la corre «punta → main» en GitHub. Con varios chats abiertos, en la PC sólo el test del archivo tocado.

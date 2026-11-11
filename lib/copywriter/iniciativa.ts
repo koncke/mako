@@ -77,3 +77,30 @@ export function pedidoDeIniciativa(pasos: readonly PasoIniciativa[], r: Respuest
       : `Adáptalo a: ${pasoOferta ? textoDeRespuesta(pasoOferta, oferta) : oferta}.`;
   return { adaptar: true, texto: [para, cual].filter(Boolean).join(' ') };
 }
+
+// ── Replicar un outlier (11/11/2026, docs/diseno-copywriter.md D18) ──────────────────────────────────────────────────
+// La página nace vacía de «Replicar» (lib/copywriter/outliers-servidor.ts) y MaKo toma la iniciativa como con una plantilla,
+// con UNA pregunta: para qué oferta. El original le llega por el server en cada pedido (lib/copywriter/ia.ts, `conElOriginal`).
+
+/** La única pregunta de una réplica: para qué oferta (o el negocio, si no hay ofertas cargadas). */
+export function pasosDeReplica(ofertas: readonly OfertaCorta[]): PasoIniciativa[] {
+  return [ofertas.length
+    ? {
+      id: 'oferta', pregunta: '¿Lo replico para tu oferta? ¿Para cuál?', libre: false,
+      opciones: [...ofertas.slice(0, TOPE_OFERTAS).map((o) => ({ valor: `oferta:${o.id}`, texto: o.nombre })), { valor: NO_ADAPTAR, texto: 'No, lo escribo yo' }],
+    }
+    : {
+      id: 'oferta', pregunta: '¿Lo replico para tu negocio?', libre: false,
+      opciones: [{ valor: AL_NEGOCIO, texto: 'Sí, replícalo' }, { valor: NO_ADAPTAR, texto: 'No, lo escribo yo' }],
+    }];
+}
+
+/** La respuesta al pedido de escribir la réplica: la estructura, el gancho y el ritmo del original, con la oferta elegida. */
+export function pedidoDeReplica(r: RespuestasIniciativa, ofertas: readonly OfertaCorta[]): PedidoIniciativa {
+  const oferta = r.oferta ?? AL_NEGOCIO;
+  if (oferta === NO_ADAPTAR) return { adaptar: false, texto: 'No, lo escribo yo.' };
+  const id = oferta.startsWith('oferta:') ? Number(oferta.slice('oferta:'.length)) : NaN;
+  const nombre = Number.isFinite(id) ? ofertas.find((o) => o.id === id)?.nombre : null;
+  const con = nombre ? `con mi oferta «${nombre}»` : 'con mi negocio';
+  return { adaptar: true, texto: `Escríbelo como el original: su misma estructura, su tipo de gancho y su ritmo, ${con}.` };
+}
