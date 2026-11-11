@@ -109,6 +109,8 @@
 }
 .hf-barra-texto::placeholder { color: var(--text-dim); }
 .hf-barra-fila { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+/* Cada pastilla con menú es su propio ancla: el menú sale arriba de ELLA, no pegado a la izquierda de la barra. */
+.hf-pastilla-lugar { position: relative; display: inline-flex; }
 .hf-barra-der { display: flex; align-items: stretch; gap: 8px; flex: none; }
 .hf-barra-linea { max-width: 960px; margin: 8px auto 0; text-align: center; font-size: var(--fs-meta); color: var(--text-dim); min-height: 1.3em; }
 .hf-barra-linea--mal { color: var(--bad); }
@@ -205,7 +207,10 @@
 .hf-selector-cat[aria-current="true"] { background: var(--surface-2); color: var(--text); font-weight: 650; }
 .hf-selector-cuerpo { display: flex; flex-direction: column; min-height: 0; }
 .hf-selector-cab { display: flex; align-items: center; gap: 10px; padding: 14px; }
-.hf-grilla--selector { flex: 1; min-height: 0; overflow-y: auto; padding: 0 14px 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); align-content: start; scrollbar-width: thin; }
+.hf-grilla--selector { flex: 1; min-height: 0; overflow-y: auto; padding: 0 14px 14px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); align-content: start; scrollbar-width: thin;
+  /* ⚠️ Filas del alto de su baldosa. Sin esto la grilla (alta fija, con scroll) achica las filas a lo que entra (65 px)
+     y las baldosas 3:4 se dibujan una ENCIMA de la otra: medido en producción el 10/11/2026 a 1440 × 900. */
+  grid-auto-rows: max-content; }
 
 /* ── Un proyecto ─────────────────────────────────────────────────────────── */
 .hf-proyecto { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -218,6 +223,7 @@
 }
 .hf-boton:hover:not(:disabled) { border-color: var(--border-strong); }
 .hf-boton:disabled { opacity: .5; cursor: not-allowed; }
+.hf-boton--chico { height: 28px; padding: 0 10px; font-size: var(--fs-meta); align-self: flex-start; }
 .hf-boton--peligro { border-color: var(--bad); color: var(--bad); }
 .hf-confirmar { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
 .hf-proyecto-cuerpo { flex: 1; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 28px; padding: 8px 32px 24px; align-items: start; }

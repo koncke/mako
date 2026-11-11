@@ -31,6 +31,8 @@ import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-
 import { PieFijoM, SeccionM, SheetM, useConexion } from '@/app/m/_ui';
 import { CREDITOS, requisitosAvatar, type PasoRequisito } from '@/lib/ai-avatar/requisitos';
 import { CampoM, ErrorLineaM } from '../_creacion/escritor';
+import { descargarComo } from '@/app/video-generator/descargar';
+import { nombreDeArchivo } from '@/lib/ai-avatar/descarga';
 import { ChipM, ChipsM } from './piezas';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
@@ -71,6 +73,12 @@ export function EstudioM({ inicio, plantillaInicial, avatarInicial, ahora }: {
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => { escribirQuery(abiertoId, presetId); }, [abiertoId, presetId]);
+  // «No disponible todavía» se va solo: si se queda, tapa lo que FALTA para generar (como en la computadora, 10/11/2026).
+  useEffect(() => {
+    if (!(Object.values(SIN_MOTOR) as string[]).includes(linea)) return;
+    const t = setTimeout(() => setLinea(''), 6000);
+    return () => clearTimeout(t);
+  }, [linea]);
 
   const generando = looks.filter((l) => l.estado === 'generando').map((l) => l.id).join(',');
   useEffect(() => {
@@ -319,7 +327,10 @@ function ProyectoM({ p, inicio, ahora, enLinea, enviando, error, onRecrear, onEl
         </div>
         <div className="m-ai-avatar-cab__acciones">
           <button type="button" className="m-ai-avatar-icono" onClick={onRecrear} disabled={enviando || !inicio.puente.puede || !enLinea} aria-label="Recrear"><Icon name="regenerar" size={20} /></button>
-          {p.url && <a className="m-ai-avatar-icono" href={p.url} download target="_blank" rel="noreferrer" aria-label="Descargar"><Icon name="descargar" size={20} /></a>}
+          {/* Baja el archivo de Flow tal cual (calidad original). Un `<a download>` a otro origen lo ABRE en vez de bajarlo. */}
+          {p.url && <button type="button" className="m-ai-avatar-icono" aria-label="Descargar"
+            onClick={() => { void descargarComo(p.url, nombreDeArchivo(p.nombre, 'imagen')).catch(() => window.open(p.url, '_blank', 'noopener,noreferrer')); }}>
+            <Icon name="descargar" size={20} /></button>}
           <button type="button" className="m-ai-avatar-icono" onClick={() => setBorrar(true)} aria-label="Eliminar"><Icon name="trash" size={20} /></button>
         </div>
       </div>
