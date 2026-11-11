@@ -15,7 +15,7 @@ import { join } from 'node:path';
 
 import { PLANTILLAS_AVATAR, plantillaPorId } from '../lib/ai-avatar/plantillas';
 import { PLANTILLAS_VENTA_AVATAR, ganchoDeEjemplo } from '../lib/ai-avatar/plantillas-venta';
-import { CONSEJO_FOTO } from '../lib/ai-avatar/estudio';
+import { CONSEJO_FOTO, pieDeGenerar } from '../lib/ai-avatar/estudio';
 
 const leer = (r: string) => readFileSync(join(process.cwd(), r), 'utf8');
 const estudio = leer('app/ai-avatar/Estudio.tsx');
@@ -72,4 +72,34 @@ test('las 10 plantillas de venta tienen la imagen de su escena', () => {
   for (const v of PLANTILLAS_VENTA_AVATAR) {
     assert.ok(plantillaPorId(v.presetId)?.ejemplo?.poster, `${v.id}: su preset ${v.presetId} no tiene imagen`);
   }
+});
+
+test('«Generar» apagado dice lo que falta, en vez de «Gratis»', () => {
+  const listo = { preset: true, pasosFaltan: 0, foto: true, flowListo: true };
+  assert.equal(pieDeGenerar(listo), 'Gratis');
+  assert.equal(pieDeGenerar({ ...listo, preset: false, pasosFaltan: 4 }), 'Falta el preset', 'primero lo que se ve: el preset');
+  assert.equal(pieDeGenerar({ ...listo, pasosFaltan: 4 }), 'Faltan 4 pasos');
+  assert.equal(pieDeGenerar({ ...listo, pasosFaltan: 1 }), 'Falta 1 paso');
+  assert.equal(pieDeGenerar({ ...listo, foto: false }), 'Falta tu foto');
+  assert.equal(pieDeGenerar({ ...listo, flowListo: false }), 'Flow no está listo');
+  const i = estudio.indexOf('className="hf-generar" disabled={!!falta || enviando}');
+  assert.ok(i > 0, 'falta el botón');
+  const boton = estudio.slice(i, i + 500);
+  assert.match(boton, /title=\{falta \|\| undefined\}/, 'con el mouse encima, la línea entera');
+  assert.match(boton, /<small>\{enviando \? 'Gratis' : pieDeGenerar\(\{ preset: !!preset, pasosFaltan: req\.pasos\.filter\(\(x\) => !x\.hecho\)\.length, foto: !!foto, flowListo: puente\.puede \}\)\}<\/small>/,
+    'el pie del botón ES pieDeGenerar, con lo que falta de verdad');
+  assert.ok(!/<small>Gratis<\/small>/.test(boton), '«Gratis» fijo era el error');
+});
+
+test('en el teléfono, las pastillas y «Generar» van en UNA fila y la ranura vacía dice dónde elegir', () => {
+  const i = telefono.indexOf('<div className="m-ai-avatar-barra__pie">');
+  assert.ok(i > 0, 'falta la fila de abajo');
+  const fila = telefono.slice(i, i + 900);
+  assert.match(fila, /m-ai-avatar-barra__pastillas/);
+  assert.match(fila, /Generar/);
+  assert.ok(!/size="lg" full/.test(fila), '«Generar» a todo el ancho es la fila de más');
+  assert.match(telefono, /preset \? preset\.nombre : 'Elige arriba'/);
+  const css = leer('app/m/ai-avatar/ai-avatar.css');
+  assert.match(css, /\.m-ai-avatar-barra__pie \{ display: flex;/);
+  assert.match(css, /\.m-ai-avatar-barra__pie \.m-ai-avatar-barra__pastillas \{[^}]*overflow-x: auto/, 'si no entran, corren de costado');
 });
