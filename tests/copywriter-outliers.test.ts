@@ -262,6 +262,17 @@ test('las frases del original que repite la réplica: 5 palabras seguidas o más
   assert.match(ia, /Repite frases del original/);
 });
 
+test('teléfono: «Crear desde cero» y «Mis guiones» llegan a su vista, no a la portada (11/11, en producción siempre la portada)', async () => {
+  const { rutaMovil, rutaEscritorio } = await import('../lib/movil-rutas');
+  // El paso al teléfono conservaba sólo `nuevo`, y descarta los vacíos: `?nueva` y `?ver=guiones` se perdían.
+  assert.equal(rutaMovil('/copywriter?nueva=1&ws=3'), '/m/copywriter?nueva=1');
+  assert.equal(rutaMovil('/copywriter?ver=guiones&ws=3'), '/m/copywriter?ver=guiones');
+  assert.equal(rutaEscritorio('/m/copywriter?nueva=1'), '/copywriter?nueva=1');
+  assert.equal(vistaDeCopy({ nueva: '1' }), 'crear');
+  assert.match(leer('app/copywriter/vista.ts'), /export const RUTA_CREAR_COPY = '\/copywriter\?nueva=1';/);
+  assert.match(leer('app/m/copywriter/page.tsx'), /rutaCrear="\/m\/copywriter\?nueva=1"/);
+});
+
 test('teléfono: «Mis guiones» y «Crear desde cero» debajo del título, no al final de la fila de formatos (11/11, a 375 no se veían)', () => {
   const portada = leer('app/copywriter/OutliersCopy.tsx');
   assert.match(portada, /\{telefono \? <div className=\{`\$\{s\.filtros\} \$\{oc\.filaTelefono\}`\}>\{botones\}<\/div> : botones\}/);
