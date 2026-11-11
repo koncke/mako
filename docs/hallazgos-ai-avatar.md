@@ -566,12 +566,12 @@ lib/ai-avatar/plantillas-venta.ts · tests/ai-avatar-prueba-1011.test.ts
 
 ## La prueba del 10/11 se hizo LEYENDO, y no vio lo que se ve (11/11/2026)
 
-Martín abrió AI Avatar después de la prueba del 10/11 (35 casos, «12 fallas») y vio lo que la prueba no marcó: **34 de los 36
-presets son un degradado sin imagen**, en la grilla, en «Nuevo avatar» (un marco gris con un teléfono blanco vacío) y en el
+Martín abrió AI Avatar después de la prueba del 10/11 (35 casos, «12 fallas») y vio lo que la prueba no marcó: **31 de los 33
+presets eran un degradado sin imagen**, en la grilla, en «Nuevo avatar» (un marco gris con un teléfono blanco vacío) y en el
 teléfono. Informe con capturas: `docs/pruebas/ai-avatar-11-11.md`.
 
 - **Por qué no se vio:** estaba anotado desde el 29/10 en «Lo que quedó SIN hacer». Un pendiente anotado se leyó como «ya
-  sabido» y no se contó como falla, y la prueba se hizo leyendo el texto de la página, donde 36 presets aparecen con su nombre.
+  sabido» y no se contó como falla, y la prueba se hizo leyendo el texto de la página, donde los 33 presets aparecen con su nombre.
 - **La regla:** cada pantalla se MIRA con una captura, a 1440 y a 375, y se critica al lado de la referencia (HeyGen,
   Higgsfield): vacío, gris, cortado, pobre. **Una pantalla vacía o gris en producción es una falla aunque esté anotada como
   pendiente.** Y si la captura sale en blanco, no está probado.
@@ -581,6 +581,13 @@ teléfono. Informe con capturas: `docs/pruebas/ai-avatar-11-11.md`.
 - **Las imágenes arreglan cuatro pantallas a la vez.** El abanico de arriba toma las de los presets; desde el 11/11 las
   tarjetas de las plantillas de venta toman la de SU preset (`presetId`), y las de «Nuevo avatar» pasan su video para el
   mouse. O sea: con una imagen por preset se llenan la grilla, «Nuevo avatar», el abanico y las plantillas.
-- **SIN HACER:** generar las 34. Se hacen en Flow con la base del personaje de Martín (las imágenes no gastan créditos), una
-  por preset, con UNA referencia y un prompt simple, y se mira cada una antes de subirla. **Vive en:**
-  `lib/ai-avatar/plantillas.ts` (`ejemplo: { video, poster }`) y `public/formatos/`.
+- **Hecho el 11/11 (07:00 UTC):** las 31, en Flow desde el navegador de la app (tiene la cuenta de Google de Martín y no
+  compite por el turno de Chrome), 0 créditos, ~40 s cada una. Lo que sirvió: la referencia se elige del selector de Flow
+  (que lista los recursos de CUALQUIER proyecto; «Oldest» deja arriba las fotos reales de Martín, `1-headshot-saco.jpg`), el
+  prompt es el del producto (`promptDelLook`) y la baldosa nueva trae una url FIRMADA (`flow-content.google/image/…?Signature=`)
+  que baja el original (768×1376) sin la sesión. Las de la grilla (`flow.google.com/asb/…`) piden la sesión. El prompt copia la
+  ROPA de la foto: en la playa y en el gimnasio se agregó la ropa en el ajuste, como lo escribiría una persona. **Vive en:**
+  `lib/ai-avatar/plantillas.ts` y `plantillas-venta.ts` (`ejemplo: { poster }`, el video es opcional) y
+  `public/ai-avatar/presets/`. Un test exige imagen en TODOS los presets (tests/ai-avatar-prueba-1111.test.ts).
+- **Y una de Flow que cambia el mapa:** Flow tiene «Avatars» (experimental): con un video selfie corto captura la cara Y LA
+  VOZ. Es la pieza que a AI Avatar le falta (la voz clonada no existe en la tab). Sin probar.
