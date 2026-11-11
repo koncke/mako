@@ -21,12 +21,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pasarelasParaOfrecer } from '../lib/compra-plan-reglas';
+import type { Pasarela } from '../lib/cobros-tipos';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 
-const MP = { pasarela: 'mercadopago' as const, moneda: 'ARS', monto: 73_555 };
-const ST = { pasarela: 'stripe' as const, moneda: 'USD', monto: 47 };
+// Un tipo común: con `as const` cada una tenía su literal y `T` se infería del primero (3 errores en el tsc de la punta, 11/11).
+type Oferta = { pasarela: Pasarela; moneda: string; monto: number };
+const MP: Oferta = { pasarela: 'mercadopago', moneda: 'ARS', monto: 73_555 };
+const ST: Oferta = { pasarela: 'stripe', moneda: 'USD', monto: 47 };
 
 test('el super admin en Argentina ve la Stripe de PRUEBA además de Mercado Pago: puede hacer la prueba de humo', () => {
   assert.deepEqual(pasarelasParaOfrecer('AR', [MP], [ST]), [MP, ST], 'elige con cuál paga');
