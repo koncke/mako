@@ -69,7 +69,8 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
 });
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<'A' | 'A2' | 'B' | 'C' | 'D' | 'E' | 'F' | 'F2' | 'G' | 'G2' | 'G3', Vuelta>
   & { H: { tanda1: Pedido[]; tanda2: Pedido[]; afuera: Pedido[]; saturadoDespues: boolean }; error?: string }
-  & Record<'P' | 'P_gratisContesta' | 'P_negocio' | 'P_otraTarea' | 'P_corte', { respuesta: string; pedidos: Pedido[]; credito: Array<{ model: string; max_tokens: number; clave: string }>; filasDeUso: number }>;
+  & Record<'P' | 'P_gratisContesta' | 'P_negocio' | 'P_otraTarea' | 'P_plan' | 'P_sinCredito' | 'P_noEntra' | 'P_corte' | 'P_sinSaldo', { respuesta: string; pedidos: Pedido[]; credito: Array<{ model: string; max_tokens: number; clave: string }>; filasDeUso: number }>
+  & { P_sinSaldoFila: number };
 const LATEST = 'gemini-flash-latest', LITE = 'gemini-flash-lite-latest';
 const modelos = (v: Vuelta) => v.pedidos.map((p) => p.modelo);
 
@@ -137,24 +138,36 @@ test('4. la réplica del Web Generator da UNA segunda vuelta a las secciones que
   assert.match(src, /if \(Date\.now\(\) - t0 \+ TANDA_MS > PLAZO_BLOQUES_MS\) continue;/);
 });
 
-// Martín, 26/10/2026, en el Centro: «1. Claude de la plataforma» como último recurso de lo interno de MaKo.
-test('5. lo interno de MaKo: el crédito de Claude de la plataforma es el ÚLTIMO recurso, en su espacio y para sus tareas', () => {
+// Martín, 11/11/2026: «gastemos eso para todo esto en lugar de Gemini, porque es mucho más estable». Reemplaza al «último recurso»
+// del 26/10 (el crédito DESPUÉS de las gratis, sólo para el editor de landings).
+test('5. el espacio de MaKo: el crédito de Claude va PRIMERO y Gemini de respaldo; nunca un negocio, el Plan, `fallback: []` ni lo que no entra', () => {
   const P = R.P;
   assert.equal(P.respuesta, 'respuesta del crédito');
-  // Antes del crédito, sus Gemini (el respaldo incluido); y con el crédito esperando, el 503 de flash-lite no se reintenta
-  // (los reintentos le dejaban al crédito 15-17 s, que no alcanzan para una tanda).
-  assert.deepEqual(modelos(P), [LATEST, LITE], `antes del crédito: ${modelos(P).join(', ')}`);
+  assert.deepEqual(modelos(P), [], `con el crédito contestando se le pidió a Gemini: ${modelos(P).join(', ')}`);
   assert.deepEqual(P.credito, [{ model: 'claude-haiku-4-5', max_tokens: 7_400, clave: 'sk-ant-credito-de-prueba-cuenta-1' }],
     'una sola llamada, con el mismo tope de tokens de la tarea y la clave del crédito');
   assert.equal(P.filasDeUso, 1, 'el gasto del crédito no quedó anotado con su marca');
-  assert.equal(R.P_gratisContesta.respuesta, `respuesta de ${LITE}`);
-  assert.equal(R.P_gratisContesta.credito.length, 0, 'el crédito se usó con una gratis que contestaba: nunca primero');
-  assert.equal(R.P_negocio.credito.length, 0, 'un negocio paga su IA: el crédito de lo interno de MaKo no es para él');
-  assert.equal(R.P_otraTarea.credito.length, 0, 'una tarea que Martín no habilitó usó el crédito');
-  // Cortado por plazo después de mandar: Anthropic puede haber cobrado, y queda la fila con la marca del crédito.
-  assert.equal(R.P_corte.credito.length, 1);
-  assert.equal(R.P_corte.respuesta, '');
+  assert.equal(R.P_gratisContesta.credito.length, 1, 'con una gratis sana, el crédito igual va primero');
+  assert.equal(R.P_gratisContesta.respuesta, 'respuesta del crédito');
+  assert.equal(R.P_otraTarea.credito.length, 1, 'otra tarea del espacio de MaKo (que no es del Plan) no usó el crédito');
+  // Lo que NO cambia:
+  assert.equal(R.P_negocio.credito.length, 0, 'un negocio paga su IA: el crédito de la plataforma no es para él');
+  assert.equal(R.P_plan.credito.length, 0, 'el Plan usó el crédito («JAMÁS algo pago para el plan»)');
+  assert.equal(R.P_sinCredito.credito.length, 0, 'una función con `fallback: []` mezcló el crédito con su proveedor');
+  assert.equal(R.P_noEntra.credito.length, 0, 'un pedido que no entra en Haiku se mandó igual al crédito');
+  // Sin el crédito, Gemini es la última opción real y recupera sus reintentos.
+  assert.deepEqual(modelos(R.P_plan), [LATEST, LITE, LITE], `sin crédito, flash-lite no reintentó: ${modelos(R.P_plan).join(', ')}`);
+  // Cortado por plazo después de mandar: queda la fila con la marca, y pasa a Gemini SIN probar la otra cuenta (el mismo Anthropic).
+  assert.equal(R.P_corte.credito.length, 1, 'un plazo vencido del crédito probó la otra cuenta');
   assert.equal(R.P_corte.filasDeUso, 1, 'un corte del crédito no dejó rastro de lo que pudo gastar');
+  assert.deepEqual(modelos(R.P_corte), [LATEST, LITE, LITE], 'después del corte del crédito, Gemini no quedó de respaldo con sus reintentos');
+  // Sin saldo: la fila «sin crédito» (la ve el Uso) y contesta Gemini.
+  assert.equal(R.P_sinSaldo.respuesta, `respuesta de ${LITE}`);
+  assert.equal(R.P_sinSaldo.filasDeUso, 1);
+  assert.equal(R.P_sinSaldoFila, 1, 'la cuenta sin saldo no dejó la fila «sin crédito hasta el próximo ciclo»');
+  // El último recurso del 26/10 no vuelve: el crédito ya no cuenta como «otra opción» detrás de Gemini.
+  const casc = fuente('lib/ai-cheap.ts');
+  assert.doesNotMatch(casc, /ultimoRecursoDeMaKo|wsCredito/, 'volvió el crédito como último recurso, detrás de las gratis');
 });
 
 // ── Probado rompiéndolo (26/10/2026, segunda versión, después de la revisión del tren-l) ────────────────────────────────
@@ -180,6 +193,16 @@ test('5. lo interno de MaKo: el crédito de Claude de la plataforma es el ÚLTIM
 //  17. el bloque del crédito sin mirar que sea el espacio de MaKo     → rojo «5.» (un negocio lo usó).
 //  18. el crédito sin el `maxTokens` de la tarea                     → rojo «5.» (pidió 1.024).
 //  19. una llamada al crédito ANTES del lazo de las gratis            → rojo «5.» (contestó el crédito con una gratis sana).
+// ⚠️ Las roturas 17 a 23 (el último recurso del 26/10) ya no aplican: el 11/11/2026 el crédito pasó a ir PRIMERO (test 5, nuevo).
+// El crédito primero en el espacio de MaKo (11/11/2026), con el mismo arnés:
+//  25. «es la plataforma» siempre true                                  → rojo «5.» (un negocio usó el crédito).
+//  26. «es la plataforma» comparado con el ws1 (OWNER_WS)                → rojo «5.» (el ws9 no lo usó).
+//  27. la regla sin mirar el Plan                                       → VERDE: el Plan lo frenan dos capas más (`planPuedePagarConSuClave`
+//      y `evaluarClaveDelNegocio`); la regla sola la caza tests/credito-plataforma.test.ts (R2).
+//  28. sin mirar `sinCredito` (`fallback: []`)                          → rojo «5.».
+//  29. sin el techo de entrada de Haiku                                 → rojo «5.».
+//  30. un plazo vencido prueba la otra cuenta                           → rojo «5.» (P_corte).
+//  31. un corte del crédito sin su fila «cortada»                       → rojo «5.» (P_corte).
 // Y en tests/veto-claude-credito-plataforma.test.ts: la puerta leyendo las claves para un negocio, y el veto con
 // `esLaPlataforma === false` (sin saber, dejaba pasar) → rojo «lo interno de MaKo usa el crédito SÓLO…».
 // Segunda verificación del tren-m (26/10/2026):

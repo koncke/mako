@@ -344,17 +344,15 @@ export const CREDITO_DE_LA_PLATAFORMA = {
  * Plan, además, queda afuera siempre (`FEATURES_DEL_PLAN`): el plan de arranque del cierre del onboarding
  * (`plan-seed-ia`) no está, a propósito.
  *
- * `soloLaPlataforma` (26/10/2026): Martín, en el Centro, a «¿Le damos a MaKo una IA paga de último recurso para lo suyo (editor
- * de landings, réplicas)?» eligió «1. Claude de la plataforma». Lo INTERNO de MaKo (su espacio, el super admin) y sólo eso: un
- * negocio sigue pagando su IA. Lo llama la cascada DESPUÉS de que fallaron las gratis (lib/ai-cheap.ts), nunca antes.
+ * Lo INTERNO de MaKo ya no está acá (11/11/2026): las tres filas `soloLaPlataforma` del 26/10 (el editor de landings, la
+ * réplica y el analizador, como último recurso) las cubre la regla del crédito para la plataforma
+ * (`puedeUsarUnaCuentaDelCredito`, abajo), que va PRIMERO y por la puerta 2. Una autorización que nadie usa es una que nadie
+ * revisa. Esta puerta queda sólo para el onboarding.
  */
-export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuranteElOnboarding: boolean; soloLaPlataforma?: boolean; para: string }> = [
+export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuranteElOnboarding: boolean; para: string }> = [
   { feature: 'El Archivero', soloDuranteElOnboarding: true, para: 'leer los documentos que le manda al chat de arranque' },
   { feature: 'onboarding-extract', soloDuranteElOnboarding: true, para: 'sacar el brief de sus documentos' },
   { feature: 'offer', soloDuranteElOnboarding: true, para: 'el chat de Offer del primer ingreso: nombre, oferta, funnel y primer CRM' },
-  { feature: 'landing-editor', soloDuranteElOnboarding: false, soloLaPlataforma: true, para: 'el espacio de MaKo: generar y replicar landings cuando sus Gemini no contestan' },
-  { feature: 'landing-editor-ia', soloDuranteElOnboarding: false, soloLaPlataforma: true, para: 'el espacio de MaKo: editar con IA en el editor de landings cuando sus Gemini no contestan' },
-  { feature: 'landing-analyst', soloDuranteElOnboarding: false, soloLaPlataforma: true, para: 'el espacio de MaKo: el analizador de landings cuando sus Gemini no contestan' },
 ];
 
 /**
@@ -472,8 +470,6 @@ export type PermisoCredito = PermisoClaude & { readonly clave: string; readonly 
 export function evaluarCreditoDeLaPlataforma(p: {
   feature?: string; model?: string; pausa?: boolean; hoy?: Date;
   clave?: string | null; creditos: ReadonlyArray<string | null | undefined>;
-  /** ¿El que pide es el espacio de la PLATAFORMA (el super admin)? Lo lee el llamador; sin saberlo, se toma que no. */
-  esLaPlataforma?: boolean;
   /** ¿El onboarding del negocio que pide está en curso? Lo lee el llamador; sin saberlo, se toma que no. */
   onboardingEnCurso?: boolean;
 }): { ok: true; permiso: PermisoCredito } | { ok: false; razon: string } {
@@ -486,9 +482,6 @@ export function evaluarCreditoDeLaPlataforma(p: {
   if (!habilitado) return { ok: false, razon: `el crédito no está habilitado para «${feature}»: lo decide Martín («Por ahora solo en onboarding»).` };
   if (habilitado.soloDuranteElOnboarding && p.onboardingEnCurso !== true) {
     return { ok: false, razon: `«${feature}» usa el crédito sólo durante el onboarding, y el de este negocio no está en curso.` };
-  }
-  if (habilitado.soloLaPlataforma && p.esLaPlataforma !== true) {
-    return { ok: false, razon: `«${feature}» usa el crédito sólo en el espacio de MaKo, como último recurso: un negocio paga su IA.` };
   }
   if (diaISO(p.hoy ?? new Date()) > CREDITO_DE_LA_PLATAFORMA.hasta) {
     return { ok: false, razon: `el permiso del crédito de la plataforma venció el ${CREDITO_DE_LA_PLATAFORMA.hasta}. Renuévalo con una fecha nueva o déjalo vencido.` };

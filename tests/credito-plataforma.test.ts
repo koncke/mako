@@ -35,7 +35,8 @@ test('1. las funciones de los grupos de WhatsApp usan el crédito en cualquier n
 });
 
 test('2. cualquier otra función que no sea del Plan, SÓLO en la plataforma; «no es» o «no sé» es no', () => {
-  for (const f of ['mako-doer', 'mako-chat', 'spy', 'video-editor-ia', 'carrusel-replica', 'landing-editor', 'landing-analyst']) {
+  // Lo interno de MaKo del 26/10 (el editor de landings, la réplica, el analizador) entra por acá: antes era la puerta 3, y último.
+  for (const f of ['mako-doer', 'mako-chat', 'spy', 'video-editor-ia', 'carrusel-replica', 'landing-editor', 'landing-editor-ia', 'landing-analyst']) {
     assert.equal(para(puede(f, true)), 'plataforma', `«${f}» en el espacio de MaKo`);
     assert.equal(puede(f, false).ok, false, `«${f}» usó el crédito en un negocio: cada negocio paga su IA`);
     assert.equal(puede(f, undefined).ok, false, `«${f}»: sin saber si es la plataforma, se tomó que sí`);

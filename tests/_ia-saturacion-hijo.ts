@@ -15,7 +15,7 @@ import { crearPostgrest } from './_postgrest-de-mentira';
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supa.test';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-de-prueba';
 process.env.CREDENCIALES_SECRET = 'secreto-de-prueba-de-32-caracteres-o-mas-para-el-test';
-for (const k of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GROQ_API_KEY', 'GEMINI_MODEL']) delete process.env[k];
+for (const k of ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'GROQ_API_KEY', 'GEMINI_MODEL', 'ANTHROPIC_CREDITO_CUENTA1', 'ANTHROPIC_CREDITO_CUENTA2', 'ANTHROPIC_CREDITO_CUENTA3', 'ANTHROPIC_CREDITO_CUENTA4', 'ANTHROPIC_CREDITO_CUENTA5']) delete process.env[k];
 
 let n = 0;
 const pg = crearPostgrest({
@@ -28,6 +28,8 @@ let pedidos: Array<{ modelo: string; plazo: number | null }> = [];
 /** Cada pedido al crédito de Claude de la plataforma: el modelo, el tope de tokens y la clave. */
 let credito: Array<{ model: string; max_tokens: number; clave: string }> = [];
 let creditoCuelga = false;
+/** El crédito contesta «credit balance is too low» (la cuenta sin saldo del mes). */
+let creditoSinSaldo = false;
 let flashLatest: 'cuelga' | '503' = 'cuelga';
 let flashLite: 'ok' | '503' = 'ok';
 const plazos = new WeakMap<AbortSignal, number>();
@@ -47,6 +49,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.host === 'api.anthropic.com') {
     const c = JSON.parse(String(init.body ?? '{}')) as { model?: string; max_tokens?: number };
     credito.push({ model: String(c.model ?? ''), max_tokens: Number(c.max_tokens ?? 0), clave: new Headers(init.headers).get('x-api-key') ?? '' });
+    if (creditoSinSaldo) return json({ type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' } }, 400);
     if (creditoCuelga) {
       return new Promise<Response>((_ok, mal) => {
         init.signal?.addEventListener('abort', () => mal(init.signal?.reason ?? new DOMException('The operation was aborted due to timeout', 'TimeoutError')));
@@ -150,9 +153,10 @@ async function main() {
   //     tampoco es «otra opción» (segunda verificación del tren-m: producción reintentaba y la rama no).
   reset('503', '503');
   out.G3 = { respuesta: await cascadaSinD6b({ hastaMs: Date.now() + 20_000, listaPorDefault: true, red: true }), pedidos };
-  // P. El ÚLTIMO recurso de lo interno de MaKo (Martín, 26/10/2026: «1. Claude de la plataforma»), con la clave del crédito
-  //    cargada: en el espacio de MaKo, después de que fallaron sus Gemini; nunca primero, nunca para un negocio, nunca para otra
-  //    tarea. Cada vuelta anota los pedidos a Google, los del crédito y las filas de uso con la marca del crédito.
+  // P. EL CRÉDITO DE CLAUDE PRIMERO EN EL ESPACIO DE MaKo (Martín, 11/11/2026: «gastemos eso para todo esto en lugar de Gemini»),
+  //    con la clave del crédito cargada: en el ws9 va ANTES que sus Gemini, para cualquier tarea que no sea del Plan; nunca para
+  //    un negocio, nunca con `sinCredito` (`fallback: []`), nunca con un pedido que no entra en Haiku. Cada vuelta anota los
+  //    pedidos a Google, los del crédito y las filas de uso con la marca del crédito.
   process.env.ANTHROPIC_CREDITO_CUENTA1 = 'sk-ant-credito-de-prueba-cuenta-1';
   const usoDelCredito = () => (pg.db.anthropic_usage ?? []).filter((f) => String(f.motivo ?? '').startsWith('⚠ crédito de Claude de la plataforma')).length;
   const vuelta = async (fn: () => Promise<unknown>) => {
@@ -161,6 +165,10 @@ async function main() {
     const respuesta = await fn();
     return { respuesta, pedidos, credito, filasDeUso: usoDelCredito() - antes };
   };
+  const enMaKo = (o: { feature: string; user?: string; sinCredito?: boolean }) => () => runWithWorkspace(PLATAFORMA, () => ai.chatCheapCascade({
+    system: 's', user: o.user ?? 'otra tarea', feature: o.feature, provs: ['gemini'], timeoutMs: 30_000, hastaMs: Date.now() + 20_000,
+    ...(o.sinCredito ? { sinCredito: true } : {}),
+  }).catch((e) => `tiró: ${e instanceof Error ? e.message : String(e)}`));
   reset('503', '503');
   out.P = await vuelta(() => cascada({ hastaMs: Date.now() + 20_000, maxTokens: 7_400 }));
   reset('503', 'ok');
@@ -168,14 +176,28 @@ async function main() {
   reset('503', '503');
   out.P_negocio = await vuelta(() => cascadaSinD6b({ hastaMs: Date.now() + 20_000, maxTokens: 7_400, red: true }));
   reset('503', '503');
-  out.P_otraTarea = await vuelta(() => runWithWorkspace(PLATAFORMA, () => ai.chatCheapCascade({
-    system: 's', user: 'otra tarea', feature: 'dashboard-conclusiones', provs: ['gemini'], timeoutMs: 30_000, hastaMs: Date.now() + 20_000,
-  }).catch((e) => `tiró: ${e instanceof Error ? e.message : String(e)}`)));
-  // El crédito que se CORTA por plazo: no contesta, pero puede haber gastado, y queda su fila con la marca.
+  out.P_otraTarea = await vuelta(enMaKo({ feature: 'dashboard-conclusiones' }));
   reset('503', '503');
+  out.P_plan = await vuelta(enMaKo({ feature: 'plan-fathom' }));
+  reset('503', '503');
+  out.P_sinCredito = await vuelta(enMaKo({ feature: 'dashboard-conclusiones', sinCredito: true }));
+  // 600.000 caracteres son ~171.000 tokens a la cuenta de la cascada: no entran en Haiku (200K, techo 150K) y sí en Gemini.
+  reset('503', '503');
+  out.P_noEntra = await vuelta(enMaKo({ feature: 'dashboard-conclusiones', user: 'x'.repeat(600_000) }));
+  // El crédito que se CORTA por plazo: no contesta, pero puede haber gastado (queda su fila con la marca), y pasa a Gemini sin
+  // probar la otra cuenta (es el mismo Anthropic). Gemini, la última opción real, insiste (sus reintentos).
+  reset('503', '503');
+  process.env.ANTHROPIC_CREDITO_CUENTA2 = 'sk-ant-credito-de-prueba-cuenta-2';
   creditoCuelga = true;
   out.P_corte = await vuelta(() => cascada({ hastaMs: Date.now() + 20_000, maxTokens: 7_400 }));
   creditoCuelga = false;
+  delete process.env.ANTHROPIC_CREDITO_CUENTA2;
+  // Sin saldo (va AL FINAL: deja la cuenta salteada 6 h en el proceso): la fila «sin crédito» y Gemini contesta.
+  reset('503', 'ok');
+  creditoSinSaldo = true;
+  out.P_sinSaldo = await vuelta(() => cascada({ hastaMs: Date.now() + 20_000, maxTokens: 7_400 }));
+  out.P_sinSaldoFila = (pg.db.anthropic_usage ?? []).map((f) => String(f.motivo ?? '')).filter((m) => /sin crédito hasta el próximo ciclo/.test(m)).length;
+  creditoSinSaldo = false;
   delete process.env.ANTHROPIC_CREDITO_CUENTA1;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }

@@ -325,9 +325,8 @@ export async function conClaveDelNegocio(p: {
     }
     // Lo paga el negocio: la marca va PRIMERO en el motivo, y lib/costos-ia.ts la saca del gasto de MaKo. Una cuenta del crédito,
     // con su número y el ws que la usó (sin el ws, la fila de un negocio caía al ws 9).
-    const motivoDelGasto = [marcaDelGasto(permiso), (p.motivo ?? '').trim()].filter(Boolean).join(' · ');
-    if (permiso.cuentaDelCredito) await recordUsage(permiso.feature, permiso.model, body.usage, motivoDelGasto, 'anthropic', permiso.cuentaDelCredito, await wsDelPedido()).catch(() => {});
-    else await recordUsage(permiso.feature, permiso.model, body.usage, motivoDelGasto).catch(() => {});
+    const deLaCuenta = permiso.cuentaDelCredito ? { n: permiso.cuentaDelCredito, ws: await wsDelPedido() } : null;
+    await recordUsage(permiso.feature, permiso.model, body.usage, [marcaDelGasto(permiso), (p.motivo ?? '').trim()].filter(Boolean).join(' · '), 'anthropic', deLaCuenta?.n, deLaCuenta?.ws).catch(() => {});
     const texto = (body.content ?? [])
       .filter((c: { type?: string }) => c.type === 'text')
       .map((c: { text?: string }) => c.text ?? '')
@@ -420,8 +419,9 @@ export async function conCreditoDeLaPlataforma(p: {
 }
 
 /**
- * Las cuentas del crédito que puede usar ESTE pedido, con su permiso, sin llamar a nadie (o null). Es la cuenta que hace la
- * puerta antes de pedir, y la que usa la cascada para saber si el crédito es de verdad «otra opción» (`hayCreditoDeLaPlataforma`).
+ * Las cuentas del crédito que puede usar ESTE pedido, con su permiso, sin llamar a nadie (o null): la cuenta que hace la puerta
+ * antes de pedir. Desde el 11/11/2026 esta puerta es sólo del onboarding (lo interno de MaKo va por la 2, con
+ * `cuentasDelCreditoParaElPedido`).
  */
 async function permisosDelCredito(p: { feature?: string; wsCliente: number }): Promise<PermisoCredito[] | null> {
   // PARA QUÉ, antes de leer nada: lo que Martín no habilitó no gasta ni una lectura (la lista y el porqué,
@@ -438,13 +438,9 @@ async function permisosDelCredito(p: { feature?: string; wsCliente: number }): P
     if (!onboardingEnCurso) return null;
   }
   let creditos: Array<string | null>;
-  let esLaPlataforma = false;
   try {
     const { wsSuperAdmin } = await import('@/lib/workspace');
     const wsSA = await wsSuperAdmin();
-    // Lo que se habilitó «sólo para la plataforma» (lo interno de MaKo) no lee ninguna clave para un negocio.
-    esLaPlataforma = wsSA === p.wsCliente;
-    if (habilitado.soloLaPlataforma && !esLaPlataforma) return null;
     creditos = [];
     for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
       const env = process.env[nombre]?.trim();
@@ -456,17 +452,11 @@ async function permisosDelCredito(p: { feature?: string; wsCliente: number }): P
   const permisos: PermisoCredito[] = [];
   for (const clave of creditos) {
     if (!clave) continue;
-    const v = evaluarCreditoDeLaPlataforma({ feature: p.feature, clave, creditos, pausa, esLaPlataforma, onboardingEnCurso });
+    const v = evaluarCreditoDeLaPlataforma({ feature: p.feature, clave, creditos, pausa, onboardingEnCurso });
     if (!v.ok) return null;
     permisos.push(v.permiso);
   }
   return permisos.length ? permisos : null;
-}
-
-/** ¿Queda el crédito para este pedido? (alguna cuenta con permiso y sin agotar). La misma cuenta que hace la puerta. */
-export async function hayCreditoDeLaPlataforma(p: { feature?: string; wsCliente: number }): Promise<boolean> {
-  const permisos = await permisosDelCredito(p).catch(() => null);
-  return !!permisos?.some((x) => (creditoAgotado.get(x.cuenta) ?? 0) <= Date.now());
 }
 
 export async function chatClaude(
@@ -563,6 +553,8 @@ export async function chatClaude(
           validar: opts.validar,
           // `deSuIA` (lib/model-catalogo.ts): su Claude y su GPT, nunca Gemini (ni el suyo).
           sinGemini: deSuIADeFeature(opts.feature),
+          // `fallback: []` (11/11/2026): un solo proveedor, así que tampoco el crédito de Claude primero (mezclaría dos modelos).
+          sinCredito: permitidos?.length === 0,
         });
         if (salida.trim()) return salida;
         // Lo que contestó cada key del negocio, para que el caller diga la causa (errorDeCascada).
