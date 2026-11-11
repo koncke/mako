@@ -94,6 +94,15 @@ export function primeraLinea(texto: string | null | undefined, tope = 140): stri
   return l.length > tope ? `${l.slice(0, tope - 1).trimEnd()}…` : l;
 }
 
+/** Lo que sigue al gancho en la hoja de la tarjeta (app/copywriter/OutliersCopy.tsx): el texto sin repetir el gancho (un pie
+ *  suele arrancar con él); vacío si el texto ES el gancho (el título de un video sin descripción). */
+export function restoDelTexto(o: Pick<OutlierCopy, 'gancho' | 'texto'>): string {
+  const g = o.gancho.trim();
+  const t = o.texto.trim();
+  const sin = g && t.startsWith(g) ? t.slice(g.length).replace(/^[\s.,:;!?…—-]+/u, '') : t;
+  return sin === g ? '' : sin;
+}
+
 // ── Competitors Spy: reels, publicaciones, YouTube y anuncios de las cuentas que sigue el negocio ──────────────────────
 
 /** Lo que se lee de `spy_piezas` (la forma de la tabla). */

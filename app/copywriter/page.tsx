@@ -24,7 +24,6 @@ import { Copywriter } from './Copywriter';
 import { Pagina } from '@/app/_ui';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { leerOutliersCopy } from '@/lib/copywriter/outliers-servidor';
-import { OutliersCopy } from './OutliersCopy';
 import { vistaDeCopy } from './vista';
 
 export const dynamic = 'force-dynamic';
@@ -42,10 +41,17 @@ export default async function CopywriterPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
   const vista = vistaDeCopy(sp);
   if (vista === 'outliers') {
-    // Sin la mudanza (lib/copywriter/mudanza.ts): la portada no lista páginas; corre al entrar a «Mis guiones» o a crear.
+    // La portada va en el CENTRO de la pantalla de Create, con el chat de MaKo a la izquierda y sus guiones detrás de la «←»
+    // (11/11/2026, Martín: «en la vista de outliers no está el chat de MaKo»; Image lo hace igual desde el 9/11). Por eso lista
+    // las páginas, y la mudanza corre también acá (la primera vez de un negocio; lib/copywriter/mudanza.ts).
+    await mudarLoDeAntes();
+    const [portada, r, catalogos, ws, ofertas] = await Promise.all([
+      leerOutliersCopy(), listar(), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null), ofertasDelCopywriter(),
+    ]);
     return (
       <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-        <OutliersCopy portada={await leerOutliersCopy()} />
+        <Copywriter ws={ws} paginas={r.ok ? r.paginas : []} guion={null}
+          error={r.ok ? null : `No se pudo leer la lista de páginas: ${r.error}`} catalogos={catalogos} ofertas={ofertas} portada={portada} />
       </Pagina>
     );
   }

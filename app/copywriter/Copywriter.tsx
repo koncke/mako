@@ -37,6 +37,8 @@ import { pedirCrear, pedirPapelera, pedirRenombrar, pedirRestaurar, rutaGuion } 
 import { guardarPedido } from './pedido-guardado';
 import { EditorGuion, type ApiPagina } from './editor/EditorGuion';
 import { PanelMaKo, type GuionVivo } from './PanelMaKo';
+import { OutliersCopy } from './OutliersCopy';
+import type { PortadaCopy } from '@/lib/copywriter/outliers';
 // «Compartir para editar» (D9): el MISMO modal de Compartir de la casa (Conocimientos, el Dashboard), con el recurso del
 // guion. La puerta y el permiso de editar los pone el server (/api/compartir).
 import Compartir from '@/app/conocimientos/Compartir';
@@ -61,6 +63,11 @@ export type PropsCopywriter = {
   nuevaInicial?: boolean;
   /** Las ofertas del negocio (la principal primero): MaKo pregunta a cuál adaptar la página nueva (PanelMaKo). */
   ofertas?: readonly OfertaCorta[];
+  /**
+   * La portada de outliers (D18): va en el CENTRO de la pantalla de Create, con el chat de MaKo a la izquierda, como Image desde el
+   * 9/11/2026. 11/11/2026, Martín: «en la vista de outliers no está el chat de MaKo» y «no hay cómo volver a los outliers».
+   */
+  portada?: PortadaCopy;
 };
 
 /** «Nueva página»: los templates (la misma ruta de la tab con `?nueva`). */
@@ -74,7 +81,7 @@ const FORMATO: Readonly<Record<TipoGuion, string>> = {
 /** Lo que se escribe solo en la caja de «¿Qué vas a crear hoy?». */
 const EJEMPLOS = ['Un guion de reel sobre el error que todos cometen…', 'Un email de bienvenida para los que se registran…', 'El copy de un anuncio para…', 'Una VSL para vender mi programa…'];
 
-export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, base = '/copywriter', tipoInicial = null, nuevaInicial = false, ofertas }: PropsCopywriter) {
+export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, base = '/copywriter', tipoInicial = null, nuevaInicial = false, ofertas, portada }: PropsCopywriter) {
   const router = useRouter();
   const [paginas, setPaginas] = useState<PaginaCopy[]>(iniciales);
   const [editor, setEditor] = useState<DocVivo | null>(null);
@@ -215,7 +222,11 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
           const x = todas.find((t) => t.id === pl.id);
           return x ? crear(x, null) : 'Ese template ya no está.';
         }}
-        ejemplos={EJEMPLOS} onPedido={(texto) => crear(enBlanco, null, texto)} chat={chat} creandoInicial={nuevaInicial || !!tipoInicial || (!guion && !error)}>
+        ejemplos={EJEMPLOS} onPedido={(texto) => crear(enBlanco, null, texto)} chat={chat} creandoInicial={nuevaInicial || !!tipoInicial || (!guion && !error)}
+        // La portada son los outliers, en el centro y con el chat a la izquierda; «Nueva página», desde un guion o desde las
+        // plantillas, vuelve a ellos (las plantillas son «Crear desde cero», dentro de la portada).
+        nueva={portada ? <OutliersCopy portada={portada} /> : undefined}
+        alNuevo={portada ? undefined : () => router.push(base)}>
         {guion ? (
           <div className="nt" data-en-crear="">
             <EditorGuion key={guion.pagina.id} guion={guion} paginas={paginas} catalogos={catalogos}

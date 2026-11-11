@@ -18,7 +18,7 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { contadorCorto, nivelDeMultiplo, rotuloOutlier } from '@/lib/carruseles/explorar';
 import {
-  FORMATOS_COPY, INFO_FORMATO, filtrarOutliersCopy, rotuloDeFormato, rotuloDiasAlAire,
+  FORMATOS_COPY, INFO_FORMATO, ROTULO_TEXTO, filtrarOutliersCopy, restoDelTexto, rotuloDeFormato, rotuloDiasAlAire,
   type FormatoCopy, type OrdenCopy, type OutlierCopy, type PortadaCopy,
 } from '@/lib/copywriter/outliers';
 import { pedirReplicar } from './cliente';
@@ -58,7 +58,12 @@ const Lupa = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
 );
 
-/** La tarjeta de Image (`TarjetaCarrusel`): la imagen, y abajo el «×», el gancho, la cuenta, hace cuánto y los números. */
+/**
+ * La tarjeta de un outlier de COPY (11/11/2026, Martín: «los outliers parecen carruseles… en Copywriting tienen que verse como COPY:
+ * el texto primero (gancho, un pedazo del guion), no la foto. Y los de YouTube van en horizontal»). Arriba, la HOJA del copy: qué
+ * texto es, el gancho grande y el arranque del texto; un video de YouTube lleva su miniatura 16:9 encima del título. Abajo, el pie
+ * de la tarjeta de Image: el «×», la cuenta, hace cuánto y los números. Tocar la hoja abre el original; «Replicar» lo replica.
+ */
 function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
   o: OutlierCopy; ahora: number; replicando: boolean; onAbrir: () => void; onReplicar: () => void;
 }) {
@@ -67,31 +72,30 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
   const aire = o.formato === 'anuncio' ? rotuloDiasAlAire(o.diasAlAire) : null;
   const quien = o.creador.usuario ? `@${o.creador.usuario}` : o.creador.nombre;
   const cuando = haceCuanto(o.publicada, ahora);
+  const video = o.formato === 'youtube';
+  const sigue = restoDelTexto(o);
   return (
-    <li className={s.tarjeta}>
-      {/* Tocar la imagen abre el original; los botones de adentro hacen lo suyo. */}
-      <div className={s.mini} data-anuncio={o.formato === 'anuncio' ? 'si' : undefined}
+    <li className={`${s.tarjeta} ${oc.tarjeta}`} data-formato={o.formato}>
+      <div className={oc.hoja} data-video={video ? 'si' : undefined}
         onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a')) onAbrir(); }}>
-        {o.miniatura
+        {video && o.miniatura ? (
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={o.miniatura} alt="" className={s.miniImagen} loading="lazy" referrerPolicy="no-referrer" draggable={false} />
-          : <span className={s.sinFoto}>{o.gancho.slice(0, 140)}</span>}
-        <span className={s.marcas}>
-          {aire ? <span className={s.aire} data-activo="si">{aire}</span> : null}
-        </span>
+          <img src={o.miniatura} alt="" className={oc.video} loading="lazy" referrerPolicy="no-referrer" draggable={false} />
+        ) : null}
+        <div className={oc.copy}>
+          <span className={oc.deQue}>{rotuloDeFormato(o)} · {ROTULO_TEXTO[o.deDonde]}{aire ? ` · ${aire}` : ''}</span>
+          <button type="button" className={oc.ganchoGrande} onClick={onAbrir}>{o.gancho}</button>
+          {sigue ? <p className={oc.sigue}>{sigue}</p> : null}
+        </div>
         <span className={s.sobreImagen}>
           <button type="button" className={s.editar} onClick={onReplicar} disabled={replicando}>{replicando ? 'Armando…' : 'Replicar'}</button>
         </span>
       </div>
       <div className={s.pie}>
-        <div className={s.fila1}>
+        <div className={s.creador}>
           {veces != null && nivel ? (
             <span className={s.mult} data-nivel={nivel} title={explicarMultiplo(o.multiplo)}>{rotuloOutlier(veces)}</span>
           ) : null}
-          <button type="button" className={s.gancho} onClick={onAbrir}>{o.gancho}</button>
-        </div>
-        <p className={v.porque}>{o.texto}</p>
-        <div className={s.creador}>
           {o.creador.foto
             // eslint-disable-next-line @next/next/no-img-element
             ? <img src={o.creador.foto} alt="" className={s.cara} referrerPolicy="no-referrer" />
@@ -105,7 +109,6 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
           {o.formato === 'reel' || o.formato === 'youtube' ? <span title="Vistas">▶ {contadorCorto(o.vistas)}</span> : null}
           {o.formato !== 'anuncio' ? <span title="Me gusta">♥ {contadorCorto(o.megusta)}</span> : null}
           {o.formato !== 'anuncio' ? <span title="Comentarios">💬 {contadorCorto(o.comentarios)}</span> : null}
-          <span className={s.formato}>{rotuloDeFormato(o)}</span>
         </div>
         {/* En el celular no hay «pasar el mouse»: «Replicar» queda a la vista, liviano. */}
         <button type="button" className={s.editarLiviano} onClick={onReplicar} disabled={replicando}>{replicando ? 'Armando…' : 'Replicar'}</button>
