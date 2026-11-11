@@ -127,6 +127,8 @@ test('3. los outliers: lo inválido afuera, sin repetidos, lo que se replica pri
   }
 });
 
+// 3b, PROBADO ROMPIÉNDOLO (11/11/2026): la vidriera sin conVariedad → rojo («una sola cuenta no llena la primera pantalla»);
+// FUENTES_OUTLIERS_VIDEO sólo con FUENTE_MAKO → rojo.
 test('3b. los reels de Spy (11/11/2026): el «×» de su cuenta, su miniatura y el gancho de título; la vidriera, variada y reciente', () => {
   // Martín con la captura de la portada: UNA tarjeta, sin imagen. Spy ya trajo los reels de las cuentas que el negocio sigue.
   const DIA = 86_400_000;

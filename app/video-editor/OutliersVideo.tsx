@@ -156,7 +156,7 @@ export function OutliersVideo({ portada, telefono = false, rutaCrear = RUTA_CREA
         ) : null}
         {reels.length === 0 && (
           <div className={s.vacio}>
-            <p>Sigue en Competitors Spy las cuentas de tu nicho y acá aparecen sus reels que mejor funcionan, para copiar el que te sirva.</p>
+            <p>Sigue en Competitors Spy las cuentas de tu nicho y aquí aparecen sus reels que mejor funcionan, para copiar el que te sirva.</p>
             <Link href="/competitor-spy" className={s.boton}>Abrir Competitors Spy</Link>
           </div>
         )}
