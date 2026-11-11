@@ -57,7 +57,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../_components/icons';
-import { BotonIntegracion } from '../_components/ConectarIntegracion';
+import { BotonIntegracion, CON_SU_CLASE } from '../_components/ConectarIntegracion';
 import { ConfirmModal } from '../_components/ConfirmModal';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
@@ -86,7 +86,7 @@ import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import { EN_PALABRAS, paresParecidos, type CompetidorJuntable } from '@/lib/spy-juntar-reglas';
 import {
   competidoresAction, guardarAnuncioAction, juntarCompetidoresAction, piezasAction, ponerPaisAction, quitarCanalAction, quitarCompetidorAction,
-  revisarAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista,
+  revisarAction, sugeridosAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista,
 } from './actions';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { enlaceSusAnuncios } from '@/lib/spy-funnel';
@@ -340,14 +340,18 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-pcard__tag--analizando ~ .spy-pcard__veces{top:44px}
 /* Dos píldoras apiladas, como .pcard__tag + .pcard__fit de la referencia: la segunda sube. */
 .spy-pcard__tag + .spy-pcard__tag{bottom:44px;max-width:calc(100% - 28px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;line-height:26px}
-.spy-pcard__pie{display:flex;align-items:flex-end;gap:10px;padding:12px 14px 14px 16px}
-.spy-pcard__texto{flex:1;min-width:0}
-.spy-pcard__texto small{display:block;color:var(--t-dim);font-size:var(--fs-meta);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* El nombre con TODO el ancho (11/11/2026, mirado en producción después del despliegue): con la píldora del número al lado, el
+   nombre tenía 104 px de una tarjeta de 234, y 14 de 15 videos de YouTube seguían cortados aun en dos renglones («52 Minutes of /
+   Business…»). fitlo pone la píldora al lado porque sus nombres son cortos («Merino tee»); los de YouTube no. La píldora sube a la
+   fila de su tipo, y el nombre va debajo, de lado a lado. */
+.spy-pcard__pie{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;row-gap:6px;padding:12px 14px 14px 16px}
+.spy-pcard__texto{display:contents}
+.spy-pcard__texto small{grid-column:1;grid-row:1;display:block;color:var(--t-dim);font-size:var(--fs-meta);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 /* El nombre en DOS renglones, como «.pcard__text b» de fitlo («clamp 2», docs/diseno/referencia-spy.md). En uno solo, con la
    píldora del número al lado, un video de YouTube quedaba «The skill you N…» (11/11/2026, mirado con capturas). */
-.spy-pcard__texto b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;white-space:normal;
+.spy-pcard__texto b{grid-column:1 / -1;grid-row:2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;white-space:normal;
   overflow-wrap:anywhere;font-size:var(--fs-card);font-weight:600;line-height:1.3;letter-spacing:-.005em}
-.spy-pcard__num{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;height:34px;padding:0 13px;
+.spy-pcard__num{grid-column:2;grid-row:1;justify-self:end;display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;height:34px;padding:0 13px;
   border-radius:99px;background:var(--ink);color:var(--on-ink);box-shadow:0 8px 18px -10px #11111173}
 .spy-pcard__num svg{opacity:.75;flex:0 0 auto}
 .spy-pcard__num b{font-size:var(--fs-md);font-weight:700;line-height:1;letter-spacing:-.01em}
@@ -1579,7 +1583,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     if (!r.ok) { setError(r.error); return; }
     sacarDeLaLista(id);
     irA(null);
-    await recargarLista();
+    await Promise.all([recargarLista(), recargarSugeridos()]);
+  };
+
+  // Quien deja de mirar a un sugerido lo vuelve a ver en «Sugeridos» (11/11/2026, mirado en producción: Alex Hormozi se sumó
+  // desde ahí, se sacó, y no volvía hasta recargar la página; el server ya lo ofrecía de nuevo).
+  const recargarSugeridos = async () => {
+    const r = await sugeridosAction();
+    if (r.ok) setSugeridos(r.sugeridos);
   };
 
   /**
@@ -1593,7 +1604,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     const r = await quitarCompetidorAction(id);
     setABorrar(null);
     if (!r.ok) { setError(r.error); return; }
-    await recargarLista();
+    await Promise.all([recargarLista(), recargarSugeridos()]);
   };
 
   const abrirAlta = (texto = '') => { setErrorModal(null); setTextoAlta(texto); setModal('alta'); };
@@ -1846,7 +1857,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
         {!c && frenadaDesde && (
           <p className="spy-aviso spy-cola-frenada" aria-live="polite">
             <Icon name="warning" size={14} />
-            Las caricaturas no se están haciendo: la que más espera lleva {haceCuanto(frenadaDesde)} en la cola.
+            {/* «lleva 1 d», no «lleva hace 1 d» (así se leía en producción el 11/11/2026): `haceCuanto` ya trae el «hace». */}
+            Las caricaturas no se están haciendo: la que más espera lleva {haceCuanto(frenadaDesde).replace(/^hace /, '')} en la cola.
             <small>Las hace el Runner con Canva.</small>
           </p>
         )}
@@ -2000,12 +2012,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                         botones={(
                           <>
                             {pideConectarMeta(lecturasDe) && (
-                              <BotonIntegracion servicio="meta" className="spy-boton spy-boton-primario" onConectado={() => void leer(c.id)}>
+                              <BotonIntegracion servicio="meta" className="spy-boton spy-boton-primario" style={CON_SU_CLASE} onConectado={() => void leer(c.id)}>
                                 <Icon name="plug" size={14} /> Conectar Meta
                               </BotonIntegracion>
                             )}
                             {pideConectarMeta(lecturasDe) && (
-                              <BotonIntegracion servicio="apify-instagram" className="spy-boton" onConectado={() => void leer(c.id)}>
+                              <BotonIntegracion servicio="apify-instagram" className="spy-boton" style={CON_SU_CLASE} onConectado={() => void leer(c.id)}>
                                 Conectar Apify
                               </BotonIntegracion>
                             )}

@@ -12,6 +12,20 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Sacar algo de la barra lo saca también del BUSCADOR (Ctrl K) (11/11/2026)
+
+**Vive en:** `lib/buscador-nav.ts` (`ALIAS`) · `app/_components/Sidebar.tsx` (los `destinos` del buscador). Lo fija
+`tests/mirada-prod-11-11.test.ts` (casos 1a y 1b).
+
+**Síntoma:** el mismo día que Lead Magnet se archivó y AI Avatar salió de la barra (`fueraDeLaBarra`), buscar «lead magnet» o
+«avatar» daba «Nothing found». Y el 404 de las rutas viejas dice que el buscador «entiende también los nombres viejos».
+
+**Causa:** el buscador busca entre las filas que la barra DIBUJA para esa persona. Una fila con `fueraDeLaBarra`, archivada o
+filtrada por plan no llega, así que su nombre deja de encontrar algo.
+
+**La regla:** al sacar algo de la barra, sumar en `ALIAS` su nombre viejo apuntando a la fila donde se hace ahora («avatar» →
+`video-editor`, «lead magnet» → `copywriter`). Un alias sólo lleva a una key que la persona ve: a un Esencial, «avatar» no le
+encuentra Video (es de Pro), y está bien.
 ## La tarjeta de plantilla tiene DOS dibujantes: un dato nuevo aparece en la compu y no en el teléfono (11/11/2026)
 
 **Vive en:** `app/_crear/TarjetaPlantilla.tsx` (la computadora, y las tabs que la usan) y `app/m/video-editor/InicioVideoM.tsx`
@@ -5296,3 +5310,12 @@ app/web-generator/editor/paneles/EstiloSeccion.tsx
   Se probó en producción inyectando la regla antes de escribirla.
 
 **Vive en:** app/ai-avatar/estudio.css (`.hf-grilla--selector`)
+
+## `--primary-bg` NO es un color de acento: en el tema por defecto es un gris (11/11/2026, Web Generator)
+
+`--primary` en el tema por defecto es `#121212` (casi negro) y `--primary-bg` es `#e4e4e1`: un gris. El nombre hace pensar en «un
+fondo suave del acento», y así se usó en la portada de outliers de Web Generator para la tarjeta sin imagen («sobre el tono del
+acento, nunca un cuadro gris»): en producción salió exactamente un cuadro gris. El acento de MaKo es el dorado (`--mako`,
+`#F2B01E`), que es lo que usa el «OUTLIER» marcado. **Regla:** para «un fondo con color» se mira el VALOR del token en
+app/globals.css, no su nombre; para una superficie neutra que no se vea vacía, se dibuja algo adentro (ahí, la página con su
+titular), no se tiñe.

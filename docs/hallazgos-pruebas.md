@@ -46,6 +46,12 @@ oculto. Si lo está, se repite con el panel a la vista, o se le pide un turno al
 la extensión:** tiene la sesión de LEANDRO (ws 10), un cliente real, y el `?ws=` se ignora. La prueba del 10/11 dejó ahí 2 usos
 de IA y una apertura vista (docs/pruebas/image-10-11.md, «Límites»).
 
+**Lo mismo con las capturas, 11/11 (Competitor Spy en producción):** los videos de YouTube de «Todas sus piezas» salieron SIN
+portada, como tarjetas celestes con texto, y parecía una regresión del despliegue. Era la captura atrasada: el DOM decía
+`img.complete`, `naturalWidth 1280`, opacidad 1, y la captura siguiente ya las mostraba. Pasó tres veces en la misma vuelta (el
+modal a medio aparecer, el menú «⋯» que no estaba, la caricatura de Leila en blanco). Antes de anotar «no se ve»: leer la imagen en
+el DOM y capturar de nuevo. **Y para medir un arreglo de CSS antes de subirlo:** se le inyectan las mismas reglas a la página de
+producción y se cuenta (los nombres cortados pasaron de 14 a 3 de 15). Así la captura del «después» no espera el despliegue.
 **11/11/2026, CÓMO MIRAR con el panel oculto (medido):** el panel mide 800 × 600 y la página se emula a 1440 × 900.
 - **La receta que anda (medida en toda la prueba del 11/11 a la tarde):** `resize_window` 1440 × 900 y, EN EL MISMO LOTE y
   sin espera, `zoom` de `[0, 0, 1440, 900]`. Devuelve la página ENTERA a 1440, reducida a 800 × 500, también después de

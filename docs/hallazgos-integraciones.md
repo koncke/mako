@@ -5,6 +5,22 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## `BotonIntegracion` le pisa la clase al botón: sus estilos «como texto» van EN LÍNEA (11/11/2026)
+
+**Vive en:** `app/_components/ConectarIntegracion.tsx` (`COMO_TEXTO`, `CON_SU_CLASE`). Lo fija `tests/mirada-prod-11-11.test.ts` (caso 8).
+
+**Síntoma:** en Competitor Spy, «Conectar mi IA» (Funnel › Su oferta) se veía como texto suelto dentro de una caja de 40 px sin
+relleno, sin fondo y en letra normal, aunque llevaba `className="spy-boton"`. Igual los otros cuatro botones de conectar de Spy.
+
+**Causa:** `BotonIntegracion` pone siempre `style={{ ...COMO_TEXTO, ...style }}`, y un estilo en línea le gana a cualquier clase:
+`padding: 0`, `background: none`, `border: 0`, `font: inherit` y `color: inherit` borran lo que la clase dice. Está pensado
+para un link dentro de una frase («Falta conectar ElevenLabs»), y nadie lo vio en los que traen su clase de botón.
+
+**La regla:** un `BotonIntegracion` con su clase de botón pasa `style={CON_SU_CLASE}` (deshace `COMO_TEXTO` con `undefined`, y
+React no escribe esas propiedades). **SIN hacer:** `apr-cargar` (app/admin/approvals/ListaApprovals.tsx), `lk-aviso-hoja__accion`
+(app/dashboard/EditorInforme.tsx) y `tci-api` (app/integraciones/TusCuentasIA.tsx) traen clase y no se miraron: si su CSS dice
+padding o fondo, están igual de pisados. No se cambió el componente porque tiene llamadores que cuentan con el «como texto».
+
 ## La tarjeta de Apify le prometía al cliente el tope de OTRA lectura: 40 en vez de 150 (6/11/2026)
 
 **Vive en:** `lib/metodo-catalogo.ts` (la nota de `APIFY_INSTAGRAM_TOKEN`) · `lib/instagram-perfil.ts`

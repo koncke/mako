@@ -585,6 +585,12 @@ const OPTIMIZADO: string[] = [
 
   // ── Estadísticas ──
   r(opt(D, ['numeros-grandes', 'metrica-destacada'], ' .gm-item-valor'), 'font-size: 3.2em;'),
+  // La cifra nunca se sale de su columna (11/11/2026, la réplica de acquisition.com en el teléfono: columnas de 138px, «10,000»
+  // de 164px y «10,00081» pegados). El ítem es un contenedor y la letra es la menor entre 3.2em y lo que entra: el ancho de la
+  // columna (100cqi) repartido entre los caracteres (`--gm-largo`, especificacion.ts) a ~0.6em cada uno. Con un piso de 6: las
+  // cifras de hasta 6 caracteres salen todas del mismo tamaño (la fila queda pareja) y sólo una más larga se achica más.
+  r(opt(D, ['numeros-grandes'], ' > .gm-item'), 'container-type: inline-size;'),
+  r(opt(D, ['numeros-grandes'], ' .gm-item-valor'), 'font-size: min(3.2em, calc(100cqi / (max(var(--gm-largo, 6), 6) * 0.6))); white-space: nowrap;'),
   r(opt(D, ['metrica-destacada'], ' > .gm-item:first-child'), 'grid-column: 1 / -1;'),
   r(opt(D, ['metrica-destacada'], ' > .gm-item:first-child .gm-item-valor'), 'font-size: 5em;'),
   r(opt(D, ['numeros-grandes', 'metrica-destacada'], ' > .gm-item[data-destacado="si"] .gm-item-valor'), 'background-image: var(--gm-titulo-degradado, none); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: var(--gm-titulo-relleno, currentColor); color: var(--gm-titulo, inherit);'),
@@ -985,6 +991,9 @@ function movil(p: string): string[] {
     // La imagen al costado pasa arriba (12.5em), como en Gamma.
     r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"])', 'grid-template-columns: minmax(0, 1fr); grid-template-areas: "acento" "cuerpo"; grid-template-rows: auto 1fr; min-height: 0;'),
     r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"], [data-diseno="arriba"]) > .gm-acento', 'height: 12.5em; border-radius: var(--gm-radio-tarjeta, 0.6em) var(--gm-radio-tarjeta, 0.6em) 0 0;'),
+    // La del costado era una columna ALTA (un retrato entra con la cara); como franja apaisada, cortada por el medio, mostraba
+    // el torso sin la cabeza (11/11/2026, la réplica de acquisition.com en el teléfono). Se mira la parte de arriba.
+    r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"]) > .gm-acento', 'background-position: 50% 15%;'),
     r(p + ' .gm-tarjeta[data-diseno="fondo"]', 'min-height: 20em;'),
     r(p + ' .gm-tarjeta[data-alto="pantalla"]', 'min-height: calc(100vh - 3em); min-height: calc(100svh - 3em);'),
     r(p + ' h1.gm-titulo', tamTitulo(2.6)),

@@ -45,7 +45,10 @@ test('un `ws` inventado no viaja al link: viene de la URL, o sea de cualquiera',
 test('el atajo se escribe como lo tiene ESE teclado', () => {
   // Decirle «Ctrl K» a alguien en una Mac es nombrarle una tecla que para él no hace eso.
   assert.equal(atajoBuscador('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'), '⌘ K');
-  assert.equal(atajoBuscador('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)'), '⌘ K');
+  // Un teléfono no tiene teclado: la frase no va (11/11/2026, el 404 de Lead Magnet mirado a 375 px).
+  assert.equal(atajoBuscador('Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)'), null);
+  assert.equal(atajoBuscador('Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36'), null);
+  assert.equal(atajoBuscador('Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)'), '⌘ K', 'un iPad suele tener teclado');
   assert.equal(atajoBuscador('Mozilla/5.0 (Windows NT 10.0; Win64; x64)'), 'Ctrl K');
   assert.equal(atajoBuscador(''), 'Ctrl K', 'sin dato, el de la mayoría');
 });
