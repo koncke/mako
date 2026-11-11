@@ -73,3 +73,36 @@ export function puntoDeCursor({
 	const caja = zonas[ZONA_DE[agente]];
 	return caja ? lugarEn(caja, agente) : null;
 }
+
+/** Cada cuánto se corre el cursor de un agente que trabaja sin un renglón nuevo. */
+export const PASEO_MS = 900;
+
+/**
+ * Adónde va el cursor de un agente que TRABAJA: su punto (`puntoDeCursor`) y, desde la vuelta 1, un poco corrido, sin
+ * salir de su caja. Martín (11/11/2026): los cursores son «súper importante que esté en todo momento». Medido en
+ * producción ese día: de los 58 s de una edición automática, subs-01 transcribió 42 con el cursor clavado en el mismo
+ * píxel, y un cursor quieto parece colgado. Con la hora del video se corre a lo largo de la línea de tiempo (como quien
+ * la recorre); en su panel, alrededor de su lugar. Sin azar: la misma vuelta da el mismo lugar, y el ángulo de oro no
+ * repite el lugar de la vuelta anterior. La vuelta 0 es el punto exacto (un renglón nuevo lleva el cursor ahí).
+ */
+export function puntoTrabajando(args: {
+	agente: AgenteId;
+	en: number | null;
+	zonas: Partial<Record<Zona, Caja>>;
+	linea: LineaMedida | null;
+	vuelta: number;
+}): Punto | null {
+	const punto = puntoDeCursor(args);
+	if (!punto || args.vuelta <= 0) return punto;
+	const { agente, en, zonas, linea, vuelta } = args;
+	const caja = en !== null && linea && linea.pps > 0 ? linea.caja : zonas[ZONA_DE[agente]];
+	if (!caja) return punto;
+	const i = Math.max(0, AGENTES.findIndex((a) => a.id === agente));
+	const angulo = vuelta * 2.39996 + i * 1.7;
+	const x = punto.x + Math.cos(angulo) * Math.min(70, caja.width * 0.12);
+	const y = punto.y + Math.sin(angulo) * Math.min(28, caja.height * 0.1);
+	return {
+		x: Math.min(caja.left + caja.width - 12, Math.max(caja.left + 4, x)),
+		y: Math.min(caja.top + caja.height - 12, Math.max(caja.top + 4, y)),
+	};
+}
