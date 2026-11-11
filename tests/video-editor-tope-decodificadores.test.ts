@@ -17,23 +17,24 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { VideoCache } from '../app/video-editor/_opencut/services/video-cache/service';
 
-// Un VideoCache con decodificadores de mentira: cuenta cuáles se abren y cuáles se cierran.
-class CacheFalso extends VideoCache {
-  abiertosHistorial: string[] = [];
-  cerrados: string[] = [];
-  demora: Promise<void> | null = null;
-  async initializeSink({ mediaId }: { mediaId: string }) {
-    this.abiertosHistorial.push(mediaId);
-    const cerrados = this.cerrados;
-    const demora = () => this.demora;
-    (this as unknown as { sinks: Map<string, unknown> }).sinks.set(mediaId, {
-      input: { dispose: () => cerrados.push(mediaId) },
+// Un VideoCache REAL con decodificadores de mentira: se le cambia `initializeSink` en la instancia (no por herencia: es
+// privado y tsc no deja pisarlo en una subclase, TS2415). Cuenta cuáles se abren y cuáles se cierran.
+type CacheFalso = VideoCache & { abiertosHistorial: string[]; cerrados: string[]; demora: Promise<void> | null };
+function crearCache(reloj: { t: number }): CacheFalso {
+  const c = new VideoCache({ reloj: () => reloj.t }) as CacheFalso;
+  c.abiertosHistorial = [];
+  c.cerrados = [];
+  c.demora = null;
+  const interno = c as unknown as { sinks: Map<string, unknown>; initializeSink: (a: { mediaId: string }) => Promise<void> };
+  interno.initializeSink = async ({ mediaId }) => {
+    c.abiertosHistorial.push(mediaId);
+    interno.sinks.set(mediaId, {
+      input: { dispose: () => c.cerrados.push(mediaId) },
       sink: {
         canvases: async function* (desde: number) {
           let t = desde;
           for (;;) {
-            const d = demora();
-            if (d) await d;
+            if (c.demora) await c.demora;
             yield { canvas: {}, timestamp: t, duration: 1 / 30 };
             t += 1 / 30;
           }
@@ -46,7 +47,8 @@ class CacheFalso extends VideoCache {
       prefetching: false,
       prefetchPromise: null,
     });
-  }
+  };
+  return c;
 }
 
 const archivo = {} as File;
@@ -61,7 +63,7 @@ async function reproducir(c: CacheFalso, reloj: { t: number }, mediaId: string, 
 
 test('un clip que salió de pantalla hace 5 s de uso se cierra; el que se ve, no', async () => {
   const reloj = { t: 1000 };
-  const c = new CacheFalso({ reloj: () => reloj.t });
+  const c = crearCache(reloj);
   await reproducir(c, reloj, 'a', 2);
   await reproducir(c, reloj, 'b', 7);
   assert.deepEqual(c.cerrados, ['a']);
@@ -70,7 +72,7 @@ test('un clip que salió de pantalla hace 5 s de uso se cierra; el que se ve, no
 
 test('con el editor quieto no corre el tiempo: al volver de una pausa larga no se cierra lo que se ve', async () => {
   const reloj = { t: 1000 };
-  const c = new CacheFalso({ reloj: () => reloj.t });
+  const c = crearCache(reloj);
   // Dos clips a la vez (una capa encima de otra), un segundo.
   for (let i = 0; i < 30; i++) {
     reloj.t += 1000 / 30;
@@ -89,7 +91,7 @@ test('con el editor quieto no corre el tiempo: al volver de una pausa larga no s
 
 test('volver a un clip cerrado lo reabre y da el cuadro', async () => {
   const reloj = { t: 1000 };
-  const c = new CacheFalso({ reloj: () => reloj.t });
+  const c = crearCache(reloj);
   await reproducir(c, reloj, 'a', 1);
   await reproducir(c, reloj, 'b', 7);
   assert.ok(c.cerrados.includes('a'));
@@ -101,7 +103,7 @@ test('volver a un clip cerrado lo reabre y da el cuadro', async () => {
 
 test('nunca cierra uno con un pedido en curso', async () => {
   const reloj = { t: 1000 };
-  const c = new CacheFalso({ reloj: () => reloj.t });
+  const c = crearCache(reloj);
   // Sin leer el cuadro siguiente: así lo único que lo protege es el pedido en curso (la lectura adelantada también
   // protege, y si no se apaga el test no distingue cuál de las dos lo salvó).
   (c as unknown as { startPrefetch: () => void }).startPrefetch = () => {};
