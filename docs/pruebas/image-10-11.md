@@ -37,7 +37,7 @@ Resultado: **PASA** · **FALLA** (sin arreglar) · **ARREGLADO** (en producción
 | 14 | Usar una plantilla crea el diseño y abre el editor («Carrusel · Lista o tips», 7 páginas) | 1440, ws 3 | **PASA** | |
 | 15 | Editor: el texto se edita con doble clic y queda guardado al recargar | 1440, ws 3 | **PASA** | [04](image-10-11/04-editor-texto-editado.png) · [05](image-10-11/05-editor-tras-recargar.png) |
 | 16 | Editor, «Compartir»: PNG, JPG, PDF, SVG, Video o GIF (no se descargó nada) | 1440, ws 3 | **PASA** | |
-| 17 | Editor, panel «Diseño»: buscador y «Todas las plantillas» que nunca encuentran nada («Ninguna plantilla coincide con “lista”») | 1440, ws 3 | **FALLA**: vacío a propósito desde el 6/11; ver «Propuestas» | |
+| 17 | Editor, panel «Diseño»: buscador y «Todas las plantillas» que nunca encuentran nada («Ninguna plantilla coincide con “lista”») | 1440, ws 3 | **ARREGLADO, falta desplegar** (11/11): sirve las 18 plantillas reales de MaKo, con su miniatura y por grupo | |
 | 18 | El «⋯» de la lista de diseños «sin fondo»: las filas de abajo lo tapaban (medido con `elementFromPoint`: los 4 ítems tapados) | 1536 | **ARREGLADO, falta desplegar** (15ba25f79) | |
 | 19 | Guiado: con la pregunta de MaKo marcada, el menú lateral se abría ENCIMA del chat (la captura de Martín) | 1536 | **ARREGLADO, falta desplegar** (c1a628fa3) | [06](image-10-11/06-falla1-barra-sobre-el-chat.jpg) |
 | 20 | Guiado en la computadora: pregunta la oferta, el velo señala la pregunta | 1536 | **PASA** | [07](image-10-11/07-guiado-escritorio.jpg) |
@@ -51,17 +51,16 @@ Resultado: **PASA** · **FALLA** (sin arreglar) · **ARREGLADO** (en producción
 | 28 | «Generar» | — | **NO PROBADO**: escribe y usa la IA del negocio. En el ws 3, que no tiene IA, el panel oculto del navegador de la app no procesaba el clic de «Editar» (el mismo clic, en el Chrome a la vista, sí abre el guiado) | |
 | 29 | Anuncios entrando por el link (`?que=anuncios`): «Guardar búsqueda» sin filtros | 551 | **ARREGLADO, falta desplegar**. El arreglo del caso 11 lo empeoraba (salían los dos botones): se corrigió con el orden que de verdad se usa | [13](image-10-11/13-anuncios-por-link.jpg) |
 | 30 | Thumbnails: abrir una miniatura (Ver en YouTube, Guardar, Editar) | 551 | **PASA** | [14](image-10-11/14-thumbnail-abierto.jpg) |
-| 31 | El globo «Contesta aquí para seguir.» tapa en parte la caja de escribir | 551 | **FALLA** (menor) | [12](image-10-11/12-guiado-listo-para-generar.jpg) |
+| 31 | El globo «Contesta aquí para seguir.» tapa en parte la caja de escribir | 551 | **ARREGLADO, falta desplegar** (11/11): la frase de la guía esquiva la caja de escribir | [12](image-10-11/12-guiado-listo-para-generar.jpg) |
 | 32 | Esencial contra Pro: Image es sólo de Pro (candado y «Pasar a Pro») | — | **NO PROBADO EN VIVO**: aplica sólo a quien paga el Esencial por la pasarela, y ningún negocio de prueba lo paga (no se crean cuentas). Lo fija `tests/plan-esencial.test.ts` | |
 | 33 | Un miembro o un cliente de agencia | — | **NO PROBADO**: la app deja ver un negocio sólo como administrador | |
 
 ## Propuestas (no son arreglos: piden una decisión)
 
-- **El panel «Diseño» del editor (caso 17).** Quedó vacío el 6/11, cuando se borraron las 10 plantillas de Doory, y desde
-  entonces su buscador y su selector no encuentran nada. La referencia (Canva) lista ahí las plantillas. Las de MaKo ya
-  existen («Nuevo diseño», `app/image-editor/plantillas-crear.ts`), y `servicioPlantillas` (`app/image-editor/mako/plantillas.ts`)
-  dice que «el día que las plantillas propias se sirvan desde el panel, se llena acá». Las reales arman su documento en el
-  navegador; las de carrusel necesitan el kit y la marca del negocio, que se leen en el server.
+- **La tarjeta de MaKo en la portada de Image.** Sin una apertura propia, muestra la conversación del Ops Center. En el ws 3
+  es una vieja que falló («No te pude contestar esto»): lo primero que se ve en Image es un error de otra tab. El plan de
+  iniciativa (docs/mako-iniciativa/plan.md §4) no define una apertura para los ejemplos de Image, sólo para el diseño en blanco
+  («¿Dónde lo vas a publicar?»). Hace falta definirla.
 - **Los 17 carruseles que ya no existen en Instagram.** Muestran «N láminas» con una sola imagen y sin flecha, y su «Ver
   original» lleva a una página muerta. Esconderlos (`dejo_de_verse_en`) es la pasada a ojo de la biblioteca: no se tocó.
 - **Los carruseles de Competitors Spy** (las cuentas que sigue el negocio) nunca guardan láminas: muestran «5 láminas» con una
@@ -93,7 +92,7 @@ Resultado: **PASA** · **FALLA** (sin arreglar) · **ARREGLADO** (en producción
 **33 casos.** 18 pasan y 3 no se pudieron probar en vivo (28, 32 y 33). **Se encontraron 12 fallas:**
 - **10 arregladas.** 3 ya están en producción por los datos (casos 1, 3 y 21). Las otras 7 están en main y esperan el
   despliegue del 11/11 (casos 10, 11, 18, 19, 23, 27 y 29).
-- **2 sin arreglar:** el panel «Diseño» del editor (caso 17, pide una decisión) y el globo que tapa la caja (caso 31).
+- **Las 2 que faltaban se arreglaron el 11/11** (el panel «Diseño», caso 17, y el globo, caso 31) y esperan su despliegue.
 
 Aparte, 20 carruseles siguen sin láminas y no tienen arreglo: 17 ya no existen en Instagram y 3 están restringidos (ver
 «Propuestas»).

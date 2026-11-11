@@ -1307,9 +1307,9 @@ export const t = {
     loading: 'Cargando plantillas',
     loadingMore: 'Cargando más…',
     noMatch: (q: string) => `Ninguna plantilla coincide con “${q}”.`,
-    // Desde el 6/11/2026 el panel está vacío a propósito (las 10 de Doory se borraron): las plantillas de MaKo se
-    // eligen al crear el diseño, en «Nuevo diseño» (app/image-editor/plantillas-crear.ts).
-    empty: 'Las plantillas están en «Nuevo diseño».',
+    // Desde el 11/11/2026 el panel sirve las plantillas reales de MaKo (app/image-editor/mako/plantillas.ts); esto sale sólo si
+    // no se pudieron armar.
+    empty: 'Todavía no hay plantillas.',
     use: (title: string) => `Usar plantilla ${title}`,
     /** MaKo: next to a template suggested for the business (its reason goes in the tooltip). */
     suggested: 'Sugerido',

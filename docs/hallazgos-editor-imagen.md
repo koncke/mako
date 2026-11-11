@@ -28,6 +28,22 @@ Tres cosas que esto deja, y la tercera es la que no se ve:
 
 ---
 
+## El panel «Diseño» estuvo vacío cinco días: el buscador nunca encontraba nada (11/11/2026)
+
+**Síntoma:** en el editor, el panel «Diseño» mostraba un buscador y «Todas las plantillas», y buscar «lista» contestaba «Ninguna
+plantilla coincide con “lista”», aunque «Lista o tips» existe en «Nuevo diseño». La prueba de Image del 10/11 lo marcó
+(docs/pruebas/image-10-11.md, caso 17).
+
+**Por qué:** el 6/11 se borraron las 10 plantillas de Doory (material ajeno con licencia de atribución) y `servicioPlantillas`
+quedó devolviendo vacío a propósito, con un test que lo fijaba. Lo que había que proteger era que no volvieran las de Doory, no
+que el panel quedara vacío. Un vacío fijado por un test se vuelve permanente sin que nadie lo decida.
+
+**La regla:** el panel sirve las plantillas REALES de MaKo (`app/image-editor/mako/plantillas.ts`), las mismas de «Nuevo
+diseño». La tarjeta se dibuja con `MiniaturaDiseno` a partir de su estructura (`muestra`), porque no tienen imagen, y aplicarla
+pone la estructura con ids nuevos. El test 3 de api-mako-imagen sigue cuidando que no vuelva ninguna de Doory, y
+tests/image-panel-diseno.test.ts fija el panel lleno. **Sin hacer:** los carruseles por tipo no están en el panel, porque su
+documento sale con la marca y el kit del negocio, que se leen en el server.
+
 ## Lo que quedó SIN hacer de los 33 encargos del editor y los 18 de Thumbnails (6/11/2026)
 
 El barrido del 6/11 dejó 33 encargos del Image Editor y 18 de Thumbnails. Esto es lo que NO se hizo, con el archivo donde
