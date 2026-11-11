@@ -387,6 +387,71 @@ export const FEATURE_DE_LOS_GRUPOS = 'mako-doer-in';
 export const CLAVE_INTERRUPTOR_CREDITO_GRUPOS = 'ia.credito_grupos';
 export const esInterruptorPrendido = (valor: string | null | undefined): boolean => valor !== 'apagado';
 
+/**
+ * Las funciones de MaKo en WhatsApp que pagan con el crédito de los grupos en CUALQUIER negocio: el turno de texto (y el
+ * clasificador y el bot 1 a 1, que usan la misma) y las fotos y los PDF que llegan al grupo (11/11/2026). La de la nota de voz
+ * NO: va con Groq (lib/ai-cheap.ts → `notaDeVozDelGrupo`).
+ */
+export const FEATURES_DE_LOS_GRUPOS: readonly string[] = [FEATURE_DE_LOS_GRUPOS, 'MaKo en WhatsApp · adjunto'];
+
+/**
+ * EL CRÉDITO PARA TODO LO DEL ESPACIO DE MaKo, MENOS EL PLAN (11/11/2026). Martín, textual: «MaKo con WhatsApp ya habíamos dicho
+ * que eso se gaste con los tokens de las cuentas de Claude 200 dólares que estoy pagando… En general, yo creo que sería bueno que
+ * gastemos eso para todo esto en lugar de Gemini, porque es mucho más estable.» Va PRIMERO y Gemini queda de respaldo. Entra por
+ * la puerta 2, con las cuentas de los grupos (lib/credito-negocio.ts → `cuentasDelCredito('plataforma')`): Haiku, la marca
+ * «(cuenta N)» y nunca el Plan. Vence como toda excepción al gasto de la plataforma.
+ */
+export const CREDITO_PARA_LA_PLATAFORMA = {
+  hasta: '2026-12-31',
+  porque: 'El crédito de API de las cuentas Max de Martín ya está pago con la suscripción y vence cada mes sin acumularse; '
+    + 'Claude es más estable que el Gemini gratis para lo interno de MaKo.',
+  pidio: 'Martín, 11/11/2026: «En general, yo creo que sería bueno que gastemos eso para todo esto en lugar de Gemini, porque '
+    + 'es mucho más estable.»',
+} as const;
+/** El interruptor del crédito de la plataforma, en el workspace de la plataforma: «apagado» lo apaga; sin fila, prendido. */
+export const CLAVE_INTERRUPTOR_CREDITO_PLATAFORMA = 'ia.credito_plataforma';
+
+/** Para qué se usa una cuenta del crédito: el interruptor que la gobierna y si guarda el último 10% (lib/credito-negocio.ts). */
+export type UsoDelCredito = 'grupos' | 'plataforma';
+
+/**
+ * ¿Este pedido puede pagar con una cuenta del crédito? Puro y síncrono: lo usan la puerta 2 (lib/anthropic.ts), la cascada, el
+ * test y /modelos-ia.
+ *   · una función de los grupos de WhatsApp (`FEATURES_DE_LOS_GRUPOS`): sí, en cualquier negocio, como desde el 28/10;
+ *   · cualquier otra que no sea del Plan: sí, SÓLO si el pedido es del espacio de la plataforma y el permiso no venció;
+ *   · todo lo demás, no. «No sé si es la plataforma» es no.
+ *
+ * ⚠️ `esLaPlataforma` lo calcula la PUERTA (`getWorkspaceActual() === wsSuperAdmin()`, y si algo falla, false), nunca un dato que
+ * mande el que llama, y nunca contra `OWNER_WS`: el ws1 es Mauricio, un cliente. Lo prueba rompiéndolo tests/credito-plataforma.test.ts.
+ */
+export function puedeUsarUnaCuentaDelCredito(p: {
+  feature?: string; esLaPlataforma?: boolean; pausa?: boolean; hoy?: Date;
+}): { ok: true; para: UsoDelCredito } | { ok: false; razon: string } {
+  if (p.pausa) return { ok: false, razon: 'Claude está PAUSADO a mano (`mako.claude.pausa`): apaga también el crédito.' };
+  const feature = (p.feature ?? '').trim();
+  if (!feature) return { ok: false, razon: 'sin `feature` no se sabe qué se compra con el crédito.' };
+  if (FEATURES_DEL_PLAN.includes(feature)) return { ok: false, razon: `«${feature}» es del Plan, y el Plan nunca paga con el crédito (Martín, 30/09/2026).` };
+  if (FEATURES_DE_LOS_GRUPOS.includes(feature)) return { ok: true, para: 'grupos' };
+  if (p.esLaPlataforma !== true) return { ok: false, razon: `«${feature}» usa el crédito sólo en el espacio de MaKo: un negocio paga su IA.` };
+  if (diaISO(p.hoy ?? new Date()) > CREDITO_PARA_LA_PLATAFORMA.hasta) {
+    return { ok: false, razon: `el crédito de la plataforma venció el ${CREDITO_PARA_LA_PLATAFORMA.hasta}. Renuévalo con una fecha nueva o déjalo vencido.` };
+  }
+  return { ok: true, para: 'plataforma' };
+}
+
+/**
+ * Una cuenta del crédito no contestó: ¿se prueba la siguiente o se pasa al respaldo (Gemini, la cascada)? Puro.
+ *   · sin saldo («credit balance is too low»), 401, 429 o sin la clave cargada: es de ESA cuenta, la otra puede contestar;
+ *   · plazo vencido, 5xx, 529 u «overloaded»: es el mismo Anthropic para todas las cuentas, se pasa al respaldo;
+ *   · cualquier otro (un 400 por el pedido): la otra cuenta contestaría lo mismo, se pasa al respaldo.
+ */
+export function queHacerSiFallaElCredito(status: number | null | undefined, mensaje: string): 'otra_cuenta' | 'al_respaldo' {
+  if (/credit balance is too low|no tiene su clave de Claude/i.test(mensaje)) return 'otra_cuenta';
+  if (status === 401 || status === 403 || status === 429) return 'otra_cuenta';
+  if (/authentication_error|invalid x-api-key|rate_limit_error/i.test(mensaje)) return 'otra_cuenta';
+  return 'al_respaldo';
+}
+
 /** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */
 export const MOTIVO_CREDITO_PLATAFORMA = '⚠ crédito de Claude de la plataforma';
 /** La marca del gasto de la clave de un NEGOCIO que es el crédito de Max de la plataforma (el ws10, lib/credito-marca.ts). */
