@@ -4,7 +4,7 @@ Pedido de Martín (10/11, noche): probar la tab «Video Editor» como la usaría
 chat «Video Editor» (claude4) en producción (`hola-mako.com`, despliegue 9818c63cb) en dos tandas:
 
 - **Tarde, en Chrome**: proyecto «1110», dos clips de teléfono de 24 fps con voz. ⚠️ Ese Chrome tiene la sesión de
-  **Leandro** (`tejadomartin@gmail.com`, ws10), y el `?ws=9` no hace nada para quien no es super admin: los casos 1 a 26 se
+  **Leandro** (la cuenta de Leandro, ws 10), y el `?ws=9` no hace nada para quien no es super admin: los casos 1 a 26 se
   probaron **como Leandro, en su negocio** (un usuario real). Lo encontrado vale igual, y es la mirada de un cliente. Quedaron
   en ws10 2 proyectos de prueba, 1 hilo de chat y 3 llamadas a la IA (US$ 0,047, crédito de la plataforma). Borrarlos espera
   el sí de Martín.
