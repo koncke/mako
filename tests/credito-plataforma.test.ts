@@ -20,6 +20,7 @@ import assert from 'node:assert/strict';
 import {
   CREDITO_PARA_LA_PLATAFORMA, FEATURES_DE_LOS_GRUPOS, FEATURES_DEL_PLAN, FEATURE_DE_LOS_GRUPOS, puedeUsarUnaCuentaDelCredito, queHacerSiFallaElCredito,
 } from '../lib/veto-claude';
+import { CATALOGO_MODELOS } from '../lib/model-catalogo';
 
 const HOY = new Date('2026-11-11T15:00:00Z');
 const puede = (feature: string, esLaPlataforma?: boolean, extra: { pausa?: boolean; hoy?: Date } = {}) =>
@@ -44,8 +45,12 @@ test('2. cualquier otra función que no sea del Plan, SÓLO en la plataforma; «
   assert.equal(puede('', true).ok, false, 'sin feature no se sabe qué se compra');
 });
 
-test('3. el Plan nunca; vencido o en pausa, no', () => {
+test('3. el Plan nunca; las funciones con `fallback: []` tampoco; vencido o en pausa, no', () => {
   for (const f of FEATURES_DEL_PLAN) assert.equal(puede(f, true).ok, false, `«${f}» es del Plan y usó el crédito`);
+  // Un juicio que nadie revisa corre con UN proveedor: el crédito primero mezclaría dos modelos (lib/model-catalogo.ts).
+  const sinDegradar = CATALOGO_MODELOS.filter((f) => f.fallback?.length === 0).map((f) => f.feature);
+  assert.ok(sinDegradar.includes('cs-sesion') && sinDegradar.includes('cs-autoasignar'), `cambió la lista de las que no se degradan: ${sinDegradar.join(', ')}`);
+  for (const f of sinDegradar) assert.equal(puede(f, true).ok, false, `«${f}» tiene \`fallback: []\` y probó el crédito antes que su proveedor`);
   assert.equal(puede('mako-doer', true, { pausa: true }).ok, false, 'la pausa de pánico no apagó el crédito de la plataforma');
   assert.equal(puede(FEATURE_DE_LOS_GRUPOS, false, { pausa: true }).ok, false, 'la pausa de pánico no apagó el crédito de los grupos');
   const despues = new Date(`${CREDITO_PARA_LA_PLATAFORMA.hasta}T12:00:00Z`);
@@ -71,3 +76,4 @@ test('4. una cuenta que falla: la otra cuenta si es de ESA cuenta; el respaldo s
 //   R2 sin mirar `FEATURES_DEL_PLAN`                                               → falla el 3
 //   R3 sin la fecha `hasta`                                                        → falla el 3
 //   R4 un 529 «Overloaded» prueba la otra cuenta                                   → falla el 4
+//   R5 sin mirar `fallback: []` del catálogo                                       → falla el 3

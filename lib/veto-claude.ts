@@ -431,6 +431,11 @@ export function puedeUsarUnaCuentaDelCredito(p: {
   if (FEATURES_DEL_PLAN.includes(feature)) return { ok: false, razon: `«${feature}» es del Plan, y el Plan nunca paga con el crédito (Martín, 30/09/2026).` };
   if (FEATURES_DE_LOS_GRUPOS.includes(feature)) return { ok: true, para: 'grupos' };
   if (p.esLaPlataforma !== true) return { ok: false, razon: `«${feature}» usa el crédito sólo en el espacio de MaKo: un negocio paga su IA.` };
+  // `fallback: []` (lib/model-catalogo.ts): un juicio que nadie revisa corre con UN solo proveedor. Probar primero el crédito
+  // mezclaría dos modelos, que es justo lo que esa marca evita. Acá y no sólo en `chatClaude`: vale para todos los caminos.
+  if (CATALOGO_MODELOS.find((f) => f.feature === feature)?.fallback?.length === 0) {
+    return { ok: false, razon: `«${feature}» no se degrada de modelo (\`fallback: []\`): no prueba el crédito antes que su proveedor.` };
+  }
   if (diaISO(p.hoy ?? new Date()) > CREDITO_PARA_LA_PLATAFORMA.hasta) {
     return { ok: false, razon: `el crédito de la plataforma venció el ${CREDITO_PARA_LA_PLATAFORMA.hasta}. Renuévalo con una fecha nueva o déjalo vencido.` };
   }
