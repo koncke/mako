@@ -153,6 +153,10 @@ que…?», «¿Te lo agendo?», «¿Lo reviso?») nunca es charla: gana la regla
 por un HECHO («Entró EDEST_OFICIAL, ¿lo contactaron?») sigue siendo charla. Y la regla 6b del prompt. tests/mako-intencion-ia.test.ts 6,
 con la salida REAL del modelo de ese turno.
 
+**Y la respuesta salió en VOSEO** («Preguntás… ¿Querés que revise…?»): el prompt pide tú y el modelo igual vosea, sobre todo cuando le
+escriben en vos. `alTuteo` (lib/al-tuteo.ts) corrige en la SALIDA (`partes` del doer: lo que sale al grupo y la memoria) las formas que
+aparecen, palabra entera, sin tocar lo que va entre «…». Lo fija tests/links-con-ws.test.ts (el turno real y el 6).
+
 ## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
 
 **El síntoma:** Martín, 9/11 ~19:00 ART: «MaKo no está respondiendo… Joan va a enviar el comprobante y nadie responde».

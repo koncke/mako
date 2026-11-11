@@ -76,6 +76,7 @@ import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/ped
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { conElDominioDeMaKo, linksConWs } from '@/lib/links-con-ws';
 import { llegoTarde } from '@/lib/linea-demora';
+import { alTuteo } from '@/lib/al-tuteo';
 import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro, nombraGoogleCalendar, type VeredictoIntencion } from '@/lib/mako-intencion';
 import { permisoCalendarioGoogle } from '@/lib/google-calendar';
@@ -3653,7 +3654,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // no un chorizo). Registramos cada id enviado para el anti-eco.
       // El dominio que el modelo inventa («hola-malo.com/crm/2761», 28/10/2026, lib/links-con-ws.ts) se corrige al de MaKo, en lo que
       // sale y en la memoria: si quedaba en el historial, el modelo lo repetía.
-      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => conElDominioDeMaKo(p.trim(), APP_URL, DOMINIOS_MAKO)).filter(Boolean);
+      // Y en TÚ (11/11/2026, lib/al-tuteo.ts): a Joan le salió «Preguntás… ¿Querés que revise…?».
+      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => alTuteo(conElDominioDeMaKo(p.trim(), APP_URL, DOMINIOS_MAKO))).filter(Boolean);
       // Lo que escribió el CÓDIGO (la agenda) va al final, cada bloque como su propio
       // mensaje. Va acá y no antes porque los reemplazos de arriba (el borrador, el
       // lead, el cartel) pisan `respuesta`, y el validador no tiene por qué leerlo.
