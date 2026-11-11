@@ -99,8 +99,9 @@ export function puntoTrabajando(args: {
 	if (!caja) return punto;
 	const i = Math.max(0, AGENTES.findIndex((a) => a.id === agente));
 	const angulo = vuelta * 2.39996 + i * 1.7;
-	const x = punto.x + Math.cos(angulo) * Math.min(70, caja.width * 0.12);
-	const y = punto.y + Math.sin(angulo) * Math.min(28, caja.height * 0.1);
+	// ±42 px se veía como un temblor (mirado a 1440 el 11/11/2026): hasta un cuarto del panel, como quien trabaja.
+	const x = punto.x + Math.cos(angulo) * Math.min(110, caja.width * 0.22);
+	const y = punto.y + Math.sin(angulo) * Math.min(48, caja.height * 0.12);
 	return {
 		x: Math.min(caja.left + caja.width - 12, Math.max(caja.left + 4, x)),
 		y: Math.min(caja.top + caja.height - 12, Math.max(caja.top + 4, y)),
