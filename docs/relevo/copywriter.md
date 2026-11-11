@@ -28,6 +28,15 @@ y editarlo.
 - **Páginas de prueba:** borradas y comprobado en la base (fila, documento y charla): ws 9 `ghqvixe3uzr`, `gwp14mkuww8`,
   `gdioc06j32n`; ws 3 `g9mzb3l58qt`. Script: `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/419b79ec-cbd8-462f-a8bc-088b55605527/scratchpad/limpiar-prueba.mjs`.
 
+## Segunda vuelta en producción (2507c11c7, 15:55 UTC del 11/11)
+
+- **Vistos y bien:** el modal con la pieza arriba; en el teléfono los botones debajo del título, «Crear desde cero» → plantillas
+  y «Mis guiones» → la lista; la réplica empieza en «Gancho» (sin renglón vacío) y avisa la frase copiada.
+- **Seguían mal y van en la punta (sale en el próximo despliegue):** el intercalado se deshacía después de la primera vuelta
+  (`44bcd2e5a`); la caja trabada seguía cortada con la página en segundo plano (`0738ce0d1`, ahora con `MutationObserver`);
+  el aviso no miraba el título propuesto (`4322790ff`).
+- **Páginas de prueba de esta vuelta:** ws 9 `gzq1mp4ggrs`, borrada y comprobada en la base.
+
 ## Lo que falta
 
 - **Mirar en producción, después del próximo despliegue, los arreglos de arriba** (a 1440 y 375).
