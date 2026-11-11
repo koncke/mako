@@ -1,4 +1,69 @@
-# Relevo — Copywriter: plantillas reales y su experto (cuenta claude3, 29/10/2026, tarde)
+# Relevo — Copywriting (el chat de la tab; cuenta claude4, 11/11/2026)
+
+Rama `copy-outliers-1111`, worktree `C:/dev/wt-copy-outliers-1111`. Se sube a `punta/copywriting-outliers` (hoy en 1142164a1)
+y el Cerebro integra. **Despliegue único de hoy: 13:00 UTC, a mano**; lo que salga tiene que estar en main en verde a las 12:57.
+
+## Lo pedido (Martín, 11/11, por el Cerebro)
+
+«lo mismo que te acabo de decir con web generator, aplícalo para copywriting, me gustaría traer outliers. Tenemos la
+transcripción de un montón de cosas, tanto de anuncios como de carruseles, como de reels, y videos de YouTube… podríamos mantener
+templates con ciertas estructuras, pero también traer los outliers». El Cerebro pidió además la prueba de punta a punta, mirando
+con capturas en el ws 3: replicar, editar, guardar, reabrir, las plantillas, MaKo adaptando a la oferta, cada botón, escritorio y
+celular.
+
+## Lo hecho
+
+- **8ff1e99fe: la portada de outliers.** Diseño en D18 (docs/diseno-copywriter.md).
+  - `/copywriter` abre «Encuentra tu siguiente OUTLIER», con la grilla, la tarjeta y el modal de Image.
+  - «Mis guiones» (`?ver=guiones`) lleva a la última página, y «Crear desde cero» (`?nueva`) a las plantillas, que quedan.
+  - También en el teléfono.
+  - «Replicar» crea la página atada al original (`props.outlier`). MaKo pregunta para qué oferta y la escribe; el original le
+    llega en cada pedido, y la página tiene «Ver el original».
+  - API de MaKo: `outliers_copywriter` y `replicar_outlier_copywriter`.
+- **6cc78461f: lo que mostró la simulación con los datos reales del ws 3.**
+  - YouTube quedaba en UN video de 369 por cómo se comparaban los links.
+  - Los pies de pocas palabras no son copy.
+- **La prueba en producción del 11/11 (ws 3 y ws 9, 375 y 1440) y sus 7 arreglos** (a49c3fa7c … 1142164a1):
+  - la barra del teléfono decía «Sin título» con el título escrito;
+  - «Ver ejemplo» cortaba el texto a 375;
+  - una burbuja de más después de las preguntas de MaKo;
+  - «Instala MaKo para escribir» cortada (app/_chat/CajaChat.tsx, compartida);
+  - «Ctrl+Z» en el teléfono (y ⌘Z en Mac);
+  - «1 bloque nuevos»;
+  - la letra de las preguntas en el teléfono.
+  (3) «pedir un guion, que MaKo lo escriba y editarlo» anda de punta a punta en el ws 9: el ws 3 no tiene IA a propósito.
+- **Tests:** copywriter-outliers 13/0 (13 de 13 roturas cazadas). Pasan además copywriter-ia, copywriter-iniciativa,
+  copywriter, copywriter-tipos, copywriter-compartir, movil-mas-secciones, publicar-desde-crear, usar-en-anuncio,
+  api-mako-registro, api-mako-rest y doer-recetas-video-imagen.
+
+## Lo que falta
+
+- **El chequeo de tipos:** lo corre el filtro de antes de subir (acotado) y GitHub («Tipos» completo), por orden del Cerebro.
+- **Después del despliegue de las 13:00**, en el ws 3 y en el ws 9, a 1440 y a 375, con capturas:
+  - la portada de outliers, abrir uno y Replicar;
+  - MaKo escribiendo la réplica en el ws 9 y «Ver el original»;
+  - «Mis guiones» y «Crear desde cero»;
+  - los 7 arreglos;
+  - Copywriting primero en Create.
+- **Borrar las páginas de prueba** y comprobarlo en la base. Las del 11/11 llevan «[prueba Copywriting 11/11]»; las de Replicar,
+  «Como @…». Hoy: ws 9 `ghqvixe3uzr`, ws 3 `g9mzb3l58qt`. Script: `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/419b79ec-cbd8-462f-a8bc-088b55605527/scratchpad/limpiar-prueba.mjs` (sin
+  `--borrar` sólo lista). Hay que pasarle al Cerebro los ids.
+- **Visto y NO arreglado (otra tab):** en el teléfono, el chip «Cliente de Prueba» del super admin tapa el título de la barra (app/m/_ui).
+- **Dos caminos al mismo lugar:** «Copiar estructura» de Spy y «Replicar» de Copywriting (hallazgos-copywriter).
+- **«Copywriting primero en Create»** NO es de esta rama: ya lo trae `punta/spy-pruebas` (el chat de Competitor Spy tocó la
+  barra el 11/11). No se toca `app/_components/nav.ts` acá para no pisarlo; se verifica en producción.
+- **Los anuncios propios como fuente** (`ad_transcripts` + el veredicto del Script Analyst).
+- **Transcribir al replicar** un reel o un video sin guion (`asegurarGuion` de Spy, con su tope de 20 por día).
+
+## Lo que espera a Martín
+
+- Nada por ahora. Lo de las transcripciones (que casi no hay) está en hallazgos-copywriter, en palabras de producto.
+
+---
+
+## Antes: el relevo de las plantillas (29/10)
+
+### Relevo — Copywriter: plantillas reales y su experto (cuenta claude3, 29/10/2026, tarde)
 
 Rama `plantillas-copywriter-2910` (worktree `C:/dev/wt-copywriter-notion`), desde origin/main `ff908e645` con el plan
 `plantillas-reales-2910` (da6d07dee, sólo docs) mergeado. Pedido del Cerebro: la §5 de

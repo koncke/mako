@@ -155,21 +155,26 @@ export function EstudioM({ inicio, plantillaInicial, avatarInicial, ahora }: {
                   <div className="m-ai-avatar-preset" style={preset?.ejemplo ? undefined : fondoDe(preset)}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     {preset?.ejemplo && <img src={preset.ejemplo.poster} alt="" />}
-                    <span>{preset ? preset.nombre : 'Preset'}</span>
+                    {/* Vacía decía «Preset» y nada más; en el teléfono el preset se elige en la grilla de arriba. */}
+                    <span>{preset ? preset.nombre : 'Elige arriba'}</span>
                   </div>
                   <textarea className="m-ai-avatar-barra__texto" rows={2} maxLength={MAX_DETALLE} value={detalle} onChange={(e) => setDetalle(e.target.value)}
                     placeholder="Describe la escena (opcional)" aria-label="Describe la escena" />
                 </div>
-                <div className="m-ai-avatar-barra__pastillas">
-                  {([['modelo', MODELO.nombre], ['formato', '9:16'], ['cantidad', '1/4']] as const).map(([q, t]) => (
-                    <button key={q} type="button" className="m-ai-avatar-pastilla" onClick={() => setLinea(q === 'modelo' ? SIN_MOTOR.modelo : SIN_MOTOR[q as PiezaSinMotor])}>{t}</button>
-                  ))}
+                {/* Las pastillas y «Generar» en UNA fila, como Higgsfield en el teléfono (11/11/2026): en dos, la barra fija se
+                    comía el 40 % de la pantalla y de los presets se veía una fila y media. Medido en producción: 192 → 132 px. */}
+                <div className="m-ai-avatar-barra__pie">
+                  <div className="m-ai-avatar-barra__pastillas">
+                    {([['modelo', MODELO.nombre], ['formato', '9:16'], ['cantidad', '1/4']] as const).map(([q, t]) => (
+                      <button key={q} type="button" className="m-ai-avatar-pastilla" onClick={() => setLinea(q === 'modelo' ? SIN_MOTOR.modelo : SIN_MOTOR[q as PiezaSinMotor])}>{t}</button>
+                    ))}
+                  </div>
+                  <Button variant="primary" size="lg" loading={enviando}
+                    disabled={!preset || !foto || !inicio.puente.puede || !enLinea}
+                    onClick={() => preset && void generarLook({ plantillaId: preset.id, fotoId, detalle })}>
+                    Generar
+                  </Button>
                 </div>
-                <Button variant="primary" size="lg" full loading={enviando}
-                  disabled={!preset || !foto || !inicio.puente.puede || !enLinea}
-                  onClick={() => preset && void generarLook({ plantillaId: preset.id, fotoId, detalle })}>
-                  Generar
-                </Button>
               </div>
             </PieFijoM>
           </>

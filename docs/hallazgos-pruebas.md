@@ -46,6 +46,13 @@ oculto. Si lo está, se repite con el panel a la vista, o se le pide un turno al
 la extensión:** tiene la sesión de LEANDRO (ws 10), un cliente real, y el `?ws=` se ignora. La prueba del 10/11 dejó ahí 2 usos
 de IA y una apertura vista (docs/pruebas/image-10-11.md, «Límites»).
 
+**La captura de 1440 con el panel oculto (11/11/2026, prueba de Copywriting):** sale SIEMPRE el pedazo de arriba a la izquierda, y
+repetir `resize_window` no lo arregló (cinco veces). Si la sesión no está abierta en ninguna ventana, `show_pane` tampoco puede
+mostrarlo. Lo que sí sirvió: achicar sólo el DIBUJO de la página, que sigue armada a 1440 (`innerWidth` no cambia), con
+`document.documentElement.style.transform = 'scale(0.8)'` y `transformOrigin = '0 0'`. La captura cubre unos 1152 × 720 px de
+CSS, así que 1440 × 900 × 0,8 entra entera. Se saca antes de hacer clic: las coordenadas de la captura ya no son las de la página.
+En 375 la captura sale entera.
+
 ## Un `assert.equal` con un elemento de jsdom que falla agota la memoria (10/11/2026)
 
 **Síntoma:** al verificar rompiéndolo `tests/carruseles-imagen-rota.test.ts`, el corredor contó «tests 1» y terminó: los casos

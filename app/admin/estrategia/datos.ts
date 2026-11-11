@@ -26,8 +26,10 @@ import {
   type UnitPlan,
 } from '../dev/pricing/modelo';
 // El modelo del 7/11 (las tortas del 47 y del 97). Relativos, como los de arriba: el test lo importa con tsx.
-import { PASARELA, IMPUESTO, META_CLIENTES, CAC_USD, MESES_DE_VIDA, cacPorMes } from '../../../lib/economia-unitaria';
-import { techoDeIa, USO_SUPUESTO } from '../../../lib/uso-del-cupo';
+import {
+  PASARELA, IMPUESTO, META_CLIENTES, CAC_USD, MESES_DE_VIDA, USO_SUPUESTO, NOMBRE_DE_PARTE, loQueSeVaDeUnaSuscripcion,
+  type PlanPago, type ClaveDeParte,
+} from '../../../lib/economia-unitaria';
 import { fijoDeMartin } from '../../../lib/costos-fijos';
 
 export { MEDIDO, DESDE, HASTA, HITOS };
@@ -207,32 +209,31 @@ export const VIDA_GROWTH = GROWTH.vidaMeses;
 
 // ⚠️ LAS TORTAS DEL 47 Y DEL 97 VAN CON EL MODELO DEL 7/11 (10/11/2026), no con UNIT_V2. Martín, al ver la del 97: pedía
 // «lo que se va de una suscripción de 97, en adquisición, costos de IA, etc.», y la torta decía Paddle (que nunca se conectó)
-// y US$25,18 de IA a cargo de MaKo, cuando desde el 22/10 la IA de texto la paga cada negocio. Cada porción se IMPORTA de
-// donde vive su número, el mismo que usa Costs (/admin/analytics/costs):
-//   · cobro      PASARELA (Mercado Pago a 35 días, 1,80%)            lib/economia-unitaria.ts
-//   · impuesto   IMPUESTO (monotributo H, 8,36%; hoy lo paga Leandro) ídem. Va APARTE de la pasarela (docs/tableros/LEEME.md)
-//   · servir     el video con IA (USO_SUPUESTO del cupo del plan)    lib/uso-del-cupo.ts + lib/mako-tokens-reglas.ts
-//                + su parte del gasto fijo (lo de Martín ÷ META_CLIENTES) lib/costos-fijos.ts
-//   · conseguir  el CAC repartido en la vida del cliente (cacPorMes)  lib/economia-unitaria.ts
-// La IA de texto NO es una porción: la paga cada negocio con su clave (lib/ia-del-negocio.ts). Si cambia el cupo de video,
-// la pasarela o el fijo, la torta cambia sola.
+// y US$25,18 de IA a cargo de MaKo, cuando desde el 22/10 la IA de texto la paga cada negocio.
+// ⚠️ Y DESDE EL 10/11 LAS ARMA `loQueSeVaDeUnaSuscripcion` (lib/economia-unitaria.ts), la MISMA función que dibuja el
+// reparto de Admin › Analytics › Costs: acá sólo se ponen los nombres y la cuenta de cada porción. Si cambia el cupo de video,
+// la pasarela o el fijo, las dos páginas cambian juntas.
 // ⚠️ Lo de abajo de la página (§9 «Lo que cuesta conseguir un cliente» y §11 Referidos) sigue con UNIT_V2, el modelo de
 // octubre: ahí todavía hay Paddle y la IA de MaKo. No se tocó en esta vuelta.
-const FIJO_POR_CLIENTE = fijoDeMartin() / META_CLIENTES;
-function tortaDePlan(clave: string, precio: number, plan: 'pro' | 'growth'): Torta {
-  const video = techoDeIa(plan) * USO_SUPUESTO;
-  return torta(clave, `Plan de ${num(precio)}`, precio, 'por mes',
-    { clave: 'ganancia', label: 'Ganancia', cuenta: 'Lo que queda' }, [
-      { clave: 'conseguir', label: 'Captación', usd: cacPorMes(), cuenta: `CAC ${num(CAC_USD)} (el primer mes del Partner) ÷ ${num(MESES_DE_VIDA, 1)} meses de vida` },
-      { clave: 'servir', label: 'Servir la cuenta', usd: video + FIJO_POR_CLIENTE, cuenta: `Video con IA ${num(video, 2)} (${num(USO_SUPUESTO * 100)}% del cupo) + gasto fijo ${num(FIJO_POR_CLIENTE, 2)} (US$${num(fijoDeMartin())} ÷ ${num(META_CLIENTES)} clientes)` },
-      { clave: 'impuesto', label: 'Impuesto', usd: precio * IMPUESTO, cuenta: `Monotributo ${num(IMPUESTO * 100, 2)}%, hoy lo paga Leandro` },
-      { clave: 'cobro', label: 'Cobro', usd: precio * PASARELA, cuenta: `Mercado Pago ${num(PASARELA * 100, 2)}%, con acreditación a 35 días` },
-    ]);
+const CUENTA_DE_PARTE = (s: ReturnType<typeof loQueSeVaDeUnaSuscripcion>): Record<ClaveDeParte, string> => ({
+  ganancia: 'Lo que queda',
+  conseguir: `CAC ${num(CAC_USD)} (el primer mes del Partner) ÷ ${num(MESES_DE_VIDA, 1)} meses de vida`,
+  servir: `Video con IA ${num(s.videoUsd, 2)} (${num(USO_SUPUESTO * 100)}% del cupo) + gasto fijo ${num(s.fijoPorClienteUsd ?? 0, 2)} (US$${num(fijoDeMartin())} ÷ ${num(META_CLIENTES)} clientes)`,
+  impuesto: `Monotributo ${num(IMPUESTO * 100, 2)}%, hoy lo paga Leandro`,
+  cobro: `Mercado Pago ${num(PASARELA * 100, 2)}%, con acreditación a 35 días`,
+});
+function tortaDePlan(clave: string, plan: PlanPago): Torta {
+  const s = loQueSeVaDeUnaSuscripcion(plan);
+  const cuenta = CUENTA_DE_PARTE(s);
+  return {
+    clave, nombre: `Plan de ${num(s.precioUsd)}`, total: s.precioUsd, unidad: 'por mes',
+    porciones: s.partes.map((p) => ({ clave: p.clave, label: NOMBRE_DE_PARTE[p.clave], usd: p.usd, cuenta: cuenta[p.clave] })),
+  };
 }
 
 export const TORTAS: Torta[] = [
-  tortaDePlan('pro', PRO.precioListaUsd, 'pro'),
-  tortaDePlan('growth', GROWTH.precioListaUsd, 'growth'),
+  tortaDePlan('pro', 'pro'),
+  tortaDePlan('growth', 'growth'),
   // 66,30 + 143,37 + 300 + 100 + 890,33 = 1.500,00
   // ⚠️ La comisión va entera (300) y el cobro es el de UN pago (66,30): «sin
   // comisión si hay reembolso» (valor esperado 270) y el cobro en 3 cuotas (66,90)

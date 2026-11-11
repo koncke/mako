@@ -93,6 +93,22 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 
 ---
 
+## Los cursos no se llaman como su docente, y THE NET LAB no está en `cono-tx` (11/11/2026)
+
+Lo encontró el relevo de estrategia para Marketing CoPilot (`docs/marketing-copilot/analisis/estrategia.md` §6). Buscando a Fran Doglio, Juan Carrizo y Ramiro Cubría por nombre, no aparecen:
+
+| Docente | Slug del curso | Clases |
+|---|---|---|
+| Fran Doglio | `arcadia` | 24 |
+| Juan Carrizo | `aumenta-tu-valor-y-atv-advantage` | 247 |
+| Ramiro Cubría | `sell-your-knowledge` | 105 (varias las da su equipo: 28, 35 y 63 a 65) |
+
+- **En ARCADIA, los títulos de grupo no corresponden a las clases.** El ciclo de historias es la clase 2, «Estrategias de Promoción de Ventas», no el grupo «estructura de stories».
+- **THE NET LAB no está en `public/cono-tx`:** el índice dice 0 transcripciones. Están en `C:/cursos/programa-meta-ads-the-net-lab/transcripciones/`, con otro formato (`{modelo, texto}`).
+- **Un `rg` sobre los 9.719 archivos de `cono-tx` pasa los 2 minutos.** Hay que ir curso por curso.
+- **`instituto-de-marca-personal · 74` viene duplicada**, con una marca de la transcripción automática en el medio.
+
+**La regla:** para buscar a un docente, primero su slug (la tabla de arriba o el índice de cursos), nunca su nombre en el texto.
 ## Los 5.050 emails estudiados no los lee NINGÚN archivo de código: medido, no supuesto (6/11/2026)
 
 El pendiente pedía «comprobar que Copywriter, Newsletter, Automations y WhatsApp usen los patrones de

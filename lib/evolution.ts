@@ -26,7 +26,7 @@ import { numeroParaWhatsApp, motivoConPista } from './numero-whatsapp';
 import { bloqueoDeEnvioEnRevision } from './revision-guarda';
 import { topeParaLineaNueva, type TopeLineaNueva } from './tope-lineas';
 import { antesDeEscribir, trasEscribir } from './linea-freno';
-import { pausaDeEscritura } from './mako-salida-reglas';
+import { destinoDeEscritura, pausaDeEscritura } from './mako-salida-reglas';
 import type { FotoLinea } from './lineas-de-mako';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
@@ -70,7 +70,8 @@ async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: n
   if (!evolutionConfigurado()) return { ok: false, error: 'Evolution no configurado', status: 0 };
   // ⛔ LA LÍNEA FRENADA NO ESCRIBE (4/11/2026, lib/linea-freno.ts): WhatsApp avisó que estaba en riesgo, y seguir insistiendo
   // es lo que termina en un ban. Sale con el motivo y sin status (no llegó a Evolution).
-  const frenada = await antesDeEscribir(path).catch(() => null);
+  // La respuesta al grupo donde una persona acaba de escribir pasa (el «escribiendo…» del turno sale por acá; lib/respuesta-en-curso.ts).
+  const frenada = await antesDeEscribir(path, () => destinoDeEscritura(init?.body)).catch(() => null);
   if (frenada) return { ok: false, error: frenada, status: 0, motivo: frenada };
   try {
     const res = await fetch(`${BASE}${path}`, {

@@ -16,6 +16,7 @@ import { resolverToken, filtrarPorShare, registrarVisita, RECURSO_GUION, RECURSO
 import { RECURSO_LEAD_MAGNET } from '@/lib/share-nombre';
 import { paginaDelShareLM } from '@/lib/lead-magnets/compartir';
 import { abrirLeadMagnetCompartido } from '@/lib/lead-magnets/compartir-server';
+import { LEAD_MAGNET_EN_PRODUCCION } from '@/lib/lead-magnets/archivado';
 import LeadMagnetCompartido from './LeadMagnetCompartido';
 import './lead-magnet.css';
 import Galeria from './Galeria';
@@ -164,6 +165,9 @@ export default async function CompartidoPage({ params, searchParams }: {
   // `paginaDelShareLM` decide en POSITIVO qué página deja LEER este link (nunca editar). Lo que lee corre en el workspace DEL
   // LINK, y una página en la Papelera es un 404.
   if (acceso.share.recurso === RECURSO_LEAD_MAGNET) {
+    // Lead Magnet archivado el 11/11/2026 por pedido de Martín (lib/lead-magnets/archivado.ts): su link tampoco abre. Ese día no
+    // había ni uno compartido.
+    if (!LEAD_MAGNET_EN_PRODUCCION) notFound();
     const a = paginaDelShareLM(acceso.share);
     const abierto = a ? await abrirLeadMagnetCompartido(a) : null;
     if (!abierto) notFound();

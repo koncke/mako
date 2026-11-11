@@ -145,6 +145,78 @@ const QUE_DIJO: Readonly<Record<TipoSenal, string>> = {
   bloqueo: 'WhatsApp rechazó un mensaje de esta línea',
 };
 
+// ── 7: la respuesta a quien acaba de escribir pasa el freno (11/11/2026) ────────
+
+/**
+ * ⚠️ EL FRENO CALLABA LA RESPUESTA, Y CON ESO A MaKo ENTERO. Martín, 10/11/2026: «Mako en WhatsApp no responde... SIEMPRE debe
+ * responder». El freno de arriba frena TODA escritura de la línea: un 403 de UN chat (un grupo del que sacaron a MaKo, una persona
+ * con privacidad) dejaba a MaKo mudo 6 horas en TODOS los grupos, y un 463, que es sobre escribirle a gente NUEVA, 24. La respuesta
+ * en el grupo donde una persona acaba de escribir es el envío de menos riesgo que hay (la conversación la empezó ella), y es lo único
+ * que pasa: el texto, el archivo, la nota de voz, la reacción y el «escribiendo…», al MISMO grupo, durante su turno
+ * (lib/respuesta-en-curso.ts). Los avisos, los flujos, las altas, las invitaciones y cualquier otro grupo siguen frenados.
+ */
+const RUTAS_DE_RESPUESTA = /^\/(?:message\/(?:sendText|sendMedia|sendWhatsAppAudio|sendReaction|sendPtv)|chat\/(?:sendPresence|markMessageAsRead))\//;
+
+/** ¿Esta escritura es la respuesta al grupo donde una persona acaba de escribir? Sólo un grupo, sólo el mismo, sólo mandar. */
+export function esRespuestaEnCurso(ruta: string, destino: string | null | undefined, respondiendoA: string | null | undefined): boolean {
+  if (!respondiendoA || !destino || !respondiendoA.endsWith('@g.us')) return false;
+  if (destino !== respondiendoA) return false;
+  return RUTAS_DE_RESPUESTA.test(ruta);
+}
+
+/**
+ * A quién va una escritura, leído del cuerpo que se le manda a Evolution: `number` (texto, archivo, audio, «escribiendo…»),
+ * `key.remoteJid` (la reacción) o `readMessages[0].remoteJid` (marcar leído). Sin poder leerlo, null: no pasa el freno.
+ */
+export function destinoDeEscritura(cuerpo: unknown): string | null {
+  let b: unknown = cuerpo;
+  if (typeof b === 'string') { try { b = JSON.parse(b); } catch { return null; } }
+  if (!b || typeof b !== 'object') return null;
+  const o = b as { number?: unknown; key?: { remoteJid?: unknown }; readMessages?: Array<{ remoteJid?: unknown }> };
+  const d = o.number ?? o.key?.remoteJid ?? (Array.isArray(o.readMessages) ? o.readMessages[0]?.remoteJid : undefined);
+  return typeof d === 'string' && d ? d : null;
+}
+
+/**
+ * ¿La respuesta de un turno llegó a WhatsApp? (11/11/2026) Antes el turno la guardaba como dicha aunque WhatsApp no la hubiera tomado
+ * (la línea frenada, Evolution caído): quedaba sólo en el hilo de la app, el vigía no veía un silencio porque había una respuesta
+ * guardada, y nadie se enteraba. `null` = llegó todo (o no había que mandar nada). Un envío `enApp` SIN `noEntregado` es un turno de la
+ * app, que no va a WhatsApp: cuenta como llegado.
+ */
+export type EnvioDeRespuesta = { ok: boolean; enApp?: boolean; noEntregado?: string; error?: string };
+export function respuestaNoEntregada(envios: readonly EnvioDeRespuesta[]): { faltan: number; de: number; motivo: string } | null {
+  const fallidos = envios.filter((e) => !e.ok || (e.enApp && e.noEntregado));
+  if (!fallidos.length) return null;
+  const motivo = fallidos.map((e) => (e.ok ? e.noEntregado : e.error)).find((m) => !!m?.trim()) ?? 'no se pudo enviar';
+  return { faltan: fallidos.length, de: envios.length, motivo };
+}
+
+/**
+ * El motivo de una respuesta que no llegó, como lo lee el ticket (lib/errores-app.ts). Sin la hora del freno ni el número de la
+ * línea, y sin las palabras que el filtro de ruido descarta (un 503, «timeout»): esos son justo los casos en que MaKo quedó mudo,
+ * y como ruido no abrirían ticket.
+ */
+export function motivoDeNoEntrega(motivo: string): string {
+  const m = motivo.trim();
+  const freno = (Object.values(QUE_DIJO) as string[]).find((q) => m.startsWith(q));
+  if (freno) return `la línea estaba frenada (${freno})`;
+  if (/abort|time ?out|timed out|fetch failed|ECONN|socket|network/i.test(m)) return 'el servidor de WhatsApp no contestó';
+  const n = /^Evolution (\d{3})\b/.exec(m)?.[1];
+  if (n) return /^(429|503|529)$/.test(n) ? 'el servidor de WhatsApp estaba saturado o caído' : `el servidor de WhatsApp contestó con error ${n}`;
+  return m.slice(0, 200) || 'no se pudo enviar';
+}
+
+/**
+ * Con la línea YA frenada llega otra señal (11/11/2026: la respuesta sigue escribiendo durante el freno). Se guarda si dura MÁS que la
+ * vigente (un 463 durante un «rate» de 30 min sube a 24 h; la misma señal otra vez, lo extiende), y se avisa por mail sólo si es la
+ * primera o si cambió el tipo: un mail por cada respuesta que rebota sería un mail por mensaje.
+ */
+export function frenoSiguiente(vigente: Freno | null, nuevo: Freno): { guardar: boolean; avisar: boolean } {
+  if (!vigente) return { guardar: true, avisar: true };
+  if (Date.parse(nuevo.hasta) <= Date.parse(vigente.hasta)) return { guardar: false, avisar: false };
+  return { guardar: true, avisar: nuevo.tipo !== vigente.tipo };
+}
+
 /** Lo que vuelve como error de un envío frenado, y la primera línea del aviso. Corto. */
 export function textoDelFreno(f: Freno): string {
   const hasta = new Date(f.hasta);

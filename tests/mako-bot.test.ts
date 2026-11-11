@@ -181,8 +181,10 @@ test('⛔ el doer no puede saltarse la puerta: con la ventana cerrada corre el t
 
 test('⛔ el turno del doer no llama a los envíos de la voz con el jid de una persona', () => {
   const doer = readFileSync(join(RAIZ, 'lib/mako-doer-in.ts'), 'utf8').replace(/\r/g, '');
-  assert.match(doer, /if \(jid\.endsWith\('@g\.us'\)\) return enviarAlGrupoPorJid\(jid, texto, delayMs\);/);
-  assert.match(doer, /\(jid\.endsWith\('@g\.us'\) \? reaccionarEnElGrupo\(jid, key, emoji\) : reaccionarEnElChat\(jid, key, emoji\)\)/);
+  // Lo que cuida es la CONDICIÓN: sólo un grupo llega a la voz. Desde el 11/11/2026 la llamada va envuelta en `comoRespuesta` (la
+  // respuesta pasa el freno de la línea, lib/respuesta-en-curso.ts), que no cambia a quién le escribe.
+  assert.match(doer, /if \(jid\.endsWith\('@g\.us'\)\) return (?:comoRespuesta\(\(\) => )?enviarAlGrupoPorJid\(jid, texto, delayMs\)\)?;/);
+  assert.match(doer, /\(jid\.endsWith\('@g\.us'\) \? (?:comoRespuesta\(\(\) => )?reaccionarEnElGrupo\(jid, key, emoji\)\)? : reaccionarEnElChat\(jid, key, emoji\)\)/);
   // Los nombres de lib/mako-grupo.ts entran renombrados: un `enviarAGrupoJid` suelto del archivo es la función de acá, la que desvía.
   assert.match(doer, /enviarAGrupoJid as enviarAlGrupoPorJid/);
   assert.match(doer, /reaccionarMensaje as reaccionarEnElGrupo/);

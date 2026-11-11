@@ -49,7 +49,7 @@ import { MAX_DETALLE } from '@/lib/ai-avatar/prompt-look';
 import { PLANTILLAS_VENTA_AVATAR, ganchoDeEjemplo, plantillaVentaAvatar, type PlantillaVentaAvatar } from '@/lib/ai-avatar/plantillas-venta';
 import { EjemploVenta } from './EjemploVenta';
 import { haceCuanto, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
-import { CONSEJO_FOTO, MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
+import { CONSEJO_FOTO, MODELO, SIN_MOTOR, TONO_CATEGORIA, pieDeGenerar, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useExtensionInstalada } from '@/app/video-generator/extension-instalada';
 import { requisitosAvatar, resumenDeRequisitos, avisoDeCosto, type PasoRequisito, type Motor } from '@/lib/ai-avatar/requisitos';
@@ -461,9 +461,9 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
             <span className="hf-preset-nombre">{preset ? preset.nombre : 'Preset'}</span>
             <span className="hf-preset-cambiar"><Icon name="pen" size={12} /> {preset ? 'Cambiar' : 'Elegir'}</span>
           </button>
-          <button type="button" className="hf-generar" disabled={!!falta || enviando} onClick={onGenerar}>
+          <button type="button" className="hf-generar" disabled={!!falta || enviando} onClick={onGenerar} title={falta || undefined}>
             <span>{enviando ? 'Pidiendo…' : 'Generar'}</span>
-            <small>Gratis</small>
+            <small>{enviando ? 'Gratis' : pieDeGenerar({ preset: !!preset, pasosFaltan: req.pasos.filter((x) => !x.hecho).length, foto: !!foto, flowListo: puente.puede })}</small>
           </button>
         </div>
         <input ref={subir.campo} type="file" accept="image/*" hidden onChange={(e) => void subir.alElegir(e.target.files)} />

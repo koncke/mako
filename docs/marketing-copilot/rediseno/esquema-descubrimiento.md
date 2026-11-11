@@ -24,7 +24,8 @@ Las maquetas, en `docs/marketing-copilot/rediseno/`, una por vuelta para poder c
 
 | Maqueta | Qué cambia | Artifact |
 |---|---|---|
-| [`maqueta-visual.html`](maqueta-visual.html) | **La vigente.** Cada canal con su cara (las miniaturas de verdad) y el feedback encima; el popup de cada pieza; mensajes como un chat de WhatsApp, el VSL con su reproductor, el formulario dibujado; «Tu web» con el recorrido del Web Analyst; «Mejorar oferta» lleva al chat de Offer; la operación en dos: lo que corre (el árbol de Ads Manager) y tu máquina de contenido, con el presupuesto. | claude.ai/artifact/F1WFdNi1nBJoWakPhVUxWU |
+| [`maqueta-accion.html`](maqueta-accion.html) | **La vigente.** El molde del dashboard Productividad (Fernly); las dos fases grandes, «El análisis» y «La acción»; el paso 1 con campañas, inversión y tiempo; web, Instagram y YouTube dibujados con recorrido y lista de comentarios; la acción como lugar de trabajo; la máquina de contenido por canal, con la estrategia de los cursos. | claude.ai/artifact/CqxfbFNRY54GZnTLFmxj6s |
+| [`maqueta-visual.html`](maqueta-visual.html) | Cada canal con su cara (las miniaturas de verdad) y el feedback encima; el popup de cada pieza; mensajes como un chat de WhatsApp, el VSL con su reproductor, el formulario dibujado; «Tu web» con el recorrido del Web Analyst; «Mejorar oferta» lleva al chat de Offer; la operación en dos: lo que corre (el árbol de Ads Manager) y tu máquina de contenido, con el presupuesto. | claude.ai/artifact/F1WFdNi1nBJoWakPhVUxWU |
 | [`maqueta-analisis.html`](maqueta-analisis.html) | Zernio en el paso 2; «Tu negocio» como análisis y sin chat; «Tu oferta» con «Mejorar oferta», la nota al costado y «Mejorar» / «Corregir» en cada nota; «Tu web» dibujada; el paso 5, la operación. | claude.ai/artifact/6oFhRx6JnoHMVgFyoUxcNN |
 | [`maqueta-por-canal.html`](maqueta-por-canal.html) | «Tu negocio» con una pestaña por canal, cada una con la cara de su app; logos reales; varios archivos de oferta; el texto en tú. | claude.ai/artifact/97pKNFeiPV4U8asB9ejLwn |
 | [`maqueta-arranque.html`](maqueta-arranque.html) | Botones primero, sin chat, y la lectura de lo que se cargó. | claude.ai/artifact/LUyer4k7kV1sokRuBYeX44 |
@@ -35,6 +36,38 @@ Lo que hay que revisar en cada canal, con su curso y su clase, está en `docs/ma
 - `organico.md`: Instagram, YouTube, la web y la máquina de contenido;
 - `anuncios.md`: los cuatro tipos de funnel con anuncios, los anuncios en sí y su máquina;
 - `zernio.md`: qué trae de verdad la conexión.
+
+## Lo que cambió en la séptima vuelta (11/11)
+
+- **El diseño:** el del dashboard Productividad (la copia de Fernly), entero. Las razones están en `diseno-referencias.md`. Un interruptor «Mono» en la barra de la maqueta lo pasa a la paleta de la app, para elegir mirando.
+- **El paso 1, una pregunta por pantalla:**
+  - por dónde vendes;
+  - si hay anuncios, qué campañas haces o quieres hacer (mensajes, VSL con llamada, formulario, compra directa; una o varias) y cuánto quieres invertir (nada por ahora, unos US$300, 1.000, 3.000 o 5.000 o más);
+  - para todos, cuánto tiempo tienes para crear. Son cuatro opciones en horas o jornadas, sacadas de los cursos (`analisis/estrategia.md` §0): 1 a 2 horas por semana; 3 a 5; un día por semana para grabar; más, o alguien me edita y publica.
+- **Las dos fases, grandes, arriba de las dos pantallas:** «Paso 1 de 2 · El análisis» y «Paso 2 de 2 · La acción», con la actual invertida. Reemplazan a «Ponerlo en marcha» y a «← El análisis». El análisis cierra con «Ahora, la acción».
+- **El análisis:**
+  - **Las pestañas** son tarjetas grandes con su número: la nota de la oferta, y cuántas cosas hay para mejorar en cada canal.
+  - **Tu oferta:** nota por nota a la izquierda; a la derecha, la nota en medio arco con «Mejorar oferta» y lo que leí. Los dos lados del mismo alto.
+  - **Tu web, Instagram y YouTube**, como el Web Analyst: lo dibujado a la izquierda, con el recorrido encima, y a la derecha la lista de todos los comentarios, más cada cuánto publicas, qué te funciona y lo que te piden. El recorrido se abre solo la primera vez.
+  - **Anuncios** abre en las campañas elegidas, con los mejores anuncios centrados.
+- **La acción, por canal:**
+  - **Hoy:** el lugar de trabajo de MaKo, con su mensaje del día, «Necesito tu OK», «Te toca» y «Lo que hice», con «Deshacer». Al costado, lo que corre o lo que viene. Sin tableros de números.
+  - **Tu máquina de contenido:** la estrategia que propone con lo del paso 1, cada número con su curso (`analisis/estrategia.md`):
+    - **Anuncios:**
+      - cuántos nuevos este mes;
+      - cómo encontrar el ganador;
+      - cuánto al ganador;
+      - video o imagen;
+      - cómo se reparte la inversión (en prueba, al ganador, retargeting);
+      - las 4 preguntas de Carrizo antes de pautar;
+      - las 9 razones de compra y cómo se hace cada anuncio.
+    - **Instagram:**
+      - reels, historias, carruseles y lead magnets por semana;
+      - el mes (nutrición, nutrición, calentamiento, venta);
+      - la semana de historias de Juan Carrizo;
+      - el ciclo de venta de 10 días de Fran Doglio;
+      - de la palabra al mensaje, con Lead Magnet y Automations.
+    - **YouTube:** cuántos videos, los shorts, cómo es cada video y cómo saber si va bien.
 
 ## Lo que cambió en la sexta vuelta (11/11)
 

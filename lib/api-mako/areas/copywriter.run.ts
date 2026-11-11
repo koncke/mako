@@ -22,6 +22,8 @@ import { catalogosDelCopywriter } from '@/lib/copywriter/catalogos-server';
 import { veCopywriterEnApi } from '@/lib/copywriter/puerta-api';
 import { crearShare, getShare, listarInvitados, listarShares, revocarShare, RECURSO_GUION } from '@/lib/shares';
 import { APP_BASE_URL } from '@/lib/app-url';
+import { esFormatoCopy, esIdOutlierCopy, filtrarOutliersCopy, INFO_FORMATO, ROTULO_TEXTO } from '@/lib/copywriter/outliers';
+import { leerOutliersCopy, outlierCopyPorId, replicarOutlier } from '@/lib/copywriter/outliers-servidor';
 
 const str = (o: Record<string, unknown>, k: string): string => (typeof o[k] === 'string' ? (o[k] as string).trim() : '');
 const json = (v: unknown) => JSON.stringify(v, null, 2);
@@ -338,6 +340,42 @@ export const RUNNERS: Runners = {
         if (g.status !== 409) return { ok: false, resumen: `No se pudo guardar: ${g.error}` };
       }
       return { ok: false, resumen: 'El documento cambió mientras lo escribía. Vuelve a intentar.' };
+    },
+  },
+
+  // ── Los outliers de copy (D18): lo que Spy ya trajo, y una página que replica uno ──
+  outliers_copywriter: {
+    leer: async (input, ctx) => {
+      if (await cerrada(ctx)) return error(CERRADA);
+      const formato = esFormatoCopy(input.formato) ? input.formato : null;
+      const limite = typeof input.limite === 'number' && input.limite >= 1 ? Math.min(50, Math.floor(input.limite)) : 12;
+      const portada = await leerOutliersCopy();
+      const vistos = filtrarOutliersCopy(portada.outliers, { formato, q: str(input, 'buscar') }).slice(0, limite);
+      return json({
+        outliers: vistos.map((o) => ({
+          outlierId: o.id, formato: o.formato, creador: o.creador.usuario ? `@${o.creador.usuario}` : o.creador.nombre, gancho: o.gancho,
+          texto: o.texto, queTexto: ROTULO_TEXTO[o.deDonde], outlier: o.multiplo?.veces ?? null, diasAlAire: o.diasAlAire ?? null, link: o.url,
+        })),
+        total: vistos.length,
+        ...(portada.caidas.length ? { noSePudoLeer: portada.caidas.map((c) => `${c.nombre}: ${c.motivo}`) } : {}),
+      });
+    },
+  },
+
+  replicar_outlier_copywriter: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (await cerrada(ctx)) return { error: CERRADA };
+      const id = str(input, 'outlierId');
+      if (!esIdOutlierCopy(id)) return { error: 'Falta el outlierId (de outliers_copywriter).', faltan: ['outlierId'] };
+      const o = await outlierCopyPorId(id);
+      if (!o) return { error: `No hay ningún outlier «${id}» para este negocio. Pide outliers_copywriter.` };
+      const quien = o.creador.usuario ? `@${o.creador.usuario}` : o.creador.nombre;
+      return { payload: { outlierId: id }, resumen: `Crear una página para replicar ${INFO_FORMATO[o.formato].label.toLowerCase()} de ${quien} («${o.gancho.slice(0, 80)}»).` };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const r = await replicarOutlier(str(payload, 'outlierId'));
+      if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
+      return { ok: true, resumen: `Listo: ${nombreDe(r.pagina)}. Al abrirla, MaKo pregunta para qué oferta y la escribe.`, datos: { documentoId: r.pagina.id, link: linkDoc(r.pagina.id) } };
     },
   },
 };

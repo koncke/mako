@@ -414,6 +414,25 @@ export function textoDeHtmlEditable(html: string): string {
     .trim();
 }
 
+/** Un valor solo: «10,000», «97.1%», «$100m», «81», «3x», «+500». */
+const SOLO_CIFRA = /^[+~]?\$?\d[\d.,]*\s?(?:%|x|k|m|mil|\+)?$/i;
+
+/**
+ * Las viñetas que en la original eran una FILA DE CIFRAS: la página tenía el número y su rótulo en dos renglones y llegan
+ * alternados («10,000», «Businesses Advised», «81», «NPS»…). Prueba en producción del 11/11/2026, replicando acquisition.com:
+ * salían como una lista con viñetas. Desde el principio, mientras vengan en pares (al menos dos), son «Números grandes» (Gamma:
+ * Statistics); lo que sigue queda como lista. Sin pares, todo vuelve tal cual como lista.
+ */
+export function cifrasEnPares(bullets: readonly string[]): { cifras: { valor: string; titulo: string }[]; resto: string[] } {
+  const cifras: { valor: string; titulo: string }[] = [];
+  let i = 0;
+  while (i + 1 < bullets.length && SOLO_CIFRA.test(bullets[i].trim()) && !SOLO_CIFRA.test(bullets[i + 1].trim()) && bullets[i + 1].trim().length <= 60) {
+    cifras.push({ valor: bullets[i].trim(), titulo: bullets[i + 1].trim() });
+    i += 2;
+  }
+  return cifras.length >= 2 ? { cifras, resto: bullets.slice(i) } : { cifras: [], resto: [...bullets] };
+}
+
 /** Lo único que va EN LÍNEA en este esquema: un texto (partido por sus marcas) y el salto de línea. Todo lo demás es un bloque. */
 const EN_LINEA = new Set(['text', 'hardBreak']);
 
