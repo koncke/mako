@@ -180,3 +180,16 @@ La tarjeta «A/B TEST» y sus puertas están en docs/hallazgos-chatbot.md («La 
   `?hoja=<plantilla>` sí agrega y guarda. Ojo: la traba se va con una recarga entera; un link de la app (navegación de Next) la conserva.
 - **Exportar sin bajar archivos:** se pisan `URL.createObjectURL` y `HTMLAnchorElement.prototype.click` para leer el CSV que se iba
   a bajar, y `window.print` para ver que el PDF arme su vista (`lk--imprimir`).
+
+## Probar el Web Generator con el panel oculto: tres trampas más (10/11/2026)
+
+- **Un botón que «no abre» puede ser una página sin hidratar.** Con el panel oculto, la hidratación tarda: el botón está pintado
+  pero sin React encima, y el clic (de mouse o de JS) no hace nada. Antes de anotarlo como roto:
+  `Object.keys(boton).some(k => k.startsWith('__react'))`. Pasó con «Compartir»; con la página hidratada abría siempre.
+- **Una pestaña nueva con el panel oculto mide 0×0** hasta que se le pone un tamaño (`resize_window`): `innerWidth` da 0 y el
+  primer `resize_window` puede contestar «Policy check in progress»; se repite.
+- **El teléfono se sirve en la MISMA dirección**: con el tamaño «mobile» (que cambia el navegador a Android), `/web-generator`
+  muestra la lista del teléfono (`app/m/landing`). Si el tamaño se pone DESPUÉS de cargar, queda el editor de escritorio apretado:
+  primero el tamaño, después la dirección.
+- **Una `await` con `setTimeout` en una pestaña de fondo puede no volver nunca** (los relojes se frenan): para esperar, se lee
+  el DOM en llamadas separadas.

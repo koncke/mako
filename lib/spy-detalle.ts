@@ -19,6 +19,7 @@ import type { Pieza } from './spy';
 import type { TipoGuion } from './copywriter/tipos';
 import { cortarSinPartir } from './unicode-seguro';
 import { tipoDeContenido } from './spy-vista';
+import { dibujarContador } from './spy-reglas';
 import { FORMATOS_DEL_CATALOGO } from './spy-catalogo-datos';
 import { regexDeFrase, textoComparable } from './spy-funnel-tipo';
 import { multiplosDe, type MetricaMultiplo, type Multiplo, type PiezaParaMultiplo } from './multiplo-rendimiento';
@@ -397,7 +398,9 @@ export function textoParaCopiar(
   p: Pick<Pieza, 'canal' | 'tipo' | 'url' | 'titulo' | 'texto' | 'vistas' | 'megusta'> & { analisis?: { gancho?: string; angulo?: string; formato?: string } | null },
 ): string {
   const red = p.canal === 'youtube' ? 'YouTube' : p.canal === 'anuncios' ? 'su anuncio' : 'Instagram';
-  const numeros = [p.vistas != null ? `${p.vistas} vistas` : '', p.megusta != null ? `${p.megusta} me gusta` : ''].filter(Boolean).join(' · ');
+  // Los números como los dice la ficha («14 mil me gusta»), no crudos (10/11/2026: la página decía «13588 me gusta» al lado
+  // de un detalle que decía «14 mil»).
+  const numeros = [p.vistas != null ? `${dibujarContador(p.vistas)} vistas` : '', p.megusta != null ? `${dibujarContador(p.megusta)} me gusta` : ''].filter(Boolean).join(' · ');
   const a = p.analisis ?? {};
   const citar = (t: string) => t.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l) => `> ${l}`).join('\n');
   return [
@@ -415,4 +418,20 @@ export function textoParaCopiar(
     '## Tu versión',
     'Pídele a MaKo que la escriba con tu oferta y tu voz.',
   ].filter((l, i, arr) => l !== '' || arr[i - 1] !== '').join('\n').trim();
+}
+
+/**
+ * El título de la página que arma «Hacer uno así»: «Como <nombre>: <su gancho>», con `tope` letras como mucho.
+ *
+ * ⚠️ SE CORTA EN UNA PALABRA ENTERA Y CON «…» (10/11/2026, prueba en producción). Con `cortarSinPartir` a secas —que sólo
+ * cuida no partir un emoji— el título quedaba «…A bad one mult», cortado a mitad de palabra y sin nada que dijera que seguía.
+ */
+export function tituloDeCopia(nombre: string, texto: string, tope = 120): string {
+  const entero = `Como ${nombre}: ${String(texto ?? '').replace(/\s+/g, ' ').trim()}`;
+  if (entero.length <= tope) return cortarSinPartir(entero, tope);
+  const corto = cortarSinPartir(entero, tope - 1);
+  const espacio = corto.lastIndexOf(' ');
+  // Una palabra sola más larga que todo el tope (una URL) no tiene dónde cortarse: se corta donde llegue.
+  const base = espacio > tope / 2 ? corto.slice(0, espacio) : corto;
+  return `${base.replace(/[\s.,;:!?¡¿—-]+$/u, '')}…`;
 }
