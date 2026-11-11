@@ -291,6 +291,25 @@ test('6. la galería de la apertura: las fotos y los personajes cliqueables, con
   assert.match(pieza, /estado\.elegir\(\{ tipo: 'respuesta', rotulo: o\.rotulo, valor: o\.valor \}\)/);
 });
 
+test('3c. la estructura de la plantilla en el teléfono: el nombre de cada bloque entero, en un renglón (11/11/2026)', () => {
+  // En producción, a 375 px, la última banda decía «Cierre sin …». Bajar a un segundo renglón NO sirve (una banda de 3 s
+  // queda mordida: «El / producto»), ni partir la palabra («Credenci/al»): la tarjeta angosta achica letra y márgenes.
+  // PROBADO ROMPIÉNDOLO: sin el `container-type` o sin el @container, rojo; con `white-space: normal`, rojo.
+  const css = leer('app/video-editor/outliers.module.css');
+  assert.match(css, /\.tramo b \{[^}]*white-space: nowrap;[^}]*text-overflow: ellipsis;/, 'el nombre de la banda va en un renglón');
+  assert.match(css, /\.estructura \{ container-type: inline-size; \}/);
+  assert.match(css, /@container \(max-width: 190px\) \{[\s\S]*?\.tramo b \{ font-size: 11px; \}/);
+});
+
+test('3d. un dato que Spy no midió no se muestra: nada de «▶ —» (11/11/2026)', () => {
+  // PROBADO ROMPIÉNDOLO: con `contadorCorto(x.vistas ?? null)` (lo de antes), rojo.
+  const tsx = leer('app/video-editor/OutliersVideo.tsx');
+  for (const campo of ['vistas', 'megusta', 'comentarios']) {
+    assert.ok(tsx.includes('{x.' + campo + ' != null ? <span'), campo + ' se muestra aunque no haya dato');
+    assert.ok(!tsx.includes('contadorCorto(x.' + campo + ' ?? null)'), campo + ': volvió el guion');
+  }
+});
+
 test('7. el velo de la pregunta: sólo con la marca ADENTRO de un chat, y el aro en ella', () => {
   const v = { ancho: 1440, alto: 900 };
   const chat = { x: 0, y: 0, ancho: 360, alto: 900 };
