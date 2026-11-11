@@ -6,6 +6,42 @@ grilla de administración), Billing (era /admin/cobros) y Agents (era /admin/age
 diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEEME.md](customers/referencias/otras-apps/LEEME.md).
 
 
+## Costs: a dónde va una suscripción, y los dólares que salían divididos por 100 (10/11/2026)
+
+Martín, 10/11: «Si todavía no está dentro de SuperAdmin toda la parte de costos con gráficos bien diseñada, eso debería
+estar», con la torta de un cliente de 97 y el CAC de US$97. Entró en Admin › Analytics › Costs, después de «What you keep».
+
+- **Lo vivía en dos lugares que se copiaban.** La torta de /admin/estrategia armaba sus porciones con su propia cuenta y el
+  tablero local (`docs/tableros/numeros-mako.html`) con otra, escrita a mano. Ahora las arma UNA función,
+  `loQueSeVaDeUnaSuscripcion` (`lib/economia-unitaria.ts`), que usan Costs y la torta; `TORTAS` sólo les pone nombre y cuenta.
+- **El ciclo que había que esquivar:** `lib/uso-del-cupo.ts` importa de `lib/economia-unitaria.ts`, y la función nueva necesita
+  `techoDeIa` y `USO_SUPUESTO`, que vivían allá. Importarlos de vuelta era un ciclo (en los tests de tsx deja exports a medio
+  cargar). Se mudaron a economia-unitaria y uso-del-cupo los re-exporta: nadie cambió de dónde los lee.
+- ⚠️ **El diagnóstico obvio era el equivocado: Costs YA mostraba mal la plata.** `formatCurrency` de Polar recibe CENTAVOS
+  (divide por 100), y «Fixed costs», «Unit economics» y «What you keep» le pasaban DÓLARES: la página decía «US$ 4,38 al mes
+  sale de tu bolsillo» con un fijo de US$438,25. El gasto de IA (`vista`) sí viene en centavos, así que la mitad de la página
+  estaba bien y la otra no, y nada lo marcaba. Ahora la plata en dólares va por `fmtUsd`
+  (`app/admin/(polar)/analytics/costs/utils.ts`) y un test dibuja la página y busca «US$ 438,25». **Antes de pasar un número a
+  un formateador copiado, mirá en qué unidad lo espera.**
+- **Un negativo se partía:** «-US$ 24,37» cortaba la línea después del guion y dejaba el «-» solo arriba en una tarjeta
+  angosta. `fmtUsd` usa el menos tipográfico (U+2212), que no se separa.
+- **Polar no tiene un gráfico de anillo.** Su gráfico de reparto es el «Breakdown» de las cancelaciones
+  (`CancellationsDistributionChart.tsx`): una barra con una franja por parte y la leyenda con el total. Se copió a
+  `app/admin/_polar/web/Metrics/DistributionChart.tsx` con sus colores; una parte negativa no se dibuja en la barra (Polar
+  tampoco dibuja las que dan cero) y la leyenda la muestra con su signo.
+- **El `SelectValue` de Radix no pinta el texto hasta hidratar:** en el HTML del server, y en cualquier captura de la vista
+  estática, el selector sale vacío. Con el texto elegido como hijo se ve siempre.
+- **La animación de entrada de Polar deja la página en blanco sin JavaScript:** `DashboardBody` arranca en `opacity: 0`
+  (`motion`) y recién hidratado sube a 1. Para una captura estática hay que forzar el estado final.
+- **El techo del CAC se calcula con el fijo adentro** (72,31 en el 97, lo que deja desde el segundo mes), no como en el tablero
+  (precio − cobrar − IA, 81,08 contando el impuesto): así el primer mes (−24,69) es exactamente el techo menos el CAC y la
+  página no dice dos cosas que no cierran. Lo decide Martín (docs/relevo/nube-costs-suscripcion.md).
+
+**Vive en:** `lib/economia-unitaria.ts`, `app/admin/(polar)/analytics/costs/Suscripcion.tsx`,
+`app/admin/_polar/web/Metrics/DistributionChart.tsx`, `app/admin/(polar)/analytics/costs/utils.ts`,
+`app/admin/estrategia/datos.ts`. **Lo fija:** `tests/costs-suscripcion.test.ts`. Capturas en
+`docs/admin/polar/analytics-costs-suscripcion-*.jpg`.
+
 ## La copia de Polar: lo que sólo se vio en las capturas (6/11/2026)
 
 Admin es la copia del dashboard de Polar (docs/investigacion-admin.md). Todo compilaba, los tests pasaban y cada dato estaba

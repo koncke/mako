@@ -3,6 +3,13 @@
 Tres páginas que Martín mira en el panel del costado mientras trabaja. **Viven acá porque antes
 vivían sólo en su carpeta de Escritorio, que no es un repo: se perdían con la carpeta.**
 
+> ⚠️ **«Los números» pasaron a SuperAdmin › Analytics › Costs** (`/admin/analytics/costs`, 10/11/2026): a dónde va lo que
+> paga un cliente del 47 y del 97 (con los selectores de clientes, CAC, uso del cupo, pasarela, impuesto y fijo), el primer
+> mes, el techo del CAC y los cupos por plan. Los arma `loQueSeVaDeUnaSuscripcion` (`lib/economia-unitaria.ts`), la misma
+> función que la torta de `/admin/estrategia`. `numeros-mako.html` queda como estaba, para mirar lo que no se mudó (las altas
+> del mes y lo que cuesta llegar a 50 clientes; ver `docs/relevo/nube-costs-suscripcion.md`), pero **los números que valen
+> son los de Costs**: los del HTML están escritos a mano y no se actualizan solos.
+
 ## Cómo se abren
 
 ```
@@ -11,7 +18,7 @@ node docs/tableros/servir-numeros.mjs
 
 | Ruta | Qué muestra |
 |---|---|
-| `http://localhost:4179/` | **Los números**: lo que queda por cantidad de clientes, quién paga qué, los cupos por plan |
+| `http://localhost:4179/` | **Los números** (ya en Admin › Analytics › Costs): lo que queda por cantidad de clientes, quién paga qué, los cupos por plan |
 | `http://localhost:4179/plan` | **Las landings y el contenido**: las 8 landings con su ángulo, y el calendario de 21 piezas |
 | `http://localhost:4179/estrategia` | **La estrategia de adquisición**: las tres fases y la cadena eslabón por eslabón |
 | `http://localhost:4179/l/<slug>` | **Las landings**, enteras, como las ve un visitante. Siete: `setter`, `paginas`, `anuncios`, `numeros`, `llamadas`, `cursos`, `plan` |
