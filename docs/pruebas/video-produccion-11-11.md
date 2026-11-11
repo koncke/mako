@@ -72,3 +72,18 @@ Misma sesión del navegador de la app; proyecto nuevo «1111 (1)» en el ws 3 co
 - **Clips mágicos:** usan la IA;
 - **«Publicar en redes»:** publica de verdad; no se toca sin pedirlo;
 - **los cursores animados:** el panel de la app está oculto.
+
+## Tercera vuelta, 16:00–16:10 UTC: los dos arreglos, en producción (despliegue 2507c11c7, 15:55 UTC)
+
+| Qué | Resultado |
+|---|---|
+| El motivo en el hilo, sin el archivo ([13](video-produccion-11-11/13-falta-archivo-en-el-hilo.jpg)) | **Pasa.** En el proyecto que perdió sus archivos, «Sí, en el feed» deja dos mensajes en el hilo: «Sí, en el feed» y, en rojo, «Falta en este navegador el archivo de un video del proyecto: vuelve a importarlo y prueba de nuevo». Ya no dice «no se reconoció la voz». |
+| Los atajos sin la app de escritorio | **Pasa.** Los cuatro («Agrega un título», «Transiciones suaves», «Quita las muletillas», «Borra los silencios») están apagados, con «Instala MaKo para escribir» al pasar el mouse. |
+| El resultado bueno en el hilo ([14](video-produccion-11-11/14-listo-en-el-hilo-1440.jpg)) | **Pasa.** En un proyecto nuevo con el clip de 14 s, el hilo dice «Sí, en el feed» y «Listo: puse 7 subtítulos.», con los subtítulos en su pista y en el reproductor. |
+| El editor a 375 ([15](video-produccion-11-11/15-editor-telefono-375.jpg)) | **Pasa.** Es la versión del teléfono: el video con su subtítulo, «Dividir», «Eliminar», «Deshacer», «Rehacer» y «Texto, efectos, audio y la línea de tiempo completa: en la computadora». El chat de MaKo es sólo de la computadora. |
+
+**Una trampa del navegador de prueba, no de MaKo:** importar quedaba en «Importando…» para siempre, con un video y también
+con una imagen. Antes de empezar, la importación espera dos cuadros de pantalla (`waitForNextPaint` en
+`media/upload-toast.ts`), y el panel oculto de la app de Claude no pinta salvo cuando se le saca una captura. Sacando
+capturas mientras importa, entra en segundos. En una pestaña visible pinta siempre. Una persona que cambia de pestaña en
+plena importación la retoma al volver.
