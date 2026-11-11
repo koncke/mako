@@ -11,7 +11,7 @@ import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenci
 import {
   permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, MOTIVO_CREDITO_SU_CLAVE, FEATURES_DEL_PLAN,
   evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude, type PermisoCredito,
-  type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude, puedeUsarUnaCuentaDelCredito, type UsoDelCredito,
+  type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude, puedeUsarUnaCuentaDelCredito, queHacerSiFallaElCredito, type UsoDelCredito,
 } from './veto-claude';
 import { CLAVES_CREDITO_DE_LOS_GRUPOS } from './credito-api';
 import type { ProvName } from './ai-cheap';
@@ -738,6 +738,9 @@ export async function chatClaudeTools(
      *  esto, el de la capa barata (`gpt-4o-mini`). */
     modeloSuOpenAI?: string;
     sinFallbackClaude?: boolean;    // si el override a IA barata falla, RE-LANZÁ el error (no caigas a Claude): el caller quiere avisar "falló", no gastar Claude en silencio.
+    /** ⏱ El plazo de CADA pedido a Anthropic del bucle (11/11/2026). Antes no había ninguno: un Anthropic colgado trababa el turno
+     *  hasta el corte de undici (~300 s). Sin él, 12 ms por token de salida, entre 45 s y 120 s. */
+    plazoPasoMs?: number;
     effort?: Effort;
     maxTokens?: number;
     maxSteps?: number;              // tope de vueltas del loop (default 8) — baranda anti-bucle.
@@ -778,6 +781,24 @@ export async function chatClaudeTools(
     if (n && 'permiso' in n) delNegocio = n.permiso;
     else throw new Error(`falló la IA (${n && 'pausa' in n ? CLAUDE_EN_PAUSA : n && 'noPudeLeer' in n ? NO_PUDE_COMPROBAR_SU_CLAUDE : 'el negocio no tiene su clave de Claude'})`);
   } else if (!opts.model && opts.feature) {
+    // ── EL CRÉDITO DE CLAUDE PRIMERO EN EL ESPACIO DE MaKo (11/11/2026, Martín: «gastemos eso para todo esto en lugar de Gemini,
+    // porque es mucho más estable»). Sólo en la plataforma y nunca el Plan (`cuentasDelCreditoParaElPedido` devuelve [] si no);
+    // de cuenta en cuenta, como el bot 1 a 1 (lib/mako-bot.ts), por la puerta 2 (`soloSuClaude`, Haiku, la marca «(cuenta N)»).
+    // Cubre el chat del Ops Center (lib/mako-turno-app.ts) y el de la web (app/api/mako-doer). Si una cuenta falla SIN haber
+    // corrido ninguna herramienta: sin saldo, 401 o 429, la otra cuenta; plazo, 5xx u «overloaded», directo a la cascada (es el
+    // mismo Anthropic). Si ya corrió una herramienta, se re-lanza: otro modelo duplicaría la escritura (la regla de abajo).
+    for (const cuenta of await cuentasDelCreditoParaElPedido(opts.feature)) {
+      let corrioUnaHerramienta = false;
+      const mirado: ToolRunner = async (name, input) => { corrioUnaHerramienta = true; return runTool(name, input); };
+      try {
+        return await chatClaudeTools(system, messages, tools, mirado, { ...opts, soloSuClaude: true, cuentaDeLosGrupos: cuenta, modeloSuClaude: undefined });
+      } catch (e) {
+        if (corrioUnaHerramienta) throw e;
+        const m = e instanceof Error ? e.message : String(e);
+        console.warn(`[anthropic] tools ${opts.feature}: el crédito (${cuenta}) no contestó: ${m.slice(0, 200)}`);
+        if (queHacerSiFallaElCredito((e as { status?: number }).status, m) !== 'otra_cuenta') break;
+      }
+    }
     // ⚠️ El `catch` vacío envuelve SÓLO la lectura del registro (ticket #5, 18/10/2026). Antes envolvía también la
     // cascada, y el «falló la IA» que se re-lanza con `sinFallbackClaude` caía en él y se perdía. El modelo quedaba
     // vacío y el veto contestaba «Claude vetado — «mako-doer»…». La Ticketera lo leyó como un bug: era la IA gratis
@@ -881,25 +902,42 @@ export async function chatClaudeTools(
       };
     if (opts.toolChoice) payload.tool_choice = { type: opts.toolChoice };
 
-    const res = await fetch(permiso.endpoint, {
-      method: 'POST',
-      headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-      cache: 'no-store',
-    });
-    const body = await res.json();
+    // ⏱ CON PLAZO (11/11/2026): sin `signal`, un Anthropic colgado dejaba el turno trabado hasta el corte de undici.
+    const plazo = opts.plazoPasoMs ?? Math.min(120_000, Math.max(45_000, Number(payload.max_tokens) * 12));
+    let res: Response;
+    try {
+      res = await fetch(permiso.endpoint, {
+        method: 'POST',
+        headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+        cache: 'no-store',
+        signal: AbortSignal.timeout(Math.max(1_000, plazo)),
+      });
+    } catch (e) {
+      // Cortada DESPUÉS de mandar: con una cuenta del crédito queda la fila de lo que pudo gastar (`anotarFalloDelCredito`).
+      if (delNegocio?.cuentaDelCredito) await anotarFalloDelCredito(delNegocio, e instanceof Error ? `${e.name} ${e.message}` : String(e), { cortada: true, maxTokens: Number(payload.max_tokens), motivo: opts.motivo });
+      throw e;
+    }
+    const body = await res.json().catch(() => ({}));
     if (!res.ok || body.error) {
       const m = body?.error?.message ?? `Anthropic ${res.status}`;
       // Con su clave, el fallo queda escrito (IA3): es lo que la tarjeta de «Tus cuentas de IA» le muestra al negocio.
-      // El crédito de los grupos no es SU clave: su fallo no va a la tarjeta del negocio (lo ve el Uso de SuperAdmin).
+      // El crédito de los grupos no es SU clave: su fallo no va a la tarjeta del negocio (lo ve el Uso de SuperAdmin). Y desde el
+      // 11/11/2026 queda escrito ACÁ, una vez para todos los que llaman: sin saldo, la cuenta se saltea y queda la fila «sin
+      // crédito» (antes cada llamador la marcaba sólo en su memoria, y el Uso nunca se enteraba de que se agotó).
       if (delNegocio && !delNegocio.cuentaDelCredito) await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error: `HTTP ${res.status} ${body?.error?.type ?? ''} ${m}`, feature: permiso.feature, modelo: String(model) });
+      if (delNegocio?.cuentaDelCredito) await anotarFalloDelCredito(delNegocio, String(m));
       // «tu clave de Claude: …» le dice al negocio que la SUYA no tiene crédito (lib/errores-app-reglas.ts): el de los grupos es nuestro.
-      throw new Error(delNegocio ? `falló la IA (${delNegocio.cuentaDelCredito ? `el crédito de Claude de MaKo, cuenta ${delNegocio.cuentaDelCredito}` : 'tu clave de Claude'}: ${m})` : m);
+      // Con el status adentro (`queHacerSiFallaElCredito`): un 429 de una cuenta prueba la otra; un 529, no.
+      throw Object.assign(new Error(delNegocio ? `falló la IA (${delNegocio.cuentaDelCredito ? `el crédito de Claude de MaKo, cuenta ${delNegocio.cuentaDelCredito}` : 'tu clave de Claude'}: ${m})` : m), { status: res.status });
     }
 
-    // Lo que paga el negocio lleva su marca PRIMERO: lib/costos-ia.ts lo saca del gasto de MaKo.
-    const usage = await recordUsage(permiso.feature, String(model), body.usage,
-      delNegocio ? [marcaDelGasto(delNegocio), (opts.motivo ?? '').trim()].filter(Boolean).join(' · ') : opts.motivo);
+    // Lo que paga el negocio lleva su marca PRIMERO: lib/costos-ia.ts lo saca del gasto de MaKo. Una cuenta del crédito, con su
+    // número y el ws del pedido (sin el ws, el gasto de un negocio sin su Claude quedaba anotado en el ws 9).
+    const usage = delNegocio?.cuentaDelCredito
+      ? await recordUsage(permiso.feature, String(model), body.usage, [marcaDelGasto(delNegocio), (opts.motivo ?? '').trim()].filter(Boolean).join(' · '), 'anthropic', delNegocio.cuentaDelCredito, await wsDelPedido())
+      : await recordUsage(permiso.feature, String(model), body.usage,
+        delNegocio ? [marcaDelGasto(delNegocio), (opts.motivo ?? '').trim()].filter(Boolean).join(' · ') : opts.motivo);
     opts.onUsage?.(usage);
 
     const content: Block[] = Array.isArray(body.content) ? (body.content as Block[]) : [];

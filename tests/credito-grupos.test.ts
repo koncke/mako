@@ -67,7 +67,22 @@ test('3. el gasto va a la cuenta que pagó; su fallo no es «tu clave de Claude�
   assert.deepEqual(r.pago, [{ cuenta: 'claude2', negocio: null }], 'el Uso se lo anota a otra cuenta');
   assert.match(r.chatCuenta1, /^tiró: falló la IA \(el crédito de Claude de MaKo, cuenta 1: Your credit balance is too low/);
   assert.doesNotMatch(r.chatCuenta1, /tu clave de Claude/, 'el negocio leería que SU clave no tiene crédito');
-  assert.deepEqual(r.filasDelFallo, [], 'el fallo de una cuenta nuestra quedó en la tarjeta del negocio');
+  // Desde el 11/11/2026 la puerta deja la fila «sin crédito» (antes, nada: el Uso no se enteraba); ninguna va a la tarjeta del negocio.
+  assert.deepEqual(r.filasDelFallo, ['10:⚠ crédito de Claude de la plataforma (cuenta 1) · sin crédito hasta el próximo ciclo'],
+    'el fallo de una cuenta nuestra quedó en la tarjeta del negocio, o la cuenta sin saldo no dejó su fila');
+  assert.ok(r.sinCreditoAt, 'el Uso de SuperAdmin no ve que la cuenta 1 se quedó sin crédito');
+});
+
+test('8. el chat con herramientas del ws9 va primero con el crédito, con plazo; si ya corrió una herramienta, no prueba otra cuenta', () => {
+  const r = correr();
+  assert.equal(r.opsCenterWs9, 'hola desde Claude', `el Ops Center del ws9 no contestó con el crédito: ${r.opsCenterWs9}`);
+  assert.deepEqual(r.opsCenterWs9Anthropic, [{ clave: 'sk-ant-api03-credito-cuenta2-', modelo: 'claude-haiku-4-5' }]);
+  assert.equal(r.opsCenterConPlazo, true, 'un pedido del bucle con herramientas salió sin plazo');
+  assert.match(String(r.opsCenterWs10), /^tiró: /, 'el ws10 sin IA propia contestó con algo');
+  assert.equal(r.opsCenterWs10Credito, 0, 'el Ops Center de un negocio usó el crédito');
+  assert.equal(r.herramientaYFalla.corridas, 1);
+  assert.equal(r.herramientaYFalla.pedidos, 2, 'después de correr una herramienta se probó otra cuenta: duplicaría la escritura');
+  assert.match(r.herramientaYFalla.r, /^tiró: falló la IA \(el crédito de Claude de MaKo, cuenta \d: Number of request tokens/);
 });
 
 test('4. el interruptor: apagado o sin leerlo, ninguna cuenta, tampoco por la puerta; sin claves, ninguna', () => {
@@ -82,7 +97,9 @@ test('4. el interruptor: apagado o sin leerlo, ninguna cuenta, tampoco por la pu
 test('5. N cuentas: las del Uso, una sola lista; el reparto recorre todas; una clave que el Uso no conoce no paga', () => {
   const r = correr();
   const [C3, C4] = ['ANTHROPIC_CREDITO_CUENTA3', 'ANTHROPIC_CREDITO_CUENTA4'];
-  assert.deepEqual(r.nCuentas, [[C2, C3, C4], [C3, C4, C2], [C4, C2, C3]], 'el reparto no recorre todas las cuentas cargadas');
+  // Las tres rotaciones, empiece por la que empiece: el contador del reparto es del proceso y lo mueven los casos de arriba.
+  const rotacion = (a: string[]) => a.join(',');
+  assert.deepEqual(r.nCuentas.map(rotacion).sort(), [[C2, C3, C4], [C3, C4, C2], [C4, C2, C3]].map(rotacion).sort(), 'el reparto no recorre todas las cuentas cargadas');
   assert.equal(r.laNueve, null, 'una clave que el Uso no conoce pagó un turno');
   assert.deepEqual(r.ws10Cuenta4, { clave: 'sk-ant-api03-credito-cuenta4-', modelo: 'claude-haiku-4-5', esCredito: true, cuenta: 4 });
   // Una cuenta del grupo que el Uso no conoce sería gasto que no se ve: las del grupo SON las del Uso, sin copia.
@@ -143,3 +160,8 @@ test('6. el % del vigía (11/11/2026): primero la que menos gastó; la plataform
 //   R18 el fallo de una cuenta del crédito a la tarjeta del negocio (`anotarFalloDeSuClave`) → falla el 7
 //   R19 la fila del gasto del crédito sin el ws del pedido (caía al ws9)                 → falla el 7
 //   R20 `conClaveDelNegocio` sin pasarle la cuenta a la puerta                           → falla el 7
+// El bucle con herramientas (11/11/2026), con el mismo arnés:
+//   R21 el `fetch` sin `signal`                                                          → falla el 8
+//   R22 sin re-lanzar cuando ya corrió una herramienta (prueba otra cuenta)             → falla el 8
+//   R23 la cuenta sin saldo sin su fila «sin crédito» (sólo en memoria, como antes)     → falla el 3
+//   R24 sin el crédito primero en la plataforma                                          → falla el 8

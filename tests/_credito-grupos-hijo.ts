@@ -32,6 +32,10 @@ const CREDITO9 = `sk-ant-api03-credito-cuenta9-${'g'.repeat(40)}`;
 const PROPIA = `sk-ant-api03-propia-del-ws13-${'m'.repeat(40)}`;
 
 let anthropic: Array<{ clave: string; modelo: string }> = [];
+/** Cada pedido a Anthropic, ¿llevó plazo? (11/11/2026: el bucle con herramientas no tenía). */
+const conPlazo: boolean[] = [];
+/** El system «herramienta-y-falla»: el primer pedido pide una herramienta, los siguientes contestan 429. */
+let herramientaYFalla = 0;
 let ajustesFallan = false;
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
@@ -43,8 +47,14 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.host === 'api.anthropic.com') {
     const clave = new Headers(init.headers).get('x-api-key') ?? '';
     let modelo = '';
-    try { modelo = String(JSON.parse(String(init.body ?? '{}')).model ?? ''); } catch { /* sin cuerpo */ }
+    let system = '';
+    try { const b = JSON.parse(String(init.body ?? '{}')); modelo = String(b.model ?? ''); system = String(b.system ?? ''); } catch { /* sin cuerpo */ }
     anthropic.push({ clave: clave.slice(0, 29), modelo });
+    conPlazo.push(!!init.signal);
+    if (system === 'herramienta-y-falla') {
+      if (++herramientaYFalla === 1) return r(200, { id: 'msg_h', type: 'message', role: 'assistant', model: modelo, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'tu_1', name: 'contar_leads', input: {} }], usage: { input_tokens: 500, output_tokens: 20 } });
+      return r(429, { type: 'error', error: { type: 'rate_limit_error', message: 'Number of request tokens has exceeded your per-minute rate limit' } });
+    }
     if (clave === CREDITO1) return r(400, { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.' } });
     if (clave !== CREDITO2 && clave !== PROPIA) return r(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } });
     return r(200, { id: 'msg_1', type: 'message', role: 'assistant', model: modelo, stop_reason: 'end_turn', content: [{ type: 'text', text: 'hola desde Claude' }], usage: { input_tokens: 1000, output_tokens: 200 } });
@@ -104,7 +114,13 @@ async function main() {
   const antes = pg.db.anthropic_usage.length;
   out.chatCuenta1 = await chat(10, 'ANTHROPIC_CREDITO_CUENTA1');
   await espera();
-  out.filasDelFallo = pg.db.anthropic_usage.slice(antes).map((f) => `${f.workspace_id}:${String(f.motivo ?? '').slice(0, 60)}`);
+  out.filasDelFallo = pg.db.anthropic_usage.slice(antes).map((f) => `${f.workspace_id}:${String(f.motivo ?? '').slice(0, 100)}`);
+  // La fila «sin crédito» que deja la puerta (11/11/2026) la ve el Uso de SuperAdmin.
+  const { resumenCredito } = await import('../lib/credito-api');
+  out.sinCreditoAt = resumenCredito({
+    vinculadas: { claude1: true, claude2: true }, wsConClave: new Map(), ahora: Date.now() + 1_000,
+    gastos: pg.db.anthropic_usage.map((f) => ({ workspace_id: Number(f.workspace_id), created_at: String(f.created_at), motivo: String(f.motivo ?? ''), cuenta: Number(f.cuenta ?? 1), cost_usd: Number(f.cost_usd ?? 0), provider: String(f.provider ?? 'anthropic'), model: String(f.model ?? '') })),
+  }).find((c) => c.cuenta === 'claude1')?.sinCreditoAt ?? null;
   marcarCuentaDeLosGruposSinCredito('ANTHROPIC_CREDITO_CUENTA1');
   out.sinLaAgotada = await cuentasDelCreditoDeLosGrupos();
 
@@ -122,6 +138,26 @@ async function main() {
   out.textoWs14SinSaldo = await texto('ANTHROPIC_CREDITO_CUENTA1');
   await espera();
   out.filasWs14 = pg.db.anthropic_usage.slice(antes14).map((f) => `${f.workspace_id}:${f.cuenta}:${String(f.motivo ?? '').slice(0, 100)}`);
+
+  // ── 11/11/2026: el chat con herramientas del Ops Center del ws9 (`mako-doer`, sin `soloSuClaude`) va PRIMERO con el crédito;
+  //    el de un negocio, nunca; cada pedido lleva plazo; y si una herramienta ya corrió, el fallo se re-lanza (sin otra cuenta) ──
+  const tool = [{ name: 'contar_leads', description: 'Cuenta', input_schema: { type: 'object', properties: {} } }];
+  const opsCenter = (ws: number, system = 's') => runWithWorkspace(ws, () => chatClaudeTools(system, [{ role: 'user', content: '¿cuántos leads?' }], tool, async () => { corridas++; return 'ok'; }, { feature: 'mako-doer', maxSteps: 4, motivo: 'Ops Center' }))
+    .then((r) => r.text, (e) => `tiró: ${e instanceof Error ? e.message : String(e)}`);
+  let corridas = 0;
+  anthropic = [];
+  conPlazo.length = 0;
+  out.opsCenterWs9 = await opsCenter(PLATAFORMA);
+  out.opsCenterWs9Anthropic = [...anthropic];
+  out.opsCenterConPlazo = conPlazo.every(Boolean) && conPlazo.length > 0;
+  anthropic = [];
+  out.opsCenterWs10 = await opsCenter(10);
+  out.opsCenterWs10Credito = anthropic.filter((a) => /credito/.test(a.clave)).length;
+  process.env.ANTHROPIC_CREDITO_CUENTA3 = CREDITO3;
+  anthropic = [];
+  corridas = 0;
+  out.herramientaYFalla = { r: await opsCenter(PLATAFORMA, 'herramienta-y-falla'), pedidos: anthropic.length, corridas };
+  delete process.env.ANTHROPIC_CREDITO_CUENTA3;
 
   // ── Una cuenta por el entorno también cuenta ───────────────────────────────────────────────────────────────────────
   process.env.ANTHROPIC_CREDITO_CUENTA3 = CREDITO3;
