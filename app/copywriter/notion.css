@@ -224,6 +224,10 @@
 /* «Ver el original» de una página que replica un outlier (D18): el texto tal cual, como se leyó. */
 .nt-original { white-space: pre-wrap; word-break: break-word; font-size: 15px; line-height: 1.6; color: var(--ink); }
 .nt.nt-ejemplo { height: auto; border: 1px solid var(--nt-linea); border-radius: 10px; padding: 6px 0 10px; overflow: visible; }
+/* ⚠️ El documento del ejemplo es hijo de una FILA flexible (`.nt`): sin `min-width: 0` toma el ancho de su tabla y el texto se
+   corta a la derecha. 11/11/2026, en producción a 375: «Ejemplo ficticio: Cierre Consultivo, me…» cortado y una barra de
+   scroll en todo el modal. Con esto el texto se acomoda y la tabla corre dentro de su caja (`.tableWrapper`). */
+.nt.nt-ejemplo > .nt-bn { min-width: 0; flex: 1 1 auto; }
 /* Las preguntas de MaKo al crear desde una plantilla (PanelMaKo): lo que ya contestó, como su burbuja. */
 .nt-mako-par { display: contents; }
 .nt-mako-respuesta { align-self: flex-end; max-width: 85%; padding: 6px 12px; border-radius: 14px; background: var(--nt-azul); color: #fff; font-size: 13.5px; }

@@ -70,7 +70,8 @@ type Propuesta = {
 type EstadoPropuesta = 'construyendo' | 'pendiente' | 'aceptada' | 'descartada';
 
 type Mensaje =
-  | { id: number; de: 'yo'; texto: string; adjuntos?: string[] }
+  // `oculto`: el pedido que armaron las preguntas de MaKo. MaKo lo lee en la charla; la pantalla no lo dibuja (ya están las respuestas).
+  | { id: number; de: 'yo'; texto: string; adjuntos?: string[]; oculto?: boolean }
   | { id: number; de: 'mako'; texto: string; error?: boolean; propuesta?: Propuesta; estado?: EstadoPropuesta };
 
 /** Lo que el panel necesita del guion vivo (lo que todavía no se guardó también cuenta). */
@@ -251,11 +252,14 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
    * «Editar»: MaKo devuelve herramientas; acá se vuelven a validar contra el guion de AHORA, se construyen a la vista y
    * quedan como propuesta. Nada se guarda hasta «Aceptar». Con `adaptar`, es adaptar la plantilla (la última respuesta a
    * las preguntas de MaKo al crear): si MaKo contesta con una pregunta, el panel queda «adaptando».
+   * `mostrar = false`: el pedido que arman las preguntas de MaKo NO se dibuja (las respuestas ya están arriba, con su pregunta);
+   * igual queda en la charla que lee MaKo y en el hilo guardado. 11/11/2026, en producción: «Mensajes con una palabra» y «Sprint de Diseño» en píldora,
+   * y abajo otra burbuja «Es para: Mensajes con una palabra. Adáptalo a mi oferta…», con otro estilo, diciendo lo mismo.
    */
-  const pedirEdicion = useCallback(async (instruccion: string, archivos: File[] = [], citadas: Referencia[] = [], adaptar = false) => {
+  const pedirEdicion = useCallback(async (instruccion: string, archivos: File[] = [], citadas: Referencia[] = [], adaptar = false, mostrar = true) => {
     const { id: idG, editor: ed } = vivo.current;
     if (!idG || !ed || !instruccion.trim()) return false;
-    const yo: Mensaje = { id: nuevoId(), de: 'yo', texto: instruccion, ...(archivos.length ? { adjuntos: archivos.map((f) => f.name) } : {}) };
+    const yo: Mensaje = { id: nuevoId(), de: 'yo', texto: instruccion, ...(archivos.length ? { adjuntos: archivos.map((f) => f.name) } : {}), ...(mostrar ? {} : { oculto: true }) };
     setMensajes((xs) => [...xs, yo]);
     setCorriendo(true);
     const ac = new AbortController();
@@ -347,8 +351,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     setRespIni(r);
     if (pasoPendiente(pasosIni, r)) return;
     const pedido = pedidoIni(r);
-    if (pedido.adaptar) { if (replica) elegirIntencion('editar'); void pedirEdicion(pedido.texto, [], [], !replica); return; }
-    setMensajes((xs) => [...xs, { id: nuevoId(), de: 'yo', texto: pedido.texto }, { id: nuevoId(), de: 'mako', texto: replica ? 'Listo: el original está en «Ver el original». Cuando quieras, pídeme lo que necesites.' : 'Listo: la estructura queda para ti. Cuando quieras, pídeme lo que necesites.' }]);
+    if (pedido.adaptar) { if (replica) elegirIntencion('editar'); void pedirEdicion(pedido.texto, [], [], !replica, false); return; }
+    setMensajes((xs) => [...xs, { id: nuevoId(), de: 'yo', texto: pedido.texto, oculto: true }, { id: nuevoId(), de: 'mako', texto: replica ? 'Listo: el original está en «Ver el original». Cuando quieras, pídeme lo que necesites.' : 'Listo: la estructura queda para ti. Cuando quieras, pídeme lo que necesites.' }]);
   };
   /** Esa respuesta cierra las preguntas y pide a la IA: espera a que se pueda (editor listo, sin otro pedido corriendo). */
   const llamaALaIA = (valor: string) => {
@@ -441,7 +445,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     window.setTimeout(() => campo.current?.focus(), 0);
   }, [campo]);
 
-  const items = useMemo((): ItemHilo[] => mensajes.map((m): ItemHilo => (m.de === 'yo'
+  const items = useMemo((): ItemHilo[] => mensajes.filter((m) => !(m.de === 'yo' && m.oculto)).map((m): ItemHilo => (m.de === 'yo'
     ? { k: 'msg', id: String(m.id), role: 'user', texto: m.texto, at: null, ...(m.adjuntos?.length ? { archivos: m.adjuntos.map(archivoDe) } : {}) }
     : { k: 'msg', id: String(m.id), role: 'assistant', texto: m.error ? '' : m.texto, at: null })), [mensajes]);
 
