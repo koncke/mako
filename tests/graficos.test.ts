@@ -164,6 +164,9 @@ test('fmtValor: plata, porcentaje, veces, segundos y lo que no se puede calcular
   assert.equal(fmtValor(37_790 * 60, 'segundos'), '26 días 5 h');
   assert.match(fmtValor(1234, 'usd'), /^US\$1\.234$/);
   assert.equal(fmtValor(0, 'usd'), 'US$0');
+  // Debajo de un centavo, dos cifras significativas (11/11/2026: el costo por llamada a la IA decía «US$0»).
+  assert.equal(fmtValor(0.0000384, 'usd'), 'US$0,000038');
+  assert.equal(fmtValor(0.0271, 'usd'), 'US$0,03', 'desde un centavo, centavos como siempre');
 });
 
 test('el lector llena cada métrica base y cada dimensión de cada conjunto del catálogo', () => {
