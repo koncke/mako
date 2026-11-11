@@ -298,7 +298,9 @@ Y un cliente de Código: Natalia (ws 19) abre en «Focus» vacío con la galerí
 21. **Claves crudas** (71 y 75): «chatbot-crear-ia», «offer», «mako-pedidos» en «Para qué se usa»; «calendly», «carga_manual» en «De dónde
     vienen los que cierran». Ahora dicen el nombre que la app ya les da: el del catálogo de modelos («Crear una automatización con IA
     (Automations)») y el del CRM («Calendly», «Cargado a mano»). Sólo cambia la etiqueta: la clave queda, y un filtro guardado sigue
-    filtrando. `lib/graficos-nombres.ts` (nuevo), `tests/dashboard-nombres.test.ts`.
+    filtrando. `lib/graficos-nombres.ts` (nuevo), `tests/dashboard-nombres.test.ts`. Antes de subirlo se probó en la página de producción
+    con los nombres puestos a mano: los largos se salían 94 px de la tarjeta, porque la lista es una grilla que no se achica. La
+    columna va en `minmax(0, 1fr)` y entran con «…» (captura 93; `app/dashboard/disenos/contenido-css.ts`, docs/hallazgos-templates-dashboard.md §41).
 22. **«Costo por llamada US$0»** en el teléfono (86): un costo de US$0.000038 se escribía «US$0». Debajo de un centavo, dos cifras
     significativas («US$0,000038»), como la compu. `lib/graficos-agregar.ts` (`fmtValor`), `tests/graficos.test.ts`.
 23. **El eje de lo gastado en «0 · 0 · 0 · 0»** en el teléfono (86): debajo de 1, dos cifras significativas («0,01 · 0,02 · 0,03»), y los
