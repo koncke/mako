@@ -49,7 +49,19 @@ idea en las tablas de la 0409. Lo que cambia:
 - El buscador ahora DICE que se puede pegar un link («…o pega un link de Instagram / de YouTube»): una opción escondida en un
   buscador no es una opción.
 
-**Sin hacer: los anuncios de la Biblioteca de Meta** (el link `facebook.com/ads/library/?id=…`). Lo que se sabe:
+**Probado en producción el 11/11 a la tarde** (docs/pruebas/image-11-11.md). Instagram: 9,3 s desde la pantalla, US$0,0027 por
+lectura (corrida `3tm75HeDJFJeWOMPD`), con las 10 láminas en nuestro bucket. YouTube: 1,0 a 2,9 s, gratis. Otro negocio no ve lo
+traído. Dos trampas que salieron mirando la pantalla:
+- ⚠️ **Un reel se pagaba para nada.** El link `/reel/` pasaba `linkDeInstagram`, se leía (US$0,0027) y recién ahí se sabía que
+  era un reel. Además, debajo del error seguía «Traer este carrusel»: otra lectura pagada al mismo pedido. Un `/reel/`, `/reels/`
+  o `/tv/` es SIEMPRE un video, así que `esLinkDeVideo` lo corta antes de leer: en el server (`traerCarrusel`) y en la pantalla
+  (sin botón). Un `/p/` puede ser un video igual, y ése se descubre leyéndolo.
+- ⚠️ **El costo «US$0» de una corrida recién terminada no es el costo.** La lista de corridas (`/actor-runs?desc=1`) daba 0 para
+  el anuncio, y la corrida misma (`/actor-runs/{id}`, `usageTotalUsd` y `chargedEventCounts`) daba US$0,0058 unos segundos
+  después: el cobro por resultado se asienta tarde. Un costo se mide en la corrida, no en la lista.
+
+**Sin hacer: los anuncios de la Biblioteca de Meta** (el link `facebook.com/ads/library/?id=…`). **Medido el 11/11: US$0,0058 por
+anuncio, 8,5 s**; el `?id=` trae UN anuncio, con su página, su imagen, su texto y si sigue activo. Lo que se sabe:
 - **El lector:** el actor de Spy, `apify~facebook-ads-scraper` (`entradaDeAnuncios`, `anuncioDeApify` en
   lib/spy-todo-reglas.ts), medido por el Cerebro el 4/11 en **US$0,0058 por anuncio** (techo `USD_POR_ANUNCIO` 0,006). Falta
   medir UN anuncio por su `?id=`: el 4/11 se buscó por nombre de página.
