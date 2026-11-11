@@ -50,11 +50,24 @@ export function OutlierAbierto({ o, telefono, replicando, onReplicar, onCerrar }
       pie={celular ? <button type="button" className={s.editarPie} onClick={onReplicar} disabled={replicando}>{boton}</button> : undefined}>
       <div className={s.abierto}>
         <div className={s.visor}>
+          {/* Con imagen, arriba la pieza (como las láminas de Image) y abajo su texto. 11/11/2026, en producción: con un pie de
+              dos renglones, el visor era una caja blanca enorme casi vacía. */}
           <div className={s.visorMarco}>
-            <div className={t.textoOriginal}>
-              <span className={t.deDonde}>{ROTULO_TEXTO[o.deDonde]}</span>
-              {o.texto}
-            </div>
+            {o.miniatura ? (
+              <div className={t.conImagen}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className={t.imagenOriginal} src={o.miniatura} alt="" referrerPolicy="no-referrer" />
+                <div className={`${t.textoOriginal} ${t.textoBajo}`}>
+                  <span className={t.deDonde}>{ROTULO_TEXTO[o.deDonde]}</span>
+                  {o.texto}
+                </div>
+              </div>
+            ) : (
+              <div className={t.textoOriginal}>
+                <span className={t.deDonde}>{ROTULO_TEXTO[o.deDonde]}</span>
+                {o.texto}
+              </div>
+            )}
           </div>
         </div>
 

@@ -303,3 +303,14 @@ mismo en el Ops Center, la estrella y la tarjeta de Create.
   las aperturas de cada tab (T4 a T17, cada una en su `lib/aperturas/<superficie>.ts`); el teléfono (T16: `aperturaOps` calla
   con `en-la-computadora`). **Nada se vio en el navegador**: falta recorrer el Cerebro del ws3 sin la app («¿Cuál usas?», sus
   botones, dos «Ahora no» la callan) y la estrella cerrada (su corto, la primera visita).
+
+## La caja trabada cortaba «Instala MaKo para escribir»: medir al llegar la frase no alcanzaba (11/11/2026, prueba de Copywriting)
+
+- **Síntoma:** en una caja angosta (el panel de MaKo de las tabs de Create, a 1440), sin la app de escritorio, el campo de
+  104 px mostraba «Instala MaKo» y la mitad de «para escribir». Medido: 40 px de alto con 61 de frase.
+- **⚠️ El diagnóstico obvio era el equivocado.** Parecía que la frase llegaba tarde (con la respuesta del servidor) y nadie volvía
+  a medir. Se arregló así y se desplegó: seguía cortada. Lo que llega tarde es el BOTÓN «Instalar MaKo»: es dinámico
+  (`dynamic(..., { ssr: false })`) y, al aparecer, angosta el campo. La frase ya estaba medida con el ancho de antes.
+- **La regla:** el alto de un campo que depende de su ancho se mide cuando cambia el ANCHO (`ResizeObserver`), no cuando cambia
+  lo que tiene adentro. Sólo el ancho, porque el alto que se pone también dispara al observador. Vive en
+  app/_chat/CajaChat.tsx (el efecto de la caja trabada); el test, en tests/copywriter.test.ts.

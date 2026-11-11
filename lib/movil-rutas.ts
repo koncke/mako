@@ -353,7 +353,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   'second-brain': ['area', 'vista', 'grupo'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts); `grupo`: el push del grupo de la app (lib/grupo-app.ts)
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
   offer: ['oferta', 'funnel', 'sesion'], // app/offer/page.tsx (el «Analizar oferta →» del CRM; `sesion`: «Seguir en Offer» del Ops Center, 20/10/2026)
-  copywriting: ['nuevo'], // app/copywriter/page.tsx (`?nuevo=<tipo>`: sus templates primero). El `?tab=` del Ads Writer va aparte.
+  copywriting: ['nuevo', 'nueva', 'ver'], // app/copywriter/page.tsx (`?nuevo=<tipo>`: sus templates primero; `?nueva=1`: las plantillas; `?ver=guiones`: la última página, D18). El `?tab=` del Ads Writer va aparte.
   'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Classroom)
   comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Classroom › Community; `?post=N` abre ESE post)

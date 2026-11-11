@@ -2092,3 +2092,12 @@ menos categorías que la compu (falló / falta conectar / sin datos).
 - **La unidad:** el catálogo la dice en el nombre de la métrica («Mediana de respuesta (min)») y la tarjeta tiene su propio título («Tiempo de
   respuesta»): el teléfono mostraba «10» a secas. `conUnidad` la suma si el título no la dice.
 - **Vive en:** app/m/dashboard/datos.ts (`hojaPropia`), modelo.ts (`esCostoSobreGasto`, `conUnidad`).
+
+## Una vista nueva por query se pierde en el teléfono: el paso a /m sólo lleva las claves que tiene anotadas (11/11/2026)
+
+- **Síntoma:** en Copywriting, «Crear desde cero» (`/copywriter?nueva=`) y «Mis guiones» (`?ver=guiones`) mostraban en el teléfono
+  la portada de outliers. En la computadora andaban.
+- **Causa:** el paso de la ruta de computadora a la del teléfono (lib/movil-creacion.ts → `conQuery`) conserva sólo las claves
+  de la lista de su fila (`query: ['nuevo']`), y además **descarta los parámetros vacíos**: `?nueva=` se caía aunque estuviera.
+- **La regla:** una pantalla que suma una vista por query anota la clave en DOS lugares: su fila de lib/movil-creacion.ts y
+  `QUERY_DE_SECCION` (lib/movil-rutas.ts, lo fija tests/movil-mas-secciones.test.ts). Y el link lleva un valor (`?nueva=1`).
