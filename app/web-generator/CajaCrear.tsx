@@ -387,7 +387,7 @@ export default function CajaCrear({
       <span className="gp-cc-soltar-textos">
         <span className="gp-cc-soltar-titulo">
           Suelta tus archivos aquí o{' '}
-          <button type="button" className="gp-cc-soltar-elegir" onClick={() => elegirArchivo.current?.click()}>elígelo</button>
+          <button type="button" className="gp-cc-soltar-elegir" onClick={() => elegirArchivo.current?.click()}>elígelos</button>
         </span>
         <span className="gp-cc-soltar-sub">{ROTULO_ARCHIVOS}</span>
       </span>
