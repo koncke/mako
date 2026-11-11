@@ -956,9 +956,13 @@
 .gma-pop-cabeza { display: flex; align-items: center; gap: 8px; padding: 4px 4px 8px; }
 .gma-pop-titulo { margin: 0; font-size: 15px; line-height: 20px; font-weight: 600; color: var(--gma-texto-fuerte); }
 .gma-pop-sub { margin: 0; font-size: 12px; line-height: 16px; color: var(--gma-tenue); }
+/* ⚠️ `grid-auto-rows: max-content` (prueba en producción del 10/11/2026): con el alto TOPE de 360 px y más tarjetas que eso,
+   las filas `auto` no crecen más allá de su mínimo (el `min-height: 88px` de la tarjeta) y el nombre y la ayuda se achicaban
+   adentro: 36 tarjetas con la segunda línea cortada por la mitad. Con max-content cada fila mide lo que su contenido. */
 .gma-pop-grilla {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
+  grid-auto-rows: max-content;
   gap: 6px;
   max-height: 360px;
   overflow: hidden auto;
@@ -997,7 +1001,9 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-[data-tema="oscuro"] .gma .gma-tile-nombre { color: var(--gma-t200); }
+/* En oscuro, el texto claro del tema. Hasta el 10/11/2026 era `--gma-t200`, que el 31/10 (los valores de Tilvo) pasó a ser un
+   borde translúcido oscuro: los nombres de «Agregar bloque» quedaban invisibles sobre la tarjeta. */
+[data-tema="oscuro"] .gma .gma-tile-nombre { color: var(--gma-texto-fuerte); }
 .gma-tile-ayuda {
   font-size: 11px;
   line-height: 14px;

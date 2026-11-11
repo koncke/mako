@@ -56,6 +56,7 @@ import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { slugDe, slugValido, textoDe, tituloDeTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
 import { slugDeUrlLanding, urlLandingEn } from '@/lib/editor-landing/origen-landings';
 import { avisoDeVideo, hrefPermitido } from '@/lib/editor-landing/especificacion';
+import { metaDePagina } from '@/lib/editor-landing/seo-pagina';
 import type { BotonNav, ConfigLanding, EnlaceNav } from '@/lib/editor-landing/api-tipos';
 import {
   AVISO_WWW, RUTA_DOMINIO, motivoDominioInvalido, normalizarDominio, urlDeDominio,
@@ -244,7 +245,7 @@ export function DialogoPublicar({ onCerrar }: { onCerrar?: () => void } = {}) {
 
 function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
   const {
-    docId, titulo, guardarAhora, setDialogo, urlPublica, baseLandings, cambiosSinPublicar, estado, recargar, avisar, paginas, contenido,
+    docId, titulo, guardarAhora, setDialogo, urlPublica, baseLandings, cambiosSinPublicar, estado, recargar, avisar, contenido,
     editor, paginaActual,
   } = useEditorLanding();
   const prefijo = baseDibujada(baseLandings) + '/';
@@ -386,9 +387,15 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
   // ── SEO ──
   const pixel = sitio.metaPixelId ?? '';
   const pixelCorto = pixel.length > 0 && pixel.length < 5;
-  const tituloBusqueda = sitio.seoTitulo.trim() || titulo || 'Landing';
-  const inicio = contenido.paginas.find((p) => p.ruta === '') ?? paginas[0];
-  const descripcionBusqueda = sitio.seoDescripcion.trim() || (inicio ? textoDe(inicio.doc as JsonNodo, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) : '');
+  // La vista previa de Google y de WhatsApp sale de LA MISMA regla que la publicada (lib/editor-landing/seo-pagina.ts): hasta el
+  // 10/11/2026 mostraba el SEO del sitio y la publicada salía con el de la plantilla («[Nombre de la guía] (gratis)»).
+  const inicio = paginasVivas.find((p) => p.ruta === '') ?? paginasVivas[0];
+  const tituloDoc = titulo || 'Landing';
+  const metaInicio = inicio ? metaDePagina({ ...inicio, ruta: '' }, sitio, tituloDoc) : { titulo: tituloDoc, descripcion: '' };
+  // Lo que sale si la persona deja el «Título» vacío: su ayuda gris.
+  const tituloSinEscribir = inicio ? metaDePagina({ ...inicio, ruta: '' }, {}, tituloDoc).titulo : tituloDoc;
+  const tituloBusqueda = metaInicio.titulo;
+  const descripcionBusqueda = metaInicio.descripcion || (inicio ? textoDe(inicio.doc as JsonNodo, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) : '');
   const urlVista = url ?? urlLandingEn(baseLandings, slug || 'tu-pagina');
 
   let cuerpo: ReactNode;
@@ -494,7 +501,7 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
     cuerpo = (
       <>
         <Campo etiqueta="Título" contador={sitio.seoTitulo.length} tope={60} htmlFor="gmp-seo-tit">
-          <input id="gmp-seo-tit" className="gmp-input" value={sitio.seoTitulo} maxLength={60} placeholder={titulo}
+          <input id="gmp-seo-tit" className="gmp-input" value={sitio.seoTitulo} maxLength={60} placeholder={tituloSinEscribir}
             onChange={(e) => ponerSitio({ seoTitulo: e.target.value })} />
         </Campo>
         <Campo etiqueta="Descripción" contador={sitio.seoDescripcion.length} tope={160} htmlFor="gmp-seo-desc">
