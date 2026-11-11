@@ -193,3 +193,18 @@ La tarjeta «A/B TEST» y sus puertas están en docs/hallazgos-chatbot.md («La 
   primero el tamaño, después la dirección.
 - **Una `await` con `setTimeout` en una pestaña de fondo puede no volver nunca** (los relojes se frenan): para esperar, se lee
   el DOM en llamadas separadas.
+
+## Leer no es mirar: la prueba que no ve capturas no vio nada (11/11/2026, Web Generator)
+
+Martín, después de la primera vuelta: «deberían haber detectado esto… incluso yo detecté otros errores». La primera se hizo
+leyendo `innerText`, el DOM y el código; la segunda MIRÓ cada pantalla con su captura y encontró tres defectos que ninguna
+medición había visto: un título partido a mitad de palabra con un panel abierto, una galería sin fotos que eran tres títulos
+sueltos, y la cabecera del teléfono con el título tapado por una pastilla.
+
+- **Cada pantalla se mira con su captura**, a 1440 y a 375, y cada landing publicada. Se critica al lado de la referencia
+  (Gamma): vacío, gris, cortado, pobre, qué no se entiende. Una pantalla vacía en producción también es una falla.
+- **Una captura en blanco o vieja no prueba nada**: con el panel oculto, primero `getAnimations().forEach(a => a.finish())` y
+  repetir la captura; si sigue así, se mira en una ventana a la vista (Chrome) antes de anotar nada.
+- **Abrir cada panel lateral** (Animar, Temas, Comentarios): cambian el ancho del lienzo, y lo que depende del ancho se rompe ahí.
+- **Una grilla de cabecera `minmax(0, 1fr) auto minmax(0, 1fr)`** le da a cada costado un tercio fijo: lo que no entra en su
+  tercio se monta sobre el título. Los costados van con `minmax(max-content, 1fr)` y el título con `minmax(0, auto)` y «…».

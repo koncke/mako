@@ -4259,3 +4259,17 @@ Sin hacer, con su archivo:
   publicada a 1440 se ve bien. Gamma escala la tarjeta entera al ancho del lienzo; acá el lienzo reacomoda. Decide Martín.
 - La página «Gracias» de las plantillas deja «Descargar ahora» con enlace `#`, y nada avisa antes de publicar los «[…]» que
   quedan ni los botones sin enlace: no está en Gamma (PROHIBIDO INVENTAR), queda como propuesta.
+
+### La segunda vuelta, MIRANDO (11/11/2026)
+
+- **La letra del editor salía del ancho de la VENTANA** (`clamp(15px, 100vw / 68.5, 18px)`, `baseDelLienzo` en
+  EditorLanding.tsx), y el lienzo, con el chat de MaKo y un panel de la derecha abiertos, mide la mitad. Resultado: con «Animar»
+  abierto el título de la portada se partía a mitad de palabra («prim / eros») y los botones salían en dos renglones; sin panel,
+  el título ocupaba 4 renglones donde la publicada usa 2. Las presentaciones ya medían el lienzo; las páginas no. **Regla:** en
+  el editor, todo lo que depende del ancho sale del LIENZO (`anchoLienzo`, con su ResizeObserver), nunca de `vw` ni de una media
+  query: así la sección se achica entera, como en Gamma, y se ve igual que la publicada a ese ancho.
+- **Un ítem de galería sin foto no dejaba ni el lugar** (`.gm-item-marca:empty → display: none`, y la galería la vuelve `block`
+  de alto 0), así que una plantilla con galería se veía como títulos sueltos y no había dónde tocar. Las fotos redondas sí dejaban
+  su círculo. En el editor (y la miniatura de trabajo) va el lugar «Agregar imagen»; la publicada sigue sin dibujarlo.
+- **Lo que la primera vuelta no vio, y por qué:** se probó leyendo texto y el DOM. Ninguno de los tres defectos de arriba sale
+  en un `innerText` ni en un `scrollHeight`: salen en la captura.
