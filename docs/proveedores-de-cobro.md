@@ -340,3 +340,23 @@ final, desde la cuenta de Martín** (no se crean cuentas ni se escriben contrase
 
 No se saca la línea de Evolution ni (si se mantienen) la importación de grupos y la lectura de Instagram: Whop las conoce por
 su nombre desde el 6/11, y esconderlas termina en cierre con fondos retenidos. Si dicen que no a eso, es un no de verdad.
+
+### El texto FINAL para mandar (11/11/2026, decisión de Martín por el Cerebro)
+
+Martín: mandarla ya, sin cambiar MaKo antes; la solicitud describe **sólo el producto que se va a vender por Whop** (la
+versión que cumple sus normas), no menciona lo que va a quedar afuera y no afirma nada falso. Si Whop pregunta algo puntual,
+se contesta con la verdad. Lo que hay que sacar del producto cobrado antes de la primera venta está en la lista interna de
+docs/relevo/planes-y-cobros.md. El titular no va en el texto: lo da el KYC de la cuenta.
+
+> MaKo is subscription software at hola-mako.com for coaches and service businesses in Latin America and Spain. It includes
+> a CRM, a shared inbox for WhatsApp and Instagram, scheduled messaging to the customer's own contacts, sales pages and
+> advertising recommendations. AI features include copywriting, sales call analysis, and image and video generation from
+> text. One feature, AI Avatar, lets a customer generate videos from their own photo for their own ads; our acceptable use
+> policy at hola-mako.com/aup allows only the customer's own photo or one with written permission, and generation runs in the
+> customer's own Google account. Outbound messages are rate limited and sent on a schedule set by the customer. WhatsApp
+> connects through Evolution rather than the official WhatsApp Business API. Plans cost US$47 and US$97 per month, or US$470
+> and US$970 per year.
+
+⚠️ **Lo que este texto supone:** que la importación de contactos de grupos de WhatsApp y la lectura de Instagram de otras
+cuentas NO estén en lo que se cobra por Whop desde la primera venta. Whop ya las conoce: el 6/11, desde la cuenta de Martín,
+su soporte las marcó por su nombre, y la home de hoy las muestra. Si preguntan por ellas, se contesta la verdad.

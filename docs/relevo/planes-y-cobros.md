@@ -39,3 +39,15 @@ docs/relevo/planes-pagos-partners.md.
 - La prueba de humo con Stripe de verdad (necesita la clave de prueba).
 - El contrato de Stripe sobre cobrar por otro negocio.
 - tests-afectados de la rama: no se corrió en la PC (regla: en la PC sólo el test tocado; lo corre GitHub).
+
+## Whop: lo que hay que dejar FUERA del producto cobrado ANTES de la primera venta, si aprueban (lista interna, 11/11/2026)
+Decisión de Martín por el Cerebro (11/11): la solicitud describe sólo la versión que se vende por Whop; esto no se menciona.
+Si aprueban, se cumple antes de la primera venta:
+1. La importación de contactos de grupos de WhatsApp («Extraer», app/crm/grupo-wa-actions.ts y su tab) fuera del plan
+   cobrado por Whop.
+2. La lectura de Instagram de otras cuentas de Competitor Spy (Apify, lib/spy.ts) fuera del plan cobrado por Whop.
+3. La home (Web Generator del negocio de MaKo, chat Landings): sin la cifra de antes y después («De meses por debajo de $10k
+   USD…»), sin testimonios con cifras, sin «con goteo para que no te baneen» y sin «toca «Extraer»…».
+4. El Acelerador (asesoría humana) no se cobra por Whop.
+5. Si vuelve la moderación de imágenes, recién ahí se puede decir que existe.
+Texto a mandar (TODAVÍA NO SALIÓ: espera el sí de Martín en el chat de Planes y cobros): docs/proveedores-de-cobro.md, sección 10, «El texto FINAL para mandar».
