@@ -5,8 +5,9 @@
 // =============================================================================
 // Copiado del reel (9/11/2026): una flecha del color del agente con su nombre al lado («broll-01», «caps-02»), que va
 // a donde trabaja. Adónde va lo decide ../cursores.ts con el último renglón del agente (la hora del video, o su
-// panel); acá se miden las cajas y se dibuja. El que espera, quieto en su panel y apagado; el que trabaja, encendido,
-// adelante y SIN quedarse quieto (`puntoTrabajando`: cada `PASEO_MS` se corre un poco, Martín 11/11/2026).
+// panel); acá se miden las cajas y se dibuja. TODOS se mueven a la vez y rápido (Martín, 11/11/2026: «que pasen los cursores
+// todos juntos al mismo tiempo y mucho más rápido… se tiene que notar la automatización»): el que trabaja, encendido y adelante,
+// va a lo suyo; los demás recorren su panel, un poco apagados (`puntoTrabajando`, cada `PASEO_MS`).
 //
 // Cuándo: con la «Edición automática» (todos, cada uno con su estado) y, fuera de ella, cada vez que MaKo edita
 // (../cursores-sueltos.ts): lo que aplica el chat, los subtítulos, el B-roll y los clips mágicos, sólo el agente que
@@ -22,14 +23,14 @@ import { useTrabajoBroll } from "@/app/video-editor/_opencut/broll/estado";
 import { useTrabajoClips } from "@/app/video-editor/_opencut/clips/estado";
 import { useTrabajoSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { AGENTES, agentePorId, type AgenteId } from "../plan";
-import { PASEO_MS, puntoDeCursor, puntoTrabajando, type Caja, type LineaMedida, type Punto, type Zona } from "../cursores";
+import { PASEO_MS, TRANSICION_CURSOR_MS, puntoTrabajando, type Caja, type LineaMedida, type Punto, type Zona } from "../cursores";
 import { agentesSueltos, useCursoresSueltos } from "../cursores-sueltos";
 import { useEnjambre } from "../estado";
 
 const ZONAS: Zona[] = ["biblioteca", "reproductor", "propiedades", "linea"];
 
-/** Lo que tardan en desvanecerse al terminar (la transición de opacidad es de 300 ms). */
-const SALIDA_MS = 450;
+/** Lo que tardan en desvanecerse al terminar (la transición de opacidad es de 200 ms). */
+const SALIDA_MS = 300;
 
 const cajaDe = (el: Element | null): Caja | null => {
 	if (!el) return null;
@@ -89,6 +90,8 @@ export function CursoresAgentes() {
 	// con cada renglón: el cursor va primero al punto exacto de lo que dice, y después pasea.
 	const [medida, setMedida] = useState<ReturnType<typeof medir> | null>(null);
 	const [vuelta, setVuelta] = useState(0);
+	// La vuelta de los que NO trabajan: no vuelve a 0 con cada renglón (si no, todos saltaban juntos a su lugar).
+	const [paso, setPaso] = useState(1);
 	const [quieto, setQuieto] = useState(false);
 	useEffect(() => setQuieto(sinMovimiento()), []);
 	useEffect(() => {
@@ -98,7 +101,7 @@ export function CursoresAgentes() {
 		setVuelta(0);
 		window.addEventListener("resize", volver);
 		const t = setInterval(volver, 500);
-		const paseo = quieto ? null : setInterval(() => setVuelta((v) => v + 1), PASEO_MS);
+		const paseo = quieto ? null : setInterval(() => { setVuelta((v) => v + 1); setPaso((v) => v + 1); }, PASEO_MS);
 		return () => {
 			window.removeEventListener("resize", volver);
 			clearInterval(t);
@@ -137,11 +140,12 @@ export function CursoresAgentes() {
 		dibujo = enjambre
 			? AGENTES.flatMap((a) => {
 					const trabajando = agentes[a.id] === "trabajando";
-					// El que no trabaja vuelve a su panel (no se queda donde dejó su último renglón).
+					// TODOS se mueven a la vez (Martín, 11/11/2026: «que pasen los cursores todos juntos al mismo tiempo»): el que
+					// trabaja va a lo que dice su último renglón y pasea desde ahí; los demás recorren su panel, sin parar.
 					const p = trabajando
 						? puntoTrabajando({ agente: a.id, en: ultimo.get(a.id) ?? null, ...medida, vuelta })
-						: puntoDeCursor({ agente: a.id, en: null, ...medida });
-					const opacidad = trabajando ? 1 : agentes[a.id] === "esperando" ? 0.5 : 0.3;
+						: puntoTrabajando({ agente: a.id, en: null, ...medida, vuelta: paso });
+					const opacidad = trabajando ? 1 : agentes[a.id] === "esperando" ? 0.85 : 0.6;
 					return p ? [{ id: a.id, color: a.color, p, opacidad, adelante: trabajando }] : [];
 				})
 			: sueltos.flatMap((id) => {
@@ -161,7 +165,7 @@ export function CursoresAgentes() {
 					className="absolute top-0 left-0 flex items-start gap-0.5"
 					style={{
 						transform: `translate3d(${Math.round(p.x)}px, ${Math.round(p.y)}px, 0)`,
-						transition: quieto ? "opacity 300ms" : "transform 520ms cubic-bezier(0.22, 1, 0.36, 1), opacity 300ms",
+						transition: quieto ? "opacity 200ms" : `transform ${TRANSICION_CURSOR_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms`,
 						opacity: opacidad,
 						zIndex: adelante ? 2 : 1,
 					}}

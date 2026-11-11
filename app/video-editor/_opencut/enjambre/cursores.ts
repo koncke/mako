@@ -74,8 +74,12 @@ export function puntoDeCursor({
 	return caja ? lugarEn(caja, agente) : null;
 }
 
-/** Cada cuánto se corre el cursor de un agente que trabaja sin un renglón nuevo. */
-export const PASEO_MS = 900;
+/**
+ * Cada cuánto se corre un cursor, y cuánto tarda en llegar. Martín (11/11/2026, mirando el GIF): «tiene que funcionar mucho más
+ * rápido… que pasen los cursores todos juntos al mismo tiempo… se tiene que notar la automatización». Eran 900 y 520 ms.
+ */
+export const PASEO_MS = 380;
+export const TRANSICION_CURSOR_MS = 300;
 
 /**
  * Adónde va el cursor de un agente que TRABAJA: su punto (`puntoDeCursor`) y, desde la vuelta 1, un poco corrido, sin

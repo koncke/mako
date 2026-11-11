@@ -22,7 +22,7 @@
 import { mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PASEO_MS, puntoDeCursor, puntoTrabajando, ZONA_DE } from '../app/video-editor/_opencut/enjambre/cursores';
+import { PASEO_MS, TRANSICION_CURSOR_MS, puntoDeCursor, puntoTrabajando, ZONA_DE } from '../app/video-editor/_opencut/enjambre/cursores';
 import {
   A_LA_VISTA_MS,
   AGENTE_DE_OPERACION,
@@ -47,7 +47,9 @@ const dentro = (p: { x: number; y: number } | null, c: { left: number; top: numb
   !!p && p.x >= c.left && p.x <= c.left + c.width && p.y >= c.top && p.y <= c.top + c.height;
 
 test('1. el que trabaja pasea: la vuelta 0 es su punto exacto, después se corre sin salir de su caja ni repetir', () => {
-  assert.ok(PASEO_MS > 520, 'más corto que la transición: el cursor nunca llega a ningún lado');
+  assert.ok(PASEO_MS > TRANSICION_CURSOR_MS, 'más corto que la transición: el cursor nunca llega a ningún lado');
+  // «Mucho más rápido» (Martín, 11/11/2026, mirando el GIF de 900 ms): un paso de cursor por menos de medio segundo.
+  assert.ok(PASEO_MS <= 400, `el cursor pasea cada ${PASEO_MS} ms: se ve lento`);
   for (const a of AGENTES) {
     for (const en of [null, 3]) {
       const base = puntoDeCursor({ agente: a.id, en, zonas, linea });
@@ -127,8 +129,11 @@ test('4. el cableado: el componente dibuja los sueltos y pasea, el chat los pren
   assert.match(comp, /const subtitulando = useTrabajoSubtitulos\(\(s\) => s\.fase !== "inactivo"\);/);
   assert.match(comp, /const brolleando = useTrabajoBroll\(\(s\) => s\.fase !== "inactivo" \|\| s\.cambiando !== null\);/);
   assert.match(comp, /const recortando = useTrabajoClips\(\(s\) => s\.fase !== "inactivo"\);/);
-  assert.match(comp, /setInterval\(\(\) => setVuelta\(\(v\) => v \+ 1\), PASEO_MS\)/, 'sin la vuelta, el cursor queda clavado');
+  assert.match(comp, /setInterval\(\(\) => \{ setVuelta\(\(v\) => v \+ 1\); setPaso\(\(v\) => v \+ 1\); \}, PASEO_MS\)/, 'sin la vuelta, el cursor queda clavado');
   assert.match(comp, /\? puntoTrabajando\(\{ agente: a\.id, en: ultimo\.get\(a\.id\) \?\? null, \.\.\.medida, vuelta \}\)/, 'el que trabaja en la edición automática pasea');
+  // Todos juntos (Martín, 11/11/2026): los que no trabajan también recorren su panel, con una vuelta que no se reinicia.
+  assert.match(comp, /: puntoTrabajando\(\{ agente: a\.id, en: null, \.\.\.medida, vuelta: paso \}\);/, 'los que esperan, quietos');
+  assert.match(comp, /transform \$\{TRANSICION_CURSOR_MS\}ms/);
   assert.match(comp, /const p = puntoTrabajando\(\{ agente: id, en: null, \.\.\.medida, vuelta \}\);/, 'los sueltos pasean');
   assert.match(comp, /dibujo = ultimos\.current\.map\(\(d\) => \(\{ \.\.\.d, opacidad: 0 \}\)\);/, 'al terminar se desvanecen');
 
@@ -143,7 +148,8 @@ test('4. el cableado: el componente dibuja los sueltos y pasea, el chat los pren
   assert.ok(espera > 0, 'cada paso no dura lo mínimo a la vista');
   assert.ok(espera < lazo.indexOf('fijarAgente(paso.agente, como === "hecho"'), 'la espera va ANTES de apagar al agente');
   assert.match(lazo, /const empezo = Date\.now\(\);/);
-  assert.match(correr, /const PASO_A_LA_VISTA_MS = 1400;/);
+  assert.match(correr, /const PASO_A_LA_VISTA_MS = 600;/);
+  assert.match(correr, /const PAUSA_ENTRE_PASOS_MS = 120;/);
 });
 
 // PROBADO ROMPIÉNDOLO (11/11/2026, cada uno dio rojo y se volvió atrás):

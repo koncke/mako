@@ -11,6 +11,7 @@
 // =============================================================================
 
 import { useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Modal } from '@/app/_ui/Modal';
 import o from './outliers.module.css';
 
@@ -48,7 +49,9 @@ export function VerReel({
       <button type="button" className={`${clase} ${o.verBoton}`} aria-label={etiqueta} onClick={() => setAbierto(true)}>
         {children}
       </button>
-      {abierto && (
+      {/* POR PORTAL al body (11/11/2026, mirado a 1440): la tarjeta tiene una animación de entrada con `transform` (`entra`,
+          `both`), y un `position: fixed` adentro de ella queda encerrado en la tarjeta: la caja salía de 200 px sobre su columna. */}
+      {abierto && createPortal(
         <Modal
           titulo={titulo}
           ancho={900}
@@ -74,7 +77,8 @@ export function VerReel({
             </div>
             <div className={o.verInfo}>{detalle}</div>
           </div>
-        </Modal>
+        </Modal>,
+        document.body,
       )}
     </>
   );
