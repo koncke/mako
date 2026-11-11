@@ -119,6 +119,10 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // El default acá es el "piso" (Sonnet) cuando lo pin-eás; el router escala a Opus
   // solo para razonamiento/copy/media. Menos Opus por default.
   { feature: 'mako-doer-in', label: 'MaKo en WhatsApp (Hola MaKo)', grupo: 'MaKo', def: GEMINI(), pii: true, nota: 'Doer con herramientas. El router elige por turno: charla → barato, dato/acción → Sonnet, análisis → Opus.' },
+  // Las fotos y los PDF que llegan a un grupo de WhatsApp (lib/mako-doer-in.ts → `archivoATexto`). No estaba en el catálogo
+  // (11/11/2026). Lleva datos de los clientes del negocio. Primero su Claude, después el crédito de los grupos
+  // (`FEATURES_DE_LOS_GRUPOS`, lib/veto-claude.ts); el `def` es el respaldo.
+  { feature: 'MaKo en WhatsApp · adjunto', label: 'MaKo en WhatsApp — leer fotos y PDF', grupo: 'MaKo', def: GEMINI(), pii: true, nota: 'Lee la imagen o el PDF que mandaron al grupo. Primero su Claude, después el crédito de Claude de los grupos (Haiku); Gemini de respaldo.' },
   { feature: 'mako-doer', label: 'MaKo Doer — acciones en la web', grupo: 'MaKo', def: GEMINI(), nota: 'Agente con herramientas. Sonnet por default.' },
   { feature: 'mako-chat', label: 'MaKo — chat sobre un gráfico', grupo: 'MaKo', def: GEMINI(), nota: 'Chat sobre un dashboard. Sonnet alcanza.' },
   // EL PERRO CORRE EN GEMINI. Es el proceso de IA que más se dispara del producto —

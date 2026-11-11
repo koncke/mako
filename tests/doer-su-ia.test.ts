@@ -34,6 +34,10 @@ test('1. con su IA, el candidato del doer es su OpenAI: su Gemini, no (en el gru
   assert.match(DOER, /const iaDelNegocio = await negocioConSuIA\(wsData\);\s*const suIA = iaDelNegocio\.suIA;/);
   // Sin Gemini desde el 28/10/2026 (Martín: «deprequemos Gemini por los grupos de WhatsApp»): ni el suyo ni un pin a Gemini.
   assert.match(DOER, /const cands = \(suIA \? \[\.\.\.PROVS_SU_IA\] : \[pinL\.provider, 'openai'\]\)\.filter\(\(p, i, a\) => p !== 'groq' && p !== 'gemini' && a\.indexOf\(p\) === i\);/);
+  // Y Gemini de RESPALDO (11/11/2026, Martín: «gastemos eso para todo esto en lugar de Gemini»): al final, sólo el DEL NEGOCIO, y
+  // el orden por cuota no lo adelanta.
+  assert.match(DOER, /const geminiDeRespaldo = suIA && PROVS_SU_IA\.includes\('gemini'\) \? \['gemini'\] : \[\];\n\s*const orden = \[\.\.\.await ordenarPorCuota\(cands\)\.catch\(\(\) => cands\), \.\.\.geminiDeRespaldo\];/,
+    'el Gemini del negocio no quedó de respaldo, al final');
   assert.match(DOER, /import \{ PROVS_SU_IA \} from '@\/lib\/solo-su-ia';/);
   // El pin vive en lib/doer-modelo.ts desde el 27/10/2026 (el modelo por defecto de la app, no `gpt-4o-mini` fijo).
   assert.match(DOER, /const pinL = pinDelDoer\(pin, suIA\);/, 'con su IA y sin pin barato, el loop corre igual (con su OpenAI)');
@@ -80,7 +84,8 @@ test('4. el grupo contesta con CLAUDE PRIMERO: su Claude, o el crédito de los p
   assert.match(bloque, /if \(!respuesta && !linkBorrador && \(await claudeDelGrupo\(\)\) === 'sin_su_claude'\) \{\n\s*for \(const cuenta of await cuentasDelCreditoDeLosGrupos\(\)\) \{\n\s*if \(respuesta \|\| corridasDelTurno > 0 \|\| \(await claudeDelGrupo\(cuenta\)\) === 'listo'\) break;/,
     'otra cuenta después de una escritura la duplicaría');
   // El crédito es NUESTRO: su error no elige el veredicto, y la cuenta sin crédito se saltea.
-  assert.match(bloque, /if \(\/credit balance is too low\/i\.test\(m\)\) marcarCuentaDeLosGruposSinCredito\(cuenta\);\n\s*erroresPlataforma\.push\(`plataforma\/anthropic \(\$\{cuenta\}\): \$\{m\}`\);\n\s*return 'otra_cuenta';/);
+  // Plazo, 5xx u «overloaded» (el mismo Anthropic) no prueba la otra cuenta (11/11/2026).
+  assert.match(bloque, /if \(\/credit balance is too low\/i\.test\(m\)\) marcarCuentaDeLosGruposSinCredito\(cuenta\);\n\s*erroresPlataforma\.push\(`plataforma\/anthropic \(\$\{cuenta\}\): \$\{m\}`\);\n\s*if \(queHacerSiFallaElCredito\(\(e as \{ status\?: number \}\)\.status, m\) !== 'otra_cuenta'\) return 'listo';\n\s*return 'otra_cuenta';/);
   assert.match(bloque, /if \(!cuenta\) \{ probadasCliente\+\+; contestaronCliente\+\+; \}/, 'lo que contestó nuestro crédito contó como del cliente');
   // La charla barata (que prueba Gemini primero) no corre en el grupo.
   assert.doesNotMatch(DOER, /await chatCheap\(/, 'volvió la charla barata (Gemini primero) al grupo');
@@ -88,3 +93,28 @@ test('4. el grupo contesta con CLAUDE PRIMERO: su Claude, o el crédito de los p
   const ant = sinComentarios(readFileSync(join(RAIZ, 'lib/anthropic.ts'), 'utf8')).replace(/\r\n/g, '\n');
   assert.match(ant, /permisoDeLaClaveDelNegocio\(opts\.feature, \{ modelo: opts\.modeloSuClaude, cuentaDeLosGrupos: opts\.cuentaDeLosGrupos \}\)/);
 });
+
+test('5. sin pin y sin su IA, el grupo va igual con CLAUDE PRIMERO (nunca a la puerta 1), y cada pedido a Claude tiene plazo', () => {
+  // 11/11/2026: `pinDelDoer` devolvía null sin su IA y sin pin, y el turno caía a un `else` que pedía Sonnet u Opus a la puerta 1
+  // (el veto lo corta: sólo `closing` tiene permiso). Hoy no pasaba porque hay un pin; sacarlo en /modelos-ia lo rompía.
+  assert.ok(pinDelDoer(null, false), 'sin su IA y sin pin, el doer se queda sin el camino de «Claude primero»');
+  assert.doesNotMatch(DOER, /model: pin \? pin\.model : ruta\.model/, 'volvió la rama que le pide Sonnet u Opus a la puerta 1');
+  // Los plazos: 45 s el turno (dos cuentas, 90 s, entran en PLAZO_DOER_MS) y 8 s el clasificador.
+  assert.match(DOER, /const PLAZO_CLAUDE_DEL_GRUPO_MS = 45_000;/);
+  assert.match(DOER, /const PLAZO_CLASIFICADOR_MS = 8_000;/);
+  const i = DOER.indexOf("const claudeDelGrupo = async (cuenta?: string): Promise<'listo' | 'sin_su_claude' | 'otra_cuenta'> => {");
+  assert.match(DOER.slice(i, i + 900), /cuentaDeLosGrupos: cuenta, maxSteps: 8, maxTokens: 2500, plazoPasoMs: PLAZO_CLAUDE_DEL_GRUPO_MS,/, 'el turno del grupo sin plazo');
+  const c = DOER.indexOf('function clasificadorDelGrupo(');
+  const clasificador = DOER.slice(c, DOER.indexOf('\n}\n', c));
+  assert.match(clasificador, /maxSteps: 1, maxTokens: 300, plazoPasoMs: PLAZO_CLASIFICADOR_MS,/, 'el clasificador sin plazo');
+  assert.match(clasificador, /if \(queHacerSiFallaElCredito\(\(e as \{ status\?: number \}\)\.status, m\) !== 'otra_cuenta'\) break;/, 'un plazo vencido del clasificador prueba otra cuenta (otros 8 s)');
+  // El `fetch` del bucle lleva su `signal` (lo de verdad, en tests/credito-grupos.test.ts 8).
+  const ant = sinComentarios(readFileSync(join(RAIZ, 'lib/anthropic.ts'), 'utf8')).replace(/\r\n/g, '\n');
+  assert.match(ant, /signal: AbortSignal\.timeout\(Math\.max\(1_000, plazo\)\),/);
+});
+
+// Probado rompiéndolo (11/11/2026, una rotura por vez, restaurada):
+//   · `pinDelDoer` devolviendo null sin su IA                                  → 5 en rojo;
+//   · el `else` de la puerta 1 de vuelta                                        → 5 en rojo;
+//   · Gemini otra vez adelante (ordenado por cuota con los demás)               → 1 en rojo;
+//   · el turno del grupo sin `plazoPasoMs`                                      → 5 en rojo.
