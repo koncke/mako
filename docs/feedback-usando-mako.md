@@ -161,3 +161,21 @@ evita el selector de archivos nativo; y el editor de Flow se abre por la URL
 `/project/<id>/edit/<imagen>`, que es lo único confiable cuando la grilla no responde.
 
 Ver [[metodologia-avatar-hype]] y la entrada del reel, más arriba.
+
+## Probando los tickets en producción (11/11/2026, chat Tickets, sesión de Martín en el navegador de la app)
+
+Lo que se vio al usar MaKo como el cliente, con captura a 1440 y a 375:
+
+1. **«Probar con tus datos» de la API falló dos veces seguidas** con la retención del video (#74): `medido: false` a los 8 s.
+   En los registros de Vercel: `canceling statement due to statement timeout`, en el mismo minuto que otros cortes por
+   tiempo (`[credenciales] … TimeoutError`). A la tercera, 2 s y los datos. La consulta sola tarda 230–450 ms
+   (`EXPLAIN ANALYZE`): fue la base cargada, no la consulta. El cliente que lo pruebe en ese minuto ve «no se pudo leer».
+2. **En el celular, el botón flotante de MaKo (la estrella) tapa contenido**: el borde del resultado en la API y el texto
+   de la descripción de la sección siguiente.
+3. **A 375, el panel del Ops Center queda cortado a la izquierda** en el CRM de Leila: «gerencia de MaKo · 1» y «arga MaKo
+   en tu computadora».
+4. **En el { } de «Mandar mensaje», los datos de ejemplo no cierran entre sí**: «Nombre completo: Sofía Contreras» pero
+   «Tercera palabra del nombre: Ruiz». Confunde justo lo que se vino a arreglar (#70).
+5. **«Mandar mensaje de difusión» en el «⋯» de una columna no abre la hoja en el acto**: primero pone la columna en modo
+   selección, y la hoja aparece un momento después, sin aviso.
+

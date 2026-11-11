@@ -8,7 +8,8 @@
 //   2. lo traído lo ve SÓLO su negocio, sin esperar la revisión (lo eligió él), y nunca otro negocio ni un script sin negocio;
 //   3. `traidaPor` lee el negocio venga como número o como texto (bigint de la base), y nada raro cuenta como negocio;
 //   4. `linkDeInstagram` se mudó a ./link.ts y la biblioteca lo sigue exportando igual;
-//   5. el link pegado en el buscador encuentra ESA publicación si ya está (si no, ofrecía traer lo que ya estaba).
+//   5. el link pegado en el buscador encuentra ESA publicación si ya está (si no, ofrecía traer lo que ya estaba);
+//   6. un reel se reconoce por su dirección, para rechazarlo SIN pagar la lectura de Apify.
 //
 // Verificado rompiéndolo (11/11/2026, base 4/0): `seMuestraA` mostrando lo traído a cualquier negocio → cae 2; sin saltear la
 // revisión para lo traído → cae 2; `traidaPor` aceptando el 0 → cae 3.
@@ -18,7 +19,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { linkDeInstagram as desdeLaBiblioteca, seMuestraA, traidaPor } from '../lib/carruseles/biblioteca';
-import { linkDeInstagram } from '../lib/carruseles/link';
+import { esLinkDeVideo, linkDeInstagram } from '../lib/carruseles/link';
 import { coincide, type Carrusel } from '../lib/carruseles/explorar';
 
 const REVISADA = '2026-11-10T10:00:00Z';
@@ -59,4 +60,13 @@ test('5 · el link pegado en el buscador encuentra ESA publicación si ya está 
   assert.equal(coincide(c, 'https://www.instagram.com/reel/DaZFc_kkttt/?igsh=abc'), true, 'el mismo shortcode, venga de /p/ o de /reel/');
   assert.equal(coincide(c, 'https://www.instagram.com/p/OtroCodigo1/'), false, 'otro link no lo encuentra: queda el botón de traer');
   assert.equal(coincide(c, 'vender'), true, 'la búsqueda por texto sigue igual');
+});
+
+test('6 · un reel se reconoce por su dirección: se rechaza sin pagar la lectura', () => {
+  for (const reel of ['https://www.instagram.com/reel/C97VsS3u6_P/', 'instagram.com/reels/C97VsS3u6_P', 'https://www.instagram.com/tv/C97VsS3u6_P/?igsh=x', 'https://www.instagram.com/lifeofarjav/reel/C97VsS3u6_P/']) {
+    assert.equal(esLinkDeVideo(reel), true, reel);
+  }
+  assert.equal(esLinkDeVideo('https://www.instagram.com/p/DaZFc_kkttt/'), false, 'un /p/ puede ser un carrusel: se lee');
+  assert.equal(esLinkDeVideo('reel'), false);
+  assert.equal(esLinkDeVideo(null), false);
 });
