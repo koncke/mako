@@ -42,7 +42,7 @@ import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacio
 import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
 import { anotarColgadoEnElPedido, anotarSaturado, esSaturacion as dijoSaturado, esTimeout, fallaDeSaturacion, plazoEsperadoMs, primeroLosSanos } from '@/lib/ia-saturacion';
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
-import { queHacerSiFallaElCredito } from '@/lib/veto-claude';
+import { esFallaPasajeraDelCredito, queHacerSiFallaElCredito } from '@/lib/veto-claude';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 /**
@@ -1218,12 +1218,22 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
       // 6 fallos en su tarjeta y el crédito sin usar. Lo mismo con el crédito asignado (el ws1): la puerta le da ése de nuevo.
       if (r === null) {
         const { cuentasDelCreditoParaElPedido } = await import('./anthropic');
+        // Sin nada que mire DESPUÉS (un negocio sin su IA en su grupo: ni su Gemini ni su OpenAI), un 529 o un 5xx prueba UNA
+        // cuenta más (revisión del 11/11/2026): «al respaldo» era la foto sin leer. Un cuelgue no: dos serían 180 s del turno.
+        let pasajeras = 0;
+        let sinNadaDespues: Promise<boolean> | null = null;
+        const noHayQuienMire = () => (sinNadaDespues ??= Promise.all(VISION_CASCADE.filter((p) => !opts.sinGemini || p !== 'gemini').map((p) => provsDe(p).catch(() => [])))
+          .then((ls) => ls.every((l) => l.length === 0)));
         for (const cuenta of await cuentasDelCreditoParaElPedido(opts.feature, { tambienLosGrupos: true }).catch(() => [] as string[])) {
           const c = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques, cuentaDeLosGrupos: cuenta }).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
           if (c && 'texto' in c) return { text: opts.json ? soloElJson(c.texto) || c.texto : c.texto, provider: 'anthropic' };
           if (!c) break;
           console.warn(`[ai-cheap] leer con el crédito de Claude (${cuenta}) no pudo: ${c.error.slice(0, 200)}`);
-          if (queHacerSiFallaElCredito('status' in c ? c.status : null, c.error) !== 'otra_cuenta') break;
+          const status = 'status' in c ? c.status : null;
+          const pasajera = esFallaPasajeraDelCredito(status, c.error) && !esTimeout(c.error);
+          const sinRespaldo = pasajera && (await noHayQuienMire());
+          if (queHacerSiFallaElCredito(status, c.error, { sinRespaldo, pasajerasAntes: pasajeras }) !== 'otra_cuenta') break;
+          if (pasajera) pasajeras++;
         }
       }
     }

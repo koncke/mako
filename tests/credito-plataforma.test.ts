@@ -19,7 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  CREDITO_PARA_LA_PLATAFORMA, FEATURES_DE_LOS_GRUPOS, FEATURES_DEL_PLAN, FEATURE_DE_LOS_GRUPOS, primeroConElCredito, puedeUsarUnaCuentaDelCredito, queHacerSiFallaElCredito,
+  CREDITO_PARA_LA_PLATAFORMA, FEATURES_DE_LOS_GRUPOS, FEATURES_DEL_PLAN, FEATURE_DE_LOS_GRUPOS, esFallaPasajeraDelCredito, primeroConElCredito, puedeUsarUnaCuentaDelCredito, queHacerSiFallaElCredito,
 } from '../lib/veto-claude';
 import { CATALOGO_MODELOS } from '../lib/model-catalogo';
 
@@ -70,6 +70,17 @@ test('4. una cuenta que falla: la otra cuenta si es de ESA cuenta; el respaldo s
   assert.equal(queHacerSiFallaElCredito(500, 'Internal server error'), 'al_respaldo');
   assert.equal(queHacerSiFallaElCredito(null, 'The operation was aborted due to timeout'), 'al_respaldo', 'un plazo vencido no se repite con otra cuenta');
   assert.equal(queHacerSiFallaElCredito(400, 'prompt is too long: 250000 tokens > 200000 maximum'), 'al_respaldo', 'la otra cuenta contestaría lo mismo');
+  // SIN RESPALDO (un negocio sin su IA en su grupo), lo pasajero prueba UNA cuenta más; la segunda vez, no; un 400 del pedido, nunca.
+  const sin = { sinRespaldo: true };
+  assert.equal(queHacerSiFallaElCredito(529, 'Overloaded', sin), 'otra_cuenta', 'sin respaldo, un 529 dejó el turno sin contestar');
+  assert.equal(queHacerSiFallaElCredito(500, 'Internal server error', sin), 'otra_cuenta');
+  assert.equal(queHacerSiFallaElCredito(undefined, 'The operation was aborted due to timeout', sin), 'otra_cuenta');
+  assert.equal(queHacerSiFallaElCredito(529, 'Overloaded', { sinRespaldo: true, pasajerasAntes: 1 }), 'al_respaldo', 'lo pasajero se repitió en todas las cuentas');
+  assert.equal(queHacerSiFallaElCredito(400, 'prompt is too long: 250000 tokens > 200000 maximum', sin), 'al_respaldo', 'un 400 del pedido se repitió con otra cuenta');
+  assert.equal(queHacerSiFallaElCredito(null, 'Claude contestó vacío', sin), 'al_respaldo');
+  assert.equal(esFallaPasajeraDelCredito(529, 'Overloaded'), true);
+  assert.equal(esFallaPasajeraDelCredito(null, 'fetch failed'), true);
+  assert.equal(esFallaPasajeraDelCredito(400, 'prompt is too long'), false);
 });
 
 test('5. lo que dice la lista de modelos es lo que corre: el crédito PRIMERO, con la misma regla, sin tocar el `def`', () => {
@@ -95,3 +106,5 @@ test('5. lo que dice la lista de modelos es lo que corre: el crédito PRIMERO, c
 //   R4 un 529 «Overloaded» prueba la otra cuenta                                   → falla el 4
 //   R5 sin mirar `fallback: []` del catálogo                                       → falla el 3
 //   R6 la API de /modelos-ia sin el `primero`                                      → falla el 5
+//   R7 sin respaldo, lo pasajero sigue yendo «al respaldo» (el 529 corta el turno)  → falla el 4
+//   R8 sin respaldo, lo pasajero prueba TODAS las cuentas (sin `pasajerasAntes`)   → falla el 4

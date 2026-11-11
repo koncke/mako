@@ -459,12 +459,26 @@ export function primeroConElCredito(feature: string, hoy?: Date): string | null 
  *   · sin saldo («credit balance is too low»), 401, 429 o sin la clave cargada: es de ESA cuenta, la otra puede contestar;
  *   · plazo vencido, 5xx, 529 u «overloaded»: es el mismo Anthropic para todas las cuentas, se pasa al respaldo;
  *   · cualquier otro (un 400 por el pedido): la otra cuenta contestaría lo mismo, se pasa al respaldo.
+ * ⚠️ SIN RESPALDO, LO PASAJERO SE PRUEBA UNA VEZ MÁS (revisión del 11/11/2026). «Al respaldo» supone que hay uno: un negocio sin su
+ * IA en su grupo no tiene ni Gemini ni red, y un 529 o un 5xx de Anthropic suele pasar en un segundo. Con `sinRespaldo`, la
+ * PRIMERA falla pasajera (`esFallaPasajeraDelCredito`) prueba la cuenta siguiente; la segunda ya no (`pasajerasAntes`, lo cuenta
+ * quien llama): dos cuentas colgadas son 90 s en el turno del grupo, cinco serían 225.
  */
-export function queHacerSiFallaElCredito(status: number | null | undefined, mensaje: string): 'otra_cuenta' | 'al_respaldo' {
+export function queHacerSiFallaElCredito(
+  status: number | null | undefined, mensaje: string, o: { sinRespaldo?: boolean; pasajerasAntes?: number } = {},
+): 'otra_cuenta' | 'al_respaldo' {
   if (/credit balance is too low|no tiene su clave de Claude/i.test(mensaje)) return 'otra_cuenta';
   if (status === 401 || status === 403 || status === 429) return 'otra_cuenta';
   if (/authentication_error|invalid x-api-key|rate_limit_error/i.test(mensaje)) return 'otra_cuenta';
+  if (o.sinRespaldo && (o.pasajerasAntes ?? 0) < 1 && esFallaPasajeraDelCredito(status, mensaje)) return 'otra_cuenta';
   return 'al_respaldo';
+}
+
+/** ¿Es una falla de Anthropic que suele pasar sola (5xx, 529 «overloaded», plazo vencido, la red)? Un 400 por el pedido, no. Puro. */
+export function esFallaPasajeraDelCredito(status: number | null | undefined, mensaje: string): boolean {
+  if (typeof status === 'number' && status >= 500) return true;
+  if (/overloaded/i.test(mensaje)) return true;
+  return status == null && /timeout|timed out|aborted|ETIMEDOUT|ECONNRESET|fetch failed|socket hang up/i.test(mensaje);
 }
 
 /** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */

@@ -84,8 +84,12 @@ test('4. el grupo contesta con CLAUDE PRIMERO: su Claude, o el crédito de los p
   assert.match(bloque, /if \(!respuesta && !linkBorrador && \(await claudeDelGrupo\(\)\) === 'sin_su_claude'\) \{\n\s*for \(const cuenta of await cuentasDelCreditoDeLosGrupos\(\)\) \{\n\s*if \(respuesta \|\| corridasDelTurno > 0 \|\| \(await claudeDelGrupo\(cuenta\)\) === 'listo'\) break;/,
     'otra cuenta después de una escritura la duplicaría');
   // El crédito es NUESTRO: su error no elige el veredicto, y la cuenta sin crédito se saltea.
-  // Plazo, 5xx u «overloaded» (el mismo Anthropic) no prueba la otra cuenta (11/11/2026).
-  assert.match(bloque, /if \(\/credit balance is too low\/i\.test\(m\)\) marcarCuentaDeLosGruposSinCredito\(cuenta\);\n\s*erroresPlataforma\.push\(`plataforma\/anthropic \(\$\{cuenta\}\): \$\{m\}`\);\n\s*if \(queHacerSiFallaElCredito\(\(e as \{ status\?: number \}\)\.status, m\) !== 'otra_cuenta'\) return 'listo';\n\s*return 'otra_cuenta';/);
+  // Plazo, 5xx u «overloaded» (el mismo Anthropic) no prueba la otra cuenta (11/11/2026)… salvo que no haya respaldo (revisión del
+  // 11/11/2026: un negocio sin su IA no tiene ni Gemini ni red, y un 529 era el cartel de fallo): entonces UNA vez más, en el plazo.
+  assert.match(bloque, /if \(\/credit balance is too low\/i\.test\(m\)\) marcarCuentaDeLosGruposSinCredito\(cuenta\);\n\s*erroresPlataforma\.push\(`plataforma\/anthropic \(\$\{cuenta\}\): \$\{m\}`\);\n\s*const status = \(e as \{ status\?: number \}\)\.status;\n\s*const pasajera = esFallaPasajeraDelCredito\(status, m\);\n\s*const entraOtro = Date\.now\(\) - \(ctxApi\.turnStart \?\? Date\.now\(\)\) \+ PLAZO_CLAUDE_DEL_GRUPO_MS < PLAZO_DOER_MS;\n\s*const sinRespaldo = pasajera && entraOtro && !\(await hayRespaldoDespuesDeClaude\(\)\);\n\s*if \(queHacerSiFallaElCredito\(status, m, \{ sinRespaldo, pasajerasAntes: pasajerasDelCredito \}\) !== 'otra_cuenta'\) return 'listo';\n\s*if \(pasajera\) pasajerasDelCredito\+\+;\n\s*return 'otra_cuenta';/,
+    'sin respaldo, un 529 o un 5xx del crédito corta el turno del grupo (o lo pasajero se prueba en todas las cuentas)');
+  // «Hay respaldo» es lo que corre después: una IA suya con clave (`orden`) o la red de la plataforma (sin su IA, como la de abajo).
+  assert.match(DOER, /const conClave = \(await Promise\.all\(\(orden as Array<'groq' \| 'openai' \| 'gemini' \| 'cerebras' \| 'mistral'>\)\.map\(\(p\) => provsDe\(p\)\.catch\(\(\) => \[\]\)\)\)\)\.some\(\(l\) => l\.length > 0\);\n\s*return conClave \|\| \(!suIA && \(await provsGratisDePlataforma\(\)\.catch\(\(\) => \[\]\)\)\.length > 0\);/);
   assert.match(bloque, /if \(!cuenta\) \{ probadasCliente\+\+; contestaronCliente\+\+; \}/, 'lo que contestó nuestro crédito contó como del cliente');
   // La charla barata (que prueba Gemini primero) no corre en el grupo.
   assert.doesNotMatch(DOER, /await chatCheap\(/, 'volvió la charla barata (Gemini primero) al grupo');

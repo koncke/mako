@@ -39,6 +39,8 @@ let herramientaYFalla = 0;
 let ajustesFallan = false;
 /** La clave propia del ws13 contesta «credit balance is too low» (un negocio con SU Claude sin saldo). */
 let propiaSinSaldo = false;
+/** Cuántos de los próximos pedidos a Anthropic contestan 529 «overloaded» (un Anthropic saturado un segundo). */
+let sobrecargados = 0;
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
   if (u.host === 'supa.test' && ajustesFallan && u.pathname.endsWith('/app_settings') && (init.method ?? 'GET') === 'GET') {
@@ -57,6 +59,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
       if (++herramientaYFalla === 1) return r(200, { id: 'msg_h', type: 'message', role: 'assistant', model: modelo, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'tu_1', name: 'contar_leads', input: {} }], usage: { input_tokens: 500, output_tokens: 20 } });
       return r(429, { type: 'error', error: { type: 'rate_limit_error', message: 'Number of request tokens has exceeded your per-minute rate limit' } });
     }
+    if (sobrecargados > 0) { sobrecargados--; return r(529, { type: 'error', error: { type: 'overloaded_error', message: 'Overloaded' } }); }
     if (clave === CREDITO1 || (propiaSinSaldo && clave === PROPIA)) return r(400, { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.' } });
     if (clave !== CREDITO2 && clave !== PROPIA) return r(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } });
     return r(200, { id: 'msg_1', type: 'message', role: 'assistant', model: modelo, stop_reason: 'end_turn', content: [{ type: 'text', text: 'hola desde Claude' }], usage: { input_tokens: 1000, output_tokens: 200 } });
@@ -153,6 +156,14 @@ async function main() {
   anthropic = [];
   out.fotoWs13 = { texto: await foto(13), pedidos: anthropic.map((a) => a.clave) };
   propiaSinSaldo = false;
+  // Un 529 de la primera cuenta, sin nada que mire después (el ws14 no tiene su IA): prueba la cuenta siguiente (la 3, con el
+  // mismo valor que la 2 para que conteste) en vez de dejar la foto sin leer.
+  process.env.ANTHROPIC_CREDITO_CUENTA3 = CREDITO2;
+  sobrecargados = 1;
+  anthropic = [];
+  out.fotoWs14Con529 = { texto: await foto(14), pedidos: anthropic.length };
+  sobrecargados = 0;
+  delete process.env.ANTHROPIC_CREDITO_CUENTA3;
 
   // ── 11/11/2026: el chat con herramientas del Ops Center del ws9 (`mako-doer`, sin `soloSuClaude`) va PRIMERO con el crédito;
   //    el de un negocio, nunca; cada pedido lleva plazo; y si una herramienta ya corrió, el fallo se re-lanza (sin otra cuenta) ──

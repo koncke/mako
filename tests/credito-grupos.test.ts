@@ -135,6 +135,8 @@ test('9. la foto de un grupo (`leerDocumentoIA`): sin su Claude la lee el crédi
   const delCredito = r.fotoWs13.pedidos.filter((c: string) => /credito/.test(c)).length;
   assert.equal(suya, 1, `con su Claude sin saldo, su clave se pidió ${suya} veces (la puerta 2 le da la suya en cada cuenta del crédito)`);
   assert.equal(delCredito, 0, 'el crédito se usó con un negocio que tiene su Claude');
+  // Sin nada que mire después, un 529 de una cuenta prueba la siguiente (antes: «al respaldo», que no había, y la foto sin leer).
+  assert.deepEqual(r.fotoWs14Con529, { texto: 'hola desde Claude', pedidos: 2 }, 'con un 529 y sin respaldo, la foto del grupo quedó sin leer');
 });
 
 test('6. el % del vigía (11/11/2026): primero la que menos gastó; la plataforma deja el último 10% para WhatsApp; su interruptor', () => {
@@ -178,3 +180,4 @@ test('6. el % del vigía (11/11/2026): primero la que menos gastó; la plataform
 // La foto de un grupo (revisión del 11/11/2026), con el mismo arnés:
 //   R25 el lazo del crédito de `leerDocumentoIA` aunque su Claude haya contestado un error   → falla el 9
 //   R26 `leerDocumentoIA` sin `tambienLosGrupos`                                         → falla el 9
+//   R27 la foto sin `sinRespaldo`: un 529 de la primera cuenta deja la foto sin leer          → falla el 9

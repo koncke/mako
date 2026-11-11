@@ -18,7 +18,7 @@ import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion, propuestaDeLaSalida, conLoQueQuedoPropuesto, type PropuestaDelTurno } from '@/lib/respuesta-doer';
 import { recetasDelTurno } from '@/lib/doer-recetas';
-import { evaluarPermiso, queHacerSiFallaElCredito } from '@/lib/veto-claude';
+import { esFallaPasajeraDelCredito, evaluarPermiso, queHacerSiFallaElCredito } from '@/lib/veto-claude';
 import { causaDelFallo, cartelDelFallo, textoFalloIA, linkKeysIA, rutaKeysIA, textoSinRedPorDatos, conexionesDelPedido, motivoDelCartel, type ConexionDelCartel } from '@/lib/fallo-ia-texto';
 import { conexion, lineaParaConectar } from '@/lib/conexiones-catalogo';
 import { claveAyuda, leerEstadoAyuda, respuestaAyuda, ofertaDeAyuda, guiaEn, textoDelPaso, despuesDeVerificar, ticketPorProblema, conTicket, ticketMandado, OFERTA_AYUDA, NO_AHORA, ENTIENDO, TICKET_NO_SALIO, type EstadoAyuda, type TicketAOfrecer } from '@/lib/doer-ayuda';
@@ -2853,6 +2853,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             // repartido entre las cuentas con clave (`cuentasDelCreditoDeLosGrupos`), saltando la que se quedó sin crédito. Sólo
             // mientras el turno no ejecutó nada: otro intento después de una escritura la duplicaría.
             let claudeProbado = false;
+            /**
+             * ¿Hay algo DESPUÉS de Claude (revisión del 11/11/2026)? Una IA suya con clave (`orden`: su OpenAI, su Gemini de
+             * respaldo) o la red de la plataforma (sólo el ws9, y no con su IA: lo mismo que arma la red de abajo). Un negocio sin su
+             * IA —el caso principal del crédito de los grupos— no tiene nada: «al respaldo» con un 529 era el cartel de fallo.
+             * Se pregunta UNA vez, y sólo con una falla pasajera del crédito.
+             */
+            let respaldoDespuesDeClaude: Promise<boolean> | null = null;
+            const hayRespaldoDespuesDeClaude = (): Promise<boolean> => (respaldoDespuesDeClaude ??= (async () => {
+              const conClave = (await Promise.all((orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>).map((p) => provsDe(p).catch(() => [])))).some((l) => l.length > 0);
+              return conClave || (!suIA && (await provsGratisDePlataforma().catch(() => [])).length > 0);
+            })());
+            /** Las fallas pasajeras (5xx, 529, plazo) del crédito en este turno: sin respaldo, la primera prueba la cuenta siguiente. */
+            let pasajerasDelCredito = 0;
             /** Una vuelta de Claude: con su Claude (`cuenta` vacía) o con una cuenta del crédito de los grupos. */
             const claudeDelGrupo = async (cuenta?: string): Promise<'listo' | 'sin_su_claude' | 'otra_cuenta'> => {
               try {
@@ -2879,8 +2892,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
                 // El crédito de los grupos es NUESTRO: su error no elige el veredicto (ver `erroresPlataforma`).
                 if (/credit balance is too low/i.test(m)) marcarCuentaDeLosGruposSinCredito(cuenta);
                 erroresPlataforma.push(`plataforma/anthropic (${cuenta}): ${m}`);
-                // Plazo, 5xx u «overloaded» es el mismo Anthropic para todas las cuentas: no se prueba la otra (11/11/2026).
-                if (queHacerSiFallaElCredito((e as { status?: number }).status, m) !== 'otra_cuenta') return 'listo';
+                // Plazo, 5xx u «overloaded» es el mismo Anthropic para todas las cuentas: no se prueba la otra (11/11/2026)… salvo
+                // que no haya respaldo: entonces UNA vez más, si entra otro pedido entero en `PLAZO_DOER_MS` (lo pasajero suele pasar).
+                const status = (e as { status?: number }).status;
+                const pasajera = esFallaPasajeraDelCredito(status, m);
+                const entraOtro = Date.now() - (ctxApi.turnStart ?? Date.now()) + PLAZO_CLAUDE_DEL_GRUPO_MS < PLAZO_DOER_MS;
+                const sinRespaldo = pasajera && entraOtro && !(await hayRespaldoDespuesDeClaude());
+                if (queHacerSiFallaElCredito(status, m, { sinRespaldo, pasajerasAntes: pasajerasDelCredito }) !== 'otra_cuenta') return 'listo';
+                if (pasajera) pasajerasDelCredito++;
                 return 'otra_cuenta';
               }
             };
