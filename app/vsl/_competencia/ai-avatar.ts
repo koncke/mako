@@ -18,6 +18,9 @@
 //
 // Lo que NO se promete porque hoy no está (lib/funciones-mako.ts → `noHace`): tu voz clonada en el video, copiar el
 // movimiento de otro video y un personaje sin foto. Lo dicen las preguntas, con «todavía no».
+//
+// Desde el 11/11/2026 AI Avatar no es una tab: se usa desde Video, con la plantilla «Tu personaje con IA»
+// (app/video-editor/plantillas-crear.ts). La pregunta «¿Dónde está en MaKo?» lo dice con el nombre que se lee en pantalla.
 // =============================================================================
 
 import { CATEGORIAS, PLANTILLAS_AVATAR } from '@/lib/ai-avatar/plantillas';
@@ -124,6 +127,7 @@ export const LANDING_AI_AVATAR: LandingCompetencia = {
         { p: '¿Qué necesito para generar?', r: `Google Flow abierto con tu cuenta, en Chrome, y la extensión de MaKo conectada a tu negocio. ${CREDITOS} MaKo te muestra paso a paso qué te falta antes de generar.` },
         { p: '¿Puedo crear un personaje sin foto, o copiar el movimiento de otro video?', r: 'Todavía no. Hoy tu avatar parte siempre de tu foto, y la escena que eliges pone el lugar, la luz y el encuadre.' },
         { p: '¿En qué formato sale?', r: 'En vertical, para Reels, TikTok, historias y tus anuncios en esos lugares.' },
+        { p: '¿Dónde está en MaKo?', r: 'En Video: al crear un video nuevo, la plantilla «Tu personaje con IA».' },
         { p: '¿Está incluido en mi plan?', r: 'Sí: AI Avatar está en todos los planes de MaKo. Lo que se gasta al generar son los créditos de tu cuenta de Google Flow.' },
       ],
     },

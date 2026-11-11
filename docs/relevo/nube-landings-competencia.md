@@ -52,9 +52,13 @@ los grupos por índice (ver la trampa en `docs/hallazgos-landing.md`, entrada de
 
 ## Lo que decide Martín
 
-1. **¿Va un video real de un avatar en `/vsl/ai-avatar`?** Hoy el hero dibuja una escena con una silueta. Un avatar real
-   necesita a una persona que dé permiso para mostrar su cara.
-2. **¿AI Avatar entra a la grilla de funcionalidades de `/vsl`?** Hoy no está (serían 25 tarjetas); se llega por su link.
+1. **¿Va una imagen real de un avatar en `/vsl/ai-avatar`?** Hoy el hero dibuja una escena con una silueta. Desde el 11/11
+   main trae una imagen por preset (`public/formatos/presets/`), hechas con la cara de Martín: se pueden poner en el hero si
+   él lo aprueba.
+2. **¿Qué plan incluye AI Avatar ahora?** El 29/10 quedó en los tres planes (`lib/topes-plan.ts`), y el 11/11 pasó a usarse
+   desde Video, que es sólo de Pro (`TABS_SOLO_PRO`). La landing dice «en todos los planes» porque el código lo sigue
+   diciendo; si Esencial ya no lo trae, esa respuesta se cambia.
+3. **¿AI Avatar entra a la grilla de funcionalidades de `/vsl`?** Hoy no está (serían 25 tarjetas); se llega por su link.
 
 ## Cómo seguir desde la nube
 
