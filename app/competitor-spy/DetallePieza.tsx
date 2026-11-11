@@ -237,8 +237,12 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
     p.vistas != null ? { k: 'Vistas', v: dibujarContador(p.vistas) } : null,
     p.megusta != null ? { k: 'Me gusta', v: dibujarContador(p.megusta) } : null,
     p.comentarios != null ? { k: 'Comentarios', v: dibujarContador(p.comentarios) } : null,
-    x && !(x.veces == null && x.motivo === 'sin-formato') ? {
-      k: x.formato === 'anuncio' ? 'Tiempo activo frente a su cuenta' : 'Frente a lo que suele hacer',
+    // Sólo con su número (11/11/2026, mirado con capturas). Sin él, la cuarta cifra decía el motivo —«Falta un trámite con YouTube»,
+    // «Menos de una semana»— en una celda de 96 px, cortado («Frente a lo qu… · Falta un trá…») y sin que se entendiera. La regla
+    // de Martín (22/10): si un dato no está, no se muestra.
+    x && x.veces != null ? {
+      // Corto, para que entre en su celda; el porqué completo va en el globo (`explicarMultiplo`).
+      k: 'Frente a su cuenta',
       v: rotuloCortoDeMultiplo(x), titulo: explicarMultiplo(x),
       tono: x.veces == null ? 'apagado' : x.veces >= 1.5 ? 'good' : x.veces < 0.5 ? 'bad' : undefined,
     } : null,

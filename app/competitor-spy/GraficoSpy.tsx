@@ -29,7 +29,7 @@ import {
   type Grupo, type ValorDeGrafico,
 } from '@/lib/spy-detalle';
 import { dibujarContador } from '@/lib/spy-reglas';
-import { fechaCorta, miniaturaDePieza } from '@/lib/spy-vista';
+import { fechaCorta, miniaturaChica } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
 import { precargarTodas, quieto } from './precarga';
 
@@ -104,7 +104,7 @@ function useTelefono(): boolean {
 }
 
 function Miniatura({ p, bajada }: { p: PiezaVista; bajada: boolean }) {
-  const url = bajada ? miniaturaDePieza(p) : null;
+  const url = bajada ? miniaturaChica(p) : null;
   // eslint-disable-next-line @next/next/no-img-element -- la sirve el CDN del canal, sin pasar por nuestro optimizador
   return url ? <img src={url} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.remove(); }} /> : null;
 }
@@ -160,7 +160,7 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
     const faltan = aBajar.filter((id) => !pedidas.current.has(id));
     if (!faltan.length) return;
     faltan.forEach((id) => pedidas.current.add(id));
-    const urls = faltan.map((id) => ({ id, url: porId.get(id) ? miniaturaDePieza(porId.get(id)!) : null }))
+    const urls = faltan.map((id) => ({ id, url: porId.get(id) ? miniaturaChica(porId.get(id)!) : null }))
       .filter((m): m is { id: number; url: string } => !!m.url);
     // Se junta aunque el gráfico ya haya cambiado: lo bajado sirve igual, y juntar dos veces da lo mismo.
     // Las que llegan después de los 3 s entran solas a su tarjetita (`alTerminar`, precarga.ts): antes quedaban sin portada.

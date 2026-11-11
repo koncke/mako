@@ -15,15 +15,25 @@
 //   R8. `caraDeTarjeta(…, null)` en los sugeridos                                              → falla el 6
 //   R9. `quitar` sin `sacarDeLaLista(id)`                                                      → falla el 7
 //   R10. `precargarTodas` sin llamar a `alTerminar`                                            → falla el 8
+// Y la segunda vuelta (11/11/2026, mirado con capturas), también rota de a una:
+//   R11. `<MejoresPiezas>` de vuelta en el riel                                               → falla el 9
+//   R12. `miniaturaChica` = la grande · R13. `MejoresPiezas` con `miniaturaDePieza`            → falla el 10
+//   R14. el nombre de la tarjeta en un renglón                                                 → falla el 11
+//   R15. la cuarta cifra del detalle sin su número                                             → falla el 12
+//   R16. `esPaginaDeError` sin «couldn’t load»                                                 → falla el 13
+//   R17. «0% de 637»                                                                           → falla el 14
+//   R18. `piezasACopiar` sin `medio` ni `laminas`                                              → falla el 15
+//   R19. `.m-cabecera__lado` sin tope                                                          → falla el 16
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fechaCorta } from '../lib/spy-vista';
+import { fechaCorta, miniaturaChica } from '../lib/spy-vista';
+import { esPaginaDeError, marcoVerificado } from '../lib/pagina-real';
 import { clasificarFunnel, fuentesDeEvidencia, type PiezaParaEvidencia } from '../lib/spy-funnel-tipo';
 import { textoParaCopiar, tituloDeCopia } from '../lib/spy-detalle';
-import { listarSugeridos, tieneDondeLeerlo, type DepsSugeridos, type FilaCompetidor } from '../lib/spy-sugeridos';
+import { listarSugeridos, piezasACopiar, tieneDondeLeerlo, type DepsSugeridos, type FilaCompetidor } from '../lib/spy-sugeridos';
 import { precargarTodas, TOPE_PRECARGA_MS } from '../app/competitor-spy/precarga';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -139,4 +149,68 @@ test('8. las portadas que llegan después del tope no se tiran: se avisan al ter
     g.Image = antes.Image;
     g.window = antes.window;
   }
+});
+
+// ── Segunda vuelta (11/11/2026): MIRADO con capturas, contra fitlo y merrin ───────────────────────────────────────────────
+
+test('9. «A dónde manda» y «Lo que mejor le fue» van en la fila de abajo, no en el riel (la caja de formatos medía 739 px con 82 de contenido)', () => {
+  const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
+  const riel = app.slice(app.indexOf('const riel = c ?'), app.indexOf('const filaBaja ='));
+  assert.ok(riel.length > 100, 'encontré el riel');
+  assert.doesNotMatch(riel, /<MejoresPiezas|<CajaDestinos|A dónde manda/, 'el riel no los lleva');
+  const fila = app.slice(app.indexOf('const filaBaja ='), app.indexOf('const filaBaja =') + 600);
+  assert.match(fila, /<div className="spy-fila-baja">\s*<CajaDestinos piezas=\{flujo\} \/>\s*<MejoresPiezas /);
+  assert.match(app, /\{riel\}\s*<\/div>\s*\{filaBaja\}/, 'la fila va justo debajo de las dos columnas');
+  assert.match(app, /\.spy-fila-baja\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(min\(100%,320px\),1fr\)\)/);
+  assert.match(app, /\.spy-fila-baja \.spy-mejores\{--mejores-fluye:1;/, 'ahí muestra 5 y fluye, no llena un alto');
+});
+
+test('10. lo chico de YouTube va con la miniatura chica de YouTube (4,7 KB contra 85 KB de la guardada)', () => {
+  const yt = { canal: 'youtube', ref: 'W2AGsoz0sk0', miniatura: 'https://x.supabase.co/storage/v1/object/public/spy-miniaturas/spy/youtube/W2AGsoz0sk0.jpg' };
+  assert.equal(miniaturaChica(yt), 'https://i.ytimg.com/vi/W2AGsoz0sk0/mqdefault.jpg');
+  const ig = { canal: 'instagram', ref: 'abc', miniatura: 'https://x.supabase.co/storage/v1/object/public/spy-miniaturas/spy/instagram/abc.jpg' };
+  assert.equal(miniaturaChica(ig), ig.miniatura, 'Instagram no tiene una chica pública: la guardada');
+  for (const f of ['app/competitor-spy/GraficoSpy.tsx', 'app/competitor-spy/MejoresPiezas.tsx', 'app/competitor-spy/OrdenSpy.tsx']) {
+    const s = sinComentarios(leer(f));
+    assert.match(s, /miniaturaChica\(/, `${f} usa la chica`);
+    assert.doesNotMatch(s, /miniaturaDePieza\(/, `${f} no pide la grande`);
+  }
+});
+
+test('11. el nombre de una tarjeta va en dos renglones, como fitlo («clamp 2»)', () => {
+  const app = leer('app/competitor-spy/SpyApp.tsx');
+  assert.match(app, /\.spy-pcard__texto b\{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;/);
+  assert.doesNotMatch(app, /\.spy-pcard__texto b\{[^}]*white-space:nowrap/, 'en un renglón, «52 Minutes of…»');
+});
+
+test('12. el detalle no muestra una cifra sin número («Falta un trámite con YouTube» cortado en 96 px)', () => {
+  const d = sinComentarios(leer('app/competitor-spy/DetallePieza.tsx'));
+  assert.match(d, /x && x\.veces != null \? \{\s*k: 'Frente a su cuenta',/);
+});
+
+test('13. «This page couldn’t load» de una página ajena es una página de error, y la vista previa no la muestra', () => {
+  assert.equal(esPaginaDeError('This page couldn’t load Reload to try again, or go back.'), true);
+  assert.equal(esPaginaDeError("This page couldn't load Reload to try again, or go back."), true);
+  assert.equal(marcoVerificado({ tipo: 'pinto', texto: 60, muestra: 'This page couldn’t load Reload to try again, or go back.', titulo: 'Acquisition.com' }), 'no');
+  assert.equal(esPaginaDeError('Scale your business. We help founders… Reload your pipeline'), false, 'una página que habla de recargar sigue siendo una página');
+});
+
+test('14. «menos del 1%» y no «0% de 637» cuando hay alguna', () => {
+  const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
+  assert.match(app, /const porcentajeDe = \(f: \{ n: number; pct: number \}\): string => \(f\.n > 0 && f\.pct < 1 \? 'menos del 1%'/);
+  assert.doesNotMatch(app, /\{f\.pct\}% de \{total\}/);
+});
+
+test('15. «Sumar» copia si es carrusel, imagen o video, y sus láminas', () => {
+  const [p] = piezasACopiar([{
+    canal: 'instagram', tipo: 'publicacion', ref: 'x', fuente: 'api', url: null, titulo: null, texto: null, etiquetas: null, vistas: null,
+    megusta: 3, comentarios: null, duracion: null, publicada_en: null, miniatura: null, dejo_de_verse_en: null, medio: 'carrusel', laminas: 7,
+  }]);
+  assert.equal(p.medio, 'carrusel');
+  assert.equal(p.laminas, 7);
+  assert.match(leer('lib/spy-sugeridos-server.ts'), /const COLS_PIEZA = '[^']*, medio, laminas'/, 'y se piden a la base');
+});
+
+test('16. el teléfono: la pastilla del cliente no tapa el título (cada lado con tope en su columna)', () => {
+  assert.match(leer('app/m/m.css'), /\n\.m-cabecera__lado \{ max-width: 100%; \}/);
 });
