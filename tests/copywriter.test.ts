@@ -301,3 +301,15 @@ test('teléfono: el nombre de la barra sigue al título que se escribe (11/11/20
   assert.match(leer('app/m/copywriter/GuionM.tsx'), /<CabeceraM titulo=\{pagina\.titulo\}/);
   assert.doesNotMatch(leer('app/m/copywriter/[id]/page.tsx'), /<CabeceraM titulo=/);
 });
+
+test('«Ver ejemplo»: el documento se achica al modal y la tabla corre en su caja (11/11/2026, a 375 se cortaba el texto)', () => {
+  assert.match(leer('app/copywriter/notion.css'), /\.nt\.nt-ejemplo > \.nt-bn \{ min-width: 0;/);
+});
+
+test('la caja trabada se vuelve a medir cuando llega su frase (11/11/2026: «Instala MaKo / para escribir» cortada a 1440)', () => {
+  // La caja es la compartida (app/_chat/CajaChat.tsx); el panel de Copywriting es angosto y la frase ocupa dos renglones.
+  const caja = leer('app/_chat/CajaChat.tsx');
+  const efecto = caja.slice(caja.indexOf('if (!el || altoMax == null || texto) return;'), caja.indexOf('}, [p.bloqueo?.frase]);'));
+  assert.ok(efecto.length > 0, 'hay un efecto que depende de la frase de la traba');
+  assert.match(efecto, /el\.style\.height = altoDelCampo\(el\.scrollHeight, altoMax\);/);
+});
