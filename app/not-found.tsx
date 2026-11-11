@@ -51,7 +51,7 @@ export default function NoEncontrado() {
   const [donde, setDonde] = useState('');
   const [inicio, setInicio] = useState(INICIO);
   const [hayAtras, setHayAtras] = useState(false);
-  const [atajo, setAtajo] = useState('Ctrl K');
+  const [atajo, setAtajo] = useState<string | null>('Ctrl K');
 
   useEffect(() => {
     setDonde(`${window.location.pathname}${window.location.search}`);
@@ -96,13 +96,13 @@ export default function NoEncontrado() {
             </button>
           )}
         </div>
-        <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--dim, #5b6472)', margin: 0 }}>
+        {atajo && <p style={{ fontSize: 13, lineHeight: 1.5, color: 'var(--dim, #5b6472)', margin: 0 }}>
           Si buscas una pantalla y no recuerdas cómo se llama, presiona{' '}
           <kbd style={{ padding: '2px 7px', borderRadius: 6, border: '1px solid var(--border-strong, #cfd4dc)', background: 'var(--surface-2, #f4f5f7)', fontSize: 12, fontFamily: "'Geist Mono', ui-monospace, monospace" }}>
             {atajo}
           </kbd>{' '}
           y escribe lo que quieres hacer: el buscador entiende también los nombres viejos.
-        </p>
+        </p>}
       </div>
     </main>
   );
