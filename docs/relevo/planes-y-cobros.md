@@ -57,3 +57,8 @@ Texto a mandar (TODAVÍA NO SALIÓ: espera el sí de Martín en el chat de Plane
   Leandro, con su verificación de identidad.
 - No salió. Falta: el sí de Martín escrito en este chat (un relevo de otra sesión no alcanza para mandarle algo a un
   tercero), y una sesión de Whop de Leandro abierta en un navegador (no se crean cuentas ni se escriben contraseñas).
+- 11/11, después: Martín dio el sí en este chat («Sí, mandala»). Medido: el navegador de la app no tiene sesión de Whop; el
+  Chrome de la extensión tiene la cuenta **«scrubsoul0c»** (Ingeniero Pablo Nogués, AR; alta en julio de 2026; ningún negocio
+  creado). No se sabe de quién es: el chat con el soporte de Whop del 6/11 salió de «la cuenta de Martín». En Whop no hay
+  formulario aparte: la solicitud es crear el negocio en esa cuenta, y el KYC lo hace el titular. **No salió**: espera que
+  Martín confirme si «scrubsoul0c» es de Leandro.
