@@ -107,7 +107,10 @@ ve nada raro. El `.gitattributes` del repo, que es lo que configura una persona,
 
 **Medido:** con `DRIVER` pasado a barras normales (`.replace(/\\/g, '/')`) quedan 10 pass / 1 fail; el rojo que sobra es el
 mismo bug en el OTRO lugar donde el test arma la config, el que simula el paso de `punta.yml` (la ruta sale de un temp
-`wf-paso-*`). **SIN HACER:** las dos rutas a barras normales. **Regla:** una ruta de Windows metida en un comando que git
+`wf-paso-*`). **Hecho el 10/11:** las dos rutas van con barras normales. **Y quedaba un rojo más, de otra causa (10/11):** el
+bash de Git para Windows convierte `git show origin/main:.gitattributes` en `origin\main;.gitattributes` (lo toma por una
+lista de rutas) antes de dárselo a git.exe; el `2>/dev/null` del paso lo calla, las reglas de main no llegan y el índice
+choca. Ese test le pasa `MSYS_NO_PATHCONV=1` al paso: 11 pass / 0 fail, y sin él vuelve el rojo. **Regla:** una ruta de Windows metida en un comando que git
 (o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`, nunca con `\`.
 **La guardia de RAM se dispara por el NOMBRE del archivo que un comando sólo LEE (6/11/2026, `scripts/claude-hooks/guardia/memoria.mjs`).**
 

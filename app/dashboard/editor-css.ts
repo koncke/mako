@@ -311,6 +311,22 @@ a.lk-comp-ir:hover { color: var(--ink); text-decoration: underline; text-underli
 .lk .react-grid-item.lk-comp--sel > .react-resizable-handle-nw::after { top: 0; left: 0; }
 .lk .react-grid-item.lk-comp--sel > .react-resizable-handle-se::after { bottom: 0; right: 0; }
 .lk .react-grid-item.lk-comp--sel > .react-resizable-handle-sw::after { bottom: 0; left: 0; }
+/* ⚠️ EN UNA TARJETA DE DISEÑO EL TIRADOR VA CENTRADO EN EL BORDE (10/11/2026, probado en producción): la franja de 8 px adentro
+   dejaba afuera la LÍNEA del borde, que es donde uno apunta, y ahí se agarraba la tarjeta: en vez de agrandarse, se MOVÍA al
+   tope de la hoja. Looker pone el cuadradito sobre la línea. La tarjeta de diseño no recorta (overflow: visible, .lk-comp--diseno),
+   así que la franja puede salir 5 px; las demás recortan y siguen adentro. Los círculos de las flechas (z-index 6, a 9 px afuera)
+   le ganan en el cruce del medio, como antes. */
+.lk .react-grid-item.lk-comp--diseno > .react-resizable-handle-n { top: -5px; height: 10px; }
+.lk .react-grid-item.lk-comp--diseno > .react-resizable-handle-s { bottom: -5px; height: 10px; }
+.lk .react-grid-item.lk-comp--diseno > .react-resizable-handle-e { right: -5px; width: 10px; }
+.lk .react-grid-item.lk-comp--diseno > .react-resizable-handle-w { left: -5px; width: 10px; }
+.lk .react-grid-item.lk-comp--diseno > .react-resizable-handle-ne { top: -7px; right: -7px; }
+.lk .react-grid-item.lk-comp--diseno > .react-resizable-handle-nw { top: -7px; left: -7px; }
+.lk .react-grid-item.lk-comp--diseno > .react-resizable-handle-se { bottom: -7px; right: -7px; }
+.lk .react-grid-item.lk-comp--diseno > .react-resizable-handle-sw { bottom: -7px; left: -7px; }
+.lk .react-grid-item.lk-comp--sel.lk-comp--diseno > :is(.react-resizable-handle-n, .react-resizable-handle-s)::after { top: calc(50% - 3.5px); bottom: auto; }
+.lk .react-grid-item.lk-comp--sel.lk-comp--diseno > :is(.react-resizable-handle-e, .react-resizable-handle-w)::after { left: calc(50% - 3.5px); right: auto; }
+.lk .react-grid-item.lk-comp--sel.lk-comp--diseno > :is(.react-resizable-handle-ne, .react-resizable-handle-nw, .react-resizable-handle-se, .react-resizable-handle-sw)::after { top: calc(50% - 3.5px); left: calc(50% - 3.5px); right: auto; bottom: auto; }
 @media (hover: none) { .lk-hoja-mas, .lk-comp--kpi .lk-mako { opacity: 1; } }
 
 /* Mientras corre un recorrido, lo que aparece al pasar el cursor se ve (si no, el recorte señala la nada). */

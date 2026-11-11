@@ -512,3 +512,37 @@ proyectada, NO silueta, NO subexpuesto»). Con eso la cara se sostiene y el fond
 ⚠️ Y una advertencia que viene de la misma vuelta: pedir que la toma lea **oscura** —aunque sea para
 copiar el reel— es pedir que la cara desaparezca. En el original de referencia el cuerpo se recorta
 contra el blanco **pero la cara se sigue leyendo**. Primero el parecido; la estética después.
+
+## La prueba de punta a punta del 10/11/2026: lo que se midió y lo que bloquea
+
+El informe, caso por caso y con capturas, está en `docs/pruebas/ai-avatar-10-11.md`: 35 casos, 12 fallas, 9 arregladas.
+Lo que conviene no volver a medir:
+
+- **El motor no sube la foto a Flow desde el 8/11.**
+  - En `flow_trabajos`, las 5 `subir_imagen` del 8 y 9/11 (ws 9) fallaron: «Flow no mostró la opción de subir» (tres
+    veces), «La pestaña de Flow se cerró antes de empezar» y «Flow no terminó de procesar la foto».
+  - La última generación que terminó bien, de cualquier tipo, es del 8/09.
+  - Sin la foto en Flow, `caraDeFoto` no devuelve la cara y ningún look puede salir.
+  - Vive en extension/flow-interfaz.js. Para arreglarlo hay que mirar Flow abierto con una cuenta.
+- **El techo de créditos del video (15) es más bajo que lo medido el 9/11 (24 por 8 s con Omni 1.2 Flash a 720p).**
+  - La extensión no aprieta «Generar» si la cotización pasa `maxCreditos` (`TOPE_CREDITOS.video`, lib/flow-interfaz.ts),
+    y falla con «Flow pide N créditos y el tope es 15».
+  - En la base todavía no hay ni un video por el motor por interfaz, así que el freno nunca se vio. Pero con ese precio, cada
+    toma de 8 s se frenaría.
+  - Antes de tocar el número: leer la cotización de Flow para 4, 6, 8 y 10 s (leerla no gasta). Subirlo es gastar más
+    créditos del cliente: decide Martín, con el número.
+- **Los dos Chrome conectados a Claude in Chrome en esta PC tienen la sesión de MaKo de LEANDRO (ws 10)**, medido el 10/11.
+  - Ahí `?ws=3` no cambia de negocio: no es super admin.
+  - La única pista visible es la foto de «Personaje» (`archivero/10/persona/…`).
+  - El navegador de la app tiene la sesión de super admin, pero no la extensión.
+  - Resultado: hoy ningún navegador sirve para generar en el ws 3. Antes de usar un Chrome para AI Avatar, mirar de quién es
+    la sesión.
+- **«Descargar» con `<a href download>` a Storage ABRE el archivo en vez de bajarlo.**
+  - Es otro origen, y ahí el navegador ignora `download`.
+  - La trampa ya estaba anotada en app/video-generator/descargar.ts (`descargarComo`), y AI Avatar no la usaba.
+  - Ahora baja el archivo de Flow byte por byte, en su calidad original, con nombre (lib/ai-avatar/descarga.ts).
+- **La escena de una plantilla de venta va a la barra de QUIEN la usa**, no al negocio ficticio del ejemplo. «Con blusa…» le
+  ponía una blusa a cualquiera. Un test prohíbe prendas de un solo género en `detalle`.
+
+**Vive en:** extension/flow-interfaz.js · lib/flow-interfaz.ts · app/ai-avatar/Estudio.tsx · app/m/ai-avatar/EstudioM.tsx ·
+lib/ai-avatar/plantillas-venta.ts · tests/ai-avatar-prueba-1011.test.ts

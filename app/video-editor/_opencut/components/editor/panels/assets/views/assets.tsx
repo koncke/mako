@@ -273,7 +273,10 @@ function BarraMedios({
 	const filtroActual = FILTROS.find((f) => f.id === filtroMedios) ?? FILTROS[0];
 
 	return (
-		<div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-2">
+		// Con el chat de MaKo a la izquierda, a 1440 px el panel mide 203 px y la barra (Importar + «Todos», ordenar y vista)
+		// 247: desbordaba 32 px y, al tocar el «+» de una miniatura, la caja se corría y se leía «a-clip4.mp4» y «) Importar»
+		// (medido el 10/11/2026). Cuando no entra, lo de la derecha baja a otro renglón.
+		<div className="flex shrink-0 flex-wrap items-center gap-2 px-3 pt-3 pb-2">
 			<button
 				type="button"
 				onClick={onImportar}

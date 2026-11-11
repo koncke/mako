@@ -5258,3 +5258,28 @@ abre con `onMouseEnter`+`onFocus` —el ⓘ de `app/automations/FilasOpciones.ts
 
 **Vive en:** tests/ningun-boton-muerto.test.ts · app/_ui/Tooltip.tsx ·
 app/web-generator/editor/paneles/EstiloSeccion.tsx
+
+## Un modal adentro de PantallaCrear se abre INVISIBLE mientras «Nuevo …» está abierto (10/11/2026, AI Avatar)
+
+- **Síntoma:** en AI Avatar, «Ver ejemplo» de una plantilla de venta no hacía nada. No había error y el estado sí cambiaba.
+- **El diagnóstico obvio era el equivocado:** «el botón no tiene handler». Lo tenía. En la consola, el `[role=dialog]`
+  existía con ancho 0 y un ancestro `[hidden]`.
+- **Causa:** PantallaCrear dibuja a sus hijos en `<div className="cr-pieza" hidden={centro === 'nueva'}>`. «Ver ejemplo» se
+  toca justo en «Nuevo …», así que cualquier modal que la tab ponga ADENTRO de sus hijos se monta escondido.
+- **Regla:** el modal de una tarjeta de «Nuevo …» va AFUERA de `<PantallaCrear>`, como hermano, igual que Lead Magnet y Offer.
+  Si su «Usar» tiene que cerrar «Nuevo …» sin crear un proyecto, la pantalla se vuelve a montar con otra `key`, como hace el
+  Image Editor. El estado de la tab vive arriba y no se pierde.
+
+**Vive en:** app/_crear/PantallaCrear.tsx (`cr-pieza`) · app/ai-avatar/Estudio.tsx · tests/ai-avatar-prueba-1011.test.ts
+
+## Baldosas con `aspect-ratio` en una grilla con scroll: las filas se achican y se pisan (10/11/2026, AI Avatar)
+
+- **Síntoma:** en el selector de presets de AI Avatar, cada baldosa tapaba a la de abajo. Medido a 1440 × 900: filas de 65 px
+  y baldosas 3:4 de 255 px.
+- **Causa:** la grilla es un hijo flex con `flex: 1; min-height: 0; overflow-y: auto`, o sea, de alto fijo. Una baldosa con
+  `aspect-ratio` y `overflow: hidden` no defiende su alto mínimo, así que las filas `auto` se repartieron el alto de la caja.
+  Afuera del modal, la misma grilla no tiene alto fijo y se veía bien: por eso no saltaba en la pantalla principal.
+- **Regla:** una grilla de alto fijo, con baldosas que toman su alto de `aspect-ratio`, lleva `grid-auto-rows: max-content`.
+  Se probó en producción inyectando la regla antes de escribirla.
+
+**Vive en:** app/ai-avatar/estudio.css (`.hf-grilla--selector`)

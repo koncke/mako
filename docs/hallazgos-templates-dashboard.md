@@ -919,3 +919,19 @@ las hojas, en `docs/diseno/mockups-dashboard/<hoja>/`.
 sigue fuera de `main` y **está SUPERADA**: trae la estructura plana vieja y main ya tiene la de carpetas, más
 desarrollada. Traerla haría retroceder el área. Se revisó el 7/11 y se decidió no mergearla; el README de la
 carpeta todavía describe la estructura plana y conviene actualizarlo cuando alguien lo toque.
+
+## 39. Probadas en producción las 23 de la galería (10/11/2026): una frase de Marketing que inventaba de dónde venían las agendas
+
+Las 23 plantillas se crearon en el ws 3 desde «Nueva hoja» y se leyeron a 1440. Ninguna mostró «undefined», «NaN» ni «null», y
+ninguna sacó algo fuera de su tarjeta. El informe, caso por caso: `docs/pruebas/dashboard-10-11.md`.
+
+- **«Gastaste US$0 en anuncios, trajeron 3 agendas y cada una costó US$0.00».** Con cero invertido, la frase de Kestrel atribuía las
+  agendas a los anuncios. Cero gastado se dice como sin gasto («Llegaron 3 agendas.»). **Vive en:** lib/marketing-diseno.ts
+  (`fraseMarketing`). La regla general: un número en cero que la frase usa como CAUSA («trajeron») no es un dato, es la ausencia de
+  la causa.
+- **Lo que una hoja copiada agrega «abajo de todo» cae en «Todas las piezas» y no se ve.** El arreglo vive en el editor
+  (docs/hallazgos-graficos.md, «Probado de punta a punta…»). Lo que importa acá: una hoja con diseño TERMINA en una sección plegada,
+  y cualquier camino nuevo que agregue algo tiene que pasar por `agregarALaVista` o por `insertarBloque`.
+- **Para comparar con el demo hacen falta datos, y el ws 3 no tiene grabador ni Meta.** Closing, Anuncio ganador, Hooks y VSL se
+  vieron en sus estados vacíos. Con datos de verdad se vio «Velocidad de llamada» (ws 17, Giselle). Para mirar Closing con llamadas
+  sin escribir en un cliente, hace falta un negocio de prueba con grabador.

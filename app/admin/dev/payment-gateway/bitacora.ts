@@ -695,4 +695,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/admin/cobros',
   },
+  {
+    fecha: '10 nov', hora: '21:05', chat: 'Tickets', sesion: 'local_dd6bb6fb-b110-49de-8105-e2755bc74490', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Un comprobante de un pago que ya quedó registrado ya no vuelve a revisión ni le escribe a la agencia «lo revisa el equipo»',
+    puntos: [
+      '**Ticket #80 (Martín, 10/11).** El comprobante de la entrada de Patricia (40 USDT por US$40,73) fue a revisión el 9/11 por la duda del monto y se marcó a mano. El 10/11 a las 22:47 UTC llegó el MISMO pago en PDF: como las dudas se miraban ANTES que la orden, volvió a Martín «para revisar» y al grupo de Código Inmobiliario le dijo «lo revisa el equipo» sobre algo resuelto.',
+      '**`veredictoDeLectura`** decide en orden: la orden ya usada (un recibo, el libro o una lectura anterior del grupo, `ordenEnUnaLecturaDelGrupo`) va primero y contesta «ya la tenía registrada»; después las dudas, la moneda y la orden.',
+      '**Y la Ticketera:** `scripts/tickets-cerrar-resueltos.mjs` ya no cierra como «resuelto» un pedido DELEGADO sin `"hecho": true`: su aviso es un «Listo: ya quedó» fijo y la respuesta no viaja. Así salieron dos «listo» falsos (#65 y #58), corregidos en sus grupos.',
+    ],
+    archivos: [
+      'lib/agencia-mes-reglas.ts — `veredictoDeLectura` (puro) · lib/agencia-mes-comprobante.ts — lo usa · lib/comprobantes.ts — `ordenEnUnaLecturaDelGrupo`',
+      'scripts/tickets-cerrar-resueltos.mjs — la guarda del delegado',
+      'tests/agencia-mes.test.ts — el caso real; probado rompiéndolo (las dudas antes que la orden)',
+    ],
+    revisar: '/admin/cobros',
+    tickets: [80],
+  },
 ];

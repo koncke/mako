@@ -174,6 +174,18 @@ escritorio, tablet y teléfono, claro y oscuro. Lo que vale para lo que venga:
 - **Sin números, una columna que dice lo mismo nueve veces es ruido.** Lo que falta va una vez arriba de la lista.
 - Menores: «Lanzar el primer anuncio» era el único paso sin pantalla; «0 campañas en 3 productos» contaba los del CRM sin campañas;
   «← Media Buyer» y el cargando tenían el nombre viejo; los pedidos de la tab llevaban «Marketing CoPilot:» además del chip «desde».
+- **(Segunda pasada, por persona, ws 3) La charla se vuelve a dibujar desde el perfil de AHORA.** Un paso cuyo texto depende de algo
+  que la respuesta cambia (el aviso del «ajuste»: «el VSL pide $3.000… propongo mensajes») se borraba al aceptarlo: pasaba a «¿Seguimos?»
+  porque el funnel nuevo sí sirve. **La regla:** la pregunta y la respuesta de un paso se arman con el perfil como estaba al llegar a
+  ese paso (`perfilDelAjuste`), y la respuesta dice lo que tocó la persona.
+- **El panel no mide la página:** las reglas de ancho del panel miraban el contenedor de la PÁGINA, y a 1024 el panel medía 480 px con
+  cuatro etapas de 96. Lo de adentro del panel va por `@container panel-funnel` (el panel mismo).
+- **Una pantalla que reemplaza la tab entera tiene que saber lo que la persona ya tiene acá.** «¿En qué te ayudo hoy?» (la bienvenida
+  de una cuenta nueva) tapaba el Plan y Ajustes de un negocio que ya había elegido su estrategia en el CoPilot, sin Meta conectado.
+- **Sin la app de escritorio no se puede escribir en la charla**, ni lo que se lee sin IA: las opciones tienen que cubrir a todas las
+  personas (una tienda de US$45 no tenía su ticket), y un paso nunca puede quedar sin un botón para seguir («Empezar de nuevo»
+  dejaba sólo «Deshacer»).
+- El informe caso por caso, con capturas: `docs/pruebas/marketing-copilot-10-11.md`.
 - Del chat de la tab (la estrella encima de la caja, el hilo de Image en el CoPilot y al revés): [hallazgos-chat.md](hallazgos-chat.md).
   Del navegador en que se miró: [hallazgos-pruebas.md](hallazgos-pruebas.md).
 

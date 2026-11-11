@@ -187,6 +187,10 @@ test('el editor (Dashboard y General): se agranda desde los ocho lados, y sin la
   // Los lados son franjas a lo largo del borde, no el cuadradito de 20 px del medio.
   assert.match(CSS, /\.lk \.react-grid-item > \.react-resizable-handle-n, \.lk \.react-grid-item > \.react-resizable-handle-s \{ left: 14px; right: 14px; width: auto; height: 8px; \}/);
   assert.match(CSS, /\.lk \.react-grid-item > \.react-resizable-handle-e, \.lk \.react-grid-item > \.react-resizable-handle-w \{ top: 14px; bottom: 14px; width: 8px; height: auto; \}/);
+  // 10/11/2026: en una tarjeta de diseño (no recorta) la franja va CENTRADA en el borde: sobre la línea se agarraba la tarjeta y se movía.
+  assert.match(CSS, /\.lk \.react-grid-item\.lk-comp--diseno > \.react-resizable-handle-s \{ bottom: -5px; height: 10px; \}/, 'el borde de abajo mueve la tarjeta');
+  assert.match(CSS, /\.lk \.react-grid-item\.lk-comp--diseno > \.react-resizable-handle-e \{ right: -5px; width: 10px; \}/, 'el borde de la derecha mueve la tarjeta');
+  assert.match(CSS, /\.lk-comp--diseno \{[^}]*overflow: visible;/, 'una tarjeta de diseño que recorta deja la franja de afuera sin tocar');
 });
 
 test('el menú «Bloques de General»: sin títulos de grupo, una vista previa por bloque, tres por fila', async () => {

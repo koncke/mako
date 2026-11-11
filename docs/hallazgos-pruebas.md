@@ -165,3 +165,18 @@ La tarjeta «A/B TEST» y sus puertas están en docs/hallazgos-chatbot.md («La 
 **Síntoma:** dos ramas sin relación (recibos y Admin) quedaron en rojo en la misma guarda, `tests/resend-clave-admin.test.ts`, sin tocar nada de Resend. **Lo obvio era que el código de la rama nombraba la clave, y no era eso.** El error real es `spawnSync git ENOBUFS`: `git ls-files` da 1.048.981 bytes, y `execFileSync` corta en 1 MiB si no se le da otro tope. Falla cualquier test que liste el repo entero, y sólo cuando entra en los afectados, por eso parecía de esas ramas.
 
 **La regla:** un `execFileSync('git', …)` que lista todo el repo lleva `maxBuffer`. Con ruta (`ls-files app lib`) todavía entra, pero el repo crece y un día deja de entrar.
+
+## Probar el Dashboard en producción con el navegador de la app: cinco trampas (10/11/2026)
+
+- **Si nadie tiene la sesión abierta en una ventana, el panel del navegador queda oculto** y `show_pane` no lo puede mostrar. La
+  página corre como de fondo: la primera captura sale negra o vieja (todavía no pintó). Lo que sirve: `document.getAnimations().forEach(a => a.finish())`
+  antes de cada captura, medir con el DOM y, si la captura sale negra, volver a capturar.
+- **Un `click()` de JavaScript no abre la lista de hojas** (`button.dash-pestana`): escucha `pointerdown`. Hay que mandar
+  `pointerdown`, `mousedown`, `pointerup`, `mouseup` y `click`, en ese orden, o usar el clic del navegador.
+- **Arrastrar una flecha hacia una tarjeta cerca del borde de arriba corre la página** (la selección de texto la desplaza), y la
+  flecha cae en otra tarjeta o en ninguna. Con las dos tarjetas a la vista y lejos del borde, anda.
+- **Para mirar un negocio de cliente sin riesgo**, después de cargar se pisa `window.fetch` para que todo POST con
+  `"accion":"guardar"` a /api/graficos devuelva 500. Mirar no guarda (`alMoverGrilla` sólo escribe editando), pero un link con
+  `?hoja=<plantilla>` sí agrega y guarda. Ojo: la traba se va con una recarga entera; un link de la app (navegación de Next) la conserva.
+- **Exportar sin bajar archivos:** se pisan `URL.createObjectURL` y `HTMLAnchorElement.prototype.click` para leer el CSV que se iba
+  a bajar, y `window.print` para ver que el PDF arme su vista (`lk--imprimir`).

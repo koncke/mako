@@ -39,6 +39,27 @@ Martín pidió revisar la tab de punta a punta en producción. Proyecto de prueb
   de 86 px FIJOS le dejaban 8 px al rol. Un ancho fijo para el texto más largo («nada que hacer») se paga en todas las filas.
   Y con la ventana baja el cuerpo del panel se desbordaba DEBAJO del pie («Editar con MaKo» tapaba el registro): un cuerpo
   `flex-1 min-h-0` sin `overflow` no se achica, se sale.
+- **«Estilo Hormozi» por chat armaba OTRA cosa**: karaoke amarillo y salto, sin Anton, sin mayúsculas, sin el contorno, y
+  MaKo decía que resaltaba palabras clave sin proponerlo. El panel tiene esa plantilla («Hormozi», subtitles/estilos.ts),
+  pero el chat no veía la galería: sólo los presets de la MARCA. **Lo que el panel ofrece con nombre, el chat lo tiene que
+  ver con el mismo nombre** (`plantillas_subtitulos` en DISPONIBLES); si no, el modelo lo arma con piezas y sale parecido y
+  distinto. Se usa con `usar_preset_subtitulos` (la de la marca, si se llama igual, gana). SIN HACER: la API sigue aceptando
+  sólo los presets de la marca.
+- **La barra de Multimedia corría la sección de lado**: a 1440 px con el chat abierto, el panel mide 203 px y la barra 247. El
+  foco del «+» de una miniatura corrió la caja `overflow: hidden` 32 px. **Una caja que sólo recorta va con `overflow-clip`**:
+  `hidden` se puede correr con el foco o un `scrollIntoView`, y nadie la vuelve a su lugar.
+- **⚠️ Las pruebas «en ws9» desde Claude in Chrome fueron como LEANDRO, en su ws10** (un usuario real): ese Chrome tiene su
+  sesión y `?ws=9` no hace nada para quien no es super admin, sin avisar. Quedaron 2 proyectos de prueba, 1 hilo de chat y 3
+  llamadas a la IA en su negocio. La señal estaba: IndexedDB sólo tenía bases `mako-ws10-…`. **El primer paso de toda pasada
+  en un navegador es `fetch('/api/auth/me')`** (ya lo decía la memoria `verificar-en-navegador` desde el 15/10).
+- **El navegador de la app no sirve para el editor si la sesión no está en una ventana**: el panel queda oculto, la página
+  corre en segundo plano, la importación se cuelga en «Importando…», los cursores no se animan y el B-roll queda en
+  «Trabajando». Tampoco tiene subida de archivos ni deja pedirle nada a `127.0.0.1` desde https. Los videos de prueba
+  entraron por el fragmento `#` de una navegación (un puente en un servidor local que los pasa en base64, ≤ 2 MB).
+- **SIN HACER — al reabrir un proyecto en el navegador de la app, sus videos ya no estaban en OPFS** (la metadata sí). El
+  archivo se escribe ANTES que la metadata (`saveMediaAsset`) y quien borra medios borra las dos cosas, así que alguien los
+  sacó después. Un archivo de prueba en OPFS sobrevivió a la recarga. En Chrome no pasó. Y el editor no avisa: muestra una
+  biblioteca vacía y un video negro con los subtítulos encima.
 - **El teléfono no se pudo mirar desde acá**: la ventana de la extensión está maximizada (`resize_window` contesta «resized» y
   no cambia), la app no se deja enmarcar en un iframe y `/m/…` con la computadora redirige al escritorio.
 - **SIN HACER — la lista de proyectos es la de ESTE navegador**: en otro Chrome dice «Todavía no hay ninguno» aunque ws9 tenga 6

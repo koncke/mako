@@ -41,7 +41,7 @@ import { firmaDe, hojaDestino } from '@/lib/graficos-plantillas';
 import { cambioEnPalabras, fraseEnTexto, tramosDeFrase } from '@/lib/graficos-frase';
 import { pedidosDeHoja } from '@/app/dashboard/exportar';
 import {
-  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, deltaDe, etiquetaBarra, periodoDe,
+  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, deltaDe, etiquetaBarra, faltaConectar, periodoDe,
   type BarraM, type GraficoM, type HojaM, type ModoDelta, type NumeroM, type PeriodoM,
 } from './modelo';
 
@@ -324,6 +324,11 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
     };
   });
   if (numeros.length && out.numeros.every((n) => n.v === '—')) out.numerosError = ERROR_LECTURA;
+  // ⚠️ NADA LEÍDO PORQUE FALTA CONECTAR NO ES UNA FALLA (10/11/2026, Closing en el ws 3 sin grabador): el teléfono decía dos
+  // veces «No pudimos leer estos números. No es nada tuyo» con «Reportar a Soporte», y la compu, «Conecta tu grabador…».
+  // Si no se leyó nada y lo que volvió es `sinConexion`, se dice ESE texto, una vez.
+  const falta = faltaConectar([...usados].map((id) => datos[id]));
+  if (falta) return { ...out, falta, grafico: null, graficoError: null, numeros: [], numerosError: null, frase: null };
   // La oración de apertura, escrita con la MISMA regla que escritorio: un tramo sin dato no se dice.
   if (frase) {
     const r = datos[frase.id];

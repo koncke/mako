@@ -216,7 +216,10 @@ test('punta.yml configura el driver copiándolo de main, ANTES de la primera mez
   r.g('update-ref', 'refs/remotes/origin/main', 'main');
   r.g('checkout', '-q', 'punta');
   writeFileSync(join(r.dir, RUTA), archivo(hito('Uno'), hito('Dos'), hito('De main'), hito('Más de la punta'))); r.g('commit', '-qam', 'otro hito de la punta');
-  const p = correrPaso(yml, 'Las bitácoras se unen solas al mezclar', { cwd: r.dir, env: { GIT_CONFIG_NOSYSTEM: '1' } });
+  // MSYS_NO_PATHCONV: en Windows, el bash de Git convierte `origin/main:.gitattributes` en `origin\main;.gitattributes`
+  // (lo toma por una lista de rutas) antes de pasárselo a git.exe, y el `git show` del paso falla callado: las reglas de
+  // main no llegaban y el índice chocaba (medido el 10/11/2026). En Linux no cambia nada.
+  const p = correrPaso(yml, 'Las bitácoras se unen solas al mezclar', { cwd: r.dir, env: { GIT_CONFIG_NOSYSTEM: '1', MSYS_NO_PATHCONV: '1' } });
   assert.equal(p.codigo, 0, p.salida);
   const m = r.g('merge', '--no-edit', 'origin/main');
   assert.equal(m.status, 0, `con el driver y las reglas de main, la punta vieja mezcla limpio: ${m.stdout}${m.stderr}`);
