@@ -15,8 +15,13 @@ const primero = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] :
 
 export const RUTA_CREAR_VIDEO = '/video-editor?ver=crear';
 
+/**
+ * 11/11/2026, Martín: «ya no depender de "Encuentra tu siguiente outlier", sino que sea directamente todo el sistema de edición
+ * primero». La tab abre en «Nuevo video» y el editor; los outliers viven ADENTRO del editor (Multimedia › «Outliers», junto a
+ * «Importar»: _opencut/outliers/registro.ts). La portada sigue en `?ver=outliers`.
+ */
 export function vistaDeVideo(q: Query): 'outliers' | 'crear' {
-  return primero(q.ver) === 'crear' || primero(q.replicar) != null ? 'crear' : 'outliers';
+  return primero(q.ver) === 'outliers' && primero(q.replicar) == null ? 'outliers' : 'crear';
 }
 
 /** La plantilla guiada que pidió «Replicar», validada; null si no vino o no existe. */

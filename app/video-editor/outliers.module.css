@@ -89,3 +89,14 @@
 .estructuraCaja { position: relative; height: 300px; border-radius: 12px; overflow: hidden; }
 /* El filtro elegido: el `aria-pressed` de Image, en un link (`aria-current`). */
 .chipActivo { background: var(--primary-bg); border-color: transparent; color: var(--primary-strong, var(--primary)); }
+
+/* ── Los outliers ADENTRO del editor (Multimedia › «Outliers», 11/11/2026): dos columnas en el panel de la biblioteca ── */
+.panel { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 16px; }
+.panelNota { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--dim); }
+/* Una sola fila que se desliza de costado: con las 16 familias en renglones, el panel de 346 px se llenaba de filtros
+   (8 renglones, mirado el 11/11/2026) antes del primer reel. */
+.panelFiltros { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.panelFiltros::-webkit-scrollbar { display: none; }
+.panelFiltros > button { flex: none; white-space: nowrap; }
+.panelFiltros > button { cursor: pointer; font: inherit; font-size: 12px; }
+.grillaPanel { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; }

@@ -105,8 +105,8 @@ function ComoSeHace({ r }: { r: Receta }) {
   );
 }
 
-/** La plantilla guiada de MaKo (la fuente curada): se replica con MaKo, paso a paso. */
-function TarjetaPlantilla({ x, telefono }: { x: OutlierVideo; telefono: boolean }) {
+/** La plantilla guiada de MaKo (la fuente curada): se replica con MaKo, paso a paso. También la usa la sección del editor. */
+export function TarjetaPlantilla({ x, telefono }: { x: OutlierVideo; telefono: boolean }) {
   const replicar = x.plantilla && !telefono ? <Link href={rutaReplicar(x.plantilla)} className={o.replicar}>Replicar</Link> : null;
   return (
     <li className={s.tarjeta}>
@@ -145,8 +145,8 @@ function TarjetaPlantilla({ x, telefono }: { x: OutlierVideo; telefono: boolean 
   );
 }
 
-/** Un reel de una cuenta que el negocio sigue: la tarjeta de Image (`TarjetaCarrusel`), en 9:16, con lo que enseña. */
-function TarjetaReel({ x, ahora }: { x: OutlierVideo; ahora: number }) {
+/** Un reel de una cuenta que el negocio sigue: la tarjeta de Image (`TarjetaCarrusel`), en 9:16, con lo que enseña. También la usa la sección del editor. */
+export function TarjetaReel({ x, ahora }: { x: OutlierVideo; ahora: number }) {
   const veces = x.multiplo?.veces ?? null;
   const nivel = nivelDeMultiplo(veces);
   const quien = quienDe(x);
@@ -236,7 +236,7 @@ function familiasPresentes(xs: readonly OutlierVideo[]): Array<[FamiliaEdicion, 
  * `rutaPortada`: la de esta portada, para el filtro por familia (`?patron=`); `familia`: la elegida (ya validada).
  */
 export function OutliersVideo({
-  portada, telefono = false, rutaCrear = RUTA_CREAR_VIDEO, rutaPortada = '/video-editor', familia = null,
+  portada, telefono = false, rutaCrear = RUTA_CREAR_VIDEO, rutaPortada = '/video-editor?ver=outliers', familia = null,
 }: { portada: PortadaOutliers; telefono?: boolean; rutaCrear?: string; rutaPortada?: string; familia?: FamiliaEdicion | null }) {
   const ahora = Date.now();
   const reels = portada.outliers.filter((x) => !x.plantilla);
@@ -281,7 +281,7 @@ export function OutliersVideo({
           <nav className={s.filtros} aria-label="Patrones de edición">
             <Link href={rutaPortada} className={`${s.chip} ${!familia ? o.chipActivo : ''}`} aria-current={!familia ? 'page' : undefined}>Todos</Link>
             {familias.map(([f, n]) => (
-              <Link key={f} href={`${rutaPortada}?patron=${f}`} className={`${s.chip} ${familia === f ? o.chipActivo : ''}`} aria-current={familia === f ? 'page' : undefined}>{FAMILIAS_EDICION[f]} · {n}</Link>
+              <Link key={f} href={`${rutaPortada}&patron=${f}`} className={`${s.chip} ${familia === f ? o.chipActivo : ''}`} aria-current={familia === f ? 'page' : undefined}>{FAMILIAS_EDICION[f]} · {n}</Link>
             ))}
           </nav>
         ) : null}

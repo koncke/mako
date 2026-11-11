@@ -142,7 +142,23 @@ test('6. el cableado: la tarjeta abre el reproductor, Spy aplica el criterio y l
   const servidor = leer('lib/video-outliers-servidor.ts');
   assert.match(servidor, /const \{ outliers, resumen \} = conCriterio\(outliersDeSpy\(piezas, cuentas\), criterioDeReel\);/);
   assert.match(leer('app/video-editor/page.tsx'), /<OutliersVideo portada=\{await leerOutliersVideo\(\)\} familia=\{familiaDe\(q\)\} \/>/);
-  assert.match(leer('app/m/video-editor/page.tsx'), /rutaPortada="\/m\/video-editor" familia=\{familiaDe\(q\)\}/);
+  assert.match(leer('app/m/video-editor/page.tsx'), /rutaPortada="\/m\/video-editor\?ver=outliers" familia=\{familiaDe\(q\)\}/);
+  assert.match(portada, /href=\{`\$\{rutaPortada\}&patron=\$\{f\}`\}/, 'el filtro sin `ver=outliers` abre el editor, no la portada');
+});
+
+test('8. el editor primero, y los outliers ADENTRO, junto a «Importar» (11/11/2026)', () => {
+  // Martín: «ya no depender de "Encuentra tu siguiente outlier", sino que sea directamente todo el sistema de edición primero, y
+  // que en alguna parte, por ejemplo del lado de Importar, estén estos outliers».
+  const registro = leer('app/video-editor/_opencut/outliers/registro.ts');
+  assert.match(registro, /categoria: "multimedia",\s*id: SECCION_OUTLIERS,\s*etiqueta: "Outliers",\s*orden: 12,/, 'la sección no está al lado de Importar (10)');
+  assert.match(leer('app/video-editor/ce/extensiones.ts'), /import '\.\.\/_opencut\/outliers\/registro';/, 'un registro que nadie importa no existe');
+  const vista = leer('app/video-editor/_opencut/outliers/components/outliers-view.tsx');
+  assert.match(vista, /fetch\("\/api\/video-editor\/outliers"/);
+  assert.match(vista, /<TarjetaPlantilla key=\{x\.id\} x=\{x\} telefono=\{false\} \/> : <TarjetaReel key=\{x\.id\} x=\{x\} ahora=\{ahora\} \/>/, 'las mismas tarjetas que la portada');
+  const ruta = leer('app/api/video-editor/outliers/route.ts');
+  assert.match(ruta, /if \(rol !== 'admin'\) return/);
+  assert.match(ruta, /if \(!\(await veEditorVideo\(\)\)\) return/);
+  assert.match(ruta, /NextResponse\.json\(await leerOutliersVideo\(\)/);
 });
 
 test('7. las recetas: cada una de una familia, con su referencia clasificada, su estructura en orden y las dos grabaciones', async () => {

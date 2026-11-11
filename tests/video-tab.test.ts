@@ -197,13 +197,16 @@ test('3b. los reels de Spy (11/11/2026): el «×» de su cuenta, su miniatura y 
   assert.match(portada, /<Link href="\/competitor-spy" className=\{s\.pastilla\}>\+ Seguir cuentas<\/Link>/);
   // En el teléfono también, como Image: los outliers primero (dos columnas, sin «Replicar»: el guiado es de la computadora).
   const movil = sinComentarios(leer('app/m/video-editor/page.tsx'));
-  assert.match(movil, /if \(vistaDeVideo\(q\) === 'outliers'\) \{[\s\S]*?<OutliersVideo portada=\{await leerOutliersVideo\(\)\} telefono rutaCrear="\/video-editor\?ver=crear" rutaPortada="\/m\/video-editor" familia=\{familiaDe\(q\)\} \/>/);
+  assert.match(movil, /if \(vistaDeVideo\(q\) === 'outliers'\) \{[\s\S]*?<OutliersVideo portada=\{await leerOutliersVideo\(\)\} telefono rutaCrear="\/video-editor\?ver=crear" rutaPortada="\/m\/video-editor\?ver=outliers" familia=\{familiaDe\(q\)\} \/>/);
   assert.match(portada, /<div className=\{s\.raiz\} data-telefono=\{telefono \? 'si' : undefined\}>/);
   assert.match(portada, /const replicar = x\.plantilla && !telefono \? <Link href=\{rutaReplicar\(x\.plantilla\)\}/);
 });
 
 test('4. la portada: outliers primero, «Crear desde cero» con `ver=crear`, y «Replicar» sólo con una plantilla que existe', () => {
-  assert.equal(vistaDeVideo({}), 'outliers');
+  // 11/11/2026, Martín: «directamente todo el sistema de edición primero»: la tab abre en crear; la portada, con `ver=outliers`.
+  assert.equal(vistaDeVideo({}), 'crear');
+  assert.equal(vistaDeVideo({ ver: 'outliers' }), 'outliers');
+  assert.equal(vistaDeVideo({ ver: 'outliers', replicar: 'mensaje-para' }), 'crear');
   assert.equal(vistaDeVideo({ ver: 'crear' }), 'crear');
   assert.equal(vistaDeVideo({ replicar: 'mensaje-para' }), 'crear');
   assert.equal(replicarDe({ replicar: 'mensaje-para' }), 'mensaje-para');

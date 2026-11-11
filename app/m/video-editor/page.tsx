@@ -37,7 +37,7 @@ export default async function VideoEditorPagina({ searchParams }: { searchParams
   if (vistaDeVideo(q) === 'outliers') {
     return (
       <PantallaM>
-        <OutliersVideo portada={await leerOutliersVideo()} telefono rutaCrear="/video-editor?ver=crear" rutaPortada="/m/video-editor" familia={familiaDe(q)} />
+        <OutliersVideo portada={await leerOutliersVideo()} telefono rutaCrear="/video-editor?ver=crear" rutaPortada="/m/video-editor?ver=outliers" familia={familiaDe(q)} />
       </PantallaM>
     );
   }

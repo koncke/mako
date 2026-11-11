@@ -57,7 +57,20 @@ reels, como el de Josep: no es bajar en masa) y se midió: duración, tomas con 
 Cada receta se ve en la caja del reel («Cómo se hace»): estructura, edición en el editor de MaKo (máscara, efecto Desenfoque,
 plantillas de subtítulos y palabras clave, que existen), y la grabación con el avatar o con otra persona.
 
+## El editor primero; los outliers adentro (11/11/2026, misma noche)
+
+Martín, mirando la portada nueva: «ya no depender de "Encuentra tu siguiente outlier", sino que sea directamente todo el sistema
+de edición primero, y que en alguna parte, por ejemplo del lado de Importar, estén estos outliers». `/video-editor` abre en crear
+(`vistaDeVideo`); la portada queda en `?ver=outliers`. Adentro del editor: Multimedia › «Outliers» (orden 12, después de
+«Importar»), con las MISMAS tarjetas (`TarjetaReel`, `TarjetaPlantilla`) y los datos de `GET /api/video-editor/outliers`.
+También dijo que la selección «es sobre todo animaciones de texto» y que faltan los más complejos, como el de los pistachos: es el
+límite de mirar la PORTADA (ver arriba). Lo arregla la pasada con el video.
+
 ## Trampas del entorno
+
+- **Un `<Modal>` adentro de una tarjeta con animación de entrada queda ENCERRADO en la tarjeta.** `.tarjeta` tiene `animation:
+  entra … both` con `transform`, y eso la vuelve el bloque contenedor de todo `position: fixed` de adentro: la caja del reel salía
+  de 200 px sobre su columna. `Modal` (app/_ui/Modal.tsx) NO va por portal: desde una tarjeta, `createPortal(…, document.body)`.
 
 - **`postgres` (el driver) devuelve los `bigint` como TEXTO**: con `vistas: "3406"`, `multiplosDe` no calcula y TODOS los reels
   salían «debajo de su cuenta». En la app no pasa (PostgREST los da como número); en un script contra la base, `Number(...)`.
