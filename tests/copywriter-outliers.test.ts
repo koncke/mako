@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FORMATOS_COPY, TEXTO_EN_TARJETA, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, juntarOutliersCopy, outliersCopyDeBiblioteca,
+  FORMATOS_COPY, TEXTO_EN_TARJETA, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, juntarOutliersCopy, outliersCopyDeBiblioteca,
   outliersCopyDeSpy, textoParaMaKo, tipoDeOutlier, tituloDeReplica,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
 } from '../lib/copywriter/outliers';
@@ -99,9 +99,10 @@ test('la biblioteca de carruseles: sólo con texto, link y su id negativo', () =
   assert.equal(xs[0].laminas, 7);
 });
 
+const COPY = 'Si cada lunes arrancas la semana sin saber de dónde va a salir tu próximo cliente, esto es para ti: te cuento cómo lo resolví.';
 const outlier = (x: Partial<OutlierCopy>): OutlierCopy => ({
   id: 'spy:1', fuente: 'spy', formato: 'reel', creador: { nombre: 'Ana', usuario: 'anacoach', foto: null, competidorId: 7 }, url: 'https://www.instagram.com/reel/1/',
-  miniatura: null, gancho: 'Si cada lunes…', texto: 'Texto', deDonde: 'pie', multiplo: null, vistas: 10, megusta: 1, comentarios: 1, publicada: dia(3), ...x,
+  miniatura: null, gancho: 'Si cada lunes…', texto: COPY, deDonde: 'pie', multiplo: null, vistas: 10, megusta: 1, comentarios: 1, publicada: dia(3), ...x,
 });
 const fuente = (id: string): FuenteOutliersCopy => ({ id, nombre: id, leer: async () => ({ ok: true, outliers: [] }) });
 
@@ -109,7 +110,7 @@ test('la portada: sin repetidos ni inválidos, del que más superó a su cuenta 
   const p = juntarOutliersCopy([
     { fuente: fuente('spy'), lectura: { ok: true, outliers: [
       outlier({ id: 'spy:1', multiplo: { veces: 1.2, metrica: 'vistas', valor: 1, mediana: 1, formato: 'corto', canal: 'instagram', comparadas: 8 } }),
-      outlier({ id: 'spy:2', url: 'https://www.instagram.com/reel/2/', multiplo: { veces: 4.5, metrica: 'vistas', valor: 1, mediana: 1, formato: 'corto', canal: 'instagram', comparadas: 8 }, texto: 'x'.repeat(TEXTO_EN_TARJETA + 50) }),
+      outlier({ id: 'spy:2', url: 'https://www.instagram.com/reel/2/', multiplo: { veces: 4.5, metrica: 'vistas', valor: 1, mediana: 1, formato: 'corto', canal: 'instagram', comparadas: 8 }, texto: 'palabra '.repeat(TEXTO_EN_TARJETA / 4) }),
       outlier({ id: 'spy:3', url: 'https://www.instagram.com/reel/1/?igsh=abc' }),
       outlier({ id: 'spy:4', url: 'http://inseguro', }),
       outlier({ id: 'spy:5', url: 'https://www.instagram.com/reel/5/', texto: '   ' }),
@@ -119,6 +120,29 @@ test('la portada: sin repetidos ni inválidos, del que más superó a su cuenta 
   assert.deepEqual(p.outliers.map((o) => o.id), ['spy:2', 'spy:1'], 'el repetido por link, el http y el vacío afuera; el de 4,5× primero');
   assert.ok(p.outliers[0].texto.length <= TEXTO_EN_TARJETA);
   assert.deepEqual(p.caidas, [{ fuente: 'biblioteca', nombre: 'la biblioteca', motivo: 'timeout' }]);
+});
+
+test('no se repite por link, pero dos videos de YouTube (o dos anuncios) son distintos', () => {
+  // Medido en el ws 3: cortar todo el «?…» dejaba UN video de YouTube de 369 (todos son youtube.com/watch?v=…).
+  assert.notEqual(claveDeLink('https://www.youtube.com/watch?v=abc'), claveDeLink('https://www.youtube.com/watch?v=xyz'));
+  assert.notEqual(claveDeLink('https://www.facebook.com/ads/library/?id=1'), claveDeLink('https://www.facebook.com/ads/library/?id=2'));
+  assert.equal(claveDeLink('https://www.instagram.com/reel/1/?igsh=abc'), claveDeLink('https://instagram.com/reel/1'));
+  assert.equal(claveDeLink('https://www.youtube.com/watch?v=abc&t=30s'), claveDeLink('https://youtube.com/watch?v=abc'));
+  const p = juntarOutliersCopy([{ fuente: fuente('spy'), lectura: { ok: true, outliers: [
+    outlier({ id: 'spy:1', formato: 'youtube', deDonde: 'descripcion', gancho: 'Cómo cerrar más', texto: 'Cómo cerrar más', url: 'https://www.youtube.com/watch?v=abc' }),
+    outlier({ id: 'spy:2', formato: 'youtube', deDonde: 'descripcion', gancho: 'El precio no es', texto: 'El precio no es', url: 'https://www.youtube.com/watch?v=xyz' }),
+  ] } }]);
+  assert.equal(p.outliers.length, 2);
+});
+
+test('un pie de pocas palabras no es copy; el guion y el título de un video o de un anuncio, sí', () => {
+  // Medido en el ws 3: «🤣🤣🤣», «We have fun 😂🫶», «Smoothie King we love you».
+  for (const t of ['🤣🤣🤣', 'We have fun 😂🫶', 'Smoothie King we love you']) assert.equal(esCopy({ formato: 'reel', deDonde: 'pie', texto: t, gancho: t }), false, t);
+  assert.equal(esCopy({ formato: 'reel', deDonde: 'pie', texto: COPY, gancho: 'x' }), true);
+  assert.equal(esCopy({ formato: 'reel', deDonde: 'guion', texto: 'Hola', gancho: 'Hola' }), true);
+  assert.equal(esCopy({ formato: 'youtube', deDonde: 'descripcion', texto: 'The Phil Jackson Paradox', gancho: 'The Phil Jackson Paradox' }), true);
+  const p = juntarOutliersCopy([{ fuente: fuente('spy'), lectura: { ok: true, outliers: [outlier({ id: 'spy:9', texto: '🤣🤣🤣' })] } }]);
+  assert.deepEqual(p.outliers, []);
 });
 
 test('los filtros: el formato, lo buscado sin tildes y por @, y el orden por fecha', () => {

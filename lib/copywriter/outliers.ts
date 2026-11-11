@@ -198,6 +198,35 @@ export function outliersCopyDeBiblioteca(carruseles: readonly Carrusel[]): Outli
 
 // ── La portada ──────────────────────────────────────────────────────────────────────────────────────────────────
 
+/**
+ * El link sin lo que no lo distingue (para no repetir): sin `#…` ni parámetros de seguimiento, pero CON los que SON el contenido
+ * (`v` de YouTube, `id` de la Biblioteca de Anuncios). ⚠️ El de Video (lib/video-outliers.ts) corta todo el `?…`: con sus reels de
+ * Instagram da igual, pero acá dejaba UN solo video de YouTube de 369 (todos son `youtube.com/watch?v=…`; medido en el ws 3).
+ */
+export function claveDeLink(url: string): string {
+  try {
+    const u = new URL(url);
+    const propios = ['v', 'id'].filter((k) => u.searchParams.has(k)).map((k) => `${k}=${u.searchParams.get(k)}`);
+    return `${u.host.replace(/^www\./, '')}${u.pathname.replace(/\/$/, '')}${propios.length ? `?${propios.join('&')}` : ''}`.toLowerCase();
+  } catch {
+    return url.replace(/#.*$/, '').replace(/\/$/, '');
+  }
+}
+
+/** Cuántas palabras tiene que tener un pie para ser copy: «🤣🤣🤣» o «We have fun» son de una cuenta personal, no un copy. */
+export const PALABRAS_MINIMAS_PIE = 15;
+const palabras = (s: string) => (s.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;
+
+/**
+ * ¿Su texto es copy? El guion, sí; el título de un video de YouTube o de un anuncio, también (es su gancho). El pie de Instagram o
+ * la descripción, sólo con `PALABRAS_MINIMAS_PIE` palabras: medido en el ws 3, la mitad de los pies eran un emoji o una frase suelta.
+ */
+export function esCopy(o: Pick<OutlierCopy, 'formato' | 'deDonde' | 'texto' | 'gancho'>): boolean {
+  if (o.deDonde === 'guion') return true;
+  if (o.formato === 'youtube' || o.formato === 'anuncio') return palabras(`${o.gancho} ${o.texto}`) >= 3;
+  return palabras(o.texto) >= PALABRAS_MINIMAS_PIE;
+}
+
 /** Una fila que no cumple el contrato no se dibuja (una fuente nueva puede traer basura). */
 export function outlierCopyValido(o: OutlierCopy): boolean {
   if (!o || !esIdOutlierCopy(o.id) || !o.id.startsWith(`${o.fuente}:`) || !esFormatoCopy(o.formato)) return false;
@@ -222,8 +251,8 @@ export function juntarOutliersCopy(lecturas: readonly { fuente: FuenteOutliersCo
   for (const { fuente, lectura } of lecturas) {
     if (!lectura.ok) { caidas.push({ fuente: fuente.id, nombre: fuente.nombre, motivo: lectura.motivo }); continue; }
     for (const o of lectura.outliers) {
-      if (!outlierCopyValido(o)) continue;
-      const k = o.url.replace(/[?#].*$/, '').replace(/\/$/, '');
+      if (!outlierCopyValido(o) || !esCopy(o)) continue;
+      const k = claveDeLink(o.url);
       if (vistos.has(o.id) || vistos.has(k)) continue;
       vistos.add(o.id); vistos.add(k);
       outliers.push({ ...o, texto: o.texto.length > TEXTO_EN_TARJETA ? `${o.texto.slice(0, TEXTO_EN_TARJETA - 1).trimEnd()}…` : o.texto });
