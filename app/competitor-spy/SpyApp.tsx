@@ -343,7 +343,7 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-pcard__pie{display:flex;align-items:flex-end;gap:10px;padding:12px 14px 14px 16px}
 .spy-pcard__texto{flex:1;min-width:0}
 .spy-pcard__texto small{display:block;color:var(--t-dim);font-size:var(--fs-meta);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* El nombre en DOS renglones, como `.pcard__text b` de fitlo («clamp 2», docs/diseno/referencia-spy.md). En uno solo, con la
+/* El nombre en DOS renglones, como «.pcard__text b» de fitlo («clamp 2», docs/diseno/referencia-spy.md). En uno solo, con la
    píldora del número al lado, un video de YouTube quedaba «The skill you N…» (11/11/2026, mirado con capturas). */
 .spy-pcard__texto b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;white-space:normal;
   overflow-wrap:anywhere;font-size:var(--fs-card);font-weight:600;line-height:1.3;letter-spacing:-.005em}
