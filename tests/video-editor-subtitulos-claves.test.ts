@@ -328,6 +328,32 @@ test('6d: el preset por id o por nombre; el que no está se dice con la lista', 
   assert.match(sinPresets.descartes[0], /todavía no tiene presets/);
 });
 
+test('6d2: una plantilla de la galería de fábrica («estilo Hormozi») por chat, como tocar su tarjeta (10/11/2026)', () => {
+  // Medido en producción: «Poné los subtítulos con el estilo de Hormozi» armaba karaoke amarillo y salto (sin Anton, sin
+  // mayúsculas, sin el contorno) porque el chat no veía la galería de Subtítulos › Plantillas.
+  const sinMarca = (operaciones: unknown[]) => revisarOperaciones({
+    operaciones: operaciones as never,
+    vista: vistaDeLinea({ tracks: escena(), tps: TPS, cabezal: 0, elegidos: [], disponibles: disponiblesDelMotor() }),
+    alcance: 'video',
+  });
+  const hormozi = sinMarca([{ op: 'usar_preset_subtitulos', preset: 'hormozi' }]);
+  assert.deepEqual(hormozi.resueltas, [{ op: 'usar_plantilla_subtitulos', plantilla: 'hormozi' }]);
+  assert.match(hormozi.cambios[0].despues, /la plantilla «Hormozi» \(vuelve a partir los renglones\)/);
+  // Por nombre, sin tildes ni mayúsculas.
+  assert.deepEqual(sinMarca([{ op: 'usar_preset_subtitulos', preset: 'Hormozi Clásico' }]).resueltas, [{ op: 'usar_plantilla_subtitulos', plantilla: 'hormozi-clasico' }]);
+  // La de la marca, si se llama igual, gana.
+  assert.deepEqual(revisar([{ op: 'usar_preset_subtitulos', preset: 'hormozi' }]).resueltas, [{ op: 'usar_preset_subtitulos', preset: 'paaaa1' }]);
+  assert.deepEqual(revisar([{ op: 'usar_preset_subtitulos', preset: 'hormozi-clasico' }]).resueltas, [{ op: 'usar_plantilla_subtitulos', plantilla: 'hormozi-clasico' }]);
+  // La IA ve la galería, siempre, con lo que hace cada una.
+  const json = vistaDeLinea({ tracks: escena(), tps: TPS, cabezal: 0, elegidos: [], disponibles: disponiblesDelMotor() }).json;
+  assert.match(json, /"plantillas_subtitulos":\{[^}]*"hormozi":"Hormozi: Anton, mayúsculas, contorno #ffe14d, la palabra salta"/);
+  assert.match(catalogoParaPrompt(), /«estilo Hormozi» es "hormozi"/);
+  // Se aplica con lo MISMO que la tarjeta del panel.
+  const aplicar = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));
+  assert.match(aplicar, /if \(r\.op === "usar_plantilla_subtitulos"\) \{[\s\S]*?usePreferenciasSubtitulos\.getState\(\)\.fijar\(\{ plantilla: plantilla\.id \}\);\s*const n = await aplicarEstiloASubtitulos\(\{ editor, estilo: paramsDePlantilla\(plantilla, lienzoDe\(editor\)\) \}\);/);
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts')), /"usar_preset_subtitulos", "usar_plantilla_subtitulos", "estilo_subtitulos"/, 'va entre las largas');
+});
+
 test('6e: la API declara las dos y vuelven a la forma del chat', () => {
   const claves = operacionApiPorId('resaltar_claves_subtitulos')!;
   const r = operacionDesdeInput(claves, { proyecto: 'p', modo: 'estas', palabras: ['hoy'], color: '#00ff00' });
@@ -353,3 +379,6 @@ test('6e: la API declara las dos y vuelven a la forma del chat', () => {
 //   · el runner proponiendo con el nombre en vez del id ............... 17/1 (5e)
 //   · revisar «auto» sin las palabras de la marca ..................... 17/1 (6b)
 //   · revisar «ninguna» reescribiendo los que ya no tenían ............ 17/1 (6c)
+//   La galería de fábrica por chat (10/11/2026, base 19/0):
+//   · linea.ts sin buscar en la galería (sólo los presets de la marca) .. 18/1 (6d2)
+//   · DISPONIBLES sin plantillas_subtitulos ............................. 18/1 (6d2)
