@@ -7967,3 +7967,28 @@ habilitarla es decisión de Martín: habilitarla es volver a prestarle IA a un c
 - **Costo, medido del 4/11 al 11/11** (Haiku a 1/5 US$ por millón): el ws 9 sin el Plan, unos US$28 por mes; WhatsApp fuera del
   ws 9, US$1,4. Unos US$30 de los US$400 de las dos cuentas con clave. El pico del 9/11 todos los días serían US$163. Lo que
   mide MaKo es lo REGISTRADO: Anthropic no deja leer el saldo, así que si las claves se usan fuera de MaKo el número se queda corto.
+- **Dónde quedó la regla:** `puedeUsarUnaCuentaDelCredito` (lib/veto-claude.ts, pura) y `esElEspacioDeLaPlataforma`
+  (lib/anthropic.ts, el workspace en curso contra `wsSuperAdmin()`). La consultan la puerta 2, la cascada de texto, el bucle con
+  herramientas y la lectura de imágenes. El reparto y el 90% viven en lib/credito-negocio.ts (`cuentasDelCredito`), y el vigía
+  del 80/100% en lib/credito-vigia.ts (desde /api/cron/alerta-critica).
+- **Tres capas frenan al Plan, y eso confunde al probar rompiendo:** sacar el Plan de la regla nueva deja VERDE la prueba de
+  verdad (ia-saturacion), porque `planPuedePagarConSuClave` y `evaluarClaveDelNegocio` lo vuelven a frenar. La regla sola la
+  caza el test puro (tests/credito-plataforma.test.ts). Un verde después de romper una capa no prueba que la capa sobra.
+- **Un test que fija el orden exacto del reparto depende de cuántas llamadas hubo antes en el mismo proceso** (el contador es
+  de `globalThis`). Sumar un caso arriba en el hijo rompió tests/credito-grupos.test.ts 5 sin que el reparto cambiara: se compara
+  el conjunto de rotaciones, no cuál va primero.
+- **El plan asumía una pantalla /modelos-ia que ya no existe** (se fue el 25/10, app/admin/dev/areas.ts). Lo que corre primero
+  quedó en su API (`primero`, lib/model-registry.ts → `getModelosConfig`), con la misma regla que la puerta.
+- **Sin hacer:**
+  - el techo de entrada de Haiku quedó en 150.000 tokens a la cuenta de la cascada (3,5 caracteres por token), con 200K de
+    contexto: **a verificar** con `count_tokens` sobre un pedido grande real (`TECHO_ENTRADA.anthropic`, lib/ai-cheap.ts);
+  - ninguna cuenta tiene `diaDeCobro` (lib/credito-api.ts → `CUENTAS_DEL_CREDITO`): el vigía mide el mes calendario hasta que
+    Martín cargue el día de cobro de cada plan;
+  - el tope por negocio del crédito (M2, docs/hallazgos-comunicacion.md) sigue pendiente; ahora el gasto queda en el ws de cada
+    negocio, así que se puede medir antes de fijarlo;
+  - el paso 9 del plan, «sólo si no alcanza»: el relevo por función, cachear el system y las herramientas del bucle
+    (`chatClaudeTools`, unos 18k de entrada por llamada de `mako-doer`) y evaluar otros proveedores;
+  - la marca en memoria de la cuenta agotada que todavía hacen el doer y el bot (lib/mako-doer-in.ts, lib/mako-bot.ts) quedó
+    redundante (la hace la puerta): no molesta, y la fija tests/doer-su-ia.test.ts;
+  - fuera de este cambio y con fecha: el permiso de `closing` vence el 13/11 (lib/veto-claude.ts) y el precio de Sonnet 5 sigue
+    a 2/10 (lib/anthropic-usage.ts).

@@ -981,6 +981,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       // tenemos infinitos... Por ahora solo en onboarding»): la lista es `CREDITO_HABILITADO_PARA`
       // (lib/veto-claude.ts) y hoy son las funciones del wizard, mientras el onboarding está en curso.
       // Para todo lo demás `conCreditoDeLaPlataforma` devuelve null y esto sigue como si no existiera.
+      // (Lo del espacio de MaKo no pasa por acá: desde el 11/11/2026 va PRIMERO, arriba, por la puerta 2. Esta red no corre en el
+      // super admin, y para un negocio el crédito sigue siendo sólo el del onboarding.)
       if (wsActual != null && quedan() >= MIN_INTENTO_MS) {
         const { conCreditoDeLaPlataforma } = await import('./anthropic');
         const c = await conCreditoDeLaPlataforma({

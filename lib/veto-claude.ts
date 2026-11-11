@@ -443,6 +443,18 @@ export function puedeUsarUnaCuentaDelCredito(p: {
 }
 
 /**
+ * Lo que corre PRIMERO en una función por el crédito, dicho para una pantalla (la API de /modelos-ia). La misma regla que la puerta
+ * (`puedeUsarUnaCuentaDelCredito`): el catálogo dice el `def` (el respaldo), y esto lo que va antes. null = el crédito no va.
+ */
+export function primeroConElCredito(feature: string, hoy?: Date): string | null {
+  const v = puedeUsarUnaCuentaDelCredito({ feature, esLaPlataforma: true, hoy });
+  if (!v.ok) return null;
+  return v.para === 'grupos'
+    ? 'primero: crédito de Claude (Haiku), en los grupos de WhatsApp de todos los negocios sin su Claude'
+    : 'primero: crédito de Claude (Haiku), sólo en el espacio de MaKo';
+}
+
+/**
  * Una cuenta del crédito no contestó: ¿se prueba la siguiente o se pasa al respaldo (Gemini, la cascada)? Puro.
  *   · sin saldo («credit balance is too low»), 401, 429 o sin la clave cargada: es de ESA cuenta, la otra puede contestar;
  *   · plazo vencido, 5xx, 529 u «overloaded»: es el mismo Anthropic para todas las cuentas, se pasa al respaldo;

@@ -17,8 +17,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
-  CREDITO_PARA_LA_PLATAFORMA, FEATURES_DE_LOS_GRUPOS, FEATURES_DEL_PLAN, FEATURE_DE_LOS_GRUPOS, puedeUsarUnaCuentaDelCredito, queHacerSiFallaElCredito,
+  CREDITO_PARA_LA_PLATAFORMA, FEATURES_DE_LOS_GRUPOS, FEATURES_DEL_PLAN, FEATURE_DE_LOS_GRUPOS, primeroConElCredito, puedeUsarUnaCuentaDelCredito, queHacerSiFallaElCredito,
 } from '../lib/veto-claude';
 import { CATALOGO_MODELOS } from '../lib/model-catalogo';
 
@@ -71,9 +72,26 @@ test('4. una cuenta que falla: la otra cuenta si es de ESA cuenta; el respaldo s
   assert.equal(queHacerSiFallaElCredito(400, 'prompt is too long: 250000 tokens > 200000 maximum'), 'al_respaldo', 'la otra cuenta contestaría lo mismo');
 });
 
+test('5. lo que dice la lista de modelos es lo que corre: el crédito PRIMERO, con la misma regla, sin tocar el `def`', () => {
+  assert.equal(primeroConElCredito('mako-doer'), 'primero: crédito de Claude (Haiku), sólo en el espacio de MaKo');
+  assert.equal(primeroConElCredito('mako-doer-in'), 'primero: crédito de Claude (Haiku), en los grupos de WhatsApp de todos los negocios sin su Claude');
+  assert.equal(primeroConElCredito('plan-fathom'), null, 'la lista dice que el Plan va con el crédito');
+  assert.equal(primeroConElCredito('cs-sesion'), null, 'la lista dice que una función con `fallback: []` va con el crédito');
+  // El `def` sigue siendo el respaldo, no Anthropic (un `def` de Anthropic va a la puerta 1, que el veto frena).
+  for (const f of ['mako-doer-in', 'mako-doer', 'mako-chat', 'MaKo en WhatsApp · adjunto']) {
+    const c = CATALOGO_MODELOS.find((x) => x.feature === f);
+    assert.ok(c, `«${f}» no está en el catálogo`);
+    assert.equal(c!.def.provider, 'gemini', `«${f}»: el \`def\` pasó a otro proveedor`);
+    assert.match(c!.nota ?? '', /crédito de Claude/, `la nota de «${f}» no dice que va primero con el crédito`);
+  }
+  const reg = readFileSync(new URL('../lib/model-registry.ts', import.meta.url), 'utf8');
+  assert.match(reg, /primero: primeroConElCredito\(f\.feature\)/, 'la API de /modelos-ia no dice qué corre primero');
+});
+
 // ── Probado rompiéndolo (11/11/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
 //   R1 `esLaPlataforma !== true` → `=== false` (sin saber, deja pasar)            → falla el 2
 //   R2 sin mirar `FEATURES_DEL_PLAN`                                               → falla el 3
 //   R3 sin la fecha `hasta`                                                        → falla el 3
 //   R4 un 529 «Overloaded» prueba la otra cuenta                                   → falla el 4
 //   R5 sin mirar `fallback: []` del catálogo                                       → falla el 3
+//   R6 la API de /modelos-ia sin el `primero`                                      → falla el 5

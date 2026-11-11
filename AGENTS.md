@@ -5886,7 +5886,8 @@ nuevo:
 - **Quién paga la IA de un cliente: el cliente** (Martín, 22/10/2026: «Cada usuario debe poder pagar su token, su propia IA
   de gemini»). Su IA es su Claude, su GPT o su Gemini, con SU clave. La red de la plataforma (`provsGratisDePlataforma`)
   devuelve `[]` fuera del ws9: las claves de la plataforma son para lo interno de MaKo, nunca para un negocio, con o sin
-  datos de clientes. Lo único que la plataforma pone es el crédito de Claude del onboarding. Código nuevo que necesite IA
+  datos de clientes. Lo único que la plataforma pone es el crédito de Claude: el del onboarding y el de los grupos de
+  WhatsApp (el resto del crédito, desde el 11/11/2026, es sólo para el espacio de MaKo, ver la tercera puerta). Código nuevo que necesite IA
   para un negocio usa `provsDe` (sus filas), y sin su IA dice «Conecta tu Claude, tu GPT o tu Gemini» (`CONECTA_TU_IA`).
 - **Lo que es «su IA» se nombra con `PROVS_SU_IA`, nunca con una lista fija** (`['openai']` dejó a cuatro caminos sin su
   Gemini, IA16). Su orden es a propósito: su GPT antes que su Gemini (una Gemini gratis del onboarding no pasa adelante).
@@ -5911,11 +5912,12 @@ MaKo»). Ya está pago con la suscripción y al acabarse corta en vez de cobrar,
 `chatCheapCascade`, antes de las keys gratis (`conCreditoDeLaPlataforma`, lib/anthropic.ts). Lo que gobierna código
 nuevo:
 
-- ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ, y hoy es el onboarding.** Textual (16/10/2026): «Yo debo decirte cuando
-  utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» La lista es `CREDITO_HABILITADO_PARA`
-  (lib/veto-claude.ts): el chat de Offer, que es el onboarding, y lo que usa de El Archivero, y sólo mientras el onboarding
-  del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
-  camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
+- ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ.** Textual (16/10/2026): «Yo debo decirte cuando utilizar creditos, no tenemos
+  infinitos... Por ahora solo en onboarding.» Para un NEGOCIO sigue siendo eso: esta puerta (`CREDITO_HABILITADO_PARA`,
+  lib/veto-claude.ts) es el chat de Offer, que es el onboarding, y lo que usa de El Archivero, y sólo mientras el onboarding
+  del negocio está en curso (`onboardingPendiente`); y los grupos de WhatsApp (abajo). Lo del espacio de MaKo ya no está en esa
+  lista: desde el 11/11/2026 va por la puerta 2 (abajo). Para todo lo demás el crédito dice que no y la cascada sigue como si no
+  existiera. Un camino nuevo NO se suma por su cuenta: lo pide Martín.
 - **Y el turno de texto de los GRUPOS de WhatsApp, desde el 28/10/2026** (Martín: «habilites las API que tenemos disponibles
   con todas las cuentas de planes 200»). Sólo `FEATURE_DE_LOS_GRUPOS` (`mako-doer-in`), sólo si el negocio no tiene su Claude
   (el suyo gana), con Haiku, nunca después de una herramienta y nunca el Plan; el gasto lleva «(cuenta N)», y el interruptor
@@ -6085,7 +6087,8 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   (16/10/2026). Mandar algo a entrenar no se deshace, y la opción segura no cuesta nada. Las keys
   gratis de la agencia son el plan gratis de Gemini (que entrena, con revisión humana) y de Groq. El
   orden de la red es: el crédito de Claude de la plataforma (la API de Anthropic no entrena) SÓLO en lo
-  que Martín habilitó —hoy el onboarding, ver la tercera puerta del veto—, después una key de Gemini con
+  que Martín habilitó —para un negocio, el onboarding y los grupos de WhatsApp; en el espacio de MaKo, todo menos el Plan
+  (11/11/2026); ver la tercera puerta del veto—, después una key de Gemini con
   facturación si se identifica cuál es, y las del plan gratis sólo al final y NUNCA con datos personales.
   En `chatCheapCascade` lo decide la marca `pii` del catálogo (`lib/model-catalogo.ts`) o `opts.pii`: con
   datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
