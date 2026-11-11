@@ -2761,6 +2761,12 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - **Y una línea que escribe el CÓDIGO tampoco promete lo imposible** (29/10/2026, el ticket #30 de Leandro: «No tengo acceso…
   pídemelo otra vez y lo hago»). Un texto fijo que dice «lo hago» mira antes si es algo que MaKo puede hacer (`noLoPuedeHacer`);
   si no, no va.
+- **MaKo SIEMPRE contesta en su grupo** (Martín, 10/11/2026: «Mako en WhatsApp no responde... SIEMPRE debe responder»). La respuesta
+  al grupo donde una persona acaba de escribir pasa el freno de la línea y el tope del mismo texto (`esRespuestaEnCurso`,
+  lib/mako-salida-reglas.ts); el contexto lo abren SÓLO las entradas del turno (`conRespuestaA`, lib/respuesta-en-curso.ts). Un camino
+  nuevo que contesta un mensaje de un grupo lo abre; un aviso, un flujo o una alta, nunca. Y lo que no llegó a WhatsApp no se da por
+  dicho: `respuestaNoEntregada` abre su ticket. Lo fija tests/mako-responde-siempre.test.ts; las seis causas de «no responde» y el
+  diagnóstico, en docs/hallazgos-comunicacion.md.
 - **El acuse del grupo es el 👍, y ningún código manda un «dame un momento»** (Martín, 24/10/2026). Un texto de
   espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
   («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí

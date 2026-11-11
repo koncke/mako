@@ -35,6 +35,8 @@ import { porId, aToolDef, parecidasQueNoViajaron } from '@/lib/api-mako/registro
 import { errorParaTicket, esPedidoDelegado, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { actorDeWhatsApp as actorPorWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
 import { conSalidaDelGrupo, esClaveDeLaApp, esIdDeLaApp, salidaPara, vozDeLaApp } from '@/lib/grupo-salida';
+import { conRespuestaA } from '@/lib/respuesta-en-curso';
+import { motivoDeNoEntrega, respuestaNoEntregada } from '@/lib/mako-salida-reglas';
 import { filaPorIdDeMensaje, mediaDelMensaje } from '@/lib/grupo-app';
 import { leerParticipanteDeApp, participanteDeApp } from '@/lib/grupo-reglas';
 import { letraVigente, miembrosDelGrupo } from '@/lib/grupo-puerta';
@@ -742,7 +744,9 @@ export async function manejarEntranteDoer(instance: string, data: MsgIn): Promis
   if (!jid || !jid.endsWith('@g.us')) return { engaged: false, skip: 'no es grupo' };
   // Lo que MaKo diga en EL grupo del negocio se ve también en la app (lib/grupo-salida.ts). En un grupo de prueba, no.
   const oficial = await wsDelGrupoOficial(jid);
-  return oficial != null ? conSalidaDelGrupo({ ws: oficial, clave: jid, soloApp: false, hayInvitado: false }, () => atenderEntranteDoer(instance, data, jid)) : atenderEntranteDoer(instance, data, jid);
+  // ⚠️ LA RESPUESTA SALE AUNQUE LA LÍNEA ESTÉ FRENADA (11/11/2026, Martín: «Mako en WhatsApp no responde... SIEMPRE debe responder»): lo que
+  // este turno le mande a ESTE grupo es la respuesta a quien escribió, y el freno la deja pasar (lib/respuesta-en-curso.ts).
+  return conRespuestaA(jid, () => (oficial != null ? conSalidaDelGrupo({ ws: oficial, clave: jid, soloApp: false, hayInvitado: false }, () => atenderEntranteDoer(instance, data, jid)) : atenderEntranteDoer(instance, data, jid)));
 }
 async function atenderEntranteDoer(instance: string, data: MsgIn, jid: string): Promise<ResultadoDoer> {
 
@@ -3539,17 +3543,34 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // equipo de MaKo o una agencia los abría en SU workspace (medido 17/10/2026: ws13, ws15 y ws18).
       const enviar = [...partes, ...paraLaPersona].map((t) => linksConWs(t, wsData, APP_URL));
       const idsEnv: string[] = [];
+      const envios: EnvioGrupo[] = [];
       for (let i = 0; i < enviar.length; i++) {
         if (i > 0) await new Promise((r) => setTimeout(r, 700));
         const env = await enviarAGrupoJid(jid, enviar[i]);
+        envios.push(env);
         if (env.ok && env.id) idsEnv.push(env.id);
       }
       await registrarEnviados(OPS, jid, idsEnv); // un solo write para toda la respuesta
+      // ⚠️ UNA RESPUESTA QUE NO LLEGÓ A WHATSAPP NO SE DA POR DICHA EN SILENCIO (11/11/2026, Martín: «Mako en WhatsApp no responde... SIEMPRE
+      // debe responder»). Antes se guardaba igual en la conversación: el vigía no veía un silencio (había respuesta guardada) y el único
+      // rastro era un mail del freno. Ahora deja su ticket, con el motivo (la línea frenada, Evolution caído), por la huella global.
+      const noLlego = respuestaNoEntregada(envios);
+      if (noLlego) {
+        // Un turno de la app no va a WhatsApp: lo que no llegó ahí es el hilo de la app, y el ticket lo dice así.
+        const donde = soloApp ? 'el grupo de la app' : 'WhatsApp';
+        console.error(`[mako-doer-in] ws=${wsData} la respuesta NO llegó a ${donde} (${noLlego.faltan} de ${noLlego.de}): ${noLlego.motivo}`);
+        const quien = await identidadDelActor(wsData, ctxApi.actor).catch(() => null);
+        const reg = await registrarError({ origen: 'mako', nombre: `contestar en ${donde}`, mensaje: `MaKo contestó y no llegó a ${donde}: ${motivoDeNoEntrega(noLlego.motivo)}` }, quien)
+          .catch((e: unknown) => { console.warn(`[mako-doer-in] ws=${wsData} la respuesta perdida no se registró: ${e instanceof Error ? e.message : String(e)}`); return null; });
+        if (reg && !reg.ok) console.warn(`[mako-doer-in] ws=${wsData} la respuesta perdida no se registró (${reg.motivo})`);
+      }
       // Lo que SÍ es conversación se guarda; el cartel de «no pude», no (ver arriba).
       // Y lo del código tampoco: el historial vuelve al modelo en el turno siguiente, y
       // la agenda no pasa por ninguno.
       if (avisoDeSistema) console.warn(`[mako-doer-in] ws=${wsData} aviso de plataforma enviado y FUERA del historial (${(respuesta ?? '').length} chars)`);
-      else if (partes.length && !hayInvitado) await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
+      // Lo que no salió por NINGÚN lado (ni WhatsApp ni el hilo de la app) no se guarda como dicho: el turno siguiente creería que lo
+      // dijo, y el vigía (lib/vigia-mako-grupos.ts) lo cuenta como el silencio que es (11/11/2026).
+      else if (partes.length && !hayInvitado && envios.some((e) => e.ok)) await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
       // Lo que mostraron las herramientas de ESTE turno, para los siguientes: pisa lo de la misma herramienta y deja lo demás
       // vigente (`unirRefs`). Un turno sin nada con id no toca nada: «la segunda» sigue siendo de la última lista que se mostró.
       if (!avisoDeSistema && !hayInvitado && refsDelTurno.length) await setSetting(CLAVE_REFS(jid), unirRefs(refsGuardadas, refsDelTurno, Date.now())).catch(() => {});
@@ -3601,7 +3622,8 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
       const oficial = esClaveDeLaApp(jid) || (await wsDelGrupoOficial(jid)) != null;
       const m = oficial ? await miembrosDelGrupo(ws).catch(() => null) : null;
       const unaPersona = !!m && m.conCuenta.length + m.invitadosSinCuenta.length <= 1;
-      const r = oficial ? await conSalidaDelGrupo({ ws, clave: jid, soloApp: false, hayInvitado: false, unaPersona }, correr) : await correr();
+      // Lo que el cron levanta es lo que una persona escribió y quedó sin contestar: su respuesta pasa el freno, como en la entrada.
+      const r = await conRespuestaA(jid, () => (oficial ? conSalidaDelGrupo({ ws, clave: jid, soloApp: false, hayInvitado: false, unaPersona }, correr) : correr()));
       if (r) procesados++;
     } catch (e) { console.error('[mako-doer-in] flushHuerfanos:', e instanceof Error ? e.message : String(e)); }
   }
