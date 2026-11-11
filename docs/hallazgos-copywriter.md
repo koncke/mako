@@ -426,8 +426,13 @@ app/m/copywriter/GuionM.tsx
   La tarjeta y MaKo dicen qué texto es; nunca «la transcripción» cuando es el pie.
 - ⚠️ **El texto de Spy vence a los 30 días** (`podarVencido`, la regla de datos de terceros): una pieza vieja de Spy llega sin pie y
   no es un outlier de copy. Una portada que no sale «vacía» depende de que Spy siga leyendo.
+- ⚠️ **El copy de un anuncio puede no ser copy, y repetirse** (simulado con los datos del ws 9, 11/11): los anuncios de catálogo
+  traen «{{product.name}}» de texto y, como llevan meses al aire, quedaban entre los diez primeros. Y el mismo texto corre en
+  varios anuncios: de 258 anuncios quedaban 24 distintos. Una variable de plantilla no cuenta como palabra (`esCopy`), y el
+  mismo copy del mismo creador sale una vez (`juntarOutliersCopy`).
 - **Sin hacer:** los anuncios propios como fuente (`ad_transcripts` + el veredicto del Script Analyst), y transcribir al replicar
-  (asegurarGuion de Spy tiene tope de 20 por día y cuesta).
+  (asegurarGuion de Spy tiene tope de 20 por día y cuesta). Los anuncios propios con transcripción están sólo en negocios de
+  clientes (ws 1, 13, 19, 4, 14…), ninguno en el ws 3 ni en el 9; y para saber cuál es «ganador» faltan sus métricas de Meta.
 
 ## En el negocio de prueba MaKo no escribe guiones: no es una falla del Copywriter (11/11/2026, prueba en producción)
 
