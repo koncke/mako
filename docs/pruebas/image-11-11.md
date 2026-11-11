@@ -35,6 +35,8 @@ el estado con JS y se repitió. Ver docs/hallazgos-pruebas.md.
 | 22 | El duplicado en el editor del teléfono | 375 | **PASA**: abre con sus 11 páginas, sin scroll de costado. **Crítica:** la fila de la página se corta a la derecha (el nombre queda en «P», el último ícono a medias) y la barra de abajo corta «Herramientas» | [20](image-11-11/20-editor-375.jpg) |
 | 23 | Editar un texto en el teléfono y guardar | 375 | **PASA**: «1. Mira lo que funciona», «Se guardaron todos los cambios», y en la base (15:21:48 UTC) | [21](image-11-11/21-texto-editado-375.jpg) |
 | 24 | El guiado de «Editar», otra vez, en una pestaña nueva y con la sesión recién entrada | 1440 | **NO SE PUDO VER**: el panel seguía oculto y no abrió | — |
+| 25 | Después del despliegue de las 15:55 UTC (`2507c11c7`, trae `2d409ba9c`): el link de un REEL | 1440 y 375 | **PASA**: «Ese link es de un reel: aquí se traen carruseles y publicaciones con imagen.», sin «Traer» y sin «Guardar búsqueda». Gratis. **Detalle:** en el teléfono no queda ningún botón para borrar el link | [22](image-11-11/22-reel-sin-boton-1440.png) · [25](image-11-11/25-reel-sin-boton-375.jpg) |
+| 26 | Un error DEFINITIVO no se reofrece: el link de un carrusel que salió de la biblioteca (`DfSspEuktt9`, `DfVYJY2lHVf`) | 1440 y 375 | **PASA**: «Ese carrusel salió de los ejemplos: no lo puedo sumar.» con «Reportar a Soporte», y en lugar de «Traer» queda «Quitar filtros». 1,5 s, sin Apify | [23](image-11-11/23-error-definitivo-sin-reofrecer-1440.png) · [24](image-11-11/24-error-definitivo-sin-reofrecer-375.jpg) |
 | 20 | Oscuro | — | **NO PROBADO**: el tema de MaKo es un interruptor de la cuenta (no sigue al sistema), y cambiarlo es tocar la preferencia de Martín | — |
 
 ## Lo medido (costo y tiempo de UNA lectura)
