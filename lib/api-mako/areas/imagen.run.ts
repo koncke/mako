@@ -18,8 +18,11 @@ import { PLANTILLAS_IMAGEN, plantillaImagen } from '@/lib/image-editor/plantilla
 import { guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { crearCarruselDesdeReferencia, referenciaDelNegocio } from '@/lib/carruseles/crear-servidor';
 import { replicarCarrusel, replicarEjemplo } from '@/lib/carruseles/replica-servidor';
-import { FILTROS_THUMBNAIL, filtrarThumbnails, filtrosThumbnailDeQuery, imagenDeVideo, queryDeThumbnails, urlDeVideo, type Thumbnail } from '@/lib/thumbnails/explorar';
+import { FILTROS_THUMBNAIL, filtrarThumbnails, filtrosThumbnailDeQuery, imagenDeVideo, queryDeThumbnails, urlDeVideo, videoDeYoutube, type Thumbnail } from '@/lib/thumbnails/explorar';
 import { guardarThumbnail, leerThumbnails, thumbnailPorId } from '@/lib/thumbnails/servidor';
+import { traerThumbnail } from '@/lib/thumbnails/traer-servidor';
+import { traerCarrusel } from '@/lib/carruseles/traer-servidor';
+import { linkDeInstagram } from '@/lib/carruseles/link';
 import { ENMIENDA_III_L, FALTA_LA_ENMIENDA, LEYENDA_DERIVADA } from '@/lib/spy-reglas';
 import { rotuloAire } from '@/lib/carruseles/anuncios';
 import { estructuraDe, frasesDe, planDeReferencia } from '@/lib/carruseles/referencia';
@@ -493,6 +496,42 @@ export const RUNNERS: Runners = {
         ok: true,
         resumen: `${r.sinIA ? 'Creada con una guía' : 'Creada con tu texto'}. Ábrela aquí: ${url}${r.aviso ? ` · ${r.aviso}` : ''}`,
         datos: { disenoId: r.id, link: url, bloque, sinIA: !!r.sinIA, ...(r.conectar ? { conectar: linkApp(r.conectar, ctx.ws) } : {}) },
+      };
+    },
+  },
+
+  // «Traer tu outlier» (11/11/2026): lo MISMO que el buscador de la pantalla (app/api/image-editor/carruseles/traer). Un link de
+  // YouTube va a las miniaturas; el de una publicación de Instagram, a los carruseles. Devuelve el id para «Editar».
+  traer_outlier: {
+    preparar: async (input): Promise<Preparado> => {
+      const texto = str(input, 'link');
+      if (!texto) return { error: 'Falta el link (una publicación de Instagram o un video de YouTube).', faltan: ['link'] };
+      const yt = videoDeYoutube(texto);
+      const ig = yt ? null : linkDeInstagram(texto);
+      if (yt?.corto) return { error: 'Ese link es de un Short de YouTube: se traen videos largos, que son los que tienen una miniatura diseñada.' };
+      if (yt) return { payload: { link: texto.slice(0, 500) }, resumen: `Leer el video ${urlDeVideo(yt.video)} y sumar su miniatura a tus outliers (gratis, por la API de YouTube).` };
+      if (ig) return { payload: { link: texto.slice(0, 500) }, resumen: `Leer la publicación ${ig.url} y sumarla a tus outliers (una lectura de Instagram, unos US$0,0025).` };
+      return { error: 'Ese no es el link de una publicación de Instagram ni de un video de YouTube.', faltan: ['link'] };
+    },
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const texto = String(payload.link ?? '');
+      if (videoDeYoutube(texto)) {
+        const r = await traerThumbnail(ctx.ws, texto);
+        if (!r.ok) return { ok: false, resumen: r.error };
+        const t = r.thumbnail;
+        return {
+          ok: true,
+          resumen: `${r.nuevo ? 'Sumada a tus outliers' : 'Ya estaba entre tus outliers'}: la miniatura de ${t.canal.handle || t.canal.nombre}. Para tu versión, editar_ejemplo_thumbnail con el id ${t.id}.`,
+          datos: { thumbnailId: t.id, thumbnail: thumbnailParaApi(t), link: linkExplorador(queryDeThumbnails({ ...FILTROS_THUMBNAIL, q: urlDeVideo(t.video) }), ctx.ws) },
+        };
+      }
+      const r = await traerCarrusel(ctx.ws, texto);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      const c = r.carrusel;
+      return {
+        ok: true,
+        resumen: `${r.nuevo ? 'Sumado a tus outliers' : 'Ya estaba entre tus outliers'}: el carrusel de ${c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre}. Para tu versión, editar_ejemplo_carrusel con el id ${c.id}.`,
+        datos: { carruselId: c.id, carrusel: carruselParaApi(c), link: linkExplorador('', ctx.ws) },
       };
     },
   },

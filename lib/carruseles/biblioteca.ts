@@ -27,6 +27,7 @@
 // =============================================================================
 
 import { usuarioInstagram } from '@/app/crm/campo-inline';
+import { traidaPor } from '../traida-por';
 import type { PiezaInstagram } from '../instagram-perfil';
 import { formatoDe } from '../spy-detalle';
 import { medioDeInstagram } from '../spy-medio';
@@ -36,6 +37,7 @@ import { sinCuenta } from '../multiplo-rendimiento';
 import { cierreDeTexto, esCierre, type Cierre } from './texto';
 import { pareceContenido, portadaDice, textoDePortada, tipoDeCarrusel } from './clasificar';
 import { ctaDeTexto, ctaGuardado } from './cta';
+import { linkDeInstagram } from './link';
 
 export type EstadoCuentaBiblioteca = 'activa' | 'excluida';
 /** 'lista': la eligió la plataforma y se lee entera. 'tema': apareció por un hashtag y no se lee sola. */
@@ -90,7 +92,26 @@ export type PiezaBiblioteca = {
    * una lectura nueva espera a que alguien la vea (`estaRevisada`). Sin la columna, se muestra como antes.
    */
   revisada_en?: string | null;
+  /**
+   * Quién la ve (mig 0413, 11/11/2026, «Traer tu outlier»). null o ausente: la plataforma, todos. Un negocio: la trajo ese
+   * negocio por su link y la ve SÓLO él (`seMuestraA`).
+   */
+  workspace_id?: number | string | null;
 };
+
+/** ¿La trajo un negocio por su link? (mig 0413) Vive en lib/traida-por.ts: la misma lectura sirve a las miniaturas (0414). */
+export { traidaPor };
+
+/**
+ * ¿El negocio `ws` ve esta publicación? (11/11/2026) Lo que trajo un negocio lo ve SÓLO ese negocio, y sin esperar la revisión
+ * de la 0411: lo eligió él. Lo de la plataforma, sólo lo que alguien miró (`estaRevisada`). Sin negocio (un script), sólo lo de
+ * la plataforma: lo de un negocio nunca se le escapa a otro por no saber quién mira.
+ */
+export function seMuestraA(p: Partial<PiezaBiblioteca> | Record<string, unknown>, ws: number | null): boolean {
+  const de = traidaPor(p);
+  if (de != null) return ws != null && de === ws;
+  return estaRevisada(p);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Que nadie vea un ejemplo que nadie miró (mig 0411, 6/11/2026)
@@ -735,21 +756,9 @@ export function parecidoConNombre(c: { usuario: string; nombre?: string | null }
 // El creador de un link suelto queda con `fuente: 'tema'` —o sea, NO se lee entero— porque de su cuenta no se midió nada: sin
 // su mediana no hay outlier, y lo que no se midió no se dice (`carruselesDeBiblioteca`).
 
-/** De dónde puede venir un link de una publicación de Instagram: `/p/`, `/reel/`, `/reels/` o `/tv/`, con o sin `@usuario` antes. */
-const LINK_DE_PUBLICACION = /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)?instagram\.com\/(?:[^/\s?#]+\/)?(?:p|reels?|tv)\/([A-Za-z0-9_-]{3,30})(?:[/?#]|$)/i;
-
-/**
- * El link de una publicación de Instagram, normalizado: su `ref` (el shortcode, que es la identidad de la pieza, igual que en
- * `piezasDeApify`) y la dirección con que se le pide al actor. null si no es un link de una publicación.
- *
- * ⚠️ La dirección sale siempre como `/p/<ref>/`: el shortcode es único en Instagram y el actor lo resuelve igual venga de un
- * reel o de un tv. La `url` que se GUARDA no es ésta, es el `permalink` que devuelve el actor (`filasDeLectura`).
- * ⚠️ Un shortcode suelto NO cuenta: sin el dominio no se puede saber si es un link, un nombre de cuenta o cualquier palabra.
- */
-export function linkDeInstagram(texto: string | null | undefined): { ref: string; url: string } | null {
-  const m = String(texto ?? '').trim().match(LINK_DE_PUBLICACION);
-  return m ? { ref: m[1], url: `https://www.instagram.com/p/${m[1]}/` } : null;
-}
+// `linkDeInstagram` vive en ./link.ts (11/11/2026): lo usa también la pantalla de los outliers («Traer tu outlier»), y desde acá
+// arrastraría al navegador todo este módulo.
+export { linkDeInstagram };
 
 export type PlanDeLinks = PlanDeTandas & {
   /** Los links que se van a pedir, en orden y sin repetidos. */

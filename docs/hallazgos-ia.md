@@ -1886,6 +1886,29 @@ llamador que lo usó fue el primero en descubrir que no servía.
 
 **Vive en:** lib/ai-cheap.ts (`leerConGemini`, `chatCheap` → `paramsDeSalida`) · 6/11/2026
 
+### ⚠️ Con el tope viajando, el JSON se cortaba igual: la SANGRÍA se comía la mitad, y un JSON cortado pasaba como respuesta (11/11/2026)
+
+«Editar» un carrusel de 6 láminas en el ws9 fallaba una vez de cada dos con «La IA no devolvió el diseño en un formato que
+pueda leer». El diagnóstico obvio era «8.000 tokens no alcanzan, hay que subir el tope», y **era el equivocado**: subirlo no
+entra en el plazo. `gemini-3.8-flash` escribe unos 80 tokens por segundo, 8.000 ya son 100 s y el plazo de la llamada es
+120 s. Medido en `anthropic_usage` y con el crudo de la respuesta (el volcado de `fetch` sobre
+scripts/carruseles-probar-editar.mts):
+- con `response_mime_type: application/json`, Gemini devuelve el JSON **con sangría**: 588 líneas y 6.194 espacios para 6
+  láminas. Midió 5.374, 7.904 y **7.996** tokens visibles en tres corridas del mismo carrusel. La de 7.996 se cortó a mitad
+  de una clave;
+- pidiéndolo «compacto, en UNA sola línea» (`COMPACTO`, lib/carruseles/replica.ts), el mismo carrusel salió en 1 línea con
+  **3.273 tokens** y 72 s. Gemini lo respeta aunque el modo JSON esté prendido;
+- `leerConGemini` **no miraba `finishReason`**. Un JSON cortado volvía como texto bueno, `probarCon` lo daba por respondido
+  y nunca probaba el modelo de respaldo (`gemini-flash-lite-latest`). Pasaba directo a «no pude leerlo», y de ahí a las guías.
+
+**La regla:** con `json`, una respuesta que terminó en `MAX_TOKENS` **tira** y la rotación pasa al modelo siguiente. Un
+texto cortado todavía sirve; un JSON cortado, no. Sin `json` se devuelve como siempre. El formato que se le pide al modelo
+también cuesta tokens y segundos, así que un JSON de salida grande se pide compacto. `thoughtsTokenCount` (778 y 1.603 en esas
+corridas) viene aparte de `candidatesTokenCount`, que es lo que registra el uso.
+
+**Vive en:** lib/ai-cheap.ts (`leerConGemini`), lib/carruseles/replica.ts (`COMPACTO`); el test en
+tests/carruseles-editar.test.ts (caso `cortado`, roto a propósito las dos cosas: 10/1 cada una) · 11/11/2026
+
 ### ⚠️ Un modelo de Gemini que se cuelga se come el plazo ENTERO, y el plazo es por llamada, no por pedido (6/11/2026)
 
 Medido con la red instrumentada en «Editar» un carrusel, dos veces el mismo día: `gemini-flash-latest` no contesta y aborta a
