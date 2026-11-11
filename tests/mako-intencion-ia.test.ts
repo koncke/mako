@@ -13,7 +13,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clasificarConIA, entradaDeClase, leerClase, SYSTEM_DE_CLASE, veredictoDeClase, type EntradaDeClase } from '../lib/mako-intencion-ia';
+import { clasificarConIA, entradaDeClase, leerClase, lePideAlEquipoDeMaKo, SYSTEM_DE_CLASE, veredictoDeClase, type EntradaDeClase } from '../lib/mako-intencion-ia';
 import { respuestaDelTicket, ticketQueAcabaDeNombrar } from '../lib/despacho-grupo';
 import type { VeredictoIntencion } from '../lib/mako-intencion';
 
@@ -99,3 +99,19 @@ test('4. el ticket del grupo: la respuesta la escribe el código, y lo que sigue
   assert.equal(ticketQueAcabaDeNombrar('Tienes 3 leads hoy.'), null);
   assert.equal(ticketQueAcabaDeNombrar(null), null);
 });
+
+test('5. «Dile a Claude que…» nunca queda sin respuesta (Martín, 11/11/2026 00:07, en su grupo)', async () => {
+  // La salida REAL del modelo de ese turno (anthropic_usage 02:03:01): NO_REPLY, porque tomó a Claude por otra persona del grupo.
+  const MARTIN: EntradaDeClase = { ...E, texto: 'Dile a Claude que me de un archivo con todas las transcripciones del curso de ads que bajamos. Y pasamelo por aqui', esSuperAdmin: true, escribeElDueno: true, quien: 'Martín' };
+  const real = '{"clase":"NO_REPLY","resumen":"Le pide a alguien del grupo (Claude) un archivo de transcripciones, no es un mensaje para MaKo","reenviado":false,"secundaria":null}';
+  const v = await clasificarConIA(MARTIN, REGLAS, async () => real);
+  assert.equal(v.veredicto.intencion, 'ticket', 'MaKo se calló otra vez');
+  for (const t of ['Dile a Claude que me de un archivo', 'pedile a Claude que arregle el CRM', 'Pídele al equipo que lo revise', 'que Claude me pase las transcripciones', 'avísale a Claude']) assert.equal(lePideAlEquipoDeMaKo(t), true, `«${t}»`);
+  for (const t of ['@Joan ¿esto habla solo?', 'Claude es el modelo que usamos', 'sí, después creamos otro grupo', 'dile a Joan que lo llame']) assert.equal(lePideAlEquipoDeMaKo(t), false, `«${t}»`);
+  // Lo que de verdad es para otra persona sigue siendo NO_REPLY.
+  const otro = await clasificarConIA({ ...E, texto: 'dile a Joan que lo llame' }, REGLAS, async () => '{"clase":"NO_REPLY","resumen":"le habla a Joan"}');
+  assert.equal(otro.veredicto.intencion, 'no_reply');
+  assert.match(SYSTEM_DE_CLASE, /Claude, el Cerebro o «el equipo» NO son otra persona del grupo/);
+});
+
+// Probado rompiéndolo (11/11/2026): sin `aClaude` en `veredictoDeClase` → falla el 5; `lePideAlEquipoDeMaKo` que da siempre true → falla el 5.

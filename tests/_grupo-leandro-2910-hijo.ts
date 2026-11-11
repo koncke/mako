@@ -70,12 +70,15 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
 }) as typeof fetch;
 
 /** Un mensaje de Leandro en la forma REAL de Evolution v2 (la de `mako_doer_buffer.payload`). */
+// La hora de WhatsApp de cada mensaje real, corrida a AHORA con el orden de siempre (comprimida 20 veces): lo que llega con más de
+// 6 h de atraso no lo atiende MaKo sola (lib/linea-demora.ts, 10/11/2026), y estas horas son del 28-29/10.
+const reciente = (ts: number): number => Math.floor(Date.now() / 1000) - Math.round((1793260000 - ts) / 20);
 const real = (id: string, ts: number, message: Record<string, unknown>, extra: Record<string, unknown> = {}) => ({
   key: { id, fromMe: false, remoteJid: JID, participant: LID, addressingMode: 'lid', participantAlt: ALT },
   source: 'web', status: 'DELIVERY_ACK',
   message: { ...message, messageContextInfo: { threadId: [] } },
   instance: LINEA, pushName: 'Leandro', instanceId: 'e0000000-0000-0000-0000-000000000010',
-  messageType: message.audioMessage ? 'audioMessage' : 'conversation', messageTimestamp: ts,
+  messageType: message.audioMessage ? 'audioMessage' : 'conversation', messageTimestamp: reciente(ts),
   ...extra,
 });
 const texto = (id: string, ts: number, t: string, extra: Record<string, unknown> = {}) => real(id, ts, { conversation: t }, extra);

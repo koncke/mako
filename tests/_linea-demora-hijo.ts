@@ -15,6 +15,8 @@ process.env.CREDENCIALES_SECRET = 'secreto-de-prueba-de-32-caracteres-o-mas-para
 process.env.EVOLUTION_BASE_URL = 'http://evolution.test';
 process.env.EVOLUTION_API_KEY = 'evo-de-prueba';
 process.env.NEXT_PUBLIC_APP_URL = 'https://hola-mako.com';
+// Sin la ventana de silencio del lote (tests/tanda-no-la-mata-un-test-lento.test.ts): no se mide acá.
+process.env.MAKO_DOER_VENTANA_MS = '0';
 
 const JID = '120363000000000013@g.us';
 const SA = '120363000000000099@g.us';

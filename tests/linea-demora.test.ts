@@ -62,7 +62,7 @@ test('2. la demora de la línea, con las filas reales del 10/11; el mail lo arma
 });
 
 test('3. la entrada real: un día tarde va a SuperAdmin una vez y no entra a la cola; 78 min y sin hora siguen', () => {
-  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_linea-demora-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 480_000 });
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_linea-demora-hijo.ts', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 240_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@DEMORA@@'));
   assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   const o = JSON.parse(linea.slice('@@DEMORA@@'.length));
