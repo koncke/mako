@@ -65,6 +65,9 @@ Informe caso por caso: [pruebas/competitor-spy-10-11.md](pruebas/competitor-spy-
   «This page couldn’t load» (el error de cliente de Next.js nuevo, que `esPaginaDeError` no conocía). El aviso de pintado se
   repite a 1,2 y 3 s; si el error llega después de eso, todavía se ve.
 - **«Sumar» no copiaba `medio` ni `laminas`**: un carrusel copiado decía «Publicación».
+- **El CSS de SpyApp vive en una plantilla de texto: un comentario con comillas invertidas la cierra y rompe el archivo
+  entero.** Los tests de esta tab leen el archivo como TEXTO y dieron verde; lo frenó `scripts/hooks-en-orden.sh` en el push
+  (eslint no lo pudo leer). En esos comentarios, las clases van entre «».
 
 ---
 
