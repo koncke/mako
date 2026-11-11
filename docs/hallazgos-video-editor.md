@@ -6,6 +6,25 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## La portada de outliers con UNA tarjeta gris (11/11/2026)
+
+Martín, con la captura de `/video-editor`: «Encuentra tu siguiente OUTLIER» tenía UNA tarjeta (la plantilla «Mensaje para…»),
+las tomas eran rectángulos grises, los títulos se leían «Dis…», «Creden…», y decía «Sin datos de su cuenta». «Deberían haber
+detectado esto.»
+
+- **El recorrido del 10/11 no lo marcó porque lo miré como «pasa»**: la portada cargaba, sin error, con su tarjeta. **Una
+  pantalla vacía o pobre en producción ES una falla**, aunque no tire nada: se la compara con su referencia (la grilla de
+  Image, cientos de carruseles con imagen) y se la critica como Martín, no como un test.
+- **Los datos estaban**: Spy ya tenía, en ws9, 525 reels de Instagram con vistas y miniatura en nuestro bucket, el gancho
+  leído en 554 de 561, y la cuenta de cada uno con su foto. La portada tenía una sola fuente enchufada (la curada de MaKo). La
+  fuente «Ya» de `docs/investigacion-outliers-video.md` no gasta nada: lee `spy_piezas` como lo hace Image (`FUENTE_SPY`,
+  `outliersDeSpy`, con el múltiplo de toda la app sobre TODAS las piezas de la cuenta).
+- **«Sin datos de su cuenta» era el motivo del múltiplo de la plantilla**, puesto como chip. Para la persona no significa
+  nada. La tarjeta de la plantilla dice lo que dice en «Crear desde cero»: «MaKo te guía».
+- **Los títulos cortados eran la estructura en columnas** de ~40 px. Van en bandas horizontales, con el nombre entero.
+- **SIN HACER**: los reels propios por Zernio (la fuente «3» de la investigación), los Shorts de YouTube (sin «×» hasta la
+  enmienda III.L), los anuncios en video, y la portada del teléfono (`/m/video-editor` no muestra outliers).
+
 ## El recorrido de la tab en producción, con dos clips de 24 fps (10/11/2026)
 
 Martín pidió revisar la tab de punta a punta en producción. Proyecto de prueba: ws9 «1110», dos clips del teléfono con voz.

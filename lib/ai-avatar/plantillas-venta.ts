@@ -622,3 +622,15 @@ export function seccionDelGuion(guion: string, etiqueta: string, etiquetas: read
   const fin = lineas.findIndex((l, j) => j > i && etiquetas.includes(l.trim().replace(/:$/, '')));
   return lineas.slice(i + 1, fin < 0 ? undefined : fin).join(' ').replace(/\s+/g, ' ').trim();
 }
+
+/**
+ * El gancho del ejemplo, para la tarjeta de «Nuevo avatar»: el primer texto en pantalla y lo que dice el avatar en
+ * la primera sección. Es copy REAL del ejemplo; la tarjeta antes repetía el nombre de la plantilla como título (11/11/2026).
+ */
+export function ganchoDeEjemplo(p: PlantillaVentaAvatar): { enPantalla: string; dice: string } {
+  return {
+    // El primer tramo CON texto: hay ganchos que arrancan sin texto en pantalla («Carta del fundador»).
+    enPantalla: p.ejemplo.tramos.find((t) => t.texto.trim())?.texto ?? '',
+    dice: p.estructura[0] ? seccionDelGuion(p.ejemplo.guion, p.estructura[0], p.estructura) : '',
+  };
+}

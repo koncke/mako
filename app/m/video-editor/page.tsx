@@ -22,11 +22,25 @@ import { requireMovil } from '@/lib/movil-guard';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { PantallaM } from '@/app/m/_ui';
 import { InicioVideoEditorM } from './ClienteVideoM';
+import { OutliersVideo } from '@/app/video-editor/OutliersVideo';
+import { vistaDeVideo } from '@/app/video-editor/vista';
+import { leerOutliersVideo } from '@/lib/video-outliers-servidor';
 
 export const dynamic = 'force-dynamic';
 
-export default async function VideoEditorPagina() {
+export default async function VideoEditorPagina({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const ctx = await requireMovil({ navKey: 'video-editor' });
+  // Los outliers primero, también en el teléfono (11/11/2026), como Image (app/m/image-editor/page.tsx, Martín 6/11: «tiene que
+  // ser la principal… también en celular»): la MISMA portada de la computadora, con las reglas de teléfono. Con `?ver=crear`,
+  // «Nuevo video» y los proyectos de este teléfono.
+  const q = await searchParams;
+  if (vistaDeVideo(q) === 'outliers') {
+    return (
+      <PantallaM>
+        <OutliersVideo portada={await leerOutliersVideo()} telefono rutaCrear="/video-editor?ver=crear" />
+      </PantallaM>
+    );
+  }
   // Después de la puerta: lo del negocio no se lee para quien no entra.
   const senales = await senalesDelNegocio().catch(() => null);
   return (

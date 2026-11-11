@@ -180,6 +180,7 @@
 .hf-ranura-lugar .hf-menu { left: auto; right: 0; }
 .hf-menu--ancho { min-width: 280px; }
 .hf-menu-titulo { margin: 4px 8px 8px; font-size: var(--fs-meta); font-weight: 650; color: var(--text-dim); }
+.hf-menu-ayuda { margin: 0 8px 8px; font-size: var(--fs-meta); line-height: 1.4; color: var(--text-dim); }
 .hf-opcion {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px;
   background: none; color: var(--text); font-size: var(--fs-sm); text-align: left; cursor: pointer;

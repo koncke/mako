@@ -5,6 +5,32 @@ lo que la página de MaKo le pide a la extensión (`lib/wa-fichas-cliente.ts`). 
 es de la extensión en sí (la API, los créditos, el motor) está en [hallazgos-generativa.md](hallazgos-generativa.md). El índice
 es [hallazgos.md](hallazgos.md).
 
+## La foto del avatar no llegaba a Flow: «Upload» ya no abre con un clic armado; se SUELTA (11/11/2026, 0.80.0)
+
+**Vive en:** `extension/flow-interfaz.js` (`subir`, `soltarArchivo`, `ZONAS_SOLTAR`), `extension/background.js`
+(`instalarAtrapaArchivo`), `tests/flow-subir-soltando.test.ts`.
+
+- **Síntoma:** ninguna foto de AI Avatar se subía a Flow desde el 8/11. En `flow_trabajos` (ws 9): tres «Flow no mostró la
+  opción de subir» (8/11, 23:52 a 00:00 UTC) y, el único intento DESPUÉS del arreglo del ícono (9/11 00:33), «Flow no terminó
+  de procesar la foto». La foto no estaba en «Uploads» del proyecto.
+- **El diagnóstico obvio era el equivocado.** Leído el 10/11, parecía una sola falla («no mostró la opción»). Eran dos causas
+  en fila: la primera (el ícono pegado al texto, «uploadUpload») ya estaba arreglada, y escondía la segunda.
+- **La causa, medida el 11/11 en flow.google.com con la cuenta de Martín:** con un clic de mouse REAL, «Add media menu» →
+  «Upload» crea un `<input type=file>` (`accept` imágenes y videos, `multiple`) y le llama `click()`, que es donde lo atrapaba
+  `instalarAtrapaArchivo`. Con el clic armado de la extensión, el menú se cierra y Flow no llama a nada: ni `click()`, ni
+  `showPicker()`, ni `showOpenFilePicker()`. Sin la llamada no hay a quién darle la foto, y a los 2 minutos sale «no terminó».
+- **Lo que sí atiende:** soltar el archivo sobre la grilla (`.grid-area-wrapper`, `mat-sidenav-content`): Flow cancela el
+  `drop` y lo pasa por su validación de subida. Sobre `<body>` o sobre la caja del prompt no lo atiende nadie.
+- **Cómo medirlo sin subir nada:** se suelta un `.txt`. Flow lo rechaza con «Unsupported file type: … (Supported extensions are
+  PNG, JPG…)», que prueba que el evento entró a la subida, y no queda nada en la cuenta. Para saber qué abre un botón sin que
+  se abra el diálogo del sistema: se reemplazan `HTMLInputElement.prototype.click`, `showPicker` y `showOpenFilePicker` por
+  funciones que sólo anotan, y se aprieta con un clic real.
+- **La regla:** antes de dar por bueno un camino que depende de un clic armado, probarlo contra un clic real. Si el real hace
+  algo y el armado no, la página mira la activación del usuario: hay que entrar por otro evento (soltar, pegar), no insistir con
+  más eventos de mouse.
+- **SIN HACER:** la prueba en vivo con una foto de verdad. Pide la 0.80.0 instalada en el Chrome que tiene a Flow (la
+  desempaquetada se actualiza con `node scripts/sync-extension-local.mjs` y ↻ en chrome://extensions) y un look en el ws 3.
+
 ## «Replicar esta página»: la única lectura que baja por una página ajena, y su contrato (9/11/2026, 0.79.0, nube)
 
 **Vive en:** `lib/editor-landing/replica-extension-script.ts` (el fuente), `scripts/sync-replica-extension.mjs` (lo genera),

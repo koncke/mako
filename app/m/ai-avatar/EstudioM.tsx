@@ -27,7 +27,7 @@ import { avisarPuente } from '@/app/video-generator/avisar-puente';
 import { CATEGORIAS, filtrarPresets, plantillaPorId, type Categoria, type PlantillaAvatar } from '@/lib/ai-avatar/plantillas';
 import { MAX_DETALLE } from '@/lib/ai-avatar/prompt-look';
 import { haceCuanto, mezclarPorId, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
-import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
+import { CONSEJO_FOTO, MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
 import { PieFijoM, SeccionM, SheetM, useConexion } from '@/app/m/_ui';
 import { CREDITOS, requisitosAvatar, type PasoRequisito } from '@/lib/ai-avatar/requisitos';
 import { CampoM, ErrorLineaM } from '../_creacion/escritor';
@@ -257,6 +257,7 @@ function PersonajeM({ fotos, fotoId, onElegir, onFotos, onLinea }: {
           </button>
         ))}
       </div>
+      {fotos.length === 0 && <p className="m-ai-avatar-pronto">{CONSEJO_FOTO}</p>}
       <Button variant="secondary" size="lg" full loading={subiendo} onClick={() => campo.current?.click()}>Subir una foto</Button>
       <p className="m-ai-avatar-pronto">{SIN_MOTOR.personaje}</p>
       <input ref={campo} type="file" accept="image/*" hidden onChange={(e) => void subir(e.target.files)} />
