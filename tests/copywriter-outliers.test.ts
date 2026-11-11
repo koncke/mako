@@ -163,6 +163,20 @@ test('el mismo copy del mismo creador sale una vez (el más fuerte); el de otro 
   assert.deepEqual(p.outliers.map((o) => o.id), ['spy:2', 'spy:3']);
 });
 
+test('«Todos» intercala los formatos: la primera vuelta trae el mejor de cada uno (11/11, ws 3: 24 carruseles seguidos)', () => {
+  const m = (veces: number) => ({ veces, metrica: 'vistas', valor: 1, mediana: 1, formato: 'corto', canal: 'instagram', comparadas: 8 }) as OutlierCopy['multiplo'];
+  const carrusel = (n: number, veces: number) => outlier({ id: `biblioteca:-${n}`, fuente: 'biblioteca', formato: 'carrusel', url: `https://www.instagram.com/p/c${n}/`, multiplo: m(veces), creador: { nombre: `C${n}`, usuario: `c${n}`, foto: null, competidorId: null } });
+  const reel = (n: number, veces: number) => outlier({ id: `spy:${n}`, url: `https://www.instagram.com/reel/r${n}/`, multiplo: m(veces), creador: { nombre: `R${n}`, usuario: `r${n}`, foto: null, competidorId: n } });
+  const video = outlier({ id: 'spy:50', formato: 'youtube', deDonde: 'descripcion', gancho: 'Cómo cerrar más ventas', texto: 'Cómo cerrar más ventas', url: 'https://www.youtube.com/watch?v=abc', creador: { nombre: 'Y', usuario: 'y', foto: null, competidorId: 50 } });
+  const p = juntarOutliersCopy([
+    { fuente: fuente('biblioteca'), lectura: { ok: true, outliers: [carrusel(1, 1200), carrusel(2, 500), carrusel(3, 300)] } },
+    { fuente: fuente('spy'), lectura: { ok: true, outliers: [reel(10, 8), reel(11, 6), video] } },
+  ]);
+  assert.deepEqual(p.outliers.map((o) => o.id), ['biblioteca:-1', 'spy:10', 'spy:50', 'biblioteca:-2', 'spy:11', 'biblioteca:-3']);
+  // Filtrar por un formato da su orden de siempre.
+  assert.deepEqual(filtrarOutliersCopy(p.outliers, { formato: 'carrusel', q: '' }).map((o) => o.id), ['biblioteca:-1', 'biblioteca:-2', 'biblioteca:-3']);
+});
+
 test('los filtros: el formato, lo buscado sin tildes y por @, y el orden por fecha', () => {
   const xs = [
     outlier({ id: 'spy:1', formato: 'reel', gancho: 'Cómo vender', publicada: dia(9) }),

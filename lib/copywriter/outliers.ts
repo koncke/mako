@@ -243,6 +243,24 @@ const pesoDe = (o: OutlierCopy): number => (o.multiplo && o.multiplo.veces != nu
 const variedad = (xs: readonly OutlierCopy[]) => conVariedad(xs, (o) => o.creador.usuario ?? o.creador.nombre);
 
 /**
+ * Los formatos INTERCALADOS: en cada vuelta entra el mejor que queda de cada formato, del más fuerte al más débil. Dentro de un
+ * formato el orden no cambia (filtrar por uno da lo mismo que antes).
+ * ⚠️ 11/11/2026, en producción en el ws 3: las 24 primeras tarjetas de «Todos» eran carruseles en inglés de la biblioteca (de
+ * 1.219× a 29×); los reels y los videos del nicho del negocio quedaban cientos de tarjetas más abajo. La portada de copy es de
+ * TODOS los formatos: se tienen que ver desde la primera fila.
+ */
+export function intercalarFormatos(xs: readonly OutlierCopy[]): OutlierCopy[] {
+  const filas = new Map<FormatoCopy, OutlierCopy[]>();
+  for (const o of xs) { const f = filas.get(o.formato); if (f) f.push(o); else filas.set(o.formato, [o]); }
+  const out: OutlierCopy[] = [];
+  for (let i = 0; out.length < xs.length; i++) {
+    const vuelta = [...filas.values()].map((f) => f[i]).filter((o): o is OutlierCopy => !!o);
+    out.push(...vuelta.sort((a, b) => pesoDe(b) - pesoDe(a)));
+  }
+  return out;
+}
+
+/**
  * Junta lo leído de cada fuente: lo inválido afuera, sin repetidos (por id y por link), del que más superó a su cuenta al que
  * menos (sin número al final, por sus vistas), con variedad de creadores. Una fuente caída no tira las demás.
  */
@@ -270,7 +288,7 @@ export function juntarOutliersCopy(lecturas: readonly { fuente: FuenteOutliersCo
     textos.add(k);
     return true;
   });
-  return { outliers: variedad(unicos), caidas };
+  return { outliers: variedad(intercalarFormatos(unicos)), caidas };
 }
 
 /** Los filtros de la portada: el segmento (todos o un formato) y lo que se busca (en el gancho, el texto y el @). */
