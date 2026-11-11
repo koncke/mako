@@ -8,6 +8,74 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## «Traer tu outlier»: un carrusel por su link, del negocio que lo trae (11/11/2026)
+
+**El pedido:** Martín, 11/11: «en los outliers haya una opción para traer tu propio [outlier], pegar el link de Instagram, o el
+link de un video de YouTube, o de un anuncio… si se necesita Apify, no hay problema».
+
+**La referencia:** Top Carousels no tiene una opción así en sus capturas (docs/carruseles/referencia-top-carousels/). Se copió
+el patrón de MaKo para un link pegado: el buscador de Competitor Spy («Nombre, @, canal de YouTube o sitio») y el Web Generator
+(pegás el link de una landing → «Replica esta landing»). Con el link de una publicación en el buscador de los outliers, el
+vacío de siempre dice «Ese link no está entre tus outliers.» y ofrece «Traer este carrusel».
+
+**Dónde vive lo traído, y por qué ahí:** en la tabla de la biblioteca (`carruseles_biblioteca_piezas`), con la columna
+`workspace_id` de la mig **0413** (aplicada el 11/11: 1.588 filas, ninguna con negocio). Así el «Editar» (replicar),
+Guardados, las imágenes en el bucket y la lectura por link (`links` del script) andan sin otro camino.
+- **Se descartó un competidor de Spy:** Spy lo leería cada hora con la clave del negocio, que no pidió seguir a nadie.
+- **Se descartó una tabla nueva:** pedía otro espacio de ids y otro «Editar».
+- ⚠️ **La tabla es global** (la lee el server con service_role). Quién ve qué lo decide `seMuestraA(pieza, ws)`: lo traído, SÓLO
+  su negocio, y sin esperar la revisión de la 0411 (lo eligió él). Sin saber quién mira (un script), sólo lo de la plataforma.
+- **`ref` sigue siendo único:** si otro negocio trae la misma publicación (es pública), pasa a la plataforma.
+- **Sacar un creador de la biblioteca** borra sólo lo de la plataforma: lo traído de ese creador sigue siendo del negocio.
+
+**El costo:** una lectura por link con el actor de Instagram, medida el 5/11 en US$0,0025 (244 de 245). Con la clave de Spy del
+negocio o, si no tiene, la de la plataforma (Martín lo aprobó). Tope de 20 por día por negocio (`TRAIDOS_POR_DIA`) y techo de
+US$0,01 por lectura. Lo que ya está no se paga de nuevo.
+
+**YouTube (11/11, mig 0414, aplicada: 1.811 videos y 93 canales antes y después):** en la tab «Thumbnails», el link de un
+video (watch, youtu.be, m., live) que no está ofrece «Traer esta miniatura» (lib/thumbnails/traer-servidor.ts). Es la misma
+idea en las tablas de la 0409. Lo que cambia:
+- **Es gratis:** va por la YouTube Data API con la clave de la plataforma (`videos.list` y `channels.list`, 1 unidad cada uno).
+  Nada de Apify. Medido en prod con ws3: 2,9 s. ws3 lo ve; ws5 y un script sin negocio, no. Traerlo otra vez no relee nada.
+- ⚠️ **El canal también lleva `workspace_id`**, y no por quién lo ve: **el cron que relee los canales (`canalesPorLeer`) lo
+  saltea**. Sin eso, un video traído metía su canal en la biblioteca y el cron se traía sus 50 videos para TODOS, con la cuota
+  de la plataforma. El riesgo no estaba en la lectura: estaba en la tarea programada que vino después.
+- **El rubro del canal queda vacío** (la 0414 afloja el NOT NULL de `nicho` e `idioma`). No se sabe, y uno inventado lo
+  mostraría en el filtro de un rubro que no es el suyo. El idioma sí se pone cuando YouTube lo dice (`defaultAudioLanguage`).
+- **Un Short no se trae** (su miniatura no se diseña); la pantalla lo dice.
+- **Vence a los 30 días**, como todo lo guardado de la API (`podarVencidos`): traerlo otra vez lo relee.
+- `traidaPor` pasó a lib/traida-por.ts, una para las dos bibliotecas. Test: tests/thumbnails-traidas.test.ts (roto a propósito,
+  cae donde dice).
+- El buscador ahora DICE que se puede pegar un link («…o pega un link de Instagram / de YouTube»): una opción escondida en un
+  buscador no es una opción.
+
+**Probado en producción el 11/11 a la tarde** (docs/pruebas/image-11-11.md). Instagram: 9,3 s desde la pantalla, US$0,0027 por
+lectura (corrida `3tm75HeDJFJeWOMPD`), con las 10 láminas en nuestro bucket. YouTube: 1,0 a 2,9 s, gratis. Otro negocio no ve lo
+traído. Dos trampas que salieron mirando la pantalla:
+- ⚠️ **Un reel se pagaba para nada.** El link `/reel/` pasaba `linkDeInstagram`, se leía (US$0,0027) y recién ahí se sabía que
+  era un reel. Además, debajo del error seguía «Traer este carrusel»: otra lectura pagada al mismo pedido. Un `/reel/`, `/reels/`
+  o `/tv/` es SIEMPRE un video, así que `esLinkDeVideo` lo corta antes de leer: en el server (`traerCarrusel`) y en la pantalla
+  (sin botón). Un `/p/` puede ser un video igual, y ése se descubre leyéndolo.
+- ⚠️ **El costo «US$0» de una corrida recién terminada no es el costo.** La lista de corridas (`/actor-runs?desc=1`) daba 0 para
+  el anuncio, y la corrida misma (`/actor-runs/{id}`, `usageTotalUsd` y `chargedEventCounts`) daba US$0,0058 unos segundos
+  después: el cobro por resultado se asienta tarde. Un costo se mide en la corrida, no en la lista.
+
+**Sin hacer: los anuncios de la Biblioteca de Meta** (el link `facebook.com/ads/library/?id=…`). **Medido el 11/11: US$0,0058 por
+anuncio, 8,5 s**; el `?id=` trae UN anuncio, con su página, su imagen, su texto y si sigue activo. Lo que se sabe:
+- **El lector:** el actor de Spy, `apify~facebook-ads-scraper` (`entradaDeAnuncios`, `anuncioDeApify` en
+  lib/spy-todo-reglas.ts), medido por el Cerebro el 4/11 en **US$0,0058 por anuncio** (techo `USD_POR_ANUNCIO` 0,006). Falta
+  medir UN anuncio por su `?id=`: el 4/11 se buscó por nombre de página.
+- ⚠️ **No puede vivir como competidor de Spy:** `spy_competidores` (0359) no tiene estado de pausa, así que todo competidor se lee
+  solo, con la clave del negocio. Un anuncio traído así haría que Spy empezara a leer esa página y a gastar sin que nadie lo
+  pidiera. Es el mismo motivo por el que el carrusel traído no es un competidor.
+- **Dónde puede vivir:** en `carruseles_biblioteca_piezas` con `workspace_id` (como el carrusel traído), marcado como anuncio
+  para que el explorador lo muestre en «Anuncios» (hoy esa pestaña lee sólo `spy_piezas`, lib/carruseles/anuncios.ts). Sólo
+  si es de imagen: un anuncio en video no se «Edita» como un diseño.
+- **Los términos de Meta** no dejan pasarle a un tercero lo recolectado («Los anuncios no se copian»,
+  docs/hallazgos-competitors-spy.md). Lo traído lo ve sólo el negocio que lo trajo, así que entra.
+
+Tampoco se calcula el múltiplo de lo traído: el creador no se lee entero (`fuente: 'tema'`), y lo que no se midió no se dice.
+
 ## El guiado de los carruseles: tres tests que daban verde rompiéndolos, y la caja de Create que se cae sin ejemplos (9/11/2026)
 
 **Vive en:** `lib/carruseles/guiado.ts`, `app/image-editor/carruseles/ReplicarGuiado.tsx`, `lib/carruseles/replica-servidor.ts`,
@@ -327,6 +395,11 @@ la cascada (cuota, clave, demora, saturación) y de quién es; «no contestó» 
 (la IA real) queda con su comando: `scripts/carruseles-probar-editar.mts`.
 
 **Vive en:** `lib/carruseles/replica-servidor.ts` (`replicarEjemplo`), `lib/carruseles/replica.ts` (`avisoSinIA`, `vuelveASinVer`).
+
+**11/11/2026, la otra mitad:** con el camino arreglado, «Editar» seguía fallando una de cada dos veces en el ws9 («no devolvió el
+diseño en un formato que pueda leer»). No era la IA, era el **formato**: Gemini escribía el JSON con sangría y se cortaba en
+el tope de 8.000 tokens. Ahora se pide compacto (3.273 tokens en vez de 5.374 a 7.996) y un JSON cortado pasa al modelo de
+respaldo. Medido y explicado en docs/hallazgos-ia.md → «Topes».
 
 ## «Editar» probado con la IA REAL: el arreglo estaba bien y el que mentía era el ARNÉS (6/11/2026)
 

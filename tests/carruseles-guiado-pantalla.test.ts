@@ -11,6 +11,8 @@
 //   3. un carrusel sin persona no pregunta el avatar: después de la oferta va «qué cambiar»;
 //   4. el centro es el original con su salida («← Elegir otro»), y nada se arma antes de «Generar»;
 //   5. `PantallaCrear` con `nueva` dibuja eso EN LUGAR de «¿Qué vas a crear hoy?», y sin `nueva` se ve como siempre.
+//   7. «Traer tu outlier» (11/11/2026): con el link de una publicación en el buscador, la grilla ofrece «Traer este carrusel»;
+//      con cualquier otra búsqueda sin resultados, lo de siempre. Rompiéndolo (sin `linkPegado`) → 1 rojo (7).
 //   6. en una ventana angosta (≤ 760 px), el guiado abre en el CHAT (`movilDeEntrada`, 10/11/2026): a 551 px abría en las láminas,
 //      con la pregunta escondida detrás de «MaKo». Rompiéndolo (`useState('pieza')` fijo) → 1 rojo (6).
 //
@@ -158,4 +160,16 @@ test('6. en una ventana angosta, el guiado abre en el chat de MaKo (donde está 
   assert.match(guiado, /data-movil="mako"/, 'el guiado tiene que abrir en el chat: ahí se contesta');
   const comun = renderToStaticMarkup(createElement(PantallaCrear, base, pieza));
   assert.match(comun, /data-movil="pieza"/, 'sin pedirlo, como siempre: la pieza');
+});
+
+test('7. con el link de una publicación en el buscador, la grilla ofrece traerlo; con otra búsqueda, lo de siempre', async () => {
+  const { ExplorarCarruseles } = await import('@/app/image-editor/carruseles/ExplorarCarruseles');
+  const { FILTROS_INICIALES } = await import('@/lib/carruseles/explorar');
+  const con = (q: string) => renderToStaticMarkup(createElement(ExplorarCarruseles, { datos: datos([carrusel({ id: 1 })]), onReplicar: nada, filtrosIniciales: { ...FILTROS_INICIALES, q } }));
+  const link = con('https://www.instagram.com/p/DaZFc_kkttt/');
+  assert.ok(link.includes('Traer este carrusel'), 'el botón para traerlo no está');
+  assert.ok(link.includes('Ese link no está entre tus outliers.'));
+  const otra = con('zzz-no-hay');
+  assert.ok(!otra.includes('Traer este carrusel'), 'una búsqueda común no ofrece traer nada');
+  assert.ok(otra.includes('Ningún ejemplo pasa estos filtros.'));
 });

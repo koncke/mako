@@ -21,7 +21,7 @@ import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { contadorCorto, nivelDeMultiplo, NIVELES_MULTIPLO } from '@/lib/carruseles/explorar';
 import {
   FILTROS_THUMBNAIL, IDIOMAS_THUMBNAIL, NICHOS_THUMBNAIL, PASOS_MULTIPLO_THUMBNAIL, PERIODOS_THUMBNAIL, ORDEN_INICIAL_THUMBNAIL,
-  canalesDe, duracionLegible, filtrarThumbnails, imagenDeVideo, ordenesDisponibles, rotuloOutlierThumbnail, sinFiltrosThumbnail, urlDeVideo,
+  canalesDe, duracionLegible, filtrarThumbnails, imagenDeVideo, ordenesDisponibles, rotuloOutlierThumbnail, sinFiltrosThumbnail, urlDeVideo, videoDeYoutube,
   type FiltrosThumbnail, type IdiomaThumbnail, type NichoThumbnail, type OrdenThumbnail, type PeriodoThumbnail, type Thumbnail,
 } from '@/lib/thumbnails/explorar';
 import { Deslizador } from './Deslizador';
@@ -85,7 +85,40 @@ export function PanelThumbnails({ datos, f, cambiar, guardados, alternarGuardado
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [editando, setEditando] = useState<Thumbnail | null>(null);
   const [abierta, setAbierta] = useState<Thumbnail | null>(null);
-  const lista = useMemo(() => (datos && datos.ok ? datos.lista : []), [datos]);
+  // «Traer tu outlier» (11/11/2026): el link de un video que no está → se lee con la API de YouTube y se suma a las miniaturas del
+  // negocio (app/api/image-editor/carruseles/traer, `que: thumbnails`). Lo traído en esta visita entra ya a la lista, primero.
+  const [traidas, setTraidas] = useState<Thumbnail[]>([]);
+  const [trayendo, setTrayendo] = useState(false);
+  const [errorTraer, setErrorTraer] = useState<string | null>(null);
+  const link = videoDeYoutube(f.q);
+  const lista = useMemo(() => {
+    const base = datos && datos.ok ? datos.lista : [];
+    return traidas.length ? [...traidas, ...base.filter((x) => !traidas.some((t) => t.id === x.id))] : base;
+  }, [datos, traidas]);
+  const traer = async () => {
+    if (!link || trayendo) return;
+    setTrayendo(true);
+    setErrorTraer(null);
+    try {
+      const res = await fetch('/api/image-editor/carruseles/traer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ texto: f.q, que: 'thumbnails' }) });
+      const r = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; thumbnail?: Thumbnail } | null;
+      if (!r?.ok || !r.thumbnail) { setErrorTraer(r?.error || 'No pude traer esa miniatura. Vuelve a intentar.'); return; }
+      // Ya es una más: el link del buscador la encuentra (`coincideThumbnail`), así que queda sola en la grilla, y se abre.
+      const t = r.thumbnail;
+      setTraidas((xs) => [t, ...xs.filter((x) => x.id !== t.id)]);
+      setAbierta(t);
+    } catch {
+      setErrorTraer('No pude traer esa miniatura. Vuelve a intentar.');
+    } finally {
+      setTrayendo(false);
+    }
+  };
+  const botonTraer = link ? (
+    <>
+      {errorTraer ? <p role="alert">{errorTraer}<ReportarASoporte /></p> : null}
+      <button type="button" className={s.boton} onClick={() => { void traer(); }} disabled={trayendo} aria-busy={trayendo || undefined}>{trayendo ? 'Trayendo…' : 'Traer esta miniatura'}</button>
+    </>
+  ) : null;
   const canales = useMemo(() => canalesDe(lista), [lista]);
   const vistos = useMemo(() => filtrarThumbnails(lista, f, guardados, ahora ?? Date.now()), [lista, f, guardados, ahora]);
   const listos = vistos.slice(0, cuantas);
@@ -123,12 +156,12 @@ export function PanelThumbnails({ datos, f, cambiar, guardados, alternarGuardado
 
       {!datos || !datos.ok ? (
         <div className={s.vacio} role="alert"><p>No pude leer las miniaturas de ejemplo. Vuelve a intentar en un rato.</p><ReportarASoporte /></div>
-      ) : !lista.length ? (
+      ) : !lista.length && !link ? (
         <div className={s.vacio}><p>Las miniaturas que mejor rinden en ventas, marketing, emprendimiento y servicios aparecen aquí muy pronto.</p></div>
       ) : vistos.length === 0 ? (
         <div className={s.vacio}>
-          <p>{f.vista === 'guardados' && !guardados.size ? 'Guarda una miniatura con el marcador y aparece aquí.' : 'Ninguna miniatura pasa estos filtros.'}</p>
-          {!sinFiltrosThumbnail({ ...f, vista: 'todos' }) ? <button type="button" className={s.boton} onClick={reiniciar}>Quitar filtros</button> : null}
+          <p>{link ? 'Ese video no está entre tus outliers.' : f.vista === 'guardados' && !guardados.size ? 'Guarda una miniatura con el marcador y aparece aquí.' : 'Ninguna miniatura pasa estos filtros.'}</p>
+          {link ? botonTraer : !sinFiltrosThumbnail({ ...f, vista: 'todos' }) ? <button type="button" className={s.boton} onClick={reiniciar}>Quitar filtros</button> : null}
         </div>
       ) : (
         <>

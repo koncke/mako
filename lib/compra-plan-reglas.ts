@@ -274,6 +274,18 @@ export function pasarelasDelPais<T extends { pasarela: Pasarela; moneda: string 
   return internacionales;
 }
 
+/**
+ * Lo que se le ofrece a quien compra: las pasarelas REALES según su país (`pasarelasDelPais`) y, sólo para el super admin, las
+ * que están en modo PRUEBA sin el filtro del país (11/11/2026). La prueba de humo de una pasarela nueva la hace el super admin
+ * desde Argentina; con el filtro, en Argentina con Mercado Pago la Stripe de prueba quedaba tapada y no se podía probar. Una
+ * pasarela que está real y de prueba a la vez se ofrece una sola vez, la real. Al público, `dePrueba` llega vacía.
+ */
+export function pasarelasParaOfrecer<T extends { pasarela: Pasarela; moneda: string }>(pais: string | null, reales: readonly T[], dePrueba: readonly T[]): T[] {
+  const segunPais = pasarelasDelPais(pais, reales);
+  const yaEstan = new Set(reales.map((o) => o.pasarela));
+  return [...segunPais, ...dePrueba.filter((o) => !yaEstan.has(o.pasarela))];
+}
+
 // =============================================================================
 // SIN PASARELA (23/10/2026): lo que no se puede cobrar no se muestra como si se pudiera
 // =============================================================================

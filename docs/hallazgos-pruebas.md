@@ -52,6 +52,33 @@ portada, como tarjetas celestes con texto, y parecía una regresión del desplie
 modal a medio aparecer, el menú «⋯» que no estaba, la caricatura de Leila en blanco). Antes de anotar «no se ve»: leer la imagen en
 el DOM y capturar de nuevo. **Y para medir un arreglo de CSS antes de subirlo:** se le inyectan las mismas reglas a la página de
 producción y se cuenta (los nombres cortados pasaron de 14 a 3 de 15). Así la captura del «después» no espera el despliegue.
+**11/11/2026, CÓMO MIRAR con el panel oculto (medido):** el panel mide 800 × 600 y la página se emula a 1440 × 900.
+- **La receta que anda (medida en toda la prueba del 11/11 a la tarde):** `resize_window` 1440 × 900 y, EN EL MISMO LOTE y
+  sin espera, `zoom` de `[0, 0, 1440, 900]`. Devuelve la página ENTERA a 1440, reducida a 800 × 500, también después de
+  clics, de escribir y de abrir modales.
+- ⚠️ **Lo que da un recorte:** un `zoom` suelto, o con una espera entre el `resize_window` y el `zoom`. Sale un RECORTE de
+  800 × 500 de la esquina, que parece bueno y no muestra la mitad derecha. A la mañana parecía que lo rompía el primer clic
+  con la herramienta; era la espera.
+- **El clic desde JS** (`elemento.click()`) sirve para manejar la pantalla sin coordenadas. La página reacciona igual (React).
+- **La pintura llega tarde:** la primera captura después de un cambio puede ser la vieja (sin el modal recién abierto) o
+  tener las imágenes en blanco con `naturalWidth` 1080. Se mide el estado con JS (`[role=dialog]`, `naturalWidth`) y se repite
+  la captura antes de anotar una falla.
+- ⚠️ **Lo que el panel oculto NO deja probar: el guiado de «Editar» de Image.** El 10/11 y el 11/11, con el panel oculto, el
+  clic (de la herramienta, desde JS, o llamando a `onReplicar` a mano) no lo abría. El 11/11 a 375 la pestaña se congeló entera:
+  ni un `javascript_tool` de una línea ni `navigate` en 300 s. Había 2,25 GB libres, así que no era la RAM. El mismo clic,
+  en una ventana a la vista, abre el guiado (10/11). Lo demás de la cadena se pudo probar abriendo el diseño por su link
+  (`/image-editor/<id>`): editar, ordenar, plantilla, imagen, guardar, reabrir y exportar (docs/pruebas/image-11-11.md).
+- **Exportar sin bajar nada a la PC:** se reemplaza `HTMLAnchorElement.prototype.click` para anotar el `download` y leer el
+  blob (nombre, tipo, bytes) en vez de bajarlo. Después se restaura.
+- **A 375:** `resize_window` con `preset: mobile` + `navigate` (el servidor dibuja el armado de teléfono por el agente). La
+  captura normal sirve: el marco es 469 × 1015. Al volver a 1440 hay que navegar otra vez, porque la página quedó con el armado
+  de teléfono.
+**La captura de 1440 con el panel oculto (11/11/2026, prueba de Copywriting):** sale SIEMPRE el pedazo de arriba a la izquierda, y
+repetir `resize_window` no lo arregló (cinco veces). Si la sesión no está abierta en ninguna ventana, `show_pane` tampoco puede
+mostrarlo. Lo que sí sirvió: achicar sólo el DIBUJO de la página, que sigue armada a 1440 (`innerWidth` no cambia), con
+`document.documentElement.style.transform = 'scale(0.8)'` y `transformOrigin = '0 0'`. La captura cubre unos 1152 × 720 px de
+CSS, así que 1440 × 900 × 0,8 entra entera. Se saca antes de hacer clic: las coordenadas de la captura ya no son las de la página.
+En 375 la captura sale entera.
 
 ## Un `assert.equal` con un elemento de jsdom que falla agota la memoria (10/11/2026)
 

@@ -10,11 +10,13 @@
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { PLANTILLAS_AVATAR, plantillaPorId } from '../lib/ai-avatar/plantillas';
 import { PLANTILLAS_VENTA_AVATAR, ganchoDeEjemplo } from '../lib/ai-avatar/plantillas-venta';
-import { CONSEJO_FOTO } from '../lib/ai-avatar/estudio';
+import { CONSEJO_FOTO, pieDeGenerar } from '../lib/ai-avatar/estudio';
+import { plantillasNuevoVideo } from '../app/video-editor/plantillas-crear';
 
 const leer = (r: string) => readFileSync(join(process.cwd(), r), 'utf8');
 const estudio = leer('app/ai-avatar/Estudio.tsx');
@@ -52,4 +54,72 @@ test('el lugar del personaje dice qué foto sirve, en la compu y en el teléfono
   assert.match(CONSEJO_FOTO, /de frente/);
   assert.match(estudio, /\{fotos\.length === 0 && <p className="hf-menu-ayuda">\{CONSEJO_FOTO\}<\/p>\}/);
   assert.match(telefono, /\{fotos\.length === 0 && <p className="m-ai-avatar-pronto">\{CONSEJO_FOTO\}<\/p>\}/);
+});
+
+test('⚠️ TODOS los presets tienen su imagen: un degradado gris en producción es una falla, no un pendiente', () => {
+  // Martín, 11/11: «miniaturas grises». El 10/11, 31 de los 33 presets eran un degradado sin imagen, anotado como
+  // «pendiente» desde el 29/10. Las imágenes son de Flow, con la cara de Martín y el MISMO prompt del producto.
+  assert.ok(PLANTILLAS_AVATAR.length >= 33);
+  for (const p of PLANTILLAS_AVATAR) {
+    assert.ok(p.ejemplo?.poster, `${p.id}: sin imagen, la baldosa es un degradado gris`);
+    const archivo = join(process.cwd(), 'public', p.ejemplo.poster);
+    assert.ok(existsSync(archivo), `${p.id}: falta ${p.ejemplo.poster}`);
+    // Una miniatura, no el original de Flow (768×1376, ~700 KB): 33 de esas son 23 MB en cada carga de la grilla.
+    assert.ok(statSync(archivo).size < 200_000, `${p.id}: ${p.ejemplo.poster} pesa ${statSync(archivo).size} B`);
+  }
+});
+
+test('las 10 plantillas de venta tienen la imagen de su escena', () => {
+  for (const v of PLANTILLAS_VENTA_AVATAR) {
+    assert.ok(plantillaPorId(v.presetId)?.ejemplo?.poster, `${v.id}: su preset ${v.presetId} no tiene imagen`);
+  }
+});
+
+test('«Generar» apagado dice lo que falta, en vez de «Gratis»', () => {
+  const listo = { preset: true, pasosFaltan: 0, foto: true, flowListo: true };
+  assert.equal(pieDeGenerar(listo), 'Gratis');
+  assert.equal(pieDeGenerar({ ...listo, preset: false, pasosFaltan: 4 }), 'Falta el preset', 'primero lo que se ve: el preset');
+  assert.equal(pieDeGenerar({ ...listo, pasosFaltan: 4 }), 'Faltan 4 pasos');
+  assert.equal(pieDeGenerar({ ...listo, pasosFaltan: 1 }), 'Falta 1 paso');
+  assert.equal(pieDeGenerar({ ...listo, foto: false }), 'Falta tu foto');
+  assert.equal(pieDeGenerar({ ...listo, flowListo: false }), 'Flow no está listo');
+  const i = estudio.indexOf('className="hf-generar" disabled={!!falta || enviando}');
+  assert.ok(i > 0, 'falta el botón');
+  const boton = estudio.slice(i, i + 500);
+  assert.match(boton, /title=\{falta \|\| undefined\}/, 'con el mouse encima, la línea entera');
+  assert.match(boton, /<small>\{enviando \? 'Gratis' : pieDeGenerar\(\{ preset: !!preset, pasosFaltan: req\.pasos\.filter\(\(x\) => !x\.hecho\)\.length, foto: !!foto, flowListo: puente\.puede \}\)\}<\/small>/,
+    'el pie del botón ES pieDeGenerar, con lo que falta de verdad');
+  assert.ok(!/<small>Gratis<\/small>/.test(boton), '«Gratis» fijo era el error');
+});
+
+test('en el teléfono, las pastillas y «Generar» van en UNA fila y la ranura vacía dice dónde elegir', () => {
+  const i = telefono.indexOf('<div className="m-ai-avatar-barra__pie">');
+  assert.ok(i > 0, 'falta la fila de abajo');
+  const fila = telefono.slice(i, i + 900);
+  assert.match(fila, /m-ai-avatar-barra__pastillas/);
+  assert.match(fila, /Generar/);
+  assert.ok(!/size="lg" full/.test(fila), '«Generar» a todo el ancho es la fila de más');
+  assert.match(telefono, /preset \? preset\.nombre : 'Elige arriba'/);
+  const css = leer('app/m/ai-avatar/ai-avatar.css');
+  assert.match(css, /\.m-ai-avatar-barra__pie \{ display: flex;/);
+  assert.match(css, /\.m-ai-avatar-barra__pie \.m-ai-avatar-barra__pastillas \{[^}]*overflow-x: auto/, 'si no entran, corren de costado');
+});
+
+test('la puerta desde Video, «Tu personaje con IA», muestra una imagen y no un marco vacío', () => {
+  const tarjeta = plantillasNuevoVideo().find((p) => p.id === 'personaje:nuevo');
+  assert.ok(tarjeta, 'falta la tarjeta en «Nuevo video»');
+  assert.ok(tarjeta.imagen, 'sin imagen, la tarjeta es un marco gris con «Desde tu foto»');
+  assert.ok(existsSync(join(process.cwd(), 'public', tarjeta.imagen)), `falta ${tarjeta.imagen}`);
+});
+
+test('⚠️ y en el TELÉFONO también: la hoja «Nuevo video» dibuja la imagen de la tarjeta, no siempre el marco', () => {
+  // Medido en producción el 11/11: en la computadora la tarjeta ya tenía la foto; en el teléfono seguía el marco vacío,
+  // porque InicioVideoM dibujaba sus tarjetas a mano y nunca miraba `imagen`.
+  const hoja = leer('app/m/video-editor/InicioVideoM.tsx');
+  const i = hoja.indexOf('{plantillas.map((pl) => (');
+  assert.ok(i > 0, 'falta la grilla de la hoja');
+  const tarjeta = hoja.slice(i, i + 1400);
+  assert.match(tarjeta, /\{pl\.imagen \? \(/, 'con imagen, la imagen');
+  assert.match(tarjeta, /<img src=\{pl\.imagen\}/);
+  assert.match(tarjeta, /cajaDeMiniatura\(pl\.formato\)/, 'a su proporción, como en la computadora');
 });
