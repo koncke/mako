@@ -55,7 +55,7 @@ import { EditarCarrusel } from './EditarCarrusel';
 import { CarruselAbierto } from './CarruselAbierto';
 import { FiltrosCarruselModal } from './FiltrosCarruselModal';
 import { useImagenesVivas } from './imagenes-vivas';
-import { linkDeInstagram } from '@/lib/carruseles/link';
+import { esLinkDeVideo, linkDeInstagram } from '@/lib/carruseles/link';
 import { PanelThumbnails, type DatosThumbnails } from './Thumbnails';
 import { borrarBusquedaAction, guardarBusquedaAction, guardarCarruselAction, guardarThumbnailAction } from './actions';
 import s from './explorar.module.css';
@@ -186,6 +186,9 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
   const [trayendo, setTrayendo] = useState(false);
   const [errorTraer, setErrorTraer] = useState<string | null>(null);
   const linkPegado = f.que !== 'anuncios' && !enThumbs ? linkDeInstagram(f.q) : null;
+  // Un reel se sabe por su dirección (11/11/2026): se dice en el acto y NO se ofrece «Traer», que pagaba una lectura para terminar
+  // en el mismo «es un reel» (y después del error seguía ofreciendo el botón, o sea otra lectura).
+  const reelPegado = !!linkPegado && esLinkDeVideo(f.q);
   const traer = async () => {
     if (!linkPegado || trayendo) return;
     setTrayendo(true);
@@ -413,7 +416,8 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
               )}
               <span className={s.espacio} />
               {!sinFiltrosDe(f) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
-              {!sinFiltrosDe(f) && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
+              {/* Un link pegado no es una búsqueda para guardar: es «Traer tu outlier» (11/11/2026, la prueba en producción). */}
+              {!sinFiltrosDe(f) && !linkPegado && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
               {telefono ? null : (
                 <span className={s.total}>
                   {contadorCorto(vistos.length)} {f.que === 'anuncios' ? (vistos.length === 1 ? 'anuncio' : 'anuncios') : (vistos.length === 1 ? 'carrusel' : 'carruseles')}
@@ -448,7 +452,9 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
 
             {listas.length === 0 ? (
               <div className={s.vacio}>
-                <p>{parecidosDe ? 'No hay otros ejemplos parecidos a este.' : linkPegado
+                <p>{parecidosDe ? 'No hay otros ejemplos parecidos a este.' : reelPegado
+                  ? 'Ese link es de un reel: aquí se traen carruseles y publicaciones con imagen.'
+                  : linkPegado
                   ? 'Ese link no está entre tus outliers.'
                   : guardadosVista && !guardados.size
                   ? 'Guarda un carrusel con el marcador y aparece aquí.'
@@ -457,6 +463,7 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
                     : 'Ningún ejemplo pasa estos filtros.'}</p>
                 {errorTraer && linkPegado ? <p role="alert">{errorTraer}<ReportarASoporte /></p> : null}
                 {parecidosDe ? <button type="button" className={s.boton} onClick={() => setParecidosDe(null)}>Volver</button>
+                  : reelPegado ? null
                   : linkPegado ? <button type="button" className={s.boton} onClick={() => { void traer(); }} disabled={trayendo} aria-busy={trayendo || undefined}>{trayendo ? 'Trayendo…' : 'Traer este carrusel'}</button>
                   // Guardados vacío (10/11/2026): no hay filtro que quitar, hay que volver a buscar qué guardar.
                   : guardadosVista && !guardados.size ? <button type="button" className={s.boton} onClick={() => cambiar({ vista: 'todos' })}>Volver</button>

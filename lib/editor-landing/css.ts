@@ -439,6 +439,11 @@ const OPTIMIZADO: string[] = [
   r(opt(D, FILA), '--gm-n: var(--gm-n-fila);'),
   // data-cols explícito gana sobre el modo (misma especificidad, va después).
   ...rango(6).map((c) => r(D + ' .gm-optimizado[data-cols="' + c + '"]', '--gm-n: ' + c + ';')),
+  // Con la foto al costado el texto ocupa ~60% de la tarjeta, y cuatro cifras de 3.2em no entran en cuatro columnas (11/11/2026,
+  // la réplica de acquisition.com en producción: columnas de 103px para un «10,000» de 150px, «10,00081» pegados y los rótulos
+  // partidos). Van de a pares, como en el celular (DE_A_DOS), salvo que la persona haya elegido las columnas.
+  r(D + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"]) .gm-optimizado:is([data-variante="numeros-grandes"], [data-variante="estadisticas-circulares"]):is([data-cols="auto"], :not([data-cols]))',
+    '--gm-n: var(--gm-n-pares);'),
   ...indices,
   r(D + ' .gm-item', 'position: relative; min-width: 0; display: flex; flex-direction: column; gap: 0.65em; counter-increment: gm-item;'),
   r(D + ' .gm-item-marca', 'flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 0.5em; min-width: 0; color: var(--gm-acento-texto, currentColor);'),
