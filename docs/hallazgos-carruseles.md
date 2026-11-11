@@ -8,6 +8,34 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## «Traer tu outlier»: un carrusel por su link, del negocio que lo trae (11/11/2026)
+
+**El pedido:** Martín, 11/11: «en los outliers haya una opción para traer tu propio [outlier], pegar el link de Instagram, o el
+link de un video de YouTube, o de un anuncio… si se necesita Apify, no hay problema».
+
+**La referencia:** Top Carousels no tiene una opción así en sus capturas (docs/carruseles/referencia-top-carousels/). Se copió
+el patrón de MaKo para un link pegado: el buscador de Competitor Spy («Nombre, @, canal de YouTube o sitio») y el Web Generator
+(pegás el link de una landing → «Replica esta landing»). Con el link de una publicación en el buscador de los outliers, el
+vacío de siempre dice «Ese link no está entre tus outliers.» y ofrece «Traer este carrusel».
+
+**Dónde vive lo traído, y por qué ahí:** en la tabla de la biblioteca (`carruseles_biblioteca_piezas`), con la columna
+`workspace_id` de la mig **0413** (aplicada el 11/11: 1.588 filas, ninguna con negocio). Así el «Editar» (replicar),
+Guardados, las imágenes en el bucket y la lectura por link (`links` del script) andan sin otro camino.
+- **Se descartó un competidor de Spy:** Spy lo leería cada hora con la clave del negocio, que no pidió seguir a nadie.
+- **Se descartó una tabla nueva:** pedía otro espacio de ids y otro «Editar».
+- ⚠️ **La tabla es global** (la lee el server con service_role). Quién ve qué lo decide `seMuestraA(pieza, ws)`: lo traído, SÓLO
+  su negocio, y sin esperar la revisión de la 0411 (lo eligió él). Sin saber quién mira (un script), sólo lo de la plataforma.
+- **`ref` sigue siendo único:** si otro negocio trae la misma publicación (es pública), pasa a la plataforma.
+- **Sacar un creador de la biblioteca** borra sólo lo de la plataforma: lo traído de ese creador sigue siendo del negocio.
+
+**El costo:** una lectura por link con el actor de Instagram, medida el 5/11 en US$0,0025 (244 de 245). Con la clave de Spy del
+negocio o, si no tiene, la de la plataforma (Martín lo aprobó). Tope de 20 por día por negocio (`TRAIDOS_POR_DIA`) y techo de
+US$0,01 por lectura. Lo que ya está no se paga de nuevo.
+
+**Sin hacer:** YouTube y los anuncios. YouTube va por la API oficial, y sin la enmienda III.L lo guardado de su API vence a los
+30 días (0409). Un anuncio de la Biblioteca de Meta va por el actor de anuncios de Spy, que falta medir. El múltiplo de lo traído
+tampoco se calcula: su creador no se lee entero (`fuente: 'tema'`), y lo que no se midió no se dice.
+
 ## El guiado de los carruseles: tres tests que daban verde rompiéndolos, y la caja de Create que se cae sin ejemplos (9/11/2026)
 
 **Vive en:** `lib/carruseles/guiado.ts`, `app/image-editor/carruseles/ReplicarGuiado.tsx`, `lib/carruseles/replica-servidor.ts`,
