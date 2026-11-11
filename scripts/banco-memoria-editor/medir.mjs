@@ -173,6 +173,8 @@ const ESCENARIOS = [
   // Un proyecto más largo: 6 clips de 6 s seguidos. Lo que importa es si la memoria deja de CRECER.
   ...['antes', 'despues'].map((m) => [`tope6-${m}-1080`, [['cargar', `prueba.cargar('${A2}')`],
     ...[1, 2, 3, 4, 5, 6].map((i) => [`clip ${i}, 6 s`, `prueba.reproducir({nombres:['${A2}'],segundos:6,compartido:'${m}'})`])]]),
+  // Exportar: el audio de 4 clips de 60 s (collectAudioElements real). Antes: todos a la vez; después: de a uno.
+  ['exportar-audio-4', [['cargar', `prueba.cargar('${A2}')`], ['el audio de 4 clips', `prueba.exportarAudio({ nombre: '${A2}', clips: 4 })`]]],
   ['repro-1080', [['cargar', `prueba.cargar('${A2}')`], ['reproducir 5 s', `prueba.reproducir({nombres:['${A2}'],segundos:5})`],
     ['2º clip', `prueba.reproducir({nombres:['${A2}'],segundos:2})`], ['3º clip', `prueba.reproducir({nombres:['${A2}'],segundos:2})`]]],
   ['repro-1080-liviano', [['cargar', `prueba.cargar('${A2}')`], ['reproducir 5 s', `prueba.reproducir({nombres:['${A2}'],segundos:5,liviano:[540,960]})`],

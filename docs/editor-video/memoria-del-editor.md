@@ -253,6 +253,13 @@ Ordenado por memoria que ahorra contra trabajo que lleva. Son propuestas; ningun
    - Decodificar el audio fuente por fuente en vez de todo a la vez (`media/audio.ts:234`).
    - Escribir el MP4 a un archivo de OPFS con `StreamTarget` en vez del búfer en memoria (`scene-exporter.ts:161`).
    - O exportar en la nube: el render de Remotion en Lambda (parte 2) saca este pico de la PC del cliente.
+   - **HECHO el 11/11/2026 el primer punto** (rama `punta/exportar-audio-de-a-uno`).
+     - Las fuentes se decodifican en fila, y cada una suelta sus trozos y canales antes de remuestrear.
+     - Lo fija `tests/video-editor-exportar-audio-de-a-uno.test.ts`. Medido: §13.
+     - **Sin hacer:** el MP4 a OPFS con `StreamTarget`. Hoy el «fast start» en memoria pone el índice al principio, y
+       con un archivo que se escribe de a poco hay que elegir:
+       - el índice al final, que se reproduce igual pero no empieza a verse antes de bajarlo entero;
+       - o reservarle lugar al principio.
 7. **Las fugas de §6.** Cada una es chica, pero se suman en una sesión larga y al pasar de un negocio a otro.
 8. **Un tope al historial de deshacer** (por ejemplo, 100 pasos) y al «Restaurar» del chat.
 
@@ -377,3 +384,18 @@ banco pide cuadros mucho más rápido que la reproducción, y con el reloj de ve
 - **La GPU no devuelve en el momento lo que se suelta:** cerrar 3 decodificadores no la baja, la deja de hacer crecer.
   Chrome guarda esa memoria para reusarla. Por eso el beneficio se ve en un proyecto largo y no en uno de 2 clips: con 4
   clips daba +309 contra +270 MB.
+
+## 13. Después: el audio de exportar de a una fuente, medido (11/11/2026)
+
+Es el `collectAudioElements` REAL de exportar, sobre una pista con 4 clips de 60 s, cada uno un archivo distinto con su
+decodificación. Escenario `exportar-audio-4`, corrido con el código de antes y con el de ahora.
+
+| 4 clips de 60 s | Antes: todas a la vez | Después: de a una |
+|---|---|---|
+| Pico del proceso de la página | +450 MB | **+200 MB** |
+| Lo que queda decodificado | 88 MB | 88 MB |
+| Tarda | 0,78 s | 1,42 s |
+
+El resultado es el mismo: 4 elementos y 88 MB. Tarda más porque no decodifica en paralelo, pero es una parte chica de
+exportar, porque el video se lleva casi todo el tiempo. Con más clips la diferencia crece: antes el pico era unas 5
+veces el audio de TODAS las fuentes; ahora es el audio de todas más el de UNA decodificándose.

@@ -5,6 +5,8 @@ import { crearCopiaLiviana } from "@/app/video-editor/_opencut/media/copia-livia
 import { ondaPorTramos } from "@/app/video-editor/_opencut/media/onda-por-tramos";
 import { buildSourceWaveformSummary } from "@/app/video-editor/_opencut/media/waveform-summary";
 import { lienzoDeSubida } from "@/app/video-editor/_opencut/services/renderer/compositor/lienzo-de-subida";
+import { collectAudioElements } from "@/app/video-editor/_opencut/media/audio";
+import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { Input, ALL_FORMATS, BlobSource, CanvasSink } from "mediabunny";
 
 // Copia literal de ensureOffscreenCanvas (services/renderer/compositor/wasm-compositor.ts), que no se exporta.
@@ -130,6 +132,20 @@ window.prueba = {
 		const n = Math.min(a.length, b.length);
 		for (let i = 0; i < n; i++) { const d = Math.abs(a[i] - b[i]); sumaDif += d; if (d > maxDif) maxDif = d; }
 		return { tasa: [vieja.sampleRate, nueva.resumen.sampleRate], muestras: [vieja.totalSamples, nueva.resumen.totalSamples], baldes: [a.length, b.length], maxDif: Math.round(maxDif * 1e4) / 1e4, difMedia: Math.round((sumaDif / n) * 1e5) / 1e5, picoMax: Math.round(Math.max(...a) * 1e3) / 1e3 };
+	},
+	// El audio de EXPORTAR (media/audio.ts, collectAudioElements, el real): `clips` videos distintos del mismo archivo,
+	// uno detrás del otro en la pista principal, cada uno con su decodificación.
+	async exportarAudio({ nombre, clips }) {
+		const file = archivos.get(nombre);
+		const dur = (await new Input({ source: new BlobSource(file), formats: ALL_FORMATS }).computeDuration());
+		const mediaAssets = Array.from({ length: clips }, (_, i) => ({ id: `a${i}`, name: nombre, type: "video", file, url: "", duration: dur }));
+		const T = TICKS_PER_SECOND;
+		const elements = mediaAssets.map((a, i) => ({ id: `e${i}`, type: "video", mediaId: a.id, name: "x", startTime: Math.round(i * dur * T), duration: Math.round(dur * T), trimStart: 0, trimEnd: 0, params: {} }));
+		const tracks = { main: { id: "main", type: "video", name: "main", elements, muted: false, hidden: false, isMain: true }, overlay: [], audio: [] };
+		const t = performance.now();
+		const r = await collectAudioElements({ tracks, mediaAssets, audioContext: new OfflineAudioContext(2, 1, 48000) });
+		vivos.push(r);
+		return { elementos: r.length, ms: Math.round(performance.now() - t), mbDecodificados: Math.round(r.reduce((s, e) => s + e.buffer.length * e.buffer.numberOfChannels * 4, 0) / 1048576) };
 	},
 	soltar() {
 		for (const v of vivos) if (v instanceof VideoCache) v.clearAll();

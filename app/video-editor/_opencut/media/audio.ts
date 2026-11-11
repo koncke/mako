@@ -165,10 +165,15 @@ export async function collectAudioElements({
 	// Un archivo se decodifica UNA vez aunque esté partido en veinte clips: cada
 	// decodificación de un video largo son cientos de MB y segundos de espera.
 	const porArchivo = new Map<string, Promise<AudioBuffer | null>>();
+	// Y de a UNO: decodificar una fuente pide unas 4 veces su audio mientras dura (los trozos, los canales juntos, el
+	// buffer nativo y el remuestreado). Todas a la vez sumaban eso por cada fuente: 4 clips de 60 s pedían +450 MB para
+	// quedarse con 88 (medido el 11/11/2026, docs/editor-video/memoria-del-editor.md §13).
+	let fila: Promise<unknown> = Promise.resolve();
 	const decodificar = (asset: MediaAsset) => {
 		let pendiente = porArchivo.get(asset.id);
 		if (!pendiente) {
-			pendiente = resolveAudioBufferForAsset({ asset, audioContext });
+			pendiente = fila.then(() => resolveAudioBufferForAsset({ asset, audioContext }));
+			fila = pendiente.catch(() => null);
 			porArchivo.set(asset.id, pendiente);
 		}
 		return pendiente;
@@ -331,6 +336,8 @@ async function resolveAudioBufferForAsset({
 			}
 			offset += chunk.length;
 		}
+		// Los trozos ya están copiados: se sueltan antes de remuestrear, que pide otra copia entera.
+		chunks.length = 0;
 
 		// use OfflineAudioContext for high-quality resampling to target rate
 		const outputSamples = Math.ceil(
@@ -350,6 +357,8 @@ async function resolveAudioBufferForAsset({
 		for (let ch = 0; ch < numChannels; ch++) {
 			nativeBuffer.copyToChannel(nativeChannels[ch], ch);
 		}
+		// Lo mismo con los canales: ya están en el buffer nativo.
+		nativeChannels.length = 0;
 
 		const sourceNode = offlineContext.createBufferSource();
 		sourceNode.buffer = nativeBuffer;
