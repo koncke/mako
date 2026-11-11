@@ -79,8 +79,14 @@ export type LecturaFuenteCopy = { ok: true; outliers: readonly OutlierCopy[] } |
 export type FuenteOutliersCopy = { id: string; nombre: string; leer: () => Promise<LecturaFuenteCopy> };
 export type PortadaCopy = { outliers: OutlierCopy[]; caidas: { fuente: string; nombre: string; motivo: string }[] };
 
-/** Cuánto texto viaja a la pantalla por tarjeta (el entero se lee al abrir y al replicar). */
-export const TEXTO_EN_TARJETA = 600;
+/**
+ * Cuánto texto viaja a la pantalla por tarjeta (el entero se lee al abrir y al replicar), y cuántos outliers por formato.
+ * ⚠️ 11/11/2026, Martín: «anda increíblemente lento». Medido en producción (ws 9): 2.291 outliers con 600 letras cada uno eran
+ * 7,5 MB de página, 3,8 s hasta el primer byte y 46.030 elementos. La hoja muestra ~8 renglones: 280 letras alcanzan, y de cada
+ * formato van los 300 mejores.
+ */
+export const TEXTO_EN_TARJETA = 280;
+export const TOPE_POR_FORMATO = 300;
 /** Cuánto del original le llega a MaKo: un guion de YouTube entero no entra en un pedido. */
 export const TEXTO_PARA_MAKO = 6000;
 
@@ -92,6 +98,15 @@ export const esIdOutlierCopy = (v: unknown): v is string => typeof v === 'string
 export function primeraLinea(texto: string | null | undefined, tope = 140): string {
   const l = (texto ?? '').split('\n').map((x) => x.trim()).find(Boolean) ?? '';
   return l.length > tope ? `${l.slice(0, tope - 1).trimEnd()}…` : l;
+}
+
+/** Lo que sigue al gancho en la hoja de la tarjeta (app/copywriter/OutliersCopy.tsx): el texto sin repetir el gancho (un pie
+ *  suele arrancar con él); vacío si el texto ES el gancho (el título de un video sin descripción). */
+export function restoDelTexto(o: Pick<OutlierCopy, 'gancho' | 'texto'>): string {
+  const g = o.gancho.trim();
+  const t = o.texto.trim();
+  const sin = g && t.startsWith(g) ? t.slice(g.length).replace(/^[\s.,:;!?…—-]+/u, '') : t;
+  return sin === g ? '' : sin;
 }
 
 // ── Competitors Spy: reels, publicaciones, YouTube y anuncios de las cuentas que sigue el negocio ──────────────────────
@@ -257,7 +272,9 @@ export function intercalarFormatos(xs: readonly OutlierCopy[], porFormato: (fila
   for (const o of xs) { const f = filas.get(o.formato); if (f) f.push(o); else filas.set(o.formato, [o]); }
   for (const [k, f] of filas) filas.set(k, porFormato(f));
   const out: OutlierCopy[] = [];
-  for (let i = 0; out.length < xs.length; i++) {
+  // Hasta la fila más larga (`porFormato` puede dejar menos de los que entraron: el tope por formato).
+  const vueltas = Math.max(0, ...[...filas.values()].map((f) => f.length));
+  for (let i = 0; i < vueltas; i++) {
     const vuelta = [...filas.values()].map((f) => f[i]).filter((o): o is OutlierCopy => !!o);
     out.push(...vuelta.sort((a, b) => pesoDe(b) - pesoDe(a)));
   }
@@ -292,7 +309,7 @@ export function juntarOutliersCopy(lecturas: readonly { fuente: FuenteOutliersCo
     textos.add(k);
     return true;
   });
-  return { outliers: intercalarFormatos(unicos, variedad), caidas };
+  return { outliers: intercalarFormatos(unicos, (fila) => variedad(fila).slice(0, TOPE_POR_FORMATO)), caidas };
 }
 
 /** Los filtros de la portada: el segmento (todos o un formato) y lo que se busca (en el gancho, el texto y el @). */

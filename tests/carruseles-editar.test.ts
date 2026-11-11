@@ -144,7 +144,7 @@ test('el guiado: la oferta que eligió el dueño LLEGA al pedido de la IA, y una
   const texto = g.pedidos.map((p) => p.texto ?? '').join('\n');
   assert.match(texto, /<<<OFERTA[\s\S]*Limpieza dental en una visita[\s\S]*Dientes limpios en 40 minutos[\s\S]*OFERTA>>>/, 'la oferta elegida tiene que viajar al pedido');
   assert.match(texto, /Que hable de la primera visita/, 'lo que escribió el dueño en el guiado viaja');
-  assert.match(texto, /No pongas fotos ni personas/, '«Sin persona»: no se pone ninguna foto');
+  assert.match(texto, /No pongas personas/, '«Sin persona»: la escena va sin gente');
   assert.doesNotMatch(texto, /OTRO negocio/);
   const ajena = R.guiadoOfertaAjena;
   assert.equal(ajena.ok, false, 'una oferta de otro negocio no se usa');
