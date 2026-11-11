@@ -10,9 +10,10 @@
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { PLANTILLAS_AVATAR, plantillaPorId } from '../lib/ai-avatar/plantillas';
 import { PLANTILLAS_VENTA_AVATAR, ganchoDeEjemplo } from '../lib/ai-avatar/plantillas-venta';
 import { CONSEJO_FOTO } from '../lib/ai-avatar/estudio';
 
@@ -52,4 +53,23 @@ test('el lugar del personaje dice qué foto sirve, en la compu y en el teléfono
   assert.match(CONSEJO_FOTO, /de frente/);
   assert.match(estudio, /\{fotos\.length === 0 && <p className="hf-menu-ayuda">\{CONSEJO_FOTO\}<\/p>\}/);
   assert.match(telefono, /\{fotos\.length === 0 && <p className="m-ai-avatar-pronto">\{CONSEJO_FOTO\}<\/p>\}/);
+});
+
+test('⚠️ TODOS los presets tienen su imagen: un degradado gris en producción es una falla, no un pendiente', () => {
+  // Martín, 11/11: «miniaturas grises». El 10/11, 31 de los 33 presets eran un degradado sin imagen, anotado como
+  // «pendiente» desde el 29/10. Las imágenes son de Flow, con la cara de Martín y el MISMO prompt del producto.
+  assert.ok(PLANTILLAS_AVATAR.length >= 33);
+  for (const p of PLANTILLAS_AVATAR) {
+    assert.ok(p.ejemplo?.poster, `${p.id}: sin imagen, la baldosa es un degradado gris`);
+    const archivo = join(process.cwd(), 'public', p.ejemplo.poster);
+    assert.ok(existsSync(archivo), `${p.id}: falta ${p.ejemplo.poster}`);
+    // Una miniatura, no el original de Flow (768×1376, ~700 KB): 33 de esas son 23 MB en cada carga de la grilla.
+    assert.ok(statSync(archivo).size < 200_000, `${p.id}: ${p.ejemplo.poster} pesa ${statSync(archivo).size} B`);
+  }
+});
+
+test('las 10 plantillas de venta tienen la imagen de su escena', () => {
+  for (const v of PLANTILLAS_VENTA_AVATAR) {
+    assert.ok(plantillaPorId(v.presetId)?.ejemplo?.poster, `${v.id}: su preset ${v.presetId} no tiene imagen`);
+  }
 });
