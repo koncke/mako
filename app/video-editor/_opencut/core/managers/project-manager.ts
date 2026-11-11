@@ -661,6 +661,8 @@ export class ProjectManager {
 			duration: duration || 1,
 			canvasSize,
 			background,
+			// La miniatura del proyecto sale de la copia liviana: no reabre el decodificador del original en cada guardado.
+			isPreview: true,
 		});
 
 		const renderer = new CanvasRenderer({

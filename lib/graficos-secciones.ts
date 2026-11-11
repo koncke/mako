@@ -110,6 +110,20 @@ export function ocultosPorPlegado(componentes: readonly Componente[], plegadas: 
   return out;
 }
 
+/**
+ * Lo NUEVO entra a la vista, nunca adentro de una sección plegada (10/11/2026, probado en producción): en una hoja con
+ * diseño la última sección es «Todas las piezas», plegada y sin sección debajo, así que lo que «Añadir datos», «Añadir un
+ * gráfico» o un elemento ponían ABAJO DE TODO (`abajoDeTodo`) pasaba a ser una pieza escondida: el panel se abría y en la
+ * hoja no aparecía nada. Si cae en una plegada, entra en la fila de esa sección y la sección baja con lo suyo lo que mide
+ * lo nuevo: la MISMA regla con que «Bloques» pone una tarjeta arriba de «Todas las piezas» (lib/disenos-partes.ts).
+ */
+export function agregarALaVista(componentes: readonly Componente[], nuevo: Componente, plegadas: ReadonlySet<string>): Componente[] {
+  if (esSeccion(nuevo) || !plegadas.size) return [...componentes, nuevo];
+  const g = gruposDe([...componentes, nuevo]).find((x) => x.plegable && plegadas.has(x.id) && x.miembros.includes(nuevo.id));
+  if (!g) return [...componentes, nuevo];
+  return [...componentes.map((c) => (c.y >= g.y ? { ...c, y: c.y + nuevo.h } : c)), { ...nuevo, y: g.y }];
+}
+
 /** Cuántas filas esconde una sección plegada. */
 const altoEscondido = (g: GrupoSeccion) => Math.max(0, g.hasta - g.desde);
 

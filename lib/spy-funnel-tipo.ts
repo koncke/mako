@@ -18,6 +18,7 @@
 // Sin `server-only` y sin IA: corre en el navegador sobre las piezas que ya están en pantalla.
 // =============================================================================
 
+import { TZ_TIJUANA } from './date-utils';
 import { FUNNELS_DEL_CATALOGO } from './spy-catalogo-datos';
 import type { EntradaCatalogo } from './spy-catalogo-leer';
 
@@ -113,6 +114,42 @@ function compuestas(e: EntradaCatalogo, n: string): string | null {
   return null;
 }
 
+// ── Las frases débiles que sólo cuentan en su contexto ──────────────────────────────────────────────────────────────
+
+/**
+ * Una frase débil que, suelta, casi siempre habla de otra cosa: cuenta sólo si lo que la rodea la vuelve un evento. Se mira sobre
+ * el texto comparable (sin tildes, minúsculas): `antes` son las letras que la preceden y `despues`, las que le siguen.
+ *
+ * ⚠️ «LIVE» SUELTO NO ES UN WEBINAR (10/11/2026, prueba en producción con Leila Hormozi, 637 piezas). Aparecía en 20: «Episode 1
+ * of Dear Leila is live» (ya salió), «The season finale is now LIVE», «unfiltered answers, live» (su programa de preguntas en
+ * YouTube), y en inglés también es el verbo («to live», «Live Like the 1%»). Con «masterclass» en UNA pieza alcanzaba la regla
+ * de dos débiles de dos piezas, y la ficha afirmaba «Su funnel: Webinar en vivo» citando esos reels como evidencia, cuando su
+ * funnel es una descarga gratis (lp.acquisition.com/leila-frameworks). El primer arreglo —descartar «is/now live»— no alcanzó:
+ * quedaban «answers, live» y el verbo. Ahora «live» cuenta pegado a lo que se agenda («live training», «live class», «live
+ * Q&A»…) o en «join me/us live»; «free live training», «live workshop» y «webinar» siguen siendo frases propias del catálogo.
+ */
+const SOLO_EN_CONTEXTO: Readonly<Record<string, (antes: string, despues: string) => boolean>> = {
+  live: (antes, despues) =>
+    /^\s+(?:free\s+)?(?:training|trainings|class|classes|webinar|workshop|session|sessions|masterclass|q\s*&\s*a|q\s*and\s*a|qa|call|event|stream|coaching|challenge|bootcamp)(?![\p{L}\p{N}])/u.test(despues)
+    || /(?:^|[^\p{L}\p{N}])join\s+(?:me|us)\s+$/u.test(antes),
+};
+
+/** La primera aparición de `frase` en `n` que cuenta (para las de `SOLO_EN_CONTEXTO`, la primera en su contexto), o null. */
+function primeraQueCuenta(frase: string, n: string): { a: number; b: number } | null {
+  const enContexto = SOLO_EN_CONTEXTO[frase];
+  const base = regexDeFrase(frase);
+  if (!enContexto) {
+    const m = base.exec(n);
+    return m ? { a: m.index, b: m.index + m[0].length } : null;
+  }
+  for (const m of n.matchAll(new RegExp(base.source, 'gu'))) {
+    const a = m.index ?? 0;
+    const b = a + m[0].length;
+    if (enContexto(n.slice(Math.max(0, a - 24), a), n.slice(b, b + 40))) return { a, b };
+  }
+  return null;
+}
+
 // ── Clasificar ──────────────────────────────────────────────────────────────────────────────────────────────────────
 
 type Hallazgo = { frase: string; fuerte: boolean; fuente: number; a: number; b: number; descartada?: boolean };
@@ -130,8 +167,8 @@ function hallazgosDe(e: EntradaCatalogo, fuentes: readonly FuenteDeEvidencia[], 
     // Una pieza que se descarta («por Zoom») sólo aporta sus fuertes, bajadas a débiles: sus palabras sueltas («evento», «entradas»)
     // hablan de otra cosa.
     for (const frase of descartada ? [] : e.debiles ?? []) {
-      const m = regexDeFrase(frase).exec(n);
-      if (m) out.push({ frase, fuerte: false, fuente: i, a: m.index, b: m.index + m[0].length });
+      const m = primeraQueCuenta(frase, n);
+      if (m) out.push({ frase, fuerte: false, fuente: i, a: m.a, b: m.b });
     }
     const comp = compuestas(e, n);
     if (comp) {
@@ -211,7 +248,8 @@ export type PaginaParaEvidencia = { url: string; titulo?: string | null; texto: 
 const NOMBRE_TIPO: Record<string, string> = { reel: 'Reel', publicacion: 'Publicación', video: 'Video', anuncio: 'Anuncio', landing: 'Su web' };
 const fechaCita = (iso?: string | null): string | null => {
   const d = iso ? new Date(iso) : null;
-  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('es', { day: 'numeric', month: 'short', timeZone: 'UTC' }).replace('.', '') : null;
+  // El día en la zona del producto, como `fechaCorta` (lib/spy-vista.ts): en UTC, un reel de la noche salía con el día siguiente.
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('es', { day: 'numeric', month: 'short', timeZone: TZ_TIJUANA }).replace('.', '') : null;
 };
 const DONDE: Record<string, FuenteDeEvidencia['donde']> = { anuncios: 'anuncio', youtube: 'video', instagram: 'publicacion', landing: 'web' };
 

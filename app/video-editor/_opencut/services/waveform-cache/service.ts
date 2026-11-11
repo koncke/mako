@@ -5,6 +5,7 @@ import {
 	buildSourceWaveformSummary,
 	type SourceWaveformSummary,
 } from "@/app/video-editor/_opencut/media/waveform-summary";
+import { ondaPorTramos } from "@/app/video-editor/_opencut/media/onda-por-tramos";
 
 interface GetSourceWaveformSummaryArgs {
 	sourceKey: string;
@@ -57,6 +58,17 @@ export class WaveformCache {
 	}: GetSourceWaveformSummaryArgs): Promise<SourceWaveformSummary> {
 		if (audioBuffer) {
 			return buildSourceWaveformSummary({ sourceKey, buffer: audioBuffer });
+		}
+
+		// Un archivo se lee DE A TROZOS (media/onda-por-tramos.ts): leerlo entero pedía 3,6 veces lo que pesa en cada carga
+		// del proyecto (docs/editor-video/memoria-del-editor.md §1). Lo de abajo queda para lo que mediabunny no lee y para
+		// la música de biblioteca (una URL chica).
+		if (sourceFile) {
+			const porTramos = await ondaPorTramos({ sourceKey, file: sourceFile });
+			if (porTramos.estado === "listo") return porTramos.resumen;
+			if (porTramos.estado === "sin-audio") {
+				throw new Error(`No audio track for waveform: ${sourceKey}`);
+			}
 		}
 
 		let arrayBuffer: ArrayBuffer | null = null;

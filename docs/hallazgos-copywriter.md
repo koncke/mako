@@ -405,6 +405,55 @@ app/m/copywriter/GuionM.tsx
 
 **Vive en:** lib/copywriter/seccion-arrastre.ts, app/copywriter/editor/CuerpoNotion.tsx, tests/copywriter-arrastrar-seccion.test.ts
 
+## «Tenemos la transcripción de un montón de cosas»: medido, casi no hay (11/11/2026, outliers de copy)
+
+- **Lo que se creía** (Martín, al pedir los outliers de copy): que había transcripciones de anuncios, carruseles, reels y videos
+  de YouTube, listas para mostrar como outliers.
+- **Lo que se midió en producción** (sólo lectura, el 11/11):
+  - **Guiones de Spy:** 11 en toda la base, todos de un mismo negocio; 0 en el ws 3. Viven en `app_settings`
+    (`spy.transcripcion.<competidor>.<pieza>`), no en `spy_piezas`, y se hacen SÓLO al abrir el detalle de una pieza en Spy
+    (Apify + Whisper, o Gemini para YouTube). Vencen a los 30 días.
+  - **Carruseles:** las láminas no tienen su texto guardado, sólo las imágenes. Lo único es el pie.
+  - **YouTube (Thumbnails):** ni descripción ni transcripción; sólo títulos y números.
+  - **Anuncios:** los de la competencia guardan su copy, no la transcripción del video. Los PROPIOS sí
+    (`ad_transcripts.secciones` + `script_analyses`, con su veredicto): 133 en un negocio, 87 en otro, 0 en el ws 3.
+- **Lo que hay de verdad, y es lo que usa la portada** (lib/copywriter/outliers.ts):
+  - el pie de los reels y las publicaciones de Spy;
+  - la descripción y el título de YouTube;
+  - el copy de los anuncios;
+  - el pie de los 1.574 carruseles de la biblioteca;
+  - el guion, cuando ya existe.
+  La tarjeta y MaKo dicen qué texto es; nunca «la transcripción» cuando es el pie.
+- ⚠️ **El texto de Spy vence a los 30 días** (`podarVencido`, la regla de datos de terceros): una pieza vieja de Spy llega sin pie y
+  no es un outlier de copy. Una portada que no sale «vacía» depende de que Spy siga leyendo.
+- ⚠️ **El copy de un anuncio puede no ser copy, y repetirse** (simulado con los datos del ws 9, 11/11): los anuncios de catálogo
+  traen «{{product.name}}» de texto y, como llevan meses al aire, quedaban entre los diez primeros. Y el mismo texto corre en
+  varios anuncios: de 258 anuncios quedaban 24 distintos. Una variable de plantilla no cuenta como palabra (`esCopy`), y el
+  mismo copy del mismo creador sale una vez (`juntarOutliersCopy`).
+- **Sin hacer:** los anuncios propios como fuente (`ad_transcripts` + el veredicto del Script Analyst), y transcribir al replicar
+  (asegurarGuion de Spy tiene tope de 20 por día y cuesta). Los anuncios propios con transcripción están sólo en negocios de
+  clientes (ws 1, 13, 19, 4, 14…), ninguno en el ws 3 ni en el 9; y para saber cuál es «ganador» faltan sus métricas de Meta.
+
+## En el negocio de prueba MaKo no escribe guiones: no es una falla del Copywriter (11/11/2026, prueba en producción)
+
+- **Síntoma:** en el ws 3, al contestar las preguntas de una plantilla, MaKo responde «No hay ninguna IA conectada, así que MaKo
+  no puede escribir…». A 1440, además, la caja dice «Instala MaKo para escribir» con el botón «Instalar MaKo».
+- **Son dos reglas de producto, no fallas:**
+  - el ws 3 no tiene Claude ni GPT conectado (cada negocio paga SU IA);
+  - en la computadora, sin la app de escritorio conectada, NINGÚN chat de MaKo deja escribir (Martín, 23 y 25/10: «Bloqueá
+    igual»; lib/chat-mako-reglas.ts → `appDeEscritorio`). En el teléfono no se traba: avisa y deja seguir.
+- **Lo que sí se prueba en el ws 3:** la plantilla, las preguntas de MaKo y las ofertas, escribir a mano, guardar y reabrir, «Ver
+  ejemplo», la portada de outliers, Replicar y «Ver el original». Que MaKo ESCRIBA se prueba en un negocio con IA (el encargo de
+  imágenes del 6/11 usa el ws 9), con el sí del Cerebro.
+- **Lo que esa prueba encontró y se arregló:** en el teléfono, la barra decía «Sin título» con el título ya escrito; «Ver ejemplo»
+  cortaba el texto a la derecha (el documento tomaba el ancho de su tabla); después de las preguntas aparecía una burbuja de más
+  que repetía las respuestas; y en la caja trabada la frase quedaba cortada a la mitad (app/_chat/CajaChat.tsx, compartida).
+- **Visto y NO arreglado (no es de esta tab):** en el teléfono, el super admin que mira un negocio ve el chip «Cliente de Prueba»
+  encima del título de la barra (app/m/_ui, la cabecera compartida). El cliente no lo ve.
+- **Dos caminos al mismo lugar:** Spy tiene «Copiar estructura» (lib/spy-detalle.ts → `textoParaCopiar`: la página nace con el
+  original citado adentro) y la portada de Copywriting tiene «Replicar» (la página nace vacía, atada al original, y MaKo la
+  escribe). **Sin hacer:** que Spy use «Replicar» y quede uno solo.
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».

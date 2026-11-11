@@ -1,0 +1,17 @@
+/* La portada de Web Generator (./OutliersLandings.tsx): lo que la de Image y la de Video no tienen. El resto (encabezado,
+   pastillas, grilla, tarjeta, creador, vacío, tipo, por qué, acciones) usa sus clases: una portada, un diseño. Sólo tokens. */
+
+/* Una página se ve apaisada (la captura es de la pantalla de una computadora): la tarjeta de Image en 16:10, y una columna más
+   ancha para que el titular se lea. */
+.grilla { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.mini { aspect-ratio: 16 / 10; display: block; }
+/* La captura es la página desde arriba: el titular, no el medio. */
+.arriba { object-position: top center; }
+/* Sin imagen: el sitio con su nombre, sobre el tono del acento (nunca un cuadro gris vacío). */
+.sitio {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: var(--primary-bg); color: var(--primary-strong, var(--primary));
+}
+.sitio b { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; text-align: center; overflow-wrap: anywhere; }
+
+@media (max-width: 520px) { .grilla { grid-template-columns: minmax(0, 1fr); gap: 20px; } }

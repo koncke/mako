@@ -204,6 +204,13 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-cols__izq > .spyg{flex:1 1 auto}
 .spy-cols__izq > .spyg > .spyg-caja:last-child{flex:1 1 auto}
 .spy-riel{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
+/* Si la columna de la izquierda queda más alta, se estira la última caja del riel («¿En qué publica?»): sin hueco abajo. */
+@media (min-width:1081px){.spy-riel > :last-child{flex:1 1 auto}}
+/* La fila de abajo (la tercera de merrin): «A dónde manda» y «Lo que mejor le fue», lado a lado. «Lo que mejor le fue» ya no
+   llena un alto que le dan: muestra 5 y fluye (MejoresPiezas lee la variable). */
+.spy-fila-baja{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:var(--gap);margin-top:var(--gap);align-items:stretch}
+.spy-fila-baja .spy-mejores{--mejores-fluye:1;min-height:0}
+.spy-fila-baja .spy-mejores__tarjeta{position:static;height:100%}
 
 /* --- Volver a todos: un botón de verdad, con la flecha y las caras de los demás (4/11/2026). --- */
 .spy-sin-anuncios{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -336,8 +343,10 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-pcard__pie{display:flex;align-items:flex-end;gap:10px;padding:12px 14px 14px 16px}
 .spy-pcard__texto{flex:1;min-width:0}
 .spy-pcard__texto small{display:block;color:var(--t-dim);font-size:var(--fs-meta);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.spy-pcard__texto b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:var(--fs-card);font-weight:600;line-height:1.3;letter-spacing:-.005em}
+/* El nombre en DOS renglones, como «.pcard__text b» de fitlo («clamp 2», docs/diseno/referencia-spy.md). En uno solo, con la
+   píldora del número al lado, un video de YouTube quedaba «The skill you N…» (11/11/2026, mirado con capturas). */
+.spy-pcard__texto b{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;white-space:normal;
+  overflow-wrap:anywhere;font-size:var(--fs-card);font-weight:600;line-height:1.3;letter-spacing:-.005em}
 .spy-pcard__num{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;height:34px;padding:0 13px;
   border-radius:99px;background:var(--ink);color:var(--on-ink);box-shadow:0 8px 18px -10px #11111173}
 .spy-pcard__num svg{opacity:.75;flex:0 0 auto}
@@ -857,6 +866,9 @@ function RejillaSugeridos({ sugeridos, ocupado, onSumar }: { sugeridos: Sugerido
 /** La serie categórica: el mismo color para el mismo concepto en la barra y en la fila. */
 const SERIE = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
 
+/** «46%», o «menos del 1%» si hay alguna: «0% de 637» con una pieza se leía como nada (11/11/2026, mirado con capturas). */
+const porcentajeDe = (f: { n: number; pct: number }): string => (f.n > 0 && f.pct < 1 ? 'menos del 1%' : `${f.pct}%`);
+
 /** Una caja del riel: cabecera, barra apilada y filas. Es el bloque «Where it sells» de merrin. */
 function CajaMix({ titulo, pie, filas, total, iconos, otras }: {
   // `pie` admite null porque `fraseDeLectura` devuelve null cuando al competidor no se le leyo nada.
@@ -878,7 +890,7 @@ function CajaMix({ titulo, pie, filas, total, iconos, otras }: {
         {filas.map((f, i) => (
           <li key={f.rotulo}>
             <span className="spy-mix-ico" aria-hidden>{iconos?.[f.rotulo] ?? <i style={{ width: 10, height: 10, borderRadius: '50%', background: SERIE[i % 4] }} />}</span>
-            <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{f.pct}% de {total}</small></span>
+            <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{porcentajeDe(f)} de {total}</small></span>
             <span className="spy-mix-val"><b>{f.n}</b></span>
           </li>
         ))}
@@ -889,7 +901,7 @@ function CajaMix({ titulo, pie, filas, total, iconos, otras }: {
           <ul className="spy-mix-filas">
             {otras.filas.map((f) => (
               <li key={f.rotulo}>
-                <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{f.pct}% de {total}</small></span>
+                <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{porcentajeDe(f)} de {total}</small></span>
                 <span className="spy-mix-val"><b>{f.n}</b></span>
               </li>
             ))}
@@ -917,16 +929,18 @@ function CajaMix({ titulo, pie, filas, total, iconos, otras }: {
 function RielAnalisis({ piezas, c }: { piezas: PiezaVista[]; c: Competidor }) {
   // «¿En qué publica?» de verdad: por red (con su logo) y por formato. Nada de «100% videos» (Martín, 4/11).
   const reparto = useMemo(() => repartoDePublicaciones(piezas), [piezas]);
-  const destinos = useMemo(() => destinosDe(piezas), [piezas]);
   const frase = fraseDeLectura(piezas, c.mirado_en);
   return (
-    <>
-      <CajaMix titulo="¿En qué publica?" pie={frase} filas={reparto.redes} total={reparto.total}
-        iconos={Object.fromEntries(reparto.redes.map((f) => [f.rotulo, f.red ? <LogoRed red={f.red} box={18} /> : null]))}
-        otras={reparto.formatos.length > 1 ? { titulo: 'En qué formato', filas: reparto.formatos } : undefined} />
-      <CajaMix titulo="A dónde manda" filas={destinos.slice(0, 6)} total={piezas.length} />
-    </>
+    <CajaMix titulo="¿En qué publica?" pie={frase} filas={reparto.redes} total={reparto.total}
+      iconos={Object.fromEntries(reparto.redes.map((f) => [f.rotulo, f.red ? <LogoRed red={f.red} box={18} /> : null]))}
+      otras={reparto.formatos.length > 1 ? { titulo: 'En qué formato', filas: reparto.formatos } : undefined} />
   );
+}
+
+/** «A dónde manda»: va en la fila de abajo, al lado de «Lo que mejor le fue» (ver `filaBaja`). */
+function CajaDestinos({ piezas }: { piezas: PiezaVista[] }) {
+  const destinos = useMemo(() => destinosDe(piezas), [piezas]);
+  return <CajaMix titulo="A dónde manda" filas={destinos.slice(0, 6)} total={piezas.length} />;
 }
 
 export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [], conVistaPrevia = false, caricaturasFrenadasDesde = null }: {
@@ -1548,11 +1562,22 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     }
   };
 
+  // ⚠️ SE SACA DE LA LISTA EN EL ACTO, sin esperar a `recargarLista` (10/11/2026, prueba en producción). Desde la ficha, después
+  // de `irA(null)` la recarga NO salía: se borraba en la base y la lista seguía mostrándolo —con «X y Acquisition.com tienen la
+  // misma web · Juntarlos» incluido— hasta recargar la página. Medido con un registro de pedidos: el borrado respondía 200 y el
+  // pedido de la lista nunca se mandaba. Desde la «×» de la tarjeta (sin navegar) sí salía. La recarga queda, por si cambió algo más.
+  const sacarDeLaLista = (id: number) => {
+    setCompetidores((v) => v.filter((x) => x.id !== id));
+    setResumen((v) => { const resto = { ...v }; delete resto[id]; return resto; });
+  };
+
   const quitar = async () => {
     if (elegido == null) return;
-    const r = await quitarCompetidorAction(elegido);
+    const id = elegido;
+    const r = await quitarCompetidorAction(id);
     setModal(null);
     if (!r.ok) { setError(r.error); return; }
+    sacarDeLaLista(id);
     irA(null);
     await recargarLista();
   };
@@ -1696,8 +1721,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   );
 
   // El riel de la ficha: su nombre, su menú y sus datos. Va al lado del gráfico y de sus piezas, en «Contenido».
+  // ⚠️ UN <section> Y NO UN <aside> (10/11/2026, prueba en producción). Viendo un negocio como agencia, la regla global
+  // `[data-barra-agencia] aside` (app/globals.css, es para el riel del Sidebar) le fuerza a TODO <aside> el alto de la
+  // ventana: el riel medía 850 px con 1378 de contenido, y «A dónde manda» y «Lo que mejor le fue» se dibujaban encima de
+  // la grilla de «Todas sus piezas». Es la misma trampa que ya esquivaron el Dashboard, el Video y el Web Generator.
   const riel = c ? (
-    <aside className="spy-riel">
+    <section className="spy-riel" aria-label={`Lo que leímos de ${c.nombre}`}>
       {/* La identidad abre el riel, como la `.pd-info` abre la columna de al lado en la
           referencia: ante-título chico, nombre grande, la frescura, y la acción. ⚠️ EL
           RIEL YA NO DEPENDE DE QUE HAYA PIEZAS: si dependiera, un competidor sin nada
@@ -1759,8 +1788,19 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       )}
 
       {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} />}
+    </section>
+  ) : null;
+
+  // ⚠️ «A DÓNDE MANDA» Y «LO QUE MEJOR LE FUE» VAN ABAJO, EN UNA FILA DE TARJETAS, COMO LA TERCERA FILA DE MERRIN (11/11/2026,
+  // mirado con capturas). En el riel, el riel medía 1.378 px contra ~710 de la columna izquierda, y la regla de «terminan en la
+  // misma línea» estiraba «¿Qué formatos le funcionan?» hasta 739 px con 82 de contenido: una caja blanca vacía de 650 px, que
+  // es lo que veía un cliente (con la barra de agencia, el riel se cortaba en 850 y tapaba la grilla). En merrin el riel tiene el
+  // alto de la columna de al lado y lo que sigue va en la fila de abajo.
+  const filaBaja = c && flujo.length > 0 ? (
+    <div className="spy-fila-baja">
+      <CajaDestinos piezas={flujo} />
       <MejoresPiezas piezas={flujo} onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })} />
-    </aside>
+    </div>
   ) : null;
 
   return (
@@ -1980,6 +2020,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
 
                   {riel}
                 </div>
+
+                {filaBaja}
 
                 {contenido.length > 0 && (
                   <GrillaPiezas

@@ -2761,6 +2761,13 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - **Y una línea que escribe el CÓDIGO tampoco promete lo imposible** (29/10/2026, el ticket #30 de Leandro: «No tengo acceso…
   pídemelo otra vez y lo hago»). Un texto fijo que dice «lo hago» mira antes si es algo que MaKo puede hacer (`noLoPuedeHacer`);
   si no, no va.
+- **MaKo SIEMPRE contesta en su grupo** (Martín, 10/11/2026: «Mako en WhatsApp no responde... SIEMPRE debe responder»). La respuesta
+  al grupo donde una persona acaba de escribir pasa el freno de la línea y el tope del mismo texto (`esRespuestaEnCurso`,
+  lib/mako-salida-reglas.ts). Hacen falta dos marcas (lib/respuesta-en-curso.ts): `conRespuestaA` en la entrada del turno y
+  `comoRespuesta` en la puerta por donde sale la respuesta. Un camino nuevo que contesta un mensaje de un grupo usa las dos; un aviso,
+  un flujo o una alta, ninguna, aunque corran adentro del turno. Y lo que no llegó a WhatsApp no se da por dicho: `siNoLlego` abre
+  su ticket. Lo fija tests/mako-responde-siempre.test.ts; las seis causas de «no responde» y el
+  diagnóstico, en docs/hallazgos-comunicacion.md.
 - **El acuse del grupo es el 👍, y ningún código manda un «dame un momento»** (Martín, 24/10/2026). Un texto de
   espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
   («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí
@@ -11538,6 +11545,10 @@ Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra
   puerta dice dónde se pega (`arribaTabs` en la ficha del lead). Un `<aside>` ya lo baja la regla de globals.css.
 - **Y un ALTO de pantalla entera también la descuenta**: `calc(100dvh - N - var(--barra-agencia, 0px))`. Con `100dvh - N` a secas, el
   pie del Marketing CoPilot quedaba 50 px debajo de la ventana y la página scrolleaba sola (producción, 10/11/2026).
+- **Un panel o un riel de una pantalla NO es un `<aside>`: es un `<section>`.** La regla `[data-barra-agencia] aside` es para el
+  menú lateral pero toma cualquier `<aside>` y le fuerza el alto de la ventana: lo que no entra se dibuja encima de lo que
+  sigue, y sólo lo ve quien mira como agencia (Martín), nunca el cliente. Ya lo pagaron el Dashboard, el Video, el Web
+  Generator y Competitor Spy (el riel de la ficha tapaba la grilla, producción, 10/11/2026).
 - **Un selector sobre el estilo en línea reconoce las DOS escrituras**: el navegador escribe «height: 100dvh» y el server
   escribe «height:100dvh», sin espacios, y la hidratación no lo reescribe. Con una sola, la regla falla justo en la carga
   del server, que es como se entra a inspeccionar. `tests/barra-inspeccion-alto.test.ts` lo fija.

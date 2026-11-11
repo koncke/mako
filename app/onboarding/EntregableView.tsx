@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import Link from '@/app/_ui/Link';
+import { LEAD_MAGNET_EN_PRODUCCION } from '@/lib/lead-magnets/archivado';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -225,7 +226,8 @@ export function EntregableView({ onListo }: { onListo?: (listo: boolean) => void
           <div key={g.id} style={{ border: '1px solid var(--border)', borderRadius: 14, background: 'var(--surface)', padding: 18, display: 'flex', flexDirection: 'column', gap: 11, position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <Edit valor={g.tipo} ph="Tipo" onSave={(v) => editar(g.id, 'tipo', v)} style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--accent)', background: 'var(--accent-soft)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px' }} />
-              {g.pieza
+              {/* Archivado Lead Magnet (11/11/2026, lib/lead-magnets/archivado.ts): sin el link a una pantalla que no existe. */}
+              {g.pieza && !LEAD_MAGNET_EN_PRODUCCION ? null : g.pieza
                 ? <Link href={`/lead-magnet-generator?lm=${encodeURIComponent(g.id)}`} style={{ fontSize: 12, color: 'var(--dim)' }} title="Este se armó en Lead Magnet: se quita desde ahí">En Lead Magnet</Link>
                 : <BotonBorrar talla="sm" onClick={() => borrar(g.id)} title="Borrar este entregable" />}
             </div>

@@ -1870,3 +1870,51 @@ el propio archivo ya lo avisa, y es la pantalla en blanco de `AGENTS.md`.
 - **El rayado está cableado en barras y áreas**, no en torta, treemap ni sankey. Y la única procedencia
   que el dato sabe hoy es `Resultado.muestra`: **no hay métrica proyectada en el catálogo**, así que
   marcar algo más como estimado sería inventarlo.
+
+## Probado de punta a punta en producción: cuatro fallas del editor que no daban ningún error (10/11/2026)
+
+Martín pidió probar cada editable «a fondo, en producción». Mover, agrandar desde la franja, texto con dos toques, «Volver al
+original», duplicar, Supr, flechas y estilo andaban. Estas cuatro no avisaban nada. El informe está en `docs/pruebas/dashboard-10-11.md`.
+
+- **Dos Ctrl+Z seguidos perdían el segundo, y el informe quedaba distinto de la grilla.** ⚠️ El diagnóstico obvio («la pila de
+  deshacer apila mal») era el equivocado: la pila estaba bien, un paso por gesto. Fue la GRILLA. react-grid-layout 2.2.4 copia el
+  `layout` nuevo a su estado en un efecto y avisa (`onLayoutChange`) en otro. Si el segundo deshacer llega entre los dos, avisa la
+  posición del PRIMERO y `alMoverGrilla` la escribía encima. **La regla:** sin un gesto en curso, la grilla sólo puede avisar que
+  ACOMODÓ lo que se le dio (`esAcomodoDe`); el final de un gesto escribe la grilla que trae `onDragStop` / `onResizeStop`, que llega
+  ANTES que su propio aviso. Se reproduce con el teclado de verdad: un `ctrl+z` con `repeat: 2`.
+  **Vive en:** app/dashboard/aviso-grilla.ts y `alMoverGrilla` / `alTerminarGesto` (EditorInforme.tsx).
+- **Agrandar apuntando a la LÍNEA del borde movía la tarjeta al tope de la hoja.** La franja de 8 px iba adentro del borde. En una
+  tarjeta de diseño (`overflow: visible`), justo la línea y su píxel interior eran la tarjeta, y eso es lo que arrastra.
+  `elementsFromPoint` lo mostró en un barrido de 2 en 2 px: la franja estaba, a 1 px de donde uno apunta. En las de diseño, la
+  franja va centrada sobre el borde (±5 px), como el cuadradito de Looker. Las demás recortan (`overflow: hidden`) y siguen adentro.
+  **Vive en:** app/dashboard/editor-css.ts.
+- **«Añadir datos» en una hoja copiada «no hacía nada».** Sí hacía algo: agregaba la tabla ABAJO DE TODO (`abajoDeTodo`). En una
+  hoja con diseño, abajo de todo está «Todas las piezas», plegada y sin sección debajo. La tabla pasaba a ser una pieza escondida:
+  el panel se abría y la hoja no cambiaba. Afectaba a todo lo que pasa por `agregarComponente` (gráfico, elementos, duplicar la
+  última). «Bloques» ya ponía su tarjeta arriba de «Todas las piezas» (lib/disenos-partes.ts). **La regla:** lo nuevo nunca entra en
+  una sección plegada: entra en su fila y la sección baja con lo suyo (`agregarALaVista`). **Vive en:** lib/graficos-secciones.ts.
+- **El botón de filtro de un número en un «tile» de color era un cuadrado blanco con el ícono blanco.** `adentroDeTile` pisa
+  `--ink`, `--dim`, `--border` y `--surface-2`, pero no `--surface`, que es el fondo de `.mf-btn`. A propósito: `--surface` es
+  también el fondo de lo que se abre desde la tarjeta. El botón va transparente adentro del tile. **Vive en:** lib/graficos-corbel.ts.
+- **La galería, mirando un negocio, llevaba al Dashboard propio.** Una plantilla del OTRO informe (General, Focus, Mi día…) hace
+  `window.location.assign('/dashboard?hoja=…')`. Sin `conWs`, el `?ws=` se perdía y la hoja se sumaba al informe del superadmin en
+  SU negocio. `fetch` lleva el `ws` solo; `window.location` no. **Vive en:** app/dashboard/NuevaHoja.tsx.
+
+Sin hacer, y con dueño Martín: las diez propuestas del informe. Entre ellas, el panel de una tarjeta copiada que flota a la
+izquierda y tapa la hoja (el de un gráfico va a la derecha) y el PDF que se baja como «MaKo - Dashboard».
+
+## Una hoja con diseño dice lo que FALTA CONECTAR (11/11/2026)
+
+- **Síntoma:** Closing, Anuncio ganador o Hooks sin grabador ni Meta eran una pared de «Todavía no hay datos» o «—». La grilla de antes ponía
+  «Conecta tu grabador…» en cada tarjeta; la hoja con diseño dibuja su propio vacío y se tragaba el motivo.
+- **Lo que quedó:** el lector marca `sinConexion` (`SinConexionError`, lib/graficos-datos.ts) y el editor lo guarda en `EstadoDatos`
+  (`aEstado`). `faltaConectarDeHoja` junta esos textos sin repetir (hasta dos) y la hoja los dice en la franja de avisos
+  (`lk-aviso-hoja`, la de «Conecta tu Claude»). No es un texto nuevo: es el del lector.
+- **La regla:** una pantalla que dibuja su propio vacío tiene que seguir mostrando POR QUÉ está vacía, si la causa la sabe alguien.
+  **Vive en:** app/dashboard/falta-conectar.ts, EditorInforme.tsx (`faltaConectar`), Grafico.tsx (`EstadoDatos`).
+
+## La frase de una plantilla no conjugaba el «1» (11/11/2026)
+
+«Entraron 3 visitas de 1 personas»: las palabras de las frases de las plantillas están en plural fijo. `tramosDeFrase` pasa a singular la palabra
+que sigue a un número «1», con una tabla CERRADA de las que usan las plantillas (`SINGULAR`, lib/graficos-frase.ts: «personas», «agendaron»,
+«veces»…). Una palabra nueva en una frase que vaya después de un número entra a esa tabla; si no, queda en plural.
