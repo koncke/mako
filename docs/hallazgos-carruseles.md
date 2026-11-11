@@ -49,9 +49,20 @@ idea en las tablas de la 0409. Lo que cambia:
 - El buscador ahora DICE que se puede pegar un link («…o pega un link de Instagram / de YouTube»): una opción escondida en un
   buscador no es una opción.
 
-**Sin hacer:** los anuncios de la Biblioteca de Meta. Van por el actor de anuncios de Spy, cuyo costo falta medir, y hay que
-decidir dónde viven: los anuncios del explorador salen de `spy_piezas` de los competidores del negocio. Tampoco se calcula el
-múltiplo de lo traído: el creador no se lee entero (`fuente: 'tema'`), y lo que no se midió no se dice.
+**Sin hacer: los anuncios de la Biblioteca de Meta** (el link `facebook.com/ads/library/?id=…`). Lo que se sabe:
+- **El lector:** el actor de Spy, `apify~facebook-ads-scraper` (`entradaDeAnuncios`, `anuncioDeApify` en
+  lib/spy-todo-reglas.ts), medido por el Cerebro el 4/11 en **US$0,0058 por anuncio** (techo `USD_POR_ANUNCIO` 0,006). Falta
+  medir UN anuncio por su `?id=`: el 4/11 se buscó por nombre de página.
+- ⚠️ **No puede vivir como competidor de Spy:** `spy_competidores` (0359) no tiene estado de pausa, así que todo competidor se lee
+  solo, con la clave del negocio. Un anuncio traído así haría que Spy empezara a leer esa página y a gastar sin que nadie lo
+  pidiera. Es el mismo motivo por el que el carrusel traído no es un competidor.
+- **Dónde puede vivir:** en `carruseles_biblioteca_piezas` con `workspace_id` (como el carrusel traído), marcado como anuncio
+  para que el explorador lo muestre en «Anuncios» (hoy esa pestaña lee sólo `spy_piezas`, lib/carruseles/anuncios.ts). Sólo
+  si es de imagen: un anuncio en video no se «Edita» como un diseño.
+- **Los términos de Meta** no dejan pasarle a un tercero lo recolectado («Los anuncios no se copian»,
+  docs/hallazgos-competitors-spy.md). Lo traído lo ve sólo el negocio que lo trajo, así que entra.
+
+Tampoco se calcula el múltiplo de lo traído: el creador no se lee entero (`fuente: 'tema'`), y lo que no se midió no se dice.
 
 ## El guiado de los carruseles: tres tests que daban verde rompiéndolos, y la caja de Create que se cae sin ejemplos (9/11/2026)
 
