@@ -601,6 +601,27 @@ export async function reabrirSesion(instance: string, topeMs?: number): Promise<
   await evFetch(`/instance/connect/${encodeURIComponent(instance)}`, undefined, topeMs);
 }
 
+/**
+ * Reinicia el socket de una línea (`POST /instance/restart`): no borra la sesión ni desvincula el número. ⚠️ A una línea SORDA casi
+ * nunca la cura (medido el 11/09, el 9/11 y el 11/11): lo usa sólo el detector de sordera (lib/linea-sorda.ts), que además pide el QR.
+ */
+export async function reiniciarInstancia(instance: string, topeMs = 10_000): Promise<boolean> {
+  const r = await evFetch(`/instance/restart/${encodeURIComponent(instance)}`, { method: 'POST' }, topeMs);
+  return r.ok;
+}
+
+/** Los últimos mensajes que guardó una línea, de todos sus chats (sin orden garantizado). null = Evolution no contestó. */
+export async function ultimosMensajesDeLaLinea(instance: string, cuantos = 100, topeMs = 8000): Promise<Array<EvRecord & { key?: { participantAlt?: string } }> | null> {
+  const r = await evFetch<{ messages?: { records?: EvRecord[] } } | EvRecord[]>(
+    `/chat/findMessages/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ where: {}, page: 1, offset: cuantos }) },
+    topeMs,
+  );
+  if (!r.ok) return null;
+  const d = r.data;
+  return Array.isArray(d) ? d : Array.isArray(d?.messages?.records) ? d.messages.records : [];
+}
+
 /** A quién se le pide el perfil de empresa en `sondearSocket`. Cualquier número sirve: lo que
  *  exige el socket es la PREGUNTA, no la respuesta. Es la línea de MaKo, para no preguntarle
  *  nunca a WhatsApp por un tercero. */

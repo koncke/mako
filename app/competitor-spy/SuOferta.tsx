@@ -20,7 +20,7 @@ import type { ReactNode } from 'react';
 import { EsqueletoOferta, EsqueletoPuntaje } from './Esqueletos';
 import { TONO } from '@/app/_ui/tokens';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
-import { BotonIntegracion } from '../_components/ConectarIntegracion';
+import { BotonIntegracion, CON_SU_CLASE } from '../_components/ConectarIntegracion';
 import { VistaDiagnostico } from '../offer/Conclusion';
 import { CSS_OFFER } from '../offer/estilos';
 import { tonoDeNota } from '../offer/ayudas';
@@ -155,7 +155,7 @@ export function SuOferta({ vista, datos, nombre, onConectado, parte }: {
         <p className="spy-oferta-aviso">
           Conecta tu IA para leer su oferta.
           {/* Su Claude, como en el chat (IA9): el analista de Offer la prueba primero. Se conecta acá, sin salir de la tab. */}
-          <BotonIntegracion servicio="anthropic" className="spy-boton" onConectado={onConectado}>Conectar mi IA</BotonIntegracion>
+          <BotonIntegracion servicio="anthropic" className="spy-boton" style={CON_SU_CLASE} onConectado={onConectado}>Conectar mi IA</BotonIntegracion>
         </p>
       );
     } else if (vista?.estado === 'no-pudo' && vista.motivo) estado = <p className="spy-oferta-aviso">{vista.motivo}</p>;

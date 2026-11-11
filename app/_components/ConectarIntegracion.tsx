@@ -98,6 +98,13 @@ const COMO_TEXTO: CSSProperties = {
   cursor: 'pointer', textAlign: 'inherit', display: 'inline', textDecoration: 'none',
 };
 
+/**
+ * Para un botón que trae SU clase de botón (Spy: `spy-boton`): deshace COMO_TEXTO, así manda la clase. Un estilo en línea le
+ * gana a cualquier clase, y «Conectar mi IA» de Competitor Spy se veía como texto suelto en una caja de 40 px sin relleno
+ * (mirado en producción el 11/11/2026). Con `undefined`, React no escribe esa propiedad. Se pasa como `style`.
+ */
+export const CON_SU_CLASE: CSSProperties = Object.fromEntries(Object.keys(COMO_TEXTO).map((k) => [k, undefined])) as CSSProperties;
+
 /** Un botón que abre el modal de UNA integración ahí mismo. */
 export function BotonIntegracion({ servicio, children, style, className, title, onConectado }: {
   /** La clave de la integración (lib/integraciones-catalogo.ts): 'meta', 'google', 'calendly', 'elevenlabs'… */

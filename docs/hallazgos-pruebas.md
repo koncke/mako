@@ -46,6 +46,33 @@ oculto. Si lo está, se repite con el panel a la vista, o se le pide un turno al
 la extensión:** tiene la sesión de LEANDRO (ws 10), un cliente real, y el `?ws=` se ignora. La prueba del 10/11 dejó ahí 2 usos
 de IA y una apertura vista (docs/pruebas/image-10-11.md, «Límites»).
 
+**Lo mismo con las capturas, 11/11 (Competitor Spy en producción):** los videos de YouTube de «Todas sus piezas» salieron SIN
+portada, como tarjetas celestes con texto, y parecía una regresión del despliegue. Era la captura atrasada: el DOM decía
+`img.complete`, `naturalWidth 1280`, opacidad 1, y la captura siguiente ya las mostraba. Pasó tres veces en la misma vuelta (el
+modal a medio aparecer, el menú «⋯» que no estaba, la caricatura de Leila en blanco). Antes de anotar «no se ve»: leer la imagen en
+el DOM y capturar de nuevo. **Y para medir un arreglo de CSS antes de subirlo:** se le inyectan las mismas reglas a la página de
+producción y se cuenta (los nombres cortados pasaron de 14 a 3 de 15). Así la captura del «después» no espera el despliegue.
+**11/11/2026, CÓMO MIRAR con el panel oculto (medido):** el panel mide 800 × 600 y la página se emula a 1440 × 900.
+- **La receta que anda (medida en toda la prueba del 11/11 a la tarde):** `resize_window` 1440 × 900 y, EN EL MISMO LOTE y
+  sin espera, `zoom` de `[0, 0, 1440, 900]`. Devuelve la página ENTERA a 1440, reducida a 800 × 500, también después de
+  clics, de escribir y de abrir modales.
+- ⚠️ **Lo que da un recorte:** un `zoom` suelto, o con una espera entre el `resize_window` y el `zoom`. Sale un RECORTE de
+  800 × 500 de la esquina, que parece bueno y no muestra la mitad derecha. A la mañana parecía que lo rompía el primer clic
+  con la herramienta; era la espera.
+- **El clic desde JS** (`elemento.click()`) sirve para manejar la pantalla sin coordenadas. La página reacciona igual (React).
+- **La pintura llega tarde:** la primera captura después de un cambio puede ser la vieja (sin el modal recién abierto) o
+  tener las imágenes en blanco con `naturalWidth` 1080. Se mide el estado con JS (`[role=dialog]`, `naturalWidth`) y se repite
+  la captura antes de anotar una falla.
+- ⚠️ **Lo que el panel oculto NO deja probar: el guiado de «Editar» de Image.** El 10/11 y el 11/11, con el panel oculto, el
+  clic (de la herramienta, desde JS, o llamando a `onReplicar` a mano) no lo abría. El 11/11 a 375 la pestaña se congeló entera:
+  ni un `javascript_tool` de una línea ni `navigate` en 300 s. Había 2,25 GB libres, así que no era la RAM. El mismo clic,
+  en una ventana a la vista, abre el guiado (10/11). Lo demás de la cadena se pudo probar abriendo el diseño por su link
+  (`/image-editor/<id>`): editar, ordenar, plantilla, imagen, guardar, reabrir y exportar (docs/pruebas/image-11-11.md).
+- **Exportar sin bajar nada a la PC:** se reemplaza `HTMLAnchorElement.prototype.click` para anotar el `download` y leer el
+  blob (nombre, tipo, bytes) en vez de bajarlo. Después se restaura.
+- **A 375:** `resize_window` con `preset: mobile` + `navigate` (el servidor dibuja el armado de teléfono por el agente). La
+  captura normal sirve: el marco es 469 × 1015. Al volver a 1440 hay que navegar otra vez, porque la página quedó con el armado
+  de teléfono.
 **La captura de 1440 con el panel oculto (11/11/2026, prueba de Copywriting):** sale SIEMPRE el pedazo de arriba a la izquierda, y
 repetir `resize_window` no lo arregló (cinco veces). Si la sesión no está abierta en ninguna ventana, `show_pane` tampoco puede
 mostrarlo. Lo que sí sirvió: achicar sólo el DIBUJO de la página, que sigue armada a 1440 (`innerWidth` no cambia), con
@@ -240,3 +267,12 @@ sueltos, y la cabecera del teléfono con el título tapado por una pastilla.
 - **Abrir cada panel lateral** (Animar, Temas, Comentarios): cambian el ancho del lienzo, y lo que depende del ancho se rompe ahí.
 - **Una grilla de cabecera `minmax(0, 1fr) auto minmax(0, 1fr)`** le da a cada costado un tercio fijo: lo que no entra en su
   tercio se monta sobre el título. Los costados van con `minmax(max-content, 1fr)` y el título con `minmax(0, auto)` y «…».
+
+## La sesión del navegador de la app no sobrevive al cierre de la app (11/11/2026, Dashboard)
+
+- **Síntoma:** a las 14:43 UTC, después de que se cerró la app de Claude en la PC, `hola-mako.com/api/auth/me` en el navegador de la app
+  daba `autenticado: false` y toda página caía en /login. El Chrome de la extensión, a la misma hora, tenía otra vez la sesión de LEANDRO
+  (ws 10, un cliente real), aunque a la mañana había tenido la de Martín.
+- **La regla:** antes de probar, `/api/auth/me` en la pestaña propia (nunca darlo por sabido de la mañana). Sin sesión de Martín en
+  ninguno de los dos, no se prueba en el otro: se pide que Martín vuelva a entrar (lo pide el Cerebro). En el Chrome con Leandro no se toca nada.
+

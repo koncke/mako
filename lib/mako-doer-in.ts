@@ -18,7 +18,7 @@ import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion, propuestaDeLaSalida, conLoQueQuedoPropuesto, type PropuestaDelTurno } from '@/lib/respuesta-doer';
 import { recetasDelTurno } from '@/lib/doer-recetas';
-import { evaluarPermiso } from '@/lib/veto-claude';
+import { esFallaPasajeraDelCredito, evaluarPermiso, queHacerSiFallaElCredito } from '@/lib/veto-claude';
 import { causaDelFallo, cartelDelFallo, textoFalloIA, linkKeysIA, rutaKeysIA, textoSinRedPorDatos, conexionesDelPedido, motivoDelCartel, type ConexionDelCartel } from '@/lib/fallo-ia-texto';
 import { conexion, lineaParaConectar } from '@/lib/conexiones-catalogo';
 import { claveAyuda, leerEstadoAyuda, respuestaAyuda, ofertaDeAyuda, guiaEn, textoDelPaso, despuesDeVerificar, ticketPorProblema, conTicket, ticketMandado, OFERTA_AYUDA, NO_AHORA, ENTIENDO, TICKET_NO_SALIO, type EstadoAyuda, type TicketAOfrecer } from '@/lib/doer-ayuda';
@@ -590,6 +590,10 @@ async function pcDeQuienEscribe(ws: number, data: MsgIn): Promise<{ pc: NonNulla
 const SESION_DEL_GRUPO = 0;
 /** Lo que le queda a la invocación del webhook (`maxDuration` 420 s, app/api/webhooks/evolution/route.ts), con margen. */
 const PLAZO_DOER_MS = 400_000;
+/** ⏱ Cada pedido a Claude del turno del grupo (11/11/2026). Antes, ninguno: un Anthropic colgado trababa el turno ~300 s. */
+const PLAZO_CLAUDE_DEL_GRUPO_MS = 45_000;
+/** ⏱ El clasificador del grupo (11/11/2026): 300 tokens con Haiku; cortado, mandan las reglas. */
+const PLAZO_CLASIFICADOR_MS = 8_000;
 
 /** El contexto de la API para la ayuda: el mismo canal y la misma persona que el turno (`ctxApi`), sin el turno. */
 function ctxDeLaAyuda(ws: number, jid: string, texto: string, actor: string | undefined): CtxApi {
@@ -777,6 +781,9 @@ async function atenderEntranteDoer(instance: string, data: MsgIn, jid: string): 
   // comprobante y de la cola. Lo del equipo (fromMe) sigue: su eco sólo se anota.
   const tarde = data.key?.fromMe ? null : llegoTarde(data.messageTimestamp, Date.now());
   if (tarde) {
+    // Lo que la resincronización de OTRA línea del grupo trae de ayer y ya se atendió no se avisa (11/11/2026: la de Martín
+    // reconectó y trajo cuatro mensajes de la propia MaKo y uno de Joan ya contestado; salieron cinco avisos de ruido).
+    if (await atrasadoYaAtendido(instance, jid, data).catch(() => false)) return { engaged: false, skip: `llegó tarde (${tarde.horas} h), ya atendido` };
     await avisarQueLlegoTarde(wsData, jid, data, tarde.horas)
       .catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude avisar el mensaje atrasado: ${e instanceof Error ? e.message : String(e)}`));
     return { engaged: false, skip: `llegó tarde (${tarde.horas} h)` };
@@ -924,7 +931,8 @@ function clasificadorDelGrupo(recorte: string): LlamarAlClasificador {
   return async (system, usuario) => {
     const una = async (cuenta?: string): Promise<string> => (await chatClaudeTools(system, [{ role: 'user', content: usuario }], [], async () => '', {
       // 300: con las `partes` de un pedido compuesto, el JSON pasa los 200 (cortado no se lee y mandan las reglas).
-      feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 1, maxTokens: 300,
+      // ⏱ 8 s (11/11/2026): sin plazo, un Anthropic colgado dejaba el turno esperando la clase; cortado, mandan las reglas.
+      feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 1, maxTokens: 300, plazoPasoMs: PLAZO_CLASIFICADOR_MS,
       motivo: `Clasificar el mensaje del grupo${cuenta ? ` (${cuenta})` : ''} «${recorte}»`,
     })).text ?? '';
     try { return await una(); } catch (e) {
@@ -933,7 +941,10 @@ function clasificadorDelGrupo(recorte: string): LlamarAlClasificador {
     }
     for (const cuenta of await cuentasDelCreditoDeLosGrupos()) {
       try { return await una(cuenta); } catch (e) {
-        if (/credit balance is too low/i.test(e instanceof Error ? e.message : String(e))) marcarCuentaDeLosGruposSinCredito(cuenta);
+        const m = e instanceof Error ? e.message : String(e);
+        if (/credit balance is too low/i.test(m)) marcarCuentaDeLosGruposSinCredito(cuenta);
+        // Plazo, 5xx u «overloaded»: el mismo Anthropic para todas las cuentas; mandan las reglas, sin sumar otros 8 s (11/11/2026).
+        if (queHacerSiFallaElCredito((e as { status?: number }).status, m) !== 'otra_cuenta') break;
       }
     }
     throw new Error('ningún Claude contestó para clasificar');
@@ -1154,6 +1165,24 @@ async function contestaAlEquipo(wsData: number, instance: string, jid: string, d
 /** Que la respuesta al equipo no se pierda: a su ticket si el mensaje del equipo lo tenía; si no, al grupo de SuperAdmin. */
 /** Los mensajes atrasados ya avisados (por id): dos líneas en el mismo grupo entregan el mismo, y no se avisa dos veces. */
 const CLAVE_TARDE_AVISADOS = 'mako.tarde.avisados';
+
+/**
+ * ¿El mensaje atrasado ya se atendió, o es de MaKo misma? Ya pasó por la cola (lo atendió MaKo cuando llegó por la otra línea), o lo
+ * escribió la línea de la voz: visto desde otra línea del grupo, lo de MaKo llega como de una persona, con su número en
+ * `participantAlt`. No va por el anillo (`esEcoDeMaKoAhora`): guarda 40 ids, y para lo de ayer no alcanza; el número sí.
+ */
+async function atrasadoYaAtendido(instance: string, jid: string, data: MsgIn): Promise<boolean> {
+  const id = data.key?.id ?? '';
+  if (id) {
+    const { data: fila, error } = await getSupabaseServer().from('mako_doer_buffer').select('id').eq('grupo_jid', jid).eq('wa_message_id', id).limit(1);
+    if (!error && fila?.length) return true;
+  }
+  // La voz ESTRICTA: la otra convierte un error en «mako_ws1». Sin leerla, no se reconoce al autor y se avisa (el lado seguro).
+  const voz = await instanciaVoz({ estricto: true }).catch(() => null);
+  const numeroVoz = voz ? (await numeroDeLaLinea(voz))?.replace(/\D/g, '') : null;
+  const autor = [data.key?.participantAlt, data.key?.participant].map((j) => /^(\d{8,15})@s\.whatsapp\.net$/.exec(String(j ?? ''))?.[1]).find(Boolean);
+  return !!numeroVoz && !!autor && autor.slice(-10) === numeroVoz.slice(-10);
+}
 
 /** Lo que llegó con horas de atraso, a SuperAdmin: MaKo no lo atendió sola (lib/linea-demora.ts). Una vez por mensaje. */
 async function avisarQueLlegoTarde(wsData: number, jid: string, data: MsgIn, horas: number): Promise<void> {
@@ -2787,9 +2816,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
              */
             // IA16: sin Groq (sólo escucha audio); un pin a Groq de /modelos-ia lo saltea `chatCheapTools`. Con su IA, su Gemini
             // y su OpenAI (`PROVS_SU_IA`): desde el 22/10/2026 su Gemini es su IA, y con sólo `['openai']` no se probaba.
-            // ⛔ Y sin Gemini (Martín, 28/10/2026, «deprequemos Gemini por los grupos de WhatsApp»): ni el suyo ni un pin a Gemini.
+            // ⛔ Y sin Gemini ADELANTE (Martín, 28/10/2026, «deprequemos Gemini por los grupos de WhatsApp»): ni el suyo ni un pin a
+            // Gemini antes que Claude y su OpenAI. Desde el 11/11/2026 («gastemos eso para todo esto en lugar de Gemini»), Gemini
+            // vuelve DE RESPALDO, al final y sólo el DEL NEGOCIO (`PROVS_SU_IA`): el Gemini de la plataforma sigue sólo en el ws9
+            // (la red de abajo), y el gratis entrena con los datos de sus clientes. El orden por cuota no lo adelanta.
             const cands = (suIA ? [...PROVS_SU_IA] : [pinL.provider, 'openai']).filter((p, i, a) => p !== 'groq' && p !== 'gemini' && a.indexOf(p) === i);
-            const orden = await ordenarPorCuota(cands).catch(() => cands);
+            const geminiDeRespaldo = suIA && PROVS_SU_IA.includes('gemini') ? ['gemini'] : [];
+            const orden = [...await ordenarPorCuota(cands).catch(() => cands), ...geminiDeRespaldo];
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
             // pero para DECIDIR DE QUIÉN FUE LA CULPA hace falta el conjunto: el
@@ -2820,11 +2853,29 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             // repartido entre las cuentas con clave (`cuentasDelCreditoDeLosGrupos`), saltando la que se quedó sin crédito. Sólo
             // mientras el turno no ejecutó nada: otro intento después de una escritura la duplicaría.
             let claudeProbado = false;
+            /**
+             * ¿Hay algo DESPUÉS de Claude (revisión del 11/11/2026)? Una IA suya con clave (`orden`: su OpenAI, su Gemini de
+             * respaldo) o la red de la plataforma (sólo el ws9, y no con su IA: lo mismo que arma la red de abajo). Un negocio sin su
+             * IA —el caso principal del crédito de los grupos— no tiene nada: «al respaldo» con un 529 era el cartel de fallo.
+             * Se pregunta UNA vez, y sólo con una falla pasajera del crédito.
+             */
+            let respaldoDespuesDeClaude: Promise<boolean> | null = null;
+            const hayRespaldoDespuesDeClaude = (): Promise<boolean> => (respaldoDespuesDeClaude ??= (async () => {
+              const conClave = (await Promise.all((orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>).map((p) => provsDe(p).catch(() => [])))).some((l) => l.length > 0);
+              // ⚠️ La red NO se pide acá (11/11/2026, rojo de la corrida 1035): pedirla es gastarla, y tres tests fijan que se pide
+              // UNA vez y sólo como último recurso (red-plataforma, doer-cartel-sin-ia, fallo-ia-texto). Para saber si HAY red
+              // alcanza la regla que la arma: sólo existe en el ws de la plataforma y nunca con su IA (`provsGratisDePlataforma`).
+              return conClave || (!suIA && wsData === (await wsSuperAdmin().catch(() => null)));
+            })());
+            /** Las fallas pasajeras (5xx, 529, plazo) del crédito en este turno: sin respaldo, la primera prueba la cuenta siguiente. */
+            let pasajerasDelCredito = 0;
             /** Una vuelta de Claude: con su Claude (`cuenta` vacía) o con una cuenta del crédito de los grupos. */
             const claudeDelGrupo = async (cuenta?: string): Promise<'listo' | 'sin_su_claude' | 'otra_cuenta'> => {
               try {
+                // ⏱ 45 s por pedido (11/11/2026): sin plazo, un Anthropic colgado trababa el turno hasta el corte de undici. Dos
+                // cuentas colgadas suman 90 s, dentro de `PLAZO_DOER_MS` y de los 420 s del webhook.
                 const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
-                  feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 8, maxTokens: 2500,
+                  feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 8, maxTokens: 2500, plazoPasoMs: PLAZO_CLAUDE_DEL_GRUPO_MS,
                   motivo: `Claude del grupo${cuenta ? ` (${cuenta})` : ''} · ${ruta.motivo} «${recorte}»`,
                 });
                 claudeProbado = true;
@@ -2844,6 +2895,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
                 // El crédito de los grupos es NUESTRO: su error no elige el veredicto (ver `erroresPlataforma`).
                 if (/credit balance is too low/i.test(m)) marcarCuentaDeLosGruposSinCredito(cuenta);
                 erroresPlataforma.push(`plataforma/anthropic (${cuenta}): ${m}`);
+                // Plazo, 5xx u «overloaded» es el mismo Anthropic para todas las cuentas: no se prueba la otra (11/11/2026)… salvo
+                // que no haya respaldo: entonces UNA vez más, si entra otro pedido entero en `PLAZO_DOER_MS` (lo pasajero suele pasar).
+                const status = (e as { status?: number }).status;
+                const pasajera = esFallaPasajeraDelCredito(status, m);
+                const entraOtro = Date.now() - (ctxApi.turnStart ?? Date.now()) + PLAZO_CLAUDE_DEL_GRUPO_MS < PLAZO_DOER_MS;
+                const sinRespaldo = pasajera && entraOtro && !(await hayRespaldoDespuesDeClaude());
+                if (queHacerSiFallaElCredito(status, m, { sinRespaldo, pasajerasAntes: pasajerasDelCredito }) !== 'otra_cuenta') return 'listo';
+                if (pasajera) pasajerasDelCredito++;
                 return 'otra_cuenta';
               }
             };
@@ -3178,15 +3237,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
               err.contestaron = contestaronCliente;
               throw err;
             }
-          } else {
-            const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
-              feature: 'mako-doer-in', maxSteps: 8,
-              model: pin ? pin.model : ruta.model,
-              effort: ruta.effort,
-              motivo: `${ruta.motivo} «${recorte}»`,
-            });
-            respuesta = (text ?? '').trim();
           }
+          // (11/11/2026) Acá había un `else` para el turno SIN pin y sin su IA: le pedía Sonnet u Opus a la puerta 1 (`model`
+          // explícito del router), el veto lo cortaba (sólo `closing` tiene permiso), y nunca probaba el crédito de los grupos.
+          // `pinDelDoer` ya no devuelve null (lib/doer-modelo.ts): el «CLAUDE PRIMERO» de arriba corre siempre.
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           console.error('[mako-doer-in] IA falló:', msg);

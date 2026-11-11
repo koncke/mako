@@ -91,15 +91,44 @@ const SINGULAR: Readonly<Record<string, string>> = {
   leads: 'lead', agendaron: 'agendó', vieron: 'vio', tocaron: 'tocó', llegaron: 'llegó', fallaron: 'falló',
 };
 
-/** Después de un número que es «1», la palabra que sigue en singular («1 persona», «1 agendó»). */
+/**
+ * Lo que sigue a un «1» cuando es MÁS de una palabra: el verbo detrás de «no se», «te», «ya» o «lo», y el adjetivo o el verbo
+ * que acompaña al sustantivo. Con una palabra sola, Comercial decía «1 no se presentaron» (11/11/2026, el teléfono en producción).
+ * Van primero que `SINGULAR`, y la más larga antes que la que empieza igual.
+ */
+const SINGULAR_FRASES: ReadonlyArray<readonly [string, string]> = [
+  ['personas le dieron', 'persona le dio'], ['tareas activas', 'tarea activa'], ['no se presentaron', 'no se presentó'],
+  ['te respondieron', 'te respondió'], ['ya compraron', 'ya compró'], ['ya hechas', 'ya hecha'], ['lo vieron', 'lo vio'],
+];
+
+/** El texto que sigue a un «1», con su primera palabra (o frase) en singular. Sin espacio adelante no es lo que sigue al número. */
+function singularAlPrincipio(texto: string): string {
+  const esp = /^\s+/.exec(texto)?.[0];
+  if (!esp) return texto;
+  const resto = texto.slice(esp.length);
+  const bajo = resto.toLowerCase();
+  for (const [plural, uno] of SINGULAR_FRASES) {
+    if (bajo.startsWith(plural) && !/[a-záéíóúñ]/i.test(resto.charAt(plural.length))) return esp + uno + resto.slice(plural.length);
+  }
+  const w = /^[a-záéíóúñ]+/i.exec(resto)?.[0];
+  const uno = w ? SINGULAR[w.toLowerCase()] : undefined;
+  return uno ? esp + uno + resto.slice(w!.length) : texto;
+}
+
+/**
+ * Después de un número que es «1», lo que sigue en singular («1 persona», «1 agendó», «1 no se presentó»). Y «1 de tus 5 clientes
+ * piden atención» (Customer Success): el verbo va dos números más allá y concuerda con el «1», no con los 5.
+ */
 function enSingular(partes: ParteFrase[]): ParteFrase[] {
-  return partes.map((p, i) => {
-    const antes = partes[i - 1];
-    if (p.numero || !antes?.numero || antes.texto !== '1') return p;
-    const m = /^(\s+)([a-záéíóúñ]+)/i.exec(p.texto);
-    const uno = m ? SINGULAR[m[2].toLowerCase()] : undefined;
-    return uno ? { ...p, texto: m![1] + uno + p.texto.slice(m![0].length) } : p;
-  });
+  const out = partes.map((p) => ({ ...p }));
+  for (let i = 1; i < out.length; i++) {
+    const p = out[i];
+    if (p.numero || !out[i - 1].numero || out[i - 1].texto !== '1') continue;
+    p.texto = singularAlPrincipio(p.texto);
+    const despues = out[i + 2];
+    if (/^\s+de tus\s+$/i.test(p.texto) && out[i + 1]?.numero && despues && !despues.numero) despues.texto = despues.texto.replace(/\bpiden\b/, 'pide');
+  }
+  return out;
 }
 
 /** La frase como texto plano (el teléfono, el lector de pantalla, lo que ve MaKo). */

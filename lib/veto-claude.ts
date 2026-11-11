@@ -344,17 +344,15 @@ export const CREDITO_DE_LA_PLATAFORMA = {
  * Plan, además, queda afuera siempre (`FEATURES_DEL_PLAN`): el plan de arranque del cierre del onboarding
  * (`plan-seed-ia`) no está, a propósito.
  *
- * `soloLaPlataforma` (26/10/2026): Martín, en el Centro, a «¿Le damos a MaKo una IA paga de último recurso para lo suyo (editor
- * de landings, réplicas)?» eligió «1. Claude de la plataforma». Lo INTERNO de MaKo (su espacio, el super admin) y sólo eso: un
- * negocio sigue pagando su IA. Lo llama la cascada DESPUÉS de que fallaron las gratis (lib/ai-cheap.ts), nunca antes.
+ * Lo INTERNO de MaKo ya no está acá (11/11/2026): las tres filas `soloLaPlataforma` del 26/10 (el editor de landings, la
+ * réplica y el analizador, como último recurso) las cubre la regla del crédito para la plataforma
+ * (`puedeUsarUnaCuentaDelCredito`, abajo), que va PRIMERO y por la puerta 2. Una autorización que nadie usa es una que nadie
+ * revisa. Esta puerta queda sólo para el onboarding.
  */
-export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuranteElOnboarding: boolean; soloLaPlataforma?: boolean; para: string }> = [
+export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuranteElOnboarding: boolean; para: string }> = [
   { feature: 'El Archivero', soloDuranteElOnboarding: true, para: 'leer los documentos que le manda al chat de arranque' },
   { feature: 'onboarding-extract', soloDuranteElOnboarding: true, para: 'sacar el brief de sus documentos' },
   { feature: 'offer', soloDuranteElOnboarding: true, para: 'el chat de Offer del primer ingreso: nombre, oferta, funnel y primer CRM' },
-  { feature: 'landing-editor', soloDuranteElOnboarding: false, soloLaPlataforma: true, para: 'el espacio de MaKo: generar y replicar landings cuando sus Gemini no contestan' },
-  { feature: 'landing-editor-ia', soloDuranteElOnboarding: false, soloLaPlataforma: true, para: 'el espacio de MaKo: editar con IA en el editor de landings cuando sus Gemini no contestan' },
-  { feature: 'landing-analyst', soloDuranteElOnboarding: false, soloLaPlataforma: true, para: 'el espacio de MaKo: el analizador de landings cuando sus Gemini no contestan' },
 ];
 
 /**
@@ -387,6 +385,102 @@ export const FEATURE_DE_LOS_GRUPOS = 'mako-doer-in';
 export const CLAVE_INTERRUPTOR_CREDITO_GRUPOS = 'ia.credito_grupos';
 export const esInterruptorPrendido = (valor: string | null | undefined): boolean => valor !== 'apagado';
 
+/**
+ * Las funciones de MaKo en WhatsApp que pagan con el crédito de los grupos en CUALQUIER negocio: el turno de texto (y el
+ * clasificador y el bot 1 a 1, que usan la misma) y las fotos y los PDF que llegan al grupo (11/11/2026). La de la nota de voz
+ * NO: va con Groq (lib/ai-cheap.ts → `notaDeVozDelGrupo`).
+ */
+export const FEATURES_DE_LOS_GRUPOS: readonly string[] = [FEATURE_DE_LOS_GRUPOS, 'MaKo en WhatsApp · adjunto'];
+
+/**
+ * EL CRÉDITO PARA TODO LO DEL ESPACIO DE MaKo, MENOS EL PLAN (11/11/2026). Martín, textual: «MaKo con WhatsApp ya habíamos dicho
+ * que eso se gaste con los tokens de las cuentas de Claude 200 dólares que estoy pagando… En general, yo creo que sería bueno que
+ * gastemos eso para todo esto en lugar de Gemini, porque es mucho más estable.» Va PRIMERO y Gemini queda de respaldo. Entra por
+ * la puerta 2, con las cuentas de los grupos (lib/credito-negocio.ts → `cuentasDelCredito('plataforma')`): Haiku, la marca
+ * «(cuenta N)» y nunca el Plan. Vence como toda excepción al gasto de la plataforma.
+ */
+export const CREDITO_PARA_LA_PLATAFORMA = {
+  hasta: '2026-12-31',
+  porque: 'El crédito de API de las cuentas Max de Martín ya está pago con la suscripción y vence cada mes sin acumularse; '
+    + 'Claude es más estable que el Gemini gratis para lo interno de MaKo.',
+  pidio: 'Martín, 11/11/2026: «En general, yo creo que sería bueno que gastemos eso para todo esto en lugar de Gemini, porque '
+    + 'es mucho más estable.»',
+} as const;
+/** El interruptor del crédito de la plataforma, en el workspace de la plataforma: «apagado» lo apaga; sin fila, prendido. */
+export const CLAVE_INTERRUPTOR_CREDITO_PLATAFORMA = 'ia.credito_plataforma';
+
+/** Para qué se usa una cuenta del crédito: el interruptor que la gobierna y si guarda el último 10% (lib/credito-negocio.ts). */
+export type UsoDelCredito = 'grupos' | 'plataforma';
+
+/**
+ * ¿Este pedido puede pagar con una cuenta del crédito? Puro y síncrono: lo usan la puerta 2 (lib/anthropic.ts), la cascada, el
+ * test y /modelos-ia.
+ *   · una función de los grupos de WhatsApp (`FEATURES_DE_LOS_GRUPOS`): sí, en cualquier negocio, como desde el 28/10;
+ *   · cualquier otra que no sea del Plan: sí, SÓLO si el pedido es del espacio de la plataforma y el permiso no venció;
+ *   · todo lo demás, no. «No sé si es la plataforma» es no.
+ *
+ * ⚠️ `esLaPlataforma` lo calcula la PUERTA (`getWorkspaceActual() === wsSuperAdmin()`, y si algo falla, false), nunca un dato que
+ * mande el que llama, y nunca contra `OWNER_WS`: el ws1 es Mauricio, un cliente. Lo prueba rompiéndolo tests/credito-plataforma.test.ts.
+ */
+export function puedeUsarUnaCuentaDelCredito(p: {
+  feature?: string; esLaPlataforma?: boolean; pausa?: boolean; hoy?: Date;
+}): { ok: true; para: UsoDelCredito } | { ok: false; razon: string } {
+  if (p.pausa) return { ok: false, razon: 'Claude está PAUSADO a mano (`mako.claude.pausa`): apaga también el crédito.' };
+  const feature = (p.feature ?? '').trim();
+  if (!feature) return { ok: false, razon: 'sin `feature` no se sabe qué se compra con el crédito.' };
+  if (FEATURES_DEL_PLAN.includes(feature)) return { ok: false, razon: `«${feature}» es del Plan, y el Plan nunca paga con el crédito (Martín, 30/09/2026).` };
+  if (FEATURES_DE_LOS_GRUPOS.includes(feature)) return { ok: true, para: 'grupos' };
+  if (p.esLaPlataforma !== true) return { ok: false, razon: `«${feature}» usa el crédito sólo en el espacio de MaKo: un negocio paga su IA.` };
+  // `fallback: []` (lib/model-catalogo.ts): un juicio que nadie revisa corre con UN solo proveedor. Probar primero el crédito
+  // mezclaría dos modelos, que es justo lo que esa marca evita. Acá y no sólo en `chatClaude`: vale para todos los caminos.
+  if (CATALOGO_MODELOS.find((f) => f.feature === feature)?.fallback?.length === 0) {
+    return { ok: false, razon: `«${feature}» no se degrada de modelo (\`fallback: []\`): no prueba el crédito antes que su proveedor.` };
+  }
+  if (diaISO(p.hoy ?? new Date()) > CREDITO_PARA_LA_PLATAFORMA.hasta) {
+    return { ok: false, razon: `el crédito de la plataforma venció el ${CREDITO_PARA_LA_PLATAFORMA.hasta}. Renuévalo con una fecha nueva o déjalo vencido.` };
+  }
+  return { ok: true, para: 'plataforma' };
+}
+
+/**
+ * Lo que corre PRIMERO en una función por el crédito, dicho para una pantalla (la API de /modelos-ia). La misma regla que la puerta
+ * (`puedeUsarUnaCuentaDelCredito`): el catálogo dice el `def` (el respaldo), y esto lo que va antes. null = el crédito no va.
+ */
+export function primeroConElCredito(feature: string, hoy?: Date): string | null {
+  const v = puedeUsarUnaCuentaDelCredito({ feature, esLaPlataforma: true, hoy });
+  if (!v.ok) return null;
+  return v.para === 'grupos'
+    ? 'primero: crédito de Claude (Haiku), en los grupos de WhatsApp de todos los negocios sin su Claude'
+    : 'primero: crédito de Claude (Haiku), sólo en el espacio de MaKo';
+}
+
+/**
+ * Una cuenta del crédito no contestó: ¿se prueba la siguiente o se pasa al respaldo (Gemini, la cascada)? Puro.
+ *   · sin saldo («credit balance is too low»), 401, 429 o sin la clave cargada: es de ESA cuenta, la otra puede contestar;
+ *   · plazo vencido, 5xx, 529 u «overloaded»: es el mismo Anthropic para todas las cuentas, se pasa al respaldo;
+ *   · cualquier otro (un 400 por el pedido): la otra cuenta contestaría lo mismo, se pasa al respaldo.
+ * ⚠️ SIN RESPALDO, LO PASAJERO SE PRUEBA UNA VEZ MÁS (revisión del 11/11/2026). «Al respaldo» supone que hay uno: un negocio sin su
+ * IA en su grupo no tiene ni Gemini ni red, y un 529 o un 5xx de Anthropic suele pasar en un segundo. Con `sinRespaldo`, la
+ * PRIMERA falla pasajera (`esFallaPasajeraDelCredito`) prueba la cuenta siguiente; la segunda ya no (`pasajerasAntes`, lo cuenta
+ * quien llama): dos cuentas colgadas son 90 s en el turno del grupo, cinco serían 225.
+ */
+export function queHacerSiFallaElCredito(
+  status: number | null | undefined, mensaje: string, o: { sinRespaldo?: boolean; pasajerasAntes?: number } = {},
+): 'otra_cuenta' | 'al_respaldo' {
+  if (/credit balance is too low|no tiene su clave de Claude/i.test(mensaje)) return 'otra_cuenta';
+  if (status === 401 || status === 403 || status === 429) return 'otra_cuenta';
+  if (/authentication_error|invalid x-api-key|rate_limit_error/i.test(mensaje)) return 'otra_cuenta';
+  if (o.sinRespaldo && (o.pasajerasAntes ?? 0) < 1 && esFallaPasajeraDelCredito(status, mensaje)) return 'otra_cuenta';
+  return 'al_respaldo';
+}
+
+/** ¿Es una falla de Anthropic que suele pasar sola (5xx, 529 «overloaded», plazo vencido, la red)? Un 400 por el pedido, no. Puro. */
+export function esFallaPasajeraDelCredito(status: number | null | undefined, mensaje: string): boolean {
+  if (typeof status === 'number' && status >= 500) return true;
+  if (/overloaded/i.test(mensaje)) return true;
+  return status == null && /timeout|timed out|aborted|ETIMEDOUT|ECONNRESET|fetch failed|socket hang up/i.test(mensaje);
+}
+
 /** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */
 export const MOTIVO_CREDITO_PLATAFORMA = '⚠ crédito de Claude de la plataforma';
 /** La marca del gasto de la clave de un NEGOCIO que es el crédito de Max de la plataforma (el ws10, lib/credito-marca.ts). */
@@ -407,8 +501,6 @@ export type PermisoCredito = PermisoClaude & { readonly clave: string; readonly 
 export function evaluarCreditoDeLaPlataforma(p: {
   feature?: string; model?: string; pausa?: boolean; hoy?: Date;
   clave?: string | null; creditos: ReadonlyArray<string | null | undefined>;
-  /** ¿El que pide es el espacio de la PLATAFORMA (el super admin)? Lo lee el llamador; sin saberlo, se toma que no. */
-  esLaPlataforma?: boolean;
   /** ¿El onboarding del negocio que pide está en curso? Lo lee el llamador; sin saberlo, se toma que no. */
   onboardingEnCurso?: boolean;
 }): { ok: true; permiso: PermisoCredito } | { ok: false; razon: string } {
@@ -421,9 +513,6 @@ export function evaluarCreditoDeLaPlataforma(p: {
   if (!habilitado) return { ok: false, razon: `el crédito no está habilitado para «${feature}»: lo decide Martín («Por ahora solo en onboarding»).` };
   if (habilitado.soloDuranteElOnboarding && p.onboardingEnCurso !== true) {
     return { ok: false, razon: `«${feature}» usa el crédito sólo durante el onboarding, y el de este negocio no está en curso.` };
-  }
-  if (habilitado.soloLaPlataforma && p.esLaPlataforma !== true) {
-    return { ok: false, razon: `«${feature}» usa el crédito sólo en el espacio de MaKo, como último recurso: un negocio paga su IA.` };
   }
   if (diaISO(p.hoy ?? new Date()) > CREDITO_DE_LA_PLATAFORMA.hasta) {
     return { ok: false, razon: `el permiso del crédito de la plataforma venció el ${CREDITO_DE_LA_PLATAFORMA.hasta}. Renuévalo con una fecha nueva o déjalo vencido.` };

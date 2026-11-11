@@ -62,8 +62,10 @@ test('4. sus operaciones de la API de MaKo no las ve nadie, ni la plataforma', (
 });
 
 test('5. «Crear el regalo» del Marketing CoPilot va al Copywriter, y no se llama «Lead Magnet»', () => {
-  assert.equal(RUTAS_COPILOTO.leadMagnets, '/copywriter');
+  // A la pantalla de crear del Copywriter (mirado en producción el 11/11: a la galería no decía nada de un regalo).
+  assert.equal(RUTAS_COPILOTO.leadMagnets, '/copywriter?nueva');
   assert.equal(PANTALLA_DE_RUTA['/copywriter'], 'Copywriting', '«Lead Magnet» no le pisa el nombre');
+  assert.equal(PANTALLA_DE_RUTA['/copywriter?nueva'], 'Copywriting');
   assert.ok(!Object.values(PANTALLA_DE_RUTA).includes('Lead Magnet'));
   assert.ok(!Object.keys(PANTALLA_DE_RUTA).some((r) => r.startsWith('/lead-magnet-generator')));
 });

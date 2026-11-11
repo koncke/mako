@@ -3,7 +3,33 @@
 Chat: «Image» (cuenta claude4), el que el Cerebro renombró el 10/11. Antes se llamaba «Biblioteca de carruseles: portadas y
 láminas que no se vencen». Lo escribe el chat que hizo el trabajo.
 
-## Dónde quedó
+## 11/11/2026 a la tarde (lo más nuevo)
+
+- **Probado en producción** (docs/pruebas/image-11-11.md, 18 capturas): traer de Instagram y de YouTube, otro negocio no lo ve,
+  el error del reel con «Reportar a Soporte», y en el editor texto, orden, plantilla, imagen, guardar, reabrir y exportar.
+- **No se pudo ver:** el guiado de «Editar» con el panel del navegador oculto (la pestaña se congela). Hace falta el panel a la vista.
+- **Subido para el 12/11:** `6373b9651` (un reel se corta por el link, sin pagar) y `f6b719a3a` (sin «Traer» con un reel, sin
+  «Guardar búsqueda» con un link).
+- **Meta:** medido (US$0,0058 por anuncio por su `?id=`), sin prender: espera el sí de Martín al costo.
+
+## 11/11/2026 a la mañana (lo más nuevo, arriba)
+
+- **Subido a la punta:**
+  - `dfc9c6d33`: «Editar» ya no se corta. Pide el JSON compacto y, si la respuesta se corta, pasa al modelo de respaldo.
+  - `420372065` y `6ea05855d`: arreglan los rojos 963 y 973.
+  - `b84284cd4`: «Traer tu outlier» también de YouTube (mig 0414 aplicada).
+  - `2cb16ff17`: la operación `traer_outlier` en la API.
+  - Locales, para subir cuando la punta pase a main: `c515f131a` (la nota de Meta) y `4e7923cdf` (el link pegado encuentra
+    el carrusel que ya está).
+- **«Traer tu outlier»:**
+  - Instagram (0413) y YouTube (0414): hechos.
+  - YouTube probado en prod desde la PC con ws3.
+  - Instagram: la lectura NUEVA (Apify, ~US$0,0025) no se probó. Gastar pide el sí de Martín en este chat.
+  - **Meta: sin hacer.** El diseño y lo medido están en docs/hallazgos-carruseles.md, «Sin hacer».
+- **La prueba en prod del 11/11** (después del despliegue de las 11:05 UTC): docs/pruebas/image-11-11.md. El método de captura
+  con el panel oculto está en docs/hallazgos-pruebas.md.
+
+## Dónde quedó (10/11)
 
 - **Rama `punta/carruseles-bucket`, worktree `C:/dev/wt-carruseles-bucket`** (separado de origin/main). Todo subido, la última
   es `1c7204ebe`. En main antes del despliegue del 11/11: `154277423`, `15ba25f79`, `c1a628fa3`, `aec347eba`, `659e6c1a3` y

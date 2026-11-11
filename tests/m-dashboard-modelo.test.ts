@@ -20,7 +20,14 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deltaDe, etiquetaBarra, textoVence, geometria, pasoLindo, indiceEn, ejeCompacto, periodoDeParam, PERIODOS_MOVIL, periodosParaHoja, caminoBarra, conUnidad, esCostoSobreGasto, faltaConectar, noSeLeyo } from '../app/m/dashboard/modelo';
+import { deltaDe, etiquetaBarra, textoVence, geometria, pasoLindo, indiceEn, ejeCompacto, periodoDeParam, PERIODOS_MOVIL, periodosParaHoja, caminoBarra, conUnidad, esCostoSobreGasto, faltaConectar, noSeLeyo, rotuloDePieza } from '../app/m/dashboard/modelo';
+
+test('el rótulo dice la métrica que se ve: con varias, la primera; con una, el título (11/11/2026, Velocidad a 375)', () => {
+  assert.equal(rotuloDePieza('Primer contacto', ['leads', 'contactados', 'sin_contactar'], 'Leads'), 'Leads');
+  assert.equal(rotuloDePieza('Leads por día', ['contactados', 'sin_contactar'], 'Contactados'), 'Contactados');
+  assert.equal(rotuloDePieza('Tiempo de respuesta', ['mediana_respuesta'], 'Mediana de respuesta (min)'), 'Tiempo de respuesta', 'con una sola, el título de la tarjeta');
+  assert.equal(rotuloDePieza('Primer contacto', ['leads', 'contactados'], undefined), 'Primer contacto', 'sin nombre en el catálogo, el título');
+});
 
 test('delta', () => {
   assert.deepEqual(deltaDe(112, 100, 'pct', true), { dir: 'up', tono: 'good', texto: '12%', etiqueta: 'Sube 12% contra el período anterior' });
@@ -64,6 +71,13 @@ test('geometria', () => {
   assert.equal(ejeCompacto(2000), '2k');
   assert.equal(ejeCompacto(1500), '1,5k');
   assert.ok(!caminoBarra(g.barras[0]).includes('NaN'));
+});
+test('un eje de centavos no queda en ceros: «0,01 · 0,02 · 0,03» (11/11/2026, lo gastado en IA en el teléfono)', () => {
+  const g = geometria([0.0271, 0, 0.004], false);
+  assert.deepEqual(g.ticks, [0, 0.01, 0.02, 0.03]);
+  assert.deepEqual(g.ticks.map(ejeCompacto), ['0', '0,01', '0,02', '0,03']);
+  assert.equal(ejeCompacto(0.00025), '0,00025');
+  assert.equal(ejeCompacto(2.5), '2,5', 'de 1 para arriba, como antes');
 });
 test('periodo', () => {
   assert.equal(periodoDeParam('ult90', PERIODOS_MOVIL, 'ult30').id, 'ult90');

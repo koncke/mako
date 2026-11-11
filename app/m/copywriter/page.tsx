@@ -36,7 +36,7 @@ export default async function CopywriterMovil({ searchParams }: { searchParams: 
     return (
       <PantallaM>
         <OutliersCopy portada={await leerOutliersCopy()} telefono rutaGuion="/m/copywriter/{id}?mako=1"
-          rutaGuiones="/m/copywriter?ver=guiones" rutaCrear="/m/copywriter?nueva" />
+          rutaGuiones="/m/copywriter?ver=guiones" rutaCrear="/m/copywriter?nueva=1" />
       </PantallaM>
     );
   }

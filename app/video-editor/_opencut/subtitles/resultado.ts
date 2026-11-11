@@ -19,6 +19,7 @@ export type MotivoSubtitulos =
 	| "descarga"
 	| "reconocer"
 	| "sin-voz"
+	| "falta-medio"
 	| "poner"
 	| "cancelado"
 	| "otro-proyecto";
@@ -33,6 +34,8 @@ export const MOTIVO_SUBTITULOS: Record<MotivoSubtitulos, string> = {
 	descarga: "no se pudo bajar el reconocedor de voz: revisa la conexión y prueba de nuevo",
 	reconocer: "no se pudo reconocer la voz: prueba de nuevo y, si vuelve a fallar, recarga la página",
 	"sin-voz": "no se reconoció la voz: el clip no tiene voz o es sólo música",
+	// 11/11/2026, probado en producción: con el archivo borrado del navegador, la pista sonaba muda y decía «sin voz».
+	"falta-medio": "falta en este navegador el archivo de un video del proyecto: vuelve a importarlo y prueba de nuevo",
 	poner: "no se pudieron poner los subtítulos en el video: prueba de nuevo",
 	cancelado: "se cancelaron los subtítulos antes de terminar",
 	"otro-proyecto": "se cambió de proyecto mientras se generaban: vuelve a pedirlos en este",
@@ -67,6 +70,26 @@ export function partesProgresoSubtitulos(fase: FaseGenerar, progreso: number): {
 		default:
 			return { que: "Generando subtítulos…", cuanto: null };
 	}
+}
+
+/**
+ * ¿Algún clip de video o de audio de la línea apunta a un archivo que no está? Pasa cuando el navegador perdió el archivo
+ * (los proyectos viven en el navegador): el editor arma la línea igual, sin ese medio, y su audio sale MUDO. Sin esto,
+ * los subtítulos decían «no se reconoció la voz» de un video que sí habla (probado en producción el 11/11/2026).
+ * La música de la biblioteca viene por URL: no cuenta.
+ */
+export function faltaAlgunArchivo(
+	tracks: { main: { elements: readonly unknown[] }; overlay: ReadonlyArray<{ elements: readonly unknown[] }>; audio: ReadonlyArray<{ elements: readonly unknown[] }> },
+	idsDeMedios: ReadonlySet<string>,
+): boolean {
+	for (const pista of [tracks.main, ...tracks.overlay, ...tracks.audio]) {
+		for (const e of pista.elements as Array<{ type?: string; mediaId?: unknown; sourceType?: string }>) {
+			if (e.type !== "video" && e.type !== "audio") continue;
+			if (e.type === "audio" && e.sourceType === "library") continue;
+			if (typeof e.mediaId === "string" && !idsDeMedios.has(e.mediaId)) return true;
+		}
+	}
+	return false;
 }
 
 /** Algo lanzó: la fase en la que iba dice qué fue (Whisper ya probó WebGPU y WASM). */

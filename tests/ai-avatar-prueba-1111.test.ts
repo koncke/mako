@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { PLANTILLAS_AVATAR, plantillaPorId } from '../lib/ai-avatar/plantillas';
 import { PLANTILLAS_VENTA_AVATAR, ganchoDeEjemplo } from '../lib/ai-avatar/plantillas-venta';
 import { CONSEJO_FOTO, pieDeGenerar } from '../lib/ai-avatar/estudio';
+import { plantillasNuevoVideo } from '../app/video-editor/plantillas-crear';
 
 const leer = (r: string) => readFileSync(join(process.cwd(), r), 'utf8');
 const estudio = leer('app/ai-avatar/Estudio.tsx');
@@ -102,4 +103,23 @@ test('en el teléfono, las pastillas y «Generar» van en UNA fila y la ranura v
   const css = leer('app/m/ai-avatar/ai-avatar.css');
   assert.match(css, /\.m-ai-avatar-barra__pie \{ display: flex;/);
   assert.match(css, /\.m-ai-avatar-barra__pie \.m-ai-avatar-barra__pastillas \{[^}]*overflow-x: auto/, 'si no entran, corren de costado');
+});
+
+test('la puerta desde Video, «Tu personaje con IA», muestra una imagen y no un marco vacío', () => {
+  const tarjeta = plantillasNuevoVideo().find((p) => p.id === 'personaje:nuevo');
+  assert.ok(tarjeta, 'falta la tarjeta en «Nuevo video»');
+  assert.ok(tarjeta.imagen, 'sin imagen, la tarjeta es un marco gris con «Desde tu foto»');
+  assert.ok(existsSync(join(process.cwd(), 'public', tarjeta.imagen)), `falta ${tarjeta.imagen}`);
+});
+
+test('⚠️ y en el TELÉFONO también: la hoja «Nuevo video» dibuja la imagen de la tarjeta, no siempre el marco', () => {
+  // Medido en producción el 11/11: en la computadora la tarjeta ya tenía la foto; en el teléfono seguía el marco vacío,
+  // porque InicioVideoM dibujaba sus tarjetas a mano y nunca miraba `imagen`.
+  const hoja = leer('app/m/video-editor/InicioVideoM.tsx');
+  const i = hoja.indexOf('{plantillas.map((pl) => (');
+  assert.ok(i > 0, 'falta la grilla de la hoja');
+  const tarjeta = hoja.slice(i, i + 1400);
+  assert.match(tarjeta, /\{pl\.imagen \? \(/, 'con imagen, la imagen');
+  assert.match(tarjeta, /<img src=\{pl\.imagen\}/);
+  assert.match(tarjeta, /cajaDeMiniatura\(pl\.formato\)/, 'a su proporción, como en la computadora');
 });

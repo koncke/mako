@@ -62,6 +62,7 @@ import { anotarProgreso, empezarArmado, useArmado, type ArmadoChat } from "./arm
 import { ArmadoEnVivo } from "@/app/_ui/ArmadoEnVivo";
 import { fasesDesde } from "@/app/_ui/armado-en-vivo";
 import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
+import { agentesDeOperaciones, mostrarCursores } from "@/app/video-editor/_opencut/enjambre/cursores-sueltos";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
 import { marcarCerrada, resolverEnServidor, traerPropuestas } from "./propuestas";
@@ -532,7 +533,9 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		if (!m.propuesta) return;
 		cambiarMensaje(proyectoId, m.id, { estado: "aplicando", aviso: undefined });
 		empezarArmado(m.id);
-		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion, alProgreso: (p) => anotarProgreso(m.id, p) });
+		// Los cursores de los agentes que hacen este cambio, a la vista mientras se aplica (enjambre/cursores-sueltos.ts).
+		const soltarCursores = mostrarCursores(agentesDeOperaciones(m.propuesta.operaciones));
+		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion, alProgreso: (p) => anotarProgreso(m.id, p) }).finally(soltarCursores);
 		if (!r.ok) {
 			cambiarMensaje(proyectoId, m.id, { estado: r.sinVersion ? "sin-version" : "pendiente", aviso: r.error });
 			return;
@@ -583,9 +586,30 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		libre: !hilo.corriendo && !guiaHablando,
 	});
 	const subtitulando = useTrabajoSubtitulos((s) => s.fase !== "inactivo");
+	// El resultado queda EN EL HILO, como si la persona hubiera contestado (11/11/2026, probado en producción): con un aviso
+	// que se va a los segundos, el chat volvía a «Pídeme…» sin decir si salieron, ni por qué no. «Ocupado» y «cancelado» no
+	// son una respuesta a la pregunta: siguen como aviso.
 	const ponerSubtitulos = () => {
-		void generarSubtitulos(editorRef.current).then((r) => (r.ok ? toast("Subtítulos listos") : toast(textoDeSubtitulos(r.motivo))));
+		const id = proyectoId;
+		void generarSubtitulos(editorRef.current).then((r) => {
+			if (!r.ok && (r.motivo === "ocupado" || r.motivo === "cancelado")) {
+				toast(textoDeSubtitulos(r.motivo));
+				return;
+			}
+			const texto = r.ok
+				? `Listo: puse ${r.subtitulos} ${r.subtitulos === 1 ? "subtítulo" : "subtítulos"}.`
+				: textoDeSubtitulos(r.motivo);
+			// La respuesta, un milisegundo DESPUÉS: con la misma hora, la base desempata por el id (al azar) y al recargar
+			// quedaba «Listo» arriba de «Sí, en el feed» (producción, 11/11/2026; lib/editor-video/chat-hilo.ts, `enOrden`).
+			const yo = conId({ de: "yo", texto: "Sí, en el feed", alcance: null });
+			const mako = { ...conId({ de: "mako", texto, error: !r.ok }), c: yo.c + 1, t: yo.t + 1 };
+			cambiarHilo(id, (h) => ({ ...h, mensajes: [...h.mensajes, yo, mako] }));
+		});
 	};
+	// Sin la app de escritorio el envío se corta adentro de `enviar` (useAppDeEscritorio): un atajo prendido no hacía NADA al
+	// tocarlo y no decía por qué (probado en producción el 11/11/2026). Apagado, con la misma frase que la caja.
+	const atajoApagado = hilo.corriendo || appEscritorio.bloqueada;
+	const porQueApagado = appEscritorio.bloqueada ? appEscritorio.bloqueo?.frase : undefined;
 	const pildora = "cursor-pointer rounded-full border border-(--border) bg-(--surface) px-3 py-1.5 text-left text-[12px] text-(--ink) hover:bg-(--velo-hover) disabled:cursor-default disabled:opacity-50";
 	const chip = "flex h-[26px] min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-medium";
 
@@ -665,7 +689,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 							</div>
 							<div className="flex flex-wrap gap-1.5">
 								{visibles.map((s) => (
-									<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={hilo.corriendo}>{s.rotulo}</button>
+									<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={atajoApagado} title={porQueApagado}>{s.rotulo}</button>
 								))}
 							</div>
 						</>
@@ -681,7 +705,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 					{hilo.mensajes.length > 0 && !hilo.corriendo && !guiaHablando && (
 						<div className="flex flex-wrap gap-1.5">
 							{visibles.slice(0, 4).map((s) => (
-								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>
+								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={atajoApagado} title={porQueApagado}>{s.rotulo}</button>
 							))}
 						</div>
 					)}

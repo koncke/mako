@@ -314,16 +314,22 @@ export const ESTADOS_RESPONDIO: ReadonlySet<string> = new Set(['respondio', 'han
  * nadie (medido el 11/10/2026: 0 de 23), así que «Respuestas» daba siempre 0. Se deduce: si la inscripción
  * terminó contestando (`ESTADOS_RESPONDIO`), lo que la persona contestó fue el ÚLTIMO envío de esa inscripción
  * —la secuencia se pausa al responder—. Y si algún día alguien escribe `respondio_at`, ese dato manda.
+ *
+ * ⚠️ El último que SALIÓ (`salio`), no el último que se anotó (11/11/2026, ws 3 en producción). Un flujo también anota sus
+ * acciones (una etiqueta, un aviso), lo que corrió en simulación y lo que se omitió, y ninguno de esos se puede contestar.
+ * Contando el último a secas, la hoja de Automatizaciones decía «Salieron 0 mensajes · 65 te respondieron»: de las 65
+ * inscripciones que contestaron, el último envío era una acción en 58, un simulado en 6 y un omitido en 1. Sin `salio`
+ * (undefined), el envío cuenta como salido: es lo de antes.
  */
 export function enviosRespondidos(
-  envios: ReadonlyArray<{ id: number; inscripcionId: number | null; t: string; respondioAt: string | null }>,
+  envios: ReadonlyArray<{ id: number; inscripcionId: number | null; t: string; respondioAt: string | null; salio?: boolean }>,
   estadoDe: (inscripcionId: number) => string | null | undefined,
 ): Set<number> {
   const out = new Set<number>();
   const ultimo = new Map<number, { id: number; t: string }>();
   for (const e of envios) {
     if (e.respondioAt) out.add(e.id);
-    if (e.inscripcionId == null) continue;
+    if (e.inscripcionId == null || e.salio === false) continue;
     const u = ultimo.get(e.inscripcionId);
     if (!u || e.t > u.t || (e.t === u.t && e.id > u.id)) ultimo.set(e.inscripcionId, { id: e.id, t: e.t });
   }
@@ -339,3 +345,24 @@ export function enviosRespondidos(
  * vacío, así que `esClicDelConstructor` (que mira el texto) no lo ve. Se mira el SELECTOR del Pixel v22.
  */
 export const esSelloDelConstructor = (sel: string | null | undefined): boolean => /#lovable-badge(?:$|[-\s>:.[])/i.test(sel ?? '');
+
+// ── El uso de la IA ──────────────────────────────────────────────────────────────────────
+
+/**
+ * Los `model` de las filas de `anthropic_usage` que NO son una llamada que contestó: el veto de Claude (`vetado:`, lib/anthropic.ts),
+ * el 429 de una cuenta (`rebote429:`, lib/ia-cuotas.ts), el salto a otro modelo (`rebote:`, lib/ai-cheap.ts; el que contestó
+ * queda anotado aparte) y el fallo de la clave del negocio (`fallo:`, lib/su-clave-reglas.ts). Todas a 0 tokens y US$0.
+ */
+export const MARCAS_NO_LLAMADA: readonly string[] = ['vetado:', 'rebote429:', 'rebote:', 'fallo:'];
+
+/**
+ * ¿Esta fila de `anthropic_usage` es una llamada a la IA? Las de `provider: 'mako'` tampoco: son las decisiones que MaKo deja
+ * anotadas ahí (`recordUsage('clase-doer', 'clase:no_reply', …, 'mako')`, lib/mako-doer-in.ts; el cartel, la ayuda y el saneo).
+ * Contadas como uso, la hoja Contenido e IA inflaba «Usaste la IA N veces», bajaba el costo por llamada y ponía «clase:no_reply»
+ * como un modelo (11/11/2026, ws 3 en producción). El mismo criterio que lib/credito-api.ts con el veto.
+ */
+export function esLlamadaDeIa(provider: string | null | undefined, model: string | null | undefined): boolean {
+  if (provider === 'mako') return false;
+  const m = model ?? '';
+  return !MARCAS_NO_LLAMADA.some((p) => m.startsWith(p));
+}

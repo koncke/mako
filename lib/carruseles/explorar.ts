@@ -27,6 +27,7 @@ import { cierreDeTexto, plano, type Cierre } from './texto';
 import { pareceContenido, tipoDeCarrusel } from './clasificar';
 import { ctaDeTexto, rotuloCta, type CtaCarrusel } from './cta';
 import { conVariedad } from './variedad';
+import { linkDeInstagram } from './link';
 import { sinRepetidos } from './duplicados';
 import { ALIAS_LARGO_CARRUSEL, ORDENES_CARRUSEL, ORIGENES_CARRUSEL, OUTLIER_MINIMOS, PERIODOS_CARRUSEL, QUE_VER_CARRUSEL, VISTAS_CARRUSEL, type OrdenCarrusel, type OrigenFiltro, type PeriodoCarrusel, type QueVer, type VistaCarrusel } from './opciones';
 
@@ -238,6 +239,10 @@ const enRango = (iso: string | null, dias: number, ahora: number): boolean => {
 
 /** La búsqueda: con «@» es por creador (su @ o su nombre); si no, TODAS las palabras en el texto, el gancho o el creador. */
 export function coincide(c: Carrusel, q: string): boolean {
+  // El link de una publicación encuentra ESA publicación (11/11/2026, «Traer tu outlier»): sin esto, pegar el link de un ejemplo
+  // que ya estaba decía «Ese link no está entre tus outliers» y ofrecía traerlo.
+  const link = linkDeInstagram(q);
+  if (link) return linkDeInstagram(c.url ?? '')?.ref === link.ref;
   const t = plano(q);
   if (!t) return true;
   if (t.startsWith('@')) {

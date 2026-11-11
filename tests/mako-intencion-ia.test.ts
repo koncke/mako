@@ -116,3 +116,29 @@ test('5. «Dile a Claude que…» nunca queda sin respuesta (Martín, 11/11/2026
 });
 
 // Probado rompiéndolo (11/11/2026): sin `aClaude` en `veredictoDeClase` → falla el 5; `lePideAlEquipoDeMaKo` que da siempre true → falla el 5.
+
+test('6. un «sí» suelto a lo que MaKo OFRECIÓ es el pedido, no una charla (Joan, Código Inmobiliario, 11/11/2026 11:28)', async () => {
+  const { clasificarIntencion } = await import('../lib/mako-intencion');
+  const { esOfrecimientoDeMaKo } = await import('../lib/oferta-de-mako');
+  // Lo REAL de ese turno: la pregunta de Joan, la oferta de MaKo, su «Si» y la salida del modelo (anthropic_usage 11:28:44).
+  const oferta = 'Cada negocio en MaKo es independiente… si entras al negocio de Marcela, vería las suyas — pero solo si ella las conectó a su cuenta de MaKo.\n\n¿Querés que revise si Marcela conectó sus anuncios? Me das su nombre o el de otro cliente y te confirmo.';
+  const historial = [{ rol: 'persona' as const, texto: '¿Tenés acceso a las campañas publicitarias de mis clientes?' }, { rol: 'mako' as const, texto: oferta }];
+  const reglas = clasificarIntencion('Si', { makoPregunto: true });
+  assert.equal(reglas.sigueOfrecimiento, true, 'las reglas ya no ven la oferta');
+  const real = '{"clase":"CHARLA","resumen":"Confirma que entendió la respuesta de MaKo.","reenviado":false,"secundaria":null}';
+  const v = await clasificarConIA({ ...E, texto: 'Si', historial, quien: 'Joan Dowd' }, reglas, async () => real);
+  assert.equal(v.veredicto.intencion, 'actuar', 'el «sí» a la oferta quedó en 👍 y nada');
+  assert.equal(v.veredicto.sigueOfrecimiento, true, 'sin el ofrecimiento, el turno no trae las herramientas de lo ofrecido');
+  // Una pregunta por un HECHO no es una oferta: el «sí» ahí sigue siendo charla (el banco: «¿lo contactaron?» → «Si ya es la tercera vez»).
+  const recordatorio = [{ rol: 'mako' as const, texto: 'Entró EDEST_OFICIAL, ¿lo contactaron?' }];
+  const r1 = await clasificarConIA({ ...E, texto: 'Si', historial: recordatorio }, clasificarIntencion('Si', { makoPregunto: true }), async () => '{"clase":"CHARLA","resumen":"responde el recordatorio"}');
+  assert.equal(r1.veredicto.intencion, 'charlar', 'un «sí» a «¿lo contactaron?» corrió un turno');
+  const r2 = await clasificarConIA({ ...E, texto: 'Si ya es la tercera vez q se contacta', historial: recordatorio }, clasificarIntencion('Si ya es la tercera vez q se contacta', { makoPregunto: true }), async () => '{"clase":"CHARLA","resumen":"x"}');
+  assert.equal(r2.veredicto.intencion, 'charlar');
+  for (const t of ['¿Querés que revise si Marcela conectó sus anuncios?', '¿Quieres que lo pase a Agendado?', 'Listo. ¿Te lo agendo mañana a las 12?', '¿Lo reviso?']) assert.equal(esOfrecimientoDeMaKo(t), true, `«${t}»`);
+  for (const t of ['Entró EDEST_OFICIAL, ¿lo contactaron?', '¿Cuántos leads querés ver?', 'Hoy entraron 4 leads.', null]) assert.equal(esOfrecimientoDeMaKo(t), false, `«${t}»`);
+  assert.match(SYSTEM_DE_CLASE, /6b\. Si MaKo acaba de OFRECER hacer algo/);
+});
+
+// Probado rompiéndolo (11/11/2026): sin el «sí» a la oferta en `veredictoDeClase` → falla el 6; `esOfrecimientoDeMaKo` que da siempre
+// true → falla el 6 (el «¿lo contactaron?» corre un turno).

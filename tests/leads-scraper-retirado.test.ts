@@ -188,6 +188,10 @@ test('la clave de Competitors Spy sólo lee Instagram: no es la vuelta del scrap
   // pasa Spy y decide cuándo pasar a la siguiente (sólo por falta de crédito).
   assert.deepEqual(quienes('APIFY_INSTAGRAM_TOKEN|APIFY_CLAVE_DE_SPY|CLAVES_APIFY_DE_SPY|clavesApifyDeSpy').sort(), [
     'app/api/crm/instagram-buscar/route.ts',
+    // 11/11/2026: «Traer tu outlier» de Image (Martín: «si se necesita Apify, no hay problema»). Lee UNA publicación pública por
+    // el link que pegó el negocio, con SU clave de Spy y, si no tiene, la de la plataforma; con tope por lectura (US$0,01) y por
+    // día (20 links). No entra a `leads`: va a la biblioteca de carruseles, del negocio.
+    'lib/carruseles/traer-servidor.ts',
     'lib/instagram-perfil-server.ts', 'lib/instagram-perfil.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-catalogo.ts', 'lib/metodo-verificar.ts',
     // 4/11/2026: el buscador de Spy por red (Google y el buscador de Instagram por nombre). Es Spy, con la misma clave, sin
     // escribir nada: candidatos que la persona confirma. Su cupo es aparte (`TOPE_BUSQUEDAS_SPY_POR_DIA`).

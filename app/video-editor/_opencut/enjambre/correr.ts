@@ -83,6 +83,12 @@ const NO_ARRANCA: Record<Extract<ResultadoEnjambre, { ok: false }>["motivo"], st
 const PAUSA_ENTRE_PASOS_MS = 450;
 /** Cuánto se ve cada estilo que prueba subs-03 antes de volver atrás (el «A/B testing caption fonts…» del reel). */
 const PAUSA_PRUEBA_MS = 700;
+/**
+ * Lo mínimo que trabaja cada agente a la vista: que su cursor llegue (520 ms) y se lo vea ahí. Medido en producción el
+ * 11/11/2026: muletillas, B-roll y volumen duraban 0,2–0,8 s y cinco agentes ni se prendían (Martín: los cursores,
+ * «súper importante que esté en todo momento»). Con «reducir movimiento», nada.
+ */
+const PASO_A_LA_VISTA_MS = 1400;
 
 const sinMovimiento = (): boolean => {
 	try {
@@ -522,6 +528,7 @@ export async function correrEnjambre(
 			fijarAgente(paso.agente, "trabajando");
 			anotar(paso.agente, "empieza", renglon(paso.titulo));
 			const ctx: Contexto = { editor, paso, agente: paso.agente, quietos, ...lugar, frases, subtitulosNoSalieron };
+			const empezo = Date.now();
 			let como: ComoTermina;
 			try {
 				if (!enSuLugar(ctx)) {
@@ -543,6 +550,7 @@ export async function correrEnjambre(
 				como = "fallo";
 			}
 			esperada = editor.scenes.getActiveSceneOrNull()?.tracks ?? esperada;
+			if (!quietos) await esperar(Math.max(0, PASO_A_LA_VISTA_MS - (Date.now() - empezo)));
 			fijarAgente(paso.agente, como === "hecho" ? "listo" : como === "fallo" ? "fallo" : "salteado");
 			if (paso.id === "subtitulos" && como === "hecho") subtitulosNuevos = true;
 			if (paso.id === "subtitulos" && como !== "hecho") subtitulosNoSalieron = true;

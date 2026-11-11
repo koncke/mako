@@ -4291,3 +4291,36 @@ docs/web-generator/outliers-landings.md.
 - **Las capturas del relevo se MIRAN antes de entrar:** con el Chrome sin ventana, 2 de ClickFunnels devolvieron «Sorry, you have
   been blocked», 4 salieron tapadas por carteles de cookies o avisos, y 1 no cargó. No se esquiva el control de robots de nadie
   (no se cambia el agente del navegador para pasar): esas quedan anotadas afuera de la grilla, para sacarlas a mano.
+
+### En producción, después del despliegue (11/11/2026, de tarde)
+
+- **⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: «la réplica arma mal las secciones».** La réplica de acquisition.com ponía el aviso
+  legal del pie debajo del titular del hero. No era el armado de secciones: era el ORDEN del HTML. acquisition.com es Next.js con
+  streaming (Suspense): `<main>` trae sólo marcadores (`<template id="B:0"></template>`), después viene el `<footer>`, y el
+  contenido de verdad llega al final en `<div hidden id="S:0">…</div>`, que un script mueve a su lugar en el navegador. El
+  extractor (lib/landing-extraer.ts) leía en el orden del archivo, y encima `template` es RUIDO: `<main>` salía vacío y el pie
+  quedaba primero. `armarStreaming` hace lo que hace ese script, antes de leer. Medido con la página real: el aviso pasó del bloque
+  0 al 38. **Regla:** cualquier lectura de una página por su HTML (extractor, análisis, réplica) pasa por `armarStreaming`; la
+  lectura del navegador ya ve la página armada. Cada vez más landings son Next.js.
+- **Un `<a>` sin clase de botón es navegación salvo que su texto sea de acción** (`RE_CTA_TEXTO`). La lista en inglés tenía
+  `book|get|start|schedule`: el «I'M READY TO SCALE» del hero se perdía, y `book` sin `\b` hacía botón al link «Books» del pie.
+- **«Números grandes» no se achicaba con su columna:** 3.2em fijos. Junto a la foto (la tarjeta «derecha» deja ~60%) eran 4
+  columnas de 103px para un «10,000» de 150px, y en el teléfono 2 columnas de 138px para 164px: «10,00081» pegados. Ahora con la
+  foto al costado va de a pares, y la cifra es `min(3.2em, ancho de su columna / caracteres)`: el ítem es un contenedor
+  (`container-type`) y `--gm-largo` lo pone especificacion.ts. Con piso de 6 caracteres, la fila sale pareja.
+- **La foto del costado en el teléfono es una franja apaisada:** cortada por el medio, un retrato queda sin cabeza. Se mira desde
+  arriba (`50% 15%`). No hay punto de foco por imagen: si alguna vez se agrega, reemplaza esto.
+- **La tarjeta sin imagen de Spy era un «cuadro gris»:** se pintaba con `--primary-bg`, que en el tema por defecto es `#e4e4e1`.
+  El nombre engaña (ver docs/hallazgos-ui.md). Ahora dibuja la página con su `og:title` y su `og:description`, del mismo pedido que
+  la imagen. Y la imagen para compartir de una página puede ser un logo cuadrado: se muestra entera (`contain`), no recortada.
+- **Quedan:** 4 capturas del relevo con el cartel de cookies (el Chrome sin cabeza de `scripts/capturas-outliers-landings.mjs` no
+  puede cerrarlo; hace falta CDP para sacar el cartel antes de la foto), y mirar lo que anima (la copia idéntica con su ventana,
+  los cursores) en el Chrome de Martín con su sesión.
+- **⚠️ Una regla de CSS correcta que no gana: el encuadre iba EN LÍNEA (11/11, después del despliegue).** La foto del costado en
+  el teléfono seguía cortada por el medio aunque la regla de «mirar arriba» estaba en la hoja: el acento llevaba
+  `background-position: 50% 50%` en el `style` (el encuadre por defecto, `imagenFocoX/Y`), y lo en línea le gana a todo. Probarlo
+  en el navegador con un `<style>` inyectado no lo mostró, porque se probó sobre el atributo y no sobre la página entera. Ahora el
+  encuadre va en línea sólo si la persona lo eligió. **Regla:** un valor por defecto no se escribe en línea; se deja a la hoja,
+  que puede variar por ancho. Y lo que se mira «a mano» antes de subir se mira en la página tal cual sale, no en un elemento.
+- **El subtítulo del hero en dos `<h2>` seguidos queda como sección aparte** (`esquemaDeReplica` corta en cada título del nivel
+  de sección). Sin arreglar: juntarlos pide una regla que puede romper otras páginas.

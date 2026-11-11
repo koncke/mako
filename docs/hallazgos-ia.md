@@ -1886,6 +1886,29 @@ llamador que lo usó fue el primero en descubrir que no servía.
 
 **Vive en:** lib/ai-cheap.ts (`leerConGemini`, `chatCheap` → `paramsDeSalida`) · 6/11/2026
 
+### ⚠️ Con el tope viajando, el JSON se cortaba igual: la SANGRÍA se comía la mitad, y un JSON cortado pasaba como respuesta (11/11/2026)
+
+«Editar» un carrusel de 6 láminas en el ws9 fallaba una vez de cada dos con «La IA no devolvió el diseño en un formato que
+pueda leer». El diagnóstico obvio era «8.000 tokens no alcanzan, hay que subir el tope», y **era el equivocado**: subirlo no
+entra en el plazo. `gemini-3.8-flash` escribe unos 80 tokens por segundo, 8.000 ya son 100 s y el plazo de la llamada es
+120 s. Medido en `anthropic_usage` y con el crudo de la respuesta (el volcado de `fetch` sobre
+scripts/carruseles-probar-editar.mts):
+- con `response_mime_type: application/json`, Gemini devuelve el JSON **con sangría**: 588 líneas y 6.194 espacios para 6
+  láminas. Midió 5.374, 7.904 y **7.996** tokens visibles en tres corridas del mismo carrusel. La de 7.996 se cortó a mitad
+  de una clave;
+- pidiéndolo «compacto, en UNA sola línea» (`COMPACTO`, lib/carruseles/replica.ts), el mismo carrusel salió en 1 línea con
+  **3.273 tokens** y 72 s. Gemini lo respeta aunque el modo JSON esté prendido;
+- `leerConGemini` **no miraba `finishReason`**. Un JSON cortado volvía como texto bueno, `probarCon` lo daba por respondido
+  y nunca probaba el modelo de respaldo (`gemini-flash-lite-latest`). Pasaba directo a «no pude leerlo», y de ahí a las guías.
+
+**La regla:** con `json`, una respuesta que terminó en `MAX_TOKENS` **tira** y la rotación pasa al modelo siguiente. Un
+texto cortado todavía sirve; un JSON cortado, no. Sin `json` se devuelve como siempre. El formato que se le pide al modelo
+también cuesta tokens y segundos, así que un JSON de salida grande se pide compacto. `thoughtsTokenCount` (778 y 1.603 en esas
+corridas) viene aparte de `candidatesTokenCount`, que es lo que registra el uso.
+
+**Vive en:** lib/ai-cheap.ts (`leerConGemini`), lib/carruseles/replica.ts (`COMPACTO`); el test en
+tests/carruseles-editar.test.ts (caso `cortado`, roto a propósito las dos cosas: 10/1 cada una) · 11/11/2026
+
 ### ⚠️ Un modelo de Gemini que se cuelga se come el plazo ENTERO, y el plazo es por llamada, no por pedido (6/11/2026)
 
 Medido con la red instrumentada en «Editar» un carrusel, dos veces el mismo día: `gemini-flash-latest` no contesta y aborta a
@@ -7897,3 +7920,97 @@ habilitarla es decisión de Martín: habilitarla es volver a prestarle IA a un c
 
 **Vive en:** lib/ai-cheap.ts (`provsGratisDePlataforma` y su llamador en `chatCheapCascade`) · lib/veto-claude.ts
 (`CREDITO_HABILITADO_PARA`) · lib/flujo-ia.ts (`sinIAPropia`) · tests/ia-aviso-sin-ia-propia.test.ts
+
+## Dos claves de Gemini muertas, cargadas en varios negocios a la vez (11/11/2026)
+
+- **Síntoma:** el Copywriter del negocio de MaKo devolvió 502 a los ~110 s, con «La API key parece inválida o vencida. Pega una
+  nueva. (copywriter-ia: gemini no contestó antes del plazo (gemini: chatCheap(gemini): API key not valid…)». Quince minutos
+  antes había andado.
+- **Medido** (GET `models` de Gemini, que no genera ni cobra; script de sólo lectura que descifra cada `GEMINI_API_KEY*` con
+  `lib/cripto-credenciales.ts` y no la imprime): de 22 claves, 4 filas dan 401 «API key not valid», pero son sólo DOS claves:
+  la base del ws 9 (también cargada como base del ws 10) y la `_4` del ws 9 (también cargada como base del ws 1). Las otras
+  18 contestan 200. En el ws 9, la `_2` y la `_3` están vivas.
+- **El diagnóstico obvio puede ser el equivocado:** un 401 vuelve en el acto, así que una clave muerta sola no explica 110 s.
+  Con dos cuentas vivas, el plazo se gastó en otra parte (las vivas lentas, sin cupo, o reintentos), y el mensaje mostró el
+  PRIMER error, el de la clave muerta. Falta medirlo antes de culpar a la clave.
+- **Regla:** una misma clave copiada en varios negocios muere en todos a la vez; al reemplazarla, se reemplaza en todos. Y el
+  error que ve el usuario no puede ser el texto técnico ni pedirle a la plataforma que «pegue una nueva».
+- **Sin hacer:** que la cascada salte y recuerde una cuenta muerta (`lib/ai-cheap.ts`), y el mensaje de `errorDeCascada`
+  (`lib/ia-mensajes.ts`).
+
+## El crédito de Claude PRIMERO en el espacio de MaKo y en WhatsApp, Gemini de respaldo (11/11/2026)
+
+- **La decisión**, Martín, textual: «MaKo con WhatsApp ya habíamos dicho que eso se gaste con los tokens de las cuentas de
+  Claude 200 dólares que estoy pagando… En general, yo creo que sería bueno que gastemos eso para todo esto en lugar de Gemini,
+  porque es mucho más estable.» Lo que NO cambia: un negocio fuera de WhatsApp sigue con SU IA; el Plan queda afuera («JAMÁS
+  algo pago para el plan»); las funciones con `fallback: []` no usan el crédito; y en el grupo de un cliente sin IA propia, si
+  fallan las cuentas, queda el cartel (nunca el Gemini de la plataforma con datos de sus clientes). La regla para código nuevo
+  está en AGENTS.md (la tercera puerta del veto).
+- **El diagnóstico obvio era el equivocado: la puerta 3 parece la del crédito, y la que sirve es la 2.** `conCreditoDeLaPlataforma`
+  lee 2 de las 5 cuentas (y la 1 es la asignada a Mauricio), no acepta imágenes ni herramientas, y su test corta el cuerpo a
+  8.000 caracteres. La puerta 2 (la de los grupos de WhatsApp) ya tenía la lista única de cuentas, el reparto, la cuenta
+  agotada salteada, el interruptor, Haiku forzado, el Plan afuera y la marca «(cuenta N)». El cambio fue una regla (quién
+  puede usar una cuenta) y tres lugares que la consultan.
+- **WhatsApp ya corría con el crédito desde el 28/10; lo que mentía era el catálogo.** En la semana del 4 al 11/11, las 94
+  llamadas de `mako-doer-in` fueron Haiku con crédito, y el catálogo decía `def: GEMINI()`: figuraba entre «las 60 con Gemini».
+- **El override `mako.modelos` es global** (se guarda en OWNER_WS): no sirve para rutear sólo el ws 9. Y poner un `def` de
+  Anthropic manda la llamada a la puerta 1, que el veto frena. No se toca ni el `def` ni /modelos-ia.
+- **Trampas que estaban vivas:**
+  - el chat de WhatsApp SIN pin y sin IA propia caía a la puerta 1 con Sonnet u Opus, y el veto lo cortaba (hoy no pasaba
+    porque hay un pin; sacarlo en /modelos-ia lo rompía);
+  - el `fetch` del bucle con herramientas (`chatClaudeTools`) no tenía timeout, y el clasificador del grupo tampoco: un
+    Anthropic colgado trababa el turno hasta el corte de undici (~300 s);
+  - el agotamiento de una cuenta de los grupos no quedaba escrito: se marcaba sólo en la memoria de la instancia, sin la fila
+    «sin crédito hasta el próximo ciclo», así que el Uso (`sinCreditoAt`) nunca se enteraba; y el gasto de un negocio sin su
+    Claude quedaba anotado en el ws 9;
+  - `conClaveDelNegocio` anotaba un fallo de NUESTRO crédito en la tarjeta de «Tus cuentas de IA» del negocio.
+- **Costo, medido del 4/11 al 11/11** (Haiku a 1/5 US$ por millón): el ws 9 sin el Plan, unos US$28 por mes; WhatsApp fuera del
+  ws 9, US$1,4. Unos US$30 de los US$400 de las dos cuentas con clave. El pico del 9/11 todos los días serían US$163. Lo que
+  mide MaKo es lo REGISTRADO: Anthropic no deja leer el saldo, así que si las claves se usan fuera de MaKo el número se queda corto.
+- **Dónde quedó la regla:** `puedeUsarUnaCuentaDelCredito` (lib/veto-claude.ts, pura) y `esElEspacioDeLaPlataforma`
+  (lib/anthropic.ts, el workspace en curso contra `wsSuperAdmin()`). La consultan la puerta 2, la cascada de texto, el bucle con
+  herramientas y la lectura de imágenes. El reparto y el 90% viven en lib/credito-negocio.ts (`cuentasDelCredito`), y el vigía
+  del 80/100% en lib/credito-vigia.ts (desde /api/cron/alerta-critica).
+- **Tres capas frenan al Plan, y eso confunde al probar rompiendo:** sacar el Plan de la regla nueva deja VERDE la prueba de
+  verdad (ia-saturacion), porque `planPuedePagarConSuClave` y `evaluarClaveDelNegocio` lo vuelven a frenar. La regla sola la
+  caza el test puro (tests/credito-plataforma.test.ts). Un verde después de romper una capa no prueba que la capa sobra.
+- **Un test que fija el orden exacto del reparto depende de cuántas llamadas hubo antes en el mismo proceso** (el contador es
+  de `globalThis`). Sumar un caso arriba en el hijo rompió tests/credito-grupos.test.ts 5 sin que el reparto cambiara: se compara
+  el conjunto de rotaciones, no cuál va primero.
+- **El plan asumía una pantalla /modelos-ia que ya no existe** (se fue el 25/10, app/admin/dev/areas.ts). Lo que corre primero
+  quedó en su API (`primero`, lib/model-registry.ts → `getModelosConfig`), con la misma regla que la puerta.
+- **Sin hacer:**
+  - el techo de entrada de Haiku quedó en 150.000 tokens a la cuenta de la cascada (3,5 caracteres por token), con 200K de
+    contexto: **a verificar** con `count_tokens` sobre un pedido grande real (`TECHO_ENTRADA.anthropic`, lib/ai-cheap.ts);
+  - ninguna cuenta tiene `diaDeCobro` (lib/credito-api.ts → `CUENTAS_DEL_CREDITO`): el vigía mide el mes calendario hasta que
+    Martín cargue el día de cobro de cada plan;
+  - el tope por negocio del crédito (M2, docs/hallazgos-comunicacion.md) sigue pendiente; ahora el gasto queda en el ws de cada
+    negocio, así que se puede medir antes de fijarlo;
+  - el paso 9 del plan, «sólo si no alcanza»: el relevo por función, cachear el system y las herramientas del bucle
+    (`chatClaudeTools`, unos 18k de entrada por llamada de `mako-doer`) y evaluar otros proveedores;
+  - la marca en memoria de la cuenta agotada que todavía hacen el doer y el bot (lib/mako-doer-in.ts, lib/mako-bot.ts) quedó
+    redundante (la hace la puerta): no molesta, y la fija tests/doer-su-ia.test.ts;
+  - fuera de este cambio y con fecha: el permiso de `closing` vence el 13/11 (lib/veto-claude.ts) y el precio de Sonnet 5 sigue
+    a 2/10 (lib/anthropic-usage.ts).
+
+## La revisión del crédito primero: cuatro fugas, y el arnés que las escondía (11/11/2026, claude4)
+
+- **`?? 0` convertía «no sé» en «0%», y abría la reserva de WhatsApp justo sin dato.** Con el gasto ilegible, el vigía guardaba
+  `{}` con la hora de ahora (pisaba el 95% de una cuenta) y `ordenDeLasCuentas` leía `uso[c] ?? 0`: la plataforma volvía a usar
+  esa cuenta. Ahora un % incompleto no se guarda (`avisosDelCredito` → `completo`) y para la plataforma faltar es quedar fuera
+  (lib/credito-api.ts, lib/credito-vigia.ts).
+- **«Su clave gana» en la puerta 2 hace que reintentar con una cuenta del crédito sea reintentar con SU clave.** La foto de un
+  grupo (`leerDocumentoIA`) entraba al lazo con cualquier fallo, también el de su Claude sin saldo: N pedidos a su clave y N
+  filas en su tarjeta, y el crédito nunca. El doer ya lo evitaba (`sin_su_claude`); la foto no. Ahora, sólo con el primer intento
+  en `null` (lib/ai-cheap.ts).
+- **«Al respaldo» suponía que había uno.** Para un negocio sin su IA, un 529 del crédito era el cartel de fallo en el turno y la
+  foto sin leer: no hay Gemini ni red. Ahora, sin respaldo, lo pasajero prueba UNA cuenta más (lib/veto-claude.ts,
+  lib/mako-doer-in.ts, lib/ai-cheap.ts). La foto no repite un cuelgue (90 s por pedido).
+- **El diagnóstico obvio era el equivocado: el test de saturación estaba verde PORQUE el arnés corta todo a 50 ms.**
+  tests/_ia-saturacion-hijo.ts recorta `AbortSignal.timeout` y anotaba el plazo pedido a Google, no el del crédito: el crédito
+  pedía TODO lo que quedaba del `hastaMs`, y en producción un Haiku colgado dejaba a Gemini en «sin tiempo» sin un pedido.
+  Con un arnés que acorta el tiempo, lo que se afirma es el plazo PEDIDO, nunca «el respaldo corrió». Ahora el crédito pide
+  lo que queda menos `MIN_INTENTO_MS`, y con menos de 30 s no va.
+- **Sin hacer:** «hay respaldo» en el turno del grupo no mira `turnoRed.cortar` (la red del ws9 salteada por datos de clientes
+  cuenta como respaldo, y entonces no se reintenta: lo de antes, lib/mako-doer-in.ts → `hayRespaldoDespuesDeClaude`); y el
+  clasificador del grupo sigue cortando al primer 529 (ahí mandan las reglas, no hay cartel).

@@ -17,7 +17,7 @@ import { podarVencido } from '../spy-reglas';
 import { getRolWsEfectivo, getWorkspaceActual, wsSuperAdmin } from '../workspace';
 import {
   carruselesDeBiblioteca, cuentaDeInstagram, cuentaDudosa, decidirCambio, estaRevisada, filaDeBiblioteca, hashtagDe,
-  recortarBiblioteca,
+  recortarBiblioteca, seMuestraA, traidaPor,
   type CambioBiblioteca, type CuentaBiblioteca, type PiezaBiblioteca, type TemaBiblioteca,
 } from './biblioteca';
 import type { Carrusel } from './explorar';
@@ -39,6 +39,21 @@ const enCache = globalThis as unknown as Record<symbol, CachePiezas | undefined>
 
 /** ¿La tabla no existe (la 0392 sin aplicar)? Eso no es un error: todavía no hay biblioteca. */
 export const faltaLaTabla = (e: { code?: string } | null | undefined): boolean => e?.code === '42P01' || e?.code === 'PGRST205';
+
+/**
+ * El negocio que mira, o null si no hay uno (un script, sin pedido). Lo traído por un negocio (mig 0413) sólo se le muestra a
+ * ese negocio: sin saber quién mira, sólo se ve lo de la plataforma (`seMuestraA`).
+ */
+/** ¿Está la columna `workspace_id` (mig 0413)? Se pregunta una vez por proceso: sin ella no hay nada traído por un negocio. */
+let columnaWs: Promise<boolean> | null = null;
+export function hayColumnaWs(): Promise<boolean> {
+  columnaWs ??= Promise.resolve(getSupabaseServer().from(T_PIEZAS).select('workspace_id').limit(1)).then((r) => !r.error, () => false);
+  return columnaWs;
+}
+
+async function negocioQueMira(): Promise<number | null> {
+  try { const ws = await getWorkspaceActual(); return typeof ws === 'number' && ws > 0 ? ws : null; } catch { return null; }
+}
 
 /** Los creadores (activos y fuera). `null` = la tabla no existe todavía. Tira si no pudo leer. */
 export async function cuentasDeBiblioteca(): Promise<CuentaBiblioteca[] | null> {
@@ -69,13 +84,21 @@ async function leerTodas<T>(tabla: string, cols: string): Promise<T[] | null> {
  * Los carruseles de la biblioteca, listos para el explorador (sólo de creadores activos, con el texto vencido podado).
  * Lista vacía si la 0392 no está aplicada. Tira si no pudo leer: quien llama decide (el explorador sigue con lo suyo).
  */
-export async function carruselesDeLaBiblioteca(ahora = Date.now()): Promise<Carrusel[]> {
+export async function carruselesDeLaBiblioteca(ahora = Date.now(), ws: number | null | undefined = undefined): Promise<Carrusel[]> {
+  const quien = ws === undefined ? await negocioQueMira() : ws;
   const cuentas = await cuentasDeBiblioteca();
-  const activas = (cuentas ?? []).filter((c) => c.estado === 'activa');
-  if (!activas.length) return [];
+  const piezas = (await piezasDeLaBiblioteca()).filter((p) => seMuestraA(p, quien));
+  // Lo que trajo ESTE negocio (mig 0413) se ve siempre: aunque su creador haya salido de la biblioteca de la plataforma, y
+  // aunque el tope (`recortarBiblioteca`) lo dejara afuera. Lo eligió él.
+  const suyas = piezas.filter((p) => traidaPor(p) != null);
+  // Para lo suyo, su creador cuenta como activo aunque haya salido de la biblioteca de la plataforma. Va en una lista APARTE:
+  // con la misma, las publicaciones de la plataforma de un creador excluido volverían a verse.
+  const deSuyas = new Set(suyas.map((p) => p.cuenta_id));
+  const paraSuyas = (cuentas ?? []).filter((c) => deSuyas.has(c.id)).map((c) => ({ ...c, estado: 'activa' as const }));
   // Las de un creador que salió ya se borraron (`cambiarBiblioteca`), y las que queden de uno fuera las saltea
   // `carruselesDeBiblioteca`, que mira los creadores recién leídos.
-  return recortarBiblioteca(carruselesDeBiblioteca(await piezasDeLaBiblioteca(), activas, ahora), undefined, ahora);
+  const recortadas = recortarBiblioteca(carruselesDeBiblioteca(piezas.filter((p) => traidaPor(p) == null), cuentas ?? [], ahora), undefined, ahora);
+  return [...carruselesDeBiblioteca(suyas, paraSuyas, ahora), ...recortadas];
 }
 
 async function piezasDeLaBiblioteca(): Promise<PiezaBiblioteca[]> {
@@ -86,7 +109,8 @@ async function piezasDeLaBiblioteca(): Promise<PiezaBiblioteca[]> {
     // Lo que nadie miró todavía NO se muestra (mig 0411): el filtro va acá y no en `filtros`, porque una columna que
     // todavía no existe haría fallar la lectura entera (./biblioteca.ts, `estaRevisada`). Cuestan cupo del tope y es a
     // propósito: son pocas y se revisan enseguida (`revisar`, scripts/carruseles-biblioteca.mts).
-    for (const f of pagina) if (estaRevisada(f)) piezas.push(podarVencido(f) as unknown as PiezaBiblioteca);
+    // Lo traído por un negocio (mig 0413) entra al caché aunque nadie lo haya revisado: a quién se muestra lo decide `seMuestraA`.
+    for (const f of pagina) if (estaRevisada(f) || traidaPor(f) != null) piezas.push(podarVencido(f) as unknown as PiezaBiblioteca);
     return piezas.length < PIEZAS_A_LEER;
   }, { orden: [{ col: 'id', asc: false }], filtros: (q) => q.is('dejo_de_verse_en', null) });
   enCache[CACHE] = { hasta: Date.now() + CACHE_PIEZAS_MS, piezas };
@@ -111,7 +135,7 @@ export async function bajarLaminas(ref: string, urls: readonly string[], o: { pr
 }
 
 /** Después de cambiar la biblioteca, lo de este proceso se relee (los demás, a los 2 minutos como mucho). */
-function olvidarPiezas(): void {
+export function olvidarPiezas(): void {
   enCache[CACHE] = undefined;
 }
 
@@ -123,13 +147,16 @@ export async function carruselDeLaBiblioteca(id: number): Promise<Carrusel | nul
   const p = await db.from(T_PIEZAS).select('*').eq('id', fila).maybeSingle();
   if (p.error) { if (faltaLaTabla(p.error)) return null; throw new Error(p.error.message); }
   if (!p.data) return null;
-  // La misma puerta que la lista: un link directo no muestra lo que nadie miró todavía (mig 0411).
-  if (!estaRevisada(p.data as Record<string, unknown>)) return null;
+  // La misma puerta que la lista: un link directo no muestra lo que nadie miró todavía (mig 0411), ni lo que trajo OTRO
+  // negocio (mig 0413).
+  if (!seMuestraA(p.data as Record<string, unknown>, await negocioQueMira())) return null;
   const pieza = podarVencido(p.data as Record<string, unknown>) as unknown as PiezaBiblioteca;
   const c = await db.from(T_CUENTAS).select(COLS_CUENTA).eq('id', pieza.cuenta_id).maybeSingle();
   if (c.error) throw new Error(c.error.message);
   if (!c.data) return null;
-  return carruselesDeBiblioteca([pieza], [c.data as CuentaBiblioteca])[0] ?? null;
+  // Lo traído por el negocio (mig 0413) se ve aunque su creador haya salido de la biblioteca de la plataforma.
+  const cuenta = traidaPor(pieza) != null ? { ...(c.data as CuentaBiblioteca), estado: 'activa' as const } : c.data as CuentaBiblioteca;
+  return carruselesDeBiblioteca([pieza], [cuenta])[0] ?? null;
 }
 
 /** ¿Quien mira puede editar la biblioteca? El admin del negocio de la plataforma (la pantalla y la API preguntan lo mismo). */
@@ -224,7 +251,8 @@ export async function cambiarBiblioteca(pedido: CambioBiblioteca, quien: string)
     // Primero se marca (deja de verse en el acto, aunque el borrado de abajo falle) y después se borran sus publicaciones.
     const r = await db.from(T_CUENTAS).update({ estado: 'excluida', motivo: pedido.motivo.trim().slice(0, 300), cambiada_por: quienCorto, updated_at: ahora }).eq('id', id);
     if (r.error) return { ok: false, error: 'No pude sacar la cuenta. Vuelve a intentar.', falla: true };
-    const b = await db.from(T_PIEZAS).delete().eq('cuenta_id', id);
+    // Sólo las de la plataforma: lo que un negocio trajo por su link de este creador es del negocio (mig 0413).
+    const b = await ((await hayColumnaWs()) ? db.from(T_PIEZAS).delete().eq('cuenta_id', id).is('workspace_id', null) : db.from(T_PIEZAS).delete().eq('cuenta_id', id));
     if (b.error) console.warn('[carruseles-biblioteca] la cuenta salió pero quedaron publicaciones (no se muestran):', b.error.message);
     olvidarPiezas();
     return { ok: true };
