@@ -324,7 +324,8 @@ function completar(p: PerfilCopiloto): PerfilCopiloto {
 }
 
 const us = (n: number) => fmtDinero(n);
-export const TICKETS = [200, 500, 1000, 3000, 5000, 10000] as const;
+// $50 y $100 (10/11/2026): una tienda o un curso chico no tenía opción y, sin la app de escritorio, tampoco podía escribirlo.
+export const TICKETS = [50, 100, 200, 500, 1000, 3000, 5000, 10000] as const;
 export const PRESUPUESTOS = [300, 600, 1000, 2000, 5000] as const;
 const NADA = 'Nada por ahora';
 const RITMOS_ORGANICO = [3, 5, 7] as const;
@@ -391,6 +392,15 @@ export function opcionesDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto): strin
   }
 }
 
+/**
+ * El perfil como estaba al llegar al paso «ajuste» (10/11/2026): la charla se vuelve a dibujar con el perfil de AHORA, y con el funnel
+ * que propuso MaKo ya elegido (que sí sirve) el aviso salía «¿Seguimos?» y la respuesta «Sí, cambiemos»: se perdía por qué cambió.
+ */
+function perfilDelAjuste(p: PerfilCopiloto): PerfilCopiloto {
+  if (p.ajuste === 'cambio' && p.antesDelAjuste) return { ...p, funnel: p.antesDelAjuste.funnel, referente: p.antesDelAjuste.referente, ajuste: undefined, antesDelAjuste: undefined };
+  return { ...p, ajuste: undefined };
+}
+
 /** Lo que pregunta MaKo. */
 export function preguntaDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto, nombre = 'equipo'): string {
   const f = funnelElegido(p);
@@ -408,7 +418,7 @@ export function preguntaDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto, nombre
     case 'presupuesto': return '¿Cuánto puedes poner en anuncios por mes? Es lo que puedes perder sin quedar afuera, no lo que te gustaría.';
     case 'llamadas': return '¿Quién toma las llamadas o contesta los mensajes de quien se interesa?';
     case 'ajuste': {
-      const v = avisoPendiente(completar(p));
+      const v = avisoPendiente(completar(perfilDelAjuste(p)));
       const alt = v?.mejor ? funnelPorId(v.mejor.funnel) : null;
       return v && alt ? `${v.motivo} Con lo que me cuentas, propongo ${enFrase(alt.nombre)}. ${v.mejor!.porque}` : '¿Seguimos?';
     }
@@ -431,7 +441,8 @@ export function respuestaDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto): stri
     case 'ticket': return p.ticket != null ? us(p.ticket) : null;
     case 'presupuesto': return p.presupuestoMes != null ? (p.presupuestoMes === 0 ? NADA : `${us(p.presupuestoMes)} al mes`) : null;
     case 'llamadas': return p.llamadas ? { yo: 'Yo', equipo: 'Un equipo', nadie: 'Nadie todavía' }[p.llamadas] : null;
-    case 'ajuste': return p.ajuste === 'cambio' ? 'Sí, cambiemos' : p.ajuste === 'sigo' ? 'Sigo con el mío' : null;
+    // Lo que tocó: «Sí, anuncios a mensajes» (el botón dice el funnel), no un «Sí, cambiemos» que no estaba en pantalla.
+    case 'ajuste': { const nuevo = funnelPorId(p.funnel); return p.ajuste === 'cambio' ? (nuevo ? `Sí, ${enFrase(nuevo.nombre)}` : 'Sí, cambiemos') : p.ajuste === 'sigo' ? 'Sigo con el mío' : null; }
     case 'objetivo': return p.objetivo ? { viralidad: 'Viralidad', ventas: 'Ventas', mixto: 'Un poco de cada' }[p.objetivo] : null;
     case 'ritmo': return p.ritmo != null ? (funnelDe(p) === 'youtube' ? `${p.ritmo} por semana` : `${p.ritmo} piezas por semana`) : null;
     case 'formato': return p.formato ? { reels: 'Reels', stories: 'Stories', carruseles: 'Carruseles', mezcla: 'Una mezcla', largos: 'Videos largos', shorts: 'Shorts' }[p.formato] : null;
@@ -731,9 +742,12 @@ function numerosDeAnuncios(f: IdFunnel, presupuestoMes: number): string[] {
   if (presupuestoMes <= 0) return [];
   const dia = Math.round(presupuestoMes / 30);
   const out = [`${us(presupuestoMes)} al mes son unos ${us(dia)} por día.`];
-  if (f === 'vsl-llamada' || f === 'formulario' || f === 'mensajes') {
+  if (f === 'vsl-llamada' || f === 'formulario') {
     out.push(`Como referencia conservadora, una agenda cuesta entre ${us(100)} y ${us(300)}; con tu presupuesto serían entre ${Math.floor(presupuestoMes / 300)} y ${Math.floor(presupuestoMes / 100)} agendas al mes. El tuyo puede ser otro, y se mide por llamada calificada, no por contacto.`);
   }
+  // En mensajes no hay agenda: la referencia de una agenda no vale, y no hay una de conversaciones (10/11/2026: la propuesta decía «se
+  // mide por conversación calificada» y en la línea siguiente «agendas… se mide por llamada calificada»). Se dice qué se mide.
+  if (f === 'mensajes') out.push('Cuánto cuesta cada conversación calificada lo dicen tus primeras dos semanas: no hay una referencia que sirva para todos.');
   if (dia < 50 && f === 'vsl-llamada') out.push('Con menos de US$50 por día un VSL con llamada tarda en aprender.');
   return out;
 }
@@ -1125,23 +1139,24 @@ export function recorridoDe(p: PerfilCopiloto): Etapa[] {
   const anuncio = dia ? `Anuncios en Meta (unos ${us(dia)} por día)` : 'Anuncios en Meta';
   const conCasos = p.casos === 'si' ? 'tus casos reales' : 'casos reales (cuando los tengas: nunca se inventan)';
   // «con tu equipo» / «contigo» (no «con tú»: salió así en la primera captura del panel, 9/11/2026).
-  const conQuien = p.llamadas === 'equipo' ? 'con tu equipo' : 'contigo';
+  // Quién llama, sólo si lo dijo (10/11/2026: «Llamada de venta contigo» salía antes de preguntar quién llama). «Nadie» también lo dice.
+  const conQuien = p.llamadas === 'equipo' ? 'con tu equipo' : p.llamadas === 'yo' ? 'contigo' : p.llamadas === 'nadie' ? '(todavía no hay quien la tome)' : '';
   switch (f) {
     case 'vsl-llamada': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} que filtran desde el texto.`, accion: { texto: 'Escribir los anuncios', href: R.copywriter } },
       { id: 'captar', titulo: 'Agendar', que: 'Página con el video de venta y la agenda en el mismo paso.', accion: { texto: 'Armar la página', href: R.web } },
       { id: 'convencer', titulo: 'Preparar', que: `Confirmación con un video corto y ${conCasos} antes de la llamada.`, accion: { texto: 'Escribir los correos', href: R.copywriter } },
-      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada de venta ${conQuien}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada de venta${conQuien ? ` ${conQuien}` : ''}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'mensajes': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} que abren una conversación.`, accion: { texto: 'Escribir los anuncios', href: R.copywriter } },
       { id: 'captar', titulo: 'Conversar', que: 'WhatsApp o Instagram con un mensaje ya escrito. Responder rápido es la regla.', accion: { texto: 'Abrir Chats', href: R.chats } },
       { id: 'convencer', titulo: 'Convencer', que: `En la charla, ${conCasos} y una pregunta que filtre.` },
-      { id: 'cerrar', titulo: 'Cobrar', que: p.ticket != null && p.ticket <= UMBRALES.ticketCarrito ? 'Link de pago en la misma charla y un seguimiento a las 24 horas.' : `Llamada corta ${conQuien} o link de pago.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cobrar', que: p.ticket != null && p.ticket <= UMBRALES.ticketCarrito ? 'Link de pago en la misma charla y un seguimiento a las 24 horas.' : `Llamada corta${conQuien ? ` ${conQuien}` : ''} o link de pago.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'formulario': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} con un formulario dentro de Meta.`, accion: { texto: 'Escribir los anuncios', href: R.copywriter } },
       { id: 'captar', titulo: 'Filtrar', que: 'Hasta tres preguntas: que es el lugar, la plata y el tiempo. Teléfono obligatorio.' },
       { id: 'convencer', titulo: 'Contactar', que: 'Llamar o escribir en minutos, no en horas: un lead frío no contesta.', accion: { texto: 'Abrir Chats', href: R.chats } },
-      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada o visita ${conQuien}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada o visita${conQuien ? ` ${conQuien}` : ''}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'carrito': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} optimizados a compra, con el producto en uso.`, accion: { texto: 'Crear los anuncios', href: R.video } },
       { id: 'captar', titulo: 'Mostrar', que: 'Página del producto con fotos reales, precio claro y envío.', accion: { texto: 'Armar la página', href: R.web } },
@@ -1151,12 +1166,12 @@ export function recorridoDe(p: PerfilCopiloto): Etapa[] {
       { id: 'atraer', titulo: 'Atraer', que: dia ? `${anuncio} al registro.` : 'Tu contenido y tu lista, al registro.', accion: { texto: 'Armar el registro', href: R.web } },
       { id: 'captar', titulo: 'Registrar', que: 'Correos y recordatorios con valor, no sólo la hora.', accion: { texto: 'Escribirlos', href: R.copywriter } },
       { id: 'convencer', titulo: 'Enseñar', que: `Una clase de 45 a 60 minutos con ${conCasos} y la oferta al final.` },
-      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada ${conQuien} para quien levantó la mano.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada${conQuien ? ` ${conQuien}` : ''} para quien levantó la mano.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'lead-magnet': return [
       { id: 'atraer', titulo: 'Atraer', que: dia ? `${anuncio} al regalo, no a la venta.` : 'Tu contenido, con el regalo como llamado.', accion: { texto: 'Crear el regalo', href: R.leadMagnets } },
       { id: 'captar', titulo: 'Captar', que: 'Una página con una promesa, una imagen y el formulario.', accion: { texto: 'Armar la página', href: R.web } },
       { id: 'convencer', titulo: 'Nutrir', que: 'Tres o cuatro correos que enseñan y terminan en una conversación.', accion: { texto: 'Escribir la secuencia', href: R.email } },
-      { id: 'cerrar', titulo: 'Cerrar', que: p.llamadas && p.llamadas !== 'nadie' ? `Conversación o llamada ${conQuien}.` : 'Una oferta directa al final de la secuencia.', accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: p.llamadas && p.llamadas !== 'nadie' ? `Conversación o llamada${conQuien ? ` ${conQuien}` : ''}.` : 'Una oferta directa al final de la secuencia.', accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'email': return [
       { id: 'atraer', titulo: 'Reconectar', que: p.lista ? `Un correo corto a tus ${p.lista} contactos, en tandas, que invite a contestar.` : 'Un correo corto, en tandas, que invite a contestar.', accion: { texto: 'Escribirlo', href: R.copywriter } },
       { id: 'captar', titulo: 'Escuchar', que: 'Quien contesta es tu lead más caliente: se le escribe uno por uno.', accion: { texto: 'Abrir Chats', href: R.chats } },

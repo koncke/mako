@@ -118,7 +118,8 @@ export function EstrategiaCopiloto({ perfil }: { perfil: PerfilCopiloto }) {
 }
 
 /** La pantalla de un funnel sin anuncios EN EL TELÉFONO: tres secciones, sin Campañas, sin cuenta de Meta. */
-export function SinAnuncios({ perfil }: { perfil: PerfilCopiloto }) {
+/** `onPedir`: en el teléfono (app/m/ads/SinAnunciosM.tsx) lo pedido va a la hoja de MaKo y no se monta la estrella de la computadora. */
+export function SinAnuncios({ perfil, onPedir }: { perfil: PerfilCopiloto; onPedir?: (texto: string) => void }) {
   const f = funnelElegido(perfil);
   const [sec, setSec] = useState<'semana' | 'plan' | 'medir'>('semana');
   const [pedido, setPedido] = useState<{ texto: string; vez: number } | null>(null);
@@ -133,12 +134,12 @@ export function SinAnuncios({ perfil }: { perfil: PerfilCopiloto }) {
         <div className="aa-top-der">{f ? <span className="aa-etiqueta">{f.nombre}</span> : null}</div>
       </nav>
       <div className="aa-pagina">
-        <CajaDeOrden placeholder="Pídele algo a MaKo" onPedir={(texto) => setPedido({ texto, vez: Date.now() })} />
+        <CajaDeOrden placeholder="Pídele algo a MaKo" onPedir={onPedir ?? ((texto) => setPedido({ texto, vez: Date.now() }))} />
         {sec === 'semana' && <SeccionSemana perfil={perfil} />}
         {sec === 'plan' && <SeccionPlan perfil={perfil} />}
         {sec === 'medir' && <SeccionMedir perfil={perfil} />}
       </div>
-      <MakoEnLaTab tab="Marketing CoPilot" pedido={pedido} pantalla={`Marketing CoPilot · ${f?.nombre ?? ''} · sección ${ROTULO[sec]}`} encimaDeModales />
+      {!onPedir && <MakoEnLaTab tab="Marketing CoPilot" pedido={pedido} pantalla={`Marketing CoPilot · ${f?.nombre ?? ''} · sección ${ROTULO[sec]}`} encimaDeModales />}
     </div>
   );
 }

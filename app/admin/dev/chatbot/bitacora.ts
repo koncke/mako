@@ -3467,4 +3467,21 @@ FEEDBACK PROBAR:
     ],
     revisar: '/automations',
   },
+  {
+    fecha: '10 nov', hora: '20:51', chat: 'Tickets', sesion: 'local_dd6bb6fb-b110-49de-8105-e2755bc74490', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'CRM: al mandar un mensaje a varios leads ya puedes poner el segundo nombre',
+    puntos: [
+      'Leila (#70, desde el teléfono): «No me deja poner 2do nombre». La captura era de un lienzo de Automations, que sí lo dejaba; lo que fallaba era «Mandar mensaje» del CRM: dos minutos después mandó su difusión «Hola corazón», sin nombre.',
+      'El «{ }» de WhatsApp de esa hoja ofrecía sólo nombre, nombre completo, apellido y empresa, y el segundo nombre escrito a mano salía en rojo. El editor decidía por si permite audio o archivos, y la hoja los apaga por otra razón.',
+      'Ahora decide por la ruta del mensaje: por QR, los mismos datos que una automatización (segundo y tercer nombre, email, teléfono, etapa…). Por una plantilla oficial sigue la lista corta.',
+    ],
+    archivos: [
+      'app/automations/EditorMensajeWhatsApp.tsx — `arbolDelEditor`: el «{ }» sale de `proveedorDelPaso`, no de `varias`',
+      'tests/editor-mensaje-whatsapp.test.ts — con la tarjeta que guarda la difusión, contra lo que acepta Publicar; probado rompiéndolo',
+      'docs/hallazgos-chatbot.md — el diagnóstico obvio (el lienzo) y la regla',
+    ],
+    revisar: '/crm',
+    tickets: [70],
+  },
 ];
