@@ -37,6 +37,8 @@ const conPlazo: boolean[] = [];
 /** El system «herramienta-y-falla»: el primer pedido pide una herramienta, los siguientes contestan 429. */
 let herramientaYFalla = 0;
 let ajustesFallan = false;
+/** La clave propia del ws13 contesta «credit balance is too low» (un negocio con SU Claude sin saldo). */
+let propiaSinSaldo = false;
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
   if (u.host === 'supa.test' && ajustesFallan && u.pathname.endsWith('/app_settings') && (init.method ?? 'GET') === 'GET') {
@@ -55,7 +57,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
       if (++herramientaYFalla === 1) return r(200, { id: 'msg_h', type: 'message', role: 'assistant', model: modelo, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'tu_1', name: 'contar_leads', input: {} }], usage: { input_tokens: 500, output_tokens: 20 } });
       return r(429, { type: 'error', error: { type: 'rate_limit_error', message: 'Number of request tokens has exceeded your per-minute rate limit' } });
     }
-    if (clave === CREDITO1) return r(400, { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.' } });
+    if (clave === CREDITO1 || (propiaSinSaldo && clave === PROPIA)) return r(400, { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.' } });
     if (clave !== CREDITO2 && clave !== PROPIA) return r(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } });
     return r(200, { id: 'msg_1', type: 'message', role: 'assistant', model: modelo, stop_reason: 'end_turn', content: [{ type: 'text', text: 'hola desde Claude' }], usage: { input_tokens: 1000, output_tokens: 200 } });
   }
@@ -138,6 +140,19 @@ async function main() {
   out.textoWs14SinSaldo = await texto('ANTHROPIC_CREDITO_CUENTA1');
   await espera();
   out.filasWs14 = pg.db.anthropic_usage.slice(antes14).map((f) => `${f.workspace_id}:${f.cuenta}:${String(f.motivo ?? '').slice(0, 100)}`);
+  // La FOTO de un grupo (`leerDocumentoIA`, `MaKo en WhatsApp · adjunto`; revisión del 11/11/2026): sin su Claude (ws14), la lee
+  // el crédito; con SU Claude sin saldo (ws13), UN pedido a su clave y ninguno al crédito (la puerta 2 le daría la suya otra vez
+  // en cada cuenta: su clave gana).
+  const { leerDocumentoIA } = await import('../lib/ai-cheap');
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  const foto = (ws: number) => runWithWorkspace(ws, () => leerDocumentoIA({ dataUrl: png, isPdf: false, nombreArchivo: 'foto.png', prompt: '¿qué ves?', feature: 'MaKo en WhatsApp · adjunto', motivo: 'Leer el adjunto', timeoutMs: 5_000 }))
+    .then((x) => x.text, (e) => `tiró: ${e instanceof Error ? e.message : String(e)}`);
+  anthropic = [];
+  out.fotoWs14 = { texto: await foto(14), pedidos: anthropic.map((a) => a.clave) };
+  propiaSinSaldo = true;
+  anthropic = [];
+  out.fotoWs13 = { texto: await foto(13), pedidos: anthropic.map((a) => a.clave) };
+  propiaSinSaldo = false;
 
   // ── 11/11/2026: el chat con herramientas del Ops Center del ws9 (`mako-doer`, sin `soloSuClaude`) va PRIMERO con el crédito;
   //    el de un negocio, nunca; cada pedido lleva plazo; y si una herramienta ya corrió, el fallo se re-lanza (sin otra cuenta) ──

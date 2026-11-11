@@ -127,6 +127,16 @@ test('7. desde el 11/11/2026: el Ops Center del ws9 SÍ usa el crédito (el Plan
   ], 'el gasto del crédito de un negocio no quedó en SU ws con su cuenta, o el fallo fue a su tarjeta');
 });
 
+test('9. la foto de un grupo (`leerDocumentoIA`): sin su Claude la lee el crédito; con SU Claude sin saldo, un pedido a su clave y ninguno al crédito', () => {
+  const r = correr();
+  assert.deepEqual(r.fotoWs14, { texto: 'hola desde Claude', pedidos: ['sk-ant-api03-credito-cuenta2-'] },
+    'un negocio sin su Claude no leyó la foto del grupo con el crédito');
+  const suya = r.fotoWs13.pedidos.filter((c: string) => c === 'sk-ant-api03-propia-del-ws13-').length;
+  const delCredito = r.fotoWs13.pedidos.filter((c: string) => /credito/.test(c)).length;
+  assert.equal(suya, 1, `con su Claude sin saldo, su clave se pidió ${suya} veces (la puerta 2 le da la suya en cada cuenta del crédito)`);
+  assert.equal(delCredito, 0, 'el crédito se usó con un negocio que tiene su Claude');
+});
+
 test('6. el % del vigía (11/11/2026): primero la que menos gastó; la plataforma deja el último 10% para WhatsApp; su interruptor', () => {
   const r = correr();
   const [C3, C4] = ['ANTHROPIC_CREDITO_CUENTA3', 'ANTHROPIC_CREDITO_CUENTA4'];
@@ -165,3 +175,6 @@ test('6. el % del vigía (11/11/2026): primero la que menos gastó; la plataform
 //   R22 sin re-lanzar cuando ya corrió una herramienta (prueba otra cuenta)             → falla el 8
 //   R23 la cuenta sin saldo sin su fila «sin crédito» (sólo en memoria, como antes)     → falla el 3
 //   R24 sin el crédito primero en la plataforma                                          → falla el 8
+// La foto de un grupo (revisión del 11/11/2026), con el mismo arnés:
+//   R25 el lazo del crédito de `leerDocumentoIA` aunque su Claude haya contestado un error   → falla el 9
+//   R26 `leerDocumentoIA` sin `tambienLosGrupos`                                         → falla el 9

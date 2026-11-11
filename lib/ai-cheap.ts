@@ -1213,7 +1213,10 @@ export async function leerDocumentoIA(opts: DocOpts): Promise<{ text: string; pr
       // ── Y EL CRÉDITO DE CLAUDE (11/11/2026): en el espacio de MaKo para todo menos el Plan, y en CUALQUIER negocio para las
       // fotos y los PDF de un grupo de WhatsApp (`MaKo en WhatsApp · adjunto`, `tambienLosGrupos`). Antes que Gemini, que
       // queda de respaldo. Sus errores no van a la lista con la que se le habla al negocio: el crédito es nuestro.
-      if (!(r && 'texto' in r)) {
+      // ⚠️ SÓLO SI NO TIENE SU CLAVE (`r` null), como el turno del grupo (`sin_su_claude`, lib/mako-doer-in.ts). Con su clave, el
+      // que falló es el SUYO, y la puerta 2 se lo daría otra vez en cada cuenta (su clave gana): 6 pedidos a su clave sin saldo,
+      // 6 fallos en su tarjeta y el crédito sin usar. Lo mismo con el crédito asignado (el ws1): la puerta le da ése de nuevo.
+      if (r === null) {
         const { cuentasDelCreditoParaElPedido } = await import('./anthropic');
         for (const cuenta of await cuentasDelCreditoParaElPedido(opts.feature, { tambienLosGrupos: true }).catch(() => [] as string[])) {
           const c = await conClaveDelNegocio({ system: 'Lee lo que se te muestra y contesta lo pedido.', user: opts.prompt, json: opts.json, maxTokens: opts.maxTokens ?? 4096, feature: opts.feature, motivo: opts.motivo, timeoutMs: opts.timeoutMs ?? 90_000, bloques, cuentaDeLosGrupos: cuenta }).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
