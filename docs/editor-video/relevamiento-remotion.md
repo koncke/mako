@@ -10,6 +10,8 @@ marcado.
 
 ---
 
+**A FONDO (11/11/2026, a pedido de Martín: «¿estás seguro de que no se puede editar en Remotion…?»):** [remotion-a-fondo.md](remotion-a-fondo.md). Editar con la vista previa en la nube no existe en Remotion (la nube sólo exporta, segundos por render); la edición fluida sale de PROXIES livianos hechos en la nube y del `<Video>` de `@remotion/media` (el modelo de Descript). Los «80 efectos» son 91, en 7 categorías, con corrección de color, LUT y curvas; quitar el fondo es `@remotion/video-matting` (WebGPU, no corre en Lambda).
+
 ## 1. Lo que Remotion ES, y lo que NO es
 
 - **Es** una forma de hacer videos con React: cada video es un componente (una «composition») que recibe sus datos
@@ -157,7 +159,13 @@ la nube. Conviene sumar Remotion a lo que hay, no reemplazarlo.
 - cuánta RAM usa hoy el editor abierto con un proyecto real, y cuánta el `<Player>` con el mismo proyecto;
 - un render real con una cuenta de AWS de prueba: tiempo, costo y cómo se pasan las claves por cliente.
 
-## 7. Lo que decide Martín (una pregunta)
+## 7. DECIDIDO (Martín, 11/11/2026): MaKo son 3 personas o menos → Remotion es GRATIS (Free License)
+
+**La regla:** si MaKo pasa a 4 personas o más trabajando en el producto (contando freelancers y agencias), corresponde
+«Remotion for Automators»: US$ 100 por mes como mínimo. **Se le avisa a Martín ANTES** de llegar a 4, no después. Adelante con
+las tres partes de §6, en ese orden.
+
+## 7b. La pregunta que se le hizo
 
 **¿MaKo son 3 personas o menos trabajando en el producto, contando freelancers?**
 - Si sí, Remotion es gratis para todo esto.
