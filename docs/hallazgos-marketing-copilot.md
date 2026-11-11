@@ -192,6 +192,55 @@ escritorio, tablet y teléfono, claro y oscuro. Lo que vale para lo que venga:
 **Vive en:** lib/media-buyer/copiloto.ts (`datosDichos`, `faltaParaComparar`, `compararFunnels`) · app/ads-manager/PanelDelFunnel.tsx ·
 app/ads-manager/aa.css · tests/marketing-copilot-produccion.test.ts.
 
+## El relevo de los funnels: la transcripción de un curso puede estar en tres lugares, y el primer pase leyó el vacío (10/11/2026)
+
+Martín pidió rehacer los funnels con las transcripciones de TODOS los cursos de Knowledge, y nombró THE NET LAB. Seis agentes
+leyeron unas 470 clases, y los seis informaron lo mismo: de THE NET LAB «sólo hay apuntes, la 04 y la 05 tienen transcripción».
+**El diagnóstico obvio («ese curso todavía no está transcripto») era el equivocado.** Las 97 transcripciones completas existían;
+estaban en otro lado.
+
+Dónde vive el texto de una clase, según cómo entró el curso:
+- **`public/cono-tx/<videoId>.json`**: los cursos con video en Drive (el índice por `videoId` de `app/conocimientos/curso-<slug>.ts`).
+  THE NET LAB tiene 0 ahí: no tiene `videoId` de Drive.
+- **`public/cono-doc/<slug>__<tema>.json`**: los cursos `soloTexto` (THE NET LAB), con la pestaña «Transcripción» sólo si hubo
+  `.vtt` ([hallazgos-conocimiento.md](hallazgos-conocimiento.md), «THE NET LAB»).
+- **`C:/cursos/<slug>/transcripciones/*.json`**: lo que salió de grabar las clases (10/11, ElevenLabs), antes de llegar al portal.
+  `C:/cursos/<slug>/texto/*.md` tiene la sección «Transcripción», pero vacía en 87 de 94 clases: el generador la limpia porque
+  el texto viaja aparte. Al 10/11, 23 h, en `transcripciones/` faltaban la 06, la 44, la 70 y la 75, y la 13, 14, 33, 68, 78 y
+  82 venían en partes (97 archivos para 90 clases).
+
+Un segundo pase con dos agentes leyó 81 clases de THE NET LAB desde `transcripciones/` y cambió el resultado: el curso trae los
+números que deciden cualquier funnel con anuncios (lo que queda de cada venta, el costo máximo por venta, cuándo crecer) y, en
+cambio, no enseña VSL con llamada en ninguna clase.
+
+**La regla:** antes de relevar un curso, contar sus clases con texto en los tres lugares y leer el que lo tenga completo. Un
+agente que encuentra «sin transcripción» tiene que decir dónde miró. Para el índice de los 127 cursos (n, módulo, título,
+`videoId`, bytes de texto), alcanza con partir cada `curso-<slug>.ts` por clase. Ojo: el repo está en CRLF, y un `split('\n{\n')`
+devuelve una sola clase por curso sin dar error.
+
+**Vive en:** docs/marketing-copilot/funnels-simples.md (el resultado) · docs/marketing-copilot/funnels/ (un relevo por funnel,
+cada uno con su censo).
+
+## La maqueta del rediseño: el CSS compilado de producción, no un dibujo «parecido» (10/11/2026)
+
+Martín no quería el diseño del CoPilot («tiene que ser SIMPLE… aprender a replicar, no crear cosas desde cero») y pidió verlo
+antes de que se programe. La maqueta (`docs/marketing-copilot/rediseno/maqueta.html`) no copia a ojo: lleva **pegado el CSS que
+sirve hola-mako.com** y el marcado de las piezas que ya existen, con sus clases reales:
+- **El CSS:** la página lista sus hojas en `document.styleSheets` (`/_next/static/chunks/<hash>.css`). Son públicas: se bajan con
+  curl sin sesión. Los nombres cambian en cada despliegue, así que se leen de la página del día.
+- **El marcado:** el `outerHTML` de cada pieza en producción (la tarjeta de Create con su «←», la lista, la caja), sin SVG ni
+  estilos en línea para que entre en el contexto, más el JSX del bloque de preguntas (`PreguntasDelChat.tsx`).
+- **Lo que tiene estilos en línea** (el wizard de `WizardShell.tsx`, el cuerpo BlockNote de Copywriter) se mide con
+  `getComputedStyle` y se copia el valor.
+
+Las piezas: la conversación de MaKo (`ConversacionCerebro`), el bloque de preguntas del Ops Center arriba de la caja, la lista de
+la «←» de Create para los funnels, y «Tu funnel» es la página de Copywriter. Lo que no se sabe se muestra como su «Vacío», y al
+tocarlo MaKo lo pregunta.
+
+**Para cambiarla:** el primer `<style>` es el CSS de producción del 10/11; lo de la maqueta está en el segundo `<style>` y en el
+`<script>` del final, que la dibuja con los datos de `funnels-simples.md`. La publicada para Martín es un Artifact
+(claude.ai/artifact/PyGboJ5AsKL2wUiPe2Kssk), privado hasta que se comparta.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

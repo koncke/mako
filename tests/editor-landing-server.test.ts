@@ -153,11 +153,16 @@ test('la foto: sin secciones ocultas, sin rutas repetidas, y siempre con una pá
   assert.deepEqual(conInicio.map((p) => p.ruta), ['', 'gracias']);
 });
 
-test('la foto: título y descripción de cada página (la página manda, después el sitio, después la landing)', () => {
+// ⚠️ 10/11/2026 (prueba en producción, docs/pruebas/web-generator-10-11.md): en el INICIO manda lo que la persona escribe en
+// Publicar → SEO (el del sitio), porque la interfaz no edita el SEO de cada página: lo escrito no llegaba a la publicada. Lo
+// demás de la regla, y los «[…]» de las plantillas, en tests/web-generator-pruebas-1011.test.ts.
+test('la foto: título y descripción de cada página (en el inicio, el sitio; en una interna, la página; después la landing)', () => {
   const sitio = { ...CONFIG_DEFAULT.sitio, seoTitulo: 'Sitio', seoDescripcion: 'Desc sitio' };
   const inicio = { id: 'a', titulo: 'Inicio', ruta: '', doc: docPagina([]) };
   assert.deepEqual(metaDePagina(inicio, sitio, 'Landing'), { titulo: 'Sitio', descripcion: 'Desc sitio' });
-  assert.deepEqual(metaDePagina({ ...inicio, seoTitulo: 'Propio' }, sitio, 'Landing').titulo, 'Propio');
+  assert.deepEqual(metaDePagina({ ...inicio, seoTitulo: 'Propio' }, sitio, 'Landing').titulo, 'Sitio');
+  assert.deepEqual(metaDePagina({ ...inicio, seoTitulo: 'Propio' }, CONFIG_DEFAULT.sitio, 'Landing').titulo, 'Propio');
+  assert.deepEqual(metaDePagina({ ...inicio, ruta: 'gracias', seoTitulo: 'Propio' }, sitio, 'Landing').titulo, 'Propio');
   assert.equal(metaDePagina(inicio, CONFIG_DEFAULT.sitio, 'Landing').titulo, 'Landing');
   assert.equal(metaDePagina({ ...inicio, ruta: 'gracias', titulo: 'Gracias' }, sitio, 'Landing').titulo, 'Gracias');
 });

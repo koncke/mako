@@ -12,16 +12,33 @@ import {
   dibujarContador, diasCorriendo, metricasVencidas, type EtapaTendencia, type TipoPieza,
 } from './spy-reglas';
 import { esShort } from './spy-youtube';
+import { TZ_TIJUANA } from './date-utils';
 import type { Competidor, LecturaCanalSpy, Pieza } from './spy';
 
 const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/**
+ * La zona en que se dice qué DÍA fue: la del producto (`ZONA_POR_DEFECTO`, lib/zona-negocio-reglas.ts, que es esta misma).
+ *
+ * ⚠️ ERA UTC (10/11/2026, prueba en producción). A las 22 h de Argentina la ficha recién agregada decía «lo seguimos desde el
+ * 11 nov» y el gráfico terminaba en «11 nov»: era el 10. En México pasaba desde las 18 h, todas las tardes. Tampoco la zona del
+ * navegador: la lista y la ficha se dibujan primero en el servidor, y una fecha distinta en el navegador rompe la hidratación.
+ * Una zona fija da el mismo texto en los dos lados.
+ */
+const DIA_EN_LA_ZONA = new Intl.DateTimeFormat('en-US', { timeZone: TZ_TIJUANA, year: 'numeric', month: 'numeric', day: 'numeric' });
+function diaEnLaZona(d: Date): { dia: number; mes: number; anio: number } {
+  const p: Record<string, string> = {};
+  for (const x of DIA_EN_LA_ZONA.formatToParts(d)) p[x.type] = x.value;
+  return { dia: Number(p.day), mes: Number(p.month) - 1, anio: Number(p.year) };
+}
 
 /** «12 oct». Con el año sólo si no es el de `ahora`: una pieza de 2024 no es «de este octubre». */
 export function fechaCorta(iso: string, ahora: Date = new Date()): string {
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return '';
-  const base = `${d.getUTCDate()} ${MESES[d.getUTCMonth()]}`;
-  return d.getUTCFullYear() === ahora.getUTCFullYear() ? base : `${base} ${d.getUTCFullYear()}`;
+  const f = diaEnLaZona(d);
+  const base = `${f.dia} ${MESES[f.mes]}`;
+  return f.anio === diaEnLaZona(ahora).anio ? base : `${base} ${f.anio}`;
 }
 
 /** «hace 2 h». Dice cuándo se leyó, que es lo único que se sabe: no promete que se mire solo. */

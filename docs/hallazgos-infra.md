@@ -11690,6 +11690,13 @@ panel no está logueada en claude.ai), pero **Chrome headless sí**:
 tokens reales de `globals.css` en un proceso corto, y el PNG se mira con Read. Sirve para verificar un
 patrón SVG, un contraste o una fila de tarjetas. **No reemplaza ver la app**, y conviene decirlo así.
 
+**Actualizado el 10/11/2026 (la maqueta del rediseño de Marketing CoPilot):** el panel SÍ abre un `localhost` nuestro si se
+levanta por su propio mecanismo: una entrada en `.claude/launch.json` con `runtimeExecutable: "node"` y un servidor estático de
+diez líneas (`http.createServer` que devuelve el HTML), y después `preview_start {name}`. Ahí el JS corre, se mide en el DOM y se
+fotografía. Lo que sigue sin servir: `navigate` a un `file://` fuera de la carpeta del proyecto lo abre como **foto estática sin
+JS** (una maqueta que se dibuja con JS sale en blanco), y un Artifact privado pide iniciar sesión en claude.ai, que el panel no
+tiene. Ojo: con el panel oculto, las capturas salen con el cuadro anterior; lo que vale es lo que se mide en el DOM.
+
 ## El tren tiene UN carril: pushear un coche nuevo CANCELA el run del anterior (31/10/2026)
 
 **Vive en:** `.github/workflows/integracion.yml` (`concurrency: {group: integracion, cancel-in-progress: true}`).

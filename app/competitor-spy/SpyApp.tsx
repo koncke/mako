@@ -1548,11 +1548,22 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     }
   };
 
+  // ⚠️ SE SACA DE LA LISTA EN EL ACTO, sin esperar a `recargarLista` (10/11/2026, prueba en producción). Desde la ficha, después
+  // de `irA(null)` la recarga NO salía: se borraba en la base y la lista seguía mostrándolo —con «X y Acquisition.com tienen la
+  // misma web · Juntarlos» incluido— hasta recargar la página. Medido con un registro de pedidos: el borrado respondía 200 y el
+  // pedido de la lista nunca se mandaba. Desde la «×» de la tarjeta (sin navegar) sí salía. La recarga queda, por si cambió algo más.
+  const sacarDeLaLista = (id: number) => {
+    setCompetidores((v) => v.filter((x) => x.id !== id));
+    setResumen((v) => { const resto = { ...v }; delete resto[id]; return resto; });
+  };
+
   const quitar = async () => {
     if (elegido == null) return;
-    const r = await quitarCompetidorAction(elegido);
+    const id = elegido;
+    const r = await quitarCompetidorAction(id);
     setModal(null);
     if (!r.ok) { setError(r.error); return; }
+    sacarDeLaLista(id);
     irA(null);
     await recargarLista();
   };
@@ -1696,8 +1707,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   );
 
   // El riel de la ficha: su nombre, su menú y sus datos. Va al lado del gráfico y de sus piezas, en «Contenido».
+  // ⚠️ UN <section> Y NO UN <aside> (10/11/2026, prueba en producción). Viendo un negocio como agencia, la regla global
+  // `[data-barra-agencia] aside` (app/globals.css, es para el riel del Sidebar) le fuerza a TODO <aside> el alto de la
+  // ventana: el riel medía 850 px con 1378 de contenido, y «A dónde manda» y «Lo que mejor le fue» se dibujaban encima de
+  // la grilla de «Todas sus piezas». Es la misma trampa que ya esquivaron el Dashboard, el Video y el Web Generator.
   const riel = c ? (
-    <aside className="spy-riel">
+    <section className="spy-riel" aria-label={`Lo que leímos de ${c.nombre}`}>
       {/* La identidad abre el riel, como la `.pd-info` abre la columna de al lado en la
           referencia: ante-título chico, nombre grande, la frescura, y la acción. ⚠️ EL
           RIEL YA NO DEPENDE DE QUE HAYA PIEZAS: si dependiera, un competidor sin nada
@@ -1760,7 +1775,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
 
       {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} />}
       <MejoresPiezas piezas={flujo} onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })} />
-    </aside>
+    </section>
   ) : null;
 
   return (

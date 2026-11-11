@@ -163,7 +163,10 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
     const urls = faltan.map((id) => ({ id, url: porId.get(id) ? miniaturaDePieza(porId.get(id)!) : null }))
       .filter((m): m is { id: number; url: string } => !!m.url);
     // Se junta aunque el gráfico ya haya cambiado: lo bajado sirve igual, y juntar dos veces da lo mismo.
-    void precargarTodas(urls).then((ok) => setPrecarga((v) => ({ intentadas: new Set([...v.intentadas, ...faltan]), ok: new Set([...v.ok, ...ok]) })));
+    // Las que llegan después de los 3 s entran solas a su tarjetita (`alTerminar`, precarga.ts): antes quedaban sin portada.
+    const juntar = (ok: Set<number>, intentadas: readonly number[] = []) =>
+      setPrecarga((v) => ({ intentadas: new Set([...v.intentadas, ...intentadas]), ok: new Set([...v.ok, ...ok]) }));
+    void precargarTodas(urls, (tarde) => juntar(tarde)).then((ok) => juntar(ok, faltan));
   // `firma` resume `aBajar`: con el array, cada render volvería a mirar todo.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [firma]);
