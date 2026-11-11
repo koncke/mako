@@ -13,7 +13,7 @@ import '@/app/copywriter/notion.css';
 import { useCallback, useRef, useState } from 'react';
 import type { DocVivo } from '@/app/copywriter/editor/propuesta';
 import { useRouter } from '@/app/_ui/Link';
-import { SegmentadoM, useToastM } from '@/app/m/_ui';
+import { CabeceraM, SegmentadoM, useToastM } from '@/app/m/_ui';
 import { cambiarPagina } from '@/lib/copywriter/arbol';
 import type { GuionAbierto, PaginaCopy } from '@/lib/copywriter/tipos';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
@@ -23,6 +23,8 @@ import type { OfertaCorta } from '@/lib/copywriter/iniciativa';
 import { pedirPapelera, pedirRenombrar } from '@/app/copywriter/cliente';
 
 type Vista = 'guion' | 'mako';
+/** El «‹ Guiones» de la barra (el mismo de app/m/copywriter/[id]/page.tsx). */
+const PADRE_GUION = { href: '/m/copywriter', label: 'Guiones' };
 // (El id sigue siendo «guion»: lo usan el segmentado y las notas guardadas por vista.)
 
 export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
@@ -53,6 +55,9 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
 
   return (
     <div className="m-copywriter">
+      {/* El nombre de la barra es el de la página EN VIVO (`onPaginaEnVivo`): 11/11/2026, en producción la barra seguía
+          diciendo «Sin título» con el título ya escrito, hasta volver a abrir la página. */}
+      <CabeceraM titulo={pagina.titulo} padre={PADRE_GUION} trabajo />
       <div className="m-copywriter-seg">
         <SegmentadoM etiqueta="Vista" valor={vista} onCambio={setVista} opciones={[{ id: 'guion', label: 'Página' }, { id: 'mako', label: 'MaKo', n: pausa ? 1 : null }]} />
       </div>

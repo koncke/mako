@@ -6,25 +6,33 @@ de Prueba, como super admin), a 1440 de ancho y a 375 (teléfono), y se criticó
 capturas están en `ai-avatar-11-11/`. **Ojo:** producción todavía no tiene los 9 arreglos del 10/11 (salen con el despliegue
 de las 08:05 UTC del 11/11): lo que se ve acá es la versión anterior.
 
-**Resultado:** 12 pantallas y estados mirados (11 de MaKo y la subida a Flow, probada con una foto real). 11 fallas. 3 arregladas, con su test
-(probado rompiéndolo), y 2 más que se arreglan solas cuando estén las imágenes. Una decisión para Martín.
+**Resultado:** 12 pantallas y estados mirados (11 de MaKo y la subida a Flow, probada con una foto real). 11 fallas. 9 arregladas, con su test
+(probado rompiéndolo): la subida a Flow, las imágenes de los 31 presets (y con ellas el abanico vacío y el texto ilegible sobre
+el degradado), las plantillas de venta, «Personaje», el botón «Generar» que no decía por qué, y en el teléfono la barra que
+tapaba los presets y la ranura «Preset» vacía. Quedan 2, de pantallas compartidas por todas las tabs. Una decisión para Martín.
 
-## Lo primero que se ve: 34 de los 36 presets no tienen imagen — SIN ARREGLAR
+## Lo primero que se veía: 31 de los 33 presets sin imagen — ARREGLADO (11/11, 07:00 UTC)
 
 ![La grilla: sólo «Charla en el auto» tiene foto](ai-avatar-11-11/01-inicio-escritorio.jpg)
 
-- **Qué se ve:** en la grilla de presets, sólo «Charla en el auto» y «Presentador en la oficina» tienen foto. Los otros 34
-  son un degradado celeste o rosado con el nombre arriba y el lugar escrito abajo, en gris claro sobre celeste, que casi
+- **Qué se ve:** en la grilla de presets, sólo «Charla en el auto» y «Presentador en la oficina» tienen foto. Los otros 31
+  eran un degradado celeste o rosado con el nombre arriba y el lugar escrito abajo, en gris claro sobre celeste, que casi
   no se lee ([02](ai-avatar-11-11/02-grilla-presets-grises.jpg)). En «Nuevo avatar» es peor: un marco gris con un teléfono
   blanco vacío ([09](ai-avatar-11-11/09-nuevo-avatar-presets-grises.jpg)). En el teléfono, lo mismo
   ([11](ai-avatar-11-11/11-celular-grilla.jpg)).
 - **Al lado de Higgsfield:** cada preset tiene su foto, y su video al pasar el mouse. Es lo que te dice qué vas a obtener;
   sin eso, un preset es una palabra.
-- **Mejora:** una imagen por preset, hecha con la base del personaje de Martín (como las dos que ya hay). Se generan en Flow
-  (las imágenes no gastan créditos), una por preset, y se mira cada una antes de subirla. Con ellas se llenan además el
-  abanico de arriba (hoy su tercera carta es un rectángulo celeste vacío) y las tarjetas de las plantillas de venta, que
-  desde hoy toman la imagen de su preset.
-- **Por qué no está hecho:** generar pide Chrome con Flow, y el Cerebro tiene el turno de ese navegador.
+- **Arreglado:** los 31 tienen su imagen, hecha en Google Flow (0 créditos: Flow lo dice antes de generar) con la cara de
+  Martín —su foto `1-headshot-saco.jpg`, la misma persona de los dos ejemplos que ya había— y el MISMO prompt que usa el
+  producto para ese preset. En el gimnasio y en la playa se agregó la ropa como lo escribiría una persona en la barra («Con
+  ropa deportiva», «Con camisa de lino clara, sin saco»): el prompt copia la ropa de la foto, y un saco en la playa no
+  servía. Cada imagen se miró antes de subirla. Van en `public/formatos/presets/` (`formatos/` es de las carpetas que el proxy deja pasar sin sesión), a 540 de ancho (unos 70 KB cada una).
+  Con ellas se llenan además el abanico de arriba, «Nuevo avatar» y las tarjetas de las 10 plantillas de venta.
+- **Falta mirarlo en producción** después del despliegue.
+
+![Las 31 imágenes nuevas](ai-avatar-11-11/13-presets-con-imagen.jpg)
+
+Antes:
 
 ![Nuevo avatar → Presets: marcos grises](ai-avatar-11-11/09-nuevo-avatar-presets-grises.jpg)
 
@@ -70,15 +78,15 @@ Ninguna foto de AI Avatar llegaba a Flow desde el 8/11, y sin foto no sale ning�
 - **Ahora:** mientras no hay ninguna foto, debajo del «+» dice «Una foto tuya de frente, sola y con buena luz.», en la
   computadora y en el teléfono.
 
-## Sin arreglar (mejoras de diseño)
+## Las mejoras de diseño (tres arregladas el 11/11)
 
 | Qué se ve | Captura | Mejora | Dónde vive |
 |---|---|---|---|
 | La lista de avatares vacía es una columna entera con una línea: «Todavía no hay ninguno.» | [07](ai-avatar-11-11/07-lista-vacia.jpg) | Un estado vacío que invite: «Tu primer avatar» con el ejemplo y el botón. | La pantalla compartida de Create (`app/_crear`): cambia todas las tabs. |
 | A la izquierda, el chat del negocio muestra un mensaje viejo del Dashboard y «No te pude contestar esto» en rojo. | [01](ai-avatar-11-11/01-inicio-escritorio.jpg) | El chat de una tab de Create debería abrir en lo de esa tab, y un error viejo no debería quedar a la vista. (El negocio de prueba no tiene IA conectada.) | El chat compartido (`app/_chat`). |
-| En el teléfono, la barra de abajo ocupa el 40 % de la pantalla: se ve una fila y media de presets. | [10](ai-avatar-11-11/10-celular-inicio.jpg) | Como Higgsfield: una barra de una línea que se abre al tocarla. | `app/m/ai-avatar/EstudioM.tsx` |
-| En el teléfono, la ranura «Preset» es un cuadro blanco vacío y no dice que se elige arriba. | [10](ai-avatar-11-11/10-celular-inicio.jpg) | Que diga «Elige arriba» o muestre una flecha. | `app/m/ai-avatar/EstudioM.tsx` |
-| «Generar · Gratis» está gris y el botón no dice por qué; el motivo va en una línea chica debajo. | [01](ai-avatar-11-11/01-inicio-escritorio.jpg) | Que el botón diga lo que falta («Falta tu foto»). | `app/ai-avatar/Estudio.tsx` |
+| ~~En el teléfono, la barra de abajo ocupa el 40 % de la pantalla: se ve una fila y media de presets.~~ **ARREGLADO:** las pastillas y «Generar» van en una fila, como Higgsfield (medido en producción antes de subirlo: 192 → 132 px). | [10](ai-avatar-11-11/10-celular-inicio.jpg) | — | `app/m/ai-avatar/EstudioM.tsx` |
+| ~~En el teléfono, la ranura «Preset» es un cuadro blanco vacío y no dice que se elige arriba.~~ **ARREGLADO:** vacía dice «Elige arriba». | [10](ai-avatar-11-11/10-celular-inicio.jpg) | — | `app/m/ai-avatar/EstudioM.tsx` |
+| ~~«Generar · Gratis» está gris y el botón no dice por qué.~~ **ARREGLADO:** apagado dice lo que falta («Falta el preset», «Faltan 4 pasos», «Falta tu foto»), y la línea entera con el mouse encima. | [01](ai-avatar-11-11/01-inicio-escritorio.jpg) | — | `app/ai-avatar/Estudio.tsx`, `lib/ai-avatar/estudio.ts` |
 | «Antes de generar»: cuatro pasos técnicos (extensión, conectar, Flow, foto) antes de ver un resultado. En HeyGen subes una foto y generas. | [06](ai-avatar-11-11/06-antes-de-generar.jpg) | Es el precio de generar con la cuenta de Flow de cada persona; se puede achicar mostrando el ejemplo del preset mientras tanto. | `lib/ai-avatar/requisitos.ts` |
 
 ## Para Martín
