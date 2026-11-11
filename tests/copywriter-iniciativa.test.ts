@@ -83,7 +83,11 @@ test('la pantalla: pregunta sin IA, lo escrito contesta la pregunta abierta y el
   assert.match(panel, /const pasosIni = useMemo\(\(\) => \(plantilla \? pasosDeIniciativa\(plantilla, ofertas\) : replica \? pasosDeReplica\(ofertas\) : \[\]\), \[plantilla, replica, ofertas\]\);/);
   assert.match(panel, /const pasoIni = mensajes\.length === 0 && id \? pasoPendiente\(pasosIni, respIni\) : null;/, 'sólo con el chat vacío');
   // La última respuesta, a adaptar la plantilla; la de una réplica, a «Editar» (`!replica`).
-  assert.match(panel, /if \(pedido\.adaptar\) \{ if \(replica\) elegirIntencion\('editar'\); void pedirEdicion\(pedido\.texto, \[\], \[\], !replica\); return; \}/, 'la última respuesta, a adaptar');
+  assert.match(panel, /if \(pedido\.adaptar\) \{ if \(replica\) elegirIntencion\('editar'\); void pedirEdicion\(pedido\.texto, \[\], \[\], !replica, false\); return; \}/, 'la última respuesta, a adaptar');
+  // El pedido que arman las respuestas no se dibuja otra vez (11/11/2026: una burbuja de más, con otro estilo, repetía lo dicho).
+  assert.match(panel, /\.\.\.\(mostrar \? \{\} : \{ oculto: true \}\)/);
+  assert.match(panel, /\{ id: nuevoId\(\), de: 'yo', texto: pedido\.texto, oculto: true \}/);
+  assert.match(panel, /mensajes\.filter\(\(m\) => !\(m\.de === 'yo' && m\.oculto\)\)\.map/, 'no se dibuja, pero MaKo lo lee en la charla');
   assert.match(panel, /if \(pasoIni\) \{ responderIni\(t\.trim\(\)\); return Promise\.resolve\(true\); \}/, 'lo escrito contesta la pregunta');
   assert.match(panel, /disabled=\{llamaALaIA\(o\.valor\) && !puede\} onClick=\{\(\) => responderIni\(o\.valor\)\}/);
   assert.match(panel, /setRespIni\(\{\}\);/, 'otra página, otras respuestas');

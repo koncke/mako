@@ -189,7 +189,7 @@ test('MaKo pregunta para qué oferta y pide un «Editar» común (no adaptar una
   assert.equal(pedidoDeReplica({ oferta: NO_ADAPTAR }, ofertas).adaptar, false);
   const panel = leer('app/copywriter/PanelMaKo.tsx');
   assert.match(panel, /replica \? pasosDeReplica\(ofertas\)/);
-  assert.match(panel, /void pedirEdicion\(pedido\.texto, \[\], \[\], !replica\)/, 'una réplica es «Editar», no «adaptar»');
+  assert.match(panel, /void pedirEdicion\(pedido\.texto, \[\], \[\], !replica, false\)/, 'una réplica es «Editar», no «adaptar»');
 });
 
 test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cero» siguen', () => {
