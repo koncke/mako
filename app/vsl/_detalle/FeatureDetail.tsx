@@ -19,7 +19,7 @@ import PandaPlayer from './PandaPlayer';
 import CasoCarrusel from './CasoCarrusel';
 import { gridHtml } from './grid-landing';
 
-const CALENDLY = '/vsl#beta';
+export const CALENDLY = '/vsl#beta';
 
 export function featureMetadata(slug: string): Metadata {
   const f = FEATURES[slug];
@@ -27,7 +27,7 @@ export function featureMetadata(slug: string): Metadata {
   return { title: f.metaTitle, description: f.metaDesc };
 }
 
-function Icon({ paths, size = 22 }: { paths: string[]; size?: number }) {
+export function Icon({ paths, size = 22 }: { paths: string[]; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {paths.map((d, i) => (<path key={i} d={d} />))}
@@ -35,20 +35,21 @@ function Icon({ paths, size = 22 }: { paths: string[]; size?: number }) {
   );
 }
 
-function Check() {
+export function Check() {
   return (
     <svg className="mk-check" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5l9 -10" /></svg>
   );
 }
 
-function CalIcon() {
+export function CalIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z" /><path d="M16 3v4" /><path d="M8 3v4" /><path d="M4 11h16" /></svg>
   );
 }
 
-// Banda de CTA reutilizable (misma para el hero y el cierre).
-function CtaBand() {
+// Banda de CTA reutilizable (misma para el hero y el cierre). La usan también las landings de
+// app/vsl/_competencia (las que copian la estructura de un competidor).
+export function CtaBand() {
   return (
     <div className="mk-cta">
       <div className="mk-cta-h">¿Lo quieres andando en tu negocio?</div>
@@ -69,7 +70,7 @@ function Panel({ spec, hero = false }: { spec: VisualSpec | undefined; hero?: bo
 // Caso de éxito de Mauricio — IDÉNTICO en todas las features (copiado de la
 // landing principal /vsl #historia). Es la prueba, y la prueba es la misma para
 // todo el producto: no cambia por funcionalidad.
-function CasoMauricio() {
+export function CasoMauricio() {
   return (
     <section className="mk-hist">
       <div className="mk-hist-head">
@@ -122,16 +123,10 @@ function CasoMauricio() {
   );
 }
 
-export default function FeatureDetail({ slug }: { slug: string }) {
-  const f: Feature | undefined = FEATURES[slug];
-  if (!f) return null;
-  const vis = FEATURE_VISUALS[slug];
-  const groupVisual = (i: number): VisualSpec | undefined => vis?.groups?.[i];
-
+/** La cabecera fija de las páginas de /vsl/<slug> (logo, cupos y el botón de la llamada). */
+export function Cabecera() {
   return (
-    <div className="mk-det">
-      <style dangerouslySetInnerHTML={{ __html: CSS }} />
-
+    <>
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="mk-det-hdr">
         <div className="mk-det-hdr-in">
@@ -147,6 +142,44 @@ export default function FeatureDetail({ slug }: { slug: string }) {
           </div>
         </div>
       </header>
+    </>
+  );
+}
+
+/** El pie de las páginas de /vsl/<slug>. */
+export function Pie() {
+  return (
+    <>
+      {/* ── Footer ─────────────────────────────────────────────────────────── */}
+      <footer className="mk-foot">
+        <div className="mk-foot-in">
+          <a href="/" className="mk-logo">
+            <span className="mk-logo-mark"><svg width="20" height="20" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg></span>
+            <span className="mk-logo-txt">MaKo</span>
+          </a>
+          <p className="mk-foot-tag">El mejor SaaS para ventas High Ticket, de punta a punta.</p>
+          <div className="mk-foot-links">
+            <a href="/">Funcionalidades</a>
+            <a href={CALENDLY}>Agenda tu llamada</a>
+          </div>
+          <div className="mk-foot-copy">© MaKo — Todos los derechos reservados.</div>
+        </div>
+      </footer>
+    </>
+  );
+}
+
+export default function FeatureDetail({ slug }: { slug: string }) {
+  const f: Feature | undefined = FEATURES[slug];
+  if (!f) return null;
+  const vis = FEATURE_VISUALS[slug];
+  const groupVisual = (i: number): VisualSpec | undefined => vis?.groups?.[i];
+
+  return (
+    <div className="mk-det">
+      <style dangerouslySetInnerHTML={{ __html: CSS_DETALLE }} />
+
+      <Cabecera />
 
       <main className="mk-det-main">
         {/* Fila de volver: link a la izquierda, nombre de la feature a la DERECHA
@@ -281,26 +314,12 @@ export default function FeatureDetail({ slug }: { slug: string }) {
         </nav>
       </main>
 
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer className="mk-foot">
-        <div className="mk-foot-in">
-          <a href="/" className="mk-logo">
-            <span className="mk-logo-mark"><svg width="20" height="20" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg></span>
-            <span className="mk-logo-txt">MaKo</span>
-          </a>
-          <p className="mk-foot-tag">El mejor SaaS para ventas High Ticket, de punta a punta.</p>
-          <div className="mk-foot-links">
-            <a href="/">Funcionalidades</a>
-            <a href={CALENDLY}>Agenda tu llamada</a>
-          </div>
-          <div className="mk-foot-copy">© MaKo — Todos los derechos reservados.</div>
-        </div>
-      </footer>
+      <Pie />
     </div>
   );
 }
 
-const CSS = `
+export const CSS_DETALLE = `
 body:has(.mk-det) aside { display: none !important; }
 
 .mk-det {

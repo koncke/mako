@@ -31,6 +31,7 @@ import {
 import { permite } from './alcance';
 import { permitePorArea, type Permisos } from './permisos';
 import { tabEnCapa } from '@/lib/capas';
+import { LEAD_MAGNET_EN_PRODUCCION, NAV_LEAD_MAGNET } from '@/lib/lead-magnets/archivado';
 import { esquemaJson } from './validar';
 
 import { DEFS as general } from './areas/general.def';
@@ -151,6 +152,10 @@ export const WS_PRINCIPAL = 1;
  */
 export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs' | 'plataforma'> & { permisos?: Permisos }): boolean {
   const g = def.gating;
+  // Lead Magnet ARCHIVADO (11/11/2026, pedido de Martín; lib/lead-magnets/archivado.ts): sus operaciones siguen en el catálogo
+  // (la referencia y su instantánea no cambian), pero no las ve nadie —MaKo no las ofrece— y lo que estuviera propuesto no se
+  // confirma, porque esta misma pregunta se repite al confirmar.
+  if (g?.tab === NAV_LEAD_MAGNET && !LEAD_MAGNET_EN_PRODUCCION) return false;
   if (g?.soloWs1 && !(v.ws === WS_PRINCIPAL && v.rol === 'admin')) return false;
   // En positivo: sólo si la vista DICE que es la plataforma. Una vista armada sin el dato no pasa.
   if (g?.soloPlataforma && v.plataforma !== true) return false;

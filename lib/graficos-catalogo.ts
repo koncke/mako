@@ -315,7 +315,9 @@ const FUENTES_BASE: readonly Fuente[] = [
     metricas: [
       m('envios', 'Envíos'), m('abiertos', 'Abiertos'), m('clics', 'Clics'), m('respuestas', 'Respuestas'),
       m('enviados', 'Enviados'), m('fallaron', 'Fallaron'), m('avisos', 'Avisos al equipo'), dist('leads', 'Leads'),
-      r('tasa_apertura', 'Tasa de apertura', 'pct', 'abiertos', 'envios', 100), r('tasa_respuesta', 'Tasa de respuesta', 'pct', 'respuestas', 'envios', 100),
+      // Sobre lo que SALIÓ (11/11/2026): `envios` cuenta también las acciones, los simulados y los omitidos, que nadie abre ni
+      // contesta, y bajaban la tasa (ws 3: 239 envíos, ninguno salido, «27,2%»).
+      r('tasa_apertura', 'Tasa de apertura', 'pct', 'abiertos', 'enviados', 100), r('tasa_respuesta', 'Tasa de respuesta', 'pct', 'respuestas', 'enviados', 100),
     ],
   },
   // ── Plan ──────────────────────────────────────────────────────────────────────────────

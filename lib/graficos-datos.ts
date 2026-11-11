@@ -28,6 +28,7 @@ import { enRango, queTableroLeer, fechaTj, funnelsAgregados, host, leer, leerPor
 import { productosCrm } from './api-mako/areas/crm.helpers';
 import { ventasDeCrms, type VentaDeCrm } from './ventas-crm';
 import { LECTORES_EXTRA, noEsDelNegocio } from './graficos-datos-extra';
+import { nombrarFilas } from './graficos-nombres';
 export type { Rango };
 import { conversorGastoMeta } from './moneda-meta';
 import { hoyEnTijuana, lunesDeFecha } from './date-utils';
@@ -43,7 +44,7 @@ import { ESTADO_COBRADO } from './graficos-acciones';
 import { esCuotaDeBaja, noEsDeuda } from './cobrado-lead';
 import { ubicarLeads } from './funnels-elegidos-server';
 import { faltaColumnaFunnel, funnelDelMomento } from './funnels-elegidos';
-import { diasConSigno, diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, gano, rotuloMadurez, tramoDeAtraso, tramosDelCiclo } from './graficos-datos-puro';
+import { diasConSigno, diasEntre, ESTADOS_RESPONDIO, enviosRespondidos, esLlamadaDeIa, gano, rotuloMadurez, tramoDeAtraso, tramosDelCiclo } from './graficos-datos-puro';
 import { horasHastaResponder, rotuloDeTarjeta, tipoDeEnvio } from './automatizacion-metricas';
 import type { PasoGrafo } from './flujo-grafo';
 import { carteraEnEntrega } from '@/app/customer-success/entrega';
@@ -479,12 +480,13 @@ async function filasEnvios(rg: Rango): Promise<Fila[]> {
     // El nombre y el FLUJO de cada automatización: de los pasos sale el nombre de la tarjeta (`rotuloDeTarjeta`).
     leerPorIds<{ id: number; nombre: string | null; pasos: unknown }>('nutricion_secuencias', 'id, nombre, pasos', 'id', rows.map((x) => x.secuencia_id).filter((x): x is number => x != null)),
     leerPorIds<{ id: number; estado: string | null }>('nutricion_inscripciones', 'id, estado', 'id', inscIds),
-    leerPorIds<{ id: number; inscripcion_id: number | null; created_at: string; respondio_at: string | null }>('nutricion_envios', 'id, inscripcion_id, created_at, respondio_at', 'inscripcion_id', inscIds),
+    leerPorIds<{ id: number; inscripcion_id: number | null; created_at: string; respondio_at: string | null; estado: string | null }>('nutricion_envios', 'id, inscripcion_id, created_at, respondio_at, estado', 'inscripcion_id', inscIds),
   ]);
   const estado = new Map(inscripciones.map((x) => [Number(x.id), x.estado] as const));
   const sec = new Map(secs.map((s) => [String(s.id), { nombre: s.nombre, pasos: Array.isArray(s.pasos) ? (s.pasos as PasoGrafo[]) : [] }] as const));
+  // Lo contestado es el último que SALIÓ: una acción, un simulado o un omitido no se pueden contestar (`enviosRespondidos`).
   const respondidos = enviosRespondidos(
-    [...rows, ...hermanos].map((x) => ({ id: Number(x.id), inscripcionId: x.inscripcion_id, t: x.created_at, respondioAt: x.respondio_at })),
+    [...rows, ...hermanos].map((x) => ({ id: Number(x.id), inscripcionId: x.inscripcion_id, t: x.created_at, respondioAt: x.respondio_at, salio: x.estado === 'enviado' })),
     (id) => estado.get(id),
   );
   return rows.map((x) => {
@@ -654,7 +656,9 @@ async function filasOnboarding(fecha: string, rg: Rango): Promise<Fila[]> {
 type FIa = { id: number; created_at: string; feature: string | null; model: string | null; provider: string | null; cost_usd: number | null; input_tokens: number | null; output_tokens: number | null };
 async function filasIa(rg: Rango): Promise<Fila[]> {
   const rows = await leer<FIa>('anthropic_usage', 'id, created_at, feature, model, provider, cost_usd, input_tokens, output_tokens', rg, { col: 'created_at', ts: true });
-  return rows.map((x) => ({
+  // ⚠️ No toda fila es una llamada: las decisiones de MaKo (`provider: 'mako'`), los vetos, los 429, los saltos de modelo y los
+  // fallos de clave se anotan en la misma tabla a US$0 (`esLlamadaDeIa`). Contadas, ponían «clase:no_reply» como un modelo.
+  return rows.filter((x) => esLlamadaDeIa(x.provider, x.model)).map((x) => ({
     f: fechaTj(x.created_at), d: { funcion: txt(x.feature), modelo: txt(x.model), proveedor: lindo(txt(x.provider)) },
     v: { llamadas: 1, costo: num(x.cost_usd), tokens_entrada: num(x.input_tokens), tokens_salida: num(x.output_tokens) },
   })).filter((x) => enRango(x.f, rg));
@@ -743,7 +747,11 @@ export const tardoDemasiado = (nombreConjunto: string) => `Tardó demasiado: ${n
  */
 const FILAS_POR_DIMENSION: Readonly<Record<string, readonly string[]>> = { retencion_vsl: ['corte'] };
 
-export type DatosGrafico = { ok: true; resultado: Resultado } | { ok: false; error: string };
+/**
+ * `sinConexion`: no falló nada, falta CONECTAR la fuente (`SinConexionError`: «Conecta tu grabador…»). La compu muestra el
+ * `error` tal cual; el teléfono lo necesita marcado para no decir «No es nada tuyo · Reportar a Soporte» (10/11/2026).
+ */
+export type DatosGrafico = { ok: true; resultado: Resultado } | { ok: false; error: string; sinConexion?: true };
 /**
  * Lo que pide la pantalla por gráfico: el gráfico, el período y lo que resolvió `efectivoDe`
  * (lib/graficos-catalogo.ts) — los filtros ya traducidos a las dimensiones de SU conjunto y el
@@ -816,10 +824,14 @@ export async function datosDeGraficos(pedidos: PedidoDatos[], opts: { plazoMs?: 
     try {
       const resultado = agregar(g, filtrarFilas(await lecturas.get(clave)!, filtros), p.desde, hasta);
       if (ant && claveAnt) resultado.anterior = agregar(g, filtrarFilas(await lecturas.get(claveAnt)!, filtros), ant.desde, ant.hasta).totales;
-      out[g.id] = { ok: true, resultado };
+      // La etiqueta con el nombre que la app ya usa («Calendly», no «calendly»); la clave no cambia (lib/graficos-nombres.ts).
+      // Al guardar, no al agregar: las dos líneas de arriba las fija tests/graficos-delta-sigue-al-filtro.test.ts.
+      out[g.id] = { ok: true, resultado: nombrarFilas(resultado, g.fuente, g.dimension) };
     } catch (e) {
       console.error(`[graficos] ${clave}: ${e instanceof Error ? e.message : String(e)}`);
-      out[g.id] = { ok: false, error: e instanceof SinConexionError || e instanceof PlazoVencidoError ? e.message : 'No pude leer los datos' };
+      out[g.id] = e instanceof SinConexionError
+        ? { ok: false, error: e.message, sinConexion: true }
+        : { ok: false, error: e instanceof PlazoVencidoError ? e.message : 'No pude leer los datos' };
     }
   }));
   return out;

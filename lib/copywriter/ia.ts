@@ -46,6 +46,7 @@ import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../
 import { FORMATO_EDITAR, PROMPTS_EDITAR, bibliotecaParaIA, estructuraParaIA } from './ia-editar';
 import { sanearOperaciones, aplicarTodo, type Descartada, type OperacionIA } from './operaciones';
 import { leerReferencias } from './referencias';
+import { NOMBRE_DEL_ORIGINAL, frasesDelOriginal } from './outliers';
 import type { Referencia } from './referencias-reglas';
 import { textoDeNodo, textoDelDoc } from './doc';
 import { PROMPTS_EXPERTO, pideParaIA } from './experto';
@@ -111,6 +112,16 @@ function guionDe(g: GuionDelPedido) {
   return { doc: s.ok ? s.doc : ({ type: 'doc', content: [] } as JsonNodo), props, titulo };
 }
 
+/**
+ * Lo citado, más el original que replica la página (D18, `props.outlier`): va en CADA pedido de esa página, no sólo en el primero,
+ * así «cambia el gancho» sigue sabiendo qué se está replicando. Lo lee el server en el negocio de la pestaña (una pieza de Spy de
+ * otro negocio no se encuentra) y no entra al documento.
+ */
+function conElOriginal(citadas: readonly Referencia[] | undefined, props: ReturnType<typeof sanearProps>): Referencia[] {
+  const refs = [...(citadas ?? [])];
+  return props.outlier ? [{ tipo: 'outlier', id: props.outlier, nombre: NOMBRE_DEL_ORIGINAL }, ...refs] : refs;
+}
+
 /** Los nombres del ángulo y la estructura elegidos (para que el modelo lea «Dolor», no «dolor»). */
 async function nombres(props: ReturnType<typeof sanearProps>) {
   const c = await catalogosDelCopywriter();
@@ -137,7 +148,7 @@ export async function discutir(p: { pregunta: unknown; guion: GuionDelPedido; ch
   if (!pregunta) return invalido('Escribe qué quieres pensar.');
   const g = guionDe(p.guion);
   try {
-    const [acento, negocio, n, refs] = await Promise.all([acentoDelNegocio(), contextoDelNegocio(pregunta), nombres(g.props), leerReferencias(p.referencias ?? [])]);
+    const [acento, negocio, n, refs] = await Promise.all([acentoDelNegocio(), contextoDelNegocio(pregunta), nombres(g.props), leerReferencias(conElOriginal(p.referencias, g.props))]);
     const sys = await brandSystem(`${await renderPrompt(PROMPTS_COPY.discutirSystem.key, PROMPTS_COPY.discutirSystem.tpl, { idioma: bloqueIdiomaCopy(acento) })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
     const user = await renderPrompt(PROMPTS_COPY.discutirUser.key, PROMPTS_COPY.discutirUser.tpl, {
@@ -216,7 +227,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const [acento, negocio, angulos, estructuras, refs] = await Promise.all([
       acentoConId(), contextoDelNegocio(instruccion),
       getAngulosGuion().catch(() => ANGULOS_GUION_DEFAULT), getEstructurasTodas().catch(() => ESTRUCTURAS_GUION_DEFAULT).then(conVsl),
-      leerReferencias(p.referencias ?? []),
+      leerReferencias(conElOriginal(p.referencias, g.props)),
     ]);
     const lite = catalogosLite(angulos, estructuras);
     const angulo = g.props.angulo ? angulos.find((a) => a.id === g.props.angulo && a.activo) ?? null : null;
@@ -276,6 +287,10 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const escrito = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string)).map(textoDeNodo).join('\n');
     const voseo = acento && VOSEAN.has(acento.id) ? [] : marcasDeVoseo(escrito);
     const avisos = voseo.length ? [`Tiene voseo (${voseo.slice(0, 4).join(', ')}): si tu audiencia no habla así, pídele a MaKo que lo cambie.`] : [];
+    // La réplica de un outlier (capa 2 de «nunca copies sus frases», lib/copywriter/outliers.ts → frasesDelOriginal).
+    const original = g.props.outlier ? refs.textos.find((x) => x.nombre === NOMBRE_DEL_ORIGINAL)?.texto ?? '' : '';
+    const copiadas = original && escrito ? frasesDelOriginal(original, escrito) : [];
+    if (copiadas.length) avisos.push(`Repite frases del original («${copiadas.slice(0, 2).join('», «')}»): pídele a MaKo que lo diga con tus palabras.`);
     const respuesta = [ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n') || (s.ops.length ? 'Listo: revisa lo que escribí.' : 'No cambié nada.');
     return { ok: true, respuesta, operaciones: s.ops, descartadas: [...s.descartadas, ...r.descartadas], avisos, noLeidas: refs.noLeidas };
   } catch (err) {

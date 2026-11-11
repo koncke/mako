@@ -165,6 +165,10 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
   const producto = (d: Decision) => productoDeAccion(productoDe, d);
   const conectada = tieneMeta || !!zernio?.conectado;
   const nueva = config.existeTabla && (!conectada || (!config.encendido && !config.ultimaCorrida));
+  // La bienvenida a pantalla entera («¿En qué te ayudo hoy?», sin la barra) es para quien llega sin estrategia. Con el funnel del CoPilot
+  // ya elegido (producción, 10/11/2026: el negocio de prueba, sin Meta) tapaba su Plan y Ajustes, y no decía que faltaba conectar
+  // Meta: va la pantalla de siempre, con la barra, y Hoy dice «Conecta tu cuenta de Meta» (cartelDeHoy).
+  const bienvenida = nueva && !perfil;
   const aplicar = (d: Decision, extra: Record<string, unknown> = {}) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Aplicado');
   // ⚠️ UN DÍA SIN CAMBIOS NO ES «TODO BIEN»: el cartel sale de lo que el agente MIDIÓ (lib/media-buyer/cartel-hoy.ts), no del
   // interruptor. `conectada` va en `null` mientras no volvió el estado de Zernio: no se le dice «conecta tu cuenta» a quien
@@ -193,8 +197,8 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
   };
 
   const sugerencia = (s: Sugerencia) => {
-    if (s === 'lanzar') { if (nueva) setArrancando(true); else pedir('quiero lanzar una campaña nueva.'); return; }
-    if (s === 'disenar') { if (nueva) pedir('quiero diseñar un anuncio nuevo.'); else setVista('biblioteca'); return; }
+    if (s === 'lanzar') { if (bienvenida) setArrancando(true); else pedir('quiero lanzar una campaña nueva.'); return; }
+    if (s === 'disenar') { if (bienvenida) pedir('quiero diseñar un anuncio nuevo.'); else setVista('biblioteca'); return; }
     if (s === 'como') { pedir('¿cómo vienen mis anuncios este mes?'); return; }
     if (config.encendido && conectada) void analizar(); else pedir('busca oportunidades en mi cuenta de Meta.');
   };
@@ -240,7 +244,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
     </>
   );
 
-  if (nueva) {
+  if (bienvenida) {
     return (
       <div className="aa">
         {arrancando

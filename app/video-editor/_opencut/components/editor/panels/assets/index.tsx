@@ -50,7 +50,9 @@ export function AssetsPanel() {
 						elegida={elegida?.id ?? null}
 					/>
 				)}
-				<div className="min-w-0 flex-1 overflow-hidden" role="tabpanel">
+				{/* `overflow-clip`, no `hidden`: una caja `hidden` se puede correr (el foco de un botón del borde la corría 32 px
+				    y la sección entera quedaba desplazada, 10/11/2026); `clip` recorta y no se corre nunca. */}
+				<div className="min-w-0 flex-1 overflow-clip" role="tabpanel">
 					{elegida ? (
 						<AislarFallas key={elegida.id}>
 							<elegida.Contenido />

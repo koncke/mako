@@ -7,6 +7,18 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## Un título vacío y una palabra larga: lo que el teléfono dibujaba de más y de menos (11/11/2026)
+
+**Vive en:** `app/m/_ui/SeccionM.tsx` · `app/m/m.css` (`.m-fila__t`). Lo fija `tests/mirada-prod-11-11.test.ts` (casos 3 y 7).
+
+- **More: 66 px de hueco entre Create y Settings.** El grupo de Settings no tiene título, pero `SeccionM` dibujaba igual su
+  cabecera (un `<h2>` vacío de 28 px más 10 de margen). Ahora, sin título ni acción, no hay cabecera.
+- **«Acquisition.com» se veía «Acquisition.con».** `.m-fila__t` corta a dos renglones con `-webkit-line-clamp`, pero una sola
+  palabra más ancha que la fila no tiene dónde partirse: se cortaba en seco, sin «…», y se leía como un error de tipeo. Ahora
+  `overflow-wrap: anywhere` la baja de renglón. En Spy, además, «Revisado hace 14 h» le quitaba 130 px desde el riel.
+
+**La regla:** lo que va a la derecha de una fila (`riel`) es corto: un número o una palabra. Un «hace cuánto» va en la segunda línea.
+
 ## «En mobile aparecen 2 dashboards»: la fila de las hojas quedó de antes del Dashboard unido (24/10/2026)
 
 **Síntoma** (Martín, Android, captura de More › Today): «Dashboard» y «Dashboard sheets», uno abajo del otro. **Causa:**
@@ -2060,3 +2072,65 @@ pantalla que lo monta.
 **Vive en:** `app/m/competitor-spy/` (page.tsx, SpyM.tsx, competitor-spy.css) · las dos puertas del escritorio: `marco`
 en `app/competitor-spy/DetallePieza.tsx` y `columnas` en `app/competitor-spy/GrillaPiezas.tsx` · la fila
 `competitor-spy` de `SECCIONES_MAS` y su `QUERY_DE_SECCION` (lib/movil-rutas.ts).
+
+## El Dashboard del teléfono decía «No es nada tuyo» de algo que no falló (10/11/2026)
+
+**Síntoma:** en el ws 3, la hoja Closing en el teléfono mostraba DOS veces «No pudimos leer estos números. No es nada tuyo», con
+«Volver a cargar» y «Reportar a Soporte». En la compu, la misma hoja decía «Conecta tu grabador de reuniones…».
+
+**Causa:** el lector (`datosDeGraficos`) devolvía «falta conectar» (`SinConexionError`) como un `{ ok: false, error }` más, y
+`hojaPropia` convertía TODO `ok: false` en `ERROR_LECTURA`. Y `DashboardM` dibujaba el aviso único de «no se pudo leer nada» y, debajo,
+la lista de números con el mismo error: la condición de la lista no excluía el caso de los dos errores.
+
+**La regla:** el lector marca `sinConexion: true`; si NADA se leyó y lo que volvió es eso, el teléfono dice ese texto, una vez, con
+`VacioM` (no `ErrorM`: no hay reintento ni Soporte que sirvan) — `faltaConectar` en el modelo, con su test. Un estado que la compu
+explica no se traduce a «falló» en el teléfono.
+
+**Vive en:** app/m/dashboard/datos.ts (`hojaPropia`), modelo.ts (`faltaConectar`), DashboardM.tsx · lib/graficos-datos.ts (`DatosGrafico`).
+
+## «No pudimos leer» de una hoja que se leyó bien: vacío no es falla (11/11/2026)
+
+**Síntoma:** en el teléfono, Anuncio ganador y Hooks del ws 3 decían «No pudimos leer estos números. No es nada tuyo» con «Reportar a
+Soporte». **Causa:** `hojaPropia` marcaba `numerosError` cuando todos los números mostraban «—», y `fmtValor(null)` también da «—». Un
+período sin datos, leído bien, se pintaba como lectura caída. **La regla:** «no pudimos leer» sólo si las lecturas FALLARON (`noSeLeyo`,
+app/m/dashboard/modelo.ts); sin datos, la lista dice «—». Es la misma familia que «falta conectar» (arriba): el teléfono no puede tener
+menos categorías que la compu (falló / falta conectar / sin datos).
+
+## La hoja copiada en el teléfono no dice lo mismo que en la compu (11/11/2026, a 375 con captura)
+
+- **La frase:** en la compu, Marketing arma su frase con su diseño (`fraseMarketing`); el teléfono armaba la de la PLANTILLA (`tramosDeFrase`
+  sobre la pieza `frase`), y sin pauta decía «Gastaste US$0 en anuncios · trajeron 3 agendas · cada una costó US$0» cuando la compu ya decía
+  «Llegaron 3 agendas.». Un arreglo de una hoja con diseño hay que mirarlo también en el teléfono: son dos caminos.
+- **La unidad:** el catálogo la dice en el nombre de la métrica («Mediana de respuesta (min)») y la tarjeta tiene su propio título («Tiempo de
+  respuesta»): el teléfono mostraba «10» a secas. `conUnidad` la suma si el título no la dice.
+- **Vive en:** app/m/dashboard/datos.ts (`hojaPropia`), modelo.ts (`esCostoSobreGasto`, `conUnidad`).
+
+## Una vista nueva por query se pierde en el teléfono: el paso a /m sólo lleva las claves que tiene anotadas (11/11/2026)
+
+- **Síntoma:** en Copywriting, «Crear desde cero» (`/copywriter?nueva=`) y «Mis guiones» (`?ver=guiones`) mostraban en el teléfono
+  la portada de outliers. En la computadora andaban.
+- **Causa:** el paso de la ruta de computadora a la del teléfono (lib/movil-creacion.ts → `conQuery`) conserva sólo las claves
+  de la lista de su fila (`query: ['nuevo']`), y además **descarta los parámetros vacíos**: `?nueva=` se caía aunque estuviera.
+- **La regla:** una pantalla que suma una vista por query anota la clave en DOS lugares: su fila de lib/movil-creacion.ts y
+  `QUERY_DE_SECCION` (lib/movil-rutas.ts, lo fija tests/movil-mas-secciones.test.ts). Y el link lleva un valor (`?nueva=1`).
+## El teléfono dibuja la PRIMERA métrica de cada pieza, con el título de la pieza (11/11/2026, producción a 375)
+
+- **Síntoma:** Velocidad de llamada en el teléfono: «Leads por día · 0 en 30 días» y debajo «Primer contacto 129». Natalia (ws 19) tiene
+  129 leads y 126 esperando; la compu lo dice bien.
+- **Causa:** la forma fija del teléfono (app/m/dashboard/datos.ts, `hojaPropia`) toma `columnas[0]` de la serie y `totales[0]` de cada
+  número. En Velocidad la serie es `[contactados, sin_contactar]` (dibujaba sólo los contactados: 0) y el número es la pieza «tramos» de
+  ocho métricas (mostraba `leads`, con el título de la pieza).
+- **Lo que quedó:** con varias métricas, el rótulo es el NOMBRE de la que se ve (`rotuloDePieza`, app/m/dashboard/modelo.ts): «Contactados»,
+  «Leads 129». Lo que dice el rótulo es lo que se dibuja.
+- **Lo que falta (decide Martín):** el teléfono de Velocidad sigue lejos de Tend (la lista de quién espera, con «Llamar»).
+
+## «Todo ······ Todo» encima del aviso de «falta conectar» (11/11/2026)
+
+El aviso «Conecta tu grabador…» iba adentro de una sección con el período de título y el período de botón; con «Todo» las dos palabras son
+iguales. `falta` es que no se leyó NADA de la hoja: cambiar el período no lo arregla. El aviso va solo (`VacioM`, app/m/dashboard/DashboardM.tsx).
+
+## El eje del teléfono redondeaba los centavos a cero (11/11/2026)
+
+Lo gastado en IA (US$0,027 en el mes) daba un eje «0 · 0 · 0 · 0»: `ejeCompacto` escribía hasta un decimal, y `geometria` redondeaba los
+pasos a milésimas. Debajo de 1, dos cifras significativas; los pasos, a precisión relativa (`toPrecision(10)`). app/m/dashboard/modelo.ts.
+

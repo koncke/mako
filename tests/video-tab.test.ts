@@ -28,7 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { chequearGuion, duracionDeClip, palabrasDe, FLOW_VIDEO } from '../lib/video-plantillas/medidas';
 import { BLOQUES, GOLPES, clipsDelGuion, creditosDelGuion, guionCompleto, problemasDelGuion, type GuionMensajePara } from '../lib/video-plantillas/mensaje-para';
 import { CARPETAS, IDS_PIEZA, PIEZAS } from '../lib/video-plantillas/piezas';
-import { FUENTE_MAKO, OUTLIERS_CON_PLANTILLA, juntarOutliers, outlierValido, type FuenteOutliersVideo, type OutlierVideo } from '../lib/video-outliers';
+import { FUENTE_MAKO, OUTLIERS_CON_PLANTILLA, juntarOutliers, outlierValido, outliersDeSpy, outliersPropios, tituloDeReel, type FuenteOutliersVideo, type OutlierVideo } from '../lib/video-outliers';
 import { replicarDe, rutaReplicar, vistaDeVideo } from '../app/video-editor/vista';
 import { conEleccion, conGuion, estadoNuevo, hechosDelProyecto, sanearEstadoGuia, sinEleccion } from '../app/video-editor/guia/reglas';
 import { PASO, SUPERFICIE_VIDEO_GUIA, VALOR, opcionesDePersonaje, pasosDeLaGuia, type HechosVideoGuia } from '../lib/aperturas/video-guia';
@@ -127,6 +127,80 @@ test('3. los outliers: lo inválido afuera, sin repetidos, lo que se replica pri
   }
 });
 
+// 3b, PROBADO ROMPIÉNDOLO (11/11/2026): la vidriera sin conVariedad → rojo («una sola cuenta no llena la primera pantalla»);
+// FUENTES_OUTLIERS_VIDEO sólo con FUENTE_MAKO → rojo.
+test('3b. los reels de Spy (11/11/2026): el «×» de su cuenta, su miniatura y el gancho de título; la vidriera, variada y reciente', () => {
+  // Martín con la captura de la portada: UNA tarjeta, sin imagen. Spy ya trajo los reels de las cuentas que el negocio sigue.
+  const DIA = 86_400_000;
+  const ahora = Date.parse('2026-11-11T12:00:00Z');
+  const cuentas = [{ id: 7, nombre: 'Alguien', instagram: 'alguien', avatar: 'https://x.supabase.co/a.jpg' }, { id: 8, nombre: 'Sin IG', instagram: null }];
+  const reel = (id: number, dias: number, vistas: number | null, extra: Record<string, unknown> = {}) => ({
+    id, competidor_id: 7, canal: 'instagram', tipo: 'reel', publicada_en: new Date(ahora - dias * DIA).toISOString(),
+    vistas, megusta: 10, comentarios: 2, url: `https://www.instagram.com/p/r${id}/`, miniatura: `https://x.supabase.co/m${id}.jpg`,
+    texto: `Primera línea ${id}\nsegunda`, analisis: null, ...extra,
+  });
+  // Diez reels de 1.000 vistas y uno de 10.000: ése es el 10×.
+  const piezas = [
+    ...Array.from({ length: 10 }, (_, i) => reel(i + 1, 20 + i * 3, 1000)),
+    reel(50, 40, 10_000, { analisis: { gancho: 'El gancho que leyó Spy' } }),
+    reel(51, 41, 5000, { dejo_de_verse_en: '2026-11-01T00:00:00Z' }), // ya no se ve: afuera
+    { ...reel(52, 30, 500), tipo: 'publicacion' }, // un carrusel: no es un reel
+    { ...reel(53, 30, 500), competidor_id: 8 }, // una cuenta sin Instagram no se lee
+  ];
+  const xs = outliersDeSpy(piezas as never, cuentas, ahora);
+  assert.equal(xs.length, 11);
+  const top = xs.find((x) => x.id === 'spy:50')!;
+  assert.equal(top.multiplo?.veces, 10);
+  assert.equal(top.titulo, 'El gancho que leyó Spy');
+  assert.equal(top.miniatura, 'https://x.supabase.co/m50.jpg');
+  assert.deepEqual(top.creador, { nombre: 'Alguien', usuario: 'alguien', foto: 'https://x.supabase.co/a.jpg', competidorId: 7 });
+  assert.equal(xs.find((x) => x.id === 'spy:1')!.titulo, 'Primera línea 1', 'sin gancho, la primera línea del pie');
+  assert.equal(tituloDeReel({ texto: '', analisis: null }, { nombre: 'X', instagram: 'x' }), 'Reel de @x');
+  // La vidriera: la plantilla de MaKo primero, después el 10×.
+  const r = juntarOutliers([{ fuente: FUENTE_MAKO, lectura: { ok: true, outliers: OUTLIERS_CON_PLANTILLA } }, { fuente: fuente('spy'), lectura: { ok: true, outliers: xs } }], ahora);
+  assert.deepEqual(r.outliers.slice(0, 2).map((x) => x.id), ['mako:mensaje-para', 'spy:50']);
+  // Con 12 o más en los últimos 90 días, los viejos quedan afuera; con menos, se ve todo.
+  const muchos = Array.from({ length: 14 }, (_, i) => outlier({ id: `spy:${100 + i}`, url: `https://x.com/${100 + i}`, publicada: new Date(ahora - 10 * DIA).toISOString(), creador: { nombre: `C${i}`, usuario: `c${i}` } }));
+  const viejo = outlier({ id: 'spy:999', url: 'https://x.com/999', publicada: new Date(ahora - 200 * DIA).toISOString() });
+  const conVentana = juntarOutliers([{ fuente: fuente('spy'), lectura: { ok: true, outliers: [...muchos, viejo] } }], ahora);
+  assert.ok(!conVentana.outliers.some((x) => x.id === 'spy:999'), 'con 14 recientes, el de hace 200 días no va');
+  const pocos = juntarOutliers([{ fuente: fuente('spy'), lectura: { ok: true, outliers: [muchos[0], viejo] } }], ahora);
+  assert.ok(pocos.outliers.some((x) => x.id === 'spy:999'), 'con pocos recientes, se ve todo');
+  // Como mucho 2 del mismo creador cada 12.
+  const deUno = Array.from({ length: 6 }, (_, i) => outlier({ id: `spy:${200 + i}`, url: `https://x.com/${200 + i}`, publicada: new Date(ahora - 5 * DIA).toISOString(), multiplo: { veces: 10 - i, formato: 'corto', metrica: 'vistas', canal: 'instagram', valor: 1, mediana: 1, comparadas: 9 } }));
+  const otros = Array.from({ length: 10 }, (_, i) => outlier({ id: `spy:${300 + i}`, url: `https://x.com/${300 + i}`, publicada: new Date(ahora - 5 * DIA).toISOString(), creador: { nombre: `O${i}`, usuario: `o${i}` } }));
+  const variada = juntarOutliers([{ fuente: fuente('spy'), lectura: { ok: true, outliers: [...deUno, ...otros] } }], ahora);
+  assert.ok(variada.outliers.slice(0, 12).filter((x) => x.creador.usuario === 'alguien').length <= 2, 'una sola cuenta no llena la primera pantalla');
+  // Lo propio por Zernio: su cuenta contra su propia mediana; lo que Zernio no sincronizó no tiene números (su 0 no es «nadie»).
+  const pub = (i: number, vistas: number, extra: Record<string, unknown> = {}) => ({
+    id: `ig${i}`, fecha: new Date(ahora - (20 + i * 2) * DIA).toISOString(), tipo: 'reel', texto: `Mío ${i}`, url: `https://www.instagram.com/reel/m${i}/`,
+    miniatura: `https://cdn.example.com/m${i}.jpg`, alcance: null, vistas, impresiones: null, meGusta: 5, comentarios: 1, compartidos: null, guardados: null,
+    interaccionPct: null, deZernio: true, sinMetricas: null, ...extra,
+  });
+  const propios = outliersPropios({ usuario: 'minegocio', nombre: 'Mi negocio' }, [
+    ...Array.from({ length: 8 }, (_, i) => pub(i, 1000)), pub(20, 5000), pub(21, 0, { sinMetricas: 'pendiente' }), { ...pub(22, 900), tipo: 'post' },
+  ] as never, ahora);
+  assert.equal(propios.length, 10, 'sólo los reels');
+  assert.equal(propios.find((x) => x.id === 'propio:ig20')?.multiplo?.veces, 5);
+  assert.equal(propios.find((x) => x.id === 'propio:ig21')?.vistas, null, 'sin sincronizar, sin números');
+  assert.ok(propios.every((x) => outlierValido(x)));
+  // La portada: la fuente de Spy enchufada, la tarjeta de Image, «MaKo te guía» y cómo llenarla sin cuentas.
+  const servidor = sinComentarios(leer('lib/video-outliers-servidor.ts'));
+  assert.match(servidor, /FUENTES_OUTLIERS_VIDEO: readonly FuenteOutliersVideo\[\] = \[FUENTE_MAKO, FUENTE_SPY, FUENTE_PROPIOS\]/);
+  assert.match(servidor, /if \(r\.error === 'sin-clave' \|\| r\.error === 'sin-cuenta' \|\| r\.error === 'sin-analytics'\) return \{ ok: true, outliers: \[\] \};/, 'sin Zernio no es una caída');
+  assert.match(servidor, /podarVencido\(f\)/, 'los textos y números vencidos de Spy no se muestran');
+  const portada = sinComentarios(leer('app/video-editor/OutliersVideo.tsx'));
+  assert.match(portada, /<span className=\{o\.marca\}>MaKo te guía<\/span>/);
+  assert.doesNotMatch(portada, /rotuloCortoDeMultiplo/, '«Sin datos de su cuenta» no va en la tarjeta de la plantilla');
+  assert.match(portada, /<img src=\{x\.miniatura\} alt="" className=\{s\.miniImagen\}/);
+  assert.match(portada, /<Link href="\/competitor-spy" className=\{s\.pastilla\}>\+ Seguir cuentas<\/Link>/);
+  // En el teléfono también, como Image: los outliers primero (dos columnas, sin «Replicar»: el guiado es de la computadora).
+  const movil = sinComentarios(leer('app/m/video-editor/page.tsx'));
+  assert.match(movil, /if \(vistaDeVideo\(q\) === 'outliers'\) \{[\s\S]*?<OutliersVideo portada=\{await leerOutliersVideo\(\)\} telefono rutaCrear="\/video-editor\?ver=crear" \/>/);
+  assert.match(portada, /<div className=\{s\.raiz\} data-telefono=\{telefono \? 'si' : undefined\}>/);
+  assert.match(portada, /\{x\.plantilla && !telefono && <Link href=\{rutaReplicar\(x\.plantilla\)\}/);
+});
+
 test('4. la portada: outliers primero, «Crear desde cero» con `ver=crear`, y «Replicar» sólo con una plantilla que existe', () => {
   assert.equal(vistaDeVideo({}), 'outliers');
   assert.equal(vistaDeVideo({ ver: 'crear' }), 'crear');
@@ -217,6 +291,25 @@ test('6. la galería de la apertura: las fotos y los personajes cliqueables, con
   assert.match(pieza, /estado\.elegir\(\{ tipo: 'respuesta', rotulo: o\.rotulo, valor: o\.valor \}\)/);
 });
 
+test('3c. la estructura de la plantilla en el teléfono: el nombre de cada bloque entero, en un renglón (11/11/2026)', () => {
+  // En producción, a 375 px, la última banda decía «Cierre sin …». Bajar a un segundo renglón NO sirve (una banda de 3 s
+  // queda mordida: «El / producto»), ni partir la palabra («Credenci/al»): la tarjeta angosta achica letra y márgenes.
+  // PROBADO ROMPIÉNDOLO: sin el `container-type` o sin el @container, rojo; con `white-space: normal`, rojo.
+  const css = leer('app/video-editor/outliers.module.css');
+  assert.match(css, /\.tramo b \{[^}]*white-space: nowrap;[^}]*text-overflow: ellipsis;/, 'el nombre de la banda va en un renglón');
+  assert.match(css, /\.estructura \{ container-type: inline-size; \}/);
+  assert.match(css, /@container \(max-width: 190px\) \{[\s\S]*?\.tramo b \{ font-size: 11px; \}/);
+});
+
+test('3d. un dato que Spy no midió no se muestra: nada de «▶ —» (11/11/2026)', () => {
+  // PROBADO ROMPIÉNDOLO: con `contadorCorto(x.vistas ?? null)` (lo de antes), rojo.
+  const tsx = leer('app/video-editor/OutliersVideo.tsx');
+  for (const campo of ['vistas', 'megusta', 'comentarios']) {
+    assert.ok(tsx.includes('{x.' + campo + ' != null ? <span'), campo + ' se muestra aunque no haya dato');
+    assert.ok(!tsx.includes('contadorCorto(x.' + campo + ' ?? null)'), campo + ': volvió el guion');
+  }
+});
+
 test('7. el velo de la pregunta: sólo con la marca ADENTRO de un chat, y el aro en ella', () => {
   const v = { ancho: 1440, alto: 900 };
   const chat = { x: 0, y: 0, ancho: 360, alto: 900 };
@@ -275,12 +368,17 @@ test('9. el cableado: el chat del editor lleva el hueco del velo y monta la guí
   // La foto nueva es la que no estaba antes (no la última de la lista), y lo que la ruta salteó se dice.
   assert.match(guia, /\.find\(\((\w+)\) => !\w+\.has\(\1\.id\)\)/);
   assert.match(guia, /for \(const (\w+) of \w+\.warnings \?\? \[\]\) toast\.error\(\1\)/);
-  // AI Avatar sigue como fila de Create MIENTRAS Video sea sólo de Pro: sacarla deja a un Esencial sin su personaje (la revisión del
-  // 9/11). Cuando Martín decida que Video entra en los tres planes, esta condición cambia y la fila se puede ir.
+  // AI Avatar FUERA DE LA BARRA desde el 11/11/2026: Martín, «[AI Avatar] no debería estar, eso ya lo hablamos muchas veces». El
+  // ítem queda (`fueraDeLaBarra`, su key es contrato) y la RUTA SIGUE: la abren «Tu personaje con IA» de Video y los botones de la
+  // biblioteca de anuncios, la guía de video, los carruseles y el CoPilot. Mientras Video sea sólo de Pro, ésas son las puertas de
+  // un Esencial a su personaje: si la ruta redirigiera a Video, un Esencial se quedaba sin ninguna.
   const create = FAMILIAS.find((f) => f.key === 'create');
-  const keys = new Set((create?.bloques ?? []).flat().map((it) => it.key));
-  assert.ok(keys.has('video-editor'));
-  if (NAV_SOLO_PRO.has('video-editor')) assert.ok(keys.has('ai-avatar'), 'Video es sólo de Pro: AI Avatar es la única puerta de un Esencial a su personaje');
+  const items = (create?.bloques ?? []).flat();
+  assert.ok(items.some((it) => it.key === 'video-editor'));
+  const avatar = items.find((it) => it.key === 'ai-avatar');
+  assert.ok(avatar, 'el ítem de AI Avatar sigue: su key es contrato');
+  assert.equal(avatar?.fueraDeLaBarra, true, 'y no se dibuja');
+  if (NAV_SOLO_PRO.has('video-editor')) assert.doesNotMatch(leer('app/ai-avatar/page.tsx'), /redirect\([^)]*video-editor/,'Video es sólo de Pro: /ai-avatar no puede mandar a Video');
 });
 
 test('10. «el inicio» del editor es la lista de proyectos, y «Replicar» no arma dos', () => {

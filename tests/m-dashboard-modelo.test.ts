@@ -14,11 +14,20 @@
 //   · `deltaDe` con porcentaje sobre un anterior en 0                 → 3 / 1
 //   · `textoVence` sin «venció hace N días» (todo «vence hoy»)        → 3 / 1
 //   · `periodoDeParam` aceptando cualquier preset del pedido          → 3 / 1
+// Y 10/11/2026: `faltaConectar` (la hoja Closing sin grabador decía «No es nada tuyo»). Rompiéndolo: devolver
+// el texto aunque haya una lectura buena → 4 / 1; no mirar `sinConexion` (cualquier error) → 4 / 1.
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deltaDe, etiquetaBarra, textoVence, geometria, pasoLindo, indiceEn, ejeCompacto, periodoDeParam, PERIODOS_MOVIL, periodosParaHoja, caminoBarra } from '../app/m/dashboard/modelo';
+import { deltaDe, etiquetaBarra, textoVence, geometria, pasoLindo, indiceEn, ejeCompacto, periodoDeParam, PERIODOS_MOVIL, periodosParaHoja, caminoBarra, conUnidad, esCostoSobreGasto, faltaConectar, noSeLeyo, rotuloDePieza } from '../app/m/dashboard/modelo';
+
+test('el rótulo dice la métrica que se ve: con varias, la primera; con una, el título (11/11/2026, Velocidad a 375)', () => {
+  assert.equal(rotuloDePieza('Primer contacto', ['leads', 'contactados', 'sin_contactar'], 'Leads'), 'Leads');
+  assert.equal(rotuloDePieza('Leads por día', ['contactados', 'sin_contactar'], 'Contactados'), 'Contactados');
+  assert.equal(rotuloDePieza('Tiempo de respuesta', ['mediana_respuesta'], 'Mediana de respuesta (min)'), 'Tiempo de respuesta', 'con una sola, el título de la tarjeta');
+  assert.equal(rotuloDePieza('Primer contacto', ['leads', 'contactados'], undefined), 'Primer contacto', 'sin nombre en el catálogo, el título');
+});
 
 test('delta', () => {
   assert.deepEqual(deltaDe(112, 100, 'pct', true), { dir: 'up', tono: 'good', texto: '12%', etiqueta: 'Sube 12% contra el período anterior' });
@@ -63,10 +72,48 @@ test('geometria', () => {
   assert.equal(ejeCompacto(1500), '1,5k');
   assert.ok(!caminoBarra(g.barras[0]).includes('NaN'));
 });
+test('un eje de centavos no queda en ceros: «0,01 · 0,02 · 0,03» (11/11/2026, lo gastado en IA en el teléfono)', () => {
+  const g = geometria([0.0271, 0, 0.004], false);
+  assert.deepEqual(g.ticks, [0, 0.01, 0.02, 0.03]);
+  assert.deepEqual(g.ticks.map(ejeCompacto), ['0', '0,01', '0,02', '0,03']);
+  assert.equal(ejeCompacto(0.00025), '0,00025');
+  assert.equal(ejeCompacto(2.5), '2,5', 'de 1 para arriba, como antes');
+});
 test('periodo', () => {
   assert.equal(periodoDeParam('ult90', PERIODOS_MOVIL, 'ult30').id, 'ult90');
   assert.equal(periodoDeParam('todo', PERIODOS_MOVIL, 'ult30').id, 'ult30');
   assert.equal(periodoDeParam(undefined, periodosParaHoja('todo'), 'todo').id, 'todo');
   assert.equal(periodosParaHoja('ult30').length, 4);
   assert.equal(periodosParaHoja('todo').length, 5);
+});
+test('falta conectar: nada leído y lo que volvió es «falta conectar» → ese texto; si no, null', () => {
+  const grabador = { ok: false as const, error: 'Conecta tu grabador de reuniones (Fathom, tl;dv, Fireflies, Zoom…) en Integraciones', sinConexion: true as const };
+  assert.equal(faltaConectar([grabador, grabador, undefined]), grabador.error);
+  assert.equal(faltaConectar([grabador, { ok: true }]), null, 'con una lectura buena la hoja tiene algo que mostrar');
+  assert.equal(faltaConectar([{ ok: false, error: 'No pude leer los datos' }]), null, 'una falla de verdad sigue siendo una falla');
+  assert.equal(faltaConectar([]), null);
+});
+test('«no pudimos leer» sólo si las lecturas fallaron: leídas y sin datos no es una falla (11/11/2026, ws 3)', () => {
+  assert.equal(noSeLeyo([{ ok: true }, { ok: true }]), false, 'Anuncio ganador sin datos en el período: se leyó bien');
+  assert.equal(noSeLeyo([{ ok: false }, undefined]), true);
+  assert.equal(noSeLeyo([{ ok: false }, { ok: true }]), false, 'con una buena hay algo que mostrar');
+  assert.equal(noSeLeyo([]), false, 'sin números no hay nada que decir');
+});
+test('sin gasto no hay costo: el costo por agenda va «—» y Marketing dice la frase de su diseño (11/11/2026, ws 3)', async () => {
+  assert.equal(esCostoSobreGasto({ razon: { num: 'gasto' } }), true, 'costo por agenda = gasto ÷ agendas');
+  assert.equal(esCostoSobreGasto({ razon: { num: 'cobrado' } }), false, 'el ROAS no es un costo');
+  assert.equal(esCostoSobreGasto(undefined), false);
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const src = readFileSync(join(__dirname, '..', 'app', 'm', 'dashboard', 'datos.ts'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /if \(gastoCero && esCostoSobreGasto\(fuente \? metricaDe\(fuente, g\.metricas\[0\]\) : undefined\)\) return \{ id: g\.id, k: tituloDe\(g\), v: '—', delta: null \};/, '«Costo por agenda US$0» volvió');
+  assert.match(src, /if \(h\.diseno\?\.id === 'marketing'\) \{[\s\S]{0,400}fraseMarketing\(total\('gasto'\), total\('agendas'\), total\('cpa'\)\)/, 'el teléfono volvió a la frase de la plantilla');
+});
+test('la unidad del catálogo va con el valor si el título no la dice: «Tiempo de respuesta 10 min» (11/11/2026)', () => {
+  assert.equal(conUnidad('10', 'Mediana de respuesta (min)', 'Tiempo de respuesta'), '10 min');
+  assert.equal(conUnidad('3', 'Atraso al pagar (días)', 'Atraso al pagar'), '3 días');
+  assert.equal(conUnidad('1', 'Atraso al pagar (días)', 'Atraso al pagar'), '1 día');
+  assert.equal(conUnidad('10', 'Mediana de respuesta (min)', 'Respuesta (min)'), '10', 'el título ya la dice');
+  assert.equal(conUnidad('—', 'Mediana de respuesta (min)', 'Tiempo de respuesta'), '—', 'sin valor, sin unidad');
+  assert.equal(conUnidad('5', 'Leads', 'Leads'), '5');
 });

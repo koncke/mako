@@ -24,7 +24,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Icon } from '../_components/icons';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { MakoStar } from '../_components/MakoBrand';
-import { BotonIntegracion } from '../_components/ConectarIntegracion';
+import { BotonIntegracion, CON_SU_CLASE } from '../_components/ConectarIntegracion';
 import { LogoRed, redDePieza } from './LogoRed';
 import { iniciales } from '@/lib/unicode-seguro';
 import { Modal } from '@/app/_ui/Modal';
@@ -33,7 +33,7 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { FORMATOS, formatoPorTexto, proporcionDe, puestoDe } from '@/lib/spy-detalle';
 import { explicarMultiplo, multiplosDe, rotuloCortoDeMultiplo } from '@/lib/multiplo-rendimiento';
 import { dibujarContador } from '@/lib/spy-reglas';
-import { fechaCorta, miniaturaDePieza } from '@/lib/spy-vista';
+import { fechaCorta, linksLegibles, miniaturaDePieza } from '@/lib/spy-vista';
 import { tieneGuion, type VistaGuion } from '@/lib/spy-transcripcion';
 import type { PiezaVista } from './actions';
 
@@ -136,7 +136,7 @@ function BloqueGuion({ guion, onConectado }: { guion: VistaGuion | null; onConec
       <p className="spyd-nota">
         Conecta tu GPT o tu Gemini para transcribirlo.
         {/* Escuchar un video lo hacen su GPT o su Gemini (Claude no escucha audio). Se conecta acá, sin salir de la tab. */}
-        <BotonIntegracion servicio="openai" className="spy-boton" onConectado={onConectado}>Conectar GPT</BotonIntegracion>
+        <BotonIntegracion servicio="openai" className="spy-boton" style={CON_SU_CLASE} onConectado={onConectado}>Conectar GPT</BotonIntegracion>
       </p>
     );
   } else if (guion.estado === 'sin-gemini') {
@@ -148,7 +148,7 @@ function BloqueGuion({ guion, onConectado }: { guion: VistaGuion | null; onConec
     cuerpo = (
       <p className="spyd-nota">
         Para transcribirlo hace falta tu clave de Apify.
-        <BotonIntegracion servicio="apify-instagram" className="spy-boton" onConectado={onConectado}>Conectar</BotonIntegracion>
+        <BotonIntegracion servicio="apify-instagram" className="spy-boton" style={CON_SU_CLASE} onConectado={onConectado}>Conectar</BotonIntegracion>
       </p>
     );
   } else if (guion.estado === 'listo' && guion.texto) {
@@ -237,8 +237,12 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
     p.vistas != null ? { k: 'Vistas', v: dibujarContador(p.vistas) } : null,
     p.megusta != null ? { k: 'Me gusta', v: dibujarContador(p.megusta) } : null,
     p.comentarios != null ? { k: 'Comentarios', v: dibujarContador(p.comentarios) } : null,
-    x && !(x.veces == null && x.motivo === 'sin-formato') ? {
-      k: x.formato === 'anuncio' ? 'Tiempo activo frente a su cuenta' : 'Frente a lo que suele hacer',
+    // Sólo con su número (11/11/2026, mirado con capturas). Sin él, la cuarta cifra decía el motivo —«Falta un trámite con YouTube»,
+    // «Menos de una semana»— en una celda de 96 px, cortado («Frente a lo qu… · Falta un trá…») y sin que se entendiera. La regla
+    // de Martín (22/10): si un dato no está, no se muestra.
+    x && x.veces != null ? {
+      // Corto, para que entre en su celda; el porqué completo va en el globo (`explicarMultiplo`).
+      k: 'Frente a su cuenta',
       v: rotuloCortoDeMultiplo(x), titulo: explicarMultiplo(x),
       tono: x.veces == null ? 'apagado' : x.veces >= 1.5 ? 'good' : x.veces < 0.5 ? 'bad' : undefined,
     } : null,
@@ -246,7 +250,8 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
   const numeros = posibles.filter((n): n is NumeroDetalle => !!n);
   // Lo que dice su texto: la descripción de un video de YouTube o el texto de una publicación o un anuncio. El de un reel
   // va arriba, en su guion: su texto es el que acompaña al video y se ve en Instagram.
-  const textoPropio = p.texto?.replace(/#[\p{L}\p{N}_]+/gu, '').trim() || null;
+  // Sus links, como su sitio y su camino (sin el «?utm_…» que llenaba renglones); antes que los hashtags, por el «#» de un link.
+  const textoPropio = (p.texto ? linksLegibles(p.texto) : '').replace(/#[\p{L}\p{N}_]+/gu, '').trim() || null;
   const rotuloTexto = esVideoYt ? 'Descripción' : 'Su texto';
 
   const hacerUnoAsi = async () => {

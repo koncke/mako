@@ -163,7 +163,11 @@ export function tilesDeHoja(piezas: readonly PiezaConLugar[]): ReadonlyMap<strin
 const bloque = (t: Tokens): string => Object.entries(t).map(([k, v]) => `${k}:${v}`).join(';');
 const mezcla = (c: string, pct: number) => `color-mix(in srgb, ${c} ${pct}%, transparent)`;
 
-/** Lo que adentro de un tile deja de ser de la hoja y pasa a ser de su color. */
+/**
+ * Lo que adentro de un tile deja de ser de la hoja y pasa a ser de su color. `--surface` NO se pisa (es el fondo de los menús
+ * y avisos que se abren desde la tarjeta): por eso el botón de filtro de la tarjeta va transparente adentro del tile, en
+ * CSS_CORBEL. Sin eso salía como un cuadrado blanco con el ícono blanco adentro (10/11/2026, Focus del ws 3).
+ */
 const adentroDeTile = (tinta: string, rotulo: number): string => [
   // La línea de un número con tendencia es la primera serie: sin esto, negra sobre el tile negro (y clara sobre el claro, en oscuro).
   `--cb-c1:${tinta}`,
@@ -198,6 +202,7 @@ ${PALETAS_CSS}
 [data-paleta] [data-tile="mint"]{--cb-tile:var(--cb-mint);${adentroDeTile('var(--cb-on-tile)', 76)}}
 [data-paleta] [data-tile="lemon"]{--cb-tile:var(--cb-lemon);${adentroDeTile('var(--cb-on-tile)', 76)}}
 [data-paleta] [data-tile="coral"]{--cb-tile:var(--cb-coral);${adentroDeTile('var(--cb-on-tile)', 76)}}
+[data-paleta] [data-tile] .mf-btn:not([data-activo]):not(:hover){background:transparent}
 [data-paleta] .lk-comp--portada{--portada-fondo:var(--cb-ocean) !important;--portada-tinta:var(--cb-on-ocean) !important;border-radius:22px;padding:20px;gap:10px;box-shadow:none}
 [data-paleta] .lk-comp--portada::before{display:none}
 [data-paleta] .lk-comp--portada .lk-comp-tit,[data-paleta] .lk-comp--portada.lk-comp--kpi .lk-comp-tit,[data-paleta] .lk-comp--portada .gb-tit{font-size:15px;font-weight:600;letter-spacing:-.075px;line-height:21.75px;color:var(--portada-tinta)}

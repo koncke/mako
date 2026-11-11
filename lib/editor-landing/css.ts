@@ -439,6 +439,11 @@ const OPTIMIZADO: string[] = [
   r(opt(D, FILA), '--gm-n: var(--gm-n-fila);'),
   // data-cols explícito gana sobre el modo (misma especificidad, va después).
   ...rango(6).map((c) => r(D + ' .gm-optimizado[data-cols="' + c + '"]', '--gm-n: ' + c + ';')),
+  // Con la foto al costado el texto ocupa ~60% de la tarjeta, y cuatro cifras de 3.2em no entran en cuatro columnas (11/11/2026,
+  // la réplica de acquisition.com en producción: columnas de 103px para un «10,000» de 150px, «10,00081» pegados y los rótulos
+  // partidos). Van de a pares, como en el celular (DE_A_DOS), salvo que la persona haya elegido las columnas.
+  r(D + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"]) .gm-optimizado:is([data-variante="numeros-grandes"], [data-variante="estadisticas-circulares"]):is([data-cols="auto"], :not([data-cols]))',
+    '--gm-n: var(--gm-n-pares);'),
   ...indices,
   r(D + ' .gm-item', 'position: relative; min-width: 0; display: flex; flex-direction: column; gap: 0.65em; counter-increment: gm-item;'),
   r(D + ' .gm-item-marca', 'flex: none; display: flex; align-items: center; justify-content: flex-start; gap: 0.5em; min-width: 0; color: var(--gm-acento-texto, currentColor);'),
@@ -580,6 +585,12 @@ const OPTIMIZADO: string[] = [
 
   // ── Estadísticas ──
   r(opt(D, ['numeros-grandes', 'metrica-destacada'], ' .gm-item-valor'), 'font-size: 3.2em;'),
+  // La cifra nunca se sale de su columna (11/11/2026, la réplica de acquisition.com en el teléfono: columnas de 138px, «10,000»
+  // de 164px y «10,00081» pegados). El ítem es un contenedor y la letra es la menor entre 3.2em y lo que entra: el ancho de la
+  // columna (100cqi) repartido entre los caracteres (`--gm-largo`, especificacion.ts) a ~0.6em cada uno. Con un piso de 6: las
+  // cifras de hasta 6 caracteres salen todas del mismo tamaño (la fila queda pareja) y sólo una más larga se achica más.
+  r(opt(D, ['numeros-grandes'], ' > .gm-item'), 'container-type: inline-size;'),
+  r(opt(D, ['numeros-grandes'], ' .gm-item-valor'), 'font-size: min(3.2em, calc(100cqi / (max(var(--gm-largo, 6), 6) * 0.6))); white-space: nowrap;'),
   r(opt(D, ['metrica-destacada'], ' > .gm-item:first-child'), 'grid-column: 1 / -1;'),
   r(opt(D, ['metrica-destacada'], ' > .gm-item:first-child .gm-item-valor'), 'font-size: 5em;'),
   r(opt(D, ['numeros-grandes', 'metrica-destacada'], ' > .gm-item[data-destacado="si"] .gm-item-valor'), 'background-image: var(--gm-titulo-degradado, none); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: var(--gm-titulo-relleno, currentColor); color: var(--gm-titulo, inherit);'),
@@ -620,6 +631,14 @@ const OPTIMIZADO: string[] = [
   r(opt(D, ['galeria'], ' .gm-item-imagen'), 'aspect-ratio: 4 / 3;'),
   r(opt(D, ['galeria'], ' .gm-item-cuerpo'), 'font-size: 0.85em; color: var(--gm-texto-tenue, inherit);'),
   r(opt(D, ['imagenes-texto'], ' .gm-item-imagen'), 'aspect-ratio: 16 / 10;'),
+  // El lugar de la foto de un ítem SIN foto (prueba en producción del 10/11/2026): en la galería y en «Imágenes con texto» medía 0,
+  // y «Un vistazo a la guía» de la plantilla Lead magnet se veía como tres títulos sueltos (las redondas ya dejaban su círculo).
+  // En el editor y en la miniatura de trabajo se dibuja como la imagen vacía (arriba) y tocarlo elige la foto
+  // (editor/nodos/OptimizadoVista.tsx); la publicada no lo muestra.
+  r([...opt(D + '[data-modo="editor"]', ['galeria', 'imagenes-texto'], ' .gm-item-marca:empty'), ...opt(D + '[data-marcadores="si"]', ['galeria', 'imagenes-texto'], ' .gm-item-marca:empty')],
+    'display: grid; place-items: center; place-content: center; aspect-ratio: 4 / 3; border: 0.0625em dashed var(--gm-borde-neutro, rgba(0,0,0,0.2)); border-radius: var(--gm-radio-caja, 0.35em); background: var(--gm-superficie, rgba(127,127,127,0.08)); color: var(--gm-texto-tenue, inherit); font-size: 0.85em;'),
+  r([...opt(D + '[data-modo="editor"]', ['imagenes-texto'], ' .gm-item-marca:empty'), ...opt(D + '[data-marcadores="si"]', ['imagenes-texto'], ' .gm-item-marca:empty')], 'aspect-ratio: 16 / 10;'),
+  r(opt(D + '[data-modo="editor"]', ['galeria', 'imagenes-texto'], ' .gm-item-marca:empty::after'), 'content: "Agregar imagen"; cursor: pointer;'),
   r(opt(D, ['imagenes-circulares', 'equipo'], ' > .gm-item'), 'align-items: center; text-align: center;'),
   r(opt(D, ['imagenes-circulares', 'equipo'], ' .gm-item-marca'), 'display: flex; justify-content: center; width: min(70%, 9em); aspect-ratio: 1; border-radius: 50%; overflow: hidden; background: var(--gm-superficie, rgba(127,127,127,0.12));'),
   r(opt(D, ['imagenes-circulares', 'equipo'], ' .gm-item-imagen'), 'width: 100%; height: 100%; aspect-ratio: 1; border-radius: 50%;'),
@@ -972,6 +991,9 @@ function movil(p: string): string[] {
     // La imagen al costado pasa arriba (12.5em), como en Gamma.
     r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"])', 'grid-template-columns: minmax(0, 1fr); grid-template-areas: "acento" "cuerpo"; grid-template-rows: auto 1fr; min-height: 0;'),
     r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"], [data-diseno="arriba"]) > .gm-acento', 'height: 12.5em; border-radius: var(--gm-radio-tarjeta, 0.6em) var(--gm-radio-tarjeta, 0.6em) 0 0;'),
+    // La del costado era una columna ALTA (un retrato entra con la cara); como franja apaisada, cortada por el medio, mostraba
+    // el torso sin la cabeza (11/11/2026, la réplica de acquisition.com en el teléfono). Se mira la parte de arriba.
+    r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"]) > .gm-acento', 'background-position: 50% 15%;'),
     r(p + ' .gm-tarjeta[data-diseno="fondo"]', 'min-height: 20em;'),
     r(p + ' .gm-tarjeta[data-alto="pantalla"]', 'min-height: calc(100vh - 3em); min-height: calc(100svh - 3em);'),
     r(p + ' h1.gm-titulo', tamTitulo(2.6)),

@@ -39,9 +39,10 @@ import {
 import { claveTiempo, clavesDelRango, fmtValor, periodoAnterior, type Resultado } from '@/lib/graficos-agregar';
 import { firmaDe, hojaDestino } from '@/lib/graficos-plantillas';
 import { cambioEnPalabras, fraseEnTexto, tramosDeFrase } from '@/lib/graficos-frase';
+import { fraseMarketing } from '@/lib/marketing-diseno';
 import { pedidosDeHoja } from '@/app/dashboard/exportar';
 import {
-  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, deltaDe, etiquetaBarra, periodoDe,
+  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, conUnidad, deltaDe, esCostoSobreGasto, etiquetaBarra, faltaConectar, noSeLeyo, periodoDe, rotuloDePieza,
   type BarraM, type GraficoM, type HojaM, type ModoDelta, type NumeroM, type PeriodoM,
 } from './modelo';
 
@@ -299,38 +300,67 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
       const en = out.graficoSiguePeriodo ? periodo?.en : serie.periodo !== 'auto' ? periodoDe(serie.periodo)?.en : !control ? periodoDe(PERIODO_DEFAULT)?.en : undefined;
       const textoTotal = met?.razon || met?.sinTotal ? fmtValor(total, formato) : `${fmtValor(total, formato)}${en ? ` ${en}` : ''}`;
       out.grafico = {
-        titulo: tituloDe(serie),
+        // Con varias métricas se dibuja la primera: el título es el de ESA (`rotuloDePieza`).
+        titulo: rotuloDePieza(tituloDe(serie), serie.metricas, met?.nombre),
         barras: barrasDe(res, dim, (v) => fmtValor(v, formato)),
         total: textoTotal,
         moneda: formato === 'usd',
         entero: formato === 'numero' && !met?.razon,
       };
-    } else {
+    } else if (noSeLeyo([r])) {
+      // Sólo si la lectura FALLÓ: leída y sin columnas es «sin dato», no «no pudimos leer» (11/11/2026).
       out.graficoError = ERROR_LECTURA;
     }
   }
+  // ⚠️ SIN GASTO NO HAY COSTO (11/11/2026, Marketing del ws 3 en el teléfono): «Costo por agenda US$0» decía que cada agenda salió
+  // gratis, sin anuncios. Con el gasto leído en cero, una razón sobre el gasto (costo por agenda, por lead…) va como «—».
+  const gastoCero = [...usados].some((id) => {
+    const r = datos[id];
+    if (!r?.ok) return false;
+    const i = r.resultado.columnas.findIndex((c) => c.id === 'gasto');
+    return i >= 0 && r.resultado.totales[i] === 0;
+  });
   out.numeros = numeros.map((g) => {
     const r = datos[g.id];
     if (!r?.ok || !r.resultado.columnas[0]) return { id: g.id, k: tituloDe(g), v: '—', delta: null };
     const res = r.resultado;
     const formato = res.columnas[0].formato;
     const tono = tonoDe(g.fuente, g.metricas[0]);
+    const fuente = fuenteDe(g.fuente);
+    if (gastoCero && esCostoSobreGasto(fuente ? metricaDe(fuente, g.metricas[0]) : undefined)) return { id: g.id, k: tituloDe(g), v: '—', delta: null };
     const v = res.totales[0] ?? null;
+    const nombre = fuente ? metricaDe(fuente, g.metricas[0])?.nombre : undefined;
     return {
       id: g.id,
-      k: tituloDe(g),
-      v: fmtValor(v, formato),
+      // Con varias métricas se ve la primera: el rótulo es el de ESA («Leads 135», no «Primer contacto 135»).
+      k: rotuloDePieza(tituloDe(g), g.metricas, nombre),
+      v: conUnidad(fmtValor(v, formato), nombre, tituloDe(g)),
       delta: deltaDe(v, res.anterior?.[0] ?? null, modoDe(formato), tono === 'bueno' ? true : tono === 'malo' ? false : null),
     };
   });
-  if (numeros.length && out.numeros.every((n) => n.v === '—')) out.numerosError = ERROR_LECTURA;
+  // ⚠️ «No pudimos leer» sólo si las lecturas FALLARON (11/11/2026, Anuncio ganador y Hooks en el ws 3): con todos los números
+  // en «—» porque no hubo datos en el período, el teléfono decía «No es nada tuyo · Reportar a Soporte» de algo que se leyó bien.
+  if (noSeLeyo(numeros.map((g) => datos[g.id]))) out.numerosError = ERROR_LECTURA;
+  // ⚠️ NADA LEÍDO PORQUE FALTA CONECTAR NO ES UNA FALLA (10/11/2026, Closing en el ws 3 sin grabador): el teléfono decía dos
+  // veces «No pudimos leer estos números. No es nada tuyo» con «Reportar a Soporte», y la compu, «Conecta tu grabador…».
+  // Si no se leyó nada y lo que volvió es `sinConexion`, se dice ESE texto, una vez.
+  const falta = faltaConectar([...usados].map((id) => datos[id]));
+  if (falta) return { ...out, falta, grafico: null, graficoError: null, numeros: [], numerosError: null, frase: null };
   // La oración de apertura, escrita con la MISMA regla que escritorio: un tramo sin dato no se dice.
   if (frase) {
     const r = datos[frase.id];
     if (r?.ok) {
       const res = r.resultado;
-      const tramos = tramosDeFrase(frase.frase, res.columnas, (i) => (res.totales[i] == null ? null : fmtValor(res.totales[i], res.columnas[i].formato)), (i) => cambioEnPalabras(res.totales[i], res.anterior?.[i]));
-      out.frase = tramos.length ? fraseEnTexto(tramos) : null;
+      const total = (id: string) => { const i = res.columnas.findIndex((c) => c.id === id); return i >= 0 ? res.totales[i] ?? null : null; };
+      if (h.diseno?.id === 'marketing') {
+        // La hoja Marketing dice en el teléfono la MISMA frase que su diseño en la compu (lib/marketing-diseno.ts): la de la
+        // plantilla decía «Gastaste US$0 en anuncios · trajeron 3 agendas · cada una costó US$0» sin pauta (11/11/2026).
+        const t = fraseMarketing(total('gasto'), total('agendas'), total('cpa')).map((x) => x.s).join('');
+        out.frase = t || null;
+      } else {
+        const tramos = tramosDeFrase(frase.frase, res.columnas, (i) => (res.totales[i] == null ? null : fmtValor(res.totales[i], res.columnas[i].formato)), (i) => cambioEnPalabras(res.totales[i], res.anterior?.[i]));
+        out.frase = tramos.length ? fraseEnTexto(tramos) : null;
+      }
     }
   }
   return out;

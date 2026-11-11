@@ -563,7 +563,7 @@ function denegarRol(req: NextRequest, pathname: string) {
 // ruta dinámica de app/ y con cada archivo de public/.
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|\\.well-known/|(?:[^/]+|(?:asesores|cono-portadas|cono-ugc|formatos|logos|replay|sin-conexion|tutoriales|vsl-assets)/.*)\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|\\.well-known/|(?:[^/]+|(?:asesores|cono-portadas|cono-ugc|formatos|logos|replay|sin-conexion|tutoriales|vsl-assets|web-generator/outliers)/.*)\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)',
     { source: '/:path*', has: [{ type: 'header', key: 'next-action' }] },
     { source: '/:path*', has: [{ type: 'header', key: 'content-type', value: 'multipart/form-data.*' }] },
     { source: '/:path*', has: [{ type: 'header', key: 'content-type', value: 'application/x-www-form-urlencoded.*' }] },

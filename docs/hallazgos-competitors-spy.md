@@ -13,6 +13,106 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## La tercera mirada, con todo desplegado: lo que la referencia no decía (11/11/2026)
+
+**Vive en:** `app/competitor-spy/SpyApp.tsx` (`.spy-pcard__pie`, `recargarSugeridos`, el aviso de la cola) · `lib/spy-vista.ts`
+(`linksLegibles`). Informe: `docs/pruebas/competitor-spy-10-11.md`, «Tercera vuelta». Test: `tests/mirada-prod-11-11.test.ts`.
+
+- **El pie de fitlo no sirve para un video de YouTube.** fitlo pone la píldora del número AL LADO del nombre porque sus nombres son
+  cortos («Merino tee»). Con los títulos de Leila, aun en dos renglones, 14 de 15 quedaban cortados: el nombre tenía 104 px de 234.
+  La píldora sube a la fila de su tipo y el nombre va debajo, de lado a lado (3 de 15 cortados, los de más de ~60 letras).
+  **Copiar la referencia también es medirla con NUESTROS datos.**
+- **Una descripción de YouTube es casi toda rastreo:** `?utm_source=…&utm_medium=…&utm_campaign=…`. Lo que importa es a dónde
+  manda: `linksLegibles` deja el sitio y el camino.
+- **`sugeridosAction` existía y nadie la llamaba:** dejar de mirar a alguien sumado desde «Sugeridos» no lo devolvía ahí hasta
+  recargar. Ahora `quitar` y `quitarDeLaLista` vuelven a pedir los sugeridos.
+- **`haceCuanto` ya trae el «hace»:** «la que más espera lleva hace 1 d en la cola» salía así desde el 6/11. Una frase que
+  necesita la duración sola le saca el «hace».
+
+## En «Todas sus piezas», las publicaciones (carruseles e imágenes) salen sin miniatura (11/11/2026)
+
+Recorriendo la grilla de Federico Cristofari (ws 9, `competidor=20`) para la maqueta de Marketing CoPilot, ninguna tarjeta de tipo «Publicación» tenía `<img>` en las páginas 10 a 16. Son 71 piezas. Los reels y los videos sí la tienen: viven en el almacenamiento público `spy-miniaturas/spy/<red>/<id>.jpg`.
+
+En «Lo que mejor le fue» sí apareció una publicación con imagen (`instagram/DHSB3f3sMPl`, «Tarde de mates»). No lo seguí más.
+
+Es coherente con lo que dice el relevo orgánico: con Meta oficial, las láminas del carrusel quedan en null. Para mostrar los carruseles de alguien (la cara de su Instagram), hace falta la primera lámina.
+
+**Sin hacer:** confirmar la causa. Lo más probable es la de `lib/spy-miniaturas-relleno.ts`: las miniaturas que no se bajaron a tiempo quedan apuntando al CDN de la red, que vence y da 403, y el relleno sólo las rescata mientras la URL sirve. No lo verifiqué. Vive en `lib/spy-miniaturas.ts` y `lib/spy-miniaturas-relleno.ts`.
+## «Su web» puede ser un acortador que abre un video de YouTube, y la oferta sale citada en inglés (11/11/2026)
+
+**Síntoma:** la nota de la oferta de Federico Cristofari (ws 9, `competidor=20`, 46/100) cita frases en inglés: «This event is for you if you own a business…», «We generated $145,000 in one month…», «October 26, 27, and 28». Es un creador argentino que publica en español.
+
+**El diagnóstico obvio era el equivocado:** no tiene una web en inglés. Su «web» (la que muestra «Sus páginas») es `linktw.in/pywydg`. Ese link no lleva a una página: abre su video de YouTube «Forget everything you know about content…», y la descripción del video manda a otro link, `linktw.in/fc-fede-yt`.
+
+**Lo que se leyó:** YouTube devuelve el título y la descripción doblados al idioma de quien pide («Auto-dubbed»). Con un navegador en inglés, la descripción llega traducida. El original dice «Registro al evento 26,27,28 de octubre…».
+
+- **Lo que está medido:** abriendo el link con Chrome sin ventana en inglés, la descripción sale en inglés y marcada «Auto-dubbed».
+- **Lo que no verifiqué:** que el lector del Spy (`lib/spy-oferta.ts`, los `enlaces`) pida en inglés. Es lo más probable.
+
+**La regla que queda:**
+- Cuando «su web» resuelve a `youtube.com/watch`, no es una página de venta: es un video.
+- Si se lee, se pide en el idioma del negocio (`Accept-Language`), o se toma la descripción original.
+- La nota de la oferta no tendría que citar una traducción automática como si fuera el texto del negocio.
+
+**Sin hacer:** el lector de la web del Spy no distingue un acortador que abre YouTube de una página. Vive en `lib/spy-oferta.ts`.
+## La prueba en producción del 10/11/2026: lo que se rompía sin dar error
+
+Informe caso por caso: [pruebas/competitor-spy-10-11.md](pruebas/competitor-spy-10-11.md). Nueve fallas, nueve arregladas
+(`tests/spy-pruebas-10-11.test.ts`). Acá van las trampas, no el changelog.
+
+- **Un `.limit()` de más de 1000 no trae más de 1000.** `resumenDePiezas` pedía `.limit(5000)` y PostgREST devolvió 1000 sin
+  avisar: la tarjeta de Alex Hormozi decía «363 piezas» con 500 en su ficha, y en el ws 9 (~2.500 piezas) casi todas las
+  tarjetas estaban cortas. **Regla: toda lectura de `spy_piezas` que pueda pasar de 1000 filas va por `leerPorPaginas`.** Queda
+  una igual: `marcarDejadas` (`lib/spy.ts`), que con más de 1000 piezas vivas en un canal deja de marcar las de más allá.
+- **Un `<aside>` en una pantalla es un riel del alto de la ventana para quien mira como agencia.** La regla global
+  `[data-barra-agencia] aside` (app/globals.css) es para el menú lateral pero toma cualquier `<aside>`: el riel de la ficha
+  quedó en 850 px con 1.378 de contenido, y lo que sobraba se dibujaba encima de la grilla. Sólo se ve con la barra de agencia
+  arriba, así que el cliente no lo ve y Martín sí. Ya lo esquivaron el Dashboard, el Video y el Web Generator.
+- **Una fecha «corta» en UTC es el día siguiente todas las tardes en México.** `fechaCorta` usaba `getUTCDate()`: a las 22 h
+  de Argentina, «lo seguimos desde el 11 nov» el 10. Tampoco sirve la zona del navegador (la lista y la ficha se dibujan primero
+  en el servidor y la fecha distinta rompe la hidratación): va en la zona del producto, fija.
+- **El diagnóstico obvio era el equivocado, dos veces, con «Webinar en vivo».** Leila Hormozi salía como webinar por reels que
+  dicen «Episode 1 of Dear Leila is live» (= ya salió). El primer arreglo —descartar «is/now live»— dejó el webinar igual: quedaban
+  «unfiltered answers, live» (su programa en YouTube) y el verbo («Live Like the 1%»), y con «masterclass» en una sola pieza
+  alcanzaba la regla de dos débiles. **«live» suelto en inglés no es una señal**: ahora cuenta pegado a lo que se agenda («live
+  training/class/Q&A…») o en «join me live» (`SOLO_EN_CONTEXTO`, lib/spy-funnel-tipo.ts). Para medir: `clasificarFunnel` sobre
+  las piezas reales del competidor, bajadas de la base en lectura; con 637 piezas tarda un segundo.
+- **«Las portadas no cargan» no era el almacenamiento.** Las 180 del gráfico estaban guardadas y respondían 200; el gráfico
+  esperaba 3 s (`TOPE_PRECARGA_MS`) y lo que no llegaba no se dibujaba nunca. La causa de fondo es el PESO: 250 KB a 1 MB por
+  portada para una tarjeta de 200 px. Ahora llegan tarde; achicarlas al guardarlas sigue pendiente.
+- **«El borrado no se refleja» no era una carrera con otra lectura.** Medido con un registro de `fetch`: desde la ficha, después
+  de `irA(null)` (un `history.pushState`), la server action `competidoresAction` NO SE MANDA; desde la «×» de la tarjeta (sin
+  navegar) sí. La causa dentro de Next no se encontró; el arreglo no depende de ella (se saca de la lista en el acto). Si otra
+  acción tiene que correr justo después de un `pushState`, conviene medir que salga.
+- **«El cron de las traídas largas está roto» tampoco.** Corre cada hora (`cron.rotacion.spy-todo` se mueve), pero desde el 4/11
+  no empieza ninguna corrida: el crédito de Apify está bajo la reserva y `pasoDeCanal` contesta `sin-credito` sin decirlo en
+  ninguna pantalla. El registro `spy.todo` del ws 9 quieto desde el 4/11 es la señal. Los 17 competidores sólo con nombre siguen
+  vacíos por eso; es una decisión de plata.
+- **Abrir una ficha del ws 9 gasta la clave de Martín.** Una ficha de más de 24 h lee Instagram (Apify) al abrirse
+  (`debeLeerAlAbrir`), y `traerTodo` arranca la traída larga. Para probar sin gastar: en el ws 3 (sin clave), «Sumar» un sugerido
+  copia lo ya leído gratis, y el alta por YouTube va por la cuota gratis de la API.
+- **Los sugeridos sin ninguna red se dejan de ofrecer** (`tieneDondeLeerlo`, lib/spy-sugeridos.ts): «Sumar» uno así dejaba al
+  cliente una ficha vacía, porque sus anuncios no se copian a otro negocio.
+
+**La segunda vuelta (11/11), MIRANDO con capturas, encontró ocho más que la primera no vio leyendo:**
+
+- **Martín y el cliente no ven la misma ficha.** Con la barra de agencia, la regla de `<aside>` cortaba el riel en 850 px (y lo
+  dejaba tapar la grilla); sin ella —el cliente— el riel medía 1.378 y «terminan en la misma línea» estiraba «¿Qué formatos le
+  funcionan?» a **739 px con 82 de contenido**. Arreglar el `<aside>` habría llevado la caja vacía a la vista de Martín. **Una
+  pantalla se mira también sin la barra de agencia** (sacarle `data-barra-agencia` al `<html>` en la consola alcanza). El arreglo
+  copia la tercera fila de merrin: el riel lleva lo del alto de la columna de al lado y lo demás baja.
+- **Una miniatura para 34 px no se baja de 85 KB.** La chica de YouTube (`i.ytimg.com/vi/<id>/mqdefault.jpg`) pesa 4,7 KB, es la
+  misma imagen y no vence: `miniaturaChica` (lib/spy-vista.ts) la usa para todo lo chico. Instagram no tiene una pública.
+- **Una web ajena puede pintar bien, avisar que pintó, y romperse después** dentro del marco aislado: acquisition.com quedó en
+  «This page couldn’t load» (el error de cliente de Next.js nuevo, que `esPaginaDeError` no conocía). El aviso de pintado se
+  repite a 1,2 y 3 s; si el error llega después de eso, todavía se ve.
+- **«Sumar» no copiaba `medio` ni `laminas`**: un carrusel copiado decía «Publicación».
+- **El CSS de SpyApp vive en una plantilla de texto: un comentario con comillas invertidas la cierra y rompe el archivo
+  entero.** Los tests de esta tab leen el archivo como TEXTO y dieron verde; lo frenó `scripts/hooks-en-orden.sh` en el push
+  (eslint no lo pudo leer). En esos comentarios, las clases van entre «».
+
+---
+
 ## Los outliers de video para la tab Video: lo que ya pagamos y tiramos (9/11/2026, nube)
 
 **Pedido** (Martín): conseguir los reels y anuncios que más funcionan, para que sean lo primero de la tab Video. El informe

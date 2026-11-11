@@ -130,7 +130,7 @@ export const PLANTILLAS_VENTA_AVATAR: readonly PlantillaVentaAvatar[] = Object.f
     negocio: 'Cierre Consultivo',
     rubro: 'Coach de ventas',
     presetId: 'auto-testimonio',
-    detalle: 'Con blusa blanca de lino',
+    detalle: 'Con camisa blanca de lino',
     estructuraId: 'pas',
     duracion: 33,
     voz: 'mexicano-mujer-1',
@@ -493,7 +493,7 @@ export const PLANTILLAS_VENTA_AVATAR: readonly PlantillaVentaAvatar[] = Object.f
     negocio: 'Torre Alameda',
     rubro: 'Inmobiliaria',
     presetId: 'sala-de-ventas',
-    detalle: 'Con blusa clara',
+    detalle: 'Con camisa clara',
     estructuraId: 'bab',
     duracion: 30,
     voz: 'mexicano-mujer-1',
@@ -554,6 +554,7 @@ export function estructuraComoGuion(p: PlantillaVentaAvatar): string {
 export const PRESETS_NUEVOS_VENTA: readonly PlantillaAvatar[] = Object.freeze([
   {
     id: 'pizarra-estudio',
+    ejemplo: { poster: '/formatos/presets/pizarra-estudio.jpg' },
     nombre: 'Pizarra en el estudio',
     categoria: 'Negocio',
     resumen: 'Explicas tu método junto a una pizarra, en un estudio luminoso.',
@@ -566,6 +567,7 @@ export const PRESETS_NUEVOS_VENTA: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'cocina-manana',
+    ejemplo: { poster: '/formatos/presets/cocina-manana.jpg' },
     nombre: 'Mañana en la cocina',
     categoria: 'Instagram',
     resumen: 'Hablas a cámara con la taza de la mañana, como en un día cualquiera.',
@@ -578,6 +580,7 @@ export const PRESETS_NUEVOS_VENTA: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'calle-microfono',
+    ejemplo: { poster: '/formatos/presets/calle-microfono.jpg' },
     nombre: 'Entrevista en la calle',
     categoria: 'UGC y TikTok',
     resumen: 'Respondes una pregunta con un micrófono en la mano, en plena calle.',
@@ -590,6 +593,7 @@ export const PRESETS_NUEVOS_VENTA: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'despacho-noche',
+    ejemplo: { poster: '/formatos/presets/despacho-noche.jpg' },
     nombre: 'Despacho al anochecer',
     categoria: 'Negocio',
     resumen: 'Hablas apoyado en el escritorio, con la ciudad encendida detrás.',
@@ -602,6 +606,7 @@ export const PRESETS_NUEVOS_VENTA: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'sala-de-ventas',
+    ejemplo: { poster: '/formatos/presets/sala-de-ventas.jpg' },
     nombre: 'Sala de ventas',
     categoria: 'Negocio',
     resumen: 'Atiendes desde el escritorio de una oficina de ventas luminosa.',
@@ -621,4 +626,16 @@ export function seccionDelGuion(guion: string, etiqueta: string, etiquetas: read
   if (i < 0) return '';
   const fin = lineas.findIndex((l, j) => j > i && etiquetas.includes(l.trim().replace(/:$/, '')));
   return lineas.slice(i + 1, fin < 0 ? undefined : fin).join(' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * El gancho del ejemplo, para la tarjeta de «Nuevo avatar»: el primer texto en pantalla y lo que dice el avatar en
+ * la primera sección. Es copy REAL del ejemplo; la tarjeta antes repetía el nombre de la plantilla como título (11/11/2026).
+ */
+export function ganchoDeEjemplo(p: PlantillaVentaAvatar): { enPantalla: string; dice: string } {
+  return {
+    // El primer tramo CON texto: hay ganchos que arrancan sin texto en pantalla («Carta del fundador»).
+    enPantalla: p.ejemplo.tramos.find((t) => t.texto.trim())?.texto ?? '',
+    dice: p.estructura[0] ? seccionDelGuion(p.ejemplo.guion, p.estructura[0], p.estructura) : '',
+  };
 }

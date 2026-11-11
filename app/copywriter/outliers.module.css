@@ -1,0 +1,24 @@
+/* La portada de outliers del Copywriter (./OutliersCopy.tsx, D18): lo que la de Image no tiene. El resto (encabezado,
+   pastillas, segmento, grilla, tarjeta, «×», creador, vacío, el modal abierto) usa las clases de
+   app/image-editor/carruseles/explorar.module.css, y lo que agregó Video (el aviso de una fuente caída, el total, el extracto),
+   las de app/video-editor/outliers.module.css: una portada, un diseño. Sólo tokens de la casa. */
+
+/* El original abierto: donde Image pone las láminas, el TEXTO (lo que se replica de un copy), entero y legible. */
+.textoOriginal {
+  position: absolute; inset: 0; overflow-y: auto; padding: 22px 24px; text-align: left; white-space: pre-wrap; word-break: break-word;
+  font-size: 14.5px; line-height: 1.6; color: var(--ink); background: var(--surface);
+}
+/* Con imagen: la pieza arriba (entera, sobre el fondo oscuro del visor) y el texto abajo, con su scroll. Los selectores llevan
+   dos clases porque `.visorMarco img` (de Image) pone la imagen a todo el alto. */
+.conImagen { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--surface); }
+.conImagen > img.imagenOriginal { flex: 0 0 56%; width: 100%; height: 56%; object-fit: contain; background: #0d0f13; }
+.conImagen > .textoBajo { position: static; inset: auto; flex: 1 1 auto; min-height: 0; border-top: 1px solid var(--border); }
+.deDonde {
+  display: block; margin: 0 0 10px; font-size: 11.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--dim);
+}
+
+/* En el teléfono los botones van debajo del título, en una fila que se desliza: alineados a la izquierda (centrados, lo que
+   no entraba quedaba cortado de los DOS lados y el principio no se podía alcanzar). La clase doble gana a `.botones` de Image. */
+.botonesTelefono.botonesTelefono { justify-content: flex-start; }
+/* Y su fila ocupa el ancho de la pantalla: el encabezado centra a sus hijos, y la fila (más ancha que la pantalla) se salía por los dos lados. */
+.filaTelefono.filaTelefono { align-self: stretch; min-width: 0; }

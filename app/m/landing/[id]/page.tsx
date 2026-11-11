@@ -46,7 +46,8 @@ import { AccionesLandingM } from './AccionesLandingM';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const VOLVER = { rotulo: 'Volver a las landings', href: '/m/landing' };
+// La lista, no la portada de outliers (que es la entrada de /m/landing desde el 11/11/2026).
+const VOLVER = { rotulo: 'Volver a las landings', href: '/m/landing?ver=lista' };
 
 export default async function LandingTrabajoMovil({ params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireMovil({ navKey: 'landing-writer' });

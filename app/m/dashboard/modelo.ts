@@ -131,9 +131,52 @@ export type HojaM = {
   cobranzaError: string | null;
   /** La oración de apertura de la hoja (tipo `frase`, lib/graficos-frase.ts), ya escrita. Ausente o null = la hoja no tiene. */
   frase?: string | null;
+  /**
+   * Lo que FALTA CONECTAR para que la hoja tenga números («Conecta tu grabador de reuniones…»), el MISMO texto de la compu.
+   * Con esto la hoja no falló: no se dice «No es nada tuyo · Reportar a Soporte» (10/11/2026, Closing en el ws 3).
+   */
+  falta?: string | null;
 };
 
 export const ERROR_LECTURA = 'No pudimos leer estos números. No es nada tuyo.';
+
+/**
+ * Lo que falta conectar, si NADA de la hoja se leyó y lo que volvió es «falta conectar» (`sinConexion`, lib/graficos-datos.ts):
+ * ese texto, el mismo de la compu. Con una sola lectura buena, o sin ninguna `sinConexion`, null (es otra cosa).
+ */
+export function faltaConectar(lecturas: ReadonlyArray<{ ok: true } | { ok: false; error: string; sinConexion?: true } | undefined>): string | null {
+  if (lecturas.some((r) => r?.ok)) return null;
+  for (const r of lecturas) if (r && !r.ok && r.sinConexion) return r.error;
+  return null;
+}
+
+/**
+ * ¿No se pudo leer NADA? Sólo si hay lecturas y TODAS fallaron (o no llegaron). Leídas sin datos en el período no es «no pudimos
+ * leer»: con eso el teléfono decía «No es nada tuyo · Reportar a Soporte» de una hoja que se leyó bien (11/11/2026, ws 3).
+ */
+export const noSeLeyo = (lecturas: ReadonlyArray<{ ok: boolean } | undefined>): boolean => lecturas.length > 0 && lecturas.every((r) => !r?.ok);
+
+/** ¿Es un costo sobre el gasto (costo por agenda, por lead…)? Con el gasto en cero no hay costo que medir: va «—» (11/11/2026). */
+export const esCostoSobreGasto = (met: { razon?: { num: string } } | undefined): boolean => met?.razon?.num === 'gasto';
+
+/**
+ * El rótulo de una pieza en el teléfono, que dibuja SÓLO su primera métrica. Con una, el título de la tarjeta. Con varias, el
+ * nombre de la que se ve: Velocidad de llamada decía «Primer contacto 135» (eran los leads) y «Leads por día · 0 en 30 días»
+ * (eran sólo los contactados) en la misma pantalla (11/11/2026, producción a 375). Lo que dice el rótulo es lo que se ve.
+ */
+export function rotuloDePieza(titulo: string, metricas: readonly string[], nombrePrimera: string | undefined): string {
+  return metricas.length > 1 && nombrePrimera ? nombrePrimera : titulo;
+}
+
+/**
+ * El valor con la unidad que el catálogo dice entre paréntesis («Mediana de respuesta (min)») y el título de la tarjeta no
+ * («Tiempo de respuesta»): «10» → «10 min», «3» → «3 días». Sin eso el teléfono decía «Tiempo de respuesta 10» (11/11/2026).
+ */
+export function conUnidad(valor: string, nombreMetrica: string | undefined, titulo: string): string {
+  const u = /\((min|días)\)\s*$/.exec(nombreMetrica ?? '')?.[1];
+  if (!u || valor === '—' || new RegExp(`\\b${u}\\b`, 'i').test(titulo)) return valor;
+  return u === 'días' && valor === '1' ? '1 día' : `${valor} ${u}`;
+}
 
 // ── La variación contra el período anterior ─────────────────────────────────────────────────
 
@@ -255,7 +298,9 @@ export function geometria(valores: readonly number[], entero: boolean): Geometri
   const paso = pasoLindo(max, entero);
   const techo = max > 0 ? Math.ceil(max / paso) * paso : paso;
   const ticks: number[] = [];
-  for (let v = 0, i = 0; v <= techo + paso / 1000 && i < 12; v += paso, i++) ticks.push(Math.round(v * 1000) / 1000);
+  // Sin el ruido de la suma (0,1 + 0,2), pero a precisión RELATIVA: redondeado a milésimas, un eje de centavos de dólar
+  // (Contenido e IA: US$0,027 en el mes) quedaba en ceros.
+  for (let v = 0, i = 0; v <= techo + paso / 1000 && i < 12; v += paso, i++) ticks.push(Number(v.toPrecision(10)));
   const hueco = (W - IZQ) / n;
   const sep = n > 12 ? 2 : 8;
   const w = Math.max(1, Math.min(BARRA_MAX, hueco - sep));
@@ -280,6 +325,9 @@ export function ejeCompacto(v: number): string {
   const a = Math.abs(v);
   if (a >= 1_000_000) return `${(v / 1_000_000).toLocaleString('es-AR', { maximumFractionDigits: 1 })}M`;
   if (a >= 1000) return `${(v / 1000).toLocaleString('es-AR', { maximumFractionDigits: 1 })}k`;
+  // Debajo de 1, dos cifras significativas: con un decimal, el eje de lo gastado en IA decía «0 · 0 · 0 · 0» (11/11/2026, el
+  // teléfono en producción). Lo mismo que la compu (`rotuloEjeDolares`, lib/contenido-diseno.ts).
+  if (a > 0 && a < 1) return v.toLocaleString('es-AR', { maximumSignificantDigits: 2 });
   return v.toLocaleString('es-AR', { maximumFractionDigits: a < 10 ? 1 : 0 });
 }
 
