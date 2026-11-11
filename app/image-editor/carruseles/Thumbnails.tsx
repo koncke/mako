@@ -115,7 +115,7 @@ export function PanelThumbnails({ datos, f, cambiar, guardados, alternarGuardado
   };
   const botonTraer = link ? (
     <>
-      {errorTraer ? <p role="alert">{errorTraer}</p> : null}
+      {errorTraer ? <p role="alert">{errorTraer}<ReportarASoporte /></p> : null}
       <button type="button" className={s.boton} onClick={() => { void traer(); }} disabled={trayendo} aria-busy={trayendo || undefined}>{trayendo ? 'Trayendo…' : 'Traer esta miniatura'}</button>
     </>
   ) : null;

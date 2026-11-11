@@ -455,7 +455,7 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
                   : f.que === 'anuncios' && !anuncios
                     ? 'Todavía no hay anuncios de las cuentas que sigues. Spy los trae de la Biblioteca de Anuncios al leer cada cuenta.'
                     : 'Ningún ejemplo pasa estos filtros.'}</p>
-                {errorTraer && linkPegado ? <p role="alert">{errorTraer}</p> : null}
+                {errorTraer && linkPegado ? <p role="alert">{errorTraer}<ReportarASoporte /></p> : null}
                 {parecidosDe ? <button type="button" className={s.boton} onClick={() => setParecidosDe(null)}>Volver</button>
                   : linkPegado ? <button type="button" className={s.boton} onClick={() => { void traer(); }} disabled={trayendo} aria-busy={trayendo || undefined}>{trayendo ? 'Trayendo…' : 'Traer este carrusel'}</button>
                   // Guardados vacío (10/11/2026): no hay filtro que quitar, hay que volver a buscar qué guardar.
