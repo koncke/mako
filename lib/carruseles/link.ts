@@ -20,3 +20,15 @@ export function linkDeInstagram(texto: string | null | undefined): { ref: string
   const m = String(texto ?? '').trim().match(LINK_DE_PUBLICACION);
   return m ? { ref: m[1], url: `https://www.instagram.com/p/${m[1]}/` } : null;
 }
+
+/** El tipo de publicación que dice la dirección: `/reel/`, `/reels/` y `/tv/` son SIEMPRE un video; `/p/` puede ser cualquier cosa. */
+const LINK_DE_VIDEO = /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)?instagram\.com\/(?:[^/\s?#]+\/)?(?:reels?|tv)\/[A-Za-z0-9_-]{3,30}(?:[/?#]|$)/i;
+
+/**
+ * ¿El link es de un reel o de un video? (11/11/2026) Se sabe por la dirección, sin leerlo: «Traer tu outlier» lo rechaza ANTES de
+ * pagar la lectura de Apify (US$0,0027 medido ese día), que de todos modos terminaba en «es un reel». Un `/p/` puede ser un
+ * video igual: ése se descubre leyéndolo.
+ */
+export function esLinkDeVideo(texto: string | null | undefined): boolean {
+  return LINK_DE_VIDEO.test(String(texto ?? '').trim());
+}
