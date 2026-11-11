@@ -32,6 +32,8 @@ import { apartarChat, avanzar, destacarEnElChat, fraseEnElChat, guiaAhora, ignor
 const CHAT = '[data-mako-chat]';
 const GLOBO = '[data-guia-globo]';
 const DESTACADO = '[data-mako-destacado]';
+/** La caja donde se escribe dentro de un chat (app/admin/operaciones/centro.css): la frase de la guía no la tapa nunca. */
+const CAJA_DE_ESCRIBIR = '.co-caja-wrap, .co-caja';
 /** Cada cuánto se vuelve a buscar la pregunta marcada cuando no está a la vista (en vez de cada cuadro). */
 const ESPERA_SIN_MARCA_MS = 250;
 
@@ -108,7 +110,13 @@ export function VeloGuia() {
       const angosta = esAngosta(v.ancho, ANCHO_ANGOSTO) && !enChat;
       apartarChat(angosta);
       const medida = fraseRef.current?.getBoundingClientRect();
-      const frase = angosta ? null : { ...posicionFrase({ ancla: caja, frase: { ancho: medida?.width || 260, alto: medida?.height || 40 }, ventana: v, chats: enChat ? [] : chats }), texto };
+      // Con el ancla ADENTRO de un chat, la frase va al lado de la pregunta, en ese mismo chat: no se esquiva el chat entero, pero sí
+      // su caja de escribir (11/11/2026: en Image, «Contesta aquí para seguir.» quedaba encima de «Escríbele a MaKo», justo donde
+      // se contesta; docs/pruebas/image-10-11.md, caso 31).
+      const cajasDeEscribir = enChat
+        ? Array.from(el.closest(CHAT)?.querySelectorAll<HTMLElement>(CAJA_DE_ESCRIBIR) ?? []).filter(visible).map((c) => cajaDe(c.getBoundingClientRect()))
+        : [];
+      const frase = angosta ? null : { ...posicionFrase({ ancla: caja, frase: { ancho: medida?.width || 260, alto: medida?.height || 40 }, ventana: v, chats: enChat ? cajasDeEscribir : chats }), texto };
       const nuevo: Dibujo = {
         huecos: huecosDelVelo(caja, angosta ? [] : chats, v),
         aro: caja,

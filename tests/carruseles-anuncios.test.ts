@@ -4,6 +4,8 @@
 // «Quitar filtros» en un Anuncios recién abierto (10/11/2026, el recorrido de Image): los anuncios arrancan por días al aire, y
 // comparados con los de Carruseles «tenían filtros». `sinFiltrosDe` compara con los de su lado. Rompiéndolo (comparar contra
 // FILTROS_INICIALES) → 1 rojo; `filtrosInicialesDe` sin el orden de los anuncios → 1 rojo.
+// Y entrando por el link `?que=anuncios` (orden de Carruseles, que en Anuncios es días al aire): `sinFiltrosDe` sin `ordenEfectivo`
+// → 1 rojo (lo encontró el recorrido del 10/11 en el Chrome).
 //
 // Probado rompiéndolo (6/11/2026), base 6/0:
 //   · `anunciosDe` sin mirar el canal (entraba una publicación de Instagram como anuncio) → 1 rojo;
@@ -167,8 +169,11 @@ test('un Anuncios recién abierto no tiene filtros que quitar, y «Quitar filtro
   const anuncios = filtrosInicialesDe('anuncios');
   assert.equal(anuncios.orden, 'aire', 'los anuncios arrancan por días al aire, como al entrar con la pestaña');
   assert.equal(sinFiltrosDe(anuncios), true, 'recién abierto: ni «Quitar filtros» ni «Guardar búsqueda»');
-  assert.equal(sinFiltrosDe({ ...anuncios, orden: 'outlier' }), false, 'cambiar el orden sí es un filtro');
+  assert.equal(sinFiltrosDe({ ...anuncios, orden: 'nuevos' }), false, 'cambiar el orden (a uno que Anuncios ofrece) sí es un filtro');
   assert.equal(sinFiltrosDe({ ...anuncios, q: 'nike' }), false);
+  // Entrar por el link `?que=anuncios` trae el orden de entrada de Carruseles (outlier), y en Anuncios eso ES «días al aire».
+  assert.equal(sinFiltrosDe({ ...FILTROS_INICIALES, que: 'anuncios' }), true, 'Anuncios por el link: tampoco hay filtros que quitar');
+  assert.equal(sinFiltrosDe({ ...FILTROS_INICIALES, que: 'anuncios', orden: 'interaccion' }), true, 'en Anuncios «interacción» no existe: es días al aire');
   assert.equal(sinFiltrosDe(FILTROS_INICIALES), true, 'Carruseles, igual que siempre');
   assert.equal(sinFiltrosDe({ ...FILTROS_INICIALES, orden: 'aire' }), false);
   assert.equal(sinFiltrosDe({ ...FILTROS_INICIALES, vista: 'guardados' }), false, 'Guardados es una vista: la barra ofrece salir');

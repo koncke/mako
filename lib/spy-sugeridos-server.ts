@@ -24,7 +24,7 @@ import { getTenantDb, getWorkspaceActual, wsSuperAdmin } from './workspace';
 export type { Sugerido };
 
 const COLS_COMPETIDOR = 'id, workspace_id, nombre, instagram, youtube_id, tiktok, landing_url, avatar, instagram_seguidores, youtube_suscriptores';
-const COLS_PIEZA = 'id, canal, tipo, ref, fuente, url, titulo, texto, etiquetas, vistas, megusta, comentarios, duracion, publicada_en, miniatura, dejo_de_verse_en';
+const COLS_PIEZA = 'id, canal, tipo, ref, fuente, url, titulo, texto, etiquetas, vistas, megusta, comentarios, duracion, publicada_en, miniatura, dejo_de_verse_en, medio, laminas';
 /** Los de la plataforma son pocos (su propio tope es el de cualquier negocio): esto es un techo de seguridad. */
 const MAXIMO_SUGERIDOS = 100;
 

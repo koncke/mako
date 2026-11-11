@@ -4,6 +4,21 @@
 (`app/video-editor/avatar`) y en el motor del Video Generator (`app/video-generator/video-action.ts`,
 el puente a Flow). Lo de Flow, ElevenLabs y el lip-sync de antes vive en `hallazgos-generativa.md`.
 
+## Fuera de la barra desde el 11/11/2026: se usa desde Video, y la ruta NO redirige
+
+Martín, 11/11/2026: «en Create debería estar la parte de copywriting primero. Luego video, image y web generator… [AI Avatar] no
+debería estar, eso ya lo hablamos muchas veces». El ítem queda en `nav.ts` con `fueraDeLaBarra` (como Offer: la key `ai-avatar` es
+contrato de capas, API y teléfono), la fila del «More» queda oculta y MaKo lo ofrece como parte de la función Video
+(`lib/funciones-mako.ts`). Lo que no se deduce:
+
+- **Redirigir `/ai-avatar` a Video, como se pidió, lo rompía desde Video.** La tarjeta «Tu personaje con IA» de «Nuevo video» ES
+  un `router.push('/ai-avatar')` (`PERSONAJE_CON_IA`, app/video-editor/plantillas-crear.ts): con la redirección daba la vuelta y el
+  estudio quedaba inaccesible. Y hay seis botones más que llevan ahí (la biblioteca de anuncios, la guía de video, los carruseles,
+  el CoPilot, las subrutas viejas de HeyGen). La ruta sigue viva; lo que se fue es la fila.
+- **Video es sólo de Pro y AI Avatar de los tres planes** (`NAV_SOLO_PRO`, lib/plan-esencial-reglas.ts): sin la fila, un Esencial
+  llega a su personaje por esos botones. Si Video entra en Esencial es una decisión de plata, de Martín. `tests/video-tab.test.ts`
+  (9) y `tests/create-orden.test.ts` lo fijan.
+
 Pedido de Martín (17/10/2026, 04:55, desde el Centro de Operaciones): la tab «AI Avatar» de punta a
 punta, «algo como Heygen», investigando clones y alternativas (`github.com/topics/heygen-alternative`,
 `debpalash/VoiceStudio` para clonar la voz), con una «galería» de ejemplos o temas en imagen, video y voz.
@@ -292,7 +307,7 @@ Kokoro, OpenVoice V2, GPT-SoVITS; imagen **Z-Image-Turbo**, FLUX.2 klein 4B, Qwe
   muchos videos de avatar empuja afuera anuncios viejos con el único puntero a sus clips. Los LOOKS no
   tienen ese problema (viven en `ai-avatar.looks`); los videos sí. **Vive en:** `app/ai-avatar/actions.ts`
   (`crearVideoAction`) y `app/video-editor/avatar/actions.ts`.
-- **Las imágenes de ejemplo de los presets** (29/10: 28 presets). Sólo «Charla en el auto» y «Presentador en
+- **Las imágenes de ejemplo de los presets** — ⚠️ **desde el 11/11 cuenta como FALLA, no como pendiente** (ver «La prueba del 10/11 se hizo LEYENDO», abajo). (29/10: 28 presets). Sólo «Charla en el auto» y «Presentador en
   la oficina» tienen imagen real; los otros 26 muestran el degradado de su categoría y el lugar escrito (y, en
   cuanto la persona genera uno, SU look pasa a ser la baldosa). Se generan gratis en Flow con el motor por
   interfaz cuando haya un navegador de super admin conectado. **Vive en:** `lib/ai-avatar/plantillas.ts` (`ejemplo`).
@@ -512,3 +527,60 @@ proyectada, NO silueta, NO subexpuesto»). Con eso la cara se sostiene y el fond
 ⚠️ Y una advertencia que viene de la misma vuelta: pedir que la toma lea **oscura** —aunque sea para
 copiar el reel— es pedir que la cara desaparezca. En el original de referencia el cuerpo se recorta
 contra el blanco **pero la cara se sigue leyendo**. Primero el parecido; la estética después.
+
+## La prueba de punta a punta del 10/11/2026: lo que se midió y lo que bloquea
+
+El informe, caso por caso y con capturas, está en `docs/pruebas/ai-avatar-10-11.md`: 35 casos, 12 fallas, 9 arregladas.
+Lo que conviene no volver a medir:
+
+- **El motor no sube la foto a Flow desde el 8/11.**
+  - En `flow_trabajos`, las 5 `subir_imagen` del 8 y 9/11 (ws 9) fallaron: «Flow no mostró la opción de subir» (tres
+    veces), «La pestaña de Flow se cerró antes de empezar» y «Flow no terminó de procesar la foto».
+  - La última generación que terminó bien, de cualquier tipo, es del 8/09.
+  - Sin la foto en Flow, `caraDeFoto` no devuelve la cara y ningún look puede salir.
+  - Vive en extension/flow-interfaz.js. **Causa encontrada el 11/11: Flow ya no abre «Upload» con un clic armado; la
+    foto se suelta sobre la grilla** (docs/hallazgos-extension.md, 0.80.0). Los tres «no mostró la opción» eran OTRA causa,
+    anterior, ya arreglada el 8/11.
+- **El techo de créditos del video (15) es más bajo que lo medido el 9/11 (24 por 8 s con Omni 1.2 Flash a 720p).**
+  - La extensión no aprieta «Generar» si la cotización pasa `maxCreditos` (`TOPE_CREDITOS.video`, lib/flow-interfaz.ts),
+    y falla con «Flow pide N créditos y el tope es 15».
+  - En la base todavía no hay ni un video por el motor por interfaz, así que el freno nunca se vio. Pero con ese precio, cada
+    toma de 8 s se frenaría.
+  - Antes de tocar el número: leer la cotización de Flow para 4, 6, 8 y 10 s (leerla no gasta). Subirlo es gastar más
+    créditos del cliente: decide Martín, con el número.
+- **Los dos Chrome conectados a Claude in Chrome en esta PC tienen la sesión de MaKo de LEANDRO (ws 10)**, medido el 10/11.
+  - Ahí `?ws=3` no cambia de negocio: no es super admin.
+  - La única pista visible es la foto de «Personaje» (`archivero/10/persona/…`).
+  - El navegador de la app tiene la sesión de super admin, pero no la extensión.
+  - Resultado: hoy ningún navegador sirve para generar en el ws 3. Antes de usar un Chrome para AI Avatar, mirar de quién es
+    la sesión.
+- **«Descargar» con `<a href download>` a Storage ABRE el archivo en vez de bajarlo.**
+  - Es otro origen, y ahí el navegador ignora `download`.
+  - La trampa ya estaba anotada en app/video-generator/descargar.ts (`descargarComo`), y AI Avatar no la usaba.
+  - Ahora baja el archivo de Flow byte por byte, en su calidad original, con nombre (lib/ai-avatar/descarga.ts).
+- **La escena de una plantilla de venta va a la barra de QUIEN la usa**, no al negocio ficticio del ejemplo. «Con blusa…» le
+  ponía una blusa a cualquiera. Un test prohíbe prendas de un solo género en `detalle`.
+
+**Vive en:** extension/flow-interfaz.js · lib/flow-interfaz.ts · app/ai-avatar/Estudio.tsx · app/m/ai-avatar/EstudioM.tsx ·
+lib/ai-avatar/plantillas-venta.ts · tests/ai-avatar-prueba-1011.test.ts
+
+## La prueba del 10/11 se hizo LEYENDO, y no vio lo que se ve (11/11/2026)
+
+Martín abrió AI Avatar después de la prueba del 10/11 (35 casos, «12 fallas») y vio lo que la prueba no marcó: **34 de los 36
+presets son un degradado sin imagen**, en la grilla, en «Nuevo avatar» (un marco gris con un teléfono blanco vacío) y en el
+teléfono. Informe con capturas: `docs/pruebas/ai-avatar-11-11.md`.
+
+- **Por qué no se vio:** estaba anotado desde el 29/10 en «Lo que quedó SIN hacer». Un pendiente anotado se leyó como «ya
+  sabido» y no se contó como falla, y la prueba se hizo leyendo el texto de la página, donde 36 presets aparecen con su nombre.
+- **La regla:** cada pantalla se MIRA con una captura, a 1440 y a 375, y se critica al lado de la referencia (HeyGen,
+  Higgsfield): vacío, gris, cortado, pobre. **Una pantalla vacía o gris en producción es una falla aunque esté anotada como
+  pendiente.** Y si la captura sale en blanco, no está probado.
+- **Trampas del navegador de la app con el panel escondido:** la captura a veces devuelve un pedazo de 800×600 de la página en
+  vez de la página entera (se arregla repitiendo `resize_window`), y entre una acción y su captura hay un paso de atraso. El
+  modo oscuro de MaKo NO sale de `prefers-color-scheme`: emularlo no cambia nada; se cambia con el selector de la app.
+- **Las imágenes arreglan cuatro pantallas a la vez.** El abanico de arriba toma las de los presets; desde el 11/11 las
+  tarjetas de las plantillas de venta toman la de SU preset (`presetId`), y las de «Nuevo avatar» pasan su video para el
+  mouse. O sea: con una imagen por preset se llenan la grilla, «Nuevo avatar», el abanico y las plantillas.
+- **SIN HACER:** generar las 34. Se hacen en Flow con la base del personaje de Martín (las imágenes no gastan créditos), una
+  por preset, con UNA referencia y un prompt simple, y se mira cada una antes de subirla. **Vive en:**
+  `lib/ai-avatar/plantillas.ts` (`ejemplo: { video, poster }`) y `public/formatos/`.

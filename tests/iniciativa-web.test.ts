@@ -25,7 +25,7 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('1. la apertura: sin publicar y sin charla pregunta un hecho, por página; publicada o con charla, calla', () => {
-  const h = { pagina: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d', publicada: false, charlaVacia: true };
+  const h = { pagina: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d', publicada: false, charlaVacia: true, aCompletar: 0 };
   const a = aperturaWeb(h, {})!;
   assert.equal(a.id, ID_LISTA);
   assert.equal(a.texto, '¿Ya está lista para que la vean?');
@@ -36,12 +36,27 @@ test('1. la apertura: sin publicar y sin charla pregunta un hecho, por página; 
   assert.deepEqual(a.botones[0], { tipo: 'hacer', rotulo: 'Sí, ya está', accion: 'publicar' });
   assert.equal(aperturaWeb({ ...h, publicada: true }, {}), null, 'ya publicada');
   assert.equal(aperturaWeb({ ...h, charlaVacia: false }, {}), null, 'con la charla empezada');
+  // Prueba en producción del 10/11/2026: recién creada desde una plantilla, con sus «[…]» sin completar, ya preguntaba.
+  assert.equal(aperturaWeb({ ...h, aCompletar: 30 }, {}), null, 'con textos por completar');
+  assert.equal(aperturaWeb({ ...h, aCompletar: 1 }, {}), null, 'con UNO solo por completar');
+});
+
+test('1b. los hechos que arma el panel: los «[…]» del editor, y despublicada en esta visita no vuelve a preguntar', () => {
+  const panel = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
+  assert.match(panel, /hechos=\{\{ pagina, publicada, charlaVacia: true, aCompletar: aCompletar \?\? 1 \}\}/,
+    'sin medir todavía no pregunta (si no, asomaba un instante al abrir)');
+  assert.match(panel, /const \[n, setN\] = useState<number \| null>\(null\);/);
+  assert.match(panel, /const aCompletar = useACompletar\(editor, hilo\.mensajes\.length === 0\);/, 'medido sólo mientras la apertura puede hablar');
+  assert.match(panel, /setN\(rangosACompletar\(d\.textBetween\(0, d\.content\.size, '\\n', '\\n'\)\)\.length\);/,
+    'la misma regla de los «[…]» que marca el editor (especificacion.ts), con los bloques separados');
+  assert.match(panel, /editor\.on\('update', alCambiar\);/, 'se vuelve a medir al escribir');
+  assert.match(panel, /const publicada = ctx\.urlPublica != null \|\| \(pagina != null && vistaPublicada === pagina\);/,
+    'anular la publicación no la vuelve «lista para que la vean»');
 });
 
 test('2. el montaje: «Sí» abre el diálogo de Publicar, la pieza entra con next/dynamic y el saludo se esconde mientras habla', () => {
   const panel = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
   assert.match(panel, /onPublicar=\{\(\) => ctx\.setDialogo\('publicar'\)\}/, 'el diálogo de siempre, no un publicar por fuera');
-  assert.match(panel, /hechos=\{\{ pagina: docId != null \? String\(docId\) : null, publicada: ctx\.urlPublica != null, charlaVacia: true \}\}/);
   assert.match(panel, /const AperturaAgente = dynamic\(\(\) => import\('\.\/ChatAgente'\)\.then\(\(m\) => m\.AperturaAgente\)\);/,
     'con next/dynamic: AperturaMako trae el CSS del hilo y tumbaría los tests que cargan el panel');
   assert.doesNotMatch(panel, /from '@\/app\/_chat\/AperturaMako'/);
@@ -55,3 +70,8 @@ test('2. el montaje: «Sí» abre el diálogo de Publicar, la pieza entra con ne
 // PROBADO ROMPIÉNDOLO (5/11/2026, base 2/0):
 //   · la apertura también con la página publicada                      → 1/1 (1)
 //   · el saludo sigue a la vista con la apertura (sin `!aperturaHabla`) → 1/1 (2)
+// Y el 10/11/2026 (base 3/0, restaurado y verificado por hash):
+//   · la apertura ignorando `aCompletar`                                → 2/1 (1)
+//   · `publicada` sin la despublicada en esta visita                    → 2/1 (1b)
+//   · sin volver a medir los «[…]» al escribir (`editor.on('update')`)  → 2/1 (1b)
+//   · sin medir todavía contando como 0 (`aCompletar ?? 0`)            → 2/1 (1b)

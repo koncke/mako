@@ -669,3 +669,19 @@ cobro no.**
 **La regla que queda:** cuando un pendiente dice «el número X está mal y debería ser Y», antes de
 tocar nada hay que preguntarse **si X e Y son del mismo período**. Acá eran dos meses distintos, y
 «arreglar» el 238 para que diera 426 habría roto noviembre.
+
+## ⚠️ El mismo pago, mandado otra vez, volvía a Martín: las dudas se miraban antes que la orden (10/11/2026, ticket #80)
+
+**Síntoma.** Martín: «¿Por qué me envías esto por 2.ª vez? … le mandaste mensaje al grupo de Código Inmobiliario sobre algo ya
+resuelto». A las 22:47 UTC le llegó «Comprobante de Codigo Inmobiliario para revisar (la lectura tiene dudas…)» y al grupo de la
+agencia «Recibí tu comprobante. Lo revisa el equipo», por la entrada de Patricia que él había marcado a mano el 9/11.
+
+**Causa.** Era el mismo pago (orden de Binance 464765031875870720) mandado de nuevo, en PDF (`comprobantes_leidos` id 3, con
+`repetido = true`). `atenderComprobanteDeAgencia` miraba primero si la lectura tenía dudas (40 USDT contra US$40,73) y recién
+después si la orden ya se había usado: con dudas, nunca llegaba a la orden. **Regla:** lo repetido primero
+(`veredictoDeLectura`, lib/agencia-mes-reglas.ts). Una orden que ya se leyó o se usó no se revisa otra vez, tenga las dudas que
+tenga; y «se leyó» incluye las lecturas anteriores del grupo, no sólo los recibos y el libro (un pago marcado a mano puede no
+tener recibo con la orden).
+
+*2026-11-10 claude4, chat Tickets*
+

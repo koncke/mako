@@ -128,11 +128,14 @@ export function requisitosAvatar(p: {
 
   const { puente } = p;
   const conectada = puente.estado !== 'sin_conectar';
-  const enLaCompu = p.enTelefono ? 'En tu computadora: ' : '';
+  // ⚠️ Cada título es una oración entera: se lee solo (la lista desplegada) y después de «Antes de generar:». Antes empezaba
+  // en minúscula («instala la extensión…», así en la lista) y en el teléfono decía «Antes de generar: En tu computadora:
+  // instala…», con dos «:» seguidos (medido en producción el 10/11/2026).
+  const instala = p.enTelefono ? 'En tu computadora, instala' : 'Instala';
   const pasos: PasoRequisito[] = [
     {
       id: 'extension',
-      titulo: `${enLaCompu}instala la extensión de MaKo en Google Chrome`,
+      titulo: `${instala} la extensión de MaKo en Google Chrome`,
       // Conectada en otro Chrome también cuenta: el que genera es ESE.
       hecho: conectada || (typeof p.instalada === 'string' && p.instalada.length > 0),
       ayuda: 'Con ella MaKo genera con tu propia cuenta de Google Flow.',
@@ -140,7 +143,7 @@ export function requisitosAvatar(p: {
     },
     {
       id: 'conectar',
-      titulo: 'Conéctala a tu negocio: ícono de MaKo → «Conectar»',
+      titulo: 'Conéctala a tu negocio desde el ícono de MaKo → «Conectar»',
       hecho: conectada,
       ayuda: 'Con MaKo abierto en este negocio, en el mismo Chrome.',
     },
@@ -204,7 +207,6 @@ export function resumenDeRequisitos(pasos: readonly PasoRequisito[]): {
   const siguiente = pendientes[0] ?? null;
   if (faltan === 0) return { linea: 'Ya está todo listo', faltan: 0, total, siguiente: null };
   const cuenta = faltan === 1 ? `Te falta ${faltan} de ${total}` : `Te faltan ${faltan} de ${total}`;
-  // El título del paso empieza en minúscula en varios casos («instala la extensión…»): va después del «·»,
-  // que es separador y no principio de oración, así que no hay que capitalizarlo.
+  // Cada título es una oración entera, con mayúscula: va después del «·», que separa.
   return { linea: siguiente ? `${cuenta} · ${siguiente.titulo}` : cuenta, faltan, total, siguiente };
 }

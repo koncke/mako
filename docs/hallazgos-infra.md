@@ -6,6 +6,17 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**«Tests afectados» nombra como ROJO un archivo cuyo único «fallo» es un test `todo` (11/11/2026, chat Competitor Spy).**
+La punta `spy-pruebas` (corrida 941) salió con «Rojos: doer-recetas-video-imagen, knowledge-modulos», y el diagnóstico obvio
+(«las recetas de MaKo todavía nombran AI Avatar y Lead Magnet») era el equivocado: las recetas no nombran a ninguno. El rojo de
+verdad era sólo Knowledge. La tanda se juzga por el código de salida (bien), pero después `leerResultado`
+(scripts/tests-afectados.mjs) arma la lista de culpables con cada «test at <archivo>» del pie del runner, y Node 24 lista ahí
+TAMBIÉN los `todo` que fallan (con «⚠», aunque el pie diga `fail 0, todo 1`). Un archivo con un pendiente queda acusado cada vez
+que comparte tanda con un rojo real. Hay cinco archivos con `{ todo: … }` (doer-recetas-video-imagen, chats-mako-envio,
+ficha-automatizaciones-tarjeta, onboarding-llegada-superadmin, primer-mes). **Regla mientras no se arregle:** antes de tocar un
+archivo que figura como rojo, correrlo solo y mirar `ℹ fail`; si es 0 y hay `ℹ todo`, no es culpable. El arreglo es que
+`leerResultado` saltee el «test at» cuyo caso empieza con «⚠»; no se hizo en esta punta.
+
 **Mirar una pantalla de esta app en un worktree: el junction frena a Turbopack, y el editor se come 2,5 GB (8/11/2026, claude1).**
 
 **Síntoma.** Para mirar el editor de imagen sin la co-edición (encargo 146), `next dev` desde `C:/dev/wt-collab-fuera`
@@ -107,7 +118,10 @@ ve nada raro. El `.gitattributes` del repo, que es lo que configura una persona,
 
 **Medido:** con `DRIVER` pasado a barras normales (`.replace(/\\/g, '/')`) quedan 10 pass / 1 fail; el rojo que sobra es el
 mismo bug en el OTRO lugar donde el test arma la config, el que simula el paso de `punta.yml` (la ruta sale de un temp
-`wf-paso-*`). **SIN HACER:** las dos rutas a barras normales. **Regla:** una ruta de Windows metida en un comando que git
+`wf-paso-*`). **Hecho el 10/11:** las dos rutas van con barras normales. **Y quedaba un rojo más, de otra causa (10/11):** el
+bash de Git para Windows convierte `git show origin/main:.gitattributes` en `origin\main;.gitattributes` (lo toma por una
+lista de rutas) antes de dárselo a git.exe; el `2>/dev/null` del paso lo calla, las reglas de main no llegan y el índice
+choca. Ese test le pasa `MSYS_NO_PATHCONV=1` al paso: 11 pass / 0 fail, y sin él vuelve el rojo. **Regla:** una ruta de Windows metida en un comando que git
 (o cualquier cosa que use `sh -c`) va a ejecutar se escribe con `/`, nunca con `\`.
 **La guardia de RAM se dispara por el NOMBRE del archivo que un comando sólo LEE (6/11/2026, `scripts/claude-hooks/guardia/memoria.mjs`).**
 
@@ -11687,6 +11701,22 @@ panel no está logueada en claude.ai), pero **Chrome headless sí**:
 tokens reales de `globals.css` en un proceso corto, y el PNG se mira con Read. Sirve para verificar un
 patrón SVG, un contraste o una fila de tarjetas. **No reemplaza ver la app**, y conviene decirlo así.
 
+**Actualizado el 10/11/2026 (la maqueta del rediseño de Marketing CoPilot):** el panel SÍ abre un `localhost` nuestro si se
+levanta por su propio mecanismo: una entrada en `.claude/launch.json` con `runtimeExecutable: "node"` y un servidor estático de
+diez líneas (`http.createServer` que devuelve el HTML), y después `preview_start {name}`. Ahí el JS corre, se mide en el DOM y se
+fotografía. Lo que sigue sin servir: `navigate` a un `file://` fuera de la carpeta del proyecto lo abre como **foto estática sin
+JS** (una maqueta que se dibuja con JS sale en blanco), y un Artifact privado pide iniciar sesión en claude.ai, que el panel no
+tiene. Ojo: con el panel oculto, las capturas salen con el cuadro anterior; lo que vale es lo que se mide en el DOM.
+
+**Y para fotografiar una maqueta ANIMADA con el panel oculto (11/11/2026):** con el panel oculto, el navegador congela
+`requestAnimationFrame` y la Web Animations API, y los temporizadores van lentos. Lo que sirvió:
+- darle a la maqueta un enlace por estado (`#lectura`, `#negocio`);
+- fotografiarla con el Chrome de la PC sin ventana, con un perfil temporal propio y el reloj avanzando solo:
+  `chrome.exe --headless=new --user-data-dir=<carpeta temporal> --window-size=1440,900 --virtual-time-budget=<ms> --screenshot=<png> http://localhost:<puerto>/#<estado>`.
+- `--blink-settings=preferredColorScheme=1` la saca en claro, y `--dump-dom` muestra en qué estado terminó.
+- ⚠️ Ese Chrome tampoco termina siempre las animaciones (`animation.finished` puede no resolverse nunca): un flujo que
+  encadena pasos esperando una animación se queda trabado ahí. Por eso la maqueta avanza con su propio reloj.
+
 ## El tren tiene UN carril: pushear un coche nuevo CANCELA el run del anterior (31/10/2026)
 
 **Vive en:** `.github/workflows/integracion.yml` (`concurrency: {group: integracion, cancel-in-progress: true}`).
@@ -12288,3 +12318,46 @@ verificaciones así, una detrás de la otra, que encaja con los dos procesos de 
 sesión y el archivo de test (el `--test` hijo no lo lleva en la línea de comando), así una causa no se adivina por el horario.
 **Lo que quedó SIN hacer:** ponerle un techo de memoria a cada proceso de test (`--max-old-space-size`) en
 `scripts/tests-afectados.mjs` y en el corredor de un archivo, para que un test así muera solo y no se lleve la PC.
+
+## La captura de una página ENTERA sin que se estire, y la guardia de RAM que frena todo Bash (11/11/2026)
+
+**La captura.** El Chrome sin ventana con `--screenshot` saca sólo lo que entra en la ventana. Agrandar la ventana al alto de la página estira las secciones de `100vh`. Lo que anduvo, por CDP:
+- la ventana queda en 1280 × 800;
+- `Page.captureScreenshot` con `captureBeyondViewport: true`, un `clip` del alto de la página y `scale` para achicarla;
+- antes, se recorre la página bajando de a 600 px, así cargan las imágenes y aparecen las secciones que entran al bajar.
+
+Para poner marcas sobre la foto, se mide en el mismo paso dónde cae cada título (`getBoundingClientRect().top + scrollY` sobre el alto de la página). La marca del precio cayó donde había que ponerla: se comprobó recortando la foto con líneas guía.
+
+Los scripts quedaron en el relevo del rediseño de Marketing CoPilot: `captura-web.mjs` y `fotos.mjs`, que fotografía varios estados con UN solo Chrome.
+
+**La guardia.** Con menos de 3 GB libres, la guardia de RAM frena TODO comando de Bash, también un `ls`. No mide lo que pide el comando. Mientras tanto se puede seguir:
+- con las herramientas de archivos: leer, editar, escribir, buscar;
+- con PowerShell para lo liviano (copiar un archivo, chequear la sintaxis con `node --check`).
+
+Chrome se abre recién cuando hay aire, uno solo y cerrándolo por su PID.
+
+## El vigía de GitHub moría sin avisar: `renameSync` da EPERM en Windows si otro proceso tiene el archivo (11/11/2026)
+
+- **Síntoma:** el vigía (`scripts/claude-hooks/guardia/vigia-ci.mjs esperar`) terminaba con un stack de `EPERM: operation not
+  permitted, rename ci-estado.json.<pid>.tmp -> ci-estado.json` y ya no avisaba de ningún rojo. Parecía un problema de permisos.
+- **Causa real:** no son permisos. En Windows el rename sobre un archivo que otro proceso tiene abierto en ese instante (otro
+  vigía de otro chat, el antivirus, OneDrive) falla con EPERM/EBUSY. En Linux no pasa, por eso el patrón «escribir .tmp y
+  renombrar» parece seguro.
+- **Regla:** todo `renameSync` atómico en scripts que corren en la PC reintenta ante EPERM/EBUSY/EACCES y, si sigue trabado,
+  escribe directo. Un vigía que se cae en silencio es peor que uno que escribe sin atomicidad.
+
+## Una dependencia nueva en main no llega sola al `node_modules` compartido: frena el pre-push de OTROS chats (11/11/2026)
+
+- **Síntoma:** Web Generator no podía subir: el filtro de antes de subir daba rojo en `tests/customers.test.ts` con «Cannot find
+  module 'date-fns'». El chat no había tocado nada de eso, y el rojo se leyó como «el filtro anda mal».
+- **Causa real:** los worktrees de `C:/dev/wt-*` usan un `node_modules` que es un enlace al de
+  `dashboard-marketing-main/dashboard-marketing/node_modules`. Cuando un commit de main suma una dependencia (el Admin de Studio
+  Admin, 6/11, trajo `date-fns`, `@dnd-kit/*`, `@tanstack/react-table`, `cmdk`, `react-day-picker`, `react-hook-form`,
+  `simple-icons` y `cn`), nadie la instala ahí: GitHub instala desde el lock y da verde, y la PC queda atrás sin avisar. Faltaban 17
+  paquetes, contando los transitivos.
+- **Regla:** cuando un commit cambia `package.json`, el Cerebro compara el lock de main con el `node_modules` compartido e instala
+  SÓLO lo que falta, a la versión del lock y con su integridad comprobada. Nunca un `npm install` entero: con seis chats usándolo,
+  cambiar una versión rompe a alguien a mitad de un test.
+- **La otra trampa del mismo día:** tres chats (Image, Copywriting y THE NET LAB) estaban quietos «esperando RAM» para correr sus
+  tests o el tsc completo antes de subir. `scripts/filtro-punta.mjs` NO espera RAM: si no alcanza, avisa y deja subir, y la suite
+  la corre «punta → main» en GitHub. Con varios chats abiertos, en la PC sólo el test del archivo tocado.

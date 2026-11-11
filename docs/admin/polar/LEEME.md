@@ -3,6 +3,11 @@
 Las 22 pantallas de la tab Admin, a **1440** y a **390** px de ancho, en **oscuro** y en **claro**: `<pantalla>-<ancho>-<modo>.jpg`.
 Se comparan con las capturas del panel real de Polar, en [../referencia-polar/](../referencia-polar/LEEME.md).
 
+**Costs › lo que se va de una suscripción (10/11/2026):** `analytics-costs-suscripcion-<ancho>-<modo>.jpg` son SÓLO las tres
+secciones nuevas (Subscription breakdown, First month, AI quota), con el escenario del modelo. Salieron de dibujar la vista
+pura (`CostsPage` con datos de ejemplo) en un HTML con el CSS de la app compilado por Tailwind; la animación de entrada de
+Polar (`motion`, `opacity: 0` hasta hidratar) se forzó a su estado final porque en un HTML estático no corre.
+
 ## Cómo se sacaron
 
 - **Con datos de ejemplo, ficticios** (`app/admin/_polar/datos/ejemplo/`): la nube no ve la base de producción. Ningún nombre,

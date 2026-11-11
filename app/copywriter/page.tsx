@@ -1,5 +1,9 @@
 // =============================================================================
-// /copywriter — la última página tocada; sin ninguna (o con `?nueva`), «¿Qué vas a crear hoy?» y los templates
+// /copywriter — «Encuentra tu siguiente OUTLIER»; `?ver=guiones`, la última página; `?nueva`, los templates
+// =============================================================================
+// 11/11/2026 (D18, Martín: «aplícalo para copywriting, me gustaría traer outliers»): como Image y Video, la portada son los
+// outliers (./OutliersCopy.tsx, ./vista.ts). Lo de abajo, tal cual, es «Mis guiones» (`?ver=guiones`) y «Crear desde cero»
+// (`?nueva` o `?nuevo=<tipo>`).
 // =============================================================================
 // Diseño: docs/diseno-copywriter.md (D1). La misma puerta que /copywriter/<id>. Redirige con un 307 de verdad: no hay
 // loading.tsx en la tab (un redirect de adentro de un Suspense va en el stream y queda en carrera con la hidratación:
@@ -19,6 +23,9 @@ import { requireCopywriter } from './acceso';
 import { Copywriter } from './Copywriter';
 import { Pagina } from '@/app/_ui';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
+import { leerOutliersCopy } from '@/lib/copywriter/outliers-servidor';
+import { OutliersCopy } from './OutliersCopy';
+import { vistaDeCopy } from './vista';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -33,6 +40,15 @@ export default async function CopywriterPage({ searchParams }: { searchParams: P
   // rutas viejas que se mudaron acá: /youtube-writer, /stories y «Abrir en Copywriter»), con los templates de ese tipo
   // primero. Nada se crea por abrir un link.
   const sp = await searchParams;
+  const vista = vistaDeCopy(sp);
+  if (vista === 'outliers') {
+    // Sin la mudanza (lib/copywriter/mudanza.ts): la portada no lista páginas; corre al entrar a «Mis guiones» o a crear.
+    return (
+      <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
+        <OutliersCopy portada={await leerOutliersCopy()} />
+      </Pagina>
+    );
+  }
   const nuevo = sp.nuevo;
   const tipoInicial = esTipoGuion(nuevo) ? nuevo : null;
   const enNueva = sp.nueva !== undefined || !!tipoInicial;

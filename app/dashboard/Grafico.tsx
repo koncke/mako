@@ -86,7 +86,8 @@ const EJE_CATEGORIA = { fontSize: LETRA.categoria, style: { fill: 'var(--ink)', 
 /** La cuadrícula: sólo horizontal, sólida, en las marcas del eje Y. */
 const GRILLA = { stroke: 'var(--border)', strokeWidth: 1 };
 
-export type EstadoDatos = { cargando: boolean; error?: string; resultado?: Resultado };
+/** `sinConexion`: el error es «falta conectar» (lib/graficos-datos.ts); la hoja con diseño lo dice arriba (./falta-conectar.ts). */
+export type EstadoDatos = { cargando: boolean; error?: string; sinConexion?: true; resultado?: Resultado };
 
 /**
  * ¿Este tipo se dibuja como una tarjeta de número (rótulo en mono, filete arriba)? La barra de proporción y

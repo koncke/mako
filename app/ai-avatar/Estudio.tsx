@@ -46,13 +46,15 @@ import { filmarTomas, SONDEO_MS, type TomaAvatar } from './filmar';
 import { CATEGORIAS, PLANTILLAS_AVATAR, filtrarPresets, plantillaPorId, type Categoria, type PlantillaAvatar } from '@/lib/ai-avatar/plantillas';
 import { MAX_DETALLE } from '@/lib/ai-avatar/prompt-look';
 // Las 10 plantillas de venta (docs/plantillas-reales/avatar.md, 6/11/2026): la forma en la tarjeta, el ejemplo aparte.
-import { PLANTILLAS_VENTA_AVATAR, plantillaVentaAvatar, type PlantillaVentaAvatar } from '@/lib/ai-avatar/plantillas-venta';
+import { PLANTILLAS_VENTA_AVATAR, ganchoDeEjemplo, plantillaVentaAvatar, type PlantillaVentaAvatar } from '@/lib/ai-avatar/plantillas-venta';
 import { EjemploVenta } from './EjemploVenta';
 import { haceCuanto, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
-import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
+import { CONSEJO_FOTO, MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useExtensionInstalada } from '@/app/video-generator/extension-instalada';
 import { requisitosAvatar, resumenDeRequisitos, avisoDeCosto, type PasoRequisito, type Motor } from '@/lib/ai-avatar/requisitos';
+import { descargarComo } from '@/app/video-generator/descargar';
+import { nombreDeArchivo } from '@/lib/ai-avatar/descarga';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
 type Vista = { tipo: 'nueva' } | { tipo: 'proyecto'; id: string } | { tipo: 'todos' };
@@ -155,7 +157,8 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
     cuando: Date.parse(l.creadoEn) || null,
     menu: [
       { rotulo: 'Recrear', hacer: () => generar({ plantillaId: l.plantillaId, fotoId: l.fotoId, detalle: l.detalle }) },
-      ...(l.url ? [{ rotulo: 'Descargar', hacer: () => { window.open(l.url, '_blank', 'noopener,noreferrer'); } }] : []),
+      // Se BAJA el archivo de Flow tal cual (calidad original); si el navegador no lo deja traer, se abre como antes.
+      ...(l.url ? [{ rotulo: 'Descargar', hacer: () => { void descargarComo(l.url, nombreDeArchivo(l.nombre, 'imagen')).catch(() => window.open(l.url, '_blank', 'noopener,noreferrer')); } }] : []),
       { rotulo: 'Eliminar', peligro: true, confirmar: `¿Eliminar «${l.nombre}»? La imagen sigue en tu Google Flow.`, hacer: () => eliminar(l.id) },
     ],
   })), [looks, generar, eliminar]);
@@ -165,28 +168,44 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
   // Arriba, las 10 plantillas de VENTA (una forma de guion sobre un preset: cuándo usarla y sus secciones; el ejemplo con
   // «Ver ejemplo»); después, los presets de siempre.
   const plantillas = useMemo<PlantillaCrear[]>(() => [
-    ...PLANTILLAS_VENTA_AVATAR.map((p): PlantillaCrear => ({
-      id: `${PREFIJO_VENTA}${p.id}`, nombre: p.nombre, formato: '9 / 16', grupo: 'Plantillas de venta',
-      insignia: `9:16 · ~${p.duracion} s`, rotulo: p.rubro, ayuda: p.cuando, extracto: `${p.nombre}\n${p.cuando}`,
-      chips: p.estructura, verEjemplo: true,
-    })),
+    // La tarjeta de venta muestra la ESCENA de su preset (la foto de la persona, si ya hizo una; si no, la del ejemplo, y su
+    // video con el mouse encima). Sin imagen, la hoja con el gancho real del ejemplo: antes repetía el nombre de la plantilla
+    // arriba y abajo, y las 10 eran cajas de texto (11/11/2026, docs/pruebas/ai-avatar-11-11.md).
+    ...PLANTILLAS_VENTA_AVATAR.map((p): PlantillaCrear => {
+      const escena = plantillaPorId(p.presetId);
+      const imagen = looks.find((l) => l.plantillaId === p.presetId && l.url)?.url || escena?.ejemplo?.poster || null;
+      const g = ganchoDeEjemplo(p);
+      return {
+        id: `${PREFIJO_VENTA}${p.id}`, nombre: p.nombre, formato: '9 / 16', grupo: 'Plantillas de venta',
+        insignia: `9:16 · ~${p.duracion} s`, rotulo: p.rubro, ayuda: p.cuando,
+        ...(imagen ? { imagen, video: escena?.ejemplo?.video } : { extracto: g.enPantalla || p.cuando, frase: g.dice || undefined }),
+        chips: p.estructura, verEjemplo: true,
+      };
+    }),
     ...PLANTILLAS_AVATAR.map((p): PlantillaCrear => ({
       id: p.id,
       nombre: p.nombre,
       formato: '9 / 16',
       grupo: 'Presets',
       imagen: looks.find((l) => l.plantillaId === p.id && l.url)?.url || p.ejemplo?.poster || null,
+      // Con el mouse encima, su video (como en Higgsfield). La tarjeta compartida ya lo sabía mostrar; no se lo pasaba nadie.
+      video: p.ejemplo?.video,
       rotulo: p.categoria,
     })),
   ], [looks]);
   const [ejemploVenta, setEjemploVenta] = useState<PlantillaVentaAvatar | null>(null);
+  // «Usar esta plantilla» desde «Ver ejemplo» tiene que cerrar «Nuevo avatar», como la tarjeta. PantallaCrear lo cierra sola
+  // cuando la plantilla se usa desde la tarjeta (`alPlantilla`), pero el modal vive afuera: se vuelve a montar con otra `key`
+  // (el mismo gesto que el Image Editor, ImageEditorCliente.tsx). El estado del estudio vive acá arriba y no se pierde.
+  const [vuelta, setVuelta] = useState(0);
   /** Una plantilla de venta: su preset y su escena van a la barra del estudio, como «Use preset». No genera nada. */
   const usarVenta = useCallback((p: PlantillaVentaAvatar) => {
     setPresetId(p.presetId); setDetalle(p.detalle.slice(0, MAX_DETALLE)); setVista({ tipo: 'nueva' }); setError('');
   }, []);
 
   return (
-    <PantallaCrear tab="AI Avatar" nuevo="Nuevo avatar" proyectos={proyectos} actual={proyecto?.id ?? null}
+    <>
+    <PantallaCrear tab="AI Avatar" nuevo="Nuevo avatar" proyectos={proyectos} key={vuelta} actual={proyecto?.id ?? null}
       onAbrir={(x) => { setVista({ tipo: 'proyecto', id: x.id }); setError(''); }}
       pieLista={looks.length > 0 ? <button type="button" className="hf-pie-todos" onClick={() => setVista({ tipo: 'todos' })}>Ver todos en grilla</button> : null}
       plantillas={plantillas} tituloPlantillas="Presets"
@@ -221,10 +240,6 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
             onGenerar={() => preset && void generar({ plantillaId: preset.id, fotoId, detalle })} />
         )}
 
-        {ejemploVenta && (
-          <EjemploVenta p={ejemploVenta} alSalir={() => setEjemploVenta(null)}
-            alUsar={() => { const p = ejemploVenta; setEjemploVenta(null); usarVenta(p); }} />
-        )}
         {selector && (
           <SelectorPresets looks={looks} actual={presetId}
             onCerrar={() => setSelector(false)}
@@ -232,6 +247,14 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
         )}
       </div>
     </PantallaCrear>
+    {/* AFUERA de PantallaCrear, como el ejemplo de Lead Magnet y el de Offer: «Ver ejemplo» se toca en «Nuevo avatar», y
+        mientras «Nuevo» está abierto lo de adentro va en un `hidden` (.cr-pieza). Adentro, el modal se abría invisible
+        (medido en producción el 10/11/2026: el diálogo existía con ancho 0). */}
+    {ejemploVenta && (
+      <EjemploVenta p={ejemploVenta} alSalir={() => setEjemploVenta(null)}
+        alUsar={() => { const p = ejemploVenta; setEjemploVenta(null); usarVenta(p); setVuelta((v) => v + 1); }} />
+    )}
+    </>
   );
 }
 
@@ -354,6 +377,9 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
   const req = requisitosAvatar({ puente, instalada, enTelefono: false, fotos: fotos.length, para: 'avatar' });
   const falta = !preset ? 'Elige un preset.' : req.falta ? `Antes de generar: ${req.falta.titulo}.` : !foto ? 'Pon tu foto en Personaje.' : !puente.puede ? puente.motivo : '';
   const sinMotor = (q: PiezaSinMotor) => { setLinea(SIN_MOTOR[q]); setPop(null); };
+  // La línea de un toque («2K y 4K: no disponible todavía», «Listo: tu foto…») se va sola: si se queda, tapa para siempre lo
+  // que FALTA para generar, y el botón queda apagado sin decir por qué (medido en producción el 10/11/2026).
+  usePasajera(linea, setLinea, subir.subiendo);
 
   return (
     <div className="hf-barra-lugar">
@@ -367,36 +393,43 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
             <button type="button" className="hf-icono hf-icono--borde" onClick={subir.abrir} aria-label="Subir una foto" title="Subir una foto">
               <Icon name="plus" size={16} />
             </button>
-            <Pastilla abierta={pop === 'modelo'} onClick={() => setPop(pop === 'modelo' ? null : 'modelo')} etiqueta="Modelo">
-              <Icon name="rayo" size={14} /> {MODELO.nombre} <span className="hf-flecha hf-flecha--der"><Icon name="chevron" size={12} /></span>
-            </Pastilla>
-            <Pastilla abierta={pop === 'formato'} onClick={() => setPop(pop === 'formato' ? null : 'formato')} etiqueta="Formato">
-              <span className="hf-formato" aria-hidden="true" /> 9:16
-            </Pastilla>
-            <Pastilla abierta={pop === 'cantidad'} onClick={() => setPop(pop === 'cantidad' ? null : 'cantidad')} etiqueta="Cantidad">
-              1/4
-            </Pastilla>
+            {/* Cada menú sale ARRIBA de SU pastilla, como en Higgsfield (antes salían los tres pegados a la izquierda). */}
+            <span className="hf-pastilla-lugar">
+              <Pastilla abierta={pop === 'modelo'} onClick={() => setPop(pop === 'modelo' ? null : 'modelo')} etiqueta="Modelo">
+                <Icon name="rayo" size={14} /> {MODELO.nombre} <span className="hf-flecha hf-flecha--der"><Icon name="chevron" size={12} /></span>
+              </Pastilla>
+              {pop === 'modelo' && (
+                <Menu onCerrar={() => setPop(null)}>
+                  <OpcionMenu elegida>{MODELO.nombre} <small>{MODELO.de}</small></OpcionMenu>
+                  <OpcionMenu onClick={() => sinMotor('modelo')} apagada>Otros modelos <small>No disponible todavía</small></OpcionMenu>
+                </Menu>
+              )}
+            </span>
+            <span className="hf-pastilla-lugar">
+              <Pastilla abierta={pop === 'formato'} onClick={() => setPop(pop === 'formato' ? null : 'formato')} etiqueta="Formato">
+                <span className="hf-formato" aria-hidden="true" /> 9:16
+              </Pastilla>
+              {pop === 'formato' && (
+                <Menu onCerrar={() => setPop(null)}>
+                  <OpcionMenu elegida>9:16 <small>Vertical</small></OpcionMenu>
+                  <OpcionMenu onClick={() => sinMotor('formato')} apagada>3:4 <small>No disponible todavía</small></OpcionMenu>
+                  <OpcionMenu onClick={() => sinMotor('formato')} apagada>16:9 <small>No disponible todavía</small></OpcionMenu>
+                </Menu>
+              )}
+            </span>
+            <span className="hf-pastilla-lugar">
+              <Pastilla abierta={pop === 'cantidad'} onClick={() => setPop(pop === 'cantidad' ? null : 'cantidad')} etiqueta="Cantidad">
+                1/4
+              </Pastilla>
+              {pop === 'cantidad' && (
+                <Menu onCerrar={() => setPop(null)}>
+                  <OpcionMenu elegida>1 imagen</OpcionMenu>
+                  <OpcionMenu onClick={() => sinMotor('cantidad')} apagada>2 a 4 <small>No disponible todavía</small></OpcionMenu>
+                </Menu>
+              )}
+            </span>
             <Pastilla abierta={false} onClick={() => sinMotor('calidad')} etiqueta="Calidad">HD</Pastilla>
           </div>
-          {pop === 'modelo' && (
-            <Menu onCerrar={() => setPop(null)}>
-              <OpcionMenu elegida>{MODELO.nombre} <small>{MODELO.de}</small></OpcionMenu>
-              <OpcionMenu onClick={() => sinMotor('modelo')} apagada>Otros modelos <small>No disponible todavía</small></OpcionMenu>
-            </Menu>
-          )}
-          {pop === 'formato' && (
-            <Menu onCerrar={() => setPop(null)}>
-              <OpcionMenu elegida>9:16 <small>Vertical</small></OpcionMenu>
-              <OpcionMenu onClick={() => sinMotor('formato')} apagada>3:4 <small>No disponible todavía</small></OpcionMenu>
-              <OpcionMenu onClick={() => sinMotor('formato')} apagada>16:9 <small>No disponible todavía</small></OpcionMenu>
-            </Menu>
-          )}
-          {pop === 'cantidad' && (
-            <Menu onCerrar={() => setPop(null)}>
-              <OpcionMenu elegida>1 imagen</OpcionMenu>
-              <OpcionMenu onClick={() => sinMotor('cantidad')} apagada>2 a 4 <small>No disponible todavía</small></OpcionMenu>
-            </Menu>
-          )}
         </div>
 
         <div className="hf-barra-der">
@@ -418,6 +451,7 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
                     {subir.subiendo ? '…' : <Icon name="plus" size={18} />}
                   </button>
                 </div>
+                {fotos.length === 0 && <p className="hf-menu-ayuda">{CONSEJO_FOTO}</p>}
                 <OpcionMenu onClick={() => sinMotor('personaje')} apagada>Diseñar un personaje <small>No disponible todavía</small></OpcionMenu>
               </Menu>
             )}
@@ -506,6 +540,35 @@ function OpcionMenu({ children, onClick, elegida, apagada }: { children: ReactNo
     <button type="button" role="menuitem" className={apagada ? 'hf-opcion hf-opcion--apagada' : 'hf-opcion'} onClick={onClick} aria-checked={elegida}>
       <span className="hf-opcion-texto">{children}</span>
       {elegida && <Icon name="check" size={14} />}
+    </button>
+  );
+}
+
+/** Una línea de un toque se va sola a los 6 s, como un aviso; menos mientras `quieta` (subiendo una foto: ahí es el progreso). */
+function usePasajera(linea: string, setLinea: (t: string) => void, quieta = false) {
+  useEffect(() => {
+    if (!linea || quieta) return;
+    const t = setTimeout(() => setLinea(''), 6000);
+    return () => clearTimeout(t);
+  }, [linea, quieta, setLinea]);
+}
+
+/**
+ * «Descargar» de verdad: baja el archivo que guardó Flow, tal cual (calidad original), con un nombre que se entiende
+ * (lib/ai-avatar/descarga.ts). Un `<a download>` no sirve: el archivo está en otro origen y el navegador lo ABRE.
+ */
+function BotonDescargar({ url, nombre, children, chico }: { url: string; nombre: string; children: ReactNode; chico?: boolean }) {
+  const [bajando, setBajando] = useState(false);
+  return (
+    <button type="button" className={chico ? 'hf-boton hf-boton--chico' : 'hf-boton'} disabled={bajando}
+      onClick={() => {
+        setBajando(true);
+        void descargarComo(url, nombre)
+          // Si no se pudo traer, se abre como antes: que la persona igual se lo pueda llevar.
+          .catch(() => { window.open(url, '_blank', 'noopener,noreferrer'); })
+          .finally(() => setBajando(false));
+      }}>
+      <Icon name="descargar" size={14} /> {bajando ? 'Bajando…' : children}
     </button>
   );
 }
@@ -621,6 +684,7 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
   const [confirmarBorrar, setConfirmarBorrar] = useState(false);
   const [menuHooks, setMenuHooks] = useState(false);
   const cerrarHooks = useCallback(() => setMenuHooks(false), []);
+  usePasajera(linea, setLinea);
 
   const cambiar = useCallback((t: TomaAvatar) => setTomas((ts) => ts.map((x) => (x.n === t.n ? { ...x, ...t } : x))), []);
   const filmar = useCallback(async (plan: string, lista: number[]) => { await filmarTomas(plan, lista, cambiar); }, [cambiar]);
@@ -658,7 +722,7 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
           <button type="button" className="hf-boton" onClick={onRecrear} disabled={enviando || !inicio.puente.puede} title={inicio.puente.puede ? 'Otra versión con el mismo preset y la misma foto' : inicio.puente.motivo}>
             <Icon name="regenerar" size={14} /> Recrear
           </button>
-          {p.url && <a className="hf-boton" href={p.url} download target="_blank" rel="noreferrer"><Icon name="descargar" size={14} /> Descargar</a>}
+          {p.url && <BotonDescargar url={p.url} nombre={nombreDeArchivo(p.nombre, 'imagen')}>Descargar</BotonDescargar>}
           {confirmarBorrar
             ? <span className="hf-confirmar">¿Eliminar este proyecto? <button type="button" className="hf-boton hf-boton--peligro" onClick={onEliminar}>Eliminar</button> <button type="button" className="hf-boton" onClick={() => setConfirmarBorrar(false)}>No</button></span>
             : <button type="button" className="hf-icono" onClick={() => setConfirmarBorrar(true)} aria-label="Eliminar el proyecto" title="Eliminar"><Icon name="trash" size={16} /></button>}
@@ -694,7 +758,7 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
                 {tomas.map((t) => (
                   <li key={t.n} className={`hf-toma hf-toma--${t.fase}`}>
                     {t.fase === 'listo' && t.url
-                      ? <video src={t.url} controls playsInline />
+                      ? <><video src={t.url} controls playsInline /><BotonDescargar chico url={t.url} nombre={nombreDeArchivo(p.nombre, 'toma', t.n)}>{tomas.length === 1 ? 'Descargar' : `Descargar la toma ${t.n}`}</BotonDescargar></>
                       : <span>Toma {t.n}: {t.fase === 'esperando' ? 'en espera' : t.fase === 'filmando' ? 'filmando…' : t.fase === 'a_ciegas' ? 'casi lista…' : 'no salió'}</span>}
                     {t.detalle && t.fase !== 'listo' && <small>{t.detalle}</small>}
                   </li>
@@ -720,6 +784,11 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
             <div key={v.planId} className="hf-video">
               {v.url ? <video src={v.url} controls playsInline preload="metadata" /> : <span className="hf-video-sin">{v.listas}/{v.tomas} tomas filmadas</span>}
               <p className="hf-video-guion">{v.guion}</p>
+              {v.url && v.primeraToma != null && (
+                <BotonDescargar chico url={v.url} nombre={nombreDeArchivo(p.nombre, 'toma', v.tomas === 1 ? undefined : v.primeraToma)}>
+                  {v.tomas === 1 ? 'Descargar' : `Descargar la toma ${v.primeraToma}`}
+                </BotonDescargar>
+              )}
               <ButtonLink variant="secondary" size="sm" href={rutaEditarEnEditor(`anuncio:${v.planId}`)}>Editar y exportar</ButtonLink>
               {v.tomas === 1 && v.primeraToma != null && (
                 <ButtonLink variant="secondary" size="sm" href={rutaUsarEnAnuncio({ origen: 'avatar', titulo: p.nombre, texto: v.guion, creativo: { tipo: 'toma', plan: v.planId, toma: v.primeraToma } })}>Usar en un anuncio</ButtonLink>

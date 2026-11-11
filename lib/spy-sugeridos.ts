@@ -22,7 +22,7 @@
 // corre esto mismo con dobles de varios negocios.
 // =============================================================================
 
-import { referenteDeCompetidor } from './spy-caricatura';
+import { caricaturaDeCompetidor, referenteDeCompetidor } from './spy-caricatura';
 import { caraDeTarjeta } from './spy-caricatura-reglas';
 import { dominioComparable, nombreComparable, type CanalSpy } from './spy-reglas';
 
@@ -70,6 +70,9 @@ export type FilaPieza = {
   publicada_en: string | null;
   miniatura: string | null;
   dejo_de_verse_en: string | null;
+  /** Carrusel, imagen o video, y sus láminas (mig 0391). Se copian: sin esto, un carrusel copiado decía «Publicación» (11/11/2026). */
+  medio?: string | null;
+  laminas?: number | null;
 };
 
 /** Lo que se le pasa a `guardarVistas` (lib/spy.ts). */
@@ -77,7 +80,7 @@ export type PiezaCopiada = {
   canal: CanalSpy; tipo: string; ref: string; fuente: string;
   url: string | null; titulo: string | null; texto: string | null; etiquetas: string[] | null;
   vistas: number | null; megusta: number | null; comentarios: number | null; duracion: string | null;
-  publicadaEn: string | null; miniatura: string | null;
+  publicadaEn: string | null; miniatura: string | null; medio: string | null; laminas: number | null;
 };
 
 /** Lo que identifica a una persona, para no sugerirle a alguien que ya mira ni crearle un duplicado. */
@@ -113,7 +116,7 @@ export function piezasACopiar(piezas: readonly FilaPieza[]): PiezaCopiada[] {
     .map((p) => ({
       canal: p.canal, tipo: p.tipo, ref: p.ref, fuente: p.fuente, url: p.url, titulo: p.titulo, texto: p.texto,
       etiquetas: p.etiquetas, vistas: p.vistas, megusta: p.megusta, comentarios: p.comentarios, duracion: p.duracion,
-      publicadaEn: p.publicada_en, miniatura: p.miniatura,
+      publicadaEn: p.publicada_en, miniatura: p.miniatura, medio: p.medio ?? null, laminas: p.laminas ?? null,
     }));
 }
 
@@ -144,13 +147,25 @@ export async function listarSugeridos(deps: DepsSugeridos): Promise<Sugerido[]> 
   if (plataforma == null || actual == null || plataforma === actual) return [];
   const [filas, caricaturas, propios] = await Promise.all([deps.competidoresDe(plataforma), deps.caricaturasDe(plataforma), deps.propios()]);
   return soloDeLaPlataforma(filas, plataforma)
+    .filter(tieneDondeLeerlo)
     .filter((f) => !propios.some((p) => esLaMismaPersona(f, p)))
     .map((f) => ({
       id: f.id, nombre: f.nombre, instagram: f.instagram, youtube_id: f.youtube_id, tiktok: f.tiktok, landing_url: f.landing_url,
-      cara: caraDeTarjeta({ caricatura: caricaturas.get(f.id) ?? null, avatar: f.avatar }, null),
+      // La misma cara que tendrá en «Competidores» al sumarlo, y la misma del teléfono: su caricatura, la DIBUJADA de ese
+      // referente o su foto (10/11/2026: Alex Hormozi salía como una «A» acá y con su dibujo en el teléfono y en la lista).
+      cara: caraDeTarjeta({ caricatura: caricaturas.get(f.id) ?? null, avatar: f.avatar }, caricaturaDeCompetidor(f)),
       seguidores: f.instagram_seguidores, suscriptores: f.youtube_suscriptores,
     }));
 }
+
+/**
+ * ¿Hay de dónde leerlo? Un sugerido sin ninguna red no se ofrece (10/11/2026, prueba en producción): de 24 sugeridos, 17 eran
+ * sólo un nombre —se cargaron el 8/11 por sus anuncios, y sus anuncios no se copian a otro negocio—, así que «Sumar» dejaba en
+ * el cliente una ficha vacía y la grilla eran 17 letras gigantes. Es la fila muerta de docs/hallazgos-competitors-spy.md
+ * («DAR DE ALTA UN COMPETIDOR SIN SU @…»). Cuando la plataforma le encuentre una red, vuelve a aparecer solo.
+ */
+export const tieneDondeLeerlo = (f: Pick<FilaCompetidor, 'instagram' | 'youtube_id' | 'tiktok' | 'landing_url'>): boolean =>
+  !!(f.instagram?.trim() || f.youtube_id?.trim() || f.tiktok?.trim() || f.landing_url?.trim());
 
 export type DepsAgregar = DepsSugeridos & {
   /** Las piezas de un competidor de UN negocio. */

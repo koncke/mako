@@ -22,6 +22,7 @@ import { ENTRADAS, funcionDeKey, funcionDeRuta, funcionesMako } from '../lib/fun
 import { CAPACIDADES } from '../lib/mako-capacidades';
 import { FAMILIAS, TODOS_LOS_ITEMS, USER_NAV } from '../app/_components/nav';
 import { AREAS } from '../app/admin/dev/areas';
+import { LEAD_MAGNET_EN_PRODUCCION } from '../lib/lead-magnets/archivado';
 
 const RAIZ = join(import.meta.dirname, '..');
 const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -58,8 +59,9 @@ test('2. el nombre, la ruta, la familia y quién la ve salen del nav', () => {
   assert.equal(funcionDeKey('chats')?.familia, 'Today');
   // AI Avatar es de Pro desde el 29/10/2026 (ya no `adminOnly`): la ven los negocios, con el candado de su plan.
   assert.equal(funcionDeKey('ai-avatar')?.soloSuperAdmin, false);
-  // AI Avatar sin secciones desde el 29/10/2026 (el estudio de Higgsfield): la función se llama como la tab.
-  assert.deepEqual([funcionDeKey('ai-avatar')?.nombre, funcionDeKey('ai-avatar')?.ruta], ['AI Avatar', '/ai-avatar']);
+  // AI Avatar es parte de Video desde el 11/11/2026 (Martín: «[AI Avatar] no debería estar»): su key es de la función Video, y
+  // MaKo no lo ofrece como una tab aparte.
+  assert.deepEqual([funcionDeKey('ai-avatar')?.nombre, funcionDeKey('ai-avatar')?.ruta], ['Video', '/video-editor']);
   // Video sin secciones desde el 29/10/2026 (tests/crear-pantalla.test.ts): la función se llama como la tab.
   assert.equal(funcionDeKey('video-editor')?.nombre, 'Video', 'una tab sin secciones se llama como la tab');
   assert.equal(funcionDeKey('partners')?.noEnPlataforma, true);
@@ -132,13 +134,15 @@ test('6. listar_capacidades_mako por negocio y por rol: lo del super admin sólo
   //    agregar: cualquiera del negocio; borrar sigue siendo del administrador
   //    (`soloAdmin` en app/competitor-spy/actions.ts).
   // Lead Magnet entró el 5/11/2026: es de la plataforma hasta que Martín lo abra (app/lead-magnet-generator/puerta.ts).
-  assert.deepEqual(SOLO_SA.sort(), ['Admin', 'Lead Magnet', 'Stories']);
+  // Y salió de nuevo el 11/11/2026: ARCHIVADO por pedido de Martín (lib/lead-magnets/archivado.ts), no lo ve nadie.
+  assert.deepEqual(SOLO_SA.sort(), LEAD_MAGNET_EN_PRODUCCION ? ['Admin', 'Lead Magnet', 'Stories'] : ['Admin', 'Stories']);
   // El dueño de un negocio cliente (plan completo, agencia o pm) nunca recibe lo que sólo ve el super admin.
   for (const k of ['11:admin', '12:admin', '13:admin', '11:miembro']) {
     for (const n of SOLO_SA) assert.ok(!R[k].funciones.includes(n), `${k} recibió «${n}», que sólo ve el super admin`);
   }
   // La plataforma sí, y sin MaKo Partners (que no va en la plataforma); un cliente admin sí tiene Partners.
-  assert.ok(R['9:admin'].funciones.includes('AI Avatar'));
+  assert.ok(R['9:admin'].funciones.includes('Video'));
+  assert.ok(!R['9:admin'].funciones.includes('AI Avatar'), 'AI Avatar es parte de Video desde el 11/11/2026');
   assert.ok(!R['9:admin'].funciones.includes('MaKo Partners'), 'la plataforma recibió MaKo Partners');
   assert.ok(R['11:admin'].funciones.includes('MaKo Partners'));
   // El menú de la foto no depende del plan: con la capa pm, Settings y conectar siguen.

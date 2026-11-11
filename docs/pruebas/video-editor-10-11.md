@@ -3,7 +3,11 @@
 Pedido de Martín (10/11, noche): probar la tab «Video Editor» como la usaría cada persona y arreglar lo roto. Lo probó el
 chat «Video Editor» (claude4) en producción (`hola-mako.com`, despliegue 9818c63cb) en dos tandas:
 
-- **Tarde, en Chrome** (ws9, el negocio de Martín, que es el que tiene IA): proyecto «1110», dos clips de teléfono de 24 fps con voz.
+- **Tarde, en Chrome**: proyecto «1110», dos clips de teléfono de 24 fps con voz. ⚠️ Ese Chrome tiene la sesión de
+  **Leandro** (la cuenta de Leandro, ws 10), y el `?ws=9` no hace nada para quien no es super admin: los casos 1 a 26 se
+  probaron **como Leandro, en su negocio** (un usuario real). Lo encontrado vale igual, y es la mirada de un cliente. Quedaron
+  en ws10 2 proyectos de prueba, 1 hilo de chat y 3 llamadas a la IA (US$ 0,047, crédito de la plataforma). Borrarlos espera
+  el sí de Martín.
 - **Noche, en el navegador de la app**: ws3 («Cliente de Prueba», sin IA) y ws9, proyecto «1110» (otro), a 1440 y a 375 px.
 
 Lo arreglado vive en `punta/video-editor-1011`. Los lotes 1 y 2 ya están en main y salen con el despliegue del 11/11 a las
@@ -56,10 +60,14 @@ anoto una mejora.
 | 37 | Roles | Por código: lo abre el rol admin del negocio (cliente o agencia); closer y setter no (`app/video-editor/acceso.ts`). No hay forma de «ver como» un miembro sin crear una cuenta | — |
 | 38 | Accesibilidad en el celular | **Mejora**: el botón «Nuevo video» y el link del proyecto no tienen nombre accesible | — |
 
-## Pendiente (necesita el turno de Chrome)
+## Pendiente (necesita un navegador con la sesión de Martín y a la vista)
 
-El navegador de la app no sirve para lo que se anima. Esta sesión no está abierta en ninguna ventana, así que el panel queda
-oculto, la página corre en segundo plano, la importación se cuelga en «Importando…» y los cursores no se animan.
+Ninguno de los dos caminos alcanza hoy:
+- **El navegador de la app** tiene la sesión de Martín, pero esta sesión no está abierta en ninguna ventana: el panel queda
+  oculto, la página corre en segundo plano, la importación se cuelga en «Importando…» y los cursores no se animan.
+- **Claude in Chrome** está a la vista, pero sus dos conexiones son el Chrome de Leandro: ahí no se llega a ws3 ni a ws9.
+
+Se destraba con el panel del navegador abierto en esta sesión (Martín la abre en una ventana) o con un Chrome con su sesión.
 
 - B-roll y «Otra», Pexels; motion y fotogramas clave; usar una plantilla de video por chat; edición automática pedida desde
   el chat; rango I/O; «Quita las muletillas».

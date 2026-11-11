@@ -173,6 +173,31 @@ y MaKo lo atendió. El contador quieto en 4 minutos de noche es falta de tráfic
 contador no se mueve un rato. Antes de pedir un QR: esperar y volver a mirar `findMessages` (el `messageTimestamp` es la hora en
 que se MANDÓ: compararla con el `created_at` del buffer mide la demora). La alarma por lo que no llega sigue sin hacer.
 
+**El 10/11 a la noche la demora SIGUIÓ, y rompió algo más que la espera** (Martín: «No funciona MaKo en WhatsApp… no está
+funcionando para nada bien»). Medido a las 01:00 y 01:34 UTC del 11/11, sólo lectura:
+- la voz (`mako_superadmin_muylqv8r`, …2605) entregó TODO tarde durante más de tres horas, en tandas: lo de 22:49–23:35 entró a
+  las 23:47:55 y a las 00:37:55; lo de 23:52, a las 01:12:48 (30 a 81 minutos). `open`, webhook prendido, `groupsIgnore` en false;
+- la línea de Martín (`mako_ws9`, …3479), que está en seis grupos, entregó mensajes de UN DÍA antes (1.373 a 1.416 min);
+- ⚠️ **eso trajo de vuelta lo ya resuelto:** el comprobante de Código Inmobiliario del 9/11 volvió a entrar por `mako_ws9`, y MaKo le
+  dijo a Joan «Recibí tu comprobante» y le mandó a Martín la revisión por segunda vez (ticket #80). El comprobante deduplica por id
+  de mensaje, y ese mensaje nunca había pasado por él: el 9/11 la línea estaba sorda y se contestó a mano.
+**La regla (lib/linea-demora.ts):**
+- lo que llega con más de 6 h de atraso (la hora de WhatsApp, `messageTimestamp`, contra ahora) no lo atiende MaKo sola: va al grupo
+  de SuperAdmin, una vez por mensaje (`avisarQueLlegoTarde`, antes del comprobante y de la cola). Lo de una hora sí se atiende;
+- la alarma que faltaba: `vigilarDemoraDeLaLinea` (lib/canal-vigilante.ts, en el cron `alerta-critica`, cada 10 min) mide el atraso
+  de lo que entró a la cola en las últimas 3 h y avisa por EMAIL si algo llegó con más de 20 min, cada 3 h mientras dure.
+- ⚠️ **Para volver a escanear una línea que contesta la sonda, el panel no deja:** `/agencia` responde «La línea ya está conectada y
+  respondiendo» (lib/mako-canal.ts, el guard que evita desvincular una viva). Primero se cierra esa sesión desde el teléfono
+  (WhatsApp → Dispositivos vinculados), y después «Conectar por QR».
+**Sin hacer:**
+- una línea SORDA del todo (no entrega nada) no la ve esta alarma, porque mide lo que llega. Para esa, lo que se mide es un mensaje
+  propio de prueba (con su hora) que tiene que volver por el webhook;
+- **dos pendientes y dos «sí», una se pierde** (Giselle, ws 17, 10/11 20:56): «agrega una nota a Maria Valeria…» y «…a Ana
+  Vallejo…» dejaron las pendientes #847 y #848; el primer «Si» confirmó la última (#848), el segundo terminó en «Estoy atento al
+  próximo mensaje» y la #847 se venció sola. El «sí» lo resuelve el modelo con `confirmar_accion`, que toma la más reciente: hace
+  falta que, al confirmar una, MaKo nombre la otra que queda viva (o que un «sí» de la misma persona confirme las dos simples);
+- dos notas en un mismo lote: MaKo propuso una y la otra fue al equipo (ticket #81, Patricia, ws 22), en vez de proponer las dos.
+
 ## MaKo no le responde a Leandro: contestó cada mensaje y no resolvió ninguno (9/11/2026)
 
 **El síntoma:** Martín, 9/11: «Leandro le está escribiendo a MaKo en WhatsApp y no responde».
@@ -3202,6 +3227,20 @@ siguen contando mañana a la misma hora. Con 100 por día, «los 22 hoy y los 97
 **Vive en:** lib/email-freno.ts (`conteoDeLosUltimos`, `desdeDelFreno`) · lib/email-reputacion.ts (`conteoEmailDelFreno`) ·
 tests/email-campana-topes.test.ts (con los envíos reales del 9 y el 10/11)
 *2026-11-10 claude4, chat Tickets*
+
+### ⚠️ «Subí el tope de email» tiene tres trampas: la rampa, la pantalla y el plan de Resend del negocio (11/11/2026, tickets #78 y #83)
+
+Le aconsejé a Mauricio subir el email a 120 por día para que salieran sus dos envíos juntos, y estaba mal por tres lados:
+1. **La rampa.** Con `arranqueDia` < `dia`, el tope de hoy arranca en `arranqueDia` y sube sólo los días que se LLEGÓ al tope
+   (`topeConRampa`, lib/goteo.ts). Subir sólo «Por día» no cambia nada si ayer no se llegó (el 10/11 salieron 78 de 100).
+2. **La pantalla.** Configuraciones muestra sólo «Línea por día» del email: la rampa (`arranqueDia`, `arranqueSube`) se cambia
+   únicamente por la API (`cambiar_limites_envio`; `FILAS_LINEA`, lib/limites-envio.ts).
+3. **El plan de Resend del negocio.** Desde el 4/11 cada negocio manda con SU clave de Resend (`credenciales` RESEND_API_KEY). El
+   plan gratis de Resend corta en 100 por día, así que el tope de MaKo (hasta 500) no sirve si su cuenta de Resend no es paga.
+**Regla:** antes de aconsejar un tope, mirar de quién es la clave de Resend, los tres campos del email en `mako.limites_envio` y
+si ayer se llegó al tope.
+
+*2026-11-11 claude4, chat Tickets*
 
 ### ⚠️ El generador de emails escribe para el negocio de Mauricio, no para el del cliente
 

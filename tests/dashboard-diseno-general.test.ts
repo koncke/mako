@@ -218,3 +218,13 @@ test('cableado: la plantilla General trae su diseño con sus dos piezas, y el ed
 //   · «Te deben» sin ordenar por urgencia → 1 fallo;
 //   · la escala con el tope en un paso → 1 fallo;
 //   · el funnel sin «Sin etapa» → 1 fallo.
+
+// 11/11/2026, mirando las hojas en el ws 3 (sin cobros): un cero no se pinta como subida ni como alarma.
+test('ceros honestos: General sin flecha verde en un cambio de cero, y Cobranza sin rojo en un vencido de cero', () => {
+  const gen = leer('app/dashboard/disenos/HojaGeneral.tsx');
+  assert.match(gen, /\{mes\.delta === 0 \? <>Igual que el \{mes\.etiquetaAnterior\}<\/> : \(/, '«↗ +US$0» volvió');
+  assert.match(gen, /quedo === 0 \? plata\(0\) :/, '«Te quedó +US$0» en verde volvió');
+  const cbz = leer('app/dashboard/disenos/HojaCobranza.tsx');
+  assert.match(cbz, /<p className="cbz-owed__late-n" data-cero=\{deben\.vencido \? undefined : ''\}>/, '«Vencido US$0» en rojo volvió');
+  assert.match(leer('app/dashboard/disenos/cobranza-css.ts'), /\.cbz-owed__late-n\[data-cero\]\{color:var\(--ink\)\}/);
+});

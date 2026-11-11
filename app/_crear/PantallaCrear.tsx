@@ -87,6 +87,12 @@ export type PropsPantallaCrear = {
   onPedido?: (texto: string) => void | string | null | Promise<void | string | null>;
   /** En el teléfono, qué se ve después de crear: la pieza (un editor) o el chat (Offer, donde MaKo pregunta). */
   trasCrear?: VistaMovil;
+  /**
+   * En el teléfono (≤ 760 px), qué se ve AL ENTRAR (10/11/2026). Por defecto la pieza. Image lo pide en el chat mientras MaKo pregunta
+   * antes de replicar un ejemplo: a 551 px el guiado abría en «Image» (las láminas) con la pregunta escondida detrás de «MaKo», y
+   * sin el chat a la vista el velo no tenía qué señalar. Mismo criterio que `trasCrear` en Offer.
+   */
+  movilDeEntrada?: VistaMovil;
   /** Un chat propio en vez del Cerebro (el del Video Editor, que edita lo abierto): recibe la «←» para su cabecera. */
   chat?: (volver: ReactNode) => ReactNode;
   /** Lo que la pantalla tiene abierto, para el Cerebro (el chip «desde Video › Mi reel»). */
@@ -162,7 +168,7 @@ export function PantallaCrear(p: PropsPantallaCrear) {
   const [cara, setCara] = useState<CaraTarjeta>('chat');
   const [creando, setCreando] = useState(!!p.creandoInicial);
   // En el teléfono, de entrada la pieza (lo que se vino a hacer); sin nada abierto, las plantillas, que también son «la pieza».
-  const [movil, setMovil] = useState<VistaMovil>('pieza');
+  const [movil, setMovil] = useState<VistaMovil>(p.movilDeEntrada ?? 'pieza');
   // Lo escrito en «¿Qué vas a crear hoy?» sale al Cerebro UNA vez por `vez` (el mismo contrato que `MakoEnLaTab`).
   const [pedido, setPedido] = useState<{ texto: string; vez: number } | null>(null);
   const centro = centroDe(hayPieza, creando);

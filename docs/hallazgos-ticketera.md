@@ -1261,3 +1261,17 @@ corregir el tipo de un ticket que lo espera es que lo toque él en la bandeja.
 
 **Lo que hace falta para desbloquearlo** (y no es trabajo de código): el contenido del audio, de boca de Martín o de quien
 lo mandó, y su sí. Con eso, es una carga de cobranza normal.
+
+## ⚠️ Cerrar un pedido DELEGADO como «resuelto» le dice al cliente «Listo: ya quedó», se haya hecho o no (10/11/2026, ticket #80)
+
+**Síntoma.** Al cerrar en tanda tickets viejos, a Leandro le llegó «Listo: ya quedó tu pedido #65 (mandar un recurso a dos
+contactos)» y a Joan «Listo: ya quedó tu pedido #58 (agendar lo del audio)». Ninguna de las dos cosas se hizo: la respuesta que
+explicaba por qué no se mandó nunca.
+
+**Causa.** El aviso de un pedido delegado (`contexto.delegado`, lib/tickets-reglas.ts `textoDelAviso`) es FIJO a propósito (sólo lo
+que pidió y un link de MaKo), para que el texto del Cerebro no llegue crudo. `scripts/tickets-cerrar-resueltos.mjs` lo cerraba
+igual que un ticket común. **Regla:** un delegado se cierra como resuelto sólo si se HIZO (`"hecho": true`, ahora obligatorio en
+el script); lo que no se hizo se le contesta en su grupo como equipo y el ticket se cierra después.
+
+*2026-11-10 claude4, chat Tickets*
+

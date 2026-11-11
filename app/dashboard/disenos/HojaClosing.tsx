@@ -107,6 +107,8 @@ function Reloj({ minutos }: { minutos: number | null }) {
     const t = setTimeout(() => pon(true), 1000);
     return () => clearTimeout(t);
   }, [digitos.join('')]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Sin duración, un guion: el reloj en «00:00:00» decía que las llamadas duraron cero (11/11/2026, ws 3 sin grabador).
+  if (minutos == null) return <div className="hc-dialer__clock" aria-label="Sin duración">—</div>;
   const col = (i: number) => (
     <span className="hc-dg"><span className="hc-dg__col" ref={(el) => { cols.current[i] = el; }}>{[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <span key={n}>{n}</span>)}</span></span>
   );

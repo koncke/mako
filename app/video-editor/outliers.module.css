@@ -1,26 +1,38 @@
-/* La portada de Video (./OutliersVideo.tsx): lo que la de Image no tiene. El resto (encabezado, pastillas, grilla, vacío) usa
-   las clases de app/image-editor/carruseles/explorar.module.css: una portada, un diseño. Sólo tokens de la casa. */
+/* La portada de Video (./OutliersVideo.tsx): lo que la de Image no tiene. El resto (encabezado, pastillas, grilla, tarjeta,
+   «×», creador, vacío) usa las clases de app/image-editor/carruseles/explorar.module.css: una portada, un diseño. Sólo tokens
+   de la casa. */
 
-.tarjeta { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); overflow: hidden; gap: 0; }
+/* Un reel es vertical: la tarjeta de Image en 9:16 (la suya es 4:5, la de un carrusel), y una columna más angosta para que
+   entren tantas como carruseles en la misma pantalla. */
+.grillaReels { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.mini916 { aspect-ratio: 9 / 16; display: block; }
+.play {
+  position: absolute; right: 10px; bottom: 10px; display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: 50%; background: rgba(12, 12, 20, 0.55); color: #fff; font-size: 12px; pointer-events: none;
+}
+.marca {
+  position: absolute; left: 10px; top: 10px; display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px;
+  background: var(--surface); color: var(--ink); font-size: 12px; font-weight: 650; border: 1px solid var(--border);
+}
 
-/* La estructura de la plantilla (sin la imagen del original): un tramo por bloque, del ancho de su tiempo, en 9:16 apaisado. */
-.estructura { position: relative; display: flex; gap: 3px; aspect-ratio: 16 / 7; padding: 14px 14px 30px; background: var(--surface-2); }
+/* La estructura de la plantilla (sin la imagen del original): una banda por bloque, del alto de su tiempo, con el nombre
+   entero (11/11/2026: en columnas de ~40 px se leía «Dis…», «Creden…»). */
+.estructura { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 3px; padding: 44px 10px 10px; background: var(--surface-2); }
 .tramo {
-  min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; padding: 8px 6px; border-radius: 8px;
+  min-height: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 10px; border-radius: 8px;
   background: var(--primary-bg); color: var(--primary-strong, var(--primary)); overflow: hidden;
 }
 .tramo[data-mudo='si'] { background: var(--surface); color: var(--dim); border: 1px dashed var(--border-strong, var(--border)); }
-.tramo b { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tramo small { font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.total { position: absolute; right: 14px; bottom: 8px; font-size: 11px; color: var(--dim); font-variant-numeric: tabular-nums; }
+.tramo b { min-width: 0; font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tramo small { flex: none; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-.cuerpo { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; }
-.linea { display: flex; flex-wrap: wrap; gap: 6px; }
-.chip { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; background: var(--surface-2); color: var(--dim); font-size: 12px; font-weight: 600; }
-.titulo { margin: 0; font-size: 18px; font-weight: 700; color: var(--ink); }
-.porque { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
-.creador { margin: 0; font-size: 12.5px; color: var(--dim); }
-.acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+/* Angosto (una ventana chica, o el teléfono sin `data-telefono`): dos columnas, como Image en el teléfono. */
+@media (max-width: 520px) { .grillaReels { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; } }
+/* El total es una frase, no un número: en 390 px se cortaba («…los que más supe»). Como `.total` de Image, pero salta. */
+.total { margin: 0; font-size: 13px; line-height: 1.45; color: var(--dim); font-variant-numeric: tabular-nums; }
+.basada { margin: 0; font-size: 12px; color: var(--faint, var(--dim)); }
+.porque { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--dim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 2px; }
 .replicar {
   display: inline-flex; align-items: center; height: 36px; padding: 0 18px; border-radius: 999px; background: var(--primary);
   color: var(--on-primary, #fff); font-size: 13.5px; font-weight: 600; text-decoration: none;

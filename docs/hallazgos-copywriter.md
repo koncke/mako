@@ -405,6 +405,30 @@ app/m/copywriter/GuionM.tsx
 
 **Vive en:** lib/copywriter/seccion-arrastre.ts, app/copywriter/editor/CuerpoNotion.tsx, tests/copywriter-arrastrar-seccion.test.ts
 
+## «Tenemos la transcripción de un montón de cosas»: medido, casi no hay (11/11/2026, outliers de copy)
+
+- **Lo que se creía** (Martín, al pedir los outliers de copy): que había transcripciones de anuncios, carruseles, reels y videos
+  de YouTube, listas para mostrar como outliers.
+- **Lo que se midió en producción** (sólo lectura, el 11/11):
+  - **Guiones de Spy:** 11 en toda la base, todos de un mismo negocio; 0 en el ws 3. Viven en `app_settings`
+    (`spy.transcripcion.<competidor>.<pieza>`), no en `spy_piezas`, y se hacen SÓLO al abrir el detalle de una pieza en Spy
+    (Apify + Whisper, o Gemini para YouTube). Vencen a los 30 días.
+  - **Carruseles:** las láminas no tienen su texto guardado, sólo las imágenes. Lo único es el pie.
+  - **YouTube (Thumbnails):** ni descripción ni transcripción; sólo títulos y números.
+  - **Anuncios:** los de la competencia guardan su copy, no la transcripción del video. Los PROPIOS sí
+    (`ad_transcripts.secciones` + `script_analyses`, con su veredicto): 133 en un negocio, 87 en otro, 0 en el ws 3.
+- **Lo que hay de verdad, y es lo que usa la portada** (lib/copywriter/outliers.ts):
+  - el pie de los reels y las publicaciones de Spy;
+  - la descripción y el título de YouTube;
+  - el copy de los anuncios;
+  - el pie de los 1.574 carruseles de la biblioteca;
+  - el guion, cuando ya existe.
+  La tarjeta y MaKo dicen qué texto es; nunca «la transcripción» cuando es el pie.
+- ⚠️ **El texto de Spy vence a los 30 días** (`podarVencido`, la regla de datos de terceros): una pieza vieja de Spy llega sin pie y
+  no es un outlier de copy. Una portada que no sale «vacía» depende de que Spy siga leyendo.
+- **Sin hacer:** los anuncios propios como fuente (`ad_transcripts` + el veredicto del Script Analyst), y transcribir al replicar
+  (asegurarGuion de Spy tiene tope de 20 por día y cuesta).
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
