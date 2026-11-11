@@ -136,6 +136,17 @@ export const miniaturaDePieza = (p: { canal: string; ref: string; miniatura?: st
     : null
 );
 
+/**
+ * La miniatura para lo CHICO: las tarjetitas del gráfico (34 px) y las filas de «Lo que mejor le fue» (44 px).
+ *
+ * ⚠️ UN VIDEO DE YOUTUBE VA CON LA CHICA DE YOUTUBE (11/11/2026, mirado con capturas). Nuestra copia guardada es la grande
+ * (85 KB la medida) y la `mqdefault` de YouTube pesa 4,7 KB, es la misma imagen y no vence. Con ~180 tarjetitas por gráfico,
+ * casi ninguna llegaba en el tope de la precarga y el gráfico de Leila Hormozi se vio con CERO portadas: todas las tarjetitas
+ * de color. Instagram no tiene una chica pública: va la guardada.
+ */
+export const miniaturaChica = (p: { canal: string; ref: string; miniatura?: string | null }, ahora: number = Date.now()): string | null =>
+  p.canal === 'youtube' && p.ref ? `https://i.ytimg.com/vi/${encodeURIComponent(p.ref)}/mqdefault.jpg` : miniaturaDePieza(p, ahora);
+
 export type FilaConteo = { rotulo: string; n: number; pct: number };
 
 const pct = (n: number, total: number): number => (total ? Math.round((n / total) * 100) : 0);

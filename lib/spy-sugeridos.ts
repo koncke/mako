@@ -70,6 +70,9 @@ export type FilaPieza = {
   publicada_en: string | null;
   miniatura: string | null;
   dejo_de_verse_en: string | null;
+  /** Carrusel, imagen o video, y sus láminas (mig 0391). Se copian: sin esto, un carrusel copiado decía «Publicación» (11/11/2026). */
+  medio?: string | null;
+  laminas?: number | null;
 };
 
 /** Lo que se le pasa a `guardarVistas` (lib/spy.ts). */
@@ -77,7 +80,7 @@ export type PiezaCopiada = {
   canal: CanalSpy; tipo: string; ref: string; fuente: string;
   url: string | null; titulo: string | null; texto: string | null; etiquetas: string[] | null;
   vistas: number | null; megusta: number | null; comentarios: number | null; duracion: string | null;
-  publicadaEn: string | null; miniatura: string | null;
+  publicadaEn: string | null; miniatura: string | null; medio: string | null; laminas: number | null;
 };
 
 /** Lo que identifica a una persona, para no sugerirle a alguien que ya mira ni crearle un duplicado. */
@@ -113,7 +116,7 @@ export function piezasACopiar(piezas: readonly FilaPieza[]): PiezaCopiada[] {
     .map((p) => ({
       canal: p.canal, tipo: p.tipo, ref: p.ref, fuente: p.fuente, url: p.url, titulo: p.titulo, texto: p.texto,
       etiquetas: p.etiquetas, vistas: p.vistas, megusta: p.megusta, comentarios: p.comentarios, duracion: p.duracion,
-      publicadaEn: p.publicada_en, miniatura: p.miniatura,
+      publicadaEn: p.publicada_en, miniatura: p.miniatura, medio: p.medio ?? null, laminas: p.laminas ?? null,
     }));
 }
 
