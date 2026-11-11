@@ -68,6 +68,22 @@ export function loadImageSource({
 	return promise;
 }
 
+/**
+ * Suelta las imágenes decodificadas de una URL (o todas). Antes no se vaciaba nunca: cada vez que se abre un proyecto sus
+ * archivos reciben URLs nuevas, y las imágenes de las viejas (ya revocadas) quedaban en memoria; una foto de 12 MP son
+ * 48 MB (docs/editor-video/memoria-del-editor.md §6). Lo llaman core/managers/media-manager.ts y
+ * commands/media/remove-media-asset.ts.
+ */
+export function soltarImagenes(url?: string): void {
+	if (url === undefined) {
+		imageSourceCache.clear();
+		return;
+	}
+	for (const clave of [...imageSourceCache.keys()]) {
+		if (clave.startsWith(`${url}::`)) imageSourceCache.delete(clave);
+	}
+}
+
 export class ImageNode extends VisualNode<
 	ImageNodeParams,
 	ResolvedVisualSourceNodeState

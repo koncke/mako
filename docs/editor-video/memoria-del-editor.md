@@ -236,12 +236,40 @@ Ordenado por memoria que ahorra contra trabajo que lleva. Son propuestas; ningun
 4. **Cerrar los decodificadores de los clips que salieron de pantalla**, con un tope de unos 4 abiertos y cerrando el que
    se usó hace más tiempo (`video-cache/service.ts`). Con 10 clips de celular, de ≈1 GB pasa a ≈400 MB, y a ≈120 MB con
    copias livianas.
+   - **HECHO el 11/11/2026, con otra regla** (rama `punta/tope-decodificadores`).
+     - En vez de un tope fijo de abiertos, se cierra el que no pidió un cuadro en **5 s de uso**. El tiempo de uso no
+       corre con el editor quieto.
+     - Un tope fijo cerraría capas que se ven a la vez, y cada cuadro las reabriría.
+     - Dónde vive: `services/video-cache/service.ts` (`podarInactivos`). Lo fija
+       `tests/video-editor-tope-decodificadores.test.ts`. Medido: §12.
 5. **Terminar el hilo de Whisper** al terminar de subtitular (`services/transcription/service.ts`): ≈250 MB.
+   - **HECHO el 11/11/2026** (rama `punta/whisper-se-suelta`).
+     - Se termina al minuto sin uso (`WHISPER_INACTIVO_MS`): subtitular un clip y enseguida otro no recarga el modelo.
+     - Con un subtitulado en curso no se suelta.
+     - Lo fija `tests/video-editor-whisper-se-suelta.test.ts`.
+     - Sin medir en vivo: el banco no carga Whisper, porque bajaría 250 MB de Hugging Face. El tamaño sale de
+       `transcription/models.ts`.
 6. **Exportar sin juntar todo en memoria.**
    - Decodificar el audio fuente por fuente en vez de todo a la vez (`media/audio.ts:234`).
    - Escribir el MP4 a un archivo de OPFS con `StreamTarget` en vez del búfer en memoria (`scene-exporter.ts:161`).
    - O exportar en la nube: el render de Remotion en Lambda (parte 2) saca este pico de la PC del cliente.
+   - **HECHO el 11/11/2026 el primer punto** (rama `punta/exportar-audio-de-a-uno`).
+     - Las fuentes se decodifican en fila, y cada una suelta sus trozos y canales antes de remuestrear.
+     - Lo fija `tests/video-editor-exportar-audio-de-a-uno.test.ts`. Medido: §13.
+     - **Sin hacer:** el MP4 a OPFS con `StreamTarget`. Hoy el «fast start» en memoria pone el índice al principio, y
+       con un archivo que se escribe de a poco hay que elegir:
+       - el índice al final, que se reproduce igual pero no empieza a verse antes de bajarlo entero;
+       - o reservarle lugar al principio.
 7. **Las fugas de §6.** Cada una es chica, pero se suman en una sesión larga y al pasar de un negocio a otro.
+   - **HECHAS el 11/11/2026 cuatro** (rama `punta/fugas-editor`), fijadas en `tests/video-editor-fugas.test.ts`:
+     - IndexedDB cierra la conexión de cada operación. Además, una abierta dejaba esperando para siempre a
+       `deleteDatabase`.
+     - El caché de imágenes se vacía al cerrar el proyecto y al borrar el medio.
+     - El `AudioContext` de cada sonido de la biblioteca se cierra al decodificar.
+     - La tira de miniaturas cierra el `Input` de cada archivo al cerrar el proyecto y al borrar el medio.
+   - **Sin hacer:** `AudioManager.dispose()` y `EditorCore.reset()` sin limpieza, y salir del editor sin cerrar el proyecto
+     (`editor-provider.tsx:97`). Tocan cómo se arma y se desarma el editor entero, y se prueban con el editor abierto en
+     producción, no en el banco.
 8. **Un tope al historial de deshacer** (por ejemplo, 100 pasos) y al «Restaurar» del chat.
 
 ## 8. ¿Y Remotion?
@@ -342,3 +370,41 @@ decodificador (§2).
 **Sin medir:** el 4K, que es donde más se notaba (+529 → +762 MB de pico). La PC tenía 2 GB libres, y el 4K la habría
 bajado de los 1.250 MB del corte. Se corre con `node scripts/banco-memoria-editor/medir.mjs repro-4k subida-reusada-4k`
 cuando haya 3 GB libres.
+
+## 12. Después: cerrar el decodificador de lo que salió de pantalla, medido (11/11/2026)
+
+Es el `VideoCache` REAL, compartido entre clips como en el editor, con un reloj simulado a 30 cuadros por segundo: el
+banco pide cuadros mucho más rápido que la reproducción, y con el reloj de verdad nunca pasarían 5 s de uso.
+
+- **Antes:** el mismo código con `inactivoMs` infinito.
+- **Escenarios:** `tope6-antes-1080` y `tope6-despues-1080`: 6 clips de celular de 6 s, uno detrás del otro.
+
+| Después de cada clip | Antes: abiertos / GPU / todo Chrome | Después: abiertos / GPU / todo Chrome |
+|---|---|---|
+| 1 | 1 / +113 / +205 MB | 1 / +85 / +117 MB |
+| 2 | 2 / +217 / +303 MB | 1 / +99 / +135 MB |
+| 3 | 3 / +238 / +332 MB | 1 / +218 / +231 MB |
+| 4 | 4 / +302 / +414 MB | 1 / +219 / +235 MB |
+| 5 | 5 / +393 / +447 MB | 1 / +223 / +173 MB |
+| 6 | 6 / +368 / +411 MB | **1 / +259 / +188 MB** |
+
+- **Antes, cada clip sumaba unos 60 MB en la GPU. Después se estabiliza** cerca de +220–260 MB, y Chrome entero queda en
+  menos de la mitad.
+- **La GPU no devuelve en el momento lo que se suelta:** cerrar 3 decodificadores no la baja, la deja de hacer crecer.
+  Chrome guarda esa memoria para reusarla. Por eso el beneficio se ve en un proyecto largo y no en uno de 2 clips: con 4
+  clips daba +309 contra +270 MB.
+
+## 13. Después: el audio de exportar de a una fuente, medido (11/11/2026)
+
+Es el `collectAudioElements` REAL de exportar, sobre una pista con 4 clips de 60 s, cada uno un archivo distinto con su
+decodificación. Escenario `exportar-audio-4`, corrido con el código de antes y con el de ahora.
+
+| 4 clips de 60 s | Antes: todas a la vez | Después: de a una |
+|---|---|---|
+| Pico del proceso de la página | +450 MB | **+200 MB** |
+| Lo que queda decodificado | 88 MB | 88 MB |
+| Tarda | 0,78 s | 1,42 s |
+
+El resultado es el mismo: 4 elementos y 88 MB. Tarda más porque no decodifica en paralelo, pero es una parte chica de
+exportar, porque el video se lleva casi todo el tiempo. Con más clips la diferencia crece: antes el pico era unas 5
+veces el audio de TODAS las fuentes; ahora es el audio de todas más el de UNA decodificándose.

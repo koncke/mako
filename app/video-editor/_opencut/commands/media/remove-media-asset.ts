@@ -9,6 +9,8 @@ import { hasMediaId } from "@/app/video-editor/_opencut/timeline/element-utils";
 import type { SceneTracks } from "@/app/video-editor/_opencut/timeline";
 import { claveDecodificadorTransicion } from "@/app/video-editor/_opencut/transiciones/claves";
 import { clavesDeLaCopia } from "@/app/video-editor/_opencut/media/copia-liviana-reglas";
+import { soltarImagenes } from "@/app/video-editor/_opencut/services/renderer/nodes/image-node";
+import { soltarMiniaturas } from "@/app/video-editor/_opencut/timeline/components/miniaturas";
 
 export class RemoveMediaAssetCommand extends Command {
 	private savedAssets: MediaAsset[] | null = null;
@@ -47,7 +49,9 @@ export class RemoveMediaAssetCommand extends Command {
 
 		if (this.removedAsset.url) {
 			URL.revokeObjectURL(this.removedAsset.url);
+			soltarImagenes(this.removedAsset.url);
 		}
+		soltarMiniaturas(this.assetId);
 		if (this.removedAsset.thumbnailUrl) {
 			URL.revokeObjectURL(this.removedAsset.thumbnailUrl);
 		}

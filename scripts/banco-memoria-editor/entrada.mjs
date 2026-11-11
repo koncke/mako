@@ -5,6 +5,8 @@ import { crearCopiaLiviana } from "@/app/video-editor/_opencut/media/copia-livia
 import { ondaPorTramos } from "@/app/video-editor/_opencut/media/onda-por-tramos";
 import { buildSourceWaveformSummary } from "@/app/video-editor/_opencut/media/waveform-summary";
 import { lienzoDeSubida } from "@/app/video-editor/_opencut/services/renderer/compositor/lienzo-de-subida";
+import { collectAudioElements } from "@/app/video-editor/_opencut/media/audio";
+import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { Input, ALL_FORMATS, BlobSource, CanvasSink } from "mediabunny";
 
 // Copia literal de ensureOffscreenCanvas (services/renderer/compositor/wasm-compositor.ts), que no se exporta.
@@ -37,6 +39,14 @@ class VideoCacheLiviano extends VideoCache {
 }
 
 const archivos = new Map();
+// Un videoCache COMPARTIDO entre llamadas, con un reloj simulado a 30 cuadros por segundo (el banco pide cuadros mucho
+// más rápido que la reproducción real). «antes»: sin cerrar nunca; «despues»: el tope del editor (5 s de uso).
+let relojSimulado = 0;
+let llamada = 0;
+const compartidos = {
+	antes: new VideoCache({ inactivoMs: Number.POSITIVE_INFINITY, reloj: () => relojSimulado }),
+	despues: new VideoCache({ reloj: () => relojSimulado }),
+};
 const vivos = []; // lo que el editor mantiene abierto mientras el proyecto está abierto
 
 window.prueba = {
@@ -54,17 +64,19 @@ window.prueba = {
 		return { ms: Math.round(performance.now() - t), resumen: Object.keys(s) };
 	},
 	// Reproduce `segundos` a 30 cuadros por segundo, pidiendo cada cuadro como lo pide la vista previa.
-	async reproducir({ nombres, segundos, liviano = null, subir = false }) {
-		const vc = liviano ? new VideoCacheLiviano(liviano[0], liviano[1]) : new VideoCache();
-		vivos.push(vc);
+	async reproducir({ nombres, segundos, liviano = null, subir = false, compartido = null }) {
+		const vc = compartido ? compartidos[compartido] : liviano ? new VideoCacheLiviano(liviano[0], liviano[1]) : new VideoCache();
+		if (!compartido) vivos.push(vc);
+		const vuelta = llamada++;
 		const t0 = performance.now();
 		let cuadros = 0;
 		let pixeles = 0;
 		const lienzos = new Map(); // subir: "reusado" → el lienzo de cada capa, como el compositor desde el 11/11
 		for (let i = 0; i < segundos * 30; i++) {
 			const t = i / 30;
+			relojSimulado += 1000 / 30;
 			for (const [k, nombre] of nombres.entries()) {
-				const f = await vc.getFrameAt({ mediaId: `m${k}-${nombre}`, file: archivos.get(nombre), time: t });
+				const f = await vc.getFrameAt({ mediaId: compartido ? `v${vuelta}-${k}` : `m${k}-${nombre}`, file: archivos.get(nombre), time: t });
 				if (!f) continue;
 				cuadros++;
 				if (subir === "reusado") {
@@ -77,7 +89,7 @@ window.prueba = {
 				}
 			}
 		}
-		return { cuadros, ms: Math.round(performance.now() - t0), pixeles, stats: vc.getStats() };
+		return { cuadros, ms: Math.round(performance.now() - t0), pixeles, stats: vc.getStats(), abiertos: vc.abiertos?.() };
 	},
 	// La copia liviana REAL del editor (media/copia-liviana.ts), guardada como `<nombre>.liviana`.
 	async copia(nombre) {
@@ -120,6 +132,20 @@ window.prueba = {
 		const n = Math.min(a.length, b.length);
 		for (let i = 0; i < n; i++) { const d = Math.abs(a[i] - b[i]); sumaDif += d; if (d > maxDif) maxDif = d; }
 		return { tasa: [vieja.sampleRate, nueva.resumen.sampleRate], muestras: [vieja.totalSamples, nueva.resumen.totalSamples], baldes: [a.length, b.length], maxDif: Math.round(maxDif * 1e4) / 1e4, difMedia: Math.round((sumaDif / n) * 1e5) / 1e5, picoMax: Math.round(Math.max(...a) * 1e3) / 1e3 };
+	},
+	// El audio de EXPORTAR (media/audio.ts, collectAudioElements, el real): `clips` videos distintos del mismo archivo,
+	// uno detrás del otro en la pista principal, cada uno con su decodificación.
+	async exportarAudio({ nombre, clips }) {
+		const file = archivos.get(nombre);
+		const dur = (await new Input({ source: new BlobSource(file), formats: ALL_FORMATS }).computeDuration());
+		const mediaAssets = Array.from({ length: clips }, (_, i) => ({ id: `a${i}`, name: nombre, type: "video", file, url: "", duration: dur }));
+		const T = TICKS_PER_SECOND;
+		const elements = mediaAssets.map((a, i) => ({ id: `e${i}`, type: "video", mediaId: a.id, name: "x", startTime: Math.round(i * dur * T), duration: Math.round(dur * T), trimStart: 0, trimEnd: 0, params: {} }));
+		const tracks = { main: { id: "main", type: "video", name: "main", elements, muted: false, hidden: false, isMain: true }, overlay: [], audio: [] };
+		const t = performance.now();
+		const r = await collectAudioElements({ tracks, mediaAssets, audioContext: new OfflineAudioContext(2, 1, 48000) });
+		vivos.push(r);
+		return { elementos: r.length, ms: Math.round(performance.now() - t), mbDecodificados: Math.round(r.reduce((s, e) => s + e.buffer.length * e.buffer.numberOfChannels * 4, 0) / 1048576) };
 	},
 	soltar() {
 		for (const v of vivos) if (v instanceof VideoCache) v.clearAll();
