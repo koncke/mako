@@ -4,6 +4,7 @@ import { WaveformCache } from "@/app/video-editor/_opencut/services/waveform-cac
 import { crearCopiaLiviana } from "@/app/video-editor/_opencut/media/copia-liviana";
 import { ondaPorTramos } from "@/app/video-editor/_opencut/media/onda-por-tramos";
 import { buildSourceWaveformSummary } from "@/app/video-editor/_opencut/media/waveform-summary";
+import { lienzoDeSubida } from "@/app/video-editor/_opencut/services/renderer/compositor/lienzo-de-subida";
 import { Input, ALL_FORMATS, BlobSource, CanvasSink } from "mediabunny";
 
 // Copia literal de ensureOffscreenCanvas (services/renderer/compositor/wasm-compositor.ts), que no se exporta.
@@ -59,13 +60,18 @@ window.prueba = {
 		const t0 = performance.now();
 		let cuadros = 0;
 		let pixeles = 0;
+		const lienzos = new Map(); // subir: "reusado" → el lienzo de cada capa, como el compositor desde el 11/11
 		for (let i = 0; i < segundos * 30; i++) {
 			const t = i / 30;
 			for (const [k, nombre] of nombres.entries()) {
 				const f = await vc.getFrameAt({ mediaId: `m${k}-${nombre}`, file: archivos.get(nombre), time: t });
 				if (!f) continue;
 				cuadros++;
-				if (subir) {
+				if (subir === "reusado") {
+					const c = lienzoDeSubida({ source: f.canvas, width: f.canvas.width, height: f.canvas.height, previo: lienzos.get(k), label: "x" });
+					lienzos.set(k, c);
+					pixeles += c.width * c.height;
+				} else if (subir) {
 					const c = ensureOffscreenCanvas({ source: f.canvas, width: f.canvas.width, height: f.canvas.height, label: "x" });
 					pixeles += c.width * c.height;
 				}

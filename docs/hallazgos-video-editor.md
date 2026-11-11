@@ -42,7 +42,7 @@ Números y método en docs/editor-video/memoria-del-editor.md.
 - **Sin hacer** (orden y archivos en memoria-del-editor.md §7):
   1. ~~forma de onda por tramos~~ **HECHO el 11/11** (`media/onda-por-tramos.ts`; 76 MB de video: pico de +275 a +61 MB, el mismo dibujo, memoria-del-editor.md §10);
   2. ~~copias livianas al importar~~ **HECHO el 11/11** (`media/copia-liviana.ts`; 3 clips de +297 a +81 MB, memoria-del-editor.md §9);
-  3. un lienzo por capa que se reuse;
+  3. ~~un lienzo por capa que se reuse~~ **HECHO el 11/11 para el video** (`compositor/lienzo-de-subida.ts`; 1080: pico de la GPU de +198 a +152 MB, cuadros un 23 % más rápidos). Los efectos tipo CapCut siguen con un lienzo nuevo por llamada (`pases-ce.ts:347`), a propósito: el de su contexto se reusa abajo de quien lo lee;
   4. tope de decodificadores abiertos;
   5. terminar el hilo de Whisper;
   6. exportar sin juntar todo en memoria;

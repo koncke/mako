@@ -227,6 +227,12 @@ Ordenado por memoria que ahorra contra trabajo que lleva. Son propuestas; ningun
      - Lo fija `tests/video-editor-copia-liviana.test.ts`. Medido en el banco: §9.
 3. **Un lienzo por capa que se reusa**, en vez de uno nuevo por cuadro (`wasm-compositor.ts:232`, `pases-ce.ts:347`,
    `repartir-ce.ts`). Saca la basura de 250 MB/s a 1 GB/s.
+   - **HECHO el 11/11/2026 para los cuadros de video** (rama `punta/lienzo-por-capa`).
+     - Dónde vive: `services/renderer/compositor/lienzo-de-subida.ts`, usado por `wasm-compositor.ts`.
+     - Lo fija `tests/video-editor-lienzo-por-capa.test.ts`. Medido: §11.
+     - **Sin hacer:** los efectos tipo CapCut (`pases-ce.ts:347`, `repartir-ce.ts`) siguen devolviendo un lienzo nuevo por
+       llamada, a propósito: el de su contexto se reusa abajo de quien lo lee. Arreglarlo pide alternar dos lienzos por
+       capa, como `recorte/ganchos.ts`.
 4. **Cerrar los decodificadores de los clips que salieron de pantalla**, con un tope de unos 4 abiertos y cerrando el que
    se usó hace más tiempo (`video-cache/service.ts`). Con 10 clips de celular, de ≈1 GB pasa a ≈400 MB, y a ≈120 MB con
    copias livianas.
@@ -318,3 +324,21 @@ mismo banco (escenarios `onda-30s` y `onda-60s`).
   - 11.250 baldes con diferencia máxima 0;
   - las dos lecturas a 48 kHz;
   - la nueva trae 768 muestras de más al final, que son el relleno del códec AAC (16 ms).
+
+## 11. Después: un lienzo por capa, medido (11/11/2026)
+
+Es la función REAL del compositor (`compositor/lienzo-de-subida.ts`), cuadro a cuadro sobre el mismo clip, contra la
+copia de antes. Escenarios `repro-1080-subida` (antes) y `subida-reusada-1080` (después), corridos uno detrás del otro.
+
+| 1080×1920, 5 s con la subida de cada cuadro | Antes: lienzo nuevo por cuadro | Después: un lienzo por capa |
+|---|---|---|
+| Pico en la GPU | +198 MB | **+152 MB** |
+| 150 cuadros, tiempo | 737 ms | **568 ms** |
+| Queda en la GPU | +81 MB | +80 MB |
+
+Sin ninguna subida, el mismo clip da +128 a +162 MB de pico: la subida casi dejó de costar memoria. Lo que queda es el
+decodificador (§2).
+
+**Sin medir:** el 4K, que es donde más se notaba (+529 → +762 MB de pico). La PC tenía 2 GB libres, y el 4K la habría
+bajado de los 1.250 MB del corte. Se corre con `node scripts/banco-memoria-editor/medir.mjs repro-4k subida-reusada-4k`
+cuando haya 3 GB libres.
