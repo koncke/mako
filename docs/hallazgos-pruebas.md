@@ -47,16 +47,23 @@ la extensión:** tiene la sesión de LEANDRO (ws 10), un cliente real, y el `?ws
 de IA y una apertura vista (docs/pruebas/image-10-11.md, «Límites»).
 
 **11/11/2026, CÓMO MIRAR con el panel oculto (medido):** el panel mide 800 × 600 y la página se emula a 1440 × 900.
-- **Lo que anda:** después de `navigate`, un `zoom` de la región `[0, 0, 1440, 900]` devuelve la página ENTERA a 1440,
-  reducida a 800 × 500.
-- ⚠️ **Lo que lo rompe:** el primer clic con la herramienta (`computer` → `left_click`). Desde ahí cada captura es un RECORTE
-  de 800 × 500 de la esquina, aunque se vuelva a llamar `resize_window`. Una captura así parece buena y no muestra la mitad
-  derecha.
-- **Lo que lo mantiene:** el clic desde JS (`elemento.click()` en `javascript_tool`). La página reacciona igual (React) y la
-  captura sigue entera.
+- **La receta que anda (medida en toda la prueba del 11/11 a la tarde):** `resize_window` 1440 × 900 y, EN EL MISMO LOTE y
+  sin espera, `zoom` de `[0, 0, 1440, 900]`. Devuelve la página ENTERA a 1440, reducida a 800 × 500, también después de
+  clics, de escribir y de abrir modales.
+- ⚠️ **Lo que da un recorte:** un `zoom` suelto, o con una espera entre el `resize_window` y el `zoom`. Sale un RECORTE de
+  800 × 500 de la esquina, que parece bueno y no muestra la mitad derecha. A la mañana parecía que lo rompía el primer clic
+  con la herramienta; era la espera.
+- **El clic desde JS** (`elemento.click()`) sirve para manejar la pantalla sin coordenadas. La página reacciona igual (React).
 - **La pintura llega tarde:** la primera captura después de un cambio puede ser la vieja (sin el modal recién abierto) o
   tener las imágenes en blanco con `naturalWidth` 1080. Se mide el estado con JS (`[role=dialog]`, `naturalWidth`) y se repite
   la captura antes de anotar una falla.
+- ⚠️ **Lo que el panel oculto NO deja probar: el guiado de «Editar» de Image.** El 10/11 y el 11/11, con el panel oculto, el
+  clic (de la herramienta, desde JS, o llamando a `onReplicar` a mano) no lo abría. El 11/11 a 375 la pestaña se congeló entera:
+  ni un `javascript_tool` de una línea ni `navigate` en 300 s. Había 2,25 GB libres, así que no era la RAM. El mismo clic,
+  en una ventana a la vista, abre el guiado (10/11). Lo demás de la cadena se pudo probar abriendo el diseño por su link
+  (`/image-editor/<id>`): editar, ordenar, plantilla, imagen, guardar, reabrir y exportar (docs/pruebas/image-11-11.md).
+- **Exportar sin bajar nada a la PC:** se reemplaza `HTMLAnchorElement.prototype.click` para anotar el `download` y leer el
+  blob (nombre, tipo, bytes) en vez de bajarlo. Después se restaura.
 - **A 375:** `resize_window` con `preset: mobile` + `navigate` (el servidor dibuja el armado de teléfono por el agente). La
   captura normal sirve: el marco es 469 × 1015. Al volver a 1440 hay que navegar otra vez, porque la página quedó con el armado
   de teléfono.
