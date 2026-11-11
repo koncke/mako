@@ -101,7 +101,7 @@ export async function traerCarrusel(ws: number, texto: string): Promise<Traido> 
     if (!creador) return { ok: false, error: 'No pude saber de quién es esa publicación.' };
     const [pieza] = piezasDeApify([item]).map((p) => ({ ...p, creador: creador.instagram, alt: altDelItem(item) }));
     const [fila] = pieza ? filasDeLectura([pieza], { tema: null, tope: 1 }) : [];
-    if (!fila) return { ok: false, error: 'Ese link es un reel o un video: acá se traen carruseles y publicaciones con imagen.' };
+    if (!fila) return { ok: false, error: 'Ese link es un reel o un video: aquí se traen carruseles y publicaciones con imagen.' };
     const nueva = await db.from(T_CUENTAS).upsert(
       [{ instagram: creador.instagram, nombre: creador.nombre, fuente: 'tema', cambiada_por: `negocio ${ws}` }],
       { onConflict: 'instagram', ignoreDuplicates: true },
