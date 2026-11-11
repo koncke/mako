@@ -26,7 +26,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/app/_ui/Button';
 import { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
-import { marcoDe } from '@/app/_crear/reglas';
+import { cajaDeMiniatura, marcoDe } from '@/app/_crear/reglas';
 import { TITULO_CAJA } from '@/app/web-generator/CajaPedido';
 import { useEditor } from '@/app/video-editor/_opencut/editor/use-editor';
 import { importarArchivos } from '@/app/video-editor/_opencut/media/importar';
@@ -224,8 +224,17 @@ export function InicioVideoM({ senales = null }: { senales?: SenalesNegocio | nu
             {plantillas.map((pl) => (
               <button key={pl.id} type="button" className="cr-plantilla" onClick={() => usar(pl.id)} aria-label={`Usar la plantilla ${pl.nombre}`}>
                 <span className="cr-plantilla__mini" style={{ aspectRatio: '4 / 3' }}>
-                  <span className="cr-plantilla__marco" style={marcoDe(pl.formato)} />
-                  {pl.rotulo ? <span className="cr-plantilla__rotulo">{pl.rotulo}</span> : null}
+                  {/* Con imagen, la imagen a SU proporción, como TarjetaPlantilla en la computadora (11/11/2026): acá se dibujaba
+                      siempre el marco, y «Tu personaje con IA» seguía siendo un marco vacío en el teléfono. */}
+                  {pl.imagen ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={pl.imagen} alt="" loading="lazy" style={cajaDeMiniatura(pl.formato) ?? undefined} data-caja={cajaDeMiniatura(pl.formato) ? 'si' : undefined} />
+                  ) : (
+                    <>
+                      <span className="cr-plantilla__marco" style={marcoDe(pl.formato)} />
+                      {pl.rotulo ? <span className="cr-plantilla__rotulo">{pl.rotulo}</span> : null}
+                    </>
+                  )}
                 </span>
                 <span className="cr-plantilla__nombre">{pl.nombre}</span>
               </button>
