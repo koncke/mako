@@ -5283,3 +5283,12 @@ app/web-generator/editor/paneles/EstiloSeccion.tsx
   Se probó en producción inyectando la regla antes de escribirla.
 
 **Vive en:** app/ai-avatar/estudio.css (`.hf-grilla--selector`)
+
+## `--primary-bg` NO es un color de acento: en el tema por defecto es un gris (11/11/2026, Web Generator)
+
+`--primary` en el tema por defecto es `#121212` (casi negro) y `--primary-bg` es `#e4e4e1`: un gris. El nombre hace pensar en «un
+fondo suave del acento», y así se usó en la portada de outliers de Web Generator para la tarjeta sin imagen («sobre el tono del
+acento, nunca un cuadro gris»): en producción salió exactamente un cuadro gris. El acento de MaKo es el dorado (`--mako`,
+`#F2B01E`), que es lo que usa el «OUTLIER» marcado. **Regla:** para «un fondo con color» se mira el VALOR del token en
+app/globals.css, no su nombre; para una superficie neutra que no se vea vacía, se dibuja algo adentro (ahí, la página con su
+titular), no se tiñe.
