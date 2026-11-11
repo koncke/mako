@@ -114,3 +114,55 @@ marco con «Desde tu foto», la misma miniatura gris. Ahora muestra el preset «
 - **Un proyecto con su avatar y sus videos, y «Descargar»:** el negocio de prueba no tiene ninguno.
 - **El modo oscuro de MaKo** no sale del modo oscuro del sistema: emularlo no cambia la pantalla. Se miró el 10/11 con el
   selector de la app.
+
+## En producción, después del despliegue (11/11, 14:40–15:00 UTC)
+
+El despliegue salió a las 11:05 UTC con main en `ada98995d`. Probado en el navegador de la app con la sesión de Martín, dentro
+del negocio de prueba (comprobado con `/api/auth/me`: ws 3, «Cliente de Prueba», como administrador).
+
+**1. Las imágenes cargan SIN sesión: 31 de 31** responden `200 image/jpeg` (por `curl`, sin cookies, y en una pestaña sin sesión
+de MaKo). La dirección vieja, `/ai-avatar/presets/…`, manda al login (307): por eso viven en `/formatos/presets/`.
+
+![Una imagen de preset abierta sin sesión](ai-avatar-11-11/14-imagen-sin-sesion.jpg)
+
+**2. Las puertas.**
+- **Computadora, Video → «Crear desde cero» → «Tu personaje con IA»:** la tarjeta ya muestra la foto (antes, marco vacío) y abre
+  AI Avatar en el negocio de prueba. ✔
+  ![Video: la tarjeta con su foto](ai-avatar-11-11/15-video-tu-personaje-1440.jpg)
+  ![Lo que abre: AI Avatar con los presets llenos](ai-avatar-11-11/16-ai-avatar-desde-video-1440.jpg)
+- **`/ai-avatar` y `/m/ai-avatar`:** abren; en el teléfono, 33 baldosas y las 33 con foto. ✔
+- **Teléfono, Video → «Nuevo video»: la tarjeta SEGUÍA siendo un marco vacío.** La hoja del teléfono dibujaba sus tarjetas a mano
+  y nunca miraba la imagen. **Arreglado** (`app/m/video-editor/InicioVideoM.tsx`, con su test; sale en el próximo despliegue). Así
+  va a quedar, simulado en producción:
+  ![Teléfono: el marco vacío](ai-avatar-11-11/20-celular-video-marco-vacio.jpg)
+  ![Teléfono: con la imagen (simulado)](ai-avatar-11-11/21-celular-video-con-imagen-simulado.jpg)
+
+**3. Los presets en pantalla.** A 1440 y a 375, los 33 con su foto; el abanico de arriba con 4 fotos; «Nuevo avatar» con las 10
+plantillas de venta y los presets con foto; en el teléfono la barra en una fila y «Elige arriba». ✔
+
+![Los últimos presets, con foto](ai-avatar-11-11/17-presets-final-1440.jpg)
+![Nuevo avatar](ai-avatar-11-11/18-nuevo-avatar-1440.jpg)
+![Teléfono](ai-avatar-11-11/19-celular-presets.jpg)
+
+**4. Crear un avatar en el negocio de prueba**, hasta donde se puede sin la extensión:
+- Elegir «Antes y después»: queda marcado, la ranura muestra su foto y «Cambiar», y «Generar» dice **«Faltan 4 pasos»**. ✔
+- «Personaje»: dice «Una foto tuya de frente, sola y con buena luz.». Se subió una foto real de Martín: «Listo: tu foto quedó en
+  Personaje.», la miniatura en la ranura, el paso 4 tachado, «Te faltan 3 de 4» y «Generar» dice **«Faltan 3 pasos»**. ✔
+- Los 3 que faltan son la extensión de Chrome, conectarla a ESTE negocio y abrir Flow: el navegador de la app no tiene la
+  extensión, y la del Chrome de Martín está conectada a su negocio, no al de prueba. **Generar no se pudo probar desde acá.**
+- En el teléfono, el mismo momento: preset marcado, la foto en «Personaje», y «Antes de generar: En tu computadora, instala la
+  extensión de MaKo en Google Chrome.». ✔
+
+![Preset elegido: «Faltan 4 pasos»](ai-avatar-11-11/22-recorrido-preset-elegido.jpg)
+![Con la foto: «Faltan 3 pasos»](ai-avatar-11-11/23-recorrido-foto-y-pasos.jpg)
+![Teléfono](ai-avatar-11-11/24-celular-recorrido.jpg)
+
+**Crítica que queda, al lado de HeyGen e Higgsfield:**
+- **Las tarjetas de «Nuevo avatar» dibujan la foto vertical chica dentro de una caja gris 4:3**: mucho gris alrededor. HeyGen
+  llena la tarjeta. Es la tarjeta compartida de Create (`app/_crear/TarjetaPlantilla.tsx`, `cajaDeMiniatura`): cambia todas las tabs.
+- Dos plantillas de venta («Caso de un cliente» y «Recorrido de la preventa») muestran la misma foto: usan el mismo preset.
+- **En Video siguen grises** las otras tarjetas de «Nuevo video» («Mensaje para…», «Reel o TikTok», «YouTube»…) y, al cargar, las
+  miniaturas de los outliers; la portada de Video en el teléfono se ve lavada, como semitransparente. Es de Video, no de AI Avatar.
+- El chat de la izquierda con un mensaje viejo del Dashboard y «No te pude contestar esto» en rojo; «More» en inglés en el
+  teléfono. Son del marco compartido.
+- Para crear el primer avatar hacen falta 3 pasos técnicos (extensión, conectar, Flow) antes de ver nada; en HeyGen, una foto.
