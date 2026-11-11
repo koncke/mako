@@ -4273,3 +4273,21 @@ Sin hacer, con su archivo:
   su círculo. En el editor (y la miniatura de trabajo) va el lugar «Agregar imagen»; la publicada sigue sin dibujarlo.
 - **Lo que la primera vuelta no vio, y por qué:** se probó leyendo texto y el DOM. Ninguno de los tres defectos de arriba sale
   en un `innerText` ni en un `scrollHeight`: salen en la captura.
+
+## La portada de outliers de landings (11/11/2026, chat Web Generator)
+
+Pedido de Martín (por el Cerebro): «lo mismo que venimos haciendo con el resto de tabs, de outliers… empezar por la competencia…
+por las páginas de todos los gurús». `/web-generator` es ahora «Encuentra tu siguiente OUTLIER» (app/web-generator/OutliersLandings.tsx),
+copiada de Video, que copia a Image: las mismas clases (explorar.module.css y outliers.module.css). El relevo, en
+docs/web-generator/outliers-landings.md.
+
+- **La entrada cambió:** del 24/10 al 11/11 `/web-generator` saltaba a la última landing tocada (layout + página). Ahora es la
+  portada, como Video e Image; «Crear desde cero» lleva al Panel (`?panel=1`). Cuatro tests fijaban el salto; se cambiaron.
+- **«Replicar» de una tarjeta es `/web-generator?replicar=<url>`**, el mismo camino que «Copiar su sitio» de Spy: abre Replicar
+  con la página leída y NO pide la app de escritorio (la caja de crear sí). Medido en producción con acquisition.com.
+- **La competencia de Spy trae «link en la bio»:** de 9 competidores con `landing_url` (ws 3, 9 y 11), 3 eran beacons, linktree o
+  un acortador. No son landings: se filtran (`esLinkEnBio`). Ninguna pieza de landing de Spy tiene miniatura: se usa la imagen
+  para compartir de la página (`og:image`), pedida por `htmlDePagina` (las barandas de SSRF: la URL la escribió una persona).
+- **Las capturas del relevo se MIRAN antes de entrar:** con el Chrome sin ventana, 2 de ClickFunnels devolvieron «Sorry, you have
+  been blocked», 4 salieron tapadas por carteles de cookies o avisos, y 1 no cargó. No se esquiva el control de robots de nadie
+  (no se cambia el agente del navegador para pasar): esas quedan anotadas afuera de la grilla, para sacarlas a mano.
