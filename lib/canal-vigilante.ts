@@ -44,7 +44,8 @@
 // =============================================================================
 
 import 'server-only';
-import { sondearSocketDetalle, type Sondeo } from './evolution';
+import { numeroDeInstancia, reiniciarInstancia, sondearSocketDetalle, ultimosMensajesDeLaLinea, type Sondeo } from './evolution';
+import { avisoDeSordera, estaSorda, queHacerConLaSordera, SORDA_MS, type Accion, type MarcaDeSordera } from './linea-sorda';
 import { instanciaVoz } from './mako-grupo';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin, WS_NINGUNO } from './workspace';
@@ -387,4 +388,59 @@ export async function vigilarDemoraDeLaLinea(ahora = Date.now()): Promise<{ demo
   if (r.error) return { demoras, aviso: 'fallo', error: r.error };
   await runWithWorkspace(wsSA, () => setSetting(KEY_DEMORA_AVISO, new Date(ahora).toISOString()));
   return { demoras, aviso: 'enviado' };
+}
+
+// ── 11/11/2026: LA VOZ QUE MANDA Y NO RECIBE (lib/linea-sorda.ts) ──────────────────────────────────────────────────────────
+// La voz estuvo sorda de las 12:14 a las 21:3x UTC con todo en verde: `open`, la sonda contestando, MaKo mandando avisos. Ni la sonda
+// ni la alarma de demora la ven (si no entra nada, no hay nada atrasado). Esto mira lo que la voz RECIBE de personas contra lo que
+// MANDA, y lo que la otra línea de Martín ve en los grupos y la voz no. Reinicia una vez y pide el QR por mail y por la campanita.
+const KEY_SORDERA = 'mako.voz.sorda';
+
+/** La línea por default del negocio del super admin (la de Martín): la que comparte grupos con la voz. */
+async function lineaDeMartin(ws: number): Promise<string | null> {
+  const { data } = await getSupabaseServer().from('evolution_instancias').select('instance_name, es_default').eq('workspace_id', ws);
+  const filas = (data ?? []) as Array<{ instance_name: string; es_default: boolean | null }>;
+  return (filas.find((f) => f.es_default) ?? filas[0])?.instance_name ?? null;
+}
+
+const MAKO_EN_OTRA_LINEA = (alt: unknown, numeroVoz: string | null): boolean => !!numeroVoz && String(alt ?? '').replace(/\D/g, '').endsWith(numeroVoz.slice(-10));
+
+export async function vigilarSorderaDeLaVoz(ahora = Date.now()): Promise<{ sorda: boolean; motivo: string; accion: Accion; voz: string | null }> {
+  const voz = await instanciaVoz({ estricto: true });
+  if (!voz) return { sorda: false, motivo: 'sin voz', accion: 'nada', voz: null };
+  const [propios, numeroVoz] = await Promise.all([ultimosMensajesDeLaLinea(voz, 150), numeroDeInstancia(voz).catch(() => null)]);
+  if (!propios) return { sorda: false, motivo: 'Evolution no contestó: no se decide nada', accion: 'nada', voz };
+  const ts = (m: { messageTimestamp?: number | string }) => Number(m.messageTimestamp) * 1000;
+  const personas = propios.filter((m) => !m.key?.fromMe && !MAKO_EN_OTRA_LINEA(m.key?.participantAlt, numeroVoz) && m.messageType !== 'reactionMessage');
+  const suyos = propios.filter((m) => m.key?.fromMe);
+  const ultimaPersonaMs = personas.length ? Math.max(...personas.map(ts)) : null;
+  const ultimoPropioMs = suyos.length ? Math.max(...suyos.map(ts)) : null;
+  // La otra línea: mensajes de personas en GRUPOS, en las últimas `SORDA_MS`, que la voz no tiene.
+  const wsSA = await wsSuperAdmin();
+  let ajenosQueNoVio = 0;
+  const otra = await lineaDeMartin(wsSA).catch(() => null);
+  if (otra && otra !== voz) {
+    const vistos = new Set(propios.map((m) => m.key?.id).filter(Boolean));
+    const deOtra = (await ultimosMensajesDeLaLinea(otra, 100)) ?? [];
+    ajenosQueNoVio = deOtra.filter((m) => String(m.key?.remoteJid ?? '').endsWith('@g.us') && !m.key?.fromMe
+      && !MAKO_EN_OTRA_LINEA(m.key?.participantAlt, numeroVoz) && ahora - ts(m) < SORDA_MS && ahora - ts(m) > 10 * 60_000 && !vistos.has(m.key?.id)).length;
+  }
+  const { sorda, motivo } = estaSorda({ ultimaPersonaMs, ultimoPropioMs, ajenosQueNoVio }, ahora);
+  let marca: MarcaDeSordera | null = null;
+  try { const c = await runWithWorkspace(wsSA, () => getSettingEstricto(KEY_SORDERA)); marca = c ? (JSON.parse(c) as MarcaDeSordera) : null; } catch { return { sorda, motivo: `${motivo} (no pude leer la marca: no hago nada)`, accion: 'nada', voz }; }
+  const { accion, marca: nueva } = queHacerConLaSordera(sorda, marca, ahora);
+  if (accion === 'nada') return { sorda, motivo, accion, voz };
+  if (accion === 'reiniciar-y-avisar') {
+    const ok = await reiniciarInstancia(voz).catch(() => false);
+    console.error(`[canal-vigilante] ⛔ la voz ${voz} no recibe (${motivo}): reiniciada ${ok ? 'ok' : 'SIN respuesta'}`);
+  }
+  const aviso = avisoDeSordera(accion, motivo, voz);
+  await avisarPorEmail(wsSA, aviso.titulo, aviso.cuerpo);
+  const { crearNotificacion } = await import('./notificaciones');
+  await crearNotificacion({
+    ws: wsSA, tipo: 'voz-sorda', severidad: accion === 'volvio' ? 'info' : 'urgente', titulo: aviso.titulo, descripcion: aviso.cuerpo.slice(0, 280),
+    link: '/agencia?canal=1', entityType: 'linea', entityId: voz, payload: { accion, motivo }, origen: 'sistema:voz-sorda',
+  }).catch((e) => console.error(`[canal-vigilante] la campanita de la voz sorda no salió: ${msg(e)}`));
+  await runWithWorkspace(wsSA, () => setSetting(KEY_SORDERA, nueva ? JSON.stringify(nueva) : ''));
+  return { sorda, motivo, accion, voz };
 }

@@ -218,15 +218,26 @@ diagnóstico equivocado:**
 - no es código nuestro: `vigia-lineas-mako` (cada 3 min) mira sólo la voz y la de Martín y no tiene ninguna reapertura anotada
   (`mako.linea.*` vacío), y `/instance/connect` sobre una línea `open` no hace nada. Queda el servidor de Evolution (Railway) o
   WhatsApp cerrando y reabriendo sockets: el motivo de cada ciclo está en el log de Evolution, que desde el repo no se ve;
-- **no atrasa:** desde el QR (11/11 02:51), 8 de 8 mensajes de clientes llegaron en 1-2 s, a través de esos ciclos.
+- **no atrasa:** desde el QR (11/11 02:51), 8 de 8 mensajes de clientes llegaron en 1-2 s, a través de esos ciclos. ⚠️ PERO desde
+  las 12:14 UTC la voz quedó SORDA (ver abajo): «la cola está vacía, nadie escribió» fue otro diagnóstico equivocado mío.
 **La demora del #79 era otra cosa:** la sesión vieja de la voz, medio muerta, que sólo entregaba al RECONECTARSE (las tandas de 23:47:55
 y 00:37:55 coinciden con sus reconexiones). El QR la arregló. El resguardo, si una sesión vuelve a quedar así, es la alarma de demora
 (`vigilarDemoraDeLaLinea`): mail a los 20 min del primer mensaje atrasado. **La regla:** una reconexión periódica no es una caída; lo
 que se mide es el atraso de lo que entra (la hora de WhatsApp contra la de la cola), no cuántas veces se mueve el `updatedAt`.
 
+⛔ **La voz SORDA del 11/11 (12:14 → 21:3x UTC): manda y no recibe, y nada la veía.** Martín: «MaKo no responde nada… soluciona eso de
+una vez por todas». En el grupo de Código, Juanfran mandó un audio, «mako labura», «hola?», «MAKOOOO», y Joan «queremos pagar la cuenta
+de Nico Sellers»: nada llegó a Evolution. La voz seguía `open`, contestaba la sonda y MANDABA avisos (14:03, 14:07, 20:39). La alarma de
+demora no la ve (si no entra nada, no hay nada atrasado), y `POST /instance/restart` no la curó (21:31; el «PRUEBA» de Martín de las 21:36
+no llegó): tercera medición, con la del 11/09 y la del 9/11. **El detector (lib/linea-sorda.ts, `vigilarSorderaDeLaVoz` en
+lib/canal-vigilante.ts, cron alerta-critica cada 10 min):** en horario activo (9-23 de Argentina), si MaKo mandó algo después del último
+mensaje de una persona y ese último tiene más de 3 h, o si la línea de Martín vio en un grupo mensajes de personas que la voz no tiene,
+está sorda. Reinicia UNA vez y avisa YA con los pasos del QR por mail y por la campanita (nunca por WhatsApp); a los 20 min, si sigue,
+insiste con el QR (y cada 3 h); al volver a recibir, avisa y se cierra. Con el reloj de ese día la habría visto a las 15:14 UTC, seis
+horas antes. Lo fija tests/linea-sorda.test.ts (la función real, tests/_linea-sorda-hijo.ts); roturas S1-S5.
+
 **Sin hacer:**
-- una línea SORDA del todo (no entrega nada) no la ve esta alarma, porque mide lo que llega. Para esa, lo que se mide es un mensaje
-  propio de prueba (con su hora) que tiene que volver por el webhook;
+- la línea de Martín (`mako_ws9`) también está sorda: mientras lo esté, la prueba cruzada («otra línea vio lo que la voz no») no aporta;
 - **dos pendientes y dos «sí», una se pierde** (Giselle, ws 17, 10/11 20:56): «agrega una nota a Maria Valeria…» y «…a Ana
   Vallejo…» dejaron las pendientes #847 y #848; el primer «Si» confirmó la última (#848), el segundo terminó en «Estoy atento al
   próximo mensaje» y la #847 se venció sola. El «sí» lo resuelve el modelo con `confirmar_accion`, que toma la más reciente: hace
