@@ -28,8 +28,13 @@ es [hallazgos.md](hallazgos.md).
 - **La regla:** antes de dar por bueno un camino que depende de un clic armado, probarlo contra un clic real. Si el real hace
   algo y el armado no, la página mira la activación del usuario: hay que entrar por otro evento (soltar, pegar), no insistir con
   más eventos de mouse.
-- **SIN HACER:** la prueba en vivo con una foto de verdad. Pide la 0.80.0 instalada en el Chrome que tiene a Flow (la
-  desempaquetada se actualiza con `node scripts/sync-extension-local.mjs` y ↻ en chrome://extensions) y un look en el ws 3.
+- **Probado con una foto real (11/11, 05:10 UTC), sin la extensión:** un `<input type=file>` propio en la página de Flow, la
+  foto cargada con `file_upload` de Claude in Chrome, y el MISMO `soltarArchivo` corrido en la página: Flow canceló el drop, la
+  baldosa apareció con el nombre del archivo a los 8 s y con `data-media-id` a los 14 s (lo que `subir()` espera). Así se
+  prueba el camino con un archivo de verdad sin depender de que la extensión esté instalada y conectada.
+- **SIN HACER:** la cadena entera desde MaKo. Pide la 0.80.0 en el Chrome de Flow (la desempaquetada se actualiza con
+  `node scripts/sync-extension-local.mjs` y ↻ en chrome://extensions) y conectada al ws 3: la extensión guarda UN solo enlace
+  (`token`), así que conectarla al ws 3 la desconecta del ws 9.
 
 ## «Replicar esta página»: la única lectura que baja por una página ajena, y su contrato (9/11/2026, 0.79.0, nube)
 

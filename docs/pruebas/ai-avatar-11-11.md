@@ -6,7 +6,7 @@ de Prueba, como super admin), a 1440 de ancho y a 375 (teléfono), y se criticó
 capturas están en `ai-avatar-11-11/`. **Ojo:** producción todavía no tiene los 9 arreglos del 10/11 (salen con el despliegue
 de las 08:05 UTC del 11/11): lo que se ve acá es la versión anterior.
 
-**Resultado:** 12 pantallas y estados mirados (11 de MaKo y el «Subir» de Flow). 11 fallas. 3 arregladas, con su test
+**Resultado:** 12 pantallas y estados mirados (11 de MaKo y la subida a Flow, probada con una foto real). 11 fallas. 3 arregladas, con su test
 (probado rompiéndolo), y 2 más que se arreglan solas cuando estén las imágenes. Una decisión para Martín.
 
 ## Lo primero que se ve: 34 de los 36 presets no tienen imagen — SIN ARREGLAR
@@ -28,7 +28,7 @@ de las 08:05 UTC del 11/11): lo que se ve acá es la versión anterior.
 
 ![Nuevo avatar → Presets: marcos grises](ai-avatar-11-11/09-nuevo-avatar-presets-grises.jpg)
 
-## La foto no llegaba a Flow — ARREGLADO (extensión 0.80.0), falta probarlo en vivo
+## La foto no llegaba a Flow — ARREGLADO (extensión 0.80.0) y probado con una foto real
 
 Ninguna foto de AI Avatar llegaba a Flow desde el 8/11, y sin foto no sale ningún avatar.
 
@@ -41,8 +41,14 @@ Ninguna foto de AI Avatar llegaba a Flow desde el 8/11, y sin foto no sale ning�
 - **El arreglo:** la extensión ahora SUELTA la foto sobre el proyecto, como quien la arrastra. Se probó soltando un archivo de
   texto: Flow lo rechazó por el tipo («Unsupported file type…»), o sea que lo recibió, y no se subió nada a la cuenta. Si
   Flow vuelve a no aceptarla, la falla ahora dice lo que avisó Flow, en vez de «no terminó de procesar».
-- **Falta:** probarlo con una foto real. Pide la extensión 0.80.0 instalada en el Chrome que tiene Flow, y un avatar en el
-  negocio de prueba.
+- **Probado con una foto real (11/11, 05:10 UTC):** la foto base, soltada sobre el proyecto de Flow de Martín con el MISMO código
+  de la extensión, apareció con su nombre a los 8 segundos y con su número de Flow a los 14, que es lo que la extensión espera
+  para dar la foto por subida.
+
+  ![La foto subida soltándola, primera del proyecto](ai-avatar-11-11/12-flow-foto-subida-soltando.jpg)
+- **Falta:** la cadena entera desde MaKo («Personaje» → la extensión → Flow → el avatar). Pide la extensión 0.80.0 instalada en
+  el Chrome de Flow y conectada al negocio de prueba; hoy está conectada al negocio de Martín, y conectarla al de prueba lo
+  desconecta de ese.
 
 ## Las plantillas de venta eran cajas de texto — ARREGLADO
 
@@ -83,6 +89,10 @@ Ninguna foto de AI Avatar llegaba a Flow desde el 8/11, y sin foto no sale ning�
   hasta que existan?
 
 ## Lo que no se pudo mirar
+
+- **MaKo en Chrome con la sesión de Martín.** A las 05:05 UTC los dos Chrome conectados seguían con la sesión de MaKo de
+  Leandro (ws 10, un cliente real): no se abrió MaKo ahí. Las capturas de MaKo son del navegador de la app, con la sesión de
+  Martín y el negocio de prueba.
 
 - **Generar un avatar y un video.** Sin la foto en Flow no sale nada; el arreglo está en la extensión 0.80.0 y falta
   instalarla y probarla en vivo. El video sigue pidiendo el OK de Martín a la imagen, y el techo de 15 créditos por toma
