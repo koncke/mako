@@ -56,6 +56,10 @@ traído. Dos trampas que salieron mirando la pantalla:
   era un reel. Además, debajo del error seguía «Traer este carrusel»: otra lectura pagada al mismo pedido. Un `/reel/`, `/reels/`
   o `/tv/` es SIEMPRE un video, así que `esLinkDeVideo` lo corta antes de leer: en el server (`traerCarrusel`) y en la pantalla
   (sin botón). Un `/p/` puede ser un video igual, y ése se descubre leyéndolo.
+- ⚠️ **Un link que no existe también se paga.** Lo supuse gratis (una corrida sin resultados cuesta 0) y no: el actor de Instagram
+  devuelve UN ítem con el error y lo cobra como resultado (US$0,0027, corrida `eQLBIKMeBGvP7dZ8f`), y tarda cerca de un minuto.
+  `traerCarrusel` filtra los ítems con `error` y contesta «Instagram no me dio esa publicación» DESPUÉS de pagar. Un shortcode
+  inválido no se puede saber sin leerlo; lo que sí se puede es no repetirlo (hoy el botón sigue ahí después del error).
 - ⚠️ **El costo «US$0» de una corrida recién terminada no es el costo.** La lista de corridas (`/actor-runs?desc=1`) daba 0 para
   el anuncio, y la corrida misma (`/actor-runs/{id}`, `usageTotalUsd` y `chargedEventCounts`) daba US$0,0058 unos segundos
   después: el cobro por resultado se asienta tarde. Un costo se mide en la corrida, no en la lista.
