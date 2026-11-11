@@ -208,6 +208,10 @@ Ordenado por memoria que ahorra contra trabajo que lleva. Son propuestas; ningun
 1. **Forma de onda por tramos.** Es un archivo (`services/waveform-cache/service.ts`): leer sólo la pista de audio con
    `AudioBufferSink`, de a pedazos, y armar el resumen sobre la marcha. Saca el pico más grande (3,6 veces el archivo) y no
    cambia nada de lo que se ve.
+   - **HECHO el 11/11/2026** (rama `punta/onda-por-tramos`).
+     - Dónde vive: `media/onda-por-tramos.ts`, y los picos en `media/picos-por-tramos.ts`.
+     - Lo que mediabunny no lee, y la música de biblioteca, siguen por el camino de antes.
+     - Lo fija `tests/video-editor-onda-por-tramos.test.ts`. Medido en el banco: §10.
 2. **Copias livianas (proxies) al subir cada video.** Al importar se arma una copia de 540 px de lado corto con el
    `Conversion` de mediabunny, que el editor ya usa en `sounds/components/extraer-audio.ts:93`. Se guarda en OPFS al lado
    del original. La vista previa y las miniaturas usan la copia; exportar usa el original.
@@ -295,3 +299,22 @@ mismo instante que en el original, con 0 diferencias.
 
 - la copia del editor en 4K: la PC no tenía memoria libre para armarla sin riesgo;
 - el editor entero con varias copias en un proyecto real. Eso se mira en producción después del despliegue.
+
+## 10. Después: la forma de onda de a trozos, medida (11/11/2026)
+
+Es el `WaveformCache` REAL, que ahora lee el archivo con `media/onda-por-tramos.ts`, sobre los mismos videos y en el
+mismo banco (escenarios `onda-30s` y `onda-60s`).
+
+| Archivo | Pico antes | **Pico después** | Tarda antes → después |
+|---|---|---|---|
+| 38 MB (30 s) | +142 MB (3,7×) | **+37 MB** | 0,27 → 0,65 s |
+| 76 MB (60 s) | +275 MB (3,6×) | **+61 MB** | 0,43 → 1,31 s |
+
+- **El pico ya no es 3,6 veces el archivo.** Crece un poco con el largo (37 → 61 MB): son los trozos ya mirados que
+  esperan al basurero, no el archivo.
+- **Tarda unas 3 veces más,** pero corre aparte: la línea de tiempo se dibuja sin esperarla y la onda aparece cuando
+  está.
+- **Da el MISMO dibujo** (escenario `onda-igual-30s`, contra el camino de antes con el mismo archivo):
+  - 11.250 baldes con diferencia máxima 0;
+  - las dos lecturas a 48 kHz;
+  - la nueva trae 768 muestras de más al final, que son el relleno del códec AAC (16 ms).

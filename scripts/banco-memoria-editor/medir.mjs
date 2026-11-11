@@ -162,6 +162,7 @@ const A1 = 'v1080-30.mp4', A2 = 'v1080-60.mp4', K = 'v4k-20.mp4';
 const ESCENARIOS = [
   ['onda-30s', [['cargar 38 MB', `prueba.cargar('${A1}')`], ['forma de onda', `prueba.onda('${A1}')`]]],
   ['onda-60s', [['cargar 76 MB', `prueba.cargar('${A2}')`], ['forma de onda', `prueba.onda('${A2}')`]]],
+  ['onda-igual-30s', [['cargar 38 MB', `prueba.cargar('${A1}')`], ['comparar con la de antes', `prueba.ondaComparar('${A1}')`]]],
   ['repro-1080', [['cargar', `prueba.cargar('${A2}')`], ['reproducir 5 s', `prueba.reproducir({nombres:['${A2}'],segundos:5})`],
     ['2º clip', `prueba.reproducir({nombres:['${A2}'],segundos:2})`], ['3º clip', `prueba.reproducir({nombres:['${A2}'],segundos:2})`]]],
   ['repro-1080-liviano', [['cargar', `prueba.cargar('${A2}')`], ['reproducir 5 s', `prueba.reproducir({nombres:['${A2}'],segundos:5,liviano:[540,960]})`],

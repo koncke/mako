@@ -2,6 +2,8 @@
 import { VideoCache } from "@/app/video-editor/_opencut/services/video-cache/service";
 import { WaveformCache } from "@/app/video-editor/_opencut/services/waveform-cache/service";
 import { crearCopiaLiviana } from "@/app/video-editor/_opencut/media/copia-liviana";
+import { ondaPorTramos } from "@/app/video-editor/_opencut/media/onda-por-tramos";
+import { buildSourceWaveformSummary } from "@/app/video-editor/_opencut/media/waveform-summary";
 import { Input, ALL_FORMATS, BlobSource, CanvasSink } from "mediabunny";
 
 // Copia literal de ensureOffscreenCanvas (services/renderer/compositor/wasm-compositor.ts), que no se exporta.
@@ -97,6 +99,21 @@ window.prueba = {
 			difs.push({ desde, cuadros: Math.min(x.length, y.length), distintos: x.filter((v, i) => v !== y[i]).length, primeroA: x[0], primeroB: y[0] });
 		}
 		return difs;
+	},
+	// ¿La onda de a trozos da lo mismo que la de antes (el archivo entero con decodeAudioData)? Pesada como la de antes.
+	async ondaComparar(nombre) {
+		const file = archivos.get(nombre);
+		const nueva = await ondaPorTramos({ sourceKey: nombre, file });
+		if (nueva.estado !== "listo") return { estado: nueva.estado };
+		const ctx = new AudioContext({ sampleRate: nueva.resumen.sampleRate });
+		const buffer = await ctx.decodeAudioData(await file.arrayBuffer());
+		void ctx.close();
+		const vieja = buildSourceWaveformSummary({ sourceKey: nombre, buffer });
+		const a = vieja.amplitudes, b = nueva.resumen.amplitudes;
+		let maxDif = 0, sumaDif = 0;
+		const n = Math.min(a.length, b.length);
+		for (let i = 0; i < n; i++) { const d = Math.abs(a[i] - b[i]); sumaDif += d; if (d > maxDif) maxDif = d; }
+		return { tasa: [vieja.sampleRate, nueva.resumen.sampleRate], muestras: [vieja.totalSamples, nueva.resumen.totalSamples], baldes: [a.length, b.length], maxDif: Math.round(maxDif * 1e4) / 1e4, difMedia: Math.round((sumaDif / n) * 1e5) / 1e5, picoMax: Math.round(Math.max(...a) * 1e3) / 1e3 };
 	},
 	soltar() {
 		for (const v of vivos) if (v instanceof VideoCache) v.clearAll();
