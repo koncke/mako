@@ -40,11 +40,50 @@ Un detalle sin investigar: el cuadro de exportar ofrecía 24 fps, y los detalles
 
 ## Lo que NO se pudo probar, y por qué
 
-- **Los pedidos al chat en el ws 3:** el chat dice «Instala MaKo para escribir», porque ese negocio no tiene IA conectada.
-  Para probarlos hace falta un negocio de prueba con IA, o hacerlo en el ws 9, que escribe en el negocio de Martín.
+- **Los pedidos escritos al chat:** el chat dice «Instala MaKo para escribir». No es el negocio: es la regla del 25/10, sin
+  la app de escritorio de MaKo conectada en esta PC no se escribe en ningún chat (`app/_chat/useAppDeEscritorio.tsx`).
+  (Corregido en la segunda vuelta: la primera decía que el ws 3 no tenía IA.)
 - **Subtítulos («Sí, en el feed») y «Edición automática» (los cursores):** el panel abre con sus 10 agentes en espera y
   «Editar con MaKo» ([07](video-produccion-11-11/07-edicion-automatica-ws3.jpg)). No se corrieron porque cargan Whisper
   (≈250 MB) y la PC estaba en 770 MB libres; a las 11:48 llegó a 442.
 - **Lo que anima,** con el panel de la app oculto: los cursores de los agentes y los fundidos. La entrada del teléfono
   (`app/m/_ui/EntradaApp.tsx`) se va recién con el respaldo de 15 s.
 - **El editor a 375:** el editor es de computadora; en el teléfono la tab Video muestra la portada.
+
+## Segunda vuelta, 15:05–15:35 UTC (Martín: «intenta ahora sí probar todo»), con 4 GB libres
+
+Misma sesión del navegador de la app; proyecto nuevo «1111 (1)» en el ws 3 con un clip de celular de 14 s con voz.
+
+| Qué | Resultado |
+|---|---|
+| Subtítulos con «Sí, en el feed» | **Pasa** ([09](video-produccion-11-11/09-subtitulos-listos.jpg)). El chat muestra «Descargando… 100 %» y «Generando subtítulos…», y quedan 7 subtítulos con la voz del clip en su pista. Whisper escribe «HiTicket» y «Vendeumos» por «high ticket» y «vendedores»: es el modelo. |
+| **Falla:** el resultado de «Sí, en el feed» | Era un aviso que se iba a los segundos, y el chat volvía a «Pídeme…». Si fallaba, nadie se enteraba de por qué. **Arreglado** (`punta/chat-dice-el-resultado`): quedan en el hilo la respuesta («Sí, en el feed») y lo que salió («Listo: puse 7 subtítulos.» o el motivo). |
+| **Falla:** un archivo que falta se leía como «sin voz» ([08](video-produccion-11-11/08-sin-archivo-sin-voz.jpg)) | El proyecto de la primera vuelta perdió sus archivos: el OPFS quedó vacío y los datos siguen en IndexedDB. Vista previa negra y «No se reconoció la voz» de un clip que habla. **Arreglado el mensaje:** «falta en este navegador el archivo de un video del proyecto: vuelve a importarlo». |
+| ¿Les pasa a los clientes? | **No en Chrome.** En el Chrome de la extensión, el proyecto que se armó ahí ayer sigue con sus 2 archivos (4,6 MB) y su IndexedDB. Lo que borró los archivos fue el navegador integrado de la app de Claude. |
+| Edición automática ([10](video-produccion-11-11/10-edicion-automatica-hecha.jpg)) | **Pasa.** Corrieron los 10 agentes. 5 trabajaron: palabras clave en 6 subtítulos, un «Plano medio», reducir el ruido, −14 LUFS y la revisión. Los otros 5 dijeron por qué no: «ya tiene subtítulos: cortar las pausas los desfasaría», «no encontró muletillas», «sin Pexels conectado». La revisión marcó «1 propuesta de B-roll o planos sin decidir». |
+| Una palabra clave dudosa | En «para que no tengas» resaltó «tengas»: la regla toma la palabra con contenido de cada renglón. Queda para revisar con la regla de claves (`subtitles/claves`). |
+| «Deshacer todo» ([11](video-produccion-11-11/11-deshacer-todo.jpg)) | **Pasa.** Saca el plano y el resaltado, deja los 7 subtítulos que estaban antes y dice «Se deshizo la edición automática». |
+| Exportar con subtítulos ([12](video-produccion-11-11/12-exportado-con-subtitulos.png)) | **Pasa.** 1080×1920, 13,63 s, 15 MB. En el segundo 1,3 del ARCHIVO exportado se lee «Este es un mensaje», quemado. |
+| **Falla:** los atajos del chat sin la app | Sin la app de escritorio, «Borra los silencios» y los demás atajos seguían prendidos y al tocarlos no pasaba nada, sin una palabra. **Arreglado** (`punta/atajos-sin-app`): se apagan con la misma frase que la caja. |
+
+**Sin probar todavía:**
+- **los pedidos escritos al chat:** cortar, velocidad, estilos, «sí, hazlo». Piden la app de escritorio de MaKo abierta en esta PC;
+- **B-roll:** el ws 3 no tiene la clave de Pexels;
+- **Clips mágicos:** usan la IA;
+- **«Publicar en redes»:** publica de verdad; no se toca sin pedirlo;
+- **los cursores animados:** el panel de la app está oculto.
+
+## Tercera vuelta, 16:00–16:10 UTC: los dos arreglos, en producción (despliegue 2507c11c7, 15:55 UTC)
+
+| Qué | Resultado |
+|---|---|
+| El motivo en el hilo, sin el archivo ([13](video-produccion-11-11/13-falta-archivo-en-el-hilo.jpg)) | **Pasa.** En el proyecto que perdió sus archivos, «Sí, en el feed» deja dos mensajes en el hilo: «Sí, en el feed» y, en rojo, «Falta en este navegador el archivo de un video del proyecto: vuelve a importarlo y prueba de nuevo». Ya no dice «no se reconoció la voz». |
+| Los atajos sin la app de escritorio | **Pasa.** Los cuatro («Agrega un título», «Transiciones suaves», «Quita las muletillas», «Borra los silencios») están apagados, con «Instala MaKo para escribir» al pasar el mouse. |
+| El resultado bueno en el hilo ([14](video-produccion-11-11/14-listo-en-el-hilo-1440.jpg)) | **Pasa.** En un proyecto nuevo con el clip de 14 s, el hilo dice «Sí, en el feed» y «Listo: puse 7 subtítulos.», con los subtítulos en su pista y en el reproductor. |
+| El editor a 375 ([15](video-produccion-11-11/15-editor-telefono-375.jpg)) | **Pasa.** Es la versión del teléfono: el video con su subtítulo, «Dividir», «Eliminar», «Deshacer», «Rehacer» y «Texto, efectos, audio y la línea de tiempo completa: en la computadora». El chat de MaKo es sólo de la computadora. |
+
+**Una trampa del navegador de prueba, no de MaKo:** importar quedaba en «Importando…» para siempre, con un video y también
+con una imagen. Antes de empezar, la importación espera dos cuadros de pantalla (`waitForNextPaint` en
+`media/upload-toast.ts`), y el panel oculto de la app de Claude no pinta salvo cuando se le saca una captura. Sacando
+capturas mientras importa, entra en segundos. En una pestaña visible pinta siempre. Una persona que cambia de pestaña en
+plena importación la retoma al volver.

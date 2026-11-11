@@ -9,7 +9,8 @@
 type Query = Record<string, string | string[] | undefined>;
 const primero = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-export const RUTA_CREAR_COPY = '/copywriter?nueva';
+// Con valor (`=1`): el paso al teléfono (lib/movil-creacion.ts → conQuery) descarta los parámetros vacíos.
+export const RUTA_CREAR_COPY = '/copywriter?nueva=1';
 export const RUTA_GUIONES_COPY = '/copywriter?ver=guiones';
 
 export function vistaDeCopy(q: Query): 'outliers' | 'crear' | 'guiones' {

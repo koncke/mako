@@ -875,7 +875,10 @@ export function specOptimizadoItem(raw: unknown, ctx?: CtxSpec): NodoArbol {
   if (a.imagenSrc) marca.push(el('img', { class: 'gm-item-imagen', src: a.imagenSrc, alt: '', loading: 'lazy', decoding: 'async' }));
   if (a.valor) marca.push(el('span', { class: 'gm-item-valor' }, ...(ctx?.completar ? hijosACompletar(a.valor) : [a.valor])));
   const num = a.valor ? numeroDeValor(a.valor) : null;
-  return el('div', { class: 'gm-item', 'data-destacado': si(a.destacado), style: num != null ? `--gm-num:${num}` : undefined },
+  // `--gm-largo`: cuántos caracteres tiene la cifra, para que la hoja la achique hasta que entre en su columna (css.ts,
+  // «Estadísticas»; 11/11/2026: «10,000» y «81» se pisaban en el teléfono).
+  const estilo = [num != null ? `--gm-num:${num}` : '', a.valor ? `--gm-largo:${Array.from(a.valor).length}` : ''].filter(Boolean).join(';');
+  return el('div', { class: 'gm-item', 'data-destacado': si(a.destacado), style: estilo || undefined },
     el('div', { class: 'gm-item-marca' }, ...marca),
     el('div', { class: 'gm-item-cuerpo' }, 0));
 }

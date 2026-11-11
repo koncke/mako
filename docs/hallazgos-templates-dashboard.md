@@ -959,3 +959,16 @@ texto de la página y el código. Recién al poner cada hoja en una captura, al 
 - **Para comparar con el demo, la fuente es `docs/diseno/mockups-dashboard/demos/<demo>/captura/pagina-1440.png`.** Dos «fallas» resultaron
   fieles al demo y no se tocaron: los nombres cortados en las columnas de Velocidad (Tend corta igual) y el título en dos renglones de
   Curso (Vitrea: «Studio / Overview»). **Antes de «arreglar» algo que se ve raro, se mira el demo.**
+
+## 41. Una lista que es GRILLA no deja entrar el «…»: el nombre largo se sale de la tarjeta (11/11/2026)
+
+- **Síntoma:** al nombrar las funciones de la IA con el `label` del catálogo («Offer: conversar, diagnosticar y armar la oferta»), la
+  fila de «Para qué se usa» (Contenido e IA) terminaba 94 px afuera de la tarjeta, cortada a mitad de palabra contra la vecina.
+- **El diagnóstico obvio era el equivocado:** el nombre ya tenía `text-overflow: ellipsis`, `overflow: hidden` y `min-width: 0`. Lo que
+  no se achicaba era la FILA: la lista es `display: grid` con la columna por defecto, y una celda de grilla tiene `min-width: auto` (no
+  baja de su contenido). Con `white-space: nowrap`, el contenido es el nombre entero.
+- **Lo que quedó:** `grid-template-columns: minmax(0, 1fr)` en `.orr-rq`, `.orr-models` y `.orr-sp` (app/dashboard/disenos/contenido-css.ts).
+  Medido en la página de producción, inyectando el estilo: la fila termina adentro (950 de 962 px) y el nombre lleva «…».
+- **La regla:** una lista con `display: grid` cuyas filas tienen texto con «…» lleva la columna en `minmax(0, 1fr)`. El «…» del hijo no
+  alcanza si el padre de grilla no se deja achicar.
+

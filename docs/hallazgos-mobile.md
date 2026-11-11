@@ -2104,3 +2104,33 @@ menos categorías que la compu (falló / falta conectar / sin datos).
 - **La unidad:** el catálogo la dice en el nombre de la métrica («Mediana de respuesta (min)») y la tarjeta tiene su propio título («Tiempo de
   respuesta»): el teléfono mostraba «10» a secas. `conUnidad` la suma si el título no la dice.
 - **Vive en:** app/m/dashboard/datos.ts (`hojaPropia`), modelo.ts (`esCostoSobreGasto`, `conUnidad`).
+
+## Una vista nueva por query se pierde en el teléfono: el paso a /m sólo lleva las claves que tiene anotadas (11/11/2026)
+
+- **Síntoma:** en Copywriting, «Crear desde cero» (`/copywriter?nueva=`) y «Mis guiones» (`?ver=guiones`) mostraban en el teléfono
+  la portada de outliers. En la computadora andaban.
+- **Causa:** el paso de la ruta de computadora a la del teléfono (lib/movil-creacion.ts → `conQuery`) conserva sólo las claves
+  de la lista de su fila (`query: ['nuevo']`), y además **descarta los parámetros vacíos**: `?nueva=` se caía aunque estuviera.
+- **La regla:** una pantalla que suma una vista por query anota la clave en DOS lugares: su fila de lib/movil-creacion.ts y
+  `QUERY_DE_SECCION` (lib/movil-rutas.ts, lo fija tests/movil-mas-secciones.test.ts). Y el link lleva un valor (`?nueva=1`).
+## El teléfono dibuja la PRIMERA métrica de cada pieza, con el título de la pieza (11/11/2026, producción a 375)
+
+- **Síntoma:** Velocidad de llamada en el teléfono: «Leads por día · 0 en 30 días» y debajo «Primer contacto 129». Natalia (ws 19) tiene
+  129 leads y 126 esperando; la compu lo dice bien.
+- **Causa:** la forma fija del teléfono (app/m/dashboard/datos.ts, `hojaPropia`) toma `columnas[0]` de la serie y `totales[0]` de cada
+  número. En Velocidad la serie es `[contactados, sin_contactar]` (dibujaba sólo los contactados: 0) y el número es la pieza «tramos» de
+  ocho métricas (mostraba `leads`, con el título de la pieza).
+- **Lo que quedó:** con varias métricas, el rótulo es el NOMBRE de la que se ve (`rotuloDePieza`, app/m/dashboard/modelo.ts): «Contactados»,
+  «Leads 129». Lo que dice el rótulo es lo que se dibuja.
+- **Lo que falta (decide Martín):** el teléfono de Velocidad sigue lejos de Tend (la lista de quién espera, con «Llamar»).
+
+## «Todo ······ Todo» encima del aviso de «falta conectar» (11/11/2026)
+
+El aviso «Conecta tu grabador…» iba adentro de una sección con el período de título y el período de botón; con «Todo» las dos palabras son
+iguales. `falta` es que no se leyó NADA de la hoja: cambiar el período no lo arregla. El aviso va solo (`VacioM`, app/m/dashboard/DashboardM.tsx).
+
+## El eje del teléfono redondeaba los centavos a cero (11/11/2026)
+
+Lo gastado en IA (US$0,027 en el mes) daba un eje «0 · 0 · 0 · 0»: `ejeCompacto` escribía hasta un decimal, y `geometria` redondeaba los
+pasos a milésimas. Debajo de 1, dos cifras significativas; los pasos, a precisión relativa (`toPrecision(10)`). app/m/dashboard/modelo.ts.
+

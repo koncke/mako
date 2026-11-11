@@ -184,26 +184,29 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
   // «Traer tu outlier» (11/11/2026, Martín: «una opción para traer tu propio [outlier], pegar el link de Instagram»): lo escrito en
   // el buscador es el link de una publicación → se lee y se suma a los outliers del negocio (app/api/image-editor/carruseles/traer).
   const [trayendo, setTrayendo] = useState(false);
-  const [errorTraer, setErrorTraer] = useState<string | null>(null);
+  // El error queda atado al link que lo dio: pegar otro lo borra. Y si no vale reintentar (no existe, es un reel), «Traer» no se
+  // vuelve a ofrecer para ESE link: cada intento es una lectura pagada que termina igual (11/11/2026).
+  const [errorTraer, setErrorTraer] = useState<{ texto: string; para: string; reintentar: boolean } | null>(null);
   const linkPegado = f.que !== 'anuncios' && !enThumbs ? linkDeInstagram(f.q) : null;
   // Un reel se sabe por su dirección (11/11/2026): se dice en el acto y NO se ofrece «Traer», que pagaba una lectura para terminar
   // en el mismo «es un reel» (y después del error seguía ofreciendo el botón, o sea otra lectura).
   const reelPegado = !!linkPegado && esLinkDeVideo(f.q);
+  const errorDeEsteLink = errorTraer && errorTraer.para === f.q ? errorTraer : null;
   const traer = async () => {
     if (!linkPegado || trayendo) return;
     setTrayendo(true);
     setErrorTraer(null);
     try {
       const res = await fetch('/api/image-editor/carruseles/traer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ texto: f.q }) });
-      const r = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; carrusel?: Carrusel } | null;
-      if (!r?.ok || !r.carrusel) { setErrorTraer(r?.error || 'No pude traer ese carrusel. Vuelve a intentar.'); return; }
+      const r = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; reintentar?: boolean; carrusel?: Carrusel } | null;
+      if (!r?.ok || !r.carrusel) { setErrorTraer({ texto: r?.error || 'No pude traer ese carrusel. Vuelve a intentar.', para: f.q, reintentar: !r?.error || r.reintentar === true }); return; }
       // Ya es uno más: se suma a la lista, el buscador se limpia (si no, el link lo seguiría escondiendo) y se abre.
       const c = r.carrusel;
       setTraidos((xs) => [c, ...xs.filter((x) => x.id !== c.id)]);
       cambiar({ q: '' });
       setAbierto(c);
     } catch {
-      setErrorTraer('No pude traer ese carrusel. Vuelve a intentar.');
+      setErrorTraer({ texto: 'No pude traer ese carrusel. Vuelve a intentar.', para: f.q, reintentar: true });
     } finally {
       setTrayendo(false);
     }
@@ -461,10 +464,10 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
                   : f.que === 'anuncios' && !anuncios
                     ? 'Todavía no hay anuncios de las cuentas que sigues. Spy los trae de la Biblioteca de Anuncios al leer cada cuenta.'
                     : 'Ningún ejemplo pasa estos filtros.'}</p>
-                {errorTraer && linkPegado ? <p role="alert">{errorTraer}<ReportarASoporte /></p> : null}
+                {errorDeEsteLink && linkPegado ? <p role="alert">{errorDeEsteLink.texto}<ReportarASoporte /></p> : null}
                 {parecidosDe ? <button type="button" className={s.boton} onClick={() => setParecidosDe(null)}>Volver</button>
                   : reelPegado ? null
-                  : linkPegado ? <button type="button" className={s.boton} onClick={() => { void traer(); }} disabled={trayendo} aria-busy={trayendo || undefined}>{trayendo ? 'Trayendo…' : 'Traer este carrusel'}</button>
+                  : linkPegado && (!errorDeEsteLink || errorDeEsteLink.reintentar) ? <button type="button" className={s.boton} onClick={() => { void traer(); }} disabled={trayendo} aria-busy={trayendo || undefined}>{trayendo ? 'Trayendo…' : 'Traer este carrusel'}</button>
                   // Guardados vacío (10/11/2026): no hay filtro que quitar, hay que volver a buscar qué guardar.
                   : guardadosVista && !guardados.size ? <button type="button" className={s.boton} onClick={() => cambiar({ vista: 'todos' })}>Volver</button>
                   : f.que === 'anuncios' && !anuncios

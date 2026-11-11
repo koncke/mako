@@ -267,3 +267,12 @@ sueltos, y la cabecera del teléfono con el título tapado por una pastilla.
 - **Abrir cada panel lateral** (Animar, Temas, Comentarios): cambian el ancho del lienzo, y lo que depende del ancho se rompe ahí.
 - **Una grilla de cabecera `minmax(0, 1fr) auto minmax(0, 1fr)`** le da a cada costado un tercio fijo: lo que no entra en su
   tercio se monta sobre el título. Los costados van con `minmax(max-content, 1fr)` y el título con `minmax(0, auto)` y «…».
+
+## La sesión del navegador de la app no sobrevive al cierre de la app (11/11/2026, Dashboard)
+
+- **Síntoma:** a las 14:43 UTC, después de que se cerró la app de Claude en la PC, `hola-mako.com/api/auth/me` en el navegador de la app
+  daba `autenticado: false` y toda página caía en /login. El Chrome de la extensión, a la misma hora, tenía otra vez la sesión de LEANDRO
+  (ws 10, un cliente real), aunque a la mañana había tenido la de Martín.
+- **La regla:** antes de probar, `/api/auth/me` en la pestaña propia (nunca darlo por sabido de la mañana). Sin sesión de Martín en
+  ninguno de los dos, no se prueba en el otro: se pide que Martín vuelva a entrar (lo pide el Cerebro). En el Chrome con Leandro no se toca nada.
+
