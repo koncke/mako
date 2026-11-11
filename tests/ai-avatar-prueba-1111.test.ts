@@ -16,6 +16,7 @@ import { join } from 'node:path';
 import { PLANTILLAS_AVATAR, plantillaPorId } from '../lib/ai-avatar/plantillas';
 import { PLANTILLAS_VENTA_AVATAR, ganchoDeEjemplo } from '../lib/ai-avatar/plantillas-venta';
 import { CONSEJO_FOTO, pieDeGenerar } from '../lib/ai-avatar/estudio';
+import { plantillasNuevoVideo } from '../app/video-editor/plantillas-crear';
 
 const leer = (r: string) => readFileSync(join(process.cwd(), r), 'utf8');
 const estudio = leer('app/ai-avatar/Estudio.tsx');
@@ -102,4 +103,11 @@ test('en el teléfono, las pastillas y «Generar» van en UNA fila y la ranura v
   const css = leer('app/m/ai-avatar/ai-avatar.css');
   assert.match(css, /\.m-ai-avatar-barra__pie \{ display: flex;/);
   assert.match(css, /\.m-ai-avatar-barra__pie \.m-ai-avatar-barra__pastillas \{[^}]*overflow-x: auto/, 'si no entran, corren de costado');
+});
+
+test('la puerta desde Video, «Tu personaje con IA», muestra una imagen y no un marco vacío', () => {
+  const tarjeta = plantillasNuevoVideo().find((p) => p.id === 'personaje:nuevo');
+  assert.ok(tarjeta, 'falta la tarjeta en «Nuevo video»');
+  assert.ok(tarjeta.imagen, 'sin imagen, la tarjeta es un marco gris con «Desde tu foto»');
+  assert.ok(existsSync(join(process.cwd(), 'public', tarjeta.imagen)), `falta ${tarjeta.imagen}`);
 });

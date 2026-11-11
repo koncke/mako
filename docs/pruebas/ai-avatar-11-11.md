@@ -69,6 +69,12 @@ Ninguna foto de AI Avatar llegaba a Flow desde el 8/11, y sin foto no sale ning�
   pensar" esta semana») y la primera frase que dice el avatar, entre comillas. El nombre queda una sola vez, abajo.
 - **De paso:** los presets de «Nuevo avatar» ahora pasan su video a la tarjeta, que ya lo sabía mostrar al pasar el mouse.
 
+## La puerta desde Video, «Tu personaje con IA», era un marco vacío — ARREGLADO
+
+Desde el 11/11 AI Avatar se abre desde «Nuevo video» (la tarjeta «Tu personaje con IA»). La tarjeta no tenía imagen: era un
+marco con «Desde tu foto», la misma miniatura gris. Ahora muestra el preset «Selfie de iPhone» con la cara de Martín. Vive en
+`app/video-editor/plantillas-crear.ts` (ninguna rama de Video la tocaba).
+
 ## «Personaje» era un «+» solo — ARREGLADO
 
 ![Tu cara: un + y nada más](ai-avatar-11-11/05-personaje-vacio.jpg)
