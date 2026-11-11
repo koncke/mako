@@ -72,6 +72,11 @@ test('3. la entrada real: un día tarde va a SuperAdmin una vez y no entra a la 
   assert.match(o.unDia.superAdmin[0], /^📨 WhatsApp entregó con 24 h de atraso un mensaje de Joan en el grupo de Código Inmobiliario \(ws13\):\n«Mako te mando el comprobante/);
   assert.deepEqual([o.reentrega.entro, o.reentrega.superAdmin.length], [false, 0], 'la re-entrega por la otra línea avisó otra vez');
   for (const k of ['unaHora', 'sinHora']) assert.deepEqual([o[k].entro, o[k].reacciones, o[k].superAdmin.length], [true, 1, 0], `${k}: ${JSON.stringify(o[k])}`);
+  // Lo que la resincronización de otra línea trae de ayer y ya se atendió (11/11/2026, cinco avisos de ruido): ni se atiende ni se avisa.
+  for (const k of ['deMaKoAyer', 'yaEnCola']) {
+    assert.deepEqual(o[k].r, { engaged: false, skip: 'llegó tarde (24 h), ya atendido' }, `${k}: ${JSON.stringify(o[k])}`);
+    assert.deepEqual([o[k].superAdmin.length, o[k].reacciones], [0, 0], `${k}: avisó lo ya atendido`);
+  }
 });
 
 test('4. el cableado: el freno antes del comprobante y de la cola; la alarma en el cron, por EMAIL', () => {
@@ -80,7 +85,7 @@ test('4. el cableado: el freno antes del comprobante y de la cola; la alarma en 
   const iComprobante = doer.indexOf('if (jid === suyo && (await comprobanteDeLaMensualidad(');
   const iCola = doer.indexOf('return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, tapado.mensaje, tapado));');
   assert.ok(iTarde > 0 && iComprobante > iTarde && iCola > iComprobante, 'el freno del atraso va después del comprobante o de la cola');
-  assert.match(doer, /if \(tarde\) \{\n\s*await avisarQueLlegoTarde\(wsData, jid, data, tarde\.horas\)/);
+  assert.match(doer, /if \(tarde\) \{\n\s*if \(await atrasadoYaAtendido\(instance, jid, data\)\.catch\(\(\) => false\)\) return \{ engaged: false, skip: `llegó tarde \(\$\{tarde\.horas\} h\), ya atendido` \};\n\s*await avisarQueLlegoTarde\(wsData, jid, data, tarde\.horas\)/, 'lo ya atendido se avisa igual');
   const vig = sinComentarios(leer('lib/canal-vigilante.ts'));
   assert.match(vig, /export async function vigilarDemoraDeLaLinea\(/);
   assert.match(vig, /const r = await avisarPorEmail\(wsSA, asunto, cuerpo\);/, 'la alarma de la línea viaja por la línea');
@@ -93,3 +98,5 @@ test('4. el cableado: el freno antes del comprobante y de la cola; la alarma en 
 //   T3 el aviso sin el registro por id (la re-entrega avisa otra vez)                     → falla el 3
 //   T4 la demora sin la ventana de 3 h                                                    → falla el 2
 //   T5 el cron sin la alarma de la demora                                                 → falla el 4
+//   T6 lo de MaKo misma de ayer (su número en `participantAlt`) sin reconocer              → falla el 3
+//   T7 lo que ya pasó por la cola sin reconocer                                           → falla el 3
