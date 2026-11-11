@@ -143,6 +143,24 @@ test('un pie de pocas palabras no es copy; el guion y el título de un video o d
   assert.equal(esCopy({ formato: 'youtube', deDonde: 'descripcion', texto: 'The Phil Jackson Paradox', gancho: 'The Phil Jackson Paradox' }), true);
   const p = juntarOutliersCopy([{ fuente: fuente('spy'), lectura: { ok: true, outliers: [outlier({ id: 'spy:9', texto: '🤣🤣🤣' })] } }]);
   assert.deepEqual(p.outliers, []);
+  // Simulado con los datos del ws 9 (11/11): anuncios de catálogo cuyo «copy» es la variable «{{product.name}}» quedaban entre los
+  // diez primeros (llevan meses al aire). Una variable de plantilla no es una palabra; el copy que la rodea, sí.
+  assert.equal(esCopy({ formato: 'anuncio', deDonde: 'copy', texto: '{{product.name}}', gancho: '{{product.name}}' }), false);
+  assert.equal(esCopy({ formato: 'anuncio', deDonde: 'copy', texto: '{{product.name}} {{product.price}}', gancho: '{{product.name}}' }), false);
+  assert.equal(esCopy({ formato: 'anuncio', deDonde: 'copy', texto: 'Hola {{first_name}}, llévate el tuyo hoy', gancho: 'Hola' }), true);
+});
+
+test('el mismo copy del mismo creador sale una vez (el más fuerte); el de otro creador, también (11/11, ws 9)', () => {
+  const anuncio = (id: string, dias: number, url: string, competidorId: number) => outlier({
+    id, formato: 'anuncio', deDonde: 'copy', gancho: 'Learn How to Scale Your Business', texto: 'Learn how to scale your business without burning out.',
+    url, multiplo: null, diasAlAire: dias, creador: { nombre: `C${competidorId}`, usuario: null, foto: null, competidorId },
+  });
+  const p = juntarOutliersCopy([{ fuente: fuente('spy'), lectura: { ok: true, outliers: [
+    anuncio('spy:1', 30, 'https://www.facebook.com/ads/library/?id=1', 7),
+    anuncio('spy:2', 90, 'https://www.facebook.com/ads/library/?id=2', 7),
+    anuncio('spy:3', 60, 'https://www.facebook.com/ads/library/?id=3', 8),
+  ] } }]);
+  assert.deepEqual(p.outliers.map((o) => o.id), ['spy:2', 'spy:3']);
 });
 
 test('los filtros: el formato, lo buscado sin tildes y por @, y el orden por fecha', () => {

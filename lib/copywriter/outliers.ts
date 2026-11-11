@@ -215,7 +215,9 @@ export function claveDeLink(url: string): string {
 
 /** Cuántas palabras tiene que tener un pie para ser copy: «🤣🤣🤣» o «We have fun» son de una cuenta personal, no un copy. */
 export const PALABRAS_MINIMAS_PIE = 15;
-const palabras = (s: string) => (s.match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;
+// Una variable de plantilla («{{product.name}}» de un anuncio de catálogo) no es una palabra: 11/11/2026, simulado con los datos
+// del ws 9, esos anuncios quedaban entre los diez primeros de la portada con «{{product.name}}» de gancho.
+const palabras = (s: string) => (s.replace(/\{\{[^{}]*\}\}/g, ' ').match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu) ?? []).length;
 
 /**
  * ¿Su texto es copy? El guion, sí; el título de un video de YouTube o de un anuncio, también (es su gancho). El pie de Instagram o
@@ -259,7 +261,16 @@ export function juntarOutliersCopy(lecturas: readonly { fuente: FuenteOutliersCo
     }
   }
   outliers.sort((a, b) => pesoDe(b) - pesoDe(a) || (b.vistas ?? -1) - (a.vistas ?? -1));
-  return { outliers: variedad(outliers), caidas };
+  // El MISMO copy del mismo creador es uno solo (queda el más fuerte, que va primero): 11/11/2026, simulado con los datos del ws 9,
+  // «Learn How to Scale Your Business» salía dos veces seguidas porque el mismo texto corre en varios anuncios.
+  const textos = new Set<string>();
+  const unicos = outliers.filter((o) => {
+    const k = `${o.creador.competidorId ?? o.creador.usuario ?? o.creador.nombre}|${plano(`${o.gancho} ${o.texto}`).replace(/\s+/g, ' ').trim()}`;
+    if (textos.has(k)) return false;
+    textos.add(k);
+    return true;
+  });
+  return { outliers: variedad(unicos), caidas };
 }
 
 /** Los filtros de la portada: el segmento (todos o un formato) y lo que se busca (en el gancho, el texto y el @). */
