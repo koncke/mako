@@ -221,6 +221,8 @@
 .nt-aviso.nt-restos { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 10px; }
 /* «Ver ejemplo»: el ejemplo de la plantilla, de sólo lectura, dentro de la caja (no en la página). */
 .nt-ejemplo-nota { margin: 0 0 10px; font-size: 13px; color: var(--nt-suave); }
+/* «Ver el original» de una página que replica un outlier (D18): el texto tal cual, como se leyó. */
+.nt-original { white-space: pre-wrap; word-break: break-word; font-size: 15px; line-height: 1.6; color: var(--ink); }
 .nt.nt-ejemplo { height: auto; border: 1px solid var(--nt-linea); border-radius: 10px; padding: 6px 0 10px; overflow: visible; }
 /* Las preguntas de MaKo al crear desde una plantilla (PanelMaKo): lo que ya contestó, como su burbuja. */
 .nt-mako-par { display: contents; }

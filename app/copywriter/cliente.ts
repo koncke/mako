@@ -9,6 +9,7 @@
 
 import { postJson, type FallaPedido } from '@/app/web-generator/cliente';
 import type { EditadoPor, GuionAbierto, JsonNodo, PaginaCopy, PropsGuion, TipoGuion } from '@/lib/copywriter/tipos';
+import type { OutlierCopy } from '@/lib/copywriter/outliers';
 
 export const RUTA_COPY = '/api/copywriter';
 /** /api/copywriter no llama a ninguna IA: lo que tarda es la base. */
@@ -72,6 +73,18 @@ export function pedirGuardarCompartido(token: string, nombre: string, c: CambioG
 
 export function pedirTituloCompartido(token: string, nombre: string, titulo: string) {
   return postJson<{ ok: true }>(RUTA_COMPARTIDO, { accion: 'titulo', token, nombre, titulo }, PLAZO_COPY_MS) as Promise<{ ok: true } | FallaCopy>;
+}
+
+// ── Los outliers de copy (D18) ──────────────────────────────────────────────────────────────────────────────────
+
+/** «Replicar»: la página nueva que replica el outlier (vacía; la escribe MaKo cuando la persona elige la oferta). */
+export function pedirReplicar(outlier: string) {
+  return postJson<{ ok: true; paginas: PaginaCopy[] } & GuionAbierto>(RUTA_COPY, { accion: 'replicar', outlier }, PLAZO_COPY_MS) as Promise<({ ok: true; paginas: PaginaCopy[] } & GuionAbierto) | FallaCopy>;
+}
+
+/** El original entero de un outlier («Ver el original» de la página replicada). */
+export function pedirOriginal(outlier: string) {
+  return postJson<{ ok: true; outlier: OutlierCopy }>(RUTA_COPY, { accion: 'outlier', outlier }, PLAZO_COPY_MS) as Promise<{ ok: true; outlier: OutlierCopy } | FallaCopy>;
 }
 
 /** Las rutas de la tab (escritorio): un guion se abre en /copywriter/<id>. */
