@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FORMATOS_COPY, TEXTO_EN_TARJETA, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, juntarOutliersCopy, outliersCopyDeBiblioteca,
+  FORMATOS_COPY, TEXTO_EN_TARJETA, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca,
   outliersCopyDeSpy, textoParaMaKo, tipoDeOutlier, tituloDeReplica,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
 } from '../lib/copywriter/outliers';
@@ -207,7 +207,7 @@ test('lo que le llega a MaKo: el original con la regla de copiar la estructura y
   assert.deepEqual(sanearReferencias([{ tipo: 'outlier', id: 'spy:1', nombre: 'x' }]), []);
   const ia = leer('lib/copywriter/ia.ts');
   assert.equal((ia.match(/leerReferencias\(conElOriginal\(p\.referencias, g\.props\)\)/g) ?? []).length, 2, 'Discutir y Editar');
-  assert.match(ia, /return props\.outlier \? \[\{ tipo: 'outlier', id: props\.outlier, nombre: 'El original que replicas' \}, \.\.\.refs\] : refs;/);
+  assert.match(ia, /return props\.outlier \? \[\{ tipo: 'outlier', id: props\.outlier, nombre: NOMBRE_DEL_ORIGINAL \}, \.\.\.refs\] : refs;/);
   assert.match(leer('lib/copywriter/referencias.ts'), /if \(r\.tipo === 'outlier'\) \{\n\s+\/\/[^\n]*\n\s+const t = await originalParaMaKo\(r\.id\);/);
 });
 
@@ -242,4 +242,22 @@ test('el original abierto: con imagen, la pieza arriba y su texto abajo (11/11, 
   const modal = leer('app/copywriter/OutlierAbierto.tsx');
   assert.match(modal, /\{o\.miniatura \? \(\n\s+<div className=\{t\.conImagen\}>\n\s+\{\/\* eslint-disable-next-line @next\/next\/no-img-element \*\/\}\n\s+<img className=\{t\.imagenOriginal\} src=\{o\.miniatura\}/);
   assert.match(leer('app/copywriter/outliers.module.css'), /\.conImagen > img\.imagenOriginal \{ flex: 0 0 56%;/);
+});
+
+test('las frases del original que repite la réplica: 5 palabras seguidas o más, sin mirar tildes ni signos (11/11, en producción)', () => {
+  // El caso real: «Cobrar mejor no es suerte, es sistema.» replicado como «Cobrar más caro no es suerte, es sistema.».
+  const original = textoParaMaKo(outlier({
+    gancho: 'Cobrar mejor no es suerte, es sistema.', deDonde: 'guion',
+    texto: 'Que paja la gente que paga poco, vieron? Que te paga un servicio de cien dólares te está pagando dos mil.',
+  }), '70,9×');
+  const escrito = 'Gancho\nCobrar más caro no es suerte, es sistema.\nHistoria\nQué rabia cuando entra un cliente que paga poco y te exige el triple.';
+  assert.deepEqual(frasesDelOriginal(original, escrito), ['no es suerte, es sistema']);
+  // Cuatro palabras no alcanzan, y la regla de cómo se replica no cuenta como original.
+  assert.deepEqual(frasesDelOriginal(original, 'que te paga un cliente nuevo'), []);
+  assert.deepEqual(frasesDelOriginal(original, 'Copia su estructura (las partes y su orden), su tipo de gancho'), []);
+  assert.deepEqual(frasesDelOriginal(original, 'QUE TE PAGA UN SERVICIO de diseño'), ['QUE TE PAGA UN SERVICIO de'], 'el tramo entero, como lo escribió');
+  // Lo usa «Editar» en una página replicada, y avisa en la propuesta.
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.match(ia, /const copiadas = original && escrito \? frasesDelOriginal\(original, escrito\) : \[\];/);
+  assert.match(ia, /Repite frases del original/);
 });

@@ -330,6 +330,40 @@ export function textoParaMaKo(o: OutlierCopy, rotuloMultiplo: string | null): st
     `CON QUÉ ABRE: ${o.gancho}`,
     `${ROTULO_TEXTO[o.deDonde].toUpperCase()}:`,
     texto,
-    'CÓMO SE REPLICA: copia su estructura (las partes y su orden), su tipo de gancho y su ritmo, con el negocio y la oferta de EL NEGOCIO. Nunca copies sus frases, sus datos, sus nombres ni sus resultados: son de otro.',
+    'CÓMO SE REPLICA: copia su estructura (las partes y su orden), su tipo de gancho y su ritmo, con el negocio y la oferta de EL NEGOCIO. Nunca copies sus frases, sus datos, sus nombres ni sus resultados: son de otro. Tampoco su gancho con dos palabras cambiadas: el mismo TIPO de gancho, dicho con tus palabras, y ninguna frase de 5 palabras seguidas igual a la suya.',
   ].join('\n');
+}
+
+/** El nombre con que el original viaja entre las referencias de MaKo (lib/copywriter/referencias.ts, lib/copywriter/ia.ts). */
+export const NOMBRE_DEL_ORIGINAL = 'El original que replicas';
+/** Cuántas palabras seguidas iguales al original ya son «copiar su frase». */
+export const PALABRAS_COPIADAS = 5;
+
+/**
+ * Las frases del ORIGINAL que repite lo que escribió MaKo: tramos de `n` palabras seguidas o más, sin mirar tildes, mayúsculas ni
+ * signos. Devuelve el tramo como lo escribió MaKo, sin repetir, como mucho 3. Sólo mira el texto del original, no la regla de
+ * `textoParaMaKo` («CÓMO SE REPLICA…»).
+ * ⚠️ Es la capa 2 de «nunca copies sus frases» (AGENTS.md, «Una regla en un prompt no es una regla»): 11/11/2026, en producción,
+ * la réplica de «Cobrar mejor no es suerte, es sistema.» abrió con «Cobrar más caro no es suerte, es sistema.».
+ */
+export function frasesDelOriginal(original: string, escrito: string, n = PALABRAS_COPIADAS): string[] {
+  const soloTexto = original.split(/\nCÓMO SE REPLICA:/)[0];
+  const PALABRA = /[\p{L}\p{N}][\p{L}\p{N}'’]*/gu;
+  const o = (soloTexto.match(PALABRA) ?? []).map(plano);
+  const e = [...escrito.matchAll(PALABRA)].map((m) => ({ desde: m.index ?? 0, hasta: (m.index ?? 0) + m[0].length }));
+  const ep = e.map((x) => plano(escrito.slice(x.desde, x.hasta)));
+  if (o.length < n || e.length < n) return [];
+  const tramos = new Set<string>();
+  for (let i = 0; i + n <= o.length; i++) tramos.add(o.slice(i, i + n).join(' '));
+  const out: string[] = [];
+  for (let i = 0; i + n <= ep.length;) {
+    if (!tramos.has(ep.slice(i, i + n).join(' '))) { i++; continue; }
+    let fin = i + n;
+    while (fin < ep.length && tramos.has(ep.slice(fin - n + 1, fin + 1).join(' '))) fin++;
+    const frase = escrito.slice(e[i].desde, e[fin - 1].hasta);
+    if (!out.includes(frase)) out.push(frase);
+    if (out.length === 3) break;
+    i = fin;
+  }
+  return out;
 }
