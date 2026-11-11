@@ -43,8 +43,10 @@ test('1. la apertura: con voz y sin subtítulos pregunta un hecho, por proyecto;
 
 test('2. el montaje: el mismo motor que el botón, las píldoras se esconden, y la voz se cuenta en las pistas', () => {
   const chat = sinComentarios(leer('app/video-editor/_opencut/chat/PanelChat.tsx'));
-  assert.match(chat, /void generarSubtitulos\(editorRef\.current\)\.then\(\(r\) => \(r\.ok \? toast\("Subtítulos listos"\) : toast\(textoDeSubtitulos\(r\.motivo\)\)\)\);/,
-    'el motor del botón, y el resultado dicho (nunca un «no se pudo» mudo)');
+  // El resultado, dicho EN EL HILO desde el 11/11/2026 (tests/video-editor-subtitulos-en-el-hilo.test.ts): el aviso que se
+  // iba a los segundos dejaba el chat en «Pídeme…» sin decir si salieron.
+  assert.match(chat, /void generarSubtitulos\(editorRef\.current\)\.then\(\(r\) => \{/, 'el motor del botón');
+  assert.match(chat, /conId\(\{ de: "mako", texto, error: !r\.ok \}\)/, 'el resultado dicho (nunca un «no se pudo» mudo)');
   assert.match(chat, /acciones=\{\{ subtitulos: ponerSubtitulos \}\}/);
   // Mientras corren (10/11/2026, medido en producción: ~2 min la primera vez con la pregunta y sus botones quietos), en vez de la
   // pregunta va lo que está haciendo, con la misma frase del panel.

@@ -583,8 +583,24 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		libre: !hilo.corriendo && !guiaHablando,
 	});
 	const subtitulando = useTrabajoSubtitulos((s) => s.fase !== "inactivo");
+	// El resultado queda EN EL HILO, como si la persona hubiera contestado (11/11/2026, probado en producción): con un aviso
+	// que se va a los segundos, el chat volvía a «Pídeme…» sin decir si salieron, ni por qué no. «Ocupado» y «cancelado» no
+	// son una respuesta a la pregunta: siguen como aviso.
 	const ponerSubtitulos = () => {
-		void generarSubtitulos(editorRef.current).then((r) => (r.ok ? toast("Subtítulos listos") : toast(textoDeSubtitulos(r.motivo))));
+		const id = proyectoId;
+		void generarSubtitulos(editorRef.current).then((r) => {
+			if (!r.ok && (r.motivo === "ocupado" || r.motivo === "cancelado")) {
+				toast(textoDeSubtitulos(r.motivo));
+				return;
+			}
+			const texto = r.ok
+				? `Listo: puse ${r.subtitulos} ${r.subtitulos === 1 ? "subtítulo" : "subtítulos"}.`
+				: textoDeSubtitulos(r.motivo);
+			cambiarHilo(id, (h) => ({
+				...h,
+				mensajes: [...h.mensajes, conId({ de: "yo", texto: "Sí, en el feed", alcance: null }), conId({ de: "mako", texto, error: !r.ok })],
+			}));
+		});
 	};
 	const pildora = "cursor-pointer rounded-full border border-(--border) bg-(--surface) px-3 py-1.5 text-left text-[12px] text-(--ink) hover:bg-(--velo-hover) disabled:cursor-default disabled:opacity-50";
 	const chip = "flex h-[26px] min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-medium";

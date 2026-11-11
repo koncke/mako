@@ -17,6 +17,7 @@ import { contextoDelNegocio } from './contexto';
 import { getFile } from '../archivero';
 import type { Referencia } from './referencias-reglas';
 import { originalParaMaKo } from './outliers-servidor';
+import { NOMBRE_DEL_ORIGINAL } from './outliers';
 
 const TOPE_POR_REFERENCIA = 6_000;
 
@@ -35,7 +36,7 @@ export async function leerReferencias(refs: readonly Referencia[]): Promise<{ te
         // El original que replica la página (D18): lo que se sabe de él y su texto, con la regla de copiar sólo la estructura.
         const t = await originalParaMaKo(r.id);
         if (!t) { noLeidas.push('el original que replicas'); return; }
-        textos.push({ nombre: 'El original que replicas', texto: t.slice(0, TOPE_POR_REFERENCIA + 600) });
+        textos.push({ nombre: NOMBRE_DEL_ORIGINAL, texto: t.slice(0, TOPE_POR_REFERENCIA + 600) });
         return;
       }
       if (r.tipo === 'oferta') {
