@@ -175,6 +175,15 @@ test('«Todos» intercala los formatos: la primera vuelta trae el mejor de cada 
   assert.deepEqual(p.outliers.map((o) => o.id), ['biblioteca:-1', 'spy:10', 'spy:50', 'biblioteca:-2', 'spy:11', 'biblioteca:-3']);
   // Filtrar por un formato da su orden de siempre.
   assert.deepEqual(filtrarOutliersCopy(p.outliers, { formato: 'carrusel', q: '' }).map((o) => o.id), ['biblioteca:-1', 'biblioteca:-2', 'biblioteca:-3']);
+
+  // ⚠️ Desplegado y medido en producción: con la variedad de creadores aplicada DESPUÉS de intercalar, a la primera vuelta le
+  // seguían nueve carruseles. Los reels eran casi todos de UNA cuenta y «2 del mismo creador cada 12» los empujaba abajo.
+  const deLeila = (n: number) => outlier({ id: `spy:${n}`, url: `https://www.instagram.com/reel/l${n}/`, multiplo: m(10 - n / 100), gancho: `Gancho ${n}`, texto: `${COPY} (${n})`, creador: { nombre: 'Leila', usuario: 'leila', foto: null, competidorId: 7 } });
+  const q = juntarOutliersCopy([
+    { fuente: fuente('biblioteca'), lectura: { ok: true, outliers: Array.from({ length: 20 }, (_, i) => carrusel(i + 1, 900 - i)) } },
+    { fuente: fuente('spy'), lectura: { ok: true, outliers: [deLeila(101), deLeila(102), deLeila(103), deLeila(104)] } },
+  ]);
+  assert.deepEqual(q.outliers.slice(0, 8).map((o) => o.formato), ['carrusel', 'reel', 'carrusel', 'reel', 'carrusel', 'reel', 'carrusel', 'reel']);
 });
 
 test('los filtros: el formato, lo buscado sin tildes y por @, y el orden por fecha', () => {

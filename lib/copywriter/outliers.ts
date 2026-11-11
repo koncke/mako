@@ -248,10 +248,14 @@ const variedad = (xs: readonly OutlierCopy[]) => conVariedad(xs, (o) => o.creado
  * ⚠️ 11/11/2026, en producción en el ws 3: las 24 primeras tarjetas de «Todos» eran carruseles en inglés de la biblioteca (de
  * 1.219× a 29×); los reels y los videos del nicho del negocio quedaban cientos de tarjetas más abajo. La portada de copy es de
  * TODOS los formatos: se tienen que ver desde la primera fila.
+ * `porFormato` reordena cada formato ANTES de intercalar (la variedad de creadores). ⚠️ Aplicada DESPUÉS, sobre la lista ya
+ * intercalada, deshacía el intercalado (medido en producción: carrusel, reel, YouTube y después nueve carruseles seguidos): los reels
+ * y los videos son de pocas cuentas, «2 del mismo creador cada 12» los empujaba abajo y subían carruseles de creadores distintos.
  */
-export function intercalarFormatos(xs: readonly OutlierCopy[]): OutlierCopy[] {
+export function intercalarFormatos(xs: readonly OutlierCopy[], porFormato: (fila: readonly OutlierCopy[]) => OutlierCopy[] = (f) => [...f]): OutlierCopy[] {
   const filas = new Map<FormatoCopy, OutlierCopy[]>();
   for (const o of xs) { const f = filas.get(o.formato); if (f) f.push(o); else filas.set(o.formato, [o]); }
+  for (const [k, f] of filas) filas.set(k, porFormato(f));
   const out: OutlierCopy[] = [];
   for (let i = 0; out.length < xs.length; i++) {
     const vuelta = [...filas.values()].map((f) => f[i]).filter((o): o is OutlierCopy => !!o);
@@ -288,7 +292,7 @@ export function juntarOutliersCopy(lecturas: readonly { fuente: FuenteOutliersCo
     textos.add(k);
     return true;
   });
-  return { outliers: variedad(intercalarFormatos(unicos)), caidas };
+  return { outliers: intercalarFormatos(unicos, variedad), caidas };
 }
 
 /** Los filtros de la portada: el segmento (todos o un formato) y lo que se busca (en el gancho, el texto y el @). */
