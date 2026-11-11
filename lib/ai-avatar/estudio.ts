@@ -24,6 +24,12 @@ export const SIN_MOTOR = Object.freeze({
 
 export type PiezaSinMotor = keyof typeof SIN_MOTOR;
 
+/**
+ * Qué foto sirve, dicho donde se sube (11/11/2026). El lugar del personaje era un «+» solo: la persona no sabía que la cara
+ * tiene que verse entera y de frente, que es lo que decide si el avatar se le parece (HeyGen lo dice en el mismo paso).
+ */
+export const CONSEJO_FOTO = 'Una foto tuya de frente, sola y con buena luz.';
+
 /** El modelo que genera hoy: el único de la lista. */
 export const MODELO = Object.freeze({ nombre: 'Nano Banana', de: 'Google Flow' });
 

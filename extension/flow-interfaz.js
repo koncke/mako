@@ -34,7 +34,7 @@
 // dos veces el mismo clip.
 
 (() => {
-  const VERSION = '0.69.0';
+  const VERSION = '0.80.0';
   const previo = globalThis.__makoInterfaz;
   if (previo && previo.version === VERSION) return;
   if (previo && typeof previo.apagar === 'function') {
@@ -630,8 +630,54 @@
   }
 
   /**
-   * Sube la foto al proyecto por el menú real de Flow. El archivo se entrega al
-   * `<input type=file>` que abre «Upload», sin abrir el diálogo del sistema.
+   * Dónde se suelta la foto: la grilla del proyecto, que es donde una persona la arrastra.
+   *
+   * ⚠️⚠️ «UPLOAD» YA NO ABRE NADA CON UN CLIC DE LA EXTENSIÓN (medido el 11/11/2026 en
+   * flow.google.com, cuenta de Martín). Con un clic de mouse real, «Add media menu» → «Upload» crea
+   * un `<input type=file>` y le llama `click()` —ahí lo atrapaba `instalarAtrapaArchivo`—. Con el
+   * clic que puede dar la extensión (eventos de mouse armados), el menú se cierra y Flow NO llama a
+   * `click()`, ni a `showPicker()`, ni a `showOpenFilePicker()`: no pasa nada. Síntoma: «Flow no
+   * terminó de procesar la foto» a los dos minutos (trabajo 688, 9/11), y la foto no estaba en
+   * «Uploads». El «no mostró la opción de subir» de antes era OTRA causa (el ícono pegado al texto,
+   * arreglado el 8/11) y tapaba esta.
+   *
+   * Soltar el archivo, en cambio, Flow lo atiende sin pedir un clic real: un `.txt` soltado sobre la
+   * grilla devuelve «Unsupported file type: … (Supported extensions are PNG, JPG…)», o sea que entró
+   * a su validación de subida. Soltado sobre `<body>` o sobre la caja del prompt, no lo atiende nadie:
+   * por eso se apunta a la grilla y no a la página.
+   */
+  const ZONAS_SOLTAR = ['.grid-area-wrapper', 'mat-sidenav-content', '.virtual-scroll-container'];
+
+  /** Suelta el archivo sobre la grilla. Devuelve si Flow lo atendió (canceló el `drop`). */
+  function soltarArchivo(archivo) {
+    const zona = ZONAS_SOLTAR.map((s) => document.querySelector(s)).find((el) => el && visible(el));
+    if (!zona) return false;
+    const dt = new DataTransfer();
+    dt.items.add(archivo);
+    const r = zona.getBoundingClientRect();
+    const o = {
+      bubbles: true, cancelable: true, composed: true, dataTransfer: dt,
+      clientX: r.left + r.width / 2, clientY: r.top + Math.min(r.height / 2, 200),
+    };
+    zona.dispatchEvent(new DragEvent('dragenter', o));
+    zona.dispatchEvent(new DragEvent('dragover', o));
+    // `dispatchEvent` devuelve false cuando alguien llamó a preventDefault(): Flow lo hace con el drop
+    // que atiende. Si nadie lo canceló, nadie lo tomó, y se prueba por el menú.
+    return !zona.dispatchEvent(new DragEvent('drop', o));
+  }
+
+  /** Lo que Flow está avisando ahora (sus avisos de error), para que la falla diga algo. */
+  function avisosDeFlow() {
+    return [...document.querySelectorAll('[role="alert"], [role="status"]')]
+      .map((e) => (e.innerText || '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean)
+      .join(' · ')
+      .slice(0, 300);
+  }
+
+  /**
+   * Sube la foto al proyecto. Primero se SUELTA sobre la grilla (ver `ZONAS_SOLTAR`); el menú
+   * «Upload» queda de último recurso, para el día que Flow vuelva a abrirlo sin un clic real.
    */
   async function subir(p) {
     const id = p.trabajoId;
@@ -641,7 +687,16 @@
     const archivo = archivoDe(p.imagenB64, nombre, p.mime);
 
     let input = [...document.querySelectorAll('input[type="file"]')][0] || null;
-    if (!input) {
+    let via = 'input';
+    if (input) {
+      const dt = new DataTransfer();
+      dt.items.add(archivo);
+      input.files = dt.files;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    } else if (soltarArchivo(archivo)) {
+      via = 'soltar';
+    } else {
+      via = 'menu';
       const menu = uno('button', R.menuMedios);
       if (!menu) throw falla('SIN_SUBIR', 'No encontré dónde subir la foto en Flow.');
       // El mundo de la página atrapa el `input.click()` que dispara «Upload» y le
@@ -651,19 +706,24 @@
       const item = await esperarHasta(() => uno('menuitem', R.subir), 4000);
       if (!item) throw falla('SIN_SUBIR', 'Flow no mostró la opción de subir.');
       clic(item);
-    } else {
-      const dt = new DataTransfer();
-      dt.items.add(archivo);
-      input.files = dt.files;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
     }
     const listo = await esperarHasta(() => {
       const t = document.querySelector(`flow-grid-tile-container[aria-label="${nombre}"] [data-media-id]`);
       return t && t.getAttribute('data-media-id');
     }, TOPE_MS.subida, 1000);
+    // Antes de cerrar las capas: el aviso de Flow («Unsupported file type…», un error de subida)
+    // es lo único que dice POR QUÉ no apareció la foto, y `cerrarCapas` se lo lleva.
+    const aviso = listo ? '' : avisosDeFlow();
     await cerrarCapas();
-    if (!listo) return guardar(id, { fase: 'fallo', motivo: 'transitorio', error: 'Flow no terminó de procesar la foto.' });
-    return guardar(id, { fase: 'listo', mediaId: listo });
+    if (!listo) {
+      return guardar(id, {
+        fase: 'fallo',
+        motivo: 'transitorio',
+        via,
+        error: aviso ? `Flow no aceptó la foto: ${aviso}` : 'Flow no terminó de procesar la foto.',
+      });
+    }
+    return guardar(id, { fase: 'listo', mediaId: listo, via });
   }
 
   // ── La sonda: lo que hace falta medir, en una sola llamada ────────────────
