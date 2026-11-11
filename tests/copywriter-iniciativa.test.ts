@@ -79,9 +79,11 @@ test('toda plantilla con ejemplo tiene sus objetivos: botones cortos, sin voseo'
 
 test('la pantalla: pregunta sin IA, lo escrito contesta la pregunta abierta y el botón que llama a la IA espera', () => {
   const panel = sinComentarios(leer('app/copywriter/PanelMaKo.tsx'));
-  assert.match(panel, /const pasosIni = useMemo\(\(\) => \(plantilla \? pasosDeIniciativa\(plantilla, ofertas\) : \[\]\), \[plantilla, ofertas\]\);/);
+  // 11/11/2026: una página que replica un outlier (D18) pregunta lo suyo (tests/copywriter-outliers.test.ts).
+  assert.match(panel, /const pasosIni = useMemo\(\(\) => \(plantilla \? pasosDeIniciativa\(plantilla, ofertas\) : replica \? pasosDeReplica\(ofertas\) : \[\]\), \[plantilla, replica, ofertas\]\);/);
   assert.match(panel, /const pasoIni = mensajes\.length === 0 && id \? pasoPendiente\(pasosIni, respIni\) : null;/, 'sólo con el chat vacío');
-  assert.match(panel, /if \(pedido\.adaptar\) \{ void pedirEdicion\(pedido\.texto, \[\], \[\], true\); return; \}/, 'la última respuesta, a adaptar');
+  // La última respuesta, a adaptar la plantilla; la de una réplica, a «Editar» (`!replica`).
+  assert.match(panel, /if \(pedido\.adaptar\) \{ if \(replica\) elegirIntencion\('editar'\); void pedirEdicion\(pedido\.texto, \[\], \[\], !replica\); return; \}/, 'la última respuesta, a adaptar');
   assert.match(panel, /if \(pasoIni\) \{ responderIni\(t\.trim\(\)\); return Promise\.resolve\(true\); \}/, 'lo escrito contesta la pregunta');
   assert.match(panel, /disabled=\{llamaALaIA\(o\.valor\) && !puede\} onClick=\{\(\) => responderIni\(o\.valor\)\}/);
   assert.match(panel, /setRespIni\(\{\}\);/, 'otra página, otras respuestas');

@@ -111,6 +111,16 @@ function guionDe(g: GuionDelPedido) {
   return { doc: s.ok ? s.doc : ({ type: 'doc', content: [] } as JsonNodo), props, titulo };
 }
 
+/**
+ * Lo citado, más el original que replica la página (D18, `props.outlier`): va en CADA pedido de esa página, no sólo en el primero,
+ * así «cambia el gancho» sigue sabiendo qué se está replicando. Lo lee el server en el negocio de la pestaña (una pieza de Spy de
+ * otro negocio no se encuentra) y no entra al documento.
+ */
+function conElOriginal(citadas: readonly Referencia[] | undefined, props: ReturnType<typeof sanearProps>): Referencia[] {
+  const refs = [...(citadas ?? [])];
+  return props.outlier ? [{ tipo: 'outlier', id: props.outlier, nombre: 'El original que replicas' }, ...refs] : refs;
+}
+
 /** Los nombres del ángulo y la estructura elegidos (para que el modelo lea «Dolor», no «dolor»). */
 async function nombres(props: ReturnType<typeof sanearProps>) {
   const c = await catalogosDelCopywriter();
@@ -137,7 +147,7 @@ export async function discutir(p: { pregunta: unknown; guion: GuionDelPedido; ch
   if (!pregunta) return invalido('Escribe qué quieres pensar.');
   const g = guionDe(p.guion);
   try {
-    const [acento, negocio, n, refs] = await Promise.all([acentoDelNegocio(), contextoDelNegocio(pregunta), nombres(g.props), leerReferencias(p.referencias ?? [])]);
+    const [acento, negocio, n, refs] = await Promise.all([acentoDelNegocio(), contextoDelNegocio(pregunta), nombres(g.props), leerReferencias(conElOriginal(p.referencias, g.props))]);
     const sys = await brandSystem(`${await renderPrompt(PROMPTS_COPY.discutirSystem.key, PROMPTS_COPY.discutirSystem.tpl, { idioma: bloqueIdiomaCopy(acento) })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
     const user = await renderPrompt(PROMPTS_COPY.discutirUser.key, PROMPTS_COPY.discutirUser.tpl, {
@@ -216,7 +226,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const [acento, negocio, angulos, estructuras, refs] = await Promise.all([
       acentoConId(), contextoDelNegocio(instruccion),
       getAngulosGuion().catch(() => ANGULOS_GUION_DEFAULT), getEstructurasTodas().catch(() => ESTRUCTURAS_GUION_DEFAULT).then(conVsl),
-      leerReferencias(p.referencias ?? []),
+      leerReferencias(conElOriginal(p.referencias, g.props)),
     ]);
     const lite = catalogosLite(angulos, estructuras);
     const angulo = g.props.angulo ? angulos.find((a) => a.id === g.props.angulo && a.activo) ?? null : null;
