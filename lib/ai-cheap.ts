@@ -804,11 +804,14 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // colgado o lento (el AI Analyst por HTTP, 45 s) se comía el plazo y Gemini devolvía «sin tiempo» sin un solo pedido. No es la
   // reserva que se sacó el 26/10 (hallazgo 17, la de `plazoDeIntento`): ésa recortaba al PRIMER proveedor, que antes tenía todo
   // el plazo; el crédito es una capa NUEVA delante de él, y lo que no puede es dejar sin plazo a lo que antes iba primero.
-  const plazoDelCredito = (): number => (opts.hastaMs == null ? plazoDeIntento() : Math.min(plazoDeIntento(), quedan() - MIN_INTENTO_MS));
-  if (!opts.sinCredito && plazoDelCredito() >= MIN_INTENTO_MS && pesa <= (TECHO_ENTRADA.anthropic ?? 0)) {
+  // ⚠️ El umbral se mide contra lo que QUEDA del plazo, nunca contra el `timeoutMs` del intento: sin `hastaMs`, un pedido con
+  // `timeoutMs` de 5 s es sano y va con el crédito (tests/credito-plataforma-frontera.test.ts 3).
+  const quedanParaElCredito = (): number => quedan() - (opts.hastaMs == null ? 0 : MIN_INTENTO_MS);
+  const plazoDelCredito = (): number => Math.min(plazoDeIntento(), quedanParaElCredito());
+  if (!opts.sinCredito && quedanParaElCredito() >= MIN_INTENTO_MS && pesa <= (TECHO_ENTRADA.anthropic ?? 0)) {
     const { conClaveDelNegocio, cuentasDelCreditoParaElPedido } = await import('./anthropic');
     for (const cuenta of await cuentasDelCreditoParaElPedido(opts.feature).catch(() => [] as string[])) {
-      if (plazoDelCredito() < MIN_INTENTO_MS) break;
+      if (quedanParaElCredito() < MIN_INTENTO_MS) break;
       avisar();
       const r = await conClaveDelNegocio({
         system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
