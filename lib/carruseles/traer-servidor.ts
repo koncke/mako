@@ -29,6 +29,7 @@ import { esNuestra, guardarMiniaturas } from '../spy-miniaturas';
 import { creadorDelItem, filasDeLectura, idDeBiblioteca, linkDeInstagram, traidaPor } from './biblioteca';
 import { altDelItem } from './clasificar';
 import { imagenesANuestroBucket, type Bajadores } from './biblioteca-imagenes';
+import { esLinkDeVideo } from './link';
 import { T_CUENTAS, T_PIEZAS, bajarLaminas, carruselDeLaBiblioteca, faltaLaTabla, hayColumnaWs, olvidarPiezas } from './biblioteca-servidor';
 import type { Carrusel } from './explorar';
 
@@ -51,7 +52,9 @@ export type Traido = { ok: true; carrusel: Carrusel; nuevo: boolean } | { ok: fa
 
 export async function traerCarrusel(ws: number, texto: string): Promise<Traido> {
   const link = linkDeInstagram(texto);
-  if (!link) return { ok: false, error: 'Pega el link de una publicación de Instagram (el que dice /p/ o /reel/).' };
+  if (!link) return { ok: false, error: 'Pega el link de una publicación de Instagram (el que dice /p/).' };
+  // Un reel se sabe por la dirección: se dice sin pagar la lectura (que terminaba igual en «es un reel»).
+  if (esLinkDeVideo(texto)) return { ok: false, error: 'Ese link es de un reel: aquí se traen carruseles y publicaciones con imagen.' };
   try {
     if (!(await hayColumnaWs())) return { ok: false, error: 'Todavía no puedo traer carruseles por su link: falta aplicar la migración 0413.' };
     const db = getSupabaseServer();
