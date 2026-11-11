@@ -126,3 +126,10 @@ test('abrir una plantilla reemplazada vuelve a la hoja que ya nació de ella', (
   assert.equal(hojaDestino(t, 'whatsapp').hojaId, 'h-vieja');
   assert.equal(hojaDestino(t, 'chat-analyst').hojaId, 'h-nueva');
 });
+
+test('con «1» la palabra que sigue va en singular: «1 persona», «1 agendó» (11/11/2026, Landing en el teléfono)', () => {
+  const cols = [{ id: 'visitas', nombre: 'Visitas' }, { id: 'personas', nombre: 'Personas' }, { id: 'agendas', nombre: 'Agendas' }] as never;
+  const escrito = (vals: Record<number, string>) => fraseEnTexto(tramosDeFrase('Entraron {visitas} visitas de {personas} personas · {agendas} agendaron', cols, (i) => vals[i] ?? null, () => null));
+  assert.equal(escrito({ 0: '3', 1: '1', 2: '1' }), 'Entraron 3 visitas de 1 persona · 1 agendó');
+  assert.equal(escrito({ 0: '1', 1: '2', 2: '11' }), 'Entraron 1 visita de 2 personas · 11 agendaron', '«11» no es «1»');
+});

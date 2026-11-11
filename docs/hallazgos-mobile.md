@@ -2083,3 +2083,12 @@ Soporte». **Causa:** `hojaPropia` marcaba `numerosError` cuando todos los núme
 período sin datos, leído bien, se pintaba como lectura caída. **La regla:** «no pudimos leer» sólo si las lecturas FALLARON (`noSeLeyo`,
 app/m/dashboard/modelo.ts); sin datos, la lista dice «—». Es la misma familia que «falta conectar» (arriba): el teléfono no puede tener
 menos categorías que la compu (falló / falta conectar / sin datos).
+
+## La hoja copiada en el teléfono no dice lo mismo que en la compu (11/11/2026, a 375 con captura)
+
+- **La frase:** en la compu, Marketing arma su frase con su diseño (`fraseMarketing`); el teléfono armaba la de la PLANTILLA (`tramosDeFrase`
+  sobre la pieza `frase`), y sin pauta decía «Gastaste US$0 en anuncios · trajeron 3 agendas · cada una costó US$0» cuando la compu ya decía
+  «Llegaron 3 agendas.». Un arreglo de una hoja con diseño hay que mirarlo también en el teléfono: son dos caminos.
+- **La unidad:** el catálogo la dice en el nombre de la métrica («Mediana de respuesta (min)») y la tarjeta tiene su propio título («Tiempo de
+  respuesta»): el teléfono mostraba «10» a secas. `conUnidad` la suma si el título no la dice.
+- **Vive en:** app/m/dashboard/datos.ts (`hojaPropia`), modelo.ts (`esCostoSobreGasto`, `conUnidad`).
