@@ -100,7 +100,9 @@ export function cambioDe(dif: 'plata' | 'veces' | 'pct' | 'puntos', actual: numb
 export function numeroDe(id: IdNumero, r: Resultado | null): NumeroMk {
   const def = DEF_NUMERO[id];
   const valor = total(r, def.metrica), ant = anteriorDe(r, def.metrica);
-  const c = valor != null && ant != null ? cambioDe(def.dif, valor, ant) : null;
+  // Un cambio de CERO no se escribe (11/11/2026, ws 3): «US$0.00» debajo de «US$0.00» se leía como un segundo valor.
+  const c0 = valor != null && ant != null ? cambioDe(def.dif, valor, ant) : null;
+  const c = c0 && c0.d !== 0 ? c0 : null;
   const sube = c ? (c.d > 0 ? true : c.d < 0 ? false : null) : null;
   const bueno = sube == null || def.mejor == null ? null : def.mejor === 'sube' ? sube : !sube;
   return { id, titulo: def.titulo, valor, texto: valor != null ? def.fmt(valor) : null, cambio: c?.texto ?? null, sube, bueno };
@@ -261,7 +263,8 @@ export type EmbudoMk = {
 const absoluto = (actual: number | null, ant: number | null) => {
   if (actual == null || ant == null) return { cambio: null, sube: null };
   const d = actual - ant;
-  return { cambio: d === 0 ? '0' : `${signo(d)}${corto(Math.abs(d))}`, sube: d > 0 ? true : d < 0 ? false : null };
+  // Sin cambio, nada al lado (11/11/2026): «Impresiones 0 0» parecía un número repetido.
+  return { cambio: d === 0 ? null : `${signo(d)}${corto(Math.abs(d))}`, sube: d > 0 ? true : d < 0 ? false : null };
 };
 export const inicialesDe = (s: string) => {
   const p = s.split(/[\s·|\-_/]+/).filter((x) => /[\p{L}\p{N}]/u.test(x));
@@ -315,6 +318,15 @@ export type VistaMarketing = {
   fallos: Partial<Record<'tendencias' | 'embudo' | 'redes', string>>;
 };
 
+/**
+ * Sin gasto no hay costo por agenda ni por lead (11/11/2026, ws 3 sin pauta): «Costo por agenda US$0.00» decía que cada agenda
+ * salió gratis, cuando no hubo anuncios. Con el gasto en cero, esos dos van sin valor («—»), como el ROAS.
+ */
+export function sinCostoSinGasto(numeros: NumeroMk[]): NumeroMk[] {
+  if (numeros.find((n) => n.id === 'gasto')?.valor !== 0) return numeros;
+  return numeros.map((n) => (n.id === 'cpa' || n.id === 'cpl' ? { ...n, valor: null, texto: null, cambio: null, sube: null, bueno: null } : n));
+}
+
 export function vistaMarketing(hoja: Pick<Hoja, 'diseno'>, datos: Record<string, DatosPieza>, hoy: string): VistaMarketing {
   const p = hoja.diseno?.piezas ?? {};
   const ap = res(datos, p.apertura);
@@ -327,7 +339,7 @@ export function vistaMarketing(hoja: Pick<Hoja, 'diseno'>, datos: Record<string,
   if (err(p.plataforma)) fallos.redes = 'No pude leer las redes de Meta.';
   return {
     frase: fraseMarketing(total(ap, 'gasto'), total(ap, 'agendas'), total(ap, 'cpa')),
-    numeros: ORDEN_NUMEROS.map((id) => numeroDe(id, res(datos, p[id]))),
+    numeros: sinCostoSinGasto(ORDEN_NUMEROS.map((id) => numeroDe(id, res(datos, p[id])))),
     tendencias: tend,
     pestanas: pestanasDe(anuncios, res(datos, p.campanas), tend, hoy),
     embudo: embudoDe(res(datos, p.funnel), anuncios),

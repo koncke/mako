@@ -935,3 +935,27 @@ ninguna sacó algo fuera de su tarjeta. El informe, caso por caso: `docs/pruebas
 - **Para comparar con el demo hacen falta datos, y el ws 3 no tiene grabador ni Meta.** Closing, Anuncio ganador, Hooks y VSL se
   vieron en sus estados vacíos. Con datos de verdad se vio «Velocidad de llamada» (ws 17, Giselle). Para mirar Closing con llamadas
   sin escribir en un cliente, hace falta un negocio de prueba con grabador.
+
+## 40. MIRAR no es leer: lo que la primera prueba no vio y una captura sí (11/11/2026)
+
+**Síntoma:** Martín rechazó la prueba del 10/11 («deberían haber detectado esto… prueben y MIREN todo»). Se había probado leyendo el
+texto de la página y el código. Recién al poner cada hoja en una captura, al lado de su demo, aparecieron siete fallas más.
+
+- **Los ceros que se leen como datos.** «Duración 00:00:00», «Costo por agenda US$0.00» con otro «US$0.00» debajo, «Impresiones 0 0»,
+  «↗ +US$0» en verde, «Vencido US$0» en rojo, «US$0.0000» por llamada. En el texto de la página todos parecen correctos; en la
+  captura cada uno dice algo falso: que las llamadas duraron cero, que la agenda salió gratis, que algo subió o que hay una alarma.
+  **La regla:** un cero que no se midió es «—»; un cambio de cero no lleva flecha ni color; una fracción de centavo va con cifras
+  significativas. **Vive en:** HojaClosing (`Reloj`), lib/marketing-diseno.ts (`sinCostoSinGasto`, `numeroDe`, `absoluto`), HojaGeneral,
+  HojaCobranza + cobranza-css.ts, lib/contenido-diseno.ts (`dolares`, `rotuloEjeDolares`).
+- **⚠️ El diagnóstico obvio era el equivocado: «las hojas vacías son culpa del ws 3».** En parte sí: el negocio de prueba no tiene grabador,
+  anuncios ni video. Pero la falla de producto es otra: la hoja no decía POR QUÉ estaba vacía, y el lector lo sabía. Lo dice ahora en la
+  franja de avisos (`faltaConectarDeHoja`, docs/hallazgos-graficos.md).
+- **Una captura en blanco o recortada no prueba nada, y el panel de la app las da seguido.** Las tres trampas, medidas el 11/11:
+  1. La primera captura después de navegar sale en blanco o con la entrada a medio camino. Hay que tirar una captura chica (`scale: 0.1`),
+     esperar 1,5 s y recién ahí la que vale.
+  2. Con el panel más angosto que la emulación, la captura de 1440 o de 375 sale recortada o con zoom. Las mediciones del DOM
+     (`scrollWidth`) daban bien. Se vuelve a pedir el tamaño con `resize_window` antes de capturar.
+  3. Una vez salió la hoja de fondo con las tarjetas sin texto, en medio de abrir un modal. La segunda captura salió bien.
+- **Para comparar con el demo, la fuente es `docs/diseno/mockups-dashboard/demos/<demo>/captura/pagina-1440.png`.** Dos «fallas» resultaron
+  fieles al demo y no se tocaron: los nombres cortados en las columnas de Velocidad (Tend corta igual) y el título en dos renglones de
+  Curso (Vitrea: «Studio / Overview»). **Antes de «arreglar» algo que se ve raro, se mira el demo.**

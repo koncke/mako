@@ -154,6 +154,7 @@ import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 import { AccionesFilaProvider } from './entidades/acciones-fila';
 import { ELEMENTOS_ALTO_LIBRE_EN_PILA, graficoAltoLibreEnPila, solosEnPila } from './pila';
 import { esAcomodoDe } from './aviso-grilla';
+import { faltaConectarDeHoja } from './falta-conectar';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
 import { hojaConIdsNuevos } from '@/lib/graficos-copia';
 import { sigueComoSeCreo } from '@/lib/graficos-plantilla-relleno';
@@ -234,7 +235,7 @@ type PopupAbierto = { g: Grafico; ctx: ContextoPopup; periodo: { desde: string; 
 
 function aEstado(d: DatosGrafico | undefined): EstadoDatos {
   if (!d) return { cargando: true };
-  return d.ok ? { cargando: false, resultado: d.resultado } : { cargando: false, error: d.error };
+  return d.ok ? { cargando: false, resultado: d.resultado } : { cargando: false, error: d.error, ...(d.sinConexion ? { sinConexion: true as const } : {}) };
 }
 /** Si el foco está donde se tipea, las teclas son del texto, no del editor. */
 function enUnTexto(): boolean {
@@ -646,6 +647,8 @@ export function EditorInforme({
     for (const [id, e] of Object.entries(datos)) o[id] = e.resultado;
     return o;
   }, [datos]);
+  /** Lo que la hoja no puede leer porque falta conectar algo (./falta-conectar.ts): va en la franja de avisos. */
+  const faltaConectar = useMemo(() => faltaConectarDeHoja(lienzo.componentes.filter(esGrafico).map((c) => c.id), datos), [lienzo.componentes, datos]);
 
   // ── El guardado: solo, con un respiro, en COLA y con la versión; nunca si la lectura falló ────────
   // Lo guardado es el informe que VINO (`inicial`), no el del primer render: si el link sumó una hoja,
@@ -1681,6 +1684,13 @@ export function EditorInforme({
               <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" onClick={(e) => e.stopPropagation()}>
                 <span>{avisoClosing}</span>
                 {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>{accionClosing}</BotonIntegracion>}
+              </div>
+            )}
+            {/* Una hoja con diseño sin datos porque FALTA CONECTAR algo (./falta-conectar.ts): el texto del lector, arriba y una
+                vez. Sin esto, cada tarjeta decía «Sin datos» y la causa no aparecía (11/11/2026, ws 3). */}
+            {faltaConectar.length > 0 && hoja.diseno && !dueno && !enBlanco && !compartido && (
+              <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" data-falta-conectar onClick={(e) => e.stopPropagation()}>
+                <span>{faltaConectar.join(' · ')}</span>
               </div>
             )}
             {hoja.diseno && hoja.diseno.v !== 2 && enGrilla && !editando && !dueno && !enBlanco && (

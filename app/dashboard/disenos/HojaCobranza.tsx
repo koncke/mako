@@ -306,7 +306,8 @@ export function HojaCobranza({ hoja, datos, extras, hoy, periodo, onGrilla, onFi
               {deben && (
                 <div className="cbz-owed__late">
                   <p className="cbz-lbl">Vencido</p>
-                  <p className="cbz-owed__late-n"><Cuenta valor={deben.vencido} formato={plata} demora={0.1} /></p>
+                  {/* Vencido en CERO no va en rojo (11/11/2026, ws 3): «US$0» rojo alarmaba por nada. */}
+                  <p className="cbz-owed__late-n" data-cero={deben.vencido ? undefined : ''}><Cuenta valor={deben.vencido} formato={plata} demora={0.1} /></p>
                   {deben.vencidas > 0 && onGrilla && (
                     <button type="button" className="cbz-btn cbz-btn--rose" onClick={onGrilla}><Icono id="eye" />{deben.vencidas === 1 ? 'Ver la cuota' : `Ver las ${deben.vencidas}`}</button>
                   )}

@@ -196,9 +196,14 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
             {mes == null ? <p className="gv-vacio">No pude comparar el mes.</p> : (
               <>
                 <p className="gv-cash__v">{plata(mes.cobrado)}</p>
+                {/* Sin cambio, sin flecha verde (11/11/2026, ws 3): «↗ +US$0» se leía como una subida. */}
                 <p className="gv-cash__d">
-                  <span className={`gv-delta${mes.delta < 0 ? ' gv-delta--baja' : ''}`}><Icono id={mes.delta < 0 ? 'down' : 'up'} />{plata(mes.delta).replace(/^(?!−)/, '+')}</span>
-                  contra el {mes.etiquetaAnterior}
+                  {mes.delta === 0 ? <>Igual que el {mes.etiquetaAnterior}</> : (
+                    <>
+                      <span className={`gv-delta${mes.delta < 0 ? ' gv-delta--baja' : ''}`}><Icono id={mes.delta < 0 ? 'down' : 'up'} />{plata(mes.delta).replace(/^(?!−)/, '+')}</span>
+                      contra el {mes.etiquetaAnterior}
+                    </>
+                  )}
                 </p>
                 <div className="gv-split" title={mes.proyeccion ? `Proyección al cierre: ${plata(mes.proyeccion)}` : undefined}>
                   <i style={{ ['--c' as string]: 'var(--in)', flex: Math.max(mes.cobrado, 0.0001) }} />
@@ -244,7 +249,7 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
               <div className="gv-flow__k">
                 <div><p><i style={{ ['--c' as string]: 'var(--in)' }} />Cobrado este mes</p><b className="gv-in">{plata(flujo.cobrado)}</b><small>{contra(flujo.cambioCobrado, flujo.etiquetaAnterior)}</small></div>
                 <div><p><i style={{ ['--c' as string]: 'var(--out)' }} />Inversión este mes</p><b>{plata(flujo.inversion)}</b><small>{contra(flujo.cambioInversion, flujo.etiquetaAnterior)}</small></div>
-                <div><p>Te quedó</p><b className={quedo != null && quedo >= 0 ? 'gv-in' : undefined}>{quedo == null ? '—' : plata(quedo).replace(/^(?!−)/, '+')}</b><small>Lo cobrado menos los anuncios</small></div>
+                <div><p>Te quedó</p><b className={quedo != null && quedo > 0 ? 'gv-in' : undefined}>{quedo == null ? '—' : quedo === 0 ? plata(0) : plata(quedo).replace(/^(?!−)/, '+')}</b><small>Lo cobrado menos los anuncios</small></div>
               </div>
             )}
             {meses == null ? <p className="gv-vacio">No pude leer los meses.</p>
