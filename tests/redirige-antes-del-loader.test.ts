@@ -90,10 +90,12 @@ test('las páginas con loader que redirigen al super admin tienen su layout que 
 // Ticket #9 (24/10/2026): el mismo #310 en /web-generator, que redirigía desde la página con loader desde el 24/10.
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('/web-generator: el layout redirige ANTES del loader en las tres rutas que redirigen, con la regla de las páginas', async () => {
+// ⚠️ 11/11/2026 (Martín: «lo mismo que venimos haciendo con el resto de tabs, de outliers»): la pelada ya no salta a la última
+// landing; es la portada «Encuentra tu siguiente OUTLIER» (app/web-generator/OutliersLandings.tsx), como Video e Image.
+test('/web-generator: el layout redirige ANTES del loader en las dos rutas que redirigen; la pelada es la portada de outliers', async () => {
   const { redireccionDelLayout, esPanelPelado } = await import('../app/web-generator/panel-reglas');
-  assert.equal(redireccionDelLayout('/web-generator', {}), 'ultima');
-  assert.equal(redireccionDelLayout('/web-generator', { ws: '10' }), 'ultima');
+  assert.equal(redireccionDelLayout('/web-generator', {}), null, 'la pelada no salta: es la portada');
+  assert.equal(redireccionDelLayout('/web-generator', { ws: '10' }), null);
   assert.equal(redireccionDelLayout('/web-generator', { panel: '1' }), null, '?panel=1 es el Panel: no salta');
   assert.equal(redireccionDelLayout('/web-generator', { diagnostico: '3' }), null);
   assert.equal(redireccionDelLayout('/web-generator/analizar', { url: 'https://x.test' }), 'analizar');
@@ -107,11 +109,13 @@ test('/web-generator: el layout redirige ANTES del loader en las tres rutas que 
     'la puerta de la tab va primero y para TODAS las rutas (el editor y ?panel=1 también redirigen por ella)');
   assert.match(lay, /if \(cual === 'analizar'\) redirect\(await rutaConWs\(destinoAnalizar\(query\)\)\);/);
   assert.match(lay, /if \(cual === 'crear'\) redirect\(await rutaConWs\(destinoCrear\(query\)\)\);/);
-  assert.match(lay, /if \(ultima\) redirect\(await rutaConWs\(`\/web-generator\/\$\{ultima\.id\}`\)\);/);
+  assert.doesNotMatch(lay, /landingMasReciente|\$\{ultima\.id\}/, 'el layout ya no salta a la última landing');
   // Lo que dibuja: la tab y los tooltips flotantes de toda la tab (25/10/2026, editor/TooltipsFlotantes.tsx).
   assert.match(lay, /return <>\{children\}<TooltipsFlotantes \/><\/>;\n\}/);
-  // La página usa LA MISMA regla de «pelada».
-  assert.match(sinComentarios(leer('app/web-generator/page.tsx')), /if \(!errorLista && esPanelPelado\(sp\)\) \{/);
+  // La página, con LA MISMA regla de «pelada», dibuja la portada (sin redirect).
+  const pag = sinComentarios(leer('app/web-generator/page.tsx'));
+  assert.match(pag, /if \(esPanelPelado\(sp\)\) \{\s*return \(\s*<Pagina[^>]*>\s*<OutliersLandings portada=\{await leerOutliersLandings\(\)\} \/>/);
+  assert.doesNotMatch(pag, /redirect\(/, 'la página de la tab no redirige');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
