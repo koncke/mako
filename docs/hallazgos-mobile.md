@@ -2075,3 +2075,11 @@ la lista de números con el mismo error: la condición de la lista no excluía e
 explica no se traduce a «falló» en el teléfono.
 
 **Vive en:** app/m/dashboard/datos.ts (`hojaPropia`), modelo.ts (`faltaConectar`), DashboardM.tsx · lib/graficos-datos.ts (`DatosGrafico`).
+
+## «No pudimos leer» de una hoja que se leyó bien: vacío no es falla (11/11/2026)
+
+**Síntoma:** en el teléfono, Anuncio ganador y Hooks del ws 3 decían «No pudimos leer estos números. No es nada tuyo» con «Reportar a
+Soporte». **Causa:** `hojaPropia` marcaba `numerosError` cuando todos los números mostraban «—», y `fmtValor(null)` también da «—». Un
+período sin datos, leído bien, se pintaba como lectura caída. **La regla:** «no pudimos leer» sólo si las lecturas FALLARON (`noSeLeyo`,
+app/m/dashboard/modelo.ts); sin datos, la lista dice «—». Es la misma familia que «falta conectar» (arriba): el teléfono no puede tener
+menos categorías que la compu (falló / falta conectar / sin datos).

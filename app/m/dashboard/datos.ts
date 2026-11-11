@@ -41,7 +41,7 @@ import { firmaDe, hojaDestino } from '@/lib/graficos-plantillas';
 import { cambioEnPalabras, fraseEnTexto, tramosDeFrase } from '@/lib/graficos-frase';
 import { pedidosDeHoja } from '@/app/dashboard/exportar';
 import {
-  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, deltaDe, etiquetaBarra, faltaConectar, periodoDe,
+  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, deltaDe, etiquetaBarra, faltaConectar, noSeLeyo, periodoDe,
   type BarraM, type GraficoM, type HojaM, type ModoDelta, type NumeroM, type PeriodoM,
 } from './modelo';
 
@@ -305,7 +305,8 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
         moneda: formato === 'usd',
         entero: formato === 'numero' && !met?.razon,
       };
-    } else {
+    } else if (noSeLeyo([r])) {
+      // Sólo si la lectura FALLÓ: leída y sin columnas es «sin dato», no «no pudimos leer» (11/11/2026).
       out.graficoError = ERROR_LECTURA;
     }
   }
@@ -323,7 +324,9 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
       delta: deltaDe(v, res.anterior?.[0] ?? null, modoDe(formato), tono === 'bueno' ? true : tono === 'malo' ? false : null),
     };
   });
-  if (numeros.length && out.numeros.every((n) => n.v === '—')) out.numerosError = ERROR_LECTURA;
+  // ⚠️ «No pudimos leer» sólo si las lecturas FALLARON (11/11/2026, Anuncio ganador y Hooks en el ws 3): con todos los números
+  // en «—» porque no hubo datos en el período, el teléfono decía «No es nada tuyo · Reportar a Soporte» de algo que se leyó bien.
+  if (noSeLeyo(numeros.map((g) => datos[g.id]))) out.numerosError = ERROR_LECTURA;
   // ⚠️ NADA LEÍDO PORQUE FALTA CONECTAR NO ES UNA FALLA (10/11/2026, Closing en el ws 3 sin grabador): el teléfono decía dos
   // veces «No pudimos leer estos números. No es nada tuyo» con «Reportar a Soporte», y la compu, «Conecta tu grabador…».
   // Si no se leyó nada y lo que volvió es `sinConexion`, se dice ESE texto, una vez.

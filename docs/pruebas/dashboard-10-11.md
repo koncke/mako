@@ -41,8 +41,10 @@ están en `docs/pruebas/dashboard-10-11/`.
    elementos y duplicar la última tarjeta. → Lo nuevo entra arriba de «Todas las piezas», como ya lo hacía «Bloques».
    `lib/graficos-secciones.ts` (`agregarALaVista`), `tests/graficos-secciones.test.ts`.
 4. **Elegir «General», «Focus» o «Mi día» en la galería mirando un negocio llevaba al Dashboard PROPIO.** La página saltaba a
-   `/dashboard?hoja=general` sin el negocio, y la hoja se sumaba en el Dashboard de Martín. Esta vez no se escribió nada (Martín
-   ya tenía «General»). → El salto lleva el negocio de la pestaña. `app/dashboard/NuevaHoja.tsx`.
+   `/dashboard?hoja=general` sin el negocio, y la hoja se sumaba en el Dashboard de Martín. **⚠️ Corrección del 11/11:** el
+   10/11 escribí que no se había escrito nada; SÍ se sumó una hoja «General» al Dashboard propio de Martín a las 23:38:39 UTC
+   (la cuarta pestaña, `gmwbbzth4gvfv`), mientras probaba en el ws 3. No la borré: es su Dashboard y fuera del ws 3 no se escribe;
+   el Cerebro decide. → El salto lleva el negocio de la pestaña. `app/dashboard/NuevaHoja.tsx`.
 5. **El botón de filtro de un número oscuro era un cuadrado blanco** con el ícono blanco adentro (captura 01, «Leads de esta
    semana» en el Focus del ws 3). → Adentro de los números de color, el botón va transparente. `lib/graficos-corbel.ts`.
 6. **Marketing decía «Gastaste US$0 en anuncios, trajeron 3 agendas y cada una costó US$0.00»** (captura 12): sin pauta, como si
@@ -131,3 +133,91 @@ están en `docs/pruebas/dashboard-10-11/`.
   chequea GitHub al llevar la punta a main.
 - En el ws 3 quedaron, para revisar, las hojas Closing, Comercial y Velocidad de llamada creadas desde la galería y las siete de
   General; las otras trece de prueba están en Archivados.
+
+---
+
+# Segunda vuelta (11/11/2026): MIRANDO cada pantalla
+
+Martín, por el Cerebro: *«deberían haber detectado esto… Quiero que prueben y miren todo y detecten oportunidades de mejora»*, y
+*«Una hoja vacía o con "Sin datos" en producción también es una falla»*. La primera vuelta leyó texto y código; ésta mira cada hoja
+con su captura (compu, 1440, claro): las 23 plantillas recién creadas en el ws 3, la galería y la «Velocidad de llamada» de los siete
+clientes de Código. El teléfono se revisó leyendo lo que dibuja cada hoja (las capturas del panel en 375 salen recortadas: quedan
+para Chrome, cuando Martín tenga ahí su cuenta).
+
+## Lo que se ve, hoja por hoja (capturas 22 a 52)
+
+| Hoja | Captura | Cómo se ve | Qué falla o qué mejorar |
+|---|---|---|---|
+| Closing (Halden) | 22, 23 | Calca a Halden; en el ws 3, todas las tarjetas vacías | No dice por qué (falta el grabador) → **arreglado (8)**. «Duración 00:00:00» sin llamadas → **arreglado (9)**. «Todas las piezas · 14 piezas» al pie, mirando → propuesta 11 |
+| Comercial (Selvar) | 24 | Completa con los datos del ws 3 | — |
+| Marketing (Kestrel) | 28 | Completa | «Costo por agenda US$0.00» con otro «US$0.00» debajo, y «Impresiones 0 0», sin pauta → **arreglado (10)**. La curva a +14.000 % → propuesta 4 |
+| Anuncio ganador (Prism) | 26 | Doce tarjetas «Todavía no hay datos» | El ws 3 no tiene anuncios analizados. En el teléfono decía «No pudimos leer… No es nada tuyo» → **arreglado (13)** |
+| Hooks y retención (Ondra) | 27 | Vacía | Igual que Anuncio ganador → **arreglado (13)** en el teléfono |
+| Landing (Corbel) | 29 | Completa (3 visitas hoy) | — |
+| VSL y YouTube (Pelago) | 30 | «0» grande y dos tarjetas altas vacías | El ws 3 no tiene video de ventas |
+| Chat Analyst (Parley) | 31 | Rica | La tarjeta naranja muestra los últimos 8 días y todos en cero: un bloque naranja vacío → propuesta 12 |
+| CS Analyst (Mender) | 32 | Vacía, con su explicación | El ws 3 no tiene clientes en entrega |
+| Productividad (Fernly) | 33 | Vacía, con su explicación | El ws 3 no tiene tareas en el Plan |
+| Cobranza (Coffer) | 34 | Todo en US$0 | «Vencido US$0» en ROJO → **arreglado (11)** |
+| Automatizaciones (Noria) | 35 | Completa | — |
+| Contenido e IA (Orrery) | 36 | Completa | «Costo por llamada US$0.0000» con 705 llamadas, y el eje «US$0.1 · US$0 · US$0» → **arreglado (12)** |
+| Inmobiliaria (Torque) | 37 | Rica, con los proyectos | — |
+| Cold Calling (Corvane) | 25 | UNA tarjeta («Todavía no grabaste llamadas») y mucho blanco | El ws 3 no graba llamadas; la hoja casi vacía → propuesta 13 |
+| Velocidad de llamada (Tend) | 38 | Rica | Los nombres cortados en las columnas son como en Tend. WhatsApp sin nadie esperando = tarjeta en blanco → propuesta 14 |
+| General (Orvel) | 39 | Completa | «↗ +US$0» en verde y «Te quedó +US$0» → **arreglado (11)** |
+| Focus (Pane) | 40 | Vacía pero dice qué falta («Cargar la meta») | — |
+| Mi día (Lumora) | 41 | Se entiende | — |
+| Operación diaria (Moorly) | 42 | Se entiende | — |
+| Agencia o servicio (Sunrow) | 43 | Completa | Los atajos se deslizan (propuesta 7 de la primera vuelta) |
+| Curso o comunidad (Vitrea) | 44 | Vacía, con su explicación | «Tus / alumnos» en dos renglones: igual en Vitrea («Studio / Overview»), es fiel |
+| Instagram y redes (Murmura) | 45 | Vacía; arriba dice «Conecta Meta para ver tu audiencia» | — |
+| La galería | 46-48 | Las 23 miniaturas completas y a color | Se elige una miniatura llena y la hoja nace vacía sin decir por qué → lo arregla (8) |
+
+**Los clientes de Código («Velocidad de llamada», mirando, sin guardar nada):**
+
+| Cliente | Captura | Leads nuevos | Sin contactar | Espera (mediana) |
+|---|---|---|---|---|
+| Brigitte (ws 15) | 49 | 40 | 100 % | 15 días |
+| Giselle (ws 17) | 21 | 4 | 100 % | 18 h |
+| Pablo (ws 18) | 50 | 0 | — (la hoja entera vacía) | — |
+| Natalia (ws 19) | 51 | 127 | 98 % | 22 días |
+| Sergio (ws 20) | 52 | 7 | 100 % | 5 días |
+| Patricia (ws 22) | — | 4 | 75 % | 13 h |
+| Marcela (ws 23) | — | 0 | — (la hoja entera vacía) | — |
+
+**Lo que Martín tiene que ver de esta tabla:** en los siete, «Primer contacto» dice «—». Casi nadie sale contactado, porque llaman desde
+el celular sin grabar. La hoja de Tend no tiene dónde explicarlo (lo que estaba se sacó el 10/11 por «texto inventado»). Es la decisión
+que sigue abierta desde el 9/11: cómo se les dice que graben.
+
+## Las fallas de esta vuelta, todas arregladas (la numeración sigue la de arriba)
+
+8. **Una hoja copiada sin datos no decía por qué.** El lector sabe «Conecta tu grabador de reuniones…» o «Conecta Meta…», pero la hoja
+   copiada dibujaba su propio vacío. → Ese texto va una vez arriba, en la franja de avisos. `app/dashboard/falta-conectar.ts`,
+   `tests/dashboard-falta-conectar.test.ts`.
+9. **Closing: «Duración promedio 00:00:00» sin llamadas** (23). → «—». `tests/dashboard-diseno-closing.test.ts`.
+10. **Marketing: ceros que parecen números** (28). → Sin gasto, el costo por agenda y por lead son «—»; un cambio de cero no se
+    escribe. `tests/dashboard-diseno-marketing.test.ts`.
+11. **General y Cobranza: ceros pintados de verde o de rojo** (34, 39). → Sin flecha ni color. `tests/dashboard-diseno-general.test.ts`.
+12. **Contenido e IA: «US$0.0000» y el eje repetido** (36). → Cifras significativas («US$0.000038», «US$0.033»).
+    `tests/dashboard-diseno-contenido.test.ts`.
+13. **Teléfono: «No pudimos leer… No es nada tuyo» de hojas que se leyeron bien** (Anuncio ganador y Hooks sin datos en el período).
+    → Sólo si la lectura falló de verdad. `tests/m-dashboard-modelo.test.ts`.
+
+## Propuestas nuevas (deciden Martín)
+
+11. **«Todas las piezas · N piezas» al pie de cada hoja copiada, mirando** (23): reemplaza a «Ver todo en la grilla», pero a un cliente no
+    le dice nada. ¿Que se vea sólo editando?
+12. **Chat Analyst, la tarjeta naranja**: muestra los últimos 8 días; si fueron todos en cero queda un bloque naranja vacío (31).
+13. **Cold Calling sin llamadas**: una sola tarjeta y mucho blanco (25). Corvane no tiene un vacío medido.
+14. **Velocidad de llamada, WhatsApp**: en Tend la tarjeta lista las últimas conversaciones y marca las que esperan; la nuestra lista
+    sólo las que esperan y con cero queda en blanco (38, 50).
+15. **El negocio de prueba no tiene grabador, anuncios ni video de ventas**: medio Dashboard no se puede MIRAR con datos ahí. Sin eso,
+    Closing, Anuncio ganador, Hooks, VSL y Cold Calling sólo se ven vacías.
+
+## Lo que falta de esta vuelta
+
+- Las capturas en el celular de cada hoja (el panel de la app recorta a 375): con Chrome, cuando el Cerebro avise que tiene la cuenta
+  de Martín.
+- En la PC corrieron en verde, de a uno, los tests de lo tocado: Marketing, Contenido, Closing, General, Cobranza, el teléfono, la
+  pantalla del Dashboard, la guarda de textos y «falta conectar» (éste, además, roto de tres formas). Los tipos los chequea GitHub.
+- La hoja «General» que quedó en el Dashboard propio de Martín: decide el Cerebro si se archiva.

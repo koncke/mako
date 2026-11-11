@@ -20,7 +20,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deltaDe, etiquetaBarra, textoVence, geometria, pasoLindo, indiceEn, ejeCompacto, periodoDeParam, PERIODOS_MOVIL, periodosParaHoja, caminoBarra, faltaConectar } from '../app/m/dashboard/modelo';
+import { deltaDe, etiquetaBarra, textoVence, geometria, pasoLindo, indiceEn, ejeCompacto, periodoDeParam, PERIODOS_MOVIL, periodosParaHoja, caminoBarra, faltaConectar, noSeLeyo } from '../app/m/dashboard/modelo';
 
 test('delta', () => {
   assert.deepEqual(deltaDe(112, 100, 'pct', true), { dir: 'up', tono: 'good', texto: '12%', etiqueta: 'Sube 12% contra el período anterior' });
@@ -78,4 +78,10 @@ test('falta conectar: nada leído y lo que volvió es «falta conectar» → ese
   assert.equal(faltaConectar([grabador, { ok: true }]), null, 'con una lectura buena la hoja tiene algo que mostrar');
   assert.equal(faltaConectar([{ ok: false, error: 'No pude leer los datos' }]), null, 'una falla de verdad sigue siendo una falla');
   assert.equal(faltaConectar([]), null);
+});
+test('«no pudimos leer» sólo si las lecturas fallaron: leídas y sin datos no es una falla (11/11/2026, ws 3)', () => {
+  assert.equal(noSeLeyo([{ ok: true }, { ok: true }]), false, 'Anuncio ganador sin datos en el período: se leyó bien');
+  assert.equal(noSeLeyo([{ ok: false }, undefined]), true);
+  assert.equal(noSeLeyo([{ ok: false }, { ok: true }]), false, 'con una buena hay algo que mostrar');
+  assert.equal(noSeLeyo([]), false, 'sin números no hay nada que decir');
 });

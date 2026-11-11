@@ -46,10 +46,10 @@ import { filmarTomas, SONDEO_MS, type TomaAvatar } from './filmar';
 import { CATEGORIAS, PLANTILLAS_AVATAR, filtrarPresets, plantillaPorId, type Categoria, type PlantillaAvatar } from '@/lib/ai-avatar/plantillas';
 import { MAX_DETALLE } from '@/lib/ai-avatar/prompt-look';
 // Las 10 plantillas de venta (docs/plantillas-reales/avatar.md, 6/11/2026): la forma en la tarjeta, el ejemplo aparte.
-import { PLANTILLAS_VENTA_AVATAR, plantillaVentaAvatar, type PlantillaVentaAvatar } from '@/lib/ai-avatar/plantillas-venta';
+import { PLANTILLAS_VENTA_AVATAR, ganchoDeEjemplo, plantillaVentaAvatar, type PlantillaVentaAvatar } from '@/lib/ai-avatar/plantillas-venta';
 import { EjemploVenta } from './EjemploVenta';
 import { haceCuanto, segundosDeGuion } from '@/lib/ai-avatar/proyectos';
-import { MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
+import { CONSEJO_FOTO, MODELO, SIN_MOTOR, TONO_CATEGORIA, type PiezaSinMotor } from '@/lib/ai-avatar/estudio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useExtensionInstalada } from '@/app/video-generator/extension-instalada';
 import { requisitosAvatar, resumenDeRequisitos, avisoDeCosto, type PasoRequisito, type Motor } from '@/lib/ai-avatar/requisitos';
@@ -168,17 +168,28 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
   // Arriba, las 10 plantillas de VENTA (una forma de guion sobre un preset: cuándo usarla y sus secciones; el ejemplo con
   // «Ver ejemplo»); después, los presets de siempre.
   const plantillas = useMemo<PlantillaCrear[]>(() => [
-    ...PLANTILLAS_VENTA_AVATAR.map((p): PlantillaCrear => ({
-      id: `${PREFIJO_VENTA}${p.id}`, nombre: p.nombre, formato: '9 / 16', grupo: 'Plantillas de venta',
-      insignia: `9:16 · ~${p.duracion} s`, rotulo: p.rubro, ayuda: p.cuando, extracto: `${p.nombre}\n${p.cuando}`,
-      chips: p.estructura, verEjemplo: true,
-    })),
+    // La tarjeta de venta muestra la ESCENA de su preset (la foto de la persona, si ya hizo una; si no, la del ejemplo, y su
+    // video con el mouse encima). Sin imagen, la hoja con el gancho real del ejemplo: antes repetía el nombre de la plantilla
+    // arriba y abajo, y las 10 eran cajas de texto (11/11/2026, docs/pruebas/ai-avatar-11-11.md).
+    ...PLANTILLAS_VENTA_AVATAR.map((p): PlantillaCrear => {
+      const escena = plantillaPorId(p.presetId);
+      const imagen = looks.find((l) => l.plantillaId === p.presetId && l.url)?.url || escena?.ejemplo?.poster || null;
+      const g = ganchoDeEjemplo(p);
+      return {
+        id: `${PREFIJO_VENTA}${p.id}`, nombre: p.nombre, formato: '9 / 16', grupo: 'Plantillas de venta',
+        insignia: `9:16 · ~${p.duracion} s`, rotulo: p.rubro, ayuda: p.cuando,
+        ...(imagen ? { imagen, video: escena?.ejemplo?.video } : { extracto: g.enPantalla || p.cuando, frase: g.dice || undefined }),
+        chips: p.estructura, verEjemplo: true,
+      };
+    }),
     ...PLANTILLAS_AVATAR.map((p): PlantillaCrear => ({
       id: p.id,
       nombre: p.nombre,
       formato: '9 / 16',
       grupo: 'Presets',
       imagen: looks.find((l) => l.plantillaId === p.id && l.url)?.url || p.ejemplo?.poster || null,
+      // Con el mouse encima, su video (como en Higgsfield). La tarjeta compartida ya lo sabía mostrar; no se lo pasaba nadie.
+      video: p.ejemplo?.video,
       rotulo: p.categoria,
     })),
   ], [looks]);
@@ -440,6 +451,7 @@ function BarraImagen({ preset, fotos, fotoId, detalle, puente, enviando, error, 
                     {subir.subiendo ? '…' : <Icon name="plus" size={18} />}
                   </button>
                 </div>
+                {fotos.length === 0 && <p className="hf-menu-ayuda">{CONSEJO_FOTO}</p>}
                 <OpcionMenu onClick={() => sinMotor('personaje')} apagada>Diseñar un personaje <small>No disponible todavía</small></OpcionMenu>
               </Menu>
             )}

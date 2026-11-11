@@ -150,6 +150,12 @@ export function faltaConectar(lecturas: ReadonlyArray<{ ok: true } | { ok: false
   return null;
 }
 
+/**
+ * ¿No se pudo leer NADA? Sólo si hay lecturas y TODAS fallaron (o no llegaron). Leídas sin datos en el período no es «no pudimos
+ * leer»: con eso el teléfono decía «No es nada tuyo · Reportar a Soporte» de una hoja que se leyó bien (11/11/2026, ws 3).
+ */
+export const noSeLeyo = (lecturas: ReadonlyArray<{ ok: boolean } | undefined>): boolean => lecturas.length > 0 && lecturas.every((r) => !r?.ok);
+
 // ── La variación contra el período anterior ─────────────────────────────────────────────────
 
 /**

@@ -1902,3 +1902,13 @@ original», duplicar, Supr, flechas y estilo andaban. Estas cuatro no avisaban n
 
 Sin hacer, y con dueño Martín: las diez propuestas del informe. Entre ellas, el panel de una tarjeta copiada que flota a la
 izquierda y tapa la hoja (el de un gráfico va a la derecha) y el PDF que se baja como «MaKo - Dashboard».
+
+## Una hoja con diseño dice lo que FALTA CONECTAR (11/11/2026)
+
+- **Síntoma:** Closing, Anuncio ganador o Hooks sin grabador ni Meta eran una pared de «Todavía no hay datos» o «—». La grilla de antes ponía
+  «Conecta tu grabador…» en cada tarjeta; la hoja con diseño dibuja su propio vacío y se tragaba el motivo.
+- **Lo que quedó:** el lector marca `sinConexion` (`SinConexionError`, lib/graficos-datos.ts) y el editor lo guarda en `EstadoDatos`
+  (`aEstado`). `faltaConectarDeHoja` junta esos textos sin repetir (hasta dos) y la hoja los dice en la franja de avisos
+  (`lk-aviso-hoja`, la de «Conecta tu Claude»). No es un texto nuevo: es el del lector.
+- **La regla:** una pantalla que dibuja su propio vacío tiene que seguir mostrando POR QUÉ está vacía, si la causa la sabe alguien.
+  **Vive en:** app/dashboard/falta-conectar.ts, EditorInforme.tsx (`faltaConectar`), Grafico.tsx (`EstadoDatos`).
