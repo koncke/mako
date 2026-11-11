@@ -585,6 +585,12 @@ const OPTIMIZADO: string[] = [
 
   // ── Estadísticas ──
   r(opt(D, ['numeros-grandes', 'metrica-destacada'], ' .gm-item-valor'), 'font-size: 3.2em;'),
+  // La cifra nunca se sale de su columna (11/11/2026, la réplica de acquisition.com en el teléfono: columnas de 138px, «10,000»
+  // de 164px y «10,00081» pegados). El ítem es un contenedor y la letra es la menor entre 3.2em y lo que entra: el ancho de la
+  // columna (100cqi) repartido entre los caracteres (`--gm-largo`, especificacion.ts) a ~0.6em cada uno. Con un piso de 6: las
+  // cifras de hasta 6 caracteres salen todas del mismo tamaño (la fila queda pareja) y sólo una más larga se achica más.
+  r(opt(D, ['numeros-grandes'], ' > .gm-item'), 'container-type: inline-size;'),
+  r(opt(D, ['numeros-grandes'], ' .gm-item-valor'), 'font-size: min(3.2em, calc(100cqi / (max(var(--gm-largo, 6), 6) * 0.6))); white-space: nowrap;'),
   r(opt(D, ['metrica-destacada'], ' > .gm-item:first-child'), 'grid-column: 1 / -1;'),
   r(opt(D, ['metrica-destacada'], ' > .gm-item:first-child .gm-item-valor'), 'font-size: 5em;'),
   r(opt(D, ['numeros-grandes', 'metrica-destacada'], ' > .gm-item[data-destacado="si"] .gm-item-valor'), 'background-image: var(--gm-titulo-degradado, none); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: var(--gm-titulo-relleno, currentColor); color: var(--gm-titulo, inherit);'),

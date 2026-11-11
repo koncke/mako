@@ -189,6 +189,11 @@ test('12. con la foto al costado, las cifras van de a pares (cuatro columnas de 
   // Hormozi sin la cabeza), en la publicada (media query) y en la vista «Teléfono» del editor.
   const arriba = CSS_CONTENIDO.match(/[^}]*\.gm-tarjeta:is\(\[data-diseno="izquierda"\], \[data-diseno="derecha"\]\) > \.gm-acento[^{]*\{ background-position: 50% 15%; \}/g) ?? [];
   assert.ok(arriba.length >= 2, `la franja del teléfono mira arriba en la publicada y en el editor (${arriba.length})`);
+  // Y la cifra entra en su columna en cualquier ancho (en el teléfono: columnas de 138px y «10,000» de 164px).
+  assert.match(CSS_CONTENIDO, /\.gm-optimizado\[data-variante="numeros-grandes"\] > \.gm-item[^{]*\{ container-type: inline-size; \}/);
+  assert.match(CSS_CONTENIDO, /\.gm-optimizado\[data-variante="numeros-grandes"\] \.gm-item-valor[^{]*\{ font-size: min\(3\.2em, calc\(100cqi \/ \(max\(var\(--gm-largo, 6\), 6\) \* 0\.6\)\)\); white-space: nowrap; \}/);
+  const { specOptimizadoItem } = await import('../lib/editor-landing/especificacion');
+  assert.match(JSON.stringify(specOptimizadoItem({ valor: '10,000' })), /"style":"--gm-num:10000;--gm-largo:6"/, 'el largo de la cifra va en el ítem');
 });
 
 // PROBADO ROMPIÉNDOLO (10/11/2026, base 6/0; cada rotura sobre el archivo real, restaurado y verificado por hash):
