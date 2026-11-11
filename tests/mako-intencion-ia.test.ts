@@ -13,7 +13,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { clasificarConIA, entradaDeClase, leerClase, lePideAlEquipoDeMaKo, SYSTEM_DE_CLASE, veredictoDeClase, type EntradaDeClase } from '../lib/mako-intencion-ia';
+import { clasificarConIA, entradaDeClase, leerClase, SYSTEM_DE_CLASE, veredictoDeClase, type EntradaDeClase } from '../lib/mako-intencion-ia';
+import { lePideAlEquipoDeMaKo } from '../lib/le-pide-al-equipo';
 import { respuestaDelTicket, ticketQueAcabaDeNombrar } from '../lib/despacho-grupo';
 import type { VeredictoIntencion } from '../lib/mako-intencion';
 
