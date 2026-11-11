@@ -119,9 +119,12 @@
   height: var(--m-header);
   max-width: calc(560px + 2 * var(--m-gutter));
   margin: 0 auto;
-  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center;
+  display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); align-items: center;
   padding: 0 6px;
 }
+/* Los costados miden lo suyo y el título se achica (con «…») entre los dos (prueba en producción del 10/11/2026): con
+   `minmax(0, 1fr) auto minmax(0, 1fr)` cada costado tenía un tercio fijo, y la pastilla «Cliente de Prueba» (137 px, la
+   vista del super admin) no entraba en su tercio de 94 px a 375: se montaba sobre el título de una landing. */
 .m-cabecera__lado { display: flex; align-items: center; min-width: 0; justify-self: start; }
 .m-cabecera__lado--der { justify-self: end; gap: 2px; }
 /* Cada lado, con TOPE en su columna (11/11/2026, Competitor Spy mirado con capturas a 375): con `justify-self` el lado medía
