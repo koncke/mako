@@ -140,6 +140,19 @@ scripts/diagnostico-mako-whatsapp.mts · tests/mako-responde-siempre.test.ts.
   salió a MEDIAS se guarda entera. La pendiente que propuso una respuesta perdida sigue viva y un «sí» de después la puede confirmar.
 - **El «listo» de un pedido delegado**, que vuelve al grupo cuando se cierra fuera del turno, sigue frenado con la línea frenada.
 
+## «MaKo no responde nada» en Código: el «Si» a una OFERTA de MaKo salió charla (11/11/2026, claude4)
+
+**El síntoma:** Martín, 11/11: «MaKo no responde nada… responde al grupo de Código ya». **Lo medido (sólo lectura):** en 24 h, sólo
+dos mensajes de personas llegaron a la voz en ese grupo, los dos de Joan, y entraron a la cola en 2 s. Su audio («¿tenés acceso a las
+campañas de mis clientes?») salió PREGUNTA y MaKo contestó, cerrando con «¿Querés que revise si Marcela conectó sus anuncios?». Su
+«Si» salió **CHARLA** del clasificador («confirma que entendió»), aunque las reglas decían `actuar` con `sigueOfrecimiento`: 👍 y nada.
+**La causa:** `veredictoDeClase` (lib/mako-intencion-ia.ts) tomaba CHARLA de la IA siempre; la regla 6 del clasificador cubría sólo el
+«sí» a una PENDIENTE, no a un «¿Querés que…?».
+**La regla:** un «sí» suelto (`confirmacionPura`) a lo que MaKo acaba de OFRECER (`esOfrecimientoDeMaKo`, lib/oferta-de-mako.ts: «¿Quieres
+que…?», «¿Te lo agendo?», «¿Lo reviso?») nunca es charla: gana la regla, que sigue al ofrecimiento con sus herramientas. A una pregunta
+por un HECHO («Entró EDEST_OFICIAL, ¿lo contactaron?») sigue siendo charla. Y la regla 6b del prompt. tests/mako-intencion-ia.test.ts 6,
+con la salida REAL del modelo de ese turno.
+
 ## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
 
 **El síntoma:** Martín, 9/11 ~19:00 ART: «MaKo no está respondiendo… Joan va a enviar el comprobante y nadie responde».
