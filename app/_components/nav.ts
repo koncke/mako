@@ -54,6 +54,7 @@
 import type { RolWorkspace } from '@/lib/auth-session';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from '@/lib/ruta-automations';
 import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from '@/lib/ruta-web-generator';
+import { LEAD_MAGNET_EN_PRODUCCION, NAV_LEAD_MAGNET } from '@/lib/lead-magnets/archivado';
 
 export type NavItem = {
   key: string;
@@ -471,13 +472,16 @@ export const FAMILIAS: NavFamilia[] = [
         },
         // 6/11/2026, Martín: «Web Generator debería estar en la sección de "Create"». Es una pieza que se produce (la web), no algo que se ejecuta.
         { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
-        {
+        // ⚠️ ARCHIVADO el 11/11/2026 por pedido de Martín («no lo quiero en producción… luego lo haremos bien»): la fila sale de la
+        // barra para todos, también para el super admin. El código sigue entero; se vuelve a abrir con `LEAD_MAGNET_EN_PRODUCCION`
+        // (lib/lead-magnets/archivado.ts).
+        ...(LEAD_MAGNET_EN_PRODUCCION ? [{
           // 5/11/2026: sale de «Coming soon» a su casa futura (Create), con el diseño único de Create (app/_crear/PantallaCrear.tsx):
           // plantillas de guía, checklist, prompts, planilla y clase grabada que crean la pieza en su herramienta (lib/lead-magnets/).
           // `adminOnly` y su puerta (app/lead-magnet-generator/puerta.ts): sólo la plataforma, hasta que Martín la abra a los clientes.
-          key: 'lead-magnet-generator', adminOnly: true, label: 'Lead Magnet', href: '/lead-magnet-generator', icon: 'leadmagnet',
+          key: NAV_LEAD_MAGNET, adminOnly: true, label: 'Lead Magnet', href: '/lead-magnet-generator', icon: 'leadmagnet',
           match: starts('/lead-magnet-generator'),
-        },
+        } satisfies NavItem] : []),
       ],
     ],
   },

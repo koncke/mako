@@ -52,6 +52,7 @@ import { tabEnCapa } from './capas';
 import { puedeVerItem, resolverTab, type VistaNav } from './nav-visibilidad';
 import { capaDeHojaDeRol } from './graficos-roles';
 import { RUTA_AUTOMATIONS, RUTAS_VIEJAS_AUTOMATIONS } from './ruta-automations';
+import { LEAD_MAGNET_EN_PRODUCCION } from './lead-magnets/archivado';
 import { RUTA_WEB_GENERATOR, RUTAS_VIEJAS_WEB_GENERATOR } from './ruta-web-generator';
 import { SECCIONES_COMUNIDAD as SECCIONES_COMUNIDAD_CLIENTS } from './clients-rutas';
 import { rutaDeTabVieja } from './ajustes-secciones';
@@ -264,7 +265,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // Lead Magnet (5/11/2026): la lista de lead magnets y las plantillas (app/m/lead-magnet-generator). Por ahora sólo la plataforma
   // (app/lead-magnet-generator/puerta.ts, `adminOnly` en nav.ts): fila OCULTA y de super admin, como Admin (Customers): More le
   // arma su fila desde la sidebar a quien la ve (`filaDeItem`); ésta le da a la pantalla su cabecera y su título.
-  { id: 'lead-magnet', label: 'Lead Magnet', titulo: 'Lead Magnet', href: '/m/lead-magnet-generator', icon: 'leadmagnet', navKey: 'lead-magnet-generator', familia: null, oculta: true, superAdmin: true },
+  // ⚠️ ARCHIVADO el 11/11/2026 por pedido de Martín (lib/lead-magnets/archivado.ts): sin su fila en nav.ts, tampoco la del teléfono.
+  ...(LEAD_MAGNET_EN_PRODUCCION ? [{ id: 'lead-magnet', label: 'Lead Magnet', titulo: 'Lead Magnet', href: '/m/lead-magnet-generator', icon: 'leadmagnet', navKey: 'lead-magnet-generator', familia: null, oculta: true, superAdmin: true } satisfies DefSeccionMas] : []),
   // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
   // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
   // «Ops Center» desde el 18/10/2026, como en escritorio (nav.ts → MAKO_NAV): el nombre de la fila, de la cabecera y del
