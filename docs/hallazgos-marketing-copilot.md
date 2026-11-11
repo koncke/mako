@@ -261,6 +261,17 @@ anterior quedó como `maqueta-dos-columnas.html`, para comparar.
   La maqueta avanza con su reloj (el tiempo que dura el reparto) y deja las animaciones sólo para los números. En la app,
   `OrdenSpy.tsx` sí espera las animaciones: en una pestaña de fondo la película queda quieta hasta que se la mira, y eso está
   bien.
+- **La tercera vuelta (11/11, la vigente): botones primero, sin chat.** `maqueta-arranque.html`, en el Artifact
+  claude.ai/artifact/LUyer4k7kV1sokRuBYeX44.
+  - Primero «¿Por dónde vendés?» (Anuncios, Instagram, YouTube).
+  - Después botones grandes para cargar lo que haga falta, ninguno obligatorio: la zona para soltar del Archivero y
+    `ConectarViaZernio`.
+  - Después la lectura de lo cargado.
+
+  La pregunta que Martín dejó abierta, «¿cómo vendés o cómo querés vender?», se resolvió con una sola: «¿Por dónde vendés?»,
+  con «Lo que ya hacés o lo que querés empezar» debajo.
+
+  Prospección quedó afuera porque no se puede leer. La lectura de anuncios sale de la conexión con Meta.
 - **Los datos del competidor se leyeron sin escribir nada.** La ficha (`/competitor-spy?ws=9&competidor=20`) se recorrió en el
   navegador de la app: el texto de las pestañas Contenido y Funnel, el marcado de cada sección, y 62 textos de sus piezas,
   paginando la grilla. Las piezas no vienen en ningún JSON de la página: llegan por acciones del servidor.
