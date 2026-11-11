@@ -127,6 +127,10 @@
    vista del super admin) no entraba en su tercio de 94 px a 375: se montaba sobre el título de una landing. */
 .m-cabecera__lado { display: flex; align-items: center; min-width: 0; justify-self: start; }
 .m-cabecera__lado--der { justify-self: end; gap: 2px; }
+/* Cada lado, con TOPE en su columna (11/11/2026, Competitor Spy mirado con capturas a 375): con `justify-self` el lado medía
+   lo que su contenido, y la pastilla «Cliente de Prueba» (129 px) tapaba el título («Leila Hormozi», y con un nombre largo
+   35 px). Con el tope, la pastilla se achica con su «…», que ya tenía. */
+.m-cabecera__lado { max-width: 100%; }
 /* El nombre chico (17/600). Con tope de ancho: sin él, un título largo se come los
    costados y el «volver» queda sin lugar (por eso cabecera.ts lo acorta a «Atrás»). */
 .m-cabecera__titulo {

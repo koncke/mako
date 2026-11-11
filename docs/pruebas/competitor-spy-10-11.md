@@ -6,15 +6,47 @@ la tab en **producción** (hola-mako.com, el despliegue del 10/11), en el navega
 a 375, en claro y en oscuro. Se escribió **sólo en el ws 3 (Cliente de Prueba)**. **Apify: US$0 gastados** (el ws 3 no tiene
 clave de Spy; lo que se sumó se copió de lo que la plataforma ya había leído, y YouTube va por la cuota gratis de la API).
 
-**En números:**
-- **42 casos** probados.
-- **9 fallas** encontradas, **las 9 arregladas**, cada una con su test probado rompiéndolo (`tests/spy-pruebas-10-11.test.ts`, 8
-  casos; 10 roturas, las 10 cazadas).
+**En números (las dos vueltas):**
+- **42 casos** probados el 10/11 y **17 pantallas miradas con captura** el 11/11.
+- **17 fallas** encontradas, **las 17 arregladas** (9 + 8), cada una con su test probado rompiéndolo
+  (`tests/spy-pruebas-10-11.test.ts`, 16 casos; 19 roturas, las 19 cazadas).
 - **8 observaciones** que no se arreglaron acá (abajo, con el porqué y dónde viven).
 - **4 casos sin probar** (abajo, con el porqué).
 
 Los arreglos van en la punta `punta/spy-pruebas`. Las capturas están en `docs/pruebas/competitor-spy-10-11/` (son de ANTES del
 arreglo: muestran la falla).
+
+## Segunda vuelta (11/11): MIRADO con capturas, al lado de la referencia
+
+Martín miró la primera vuelta y dijo que no alcanzaba: se había probado leyendo texto y código, no mirando. Esta vuelta abre cada
+pantalla, la captura y la critica al lado de su referencia (fitlo para el catálogo, merrin para el riel: capturas `mirada/00-…`).
+Producción todavía tenía el código del 10/11 (compila sola a las 08:05 de Argentina): **lo que sigue es lo que se VE hoy**, y los
+arreglos salen con el próximo despliegue. Capturas en `docs/pruebas/competitor-spy-10-11/mirada/`.
+
+| # | Lo que se ve (captura) | Crítica | Arreglo |
+|---|---|---|---|
+| M1 | El gráfico de Leila con **cero portadas**: 180 tarjetitas de color con el logo (05) | Es lo mismo que Martín marcó en Video. La primera vuelta lo dejaba llegar tarde; el fondo es el peso | ✅ Lo chico de YouTube (gráfico, «Lo que mejor le fue», la película del alta) va con la miniatura chica de YouTube: **4,7 KB contra 85 KB** de la guardada. Instagram no tiene una chica pública: sigue la guardada, que ahora llega tarde |
+| M2 | «¿Qué formatos le funcionan?»: **una caja blanca de 739 px con 82 de contenido** (06) | Es lo que ve un CLIENTE hoy (sin la barra de agencia). Con el arreglo del riel de la primera vuelta, también lo habría visto Martín | ✅ Como merrin: el riel queda con la ficha, los seguidores y «¿En qué publica?», y **«A dónde manda» + «Lo que mejor le fue» bajan a una fila de dos tarjetas** debajo. Las dos columnas quedan parejas |
+| M3 | Los títulos de los videos cortados: **9 de 10** («52 Minutes of…», «5 Ways to Han…») (07) | Igual que en Video | ✅ El nombre va en dos renglones, como mide la referencia (`clamp 2`) |
+| M4 | Detalle de un video: la cuarta cifra dice **«Frente a lo qu… · Falta un trá…»** (08) | Cortado y sin que se entienda («un trámite con YouTube») | ✅ Sin su número, la cifra no se muestra (regla de Martín del 22/10: si no está el dato, no va). Con número, se llama «Frente a su cuenta» y entra |
+| M5 | «Sus páginas» de Acquisition.com muestra **su propia página de error, en inglés**: «This page couldn’t load · Reload · Back» (10) | Su web pinta, avisa que pintó, y su JavaScript se rompe dentro de la vista aislada | ✅ Ese texto (el error de Next.js nuevo) cuenta como página de error: la vista se esconde y queda «Capturar / Abrir» |
+| M6 | Celular: el título fijo de arriba queda **tapado por la pastilla «Cliente de Prueba»** (12) | Con un nombre largo se tapan 35 px | ✅ Cada lado del encabezado con tope en su columna: la pastilla se achica con su «…» |
+| M7 | Carruseles copiados dicen «Publicación», sin láminas (09) | «Sumar» no copiaba si era carrusel, imagen o video | ✅ Se copia (en el ws 9 sólo 18 de 268 lo tienen: las lecturas viejas no lo traían) |
+| M8 | «link.acquisition.com · 0% de 637» con una pieza | Se lee como nada | ✅ «menos del 1% de 637» |
+| M9 | La lista del ws 3 al entrar: tarjetas verdes vacías hasta que llegan las caras (01) | En el panel oculto tardaron 11 s; pesan 3–63 KB, así que en una ventana a la vista es menos | Sin arreglo: **mirar en Chrome** cuánto tarda de verdad |
+| M10 | Las fotos de perfil miden **150 px** y la tarjeta 264 (528 en una pantalla retina) | Se ven borrosas | Sin arreglo: Instagram sólo da esa foto. La caricatura (600 px) no tiene el problema |
+| M11 | Negocio de Martín (ws 9): **«Leila Hormozi · 80 piezas · 31 borradas» con 790**; Alex «60 · 63 borradas» (03) | Los conteos cortados de la primera vuelta, vistos donde más se notan | ✅ Ya arreglado (falla 5), sale con el despliegue |
+| M12 | Negocio de Martín: **17 de 24 tarjetas son una letra gigante** con «Sin canales todavía» (04) | Una pantalla vacía en producción | **Decide Martín (plata)**: son nombres sin Instagram ni YouTube. Buscar sus redes cuesta ~US$0,08 en total; leerlas después, más |
+| M13 | Negocio de Martín: arriba, **«Las caricaturas no se están haciendo: la que más espera lleva 1 d en la cola. Las hace el Runner con Canva.»** (02) | Es verdad (Agencia Generación de Leads sigue «Haciendo su caricatura…») y el texto es técnico | Para el Cerebro: la cola de caricaturas está frenada desde hace un día |
+| M14 | Celular: la grilla va de a **una pieza por pantalla** (cada reel, ~640 px) (13) | Se ve poco | Sin arreglo: una columna fue una decisión escrita (§8 del diseño, `tests/spy-telefono-una-columna.test.ts`). Propuesta para Martín: dos columnas |
+| M15 | Celular: no hay funnel ni páginas («Su web se mira en la computadora») | Una parte entera de la tab no existe en el teléfono | Propuesta para Martín: al menos «Su funnel» (no necesita la vista de su web) |
+| M16 | Celular: la tercera cifra (Mediana) queda sola en su fila (11) | Desparejo | Sin arreglo (menor) |
+| M17 | Detalle de un video: el reproductor se ve **negro** (08) | Con el panel oculto no se puede saber si carga | **Mirar en Chrome** |
+
+**Para ver después del despliegue (en una ventana a la vista, Chrome de Martín cuando esté libre):** el gráfico de Leila con sus
+portadas de YouTube; la ficha sin la caja vacía y con la fila «A dónde manda / Lo que mejor le fue»; los títulos en dos
+renglones; el detalle de un video sin la cifra cortada; «Sus páginas» de Acquisition.com en «Capturar / Abrir»; el encabezado
+del celular.
 
 ## Las personas y las pantallas
 

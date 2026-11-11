@@ -4,6 +4,21 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+## Probar leyendo no es mirar: la primera vuelta de Competitor Spy no vio un gráfico sin una sola portada (11/11/2026)
+
+Martín miró las pruebas del 10/11 y dijo que no funcionaron: en Video había un solo outlier, miniaturas grises, títulos cortados y
+una página casi vacía, y nadie lo marcó. En Competitor Spy pasó lo mismo: la primera vuelta leyó la página con `get_page_text` y
+el DOM, contó tarjetas, midió portadas con `naturalWidth`, y dio por bien una ficha cuyo gráfico tenía **cero portadas** y una
+caja blanca de 650 px vacía. Las dos cosas estaban en las capturas; nadie las miró como las mira Martín. Lo que queda:
+
+- **Cada pantalla se captura y se critica al lado de su referencia**, abierta en la misma sesión (fitlo y merrin para Spy). La
+  pregunta no es «¿anda?» sino «¿Martín diría que está vacío, cortado, roto o que no se entiende?».
+- **Una pantalla vacía en producción es una falla**, aunque el código haga lo que dice.
+- **Mirar también sin la barra de agencia**: el super admin ve una ficha distinta de la del cliente (en Spy, una regla global
+  de `<aside>` cortaba justo la parte que en el cliente quedaba vacía). `document.documentElement.removeAttribute('data-barra-agencia')`.
+- **Una captura que llega en blanco o atrasada no prueba nada** (el panel oculto; ver la entrada de abajo): se espera, se
+  vuelve a capturar, y lo que no se puede ver se anota «mirar en Chrome».
+
 ## El navegador de la app con el panel OCULTO congela la página: lo que no responde ahí no es una falla de la app (10/11/2026)
 
 **Síntoma:** en la prueba de punta a punta de Image, en el navegador de la app de Claude (`mcp__Claude_Browser__*`), «Editar» no
