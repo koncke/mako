@@ -295,3 +295,9 @@ test('el contexto del negocio sale del grafo de los chats (grafoParaChat) con re
   assert.doesNotMatch(c.replace(/^[ \t]*\/\/.*$/gm, ''), /construirCerebro\(/, 'rearma el mapa entero con su física');
   assert.match(leer('lib/copywriter/contexto.ts'), /export \{ contextoDelNegocio,[^}]*\} from '\.\.\/negocio-para-crear';/);
 });
+
+test('teléfono: el nombre de la barra sigue al título que se escribe (11/11/2026, decía «Sin título»)', () => {
+  // Lo pone GuionM con la página EN VIVO (`onPaginaEnVivo`); si lo pusiera la página del servidor, quedaría el de al abrir.
+  assert.match(leer('app/m/copywriter/GuionM.tsx'), /<CabeceraM titulo=\{pagina\.titulo\}/);
+  assert.doesNotMatch(leer('app/m/copywriter/[id]/page.tsx'), /<CabeceraM titulo=/);
+});
