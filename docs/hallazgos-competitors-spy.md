@@ -52,6 +52,20 @@ Informe caso por caso: [pruebas/competitor-spy-10-11.md](pruebas/competitor-spy-
 - **Los sugeridos sin ninguna red se dejan de ofrecer** (`tieneDondeLeerlo`, lib/spy-sugeridos.ts): «Sumar» uno así dejaba al
   cliente una ficha vacía, porque sus anuncios no se copian a otro negocio.
 
+**La segunda vuelta (11/11), MIRANDO con capturas, encontró ocho más que la primera no vio leyendo:**
+
+- **Martín y el cliente no ven la misma ficha.** Con la barra de agencia, la regla de `<aside>` cortaba el riel en 850 px (y lo
+  dejaba tapar la grilla); sin ella —el cliente— el riel medía 1.378 y «terminan en la misma línea» estiraba «¿Qué formatos le
+  funcionan?» a **739 px con 82 de contenido**. Arreglar el `<aside>` habría llevado la caja vacía a la vista de Martín. **Una
+  pantalla se mira también sin la barra de agencia** (sacarle `data-barra-agencia` al `<html>` en la consola alcanza). El arreglo
+  copia la tercera fila de merrin: el riel lleva lo del alto de la columna de al lado y lo demás baja.
+- **Una miniatura para 34 px no se baja de 85 KB.** La chica de YouTube (`i.ytimg.com/vi/<id>/mqdefault.jpg`) pesa 4,7 KB, es la
+  misma imagen y no vence: `miniaturaChica` (lib/spy-vista.ts) la usa para todo lo chico. Instagram no tiene una pública.
+- **Una web ajena puede pintar bien, avisar que pintó, y romperse después** dentro del marco aislado: acquisition.com quedó en
+  «This page couldn’t load» (el error de cliente de Next.js nuevo, que `esPaginaDeError` no conocía). El aviso de pintado se
+  repite a 1,2 y 3 s; si el error llega después de eso, todavía se ve.
+- **«Sumar» no copiaba `medio` ni `laminas`**: un carrusel copiado decía «Publicación».
+
 ---
 
 ## Los outliers de video para la tab Video: lo que ya pagamos y tiramos (9/11/2026, nube)
