@@ -97,7 +97,13 @@ test('6. lo que MaKo escribe sale en tú; lo que va entre «…» no se toca', a
   const { alTuteo } = await import('../lib/al-tuteo');
   assert.equal(alTuteo('Preguntás si puedo ver las campañas de Meta de tus clientes. ¿Querés que revise si Marcela conectó sus anuncios?'),
     'Preguntas si puedo ver las campañas de Meta de tus clientes. ¿Quieres que revise si Marcela conectó sus anuncios?');
-  assert.equal(alTuteo('Mirá, fijate en Integraciones y decime si tenés la clave. Acá está el link.'), 'Mira, fíjate en Integraciones y dime si tienes la clave. Aquí está el link.');
+  assert.equal(alTuteo('Mirá, fijate en Integraciones y decime si tenés la clave.'), 'Mira, fíjate en Integraciones y dime si tienes la clave.');
+  // Lo que también es otra cosa queda (corrida 1039, 11/11/2026): «Abrí el ticket» es la respuesta fija del código (yo abrí), y
+  // «Acá estoy» la de MaKo cuando le preguntan si está (tests/grupos-ops-turno.test.ts). «SOS» es una sigla.
+  assert.equal(alTuteo('Abrí el ticket #43: El botón de pagar no anda.'), 'Abrí el ticket #43: El botón de pagar no anda.', 'pasó un pretérito de yo a una orden');
+  assert.equal(alTuteo('Ayer elegí la plantilla y escribí el copy. Recibí tu audio.'), 'Ayer elegí la plantilla y escribí el copy. Recibí tu audio.', 'pasó un pretérito de yo a una orden');
+  assert.equal(alTuteo('Acá estoy, por WhatsApp.'), 'Acá estoy, por WhatsApp.', '«acá» no es voseo');
+  assert.equal(alTuteo('Mandaste un SOS. Sos el dueño.'), 'Mandaste un SOS. Eres el dueño.', 'tocó la sigla o dejó el «sos»');
   assert.equal(alTuteo('Anoté tu pedido: «mandale el borrador a Juan, que vos sabés»'), 'Anoté tu pedido: «mandale el borrador a Juan, que vos sabés»', 'cambió las palabras de la persona');
   assert.equal(alTuteo('Las quieres hoy. Puedes verlas en el CRM.'), 'Las quieres hoy. Puedes verlas en el CRM.', 'tocó lo que ya estaba en tú');
   assert.equal(alTuteo('Acacia y mirador quedan igual'), 'Acacia y mirador quedan igual', 'cortó una palabra por la mitad');
@@ -105,3 +111,4 @@ test('6. lo que MaKo escribe sale en tú; lo que va entre «…» no se toca', a
 });
 
 // Probado rompiéndolo (11/11/2026): el doer sin `alTuteo` en `partes` → falla «el turno real»; `alTuteo` dentro de «…» → falla el 6.
+// Y tras la corrida 1039: volver a meter «abrí/elegí/escribí» o «acá» al diccionario, o tocar las mayúsculas → falla el 6.

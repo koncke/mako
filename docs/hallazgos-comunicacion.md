@@ -157,6 +157,14 @@ con la salida REAL del modelo de ese turno.
 escriben en vos. `alTuteo` (lib/al-tuteo.ts) corrige en la SALIDA (`partes` del doer: lo que sale al grupo y la memoria) las formas que
 aparecen, palabra entera, sin tocar lo que va entre «…». Lo fija tests/links-con-ws.test.ts (el turno real y el 6).
 
+**La trampa (corrida 1039 en rojo, el mismo día):** la primera versión pasaba «abrí» → «abre» y «acá» → «aquí». Rompió dos respuestas
+que ya estaban bien: la FIJA del código «Abrí el ticket #43: …» (lib/despacho-grupo.ts: es «yo abrí», pretérito, español neutro) salía
+«Abre el ticket», una orden a la persona; y «Acá estoy» (no es voseo) salía cambiada. Los imperativos de vos en -í (abrí, elegí,
+escribí, pedí, recibí) son IGUALES a la primera persona del pasado, y MaKo cuenta en pasado lo que hizo todo el tiempo.
+**La regla:** al diccionario sólo entran formas que, escritas así, no pueden ser otra cosa (la -ás/-és/-ís del presente, los
+imperativos en -á/-é, los que llevan el pronombre pegado sin tilde). Las mayúsculas («SOS») no se tocan. El test 6 fija los pretéritos
+intactos.
+
 ## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
 
 **El síntoma:** Martín, 9/11 ~19:00 ART: «MaKo no está respondiendo… Joan va a enviar el comprobante y nadie responde».
