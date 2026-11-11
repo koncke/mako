@@ -11,7 +11,7 @@ import { FEATURES } from '../_detalle/features';
 import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
 import { Visual } from '../_detalle/Visual';
 import PandaPlayer from '../_detalle/PandaPlayer';
-import { VISUALES_PROPIOS } from './visuales';
+import { VISUALES_PROPIOS } from './visuales-propios';
 
 /** AI Avatar: tu foto → la escena → el video vertical, con el subtítulo de la plantilla. */
 function Avatar({ escena, estilo, frase, segundos }: Extract<VisualHero, { tipo: 'avatar' }>) {

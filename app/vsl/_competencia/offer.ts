@@ -10,7 +10,7 @@
 // garantía de 30 días) → el botón final. Por qué ganó: docs/competencia/landings-por-funcion.md → «Offer».
 //
 // Lo que se cambió de la referencia, y por qué:
-//   · Su VSL no va: Offer no tiene uno. En su lugar, el visual de la pantalla (./visuales/offer.tsx).
+//   · Su VSL no va: Offer no tiene uno. En su lugar, el visual de la pantalla (./visuales-propios/offer.tsx).
 //   · Su precio (7 días gratis, después US$97), su cupón y su garantía de devolución de 30 días NO van: ninguna landing de
 //     /vsl escribe un precio a mano y MaKo no tiene una garantía. El cierre es la llamada.
 //   · Su «4.7 / 5 de 398 alumnos» es suyo: en ese lugar va la prueba de MaKo, el caso de Mauricio (el mismo de todas).

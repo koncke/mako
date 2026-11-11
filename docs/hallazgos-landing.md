@@ -80,11 +80,11 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   avatares estaba pausada desde el 23/10), el mini-VSL de Panda en el hero de `/vsl/crm` (el entorno no llega a su CDN: se ve
   negro) y el desborde horizontal de 375 px, que ya tenían todas las páginas de `/vsl` antes de esto (lo tapa `overflow-x`).
 - **Segunda tanda, el mismo día (14 landings más, 5 de ellas hechas en paralelo por ayudantes):**
-  - **Cada ayudante toca SÓLO sus archivos** (su `<slug>.ts`, su `visuales/<slug>.tsx`, su `page.tsx`); el registro y el índice
+  - **Cada ayudante toca SÓLO sus archivos** (su `<slug>.ts`, su `visuales-propios/<slug>.tsx`, su `page.tsx`); el registro y el índice
     de visuales los conecta uno solo al final. Así no se pisan, y una landing sin registrar no la mira el test: hasta que se
     suma a `registro.ts`, su verde no existe.
   - **Una función sin gráfico en `/vsl` lleva un visual propio** (`visual: { tipo: 'propio', slug }`), server component sin JS
-    con su `<style>` y clases `mk-v-<slug>-`. Sin registrarlo en `visuales/index.tsx`, el panel del hero sale vacío, sin error.
+    con su `<style>` y clases `mk-v-<slug>-`. Sin registrarlo en `visuales-propios/index.tsx`, el panel del hero sale vacío, sin error.
   - **Cinco `tsc` acotados a la vez (uno por ayudante) más `next dev` agotan la RAM**: el kernel mató al servidor. Y
     **`.next/dev` llegó a 21 GB y llenó el disco**: la máquina se reinició tres veces seguidas hasta borrarlo (es caché). Antes
     de levantar la app en la nube, `du -sh .next/dev`.

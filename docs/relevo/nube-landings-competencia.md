@@ -50,7 +50,7 @@ interesa tener la de video… La de la espía de la competencia. El copilot. Pod
 | Email | `/vsl/email` (rehecha) | beehiiv | ayudante |
 | Cobranza | `/vsl/cobranza` (rehecha) | Rebill | ayudante |
 
-Las funciones sin gráfico en `/vsl` llevan un visual propio (`app/vsl/_competencia/visuales/`, registrado en su `index.tsx`).
+Las funciones sin gráfico en `/vsl` llevan un visual propio (`app/vsl/_competencia/visuales-propios/`, registrado en su `index.tsx`).
 Las 19 están en `registro.ts` y pasan `tests/vsl-landings-competencia.test.ts`. Capturas a 1440 y 375 de las 14, sin scroll
 horizontal; lo que se vio, más abajo.
 
@@ -66,7 +66,7 @@ horizontal; lo que se vio, más abajo.
 
 **Cómo se hace una:** `app/vsl/_competencia/<slug>.ts` con su cabecera de referencia y sus bloques en el orden de la
 ganadora, sumarla a `registro.ts`, y cambiar la `page.tsx` que ya existe para esa función (o crearla). Si la función no tiene
-gráfico en `/vsl`, su visual va en `visuales/<slug>.tsx` y se registra en `visuales/index.tsx`. Antes de elegir un gráfico,
+gráfico en `/vsl`, su visual va en `visuales-propios/<slug>.tsx` y se registra en `visuales-propios/index.tsx`. Antes de elegir un gráfico,
 listar los grupos por índice (ver la trampa en `docs/hallazgos-landing.md`, entrada del 11/11).
 
 ## Lo que no se pudo probar

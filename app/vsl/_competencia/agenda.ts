@@ -25,7 +25,7 @@
 //     llamada de todas las landings. No tiene preguntas frecuentes, y esta landing tampoco.
 //   · Los recordatorios, el aviso de cada reserva y el mensaje a quien faltó salen por Automations, con las plantillas
 //     «Un Lead Agendó Llamada» y «Un Lead No Asistió» (lib/plantillas-automatizaciones.ts): se nombran como tales.
-//   · Agenda no tenía landing en /vsl: el visual de la portada es propio (./visuales/agenda.tsx), y no lleva filas.
+//   · Agenda no tenía landing en /vsl: el visual de la portada es propio (./visuales-propios/agenda.tsx), y no lleva filas.
 //   · Con Calendly, la reserva NUEVA entra sólo si la cuenta tiene el aviso (una suscripción de webhook a MaKo), que Calendly
 //     no deja crear desde su pantalla: va por su API, en planes pagos (lib/calendly-aviso-reglas.ts). El paso 1 lo dice. Cal.com
 //     lo crea el cliente en su pantalla, con la contraseña que pega en MaKo (lib/metodo-catalogo.ts, CALCOM_WEBHOOK_SECRET).
