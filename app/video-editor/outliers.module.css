@@ -24,6 +24,15 @@
 }
 .tramo[data-mudo='si'] { background: var(--surface); color: var(--dim); border: 1px dashed var(--border-strong, var(--border)); }
 .tramo b { min-width: 0; font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* El nombre ENTERO en la tarjeta angosta del teléfono (11/11/2026, en producción a 375 px decía «Cierre sin …»): un renglón
+   con letra y márgenes más chicos. Bajar al segundo renglón NO sirve: una banda de 3 s no tiene alto para dos y queda
+   mordida («El / producto»), y partir la palabra («Credenci/al») se lee peor que el corte. Medido a 300, 340 y 390 px. */
+.estructura { container-type: inline-size; }
+@container (max-width: 190px) {
+  .tramo { padding: 0 6px; gap: 4px; }
+  .tramo b { font-size: 11px; }
+  .tramo small { font-size: 10px; }
+}
 .tramo small { flex: none; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 /* Angosto (una ventana chica, o el teléfono sin `data-telefono`): dos columnas, como Image en el teléfono. */
