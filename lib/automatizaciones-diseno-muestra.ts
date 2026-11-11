@@ -56,9 +56,9 @@ export function datosAutomatizacionesMuestra(hoja: Pick<Hoja, 'diseno'>, hoy: st
   };
   const orden = AUTOS.map((_, j) => j).sort((a, b) => envAuto[b] - envAuto[a]);
   const tabla: Resultado = {
-    columnas: [...col(['envios', 'fallaron', 'respuestas']), { id: 'tasa_respuesta', nombre: 'tasa_respuesta', formato: 'pct' }, ...col(['leads'])],
-    totales: [envios, fallaron, respuestas, tasaResp, 412], fuera: 0, clase: 'categoria',
-    filas: orden.map((j) => ({ clave: AUTOS[j][0], etiqueta: AUTOS[j][0], valores: [envAuto[j], falAuto[j], respAuto[j], Math.round((respAuto[j] / envAuto[j]) * 1000) / 10, Math.round(envAuto[j] / 3.1)] })),
+    columnas: [...col(['envios', 'fallaron', 'respuestas']), { id: 'tasa_respuesta', nombre: 'tasa_respuesta', formato: 'pct' }, ...col(['leads', 'escritos'])],
+    totales: [envios, fallaron, respuestas, tasaResp, 412, 412], fuera: 0, clase: 'categoria',
+    filas: orden.map((j) => ({ clave: AUTOS[j][0], etiqueta: AUTOS[j][0], valores: [envAuto[j], falAuto[j], respAuto[j], Math.round((respAuto[j] / envAuto[j]) * 1000) / 10, Math.round(envAuto[j] / 3.1), Math.round(envAuto[j] / 3.1)] })),
   };
   const fallos: Resultado = {
     columnas: col(['fallaron']), totales: [fallaron], fuera: 0, clase: 'categoria',
