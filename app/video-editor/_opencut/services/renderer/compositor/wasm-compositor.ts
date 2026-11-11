@@ -19,6 +19,7 @@ import type {
 	TextureUploadDescriptor,
 } from "./types";
 import { texturaExternaVigente } from "./textura-vigente";
+import { lienzoDeSubida } from "./lienzo-de-subida";
 
 /**
  * One slot in the derived-texture cache. The OffscreenCanvas is persistent —
@@ -39,6 +40,8 @@ type ExternalCacheEntry = {
 	width: number;
 	height: number;
 	version: number | undefined;
+	/** El lienzo PROPIO de esta textura, que se redibuja cuadro a cuadro (./lienzo-de-subida.ts). */
+	lienzo?: OffscreenCanvas;
 };
 
 class WasmCompositor {
@@ -125,14 +128,16 @@ class WasmCompositor {
 			name: "textureUploadPixels",
 			by: texture.width * texture.height,
 		});
+		const subida = lienzoDeSubida({
+			source: texture.source,
+			width: texture.width,
+			height: texture.height,
+			previo: previous?.kind === "external" ? previous.lienzo : undefined,
+			label: `texture upload ${texture.id}`,
+		});
 		uploadTexture({
 			id: texture.id,
-			source: ensureOffscreenCanvas({
-				source: texture.source,
-				width: texture.width,
-				height: texture.height,
-				label: `texture upload ${texture.id}`,
-			}),
+			source: subida,
 			width: texture.width,
 			height: texture.height,
 		});
@@ -142,6 +147,8 @@ class WasmCompositor {
 			width: texture.width,
 			height: texture.height,
 			version: texture.version,
+			// Se guarda sólo si es nuestro: un OffscreenCanvas ajeno pasa tal cual y no se redibuja.
+			lienzo: subida !== texture.source ? subida : undefined,
 		});
 	}
 
@@ -208,35 +215,6 @@ function createBackingCanvas({
 		throw new Error("OffscreenCanvas is not supported in this environment");
 	}
 	return new OffscreenCanvas(width, height);
-}
-
-function ensureOffscreenCanvas({
-	source,
-	width,
-	height,
-	label,
-}: {
-	source: CanvasImageSource;
-	width: number;
-	height: number;
-	label: string;
-}): OffscreenCanvas {
-	if (source instanceof OffscreenCanvas) {
-		return source;
-	}
-
-	if (typeof OffscreenCanvas === "undefined") {
-		throw new Error(`OffscreenCanvas is required for ${label}`);
-	}
-
-	const canvas = new OffscreenCanvas(width, height);
-	const context = canvas.getContext("2d");
-	if (!context) {
-		throw new Error(`Failed to get 2d context for ${label}`);
-	}
-	context.clearRect(0, 0, width, height);
-	context.drawImage(source, 0, 0, width, height);
-	return canvas;
 }
 
 /**

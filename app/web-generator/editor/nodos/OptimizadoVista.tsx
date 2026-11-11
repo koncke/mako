@@ -50,6 +50,9 @@ import {
 } from '@/lib/editor-landing/doc';
 import type { Tema } from '@/lib/editor-landing/temas';
 
+/** Las variantes con el lugar de la foto a la vista en el editor aunque el ítem no tenga una (lib/editor-landing/css.ts). */
+const LUGAR_DE_FOTO: ReadonlySet<string> = new Set<VarianteOptimizado>(['galeria', 'imagenes-texto']);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // La grilla de «Cambiar diseño» (pura: la lee el test)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -261,8 +264,37 @@ export function OptimizadoVista(props: ReactNodeViewProps) {
   const variante = String(node.attrs.variante ?? '');
   const nombreVariante = OPTIMIZADOS.find((o) => o.id === variante)?.nombre ?? 'Diseño';
 
+  /**
+   * Tocar el lugar vacío de la foto de un ítem (la galería y «Imágenes con texto»: el «Agregar imagen» punteado que dibuja
+   * lib/editor-landing/css.ts en el editor) elige la foto de ESE ítem, como el botón «Imagen» de la barra (prueba en producción
+   * del 10/11/2026: sin foto, ese lugar medía 0 y no había dónde tocar).
+   */
+  const alTocarLugarDeFoto = (e: { target: EventTarget; preventDefault: () => void }) => {
+    if (!LUGAR_DE_FOTO.has(variante) || !editor.isEditable) return;
+    const marca = (e.target as Element | null)?.closest?.('.gm-item-marca');
+    const cuerpo = marca?.parentElement?.querySelector(':scope > .gm-item-cuerpo');
+    if (!marca || marca.childElementCount || !cuerpo) return;
+    let posItem: number | null = null;
+    try {
+      const $p = editor.state.doc.resolve(editor.view.posAtDOM(cuerpo, 0));
+      for (let d = $p.depth; d > 0; d--) if ($p.node(d).type.name === NODO.optimizadoItem) { posItem = $p.before(d); break; }
+    } catch { return; }
+    if (posItem == null) return;
+    const pos = posItem;
+    e.preventDefault();
+    void ctx.elegirImagen({ modo: 'imagen', sugerencia: node.textContent.slice(0, 80) }).then((url) => {
+      if (!url) return;
+      editor.chain().command(({ tr }) => {
+        const n = tr.doc.nodeAt(pos);
+        if (!n || n.type.name !== NODO.optimizadoItem) return false;
+        tr.setNodeMarkup(pos, undefined, { ...n.attrs, imagenSrc: url });
+        return true;
+      }).run();
+    });
+  };
+
   return (
-    <NodeViewWrapper className="gmx-nv" data-activo={activo ? 'si' : undefined}>
+    <NodeViewWrapper className="gmx-nv" data-activo={activo ? 'si' : undefined} onClick={alTocarLugarDeFoto}>
       <EstilosG2 />
       <style href="gmx-opt" precedence="medium">{CSS_OPT}</style>
       {activo && (

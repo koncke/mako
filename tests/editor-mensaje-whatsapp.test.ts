@@ -48,10 +48,12 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   EditorMensajeWhatsApp, BotonMakoWhatsApp, CabeceraWhatsApp, mismoPaso, placeholderDe, partesDeLaBarra, enviarALista, enviarUnico, makoPosible, adaptable,
-  claveDeTarjeta, alternarPanelMako, ALTO_MIN_CHAT, datosDelLead, arbolDeVariables,
+  claveDeTarjeta, alternarPanelMako, ALTO_MIN_CHAT, datosDelLead, arbolDeVariables, arbolDelEditor,
   type EditorMensajeWhatsAppProps,
 } from '../app/automations/EditorMensajeWhatsApp';
 import { datosOfrecidos } from '../lib/variables-aviso';
+import { pasosDeDifusion } from '../lib/difusion-reglas';
+import { problemasDeTokens } from '../lib/tokens-del-flujo';
 import { variantesTrasCambio } from '../lib/mensaje-partes';
 import { esVariableConocida } from '../lib/template-vars';
 import { pasoSinAdjunto, pasoAMedia, pasoAVozDesde, pasoAVoz, cambiosDePaso } from '../lib/guion-audio';
@@ -433,12 +435,45 @@ test('el «{ }» de quien pasa SUS variables (el recordatorio) es una rama con �
   assert.equal(g.length, 1);
   assert.deepEqual(g[0]!.items.map((i) => [i.key, i.label, i.ejemplo]), [['cuando', 'Cuándo', 'mañana'], ['hora', 'Hora', '{{hora}}']]);
   assert.deepEqual(arbolDeVariables([]), [], 'sin variables no hay rama (ni botón)');
-  // Y el editor elige en ese orden: `datos` > `variables` > lo del motor.
-  const elige = EDITOR.slice(EDITOR.indexOf('const grupos = useMemo('), EDITOR.indexOf('[datos, variables, varias],'));
-  assert.match(elige, /datos \?\? \(variables \? arbolDeVariables\(variables\) : datosDelLead\(varias\)\)/);
+  // Y el editor elige en ese orden: `datos` > `variables` > lo del motor (`arbolDelEditor`, ejecutado: hasta el 10/11 esto
+  // era un regex sobre la línea del fuente, que fijaba justo el `datosDelLead(varias)` del ticket #70).
+  const qr = paso();
+  const armado = datosOfrecidos({ destino: 'equipo', conLead: false });
+  assert.equal(arbolDelEditor({ paso: qr, datos: armado, variables: [{ key: 'cuando', label: 'Cuándo' }] }), armado, '`datos` gana');
+  assert.deepEqual(arbolDelEditor({ paso: qr, variables: [{ key: 'cuando', label: 'Cuándo' }] }), arbolDeVariables([{ key: 'cuando', label: 'Cuándo' }]), '`variables` le ganan al motor');
   assert.match(EDITOR, /<ArbolDeDatos grupos=\{grupos\} onElegir=/, 'el popover del «{ }» no es el árbol de la casa');
   assert.doesNotMatch(EDITOR, /<MenuWA\b|\bVARIABLES_NEGOCIO\b|\bVARIABLES_LEAD\b/, 'volvió la lista plana del motor viejo');
   // El botón se dibuja en la barra (con datos), y sin datos no hay botón.
   assert.ok(dibujar({}).includes('aria-label="Insertar un dato"'));
   assert.ok(!dibujar({ variables: [] }).includes('aria-label="Insertar un dato"'), 'un «{ }» que abre un árbol vacío se lee roto');
+});
+
+// TICKET #70 (9/11/2026, Leila desde el teléfono: «No me deja poner 2do nombre», «Dónde: CRM»). La hoja de «Mandar
+// mensaje» del CRM (app/automations/difusion/HojaDifusion.tsx) monta este editor sin `datos`, con el audio y los archivos
+// apagados, y su WhatsApp es por QR. El editor elegía el «{ }» por `permiteAudio || permiteAdjuntos` (`varias`), así que
+// ofrecía la lista de la plantilla de Meta: nombre, nombre completo, apellido y empresa. Publicar y el motor sí lo
+// resuelven (la difusión es una automatización, con su CRON `manual`). Dos minutos después del ticket mandó su difusión
+// «Hola corazón», sin nombre (la fila 732 de producción).
+//
+// PROBADO ROMPIÉNDOLO (10/11/2026, una por vez, restaurada; base de este archivo 29/0):
+//   R1. `arbolDelEditor` con `datosDelLead(false)` fijo (lo que veía la hoja) → 28/1, este test.
+//   R2. `arbolDelEditor` que decide por `paso.proveedor !== 'oficial'` en vez de `proveedorDelPaso` → 28/1, este test (un
+//       audio marcado «oficial» sale igual por QR).
+// Lo que NO ve: que el componente llame a `arbolDelEditor` con el paso (no hay DOM en estos tests y el «{ }» es un popover).
+test('#70: el «{ }» de un WhatsApp por QR sin audio ni archivos (la hoja de «Mandar mensaje») ofrece lo que Publicar acepta, con el segundo nombre', () => {
+  const claves = (g: ReturnType<typeof datosDelLead>) => g.flatMap((x) => x.items.map((i) => i.key));
+  // La tarjeta de WhatsApp tal como la guarda la difusión (lib/difusion-reglas.ts): es la que el motor manda.
+  const pasos = pasosDeDifusion(['whatsapp'], { whatsapp: { cuerpo: '{{segundo_nombre}}, ¿cómo estás?' } });
+  const tarjeta = pasos.find((p) => p.id === 'd_whatsapp') as unknown as PasoSecuenciaDto;
+  assert.ok(tarjeta, 'la difusión no armó la tarjeta de WhatsApp');
+  const ofrece = claves(arbolDelEditor({ paso: tarjeta }));
+  for (const k of ['segundo_nombre', 'tercer_nombre']) assert.ok(ofrece.includes(k), `la hoja no ofrece {{${k}}}`);
+  // Lo que ofrece es EXACTAMENTE lo que Publicar deja pasar en esa tarjeta: ni de menos (el bug) ni de más.
+  assert.deepEqual(ofrece, claves(datosOfrecidos({ destino: 'lead', conLead: true })));
+  const malos = ofrece.filter((k) => problemasDeTokens(pasosDeDifusion(['whatsapp'], { whatsapp: { cuerpo: `Hola {{${k}}}` } }), 'manual').length > 0);
+  assert.deepEqual(malos, [], 'el «{ }» ofrece un dato que Publicar frena');
+  // Un audio sale por QR aunque diga «oficial» (`proveedorDelPaso`): el árbol entero.
+  assert.ok(claves(arbolDelEditor({ paso: paso({ tipo: 'audio', audio_id: 7, proveedor: 'oficial' }) })).includes('segundo_nombre'));
+  // Y la plantilla de Meta sigue con lo que registra: ahí el segundo nombre saldría crudo.
+  assert.deepEqual(claves(arbolDelEditor({ paso: paso({ proveedor: 'oficial', template_wa: 'bienvenida' }) })), ['nombre', 'nombre_completo', 'apellido', 'empresa']);
 });

@@ -98,6 +98,7 @@ import {
 } from "@/app/video-editor/_opencut/audio/claves";
 import { buscarFrase, muletillasDe, NO_HAY_MULETILLAS, palabrasEnOrden, type ParrafoTx } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import type { Disponibles } from "./disponibles";
+import { PLANTILLAS_SUBTITULO, type PlantillaSubtitulo } from "@/app/video-editor/_opencut/subtitles/estilos";
 import { clavesNombradas, codificarClaves, elegirClaves, leerClaves, PARAM_CLAVES, quitarClaves, sumarClaves } from "@/app/video-editor/_opencut/subtitles/claves";
 import { PAUSA_MIN_S, segundosDeAviso } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 import { PARAM_EMOJI_DE } from "@/app/video-editor/_opencut/subtitles/emojis";
@@ -660,7 +661,31 @@ function disponiblesJson(d: Disponibles): Record<string, unknown> | undefined {
 		...(d.presets?.length
 			? { presets_subtitulos: Object.fromEntries(d.presets.map((p) => [p.id, `${p.nombre}${p.marca ? ` (${p.marca})` : ""}: ${p.resumen}`])) }
 			: {}),
+		// La galería de Subtítulos › Plantillas, siempre (10/11/2026): «estilo Hormozi» por chat armaba otra cosa (karaoke y
+		// salto) porque el chat no la veía. Se usan con `usar_preset_subtitulos`.
+		plantillas_subtitulos: Object.fromEntries(PLANTILLAS_SUBTITULO.map((p) => [p.id, resumenPlantillaSubtitulo(p)])),
 	};
+}
+
+/** Una plantilla de fábrica de subtítulos en palabras, como la lee la IA: «Hormozi: Anton, mayúsculas, contorno #ffe14d…». */
+export function resumenPlantillaSubtitulo(p: PlantillaSubtitulo): string {
+	const partes = [
+		p.fuente,
+		p.mayusculas ? "mayúsculas" : p.minusculas ? "minúsculas" : "",
+		p.color !== "#ffffff" ? `letra ${p.color}` : "",
+		p.trazo ? `contorno ${p.trazo.color}` : "",
+		p.fondo ? "con fondo" : "",
+		p.resaltado ? `karaoke ${p.resaltado.modo === "palabra" ? "por palabra" : "por frase"} ${p.resaltado.color}` : "",
+		p.animPalabra === "pop" ? "la palabra salta" : p.animPalabra === "crecer" ? "la palabra crece" : "",
+	].filter(Boolean);
+	return `${p.nombre}: ${partes.join(", ")}`;
+}
+
+/** La plantilla de fábrica que nombra el chat, por id o por nombre (sin tildes ni mayúsculas). */
+export function plantillaSubtituloDelChat(cual: string): PlantillaSubtitulo | null {
+	const llano = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+	const buscado = llano(cual);
+	return PLANTILLAS_SUBTITULO.find((p) => p.id === buscado || llano(p.nombre) === buscado) ?? null;
 }
 
 /** Lo que una plantilla dejó marcado en un elemento, como lo lee el chat (y el tope de su texto, del catálogo). */
@@ -913,6 +938,8 @@ export type OperacionResuelta =
 	| { op: "usar_plantilla"; plantilla: string; textos: Record<string, string>; medios: Record<string, string> }
 	/** Un preset de la marca a TODOS los subtítulos (subtitles/presets.ts → aplicarPreset): vuelve a partir los renglones, después del lote. */
 	| { op: "usar_preset_subtitulos"; preset: string }
+	/** Una plantilla de fábrica de subtítulos (subtitles/estilos.ts), a TODOS: lo mismo que tocar su tarjeta. */
+	| { op: "usar_plantilla_subtitulos"; plantilla: string }
 	/** Un estilo que cambia el ancho del renglón (fuente, tamaño…) a ESTOS subtítulos (subtitles/insert.ts →
 	 *  aplicarEstiloASubtitulos, el de «Aplicar en todos»): vuelve a partir los renglones, después del lote. */
 	| { op: "estilo_subtitulos"; els: RefElemento[]; params: ParamValues }
@@ -1468,7 +1495,20 @@ export function revisarOperaciones({
 				continue;
 			}
 			const p = presetDelChat(d.presets ?? [], op.preset);
-			if ("motivo" in p) { descartes.push(p.motivo); continue; }
+			if ("motivo" in p) {
+				// Una de la galería de fábrica (Subtítulos › Plantillas): lo MISMO que tocar su tarjeta. La de la marca, si se
+				// llama igual, gana (va primero).
+				const fabrica = plantillaSubtituloDelChat(op.preset);
+				if (!fabrica) { descartes.push(p.motivo); continue; }
+				resueltas.push({ op: "usar_plantilla_subtitulos", plantilla: fabrica.id });
+				cambios.push({
+					tipo: "cambia",
+					titulo: subs.length === 1 ? "1 subtítulo" : `${subs.length} subtítulos`,
+					antes: "su estilo de ahora",
+					despues: `la plantilla «${fabrica.nombre}» (vuelve a partir los renglones)`,
+				});
+				continue;
+			}
 			resueltas.push({ op: "usar_preset_subtitulos", preset: p.preset.id });
 			cambios.push({
 				tipo: "cambia",

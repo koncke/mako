@@ -308,7 +308,7 @@ test('dibujado: las opciones ARRIBA del cuadro, el MISMO cuadro en los cuatro mo
     assert.doesNotMatch(html, /gp-cc-opcion|Crear con IA|Ejemplos de instrucciones|Aleatorio|Pegar texto/, `${modo}: volvió una tarjeta`);
   }
   assert.match(dibujar({ modo: 'generar' }), /<textarea class="gp-cc-entrada"/);
-  assert.match(dibujar({ modo: 'importar' }), /class="gp-cc-soltar"[\s\S]*Suelta tus archivos aquí o <button type="button" class="gp-cc-soltar-elegir">elígelo<\/button>/);
+  assert.match(dibujar({ modo: 'importar' }), /class="gp-cc-soltar"[\s\S]*Suelta tus archivos aquí o <button type="button" class="gp-cc-soltar-elegir">elígelos<\/button>/);
   assert.match(dibujar({ modo: 'analizar' }), /placeholder="Pega o suelta el link de la landing" aria-label="Link de la landing a analizar"/);
   assert.match(dibujar({ modo: 'replicar' }), /aria-label="Link de la landing a replicar"/);
   // Sin micrófono en los contenedores (no hay campo donde dictar); el «+» y el ↑, siempre.

@@ -38,7 +38,7 @@ export default async function GuionMovil({ params, searchParams }: { params: Pro
   }
   return (
     <PantallaM refrescable={false}>
-      <CabeceraM titulo={r.pagina.titulo} padre={PADRE} trabajo />
+      {/* La cabecera la pone GuionM: el título de la barra sigue al que se escribe (11/11/2026, decía «Sin título»). */}
       <GuionM ws={ws} guion={{ pagina: r.pagina, doc: r.doc }} catalogos={catalogos} ofertas={ofertas} enMako={(await searchParams).mako !== undefined} />
     </PantallaM>
   );

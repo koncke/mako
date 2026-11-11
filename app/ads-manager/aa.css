@@ -449,7 +449,7 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
 .cp-switch { display: none; }
 .cp-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .cp-insp { flex-basis: 100%; margin: 0; }
-.cp-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+.cp-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; container: panel-funnel / inline-size; }
 .cp-cab { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; padding: 14px 20px; border-bottom: 1px solid var(--border); }
 .cp-cab-tit { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-width: 0; }
 .cp-cab h2 { margin: 0; font-size: 18px; line-height: 1.25; font-weight: 700; letter-spacing: -.01em; }
@@ -528,6 +528,19 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
 .cp-pie { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-top: 1px solid var(--border); }
 .cp-pie p { margin: 0; flex: 1; min-width: 0; font-size: 12.5px; color: var(--faint); }
 @media (prefers-reduced-motion: reduce) { .cp-dato, .cp-etapa { transition: none; } }
+/* Lo de adentro del panel mira el ANCHO DEL PANEL, no el de la página (10/11/2026, producción a 1024): con las dos columnas, el panel
+   medía 480 px y el recorrido seguía en cuatro etapas de 96 px, dos palabras por renglón. */
+@container panel-funnel (max-width: 720px) {
+  .cp-recorrido { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cp-etapa:nth-child(odd)::before { display: none; }
+  .cp-dos { grid-template-columns: minmax(0, 1fr); }
+  .cp-comparar li { grid-template-columns: minmax(0, 1fr) auto; }
+  .cp-comparar-dato { display: none; }
+}
+@container panel-funnel (max-width: 440px) {
+  .cp-recorrido { grid-template-columns: minmax(0, 1fr); }
+  .cp-etapa::before { display: none; }
+}
 /* Lo que no entra en dos columnas: una por vez, con el interruptor arriba (como el teléfono de Create). */
 @container copiloto (max-width: 900px) {
   .cp { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 10px; }

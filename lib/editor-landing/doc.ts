@@ -414,24 +414,77 @@ export function textoDeHtmlEditable(html: string): string {
     .trim();
 }
 
-/** Texto plano de un subárbol (para SEO, IA, búsqueda y miniaturas). */
+/** Un valor solo: «10,000», «97.1%», «$100m», «81», «3x», «+500». */
+const SOLO_CIFRA = /^[+~]?\$?\d[\d.,]*\s?(?:%|x|k|m|mil|\+)?$/i;
+
+/**
+ * Las viñetas que en la original eran una FILA DE CIFRAS: la página tenía el número y su rótulo en dos renglones y llegan
+ * alternados («10,000», «Businesses Advised», «81», «NPS»…). Prueba en producción del 11/11/2026, replicando acquisition.com:
+ * salían como una lista con viñetas. Desde el principio, mientras vengan en pares (al menos dos), son «Números grandes» (Gamma:
+ * Statistics); lo que sigue queda como lista. Sin pares, todo vuelve tal cual como lista.
+ */
+export function cifrasEnPares(bullets: readonly string[]): { cifras: { valor: string; titulo: string }[]; resto: string[] } {
+  const cifras: { valor: string; titulo: string }[] = [];
+  let i = 0;
+  while (i + 1 < bullets.length && SOLO_CIFRA.test(bullets[i].trim()) && !SOLO_CIFRA.test(bullets[i + 1].trim()) && bullets[i + 1].trim().length <= 60) {
+    cifras.push({ valor: bullets[i].trim(), titulo: bullets[i + 1].trim() });
+    i += 2;
+  }
+  return cifras.length >= 2 ? { cifras, resto: bullets.slice(i) } : { cifras: [], resto: [...bullets] };
+}
+
+/** Lo único que va EN LÍNEA en este esquema: un texto (partido por sus marcas) y el salto de línea. Todo lo demás es un bloque. */
+const EN_LINEA = new Set(['text', 'hardBreak']);
+
+/**
+ * Texto plano de un subárbol (para SEO, IA, búsqueda y miniaturas). Entre dos BLOQUES va `sep`; los textos de un mismo párrafo
+ * (que las marcas parten en varios) van pegados.
+ *
+ * ⚠️ Hasta el 10/11/2026 el separador lo decidía el PADRE (una lista de tipos «bloque»): las columnas, el doc y los diseños
+ * optimizados no estaban, así que lo que había adentro salía pegado, y un párrafo con una negrita salía partido en dos
+ * renglones. Medido en producción (docs/pruebas/web-generator-10-11.md): la portada de «Lead magnet» se llamaba
+ * «Guía gratuitaTus primeros 10 clientesUna guía corta…» en «Redirigir a» y en la vista previa de Google del diálogo.
+ */
 export function textoDe(n: JsonNodo | undefined | null, sep = '\n'): string {
   if (!n) return '';
   if (n.type === 'text') return n.text ?? '';
+  if (n.type === 'hardBreak') return sep;
   // El texto de un diseño editable vive en su HTML (un atributo), no en hijos.
   if (n.type === NODO.htmlEditable) return typeof n.attrs?.html === 'string' ? textoDeHtmlEditable(n.attrs.html) : '';
   if (!n.content?.length) return '';
-  const bloque = new Set(['paragraph', 'heading', 'listItem', 'taskItem', 'blockquote', 'tableRow', NODO.tarjeta, NODO.optimizadoItem, NODO.desplegableTitulo, NODO.desplegableCuerpo]);
-  return n.content.map((c) => textoDe(c, sep)).join(bloque.has(n.type) ? sep : '').replace(/\n{3,}/g, '\n\n');
+  let out = '';
+  let previo: JsonNodo | null = null;
+  for (const c of n.content) {
+    const t = textoDe(c, sep);
+    const pegado = previo != null && EN_LINEA.has(previo.type) && EN_LINEA.has(c.type);
+    if (t && out && !pegado) out += sep;
+    out += t;
+    previo = c;
+  }
+  return out.replace(/\n{3,}/g, '\n\n');
 }
 
 export function textoDeContenido(c: LandingContenido): string {
   return c.paginas.map((p) => textoDe(p.doc as JsonNodo)).join('\n\n').trim();
 }
 
-/** El primer título de una tarjeta (para la tira de miniaturas y el esquema). */
+/** El primer título de un subárbol, en el orden de lectura (también adentro de columnas). */
+function primerTitulo(n: JsonNodo): JsonNodo | null {
+  for (const c of n.content ?? []) {
+    if (c.type === 'heading') return c;
+    const h = primerTitulo(c);
+    if (h) return h;
+  }
+  return null;
+}
+
+/**
+ * El primer título de una tarjeta (para la tira de miniaturas, el esquema, «Redirigir a» y los enlaces del menú). Se busca
+ * también adentro de las columnas: la portada de las plantillas con formulario al costado lo tiene ahí, y sin buscarlo salía
+ * el antetítulo pegado a todo lo demás (10/11/2026).
+ */
 export function tituloDeTarjeta(t: JsonNodo): string {
-  const h = (t.content ?? []).find((n) => n.type === 'heading');
+  const h = primerTitulo(t);
   return (h ? textoDe(h) : textoDe(t)).split('\n')[0].slice(0, 120);
 }
 

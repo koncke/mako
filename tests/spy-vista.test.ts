@@ -59,13 +59,15 @@ test('se lee al abrir lo que nunca se leyó, lo que quedó sin piezas y lo viejo
 });
 
 test('sin fecha declarada no hay días: «la vemos desde» es otro hecho, y jamás «0 días»', () => {
-  const sin = tiempoDePieza({ publicada_en: null, visto_primera_vez: '2026-10-12T00:00:00Z', dejo_de_verse_en: null }, AHORA);
+  // Al mediodía de UTC: el día se dice en la zona del producto (México), y la medianoche de UTC allá es el día anterior
+  // (fechaCorta, 10/11/2026). Lo que prueba este test son los días y la forma de la línea, no la zona.
+  const sin = tiempoDePieza({ publicada_en: null, visto_primera_vez: '2026-10-12T12:00:00Z', dejo_de_verse_en: null }, AHORA);
   assert.equal(sin.dias, null);
   assert.equal(sin.linea, 'La vemos desde el 12 oct');
-  const con = tiempoDePieza({ publicada_en: '2026-09-17T00:00:00Z', visto_primera_vez: '2026-10-12T00:00:00Z', dejo_de_verse_en: null }, AHORA);
+  const con = tiempoDePieza({ publicada_en: '2026-09-17T12:00:00Z', visto_primera_vez: '2026-10-12T12:00:00Z', dejo_de_verse_en: null }, AHORA);
   assert.equal(con.dias, 44);
   assert.equal(con.linea, '17 sep → hoy');
-  const ida = tiempoDePieza({ publicada_en: '2026-09-17T00:00:00Z', visto_primera_vez: '2026-10-12T00:00:00Z', dejo_de_verse_en: '2026-10-20T00:00:00Z' }, AHORA);
+  const ida = tiempoDePieza({ publicada_en: '2026-09-17T12:00:00Z', visto_primera_vez: '2026-10-12T12:00:00Z', dejo_de_verse_en: '2026-10-20T12:00:00Z' }, AHORA);
   assert.equal(ida.sigue, false);
   assert.equal(ida.linea, '17 sep → 20 oct');
 });
@@ -93,7 +95,8 @@ test('la mezcla ordena por cantidad y la frase cuenta sobre el total', () => {
   const piezas = [{ tipo: 'reel' }, { tipo: 'reel' }, { tipo: 'video' }] as Array<Pick<Pieza, 'tipo'>>;
   assert.deepEqual(mezclaDeTipos(piezas)[0], { rotulo: 'Reels', n: 2, pct: 67 });
   const conTexto = piezas.map((p) => ({ ...p, dominio_destino: 'a.com', texto: null }));
-  assert.equal(fraseDeLectura(conTexto, '2026-10-31T00:00:00Z', AHORA), 'De lo que leímos el 31 oct, 2 de sus 3 piezas son reels, y manda sobre todo a a.com.');
+  // Al mediodía de UTC: el día va en la zona del producto, donde la medianoche de UTC todavía es el 30 (fechaCorta, 10/11/2026).
+  assert.equal(fraseDeLectura(conTexto, '2026-10-31T12:00:00Z', AHORA), 'De lo que leímos el 31 oct, 2 de sus 3 piezas son reels, y manda sobre todo a a.com.');
   assert.equal(fraseDeLectura([], null, AHORA), null);
 });
 

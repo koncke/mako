@@ -25,6 +25,8 @@
 // transcripciones: importarlo acá lo metería en todos los bundles que leen un módulo).
 // =============================================================================
 
+import { LEAD_MAGNET_EN_PRODUCCION } from './lead-magnets/archivado';
+
 /** Un tema del material de formación, y por dónde entra a MaKo. */
 export type ModuloKnowledge = {
   /** El id del módulo. Es el prefijo de su nodo en el grafo (`kn:<key>`) y lo que pide la API. */
@@ -68,7 +70,8 @@ export const MODULOS_KNOWLEDGE: readonly ModuloKnowledge[] = [
     key: 'organico', nombre: 'Contenido orgánico', area: 'organico',
     que: 'Cómo se construye alcance sin pauta: ganchos, formatos, guiones y ritmo de publicación.',
     secciones: ['Orgánico'],
-    tabs: ['copywriter', 'stories', 'newsletters', 'lead-magnet-generator', 'youtube-writer'],
+    // Lead Magnet, ARCHIVADO el 11/11/2026 por pedido de Martín (lib/lead-magnets/archivado.ts): sin su tab, no se nombra.
+    tabs: ['copywriter', 'stories', 'newsletters', ...(LEAD_MAGNET_EN_PRODUCCION ? ['lead-magnet-generator'] : []), 'youtube-writer'],
   },
   {
     key: 'oferta', nombre: 'Oferta y modelo de negocio', area: 'oferta',

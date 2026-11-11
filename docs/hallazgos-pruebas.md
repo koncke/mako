@@ -4,6 +4,31 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+## Mirar la foto ACHICADA también engaña: el velo del recorrido «no estaba», y el píxel decía que sí (11/11/2026)
+
+**Síntoma:** en la sexta maqueta de Marketing CoPilot, la foto de 1440 × 900 del recorrido de «Tu web» se veía con la página clara. Parecía que el velo oscuro no se dibujaba.
+
+**El diagnóstico obvio era el equivocado.** Leyendo el color del píxel de la misma foto, la barra de arriba pasaba de `#e4e4e1` a `#5a5a59`: el velo estaba. Recortada a tamaño real, la foto mostraba el velo y el recorte con el aro alrededor del titular. Lo que engañó fue mirarla achicada.
+
+**Lo que queda:**
+- Ante «esto no se dibuja» en una captura grande, primero se recorta a tamaño real o se lee el píxel (System.Drawing alcanza).
+- Recién después se toca el código.
+- Y al revés: una captura achicada que «se ve bien» tampoco prueba detalles chicos.
+## Probar leyendo no es mirar: la primera vuelta de Competitor Spy no vio un gráfico sin una sola portada (11/11/2026)
+
+Martín miró las pruebas del 10/11 y dijo que no funcionaron: en Video había un solo outlier, miniaturas grises, títulos cortados y
+una página casi vacía, y nadie lo marcó. En Competitor Spy pasó lo mismo: la primera vuelta leyó la página con `get_page_text` y
+el DOM, contó tarjetas, midió portadas con `naturalWidth`, y dio por bien una ficha cuyo gráfico tenía **cero portadas** y una
+caja blanca de 650 px vacía. Las dos cosas estaban en las capturas; nadie las miró como las mira Martín. Lo que queda:
+
+- **Cada pantalla se captura y se critica al lado de su referencia**, abierta en la misma sesión (fitlo y merrin para Spy). La
+  pregunta no es «¿anda?» sino «¿Martín diría que está vacío, cortado, roto o que no se entiende?».
+- **Una pantalla vacía en producción es una falla**, aunque el código haga lo que dice.
+- **Mirar también sin la barra de agencia**: el super admin ve una ficha distinta de la del cliente (en Spy, una regla global
+  de `<aside>` cortaba justo la parte que en el cliente quedaba vacía). `document.documentElement.removeAttribute('data-barra-agencia')`.
+- **Una captura que llega en blanco o atrasada no prueba nada** (el panel oculto; ver la entrada de abajo): se espera, se
+  vuelve a capturar, y lo que no se puede ver se anota «mirar en Chrome».
+
 ## El navegador de la app con el panel OCULTO congela la página: lo que no responde ahí no es una falla de la app (10/11/2026)
 
 **Síntoma:** en la prueba de punta a punta de Image, en el navegador de la app de Claude (`mcp__Claude_Browser__*`), «Editar» no
@@ -35,6 +60,12 @@ de IA y una apertura vista (docs/pruebas/image-10-11.md, «Límites»).
 - **A 375:** `resize_window` con `preset: mobile` + `navigate` (el servidor dibuja el armado de teléfono por el agente). La
   captura normal sirve: el marco es 469 × 1015. Al volver a 1440 hay que navegar otra vez, porque la página quedó con el armado
   de teléfono.
+**La captura de 1440 con el panel oculto (11/11/2026, prueba de Copywriting):** sale SIEMPRE el pedazo de arriba a la izquierda, y
+repetir `resize_window` no lo arregló (cinco veces). Si la sesión no está abierta en ninguna ventana, `show_pane` tampoco puede
+mostrarlo. Lo que sí sirvió: achicar sólo el DIBUJO de la página, que sigue armada a 1440 (`innerWidth` no cambia), con
+`document.documentElement.style.transform = 'scale(0.8)'` y `transformOrigin = '0 0'`. La captura cubre unos 1152 × 720 px de
+CSS, así que 1440 × 900 × 0,8 entra entera. Se saca antes de hacer clic: las coordenadas de la captura ya no son las de la página.
+En 375 la captura sale entera.
 
 ## Un `assert.equal` con un elemento de jsdom que falla agota la memoria (10/11/2026)
 
@@ -180,3 +211,46 @@ La tarjeta «A/B TEST» y sus puertas están en docs/hallazgos-chatbot.md («La 
 **Síntoma:** dos ramas sin relación (recibos y Admin) quedaron en rojo en la misma guarda, `tests/resend-clave-admin.test.ts`, sin tocar nada de Resend. **Lo obvio era que el código de la rama nombraba la clave, y no era eso.** El error real es `spawnSync git ENOBUFS`: `git ls-files` da 1.048.981 bytes, y `execFileSync` corta en 1 MiB si no se le da otro tope. Falla cualquier test que liste el repo entero, y sólo cuando entra en los afectados, por eso parecía de esas ramas.
 
 **La regla:** un `execFileSync('git', …)` que lista todo el repo lleva `maxBuffer`. Con ruta (`ls-files app lib`) todavía entra, pero el repo crece y un día deja de entrar.
+
+## Probar el Dashboard en producción con el navegador de la app: cinco trampas (10/11/2026)
+
+- **Si nadie tiene la sesión abierta en una ventana, el panel del navegador queda oculto** y `show_pane` no lo puede mostrar. La
+  página corre como de fondo: la primera captura sale negra o vieja (todavía no pintó). Lo que sirve: `document.getAnimations().forEach(a => a.finish())`
+  antes de cada captura, medir con el DOM y, si la captura sale negra, volver a capturar.
+- **Un `click()` de JavaScript no abre la lista de hojas** (`button.dash-pestana`): escucha `pointerdown`. Hay que mandar
+  `pointerdown`, `mousedown`, `pointerup`, `mouseup` y `click`, en ese orden, o usar el clic del navegador.
+- **Arrastrar una flecha hacia una tarjeta cerca del borde de arriba corre la página** (la selección de texto la desplaza), y la
+  flecha cae en otra tarjeta o en ninguna. Con las dos tarjetas a la vista y lejos del borde, anda.
+- **Para mirar un negocio de cliente sin riesgo**, después de cargar se pisa `window.fetch` para que todo POST con
+  `"accion":"guardar"` a /api/graficos devuelva 500. Mirar no guarda (`alMoverGrilla` sólo escribe editando), pero un link con
+  `?hoja=<plantilla>` sí agrega y guarda. Ojo: la traba se va con una recarga entera; un link de la app (navegación de Next) la conserva.
+- **Exportar sin bajar archivos:** se pisan `URL.createObjectURL` y `HTMLAnchorElement.prototype.click` para leer el CSV que se iba
+  a bajar, y `window.print` para ver que el PDF arme su vista (`lk--imprimir`).
+
+## Probar el Web Generator con el panel oculto: tres trampas más (10/11/2026)
+
+- **Un botón que «no abre» puede ser una página sin hidratar.** Con el panel oculto, la hidratación tarda: el botón está pintado
+  pero sin React encima, y el clic (de mouse o de JS) no hace nada. Antes de anotarlo como roto:
+  `Object.keys(boton).some(k => k.startsWith('__react'))`. Pasó con «Compartir»; con la página hidratada abría siempre.
+- **Una pestaña nueva con el panel oculto mide 0×0** hasta que se le pone un tamaño (`resize_window`): `innerWidth` da 0 y el
+  primer `resize_window` puede contestar «Policy check in progress»; se repite.
+- **El teléfono se sirve en la MISMA dirección**: con el tamaño «mobile» (que cambia el navegador a Android), `/web-generator`
+  muestra la lista del teléfono (`app/m/landing`). Si el tamaño se pone DESPUÉS de cargar, queda el editor de escritorio apretado:
+  primero el tamaño, después la dirección.
+- **Una `await` con `setTimeout` en una pestaña de fondo puede no volver nunca** (los relojes se frenan): para esperar, se lee
+  el DOM en llamadas separadas.
+
+## Leer no es mirar: la prueba que no ve capturas no vio nada (11/11/2026, Web Generator)
+
+Martín, después de la primera vuelta: «deberían haber detectado esto… incluso yo detecté otros errores». La primera se hizo
+leyendo `innerText`, el DOM y el código; la segunda MIRÓ cada pantalla con su captura y encontró tres defectos que ninguna
+medición había visto: un título partido a mitad de palabra con un panel abierto, una galería sin fotos que eran tres títulos
+sueltos, y la cabecera del teléfono con el título tapado por una pastilla.
+
+- **Cada pantalla se mira con su captura**, a 1440 y a 375, y cada landing publicada. Se critica al lado de la referencia
+  (Gamma): vacío, gris, cortado, pobre, qué no se entiende. Una pantalla vacía en producción también es una falla.
+- **Una captura en blanco o vieja no prueba nada**: con el panel oculto, primero `getAnimations().forEach(a => a.finish())` y
+  repetir la captura; si sigue así, se mira en una ventana a la vista (Chrome) antes de anotar nada.
+- **Abrir cada panel lateral** (Animar, Temas, Comentarios): cambian el ancho del lienzo, y lo que depende del ancho se rompe ahí.
+- **Una grilla de cabecera `minmax(0, 1fr) auto minmax(0, 1fr)`** le da a cada costado un tercio fijo: lo que no entra en su
+  tercio se monta sobre el título. Los costados van con `minmax(max-content, 1fr)` y el título con `minmax(0, auto)` y «…».

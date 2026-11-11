@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
         try {
           return J({ ok: true, ...(await lienzoMediaBuyer(ws, config.kpi, config.objetivo)) });
         } catch (e) {
-          if (e instanceof SinCuentaParaOperar) return J({ ok: false, error: e.message }, 409);
+          if (e instanceof SinCuentaParaOperar) return J({ ok: false, error: e.message, sinCuenta: true }, 409);
           throw e;
         }
       }
@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     if (e instanceof MediaBuyerSinTabla || e instanceof MediaBuyerSinZona) return J({ ok: false, error: e.message }, 503);
     if (e instanceof PlanSinPiloto) return J({ ok: false, error: e.message, tope: true, link: RUTA_CAMBIAR_PLAN }, 403);
-    if (e instanceof SinCuentaParaOperar) return J({ ok: false, error: e.message }, 409);
+    if (e instanceof SinCuentaParaOperar) return J({ ok: false, error: e.message, sinCuenta: true }, 409);
     const z = leerErrorDeZernio(e);
     return J({ ok: false, error: z ? `Zernio: ${z.mensaje}` : e instanceof Error ? e.message : String(e) }, 500);
   }

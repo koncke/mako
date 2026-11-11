@@ -45,6 +45,8 @@ export function NuevaCampana() {
   const { toast, show, clear } = useToast();
   const [prep, setPrep] = useState<Preparacion | null>(null);
   const [errorPrep, setErrorPrep] = useState<string | null>(null);
+  /** Sin Meta conectada (el 409 `sinCuenta`): la pantalla ofrece conectar, no un texto suelto (producción, 10/11/2026). */
+  const [sinCuenta, setSinCuenta] = useState(false);
   const [nombre, setNombre] = useState('');
   const [objetivo, setObjetivo] = useState<ObjetivoCampana>('formulario');
   const [formularioId, setFormularioId] = useState('');
@@ -69,7 +71,8 @@ export function NuevaCampana() {
 
   const leer = () => {
     void api<Preparacion>({ op: 'nueva_preparar' }).then((r) => {
-      if (!r.ok) { setErrorPrep(r.error ?? 'No pude leer tu cuenta.'); return; }
+      if (!r.ok) { if ((r as { sinCuenta?: boolean }).sinCuenta) { setSinCuenta(true); return; } setErrorPrep(r.error ?? 'No pude leer tu cuenta.'); return; }
+      setSinCuenta(false);
       setPrep(r);
       // Lo del Media Buyer, de partida: su zona y su fecha de fin (la campaña no puede salir de ellas).
       setLugares((x) => (x.length ? x : r.zona));
@@ -123,6 +126,15 @@ export function NuevaCampana() {
     </header>
   );
 
+  // Lo mismo que dice abajo con la cuenta leída y sin conexión (`!prep.conectado`): el bloque «Conecta tu cuenta», con su botón.
+  const conectar = (
+    <section className="mba-card">
+      <h2>Conecta tu cuenta</h2>
+      <p style={{ margin: 0 }}>Para lanzar campañas, MaKo usa tu conexión de Facebook por Zernio.</p>
+      <ConectarViaZernio red="metaads" volver="/ads-manager/nueva" size="sm" variant="secondary" onConectado={leer}>Conectar con Facebook</ConectarViaZernio>
+    </section>
+  );
+  if (sinCuenta) return <div className="mb"><div className="mba-ajustes">{cab}{conectar}</div></div>;
   if (errorPrep) return <div className="mb"><div className="mba-ajustes">{cab}<section className="mba-card"><p style={{ margin: 0 }}>{errorPrep}</p></section></div></div>;
   if (!prep) return <div className="mb"><div className="mba-ajustes" aria-busy="true">{cab}<section className="mba-card"><p style={{ margin: 0, color: 'var(--dim)' }}>Leyendo tu cuenta…</p></section></div></div>;
 
@@ -134,13 +146,7 @@ export function NuevaCampana() {
       <div className="mba-ajustes">
         {cab}
 
-        {!prep.conectado && (
-          <section className="mba-card">
-            <h2>Conecta tu cuenta</h2>
-            <p style={{ margin: 0 }}>Para lanzar campañas, MaKo usa tu conexión de Facebook por Zernio.</p>
-            <ConectarViaZernio red="metaads" volver="/ads-manager/nueva" size="sm" variant="secondary" onConectado={leer}>Conectar con Facebook</ConectarViaZernio>
-          </section>
-        )}
+        {!prep.conectado && conectar}
         {prep.avisos.map((a) => <p key={a} className="mk-hint" style={{ margin: 0 }}>{a}</p>)}
         {creada && (
           <section className="mba-card" role="alert">
