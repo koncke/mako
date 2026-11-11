@@ -7920,3 +7920,20 @@ habilitarla es decisión de Martín: habilitarla es volver a prestarle IA a un c
 
 **Vive en:** lib/ai-cheap.ts (`provsGratisDePlataforma` y su llamador en `chatCheapCascade`) · lib/veto-claude.ts
 (`CREDITO_HABILITADO_PARA`) · lib/flujo-ia.ts (`sinIAPropia`) · tests/ia-aviso-sin-ia-propia.test.ts
+
+## Dos claves de Gemini muertas, cargadas en varios negocios a la vez (11/11/2026)
+
+- **Síntoma:** el Copywriter del negocio de MaKo devolvió 502 a los ~110 s, con «La API key parece inválida o vencida. Pega una
+  nueva. (copywriter-ia: gemini no contestó antes del plazo (gemini: chatCheap(gemini): API key not valid…)». Quince minutos
+  antes había andado.
+- **Medido** (GET `models` de Gemini, que no genera ni cobra; script de sólo lectura que descifra cada `GEMINI_API_KEY*` con
+  `lib/cripto-credenciales.ts` y no la imprime): de 22 claves, 4 filas dan 401 «API key not valid», pero son sólo DOS claves:
+  la base del ws 9 (también cargada como base del ws 10) y la `_4` del ws 9 (también cargada como base del ws 1). Las otras
+  18 contestan 200. En el ws 9, la `_2` y la `_3` están vivas.
+- **El diagnóstico obvio puede ser el equivocado:** un 401 vuelve en el acto, así que una clave muerta sola no explica 110 s.
+  Con dos cuentas vivas, el plazo se gastó en otra parte (las vivas lentas, sin cupo, o reintentos), y el mensaje mostró el
+  PRIMER error, el de la clave muerta. Falta medirlo antes de culpar a la clave.
+- **Regla:** una misma clave copiada en varios negocios muere en todos a la vez; al reemplazarla, se reemplaza en todos. Y el
+  error que ve el usuario no puede ser el texto técnico ni pedirle a la plataforma que «pegue una nueva».
+- **Sin hacer:** que la cascada salte y recuerde una cuenta muerta (`lib/ai-cheap.ts`), y el mensaje de `errorDeCascada`
+  (`lib/ia-mensajes.ts`).
