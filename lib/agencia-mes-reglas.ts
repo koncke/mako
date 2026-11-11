@@ -330,6 +330,24 @@ export const clavePendiente = (p: Pendiente): string => (p.tipo === 'mes' ? `mes
 /** Un dólar en un comprobante: USD, USDT o USDC (Binance paga en USDT). Otra moneda no se convierte: va a una persona. */
 export const esDolar = (moneda: string | null | undefined): boolean => !!moneda && /^(USD|USDT|USDC)$/i.test(moneda.trim());
 
+/**
+ * LO PRIMERO QUE SE DECIDE DE UN COMPROBANTE DEL GRUPO, y en qué orden. ⚠️ LA ORDEN REPETIDA VA ANTES QUE LAS DUDAS (ticket #80,
+ * 10/11/2026): el 9/11 el comprobante de la entrada de Patricia (40 USDT por US$40,73) fue a Martín por la duda del monto, y Martín
+ * la marcó a mano. El 10/11 llegó el MISMO pago en PDF: como las dudas se miraban antes que la orden, volvió a Martín («para
+ * revisar», por segunda vez) y al grupo de la agencia le dijo «lo revisa el equipo» sobre algo ya resuelto. Una orden de Binance que
+ * ya se leyó o se usó no se revisa otra vez, tenga las dudas que tenga.
+ * `ordenYaUsada`: true si está en un recibo, en el libro o en una lectura anterior del grupo; undefined = no se pudo saber.
+ */
+export type VeredictoDeLectura = { tipo: 'repetido' } | { tipo: 'revisar'; porque: string } | { tipo: 'seguir'; orden: string };
+export function veredictoDeLectura(o: { limpia: boolean; dudas: string | null | undefined; moneda: string | null | undefined; orden: string | null; ordenYaUsada: boolean | undefined }): VeredictoDeLectura {
+  if (o.orden && o.ordenYaUsada === true) return { tipo: 'repetido' };
+  if (!o.limpia) return { tipo: 'revisar', porque: o.dudas ? `la lectura tiene dudas: ${o.dudas}` : 'faltan datos en la lectura' };
+  if (!esDolar(o.moneda)) return { tipo: 'revisar', porque: `en ${o.moneda ?? 'otra moneda'}: no se convierte` };
+  if (!o.orden) return { tipo: 'revisar', porque: 'la orden no es de Binance (18 dígitos)' };
+  if (o.ordenYaUsada === undefined) return { tipo: 'revisar', porque: 'no pude saber si la orden ya se usó' };
+  return { tipo: 'seguir', orden: o.orden };
+}
+
 /** ¿`pagado` cubre `debe`? Un centavo de redondeo no lo vuelve parcial (la regla de lib/comprobante-reglas.ts). */
 export const cubre = (pagado: number, debe: number): boolean => pagado + 0.01 >= debe;
 /** ¿`pagado` es «de más» contra `debe`? Más del 1 %. */
