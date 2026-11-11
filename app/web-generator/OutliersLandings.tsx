@@ -6,7 +6,7 @@
 // de Video (app/video-editor/OutliersVideo.tsx), que copia a Image (app/image-editor/carruseles/ExplorarCarruseles.tsx): el
 // mismo encabezado con su «OUTLIER» marcado, «+ Seguir cuentas» y «Crear desde cero», la misma grilla y la misma tarjeta, con
 // SUS clases (explorar.module.css y outliers.module.css): una portada, un diseño. Lo único propio (./outliers-landings.module.css):
-// la miniatura apaisada de una página y el sitio dibujado con su nombre cuando no hay imagen.
+// la miniatura apaisada de una página y la página dibujada con su titular cuando no hay imagen.
 //
 // La tarjeta: la captura (o la imagen para compartir de la página), el tipo arriba («VSL», «Webinar»…), el titular tal cual, de
 // quién es (con su ficha de Spy si es tu competencia), por qué funciona, «Replicar» (Replicar arrancando con esa página,
@@ -32,10 +32,20 @@ function Tarjeta({ x, telefono }: { x: OutlierLanding; telefono: boolean }) {
   return (
     <li className={s.tarjeta}>
       <a href={x.url} target="_blank" rel="noopener noreferrer" className={`${s.mini} ${l.mini}`} aria-label={`Ver la página de ${x.quien.nombre}`}>
+        {/* La captura del relevo se ve desde arriba (el titular); la imagen para compartir de Spy, entera (11/11: el logo
+            cuadrado de acquisition.com salía cortado). Sin imagen, la página dibujada con SU titular: nunca un cuadro gris. */}
         {x.imagen
           // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={x.imagen} alt="" className={`${s.miniImagen} ${l.arriba}`} loading="lazy" referrerPolicy="no-referrer" />
-          : <span className={l.sitio}><b>{host}</b></span>}
+          ? <img src={x.imagen} alt="" className={`${s.miniImagen} ${x.fuente === 'relevo' ? l.arriba : l.entera}`} loading="lazy" referrerPolicy="no-referrer" />
+          : (
+            <span className={l.pagina} aria-hidden>
+              <span className={l.barra}><span className={l.dominio}>{host}</span></span>
+              <span className={l.cuerpo}>
+                <b className={l.titular}>{x.titulo}</b>
+                {x.bajada ? <span className={l.bajada}>{x.bajada}</span> : null}
+              </span>
+            </span>
+          )}
         <span className={o.marca}>{NOMBRE_TIPO[x.tipo]}</span>
       </a>
       <div className={s.pie}>
@@ -60,7 +70,8 @@ function Tarjeta({ x, telefono }: { x: OutlierLanding; telefono: boolean }) {
   );
 }
 
-export function OutliersLandings({ portada, telefono = false }: { portada: PortadaLandings; telefono?: boolean }) {
+/** `rutaCrear`: en el teléfono, la lista de landings de /m/landing (su ruta no lleva la query de la computadora), como Video. */
+export function OutliersLandings({ portada, telefono = false, rutaCrear = RUTA_CREAR_LANDING }: { portada: PortadaLandings; telefono?: boolean; rutaCrear?: string }) {
   const deSpy = portada.outliers.filter((x) => x.fuente === 'spy').length;
   const total = portada.outliers.length;
   return (
@@ -70,7 +81,7 @@ export function OutliersLandings({ portada, telefono = false }: { portada: Porta
           <h1>Encuentra tu siguiente <mark>OUTLIER</mark></h1>
           <div className={s.botones}>
             <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
-            <Link href={RUTA_CREAR_LANDING} className={s.crear}><span aria-hidden>＋</span> Crear desde cero</Link>
+            <Link href={rutaCrear} className={s.crear}><span aria-hidden>＋</span> Crear desde cero</Link>
           </div>
         </header>
         {portada.caidas.map((c) => (

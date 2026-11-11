@@ -111,3 +111,15 @@ test('la puerta desde Video, «Tu personaje con IA», muestra una imagen y no un
   assert.ok(tarjeta.imagen, 'sin imagen, la tarjeta es un marco gris con «Desde tu foto»');
   assert.ok(existsSync(join(process.cwd(), 'public', tarjeta.imagen)), `falta ${tarjeta.imagen}`);
 });
+
+test('⚠️ y en el TELÉFONO también: la hoja «Nuevo video» dibuja la imagen de la tarjeta, no siempre el marco', () => {
+  // Medido en producción el 11/11: en la computadora la tarjeta ya tenía la foto; en el teléfono seguía el marco vacío,
+  // porque InicioVideoM dibujaba sus tarjetas a mano y nunca miraba `imagen`.
+  const hoja = leer('app/m/video-editor/InicioVideoM.tsx');
+  const i = hoja.indexOf('{plantillas.map((pl) => (');
+  assert.ok(i > 0, 'falta la grilla de la hoja');
+  const tarjeta = hoja.slice(i, i + 1400);
+  assert.match(tarjeta, /\{pl\.imagen \? \(/, 'con imagen, la imagen');
+  assert.match(tarjeta, /<img src=\{pl\.imagen\}/);
+  assert.match(tarjeta, /cajaDeMiniatura\(pl\.formato\)/, 'a su proporción, como en la computadora');
+});

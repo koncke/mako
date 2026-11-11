@@ -113,9 +113,10 @@ function TarjetaReel({ x, ahora }: { x: OutlierVideo; ahora: number }) {
           {cuando ? <span className={s.cuando}>{cuando}</span> : null}
         </div>
         <div className={s.datos}>
-          <span title="Vistas">▶ {contadorCorto(x.vistas ?? null)}</span>
-          <span title="Me gusta">♥ {contadorCorto(x.megusta ?? null)}</span>
-          <span title="Comentarios">💬 {contadorCorto(x.comentarios ?? null)}</span>
+          {/* Sin el dato, nada: «▶ —» en un reel que Spy no midió se leía como roto (producción, 11/11/2026). */}
+          {x.vistas != null ? <span title="Vistas">▶ {contadorCorto(x.vistas)}</span> : null}
+          {x.megusta != null ? <span title="Me gusta">♥ {contadorCorto(x.megusta)}</span> : null}
+          {x.comentarios != null ? <span title="Comentarios">💬 {contadorCorto(x.comentarios)}</span> : null}
         </div>
       </div>
     </li>
