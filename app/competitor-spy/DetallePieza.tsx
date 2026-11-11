@@ -355,7 +355,10 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
           {textoPropio && (
             <section>
               <div className="spyd-titulo"><h4>{rotuloTexto}</h4></div>
-              <div className="spyd-guion" style={{ maxHeight: 180 }}><p style={{ whiteSpace: 'pre-wrap' }}>{textoPropio}</p></div>
+              {/* Un video de YouTube no tiene guion arriba: su descripción usa el alto del modal (`min(90vh, 800px)` menos los
+                  480 px de lo demás: 320 a 900 de alto, sin una segunda barra en el modal). Con 180, la caja se cortaba con su
+                  barra y quedaban ~165 px vacíos debajo (mirado en producción el 11/11/2026). */}
+              <div className="spyd-guion" style={{ maxHeight: esVideoYt ? 'clamp(180px, calc(min(90vh, 800px) - 480px), 320px)' : 180 }}><p style={{ whiteSpace: 'pre-wrap' }}>{textoPropio}</p></div>
             </section>
           )}
           {tags.length > 0 && <div className="spyd-tags">{tags.map((t) => <span key={t}>{t}</span>)}</div>}
