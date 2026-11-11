@@ -179,7 +179,8 @@ test('10. lo chico de YouTube va con la miniatura chica de YouTube (4,7 KB contr
 
 test('11. el nombre de una tarjeta va en dos renglones, como fitlo («clamp 2»)', () => {
   const app = leer('app/competitor-spy/SpyApp.tsx');
-  assert.match(app, /\.spy-pcard__texto b\{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;/);
+  // Desde el 11/11 el nombre además va en su propia fila, de lado a lado (tests/mirada-prod-11-11.test.ts, caso 5).
+  assert.match(app, /\.spy-pcard__texto b\{[^}]*display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;/);
   assert.doesNotMatch(app, /\.spy-pcard__texto b\{[^}]*white-space:nowrap/, 'en un renglón, «52 Minutes of…»');
 });
 

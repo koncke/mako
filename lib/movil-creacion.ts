@@ -81,7 +81,9 @@ export const RUTAS_CREACION: readonly RutaCreacion[] = [
   // El Copywriter (28/10/2026, docs/diseno-copywriter.md): la lista y cada página (/copywriter/<id>); desde el 29/10 es
   // Copywriting, para todos. Sin fila oculta: More la arma desde la barra. `?nuevo=<tipo>` abre los templates de ese tipo
   // (lo traen /reels, /stories y «Abrir en Copywriter»), en los dos lados.
-  { base: '/copywriter', query: ['nuevo'], sub: '*' },
+  // Desde el 11/11/2026 `/copywriter` es la portada de outliers (D18): `?nueva=1` («Crear desde cero», las plantillas) y
+  // `?ver=guiones` («Mis guiones») también viajan; sin ellos, el teléfono mostraba siempre la portada (medido en producción).
+  { base: '/copywriter', query: ['nuevo', 'nueva', 'ver'], sub: '*' },
   // El Lead Magnet Generator (5/11/2026): la lista y, con `?lm=<id>`, ese lead magnet, en los dos lados.
   { base: '/lead-magnet-generator', query: ['lm'] },
 ];

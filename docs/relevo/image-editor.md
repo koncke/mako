@@ -3,6 +3,15 @@
 Chat: «Image» (cuenta claude4), el que el Cerebro renombró el 10/11. Antes se llamaba «Biblioteca de carruseles: portadas y
 láminas que no se vencen». Lo escribe el chat que hizo el trabajo.
 
+## 11/11/2026 a la tarde (lo más nuevo)
+
+- **Probado en producción** (docs/pruebas/image-11-11.md, 18 capturas): traer de Instagram y de YouTube, otro negocio no lo ve,
+  el error del reel con «Reportar a Soporte», y en el editor texto, orden, plantilla, imagen, guardar, reabrir y exportar.
+- **No se pudo ver:** el guiado de «Editar» con el panel del navegador oculto (la pestaña se congela). Hace falta el panel a la vista.
+- **Subido para el 12/11:** `6373b9651` (un reel se corta por el link, sin pagar) y `f6b719a3a` (sin «Traer» con un reel, sin
+  «Guardar búsqueda» con un link).
+- **Meta:** medido (US$0,0058 por anuncio por su `?id=`), sin prender: espera el sí de Martín al costo.
+
 ## 11/11/2026 a la mañana (lo más nuevo, arriba)
 
 - **Subido a la punta:**

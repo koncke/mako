@@ -9,7 +9,8 @@
 //   3. `traidaPor` lee el negocio venga como número o como texto (bigint de la base), y nada raro cuenta como negocio;
 //   4. `linkDeInstagram` se mudó a ./link.ts y la biblioteca lo sigue exportando igual;
 //   5. el link pegado en el buscador encuentra ESA publicación si ya está (si no, ofrecía traer lo que ya estaba);
-//   6. un reel se reconoce por su dirección, para rechazarlo SIN pagar la lectura de Apify.
+//   6. un reel se reconoce por su dirección, para rechazarlo SIN pagar la lectura de Apify;
+//   7. sólo una falla PASAJERA vuelve a ofrecer «Traer» (`reintentar`): una definitiva, reintentada, es otra lectura pagada.
 //
 // Verificado rompiéndolo (11/11/2026, base 4/0): `seMuestraA` mostrando lo traído a cualquier negocio → cae 2; sin saltear la
 // revisión para lo traído → cae 2; `traidaPor` aceptando el 0 → cae 3.
@@ -17,6 +18,8 @@
 // Correr: node --import tsx --test tests/carruseles-traidos.test.ts
 
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import assert from 'node:assert/strict';
 import { linkDeInstagram as desdeLaBiblioteca, seMuestraA, traidaPor } from '../lib/carruseles/biblioteca';
 import { esLinkDeVideo, linkDeInstagram } from '../lib/carruseles/link';
@@ -69,4 +72,21 @@ test('6 · un reel se reconoce por su dirección: se rechaza sin pagar la lectur
   assert.equal(esLinkDeVideo('https://www.instagram.com/p/DaZFc_kkttt/'), false, 'un /p/ puede ser un carrusel: se lee');
   assert.equal(esLinkDeVideo('reel'), false);
   assert.equal(esLinkDeVideo(null), false);
+});
+
+test('7 · sólo una falla pasajera lleva `reintentar`: lo definitivo no se vuelve a ofrecer (cada intento se paga)', () => {
+  // Medido en producción el 11/11/2026: un link inexistente cobró US$0,0027 por el ítem del error, y la pantalla seguía ofreciendo
+  // «Traer» debajo del error. Lo que manda es el CONTRATO de `traerCarrusel`: qué errores marcan `reintentar`.
+  const fuente = readFileSync(join(__dirname, '..', 'lib', 'carruseles', 'traer-servidor.ts'), 'utf8');
+  const errores = [...fuente.matchAll(/return { ok: false, error: ['`]([^'`]+)['`](, reintentar: true)? }/g)].map((m) => ({ texto: m[1], reintentar: !!m[2] }));
+  assert.ok(errores.length >= 8, `el test dejó de ver los errores de traerCarrusel (vio ${errores.length})`);
+  const conReintento = errores.filter((e) => e.reintentar).map((e) => e.texto).sort();
+  assert.deepEqual(conReintento, ['No pude leer ese link ahora. Vuelve a intentar en un rato.', 'No pude traer ese carrusel. Vuelve a intentar.']);
+  for (const definitivo of [/no me dio esa publicación/, /es de un reel/, /es un reel o un video/, /Hoy ya trajiste/, /salió de los ejemplos/]) {
+    assert.ok(errores.some((e) => definitivo.test(e.texto) && !e.reintentar), `«${definitivo.source}» es definitivo: no se reintenta`);
+  }
+  // Y la pantalla lo respeta: el botón sólo sin error o con un error que se puede reintentar, y el error atado a SU link.
+  const pantalla = readFileSync(join(__dirname, '..', 'app', 'image-editor', 'carruseles', 'ExplorarCarruseles.tsx'), 'utf8');
+  assert.ok(pantalla.includes('linkPegado && (!errorDeEsteLink || errorDeEsteLink.reintentar) ? <button'), 'el botón sólo sin error o con uno que se puede reintentar');
+  assert.ok(pantalla.includes('errorTraer.para === f.q'), 'el error queda atado al link que lo dio');
 });

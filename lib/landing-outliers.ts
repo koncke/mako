@@ -40,8 +40,10 @@ export type OutlierLanding = {
   tipo: TipoLanding;
   /** Por qué funciona, en una frase (null = todavía no se analizó: las de Spy). */
   porque: string | null;
-  /** La imagen de la tarjeta (ver la cabecera). null = no hay: la tarjeta dibuja el sitio con su nombre. */
+  /** La imagen de la tarjeta (ver la cabecera). null = no hay: la tarjeta dibuja la página con su titular. */
   imagen: string | null;
+  /** Lo que la página dice de sí misma para compartirse (`og:description`; sólo Spy): va debajo del titular cuando no hay imagen. */
+  bajada?: string | null;
   idioma: 'es' | 'en';
 };
 
@@ -97,6 +99,31 @@ export function ogImagenDe(html: string, base: string): string | null {
     const u = new URL(c.replace(/&amp;/g, '&'), base);
     return u.protocol === 'https:' ? u.toString() : null;
   } catch { return null; }
+}
+
+const ENTIDADES: Record<string, string> = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ' };
+const desdeCodigo = (n: number, m: string) => { try { return String.fromCodePoint(n); } catch { return m; } };
+const textoPlano = (s: string) => s
+  .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => (e[0] === '#'
+    ? desdeCodigo(/^#x/i.test(e) ? parseInt(e.slice(2), 16) : Number(e.slice(1)), m)
+    : ENTIDADES[e.toLowerCase()] ?? m))
+  .replace(/\s+/g, ' ').trim();
+const corto = (s: string | null, max: number) => (!s ? null : s.length <= max ? s : `${s.slice(0, max - 1).trimEnd()}…`);
+
+function metaDe(html: string, nombres: string): string | null {
+  const m = new RegExp(`<meta[^>]+(?:property|name)\\s*=\\s*["'](?:${nombres})["'][^>]*>`, 'i').exec(html);
+  const c = m ? /content\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(m[0]) : null;
+  return c ? textoPlano(c[1] ?? c[2] ?? '') || null : null;
+}
+
+/**
+ * Lo que una página dice de sí misma (11/11/2026): su titular (`og:title`, `twitter:title` o `<title>`) y su bajada
+ * (`og:description`…), en texto plano. Una landing de Spy sin `og:image` se dibuja con esto (su titular, no un cuadro con el
+ * dominio), y su tarjeta lleva el titular de la página en vez del dominio.
+ */
+export function cabeceraDePagina(html: string): { titulo: string | null; bajada: string | null } {
+  const titulo = metaDe(html, 'og:title|twitter:title') ?? (textoPlano(/<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1] ?? '') || null);
+  return { titulo: corto(titulo, 140), bajada: corto(metaDe(html, 'og:description|twitter:description|description'), 200) };
 }
 
 /** La imagen de la captura de una del relevo: public/web-generator/outliers/<id>.jpg (scripts/capturas-outliers-landings.mjs). */

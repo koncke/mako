@@ -178,6 +178,24 @@ test('11. replicar: una fila de cifras (número y rótulo alternados) va como «
   assert.ok(tipos.includes('bulletList'), 'y el resto, como viñetas');
 });
 
+test('12. con la foto al costado, las cifras van de a pares (cuatro columnas de 103px no entran)', async () => {
+  // Medido en producción el 11/11/2026 en la réplica #98 de acquisition.com: la tarjeta «derecha» deja 466px de texto, cuatro
+  // columnas de 103px, y «10,000» a 3.2em mide 150px: «10,00081», «97.1%12,000» y los rótulos partidos a mitad de palabra.
+  const { CSS_CONTENIDO } = await import('../lib/editor-landing/css');
+  assert.match(CSS_CONTENIDO, /\.gm-tarjeta:is\(\[data-diseno="izquierda"\], \[data-diseno="derecha"\]\) \.gm-optimizado:is\(\[data-variante="numeros-grandes"\], \[data-variante="estadisticas-circulares"\]\):is\(\[data-cols="auto"\], :not\(\[data-cols\]\)\)[^{]*\{ --gm-n: var\(--gm-n-pares\); \}/);
+  // EN_PARES de 4 es 2 (REJILLA de 4 es 4): de eso depende.
+  assert.match(CSS_CONTENIDO, /\.gm-optimizado:has\(> \.gm-item:nth-child\(4\):last-child\)[^{]*\{[^}]*--gm-n-rejilla: 4; --gm-n-pares: 2;/);
+  // Y en el teléfono, la foto del costado pasa arriba como franja: se mira la parte de arriba (la #98 mostraba el torso de Alex
+  // Hormozi sin la cabeza), en la publicada (media query) y en la vista «Teléfono» del editor.
+  const arriba = CSS_CONTENIDO.match(/[^}]*\.gm-tarjeta:is\(\[data-diseno="izquierda"\], \[data-diseno="derecha"\]\) > \.gm-acento[^{]*\{ background-position: 50% 15%; \}/g) ?? [];
+  assert.ok(arriba.length >= 2, `la franja del teléfono mira arriba en la publicada y en el editor (${arriba.length})`);
+  // Y la cifra entra en su columna en cualquier ancho (en el teléfono: columnas de 138px y «10,000» de 164px).
+  assert.match(CSS_CONTENIDO, /\.gm-optimizado\[data-variante="numeros-grandes"\] > \.gm-item[^{]*\{ container-type: inline-size; \}/);
+  assert.match(CSS_CONTENIDO, /\.gm-optimizado\[data-variante="numeros-grandes"\] \.gm-item-valor[^{]*\{ font-size: min\(3\.2em, calc\(100cqi \/ \(max\(var\(--gm-largo, 6\), 6\) \* 0\.6\)\)\); white-space: nowrap; \}/);
+  const { specOptimizadoItem } = await import('../lib/editor-landing/especificacion');
+  assert.match(JSON.stringify(specOptimizadoItem({ valor: '10,000' })), /"style":"--gm-num:10000;--gm-largo:6"/, 'el largo de la cifra va en el ítem');
+});
+
 // PROBADO ROMPIÉNDOLO (10/11/2026, base 6/0; cada rotura sobre el archivo real, restaurado y verificado por hash):
 //   · `textoDe` separando otra vez por el tipo del PADRE              → 5/1 (1)
 //   · `tituloDeTarjeta` mirando sólo los hijos directos               → 5/1 (2)

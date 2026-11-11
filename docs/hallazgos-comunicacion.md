@@ -189,6 +189,12 @@ funcionando para nada bien»). Medido a las 01:00 y 01:34 UTC del 11/11, sólo l
 - ⚠️ **Para volver a escanear una línea que contesta la sonda, el panel no deja:** `/agencia` responde «La línea ya está conectada y
   respondiendo» (lib/mako-canal.ts, el guard que evita desvincular una viva). Primero se cierra esa sesión desde el teléfono
   (WhatsApp → Dispositivos vinculados), y después «Conectar por QR».
+⚠️ **El freno de las 6 h avisó lo que ya estaba atendido (11/11, 13:14 y 14:04 UTC).** Martín reconectó su línea (`mako_ws9`) y la
+resincronización trajo lo de ayer: cuatro mensajes de la propia MaKo (vistos desde otra línea llegan como de una persona, `pushName`
+«Mako» y su número en `participantAlt`) y uno de Joan que MaKo ya había contestado. Salieron cinco avisos de ruido al grupo de Martín.
+El anillo de ids de MaKo guarda 40, así que lo de ayer ya no estaba. Ahora un atrasado se saltea en silencio si ya está en la cola o si
+su autor es el número de la voz, leída ESTRICTA (`atrasadoYaAtendido`; sin poder leerla, se avisa).
+
 **Sin hacer:**
 - una línea SORDA del todo (no entrega nada) no la ve esta alarma, porque mide lo que llega. Para esa, lo que se mide es un mensaje
   propio de prueba (con su hora) que tiene que volver por el webhook;

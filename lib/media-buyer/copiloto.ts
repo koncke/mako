@@ -733,8 +733,10 @@ export type Propuesta = {
 export const RUTAS_COPILOTO = {
   // «Crear el regalo»: con Lead Magnet ARCHIVADO (11/11/2026, pedido de Martín; lib/lead-magnets/archivado.ts) va al Copywriter,
   // donde se escribe una guía o un checklist. Antes llevaba a una pantalla que a un cliente lo devolvía al inicio.
+  // A su pantalla de CREAR (`?nueva`: «¿Qué vas a crear hoy?» con el campo para pedirlo), no a la galería de outliers: mirado en
+  // producción el 11/11, el botón dejaba a la persona en «Encuentra tu siguiente OUTLIER», sin nada que dijera regalo.
   calendario: '/calendario', carruseles: '/image-editor/carruseles', copywriter: '/copywriter',
-  leadMagnets: LEAD_MAGNET_EN_PRODUCCION ? '/lead-magnet-generator' : '/copywriter',
+  leadMagnets: LEAD_MAGNET_EN_PRODUCCION ? '/lead-magnet-generator' : '/copywriter?nueva',
   competencia: '/competitor-spy', web: '/web-generator', video: '/video-editor', avatar: '/ai-avatar',
   email: '/email', chats: '/chats', crm: '/crm', integraciones: '/integraciones',
   // «Lanzar el primer anuncio» era el único paso de la semana sin botón (producción, 10/11/2026): la pantalla existe.
@@ -932,8 +934,8 @@ export function tareasDeLaSemana(p: PerfilCopiloto): Tarea[] {
 /** El nombre de la pantalla de MaKo de cada ruta del CoPilot: el botón dice a dónde lleva, y el agente la nombra igual. */
 export const PANTALLA_DE_RUTA: Readonly<Record<string, string>> = {
   [RUTAS_COPILOTO.copywriter]: 'Copywriting', [RUTAS_COPILOTO.video]: 'Video', [RUTAS_COPILOTO.web]: 'Web Generator',
-  // Archivado, su ruta es la del Copywriter: sin esto, «Lead Magnet» le pisaba el nombre a «Copywriting».
-  ...(LEAD_MAGNET_EN_PRODUCCION ? { [RUTAS_COPILOTO.leadMagnets]: 'Lead Magnet' } : {}),
+  // Archivado, su ruta es la de crear del Copywriter, y se llama así (sin esto el paso decía «Abrir»).
+  [RUTAS_COPILOTO.leadMagnets]: LEAD_MAGNET_EN_PRODUCCION ? 'Lead Magnet' : 'Copywriting',
   [RUTAS_COPILOTO.carruseles]: 'Carruseles', [RUTAS_COPILOTO.calendario]: 'Calendario', [RUTAS_COPILOTO.competencia]: 'Competitor Spy', [RUTAS_COPILOTO.email]: 'Email',
   [RUTAS_COPILOTO.chats]: 'Chats', [RUTAS_COPILOTO.crm]: 'CRM', [RUTAS_COPILOTO.avatar]: 'AI Avatar', [RUTAS_COPILOTO.integraciones]: 'Integraciones',
   [RUTAS_COPILOTO.nueva]: 'Nueva campaña',

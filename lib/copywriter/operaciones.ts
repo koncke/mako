@@ -206,6 +206,8 @@ export function sanearOperaciones(raw: unknown, doc: JsonNodo, catalogo: { angul
 /** Una copia profunda (el documento de la pantalla no se toca). */
 const copia = (d: JsonNodo): JsonNodo => JSON.parse(JSON.stringify(d)) as JsonNodo;
 const esSeccion = (b: JsonNodo) => b.type === NODOS.titulo && esEtiqueta(b.attrs?.seccion);
+/** Un párrafo sin texto (el renglón con que nace una página vacía). */
+const parrafoVacio = (b: JsonNodo) => b.type === 'paragraph' && !JSON.stringify(b.content ?? []).match(/"text":"[^"]*\S/);
 
 /** Aplica UNA operación al documento. Devuelve el documento nuevo, los ids de lo que escribió y, si no pudo, el motivo. */
 export function aplicarOperacion(doc: JsonNodo, op: OperacionIA): { doc: JsonNodo; nuevos: string[]; motivo?: string } {
@@ -220,6 +222,9 @@ export function aplicarOperacion(doc: JsonNodo, op: OperacionIA): { doc: JsonNod
         // Una sección que el guion no tiene: va al final, con su título.
         const titulo = tituloDeSeccion(op.seccion);
         if (op.bidTitulo) titulo.attrs = { ...titulo.attrs, bid: op.bidTitulo };
+        // En una página que todavía no tiene nada (la de «Replicar» nace con un renglón vacío), lo escrito ocupa su lugar: si no,
+        // quedaba arriba un renglón con «Escribe "/" para ver los comandos…» (11/11/2026, en producción).
+        if (content.length && content.every(parrafoVacio)) content.splice(0, content.length);
         content.push(titulo, ...nodos);
         return { doc: d, nuevos: [titulo.attrs!.bid as string, ...nodos.map((n) => n.attrs!.bid as string)] };
       }

@@ -133,3 +133,22 @@ test('con «1» la palabra que sigue va en singular: «1 persona», «1 agendó�
   assert.equal(escrito({ 0: '3', 1: '1', 2: '1' }), 'Entraron 3 visitas de 1 persona · 1 agendó');
   assert.equal(escrito({ 0: '1', 1: '2', 2: '11' }), 'Entraron 1 visita de 2 personas · 11 agendaron', '«11» no es «1»');
 });
+
+test('con «1» también va en singular lo de VARIAS palabras: «1 no se presentó», «1 persona le dio play», «1 de tus 5 clientes pide» (11/11/2026)', () => {
+  const f = (patron: string, ids: string[], vals: string[]) =>
+    fraseEnTexto(tramosDeFrase(patron, ids.map((id) => ({ id, nombre: id })) as never, (i) => vals[i] ?? null, () => null));
+  // Las frases de las plantillas, tal cual (lib/graficos-plantillas*.ts).
+  assert.equal(f('De {agendas} agendas vinieron {asistencias} y salieron {cierres} cierres · {no_show} no se presentaron', ['agendas', 'asistencias', 'cierres', 'no_show'], ['3', '2', '0', '1']),
+    'De 3 agendas vinieron 2 y salieron 0 cierres · 1 no se presentó');
+  assert.equal(f('Salieron {enviados} mensajes · {fallaron} fallaron · {respuestas} te respondieron', ['enviados', 'fallaron', 'respuestas'], ['1', '1', '1']),
+    'Salieron 1 mensaje · 1 falló · 1 te respondió', 'el verbo ANTES del número no se toca');
+  assert.equal(f('{arrancaron} personas le dieron play · {llegaron_final} lo vieron entero', ['arrancaron', 'llegaron_final'], ['1', '1']), '1 persona le dio play · 1 lo vio entero');
+  assert.equal(f('Tienes {activas} tareas activas · {en_curso} en curso · {hechas} ya hechas', ['activas', 'en_curso', 'hechas'], ['1', '1', '1']), 'Tienes 1 tarea activa · 1 en curso · 1 ya hecha');
+  assert.equal(f('Entraron {leads} interesados · {agendas} agendaron una visita · {cierres} ya compraron', ['leads', 'agendas', 'cierres'], ['1', '1', '1']),
+    'Entraron 1 interesado · 1 agendó una visita · 1 ya compró');
+  assert.equal(f('{atencion} de tus {clientes} clientes piden atención', ['atencion', 'clientes'], ['1', '5']), '1 de tus 5 clientes pide atención');
+  assert.equal(f('{atencion} de tus {clientes} clientes piden atención', ['atencion', 'clientes'], ['2', '5']), '2 de tus 5 clientes piden atención');
+  assert.equal(f('{atencion} de tus {clientes} clientes piden atención', ['atencion', 'clientes'], ['1', '1']), '1 de tus 1 cliente pide atención');
+  // Con otro número, nada cambia.
+  assert.equal(f('{no_show} no se presentaron', ['no_show'], ['2']), '2 no se presentaron');
+});

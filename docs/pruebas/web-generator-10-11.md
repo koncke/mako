@@ -226,3 +226,27 @@ afuera (bloqueadas al Chrome automático, tapadas por carteles o sin cargar), an
 
 **Sin hacer (queda para Chrome, con el turno):** la copia idéntica con su ventana, mirar los cursores, adaptar el copy en un
 negocio con IA, publicar la réplica, cada botón, y el teléfono.
+
+## La cuarta vuelta: en producción después del despliegue (11/11/2026, de tarde)
+
+Con la sesión de Martín en el navegador de la app (`/api/auth/me`: martinkoncke, mirando el ws 3), a 1440 y a 375. El Chrome de
+la extensión tenía la sesión de LEANDRO (ws 10): no se usó. Antes de que Martín volviera a entrar, sin sesión, sólo se pudo
+comprobar que las 20 capturas del relevo se sirven (200, image/jpeg).
+
+| Pantalla | Lo que se vio | Qué se hizo |
+|---|---|---|
+| Portada a 1440, arriba (53) | La primera tarjeta, de la competencia, con el logo de acquisition.com cortado abajo; la segunda, un cuadro gris con «lp.acquisition.com» | El logo es su imagen para compartir, cuadrada (2000×2000), recortada en 16:10: ahora se ve entera. La gris era el dominio sobre `--primary-bg`, que en el tema por defecto ES un gris: ahora dibuja la página con SU titular y su bajada (og:title, og:description), y la tarjeta lleva el titular en vez del dominio |
+| Portada a 1440, el resto (54–56) | Las 20 del relevo con su captura, la grilla sin cortes y el final cerrado. Cuatro capturas llevan el cartel de cookies encima (Cardone ×2, Vilma, los libros de Hormozi) | Anotado abajo |
+| Portada a 375 (57) | No había portada: el teléfono abría la lista de landings. Video, Image y Copywriting ya la muestran en el teléfono | `/m/landing` muestra la portada primero; «Crear desde cero» lleva a la lista (`?ver=lista`), y una landing vuelve a la lista |
+| Réplica #97, hero a 1440 (58) | Debajo del titular, el AVISO LEGAL del pie («Alex and Leila Hormozi's results are not typical…»), y sin el botón del hero | acquisition.com es Next.js con streaming: `<main>` trae marcadores y el contenido llega DESPUÉS del `<footer>`. El extractor ahora arma la página como el navegador (`armarStreaming`). Medido con la página real: el aviso pasa del bloque 0 al 38. Y «I'M READY TO SCALE» vuelve a ser botón |
+| Replicar desde la portada (59) | «Replicar» abre la lectura con las 9 secciones; los ángulos no corren (el ws 3 no tiene IA) | Réplica nueva, #98, como «Landing» |
+| #98 a 1440, las cifras (60) | Ya salen como «Números grandes» (el arreglo de la mañana anda), pero en 4 columnas de 103px junto a la foto: «10,00081», «97.1%12,000» y los rótulos partidos | Con la foto al costado van de a pares. Mirado en la misma página: 2×2 y enteras (61) |
+| #98 a 375, el hero (62) | La foto pasa arriba como franja y muestra el torso de Alex sin la cabeza | En el teléfono la foto del costado se mira desde arriba. Mirado: se ve la cara (63) |
+| #98 a 375, las cifras (64) | Columnas de 138px y «10,000» de 164px: otra vez pisadas | La cifra se achica hasta entrar en su columna, pareja en toda la fila. Mirado: las cuatro a 38px y enteras (65) |
+
+Las capturas 61, 63 y 65 son de la MISMA página de producción con la regla nueva puesta a mano en el navegador (para mirar antes
+de subir); lo que se ve en producción cambia con el próximo despliegue.
+
+**Quedan:** el cartel de cookies en 4 capturas del relevo (el script las saca con el Chrome sin cabeza, que no puede cerrarlo;
+hace falta sacarlas por CDP sacando el cartel antes), y lo que pide la ventana o la animación (la copia idéntica, los cursores):
+el navegador de la app con el panel oculto no anima, y el Chrome de la extensión tenía la sesión de Leandro.

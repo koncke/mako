@@ -690,7 +690,11 @@ export function fmtValor(v: number | null, formato: Formato, compacto = false): 
     const conCentavos = formato === 'usd' && abs < 100 && Math.round(abs * 100) % 100 !== 0;
     const conDecimal = formato === 'numero' && abs < 100 && Math.round(abs * 10) % 10 !== 0;
     const dec = conCentavos ? 2 : conDecimal ? 1 : 0;
-    num = v.toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    // Debajo de un centavo, dos cifras significativas: el costo por llamada a la IA (US$0,000038) se escribía «US$0», un cero
+    // que no es cero (11/11/2026, Contenido e IA en el teléfono). Lo mismo que la compu (`dolares`, lib/contenido-diseno.ts).
+    num = formato === 'usd' && abs > 0 && abs < 0.01
+      ? v.toLocaleString('es-AR', { maximumSignificantDigits: 2 })
+      : v.toLocaleString('es-AR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
   }
   if (formato === 'usd') return `US$${num}`;
   if (formato === 'segundos') return `${num} s`;

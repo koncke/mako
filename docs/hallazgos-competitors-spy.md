@@ -13,6 +13,22 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## La tercera mirada, con todo desplegado: lo que la referencia no decía (11/11/2026)
+
+**Vive en:** `app/competitor-spy/SpyApp.tsx` (`.spy-pcard__pie`, `recargarSugeridos`, el aviso de la cola) · `lib/spy-vista.ts`
+(`linksLegibles`). Informe: `docs/pruebas/competitor-spy-10-11.md`, «Tercera vuelta». Test: `tests/mirada-prod-11-11.test.ts`.
+
+- **El pie de fitlo no sirve para un video de YouTube.** fitlo pone la píldora del número AL LADO del nombre porque sus nombres son
+  cortos («Merino tee»). Con los títulos de Leila, aun en dos renglones, 14 de 15 quedaban cortados: el nombre tenía 104 px de 234.
+  La píldora sube a la fila de su tipo y el nombre va debajo, de lado a lado (3 de 15 cortados, los de más de ~60 letras).
+  **Copiar la referencia también es medirla con NUESTROS datos.**
+- **Una descripción de YouTube es casi toda rastreo:** `?utm_source=…&utm_medium=…&utm_campaign=…`. Lo que importa es a dónde
+  manda: `linksLegibles` deja el sitio y el camino.
+- **`sugeridosAction` existía y nadie la llamaba:** dejar de mirar a alguien sumado desde «Sugeridos» no lo devolvía ahí hasta
+  recargar. Ahora `quitar` y `quitarDeLaLista` vuelven a pedir los sugeridos.
+- **`haceCuanto` ya trae el «hace»:** «la que más espera lleva hace 1 d en la cola» salía así desde el 6/11. Una frase que
+  necesita la duración sola le saca el «hace».
+
 ## En «Todas sus piezas», las publicaciones (carruseles e imágenes) salen sin miniatura (11/11/2026)
 
 Recorriendo la grilla de Federico Cristofari (ws 9, `competidor=20`) para la maqueta de Marketing CoPilot, ninguna tarjeta de tipo «Publicación» tenía `<img>` en las páginas 10 a 16. Son 71 piezas. Los reels y los videos sí la tienen: viven en el almacenamiento público `spy-miniaturas/spy/<red>/<id>.jpg`.

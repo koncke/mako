@@ -133,7 +133,7 @@ export const CSS_CONTENIDO = `
 .orr .orr-plot__x span:nth-child(7) { left: 78.26%; }
 .orr .orr-plot__x span:nth-child(8) { left: 91.3%; }
 .orr .orr-plot__x span:nth-child(9) { left: auto; right: 0; transform: none; }
-.orr .orr-models { margin-top: 17px; display: grid; gap: 14.5px; }
+.orr .orr-models { margin-top: 17px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14.5px; }
 .orr .orr-m__h { display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 24px; }
 .orr .orr-m__n { display: inline-flex; align-items: center; gap: 9px; min-width: 0; font-size: 15px; font-weight: 500; line-height: 22.5px; }
 .orr .orr-dot { width: 8px; height: 8px; flex: none; border-radius: 2px; }
@@ -151,13 +151,16 @@ export const CSS_CONTENIDO = `
 .orr .orr-up i.orr-bad { height: 64%; background: var(--amber); opacity: 1; }
 .orr .orr-m__f { margin-top: 8px; display: flex; justify-content: space-between; font-size: 13px; line-height: 19.5px; color: var(--faint); }
 .orr .orr-m__f b { font-weight: 500; color: var(--ink); }
-.orr .orr-sp { margin-top: 16px; display: grid; gap: 14px; }
+.orr .orr-sp { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .orr .orr-sp__h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .orr .orr-sp__h b { font-size: 15px; font-weight: 500; line-height: 22.5px; }
 .orr .orr-sp__bar { display: block; margin-top: 5.5px; height: 8px; border-radius: 4px; background: var(--panel); overflow: hidden; }
 .orr .orr-sp__bar i { display: block; height: 100%; border-radius: 4px; }
 .orr .orr-sp__p { display: block; margin-top: 6.5px; font-size: 13px; line-height: 19.5px; color: var(--faint); }
-.orr .orr-rq { margin-top: 13.5px; display: grid; gap: 10px; }
+/* ⚠️ La columna es «minmax(0, 1fr)» y no la de por defecto (11/11/2026): una celda de grilla no se achica debajo de su contenido
+   («min-width: auto»), así que un nombre largo («Offer: conversar, diagnosticar y armar la oferta») estiraba la fila 94 px afuera de
+   la tarjeta y el «…» de .orr-rq__nom nunca entraba. Lo mismo en .orr-models y .orr-sp. */
+.orr .orr-rq { margin-top: 13.5px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .orr .orr-rq li { height: 32px; display: flex; align-items: center; gap: 10px; }
 .orr .orr-rq__t { font-size: 13px; line-height: 19.5px; color: var(--faint); }
 .orr .orr-code200 { height: 23px; display: inline-flex; align-items: center; gap: 5px; padding: 0 7px; border-radius: 12px; background: var(--good-bg); font-size: 13px; font-weight: 500; line-height: 19.5px; color: var(--good); }
