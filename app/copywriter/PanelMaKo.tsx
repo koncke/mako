@@ -79,6 +79,8 @@ export type GuionVivo = { titulo: string; props: PropsGuion };
 
 let ultimoId = 0;
 const nuevoId = () => ++ultimoId;
+/** La tecla de deshacer de ESTA computadora: ⌘Z en una Mac, Ctrl+Z en las demás (sólo se dibuja después de aceptar, en el cliente). */
+const teclaDeshacer = () => (typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent) ? '⌘Z' : 'Ctrl+Z');
 /** Sin ofertas: una sola lista vacía, para que no cambie en cada render. */
 const SIN_OFERTAS: readonly OfertaCorta[] = [];
 
@@ -467,7 +469,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
           {m.estado === 'pendiente' && (
             <>
               <div className="nt-mako-estado">
-                {p.nuevos.length ? `${cuantos(p.nuevos.length)} nuevos, marcados en la página.` : 'Cambios marcados en la página.'}
+                {/* «1 bloque nuevo», no «1 bloque nuevos» (11/11/2026, en producción). */}
+                {p.nuevos.length ? `${cuantos(p.nuevos.length)} ${p.nuevos.length === 1 ? 'nuevo, marcado' : 'nuevos, marcados'} en la página.` : 'Cambios marcados en la página.'}
                 {p.titulo ? ` Título: «${p.titulo}».` : ''}
               </div>
               {p.avisos.map((a) => <div key={a} className="nt-propuesta-aviso">{a}</div>)}
@@ -479,7 +482,9 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
               </div>
             </>
           )}
-          {m.estado === 'aceptada' && <div className="nt-mako-estado">Aceptado. Ctrl+Z en la página lo deshace.</div>}
+          {/* La tecla, sólo donde hay teclado (11/11/2026, en producción el teléfono decía «Ctrl+Z en la página lo deshace»):
+              `.nt[data-movil]` la esconde, y en una Mac es ⌘Z. */}
+          {m.estado === 'aceptada' && <div className="nt-mako-estado">Aceptado.<span className="nt-solo-teclado"> {teclaDeshacer()} en la página lo deshace.</span></div>}
           {m.estado === 'descartada' && <div className="nt-mako-estado">Descartado: la página quedó como estaba.</div>}
         </div>
       ),

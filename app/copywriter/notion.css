@@ -186,6 +186,12 @@
 .nt[data-movil] .nt-prop-nombre { width: 110px; }
 .nt[data-movil] .nt-mako { width: 100%; border-right: 0; height: calc(100dvh - 160px); }
 .nt[data-movil] .nt-menu { width: min(324px, calc(100vw - 24px)); }
+/* Lo que sólo sirve con teclado (la tecla de deshacer después de «Aceptar»): en el teléfono no hay Ctrl+Z. */
+.nt[data-movil] .nt-solo-teclado { display: none; }
+/* En el teléfono las burbujas del chat van a 16 px (app/_chat); las preguntas de MaKo y lo contestado, igual. 11/11/2026, en
+   producción: la pregunta en 13,5 px y, debajo, la respuesta de MaKo en 16, una al lado de la otra. */
+.nt[data-movil] .nt-mako-bienvenida, .nt[data-movil] .nt-mako-respuesta { font-size: 16px; }
+.nt[data-movil] .nt-mako-pildora { font-size: 14px; }
 .nt[data-movil] .nt-bn input, .nt[data-movil] .nt-prop-valor select, .nt[data-movil] .nt-prop-valor input { font-size: 16px; }
 
 /* Una propiedad que se lee y no se cambia (con un link para editar) y «Última edición» (D9). Si lo último lo guardó
