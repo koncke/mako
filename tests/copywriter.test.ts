@@ -306,6 +306,15 @@ test('«Ver ejemplo»: el documento se achica al modal y la tabla corre en su ca
   assert.match(leer('app/copywriter/notion.css'), /\.nt\.nt-ejemplo > \.nt-bn \{ min-width: 0;/);
 });
 
+test('después de «Aceptar», la tecla de deshacer sólo donde hay teclado, y la de su sistema (11/11/2026: el teléfono decía Ctrl+Z)', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.match(panel, /Aceptado\.<span className="nt-solo-teclado"> \{teclaDeshacer\(\)\} en la página lo deshace\.<\/span>/);
+  assert.match(panel, /\? '⌘Z' : 'Ctrl\+Z'/);
+  assert.match(leer('app/copywriter/notion.css'), /\.nt\[data-movil\] \.nt-solo-teclado \{ display: none; \}/);
+  // Y el número concuerda: «1 bloque nuevo, marcado», no «1 bloque nuevos, marcados» (visto en la misma prueba).
+  assert.match(panel, /p\.nuevos\.length === 1 \? 'nuevo, marcado' : 'nuevos, marcados'/);
+});
+
 test('la caja trabada se vuelve a medir cuando llega su frase (11/11/2026: «Instala MaKo / para escribir» cortada a 1440)', () => {
   // La caja es la compartida (app/_chat/CajaChat.tsx); el panel de Copywriting es angosto y la frase ocupa dos renglones.
   const caja = leer('app/_chat/CajaChat.tsx');

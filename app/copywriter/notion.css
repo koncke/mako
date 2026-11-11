@@ -186,6 +186,8 @@
 .nt[data-movil] .nt-prop-nombre { width: 110px; }
 .nt[data-movil] .nt-mako { width: 100%; border-right: 0; height: calc(100dvh - 160px); }
 .nt[data-movil] .nt-menu { width: min(324px, calc(100vw - 24px)); }
+/* Lo que sólo sirve con teclado (la tecla de deshacer después de «Aceptar»): en el teléfono no hay Ctrl+Z. */
+.nt[data-movil] .nt-solo-teclado { display: none; }
 .nt[data-movil] .nt-bn input, .nt[data-movil] .nt-prop-valor select, .nt[data-movil] .nt-prop-valor input { font-size: 16px; }
 
 /* Una propiedad que se lee y no se cambia (con un link para editar) y «Última edición» (D9). Si lo último lo guardó
