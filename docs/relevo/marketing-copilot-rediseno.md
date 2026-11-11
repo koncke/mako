@@ -13,12 +13,15 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
   | `maqueta-dos-columnas.html` | PyGboJ5AsKL2wUiPe2Kssk |
   | `maqueta-descubrimiento.html` | XboRwCiqtwybpf4iPXQpqw |
   | `maqueta-arranque.html` | LUyer4k7kV1sokRuBYeX44 |
-  | `maqueta-por-canal.html` (la vigente) | 97pKNFeiPV4U8asB9ejLwn |
+  | `maqueta-por-canal.html` | 97pKNFeiPV4U8asB9ejLwn |
+  | `maqueta-analisis.html` (la vigente: los puntos 1 a 9 de abajo) | 6oFhRx6JnoHMVgFyoUxcNN |
 
   Todos los links son `claude.ai/artifact/<id>`.
 - **Cómo se arman** (en el scratchpad de la sesión 3b078c27, carpeta `maqueta/`):
-  - `cuerpo-canales.html` es el cuerpo vigente.
-  - `armar.mjs <cuerpo> <salida-repo> <salida-artifact>` le pega el CSS de producción (`../css-prod/*.css`), el CSS del Spy y de Offer (`spy.css`, que arma `sacar-css-spy.mjs`), las piezas comunes de `cuerpo.html`, los estilos del wizard y el glifo de Instagram (`glifo-ig.txt`).
+  - `cuerpo-analisis.html` es el cuerpo vigente (el de la anterior, `cuerpo-canales.html`).
+  - `armar.mjs <cuerpo> <salida-repo> <salida-artifact>` le pega el CSS de producción (`../css-prod/*.css`), el CSS del Spy y de Offer (`spy.css`, que arma `sacar-css-spy.mjs`), las piezas comunes de `cuerpo.html`, los estilos del wizard, el glifo de Instagram (`glifo-ig.txt`) y lo de `extras.json`. Frena si queda una marca `@@…@@` sin valor.
+  - `captura-web.mjs <url>` saca la captura de la página entera para «Tu web» y mide dónde cae cada sección: escribe `extras.json` (la foto en data URI y la altura de cada marca).
+  - `fotos.mjs http://localhost:4441 <carpeta>` fotografía los estados en claro, oscuro y teléfono con un solo Chrome sin ventana.
   - Para mirarla: una entrada en `.claude/launch.json` con un servidor estático, más el Chrome sin ventana con `--virtual-time-budget` y los enlaces por estado (`#canales`, `#cargar`, `#lectura`, `#negocio`, `#negocio-youtube`, `#negocio-instagram`, `#negocio-anuncios`, `#sin-nada`, `#sin-nada-armado`, `#telefono`). Ver `docs/hallazgos-infra.md`.
   - Si el scratchpad no está, el HTML del repo tiene todo adentro: se edita el segundo `<style>` y el `<script>` del final.
 - **El negocio simulado:** Federico Cristofari, Competitor Spy del ws 9, `competidor=20`. Sus videos, reels, vistas y fechas son reales; sus anuncios son de ejemplo.
@@ -55,6 +58,16 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
 
 8. **(11/11, después) Conectar con Zernio en vez de pegar links.** En el paso 2, Instagram y YouTube se CONECTAN con Zernio, como Meta, en lugar de pedir el @ o el link. Con la conexión se podrían traer las estadísticas de sus reels y de su YouTube, y quizás sus historias pasadas, para un análisis mucho más efectivo. Antes de la maqueta hay que averiguar qué trae Zernio de verdad (estadísticas por reel, YouTube, historias pasadas) y decirlo.
 
+9. **(11/11, después) Un paso 5: la operación.** El paso 4 queda como ANÁLISIS. Después va un paso 5 de ejecución:
+   - **la máquina de contenido:** cada cuánto crear y qué piezas;
+   - **los resultados** de cada cosa;
+   - **lo que hace Marketing CoPilot:**
+     - en Meta: subir o bajar presupuesto, cortar una campaña que va mal y pedir más creativos;
+     - en Instagram: programar el contenido, pedir más cuando haga falta, «grabá esta historia»;
+     - en YouTube: lo mismo, más la miniatura. «Que haga absolutamente todo».
+
+   Es mucha información para una pestaña: por eso va en un paso aparte.
+
 ## El plan
 
 1. **Relevamiento, con agentes, de lo que hay que revisar por canal y de la máquina de contenido.** Sale de todos los cursos de Knowledge: el índice está en el scratchpad (`cursos-indice/`) y las transcripciones en `public/cono-tx/` y `C:/cursos/programa-meta-ads-the-net-lab/transcripciones/`. Va a `docs/marketing-copilot/analisis/` (`organico.md` y `anuncios.md`), con curso y clase en cada punto. Ojo: el texto de MaKo va en tú.
@@ -66,7 +79,17 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Hecho (11/11):** los relevos (`analisis/organico.md`, `anuncios.md`, `zernio.md`) y la quinta maqueta, `maqueta-analisis.html`, con los puntos 1 a 9. Qué es real y qué es de ejemplo, y lo que falta en el código: `esquema-descubrimiento.md`.
+
 ## Sigue abierto
 
 - **Quién paga leer el propio negocio** (Apify más la IA). Se pregunta antes de programarlo.
 - **Dónde se pliega el chat:** Martín lo deja para más adelante.
+- **La recomendación del funnel:** la cerraba el chat; sin chat en el paso 4, falta decidir dónde va.
+- **Qué hace MaKo solo y qué te pregunta en la operación** (presupuesto, apagar, publicar): la maqueta lo hace solo, con «Deshacer».
+- **Lo que falta en el código para hacerlo de verdad:** la lista está en `esquema-descubrimiento.md`.
+  - Zernio: historias y analytics de YouTube.
+  - Meta: conversaciones y compras.
+  - Leer los chats en lote.
+  - Transcribir el VSL.
+  - La velocidad de la web.

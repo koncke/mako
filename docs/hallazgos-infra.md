@@ -12307,3 +12307,20 @@ verificaciones así, una detrás de la otra, que encaja con los dos procesos de 
 sesión y el archivo de test (el `--test` hijo no lo lleva en la línea de comando), así una causa no se adivina por el horario.
 **Lo que quedó SIN hacer:** ponerle un techo de memoria a cada proceso de test (`--max-old-space-size`) en
 `scripts/tests-afectados.mjs` y en el corredor de un archivo, para que un test así muera solo y no se lleve la PC.
+
+## La captura de una página ENTERA sin que se estire, y la guardia de RAM que frena todo Bash (11/11/2026)
+
+**La captura.** El Chrome sin ventana con `--screenshot` saca sólo lo que entra en la ventana. Agrandar la ventana al alto de la página estira las secciones de `100vh`. Lo que anduvo, por CDP:
+- la ventana queda en 1280 × 800;
+- `Page.captureScreenshot` con `captureBeyondViewport: true`, un `clip` del alto de la página y `scale` para achicarla;
+- antes, se recorre la página bajando de a 600 px, así cargan las imágenes y aparecen las secciones que entran al bajar.
+
+Para poner marcas sobre la foto, se mide en el mismo paso dónde cae cada título (`getBoundingClientRect().top + scrollY` sobre el alto de la página). La marca del precio cayó donde había que ponerla: se comprobó recortando la foto con líneas guía.
+
+Los scripts quedaron en el relevo del rediseño de Marketing CoPilot: `captura-web.mjs` y `fotos.mjs`, que fotografía varios estados con UN solo Chrome.
+
+**La guardia.** Con menos de 3 GB libres, la guardia de RAM frena TODO comando de Bash, también un `ls`. No mide lo que pide el comando. Mientras tanto se puede seguir:
+- con las herramientas de archivos: leer, editar, escribir, buscar;
+- con PowerShell para lo liviano (copiar un archivo, chequear la sintaxis con `node --check`).
+
+Chrome se abre recién cuando hay aire, uno solo y cerrándolo por su PID.

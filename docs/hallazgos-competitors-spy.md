@@ -13,6 +13,23 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## «Su web» puede ser un acortador que abre un video de YouTube, y la oferta sale citada en inglés (11/11/2026)
+
+**Síntoma:** la nota de la oferta de Federico Cristofari (ws 9, `competidor=20`, 46/100) cita frases en inglés: «This event is for you if you own a business…», «We generated $145,000 in one month…», «October 26, 27, and 28». Es un creador argentino que publica en español.
+
+**El diagnóstico obvio era el equivocado:** no tiene una web en inglés. Su «web» (la que muestra «Sus páginas») es `linktw.in/pywydg`. Ese link no lleva a una página: abre su video de YouTube «Forget everything you know about content…», y la descripción del video manda a otro link, `linktw.in/fc-fede-yt`.
+
+**Lo que se leyó:** YouTube devuelve el título y la descripción doblados al idioma de quien pide («Auto-dubbed»). Con un navegador en inglés, la descripción llega traducida. El original dice «Registro al evento 26,27,28 de octubre…».
+
+- **Lo que está medido:** abriendo el link con Chrome sin ventana en inglés, la descripción sale en inglés y marcada «Auto-dubbed».
+- **Lo que no verifiqué:** que el lector del Spy (`lib/spy-oferta.ts`, los `enlaces`) pida en inglés. Es lo más probable.
+
+**La regla que queda:**
+- Cuando «su web» resuelve a `youtube.com/watch`, no es una página de venta: es un video.
+- Si se lee, se pide en el idioma del negocio (`Accept-Language`), o se toma la descripción original.
+- La nota de la oferta no tendría que citar una traducción automática como si fuera el texto del negocio.
+
+**Sin hacer:** el lector de la web del Spy no distingue un acortador que abre YouTube de una página. Vive en `lib/spy-oferta.ts`.
 ## La prueba en producción del 10/11/2026: lo que se rompía sin dar error
 
 Informe caso por caso: [pruebas/competitor-spy-10-11.md](pruebas/competitor-spy-10-11.md). Nueve fallas, nueve arregladas

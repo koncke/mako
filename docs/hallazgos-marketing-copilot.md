@@ -286,6 +286,28 @@ anterior quedó como `maqueta-dos-columnas.html`, para comparar.
   navegador de la app: el texto de las pestañas Contenido y Funnel, el marcado de cada sección, y 62 textos de sus piezas,
   paginando la grilla. Las piezas no vienen en ningún JSON de la página: llegan por acciones del servidor.
 
+## La quinta maqueta, el análisis: lo que la conexión NO trae, y qué es real y qué es de ejemplo (11/11/2026)
+
+Martín pidió que «Tu negocio» sea un análisis y no una réplica de cada app. Después agregó un paso 5, la operación, porque en una pestaña era demasiado. La maqueta es `docs/marketing-copilot/rediseno/maqueta-analisis.html` (claude.ai/artifact/6oFhRx6JnoHMVgFyoUxcNN). Los puntos que revisa, con curso y clase, están en `docs/marketing-copilot/analisis/`.
+
+- **«Conectar con Zernio» no reemplaza todo lo que leía el link pegado** (`analisis/zernio.md`).
+  - No se pudo confirmar que traiga la bio ni su link: la bio se sigue leyendo del perfil público con el @ de la conexión.
+  - Las historias se leen sólo desde que se conecta. Las de antes no vuelven.
+  - El porcentaje de clics de la miniatura de YouTube no lo da nadie.
+  - Prometer «traigo tus historias» en el paso 2 sería mentir: dice «desde hoy».
+- **Para anuncios a mensajes, MaKo hoy no ve su número principal** (`analisis/anuncios.md` §0):
+  - el sincronizador de Meta no guarda conversaciones iniciadas ni compras;
+  - el Chat Analyst del Dashboard nunca lee el texto de los chats.
+
+  La maqueta lo muestra como «Sin dato», no con un número.
+- **El paso 5 es todo de ejemplo**, y la maqueta lo marca «ejemplo». Lo real de Federico:
+  - sus 232 piezas, fechas, vistas y destinos;
+  - el porqué de cada nota de su oferta;
+  - su página foundersbc.cascaraco.com.
+
+  Para no inventar lo de su oferta se leyó el desplegable de cada nota en producción, sin escribir nada. Los números de la conexión y de sus anuncios no existen: son de ejemplo, con su marca.
+- **Martín miró la maqueta ANTERIOR y creyó que se habían saltado sus pedidos** («te saltaste un montón de cosas»). La nueva todavía no estaba publicada porque la guardia de RAM frenó la captura. Cuando una vuelta tarda, se dice en el momento que lo que está mirando es la anterior, con su link.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
