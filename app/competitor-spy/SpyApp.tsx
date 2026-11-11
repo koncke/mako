@@ -816,8 +816,8 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
               </div>
               {/* ⚠️ El botón va DENTRO de la tarjeta y frena el clic: si no, borrar abriría la ficha.
                   Y no se dibuja para quien no puede borrar: un botón que siempre falla es peor que no estar. */}
-              {puedeBorrar && <button type="button" className="spy-ccard__borrar" aria-label={`Dejar de mirar a ${c.nombre}`}
-                title={`Dejar de mirar a ${c.nombre}`}
+              {puedeBorrar && <button type="button" className="spy-ccard__borrar" aria-label={`Dejar de mirar a ${titulo}`}
+                title={`Dejar de mirar a ${titulo}`}
                 onClick={(e) => { e.stopPropagation(); onBorrar(c); }}>
                 <Icon name="trash" size={15} />
               </button>}
@@ -1053,6 +1053,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   listaActual.current = competidores;
 
   const c = competidores.find((x) => x.id === elegido) ?? null;
+  // Su nombre como lo dice su tarjeta (`nombreDeTarjeta`), en TODA la ficha: con lo guardado, Alex Hormozi era «Alex Hormozi»
+  // en la lista y en el selector, y «@AlexHormozi» en el título, en «¿Dejar de mirar a…?» y en sus avisos (11/11/2026).
+  const nombreC = c ? nombreDeTarjeta(c) : '';
 
   // ⚠️ EL RECORRIDO SE ABRE CON LA FICHA QUIETA, Y MIENTRAS ESTÁ ABIERTO LA PÁGINA NO SE SCROLLEA A MANO (4/11/2026, el Cerebro con
   // Den Borg: «el primer cuadro salió con el texto vacío» y «al hacer scroll, el recorrido sigue pero el foco se pierde; que no se
@@ -1582,8 +1585,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     setModal(null);
     if (!r.ok) { setError(r.error); return; }
     sacarDeLaLista(id);
+    // Los sugeridos se piden ANTES de volver a la lista: después de `irA(null)` no sale ningún pedido (lo de arriba, medido otra
+    // vez en producción el 11/11/2026: «⋯ › Dejar de mirarlo» mandaba el borrado y nada más, y Alex no volvía a «Sugeridos»).
+    await recargarSugeridos();
     irA(null);
-    await Promise.all([recargarLista(), recargarSugeridos()]);
+    await recargarLista();
   };
 
   // Quien deja de mirar a un sugerido lo vuelve a ver en «Sugeridos» (11/11/2026, mirado en producción: Alex Hormozi se sumó
@@ -1737,7 +1743,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   // ventana: el riel medía 850 px con 1378 de contenido, y «A dónde manda» y «Lo que mejor le fue» se dibujaban encima de
   // la grilla de «Todas sus piezas». Es la misma trampa que ya esquivaron el Dashboard, el Video y el Web Generator.
   const riel = c ? (
-    <section className="spy-riel" aria-label={`Lo que leímos de ${c.nombre}`}>
+    <section className="spy-riel" aria-label={`Lo que leímos de ${nombreC}`}>
       {/* La identidad abre el riel, como la `.pd-info` abre la columna de al lado en la
           referencia: ante-título chico, nombre grande, la frescura, y la acción. ⚠️ EL
           RIEL YA NO DEPENDE DE QUE HAYA PIEZAS: si dependiera, un competidor sin nada
@@ -1752,7 +1758,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           )}
           <div>
             {anteTitulo && <small>{anteTitulo}</small>}
-            <h1>{c.nombre}</h1>
+            <h1>{nombreC}</h1>
           </div>
         </div>
         {identidad && <small className="spy-rango">{identidad}</small>}
@@ -1896,7 +1902,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
              Primero la criatura sola, después la animación, y recién al terminar el resto. ── */}
         {c && ordenando?.id === c.id && (
           <PeliculaDeOrden
-            nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)}
+            nombre={nombreC} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)}
             pasos={pasosLectura?.id === c.id ? pasosLectura.pasos : []}
           />
         )}
@@ -1997,18 +2003,18 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                     {/* ── Un solo estado para toda la zona, jamás uno por canal. Con piezas, la grilla de abajo. ── */}
                     {estado === 'cargando' && !contenido.length && <Esqueleto leyendo={estaLeyendo} />}
                     {estado === 'sin-canales' && (
-                      <Vacio titulo={`Dime dónde mirar a ${c.nombre}`} botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => abrirCanal(null)}>Agregar un canal</button>}>
+                      <Vacio titulo={`Dime dónde mirar a ${nombreC}`} botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => abrirCanal(null)}>Agregar un canal</button>}>
                         <p>Su @, su canal de YouTube o su sitio.</p>
                       </Vacio>
                     )}
                     {estado === 'leido-sin-nada' && (
-                      <Vacio titulo={`No encontré publicaciones de ${c.nombre}`}>
+                      <Vacio titulo={`No encontré publicaciones de ${nombreC}`}>
                         <p>Leímos sus canales {c.mirado_en ? `el ${fechaCorta(c.mirado_en)} ` : ''}y no había nada público.</p>
                       </Vacio>
                     )}
                     {estado === 'no-pudo' && (
                       <Vacio
-                        titulo={`No pude leer a ${c.nombre}`}
+                        titulo={`No pude leer a ${nombreC}`}
                         botones={(
                           <>
                             {pideConectarMeta(lecturasDe) && (
@@ -2127,9 +2133,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                     lectura={lecturaFunnel} hayFuentes={fuentesFunnel.length > 0} filasDeSuWeb={filasDeSuWeb}
                     enlaceAnuncios={enlaceSusAnuncios(c)} onVerPieza={verPieza} onVerPagina={verPagina}
                   />
-                  <SuOferta vista={ofertaDe} datos={c.oferta} nombre={c.nombre} onConectado={() => void pedirOferta(c.id)} parte="cabeza" />
+                  <SuOferta vista={ofertaDe} datos={c.oferta} nombre={nombreC} onConectado={() => void pedirOferta(c.id)} parte="cabeza" />
                 </div>
-                <SuOferta vista={ofertaDe} datos={c.oferta} nombre={c.nombre} onConectado={() => void pedirOferta(c.id)} parte="detalle" />
+                <SuOferta vista={ofertaDe} datos={c.oferta} nombre={nombreC} onConectado={() => void pedirOferta(c.id)} parte="detalle" />
                 {estaLeyendo && !susPaginas.length
                   ? <Esqueleto leyendo />
                   : (
@@ -2149,7 +2155,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       {c && <Recorrido id={RECORRIDO_SPY} pasos={PASOS_SPY} abierto={recorridoAbierto} onCerrar={recorrido.onCerrar} />}
       {abierta && c && (
         <DetallePieza
-          p={piezas.find((x) => x.id === abierta.p.id) ?? abierta.p} nombre={c.nombre} todas={abierta.todas}
+          p={piezas.find((x) => x.id === abierta.p.id) ?? abierta.p} nombre={nombreC} todas={abierta.todas}
           cara={c.avatar}
           seguidores={abierta.p.canal === 'youtube'
             ? (c.youtube_suscriptores != null ? `${dibujarContador(c.youtube_suscriptores)} suscriptores` : null)
@@ -2187,18 +2193,18 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       {modal === 'anuncio' && c && <ModalCampo titulo="Guardar un anuncio" placeholder="Enlace del anuncio en la Biblioteca de Anuncios" boton="Guardar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void guardarAnuncio(v)} />}
       {aBorrar && (
         <ConfirmModal
-          msg={`¿Dejar de mirar a ${aBorrar.nombre}? Se borra lo que se leyó de él.`}
+          msg={`¿Dejar de mirar a ${nombreDeTarjeta(aBorrar)}? Se borra lo que se leyó de él.`}
           confirmLabel="Dejar de mirarlo"
           onOk={() => void quitarDeLaLista(aBorrar.id)}
           onCancel={() => setABorrar(null)}
         />
       )}
       {modal === 'pais' && c && (
-        <ModalPais nombre={c.nombre} actual={c.pais} ocupado={ocupado} error={errorModal}
+        <ModalPais nombre={nombreC} actual={c.pais} ocupado={ocupado} error={errorModal}
           onClose={() => setModal(null)} onElegir={(iso) => void guardarPais(c.id, iso)}
         />
       )}
-      {modal === 'quitar' && c && <ConfirmModal msg={`¿Dejar de mirar a ${c.nombre}? Se borra lo que se leyó de él.`} confirmLabel="Dejar de mirarlo" onOk={() => void quitar()} onCancel={() => setModal(null)} />}
+      {modal === 'quitar' && c && <ConfirmModal msg={`¿Dejar de mirar a ${nombreC}? Se borra lo que se leyó de él.`} confirmLabel="Dejar de mirarlo" onOk={() => void quitar()} onCancel={() => setModal(null)} />}
     </main>
   );
 }
