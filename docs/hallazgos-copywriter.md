@@ -464,6 +464,13 @@ app/m/copywriter/GuionM.tsx
   seguidas) avisa en la propuesta con la frase. ⚠️ Una vez MaKo también «arregló» una línea editada a mano que no se le pidió
   tocar; repetido con una edición limpia, la respetó: la primera vez, la frase que dejó la prueba estaba rota.
 - **El visor del modal era una caja blanca casi vacía** con un pie de dos renglones: ahora la pieza va arriba y el texto abajo.
+- **⚠️ El intercalado se deshacía solo** (desplegado y medido): carrusel, reel y YouTube en la primera vuelta y después nueve
+  carruseles. La variedad de creadores («2 del mismo cada 12») corría DESPUÉS de intercalar y empujaba abajo los reels y
+  videos, que son de pocas cuentas. Va dentro de cada formato, antes de intercalar (`intercalarFormatos(xs, porFormato)`).
+- **El aviso de frases copiadas anduvo, pero no miraba el título** (desplegado y medido): avisó «es lo peor que puedes hacer» del
+  cuerpo y dejó pasar el título «Cobrar más no es suerte, es sistema». Ahora mira los dos por separado.
+- **Sin hacer:** el aviso ve frases iguales, no paráfrasis. La historia de la réplica todavía sigue de cerca la del original
+  («qué rabia cuando cobras poco y el cliente te exige el triple»).
 
 ## Qué quedó sin hacer
 
