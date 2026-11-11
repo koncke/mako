@@ -1,52 +1,78 @@
 // =============================================================================
-// El panel «Diseño» del editor de imágenes: sin plantillas
+// El panel «Diseño» del editor de imágenes: las plantillas REALES de MaKo (11/11/2026)
 // =============================================================================
 // Hasta el 6/11/2026 este panel servía las 10 plantillas de Doory (`backend/data/templates` del commit de
 // `_doory/COMMIT-DOORY`). **Se borraron**, con sus 10 JSON, sus 10 WebP y sus etiquetas: eran material ajeno
 // adentro del producto. La licencia del código portado (Attribution Assurance License) aplica «in whole or part,
 // with or without modification», así que que Martín haya sacado el crédito visible el 29/10/2026
-// (`editor/CreditoDoory.tsx`) no la desactivaba; borrarlas sí.
+// (`editor/CreditoDoory.tsx`) no la desactivaba; borrarlas sí. ⚠️ **Una de Doory no vuelve a entrar** (lo fija el test 3 de
+// tests/api-mako-imagen.test.ts).
 //
-// ⚠️ **Acá no vuelve a entrar una plantilla.** Las plantillas de MaKo son propias y viven en otro lado:
-//   · las REALES, generadas por código, en `lib/image-editor/plantillas-reales.ts`, y se eligen en «Nuevo diseño»
-//     (`app/image-editor/plantillas-crear.ts`), con su estructura y su «Ver ejemplo»;
-//   · las PROPIAS del negocio y las de la comunidad, en `app/creaciones/usePlantillasPropias.ts`, también en
-//     «Nuevo diseño».
-// Una plantilla nueva va por ahí. El código de Doory que quedó (el motor, `_doory/`) sigue con su crédito en
-// `LICENSE-DOORY`: lo que se fue es su CONTENIDO, no su motor.
+// Del 6/11 al 11/11 el panel quedó VACÍO, con un buscador y un «Todas las plantillas» que nunca encontraban nada («Ninguna
+// plantilla coincide con “lista”»). La prueba de Image del 10/11 lo marcó (docs/pruebas/image-10-11.md, caso 17) y el Cerebro,
+// con Martín: una pantalla vacía en producción es una falla. La referencia es Canva: su panel «Diseño» lista las plantillas.
 //
-// Este módulo queda porque el adaptador del editor exige el servicio `templates` (`EditorServices`): sirve una
-// galería vacía y el panel dibuja su mensaje (`strings.ts`, `templates.empty`, que manda a «Nuevo diseño»). El día
-// que las plantillas propias se sirvan DESDE el panel, se llena acá; mientras tanto no miente con categorías que
-// no llevan a nada.
+// Ahora sirve las plantillas REALES de MaKo, las mismas de «Nuevo diseño» (`lib/image-editor/plantillas-reales.ts`), generadas
+// por código y propias. Las categorías son sus grupos (Miniaturas de YouTube, Publicaciones, Historias, Anuncios,
+// Presentaciones). La tarjeta dibuja la ESTRUCTURA que se aplica (`muestra`, con `MiniaturaDiseno`, como la tarjeta de «Nuevo
+// diseño»), y aplicarla pone esa estructura, como al crear. Los carruseles por tipo no están acá: su documento sale con la marca
+// y el kit del negocio, que se leen en el server (`crearDisenoNuevoAction`).
 //
-// Puro y sólo con tipos: lo puede leer el server.
+// Puro y sólo con lo que el navegador puede armar: lo lee también el test.
 
 import type { EditorServices } from '../_doory/types/adapter';
 import type { Page, TemplateCategory, TemplateDetail, TemplateSummary } from '../_doory/types/api';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
+import { PLANTILLAS_IMAGEN, type PlantillaImagen } from '@/lib/image-editor/plantillas-reales';
 
-/** Vacío, como `list` lo pagina: sin plantillas no hay página siguiente. */
-function sinNada<T>(): Page<T> {
-  return { count: 0, next: null, previous: null, results: [] };
+/** El slug de un grupo, para las categorías del panel. */
+const slugDe = (grupo: string): string => grupo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const sinTildes = (s: string): string => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const orientacion = (p: Pick<PlantillaImagen, 'ancho' | 'alto'>): TemplateSummary['orientation'] =>
+  (p.ancho === p.alto ? 'square' : p.ancho > p.alto ? 'landscape' : 'portrait');
+const GRUPOS = [...new Set(PLANTILLAS_IMAGEN.map((p) => p.grupo))];
+
+/** La tarjeta de una plantilla. `muestra`: la estructura con ids fijos, sólo para dibujarla. */
+function resumen(p: PlantillaImagen): TemplateSummary {
+  let n = 0;
+  return {
+    id: p.id, slug: p.id, title: p.nombre, category: { id: slugDe(p.grupo), slug: slugDe(p.grupo), name: p.grupo },
+    tags: [...p.chips], width: p.ancho, height: p.alto, orientation: orientacion(p), preset: '', page_count: p.paginas,
+    thumbnail_url: null, is_featured: false, use_count: 0, created_at: '2026-11-06T00:00:00.000Z',
+    muestra: p.estructura(() => `muestra-${p.id}-${++n}`),
+  };
 }
 
-/**
- * El servicio `templates` del adaptador de MaKo, sin plantillas. `senales` se recibe y no se usa: ordenar las
- * sugeridas para el negocio (`ordenarConSugeridas`) necesita plantillas que sugerir, y acá no hay. El parámetro se
- * queda porque el cableado que lo baja desde la page sí vale (lo fija tests/plantillas-sugeridas-editores.test.ts) y
- * lo primero que hará falta al volver a servir plantillas propias es esto mismo.
- */
+/** El servicio `templates` del adaptador de MaKo. `senales` se recibe y no se usa todavía (ordenar las sugeridas). */
 export function servicioPlantillas(_senales?: SenalesNegocio | null): EditorServices['templates'] {
   return {
     async categories(): Promise<TemplateCategory[]> {
-      return [];
+      return GRUPOS.map((g, i) => ({
+        id: slugDe(g), slug: slugDe(g), name: g, icon: '', sort_order: i,
+        template_count: PLANTILLAS_IMAGEN.filter((p) => p.grupo === g).length,
+      }));
     },
-    async list(): Promise<Page<TemplateSummary>> {
-      return sinNada();
+    async list(q = {}): Promise<Page<TemplateSummary>> {
+      const texto = sinTildes(q.q?.trim() ?? '');
+      const todas = PLANTILLAS_IMAGEN.filter((p) =>
+        (!q.category || slugDe(p.grupo) === q.category)
+        && (!q.orientation || orientacion(p) === q.orientation)
+        && (!texto || sinTildes(`${p.nombre} ${p.cuando} ${p.grupo} ${p.chips.join(' ')}`).includes(texto)));
+      const tam = Math.max(1, q.page_size ?? 24);
+      const pagina = Math.max(1, q.page ?? 1);
+      const results = todas.slice((pagina - 1) * tam, pagina * tam).map(resumen);
+      return {
+        count: todas.length,
+        next: pagina * tam < todas.length ? String(pagina + 1) : null,
+        previous: pagina > 1 ? String(pagina - 1) : null,
+        results,
+      };
     },
-    async get(): Promise<TemplateDetail> {
-      throw new Error('Esa plantilla no existe.');
+    async get(id: string): Promise<TemplateDetail> {
+      const p = PLANTILLAS_IMAGEN.find((x) => x.id === id);
+      if (!p) throw new Error('Esa plantilla no existe.');
+      // Aplicarla pone la ESTRUCTURA (como «Nuevo diseño» al crear), con ids nuevos: el motor no repite los de otra página.
+      return { ...resumen(p), description: p.cuando, document: p.estructura() };
     },
   };
 }

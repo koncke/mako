@@ -110,12 +110,14 @@ test('video · las variantes no se sugieren nunca, y nunca más de tres', () => 
 
 // El panel «Diseño» del Image Editor se quedó SIN plantillas el 6/11/2026: las 10 de Doory se borraron (eran material
 // ajeno; el guard de que no vuelvan está en tests/api-mako-imagen.test.ts, test 3). Con eso se fueron los cuatro tests
-// de qué se le sugiere a quién en Imagen: no tienen sujeto. Lo que se prueba acá es que, sin plantillas, el panel no
-// miente con un «Sugerido» ni se cae — y el CABLEADO que baja las señales hasta el servicio se queda entero (el test de
-// más abajo lo fija), porque es lo primero que hará falta cuando el panel sirva las plantillas propias del negocio.
-test('imagen · sin plantillas, el panel no sugiere nada, con señales o sin ellas', async () => {
+// de qué se le sugiere a quién en Imagen. El CABLEADO que baja las señales hasta el servicio se queda entero (el test de
+// más abajo lo fija), porque es lo primero que hará falta para sugerir.
+// 11/11/2026: el panel volvió a servir plantillas, las REALES de MaKo (app/image-editor/mako/plantillas.ts). Todavía no sugiere
+// ninguna: el «Sugerido» necesita etiquetas por plantilla, que las reales no tienen. El panel tiene plantillas y no miente con
+// un «Sugerido», con señales o sin ellas.
+test('imagen · el panel sirve las plantillas reales y no sugiere ninguna, con señales o sin ellas', async () => {
   for (const s of [null, NADA, CHECKOUT, EN_PERSONA, TODO]) {
-    assert.deepEqual(await listaImagen(s), [], 'el panel volvió a servir plantillas: revisá el test 3 de api-mako-imagen');
+    assert.ok((await listaImagen(s)).length > 0, 'el panel «Diseño» quedó vacío otra vez');
     assert.deepEqual(await sugeridasImagen(s), []);
   }
 });

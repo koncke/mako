@@ -208,6 +208,8 @@ export interface TemplateSummary {
   created_at: string
   /** MaKo: why the template is suggested for this business (lib/plantillas-sugeridas.ts); absent = not suggested. */
   suggested_reason?: string
+  /** MaKo (11/11/2026): the template's document, drawn as its card when there is no `thumbnail_url` (app/image-editor/mako/plantillas.ts). */
+  muestra?: DoryDocument
 }
 export interface TemplateDetail extends TemplateSummary {
   description: string

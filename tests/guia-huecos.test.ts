@@ -4,6 +4,8 @@
 // El velo «un poco opaco» deja a la vista lo que se señala Y el chat: con la guía puesta se usa la tab y se le escribe a MaKo.
 //   1. los huecos: el ancla (con su aire) y cada chat; un ancla adentro del chat no suma hueco; dos chats que se pisan, uno;
 //   2. la frase nunca va encima de un chat (se lo taparía a quien le escribe);
+//   4. con la pregunta ADENTRO del chat (11/11/2026, Image): la frase no tapa la caja de escribir del chat. El velo le pasa esa
+//      caja (`CAJA_DE_ESCRIBIR`, app/_ui/guia/VeloGuia.tsx); antes no le pasaba nada y la frase caía encima de «Escríbele a MaKo».
 //   3. el velo, por fuente: máscara SVG con el `--scrim` de la casa, sin `color-mix`, sin comerse un clic, fuera de la pila de
 //      modales (el piso de los recorridos), y Escape pausa sólo sin un modal.
 //
@@ -70,3 +72,16 @@ test('3. el velo, por fuente: máscara con huecos, el --scrim, sin color-mix, si
 //   · el ancla adentro del chat suma hueco          → 2/1 (1)
 //   · la frase encima del chat                      → 2/1 (2)
 //   · el velo se come los clics                     → 2/1 (3)
+
+test('4. con la pregunta adentro del chat, la frase no tapa la caja de escribir (Image, 551 px)', () => {
+  // La captura del 10/11 (docs/pruebas/image-10-11/12-guiado-listo-para-generar.jpg): la pregunta termina justo arriba de la caja.
+  const ventana = { ancho: 551, alto: 688 };
+  const frase = { ancho: 170, alto: 30 };
+  const pregunta = { x: 90, y: 230, ancho: 440, alto: 330 };
+  const caja = { x: 90, y: 585, ancho: 440, alto: 52 };
+  const p = posicionFrase({ ancla: pregunta, frase, ventana, chats: [caja] });
+  assert.ok(!seTocan({ x: p.x, y: p.y, ...frase }, caja), `la frase tapa la caja de escribir (${p.lado}, y=${p.y})`);
+  // Sin la caja (lo de antes), cae abajo de la pregunta: encima de la caja.
+  const antes = posicionFrase({ ancla: pregunta, frase, ventana, chats: [] });
+  assert.ok(seTocan({ x: antes.x, y: antes.y, ...frase }, caja), 'el caso ya no reproduce lo que se vio: revisá la geometría');
+});

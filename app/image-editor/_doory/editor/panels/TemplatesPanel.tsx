@@ -17,6 +17,7 @@ import { type TemplateMode, applyTemplate } from './templateOps'
 import stickers from './Sticker.module.css'
 import styles from './Templates.module.css'
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MiniaturaDiseno } from '@/app/image-editor/MiniaturaDiseno';
 
 type Orientation = TemplateSummary['orientation']
 type Filter = { type: 'all' } | { type: 'category'; slug: string; name: string } | { type: 'orientation'; value: Orientation }
@@ -161,7 +162,8 @@ export function TemplatesPanel({ close }: { close: () => void }) {
                   return (
                     <div key={tpl.id} className={styles.item}>
                       <button type="button" className={styles.card} style={{ aspectRatio: cardRatio(tpl) }} aria-label={t.templates.use(tpl.title)} aria-busy={busy === tpl.id || undefined} aria-haspopup="menu" disabled={busy !== null} data-testid="template-card" onClick={(e) => pick(tpl, e.currentTarget)}>
-                        {tpl.thumbnail_url ? <img className={styles.thumb} src={tpl.thumbnail_url} alt="" loading="lazy" draggable={false} /> : <span className={styles.blank}>{tpl.title}</span>}
+                        {/* MaKo (11/11/2026): las plantillas reales no tienen imagen: se dibuja su documento, como en la tarjeta de «Nuevo diseño». */}
+                        {tpl.thumbnail_url ? <img className={styles.thumb} src={tpl.thumbnail_url} alt="" loading="lazy" draggable={false} /> : tpl.muestra ? <MiniaturaDiseno doc={tpl.muestra} className={styles.thumb} titulo={tpl.title} /> : <span className={styles.blank}>{tpl.title}</span>}
                         {tpl.page_count > 1 ? <span className={styles.pages}>{t.templates.pageCount(tpl.page_count)}</span> : null}
                       </button>
                       <div className={styles.meta}>
