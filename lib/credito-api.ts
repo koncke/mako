@@ -303,7 +303,7 @@ export function avisosDelCredito(
     if (f.gastadoUsd == null) {
       completo = false;
       const clave = `${PREFIJO_AVISO_DEL_CREDITO}${f.cuenta}.no-pude-leer.${hoy}`;
-      if (!yaAvisados.has(clave)) avisos.push({ clave, cuenta: f.cuenta, nivel: 'no-pude-leer', texto: `${f.cuenta}: no pude leer cuánto lleva gastado del crédito de Claude en este ciclo, así que no sé si se está acabando. Míralo en SuperAdmin › Uso.` });
+      if (!yaAvisados.has(clave)) avisos.push({ clave, cuenta: f.cuenta, nivel: 'no-pude-leer', texto: `${f.cuenta}: no pude leer cuánto lleva gastado del crédito de Claude en este ciclo, así que no sé si se está acabando. Míralo en Ops Center › Uso.` });
       continue;
     }
     const pct = Math.round((f.gastadoUsd / CREDITO_MENSUAL_USD) * 1000) / 10;
