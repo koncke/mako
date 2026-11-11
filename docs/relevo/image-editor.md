@@ -1,4 +1,44 @@
-# Relevo — Image Editor (el Canva de MaKo), 14/10/2026 tarde
+# Relevo — Image (la tab entera), 10-11/11/2026
+
+Chat: «Image» (cuenta claude4), el que el Cerebro renombró el 10/11. Antes se llamaba «Biblioteca de carruseles: portadas y
+láminas que no se vencen». Lo escribe el chat que hizo el trabajo.
+
+## Dónde quedó
+
+- **Rama `punta/carruseles-bucket`, worktree `C:/dev/wt-carruseles-bucket`** (separado de origin/main). Todo subido, la última
+  es `1c7204ebe`. En main antes del despliegue del 11/11: `154277423`, `15ba25f79`, `c1a628fa3`, `aec347eba`, `659e6c1a3` y
+  `a292318aa`. `5bd60d3b4`, `3f175d94a` (el arreglo del rojo 903) y `1c7204ebe` esperan que la punta pase a main.
+- **No hay despliegue a mano** (Martín, 10/11): sale lo que esté en main a las 08:05 UTC del 11/11, o a las 11:05.
+- **La prueba de punta a punta:** [`docs/pruebas/image-10-11.md`](../pruebas/image-10-11.md). 33 casos, 12 fallas, 10
+  arregladas. La cosecha está en docs/hallazgos-carruseles.md, hallazgos-ui.md, hallazgos-pruebas.md y hallazgos-infra.md.
+- **Datos de la biblioteca, ya en producción:** portadas en Instagram de 91 a 3 y carruseles sin láminas de 168 a 20, que no
+  tienen arreglo (17 borrados en Instagram, 3 restringidos). El lote pago costó US$0,44 de la reserva de Spy, con el sí de Martín.
+
+## Lo que falta
+
+- **Después del despliegue:** mirar en producción, en el navegador de la app con `?ws=3`, los casos «falta desplegar» del informe
+  (10, 11, 18, 19, 23, 27 y 29) y cerrar con «Ya está: Image — …».
+- **«Generar» de punta a punta** en un negocio con IA: el ws 9 o el de MaKo, nunca el de un cliente.
+- **Piden una decisión** (el informe, «Propuestas»): el panel «Diseño» del editor (vacío desde el 6/11), los 17 carruseles que
+  ya no existen en Instagram y las láminas de los carruseles de Competitors Spy.
+- **Menor:** el globo «Contesta aquí para seguir.» tapa en parte la caja de escribir (caso 31).
+
+## Lo que quedó en el negocio de LEANDRO (ws 10): se deja así
+
+Las pruebas del 10/11 a la noche se hicieron en el Chrome de la extensión creyendo que era la sesión de Martín, y era la de
+Leandro (el `?ws=` se ignora; memoria «chrome-extension-sesion-leandro»). Abrir el guiado manda las láminas a la IA. Quedó:
+- `anthropic_usage` **12812** (10/11 22:17:39 UTC) y **12823** (23:47:08 UTC): `carrusel-replica`, «Ver si un carrusel de
+  ejemplo tiene una persona», US$0,001831 y US$0,004917, pagados con el crédito de Claude de la plataforma, no por Leandro;
+- `usuarios` **8**, `perfil.aperturas["10:image:donde|dede717d-b196-4c8f-833a-077bddf339d0"]` = vista una vez (22:22:09 UTC), al
+  abrir su diseño «Publicación de Instagram». Es la pregunta de MaKo «¿Dónde lo vas a publicar?».
+
+No se creó ni cambió ningún diseño ni ajuste, y no se le mandó nada a él ni a sus leads. **Martín, 10/11, por el Cerebro:
+«Dejalo».** No se tocan ni los usos ni la apertura. Si Leandro pregunta por esos dos usos de IA o por qué MaKo no le hizo esa
+pregunta en ese diseño, la respuesta es ésta.
+
+---
+
+# (Antes) Relevo — Image Editor (el Canva de MaKo), 14/10/2026 tarde
 
 Chat: «Image Editor» (cuenta claude1). Antes: «Canva en Content Machine» (claude2). Lo escribe el chat que hizo el trabajo.
 
