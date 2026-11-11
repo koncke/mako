@@ -224,7 +224,7 @@ cada uno con su censo).
 ## La maqueta del rediseño: el CSS compilado de producción, no un dibujo «parecido» (10/11/2026)
 
 Martín no quería el diseño del CoPilot («tiene que ser SIMPLE… aprender a replicar, no crear cosas desde cero») y pidió verlo
-antes de que se programe. La maqueta (`docs/marketing-copilot/rediseno/maqueta.html`) no copia a ojo: lleva **pegado el CSS que
+antes de que se programe. La maqueta (`docs/marketing-copilot/rediseno/maqueta-dos-columnas.html`) no copia a ojo: lleva **pegado el CSS que
 sirve hola-mako.com** y el marcado de las piezas que ya existen, con sus clases reales:
 - **El CSS:** la página lista sus hojas en `document.styleSheets` (`/_next/static/chunks/<hash>.css`). Son públicas: se bajan con
   curl sin sesión. Los nombres cambian en cada despliegue, así que se leen de la página del día.
@@ -240,6 +240,30 @@ tocarlo MaKo lo pregunta.
 **Para cambiarla:** el primer `<style>` es el CSS de producción del 10/11; lo de la maqueta está en el segundo `<style>` y en el
 `<script>` del final, que la dibuja con los datos de `funnels-simples.md`. La publicada para Martín es un Artifact
 (claude.ai/artifact/PyGboJ5AsKL2wUiPe2Kssk), privado hasta que se comparta.
+
+## La segunda maqueta, el descubrimiento: el chat a toda la pestaña ya es así en la casa, y la película del Spy no puede trabar el flujo (11/11/2026)
+
+Martín vio la primera y pidió otra cosa ([esquema-descubrimiento.md](marketing-copilot/rediseno/esquema-descubrimiento.md)):
+el chat solo en toda la pestaña hasta que haya algo más que mostrar, la pregunta en el chat y las opciones en el bloque, y antes
+de la estrategia un descubrimiento con tu Instagram y tu web leídos por Competitor Spy. La maqueta es
+`docs/marketing-copilot/rediseno/maqueta-descubrimiento.html` (Artifact claude.ai/artifact/XboRwCiqtwybpf4iPXQpqw). La
+anterior quedó como `maqueta-dos-columnas.html`, para comparar.
+
+- **«El chat no se centra» no es un error.** Con el chat a toda la pestaña, la conversación y el bloque van de lado a lado. Parece
+  que falta el `max-width: 760px` de `.co-hilo__col`, pero lo anula a propósito `app/admin/operaciones/centro.css` (línea ~1638:
+  «EL CHAT A TODO EL ANCHO, COMO WHATSAPP WEB», Martín, 17/10). Un chat de MaKo a pantalla completa hereda eso; no se «arregla»
+  volviendo a la columna de 760.
+- **La lectura de tu negocio ya existe entera, para competidores.** `mirarCompetidor` lee Instagram → YouTube → web, la película
+  (`PeliculaDeOrden`, OrdenSpy.tsx) ordena las piezas, y «Su oferta» pasa la web por el analizador de Offer. Para el negocio
+  propio cambian el texto («tu», no «su») y quién paga la lectura, que es Apify más la IA: se pregunta antes de programarla.
+- **En la maqueta, el flujo no espera a `animation.finished`.** En el panel oculto del navegador de la app y en el Chrome sin
+  ventana, las animaciones de la Web Animations API no avanzan, y la película quedaba para siempre en «Ordenando por formato».
+  La maqueta avanza con su reloj (el tiempo que dura el reparto) y deja las animaciones sólo para los números. En la app,
+  `OrdenSpy.tsx` sí espera las animaciones: en una pestaña de fondo la película queda quieta hasta que se la mira, y eso está
+  bien.
+- **Los datos del competidor se leyeron sin escribir nada.** La ficha (`/competitor-spy?ws=9&competidor=20`) se recorrió en el
+  navegador de la app: el texto de las pestañas Contenido y Funnel, el marcado de cada sección, y 62 textos de sus piezas,
+  paginando la grilla. Las piezas no vienen en ningún JSON de la página: llegan por acciones del servidor.
 
 ## Sin hacer (9/11/2026)
 

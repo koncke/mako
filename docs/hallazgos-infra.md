@@ -11697,6 +11697,15 @@ fotografía. Lo que sigue sin servir: `navigate` a un `file://` fuera de la carp
 JS** (una maqueta que se dibuja con JS sale en blanco), y un Artifact privado pide iniciar sesión en claude.ai, que el panel no
 tiene. Ojo: con el panel oculto, las capturas salen con el cuadro anterior; lo que vale es lo que se mide en el DOM.
 
+**Y para fotografiar una maqueta ANIMADA con el panel oculto (11/11/2026):** con el panel oculto, el navegador congela
+`requestAnimationFrame` y la Web Animations API, y los temporizadores van lentos. Lo que sirvió:
+- darle a la maqueta un enlace por estado (`#lectura`, `#negocio`);
+- fotografiarla con el Chrome de la PC sin ventana, con un perfil temporal propio y el reloj avanzando solo:
+  `chrome.exe --headless=new --user-data-dir=<carpeta temporal> --window-size=1440,900 --virtual-time-budget=<ms> --screenshot=<png> http://localhost:<puerto>/#<estado>`.
+- `--blink-settings=preferredColorScheme=1` la saca en claro, y `--dump-dom` muestra en qué estado terminó.
+- ⚠️ Ese Chrome tampoco termina siempre las animaciones (`animation.finished` puede no resolverse nunca): un flujo que
+  encadena pasos esperando una animación se queda trabado ahí. Por eso la maqueta avanza con su propio reloj.
+
 ## El tren tiene UN carril: pushear un coche nuevo CANCELA el run del anterior (31/10/2026)
 
 **Vive en:** `.github/workflows/integracion.yml` (`concurrency: {group: integracion, cancel-in-progress: true}`).
