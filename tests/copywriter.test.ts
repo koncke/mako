@@ -306,6 +306,10 @@ test('«Ver ejemplo»: el documento se achica al modal y la tabla corre en su ca
   assert.match(leer('app/copywriter/notion.css'), /\.nt\.nt-ejemplo > \.nt-bn \{ min-width: 0;/);
 });
 
+test('teléfono: las preguntas de MaKo con la letra de las burbujas del chat (16 px), no 13,5 (11/11/2026)', () => {
+  assert.match(leer('app/copywriter/notion.css'), /\.nt\[data-movil\] \.nt-mako-bienvenida, \.nt\[data-movil\] \.nt-mako-respuesta \{ font-size: 16px; \}/);
+});
+
 test('después de «Aceptar», la tecla de deshacer sólo donde hay teclado, y la de su sistema (11/11/2026: el teléfono decía Ctrl+Z)', () => {
   const panel = leer('app/copywriter/PanelMaKo.tsx');
   assert.match(panel, /Aceptado\.<span className="nt-solo-teclado"> \{teclaDeshacer\(\)\} en la página lo deshace\.<\/span>/);
