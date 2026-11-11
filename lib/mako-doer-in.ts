@@ -2862,7 +2862,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             let respaldoDespuesDeClaude: Promise<boolean> | null = null;
             const hayRespaldoDespuesDeClaude = (): Promise<boolean> => (respaldoDespuesDeClaude ??= (async () => {
               const conClave = (await Promise.all((orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>).map((p) => provsDe(p).catch(() => [])))).some((l) => l.length > 0);
-              return conClave || (!suIA && (await provsGratisDePlataforma().catch(() => [])).length > 0);
+              // ⚠️ La red NO se pide acá (11/11/2026, rojo de la corrida 1035): pedirla es gastarla, y tres tests fijan que se pide
+              // UNA vez y sólo como último recurso (red-plataforma, doer-cartel-sin-ia, fallo-ia-texto). Para saber si HAY red
+              // alcanza la regla que la arma: sólo existe en el ws de la plataforma y nunca con su IA (`provsGratisDePlataforma`).
+              return conClave || (!suIA && wsData === (await wsSuperAdmin().catch(() => null)));
             })());
             /** Las fallas pasajeras (5xx, 529, plazo) del crédito en este turno: sin respaldo, la primera prueba la cuenta siguiente. */
             let pasajerasDelCredito = 0;
