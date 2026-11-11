@@ -6,16 +6,51 @@ la tab en **producción** (hola-mako.com, el despliegue del 10/11), en el navega
 a 375, en claro y en oscuro. Se escribió **sólo en el ws 3 (Cliente de Prueba)**. **Apify: US$0 gastados** (el ws 3 no tiene
 clave de Spy; lo que se sumó se copió de lo que la plataforma ya había leído, y YouTube va por la cuota gratis de la API).
 
-**En números (las tres vueltas):**
-- **42 casos** probados el 10/11, **17 pantallas miradas con captura** el 11/11 a la madrugada y **20 capturas de producción**
-  el 11/11 a la tarde, con todo desplegado.
-- **27 fallas** encontradas, **las 27 arregladas** (9 + 8 + 10), cada una con su test probado rompiéndolo
-  (`tests/spy-pruebas-10-11.test.ts`, 16 casos y 19 roturas; `tests/mirada-prod-11-11.test.ts`, 11 casos y 11 roturas).
+**En números (las cuatro vueltas):**
+- **42 casos** probados el 10/11, **17 pantallas miradas con captura** el 11/11 a la madrugada, **20 capturas de producción**
+  a la tarde con todo desplegado, y **13 más** después del despliegue de esos arreglos.
+- **32 fallas** encontradas, **las 32 arregladas** (9 + 8 + 10 + 5), cada una con su test probado rompiéndolo
+  (`tests/spy-pruebas-10-11.test.ts`, 16 casos y 19 roturas; `tests/mirada-prod-11-11.test.ts`, 14 casos y 16 roturas).
 - **8 observaciones** que no se arreglaron acá (abajo, con el porqué y dónde viven), más 4 de la tercera vuelta.
 - **4 casos sin probar** (abajo, con el porqué).
 
 Los arreglos van en la punta `punta/spy-pruebas`. Las capturas están en `docs/pruebas/competitor-spy-10-11/` (son de ANTES del
 arreglo: muestran la falla).
+
+## Cuarta vuelta (11/11, 16:05–16:45 UTC): los diez arreglos de la tercera, en producción
+
+Producción con 2507c11c7 (despliegue de las 15:55 UTC, trae 8f84d8bce). Navegador de la app, sesión de Martín comprobada con
+`/api/auth/me`, `?ws=3`, a 1440 y a 375. Capturas en `docs/pruebas/competitor-spy-10-11/prod2/`.
+
+| # | Arreglo de la tercera vuelta | En producción | Captura |
+|---|---|---|---|
+| P1 | Buscador: «lead magnet», «avatar» | ✅ «lead magnet» → Copywriting · Create; «avatar» → Video · Create | 02, 03 |
+| P2 | «Crear el regalo» → crear | ✅ Los cuatro van a `/copywriter?nueva=&ws=3`: «¿Qué vas a crear hoy?» | 01 |
+| P3 | More sin el hueco | ✅ Settings queda a 28 px de Create, el aire de los demás grupos | 04 |
+| P4 | 404 del teléfono sin «Ctrl K» | ✅ Sin la frase en el teléfono; en la computadora sigue | 05 |
+| P5 | Títulos de lado a lado | ✅ 3 de 15 cortados (los de más de ~60 letras), con las portadas | 06 |
+| P6 | Links legibles | ✅ `acquisition.com/fivescalingframeworks`, ningún `utm_` | 07 |
+| P7 | Botones de conectar | ✅ «Conectar» (guion de un reel) y «Conectar mi IA» con fondo, borde y peso 600 | 08, 09 |
+| P8 | «Acquisition.com» en el teléfono | ✅ Entero; «Su web · revisado hace 15 h» abajo | 12 |
+| P9 | Sugeridos sin recargar | ⚠️ **A medias:** desde la papelera de la lista vuelve; **desde la ficha, no** | 10 |
+| P10 | «lleva 1 d» | ✅ «la que más espera lleva 1 d en la cola» | 11 |
+
+**Lo que siguió mal, y su arreglo** (los cuatro en `tests/mirada-prod-11-11.test.ts`, casos 9, 11, 12 y 13; 5 roturas cazadas):
+
+| # | Lo que se vio | Arreglo |
+|---|---|---|
+| Q1 | Desde la ficha, «⋯ › Dejar de mirarlo»: Alex no volvía a Sugeridos. El registro de pedidos: salía el borrado y **nada más** | Después de `irA(null)` no sale ningún pedido (el código ya lo decía de la lista). Los sugeridos se piden ANTES de volver |
+| Q2 | La tarjeta dice «Alex Hormozi» y la ficha **«@AlexHormozi»**: el título, «¿Dejar de mirar a @AlexHormozi?», la oferta, los avisos | La ficha usa el nombre de su tarjeta (`nombreDeTarjeta`) en todo lo que se lee |
+| Q3 | El detalle de un video: la descripción en una caja de 180 px con barra, y **~165 px vacíos** debajo (el modal mide 800 de alto) (07) | Hasta 320 px a 900 de alto, sin una segunda barra en el modal (medido inyectado: 550/550) (13) |
+| Q4 | Teléfono: tres caras de Sugeridos como cuadrados verdes vacíos | La cara de 48 px bajaba el dibujo de 600 px (175 KB); ahora el de 200 px (72 KB) |
+| Q5 | Los 3 nombres que no entran no se pueden leer sin abrir la pieza | Se leen enteros al pasar el mouse (`title`) |
+
+**Para otros chats (sin tocar acá):**
+- **Copywriting:** «Crear el regalo» cae en «¿Qué vas a crear hoy?», pero entre las plantillas no hay ninguna de regalo (guía,
+  checklist). Con la IA conectada se pide escribiendo; sin IA («Instala MaKo para escribir»), no hay por dónde (01).
+- **Web Generator:** «Sus páginas» queda en blanco unos segundos mientras carga la vista de su web, sin aviso.
+
+**Lo que quedó en el ws 3:** nada nuevo (Alex se sumó y se sacó dos veces).
 
 ## Tercera vuelta (11/11, 14:45–15:30 UTC): producción con TODO desplegado
 

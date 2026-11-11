@@ -250,3 +250,20 @@ de subir); lo que se ve en producción cambia con el próximo despliegue.
 **Quedan:** el cartel de cookies en 4 capturas del relevo (el script las saca con el Chrome sin cabeza, que no puede cerrarlo;
 hace falta sacarlas por CDP sacando el cartel antes), y lo que pide la ventana o la animación (la copia idéntica, los cursores):
 el navegador de la app con el panel oculto no anima, y el Chrome de la extensión tenía la sesión de Leandro.
+
+## La quinta vuelta: lo desplegado a las 15:55 UTC (11/11/2026)
+
+Producción en 2507c11c7, con los arreglos de la cuarta vuelta. Navegador de la app, `/api/auth/me` = Martín, mirando el ws 3.
+
+| Pantalla | Lo que se vio | Qué se hizo |
+|---|---|---|
+| Portada a 1440 (66) | El logo de acquisition.com entero; lp.acquisition.com con su titular y su bajada en vez del cuadro gris. Bien | — |
+| Portada a 375 (67) | Ya está en el teléfono, pero en DOS columnas: una página apaisada medía 180px y la tarjeta dibujada salía cortada. «Crear desde cero» llevaba a la lista, donde no se crea | De a una, con la grilla ancha de Image (68). En el teléfono el botón dice «Tus landings» |
+| Réplica #99 a 1440 (69) | El hero sin el aviso legal (quedó al final, como en el original), «I'M READY TO SCALE» de vuelta, las cifras de a dos y enteras. Bien | — |
+| Réplica #99 a 375 (70) | Las cifras parejas y enteras. Pero la foto seguía cortada por el medio (Alex sin cabeza, Leila sólo la boca) | La regla estaba y NO ganaba: el encuadre de siempre (50% 50%) iba EN LÍNEA. Ahora va en línea sólo si la persona lo eligió, en la publicada y en el editor. Mirado sacándolo a mano: las dos caras (71) |
+
+**Queda, con su causa:** en la réplica, el subtítulo del hero de acquisition.com («Learn from the team…») y su botón quedan en
+la segunda sección, no en el hero. El original usa dos `<h2>` seguidos (título y subtítulo), y `esquemaDeReplica`
+(lib/editor-landing/replicar-estructura.ts) abre una sección en cada título del nivel de sección. Juntarlos pide una regla
+(«un título solo seguido de otro que es una oración es su subtítulo») que puede romper otras páginas: no se hizo a ciegas.
+En el ws 3 quedaron las réplicas #97, #98 y #99.

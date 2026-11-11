@@ -62,6 +62,7 @@ import { anotarProgreso, empezarArmado, useArmado, type ArmadoChat } from "./arm
 import { ArmadoEnVivo } from "@/app/_ui/ArmadoEnVivo";
 import { fasesDesde } from "@/app/_ui/armado-en-vivo";
 import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
+import { agentesDeOperaciones, mostrarCursores } from "@/app/video-editor/_opencut/enjambre/cursores-sueltos";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
 import { marcarCerrada, resolverEnServidor, traerPropuestas } from "./propuestas";
@@ -532,7 +533,9 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		if (!m.propuesta) return;
 		cambiarMensaje(proyectoId, m.id, { estado: "aplicando", aviso: undefined });
 		empezarArmado(m.id);
-		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion, alProgreso: (p) => anotarProgreso(m.id, p) });
+		// Los cursores de los agentes que hacen este cambio, a la vista mientras se aplica (enjambre/cursores-sueltos.ts).
+		const soltarCursores = mostrarCursores(agentesDeOperaciones(m.propuesta.operaciones));
+		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion, alProgreso: (p) => anotarProgreso(m.id, p) }).finally(soltarCursores);
 		if (!r.ok) {
 			cambiarMensaje(proyectoId, m.id, { estado: r.sinVersion ? "sin-version" : "pendiente", aviso: r.error });
 			return;
@@ -596,10 +599,11 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 			const texto = r.ok
 				? `Listo: puse ${r.subtitulos} ${r.subtitulos === 1 ? "subtítulo" : "subtítulos"}.`
 				: textoDeSubtitulos(r.motivo);
-			cambiarHilo(id, (h) => ({
-				...h,
-				mensajes: [...h.mensajes, conId({ de: "yo", texto: "Sí, en el feed", alcance: null }), conId({ de: "mako", texto, error: !r.ok })],
-			}));
+			// La respuesta, un milisegundo DESPUÉS: con la misma hora, la base desempata por el id (al azar) y al recargar
+			// quedaba «Listo» arriba de «Sí, en el feed» (producción, 11/11/2026; lib/editor-video/chat-hilo.ts, `enOrden`).
+			const yo = conId({ de: "yo", texto: "Sí, en el feed", alcance: null });
+			const mako = { ...conId({ de: "mako", texto, error: !r.ok }), c: yo.c + 1, t: yo.t + 1 };
+			cambiarHilo(id, (h) => ({ ...h, mensajes: [...h.mensajes, yo, mako] }));
 		});
 	};
 	// Sin la app de escritorio el envío se corta adentro de `enviar` (useAppDeEscritorio): un atajo prendido no hacía NADA al

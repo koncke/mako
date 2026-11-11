@@ -180,7 +180,7 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
       { local: 'respuesta', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_respuesta'], dimension: null, titulo: 'Tasa de respuesta', comparar: true },
       { local: 'por-dia', tipo: 'serie', fuente: 'envios', dimension: 'dia', metricas: ['enviados', 'fallaron'], titulo: 'Lo que salió y lo que falló', controles: AGRUPAR_AUTO },
       {
-        local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'fallaron', 'respuestas', 'tasa_respuesta', 'leads'],
+        local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'fallaron', 'respuestas', 'tasa_respuesta', 'leads', 'escritos'],
         titulo: 'Por automatización', ir: 'automations',
       },
       { local: 'desenlace', tipo: 'barras', fuente: 'inscripciones', dimension: 'desenlace', metricas: ['personas', 'respondieron', 'en_curso'], titulo: 'Cómo terminaron' },

@@ -57,6 +57,10 @@ test('el hilo: la respuesta de la persona y lo que salió, como dos mensajes; s�
   const poner = chat.slice(chat.indexOf('const ponerSubtitulos = () => {'), chat.indexOf('const pildora ='));
   assert.match(poner, /if \(!r\.ok && \(r\.motivo === "ocupado" \|\| r\.motivo === "cancelado"\)\) \{\s*toast\(textoDeSubtitulos\(r\.motivo\)\);\s*return;/);
   assert.match(poner, /`Listo: puse \$\{r\.subtitulos\}/);
-  assert.match(poner, /conId\(\{ de: "yo", texto: "Sí, en el feed", alcance: null \}\), conId\(\{ de: "mako", texto, error: !r\.ok \}\)/);
+  assert.match(poner, /const yo = conId\(\{ de: "yo", texto: "Sí, en el feed", alcance: null \}\);/);
+  // Un milisegundo DESPUÉS: con la misma hora, al recargar la base los devolvía en cualquier orden (producción, 11/11/2026:
+  // «Listo» quedó arriba de «Sí, en el feed»). PROBADO ROMPIÉNDOLO: sin el `c: yo.c + 1`, rojo.
+  assert.match(poner, /const mako = \{ \.\.\.conId\(\{ de: "mako", texto, error: !r\.ok \}\), c: yo\.c \+ 1, t: yo\.t \+ 1 \};/);
+  assert.match(poner, /mensajes: \[\.\.\.h\.mensajes, yo, mako\]/);
   assert.doesNotMatch(poner, /toast\("Subtítulos listos"\)/, 'volvió el aviso que se va solo');
 });

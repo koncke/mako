@@ -339,7 +339,9 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
           data-vacio={conImagen ? undefined : 'si'}
           contentEditable={false}
           suppressContentEditableWarning
-          style={conImagen ? { backgroundImage: `url("${srcAcento}")`, backgroundPosition: `${a.imagenFocoX}% ${a.imagenFocoY}%` } : undefined}
+          // El encuadre en línea sólo si la persona lo eligió: el de siempre lo pone la hoja (en la vista «Teléfono», la parte de
+          // arriba de la foto del costado). Igual que la publicada (especificacion.ts, `encuadre`).
+          style={conImagen ? { backgroundImage: `url("${srcAcento}")`, ...(a.imagenFocoX === 50 && a.imagenFocoY === 50 ? {} : { backgroundPosition: `${a.imagenFocoX}% ${a.imagenFocoY}%` }) } : undefined}
         >
           {editable && a.diseno !== 'fondo' && (
             <div className="gma gmc gmc-acento-capa" onMouseDown={sinRobarFoco} onDoubleClick={(e) => { if (!(e.target as HTMLElement).closest('button, .gmc-foco')) void elegirImagen(); }}>
