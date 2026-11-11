@@ -214,6 +214,13 @@ Ordenado por memoria que ahorra contra trabajo que lleva. Son propuestas; ningun
    - Ahorra 3,5 veces en 1080 y ≈20 veces en el pico de 4K.
    - Cada cuadro sale entre 2 y 10 veces más rápido: el 4K pasa de 11 a más de 30 cuadros por segundo.
    - Cuesta armar la copia una vez por archivo, en la PC del cliente o en la nube.
+   - **HECHO el 11/11/2026** (rama `punta/copias-livianas`).
+     - Dónde vive: `media/copia-liviana.ts` y `media/copia-liviana-reglas.ts`; la cola está en
+       `core/managers/media-manager.ts`.
+     - La vista previa la elige en `services/renderer/scene-builder.ts` (`fuenteDeVideo`), con otra clave del
+       `videoCache`. Exportar suelta los decodificadores del original al terminar.
+     - La miniatura del proyecto y la portada del cuadro de exportar salen de la copia.
+     - Lo fija `tests/video-editor-copia-liviana.test.ts`. Medido en el banco: §9.
 3. **Un lienzo por capa que se reusa**, en vez de uno nuevo por cuadro (`wasm-compositor.ts:232`, `pases-ce.ts:347`,
    `repartir-ce.ts`). Saca la basura de 250 MB/s a 1 GB/s.
 4. **Cerrar los decodificadores de los clips que salieron de pantalla**, con un tope de unos 4 abiertos y cerrando el que
@@ -259,3 +266,32 @@ node scripts/banco-memoria-editor/medir.mjs repro-1080 repro-proxy-1080 onda-60s
 
 Los videos se arman con ffmpeg; los comandos están en la cabecera de `medir.mjs`. Cada corrida deja su `resultado-*.json`
 al lado. Antes de correrlo tiene que haber al menos 1,5 GB libres, y si la PC baja de 1.250 MB el banco se corta solo.
+
+## 9. Después: la copia liviana del editor, medida (11/11/2026)
+
+Es la copia REAL que arma el editor (`media/copia-liviana.ts`), en el mismo banco y con el mismo video de celular (60 s,
+1080×1920, 10 Mb/s). El escenario es `copia-1080`.
+
+| | Antes: el original | Después: la copia del editor |
+|---|---|---|
+| 1 clip, queda en la GPU | +68 / +83 MB | +42 MB |
+| 3 clips, queda en la GPU | +215 / +297 MB | **+89 MB** |
+| 3 clips, todo Chrome | +314 / +260 MB | **+81 MB** |
+| 150 cuadros, tiempo | 520–543 ms | 370 ms |
+
+**Lo que cuesta armarla** (una vez por video, en segundo plano):
+
+- 60 s de video tardaron 27–30 s. Una vez, con la PC cargada por otros chats, pasó de 90 s;
+- pide +256 MB de pico mientras se arma (+113 en la GPU y +82 en la página): decodifica el original una vez;
+- pesa 6,1 MB (≈0,8 Mb/s), contra 76 MB del original.
+
+**Los tiempos se respetan:** comparando los primeros 60 cuadros desde el 0 y desde el segundo 10, los 120 caen en el
+mismo instante que en el original, con 0 diferencias.
+
+⚠️ La función del banco que compara esos tiempos (`mismosTiempos`) es pesada. El 11/11 llevó la GPU a +1,3 GB y la PC a
+437 MB libres. No va en ningún escenario: se llama a mano y con más de 3 GB libres.
+
+**Sin medir todavía:**
+
+- la copia del editor en 4K: la PC no tenía memoria libre para armarla sin riesgo;
+- el editor entero con varias copias en un proyecto real. Eso se mira en producción después del despliegue.

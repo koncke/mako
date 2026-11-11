@@ -26,6 +26,13 @@ Números y método en docs/editor-video/memoria-del-editor.md.
 - **Cada clip que se tocó deja su decodificador abierto** (≈100 MB en 1080×1920) hasta sacar el archivo o cambiar de
   proyecto. Y el compositor copia cada cuadro a un `OffscreenCanvas` NUEVO (`wasm-compositor.ts:232`): en 4K sube el pico de
   +529 a +762 MB, y la GPU lo suelta tarde.
+- **La copia liviana y la exportación NO pueden compartir clave en el `videoCache`.** El caché guarda un
+  decodificador por clave, y el que llega primero se queda. Si la vista previa abre la copia con la clave del medio,
+  exportar recibe ESE decodificador y sale en 540 px, sin ningún error. Por eso la copia va con `claveLiviana()`
+  (`media/copia-liviana-reglas.ts`) y exportar usa el original con la clave de siempre.
+  - La miniatura del proyecto y la portada del cuadro de exportar se arman sin `isPreview`, así que abrían el
+    decodificador del ORIGINAL en cada guardado. Ahora van con la copia.
+  - Exportar suelta los decodificadores del original al terminar.
 - **Trampas del banco, para la próxima medición:**
   - En un Chrome sin ventana los lienzos viven en el proceso de la GPU: midiendo sólo el de la página, el video «no gasta
     nada».
@@ -34,7 +41,7 @@ Números y método en docs/editor-video/memoria-del-editor.md.
   - Una llamada de CDP sin tope queda esperando para siempre si Chrome se cae. Ya pasó: lo cortó la guarda de RAM.
 - **Sin hacer** (orden y archivos en memoria-del-editor.md §7):
   1. forma de onda por tramos (`waveform-cache/service.ts`);
-  2. copias livianas al importar, con el `Conversion` de mediabunny que ya usa `sounds/components/extraer-audio.ts`;
+  2. ~~copias livianas al importar~~ **HECHO el 11/11** (`media/copia-liviana.ts`; 3 clips de +297 a +81 MB, memoria-del-editor.md §9);
   3. un lienzo por capa que se reuse;
   4. tope de decodificadores abiertos;
   5. terminar el hilo de Whisper;

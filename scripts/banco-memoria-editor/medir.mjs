@@ -51,7 +51,7 @@ function conectar(url) {
       // Con tope: si Chrome se cae, la llamada no queda esperando para siempre.
       send: (method, params = {}, sessionId) => new Promise((ok2, mal2) => {
         const i = ++id;
-        const tope = setTimeout(() => { esperando.delete(i); mal2(new Error(`${method}: sin respuesta en 90 s (¿se cayó Chrome?)`)); }, 90000);
+        const tope = setTimeout(() => { esperando.delete(i); mal2(new Error(`${method}: sin respuesta en 300 s (¿se cayó Chrome?)`)); }, 300000);
         esperando.set(i, { ok: (v) => { clearTimeout(tope); ok2(v); }, mal: (e) => { clearTimeout(tope); mal2(e); } });
         ws.send(JSON.stringify({ id: i, method, params, sessionId }));
       }),
@@ -173,6 +173,13 @@ const ESCENARIOS = [
     ['con la subida de cada cuadro', `prueba.reproducir({nombres:['${K}'],segundos:5,liviano:[960,540],subir:true})`]]],
   ['repro-proxy-1080', [['cargar', `prueba.cargar('p540-60.mp4')`], ['reproducir 5 s', `prueba.reproducir({nombres:['p540-60.mp4'],segundos:5})`],
     ['2º clip', `prueba.reproducir({nombres:['p540-60.mp4'],segundos:2})`], ['3º clip', `prueba.reproducir({nombres:['p540-60.mp4'],segundos:2})`]]],
+  // DESPUÉS: la copia que arma el editor (media/copia-liviana.ts), con lo que cuesta armarla y si respeta los tiempos.
+  ['copia-1080', [['cargar', `prueba.cargar('${A2}')`], ['armar la copia', `prueba.copia('${A2}')`],
+    ['reproducir 5 s', `prueba.reproducir({nombres:['${A2}.liviana'],segundos:5})`],
+    ['2º clip', `prueba.reproducir({nombres:['${A2}.liviana'],segundos:2})`], ['3º clip', `prueba.reproducir({nombres:['${A2}.liviana'],segundos:2})`]]],
+  ['copia-4k', [['cargar', `prueba.cargar('${K}')`], ['armar la copia', `prueba.copia('${K}')`],
+    ['reproducir 5 s', `prueba.reproducir({nombres:['${K}.liviana'],segundos:5})`],
+    ['con la subida de cada cuadro', `prueba.reproducir({nombres:['${K}.liviana'],segundos:5,subir:true})`]]],
   ['repro-proxy-4k', [['cargar', `prueba.cargar('p4k-20.mp4')`], ['reproducir 5 s', `prueba.reproducir({nombres:['p4k-20.mp4'],segundos:5})`],
     ['con la subida de cada cuadro', `prueba.reproducir({nombres:['p4k-20.mp4'],segundos:5,subir:true})`]]],
 ];
