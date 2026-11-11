@@ -431,7 +431,8 @@ export const FAMILIAS: NavFamilia[] = [
     ],
   },
   {
-    // CREATE: las piezas (lo que se produce, separado de lo que se ejecuta). AI Avatar, sólo el super admin.
+    // CREATE: las piezas (lo que se produce, separado de lo que se ejecuta). Copywriting, Video, Image y Web Generator, en ese
+    // orden (Martín, 11/11/2026); AI Avatar se usa desde Video y Lead Magnet está archivado.
     // ⚠️ SIN `secciones` (29/10/2026, Martín: «para todas las secciones de "create" no quiero otras tabs… prefiero deprecar antes
     //    que conservar»): cada tab es UNA pantalla, la de app/_crear/PantallaCrear.tsx (el chat de MaKo a la izquierda con sus
     //    proyectos y «Nuevo …» con las plantillas). Cada ítem lleva la key de la que era su sección principal ('video-editor',
@@ -445,12 +446,7 @@ export const FAMILIAS: NavFamilia[] = [
     color: '--sec-create',
     bloques: [
       [
-        // La copia de CapCut. Abierta a todos desde el 12/10/2026; quién entra lo decide app/video-editor/acceso.ts (la misma
-        // pregunta que toda tab: rol y capa). El Video Generator (Flow) es una plantilla de «Nuevo video», no una pestaña.
-        { key: 'video-editor', label: 'Video', href: '/video-editor', icon: 'videogen', match: (p) => starts('/video-editor')(p) || starts('/video-generator')(p) },
-        // La copia de Canva (14/10/2026): Doory portado y re-vestido. Abierta a todos los workspaces el 15/10/2026, como el Video
-        // Editor el 12/10: quién entra lo decide app/image-editor/acceso.ts con la pregunta de toda tab (rol y capa).
-        { key: 'image-editor', label: 'Image', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
+        // 11/11/2026, Martín: «en Create debería estar la parte de copywriting primero. Luego video, image y web generator».
         // Copywriting ES el Copywriter desde el 29/10/2026 (Martín: «quiero que sea una réplica de Notion… con la barra lateral
         // de MaKo… y NO quiero otras tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING»): UNA pantalla, sin
         // `secciones`, con la key de su pantalla ('copywriter': la piden la página, el teléfono y la API). Ads Writer, Stories y
@@ -461,13 +457,24 @@ export const FAMILIAS: NavFamilia[] = [
           key: 'copywriter', label: 'Copywriting', href: '/copywriter', icon: 'escribir',
           match: (p) => starts('/copywriter')(p) || starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p),
         },
+        // La copia de CapCut. Abierta a todos desde el 12/10/2026; quién entra lo decide app/video-editor/acceso.ts (la misma
+        // pregunta que toda tab: rol y capa). El Video Generator (Flow) es una plantilla de «Nuevo video», no una pestaña.
+        { key: 'video-editor', label: 'Video', href: '/video-editor', icon: 'videogen', match: (p) => starts('/video-editor')(p) || starts('/video-generator')(p) },
+        // La copia de Canva (14/10/2026): Doory portado y re-vestido. Abierta a todos los workspaces el 15/10/2026, como el Video
+        // Editor el 12/10: quién entra lo decide app/image-editor/acceso.ts con la pregunta de toda tab (rol y capa).
+        { key: 'image-editor', label: 'Image', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
         {
           // 17/10/2026, Martín: «implementes end-to-end la tab nueva de "AI Avatar"… algo como Heygen». Y el 29/10/2026: «replica a
           // higgsfield tal cual», con el diseño único de Create: UNA pantalla (app/ai-avatar/Estudio.tsx), SIN secciones (las
           // cuatro de HeyGen —Create video · Avatars · Voices · Templates— se fueron; sus rutas redirigen al estudio).
           // Para todos los planes desde el 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»): sin `adminOnly`
           // ni candado de Pro; la puerta, app/ai-avatar/acceso.ts.
-          key: 'ai-avatar', label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil',
+          // ⚠️ FUERA DE LA BARRA desde el 11/11/2026. Martín: «[AI Avatar] no debería estar, eso ya lo hablamos muchas veces».
+          // Su estudio se usa desde Video («Tu personaje con IA» en «Nuevo video») y desde los botones que llevan a /ai-avatar
+          // (la biblioteca de anuncios, la guía de video, los carruseles, el CoPilot): por eso la ruta NO redirige —redirigirla
+          // a Video rompía justamente la tarjeta de Video—. El ítem queda, como Offer: su key es contrato (capas, API, teléfono).
+          // Un Esencial (Video es sólo de Pro, lib/plan-esencial-reglas.ts) llega por esos botones; decide Martín si Video entra.
+          key: 'ai-avatar', label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil', fueraDeLaBarra: true,
           match: starts('/ai-avatar'),
         },
         // 6/11/2026, Martín: «Web Generator debería estar en la sección de "Create"». Es una pieza que se produce (la web), no algo que se ejecuta.

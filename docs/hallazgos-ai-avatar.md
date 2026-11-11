@@ -4,6 +4,21 @@
 (`app/video-editor/avatar`) y en el motor del Video Generator (`app/video-generator/video-action.ts`,
 el puente a Flow). Lo de Flow, ElevenLabs y el lip-sync de antes vive en `hallazgos-generativa.md`.
 
+## Fuera de la barra desde el 11/11/2026: se usa desde Video, y la ruta NO redirige
+
+Martín, 11/11/2026: «en Create debería estar la parte de copywriting primero. Luego video, image y web generator… [AI Avatar] no
+debería estar, eso ya lo hablamos muchas veces». El ítem queda en `nav.ts` con `fueraDeLaBarra` (como Offer: la key `ai-avatar` es
+contrato de capas, API y teléfono), la fila del «More» queda oculta y MaKo lo ofrece como parte de la función Video
+(`lib/funciones-mako.ts`). Lo que no se deduce:
+
+- **Redirigir `/ai-avatar` a Video, como se pidió, lo rompía desde Video.** La tarjeta «Tu personaje con IA» de «Nuevo video» ES
+  un `router.push('/ai-avatar')` (`PERSONAJE_CON_IA`, app/video-editor/plantillas-crear.ts): con la redirección daba la vuelta y el
+  estudio quedaba inaccesible. Y hay seis botones más que llevan ahí (la biblioteca de anuncios, la guía de video, los carruseles,
+  el CoPilot, las subrutas viejas de HeyGen). La ruta sigue viva; lo que se fue es la fila.
+- **Video es sólo de Pro y AI Avatar de los tres planes** (`NAV_SOLO_PRO`, lib/plan-esencial-reglas.ts): sin la fila, un Esencial
+  llega a su personaje por esos botones. Si Video entra en Esencial es una decisión de plata, de Martín. `tests/video-tab.test.ts`
+  (9) y `tests/create-orden.test.ts` lo fijan.
+
 Pedido de Martín (17/10/2026, 04:55, desde el Centro de Operaciones): la tab «AI Avatar» de punta a
 punta, «algo como Heygen», investigando clones y alternativas (`github.com/topics/heygen-alternative`,
 `debpalash/VoiceStudio` para clonar la voz), con una «galería» de ejemplos o temas en imagen, video y voz.

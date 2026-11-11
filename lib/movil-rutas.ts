@@ -248,18 +248,21 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // cliente). `copywriting` NO sirve de navKey: no está en TODOS_LOS_ITEMS (itemsDe aplana las
   // secciones), así que puedeVerKey diría que no.
   // Image (la copia de Canva) no entró en la tanda del 15/10/2026; entró el 17/10/2026, debajo de Video.
+  // 11/11/2026, Martín: «en Create debería estar la parte de copywriting primero. Luego video, image y web generator». El
+  // mismo orden que la barra de escritorio (nav.ts).
+  // Copywriting ES el Copywriter desde el 29/10/2026 (nav.ts, la fila de Copywriting): la lista de páginas y «Nueva»
+  // (app/m/copywriter). El Ads Writer del teléfono (/m/copywriting) queda sin fila.
+  { id: 'copywriting', label: 'Copywriting', titulo: 'Copywriting', href: '/m/copywriter', icon: 'escribir', navKey: 'copywriter', familia: 'create' },
   // Video desde el 29/10/2026: una sola pantalla, el editor (como en escritorio: nav.ts → 'video-editor', sin secciones). El
   // Video Generator (/m/video) quedó como su plantilla «Generar con IA», con fila oculta (lib/movil-creacion.ts).
   { id: 'video', label: 'Video', titulo: 'Video', href: '/m/video-editor', icon: 'videogen', navKey: 'video-editor', familia: 'create' },
   // Image (17/10/2026): la tab unificada abre su Editor, la copia de Canva (app/m/image-editor), como en escritorio
   // (`resolverTab` lleva a la primera sección que no es «pronto»). Sus otras secciones van en la barra de arriba.
   { id: 'image', label: 'Image', titulo: 'Image Editor', href: '/m/image-editor', icon: 'imagegen', navKey: 'image-editor', familia: 'create' },
-  // Copywriting ES el Copywriter desde el 29/10/2026 (nav.ts, la fila de Copywriting): la lista de páginas y «Nueva»
-  // (app/m/copywriter). El Ads Writer del teléfono (/m/copywriting) queda sin fila.
-  { id: 'copywriting', label: 'Copywriting', titulo: 'Copywriting', href: '/m/copywriter', icon: 'escribir', navKey: 'copywriter', familia: 'create' },
-  // AI Avatar (29/10/2026): para todos los planes, como Video. Hasta ese día era sólo del super admin y no tenía fila (More se
-  // la armaba desde la sidebar). Una pantalla, el estudio de Higgsfield (app/m/ai-avatar).
-  { id: 'ai-avatar', label: 'AI Avatar', titulo: 'AI Avatar', href: '/m/ai-avatar', icon: 'perfil', navKey: 'ai-avatar', familia: 'create' },
+  // AI Avatar (29/10/2026): el estudio de Higgsfield (app/m/ai-avatar). FUERA DE MORE desde el 11/11/2026 (Martín: «[AI Avatar]
+  // no debería estar»): fila OCULTA, como en escritorio (`fueraDeLaBarra`). La pantalla sigue: la abre «Tu personaje con IA» de
+  // Video (app/video-editor/plantillas-crear.ts → PERSONAJE_CON_IA.movil), y ésta le da su cabecera y su título.
+  { id: 'ai-avatar', label: 'AI Avatar', titulo: 'AI Avatar', href: '/m/ai-avatar', icon: 'perfil', navKey: 'ai-avatar', familia: null, oculta: true },
   // Web Generator pasó a Create el 6/11/2026 (Martín), como en escritorio.
   { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'create' },
   // Lead Magnet (5/11/2026): la lista de lead magnets y las plantillas (app/m/lead-magnet-generator). Por ahora sólo la plataforma

@@ -259,12 +259,14 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     estado: 'lista', slugDev: 'ads-manager', fuentes: [AREAS, 'lib/mako-capacidades.ts'],
   },
   {
-    keys: ['video-editor'],
+    // 11/11/2026, Martín: «[AI Avatar] no debería estar, eso ya lo hablamos muchas veces». Su estudio se usa desde Video («Tu
+    // personaje con IA» en «Nuevo video»): MaKo lo ofrece como parte de Video, no como una tab. La pantalla sigue en /ai-avatar.
+    keys: ['video-editor', 'ai-avatar'],
     que: 'Video: la tab de video de MaKo. Abre con «Encuentra tu siguiente OUTLIER»: videos que funcionan para replicarlos con tu mensaje. «Crear desde cero» trae las plantillas: «Mensaje para…» (MaKo te guía paso a paso), «Tu personaje con IA», los formatos y «Generar con IA». El editor está copiado de CapCut, con MaKo siempre a la izquierda.',
-    hace: ['Ver los outliers y replicar uno con «Replicar»', 'La plantilla «Mensaje para…»: MaKo pide en el chat la referencia, tu guion de 6 bloques, tu foto o tu personaje, tu voz y el fondo, con lo demás opacado', 'Calcular cuánto dura y cuántos créditos cuesta cada clip según sus palabras', 'Crear tu personaje con tu foto («Tu personaje con IA», el estudio de AI Avatar)', 'Arrancar de un formato (Reel, YouTube, cuadrado) o de una plantilla', 'Un modo simple con menos botones en las plantillas guiadas, y «Todas las herramientas»', 'Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Edición automática: un equipo de agentes quita pausas, subtitula, prueba estilos, propone B-roll y deja el volumen listo, a la vista', 'Exportar el video'],
+    hace: ['Ver los outliers y replicar uno con «Replicar»', 'La plantilla «Mensaje para…»: MaKo pide en el chat la referencia, tu guion de 6 bloques, tu foto o tu personaje, tu voz y el fondo, con lo demás opacado', 'Calcular cuánto dura y cuántos créditos cuesta cada clip según sus palabras', 'Crear tu personaje con tu foto («Tu personaje con IA», el estudio de AI Avatar)', 'Arrancar de un formato (Reel, YouTube, cuadrado) o de una plantilla', 'Un modo simple con menos botones en las plantillas guiadas, y «Todas las herramientas»', 'Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Edición automática: un equipo de agentes quita pausas, subtitula, prueba estilos, propone B-roll y deja el volumen listo, a la vista', 'Exportar el video', '«Tu personaje con IA»: tu avatar con tu cara en una de 28 escenas, ajustada escribiendo, y después el video diciendo tu guion (como Higgsfield y HeyGen)'],
     noHace: ['Todavía no: guardar los proyectos en la nube (quedan en tu navegador)', 'Todavía no: filmar sola los clips, las tomas blancas y el montaje de «Mensaje para…» (los lleva al estudio del personaje y al Video Generator)', 'Todavía no: traer outliers de tu rubro (hoy, los de las plantillas de MaKo)'],
     reemplaza: 'CapCut',
-    alias: ['video editor', 'editor de video', 'editar video', 'edicion de video', 'capcut', 'edicion automatica', 'editar con agentes'],
+    alias: ['video editor', 'editor de video', 'editar video', 'edicion de video', 'capcut', 'edicion automatica', 'editar con agentes', 'ai avatar', 'avatar', 'personaje', 'higgsfield', 'heygen', 'influencer', 'preset'],
     conecta: [{ a: 'video-generator', motivo: 'Recibe los anuncios que genera' }],
     estado: 'parcial', slugDev: 'video-editor', fuentes: [AREAS, 'AGENTS.md'],
   },
@@ -328,19 +330,6 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     alias: ['ads writer', 'content machine', 'guiones de anuncio', 'anuncios'],
     conecta: [{ a: 'ads-manager', motivo: 'Los anuncios se publican en Ads Manager' }, { a: 'video-generator', motivo: 'El guion se vuelve video' }],
     estado: 'lista', slugDev: 'ads-writer', fuentes: [AREAS, 'lib/mako-capacidades.ts'],
-  },
-  {
-    // 29/10/2026: el estudio de Higgsfield (una pantalla, sin secciones). La voz propia sobre el video todavía no está.
-    // 9/11/2026: también se abre desde Video («Tu personaje con IA»). Sigue como tab propia mientras Video sea sólo de Pro: es la
-    // puerta de un Esencial a su personaje (docs/relevo/nube-tab-video.md §1).
-    keys: ['ai-avatar'],
-    que: 'Tu avatar con tu cara (también desde Video, «Tu personaje con IA» en «Nuevo video»), como en Higgsfield: eliges un preset (una escena), pones tu foto y MaKo lo genera; después lo animas diciendo tu guion.',
-    hace: ['Crear tu avatar en una escena de 28 presets', 'Ajustar la escena escribiendo lo que quieres', 'Generar el video del avatar diciendo un guion', 'Volver a cada avatar y sus videos'],
-    noHace: ['Todavía no: tu voz clonada en el video, copiar el movimiento de otro video, ni diseñar un personaje sin foto'],
-    reemplaza: 'Higgsfield y HeyGen',
-    alias: ['ai avatar', 'avatar', 'higgsfield', 'heygen', 'influencer', 'preset'],
-    conecta: [{ a: 'video-generator', motivo: 'Genera por el mismo puente a Google Flow' }],
-    estado: 'parcial', slugDev: 'ai-avatar', fuentes: [AREAS],
   },
   // ⚠️ ARCHIVADO el 11/11/2026 por pedido de Martín (lib/lead-magnets/archivado.ts): sin la fila de la barra, MaKo no lo ofrece.
   ...(LEAD_MAGNET_EN_PRODUCCION ? [{

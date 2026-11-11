@@ -59,8 +59,9 @@ test('2. el nombre, la ruta, la familia y quién la ve salen del nav', () => {
   assert.equal(funcionDeKey('chats')?.familia, 'Today');
   // AI Avatar es de Pro desde el 29/10/2026 (ya no `adminOnly`): la ven los negocios, con el candado de su plan.
   assert.equal(funcionDeKey('ai-avatar')?.soloSuperAdmin, false);
-  // AI Avatar sin secciones desde el 29/10/2026 (el estudio de Higgsfield): la función se llama como la tab.
-  assert.deepEqual([funcionDeKey('ai-avatar')?.nombre, funcionDeKey('ai-avatar')?.ruta], ['AI Avatar', '/ai-avatar']);
+  // AI Avatar es parte de Video desde el 11/11/2026 (Martín: «[AI Avatar] no debería estar»): su key es de la función Video, y
+  // MaKo no lo ofrece como una tab aparte.
+  assert.deepEqual([funcionDeKey('ai-avatar')?.nombre, funcionDeKey('ai-avatar')?.ruta], ['Video', '/video-editor']);
   // Video sin secciones desde el 29/10/2026 (tests/crear-pantalla.test.ts): la función se llama como la tab.
   assert.equal(funcionDeKey('video-editor')?.nombre, 'Video', 'una tab sin secciones se llama como la tab');
   assert.equal(funcionDeKey('partners')?.noEnPlataforma, true);
@@ -140,7 +141,8 @@ test('6. listar_capacidades_mako por negocio y por rol: lo del super admin sólo
     for (const n of SOLO_SA) assert.ok(!R[k].funciones.includes(n), `${k} recibió «${n}», que sólo ve el super admin`);
   }
   // La plataforma sí, y sin MaKo Partners (que no va en la plataforma); un cliente admin sí tiene Partners.
-  assert.ok(R['9:admin'].funciones.includes('AI Avatar'));
+  assert.ok(R['9:admin'].funciones.includes('Video'));
+  assert.ok(!R['9:admin'].funciones.includes('AI Avatar'), 'AI Avatar es parte de Video desde el 11/11/2026');
   assert.ok(!R['9:admin'].funciones.includes('MaKo Partners'), 'la plataforma recibió MaKo Partners');
   assert.ok(R['11:admin'].funciones.includes('MaKo Partners'));
   // El menú de la foto no depende del plan: con la capa pm, Settings y conectar siguen.
