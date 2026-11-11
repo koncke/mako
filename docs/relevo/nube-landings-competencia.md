@@ -28,19 +28,46 @@ Cada landing dice en sus primeras líneas qué referencia copia (URL y fecha), q
 sale del código (`lib/funciones-mako.ts` y los catálogos de cada tab); los números de AI Avatar se cuentan del código y el
 test los fija.
 
+## Segunda tanda (11/11/2026, tarde): 14 landings más
+
+Martín: «¿Pero por qué hiciste de tan pocas si justamente tenías ejemplos de un montón de otras? Por ejemplo, también me
+interesa tener la de video… La de la espía de la competencia. El copilot. Podemos generar otras… Y muéstrame».
+
+| Landing | Ruta | Copia de | Quién |
+|---|---|---|---|
+| Video | `/vsl/video` (nueva) | Cherry Studio | este chat |
+| Competitor Spy | `/vsl/competitor-spy` (nueva) | Foreplay | este chat |
+| Marketing CoPilot | `/vsl/ads` (rehecha) | Master Ads | este chat |
+| Image | `/vsl/image` (nueva) | PostNitro | ayudante |
+| Copywriting | `/vsl/copywriting` (nueva) | The Copy Machine | ayudante |
+| Web Generator | `/vsl/web-generator` (nueva) | HighLevel AI Studio | ayudante |
+| Offer | `/vsl/offer` (nueva) | Atlas AI (DFY) | ayudante |
+| Agenda | `/vsl/agenda` (nueva) | iClosed | ayudante |
+| Ops Center | `/vsl/mako` (rehecha) | Holo | ayudante |
+| Plan | `/vsl/prioridades` (rehecha) | Motion | ayudante |
+| Ads Analyst | `/vsl/script` (rehecha) | Gethookd | ayudante |
+| Funnels | `/vsl/funnel` (rehecha) | Hyros | ayudante |
+| Email | `/vsl/email` (rehecha) | beehiiv | ayudante |
+| Cobranza | `/vsl/cobranza` (rehecha) | Rebill | ayudante |
+
+Las funciones sin gráfico en `/vsl` llevan un visual propio (`app/vsl/_competencia/visuales/`, registrado en su `index.tsx`).
+Las 19 están en `registro.ts` y pasan `tests/vsl-landings-competencia.test.ts`. Capturas a 1440 y 375 de las 14, sin scroll
+horizontal; lo que se vio, más abajo.
+
 ## Lo que falta
 
-Las landings de las otras 16 funciones. La ganadora de cada una ya está elegida en el documento:
-
-- Agenda → iClosed · Cobranza → Rebill (`/vsl/cobranza`) · Media Buyer / CoPilot → Master Ads (`/vsl/ads`)
-- Ads Analyst → Gethookd (`/vsl/script`) · Competitor Spy → Foreplay · Video → Cherry Studio · Image → PostNitro
-- Copywriting → The Copy Machine · Web Generator → HighLevel AI Studio · Ops Center → Holo (`/vsl/mako`)
-- Plan → Motion (`/vsl/prioridades`) · Offer → Atlas AI · Funnels → Hyros (`/vsl/funnel`) · Email → beehiiv (`/vsl/email`)
-- Classroom → Skool (no se pudo leer su portada) · **Closing: sin ganadora** (Voicit no analiza llamadas de venta).
+- **Closing**: sin ganadora (nadie en español analiza llamadas de venta); `/vsl/closing` sigue como estaba.
+- **Classroom**: la portada de Skool no se pudo leer sin sesión.
+- Las capturas mostraron tres portadas para mejorar, y quedan para la próxima vuelta:
+  - **`/vsl/mako`** usa el gráfico viejo del media buyer («¿Apago la campaña…?», «Escala el presupuesto»): es real, pero es el
+    ángulo del CoPilot, no el del Ops Center. Pide un visual propio.
+  - **`/vsl/cobranza`** usa el gráfico viejo con rótulos en inglés («Sold Revenue», «Cash Collected», «Ad Spend»).
+  - **`/vsl/funnel`** muestra su mini-VSL de Panda, que en este entorno se ve negro (igual que `/vsl/crm`).
 
 **Cómo se hace una:** `app/vsl/_competencia/<slug>.ts` con su cabecera de referencia y sus bloques en el orden de la
-ganadora, sumarla a `registro.ts`, y cambiar la `page.tsx` que ya existe para esa función. Antes de elegir un gráfico, listar
-los grupos por índice (ver la trampa en `docs/hallazgos-landing.md`, entrada del 11/11).
+ganadora, sumarla a `registro.ts`, y cambiar la `page.tsx` que ya existe para esa función (o crearla). Si la función no tiene
+gráfico en `/vsl`, su visual va en `visuales/<slug>.tsx` y se registra en `visuales/index.tsx`. Antes de elegir un gráfico,
+listar los grupos por índice (ver la trampa en `docs/hallazgos-landing.md`, entrada del 11/11).
 
 ## Lo que no se pudo probar
 
@@ -59,11 +86,16 @@ los grupos por índice (ver la trampa en `docs/hallazgos-landing.md`, entrada de
    desde Video, que es sólo de Pro (`TABS_SOLO_PRO`). La landing dice «en todos los planes» porque el código lo sigue
    diciendo; si Esencial ya no lo trae, esa respuesta se cambia.
 3. **¿AI Avatar entra a la grilla de funcionalidades de `/vsl`?** Hoy no está (serían 25 tarjetas); se llega por su link.
+4. **El caso de Mauricio en `/vsl/offer`** dice «Sin cambiar la oferta. Sin cambiar el funnel.», en una landing que vende
+   trabajar la oferta. Va porque es la prueba de todas las landings; si se lee en contra, se saca de ésa.
+5. **¿Las landings nuevas entran a la grilla de funcionalidades de `/vsl`?** Hoy se llega a cada una por su link.
 
 ## Cómo seguir desde la nube
 
 - Entorno con los hosts de la competencia permitidos: `mako-competencia`. `WebFetch` no sirve: se lee con Chromium de
   Playwright y `proxy: { server: process.env.HTTPS_PROXY }`.
-- Tests: `node --import tsx --test tests/vsl-landings-competencia.test.ts`. Tipos: `node scripts/tsc-acotado.mjs --heap=7000 …`.
+- Tests: `node --import tsx --test tests/vsl-landings-competencia.test.ts`.
+- **`.next/dev` crece sin parar** (llegó a 21 GB en esta sesión y llenó el disco: la máquina se reinició tres veces). Si la
+  app se cae o la máquina se reinicia, `du -sh .next/dev`; se borra sin miedo, es caché. Tipos: `node scripts/tsc-acotado.mjs --heap=7000 …`.
 - Veredicto y push con Node 24: `export PATH="$(sh scripts/node24.sh):$PATH"`, `node scripts/veredicto.mjs sacar`,
   `git push origin HEAD:punta/landings-competencia`.
