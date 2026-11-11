@@ -21,6 +21,21 @@ oculto. Si lo está, se repite con el panel a la vista, o se le pide un turno al
 la extensión:** tiene la sesión de LEANDRO (ws 10), un cliente real, y el `?ws=` se ignora. La prueba del 10/11 dejó ahí 2 usos
 de IA y una apertura vista (docs/pruebas/image-10-11.md, «Límites»).
 
+**11/11/2026, CÓMO MIRAR con el panel oculto (medido):** el panel mide 800 × 600 y la página se emula a 1440 × 900.
+- **Lo que anda:** después de `navigate`, un `zoom` de la región `[0, 0, 1440, 900]` devuelve la página ENTERA a 1440,
+  reducida a 800 × 500.
+- ⚠️ **Lo que lo rompe:** el primer clic con la herramienta (`computer` → `left_click`). Desde ahí cada captura es un RECORTE
+  de 800 × 500 de la esquina, aunque se vuelva a llamar `resize_window`. Una captura así parece buena y no muestra la mitad
+  derecha.
+- **Lo que lo mantiene:** el clic desde JS (`elemento.click()` en `javascript_tool`). La página reacciona igual (React) y la
+  captura sigue entera.
+- **La pintura llega tarde:** la primera captura después de un cambio puede ser la vieja (sin el modal recién abierto) o
+  tener las imágenes en blanco con `naturalWidth` 1080. Se mide el estado con JS (`[role=dialog]`, `naturalWidth`) y se repite
+  la captura antes de anotar una falla.
+- **A 375:** `resize_window` con `preset: mobile` + `navigate` (el servidor dibuja el armado de teléfono por el agente). La
+  captura normal sirve: el marco es 469 × 1015. Al volver a 1440 hay que navegar otra vez, porque la página quedó con el armado
+  de teléfono.
+
 ## Un `assert.equal` con un elemento de jsdom que falla agota la memoria (10/11/2026)
 
 **Síntoma:** al verificar rompiéndolo `tests/carruseles-imagen-rota.test.ts`, el corredor contó «tests 1» y terminó: los casos
