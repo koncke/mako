@@ -360,3 +360,9 @@ docs/relevo/planes-y-cobros.md. El titular no va en el texto: lo da el KYC de la
 ⚠️ **Lo que este texto supone:** que la importación de contactos de grupos de WhatsApp y la lectura de Instagram de otras
 cuentas NO estén en lo que se cobra por Whop desde la primera venta. Whop ya las conoce: el 6/11, desde la cuenta de Martín,
 su soporte las marcó por su nombre, y la home de hoy las muestra. Si preguntan por ellas, se contesta la verdad.
+
+### Mandada (11/11/2026)
+
+Con el sí de Martín en el chat de Planes y cobros: negocio **MaKo** (`biz_XlyztIABgWi0S4`) en la cuenta de Whop de Leandro. Whop no
+tiene formulario de solicitud: la descripción del negocio es pública y de 400 caracteres como máximo, así que fue la versión corta
+de este texto (397 caracteres, en docs/relevo/planes-y-cobros.md). Falta la verificación de identidad de Leandro.

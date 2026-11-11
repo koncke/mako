@@ -2896,3 +2896,21 @@ conecta él en hola-mako.com/integraciones del negocio de MaKo; acá no se toca 
 contrato de Stripe sobre cobrar por otro negocio.
 **Vive en:** lib/compra-plan-reglas.ts (`pasarelasParaOfrecer`) · lib/compra-plan.ts (`ofertaDelPlan`) ·
 lib/cobros-conexion.ts (`descubrirStripe`) · tests/prueba-de-humo-pasarela.test.ts.
+
+## Whop: no hay «solicitud»; lo que se revisa es el negocio y la verificación de identidad (11/11/2026, chat «Planes y cobros»)
+
+**Lo que se esperaba:** un formulario de alta donde va el texto largo que describe MaKo (docs/proveedores-de-cobro.md §10).
+**Lo que hay:** Whop no tiene formulario de solicitud. «Create a business» → «I have a business» pide cuatro cosas (tipo, facturación
+mensual, de qué plataforma venís —si es «Other», cuál— y el sitio) y crea el negocio en el acto, con el nombre sacado del dominio
+(«Hola-mako») y un «Industry type» que pone Whop solo («Sales funnel builder»; no se ve editable). Lo que declara qué se vende es
+**Settings → General → Business description**, que es **PÚBLICA** («update your business details on all pages») y tiene **tope de
+400 caracteres**. La revisión es la **verificación de identidad** del titular (Settings → Verifications → «Individual
+verification»): sin ella, Payouts, Whop Card y Bank deposits quedan «Inactive», y a los 30 días sin completar se inactiva la cuenta.
+
+**La regla:** el texto para Whop se escribe en dos tamaños: uno de ≤400 caracteres para la descripción pública del negocio (sólo
+lo dicho en el largo, sin agregar nada) y el largo para la descripción del producto o para contestar si Whop pregunta. Antes de
+tocar el negocio, mirar de quién es la sesión (`/@me/settings/`): el nombre de usuario no dice quién es el titular.
+
+**Hecho:** negocio MaKo `biz_XlyztIABgWi0S4` en la cuenta de Whop de Leandro, con la descripción corta (397 caracteres). El texto,
+en docs/relevo/planes-y-cobros.md. **Sin hacer:** la verificación de identidad (la hace Leandro) y el producto con los precios
+(cuando se arme el cobro por Whop, con el texto largo y la lista interna de lo que va afuera, en el mismo relevo).

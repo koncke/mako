@@ -63,5 +63,18 @@ Texto a mandar (TODAVÍA NO SALIÓ: espera el sí de Martín en el chat de Plane
   formulario aparte: la solicitud es crear el negocio en esa cuenta, y el KYC lo hace el titular.
 - 11/11, Martín en este chat: «Sí, es de Leandro» → «scrubsoul0c» es la cuenta de Whop de Leandro. Al ir a mandarla, la
   extensión de Chrome se desconectó (Chrome abierto, `list_connected_browsers` vacío durante ~8 min) y antes la tenía ocupada
-  otro chat. **No salió**: espera que la extensión vuelva a conectarse. Lo que falta hacer, en la cuenta «scrubsoul0c»:
-  «Create a business», nombre MaKo, el texto final de docs/proveedores-de-cobro.md §10; KYC y banco los carga Leandro.
+  otro chat.
+- **11/11, SALIÓ** (Martín reabrió el panel de Claude en Chrome). En la cuenta de Whop de Leandro («scrubsoul0c»), negocio
+  **MaKo**, `biz_XlyztIABgWi0S4` (whop.com/dashboard/biz_XlyztIABgWi0S4/):
+  - Alta («I have a business»): tipo Software · facturación «Under $50k» · viene de «Other: Mercado Pago» · sitio hola-mako.com.
+    Whop puso solo «Industry type: Sales funnel builder» (no se ve editable).
+  - Nombre «MaKo» y la descripción del negocio, que es PÚBLICA y tiene tope de **400 caracteres**: el texto final de
+    docs/proveedores-de-cobro.md §10 tiene ~850, así que va la versión corta, hecha sólo con lo del texto aprobado (397):
+    > MaKo is subscription software for coaches and service businesses in LatAm and Spain: CRM, shared inbox for WhatsApp and
+    > Instagram, scheduled messaging to the customer's own contacts, sales pages, ad recommendations and AI (copy, call
+    > analysis, image and video). AI Avatar: the customer's own photo or one with written permission. WhatsApp via Evolution,
+    > not the official API. US$47 or US$97/month.
+  - Whop no tiene formulario de solicitud aparte: lo que revisa es esto más la verificación de identidad. **Falta (Leandro):**
+    Settings → Verifications → «Individual verification» → «Get verified» (documento y datos suyos; sin eso Payouts, Whop
+    Card y Bank deposits quedan «Inactive»; KYC sin completar en 30 días inactiva la cuenta). El texto largo queda para la
+    descripción del producto cuando se arme el cobro por Whop, o para contestarle a Whop si pregunta.
