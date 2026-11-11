@@ -1,6 +1,7 @@
 // Banco de memoria: corre el código REAL del editor (VideoCache, WaveformCache) en un Chrome sin ventana.
 import { VideoCache } from "@/app/video-editor/_opencut/services/video-cache/service";
 import { WaveformCache } from "@/app/video-editor/_opencut/services/waveform-cache/service";
+import { crearCopiaLiviana } from "@/app/video-editor/_opencut/media/copia-liviana";
 import { Input, ALL_FORMATS, BlobSource, CanvasSink } from "mediabunny";
 
 // Copia literal de ensureOffscreenCanvas (services/renderer/compositor/wasm-compositor.ts), que no se exporta.
@@ -69,6 +70,33 @@ window.prueba = {
 			}
 		}
 		return { cuadros, ms: Math.round(performance.now() - t0), pixeles, stats: vc.getStats() };
+	},
+	// La copia liviana REAL del editor (media/copia-liviana.ts), guardada como `<nombre>.liviana`.
+	async copia(nombre) {
+		const t = performance.now();
+		const f = await crearCopiaLiviana({ file: archivos.get(nombre) });
+		if (!f) return { ok: false };
+		archivos.set(`${nombre}.liviana`, f);
+		const pista = await new Input({ source: new BlobSource(f), formats: ALL_FORMATS }).getPrimaryVideoTrack();
+		return { ok: true, ms: Math.round(performance.now() - t), mb: Math.round(f.size / 1048576 * 10) / 10, ancho: pista.displayWidth, alto: pista.displayHeight };
+	},
+	// ¿La copia trae cada cuadro en el MISMO instante que el original? Compara los primeros `n` y los de un salto al medio.
+	// ⚠️ PESADA: el 11/11 llevó la GPU a +1,3 GB y la PC a 437 MB libres (los cuadros en cola no se sueltan al cortar el
+	// iterador). No va en ningún escenario: se llama a mano y con más de 3 GB libres. Dio 0 distintos en 120 cuadros.
+	async mismosTiempos(a, b, n = 60, salto = 10) {
+		const tiempos = async (nombre, desde) => {
+			const pista = await new Input({ source: new BlobSource(archivos.get(nombre)), formats: ALL_FORMATS }).getPrimaryVideoTrack();
+			const sink = new CanvasSink(pista, { poolSize: 2, width: 64, height: 64, fit: "fill" });
+			const out = [];
+			for await (const c of sink.canvases(desde)) { out.push(Math.round(c.timestamp * 1e6)); if (out.length >= n) break; }
+			return out;
+		};
+		const difs = [];
+		for (const desde of [0, salto]) {
+			const [x, y] = await Promise.all([tiempos(a, desde), tiempos(b, desde)]);
+			difs.push({ desde, cuadros: Math.min(x.length, y.length), distintos: x.filter((v, i) => v !== y[i]).length, primeroA: x[0], primeroB: y[0] });
+		}
+		return difs;
 	},
 	soltar() {
 		for (const v of vivos) if (v instanceof VideoCache) v.clearAll();

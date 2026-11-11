@@ -322,6 +322,24 @@ export class VideoCache {
 		}
 	}
 
+	/**
+	 * Cuántas exportaciones están corriendo. Mientras haya una, nadie suelta los decodificadores del ORIGINAL: los está
+	 * leyendo (core/managers/media-manager.ts, al llegar una copia liviana).
+	 */
+	private exportaciones = 0;
+
+	empezarExportacion(): void {
+		this.exportaciones++;
+	}
+
+	terminarExportacion(): void {
+		this.exportaciones = Math.max(0, this.exportaciones - 1);
+	}
+
+	estaExportando(): boolean {
+		return this.exportaciones > 0;
+	}
+
 	getStats() {
 		return {
 			totalSinks: this.sinks.size,
