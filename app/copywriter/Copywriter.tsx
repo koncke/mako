@@ -212,20 +212,25 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
     </div>
   );
 
+  /** Crear con una plantilla (de la casa o propia): la usan «Crear desde cero» y la fila de plantillas de la portada. */
+  const usarPlantilla = async (pl: PlantillaCrear): Promise<string | null> => {
+    const propia = await propias.usar(pl);
+    if (propia !== false) return propia ?? null;
+    const x = todas.find((t) => t.id === pl.id);
+    return x ? crear(x, null) : 'Ese template ya no está.';
+  };
+  const conPropias = [...propias.plantillas, ...plantillas];
+
   return (
     <>
       <PantallaCrear tab="Copywriting" nuevo="Nueva página" proyectos={proyectos} actual={abierta} pieLista={pieLista}
-        plantillas={[...propias.plantillas, ...plantillas]} tituloPlantillas="Templates"
-        onPlantilla={async (pl) => {
-          const propia = await propias.usar(pl);
-          if (propia !== false) return propia;
-          const x = todas.find((t) => t.id === pl.id);
-          return x ? crear(x, null) : 'Ese template ya no está.';
-        }}
+        plantillas={conPropias} tituloPlantillas="Templates"
+        onPlantilla={usarPlantilla}
         ejemplos={EJEMPLOS} onPedido={(texto) => crear(enBlanco, null, texto)} chat={chat} creandoInicial={nuevaInicial || !!tipoInicial || (!guion && !error)}
-        // La portada son los outliers, en el centro y con el chat a la izquierda; «Nueva página», desde un guion o desde las
-        // plantillas, vuelve a ellos (las plantillas son «Crear desde cero», dentro de la portada).
-        nueva={portada ? <OutliersCopy portada={portada} /> : undefined}
+        // La portada son los outliers, en el centro y con el chat a la izquierda, con las plantillas AL LADO (11/11/2026, Martín:
+        // «además de los outliers, también deberían estar los templates»); «Nueva página», desde un guion o desde las plantillas,
+        // vuelve a ella.
+        nueva={portada ? <OutliersCopy portada={portada} plantillas={conPropias} onPlantilla={usarPlantilla} /> : undefined}
         alNuevo={portada ? undefined : () => router.push(base)}>
         {guion ? (
           <div className="nt" data-en-crear="">

@@ -47,6 +47,18 @@
   display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden;
 }
 .hoja[data-video='si'] .sigue { font-size: 13px; -webkit-line-clamp: 2; }
+/* Las plantillas con estructura, AL LADO de los outliers (11/11/2026): una fila que se desliza, con la tarjeta común de Create. */
+.plantillas { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.plantillasCabeza { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.plantillasCabeza h2 { margin: 0; }
+.plantillasFila {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 210px; gap: 16px; overflow-x: auto; padding: 4px 2px 10px;
+  scrollbar-width: thin; overscroll-behavior-x: contain;
+}
+@media (max-width: 640px) { .plantillasFila { grid-auto-columns: 160px; gap: 12px; } }
+
+/* «Ver más» al pie de la grilla (la carga por tandas). */
+.masAbajo { display: flex; justify-content: center; padding: 22px 0 8px; }
 @media (max-width: 640px) {
   .copy { gap: 8px; padding: 12px; }
   .ganchoGrande { font-size: 15px; }

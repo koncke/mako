@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FORMATOS_COPY, TEXTO_EN_TARJETA, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, restoDelTexto,
+  FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, restoDelTexto,
   outliersCopyDeSpy, textoParaMaKo, tipoDeOutlier, tituloDeReplica,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
 } from '../lib/copywriter/outliers';
@@ -251,7 +251,17 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   // cómo volver a los outliers»): la portada va en `nueva`, y «Nueva página» desde un guion o las plantillas vuelve a ella.
   assert.match(page, /portada=\{portada\} \/>/);
   const cw = leer('app/copywriter/Copywriter.tsx');
-  assert.match(cw, /nueva=\{portada \? <OutliersCopy portada=\{portada\} \/> : undefined\}/);
+  assert.match(cw, /nueva=\{portada \? <OutliersCopy portada=\{portada\} plantillas=\{conPropias\} onPlantilla=\{usarPlantilla\} \/> : undefined\}/);
+  // Y las plantillas AL LADO de los outliers (11/11/2026, Martín: «también deberían estar los templates»), con la tarjeta común.
+  const portadaTsx = leer('app/copywriter/OutliersCopy.tsx');
+  assert.match(portadaTsx, /\{plantillas\?\.length && onPlantilla \? \(/);
+  assert.match(portadaTsx, /<TarjetaPlantilla key=\{pl\.id\} pl=\{pl\}/);
+  assert.match(portadaTsx, /<Link href=\{rutaCrear\} className=\{s\.texto\}>Ver todas<\/Link>/);
+  // De a tandas, no las 2.291 de una (medido: 46.030 elementos y de 1 a 7 s por cambio de filtro).
+  assert.match(portadaTsx, /vistos\.slice\(0, mostrar\)\.map/);
+  assert.match(portadaTsx, /useEffect\(\(\) => \{ setMostrar\(TANDA\); \}, \[formato, q, orden\]\);/);
+  // Y el original abierto pide el texto ENTERO (la tarjeta trae 280 letras).
+  assert.match(leer('app/copywriter/OutlierAbierto.tsx'), /void pedirOriginal\(o\.id\)\.then\(\(r\) => \{ if \(vivo && r\.ok\) setCompleto\(r\.outlier\.texto\); \}\);/);
   assert.match(cw, /alNuevo=\{portada \? undefined : \(\) => router\.push\(base\)\}/);
   const ruta = leer('app/api/copywriter/route.ts');
   assert.match(ruta, /case 'replicar':\n\s+return responder\(await replicarOutlier\(texto\(b\.outlier\)\)\);/);
@@ -294,6 +304,17 @@ test('teléfono: «Crear desde cero» y «Mis guiones» llegan a su vista, no a 
   assert.equal(vistaDeCopy({ nueva: '1' }), 'crear');
   assert.match(leer('app/copywriter/vista.ts'), /export const RUTA_CREAR_COPY = '\/copywriter\?nueva=1';/);
   assert.match(leer('app/m/copywriter/page.tsx'), /rutaCrear="\/m\/copywriter\?nueva=1"/);
+});
+
+test('la portada no trae todo: hasta TOPE_POR_FORMATO por formato y TEXTO_EN_TARJETA letras (11/11: 7,5 MB y 2.291 tarjetas)', () => {
+  const reel = (n: number) => outlier({ id: `spy:${n}`, url: `https://www.instagram.com/reel/t${n}/`, gancho: `Gancho ${n}`, texto: `${COPY} ${'palabra '.repeat(60)}(${n})`,
+    multiplo: { veces: 1000 - n, metrica: 'vistas', valor: 1, mediana: 1, formato: 'corto', canal: 'instagram', comparadas: 8 }, creador: { nombre: `C${n}`, usuario: `c${n}`, foto: null, competidorId: n } });
+  const carrusel = (n: number) => outlier({ id: `biblioteca:-${n}`, fuente: 'biblioteca', formato: 'carrusel', url: `https://www.instagram.com/p/t${n}/`, gancho: `Carrusel ${n}`, texto: `${COPY} (${n})`, creador: { nombre: `K${n}`, usuario: `k${n}`, foto: null, competidorId: null } });
+  const p = juntarOutliersCopy([{ fuente: fuente('spy'), lectura: { ok: true, outliers: [...Array.from({ length: TOPE_POR_FORMATO + 10 }, (_, i) => reel(i + 1)), ...Array.from({ length: 5 }, (_, i) => carrusel(i + 1))] } }]);
+  assert.equal(p.outliers.filter((o) => o.formato === 'reel').length, TOPE_POR_FORMATO);
+  assert.equal(p.outliers.filter((o) => o.formato === 'carrusel').length, 5, 'y el intercalado termina aunque una fila quede más corta');
+  assert.ok(p.outliers.every((o) => o.texto.length <= TEXTO_EN_TARJETA));
+  assert.ok(TEXTO_EN_TARJETA <= 300 && TOPE_POR_FORMATO <= 300);
 });
 
 test('la tarjeta es de COPY: el texto primero y YouTube en 16:9, no la foto vertical de un carrusel (11/11, Martín)', () => {

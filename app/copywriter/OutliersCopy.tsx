@@ -11,7 +11,7 @@
 // `CarruselAbierto` de Image con el texto donde van las láminas). Las plantillas QUEDAN: son «Crear desde cero».
 // =============================================================================
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { Dropdown } from '@/app/components/Dropdown';
@@ -27,6 +27,14 @@ import { RUTA_CREAR_COPY, RUTA_GUIONES_COPY } from './vista';
 import s from '@/app/image-editor/carruseles/explorar.module.css';
 import v from '@/app/video-editor/outliers.module.css';
 import oc from './outliers.module.css';
+import { TarjetaPlantilla } from '@/app/_crear/TarjetaPlantilla';
+import type { PlantillaCrear } from '@/app/_crear/reglas';
+
+/** Cuántas plantillas van en la fila de la portada (las demás, en «Ver todas»). */
+const PLANTILLAS_EN_PORTADA = 8;
+
+/** Cuántas tarjetas se dibujan por vez (la grilla de 4 columnas: 12 filas). */
+const TANDA = 48;
 
 const ORDENES: { value: OrdenCopy; label: string }[] = [
   { value: 'outlier', label: 'Mayor outlier' },
@@ -122,8 +130,15 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
  * la página replicada, con `{id}` (en el teléfono, su vista del guion con MaKo abierto: un texto y no una función, porque la arma
  * el server); `rutaGuiones` y `rutaCrear`: «Mis guiones» y «Crear desde cero».
  */
-export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywriter/{id}', rutaGuiones = RUTA_GUIONES_COPY, rutaCrear = RUTA_CREAR_COPY }: {
+export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywriter/{id}', rutaGuiones = RUTA_GUIONES_COPY, rutaCrear = RUTA_CREAR_COPY, plantillas, onPlantilla }: {
   portada: PortadaCopy; telefono?: boolean; rutaGuion?: string; rutaGuiones?: string; rutaCrear?: string;
+  /**
+   * Las plantillas con estructura, AL LADO de los outliers (11/11/2026, Martín: «además de los outliers, también deberían estar los
+   * templates»; la regla «Create: orden y outliers»). Una fila con la tarjeta común de Create (app/_crear/TarjetaPlantilla.tsx, sin
+   * tocarla) y «Ver todas» a «Crear desde cero». Sin esto (el teléfono), no se dibuja.
+   */
+  plantillas?: readonly PlantillaCrear[];
+  onPlantilla?: (p: PlantillaCrear) => Promise<string | null>;
 }) {
   const router = useRouter();
   const [ahora] = useState(() => Date.now());
@@ -133,6 +148,8 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   const [abierto, setAbierto] = useState<OutlierCopy | null>(null);
   const [replicando, setReplicando] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [usando, setUsando] = useState<string | null>(null);
+  const [activa, setActiva] = useState<string | null>(null);
 
   const cuantos = useMemo(() => {
     const n = new Map<FormatoCopy, number>();
@@ -140,6 +157,19 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
     return n;
   }, [portada.outliers]);
   const vistos = useMemo(() => filtrarOutliersCopy(portada.outliers, { formato, q }, orden), [portada.outliers, formato, q, orden]);
+  // De a TANDA tarjetas (11/11/2026, Martín: «anda increíblemente lento». Medido: se dibujaban las 2.291 de una, 46.030 elementos,
+  // y cada cambio de filtro tardaba de 1 a 7 s). Al bajar se suman solas; «Ver más» por si el navegador no avisa (una pestaña de
+  // fondo no dispara el IntersectionObserver). Cambiar el filtro vuelve a la primera tanda.
+  const [mostrar, setMostrar] = useState(TANDA);
+  useEffect(() => { setMostrar(TANDA); }, [formato, q, orden]);
+  const fin = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = fin.current;
+    if (!el || mostrar >= vistos.length || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) setMostrar((n) => n + TANDA); }, { rootMargin: '800px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [mostrar, vistos.length]);
 
   /** «Replicar»: la página nueva del tipo del original, y a ella; ahí MaKo pregunta para qué oferta. */
   const replicar = async (o: OutlierCopy) => {
@@ -188,6 +218,27 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
           )}
         </header>
 
+        {plantillas?.length && onPlantilla ? (
+          <section className={oc.plantillas} aria-labelledby="copy-plantillas">
+            <div className={oc.plantillasCabeza}>
+              <h2 id="copy-plantillas" className="cr-plantillas__titulo">Plantillas con estructura</h2>
+              <Link href={rutaCrear} className={s.texto}>Ver todas</Link>
+            </div>
+            <div className={oc.plantillasFila}>
+              {plantillas.slice(0, PLANTILLAS_EN_PORTADA).map((pl) => (
+                <TarjetaPlantilla key={pl.id} pl={pl} activa={activa === pl.id} usando={usando}
+                  onActiva={(si) => setActiva((a) => (si ? pl.id : a === pl.id ? null : a))}
+                  onUsar={() => {
+                    if (usando) return;
+                    setUsando(pl.id);
+                    setAviso(null);
+                    void onPlantilla(pl).then((e) => { setUsando(null); if (e) setAviso(e); });
+                  }} />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {portada.caidas.map((c) => (
           <div key={c.fuente} role="alert" className={v.caida}>
             <span>No pude leer {c.nombre}: {c.motivo}</span>
@@ -219,11 +270,18 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
             {vistos.length === 0 ? (
               <div className={s.vacio}><p>Nada con esa búsqueda.</p><button type="button" className={s.texto} onClick={() => { setQ(''); setFormato(null); }}>Quitar filtros</button></div>
             ) : (
-              <ul className={s.grilla} aria-label="Outliers de copy">
-                {vistos.map((o) => (
-                  <TarjetaCopy key={o.id} o={o} ahora={ahora} replicando={replicando === o.id} onAbrir={() => setAbierto(o)} onReplicar={() => void replicar(o)} />
-                ))}
-              </ul>
+              <>
+                <ul className={s.grilla} aria-label="Outliers de copy">
+                  {vistos.slice(0, mostrar).map((o) => (
+                    <TarjetaCopy key={o.id} o={o} ahora={ahora} replicando={replicando === o.id} onAbrir={() => setAbierto(o)} onReplicar={() => void replicar(o)} />
+                  ))}
+                </ul>
+                {mostrar < vistos.length ? (
+                  <div ref={fin} className={oc.masAbajo}>
+                    <button type="button" className={s.pastilla} onClick={() => setMostrar((n) => n + TANDA)}>Ver más ({vistos.length - mostrar})</button>
+                  </div>
+                ) : null}
+              </>
             )}
           </>
         )}
