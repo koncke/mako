@@ -192,6 +192,11 @@ test('3b. los reels de Spy (11/11/2026): el «×» de su cuenta, su miniatura y 
   assert.doesNotMatch(portada, /rotuloCortoDeMultiplo/, '«Sin datos de su cuenta» no va en la tarjeta de la plantilla');
   assert.match(portada, /<img src=\{x\.miniatura\} alt="" className=\{s\.miniImagen\}/);
   assert.match(portada, /<Link href="\/competitor-spy" className=\{s\.pastilla\}>\+ Seguir cuentas<\/Link>/);
+  // En el teléfono también, como Image: los outliers primero (dos columnas, sin «Replicar»: el guiado es de la computadora).
+  const movil = sinComentarios(leer('app/m/video-editor/page.tsx'));
+  assert.match(movil, /if \(vistaDeVideo\(q\) === 'outliers'\) \{[\s\S]*?<OutliersVideo portada=\{await leerOutliersVideo\(\)\} telefono rutaCrear="\/video-editor\?ver=crear" \/>/);
+  assert.match(portada, /<div className=\{s\.raiz\} data-telefono=\{telefono \? 'si' : undefined\}>/);
+  assert.match(portada, /\{x\.plantilla && !telefono && <Link href=\{rutaReplicar\(x\.plantilla\)\}/);
 });
 
 test('4. la portada: outliers primero, «Crear desde cero» con `ver=crear`, y «Replicar» sólo con una plantilla que existe', () => {

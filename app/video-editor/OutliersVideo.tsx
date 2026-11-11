@@ -59,7 +59,7 @@ function Estructura({ plantilla }: { plantilla: string | null }) {
 }
 
 /** La plantilla guiada de MaKo (la fuente curada): se replica con MaKo, paso a paso. */
-function TarjetaPlantilla({ x }: { x: OutlierVideo }) {
+function TarjetaPlantilla({ x, telefono }: { x: OutlierVideo; telefono: boolean }) {
   return (
     <li className={s.tarjeta}>
       <div className={`${s.mini} ${o.mini916}`}>
@@ -69,9 +69,10 @@ function TarjetaPlantilla({ x }: { x: OutlierVideo }) {
       <div className={s.pie}>
         <div className={s.fila1}><span className={s.gancho}>{x.titulo}</span></div>
         <p className={o.porque}>{x.porque}</p>
-        <div className={s.creador}><span className={s.cuando}>Basada en un reel de {x.creador.usuario ? `@${x.creador.usuario}` : x.creador.nombre} en {RED[x.red]}</span></div>
+        <p className={o.basada}>Basada en un reel de {x.creador.usuario ? `@${x.creador.usuario}` : x.creador.nombre} en {RED[x.red]}</p>
         <div className={o.acciones}>
-          {x.plantilla && <Link href={rutaReplicar(x.plantilla)} className={o.replicar}>Replicar</Link>}
+          {/* El armado guiado es del editor de la computadora: en el teléfono, sólo el original. */}
+          {x.plantilla && !telefono && <Link href={rutaReplicar(x.plantilla)} className={o.replicar}>Replicar</Link>}
           <a href={x.url} target="_blank" rel="noopener noreferrer" className={s.pastilla}>Ver el original</a>
         </div>
       </div>
@@ -121,17 +122,21 @@ function TarjetaReel({ x, ahora }: { x: OutlierVideo; ahora: number }) {
   );
 }
 
-export function OutliersVideo({ portada }: { portada: PortadaOutliers }) {
+/**
+ * La portada. `telefono`: la de MaKo Mobile (app/m/video-editor), con las reglas de teléfono de Image (dos columnas, la
+ * cabecera más chica); `rutaCrear`: a dónde lleva «Crear desde cero» (en el teléfono, su «Nuevo video» y sus proyectos).
+ */
+export function OutliersVideo({ portada, telefono = false, rutaCrear = RUTA_CREAR_VIDEO }: { portada: PortadaOutliers; telefono?: boolean; rutaCrear?: string }) {
   const ahora = Date.now();
   const reels = portada.outliers.filter((x) => !x.plantilla);
   return (
-    <div className={s.raiz}>
+    <div className={s.raiz} data-telefono={telefono ? 'si' : undefined}>
       <div className={s.col}>
         <header className={s.cabeza}>
           <h1>Encuentra tu siguiente <mark>OUTLIER</mark></h1>
           <div className={s.botones}>
             <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
-            <Link href={RUTA_CREAR_VIDEO} className={s.crear}><span aria-hidden>＋</span> Crear desde cero</Link>
+            <Link href={rutaCrear} className={s.crear}><span aria-hidden>＋</span> Crear desde cero</Link>
           </div>
         </header>
         {portada.caidas.map((c) => (
@@ -140,14 +145,13 @@ export function OutliersVideo({ portada }: { portada: PortadaOutliers }) {
             <ReportarASoporte />
           </div>
         ))}
+        {/* Fuera de `s.filtros`: en el teléfono esa fila no salta de renglón, y la frase se cortaba. */}
         {reels.length > 0 && (
-          <div className={s.filtros}>
-            <span className={s.total}>{reels.length} {reels.length === 1 ? 'reel' : 'reels'} de las cuentas que sigues · los que más superaron a su cuenta primero</span>
-          </div>
+          <p className={o.total}>{reels.length} {reels.length === 1 ? 'reel' : 'reels'} de las cuentas que sigues · los que más superaron a su cuenta primero</p>
         )}
         {portada.outliers.length > 0 ? (
           <ul className={`${s.grilla} ${o.grillaReels}`}>
-            {portada.outliers.map((x) => (x.plantilla ? <TarjetaPlantilla key={x.id} x={x} /> : <TarjetaReel key={x.id} x={x} ahora={ahora} />))}
+            {portada.outliers.map((x) => (x.plantilla ? <TarjetaPlantilla key={x.id} x={x} telefono={telefono} /> : <TarjetaReel key={x.id} x={x} ahora={ahora} />))}
           </ul>
         ) : null}
         {reels.length === 0 && (
