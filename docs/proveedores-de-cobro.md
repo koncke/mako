@@ -290,3 +290,79 @@ Alta a nombre de Leandro. El paso 1 ya deja procesar hasta US$3.000; retirar pid
 | Whop, retiro en cripto, 10 ventas por retiro | 41,85 | 86,79 |
 
 Deducido: el retiro en cripto de Whop no gana. Falta medir qué oficial usa dLocal en el primer retiro real.
+
+## 10. La solicitud a Whop, lista para el OK (11/11/2026, chat «Planes y cobros»)
+
+Pedido de Martín por el Cerebro: la solicitud con MaKo **tal cual es**, sin cifras de antes y después, con la función y no
+el riesgo; lo que no se quiera declarar **se apaga antes**, no se esconde. Se manda **sólo con el OK del Cerebro al texto
+final, desde la cuenta de Martín** (no se crean cuentas ni se escriben contraseñas).
+
+### Lo que hay que resolver ANTES de mandarla (medido hoy, GET anónimo a hola-mako.com)
+
+1. **La home tiene una cifra de antes y después arriba de todo:** «De meses por debajo de $10k USD a más de $70k USD en tres
+   meses», y testimonios con cifras («sumamos más de $60k USD», «<10K → millones»). Es el ítem que dLocal prohíbe por nombre
+   («before/after claims, endorsements»). Es la landing del Web Generator del negocio de MaKo (chat Landings); cambiarla
+   es escribir en producción.
+2. **La home dice «con goteo para que no te baneen».** Lo que el código hace es envío espaciado (límite de ritmo), y así se
+   tiene que decir. Mismo dueño que el punto 1.
+3. **La home dice «Elige un grupo de WhatsApp y toca «Extraer»: los contactos caen a tu CRM».** Whop marcó la importación de
+   contactos de grupos y la lectura de Instagram de otros por su nombre el 6/11. **Lo decide Martín (lo pregunta el
+   Cerebro):** o se apagan antes de mandar, o se declaran como están abajo.
+4. **La moderación NO corre** desde el 5/11 (`43a936e50`: sin Creem se genera sin frenar). El texto no la promete.
+5. **¿A nombre de quién?** Creem y dLocal fueron a nombre de Leandro (monotributista); el chat del 6/11 con Whop fue desde la
+   cuenta de Martín. El titular del texto tiene que ser el mismo que el del KYC de esa cuenta: lo confirma el Cerebro.
+
+### El texto (inglés; para la descripción de la tienda y la consulta)
+
+> MaKo is subscription software at hola-mako.com for coaches and service businesses in Latin America and Spain. It
+> includes a CRM, a shared inbox for WhatsApp and Instagram, scheduled messaging to the customer's own contacts, sales pages
+> and advertising recommendations. AI features include copywriting, sales call analysis, and image and video generation
+> from text. One feature, AI Avatar, lets a customer generate videos from their own photo for their own ads; our acceptable
+> use policy at hola-mako.com/aup allows only the customer's own photo or one with written permission, and generation runs in
+> the customer's own Google account. Outbound messages are rate limited and sent on a schedule set by the customer. WhatsApp
+> connects through Evolution rather than the official WhatsApp Business API. [SI SE MANTIENE: Customers can import contacts
+> from WhatsApp groups they belong to. A competitor research feature reads public Instagram accounts.] Plans cost US$47 and
+> US$97 per month, or US$470 and US$970 per year. A separate human coaching program is not sold through Whop. The owner is
+> [TITULAR], an individual registered under the monotributo regime in Argentina.
+
+### Si el formulario pregunta (respuestas verdaderas, para copiar)
+
+- **¿Otro procesador te rechazó o te cerró?** Sí: Creem rechazó la tienda el 5/11/2026 citando su política de uso, sin decir
+  qué regla; dLocal Go cerró la cuenta el 6/11/2026 sin dar motivo.
+- **¿Ya cobrás?** Por pasarela, 0 cobros completados (medido hoy: 2 de Mercado Pago, pendientes). Antes, clientes por
+  transferencia. Ningún contracargo.
+- **¿Qué pasarelas usás hoy?** Mercado Pago, sólo para Argentina. Stripe en preparación (cuenta de un tercero que la presta:
+  si el formulario lo pregunta, decirlo así).
+- **¿Reembolsos?** Lo que dice hoy /reembolsos (no se tocó la política: ver la nota de la Ley 24.240 en
+  hallazgos-planes-y-cobro.md, «El funnel de lanzamiento en el cobro»).
+
+### Lo que NO se cambia al copiarlo
+
+No se saca la línea de Evolution ni (si se mantienen) la importación de grupos y la lectura de Instagram: Whop las conoce por
+su nombre desde el 6/11, y esconderlas termina en cierre con fondos retenidos. Si dicen que no a eso, es un no de verdad.
+
+### El texto FINAL para mandar (11/11/2026, decisión de Martín por el Cerebro)
+
+Martín: mandarla ya, sin cambiar MaKo antes; la solicitud describe **sólo el producto que se va a vender por Whop** (la
+versión que cumple sus normas), no menciona lo que va a quedar afuera y no afirma nada falso. Si Whop pregunta algo puntual,
+se contesta con la verdad. Lo que hay que sacar del producto cobrado antes de la primera venta está en la lista interna de
+docs/relevo/planes-y-cobros.md. El titular no va en el texto: lo da el KYC de la cuenta.
+
+> MaKo is subscription software at hola-mako.com for coaches and service businesses in Latin America and Spain. It includes
+> a CRM, a shared inbox for WhatsApp and Instagram, scheduled messaging to the customer's own contacts, sales pages and
+> advertising recommendations. AI features include copywriting, sales call analysis, and image and video generation from
+> text. One feature, AI Avatar, lets a customer generate videos from their own photo for their own ads; our acceptable use
+> policy at hola-mako.com/aup allows only the customer's own photo or one with written permission, and generation runs in the
+> customer's own Google account. Outbound messages are rate limited and sent on a schedule set by the customer. WhatsApp
+> connects through Evolution rather than the official WhatsApp Business API. Plans cost US$47 and US$97 per month, or US$470
+> and US$970 per year.
+
+⚠️ **Lo que este texto supone:** que la importación de contactos de grupos de WhatsApp y la lectura de Instagram de otras
+cuentas NO estén en lo que se cobra por Whop desde la primera venta. Whop ya las conoce: el 6/11, desde la cuenta de Martín,
+su soporte las marcó por su nombre, y la home de hoy las muestra. Si preguntan por ellas, se contesta la verdad.
+
+### Mandada (11/11/2026)
+
+Con el sí de Martín en el chat de Planes y cobros: negocio **MaKo** (`biz_XlyztIABgWi0S4`) en la cuenta de Whop de Leandro. Whop no
+tiene formulario de solicitud: la descripción del negocio es pública y de 400 caracteres como máximo, así que fue la versión corta
+de este texto (397 caracteres, en docs/relevo/planes-y-cobros.md). Falta la verificación de identidad de Leandro.
