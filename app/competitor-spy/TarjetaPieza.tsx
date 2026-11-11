@@ -112,7 +112,7 @@ export function TarjetaPieza({ p, analizando = false, multiplo = null, onAbrir }
       <div className="spy-pcard__pie">
         <div className="spy-pcard__texto">
           <small>{tipoDePieza}{mgDeLinea && <span className="spy-pcard__mg"> · {mgDeLinea}</span>}</small>
-          {titulo && <b>{titulo}</b>}
+          {titulo && <b title={titulo}>{titulo}</b>}
         </div>
         {/* ⚠️ EL NÚMERO LLEVA EL PESO QUE LA REFERENCIA LE DA A ESE LUGAR. En `.pcard__buy` de fitlo
             ahí va una píldora LLENA con sombra propia, y era lo único de la tarjeta que se leía de

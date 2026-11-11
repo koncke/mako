@@ -120,7 +120,8 @@ test('7. «Dejar de mirarlo» desde la ficha lo saca de la lista en el acto, sin
   const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
   const quitar = app.slice(app.indexOf('const quitar = async'), app.indexOf('const quitarDeLaLista'));
   assert.ok(quitar.length > 50, 'encontré quitar');
-  assert.match(quitar, /sacarDeLaLista\(id\);\s*irA\(null\);/, 'primero se saca, después se navega');
+  // Entre los dos, desde el 11/11, se piden los sugeridos (después de `irA(null)` no sale ningún pedido).
+  assert.match(quitar, /sacarDeLaLista\(id\);\s*(?:await recargarSugeridos\(\);\s*)?irA\(null\);/, 'primero se saca, después se navega');
   assert.match(app, /const sacarDeLaLista = \(id: number\) => \{\s*setCompetidores\(\(v\) => v\.filter\(\(x\) => x\.id !== id\)\);/);
 });
 

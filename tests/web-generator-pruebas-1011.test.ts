@@ -189,6 +189,16 @@ test('12. con la foto al costado, las cifras van de a pares (cuatro columnas de 
   // Hormozi sin la cabeza), en la publicada (media query) y en la vista «Teléfono» del editor.
   const arriba = CSS_CONTENIDO.match(/[^}]*\.gm-tarjeta:is\(\[data-diseno="izquierda"\], \[data-diseno="derecha"\]\) > \.gm-acento[^{]*\{ background-position: 50% 15%; \}/g) ?? [];
   assert.ok(arriba.length >= 2, `la franja del teléfono mira arriba en la publicada y en el editor (${arriba.length})`);
+  // Mirado en producción después del despliegue: la regla estaba y no ganaba, porque el encuadre de siempre (50% 50%) iba EN
+  // LÍNEA. Ahora va en línea sólo si la persona lo eligió, en la publicada y en el editor.
+  // La imagen de una sección tiene que ser del bucket (srcImagen): el origen sale de esta variable, como en editor-landing-render.
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://proyecto.supabase.co';
+  const { specTarjeta } = await import('../lib/editor-landing/especificacion');
+  const foto = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/landing-imagenes/3/a.jpg`;
+  const conFoto = (x: number, y: number) => JSON.stringify(specTarjeta({ diseno: 'derecha', imagenSrc: foto, imagenFocoX: x, imagenFocoY: y }));
+  assert.match(conFoto(50, 50), /"style":"background-image:url\(\\"https:[^"\\]+\/3\/a\.jpg\\"\)"/, 'el de siempre: lo decide la hoja');
+  assert.match(conFoto(20, 80), /background-position:20% 80%/, 'el que eligió la persona: en línea, gana en todos lados');
+  assert.match(leer('app/web-generator/editor/nodos/TarjetaVista.tsx'), /a\.imagenFocoX === 50 && a\.imagenFocoY === 50 \? \{\} : \{ backgroundPosition:/);
   // Y la cifra entra en su columna en cualquier ancho (en el teléfono: columnas de 138px y «10,000» de 164px).
   assert.match(CSS_CONTENIDO, /\.gm-optimizado\[data-variante="numeros-grandes"\] > \.gm-item[^{]*\{ container-type: inline-size; \}/);
   assert.match(CSS_CONTENIDO, /\.gm-optimizado\[data-variante="numeros-grandes"\] \.gm-item-valor[^{]*\{ font-size: min\(3\.2em, calc\(100cqi \/ \(max\(var\(--gm-largo, 6\), 6\) \* 0\.6\)\)\); white-space: nowrap; \}/);

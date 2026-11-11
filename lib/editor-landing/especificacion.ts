@@ -747,7 +747,7 @@ export function specTarjeta(raw: unknown, ctx?: CtxSpec): NodoArbol {
     hijos.push(el('div', {
       class: 'gm-acento',
       'data-ajuste': a.imagenAjuste,
-      style: `background-image:url("${a.imagenSrc}");background-position:${Math.round(a.imagenFocoX * 10) / 10}% ${Math.round(a.imagenFocoY * 10) / 10}%`,
+      style: `background-image:url("${a.imagenSrc}")${encuadre(a)}`,
     }));
   }
   hijos.push(el('div', { class: 'gm-tarjeta-cuerpo' }, 0));
@@ -788,10 +788,21 @@ export function specTarjeta(raw: unknown, ctx?: CtxSpec): NodoArbol {
  *   · En el editor, las miniaturas y lo exportado, sólo el póster, de fondo como una imagen de acento.
  * El encuadre (`imagenFocoX/Y`) y el ajuste (`imagenAjuste`) de la imagen valen para el póster y el video.
  */
+/**
+ * El encuadre de la imagen de una sección, en línea SÓLO si la persona lo eligió (11/11/2026). El de siempre (50% 50%) lo pone
+ * la hoja (css.ts): el centro, y en el teléfono la parte de arriba de la foto que estaba al costado. En línea, el centro le
+ * ganaba a esa regla y la foto del hero de una réplica salía sin la cara en el teléfono.
+ */
+function encuadre(a: Pick<AttrsTarjeta, 'imagenFocoX' | 'imagenFocoY'>): string {
+  const x = Math.round(a.imagenFocoX * 10) / 10;
+  const y = Math.round(a.imagenFocoY * 10) / 10;
+  return x === 50 && y === 50 ? '' : `;background-position:${x}% ${y}%`;
+}
+
 function acentoConVideo(a: AttrsTarjeta, v: VideoFondo, ctx?: CtxSpec): NodoArbol {
   const foco = `${Math.round(a.imagenFocoX * 10) / 10}% ${Math.round(a.imagenFocoY * 10) / 10}%`;
   if (modo(ctx) !== 'publico') {
-    return el('div', { class: 'gm-acento', 'data-ajuste': a.imagenAjuste, style: `background-image:url("${v.poster}");background-position:${foco}` });
+    return el('div', { class: 'gm-acento', 'data-ajuste': a.imagenAjuste, style: `background-image:url("${v.poster}")${encuadre(a)}` });
   }
   const indice = ctx?.seccion?.indice;
   const primera = indice === 0;

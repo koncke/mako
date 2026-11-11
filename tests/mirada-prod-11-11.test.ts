@@ -28,6 +28,18 @@
 //   · sacarle `style={CON_SU_CLASE}` a «Conectar mi IA»                          → 10 / 1
 //   · sacar `recargarSugeridos()` de `quitar`                                    → 10 / 1
 //   · volver a `lleva {haceCuanto(frenadaDesde)}`                                → 10 / 1
+//
+// CUARTA VUELTA (11/11, después del despliegue de las 15:55 UTC, mirado en producción). Lo que siguió mal:
+// 9 bis. Desde la ficha, Alex seguía sin volver a «Sugeridos»: el pedido iba DESPUÉS de `irA(null)`, y ahí no sale ninguno.
+// 11. La ficha decía «@AlexHormozi» (lo guardado) en el título y en «¿Dejar de mirar a…?»; su tarjeta, «Alex Hormozi».
+// 12. La descripción de un video de YouTube en 180 px con barra, y ~165 px vacíos debajo en un modal de alto fijo.
+// 13. Teléfono: la cara de 48 px bajaba el dibujo de 600 px (175 KB); Sugeridos se veía con cuadrados vacíos.
+// ROTURAS (base 14 / 0):
+//   · `recargarSugeridos()` después de `irA(null)` en `quitar`                   → 13 / 1
+//   · volver el título de la ficha a `{c.nombre}`                                → 13 / 1
+//   · volver la confirmación desde la lista a `${aBorrar.nombre}`                → 13 / 1
+//   · volver la caja de la descripción a `maxHeight: 180`                        → 13 / 1
+//   · sacar el `.replace('/asesores/grandes/', …)` de la cara del teléfono       → 13 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -135,6 +147,34 @@ test('9. Spy: dejar de mirar a un sugerido lo devuelve a «Sugeridos» sin recar
   const deLaLista = app.match(/const quitarDeLaLista = async \(id: number\) => \{[\s\S]*?\n {2}\};/)?.[0] ?? '';
   assert.match(quitar, /recargarSugeridos\(\)/, 'desde la ficha');
   assert.match(deLaLista, /recargarSugeridos\(\)/, 'desde la lista');
+  // Desde la ficha, ANTES de `irA(null)`: después de volver a la lista no sale ningún pedido. Medido en producción después del
+  // despliegue de las 15:55 UTC: con el pedido después, el borrado salía solo y Alex no volvía.
+  const pide = quitar.search(/^\s*await recargarSugeridos\(\);/m);
+  const vuelve = quitar.search(/^\s*irA\(null\);/m);
+  assert.ok(pide >= 0 && vuelve >= 0 && pide < vuelve, 'los sugeridos se piden después de irse de la ficha');
+});
+
+test('11. Spy: la ficha dice el nombre de su tarjeta («Alex Hormozi»), no lo guardado («@AlexHormozi»)', () => {
+  const app = readFileSync(new URL('../app/competitor-spy/SpyApp.tsx', import.meta.url), 'utf8');
+  assert.match(app, /const nombreC = c \? nombreDeTarjeta\(c\) : '';/);
+  assert.match(app, /<h1>\{nombreC\}<\/h1>/, 'el título de la ficha');
+  assert.match(app, /msg=\{`¿Dejar de mirar a \$\{nombreC\}\?/, 'la confirmación desde la ficha');
+  assert.match(app, /msg=\{`¿Dejar de mirar a \$\{nombreDeTarjeta\(aBorrar\)\}\?/, 'la confirmación desde la lista');
+  // Ningún texto armado con lo guardado (el buscador de un canal nuevo sí lo usa para buscar: `para={{ nombre: c.nombre`).
+  assert.doesNotMatch(app, /`[^`\n]*\$\{(?:c|aBorrar)\.nombre\}[^`\n]*`/, 'un texto con el nombre guardado');
+});
+
+test('12. Spy: la descripción de un video de YouTube usa el alto del modal', () => {
+  const det = readFileSync(new URL('../app/competitor-spy/DetallePieza.tsx', import.meta.url), 'utf8');
+  // Hasta 320 px a 900 de alto (medido: el modal sin segunda barra, 550/550); con 360 el modal se desplazaba 32 px.
+  assert.match(det, /style=\{\{ maxHeight: esVideoYt \? 'clamp\(180px, calc\(min\(90vh, 800px\) - 480px\), 320px\)' : 180 \}\}><p style=\{\{ whiteSpace: 'pre-wrap' \}\}>\{textoPropio\}/);
+});
+
+test('13. Spy en el teléfono: la cara de 48 px es el dibujo chico, y el nombre cortado se lee al pasar el mouse', () => {
+  const m = readFileSync(new URL('../app/m/competitor-spy/SpyM.tsx', import.meta.url), 'utf8');
+  assert.match(m, /caricaturaDeCompetidor\(c\)\?\.replace\('\/asesores\/grandes\/', '\/asesores\/'\)/);
+  const t = readFileSync(new URL('../app/competitor-spy/TarjetaPieza.tsx', import.meta.url), 'utf8');
+  assert.match(t, /\{titulo && <b title=\{titulo\}>\{titulo\}<\/b>\}/);
 });
 
 test('10. Spy: el aviso de la cola de caricaturas dice «lleva 1 d», no «lleva hace 1 d»', () => {

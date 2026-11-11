@@ -40,6 +40,7 @@ import { claveTiempo, clavesDelRango, fmtValor, periodoAnterior, type Resultado 
 import { firmaDe, hojaDestino } from '@/lib/graficos-plantillas';
 import { cambioEnPalabras, fraseEnTexto, tramosDeFrase } from '@/lib/graficos-frase';
 import { fraseMarketing } from '@/lib/marketing-diseno';
+import { fraseAutomatizaciones } from '@/lib/automatizaciones-diseno';
 import { pedidosDeHoja } from '@/app/dashboard/exportar';
 import {
   ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, conUnidad, deltaDe, esCostoSobreGasto, etiquetaBarra, faltaConectar, noSeLeyo, periodoDe, rotuloDePieza,
@@ -356,6 +357,11 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
         // La hoja Marketing dice en el teléfono la MISMA frase que su diseño en la compu (lib/marketing-diseno.ts): la de la
         // plantilla decía «Gastaste US$0 en anuncios · trajeron 3 agendas · cada una costó US$0» sin pauta (11/11/2026).
         const t = fraseMarketing(total('gasto'), total('agendas'), total('cpa')).map((x) => x.s).join('');
+        out.frase = t || null;
+      } else if (h.diseno?.id === 'automatizaciones') {
+        // Lo mismo con Automatizaciones (lib/automatizaciones-diseno.ts): la de la plantilla decía «Salieron 0 mensajes · 4 fallaron
+        // · 0 te respondieron» y la compu «Salieron 0 mensajes. 4 no salieron y esperan que los mires.» (11/11/2026, producción).
+        const t = fraseAutomatizaciones(total('enviados'), total('fallaron'), total('respuestas')).map((x) => x.s).join('');
         out.frase = t || null;
       } else {
         const tramos = tramosDeFrase(frase.frase, res.columnas, (i) => (res.totales[i] == null ? null : fmtValor(res.totales[i], res.columnas[i].formato)), (i) => cambioEnPalabras(res.totales[i], res.anterior?.[i]));

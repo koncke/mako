@@ -4316,3 +4316,11 @@ docs/web-generator/outliers-landings.md.
 - **Quedan:** 4 capturas del relevo con el cartel de cookies (el Chrome sin cabeza de `scripts/capturas-outliers-landings.mjs` no
   puede cerrarlo; hace falta CDP para sacar el cartel antes de la foto), y mirar lo que anima (la copia idéntica con su ventana,
   los cursores) en el Chrome de Martín con su sesión.
+- **⚠️ Una regla de CSS correcta que no gana: el encuadre iba EN LÍNEA (11/11, después del despliegue).** La foto del costado en
+  el teléfono seguía cortada por el medio aunque la regla de «mirar arriba» estaba en la hoja: el acento llevaba
+  `background-position: 50% 50%` en el `style` (el encuadre por defecto, `imagenFocoX/Y`), y lo en línea le gana a todo. Probarlo
+  en el navegador con un `<style>` inyectado no lo mostró, porque se probó sobre el atributo y no sobre la página entera. Ahora el
+  encuadre va en línea sólo si la persona lo eligió. **Regla:** un valor por defecto no se escribe en línea; se deja a la hoja,
+  que puede variar por ancho. Y lo que se mira «a mano» antes de subir se mira en la página tal cual sale, no en un elemento.
+- **El subtítulo del hero en dos `<h2>` seguidos queda como sección aparte** (`esquemaDeReplica` corta en cada título del nivel
+  de sección). Sin arreglar: juntarlos pide una regla que puede romper otras páginas.

@@ -76,7 +76,9 @@ const inicial = (nombre: string): string => iniciales(nombre, 1, '·');
 
 /** Su cara: la caricatura que ya tenemos, la dibujada de ese referente o su foto (`caraDeTarjeta`). */
 function Cara({ c }: { c: { nombre: string; caricatura?: string | null; avatar?: string | null; instagram?: string | null; youtube_id?: string | null; tiktok?: string | null } }) {
-  const cara = caraDeTarjeta(c, caricaturaDeCompetidor(c));
+  // La caricatura de un referente en su tamaño CHICO (200 px, la del Ops Center): acá mide 48 px. La grande (600 px, 150–190 KB)
+  // es para la tarjeta de la computadora; en el teléfono tardaba, y Sugeridos se veía con cuadrados verdes vacíos (11/11/2026).
+  const cara = caraDeTarjeta(c, caricaturaDeCompetidor(c)?.replace('/asesores/grandes/', '/asesores/') ?? null);
   return (
     <span className="m-competitor-spy__cara" aria-hidden>
       {cara
