@@ -10,6 +10,9 @@
 // y un worker que sigue transcribiendo lo viejo mientras le piden lo nuevo
 // correría dos sesiones de ONNX a la vez. El modelo queda en la caché del
 // navegador; volver a cargarlo tarda segundos, no la descarga.
+//
+// Y al TERMINAR también se suelta, al minuto sin uso (WHISPER_INACTIVO_MS): el modelo por defecto ocupa ≈250 MB (WASM) o
+// ≈300 MB (WebGPU), y antes quedaba cargado hasta recargar la pestaña (docs/editor-video/memoria-del-editor.md §5).
 
 import type {
 	TranscriptionLanguage,
@@ -36,6 +39,9 @@ export class TranscripcionCancelada extends Error {
 
 let webgpuCayo = false;
 
+/** Cuánto queda cargado el modelo sin uso. Un minuto cubre subtitular un clip y enseguida otro, o reintentar. */
+export const WHISPER_INACTIVO_MS = 60_000;
+
 async function hayWebGpu(): Promise<boolean> {
 	if (webgpuCayo || typeof navigator === "undefined") return false;
 	const gpu = (navigator as Navigator & { gpu?: { requestAdapter: () => Promise<unknown> } }).gpu;
@@ -51,8 +57,37 @@ class TranscriptionService {
 	private worker: Worker | null = null;
 	private clave: string | null = null;
 	private rechazarEnCurso: ((error: Error) => void) | null = null;
+	/** Transcripciones en curso: mientras haya una, el modelo no se suelta. */
+	private enUso = 0;
+	private soltarAlRato: ReturnType<typeof setTimeout> | null = null;
 
-	async transcribe({
+	async transcribe(args: {
+		audioData: Float32Array;
+		language?: TranscriptionLanguage;
+		modelId?: TranscriptionModelId;
+		onProgress?: ProgressCallback;
+	}): Promise<TranscriptionResult> {
+		this.noSoltar();
+		this.enUso++;
+		try {
+			return await this.transcribirUnaVez(args);
+		} finally {
+			this.enUso--;
+			if (this.enUso === 0 && this.worker) {
+				this.soltarAlRato = setTimeout(() => {
+					this.soltarAlRato = null;
+					if (this.enUso === 0) this.terminate();
+				}, WHISPER_INACTIVO_MS);
+			}
+		}
+	}
+
+	private noSoltar(): void {
+		if (this.soltarAlRato) clearTimeout(this.soltarAlRato);
+		this.soltarAlRato = null;
+	}
+
+	private async transcribirUnaVez({
 		audioData,
 		language = "auto",
 		modelId = DEFAULT_TRANSCRIPTION_MODEL,
@@ -216,6 +251,7 @@ class TranscriptionService {
 	}
 
 	terminate() {
+		this.noSoltar();
 		this.worker?.terminate();
 		this.worker = null;
 		this.clave = null;

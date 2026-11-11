@@ -119,7 +119,8 @@ async function main() {
     const b = JSON.parse(x.cuerpo || '{}') as { model?: string; system?: unknown; messages?: Array<{ content: unknown }> };
     return { modelo: b.model ?? '', clave: x.clave, mensaje: JSON.stringify(b.messages?.[0]?.content ?? '').slice(0, 400) };
   });
-  let ts = 1793260000;
+  // Una hora reciente: lo que llega con más de 6 h de atraso no lo atiende MaKo sola (lib/linea-demora.ts, 10/11/2026).
+  let ts = Math.floor(Date.now() / 1000) - 3600;
   const correr = async (k: string, e: Partial<typeof escena>, texto: string, { limpiar = true, jid = JID, antes, video = false, alt = ALT }: { limpiar?: boolean; jid?: string; antes?: () => void; video?: boolean; alt?: string } = {}) => {
     Object.assign(escena, { clase: '', claseCaida: false, respuesta: '', herramienta: undefined }, e);
     llamadasAlTurno = 0;

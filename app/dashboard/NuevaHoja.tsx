@@ -58,6 +58,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
+import { useWs } from '@/app/_ui/Link';
+import { conWs } from '@/lib/ws-tab';
 import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
@@ -220,6 +222,8 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
   // el informe de entonces).
   const props = useRef({ onCrear, onRellenar, enBlanco, onListo });
   useEffect(() => { props.current = { onCrear, onRellenar, enBlanco, onListo }; });
+  /** El negocio que se mira en esta pestaña (`?ws=`): el salto al otro informe lo lleva. */
+  const ws = useWs();
 
   const [pedido, setPedido] = useState('');
   // Sin la app de escritorio, la caja de pedido tampoco escribe (25/10/2026, «En ningun chat»): app/_chat/useAppDeEscritorio.tsx.
@@ -288,8 +292,9 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
    */
   const armarPlantilla = (p: PlantillaHoja) => {
     if (pensando) return;
-    // Es del otro informe: la suma su editor al abrir.
-    if (conTodas && IDS_GENERAL.has(p.id) !== (informe === 'general')) { window.location.assign(`/dashboard?hoja=${encodeURIComponent(p.id)}`); return; }
+    // Es del otro informe: la suma su editor al abrir. ⚠️ CON EL `?ws=` DE LA PESTAÑA (10/11/2026): sin él, el superadmin
+    // que miraba un negocio y elegía «General» o «Focus» caía en SU Dashboard y la hoja se sumaba allá, no en el del negocio.
+    if (conTodas && IDS_GENERAL.has(p.id) !== (informe === 'general')) { window.location.assign(conWs(`/dashboard?hoja=${encodeURIComponent(p.id)}`, ws)); return; }
     const h = instanciarPlantilla(p);
     crear(h);
     void rellenarPlantilla(p, h);

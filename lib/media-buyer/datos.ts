@@ -150,7 +150,8 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
   } else if (errMeta) {
     throw new SinCuentaParaOperar(`Meta no dejó leer la cuenta: ${errMeta}`);
   }
-  if (!token && !conexion) throw new SinCuentaParaOperar('El negocio no tiene Meta conectado ni su Zernio con la cuenta publicitaria.');
+  // En palabras de producto (10/11/2026): lo lee el cliente en Nueva campaña y en Campañas, y no sabe qué es Zernio.
+  if (!token && !conexion) throw new SinCuentaParaOperar('Tu negocio todavía no conectó su cuenta de Meta (Facebook). Conéctala y MaKo la lee.');
 
   const conversor = conversorDeGasto(moneda);
 

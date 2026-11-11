@@ -30,7 +30,7 @@
 // entre corchetes («[Nombre del cliente]»), que se ven como lo que son y no como un dato.
 // =============================================================================
 
-import { nuevoId, docPagina, type LandingContenido, type Pagina } from './doc';
+import { nuevoId, docPagina, type LandingContenido, type Pagina, cifrasEnPares } from './doc';
 import type { LandingSpec, BloqueLanding } from '../landing-spec';
 import { bloquesATarjetas, primerIcono, type TarjetaIA, type BloqueIA, type ItemOptimizadoIA, type CampoIA } from './ia-bloques';
 
@@ -60,6 +60,16 @@ function partirCita(b: string): { cita: string; autor: string } {
 function partirCifra(b: string): { valor: string; titulo: string } | null {
   const m = /^([+~]?\$?\d[\d.,]*\s?(?:%|x|k|mil|\+)?)\s+(.+)$/i.exec(b.trim());
   return m ? { valor: m[1].trim(), titulo: m[2].trim() } : null;
+}
+
+/** Una lista de viñetas, o su fila de cifras (cifrasEnPares) y el resto como lista. */
+function listaOCifras(bullets: readonly string[]): BloqueIA[] {
+  if (!bullets.length) return [];
+  const { cifras, resto } = cifrasEnPares(bullets);
+  return [
+    ...(cifras.length ? [{ t: 'optimizado', variante: 'numeros-grandes', items: cifras.map((c) => ({ titulo: c.titulo, texto: '', valor: c.valor })) } as BloqueIA] : []),
+    ...(resto.length ? [{ t: 'lista', items: resto } as BloqueIA] : []),
+  ];
 }
 
 // Íconos genéricos para cuando el spec no dice cuál (el generador anterior no tenía íconos).
@@ -126,10 +136,10 @@ function cuerpoDe(b: BloqueLanding): BloqueIA[] {
       if (bullets.length && cifras.every(Boolean)) {
         return [...parrafos(copy), { t: 'optimizado', variante: 'numeros-grandes', items: cifras.map((c) => ({ titulo: c!.titulo, texto: '', valor: c!.valor })) }];
       }
-      return [...parrafos(copy), ...(bullets.length ? [{ t: 'lista', items: bullets } as BloqueIA] : [])];
+      return [...parrafos(copy), ...listaOCifras(bullets)];
     }
     default:
-      return [...parrafos(copy), ...(bullets.length ? [{ t: 'lista', items: bullets } as BloqueIA] : [])];
+      return [...parrafos(copy), ...listaOCifras(bullets)];
   }
 }
 
@@ -174,7 +184,7 @@ export function specADoc(spec: LandingSpec, op: { descartes?: string[] } = {}): 
       { t: 'titulo', texto: titulo },
       ...(sub ? [{ t: 'p-grande', texto: sub } as BloqueIA] : []),
       ...(heroCopy && heroCopy !== sub ? parrafos(heroCopy) : []),
-      ...(hero && lista(hero.bullets).length ? [{ t: 'lista', items: lista(hero.bullets) } as BloqueIA] : []),
+      ...(hero ? listaOCifras(lista(hero.bullets)) : []),
       ...boton(limpio(hero?.cta) || ctaPrincipal),
     ],
     notas: notas(hero?.nota, spec?.rationale ? `Por qué esta estructura: ${limpio(spec.rationale)}` : ''),

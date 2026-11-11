@@ -381,16 +381,27 @@ export type ResumenPiezas = { vivas: number; idas: number; desde: string | null 
  * en SQL: son a lo sumo 25 competidores (`TOPES.competidores`).
  *
  * ⚠️ ANTE UN ERROR DEVUELVE VACÍO, y la tabla entonces no dibuja esa columna. No hay cero que afirmar.
+ *
+ * ⚠️ PAGINADO (10/11/2026, prueba en producción). Era UN pedido con `.limit(5000)`, y PostgREST devuelve 1000 filas como mucho
+ * sin avisar: con más de 1000 piezas en el negocio, la tarjeta del último decía menos de las que tenía (en el ws 3, Alex
+ * Hormozi «363 piezas» con 500 en su ficha; en el ws 9, con ~2.500, se cortaban casi todos). Ahora se lee de a 1000 por `id`.
  */
 export async function resumenDePiezas(): Promise<Record<number, ResumenPiezas>> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('spy_piezas').select('competidor_id, dejo_de_verse_en, visto_primera_vez').neq('canal', 'landing').limit(5000);
-  if (error) return {};
   const out: Record<number, ResumenPiezas> = {};
-  for (const fila of (data ?? []) as Array<{ competidor_id: number; dejo_de_verse_en: string | null; visto_primera_vez: string }>) {
-    const r = (out[fila.competidor_id] ??= { vivas: 0, idas: 0, desde: null });
-    if (fila.dejo_de_verse_en) r.idas += 1; else r.vivas += 1;
-    if (!r.desde || fila.visto_primera_vez < r.desde) r.desde = fila.visto_primera_vez;
+  try {
+    await leerPorPaginas<{ competidor_id: number; dejo_de_verse_en: string | null; visto_primera_vez: string }>(
+      db, 'spy_piezas', 'competidor_id, dejo_de_verse_en, visto_primera_vez', (pagina) => {
+        for (const fila of pagina) {
+          const r = (out[fila.competidor_id] ??= { vivas: 0, idas: 0, desde: null });
+          if (fila.dejo_de_verse_en) r.idas += 1; else r.vivas += 1;
+          if (!r.desde || fila.visto_primera_vez < r.desde) r.desde = fila.visto_primera_vez;
+        }
+        return true;
+      }, { orden: 'id', filtros: (q) => q.neq('canal', 'landing') },
+    );
+  } catch {
+    return {};
   }
   return out;
 }

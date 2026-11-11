@@ -11,7 +11,12 @@ import type { TipoGuion } from './tipos';
 export type Referencia =
   | { tipo: 'guion'; id: string; nombre: string; tipoGuion?: TipoGuion }
   | { tipo: 'oferta'; id: 'oferta'; nombre: string }
-  | { tipo: 'archivo'; id: string; nombre: string };
+  | { tipo: 'archivo'; id: string; nombre: string }
+  /**
+   * El outlier que replica la página (D18): la suma el SERVER cuando la página tiene `props.outlier`, en cada pedido
+   * (lib/copywriter/ia.ts, `conElOriginal`). La pantalla no la manda: `sanearReferencias` no la acepta de afuera.
+   */
+  | { tipo: 'outlier'; id: string; nombre: string };
 
 /** La oferta del negocio: siempre se puede citar. */
 export const REF_OFERTA: Referencia = { tipo: 'oferta', id: 'oferta', nombre: 'La oferta' };

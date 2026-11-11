@@ -28,13 +28,22 @@ export function precargar(url: string): Promise<boolean> {
   });
 }
 
-/** Baja todas y devuelve las que quedaron listas, sin esperar más que `TOPE_PRECARGA_MS`. */
-export async function precargarTodas(urls: ReadonlyArray<{ id: number; url: string }>): Promise<Set<number>> {
+/**
+ * Baja todas y devuelve las que quedaron listas, sin esperar más que `TOPE_PRECARGA_MS`.
+ *
+ * ⚠️ LAS QUE LLEGAN DESPUÉS DEL TOPE NO SE TIRAN (10/11/2026, prueba en producción). Antes, lo que no llegaba en 3 s quedaba
+ * para siempre como la tarjetita de color con el logo de la red: con Leila Hormozi, ~12 portadas de 180 en el gráfico (cada
+ * una pesa ~250 KB), aunque las 180 estaban guardadas y respondían bien. Con `alTerminar`, cuando terminan TODAS se avisa el
+ * juego completo, una sola vez, y quien dibuja las pone en su lugar.
+ */
+export async function precargarTodas(
+  urls: ReadonlyArray<{ id: number; url: string }>,
+  alTerminar?: (ok: Set<number>) => void,
+): Promise<Set<number>> {
   const ok = new Set<number>();
-  await Promise.race([
-    Promise.all(urls.map((m) => precargar(m.url).then((v) => { if (v) ok.add(m.id); }))),
-    espera(TOPE_PRECARGA_MS),
-  ]);
+  const todas = Promise.all(urls.map((m) => precargar(m.url).then((v) => { if (v) ok.add(m.id); })));
+  const aTiempo = await Promise.race([todas.then(() => true), espera(TOPE_PRECARGA_MS).then(() => false)]);
+  if (!aTiempo && alTerminar) void todas.then(() => alTerminar(new Set(ok)));
   return new Set(ok);
 }
 

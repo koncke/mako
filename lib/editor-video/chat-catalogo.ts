@@ -519,7 +519,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'usar_preset_subtitulos',
     forma: '{"op":"usar_preset_subtitulos","preset":"p1abc"}',
-    para: 'Aplica a TODOS los subtítulos un preset de la marca ("preset": su id de DISPONIBLES.presets_subtitulos): su fuente, colores, tamaño, fondo, contorno, karaoke y palabras clave. Se aplica al final. Sin presets en DISPONIBLES, el negocio todavía no guardó ninguno: dilo.',
+    para: 'Aplica a TODOS los subtítulos un preset de la marca ("preset": su id de DISPONIBLES.presets_subtitulos) o una plantilla de la galería de Subtítulos (su id de DISPONIBLES.plantillas_subtitulos: «estilo Hormozi» es "hormozi", «Hormozi clásico» es "hormozi-clasico"): su fuente, colores, tamaño, fondo, contorno, karaoke, animación y palabras clave, todo junto. Para pedir un estilo con nombre, ésta y no armarlo con otras operaciones. Se aplica al final. Si piden un preset de SU marca y DISPONIBLES no trae presets_subtitulos, el negocio todavía no guardó ninguno: dilo.',
   },
   {
     op: 'broll',

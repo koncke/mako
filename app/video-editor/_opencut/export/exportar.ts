@@ -20,6 +20,8 @@
 import { mensajeDeExport } from "./mensaje-error";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { buildScene } from "@/app/video-editor/_opencut/services/renderer/scene-builder";
+import { videoCache } from "@/app/video-editor/_opencut/services/video-cache/service";
+import { clavesDelOriginal } from "@/app/video-editor/_opencut/media/copia-liviana-reglas";
 import { SceneExporter } from "@/app/video-editor/_opencut/services/renderer/scene-exporter";
 import { CanvasRenderer } from "@/app/video-editor/_opencut/services/renderer/canvas-renderer";
 import { createTimelineAudioBuffer, timelineHasAudio } from "@/app/video-editor/_opencut/media/audio";
@@ -100,6 +102,8 @@ export class Exportacion {
 
 	async ejecutar(onProgreso: (p: number) => void): Promise<ResultadoExportar> {
 		const { editor, opciones } = this;
+		// Mientras exporta, nadie le suelta el decodificador del original (media-manager.ts, al llegar una copia liviana).
+		videoCache.empezarExportacion();
 		try {
 			editor.playback.pause();
 			const proyecto = editor.project.getActive();
@@ -238,8 +242,22 @@ export class Exportacion {
 			// El crudo ya quedó en la consola (arriba): acá va la frase para la persona.
 			return { estado: "error", mensaje: mensajeDeExport(error) };
 		} finally {
+			videoCache.terminarExportacion();
+			soltarOriginales(editor);
 			refrescarReproductor(editor);
 		}
+	}
+}
+
+/**
+ * Exportar decodifica el ORIGINAL de cada video (≈100 MB por clip de celular, docs/editor-video/memoria-del-editor.md).
+ * Los que tienen copia liviana no los vuelve a pedir la vista previa: se sueltan al terminar.
+ */
+function soltarOriginales(editor: EditorCore): void {
+	if (videoCache.estaExportando()) return;
+	for (const asset of editor.media.getAssets()) {
+		if (!asset.copiaLiviana) continue;
+		for (const clave of clavesDelOriginal(asset.id)) videoCache.clearVideo({ mediaId: clave });
 	}
 }
 
@@ -295,6 +313,8 @@ export async function portada(editor: EditorCore, ancho = 480, tiempo = 0): Prom
 			duration: duracion,
 			canvasSize: lienzo,
 			background: proyecto.settings.background,
+			// Una portada chica: con la copia liviana, sin abrir el decodificador del original.
+			isPreview: true,
 		});
 		const renderer = new CanvasRenderer({ width: lienzo.width, height: lienzo.height, fps: proyecto.settings.fps });
 		const canvas = document.createElement("canvas");

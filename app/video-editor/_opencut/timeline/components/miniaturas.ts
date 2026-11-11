@@ -109,6 +109,29 @@ export function cuadroCacheado({
 	return lienzo ?? null;
 }
 
+/**
+ * Suelta lo de un archivo (o de todos): su `Input` de mediabunny, que antes no se cerraba nunca, y sus cuadros. Se cierra
+ * cuando termina lo que está en su fila, para no cortar un cuadro a la mitad. Lo llaman core/managers/media-manager.ts
+ * (al cambiar de proyecto) y commands/media/remove-media-asset.ts.
+ */
+export function soltarMiniaturas(mediaId?: string): void {
+	for (const [id, fuente] of [...fuentes]) {
+		if (mediaId !== undefined && id !== mediaId) continue;
+		fuentes.delete(id);
+		void fuente
+			.then((f) => {
+				if (f) f.cola = f.cola.then(() => f.input.dispose()).catch(() => {});
+			})
+			.catch(() => {});
+	}
+	const prefijo = mediaId === undefined ? null : `${mediaId}|`;
+	for (const conjunto of [cache, pendientes, sinCuadro] as Array<Map<string, unknown> | Set<string>>) {
+		for (const k of [...conjunto.keys()]) if (prefijo === null || k.startsWith(prefijo)) conjunto.delete(k);
+	}
+	if (mediaId === undefined) fallidos.clear();
+	else fallidos.delete(mediaId);
+}
+
 export function miniaturasFallaron(mediaId: string): boolean {
 	return fallidos.has(mediaId);
 }

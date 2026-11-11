@@ -20,6 +20,13 @@
 // deja de ser un dato. (El «0 min» de GitHub Actions es exactamente ese caso.)
 // =============================================================================
 
+// ⚠️ IMPORTA SÓLO MÓDULOS SIN IMPORTS PROPIOS (mako-tokens-reglas, mako-tokens-paquetes, costos-fijos): `uso-del-cupo.ts`
+// importa de acá, así que este archivo NO puede importar de él (un ciclo de imports en los tests de tsx deja exports a
+// medio cargar). Por eso `USO_SUPUESTO` y `techoDeIa` viven acá desde el 10/11/2026 y `uso-del-cupo.ts` los re-exporta.
+import { CUPO_MENSUAL, usdDeMt, type Plan } from './mako-tokens-reglas';
+import { USD_DEL_PLAN } from './mako-tokens-paquetes';
+import { fijoDeMartin } from './costos-fijos';
+
 /**
  * La pasarela: Mercado Pago con la plata a 35 días, 1,80% (docs/estrategia-financiera-mako.md §2; Martín, 7/11/2026).
  * ⚠️ Hasta el 7/11 esto era un 15% único que llevaba adentro a Creem (5,75%) y el giro (0,7-1,1%). Creem rechazó la tienda
@@ -160,6 +167,163 @@ export function economiaDelMes(e: EntradaEconomia): Economia {
     equilibrio,
     faltanParaElEquilibrio: equilibrio == null ? null : Math.max(0, equilibrio - n),
     dejaCadaCliente,
+    avisos,
+  };
+}
+
+// =============================================================================
+// A DÓNDE VA LO QUE PAGA UN CLIENTE, por plan (10/11/2026)
+// =============================================================================
+// Martín, 10/11: «la torta de un cliente de 97: cuánto le queda y a dónde va cada dólar», y que esté en SuperAdmin › Costs
+// con lo del tablero local (docs/tableros/numeros-mako.html): los selectores, el primer mes, el techo del CAC y los cupos.
+// La torta vivía armada en app/admin/estrategia/datos.ts (`tortaDePlan`, rama punta/torta-97); ahora la arma ESTA función y
+// la usan las dos páginas, así no pueden decir dos números distintos.
+//
+//   cobro      precio × pasarela (Mercado Pago a 35 días, 1,80%)
+//   impuesto   precio × impuesto (monotributo H, 8,36%). Va APARTE de la pasarela (docs/tableros/LEEME.md)
+//   servir     el video con IA (el uso del cupo del plan) + su parte del gasto fijo (el fijo ÷ los clientes)
+//   conseguir  el CAC repartido en la vida del cliente
+//   ganancia   lo que queda
+// La IA de texto NO es una parte: la paga cada negocio con su clave (lib/ia-del-negocio.ts).
+//
+// ⚠️ SUMAN EXACTO AL CENTAVO: cada parte se redondea a 2 decimales y la ganancia es el precio menos el resto. El 97 con el
+// escenario del modelo da 61,53 · 10,78 · 14,83 · 8,11 · 1,75 con 9 meses de vida (tests/costs-suscripcion.test.ts). El encargo
+// del 10/11 decía 67,94 · 4,37: era con 22,2 meses, antes de que Martín bajara la vida a 9 ese mismo día (`MESES_DE_VIDA`).
+//
+// ⚠️ EL TECHO DEL CAC ES «LO QUE DEJA DESDE EL SEGUNDO MES», CON EL FIJO ADENTRO. El tablero local lo calculaba como precio −
+// cobrar − IA, sin la parte del fijo (81,08 en el 97, contando el impuesto). Acá se usa el mismo modelo que la torta, donde
+// «servir la cuenta» lleva la parte del fijo: así el primer mes (−24,69 con un CAC de 97) es exactamente el techo menos el
+// CAC, y la página no dice dos cosas que no cierran. Lo anotó docs/relevo/nube-costs-suscripcion.md para que decida Martín.
+
+/**
+ * El uso del cupo que se SUPONE mientras `tasaDeUsoMedida` (lib/uso-del-cupo.ts) no tenga meses: 25%, el valor inicial del
+ * deslizador de docs/tableros/numeros-mako.html. Es un supuesto, no una medición: hoy nadie genera video.
+ */
+export const USO_SUPUESTO = 0.25;
+
+/** Lo que cuesta, como mucho, la IA de un cliente de ese plan en un mes: su cupo entero (lib/uso-del-cupo.ts lo re-exporta). */
+export const techoDeIa = (plan: Plan): number => usdDeMt(CUPO_MENSUAL[plan]);
+
+/** Los planes que pagan. */
+export type PlanPago = 'pro' | 'growth';
+export const PLANES_PAGOS: readonly PlanPago[] = ['pro', 'growth'];
+
+/**
+ * Por dónde se cobra, con lo que se lleva cada camino. Son las cuatro opciones del tablero local, con su fuente:
+ * docs/estrategia-financiera-mako.md §2 y la recomendación 3 (Mercado Pago, 24/10/2026) y la tabla de Argentina directo.
+ * La primera es la del modelo (`PASARELA`).
+ */
+export const PASARELAS = [
+  { id: 'mp-35', nombre: 'Mercado Pago a 35 días', tasa: PASARELA },
+  { id: 'mp-ya', nombre: 'Mercado Pago al instante', tasa: 0.0761 },
+  { id: 'creem-paddle', nombre: 'Creem / Paddle', tasa: 0.0575 },
+  { id: 'directo', nombre: 'Transferencia o Binance', tasa: 0 },
+] as const;
+
+/** Lo que se puede mover para ver otro escenario. Lo que no se pasa, sale del modelo (`ESCENARIO_DEL_MODELO`). */
+export type Escenario = {
+  /** Entre cuántos clientes se reparte el fijo. */
+  readonly clientes: number;
+  /** Lo que cuesta traer un cliente, en US$, entero. */
+  readonly cacUsd: number;
+  /** La parte del cupo de video que se usa, de 0 a 1. */
+  readonly usoDelCupo: number;
+  /** Lo que se lleva la pasarela, de 0 a 1. */
+  readonly pasarela: number;
+  /** El impuesto, de 0 a 1 (0 = no contarlo: hoy lo paga Leandro). */
+  readonly impuesto: number;
+  /** El gasto fijo mensual que se reparte. */
+  readonly fijoMensualUsd: number;
+};
+
+/** El escenario del modelo del 7/11: 50 clientes, CAC de 97, 25% del cupo, Mercado Pago a 35 días, con impuesto, el fijo de Martín. */
+export const ESCENARIO_DEL_MODELO: Escenario = {
+  clientes: META_CLIENTES,
+  cacUsd: CAC_USD,
+  usoDelCupo: USO_SUPUESTO,
+  pasarela: PASARELA,
+  impuesto: IMPUESTO,
+  fijoMensualUsd: fijoDeMartin(),
+};
+
+export type ClaveDeParte = 'ganancia' | 'conseguir' | 'servir' | 'impuesto' | 'cobro';
+
+/** Cómo se llama cada parte en las dos páginas (la torta de /admin/estrategia y el reparto de Costs). */
+export const NOMBRE_DE_PARTE: Record<ClaveDeParte, string> = {
+  ganancia: 'Ganancia',
+  conseguir: 'Captación',
+  servir: 'Servir la cuenta',
+  impuesto: 'Impuesto',
+  cobro: 'Cobro',
+};
+
+export type ParteDeSuscripcion = { readonly clave: ClaveDeParte; readonly usd: number };
+
+export type Suscripcion = {
+  readonly plan: PlanPago;
+  readonly precioUsd: number;
+  /** Las cinco partes de un mes, en este orden (ganancia, captación, servir, impuesto, cobro). Suman el precio al centavo. */
+  readonly partes: readonly ParteDeSuscripcion[];
+  /** El cupo de video e imagen del plan, en MaKo Tokens, y lo que vale como mucho. */
+  readonly cupoMt: number;
+  readonly techoIaUsd: number;
+  /** Lo que se supone que se gasta del cupo (el uso del escenario × el techo), sin redondear. */
+  readonly videoUsd: number;
+  /** El fijo de cada cliente. `null` si no hay clientes entre quienes repartirlo. */
+  readonly fijoPorClienteUsd: number | null;
+  readonly cacUsd: number;
+  readonly mesesDeVida: number;
+  /** Lo que deja desde el segundo mes: el precio menos cobrarlo, el impuesto y servirlo. Es el techo del CAC. */
+  readonly desdeElSegundoMesUsd: number;
+  /** El primer mes, pagando el CAC entero. Negativo = ese mes se pierde. */
+  readonly primerMesUsd: number;
+  readonly avisos: readonly string[];
+};
+
+const r2 = (n: number) => Math.round(n * 100) / 100;
+const entre01 = (n: number) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0));
+const noNegativo = (n: number) => Math.max(0, Number.isFinite(n) ? n : 0);
+
+/**
+ * A dónde va lo que paga un cliente de ese plan cada mes, y su primer mes.
+ *
+ * ⚠️ Con 0 clientes el fijo NO se reparte: `fijoPorClienteUsd` es `null`, «servir» lleva sólo el video y sale un aviso. Un
+ * fijo «por cliente» sin clientes no es un número.
+ */
+export function loQueSeVaDeUnaSuscripcion(plan: PlanPago, cambios: Partial<Escenario> = {}): Suscripcion {
+  const e: Escenario = { ...ESCENARIO_DEL_MODELO, ...cambios };
+  const avisos: string[] = [];
+  const precio = USD_DEL_PLAN[plan];
+  const clientes = Number.isFinite(e.clientes) ? Math.max(0, Math.trunc(e.clientes)) : 0;
+  const cac = noNegativo(e.cacUsd);
+  const techoIa = techoDeIa(plan);
+  const video = techoIa * entre01(e.usoDelCupo);
+  const fijoPorCliente = clientes > 0 ? noNegativo(e.fijoMensualUsd) / clientes : null;
+  if (fijoPorCliente == null) avisos.push('Sin clientes, el gasto fijo no se reparte entre nadie.');
+
+  const resto: ParteDeSuscripcion[] = [
+    { clave: 'conseguir', usd: r2(cac / MESES_DE_VIDA) },
+    { clave: 'servir', usd: r2(video + (fijoPorCliente ?? 0)) },
+    { clave: 'impuesto', usd: r2(precio * entre01(e.impuesto)) },
+    { clave: 'cobro', usd: r2(precio * entre01(e.pasarela)) },
+  ];
+  const suma = resto.reduce((s, p) => s + p.usd, 0);
+  const partes: ParteDeSuscripcion[] = [{ clave: 'ganancia', usd: r2(precio - suma) }, ...resto];
+
+  const deResto = (clave: ClaveDeParte) => resto.find((p) => p.clave === clave)?.usd ?? 0;
+  const desdeElSegundoMes = r2(precio - deResto('cobro') - deResto('impuesto') - deResto('servir'));
+  return {
+    plan,
+    precioUsd: precio,
+    partes,
+    cupoMt: CUPO_MENSUAL[plan],
+    techoIaUsd: techoIa,
+    videoUsd: video,
+    fijoPorClienteUsd: fijoPorCliente,
+    cacUsd: cac,
+    mesesDeVida: MESES_DE_VIDA,
+    desdeElSegundoMesUsd: desdeElSegundoMes,
+    primerMesUsd: r2(desdeElSegundoMes - cac),
     avisos,
   };
 }

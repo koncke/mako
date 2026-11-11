@@ -191,4 +191,32 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-comunicacion.md — la tabla de cada envío y qué dice Meta',
     ],
   },
+  {
+    fecha: '10 nov', hora: '21:08', chat: 'Ops Center (nube)', sesion: 'cli_b4bb6cd6-f68b-5162-ae59-96d6e5078bd4', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'MaKo en WhatsApp siempre tiene que responder',
+    pedido: 'Mako en WhatsApp no responde... SIEMPRE debe responder, haz un relevo de eso para que no ocurra más',
+    puntos: [
+      'Se lo escribió al Cerebro desde el teléfono, y no salió: la PC estaba dormida desde las 08:56. Me lo pasó con «Solucionalo».',
+    ],
+  },
+  {
+    fecha: '10 nov', hora: '21:31', chat: 'Ops Center (nube)', sesion: 'cli_b4bb6cd6-f68b-5162-ae59-96d6e5078bd4', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo contesta en su grupo aunque WhatsApp haya frenado la línea, y la respuesta que no llega abre un ticket',
+    puntos: [
+      '**Contestar siempre sale:** si WhatsApp rechaza UN mensaje (un grupo del que sacaron a MaKo), la línea se frenaba 6 horas y MaKo no le contestaba a nadie. Ahora la respuesta en el grupo donde alguien acaba de escribir sale igual; los avisos y lo automático siguen frenados.',
+      '**El mismo aviso a muchos grupos** no frena una respuesta: durante una caída de la IA, el sexto grupo quedaba sin contestar.',
+      '**Lo que WhatsApp no toma deja un ticket** con el motivo, en vez de guardarse como dicho sin que nadie se entere.',
+      '**Un diagnóstico de las seis causas** de «no responde», para correr en la PC: la línea caída o sorda, el freno, MaKo apagado, la cola y lo que no se contestó.',
+      '**Cómo se prueba:** después del despliegue, escribirle a MaKo en tu grupo. Si no contesta, correr el diagnóstico (docs/relevo/nube-mako-wa-responde.md).',
+    ],
+    archivos: [
+      'lib/respuesta-en-curso.ts — el grupo al que se le está contestando',
+      'lib/mako-salida-reglas.ts — `esRespuestaEnCurso`, `respuestaNoEntregada`, `motivoDeNoEntrega`',
+      'lib/linea-freno.ts · lib/mako-grupo.ts · lib/mako-doer-in.ts — el cableado',
+      'scripts/diagnostico-mako-whatsapp.mts — sólo lee',
+      'tests/mako-responde-siempre.test.ts — 12, catorce roturas, cada una cae',
+    ],
+  },
 ];

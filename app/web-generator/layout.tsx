@@ -4,8 +4,8 @@
 // Ticket #9 (ws 10, 24/10 21:43 ART): «La pantalla «Web Generator» se rompió», «Minified React error #310» al abrir
 // /web-generator. Es el mismo caso del ticket #7 (docs/hallazgos-infra.md): `app/web-generator/loading.tsx` es un Suspense
 // que envuelve a la página Y a las subrutas, y un `redirect()` de ahí adentro no es un 307: va en el stream (200 + meta
-// refresh) y queda en carrera con la hidratación del router, que a veces se cae. Desde el 24/10 la página pelada salta a
-// la última landing (page.tsx); `/analizar` y `/crear` (los links viejos) redirigían desde antes.
+// refresh) y queda en carrera con la hidratación del router, que a veces se cae. `/analizar` y `/crear` (los links viejos)
+// redirigen; la página pelada saltaba a la última landing entre el 24/10 y el 11/11, cuando pasó a ser la portada de outliers.
 //
 // El layout queda AFUERA del loading.tsx: redirigir acá devuelve el 307 de siempre, y el loader se queda para el editor.
 // La decisión es la de las páginas (`redireccionDelLayout`, panel-reglas.ts, con test), que la conservan por si se llega
@@ -23,8 +23,7 @@ import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
 import { rutaConWs } from '@/lib/workspace';
 import { esNavegacionDelCliente, pedidoActual } from '@/lib/pedido-actual';
-import { listar } from '@/lib/editor-landing/server';
-import { destinoAnalizar, destinoCrear, landingMasReciente, redireccionDelLayout } from './panel-reglas';
+import { destinoAnalizar, destinoCrear, redireccionDelLayout } from './panel-reglas';
 import { TooltipsFlotantes } from './editor/TooltipsFlotantes';
 
 export default async function WebGeneratorLayout({ children }: { children: ReactNode }) {
@@ -40,10 +39,7 @@ export default async function WebGeneratorLayout({ children }: { children: React
   if (cual && !(await esNavegacionDelCliente())) {
     if (cual === 'analizar') redirect(await rutaConWs(destinoAnalizar(query)));
     if (cual === 'crear') redirect(await rutaConWs(destinoCrear(query)));
-    // La pelada: la última landing tocada. Una lista que no se pudo leer no salta: la página dice el error.
-    const r = await listar().catch(() => null);
-    const ultima = r?.ok ? landingMasReciente(r.docs) : null;
-    if (ultima) redirect(await rutaConWs(`/web-generator/${ultima.id}`));
+    // (La pelada saltaba a la última landing tocada hasta el 11/11/2026: ahora es la portada de outliers, ./page.tsx.)
   }
   // Los tooltips de toda la tab, encima de todo (editor/TooltipsFlotantes.tsx).
   return <>{children}<TooltipsFlotantes /></>;

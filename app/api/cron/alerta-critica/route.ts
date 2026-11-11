@@ -21,7 +21,7 @@ import { correrPorWorkspace } from '@/lib/cron-workspaces';
 import { getMetaAccountHealth } from '@/lib/meta-health';
 import { registrarEstadoMeta } from '@/lib/meta-health-history';
 import { insistirAlertasCriticas } from '@/lib/alerta-critica';
-import { vigilarVozMaKo } from '@/lib/canal-vigilante';
+import { vigilarDemoraDeLaLinea, vigilarVozMaKo } from '@/lib/canal-vigilante';
 import { vigilarLineasClientes } from '@/lib/lineas-vigilante';
 
 export const dynamic = 'force-dynamic';
@@ -46,6 +46,12 @@ export async function GET(request: NextRequest) {
     return null;
   });
   if (voz && !voz.viva) console.error(`[cron:alerta-critica] ⛔ LA VOZ DE MAKO ESTÁ CAÍDA (aviso: ${voz.aviso})`);
+  // Y la línea que contesta pero ENTREGA TARDE (10/11/2026, lib/linea-demora.ts): la sonda de arriba no la ve. Por EMAIL, como la voz.
+  const demora = await vigilarDemoraDeLaLinea().catch((e) => {
+    console.error(`[cron:alerta-critica] no se pudo medir la demora de la línea: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  });
+  if (demora?.demoras.length) console.error(`[cron:alerta-critica] ⚠️ WhatsApp entrega tarde (${demora.demoras.map((d) => `${d.instancia} ${d.maxMin} min`).join(', ')}) → ${demora.aviso}${demora.error ? `: ${demora.error}` : ''}`);
 
   // ⚠️ Y LAS LÍNEAS DE LOS CLIENTES, que hasta el 06/10/2026 no las miraba nadie: la del
   // ws1 estuvo muerta 26 días (03/09 → 29/09) sin un solo aviso. Ésta sí avisa por
