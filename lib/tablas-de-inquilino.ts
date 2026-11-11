@@ -63,7 +63,12 @@ export const TABLAS_DE_INQUILINO = [
   // Los avisos programados, las corridas de flujos y las insistencias (migs 0180, 0183, 0186): estaban en
   // TENANT_TABLES y NO acá, así que vaciar un negocio las dejaba. Medido contra producción el 17/10/2026
   // (las tres existen, con FK a workspaces en cascada). tests/tenant-tables-contract.test.ts → INVERSO 1.
-  'avisos_cola', 'avisos_programados', 'branding_assets', 'calendario_eventos', 'chart_chats', 'chart_sessions',
+  'avisos_cola', 'avisos_programados', 'branding_assets', 'calendario_eventos',
+  // «Traer tu outlier» (migs 0413 y 0414, 11/11/2026): la biblioteca de ejemplos es GLOBAL (`workspace_id` null), y lo que un
+  // negocio trajo por su link lleva su número. Vaciar o borrar el negocio se lleva SÓLO lo suyo. No va en TENANT_TABLES: las
+  // lee el server con service_role y filtra quién ve qué (`seMuestraA`, `seVeThumbnail`).
+  'carruseles_biblioteca_piezas',
+  'chart_chats', 'chart_sessions',
   'chat_agent_handoffs', 'chat_estado', 'chat_eventos', 'chat_leidos', 'cliente_entrega', 'cliente_entrega_fuera', 'cliente_entrega_orden', 'closing_analyses', 'closing_jobs', 'cobro_etapa_vinculos', 'cobros',
   'comunidad_ajustes', 'comunidad_baneos', 'comunidad_categorias', 'comunidad_comentarios',
   'comunidad_evento_avisos', 'comunidad_eventos', 'comunidad_likes', 'comunidad_notificaciones',
@@ -154,6 +159,9 @@ export const TABLAS_DE_INQUILINO = [
   // ⚠️ La 0401 se aplica ANTES del deploy: sin la tabla, el reset del cliente de prueba vacía igual y avisa «no existe».
   'suscripcion_movimientos',
   'tarea_categorias',
+  // Las miniaturas de YouTube traídas por un negocio (mig 0414): ver `carruseles_biblioteca_piezas` arriba. El canal lleva el
+  // negocio que lo trajo (el cron no lo relee); borrarlo se lleva sus videos (on delete cascade).
+  'thumbnails_canales', 'thumbnails_videos',
   // Los tickets que levantan las personas del negocio al equipo de MaKo (mig 0311, 17/10/2026). `ticket_eventos` no
   // tiene `workspace_id`: se va con su ticket (on delete cascade). No va en TENANT_TABLES: la lee lib/tickets-db.ts.
   'tickets',

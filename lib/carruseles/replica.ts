@@ -135,6 +135,14 @@ export function bloqueDeOferta(o: OfertaDelPrompt): string {
   ].filter(Boolean).join('\n');
 }
 
+/**
+ * Cómo se pide el JSON: COMPACTO, en una sola línea (11/11/2026). Con sangría, `gemini-flash-latest` escribía un carrusel de 6
+ * láminas en 588 líneas y 6.194 espacios (medido con la IA real del ws9: 5.374 tokens una vez, 7.996 otra), y el tope de
+ * `TOKENS_DE_SALIDA` (8.000) lo cortaba a mitad de una clave: «La IA no devolvió el diseño en un formato que pueda leer». El
+ * espacio no dice nada y se paga en tokens y en segundos.
+ */
+export const COMPACTO = 'Devuelve SÓLO un JSON compacto, en UNA sola línea, sin sangrías ni saltos de línea entre las claves, con esta forma:';
+
 /** El prompt (un solo mensaje: lo lee la IA junto con las imágenes). Los datos del negocio van marcados como datos. */
 export function promptDeReplica(p: PedidoReplica): string {
   if (p.miniatura) return promptDeMiniatura(p);
@@ -168,7 +176,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.pie?.trim() ? `El pie de la publicación original (sólo para entender el tema y la estructura; NO copies sus frases):\n<<<PIE\n${p.pie.trim().slice(0, 1_200)}\nPIE>>>` : '',
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
-    'Devuelve SÓLO un JSON con esta forma:',
+    COMPACTO,
     `{"proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. Exactamente ${n} elementos en "laminas".`,
   ].filter((l) => l !== '').join('\n');
@@ -204,7 +212,7 @@ function promptDeMiniatura(p: PedidoReplica): string {
     p.tituloOriginal?.trim() ? `El título del video original (sólo para entender el tema; NO lo copies):\n<<<TITULO\n${p.tituloOriginal.trim().slice(0, 200)}\nTITULO>>>` : '',
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
-    'Devuelve SÓLO un JSON con esta forma:',
+    COMPACTO,
     `{"proporcion":"16:9","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     'x, y, ancho y alto son FRACCIONES de la imagen (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho.',
   ].filter((l) => l !== '').join('\n');

@@ -122,6 +122,10 @@ const FUERA_DEL_PROXY: Record<string, string> = {
   funnel_config: 'deprecada por la mig 0170 (la reemplaza `funnels`), sin lectores',
   shares: 'cross-workspace por diseño: el link compartido trae su workspace',
   webhook_routing: 'cross-workspace por diseño: identificador de un proveedor → workspace',
+  // «Traer tu outlier» (migs 0413 y 0414, 11/11/2026): bibliotecas GLOBALES donde lo que trajo un negocio lleva su número.
+  carruseles_biblioteca_piezas: 'la biblioteca de ejemplos es global (workspace_id null = de la plataforma): lib/carruseles/biblioteca-servidor.ts la lee con el cliente de servicio y `seMuestraA` decide quién ve lo traído',
+  thumbnails_videos: 'la biblioteca de miniaturas es global (workspace_id null = de la plataforma): lib/thumbnails/servidor.ts la lee con el cliente de servicio y `seVeThumbnail` decide quién ve lo traído',
+  thumbnails_canales: 'los canales de la biblioteca de miniaturas son globales; workspace_id = el negocio que trajo un video del canal (el cron no lo relee): lib/thumbnails/',
   branding_assets: 'el material de marca, sólo para el super admin (lib/branding.ts, cliente de servicio)',
   credenciales_auditoria: 'la escribe lib/credenciales.ts con el workspace explícito',
   agente_consentimiento: 'la escribe y lee lib/agente-* con el workspace del token',

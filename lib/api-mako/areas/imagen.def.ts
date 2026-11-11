@@ -236,4 +236,18 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true,
     escribe: 'insert en image_disenos (y su foto en image_subidos)',
   },
+  // ── «Traer tu outlier» (11/11/2026): un ejemplo por su LINK, que ve sólo este negocio (lib/carruseles/traer-servidor.ts y
+  //    lib/thumbnails/traer-servidor.ts, los mismos del buscador de la pantalla). Al FINAL del área y sin las palabras de las de
+  //    arriba (AGENTS.md: una operación nueva no le saca el lugar a otra); lo de cada red va en el parámetro, que no puntúa.
+  //    Instagram lee con Apify (unos US$0,0025 por link, con su clave de Spy o la de la plataforma); YouTube es gratis. ──
+  {
+    id: 'traer_outlier', area: 'imagen', tipo: 'accion', confirmacion: 'chat', reversible: false, lenta: true,
+    titulo: 'Sumar un outlier por su link',
+    descripcion: 'PROPONE leer un link pegado y sumarlo a los outliers propios, que ve sólo este negocio. Lo que ya estaba no se vuelve a leer.',
+    parametros: [
+      { nombre: 'link', tipo: 'string', obligatorio: true, max: 500, descripcion: 'El link de una publicación o carrusel de Instagram (/p/ o /reel/) o de un video de YouTube. Con el id que devuelve: editar_ejemplo_carrusel o editar_ejemplo_thumbnail.' },
+    ],
+    canales: SIN_HTTP, costo: 'externo', gating: GATING,
+    escribe: 'carruseles_biblioteca_piezas o thumbnails_videos, con el negocio que lo trajo (mig 0413 y 0414)',
+  },
 ];
