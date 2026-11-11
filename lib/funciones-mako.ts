@@ -21,6 +21,7 @@
 // =============================================================================
 
 import { FAMILIAS, itemsDe, TODOS_LOS_ITEMS, USER_NAV, type NavItem } from '@/app/_components/nav';
+import { LEAD_MAGNET_EN_PRODUCCION, NAV_LEAD_MAGNET } from '@/lib/lead-magnets/archivado';
 
 export type EstadoFuncion = 'lista' | 'parcial';
 
@@ -341,8 +342,9 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     conecta: [{ a: 'video-generator', motivo: 'Genera por el mismo puente a Google Flow' }],
     estado: 'parcial', slugDev: 'ai-avatar', fuentes: [AREAS],
   },
-  {
-    keys: ['lead-magnet-generator'],
+  // ⚠️ ARCHIVADO el 11/11/2026 por pedido de Martín (lib/lead-magnets/archivado.ts): sin la fila de la barra, MaKo no lo ofrece.
+  ...(LEAD_MAGNET_EN_PRODUCCION ? [{
+    keys: [NAV_LEAD_MAGNET],
     que: 'Tus lead magnets: lo que regalas a cambio del contacto. Eliges una plantilla (guía, checklist, prompts para copiar, planilla, clase grabada o quiz con diagnóstico) y MaKo crea la pieza en Copywriting o en el Web Generator, con su estructura; después le da un link público de solo lectura y la página con formulario donde la piden.',
     hace: ['Crear la pieza de un lead magnet desde una plantilla, en Copywriting o en el Web Generator', 'Un quiz con diagnóstico en una landing: preguntas con puntos, el contacto entra al CRM con su resultado y cada uno ve el suyo', 'MaKo te propone hasta 3 lead magnets desde tu oferta y lo que hace tu competencia en Competitors Spy, con tu IA, y los armas con un clic', 'Darle a una página de Copywriting un link público de solo lectura, y dejar de compartirla', 'Crear la landing que lo pide: el formulario entra al CRM', 'Elegir qué link mandan las automatizaciones'],
     noHace: ['Todavía no: regalar un curso de Classroom a un lead (el portal abre sólo a clientes que compraron)', 'Las automatizaciones mandan el link del primero de tu lista, no el de cada página', 'Proponer sin tu IA: usa tu Claude, tu GPT o tu Gemini'],
@@ -350,7 +352,7 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     alias: ['lead magnet', 'iman de leads', 'regalo', 'guia gratis', 'checklist', 'descargable', 'freebie', 'clase gratis', 'quiz', 'diagnostico', 'encuesta'],
     conecta: [{ a: 'copywriter', motivo: 'Las guías, los checklists y los prompts son páginas de Copywriting' }, { a: 'landing-writer', motivo: 'La clase grabada y la página que lo pide son landings del Web Generator' }],
     estado: 'parcial', slugDev: 'lead-magnet-generator', fuentes: [AREAS, 'lib/lead-magnets/plantillas.ts'],
-  },
+  } satisfies EntradaFuncion] : []),
   // ── El menú de la foto (Settings) ──
   {
     keys: ['perfil', 'configuraciones', 'integraciones'],

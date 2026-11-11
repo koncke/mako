@@ -22,6 +22,7 @@ import { ENTRADAS, funcionDeKey, funcionDeRuta, funcionesMako } from '../lib/fun
 import { CAPACIDADES } from '../lib/mako-capacidades';
 import { FAMILIAS, TODOS_LOS_ITEMS, USER_NAV } from '../app/_components/nav';
 import { AREAS } from '../app/admin/dev/areas';
+import { LEAD_MAGNET_EN_PRODUCCION } from '../lib/lead-magnets/archivado';
 
 const RAIZ = join(import.meta.dirname, '..');
 const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -132,7 +133,8 @@ test('6. listar_capacidades_mako por negocio y por rol: lo del super admin sólo
   //    agregar: cualquiera del negocio; borrar sigue siendo del administrador
   //    (`soloAdmin` en app/competitor-spy/actions.ts).
   // Lead Magnet entró el 5/11/2026: es de la plataforma hasta que Martín lo abra (app/lead-magnet-generator/puerta.ts).
-  assert.deepEqual(SOLO_SA.sort(), ['Admin', 'Lead Magnet', 'Stories']);
+  // Y salió de nuevo el 11/11/2026: ARCHIVADO por pedido de Martín (lib/lead-magnets/archivado.ts), no lo ve nadie.
+  assert.deepEqual(SOLO_SA.sort(), LEAD_MAGNET_EN_PRODUCCION ? ['Admin', 'Lead Magnet', 'Stories'] : ['Admin', 'Stories']);
   // El dueño de un negocio cliente (plan completo, agencia o pm) nunca recibe lo que sólo ve el super admin.
   for (const k of ['11:admin', '12:admin', '13:admin', '11:miembro']) {
     for (const n of SOLO_SA) assert.ok(!R[k].funciones.includes(n), `${k} recibió «${n}», que sólo ve el super admin`);

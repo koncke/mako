@@ -22,6 +22,7 @@ import { problemasDeGuia, textosDeGuia } from '../lib/guia/reglas';
 import type { GuiaDeTab } from '../lib/guia/tipos';
 import { marcasDeVoseo } from '../lib/puestas-data';
 import { FAMILIAS, MAKO_NAV, USER_NAV, itemsDe } from '../app/_components/nav';
+import { LEAD_MAGNET_EN_PRODUCCION } from '../lib/lead-magnets/archivado';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -43,7 +44,8 @@ const SIN_GUIA_TODAVIA: Readonly<Record<string, string>> = {
   perfil: 'G6, Settings (monta la estrella)', 'api-mako': 'G6, API de MaKo', partners: 'G6, Planes y Partners', agency: 'G6, Planes y Partners',
   tickets: 'G6, Ticketera de usuarios (Report a problem)', 'market-an': 'G6, Competitor Spy',
   // 5/11/2026: entró a Create con el shell compartido (app/_crear/PantallaCrear.tsx), como sus hermanas: su guía espera a G5.
-  'lead-magnet-generator': 'G6, Lead Magnet (después de G5)',
+  // ARCHIVADO el 11/11/2026 por pedido de Martín (lib/lead-magnets/archivado.ts): apagado, no es una tab.
+  ...(LEAD_MAGNET_EN_PRODUCCION ? { 'lead-magnet-generator': 'G6, Lead Magnet (después de G5)' } : {}),
 };
 
 function fuentes(dir: string): string[] {
