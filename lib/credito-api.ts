@@ -260,3 +260,59 @@ export function totalCredito(filas: readonly FilaCredito[]): TotalCredito {
   const gastadoUsd = hueco ? null : redondear(vinculadas.reduce((s, f) => s + (f.gastadoUsd ?? 0), 0));
   return { gastadoUsd, vinculadas: vinculadas.length, rindeUsd: vinculadas.length * CREDITO_MENSUAL_USD, totalUsd: filas.length * CREDITO_MENSUAL_USD };
 }
+
+// ── EL VIGÍA DEL CRÉDITO (11/11/2026) ────────────────────────────────────────────────────────────────────────────────────
+// Desde que el espacio de MaKo y WhatsApp gastan el crédito primero (Martín: «gastemos eso para todo esto en lugar de Gemini»),
+// una cuenta que se acaba sin aviso es WhatsApp contestando con el cartel. Lo único que cortaba era Anthropic diciendo «sin
+// saldo». El vigía (lib/credito-vigia.ts, desde /api/cron/alerta-critica cada 10 minutos) lee lo REGISTRADO (Anthropic no deja
+// leer el saldo: si las claves se usan fuera de MaKo, el número se queda corto) y avisa a Martín. Ninguna cuenta tiene
+// `diaDeCobro`, así que se mide el mes calendario: es un dato que carga Martín, no una decisión.
+
+/** Desde este % de una cuenta, un aviso por ciclo. */
+export const AVISO_DEL_CREDITO_PCT = 80;
+/** El prefijo de las filas «ya avisé» (una por cuenta, nivel y ciclo), en la plataforma. */
+export const PREFIJO_AVISO_DEL_CREDITO = 'ia.credito.aviso.';
+export type AvisoDelCredito = { clave: string; cuenta: string; nivel: '80' | '100' | 'no-pude-leer'; texto: string };
+
+const usd = (n: number) => `US$${Math.round(n)}`;
+
+/**
+ * Qué avisar y qué % guardar, con lo que leyó el servidor (`resumenCredito`) y los avisos ya dados. Puro.
+ *   · al 80% de una cuenta, UN aviso por ciclo; al 100% (o con una fila «sin crédito»), otro; nunca los dos juntos;
+ *   · con lo gastado sin poder leer, NINGÚN %: un aviso «no pude leer», uno por día, y esa cuenta fuera del % guardado;
+ *   · sólo las cuentas vinculadas (una sin clave no gasta).
+ * `uso` va por el NOMBRE de la clave (`ANTHROPIC_CREDITO_CUENTA2`), que es como lo lee el reparto (lib/credito-negocio.ts).
+ */
+export function avisosDelCredito(
+  filas: readonly FilaCredito[], yaAvisados: ReadonlySet<string>, ahora: number, cuentas: readonly CuentaDelCredito[] = CUENTAS_DEL_CREDITO,
+): { avisos: AvisoDelCredito[]; uso: Record<string, number> } {
+  const avisos: AvisoDelCredito[] = [];
+  const uso: Record<string, number> = {};
+  const { y, m, d } = fechaAR(ahora);
+  const hoy = `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  for (const f of filas) {
+    if (f.vinculada !== true) continue;
+    const nombre = cuentas.find((c) => c.cuenta === f.cuenta)?.clave;
+    const ciclo = f.desde.slice(0, 10);
+    if (f.gastadoUsd == null) {
+      const clave = `${PREFIJO_AVISO_DEL_CREDITO}${f.cuenta}.no-pude-leer.${hoy}`;
+      if (!yaAvisados.has(clave)) avisos.push({ clave, cuenta: f.cuenta, nivel: 'no-pude-leer', texto: `${f.cuenta}: no pude leer cuánto lleva gastado del crédito de Claude en este ciclo, así que no sé si se está acabando. Míralo en SuperAdmin › Uso.` });
+      continue;
+    }
+    const pct = Math.round((f.gastadoUsd / CREDITO_MENSUAL_USD) * 1000) / 10;
+    if (nombre) uso[nombre] = pct;
+    const de = `${usd(f.gastadoUsd)} de ${CREDITO_MENSUAL_USD} (${Math.round(pct)}%), según lo que registró MaKo`;
+    const c100 = `${PREFIJO_AVISO_DEL_CREDITO}${f.cuenta}.100.${ciclo}`;
+    const c80 = `${PREFIJO_AVISO_DEL_CREDITO}${f.cuenta}.80.${ciclo}`;
+    if (pct >= 100 || f.sinCreditoAt) {
+      if (!yaAvisados.has(c100)) {
+        avisos.push({ clave: c100, cuenta: f.cuenta, nivel: '100', texto: f.sinCreditoAt
+          ? `${f.cuenta}: Anthropic contestó «sin crédito» (${de}). Se saltea hasta el próximo ciclo y MaKo sigue con las otras cuentas.`
+          : `${f.cuenta}: se acabó el crédito de Claude de este ciclo (${de}). MaKo sigue con las otras cuentas.` });
+      }
+    } else if (pct >= AVISO_DEL_CREDITO_PCT && !yaAvisados.has(c80)) {
+      avisos.push({ clave: c80, cuenta: f.cuenta, nivel: '80', texto: `${f.cuenta}: ${de}. Desde el 90%, el espacio de MaKo deja de usar esta cuenta y el resto queda para WhatsApp.` });
+    }
+  }
+  return { avisos, uso };
+}

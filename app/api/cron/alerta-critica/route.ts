@@ -23,6 +23,7 @@ import { registrarEstadoMeta } from '@/lib/meta-health-history';
 import { insistirAlertasCriticas } from '@/lib/alerta-critica';
 import { vigilarDemoraDeLaLinea, vigilarVozMaKo } from '@/lib/canal-vigilante';
 import { vigilarLineasClientes } from '@/lib/lineas-vigilante';
+import { vigilarCreditoClaude } from '@/lib/credito-vigia';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -67,6 +68,13 @@ export async function GET(request: NextRequest) {
     if (l.que === 'avisar' || l.error) console.log(`[cron:alerta-critica] línea ${l.linea} (ws ${l.ws}) ${l.sondeo} → ${l.que}${l.llego === false ? ' (NO llegó)' : ''}${l.error ? ` — ${l.error}` : ''}`);
   }
 
+  // ⚠️ EL CRÉDITO DE CLAUDE (11/11/2026). Desde que el espacio de MaKo y WhatsApp lo gastan primero, una cuenta que se acaba sin
+  // aviso es WhatsApp contestando con el cartel. Guarda el % de cada cuenta (el reparto lo usa) y avisa al 80% y al 100%, una vez
+  // por ciclo (lib/credito-vigia.ts). Nunca tira, como lo de arriba.
+  const credito = await vigilarCreditoClaude();
+  if (!credito.ok) console.error(`[cron:alerta-critica] no se pudo vigilar el crédito de Claude: ${credito.error}`);
+  for (const a of credito.avisos) if (a.r !== 'ya-estaba') console.log(`[cron:alerta-critica] crédito de Claude ${a.clave} → ${a.r}`);
+
   try {
     // Compartido entre las iteraciones: dos workspaces pueden apuntar a la MISMA
     // cuenta de Meta (le pasa al Cliente de Prueba, que tiene copia de las
@@ -90,7 +98,7 @@ export async function GET(request: NextRequest) {
       }
       return res;
     });
-    return Response.json({ ok: true, voz, lineas, workspaces, ms: Date.now() - t0 });
+    return Response.json({ ok: true, voz, lineas, credito, workspaces, ms: Date.now() - t0 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[cron:alerta-critica] error: ${message}`);
