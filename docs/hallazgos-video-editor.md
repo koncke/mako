@@ -6,6 +6,21 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Probar el editor en el navegador de la app de Claude: tres trampas que no son de MaKo (11/11/2026)
+
+Probado en producción el 11/11 (docs/pruebas/video-produccion-11-11.md). El panel del navegador de la app de Claude
+suele estar oculto. Lo que ahí parece una falla del editor, en una pestaña visible de Chrome no pasa:
+
+- **«Importando…» para siempre,** con un video y también con una imagen. La importación espera dos cuadros de pantalla
+  antes de empezar (`waitForNextPaint`, `media/upload-toast.ts`), y el panel oculto sólo pinta cuando se le saca una
+  captura. **Regla:** sacar capturas mientras importa; entra en segundos.
+- **El OPFS se vació y el IndexedDB no:** el proyecto quedó sin sus archivos (vista previa negra), y los subtítulos
+  decían «sin voz». En Chrome, el proyecto del día anterior seguía entero. Desde el 11/11 el mensaje dice «falta en este
+  navegador el archivo…» (`faltaAlgunArchivo`, `subtitles/resultado.ts`).
+- **La primera captura de la portada sale en blanco** aunque las imágenes ya cargaron: aparecen en la siguiente.
+- Y sin la app de escritorio de MaKo conectada en la PC, el chat no deja escribir. Es la regla del 25/10, no el negocio
+  de prueba. Desde el 11/11 los atajos se apagan diciendo por qué, en vez de no hacer nada.
+
 ## La memoria del editor, medida: achicar la vista previa NO la baja, la copia liviana sí (11/11/2026)
 
 Martín preguntó si con Remotion se podía editar sin gastar la RAM del cliente. Antes de decidir, se midió dónde se va hoy.
