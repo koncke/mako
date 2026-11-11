@@ -53,6 +53,8 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - las razones de compra por avatar de Jan, de donde también sale la cantidad de anuncios.
 7. **Una pestaña «Tu web»**, como «Tu oferta», que **dibuja la web de la persona** y le da feedback sobre ella.
 
+8. **(11/11, después) Conectar con Zernio en vez de pegar links.** En el paso 2, Instagram y YouTube se CONECTAN con Zernio, como Meta, en lugar de pedir el @ o el link. Con la conexión se podrían traer las estadísticas de sus reels y de su YouTube, y quizás sus historias pasadas, para un análisis mucho más efectivo. Antes de la maqueta hay que averiguar qué trae Zernio de verdad (estadísticas por reel, YouTube, historias pasadas) y decirlo.
+
 ## El plan
 
 1. **Relevamiento, con agentes, de lo que hay que revisar por canal y de la máquina de contenido.** Sale de todos los cursos de Knowledge: el índice está en el scratchpad (`cursos-indice/`) y las transcripciones en `public/cono-tx/` y `C:/cursos/programa-meta-ads-the-net-lab/transcripciones/`. Va a `docs/marketing-copilot/analisis/` (`organico.md` y `anuncios.md`), con curso y clase en cada punto. Ojo: el texto de MaKo va en tú.
