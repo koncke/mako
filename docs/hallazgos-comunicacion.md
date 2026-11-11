@@ -3157,6 +3157,20 @@ siguen contando mañana a la misma hora. Con 100 por día, «los 22 hoy y los 97
 tests/email-campana-topes.test.ts (con los envíos reales del 9 y el 10/11)
 *2026-11-10 claude4, chat Tickets*
 
+### ⚠️ «Subí el tope de email» tiene tres trampas: la rampa, la pantalla y el plan de Resend del negocio (11/11/2026, tickets #78 y #83)
+
+Le aconsejé a Mauricio subir el email a 120 por día para que salieran sus dos envíos juntos, y estaba mal por tres lados:
+1. **La rampa.** Con `arranqueDia` < `dia`, el tope de hoy arranca en `arranqueDia` y sube sólo los días que se LLEGÓ al tope
+   (`topeConRampa`, lib/goteo.ts). Subir sólo «Por día» no cambia nada si ayer no se llegó (el 10/11 salieron 78 de 100).
+2. **La pantalla.** Configuraciones muestra sólo «Línea por día» del email: la rampa (`arranqueDia`, `arranqueSube`) se cambia
+   únicamente por la API (`cambiar_limites_envio`; `FILAS_LINEA`, lib/limites-envio.ts).
+3. **El plan de Resend del negocio.** Desde el 4/11 cada negocio manda con SU clave de Resend (`credenciales` RESEND_API_KEY). El
+   plan gratis de Resend corta en 100 por día, así que el tope de MaKo (hasta 500) no sirve si su cuenta de Resend no es paga.
+**Regla:** antes de aconsejar un tope, mirar de quién es la clave de Resend, los tres campos del email en `mako.limites_envio` y
+si ayer se llegó al tope.
+
+*2026-11-11 claude4, chat Tickets*
+
 ### ⚠️ El generador de emails escribe para el negocio de Mauricio, no para el del cliente
 
 **Síntoma:** cualquier cliente que toque «generar email» en `/email` recibe copy de OTRO negocio,
