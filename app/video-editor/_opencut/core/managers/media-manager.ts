@@ -8,6 +8,8 @@ import { waveformCache } from "@/app/video-editor/_opencut/services/waveform-cac
 import { BatchCommand, RemoveMediaAssetCommand } from "@/app/video-editor/_opencut/commands";
 import { crearCopiaLiviana } from "@/app/video-editor/_opencut/media/copia-liviana";
 import { clavesDelOriginal, medidasDeCopia } from "@/app/video-editor/_opencut/media/copia-liviana-reglas";
+import { soltarImagenes } from "@/app/video-editor/_opencut/services/renderer/nodes/image-node";
+import { soltarMiniaturas } from "@/app/video-editor/_opencut/timeline/components/miniaturas";
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -134,6 +136,8 @@ export class MediaManager {
 	async clearProjectMedia({ projectId }: { projectId: string }): Promise<void> {
 		this.cortarCopias();
 		waveformCache.clearAll();
+		soltarImagenes();
+		soltarMiniaturas();
 
 		this.assets.forEach((asset) => {
 			if (asset.url) {
@@ -163,6 +167,9 @@ export class MediaManager {
 		this.cortarCopias();
 		videoCache.clearAll();
 		waveformCache.clearAll();
+		// Las URLs de abajo se revocan: lo decodificado de ellas no se vuelve a pedir.
+		soltarImagenes();
+		soltarMiniaturas();
 
 		this.assets.forEach((asset) => {
 			if (asset.url) {

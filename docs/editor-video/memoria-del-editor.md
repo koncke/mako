@@ -261,6 +261,15 @@ Ordenado por memoria que ahorra contra trabajo que lleva. Son propuestas; ningun
        - el índice al final, que se reproduce igual pero no empieza a verse antes de bajarlo entero;
        - o reservarle lugar al principio.
 7. **Las fugas de §6.** Cada una es chica, pero se suman en una sesión larga y al pasar de un negocio a otro.
+   - **HECHAS el 11/11/2026 cuatro** (rama `punta/fugas-editor`), fijadas en `tests/video-editor-fugas.test.ts`:
+     - IndexedDB cierra la conexión de cada operación. Además, una abierta dejaba esperando para siempre a
+       `deleteDatabase`.
+     - El caché de imágenes se vacía al cerrar el proyecto y al borrar el medio.
+     - El `AudioContext` de cada sonido de la biblioteca se cierra al decodificar.
+     - La tira de miniaturas cierra el `Input` de cada archivo al cerrar el proyecto y al borrar el medio.
+   - **Sin hacer:** `AudioManager.dispose()` y `EditorCore.reset()` sin limpieza, y salir del editor sin cerrar el proyecto
+     (`editor-provider.tsx:97`). Tocan cómo se arma y se desarma el editor entero, y se prueban con el editor abierto en
+     producción, no en el banco.
 8. **Un tope al historial de deshacer** (por ejemplo, 100 pasos) y al «Restaurar» del chat.
 
 ## 8. ¿Y Remotion?
