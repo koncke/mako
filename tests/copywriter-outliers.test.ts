@@ -237,3 +237,9 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   const m = leer('app/m/copywriter/page.tsx');
   assert.match(m, /<OutliersCopy portada=\{await leerOutliersCopy\(\)\} telefono rutaGuion="\/m\/copywriter\/\{id\}\?mako=1"/);
 });
+
+test('el original abierto: con imagen, la pieza arriba y su texto abajo (11/11, a 1440 era una caja blanca casi vacía)', () => {
+  const modal = leer('app/copywriter/OutlierAbierto.tsx');
+  assert.match(modal, /\{o\.miniatura \? \(\n\s+<div className=\{t\.conImagen\}>\n\s+\{\/\* eslint-disable-next-line @next\/next\/no-img-element \*\/\}\n\s+<img className=\{t\.imagenOriginal\} src=\{o\.miniatura\}/);
+  assert.match(leer('app/copywriter/outliers.module.css'), /\.conImagen > img\.imagenOriginal \{ flex: 0 0 56%;/);
+});
