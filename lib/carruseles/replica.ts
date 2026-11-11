@@ -56,7 +56,7 @@ export type FotoReplica = { x: number; y: number; ancho: number; alto: number; p
  *     de fotos), nunca la foto del negocio pegada entera: la foto del negocio no es ese lugar;
  *   · `retrato`: la persona sola, recortada o en primer plano, como un elemento del diseño. Ahí sí va la foto del negocio.
  */
-export type CuadroReplica = { x: number; y: number; ancho: number; alto: number; tipo: escena | retrato; persona: boolean; descripcion: string; busqueda: string };
+export type CuadroReplica = { x: number; y: number; ancho: number; alto: number; tipo: 'escena' | 'retrato'; persona: boolean; descripcion: string; busqueda: string };
 export type LaminaReplica = { fondo: string; textos: TextoReplica[]; foto: FotoReplica | null; cuadros: CuadroReplica[] };
 export type Proporcion = '4:5' | '1:1' | '16:9';
 /** `lectura`: lo que la IA LEYÓ de la composición del original antes de escribir (queda en las notas del diseño). */
