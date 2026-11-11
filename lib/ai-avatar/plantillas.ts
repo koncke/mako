@@ -52,7 +52,7 @@ export type PlantillaAvatar = {
   nuevo?: boolean;
   /**
    * Lo que se ve en la baldosa: la imagen del preset y, si lo hay, un video real hecho con este formato (corre con el
-   * mouse encima). Desde el 11/11/2026 TODOS los presets tienen imagen (public/ai-avatar/presets/, hechas en Flow con la
+   * mouse encima). Desde el 11/11/2026 TODOS los presets tienen imagen (public/formatos/presets/, hechas en Flow con la
    * cara de Martín y el MISMO prompt del producto): un preset sin imagen es un degradado gris, y eso es una falla.
    */
   ejemplo?: { video?: string; poster: string };
@@ -74,7 +74,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'espejo-resultado',
-    ejemplo: { poster: '/ai-avatar/presets/espejo-resultado.jpg' },
+    ejemplo: { poster: '/formatos/presets/espejo-resultado.jpg' },
     nombre: 'Antes y después',
     categoria: 'UGC y TikTok',
     resumen: 'Cuentas el resultado frente al espejo, sin producto a la vista.',
@@ -86,7 +86,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'calle-promo',
-    ejemplo: { poster: '/ai-avatar/presets/calle-promo.jpg' },
+    ejemplo: { poster: '/formatos/presets/calle-promo.jpg' },
     nombre: 'Promo caminando',
     categoria: 'UGC y TikTok',
     resumen: 'Anuncias una oferta caminando por la calle.',
@@ -98,7 +98,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'comiendo',
-    ejemplo: { poster: '/ai-avatar/presets/comiendo.jpg' },
+    ejemplo: { poster: '/formatos/presets/comiendo.jpg' },
     nombre: 'Comiendo algo rico',
     categoria: 'UGC y TikTok',
     resumen: 'Recomiendas un lugar con el plato en la mesa.',
@@ -111,7 +111,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'gimnasio-espejo',
-    ejemplo: { poster: '/ai-avatar/presets/gimnasio-espejo.jpg' },
+    ejemplo: { poster: '/formatos/presets/gimnasio-espejo.jpg' },
     nombre: 'En el gimnasio',
     categoria: 'UGC y TikTok',
     resumen: 'Hablas de entrenamiento frente al espejo del gimnasio.',
@@ -125,7 +125,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   // ── Instagram ──────────────────────────────────────────────────────────────
   {
     id: 'cafe-un-dia',
-    ejemplo: { poster: '/ai-avatar/presets/cafe-un-dia.jpg' },
+    ejemplo: { poster: '/formatos/presets/cafe-un-dia.jpg' },
     nombre: 'Un día conmigo',
     categoria: 'Instagram',
     resumen: 'Muestras tu día de trabajo, con voz en off.',
@@ -137,7 +137,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'espejo-ascensor',
-    ejemplo: { poster: '/ai-avatar/presets/espejo-ascensor.jpg' },
+    ejemplo: { poster: '/formatos/presets/espejo-ascensor.jpg' },
     nombre: 'Espejo del ascensor',
     categoria: 'Instagram',
     resumen: 'La selfie de cuerpo entero en el espejo del ascensor.',
@@ -150,7 +150,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'calle-vista',
-    ejemplo: { poster: '/ai-avatar/presets/calle-vista.jpg' },
+    ejemplo: { poster: '/formatos/presets/calle-vista.jpg' },
     nombre: 'Vista de la calle',
     categoria: 'Instagram',
     resumen: 'Foto de estilo callejero, tomada desde la acera de enfrente.',
@@ -162,7 +162,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'lujo-silencioso',
-    ejemplo: { poster: '/ai-avatar/presets/lujo-silencioso.jpg' },
+    ejemplo: { poster: '/formatos/presets/lujo-silencioso.jpg' },
     nombre: 'Lujo silencioso',
     categoria: 'Instagram',
     resumen: 'Editorial sobrio en el lobby de un hotel, tonos neutros.',
@@ -175,7 +175,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'metro',
-    ejemplo: { poster: '/ai-avatar/presets/metro.jpg' },
+    ejemplo: { poster: '/formatos/presets/metro.jpg' },
     nombre: 'En el metro',
     categoria: 'Instagram',
     resumen: 'Sentado en el vagón, con luz de tubo y la ciudad pasando.',
@@ -187,7 +187,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'cabina-fotos',
-    ejemplo: { poster: '/ai-avatar/presets/cabina-fotos.jpg' },
+    ejemplo: { poster: '/formatos/presets/cabina-fotos.jpg' },
     nombre: 'Cabina de fotos',
     categoria: 'Instagram',
     resumen: 'Foto de cabina antigua, en blanco y negro.',
@@ -201,7 +201,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   // ── Cámara ─────────────────────────────────────────────────────────────────
   {
     id: 'selfie-iphone',
-    ejemplo: { poster: '/ai-avatar/presets/selfie-iphone.jpg' },
+    ejemplo: { poster: '/formatos/presets/selfie-iphone.jpg' },
     nombre: 'Selfie de iPhone',
     categoria: 'Cámara',
     resumen: 'La selfie de todos los días, con la cámara frontal del teléfono.',
@@ -214,7 +214,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'selfie-gran-angular',
-    ejemplo: { poster: '/ai-avatar/presets/selfie-gran-angular.jpg' },
+    ejemplo: { poster: '/formatos/presets/selfie-gran-angular.jpg' },
     nombre: 'Selfie 0.5',
     categoria: 'Cámara',
     resumen: 'Con el gran angular del teléfono, desde arriba.',
@@ -226,7 +226,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'ojo-de-pez',
-    ejemplo: { poster: '/ai-avatar/presets/ojo-de-pez.jpg' },
+    ejemplo: { poster: '/formatos/presets/ojo-de-pez.jpg' },
     nombre: 'Ojo de pez',
     categoria: 'Cámara',
     resumen: 'Muy cerca del lente, con la deformación del ojo de pez.',
@@ -238,7 +238,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'camara-seguridad',
-    ejemplo: { poster: '/ai-avatar/presets/camara-seguridad.jpg' },
+    ejemplo: { poster: '/formatos/presets/camara-seguridad.jpg' },
     nombre: 'Cámara de seguridad',
     categoria: 'Cámara',
     resumen: 'Vista desde la esquina del techo, como una cámara de seguridad.',
@@ -251,7 +251,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'camara-2000',
-    ejemplo: { poster: '/ai-avatar/presets/camara-2000.jpg' },
+    ejemplo: { poster: '/formatos/presets/camara-2000.jpg' },
     nombre: 'Cámara digital 2000',
     categoria: 'Cámara',
     resumen: 'Con flash directo, como una cámara compacta de los 2000.',
@@ -263,7 +263,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'grano-90',
-    ejemplo: { poster: '/ai-avatar/presets/grano-90.jpg' },
+    ejemplo: { poster: '/formatos/presets/grano-90.jpg' },
     nombre: 'Grano de los 90',
     categoria: 'Cámara',
     resumen: 'Rollo de 35 mm con grano y colores gastados.',
@@ -289,7 +289,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'podcast-experto',
-    ejemplo: { poster: '/ai-avatar/presets/podcast-experto.jpg' },
+    ejemplo: { poster: '/formatos/presets/podcast-experto.jpg' },
     nombre: 'Experto en el podcast',
     categoria: 'Negocio',
     resumen: 'Explicas un tema con autoridad, en un estudio de podcast.',
@@ -301,7 +301,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'escritorio-demo',
-    ejemplo: { poster: '/ai-avatar/presets/escritorio-demo.jpg' },
+    ejemplo: { poster: '/formatos/presets/escritorio-demo.jpg' },
     nombre: 'Demostración en la compu',
     categoria: 'Negocio',
     resumen: 'Muestras cómo funciona, frente a la computadora.',
@@ -313,7 +313,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'frente-casa',
-    ejemplo: { poster: '/ai-avatar/presets/frente-casa.jpg' },
+    ejemplo: { poster: '/formatos/presets/frente-casa.jpg' },
     nombre: 'Frente a la propiedad',
     categoria: 'Negocio',
     resumen: 'Presentas una propiedad parado en la entrada.',
@@ -326,7 +326,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'biblioteca',
-    ejemplo: { poster: '/ai-avatar/presets/biblioteca.jpg' },
+    ejemplo: { poster: '/formatos/presets/biblioteca.jpg' },
     nombre: 'En la biblioteca',
     categoria: 'Negocio',
     resumen: 'Entre estantes de libros, con luz cálida de lectura.',
@@ -340,7 +340,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   // ── Producto ───────────────────────────────────────────────────────────────
   {
     id: 'cocina-producto',
-    ejemplo: { poster: '/ai-avatar/presets/cocina-producto.jpg' },
+    ejemplo: { poster: '/formatos/presets/cocina-producto.jpg' },
     nombre: 'Producto en mano',
     categoria: 'Producto',
     resumen: 'Muestras el producto en la cocina, como una recomendación.',
@@ -352,7 +352,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'unboxing-mesa',
-    ejemplo: { poster: '/ai-avatar/presets/unboxing-mesa.jpg' },
+    ejemplo: { poster: '/formatos/presets/unboxing-mesa.jpg' },
     nombre: 'Abriendo la caja',
     categoria: 'Producto',
     resumen: 'El unboxing en la mesa de la sala, recién llegado.',
@@ -366,7 +366,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   // ── Clima y luz ────────────────────────────────────────────────────────────
   {
     id: 'dia-lluvia',
-    ejemplo: { poster: '/ai-avatar/presets/dia-lluvia.jpg' },
+    ejemplo: { poster: '/formatos/presets/dia-lluvia.jpg' },
     nombre: 'Día de lluvia',
     categoria: 'Clima y luz',
     resumen: 'En la acera mojada, con paraguas y luz de día nublado.',
@@ -378,7 +378,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'niebla',
-    ejemplo: { poster: '/ai-avatar/presets/niebla.jpg' },
+    ejemplo: { poster: '/formatos/presets/niebla.jpg' },
     nombre: 'Mañana con niebla',
     categoria: 'Clima y luz',
     resumen: 'En el parque, con niebla y luz pálida de la mañana.',
@@ -390,7 +390,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'atardecer-playa',
-    ejemplo: { poster: '/ai-avatar/presets/atardecer-playa.jpg' },
+    ejemplo: { poster: '/formatos/presets/atardecer-playa.jpg' },
     nombre: 'Atardecer en la playa',
     categoria: 'Clima y luz',
     resumen: 'Contraluz dorado del atardecer, con el mar detrás.',
@@ -403,7 +403,7 @@ export const PLANTILLAS_AVATAR: readonly PlantillaAvatar[] = Object.freeze([
   },
   {
     id: 'bajo-el-foco',
-    ejemplo: { poster: '/ai-avatar/presets/bajo-el-foco.jpg' },
+    ejemplo: { poster: '/formatos/presets/bajo-el-foco.jpg' },
     nombre: 'Bajo el foco',
     categoria: 'Clima y luz',
     resumen: 'Un solo foco desde arriba y el fondo en negro.',

@@ -588,6 +588,11 @@ teléfono. Informe con capturas: `docs/pruebas/ai-avatar-11-11.md`.
   que baja el original (768×1376) sin la sesión. Las de la grilla (`flow.google.com/asb/…`) piden la sesión. El prompt copia la
   ROPA de la foto: en la playa y en el gimnasio se agregó la ropa en el ajuste, como lo escribiría una persona. **Vive en:**
   `lib/ai-avatar/plantillas.ts` y `plantillas-venta.ts` (`ejemplo: { poster }`, el video es opcional) y
-  `public/ai-avatar/presets/`. Un test exige imagen en TODOS los presets (tests/ai-avatar-prueba-1111.test.ts).
+  `public/formatos/presets/`. Un test exige imagen en TODOS los presets (tests/ai-avatar-prueba-1111.test.ts).
+- **⚠️ `public/ai-avatar/` NO sirve para archivos: pasa por el proxy** (el primer intento, 11/11, rojo en la punta). `/ai-avatar`
+  es una ruta de la app, y el matcher de `proxy.ts` sólo deja pasar sin sesión los estáticos de la raíz y de una lista de
+  carpetas (`formatos/`, `logos/`, `replay/`…): sin sesión, la imagen respondía con el login. Lo frena
+  tests/proxy-matcher-completo.test.ts. **Regla:** un estático nuevo va en una carpeta de esa lista; una carpeta nueva se suma
+  al matcher Y al test.
 - **Y una de Flow que cambia el mapa:** Flow tiene «Avatars» (experimental): con un video selfie corto captura la cara Y LA
   VOZ. Es la pieza que a AI Avatar le falta (la voz clonada no existe en la tab). Sin probar.
