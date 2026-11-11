@@ -111,7 +111,7 @@ type Relevo = Omit<OutlierLanding, 'fuente' | 'imagen' | 'quien' | 'id'> & { id:
 export const RELEVO: readonly Relevo[] = [
   // ── En español primero: la mayoría de los negocios de MaKo vende en español ──
   { id: 'clara-perez-clase', url: 'https://clase.highticketclarity.com/', nombre: 'Clara Pérez (High Ticket Clarity)', nicho: 'Coaches high ticket', tipo: 'webinar', idioma: 'es',
-    titulo: 'Imaginá agregar 10K AL MES a tu facturación',
+    titulo: 'Imagina agregar 10K AL MES a tu facturación',
     porque: 'Resultado concreto para un público muy definido (coaches, consultoras y dueñas de agencia), una masterclass en vivo que se da una sola vez y cupos limitados.' },
   { id: 'clara-perez-vsl', url: 'https://vender-en-redes.highticketclarity.com/', nombre: 'Clara Pérez (High Ticket Clarity)', nicho: 'Coaches high ticket', tipo: 'vsl', idioma: 'es',
     titulo: 'Sin publicidad y sin reels virales: las claves para escalar tu negocio en redes',
