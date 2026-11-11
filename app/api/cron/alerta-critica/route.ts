@@ -52,12 +52,13 @@ export async function GET(request: NextRequest) {
     console.error(`[cron:alerta-critica] no se pudo medir la demora de la línea: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   });
-  // Y la voz que MANDA y no RECIBE (11/11/2026, lib/linea-sorda.ts): ni la sonda ni la demora la ven. Reinicia una vez y pide el QR.
+  // Y la voz que MANDA y no RECIBE (11/11/2026, lib/linea-sorda.ts): ni la sonda ni la demora la ven. Avisa con el QR en un paso; no reinicia.
   const sorda = await vigilarSorderaDeLaVoz().catch((e) => {
     console.error(`[cron:alerta-critica] no se pudo vigilar la sordera de la voz: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   });
   if (sorda?.sorda) console.error(`[cron:alerta-critica] ⛔ LA VOZ NO RECIBE (${sorda.motivo}) → ${sorda.accion}`);
+  if (demora?.lineas.atrasadas.length || demora?.lineas.error) console.error(`[cron:alerta-critica] ⚠️ líneas que reciben con atraso: ${demora.lineas.atrasadas.join(', ') || '—'}${demora.lineas.avisadas.length ? ` (avisadas: ${demora.lineas.avisadas.join(', ')})` : ''}${demora.lineas.error ? ` · error: ${demora.lineas.error}` : ''}`);
   if (demora?.demoras.length) console.error(`[cron:alerta-critica] ⚠️ WhatsApp entrega tarde (${demora.demoras.map((d) => `${d.instancia} ${d.maxMin} min`).join(', ')}) → ${demora.aviso}${demora.error ? `: ${demora.error}` : ''}`);
 
   // ⚠️ Y LAS LÍNEAS DE LOS CLIENTES, que hasta el 06/10/2026 no las miraba nadie: la del

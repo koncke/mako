@@ -44,15 +44,19 @@
 // =============================================================================
 
 import 'server-only';
-import { numeroDeInstancia, reiniciarInstancia, sondearSocketDetalle, ultimosMensajesDeLaLinea, type Sondeo } from './evolution';
-import { avisoDeSordera, estaSorda, queHacerConLaSordera, SORDA_MS, type Accion, type MarcaDeSordera } from './linea-sorda';
+import { numeroDeInstancia, sondearSocketDetalle, ultimosMensajesDeLaLinea, vinculacionesDeLasLineas, vinculadaDesdeDeLinea, type Sondeo } from './evolution';
+import { avisoDeSordera, estaSorda, lecturaDeLaVoz, queHacerConLaSordera, SORDA_MS, type Accion, type MarcaDeSordera } from './linea-sorda';
+import { KEY_LINEAS_ATRASADAS, KEY_SORDERA, lineasAtrasadasMarcadas } from './lineas-enfermas';
 import { instanciaVoz } from './mako-grupo';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin, WS_NINGUNO } from './workspace';
 import { sendEmail } from './resend';
 import { APP_BASE_URL, EMAIL_MAKO, REMITENTE_MAKO } from './app-url';
 import { getSupabaseServer } from './supabase';
-import { demoraDeEntrega, textoDeLaDemora, VENTANA_DEMORA_MS, type Demora, type FilaDeEntrega } from './linea-demora';
+import {
+  atrasoEnPalabras, demoraDeEntrega, marcasDeAtraso, medirLineas, textoDeLaDemora, textoDeLasLineasAtrasadas, VENTANA_DEMORA_MS,
+  type Demora, type FilaDeEntrega, type FilaDeLinea,
+} from './linea-demora';
 
 const KEY_ULTIMO_AVISO = 'mako.canal.caido.avisado';
 /** Desde cuándo está caída (ISO), para el «hace cuánto» de la alerta. '' = no está caída. */
@@ -373,28 +377,91 @@ export async function avisarPorEmail(ws: number, asunto: string, cuerpo: string)
 const KEY_DEMORA_AVISO = 'mako.linea.demora.avisado';
 const REPETIR_DEMORA_MS = 3 * 3_600_000;
 
-export async function vigilarDemoraDeLaLinea(ahora = Date.now()): Promise<{ demoras: Demora[]; aviso: 'sin-demora' | 'repetido' | 'enviado' | 'fallo'; error?: string }> {
+export async function vigilarDemoraDeLaLinea(ahora = Date.now()): Promise<{
+  demoras: Demora[]; aviso: 'sin-demora' | 'repetido' | 'enviado' | 'fallo'; error?: string;
+  lineas: { medidas: number; atrasadas: string[]; avisadas: string[]; volvieron: string[]; error?: string };
+}> {
+  // Las líneas de TODOS los negocios (11/11/2026, el informe de la noche): va primero y aparte, para que una falla de la cola de
+  // MaKo no la deje sin correr, ni al revés.
+  const lineas = await vigilarLineasAtrasadas(ahora).catch((e) => ({ medidas: 0, atrasadas: [], avisadas: [], volvieron: [], error: msg(e) }));
   const { data, error } = await getSupabaseServer().from('mako_doer_buffer')
     .select('created_at, ts:payload->>messageTimestamp, instancia:payload->>instance')
     .gte('created_at', new Date(ahora - VENTANA_DEMORA_MS).toISOString()).limit(500);
   if (error) throw new Error(`no pude leer la cola: ${error.message}`);
   const demoras = demoraDeEntrega((data ?? []) as FilaDeEntrega[], ahora);
-  if (!demoras.length) return { demoras, aviso: 'sin-demora' };
+  if (!demoras.length) return { demoras, aviso: 'sin-demora', lineas };
   const wsSA = await wsSuperAdmin();
   const ultimo = await runWithWorkspace(wsSA, () => getSetting(KEY_DEMORA_AVISO)).catch(() => null);
-  if (ultimo && ahora - Date.parse(ultimo) < REPETIR_DEMORA_MS) return { demoras, aviso: 'repetido' };
+  if (ultimo && ahora - Date.parse(ultimo) < REPETIR_DEMORA_MS) return { demoras, aviso: 'repetido', lineas };
   const { asunto, cuerpo } = textoDeLaDemora(demoras);
   const r = await avisarPorEmail(wsSA, asunto, cuerpo);
-  if (r.error) return { demoras, aviso: 'fallo', error: r.error };
+  if (r.error) return { demoras, aviso: 'fallo', error: r.error, lineas };
   await runWithWorkspace(wsSA, () => setSetting(KEY_DEMORA_AVISO, new Date(ahora).toISOString()));
-  return { demoras, aviso: 'enviado' };
+  return { demoras, aviso: 'enviado', lineas };
+}
+
+/** Cuántos ids hacia atrás se lee `wa_mensajes`: ~1 día de tráfico (el 11/11, ~2.300 filas por día). Con un filtro por `created_at`
+ *  solo, sin índice, la lectura recorría la tabla entera; por el `id` (la clave) se corta. */
+const IDS_HACIA_ATRAS = 5000;
+
+/**
+ * Las líneas de los NEGOCIOS que reciben con atraso (lib/linea-demora.ts, `medirLineas`/`marcasDeAtraso`): mide `wa_mensajes`
+ * (llegada contra hora de envío, sólo lo del webhook), marca las atrasadas (`KEY_LINEAS_ATRASADAS`, que lee el panel para dar el QR en
+ * un paso) y avisa por EMAIL y por la campanita del SuperAdmin, con el nombre del negocio. A los dueños no: lo decide Martín (informe).
+ */
+async function vigilarLineasAtrasadas(ahora: number): Promise<{ medidas: number; atrasadas: string[]; avisadas: string[]; volvieron: string[] }> {
+  const db = getSupabaseServer();
+  const tope = await db.from('wa_mensajes').select('id').order('id', { ascending: false }).limit(1);
+  if (tope.error) throw new Error(`no pude leer wa_mensajes: ${tope.error.message}`);
+  const maxId = Number((tope.data as Array<{ id: number }> | null)?.[0]?.id ?? 0);
+  const { data, error } = await db.from('wa_mensajes')
+    .select('instance_name, workspace_id, created_at, wa_timestamp, tipo, importado:raw->>id')
+    .eq('from_me', false).gt('id', maxId - IDS_HACIA_ATRAS).gte('created_at', new Date(ahora - VENTANA_DEMORA_MS).toISOString()).limit(3000);
+  if (error) throw new Error(`no pude leer wa_mensajes: ${error.message}`);
+  const vinculos = (await vinculacionesDeLasLineas().catch(() => null)) ?? new Map<string, number>();
+  const medidas = medirLineas((data ?? []) as FilaDeLinea[], ahora, vinculos);
+  const previas = await lineasAtrasadasMarcadas(); // estricta: si no se lee, no se pisa
+  const wss = [...new Set(medidas.map((m) => m.ws).filter((w): w is number => w != null))];
+  const nombres = new Map<number, string>();
+  if (wss.length) {
+    const { data: w } = await db.from('workspaces').select('id, nombre').in('id', wss);
+    for (const f of (w ?? []) as Array<{ id: number; nombre: string | null }>) if (f.nombre) nombres.set(Number(f.id), f.nombre);
+  }
+  const { marcas, avisar, volvieron } = marcasDeAtraso(previas, medidas, ahora, {
+    negocio: (ws, inst) => (ws != null && nombres.get(ws)) || inst, vinculos, repetirMs: REPETIR_DEMORA_MS,
+  });
+  const wsSA = await wsSuperAdmin();
+  if (avisar.length) {
+    const { asunto, cuerpo } = textoDeLasLineasAtrasadas(avisar);
+    await avisarPorEmail(wsSA, asunto, cuerpo);
+    const { crearNotificacion } = await import('./notificaciones');
+    for (const l of avisar) {
+      await crearNotificacion({
+        ws: wsSA, tipo: 'linea-atrasada', severidad: 'urgente', titulo: `WhatsApp le entrega con ${atrasoEnPalabras(l.tipicoMin)} de atraso a ${l.negocio}`,
+        descripcion: `${l.instancia}: lo que entró en las últimas 3 h llegó con un atraso típico de ${atrasoEnPalabras(l.tipicoMin)} (${l.mensajes} mensajes). Se cura volviendo a escanear su QR.`,
+        link: l.ws != null ? `/whatsapp?ws=${l.ws}` : '/agencia', entityType: 'linea', entityId: l.instancia, payload: { tipicoMin: l.tipicoMin, mensajes: l.mensajes, desde: l.desde },
+        origen: 'sistema:linea-atrasada',
+      }).catch((e) => console.error(`[canal-vigilante] la campanita de ${l.instancia} no salió: ${msg(e)}`));
+    }
+  }
+  if (volvieron.length) {
+    const { crearNotificacion } = await import('./notificaciones');
+    for (const l of volvieron) {
+      await crearNotificacion({
+        ws: wsSA, tipo: 'linea-atrasada', severidad: 'info', titulo: `La línea de ${l.negocio} volvió a recibir a tiempo`,
+        link: l.ws != null ? `/whatsapp?ws=${l.ws}` : '/agencia', entityType: 'linea', entityId: l.instancia, origen: 'sistema:linea-atrasada',
+      }).catch(() => {});
+    }
+  }
+  if (JSON.stringify(marcas) !== JSON.stringify(previas)) await runWithWorkspace(wsSA, () => setSetting(KEY_LINEAS_ATRASADAS, Object.keys(marcas).length ? JSON.stringify(marcas) : ''));
+  return { medidas: medidas.length, atrasadas: Object.keys(marcas), avisadas: avisar.map((l) => l.instancia), volvieron: volvieron.map((l) => l.instancia) };
 }
 
 // ── 11/11/2026: LA VOZ QUE MANDA Y NO RECIBE (lib/linea-sorda.ts) ──────────────────────────────────────────────────────────
 // La voz estuvo sorda de las 12:14 a las 21:3x UTC con todo en verde: `open`, la sonda contestando, MaKo mandando avisos. Ni la sonda
 // ni la alarma de demora la ven (si no entra nada, no hay nada atrasado). Esto mira lo que la voz RECIBE de personas contra lo que
-// MANDA, y lo que la otra línea de Martín ve en los grupos y la voz no. Reinicia una vez y pide el QR por mail y por la campanita.
-const KEY_SORDERA = 'mako.voz.sorda';
+// MANDA desde que se vinculó, y lo que la otra línea de Martín ve en los grupos y la voz no. Avisa por mail y por la campanita con el
+// QR en un paso. ⛔ No reinicia: un `restart` no la cura (informe de esa noche; la primera versión lo hacía).
 
 /** La línea por default del negocio del super admin (la de Martín): la que comparte grupos con la voz. */
 async function lineaDeMartin(ws: number): Promise<string | null> {
@@ -408,32 +475,32 @@ const MAKO_EN_OTRA_LINEA = (alt: unknown, numeroVoz: string | null): boolean => 
 export async function vigilarSorderaDeLaVoz(ahora = Date.now()): Promise<{ sorda: boolean; motivo: string; accion: Accion; voz: string | null }> {
   const voz = await instanciaVoz({ estricto: true });
   if (!voz) return { sorda: false, motivo: 'sin voz', accion: 'nada', voz: null };
-  const [propios, numeroVoz] = await Promise.all([ultimosMensajesDeLaLinea(voz, 150), numeroDeInstancia(voz).catch(() => null)]);
+  const [propios, numeroVoz, vinculadaDesdeMs] = await Promise.all([
+    ultimosMensajesDeLaLinea(voz, 150), numeroDeInstancia(voz).catch(() => null), vinculadaDesdeDeLinea(voz).catch(() => null),
+  ]);
   if (!propios) return { sorda: false, motivo: 'Evolution no contestó: no se decide nada', accion: 'nada', voz };
   const ts = (m: { messageTimestamp?: number | string }) => Number(m.messageTimestamp) * 1000;
-  const personas = propios.filter((m) => !m.key?.fromMe && !MAKO_EN_OTRA_LINEA(m.key?.participantAlt, numeroVoz) && m.messageType !== 'reactionMessage');
-  const suyos = propios.filter((m) => m.key?.fromMe);
-  const ultimaPersonaMs = personas.length ? Math.max(...personas.map(ts)) : null;
-  const ultimoPropioMs = suyos.length ? Math.max(...suyos.map(ts)) : null;
-  // La otra línea: mensajes de personas en GRUPOS, en las últimas `SORDA_MS`, que la voz no tiene.
+  const lectura = lecturaDeLaVoz(propios, ahora, { vinculadaDesdeMs, esDeMaKo: (alt) => MAKO_EN_OTRA_LINEA(alt, numeroVoz) });
+  // La otra línea: mensajes de personas en GRUPOS, en las últimas `SORDA_MS` y desde que la voz se vinculó, que la voz no tiene.
   const wsSA = await wsSuperAdmin();
   let ajenosQueNoVio = 0;
   const otra = await lineaDeMartin(wsSA).catch(() => null);
   if (otra && otra !== voz) {
     const vistos = new Set(propios.map((m) => m.key?.id).filter(Boolean));
     const deOtra = (await ultimosMensajesDeLaLinea(otra, 100)) ?? [];
-    ajenosQueNoVio = deOtra.filter((m) => String(m.key?.remoteJid ?? '').endsWith('@g.us') && !m.key?.fromMe
+    ajenosQueNoVio = deOtra.filter((m) => String(m.key?.remoteJid ?? '').endsWith('@g.us') && !m.key?.fromMe && ts(m) > (vinculadaDesdeMs ?? 0)
       && !MAKO_EN_OTRA_LINEA(m.key?.participantAlt, numeroVoz) && ahora - ts(m) < SORDA_MS && ahora - ts(m) > 10 * 60_000 && !vistos.has(m.key?.id)).length;
   }
-  const { sorda, motivo } = estaSorda({ ultimaPersonaMs, ultimoPropioMs, ajenosQueNoVio }, ahora);
+  const { sorda, motivo } = estaSorda({ ...lectura, ajenosQueNoVio }, ahora);
   let marca: MarcaDeSordera | null = null;
   try { const c = await runWithWorkspace(wsSA, () => getSettingEstricto(KEY_SORDERA)); marca = c ? (JSON.parse(c) as MarcaDeSordera) : null; } catch { return { sorda, motivo: `${motivo} (no pude leer la marca: no hago nada)`, accion: 'nada', voz }; }
-  const { accion, marca: nueva } = queHacerConLaSordera(sorda, marca, ahora);
-  if (accion === 'nada') return { sorda, motivo, accion, voz };
-  if (accion === 'reiniciar-y-avisar') {
-    const ok = await reiniciarInstancia(voz).catch(() => false);
-    console.error(`[canal-vigilante] ⛔ la voz ${voz} no recibe (${motivo}): reiniciada ${ok ? 'ok' : 'SIN respuesta'}`);
+  // La marca lleva la línea y la vinculación sobre la que se midió: con eso el panel la suelta y da el QR en un paso.
+  const { accion, marca: nueva } = queHacerConLaSordera(sorda, marca, ahora, { linea: voz, vinculadaDesde: vinculadaDesdeMs, motivo });
+  if (accion === 'nada') {
+    if (nueva && JSON.stringify(nueva) !== JSON.stringify(marca)) await runWithWorkspace(wsSA, () => setSetting(KEY_SORDERA, JSON.stringify(nueva))).catch(() => {});
+    return { sorda, motivo, accion, voz };
   }
+  if (accion !== 'volvio') console.error(`[canal-vigilante] ⛔ la voz ${voz} no recibe (${motivo}): aviso con el QR`);
   const aviso = avisoDeSordera(accion, motivo, voz);
   await avisarPorEmail(wsSA, aviso.titulo, aviso.cuerpo);
   const { crearNotificacion } = await import('./notificaciones');
