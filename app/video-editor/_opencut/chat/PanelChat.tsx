@@ -596,10 +596,11 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 			const texto = r.ok
 				? `Listo: puse ${r.subtitulos} ${r.subtitulos === 1 ? "subtítulo" : "subtítulos"}.`
 				: textoDeSubtitulos(r.motivo);
-			cambiarHilo(id, (h) => ({
-				...h,
-				mensajes: [...h.mensajes, conId({ de: "yo", texto: "Sí, en el feed", alcance: null }), conId({ de: "mako", texto, error: !r.ok })],
-			}));
+			// La respuesta, un milisegundo DESPUÉS: con la misma hora, la base desempata por el id (al azar) y al recargar
+			// quedaba «Listo» arriba de «Sí, en el feed» (producción, 11/11/2026; lib/editor-video/chat-hilo.ts, `enOrden`).
+			const yo = conId({ de: "yo", texto: "Sí, en el feed", alcance: null });
+			const mako = { ...conId({ de: "mako", texto, error: !r.ok }), c: yo.c + 1, t: yo.t + 1 };
+			cambiarHilo(id, (h) => ({ ...h, mensajes: [...h.mensajes, yo, mako] }));
 		});
 	};
 	// Sin la app de escritorio el envío se corta adentro de `enviar` (useAppDeEscritorio): un atajo prendido no hacía NADA al
