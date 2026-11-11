@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Resultado } from '../lib/graficos-agregar';
 import {
-  cambioDe, embudoDe, fraseMarketing, numeroDe, pasoDe, pestanasDe, plata, redesDe, tendenciasDe, veredictoDe, vistaMarketing,
+  cambioDe, embudoDe, fraseMarketing, numeroDe, pasoDe, pestanasDe, plata, redesDe, sinCostoSinGasto, tendenciasDe, veredictoDe, vistaMarketing,
 } from '../lib/marketing-diseno';
 import { datosMarketingMuestra } from '../lib/marketing-diseno-muestra';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
@@ -40,6 +40,9 @@ test('la frase: lo gastado, lo que trajo y lo que costó cada agenda; sin «0» 
   assert.equal(texto(fraseMarketing(800, 0, null)), 'Gastaste US$800 en anuncios y no trajeron agendas.');
   assert.equal(texto(fraseMarketing(null, 1, null)), 'Llegaron 1 agenda.');
   assert.deepEqual(fraseMarketing(null, null, null), []);
+  // Sin pauta (ws 3, 10/11/2026): cero invertido no «trajo» nada ni costó US$0.00 cada una.
+  assert.equal(texto(fraseMarketing(0, 3, 0)), 'Llegaron 3 agendas.', 'cero gastado se dice como sin gasto');
+  assert.equal(texto(fraseMarketing(0, 0, null)), 'No llegaron agendas.');
 });
 
 test('los seis números: cada cambio en SU unidad, y bueno o malo según la métrica', () => {
@@ -58,6 +61,13 @@ test('los seis números: cada cambio en SU unidad, y bueno o malo según la mét
   const nada = numeroDe('agendas', null);
   assert.deepEqual([nada.valor, nada.texto, nada.cambio], [null, null, null]);
   assert.equal(numeroDe('cpl', res(['cpl'], [14.73])).cambio, null, 'sin el período anterior no hay cambio');
+  // 11/11/2026 (ws 3 sin pauta): un cambio de cero no se escribe, y sin gasto no hay costo por agenda ni por lead.
+  assert.equal(numeroDe('cpa', res(['cpa'], [0], { anterior: [0] })).cambio, null, '«US$0.00» debajo de «US$0.00»');
+  const sinPauta = sinCostoSinGasto([numeroDe('cpa', res(['cpa'], [0])), numeroDe('gasto', res(['gasto'], [0])), numeroDe('cpl', res(['cpl'], [0]))]);
+  assert.deepEqual(sinPauta.map((n) => n.texto), [null, 'US$0.00', null], 'sin gasto, el costo es «—»');
+  const conPauta = sinCostoSinGasto([numeroDe('cpa', res(['cpa'], [91.11])), numeroDe('gasto', res(['gasto'], [2460]))]);
+  assert.equal(conPauta[0].texto, 'US$91.11', 'con gasto, el costo sigue');
+  assert.equal(embudoDe(res(['impresiones', 'clics'], [0, 0], { anterior: [0, 0] }), null)!.impresiones.cambio, null, '«Impresiones 0 0»');
 });
 
 test('las tendencias: de a 7 días contra la primera semana, y sin base no se indexa', () => {

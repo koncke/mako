@@ -57,7 +57,7 @@ test('cada plantilla tiene categoría, voz que suena y, si dice tener video, el 
     assert.ok((CATEGORIAS as readonly string[]).includes(p.categoria), p.id);
     assert.ok(vozSugerida(p.voz), `${p.id}: la voz «${p.voz}» no está en la galería`);
     if (p.ejemplo) {
-      assert.ok(existsSync(join(process.cwd(), 'public', p.ejemplo.video)), `${p.id}: falta ${p.ejemplo.video}`);
+      if (p.ejemplo.video) assert.ok(existsSync(join(process.cwd(), 'public', p.ejemplo.video)), `${p.id}: falta ${p.ejemplo.video}`);
       assert.ok(existsSync(join(process.cwd(), 'public', p.ejemplo.poster)), `${p.id}: falta ${p.ejemplo.poster}`);
     }
   }

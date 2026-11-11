@@ -81,7 +81,12 @@ export function plantillasNuevoVideo(senales?: SenalesNegocio | null): Plantilla
     insignia: 'MaKo te guía',
     ayuda: p.descripcion,
   }));
-  const personaje: PlantillaCrear = { id: ID_PERSONAJE, nombre: 'Tu personaje con IA', formato: '3 / 4', rotulo: 'Desde tu foto', grupo: GRUPO_REPLICAR };
+  // Con imagen (11/11/2026): sin ella la tarjeta era un marco vacío con «Desde tu foto», la «miniatura gris» que marcó Martín.
+  // Es un preset de AI Avatar, el estudio que abre (lib/ai-avatar/plantillas.ts, public/formatos/presets/).
+  const personaje: PlantillaCrear = {
+    id: ID_PERSONAJE, nombre: 'Tu personaje con IA', formato: '9 / 16', rotulo: 'Desde tu foto', grupo: GRUPO_REPLICAR,
+    imagen: '/formatos/presets/selfie-iphone.jpg',
+  };
   // Las plantillas con su ejemplo (6/11/2026, docs/plantillas-reales/video.md) llevan su insignia, cuándo usarla y «Ver
   // ejemplo» (lib/editor-video/plantillas-ejemplos.ts): la tarjeta es la estructura y el ejemplo lleno se ve aparte. El
   // `rotulo` sigue igual (lo fija tests/video-editor-nuevo-video.test.ts).

@@ -30,7 +30,8 @@ import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 import { MINUTOS_ENTRANTE, codigoDelTexto, codigoNuevo, decidirCodigoTipeado, decidirLlegada, linkWaMe, textoParaMandar, vistaDeEntrante, type EstadoVerificacion, type VistaEntrante } from './verificacion-entrante';
 import { chatDelMensaje } from './mako-bot-reglas';
-import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, huellaDeTexto, pausaDeEscritura, puedeEscribirleAPersona } from './mako-salida-reglas';
+import { MISMO_TEXTO_A_MUCHOS, NO_LE_ESCRIBE_PRIMERO, TOPE_MISMO_TEXTO, VENTANA_MISMO_TEXTO_MIN, destinoDeEscritura, huellaDeTexto, pausaDeEscritura, puedeEscribirleAPersona } from './mako-salida-reglas';
+import { respondiendoA } from './respuesta-en-curso';
 import { antesDeEscribir, trasEscribir } from './linea-freno';
 import { tituloDelGrupo } from './grupo-reglas';
 import { cartelParaLaApp, esClaveDeLaApp, esIdDeLaApp, idDeLaApp, salidaPara, wsDeClaveDeLaApp } from './grupo-salida';
@@ -160,7 +161,8 @@ type EvOut = { ok: boolean; status: number; body: unknown };
 async function ev(path: string, init?: RequestInit): Promise<EvOut> {
   if (!grupoConfigurado()) return { ok: false, status: 0, body: 'Evolution no configurado' };
   // ⛔ La línea frenada no escribe (4/11/2026, lib/linea-freno.ts), y una señal de riesgo la frena: la misma regla que `evFetch`.
-  const frenada = await antesDeEscribir(path).catch(() => null);
+  // Salvo la respuesta al grupo donde una persona acaba de escribir (11/11/2026): por eso va el destino, leído del cuerpo.
+  const frenada = await antesDeEscribir(path, () => destinoDeEscritura(init?.body)).catch(() => null);
   if (frenada) return { ok: false, status: 0, body: frenada };
   try {
     const r = await fetch(`${BASE}${path}`, {
@@ -250,7 +252,9 @@ async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: n
     console.warn(`[mako-grupo] no salió a ${jidONumero}: ${NO_LE_ESCRIBE_PRIMERO}`);
     return { ok: false, id: '', error: NO_LE_ESCRIBE_PRIMERO };
   }
-  if (!(await cupoMismoTexto(jidONumero, texto))) {
+  // La respuesta en el grupo donde alguien acaba de escribir no cuenta para «el mismo texto a muchos» (11/11/2026): durante una caída
+  // de la IA, el mismo cartel le contesta a seis grupos en una hora, y el sexto quedaba sin respuesta. El tope sigue para los avisos.
+  if (respondiendoA() !== jidONumero && !(await cupoMismoTexto(jidONumero, texto))) {
     console.warn(`[mako-grupo] no salió a ${jidONumero}: ${MISMO_TEXTO_A_MUCHOS}`);
     return { ok: false, id: '', error: MISMO_TEXTO_A_MUCHOS };
   }
@@ -262,7 +266,12 @@ async function enviarTextoVozMaKo(jidONumero: string, texto: string, delayMs?: n
   // Lo que sale a un GRUPO, al anillo anti-eco (`anotarEnviadosAlGrupo`): por acá pasan `enviarAGrupoJid`, el grupo SuperAdmin y la
   // bienvenida (la verificación de 96e7840e8: esos dos quedaban afuera). Un número suelto no es un grupo del doer.
   if (r.ok && id && jidONumero.endsWith('@g.us')) await anotarEnviadosConTope(OWNER_WS, jidONumero, [id]);
-  return { ok: r.ok, id, ...(r.ok ? {} : { error: `Evolution ${r.status}` }) };
+  return { ok: r.ok, id, ...(r.ok ? {} : { error: motivoDeEv(r) }) };
+}
+/** Por qué no salió, en una frase: el freno dice el suyo (status 0, el texto en el cuerpo); Evolution, su número. */
+function motivoDeEv(r: EvOut): string {
+  if (r.status === 0 && typeof r.body === 'string' && r.body.trim()) return r.body.trim().slice(0, 200);
+  return `Evolution ${r.status}`;
 }
 async function ponerNombre(jid: string, subject: string): Promise<void> {
   await ev(`/group/updateGroupSubject/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
@@ -1007,17 +1016,19 @@ export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: numb
     if (soloApp) return copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no pude escribir en el grupo de la app' };
     const r = await enviarTextoVozMaKo(jid, texto, delayMs);
     if (r.ok) { if (copia) await app.atarIdDeWhatsApp(wsApp, copia.id, r.id); return { ok: true, id: r.id }; }
-    return copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no se pudo enviar' };
+    // Quedó en el hilo de la app y NO en WhatsApp: el motivo viaja (`noEntregado`), para que el turno no lo dé por dicho (11/11/2026).
+    return copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true, noEntregado: r.error ?? 'no se pudo enviar' } : { ok: false, error: r.error ?? 'no se pudo enviar' };
   }
   const r = await enviarTextoVozMaKo(jid, texto, delayMs);
-  return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
+  return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error ?? 'no se pudo enviar' };
 }
 
 /** `sinGrupo`: el negocio NO TIENE grupo de MaKo, leído (17/10/2026). Ausente en cualquier otro error, también «no pude leer». */
 /** `fallaElEnvio`: se intentó y WhatsApp no lo tomó. No es «no pude leer cuál es el grupo», y de eso cuelga el mail de `emitirAviso`. */
 /** `enApp`: WhatsApp no lo entregó (o el negocio no tiene grupo), pero quedó en el hilo del grupo de la app: para quien reintenta, salió. Sin esto, cada
  *  reintento suma una burbuja (`avisarUno`, `aviso-arreglo`). `id` es entonces `app:<fila>`. */
-export type EnvioGrupo = { ok: true; id: string; enApp?: true } | { ok: false; error: string; sinGrupo?: true; fallaElEnvio?: true };
+/** `noEntregado`: con `enApp`, por qué WhatsApp no lo tomó (el freno, «Evolution 500»). Quien espera que llegue a WhatsApp lo mira (11/11/2026). */
+export type EnvioGrupo = { ok: true; id: string; enApp?: true; noEntregado?: string } | { ok: false; error: string; sinGrupo?: true; fallaElEnvio?: true };
 
 /** Saca el mensaje útil del body de error de Evolution (viene anidado y variado). Vive en lib/mako-tarjeta.ts
  *  (puro): lo usa también el envío por partes. */

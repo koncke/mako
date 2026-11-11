@@ -693,6 +693,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/contenido/documentos/{documentoId}/enlaces', 'enlaces_documento_copywriter'],
   ['POST', '/contenido/documentos/{documentoId}/enlaces', 'compartir_documento_copywriter'],
   ['DELETE', '/contenido/enlaces/{enlaceId}', 'revocar_enlace_copywriter'],
+  // Los outliers de copy (11/11/2026): verlos y replicar uno en una página nueva.
+  ['GET', '/contenido/outliers', 'outliers_copywriter'],
+  ['POST', '/contenido/outliers/{outlierId}/replica', 'replicar_outlier_copywriter'],
   // ── video ─────────────────────────────────────────────────────────────────
   ['GET', '/video/anuncios', 'listar_anuncios_video'],
   ['GET', '/video/anuncios/{planId}', 'ver_anuncio_video'],

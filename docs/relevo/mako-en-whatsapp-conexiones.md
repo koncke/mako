@@ -1,5 +1,20 @@
 # Retomar: «MaKo en WhatsApp: conexiones, ayuda y tickets» (el doer de los grupos)
 
+## ⚡ 10-11/11/2026, noche (claude4; el chat se llama «MaKo en WhatsApp» desde el 10/11): «No funciona MaKo en WhatsApp»
+
+**Worktree** `C:/dev/wt-wa-1011`, **rama** `punta/wa-sorda-1011` (desde origin/main 482ac79f7). En GitHub: 9ef17d692. La despliega el
+Cerebro cuando su corrida da verde.
+- **Qué fallaba (medido, sólo lectura):** la voz (`mako_superadmin_muylqv8r`, …2605) `open` y entregando TODO tarde, en tandas, de
+  30 a 115 min, por horas; la línea de Martín (`mako_ws9`, …3479) sorda (ni lo que él manda) y entregando cosas de un día. Y el
+  clasificador tomó «Dile a Claude que…» de Martín por un mensaje a otra persona (NO_REPLY): 👍 y silencio.
+- **Lo hecho:** 35971f31b (lo de más de 6 h de atraso va a SuperAdmin y no lo atiende MaKo; la alarma de demora por mail en el
+  cron alerta-critica) y 9ef17d692 («Dile a Claude / al equipo…» es ticket; los hijos con horas viejas corridas a ahora). El
+  archivo que pidió Martín (las transcripciones del curso de anuncios) se le mandó a su grupo a las 02:46 UTC.
+- **Espera a Martín (el Cerebro se lo pasa):** volver a escanear el QR del …2605 (en el teléfono: Dispositivos vinculados → cerrar la
+  sesión de MaKo; después /agencia → «Conectar por QR»; el panel no reconecta una línea que contesta la sonda) y el de su …3479.
+- **Sin hacer** (en docs/hallazgos-comunicacion.md, «La línea sorda»): la alarma de una línea sorda del todo (un mensaje propio de
+  prueba que vuelva por el webhook); dos pendientes y dos «sí» pierden una (ws 17); dos notas en un lote proponen una (ws 22, #81).
+
 **Cuenta:** claude3 (desde el 29/10 03:00; antes claude4). **Worktree:** `C:/dev/wt-conex-2510`, **rama** `wa-fallas-2710` (los
 merges de main son merge commits, nunca rebase). **Quién reparte:** el Cerebro (cada tanda llega por SendMessage; el VERDE se le
 devuelve igual, con la lista de .ts). Las puntas las sube el Cerebro. Al 29/10 ~15:00 (AR) este archivo está al día.

@@ -81,9 +81,10 @@ test('ida y vuelta: cada ruta de creación tiene su pantalla y vuelve a ELLA, co
 // `navKey: 'copywriting'` → 5/1; la page de Avatars sin `requireAiAvatarM()` → 5/1; la de Voices sin su <CabeceraM> → 5/1;
 // la de Copy Method sin `getSesionAdmin()` → 5/1.
 test('la puerta del teléfono es la de escritorio: la misma key, que existe, y la de AI Avatar', () => {
-  // AI Avatar tiene su fila VISIBLE en More desde que es de Pro (29/10/2026), como Video: la cabecera y la puerta salen de ahí.
+  // AI Avatar tuvo su fila VISIBLE en More desde que es de Pro (29/10/2026). Desde el 11/11/2026 la fila es OCULTA (Martín: «[AI
+  // Avatar] no debería estar»; se abre desde Video, «Tu personaje con IA»), pero SIGUE: la cabecera y la puerta salen de ahí.
   const filaAvatar = SECCIONES_MAS.find((x) => x.navKey === 'ai-avatar');
-  assert.ok(filaAvatar && !filaAvatar.oculta && filaAvatar.href === '/m/ai-avatar', 'AI Avatar sin su fila de More');
+  assert.ok(filaAvatar && filaAvatar.oculta && filaAvatar.href === '/m/ai-avatar', 'AI Avatar sin su fila (oculta) de More');
   for (const s of SECCIONES_CREACION) {
     assert.equal(s.oculta, true, `${s.id}: es una fila oculta (lib/movil-creacion.ts dice por qué)`);
     const pagina = `app/m/${s.href.slice('/m/'.length)}/page.tsx`;

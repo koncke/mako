@@ -24,6 +24,24 @@ export const SIN_MOTOR = Object.freeze({
 
 export type PiezaSinMotor = keyof typeof SIN_MOTOR;
 
+/**
+ * Qué foto sirve, dicho donde se sube (11/11/2026). El lugar del personaje era un «+» solo: la persona no sabía que la cara
+ * tiene que verse entera y de frente, que es lo que decide si el avatar se le parece (HeyGen lo dice en el mismo paso).
+ */
+export const CONSEJO_FOTO = 'Una foto tuya de frente, sola y con buena luz.';
+
+/**
+ * Lo que dice el botón «Generar» debajo de su nombre (11/11/2026). Apagado, decía «Gratis» igual, y el porqué quedaba en una
+ * línea chica debajo de la barra: el botón gris no explicaba nada. Ahora dice lo que falta, corto; listo, «Gratis».
+ */
+export function pieDeGenerar(p: { preset: boolean; pasosFaltan: number; foto: boolean; flowListo: boolean }): string {
+  if (!p.preset) return 'Falta el preset';
+  if (p.pasosFaltan > 0) return p.pasosFaltan === 1 ? 'Falta 1 paso' : `Faltan ${p.pasosFaltan} pasos`;
+  if (!p.foto) return 'Falta tu foto';
+  if (!p.flowListo) return 'Flow no está listo';
+  return 'Gratis';
+}
+
 /** El modelo que genera hoy: el único de la lista. */
 export const MODELO = Object.freeze({ nombre: 'Nano Banana', de: 'Google Flow' });
 

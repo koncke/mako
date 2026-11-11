@@ -156,7 +156,7 @@ type Paquete = { sucio: Sucio; titulo?: string; contenido?: LandingContenido; co
  * sección (css.ts), así que escalar la letra base es escalar el dibujo entero sin transform:
  * los clics, las selecciones y las barras flotantes siguen cayendo donde se ven.
  */
-function baseDelLienzo(dispositivo: Dispositivo, zoom: number, diapo: { ancho: number } | null = null): Record<string, string> {
+function baseDelLienzo(dispositivo: Dispositivo, zoom: number, diapo: { ancho: number } | null = null, lienzo = 0): Record<string, string> {
   const z = zoom / 100;
   if (dispositivo === 'movil') return { '--gm-base-movil': `calc(16px * ${z})`, '--gm-base': `calc(16px * ${z})` };
   // T3: una diapositiva de forma fija mide 64.5em y tiene que ENTRAR de ancho (si no, su alto sale
@@ -166,8 +166,14 @@ function baseDelLienzo(dispositivo: Dispositivo, zoom: number, diapo: { ancho: n
     ? `${(Math.round(((dispositivo === 'tableta' ? Math.min(820, diapo.ancho - 32) : diapo.ancho) / 68.5) * 100) / 100)}px`
     : null;
   if (dispositivo === 'tableta') return { '--gm-base': tope ? `calc(min(15px, ${tope}) * ${z})` : `calc(15px * ${z})` };
+  // Una PÁGINA en el escritorio también sale del ancho del lienzo (prueba en producción del 10/11/2026): con `100vw` la letra era
+  // la de la ventana entera y el lienzo, con el chat y un panel abiertos, mide la mitad. El título de la portada partía palabras
+  // («prim / eros», «clien / tes») y los botones salían en dos renglones. Como en Gamma, la sección se achica entera y se ve como
+  // la publicada a ese ancho.
+  const topePagina = !diapo && lienzo > 0 ? `${Math.round((lienzo / 68.5) * 100) / 100}px` : null;
+  const t = tope ?? topePagina;
   const normal = 'clamp(15px, calc(100vw / 68.5), 18px)';
-  return { '--gm-base': `calc(${tope ? `min(${normal}, ${tope})` : normal} * ${z})` };
+  return { '--gm-base': `calc(${t ? `min(${normal}, ${t})` : normal} * ${z})` };
 }
 
 // (Acá estaban las iniciales del avatar de la barra de arriba: el avatar se fue con esa barra el 24/10/2026; la app ya
@@ -1024,22 +1030,23 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     if (ventana) { ventana.opener = null; ventana.location.href = r.url; } else window.open(r.url, '_blank', 'noopener');
   };
 
-  // El ancho del lienzo, sólo para la letra base de una diapositiva fija (baseDelLienzo). Se
-  // redondea a 8 px: un ResizeObserver dispara por cada píxel al abrir un panel.
+  // El ancho del lienzo, para la letra base de una diapositiva fija y de una página en el escritorio (baseDelLienzo). Se
+  // redondea a 8 px: un ResizeObserver dispara por cada píxel al abrir un panel. Con «Nueva landing» o el Panel el lienzo se
+  // desmonta (`creando`): al volver se mide el nuevo.
   useEffect(() => {
     const el = lienzoRef.current;
-    if (!el || !fija || typeof ResizeObserver === 'undefined') return;
+    if (!el || typeof ResizeObserver === 'undefined') return;
     const medir = () => setAnchoLienzo(Math.round(el.clientWidth / 8) * 8);
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [fija]);
+  }, [creando]);
 
   const paginaRota = rota !== null && rota === paginaActual;
   const sinPaginas = contenido.paginas.length === 0;
   const estiloDoc = useMemo(
-    () => ({ ...varsDeTema(tema), ...baseDelLienzo(dispositivo, zoom, fija ? { ancho: anchoLienzo } : null) }) as CSSProperties,
+    () => ({ ...varsDeTema(tema), ...baseDelLienzo(dispositivo, zoom, fija ? { ancho: anchoLienzo } : null, anchoLienzo) }) as CSSProperties,
     [tema, dispositivo, zoom, fija, anchoLienzo],
   );
 

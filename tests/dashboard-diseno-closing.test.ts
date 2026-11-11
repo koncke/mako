@@ -147,6 +147,16 @@ test('7 · el reloj de la duración: minutos a horas, minutos y segundos', () =>
   assert.deepEqual(relojDe(null), [0, 0, 0]);
 });
 
+test('7 bis · sin duración el reloj no dibuja «00:00:00» (11/11/2026, ws 3 sin grabador)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const src = readFileSync(join(__dirname, '..', 'app', 'dashboard', 'disenos', 'HojaClosing.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  const reloj = src.slice(src.indexOf('function Reloj('), src.indexOf('function Icono('));
+  assert.match(reloj, /if \(minutos == null\) return <div className="hc-dialer__clock" aria-label="Sin duración">—<\/div>;/, 'el reloj en cero dice que las llamadas duraron cero');
+  // El guion va DESPUÉS de los hooks: un return antes cambia su orden entre un render con duración y uno sin.
+  assert.ok(reloj.indexOf('if (minutos == null)') > reloj.indexOf('useEffect('), 'el return antes de los hooks');
+});
+
 test('8 · la hoja de estilos del diseño: todo adentro de .hc, sin comillas invertidas y sin tocar la página', async () => {
   const { CSS_CLOSING } = await import('../app/dashboard/disenos/closing-css');
   assert.ok(CSS_CLOSING.length > 5000);

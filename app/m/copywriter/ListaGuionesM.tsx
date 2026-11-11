@@ -19,10 +19,11 @@ import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { plantillasDe, plantillasVisibles, type Plantilla } from '@/lib/copywriter/plantillas';
 import { pedirCrear } from '@/app/copywriter/cliente';
 
-export function ListaGuionesM({ paginas, catalogos, tipoInicial = null }: { paginas: PaginaCopy[]; catalogos: CatalogosCopy; tipoInicial?: TipoGuion | null }) {
+export function ListaGuionesM({ paginas, catalogos, tipoInicial = null, abrirHoja = false }: { paginas: PaginaCopy[]; catalogos: CatalogosCopy; tipoInicial?: TipoGuion | null; abrirHoja?: boolean }) {
   const router = useRouter();
   const toast = useToastM();
-  const [hoja, setHoja] = useState(!!tipoInicial);
+  // «Crear desde cero» de la portada (`?nueva`) también la abre (11/11/2026, D18).
+  const [hoja, setHoja] = useState(!!tipoInicial || abrirHoja);
   const [creando, setCreando] = useState(false);
   const filas = enOrdenDeArbol(paginas);
 

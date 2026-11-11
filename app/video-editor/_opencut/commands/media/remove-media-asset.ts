@@ -8,6 +8,9 @@ import { waveformCache } from "@/app/video-editor/_opencut/services/waveform-cac
 import { hasMediaId } from "@/app/video-editor/_opencut/timeline/element-utils";
 import type { SceneTracks } from "@/app/video-editor/_opencut/timeline";
 import { claveDecodificadorTransicion } from "@/app/video-editor/_opencut/transiciones/claves";
+import { clavesDeLaCopia } from "@/app/video-editor/_opencut/media/copia-liviana-reglas";
+import { soltarImagenes } from "@/app/video-editor/_opencut/services/renderer/nodes/image-node";
+import { soltarMiniaturas } from "@/app/video-editor/_opencut/timeline/components/miniaturas";
 
 export class RemoveMediaAssetCommand extends Command {
 	private savedAssets: MediaAsset[] | null = null;
@@ -46,7 +49,9 @@ export class RemoveMediaAssetCommand extends Command {
 
 		if (this.removedAsset.url) {
 			URL.revokeObjectURL(this.removedAsset.url);
+			soltarImagenes(this.removedAsset.url);
 		}
+		soltarMiniaturas(this.assetId);
 		if (this.removedAsset.thumbnailUrl) {
 			URL.revokeObjectURL(this.removedAsset.thumbnailUrl);
 		}
@@ -54,6 +59,8 @@ export class RemoveMediaAssetCommand extends Command {
 		videoCache.clearVideo({ mediaId: this.assetId });
 		// El segundo decodificador que usan dos clips del medio con una transición.
 		videoCache.clearVideo({ mediaId: claveDecodificadorTransicion(this.assetId) });
+		// Y los de su copia liviana (la vista previa).
+		for (const clave of clavesDeLaCopia(this.assetId)) videoCache.clearVideo({ mediaId: clave });
 		waveformCache.clearSource({
 			sourceKey: buildWaveformSourceKey({
 				kind: "media",

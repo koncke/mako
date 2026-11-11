@@ -93,6 +93,7 @@ export const CSS_COBRANZA = `
 .cbz-owed__sub{margin-top:2px;color:var(--faint);font-size:13px;line-height:19.5px}
 .cbz-owed__late{display:flex;flex-direction:column;align-items:flex-end;text-align:right}
 .cbz-owed__late-n{margin-top:8px;color:var(--rose);font-size:26px;font-weight:700;line-height:29.9px;letter-spacing:-.78px;font-variant-numeric:tabular-nums}
+.cbz-owed__late-n[data-cero]{color:var(--ink)}
 .cbz-btn--rose{margin-top:8px;height:34px;padding:0 14px;gap:8px;border-radius:var(--r-sm);background:var(--rose);color:var(--on-rose);font-size:13px}
 .cbz-aging{position:relative;height:14px;margin-top:auto;border-radius:7px;overflow:hidden;background:var(--panel)}
 .cbz-aging__seg{position:absolute;inset:0;transform-origin:left center}

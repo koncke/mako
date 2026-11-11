@@ -743,7 +743,11 @@ export const tardoDemasiado = (nombreConjunto: string) => `Tardó demasiado: ${n
  */
 const FILAS_POR_DIMENSION: Readonly<Record<string, readonly string[]>> = { retencion_vsl: ['corte'] };
 
-export type DatosGrafico = { ok: true; resultado: Resultado } | { ok: false; error: string };
+/**
+ * `sinConexion`: no falló nada, falta CONECTAR la fuente (`SinConexionError`: «Conecta tu grabador…»). La compu muestra el
+ * `error` tal cual; el teléfono lo necesita marcado para no decir «No es nada tuyo · Reportar a Soporte» (10/11/2026).
+ */
+export type DatosGrafico = { ok: true; resultado: Resultado } | { ok: false; error: string; sinConexion?: true };
 /**
  * Lo que pide la pantalla por gráfico: el gráfico, el período y lo que resolvió `efectivoDe`
  * (lib/graficos-catalogo.ts) — los filtros ya traducidos a las dimensiones de SU conjunto y el
@@ -819,7 +823,9 @@ export async function datosDeGraficos(pedidos: PedidoDatos[], opts: { plazoMs?: 
       out[g.id] = { ok: true, resultado };
     } catch (e) {
       console.error(`[graficos] ${clave}: ${e instanceof Error ? e.message : String(e)}`);
-      out[g.id] = { ok: false, error: e instanceof SinConexionError || e instanceof PlazoVencidoError ? e.message : 'No pude leer los datos' };
+      out[g.id] = e instanceof SinConexionError
+        ? { ok: false, error: e.message, sinConexion: true }
+        : { ok: false, error: e instanceof PlazoVencidoError ? e.message : 'No pude leer los datos' };
     }
   }));
   return out;
