@@ -12324,3 +12324,13 @@ Los scripts quedaron en el relevo del rediseño de Marketing CoPilot: `captura-w
 - con PowerShell para lo liviano (copiar un archivo, chequear la sintaxis con `node --check`).
 
 Chrome se abre recién cuando hay aire, uno solo y cerrándolo por su PID.
+
+## El vigía de GitHub moría sin avisar: `renameSync` da EPERM en Windows si otro proceso tiene el archivo (11/11/2026)
+
+- **Síntoma:** el vigía (`scripts/claude-hooks/guardia/vigia-ci.mjs esperar`) terminaba con un stack de `EPERM: operation not
+  permitted, rename ci-estado.json.<pid>.tmp -> ci-estado.json` y ya no avisaba de ningún rojo. Parecía un problema de permisos.
+- **Causa real:** no son permisos. En Windows el rename sobre un archivo que otro proceso tiene abierto en ese instante (otro
+  vigía de otro chat, el antivirus, OneDrive) falla con EPERM/EBUSY. En Linux no pasa, por eso el patrón «escribir .tmp y
+  renombrar» parece seguro.
+- **Regla:** todo `renameSync` atómico en scripts que corren en la PC reintenta ante EPERM/EBUSY/EACCES y, si sigue trabado,
+  escribe directo. Un vigía que se cae en silencio es peor que uno que escribe sin atomicidad.
