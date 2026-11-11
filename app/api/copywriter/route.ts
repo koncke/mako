@@ -17,6 +17,7 @@ import { esTipoGuion } from '@/lib/copywriter/tipos';
 import { listFiles } from '@/lib/archivero';
 import { getUsuarioActual } from '@/lib/auth';
 import { nombreDeVisita } from '@/lib/copywriter/editado';
+import { outlierCopyPorId, replicarOutlier } from '@/lib/copywriter/outliers-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,6 +82,15 @@ export async function POST(req: Request) {
         return responder(await restaurar(texto(b.id)));
       // Lo que se puede citar con «@» además de los guiones (que la pantalla ya tiene): los archivos de El Archivero.
       // Sólo id y nombre; lo que El Archivero sacó de cada uno se lee al mandar (lib/copywriter/referencias.ts).
+      // Los outliers de copy (D18): «Replicar» crea la página que replica uno; `outlier` es el original entero («Ver el original»).
+      // Los dos leen en el negocio de la pestaña: una pieza de Spy de otro negocio no se encuentra.
+      case 'replicar':
+        return responder(await replicarOutlier(texto(b.outlier)));
+      case 'outlier': {
+        const o = await outlierCopyPorId(texto(b.outlier));
+        const leido = { ok: true as const, outlier: o };
+        return o ? responder(leido) : falla(404, 'Ese original ya no está.');
+      }
       case 'citables': {
         const archivos = await listFiles().then(
           (fs) => ({ ok: true as const, archivos: fs.map((f) => ({ id: f.id, nombre: f.nombre })) }),
