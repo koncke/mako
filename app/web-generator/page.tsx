@@ -48,6 +48,9 @@ import { consultaDerecha, derechaDeQuery, esPanelPelado, type Analizada } from '
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { leerOutliersLandings } from '@/lib/landing-outliers-servidor';
 import { OutliersLandings } from './OutliersLandings';
+import { PortadaWeb } from './PortadaWeb';
+import { PlantillasPortada } from './PlantillasPortada';
+import { DISENOS_LANDING } from '@/lib/editor-landing/disenos-landing';
 import { Inicio } from './Inicio';
 import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
 
@@ -65,10 +68,22 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
   // sin nada en la URL (o sólo el ?ws= de la pestaña), «Encuentra tu siguiente OUTLIER», como Video e Image; «Crear desde cero»
   // lleva al Panel (`?panel=1`) y «Replicar» a Replicar con esa página (`?replicar=`). Del 24/10 al 11/11 la pelada saltaba a la
   // última landing tocada; las tuyas siguen a un clic, en el Panel y en la lista del editor.
+  // Desde la noche del 11/11 con el armazón de Create (./PortadaWeb.tsx): el chat de MaKo a la izquierda, tus landings a un toque
+  // y las plantillas al lado de los outliers. Las miniaturas de las plantillas son el render público: la hoja del contenido y las
+  // fuentes de sus temas van en la página, como en el Panel.
   if (esPanelPelado(sp)) {
+    const [portada, rDocs] = await Promise.all([
+      leerOutliersLandings(),
+      listar().catch((e: unknown) => ({ ok: false as const, error: msg(e) })),
+    ]);
+    const fuentesDisenos = urlFuentes(DISENOS_LANDING.map((d) => temaPorId(d.tema)));
     return (
       <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-        <OutliersLandings portada={await leerOutliersLandings()} />
+        <style dangerouslySetInnerHTML={{ __html: CSS_CONTENIDO }} />
+        {fuentesDisenos && <link rel="stylesheet" href={fuentesDisenos} />}
+        <PortadaWeb docs={rDocs.ok ? rDocs.docs : []} errorLista={rDocs.ok ? null : rDocs.error}>
+          <OutliersLandings portada={portada} plantillas={<PlantillasPortada />} />
+        </PortadaWeb>
       </Pagina>
     );
   }
@@ -120,6 +135,7 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
         bases={bases}
         ahora={Date.now()}
         derechaInicial={derechaInicial}
+        disenoInicial={typeof sp.diseno === 'string' ? sp.diseno.slice(0, 40) : null}
       />
     </Pagina>
   );
