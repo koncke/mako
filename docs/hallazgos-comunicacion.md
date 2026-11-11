@@ -195,6 +195,22 @@ resincronización trajo lo de ayer: cuatro mensajes de la propia MaKo (vistos de
 El anillo de ids de MaKo guarda 40, así que lo de ayer ya no estaba. Ahora un atrasado se saltea en silencio si ya está en la cola o si
 su autor es el número de la voz, leída ESTRICTA (`atrasadoYaAtendido`; sin poder leerla, se avisa).
 
+⚠️ **TODAS las líneas de Evolution se reconectan cada 40-50 min, y eso no atrasa nada (medido el 11/11, sólo lectura).** La línea de
+Martín (`mako_ws9`) parecía caerse cada 40-50 min, y se sospechó de su teléfono (otra sesión de WhatsApp Web abierta). **Era el
+diagnóstico equivocado:**
+- `ultima_conexion_at` de `evolution_instancias` (el webhook guarda cada `connection.update`) coincide al segundo con el `updatedAt` de
+  Evolution, y se mueve en TODAS las líneas, cada una a su hora: las de clientes que ignoran grupos (ws10 17:51:54, ws13 17:38:44, ws11
+  18:16:24), la de MaKo (…2605, 17:59:04) y la de Martín (18:03:13). Evolution no guarda motivo: `disconnectionAt` vacío;
+- otra sesión de WhatsApp Web en un teléfono daría un 401 «conflict/replaced» en ESA línea sola;
+- no es código nuestro: `vigia-lineas-mako` (cada 3 min) mira sólo la voz y la de Martín y no tiene ninguna reapertura anotada
+  (`mako.linea.*` vacío), y `/instance/connect` sobre una línea `open` no hace nada. Queda el servidor de Evolution (Railway) o
+  WhatsApp cerrando y reabriendo sockets: el motivo de cada ciclo está en el log de Evolution, que desde el repo no se ve;
+- **no atrasa:** desde el QR (11/11 02:51), 8 de 8 mensajes de clientes llegaron en 1-2 s, a través de esos ciclos.
+**La demora del #79 era otra cosa:** la sesión vieja de la voz, medio muerta, que sólo entregaba al RECONECTARSE (las tandas de 23:47:55
+y 00:37:55 coinciden con sus reconexiones). El QR la arregló. El resguardo, si una sesión vuelve a quedar así, es la alarma de demora
+(`vigilarDemoraDeLaLinea`): mail a los 20 min del primer mensaje atrasado. **La regla:** una reconexión periódica no es una caída; lo
+que se mide es el atraso de lo que entra (la hora de WhatsApp contra la de la cola), no cuántas veces se mueve el `updatedAt`.
+
 **Sin hacer:**
 - una línea SORDA del todo (no entrega nada) no la ve esta alarma, porque mide lo que llega. Para esa, lo que se mide es un mensaje
   propio de prueba (con su hora) que tiene que volver por el webhook;
