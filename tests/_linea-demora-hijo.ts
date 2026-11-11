@@ -33,10 +33,13 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
   if (u.host === 'supa.test') return pg.responder(u, init);
   red.push({ camino: u.pathname, cuerpo: typeof init.body === 'string' ? init.body : '' });
+  // El número de la voz (`numeroDeInstancia`): con él se reconoce lo que escribió MaKo, visto desde otra línea del grupo.
+  if (u.pathname.includes('/instance/fetchInstances')) return new Response(JSON.stringify([{ name: LINEA, ownerJid: VOZ }]), { status: 200, headers: { 'content-type': 'application/json' } });
   return new Response(JSON.stringify({ key: { id: `env-${red.length}` } }), { status: 200, headers: { 'content-type': 'application/json' } });
 }) as typeof fetch;
 
 const JOAN = '5491100000013@s.whatsapp.net';
+const VOZ = '5491125052605@s.whatsapp.net';
 const hace = (min: number) => Math.floor((Date.now() - min * 60_000) / 1000);
 
 async function main() {
@@ -67,6 +70,15 @@ async function main() {
   await paso('unaHora', () => de('JO-2', 'Mako, agrega una nota al lead Beatriz Reyero: PH en Flores, no respondió', hace(78)));
   // 4. Sin hora (un payload sin messageTimestamp): nunca se frena por no saber.
   await paso('sinHora', () => de('JO-3', 'Mako, ¿cuántos leads entraron hoy?'));
+  // 5. Lo que trajo la resincronización de la línea de Martín el 11/11 (14:04 UTC): un mensaje de MaKo MISMA de ayer, visto desde
+  //    otra línea (su número en `participantAlt`, `pushName` «Mako»). Ni se atiende ni se avisa.
+  await paso('deMaKoAyer', () => manejarEntranteDoer('mako_ws9', {
+    key: { remoteJid: JID, id: '3EB04C32514652D5CBF47E', participant: '190885979492389@lid', participantAlt: VOZ, addressingMode: 'lid' },
+    message: { conversation: '━━ 🤝 CLIENTE ━━ *Franco Baeza* lleva 21 días sin mensajes suyos' }, pushName: 'Mako', messageTimestamp: hace(1416),
+  } as never));
+  // 6. Y el de Joan que MaKo ya había contestado ayer (está en la cola): tampoco se avisa.
+  pg.db.mako_doer_buffer.push({ id: ++n, workspace_id: WS, grupo_jid: JID, wa_message_id: 'JO-0', texto: 'Mako pasame las reunuon de hoy', estado: 'procesado', created_at: new Date(Date.now() - 1416 * 60_000).toISOString() });
+  await paso('yaEnCola', () => de('JO-0', 'Mako pasame las reunuon de hoy con toda la información', hace(1416), 'mako_ws9'));
   process.stdout.write(`@@DEMORA@@${JSON.stringify(out)}\n`);
 }
 
