@@ -777,6 +777,9 @@ async function atenderEntranteDoer(instance: string, data: MsgIn, jid: string): 
   // comprobante y de la cola. Lo del equipo (fromMe) sigue: su eco sólo se anota.
   const tarde = data.key?.fromMe ? null : llegoTarde(data.messageTimestamp, Date.now());
   if (tarde) {
+    // Lo que la resincronización de OTRA línea del grupo trae de ayer y ya se atendió no se avisa (11/11/2026: la de Martín
+    // reconectó y trajo cuatro mensajes de la propia MaKo y uno de Joan ya contestado; salieron cinco avisos de ruido).
+    if (await atrasadoYaAtendido(instance, jid, data).catch(() => false)) return { engaged: false, skip: `llegó tarde (${tarde.horas} h), ya atendido` };
     await avisarQueLlegoTarde(wsData, jid, data, tarde.horas)
       .catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude avisar el mensaje atrasado: ${e instanceof Error ? e.message : String(e)}`));
     return { engaged: false, skip: `llegó tarde (${tarde.horas} h)` };
@@ -1154,6 +1157,24 @@ async function contestaAlEquipo(wsData: number, instance: string, jid: string, d
 /** Que la respuesta al equipo no se pierda: a su ticket si el mensaje del equipo lo tenía; si no, al grupo de SuperAdmin. */
 /** Los mensajes atrasados ya avisados (por id): dos líneas en el mismo grupo entregan el mismo, y no se avisa dos veces. */
 const CLAVE_TARDE_AVISADOS = 'mako.tarde.avisados';
+
+/**
+ * ¿El mensaje atrasado ya se atendió, o es de MaKo misma? Ya pasó por la cola (lo atendió MaKo cuando llegó por la otra línea), está
+ * en el anillo de lo que mandó, o lo escribió la línea de la voz: visto desde otra línea del grupo, lo de MaKo llega como de una
+ * persona, con su número en `participantAlt`. El anillo guarda 40: para lo de ayer no alcanza, el número sí.
+ */
+async function atrasadoYaAtendido(instance: string, jid: string, data: MsgIn): Promise<boolean> {
+  const id = data.key?.id ?? '';
+  if (id) {
+    const { data: fila, error } = await getSupabaseServer().from('mako_doer_buffer').select('id').eq('grupo_jid', jid).eq('wa_message_id', id).limit(1);
+    if (!error && fila?.length) return true;
+  }
+  if (await esEcoDeMaKoAhora(instance, jid, data.key).catch(() => false)) return true;
+  const voz = await instanciaVoz().catch(() => null);
+  const numeroVoz = voz ? (await numeroDeLaLinea(voz))?.replace(/\D/g, '') : null;
+  const autor = [data.key?.participantAlt, data.key?.participant].map((j) => /^(\d{8,15})@s\.whatsapp\.net$/.exec(String(j ?? ''))?.[1]).find(Boolean);
+  return !!numeroVoz && !!autor && autor.slice(-10) === numeroVoz.slice(-10);
+}
 
 /** Lo que llegó con horas de atraso, a SuperAdmin: MaKo no lo atendió sola (lib/linea-demora.ts). Una vez por mensaje. */
 async function avisarQueLlegoTarde(wsData: number, jid: string, data: MsgIn, horas: number): Promise<void> {
