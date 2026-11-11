@@ -267,7 +267,9 @@ test('las frases del original que repite la réplica: 5 palabras seguidas o más
   assert.deepEqual(frasesDelOriginal(original, 'QUE TE PAGA UN SERVICIO de diseño'), ['QUE TE PAGA UN SERVICIO de'], 'el tramo entero, como lo escribió');
   // Lo usa «Editar» en una página replicada, y avisa en la propuesta.
   const ia = leer('lib/copywriter/ia.ts');
-  assert.match(ia, /const copiadas = original && escrito \? frasesDelOriginal\(original, escrito\) : \[\];/);
+  // El cuerpo Y el título que propone (en producción: el cuerpo ya era propio y el título copiaba el gancho del original).
+  assert.match(ia, /frasesDelOriginal\(original, r\.titulo \?\? ''\), \.\.\.frasesDelOriginal\(original, escrito\)/);
+  assert.deepEqual(frasesDelOriginal(original, 'Cobrar más no es suerte, es sistema'), ['no es suerte, es sistema']);
   assert.match(ia, /Repite frases del original/);
 });
 

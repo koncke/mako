@@ -289,7 +289,9 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const avisos = voseo.length ? [`Tiene voseo (${voseo.slice(0, 4).join(', ')}): si tu audiencia no habla así, pídele a MaKo que lo cambie.`] : [];
     // La réplica de un outlier (capa 2 de «nunca copies sus frases», lib/copywriter/outliers.ts → frasesDelOriginal).
     const original = g.props.outlier ? refs.textos.find((x) => x.nombre === NOMBRE_DEL_ORIGINAL)?.texto ?? '' : '';
-    const copiadas = original && escrito ? frasesDelOriginal(original, escrito) : [];
+    // También el TÍTULO que propone (11/11/2026, en producción: el cuerpo ya era propio y el título seguía siendo «Cobrar más no es
+    // suerte, es sistema»). Por separado, para que una frase no se arme con el final del título y el principio del cuerpo.
+    const copiadas = original ? [...new Set([...frasesDelOriginal(original, r.titulo ?? ''), ...frasesDelOriginal(original, escrito)])] : [];
     if (copiadas.length) avisos.push(`Repite frases del original («${copiadas.slice(0, 2).join('», «')}»): pídele a MaKo que lo diga con tus palabras.`);
     const respuesta = [ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n') || (s.ops.length ? 'Listo: revisa lo que escribí.' : 'No cambié nada.');
     return { ok: true, respuesta, operaciones: s.ops, descartadas: [...s.descartadas, ...r.descartadas], avisos, noLeidas: refs.noLeidas };
