@@ -111,6 +111,7 @@ import { useWs } from '@/app/_ui/Link';
 import { Spinner, Toast, useToast } from '@/app/_ui';
 import { aplicarVariables, esVariableConocida } from '@/lib/template-vars';
 import { datosOfrecidos, type GrupoDatos, type ContextoDatos } from '@/lib/variables-aviso';
+import { proveedorDelPaso } from '@/lib/nutricion-canal';
 import { textoParaVozMaKo } from '@/lib/voz-mako-reglas';
 import { cambiosDePaso } from '@/lib/guion-audio';
 import {
@@ -143,6 +144,23 @@ export function datosDelLead(todos: boolean): GrupoDatos[] {
   return arbol
     .map((g) => ({ ...g, items: g.items.filter((v) => esVariableConocida(v.key)) }))
     .filter((g) => g.items.length > 0);
+}
+
+/**
+ * EL «{ }» QUE DIBUJA EL EDITOR, en orden: el árbol que trae quien monta (`datos`), las variables propias (el
+ * recordatorio) como una rama, y sin ninguno de los dos, el del motor por la RUTA de este mensaje (`datosDelLead`).
+ *
+ * ⚠️ LA RUTA ES LA DEL PASO (`proveedorDelPaso`, la misma función que el motor y Publicar), NO LO QUE EL EDITOR
+ * PERMITE (ticket #70, 9/11/2026). Hasta acá decidía `permiteAudio || permiteAdjuntos`, que en el lienzo coincide con
+ * el no oficial. La hoja de «Mandar mensaje» del CRM (app/automations/difusion/HojaDifusion.tsx) apaga el audio y los
+ * archivos por otra razón, sin pasar `datos`, y su WhatsApp es por QR: el «{ }» ofrecía sólo nombre, nombre completo,
+ * apellido y empresa, y un `{{segundo_nombre}}` escrito a mano salía en rojo. Publicar y el motor lo aceptaban.
+ * Pura y exportada para el test.
+ */
+export function arbolDelEditor(o: {
+  paso: Pick<PasoSecuenciaDto, 'tipo' | 'audio_id' | 'proveedor' | 'template_wa'>; datos?: GrupoDatos[]; variables?: readonly VariableEditor[];
+}): GrupoDatos[] {
+  return o.datos ?? (o.variables ? arbolDeVariables(o.variables) : datosDelLead(proveedorDelPaso(o.paso) === 'no_oficial'));
 }
 
 /**
@@ -1227,13 +1245,11 @@ export function EditorMensajeWhatsApp({
     return <BurbujaHilo maxAncho="100%" {...pieBurbuja} contenido={{ texto: conNegocio(p.cuerpo), ia: esIA }} />;
   };
 
-  // EL «{ }»: el árbol que ESTE mensaje puede resolver (ver `datosDelLead`). El que viene armado gana;
-  // las variables propias (el recordatorio) van como una rama; sin nada, lo del motor por este camino
-  // (`varias` = el no oficial: el oficial manda una plantilla con los datos del lead de siempre).
-  const grupos = useMemo(
-    () => datos ?? (variables ? arbolDeVariables(variables) : datosDelLead(varias)),
-    [datos, variables, varias],
-  );
+  // EL «{ }»: el árbol que ESTE mensaje puede resolver (`arbolDelEditor`). Sin `datos` ni `variables`, lo del
+  // motor por la ruta del PASO, no por `varias` (ticket #70: la hoja de «Mandar mensaje» del CRM es por QR y sin audio).
+  const ruta = proveedorDelPaso(paso);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- del paso sólo importa su ruta: con `paso` se rearmaría en cada tecla
+  const grupos = useMemo(() => arbolDelEditor({ paso, datos, variables }), [ruta, datos, variables]);
   // EL ROJO DE LA BARRA (punto 7): lo que Publicar no deja pasar en ESTA tarjeta. Sin contexto, lo decide el árbol.
   const datosFuera = useMemo(() => {
     const ctx = contexto ?? (typeof redactaCon === 'object' ? redactaCon : undefined);
