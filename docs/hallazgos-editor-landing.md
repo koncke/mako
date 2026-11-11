@@ -4224,3 +4224,38 @@ probado en los dos navegadores.
 **La regla que queda:** un pendiente que enumera «N puntas atadas» envejece punta por punta, no
 entero. Acá tres de cuatro estaban hechas y el título seguía diciendo lo mismo del primer día;
 leerlo como estaba escrito habría mandado a rehacer trabajo ya hecho.
+
+## La prueba en producción del 10/11: lo que la persona no ve sí se publica (10/11/2026, chat Web Generator)
+
+Informe entero: `docs/pruebas/web-generator-10-11.md`. Lo que vale para el que siga:
+
+- **El SEO de una plantilla vive en la PÁGINA y la interfaz no lo muestra.** 11 de las 12 plantillas (`plantillas.ts`, el
+  segundo argumento de `pagina(...)`) traen `seoTitulo`/`seoDescripcion` con «[…]», y `metaDePagina` le daba prioridad al de la
+  página sobre el del sitio, que es el ÚNICO que la persona edita (Publicar → SEO). Síntoma: una landing con el título ya escrito
+  salió como «[Nombre de la guía] (gratis)» en Google y WhatsApp, y lo que se escribía en el diálogo no llegaba. El diálogo,
+  encima, armaba su vista previa con otra regla y prometía otro título. **Regla:** una sola función (`seo-pagina.ts`) para la
+  foto que se publica y para la vista previa; un texto con algo «[a completar]» que la persona no ve nunca se publica; en el
+  inicio manda lo que escribió la persona.
+- **`textoDe` decidía el separador por el tipo del PADRE.** Lo que estaba en columnas, en el doc o en un diseño optimizado salía
+  pegado («Guía gratuitaTus primeros 10 clientesUna guía…» en «Redirigir a» y en la vista previa de Google), y un párrafo con
+  una negrita salía en dos renglones (y `tituloDeTarjeta` lo cortaba en la marca). Ahora se separa entre BLOQUES y se pega lo que
+  va en línea (`text`, `hardBreak`). Lo usan la IA, la búsqueda, el SEO y las miniaturas: si un test viejo fijaba un texto pegado,
+  era el bug.
+- **Una grilla con `max-height` y filas `auto` no crece más que el mínimo de sus ítems** (el `min-height: 88px` de la tarjeta):
+  sin espacio libre, el algoritmo deja cada fila en su mínimo y el contenido se achica adentro. En «Agregar bloque», 36 tarjetas
+  con la segunda línea cortada. `grid-auto-rows: max-content` lo arregla. No se ve en un test de CSS: se mide (`scrollHeight >
+  clientHeight` de cada texto).
+- **El 31/10 la escala de grises pasó a los valores de Tilvo y cambió de ROL**: `--gma-t200` dejó de ser un gris claro y es un
+  borde oscuro translúcido. La única regla de oscuro que lo usaba como texto dejó invisibles los nombres de «Agregar bloque».
+  Al cambiar los valores de una escala, se buscan los usos por rol (`color:` contra `border:`), no sólo por nombre.
+- **Sin la app de escritorio no se escribe en ninguna caja de MaKo** (regla de Martín del 25/10): eso incluye Generar y también
+  **Replicar** (pegar un link). En el navegador de la app no se puede crear con IA, replicar desde la pantalla ni pedirle nada a
+  MaKo. La lectura y la réplica por la ruta del servidor sí andan sin la app (no la exigen): así se probó.
+
+Sin hacer, con su archivo:
+- La réplica deja un espacio antes de la puntuación donde la original tenía un link («guidelines .», «Europe ,»): sale del
+  armado del texto de la réplica por el servidor (`lib/editor-landing/replicar*.ts`), sin ubicar la línea exacta.
+- El título de 5em (90 px) en una portada de dos columnas ocupa 4-5 renglones en el editor (`h1.gm-titulo`, `css.ts`):
+  publicada a 1440 se ve bien. Gamma escala la tarjeta entera al ancho del lienzo; acá el lienzo reacomoda. Decide Martín.
+- La página «Gracias» de las plantillas deja «Descargar ahora» con enlace `#`, y nada avisa antes de publicar los «[…]» que
+  quedan ni los botones sin enlace: no está en Gamma (PROHIBIDO INVENTAR), queda como propuesta.
