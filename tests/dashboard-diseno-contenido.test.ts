@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Resultado } from '../lib/graficos-agregar';
 import {
-  CELDAS, celdasMalas, deltaCosto, dolares, flowDe, fraseContenido, gastoDe, listaDe, rotulosDe, tarjetasDe, topeDe, vistaContenido,
+  CELDAS, celdasMalas, deltaCosto, dolares, flowDe, fraseContenido, gastoDe, listaDe, rotuloEjeDolares, rotulosDe, tarjetasDe, topeDe, vistaContenido,
 } from '../lib/contenido-diseno';
 import { datosContenidoMuestra } from '../lib/contenido-diseno-muestra';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
@@ -37,6 +37,11 @@ test('los dólares: centavos debajo de US$100, cuatro decimales debajo de 10 cen
   assert.equal(dolares(1463.4), 'US$1,463');
   assert.equal(dolares(0.0061), 'US$0.0061', 'el costo por llamada no se redondea a cero');
   assert.equal(dolares(0), 'US$0.00');
+  // 11/11/2026 (ws 3): 705 llamadas por US$0.0271 daban «US$0.0000» por llamada.
+  assert.equal(dolares(0.0271 / 705), 'US$0.000038', 'una fracción de centavo no se redondea a cero');
+  // Y el eje: con un tope de US$0.1 en tercios decía «US$0.1 · US$0 · US$0».
+  assert.deepEqual([0.1, 0.1 * 2 / 3, 0.1 / 3, 0].map(rotuloEjeDolares), ['US$0.1', 'US$0.067', 'US$0.033', '0']);
+  assert.deepEqual([3, 1.6667, 25].map(rotuloEjeDolares), ['US$3', 'US$1.7', 'US$25'], 'arriba de un dólar, como antes');
 });
 
 test('la frase: cuántas veces se usó la IA y cuánto cambió', () => {

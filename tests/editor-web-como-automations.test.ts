@@ -17,16 +17,16 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 const doc = (id: number, actualizado: string, extra: Partial<LandingResumen> = {}) =>
   ({ id, titulo: `L${id}`, tema: 't', creado: actualizado, actualizado, creadoPor: null, favorito: false, carpeta: null, papelera: false, slug: null, publicadoAt: null, ...extra }) as LandingResumen;
 
-test('/web-generator abre la última landing tocada; sin ninguna (o todas en la papelera), el Panel', () => {
+// ⚠️ 11/11/2026 (Martín: «lo mismo que venimos haciendo con el resto de tabs, de outliers»): /web-generator ya NO salta a la
+// última landing; es la portada de outliers (tests/web-generator-outliers.test.ts). `landingMasReciente` queda para la lista.
+test('la landing más reciente (sin la papelera); /web-generator pelada es la portada de outliers, sin salto', () => {
   assert.equal(landingMasReciente([doc(1, '2026-10-01'), doc(2, '2026-10-20'), doc(3, '2026-10-10')])?.id, 2);
   assert.equal(landingMasReciente([doc(1, '2026-10-01'), doc(2, '2026-10-20', { papelera: true })])?.id, 1, 'la papelera no se abre');
   assert.equal(landingMasReciente([doc(2, '2026-10-20', { papelera: true })]), null);
   assert.equal(landingMasReciente([]), null);
   const page = sinComentarios(leer('app/web-generator/page.tsx'));
-  // Sólo sin nada en la URL (o el ?ws=) y con la lista leída: un error de lectura no salta, lo dice el Panel. (Desde el
-  // ticket #9 la regla es `esPanelPelado`, la misma del layout que salta antes del loader.)
-  assert.match(page, /if \(!errorLista && esPanelPelado\(sp\)\) \{/);
-  assert.match(page, /redirect\(await rutaConWs\(`\/web-generator\/\$\{ultima\.id\}`\)\)/);
+  assert.match(page, /if \(esPanelPelado\(sp\)\) \{\s*return \(/, 'la pelada dibuja la portada');
+  assert.doesNotMatch(page, /redirect\(await rutaConWs\(`\/web-generator\/\$\{ultima\.id\}`\)\)/, 'ya no salta a la última');
 });
 
 test('la lista de la tarjeta: sin la papelera, la más tocada primero, y buscar filtra por título', () => {

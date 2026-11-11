@@ -24,7 +24,7 @@
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
-import { CELDAS, dolares, rotulosDe, type Delta, type VistaContenido } from '@/lib/contenido-diseno';
+import { CELDAS, dolares, rotuloEjeDolares, rotulosDe, type Delta, type VistaContenido } from '@/lib/contenido-diseno';
 import { enElPeriodo, entero } from '@/lib/marketing-diseno';
 import { CSS_CONTENIDO } from './contenido-css';
 import { Parte } from './parte';
@@ -98,8 +98,8 @@ function Cambio({ delta }: { delta: Delta }) {
   const sube = delta.texto.startsWith('+');
   return <span className={`orr-delta orr-mono ${delta.bueno ? 'orr-delta--up' : 'orr-delta--bad'}`}><Icono id={sube ? 'sube' : 'baja'} />{delta.texto}</span>;
 }
-/** «US$3», «US$1.7»: los rótulos del eje del gasto. */
-const rotuloEje = (v: number) => (v === 0 ? '0' : v >= 10 ? `US$${Math.round(v)}` : `US$${Number(v.toFixed(1))}`);
+/** «US$3», «US$1.7», «US$0.033»: los rótulos del eje del gasto (lib/contenido-diseno.ts). */
+const rotuloEje = rotuloEjeDolares;
 
 export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, compartido = false, quieta = false }: {
   hoja: Hoja;

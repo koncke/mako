@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **El freno de la línea callaba también la RESPUESTA, y lo que no llegaba se guardaba como dicho** (11/11/2026). Un 403 de UN
+  chat dejaba a MaKo mudo 6 horas en todos los grupos, y nadie se enteraba: ni el vigía, ni un ticket. Ahora la respuesta al grupo
+  donde alguien acaba de escribir pasa el freno, y la que WhatsApp no toma abre su ticket. Ver «MaKo se callaba con la línea frenada».
 - **Una línea puede MANDAR, contestar la sonda y estar SORDA** (9/11/2026). La de MaKo (…2605) y la de Martín (…3479) dejaron de
   recibir a las 12:06-12:11 UTC y nadie se enteró en 10 horas: `fetchBusinessProfile` daba 200, los avisos salían, y no entraba nada.
   Reiniciar la instancia no alcanzó; volver a escanear el QR sí. Ver «La línea sorda», abajo.
@@ -69,6 +72,74 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## MaKo se callaba con la línea frenada, y lo que no llegaba se guardaba como dicho (11/11/2026, nube)
+
+**El síntoma:** Martín, 10/11 21:08 ART, al Cerebro desde el teléfono: «Mako en WhatsApp no responde... SIEMPRE debe responder, haz
+un relevo de eso para que no ocurra más». El pedido no salió (la PC dormida desde las 08:56) y lo tomó el chat Ops Center en la nube,
+**sin acceso a la base ni a Evolution**: no se midió cuál fue la causa esta vez. Lo que sigue sale de leer el código.
+
+**Lo que el código hacía, y por qué nadie lo veía:**
+- **El freno (4/11, lib/linea-freno.ts) frenaba TODA escritura de la línea, la respuesta incluida.** La señal es amplia: un 403 a
+  CUALQUIER `/message/*` (un grupo del que sacaron a MaKo, una reacción a un mensaje que ya no está) frena la línea 6 horas; un 463,
+  24. Mientras dura, ni el texto, ni el 👍, ni el «escribiendo…» salen a ningún grupo. Y se renueva solo: el primer envío después del
+  vencimiento al mismo chat malo vuelve a frenar.
+- **La respuesta que WhatsApp no tomaba se daba por dicha.** El doer mandaba cada parte y miraba `env.ok` sólo para el anillo
+  anti-eco; después guardaba la respuesta en `mako_doer_conv` igual. Con `enApp` (quedó en el hilo de la app) `enviarAGrupoJid`
+  devolvía `ok: true` sin el motivo. Resultado: el vigía de los grupos (que cuenta un silencio cuando NO hay respuesta guardada)
+  no veía nada, no había ticket, y el único rastro era UN mail del freno.
+- **«El mismo texto a no más de 5 chats por hora» también frenaba la respuesta**: durante una caída de la IA el mismo cartel le
+  contesta a muchos grupos, y el sexto quedaba sin respuesta.
+
+**La regla que queda (AGENTS.md, «MaKo SIEMPRE contesta en su grupo»):** la respuesta al grupo donde una persona acaba de escribir,
+durante su turno, pasa el freno y el tope del mismo texto (`esRespuestaEnCurso`). Hacen falta DOS marcas (lib/respuesta-en-curso.ts):
+`conRespuestaA` la abren las entradas del turno (el webhook, el cron que levanta lo que quedó sin contestar y el turno de la app, que
+comparte la cola con WhatsApp), y `comoRespuesta` SÓLO las puertas por donde MaKo dice su respuesta (el texto, el 👍, el
+«escribiendo…»). Lo demás sigue frenado: avisos, flujos, altas, invitaciones, otro grupo.
+
+⚠️ **La primera versión tenía UNA marca, y la revisión independiente la tumbó:** abierta alrededor del turno entero, todo lo que el
+turno disparaba hacia ese grupo pasaba el freno. El caso: la persona dice «movelo a Agendado», el movimiento corre un flujo con la
+tarjeta «MaKo en WhatsApp», y ese aviso salía con la línea frenada (también un `after()` registrado en el turno: Next los envuelve con
+`bindSnapshot` y heredan el contexto). Con un contexto ambiental, la pregunta no es «¿estoy en el turno?» sino «¿esto ES la respuesta?».
+Y con la respuesta escribiendo durante un freno, una señal MÁS grave (un 463 durante un «rate») se tiraba: `frenoSiguiente` la guarda
+si dura más y avisa si cambió el tipo.
+Y una respuesta que no llegó a WhatsApp abre su ticket con el motivo (`respuestaNoEntregada` + `motivoDeNoEntrega`, que le saca la
+hora y las palabras que el filtro de ruido descarta: un 503 o un «timeout» son justo cuando MaKo quedó mudo); la que no salió por
+ningún lado tampoco se guarda como dicha, así el vigía la cuenta.
+
+⚠️ **Por qué es razonable con el riesgo de ban:** contestar en la conversación que la persona empezó es el envío de menos riesgo; lo
+que provoca un ban (escribirle a desconocidos, el mismo texto a muchos, ráfagas) sigue frenado. Si WhatsApp restringe la cuenta (463),
+eso es sobre escribirle a gente NUEVA, y una respuesta en un grupo no lo es. Fue decisión de Martín («SIEMPRE debe responder»).
+
+**Las seis causas de «MaKo no responde», y cómo se distinguen** (`scripts/diagnostico-mako-whatsapp.mts`, sólo lee):
+1. **La línea caída** (`fetchInstances` ≠ open): QR.
+2. **La línea sorda** (9/11): manda, contesta la sonda y no le llega nada. Lo último en `mako_doer_buffer` de hace horas con tráfico de
+   día; `_count.Message` quieto en 5 minutos con alguien que SABES que escribió. QR. ⚠️ De noche o un rato quieto es falta de tráfico,
+   o demora del teléfono que manda (10/11, #79).
+3. **El freno** (`linea.freno.<instancia>`): desde el 11/11 la respuesta lo pasa. Si MaKo igual calla, no es esto.
+4. **MaKo apagado** (`mako.doer.activo` = false en el ws1).
+5. **La cola sin turno** (`mako_doer_buffer` pendientes de hace más de 5 min): el cron `doer-flush` no corre.
+6. **Contestó y no resolvió** (9/11, Leandro): mirar `mako_doer_conv` y, si dice «Lo sumé al ticket #N», el estado de ese ticket.
+
+**Vive en:** lib/respuesta-en-curso.ts · lib/mako-salida-reglas.ts (`esRespuestaEnCurso`, `destinoDeEscritura`,
+`respuestaNoEntregada`, `motivoDeNoEntrega`, `frenoSiguiente`) · lib/linea-freno.ts (`antesDeEscribir`, `trasEscribir`) ·
+lib/mako-grupo.ts (`ev`, `enviarTextoVozMaKo`, `enviarAGrupoJid`) · lib/evolution.ts (`evFetch`) · lib/mako-doer-in.ts
+(`manejarEntranteDoer`, `manejarEntranteDeLaApp`, `flushHuerfanos`, las puertas `enviarAGrupoJid` / `reaccionarMensaje` /
+`escribiendo`, `siNoLlego`) ·
+scripts/diagnostico-mako-whatsapp.mts · tests/mako-responde-siempre.test.ts.
+
+**Sin hacer:**
+- **La alarma de la línea SORDA** sigue sin existir (la pedía la entrada de abajo): es la causa que más se repitió y la que más tarda
+  en verse. Diseño propuesto, a medir antes con la línea de verdad: si el eco de un mensaje que MaKo manda a un grupo llega al webhook
+  cuando la línea está sana, entonces «MaKo mandó 2 o más mensajes a grupos en 30 minutos y por esa línea no entró NINGÚN evento»
+  es sordera sin falsos positivos de noche (sin envíos no se mide). Por mail, nunca por WhatsApp.
+- **El vigía de los grupos** (`VIGIA_GRUPOS`, /api/cron/vigia-grupos) nace apagado: si no está en `on` en Vercel, un silencio no
+  levanta ticket. No se pudo mirar desde la nube.
+- **Una respuesta que dio 403 frena la línea igual** (para los avisos): está bien, pero si el 403 es de UN chat, frenar todo es de más.
+  Frenar sólo ese chat necesita saber qué dice Evolution en cada caso (no medido).
+- **Lo que `siNoLlego` todavía no mira** (la revisión): los carteles de audio y archivo, y «Se me cortó…» del cron; y una respuesta que
+  salió a MEDIAS se guarda entera. La pendiente que propuso una respuesta perdida sigue viva y un «sí» de después la puede confirmar.
+- **El «listo» de un pedido delegado**, que vuelve al grupo cuando se cierra fuera del turno, sigue frenado con la línea frenada.
+
 ## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
 
 **El síntoma:** Martín, 9/11 ~19:00 ART: «MaKo no está respondiendo… Joan va a enviar el comprobante y nadie responde».
@@ -93,13 +164,45 @@ leen grupos. No se pudo mirar el log de Evolution (Railway, sin acceso desde el 
 alarma por lo que NO llega: horas sin un mensaje entrante en la línea de grupos mientras las otras líneas reciben, por EMAIL (la
 alarma de un canal no viaja por ese canal). La línea de Martín (`mako_ws9`) quedó sorda: necesita su propio QR.
 
-**Volvió a pasar el 10/11/2026 (ticket #79), con la instancia NUEVA del QR del 9/11.** Patricia (ws 22) le pidió a MaKo tres notas
-a las 23:17, 23:20 y 23:22 UTC, y no llegaron ni a Evolution (`/chat/findMessages` del grupo: lo último entrante, una reacción de
-las 16:55) ni a `mako_doer_buffer` (el último de CUALQUIER grupo, ws1 a las 21:46). `_count.Message` de `mako_superadmin_muylqv8r`
-quedó en 225 entre las 23:34 y las 23:38 mientras ws11 sumaba 20; MaKo seguía mandando (avisos del equipo a las 23:16 y 23:29).
-El cliente lo ve como «MaKo no toma mis mensajes»: **el diagnóstico obvio (el lote, la confirmación, el clasificador) era el
-equivocado**, porque nada llegó. Se mide así: el mensaje que la persona dice que mandó, ¿está en `findMessages` de la instancia?
-Si no está, es la línea, no MaKo. La alarma por lo que no llega sigue sin hacer.
+**El 10/11/2026 (ticket #79) PARECIÓ que volvía, y no: era DEMORA.** Patricia (ws 22) le pidió a MaKo tres notas a las 23:17,
+23:20 y 23:22 UTC; a las 23:34 no estaban ni en Evolution (`/chat/findMessages`) ni en `mako_doer_buffer`, y `_count.Message` de
+`mako_superadmin_muylqv8r` no se movió entre las 23:34 y las 23:38. Lo di por sorda y pedí el QR. **Era el diagnóstico equivocado:**
+a las 23:47:55 WhatsApp entregó todo junto (un mensaje de Martín enviado a las 22:49 y el primero de Patricia), con ~1 h de demora,
+y MaKo lo atendió. El contador quieto en 4 minutos de noche es falta de tráfico, no sordera.
+**La regla:** una línea está sorda cuando un mensaje que SABÉS que se mandó (con su hora) no llega en un plazo largo, no cuando el
+contador no se mueve un rato. Antes de pedir un QR: esperar y volver a mirar `findMessages` (el `messageTimestamp` es la hora en
+que se MANDÓ: compararla con el `created_at` del buffer mide la demora). La alarma por lo que no llega sigue sin hacer.
+
+**El 10/11 a la noche la demora SIGUIÓ, y rompió algo más que la espera** (Martín: «No funciona MaKo en WhatsApp… no está
+funcionando para nada bien»). Medido a las 01:00 y 01:34 UTC del 11/11, sólo lectura:
+- la voz (`mako_superadmin_muylqv8r`, …2605) entregó TODO tarde durante más de tres horas, en tandas: lo de 22:49–23:35 entró a
+  las 23:47:55 y a las 00:37:55; lo de 23:52, a las 01:12:48 (30 a 81 minutos). `open`, webhook prendido, `groupsIgnore` en false;
+- la línea de Martín (`mako_ws9`, …3479), que está en seis grupos, entregó mensajes de UN DÍA antes (1.373 a 1.416 min);
+- ⚠️ **eso trajo de vuelta lo ya resuelto:** el comprobante de Código Inmobiliario del 9/11 volvió a entrar por `mako_ws9`, y MaKo le
+  dijo a Joan «Recibí tu comprobante» y le mandó a Martín la revisión por segunda vez (ticket #80). El comprobante deduplica por id
+  de mensaje, y ese mensaje nunca había pasado por él: el 9/11 la línea estaba sorda y se contestó a mano.
+**La regla (lib/linea-demora.ts):**
+- lo que llega con más de 6 h de atraso (la hora de WhatsApp, `messageTimestamp`, contra ahora) no lo atiende MaKo sola: va al grupo
+  de SuperAdmin, una vez por mensaje (`avisarQueLlegoTarde`, antes del comprobante y de la cola). Lo de una hora sí se atiende;
+- la alarma que faltaba: `vigilarDemoraDeLaLinea` (lib/canal-vigilante.ts, en el cron `alerta-critica`, cada 10 min) mide el atraso
+  de lo que entró a la cola en las últimas 3 h y avisa por EMAIL si algo llegó con más de 20 min, cada 3 h mientras dure.
+- ⚠️ **Para volver a escanear una línea que contesta la sonda, el panel no deja:** `/agencia` responde «La línea ya está conectada y
+  respondiendo» (lib/mako-canal.ts, el guard que evita desvincular una viva). Primero se cierra esa sesión desde el teléfono
+  (WhatsApp → Dispositivos vinculados), y después «Conectar por QR».
+⚠️ **El freno de las 6 h avisó lo que ya estaba atendido (11/11, 13:14 y 14:04 UTC).** Martín reconectó su línea (`mako_ws9`) y la
+resincronización trajo lo de ayer: cuatro mensajes de la propia MaKo (vistos desde otra línea llegan como de una persona, `pushName`
+«Mako» y su número en `participantAlt`) y uno de Joan que MaKo ya había contestado. Salieron cinco avisos de ruido al grupo de Martín.
+El anillo de ids de MaKo guarda 40, así que lo de ayer ya no estaba. Ahora un atrasado se saltea en silencio si ya está en la cola o si
+su autor es el número de la voz, leída ESTRICTA (`atrasadoYaAtendido`; sin poder leerla, se avisa).
+
+**Sin hacer:**
+- una línea SORDA del todo (no entrega nada) no la ve esta alarma, porque mide lo que llega. Para esa, lo que se mide es un mensaje
+  propio de prueba (con su hora) que tiene que volver por el webhook;
+- **dos pendientes y dos «sí», una se pierde** (Giselle, ws 17, 10/11 20:56): «agrega una nota a Maria Valeria…» y «…a Ana
+  Vallejo…» dejaron las pendientes #847 y #848; el primer «Si» confirmó la última (#848), el segundo terminó en «Estoy atento al
+  próximo mensaje» y la #847 se venció sola. El «sí» lo resuelve el modelo con `confirmar_accion`, que toma la más reciente: hace
+  falta que, al confirmar una, MaKo nombre la otra que queda viva (o que un «sí» de la misma persona confirme las dos simples);
+- dos notas en un mismo lote: MaKo propuso una y la otra fue al equipo (ticket #81, Patricia, ws 22), en vez de proponer las dos.
 
 ## MaKo no le responde a Leandro: contestó cada mensaje y no resolvió ninguno (9/11/2026)
 
@@ -3130,6 +3233,20 @@ siguen contando mañana a la misma hora. Con 100 por día, «los 22 hoy y los 97
 **Vive en:** lib/email-freno.ts (`conteoDeLosUltimos`, `desdeDelFreno`) · lib/email-reputacion.ts (`conteoEmailDelFreno`) ·
 tests/email-campana-topes.test.ts (con los envíos reales del 9 y el 10/11)
 *2026-11-10 claude4, chat Tickets*
+
+### ⚠️ «Subí el tope de email» tiene tres trampas: la rampa, la pantalla y el plan de Resend del negocio (11/11/2026, tickets #78 y #83)
+
+Le aconsejé a Mauricio subir el email a 120 por día para que salieran sus dos envíos juntos, y estaba mal por tres lados:
+1. **La rampa.** Con `arranqueDia` < `dia`, el tope de hoy arranca en `arranqueDia` y sube sólo los días que se LLEGÓ al tope
+   (`topeConRampa`, lib/goteo.ts). Subir sólo «Por día» no cambia nada si ayer no se llegó (el 10/11 salieron 78 de 100).
+2. **La pantalla.** Configuraciones muestra sólo «Línea por día» del email: la rampa (`arranqueDia`, `arranqueSube`) se cambia
+   únicamente por la API (`cambiar_limites_envio`; `FILAS_LINEA`, lib/limites-envio.ts).
+3. **El plan de Resend del negocio.** Desde el 4/11 cada negocio manda con SU clave de Resend (`credenciales` RESEND_API_KEY). El
+   plan gratis de Resend corta en 100 por día, así que el tope de MaKo (hasta 500) no sirve si su cuenta de Resend no es paga.
+**Regla:** antes de aconsejar un tope, mirar de quién es la clave de Resend, los tres campos del email en `mako.limites_envio` y
+si ayer se llegó al tope.
+
+*2026-11-11 claude4, chat Tickets*
 
 ### ⚠️ El generador de emails escribe para el negocio de Mauricio, no para el del cliente
 

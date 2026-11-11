@@ -276,8 +276,9 @@ test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Dashboard �
   // «Agency Dashboard» (25/10/2026) es otra tab, la de las agencias: no es el segundo Dashboard que cuida esto.
   assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 0, 'More repite el Dashboard de la barra');
   const create = mas.find((g) => g.id === 'create')!;
-  // AI Avatar, de Pro desde el 29/10/2026: una fila más de Create, como en la sidebar.
-  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting', 'AI Avatar', 'Web Generator']);
+  // 11/11/2026, Martín: «en Create debería estar la parte de copywriting primero. Luego video, image y web generator… [AI Avatar]
+  // no debería estar». AI Avatar se usa desde Video; Lead Magnet está archivado (lib/lead-magnets/archivado.ts).
+  assert.deepEqual(create.filas.map((f) => f.label), ['Copywriting', 'Video', 'Image', 'Web Generator']);
 });
 
 test('arriba de todo: Ops Center (sólo el super admin) y Second Brain (los demás), cada uno con su criatura', () => {
@@ -417,7 +418,8 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
     // (lib/nav-visibilidad.ts). Ads Manager NO se tocó, por pedido suyo.
     ['Marketing', ['Marketing CoPilot', 'Competitor Spy']],
     // 6/11/2026: Web Generator pasó a Create y Ads Manager se llama Marketing CoPilot (Martín).
-    ['Create', ['Video', 'Image', 'Copywriting', 'AI Avatar', 'Web Generator']],
+    // 11/11/2026 (Martín): Copywriting primero, después Video, Image y Web Generator; AI Avatar se usa desde Video.
+    ['Create', ['Copywriting', 'Video', 'Image', 'Web Generator']],
   ]);
   // El setter: lo que su rol tiene anotado, en las mismas familias. Calendar desde el 6/11/2026 (sólo sus «Llamadas»).
   assert.deepEqual(visibles({ adminShell: false, rolWs: 'setter', capa: 'completo' }), [

@@ -20,6 +20,7 @@
 import { areasDelMensaje, type VeredictoIntencion } from './mako-intencion';
 import { esAcusePuro } from './doer-para-quien';
 import { confirmacionPura } from './confirmacion-pura';
+import { lePideAlEquipoDeMaKo } from './le-pide-al-equipo';
 
 export const CLASES = ['PREGUNTA', 'ACCION', 'TICKET', 'DEBUG', 'CHARLA', 'NO_REPLY'] as const;
 export type Clase = (typeof CLASES)[number];
@@ -67,6 +68,7 @@ export const SYSTEM_DE_CLASE = [
   '5. DEBUG sólo si el grupo es el de SuperAdmin y escribe el dueño. Si no, lo mismo es PREGUNTA.',
   '6. Si MaKo acaba de pedir un «sí» y la persona confirma, corrige o cancela eso, es ACCION.',
   '7. Un reporte dirigido a alguien del equipo por su nombre («Hola Martín, probamos X y falla Y») es TICKET. Un saludo o un gracias suelto a alguien del equipo es NO_REPLY.',
+  '7b. Claude, el Cerebro o «el equipo» NO son otra persona del grupo: son el equipo de MaKo, a quien MaKo le pasa lo que no hace. «Dile a Claude que me dé X», «pídele a Claude que arregle Y» es TICKET (nunca NO_REPLY).',
   '8. Un link o un archivo sin decir para qué es PREGUNTA (hay que ver qué es y preguntarle para qué lo manda).',
   '9. Si pide VARIAS cosas («muéveme la reunión y mándale un WhatsApp»), pon cada una en "partes", en pocas palabras. Si pide una sola, "partes" es null.',
   '',
@@ -168,7 +170,11 @@ export function veredictoDeClase(c: ClaseDelModelo, reglas: VeredictoIntencion, 
   const pregunta = (): VeredictoIntencion => (INTENCIONES_DE_PREGUNTA.has(reglas.intencion)
     ? { ...reglas, dudosa: false, porque, fuente: 'ia' }
     : { intencion: 'consultar', dudosa: false, porque, fuente: 'ia', areas: areasDelMensaje(e.texto) });
-  const clase = c.clase === 'DEBUG' && !(e.esSuperAdmin && e.escribeElDueno) ? 'PREGUNTA' : c.clase;
+  // «Dile a Claude que me dé un archivo…» (Martín, 11/11/2026 00:07, en su grupo): la IA lo leyó como NO_REPLY («le pide a alguien
+  // del grupo (Claude)…») y MaKo le puso 👍 y se calló. Claude (o el Cerebro, el equipo) no es otra persona del grupo: es a quien
+  // MaKo le delega. Ese pedido nunca queda sin respuesta: es un ticket.
+  const aClaude = c.clase === 'NO_REPLY' && lePideAlEquipoDeMaKo(e.texto);
+  const clase = aClaude ? 'TICKET' : c.clase === 'DEBUG' && !(e.esSuperAdmin && e.escribeElDueno) ? 'PREGUNTA' : c.clase;
   switch (clase) {
     case 'CHARLA': return { intencion: 'charlar', dudosa: false, porque, fuente: 'ia' };
     case 'NO_REPLY': return { intencion: 'no_reply', dudosa: false, porque, fuente: 'ia' };

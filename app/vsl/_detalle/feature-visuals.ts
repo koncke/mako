@@ -251,7 +251,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       {
         "type": "makoAnswer",
         "q": "¿Apago este anuncio o lo escalo?",
-        "a": "Escalá, aguanta ROAS",
+        "a": "Escala, aguanta ROAS",
         "detail": "CPA por debajo del target y VSL reteniendo. Sube 20% el presupuesto y mira 48h."
       },
       {
@@ -1795,7 +1795,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       {
         "type": "makoAnswer",
         "q": "¿Qué le respondo?",
-        "a": "Reactivá con prueba social",
+        "a": "Reactiva con prueba social",
         "detail": "Está en No Show hace tres días. Manda un caso parecido al suyo y propón nuevo horario."
       },
       {

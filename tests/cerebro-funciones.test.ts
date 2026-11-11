@@ -136,8 +136,9 @@ test('6. la función que vende una landing: la que nombra el pedido; si no, la q
   assert.equal(menciones(funcionDeKey('landing-writer')!, 'cambia la landing'), 0);
   // Lo que sólo ve el super admin no se vende.
   assert.equal(funcionQueVende({ pedido: 'la landing de customers, los negocios de mako' }), null);
-  // AI Avatar es de Pro desde el 29/10/2026: ya se vende.
-  assert.equal(funcionQueVende({ pedido: 'la landing de AI Avatar como heygen' })?.key, 'ai-avatar');
+  // AI Avatar es de Pro desde el 29/10/2026: ya se vende. Desde el 11/11/2026 es parte de Video (Martín: «[AI Avatar] no debería
+  // estar» en la barra; lib/funciones-mako.ts): una landing de AI Avatar vende la función Video.
+  assert.equal(funcionQueVende({ pedido: 'la landing de AI Avatar como heygen' })?.key, 'video-editor');
 });
 
 test('7. el catálogo corto nombra todas las que se venden con lo que reemplazan, y la función entera viaja del grafo unido', () => {

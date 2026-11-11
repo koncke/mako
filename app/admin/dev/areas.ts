@@ -62,6 +62,8 @@
  * Van EXACTAS y no por prefijo: sumar una ruta de entorno tiene que ser una decisión,
  * no algo que se cuele por empezar con un punto.
  */
+import { LEAD_MAGNET_EN_PRODUCCION } from '@/lib/lead-magnets/archivado';
+
 export const RUTAS_DE_ENTORNO: readonly string[] = [
   '.git/hooks/pre-push', // el hook no se versiona; AGENTS.md dice cómo recrearlo
   '.env.local',          // secretos, y apunta a la base de PRODUCCIÓN
@@ -640,7 +642,8 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'lead-magnet-generator', titulo: 'Lead Magnet Generator', familia: 'Sales Machine',
-    estado: 'parcial', verEnApp: '/lead-magnet-generator',
+    // ARCHIVADO el 11/11/2026 por pedido de Martín (lib/lead-magnets/archivado.ts): sin «Ver en la app», que daría 404.
+    estado: 'parcial', ...(LEAD_MAGNET_EN_PRODUCCION ? { verEnApp: '/lead-magnet-generator' } : {}),
     alcance: 'Producir el lead magnet entregable: plantillas que crean la pieza en Copywriting o el Web Generator, su página de captura, su link público, el quiz con diagnóstico (un bloque del Web Generator) y lo que MaKo propone desde la oferta y Competitors Spy.',
     // El trabajo real del lead magnet NO cae en la tab: cae en el paso «Entregable»
     // del onboarding. Con solo page.tsx + nav.ts el historial del área eran commits

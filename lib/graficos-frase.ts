@@ -76,9 +76,30 @@ export function tramosDeFrase(
     if (ultimo < tramo.length) partes.push({ texto: tramo.slice(ultimo) });
     // Una llave que no calzó con la forma (`{Cobrado}`, `{ x }`) queda cruda en el texto: ese tramo se va.
     if (partes.some((p) => !p.numero && /[{}]/.test(p.texto))) continue;
-    out.push(partes);
+    out.push(enSingular(partes));
   }
   return out;
+}
+
+/**
+ * Las palabras de las frases de las plantillas que van después de un número, en singular. Con «1» la frase decía «Entraron 3
+ * visitas de 1 personas» (11/11/2026, Landing en el teléfono). Sólo las que usan las plantillas: una palabra que no está queda.
+ */
+const SINGULAR: Readonly<Record<string, string>> = {
+  veces: 'vez', llamadas: 'llamada', agendas: 'agenda', tareas: 'tarea', personas: 'persona', clientes: 'cliente', cierres: 'cierre',
+  visitas: 'visita', sesiones: 'sesión', mensajes: 'mensaje', interesados: 'interesado', cuotas: 'cuota', clases: 'clase', vencidos: 'vencido',
+  leads: 'lead', agendaron: 'agendó', vieron: 'vio', tocaron: 'tocó', llegaron: 'llegó', fallaron: 'falló',
+};
+
+/** Después de un número que es «1», la palabra que sigue en singular («1 persona», «1 agendó»). */
+function enSingular(partes: ParteFrase[]): ParteFrase[] {
+  return partes.map((p, i) => {
+    const antes = partes[i - 1];
+    if (p.numero || !antes?.numero || antes.texto !== '1') return p;
+    const m = /^(\s+)([a-záéíóúñ]+)/i.exec(p.texto);
+    const uno = m ? SINGULAR[m[2].toLowerCase()] : undefined;
+    return uno ? { ...p, texto: m![1] + uno + p.texto.slice(m![0].length) } : p;
+  });
 }
 
 /** La frase como texto plano (el teléfono, el lector de pantalla, lo que ve MaKo). */
