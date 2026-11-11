@@ -72,14 +72,17 @@ personaje sin foto.
 | HeyGen (portada) | [heygen.com](https://www.heygen.com/) | «AI videos starring you, made in minutes» / «Be your best self, every time» | Tu «Personal Avatar» con tu cara y tu voz, sin filmar cada video | G2 #1, Forbes AI 50, «85% de las Fortune 100» | Gratis para empezar | Sí |
 | Arcads | [arcads.ai/es](https://www.arcads.ai/es) | «Genera winning ads con Arcads 3.0» | +1.000 actores de IA o tu propio avatar; eliges modelo, editas y partes de formatos probados | Muro de anuncios con vistas e ingresos, «+6.000 teams», testimonios de fundadores | «Prueba gratis de 3 días» | Sí |
 | Creatify | [creatify.ai/es](https://creatify.ai/es) | «Anuncios de IA que ganan» | Un agente que investiga, crea y analiza; su modelo Aurora convierte una foto y un audio en una persona hablando | Casos con cifras (ROAS +73%, costo por lead −28%), «15M+ anuncios creados» | Prueba gratis | Sí |
-| Novoads | [novoads.ai/es](https://novoads.ai/es) | Actores de IA con acento latino para anuncios (búsqueda) | Filtras actores por edad, género y acento (búsqueda) | — | Prueba de 3 días por US$1, después desde US$49/mes (búsqueda) | ver abajo |
+| Novoads | [novoads.ai/es](https://novoads.ai/es) | «Tu próximo anuncio está a 4 minutos» / «Elige un actor IA, pega tu guión y listo. Olvídate de creadores caros, estudios y semanas de espera.» | Eliges un actor de IA (con acentos mexicano, argentino, chileno, colombiano, peruano), pegas o generas el guion y sale el anuncio | «+2,000 equipos», «100+ actores IA», «32 idiomas», «~$3 por anuncio»; un bloque del cofundador que contesta por WhatsApp. Sin testimonios | Starter US$15, Plus US$49, Ultra US$129 al mes | Sí |
 | Higgsfield | [higgsfield.ai](https://higgsfield.ai/) | Suite creativa con IA | Presets, Soul ID (tu personaje entrenado con fotos), estudio de influencers de IA | Concurso de US$1.000.000, comunidad | — | Sí (la portada es un catálogo, no una landing) |
 | MakeUGC, Captions, Argil, Hedra, Synthesia | — | MakeUGC: actores UGC baratos (búsqueda). Captions: editor para creadores. Argil: estudio de video para equipos y agentes. Hedra: infraestructura de modelos (ya no vende avatares). Synthesia: videos de formación para empresas | — | — | — | Argil, Hedra y Synthesia sí; MakeUGC y Captions no abrieron |
 
-**Ganadora: la página de HeyGen en español para anuncios UGC.** Es la única que habla en español y de LATAM (es-mx) del uso
-exacto de MaKo —anuncios para Meta, TikTok e Instagram— y su estructura pone el problema antes que la herramienta. Arcads y
-Novoads venden **actores** (la cara de otro); MaKo vende **tu** cara, que es justo la promesa de la portada de HeyGen
-(«videos protagonizados por ti»). Novoads es la startup LATAM a mirar cuando se pueda abrir.
+**Ganadora: la página de HeyGen en español para anuncios UGC.** Es la que mejor cuenta el uso de MaKo —anuncios para Meta,
+TikTok e Instagram— en español de LATAM (es-mx), y su estructura pone el problema antes que la herramienta: sin / con, 3
+pasos y casos de uso, que en MaKo son sus plantillas de venta. **Novoads** es la startup LATAM más cercana y se leyó entera
+(hero → cifras → «Tu equipo creativo de IA» → 3 pasos → «tu agente puede hacer estos anuncios» → el cofundador → precios →
+preguntas → cierre), pero vende **actores**, la cara de otro, y su historia descansa en el precio por anuncio; MaKo vende
+**tu** cara, que es la promesa de la portada de HeyGen («videos protagonizados por ti»). Su ángulo para tomar: «tu próximo
+anuncio está a 4 minutos», y el fundador que contesta por WhatsApp.
 
 **Orden de secciones de la ganadora:**
 1. Hero: etiqueta «Anuncios en video con contenido generado por usuarios», titular, bajada, dos renglones («No necesitas
@@ -100,26 +103,32 @@ eliges y generas → todo lo que puedes probar → cómo se hace en 3 pasos → 
 ---
 
 ## Chats (WhatsApp, Instagram y Messenger en una bandeja)
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **respond.io** | [respond.io/es](https://respond.io/es) | «Los clientes preguntan por chat. Llama para más detalles. Confirma por correo electrónico. ¿Puedes seguir el ritmo?» | Un buzón de equipo con chats, llamadas y correos en un hilo, agentes de IA y CRM propio | «Más de 10k marcas», 4.8 en G2, Serie B de US$62,5M, «60% ciclo de ventas más rápido», «81% conversión», «42.5x ROI» | Prueba gratis; precio en otra página | Sí |
-| Leadsales | [leadsales.io](https://leadsales.io/) | CRM para vender por WhatsApp, Instagram y Facebook (búsqueda) | Chats asignados a vendedores, leads por etapa (búsqueda) | Un caso de «100% de ventas por WhatsApp» (búsqueda) | Desde US$97/mes (búsqueda) | ver abajo |
-| Kommo | [kommo.com](https://www.kommo.com/) | «AI-powered WhatsApp CRM» (búsqueda) | Cada conversación es una tarjeta del embudo; Salesbot sin código (búsqueda) | — | — | ver abajo |
+| **Leadsales** | [leadsales.io](https://leadsales.io/) | «CRM para WhatsApp, Facebook e Instagram» / «Unifica tu bandeja, ordena a tu equipo y multiplica su rendimiento con IA; para que escales tu operación sin escalar el caos.» | Bandeja unificada con embudo, envíos masivos por la API oficial, asignación entre asesores, mensajes programados y «Lead Agent», un agente de IA que atiende y califica 24/7 | «+2,800 empresas», casos de Mednet y Bodegas Grimaldi, Forbes México y Shark Tank México | «Planes desde $97 USD al mes»; prueba de 14 días | Sí |
+| respond.io | [respond.io/es](https://respond.io/es) | «Los clientes preguntan por chat. Llama para más detalles. Confirma por correo electrónico. ¿Puedes seguir el ritmo?» | Un buzón de equipo con chats, llamadas y correos en un hilo, agentes de IA y CRM propio | «Más de 10k marcas», 4.8 en G2, Serie B de US$62,5M, «60% ciclo de ventas más rápido», «81% conversión», «42.5x ROI» | Prueba gratis; precio en otra página | Sí |
+| Kommo | [kommo.com/es](https://www.kommo.com/es/) | «Potencia tus chats, evita todo el caos» | Bandeja, embudo, Salesbot y agentes de IA de ventas y reservas | «+100,000 clientes», casos con porcentajes | Por usuario: Básico, Avanzado, Pro, por plazos de 6 a 24 meses | Sí |
 | Darwin AI | [getdarwin.ai](https://www.getdarwin.ai/) | Agentes de IA para WhatsApp, Instagram y voz (búsqueda) | — | Caso Promotora Baqueira (búsqueda) | Sin precio público (búsqueda) | No |
 | Callbell, Wati, SleekFlow, Treble, Cliengo | — | Bandejas de WhatsApp (búsqueda) | — | — | — | No |
 
-**Ganadora: respond.io.** Es la referencia de «que la conversación no se rompa aunque el cliente cambie de canal», que es lo
-que vive quien compra anuncios de WhatsApp. Está hecha para B2C global, no para LATAM: Leadsales es la de LATAM a mirar.
+**Ganadora: Leadsales.** Es de LATAM, en español, para equipos que venden por WhatsApp, y cuenta el problema como lo vive
+quien compra anuncios de WhatsApp («ventas en chats sueltos»). respond.io queda de contraste: es la global, para B2C.
 
-**Orden de secciones:** (1) barra con la Serie B · (2) hero con la pregunta «¿Puedes seguir el ritmo?» · (3) tour interactivo
-«Explora el poder de Respond.io» · (4) «Más de 10k marcas confían…» · (5) «Haz crecer tu negocio con cada conversación»
-(Captura / Convierte / Retén) · (6) «Chats, llamadas y correos electrónicos en un solo hilo» · (7) «IA construida sobre una
-base de confianza» (la carta del CEO) · (8) beneficios del agente de IA · (9) «Resultados de negocios como el tuyo» ·
-(10) casos de éxito · (11) testimonios · (12) G2 · (13) «Así te prepara respond.io para el éxito» · (14) cierre «Triplica
-los resultados de tu negocio» y comparativas contra Manychat y Wati.
-**Arco:** el cliente salta de canal y se rompe la conversación → un solo buzón con IA lo une → la prueba son cifras.
-**Ángulo:** «tus leads no se pierden aunque cambien de canal».
+**Orden de secciones de Leadsales:** (1) navegación con «Agenda una demo» · (2) hero «CRM para WhatsApp, Facebook e
+Instagram» · (3) «Así funciona el CRM para WhatsApp de Leadsales», en pestañas: Embudo, Conversaciones, Agenda, Lead Agent,
+Métricas; con «+2,800 empresas» · (4) «Tu equipo necesita un CRM pensado para vender por WhatsApp.»: «Ventas en chats
+sueltos» contra «con Leadsales» · (5) «Del primer mensaje al cierre de cada venta.»: envío masivo y oficial, embudo, mensajes
+programados, responde y califica 24/7 · (6) «Todo lo que incluye Leadsales» · (7) «Planes desde $97 USD al mes» · (8) «Lo
+que dicen nuestros clientes.» · (9) «Lo que necesitas saber para usar Leadsales.» (preguntas) · (10) «Tu próximo paso:
+organizar las ventas de tu equipo.» · (11) los medios · (12) Shark Tank México · (13) pie.
+**Arco:** vendes por chats sueltos y nadie sabe quién atiende qué → una bandeja con embudo, asignación y un agente de IA lo
+ordena → casos reales de LATAM.
+**Ángulo:** «escala tu operación sin escalar el caos».
+
+**respond.io, para comparar:** (1) Serie B · (2) la pregunta «¿Puedes seguir el ritmo?» · (3) tour interactivo · (4) «Más de
+10k marcas» · (5) Captura / Convierte / Retén · (6) «Chats, llamadas y correos en un solo hilo» · (7) la carta del CEO sobre
+la IA · (8) beneficios del agente · (9) cifras · (10) casos · (11) testimonios · (12) G2 · (13) cuatro razones · (14) cierre.
+Su ángulo: «tus leads no se pierden aunque cambien de canal».
 
 ## CRM
 
@@ -142,48 +151,69 @@ HighLevel» · (9) precios · (10) testimonios, comparativas y cierre con la pru
 **Ángulo:** «el sistema operativo de tu negocio: una cosa en vez de diez».
 
 ## Automations / setter con IA
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **SetSmart** | [setsmart.io/es](https://setsmart.io/es) | «+34% más llamadas cualificadas con IA para tu negocio de coaching online» (búsqueda) | Setter de IA en los DMs de Instagram, WhatsApp y Messenger: califica y agenda; dos seguimientos a las 4 h y a las 23 h (búsqueda) | — | Light US$25, Pro US$97, Scale US$297, Enterprise US$797 al mes (búsqueda) | ver abajo |
+| **SetSmart** | [setsmart.io/es](https://setsmart.io/es) | «Tu AI setter convierte tus DM de Instagram en llamadas de venta calificadas» / «…responde tus DM de Instagram, califica tus prospectos y agenda tus llamadas de venta, 24/7. Tú solo cierras en la llamada.» | Describes tu oferta, tono y criterios; conectas Instagram; la IA responde, califica con tu guion, agenda dentro del chat (Calendly, GHL, iClosed, Cal.com), manda notas de voz y hace seguimientos | «Elegido por 500+ coaches», 4.8 en Trustpilot, ~35 testimonios con nicho y seguidores, una tabla «setter humano contra SetSmart» y una calculadora de ahorro | «$97/mes» contra un setter de «$2,000/mes»; prueba de 7 días | Sí |
 | ManyChat | [manychat.com](https://www.manychat.com/) | Automatizaciones de Instagram y WhatsApp | — | — | — | **No**: verificación de Cloudflare |
 | GoHighLevel (Conversation AI) | [gohighlevel.com](https://www.gohighlevel.com/) | El chat y la voz con IA de su plataforma | — | — | Incluido en sus planes | Sólo como mención |
 | Darwin AI, Dapta | getdarwin.ai, dapta.ai/es | Agentes de venta con IA para WhatsApp en LATAM (búsqueda) | — | — | — | No |
 
 **Ganadora: SetSmart.** Hace lo mismo que el setter de MaKo, para coaches e infoproductores, en español.
-**Ángulo (búsqueda):** «más llamadas calificadas por mucho menos que un setter humano».
+**Orden de secciones:** (1) navegación · (2) hero con «Crear Mi Agente IA» y una maqueta de la bandeja con la ficha del lead ·
+(3) integraciones y «Más de 500 coaches online confían en nosotros» · (4) «La solución: gestionar tus DM con SetSmart»: el
+lead que se enfría contra el que reserva en 30 segundos · (5) «Lo que nuestros clientes realmente dicen» · (6) «Todo lo que
+hace tu setter IA» (del comentario al DM, califica, notas de voz, reserva en el chat, seguimientos, suena humana) ·
+(7) «Automatiza el agendamiento de citas con IA conversacional» · (8) «Crea tu IA en solo unos clics» · (9) «Operativo en
+menos de 10 minutos» (3 pasos) · (10) «Supera a los setters humanos.» (tabla) · (11) «Calcula tu ROI» · (12) «Funciona con
+tu stack» y un testimonio en video · (13) «Estadísticas en vivo» · (14) «Controla SetSmart desde tu propia IA» (MCP) ·
+(15) 16 preguntas, entre ellas «¿Hay riesgo de ser baneado en Instagram?» · (16) pie.
+**Arco:** el lead se enfría porque respondes tarde → un setter de IA responde y agenda en segundos → la prueba son coaches con
+nombre y un setter humano que cuesta veinte veces más.
+**Ángulo:** «tú solo cierras en la llamada».
 
 ## Agenda
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **iClosed** | [iclosed.io](https://www.iclosed.io/) | «The Sales Engine Behind The Fastest-Growing Teams» (búsqueda) | Agenda conectada al CRM, Stripe y Hyros (búsqueda) | — | A medida (búsqueda) | ver abajo |
+| **iClosed** | [iclosed.io](https://www.iclosed.io/) | «ONLY 3 OUT OF 10 LEADS BOOK FROM YOUR SCHEDULER / Triple your leads using high-converting Scheduler» | Un embed delante de tu funnel: toma el formulario antes de mostrar horarios, descalifica a los que no compran, rutea al mejor closer, recupera a los que abandonan por SMS o WhatsApp y mide ingresos por llamada | «5/5 on G2», «Join 20,000 high ticket funnels», citas de Hyros, Sendblue y Alex Becker, casos en dólares («$129k JUST from the extra leads», «11.7× ROAS») | «7-day free trial»; precio no visible | Sí |
 | Calendly / Cal.com / Chili Piper / OnceHub | — | Agendas generales (búsqueda) | Recordatorios, ruteo | — | Calendly desde US$10 por usuario (búsqueda) | No |
 
-**Ganadora: iClosed.** Es la única hecha para el flujo high ticket: agenda, CRM, pagos y de qué anuncio vino.
+**Ganadora: iClosed.** Es la única hecha para el flujo high ticket.
+**Orden de secciones:** (1) aviso y navegación · (2) hero «Triple your leads…» con «Start for free» y la maqueta de la agenda ·
+(3) tres citas cortas · (4) «Keep the same funnels. Change the scheduler, make more profit.» en pestañas: Qualify &amp; Route,
+Engage, Measure, AI Agent · (5) «Save 100+ hours and close 34% more» · (6) «You already follow them. They already run on
+iClosed.» · (7) «The money's already in your funnel. Plug in. Take it back.» · (8) «Everything your booking page should've
+done all along» · (9) «Your whole team, closing in one inbox» · (10) «Built around your offer» (VSL, webinar, challenge) ·
+(11) integraciones · (12) «Proof, in their own words» · (13) «The lift, measured in cold dollars» · (14) cierre «Stop leaking
+pipeline» · (15) pie.
+**Arco:** sólo 3 de cada 10 leads agendan → el dinero ya está en tu funnel → recupera, califica y rutea → casos en dólares.
+**Ángulo:** «recupera el pipeline que ya pagaste con anuncios, sin rehacer el funnel».
 
 ## Closing Analyst
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **Voicit** | [voicit.com](https://voicit.com/) | Grabar llamadas comerciales con IA y cerrar más (búsqueda) | Transcribe en español, detecta objeciones y próximos pasos, lo pasa al CRM (búsqueda) | — | — | ver abajo |
+| Voicit | [voicit.com](https://voicit.com/) | «De reuniones y entrevistas a grandes resultados con IA. Sin bots.» | Transcribe y arma un informe con tu plantilla. **No analiza llamadas de venta**: es para actas y entrevistas | «+1.000 empresas», 4.8 | «Empieza gratis y sin tarjeta» | Sí, y no sirve de referencia |
 | Fathom | fathom.ai | Notas de reuniones (búsqueda) | — | — | Gratis; Premium (búsqueda) | No |
 | Hyperbound | hyperbound.ai | Roleplay con compradores de IA (búsqueda) | — | — | — | No |
 | Practify IA | — | Roleplay y análisis de llamadas en español de España (búsqueda) | — | — | — | No |
 | Gong | — | Contraste (EE.UU., enterprise) | — | — | — | No |
 
-**Ganadora: Voicit**, por el ángulo en español y las objeciones.
+**Sin ganadora todavía.** Voicit se leyó y resultó ser un generador de actas, no de análisis de llamadas de venta. No
+apareció en español una herramienta que lea tus llamadas y te diga por qué un lead no cerró: el espacio está vacío. Para
+elegir hay que abrir Fathom, Gong o Hyperbound (hosts sin habilitar).
 
 ## Cobranza
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **Rebill** | [rebill.com](https://www.rebill.com/) | Cobros recurrentes y suscripciones en LATAM (búsqueda) | Links de pago, cuotas, 15 monedas, conciliación (búsqueda) | Ronda liderada por Tiger Global (búsqueda) | — | ver abajo |
+| **Rebill** | [rebill.com/es](https://www.rebill.com/es) | «Infraestructura financiera para las Américas» / «Acepta pagos locales, ofrece cuotas y gestiona suscripciones…» | Pasarela con adquirentes locales: links de pago, cuotas, suscripciones, reintentos y avisos de rechazo | «Incrementa hasta 20 puntos porcentuales la aprobación», «Recupera cerca del 52% de los rechazos», casos por país | Precio en «Tarifas» | Sí |
 | Mercado Pago (link de pago) | mercadopago.com.mx | Meses sin intereses (búsqueda) | — | — | Comisión por venta (búsqueda) | No |
 | PorCobrar, Cliengo | — | Recordatorios de cobro por WhatsApp (búsqueda) | — | — | — | No |
 
-**Ganadora: Rebill**, por «no pierdas cuotas por rechazos». Apunta a empresas medianas: no hay nada hecho para cuotas de
-mentorías o infoproductos.
+**Ganadora: Rebill.** Apunta a empresas medianas: no hay nada hecho para cuotas de mentorías o infoproductos.
+**Orden de secciones:** (1) navegación · (2) hero con «Activar cuenta ahora» y «Hablar con un experto» · (3) tres cifras ·
+(4) «Conexiones locales. Pagos locales y cross-border.» · (5) funciones: links de pago, cuotas, suscripciones, avisos,
+dashboard · (6) «Integración simple. Resultado profesional.» · (7) automatización sin código · (8) «Historias de clientes» ·
+(9) preguntas · (10) pie con comparativas.
+**Ángulo:** «más pagos aprobados en LATAM, con reintentos automáticos».
 
 ## Marketing CoPilot / Media Buyer con IA
 
@@ -205,27 +235,35 @@ a tu negocio como le preguntarías a un especialista» · (7) «Se conecta con»
 **Ángulo:** hablarle a tu data como a un especialista, sin jerga.
 
 ## Ads Analyst
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **Gethookd** | [gethookd.ai](https://www.gethookd.ai/) | Investigación de anuncios y creativos con IA (búsqueda) | Transcribe anuncios para sacar ganchos y llamados, y escribe guiones (búsqueda) | Biblioteca de decenas de millones de anuncios (búsqueda) | Desde US$19/mes, 7 días gratis (búsqueda) | ver abajo |
+| **Gethookd** | [gethookd.ai](https://www.gethookd.ai/) | «Your AI cannot see Meta's ad library. Now it can. / Give Your AI 22 Million Live Meta Ads» | Biblioteca de anuncios vivos de Meta que consultas desde la app o desde tu IA; «Clone Ads» convierte un ganador en tu próxima estática | «100,000+ users», «22M+ active ads» | Desde US$29/mes; 7 días por $0 | Sí |
 | Atria | tryatria.com | Califica tus anuncios y dice cómo mejorarlos (búsqueda) | — | Caso VaynerCommerce (búsqueda) | ~US$159/mes (búsqueda) | No |
 | Motion | motionapp.com | Analítica creativa (búsqueda) | — | «2,100 teams» (búsqueda) | ~US$250/mes (búsqueda) | No |
 | Fastlane | [usefastlane.ai](https://www.usefastlane.ai/) | Su bloque «Reads the results. Doubles down.» | Métricas por anuncio y variaciones del ganador | — | — | Sí |
 
-**Ganadora: Gethookd**: transcribe el anuncio y escribe guiones nuevos, como el Ads Analyst de MaKo.
+**Ganadora: Gethookd**, por «convierte un ganador en tu próximo anuncio», que es lo que hace el Ads Analyst con tus propios
+anuncios. Ojo: Gethookd mira los anuncios del mercado, no los tuyos; para «cuál de los míos gana», el modelo es el bloque de
+Fastlane.
+**Orden de secciones:** (1) navegación · (2) hero con «Start a 7-Day Trial for $0» · (3) «Ask your AI» · (4) «Do it
+yourself, or hand it to your AI» · (5) Explore, Connect, Ask · (6) Brand Spy · (7) Shops · (8) Boards · (9) Clone Ads ·
+(10) precios · (11) 14 preguntas · (12) cierre «Your competitors already found the winning ad» · (13) pie.
 
 ## Competitor Spy
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **Foreplay** | [foreplay.co](https://www.foreplay.co/) | Guardas anuncios con un botón y los ordenas (búsqueda) | Extensión, biblioteca, briefs y seguimiento de competidores (búsqueda) | Biblioteca de millones de anuncios (búsqueda) | Desde US$175/mes (búsqueda) | ver abajo |
-| Gethookd | gethookd.ai | «Brand Spy» (búsqueda) | — | — | US$19/mes (búsqueda) | ver abajo |
+| **Foreplay** | [foreplay.co](https://www.foreplay.co/) | «The Complete Winning Ad Workflow» | Guardas anuncios de Meta, TikTok y LinkedIn, los ordenas, rastreas competidores 24/7 y escribes briefs con IA | «Powering +10,000 Social Ad Teams & Agencies», «30,000 Users» de la extensión, contador de anuncios guardados | «Unrestricted 7 day free trial» | Sí |
+| Gethookd | [gethookd.ai](https://www.gethookd.ai/) | «Brand Spy»: avisa cuando un competidor lanza | — | — | Desde US$29/mes | Sí |
 | Minea | minea.com/es | Anuncios con datos por producto (búsqueda) | — | — | ~US$49/mes (búsqueda) | No |
 | Atria, BigSpy, AdSpy | — | Bibliotecas de anuncios (búsqueda) | — | — | — | No |
 
 **Ganadora: Foreplay**, la que más se parece a «guardas con un botón y te ordena la inspiración». En español no apareció
 ninguna herramienta propia, sólo guías.
+**Orden de secciones:** (1) navegación · (2) hero «The Complete Winning Ad Workflow» · (3) «Powering +10,000…» · (4) «Your
+new secret weapon for ads»: antes (chats, links vencidos) y después · (5) Research &amp; Inspiration · (6) «Save ads from
+anywhere, forever» · (7) «Automatically track competitors» · (8) «The smartest ad search engine» · (9) la extensión gratis ·
+(10) Creative Analytics &amp; Production · (11) colaboración · (12) compartir y presentar · (13) «Miles beyond the status quo»
+· (14) cierre «Ready to ship more winning ads?» · (15) pie.
 
 ## Dashboard y reportes
 
@@ -264,17 +302,22 @@ pasos y tienes tu primer reel» · (11) «Cherry Studio trabaja con» · (12) pr
 **Ángulo:** «súbelo como salió del celular y míralo volver editado».
 
 ## Image (carruseles y creativos)
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **PostNitro** | [postnitro.ai](https://postnitro.ai/) | Carruseles chateando con «Nitro, tu asistente de diseño» (búsqueda) | Tema, link o texto a carrusel, y lo publica (búsqueda) | «82.000+ creadores» (búsqueda) | Gratis; pago desde US$15/mes (búsqueda) | ver abajo |
+| **PostNitro** | [postnitro.ai/es](https://postnitro.ai/es) | «El creador de carruseles con IA que diseña y programa tus publicaciones.» | Das un tema, un link o un texto; «Nitro Chat» propone un esquema, lo apruebas y diseña con tu kit de marca; después lo programa o lo exporta | «5.0», «86,000+ creators», «200+ platforms embed our editor» | Descuento de Black Friday; precio en otra página | Sí |
 | Contentdrips | contentdrips.com | Tu marca en cada carrusel (búsqueda) | — | — | — | No |
 | AdCreative.ai | adcreative.ai | Creativos con puntaje de conversión (búsqueda) | — | — | US$29 a US$109/mes (búsqueda) | No |
 | Predis.ai | predis.ai | Anuncios y carruseles en español (búsqueda) | — | — | — | No |
 | Fastlane | [usefastlane.ai](https://www.usefastlane.ai/) | «Create infinite content, based on winning formats» | Formatos probados (pizarra, meme, remix de la competencia) | Ver arriba | «First 5 statics free» | Sí |
 | Canva | — | Contraste | — | — | — | No |
 
-**Ganadora: PostNitro**: un chat que diseña carruseles, como la Image de MaKo, y con página en español.
+**Ganadora: PostNitro**: un chat que diseña carruseles, como la Image de MaKo, y en español.
+**Orden de secciones:** (1) aviso y navegación · (2) hero · (3) «Publica en» (6 redes) · (4) «Dale acceso a PostNitro a tu
+agente» · (5) prueba social · (6) «Pruébalo, no es un video» (editor interactivo) · (7) «Más de 100 plantillas, todas
+editables» · (8) «De la idea a la publicación programada en tres pasos» · (9) «Cada parte de la publicación es tuya» ·
+(10) «Nitro Chat lo diseña contigo» · (11) «Tu kit de marca hace el trabajo de diseño» · (12) lienzo · (13) imágenes por
+diapositiva · (14) cronograma · (15) planificador · (16) para agencias · (17) automatizar · (18) creadores.
+**Ángulo:** «de la idea al carrusel, con tu marca y sin diseñador».
 
 ## Copywriting
 
@@ -328,54 +371,64 @@ this.» (preguntas) · (14) cierre «Approve your first week of marketing conten
 **Ángulo:** «un departamento entero en una sola contratación; tú solo apruebas».
 
 ## Plan (prioridades)
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **Motion** | [usemotion.com](https://www.usemotion.com/) | La IA ordena tus tareas por prioridad, fecha y capacidad (búsqueda) | Reordena sola cuando algo cambia (búsqueda) | — | Desde US$19 por usuario (búsqueda) | ver abajo |
+| **Motion** | [usemotion.com](https://www.usemotion.com/) | «Get an unfair advantage by using AI to double productivity» | Toma proyectos, tareas, prioridades y fechas, arma el plan en tu calendario y lo reacomoda varias veces al día; notas de reuniones y proyectos con IA | «Over 1 million top performers and teams trust Motion», citas con ahorros en dinero, reseñas de G2 | «Start your free trial. Cancel in 1 click.» | Sí |
 | Reclaim, ClickUp Brain, Linear | — | Agenda automática o tareas con IA (búsqueda) | — | — | — | No |
 
 **Ganadora: Motion**: «la IA decide el orden por ti». Nada en español saca tareas de tus reuniones grabadas.
+**Orden de secciones:** (1) navegación · (2) hero con «What AI tools would you like to use?» · (3) confianza y cuatro citas ·
+(4) «Stop using tech from the pre-AI era» (tabla contra tus herramientas de siempre) · (5) «Motion's AI detects and
+prioritizes your most urgent and important tasks, automatically» · (6) proyectos con IA · (7) asistente de reuniones ·
+(8) de documentos a tareas · (9) «Have an AI assistant schedule your day» · (10) flujos · (11) reportes · (12) reseñas ·
+(13) «Why Motion's all-in-one platform is better than using 10 separate tools» · (14) integraciones y seguridad · (15) cierre.
 
 ## Offer
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **Atlas AI (DFY)** | [go.doneforyou.com/offer-formula](https://go.doneforyou.com/offer-formula) | Asistente para armar tu oferta (búsqueda) | Entrenamiento de 5 pasos (búsqueda) | — | — | ver abajo |
+| **Atlas AI (DFY)** | [go.doneforyou.com/offer-formula](https://go.doneforyou.com/offer-formula) | «How I Build Profitable OFFERS in Hours — Not Months» / «For Anyone Tired of Guessing What to Sell» | Entrenamiento en video de 5 pasos y «Atlas AI», que arma oferta, precio, bonos y posicionamiento | «4.7 / 5 based on 398+ verified students» | 7 días gratis, después US$97/mes; garantía de 30 días | Sí |
 | $100K Offer Generator, GPTs de «Grand Slam Offer», kits de prompts | — | Ofertas en minutos (búsqueda) | Prompts o GPTs | — | US$97 o menos (búsqueda) | No |
 
 **Ganadora: Atlas AI**, lo más parecido a un producto. Todo lo demás son prompts: no hay en español una app que diagnostique
 y arme la oferta en un PDF.
+**Orden de secciones:** (1) navegación · (2) «For Anyone Tired of Guessing What to Sell» · (3) titular y VSL («Make Sure Your
+Sound Is Turned ON!») · (4) botón · (5) precio · (6) «This Is Exactly How…» · (7) «Without…» (sin nicho, sin seguidores, sin
+copywriter) · (8) «Here's Everything You're Getting» · (9) garantía · (10) botón final.
 
 ## Funnels / embudo
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **Hyros** | [hyros.com](https://www.hyros.com/) | Atribución de la llamada hasta el cierre, «true ROAS» (búsqueda) | Conecta la venta cerrada con el anuncio de origen (búsqueda) | Casos con llamadas (búsqueda) | Por ingreso rastreado (búsqueda) | ver abajo |
+| **Hyros** | [hyros.com](https://hyros.com/) | «Tracking that grows ads / Custom Made For You» | Rastrea las ventas que el píxel perdió y se las devuelve a Meta y Google para que optimicen mejor | «Tracking $5B+ in ad spend», «5,000+ brands», logos de Tony Robbins y Alex Hormozi | «Guaranteed or you don't pay» | Sí |
 | ClickFunnels | clickfunnels.com | «Marketing Funnels Made Easy» (búsqueda) | Plantillas de embudo y checkout | — | US$97 a US$297/mes (búsqueda) | No |
 | Systeme.io | — | All-in-one gratis en español (búsqueda) | — | — | Gratis; desde US$17/mes (búsqueda) | No |
 | GoHighLevel | [gohighlevel.com](https://www.gohighlevel.com/) | Ver CRM | — | — | — | Sí |
 
-**Ganadora: Hyros**: su ángulo es el del funnel de MaKo, el ROAS que cobraste y no el que dice la plataforma.
+**Ganadora: Hyros**: su ángulo es el del funnel de MaKo, la venta real y no la que dice la plataforma.
+**Orden de secciones:** (1) aviso de Black Friday y navegación · (2) hero con la demo «Meta vs HYROS · 7 days» y «138 missed
+sales» · (3) «Tracking $5B+ in ad spend for:» · (4) «Any Feature You Want Is Just A Prompt Away» · (5) «Brands that add
+Hyros see…» · (6) «Guaranteed or you don't pay» · (7) las funciones · (8) AI Swarm Tracking · (9) «Pick your business model»
+(SaaS, ecommerce, llamadas B2B, info) · (10) el MCP · (11) la garantía · (12) pie.
+**Ángulo:** «Meta se equivoca porque no ve todas tus ventas».
 
 ## Email marketing
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **beehiiv** | [beehiiv.com](https://www.beehiiv.com/) | Crecer y monetizar tu newsletter (búsqueda) | Red de anuncios y suscripciones pagas (búsqueda) | — | Gratis hasta 1.000 suscriptores (búsqueda) | ver abajo |
+| **beehiiv** | [beehiiv.com](https://www.beehiiv.com/) | «NEWSLETTERS. PODCASTS. COMMUNITY. ONE PLATFORM.» | Editor, automatizaciones, recomendaciones, anuncios y suscripciones pagas, sitio y comunidad | «4.9/5 from 28,479 customers», «135K+ publishers», «400M+ unique readers every month» | Free; Lite desde US$49/mes; Pro desde US$95 | Sí |
 | Kit, MailerLite, Mailrelay, Doppler, Brevo | — | Email para creadores o pymes (búsqueda) | — | — | Con plan gratis (búsqueda) | No |
 
 **Ganadora: beehiiv.**
+**Orden de secciones:** (1) navegación · (2) hero con registro sin tarjeta · (3) logos · (4) «Everything you need to turn
+attention into growth» (crear, crecer, monetizar, automatizar, integrar, medir) · (5) podcasts · (6) productos digitales ·
+(7) monetización · (8) comunidad · (9) sitios · (10) clientes · (11) planes · (12) citas · (13) cifras · (14) integraciones
+· (15) preguntas · (16) «What are you waiting for?» · (17) pie.
 
 ## Classroom (curso, comunidad y clientes)
-
 | Competidor | URL | Titular / promesa | Mecanismo | Pruebas | Oferta y precio | ¿Abierta? |
 |---|---|---|---|---|---|---|
-| **Skool** | [skool.com](https://www.skool.com/) | Comunidad y cursos en un lugar (búsqueda) | — | — | Desde US$9/mes (búsqueda) | ver abajo |
+| **Skool** | [skool.com](https://www.skool.com/) | Comunidad, cursos y eventos; «set it up in less than 30-minutes» (de su página «about») | — | — | Desde US$9/mes (búsqueda) | **No**: la portada carga vacía sin sesión |
 | Hotmart, Circle, Kajabi, Coachful | — | Cursos y membresías (búsqueda) | — | — | — | No |
 
-**Ganadora: Skool**: pocas palabras y es la referencia mental de este público.
-
----
+**Ganadora: Skool**: pocas palabras y es la referencia mental de este público. Su portada no se pudo leer.
 
 ## Competidores que te faltaban
 

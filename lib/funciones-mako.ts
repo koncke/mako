@@ -334,7 +334,7 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     // puerta de un Esencial a su personaje (docs/relevo/nube-tab-video.md §1).
     keys: ['ai-avatar'],
     que: 'Tu avatar con tu cara (también desde Video, «Tu personaje con IA» en «Nuevo video»), como en Higgsfield: eliges un preset (una escena), pones tu foto y MaKo lo genera; después lo animas diciendo tu guion.',
-    hace: ['Crear tu avatar en una escena de 28 presets', 'Ajustar la escena escribiendo lo que quieres', 'Generar el video del avatar diciendo un guion', 'Volver a cada avatar y sus videos'],
+    hace: ['Crear tu avatar en una de sus escenas listas (presets)', 'Ajustar la escena escribiendo lo que quieres', 'Generar el video del avatar diciendo un guion', 'Volver a cada avatar y sus videos'],
     noHace: ['Todavía no: tu voz clonada en el video, copiar el movimiento de otro video, ni diseñar un personaje sin foto'],
     reemplaza: 'Higgsfield y HeyGen',
     alias: ['ai avatar', 'avatar', 'higgsfield', 'heygen', 'influencer', 'preset'],
