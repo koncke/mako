@@ -80,8 +80,10 @@ test('3. la pregunta de la app dice ARRIBA por qué no se contesta desde acá, t
 test('4. las dos pantallas le pasan al hilo que el chat está trabado', () => {
   for (const f of ['app/m/operaciones/ChatsMovil.tsx', 'app/admin/operaciones/Conversacion.tsx']) {
     const s = sinComentarios(leer(f));
-    assert.match(s, /const trabado = deLaApp\.length > 0;/, `${f}: con una pregunta de la app abierta`);
-    assert.match(s, /chat(?:: elegido)?, carteros, trabado \}/, `${f}: \`trabado\` en \`vivo\``);
+    // Con TODAS las de la app, también las técnicas que no se le muestran a Martín (10/11/2026: `chatTrabadoEnLaApp`; ejecutado en
+    // tests/pregunta-para-martin.test.ts, 6): el chat sigue trabado aunque su pregunta no suba al bloque.
+    assert.match(s, /const trabado = chatTrabadoEnLaApp\(lineas\);/, `${f}: con una pregunta de la app abierta`);
+    assert.match(s, /chat(?:: elegido)?, carteros, trabado(?:, indiceTabs)? \}/, `${f}: \`trabado\` en \`vivo\``);
   }
   assert.match(sinComentarios(leer('app/admin/operaciones/Hilo.tsx')), /estadoDelEnvio\(w, vivo\.chat, vivo\.carteros, ahora, !!vivo\.trabado\)/);
 });

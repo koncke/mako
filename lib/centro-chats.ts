@@ -25,9 +25,10 @@
 import { CARTERO_VIVO_MS, CUENTA_RE, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, TOPE_TURNO_VIEJO, carteroVivo, comoEstaElDestino, esParaMartin, fotoAlDia, noticiaDe, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat, textoDelEncargo } from './operaciones-reglas';
 import { hace, instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
-import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
+import { esperaAMartin, textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
 import { usoDeCuenta, type Cuota } from './centro-uso';
-import { estaAbierta, preguntaDeTrabajo, resumenDeRespuesta, seContestaEnLaApp, type PreguntaChat } from './centro-preguntas-chat';
+import { esperaAMartinEnElChat, estaAbierta, preguntaDeTrabajo, resumenDeRespuesta, seContestaEnLaApp, type PreguntaChat } from './centro-preguntas-chat';
+import { llegaAMartin } from './pregunta-para-martin';
 import { listasEnRenglones } from './respuesta-como-claude';
 import { haceCuanto } from './centro-limbo';
 import { rotuloDia } from './centro-fechas';
@@ -552,20 +553,134 @@ export function partesDelNombre(titulo: string): { jefe: string; sub: string | n
 
 export type GrupoJefe<T extends { titulo: string } = ChatCentro> = { clave: string; jefe: string; chat: T | null; subs: T[] };
 
+// ── UN CHAT POR TAB (10/11/2026) ────────────────────────────────────────────────────────────────────────────────────────────
+// Martín: «se están creando una cantidad de chats impresionante… La idea era tener un chat por cada tab de MaKo o cada funcionalidad
+// que se esté desarrollando». La cuenta 1 tenía 178 chats, casi todos con título de tarea («Borrar la co-edición del editor de
+// imágenes»), y cada uno era una fila. Ahora la fila es la TAB: el chat que se llama como ella es su cabeza y los demás —sus
+// sub-chats y los de tarea— van adentro, plegados (PiezasCentro.tsx y ChatsMovil.tsx). La regla de AGENTS.md («UN CHAT POR TAB») es
+// cómo se nombra; esto es cómo se ve cuando no se cumplió.
+
+/** Una tab y los nombres que la nombran, normalizados (app/admin/operaciones/tabs.ts → indiceDeTabs, en el servidor). */
+/** `propios`: los nombres con que un chat ES el jefe de la tab (los de la barra); sin la lista, sólo el nombre de la tab. */
+export type TabDelIndice = { tab: string; nombres: readonly string[]; propios?: readonly string[] };
+/** De qué tab es un chat, y si es SU chat (se llama como ella, sin sub-chat). */
+export type TabDelChat = { tab: string; jefe: boolean };
+
+/** Los nombres de una palabra que son castellano de todos los días: buscados adentro de un título agruparían cualquier tarea
+ *  («arreglar el plan de pagos», «los chats», «el video del curso»). Como el nombre ENTERO del chat, sí valen. */
+const NOMBRES_COMUNES = new Set(['plan', 'general', 'chats', 'api', 'ideas', 'today', 'sales', 'create', 'marketing', 'dev', 'docs', 'grafo', 'web', 'copy', 'retro', 'email', 'video', 'mindset', 'calendario', 'pricing', 'perfil', 'documentacion']);
+const palabras = (s: string) => ` ${normal(s).replace(/[^a-z0-9ñ]+/g, ' ').trim()} `;
+const indicesArmados = new WeakMap<readonly TabDelIndice[], { porNombre: Map<string, string>; propios: Set<string>; frases: Array<{ frase: string; tab: string }> }>();
+function armarIndice(indice: readonly TabDelIndice[]) {
+  let a = indicesArmados.get(indice);
+  if (!a) {
+    const porNombre = new Map<string, string>();
+    const propios = new Set<string>();
+    const frases: Array<{ frase: string; tab: string }> = [];
+    for (const t of indice) {
+      for (const n of [t.tab, ...(t.propios ?? [])]) propios.add(normal(n));
+      for (const n of t.nombres) {
+        const k = normal(n);
+        if (!k || porNombre.has(k)) continue;
+        porNombre.set(k, t.tab);
+        const f = palabras(k);
+        if (f.trim().length >= 3 && (f.trim().includes(' ') || !NOMBRES_COMUNES.has(f.trim()))) frases.push({ frase: f, tab: t.tab });
+      }
+    }
+    frases.sort((x, y) => y.frase.length - x.frase.length);
+    a = { porNombre, propios, frases };
+    indicesArmados.set(indice, a);
+  }
+  return a;
+}
+
+/**
+ * La tab de un chat (10/11/2026), en este orden, del dato más firme al más flojo:
+ *   1. su nombre: «CRM» o «CRM › Lead Detail» (la convención del jefe), o un nombre de la tab («Image Editor» es «Image»);
+ *   2. el área de su bitácora (`area`: donde más anotó), que es lo medido;
+ *   3. una tab nombrada ADENTRO de su título, la frase más larga («Arreglar el kanban del CRM», «… del editor de imágenes»).
+ * null = no se sabe: va solo en la lista, como hasta ahora. El Cerebro no pasa por acá (`seccionesDeChats` lo separa antes).
+ */
+export function tabDeChat(c: { titulo: string; area?: string }, indice: readonly TabDelIndice[] | undefined): TabDelChat | null {
+  const { jefe, sub } = partesDelNombre(c.titulo);
+  // El Cerebro y sus sub-chats son del Cerebro, aunque su título nombre una tab («Cerebro › Integración»).
+  if (esCerebro(jefe)) return { tab: CEREBRO, jefe: !sub };
+  if (!indice?.length) return null;
+  const { porNombre, propios, frases } = armarIndice(indice);
+  // Es el JEFE sólo con un nombre propio de la tab («CRM», «Image Editor»); con un alias («Lead Insights») va adentro, con su nombre
+  // como la función (la revisión del 10/11/2026: si no, «Lead Insights» le sacaba la cabeza a «CRM»).
+  const porSuNombre = porNombre.get(normal(jefe));
+  if (porSuNombre) return { tab: porSuNombre, jefe: !sub && propios.has(normal(jefe)) };
+  // «Stripe › Dashboard de cobros» es de su jefe, «Stripe» (la convención): se busca la tab sólo en esa parte, nunca en el sub.
+  if (sub) {
+    const f = frases.find((x) => palabras(jefe).includes(x.frase));
+    return f ? { tab: f.tab, jefe: false } : null;
+  }
+  if (c.area) {
+    const porArea = porNombre.get(normal(c.area));
+    if (porArea) return { tab: porArea, jefe: false };
+  }
+  const titulo = palabras(c.titulo);
+  const f = frases.find((x) => titulo.includes(x.frase));
+  return f ? { tab: f.tab, jefe: false } : null;
+}
+
 /**
  * La lista agrupada por jefe, en el orden en que llega (lo que trabaja arriba): el grupo va donde aparece el primero
  * de los suyos. Un sub-chat cuyo jefe no está en la lista igual se agrupa bajo su nombre (`chat: null`).
+ * Con `tabDe` (10/11/2026, `tabDeChat`) el grupo es la TAB: también se juntan ahí los chats de tarea de esa tab, y la cabeza es el que
+ * se llama como ella. Sin tab, el de siempre: por la parte de antes del «›».
  */
-export function porJefe<T extends { titulo: string } = ChatCentro>(chats: readonly T[]): GrupoJefe<T>[] {
+export function porJefe<T extends { titulo: string } = ChatCentro>(chats: readonly T[], tabDe?: (c: T) => TabDelChat | null): GrupoJefe<T>[] {
   const grupos = new Map<string, GrupoJefe<T>>();
   for (const c of chats) {
     const { jefe, sub } = partesDelNombre(c.titulo);
-    const k = normal(jefe);
-    if (!grupos.has(k)) grupos.set(k, { clave: `jefe:${k}`, jefe, chat: null, subs: [] });
+    const t = tabDe?.(c) ?? null;
+    const nombre = t ? t.tab : jefe;
+    const esCabeza = t ? t.jefe : !sub;
+    const k = normal(nombre);
+    if (!grupos.has(k)) grupos.set(k, { clave: `jefe:${k}`, jefe: nombre, chat: null, subs: [] });
     const g = grupos.get(k)!;
-    if (sub) g.subs.push(c); else { g.chat = c; g.jefe = c.titulo; }
+    // Dos que se llaman como la tab («Image» y «Image Editor»): la cabeza es el que se llama EXACTO como ella, y si no, el primero.
+    const exacto = (x: T) => normal(partesDelNombre(x.titulo).jefe) === k;
+    if (esCabeza && !g.chat) { g.chat = c; g.jefe = c.titulo; }
+    else if (esCabeza && t && exacto(c) && !exacto(g.chat!)) { g.subs.unshift(g.chat!); g.chat = c; g.jefe = c.titulo; }
+    else g.subs.push(c);
   }
+  // Por tab, un chat de tarea SOLO en su tab es su propia fila: con el nombre de la tab arriba y él adentro, una tab de un chat
+  // ocupaba dos renglones (y plegado, uno que no decía nada).
+  if (tabDe) for (const g of grupos.values()) if (!g.chat && g.subs.length === 1) { g.chat = g.subs[0]; g.subs = []; }
   return [...grupos.values()];
+}
+
+/**
+ * Lo que se ve de un grupo con sus chats PLEGADOS (10/11/2026): la cabeza (o el nombre de la tab), los de adentro que no se pueden
+ * esconder —los que esperan a Martín, trabajan o se están mirando (`siempre`)— y cuántos quedan detrás de «Mostrar N chats». Abierto,
+ * todos. Lo usan la computadora y el teléfono.
+ */
+export function plegarGrupo<T extends { titulo: string }>(g: GrupoJefe<T>, abierto: boolean, siempre: (c: T) => boolean): { subs: T[]; ocultos: number } {
+  // Uno solo sin cabeza no se pliega: plegado no quedaría nada que diga de qué es el «Mostrar 1 chat».
+  if (abierto || (!g.chat && g.subs.length <= 1)) return { subs: g.subs, ocultos: 0 };
+  const subs = g.subs.filter(siempre);
+  return { subs, ocultos: g.subs.length - subs.length };
+}
+
+/** Un renglón de la lista del teléfono: un chat (corrido si es de adentro), el nombre de una tab sin chat propio, o «Ver N más». */
+export type FilaDeGrupos<T> = { tipo: 'chat'; c: T; sub: boolean } | { tipo: 'tab'; clave: string; nombre: string } | { tipo: 'plegados'; clave: string; n: number };
+
+/**
+ * Los grupos en renglones, plegados (10/11/2026; el teléfono, app/m/operaciones/ChatsMovil.tsx). La cabeza (o, sin chat que se llame
+ * como la tab, su nombre, cuando son varios), los de adentro que se ven, y «Ver N más» si quedan plegados. Un sub-chat solo cuyo jefe
+ * no está va con su nombre entero, sin correrse (23/10/2026: corrido, parecía colgado del de arriba).
+ */
+export function filasDeGrupos<T extends { titulo: string }>(grupos: readonly GrupoJefe<T>[], abiertos: ReadonlySet<string>, siempre: (c: T) => boolean): FilaDeGrupos<T>[] {
+  return grupos.flatMap((g): FilaDeGrupos<T>[] => {
+    const { subs, ocultos } = plegarGrupo(g, abiertos.has(g.clave), siempre);
+    const varios = subs.length + ocultos > 1;
+    const cabeza: FilaDeGrupos<T>[] = g.chat ? [{ tipo: 'chat', c: g.chat, sub: false }] : varios ? [{ tipo: 'tab', clave: g.clave, nombre: g.jefe }] : [];
+    const adentro: FilaDeGrupos<T>[] = subs.map((c) => ({ tipo: 'chat', c, sub: !!g.chat || varios }));
+    return [...cabeza, ...adentro, ...(ocultos > 0 ? [{ tipo: 'plegados' as const, clave: g.clave, n: ocultos }] : [])];
+  });
 }
 
 /** Una línea de la conversación de un chat, como en Grok: lo que pidió Martín y lo que hizo el chat. */
@@ -724,6 +839,8 @@ export function piezaParaLaApi(p: PiezaDelHilo, chat: string) {
       tipo: 'pregunta' as const, de: chat, id: q.id, at: q.at, pregunta: q.pregunta, opciones: q.opciones.map((o) => o.titulo),
       respuesta, abierta: !q.respuesta && !(p.trabajo && p.trabajo.estado !== 'cancelado') && estaAbierta(q),
       ...(q.ignorada && !q.respuesta ? { ignorada: q.ignorada } : {}),
+      // La técnica que llegó igual (10/11/2026): abierta para su chat, y Martín no la ve. Para el Cerebro: la decide el chat.
+      ...(estaAbierta(q) && !llegaAMartin(q) ? { para_el_chat: true } : {}),
     };
   }
   if (p.tipo === 'trabajo') {
@@ -745,9 +862,10 @@ export function primeraOracion(texto: string, tope = 140): string {
 /** ¿La respuesta de esta línea está en camino? Un trabajo CANCELADO no lo está (lo canceló Martín en la cola, o salió de una pregunta
  *  ignorada: `MOTIVO_IGNORADA`): la pregunta vuelve a poder contestarse si sigue abierta (5/11/2026). */
 const respuestaEnCamino = (l: Extract<LineaChat, { tipo: 'pregunta' }>): boolean => !!l.trabajo && l.trabajo.estado !== 'cancelado';
-/** Las abiertas de este chat cuya respuesta todavía no salió (la línea no tiene su trabajo), la más vieja primero. */
-const abiertasSinRespuesta = (lineas: readonly LineaChat[]): PreguntaChat[] =>
-  lineas.flatMap((l) => (l.tipo === 'pregunta' && !respuestaEnCamino(l) && estaAbierta(l.pregunta) ? [l] : []))
+/** Las abiertas de este chat cuya respuesta todavía no salió (la línea no tiene su trabajo), la más vieja primero. `todas`: también
+ *  las técnicas (10/11/2026): no le llegan a Martín, pero una de la app de Claude igual traba al chat (`chatTrabadoEnLaApp`). */
+const abiertasSinRespuesta = (lineas: readonly LineaChat[], todas = false): PreguntaChat[] =>
+  lineas.flatMap((l) => (l.tipo === 'pregunta' && !respuestaEnCamino(l) && (todas ? estaAbierta(l.pregunta) : esperaAMartinEnElChat(l.pregunta)) ? [l] : []))
     .sort((a, b) => a.instante - b.instante).map((l) => l.pregunta);
 
 /** Las de este chat que Martín IGNORÓ (5/11/2026), la última ignorada primero: van a «Ignoradas», con «Volver a mostrar». */
@@ -763,6 +881,9 @@ export const preguntasIgnoradas = (lineas: readonly LineaChat[]): PreguntaChat[]
 export const preguntasParaElBloque = (lineas: readonly LineaChat[]): PreguntaChat[] => abiertasSinRespuesta(lineas).filter((p) => !seContestaEnLaApp(p));
 /** Las que el chat le hizo con AskUserQuestion en la app de Claude (cartero 1.18.0): se VEN arriba de la caja, de sólo lectura. */
 export const preguntasDeLaApp = (lineas: readonly LineaChat[]): PreguntaChat[] => abiertasSinRespuesta(lineas).filter(seContestaEnLaApp);
+/** ¿El chat está trabado en un AskUserQuestion? Con CUALQUIERA abierta, también una técnica que Martín no ve: lo que se le escribe
+ *  espera igual, y la línea del envío lo tiene que decir (Conversacion.tsx y ChatsMovil.tsx → `trabado`). */
+export const chatTrabadoEnLaApp = (lineas: readonly LineaChat[]): boolean => abiertasSinRespuesta(lineas, true).some(seContestaEnLaApp);
 
 /** Un chat que trabaja y todavía no escribió nada lo dice (Martín, 17/10/2026: «No puede haber un chat en "trabajando"
  *  sin nada escrito»): nunca una conversación vacía. null = escribió algo, o no está trabajando. */
@@ -1356,6 +1477,25 @@ export const ROTULO_GRUPO_CHAT: Record<GrupoChat, string> = {
 };
 const DESFASE_AR = 3 * 3_600_000;
 
+/**
+ * ¿Duerme? Sin actividad hace `DIAS_DORMIDO` días y sin estar trabajando AHORA (10/11/2026, Martín: «se están creando una cantidad de
+ * chats impresionante»; ese día la cuenta 1 tenía 178 chats y 93 con actividad en tres días). Un chat dormido sale de la lista (se
+ * encuentra buscándolo), salvo que espere algo de Martín (`vaEnLaLista`). La actividad es la de la app, su último hito o lo último que
+ * se le mandó (`completarChats`): escribirle lo despierta.
+ */
+export const DIAS_DORMIDO = 3;
+// ⚠️ SIN actividad conocida NO duerme (la revisión del 10/11/2026): los chats de la nube suben sin ella, y un «no sé» no esconde.
+export const chatDormido = (c: Pick<ChatCentro, 'estado' | 'viejo' | 'actividad'>, ahora: number): boolean =>
+  !(c.estado === 'trabajando' && !c.viejo) && c.actividad != null && ahora - c.actividad >= DIAS_DORMIDO * 86_400_000;
+
+/**
+ * ¿Va en la lista? Lo que no duerme, el Cerebro, el chat que se está mirando y el que ESPERA algo de Martín (`espera`: una pregunta
+ * suya o un «Completado» sin ver, `esPrioritario`): dormido o no, eso no se esconde (la revisión del 10/11/2026: un precio preguntado
+ * el viernes desaparecía el lunes, sin dónde contestarlo). Buscando, todo.
+ */
+export const vaEnLaLista = (c: ChatCentro, ahora: number, actual: string | null, buscando: boolean, espera = false): boolean =>
+  buscando || espera || c.clave === actual || esCerebro(partesDelNombre(c.titulo).jefe) || !chatDormido(c, ahora);
+
 export function grupoDeChat(c: Pick<ChatCentro, 'estado' | 'viejo' | 'actividad'>, ahora: number): GrupoChat {
   if (c.estado === 'trabajando' && !c.viejo) return 'ahora';
   if (c.actividad == null) return 'antes';
@@ -1924,13 +2064,14 @@ export function gruposDelAvance(nodos: readonly NodoAvance[]): GrupoAvance[] {
 export type DecisionEspera = Decision;
 
 export function esperasPorChat(
-  decisiones: readonly Pick<Decision, 'chat' | 'destino' | 'respuesta' | 'ignoradaAt'>[], carteros: readonly Pick<CarteroP, 'cuenta' | 'chats'>[],
+  decisiones: readonly (Pick<Decision, 'chat' | 'destino' | 'respuesta' | 'ignoradaAt'> & Partial<Pick<Decision, 'pregunta' | 'contexto' | 'opciones'>>)[],
+  carteros: readonly Pick<CarteroP, 'cuenta' | 'chats'>[],
 ): Record<string, number> {
   const chats = carteros.flatMap((k) => k.chats.map((c) => ({ ...c, cuenta: c.cuenta ?? k.cuenta })));
   const out: Record<string, number> = {};
   for (const d of decisiones) {
-    // Una ignorada desde el Ops Center (5/11/2026) no espera a Martín: no sube el globito.
-    if (d.respuesta != null || d.ignoradaAt) continue;
+    // Una ignorada desde el Ops Center (5/11/2026) o una técnica (10/11/2026) no espera a Martín: no sube el globito.
+    if (!esperaAMartin(d)) continue;
     // Con su sesión es exacto, aunque ningún cartero vea ese chat ahora: la clave de la lista ES la sesión.
     if (d.destino && DESTINO_RE.test(d.destino)) { out[d.destino] = (out[d.destino] ?? 0) + 1; continue; }
     const r = destinoDeDecision({ chat: d.chat, destino: d.destino ?? null }, chats);

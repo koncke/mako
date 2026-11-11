@@ -264,6 +264,30 @@ export function datosDeDecision(p: PerfilCopiloto): DatosDeDecision | null {
   return datosDe(completar({ ...p, llamadas: p.llamadas ?? (p.vende === 'tienda' ? 'nadie' : undefined) }));
 }
 
+/**
+ * Para comparar funnels y recomendar uno (10/11/2026): SÓLO lo que la persona dijo, sin completar nada. `datosDeDecision` completa lo
+ * que el funnel ELEGIDO no pregunta («orgánico no lleva plata») y eso vale para juzgar ése; para los otros ocho, no. Medido en
+ * producción: con Julián Otálora (enseña sólo orgánico) y el ticket contestado, «Comparar funnels» decía «Con $0 al mes los anuncios no
+ * juntan datos» en cada funnel con anuncios y «MaKo lo recomienda» en Lead magnets, sin que nadie hubiera preguntado el presupuesto.
+ */
+export function datosDichos(p: PerfilCopiloto): DatosDeDecision | null {
+  const llamadas = p.llamadas ?? (p.vende === 'tienda' ? 'nadie' : undefined);
+  if (p.ticket == null || p.presupuestoMes == null || !llamadas) return null;
+  return datosDe({ ...p, llamadas });
+}
+
+/** Cómo se nombra lo que falta: a la persona en el panel (`tu`), o de ella en el contexto del agente (`el`). */
+export type VozFalta = 'tu' | 'el';
+/** Lo que falta para comparar los funnels con sus números. Vacío: ya se puede. */
+export function faltaParaComparar(p: PerfilCopiloto, voz: VozFalta = 'tu'): string[] {
+  const tu = voz === 'tu';
+  return [
+    p.ticket == null ? (tu ? 'cuánto te deja una venta' : 'cuánto le deja una venta') : null,
+    p.presupuestoMes == null ? (tu ? 'cuánto puedes poner en anuncios por mes' : 'cuánto puede poner en anuncios') : null,
+    p.llamadas || p.vende === 'tienda' ? null : (tu ? 'quién atiende a tus clientes' : 'quién atiende'),
+  ].filter((x): x is string => !!x);
+}
+
 /** El aviso pendiente (el funnel elegido no sirve y no contestó), o null. */
 export function avisoPendiente(p: PerfilCopiloto): Veredicto | null {
   const f = funnelDe(p);
@@ -300,7 +324,8 @@ function completar(p: PerfilCopiloto): PerfilCopiloto {
 }
 
 const us = (n: number) => fmtDinero(n);
-export const TICKETS = [200, 500, 1000, 3000, 5000, 10000] as const;
+// $50 y $100 (10/11/2026): una tienda o un curso chico no tenía opción y, sin la app de escritorio, tampoco podía escribirlo.
+export const TICKETS = [50, 100, 200, 500, 1000, 3000, 5000, 10000] as const;
 export const PRESUPUESTOS = [300, 600, 1000, 2000, 5000] as const;
 const NADA = 'Nada por ahora';
 const RITMOS_ORGANICO = [3, 5, 7] as const;
@@ -367,6 +392,15 @@ export function opcionesDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto): strin
   }
 }
 
+/**
+ * El perfil como estaba al llegar al paso «ajuste» (10/11/2026): la charla se vuelve a dibujar con el perfil de AHORA, y con el funnel
+ * que propuso MaKo ya elegido (que sí sirve) el aviso salía «¿Seguimos?» y la respuesta «Sí, cambiemos»: se perdía por qué cambió.
+ */
+function perfilDelAjuste(p: PerfilCopiloto): PerfilCopiloto {
+  if (p.ajuste === 'cambio' && p.antesDelAjuste) return { ...p, funnel: p.antesDelAjuste.funnel, referente: p.antesDelAjuste.referente, ajuste: undefined, antesDelAjuste: undefined };
+  return { ...p, ajuste: undefined };
+}
+
 /** Lo que pregunta MaKo. */
 export function preguntaDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto, nombre = 'equipo'): string {
   const f = funnelElegido(p);
@@ -384,7 +418,7 @@ export function preguntaDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto, nombre
     case 'presupuesto': return '¿Cuánto puedes poner en anuncios por mes? Es lo que puedes perder sin quedar afuera, no lo que te gustaría.';
     case 'llamadas': return '¿Quién toma las llamadas o contesta los mensajes de quien se interesa?';
     case 'ajuste': {
-      const v = avisoPendiente(completar(p));
+      const v = avisoPendiente(completar(perfilDelAjuste(p)));
       const alt = v?.mejor ? funnelPorId(v.mejor.funnel) : null;
       return v && alt ? `${v.motivo} Con lo que me cuentas, propongo ${enFrase(alt.nombre)}. ${v.mejor!.porque}` : '¿Seguimos?';
     }
@@ -407,7 +441,8 @@ export function respuestaDeCopiloto(paso: PasoCopiloto, p: PerfilCopiloto): stri
     case 'ticket': return p.ticket != null ? us(p.ticket) : null;
     case 'presupuesto': return p.presupuestoMes != null ? (p.presupuestoMes === 0 ? NADA : `${us(p.presupuestoMes)} al mes`) : null;
     case 'llamadas': return p.llamadas ? { yo: 'Yo', equipo: 'Un equipo', nadie: 'Nadie todavía' }[p.llamadas] : null;
-    case 'ajuste': return p.ajuste === 'cambio' ? 'Sí, cambiemos' : p.ajuste === 'sigo' ? 'Sigo con el mío' : null;
+    // Lo que tocó: «Sí, anuncios a mensajes» (el botón dice el funnel), no un «Sí, cambiemos» que no estaba en pantalla.
+    case 'ajuste': { const nuevo = funnelPorId(p.funnel); return p.ajuste === 'cambio' ? (nuevo ? `Sí, ${enFrase(nuevo.nombre)}` : 'Sí, cambiemos') : p.ajuste === 'sigo' ? 'Sigo con el mío' : null; }
     case 'objetivo': return p.objetivo ? { viralidad: 'Viralidad', ventas: 'Ventas', mixto: 'Un poco de cada' }[p.objetivo] : null;
     case 'ritmo': return p.ritmo != null ? (funnelDe(p) === 'youtube' ? `${p.ritmo} por semana` : `${p.ritmo} piezas por semana`) : null;
     case 'formato': return p.formato ? { reels: 'Reels', stories: 'Stories', carruseles: 'Carruseles', mezcla: 'Una mezcla', largos: 'Videos largos', shorts: 'Shorts' }[p.formato] : null;
@@ -698,6 +733,8 @@ export const RUTAS_COPILOTO = {
   calendario: '/calendario', carruseles: '/image-editor/carruseles', copywriter: '/copywriter', leadMagnets: '/lead-magnet-generator',
   competencia: '/competitor-spy', web: '/web-generator', video: '/video-editor', avatar: '/ai-avatar',
   email: '/email', chats: '/chats', crm: '/crm', integraciones: '/integraciones',
+  // «Lanzar el primer anuncio» era el único paso de la semana sin botón (producción, 10/11/2026): la pantalla existe.
+  nueva: '/ads-manager/nueva',
 } as const;
 
 /** Los números con su condición, nunca como promesa. */
@@ -705,9 +742,12 @@ function numerosDeAnuncios(f: IdFunnel, presupuestoMes: number): string[] {
   if (presupuestoMes <= 0) return [];
   const dia = Math.round(presupuestoMes / 30);
   const out = [`${us(presupuestoMes)} al mes son unos ${us(dia)} por día.`];
-  if (f === 'vsl-llamada' || f === 'formulario' || f === 'mensajes') {
+  if (f === 'vsl-llamada' || f === 'formulario') {
     out.push(`Como referencia conservadora, una agenda cuesta entre ${us(100)} y ${us(300)}; con tu presupuesto serían entre ${Math.floor(presupuestoMes / 300)} y ${Math.floor(presupuestoMes / 100)} agendas al mes. El tuyo puede ser otro, y se mide por llamada calificada, no por contacto.`);
   }
+  // En mensajes no hay agenda: la referencia de una agenda no vale, y no hay una de conversaciones (10/11/2026: la propuesta decía «se
+  // mide por conversación calificada» y en la línea siguiente «agendas… se mide por llamada calificada»). Se dice qué se mide.
+  if (f === 'mensajes') out.push('Cuánto cuesta cada conversación calificada lo dicen tus primeras dos semanas: no hay una referencia que sirva para todos.');
   if (dia < 50 && f === 'vsl-llamada') out.push('Con menos de US$50 por día un VSL con llamada tarda en aprender.');
   return out;
 }
@@ -726,23 +766,23 @@ export function propuestaDe(p: PerfilCopiloto): Propuesta | null {
   switch (f.id) {
     case 'vsl-llamada':
       puntos = ['Anuncio que filtra, página con el video de venta y la agenda en el mismo paso.', 'Entre la agenda y la llamada: confirmación con un video y correos con valor.', ...plata];
-      pasos = [...investigar, { texto: 'Escribir el guion del video de venta', href: R.copywriter }, { texto: 'Armar la página con la agenda', href: R.web }, { texto: 'Lanzar el primer anuncio, en pausa hasta que lo revises' }];
+      pasos = [...investigar, { texto: 'Escribir el guion del video de venta', href: R.copywriter }, { texto: 'Armar la página con la agenda', href: R.web }, { texto: 'Lanzar el primer anuncio, en pausa hasta que lo revises', href: R.nueva }];
       break;
     case 'mensajes':
       puntos = ['El anuncio abre una conversación y alguien responde rápido.', 'Se mide por conversación calificada, no por mensaje.', ...plata];
-      pasos = [...investigar, { texto: 'Escribir el mensaje que abre el anuncio', href: R.copywriter }, { texto: 'Crear el video o la imagen', href: R.video }, { texto: 'Lanzar el primer anuncio, en pausa hasta que lo revises' }];
+      pasos = [...investigar, { texto: 'Escribir el mensaje que abre el anuncio', href: R.copywriter }, { texto: 'Crear el video o la imagen', href: R.video }, { texto: 'Lanzar el primer anuncio, en pausa hasta que lo revises', href: R.nueva }];
       break;
     case 'formulario':
       puntos = ['Formulario con hasta tres preguntas: una confirma que es el lugar, otra filtra por plata y otra por tiempo.', 'Más fricción trae menos gente y mejor.', ...plata];
-      pasos = [...investigar, { texto: 'Escribir el anuncio y las preguntas', href: R.copywriter }, { texto: 'Lanzar el primer anuncio, en pausa hasta que lo revises' }];
+      pasos = [...investigar, { texto: 'Escribir el anuncio y las preguntas', href: R.copywriter }, { texto: 'Lanzar el primer anuncio, en pausa hasta que lo revises', href: R.nueva }];
       break;
     case 'carrito':
       puntos = ['Anuncio, página de venta y carrito: no hay llamada.', 'Retargeting a quien miró y no compró.', ...plata];
-      pasos = [...investigar, { texto: 'Armar la página de venta', href: R.web }, { texto: 'Crear los anuncios', href: R.video }, { texto: 'Lanzar el primero, en pausa hasta que lo revises' }];
+      pasos = [...investigar, { texto: 'Armar la página de venta', href: R.web }, { texto: 'Crear los anuncios', href: R.video }, { texto: 'Lanzar el primero, en pausa hasta que lo revises', href: R.nueva }];
       break;
     case 'webinar':
       puntos = ['Anuncio al registro, la clase y la oferta al final.', 'Se mide registro, asistencia y agendas: dónde se cae la gente dice qué arreglar.', ...plata];
-      pasos = [...investigar, { texto: 'Armar la página de registro', href: R.web }, { texto: 'Escribir los correos de recordatorio', href: R.copywriter }, { texto: 'Lanzar el anuncio, en pausa hasta que lo revises' }];
+      pasos = [...investigar, { texto: 'Armar la página de registro', href: R.web }, { texto: 'Escribir los correos de recordatorio', href: R.copywriter }, { texto: 'Lanzar el anuncio, en pausa hasta que lo revises', href: R.nueva }];
       break;
     case 'lead-magnet':
       puntos = ['Un regalo útil a cambio del contacto, y una secuencia que lo prepara para comprar.', 'Los anuncios, si los hay, llevan al regalo, no a la venta.', ...plata];
@@ -890,6 +930,7 @@ export const PANTALLA_DE_RUTA: Readonly<Record<string, string>> = {
   [RUTAS_COPILOTO.copywriter]: 'Copywriting', [RUTAS_COPILOTO.video]: 'Video', [RUTAS_COPILOTO.web]: 'Web Generator', [RUTAS_COPILOTO.leadMagnets]: 'Lead Magnet',
   [RUTAS_COPILOTO.carruseles]: 'Carruseles', [RUTAS_COPILOTO.calendario]: 'Calendario', [RUTAS_COPILOTO.competencia]: 'Competitor Spy', [RUTAS_COPILOTO.email]: 'Email',
   [RUTAS_COPILOTO.chats]: 'Chats', [RUTAS_COPILOTO.crm]: 'CRM', [RUTAS_COPILOTO.avatar]: 'AI Avatar', [RUTAS_COPILOTO.integraciones]: 'Integraciones',
+  [RUTAS_COPILOTO.nueva]: 'Nueva campaña',
 };
 
 export type PasoDeLaSemana = { texto: string; detalle: string; href?: string; pantalla: string | null; accion: string };
@@ -1098,23 +1139,24 @@ export function recorridoDe(p: PerfilCopiloto): Etapa[] {
   const anuncio = dia ? `Anuncios en Meta (unos ${us(dia)} por día)` : 'Anuncios en Meta';
   const conCasos = p.casos === 'si' ? 'tus casos reales' : 'casos reales (cuando los tengas: nunca se inventan)';
   // «con tu equipo» / «contigo» (no «con tú»: salió así en la primera captura del panel, 9/11/2026).
-  const conQuien = p.llamadas === 'equipo' ? 'con tu equipo' : 'contigo';
+  // Quién llama, sólo si lo dijo (10/11/2026: «Llamada de venta contigo» salía antes de preguntar quién llama). «Nadie» también lo dice.
+  const conQuien = p.llamadas === 'equipo' ? 'con tu equipo' : p.llamadas === 'yo' ? 'contigo' : p.llamadas === 'nadie' ? '(todavía no hay quien la tome)' : '';
   switch (f) {
     case 'vsl-llamada': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} que filtran desde el texto.`, accion: { texto: 'Escribir los anuncios', href: R.copywriter } },
       { id: 'captar', titulo: 'Agendar', que: 'Página con el video de venta y la agenda en el mismo paso.', accion: { texto: 'Armar la página', href: R.web } },
       { id: 'convencer', titulo: 'Preparar', que: `Confirmación con un video corto y ${conCasos} antes de la llamada.`, accion: { texto: 'Escribir los correos', href: R.copywriter } },
-      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada de venta ${conQuien}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada de venta${conQuien ? ` ${conQuien}` : ''}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'mensajes': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} que abren una conversación.`, accion: { texto: 'Escribir los anuncios', href: R.copywriter } },
       { id: 'captar', titulo: 'Conversar', que: 'WhatsApp o Instagram con un mensaje ya escrito. Responder rápido es la regla.', accion: { texto: 'Abrir Chats', href: R.chats } },
       { id: 'convencer', titulo: 'Convencer', que: `En la charla, ${conCasos} y una pregunta que filtre.` },
-      { id: 'cerrar', titulo: 'Cobrar', que: p.ticket != null && p.ticket <= UMBRALES.ticketCarrito ? 'Link de pago en la misma charla y un seguimiento a las 24 horas.' : `Llamada corta ${conQuien} o link de pago.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cobrar', que: p.ticket != null && p.ticket <= UMBRALES.ticketCarrito ? 'Link de pago en la misma charla y un seguimiento a las 24 horas.' : `Llamada corta${conQuien ? ` ${conQuien}` : ''} o link de pago.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'formulario': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} con un formulario dentro de Meta.`, accion: { texto: 'Escribir los anuncios', href: R.copywriter } },
       { id: 'captar', titulo: 'Filtrar', que: 'Hasta tres preguntas: que es el lugar, la plata y el tiempo. Teléfono obligatorio.' },
       { id: 'convencer', titulo: 'Contactar', que: 'Llamar o escribir en minutos, no en horas: un lead frío no contesta.', accion: { texto: 'Abrir Chats', href: R.chats } },
-      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada o visita ${conQuien}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada o visita${conQuien ? ` ${conQuien}` : ''}.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'carrito': return [
       { id: 'atraer', titulo: 'Atraer', que: `${anuncio} optimizados a compra, con el producto en uso.`, accion: { texto: 'Crear los anuncios', href: R.video } },
       { id: 'captar', titulo: 'Mostrar', que: 'Página del producto con fotos reales, precio claro y envío.', accion: { texto: 'Armar la página', href: R.web } },
@@ -1124,12 +1166,12 @@ export function recorridoDe(p: PerfilCopiloto): Etapa[] {
       { id: 'atraer', titulo: 'Atraer', que: dia ? `${anuncio} al registro.` : 'Tu contenido y tu lista, al registro.', accion: { texto: 'Armar el registro', href: R.web } },
       { id: 'captar', titulo: 'Registrar', que: 'Correos y recordatorios con valor, no sólo la hora.', accion: { texto: 'Escribirlos', href: R.copywriter } },
       { id: 'convencer', titulo: 'Enseñar', que: `Una clase de 45 a 60 minutos con ${conCasos} y la oferta al final.` },
-      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada ${conQuien} para quien levantó la mano.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: `Llamada${conQuien ? ` ${conQuien}` : ''} para quien levantó la mano.`, accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'lead-magnet': return [
       { id: 'atraer', titulo: 'Atraer', que: dia ? `${anuncio} al regalo, no a la venta.` : 'Tu contenido, con el regalo como llamado.', accion: { texto: 'Crear el regalo', href: R.leadMagnets } },
       { id: 'captar', titulo: 'Captar', que: 'Una página con una promesa, una imagen y el formulario.', accion: { texto: 'Armar la página', href: R.web } },
       { id: 'convencer', titulo: 'Nutrir', que: 'Tres o cuatro correos que enseñan y terminan en una conversación.', accion: { texto: 'Escribir la secuencia', href: R.email } },
-      { id: 'cerrar', titulo: 'Cerrar', que: p.llamadas && p.llamadas !== 'nadie' ? `Conversación o llamada ${conQuien}.` : 'Una oferta directa al final de la secuencia.', accion: { texto: 'Ver el CRM', href: R.crm } }];
+      { id: 'cerrar', titulo: 'Cerrar', que: p.llamadas && p.llamadas !== 'nadie' ? `Conversación o llamada${conQuien ? ` ${conQuien}` : ''}.` : 'Una oferta directa al final de la secuencia.', accion: { texto: 'Ver el CRM', href: R.crm } }];
     case 'email': return [
       { id: 'atraer', titulo: 'Reconectar', que: p.lista ? `Un correo corto a tus ${p.lista} contactos, en tandas, que invite a contestar.` : 'Un correo corto, en tandas, que invite a contestar.', accion: { texto: 'Escribirlo', href: R.copywriter } },
       { id: 'captar', titulo: 'Escuchar', que: 'Quien contesta es tu lead más caliente: se le escribe uno por uno.', accion: { texto: 'Abrir Chats', href: R.chats } },
@@ -1169,7 +1211,8 @@ export function cuentaDe(p: PerfilCopiloto): { lineas: Array<{ etiqueta: string;
 }
 
 /** Cómo se compara cada funnel para ESTE negocio: si le sirve (las mismas reglas de siempre), qué pide y cuánto tarda. */
-export type Comparacion = { funnel: Funnel; sirve: boolean | null; motivo: string | null; pide: string; tarda: string };
+/** `falta`: con `sirve` null, lo que falta saber para decirlo (el email, la lista; los demás, lo de `faltaParaComparar`). */
+export type Comparacion = { funnel: Funnel; sirve: boolean | null; motivo: string | null; falta: string | null; pide: string; tarda: string };
 const TARDA: Readonly<Record<IdFunnel, string>> = {
   'vsl-llamada': 'semanas, si el presupuesto alcanza', mensajes: 'días a semanas', formulario: 'días a semanas', carrito: 'días a semanas',
   webinar: 'un mes por edición', 'lead-magnet': 'semanas a meses', email: 'días, si la lista existe', youtube: 'meses (de 6 a 24)', organico: 'dos o tres meses',
@@ -1179,11 +1222,17 @@ const PIDE: Readonly<Record<IdFunnel, string>> = {
   carrito: 'presupuesto y una página que venda', webinar: 'preparar la clase y alguien que cierre', 'lead-magnet': 'un regalo útil y una secuencia',
   email: 'una lista que te conozca', youtube: 'horas por semana y paciencia', organico: 'constancia y horas por semana',
 };
-export function compararFunnels(p: PerfilCopiloto): Comparacion[] {
-  const d = datosDeDecision(p);
+export function compararFunnels(p: PerfilCopiloto, voz: VozFalta = 'tu'): Comparacion[] {
+  // Con lo que DIJO (`datosDichos`), nunca con lo que se completa para el funnel elegido.
+  const d = datosDichos(p);
+  const falta = faltaParaComparar(p, voz);
   return FUNNELS.map((f) => {
+    // Un email sin saber si hay lista no «sirve»: depende de esa lista (las reglas sólo lo descartan con una chica).
+    if (f.id === 'email' && p.lista == null && (!d || evaluarFunnel(f.id, d).sirve)) {
+      return { funnel: f, sirve: null, motivo: null, falta: voz === 'tu' ? 'cuántos contactos tienes en tu lista' : 'cuántos contactos tiene en su lista', pide: PIDE[f.id], tarda: TARDA[f.id] };
+    }
     const v = d ? evaluarFunnel(f.id, d) : null;
-    return { funnel: f, sirve: v ? v.sirve : null, motivo: v?.motivo ?? null, pide: PIDE[f.id], tarda: TARDA[f.id] };
+    return { funnel: f, sirve: v ? v.sirve : null, motivo: v?.motivo ?? null, falta: v ? null : falta.join(', ') || null, pide: PIDE[f.id], tarda: TARDA[f.id] };
   });
 }
 

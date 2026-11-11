@@ -874,4 +874,14 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/doer-para-quien.ts — `esEcoDeMaKo` · lib/mako-doer-in.ts — `esEcoDeMaKoAhora` y `sinLosEcos`', 'tests/grupos-ops-turno.test.ts (el turno real, tres roturas) · tests/doer-para-quien.test.ts'],
   },
+  {
+    fecha: '10 nov', hora: '20:40', chat: 'Tickets', sesion: 'local_dd6bb6fb-b110-49de-8105-e2755bc74490', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo ya no te abre un pedido «de lo que faltó» cuando hizo todo lo que pediste: el texto de una nota o la hora de una reunión van con su pedido',
+    puntos: [
+      '**Ticket #77 (Giselle, ws 17).** «Agrega una nota al lead María Valeria García, la nota dice: "no contestó mi mensaje"» volvió del clasificador como DOS partes («Agregar nota al lead…» y «Nota: …»). MaKo hizo la única escritura que había y `faltaAlgunaParte` delegó «lo que faltó» al equipo: un pedido vacío en la Ticketera.',
+      '**`partesDe`** junta con la parte anterior la que es sólo un dato («Nota: …», «Hora: …», «Asunto: …»). Sin tocar el prompt del clasificador (tiene su banco).',
+      '**Lo que NO arregla esto, y quedó abierto:** el primer «Si» de Giselle (20:56:59) llegó junto con su pedido siguiente y se perdió: la nota de María Valeria García quedó sin guardar (propuesta 847, vencida) y la de Ana Vallejo, sí.',
+    ],
+    archivos: ['lib/mako-intencion-ia.ts — `RX_DATO_DE_LA_ANTERIOR` en `partesDe`', 'tests/despacho-grupo.test.ts — 16/16; probado rompiéndolo (sin juntar → 15/1)'],
+  },
 ];

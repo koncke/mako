@@ -148,6 +148,34 @@ app/globals.css · *2026-08-16 ~tab-temas (medido con Playwright sobre el build 
 
 ## Tracking y beacon
 
+### ⚠️ «La API no devuelve los clics»: estaban, en otra ruta; y la retención por minuto salía de eventos que ya se guardaban (10/11/2026, tickets #74 y #69)
+
+**Síntoma.** El equipo de Mauricio (con su Codex) volvió dos veces con «`GET /api/v1/landing/landings/comportamiento` sigue
+sin devolver los clics al botón de Stripe ni la retención del video por minuto», después de que el #66 se cerró.
+
+**El diagnóstico obvio era el equivocado.** No faltaban los clics: `listar_clics_landing` existía desde el #66 y en
+producción devolvía 9 clics de 4 personas al botón de Stripe. Faltaba que la pidieran en **su** ruta,
+`/landing/landings/clics`: un cliente que integra por la API pregunta por la ruta que ya conoce, y «está resuelto» no le
+dice dónde. Al contestar uno de estos, va la ruta, los parámetros y un ejemplo con SUS datos.
+
+**Lo que sí faltaba: la retención por minuto.** `vsl_events` trae `segundos` y `video_id` en cada evento de video
+(play, pausa, retoma, fin, exit, sNN, pNN), y la curva de 5 % ya la dibujaba el VSL Analyst (lib/vsl-retencion.ts). Se
+armó `ver_retencion_video_landing` encima de esa misma regla (persona = `visitor_id`, su punto más lejano, `salio` afuera
+porque trae segundos de PÁGINA, denominador = los medidos). Y una que esta página obligó: **el autoplay**. En el sprint,
+425 de 490 personas nunca le dieron play: el video les arrancó solo. Sin separarlas, la curva dice que el 84 % se va
+en el primer minuto, cuando en buena parte nunca quisieron verlo. Va una curva con todos y otra con los que le dieron play.
+
+**Las trampas.** PostgREST corta en 1000 filas SIN error (la lectura va en tandas); `landing_url` llega con utm, fbclid y
+barra final (el filtro exacto va en JS con `normalizarUrl`, después de un `ilike` por dominio); los eventos de un Pixel
+anterior a la v12 no dicen de qué página vienen y no se atribuyen.
+Y una que dio rojo: sumarle `desde`/`hasta` a `listar_clics_landing`, que también sale por el chat y por WhatsApp, sacó otra
+herramienta del tope de caracteres (tests/ops-center-bateria.test.ts, «el piso bajó»). **Una operación que llega al chat no
+puede crecer sin pagarlo otra**: las fechas quedaron sólo en la retención, que sale sólo por HTTP.
+
+**Vive en:** lib/landing-retencion.ts · lib/landing-retencion-server.ts · lib/api-mako/areas/landing.{def,run}.ts ·
+tests/landing-retencion.test.ts · tests/ops-center-bateria.test.ts (el tope)
+*2026-11-10 claude4, chat Tickets*
+
 ### ⚠️ «De qué anuncio vino este lead»: el dato llegaba, se guardaba, y la pantalla decía que no
 
 **Reportado el 22/09/2026 en dos audios del grupo.** Joan: *«en el CRM de MaKo, ¿dónde puedo

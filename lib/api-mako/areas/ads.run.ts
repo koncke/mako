@@ -36,7 +36,7 @@ import { leerPerfilCopiloto, guardarPerfilCopiloto } from '@/lib/media-buyer/cop
 import { METODO_ANUNCIOS, TEMAS_METODO, type TemaMetodo } from '@/lib/media-buyer/copiloto-metodo-anuncios';
 import { esPreguntaHipotetica } from '@/lib/media-buyer/copiloto-pedido';
 import {
-  sanearPerfil, pasoDeCopiloto, propuestaDe, funnelElegido, seccionesDe, recomendarFunnel, evaluarFunnel, aplicarCambio as aplicarPerfil, datosDeDecision,
+  sanearPerfil, pasoDeCopiloto, propuestaDe, funnelElegido, seccionesDe, recomendarFunnel, evaluarFunnel, aplicarCambio as aplicarPerfil, datosDeDecision, datosDichos,
   fichaDelNegocio, compararFunnels, cuentaDe, TIPOS_DE_NEGOCIO, type PerfilCopiloto,
 } from '@/lib/media-buyer/copiloto';
 import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
@@ -1459,13 +1459,15 @@ export const RUNNERS: Runners = {
       const f = funnelElegido(perfil);
       // Sólo con lo que dijo (9/11/2026): antes un presupuesto sin contestar se leía como 0 y todo funnel con anuncios «no le servía».
       const decide = datosDeDecision(perfil);
+      // Recomendar y comparar entre funnels, sin completar nada (10/11/2026): el orgánico de un referente no dice que no hay plata para anuncios.
+      const dichos = datosDichos(perfil);
       const ficha = fichaDelNegocio(perfil);
       return J({
         perfil, paso: pasoDeCopiloto(perfil), funnel: f ? { id: f.id, nombre: f.nombre } : null,
         secciones: seccionesDe(f?.id, perfil.presupuestoMes), propuesta: propuestaDe(perfil),
-        recomendado: decide ? recomendarFunnel(decide) : null, veredicto: f && decide ? evaluarFunnel(f.id, decide) : null,
+        recomendado: dichos ? recomendarFunnel(dichos) : null, veredicto: f && decide ? evaluarFunnel(f.id, decide) : null,
         sabe: ficha.sabe, falta: ficha.falta.map((d) => ({ dato: d.clave, pregunta: d.pregunta, imprescindible: d.imprescindible })),
-        funnels: decide ? compararFunnels(perfil).map((c) => ({ id: c.funnel.id, sirve: c.sirve, motivo: c.motivo, pide: c.pide, tarda: c.tarda })) : null,
+        funnels: dichos ? compararFunnels(perfil).map((c) => ({ id: c.funnel.id, sirve: c.sirve, motivo: c.motivo, falta: c.falta, pide: c.pide, tarda: c.tarda })) : null,
         cuenta: cuentaDe(perfil),
       });
     },

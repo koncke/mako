@@ -76,15 +76,17 @@ test('2. el bloque: el marco de las preguntas, el mensaje, «Ya lo vi» y plegar
     chat: CHAT, lineas, yaVisto: T1, onYaVisto: () => {}, hayPreguntas: false, ...p,
   }));
   const abierto = dibujar();
-  assert.match(abierto, /class="co-preg co-preg--arriba co-preg--completado" role="group" aria-label="Completado: [^"]*la lista ordena/);
-  assert.match(abierto, /class="co-ya__rotulo">Completado</);
+  // Desde el 10/11/2026 el rótulo dice QUÉ se completó (lib/centro-rotulo-completado.ts; acá, sin el índice de tabs, el nombre del
+  // chat): Martín, «que yo rápidamente pueda identificar qué se completó». El lector de pantalla sigue oyendo «Completado».
+  assert.match(abierto, /class="co-preg co-preg--arriba co-preg--completado" role="group" aria-label="Completado · Ops Center: [^"]*la lista ordena/);
+  assert.match(abierto, /class="co-ya__rotulo">Ops Center</);
   assert.match(abierto, /aria-label="Ya lo vi: marcarlo como visto"[^>]*>.*Ya lo vi<\/button>/, 'darlo por visto');
   assert.match(abierto, /aria-label="Ocultar el completado"/, 'plegarlo');
   assert.match(abierto, /Decidido: espera &gt; trabaja\./, 'el mensaje entero, no sólo el título');
   assert.equal((abierto.match(/class="co-ya__cab"/g) ?? []).length, 0, 'sin la cabecera de la tarjeta del hilo: no dice «Completado» dos veces');
   const tira = dibujar({ hayPreguntas: true });
   assert.match(tira, /^<button type="button" class="co-preg co-preg--arriba co-preg--plegada co-preg--completado" aria-expanded="false"/, 'con una pregunta, en su tira');
-  assert.match(tira, /Completado: [^<]*la lista ordena/);
+  assert.match(tira, /Ops Center: [^<]*la lista ordena/);
   assert.doesNotMatch(tira, /\*\*/, 'la tira es un renglón sin formato: sin los asteriscos del Markdown');
   assert.doesNotMatch(tira, /Decidido/, 'plegado no muestra el cuerpo');
   assert.equal(dibujar({ yaVisto: T2 }), '', 'con el ✓, no hay bloque');
@@ -250,7 +252,7 @@ test('10. varios sin ver, de a uno, con las flechas y los puntos de las pregunta
   assert.match(html, /class="co-preg__pasos"/, 'las flechas de las preguntas');
   assert.equal((html.match(/class="co-preg__punto"/g) ?? []).length, 3, 'un punto por cada uno');
   assert.match(html, /aria-label="Completado 1" aria-current="step"/, 'abre en el más viejo');
-  assert.match(html, /aria-label="Completado: El primero"/);
+  assert.match(html, /aria-label="Completado · Ops Center: El primero"/);
   assert.match(html, /aria-label="Ocultar los completados"/);
   assert.doesNotMatch(html, />[^<]*\d de \d[^<]*</, 'sin «1 de 3» a la vista (sólo en el rótulo, para el lector)');
   // Uno solo, sin flechas.

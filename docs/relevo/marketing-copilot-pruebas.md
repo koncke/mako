@@ -173,10 +173,12 @@ anuncios, cinco a siete días sin tocar por la fase de aprendizaje, y el costo p
 
 ## Lo que quedó sin hacer
 
-- **Mirar la tab en producción después del deploy** (regla del Cerebro del 9/11 a la noche: la PC grababa las clases de THE NET LAB
-  desde el Chrome de Martín, y el navegador integrado de la app puede tirarla con 1-2 GB libres). El diseño se verificó en el banco con
-  Chrome sin ventana; falta en hola-mako.com, en el ws 9: `/ads-manager?estrategia=1` (las dos columnas, una ficha «Falta» que pregunta
-  en el chat, «Comparar funnels» y «Elegir»), la pantalla de un funnel sin anuncios y el Plan de uno con anuncios, en claro y oscuro.
+- **Mirada en producción el 10/11** (hola-mako.com, ws 9, navegador de la app; escritorio 1440, tablet 768 y teléfono 375, claro y
+  oscuro): la charla, la comparación, la pantalla de un funnel sin anuncios, el Plan, Hoy, Campañas, Biblioteca, Actividad, la tuerca,
+  Ajustes, Automatizaciones, Nueva campaña y la hoja del teléfono. Lo que estaba roto y su arreglo: `docs/hallazgos-marketing-copilot.md`
+  («El recorrido en producción») y `tests/marketing-copilot-produccion.test.ts`. El perfil del ws 9 quedó como estaba
+  (`{"entrada":"referente"}`); en su Cerebro quedó un «¿Qué hago esta semana?» de la prueba. **Falta volver a mirar después del
+  deploy de la segunda tanda.**
 - **El curso de gestión de campañas ya lo usa el CoPilot**, por `metodo_campanas_copiloto` (destilado por tema en
   `lib/media-buyer/copiloto-metodo-anuncios.ts`; la fuente interna, `docs/conocimiento/meta-ads-gestion.md`). Los demás agentes no: leen
   `mako_knowledge`, que es por negocio. 90 de 97 videos no tienen transcripción.

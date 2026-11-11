@@ -119,8 +119,10 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'ver_dominio_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Dominio propio de una landing',
-    descripcion: 'El dominio propio de una landing del editor del Web Generator, según lo guardado: cuál es, si está verificado o pendiente, desde cuándo, y si la reserva de un pendiente venció (72 horas). No sale a mirar el DNS: para saber qué registros faltan y verificarlo está verificar_dominio_landing. Necesita el id (de listar_landings_creadas).',
+    descripcion: 'El dominio propio de una landing del editor del Web Generator, según lo guardado: cuál es, si está verificado o pendiente, desde cuándo, y si la reserva de un pendiente venció (72 horas). No sale a mirar el DNS: qué registros faltan y verificarlo lo dice verificar_dominio_landing, que como conectar_dominio_landing sale sólo en la app y por WhatsApp; por la API HTTP, las dos se hacen en la pantalla (Web Generator → Publicar → «Dominios»). Necesita el id (de listar_landings_creadas).',
     parametros: [P_ID],
+    // TODOS: lee sólo la fila. Conectar, verificar y quitar van SIN_HTTP (abajo, «El dominio propio»), y por eso lo que
+    // esta lectura le contesta a HTTP no las nombra: un tercero que las pedía recibía 404 (ticket #61, 7/11/2026).
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
   },
   {
@@ -567,6 +569,9 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
 
   // ── El dominio propio (sale a Vercel y al DNS: sin http) ────────────────────
   // EN PANTALLA conectar: el dominio es un dato exacto, y reclamarlo es GLOBAL (uno mal escrito se lo quita a otro).
+  // SIN HTTP a propósito: suman o sueltan el dominio en el proyecto de Vercel de MaKo, que es de todos los negocios. El de
+  // email sí sale por HTTP (conectar_dominio_email) porque va a la cuenta de Resend DEL negocio. Lo que sale por HTTP no
+  // nombra estas tres (ver_dominio_landing manda a la pantalla): por HTTP contestan 404 (ticket #61).
   {
     id: 'conectar_dominio_landing', area: 'landing', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Conectar un dominio propio',

@@ -143,7 +143,10 @@ import { spawn, spawnSync } from 'node:child_process';
 //         siempre última, y soltar el lock deja entrar al Runner). Un corte por tope no es una falla de red. Con error, nunca insiste más que en
 //         sano; con el token rechazado, espera 10 minutos o a que se pegue otro. `vigilar` supone una vuelta larga, no una corta. Un acuse a medio
 //         escribir no se borra. `instalar-servicio` y `quitar-servicio` no corren desde un chat, y el primero le pregunta a MaKo si ya está lista.
-export const VERSION = '1.26.1';
+// 1.27.0: A MARTÍN SÓLO LE LLEGAN SUS DECISIONES (10/11/2026). `preguntar` rechaza, con el motivo y saliendo con 3, la pregunta con jerga, la
+//         que le pide un dato que el chat puede medir y la de qué hace primero el chat (`juzgarPregunta`, copia de lib/pregunta-para-martin.ts).
+//         No se guarda: el chat la decide con la opción recomendada, o la reescribe en palabras de producto si de verdad es de Martín.
+export const VERSION = '1.27.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -2154,6 +2157,131 @@ export function sesionQuePregunta(env = process.env) {
   return DESTINO_RE.test(cli) ? cli : null;
 }
 
+// ── ¿Le llega a Martín? (1.27.0, 10/11/2026) ─────────────────────────────────────────────────────────────────────
+// Martín: «Me están llegando un montón de preguntas al Ops Center… Son preguntas técnicas… Que solamente me llegan las preguntas
+// de decisiones importantes. Y nunca tiene que ser con lenguaje técnico que yo no entiendo». `preguntar` RECHAZA la que tiene
+// jerga, la que le pide un dato que el chat puede medir y la de qué hace primero el chat, con el motivo: el chat sigue en su
+// turno y la decide él (o la reescribe en palabras de producto si de verdad es de Martín).
+// ⚠️ ES LA COPIA EN JS DE lib/pregunta-para-martin.ts (este archivo corre en la PC, sin el repo). tests/pregunta-para-martin.test.ts
+//    corre las dos sobre el banco de preguntas reales y exige que contesten lo mismo: un cambio se hace en las dos.
+const sinTildesP = (s) => s.normalize('NFD').replace(/\p{M}/gu, '');
+const CODIGO_P = [
+  /`[^`\n]+`/g,
+  /\{\{[^}\n]*\}\}/g,
+  /\b[\w.-]*\w\.(?:tsx?|mjs|cjs|jsx?|jsonl?|md|sql|css|sh|ps1|ya?ml|env|lock)\b/gi,
+  /(?:^|[\s(«"'])(?:(?:lib|scripts|docs|tests|supabase|public|extension|plugin|\.github)\/[\w./[\]()-]*|app\/[\w[\]().-]+\/[\w./[\]()-]*)/g,
+  /\b[a-z][a-z0-9]*_[a-z0-9_]+\b/g,
+  /\b(?=[a-z0-9-]*[a-z])[a-z0-9]+(?:-[a-z0-9]+){2,}\b/g,
+  /\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/g,
+  /(?:^|\s)--[a-z][\w-]*/g,
+];
+const CAMELLO_P = /\b[a-z]{2,}[A-Z][A-Za-z0-9]*\b/g;
+const CAMELLOS_DE_MARCA_P = new Set(['macos', 'ipados', 'tvos', 'watchos']);
+const SIGLAS_P = [/\bCI\b/g, /\bRAM\b/g, /\bPRs?\b/g];
+const PALABRAS_P = [
+  /\bpuntas?\b/g,
+  /\ben\s+(?:otra|esta|una|su|la|nueva|misma)\s+rama\b/g,
+  /\bramas?\s+(?:main|punta|claude|de git)\b/g,
+  /(?<!a\/b )\btests?\b(?!\s*a\s*\/\s*b)(?!\s+(?:de|del|con|para|a)\b)/g,
+  /\btesteos?\b/g,
+  /\b(?:de|los|sus|en|con)\s+tipos\b(?!\s+de\b)/g,
+  /\btipos\s+(?:rojos?|ci|en rojo)\b/g,
+  /\btsc\b/g, /\btype-?check\w*/g, /\blint\w*/g, /\bcrlf\b/g,
+  /\bcommit\w*/g, /\bdeploy\w*/g, /\bdespleg(?!abl)\w*/g, /\bdespliegues?\b/g,
+  /\bworktrees?\b/g, /\bmerge\w*/g, /\brebase\w*/g, /(?<!web )(?<!notificacion )(?<!notificaciones )(?<!un )\bpush(?!\s+(?:notification|a\s+(?:los|las|tus|sus|todos|todas)\b))\w*/g,
+  /\bpull request/g, /\bbranch\w*/g,
+  /\bbuild\w*/g, /\bbundle\w*/g, /\bnpm\b/g, /\bgit\b/g, /\bgithub actions\b/g,
+  /\bmigraci(?:on|ones)\b/g, /\bendpoints?\b/g, /\bwebhooks?\b/g, /\bpre-?push\b/g, /\brefactor\w*/g,
+  /\bheap\b/g, /\bpayloads?\b/g, /\bregex\w*/g, /\bjson\b/g, /\bcartero\b/g, /\bstaging\b/g, /\bbackend\b/g, /\bfrontend\b/g,
+  /\bruntime\b/g, /\bsupabase\b/g, /\bvercel\b/g, /\btypescript\b/g,
+];
+const DE_LA_MAQUINA_P = String.raw`(?:chrome|navegador|extension|pc|computadora|compu|maquina|terminal|runner|app de claude|claude|pestanas?|ventanas?|servidor|ram|memoria|disco|espacio en (?:el )?disco|qr|whatsapp web)`;
+const HECHOS_P = [
+  /\b(?:te|le|les|me)\s+(?:llego|llegaron)\b/,
+  /^[¿\s]*llego\b/,
+  /\brecibiste\b/,
+  /\b(?:conect|instal|reinici|escane)aste\b/,
+  new RegExp(String.raw`\b(?:conect|instal|reinici|escane)(?:as|es)\b.*?\b${DE_LA_MAQUINA_P}\b`),
+  new RegExp(String.raw`\bliber(?:aste|as|es)\b.*?\b${DE_LA_MAQUINA_P}\b`),
+  new RegExp(String.raw`\b(?:abr(?:iste|is|es)|cerr(?:aste|as)|cierr(?:as|es))\b.*?\b${DE_LA_MAQUINA_P}\b`),
+  /\b(?:probaste|pudiste)\b/,
+  new RegExp(String.raw`\b(?:volves|vuelves|podes|puedes|podrias)\s+(?:a\s+)?(?:abrir|conectar|cerrar|liberar|instalar|reiniciar|recargar)\b.*?\b${DE_LA_MAQUINA_P}\b`),
+  new RegExp(String.raw`\bhay\s+(?:un|una|algun|alguna)\s+${DE_LA_MAQUINA_P}\b`),
+  new RegExp(String.raw`\besta(?:n)?\s+(?:corriendo|prendid[oa]s?|abiert[oa]s?|conectad[oa]s?|encendid[oa]s?)\b.*?\b${DE_LA_MAQUINA_P}\b`),
+];
+const ORDEN_P = /^[¿\s]*(?:sigo|continuo|avanzo|arranco|empiezo|voy con|paso a|paso al|arreglo|lo arreglo|hago (?:primero|antes)|primero (?:hago|arreglo|sigo))\b/;
+const TEMA_P = /(?:\b(?:cobr\w*|precios?|pag(?:o|os|ar|an|ue|ues|amos)|usd|dolar\w*|factur\w*|gast(?:o|os|ar|amos)|presupuesto\w*|suscripci\w*|descuentos?|reembols\w*|devoluci\w*|clientes?|leads?|accesos?|permisos?|contrasenas?|invitaci\w*|invit(?:o|ar|amos)|seguridad|irreversible|para siempre|fechas?|deadline|aprob\w*|campanas?|anuncios?|lanzamientos?|lanzar|grupos? de (?:whatsapp|mako|clientes|alumnos)|ofertas?|ventas?|vender|propuestas?|contratos?|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b|us\$|\$\s?\d)/;
+const textosDeP = (p) => {
+  const out = [p?.pregunta ?? '', p?.contexto ?? ''];
+  for (const o of p?.opciones ?? []) out.push(o?.titulo ?? o?.texto ?? '', o?.detalle ?? '');
+  return out.filter((t) => typeof t === 'string' && !!t.trim());
+};
+function planoP(texto) {
+  let s = '';
+  const desde = [];
+  let i = 0;
+  for (const ch of texto) {
+    const p = sinTildesP(ch).toLowerCase();
+    for (let k = 0; k < p.length; k++) desde.push(i);
+    s += p;
+    i += ch.length;
+  }
+  desde.push(i);
+  return { s, desde };
+}
+const enElOriginalP = (texto, pl, ini, fin) => texto.slice(pl.desde[ini], pl.desde[fin]);
+export function jergaEn(texto) {
+  const vistas = new Map();
+  const anotar = (m) => {
+    const t = m.trim().replace(/^[(«"']+/, '');
+    if (t && !vistas.has(t.toLowerCase())) vistas.set(t.toLowerCase(), t);
+  };
+  for (const re of CODIGO_P) for (const m of texto.matchAll(re)) anotar(m[0]);
+  for (const m of texto.matchAll(CAMELLO_P)) if (!CAMELLOS_DE_MARCA_P.has(m[0].toLowerCase())) anotar(m[0]);
+  for (const re of SIGLAS_P) for (const m of texto.matchAll(re)) anotar(m[0]);
+  const pl = planoP(texto);
+  for (const re of PALABRAS_P) for (const m of pl.s.matchAll(re)) anotar(enElOriginalP(texto, pl, m.index ?? 0, (m.index ?? 0) + m[0].length));
+  return [...vistas.values()];
+}
+const sinCodigoP = (s) => [...CODIGO_P, CAMELLO_P].reduce((t, re) => t.replace(re, ' '), s);
+/** Copia de `juzgarPregunta` (lib/pregunta-para-martin.ts). */
+export function juzgarPregunta(p) {
+  const todo = textosDeP(p).join('\n');
+  const jerga = jergaEn(todo);
+  const original = String(p?.pregunta ?? '').replace(/\s+/g, ' ').trim();
+  const pl = planoP(original);
+  let hecho = null;
+  for (const re of HECHOS_P) {
+    const m = re.exec(pl.s);
+    if (!m) continue;
+    const cita = enElOriginalP(original, pl, m.index, m.index + m[0].length).replace(/^[¿\s]+/, '').trim();
+    hecho = cita.length > 60 ? `${cita.slice(0, 59).trimEnd()}…` : cita;
+    break;
+  }
+  const conTema = [p?.pregunta ?? '', ...(p?.opciones ?? []).map((o) => o?.titulo ?? o?.texto ?? '')].join('\n');
+  const tema = TEMA_P.test(planoP(sinCodigoP(conTema)).s);
+  const orden = !tema && ORDEN_P.test(pl.s);
+  const seAcepta = !jerga.length && !hecho && !orden;
+  return { llega: seAcepta || tema, seAcepta, jerga, hecho, orden, tema };
+}
+const citarP = (xs) => xs.slice(0, 4).map((x) => `«${x}»`).join(', ');
+/** Copia de `motivoParaElChat` (lib/pregunta-para-martin.ts). */
+export function motivoParaElChat(j) {
+  if (j.seAcepta) return null;
+  const decidir = 'decídela tú con la opción recomendada, hazla y cuéntalo en tu cierre';
+  const suya = 'Si de verdad la decide él (plata, un cliente real, un acceso, seguridad sin vuelta atrás, una fecha o algo que tiene que ver), escríbela en palabras de producto y vuelve a preguntar.';
+  if (j.hecho) {
+    return `Esta pregunta no le llega a Martín: le pide un dato que puedes medir tú («${j.hecho}»). Mídelo, o déjalo anotado en tu relevo; si hace falta que él haga algo (en su computadora, o conectar una cuenta suya), díselo en tu mensaje con el paso exacto: no va como pregunta.${j.jerga.length ? ` Además dice ${citarP(j.jerga)}, que es lenguaje técnico.` : ''}`;
+  }
+  if (j.jerga.length && j.tema) {
+    return `Esta es una decisión de Martín, pero dice ${citarP(j.jerga)}, que es lenguaje técnico. Escríbela en palabras de producto (qué cambia para él o para sus clientes) y vuelve a preguntarla. No la decidas tú.`;
+  }
+  if (j.jerga.length) {
+    return `Esta pregunta no le llega a Martín: dice ${citarP(j.jerga)}, que es lenguaje técnico. Si es técnica, ${decidir}. ${suya}`;
+  }
+  return `Esta pregunta no le llega a Martín: es sobre qué haces primero, y eso lo decides tú. Elige la opción recomendada, hazla y cuéntalo en tu cierre. ${suya}`;
+}
+
 /** Valida lo que escribió el chat y devuelve la pregunta lista para subir, o tira con lo que hay que corregir. */
 export function armarPregunta(x, local, ahora = new Date()) {
   if (!x || typeof x !== 'object') throw new Error('el archivo tiene que ser un objeto JSON');
@@ -2224,6 +2352,12 @@ function preguntar(archivo) {
   let x;
   try { x = JSON.parse(fs.readFileSync(archivo, 'utf8')); } catch (e) { throw new Error(`no pude leer ${archivo} como JSON: ${e.message}`); }
   const q = armarPregunta(x, local);
+  // 1.27.0: la técnica no se guarda. Vuelve con el motivo, y el chat la decide (o la reescribe, si de verdad es de Martín).
+  const juicio = juzgarPregunta(q);
+  if (!juicio.seAcepta) {
+    log(`PREGUNTA rechazada de ${local}: ${juicio.hecho ? 'pide un dato medible' : juicio.jerga.length ? `jerga (${juicio.jerga.slice(0, 4).join(', ')})` : 'orden del chat'}`);
+    return { ok: false, rechazada: true, sesion: local, motivo: motivoParaElChat(juicio), jerga: juicio.jerga, hecho: juicio.hecho, tema: juicio.tema };
+  }
   escribirJson(path.join(PREGUNTAS, `${q.id}.json`), q);
   log(`PREGUNTA ${q.id} de ${local}`);
   return { ok: true, id: q.id, sesion: local, sigue: 'Termina tu turno: Martín la contesta en tu chat del Ops Center y la respuesta te llega como un mensaje.' };
@@ -2747,7 +2881,13 @@ if (esMain) {
       case 'pendientes': { const propio = dirPropio(); exigirRunner(propio); imprimir(pendientes(cuentaOpcional(), propio)); break; }
       case 'acuse': acuse(cuentaOpcional(), resto[0], resto[1], resto.slice(2).join(' ')); imprimir({ ok: true }); break;
       case 'cierre': cierre(resto[0], resto.slice(1)); imprimir({ ok: true }); break;
-      case 'preguntar': imprimir(preguntar(resto[0])); break;
+      case 'preguntar': {
+        const r = preguntar(resto[0]);
+        imprimir(r);
+        // Rechazada (1.27.0): sale con 3 y el motivo también por stderr, para el chat que sólo lee el error.
+        if (r.ok === false) { process.stderr.write(`${r.motivo}\n`); process.exitCode = 3; }
+        break;
+      }
       case 'retirar': imprimir(await retirar(resto)); break;
       case 'plan': imprimir(await planDelChat(resto)); break;
       case 'abrir': imprimir(abrir()); break;

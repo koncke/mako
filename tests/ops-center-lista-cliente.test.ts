@@ -91,9 +91,15 @@ test('2. agrupados por su origen con el agrupado del super admin: el grupo sube 
   ]);
   assert.equal(grupos[1].subs.length, 3, 'los del Dashboard juntos, aunque uno sea de junio');
   // En la pantalla: el MISMO componente que el super admin (nunca una copia), en la computadora; el mismo `porJefe` en el teléfono.
+  // La pieza vive en GruposPorJefe.tsx desde el 10/11/2026 (para dibujarla en un test); PiezasCentro la importa y la re-exporta,
+  // y de ahí la toman el super admin y el cliente: la MISMA, nunca una copia.
+  assert.match(sinComentarios(leer('app/admin/operaciones/GruposPorJefe.tsx')), /export function GruposPorJefe</);
   const piezas = sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx'));
-  assert.match(piezas, /export function GruposPorJefe</);
-  assert.match(piezas, /<GruposPorJefe chats=\{corte\} fila=\{fila\} \/>/, 'la lista del super admin');
+  assert.match(piezas, /import \{ GruposPorJefe, type PlegadoDeGrupos \} from '\.\/GruposPorJefe';/);
+  assert.match(piezas, /export \{ GruposPorJefe, type PlegadoDeGrupos \};/);
+  assert.doesNotMatch(piezas, /function GruposPorJefe/, 'una sola pieza');
+  assert.match(piezas, /<GruposPorJefe chats=\{corte\} fila=\{fila\} /, 'la lista del super admin');
+  assert.match(sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx')), /import \{[^}]*\bGruposPorJefe\b[^}]*\} from '@\/app\/admin\/operaciones\/PiezasCentro';/, 'la del cliente, la misma');
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   // Con su fila JEFE cuando el grupo no tiene chat propio (22/10/2026: tests/ops-center-cliente-jefes.test.ts).
   assert.match(sb, /<GruposPorJefe chats=\{corte\} fila=\{fila\} jefe=\{/, 'la del cliente');
@@ -139,3 +145,5 @@ test('4. el tema sale del primer mensaje: un renglón, sin markdown, el link por
 //   · la computadora sin el agrupado (la lista de antes)                    → 3/1 (2)
 //   · el tema sin el link por su dominio                                    → 3/1 (4)
 //   · «Pregúntale a MaKo» sin origen (vuelve «Chat de antes»)               → 2/2 (1, 2)
+// Y el 10/11/2026 (la pieza se mudó a GruposPorJefe.tsx):
+//   · una segunda GruposPorJefe en PiezasCentro                             → 3/1 (2)

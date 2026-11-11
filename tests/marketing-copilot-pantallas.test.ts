@@ -23,7 +23,14 @@ test('la primera entrada: quien nunca operó el Media Buyer o tiene la cuenta va
     assert.match(src, /<PrimeraEntrada /, f);
     assert.match(src, /conCampanas\(elegido\.id, perfil\.presupuestoMes\)/, `${f}: un funnel sin anuncios no ve Campañas`);
     // La computadora, en dos columnas (MaKo y el panel del funnel, 9/11/2026); el teléfono, con su hoja de MaKo.
-    assert.match(src, f === 'app/ads-manager/page.tsx' ? /<EstrategiaCopiloto perfil=\{perfil\} \/>/ : /<SinAnuncios perfil=\{perfil\} \/>/, f);
+    assert.match(src, f === 'app/ads-manager/page.tsx' ? /<EstrategiaCopiloto perfil=\{perfil\} \/>/ : /<SinAnunciosM perfil=\{perfil\} \/>/, f);
+  }
+  {
+    // El teléfono no monta la estrella de la computadora (10/11/2026: tapaba el «CRM» de la barra de abajo): lo pedido va a su hoja.
+    const m = leer('app/m/ads/SinAnunciosM.tsx');
+    assert.match(m, /<SinAnuncios perfil=\{perfil\} onPedir=/);
+    assert.match(m, /<HojaDelCopiloto pedido=\{hoja\.pedido\}/);
+    assert.match(leer('app/ads-manager/PlanDelCopiloto.tsx'), /\{!onPedir && <MakoEnLaTab tab="Marketing CoPilot"/);
   }
   // Las dos pantallas del CoPilot en la computadora dibujan el panel del funnel, y la charla lo deja usar (datos, otro funnel, usar).
   const pe = sinComentarios(leer('app/ads-manager/PrimeraEntrada.tsx'));

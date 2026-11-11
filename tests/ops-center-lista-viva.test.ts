@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { porJefe, seccionesDeChats, SECCION_CEREBRO, type ChatCentro } from '../lib/centro-chats';
+import { filasDeGrupos, porJefe, seccionesDeChats, SECCION_CEREBRO, type ChatCentro } from '../lib/centro-chats';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -52,13 +52,22 @@ test('2. «Cerebro › Integración» va debajo del Cerebro, nunca suelto en la 
 });
 
 test('3. las dos pantallas agrupan las dos secciones, y un sub-chat sin su jefe en la lista no se corre como si fuera de otro', () => {
+  // El teléfono arma sus renglones con `filasDeGrupos` (10/11/2026: antes era un `flatMap` en la pantalla, y se miraba su línea).
+  // Lo que cuida, EJECUTADO: el sub-chat solo cuyo jefe no está va con su nombre entero, sin correrse; con jefe, corrido.
+  const huerfano = filasDeGrupos(porJefe([chat('Integración › Algo')]), new Set(), () => false);
+  assert.deepEqual(huerfano.map((f) => (f.tipo === 'chat' ? `${f.sub}:${f.c.titulo}` : f.tipo)), ['false:Integración › Algo']);
+  const conJefe = filasDeGrupos(porJefe([chat('Cerebro'), chat('Cerebro › Integración')]), new Set(['nombre:cerebro']), () => true);
+  assert.deepEqual(conJefe.map((f) => (f.tipo === 'chat' ? `${f.sub}:${f.c.titulo}` : f.tipo)), ['false:Cerebro', 'true:Cerebro › Integración']);
   const movil = sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx'));
-  assert.match(movil, /const deLaSeccion = porJefe\(corte\)\n\s*\.flatMap\(\(g\) => \(g\.chat \? \[\{ c: g\.chat, sub: false \}, \.\.\.g\.subs\.map\(\(c\) => \(\{ c, sub: true \}\)\)\] : g\.subs\.map\(\(c\) => \(\{ c, sub: false \}\)\)\)\)/);
+  assert.match(movil, /const deLaSeccion = filasDeGrupos\(porJefe\(corte, tabDe\), gruposAbiertos, siempre\);/, 'las dos secciones agrupan');
   const compu = sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx'));
-  assert.match(compu, /\{!plegada && <GruposPorJefe chats=\{corte\} fila=\{fila\} \/>\}/, 'la sección del Cerebro también agrupa');
+  assert.match(compu, /\{!plegada && <GruposPorJefe chats=\{corte\} fila=\{fila\} /, 'la sección del Cerebro también agrupa');
 });
 
 // PROBADO ROMPIÉNDOLO (23/10/2026, base 3/0):
 //   · `yaVistos` arrancando en null otra vez                  → 2/1 (1)
 //   · `seccionesDeChats` con el Cerebro por nombre exacto     → 2/1 (2)
 //   · el teléfono corriendo a los huérfanos (`sub: true`)     → 2/1 (3)
+// Reescrito el 10/11/2026 (el teléfono arma sus renglones con `filasDeGrupos`; base 3/0):
+//   · `filasDeGrupos` corriendo al huérfano solo              → 2/1 (3)
+//   · el teléfono sin agrupar                                 → 2/1 (3)

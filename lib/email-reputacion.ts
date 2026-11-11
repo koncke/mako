@@ -1,54 +1,68 @@
 // =============================================================================
-// email-reputacion — el freno del email: cuenta lo de las últimas 24 h y, si hace falta, apaga el envío y avisa
+// email-reputacion — el freno del email: cuenta los últimos envíos y, si hace falta, apaga el envío y avisa
 // =============================================================================
 // La regla vive en lib/email-freno.ts (pura, con test). Esto la lee contra la base y actúa. Lo llama el webhook de Resend
 // cada vez que llega un rebote o una queja (app/api/webhooks/resend/route.ts), SIN sesión: corre con el workspace de la FILA
 // del envío. Las columnas `rebotado_at` y `queja_at` son de la migración 0380: sin ellas la cuenta tira y no se frena
 // (lo dice el log), que es lo mismo que pasaba antes de esto. NUNCA TIRA: el webhook sigue contestando 200.
+// ⚠️ Mira los últimos 100 emails enviados desde que se prendió el envío (o de 7 días), no «las últimas 24 h»: ver el
+// porqué en lib/email-freno.ts (ticket #76, el apagado de Mauricio del 10/11/2026 con «3 de 52»).
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb, runWithWorkspace } from './workspace';
-import { envioEmailHabilitado, setEnvioEmail } from './envio-flags';
+import { getTenantDb, getWorkspaceActual, runWithWorkspace } from './workspace';
+import { getSupabaseServer } from './supabase';
+import { envioEmailHabilitado, setEnvioEmail, KEY_ENVIO_EMAIL } from './envio-flags';
 import { emitirAviso } from './avisos';
-import { decidirFrenoEmail, textoDelFreno, type ConteoEmail } from './email-freno';
+import { conteoDeLosUltimos, decidirFrenoEmail, desdeDelFreno, textoDelFreno, FRENO_EMAIL, type ConteoEmail, type EnvioParaFreno } from './email-freno';
 
 /** El aviso del catálogo (lib/avisos-catalogo.ts). */
 export const TIPO_AVISO_EMAIL_FRENADO = 'email-frenado';
 
-const haceUnDia = () => new Date(Date.now() - 86_400_000).toISOString();
+/**
+ * Cuándo se prendió el envío de email del negocio: el `updated_at` de la setting si hoy vale 'true'. null si no hay setting
+ * (el dueño hereda el env), si está apagado o si no se pudo leer: entonces el freno mira sus 7 días, que es más, nunca menos.
+ */
+async function prendidoAt(): Promise<string | null> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) return null;
+  try {
+    const { data, error } = await getSupabaseServer().from('app_settings').select('value, updated_at').eq('workspace_id', ws).eq('key', KEY_ENVIO_EMAIL).maybeSingle();
+    if (error || !data) return null;
+    const fila = data as { value: unknown; updated_at: string | null };
+    return fila.value === 'true' ? fila.updated_at ?? null : null;
+  } catch { return null; }
+}
 
-/** Lo enviado por email en las últimas 24 h del negocio del contexto, y lo que de eso rebotó o se marcó como spam. TIRA si no puede leer. */
-export async function conteoEmailUltimas24h(): Promise<ConteoEmail> {
+/**
+ * Los últimos `FRENO_EMAIL.ultimos` emails enviados del negocio del contexto (desde que se prendió el envío, o de 7 días), y
+ * lo que de eso rebotó o se marcó como spam. TIRA si no puede leer los envíos.
+ */
+export async function conteoEmailDelFreno(): Promise<ConteoEmail> {
   const db = await getTenantDb();
-  const desde = haceUnDia();
-  const contar = async (tabla: 'nutricion_envios' | 'email_broadcast_envios', marca: 'rebotado_at' | 'queja_at' | null): Promise<number> => {
-    let q = db.from(tabla).select('id', { count: 'exact', head: true }).eq('estado', 'enviado').gte('created_at', desde);
+  const desde = desdeDelFreno(Date.now(), await prendidoAt());
+  const leer = async (tabla: 'nutricion_envios' | 'email_broadcast_envios'): Promise<EnvioParaFreno[]> => {
+    let q = db.from(tabla).select('created_at, rebotado_at, queja_at').eq('estado', 'enviado').gte('created_at', desde);
     if (tabla === 'nutricion_envios') q = q.eq('canal', 'email');
-    if (marca) q = q.not(marca, 'is', null);
-    const { count, error } = await q;
-    if (error) throw new Error(`${tabla}${marca ? `.${marca}` : ''}: ${error.message}`);
-    return count ?? 0;
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(FRENO_EMAIL.ultimos);
+    if (error) throw new Error(`${tabla}: ${error.message}`);
+    return (data ?? []) as EnvioParaFreno[];
   };
-  const [e1, e2, r1, r2, q1, q2] = await Promise.all([
-    contar('nutricion_envios', null), contar('email_broadcast_envios', null),
-    contar('nutricion_envios', 'rebotado_at'), contar('email_broadcast_envios', 'rebotado_at'),
-    contar('nutricion_envios', 'queja_at'), contar('email_broadcast_envios', 'queja_at'),
-  ]);
-  return { enviados: e1 + e2, rebotes: r1 + r2, quejas: q1 + q2 };
+  const [a, b] = await Promise.all([leer('nutricion_envios'), leer('email_broadcast_envios')]);
+  return conteoDeLosUltimos([...a, ...b]);
 }
 
 export type ResultadoFreno = { frenado: false; porque?: string } | { frenado: true; motivo: 'rebotes' | 'quejas'; conteo: ConteoEmail };
 
 /**
- * Después de un rebote o una queja del negocio `ws`: si lo de las últimas 24 h pasa el umbral (`decidirFrenoEmail`), apaga el
+ * Después de un rebote o una queja del negocio `ws`: si los últimos envíos pasan el umbral (`decidirFrenoEmail`), apaga el
  * envío de email y le avisa. Si ya estaba apagado, no hace nada (ni avisa dos veces). NUNCA TIRA.
  */
 export async function revisarFrenoEmail(ws: number): Promise<ResultadoFreno> {
   try {
     return await runWithWorkspace(ws, async () => {
       if (!(await envioEmailHabilitado())) return { frenado: false, porque: 'ya estaba apagado' };
-      const conteo = await conteoEmailUltimas24h();
+      const conteo = await conteoEmailDelFreno();
       const f = decidirFrenoEmail(conteo);
       if (!f.frena) return { frenado: false };
       await setEnvioEmail(false);

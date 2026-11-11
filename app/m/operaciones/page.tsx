@@ -41,7 +41,7 @@ import { CabeceraM, PantallaM, VacioM } from '@/app/m/_ui';
 import { CentroAppMovil } from './CentroAppMovil';
 import { TicketsMovil } from './TicketeraMovil';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
-import { nombresDeTabs } from '@/app/admin/operaciones/tabs';
+import { indiceDeTabs, nombresDeTabs } from '@/app/admin/operaciones/tabs';
 import { responderDecision } from '@/app/admin/runway/acciones';
 // La Ticketera vive adentro del Centro (16/10/2026): sus hojas las importa la página.
 import '@/app/tickets/bandeja/bandeja.css';
@@ -105,6 +105,7 @@ export default async function CentroOperacionesMovil({ searchParams }: { searchP
     sub: admin.sub,
     responder: responderDecision,
     tabs: nombresDeTabs(),
+    indiceTabs: indiceDeTabs(),
   };
   // Los tickets de los usuarios necesitan el motor del Centro entero: «Aprobar» le firma el ticket al chat «Cerebro».
   if (ticketera === 'tickets' || ticketera === 'tarjetas' || ticketera === 'lista') {

@@ -47,6 +47,8 @@ import { listasEnRenglones } from '@/lib/respuesta-como-claude';
 import { cuandoAR } from '@/lib/centro-fechas';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { TABS_DEL_MENU, type ChatDelYaEsta } from './Avance';
+import { rotuloDelCompletado } from '@/lib/centro-rotulo-completado';
+import type { TabDelIndice } from '@/lib/centro-chats';
 import { MiFoto } from './MiFoto';
 import { Pasos, Plegar, usePlegado } from './PreguntasDelChat';
 
@@ -133,8 +135,10 @@ function Respuesta({ t, hecho }: { t: TurnoChat; hecho?: string | null }) {
   );
 }
 
-export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPreguntas, onResponderSobre }: {
+export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPreguntas, onResponderSobre, indiceTabs }: {
   chat: ChatDelYaEsta;
+  /** De qué tab es cada nombre (10/11/2026): el rótulo dice «Tab · Función» (lib/centro-rotulo-completado.ts). */
+  indiceTabs?: readonly TabDelIndice[];
   /** La conversación del chat: de ahí salen sus «Ya está» sin el ✓ (`completadosSinVer`). */
   lineas: readonly LineaChat[];
   /** El ✓ de este chat (hasta qué «Ya está» lo vio Martín), y cómo se pone. Sin `onYaVisto`, no se ofrece «Ya lo vi». */
@@ -159,8 +163,10 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
   const n = nodoDeCompletado(t, instante);
   // La tira es de un renglón y no dibuja formato: sin los asteriscos del Markdown (la regla de la lista, `sinMarkdown`).
   const titulo = n?.titulo && n.titulo !== 'Ya está' ? sinMarkdown(n.titulo) : 'Completado';
+  // Qué se completó, «Tab · Función» (10/11/2026): arranca la tarjeta y la tira plegada.
+  const que = rotuloDelCompletado(chat, indiceTabs, lineas, t);
   if (plegado || (hayPreguntas && abiertoConPreguntas !== firma)) {
-    const rotulo = todos.length > 1 ? `${todos.length} completados sin ver` : `Completado: ${titulo}`;
+    const rotulo = todos.length > 1 ? `${todos.length} completados sin ver` : `${que ?? 'Completado'}: ${titulo}`;
     return (
       <button type="button" className="co-preg co-preg--arriba co-preg--plegada co-preg--completado" aria-expanded={false}
         aria-label={`${rotulo}. Abrir`} onClick={() => { setPlegado(false); setAbiertoConPreguntas(firma); }}>
@@ -175,10 +181,10 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
   const pedidos = pedidosDelCompletado(lineas, t);
   const destino = n ? destinoDeReview(n, chat, TABS_DEL_MENU) : null;
   return (
-    <div className="co-preg co-preg--arriba co-preg--completado" role="group" aria-label={`Completado: ${titulo}`}>
+    <div className="co-preg co-preg--arriba co-preg--completado" role="group" aria-label={`Completado${que ? ` · ${que}` : ''}: ${titulo}`}>
       <div className="co-preg__cab">
         <span className="co-ya__sello" aria-hidden><Icon name="check" size={13} /></span>
-        <span className="co-ya__rotulo">Completado</span>
+        <span className="co-ya__rotulo">{que ?? 'Completado'}</span>
         {/* Cuándo terminó, como la hora de los mensajes del hilo (26/10/2026, Martín: «En "completado" falta la fecha y hora»). */}
         {Number.isFinite(instante) && <time className="co-preg__ya-cuando" dateTime={t.at}>{cuandoAR(instante, Date.now())}</time>}
         {/* Varios sin ver: de a uno, con las flechas y los puntos de las preguntas (sin «1 de 3» a la vista). */}

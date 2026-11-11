@@ -63,8 +63,9 @@ test('3. la computadora y el teléfono le pasan a la lista las preguntas SOLAS (
   const leer = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
   const pc = leer('app/admin/operaciones/PiezasCentro.tsx');
   assert.match(pc, /const esperanRespuesta = useMemo\(\(\) => \(c: ChatCentro\) => esperaDe\(c, k\.esperas\), \[k\.esperas\]\);/);
-  assert.match(pc, /seccionesDeChats\(visibles, avisos, esperanRespuesta\)/);
+  // Sobre lo que va en la lista: sin los dormidos (10/11/2026, `vaEnLaLista`: tests/ops-center-por-tab.test.ts, 4 y 6).
+  assert.match(pc, /seccionesDeChats\(enLista, avisos, esperanRespuesta\)/);
   const m = leer('app/m/operaciones/ChatsMovil.tsx');
   assert.match(m, /const esperanRespuesta = useMemo\(\(\) => \(c: ChatCentro\) => esperaDe\(c, esperas\), \[esperas\]\);/);
-  assert.match(m, /seccionesDeChats\(chats, avisos, esperanRespuesta\)/);
+  assert.match(m, /seccionesDeChats\(enLista, avisos, esperanRespuesta\)/);
 });

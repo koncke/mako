@@ -27,7 +27,9 @@ import { ErrorM, PantallaM } from '@/app/m/_ui';
 import { InicioImagenM } from './InicioImagenM';
 import { leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { filtrosDeQuery } from '@/lib/carruseles/explorar';
-import { ExplorarCarruseles } from '@/app/image-editor/carruseles/ExplorarCarruseles';
+import { baseDelGuiado } from '@/app/image-editor/guiado-base';
+import { kitParaUsar } from '@/lib/marca/kits-server';
+import { EjemplosM } from './EjemplosM';
 import { nombreDelNegocio } from '@/lib/carruseles/marca';
 
 export const dynamic = 'force-dynamic';
@@ -35,15 +37,17 @@ export const dynamic = 'force-dynamic';
 export default async function ImageEditorPagina({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const ctx = await requireMovil({ navKey: 'image-editor' });
   // Los ejemplos (la portada desde el 6/11/2026): la MISMA vista de la computadora (app/image-editor/carruseles), con sus filtros
-  // y «Editar», que arma la versión del negocio y abre el MISMO editor (./[diseno]).
+  // y «Editar», que abre el MISMO guiado (MaKo pregunta la oferta antes de armar: ./EjemplosM.tsx) y después el MISMO editor (./[diseno]).
   const q = await searchParams;
   const vista = vistaDeImage(q);
   if (vista === 'ejemplos') {
     const [e, t] = ctx.ws == null ? [null, null] : await Promise.all([leerExplorador(), leerThumbnails()]);
+    // «Editar» abre el guiado de la computadora (10/11/2026, ./EjemplosM.tsx): lo que sabe del negocio, igual que allá.
+    const base = ctx.ws == null ? null : await baseDelGuiado(await kitParaUsar().catch(() => null));
     return (
       <PantallaM>
         {e && e.ok
-          ? <ExplorarCarruseles telefono filtrosIniciales={filtrosDeQuery(q)} thumbnailsIniciales={filtrosThumbnailDeQuery(q)} rutaCrear="/m/image-editor?ver=crear"
+          ? <EjemplosM base={base} filtrosIniciales={filtrosDeQuery(q)} thumbnailsIniciales={filtrosThumbnailDeQuery(q)} rutaCrear="/m/image-editor?ver=crear"
             datos={{
               carruseles: e.carruseles, guardados: e.guardados.map((g) => g.id), busquedas: e.busquedas, paso: e.paso, frase: e.frase, accion: e.accion, ejemplos: e.ejemplos, avisoBiblioteca: e.avisoBiblioteca, anuncios: e.anuncios,
               thumbnails: t && t.ok ? { ok: true, lista: t.thumbnails, guardados: t.guardados, sinTablas: t.sinTablas } : { ok: false },

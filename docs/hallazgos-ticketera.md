@@ -1221,6 +1221,12 @@ nuestro» **todavía no se puede ejecutar**: esta fila es de ANTES de que el rep
 agrupa, así que una repetición hubiera caído en esta misma fila, sin pistas. Para que haya pistas tiene que pasar de nuevo
 **después** del deploy de ese día. No hay nada más que diagnosticar de este caso.
 
+**Medido otra vez el 10/11 (chat «Tickets»):** la fila sigue en `veces` = 1, y en TODO `errores_app` hay 3 filas con #418 en
+toda su historia, ninguna de /crm después del 1/11. El reportador sigue anotando hidrataciones (la del #52, 4/11), así que el
+silencio es un dato. Brigitte siguió en el CRM: 26 cambios suyos en `lead_audit` el 1/11 (el primero, quince segundos
+después del error) y el 5/11. **No hay arreglo que hacer: no se inventa uno.** Cerrarlo es una decisión, no un commit: un hito con
+`tickets: [39]` le diría al cliente que se arregló algo.
+
 **Dato al costado que sí sirve:** el #52 fue el MISMO React #418 (`args[]=text`) en la pantalla «Plan», y ése sí se arregló
 y se cerró el 4/11 («La pantalla Plan ya no se vuelve a dibujar sola de noche»). Antes de volver a investigar el #39, mirar
 si ese arreglo cubre también /crm: es el único hilo abierto que queda.

@@ -137,6 +137,10 @@ export function soloCopy(crudo: string): string {
  */
 export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
   {
+    ruta: 'lib/pregunta-para-martin.ts',
+    porque: 'el juez de las preguntas que un chat le quiere hacer a Martín (10/11/2026): reconoce «¿volvés a abrir…?» y «¿podés conectar…?» para no mandarle un hecho que el chat puede medir; no le habla a nadie',
+  },
+  {
     ruta: 'lib/media-buyer/copiloto-pedido.ts',
     porque: 'detector de lo que ESCRIBE la persona en el Marketing CoPilot («dale, guardalo», «hacelo»): reconoce su voseo para saber si pide o pregunta; no le habla a nadie',
   },

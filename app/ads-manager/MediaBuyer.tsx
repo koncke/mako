@@ -159,11 +159,16 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
     await recargar();
   }, [recargar, show]);
 
-  const pedir = (texto: string) => setPedidoMako({ texto: `Marketing CoPilot: ${texto}`, vez: Date.now() });
+  // Sin «Marketing CoPilot:» delante (10/11/2026): el chip «desde Marketing CoPilot» ya lo dice, y se leía dos veces.
+  const pedir = (texto: string) => setPedidoMako({ texto, vez: Date.now() });
   const avatar = <Criatura nombre="MaKo" size={18} estrella />;
   const producto = (d: Decision) => productoDeAccion(productoDe, d);
   const conectada = tieneMeta || !!zernio?.conectado;
   const nueva = config.existeTabla && (!conectada || (!config.encendido && !config.ultimaCorrida));
+  // La bienvenida a pantalla entera («¿En qué te ayudo hoy?», sin la barra) es para quien llega sin estrategia. Con el funnel del CoPilot
+  // ya elegido (producción, 10/11/2026: el negocio de prueba, sin Meta) tapaba su Plan y Ajustes, y no decía que faltaba conectar
+  // Meta: va la pantalla de siempre, con la barra, y Hoy dice «Conecta tu cuenta de Meta» (cartelDeHoy).
+  const bienvenida = nueva && !perfil;
   const aplicar = (d: Decision, extra: Record<string, unknown> = {}) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Aplicado');
   // ⚠️ UN DÍA SIN CAMBIOS NO ES «TODO BIEN»: el cartel sale de lo que el agente MIDIÓ (lib/media-buyer/cartel-hoy.ts), no del
   // interruptor. `conectada` va en `null` mientras no volvió el estado de Zernio: no se le dice «conecta tu cuenta» a quien
@@ -192,8 +197,8 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
   };
 
   const sugerencia = (s: Sugerencia) => {
-    if (s === 'lanzar') { if (nueva) setArrancando(true); else pedir('quiero lanzar una campaña nueva.'); return; }
-    if (s === 'disenar') { if (nueva) pedir('quiero diseñar un anuncio nuevo.'); else setVista('biblioteca'); return; }
+    if (s === 'lanzar') { if (bienvenida) setArrancando(true); else pedir('quiero lanzar una campaña nueva.'); return; }
+    if (s === 'disenar') { if (bienvenida) pedir('quiero diseñar un anuncio nuevo.'); else setVista('biblioteca'); return; }
     if (s === 'como') { pedir('¿cómo vienen mis anuncios este mes?'); return; }
     if (config.encendido && conectada) void analizar(); else pedir('busca oportunidades en mi cuenta de Meta.');
   };
@@ -239,7 +244,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
     </>
   );
 
-  if (nueva) {
+  if (bienvenida) {
     return (
       <div className="aa">
         {arrancando
@@ -268,7 +273,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
 
   return (
     <div className="aa">
-      <nav className="aa-top" aria-label="Media Buyer">
+      <nav className="aa-top" aria-label="Marketing CoPilot">
         <div role="tablist" className="aa-tabs">
           {VISTAS.map(([v, t]) => (
             <button key={v} type="button" role="tab" className="aa-tab" aria-selected={vista === v} onClick={() => setVista(v)}>{t}</button>
@@ -329,7 +334,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
 
       {vista === 'plan' && perfil && (
         // El mismo panel de la charla y de los funnels sin anuncios (9/11/2026): Tu funnel · Esta semana · Qué medir, leído del perfil.
-        <div className="aa-pagina"><PanelDelFunnel perfil={perfil} modo="listo" /></div>
+        <div className="aa-pagina aa-plan-funnel"><PanelDelFunnel perfil={perfil} modo="listo" /></div>
       )}
 
       {vista === 'biblioteca' && (

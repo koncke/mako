@@ -22,7 +22,8 @@
 
 import { Icon } from '@/app/_components/icons';
 import { ROTULO, type EstadoPedido, textoDelEncargo } from '@/lib/operaciones-reglas';
-import { agruparAvances, chatTrabajando, completadosDelChat, estadoDelEnvio, lineasDeConversacion, primeraOracion, type CarteroP, type ChatCentro, type GrupoDeAvances, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { agruparAvances, chatTrabajando, completadosDelChat, estadoDelEnvio, lineasDeConversacion, primeraOracion, type CarteroP, type ChatCentro, type GrupoDeAvances, type LineaChat, type TabDelIndice, type TrabajoP } from '@/lib/centro-chats';
+import { rotuloDelCompletado } from '@/lib/centro-rotulo-completado';
 import { YaEstaMensaje } from './Avance';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { Cierre, TurnoChat } from '@/lib/operaciones-reglas';
@@ -116,9 +117,11 @@ type Quien = { titulo: string; aspecto?: Aspecto | null };
 
 /** Con qué se cuenta en qué está lo que mandó Martín (lib/centro-chats.ts → estadoDelEnvio): el chat y los Runners. */
 export type VivoDelHilo = {
-  chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner' | 'clave' | 'sesion' | 'titulo'>; carteros: readonly CarteroP[];
-  /** El chat tiene abierta una pregunta de la app de Claude (`preguntasDeLaApp`): no lee nada hasta que se conteste ahí. */
+  chat: Pick<ChatCentro, 'estado' | 'viejo' | 'sinRunner' | 'clave' | 'sesion' | 'titulo'> & { area?: string }; carteros: readonly CarteroP[];
+  /** El chat tiene abierta una pregunta de la app de Claude (`chatTrabadoEnLaApp`): no lee nada hasta que se conteste ahí. */
   trabado?: boolean;
+  /** De qué tab es cada nombre (10/11/2026): el rótulo «Tab · Función» de cada «Completado» (lib/centro-rotulo-completado.ts). */
+  indiceTabs?: readonly TabDelIndice[];
 };
 
 /** Lo del «Ya está» de un chat (17/10/2026, la C): sus tareas del Plan y responder sobre lo que dijo. */
@@ -291,7 +294,8 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
   if (t.rol === 'el' && wa.completados.has(t.uuid)) {
     return (
       <FilaDelChat m={m} quien={quien} marcas={wa.marcas} hora={hora} especial idTurno={`co-turno-${t.uuid}`}>
-        <YaEstaMensaje t={t} chat={vivo?.chat} tareas={extras?.tareas} onFeedback={extras?.onFeedback} yaVisto={extras?.yaVisto} onYaVisto={extras?.onYaVisto} />
+        <YaEstaMensaje t={t} chat={vivo?.chat} tareas={extras?.tareas} onFeedback={extras?.onFeedback} yaVisto={extras?.yaVisto} onYaVisto={extras?.onYaVisto}
+          rotulo={wa.rotulos.get(t.uuid) ?? null} />
       </FilaDelChat>
     );
   }
@@ -433,8 +437,9 @@ const Avances = memo(AvancesSinMemo, (a, b) => a.quien === b.quien && a.wa.marca
   && a.g.avances.length === b.g.avances.length && a.g.avances.every((x, i) => x === b.g.avances[i]));
 
 /** Lo de WhatsApp que el hilo necesita para dibujar: las marcas de Martín y la conversación (para encontrar lo citado). */
-/** `completados`: los turnos que son el «Completado» de su tramo (lib/centro-chats.ts → completadosDelChat, 27/10/2026). */
-type DelHiloWA = { marcas: MarcasChat | null | undefined; lineas: readonly LineaChat[]; completados: ReadonlySet<string> };
+/** `completados`: los turnos que son el «Completado» de su tramo (lib/centro-chats.ts → completadosDelChat, 27/10/2026), y `rotulos`, qué
+ *  se completó en cada uno («Tab · Función», 10/11/2026). */
+type DelHiloWA = { marcas: MarcasChat | null | undefined; lineas: readonly LineaChat[]; completados: ReadonlySet<string>; rotulos: ReadonlyMap<string, string | null> };
 
 function LineaSinMemo({ l, pushes, ahora, quien, vivo, extras, wa }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien; vivo?: VivoDelHilo; extras?: ExtrasDelHilo; wa: DelHiloWA }) {
   if (l.tipo === 'turno') return <Turno l={l} t={l.turno} quien={quien} vivo={vivo} extras={extras} wa={wa} />;
@@ -548,7 +553,11 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, tareas,
 } & ExtrasDelHilo) {
   // Lo que Martín eliminó para él no se dibuja (WhatsApp: «Eliminar para mí»).
   const lineas = sinOcultos(lineasDeConversacion(todas), marcas);
-  const wa: DelHiloWA = { marcas, lineas, completados: new Set(completadosDelChat(todas).map((x) => x.turno.uuid)) };
+  const completados = completadosDelChat(todas);
+  const wa: DelHiloWA = {
+    marcas, lineas, completados: new Set(completados.map((x) => x.turno.uuid)),
+    rotulos: new Map(completados.map((x) => [x.turno.uuid, vivo ? rotuloDelCompletado(vivo.chat, vivo.indiceTabs, todas, x.turno) : null])),
+  };
   const trabaja = vivo ? chatTrabajando(vivo.chat, todas, ahora) : false;
   if (!lineas.length) {
     return (

@@ -25,18 +25,20 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useRouter } from '@/app/_ui/Link';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
+import { anotarEstrellaPropia } from '@/app/_chat/estrella-propia';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import '@/app/admin/operaciones/centro.css';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { CSS_OFFER } from '@/app/offer/estilos';
-import { itemsDeOffer, type ItemHilo } from '@/app/m/mako/chat-ui';
+import { itemsDeOffer, origenDelItem, type ItemHilo } from '@/app/m/mako/chat-ui';
+import { delHiloDeLaTab } from '@/lib/chat-desde';
 import { useChatCliente } from '@/app/second-brain/useChatCliente';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { queEnsena } from '@/lib/media-buyer/copiloto-referentes';
 import type { ElegidoChat } from '@/lib/chat-mako-reglas';
 import {
-  RUTAS_COPILOTO, REFERENTES_COPILOTO, SIN_REFERENTE, acuseDeVolver, aplicarCambio, desdeDelCopiloto, funnelElegido, funnelPorId, interpretarEscrito, mensajesDeCopiloto,
+  ORIGEN_COPILOTO, RUTAS_COPILOTO, REFERENTES_COPILOTO, SIN_REFERENTE, acuseDeVolver, aplicarCambio, desdeDelCopiloto, funnelElegido, funnelPorId, interpretarEscrito, mensajesDeCopiloto,
   nombreDelReferente, pasoDeCopiloto, pasosRespondidos, plano, preguntaDeCopiloto, propuestaDe, textoDeFuera, volverUnPaso,
   PREGUNTAS_DE_DATO, esPregunta, fichaDelNegocio, leerDato, opcionesDeCopiloto,
   type ClaveDato, type IdFunnel, type PasoCopiloto, type PerfilCopiloto,
@@ -119,6 +121,9 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const [busca, setBusca] = useState('');
   const hilo = useRef<HTMLDivElement>(null);
   const appEscritorio = useAppDeEscritorio();
+  // El chat de MaKo está a la vista: la estrella de la barra (app/_chat/EstrellaDeLaApp.tsx) no va, como en Create (lib/estrella-rutas.ts →
+  // CON_CHAT_A_LA_VISTA). La ruta no sirve: /ads-manager también es Hoy, que sí la lleva. En producción (10/11/2026) la estrella tapaba la caja.
+  useEffect(() => anotarEstrellaPropia(), []);
   const paso = pasoDeCopiloto(p);
   const f = funnelElegido(p);
   const ref = p.referente ? asesorPorId(p.referente) : null;
@@ -310,7 +315,8 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const { items, listaEn } = useMemo(() => {
     const guion = itemsDeOffer(mensajesDeCopiloto(p, nombre)).filter((m) => m.k !== 'bloque');
     // Lo del motor, nuevo, partido por cada mensaje que salió de acá (en orden: el motor manda de a uno).
-    const propios = motor && base.current ? motor.items.filter((x) => !base.current!.has(x.id)) : [];
+    // Y sólo los turnos de esta tab (lib/chat-desde.ts → delHiloDeLaTab): lo que llega de otra mientras se charla acá no es de acá.
+    const propios = motor && base.current ? delHiloDeLaTab(motor.items, ORIGEN_COPILOTO, origenDelItem).filter((x) => !base.current!.has(x.id)) : [];
     const grupos: ItemHilo[][] = [];
     for (const x of propios) {
       if (x.k === 'msg' && x.role === 'user') grupos.push([]);
@@ -350,7 +356,8 @@ export function PrimeraEntrada({ nombre, inicial }: { nombre: string; inicial: P
   const ultimaNota = [...notas].reverse().find((n) => n.visible);
   const ultimoItem = items.at(-1);
   // Las pastillas del paso, salvo que lo último sea una nota con sus propias opciones (se contestan ésas).
-  const conOpcionesDeNota = !!ultimaNota?.opciones && ultimoItem?.id === ultimaNota.id;
+  // Un «Deshacer» solo no contesta el paso (10/11/2026, producción: tras «Empezar de nuevo» quedaba ÉSE y ningún botón para empezar).
+  const conOpcionesDeNota = !!ultimaNota?.opciones && ultimoItem?.id === ultimaNota.id && !ultimaNota.opciones.every((o) => o.deshacer);
   const ultimo = useMemo(() => mensajesDeCopiloto(p, nombre).at(-1), [p, nombre]);
   const opciones = !conOpcionesDeNota && ultimo?.de === 'mako' ? ultimo.opciones ?? [] : [];
   // Abajo de todo, salvo con los referentes a la vista: ahí se arranca por la pregunta y el buscador (la grilla es larga, y bajando

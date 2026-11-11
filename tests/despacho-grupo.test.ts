@@ -277,6 +277,11 @@ test('11. el pedido compuesto: la IA lista las partes, y si el turno hizo menos,
   assert.equal(leerClase('{"clase":"ACCION","resumen":"r","partes":["una sola"]}')?.partes, undefined, 'una sola parte no es compuesto');
   assert.equal(leerClase('{"clase":"ACCION","resumen":"r","partes":null}')?.partes, undefined);
   assert.deepEqual(leerClase('{"clase":"ACCION","resumen":"r","partes":["a",3,"","b"]}')?.partes, ['a', 'b']);
+  // Ticket #77 (10/11/2026): el dato de una parte no es otra parte. Roto (sin juntarlas) → «Lo que faltó de» un pedido ya hecho.
+  assert.equal(leerClase('{"clase":"ACCION","resumen":"r","partes":["Agregar nota al lead María Valeria García","Nota: «no contesto mi mensaje»"]}')?.partes, undefined);
+  assert.deepEqual(leerClase('{"clase":"ACCION","resumen":"r","partes":["mover la reunión de Ana","Hora: 15:00","mandarle un WhatsApp"]}')?.partes,
+    ['mover la reunión de Ana (Hora: 15:00)', 'mandarle un WhatsApp']);
+  assert.deepEqual(leerClase('{"clase":"ACCION","resumen":"r","partes":["anotar la llamada","notar el cambio de etapa"]}')?.partes, ['anotar la llamada', 'notar el cambio de etapa']);
   // Rota: `faltaAlgunaParte` con `<=` → con las dos partes hechas, igual se delega.
   assert.ok(faltaAlgunaParte(['mover', 'whatsapp'], 1));
   assert.ok(!faltaAlgunaParte(['mover', 'whatsapp'], 2));
