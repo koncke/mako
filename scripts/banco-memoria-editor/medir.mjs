@@ -167,6 +167,12 @@ const ESCENARIOS = [
   ['subida-reusada-1080', [['cargar', `prueba.cargar('${A2}')`], ['reproducir 5 s con la subida de cada cuadro', `prueba.reproducir({nombres:['${A2}'],segundos:5,subir:'reusado'})`]]],
   ['subida-reusada-4k', [['cargar', `prueba.cargar('${K}')`], ['reproducir 5 s', `prueba.reproducir({nombres:['${K}'],segundos:5})`],
     ['con la subida de cada cuadro', `prueba.reproducir({nombres:['${K}'],segundos:5,subir:'reusado'})`]]],
+  // El tope de decodificadores (services/video-cache, 5 s de uso): 4 clips seguidos, el último 7 s.
+  ...['antes', 'despues'].map((m) => [`tope-${m}-1080`, [['cargar', `prueba.cargar('${A2}')`],
+    ...[2, 2, 2, 7].map((s, i) => [`clip ${i + 1}, ${s} s`, `prueba.reproducir({nombres:['${A2}'],segundos:${s},compartido:'${m}'})`])]]),
+  // Un proyecto más largo: 6 clips de 6 s seguidos. Lo que importa es si la memoria deja de CRECER.
+  ...['antes', 'despues'].map((m) => [`tope6-${m}-1080`, [['cargar', `prueba.cargar('${A2}')`],
+    ...[1, 2, 3, 4, 5, 6].map((i) => [`clip ${i}, 6 s`, `prueba.reproducir({nombres:['${A2}'],segundos:6,compartido:'${m}'})`])]]),
   ['repro-1080', [['cargar', `prueba.cargar('${A2}')`], ['reproducir 5 s', `prueba.reproducir({nombres:['${A2}'],segundos:5})`],
     ['2º clip', `prueba.reproducir({nombres:['${A2}'],segundos:2})`], ['3º clip', `prueba.reproducir({nombres:['${A2}'],segundos:2})`]]],
   ['repro-1080-liviano', [['cargar', `prueba.cargar('${A2}')`], ['reproducir 5 s', `prueba.reproducir({nombres:['${A2}'],segundos:5,liviano:[540,960]})`],

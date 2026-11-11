@@ -17,13 +17,93 @@ interface VideoSinkData {
 	prefetchPromise: Promise<void> | null;
 }
 
+/**
+ * Cuánto tiempo DE USO sin pedirle un cuadro cierra el decodificador de un clip (≈100 MB uno de celular, medido el
+ * 11/11/2026 en docs/editor-video/memoria-del-editor.md §2). Antes quedaba abierto hasta sacar el archivo del proyecto.
+ */
+export const DECODIFICADOR_INACTIVO_MS = 5000;
+/**
+ * El tiempo de uso avanza como mucho esto entre dos pedidos: con el editor quieto no corre. Si no, al volver de una
+ * pausa larga se cerrarían los clips que siguen a la vista, y cada uno se reabriría en el mismo cuadro.
+ */
+const PASO_MAXIMO_MS = 100;
+/** Cada cuánto tiempo de uso se mira qué cerrar. */
+const PODA_CADA_MS = 1000;
+
 export class VideoCache {
 	private sinks = new Map<string, VideoSinkData>();
 	private initPromises = new Map<string, Promise<void>>();
 	private frameChain = new Map<string, Promise<unknown>>();
 	private seekGenerations = new Map<string, number>();
 
+	// El tope de decodificadores abiertos (ver DECODIFICADOR_INACTIVO_MS).
+	private tiempoDeUso = 0;
+	private ultimoPedido = 0;
+	private ultimaPoda = 0;
+	private usadoEn = new Map<string, number>();
+	private pedidosEnCurso = new Map<string, number>();
+	private readonly inactivoMs: number;
+	private readonly reloj: () => number;
+
+	constructor({
+		inactivoMs = DECODIFICADOR_INACTIVO_MS,
+		reloj = () => performance.now(),
+	}: { inactivoMs?: number; reloj?: () => number } = {}) {
+		this.inactivoMs = inactivoMs;
+		this.reloj = reloj;
+	}
+
 	async getFrameAt({
+		mediaId,
+		file,
+		time,
+	}: {
+		mediaId: string;
+		file: File;
+		time: number;
+	}): Promise<WrappedCanvas | null> {
+		this.marcarUso(mediaId);
+		this.pedidosEnCurso.set(mediaId, (this.pedidosEnCurso.get(mediaId) ?? 0) + 1);
+		try {
+			return await this.pedirCuadro({ mediaId, file, time });
+		} finally {
+			const quedan = (this.pedidosEnCurso.get(mediaId) ?? 1) - 1;
+			if (quedan > 0) this.pedidosEnCurso.set(mediaId, quedan);
+			else this.pedidosEnCurso.delete(mediaId);
+			this.podarInactivos();
+		}
+	}
+
+	/** Cuántos decodificadores hay abiertos. */
+	abiertos(): number {
+		return this.sinks.size;
+	}
+
+	private marcarUso(mediaId: string): void {
+		const ahora = this.reloj();
+		if (this.ultimoPedido > 0) this.tiempoDeUso += Math.min(Math.max(0, ahora - this.ultimoPedido), PASO_MAXIMO_MS);
+		this.ultimoPedido = ahora;
+		this.usadoEn.set(mediaId, this.tiempoDeUso);
+	}
+
+	/**
+	 * Cierra los decodificadores que no pidieron un cuadro en `inactivoMs` de uso: los clips que salieron de pantalla.
+	 * Nunca uno con un pedido en curso, uno que se está abriendo ni uno que lee el cuadro siguiente. Si se vuelve a ese clip, se reabre solo.
+	 */
+	private podarInactivos(): void {
+		if (this.tiempoDeUso - this.ultimaPoda < PODA_CADA_MS) return;
+		this.ultimaPoda = this.tiempoDeUso;
+		for (const mediaId of [...this.sinks.keys()]) {
+			if (this.pedidosEnCurso.has(mediaId) || this.initPromises.has(mediaId)) continue;
+			// Uno que está leyendo el cuadro siguiente tampoco: cerrarlo ahí deja un aviso «Prefetch failed».
+			if (this.sinks.get(mediaId)?.prefetching) continue;
+			if (this.tiempoDeUso - (this.usadoEn.get(mediaId) ?? 0) > this.inactivoMs) {
+				this.clearVideo({ mediaId });
+			}
+		}
+	}
+
+	private async pedirCuadro({
 		mediaId,
 		file,
 		time,
@@ -314,6 +394,7 @@ export class VideoCache {
 		this.initPromises.delete(mediaId);
 		this.frameChain.delete(mediaId);
 		this.seekGenerations.delete(mediaId);
+		this.usadoEn.delete(mediaId);
 	}
 
 	clearAll(): void {

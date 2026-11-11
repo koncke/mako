@@ -236,6 +236,12 @@ Ordenado por memoria que ahorra contra trabajo que lleva. Son propuestas; ningun
 4. **Cerrar los decodificadores de los clips que salieron de pantalla**, con un tope de unos 4 abiertos y cerrando el que
    se usó hace más tiempo (`video-cache/service.ts`). Con 10 clips de celular, de ≈1 GB pasa a ≈400 MB, y a ≈120 MB con
    copias livianas.
+   - **HECHO el 11/11/2026, con otra regla** (rama `punta/tope-decodificadores`).
+     - En vez de un tope fijo de abiertos, se cierra el que no pidió un cuadro en **5 s de uso**. El tiempo de uso no
+       corre con el editor quieto.
+     - Un tope fijo cerraría capas que se ven a la vez, y cada cuadro las reabriría.
+     - Dónde vive: `services/video-cache/service.ts` (`podarInactivos`). Lo fija
+       `tests/video-editor-tope-decodificadores.test.ts`. Medido: §12.
 5. **Terminar el hilo de Whisper** al terminar de subtitular (`services/transcription/service.ts`): ≈250 MB.
 6. **Exportar sin juntar todo en memoria.**
    - Decodificar el audio fuente por fuente en vez de todo a la vez (`media/audio.ts:234`).
@@ -342,3 +348,26 @@ decodificador (§2).
 **Sin medir:** el 4K, que es donde más se notaba (+529 → +762 MB de pico). La PC tenía 2 GB libres, y el 4K la habría
 bajado de los 1.250 MB del corte. Se corre con `node scripts/banco-memoria-editor/medir.mjs repro-4k subida-reusada-4k`
 cuando haya 3 GB libres.
+
+## 12. Después: cerrar el decodificador de lo que salió de pantalla, medido (11/11/2026)
+
+Es el `VideoCache` REAL, compartido entre clips como en el editor, con un reloj simulado a 30 cuadros por segundo: el
+banco pide cuadros mucho más rápido que la reproducción, y con el reloj de verdad nunca pasarían 5 s de uso.
+
+- **Antes:** el mismo código con `inactivoMs` infinito.
+- **Escenarios:** `tope6-antes-1080` y `tope6-despues-1080`: 6 clips de celular de 6 s, uno detrás del otro.
+
+| Después de cada clip | Antes: abiertos / GPU / todo Chrome | Después: abiertos / GPU / todo Chrome |
+|---|---|---|
+| 1 | 1 / +113 / +205 MB | 1 / +85 / +117 MB |
+| 2 | 2 / +217 / +303 MB | 1 / +99 / +135 MB |
+| 3 | 3 / +238 / +332 MB | 1 / +218 / +231 MB |
+| 4 | 4 / +302 / +414 MB | 1 / +219 / +235 MB |
+| 5 | 5 / +393 / +447 MB | 1 / +223 / +173 MB |
+| 6 | 6 / +368 / +411 MB | **1 / +259 / +188 MB** |
+
+- **Antes, cada clip sumaba unos 60 MB en la GPU. Después se estabiliza** cerca de +220–260 MB, y Chrome entero queda en
+  menos de la mitad.
+- **La GPU no devuelve en el momento lo que se suelta:** cerrar 3 decodificadores no la baja, la deja de hacer crecer.
+  Chrome guarda esa memoria para reusarla. Por eso el beneficio se ve en un proyecto largo y no en uno de 2 clips: con 4
+  clips daba +309 contra +270 MB.
