@@ -55,7 +55,7 @@ hace pasar por nuestros. La landing dice lo que MaKo hace, que sale del `incluye
 | Pasarela 1,80% / 7,61% / 5,75% | `docs/estrategia-financiera-mako.md` §2 y la recomendación 3 |
 | Impuesto 8,36% | ídem, monotributo H |
 | Gasto fijo y quién paga cada cosa | `lib/costos-fijos.ts` (`quienPaga`, `parteDeMartin`) |
-| 22,2 meses de vida del cliente | churn 4,5%/mes, benchmark SaaS pymes |
+| 9 meses de vida del cliente (eran 22,2) | decisión de Martín del 10/11 (`MESES_DE_VIDA`), hasta que haya bajas reales; antes, churn 4,5%/mes del benchmark de SaaS pymes |
 | Los ángulos de las 8 landings | `docs/como-venden-otros.md` §3 |
 | El estado de cada eslabón de la cadena | verificado contra el código el 7/11 |
 

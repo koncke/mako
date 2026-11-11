@@ -23,8 +23,7 @@ import { crear } from '@/lib/copywriter/server';
 import { docDeTexto } from '@/lib/copywriter/texto';
 import { esAdminDeTab } from '@/lib/puerta-admin-tab';
 import { leerPieza } from '@/lib/spy';
-import { textoParaCopiar, tipoParaCopiar } from '@/lib/spy-detalle';
-import { cortarSinPartir } from '@/lib/unicode-seguro';
+import { textoParaCopiar, tipoParaCopiar, tituloDeCopia } from '@/lib/spy-detalle';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
@@ -48,7 +47,7 @@ export async function POST(req: NextRequest) {
   // Sin el Copywriter, el texto vuelve y la pantalla lo copia: el botón sirve igual.
   if (!(await esAdminDeTab('copywriter')) || !(await veCopywriter())) return Response.json({ ok: true, texto }, { headers: { 'Cache-Control': 'no-store' } });
 
-  const titulo = cortarSinPartir(`Como ${competidor.nombre}: ${(pieza.analisis?.gancho || pieza.titulo || pieza.texto || '').replace(/\s+/g, ' ').trim()}`, 120);
+  const titulo = tituloDeCopia(competidor.nombre, pieza.analisis?.gancho || pieza.titulo || pieza.texto || '');
   const r = await crear({ tipo: tipoParaCopiar(pieza), titulo, contenido: docDeTexto(texto) });
   if (!r.ok) return Response.json({ ok: true, texto, error: r.error }, { headers: { 'Cache-Control': 'no-store' } });
   return Response.json({ ok: true, href: `/copywriter/${r.pagina.id}`, texto }, { headers: { 'Cache-Control': 'no-store' } });

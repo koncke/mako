@@ -129,7 +129,8 @@ test('6. cuándo terminó, con fecha y hora y el reloj de Argentina, como los me
   assert.equal(cuandoAR(t, t + 86_400_000), 'Ayer · 09:30');
   assert.match(cuandoAR(t, t + 5 * 86_400_000), /^26 oct\.? · 09:30$/);
   const html = bloque(() => {});
-  assert.match(html, /<span class="co-ya__rotulo">Completado<\/span><time class="co-preg__ya-cuando" dateTime="2026-10-26T12:30:00\.000Z">[^<]+ · 09:30<\/time>/, 'sin la fecha y la hora');
+  // El rótulo dice qué se completó (10/11/2026; el Cerebro, sin sub-chat ni «Voy a trabajar en…»: «Cerebro»).
+  assert.match(html, /<span class="co-ya__rotulo">Cerebro<\/span><time class="co-preg__ya-cuando" dateTime="2026-10-26T12:30:00\.000Z">[^<]+ · 09:30<\/time>/, 'sin la fecha y la hora');
   // La hora del hilo sale de lo MISMO (lib/centro-fechas.ts).
   assert.match(leer('app/admin/operaciones/Hilo.tsx'), /import \{ diaAR, horaAR, rotuloDia \} from '@\/lib\/centro-fechas';/);
 });

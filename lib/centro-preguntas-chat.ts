@@ -30,6 +30,7 @@
 // se descarta, aunque llegue en otra vuelta.
 
 import { DESTINO_RE, UUID_RE } from './operaciones-reglas';
+import { llegaAMartin } from './pregunta-para-martin';
 
 export const MAX_PREGUNTA = 300;
 export const MAX_CONTEXTO = 600;
@@ -142,8 +143,17 @@ export function retirarDeLaLista(preguntas: readonly PreguntaChat[], id: string,
   return { ok: true, pregunta, preguntas: preguntas.map((p) => (p.id === pregunta.id ? pregunta : p)) };
 }
 
-/** ¿Espera a Martín? Ni contestada, ni superada, ni ignorada. */
+/** ¿Sigue abierta? Ni contestada, ni superada, ni ignorada. Es la vida de la pregunta (unirla, retirarla, superarla): lo que se le
+ *  MUESTRA a Martín es `esperaAMartinEnElChat`. */
 export const estaAbierta = (p: Pick<PreguntaChat, 'respuesta' | 'superada' | 'ignorada'>): boolean => !p.respuesta && !p.superada && !p.ignorada;
+
+/**
+ * ¿La espera Martín? Abierta Y suya (10/11/2026, lib/pregunta-para-martin.ts): una técnica que ya llegó (de un cartero de antes, un
+ * wrap_up, un AskUserQuestion sin el hook) sigue abierta para su chat pero no sale en el bloque, no sube el globito ni dice «Espera tu
+ * respuesta». Lo preguntan el bloque, el conteo de la lista y la API.
+ */
+export const esperaAMartinEnElChat = (p: Pick<PreguntaChat, 'respuesta' | 'superada' | 'ignorada' | 'pregunta' | 'contexto' | 'opciones'>): boolean =>
+  estaAbierta(p) && llegaAMartin(p);
 
 /**
  * «Ignorar» (5/11/2026, Martín: «debería haber una sección que marque la fecha de los pedidos o decisiones y un botón de

@@ -407,7 +407,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'velocidad',
     forma: '{"op":"velocidad","ref":"v1","x":2}',
-    para: `Velocidad de un video o un audio. "x": constante, de ${TOPES_CHAT.velocidadMin} a ${TOPES_CHAT.velocidadMax} (1 = normal, 2 = el doble de rápido, 0.5 = cámara lenta; «un poco más rápido» ≈ 1.2, «más rápido» ≈ 1.5, «el doble» = 2); el clip se alarga o se acorta y lo que sigue en la pista se corre si hace falta. Conserva el tono; "cambiar_tono":true lo cambia (como cinta). O en vez de "x", "curva": un id de DISPONIBLES.curvas_velocidad (sólo video; "ninguna" la quita).`,
+    para: `Velocidad de un video o un audio. "x": constante, de ${TOPES_CHAT.velocidadMin} a ${TOPES_CHAT.velocidadMax} (1 = normal, 2 = el doble de rápido, 0.5 = cámara lenta; «un poco más rápido» ≈ 1.2, «más rápido» ≈ 1.5, «el doble» = 2); el clip se alarga o se acorta y lo que sigue en la pista se corre si hace falta. Con "x", los subtítulos de ese clip se reajustan a la voz solos; con "curva", no (no lo prometas). Conserva el tono; "cambiar_tono":true lo cambia (como cinta). O en vez de "x", "curva": un id de DISPONIBLES.curvas_velocidad (sólo video; "ninguna" la quita).`,
   },
   {
     op: 'transicion',
@@ -519,7 +519,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'usar_preset_subtitulos',
     forma: '{"op":"usar_preset_subtitulos","preset":"p1abc"}',
-    para: 'Aplica a TODOS los subtítulos un preset de la marca ("preset": su id de DISPONIBLES.presets_subtitulos): su fuente, colores, tamaño, fondo, contorno, karaoke y palabras clave. Se aplica al final. Sin presets en DISPONIBLES, el negocio todavía no guardó ninguno: dilo.',
+    para: 'Aplica a TODOS los subtítulos un preset de la marca ("preset": su id de DISPONIBLES.presets_subtitulos) o una plantilla de la galería de Subtítulos (su id de DISPONIBLES.plantillas_subtitulos: «estilo Hormozi» es "hormozi", «Hormozi clásico» es "hormozi-clasico"): su fuente, colores, tamaño, fondo, contorno, karaoke, animación y palabras clave, todo junto. Para pedir un estilo con nombre, ésta y no armarlo con otras operaciones. Se aplica al final. Si piden un preset de SU marca y DISPONIBLES no trae presets_subtitulos, el negocio todavía no guardó ninguno: dilo.',
   },
   {
     op: 'broll',

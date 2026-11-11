@@ -12,6 +12,37 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## La barra que se abre al pasar el cursor, debajo del velo de la guía (10/11/2026)
+
+**Síntoma:** Martín, en Image, con la pregunta de MaKo marcada («Contesta aquí para seguir.»): el panel de MaKo «queda debajo y
+cortado» (`…láminas). Antes, …ortas`), un «recuadro negro fantasma con otro 9» y el globo «flotando suelto».
+
+**Lo obvio era que el panel de Image estaba mal ubicado, y no:** fija, la barra empuja el contenido y el chat se ve entero.
+Pasa con la barra PLEGADA, que es como queda con MaKo abierto (`makoAbierto`): al pasarle el cursor se abre ENCIMA del contenido
+(z 60), y el velo de la guía, que va más arriba, deja un hueco con la forma del chat. Por ese hueco se veía la barra brillante
+tapando el chat, con los globitos de Chats y CRM («5», «84») adentro del recuadro de la pregunta. El «recuadro negro» es el aro
+de la pregunta, y el globo señalaba una pregunta que quedó debajo de la barra. Reproducido en producción a 1536×730.
+
+**La regla:** mientras el velo señala, el rail no se abre al pasar el cursor (`seAbreAlPasar`, app/_components/Sidebar.tsx;
+`[data-guia-velo]` está en el DOM sólo mientras el velo dibuja). Todo lo de afuera del chat está opacado a propósito, y un toque
+afuera pausa la guía; después del toque se abre como siempre. Cualquier capa que se abra ENCIMA del contenido choca con los
+huecos del velo: o se calla mientras el velo está, o va arriba del velo entera.
+
+## El menú «⋯» de una lista «sin fondo»: lo TAPABAN las filas de abajo (10/11/2026)
+
+**Síntoma:** Martín, en la lista de diseños de Image: el «⋯» (Cambiar nombre, Duplicar, Guardar como plantilla, Eliminar) «sale
+sin fondo: el texto se mezcla con los nombres de abajo».
+
+**Lo obvio era que le faltaba el fondo, y no:** `.cr-menu__lista` tiene `background: var(--surface)` y `z-index: 20`. Lo que
+pasaba es el orden de pintado. Cada `.cr-fila` es `position: relative` (para colgar el «⋯»), así que las filas que vienen
+DESPUÉS se pintan encima de la lista de la fila de arriba. Y el `transform: translateY(-50%)` de `.cr-menu` crea su propio
+contexto de apilamiento, así que el `z-index: 20` de la lista sólo vale ahí adentro y no le gana a nadie de afuera. Con tres
+acciones casi no se notaba; con «Guardar como plantilla» la lista creció y tapó dos nombres.
+
+**La regla:** un menú que cuelga de una fila con `position: relative` sube la CAJA que tiene el `transform`, y sólo mientras
+está abierto (`.cr-menu[data-abierto="si"] { z-index: 30 }`, app/_crear/crear.css). Si se suben todas, el «⋯» de la fila de
+abajo queda encima de un ítem y se lleva el clic. Vale para las cinco tabs que usan `PantallaCrear`.
+
 ## Iniciales cortadas por índice: quedan seis fuera de Automations (27/10/2026)
 
 `nombre.trim()[0]` es la primera unidad UTF-16, no la primera letra. Con «🚀 Ana» sale medio emoji, el server y el navegador
@@ -5227,3 +5258,28 @@ abre con `onMouseEnter`+`onFocus` —el ⓘ de `app/automations/FilasOpciones.ts
 
 **Vive en:** tests/ningun-boton-muerto.test.ts · app/_ui/Tooltip.tsx ·
 app/web-generator/editor/paneles/EstiloSeccion.tsx
+
+## Un modal adentro de PantallaCrear se abre INVISIBLE mientras «Nuevo …» está abierto (10/11/2026, AI Avatar)
+
+- **Síntoma:** en AI Avatar, «Ver ejemplo» de una plantilla de venta no hacía nada. No había error y el estado sí cambiaba.
+- **El diagnóstico obvio era el equivocado:** «el botón no tiene handler». Lo tenía. En la consola, el `[role=dialog]`
+  existía con ancho 0 y un ancestro `[hidden]`.
+- **Causa:** PantallaCrear dibuja a sus hijos en `<div className="cr-pieza" hidden={centro === 'nueva'}>`. «Ver ejemplo» se
+  toca justo en «Nuevo …», así que cualquier modal que la tab ponga ADENTRO de sus hijos se monta escondido.
+- **Regla:** el modal de una tarjeta de «Nuevo …» va AFUERA de `<PantallaCrear>`, como hermano, igual que Lead Magnet y Offer.
+  Si su «Usar» tiene que cerrar «Nuevo …» sin crear un proyecto, la pantalla se vuelve a montar con otra `key`, como hace el
+  Image Editor. El estado de la tab vive arriba y no se pierde.
+
+**Vive en:** app/_crear/PantallaCrear.tsx (`cr-pieza`) · app/ai-avatar/Estudio.tsx · tests/ai-avatar-prueba-1011.test.ts
+
+## Baldosas con `aspect-ratio` en una grilla con scroll: las filas se achican y se pisan (10/11/2026, AI Avatar)
+
+- **Síntoma:** en el selector de presets de AI Avatar, cada baldosa tapaba a la de abajo. Medido a 1440 × 900: filas de 65 px
+  y baldosas 3:4 de 255 px.
+- **Causa:** la grilla es un hijo flex con `flex: 1; min-height: 0; overflow-y: auto`, o sea, de alto fijo. Una baldosa con
+  `aspect-ratio` y `overflow: hidden` no defiende su alto mínimo, así que las filas `auto` se repartieron el alto de la caja.
+  Afuera del modal, la misma grilla no tiene alto fijo y se veía bien: por eso no saltaba en la pantalla principal.
+- **Regla:** una grilla de alto fijo, con baldosas que toman su alto de `aspect-ratio`, lleva `grid-auto-rows: max-content`.
+  Se probó en producción inyectando la regla antes de escribirla.
+
+**Vive en:** app/ai-avatar/estudio.css (`.hf-grilla--selector`)

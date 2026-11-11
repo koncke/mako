@@ -20,6 +20,7 @@
 import { areasDelMensaje, type VeredictoIntencion } from './mako-intencion';
 import { esAcusePuro } from './doer-para-quien';
 import { confirmacionPura } from './confirmacion-pura';
+import { lePideAlEquipoDeMaKo } from './le-pide-al-equipo';
 
 export const CLASES = ['PREGUNTA', 'ACCION', 'TICKET', 'DEBUG', 'CHARLA', 'NO_REPLY'] as const;
 export type Clase = (typeof CLASES)[number];
@@ -67,6 +68,7 @@ export const SYSTEM_DE_CLASE = [
   '5. DEBUG sólo si el grupo es el de SuperAdmin y escribe el dueño. Si no, lo mismo es PREGUNTA.',
   '6. Si MaKo acaba de pedir un «sí» y la persona confirma, corrige o cancela eso, es ACCION.',
   '7. Un reporte dirigido a alguien del equipo por su nombre («Hola Martín, probamos X y falla Y») es TICKET. Un saludo o un gracias suelto a alguien del equipo es NO_REPLY.',
+  '7b. Claude, el Cerebro o «el equipo» NO son otra persona del grupo: son el equipo de MaKo, a quien MaKo le pasa lo que no hace. «Dile a Claude que me dé X», «pídele a Claude que arregle Y» es TICKET (nunca NO_REPLY).',
   '8. Un link o un archivo sin decir para qué es PREGUNTA (hay que ver qué es y preguntarle para qué lo manda).',
   '9. Si pide VARIAS cosas («muéveme la reunión y mándale un WhatsApp»), pon cada una en "partes", en pocas palabras. Si pide una sola, "partes" es null.',
   '',
@@ -109,11 +111,24 @@ const aClase = (x: unknown): Clase | null => {
   return (CLASES as readonly string[]).includes(k) ? (k as Clase) : SINONIMOS[k] ?? null;
 };
 
-/** Las partes de un pedido compuesto: sólo con dos o más (una sola no es compuesto), hasta 5, cada una corta. */
+/**
+ * Una «parte» que es sólo el DATO de la anterior: «Nota: 'no contestó mi mensaje'», «Hora: 15:00». Ticket #77 (Giselle, 10/11/2026):
+ * «agrega una nota al lead María Valeria García, la nota dice: "no contestó mi mensaje"» volvió del modelo como DOS partes, MaKo hizo
+ * la única escritura que había (la nota) y `faltaAlgunaParte` delegó «lo que faltó» al equipo: un pedido vacío en la Ticketera.
+ */
+const RX_DATO_DE_LA_ANTERIOR = /^\s*(?:la\s+|el\s+)?(?:nota|texto|mensaje|asunto|hora|fecha|d[ií]a|monto|precio|datos?|detalle|contenido|cuerpo|t[ií]tulo|nombre|tel[eé]fono|e-?mail|correo|link|enlace)\s*(?:dice)?\s*:/i;
+
+/** Las partes de un pedido compuesto: sólo con dos o más (una sola no es compuesto), hasta 5, cada una corta. El dato de una parte va
+ *  con ella (`RX_DATO_DE_LA_ANTERIOR`), no cuenta como otra. */
 const partesDe = (x: unknown): { partes?: string[] } => {
   if (!Array.isArray(x)) return {};
-  const ps = x.filter((p): p is string => typeof p === 'string' && !!p.trim()).slice(0, 5).map((p) => recortar(p, 120));
-  return ps.length >= 2 ? { partes: ps } : {};
+  const ps: string[] = [];
+  for (const p of x.filter((q): q is string => typeof q === 'string' && !!q.trim()).slice(0, 5)) {
+    if (ps.length && RX_DATO_DE_LA_ANTERIOR.test(p)) ps[ps.length - 1] = `${ps[ps.length - 1]} (${p.trim()})`;
+    else ps.push(p);
+  }
+  const cortas = ps.map((p) => recortar(p, 120));
+  return cortas.length >= 2 ? { partes: cortas } : {};
 };
 
 /**
@@ -155,7 +170,11 @@ export function veredictoDeClase(c: ClaseDelModelo, reglas: VeredictoIntencion, 
   const pregunta = (): VeredictoIntencion => (INTENCIONES_DE_PREGUNTA.has(reglas.intencion)
     ? { ...reglas, dudosa: false, porque, fuente: 'ia' }
     : { intencion: 'consultar', dudosa: false, porque, fuente: 'ia', areas: areasDelMensaje(e.texto) });
-  const clase = c.clase === 'DEBUG' && !(e.esSuperAdmin && e.escribeElDueno) ? 'PREGUNTA' : c.clase;
+  // «Dile a Claude que me dé un archivo…» (Martín, 11/11/2026 00:07, en su grupo): la IA lo leyó como NO_REPLY («le pide a alguien
+  // del grupo (Claude)…») y MaKo le puso 👍 y se calló. Claude (o el Cerebro, el equipo) no es otra persona del grupo: es a quien
+  // MaKo le delega. Ese pedido nunca queda sin respuesta: es un ticket.
+  const aClaude = c.clase === 'NO_REPLY' && lePideAlEquipoDeMaKo(e.texto);
+  const clase = aClaude ? 'TICKET' : c.clase === 'DEBUG' && !(e.esSuperAdmin && e.escribeElDueno) ? 'PREGUNTA' : c.clase;
   switch (clase) {
     case 'CHARLA': return { intencion: 'charlar', dudosa: false, porque, fuente: 'ia' };
     case 'NO_REPLY': return { intencion: 'no_reply', dudosa: false, porque, fuente: 'ia' };

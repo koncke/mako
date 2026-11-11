@@ -241,16 +241,10 @@ export function paginasParaPublicar(c: LandingContenido): Pagina[] {
 }
 
 /**
- * El título y la descripción de una página publicada (para el `<title>`, el SEO y la vista previa al
- * compartir). La página manda; si no tiene, la de inicio cae a lo del sitio y después al título de
- * la landing, y una página interna a su propio nombre.
+ * El título y la descripción de una página publicada: viven en ./seo-pagina.ts (pura y sin el resto de este módulo), porque
+ * la vista previa de «Publicar → SEO» usa LA MISMA regla en el navegador (10/11/2026).
  */
-export function metaDePagina(p: Pagina, sitio: ConfigLanding['sitio'], tituloDoc: string): { titulo: string; descripcion: string } {
-  const propio = (p.seoTitulo ?? '').trim();
-  const titulo = propio || (p.ruta === '' ? (sitio.seoTitulo || '').trim() || tituloDoc : `${(p.titulo || '').trim() || tituloDoc}`);
-  const descripcion = (p.seoDescripcion ?? '').trim() || (sitio.seoDescripcion || '').trim();
-  return { titulo: titulo.slice(0, 200), descripcion: descripcion.slice(0, 300) };
-}
+export { metaDePagina } from './seo-pagina';
 
 /**
  * Lee la foto guardada con la forma que tiene que tener, o null. Una foto que no se puede leer NO se

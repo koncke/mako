@@ -43,9 +43,17 @@ const filasDe = (r: Resultado) => r.filas.filter((f) => f.etiqueta && f.clave !=
 /** «US$1,463», con centavos debajo de US$100 («US$14.40») y con cuatro decimales debajo de 10 centavos («US$0.0021»). */
 export function dolares(n: number): string {
   const a = Math.abs(n), s = n < 0 ? '−' : '';
+  // ⚠️ Debajo de una centésima de centavo, cifras significativas (11/11/2026, ws 3: 705 llamadas por US$0.0271 daban «US$0.0000»).
+  if (a > 0 && a < 0.0001) return `${s}US$${Number(a.toPrecision(2))}`;
   if (a > 0 && a < 0.1) return `${s}US$${a.toFixed(4)}`;
   return `${s}US$${a < 100 ? a.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : Math.round(a).toLocaleString('en-US')}`;
 }
+
+/**
+ * El rótulo del eje de lo gastado. Debajo de US$1 va con dos cifras significativas: con un decimal fijo, un tope de US$0.1
+ * repartido en tercios daba «US$0.1 · US$0 · US$0» (11/11/2026, ws 3).
+ */
+export const rotuloEjeDolares = (v: number): string => (v === 0 ? '0' : v >= 10 ? `US$${Math.round(v)}` : v >= 1 ? `US$${Number(v.toFixed(1))}` : `US$${Number(v.toPrecision(2))}`);
 
 // ── la cabecera ─────────────────────────────────────────────────────────────────────────────────────────────────
 /** «Usaste la IA 1,240 veces · 12% más que el período anterior.» */

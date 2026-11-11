@@ -32,7 +32,7 @@ import {
   NODO, NODOS_TIPTAP, MARCAS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA,
   SUPERPOSICIONES, AJUSTES_IMAGEN, FONDOS_TARJETA, TONOS_RECUADRO, VARIANTES_BOTON, ALINEACIONES,
   VARIANTES_OPTIMIZADO, COLUMNAS_OPTIMIZADO, ATTRS_TARJETA_DEFAULT, TOPES,
-  enLista, esHex, nuevoId, textoDe, titulo, parrafo, tarjeta,
+  enLista, esHex, nuevoId, textoDe, titulo, parrafo, tarjeta, cifrasEnPares,
   type JsonNodo, type JsonMarca,
 } from './doc';
 import {
@@ -421,7 +421,17 @@ export function ordenarPorIndice<T extends SeccionGramatica>(lista: T[], indices
 export function tarjetaDesdeEsquema(s: SeccionEsquema, esPrimera: boolean): JsonNodo {
   const contenido: JsonNodo[] = [titulo(s.titulo, esPrimera ? 1 : 2, esPrimera ? 'titulo' : null)];
   // Renglones sueltos: uno es un párrafo, varios son viñetas. Las marcas de una página LEÍDA (abajo) van a su bloque.
-  const sueltos = (ps: readonly string[]) => {
+  // Una FILA DE CIFRAS de la original llega como renglones que alternan número y rótulo («10,000», «Businesses Advised»…):
+  // va como «Números grandes», no como viñetas (11/11/2026, replicando acquisition.com; `cifrasEnPares`, doc.ts).
+  const sueltos = (todos: readonly string[]) => {
+    const { cifras, resto: ps } = cifrasEnPares(todos);
+    if (cifras.length) {
+      contenido.push({
+        type: NODO.optimizado,
+        attrs: { variante: 'numeros-grandes', columnas: 'auto', mostrarIconos: false },
+        content: cifras.map((c) => ({ type: NODO.optimizadoItem, attrs: { icono: null, imagenSrc: null, valor: c.valor, destacado: false }, content: [titulo(c.titulo, 3)] })),
+      });
+    }
     if (ps.length === 1) contenido.push(parrafo(ps[0]));
     else if (ps.length > 1) contenido.push({ type: 'bulletList', content: ps.map((p) => ({ type: 'listItem', content: [parrafo(p)] })) });
   };

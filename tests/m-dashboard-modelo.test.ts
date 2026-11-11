@@ -14,11 +14,13 @@
 //   · `deltaDe` con porcentaje sobre un anterior en 0                 → 3 / 1
 //   · `textoVence` sin «venció hace N días» (todo «vence hoy»)        → 3 / 1
 //   · `periodoDeParam` aceptando cualquier preset del pedido          → 3 / 1
+// Y 10/11/2026: `faltaConectar` (la hoja Closing sin grabador decía «No es nada tuyo»). Rompiéndolo: devolver
+// el texto aunque haya una lectura buena → 4 / 1; no mirar `sinConexion` (cualquier error) → 4 / 1.
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { deltaDe, etiquetaBarra, textoVence, geometria, pasoLindo, indiceEn, ejeCompacto, periodoDeParam, PERIODOS_MOVIL, periodosParaHoja, caminoBarra } from '../app/m/dashboard/modelo';
+import { deltaDe, etiquetaBarra, textoVence, geometria, pasoLindo, indiceEn, ejeCompacto, periodoDeParam, PERIODOS_MOVIL, periodosParaHoja, caminoBarra, faltaConectar, noSeLeyo } from '../app/m/dashboard/modelo';
 
 test('delta', () => {
   assert.deepEqual(deltaDe(112, 100, 'pct', true), { dir: 'up', tono: 'good', texto: '12%', etiqueta: 'Sube 12% contra el período anterior' });
@@ -69,4 +71,17 @@ test('periodo', () => {
   assert.equal(periodoDeParam(undefined, periodosParaHoja('todo'), 'todo').id, 'todo');
   assert.equal(periodosParaHoja('ult30').length, 4);
   assert.equal(periodosParaHoja('todo').length, 5);
+});
+test('falta conectar: nada leído y lo que volvió es «falta conectar» → ese texto; si no, null', () => {
+  const grabador = { ok: false as const, error: 'Conecta tu grabador de reuniones (Fathom, tl;dv, Fireflies, Zoom…) en Integraciones', sinConexion: true as const };
+  assert.equal(faltaConectar([grabador, grabador, undefined]), grabador.error);
+  assert.equal(faltaConectar([grabador, { ok: true }]), null, 'con una lectura buena la hoja tiene algo que mostrar');
+  assert.equal(faltaConectar([{ ok: false, error: 'No pude leer los datos' }]), null, 'una falla de verdad sigue siendo una falla');
+  assert.equal(faltaConectar([]), null);
+});
+test('«no pudimos leer» sólo si las lecturas fallaron: leídas y sin datos no es una falla (11/11/2026, ws 3)', () => {
+  assert.equal(noSeLeyo([{ ok: true }, { ok: true }]), false, 'Anuncio ganador sin datos en el período: se leyó bien');
+  assert.equal(noSeLeyo([{ ok: false }, undefined]), true);
+  assert.equal(noSeLeyo([{ ok: false }, { ok: true }]), false, 'con una buena hay algo que mostrar');
+  assert.equal(noSeLeyo([]), false, 'sin números no hay nada que decir');
 });

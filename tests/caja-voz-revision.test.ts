@@ -31,7 +31,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { estaAbierta, sanearPregunta, sanearPreguntas, superarPreguntas, textoDeRespuesta, unirPreguntas, type PreguntaChat } from '../lib/centro-preguntas-chat';
+import { esperaAMartinEnElChat, estaAbierta, sanearPregunta, sanearPreguntas, superarPreguntas, textoDeRespuesta, unirPreguntas, type PreguntaChat } from '../lib/centro-preguntas-chat';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -68,7 +68,9 @@ test('1. la pregunta de un wrap_up queda superada cuando el chat siguió sin el 
   // La pantalla y el servidor la respetan.
   assert.equal(sanearPregunta({ ...w, superada: yo.at })?.superada, yo.at, 'se guarda');
   assert.equal(sanearPreguntas([{ ...w, superada: yo.at }])[0].superada, undefined, 'lo que sube la PC nunca viene superado');
-  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /const n = ps\.filter\(estaAbierta\)\.length;/, 'el globito no la cuenta');
+  // El globito cuenta con `esperaAMartinEnElChat` desde el 10/11/2026 (abierta Y para Martín): una superada no la cuenta.
+  assert.equal(esperaAMartinEnElChat({ ...w, superada: yo.at }), false, 'el globito no la cuenta');
+  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /const n = ps\.filter\(esperaAMartinEnElChat\)\.length;/, 'y cuenta con ésa');
   assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /if \(p\.superada\) return \{ ok: false, error: 'Ya no espera tu respuesta: el chat siguió\.', yaContestada: true \};/, 'no se contesta');
   assert.match(sinComentarios(leer('lib/centro-turnos-db.ts')), /await superarConTurnos\(turnos, cadena\)/, 'guardar los turnos la supera (con la cadena del chat: tests/preguntas-cadena-y-ask.test.ts)');
   assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /superarPreguntas\(unirPreguntas\(superarPreguntas\(antes, turnos, cadena\), nuevas\), turnos, cadena\)/, 'y guardar la pregunta también, si el turno llegó antes (y antes de unir)');

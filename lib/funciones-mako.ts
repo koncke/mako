@@ -263,7 +263,7 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     hace: ['Ver los outliers y replicar uno con «Replicar»', 'La plantilla «Mensaje para…»: MaKo pide en el chat la referencia, tu guion de 6 bloques, tu foto o tu personaje, tu voz y el fondo, con lo demás opacado', 'Calcular cuánto dura y cuántos créditos cuesta cada clip según sus palabras', 'Crear tu personaje con tu foto («Tu personaje con IA», el estudio de AI Avatar)', 'Arrancar de un formato (Reel, YouTube, cuadrado) o de una plantilla', 'Un modo simple con menos botones en las plantillas guiadas, y «Todas las herramientas»', 'Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Edición automática: un equipo de agentes quita pausas, subtitula, prueba estilos, propone B-roll y deja el volumen listo, a la vista', 'Exportar el video'],
     noHace: ['Todavía no: guardar los proyectos en la nube (quedan en tu navegador)', 'Todavía no: filmar sola los clips, las tomas blancas y el montaje de «Mensaje para…» (los lleva al estudio del personaje y al Video Generator)', 'Todavía no: traer outliers de tu rubro (hoy, los de las plantillas de MaKo)'],
     reemplaza: 'CapCut',
-    alias: ['video editor', 'editar video', 'edicion de video', 'capcut', 'edicion automatica', 'editar con agentes'],
+    alias: ['video editor', 'editor de video', 'editar video', 'edicion de video', 'capcut', 'edicion automatica', 'editar con agentes'],
     conecta: [{ a: 'video-generator', motivo: 'Recibe los anuncios que genera' }],
     estado: 'parcial', slugDev: 'video-editor', fuentes: [AREAS, 'AGENTS.md'],
   },
@@ -297,7 +297,7 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     noHace: ['No baja ni muestra bibliotecas de carruseles de otras apps: sólo los de las cuentas que sigues y la biblioteca de ejemplos, leída de Instagram directo', 'Un negocio no edita la biblioteca de ejemplos: la edita la plataforma', 'No copia las palabras de un ejemplo: copia el diseño y la IA escribe las tuyas', 'Los anuncios son sólo los de las cuentas que sigues en Spy: no hay una biblioteca de anuncios de todos', 'Todavía no: pedirle fotos a un banco de imágenes'],
     reemplaza: 'Canva',
     // Carousels se retiró el 29/10/2026: un carrusel es una plantilla de «Nuevo diseño» (app/_crear/PantallaCrear.tsx).
-    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels', 'hacer el mío', 'editar ejemplo', 'mi versión', 'cta', 'comenta la palabra', 'anuncios de la competencia', 'espiar anuncios', 'biblioteca de ejemplos', 'ejemplos de carruseles', 'brand kit', 'kit de marca'],
+    alias: ['image editor', 'editor de imagenes', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels', 'carruseles que funcionan', 'outlier', 'topcarousels', 'hacer el mío', 'editar ejemplo', 'mi versión', 'cta', 'comenta la palabra', 'anuncios de la competencia', 'espiar anuncios', 'biblioteca de ejemplos', 'ejemplos de carruseles', 'brand kit', 'kit de marca'],
     conecta: [{ a: 'market-an', motivo: 'Los carruseles que funcionan salen de las cuentas que sigues en Competitors Spy' }],
     estado: 'parcial', slugDev: 'image-editor', fuentes: [AREAS, 'AGENTS.md'],
   },

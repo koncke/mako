@@ -115,7 +115,7 @@ import { RedDeBloque } from './RedDeBloque';
 import { PestanasDashboard } from './PestanasDashboard';
 import { acomodoPorAncho } from '@/lib/graficos-acomodo';
 import { PARAM_PLANTILLAS, pestanasDelDashboard, type HojaCorta, type InformeDashboard } from '@/lib/dashboard-focus';
-import { aGuardado, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, type GrupoSeccion } from '@/lib/graficos-secciones';
+import { aGuardado, agregarALaVista, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, type GrupoSeccion } from '@/lib/graficos-secciones';
 import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-conectores';
 import type { Resultado } from '@/lib/graficos-agregar';
 import type { DatosGrafico } from '@/lib/graficos-datos';
@@ -153,6 +153,8 @@ import { crearColaGuardado, leerRespuestaGuardado, type ColaGuardado } from './g
 import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 import { AccionesFilaProvider } from './entidades/acciones-fila';
 import { ELEMENTOS_ALTO_LIBRE_EN_PILA, graficoAltoLibreEnPila, solosEnPila } from './pila';
+import { esAcomodoDe } from './aviso-grilla';
+import { faltaConectarDeHoja } from './falta-conectar';
 import { PASOS_DASHBOARD, PASOS_DASHBOARD_EDICION, RECORRIDO_DASHBOARD, RECORRIDO_DASHBOARD_EDICION } from './recorridos-dashboard';
 import { hojaConIdsNuevos } from '@/lib/graficos-copia';
 import { sigueComoSeCreo } from '@/lib/graficos-plantilla-relleno';
@@ -233,7 +235,7 @@ type PopupAbierto = { g: Grafico; ctx: ContextoPopup; periodo: { desde: string; 
 
 function aEstado(d: DatosGrafico | undefined): EstadoDatos {
   if (!d) return { cargando: true };
-  return d.ok ? { cargando: false, resultado: d.resultado } : { cargando: false, error: d.error };
+  return d.ok ? { cargando: false, resultado: d.resultado } : { cargando: false, error: d.error, ...(d.sinConexion ? { sinConexion: true as const } : {}) };
 }
 /** Si el foco está donde se tipea, las teclas son del texto, no del editor. */
 function enUnTexto(): boolean {
@@ -645,6 +647,8 @@ export function EditorInforme({
     for (const [id, e] of Object.entries(datos)) o[id] = e.resultado;
     return o;
   }, [datos]);
+  /** Lo que la hoja no puede leer porque falta conectar algo (./falta-conectar.ts): va en la franja de avisos. */
+  const faltaConectar = useMemo(() => faltaConectarDeHoja(lienzo.componentes.filter(esGrafico).map((c) => c.id), datos), [lienzo.componentes, datos]);
 
   // ── El guardado: solo, con un respiro, en COLA y con la versión; nunca si la lectura falló ────────
   // Lo guardado es el informe que VINO (`inicial`), no el del primer render: si el link sumó una hoja,
@@ -873,7 +877,9 @@ export function EditorInforme({
   const agregarComponente = (c: Componente) => {
     const tope = dueno ? MAX_POPUP : MAX_COMPONENTES;
     if (lienzo.componentes.length >= tope) { show('Máximo de componentes'); return; }
-    mutarComponentes((cs) => [...cs, c]);
+    // Nunca adentro de una sección plegada (lib/graficos-secciones.ts, `agregarALaVista`): en una hoja con diseño, abajo de todo es
+    // «Todas las piezas», plegada, y lo agregado no se veía (10/11/2026).
+    mutarComponentes((cs) => agregarALaVista(cs, c, plegadas));
     setSelId(c.id);
     setConSel(null);
     aMirar.current = c.id;
@@ -1174,23 +1180,28 @@ export function EditorInforme({
   const cajasDibujadas = useMemo(() => new Map(layout.map((it) => [it.i, { x: it.x, y: it.y, w: it.w, h: it.h }] as const)), [layout]);
   // Lo que la vuelta de la grilla necesita, al día ANTES de que la grilla avise (sus avisos van en efectos
   // pasivos; éste es de layout y corre antes que cualquiera de ellos, también al montar).
-  const vueltaRef = useRef<{ guardado: Layout; grupos: GrupoSeccion[]; plegadas: ReadonlySet<string>; duenoId: string | null }>({ guardado: [], grupos: [], plegadas: new Set(), duenoId: null });
-  useLayoutEffect(() => { vueltaRef.current = { guardado: layoutGuardado, grupos, plegadas, duenoId }; });
-  // Arrastrar y agrandar: se apila UNA vez al empezar el gesto, no en cada píxel. Durante el gesto, los
-  // conectores siguen a las tarjetas desde el DOM (./Conectores.tsx).
-  const alEmpezarGesto = useCallback(() => { apilar(tableroRef.current); setEnGesto(true); }, [apilar]);
-  const alTerminarGesto = useCallback(() => setEnGesto(false), []);
+  const vueltaRef = useRef<{ guardado: Layout; grupos: GrupoSeccion[]; plegadas: ReadonlySet<string>; duenoId: string | null; dado: Layout }>({ guardado: [], grupos: [], plegadas: new Set(), duenoId: null, dado: [] });
+  useLayoutEffect(() => { vueltaRef.current = { guardado: layoutGuardado, grupos, plegadas, duenoId, dado: layout }; });
+  /** ¿Hay un arrastre o un agrandado en curso? Un ref y no el estado: la grilla avisa en el MISMO tick en que termina. */
+  const gestoRef = useRef(false);
   const idHoja = hoja.id;
   useEffect(() => { setEnGrilla(false); }, [idHoja]);
   // La grilla avisa un cambio también al MONTAR, cuando compacta lo que vino (medido el 11/10: así se
   // guardó el informe de Mauricio a las 01:59 sin que tocara nada). Mirando, no se escribe: sólo editando.
   // Lo que avisa son filas DIBUJADAS: `aGuardado` las vuelve a las guardadas (lo plegado, en su lugar).
+  // ⚠️ Fuera de un gesto, SÓLO el acomodo de lo que se le dio ahora (./aviso-grilla.ts): dos Ctrl+Z seguidos perdían el segundo.
   const alMoverGrilla = useCallback((l: Layout) => {
     if (!editando) return;
     const v = vueltaRef.current;
+    if (!gestoRef.current && !esAcomodoDe(l, v.dado, COLS)) return;
     const pos = aGuardado(l, v.guardado, v.grupos, v.plegadas);
     setTablero((t) => conPosiciones(t, idHoja, v.duenoId, pos));
   }, [idHoja, editando]);
+  // Arrastrar y agrandar: se apila UNA vez al empezar el gesto, no en cada píxel. Durante el gesto, los
+  // conectores siguen a las tarjetas desde el DOM (./Conectores.tsx). El FINAL del gesto escribe la grilla que trae (antes
+  // de que la grilla avise; ese aviso ya no es «acomodo» de lo dado y se descarta).
+  const alEmpezarGesto = useCallback(() => { apilar(tableroRef.current); gestoRef.current = true; setEnGesto(true); }, [apilar]);
+  const alTerminarGesto = useCallback((l: Layout) => { alMoverGrilla(l); gestoRef.current = false; setEnGesto(false); }, [alMoverGrilla]);
 
   const angosto = mounted && width > 0 && width < ANCHO_PILA && !imprimiendo;
   // El que el recorrido señala: el primero EN PANTALLA (arriba a la izquierda), no el primero del arreglo,
@@ -1673,6 +1684,13 @@ export function EditorInforme({
               <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" onClick={(e) => e.stopPropagation()}>
                 <span>{avisoClosing}</span>
                 {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>{accionClosing}</BotonIntegracion>}
+              </div>
+            )}
+            {/* Una hoja con diseño sin datos porque FALTA CONECTAR algo (./falta-conectar.ts): el texto del lector, arriba y una
+                vez. Sin esto, cada tarjeta decía «Sin datos» y la causa no aparecía (11/11/2026, ws 3). */}
+            {faltaConectar.length > 0 && hoja.diseno && !dueno && !enBlanco && !compartido && (
+              <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" data-falta-conectar onClick={(e) => e.stopPropagation()}>
+                <span>{faltaConectar.join(' · ')}</span>
               </div>
             )}
             {hoja.diseno && hoja.diseno.v !== 2 && enGrilla && !editando && !dueno && !enBlanco && (

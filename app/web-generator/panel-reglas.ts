@@ -578,11 +578,13 @@ export function esPanelPelado(query: Query): boolean {
  * Qué rutas de la tab REDIRIGEN, para que lo haga su layout ANTES del loader (24/10/2026, ticket #9: «La pantalla «Web
  * Generator» se rompió», React #310 en producción). `app/web-generator/loading.tsx` es un Suspense que envuelve a la página
  * Y a las subrutas: un `redirect()` de ahí adentro va en el stream (200 + meta refresh, no 307) y queda en carrera con la
- * hidratación del router (el mismo #310 del ticket #7, docs/hallazgos-infra.md). Las tres que redirigen: la pelada (a la
- * última landing, desde el 24/10), `/analizar` y `/crear` (los links viejos). null = no redirige: el layout no hace nada.
+ * hidratación del router (el mismo #310 del ticket #7, docs/hallazgos-infra.md). Las dos que redirigen: `/analizar` y `/crear`
+ * (los links viejos). null = no redirige: el layout no hace nada.
+ * ⚠️ La pelada YA NO salta a la última landing (11/11/2026, Martín: «lo mismo que venimos haciendo con el resto de tabs, de
+ * outliers»): como Video e Image, muestra «Encuentra tu siguiente OUTLIER» (OutliersLandings.tsx), y «Crear desde cero» lleva al
+ * Panel. Desde el 24/10 hasta ese día saltaba a la última landing tocada.
  */
-export function redireccionDelLayout(ruta: string | null, query: Query): 'ultima' | 'analizar' | 'crear' | null {
-  if (ruta === '/web-generator') return esPanelPelado(query) ? 'ultima' : null;
+export function redireccionDelLayout(ruta: string | null, _query: Query): 'analizar' | 'crear' | null {
   if (ruta === '/web-generator/analizar') return 'analizar';
   if (ruta === '/web-generator/crear') return 'crear';
   return null;

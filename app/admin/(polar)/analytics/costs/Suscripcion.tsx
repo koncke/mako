@@ -13,7 +13,8 @@
 // Del tablero quedaron afuera «Altas nuevas este mes» y «Quién paga qué» (ver docs/relevo/nube-costs-suscripcion.md).
 //
 // ⚠️ LOS NÚMEROS SALEN DE `loQueSeVaDeUnaSuscripcion` (lib/economia-unitaria.ts), la misma función que arma la torta de
-// /admin/estrategia. Con el escenario del modelo (lo que viene elegido) el 97 da 67,94 de ganancia.
+// /admin/estrategia. Con el escenario del modelo (lo que viene elegido) el 97 da 61,53 de ganancia
+// (con 9 meses de vida, `MESES_DE_VIDA`).
 // ⚠️ Y LA PLATA VA EN DÓLARES POR `fmtUsd` (utils.ts): el `formatCurrency` de Polar recibe centavos.
 
 import DistributionChart from '@/app/admin/_polar/web/Metrics/DistributionChart'

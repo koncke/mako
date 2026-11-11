@@ -510,6 +510,25 @@ export function queryDeFiltros(f: FiltrosCarrusel): string {
 /** ¿Los filtros son los de entrada? (sin nada que guardar como búsqueda). */
 export const sinFiltros = (f: FiltrosCarrusel): boolean => queryDeFiltros(f) === '';
 
+/**
+ * Los filtros de entrada de CADA lado (10/11/2026). Los anuncios arrancan ordenados por días al aire (`irA`), no por outlier:
+ * comparados con los de Carruseles, un Anuncios recién abierto «tenía filtros», y mostraba «Quitar filtros» y «Guardar
+ * búsqueda» sin que nadie hubiera tocado nada, y «Quitar filtros» lo pasaba a ordenar por outlier.
+ */
+export const filtrosInicialesDe = (que: QueVer): FiltrosCarrusel => ({
+  ...FILTROS_INICIALES, que, orden: que === 'anuncios' ? 'aire' : FILTROS_INICIALES.orden,
+});
+/**
+ * El orden que de verdad se usa: en los anuncios, «outlier» e «interacción» no existen y se ordena por días al aire (lo mismo que
+ * dibuja el desplegable y lo que hace `filtrarCarruseles`). Entrar por el link `?que=anuncios` trae el orden de entrada de
+ * Carruseles; sin esto, ese Anuncios «tenía filtros».
+ */
+const ordenEfectivo = (f: FiltrosCarrusel): FiltrosCarrusel['orden'] =>
+  (f.que === 'anuncios' && (f.orden === 'outlier' || f.orden === 'interaccion') ? 'aire' : f.orden);
+/** ¿Los filtros son los de entrada de su lado? Lo que decide «Quitar filtros» y «Guardar búsqueda». */
+export const sinFiltrosDe = (f: FiltrosCarrusel): boolean =>
+  queryDeFiltros({ ...f, orden: ordenEfectivo(f) }) === queryDeFiltros(filtrosInicialesDe(f.que));
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Guardados y búsquedas guardadas (app_settings del negocio: `carruseles.guardados`, `carruseles.busquedas`)
 // ─────────────────────────────────────────────────────────────────────────────

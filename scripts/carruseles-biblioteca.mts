@@ -51,7 +51,7 @@
 //   reclasificar [--de-verdad]   Vuelve a clasificar lo guardado con su texto (el tipo, el cierre, si parece contenido y,
 //                                con la 0404, el CTA «Comenta X palabra»). GRATIS: no le pide nada a Apify. Sólo llena lo
 //                                que falta. En seco por defecto: dice cuántos piden una palabra y muestra unos de cada lado.
-//   laminas [--de-verdad] [--techo-usd 1] [--max 400]   (6/11/2026, 0404) Las imágenes de cada lámina de los carruseles que
+//   laminas [--de-verdad] [--techo-usd 1] [--max 400] [--reserva-usd <n>]   (6/11/2026, 0404) Las imágenes de cada lámina de los carruseles que
 //                                no las tienen: lee cada publicación POR SU LINK (de a 40, ~US$0,0027 cada una: la receta de
 //                                docs/hallazgos-carruseles.md) y las baja a nuestro bucket. En seco dice cuántas, cuánto, en
 //                                cuántas tandas y, si no entran todas, POR QUÉ (crédito, tu tope, o nada que leer).
@@ -111,7 +111,7 @@ const I = await imp('lib/carruseles/biblioteca-imagenes.ts');
 
 /** Los bajadores de verdad, SIN el tope de 9 s de Vercel: acá no hay función que se corte, y la biblioteca no vuelve a leer
  *  una pieza ya guardada (lo que no baja en esta vuelta no baja nunca). lib/carruseles/biblioteca-imagenes.ts. */
-const SIN_TOPE = { presupuestoMs: Infinity };
+const SIN_TOPE = { presupuestoMs: Infinity, esperaMs: 20_000 };
 const bajadores = {
   bajarPortadas: <T,>(p: readonly T[]) => M.guardarMiniaturas(p, SIN_TOPE),
   bajarLaminas: (ref: string, urls: readonly string[]) => S.bajarLaminas(ref, urls, SIN_TOPE),
@@ -683,9 +683,18 @@ async function laminas() {
   const { ks, por: por0, total: c0 } = await clavesParaGastar();
   // El techo Y DE DÓNDE SALE (6/11/2026): un techo de cero porque no hay crédito y un techo chico porque el crédito no llega a
   // lo pedido no se ven iguales. El número solo es `B.techoConCredito`, que es lo que usa `leer`.
-  const tope = B.motivoDelTecho(techoPedido, c0, B.RESERVA_CREDITO_USD) as { techo: number | null; motivo: string; porque: string };
+  // La reserva de Spy (10/11/2026): la de siempre, salvo que `--reserva-usd <n>` la baje para ESTA corrida. Es para cuando Martín
+  // decide pagar de ahí (el lote de las 166 láminas, con la clave 2 sin cargar: «Usá la reserva»), nunca por defecto. Se lee
+  // aparte de `num` porque `num` toma el 0 por «no dijo».
+  const crudaReserva = args.op.get('reserva-usd');
+  const pedidaReserva = typeof crudaReserva === 'string' ? Number(crudaReserva.replace(',', '.')) : NaN;
+  const reserva = Number.isFinite(pedidaReserva) && pedidaReserva >= 0 ? Math.min(pedidaReserva, B.RESERVA_CREDITO_USD) : B.RESERVA_CREDITO_USD;
+  const tope = B.motivoDelTecho(techoPedido, c0, reserva) as { techo: number | null; motivo: string; porque: string };
   const techo = tope.techo ?? 0;
   imprimirCredito(ks, por0);
+  if (reserva < B.RESERVA_CREDITO_USD) {
+    console.log(`  ⚠ Usa la reserva de Spy: deja ${usd(reserva)} en vez de ${usd(B.RESERVA_CREDITO_USD)} (lo pediste con --reserva-usd).`);
+  }
   console.log(`  Puede gastar hasta ${usd(techo)} — ${tope.porque}.`);
   // El plan de tandas, también en seco: cuántos links entran en el techo y cuántos NO (antes esto sólo se sabía al cortar).
   const plan = B.planDeTandas(porLeer, { techoUsd: techo }) as {
@@ -699,6 +708,10 @@ async function laminas() {
   const pagan = conCredito(ks, por0);
   let guardadas = 0;
   let sinImagenes = 0;
+  // Las que Apify SÍ trajo y no se pudieron bajar o subir (10/11/2026): antes se contaban con las de arriba, como «borrados o
+  // privados», y 37 de 59 eran láminas de más de 2 MB que el bucket tiraba en silencio. Pagadas: se pueden rehacer sin pagar,
+  // releyendo el dataset de la corrida (docs/hallazgos-carruseles.md).
+  let noBajaron = 0;
   let pedidos = 0;   // cuántos links ya se pidieron
   let cobrado = 0;   // lo que Apify cobró, contado por lo que LLEGÓ (no por el techo de la tanda, que lleva margen)
   let nTanda = 0;
@@ -730,14 +743,14 @@ async function laminas() {
       if (!p?.imagenes?.length) { sinImagenes += 1; continue; }
       // Ya pagadas: se bajan sin el tope de 9 s, que dejaba sin láminas a un carrusel por una sola que no entraba a tiempo.
       const nuestras = await bajadores.bajarLaminas(f.ref, p.imagenes);
-      if (!nuestras) { sinImagenes += 1; continue; }
+      if (!nuestras) { noBajaron += 1; continue; }
       if (await guardarLaminas(f, nuestras)) guardadas += 1;
     }
     console.log(`  ✔ Tanda ${nTanda}: ${links.length} links → ${guardadas} con sus láminas hasta acá (Apify cobró ${usd(cobrado)} de ${usd(techo)}).`);
   }
   const { total: c1 } = await creditos(ks);
   const gastado = c1 ? Math.max(0, Math.round((c1.usado - c0.usado) * 100) / 100) : null;
-  console.log(`▶ Listo: ${guardadas} carruseles con sus láminas; ${sinImagenes} sin imágenes (borrados, privados o el actor no las dio).`);
+  console.log(`▶ Listo: ${guardadas} carruseles con sus láminas; ${sinImagenes} sin imágenes en lo que dio Apify (borrados, privados o el actor no las dio)${noBajaron ? `; ${noBajaron} con imágenes que NO bajaron (pagados: se rehacen releyendo el dataset de su corrida, sin pagar)` : ''}.`);
   // Por qué no siguió, con el número: nunca un «al techo» mudo. Un corte de Apify a mitad se dice como tal, no como el techo.
   console.log(`  ${B.porQueParo({ corte, motivo: tope.motivo, porque: tope.porque, techo: tope.techo, quedanFuera: conLink.length - pedidos, gastado })}`);
   if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)}.`);

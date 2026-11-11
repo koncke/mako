@@ -14,6 +14,43 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## Un texto que sale por HTTP nombraba una operación sin HTTP: el 404 era a propósito, lo que mentía era la nota (10/11/2026, ticket #61)
+
+Fiesta Music (ws 10), desde su Claude por la API: «la landing de la formación que duplicamos el 2/11 no aparece» y
+«`ver_dominio_landing` dice que se conecta con `conectar_dominio_landing`, pero esa operación da 404 y no está en el OpenAPI».
+
+- **Los dos diagnósticos obvios eran los equivocados.** (1) «`listar_landings_creadas` filtra mal, o la landing se perdió»:
+  medido en producción, el 2/11 el token sólo corrió `crear_landing_en_blanco` (la 91, Skills; ningún `duplicar_landing` en
+  `api_llamadas`), y la secuencia de `landing_docs` no tiene huecos entre la 91 (2/11 04:17 UTC) y la 92: entre las dos no se
+  intentó ningún insert en ningún negocio (uno fallido también gasta la secuencia). La de la formación es la 92, que su Claude
+  duplicó de la 91 el 7/11 a las 18:29 UTC, diez minutos DESPUÉS de levantar el ticket, y renombró «Formación Fiesta Music»;
+  es un borrador sin publicar. La lista decía la verdad. (2) «Falta abrir `conectar_dominio_landing` por HTTP»: es `SIN_HTTP`
+  desde que nació (15/10) y a propósito, porque suma el dominio al proyecto de Vercel de MaKo, que es de todos los negocios, y
+  reclamarlo es global. El de email sí sale (`conectar_dominio_email`, 4/11) porque va a la cuenta de Resend DEL negocio: ése
+  es el criterio. Lo roto era `ver_dominio_landing` (sale por todos los canales): su nota decía «Se conecta con
+  conectar_dominio_landing» y «verificar_dominio_landing dice cuáles» también por HTTP.
+- **Para saber qué hizo un token, la fuente es `api_llamadas`**: operación, status y `token_id` de cada pedido por HTTP, por
+  negocio. Y `landing_doc_versiones` guarda el título que tuvo un documento en cada versión (la 92 nació «Skills para artistas
+  (copia)»): así se ve que una landing es la copia de otra sin depender del recuerdo de nadie.
+- **Regla: lo que una operación le contesta a un canal nombra sólo operaciones que ESE canal tiene.** Por HTTP, una operación
+  sin ese canal contesta 404 sin confirmar que existe (como GitHub, `rutas-http.ts`): el tercero no distingue «no existe» de
+  «no por acá» y se queda sin camino. La nota va por canal (`dominioParaApi(…, porHttp)`, con `ctx.canal === 'http'` en el
+  runner) y manda a la pantalla («Dominios» del diálogo Publicar); la descripción, que es una sola para todos los canales y va
+  al OpenAPI, dice en qué canal sale cada operación que nombra.
+- ⚠️ **Sin hacer: el mismo patrón en 32 descripciones más.** Medido el 10/11 contra el registro: 33 operaciones que salen por
+  HTTP nombran en su descripción alguna que no (`ficha_lead` → `historial_lead`, `crear_crm` → `agregar_lead_a_producto`,
+  `inscripciones_lead` → `inscribir_lead_secuencia`, `ver_revenue_periodo` → `a_quien_cobrar`…; 11 más del área landing, casi
+  todas hacia `editar_landing_con_ia`, `generar_landing_con_ia` o `aplicar_comentario_landing`), y la única arreglada es
+  `ver_dominio_landing`. Muchas son a propósito («no es X, eso es Y»), así que no va un test que las prohíba todas: falta
+  revisarlas una por una y, donde la descripción manda a HACER algo, decir dónde se hace por HTTP. El medidor es `sinEseCanal`
+  de tests/api-mako-dominio-landing.test.ts aplicado al `REGISTRO` entero.
+
+**Vive en:** lib/api-mako/areas/landing-contenido.helpers.ts (`dominioParaApi`, `DOMINIO_EN_LA_APP`) ·
+lib/api-mako/areas/landing-editor.run.ts · lib/api-mako/areas/landing-editor.def.ts (`ver_dominio_landing` y el comentario de
+«El dominio propio») · test: tests/api-mako-dominio-landing.test.ts · *10/11/2026, chat Tickets.*
+
+---
+
 ## La Ticketera por la API: QUIÉN pide no es un parámetro, y por HTTP `ctx.actor` es el NOMBRE del token (10/11/2026, nube)
 
 Martín (9/11): «hoy en día en la API ni siquiera se pueden levantar tickets, y sí se debería». `levantar_ticket` existía y no

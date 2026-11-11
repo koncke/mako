@@ -16,7 +16,8 @@ import 'server-only';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { DESTINO_RE, sanearTurnos } from './operaciones-reglas';
-import { estaAbierta, ignorarEnLaLista, mostrarDeNuevoEnLaLista, retirarDeLaLista, sanearPregunta, superarPreguntas, unirPreguntas, type PreguntaChat, type RespuestaPregunta, type TurnoQueSupera } from './centro-preguntas-chat';
+import { esperaAMartinEnElChat, ignorarEnLaLista, mostrarDeNuevoEnLaLista, retirarDeLaLista, sanearPregunta, superarPreguntas, unirPreguntas, type PreguntaChat, type RespuestaPregunta, type TurnoQueSupera } from './centro-preguntas-chat';
+import { FIRMA_DEL_JUEZ } from './pregunta-para-martin';
 
 const PREFIJO = 'operaciones.preguntas.';
 /** Los turnos de cada chat (lib/centro-turnos-db.ts): una pregunta de wrap_up se supera con un turno posterior. */
@@ -36,19 +37,50 @@ const parsearMapa = (v: string | null): Record<string, number> => {
 };
 
 /** Anota cuántas espera cada chat que se acaba de escribir. Si no puede leer el mapa, no lo pisa (la cuenta vuelve sola
- *  con la próxima escritura de ese chat); el globito es un aviso, no la verdad de la pregunta. */
-async function anotarAbiertas(porChat: ReadonlyMap<string, readonly PreguntaChat[]>): Promise<void> {
+ *  con la próxima escritura de ese chat); el globito es un aviso, no la verdad de la pregunta. Devuelve si lo escribió. */
+async function anotarAbiertas(porChat: ReadonlyMap<string, readonly PreguntaChat[]>): Promise<boolean> {
   try {
     const mapa = parsearMapa(await getSettingEstricto(CLAVE_ABIERTAS));
     for (const [local, ps] of porChat) {
-      // Una superada (un wrap_up después del cual el chat siguió) no espera a nadie.
-      const n = ps.filter(estaAbierta).length;
+      // Una superada (un wrap_up después del cual el chat siguió) no espera a nadie, y una técnica no espera a Martín (10/11/2026).
+      const n = ps.filter(esperaAMartinEnElChat).length;
       if (n) mapa[local] = n; else delete mapa[local];
     }
     await setSetting(CLAVE_ABIERTAS, JSON.stringify(mapa));
+    return true;
   } catch (err) {
     console.error('[operaciones] preguntas abiertas:', err instanceof Error ? err.message : err);
+    return false;
   }
+}
+
+/**
+ * LA REGLA CON LA QUE SE CONTÓ EL MAPA (10/11/2026). El mapa de `CLAVE_ABIERTAS` se cuenta AL ESCRIBIR cada chat, así que cuando cambia
+ * lo que «espera a Martín» (las técnicas ya no: lib/pregunta-para-martin.ts) el mapa guardado sigue contando las de antes —y un chat
+ * dormido no se vuelve a escribir nunca—. La vuelta del Runner lo recuenta UNA vez, con la regla nueva, sobre los chats que el mapa
+ * cuenta (los únicos que pueden estar de más). Lee estricto: si algo no se puede leer, no marca la regla y vuelve a probar.
+ */
+const CLAVE_REGLA_ABIERTAS = 'operaciones.preguntas-abiertas.regla';
+// Atada a la firma de las reglas del juez: cambiar una lista vuelve a recontar sola, sin que nadie se acuerde de subir un número.
+export const REGLA_ABIERTAS = `para-martin-${FIRMA_DEL_JUEZ}`;
+/** De a cuántas listas se leen a la vez: TODOS los chats del mapa, nunca un corte (cortado, quedaban contando con la regla vieja). */
+const DE_A = 20;
+export async function recontarAbiertasSiCambioLaRegla(): Promise<boolean> {
+  const ws = await wsSuperAdmin();
+  return runWithWorkspace(ws, async () => {
+    if ((await getSettingEstricto(CLAVE_REGLA_ABIERTAS)) === REGLA_ABIERTAS) return false;
+    const mapa = parsearMapa(await getSettingEstricto(CLAVE_ABIERTAS));
+    const listas = new Map<string, PreguntaChat[]>();
+    const locales = Object.keys(mapa);
+    for (let i = 0; i < locales.length; i += DE_A) {
+      const tanda = locales.slice(i, i + DE_A);
+      const leidas = await Promise.all(tanda.map(async (l) => lista(parsear(await getSettingEstricto(PREFIJO + l)))));
+      tanda.forEach((l, k) => listas.set(l, leidas[k]));
+    }
+    if (listas.size && !(await anotarAbiertas(listas))) return false;
+    await setSetting(CLAVE_REGLA_ABIERTAS, REGLA_ABIERTAS);
+    return true;
+  });
 }
 
 /** Cuántas preguntas espera cada sesión (para la lista: el globito y el orden). Para dibujar: sin la base, ninguna. */

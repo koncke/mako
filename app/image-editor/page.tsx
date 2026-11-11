@@ -20,36 +20,13 @@ import { filtrosThumbnailDeQuery } from '@/lib/thumbnails/explorar';
 import { leerThumbnails } from '@/lib/thumbnails/servidor';
 import { nombreDelNegocio } from '@/lib/carruseles/marca';
 import { kitParaUsar } from '@/lib/marca/kits-server';
-import { listarOfertas } from '@/lib/ofertas';
-import { getPersona } from '@/lib/persona';
-import { leerLooks } from '@/app/ai-avatar/looks';
-import type { KitMarca } from '@/lib/marca/kits';
 import { requireEditorImagen } from './acceso';
-import type { BaseGuiado } from './carruseles/ReplicarGuiado';
+import { baseDelGuiado } from './guiado-base';
 import { ImageEditorCliente } from './ImageEditorCliente';
 import { vistaDeImage } from './vista';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-/**
- * Lo que el guiado sabe del negocio antes de preguntar (lib/carruseles/guiado.ts): sus ofertas ACTIVAS, si tiene una foto (la cara
- * de marca o un look del AI Avatar) y si su kit tiene colores. Cada lectura que falla es «no sé», nunca «no tiene»: las ofertas en
- * `null` (MaKo pide escribirla), las fotos y el kit en `false` (MaKo ofrece subir la foto). El server lo vuelve a leer al generar
- * (lib/carruseles/replica-servidor.ts): esto sólo arma las preguntas.
- */
-async function baseDelGuiado(kit: KitMarca | null): Promise<BaseGuiado> {
-  const [ofertas, persona, looks] = await Promise.all([
-    listarOfertas(true).then((xs) => xs.map((o) => ({ id: o.id, nombre: o.nombre, principal: o.es_principal }))).catch(() => null),
-    getPersona().catch(() => null),
-    leerLooks().catch(() => []),
-  ]);
-  return {
-    ofertas,
-    fotos: { cara: (persona?.fotos.length ?? 0) > 0, look: looks.some((l) => /^https:\/\//.test(l.url) && !l.error) },
-    kit: (kit?.colores.length ?? 0) > 0,
-  };
-}
 
 export default async function ImageEditorPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireEditorImagen();

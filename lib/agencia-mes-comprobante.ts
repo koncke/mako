@@ -22,9 +22,9 @@
 import 'server-only';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { referenciaNormal } from './recibos-reglas';
-import { anotarAplicadoDelGrupo, guardarLecturaDelGrupo, lecturaPreviaDelGrupo, leerArchivoComprobante, mimeDeComprobante } from './comprobantes';
+import { anotarAplicadoDelGrupo, guardarLecturaDelGrupo, lecturaPreviaDelGrupo, leerArchivoComprobante, mimeDeComprobante, ordenEnUnaLecturaDelGrupo } from './comprobantes';
 import { estadoDeLectura, resumenDeLectura, type LecturaComprobante } from './comprobante-reglas';
-import { asignarPago, esDolar, nombreDelMes, usd, type Pendiente } from './agencia-mes-reglas';
+import { asignarPago, esDolar, nombreDelMes, usd, veredictoDeLectura, type Pendiente } from './agencia-mes-reglas';
 import {
   aplicarPagoDeAgencia, avisarAMartin, emitirReciboDeLoCompleto, mensualidadDeAgencia, mensualidadPrendida, revisarPausasDeAgencia,
   textoAlGrupoDeLaAgencia, textoDeComprobante, type MensualidadOk,
@@ -98,19 +98,22 @@ export async function atenderComprobanteDeAgencia(p: { agenciaWs: number; waMens
   };
   const totalDebe = Math.round(m.pendientes.reduce((a, x) => a + x.debeUsd, 0) * 100) / 100;
 
-  // 4. Lo que se decide solo, y lo que no.
-  if (estadoDeLectura(l) !== 'leido') return revisar(l.dudas ? `la lectura tiene dudas: ${l.dudas}` : 'faltan datos en la lectura', totalDebe);
-  if (!esDolar(l.moneda)) return revisar(`en ${l.moneda ?? 'otra moneda'}: no se convierte`, totalDebe);
-  const orden = referenciaNormal('binance', l.operacion ?? '');
-  if (!orden) return revisar('la orden no es de Binance (18 dígitos)', totalDebe);
+  // 4. Lo que se decide solo, y lo que no. La orden repetida PRIMERO, aunque la lectura tenga dudas (`veredictoDeLectura`, ticket #80).
+  const ordenLeida = referenciaNormal('binance', l.operacion ?? '');
   const { reciboDePago } = await import('./recibos');
-  const ya = await reciboDePago('binance', orden).catch(() => undefined);
-  if (ya === undefined) return revisar('no pude saber si la orden ya se usó', totalDebe);
-  if (ya || m.libro.ordenes.has(orden)) {
+  const ya = ordenLeida ? await reciboDePago('binance', ordenLeida).catch(() => undefined) : null;
+  const enUnaLectura = ordenLeida ? await runWithWorkspace(ag, () => ordenEnUnaLecturaDelGrupo(ordenLeida)).catch(() => undefined) : false;
+  const usada = ordenLeida
+    ? (ya || m.libro.ordenes.has(ordenLeida) || enUnaLectura === true ? true : ya === undefined || enUnaLectura === undefined ? undefined : false)
+    : false;
+  const v = veredictoDeLectura({ limpia: estadoDeLectura(l) === 'leido', dudas: l.dudas, moneda: l.moneda, orden: ordenLeida, ordenYaUsada: usada });
+  if (v.tipo === 'repetido') {
     await guardar(ag, p, mime, l, leida.proveedor, totalDebe, null);
     await textoAlGrupoDeLaAgencia(ag, textoDeComprobante({ tipo: 'repetido', numero: ya?.numero ?? null }));
     return { atendido: true, que: 'orden repetida' };
   }
+  if (v.tipo === 'revisar') return revisar(v.porque, totalDebe);
+  const orden = v.orden;
   const asig = asignarPago(l.monto!, m.pendientes);
   if (asig.tipo === 'nada-pendiente') return revisar('no se debía nada', 0);
   if (asig.tipo === 'de-mas') return revisar(`es más de lo que se debía (${usd(asig.debeUsd)})`, asig.debeUsd);

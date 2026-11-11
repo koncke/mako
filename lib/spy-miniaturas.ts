@@ -32,8 +32,16 @@ export const BUCKET_MINIATURAS = 'spy-miniaturas';
 /** Cuántas se bajan a la vez. Más no acelera: lo que manda es el CDN del otro lado. */
 const EN_PARALELO = 6;
 
-/** El tope por archivo, igual al del bucket. Una miniatura que pesa más no es una miniatura. */
+/** El tope por archivo, igual al del bucket. Lo que pesa más se ACHICA antes de subir (`achicarImagen`). */
 const PESO_MAXIMO = 2 * 1024 * 1024;
+/**
+ * Lo más que se baja de un CDN (10/11/2026). Instagram sirve portadas y láminas de hasta 3277×4096 y 3,7 MB: con el tope del
+ * bucket como tope de BAJADA se tiraban en silencio, y un carrusel con UNA lámina así quedaba sin ninguna (37 de los 59 que el
+ * lote pago del 10/11 dejó sin láminas; docs/hallazgos-carruseles.md). Más que esto no es una imagen de una publicación.
+ */
+const PESO_BAJADA_MAXIMO = 20 * 1024 * 1024;
+/** El ancho al que se achica una imagen que pasa el tope: el máximo que sirve Instagram. */
+const ANCHO_ACHICADA = 1440;
 
 /** Cuánto se espera a un CDN ajeno antes de rendirse con esa imagen. */
 const ESPERA_MS = 4_000;
@@ -82,20 +90,21 @@ type Pieza = { canal: string; ref: string; miniatura?: string | null };
  *
  * ⚠️ Nunca tira. Quien la llama está en medio de una lectura que no se puede perder por una imagen.
  */
-async function guardarUna(p: Pieza): Promise<string | null> {
+async function guardarUna(p: Pieza, esperaMs = ESPERA_MS): Promise<string | null> {
   const url = p.miniatura ?? null;
   if (!url || !url.startsWith('https://')) return url;
   if (esNuestra(url)) return url;
 
   try {
-    const corte = AbortSignal.timeout(ESPERA_MS);
+    const corte = AbortSignal.timeout(esperaMs);
     // Sin `referer`: el CDN de Meta devuelve 403 a lo que venga de otro dominio.
     const r = await fetch(url, { signal: corte, referrerPolicy: 'no-referrer', redirect: 'follow' });
     if (!r.ok) return url;
 
     const buf = new Uint8Array(await r.arrayBuffer());
-    if (!buf.length || buf.length > PESO_MAXIMO) return url;
+    if (!buf.length || buf.length > PESO_BAJADA_MAXIMO) return url;
     // Lo que no es una imagen de verdad no entra (`subirImagen` lo mira): un CDN puede contestar 200 con una página de error.
+    // Y lo que pasa el tope del bucket, `subirImagen` lo achica.
     return (await subirImagen(p.canal, p.ref, buf)) ?? url;
   } catch {
     // Un CDN que no contesta, un timeout, un bucket que no existe todavía: se sigue con la de él.
@@ -106,11 +115,16 @@ async function guardarUna(p: Pieza): Promise<string | null> {
 /**
  * Sube a nuestro bucket una imagen que ya está en memoria (bajada de un CDN, o leída de un archivo de la PC: las láminas
  * de @growithalex que ya estaban en `C:/dev/carrusel-mako`, 9/11/2026) y devuelve su URL pública, o null si no es una
- * imagen que aceptamos, pesa de más o no subió. El tipo sale de sus bytes, nunca de la extensión. Nunca tira.
+ * imagen que aceptamos o no subió. Una que pasa el tope del bucket se sube ACHICADA (`achicarImagen`). El tipo sale de sus
+ * bytes, nunca de la extensión. Nunca tira.
  */
-export async function subirImagen(canal: string, ref: string, buf: Uint8Array): Promise<string | null> {
+export async function subirImagen(canal: string, ref: string, original: Uint8Array): Promise<string | null> {
   try {
-    if (!buf.length || buf.length > PESO_MAXIMO) return null;
+    if (!original.length || original.length > PESO_BAJADA_MAXIMO) return null;
+    // Primero, que sea una imagen de verdad: a sharp no se le pasa cualquier cosa que contestó un CDN.
+    if (!tipoDeImagen(original)) return null;
+    const buf = original.length > PESO_MAXIMO ? await achicarImagen(original) : original;
+    if (!buf) return null;
     const tipo = tipoDeImagen(buf);
     if (!tipo) return null;
     const ruta = rutaDeMiniatura(canal, ref, tipo.ext);
@@ -126,6 +140,21 @@ export async function subirImagen(canal: string, ref: string, buf: Uint8Array): 
 }
 
 /**
+ * Una imagen que pasa el tope del bucket, achicada a `ANCHO_ACHICADA` de ancho (la misma proporción) en JPEG (10/11/2026). Con
+ * eso, una lámina de 3277×4096 y 3,7 MB queda en unos 0,5 MB, y se ve igual en la tarjeta. Con sharp, que en la PC está y en
+ * Vercel viene con Next; si no está o no puede, null, que es lo de antes (no se sube). Nunca tira.
+ */
+export async function achicarImagen(buf: Uint8Array): Promise<Uint8Array | null> {
+  try {
+    const { default: sharp } = await import('sharp');
+    const out = await sharp(buf).rotate().resize({ width: ANCHO_ACHICADA, withoutEnlargement: true }).jpeg({ quality: 86, mozjpeg: true }).toBuffer();
+    return out.length && out.length <= PESO_MAXIMO ? new Uint8Array(out) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Baja las miniaturas de un lote de piezas, de a `EN_PARALELO`, y devuelve las piezas con la
  * `miniatura` ya apuntando a la nuestra donde se pudo.
  *
@@ -135,8 +164,12 @@ export async function subirImagen(canal: string, ref: string, buf: Uint8Array): 
  * tiene ese tope y NUNCA vuelve a leer una pieza ya guardada, así que el «converge en dos o tres vueltas» de Spy ahí no
  * existe: con el tope de Vercel, de una tanda de 40 sólo bajaban las primeras y el resto quedaba con la URL de Instagram
  * para siempre (91 portadas visibles el 9/11, docs/hallazgos-carruseles.md). El script pasa `Infinity`.
+ *
+ * `esperaMs` (10/11/2026): lo mismo, por imagen. Los 4 s de `ESPERA_MS` son para Vercel; las láminas grandes de Instagram
+ * (2 a 2,7 MB) tardan 4,5 s en bajar, y con 4 s se cortaban TODAS: dos carruseles pagados quedaban sin láminas aunque cada
+ * imagen bajaba bien. El script pasa 20 s.
  */
-export async function guardarMiniaturas<T extends Pieza>(piezas: readonly T[], o: { presupuestoMs?: number } = {}): Promise<T[]> {
+export async function guardarMiniaturas<T extends Pieza>(piezas: readonly T[], o: { presupuestoMs?: number; esperaMs?: number } = {}): Promise<T[]> {
   const out = piezas.slice() as T[];
   const pendientes = out
     .map((p, i) => ({ p, i }))
@@ -148,7 +181,7 @@ export async function guardarMiniaturas<T extends Pieza>(piezas: readonly T[], o
     // subidas a medio hacer. Las que no entraron quedan con su URL original y las toma la próxima.
     if (Date.now() >= hasta) break;
     const tanda = pendientes.slice(desde, desde + EN_PARALELO);
-    const urls = await Promise.all(tanda.map(({ p }) => guardarUna(p)));
+    const urls = await Promise.all(tanda.map(({ p }) => guardarUna(p, o.esperaMs)));
     tanda.forEach(({ i }, k) => { out[i] = { ...out[i], miniatura: urls[k] }; });
   }
   return out;

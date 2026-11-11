@@ -154,9 +154,178 @@
 - **Síntoma:** «punta → main» falló en guardas, tipos y tests; el filtro del pre-push había dicho «a medias» (sin RAM).
 - **Las cuatro, y su regla:** (1) un `Record<IdFunnel, …>` en un test (`MARCO_DE`) quedó sin `email`: al sumar un funnel, `git grep "Record<IdFunnel"` incluyendo `tests/`. (2) `getPromptText(x.key, …)` dentro de un ayudante: la guarda del registro de prompts sigue las keys por nombre; cada call site va con `PROMPTS_X.campo.key` literal. (3) Un script que llama a `turnoApp` tiene que estar en `ENTRADAS_DE_PERSONA` (tests/ia-pc-nunca-a-leads.test.ts) con la prueba de que no manda el turno a la PC de nadie. (4) Un detector del voseo de lo que ESCRIBE la persona («guardalo», «hacelo») va en un archivo propio declarado en `FUERA_DE_ALCANCE` (tests/puente-panel-copy.test.ts), no en el módulo grande, que así sigue barrido.
 
+## El recorrido en producción (10/11/2026): lo que los tests y el banco no veían
+
+Martín: «muchísimas cosas que se están rompiendo… es fácil ver e identificar eso». Se recorrió la tab en hola-mako.com (ws 9),
+escritorio, tablet y teléfono, claro y oscuro. Lo que vale para lo que venga:
+
+- **«Comparar funnels» inventaba un «$0 al mes».** Con Julián Otálora (enseña sólo orgánico) y el ticket contestado, cada funnel con
+  anuncios decía «Con $0 al mes los anuncios no juntan datos», Lead magnets salía «MaKo lo recomienda» y Email «Te sirve».
+  ⚠️ **El diagnóstico obvio, «no se preguntó el presupuesto», era el equivocado:** el perfil no tenía presupuesto y
+  `datosDeDecision` lo COMPLETABA con 0 porque el funnel elegido no lleva plata. Eso vale para juzgar ESE funnel y es falso para los
+  otros ocho. **La regla:** el veredicto del funnel elegido sale de `datosDeDecision`; recomendar uno y comparar los nueve, de
+  `datosDichos` (sólo lo que dijo), en el panel, en el contexto del agente y en `ver_copiloto_media_buyer`. Ajustes tenía la misma
+  suposición escrita a mano (`presupuestoMes ?? 0`, `llamadas ?? 'yo'`). Un email sin saber la lista no «sirve».
+- **El alto de la pantalla mira la ventana, y arriba puede estar la barra de inspección.** Con «Estás viendo el dashboard de…»
+  (Martín siempre la ve), `.cp` medía `100dvh - 28px` y el pie quedaba 50 px debajo: la página scrolleaba sola al elegir y se
+  cortaba la cabecera. Los altos de la tab descuentan `--barra-agencia` (regla en AGENTS.md, «La barra de inspección»).
+- **Un panel montado en otra pantalla no hereda el contenedor de sus reglas de ancho.** Las `@container copiloto` de PanelDelFunnel
+  miraban `.aa-dos`; en la vista Plan no había ninguno y a 390 el recorrido iba en cuatro columnas de una palabra.
+- **Sin números, una columna que dice lo mismo nueve veces es ruido.** Lo que falta va una vez arriba de la lista.
+- Menores: «Lanzar el primer anuncio» era el único paso sin pantalla; «0 campañas en 3 productos» contaba los del CRM sin campañas;
+  «← Media Buyer» y el cargando tenían el nombre viejo; los pedidos de la tab llevaban «Marketing CoPilot:» además del chip «desde».
+- **(Segunda pasada, por persona, ws 3) La charla se vuelve a dibujar desde el perfil de AHORA.** Un paso cuyo texto depende de algo
+  que la respuesta cambia (el aviso del «ajuste»: «el VSL pide $3.000… propongo mensajes») se borraba al aceptarlo: pasaba a «¿Seguimos?»
+  porque el funnel nuevo sí sirve. **La regla:** la pregunta y la respuesta de un paso se arman con el perfil como estaba al llegar a
+  ese paso (`perfilDelAjuste`), y la respuesta dice lo que tocó la persona.
+- **El panel no mide la página:** las reglas de ancho del panel miraban el contenedor de la PÁGINA, y a 1024 el panel medía 480 px con
+  cuatro etapas de 96. Lo de adentro del panel va por `@container panel-funnel` (el panel mismo).
+- **Una pantalla que reemplaza la tab entera tiene que saber lo que la persona ya tiene acá.** «¿En qué te ayudo hoy?» (la bienvenida
+  de una cuenta nueva) tapaba el Plan y Ajustes de un negocio que ya había elegido su estrategia en el CoPilot, sin Meta conectado.
+- **Sin la app de escritorio no se puede escribir en la charla**, ni lo que se lee sin IA: las opciones tienen que cubrir a todas las
+  personas (una tienda de US$45 no tenía su ticket), y un paso nunca puede quedar sin un botón para seguir («Empezar de nuevo»
+  dejaba sólo «Deshacer»).
+- El informe caso por caso, con capturas: `docs/pruebas/marketing-copilot-10-11.md`.
+- Del chat de la tab (la estrella encima de la caja, el hilo de Image en el CoPilot y al revés): [hallazgos-chat.md](hallazgos-chat.md).
+  Del navegador en que se miró: [hallazgos-pruebas.md](hallazgos-pruebas.md).
+
+**Vive en:** lib/media-buyer/copiloto.ts (`datosDichos`, `faltaParaComparar`, `compararFunnels`) · app/ads-manager/PanelDelFunnel.tsx ·
+app/ads-manager/aa.css · tests/marketing-copilot-produccion.test.ts.
+
+## El relevo de los funnels: la transcripción de un curso puede estar en tres lugares, y el primer pase leyó el vacío (10/11/2026)
+
+Martín pidió rehacer los funnels con las transcripciones de TODOS los cursos de Knowledge, y nombró THE NET LAB. Seis agentes
+leyeron unas 470 clases, y los seis informaron lo mismo: de THE NET LAB «sólo hay apuntes, la 04 y la 05 tienen transcripción».
+**El diagnóstico obvio («ese curso todavía no está transcripto») era el equivocado.** Las 97 transcripciones completas existían;
+estaban en otro lado.
+
+Dónde vive el texto de una clase, según cómo entró el curso:
+- **`public/cono-tx/<videoId>.json`**: los cursos con video en Drive (el índice por `videoId` de `app/conocimientos/curso-<slug>.ts`).
+  THE NET LAB tiene 0 ahí: no tiene `videoId` de Drive.
+- **`public/cono-doc/<slug>__<tema>.json`**: los cursos `soloTexto` (THE NET LAB), con la pestaña «Transcripción» sólo si hubo
+  `.vtt` ([hallazgos-conocimiento.md](hallazgos-conocimiento.md), «THE NET LAB»).
+- **`C:/cursos/<slug>/transcripciones/*.json`**: lo que salió de grabar las clases (10/11, ElevenLabs), antes de llegar al portal.
+  `C:/cursos/<slug>/texto/*.md` tiene la sección «Transcripción», pero vacía en 87 de 94 clases: el generador la limpia porque
+  el texto viaja aparte. Al 10/11, 23 h, en `transcripciones/` faltaban la 06, la 44, la 70 y la 75, y la 13, 14, 33, 68, 78 y
+  82 venían en partes (97 archivos para 90 clases).
+
+Un segundo pase con dos agentes leyó 81 clases de THE NET LAB desde `transcripciones/` y cambió el resultado: el curso trae los
+números que deciden cualquier funnel con anuncios (lo que queda de cada venta, el costo máximo por venta, cuándo crecer) y, en
+cambio, no enseña VSL con llamada en ninguna clase.
+
+**La regla:** antes de relevar un curso, contar sus clases con texto en los tres lugares y leer el que lo tenga completo. Un
+agente que encuentra «sin transcripción» tiene que decir dónde miró. Para el índice de los 127 cursos (n, módulo, título,
+`videoId`, bytes de texto), alcanza con partir cada `curso-<slug>.ts` por clase. Ojo: el repo está en CRLF, y un `split('\n{\n')`
+devuelve una sola clase por curso sin dar error.
+
+**Vive en:** docs/marketing-copilot/funnels-simples.md (el resultado) · docs/marketing-copilot/funnels/ (un relevo por funnel,
+cada uno con su censo).
+
+## La maqueta del rediseño: el CSS compilado de producción, no un dibujo «parecido» (10/11/2026)
+
+Martín no quería el diseño del CoPilot («tiene que ser SIMPLE… aprender a replicar, no crear cosas desde cero») y pidió verlo
+antes de que se programe. La maqueta (`docs/marketing-copilot/rediseno/maqueta-dos-columnas.html`) no copia a ojo: lleva **pegado el CSS que
+sirve hola-mako.com** y el marcado de las piezas que ya existen, con sus clases reales:
+- **El CSS:** la página lista sus hojas en `document.styleSheets` (`/_next/static/chunks/<hash>.css`). Son públicas: se bajan con
+  curl sin sesión. Los nombres cambian en cada despliegue, así que se leen de la página del día.
+- **El marcado:** el `outerHTML` de cada pieza en producción (la tarjeta de Create con su «←», la lista, la caja), sin SVG ni
+  estilos en línea para que entre en el contexto, más el JSX del bloque de preguntas (`PreguntasDelChat.tsx`).
+- **Lo que tiene estilos en línea** (el wizard de `WizardShell.tsx`, el cuerpo BlockNote de Copywriter) se mide con
+  `getComputedStyle` y se copia el valor.
+
+Las piezas: la conversación de MaKo (`ConversacionCerebro`), el bloque de preguntas del Ops Center arriba de la caja, la lista de
+la «←» de Create para los funnels, y «Tu funnel» es la página de Copywriter. Lo que no se sabe se muestra como su «Vacío», y al
+tocarlo MaKo lo pregunta.
+
+**Para cambiarla:** el primer `<style>` es el CSS de producción del 10/11; lo de la maqueta está en el segundo `<style>` y en el
+`<script>` del final, que la dibuja con los datos de `funnels-simples.md`. La publicada para Martín es un Artifact
+(claude.ai/artifact/PyGboJ5AsKL2wUiPe2Kssk), privado hasta que se comparta.
+
+## La segunda maqueta, el descubrimiento: el chat a toda la pestaña ya es así en la casa, y la película del Spy no puede trabar el flujo (11/11/2026)
+
+Martín vio la primera y pidió otra cosa ([esquema-descubrimiento.md](marketing-copilot/rediseno/esquema-descubrimiento.md)):
+el chat solo en toda la pestaña hasta que haya algo más que mostrar, la pregunta en el chat y las opciones en el bloque, y antes
+de la estrategia un descubrimiento con tu Instagram y tu web leídos por Competitor Spy. La maqueta es
+`docs/marketing-copilot/rediseno/maqueta-descubrimiento.html` (Artifact claude.ai/artifact/XboRwCiqtwybpf4iPXQpqw). La
+anterior quedó como `maqueta-dos-columnas.html`, para comparar.
+
+- **«El chat no se centra» no es un error.** Con el chat a toda la pestaña, la conversación y el bloque van de lado a lado. Parece
+  que falta el `max-width: 760px` de `.co-hilo__col`, pero lo anula a propósito `app/admin/operaciones/centro.css` (línea ~1638:
+  «EL CHAT A TODO EL ANCHO, COMO WHATSAPP WEB», Martín, 17/10). Un chat de MaKo a pantalla completa hereda eso; no se «arregla»
+  volviendo a la columna de 760.
+- **La lectura de tu negocio ya existe entera, para competidores.** `mirarCompetidor` lee Instagram → YouTube → web, la película
+  (`PeliculaDeOrden`, OrdenSpy.tsx) ordena las piezas, y «Su oferta» pasa la web por el analizador de Offer. Para el negocio
+  propio cambian el texto («tu», no «su») y quién paga la lectura, que es Apify más la IA: se pregunta antes de programarla.
+- **En la maqueta, el flujo no espera a `animation.finished`.** En el panel oculto del navegador de la app y en el Chrome sin
+  ventana, las animaciones de la Web Animations API no avanzan, y la película quedaba para siempre en «Ordenando por formato».
+  La maqueta avanza con su reloj (el tiempo que dura el reparto) y deja las animaciones sólo para los números. En la app,
+  `OrdenSpy.tsx` sí espera las animaciones: en una pestaña de fondo la película queda quieta hasta que se la mira, y eso está
+  bien.
+- **La tercera vuelta (11/11, la vigente): botones primero, sin chat.** `maqueta-arranque.html`, en el Artifact
+  claude.ai/artifact/LUyer4k7kV1sokRuBYeX44.
+  - Primero «¿Por dónde vendés?» (Anuncios, Instagram, YouTube).
+  - Después botones grandes para cargar lo que haga falta, ninguno obligatorio: la zona para soltar del Archivero y
+    `ConectarViaZernio`.
+  - Después la lectura de lo cargado.
+
+  La pregunta que Martín dejó abierta, «¿cómo vendés o cómo querés vender?», se resolvió con una sola: «¿Por dónde vendés?»,
+  con «Lo que ya hacés o lo que querés empezar» debajo.
+
+  Prospección quedó afuera porque no se puede leer. La lectura de anuncios sale de la conexión con Meta.
+- **La cuarta vuelta (11/11): «Tu negocio» por canal**, en `maqueta-por-canal.html` (claude.ai/artifact/97pKNFeiPV4U8asB9ejLwn). Lo que
+  costó y vale para lo que venga:
+  - **El texto de MaKo salió con voseo** («¿Por dónde vendés?») aunque la regla existe desde julio (memoria
+    reglas-de-voz-y-nombres: español neutro con tú, la audiencia es México). Se cuela porque la charla con Martín es
+    rioplatense. Antes de publicar una maqueta o una pantalla, se busca el voseo con una expresión (vendés, tenés, podés, querés,
+    acá, vos): lo único que puede quedar son las citas de lo que publicó otro.
+  - **Los logos de las redes ya existen**: `SvcIcon` / `LogoRed` (app/_components/ServicioVisual.tsx, el glifo de Instagram en
+    lib/canal-social.ts). Un ícono genérico al lado de «YouTube» o «Meta» se nota enseguida, y Martín lo marcó.
+  - **Las pastillas del gráfico del Spy** (`.spyg-red`) viven en el CSS de GraficoSpy.tsx, no en el de SpyApp: sin ese CSS,
+    un selector sale como texto suelto.
+- **Los datos del competidor se leyeron sin escribir nada.** La ficha (`/competitor-spy?ws=9&competidor=20`) se recorrió en el
+  navegador de la app: el texto de las pestañas Contenido y Funnel, el marcado de cada sección, y 62 textos de sus piezas,
+  paginando la grilla. Las piezas no vienen en ningún JSON de la página: llegan por acciones del servidor.
+
+## La quinta maqueta, el análisis: lo que la conexión NO trae, y qué es real y qué es de ejemplo (11/11/2026)
+
+Martín pidió que «Tu negocio» sea un análisis y no una réplica de cada app. Después agregó un paso 5, la operación, porque en una pestaña era demasiado. La maqueta es `docs/marketing-copilot/rediseno/maqueta-analisis.html` (claude.ai/artifact/6oFhRx6JnoHMVgFyoUxcNN). Los puntos que revisa, con curso y clase, están en `docs/marketing-copilot/analisis/`.
+
+- **«Conectar con Zernio» no reemplaza todo lo que leía el link pegado** (`analisis/zernio.md`).
+  - No se pudo confirmar que traiga la bio ni su link: la bio se sigue leyendo del perfil público con el @ de la conexión.
+  - Las historias se leen sólo desde que se conecta. Las de antes no vuelven.
+  - El porcentaje de clics de la miniatura de YouTube no lo da nadie.
+  - Prometer «traigo tus historias» en el paso 2 sería mentir: dice «desde hoy».
+- **Para anuncios a mensajes, MaKo hoy no ve su número principal** (`analisis/anuncios.md` §0):
+  - el sincronizador de Meta no guarda conversaciones iniciadas ni compras;
+  - el Chat Analyst del Dashboard nunca lee el texto de los chats.
+
+  La maqueta lo muestra como «Sin dato», no con un número.
+- **El paso 5 es todo de ejemplo**, y la maqueta lo marca «ejemplo». Lo real de Federico:
+  - sus 232 piezas, fechas, vistas y destinos;
+  - el porqué de cada nota de su oferta;
+  - su página foundersbc.cascaraco.com.
+
+  Para no inventar lo de su oferta se leyó el desplegable de cada nota en producción, sin escribir nada. Los números de la conexión y de sus anuncios no existen: son de ejemplo, con su marca.
+- **Martín miró la maqueta ANTERIOR y creyó que se habían saltado sus pedidos** («te saltaste un montón de cosas»). La nueva todavía no estaba publicada porque la guardia de RAM frenó la captura. Cuando una vuelta tarda, se dice en el momento que lo que está mirando es la anterior, con su link.
+
+## La sexta maqueta: el análisis se MUESTRA sobre la cara de cada cosa, no en una lista (11/11/2026)
+
+Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables. Pidió volver a ver las publicaciones, las miniaturas, el chat, el VSL y el formulario, con el feedback encima: «así es fácil de ver». La maqueta es `docs/marketing-copilot/rediseno/maqueta-visual.html`.
+
+- **La regla que queda:** el análisis no reemplaza a la cara de la plataforma, va sobre ella. Para cada cosa:
+  - la sección con su forma (el perfil, la grilla de reels, el chat, el reproductor, el formulario);
+  - marcas o un popup con lo que le diría MaKo;
+  - abajo, los puntos de los cursos.
+- **Todo eso ya existe en la casa y se copió, no se inventó:**
+  - el recorrido del Web Analyst para «Tu web» (`app/web-generator/diagnostico/RecorridoDiagnostico.tsx`, su `CSS_RECORRIDO`);
+  - el árbol de Ads Manager para «Lo que está corriendo» (`app/ads-manager/Arbol.tsx` y `aa.css`);
+  - la calculadora de presupuesto para cuántos anuncios probar (`lib/calculadora-presupuesto-ads.ts`, con su elección por «sale de aprendizaje»: con US$3.000 elige 6 anuncios en dos rondas y no 9).
+- **Las miniaturas de verdad están en el almacenamiento público del Spy** (`spy-miniaturas/spy/<red>/<id>.jpg`): se pueden bajar, achicar y meter como data URI. Las publicaciones no tienen miniatura: ver `hallazgos-competitors-spy.md`.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
 - **El Funnel Coach del Ops Center y el CoPilot guardan el funnel en dos lugares** (`guardar_plan_funnel` en lib/funnel-plan-db.ts y `marketing-copilot.perfil`). Hablan de lo mismo con dos memorias.
 - **La pantalla de un funnel CON anuncios** (Hoy · Campañas · Plan · Biblioteca, `MediaBuyer.tsx`) sigue con su diseño: la de dos columnas se hizo para la charla y para los funnels sin anuncios.
+- **(10/11) Un funnel elegido que no sirve propone otro con lo completado:** `evaluarFunnel(f, datosDeDecision(p))` arma su «mejor» con el `llamadas: 'yo'` que se completa para un funnel sin llamadas (una compra directa con ticket alto propone un VSL «con alguien que llama» sin saberlo). Hoy sólo pasa en el paso «ajuste»; el arreglo es armar `mejor` con `datosDichos` y, sin eso, no proponer.
 - **El curso de campañas lo usa sólo el CoPilot** (por `metodo_campanas_copiloto`). El Ads Writer y los demás leen Knowledge (`mako_knowledge`, área `ads`, vacía); si se quiere que lo usen, hay que resolver antes que Knowledge es por negocio. Y 90 de 97 videos del curso no tienen transcripción.

@@ -67,6 +67,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Admin › Costs: a dónde va una suscripción del 47 y del 97, el primer mes, el techo del CAC y los cupos (11/11, en `punta/costs-suscripcion`; dos decisiones para Martín adentro) | `Lee docs/relevo/nube-costs-suscripcion.md y seguimos desde ahí.` |
 | Lo prometido a Thiago: «Usar en un anuncio», «Guardar en MaKo» en la extensión 0.77.0 y el relevo del original en el Media Buyer (6/11, en `punta/thiago-anuncios`) | `Lee docs/relevo/nube-thiago-anuncios.md y seguimos desde ahí.` |
 | Vigía de aprobaciones (App Store, Google Play, la extensión, Meta, Google y Resend) | `Lee docs/relevo/nube-aprobaciones.md y seguimos desde ahí.` |
+| Admin › Revenue y Customers leen el libro de la mensualidad de las agencias (10/11, en `punta/ingresos-agencia`) | `Lee docs/relevo/nube-ingresos-agencia.md y seguimos desde ahí.` |
 | Agency Dashboard: la mensualidad de una agencia (14 días sin costo, un pago por mes por Binance) | `Lee docs/relevo/nube-agencia-cobro.md y seguimos desde ahí.` |
 | Código Inmobiliario: el primer contacto, los tickets de una agencia y el aviso de Meta (5/11) | `Lee docs/relevo/nube-codigo.md y seguimos desde ahí.` |
 | «Velocidad de llamada» rehecha como la copia de Tend («Today»), la hoja de los clientes de Código (10/11, en `punta/velocidad-tend`) | `Lee docs/relevo/nube-velocidad-tend.md y seguimos desde ahí.` |

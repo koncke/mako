@@ -19,8 +19,27 @@ import {
 } from "@/app/video-editor/_opencut/rendering";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { transicionesDePista } from "@/app/video-editor/_opencut/transiciones/escena";
+import { claveLiviana } from "@/app/video-editor/_opencut/media/copia-liviana-reglas";
 
 const PREVIEW_MAX_IMAGE_SIZE = 2048;
+
+/**
+ * Qué archivo decodifica un video y con qué clave del videoCache. En la VISTA PREVIA, la copia liviana si ya está
+ * (media/copia-liviana-reglas.ts): decodificar un celular a 540 px en vez de 1080 baja ≈3,5 veces la memoria. Exportar
+ * (`isPreview` sin poner) usa siempre el original, con OTRA clave para no recibir el decodificador de la copia.
+ */
+function fuenteDeVideo({
+	mediaAsset,
+	clave,
+	isPreview,
+}: {
+	mediaAsset: MediaAsset;
+	clave: string;
+	isPreview?: boolean;
+}): { mediaId: string; file: File } {
+	const copia = isPreview ? mediaAsset.copiaLiviana : undefined;
+	return copia ? { mediaId: claveLiviana(clave), file: copia } : { mediaId: clave, file: mediaAsset.file };
+}
 
 function getVisibleSortedElements({ track }: { track: TimelineTrack }) {
 	return track.elements
@@ -78,9 +97,8 @@ function buildTrackNodes({
 				if (element.type === "video" && mediaAsset.type === "video") {
 					nodes.push(
 						new VideoNode({
-							mediaId: tr?.claveDecodificador ?? mediaAsset.id,
+							...fuenteDeVideo({ mediaAsset, clave: tr?.claveDecodificador ?? mediaAsset.id, isPreview }),
 							url: mediaAsset.url,
-							file: mediaAsset.file,
 							duration: element.duration,
 							timeOffset: element.startTime,
 							trimStart: element.trimStart,
@@ -189,10 +207,12 @@ function buildBlurBackgroundNodes({
 	track,
 	mediaMap,
 	blurIntensity,
+	isPreview,
 }: {
 	track: TimelineTrack | undefined;
 	mediaMap: Map<string, MediaAsset>;
 	blurIntensity: number;
+	isPreview?: boolean;
 }): AnyBaseNode[] {
 	if (!track) {
 		return [];
@@ -217,9 +237,11 @@ function buildBlurBackgroundNodes({
 
 		nodes.push(
 			new BlurBackgroundNode({
-				mediaId: mediaAsset.id,
+				// El fondo desenfocado comparte el decodificador del clip (misma clave, mismo cuadro).
+				...(mediaAsset.type === "video"
+					? fuenteDeVideo({ mediaAsset, clave: mediaAsset.id, isPreview })
+					: { mediaId: mediaAsset.id, file: mediaAsset.file }),
 				url: mediaAsset.url,
-				file: mediaAsset.file,
 				mediaType: mediaAsset.type,
 				duration: element.duration,
 				timeOffset: element.startTime,
@@ -274,6 +296,7 @@ export function buildScene({
 			mediaMap,
 			blurIntensity:
 				background.blurIntensity ?? DEFAULT_BACKGROUND_BLUR_INTENSITY,
+			isPreview,
 		});
 		for (const node of blurNodes) {
 			rootNode.add(node);

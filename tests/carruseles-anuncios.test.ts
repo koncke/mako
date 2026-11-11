@@ -1,6 +1,12 @@
 // Los anuncios de la competencia en el explorador de carruseles (lib/carruseles/anuncios.ts, 6/11/2026), las láminas que
 // la tarjeta pasa de a una y que sólo entren imágenes: corre el código con piezas con la forma de las de Spy y de la biblioteca.
 //
+// «Quitar filtros» en un Anuncios recién abierto (10/11/2026, el recorrido de Image): los anuncios arrancan por días al aire, y
+// comparados con los de Carruseles «tenían filtros». `sinFiltrosDe` compara con los de su lado. Rompiéndolo (comparar contra
+// FILTROS_INICIALES) → 1 rojo; `filtrosInicialesDe` sin el orden de los anuncios → 1 rojo.
+// Y entrando por el link `?que=anuncios` (orden de Carruseles, que en Anuncios es días al aire): `sinFiltrosDe` sin `ordenEfectivo`
+// → 1 rojo (lo encontró el recorrido del 10/11 en el Chrome).
+//
 // Probado rompiéndolo (6/11/2026), base 6/0:
 //   · `anunciosDe` sin mirar el canal (entraba una publicación de Instagram como anuncio) → 1 rojo;
 //   · `diasAlAire` contando hasta hoy un anuncio que ya terminó → 1 rojo;
@@ -21,7 +27,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { anunciosDe, anunciosSinSaber, diasAlAire, esAnuncioEnVideo, medioGuardadoDeAnuncio, rotuloAire, type PiezaAnuncio } from '../lib/carruseles/anuncios';
-import { FILTROS_INICIALES, carruselesDe, filtrarCarruseles, filtrosDeQuery, imagenesDe, imagenesValidas, queryDeFiltros, type PiezaParaCarrusel } from '../lib/carruseles/explorar';
+import { FILTROS_INICIALES, carruselesDe, filtrarCarruseles, filtrosDeQuery, filtrosInicialesDe, imagenesDe, imagenesValidas, queryDeFiltros, sinFiltrosDe, type PiezaParaCarrusel } from '../lib/carruseles/explorar';
 import { carruselesDeBiblioteca, filasDeLectura, reclasificacion, type CuentaBiblioteca, type PiezaBiblioteca } from '../lib/carruseles/biblioteca';
 import { imagenesDeLaminas } from '../lib/instagram-perfil';
 
@@ -157,4 +163,18 @@ test('la biblioteca: las láminas y el CTA guardados (0404) llegan a la tarjeta;
   assert.deepEqual(fila.laminas_imagenes, ['https://cdn/1.jpg', 'https://cdn/2.jpg']);
   assert.deepEqual(reclasificacion({ texto: 'Comment "AI" below', formato: 'lista', cierre: 'comentar', parece_contenido: true, cta: null }), { cta: 'AI', cta_via: 'comentario' });
   assert.equal(reclasificacion({ texto: 'Comment "AI" below', formato: 'lista', cierre: 'comentar', parece_contenido: true }), null, 'sin la columna (0404 sin aplicar), no se pide');
+});
+
+test('un Anuncios recién abierto no tiene filtros que quitar, y «Quitar filtros» lo deja ordenado por días al aire', () => {
+  const anuncios = filtrosInicialesDe('anuncios');
+  assert.equal(anuncios.orden, 'aire', 'los anuncios arrancan por días al aire, como al entrar con la pestaña');
+  assert.equal(sinFiltrosDe(anuncios), true, 'recién abierto: ni «Quitar filtros» ni «Guardar búsqueda»');
+  assert.equal(sinFiltrosDe({ ...anuncios, orden: 'nuevos' }), false, 'cambiar el orden (a uno que Anuncios ofrece) sí es un filtro');
+  assert.equal(sinFiltrosDe({ ...anuncios, q: 'nike' }), false);
+  // Entrar por el link `?que=anuncios` trae el orden de entrada de Carruseles (outlier), y en Anuncios eso ES «días al aire».
+  assert.equal(sinFiltrosDe({ ...FILTROS_INICIALES, que: 'anuncios' }), true, 'Anuncios por el link: tampoco hay filtros que quitar');
+  assert.equal(sinFiltrosDe({ ...FILTROS_INICIALES, que: 'anuncios', orden: 'interaccion' }), true, 'en Anuncios «interacción» no existe: es días al aire');
+  assert.equal(sinFiltrosDe(FILTROS_INICIALES), true, 'Carruseles, igual que siempre');
+  assert.equal(sinFiltrosDe({ ...FILTROS_INICIALES, orden: 'aire' }), false);
+  assert.equal(sinFiltrosDe({ ...FILTROS_INICIALES, vista: 'guardados' }), false, 'Guardados es una vista: la barra ofrece salir');
 });

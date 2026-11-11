@@ -11,7 +11,11 @@ En **Admin › Analytics › Costs** (`/admin/analytics/costs`), pestaña Overvi
   - Arriba, seis selectores: clientes (reparte el fijo), CAC, uso del cupo de video, pasarela, impuesto sí/no y fijo (lo tuyo o
     todo).
   - Viene elegido el escenario del modelo del 7/11 (50 clientes, CAC 97, 25% del cupo, Mercado Pago a 35 días, con impuesto,
-    US$438,25 de fijo): el 97 da 67,94 · 4,37 · 14,83 · 8,11 · 1,75.
+    US$438,25 de fijo): el 97 da 61,53 · 10,78 · 14,83 · 8,11 · 1,75.
+  - ⚠️ El encargo decía 67,94 de ganancia y 4,37 de captación: eran con 22,2 meses de vida. El mismo 10/11 Martín la bajó a
+    **9 meses** (commit `3f90fa1e9`, «bajalo a 9 meses, me parece más realista») y la función la lee de `MESES_DE_VIDA`, así
+    que la captación sube a 10,78 y la ganancia baja a 61,53. El primer mes (−24,69) y desde el segundo (72,31) no cambian:
+    no dependen de la vida del cliente.
 - **First month.** Por plan, el primer mes pagando el CAC entero y lo que deja desde el segundo mes: el 97 da −24,69 y 72,31,
   el 47 da −66,48 y 30,52. Debajo, el techo del CAC y cuánto pierde cada plan el primer mes con el CAC elegido.
 - **AI quota.** El cupo de cada plan en MaKo Tokens (11.750 y 24.250), su techo en dólares y lo que cuesta con el uso elegido.

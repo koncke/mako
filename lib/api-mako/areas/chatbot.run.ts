@@ -523,13 +523,13 @@ export const RUNNERS: Runners = {
     leer: async () => {
       const fabrica = limitesDeFabrica(process.env);
       const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica);
-      const [{ usoDelCupo, topeDeHoyDelNegocio }, { envioEmailHabilitado }, { conteoEmailUltimas24h }, { FRENO_EMAIL }] = await Promise.all([
+      const [{ usoDelCupo, topeDeHoyDelNegocio }, { envioEmailHabilitado }, { conteoEmailDelFreno }, { FRENO_EMAIL }] = await Promise.all([
         import('@/lib/nutricion'), import('@/lib/envio-flags'), import('@/lib/email-reputacion'), import('@/lib/email-freno'),
       ]);
       const [uso, waHoy, emailHoy, envioEmail, conteo] = await Promise.all([
         usoDelCupo().catch(() => null), topeDeHoyDelNegocio('whatsapp', vigentes.wa), topeDeHoyDelNegocio('email', vigentes.email), envioEmailHabilitado(),
         // Sin la migración 0380 no hay rebotes que contar: se dice, no se inventa un cero.
-        conteoEmailUltimas24h().catch(() => null),
+        conteoEmailDelFreno().catch(() => null),
       ]);
       return json({
         whatsapp: {
@@ -540,8 +540,8 @@ export const RUNNERS: Runners = {
           por_dia: vigentes.email.dia, tope_de_hoy: emailHoy, en_24h: uso?.emailDia ?? null, envio_prendido: envioEmail,
           rampa: { primer_dia: vigentes.email.arranqueDia, sube_por_dia: vigentes.email.arranqueSube, nota: 'Arranca en primer_dia y sube cada día que llega a su tope, hasta por_dia.' },
           freno: {
-            regla: `Con ${FRENO_EMAIL.minimoEnviados} enviados o más en 24 h, rebotes de ${FRENO_EMAIL.rebotes * 100} % o quejas de ${FRENO_EMAIL.quejas * 100} % apagan el envío y te avisan.`,
-            ultimas_24h: conteo ?? 'todavía no se pueden contar los rebotes (falta la migración 0380)',
+            regla: `Mira los últimos ${FRENO_EMAIL.ultimos} emails enviados (desde que se prendió el envío, hasta ${FRENO_EMAIL.dias} días): con ${FRENO_EMAIL.minimoEnviados} o más, rebotes de ${FRENO_EMAIL.rebotes * 100} % o quejas de ${FRENO_EMAIL.quejas * 100} % apagan el envío y te avisan.`,
+            ultimos_envios: conteo ?? 'todavía no se pueden contar los rebotes (falta la migración 0380)',
           },
         },
         mako_contesta_sola: { por_persona_en_24h: vigentes.mako.solasPor24h },

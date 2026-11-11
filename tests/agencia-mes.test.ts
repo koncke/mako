@@ -29,7 +29,7 @@ import {
   asignarPago, cicloDe, cuentaDelMes, cuentaDesde, diasDelCiclo, diferencialDe, entradasPorAvisar, esDia, leerConfigMensualidad,
   leerCortePagaParaEntrar, leerEntrada, leerPagoDelMes, mesQueSeAvisa, pasoDePausa, planQueSeCobra, preciosDelCatalogo, proximoCinco,
   quienVaEnPausa, situacion, tablaDeEntradas, tablaDelMes, textoDeComprobante, textoDePausaDelMes, textoDeSituacion, textoDelAvisoDeEntradas,
-  textoDelAvisoDelMes, textoDeMesImpago, usd, usdDia, clavePendiente, diaLimite, diasEntre,
+  textoDelAvisoDelMes, textoDeMesImpago, usd, usdDia, clavePendiente, diaLimite, diasEntre, veredictoDeLectura,
   type ClienteDeAgencia, type CuentaDelMes, type Pendiente,
 } from '../lib/agencia-mes-reglas';
 import { revisarPausas, type DepsPausas, type LecturaParaPausas } from '../lib/agencia-mes-pausas';
@@ -512,3 +512,20 @@ test('el día 5 todavía no es atraso y el 6 sí: el aviso sale cuando el mes ya
   assert.equal('2026-12-06' > limite, true, 'el 6 sí');
   assert.equal(diasEntre(limite, '2026-12-06'), 1);
 });
+
+// Ticket #80 (10/11/2026): la entrada de Patricia (40 USDT por US$40,73) fue a Martín el 9/11 por la duda del monto y se marcó a
+// mano. El 10/11 llegó el MISMO pago en PDF y volvió a Martín y al grupo («lo revisa el equipo»). Roto (las dudas antes que la
+// orden) → el segundo caso da «revisar».
+test('una orden de Binance ya usada no vuelve a revisión, aunque la lectura tenga dudas (#80)', () => {
+  const ORDEN = '464765031875870720';
+  const dudosa = { limpia: false, dudas: 'El monto total dice US$ 40,73 pero el monto pagado dice 40 USDT.', moneda: 'USDT', orden: ORDEN };
+  assert.deepEqual(veredictoDeLectura({ ...dudosa, ordenYaUsada: false }), { tipo: 'revisar', porque: `la lectura tiene dudas: ${dudosa.dudas}` }, 'la primera vez sí va a Martín');
+  assert.deepEqual(veredictoDeLectura({ ...dudosa, ordenYaUsada: true }), { tipo: 'repetido' }, 'la segunda, no');
+  assert.equal(veredictoDeLectura({ ...dudosa, ordenYaUsada: undefined }).tipo, 'revisar', 'sin saber si se usó, con dudas: a Martín');
+  const limpia = { limpia: true, dudas: null, moneda: 'USDT', orden: ORDEN };
+  assert.deepEqual(veredictoDeLectura({ ...limpia, ordenYaUsada: false }), { tipo: 'seguir', orden: ORDEN });
+  assert.deepEqual(veredictoDeLectura({ ...limpia, ordenYaUsada: undefined }), { tipo: 'revisar', porque: 'no pude saber si la orden ya se usó' });
+  assert.equal(veredictoDeLectura({ ...limpia, moneda: 'ARS', ordenYaUsada: false }).tipo, 'revisar');
+  assert.deepEqual(veredictoDeLectura({ ...limpia, orden: null, ordenYaUsada: false }), { tipo: 'revisar', porque: 'la orden no es de Binance (18 dígitos)' });
+});
+

@@ -85,10 +85,17 @@ test('3: no quedó ninguna de las 10 plantillas de Doory: ni en el panel «Dise�
   // desactivaba. Las plantillas de MaKo son propias, se generan por código y se eligen en «Nuevo diseño»
   // (lib/image-editor/plantillas-reales.ts; las cuidan image-plantillas-reales.test.ts y -crear.test.ts, que ya fijan
   // que se puedan guardar como diseño: sin fotos locales y bajo el tope).
+  // Desde el 11/11/2026 el panel sirve las plantillas REALES de MaKo (app/image-editor/mako/plantillas.ts): una pantalla vacía
+  // en producción es una falla (docs/pruebas/image-10-11.md, caso 17). Lo que este test cuida sigue igual: ninguna de Doory.
   const panel = servicioPlantillas(null);
-  assert.deepEqual((await panel.list({})).results, [], 'el panel «Diseño» volvió a servir plantillas');
-  assert.equal((await panel.list({})).count, 0);
-  assert.deepEqual(await panel.categories(), [], 'las categorías eran las de Doory: sin plantillas no llevan a nada');
+  const { PLANTILLAS_IMAGEN } = await import('../lib/image-editor/plantillas-reales');
+  const propias = new Set(PLANTILLAS_IMAGEN.map((p) => p.id));
+  const lista = (await panel.list({ page_size: 100 })).results;
+  assert.ok(lista.length > 0, 'el panel «Diseño» quedó vacío otra vez');
+  // Un Set<string>: `DOORY` es `as const` y su `includes` sólo acepta sus propios ids (TS2345 con un slug cualquiera).
+  const deDoory = new Set<string>(DOORY);
+  for (const t of lista) assert.ok(propias.has(t.slug) && !deDoory.has(t.slug), `«${t.slug}» no es una plantilla real de MaKo`);
+  assert.deepEqual((await panel.categories()).map((c) => c.name).sort(), [...new Set(PLANTILLAS_IMAGEN.map((p) => p.grupo))].sort(), 'las categorías son los grupos de MaKo, no las de Doory');
   await assert.rejects(() => panel.get(DOORY[0]), /no existe/i, 'una de Doory se puede volver a abrir');
   for (const slug of DOORY) {
     assert.ok(!existsSync(join(RAIZ, 'app/image-editor/mako/plantillas', `${slug}.json`)), `${slug}.json volvió`);

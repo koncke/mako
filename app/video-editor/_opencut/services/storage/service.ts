@@ -1,6 +1,7 @@
 import type { TProject, TProjectMetadata } from "@/app/video-editor/_opencut/project/types";
 import { getProjectDurationFromScenes } from "@/app/video-editor/_opencut/timeline/scenes";
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
+import { archivoDeCopia } from "@/app/video-editor/_opencut/media/copia-liviana-reglas";
 import { IndexedDBAdapter } from "./indexeddb-adapter";
 import { OPFSAdapter } from "./opfs-adapter";
 import {
@@ -415,8 +416,34 @@ class StorageService {
 
 		await Promise.all([
 			mediaAssetsAdapter.remove(id),
+			mediaAssetsAdapter.remove(archivoDeCopia(id)),
 			mediaMetadataAdapter.remove(id),
 		]);
+	}
+
+	/** La copia liviana de un video (media/copia-liviana-reglas.ts), al lado del original en el OPFS del proyecto. */
+	async saveCopiaLiviana({
+		projectId,
+		id,
+		file,
+	}: {
+		projectId: string;
+		id: string;
+		file: File;
+	}): Promise<void> {
+		const { mediaAssetsAdapter } = this.getProjectMediaAdapters({ projectId });
+		await mediaAssetsAdapter.set({ key: archivoDeCopia(id), value: file });
+	}
+
+	async loadCopiaLiviana({
+		projectId,
+		id,
+	}: {
+		projectId: string;
+		id: string;
+	}): Promise<File | null> {
+		const { mediaAssetsAdapter } = this.getProjectMediaAdapters({ projectId });
+		return mediaAssetsAdapter.get(archivoDeCopia(id));
 	}
 
 	async deleteProjectMedia({

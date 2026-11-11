@@ -2471,4 +2471,33 @@ export const BITACORA: Hito[] = [
       'tests/extension-publicar.test.ts — 7 roturas, cada una en rojo',
     ],
   },
+  {
+    fecha: '10 nov', hora: '18:40', chat: 'Ops Center', sesion: 'cli_b4bb6cd6-f68b-5162-ae59-96d6e5078bd4', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Que sólo me lleguen mis decisiones, un chat por tab, y que el «Completado» diga qué se completó',
+    pedido: 'Me están llegando un montón de preguntas al Ops Center… que no tienen sentido. Son preguntas técnicas… Que solamente me llegan las preguntas de decisiones importantes. Y nunca tiene que ser con lenguaje técnico que yo no entiendo. / se están creando una cantidad de chats impresionante… La idea era tener un chat por cada tab de MaKo o cada funcionalidad que se esté desarrollando. / las tarjetas de completado… que yo rápidamente pueda identificar qué se completó. Es decir, qué funcionalidad se completó, qué feature, qué tab.',
+    puntos: [
+      'Llegó por el Cerebro, con el brief: el filtro en el código (en el único punto por donde pasan todas las preguntas, probado con preguntas reales), los chats agrupados por tab con los de tarea plegados y los dormidos escondidos, y la tarjeta «Completado» arrancando con «Tab · Función».',
+    ],
+  },
+  {
+    fecha: '10 nov', hora: '19:30', chat: 'Ops Center', sesion: 'cli_b4bb6cd6-f68b-5162-ae59-96d6e5078bd4', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ops Center: sólo te llegan tus decisiones, un chat por tab, y el «Completado» dice qué se completó',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Lo técnico no te llega:** una pregunta con jerga (ramas, tests, RAM, nombres de archivos), un dato que el chat puede medir («¿te llegó?», «¿conectaste Chrome?») o qué hace primero, se le devuelve al chat para que lo decida él, con el motivo.',
+      '**Lo tuyo sí, aunque diga una palabra técnica:** plata, clientes, accesos, seguridad, fechas, campañas y lo que tienes que ver pasan igual.',
+      '**Las que ya estaban se esconden solas:** el bloque, el globito y la fila dejan de contar las técnicas que llegaron antes, y la Ticketera también.',
+      '**Un chat por tab en la lista:** la fila es la tab, los chats de tarea van adentro y plegados detrás de «Mostrar N chats»; lo que espera tu respuesta o trabaja queda a la vista.',
+      '**Los dormidos se van:** un chat sin actividad hace tres días sale de la lista, salvo que espere algo tuyo (una pregunta o un «Completado» sin ver). El Cerebro y los de la nube, nunca.',
+      '**La tarjeta «Completado» dice qué se completó:** «Image · Portadas de carruseles», en el hilo y arriba de la caja, en la computadora y en el teléfono.',
+    ],
+    archivos: [
+      'lib/pregunta-para-martin.ts — el juez (juzgarPregunta, llegaAMartin, motivoParaElChat) · tests/fixtures/preguntas-ops-center.json — 52 preguntas reales',
+      'scripts/operaciones/cartero.mjs 1.27.0 — `preguntar` rechaza con el motivo (exit 3) · scripts/claude-hooks/guardia/sin-ask.mjs — lo mismo para AskUserQuestion',
+      'lib/centro-preguntas-chat.ts — esperaAMartinEnElChat · lib/centro-preguntas-chat-db.ts — el recuento de una vez · app/admin/runway/decisiones.ts — esperaAMartin y publicar',
+      'lib/centro-chats.ts — tabDeChat, porJefe por tab, plegarGrupo, filasDeGrupos, chatDormido, vaEnLaLista · app/admin/operaciones/tabs.ts — indiceDeTabs · app/admin/operaciones/GruposPorJefe.tsx',
+      'lib/centro-rotulo-completado.ts — «Tab · Función» · Avance.tsx, BloqueCompletado.tsx, Hilo.tsx, Conversacion.tsx, PiezasCentro.tsx, app/m/operaciones/ChatsMovil.tsx',
+      'tests/pregunta-para-martin.test.ts (8) y tests/ops-center-por-tab.test.ts (6) — 28 roturas en rojo y una neutra en verde',
+    ],
+  },
 ];

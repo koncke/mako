@@ -2060,3 +2060,26 @@ pantalla que lo monta.
 **Vive en:** `app/m/competitor-spy/` (page.tsx, SpyM.tsx, competitor-spy.css) · las dos puertas del escritorio: `marco`
 en `app/competitor-spy/DetallePieza.tsx` y `columnas` en `app/competitor-spy/GrillaPiezas.tsx` · la fila
 `competitor-spy` de `SECCIONES_MAS` y su `QUERY_DE_SECCION` (lib/movil-rutas.ts).
+
+## El Dashboard del teléfono decía «No es nada tuyo» de algo que no falló (10/11/2026)
+
+**Síntoma:** en el ws 3, la hoja Closing en el teléfono mostraba DOS veces «No pudimos leer estos números. No es nada tuyo», con
+«Volver a cargar» y «Reportar a Soporte». En la compu, la misma hoja decía «Conecta tu grabador de reuniones…».
+
+**Causa:** el lector (`datosDeGraficos`) devolvía «falta conectar» (`SinConexionError`) como un `{ ok: false, error }` más, y
+`hojaPropia` convertía TODO `ok: false` en `ERROR_LECTURA`. Y `DashboardM` dibujaba el aviso único de «no se pudo leer nada» y, debajo,
+la lista de números con el mismo error: la condición de la lista no excluía el caso de los dos errores.
+
+**La regla:** el lector marca `sinConexion: true`; si NADA se leyó y lo que volvió es eso, el teléfono dice ese texto, una vez, con
+`VacioM` (no `ErrorM`: no hay reintento ni Soporte que sirvan) — `faltaConectar` en el modelo, con su test. Un estado que la compu
+explica no se traduce a «falló» en el teléfono.
+
+**Vive en:** app/m/dashboard/datos.ts (`hojaPropia`), modelo.ts (`faltaConectar`), DashboardM.tsx · lib/graficos-datos.ts (`DatosGrafico`).
+
+## «No pudimos leer» de una hoja que se leyó bien: vacío no es falla (11/11/2026)
+
+**Síntoma:** en el teléfono, Anuncio ganador y Hooks del ws 3 decían «No pudimos leer estos números. No es nada tuyo» con «Reportar a
+Soporte». **Causa:** `hojaPropia` marcaba `numerosError` cuando todos los números mostraban «—», y `fmtValor(null)` también da «—». Un
+período sin datos, leído bien, se pintaba como lectura caída. **La regla:** «no pudimos leer» sólo si las lecturas FALLARON (`noSeLeyo`,
+app/m/dashboard/modelo.ts); sin datos, la lista dice «—». Es la misma familia que «falta conectar» (arriba): el teléfono no puede tener
+menos categorías que la compu (falló / falta conectar / sin datos).

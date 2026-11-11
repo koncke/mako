@@ -52,9 +52,10 @@ const montos = (plan: PlanPago, cambios = {}) => loQueSeVaDeUnaSuscripcion(plan,
 const texto = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/[  ]/g, ' ').replace(/\s+/g, ' ')
 
 test('1. el 97 y el 47 con el escenario del modelo: las cinco partes, el primer mes y desde el segundo', () => {
-  // 97: ganancia 67,94 · captación 4,37 (97 ÷ 22,2) · servir 14,83 (video 6,06 + fijo 8,77) · impuesto 8,11 · cobro 1,75.
-  assert.deepEqual(montos('growth'), [67.94, 4.37, 14.83, 8.11, 1.75])
-  assert.deepEqual(montos('pro'), [26.15, 4.37, 11.7, 3.93, 0.85])
+  // 97: ganancia 61,53 · captación 10,78 (97 ÷ 9 meses, decisión de Martín del 10/11) · servir 14,83 (video 6,06 + fijo
+  // 8,77) · impuesto 8,11 · cobro 1,75. Con 22,2 meses de vida eran 67,94 y 4,37 (el número del encargo).
+  assert.deepEqual(montos('growth'), [61.53, 10.78, 14.83, 8.11, 1.75])
+  assert.deepEqual(montos('pro'), [19.74, 10.78, 11.7, 3.93, 0.85])
   const g = loQueSeVaDeUnaSuscripcion('growth')
   assert.deepEqual(g.partes.map((p) => p.clave), ['ganancia', 'conseguir', 'servir', 'impuesto', 'cobro'])
   // El primer mes paga el CAC entero; desde el segundo deja 72,31 (ganancia + captación).
@@ -160,7 +161,7 @@ test('5. el reparto de Polar: una parte negativa no se dibuja en la barra, la le
   assert.match(t, /Total X47/)
 })
 
-test('6. Costs dibuja las tres secciones con el 97 en 67,94, y los dólares como dólares', async () => {
+test('6. Costs dibuja las tres secciones con el 97 en 61,53, y los dólares como dólares', async () => {
   const corte = (clave: string, costUsd: number) => ({ clave, llamadas: 1, tokens: 0, costUsd })
   const resumen: ResumenPeriodo = {
     periodo: '2026-11', desde: null, hasta: null, filas: 1, llamadas: 1, tokens: 0, costUsd: 0.5,
@@ -174,7 +175,7 @@ test('6. Costs dibuja las tres secciones con el 97 en 67,94, y los dólares como
   const { default: CostsPage } = await import('../app/admin/(polar)/analytics/costs/CostsPage')
   const t = texto(await dibujar(createElement(CostsPage, { vista, economia })))
   for (const titulo of ['Subscription breakdown', 'First month', 'AI quota']) assert.ok(t.includes(titulo), titulo)
-  assert.match(t, /Plan de US\$97 Ganancia US\$ 67,94 Captación US\$ 4,37 Servir la cuenta US\$ 14,83 Impuesto US\$ 8,11 Cobro US\$ 1,75 Total US\$ 97,00/)
+  assert.match(t, /Plan de US\$97 Ganancia US\$ 61,53 Captación US\$ 10,78 Servir la cuenta US\$ 14,83 Impuesto US\$ 8,11 Cobro US\$ 1,75 Total US\$ 97,00/)
   assert.match(t, /US\$97 · primer mes .*?\u2212US\$ 24,69/)
   assert.match(t, /el de 97 arranca perdiendo US\$ 24,69/)
   assert.match(t, /Techo del CAC: US\$ 30,52 en el de 47 y US\$ 72,31 en el de 97/)

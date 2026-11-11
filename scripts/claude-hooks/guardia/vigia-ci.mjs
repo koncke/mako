@@ -17,7 +17,7 @@
 // =============================================================================
 
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +33,17 @@ const CADA_MS = 2 * 60_000;
 const LOCK = path.join(DIR, 'ci-leyendo');
 
 const leerJson = (p, def) => { try { return JSON.parse(readFileSync(p, 'utf8')); } catch { return def; } };
-const guardarJson = (p, v) => { const t = `${p}.${process.pid}.tmp`; writeFileSync(t, JSON.stringify(v, null, 1)); renameSync(t, p); };
+// En Windows el rename choca (EPERM) si otro vigía u otro proceso tiene el archivo abierto en ese instante: se reintenta
+// y, si sigue trabado, se escribe directo. Antes eso tiraba el vigía entero sin avisar (11/11).
+const guardarJson = (p, v) => {
+  const texto = JSON.stringify(v, null, 1);
+  const t = `${p}.${process.pid}.tmp`;
+  writeFileSync(t, texto);
+  for (let i = 0; i < 5; i++) {
+    try { renameSync(t, p); return; } catch (e) { if (e?.code !== "EPERM" && e?.code !== "EBUSY" && e?.code !== "EACCES") throw e; Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150); }
+  }
+  writeFileSync(p, texto); try { rmSync(t, { force: true }); } catch {}
+};
 
 function token() {
   const out = execFileSync('git', ['credential', 'fill'], {
@@ -175,7 +185,10 @@ async function esperar() {
       console.log(`⛔ ROJO NUEVO EN GITHUB. Léelo ahora y vuelve a armar este vigía.\n${nuevos.map((r) => `- id ${r.id}: ${lineaDe(r)}`).join('\n')}`);
       return;
     }
-    if (e.error) {
+    // 10/11/2026: un corte suelto (git credential lento con la PC cargada, o el estado tomado por otro proceso) no corta el
+    // vigía: el 10/11 se cayó cinco veces así con la lectura siguiente en verde. Sólo avisa si hace 15 min que no lee bien.
+    const sinLeerBien = e.leidoAt ? Date.now() - Date.parse(e.leidoAt) : Infinity;
+    if (e.error && sinLeerBien > 15 * 60_000) {
       console.log(`⚠️ El vigía de GitHub no pudo leer (${e.error}): no puedo saber si hay rojos. Míralo y vuelve a armar este vigía.`);
       return;
     }

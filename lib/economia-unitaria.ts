@@ -51,13 +51,16 @@ export const META_CLIENTES = 50;
 export const CAC_USD = 97;
 
 /**
- * Los meses que se queda un cliente. Benchmark 2026 de SaaS para pymes: 3-5% de churn mensual,
- * 4,5% el promedio → 1/0,045 ≈ 22 meses.
+ * Los meses que se queda un cliente: 9, decisión de Martín (10/11/2026), hasta que haya bajas reales para medirla. Textual:
+ * «bajalo a 9 meses, me parece más realista… la gran mayoría no dura esa cantidad de tiempo».
+ * ⚠️ Antes eran 22,2: el benchmark de SaaS para pymes (4,5% de churn por mes → 1/0,045). No era una medición, y Martín no
+ * le creyó. 9 es lo que ya usaba el modelo viejo para el plan de 47 (`modelo.ts`, retención del 23%). Lo medido al 10/11: 3
+ * clientes que pagan y 0 bajas, que no alcanzan para nada.
  *
  * ⚠️ Y VA AL REVÉS DE LA INTUICIÓN: una vida CORTA empeora el margen, no lo mejora, porque el CAC
- * se reparte sobre menos meses. A 22 meses son US$4,37/mes; a 4 meses serían US$24,25.
+ * se reparte sobre menos meses. A 9 meses son US$10,78/mes; a 22 eran US$4,37; a 4 serían US$24,25.
  */
-export const MESES_DE_VIDA = 22.2;
+export const MESES_DE_VIDA = 9;
 
 export type EntradaEconomia = {
   /** VIVO: los que pagan. Las pruebas no cuentan: no facturan y no se les cobra la adquisición. */
@@ -184,7 +187,8 @@ export function economiaDelMes(e: EntradaEconomia): Economia {
 // La IA de texto NO es una parte: la paga cada negocio con su clave (lib/ia-del-negocio.ts).
 //
 // ⚠️ SUMAN EXACTO AL CENTAVO: cada parte se redondea a 2 decimales y la ganancia es el precio menos el resto. El 97 con el
-// escenario del modelo da 67,94 · 4,37 · 14,83 · 8,11 · 1,75 (tests/costs-suscripcion.test.ts).
+// escenario del modelo da 61,53 · 10,78 · 14,83 · 8,11 · 1,75 con 9 meses de vida (tests/costs-suscripcion.test.ts). El encargo
+// del 10/11 decía 67,94 · 4,37: era con 22,2 meses, antes de que Martín bajara la vida a 9 ese mismo día (`MESES_DE_VIDA`).
 //
 // ⚠️ EL TECHO DEL CAC ES «LO QUE DEJA DESDE EL SEGUNDO MES», CON EL FIJO ADENTRO. El tablero local lo calculaba como precio −
 // cobrar − IA, sin la parte del fijo (81,08 en el 97, contando el impuesto). Acá se usa el mismo modelo que la torta, donde

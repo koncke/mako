@@ -25,11 +25,15 @@
 //   · page.tsx que pide lo plegado (sin `ocultosPorPlegado`)              -> 8 / 1  «la página y la pantalla…»
 //   · el PDF con lo plegado plegado (sin la guarda de `imprimiendo`)      -> 8 / 1  el mismo
 //   · `alMoverGrilla` sin la vuelta (los grupos vacíos en `aGuardado`)    -> 8 / 1  el mismo
+// 10/11/2026 (`agregarALaVista`, probado en producción: «Añadir datos» en una hoja con diseño no mostraba nada). Base 10 / 0:
+//   · `agregarALaVista` que agrega al final sin mirar lo plegado        -> 9 / 1  «lo nuevo entra a la vista…»
+//   · que pone lo nuevo en la fila de la sección sin bajarla             -> 9 / 1  el mismo
+//   · `agregarComponente` sin `agregarALaVista`                          -> 9 / 1  el mismo
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sanearHoja, type Hoja } from '../lib/graficos-catalogo';
-import { aGuardado, aVista, esCierre, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, plegadasDeEntrada, type ElementoSeccion } from '../lib/graficos-secciones';
+import { aGuardado, agregarALaVista, aVista, esCierre, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, plegadasDeEntrada, type ElementoSeccion } from '../lib/graficos-secciones';
 import { pedidosDeHoja } from '../app/dashboard/exportar';
 
 const HOY = '2026-10-12';
@@ -168,4 +172,25 @@ test('la página y la pantalla piden lo mismo: la primera pintada saca lo que ar
   const mover = ed.slice(ed.indexOf('const alMoverGrilla = useCallback('), ed.indexOf('}, [idHoja, editando]);'));
   assert.ok(mover.length > 0 && mover.length < 800, `el recorte mide ${mover.length}`);
   assert.match(mover, /aGuardado\(l, v\.guardado, v\.grupos, v\.plegadas\)/);
+});
+
+test('lo nuevo entra a la vista: nunca adentro de una sección plegada (Añadir datos en una hoja con diseño)', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  // Como una hoja con diseño: dos tarjetas y, al final, «Todas las piezas» plegada con sus piezas debajo.
+  const h = hoja([kpi('t1', 0, 0), kpi('t2', 4, 0), sec('piezas', 4, 'Todas las piezas', { plegable: true, abierto: false }), kpi('p1', 0, 5), kpi('p2', 0, 9)]);
+  const plegadas = plegadasDe(h.componentes);
+  assert.ok(plegadas.has('piezas'));
+  const nuevo = { ...kpi('nuevo', 0, 13, 6, 5) } as unknown as Hoja['componentes'][number];
+  const cs = agregarALaVista(h.componentes, nuevo, plegadas);
+  const y = new Map(cs.map((c) => [c.id, c.y] as const));
+  assert.equal(y.get('nuevo'), 4, 'entra en la fila de la sección plegada');
+  assert.deepEqual([y.get('piezas'), y.get('p1'), y.get('p2')], [9, 10, 14], 'la sección baja con lo suyo lo que mide lo nuevo');
+  assert.deepEqual([y.get('t1'), y.get('t2')], [0, 0], 'lo de arriba no se mueve');
+  assert.ok(!ocultosPorPlegado(cs, plegadas).has('nuevo'), 'lo nuevo quedó escondido');
+  // Con la sección abierta, o sin secciones, entra donde venía.
+  assert.equal(agregarALaVista(h.componentes, nuevo, new Set()).find((c) => c.id === 'nuevo')!.y, 13);
+  // El editor lo usa para todo lo que agrega.
+  const ed = readFileSync(join(__dirname, '..', 'app', 'dashboard', 'EditorInforme.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(ed, /mutarComponentes\(\(cs\) => agregarALaVista\(cs, c, plegadas\)\);/);
 });

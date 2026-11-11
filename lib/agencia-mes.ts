@@ -45,9 +45,9 @@ import {
   leerConfigMensualidad, leerEntrada, leerPagoDelMes, mesDe, mesQueSeAvisa, mesesEntre, nombreDelMes, periodoDelCiclo, planQueSeCobra,
   preciosDelCatalogo, situacion, arrancaElReloj, sumarDias, tablaDeEntradas, tablaDelMes, textoDeComprobante, textoDePausaDelMes,
   textoDeMesImpago, textoDelAvisoDeEntradas, textoDelAvisoDelMes, usd, clavePendiente, diferencialDe, DIAS_SIN_COSTO, DIA_LIMITE_DE_PAGO, MEDIO_POR_DEFECTO,
-  NOMBRE_PLAN,
+  NOMBRE_PLAN, leerOrden,
   type ClienteDeAgencia, type ConfigMensualidad, type CuentaDelMes, type Dia, type Diferencial, type EntradaGuardada, type Mes,
-  type PagoDelMes, type Pendiente, type Precios, type Situacion,
+  type OrdenAnotada, type PagoDelMes, type Pendiente, type Precios, type Situacion,
 } from './agencia-mes-reglas';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -89,16 +89,9 @@ async function leerCartera(agenciaWs: number): Promise<{ filas: FilaCartera[]; c
   return { filas: ((sin.data ?? []) as Omit<FilaCartera, 'cobra_desde'>[]).map((f) => ({ ...f, cobra_desde: null })), conColumna: false };
 }
 
-/** Un pago anotado de una orden de Binance (lo que se manda en el recibo). */
-export type OrdenAnotada = { orden: string; monto: number; moneda: string; montoUsd: number; fecha: string; comprobante: string | null; aplicado: Array<{ clave: string; montoUsd: number }> };
-const leerOrden = (raw: string | undefined): OrdenAnotada | null => {
-  if (!raw) return null;
-  try {
-    const o = JSON.parse(raw) as Partial<OrdenAnotada>;
-    if (typeof o.orden !== 'string' || typeof o.monto !== 'number' || typeof o.montoUsd !== 'number' || typeof o.fecha !== 'string') return null;
-    return { orden: o.orden, monto: o.monto, moneda: String(o.moneda ?? 'USD'), montoUsd: o.montoUsd, fecha: o.fecha, comprobante: typeof o.comprobante === 'string' ? o.comprobante : null, aplicado: Array.isArray(o.aplicado) ? o.aplicado : [] };
-  } catch { return null; }
-};
+// Una orden anotada y su lector viven en las reglas (10/11/2026): también los lee Admin › Revenue (lib/admin-ingresos-libro.ts),
+// y dos lectores del mismo registro se desincronizan.
+export type { OrdenAnotada };
 
 type Libro = {
   config: ConfigMensualidad | null;

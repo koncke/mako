@@ -330,6 +330,24 @@ export const clavePendiente = (p: Pendiente): string => (p.tipo === 'mes' ? `mes
 /** Un dólar en un comprobante: USD, USDT o USDC (Binance paga en USDT). Otra moneda no se convierte: va a una persona. */
 export const esDolar = (moneda: string | null | undefined): boolean => !!moneda && /^(USD|USDT|USDC)$/i.test(moneda.trim());
 
+/**
+ * LO PRIMERO QUE SE DECIDE DE UN COMPROBANTE DEL GRUPO, y en qué orden. ⚠️ LA ORDEN REPETIDA VA ANTES QUE LAS DUDAS (ticket #80,
+ * 10/11/2026): el 9/11 el comprobante de la entrada de Patricia (40 USDT por US$40,73) fue a Martín por la duda del monto, y Martín
+ * la marcó a mano. El 10/11 llegó el MISMO pago en PDF: como las dudas se miraban antes que la orden, volvió a Martín («para
+ * revisar», por segunda vez) y al grupo de la agencia le dijo «lo revisa el equipo» sobre algo ya resuelto. Una orden de Binance que
+ * ya se leyó o se usó no se revisa otra vez, tenga las dudas que tenga.
+ * `ordenYaUsada`: true si está en un recibo, en el libro o en una lectura anterior del grupo; undefined = no se pudo saber.
+ */
+export type VeredictoDeLectura = { tipo: 'repetido' } | { tipo: 'revisar'; porque: string } | { tipo: 'seguir'; orden: string };
+export function veredictoDeLectura(o: { limpia: boolean; dudas: string | null | undefined; moneda: string | null | undefined; orden: string | null; ordenYaUsada: boolean | undefined }): VeredictoDeLectura {
+  if (o.orden && o.ordenYaUsada === true) return { tipo: 'repetido' };
+  if (!o.limpia) return { tipo: 'revisar', porque: o.dudas ? `la lectura tiene dudas: ${o.dudas}` : 'faltan datos en la lectura' };
+  if (!esDolar(o.moneda)) return { tipo: 'revisar', porque: `en ${o.moneda ?? 'otra moneda'}: no se convierte` };
+  if (!o.orden) return { tipo: 'revisar', porque: 'la orden no es de Binance (18 dígitos)' };
+  if (o.ordenYaUsada === undefined) return { tipo: 'revisar', porque: 'no pude saber si la orden ya se usó' };
+  return { tipo: 'seguir', orden: o.orden };
+}
+
 /** ¿`pagado` cubre `debe`? Un centavo de redondeo no lo vuelve parcial (la regla de lib/comprobante-reglas.ts). */
 export const cubre = (pagado: number, debe: number): boolean => pagado + 0.01 >= debe;
 /** ¿`pagado` es «de más» contra `debe`? Más del 1 %. */
@@ -525,6 +543,21 @@ export function leerEntrada(raw: unknown): EntradaGuardada | null {
   return { ws: o.ws, desde: o.desde, montoUsd: monto, pagadoUsd: pagado, pagadoEl: o.pagadoEl, ordenes: ordenes(o.ordenes), marcadoPor: texto(o.marcadoPor, 120) };
 }
 export const entradaCompleta = (e: EntradaGuardada): boolean => cubre(e.pagadoUsd, e.montoUsd);
+
+/**
+ * Un pago anotado de una orden de Binance (`agencia.mensualidad.<ag>.orden.<ORDEN>`, lo que se manda en el recibo): `montoUsd` es
+ * lo RECIBIDO; `aplicado`, a qué pendiente se sumó cada parte (`mes:<AAAA-MM>` o `entrada:<cliente>`, con lo que se debía).
+ * Lo leen el libro (lib/agencia-mes.ts) y Admin › Revenue (lib/admin-ingresos-libro.ts): vive acá para que sea UN lector.
+ */
+export type OrdenAnotada = { orden: string; monto: number; moneda: string; montoUsd: number; fecha: string; comprobante: string | null; aplicado: Array<{ clave: string; montoUsd: number }> };
+export const leerOrden = (raw: string | undefined): OrdenAnotada | null => {
+  if (!raw) return null;
+  try {
+    const o = JSON.parse(raw) as Partial<OrdenAnotada>;
+    if (typeof o.orden !== 'string' || typeof o.monto !== 'number' || typeof o.montoUsd !== 'number' || typeof o.fecha !== 'string') return null;
+    return { orden: o.orden, monto: o.monto, moneda: String(o.moneda ?? 'USD'), montoUsd: o.montoUsd, fecha: o.fecha, comprobante: typeof o.comprobante === 'string' ? o.comprobante : null, aplicado: Array.isArray(o.aplicado) ? o.aplicado : [] };
+  } catch { return null; }
+};
 
 /** El corte de «Paga para entrar» (lo que se guarda en `plan.corte_por_pago` con motivo `paga-para-entrar`). */
 export type CortePagaParaEntrar = { agenciaWs: number; rol: 'agencia' | 'cliente'; causas: Causa[]; perdonadas: Causa[] };

@@ -78,6 +78,10 @@ import {
 	duracionConRetime,
 } from "@/app/video-editor/_opencut/commands/timeline/element/velocidad";
 import { CortarTramosCommand } from "@/app/video-editor/_opencut/commands/timeline/element/cortar-tramos";
+import { BatchCommand } from "@/app/video-editor/_opencut/commands/batch-command";
+import { subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
+import { PARAM_PALABRAS } from "@/app/video-editor/_opencut/subtitles/palabras";
+import { reajustarSubtitulos } from "./velocidad-subtitulos";
 import { paramsConTexto, ReemplazarSubtitulosCommand } from "@/app/video-editor/_opencut/subtitles/editar";
 import { conLoVinculado } from "@/app/video-editor/_opencut/ripple/iman";
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
@@ -102,8 +106,8 @@ import { partirYUbicar } from "@/app/video-editor/_opencut/subtitles/build-subti
 import type { OperacionResuelta, RefElemento } from "./linea";
 
 /** Lo que se aplica después del lote, con su propio paso de deshacer (tarda). */
-export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" | "usar_plantilla" | "borrar_silencios" | "usar_preset_subtitulos" | "estilo_subtitulos" | "broll" | "cambiar_broll" | "clips_magicos" | "edicion_automatica" | "emojis_subtitulos" }>;
-const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos", "usar_preset_subtitulos", "estilo_subtitulos", "broll", "cambiar_broll", "clips_magicos", "edicion_automatica", "usar_plantilla", "borrar_silencios", "emojis_subtitulos"]);
+export type OperacionLarga = Extract<OperacionResuelta, { op: "revertir" | "congelar" | "normalizar" | "generar_subtitulos" | "usar_plantilla" | "borrar_silencios" | "usar_preset_subtitulos" | "usar_plantilla_subtitulos" | "estilo_subtitulos" | "broll" | "cambiar_broll" | "clips_magicos" | "edicion_automatica" | "emojis_subtitulos" }>;
+const LARGAS = new Set<OperacionResuelta["op"]>(["revertir", "congelar", "normalizar", "generar_subtitulos", "usar_preset_subtitulos", "usar_plantilla_subtitulos", "estilo_subtitulos", "broll", "cambiar_broll", "clips_magicos", "edicion_automatica", "usar_plantilla", "borrar_silencios", "emojis_subtitulos"]);
 export const esLarga = (r: OperacionResuelta): r is OperacionLarga => LARGAS.has(r.op);
 
 /** Un comando que se arma al EJECUTAR, contra la línea de tiempo de ese momento del lote. */
@@ -173,6 +177,37 @@ function elementoActual(o: ElementRef): TimelineElement | null {
 }
 
 const actualizar = (o: ElementRef, patch: Partial<TimelineElement>) => new UpdateElementsCommand({ updates: [{ ...o, patch }] });
+
+/**
+ * Los subtítulos del tramo de un clip que lleva la voz (pista principal o de audio) cuando el chat le cambia la velocidad:
+ * pasan por la misma cuenta que la voz (chat/velocidad-subtitulos.ts). Se lee la línea ANTES del cambio; con una curva
+ * (antes o después) no hay cuenta lineal y no se toca nada.
+ */
+function reajusteDeSubtitulos(o: ElementRef, clip: TimelineElement, retime: RetimeConfig | undefined) {
+	const conCurva = (r: RetimeConfig | undefined) => r?.mode === "curve";
+	if (conCurva((clip as { retime?: RetimeConfig }).retime) || conCurva(retime)) return [];
+	const tracks = EditorCore.getInstance().scenes.getActiveScene().tracks;
+	const principal = o.trackId === tracks.main.id;
+	if (!principal && !tracks.audio.some((t) => t.id === o.trackId)) return [];
+	const subtitulos = subtitulosDe(tracks)
+		.filter(({ track }) => !track.locked)
+		.map(({ track, element }) => ({
+			trackId: track.id,
+			elementId: element.id,
+			startTime: element.startTime,
+			duration: element.duration,
+			trimStart: element.trimStart,
+			contenido: String(element.params.content ?? ""),
+			palabras: element.params[PARAM_PALABRAS],
+		}));
+	return reajustarSubtitulos({
+		subtitulos,
+		clip,
+		finNuevo: clip.startTime + duracionConRetime(clip, retime),
+		iman: principal && useTimelineStore.getState().rippleEditingEnabled,
+		tps: TICKS_PER_SECOND,
+	}).map((r) => ({ trackId: r.trackId, elementId: r.elementId, patch: r.patch as Partial<TimelineElement> }));
+}
 
 export type LoteChat = {
 	/** En orden; van en UN BatchCommand. */
@@ -378,7 +413,10 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 							retime = r.rate === 1 && !cambiaTono ? undefined : buildConstantRetime({ rate: r.rate, maintainPitch: !cambiaTono });
 						}
 						if (duracionConRetime(actual, retime) < DURACION_MINIMA_TRAS_RAMPA) return null;
-						return new CambiarVelocidadCommand({ ...o, retime });
+						const cambio = new CambiarVelocidadCommand({ ...o, retime });
+						// Los subtítulos de su tramo siguen a la voz (chat/velocidad-subtitulos.ts, medido el 10/11/2026).
+						const reajuste = reajusteDeSubtitulos(o, actual, retime);
+						return reajuste.length > 0 ? new BatchCommand([cambio, new UpdateElementsCommand({ updates: reajuste })]) : cambio;
 					}),
 				);
 				break;

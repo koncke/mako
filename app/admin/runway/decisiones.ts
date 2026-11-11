@@ -22,6 +22,7 @@
 // el título de UN chat.
 
 import { DESTINO_RE } from '../../../lib/operaciones-reglas';
+import { juzgarPregunta, llegaAMartin, motivoParaElChat } from '../../../lib/pregunta-para-martin';
 
 export type Urgencia = 'bloquea' | 'cuesta' | 'criterio' | 'aviso';
 
@@ -71,8 +72,18 @@ export type Decision = {
   ignoradaAt?: string | null;
 };
 
-/** ¿La espera Martín? Sin contestar y sin ignorar. Lo preguntan el bloque del Ops Center, su globito y la Ticketera. */
-export const esperaAMartin = (d: Pick<Decision, 'respuesta' | 'ignoradaAt'>): boolean => !d.respuesta && !d.ignoradaAt;
+/** Lo que se juzga de una decisión (lib/pregunta-para-martin.ts): su pregunta, su contexto con lo que destraba, y sus opciones. */
+const aJuzgar = (d: Partial<Pick<Decision, 'pregunta' | 'contexto' | 'destraba' | 'opciones'>>) => ({
+  pregunta: d.pregunta ?? '', contexto: [d.contexto, d.destraba].filter(Boolean).join('\n'), opciones: d.opciones ?? [],
+});
+
+/**
+ * ¿La espera Martín? Sin contestar, sin ignorar y SUYA (10/11/2026: una técnica que se publicó antes de la regla no le llega; la
+ * decide el chat). Lo preguntan el bloque del Ops Center, su globito y la Ticketera. Sin el texto de la pregunta (una prueba que sólo
+ * pasa la respuesta), no hay nada que juzgar y espera.
+ */
+export const esperaAMartin = (d: Pick<Decision, 'respuesta' | 'ignoradaAt'> & Partial<Pick<Decision, 'pregunta' | 'contexto' | 'destraba' | 'opciones'>>): boolean =>
+  !d.respuesta && !d.ignoradaAt && llegaAMartin(aJuzgar(d));
 
 /** Lo que publica un chat. `ref` es la clave: republicar con la misma no duplica. */
 export type Publicada = {
@@ -204,6 +215,9 @@ export function sanearPublicada(x: unknown): { ok: true; d: Publicada } | { ok: 
   }
   const ordenN = o.orden == null ? 100 : Number(o.orden);
   if (!Number.isInteger(ordenN) || ordenN < 0 || ordenN > 999) return { ok: false, motivo: `${ref}: orden es un entero de 0 a 999` };
+  // A MARTÍN SÓLO LE LLEGAN SUS DECISIONES (10/11/2026, lib/pregunta-para-martin.ts): la técnica se rechaza con su motivo, como un tope.
+  const motivoTecnica = motivoParaElChat(juzgarPregunta(aJuzgar({ pregunta, contexto, destraba, opciones })));
+  if (motivoTecnica) return { ok: false, motivo: `${ref}: ${motivoTecnica}` };
   return { ok: true, d: { ref, chat, destino, pregunta, opciones, destraba, contexto, recomendada, urgencia, href, orden: ordenN } };
 }
 
@@ -268,7 +282,12 @@ export function repartir(ds: readonly Decision[]): {
   const pendientes: Record<Urgencia, Decision[]> = { bloquea: [], cuesta: [], criterio: [], aviso: [] };
   const contestadas: Decision[] = [];
   const ignoradas: Decision[] = [];
-  for (const d of ds) (d.respuesta ? contestadas : esperaAMartin(d) ? pendientes[d.urgencia] : ignoradas).push(d);
+  // Una técnica sin contestar (10/11/2026) no espera ni está ignorada: no va a ningún lado (la decide su chat).
+  for (const d of ds) {
+    if (d.respuesta) contestadas.push(d);
+    else if (d.ignoradaAt) ignoradas.push(d);
+    else if (esperaAMartin(d)) pendientes[d.urgencia].push(d);
+  }
   ignoradas.sort((a, b) => (b.ignoradaAt ?? '').localeCompare(a.ignoradaAt ?? '') || b.id - a.id);
   for (const u of URGENCIAS) {
     pendientes[u.clave].sort((a, b) => a.orden - b.orden || a.creadaAt.localeCompare(b.creadaAt) || a.id - b.id);

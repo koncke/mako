@@ -93,6 +93,40 @@ leen grupos. No se pudo mirar el log de Evolution (Railway, sin acceso desde el 
 alarma por lo que NO llega: horas sin un mensaje entrante en la línea de grupos mientras las otras líneas reciben, por EMAIL (la
 alarma de un canal no viaja por ese canal). La línea de Martín (`mako_ws9`) quedó sorda: necesita su propio QR.
 
+**El 10/11/2026 (ticket #79) PARECIÓ que volvía, y no: era DEMORA.** Patricia (ws 22) le pidió a MaKo tres notas a las 23:17,
+23:20 y 23:22 UTC; a las 23:34 no estaban ni en Evolution (`/chat/findMessages`) ni en `mako_doer_buffer`, y `_count.Message` de
+`mako_superadmin_muylqv8r` no se movió entre las 23:34 y las 23:38. Lo di por sorda y pedí el QR. **Era el diagnóstico equivocado:**
+a las 23:47:55 WhatsApp entregó todo junto (un mensaje de Martín enviado a las 22:49 y el primero de Patricia), con ~1 h de demora,
+y MaKo lo atendió. El contador quieto en 4 minutos de noche es falta de tráfico, no sordera.
+**La regla:** una línea está sorda cuando un mensaje que SABÉS que se mandó (con su hora) no llega en un plazo largo, no cuando el
+contador no se mueve un rato. Antes de pedir un QR: esperar y volver a mirar `findMessages` (el `messageTimestamp` es la hora en
+que se MANDÓ: compararla con el `created_at` del buffer mide la demora). La alarma por lo que no llega sigue sin hacer.
+
+**El 10/11 a la noche la demora SIGUIÓ, y rompió algo más que la espera** (Martín: «No funciona MaKo en WhatsApp… no está
+funcionando para nada bien»). Medido a las 01:00 y 01:34 UTC del 11/11, sólo lectura:
+- la voz (`mako_superadmin_muylqv8r`, …2605) entregó TODO tarde durante más de tres horas, en tandas: lo de 22:49–23:35 entró a
+  las 23:47:55 y a las 00:37:55; lo de 23:52, a las 01:12:48 (30 a 81 minutos). `open`, webhook prendido, `groupsIgnore` en false;
+- la línea de Martín (`mako_ws9`, …3479), que está en seis grupos, entregó mensajes de UN DÍA antes (1.373 a 1.416 min);
+- ⚠️ **eso trajo de vuelta lo ya resuelto:** el comprobante de Código Inmobiliario del 9/11 volvió a entrar por `mako_ws9`, y MaKo le
+  dijo a Joan «Recibí tu comprobante» y le mandó a Martín la revisión por segunda vez (ticket #80). El comprobante deduplica por id
+  de mensaje, y ese mensaje nunca había pasado por él: el 9/11 la línea estaba sorda y se contestó a mano.
+**La regla (lib/linea-demora.ts):**
+- lo que llega con más de 6 h de atraso (la hora de WhatsApp, `messageTimestamp`, contra ahora) no lo atiende MaKo sola: va al grupo
+  de SuperAdmin, una vez por mensaje (`avisarQueLlegoTarde`, antes del comprobante y de la cola). Lo de una hora sí se atiende;
+- la alarma que faltaba: `vigilarDemoraDeLaLinea` (lib/canal-vigilante.ts, en el cron `alerta-critica`, cada 10 min) mide el atraso
+  de lo que entró a la cola en las últimas 3 h y avisa por EMAIL si algo llegó con más de 20 min, cada 3 h mientras dure.
+- ⚠️ **Para volver a escanear una línea que contesta la sonda, el panel no deja:** `/agencia` responde «La línea ya está conectada y
+  respondiendo» (lib/mako-canal.ts, el guard que evita desvincular una viva). Primero se cierra esa sesión desde el teléfono
+  (WhatsApp → Dispositivos vinculados), y después «Conectar por QR».
+**Sin hacer:**
+- una línea SORDA del todo (no entrega nada) no la ve esta alarma, porque mide lo que llega. Para esa, lo que se mide es un mensaje
+  propio de prueba (con su hora) que tiene que volver por el webhook;
+- **dos pendientes y dos «sí», una se pierde** (Giselle, ws 17, 10/11 20:56): «agrega una nota a Maria Valeria…» y «…a Ana
+  Vallejo…» dejaron las pendientes #847 y #848; el primer «Si» confirmó la última (#848), el segundo terminó en «Estoy atento al
+  próximo mensaje» y la #847 se venció sola. El «sí» lo resuelve el modelo con `confirmar_accion`, que toma la más reciente: hace
+  falta que, al confirmar una, MaKo nombre la otra que queda viva (o que un «sí» de la misma persona confirme las dos simples);
+- dos notas en un mismo lote: MaKo propuso una y la otra fue al equipo (ticket #81, Patricia, ws 22), en vez de proponer las dos.
+
 ## MaKo no le responde a Leandro: contestó cada mensaje y no resolvió ninguno (9/11/2026)
 
 **El síntoma:** Martín, 9/11: «Leandro le está escribiendo a MaKo en WhatsApp y no responde».
@@ -3097,6 +3131,45 @@ lib/email-reputacion.ts · lib/goteo.ts (`topeConRampa`) · lib/goteo-db.ts (`to
 lib/nutricion.ts (el corte y la columna «Enviado» en la rama del email) · app/api/webhooks/resend/route.ts ·
 lib/api-mako/areas/{email,crm,chatbot}.{def,run}.ts · app/api-mako/Articulos.tsx (la guía) · lib/agente-skill.ts ·
 *2026-11-04 nube, la campaña de email de Mauricio*
+
+### ⚠️ El freno del email con «las últimas 24 h» apagaba un envío sano: parte el envío de ayer por la mitad (10/11/2026, ticket #76)
+
+**Síntoma.** El 10/11 a las 9:01 (Tijuana) el freno apagó el email de Mauricio con «3 de 52 emails de las últimas 24 h
+rebotaron (5,8 %)». Mauricio: «es esperado que reboten algunos, ¿cuál es tu criterio?». Quedaron sin salir 22 de los 100 de
+Piloto B, pasados a las 24 h por «canal apagado».
+
+**La causa real.** Ningún envío estaba mal: Piloto A, 3 de 100 (3 %); Piloto B, 2 de 78 (2,6 %). Piloto A había salido el día
+anterior entre las 9:00:32 y las 9:02:34, y Piloto B arrancó a las 9:01:10. Cuando llegó el primer rebote de B, la ventana de
+24 h tenía la COLA de A (que por azar traía 2 de sus 3 rebotes) y sólo 7 de B: un denominador chico justo en el borde, y por
+encima del mínimo de 50. **Una ventana de TIEMPO parte un envío por la mitad cuando los envíos salen todos los días a la misma
+hora**, que es justo lo que hace el motor con sus horarios.
+
+**La regla.** El freno mira los últimos 100 emails enviados (secuencias y broadcasts juntos, 7 días como mucho), y desde que una
+persona prendió el envío: si no, los rebotes que ya lo apagaron lo vuelven a apagar con el próximo, y «revisa la lista y vuelve a
+prenderlo» no sirve. Los umbrales no cambiaron (50, 5 %, 0,3 %). Para medir un caso: los rebotes están en
+`nutricion_envios.rebotado_at` y el «prendido» es el `updated_at` de `envio_email_enabled` en `app_settings`.
+
+**Lo que choca con el tope.** El tope del email también es de 24 h corridas (`enviosUltimas24h`): 22 que salen hoy a la tarde
+siguen contando mañana a la misma hora. Con 100 por día, «los 22 hoy y los 97 de Piloto A mañana a las 9» no entran juntos
+(119); quedan para el ticket #78 las tres opciones que se le dieron a Mauricio.
+
+**Vive en:** lib/email-freno.ts (`conteoDeLosUltimos`, `desdeDelFreno`) · lib/email-reputacion.ts (`conteoEmailDelFreno`) ·
+tests/email-campana-topes.test.ts (con los envíos reales del 9 y el 10/11)
+*2026-11-10 claude4, chat Tickets*
+
+### ⚠️ «Subí el tope de email» tiene tres trampas: la rampa, la pantalla y el plan de Resend del negocio (11/11/2026, tickets #78 y #83)
+
+Le aconsejé a Mauricio subir el email a 120 por día para que salieran sus dos envíos juntos, y estaba mal por tres lados:
+1. **La rampa.** Con `arranqueDia` < `dia`, el tope de hoy arranca en `arranqueDia` y sube sólo los días que se LLEGÓ al tope
+   (`topeConRampa`, lib/goteo.ts). Subir sólo «Por día» no cambia nada si ayer no se llegó (el 10/11 salieron 78 de 100).
+2. **La pantalla.** Configuraciones muestra sólo «Línea por día» del email: la rampa (`arranqueDia`, `arranqueSube`) se cambia
+   únicamente por la API (`cambiar_limites_envio`; `FILAS_LINEA`, lib/limites-envio.ts).
+3. **El plan de Resend del negocio.** Desde el 4/11 cada negocio manda con SU clave de Resend (`credenciales` RESEND_API_KEY). El
+   plan gratis de Resend corta en 100 por día, así que el tope de MaKo (hasta 500) no sirve si su cuenta de Resend no es paga.
+**Regla:** antes de aconsejar un tope, mirar de quién es la clave de Resend, los tres campos del email en `mako.limites_envio` y
+si ayer se llegó al tope.
+
+*2026-11-11 claude4, chat Tickets*
 
 ### ⚠️ El generador de emails escribe para el negocio de Mauricio, no para el del cliente
 
@@ -13104,3 +13177,21 @@ después de arreglar el ajuste. Con `not_thread_owner` fuera de `esLimiteDeMeta`
 El motivo está entero —con el link para arreglarlo— en **`nutricion_envios.error`**, y **no lo mira
 nadie**: ninguna pantalla lo muestra y ninguna alerta lo lee. Mirarlo **por nodo, no en total**: un
 97% de éxito global tapaba un 45% de fallo en el único paso que importaba (el que entrega el recurso).
+
+## ⚠️ «Lo que faltó de» un pedido ya hecho, y el «sí» que se pierde en el lote (10/11/2026, ticket #77)
+
+**Síntoma.** Giselle (ws 17) pidió dos notas seguidas, una por lead, y contestó «Si» a cada propuesta. En la Ticketera apareció un
+pedido delegado «Lo que faltó de: Agregar nota…; Nota: 'no contestó mi mensaje'», y en el CRM quedó guardada sólo la segunda nota.
+
+**Dos causas, ninguna era la obvia.**
+1. **El dato de una parte no es otra parte.** El clasificador devolvió el pedido como dos «partes» (la acción y el texto de la nota).
+   Con una sola escritura hecha, `faltaAlgunaParte` (lib/despacho-grupo.ts) vio 1 de 2 y delegó «lo que faltó», que era nada.
+   Arreglado en `partesDe` (lib/mako-intencion-ia.ts): una parte que es sólo «Nota: …», «Hora: …», «Asunto: …» va con la anterior.
+2. **El «sí» pegado a un pedido nuevo se pierde** (SIN arreglar). Su primer «Si» (20:56:59 UTC) llegó 12 s después de su segundo
+   pedido; el turno los tomó juntos, propuso la nota nueva y no confirmó la anterior (`mako_acciones_pendientes` 847: «pendiente»
+   hasta vencer a las 22:56). El segundo «Si» confirmó la otra (848). Para medir un caso: `grupo_mensajes` del ws con los
+   `created_at` de los «sí» contra `mako_acciones_pendientes` (estado, `vence_at`, `resuelto_at`). Vive en el armado del lote de
+   WhatsApp y la confirmación del doer (lib/mako-doer-in.ts, lib/mako-doer-acciones.ts).
+
+*2026-11-10 claude4, chat Tickets*
+

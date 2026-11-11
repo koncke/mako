@@ -20,6 +20,11 @@ export class IndexedDBAdapter<T> implements StorageAdapter<T> {
 		this.version = version;
 	}
 
+	/**
+	 * Una conexión por operación, que se CIERRA apenas se crea su transacción: `close()` deja terminar lo que ya está en
+	 * curso. Antes nunca se cerraba, y con el guardado automático cada 800 ms se juntaban conexiones abiertas; además una
+	 * conexión abierta deja esperando para siempre a `deleteDatabase` (docs/editor-video/memoria-del-editor.md §6).
+	 */
 	private async getDB(): Promise<IDBDatabase> {
 		return new Promise((resolve, reject) => {
 			const request = indexedDB.open(conEspacio(this.dbName), this.version);
@@ -39,6 +44,7 @@ export class IndexedDBAdapter<T> implements StorageAdapter<T> {
 	async get(key: string): Promise<T | null> {
 		const db = await this.getDB();
 		const transaction = db.transaction([this.storeName], "readonly");
+		db.close();
 		const store = transaction.objectStore(this.storeName);
 
 		return new Promise((resolve, reject) => {
@@ -57,6 +63,7 @@ export class IndexedDBAdapter<T> implements StorageAdapter<T> {
 	}): Promise<void> {
 		const db = await this.getDB();
 		const transaction = db.transaction([this.storeName], "readwrite");
+		db.close();
 		const store = transaction.objectStore(this.storeName);
 
 		return new Promise((resolve, reject) => {
@@ -69,6 +76,7 @@ export class IndexedDBAdapter<T> implements StorageAdapter<T> {
 	async remove(key: string): Promise<void> {
 		const db = await this.getDB();
 		const transaction = db.transaction([this.storeName], "readwrite");
+		db.close();
 		const store = transaction.objectStore(this.storeName);
 
 		return new Promise((resolve, reject) => {
@@ -81,6 +89,7 @@ export class IndexedDBAdapter<T> implements StorageAdapter<T> {
 	async list(): Promise<string[]> {
 		const db = await this.getDB();
 		const transaction = db.transaction([this.storeName], "readonly");
+		db.close();
 		const store = transaction.objectStore(this.storeName);
 
 		return new Promise((resolve, reject) => {
@@ -93,6 +102,7 @@ export class IndexedDBAdapter<T> implements StorageAdapter<T> {
 	async getAll(): Promise<T[]> {
 		const db = await this.getDB();
 		const transaction = db.transaction([this.storeName], "readonly");
+		db.close();
 		const store = transaction.objectStore(this.storeName);
 
 		return new Promise((resolve, reject) => {
@@ -105,6 +115,7 @@ export class IndexedDBAdapter<T> implements StorageAdapter<T> {
 	async clear(): Promise<void> {
 		const db = await this.getDB();
 		const transaction = db.transaction([this.storeName], "readwrite");
+		db.close();
 		const store = transaction.objectStore(this.storeName);
 
 		return new Promise((resolve, reject) => {
