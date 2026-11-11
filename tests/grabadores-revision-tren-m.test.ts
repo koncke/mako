@@ -116,7 +116,9 @@ test('10. sólo el error de SU clave es «de su cuenta» (la de la plataforma y 
   assert.equal((C.match(/deSuClave: true/g) ?? []).length, 1, 'la marca la pone UN lugar: el error de su clave');
   assert.match(C, /const suCuenta = res\.deSuClave \? falloDeSuCuenta\(res\.error\) : null;/);
   assert.match(C, /else if \(res\.deSuClave && falloDeSuCuenta\(res\.error\)\) \{/);
-  assert.match(sinComentarios(leer('../lib/anthropic.ts')), /return permiso\.esCredito \? \{ error, esCredito: true \} : \{ error \};/);
+  // 11/11/2026: la puerta 2 también paga con una cuenta del CRÉDITO de MaKo (`cuentaDelCredito`: la IA interna va primero con
+  // el crédito de las cuentas Max). Ese error tampoco es «de su cuenta»: se marca `esCredito`, igual que el crédito asignado.
+  assert.match(sinComentarios(leer('../lib/anthropic.ts')), /return permiso\.esCredito \|\| permiso\.cuentaDelCredito \? \{ error, esCredito: true, status: res\.status \} : \{ error, status: res\.status \};/);
 });
 
 test('11. sin la 0338 (o con la base caída) Customer Success no gasta intentos: espera, o corta sin culpar a la sesión', () => {

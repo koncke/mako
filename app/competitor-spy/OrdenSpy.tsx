@@ -25,7 +25,7 @@ import { Icon } from '../_components/icons';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 import { carpetasDe, disponer, repartirMiniaturas, type CarpetaOrden, type Disposicion } from '@/lib/spy-orden';
 import { NOMBRE_CANAL } from '@/lib/spy-reglas';
-import { miniaturaDePieza } from '@/lib/spy-vista';
+import { miniaturaChica } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
 import { espera, precargarTodas, quieto } from './precarga';
 import { CADA_FRASE_MS, TEXTO_PASO, fraseDelPaso, type PasoLectura } from '@/lib/spy-lectura-pasos';
@@ -140,7 +140,7 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar, pasos = [] }: {
     if (!piezas) return;
     if (!total || quieto()) return;
     let vivo = true;
-    const conImagen = minis.map((m) => ({ id: m.pieza.id, url: miniaturaDePieza(m.pieza) })).filter((m): m is { id: number; url: string } => !!m.url);
+    const conImagen = minis.map((m) => ({ id: m.pieza.id, url: miniaturaChica(m.pieza) })).filter((m): m is { id: number; url: string } => !!m.url);
     void precargarTodas(conImagen).then((ok) => { if (vivo) setBajadas(ok); });
     return () => { vivo = false; };
   }, [piezas, total, minis]);
@@ -296,7 +296,7 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar, pasos = [] }: {
           })}
           {dispo && minis.map((m) => {
             // Sólo la que ya se bajó: la que falló entra con su texto, nunca como una caja vacía que se llena a mitad de camino.
-            const mini = bajadas?.has(m.pieza.id) ? miniaturaDePieza(m.pieza) : null;
+            const mini = bajadas?.has(m.pieza.id) ? miniaturaChica(m.pieza) : null;
             return (
               <div key={m.pieza.id} className="spyo-mini" data-mini="" data-clave={m.clave} data-hueco={m.hueco} data-canal={m.pieza.canal} style={{ width: dispo.ladoBola, height: dispo.ladoBola }}>
                 {mini

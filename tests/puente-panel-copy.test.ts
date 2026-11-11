@@ -141,6 +141,18 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'el juez de las preguntas que un chat le quiere hacer a Martín (10/11/2026): reconoce «¿volvés a abrir…?» y «¿podés conectar…?» para no mandarle un hecho que el chat puede medir; no le habla a nadie',
   },
   {
+    ruta: 'lib/al-tuteo.ts',
+    porque: 'el corrector de la SALIDA de MaKo en WhatsApp (11/11/2026): su diccionario nombra el voseo («querés» → «quieres») para sacarlo de lo que escribe el modelo; no le habla a nadie',
+  },
+  {
+    ruta: 'lib/oferta-de-mako.ts',
+    porque: 'detector de lo que ESCRIBIÓ MaKo (11/11/2026): reconoce su «¿Querés que revise…?» —el modelo a veces vosea— para que el «sí» que sigue sea un pedido; no le habla a nadie',
+  },
+  {
+    ruta: 'lib/le-pide-al-equipo.ts',
+    porque: 'detector de lo que ESCRIBE la persona en el grupo (11/11/2026): «decile a Claude», «pedile al equipo» le piden algo al equipo de MaKo, y el clasificador no puede tomarlo por un mensaje a otra persona; no le habla a nadie',
+  },
+  {
     ruta: 'lib/media-buyer/copiloto-pedido.ts',
     porque: 'detector de lo que ESCRIBE la persona en el Marketing CoPilot («dale, guardalo», «hacelo»): reconoce su voseo para saber si pide o pregunta; no le habla a nadie',
   },

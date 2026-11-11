@@ -88,6 +88,12 @@
   font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center;
 }
 .m-ai-avatar-pastilla--dato { cursor: default; font-weight: 500; color: var(--dim); }
+/* La fila de abajo: pastillas a la izquierda (corren de costado si no entran) y «Generar» a la derecha, de su ancho. */
+.m-ai-avatar-barra__pie { display: flex; align-items: center; gap: 8px; }
+.m-ai-avatar-barra__pie .m-ai-avatar-barra__pastillas { flex: 1; min-width: 0; margin: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.m-ai-avatar-barra__pie .m-ai-avatar-barra__pastillas::-webkit-scrollbar { display: none; }
+.m-ai-avatar-barra__pie .m-ai-avatar-pastilla { flex: none; min-height: 40px; }
+.m-ai-avatar-barra__pie > .mk-btn { flex: none; padding-left: 22px; padding-right: 22px; }
 
 /* ── Tu cara (la hoja de Personaje) ──────────────────────────────────────── */
 .m-ai-avatar-fotos { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; padding: 4px 2px 14px; }

@@ -24,7 +24,7 @@
 import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
-import { CELDAS, dolares, rotulosDe, type Delta, type VistaContenido } from '@/lib/contenido-diseno';
+import { CELDAS, dolares, parteEnTexto, rotuloEjeDolares, rotulosDe, type Delta, type VistaContenido } from '@/lib/contenido-diseno';
 import { enElPeriodo, entero } from '@/lib/marketing-diseno';
 import { CSS_CONTENIDO } from './contenido-css';
 import { Parte } from './parte';
@@ -98,8 +98,8 @@ function Cambio({ delta }: { delta: Delta }) {
   const sube = delta.texto.startsWith('+');
   return <span className={`orr-delta orr-mono ${delta.bueno ? 'orr-delta--up' : 'orr-delta--bad'}`}><Icono id={sube ? 'sube' : 'baja'} />{delta.texto}</span>;
 }
-/** «US$3», «US$1.7»: los rótulos del eje del gasto. */
-const rotuloEje = (v: number) => (v === 0 ? '0' : v >= 10 ? `US$${Math.round(v)}` : `US$${Number(v.toFixed(1))}`);
+/** «US$3», «US$1.7», «US$0.033»: los rótulos del eje del gasto (lib/contenido-diseno.ts). */
+const rotuloEje = rotuloEjeDolares;
 
 export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, compartido = false, quieta = false }: {
   hoja: Hoja;
@@ -290,7 +290,7 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
                   <li key={f.clave} {...accionDe(abrir(p.modelos, f.clave))}>
                     <div className="orr-sp__h"><span className="orr-m__n"><i className={`orr-dot orr-dot--${f.tono}`} />{f.nombre}</span><b className="orr-mono" key={f.valor} data-cuenta="">{dolares(f.valor)}</b></div>
                     <span className="orr-sp__bar"><i className={`orr-bg--${f.tono}`} style={{ width: `${Math.max(0, Math.min(100, f.parte ?? 0)).toFixed(1)}%` }} /></span>
-                    <span className="orr-sp__p">{f.parte == null ? ' ' : `${Math.round(f.parte)}% del costo`}{modelos.mas > 0 && f === modelos.filas[modelos.filas.length - 1] ? ` · y ${entero(modelos.mas)} más` : ''}</span>
+                    <span className="orr-sp__p">{f.parte == null ? ' ' : `${parteEnTexto(f.parte)} del costo`}{modelos.mas > 0 && f === modelos.filas[modelos.filas.length - 1] ? ` · y ${entero(modelos.mas)} más` : ''}</span>
                   </li>
                 ))}
               </ul>
@@ -307,7 +307,7 @@ export function HojaContenido({ hoja, vista, titulo, periodo, onGrilla, onFila, 
                 {funciones.filas.map((f) => (
                   <li key={f.clave} {...accionDe(abrir(p.funciones, f.clave))}>
                     <span className="orr-mono orr-rq__t">{entero(f.valor)}</span>
-                    <span className="orr-code200 orr-mono">{f.parte == null ? '—' : `${Math.round(f.parte)}%`}</span>
+                    <span className="orr-code200 orr-mono">{parteEnTexto(f.parte) ?? '—'}</span>
                     <span className="orr-m__n orr-rq__m"><i className={`orr-dot orr-dot--${f.tono}`} /><span className="orr-rq__nom">{f.nombre}</span></span>
                   </li>
                 ))}

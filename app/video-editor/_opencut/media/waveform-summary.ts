@@ -4,7 +4,7 @@ import { getSourceTimeAtClipTime } from "@/app/video-editor/_opencut/retime";
 import type { RetimeConfig } from "@/app/video-editor/_opencut/timeline";
 
 const RMS_ANALYSIS_WINDOW_SECONDS = 0.02;
-const DEFAULT_SOURCE_WAVEFORM_BUCKET_SIZE = 128;
+export const DEFAULT_SOURCE_WAVEFORM_BUCKET_SIZE = 128;
 
 function computePeakBuckets({
 	buffer,

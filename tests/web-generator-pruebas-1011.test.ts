@@ -1,0 +1,225 @@
+// =============================================================================
+// Web Generator — lo que rompió la prueba en producción del 10/11/2026 (docs/pruebas/web-generator-10-11.md)
+// =============================================================================
+// Lo que se fija:
+//   1. `textoDe` separa los BLOQUES aunque estén adentro de columnas, y no parte un párrafo por sus marcas. Medido: la portada de
+//      «Lead magnet» se llamaba «Guía gratuitaTus primeros 10 clientesUna guía corta…» en «Redirigir a» y en la vista previa de
+//      Google del diálogo de Publicar.
+//   2. `tituloDeTarjeta` encuentra el título también adentro de las columnas (la portada con formulario al costado).
+//   3. El SEO publicado (seo-pagina.ts): un SEO de página con «[…]» de la plantilla no se publica, y en el inicio manda lo que
+//      la persona escribió en Publicar → SEO. Medido: la publicada salía «[Nombre de la guía] (gratis)» y lo escrito en el
+//      diálogo no llegaba. Recorre las 12 plantillas.
+//   4. El diálogo de Publicar muestra en la vista previa LO MISMO que se publica (la misma función).
+//   5. El menú «Agregar bloque»: filas al alto del contenido (36 tarjetas con la segunda línea cortada) y el nombre visible en
+//      oscuro (`--gma-t200` pasó a ser un borde el 31/10).
+//
+// Correr: node --import tsx --test tests/web-generator-pruebas-1011.test.ts
+// PROBADO ROMPIÉNDOLO: ver el pie.
+// =============================================================================
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { NODO, parrafo, tarjeta, textoDe, titulo, tituloDeTarjeta, type JsonNodo } from '../lib/editor-landing/doc';
+import { metaDePagina, seoCompleto } from '../lib/editor-landing/seo-pagina';
+import { metaDePagina as metaDelServer } from '../lib/editor-landing/server-reglas';
+import { rangosACompletar } from '../lib/editor-landing/especificacion';
+import { PLANTILLAS } from '../lib/editor-landing/plantillas';
+import { DISENOS_LANDING, landingDesde } from '../lib/editor-landing/disenos-landing';
+import { CONFIG_DEFAULT } from '../lib/editor-landing/api-tipos';
+
+const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
+const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
+const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+
+const columnas = (...cols: JsonNodo[][]): JsonNodo => ({ type: NODO.columnas, content: cols.map((c) => ({ type: NODO.columna, content: c })) });
+const ante = (t: string) => parrafo(t);
+
+test('1. textoDe: los bloques de una columna van separados; un párrafo con negrita sigue en un renglón', () => {
+  const portada = tarjeta([columnas([ante('Guía gratuita'), titulo('Tus primeros 10 clientes', 1, 'titulo'), parrafo('Una guía corta.')], [parrafo('Nombre')])]);
+  assert.equal(textoDe(portada), 'Guía gratuita\nTus primeros 10 clientes\nUna guía corta.\nNombre');
+  assert.equal(textoDe(portada, ' '), 'Guía gratuita Tus primeros 10 clientes Una guía corta. Nombre');
+  const conNegrita: JsonNodo = { type: 'paragraph', content: [{ type: 'text', text: 'Tus ' }, { type: 'text', text: 'primeros', marks: [{ type: 'bold' }] }, { type: 'text', text: ' 10' }] };
+  assert.equal(textoDe(conNegrita), 'Tus primeros 10', 'las marcas parten el texto, no el renglón');
+  const conSalto: JsonNodo = { type: 'paragraph', content: [{ type: 'text', text: 'uno' }, { type: 'hardBreak' }, { type: 'text', text: 'dos' }] };
+  assert.equal(textoDe(conSalto), 'uno\ndos');
+  // El documento entero: una sección no se pega a la siguiente.
+  const doc: JsonNodo = { type: 'doc', content: [tarjeta([titulo('Arriba')]), tarjeta([titulo('Abajo')])] };
+  assert.equal(textoDe(doc, ' '), 'Arriba Abajo');
+  // Los vacíos no dejan separadores colgando.
+  assert.equal(textoDe(tarjeta([parrafo(''), titulo('Solo'), parrafo('')])), 'Solo');
+});
+
+test('2. tituloDeTarjeta: el título adentro de las columnas, no el antetítulo pegado a todo', () => {
+  const portada = tarjeta([columnas([ante('Guía gratuita'), titulo('Tus primeros 10 clientes', 1, 'titulo'), parrafo('Una guía corta.')], [parrafo('Nombre')])]);
+  assert.equal(tituloDeTarjeta(portada), 'Tus primeros 10 clientes');
+  const conNegrita = tarjeta([{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Qué vas a ' }, { type: 'text', text: 'encontrar', marks: [{ type: 'bold' }] }] }]);
+  assert.equal(tituloDeTarjeta(conNegrita), 'Qué vas a encontrar', 'una negrita ya no corta el título');
+  assert.equal(tituloDeTarjeta(tarjeta([parrafo('Sin títulos'), parrafo('otra')])), 'Sin títulos', 'sin título: el primer renglón');
+  // La portada REAL de «Minimal» × «Lead magnet» (la que se creó en producción).
+  const minimal = DISENOS_LANDING.find((d) => d.id === 'minimal') ?? DISENOS_LANDING[0];
+  const lm = landingDesde(minimal, 'lead-magnet');
+  assert.ok(lm, 'el diseño arma el lead magnet');
+  const t = tituloDeTarjeta(lm!.paginas[0].doc.content![0] as JsonNodo);
+  assert.doesNotMatch(t, /gratuita\S/i, `sin el antetítulo pegado: «${t}»`);
+});
+
+test('3. el SEO publicado: sin los «[…]» de la plantilla, y en el inicio manda lo que escribió la persona', () => {
+  assert.equal(seoCompleto('[Nombre de la guía] (gratis)'), '');
+  assert.equal(seoCompleto('  Mi guía (gratis) '), 'Mi guía (gratis)');
+  const inicio = { id: 'a', titulo: 'Inicio', ruta: '', seoTitulo: '[Nombre de la guía] (gratis)', seoDescripcion: 'Descarga gratis [nombre de la guía].' };
+  const vacio = CONFIG_DEFAULT.sitio;
+  assert.deepEqual(metaDePagina(inicio, vacio, 'Lead magnet / descarga'), { titulo: 'Lead magnet / descarga', descripcion: '' },
+    'la plantilla sin completar no sale: cae al título de la landing, como promete el diálogo');
+  const escrito = { ...vacio, seoTitulo: 'Tus primeros 10 clientes', seoDescripcion: 'La guía gratis.' };
+  assert.deepEqual(metaDePagina(inicio, escrito, 'Lead magnet / descarga'), { titulo: 'Tus primeros 10 clientes', descripcion: 'La guía gratis.' });
+  assert.equal(metaDePagina({ ...inicio, seoTitulo: '¡Gracias!' }, escrito, 'Doc').titulo, 'Tus primeros 10 clientes',
+    'en el inicio, lo escrito en Publicar → SEO gana al de la página (la interfaz no edita el de cada página)');
+  assert.equal(metaDePagina({ ...inicio, seoTitulo: '¡Gracias!' }, vacio, 'Doc').titulo, '¡Gracias!', 'sin nada escrito, el de la página completo sí');
+  const interna = { id: 'b', titulo: 'Gracias', ruta: 'gracias', seoTitulo: '[Tu marca]: gracias' };
+  assert.equal(metaDePagina(interna, escrito, 'Doc').titulo, 'Gracias', 'una interna con «[…]» cae a su nombre');
+  assert.equal(metaDePagina({ ...interna, seoTitulo: 'Gracias por anotarte' }, escrito, 'Doc').titulo, 'Gracias por anotarte');
+  assert.equal(metaDelServer, metaDePagina, 'el server publica con la MISMA función');
+  // Las 12 plantillas: ninguna página publica un «[…]» de SEO si la persona no escribió nada.
+  for (const p of PLANTILLAS) {
+    for (const pag of p.contenido().paginas) {
+      const m = metaDePagina(pag, vacio, p.nombre);
+      assert.deepEqual(rangosACompletar(m.titulo), [], `${p.id}/${pag.ruta || 'inicio'}: «${m.titulo}»`);
+      assert.deepEqual(rangosACompletar(m.descripcion), [], `${p.id}/${pag.ruta || 'inicio'}: «${m.descripcion}»`);
+    }
+  }
+});
+
+test('4. el diálogo de Publicar: la vista previa sale de la misma función que la publicada', () => {
+  const d = sinComentarios(leer('app/web-generator/editor/dialogos/DialogoPublicar.tsx'));
+  assert.match(d, /import \{ metaDePagina \} from '@\/lib\/editor-landing\/seo-pagina';/);
+  assert.match(d, /const metaInicio = inicio \? metaDePagina\(\{ \.\.\.inicio, ruta: '' \}, sitio, tituloDoc\)/);
+  assert.match(d, /const tituloBusqueda = metaInicio\.titulo;/);
+  assert.match(d, /placeholder=\{tituloSinEscribir\}/, 'la ayuda del «Título» es lo que sale si se deja vacío');
+  assert.doesNotMatch(d, /sitio\.seoTitulo\.trim\(\) \|\| titulo/, 'nada de armar el título por su cuenta');
+});
+
+test('5. «Agregar bloque»: filas al alto de su contenido y el nombre visible en oscuro', () => {
+  const css = sinComentarios(leer('app/web-generator/gamma.css'));
+  const grilla = /\.gma-pop-grilla \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.match(grilla, /grid-auto-rows: max-content;/, 'con max-height, las filas auto se quedan en el mínimo de la tarjeta');
+  assert.match(grilla, /max-height: 360px;/);
+  assert.match(css, /\[data-tema="oscuro"\] \.gma \.gma-tile-nombre \{ color: var\(--gma-texto-fuerte\); \}/);
+  assert.doesNotMatch(css, /\[data-tema="oscuro"\][^{]*\{[^}]*color: var\(--gma-t(?:200|300)\)/, 'un borde translúcido no es un color de texto');
+});
+
+test('6. la caja del chat sin la app de escritorio: la frase en un renglón entero y el botón abajo', () => {
+  const panel = leer('app/web-generator/editor/paneles/PanelAgente.tsx');
+  const css = /const CSS_AGENTE = `([\s\S]*?)`;/.exec(panel)?.[1] ?? '';
+  assert.match(css, /\.gma-ag \.co-caja textarea::placeholder\{white-space:nowrap;/, 'la frase sigue en UN renglón (Martín, 24/10)');
+  assert.match(css, /\.gma-ag \.co-caja__fila:has\(\.co-instalar\)\{flex-wrap:wrap;/, 'bloqueada, la fila se parte');
+  assert.match(css, /\.gma-ag \.co-caja__fila:has\(\.co-instalar\)>\.co-caja__campo\{flex-basis:calc\(100% - 48px\)\}/,
+    'el campo toma el renglón entero (menos el «+»): medido, de 115 a 247 px para una frase de 161');
+  assert.match(css, /:is\(\.co-instalar,:has\(\.co-instalar\)\)\{margin-left:auto\}/, 'el botón, a la derecha');
+});
+
+// ── La segunda vuelta (11/11/2026): MIRANDO cada pantalla con captura (docs/pruebas/web-generator-10-11.md) ──
+
+test('7. la galería sin fotos: en el editor se ve el lugar de cada foto y tocarlo la elige; la publicada no lo muestra', async () => {
+  const { CSS_CONTENIDO } = await import('../lib/editor-landing/css');
+  assert.match(CSS_CONTENIDO,
+    /\.gm-doc\[data-modo="editor"\] \.gm-optimizado\[data-variante="galeria"\] \.gm-item-marca:empty,[^{]*\{ display: grid; place-items: center; place-content: center; aspect-ratio: 4 \/ 3;/,
+    'el lugar de la foto en la galería, centrado');
+  // Cada selector de esas reglas va SÓLO en el editor o en la miniatura de trabajo: la publicada sigue sin dibujarlo.
+  const sinModo = CSS_CONTENIDO.replace(/\{[^}]*\}/g, '\n').split(/[,\n]/).map((s) => s.trim())
+    .filter((s) => /\[data-variante="(galeria|imagenes-texto)"\] \.gm-item-marca:empty/.test(s) && !/data-modo="editor"|data-marcadores="si"/.test(s));
+  assert.deepEqual(sinModo, [], 'ningún selector del lugar vacío llega a la publicada');
+  assert.match(CSS_CONTENIDO, /\[data-modo="editor"\] \.gm-optimizado\[data-variante="galeria"\] \.gm-item-marca:empty::after[^{]*\{ content: "Agregar imagen"/);
+  const vista = sinComentarios(leer('app/web-generator/editor/nodos/OptimizadoVista.tsx'));
+  assert.match(vista, /<NodeViewWrapper className="gmx-nv" data-activo=\{activo \? 'si' : undefined\} onClick=\{alTocarLugarDeFoto\}>/);
+  assert.match(vista, /if \(!marca \|\| marca\.childElementCount \|\| !cuerpo\) return;/, 'sólo el lugar VACÍO: una foto puesta se cambia desde la barra');
+  assert.match(vista, /tr\.setNodeMarkup\(pos, undefined, \{ \.\.\.n\.attrs, imagenSrc: url \}\);/);
+});
+
+test('8. el lienzo del editor: la letra base de una página sale del ancho del lienzo, no de la ventana', () => {
+  const ed = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  assert.match(ed, /const topePagina = !diapo && lienzo > 0 \? `\$\{Math\.round\(\(lienzo \/ 68\.5\) \* 100\) \/ 100\}px` : null;/);
+  assert.match(ed, /const t = tope \?\? topePagina;/);
+  assert.match(ed, /return \{ '--gm-base': `calc\(\$\{t \? `min\(\$\{normal\}, \$\{t\}\)` : normal\} \* \$\{z\}\)` \};/);
+  assert.match(ed, /baseDelLienzo\(dispositivo, zoom, fija \? \{ ancho: anchoLienzo \} : null, anchoLienzo\)/);
+  // Se mide SIEMPRE (no sólo con una diapositiva fija) y se vuelve a enganchar cuando el lienzo vuelve a montarse.
+  assert.match(ed, /if \(!el \|\| typeof ResizeObserver === 'undefined'\) return;\n\s*const medir = \(\) => setAnchoLienzo/);
+  assert.match(ed, /return \(\) => ro\.disconnect\(\);\n\s*\}, \[creando\]\);/);
+});
+
+test('9. la cabecera del teléfono: los costados miden lo suyo y el título se achica entre los dos', () => {
+  const css = leer('app/m/m.css');
+  const fila = /\.m-cabecera__fila \{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.match(fila, /grid-template-columns: minmax\(max-content, 1fr\) minmax\(0, auto\) minmax\(max-content, 1fr\);/,
+    'con un tercio fijo por costado, la pastilla «Cliente de Prueba» se montaba sobre el título');
+  assert.match(css, /\.m-cabecera__titulo \{[^}]*text-overflow: ellipsis;/);
+});
+
+test('10. Importar: «Suelta tus archivos aquí o elígelos» (plural)', () => {
+  const caja = sinComentarios(leer('app/web-generator/CajaCrear.tsx'));
+  assert.match(caja, /Suelta tus archivos aquí o\{' '\}\n\s*<button type="button" className="gp-cc-soltar-elegir"[^\n]*>elígelos<\/button>/);
+});
+
+test('11. replicar: una fila de cifras (número y rótulo alternados) va como «Números grandes», no como viñetas', async () => {
+  const { cifrasEnPares } = await import('../lib/editor-landing/doc');
+  // Lo que llegó replicando acquisition.com (11/11/2026, en producción).
+  const hormozi = ['10,000', 'Businesses Advised', '81', 'NPS', '97.1%', 'Client Retention', '12,000', 'Workshop Participants', 'BRAND NEW', '$100m Scaling Roadmap'];
+  const r = cifrasEnPares(hormozi);
+  assert.deepEqual(r.cifras.map((c) => `${c.valor}|${c.titulo}`), ['10,000|Businesses Advised', '81|NPS', '97.1%|Client Retention', '12,000|Workshop Participants']);
+  assert.deepEqual(r.resto, ['BRAND NEW', '$100m Scaling Roadmap'], 'lo que sigue a las cifras queda como estaba');
+  assert.deepEqual(cifrasEnPares(['10,000', 'Clientes']).cifras, [], 'un solo par no es una fila');
+  assert.deepEqual(cifrasEnPares(['Rápido', 'Barato', 'Simple']).cifras, [], 'viñetas de texto: viñetas');
+  const { tarjetaDesdeEsquema } = await import('../lib/editor-landing/ia-reglas');
+  const t = tarjetaDesdeEsquema({ titulo: 'Learn from the team', puntos: hormozi } as never, false) as { content: { type: string; attrs?: Record<string, unknown> }[] };
+  const tipos = t.content.map((n) => n.type);
+  assert.ok(tipos.includes('optimizado'), `la réplica arma la fila de cifras: ${tipos.join(', ')}`);
+  assert.equal(t.content.find((n) => n.type === 'optimizado')?.attrs?.variante, 'numeros-grandes');
+  assert.ok(tipos.includes('bulletList'), 'y el resto, como viñetas');
+});
+
+test('12. con la foto al costado, las cifras van de a pares (cuatro columnas de 103px no entran)', async () => {
+  // Medido en producción el 11/11/2026 en la réplica #98 de acquisition.com: la tarjeta «derecha» deja 466px de texto, cuatro
+  // columnas de 103px, y «10,000» a 3.2em mide 150px: «10,00081», «97.1%12,000» y los rótulos partidos a mitad de palabra.
+  const { CSS_CONTENIDO } = await import('../lib/editor-landing/css');
+  assert.match(CSS_CONTENIDO, /\.gm-tarjeta:is\(\[data-diseno="izquierda"\], \[data-diseno="derecha"\]\) \.gm-optimizado:is\(\[data-variante="numeros-grandes"\], \[data-variante="estadisticas-circulares"\]\):is\(\[data-cols="auto"\], :not\(\[data-cols\]\)\)[^{]*\{ --gm-n: var\(--gm-n-pares\); \}/);
+  // EN_PARES de 4 es 2 (REJILLA de 4 es 4): de eso depende.
+  assert.match(CSS_CONTENIDO, /\.gm-optimizado:has\(> \.gm-item:nth-child\(4\):last-child\)[^{]*\{[^}]*--gm-n-rejilla: 4; --gm-n-pares: 2;/);
+  // Y en el teléfono, la foto del costado pasa arriba como franja: se mira la parte de arriba (la #98 mostraba el torso de Alex
+  // Hormozi sin la cabeza), en la publicada (media query) y en la vista «Teléfono» del editor.
+  const arriba = CSS_CONTENIDO.match(/[^}]*\.gm-tarjeta:is\(\[data-diseno="izquierda"\], \[data-diseno="derecha"\]\) > \.gm-acento[^{]*\{ background-position: 50% 15%; \}/g) ?? [];
+  assert.ok(arriba.length >= 2, `la franja del teléfono mira arriba en la publicada y en el editor (${arriba.length})`);
+  // Mirado en producción después del despliegue: la regla estaba y no ganaba, porque el encuadre de siempre (50% 50%) iba EN
+  // LÍNEA. Ahora va en línea sólo si la persona lo eligió, en la publicada y en el editor.
+  // La imagen de una sección tiene que ser del bucket (srcImagen): el origen sale de esta variable, como en editor-landing-render.
+  process.env.NEXT_PUBLIC_SUPABASE_URL ??= 'https://proyecto.supabase.co';
+  const { specTarjeta } = await import('../lib/editor-landing/especificacion');
+  const foto = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/landing-imagenes/3/a.jpg`;
+  const conFoto = (x: number, y: number) => JSON.stringify(specTarjeta({ diseno: 'derecha', imagenSrc: foto, imagenFocoX: x, imagenFocoY: y }));
+  assert.match(conFoto(50, 50), /"style":"background-image:url\(\\"https:[^"\\]+\/3\/a\.jpg\\"\)"/, 'el de siempre: lo decide la hoja');
+  assert.match(conFoto(20, 80), /background-position:20% 80%/, 'el que eligió la persona: en línea, gana en todos lados');
+  assert.match(leer('app/web-generator/editor/nodos/TarjetaVista.tsx'), /a\.imagenFocoX === 50 && a\.imagenFocoY === 50 \? \{\} : \{ backgroundPosition:/);
+  // Y la cifra entra en su columna en cualquier ancho (en el teléfono: columnas de 138px y «10,000» de 164px).
+  assert.match(CSS_CONTENIDO, /\.gm-optimizado\[data-variante="numeros-grandes"\] > \.gm-item[^{]*\{ container-type: inline-size; \}/);
+  assert.match(CSS_CONTENIDO, /\.gm-optimizado\[data-variante="numeros-grandes"\] \.gm-item-valor[^{]*\{ font-size: min\(3\.2em, calc\(100cqi \/ \(max\(var\(--gm-largo, 6\), 6\) \* 0\.6\)\)\); white-space: nowrap; \}/);
+  const { specOptimizadoItem } = await import('../lib/editor-landing/especificacion');
+  assert.match(JSON.stringify(specOptimizadoItem({ valor: '10,000' })), /"style":"--gm-num:10000;--gm-largo:6"/, 'el largo de la cifra va en el ítem');
+});
+
+// PROBADO ROMPIÉNDOLO (10/11/2026, base 6/0; cada rotura sobre el archivo real, restaurado y verificado por hash):
+//   · `textoDe` separando otra vez por el tipo del PADRE              → 5/1 (1)
+//   · `tituloDeTarjeta` mirando sólo los hijos directos               → 5/1 (2)
+//   · `seoCompleto` dejando pasar los «[…]»                           → 5/1 (3)
+//   · en el inicio, el SEO de la página otra vez antes que el del sitio → 5/1 (3)
+//   · el diálogo armando el título por su cuenta                       → 5/1 (4)
+//   · sin `grid-auto-rows: max-content`                                → 5/1 (5)
+//   · el nombre en oscuro con `--gma-t200`                             → 5/1 (5)
+//   · sin el `flex-wrap` de la caja bloqueada                          → 5/1 (6)
+// La segunda vuelta (11/11/2026, base 10/0):
+//   · el lugar de la foto también en la publicada                      → 9/1 (7)
+//   · sin centrar el «Agregar imagen»                                  → 9/1 (7)
+//   · tocar el lugar no hace nada (sin el onClick)                     → 9/1 (7)
+//   · la página vuelve a la letra de la ventana                        → 9/1 (8)
+//   · el lienzo se mide una sola vez (sin `[creando]`)                 → 9/1 (8)
+//   · la cabecera del teléfono vuelve a tercios fijos                  → 9/1 (9)
+//   · vuelve «elígelo»                                                 → 9/1 (10)

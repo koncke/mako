@@ -19,13 +19,18 @@ export function SeccionM({ titulo, accion, id, children }: {
   id?: string;
   children?: ReactNode;
 }) {
-  const idTitulo = id ? `${id}-titulo` : undefined;
+  // Sin título ni acción, no hay cabecera: un <h2> vacío dejaba su alto (28 + 10 px) como un hueco donde falta un nombre
+  // (More del teléfono, el grupo de Settings, mirado en producción el 11/11/2026). Queda el aire de arriba, como en iOS.
+  const conCab = (titulo != null && titulo !== '' && titulo !== false) || !!accion;
+  const idTitulo = id && conCab ? `${id}-titulo` : undefined;
   return (
     <section className="m-seccion" id={id} aria-labelledby={idTitulo}>
-      <div className="m-seccion__cab">
-        <h2 className="m-seccion__titulo" id={idTitulo}>{titulo}</h2>
-        {accion}
-      </div>
+      {conCab && (
+        <div className="m-seccion__cab">
+          <h2 className="m-seccion__titulo" id={idTitulo}>{titulo}</h2>
+          {accion}
+        </div>
+      )}
       {children}
     </section>
   );

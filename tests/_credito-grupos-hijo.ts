@@ -32,7 +32,15 @@ const CREDITO9 = `sk-ant-api03-credito-cuenta9-${'g'.repeat(40)}`;
 const PROPIA = `sk-ant-api03-propia-del-ws13-${'m'.repeat(40)}`;
 
 let anthropic: Array<{ clave: string; modelo: string }> = [];
+/** Cada pedido a Anthropic, ¿llevó plazo? (11/11/2026: el bucle con herramientas no tenía). */
+const conPlazo: boolean[] = [];
+/** El system «herramienta-y-falla»: el primer pedido pide una herramienta, los siguientes contestan 429. */
+let herramientaYFalla = 0;
 let ajustesFallan = false;
+/** La clave propia del ws13 contesta «credit balance is too low» (un negocio con SU Claude sin saldo). */
+let propiaSinSaldo = false;
+/** Cuántos de los próximos pedidos a Anthropic contestan 529 «overloaded» (un Anthropic saturado un segundo). */
+let sobrecargados = 0;
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
   if (u.host === 'supa.test' && ajustesFallan && u.pathname.endsWith('/app_settings') && (init.method ?? 'GET') === 'GET') {
@@ -43,9 +51,16 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.host === 'api.anthropic.com') {
     const clave = new Headers(init.headers).get('x-api-key') ?? '';
     let modelo = '';
-    try { modelo = String(JSON.parse(String(init.body ?? '{}')).model ?? ''); } catch { /* sin cuerpo */ }
+    let system = '';
+    try { const b = JSON.parse(String(init.body ?? '{}')); modelo = String(b.model ?? ''); system = String(b.system ?? ''); } catch { /* sin cuerpo */ }
     anthropic.push({ clave: clave.slice(0, 29), modelo });
-    if (clave === CREDITO1) return r(400, { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.' } });
+    conPlazo.push(!!init.signal);
+    if (system === 'herramienta-y-falla') {
+      if (++herramientaYFalla === 1) return r(200, { id: 'msg_h', type: 'message', role: 'assistant', model: modelo, stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'tu_1', name: 'contar_leads', input: {} }], usage: { input_tokens: 500, output_tokens: 20 } });
+      return r(429, { type: 'error', error: { type: 'rate_limit_error', message: 'Number of request tokens has exceeded your per-minute rate limit' } });
+    }
+    if (sobrecargados > 0) { sobrecargados--; return r(529, { type: 'error', error: { type: 'overloaded_error', message: 'Overloaded' } }); }
+    if (clave === CREDITO1 || (propiaSinSaldo && clave === PROPIA)) return r(400, { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.' } });
     if (clave !== CREDITO2 && clave !== PROPIA) return r(401, { type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key' } });
     return r(200, { id: 'msg_1', type: 'message', role: 'assistant', model: modelo, stop_reason: 'end_turn', content: [{ type: 'text', text: 'hola desde Claude' }], usage: { input_tokens: 1000, output_tokens: 200 } });
   }
@@ -104,9 +119,71 @@ async function main() {
   const antes = pg.db.anthropic_usage.length;
   out.chatCuenta1 = await chat(10, 'ANTHROPIC_CREDITO_CUENTA1');
   await espera();
-  out.filasDelFallo = pg.db.anthropic_usage.slice(antes).map((f) => `${f.workspace_id}:${String(f.motivo ?? '').slice(0, 60)}`);
+  out.filasDelFallo = pg.db.anthropic_usage.slice(antes).map((f) => `${f.workspace_id}:${String(f.motivo ?? '').slice(0, 100)}`);
+  // La fila «sin crédito» que deja la puerta (11/11/2026) la ve el Uso de SuperAdmin.
+  const { resumenCredito } = await import('../lib/credito-api');
+  out.sinCreditoAt = resumenCredito({
+    vinculadas: { claude1: true, claude2: true }, wsConClave: new Map(), ahora: Date.now() + 1_000,
+    gastos: pg.db.anthropic_usage.map((f) => ({ workspace_id: Number(f.workspace_id), created_at: String(f.created_at), motivo: String(f.motivo ?? ''), cuenta: Number(f.cuenta ?? 1), cost_usd: Number(f.cost_usd ?? 0), provider: String(f.provider ?? 'anthropic'), model: String(f.model ?? '') })),
+  }).find((c) => c.cuenta === 'claude1')?.sinCreditoAt ?? null;
   marcarCuentaDeLosGruposSinCredito('ANTHROPIC_CREDITO_CUENTA1');
   out.sinLaAgotada = await cuentasDelCreditoDeLosGrupos();
+
+  // ── 11/11/2026: el espacio de MaKo (ws9) usa una cuenta para todo menos el Plan; un negocio, sólo en WhatsApp ────────────
+  out.ws9OpsCenter = await permiso(PLATAFORMA, 'mako-doer', 'ANTHROPIC_CREDITO_CUENTA2');
+  out.ws9Plan = await permiso(PLATAFORMA, 'plan-fathom', 'ANTHROPIC_CREDITO_CUENTA2');
+  out.ws10Adjunto = await permiso(10, 'MaKo en WhatsApp · adjunto', 'ANTHROPIC_CREDITO_CUENTA2');
+  // El texto con una cuenta del crédito (`conClaveDelNegocio`) en un negocio SIN su Claude (ws14): la fila con la cuenta y en
+  // SU ws (antes caía al ws9); sin saldo, la fila «sin crédito» y nada en la tarjeta del negocio.
+  pg.db.workspaces.push({ id: 14, capa: 'cliente', nombre: 'ws14' });
+  const { conClaveDelNegocio } = await import('../lib/anthropic');
+  const texto = (cuenta: string) => runWithWorkspace(14, () => conClaveDelNegocio({ system: 's', user: 'la foto del grupo', feature: 'MaKo en WhatsApp · adjunto', motivo: 'Leer el adjunto', timeoutMs: 5_000, cuentaDeLosGrupos: cuenta }));
+  const antes14 = pg.db.anthropic_usage.length;
+  out.textoWs14 = await texto('ANTHROPIC_CREDITO_CUENTA2');
+  out.textoWs14SinSaldo = await texto('ANTHROPIC_CREDITO_CUENTA1');
+  await espera();
+  out.filasWs14 = pg.db.anthropic_usage.slice(antes14).map((f) => `${f.workspace_id}:${f.cuenta}:${String(f.motivo ?? '').slice(0, 100)}`);
+  // La FOTO de un grupo (`leerDocumentoIA`, `MaKo en WhatsApp · adjunto`; revisión del 11/11/2026): sin su Claude (ws14), la lee
+  // el crédito; con SU Claude sin saldo (ws13), UN pedido a su clave y ninguno al crédito (la puerta 2 le daría la suya otra vez
+  // en cada cuenta: su clave gana).
+  const { leerDocumentoIA } = await import('../lib/ai-cheap');
+  const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  const foto = (ws: number) => runWithWorkspace(ws, () => leerDocumentoIA({ dataUrl: png, isPdf: false, nombreArchivo: 'foto.png', prompt: '¿qué ves?', feature: 'MaKo en WhatsApp · adjunto', motivo: 'Leer el adjunto', timeoutMs: 5_000 }))
+    .then((x) => x.text, (e) => `tiró: ${e instanceof Error ? e.message : String(e)}`);
+  anthropic = [];
+  out.fotoWs14 = { texto: await foto(14), pedidos: anthropic.map((a) => a.clave) };
+  propiaSinSaldo = true;
+  anthropic = [];
+  out.fotoWs13 = { texto: await foto(13), pedidos: anthropic.map((a) => a.clave) };
+  propiaSinSaldo = false;
+  // Un 529 de la primera cuenta, sin nada que mire después (el ws14 no tiene su IA): prueba la cuenta siguiente (la 3, con el
+  // mismo valor que la 2 para que conteste) en vez de dejar la foto sin leer.
+  process.env.ANTHROPIC_CREDITO_CUENTA3 = CREDITO2;
+  sobrecargados = 1;
+  anthropic = [];
+  out.fotoWs14Con529 = { texto: await foto(14), pedidos: anthropic.length };
+  sobrecargados = 0;
+  delete process.env.ANTHROPIC_CREDITO_CUENTA3;
+
+  // ── 11/11/2026: el chat con herramientas del Ops Center del ws9 (`mako-doer`, sin `soloSuClaude`) va PRIMERO con el crédito;
+  //    el de un negocio, nunca; cada pedido lleva plazo; y si una herramienta ya corrió, el fallo se re-lanza (sin otra cuenta) ──
+  const tool = [{ name: 'contar_leads', description: 'Cuenta', input_schema: { type: 'object', properties: {} } }];
+  const opsCenter = (ws: number, system = 's') => runWithWorkspace(ws, () => chatClaudeTools(system, [{ role: 'user', content: '¿cuántos leads?' }], tool, async () => { corridas++; return 'ok'; }, { feature: 'mako-doer', maxSteps: 4, motivo: 'Ops Center' }))
+    .then((r) => r.text, (e) => `tiró: ${e instanceof Error ? e.message : String(e)}`);
+  let corridas = 0;
+  anthropic = [];
+  conPlazo.length = 0;
+  out.opsCenterWs9 = await opsCenter(PLATAFORMA);
+  out.opsCenterWs9Anthropic = [...anthropic];
+  out.opsCenterConPlazo = conPlazo.every(Boolean) && conPlazo.length > 0;
+  anthropic = [];
+  out.opsCenterWs10 = await opsCenter(10);
+  out.opsCenterWs10Credito = anthropic.filter((a) => /credito/.test(a.clave)).length;
+  process.env.ANTHROPIC_CREDITO_CUENTA3 = CREDITO3;
+  anthropic = [];
+  corridas = 0;
+  out.herramientaYFalla = { r: await opsCenter(PLATAFORMA, 'herramienta-y-falla'), pedidos: anthropic.length, corridas };
+  delete process.env.ANTHROPIC_CREDITO_CUENTA3;
 
   // ── Una cuenta por el entorno también cuenta ───────────────────────────────────────────────────────────────────────
   process.env.ANTHROPIC_CREDITO_CUENTA3 = CREDITO3;
@@ -133,6 +210,22 @@ async function main() {
   out.nCuentas = [await cuentasDelCreditoDeLosGrupos(), await cuentasDelCreditoDeLosGrupos(), await cuentasDelCreditoDeLosGrupos()];
   out.laNueve = await claveDeLaCuentaDeLosGrupos('ANTHROPIC_CREDITO_CUENTA9');
   out.ws10Cuenta4 = await permiso(10, 'mako-doer-in', 'ANTHROPIC_CREDITO_CUENTA4');
+
+  // ── El % del vigía (11/11/2026): primero la que menos gastó; la PLATAFORMA saltea la del 90% o más, los grupos no; y cada uso
+  //    con su interruptor ──────────────────────────────────────────────────────────────────────────────────────────────
+  const { cuentasDelCredito } = await import('../lib/credito-negocio');
+  const uso = (cuentas: Record<string, number>, at = new Date().toISOString()) =>
+    runWithWorkspace(PLATAFORMA, () => setSetting('ia.credito.uso', JSON.stringify({ at, cuentas })));
+  await uso({ ANTHROPIC_CREDITO_CUENTA2: 95, ANTHROPIC_CREDITO_CUENTA3: 10, ANTHROPIC_CREDITO_CUENTA4: 50 });
+  out.usoGrupos = await cuentasDelCredito('grupos');
+  out.usoPlataforma = await cuentasDelCredito('plataforma');
+  await uso({ ANTHROPIC_CREDITO_CUENTA2: 95, ANTHROPIC_CREDITO_CUENTA3: 10, ANTHROPIC_CREDITO_CUENTA4: 50 }, new Date(Date.now() - 3 * 3_600_000).toISOString());
+  out.usoViejo = (await cuentasDelCredito('plataforma')).length;
+  await uso({});
+  await runWithWorkspace(PLATAFORMA, () => setSetting('ia.credito_plataforma', 'apagado'));
+  out.plataformaApagada = { plataforma: await cuentasDelCredito('plataforma'), grupos: (await cuentasDelCredito('grupos')).length,
+    clave: await claveDeLaCuentaDeLosGrupos('ANTHROPIC_CREDITO_CUENTA2', 'plataforma'), claveGrupos: !!(await claveDeLaCuentaDeLosGrupos('ANTHROPIC_CREDITO_CUENTA2', 'grupos')) };
+  await runWithWorkspace(PLATAFORMA, () => setSetting('ia.credito_plataforma', 'prendido'));
   delete process.env.ANTHROPIC_CREDITO_CUENTA3;
   delete process.env.ANTHROPIC_CREDITO_CUENTA9;
 

@@ -93,6 +93,7 @@ import { guardarEnHiloDeTab, leerHiloDeTab } from '@/lib/hilo-de-tab-cliente';
 import { claveDeLanding } from '@/lib/hilo-de-tab-reglas';
 import { urlFuentes, type Tema } from '@/lib/editor-landing/temas';
 import { htmlDeTarjeta } from '@/lib/editor-landing/render';
+import { rangosACompletar } from '@/lib/editor-landing/especificacion';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { svgIcono } from '@/lib/editor-landing/iconos';
 import {
@@ -744,6 +745,30 @@ function traerLoQueVendes(ws: number | null): Promise<DocDelArchivero | null> {
   return p;
 }
 
+/**
+ * Cuántos textos «[a completar]» quedan en la página abierta (lib/editor-landing/especificacion.ts): mientras haya alguno, MaKo
+ * no pregunta si está lista para que la vean (lib/aperturas/web.ts, 10/11/2026). Se mide al abrir y al cambiar el documento,
+ * con una pausa corta, y sólo mientras la apertura puede hablar (`activo`: la charla vacía). null = todavía sin medir.
+ */
+function useACompletar(editor: Editor | null, activo: boolean): number | null {
+  const [n, setN] = useState<number | null>(null);
+  useEffect(() => {
+    if (!editor || !activo) return;
+    let reloj: ReturnType<typeof setTimeout> | null = null;
+    const medir = () => {
+      if (editor.isDestroyed) return;
+      const d = editor.state.doc;
+      setN(rangosACompletar(d.textBetween(0, d.content.size, '\n', '\n')).length);
+    };
+    const programar = (ms: number) => { if (reloj) clearTimeout(reloj); reloj = setTimeout(medir, ms); };
+    const alCambiar = () => programar(400);
+    programar(0);
+    editor.on('update', alCambiar);
+    return () => { if (reloj) clearTimeout(reloj); editor.off('update', alCambiar); };
+  }, [editor, activo]);
+  return n;
+}
+
 /** El chat de la tarjeta de la izquierda. No se cierra ni se pliega (24/10/2026, Martín: «La sidebar del chat de MaKo NO se
  *  debe poder cerrar nunca. Elimina el boton de plegar»): su «←» lleva a la lista de landings, en la misma tarjeta. */
 export function PanelAgente() {
@@ -760,6 +785,14 @@ export function PanelAgente() {
   // La pieza vive en ./ChatAgente.tsx (`AperturaAgente`, con `next/dynamic`: trae el CSS del hilo); acá sólo se sabe si habla,
   // para esconder el saludo y las sugerencias mientras tanto: un paso por pantalla.
   const [aperturaHabla, setAperturaHabla] = useState(false);
+  // Dos hechos más de la apertura (lib/aperturas/web.ts, 10/11/2026): los textos «[…]» que quedan, y si la página estuvo
+  // publicada en esta visita (recién anulada la publicación, no se vuelve a preguntar si está lista). Sin medir todavía, cuenta
+  // como si quedara uno: no pregunta antes de saberlo (si no, asomaba un instante al abrir).
+  const aCompletar = useACompletar(editor, hilo.mensajes.length === 0);
+  const pagina = docId != null ? String(docId) : null;
+  const [vistaPublicada, setVistaPublicada] = useState<string | null>(null);
+  if (ctx.urlPublica != null && pagina != null && vistaPublicada !== pagina) setVistaPublicada(pagina);
+  const publicada = ctx.urlPublica != null || (pagina != null && vistaPublicada === pagina);
   // Recién recargada (u otra computadora): la charla guardada de esta landing.
   useEffect(() => { traerHilo(docId); }, [docId]);
   const [texto, setTexto] = useState('');
@@ -1055,7 +1088,7 @@ export function PanelAgente() {
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}
         </div>}>
           {hilo.mensajes.length === 0 && (
-            <AperturaAgente hechos={{ pagina: docId != null ? String(docId) : null, publicada: ctx.urlPublica != null, charlaVacia: true }} libre={!hilo.corriendo}
+            <AperturaAgente hechos={{ pagina, publicada, charlaVacia: true, aCompletar: aCompletar ?? 1 }} libre={!hilo.corriendo}
               onPublicar={() => ctx.setDialogo('publicar')} onHabla={setAperturaHabla} />
           )}
           {hilo.mensajes.length === 0 && !aperturaHabla && (
@@ -1092,6 +1125,10 @@ export default PanelAgente;
 // Medidas del video de Gamma 5 (gamma-ui §5.1, aproximadas): panel ~330 px, burbujas de radio ~14
 // y padding ~14, texto 13-14 px, input en tarjeta de borde suave con el enviar redondo abajo a la
 // derecha.
+// Sin la app de escritorio (app/_chat/useAppDeEscritorio.tsx) la caja lleva «Instala MaKo para escribir» en el campo y el botón
+// «Instalar MaKo» donde va el micrófono. En este panel de ~330 px no entraban en un renglón: se leía «Instala MaKo para» (prueba
+// en producción del 10/11/2026; a 375 px, «Instala /»). El texto sigue en UN renglón (24/10/2026, Martín: «mira como se bugea el
+// placeholder del chat con un salto de linea»): lo que baja es el botón, a su propio renglón, a la derecha.
 const CSS_AGENTE = `
 .gma-ag{display:flex;flex-direction:column;width:336px;max-width:100%;height:100%;min-height:0;background:var(--pb-fondo);border-right:1px solid var(--pb-borde)}
 .gma-ag{--surface:var(--pb-fondo);--surface-2:var(--pb-sup);--border:var(--pb-borde);--border-strong:var(--pb-borde);--ink:var(--pb-texto);--dim:var(--pb-tenue);--faint:var(--pb-suave);--velo-hover:var(--pb-sup);--focus-ring:0 0 0 2px var(--pb-vivo)}
@@ -1125,6 +1162,9 @@ const CSS_AGENTE = `
 .gma-ag-input{width:100%;min-height:40px;max-height:160px;resize:none;border:0;outline:none;background:transparent;color:var(--pb-texto);font:inherit;font-size:13.5px;line-height:1.45;padding:0}
 .gma-ag-input::placeholder{color:var(--pb-suave)}
 .gma-ag .co-caja textarea::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gma-ag .co-caja__fila:has(.co-instalar){flex-wrap:wrap;row-gap:6px}
+.gma-ag .co-caja__fila:has(.co-instalar)>.co-caja__campo{flex-basis:calc(100% - 48px)}
+.gma-ag .co-caja__fila:has(.co-instalar)>:is(.co-instalar,:has(.co-instalar)){margin-left:auto}
 .gma-ag-caja-pie{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
 .gma-ag-caja-pie .ch-adjuntar{width:30px;height:30px}
 .gma-ag-caja>.co-miniaturas{margin:0 0 4px}

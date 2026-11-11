@@ -4224,3 +4224,103 @@ probado en los dos navegadores.
 **La regla que queda:** un pendiente que enumera «N puntas atadas» envejece punta por punta, no
 entero. Acá tres de cuatro estaban hechas y el título seguía diciendo lo mismo del primer día;
 leerlo como estaba escrito habría mandado a rehacer trabajo ya hecho.
+
+## La prueba en producción del 10/11: lo que la persona no ve sí se publica (10/11/2026, chat Web Generator)
+
+Informe entero: `docs/pruebas/web-generator-10-11.md`. Lo que vale para el que siga:
+
+- **El SEO de una plantilla vive en la PÁGINA y la interfaz no lo muestra.** 11 de las 12 plantillas (`plantillas.ts`, el
+  segundo argumento de `pagina(...)`) traen `seoTitulo`/`seoDescripcion` con «[…]», y `metaDePagina` le daba prioridad al de la
+  página sobre el del sitio, que es el ÚNICO que la persona edita (Publicar → SEO). Síntoma: una landing con el título ya escrito
+  salió como «[Nombre de la guía] (gratis)» en Google y WhatsApp, y lo que se escribía en el diálogo no llegaba. El diálogo,
+  encima, armaba su vista previa con otra regla y prometía otro título. **Regla:** una sola función (`seo-pagina.ts`) para la
+  foto que se publica y para la vista previa; un texto con algo «[a completar]» que la persona no ve nunca se publica; en el
+  inicio manda lo que escribió la persona.
+- **`textoDe` decidía el separador por el tipo del PADRE.** Lo que estaba en columnas, en el doc o en un diseño optimizado salía
+  pegado («Guía gratuitaTus primeros 10 clientesUna guía…» en «Redirigir a» y en la vista previa de Google), y un párrafo con
+  una negrita salía en dos renglones (y `tituloDeTarjeta` lo cortaba en la marca). Ahora se separa entre BLOQUES y se pega lo que
+  va en línea (`text`, `hardBreak`). Lo usan la IA, la búsqueda, el SEO y las miniaturas: si un test viejo fijaba un texto pegado,
+  era el bug.
+- **Una grilla con `max-height` y filas `auto` no crece más que el mínimo de sus ítems** (el `min-height: 88px` de la tarjeta):
+  sin espacio libre, el algoritmo deja cada fila en su mínimo y el contenido se achica adentro. En «Agregar bloque», 36 tarjetas
+  con la segunda línea cortada. `grid-auto-rows: max-content` lo arregla. No se ve en un test de CSS: se mide (`scrollHeight >
+  clientHeight` de cada texto).
+- **El 31/10 la escala de grises pasó a los valores de Tilvo y cambió de ROL**: `--gma-t200` dejó de ser un gris claro y es un
+  borde oscuro translúcido. La única regla de oscuro que lo usaba como texto dejó invisibles los nombres de «Agregar bloque».
+  Al cambiar los valores de una escala, se buscan los usos por rol (`color:` contra `border:`), no sólo por nombre.
+- **Sin la app de escritorio no se escribe en ninguna caja de MaKo** (regla de Martín del 25/10): eso incluye Generar y también
+  **Replicar** (pegar un link). En el navegador de la app no se puede crear con IA, replicar desde la pantalla ni pedirle nada a
+  MaKo. La lectura y la réplica por la ruta del servidor sí andan sin la app (no la exigen): así se probó.
+
+Sin hacer, con su archivo:
+- La réplica deja un espacio antes de la puntuación donde la original tenía un link («guidelines .», «Europe ,»): sale del
+  armado del texto de la réplica por el servidor (`lib/editor-landing/replicar*.ts`), sin ubicar la línea exacta.
+- El título de 5em (90 px) en una portada de dos columnas ocupa 4-5 renglones en el editor (`h1.gm-titulo`, `css.ts`):
+  publicada a 1440 se ve bien. Gamma escala la tarjeta entera al ancho del lienzo; acá el lienzo reacomoda. Decide Martín.
+- La página «Gracias» de las plantillas deja «Descargar ahora» con enlace `#`, y nada avisa antes de publicar los «[…]» que
+  quedan ni los botones sin enlace: no está en Gamma (PROHIBIDO INVENTAR), queda como propuesta.
+
+### La segunda vuelta, MIRANDO (11/11/2026)
+
+- **La letra del editor salía del ancho de la VENTANA** (`clamp(15px, 100vw / 68.5, 18px)`, `baseDelLienzo` en
+  EditorLanding.tsx), y el lienzo, con el chat de MaKo y un panel de la derecha abiertos, mide la mitad. Resultado: con «Animar»
+  abierto el título de la portada se partía a mitad de palabra («prim / eros») y los botones salían en dos renglones; sin panel,
+  el título ocupaba 4 renglones donde la publicada usa 2. Las presentaciones ya medían el lienzo; las páginas no. **Regla:** en
+  el editor, todo lo que depende del ancho sale del LIENZO (`anchoLienzo`, con su ResizeObserver), nunca de `vw` ni de una media
+  query: así la sección se achica entera, como en Gamma, y se ve igual que la publicada a ese ancho.
+- **Un ítem de galería sin foto no dejaba ni el lugar** (`.gm-item-marca:empty → display: none`, y la galería la vuelve `block`
+  de alto 0), así que una plantilla con galería se veía como títulos sueltos y no había dónde tocar. Las fotos redondas sí dejaban
+  su círculo. En el editor (y la miniatura de trabajo) va el lugar «Agregar imagen»; la publicada sigue sin dibujarlo.
+- **Lo que la primera vuelta no vio, y por qué:** se probó leyendo texto y el DOM. Ninguno de los tres defectos de arriba sale
+  en un `innerText` ni en un `scrollHeight`: salen en la captura.
+
+## La portada de outliers de landings (11/11/2026, chat Web Generator)
+
+Pedido de Martín (por el Cerebro): «lo mismo que venimos haciendo con el resto de tabs, de outliers… empezar por la competencia…
+por las páginas de todos los gurús». `/web-generator` es ahora «Encuentra tu siguiente OUTLIER» (app/web-generator/OutliersLandings.tsx),
+copiada de Video, que copia a Image: las mismas clases (explorar.module.css y outliers.module.css). El relevo, en
+docs/web-generator/outliers-landings.md.
+
+- **La entrada cambió:** del 24/10 al 11/11 `/web-generator` saltaba a la última landing tocada (layout + página). Ahora es la
+  portada, como Video e Image; «Crear desde cero» lleva al Panel (`?panel=1`). Cuatro tests fijaban el salto; se cambiaron.
+- **«Replicar» de una tarjeta es `/web-generator?replicar=<url>`**, el mismo camino que «Copiar su sitio» de Spy: abre Replicar
+  con la página leída y NO pide la app de escritorio (la caja de crear sí). Medido en producción con acquisition.com.
+- **La competencia de Spy trae «link en la bio»:** de 9 competidores con `landing_url` (ws 3, 9 y 11), 3 eran beacons, linktree o
+  un acortador. No son landings: se filtran (`esLinkEnBio`). Ninguna pieza de landing de Spy tiene miniatura: se usa la imagen
+  para compartir de la página (`og:image`), pedida por `htmlDePagina` (las barandas de SSRF: la URL la escribió una persona).
+- **Las capturas del relevo se MIRAN antes de entrar:** con el Chrome sin ventana, 2 de ClickFunnels devolvieron «Sorry, you have
+  been blocked», 4 salieron tapadas por carteles de cookies o avisos, y 1 no cargó. No se esquiva el control de robots de nadie
+  (no se cambia el agente del navegador para pasar): esas quedan anotadas afuera de la grilla, para sacarlas a mano.
+
+### En producción, después del despliegue (11/11/2026, de tarde)
+
+- **⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: «la réplica arma mal las secciones».** La réplica de acquisition.com ponía el aviso
+  legal del pie debajo del titular del hero. No era el armado de secciones: era el ORDEN del HTML. acquisition.com es Next.js con
+  streaming (Suspense): `<main>` trae sólo marcadores (`<template id="B:0"></template>`), después viene el `<footer>`, y el
+  contenido de verdad llega al final en `<div hidden id="S:0">…</div>`, que un script mueve a su lugar en el navegador. El
+  extractor (lib/landing-extraer.ts) leía en el orden del archivo, y encima `template` es RUIDO: `<main>` salía vacío y el pie
+  quedaba primero. `armarStreaming` hace lo que hace ese script, antes de leer. Medido con la página real: el aviso pasó del bloque
+  0 al 38. **Regla:** cualquier lectura de una página por su HTML (extractor, análisis, réplica) pasa por `armarStreaming`; la
+  lectura del navegador ya ve la página armada. Cada vez más landings son Next.js.
+- **Un `<a>` sin clase de botón es navegación salvo que su texto sea de acción** (`RE_CTA_TEXTO`). La lista en inglés tenía
+  `book|get|start|schedule`: el «I'M READY TO SCALE» del hero se perdía, y `book` sin `\b` hacía botón al link «Books» del pie.
+- **«Números grandes» no se achicaba con su columna:** 3.2em fijos. Junto a la foto (la tarjeta «derecha» deja ~60%) eran 4
+  columnas de 103px para un «10,000» de 150px, y en el teléfono 2 columnas de 138px para 164px: «10,00081» pegados. Ahora con la
+  foto al costado va de a pares, y la cifra es `min(3.2em, ancho de su columna / caracteres)`: el ítem es un contenedor
+  (`container-type`) y `--gm-largo` lo pone especificacion.ts. Con piso de 6 caracteres, la fila sale pareja.
+- **La foto del costado en el teléfono es una franja apaisada:** cortada por el medio, un retrato queda sin cabeza. Se mira desde
+  arriba (`50% 15%`). No hay punto de foco por imagen: si alguna vez se agrega, reemplaza esto.
+- **La tarjeta sin imagen de Spy era un «cuadro gris»:** se pintaba con `--primary-bg`, que en el tema por defecto es `#e4e4e1`.
+  El nombre engaña (ver docs/hallazgos-ui.md). Ahora dibuja la página con su `og:title` y su `og:description`, del mismo pedido que
+  la imagen. Y la imagen para compartir de una página puede ser un logo cuadrado: se muestra entera (`contain`), no recortada.
+- **Quedan:** 4 capturas del relevo con el cartel de cookies (el Chrome sin cabeza de `scripts/capturas-outliers-landings.mjs` no
+  puede cerrarlo; hace falta CDP para sacar el cartel antes de la foto), y mirar lo que anima (la copia idéntica con su ventana,
+  los cursores) en el Chrome de Martín con su sesión.
+- **⚠️ Una regla de CSS correcta que no gana: el encuadre iba EN LÍNEA (11/11, después del despliegue).** La foto del costado en
+  el teléfono seguía cortada por el medio aunque la regla de «mirar arriba» estaba en la hoja: el acento llevaba
+  `background-position: 50% 50%` en el `style` (el encuadre por defecto, `imagenFocoX/Y`), y lo en línea le gana a todo. Probarlo
+  en el navegador con un `<style>` inyectado no lo mostró, porque se probó sobre el atributo y no sobre la página entera. Ahora el
+  encuadre va en línea sólo si la persona lo eligió. **Regla:** un valor por defecto no se escribe en línea; se deja a la hoja,
+  que puede variar por ancho. Y lo que se mira «a mano» antes de subir se mira en la página tal cual sale, no en un elemento.
+- **El subtítulo del hero en dos `<h2>` seguidos queda como sección aparte** (`esquemaDeReplica` corta en cada título del nivel
+  de sección). Sin arreglar: juntarlos pide una regla que puede romper otras páginas.

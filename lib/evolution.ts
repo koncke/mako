@@ -26,7 +26,7 @@ import { numeroParaWhatsApp, motivoConPista } from './numero-whatsapp';
 import { bloqueoDeEnvioEnRevision } from './revision-guarda';
 import { topeParaLineaNueva, type TopeLineaNueva } from './tope-lineas';
 import { antesDeEscribir, trasEscribir } from './linea-freno';
-import { pausaDeEscritura } from './mako-salida-reglas';
+import { destinoDeEscritura, pausaDeEscritura } from './mako-salida-reglas';
 import type { FotoLinea } from './lineas-de-mako';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
@@ -70,7 +70,8 @@ async function evFetch<T = unknown>(path: string, init?: RequestInit, topeMs?: n
   if (!evolutionConfigurado()) return { ok: false, error: 'Evolution no configurado', status: 0 };
   // ⛔ LA LÍNEA FRENADA NO ESCRIBE (4/11/2026, lib/linea-freno.ts): WhatsApp avisó que estaba en riesgo, y seguir insistiendo
   // es lo que termina en un ban. Sale con el motivo y sin status (no llegó a Evolution).
-  const frenada = await antesDeEscribir(path).catch(() => null);
+  // La respuesta al grupo donde una persona acaba de escribir pasa (el «escribiendo…» del turno sale por acá; lib/respuesta-en-curso.ts).
+  const frenada = await antesDeEscribir(path, () => destinoDeEscritura(init?.body)).catch(() => null);
   if (frenada) return { ok: false, error: frenada, status: 0, motivo: frenada };
   try {
     const res = await fetch(`${BASE}${path}`, {
@@ -598,6 +599,27 @@ export async function fotoDeLinea(instance: string, topeMs?: number): Promise<Fo
  */
 export async function reabrirSesion(instance: string, topeMs?: number): Promise<void> {
   await evFetch(`/instance/connect/${encodeURIComponent(instance)}`, undefined, topeMs);
+}
+
+/**
+ * Reinicia el socket de una línea (`POST /instance/restart`): no borra la sesión ni desvincula el número. ⚠️ A una línea SORDA casi
+ * nunca la cura (medido el 11/09, el 9/11 y el 11/11): lo usa sólo el detector de sordera (lib/linea-sorda.ts), que además pide el QR.
+ */
+export async function reiniciarInstancia(instance: string, topeMs = 10_000): Promise<boolean> {
+  const r = await evFetch(`/instance/restart/${encodeURIComponent(instance)}`, { method: 'POST' }, topeMs);
+  return r.ok;
+}
+
+/** Los últimos mensajes que guardó una línea, de todos sus chats (sin orden garantizado). null = Evolution no contestó. */
+export async function ultimosMensajesDeLaLinea(instance: string, cuantos = 100, topeMs = 8000): Promise<Array<EvRecord & { key?: { participantAlt?: string } }> | null> {
+  const r = await evFetch<{ messages?: { records?: EvRecord[] } } | EvRecord[]>(
+    `/chat/findMessages/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ where: {}, page: 1, offset: cuantos }) },
+    topeMs,
+  );
+  if (!r.ok) return null;
+  const d = r.data;
+  return Array.isArray(d) ? d : Array.isArray(d?.messages?.records) ? d.messages.records : [];
 }
 
 /** A quién se le pide el perfil de empresa en `sondearSocket`. Cualquier número sirve: lo que

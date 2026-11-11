@@ -118,6 +118,11 @@ export function DashboardM({ hojas, hojaInicial, periodo, periodos, fichaLead }:
       {/* La oración de apertura de la hoja (lib/graficos-frase.ts), como en escritorio: la primera línea. */}
       {hoja.frase && <p className="m-dash-frase">{hoja.frase}</p>}
 
+      {/* Falta conectar la fuente (./datos.ts): lo que dice la compu, sin «Reportar a Soporte» (no falló nada). Va SOLO, sin el
+          encabezado del período: `falta` es que no se leyó nada, y cambiar el período no lo arregla. Con el encabezado, la
+          pantalla decía «Todo ······ Todo» encima del aviso (11/11/2026, Closing, Anuncio y Hooks en producción). */}
+      {hoja.falta && <VacioM frase={hoja.falta} />}
+
       {/* Si no se pudo leer nada de la hoja, UN aviso (no uno por sección), con el período a mano. */}
       {hoja.graficoError && hoja.numerosError && (
         <SeccionM titulo={visto?.nombre ?? hoja.nombre} accion={botonPeriodo}>
@@ -133,7 +138,8 @@ export function DashboardM({ hojas, hojaInicial, periodo, periodos, fichaLead }:
         </SeccionM>
       )}
 
-      {(hoja.numeros.length > 0 || (hoja.numerosError && !hoja.graficoError)) && (
+      {/* ⚠️ Con los dos errores ya va el aviso único de arriba: sin `!ambos`, la lista de números lo repetía (10/11/2026). */}
+      {((hoja.numeros.length > 0 && !(hoja.graficoError && hoja.numerosError)) || (hoja.numerosError && !hoja.graficoError)) && (
         <SeccionM
           titulo={visto?.nombre ?? 'Números'}
           // Sin gráfico arriba (o con uno que no sigue el período), el período se cambia desde acá.

@@ -1,0 +1,181 @@
+// =============================================================================
+// /vsl/copywriting — Copywriting, las páginas de MaKo (copiadas de Notion), con la ESTRUCTURA de The Copy Machine
+// =============================================================================
+// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+//   https://theoperatorstack.io/copy-machine  (leída el 11/11/2026 con Chromium)
+// Su orden, que se respeta acá: hero «100 years of copywriting, installed into your AI» → «What's inside, at a glance» →
+// «See what the Copy Machine does to a real page» (3 páginas) → «What buyers wrote back» → «Start with the copy you need
+// next» (por tipo de negocio) → «Copy only you can run» (el «papel tapiz») → «Who built it» → «What you get» (7 skills) →
+// «Your first hour» → «Who it's for» y «Who it isn't for» → «The math» → «The offer» → los agregados → preguntas → cierre.
+// Por qué ganó: docs/competencia/landings-por-funcion.md → «Copywriting».
+//
+// Lo que se cambió de la referencia, y por qué:
+//   · Su banner de Black Friday, «The math», «The offer» (el precio y su garantía de 14 días) y los agregados pagos no van:
+//     ninguna landing de /vsl escribe un precio a mano ni promete una devolución. El cierre es la llamada, como en todas.
+//   · «What's inside» son los números de lo que Copywriting TRAE, contados del código (lib/copywriter/plantillas.ts, las
+//     estructuras de lib/guion-estructuras.ts y lib/vsl-estructuras.ts, los ángulos de lib/guion-angulos.ts).
+//   · Sus 3 páginas reescritas (antes y después) son, en MaKo, el ejemplo completo que trae cada plantilla, de un negocio
+//     ficticio: el texto sale del ejemplo (`extractoDe`), y se dice que no son clientes ni resultados medidos (como dice
+//     ella de las suyas). No hay antes y después.
+//   · Sus 11 reseñas son suyas: la prueba de MaKo es el caso de todas las landings. «Who built it» (su fundador) no va.
+//   · «Start with the copy you need next» va por los grupos de plantillas de «Nueva», no por tipo de negocio.
+//   · De sus 7 skills quedan las que MaKo tiene, dichas con su método (lib/copywriter/experto.ts): pregunta lo que falta,
+//     las tres preguntas («¿la podría firmar un competidor?»), las estructuras y los ángulos, y [DATO: …] en lugar de un
+//     número inventado (la página cuenta cuántos quedan: app/copywriter/editor/EditorGuion.tsx). Su «Chief» que revisa es,
+//     en MaKo, la propuesta que se acepta, se descarta o se reintenta (app/copywriter/PanelMaKo.tsx).
+// Lo que hace hoy, de lib/funciones-mako.ts (keys: ['copywriter']) y de docs/diseno-copywriter.md (D5, D9, D11-D13).
+// =============================================================================
+
+import { catalogosLite, conVsl } from '@/lib/copywriter/catalogos';
+import { extractoDe, gruposDePlantillas, plantillasDe, plantillasVisibles, type Plantilla } from '@/lib/copywriter/plantillas';
+import { ESTRUCTURAS_GUION_DEFAULT } from '@/lib/guion-estructuras';
+import { ANGULOS_GUION_DEFAULT } from '@/lib/guion-angulos';
+import type { LandingCompetencia } from './tipos';
+
+const I = {
+  copy: ['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z', 'M9 9l1 0', 'M9 13l6 0', 'M9 17l6 0'],
+  anuncio: ['M18 8a3 3 0 0 1 0 6', 'M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5', 'M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8'],
+  redes: ['M7 4m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z', 'M11 17h2'],
+  email: ['M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z', 'M3 7l9 6l9 -6'],
+  vsl: ['M15 10l4.553 -2.276a1 1 0 0 1 1.447 .894v6.764a1 1 0 0 1 -1.447 .894l-4.553 -2.276v-4z', 'M3 6m0 2a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z'],
+  largo: ['M3 5m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z', 'M10 9l5 3l-5 3z'],
+  ia: ['M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3l5.8 1.9l-5.8 1.9a2 2 0 0 0 -1.3 1.3l-1.9 5.8l-1.9 -5.8a2 2 0 0 0 -1.3 -1.3l-5.8 -1.9l5.8 -1.9a2 2 0 0 0 1.3 -1.3z'],
+  cita: ['M10 11h-4a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v6c0 2.667 -1.333 4.333 -4 5', 'M19 11h-4a1 1 0 0 1 -1 -1v-3a1 1 0 0 1 1 -1h3a1 1 0 0 1 1 1v6c0 2.667 -1.333 4.333 -4 5'],
+  ojo: ['M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0', 'M21 12c-2.4 4 -5.4 6 -9 6c-3.6 0 -6.6 -2 -9 -6c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6'],
+  negocio: ['M3 21l18 0', 'M5 21v-14l8 -4v18', 'M19 21v-10l-6 -4', 'M9 9l0 .01', 'M9 12l0 .01', 'M9 15l0 .01', 'M9 18l0 .01'],
+  estructura: ['M4 4m0 1a1 1 0 0 1 1 -1h14a1 1 0 0 1 1 1v2a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1z', 'M4 12m0 1a1 1 0 0 1 1 -1h6a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1z', 'M16 12l4 0', 'M16 16l4 0', 'M16 20l4 0'],
+  dato: ['M12 9v4', 'M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0z', 'M12 16h.01'],
+  si: ['M5 12l5 5l10 -10'],
+  no: ['M18 6l-12 12', 'M6 6l12 12'],
+};
+
+/** Las plantillas de «Nueva» con la biblioteca de fábrica (la que ve un negocio que no la cambió). */
+const CATALOGO = catalogosLite(ANGULOS_GUION_DEFAULT, conVsl(ESTRUCTURAS_GUION_DEFAULT));
+const PLANTILLAS = plantillasVisibles(plantillasDe(CATALOGO));
+const CON_EJEMPLO = PLANTILLAS.filter((p) => p.ejemplo);
+const N_PLANTILLAS = CON_EJEMPLO.length;
+/** Las estructuras de guion y de VSL que trae la biblioteca, y los ángulos (sólo los prendidos de fábrica). */
+const N_ESTRUCTURAS = conVsl(ESTRUCTURAS_GUION_DEFAULT).filter((e) => e.activo).length;
+const N_ANGULOS = ANGULOS_GUION_DEFAULT.filter((a) => a.activo).length;
+const GRUPOS = gruposDePlantillas(CON_EJEMPLO);
+const N_GRUPOS = GRUPOS.length;
+/** «anuncios, redes sociales, email, VSL y video largo»: los grupos de «Nueva», como se leen en la tarjeta. */
+const enMinuscula = (g: string) => (g === g.toUpperCase() ? g : g.charAt(0).toLowerCase() + g.slice(1));
+const NOMBRES_GRUPOS = GRUPOS.map((g) => enMinuscula(g.grupo));
+const GRUPOS_TXT = NOMBRES_GRUPOS.length > 1 ? `${NOMBRES_GRUPOS.slice(0, -1).join(', ')} y ${NOMBRES_GRUPOS[NOMBRES_GRUPOS.length - 1]}` : NOMBRES_GRUPOS.join('');
+
+/** Las tres que se muestran ya escritas (como las tres páginas de la referencia): un anuncio, un reel y un email. */
+const MUESTRA = ['guion-anuncio', 'reel', 'email']
+  .map((id) => CON_EJEMPLO.find((p) => p.id === id))
+  .filter((p): p is Plantilla => !!p);
+
+const ICONO_GRUPO: Record<string, string[]> = { Anuncios: I.anuncio, 'Redes sociales': I.redes, Email: I.email, VSL: I.vsl, 'Video largo': I.largo };
+
+export const LANDING_COPYWRITING: LandingCompetencia = {
+  slug: 'copywriting',
+  nombre: 'Copywriting',
+  icono: I.copy,
+  referencia: { nombre: 'The Copy Machine — The Operator Stack', url: 'https://theoperatorstack.io/copy-machine', leida: '2026-11-11' },
+  metaTitle: 'Copywriting de MaKo: tu copy, escrito por una IA que conoce tu negocio',
+  metaDesc: `Anuncios, reels, stories, emails, VSL y videos de YouTube en páginas como las de Notion. MaKo lee tu negocio, te pregunta lo que falta y escribe en la página. ${N_PLANTILLAS} plantillas con su ejemplo.`,
+  bloques: [
+    {
+      tipo: 'hero',
+      etiqueta: 'El copywriter de MaKo',
+      titulo: 'El método de un copywriter de respuesta directa, escribiendo en tus páginas.',
+      bajada: 'Tu IA escribe como la de todos porque no sabe nada de ti. MaKo lee tu negocio, te pregunta lo que falta y escribe <strong>en tu página</strong>: anuncios, reels, stories, emails, VSL y videos de YouTube.',
+      puntos: ['Lo que tu negocio no dice queda marcado para que lo completes', 'Escribe con la IA que conectas a tu negocio'],
+      visual: { tipo: 'propio', slug: 'copywriting' },
+    },
+    {
+      tipo: 'cifras',
+      titulo: 'Lo que trae Copywriting, de un vistazo',
+      items: [
+        { valor: String(N_PLANTILLAS), label: 'plantillas, cada una con su ejemplo completo' },
+        { valor: String(N_ESTRUCTURAS), label: 'estructuras de guion: PAS, AIDA, reel, stories, VSL y YouTube' },
+        { valor: String(N_ANGULOS), label: 'ángulos para el gancho: dolor, testimonio, comparación y más' },
+        { valor: String(N_GRUPOS), label: `tipos de pieza: ${GRUPOS_TXT}` },
+      ],
+    },
+    {
+      tipo: 'tarjetas',
+      etiqueta: 'Lo que escribe',
+      titulo: 'Mira lo que trae cada plantilla, ya escrita',
+      bajada: 'Cada plantilla de «Nueva» trae un ejemplo completo de un negocio ficticio: muestra la forma, el largo y el tono. Son ejemplos, no clientes ni resultados medidos. Tu página nace con las secciones vacías y una guía en cada una.',
+      items: MUESTRA.map((p) => ({ icono: ICONO_GRUPO[p.grupo] ?? I.copy, titulo: p.nombre, texto: `«${extractoDe(p)}»`, meta: `${p.insignia} · ${p.ejemplo?.negocio ?? ''}` })),
+    },
+    { tipo: 'caso' },
+    {
+      tipo: 'tarjetas',
+      etiqueta: 'Pon a MaKo a escribir',
+      titulo: 'Empieza por el copy que necesitas ahora',
+      bajada: '¿Otra cosa? Empiezas con una página en blanco, como en Notion.',
+      items: GRUPOS.map((g) => ({
+        icono: ICONO_GRUPO[g.grupo] ?? I.copy,
+        titulo: g.grupo,
+        texto: g.plantillas.map((p) => p.nombre).join(' · '),
+        meta: g.plantillas.length === 1 ? '1 plantilla' : `${g.plantillas.length} plantillas`,
+      })),
+    },
+    {
+      tipo: 'contraste',
+      etiqueta: 'Copy que solo tú puedes firmar',
+      titulo: '¿Un competidor podría pegar tu titular en su página sin que nadie lo note?',
+      sin: {
+        titulo: 'Copy que podría firmar cualquiera',
+        texto: 'Suena bien y podría ser de cualquiera, porque la IA no sabe nada de ti. Un prompt mejor no lo arregla, ni un modelo más grande: si un competidor puede pegarlo en su página, no es tu copy.',
+      },
+      con: {
+        titulo: 'Copy que sale de lo que es verdad de tu negocio',
+        texto: 'MaKo parte de tu oferta, tu cliente ideal y lo que ya sabe de tu negocio. A cada parte le hace tres preguntas: ¿se puede imaginar?, ¿se puede comprobar?, <strong>¿la podría firmar un competidor?</strong> Si la podría firmar, la cambia por un dato tuyo. Y lo que falta, te lo pregunta.',
+      },
+    },
+    {
+      tipo: 'tarjetas',
+      etiqueta: 'Lo que incluye',
+      titulo: 'Un copywriter dentro de cada página',
+      items: [
+        { icono: I.copy, titulo: 'Escribe tus anuncios, reels, emails y VSL', texto: 'Guiones a cámara, textos de anuncio, 10 ganchos, reels, stories, carruseles, emails, secuencias, VSL y videos de YouTube, cada uno con su estructura y sus secciones.' },
+        { icono: I.cita, titulo: 'El gancho, con las palabras de tu cliente', texto: 'Si tu negocio no lo dice, te pregunta a quién le hablas y con qué frase te cuenta su problema. El gancho sale de ahí, no de una frase hecha.' },
+        { icono: I.ojo, titulo: 'Ves el borrador antes de que quede', texto: 'Lo que MaKo escribe queda marcado en la página hasta que eliges <strong>Aceptar, Descartar o Reintentar</strong>. Descartar la deja exactamente como estaba.' },
+        { icono: I.negocio, titulo: 'Aprende tu negocio', texto: 'Lee lo que MaKo ya sabe de ti y te pregunta, de a una, lo que falta: qué vendes y a cuánto, a quién le hablas, qué prueba tienes.' },
+        { icono: I.estructura, titulo: 'Estructuras y ángulos que ya funcionan', texto: `${N_ESTRUCTURAS} estructuras, de PAS y AIDA al reel, la VSL y el YouTube con retención, y ${N_ANGULOS} ángulos: dolor, testimonio, comparación, urgencia real.` },
+        { icono: I.dato, titulo: 'No completa lo que no sabe', texto: 'Una cifra, un testimonio, una fecha o un cupo que tu negocio no tiene queda como <strong>[DATO: …]</strong>, y la página te dice cuántos quedan por completar.' },
+      ],
+    },
+    {
+      tipo: 'pasos',
+      fondo: true,
+      titulo: 'Tu primera página',
+      bajada: 'Le dices qué necesitas escribir y MaKo empieza en el acto.',
+      pasos: [
+        { titulo: 'Elige qué vas a crear', texto: 'En «Nueva», una plantilla o una página en blanco. La página nace con sus secciones y una guía en cada una.' },
+        { titulo: 'Dile para qué es', texto: 'MaKo te pregunta para qué es la pieza y a qué oferta adaptarla, con botones. Si prefieres, la escribes tú.' },
+        { titulo: 'Acepta lo que escribe', texto: 'Escribe en la página, sección por sección. Aceptas, descartas o le pides que lo intente de nuevo, y sigues editando como en Notion.' },
+      ],
+    },
+    {
+      tipo: 'tarjetas',
+      titulo: '¿Para quién es?',
+      columnas: 2,
+      items: [
+        { icono: I.si, titulo: 'Es para ti si…', texto: 'Vendes High Ticket y el marketing lo haces tú: los anuncios, los reels, los emails y la VSL caen en ti. O escribes para clientes y cada borrador tiene que pasar su revisión: le compartes la página y la edita ahí.' },
+        { icono: I.no, titulo: 'No es para ti si…', texto: 'Ya te gusta lo que escribe tu IA. O no le vas a contar de tu negocio: escribe desde tu oferta y tu cliente, y sin eso sale el mismo borrador de siempre. O quieres que publique por ti: MaKo te entrega el texto en la página, no publica ni envía.' },
+      ],
+    },
+    {
+      tipo: 'preguntas',
+      titulo: 'Preguntas frecuentes',
+      items: [
+        { p: '¿No me lo escribe igual Claude o ChatGPT?', r: 'Te escribe algo que suena bien. Lo que no tiene es tu negocio: MaKo lee lo que ya sabe de ti, sigue la estructura de cada pieza y te pregunta lo que falta antes de escribir.' },
+        { p: '¿Qué IA necesito?', r: 'La que conectas a tu negocio en Integraciones: MaKo escribe con ella.' },
+        { p: '¿Escribe con mi voz?', r: 'Si le das un borrador tuyo, conserva su ángulo y sus palabras y arregla la estructura. Lo que se dice a cámara lo escribe para que suene natural con el acento de tu negocio.' },
+        { p: '¿Inventa cifras o testimonios?', r: 'No los completa: lo que tu negocio no tiene queda como [DATO: …] y lo completas tú. En un anuncio de Meta tampoco afirma nada sobre la salud, el cuerpo o la situación financiera de quien lo lee.' },
+        { p: '¿En qué español escribe?', r: 'En español neutro, de tú, sin voseo.' },
+        { p: '¿Es un curso?', r: 'No: escribe la página contigo. Si te preguntas por qué una sección va así, te lo explica en una línea.' },
+        { p: '¿Mi cliente puede editar la página?', r: 'Sí. Compartes la página con un link y tu cliente la edita sin cuenta de MaKo. La página te dice quién la editó y cuándo.' },
+        { p: '¿Publica o envía lo que escribe?', r: 'No. Te entrega el texto en la página: lo copias o lo compartes.' },
+      ],
+    },
+  ],
+};

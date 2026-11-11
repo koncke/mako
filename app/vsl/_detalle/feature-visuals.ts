@@ -251,7 +251,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       {
         "type": "makoAnswer",
         "q": "¿Apago este anuncio o lo escalo?",
-        "a": "Escalá, aguanta ROAS",
+        "a": "Escala, aguanta ROAS",
         "detail": "CPA por debajo del target y VSL reteniendo. Sube 20% el presupuesto y mira 48h."
       },
       {
@@ -1795,7 +1795,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
       {
         "type": "makoAnswer",
         "q": "¿Qué le respondo?",
-        "a": "Reactivá con prueba social",
+        "a": "Reactiva con prueba social",
         "detail": "Está en No Show hace tres días. Manda un caso parecido al suyo y propón nuevo horario."
       },
       {
@@ -2017,7 +2017,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
     "hero": {
       "type": "makoAnswer",
       "q": "¿Apago la campaña VSL Dolor?",
-      "a": "No. Escalá presupuesto",
+      "a": "No. Escala el presupuesto",
       "detail": "Trae ROAS 4.2x y 6 cierres esta semana. Sube 20% y valídalo como experimento antes de tocar el resto."
     },
     "groups": [

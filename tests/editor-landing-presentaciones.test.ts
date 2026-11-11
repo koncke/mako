@@ -361,7 +361,7 @@ test('pantalla: en una presentación Presentar está a un clic en la barra, y el
   const antesDelPartido = ed.slice(ed.indexOf('className="gma-herr-der"'), ed.indexOf('<div className="gma-partido">'));
   assert.match(antesDelPartido, /\{presentacion \? \(\s*<button[^>]*data-tip="Presentar"[^>]*onClick=\{\(\) => setDialogo\('presentar'\)\}>\s*<Ico n="presentar"/);
   assert.match(ed, /data-formato=\{presentacion \? 'presentacion' : undefined\}/);
-  assert.match(ed, /baseDelLienzo\(dispositivo, zoom, fija \? \{ ancho: anchoLienzo \} : null\)/);
+  assert.match(ed, /baseDelLienzo\(dispositivo, zoom, fija \? \{ ancho: anchoLienzo \} : null, anchoLienzo\)/);
   const pr = sinComentarios(leer('app/web-generator/editor/Presentar.tsx'));
   assert.match(pr, /data-fija=\{forma\.relacion \? forma\.proporcion : undefined\}/);
   assert.match(pr, /if \(relacion\) \{[\s\S]{0,400}?encajar\(sec\)/, 'Presentar no encaja el contenido en la diapositiva fija');

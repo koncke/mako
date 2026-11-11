@@ -2761,6 +2761,13 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - **Y una línea que escribe el CÓDIGO tampoco promete lo imposible** (29/10/2026, el ticket #30 de Leandro: «No tengo acceso…
   pídemelo otra vez y lo hago»). Un texto fijo que dice «lo hago» mira antes si es algo que MaKo puede hacer (`noLoPuedeHacer`);
   si no, no va.
+- **MaKo SIEMPRE contesta en su grupo** (Martín, 10/11/2026: «Mako en WhatsApp no responde... SIEMPRE debe responder»). La respuesta
+  al grupo donde una persona acaba de escribir pasa el freno de la línea y el tope del mismo texto (`esRespuestaEnCurso`,
+  lib/mako-salida-reglas.ts). Hacen falta dos marcas (lib/respuesta-en-curso.ts): `conRespuestaA` en la entrada del turno y
+  `comoRespuesta` en la puerta por donde sale la respuesta. Un camino nuevo que contesta un mensaje de un grupo usa las dos; un aviso,
+  un flujo o una alta, ninguna, aunque corran adentro del turno. Y lo que no llegó a WhatsApp no se da por dicho: `siNoLlego` abre
+  su ticket. Lo fija tests/mako-responde-siempre.test.ts; las seis causas de «no responde» y el
+  diagnóstico, en docs/hallazgos-comunicacion.md.
 - **El acuse del grupo es el 👍, y ningún código manda un «dame un momento»** (Martín, 24/10/2026). Un texto de
   espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
   («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí
@@ -5879,7 +5886,8 @@ nuevo:
 - **Quién paga la IA de un cliente: el cliente** (Martín, 22/10/2026: «Cada usuario debe poder pagar su token, su propia IA
   de gemini»). Su IA es su Claude, su GPT o su Gemini, con SU clave. La red de la plataforma (`provsGratisDePlataforma`)
   devuelve `[]` fuera del ws9: las claves de la plataforma son para lo interno de MaKo, nunca para un negocio, con o sin
-  datos de clientes. Lo único que la plataforma pone es el crédito de Claude del onboarding. Código nuevo que necesite IA
+  datos de clientes. Lo único que la plataforma pone es el crédito de Claude: el del onboarding y el de los grupos de
+  WhatsApp (el resto del crédito, desde el 11/11/2026, es sólo para el espacio de MaKo, ver la tercera puerta). Código nuevo que necesite IA
   para un negocio usa `provsDe` (sus filas), y sin su IA dice «Conecta tu Claude, tu GPT o tu Gemini» (`CONECTA_TU_IA`).
 - **Lo que es «su IA» se nombra con `PROVS_SU_IA`, nunca con una lista fija** (`['openai']` dejó a cuatro caminos sin su
   Gemini, IA16). Su orden es a propósito: su GPT antes que su Gemini (una Gemini gratis del onboarding no pasa adelante).
@@ -5904,17 +5912,40 @@ MaKo»). Ya está pago con la suscripción y al acabarse corta en vez de cobrar,
 `chatCheapCascade`, antes de las keys gratis (`conCreditoDeLaPlataforma`, lib/anthropic.ts). Lo que gobierna código
 nuevo:
 
-- ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ, y hoy es el onboarding.** Textual (16/10/2026): «Yo debo decirte cuando
-  utilizar creditos, no tenemos infinitos... Por ahora solo en onboarding.» La lista es `CREDITO_HABILITADO_PARA`
-  (lib/veto-claude.ts): el chat de Offer, que es el onboarding, y lo que usa de El Archivero, y sólo mientras el onboarding
-  del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
-  camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
+- ⚠️ **SÓLO PARA LO QUE MARTÍN HABILITÓ.** Textual (16/10/2026): «Yo debo decirte cuando utilizar creditos, no tenemos
+  infinitos... Por ahora solo en onboarding.» Para un NEGOCIO sigue siendo eso: esta puerta (`CREDITO_HABILITADO_PARA`,
+  lib/veto-claude.ts) es el chat de Offer, que es el onboarding, y lo que usa de El Archivero, y sólo mientras el onboarding
+  del negocio está en curso (`onboardingPendiente`); y los grupos de WhatsApp (abajo). Lo del espacio de MaKo ya no está en esa
+  lista: desde el 11/11/2026 va por la puerta 2 (abajo). Para todo lo demás el crédito dice que no y la cascada sigue como si no
+  existiera. Un camino nuevo NO se suma por su cuenta: lo pide Martín.
 - **Y el turno de texto de los GRUPOS de WhatsApp, desde el 28/10/2026** (Martín: «habilites las API que tenemos disponibles
   con todas las cuentas de planes 200»). Sólo `FEATURE_DE_LOS_GRUPOS` (`mako-doer-in`), sólo si el negocio no tiene su Claude
   (el suyo gana), con Haiku, nunca después de una herramienta y nunca el Plan; el gasto lleva «(cuenta N)», y el interruptor
   `ia.credito_grupos` de la plataforma lo apaga. ⚠️ **Las cuentas son UNA lista, la del Uso** (`CUENTAS_DEL_CREDITO`,
   lib/credito-api.ts → `CLAVES_CREDITO_DE_LOS_GRUPOS`): una cuenta nueva es una línea ahí, nunca otra copia de nombres. Una
   cuenta que paga y el Uso no conoce es gasto que no se ve.
+- ⚠️ **Y TODO LO DEL ESPACIO DE MaKo (el ws 9) MENOS EL PLAN, desde el 11/11/2026: el crédito PRIMERO y Gemini de respaldo.**
+  Martín, textual: «MaKo con WhatsApp ya habíamos dicho que eso se gaste con los tokens de las cuentas de Claude 200 dólares
+  que estoy pagando… En general, yo creo que sería bueno que gastemos eso para todo esto en lugar de Gemini, porque es mucho
+  más estable.» Lo que NO cambia: un negocio fuera de WhatsApp sigue con SU IA; el Plan (`FEATURES_DEL_PLAN`) queda afuera
+  («JAMÁS algo pago para el plan»); una función con `fallback: []` no usa el crédito (mezclaría dos modelos en un juicio); y
+  en el grupo de un cliente sin IA propia, si fallan las cuentas, queda el cartel, nunca el Gemini de la plataforma con datos
+  de sus clientes. Lo que gobierna código nuevo:
+  - **La regla es UNA función pura**, `puedeUsarUnaCuentaDelCredito` (lib/veto-claude.ts): las funciones de los grupos
+    (`FEATURES_DE_LOS_GRUPOS`) en cualquier negocio; cualquier otra que no sea del Plan, sólo en la plataforma y hasta la fecha
+    de `CREDITO_PARA_LA_PLATAFORMA`; «no sé» es no.
+  - **«Es la plataforma» se calcula ADENTRO de la puerta** (`getWorkspaceActual() === wsSuperAdmin()`, y si falla, no), nunca
+    con un dato que mande el que llama ni con `OWNER_WS`, que es Mauricio, un cliente. Un cron sin workspace no es la plataforma.
+  - **Entra por la puerta 2 (las cuentas de los grupos), no por la 3.** La 3 (`conCreditoDeLaPlataforma`) lee 2 de las 5
+    cuentas, no mira imágenes ni corre herramientas, y queda sólo para el onboarding. Por la 2 va con Haiku, con «(cuenta N)» y
+    el ws real en la fila, y se apaga sin deploy con `ia.credito_plataforma` («apagado»; sin fila, prendido).
+  - **Un lazo de cuentas del crédito corre SÓLO si el primer intento devolvió `null`** (el negocio no tiene su clave). Con su
+    clave, la puerta 2 se la da otra vez en cada cuenta (su clave gana): N pedidos a una clave sin saldo y N fallos en su tarjeta.
+  - **El crédito delante de otra opción le deja su intento entero** (`MIN_INTENTO_MS` dentro de `hastaMs`), y si no alcanza
+    para los dos, no se prueba. «Al respaldo» supone que hay uno: sin respaldo (un negocio sin su IA en su grupo), una falla
+    pasajera (`esFallaPasajeraDelCredito`) prueba UNA cuenta más (`queHacerSiFallaElCredito(…, { sinRespaldo, pasajerasAntes })`).
+  - **El % del vigía (`ia.credito.uso`): faltar es «no sé», nunca 0%.** Un % incompleto no se guarda (pisaría el último
+    completo), y para la plataforma una cuenta sin % queda fuera: puede ir al 95%, y ese 10% es de WhatsApp.
 - **Y lo que lo gasta pasa por la GUARDIA del onboarding** (17/10/2026, `frenoDeIa`, lib/onboarding-guardia-server.ts:
   ráfaga por usuario e IP, un tope de turnos y documentos por onboarding en la base, el troleo que no llega a la IA y
   el bloqueo con aviso al equipo). Una acción nueva de /api/offer que pague IA se suma a `tipoIa` antes del `switch`;
@@ -6063,7 +6094,8 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   (16/10/2026). Mandar algo a entrenar no se deshace, y la opción segura no cuesta nada. Las keys
   gratis de la agencia son el plan gratis de Gemini (que entrena, con revisión humana) y de Groq. El
   orden de la red es: el crédito de Claude de la plataforma (la API de Anthropic no entrena) SÓLO en lo
-  que Martín habilitó —hoy el onboarding, ver la tercera puerta del veto—, después una key de Gemini con
+  que Martín habilitó —para un negocio, el onboarding y los grupos de WhatsApp; en el espacio de MaKo, todo menos el Plan
+  (11/11/2026); ver la tercera puerta del veto—, después una key de Gemini con
   facturación si se identifica cuál es, y las del plan gratis sólo al final y NUNCA con datos personales.
   En `chatCheapCascade` lo decide la marca `pii` del catálogo (`lib/model-catalogo.ts`) o `opts.pii`: con
   datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
@@ -11538,6 +11570,10 @@ Con un cliente inspeccionado (o la alerta de la voz), `<html>` lleva `data-barra
   puerta dice dónde se pega (`arribaTabs` en la ficha del lead). Un `<aside>` ya lo baja la regla de globals.css.
 - **Y un ALTO de pantalla entera también la descuenta**: `calc(100dvh - N - var(--barra-agencia, 0px))`. Con `100dvh - N` a secas, el
   pie del Marketing CoPilot quedaba 50 px debajo de la ventana y la página scrolleaba sola (producción, 10/11/2026).
+- **Un panel o un riel de una pantalla NO es un `<aside>`: es un `<section>`.** La regla `[data-barra-agencia] aside` es para el
+  menú lateral pero toma cualquier `<aside>` y le fuerza el alto de la ventana: lo que no entra se dibuja encima de lo que
+  sigue, y sólo lo ve quien mira como agencia (Martín), nunca el cliente. Ya lo pagaron el Dashboard, el Video, el Web
+  Generator y Competitor Spy (el riel de la ficha tapaba la grilla, producción, 10/11/2026).
 - **Un selector sobre el estilo en línea reconoce las DOS escrituras**: el navegador escribe «height: 100dvh» y el server
   escribe «height:100dvh», sin espacios, y la hidratación no lo reescribe. Con una sola, la regla falla justo en la carga
   del server, que es como se entra a inspeccionar. `tests/barra-inspeccion-alto.test.ts` lo fija.

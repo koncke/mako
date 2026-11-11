@@ -232,7 +232,9 @@ test('8. cada agente usa la MISMA función que su botón; «Aceptar» corre a lo
   // Si la persona tocó el editor mientras trabajaban, sus cambios están en esa cuenta: no hay «Deshacer todo», y se dice.
   assert.match(correr, /const puedeDeshacer = !desdeElChat && !tocado && pasosHistorial > 0/);
   assert.match(correr, /if \(cuentaComoToque\(\{[\s\S]*?\}\)\)\s*tocado = true;/, 'el toque de la persona marca la corrida');
-  assert.match(sinComentarios(leer('app/video-editor/_opencut/core/managers/commands.ts')), /profundidad\(\): number \{\s*return this\.history\.length;/);
+  // Con el tope del historial (11/11/2026) cuenta también los pasos olvidados: si no, con el historial lleno la resta de
+  // «Deshacer todo» daba 0 (tests/video-editor-tope-historial.test.ts).
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/core/managers/commands.ts')), /profundidad\(\): number \{\s*return this\.olvidados \+ this\.history\.length;/);
 });
 
 // ─── Los cursores (tanda 2) ─────────────────────────────────────────────────
@@ -270,7 +272,9 @@ test('10. los cursores leen lo que marcan el editor y la línea de tiempo, y van
   assert.match(linea, /data-ce-linea=""\s*data-ce-pps=\{BASE_TIMELINE_PIXELS_PER_SECOND \* zoomLevel\}/, 'sin la escala, el cursor no sabe dónde cae cada segundo');
   const cursores = sinComentarios(leer('app/video-editor/_opencut/enjambre/components/cursores.tsx'));
   assert.match(cursores, /pointer-events-none fixed inset-0/, 'los cursores no le quitan el mouse a la persona');
-  assert.match(cursores, /if \(fase !== "corriendo" \|\| !medida/, 'sólo mientras trabajan');
+  // Sólo mientras MaKo edita: la edición automática o, fuera de ella, el chat y los trabajos largos (11/11/2026,
+  // tests/video-editor-cursores-siempre.test.ts).
+  assert.match(cursores, /if \(!enMarcha && !saliendo\) return null;/, 'sólo mientras trabajan');
 });
 
 // ─── La prueba de estilos (tanda 3) ─────────────────────────────────────────

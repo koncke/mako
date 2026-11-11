@@ -28,7 +28,9 @@ export function esPaginaDeError(muestra: string, titulo = ''): boolean {
   if (/^(?:error\s*)?(?:4\d\d|5\d\d)\b(?:\s*[:|·-]|\s*$)|^(?:internal server error|bad gateway|service unavailable|page not found|not found|application error)\b/i.test(cab)) return true;
   if (t.length > 220) return false;
   // El número solo, o seguido de lo que dice un error («500 Internal…», «404: …»): «500 personas compraron» es una página.
-  return /^(?:error\s*)?(?:4\d\d|5\d\d)(?:\s*$|\s*[:|·-]|\s+(?:internal|server|error|not found|bad|service|this page|page|página))|internal server error|application error: a (?:client|server)-side exception|this page could not be found|something went wrong|bad gateway|service unavailable|página no encontrada|algo salió mal/i.test(t);
+  // «This page couldn’t load · Reload to try again, or go back» es el error de cliente de Next.js nuevo (11/11/2026, mirado con
+  // capturas): acquisition.com pinta bien, avisa que pintó, y su propio JavaScript se rompe en el marco aislado y deja eso.
+  return /^(?:error\s*)?(?:4\d\d|5\d\d)(?:\s*$|\s*[:|·-]|\s+(?:internal|server|error|not found|bad|service|this page|page|página))|internal server error|application error: a (?:client|server)-side exception|this page could not be found|this page couldn['’]?t load|reload to try again, or go back|something went wrong|bad gateway|service unavailable|página no encontrada|algo salió mal/i.test(t);
 }
 
 /** Lo que una página sin contenido propio puede tener como texto y seguir siendo «sólo una redirección». */

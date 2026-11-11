@@ -77,3 +77,41 @@ export function pedidoDeIniciativa(pasos: readonly PasoIniciativa[], r: Respuest
       : `Adáptalo a: ${pasoOferta ? textoDeRespuesta(pasoOferta, oferta) : oferta}.`;
   return { adaptar: true, texto: [para, cual].filter(Boolean).join(' ') };
 }
+
+// ── Replicar un outlier (11/11/2026, docs/diseno-copywriter.md D18) ──────────────────────────────────────────────────
+// La página nace vacía de «Replicar» (lib/copywriter/outliers-servidor.ts) y MaKo la escribe SOLA al abrirla, con la oferta
+// principal (app/copywriter/PanelMaKo.tsx); la oferta se cambia después. El original le llega por el server en cada pedido
+// (lib/copywriter/ia.ts, `conElOriginal`). Hasta el 11/11/2026 preguntaba primero para qué oferta, y eso frenaba el cuerpo.
+
+/** La respuesta al pedido de escribir la réplica: la estructura, el gancho y el ritmo del original, con la oferta elegida. */
+export function pedidoDeReplica(r: RespuestasIniciativa, ofertas: readonly OfertaCorta[]): PedidoIniciativa {
+  const oferta = r.oferta ?? AL_NEGOCIO;
+  if (oferta === NO_ADAPTAR) return { adaptar: false, texto: 'No, lo escribo yo.' };
+  const nombre = nombreDeOferta(oferta, ofertas);
+  const con = nombre ? `con mi oferta «${nombre}»` : 'con mi negocio';
+  // El guion ENTERO y las propiedades (11/11/2026, Martín: «lo único que me replica es el título… ¿y dónde está todo el
+  // cuerpo?», y el Ángulo y la Estructura quedaban «Vacío»).
+  return {
+    adaptar: true,
+    texto: `Escribe el guion ENTERO como el original: su misma estructura (todas sus partes, en su orden), su tipo de gancho y su ritmo, ${con}. `
+      + 'Cada sección completa, lista para grabar o publicar, nada a medio hacer. Pon en propiedades el ángulo y la estructura de la biblioteca que más se parezcan al original.',
+  };
+}
+
+/** El nombre de una oferta elegida (`oferta:<id>`), o null (el negocio, o una que ya no está). */
+export function nombreDeOferta(valor: string, ofertas: readonly OfertaCorta[]): string | null {
+  const id = valor.startsWith('oferta:') ? Number(valor.slice('oferta:'.length)) : NaN;
+  return Number.isFinite(id) ? ofertas.find((o) => o.id === id)?.nombre ?? null : null;
+}
+
+/**
+ * La oferta con que MaKo escribe una réplica SIN preguntar: la principal (`listarOfertas` la pone primera), o el negocio.
+ * 11/11/2026, Martín: la pregunta «¿Lo replico para tu oferta? ¿Para cuál?» frenaba el cuerpo; ahora la página queda escrita y
+ * la oferta se cambia después (`otrasOfertasDeReplica`).
+ */
+export const ofertaDeReplica = (ofertas: readonly OfertaCorta[]): string => (ofertas.length ? `oferta:${ofertas[0].id}` : AL_NEGOCIO);
+
+/** Para «¿La rehago para otra oferta?» debajo de la réplica escrita: las demás, como botones. */
+export function otrasOfertasDeReplica(usada: string, ofertas: readonly OfertaCorta[]): { valor: string; texto: string }[] {
+  return ofertas.slice(0, TOPE_OFERTAS).map((o) => ({ valor: `oferta:${o.id}`, texto: o.nombre })).filter((o) => o.valor !== usada);
+}

@@ -18,7 +18,7 @@ import { chatClaudeTools, type RichMsg } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AVISO_NO_PUDE, avisoNoPude, mensajeLeadPropuesto, EJEMPLO_LEAD, conLinksDeAccion, propuestaDeLaSalida, conLoQueQuedoPropuesto, type PropuestaDelTurno } from '@/lib/respuesta-doer';
 import { recetasDelTurno } from '@/lib/doer-recetas';
-import { evaluarPermiso } from '@/lib/veto-claude';
+import { esFallaPasajeraDelCredito, evaluarPermiso, queHacerSiFallaElCredito } from '@/lib/veto-claude';
 import { causaDelFallo, cartelDelFallo, textoFalloIA, linkKeysIA, rutaKeysIA, textoSinRedPorDatos, conexionesDelPedido, motivoDelCartel, type ConexionDelCartel } from '@/lib/fallo-ia-texto';
 import { conexion, lineaParaConectar } from '@/lib/conexiones-catalogo';
 import { claveAyuda, leerEstadoAyuda, respuestaAyuda, ofertaDeAyuda, guiaEn, textoDelPaso, despuesDeVerificar, ticketPorProblema, conTicket, ticketMandado, OFERTA_AYUDA, NO_AHORA, ENTIENDO, TICKET_NO_SALIO, type EstadoAyuda, type TicketAOfrecer } from '@/lib/doer-ayuda';
@@ -35,6 +35,8 @@ import { porId, aToolDef, parecidasQueNoViajaron } from '@/lib/api-mako/registro
 import { errorParaTicket, esPedidoDelegado, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { actorDeWhatsApp as actorPorWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
 import { conSalidaDelGrupo, esClaveDeLaApp, esIdDeLaApp, salidaPara, vozDeLaApp } from '@/lib/grupo-salida';
+import { comoRespuesta, conRespuestaA } from '@/lib/respuesta-en-curso';
+import { motivoDeNoEntrega, respuestaNoEntregada } from '@/lib/mako-salida-reglas';
 import { filaPorIdDeMensaje, mediaDelMensaje } from '@/lib/grupo-app';
 import { leerParticipanteDeApp, participanteDeApp } from '@/lib/grupo-reglas';
 import { letraVigente, miembrosDelGrupo } from '@/lib/grupo-puerta';
@@ -73,6 +75,8 @@ import { AUDIO_DEL_LOTE_SIN_ESCUCHAR, audioCitadoDe, conElAudioCitado, conLaCita
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { conElDominioDeMaKo, linksConWs } from '@/lib/links-con-ws';
+import { llegoTarde } from '@/lib/linea-demora';
+import { alTuteo } from '@/lib/al-tuteo';
 import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro, nombraGoogleCalendar, type VeredictoIntencion } from '@/lib/mako-intencion';
 import { permisoCalendarioGoogle } from '@/lib/google-calendar';
@@ -194,14 +198,16 @@ const registrarEnviados = (ws: number, jid: string, ids: readonly string[]): Pro
 
 // ⚠️ UN CHAT 1 A 1 NUNCA SALE POR LA VOZ (3/11/2026). La voz puede ser el WhatsApp personal de Martín, y todo lo que este archivo manda pasa por estas dos: el turno es el mismo para un grupo
 // y para un chat, y sólo el grupo sale por la voz. Lo de una persona va por la puerta del bot (lib/mako-salida.ts), que además mira la ventana de 24 horas.
+// ⚠️ ESTAS DOS (y el «escribiendo…») SON LAS PUERTAS DE LA RESPUESTA (11/11/2026, lib/respuesta-en-curso.ts): lo que sale por acá es lo
+// que MaKo le contesta a quien escribió, y pasa el freno de la línea. Lo que el turno dispara por otro lado (un aviso, un flujo) no.
 async function enviarAGrupoJid(jid: string, texto: string, delayMs?: number): Promise<EnvioGrupo> {
-  if (jid.endsWith('@g.us')) return enviarAlGrupoPorJid(jid, texto, delayMs);
+  if (jid.endsWith('@g.us')) return comoRespuesta(() => enviarAlGrupoPorJid(jid, texto, delayMs));
   if (!jid || !texto.trim()) return { ok: false, error: 'faltan jid o texto' };
   const dm = await enviarAlChat(jid, texto, delayMs);
   return dm.ok ? { ok: true, id: dm.id } : { ok: false, error: dm.error };
 }
 const reaccionarMensaje = (jid: string, key: { id?: string; fromMe?: boolean; remoteJid?: string } | undefined, emoji: string): Promise<boolean> =>
-  (jid.endsWith('@g.us') ? reaccionarEnElGrupo(jid, key, emoji) : reaccionarEnElChat(jid, key, emoji));
+  (jid.endsWith('@g.us') ? comoRespuesta(() => reaccionarEnElGrupo(jid, key, emoji)) : reaccionarEnElChat(jid, key, emoji));
 async function registrarEnviado(ws: number, jid: string, id: string): Promise<void> {
   return registrarEnviados(ws, jid, [id]);
 }
@@ -264,6 +270,8 @@ async function abrirVentana(ws: number, jid: string): Promise<void> {
 /** `loteDeVarios`: el lote junta mensajes de MÁS de una persona (o de alguien sin teléfono): nunca va a la computadora del dueño. */
 type MsgIn = {
   key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string; participantAlt?: string }; message?: Record<string, unknown>; pushName?: string; base64?: string; loteDeVarios?: boolean;
+  /** La hora de WhatsApp (cuando se MANDÓ), en segundos: mide el atraso de la entrega (lib/linea-demora.ts). */
+  messageTimestamp?: unknown;
   /** Un lote: para quién era cada mensaje, ya decidido (lib/doer-para-quien.ts, `paraQuienDelLote`). */
   paraQuien?: ParaQuienDelLote;
   /** Un lote: las imágenes y los PDF que traía, ya bajados (`adjuntoDelLote`). Van como bloques al turno. */
@@ -583,6 +591,10 @@ async function pcDeQuienEscribe(ws: number, data: MsgIn): Promise<{ pc: NonNulla
 const SESION_DEL_GRUPO = 0;
 /** Lo que le queda a la invocación del webhook (`maxDuration` 420 s, app/api/webhooks/evolution/route.ts), con margen. */
 const PLAZO_DOER_MS = 400_000;
+/** ⏱ Cada pedido a Claude del turno del grupo (11/11/2026). Antes, ninguno: un Anthropic colgado trababa el turno ~300 s. */
+const PLAZO_CLAUDE_DEL_GRUPO_MS = 45_000;
+/** ⏱ El clasificador del grupo (11/11/2026): 300 tokens con Haiku; cortado, mandan las reglas. */
+const PLAZO_CLASIFICADOR_MS = 8_000;
 
 /** El contexto de la API para la ayuda: el mismo canal y la misma persona que el turno (`ctxApi`), sin el turno. */
 function ctxDeLaAyuda(ws: number, jid: string, texto: string, actor: string | undefined): CtxApi {
@@ -742,7 +754,9 @@ export async function manejarEntranteDoer(instance: string, data: MsgIn): Promis
   if (!jid || !jid.endsWith('@g.us')) return { engaged: false, skip: 'no es grupo' };
   // Lo que MaKo diga en EL grupo del negocio se ve también en la app (lib/grupo-salida.ts). En un grupo de prueba, no.
   const oficial = await wsDelGrupoOficial(jid);
-  return oficial != null ? conSalidaDelGrupo({ ws: oficial, clave: jid, soloApp: false, hayInvitado: false }, () => atenderEntranteDoer(instance, data, jid)) : atenderEntranteDoer(instance, data, jid);
+  // ⚠️ LA RESPUESTA SALE AUNQUE LA LÍNEA ESTÉ FRENADA (11/11/2026, Martín: «Mako en WhatsApp no responde... SIEMPRE debe responder»): lo que
+  // este turno le mande a ESTE grupo es la respuesta a quien escribió, y el freno la deja pasar (lib/respuesta-en-curso.ts).
+  return conRespuestaA(jid, () => (oficial != null ? conSalidaDelGrupo({ ws: oficial, clave: jid, soloApp: false, hayInvitado: false }, () => atenderEntranteDoer(instance, data, jid)) : atenderEntranteDoer(instance, data, jid)));
 }
 async function atenderEntranteDoer(instance: string, data: MsgIn, jid: string): Promise<ResultadoDoer> {
 
@@ -761,6 +775,19 @@ async function atenderEntranteDoer(instance: string, data: MsgIn, jid: string): 
   const suyo = await grupoOficialDe(wsData);
   if (jid !== suyo && !(await gruposDoer(OWNER_WS)).includes(jid)) {
     return { engaged: false, skip: 'grupo no habilitado' };
+  }
+  // ⚠️ LO QUE WHATSAPP ENTREGA CON HORAS DE ATRASO (10/11/2026, lib/linea-demora.ts). Un comprobante del 9/11, ya resuelto a mano,
+  // volvió a entrar un día después por otra línea del grupo: MaKo le dijo a Joan «Recibí tu comprobante» y le mandó la revisión a
+  // Martín otra vez (ticket #80). Lo que llega con más de `TARDE_MS` de atraso no lo atiende MaKo sola: va a SuperAdmin. Antes del
+  // comprobante y de la cola. Lo del equipo (fromMe) sigue: su eco sólo se anota.
+  const tarde = data.key?.fromMe ? null : llegoTarde(data.messageTimestamp, Date.now());
+  if (tarde) {
+    // Lo que la resincronización de OTRA línea del grupo trae de ayer y ya se atendió no se avisa (11/11/2026: la de Martín
+    // reconectó y trajo cuatro mensajes de la propia MaKo y uno de Joan ya contestado; salieron cinco avisos de ruido).
+    if (await atrasadoYaAtendido(instance, jid, data).catch(() => false)) return { engaged: false, skip: `llegó tarde (${tarde.horas} h), ya atendido` };
+    await avisarQueLlegoTarde(wsData, jid, data, tarde.horas)
+      .catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude avisar el mensaje atrasado: ${e instanceof Error ? e.message : String(e)}`));
+    return { engaged: false, skip: `llegó tarde (${tarde.horas} h)` };
   }
   // ⚠️ EL COMPROBANTE DE LA MENSUALIDAD DE UNA AGENCIA (6/11/2026, lib/agencia-mes-comprobante.ts). Martín: «MaKo pide ahí el
   // comprobante de Binance». Una foto o un PDF de una persona en el grupo de una agencia con la mensualidad prendida se lee como
@@ -811,7 +838,7 @@ export async function manejarEntranteDoerChat(wsData: number, instance: string, 
 
 /** «Escribiendo…»: en un grupo, por la línea que recibió; en un chat, por la puerta del bot. */
 function escribiendo(instance: string, jid: string, ms: number): Promise<void> {
-  return jid.endsWith('@g.us') ? enviarPresencia(instance, jid, 'composing', ms) : escribiendoEnElChat(jid, ms);
+  return jid.endsWith('@g.us') ? comoRespuesta(() => enviarPresencia(instance, jid, 'composing', ms)) : escribiendoEnElChat(jid, ms);
 }
 
 /**
@@ -825,8 +852,10 @@ export async function manejarEntranteDeLaApp(ws: number, data: MsgIn): Promise<R
   if (!jid || !quien) return { engaged: false, skip: 'no es un mensaje de la app' };
   const m = await miembrosDelGrupo(ws).catch(() => null);
   const unaPersona = !!m && m.conCuenta.length + m.invitadosSinCuenta.length <= 1;
-  return conSalidaDelGrupo({ ws, clave: jid, soloApp: true, hayInvitado: quien.letra === 'i', unaPersona },
-    () => runWithWorkspace(ws, () => bufferearYResponder(ws, '', data, undefined, { yaEnCola: true })));
+  // Con el mismo jid, la cola de la app y la de WhatsApp son UNA: si este turno se lleva mensajes de WhatsApp, contesta en WhatsApp, y esa
+  // respuesta también pasa el freno (la revisión del 11/11/2026). Con `soloApp` no toca Evolution.
+  return conRespuestaA(jid, () => conSalidaDelGrupo({ ws, clave: jid, soloApp: true, hayInvitado: quien.letra === 'i', unaPersona },
+    () => runWithWorkspace(ws, () => bufferearYResponder(ws, '', data, undefined, { yaEnCola: true }))));
 }
 
 /**
@@ -903,7 +932,8 @@ function clasificadorDelGrupo(recorte: string): LlamarAlClasificador {
   return async (system, usuario) => {
     const una = async (cuenta?: string): Promise<string> => (await chatClaudeTools(system, [{ role: 'user', content: usuario }], [], async () => '', {
       // 300: con las `partes` de un pedido compuesto, el JSON pasa los 200 (cortado no se lee y mandan las reglas).
-      feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 1, maxTokens: 300,
+      // ⏱ 8 s (11/11/2026): sin plazo, un Anthropic colgado dejaba el turno esperando la clase; cortado, mandan las reglas.
+      feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 1, maxTokens: 300, plazoPasoMs: PLAZO_CLASIFICADOR_MS,
       motivo: `Clasificar el mensaje del grupo${cuenta ? ` (${cuenta})` : ''} «${recorte}»`,
     })).text ?? '';
     try { return await una(); } catch (e) {
@@ -912,7 +942,10 @@ function clasificadorDelGrupo(recorte: string): LlamarAlClasificador {
     }
     for (const cuenta of await cuentasDelCreditoDeLosGrupos()) {
       try { return await una(cuenta); } catch (e) {
-        if (/credit balance is too low/i.test(e instanceof Error ? e.message : String(e))) marcarCuentaDeLosGruposSinCredito(cuenta);
+        const m = e instanceof Error ? e.message : String(e);
+        if (/credit balance is too low/i.test(m)) marcarCuentaDeLosGruposSinCredito(cuenta);
+        // Plazo, 5xx u «overloaded»: el mismo Anthropic para todas las cuentas; mandan las reglas, sin sumar otros 8 s (11/11/2026).
+        if (queHacerSiFallaElCredito((e as { status?: number }).status, m) !== 'otra_cuenta') break;
       }
     }
     throw new Error('ningún Claude contestó para clasificar');
@@ -1131,6 +1164,47 @@ async function contestaAlEquipo(wsData: number, instance: string, jid: string, d
 }
 
 /** Que la respuesta al equipo no se pierda: a su ticket si el mensaje del equipo lo tenía; si no, al grupo de SuperAdmin. */
+/** Los mensajes atrasados ya avisados (por id): dos líneas en el mismo grupo entregan el mismo, y no se avisa dos veces. */
+const CLAVE_TARDE_AVISADOS = 'mako.tarde.avisados';
+
+/**
+ * ¿El mensaje atrasado ya se atendió, o es de MaKo misma? Ya pasó por la cola (lo atendió MaKo cuando llegó por la otra línea), o lo
+ * escribió la línea de la voz: visto desde otra línea del grupo, lo de MaKo llega como de una persona, con su número en
+ * `participantAlt`. No va por el anillo (`esEcoDeMaKoAhora`): guarda 40 ids, y para lo de ayer no alcanza; el número sí.
+ */
+async function atrasadoYaAtendido(instance: string, jid: string, data: MsgIn): Promise<boolean> {
+  const id = data.key?.id ?? '';
+  if (id) {
+    const { data: fila, error } = await getSupabaseServer().from('mako_doer_buffer').select('id').eq('grupo_jid', jid).eq('wa_message_id', id).limit(1);
+    if (!error && fila?.length) return true;
+  }
+  // La voz ESTRICTA: la otra convierte un error en «mako_ws1». Sin leerla, no se reconoce al autor y se avisa (el lado seguro).
+  const voz = await instanciaVoz({ estricto: true }).catch(() => null);
+  const numeroVoz = voz ? (await numeroDeLaLinea(voz))?.replace(/\D/g, '') : null;
+  const autor = [data.key?.participantAlt, data.key?.participant].map((j) => /^(\d{8,15})@s\.whatsapp\.net$/.exec(String(j ?? ''))?.[1]).find(Boolean);
+  return !!numeroVoz && !!autor && autor.slice(-10) === numeroVoz.slice(-10);
+}
+
+/** Lo que llegó con horas de atraso, a SuperAdmin: MaKo no lo atendió sola (lib/linea-demora.ts). Una vez por mensaje. */
+async function avisarQueLlegoTarde(wsData: number, jid: string, data: MsgIn, horas: number): Promise<void> {
+  const id = data.key?.id ?? '';
+  if (id) {
+    const leido = await runWithWorkspace(wsData, () => getSettingEstricto(CLAVE_TARDE_AVISADOS)).then((v) => ({ v }), () => null);
+    if (leido) {
+      const r = conLaAvisada(leido.v, id);
+      if (r.yaEstaba) return;
+      await runWithWorkspace(wsData, () => setSetting(CLAVE_TARDE_AVISADOS, JSON.stringify(r.ids))).catch(() => {});
+    }
+  }
+  const quien = data.pushName?.trim() || 'Alguien del negocio';
+  const texto = textoDe(data).trim() || (audioDe(data) ? '(una nota de voz)' : adjuntoDe(data) ? '(una foto o un archivo)' : '(sin texto)');
+  const negocio = (await getWorkspace(wsData).catch(() => null))?.nombre ?? `ws${wsData}`;
+  const { enviarAlGrupoSuperAdmin } = await import('@/lib/mako-grupo');
+  const r = await enviarAlGrupoSuperAdmin(`📨 WhatsApp entregó con ${horas} h de atraso un mensaje de ${quien} en el grupo de ${negocio} (ws${wsData}):\n«${texto.slice(0, 600)}»\n\nMaKo no lo atendió sola: el contexto pudo cambiar. Contéstalo en su grupo si todavía hace falta.`);
+  if (!r.ok) throw new Error(r.error ?? 'no salió');
+  console.warn(`[mako-doer-in] ws=${wsData} ${jid} ${id}: llegó con ${horas} h de atraso, a SuperAdmin`);
+}
+
 async function registrarRespuestaAlEquipo(wsData: number, data: MsgIn, texto: string, a: DelEquipo): Promise<void> {
   const quien = data.pushName?.trim() || 'Alguien del negocio';
   // Una re-entrega del mismo mensaje (Evolution reintenta, otra línea lo entrega) no repite el aviso ni el comentario.
@@ -1622,6 +1696,28 @@ async function grupoOficialDe(ws: number): Promise<string> {
 }
 
 /** `acuse`: lo que hizo `bufferearYResponder` si el 👍 no salió (el cron de huérfanos no lo trae: ahí no hubo nadie). */
+/**
+ * ⚠️ UNA RESPUESTA QUE NO LLEGÓ A WHATSAPP NO SE DA POR DICHA EN SILENCIO (11/11/2026, Martín: «Mako en WhatsApp no responde... SIEMPRE
+ * debe responder»). Antes el turno la guardaba igual: el vigía no veía un silencio (había respuesta guardada) y el único rastro era un
+ * mail del freno. Deja su ticket con el motivo (la línea frenada, Evolution caído), por la huella global (lib/errores-app.ts). La usan
+ * las tres salidas del turno: la respuesta, la de un TICKET y la de un DEBUG. Nunca tira: lo que salió, ya salió.
+ */
+async function siNoLlego(ws: number, actor: string | null | undefined, soloApp: boolean, envios: readonly EnvioGrupo[]): Promise<void> {
+  const noLlego = respuestaNoEntregada(envios);
+  if (!noLlego) return;
+  // Un turno de la app no va a WhatsApp: lo que no llegó ahí es el hilo de la app, y el ticket lo dice así.
+  // `nombre` es un identificador (el saneo le saca los espacios); lo que lee el título va en `etiqueta`.
+  const [nombre, etiqueta, donde] = soloApp ? ['contestar_app', 'contestar en el grupo de la app', 'al grupo de la app'] : ['contestar_whatsapp', 'contestar en WhatsApp', 'a WhatsApp'];
+  console.error(`[mako-doer-in] ws=${ws} la respuesta NO llegó ${donde} (${noLlego.faltan} de ${noLlego.de}): ${noLlego.motivo}`);
+  try {
+    const quien = await identidadDelActor(ws, actor).catch(() => null);
+    const reg = await registrarError({ origen: 'mako', nombre, etiqueta, mensaje: `MaKo contestó y no llegó ${donde}: ${motivoDeNoEntrega(noLlego.motivo)}` }, quien);
+    if (!reg.ok) console.warn(`[mako-doer-in] ws=${ws} la respuesta perdida no se registró (${reg.motivo})`);
+  } catch (e) {
+    console.warn(`[mako-doer-in] ws=${ws} la respuesta perdida no se registró: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
 async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts: { acuse?: Acuse } = {}): Promise<ResultadoDoer> {
   const OPS = OWNER_WS; // settings operativos del doer (agencia), keyeados por jid
   try {
@@ -1958,9 +2054,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         : 'No pude abrir el ticket ahora: escríbeselo al equipo de MaKo por acá y lo ven.';
       const env = await enviarAGrupoJid(jid, dicho);
       if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+      await siNoLlego(wsData, actorDeWhatsApp(participante, data.pushName), soloApp, [env]);
       if (!hayInvitado) {
         await guardarTurno(wsData, jid, 'user', texto, msgId).catch(() => {});
-        await guardarTurno(wsData, jid, 'assistant', dicho, undefined).catch(() => {});
+        if (env.ok) await guardarTurno(wsData, jid, 'assistant', dicho, undefined).catch(() => {});
       }
       return { engaged: true, reply: dicho };
     }
@@ -2162,8 +2259,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       const dicho = respuestaDelDebug({ pedido: pedidoNegocio, leido, crudo, hechos: hechosDelDiagnostico(leido), ticket });
       const env = await enviarAGrupoJid(jid, dicho);
       if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+      await siNoLlego(wsData, actorDeWhatsApp(participante, data.pushName), soloApp, [env]);
       await guardarTurno(wsData, jid, 'user', texto, msgId).catch(() => {});
-      await guardarTurno(wsData, jid, 'assistant', dicho, undefined).catch(() => {});
+      if (env.ok) await guardarTurno(wsData, jid, 'assistant', dicho, undefined).catch(() => {});
       return { engaged: true, reply: dicho };
     }
     // `levantar_ticket` va con las de siempre, como en la app: es del área `mako` y ninguna palabra del pedido la trae.
@@ -2719,9 +2817,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
              */
             // IA16: sin Groq (sólo escucha audio); un pin a Groq de /modelos-ia lo saltea `chatCheapTools`. Con su IA, su Gemini
             // y su OpenAI (`PROVS_SU_IA`): desde el 22/10/2026 su Gemini es su IA, y con sólo `['openai']` no se probaba.
-            // ⛔ Y sin Gemini (Martín, 28/10/2026, «deprequemos Gemini por los grupos de WhatsApp»): ni el suyo ni un pin a Gemini.
+            // ⛔ Y sin Gemini ADELANTE (Martín, 28/10/2026, «deprequemos Gemini por los grupos de WhatsApp»): ni el suyo ni un pin a
+            // Gemini antes que Claude y su OpenAI. Desde el 11/11/2026 («gastemos eso para todo esto en lugar de Gemini»), Gemini
+            // vuelve DE RESPALDO, al final y sólo el DEL NEGOCIO (`PROVS_SU_IA`): el Gemini de la plataforma sigue sólo en el ws9
+            // (la red de abajo), y el gratis entrena con los datos de sus clientes. El orden por cuota no lo adelanta.
             const cands = (suIA ? [...PROVS_SU_IA] : [pinL.provider, 'openai']).filter((p, i, a) => p !== 'groq' && p !== 'gemini' && a.indexOf(p) === i);
-            const orden = await ordenarPorCuota(cands).catch(() => cands);
+            const geminiDeRespaldo = suIA && PROVS_SU_IA.includes('gemini') ? ['gemini'] : [];
+            const orden = [...await ordenarPorCuota(cands).catch(() => cands), ...geminiDeRespaldo];
             let ultErr: unknown = null;
             // ⚠️ TODOS los errores, no solo el último. `ultErr` alcanza para tirar,
             // pero para DECIDIR DE QUIÉN FUE LA CULPA hace falta el conjunto: el
@@ -2752,11 +2854,29 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             // repartido entre las cuentas con clave (`cuentasDelCreditoDeLosGrupos`), saltando la que se quedó sin crédito. Sólo
             // mientras el turno no ejecutó nada: otro intento después de una escritura la duplicaría.
             let claudeProbado = false;
+            /**
+             * ¿Hay algo DESPUÉS de Claude (revisión del 11/11/2026)? Una IA suya con clave (`orden`: su OpenAI, su Gemini de
+             * respaldo) o la red de la plataforma (sólo el ws9, y no con su IA: lo mismo que arma la red de abajo). Un negocio sin su
+             * IA —el caso principal del crédito de los grupos— no tiene nada: «al respaldo» con un 529 era el cartel de fallo.
+             * Se pregunta UNA vez, y sólo con una falla pasajera del crédito.
+             */
+            let respaldoDespuesDeClaude: Promise<boolean> | null = null;
+            const hayRespaldoDespuesDeClaude = (): Promise<boolean> => (respaldoDespuesDeClaude ??= (async () => {
+              const conClave = (await Promise.all((orden as Array<'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral'>).map((p) => provsDe(p).catch(() => [])))).some((l) => l.length > 0);
+              // ⚠️ La red NO se pide acá (11/11/2026, rojo de la corrida 1035): pedirla es gastarla, y tres tests fijan que se pide
+              // UNA vez y sólo como último recurso (red-plataforma, doer-cartel-sin-ia, fallo-ia-texto). Para saber si HAY red
+              // alcanza la regla que la arma: sólo existe en el ws de la plataforma y nunca con su IA (`provsGratisDePlataforma`).
+              return conClave || (!suIA && wsData === (await wsSuperAdmin().catch(() => null)));
+            })());
+            /** Las fallas pasajeras (5xx, 529, plazo) del crédito en este turno: sin respaldo, la primera prueba la cuenta siguiente. */
+            let pasajerasDelCredito = 0;
             /** Una vuelta de Claude: con su Claude (`cuenta` vacía) o con una cuenta del crédito de los grupos. */
             const claudeDelGrupo = async (cuenta?: string): Promise<'listo' | 'sin_su_claude' | 'otra_cuenta'> => {
               try {
+                // ⏱ 45 s por pedido (11/11/2026): sin plazo, un Anthropic colgado trababa el turno hasta el corte de undici. Dos
+                // cuentas colgadas suman 90 s, dentro de `PLAZO_DOER_MS` y de los 420 s del webhook.
                 const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
-                  feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 8, maxTokens: 2500,
+                  feature: 'mako-doer-in', soloSuClaude: true, cuentaDeLosGrupos: cuenta, maxSteps: 8, maxTokens: 2500, plazoPasoMs: PLAZO_CLAUDE_DEL_GRUPO_MS,
                   motivo: `Claude del grupo${cuenta ? ` (${cuenta})` : ''} · ${ruta.motivo} «${recorte}»`,
                 });
                 claudeProbado = true;
@@ -2776,6 +2896,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
                 // El crédito de los grupos es NUESTRO: su error no elige el veredicto (ver `erroresPlataforma`).
                 if (/credit balance is too low/i.test(m)) marcarCuentaDeLosGruposSinCredito(cuenta);
                 erroresPlataforma.push(`plataforma/anthropic (${cuenta}): ${m}`);
+                // Plazo, 5xx u «overloaded» es el mismo Anthropic para todas las cuentas: no se prueba la otra (11/11/2026)… salvo
+                // que no haya respaldo: entonces UNA vez más, si entra otro pedido entero en `PLAZO_DOER_MS` (lo pasajero suele pasar).
+                const status = (e as { status?: number }).status;
+                const pasajera = esFallaPasajeraDelCredito(status, m);
+                const entraOtro = Date.now() - (ctxApi.turnStart ?? Date.now()) + PLAZO_CLAUDE_DEL_GRUPO_MS < PLAZO_DOER_MS;
+                const sinRespaldo = pasajera && entraOtro && !(await hayRespaldoDespuesDeClaude());
+                if (queHacerSiFallaElCredito(status, m, { sinRespaldo, pasajerasAntes: pasajerasDelCredito }) !== 'otra_cuenta') return 'listo';
+                if (pasajera) pasajerasDelCredito++;
                 return 'otra_cuenta';
               }
             };
@@ -3110,15 +3238,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
               err.contestaron = contestaronCliente;
               throw err;
             }
-          } else {
-            const { text } = await chatClaudeTools(system, msgs, tools, nuevoIntento(), {
-              feature: 'mako-doer-in', maxSteps: 8,
-              model: pin ? pin.model : ruta.model,
-              effort: ruta.effort,
-              motivo: `${ruta.motivo} «${recorte}»`,
-            });
-            respuesta = (text ?? '').trim();
           }
+          // (11/11/2026) Acá había un `else` para el turno SIN pin y sin su IA: le pedía Sonnet u Opus a la puerta 1 (`model`
+          // explícito del router), el veto lo cortaba (sólo `closing` tiene permiso), y nunca probaba el crédito de los grupos.
+          // `pinDelDoer` ya no devuelve null (lib/doer-modelo.ts): el «CLAUDE PRIMERO» de arriba corre siempre.
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
           console.error('[mako-doer-in] IA falló:', msg);
@@ -3531,7 +3654,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // no un chorizo). Registramos cada id enviado para el anti-eco.
       // El dominio que el modelo inventa («hola-malo.com/crm/2761», 28/10/2026, lib/links-con-ws.ts) se corrige al de MaKo, en lo que
       // sale y en la memoria: si quedaba en el historial, el modelo lo repetía.
-      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => conElDominioDeMaKo(p.trim(), APP_URL, DOMINIOS_MAKO)).filter(Boolean);
+      // Y en TÚ (11/11/2026, lib/al-tuteo.ts): a Joan le salió «Preguntás… ¿Querés que revise…?».
+      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => alTuteo(conElDominioDeMaKo(p.trim(), APP_URL, DOMINIOS_MAKO))).filter(Boolean);
       // Lo que escribió el CÓDIGO (la agenda) va al final, cada bloque como su propio
       // mensaje. Va acá y no antes porque los reemplazos de arriba (el borrador, el
       // lead, el cartel) pisan `respuesta`, y el validador no tiene por qué leerlo.
@@ -3539,17 +3663,25 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // equipo de MaKo o una agencia los abría en SU workspace (medido 17/10/2026: ws13, ws15 y ws18).
       const enviar = [...partes, ...paraLaPersona].map((t) => linksConWs(t, wsData, APP_URL));
       const idsEnv: string[] = [];
+      const envios: EnvioGrupo[] = [];
       for (let i = 0; i < enviar.length; i++) {
         if (i > 0) await new Promise((r) => setTimeout(r, 700));
         const env = await enviarAGrupoJid(jid, enviar[i]);
+        envios.push(env);
         if (env.ok && env.id) idsEnv.push(env.id);
       }
       await registrarEnviados(OPS, jid, idsEnv); // un solo write para toda la respuesta
+      // ⚠️ UNA RESPUESTA QUE NO LLEGÓ A WHATSAPP NO SE DA POR DICHA EN SILENCIO (11/11/2026, Martín: «Mako en WhatsApp no responde... SIEMPRE
+      // debe responder»). Antes se guardaba igual en la conversación: el vigía no veía un silencio (había respuesta guardada) y el único
+      // rastro era un mail del freno. Ahora deja su ticket, con el motivo (la línea frenada, Evolution caído), por la huella global.
+      await siNoLlego(wsData, ctxApi.actor, soloApp, envios);
       // Lo que SÍ es conversación se guarda; el cartel de «no pude», no (ver arriba).
       // Y lo del código tampoco: el historial vuelve al modelo en el turno siguiente, y
       // la agenda no pasa por ninguno.
       if (avisoDeSistema) console.warn(`[mako-doer-in] ws=${wsData} aviso de plataforma enviado y FUERA del historial (${(respuesta ?? '').length} chars)`);
-      else if (partes.length && !hayInvitado) await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
+      // Lo que no salió por NINGÚN lado (ni WhatsApp ni el hilo de la app) no se guarda como dicho: el turno siguiente creería que lo
+      // dijo, y el vigía (lib/vigia-mako-grupos.ts) lo cuenta como el silencio que es (11/11/2026).
+      else if (partes.length && !hayInvitado && envios.some((e) => e.ok)) await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
       // Lo que mostraron las herramientas de ESTE turno, para los siguientes: pisa lo de la misma herramienta y deja lo demás
       // vigente (`unirRefs`). Un turno sin nada con id no toca nada: «la segunda» sigue siendo de la última lista que se mostró.
       if (!avisoDeSistema && !hayInvitado && refsDelTurno.length) await setSetting(CLAVE_REFS(jid), unirRefs(refsGuardadas, refsDelTurno, Date.now())).catch(() => {});
@@ -3601,7 +3733,8 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
       const oficial = esClaveDeLaApp(jid) || (await wsDelGrupoOficial(jid)) != null;
       const m = oficial ? await miembrosDelGrupo(ws).catch(() => null) : null;
       const unaPersona = !!m && m.conCuenta.length + m.invitadosSinCuenta.length <= 1;
-      const r = oficial ? await conSalidaDelGrupo({ ws, clave: jid, soloApp: false, hayInvitado: false, unaPersona }, correr) : await correr();
+      // Lo que el cron levanta es lo que una persona escribió y quedó sin contestar: su respuesta pasa el freno, como en la entrada.
+      const r = await conRespuestaA(jid, () => (oficial ? conSalidaDelGrupo({ ws, clave: jid, soloApp: false, hayInvitado: false, unaPersona }, correr) : correr()));
       if (r) procesados++;
     } catch (e) { console.error('[mako-doer-in] flushHuerfanos:', e instanceof Error ? e.message : String(e)); }
   }

@@ -14,6 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { clasificarConIA, entradaDeClase, leerClase, SYSTEM_DE_CLASE, veredictoDeClase, type EntradaDeClase } from '../lib/mako-intencion-ia';
+import { lePideAlEquipoDeMaKo } from '../lib/le-pide-al-equipo';
 import { respuestaDelTicket, ticketQueAcabaDeNombrar } from '../lib/despacho-grupo';
 import type { VeredictoIntencion } from '../lib/mako-intencion';
 
@@ -99,3 +100,45 @@ test('4. el ticket del grupo: la respuesta la escribe el código, y lo que sigue
   assert.equal(ticketQueAcabaDeNombrar('Tienes 3 leads hoy.'), null);
   assert.equal(ticketQueAcabaDeNombrar(null), null);
 });
+
+test('5. «Dile a Claude que…» nunca queda sin respuesta (Martín, 11/11/2026 00:07, en su grupo)', async () => {
+  // La salida REAL del modelo de ese turno (anthropic_usage 02:03:01): NO_REPLY, porque tomó a Claude por otra persona del grupo.
+  const MARTIN: EntradaDeClase = { ...E, texto: 'Dile a Claude que me de un archivo con todas las transcripciones del curso de ads que bajamos. Y pasamelo por aqui', esSuperAdmin: true, escribeElDueno: true, quien: 'Martín' };
+  const real = '{"clase":"NO_REPLY","resumen":"Le pide a alguien del grupo (Claude) un archivo de transcripciones, no es un mensaje para MaKo","reenviado":false,"secundaria":null}';
+  const v = await clasificarConIA(MARTIN, REGLAS, async () => real);
+  assert.equal(v.veredicto.intencion, 'ticket', 'MaKo se calló otra vez');
+  for (const t of ['Dile a Claude que me de un archivo', 'pedile a Claude que arregle el CRM', 'Pídele al equipo que lo revise', 'que Claude me pase las transcripciones', 'avísale a Claude']) assert.equal(lePideAlEquipoDeMaKo(t), true, `«${t}»`);
+  for (const t of ['@Joan ¿esto habla solo?', 'Claude es el modelo que usamos', 'sí, después creamos otro grupo', 'dile a Joan que lo llame']) assert.equal(lePideAlEquipoDeMaKo(t), false, `«${t}»`);
+  // Lo que de verdad es para otra persona sigue siendo NO_REPLY.
+  const otro = await clasificarConIA({ ...E, texto: 'dile a Joan que lo llame' }, REGLAS, async () => '{"clase":"NO_REPLY","resumen":"le habla a Joan"}');
+  assert.equal(otro.veredicto.intencion, 'no_reply');
+  assert.match(SYSTEM_DE_CLASE, /Claude, el Cerebro o «el equipo» NO son otra persona del grupo/);
+});
+
+// Probado rompiéndolo (11/11/2026): sin `aClaude` en `veredictoDeClase` → falla el 5; `lePideAlEquipoDeMaKo` que da siempre true → falla el 5.
+
+test('6. un «sí» suelto a lo que MaKo OFRECIÓ es el pedido, no una charla (Joan, Código Inmobiliario, 11/11/2026 11:28)', async () => {
+  const { clasificarIntencion } = await import('../lib/mako-intencion');
+  const { esOfrecimientoDeMaKo } = await import('../lib/oferta-de-mako');
+  // Lo REAL de ese turno: la pregunta de Joan, la oferta de MaKo, su «Si» y la salida del modelo (anthropic_usage 11:28:44).
+  const oferta = 'Cada negocio en MaKo es independiente… si entras al negocio de Marcela, vería las suyas — pero solo si ella las conectó a su cuenta de MaKo.\n\n¿Querés que revise si Marcela conectó sus anuncios? Me das su nombre o el de otro cliente y te confirmo.';
+  const historial = [{ rol: 'persona' as const, texto: '¿Tenés acceso a las campañas publicitarias de mis clientes?' }, { rol: 'mako' as const, texto: oferta }];
+  const reglas = clasificarIntencion('Si', { makoPregunto: true });
+  assert.equal(reglas.sigueOfrecimiento, true, 'las reglas ya no ven la oferta');
+  const real = '{"clase":"CHARLA","resumen":"Confirma que entendió la respuesta de MaKo.","reenviado":false,"secundaria":null}';
+  const v = await clasificarConIA({ ...E, texto: 'Si', historial, quien: 'Joan Dowd' }, reglas, async () => real);
+  assert.equal(v.veredicto.intencion, 'actuar', 'el «sí» a la oferta quedó en 👍 y nada');
+  assert.equal(v.veredicto.sigueOfrecimiento, true, 'sin el ofrecimiento, el turno no trae las herramientas de lo ofrecido');
+  // Una pregunta por un HECHO no es una oferta: el «sí» ahí sigue siendo charla (el banco: «¿lo contactaron?» → «Si ya es la tercera vez»).
+  const recordatorio = [{ rol: 'mako' as const, texto: 'Entró EDEST_OFICIAL, ¿lo contactaron?' }];
+  const r1 = await clasificarConIA({ ...E, texto: 'Si', historial: recordatorio }, clasificarIntencion('Si', { makoPregunto: true }), async () => '{"clase":"CHARLA","resumen":"responde el recordatorio"}');
+  assert.equal(r1.veredicto.intencion, 'charlar', 'un «sí» a «¿lo contactaron?» corrió un turno');
+  const r2 = await clasificarConIA({ ...E, texto: 'Si ya es la tercera vez q se contacta', historial: recordatorio }, clasificarIntencion('Si ya es la tercera vez q se contacta', { makoPregunto: true }), async () => '{"clase":"CHARLA","resumen":"x"}');
+  assert.equal(r2.veredicto.intencion, 'charlar');
+  for (const t of ['¿Querés que revise si Marcela conectó sus anuncios?', '¿Quieres que lo pase a Agendado?', 'Listo. ¿Te lo agendo mañana a las 12?', '¿Lo reviso?']) assert.equal(esOfrecimientoDeMaKo(t), true, `«${t}»`);
+  for (const t of ['Entró EDEST_OFICIAL, ¿lo contactaron?', '¿Cuántos leads querés ver?', 'Hoy entraron 4 leads.', null]) assert.equal(esOfrecimientoDeMaKo(t), false, `«${t}»`);
+  assert.match(SYSTEM_DE_CLASE, /6b\. Si MaKo acaba de OFRECER hacer algo/);
+});
+
+// Probado rompiéndolo (11/11/2026): sin el «sí» a la oferta en `veredictoDeClase` → falla el 6; `esOfrecimientoDeMaKo` que da siempre
+// true → falla el 6 (el «¿lo contactaron?» corre un turno).

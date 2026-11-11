@@ -42,6 +42,58 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## Landings por función copiadas de la competencia: lo que hay que saber antes de hacer la próxima (11/11/2026)
+
+**Vive en:** `app/vsl/_competencia/` (tipos, `LandingCompetencia.tsx`, una `<slug>.ts` por landing y `registro.ts`),
+`app/vsl/{ai-avatar,seguimiento,whatsapp,crm,dashboard}/page.tsx`, `tests/vsl-landings-competencia.test.ts`,
+`docs/competencia/landings-por-funcion.md` (la investigación y la ganadora de cada función).
+
+- **Una landing nueva es UNA lista de bloques, no un componente.** Cada `<slug>.ts` declara su referencia en las primeras líneas
+  («REFERENCIA COPIADA ENTERA» + URL) y sus bloques en el orden de la ganadora; `LandingCompetencia` los dibuja con la cara de
+  `/vsl` (exporta `Cabecera`, `Pie`, `CtaBand`, `CasoMauricio` y `CSS_DETALLE` de `FeatureDetail.tsx`). El test verifica la
+  cabecera, que el orden dibujado sea el declarado, que no se prometa garantía ni «presupuesto solo», y el voseo.
+- **Cada función de `/vsl` ya tiene su `page.tsx` fija** (`app/vsl/crm/page.tsx` dibujaba `FeatureDetail slug="crm"`): rehacerla
+  es cambiar ESA página, no crear otra ruta. La tarjeta de la grilla sigue saliendo de `features.ts`. Una ruta fija gana a
+  `app/vsl/[slug]` (los documentos del Web Generator): `/vsl/ai-avatar` es nueva y tapa uno con ese mismo slug.
+- **Los gráficos se reusan de `FEATURE_VISUALS[slug].groups` POR ÍNDICE, y el índice no es el que parece.** Un `grep` de
+  `"title"` sobre `feature-visuals.ts` se salta los grupos sin título (una alerta, un `rcRevenue`): en el Dashboard el índice 3
+  era «MaKo · alerta» y no «Audiencia por edad» (el 4). Se listan con
+  `node --import tsx -e "import('./app/vsl/_detalle/feature-visuals.ts').then(m=>m.default.<slug>.groups.forEach((x,i)=>console.log(i,x.title||x.q||x.type)))"`.
+  Y se mira qué AFIRMA el gráfico: el de «¿Apago este anuncio o lo escalo?» muestra a MaKo subiendo un presupuesto, que es del
+  Media Buyer, y no va en el Dashboard.
+- **Los gráficos viejos de `/vsl` tenían voseo que el guard no veía** («Aplicá el cambio», «Escalá», «Reactivá»): el test sólo
+  los lee cuando una landing nueva los dibuja. `marcasDeVoseo` no conoce «reactivar»: «Reactivá» se cazó a ojo. La grilla del
+  pie (`gridHtml`, de `features.ts`) también trae voseo («Editás una fila») y el test la deja afuera a propósito.
+- **Dos franjas de fondo seguidas dejaban una raya blanca** (el margen de `.mk-c-sec` y el de `.mk-hist`): ya se juntan por CSS.
+  Y una grilla de 3 con 5 tarjetas centra la última fila (`mk-c-resto-N`).
+- **Leer competidores desde la nube:** `WebFetch` no pasa por el proxy y contesta «host no encontrado» aunque el host esté
+  permitido. Lo que sí anda es Chromium de Playwright con `proxy: { server: process.env.HTTPS_PROXY }`, en un entorno con los
+  hosts permitidos (`mako-competencia`). Cloudflare (motionads, ManyChat) no se evade: se mira desde el Chrome de Martín.
+  Una portada animada (SaleADS) o que carga vacía sin sesión (Skool) da casi nada de texto: se dice, no se completa de memoria.
+- **El veredicto y el push van con Node 24** (`export PATH="$(sh scripts/node24.sh):$PATH"`): con el 22 el filtro del
+  pre-push dio un rojo falso en `tests/funciones-mako.test.ts` (`wsEnContexto is not a function`). El veredicto pide además la
+  historia entera (`git fetch --unshallow origin main`). Y `tsc-acotado` sobre estas landings necesita `--heap=7000`: con el tope
+  por defecto muere sin heap y dice «NO SE PUDO CHEQUEAR (código undefined)», que no es un error de tipos.
+- **Un número del catálogo puede estar viejo:** `lib/funciones-mako.ts` decía «28 presets» de AI Avatar y el código tiene 33
+  escenas. La landing cuenta del código (`CATEGORIAS`, `PLANTILLAS_VENTA_AVATAR`), nunca a mano, y el test lo fija.
+- **No se pudo probar:** el motor de AI Avatar en vivo (el puente a Flow nunca se midió de punta a punta; la landing de
+  avatares estaba pausada desde el 23/10), el mini-VSL de Panda en el hero de `/vsl/crm` (el entorno no llega a su CDN: se ve
+  negro) y el desborde horizontal de 375 px, que ya tenían todas las páginas de `/vsl` antes de esto (lo tapa `overflow-x`).
+- **Segunda tanda, el mismo día (14 landings más, 5 de ellas hechas en paralelo por ayudantes):**
+  - **Cada ayudante toca SÓLO sus archivos** (su `<slug>.ts`, su `visuales-propios/<slug>.tsx`, su `page.tsx`); el registro y el índice
+    de visuales los conecta uno solo al final. Así no se pisan, y una landing sin registrar no la mira el test: hasta que se
+    suma a `registro.ts`, su verde no existe.
+  - **Una función sin gráfico en `/vsl` lleva un visual propio** (`visual: { tipo: 'propio', slug }`), server component sin JS
+    con su `<style>` y clases `mk-v-<slug>-`. Sin registrarlo en `visuales-propios/index.tsx`, el panel del hero sale vacío, sin error.
+  - **Cinco `tsc` acotados a la vez (uno por ayudante) más `next dev` agotan la RAM**: el kernel mató al servidor. Y
+    **`.next/dev` llegó a 21 GB y llenó el disco**: la máquina se reinició tres veces seguidas hasta borrarlo (es caché). Antes
+    de levantar la app en la nube, `du -sh .next/dev`.
+  - **Captura de una página de `/vsl`: `fullPage` devuelve sólo la ventana**, porque el documento no crece (scrollea un
+    contenedor). Se mide hasta `.mk-cta-end`, se agranda la ventana a esa altura y se corta en tramos.
+  - **Los gráficos viejos de `feature-visuals.ts` siguen trayendo sorpresas**: uno con voseo («Escalá presupuesto», el de portada
+    de `/vsl/mako`, corregido), uno con rótulos en inglés (el de `/vsl/cobranza`) y varios que afirman lo que MaKo no hace (el
+    98 % de entregabilidad, un DMARC que no se revisa). Antes de usar uno, se lee entero.
+
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
 **Vive en:** `scripts/landing-valores-tilvo.mjs` (con su test), `scripts/banco-editor-web/landing.tsx`, `app/vsl/CartelPromo.tsx`.

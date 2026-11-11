@@ -175,6 +175,17 @@ export async function lecturaPreviaDelGrupo(waMensajeId: string): Promise<(Lectu
   return { ...deFila(f), aplicadoA: f.aplicado_a ?? null };
 }
 
+/**
+ * ¿Esa orden ya se leyó en algún comprobante de este negocio? (ticket #80: el mismo pago mandado otra vez, en PDF, volvía a Martín.)
+ * Estricto: «no pude leer» TIRA, y quien llama lo toma como «no sé».
+ */
+export async function ordenEnUnaLecturaDelGrupo(orden: string): Promise<boolean> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('comprobantes_leidos').select('id').eq('operacion', orden).limit(1);
+  if (error) throw new Error(faltaLaTabla(error) ? 'falta la migración 0400' : `no pude leer los comprobantes: ${error.message}`);
+  return (data ?? []).length > 0;
+}
+
 /** Lee un archivo (foto o PDF) como comprobante, con la IA de `iaWs`. No guarda nada. */
 export async function leerArchivoComprobante(p: { iaWs: number; bytes: Uint8Array; mime: 'image/jpeg' | 'image/png' | 'application/pdf' }): Promise<{ ok: true; lectura: LecturaComprobante; proveedor: string } | { ok: false; error: string }> {
   if (p.bytes.length > TOPE_BYTES) return { ok: false, error: 'El archivo pesa más de 12 MB.' };

@@ -76,7 +76,57 @@ export function tramosDeFrase(
     if (ultimo < tramo.length) partes.push({ texto: tramo.slice(ultimo) });
     // Una llave que no calzó con la forma (`{Cobrado}`, `{ x }`) queda cruda en el texto: ese tramo se va.
     if (partes.some((p) => !p.numero && /[{}]/.test(p.texto))) continue;
-    out.push(partes);
+    out.push(enSingular(partes));
+  }
+  return out;
+}
+
+/**
+ * Las palabras de las frases de las plantillas que van después de un número, en singular. Con «1» la frase decía «Entraron 3
+ * visitas de 1 personas» (11/11/2026, Landing en el teléfono). Sólo las que usan las plantillas: una palabra que no está queda.
+ */
+const SINGULAR: Readonly<Record<string, string>> = {
+  veces: 'vez', llamadas: 'llamada', agendas: 'agenda', tareas: 'tarea', personas: 'persona', clientes: 'cliente', cierres: 'cierre',
+  visitas: 'visita', sesiones: 'sesión', mensajes: 'mensaje', interesados: 'interesado', cuotas: 'cuota', clases: 'clase', vencidos: 'vencido',
+  leads: 'lead', agendaron: 'agendó', vieron: 'vio', tocaron: 'tocó', llegaron: 'llegó', fallaron: 'falló',
+};
+
+/**
+ * Lo que sigue a un «1» cuando es MÁS de una palabra: el verbo detrás de «no se», «te», «ya» o «lo», y el adjetivo o el verbo
+ * que acompaña al sustantivo. Con una palabra sola, Comercial decía «1 no se presentaron» (11/11/2026, el teléfono en producción).
+ * Van primero que `SINGULAR`, y la más larga antes que la que empieza igual.
+ */
+const SINGULAR_FRASES: ReadonlyArray<readonly [string, string]> = [
+  ['personas le dieron', 'persona le dio'], ['tareas activas', 'tarea activa'], ['no se presentaron', 'no se presentó'],
+  ['te respondieron', 'te respondió'], ['ya compraron', 'ya compró'], ['ya hechas', 'ya hecha'], ['lo vieron', 'lo vio'],
+];
+
+/** El texto que sigue a un «1», con su primera palabra (o frase) en singular. Sin espacio adelante no es lo que sigue al número. */
+function singularAlPrincipio(texto: string): string {
+  const esp = /^\s+/.exec(texto)?.[0];
+  if (!esp) return texto;
+  const resto = texto.slice(esp.length);
+  const bajo = resto.toLowerCase();
+  for (const [plural, uno] of SINGULAR_FRASES) {
+    if (bajo.startsWith(plural) && !/[a-záéíóúñ]/i.test(resto.charAt(plural.length))) return esp + uno + resto.slice(plural.length);
+  }
+  const w = /^[a-záéíóúñ]+/i.exec(resto)?.[0];
+  const uno = w ? SINGULAR[w.toLowerCase()] : undefined;
+  return uno ? esp + uno + resto.slice(w!.length) : texto;
+}
+
+/**
+ * Después de un número que es «1», lo que sigue en singular («1 persona», «1 agendó», «1 no se presentó»). Y «1 de tus 5 clientes
+ * piden atención» (Customer Success): el verbo va dos números más allá y concuerda con el «1», no con los 5.
+ */
+function enSingular(partes: ParteFrase[]): ParteFrase[] {
+  const out = partes.map((p) => ({ ...p }));
+  for (let i = 1; i < out.length; i++) {
+    const p = out[i];
+    if (p.numero || !out[i - 1].numero || out[i - 1].texto !== '1') continue;
+    p.texto = singularAlPrincipio(p.texto);
+    const despues = out[i + 2];
+    if (/^\s+de tus\s+$/i.test(p.texto) && out[i + 1]?.numero && despues && !despues.numero) despues.texto = despues.texto.replace(/\bpiden\b/, 'pide');
   }
   return out;
 }

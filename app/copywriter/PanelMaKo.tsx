@@ -42,7 +42,8 @@ import { escondida } from '@/lib/copywriter/arbol';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { aplicarTodo, cuadrosDeConstruccion, sanearOperaciones, type Descartada } from '@/lib/copywriter/operaciones';
 import { plantillaPorId } from '@/lib/copywriter/plantillas';
-import { pasoPendiente, pasosDeIniciativa, pedidoDeIniciativa, textoDeRespuesta, type OfertaCorta, type RespuestasIniciativa } from '@/lib/copywriter/iniciativa';
+import { nombreDeOferta, ofertaDeReplica, otrasOfertasDeReplica, pasoPendiente, pasosDeIniciativa, pedidoDeIniciativa, pedidoDeReplica, textoDeRespuesta, type OfertaCorta, type RespuestasIniciativa } from '@/lib/copywriter/iniciativa';
+import { textoDelDoc } from '@/lib/copywriter/doc';
 import { REF_OFERTA, buscarReferencias, consultaArroba, elegirReferencia, type Referencia } from '@/lib/copywriter/referencias-reglas';
 import { aceptar as aceptarEnDoc, construir, descartar as descartarEnDoc, type DocVivo } from './editor/propuesta';
 import type { ApiPagina } from './editor/EditorGuion';
@@ -70,7 +71,8 @@ type Propuesta = {
 type EstadoPropuesta = 'construyendo' | 'pendiente' | 'aceptada' | 'descartada';
 
 type Mensaje =
-  | { id: number; de: 'yo'; texto: string; adjuntos?: string[] }
+  // `oculto`: el pedido que armaron las preguntas de MaKo. MaKo lo lee en la charla; la pantalla no lo dibuja (ya están las respuestas).
+  | { id: number; de: 'yo'; texto: string; adjuntos?: string[]; oculto?: boolean }
   | { id: number; de: 'mako'; texto: string; error?: boolean; propuesta?: Propuesta; estado?: EstadoPropuesta };
 
 /** Lo que el panel necesita del guion vivo (lo que todavía no se guardó también cuenta). */
@@ -78,6 +80,8 @@ export type GuionVivo = { titulo: string; props: PropsGuion };
 
 let ultimoId = 0;
 const nuevoId = () => ++ultimoId;
+/** La tecla de deshacer de ESTA computadora: ⌘Z en una Mac, Ctrl+Z en las demás (sólo se dibuja después de aceptar, en el cliente). */
+const teclaDeshacer = () => (typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent) ? '⌘Z' : 'Ctrl+Z');
 /** Sin ofertas: una sola lista vacía, para que no cambie en cada render. */
 const SIN_OFERTAS: readonly OfertaCorta[] = [];
 
@@ -134,7 +138,19 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
    * a qué oferta adaptarla, con botones. Las preguntas no llaman a la IA; la última respuesta, sí (`pedidoDeIniciativa`).
    */
   const [respIni, setRespIni] = useState<RespuestasIniciativa>({});
+  // Una página que replica un outlier (D18, `props.outlier`). El original le llega a la IA por el server en cada pedido
+  // (lib/copywriter/ia.ts), así que el pedido es un «Editar» común, no «adaptar» una plantilla.
+  // ⚠️ SIN PREGUNTA (11/11/2026, Martín: «le doy a replicar y lo único que me replica es el título… no se tomó el trabajo de hacer
+  // un guion»): al abrir la réplica vacía, MaKo la escribe SOLA con la oferta principal y la deja en la página (sin «Aceptar»);
+  // la oferta se cambia después, con los botones de abajo de su mensaje (`otrasOfertasDeReplica`).
+  const replica = !plantilla && !!guion?.doc.props.outlier;
   const pasosIni = useMemo(() => (plantilla ? pasosDeIniciativa(plantilla, ofertas) : []), [plantilla, ofertas]);
+  const pedidoIni = (r: RespuestasIniciativa) => pedidoDeIniciativa(pasosIni, r, ofertas);
+  /** La charla guardada ya se leyó (con o sin mensajes): recién ahí se sabe si la réplica está por escribirse. */
+  const [hiloLeido, setHiloLeido] = useState(false);
+  /** La réplica que MaKo escribió sola: con qué oferta y en qué mensaje (debajo van las otras ofertas). */
+  const [replicaHecha, setReplicaHecha] = useState<{ oferta: string; mensaje: number | null; desde: number } | null>(null);
+  const aceptarAlTerminar = useRef(false);
   const [mensajes, setMensajes] = useState<Mensaje[]>([]);
   const [corriendo, setCorriendo] = useState(false);
   const [texto, setTexto] = useState('');
@@ -163,6 +179,9 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     setRefs([]);
     setAdaptando(false);
     setRespIni({});
+    setHiloLeido(false);
+    setReplicaHecha(null);
+    aceptarAlTerminar.current = false;
     corte.current?.abort();
     setCorriendo(false);
     onPausa(false);
@@ -170,7 +189,9 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     pedidoInicial.current = tomarPedido(ws, id);
     const ac = new AbortController();
     void leerHiloDeTab(claveDeGuion(id), ac.signal).then((filas) => {
-      if (ac.signal.aborted || !filas?.length) return;
+      if (ac.signal.aborted) return;
+      setHiloLeido(true);
+      if (!filas?.length) return;
       setMensajes((ms) => (ms.length ? ms : mensajesDeFilas(filas).map((m): Mensaje => (m.de === 'yo'
         ? { id: nuevoId(), de: 'yo', texto: m.texto, ...(m.adjuntos?.length ? { adjuntos: m.adjuntos } : {}) }
         : { id: nuevoId(), de: 'mako', texto: m.texto, ...(m.error ? { error: true } : {}) }))));
@@ -247,11 +268,14 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
    * «Editar»: MaKo devuelve herramientas; acá se vuelven a validar contra el guion de AHORA, se construyen a la vista y
    * quedan como propuesta. Nada se guarda hasta «Aceptar». Con `adaptar`, es adaptar la plantilla (la última respuesta a
    * las preguntas de MaKo al crear): si MaKo contesta con una pregunta, el panel queda «adaptando».
+   * `mostrar = false`: el pedido que arman las preguntas de MaKo NO se dibuja (las respuestas ya están arriba, con su pregunta);
+   * igual queda en la charla que lee MaKo y en el hilo guardado. 11/11/2026, en producción: «Mensajes con una palabra» y «Sprint de Diseño» en píldora,
+   * y abajo otra burbuja «Es para: Mensajes con una palabra. Adáptalo a mi oferta…», con otro estilo, diciendo lo mismo.
    */
-  const pedirEdicion = useCallback(async (instruccion: string, archivos: File[] = [], citadas: Referencia[] = [], adaptar = false) => {
+  const pedirEdicion = useCallback(async (instruccion: string, archivos: File[] = [], citadas: Referencia[] = [], adaptar = false, mostrar = true) => {
     const { id: idG, editor: ed } = vivo.current;
     if (!idG || !ed || !instruccion.trim()) return false;
-    const yo: Mensaje = { id: nuevoId(), de: 'yo', texto: instruccion, ...(archivos.length ? { adjuntos: archivos.map((f) => f.name) } : {}) };
+    const yo: Mensaje = { id: nuevoId(), de: 'yo', texto: instruccion, ...(archivos.length ? { adjuntos: archivos.map((f) => f.name) } : {}), ...(mostrar ? {} : { oculto: true }) };
     setMensajes((xs) => [...xs, yo]);
     setCorriendo(true);
     const ac = new AbortController();
@@ -334,6 +358,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   };
 
   const puede = !!id && !!editor && !corriendo && !conPropuestaAbierta && !appEscritorio.bloqueada;
+  /** Las otras ofertas para rehacer la réplica. */
+  const otrasReplica = replicaHecha ? otrasOfertasDeReplica(replicaHecha.oferta, ofertas) : [];
 
   // La pregunta de la iniciativa que sigue (sólo con el chat vacío), y contestarla: con la última, el pedido a la IA.
   const pasoIni = mensajes.length === 0 && id ? pasoPendiente(pasosIni, respIni) : null;
@@ -342,15 +368,15 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     const r = { ...respIni, [pasoIni.id]: valor };
     setRespIni(r);
     if (pasoPendiente(pasosIni, r)) return;
-    const pedido = pedidoDeIniciativa(pasosIni, r, ofertas);
-    if (pedido.adaptar) { void pedirEdicion(pedido.texto, [], [], true); return; }
-    setMensajes((xs) => [...xs, { id: nuevoId(), de: 'yo', texto: pedido.texto }, { id: nuevoId(), de: 'mako', texto: 'Listo: la estructura queda para ti. Cuando quieras, pídeme lo que necesites.' }]);
+    const pedido = pedidoIni(r);
+    if (pedido.adaptar) { void pedirEdicion(pedido.texto, [], [], true, false); return; }
+    setMensajes((xs) => [...xs, { id: nuevoId(), de: 'yo', texto: pedido.texto, oculto: true }, { id: nuevoId(), de: 'mako', texto: 'Listo: la estructura queda para ti. Cuando quieras, pídeme lo que necesites.' }]);
   };
   /** Esa respuesta cierra las preguntas y pide a la IA: espera a que se pueda (editor listo, sin otro pedido corriendo). */
   const llamaALaIA = (valor: string) => {
     if (!pasoIni) return false;
     const r = { ...respIni, [pasoIni.id]: valor };
-    return !pasoPendiente(pasosIni, r) && pedidoDeIniciativa(pasosIni, r, ofertas).adaptar;
+    return !pasoPendiente(pasosIni, r) && pedidoIni(r).adaptar;
   };
 
   /** Lo escrito: a la pregunta de MaKo si hay una; si no, a «Discutir» o «Editar» (o a «adaptar», si MaKo preguntó un dato). */
@@ -370,6 +396,35 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     elegirIntencion('editar');
     void pedirEdicion(`Escribe esta página: ${p}`);
   }, [editor, id, corriendo, appEscritorio.bloqueada]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Escribe la réplica entera con esa oferta. Sobre la página vacía queda escrita sola; sobre lo ya escrito, es una propuesta. */
+  const escribirReplica = (oferta: string, vacia: boolean) => {
+    elegirIntencion('editar');
+    aceptarAlTerminar.current = vacia;
+    setReplicaHecha({ oferta, mensaje: null, desde: vivo.current.mensajes.length });
+    void pedirEdicion(pedidoDeReplica({ oferta }, ofertas).texto, [], [], false, false);
+  };
+
+  // La réplica se escribe SOLA al abrirla vacía (11/11/2026, Martín): con la charla ya leída y vacía (si tiene charla, ya se
+  // escribió antes), el editor listo y la página sin texto. Sin la app de escritorio no corre, como ningún chat de MaKo.
+  useEffect(() => {
+    if (!replica || !id || !editor || !hiloLeido || corriendo || replicaHecha || appEscritorio.bloqueada) return;
+    if (mensajes.length || textoDelDoc(editor.leer() as JsonNodo).trim()) return;
+    escribirReplica(ofertaDeReplica(ofertas), true);
+  }, [replica, id, editor, hiloLeido, corriendo, replicaHecha, appEscritorio.bloqueada, mensajes.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Lo que escribió sobre la página vacía queda en la página sin pedir «Aceptar» (no había nada que pisar), y su mensaje lleva
+  // abajo las otras ofertas.
+  useEffect(() => {
+    if (!replicaHecha || replicaHecha.mensaje != null) return;
+    // Sólo lo que llegó desde este pedido (al rehacer para otra oferta, el mensaje de antes ya estaba).
+    const ultimo = mensajes.slice(replicaHecha.desde).reverse().find((m) => m.de === 'mako');
+    if (!ultimo || ultimo.de !== 'mako') return;
+    if (ultimo.estado === 'construyendo') return;
+    setReplicaHecha({ ...replicaHecha, mensaje: ultimo.id });
+    if (aceptarAlTerminar.current && ultimo.estado === 'pendiente') aceptar(ultimo);
+    aceptarAlTerminar.current = false;
+  }, [mensajes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!citarRef) return;
@@ -437,7 +492,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     window.setTimeout(() => campo.current?.focus(), 0);
   }, [campo]);
 
-  const items = useMemo((): ItemHilo[] => mensajes.map((m): ItemHilo => (m.de === 'yo'
+  const items = useMemo((): ItemHilo[] => mensajes.filter((m) => !(m.de === 'yo' && m.oculto)).map((m): ItemHilo => (m.de === 'yo'
     ? { k: 'msg', id: String(m.id), role: 'user', texto: m.texto, at: null, ...(m.adjuntos?.length ? { archivos: m.adjuntos.map(archivoDe) } : {}) }
     : { k: 'msg', id: String(m.id), role: 'assistant', texto: m.error ? '' : m.texto, at: null })), [mensajes]);
 
@@ -459,7 +514,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
           {m.estado === 'pendiente' && (
             <>
               <div className="nt-mako-estado">
-                {p.nuevos.length ? `${cuantos(p.nuevos.length)} nuevos, marcados en la página.` : 'Cambios marcados en la página.'}
+                {/* «1 bloque nuevo», no «1 bloque nuevos» (11/11/2026, en producción). */}
+                {p.nuevos.length ? `${cuantos(p.nuevos.length)} ${p.nuevos.length === 1 ? 'nuevo, marcado' : 'nuevos, marcados'} en la página.` : 'Cambios marcados en la página.'}
                 {p.titulo ? ` Título: «${p.titulo}».` : ''}
               </div>
               {p.avisos.map((a) => <div key={a} className="nt-propuesta-aviso">{a}</div>)}
@@ -471,7 +527,21 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
               </div>
             </>
           )}
-          {m.estado === 'aceptada' && <div className="nt-mako-estado">Aceptado. Ctrl+Z en la página lo deshace.</div>}
+          {/* La tecla, sólo donde hay teclado (11/11/2026, en producción el teléfono decía «Ctrl+Z en la página lo deshace»):
+              `.nt[data-movil]` la esconde, y en una Mac es ⌘Z. */}
+          {m.estado === 'aceptada' && <div className="nt-mako-estado">{m.id === replicaHecha?.mensaje ? 'Quedó escrito en la página.' : 'Aceptado.'}<span className="nt-solo-teclado"> {teclaDeshacer()} en la página lo deshace.</span></div>}
+          {/* La réplica escrita sola: con qué oferta, y las otras para rehacerla (11/11/2026: «si hay una oferta principal, usala
+              y dejá cambiarla»). */}
+          {m.id === replicaHecha?.mensaje && (m.estado === 'aceptada' || m.estado === 'pendiente') && otrasReplica.length > 0 && (
+            <>
+              <div className="nt-mako-estado">{`Lo escribí para ${nombreDeOferta(replicaHecha.oferta, ofertas) ? `tu oferta «${nombreDeOferta(replicaHecha.oferta, ofertas)}»` : 'tu negocio'}. ¿Lo rehago para otra?`}</div>
+              <div className="nt-mako-pildoras">
+                {otrasReplica.map((o) => (
+                  <button key={o.valor} type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => escribirReplica(o.valor, false)}>{o.texto}</button>
+                ))}
+              </div>
+            </>
+          )}
           {m.estado === 'descartada' && <div className="nt-mako-estado">Descartado: la página quedó como estaba.</div>}
         </div>
       ),
@@ -527,7 +597,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
         ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && (
           <>
             <div className="nt-mako-bienvenida">
-              {!id ? 'Elige una página, o crea una con «Nueva página».'
+              {!id ? 'Elige un outlier y tócale «Replicar»: te escribo el guion entero con tu oferta. Tus guiones están en la «←».'
                 : intencion === 'discutir' ? 'Pregúntame lo que quieras de esta página: te digo qué cambiaría, sin tocar nada.'
                   : 'Pídeme que escriba o edite esta página: lo escribo aquí al lado y tú decides si queda.'}
               {id && ' Con @ citas otra página, la oferta o un archivo.'}

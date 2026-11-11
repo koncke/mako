@@ -43,6 +43,8 @@ import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resulta
 import { aplicarPreset, PREFIJO_PRESET, usePresetsSubtitulos } from "@/app/video-editor/_opencut/subtitles/presets";
 import { aplicarEstiloASubtitulos } from "@/app/video-editor/_opencut/subtitles/insert";
 import { usePreferenciasSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
+import { PLANTILLAS_SUBTITULO, paramsDePlantilla } from "@/app/video-editor/_opencut/subtitles/estilos";
+import { lienzoDe } from "@/app/video-editor/_opencut/subtitles/insert";
 import { ponerEmojisEnSubtitulos } from "@/app/video-editor/_opencut/subtitles/emojis-poner";
 import { subtitulosDe } from "@/app/video-editor/_opencut/subtitles/insert";
 import { proponerBroll } from "@/app/video-editor/_opencut/broll/proponer";
@@ -161,6 +163,15 @@ async function correrLarga(
 		if (n > 0) usePreferenciasSubtitulos.getState().fijar({ plantilla: `${PREFIJO_PRESET}${preset.id}` });
 		return n > 0 ? [] : ["no hay subtítulos"];
 	}
+	if (r.op === "usar_plantilla_subtitulos") {
+		// Lo MISMO que tocar su tarjeta en Subtítulos › Plantillas (subtitles/components/assets-view.tsx, `elegir`): queda
+		// elegida para los que se generen después y se aplica a todos, con los renglones vueltos a partir.
+		const plantilla = PLANTILLAS_SUBTITULO.find((p) => p.id === r.plantilla);
+		if (!plantilla) return ["esa plantilla ya no está"];
+		usePreferenciasSubtitulos.getState().fijar({ plantilla: plantilla.id });
+		const n = await aplicarEstiloASubtitulos({ editor, estilo: paramsDePlantilla(plantilla, lienzoDe(editor)) });
+		return n > 0 ? [] : ["no hay subtítulos"];
+	}
 	if (r.op === "estilo_subtitulos") {
 		// El MISMO de «Aplicar en todos los subtítulos» (subtitles/insert.ts): el estilo y los renglones vueltos a partir con la
 		// fuente nueva, en un paso de deshacer. Sólo los que nombró el pedido.
@@ -227,6 +238,7 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	usar_plantilla: "usar la plantilla",
 	borrar_silencios: "borrar los silencios",
 	usar_preset_subtitulos: "usar el preset",
+	usar_plantilla_subtitulos: "usar la plantilla de subtítulos",
 	estilo_subtitulos: "cambiar el estilo de los subtítulos",
 	broll: "proponer el B-roll",
 	cambiar_broll: "traer otra imagen o video del B-roll",

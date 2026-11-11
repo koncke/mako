@@ -6,6 +6,128 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Los cursores de los agentes no se veían «en todo momento» (11/11/2026)
+
+**El síntoma:** Martín, mirando tres rondas de capturas de producción, pidió los cursores: «súper importante que esté en todo
+momento. Porque es lo que hace atractivo justamente a esta funcionalidad de edición». No estaban en ninguna.
+
+- **El diagnóstico obvio («los cursores no andan en producción») era el equivocado.** Andaban. Las capturas se sacaron cuando la
+  corrida ya había terminado, y los cursores sólo existen mientras trabajan. Para verlos hay que sacar las capturas DURANTE la
+  corrida y muestrear el DOM (la capa `z-[58]` del portal) con un `setInterval`: con eso salió la medida de abajo.
+- **Lo que sí estaba mal, medido en producción** (ws 3, clip de 14 s, muestreo cada 200 ms): de 58 s de corrida, subs-01 transcribió
+  42 s con el cursor clavado en el mismo píxel (los cursores se movían sólo con un renglón nuevo, y la transcripción no escribe
+  ninguno en un minuto); muletillas, B-roll y volumen trabajaban 0,2–0,8 s, menos que los 520 ms que tarda en llegar el cursor;
+  cinco agentes ni se prendían; y fuera de la Edición automática (el chat, «Sí, en el feed», el botón de Subtítulos) no había cursores.
+- **La regla que queda:** un agente que trabaja nunca está quieto (`puntoTrabajando` en `enjambre/cursores.ts`: cada `PASEO_MS` se
+  corre dentro de su caja), cada paso dura al menos `PASO_A_LA_VISTA_MS` (`enjambre/correr.ts`), y TODO lo que edita MaKo prende el
+  cursor de su agente (`enjambre/cursores-sueltos.ts`: el chat con `mostrarCursores`, y los trabajos largos por su store de fase).
+  Una edición nueva de MaKo que tenga su propio store de trabajo se suma en `agentesSueltos`; una operación nueva del chat, en
+  `AGENTE_DE_OPERACION` (sin agente, no hay cursor).
+- **Sin hacer:** los renglones que llegan juntos (subs-01 anota sus 7 subtítulos en el mismo instante) llevan el cursor sólo al
+  último; el panel de «Borrar silencios» y otros botones sin store de fase no prenden cursor (el chat sí).
+
+**Vive en:** `app/video-editor/_opencut/enjambre/{cursores,cursores-sueltos,correr}.ts` · `enjambre/components/cursores.tsx` ·
+`chat/PanelChat.tsx` (`aceptar`) · test `tests/video-editor-cursores-siempre.test.ts`.
+
+## Probar el editor en el navegador de la app de Claude: tres trampas que no son de MaKo (11/11/2026)
+
+Probado en producción el 11/11 (docs/pruebas/video-produccion-11-11.md). El panel del navegador de la app de Claude
+suele estar oculto. Lo que ahí parece una falla del editor, en una pestaña visible de Chrome no pasa:
+
+- **«Importando…» para siempre,** con un video y también con una imagen. La importación espera dos cuadros de pantalla
+  antes de empezar (`waitForNextPaint`, `media/upload-toast.ts`), y el panel oculto sólo pinta cuando se le saca una
+  captura. **Regla:** sacar capturas mientras importa; entra en segundos.
+- **El OPFS se vació y el IndexedDB no:** el proyecto quedó sin sus archivos (vista previa negra), y los subtítulos
+  decían «sin voz». En Chrome, el proyecto del día anterior seguía entero. Desde el 11/11 el mensaje dice «falta en este
+  navegador el archivo…» (`faltaAlgunArchivo`, `subtitles/resultado.ts`).
+- **La primera captura de la portada sale en blanco** aunque las imágenes ya cargaron: aparecen en la siguiente.
+- Y sin la app de escritorio de MaKo conectada en la PC, el chat no deja escribir. Es la regla del 25/10, no el negocio
+  de prueba. Desde el 11/11 los atajos se apagan diciendo por qué, en vez de no hacer nada.
+
+## La memoria del editor, medida: achicar la vista previa NO la baja, la copia liviana sí (11/11/2026)
+
+Martín preguntó si con Remotion se podía editar sin gastar la RAM del cliente. Antes de decidir, se midió dónde se va hoy.
+El código real (`VideoCache`, `WaveformCache`) corrió en un Chrome sin ventana: el banco `scripts/banco-memoria-editor/`.
+Números y método en docs/editor-video/memoria-del-editor.md.
+
+- **El diagnóstico obvio era el equivocado.** «1/2» y «1/4» en la vista previa (`canvas/escala-salida.ts`), igual que el
+  `maxCanvasSinkFrameSize` del `<Video>` de Remotion, achican el lienzo de SALIDA. Medido con 3 clips de 1080×1920:
+  - lienzo achicado: de +297 a +264 MB, casi nada;
+  - una COPIA liviana del archivo (540×960, 2 Mb/s): **+86 MB**.
+
+  El navegador decodifica a la resolución del archivo, y mediabunny guarda hasta 8 cuadros en cola antes del lienzo. En 4K
+  el pico baja de +529 a +26 MB, y cada cuadro sale 10 veces más rápido: de 11 a más de 30 cuadros por segundo. **Regla:**
+  para bajar la memoria de la vista previa se cambia lo que se DECODIFICA, no el tamaño en que se dibuja.
+- **El pico más grande es la forma de onda**, no el video: `services/waveform-cache/service.ts:64-79` lee el archivo
+  entero, lo copia (`.slice(0)`) y decodifica todo el audio. Mide 3,6 veces el archivo (76 MB → +275 MB) en cada carga del
+  proyecto; un video de celular de 1 GB pide ≈3,6 GB.
+- **Cada clip que se tocó deja su decodificador abierto** (≈100 MB en 1080×1920) hasta sacar el archivo o cambiar de
+  proyecto. Y el compositor copia cada cuadro a un `OffscreenCanvas` NUEVO (`wasm-compositor.ts:232`): en 4K sube el pico de
+  +529 a +762 MB, y la GPU lo suelta tarde.
+- **La copia liviana y la exportación NO pueden compartir clave en el `videoCache`.** El caché guarda un
+  decodificador por clave, y el que llega primero se queda. Si la vista previa abre la copia con la clave del medio,
+  exportar recibe ESE decodificador y sale en 540 px, sin ningún error. Por eso la copia va con `claveLiviana()`
+  (`media/copia-liviana-reglas.ts`) y exportar usa el original con la clave de siempre.
+  - La miniatura del proyecto y la portada del cuadro de exportar se arman sin `isPreview`, así que abrían el
+    decodificador del ORIGINAL en cada guardado. Ahora van con la copia.
+  - Exportar suelta los decodificadores del original al terminar.
+- **Dos rojos de GitHub que no eran del editor:**
+  - **TS2415 en el test del tope.** Un falso que EXTIENDE `VideoCache` y pisa `initializeSink` (privado) no compila,
+    aunque en la PC el test corra verde: `tsx` no chequea tipos. El falso va sobre la instancia
+    (`(c as unknown as {...}).initializeSink = …`).
+  - **El enjambre fijaba el cuerpo de `profundidad()` con un regex** (`tests/video-editor-enjambre.test.ts`). Cambiar la
+    función dio rojo en un test de otro archivo, que el filtro de la PC no corre. **Regla:** antes de cambiar el cuerpo de
+    una función del motor, buscar su texto en `tests/` (`grep -rn "return this.history" tests/`).
+  - Y una rama apilada hereda el rojo de la de abajo: el arreglo se pasa con cherry-pick a cada una, no hace falta
+    reescribirlas.
+- **Trampas del banco, para la próxima medición:**
+  - En un Chrome sin ventana los lienzos viven en el proceso de la GPU: midiendo sólo el de la página, el video «no gasta
+    nada».
+  - Sumar todos los procesos de tipo renderer mete el `about:blank` inicial: se abre la página como ÚNICA pestaña.
+  - Muestrear cada ~0,5 s no ve un pico de 0,3 s: el pico sale de `PeakPageFileUsage` de Windows.
+  - Una llamada de CDP sin tope queda esperando para siempre si Chrome se cae. Ya pasó: lo cortó la guarda de RAM.
+- **Sin hacer** (orden y archivos en memoria-del-editor.md §7):
+  1. forma de onda por tramos (`waveform-cache/service.ts`);
+  2. ~~copias livianas al importar~~ **HECHO el 11/11** (`media/copia-liviana.ts`; 3 clips de +297 a +81 MB, memoria-del-editor.md §9);
+  3. un lienzo por capa que se reuse;
+  1. ~~forma de onda por tramos~~ **HECHO el 11/11** (`media/onda-por-tramos.ts`; 76 MB de video: pico de +275 a +61 MB, el mismo dibujo, memoria-del-editor.md §10);
+  2. ~~copias livianas al importar~~ **HECHO el 11/11** (`media/copia-liviana.ts`; 3 clips de +297 a +81 MB, memoria-del-editor.md §9);
+  3. ~~un lienzo por capa que se reuse~~ **HECHO el 11/11 para el video** (`compositor/lienzo-de-subida.ts`; 1080: pico de la GPU de +198 a +152 MB, cuadros un 23 % más rápidos). Los efectos tipo CapCut siguen con un lienzo nuevo por llamada (`pases-ce.ts:347`), a propósito: el de su contexto se reusa abajo de quien lo lee;
+  4. ~~tope de decodificadores abiertos~~ **HECHO el 11/11, con otra regla**: se cierra el que no pidió un cuadro en 5 s DE USO, y con el editor quieto no corre. Un tope fijo cerraría capas que se ven a la vez. Con 6 clips de celular, Chrome queda en +188 MB contra +411. ⚠️ La GPU no devuelve en el momento lo que se suelta: cerrar no la baja, la deja de hacer crecer, y con 2–4 clips no se nota;
+  5. ~~terminar el hilo de Whisper~~ **HECHO el 11/11**: se suelta al minuto sin uso, nunca con un subtitulado en curso (≈250–300 MB);
+  6. exportar sin juntar todo en memoria: **el audio, HECHO el 11/11** (de a una fuente: 4 clips de 60 s, de +450 a +200 MB de pico, el mismo resultado); falta el MP4 a OPFS con `StreamTarget` (el «fast start» en memoria pone el índice al principio, y escribiendo de a poco hay que elegir dónde va);
+  7. las fugas: **HECHAS el 11/11 cuatro** (IndexedDB cierra cada conexión, y una abierta dejaba colgado a `deleteDatabase`; el caché de imágenes, el `AudioContext` de cada sonido de la biblioteca y el `Input` de la tira de miniaturas se sueltan). Falta `EditorCore.reset()` / `AudioManager.dispose()` / salir sin cerrar el proyecto, que se prueba con el editor entero.
+
+    8. **el tope al historial, HECHO el 11/11** (200 pasos). ⚠️ Un tope que olvida los más viejos rompe la cuenta de «Deshacer todo»: la Edición automática resta la profundidad de antes y la de después, y con el historial lleno daba 0. Por eso `profundidad()` cuenta también los olvidados.
+
+  Sin medir en vivo: el editor ENTERO (la PC tenía 1,9 GB libres, y sigue el SIN RESOLVER de «Cargando…» en un Chrome sin
+  ventana), exportar y Whisper.
+
+## Remotion: lo que la nube hace y lo que no (11/11/2026)
+
+- **La nube de Remotion EXPORTA; no edita.** La vista previa (`<Player>`) corre siempre en el navegador; un render en Lambda tarda segundos (7,56 s caliente en su ejemplo más simple), sirve para exportar, no para mover el cabezal. Lo que baja la RAM es otra cosa: proxies livianos hechos en la nube, el `<Video>` de `@remotion/media` (descarga por partes, caché acotado), `maxCanvasSinkFrameSize`, y NO usar `prefetch()` (guarda el archivo entero en memoria). **Antes de migrar de OpenCut, medir dónde se va hoy la memoria**: cambiar de motor no la baja sola.
+- **12 de las 21 transiciones** (`dissolve`, `crossZoom`, `filmBurn`…) y los efectos sobre TEXTO necesitan `<HtmlInCanvas>`, que en la vista previa pide un flag de Chrome y sin él tira un error fatal. En el render andan todas.
+- **Licencias dentro de lo gratis:** de `@remotion/sfx` sólo 7 de 32 sonidos son CC0; los emojis animados piden atribución (CC BY 4.0). Detalle: docs/editor-video/remotion-a-fondo.md.
+
+## La portada de outliers con UNA tarjeta gris (11/11/2026)
+
+Martín, con la captura de `/video-editor`: «Encuentra tu siguiente OUTLIER» tenía UNA tarjeta (la plantilla «Mensaje para…»),
+las tomas eran rectángulos grises, los títulos se leían «Dis…», «Creden…», y decía «Sin datos de su cuenta». «Deberían haber
+detectado esto.»
+
+- **El recorrido del 10/11 no lo marcó porque lo miré como «pasa»**: la portada cargaba, sin error, con su tarjeta. **Una
+  pantalla vacía o pobre en producción ES una falla**, aunque no tire nada: se la compara con su referencia (la grilla de
+  Image, cientos de carruseles con imagen) y se la critica como Martín, no como un test.
+- **Los datos estaban**: Spy ya tenía, en ws9, 525 reels de Instagram con vistas y miniatura en nuestro bucket, el gancho
+  leído en 554 de 561, y la cuenta de cada uno con su foto. La portada tenía una sola fuente enchufada (la curada de MaKo). La
+  fuente «Ya» de `docs/investigacion-outliers-video.md` no gasta nada: lee `spy_piezas` como lo hace Image (`FUENTE_SPY`,
+  `outliersDeSpy`, con el múltiplo de toda la app sobre TODAS las piezas de la cuenta).
+- **«Sin datos de su cuenta» era el motivo del múltiplo de la plantilla**, puesto como chip. Para la persona no significa
+  nada. La tarjeta de la plantilla dice lo que dice en «Crear desde cero»: «MaKo te guía».
+- **Los títulos cortados eran la estructura en columnas** de ~40 px. Van en bandas horizontales, con el nombre entero.
+- **SIN HACER**: los reels propios por Zernio (la fuente «3» de la investigación), los Shorts de YouTube (sin «×» hasta la
+  enmienda III.L), los anuncios en video, y la portada del teléfono (`/m/video-editor` no muestra outliers).
+
 ## El recorrido de la tab en producción, con dos clips de 24 fps (10/11/2026)
 
 Martín pidió revisar la tab de punta a punta en producción. Proyecto de prueba: ws9 «1110», dos clips del teléfono con voz.
@@ -39,6 +161,27 @@ Martín pidió revisar la tab de punta a punta en producción. Proyecto de prueb
   de 86 px FIJOS le dejaban 8 px al rol. Un ancho fijo para el texto más largo («nada que hacer») se paga en todas las filas.
   Y con la ventana baja el cuerpo del panel se desbordaba DEBAJO del pie («Editar con MaKo» tapaba el registro): un cuerpo
   `flex-1 min-h-0` sin `overflow` no se achica, se sale.
+- **«Estilo Hormozi» por chat armaba OTRA cosa**: karaoke amarillo y salto, sin Anton, sin mayúsculas, sin el contorno, y
+  MaKo decía que resaltaba palabras clave sin proponerlo. El panel tiene esa plantilla («Hormozi», subtitles/estilos.ts),
+  pero el chat no veía la galería: sólo los presets de la MARCA. **Lo que el panel ofrece con nombre, el chat lo tiene que
+  ver con el mismo nombre** (`plantillas_subtitulos` en DISPONIBLES); si no, el modelo lo arma con piezas y sale parecido y
+  distinto. Se usa con `usar_preset_subtitulos` (la de la marca, si se llama igual, gana). SIN HACER: la API sigue aceptando
+  sólo los presets de la marca.
+- **La barra de Multimedia corría la sección de lado**: a 1440 px con el chat abierto, el panel mide 203 px y la barra 247. El
+  foco del «+» de una miniatura corrió la caja `overflow: hidden` 32 px. **Una caja que sólo recorta va con `overflow-clip`**:
+  `hidden` se puede correr con el foco o un `scrollIntoView`, y nadie la vuelve a su lugar.
+- **⚠️ Las pruebas «en ws9» desde Claude in Chrome fueron como LEANDRO, en su ws10** (un usuario real): ese Chrome tiene su
+  sesión y `?ws=9` no hace nada para quien no es super admin, sin avisar. Quedaron 2 proyectos de prueba, 1 hilo de chat y 3
+  llamadas a la IA en su negocio. La señal estaba: IndexedDB sólo tenía bases `mako-ws10-…`. **El primer paso de toda pasada
+  en un navegador es `fetch('/api/auth/me')`** (ya lo decía la memoria `verificar-en-navegador` desde el 15/10).
+- **El navegador de la app no sirve para el editor si la sesión no está en una ventana**: el panel queda oculto, la página
+  corre en segundo plano, la importación se cuelga en «Importando…», los cursores no se animan y el B-roll queda en
+  «Trabajando». Tampoco tiene subida de archivos ni deja pedirle nada a `127.0.0.1` desde https. Los videos de prueba
+  entraron por el fragmento `#` de una navegación (un puente en un servidor local que los pasa en base64, ≤ 2 MB).
+- **SIN HACER — al reabrir un proyecto en el navegador de la app, sus videos ya no estaban en OPFS** (la metadata sí). El
+  archivo se escribe ANTES que la metadata (`saveMediaAsset`) y quien borra medios borra las dos cosas, así que alguien los
+  sacó después. Un archivo de prueba en OPFS sobrevivió a la recarga. En Chrome no pasó. Y el editor no avisa: muestra una
+  biblioteca vacía y un video negro con los subtítulos encima.
 - **El teléfono no se pudo mirar desde acá**: la ventana de la extensión está maximizada (`resize_window` contesta «resized» y
   no cambia), la app no se deja enmarcar en un iframe y `/m/…` con la computadora redirige al escritorio.
 - **SIN HACER — la lista de proyectos es la de ESTE navegador**: en otro Chrome dice «Todavía no hay ninguno» aunque ws9 tenga 6

@@ -27,6 +27,31 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## «No me deja poner 2do nombre»: el «{ }» de «Mandar mensaje» elegía por el AUDIO, no por la ruta (ticket #70, 10/11/2026)
+
+**Vive en:** `arbolDelEditor` (app/automations/EditorMensajeWhatsApp.tsx) · la hoja que lo monta,
+app/automations/difusion/HojaDifusion.tsx · tests/editor-mensaje-whatsapp.test.ts.
+
+- **Síntoma:** Leila, desde el teléfono, «No me deja poner 2do nombre», «Dónde: CRM», con una captura de un LIENZO de
+  Automations que ya tenía `{{segundo_nombre}}`.
+- ⚠️ **El diagnóstico obvio era el equivocado: no era el lienzo.** Ahí el dato se ofrece, Publicar lo acepta y el motor lo
+  resuelve (medido ejecutando `problemasDeTokens` y `datosOfrecidos` con su tarjeta). Lo que dijo dónde mirar fue la base:
+  dos minutos después del ticket mandó una difusión desde el CRM (`app_settings` `difusion.pedido:*` → fila 732) con
+  «Hola corazón», **sin nombre**. La captura mostraba lo que quería; la pantalla que fallaba era otra.
+- **Causa:** el editor, sin `datos` ni `variables`, armaba el «{ }» con `datosDelLead(varias)`, y `varias` es
+  `permiteAudio || permiteAdjuntos`. En el lienzo eso coincide con el WhatsApp por QR; la hoja de «Mandar mensaje» apaga el
+  audio y los archivos por otra razón y su WhatsApp ES por QR. Resultado: la lista de la plantilla de Meta (nombre,
+  nombre completo, apellido, empresa) y un `{{segundo_nombre}}` escrito a mano en ROJO, que Publicar y el motor sí aceptaban.
+- **La regla:** lo que un editor ofrece sale de la RUTA del mensaje (`proveedorDelPaso`, la misma del motor y de Publicar),
+  nunca de un control que se prende o se apaga por otra cosa. Un permiso de la UI no es un dato del canal.
+- **Y un test que fijaba el bug:** tests/editor-mensaje-whatsapp.test.ts tenía un regex sobre la línea
+  `datosDelLead(varias)`. Se cambió por una prueba que ejecuta `arbolDelEditor` con la tarjeta que guarda la difusión.
+- **Sin hacer:** `esVariableConocida` (lib/template-vars.ts) no conoce `segundo_nombre` ni `tercer_nombre`, aunque
+  `valoresVariablesLead` los resuelve: por una plantilla de Meta siguen sin poder usarse, y `limpiarTexto` sin `destino`
+  (lib/flujo-ia.ts: el objetivo de un AI Step, el preheader) cambia `{{segundo_nombre}}` por `{{nombre}}` vía
+  `aliasDeVariable`. Ninguna de las dos es el caso de Leila (sin WhatsApp oficial). El componente que llama a
+  `arbolDelEditor` con el paso no tiene test (no hay DOM en los tests y el «{ }» es un popover).
+
 ## Cuatro trabas silenciosas para un usuario nuevo, y la paridad con ManyChat (10/11/2026, nube)
 
 Martín (9/11): «Leandro lo estuvo intentando utilizar y no lo pudo… que revises que todo lo que se hace en ManyChat se pueda

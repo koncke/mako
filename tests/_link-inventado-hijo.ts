@@ -30,7 +30,8 @@ const pg = crearPostgrest({
   unicos: [{ tabla: 'mako_doer_buffer', columnas: ['grupo_jid', 'wa_message_id'], donde: (f) => f.wa_message_id !== '', nombre: 'ux_doer_buffer_msg' }],
   candado: true,
 });
-const DIJO = 'Aquí está la ficha: hola-malo.com/crm/2761. Conecta Meta en https://www.holamako.com/integraciones y mira el local en google.com/maps.';
+// Con el voseo que le salió a Joan el 11/11 («¿Querés que…?»): lo que MaKo escribe sale en tú (lib/al-tuteo.ts).
+const DIJO = 'Aquí está la ficha: hola-malo.com/crm/2761. Conecta Meta en https://www.holamako.com/integraciones y mira el local en google.com/maps. ¿Querés que la revise?';
 const red: Array<{ host: string; camino: string; cuerpo: string }> = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);

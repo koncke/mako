@@ -57,7 +57,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../_components/icons';
-import { BotonIntegracion } from '../_components/ConectarIntegracion';
+import { BotonIntegracion, CON_SU_CLASE } from '../_components/ConectarIntegracion';
 import { ConfirmModal } from '../_components/ConfirmModal';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
@@ -86,7 +86,7 @@ import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import { EN_PALABRAS, paresParecidos, type CompetidorJuntable } from '@/lib/spy-juntar-reglas';
 import {
   competidoresAction, guardarAnuncioAction, juntarCompetidoresAction, piezasAction, ponerPaisAction, quitarCanalAction, quitarCompetidorAction,
-  revisarAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista,
+  revisarAction, sugeridosAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista,
 } from './actions';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { enlaceSusAnuncios } from '@/lib/spy-funnel';
@@ -204,6 +204,13 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-cols__izq > .spyg{flex:1 1 auto}
 .spy-cols__izq > .spyg > .spyg-caja:last-child{flex:1 1 auto}
 .spy-riel{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
+/* Si la columna de la izquierda queda más alta, se estira la última caja del riel («¿En qué publica?»): sin hueco abajo. */
+@media (min-width:1081px){.spy-riel > :last-child{flex:1 1 auto}}
+/* La fila de abajo (la tercera de merrin): «A dónde manda» y «Lo que mejor le fue», lado a lado. «Lo que mejor le fue» ya no
+   llena un alto que le dan: muestra 5 y fluye (MejoresPiezas lee la variable). */
+.spy-fila-baja{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:var(--gap);margin-top:var(--gap);align-items:stretch}
+.spy-fila-baja .spy-mejores{--mejores-fluye:1;min-height:0}
+.spy-fila-baja .spy-mejores__tarjeta{position:static;height:100%}
 
 /* --- Volver a todos: un botón de verdad, con la flecha y las caras de los demás (4/11/2026). --- */
 .spy-sin-anuncios{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -333,12 +340,18 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-pcard__tag--analizando ~ .spy-pcard__veces{top:44px}
 /* Dos píldoras apiladas, como .pcard__tag + .pcard__fit de la referencia: la segunda sube. */
 .spy-pcard__tag + .spy-pcard__tag{bottom:44px;max-width:calc(100% - 28px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;line-height:26px}
-.spy-pcard__pie{display:flex;align-items:flex-end;gap:10px;padding:12px 14px 14px 16px}
-.spy-pcard__texto{flex:1;min-width:0}
-.spy-pcard__texto small{display:block;color:var(--t-dim);font-size:var(--fs-meta);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.spy-pcard__texto b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:var(--fs-card);font-weight:600;line-height:1.3;letter-spacing:-.005em}
-.spy-pcard__num{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;height:34px;padding:0 13px;
+/* El nombre con TODO el ancho (11/11/2026, mirado en producción después del despliegue): con la píldora del número al lado, el
+   nombre tenía 104 px de una tarjeta de 234, y 14 de 15 videos de YouTube seguían cortados aun en dos renglones («52 Minutes of /
+   Business…»). fitlo pone la píldora al lado porque sus nombres son cortos («Merino tee»); los de YouTube no. La píldora sube a la
+   fila de su tipo, y el nombre va debajo, de lado a lado. */
+.spy-pcard__pie{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;row-gap:6px;padding:12px 14px 14px 16px}
+.spy-pcard__texto{display:contents}
+.spy-pcard__texto small{grid-column:1;grid-row:1;display:block;color:var(--t-dim);font-size:var(--fs-meta);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* El nombre en DOS renglones, como «.pcard__text b» de fitlo («clamp 2», docs/diseno/referencia-spy.md). En uno solo, con la
+   píldora del número al lado, un video de YouTube quedaba «The skill you N…» (11/11/2026, mirado con capturas). */
+.spy-pcard__texto b{grid-column:1 / -1;grid-row:2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;white-space:normal;
+  overflow-wrap:anywhere;font-size:var(--fs-card);font-weight:600;line-height:1.3;letter-spacing:-.005em}
+.spy-pcard__num{grid-column:2;grid-row:1;justify-self:end;display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;height:34px;padding:0 13px;
   border-radius:99px;background:var(--ink);color:var(--on-ink);box-shadow:0 8px 18px -10px #11111173}
 .spy-pcard__num svg{opacity:.75;flex:0 0 auto}
 .spy-pcard__num b{font-size:var(--fs-md);font-weight:700;line-height:1;letter-spacing:-.01em}
@@ -803,8 +816,8 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
               </div>
               {/* ⚠️ El botón va DENTRO de la tarjeta y frena el clic: si no, borrar abriría la ficha.
                   Y no se dibuja para quien no puede borrar: un botón que siempre falla es peor que no estar. */}
-              {puedeBorrar && <button type="button" className="spy-ccard__borrar" aria-label={`Dejar de mirar a ${c.nombre}`}
-                title={`Dejar de mirar a ${c.nombre}`}
+              {puedeBorrar && <button type="button" className="spy-ccard__borrar" aria-label={`Dejar de mirar a ${titulo}`}
+                title={`Dejar de mirar a ${titulo}`}
                 onClick={(e) => { e.stopPropagation(); onBorrar(c); }}>
                 <Icon name="trash" size={15} />
               </button>}
@@ -857,6 +870,9 @@ function RejillaSugeridos({ sugeridos, ocupado, onSumar }: { sugeridos: Sugerido
 /** La serie categórica: el mismo color para el mismo concepto en la barra y en la fila. */
 const SERIE = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
 
+/** «46%», o «menos del 1%» si hay alguna: «0% de 637» con una pieza se leía como nada (11/11/2026, mirado con capturas). */
+const porcentajeDe = (f: { n: number; pct: number }): string => (f.n > 0 && f.pct < 1 ? 'menos del 1%' : `${f.pct}%`);
+
 /** Una caja del riel: cabecera, barra apilada y filas. Es el bloque «Where it sells» de merrin. */
 function CajaMix({ titulo, pie, filas, total, iconos, otras }: {
   // `pie` admite null porque `fraseDeLectura` devuelve null cuando al competidor no se le leyo nada.
@@ -878,7 +894,7 @@ function CajaMix({ titulo, pie, filas, total, iconos, otras }: {
         {filas.map((f, i) => (
           <li key={f.rotulo}>
             <span className="spy-mix-ico" aria-hidden>{iconos?.[f.rotulo] ?? <i style={{ width: 10, height: 10, borderRadius: '50%', background: SERIE[i % 4] }} />}</span>
-            <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{f.pct}% de {total}</small></span>
+            <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{porcentajeDe(f)} de {total}</small></span>
             <span className="spy-mix-val"><b>{f.n}</b></span>
           </li>
         ))}
@@ -889,7 +905,7 @@ function CajaMix({ titulo, pie, filas, total, iconos, otras }: {
           <ul className="spy-mix-filas">
             {otras.filas.map((f) => (
               <li key={f.rotulo}>
-                <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{f.pct}% de {total}</small></span>
+                <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{porcentajeDe(f)} de {total}</small></span>
                 <span className="spy-mix-val"><b>{f.n}</b></span>
               </li>
             ))}
@@ -917,16 +933,18 @@ function CajaMix({ titulo, pie, filas, total, iconos, otras }: {
 function RielAnalisis({ piezas, c }: { piezas: PiezaVista[]; c: Competidor }) {
   // «¿En qué publica?» de verdad: por red (con su logo) y por formato. Nada de «100% videos» (Martín, 4/11).
   const reparto = useMemo(() => repartoDePublicaciones(piezas), [piezas]);
-  const destinos = useMemo(() => destinosDe(piezas), [piezas]);
   const frase = fraseDeLectura(piezas, c.mirado_en);
   return (
-    <>
-      <CajaMix titulo="¿En qué publica?" pie={frase} filas={reparto.redes} total={reparto.total}
-        iconos={Object.fromEntries(reparto.redes.map((f) => [f.rotulo, f.red ? <LogoRed red={f.red} box={18} /> : null]))}
-        otras={reparto.formatos.length > 1 ? { titulo: 'En qué formato', filas: reparto.formatos } : undefined} />
-      <CajaMix titulo="A dónde manda" filas={destinos.slice(0, 6)} total={piezas.length} />
-    </>
+    <CajaMix titulo="¿En qué publica?" pie={frase} filas={reparto.redes} total={reparto.total}
+      iconos={Object.fromEntries(reparto.redes.map((f) => [f.rotulo, f.red ? <LogoRed red={f.red} box={18} /> : null]))}
+      otras={reparto.formatos.length > 1 ? { titulo: 'En qué formato', filas: reparto.formatos } : undefined} />
   );
+}
+
+/** «A dónde manda»: va en la fila de abajo, al lado de «Lo que mejor le fue» (ver `filaBaja`). */
+function CajaDestinos({ piezas }: { piezas: PiezaVista[] }) {
+  const destinos = useMemo(() => destinosDe(piezas), [piezas]);
+  return <CajaMix titulo="A dónde manda" filas={destinos.slice(0, 6)} total={piezas.length} />;
 }
 
 export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [], conVistaPrevia = false, caricaturasFrenadasDesde = null }: {
@@ -1035,6 +1053,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   listaActual.current = competidores;
 
   const c = competidores.find((x) => x.id === elegido) ?? null;
+  // Su nombre como lo dice su tarjeta (`nombreDeTarjeta`), en TODA la ficha: con lo guardado, Alex Hormozi era «Alex Hormozi»
+  // en la lista y en el selector, y «@AlexHormozi» en el título, en «¿Dejar de mirar a…?» y en sus avisos (11/11/2026).
+  const nombreC = c ? nombreDeTarjeta(c) : '';
 
   // ⚠️ EL RECORRIDO SE ABRE CON LA FICHA QUIETA, Y MIENTRAS ESTÁ ABIERTO LA PÁGINA NO SE SCROLLEA A MANO (4/11/2026, el Cerebro con
   // Den Borg: «el primer cuadro salió con el texto vacío» y «al hacer scroll, el recorrido sigue pero el foco se pierde; que no se
@@ -1548,13 +1569,34 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     }
   };
 
+  // ⚠️ SE SACA DE LA LISTA EN EL ACTO, sin esperar a `recargarLista` (10/11/2026, prueba en producción). Desde la ficha, después
+  // de `irA(null)` la recarga NO salía: se borraba en la base y la lista seguía mostrándolo —con «X y Acquisition.com tienen la
+  // misma web · Juntarlos» incluido— hasta recargar la página. Medido con un registro de pedidos: el borrado respondía 200 y el
+  // pedido de la lista nunca se mandaba. Desde la «×» de la tarjeta (sin navegar) sí salía. La recarga queda, por si cambió algo más.
+  const sacarDeLaLista = (id: number) => {
+    setCompetidores((v) => v.filter((x) => x.id !== id));
+    setResumen((v) => { const resto = { ...v }; delete resto[id]; return resto; });
+  };
+
   const quitar = async () => {
     if (elegido == null) return;
-    const r = await quitarCompetidorAction(elegido);
+    const id = elegido;
+    const r = await quitarCompetidorAction(id);
     setModal(null);
     if (!r.ok) { setError(r.error); return; }
+    sacarDeLaLista(id);
+    // Los sugeridos se piden ANTES de volver a la lista: después de `irA(null)` no sale ningún pedido (lo de arriba, medido otra
+    // vez en producción el 11/11/2026: «⋯ › Dejar de mirarlo» mandaba el borrado y nada más, y Alex no volvía a «Sugeridos»).
+    await recargarSugeridos();
     irA(null);
     await recargarLista();
+  };
+
+  // Quien deja de mirar a un sugerido lo vuelve a ver en «Sugeridos» (11/11/2026, mirado en producción: Alex Hormozi se sumó
+  // desde ahí, se sacó, y no volvía hasta recargar la página; el server ya lo ofrecía de nuevo).
+  const recargarSugeridos = async () => {
+    const r = await sugeridosAction();
+    if (r.ok) setSugeridos(r.sugeridos);
   };
 
   /**
@@ -1568,7 +1610,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     const r = await quitarCompetidorAction(id);
     setABorrar(null);
     if (!r.ok) { setError(r.error); return; }
-    await recargarLista();
+    await Promise.all([recargarLista(), recargarSugeridos()]);
   };
 
   const abrirAlta = (texto = '') => { setErrorModal(null); setTextoAlta(texto); setModal('alta'); };
@@ -1696,8 +1738,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   );
 
   // El riel de la ficha: su nombre, su menú y sus datos. Va al lado del gráfico y de sus piezas, en «Contenido».
+  // ⚠️ UN <section> Y NO UN <aside> (10/11/2026, prueba en producción). Viendo un negocio como agencia, la regla global
+  // `[data-barra-agencia] aside` (app/globals.css, es para el riel del Sidebar) le fuerza a TODO <aside> el alto de la
+  // ventana: el riel medía 850 px con 1378 de contenido, y «A dónde manda» y «Lo que mejor le fue» se dibujaban encima de
+  // la grilla de «Todas sus piezas». Es la misma trampa que ya esquivaron el Dashboard, el Video y el Web Generator.
   const riel = c ? (
-    <aside className="spy-riel">
+    <section className="spy-riel" aria-label={`Lo que leímos de ${nombreC}`}>
       {/* La identidad abre el riel, como la `.pd-info` abre la columna de al lado en la
           referencia: ante-título chico, nombre grande, la frescura, y la acción. ⚠️ EL
           RIEL YA NO DEPENDE DE QUE HAYA PIEZAS: si dependiera, un competidor sin nada
@@ -1712,7 +1758,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           )}
           <div>
             {anteTitulo && <small>{anteTitulo}</small>}
-            <h1>{c.nombre}</h1>
+            <h1>{nombreC}</h1>
           </div>
         </div>
         {identidad && <small className="spy-rango">{identidad}</small>}
@@ -1759,8 +1805,19 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       )}
 
       {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} />}
+    </section>
+  ) : null;
+
+  // ⚠️ «A DÓNDE MANDA» Y «LO QUE MEJOR LE FUE» VAN ABAJO, EN UNA FILA DE TARJETAS, COMO LA TERCERA FILA DE MERRIN (11/11/2026,
+  // mirado con capturas). En el riel, el riel medía 1.378 px contra ~710 de la columna izquierda, y la regla de «terminan en la
+  // misma línea» estiraba «¿Qué formatos le funcionan?» hasta 739 px con 82 de contenido: una caja blanca vacía de 650 px, que
+  // es lo que veía un cliente (con la barra de agencia, el riel se cortaba en 850 y tapaba la grilla). En merrin el riel tiene el
+  // alto de la columna de al lado y lo que sigue va en la fila de abajo.
+  const filaBaja = c && flujo.length > 0 ? (
+    <div className="spy-fila-baja">
+      <CajaDestinos piezas={flujo} />
       <MejoresPiezas piezas={flujo} onAbrir={(p) => setAbierta({ p, todas: piezas.filter((x) => grupoDe(x) === grupoDe(p)) })} />
-    </aside>
+    </div>
   ) : null;
 
   return (
@@ -1806,7 +1863,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
         {!c && frenadaDesde && (
           <p className="spy-aviso spy-cola-frenada" aria-live="polite">
             <Icon name="warning" size={14} />
-            Las caricaturas no se están haciendo: la que más espera lleva {haceCuanto(frenadaDesde)} en la cola.
+            {/* «lleva 1 d», no «lleva hace 1 d» (así se leía en producción el 11/11/2026): `haceCuanto` ya trae el «hace». */}
+            Las caricaturas no se están haciendo: la que más espera lleva {haceCuanto(frenadaDesde).replace(/^hace /, '')} en la cola.
             <small>Las hace el Runner con Canva.</small>
           </p>
         )}
@@ -1844,7 +1902,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
              Primero la criatura sola, después la animación, y recién al terminar el resto. ── */}
         {c && ordenando?.id === c.id && (
           <PeliculaDeOrden
-            nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)}
+            nombre={nombreC} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)}
             pasos={pasosLectura?.id === c.id ? pasosLectura.pasos : []}
           />
         )}
@@ -1945,27 +2003,27 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                     {/* ── Un solo estado para toda la zona, jamás uno por canal. Con piezas, la grilla de abajo. ── */}
                     {estado === 'cargando' && !contenido.length && <Esqueleto leyendo={estaLeyendo} />}
                     {estado === 'sin-canales' && (
-                      <Vacio titulo={`Dime dónde mirar a ${c.nombre}`} botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => abrirCanal(null)}>Agregar un canal</button>}>
+                      <Vacio titulo={`Dime dónde mirar a ${nombreC}`} botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => abrirCanal(null)}>Agregar un canal</button>}>
                         <p>Su @, su canal de YouTube o su sitio.</p>
                       </Vacio>
                     )}
                     {estado === 'leido-sin-nada' && (
-                      <Vacio titulo={`No encontré publicaciones de ${c.nombre}`}>
+                      <Vacio titulo={`No encontré publicaciones de ${nombreC}`}>
                         <p>Leímos sus canales {c.mirado_en ? `el ${fechaCorta(c.mirado_en)} ` : ''}y no había nada público.</p>
                       </Vacio>
                     )}
                     {estado === 'no-pudo' && (
                       <Vacio
-                        titulo={`No pude leer a ${c.nombre}`}
+                        titulo={`No pude leer a ${nombreC}`}
                         botones={(
                           <>
                             {pideConectarMeta(lecturasDe) && (
-                              <BotonIntegracion servicio="meta" className="spy-boton spy-boton-primario" onConectado={() => void leer(c.id)}>
+                              <BotonIntegracion servicio="meta" className="spy-boton spy-boton-primario" style={CON_SU_CLASE} onConectado={() => void leer(c.id)}>
                                 <Icon name="plug" size={14} /> Conectar Meta
                               </BotonIntegracion>
                             )}
                             {pideConectarMeta(lecturasDe) && (
-                              <BotonIntegracion servicio="apify-instagram" className="spy-boton" onConectado={() => void leer(c.id)}>
+                              <BotonIntegracion servicio="apify-instagram" className="spy-boton" style={CON_SU_CLASE} onConectado={() => void leer(c.id)}>
                                 Conectar Apify
                               </BotonIntegracion>
                             )}
@@ -1980,6 +2038,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
 
                   {riel}
                 </div>
+
+                {filaBaja}
 
                 {contenido.length > 0 && (
                   <GrillaPiezas
@@ -2073,9 +2133,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                     lectura={lecturaFunnel} hayFuentes={fuentesFunnel.length > 0} filasDeSuWeb={filasDeSuWeb}
                     enlaceAnuncios={enlaceSusAnuncios(c)} onVerPieza={verPieza} onVerPagina={verPagina}
                   />
-                  <SuOferta vista={ofertaDe} datos={c.oferta} nombre={c.nombre} onConectado={() => void pedirOferta(c.id)} parte="cabeza" />
+                  <SuOferta vista={ofertaDe} datos={c.oferta} nombre={nombreC} onConectado={() => void pedirOferta(c.id)} parte="cabeza" />
                 </div>
-                <SuOferta vista={ofertaDe} datos={c.oferta} nombre={c.nombre} onConectado={() => void pedirOferta(c.id)} parte="detalle" />
+                <SuOferta vista={ofertaDe} datos={c.oferta} nombre={nombreC} onConectado={() => void pedirOferta(c.id)} parte="detalle" />
                 {estaLeyendo && !susPaginas.length
                   ? <Esqueleto leyendo />
                   : (
@@ -2095,7 +2155,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       {c && <Recorrido id={RECORRIDO_SPY} pasos={PASOS_SPY} abierto={recorridoAbierto} onCerrar={recorrido.onCerrar} />}
       {abierta && c && (
         <DetallePieza
-          p={piezas.find((x) => x.id === abierta.p.id) ?? abierta.p} nombre={c.nombre} todas={abierta.todas}
+          p={piezas.find((x) => x.id === abierta.p.id) ?? abierta.p} nombre={nombreC} todas={abierta.todas}
           cara={c.avatar}
           seguidores={abierta.p.canal === 'youtube'
             ? (c.youtube_suscriptores != null ? `${dibujarContador(c.youtube_suscriptores)} suscriptores` : null)
@@ -2133,18 +2193,18 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       {modal === 'anuncio' && c && <ModalCampo titulo="Guardar un anuncio" placeholder="Enlace del anuncio en la Biblioteca de Anuncios" boton="Guardar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void guardarAnuncio(v)} />}
       {aBorrar && (
         <ConfirmModal
-          msg={`¿Dejar de mirar a ${aBorrar.nombre}? Se borra lo que se leyó de él.`}
+          msg={`¿Dejar de mirar a ${nombreDeTarjeta(aBorrar)}? Se borra lo que se leyó de él.`}
           confirmLabel="Dejar de mirarlo"
           onOk={() => void quitarDeLaLista(aBorrar.id)}
           onCancel={() => setABorrar(null)}
         />
       )}
       {modal === 'pais' && c && (
-        <ModalPais nombre={c.nombre} actual={c.pais} ocupado={ocupado} error={errorModal}
+        <ModalPais nombre={nombreC} actual={c.pais} ocupado={ocupado} error={errorModal}
           onClose={() => setModal(null)} onElegir={(iso) => void guardarPais(c.id, iso)}
         />
       )}
-      {modal === 'quitar' && c && <ConfirmModal msg={`¿Dejar de mirar a ${c.nombre}? Se borra lo que se leyó de él.`} confirmLabel="Dejar de mirarlo" onOk={() => void quitar()} onCancel={() => setModal(null)} />}
+      {modal === 'quitar' && c && <ConfirmModal msg={`¿Dejar de mirar a ${nombreC}? Se borra lo que se leyó de él.`} confirmLabel="Dejar de mirarlo" onOk={() => void quitar()} onCancel={() => setModal(null)} />}
     </main>
   );
 }

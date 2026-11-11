@@ -1,4 +1,62 @@
-# Relevo — Copywriter: plantillas reales y su experto (cuenta claude3, 29/10/2026, tarde)
+# Relevo — Copywriting (el chat de la tab; cuenta claude4, 11/11/2026)
+
+Rama `copy-outliers-1111`, worktree `C:/dev/wt-copy-outliers-1111`. Se sube a `punta/copywriting-outliers` (hoy en 08dd1cedb,
+rebasada sobre main ada98995d) y el Cerebro integra. Producción tiene hasta e2cb5fb8e (el despliegue de las 11:05 UTC del 11/11).
+
+## Lo pedido (Martín, 11/11, por el Cerebro)
+
+«lo mismo que te acabo de decir con web generator, aplícalo para copywriting, me gustaría traer outliers. Tenemos la
+transcripción de un montón de cosas, tanto de anuncios como de carruseles, como de reels, y videos de YouTube… podríamos mantener
+templates con ciertas estructuras, pero también traer los outliers». Más la prueba de punta a punta en producción, mirando, a
+1440 y 375: (1) Copywriting primero en Create, (2) los outliers sin perder las plantillas, (3) pedir un guion, que MaKo lo escriba
+y editarlo.
+
+## Lo hecho y probado en producción (11/11)
+
+- **En producción (e2cb5fb8e), probado:** la portada «Encuentra tu siguiente OUTLIER» (ws 3: 1,2k; ws 9: 2,3k), los filtros, el
+  buscador, el modal con «SU GUION» transcripto y su «×», Replicar (MaKo pregunta la oferta y escribe; «Ver el original» entero),
+  «Mis guiones», «Crear desde cero» con las plantillas, y el orden de Create (Copywriting, Video, Image, Web Generator; también en
+  «More» del teléfono). (3) anda en el ws 9 a 1440 y a 375; el ws 3 no tiene IA a propósito.
+- **Arreglado DESPUÉS del despliegue (en la punta, sale en el próximo):**
+  - «Todos» intercala los formatos (eran 24 carruseles en inglés seguidos);
+  - el modal muestra la pieza arriba y el texto abajo (era una caja blanca casi vacía);
+  - en una página vacía (la de Replicar) MaKo escribe en el renglón vacío (quedaba «Escribe "/"…» arriba);
+  - si la réplica repite 5 palabras seguidas del original, la propuesta lo avisa (pasó: «no es suerte, es sistema»);
+  - la caja trabada se mide cuando cambia su ancho (el primer arreglo, desplegado, no alcanzó: docs/hallazgos-chat.md);
+  - teléfono: «Mis guiones» y «Crear desde cero» debajo del título (no se veían), y llegan a su vista (el paso al teléfono
+    perdía `nueva` y `ver`: lib/movil-creacion.ts).
+- **Páginas de prueba:** borradas y comprobado en la base (fila, documento y charla): ws 9 `ghqvixe3uzr`, `gwp14mkuww8`,
+  `gdioc06j32n`; ws 3 `g9mzb3l58qt`. Script: `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/419b79ec-cbd8-462f-a8bc-088b55605527/scratchpad/limpiar-prueba.mjs`.
+
+## Segunda vuelta en producción (2507c11c7, 15:55 UTC del 11/11)
+
+- **Vistos y bien:** el modal con la pieza arriba; en el teléfono los botones debajo del título, «Crear desde cero» → plantillas
+  y «Mis guiones» → la lista; la réplica empieza en «Gancho» (sin renglón vacío) y avisa la frase copiada.
+- **Seguían mal y van en la punta (sale en el próximo despliegue):** el intercalado se deshacía después de la primera vuelta
+  (`44bcd2e5a`); la caja trabada seguía cortada con la página en segundo plano (`0738ce0d1`, ahora con `MutationObserver`);
+  el aviso no miraba el título propuesto (`4322790ff`).
+- **Páginas de prueba de esta vuelta:** ws 9 `gzq1mp4ggrs`, borrada y comprobada en la base.
+
+## Lo que falta
+
+- **Mirar en producción, después del próximo despliegue, los arreglos de arriba** (a 1440 y 375).
+- **⚠️ Avisado al Cerebro:** a las ~15:05 UTC la IA del ws 9 contestó «API key not valid» de Gemini (502 a los 110 s); 15 minutos
+  antes había escrito bien. El mensaje le muestra al usuario el texto técnico y le pide «pega una nueva» (errorDeCascada).
+- **Visto y NO arreglado (otra tab):** en el teléfono, el chip «Cliente de Prueba» del super admin tapa el título de la barra (app/m/_ui).
+- **Dos caminos al mismo lugar:** «Copiar estructura» de Spy y «Replicar» de Copywriting (hallazgos-copywriter).
+- **El texto del modal llega cortado a 600 letras** (`TEXTO_EN_TARJETA`); «Ver el original» de la página sí lo trae entero.
+- **Los anuncios propios como fuente** (`ad_transcripts` + el veredicto del Script Analyst): sólo hay en negocios de clientes.
+- **Transcribir al replicar** un reel o un video sin guion (`asegurarGuion` de Spy, con su tope de 20 por día).
+
+## Lo que espera a Martín
+
+- Nada por ahora. Lo de las transcripciones (que casi no hay) está en hallazgos-copywriter, en palabras de producto.
+
+---
+
+## Antes: el relevo de las plantillas (29/10)
+
+### Relevo — Copywriter: plantillas reales y su experto (cuenta claude3, 29/10/2026, tarde)
 
 Rama `plantillas-copywriter-2910` (worktree `C:/dev/wt-copywriter-notion`), desde origin/main `ff908e645` con el plan
 `plantillas-reales-2910` (da6d07dee, sólo docs) mergeado. Pedido del Cerebro: la §5 de

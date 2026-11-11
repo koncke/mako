@@ -295,3 +295,43 @@ test('el contexto del negocio sale del grafo de los chats (grafoParaChat) con re
   assert.doesNotMatch(c.replace(/^[ \t]*\/\/.*$/gm, ''), /construirCerebro\(/, 'rearma el mapa entero con su física');
   assert.match(leer('lib/copywriter/contexto.ts'), /export \{ contextoDelNegocio,[^}]*\} from '\.\.\/negocio-para-crear';/);
 });
+
+test('teléfono: el nombre de la barra sigue al título que se escribe (11/11/2026, decía «Sin título»)', () => {
+  // Lo pone GuionM con la página EN VIVO (`onPaginaEnVivo`); si lo pusiera la página del servidor, quedaría el de al abrir.
+  assert.match(leer('app/m/copywriter/GuionM.tsx'), /<CabeceraM titulo=\{pagina\.titulo\}/);
+  assert.doesNotMatch(leer('app/m/copywriter/[id]/page.tsx'), /<CabeceraM titulo=/);
+});
+
+test('«Ver ejemplo»: el documento se achica al modal y la tabla corre en su caja (11/11/2026, a 375 se cortaba el texto)', () => {
+  assert.match(leer('app/copywriter/notion.css'), /\.nt\.nt-ejemplo > \.nt-bn \{ min-width: 0;/);
+});
+
+test('teléfono: las preguntas de MaKo con la letra de las burbujas del chat (16 px), no 13,5 (11/11/2026)', () => {
+  assert.match(leer('app/copywriter/notion.css'), /\.nt\[data-movil\] \.nt-mako-bienvenida, \.nt\[data-movil\] \.nt-mako-respuesta \{ font-size: 16px; \}/);
+});
+
+test('después de «Aceptar», la tecla de deshacer sólo donde hay teclado, y la de su sistema (11/11/2026: el teléfono decía Ctrl+Z)', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.match(panel, /'Aceptado\.'\}<span className="nt-solo-teclado"> \{teclaDeshacer\(\)\} en la página lo deshace\.<\/span>/);
+  assert.match(panel, /\? '⌘Z' : 'Ctrl\+Z'/);
+  assert.match(leer('app/copywriter/notion.css'), /\.nt\[data-movil\] \.nt-solo-teclado \{ display: none; \}/);
+  // Y el número concuerda: «1 bloque nuevo, marcado», no «1 bloque nuevos, marcados» (visto en la misma prueba).
+  assert.match(panel, /p\.nuevos\.length === 1 \? 'nuevo, marcado' : 'nuevos, marcados'/);
+});
+
+test('la caja trabada se vuelve a medir cuando llega su frase y cada vez que cambia su ancho (11/11/2026: cortada a 1440)', () => {
+  // La caja es la compartida (app/_chat/CajaChat.tsx); el panel de Copywriting es angosto y la frase ocupa dos renglones.
+  // ⚠️ Medir sólo al llegar la frase NO alcanzó (desplegado y medido en producción: 40 px de alto con 61 de frase): el botón
+  // «Instalar MaKo» es dinámico y angosta el campo DESPUÉS. Por eso mide con un observador del ancho.
+  // ⚠️⚠️ Y el del ancho TAMPOCO alcanzó (desplegado otra vez, con la página en segundo plano): `ResizeObserver` avisa con los cuadros
+  // de dibujo, y una pestaña de fondo no tiene. El de mutaciones de la fila sí avisa, y es el que ve llegar el botón.
+  const caja = leer('app/_chat/CajaChat.tsx');
+  const efecto = caja.slice(caja.indexOf('if (!el || altoMax == null || !p.bloqueo) return;'), caja.indexOf('}, [p.bloqueo?.frase, altoMax]);'));
+  assert.ok(efecto.length > 0, 'hay un efecto de la caja trabada');
+  assert.match(efecto, /el\.style\.height = altoDelCampo\(el\.scrollHeight, altoMax\);/);
+  assert.match(efecto, /if \(el\.value \|\| w === ancho\) return;/, 'mide sólo si cambió el ancho (el alto que pone también avisa)');
+  assert.match(efecto, /new ResizeObserver\(medir\)/);
+  assert.match(efecto, /const fila = el\.parentElement\?\.parentElement \?\? null;/);
+  assert.match(efecto, /mo\?\.observe\(fila, \{ childList: true, subtree: true \}\);/);
+  assert.match(efecto, /return \(\) => \{ ro\?\.disconnect\(\); mo\?\.disconnect\(\); \};/);
+});
