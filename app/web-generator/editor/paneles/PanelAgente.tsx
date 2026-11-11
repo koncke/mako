@@ -748,10 +748,10 @@ function traerLoQueVendes(ws: number | null): Promise<DocDelArchivero | null> {
 /**
  * Cuántos textos «[a completar]» quedan en la página abierta (lib/editor-landing/especificacion.ts): mientras haya alguno, MaKo
  * no pregunta si está lista para que la vean (lib/aperturas/web.ts, 10/11/2026). Se mide al abrir y al cambiar el documento,
- * con una pausa corta, y sólo mientras la apertura puede hablar (`activo`: la charla vacía).
+ * con una pausa corta, y sólo mientras la apertura puede hablar (`activo`: la charla vacía). null = todavía sin medir.
  */
-function useACompletar(editor: Editor | null, activo: boolean): number {
-  const [n, setN] = useState(0);
+function useACompletar(editor: Editor | null, activo: boolean): number | null {
+  const [n, setN] = useState<number | null>(null);
   useEffect(() => {
     if (!editor || !activo) return;
     let reloj: ReturnType<typeof setTimeout> | null = null;
@@ -786,7 +786,8 @@ export function PanelAgente() {
   // para esconder el saludo y las sugerencias mientras tanto: un paso por pantalla.
   const [aperturaHabla, setAperturaHabla] = useState(false);
   // Dos hechos más de la apertura (lib/aperturas/web.ts, 10/11/2026): los textos «[…]» que quedan, y si la página estuvo
-  // publicada en esta visita (recién anulada la publicación, no se vuelve a preguntar si está lista).
+  // publicada en esta visita (recién anulada la publicación, no se vuelve a preguntar si está lista). Sin medir todavía, cuenta
+  // como si quedara uno: no pregunta antes de saberlo (si no, asomaba un instante al abrir).
   const aCompletar = useACompletar(editor, hilo.mensajes.length === 0);
   const pagina = docId != null ? String(docId) : null;
   const [vistaPublicada, setVistaPublicada] = useState<string | null>(null);
@@ -1087,7 +1088,7 @@ export function PanelAgente() {
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}
         </div>}>
           {hilo.mensajes.length === 0 && (
-            <AperturaAgente hechos={{ pagina, publicada, charlaVacia: true, aCompletar }} libre={!hilo.corriendo}
+            <AperturaAgente hechos={{ pagina, publicada, charlaVacia: true, aCompletar: aCompletar ?? 1 }} libre={!hilo.corriendo}
               onPublicar={() => ctx.setDialogo('publicar')} onHabla={setAperturaHabla} />
           )}
           {hilo.mensajes.length === 0 && !aperturaHabla && (

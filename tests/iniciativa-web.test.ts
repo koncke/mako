@@ -43,7 +43,9 @@ test('1. la apertura: sin publicar y sin charla pregunta un hecho, por página; 
 
 test('1b. los hechos que arma el panel: los «[…]» del editor, y despublicada en esta visita no vuelve a preguntar', () => {
   const panel = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
-  assert.match(panel, /hechos=\{\{ pagina, publicada, charlaVacia: true, aCompletar \}\}/);
+  assert.match(panel, /hechos=\{\{ pagina, publicada, charlaVacia: true, aCompletar: aCompletar \?\? 1 \}\}/,
+    'sin medir todavía no pregunta (si no, asomaba un instante al abrir)');
+  assert.match(panel, /const \[n, setN\] = useState<number \| null>\(null\);/);
   assert.match(panel, /const aCompletar = useACompletar\(editor, hilo\.mensajes\.length === 0\);/, 'medido sólo mientras la apertura puede hablar');
   assert.match(panel, /setN\(rangosACompletar\(d\.textBetween\(0, d\.content\.size, '\\n', '\\n'\)\)\.length\);/,
     'la misma regla de los «[…]» que marca el editor (especificacion.ts), con los bloques separados');
@@ -72,3 +74,4 @@ test('2. el montaje: «Sí» abre el diálogo de Publicar, la pieza entra con ne
 //   · la apertura ignorando `aCompletar`                                → 2/1 (1)
 //   · `publicada` sin la despublicada en esta visita                    → 2/1 (1b)
 //   · sin volver a medir los «[…]» al escribir (`editor.on('update')`)  → 2/1 (1b)
+//   · sin medir todavía contando como 0 (`aCompletar ?? 0`)            → 2/1 (1b)
