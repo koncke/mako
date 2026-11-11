@@ -58,6 +58,47 @@ export const CUENTAS_DEL_CREDITO: readonly CuentaDelCredito[] = [
  */
 export const CLAVES_CREDITO_DE_LOS_GRUPOS: readonly string[] = CUENTAS_DEL_CREDITO.map((c) => c.clave);
 
+/**
+ * El % gastado de cada cuenta en su ciclo, como lo deja el vigía (`vigilarCreditoClaude`, cada 10 minutos) en la fila de la
+ * plataforma: `{ at, cuentas: { ANTHROPIC_CREDITO_CUENTA2: 81.3, … } }`. Con él se reparte (primero la que menos gastó) y la
+ * plataforma deja el último 10% de cada cuenta para WhatsApp (11/11/2026).
+ */
+export const CLAVE_USO_DEL_CREDITO = 'ia.credito.uso';
+/** Desde este % de una cuenta, la plataforma (el ws 9) no la usa: ese resto queda para los grupos de WhatsApp. */
+export const TOPE_DE_LA_PLATAFORMA_PCT = 90;
+/** Un % más viejo que esto no se usa: el vigía corre cada 10 minutos, y un dato viejo de otro ciclo saltearía cuentas sanas. */
+const USO_VIGENTE_MS = 2 * 3_600_000;
+
+/** El % de cada cuenta guardado por el vigía, si es reciente y se entiende. null = no hay dato (y entonces el reparto de siempre). */
+export function leerUsoDelCredito(valor: string | null | undefined, ahora: number): Record<string, number> | null {
+  try {
+    const v = JSON.parse(valor ?? '') as { at?: unknown; cuentas?: unknown };
+    const t = typeof v?.at === 'string' ? Date.parse(v.at) : NaN;
+    if (!Number.isFinite(t) || ahora - t > USO_VIGENTE_MS || t - ahora > 60_000) return null;
+    if (!v.cuentas || typeof v.cuentas !== 'object') return null;
+    const out: Record<string, number> = {};
+    for (const [k, n] of Object.entries(v.cuentas as Record<string, unknown>)) if (typeof n === 'number' && Number.isFinite(n) && n >= 0) out[k] = n;
+    return out;
+  } catch { return null; }
+}
+
+/**
+ * En qué orden se prueban las cuentas con clave. Sin dato del vigía, el reparto de siempre (una distinta primero en cada turno,
+ * `giro`). Con dato: primero la que menos % gastó (lo que gasta el ws1 con su cuenta 1 se compensa solo), las de % desconocido
+ * al final; y para la PLATAFORMA, sin las que llegaron al 90%. Los grupos las usan hasta que Anthropic diga que no hay saldo.
+ */
+export function ordenDeLasCuentas(con: readonly string[], uso: Readonly<Record<string, number>> | null, para: 'grupos' | 'plataforma', giro: number): string[] {
+  if (!con.length) return [];
+  const i = ((giro % con.length) + con.length) % con.length;
+  const rotadas = [...con.slice(i), ...con.slice(0, i)];
+  if (!uso) return rotadas;
+  const usables = para === 'plataforma' ? rotadas.filter((c) => !((uso[c] ?? 0) >= TOPE_DE_LA_PLATAFORMA_PCT)) : rotadas;
+  return usables
+    .map((c, j) => ({ c, j, pct: uso[c] ?? Number.POSITIVE_INFINITY }))
+    .sort((a, b) => (a.pct === b.pct ? a.j - b.j : a.pct - b.pct))
+    .map((x) => x.c);
+}
+
 /** Una fila de `anthropic_usage`, lo justo para saber qué crédito la pagó. */
 export type FilaGasto = {
   workspace_id: number; created_at: string; motivo: string | null; cuenta: number | null;

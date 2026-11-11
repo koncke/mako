@@ -133,6 +133,22 @@ async function main() {
   out.nCuentas = [await cuentasDelCreditoDeLosGrupos(), await cuentasDelCreditoDeLosGrupos(), await cuentasDelCreditoDeLosGrupos()];
   out.laNueve = await claveDeLaCuentaDeLosGrupos('ANTHROPIC_CREDITO_CUENTA9');
   out.ws10Cuenta4 = await permiso(10, 'mako-doer-in', 'ANTHROPIC_CREDITO_CUENTA4');
+
+  // ── El % del vigía (11/11/2026): primero la que menos gastó; la PLATAFORMA saltea la del 90% o más, los grupos no; y cada uso
+  //    con su interruptor ──────────────────────────────────────────────────────────────────────────────────────────────
+  const { cuentasDelCredito } = await import('../lib/credito-negocio');
+  const uso = (cuentas: Record<string, number>, at = new Date().toISOString()) =>
+    runWithWorkspace(PLATAFORMA, () => setSetting('ia.credito.uso', JSON.stringify({ at, cuentas })));
+  await uso({ ANTHROPIC_CREDITO_CUENTA2: 95, ANTHROPIC_CREDITO_CUENTA3: 10, ANTHROPIC_CREDITO_CUENTA4: 50 });
+  out.usoGrupos = await cuentasDelCredito('grupos');
+  out.usoPlataforma = await cuentasDelCredito('plataforma');
+  await uso({ ANTHROPIC_CREDITO_CUENTA2: 95, ANTHROPIC_CREDITO_CUENTA3: 10, ANTHROPIC_CREDITO_CUENTA4: 50 }, new Date(Date.now() - 3 * 3_600_000).toISOString());
+  out.usoViejo = (await cuentasDelCredito('plataforma')).length;
+  await uso({});
+  await runWithWorkspace(PLATAFORMA, () => setSetting('ia.credito_plataforma', 'apagado'));
+  out.plataformaApagada = { plataforma: await cuentasDelCredito('plataforma'), grupos: (await cuentasDelCredito('grupos')).length,
+    clave: await claveDeLaCuentaDeLosGrupos('ANTHROPIC_CREDITO_CUENTA2', 'plataforma'), claveGrupos: !!(await claveDeLaCuentaDeLosGrupos('ANTHROPIC_CREDITO_CUENTA2', 'grupos')) };
+  await runWithWorkspace(PLATAFORMA, () => setSetting('ia.credito_plataforma', 'prendido'));
   delete process.env.ANTHROPIC_CREDITO_CUENTA3;
   delete process.env.ANTHROPIC_CREDITO_CUENTA9;
 

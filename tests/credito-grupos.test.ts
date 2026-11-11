@@ -93,6 +93,16 @@ test('5. N cuentas: las del Uso, una sola lista; el reparto recorre todas; una c
   assert.doesNotMatch(leer('lib/veto-claude.ts'), /export const CLAVES_CREDITO_DE_LOS_GRUPOS/, 'volvió la copia con los nombres fijos');
 });
 
+test('6. el % del vigía (11/11/2026): primero la que menos gastó; la plataforma deja el último 10% para WhatsApp; su interruptor', () => {
+  const r = correr();
+  const [C3, C4] = ['ANTHROPIC_CREDITO_CUENTA3', 'ANTHROPIC_CREDITO_CUENTA4'];
+  assert.deepEqual(r.usoGrupos, [C3, C4, C2], 'los grupos no van primero por la cuenta que menos gastó (o saltearon la del 95%)');
+  assert.deepEqual(r.usoPlataforma, [C3, C4], 'la plataforma usó la cuenta del 95%: ese resto es de WhatsApp');
+  assert.equal(r.usoViejo, 3, 'un % de hace 3 horas salteó una cuenta: puede ser de otro ciclo');
+  assert.deepEqual(r.plataformaApagada, { plataforma: [], grupos: 3, clave: null, claveGrupos: true },
+    'el interruptor de la plataforma no apaga sólo lo de la plataforma');
+});
+
 // ── Probado rompiéndolo (28/10/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
 //   R1 sin el reparto (`const i = 0`)                                                    → falla el 1
 //   R2 sin saltear la agotada                                                            → falla el 1
@@ -105,3 +115,8 @@ test('5. N cuentas: las del Uso, una sola lista; el reparto recorre todas; una c
 //   R9 la lista de los grupos como copia fija (cuatro nombres)                           → falla el 5
 //   R10 `claveDeLaCuentaDeLosGrupos` sin mirar que el nombre sea del Uso                  → falla el 5
 //   R11 el reparto sólo entre las dos primeras cuentas                                   → falla el 5
+// El % del vigía (11/11/2026), con el mismo arnés:
+//   R12 la plataforma sin saltear la cuenta del 90%                                      → falla el 6
+//   R13 el orden sin mirar el % (sólo el reparto)                                        → falla el 6
+//   R14 un % de hace horas cuenta igual                                                  → falla el 6
+//   R15 la plataforma con el interruptor de los grupos                                   → falla el 6
