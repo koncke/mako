@@ -10,8 +10,8 @@ import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenciales';
 import {
   permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, MOTIVO_CREDITO_SU_CLAVE, FEATURES_DEL_PLAN,
-  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, FEATURE_DE_LOS_GRUPOS, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude, type PermisoCredito,
-  type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
+  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude, type PermisoCredito,
+  type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude, puedeUsarUnaCuentaDelCredito, type UsoDelCredito,
 } from './veto-claude';
 import { CLAVES_CREDITO_DE_LOS_GRUPOS } from './credito-api';
 import type { ProvName } from './ai-cheap';
@@ -84,6 +84,62 @@ const marcaDelGasto = (permiso: PermisoClaveDelNegocio): string =>
   permiso.cuentaDelCredito ? `${MOTIVO_CREDITO_PLATAFORMA} (cuenta ${permiso.cuentaDelCredito})`
     : permiso.esCredito ? MOTIVO_CREDITO_SU_CLAVE : MOTIVO_CLAVE_DEL_NEGOCIO;
 
+/**
+ * ¿El pedido es del ESPACIO DE LA PLATAFORMA (el super admin, el ws 9)? Se calcula acá y sólo acá: el workspace en curso contra
+ * `wsSuperAdmin()`. Si algo no se puede leer, o no hay workspace (un cron sin cookie resuelve al ws1), NO es la plataforma.
+ * ⚠️ Nunca contra `OWNER_WS`: el ws1 es Mauricio, un cliente. Lo prueba rompiéndolo tests/credito-plataforma-frontera.test.ts.
+ */
+async function esElEspacioDeLaPlataforma(): Promise<boolean> {
+  try {
+    const { getWorkspaceActual, wsSuperAdmin } = await import('@/lib/workspace');
+    const actual = await getWorkspaceActual();
+    return actual != null && actual === (await wsSuperAdmin());
+  } catch { return false; }
+}
+
+/** El workspace en curso, para la fila de gasto del crédito: el negocio que lo usó (sin él, `recordUsage` lo mandaba al ws 9). */
+async function wsDelPedido(): Promise<number | undefined> {
+  try {
+    const { getWorkspaceActual } = await import('@/lib/workspace');
+    return (await getWorkspaceActual()) ?? undefined;
+  } catch { return undefined; }
+}
+
+/**
+ * Las cuentas del crédito que puede probar ESTE pedido, en orden (lib/credito-negocio.ts → `cuentasDelCredito`), o []. Lo usan la
+ * cascada de texto, la de herramientas y la lectura de imágenes del espacio de MaKo (11/11/2026). Sólo en la plataforma, salvo
+ * `tambienLosGrupos` (las fotos y los PDF de un grupo de WhatsApp, en cualquier negocio). La puerta 2 lo vuelve a mirar igual.
+ */
+export async function cuentasDelCreditoParaElPedido(feature: string | undefined, o: { tambienLosGrupos?: boolean } = {}): Promise<string[]> {
+  try {
+    const esLaPlataforma = await esElEspacioDeLaPlataforma();
+    const v = puedeUsarUnaCuentaDelCredito({ feature, esLaPlataforma, pausa: await claudePausado() });
+    if (!v.ok || (!esLaPlataforma && !(o.tambienLosGrupos && v.para === 'grupos'))) return [];
+    const { cuentasDelCredito } = await import('@/lib/credito-negocio');
+    return await cuentasDelCredito(v.para);
+  } catch { return []; }
+}
+
+/**
+ * EL FALLO DE UNA CUENTA DEL CRÉDITO QUEDA ESCRITO (11/11/2026), en UN lugar para la cascada de texto y la de herramientas. Antes
+ * cada llamador marcaba la cuenta sólo en la memoria de su instancia y no dejaba fila: el Uso (`sinCreditoAt`) nunca se enteraba de
+ * que una cuenta de los grupos se quedó sin saldo. Con «credit balance is too low», la cuenta se saltea (6 h) y queda la fila «sin
+ * crédito hasta el próximo ciclo» (el texto que reconoce lib/credito-api.ts). Cortada después de mandar, la fila «cortada sin
+ * respuesta» con lo que pudo gastar. Nunca en la tarjeta del negocio: el crédito es NUESTRO.
+ */
+async function anotarFalloDelCredito(permiso: PermisoClaveDelNegocio, error: string, o: { cortada?: boolean; maxTokens?: number; motivo?: string } = {}): Promise<void> {
+  const n = permiso.cuentaDelCredito;
+  if (!n) return;
+  const marca = `${MOTIVO_CREDITO_PLATAFORMA} (cuenta ${n})`;
+  const ws = await wsDelPedido();
+  if (/credit balance is too low/i.test(error)) {
+    (await import('@/lib/credito-negocio')).marcarCuentaDeLosGruposSinCredito(`ANTHROPIC_CREDITO_CUENTA${n}`);
+    await recordUsage(permiso.feature, permiso.model, {}, `${marca} · sin crédito hasta el próximo ciclo`, 'anthropic', n, ws).catch(() => {});
+  } else if (o.cortada) {
+    await recordUsage(permiso.feature, permiso.model, {}, [marca, `cortada sin respuesta (${error.slice(0, 80)}): puede haber gastado hasta ${o.maxTokens ?? 1024} tokens de salida`, (o.motivo ?? '').trim()].filter(Boolean).join(' · '), 'anthropic', n, ws).catch(() => {});
+  }
+}
+
 /** Lo que dice una función cuando no se pudo comprobar la clave de Claude del negocio: se reintenta, no se paga otra. */
 // Sin la causa: puede ser la base que no contestó o una fila de la plataforma que no se descifra (revisión del lote 2), y
 // decir «la base no contestó» en el segundo caso era falso.
@@ -135,12 +191,20 @@ export async function permisoDeLaClaveDelNegocio(feature?: string, opts: { model
   // y su gasto con la marca del crédito. Su clave propia, si la conecta, gana.
   // Y EL DE LOS GRUPOS (28/10/2026, `CLAVES_CREDITO_DE_LOS_GRUPOS`): sólo el turno de un grupo de WhatsApp, con la cuenta que eligió
   // el doer (`cuentasDelCreditoDeLosGrupos`), por la misma puerta y con las mismas reglas.
+  // Y DESDE EL 11/11/2026, TODO LO DEL ESPACIO DE MaKo MENOS EL PLAN (Martín: «gastemos eso para todo esto en lugar de Gemini»):
+  // quién puede usar una cuenta lo dice UNA regla pura (`puedeUsarUnaCuentaDelCredito`), y «es la plataforma» se calcula ACÁ
+  // adentro (`esElEspacioDeLaPlataforma`), nunca con un dato del que llama: un negocio que pida una cuenta no la recibe.
   let asignada = false;
   let delGrupo: string | null = null;
   const credito = await import('@/lib/credito-negocio');
   const asignadoAlNegocio = await credito.claveDelCreditoAsignado().catch(() => null);
-  const cuentaDelGrupo = !asignadoAlNegocio && opts.cuentaDeLosGrupos && (feature ?? '').trim() === FEATURE_DE_LOS_GRUPOS ? opts.cuentaDeLosGrupos : null;
-  const delCredito = asignadoAlNegocio ?? (cuentaDelGrupo ? await credito.claveDeLaCuentaDeLosGrupos(cuentaDelGrupo).catch(() => null) : null);
+  let usoDelCredito: UsoDelCredito | null = null;
+  if (!asignadoAlNegocio && opts.cuentaDeLosGrupos) {
+    const v = puedeUsarUnaCuentaDelCredito({ feature, esLaPlataforma: await esElEspacioDeLaPlataforma(), pausa: await claudePausado() });
+    if (v.ok) usoDelCredito = v.para;
+  }
+  const cuentaDelGrupo = usoDelCredito ? opts.cuentaDeLosGrupos ?? null : null;
+  const delCredito = asignadoAlNegocio ?? (cuentaDelGrupo && usoDelCredito ? await credito.claveDeLaCuentaDeLosGrupos(cuentaDelGrupo, usoDelCredito).catch(() => null) : null);
   if (delCredito && (!clave || (await esClaveAnthropicDeLaPlataforma(clave)) !== false)) {
     clave = delCredito;
     asignada = true;
@@ -224,8 +288,10 @@ export async function conClaveDelNegocio(p: {
   /** Lo que MIRA (IA6): imágenes y PDF como bloques de Claude, antes del texto. Las fotos de un negocio con su IA las lee su
    *  Claude o su OpenAI, nunca Gemini (lib/ai-cheap.ts → `leerDocumentoIA`). */
   bloques?: Array<Record<string, unknown>>;
-}): Promise<{ texto: string; model?: string } | { error: string; noPudeLeer?: true; esCredito?: true } | null> {
-  const r = await permisoDeLaClaveDelNegocio(p.feature);
+  /** Una cuenta del crédito (11/11/2026, `cuentasDelCreditoParaElPedido`): la puerta 2 decide si este pedido la puede usar. */
+  cuentaDeLosGrupos?: string;
+}): Promise<{ texto: string; model?: string } | { error: string; noPudeLeer?: true; esCredito?: true; status?: number } | null> {
+  const r = await permisoDeLaClaveDelNegocio(p.feature, { cuentaDeLosGrupos: p.cuentaDeLosGrupos });
   if (!r) return null;
   // No es un fallo de SU clave: no se anota en su tarjeta (`anotarFalloDeSuClave`), y quien llama no paga con otra.
   if ('noPudeLeer' in r) return { error: NO_PUDE_COMPROBAR_SU_CLAUDE, noPudeLeer: true };
@@ -251,12 +317,17 @@ export async function conClaveDelNegocio(p: {
       // ⚠️ EL FALLO DE SU CLAVE QUEDA ESCRITO (IA3, 22/10/2026). Antes se devolvía sin anotar y la cascada seguía con
       // Gemini: en toda la historia hubo 0 filas con la marca del negocio, y una clave sin crédito se veía igual que «nunca
       // se usó». El status va adelante: el motivo corto lo lee de ahí (lib/su-clave-reglas.ts).
-      await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error: `HTTP ${res.status} ${body?.error?.type ?? ''} ${error}`, feature: permiso.feature, modelo: permiso.model });
+      // Una cuenta del crédito NO es su clave (11/11/2026): su fallo va al Uso de SuperAdmin, nunca a la tarjeta del negocio.
+      if (permiso.cuentaDelCredito) await anotarFalloDelCredito(permiso, error);
+      else await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error: `HTTP ${res.status} ${body?.error?.type ?? ''} ${error}`, feature: permiso.feature, modelo: permiso.model });
       // Con el crédito que paga MaKo (`esCredito`), «sin crédito» es de la plataforma: quien llama no se lo pide al negocio.
-      return permiso.esCredito ? { error, esCredito: true } : { error };
+      return permiso.esCredito || permiso.cuentaDelCredito ? { error, esCredito: true, status: res.status } : { error, status: res.status };
     }
-    // Lo paga el negocio: la marca va PRIMERO en el motivo, y lib/costos-ia.ts la saca del gasto de MaKo.
-    await recordUsage(permiso.feature, permiso.model, body.usage, [marcaDelGasto(permiso), (p.motivo ?? '').trim()].filter(Boolean).join(' · ')).catch(() => {});
+    // Lo paga el negocio: la marca va PRIMERO en el motivo, y lib/costos-ia.ts la saca del gasto de MaKo. Una cuenta del crédito,
+    // con su número y el ws que la usó (sin el ws, la fila de un negocio caía al ws 9).
+    const motivoDelGasto = [marcaDelGasto(permiso), (p.motivo ?? '').trim()].filter(Boolean).join(' · ');
+    if (permiso.cuentaDelCredito) await recordUsage(permiso.feature, permiso.model, body.usage, motivoDelGasto, 'anthropic', permiso.cuentaDelCredito, await wsDelPedido()).catch(() => {});
+    else await recordUsage(permiso.feature, permiso.model, body.usage, motivoDelGasto).catch(() => {});
     const texto = (body.content ?? [])
       .filter((c: { type?: string }) => c.type === 'text')
       .map((c: { text?: string }) => c.text ?? '')
@@ -265,6 +336,11 @@ export async function conClaveDelNegocio(p: {
     return texto ? { texto, model: permiso.model } : { error: 'Claude contestó vacío' };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
+    // Cortada (por plazo o por la red) DESPUÉS de mandar: con el crédito queda la fila de lo que pudo gastar, como en la puerta 3.
+    if (permiso.cuentaDelCredito) {
+      await anotarFalloDelCredito(permiso, error, { cortada: true, maxTokens: p.maxTokens ?? 1024, motivo: p.motivo });
+      return { error, esCredito: true };
+    }
     await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error, feature: permiso.feature, modelo: permiso.model });
     return { error };
   }

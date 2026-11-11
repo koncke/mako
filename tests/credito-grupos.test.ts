@@ -93,6 +93,23 @@ test('5. N cuentas: las del Uso, una sola lista; el reparto recorre todas; una c
   assert.doesNotMatch(leer('lib/veto-claude.ts'), /export const CLAVES_CREDITO_DE_LOS_GRUPOS/, 'volvió la copia con los nombres fijos');
 });
 
+test('7. desde el 11/11/2026: el Ops Center del ws9 SÍ usa el crédito (el Plan no); un negocio, sólo en WhatsApp', () => {
+  const r = correr();
+  assert.deepEqual(r.ws9OpsCenter, { clave: 'sk-ant-api03-credito-cuenta2-', modelo: 'claude-haiku-4-5', esCredito: true, cuenta: 2 },
+    'el chat del Ops Center del espacio de MaKo no usó el crédito');
+  assert.equal(r.ws9Plan, null, 'el Plan pagó con el crédito en el espacio de MaKo');
+  assert.equal(r.ws10OpsCenter, null, 'el Ops Center de un negocio usó el crédito: cada negocio paga su IA');
+  assert.deepEqual(r.ws10Adjunto, { clave: 'sk-ant-api03-credito-cuenta2-', modelo: 'claude-haiku-4-5', esCredito: true, cuenta: 2 },
+    'las fotos y los PDF de un grupo no usan el crédito de los grupos');
+  assert.deepEqual(r.textoWs14, { texto: 'hola desde Claude', model: 'claude-haiku-4-5' });
+  assert.equal(r.textoWs14SinSaldo.esCredito, true);
+  assert.match(r.textoWs14SinSaldo.error, /credit balance is too low/);
+  assert.deepEqual(r.filasWs14, [
+    '14:2:⚠ crédito de Claude de la plataforma (cuenta 2) · Leer el adjunto',
+    '14:1:⚠ crédito de Claude de la plataforma (cuenta 1) · sin crédito hasta el próximo ciclo',
+  ], 'el gasto del crédito de un negocio no quedó en SU ws con su cuenta, o el fallo fue a su tarjeta');
+});
+
 test('6. el % del vigía (11/11/2026): primero la que menos gastó; la plataforma deja el último 10% para WhatsApp; su interruptor', () => {
   const r = correr();
   const [C3, C4] = ['ANTHROPIC_CREDITO_CUENTA3', 'ANTHROPIC_CREDITO_CUENTA4'];
@@ -120,3 +137,9 @@ test('6. el % del vigía (11/11/2026): primero la que menos gastó; la plataform
 //   R13 el orden sin mirar el % (sólo el reparto)                                        → falla el 6
 //   R14 un % de hace horas cuenta igual                                                  → falla el 6
 //   R15 la plataforma con el interruptor de los grupos                                   → falla el 6
+// La puerta para el espacio de MaKo (11/11/2026), con el mismo arnés:
+//   R16 `esElEspacioDeLaPlataforma` siempre true (un negocio usa el crédito)            → fallan el 2 y el 7
+//   R17 «es la plataforma» comparado con el ws1 (OWNER_WS, Mauricio) y no con el super admin → falla el 7
+//   R18 el fallo de una cuenta del crédito a la tarjeta del negocio (`anotarFalloDeSuClave`) → falla el 7
+//   R19 la fila del gasto del crédito sin el ws del pedido (caía al ws9)                 → falla el 7
+//   R20 `conClaveDelNegocio` sin pasarle la cuenta a la puerta                           → falla el 7

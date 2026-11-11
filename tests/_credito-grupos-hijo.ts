@@ -108,6 +108,21 @@ async function main() {
   marcarCuentaDeLosGruposSinCredito('ANTHROPIC_CREDITO_CUENTA1');
   out.sinLaAgotada = await cuentasDelCreditoDeLosGrupos();
 
+  // ── 11/11/2026: el espacio de MaKo (ws9) usa una cuenta para todo menos el Plan; un negocio, sólo en WhatsApp ────────────
+  out.ws9OpsCenter = await permiso(PLATAFORMA, 'mako-doer', 'ANTHROPIC_CREDITO_CUENTA2');
+  out.ws9Plan = await permiso(PLATAFORMA, 'plan-fathom', 'ANTHROPIC_CREDITO_CUENTA2');
+  out.ws10Adjunto = await permiso(10, 'MaKo en WhatsApp · adjunto', 'ANTHROPIC_CREDITO_CUENTA2');
+  // El texto con una cuenta del crédito (`conClaveDelNegocio`) en un negocio SIN su Claude (ws14): la fila con la cuenta y en
+  // SU ws (antes caía al ws9); sin saldo, la fila «sin crédito» y nada en la tarjeta del negocio.
+  pg.db.workspaces.push({ id: 14, capa: 'cliente', nombre: 'ws14' });
+  const { conClaveDelNegocio } = await import('../lib/anthropic');
+  const texto = (cuenta: string) => runWithWorkspace(14, () => conClaveDelNegocio({ system: 's', user: 'la foto del grupo', feature: 'MaKo en WhatsApp · adjunto', motivo: 'Leer el adjunto', timeoutMs: 5_000, cuentaDeLosGrupos: cuenta }));
+  const antes14 = pg.db.anthropic_usage.length;
+  out.textoWs14 = await texto('ANTHROPIC_CREDITO_CUENTA2');
+  out.textoWs14SinSaldo = await texto('ANTHROPIC_CREDITO_CUENTA1');
+  await espera();
+  out.filasWs14 = pg.db.anthropic_usage.slice(antes14).map((f) => `${f.workspace_id}:${f.cuenta}:${String(f.motivo ?? '').slice(0, 100)}`);
+
   // ── Una cuenta por el entorno también cuenta ───────────────────────────────────────────────────────────────────────
   process.env.ANTHROPIC_CREDITO_CUENTA3 = CREDITO3;
   out.conLaDelEntorno = (await cuentasDelCreditoDeLosGrupos()).sort();
