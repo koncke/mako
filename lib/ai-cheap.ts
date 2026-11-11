@@ -799,14 +799,20 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // un cron sin workspace reciben [] y la cascada sigue como siempre. Las cuentas, de una en una (`cuentasDelCreditoParaElPedido`);
   // sin saldo, 401 o 429 prueba la otra; plazo, 5xx u «overloaded», directo a Gemini (es el mismo Anthropic). Con `fallback: []`
   // (`sinCredito`) no, y lo que no entra en el contexto de Haiku, tampoco. Sus errores son de la PLATAFORMA (`erroresPlataformaOut`).
-  if (!opts.sinCredito && quedan() >= MIN_INTENTO_MS && pesa <= (TECHO_ENTRADA.anthropic ?? 0)) {
+  // ⏱ EL CRÉDITO LE DEJA SU INTENTO A GEMINI (revisión del 11/11/2026). Con `hastaMs`, el crédito pide lo que queda MENOS un
+  // intento entero (`MIN_INTENTO_MS`), y si eso no llega a un intento, no se prueba. Antes pedía todo lo que quedaba: un Haiku
+  // colgado o lento (el AI Analyst por HTTP, 45 s) se comía el plazo y Gemini devolvía «sin tiempo» sin un solo pedido. No es la
+  // reserva que se sacó el 26/10 (hallazgo 17, la de `plazoDeIntento`): ésa recortaba al PRIMER proveedor, que antes tenía todo
+  // el plazo; el crédito es una capa NUEVA delante de él, y lo que no puede es dejar sin plazo a lo que antes iba primero.
+  const plazoDelCredito = (): number => (opts.hastaMs == null ? plazoDeIntento() : Math.min(plazoDeIntento(), quedan() - MIN_INTENTO_MS));
+  if (!opts.sinCredito && plazoDelCredito() >= MIN_INTENTO_MS && pesa <= (TECHO_ENTRADA.anthropic ?? 0)) {
     const { conClaveDelNegocio, cuentasDelCreditoParaElPedido } = await import('./anthropic');
     for (const cuenta of await cuentasDelCreditoParaElPedido(opts.feature).catch(() => [] as string[])) {
-      if (quedan() < MIN_INTENTO_MS) break;
+      if (plazoDelCredito() < MIN_INTENTO_MS) break;
       avisar();
       const r = await conClaveDelNegocio({
         system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
-        feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(), cuentaDeLosGrupos: cuenta,
+        feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDelCredito(), cuentaDeLosGrupos: cuenta,
       }).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
       if (r && 'texto' in r) {
         const t = opts.json ? soloElJson(r.texto) : r.texto;

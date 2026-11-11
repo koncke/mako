@@ -69,7 +69,7 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
 });
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<'A' | 'A2' | 'B' | 'C' | 'D' | 'E' | 'F' | 'F2' | 'G' | 'G2' | 'G3', Vuelta>
   & { H: { tanda1: Pedido[]; tanda2: Pedido[]; afuera: Pedido[]; saturadoDespues: boolean }; error?: string }
-  & Record<'P' | 'P_gratisContesta' | 'P_negocio' | 'P_otraTarea' | 'P_plan' | 'P_sinCredito' | 'P_noEntra' | 'P_corte' | 'P_sinSaldo', { respuesta: string; pedidos: Pedido[]; credito: Array<{ model: string; max_tokens: number; clave: string }>; filasDeUso: number }>
+  & Record<'P' | 'P_gratisContesta' | 'P_negocio' | 'P_otraTarea' | 'P_plan' | 'P_sinCredito' | 'P_noEntra' | 'P_corte' | 'P_corto' | 'P_sinSaldo', { respuesta: string; pedidos: Pedido[]; credito: Array<{ model: string; max_tokens: number; clave: string }>; plazosDelCredito: Array<{ plazo: number | null; quedaban: number | null }>; filasDeUso: number }>
   & { P_sinSaldoFila: number };
 const LATEST = 'gemini-flash-latest', LITE = 'gemini-flash-lite-latest';
 const modelos = (v: Vuelta) => v.pedidos.map((p) => p.modelo);
@@ -155,12 +155,19 @@ test('5. el espacio de MaKo: el crédito de Claude va PRIMERO y Gemini de respal
   assert.equal(R.P_plan.credito.length, 0, 'el Plan usó el crédito («JAMÁS algo pago para el plan»)');
   assert.equal(R.P_sinCredito.credito.length, 0, 'una función con `fallback: []` mezcló el crédito con su proveedor');
   assert.equal(R.P_noEntra.credito.length, 0, 'un pedido que no entra en Haiku se mandó igual al crédito');
-  // Sin el crédito, Gemini es la última opción real y recupera sus reintentos.
-  assert.deepEqual(modelos(R.P_plan), [LATEST, LITE, LITE], `sin crédito, flash-lite no reintentó: ${modelos(R.P_plan).join(', ')}`);
+  // Sin el crédito, Gemini es la última opción real y recupera sus reintentos (con 32 s: esperas de 1,5 s y 6 s, tres pedidos).
+  assert.deepEqual(modelos(R.P_plan), [LATEST, LITE, LITE, LITE], `sin crédito, flash-lite no reintentó: ${modelos(R.P_plan).join(', ')}`);
   // Cortado por plazo después de mandar: queda la fila con la marca, y pasa a Gemini SIN probar la otra cuenta (el mismo Anthropic).
   assert.equal(R.P_corte.credito.length, 1, 'un plazo vencido del crédito probó la otra cuenta');
   assert.equal(R.P_corte.filasDeUso, 1, 'un corte del crédito no dejó rastro de lo que pudo gastar');
-  assert.deepEqual(modelos(R.P_corte), [LATEST, LITE, LITE], 'después del corte del crédito, Gemini no quedó de respaldo con sus reintentos');
+  assert.deepEqual(modelos(R.P_corte), [LATEST, LITE, LITE, LITE], 'después del corte del crédito, Gemini no quedó de respaldo con sus reintentos');
+  // ⏱ El crédito le deja a Gemini un intento entero (15 s): pide lo que queda MENOS eso. Antes pedía todo, y un Anthropic colgado
+  // de verdad dejaba a Gemini en «sin tiempo» sin un solo pedido (el arnés corta a los 50 ms: sin mirar el plazo, no se veía).
+  const [pc] = R.P_corte.plazosDelCredito;
+  assert.ok(pc?.plazo != null && pc.quedaban != null && pc.quedaban - pc.plazo >= 14_900,
+    `el crédito pidió ${pc?.plazo} ms con ${pc?.quedaban} ms por delante: no le dejó su intento a Gemini`);
+  assert.equal(R.P_corto.credito.length, 0, 'con 20 s el crédito se probó igual: no alcanzaba para él y para Gemini');
+  assert.ok((R.P_corto.pedidos[0]?.plazo ?? 0) > 19_000, `sin el crédito, Gemini no tuvo todo el plazo (${R.P_corto.pedidos[0]?.plazo} ms)`);
   // Sin saldo: la fila «sin crédito» (la ve el Uso) y contesta Gemini.
   assert.equal(R.P_sinSaldo.respuesta, `respuesta de ${LITE}`);
   assert.equal(R.P_sinSaldo.filasDeUso, 1);
@@ -203,6 +210,7 @@ test('5. el espacio de MaKo: el crédito de Claude va PRIMERO y Gemini de respal
 //  29. sin el techo de entrada de Haiku                                 → rojo «5.».
 //  30. un plazo vencido prueba la otra cuenta                           → rojo «5.» (P_corte).
 //  31. un corte del crédito sin su fila «cortada»                       → rojo «5.» (P_corte).
+//  32. el crédito pidiendo todo lo que queda (`plazoDeIntento()`, sin dejarle su intento a Gemini) → rojo «5.» (P_corte y P_corto).
 // Y en tests/veto-claude-credito-plataforma.test.ts: la puerta leyendo las claves para un negocio, y el veto con
 // `esLaPlataforma === false` (sin saber, dejaba pasar) → rojo «lo interno de MaKo usa el crédito SÓLO…».
 // Segunda verificación del tren-m (26/10/2026):
