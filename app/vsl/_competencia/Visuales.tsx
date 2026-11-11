@@ -11,6 +11,7 @@ import { FEATURES } from '../_detalle/features';
 import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
 import { Visual } from '../_detalle/Visual';
 import PandaPlayer from '../_detalle/PandaPlayer';
+import { VISUALES_PROPIOS } from './visuales';
 
 /** AI Avatar: tu foto → la escena → el video vertical, con el subtítulo de la plantilla. */
 function Avatar({ escena, estilo, frase, segundos }: Extract<VisualHero, { tipo: 'avatar' }>) {
@@ -56,6 +57,10 @@ export function VisualDeLanding({ visual }: { visual: VisualHero }) {
       const f = FEATURES[visual.slug];
       if (f?.videoEmbed) return <PandaPlayer src={f.videoEmbed} title={`${f.name} — cómo funciona`} />;
       return <Visual spec={FEATURE_VISUALS[visual.slug]?.hero} />;
+    }
+    case 'propio': {
+      const Propio = VISUALES_PROPIOS[visual.slug];
+      return Propio ? <Propio /> : null;
     }
   }
 }

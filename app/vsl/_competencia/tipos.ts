@@ -47,7 +47,9 @@ export type Bloque =
 export type VisualHero =
   | { tipo: 'avatar'; escena: string; estilo: string; frase: string; segundos: number }
   /** Lo que ya tiene la landing de /vsl de ese slug: su mini-VSL de Panda si lo tiene, si no su gráfico de portada. */
-  | { tipo: 'detalle'; slug: string };
+  | { tipo: 'detalle'; slug: string }
+  /** Un visual propio de la función, dibujado en ./visuales/<slug>.tsx (para las funciones que no tenían landing en /vsl). */
+  | { tipo: 'propio'; slug: string };
 
 export type LandingCompetencia = {
   slug: string;
