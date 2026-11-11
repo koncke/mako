@@ -8,6 +8,7 @@
 // =============================================================================
 
 import { plantillaGuiada } from '@/lib/video-plantillas';
+import { esFamiliaEdicion, type FamiliaEdicion } from '@/lib/video-outliers';
 
 type Query = Record<string, string | string[] | undefined>;
 const primero = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -24,3 +25,9 @@ export function replicarDe(q: Query): string | null {
 }
 
 export const rutaReplicar = (plantilla: string): string => `/video-editor?ver=crear&replicar=${encodeURIComponent(plantilla)}`;
+
+/** El filtro de la portada por familia de edición (`?patron=`), validado contra la lista; null = todos. */
+export function familiaDe(q: Query): FamiliaEdicion | null {
+  const f = primero(q.patron)?.slice(0, 40);
+  return esFamiliaEdicion(f) ? f : null;
+}

@@ -22,7 +22,7 @@ import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { VideoEditorCliente } from './VideoEditorCliente';
 import { leerOutliersVideo } from '@/lib/video-outliers-servidor';
 import { OutliersVideo } from './OutliersVideo';
-import { replicarDe, vistaDeVideo } from './vista';
+import { familiaDe, replicarDe, vistaDeVideo } from './vista';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -33,7 +33,7 @@ export default async function VideoEditorPage({ searchParams }: { searchParams: 
   if (vistaDeVideo(q) === 'outliers') {
     return (
       <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-        <OutliersVideo portada={await leerOutliersVideo()} />
+        <OutliersVideo portada={await leerOutliersVideo()} familia={familiaDe(q)} />
       </Pagina>
     );
   }
