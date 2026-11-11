@@ -46,10 +46,10 @@ Números y método en docs/editor-video/memoria-del-editor.md.
   1. ~~forma de onda por tramos~~ **HECHO el 11/11** (`media/onda-por-tramos.ts`; 76 MB de video: pico de +275 a +61 MB, el mismo dibujo, memoria-del-editor.md §10);
   2. ~~copias livianas al importar~~ **HECHO el 11/11** (`media/copia-liviana.ts`; 3 clips de +297 a +81 MB, memoria-del-editor.md §9);
   3. ~~un lienzo por capa que se reuse~~ **HECHO el 11/11 para el video** (`compositor/lienzo-de-subida.ts`; 1080: pico de la GPU de +198 a +152 MB, cuadros un 23 % más rápidos). Los efectos tipo CapCut siguen con un lienzo nuevo por llamada (`pases-ce.ts:347`), a propósito: el de su contexto se reusa abajo de quien lo lee;
-  4. tope de decodificadores abiertos;
-  5. terminar el hilo de Whisper;
-  6. exportar sin juntar todo en memoria;
-  7. las fugas (`sounds-store.ts:225`, `image-node.ts:18`, `miniaturas.ts:42`, `EditorCore.reset()`).
+  4. ~~tope de decodificadores abiertos~~ **HECHO el 11/11, con otra regla**: se cierra el que no pidió un cuadro en 5 s DE USO, y con el editor quieto no corre. Un tope fijo cerraría capas que se ven a la vez. Con 6 clips de celular, Chrome queda en +188 MB contra +411. ⚠️ La GPU no devuelve en el momento lo que se suelta: cerrar no la baja, la deja de hacer crecer, y con 2–4 clips no se nota;
+  5. ~~terminar el hilo de Whisper~~ **HECHO el 11/11**: se suelta al minuto sin uso, nunca con un subtitulado en curso (≈250–300 MB);
+  6. exportar sin juntar todo en memoria: **el audio, HECHO el 11/11** (de a una fuente: 4 clips de 60 s, de +450 a +200 MB de pico, el mismo resultado); falta el MP4 a OPFS con `StreamTarget` (el «fast start» en memoria pone el índice al principio, y escribiendo de a poco hay que elegir dónde va);
+  7. las fugas: **HECHAS el 11/11 cuatro** (IndexedDB cierra cada conexión, y una abierta dejaba colgado a `deleteDatabase`; el caché de imágenes, el `AudioContext` de cada sonido de la biblioteca y el `Input` de la tira de miniaturas se sueltan). Falta `EditorCore.reset()` / `AudioManager.dispose()` / salir sin cerrar el proyecto, que se prueba con el editor entero.
 
   Sin medir en vivo: el editor ENTERO (la PC tenía 1,9 GB libres, y sigue el SIN RESOLVER de «Cargando…» en un Chrome sin
   ventana), exportar y Whisper.
