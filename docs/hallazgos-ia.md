@@ -7992,3 +7992,25 @@ habilitarla es decisión de Martín: habilitarla es volver a prestarle IA a un c
     redundante (la hace la puerta): no molesta, y la fija tests/doer-su-ia.test.ts;
   - fuera de este cambio y con fecha: el permiso de `closing` vence el 13/11 (lib/veto-claude.ts) y el precio de Sonnet 5 sigue
     a 2/10 (lib/anthropic-usage.ts).
+
+## La revisión del crédito primero: cuatro fugas, y el arnés que las escondía (11/11/2026, claude4)
+
+- **`?? 0` convertía «no sé» en «0%», y abría la reserva de WhatsApp justo sin dato.** Con el gasto ilegible, el vigía guardaba
+  `{}` con la hora de ahora (pisaba el 95% de una cuenta) y `ordenDeLasCuentas` leía `uso[c] ?? 0`: la plataforma volvía a usar
+  esa cuenta. Ahora un % incompleto no se guarda (`avisosDelCredito` → `completo`) y para la plataforma faltar es quedar fuera
+  (lib/credito-api.ts, lib/credito-vigia.ts).
+- **«Su clave gana» en la puerta 2 hace que reintentar con una cuenta del crédito sea reintentar con SU clave.** La foto de un
+  grupo (`leerDocumentoIA`) entraba al lazo con cualquier fallo, también el de su Claude sin saldo: N pedidos a su clave y N
+  filas en su tarjeta, y el crédito nunca. El doer ya lo evitaba (`sin_su_claude`); la foto no. Ahora, sólo con el primer intento
+  en `null` (lib/ai-cheap.ts).
+- **«Al respaldo» suponía que había uno.** Para un negocio sin su IA, un 529 del crédito era el cartel de fallo en el turno y la
+  foto sin leer: no hay Gemini ni red. Ahora, sin respaldo, lo pasajero prueba UNA cuenta más (lib/veto-claude.ts,
+  lib/mako-doer-in.ts, lib/ai-cheap.ts). La foto no repite un cuelgue (90 s por pedido).
+- **El diagnóstico obvio era el equivocado: el test de saturación estaba verde PORQUE el arnés corta todo a 50 ms.**
+  tests/_ia-saturacion-hijo.ts recorta `AbortSignal.timeout` y anotaba el plazo pedido a Google, no el del crédito: el crédito
+  pedía TODO lo que quedaba del `hastaMs`, y en producción un Haiku colgado dejaba a Gemini en «sin tiempo» sin un pedido.
+  Con un arnés que acorta el tiempo, lo que se afirma es el plazo PEDIDO, nunca «el respaldo corrió». Ahora el crédito pide
+  lo que queda menos `MIN_INTENTO_MS`, y con menos de 30 s no va.
+- **Sin hacer:** «hay respaldo» en el turno del grupo no mira `turnoRed.cortar` (la red del ws9 salteada por datos de clientes
+  cuenta como respaldo, y entonces no se reintenta: lo de antes, lib/mako-doer-in.ts → `hayRespaldoDespuesDeClaude`); y el
+  clasificador del grupo sigue cortando al primer 529 (ahí mandan las reglas, no hay cartel).

@@ -5939,6 +5939,13 @@ nuevo:
   - **Entra por la puerta 2 (las cuentas de los grupos), no por la 3.** La 3 (`conCreditoDeLaPlataforma`) lee 2 de las 5
     cuentas, no mira imágenes ni corre herramientas, y queda sólo para el onboarding. Por la 2 va con Haiku, con «(cuenta N)» y
     el ws real en la fila, y se apaga sin deploy con `ia.credito_plataforma` («apagado»; sin fila, prendido).
+  - **Un lazo de cuentas del crédito corre SÓLO si el primer intento devolvió `null`** (el negocio no tiene su clave). Con su
+    clave, la puerta 2 se la da otra vez en cada cuenta (su clave gana): N pedidos a una clave sin saldo y N fallos en su tarjeta.
+  - **El crédito delante de otra opción le deja su intento entero** (`MIN_INTENTO_MS` dentro de `hastaMs`), y si no alcanza
+    para los dos, no se prueba. «Al respaldo» supone que hay uno: sin respaldo (un negocio sin su IA en su grupo), una falla
+    pasajera (`esFallaPasajeraDelCredito`) prueba UNA cuenta más (`queHacerSiFallaElCredito(…, { sinRespaldo, pasajerasAntes })`).
+  - **El % del vigía (`ia.credito.uso`): faltar es «no sé», nunca 0%.** Un % incompleto no se guarda (pisaría el último
+    completo), y para la plataforma una cuenta sin % queda fuera: puede ir al 95%, y ese 10% es de WhatsApp.
 - **Y lo que lo gasta pasa por la GUARDIA del onboarding** (17/10/2026, `frenoDeIa`, lib/onboarding-guardia-server.ts:
   ráfaga por usuario e IP, un tope de turnos y documentos por onboarding en la base, el troleo que no llega a la IA y
   el bloqueo con aviso al equipo). Una acción nueva de /api/offer que pague IA se suma a `tipoIa` antes del `switch`;
