@@ -4397,3 +4397,19 @@ Réplica: la masterclass de clase.highticketclarity.com desde su tarjeta de outl
   (lib/editor-landing/plantillas.ts). Una sección vacía publicada es una falla a la vista.
 - **El chat del editor inventa datos al adaptar:** le pasó a Martín las cifras de Clara («más de 10 años… más de 50 negocios high
   ticket»). Es la IA de editar (lib/editor-landing/ia.ts); «PROHIBIDO INVENTAR» no le llega con el perfil del negocio vacío.
+
+### Ticket #88: «La pantalla Web Generator se rompió» era un diálogo abierto desde la URL dibujándose en el SERVIDOR (12/11/2026)
+
+- **Síntoma:** la Ticketera abrió «se rompió» con `Minified React error #419` en `/web-generator?vista=…&diseno=…`. La pantalla
+  se veía bien: #419 es un error RECUPERABLE (React tiró esa parte del HTML del servidor y la dibujó en el cliente), y Next lo
+  manda a `reportError`, que `ReportarErrores` convierte en ticket. **El error de verdad está en el servidor**, y el del navegador
+  no lo trae: se lee en Vercel (`npx vercel@latest logs --token … --scope mbustos-4239s-projects -p mako --since … -q
+  'requestPath:"/web-generator"' --json`): «ReferenceError: document is not defined» en el chunk de MiniaturaLanding, con el
+  mismo `digest` en las 11 visitas.
+- **Causa:** `?vista=plantillas&diseno=<id>` (el enlace de las plantillas de la portada) abre «¿De qué quieres crearla?» desde el
+  estado INICIAL de Inicio.tsx (`disenoInicial`), y `DialogoGamma` hace `createPortal(…, document.body)` al dibujarse. Abierto con
+  un clic nunca pasa por el servidor; abierto desde la URL, sí. Lo disparó la prueba de este chat (12 plantillas seguidas), pero
+  le pasa a cualquiera que toque una plantilla de la portada.
+- **Regla:** un portal a `document.body` va detrás de `useEnElNavegador()` (`useSyncExternalStore` con `() => false` para el
+  servidor: el servidor y la hidratación dan lo mismo y no hay desajuste), y los efectos que miden o enfocan lo portaleado
+  dependen de ese valor. Antes de abrir algo desde la URL, se pregunta si sus piezas se pueden dibujar en el servidor.
