@@ -141,7 +141,9 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
-**Pedido de la undécima vuelta (Martín, 12/11, sobre `maqueta-checklist.html`), en curso:**
+**Hecho (12/11, undécima vuelta):** `maqueta-piloto.html` (Artifact claude.ai/artifact/DFHqDKpAR5Hy8RQPceb31L). Puntos 1 a 5 de abajo, y además «Marketing CoPilot» arriba, con la criatura de MaKo que pestañea. La configuración va en una hoja al costado, como los ajustes de Linear o Notion. **Sin hacer:** «Métricas» todavía no usa las plantillas del Dashboard (no encontré rápido cuáles son por su nombre en el código); tiene un botón «Abrir en el Dashboard». El cuerpo vigente es `cuerpo-once.html`.
+
+**Pedido de la undécima vuelta (Martín, 12/11, sobre `maqueta-checklist.html`):**
 1. **La acción, con las 5 tarjetas** (oferta, web, anuncios, Instagram, YouTube): sin elegir ninguna, la checklist de todo; con una elegida, sólo la suya.
 2. **El botón de cada tarea, simple** («Hacerlo»), nunca «En Offer» ni «En Competitor Spy».
 3. **La oferta elegida:** la checklist de un lado y el chat de Offer del otro. La web, igual con la página.
