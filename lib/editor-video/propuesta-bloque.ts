@@ -156,6 +156,7 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
     case 'fondo_lienzo': return op.color !== undefined ? `Fondo del lienzo ${op.color}` : `Fondo del lienzo desenfocado (${op.desenfoque})`;
     case 'efecto_texto': return op.id ? `Efecto de texto ${comillas(op.id)}` : 'Sin efecto de texto';
     case 'agregar_emoji': return `Emoji ${op.emoji} ${entre(op.inicio, op.inicio + op.duracion)}`;
+    case 'agregar_medios': return `Al final de la pista principal, en este orden: ${op.medios.map((m) => els.get(m)?.nombre ?? m).join(', ')}`;
     case 'encuadre':
       if ('quitar' in op) return 'El cuadro entero, sin recortar';
       if ('proporcion' in op) return `El cuadro recortado a ${op.proporcion}`;

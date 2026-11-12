@@ -660,6 +660,7 @@ export const RUNNERS: Runners = {
   agregar_emoji_video: { ...enElEditor('agregar_emoji_video') },
   encuadrar_clip_video: { ...enElEditor('encuadrar_clip_video') },
   otra_imagen_broll: { ...enElEditor('otra_imagen_broll') },
+  poner_medios_linea_tiempo: { ...enElEditor('poner_medios_linea_tiempo') },
 
   ver_contexto_video: {
     leer: async () => {

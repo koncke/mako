@@ -88,6 +88,8 @@ test('las operaciones del editor se dicen en palabras, sin «undefined» ni «Na
     plantilla: 'titular',
     // fondo_lienzo, agregar_emoji y encuadre (10/11/2026).
     color: '#000000', emoji: '🔥', proporcion: '9:16',
+    // agregar_medios (ticket 73, 12/11/2026): los medios de Multimedia, en orden.
+    medios: ['m1'],
   };
   const ops = new Set(OPERACIONES_API.map((o) => o.op));
   assert.ok(ops.size >= 30, `encontré ${ops.size} operaciones`);

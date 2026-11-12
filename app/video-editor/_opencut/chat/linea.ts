@@ -958,7 +958,12 @@ export type OperacionResuelta =
 	/** El fondo del lienzo: UpdateProjectSettingsCommand, el del panel Proyecto › Fondo. */
 	| { op: "fondo_lienzo"; fondo: TBackground }
 	/** Un emoji de la biblioteca como sticker (`stickerId` «emojis:1f525»), como la tarjeta de Stickers › Emojis. */
-	| { op: "agregar_emoji"; emoji: string; stickerId: string; inicio: number; duracion: number; ref?: string };
+	| { op: "agregar_emoji"; emoji: string; stickerId: string; inicio: number; duracion: number; ref?: string }
+	/**
+	 * Ticket 73: medios de Multimedia al FINAL de la pista principal, en este orden (el ⊕ de cada tarjeta de Multimedia).
+	 * El final se mide AL EJECUTAR (chat/comandos.ts): lo de antes en el lote pudo correrlo. `ref`: la nueva, si vino.
+	 */
+	| { op: "agregar_medios"; medios: Array<{ mediaId: string; ref?: string }> };
 
 export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[] };
 
@@ -1346,6 +1351,8 @@ export function revisarOperaciones({
 	// Los estilos de subtítulo que vuelven a partir los renglones: UNO por estilo (la IA manda uno por subtítulo), con
 	// todos los que lo piden. Van al final (`estilo_subtitulos`).
 	const estilosDeSubtitulos = new Map<string, { els: RefElemento[]; params: ParamValues; fila: CambioChat }>();
+	// Hasta dónde llega lo que agregar_medios ya puso al final de la principal en este pedido (con o sin ref nueva).
+	let finAgregadosPrincipal = 0;
 
 	for (const op of operaciones) {
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
@@ -1551,6 +1558,53 @@ export function revisarOperaciones({
 			if (!registrarNuevo(op.ref, "sticker", `Emoji ${emoji}`, op.inicio, op.inicio + op.duracion, { anim: {}, transform: leerTransform({}) })) continue;
 			resueltas.push({ op: "agregar_emoji", emoji, stickerId, inicio: op.inicio, duracion: op.duracion, ...(op.ref ? { ref: op.ref } : {}) });
 			cambios.push({ tipo: "agrega", titulo: `Emoji ${emoji}`, antes: "", despues: `de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + op.duracion)}, en el centro del cuadro` });
+			continue;
+		}
+		if (op.op === "agregar_medios") {
+			// Ticket 73 («Poné los dos videos en la línea de tiempo, primero prueba-con-pausa y después clip-4»): el ⊕ de
+			// cada tarjeta de Multimedia (components/editor/panels/assets/views/assets.tsx), pero al FINAL de la pista
+			// principal y en el orden pedido. El ⊕ suelta en el cabezal: dos seguidos en el mismo lugar quedaban en el orden
+			// que el imán decidiera, no en el que dijo la persona.
+			const principales = [...refs.values()].filter((r) => r.principal && !estado.get(r.ref)?.borrado);
+			if (principales.some((r) => r.bloqueada)) { descartes.push("la pista principal está bloqueada: no se le pueden poner videos"); continue; }
+			let cursor = Math.max(finAgregadosPrincipal, ...principales.map((r) => estado.get(r.ref)!.fin), 0);
+			// La pista de los nuevos es la principal: una transición entre el último clip y el primero nuevo busca a su
+			// vecino POR PISTA (pegadoDerecha). Con la principal vacía no hay id, y los nuevos comparten "".
+			const pistaPrincipal = [...refs.values()].find((r) => r.principal && !r.nuevo)?.trackId ?? "";
+			const puestos: Array<{ mediaId: string; ref?: string }> = [];
+			for (const [i, refMedio] of op.medios.entries()) {
+				const m = medios.get(refMedio);
+				if (!m) { descartes.push(`no encontré el medio «${corto(refMedio, 20)}» en Multimedia`); continue; }
+				const duracion = m.tipo === "video" ? (m.duracion ?? 0) : TOPES_CHAT.fotoSegundos;
+				if (!(duracion > 0)) { descartes.push(`«${corto(m.nombre, 40)}» todavía no tiene duración: espera a que termine de cargar`); continue; }
+				const inicio = cursor;
+				const fin = cursor + duracion;
+				const titulo = corto(m.nombre, 60);
+				const nueva = op.refs?.[i];
+				if (nueva) {
+					if (refs.has(nueva)) { descartes.push(`la ref «${nueva}» ya existe`); continue; }
+					// Lo mismo que leerEstado de un clip recién puesto: sin recorte, a 1×, sin transición ni efectos.
+					const crudo = { type: m.tipo === "video" ? "video" : "image", params: {}, trimStart: 0, trimEnd: 0, mediaId: m.mediaId, effects: [], isSourceAudioEnabled: true } as unknown as TimelineElement;
+					const tipo: TipoRef = m.tipo === "video" ? "video" : "imagen";
+					const r: RefElemento = {
+						ref: nueva, trackId: pistaPrincipal, elementId: "", tipo, titulo, inicio: r2(inicio), fin: r2(fin), bloqueada: false, principal: true, nuevo: true, mediaId: m.mediaId,
+						acepta: "ambos",
+						estado: leerEstado(crudo, tipo, 1, m.sinAudio ? new Set([m.mediaId]) : new Set()),
+					};
+					refs.set(nueva, r);
+					simular(r);
+				}
+				cambios.push({
+					tipo: "agrega",
+					titulo: m.tipo === "video" ? `Video «${titulo}»` : `Foto «${titulo}»`,
+					antes: "",
+					despues: `de ${textoSegundos(inicio)} a ${textoSegundos(fin)}, al final de la pista principal${m.tipo === "video" && m.sinAudio ? " (sin sonido)" : ""}`,
+				});
+				puestos.push({ mediaId: m.mediaId, ...(nueva ? { ref: nueva } : {}) });
+				cursor = fin;
+			}
+			finAgregadosPrincipal = cursor;
+			if (puestos.length) resueltas.push({ op: "agregar_medios", medios: puestos });
 			continue;
 		}
 		if (op.op === "fondo_lienzo") {
