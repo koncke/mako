@@ -1,0 +1,117 @@
+// =============================================================================
+// /vsl/email — el Email de MaKo, con la ESTRUCTURA de la portada de beehiiv (11/11/2026)
+// =============================================================================
+// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+//   https://www.beehiiv.com/  (leída el 11/11/2026 con Chromium)
+// Su orden, que se respeta acá: hero «NEWSLETTERS. PODCASTS. COMMUNITY. ONE PLATFORM.» → logos de sus clientes →
+// «Everything you need to turn attention into growth» (crear, crecer, monetizar, automatizar, integrar, medir) → un panel
+// por producto (podcasts, productos digitales, monetización, comunidad, sitios) → «Trusted by names you know» → (sus
+// planes) → citas → «The numbers tell the story» → «Powerful integrations» → «Have a question?» → «What are you waiting
+// for?» (el cierre). Por qué ganó: docs/competencia/landings-por-funcion.md → «Email marketing».
+//
+// Lo que se cambió de la referencia, y por qué:
+//   · Sus logos de clientes, sus citas, sus casos y sus cifras de uso («135K+ publishers») son suyos: no van. La prueba es
+//     el caso de Mauricio, en el lugar de «Trusted by names you know».
+//   · Tampoco van cifras propias en el lugar de las suyas: lo que Email trae (los disparadores y los segmentos) se cuenta en
+//     lib/email-marketing.ts, que no se puede importar fuera del server, y un número escrito a mano se queda viejo.
+//   · De sus seis piezas, «crecer» (referidos, recomendaciones, SEO) y «monetizar» (anuncios, suscripciones pagas) MaKo no
+//     las tiene: quedan las otras cuatro, en su orden.
+//   · De sus paneles por producto, MaKo tiene uno: las secuencias. Podcasts, productos digitales, comunidad y sitios no son
+//     de Email. Sus planes con precio no van (ninguna landing de /vsl escribe un precio a mano).
+//   · Sus integraciones (Stripe, Zapier, Google Analytics) → de dónde salen los disparadores de las secuencias.
+//   · El newsletter de MaKo (app/newsletters) sigue en PRONTO, sólo para el super admin (app/newsletters/puerta.ts): no se
+//     promete, y la pregunta lo dice con «todavía no».
+//   · Gráficos (app/vsl/_detalle/feature-visuals.ts, slug email): sólo el 0, la secuencia por disparadores. El 1 dice «en la
+//     voz de Mauricio» y «tu link de Calendly ya puesto» (el generador deja [LINK DE AGENDA]: app/api/email/generar), el 2
+//     muestra un DMARC que MaKo no mira (lib/email-dominio-reglas.ts lee DKIM y SPF) y el 3, un 98 % que nadie midió.
+//
+// De dónde sale lo que se afirma: app/email/EmailApp.tsx (secuencias, envíos, «Envío real», la prueba, las estadísticas),
+// lib/email-marketing.ts (disparadores, segmentos y su conteo, la baja en cada envío), app/api/email/generar (el copy de
+// MaKo), lib/email-dominio.ts y lib/resend-dominios.ts (el dominio y su remitente), app/api/webhooks/resend (rebotes y
+// quejas), lib/email-freno.ts (cuándo se apaga el envío), app/crm/leads-importar.ts (importar contactos).
+// =============================================================================
+
+import { FRENO_EMAIL } from '@/lib/email-freno';
+import type { LandingCompetencia } from './tipos';
+
+const I = {
+  email: ['M3 7a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10z', 'M3 7l9 6l9 -6'],
+  ia: ['M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3l5.8 1.9l-5.8 1.9a2 2 0 0 0 -1.3 1.3l-1.9 5.8l-1.9 -5.8a2 2 0 0 0 -1.3 -1.3l-5.8 -1.9l5.8 -1.9a2 2 0 0 0 1.3 -1.3z'],
+  rayo: ['M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11'],
+  segmento: ['M4 4h16v2.172a2 2 0 0 1 -.586 1.414l-4.414 4.414v7l-6 2v-8.5l-4.414 -4.414a2 2 0 0 1 -.586 -1.414v-2.172z'],
+  mide: ['M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M9 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M15 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M4 20l14 0'],
+};
+
+/** Los umbrales del freno del email, como se leen (5, 0.3): salen de lib/email-freno.ts, no se escriben a mano. */
+const pct = (x: number) => (x * 100).toLocaleString('es-MX', { maximumFractionDigits: 1 });
+
+export const LANDING_EMAIL: LandingCompetencia = {
+  slug: 'email',
+  nombre: 'Email',
+  icono: I.email,
+  referencia: { nombre: 'beehiiv — la plataforma de newsletters', url: 'https://www.beehiiv.com/', leida: '2026-11-11' },
+  metaTitle: 'Email de MaKo: secuencias por etapa y envíos a tu CRM, con tu dominio',
+  metaDesc: 'Secuencias de email que salen solas por lo que hizo cada lead en tu embudo y envíos a un segmento de tu CRM, firmados con tu dominio. MaKo escribe cada email en la voz de tu negocio.',
+  bloques: [
+    {
+      tipo: 'hero',
+      etiqueta: 'Email marketing conectado a tu CRM',
+      titulo: 'Secuencias. Envíos. Tu dominio. Todo con tu CRM.',
+      bajada: 'El email de tu negocio, adentro de MaKo: <strong>secuencias que salen solas</strong> por lo que hizo cada lead en tu embudo y envíos a un segmento de tu CRM, firmados con tu dominio.',
+      puntos: ['MaKo escribe cada email en la voz de tu negocio', 'Sale desde tu dominio, nunca desde el de MaKo'],
+      visual: { tipo: 'detalle', slug: 'email' },
+    },
+    {
+      tipo: 'tarjetas',
+      fondo: true,
+      columnas: 2,
+      titulo: 'Todo lo que necesitas para que tu email venda',
+      bajada: 'Escribes, automatizas, eliges a quién le llega y mides lo que pasó, en el mismo lugar donde están tus leads.',
+      items: [
+        { icono: I.ia, titulo: 'MaKo escribe tus emails', texto: 'Le dices qué quieres y te devuelve el asunto, la vista previa y el texto, con <strong>un solo llamado a la acción</strong> y en la voz de tu negocio. Lo revisas antes de usarlo.' },
+        { icono: I.rayo, titulo: 'Secuencias que salen solas', texto: 'Cada lead entra a la suya por lo que hizo en tu embudo: vio tu VSL sin agendar, no asistió a su llamada, confirmó y no pagó.' },
+        { icono: I.segmento, titulo: 'Tus segmentos son tu CRM', texto: 'Envías a una etapa real de tu embudo —no agendaron, no pagaron, tus clientes— o a una etiqueta, y <strong>ves cuántos son</strong> antes de mandar.' },
+        { icono: I.mide, titulo: 'Aperturas y clics de cada email', texto: 'Cada paso de una secuencia y cada envío muestran sus enviados, su apertura y sus clics. Arriba, tu tasa de apertura y de clic de los últimos 30 días.' },
+      ],
+    },
+    {
+      tipo: 'filas',
+      titulo: 'Una secuencia para cada momento de tu embudo',
+      slug: 'email',
+      items: [
+        {
+          grafico: 0,
+          titulo: 'El email que sale solo, cuando el lead hace algo',
+          texto: 'Eliges la etapa y el disparador, escribes cada paso con su espera y la secuencia sale sola. Cada lead entra cuando le pasa algo como esto:',
+          puntos: ['Dejó el formulario de tu anuncio sin agendar', 'Vio tu VSL y no agendó', 'Agendó y no confirmó, o no asistió a su llamada', 'Confirmó la compra y no pagó', 'Se le puso una etiqueta'],
+        },
+      ],
+    },
+    { tipo: 'caso' },
+    {
+      tipo: 'logos',
+      titulo: 'Tus secuencias se disparan con lo que pasa en',
+      items: [
+        { logo: 'meta.png', nombre: 'Tus formularios de Meta' },
+        { logo: 'vsl.png', nombre: 'Tu VSL' },
+        { logo: 'calendly.png', nombre: 'Tu agenda' },
+        { logo: 'llamada.svg', nombre: 'Tus llamadas' },
+        { logo: 'pago.svg', nombre: 'Tus pagos' },
+      ],
+    },
+    {
+      tipo: 'preguntas',
+      titulo: '¿Tienes una pregunta?',
+      items: [
+        { p: '¿Puedo traer mi lista de otra plataforma?', r: 'Sí. Importas tus contactos al CRM desde un archivo CSV y desde ahí entran a tus segmentos y a tus secuencias.' },
+        { p: '¿Necesito saber de diseño?', r: 'No. Cada email es un asunto, una vista previa y el texto. MaKo te lo escribe en la voz de tu negocio y tú lo revisas.' },
+        { p: '¿Sale desde mi dominio?', r: 'Sí, y sólo así. Das de alta tu dominio en MaKo, cargas en tu DNS los registros que te muestra (DKIM y SPF), lo verificas y eliges tu remitente. Las respuestas pueden llegar al correo que elijas.' },
+        { p: '¿Puedo mandar SMS?', r: 'No: MaKo no manda SMS. Por WhatsApp le escribes a tus leads desde Chats y desde Automations.' },
+        { p: '¿Puedo medir cómo le va a cada email?', r: 'Sí. Cada paso de una secuencia y cada envío muestran sus enviados, su apertura y sus clics, y arriba ves tus suscriptores activos, tu tasa de apertura y de clic de los últimos 30 días y los emails del mes.' },
+        { p: '¿Qué pasa con las bajas y los rebotes?', r: `Cada email lleva su link para darse de baja. Si una dirección rebota o alguien lo marca como spam, MaKo no le vuelve a escribir. Y si de tus últimos ${FRENO_EMAIL.ultimos} envíos rebota el ${pct(FRENO_EMAIL.rebotes)} % o el ${pct(FRENO_EMAIL.quejas)} % lo marca como spam, apaga el envío y te avisa.` },
+        { p: '¿Se manda solo apenas lo configuro?', r: 'No. El envío real empieza apagado: pruebas todo sin que salga nada y, antes de cada envío, te mandas una prueba a tu correo. Lo prendes cuando estés listo.' },
+        { p: '¿Sirve para un newsletter?', r: 'Todavía no. Hoy el email de MaKo le escribe a tus leads y clientes del CRM: secuencias por etapa y envíos a un segmento.' },
+      ],
+    },
+  ],
+};

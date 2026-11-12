@@ -6,6 +6,48 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 [hallazgos-customer-success.md](hallazgos-customer-success.md); la seguridad del «Entrar como», en
 [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Vista de agencia».
 
+## ⚠️ «No me deja iniciar el onboarding ni inspeccionar»: la mensualidad y la pasarela se separaban de UN solo lado (ticket #85, 11/11/2026)
+
+**Vive en:** `lib/agencia-cobro-reglas.ts` (`cobraPorPasarela`, puro), `lib/partners.ts` (`cuentasDePartner` y `abrirCuentaDePartner`),
+`tests/agencia-cobro.test.ts`. El botón lo elige `accionDeCuenta` (`app/agency/menu-contextual-agency.ts`).
+
+- **Síntoma:** Joan (Código Inmobiliario, negocio 13) no podía entrar a Sellers (negocio 24) desde Agency Dashboard minutos después
+  de que Martín la habilitara. «Iniciar el onboarding» no es un botón: es entrar («Inspeccionar» → `/inicio` → el wizard del cliente),
+  como hizo con Marcela (23: su `onboarding.state` dice `completedBy` el mail de Joan). Una sola causa para las dos cosas.
+- ⚠️ **El diagnóstico obvio era el equivocado.** El ticket llegó 6 minutos después de la firma, así que todo decía «la habilitación no
+  llegó» o «falta un permiso». Medido en producción (sólo lectura): la cartera 13→24 está `aprobado` desde las 23:31:56 UTC, Joan es
+  `rol_ws = admin` del 13 y `/api/agencia/entrar` (`puedeEntrarAhora`) lo dejaba pasar. **El servidor abría; la pantalla escondía la
+  puerta.** Y en el teléfono (`/m/agency`) sí entraba: su hoja muestra «Entrar a su cuenta» con la cuenta aprobada, mire o no el cobro.
+- **Causa real:** la fila `cobros` id 3 (plataforma, `cliente_ws` 24, Mercado Pago, ARS 73.555, `unico`, `pendiente`), el link del
+  primer mes que `abrirCuentaDePartner` creó en el alta de las 17:25 **aunque el 13 paga por su mensualidad (Binance) desde el 6/11**.
+  La entrada se pagó por Binance, Martín firmó, y el link quedó vivo: `cobrosParaLaAgencia` lo ofrece como `pagar` y `accionDeCuenta`
+  pone «Pagar su mes» ANTES que «Inspeccionar» (con «Falta pagar su mes» en el estado). Es el primer cobro de pasarela de esa agencia:
+  los clientes 15 a 23 no tienen ninguno, por eso nunca había pasado.
+- **La separación estaba escrita de un solo lado.** La mensualidad está «apagada por defecto y se prende por agencia» para no mezclar
+  los dos cobros (abajo, «La mensualidad de una agencia»), pero sólo la mensualidad lo sabía: el alta y la cartera nunca le
+  preguntaban. **Lo que separa dos sistemas tiene que preguntarse en los dos.** Ahora `cobraPorPasarela(mensualidadPrendida)` lo
+  contesta para los dos lados: con la mensualidad prendida, el alta no crea el link («Cuenta pedida») y la cartera no lleva `cobro`,
+  así que el botón es «Inspeccionar». `null` («no pude leer») cuenta como pasarela, que es lo de antes: esconderle el link a una agencia
+  que paga con tarjeta dejaría la cuenta sin forma de pagarse.
+- **El link vivo además era un DOBLE COBRO esperando:** pagarlo después de la entrada por Binance era pagar el mismo mes dos veces, y
+  un primer mes pagado hace que `renovacionesDeAgencia` le cree, al terminar su onboarding, la suscripción mensual por Mercado Pago
+  encima de la mensualidad.
+- **Probado rompiéndolo:** la regla siempre en «pasarela», el `null` leído como mensualidad, la cartera sin mirarla y el alta creando
+  el link igual: 14 / 1 cada una; con el arreglo, 15 / 0.
+
+### Sin hacer
+
+- ⚠️ **El dato:** el código nuevo deja de mostrar el link, pero la fila `cobros` id 3 sigue `pendiente` y su link `/pagar/<token>`
+  sigue cobrable. Hay que anularla con `anularCobro` (la ficha de Código Inmobiliario en el CRM de la plataforma → Pagos, o
+  `anular_link_pago` con `cobroId` 3), no con un UPDATE a mano: `anularCobro` también vence la preferencia en Mercado Pago. Escribe en
+  producción: pide el sí de Martín.
+- Con una agencia que paga con tarjeta, un primer mes pendiente en una cuenta YA aprobada (firmada a mano) sigue tapando
+  «Inspeccionar» en la computadora y no en el teléfono. Es a propósito y tiene su test (`tests/clic-derecho-listas.test.ts`: «lo que
+  paga la agencia, a la vista»), pero las dos pantallas contestan distinto: lo decide Martín.
+- Con la mensualidad prendida, el alta igual pregunta «quién paga» y la cuenta nace `pendiente` hasta la firma del super admin
+  (Sellers esperó 6 horas). No lo toqué: es del acuerdo, no de este ticket.
+- El chequeo de tipos de `lib/partners.ts` no corrió en la notebook (el vigía de RAM lo cortó dos veces): lo dice el de Actions.
+
 ## ⚠️ La marca de «ya le avisé» era TAMBIÉN el permiso para pausarlo, y se escribía antes de tener el PDF (6/11/2026)
 
 **Vive en:** `lib/agencia-mes.ts` (`corridaDeUnaAgencia`, paso 2, y `lecturaParaPausas`), `lib/agencia-mes-avisos.ts` (nuevo),

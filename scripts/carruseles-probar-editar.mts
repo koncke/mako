@@ -47,6 +47,8 @@ const t0 = Date.now();
 const seg = () => `${((Date.now() - t0) / 1000).toFixed(1)} s`;
 const r = await runWithWorkspace(ws, () => R.replicarEjemplo(ws, 'script:probar-editar', { que, id }, {
   seco: !tiene('guardar'),
+  // --avatar cara|look|ninguno: lo que contestaría el dueño en el guiado (sin esto, la API vieja: sin foto del negocio).
+  guiado: op('avatar') ? { ofertaId: null, ofertaLibre: null, avatar: op('avatar') as 'cara' | 'look' | 'ninguno', cambio: 'textos', pedido: null } : null,
   alEvento: (e: { fase: string; [k: string]: unknown }) => {
     if (e.fase === 'leer') console.log(`[${seg()}] leer: ${e.vistas} de ${e.laminas} láminas llegaron a la IA`);
     else if (e.fase === 'escribir') console.log(`[${seg()}] escribir: con ${e.con}`);
@@ -60,5 +62,7 @@ console.log(`  ${r.sinIA ? '⚠ SIN la IA (con guías)' : '✓ con la IA del neg
 if (r.aviso) console.log(`  Aviso que vería la persona: ${r.aviso}`);
 for (const e of r.errores ?? []) console.log(`  · error de la IA: ${String(e).slice(0, 500)}`);
 const paginas = (r.doc?.pages as Array<{ objects?: Array<{ type?: string; text?: string; name?: string }> }> | undefined) ?? [];
-paginas.forEach((p, i) => console.log(`  Lámina ${i + 1}: ${(p.objects ?? []).filter((o) => o.type === 'textbox').map((o) => `«${String(o.text).slice(0, 60)}»`).join(' · ') || '(sin textos)'}`));
+const notas = (r.doc?.pages as Array<{ notes?: string }> | undefined)?.[0]?.notes;
+if (notas) console.log(`  Notas: ${notas.replace(/\s+/g, ' ').slice(0, 500)}`);
+paginas.forEach((p, i) => console.log(`  Lámina ${i + 1}: ${(p.objects ?? []).filter((o) => o.type === 'image').map((o) => `[${o.name}]`).join(' ')} ${(p.objects ?? []).filter((o) => o.type === 'textbox').map((o) => `«${String(o.text).slice(0, 60)}»`).join(' · ') || '(sin textos)'}`));
 if (!tiene('guardar')) console.log('\nEn seco: no se guardó nada. Con --guardar queda en los diseños de Image de ese negocio.');

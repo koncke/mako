@@ -2017,7 +2017,7 @@ export const FEATURE_VISUALS: Record<string, FeatureVisuals> = {
     "hero": {
       "type": "makoAnswer",
       "q": "¿Apago la campaña VSL Dolor?",
-      "a": "No. Escalá presupuesto",
+      "a": "No. Escala el presupuesto",
       "detail": "Trae ROAS 4.2x y 6 cierres esta semana. Sube 20% y valídalo como experimento antes de tocar el resto."
     },
     "groups": [
