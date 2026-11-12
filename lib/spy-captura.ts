@@ -18,7 +18,7 @@
 
 import type { PiezaVista } from './spy';
 import { leerFunnel, piezasDeVideoEn, type LecturaFunnel } from './spy-funnel';
-import { dominioComparable, nombreComparable, nombreParaBuscar, TOPES } from './spy-reglas';
+import { cortarTexto, dominioComparable, nombreComparable, nombreParaBuscar, TOPES } from './spy-reglas';
 import { esAgregador } from './spy-otras-redes-reglas';
 import type { Medio } from './spy-medio';
 
@@ -231,7 +231,7 @@ function anuncioDe(id: string, tramo: readonly Token[]): AnuncioLeido {
   const iPagina = tramo.findIndex((x) => x[0] === 'a' && esDeMeta(x[1]) && !esSalto(x[1]) && !esDelArmazon(x[1]));
   const linkPagina = iPagina >= 0 ? (tramo[iPagina] as ['a', string, string]) : null;
   const pagina = linkPagina?.[2]
-    ? { nombre: linkPagina[2].split('\n')[0].slice(0, TOPES.nombre), handle: handleDe(linkPagina[1]) }
+    ? { nombre: cortarTexto(linkPagina[2].split('\n')[0], TOPES.nombre), handle: handleDe(linkPagina[1]) }
     : null;
 
   // El copy va del «Publicidad» al primer enlace que NO es una dirección escrita en el texto: ése es el
@@ -267,7 +267,7 @@ function anuncioDe(id: string, tramo: readonly Token[]): AnuncioLeido {
     hasta: fechas[1] ?? null,
     pagina,
     texto: copy.join('\n').trim() || null,
-    titulo: titular ? titular.slice(0, TOPES.titulo) : null,
+    titulo: titular ? cortarTexto(titular, TOPES.titulo) : null,
     destino: conDestino ? destinoDe(conDestino[1]) : null,
     miniatura,
     medio: medioDeLaTarjeta(tramo),

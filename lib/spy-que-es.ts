@@ -7,7 +7,7 @@
 // guardarse como otra cosa en el servidor: es UNA sola función, y `agregarCompetidor` usa la misma.
 // =============================================================================
 
-import { TOPES } from './spy-reglas';
+import { cortarTexto, TOPES } from './spy-reglas';
 import { canalDeUrl } from './spy-youtube';
 import { redDeUrl } from './spy-otras-redes-reglas';
 import { usuarioDeUrlInstagram } from './instagram-buscar';
@@ -48,5 +48,5 @@ export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'tik
   if (/^https?:\/\//i.test(s)) return { campo: 'landing_url', valor: s.slice(0, 500) };
   // Un dominio pelado también es una landing («acme.com»).
   if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(s)) return { campo: 'landing_url', valor: `https://${s}`.slice(0, 500) };
-  return { campo: 'nombre', valor: s.slice(0, TOPES.nombre) };
+  return { campo: 'nombre', valor: cortarTexto(s, TOPES.nombre) };
 }
