@@ -320,33 +320,41 @@ Lo que leí del original: ${replica.lectura}` : notasBase;
  * La escena PARECIDA de cada cuadro «escena» de la réplica (11/11/2026): una foto libre del banco (Openverse y Picsum,
  * lib/imagenes-stock.ts) por cada búsqueda que escribió la IA (en inglés, «rocky beach at sunset»), copiada a nuestro bucket.
  * UNA por búsqueda: el original repite el mismo lugar en todas sus láminas, y la réplica también. En seco, se busca sin copiar
- * (la URL del proveedor: no se guarda nada). Hasta 3 búsquedas. Nunca tira: sin foto, el cuadro queda con el color de fondo.
+ * (la URL del proveedor: no se guarda nada). Hasta `ESCENAS_MAX` búsquedas, A LA VEZ. Nunca tira: un cuadro cuya búsqueda no trajo
+ * nada lleva otra escena de la réplica, y una lámina sin ninguna se arma como tipografía (`documentoDeReplica`).
+ *
+ * ⚠️ 12/11/2026, «traer tu outlier» de @vilmanunez (10 láminas con fotos de salones): eran «hasta 3» y de a una. La IA escribe una
+ * búsqueda por cuadro (salón, sala de reuniones, escenario…), así que 7 de 10 láminas quedaron con un hueco amarillo del tamaño de
+ * la foto. «El original repite el mismo lugar» vale para @jasonrewired_, no para todos.
  */
 async function escenasParecidas(ws: number, replica: Replica, seco: boolean): Promise<Map<string, FotoDelCliente>> {
   const out = new Map<string, FotoDelCliente>();
   const cuadros = replica.laminas.flatMap((l) => l.cuadros ?? []).filter((c) => c.tipo === 'escena' && c.busqueda);
-  const busquedas = [...new Set(cuadros.map((c) => c.busqueda))].slice(0, 3);
+  const busquedas = [...new Set(cuadros.map((c) => c.busqueda))].slice(0, ESCENAS_MAX);
   if (!busquedas.length) return out;
   const { buscarStock, buscarYCopiar } = await import('../imagenes-stock');
-  for (const q of busquedas) {
+  await Promise.all(busquedas.map(async (q) => {
     try {
       const c = cuadros.find((x) => x.busqueda === q)!;
       const orientacion = c.ancho * 1080 >= c.alto * 1350 ? 'horizontal' : 'vertical';
       let url: string | null = null;
       if (seco) { const r = await buscarStock(q, 1, orientacion); url = r.ok ? r.fotos[0]?.grande ?? null : null; }
       else url = await buscarYCopiar(q, ws, orientacion);
-      if (!url) continue;
+      if (!url) return;
       const r = await fetch(url, { signal: AbortSignal.timeout(ESPERA_IMAGEN_MS * 2), cache: 'no-store' });
-      if (!r.ok) continue;
+      if (!r.ok) return;
       const medidas = medidasDeImagen(new Uint8Array(await r.arrayBuffer()));
-      if (!medidas) continue;
+      if (!medidas) return;
       out.set(q, { id: '', url, ancho: medidas.ancho, alto: medidas.alto });
     } catch (e) {
       console.warn(`[carruseles] sin escena parecida para «${q.slice(0, 60)}»:`, e instanceof Error ? e.message : e);
     }
-  }
+  }));
   return out;
 }
+
+/** Cuántas escenas parecidas se buscan como mucho por réplica (cada una es una búsqueda y una copia al bucket, en paralelo). */
+const ESCENAS_MAX = 8;
 
 /** Las notas de la miniatura (no salen en la imagen): de qué video salió el diseño. */
 function notasDeMiniatura(t: Thumbnail): string {

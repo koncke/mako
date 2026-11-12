@@ -433,7 +433,12 @@ export function puedeUsarUnaCuentaDelCredito(p: {
   if (p.esLaPlataforma !== true) return { ok: false, razon: `«${feature}» usa el crédito sólo en el espacio de MaKo: un negocio paga su IA.` };
   // `fallback: []` (lib/model-catalogo.ts): un juicio que nadie revisa corre con UN solo proveedor. Probar primero el crédito
   // mezclaría dos modelos, que es justo lo que esa marca evita. Acá y no sólo en `chatClaude`: vale para todos los caminos.
-  if (CATALOGO_MODELOS.find((f) => f.feature === feature)?.fallback?.length === 0) {
+  // ⚠️ Salvo `deSuIA` (12/11/2026): ahí `fallback: []` quiere decir «su Claude o su GPT, nunca Gemini», no «un modelo medido».
+  // El crédito ES Claude, y en el espacio de MaKo no hay otra: la OpenAI de la plataforma no tiene saldo, así que el chat del
+  // Image Editor de Martín contestaba «image-editor-ia: openai no contestó y esta feature no se degrada ni se paga» a todo
+  // (docs/hallazgos-editor-imagen.md, «El chat del editor no editaba en el espacio de MaKo»). Un negocio sigue sin el crédito.
+  const delCatalogo = CATALOGO_MODELOS.find((f) => f.feature === feature);
+  if (delCatalogo?.fallback?.length === 0 && delCatalogo.deSuIA !== true) {
     return { ok: false, razon: `«${feature}» no se degrada de modelo (\`fallback: []\`): no prueba el crédito antes que su proveedor.` };
   }
   if (diaISO(p.hoy ?? new Date()) > CREDITO_PARA_LA_PLATAFORMA.hasta) {
