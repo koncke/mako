@@ -412,3 +412,18 @@ mismo en el Ops Center, la estrella y la tarjeta de Create.
   la fila (el botón al llegar ES una mutación). Probado en vivo con la página oculta: 1 aviso y la medida pasa a 61 px.
 - **La regla, completa:** para re-medir cuando aparece algo al lado, se observan las MUTACIONES de la fila; el `ResizeObserver`
   queda para cuando cambia la ventana. Y lo que depende de `requestAnimationFrame` no se puede probar con el panel oculto.
+
+## La caja del chat más ancha que su columna: «Enviar audio» cortado (12/11/2026, chat «probar-web»)
+
+**Síntoma** (Web Generator y Video, el chat de ~335 px de un editor): con una nota de voz grabada y lista para mandar, el botón
+verde de «Enviar audio» quedaba cortado contra el borde derecho, y en el hilo el audio enviado perdía su duración.
+
+- **Causa:** `.co-caja` es hija de una GRILLA (`.gma-ag-pie` en el Web Generator, el `<footer class="grid">` del chat de Video) y
+  lleva `margin-inline: auto`. Un ítem de grilla con márgenes automáticos no se estira: toma su ancho de CONTENIDO, y la fila de la
+  nota (borrar, el reproductor con su `<input type="range">` de ~129 px intrínsecos, el micrófono y «Enviar audio») pedía ~375 px
+  en una columna de 311. **`min-width: 0` sola NO alcanzó** (medido en vivo): el ancho de un ítem con márgenes automáticos sigue
+  saliendo del mínimo de su contenido. Con `width: 100%; min-width: 0` la caja mide su columna y el reproductor se achica (su barra
+  tiene 40 px de mínimo). En un bloque es lo mismo que antes. Y en el hilo, el audio iba a 240 px fijos dentro de un globo de 181:
+  `maxWidth: '100%'`.
+- **Regla:** un elemento compartido que se centra con `margin-inline: auto` lleva `width: 100%` + `min-width: 0` para no depender del
+  tipo de su padre (bloque, flex o grilla). Se mide en el chat MÁS angosto donde vive, con su estado más ancho (la nota lista).

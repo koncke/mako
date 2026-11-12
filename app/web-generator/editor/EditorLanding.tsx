@@ -339,10 +339,10 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
   }, []);
 
   // ── Aviso corto (3-4 palabras), con «Deshacer» opcional ──
-  const avisar = useCallback((texto: string, onDeshacer?: () => void) => {
+  const avisar = useCallback((texto: string, onDeshacer?: () => void, ms?: number) => {
     if (toastTimer.current) window.clearTimeout(toastTimer.current);
     setToast({ id: Date.now(), texto, onDeshacer });
-    toastTimer.current = window.setTimeout(() => setToast(null), onDeshacer ? 6000 : 3500);
+    toastTimer.current = window.setTimeout(() => setToast(null), ms ?? (onDeshacer ? 6000 : 3500));
   }, []);
 
   // La línea del resultado de Replicar (tanda 8: lo que no se copió del scroll), UNA vez al abrir esta copia. La deja
@@ -353,7 +353,9 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     if (avisoReplica.current === undefined) avisoReplica.current = tomarAvisoDeReplica(docId);
     const texto = avisoReplica.current;
     if (!texto) return;
-    const t = window.setTimeout(() => { avisoReplica.current = null; avisar(texto); }, 0);
+    // El tiempo de LEERLO (12/11/2026): en 3,5 s se iba «9 secciones quedaron con el texto de la original» antes de terminar la
+    // primera línea, y la copia parecía adaptada. Entre 8 y 15 s, según el largo.
+    const t = window.setTimeout(() => { avisoReplica.current = null; avisar(texto, undefined, Math.min(15_000, Math.max(8_000, texto.length * 70))); }, 0);
     return () => window.clearTimeout(t);
   }, [docId, avisar]);
 
@@ -1027,7 +1029,13 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     await guardarAhora();
     const r = await pedirDocs({ accion: 'vistaPrevia', id: docId });
     if (!r.ok) { ventana?.close(); avisar('No se pudo abrir'); return; }
-    if (ventana) { ventana.opener = null; ventana.location.href = r.url; } else window.open(r.url, '_blank', 'noopener');
+    if (ventana) { ventana.opener = null; ventana.location.href = r.url; return; }
+    // Con las ventanas emergentes bloqueadas no pasaba NADA al tocar «Vista previa» (12/11/2026, medido en el navegador de la
+    // app de Claude): la pestaña del clic no se abre y la de después del `await` tampoco. Que se sepa por qué.
+    // (Sin `noopener` en el pedido: con él `window.open` devuelve null SIEMPRE y no se sabría si se abrió.)
+    const otra = window.open(r.url, '_blank');
+    if (otra) otra.opener = null;
+    else avisar('Tu navegador bloqueó la pestaña: habilita las ventanas emergentes', undefined, 6000);
   };
 
   // El ancho del lienzo, para la letra base de una diapositiva fija y de una página en el escritorio (baseDelLienzo). Se
