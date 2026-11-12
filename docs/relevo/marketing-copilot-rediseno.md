@@ -141,7 +141,17 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
-**Pedido de la decimocuarta vuelta (Martín, 12/11, sobre `maqueta-trece.html`), en curso.** Las fuentes, como en la 13 (`cuerpo-trece.html` + `bloque-catorce.js`).
+**Hecho (12/11, decimocuarta vuelta):** `maqueta-catorce.html` (Artifact claude.ai/artifact/PPjeKD5ut9e4DTXbVjF321). Los 7 puntos de abajo. Cómo se probó que funciona de punta a punta:
+- Se tocaron uno por uno todos los botones de cada paso y de cada tarjeta, y lo que abre cada popup: 463 en el análisis y 1.062 en la acción y el piloto. No hubo ningún error.
+- Cada `data-accion` escrito tiene su toque. El único sin toque es `escribir`, que es el campo de texto y se atiende al escribir; lo verifica `aplicar-catorce.mjs`.
+- «Mejorar» en el análisis suma «Revisa lo que te propuse: …» para hoy en la acción, y el aviso del paso 2 sube (30 → 31).
+- «Aprobar» en el piloto la pasa a «Lo que hice», con su dato.
+
+Lo que falta para «todas las variables»:
+- Elegir otra cuenta o campaña cambia los datos sólo en anuncios (el tipo de destino).
+- En la app, cada elección tiene que filtrar lo que lee el análisis, las tareas y lo que decide el piloto.
+
+**Pedido de la decimocuarta vuelta (Martín, 12/11, sobre `maqueta-trece.html`).** Las fuentes, como en la 13 (`cuerpo-trece.html` + `bloque-catorce.js`).
 1. **Sacar «Tu página de compra» del análisis de anuncios:** la web ya se analiza en su paso.
 2. **Ningún subtítulo chico debajo de un título, en ningún lugar:** le quita profesionalismo y no se lee.
 3. **Tus mejores anuncios:** si hay lugar, las filas van completas antes del botón (8, no 6), y el botón dice «Ver más», no «Ver los 9».

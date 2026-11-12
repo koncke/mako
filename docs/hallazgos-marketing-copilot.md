@@ -414,6 +414,17 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
   - «Desde frecuencia 4»: MaKo guarda un promedio de las frecuencias diarias, no la frecuencia del período. Hay que decir de qué ventana es.
 - **«Métricas» muestra cómo le fue, no si cruzó el umbral.** Casi ninguna tarjeta de las hojas dibuja el umbral del que decide el piloto. Instagram y YouTube casi no tienen su dato: sus hojas miden la pauta y el VSL.
 
+## La decimocuarta maqueta: la réplica sirve hasta donde ayuda a leer; los pasos se tocan entre sí (12/11/2026)
+
+`docs/marketing-copilot/rediseno/maqueta-catorce.html`.
+
+- **Copiar la app de cada red tiene un límite.** Copiar el perfil, la grilla o la tarjeta de la biblioteca sirve: así se reconoce la pieza. En el popup, la réplica de lo que rodea a la pieza sobraba: el canal con «Suscribirse», «Me gusta», «Compartir» y los íconos de Instagram. Va la pieza y, al lado o abajo, lo que dice MaKo.
+- **Un texto chico debajo de un título se lee como relleno.** Martín pidió sacarlos todos. Lo que hay que decir va en el título o en el comentario.
+- **Una grilla se muestra en filas completas.** Si caben 4 por fila, se muestran 8, no 6, y el botón dice «Ver más», no «Ver los 9».
+- **Dos columnas de alto muy distinto dejan un hueco.** «Espera tu OK», con una decisión, al lado de «Lo que hice», con diez. Va en una columna, lo que espera arriba.
+- **Los pasos tienen que tocarse.** Lo que se pide en el análisis aparece en la acción, y lo que se aprueba en el piloto aparece en «Lo que hice». Para probarlo, cada `data-accion` tiene que tener su toque (lo cuenta `aplicar-catorce.mjs`) y se tocan todos los botones de cada estado buscando errores.
+- **«Métricas» no trae la hoja: lleva a ella.** Meter las hojas sumaba 460 KB a la maqueta y una segunda manera de ver lo mismo que el Dashboard.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
