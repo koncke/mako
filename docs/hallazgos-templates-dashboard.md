@@ -972,3 +972,19 @@ texto de la página y el código. Recién al poner cada hoja en una captura, al 
 - **La regla:** una lista con `display: grid` cuyas filas tienen texto con «…» lleva la columna en `minmax(0, 1fr)`. El «…» del hijo no
   alcanza si el padre de grilla no se deja achicar.
 
+## 42. Una hoja dibujada fuera del navegador sale sin gráficos (12/11/2026)
+
+- **Síntoma:** al traer las hojas a «Métricas» de la maqueta del Marketing CoPilot, «Tendencias» (Marketing) salía como una tarjeta
+  vacía. Se dibujaron con `renderToStaticMarkup` de `DisenoEnMiniatura`, con sus datos de ejemplo.
+- **La causa:** los gráficos miden su caja antes de dibujarse: `useState({ w: 0, h: 0 })` más `ResizeObserver`, con `if (w > 0)` o
+  `if (!listo)`. Fuera del navegador el efecto no corre y el ancho queda en 0. Pasa en HojaMarketing, HojaAnuncio, HojaVsl y HojaHooks
+  (`useCaja` / `useTam`).
+- **Cómo se resolvió para la maqueta:**
+  - se midió cada caja en la maqueta, a 1440;
+  - ese tamaño se le dio al primer render, cambiando `React.useState` para el estado inicial `{ w: 0, h: 0 }`;
+  - funciona porque el repo es CommonJS: `tsx` deja `react_1.useState` como acceso vivo.
+  
+  El script es `docs/marketing-copilot/rediseno/herramientas/ssr-hojas.mts`, con las medidas en `hojas-tam.json`.
+- **La regla:** una hoja que se quiera mostrar estática (un PDF, un correo o una captura del servidor) necesita un tamaño de partida para
+  sus gráficos. Si no, salen vacíos, sin error.
+

@@ -382,6 +382,19 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
   Antes de armar, buscar si el nombre ya existe en el cuerpo y en el código común.
 - **`margin-left: auto` en todos los `span` de una fila** centra el ícono (el logo también es un `span`). Hay que acotarlo al último.
 
+## La duodécima maqueta: cada canal se ve como su app; una vista, un solo filtro (12/11/2026)
+
+`docs/marketing-copilot/rediseno/maqueta-doce.html`. Lo que vale para lo que venga:
+
+- **Lo que ya filtra arriba no se repite abajo.** Martín sacó del calendario los botones de cada área: las tarjetas de arriba ya eligen el área. También sacó «Mes / Agenda», porque no se entendía la diferencia. La barra quedó con «Hoy», las flechas y el mes a la izquierda, y «Checklist / Calendario» a la derecha. El número de tareas ya está en el aviso del paso, así que «Te tocan N» sobraba.
+- **Instagram y YouTube se copian de su app, no se resumen.** Las historias se abren desde el aro de la foto, no como tarjetas. Lo que dice MaKo de una pieza va ADENTRO de ella: una tarjeta flotante sobre cada lámina del carrusel o cada historia, que cambia al deslizar.
+- **Lo que se ve en todos los pasos va en la cabecera.** «Clases» está al lado del botón de cada paso.
+- **Tres trampas del CSS de la maqueta:**
+  - **Una clase que el cuerpo viejo ya usa pisa el diseño nuevo sin error.** `.mq-hist span` (de una maqueta anterior) le puso a cada `span` del visor de historias un círculo gris de 64 px. Antes de nombrar una clase, buscarla en el cuerpo entero, no sólo en la vuelta.
+  - **`.frn button { font: inherit; color: inherit }`** le cambia la letra y el color a todo botón copiado de otra pantalla, por ejemplo los del calendario (`gc`). Esos botones llevan su `font` y su `color` con `.frn` delante.
+  - **Una imagen con `height: 100%` no toma el alto de su padre `display: grid`**, aunque el padre tenga alto fijo: la fila automática se mide por la imagen. Las destacadas salían ovaladas. El círculo va `display: block`.
+- **Los popups viven fuera de `.frn`:** las pastillas (`frn-pill`) salían sin color. Llevan su estilo también bajo `.mq-igm`, `.mq-ytm`, `.mq-hv`, `.mq-tarjeta` y `.mq-clases`.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

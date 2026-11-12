@@ -141,7 +141,22 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
-**Pedido de la duodécima vuelta (Martín, 12/11, sobre `maqueta-piloto.html`), en curso.** El cuerpo de partida es `cuerpo-once.html`, en la carpeta de la maqueta del scratchpad; se arma con `armar.mjs`, y cada vuelta es un `bloque-*.js` + `css-*.css` + `aplicar-*.mjs`.
+**Hecho (12/11, duodécima vuelta):** `maqueta-doce.html` (Artifact claude.ai/artifact/PTjztn9WovQssXfKxYHVtj). Los 14 puntos de abajo. Y lo que Martín pidió a mitad de la vuelta, mirando el calendario:
+- sin los botones de cada área (ya están las tarjetas de arriba);
+- sin «Mes / Agenda» («¿cuál es la diferencia?»): sólo el mes;
+- arriba, a la izquierda, «Hoy», las flechas y el mes; a la derecha, «Checklist / Calendario»; sin «Te tocan N»;
+- «Clases» en los tres pasos.
+
+Un día con más de 4 tareas: «N más» abre ese día, como en Google Calendar.
+
+Lo que no salió de un dato de verdad, marcado «de ejemplo» en la maqueta:
+- los carruseles y sus láminas;
+- la portada de YouTube;
+- los shorts (son sus reels);
+- el piloto;
+- los números de las hojas del Dashboard (los de su plantilla).
+
+**Pedido de la duodécima vuelta (Martín, 12/11, sobre `maqueta-piloto.html`).** El cuerpo de partida es `cuerpo-once.html`, en la carpeta de la maqueta del scratchpad; se arma con `armar.mjs`, y cada vuelta es un `bloque-*.js` + `css-*.css` + `aplicar-*.mjs`.
 
 1. **Análisis de Instagram como Instagram de verdad:**
    - las historias se abren tocando la foto de perfil (con el aro), no como tarjetas;
