@@ -54,6 +54,30 @@ Las funciones sin gráfico en `/vsl` llevan un visual propio (`app/vsl/_competen
 Las 19 están en `registro.ts` y pasan `tests/vsl-landings-competencia.test.ts`. Capturas a 1440 y 375 de las 14, sin scroll
 horizontal; lo que se vio, más abajo.
 
+## Tercera tanda (11-12/11/2026): cada landing con el DISEÑO de su referencia, y la portada estilo beehiiv
+
+Martín vio las 19 y dijo, textual: «No me gusta para nada el diseño que hiciste. Vuelve a arrasarlo todo, copia de las
+referencias, copia la estructura, copia el diseño. Lo único que tal vez debe quedar un poco es sutilmente el tema de los
+colores, el tema del logo y cambios sutiles, pero no inventes, copia la estructura de las páginas.»
+
+- **Cada una de las 19 tiene su página entera copiada de su referencia** en `app/vsl/_competencia/disenos/<slug>.tsx`
+  (barra, hero, secciones, tipografía, pie), con los valores medidos en `docs/diseno/landings-competencia/<slug>.md`. De
+  MaKo quedan el logo (`LogoMaKo`), el azul y el dorado donde la referencia pone su color, el botón de la llamada, el caso de
+  Mauricio y los links del pie (`marca.tsx`). Commits `6d02ba04c`, `4f93afb40` y `418781413`; conectadas en `DISENOS`
+  (`disenos/index.tsx`) en el commit de este relevo.
+- **Las fuentes de las referencias** se bajaron (OFL) a `public/vsl-assets/fuentes/`: la política de seguridad no deja
+  cargar Google Fonts.
+- **Cómo se compara una contra su referencia:** `node --import tsx <scratchpad>/comparar.mts <slug> <carpeta>` dibuja la
+  página sin servidor (los gráficos animados se ven vacíos: es la foto) y arma tiras lado a lado. Con el servidor de verdad
+  los gráficos se ven.
+- **La portada nueva estilo beehiiv** (Martín la eligió: «Me gusta la de beehiiv y sobre todo la parte de comparaciones,
+  MaKo reemplaza muchísimas apps grandes de la competencia» y «le falta "Industrias" que sería los avatares de MaKo»): se
+  arma como VISTA PREVIA en `/vsl/sitio` y `/vsl/comparaciones`, con la barra y el pie en `app/vsl/_sitio/`. La portada de
+  hoy (`/`) no se toca hasta que Martín la apruebe. «Producto» lista las 19 landings, «Industrias» los cuatro avatares de
+  `lib/origen-cuenta.ts` (a `/vsl/mako-<avatar>`, que publica `scripts/landings-mako-v2-funnels.mts`: **verificar que estén
+  publicadas antes de cambiar `/`**), «Precios» va a `/planes` (no se hace otra página de precios) y las comparaciones
+  salen de los `reemplaza` de `lib/funciones-mako.ts`, sin precios ni afirmaciones sobre la competencia.
+
 ## Lo que falta
 
 - **Closing**: sin ganadora (nadie en español analiza llamadas de venta); `/vsl/closing` sigue como estaba.
@@ -96,6 +120,6 @@ listar los grupos por índice (ver la trampa en `docs/hallazgos-landing.md`, ent
   Playwright y `proxy: { server: process.env.HTTPS_PROXY }`.
 - Tests: `node --import tsx --test tests/vsl-landings-competencia.test.ts`.
 - **`.next/dev` crece sin parar** (llegó a 21 GB en esta sesión y llenó el disco: la máquina se reinició tres veces). Si la
-  app se cae o la máquina se reinicia, `du -sh .next/dev`; se borra sin miedo, es caché. Tipos: `node scripts/tsc-acotado.mjs --heap=7000 …`.
+  app se cae o la máquina se reinicia, `du -sh .next/dev`; se borra sin miedo, es caché. Tipos: `node scripts/tsc-acotado.mjs --heap=6000 …` (con 2560, el default, los diseños lo dejan sin memoria y sale «NO SE PUDO CHEQUEAR»).
 - Veredicto y push con Node 24: `export PATH="$(sh scripts/node24.sh):$PATH"`, `node scripts/veredicto.mjs sacar`,
   `git push origin HEAD:punta/landings-competencia`.

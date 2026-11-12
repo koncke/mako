@@ -17,6 +17,7 @@ import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
 import { Visual } from '../_detalle/Visual';
 import type { Bloque, LandingCompetencia as Landing } from './tipos';
 import { VisualDeLanding } from './Visuales';
+import { DISENOS } from './disenos';
 
 export function metadataDeLanding(l: Landing): Metadata {
   return {
@@ -184,6 +185,10 @@ function DibujarBloque({ b, icono }: { b: Bloque; icono: string[] }) {
 }
 
 export default function LandingCompetencia({ landing }: { landing: Landing }) {
+  // Con su diseño copiado de la referencia (./disenos/<slug>.tsx), la página entera es ésa: la cara común de abajo es la de
+  // las landings que todavía no lo tienen.
+  const Diseno = DISENOS[landing.slug];
+  if (Diseno) return <Diseno landing={landing} />;
   return (
     <div className="mk-det">
       <style dangerouslySetInnerHTML={{ __html: CSS_DETALLE + CSS }} />

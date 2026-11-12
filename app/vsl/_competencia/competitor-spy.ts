@@ -1,20 +1,29 @@
 // =============================================================================
-// /vsl/competitor-spy — Competitor Spy, con la ESTRUCTURA de la portada de Foreplay (11/11/2026)
+// /vsl/competitor-spy — Competitor Spy, con la ESTRUCTURA y el DISEÑO de la portada de Foreplay (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
-//   https://www.foreplay.co/  (leída el 11/11/2026 con Chromium)
-// Su orden, que se respeta acá: hero «The Complete Winning Ad Workflow» → (su contador de equipos) → «Your new secret weapon
-// for ads»: antes (chats, links vencidos) y después → Research & Inspiration con «Save ads from anywhere, forever» →
-// «Automatically track competitors» → (su buscador) → la extensión gratis → Creative Analytics & Production → (colaborar,
-// compartir y la tabla contra otros) → el cierre. Por qué ganó: docs/competencia/landings-por-funcion.md → «Competitor Spy».
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, también el DISEÑO):
+//   https://www.foreplay.co/  (leída el 11/11/2026 con Chromium, a 1440 y a 390 px)
+// El diseño copiado vive en ./disenos/competitor-spy.tsx; los valores medidos de la referencia (Inter e Inter Display,
+// la escala, los blancos con transparencia sobre #020308, las cajas, los radios y los botones), en
+// docs/diseno/landings-competencia/competitor-spy.md.
+// Su orden, que se respeta aquí: hero «The Complete Winning Ad Workflow» → (su tira de logos) → «Your new secret weapon
+// for ads»: antes (chats, links vencidos) y después → la cabeza «Research & Inspiration» → la fila «Save ads from
+// anywhere, forever» → la fila «Automatically track competitors» → (su buscador) → la banda de la extensión → la cabeza
+// «Creative Analytics & Production» → la fila «Lens» → la fila «Briefs» → (colaborar, compartir, «Miles beyond the
+// status quo») → el cierre. Por qué ganó: docs/competencia/landings-por-funcion.md → «Competitor Spy».
 //
 // Lo que se cambió de la referencia, y por qué:
-//   · Su «Powering +10,000 Social Ad Teams» y su contador de anuncios guardados son de uso: MaKo no tiene uno. No van.
-//   · Su buscador de anuncios de todo el mercado, sus tableros para colaborar y compartir, y su tabla contra la competencia:
-//     Competitor Spy no tiene nada de eso (mira sólo a los competidores que sumas). No van.
+//   · Su «Powering +10,000 Social Ad Teams», su contador de anuncios y sus reseñas son de uso: MaKo no tiene uno. No van.
+//     En el lugar de la tira de logos van la etiqueta y los dos renglones del hero.
+//   · Su buscador de anuncios de todo el mercado, sus tableros para colaborar y compartir y su grilla «Miles beyond the
+//     status quo» (perfiles de expertos, app y API de su biblioteca): Competitor Spy no tiene nada de eso (mira sólo a los
+//     competidores que sumas). No van.
 //   · «Automatically track competitors 24/7»: Spy lee al agregar un competidor y al abrir su ficha; revisar solo todos los
 //     días es un «Todavía no» de lib/funciones-mako.ts, y así se dice.
 //   · No tiene testimonios, así que esta landing tampoco lleva el caso.
+//   · Sus dos cabezas de sección («Research & Inspiration», «Creative Analytics & Production») son bloques de tarjetas SIN
+//     tarjetas (sólo etiqueta, título y bajada): cada fila de la referencia es un bloque de tres tarjetas, que el diseño
+//     dibuja como sus pestañas.
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['market-an']) y de la extensión de MaKo («Guardar en Spy»,
 // extension/spy-leer.js y lib/spy-captura.ts). Lo que se hace con lo guardado (los carruseles y los anuncios de la
 // competencia en Image) sale de la entrada de 'image-editor'.
@@ -48,8 +57,8 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Competitor Spy: lo que hace tu competencia',
-      titulo: 'Todo lo que publica tu competencia, guardado y leído en un lugar.',
-      bajada: 'Sumas a cada competidor con su web, su Instagram y su YouTube. MaKo lee lo que publica, te dice <strong>qué funnel usa</strong> y guarda los anuncios que encuentras, con la fecha desde que los vio.',
+      titulo: 'Lo que publica tu competencia, guardado y leído.',
+      bajada: 'Sumas a cada competidor con su web, su Instagram y su YouTube. MaKo lee lo que publica, te dice <strong>qué funnel usa</strong> y guarda los anuncios que encuentras.',
       puntos: ['Guarda sus anuncios de Meta con un clic desde Chrome', 'Su oferta, leída y con su nota'],
       visual: { tipo: 'propio', slug: 'competitor-spy' },
     },
@@ -57,17 +66,25 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
       tipo: 'contraste',
       titulo: 'Tu nueva forma de mirar a la competencia',
       sin: {
-        titulo: 'Capturas sueltas y links que se vencen',
-        texto: 'El anuncio que viste el martes está en una captura del chat, el link ya no abre y nadie recuerda desde cuándo lo corría. <strong>Así no se aprende nada de lo que le funciona al otro.</strong>',
+        titulo: 'Antes…',
+        texto: 'Capturas sueltas en el chat, links que ya no abren y nadie recuerda desde cuándo corría ese anuncio.',
       },
       con: {
-        titulo: 'Cada competidor, con sus piezas',
-        texto: 'Su web, sus reels, sus videos y sus anuncios guardados en su ficha, cada pieza con la fecha desde que MaKo la vio y lo que MaKo leyó de ella.',
+        titulo: 'Con Competitor Spy',
+        texto: 'Cada competidor con sus piezas, y cada pieza con la fecha desde que MaKo la vio.',
       },
     },
     {
+      // La cabeza «Research & Inspiration» de la referencia: sin tarjetas.
       tipo: 'tarjetas',
       etiqueta: 'Investigación',
+      titulo: 'Lo que le funciona a tu competencia, a la vista.',
+      bajada: 'Guardas sus anuncios y sigues cada uno de sus canales. Todo queda en la ficha de su competidor, con la fecha desde que MaKo lo vio.',
+      items: [],
+    },
+    {
+      tipo: 'tarjetas',
+      etiqueta: 'Anuncios',
       titulo: 'Guarda los anuncios de donde los veas',
       items: [
         { icono: I.guardar, titulo: 'Desde Chrome, con un clic', texto: 'En la Biblioteca de Anuncios de Meta, con la extensión de MaKo, tocas <strong>«Guardar en Spy»</strong> y se guardan sus anuncios.' },
@@ -77,8 +94,8 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      fondo: true,
-      titulo: 'Sigue a cada competidor, canal por canal',
+      etiqueta: 'Competidores',
+      titulo: 'Cada competidor, canal por canal',
       items: [
         { icono: I.personas, titulo: 'Sumas a tus competidores', texto: 'Cada uno con sus canales: su web, su Instagram y su YouTube.' },
         { icono: I.web, titulo: 'MaKo lee lo que publican', texto: 'Su sitio, sus reels y sus videos, con los números que pudo medir. Lo que no pudo leer lo dice: nunca es un cero.' },
@@ -87,6 +104,7 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
     },
     {
       tipo: 'pasos',
+      etiqueta: 'Extensión de Chrome',
       titulo: 'Guardar en Spy, desde Chrome',
       bajada: 'La extensión de MaKo lee lo que la página ya te muestra, sólo cuando la tocas.',
       pasos: [
@@ -96,15 +114,30 @@ export const LANDING_COMPETITOR_SPY: LandingCompetencia = {
       ],
     },
     {
+      // La cabeza «Creative Analytics & Production» de la referencia: sin tarjetas.
       tipo: 'tarjetas',
       etiqueta: 'Análisis y producción',
-      titulo: 'Lo que hay detrás de cada pieza, y qué haces con ella',
+      titulo: 'Entiende lo que le funciona, y haz tu versión.',
+      bajada: 'MaKo lee el funnel, la oferta y el guion de lo que publica tu competencia, y sus anuncios te esperan en Image para hacer el tuyo.',
+      items: [],
+    },
+    {
+      tipo: 'tarjetas',
+      etiqueta: 'Análisis',
+      titulo: 'Lo que hay detrás de cada pieza',
       items: [
         { icono: I.embudo, titulo: 'Qué funnel usa', texto: 'Evento presencial, webinar, VSL, aplicación y llamada, reto… <strong>citando lo que lo delata</strong> en sus piezas.' },
         { icono: I.nota, titulo: 'Su oferta, con nota', texto: 'MaKo lee la oferta de su web con el analista de Offer: sus nueve notas y su puntaje.' },
         { icono: I.texto, titulo: 'El guion de sus reels', texto: 'Al abrir su detalle, MaKo transcribe lo que dice cada reel.' },
-        { icono: I.pagina, titulo: 'Sus páginas, a la vista', texto: 'Cada página con su vista previa, también las que cuelgan de su página de enlaces.' },
+      ],
+    },
+    {
+      tipo: 'tarjetas',
+      etiqueta: 'Producción',
+      titulo: 'Y lo que haces con lo que ves',
+      items: [
         { icono: I.editar, titulo: 'Tu versión, en Image', texto: 'Sus carruseles y anuncios aparecen en Image para hacer <strong>tu versión editable</strong>, con tu negocio y tu marca.' },
+        { icono: I.pagina, titulo: 'Sus páginas, a la vista', texto: 'Cada página con su vista previa, también las que cuelgan de su página de enlaces.' },
         { icono: I.reloj, titulo: 'Lo que todavía no', texto: 'Todavía no revisa solo todos los días: lee al agregar a un competidor y al abrir su ficha.' },
       ],
     },

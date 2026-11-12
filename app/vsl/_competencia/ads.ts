@@ -1,8 +1,10 @@
 // =============================================================================
 // /vsl/ads — Marketing CoPilot (el media buyer con IA y tu estrategia), con la ESTRUCTURA de la portada de Master Ads
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, también el DISEÑO):
 //   https://masterads.ai/  (leída el 11/11/2026 con Chromium)
+// El diseño copiado vive en ./disenos/ads.tsx; los valores medidos (Space Grotesk e IBM Plex Sans, la escala, los verdes que
+// pasan al azul de MaKo, las cajas), en docs/diseno/landings-competencia/ads.md.
 // Su orden, que se respeta acá: hero «Marketing digital simple.» con una frase de ejemplo → «¿Con qué arrancamos?» (cuatro
 // accesos y el botón) → «Inteligencia artificial, atención humana.» → «"Master, lo de siempre": 5 piezas claves» → «"Te pido
 // un cafecito y un reporte por favor"» → «Agente desde WhatsApp: pregúntale a tu negocio» → «Se conecta con» → «Pensado para
@@ -58,10 +60,11 @@ export const LANDING_ADS: LandingCompetencia = {
   bloques: [
     {
       tipo: 'hero',
-      etiqueta: 'Marketing CoPilot',
-      titulo: 'Marketing simple. Le dices a MaKo qué quieres y te propone qué hacer.',
-      bajada: '«MaKo, quiero que mis anuncios traigan más agendas.» Te ayuda a elegir tu funnel y tu estrategia, y cada día mira tus anuncios de Meta y te propone qué subir, pausar o probar, <strong>con su porqué y medido contra lo que vendiste</strong>.',
-      puntos: ['En «propone», cada cambio espera tu clic', 'Medido contra los cierres de tu CRM, no sólo contra el píxel'],
+      // Como en Master Ads: la etiqueta dice qué es, el titular es lo que la persona le pide (entre comillas inglesas, como
+      // los titulares de la referencia), y la bajada lo que pasa.
+      etiqueta: 'Marketing CoPilot: marketing simple.',
+      titulo: '“MaKo, que mis anuncios traigan más agendas”.',
+      bajada: 'Le dices lo que quieres y te ayuda a elegir tu funnel y tu estrategia. Cada día mira tus anuncios de Meta y te propone qué subir, pausar o probar, <strong>con su porqué y medido contra lo que vendiste</strong>.',
       visual: { tipo: 'propio', slug: 'ads' },
     },
     {
@@ -70,10 +73,11 @@ export const LANDING_ADS: LandingCompetencia = {
       columnas: 2,
       cta: true,
       items: [
-        { icono: I.embudo, titulo: 'Elige tu funnel', texto: `MaKo te pregunta por tu ticket, tu presupuesto y tu equipo, y te propone uno de ${FUNNELS.length}: con anuncios o sin anuncios.` },
-        { icono: I.persona, titulo: 'Sigue a un referente', texto: `Eliges el método de uno de ${ASESORES.length} referentes del marketing y MaKo te propone sólo lo que esa persona enseña. Ninguno participa en MaKo.` },
-        { icono: I.columnas, titulo: 'Mira tus campañas', texto: 'En tres columnas: <strong>Funcionan, En prueba y Para revisar</strong>, con un filtro por producto de tu CRM.' },
-        { icono: I.chat, titulo: 'Pídeselo a MaKo', texto: 'Le escribes lo que quieres y te contesta como tu CoPilot, con tu estrategia en la mano.' },
+        // Cortos: en la referencia son los botones de una caja de chat.
+        { icono: I.embudo, titulo: 'Elige tu funnel', texto: `Uno de ${FUNNELS.length}, con o sin anuncios, según tu ticket, tu presupuesto y tu equipo.` },
+        { icono: I.persona, titulo: 'Sigue a un referente', texto: `El método de uno de ${ASESORES.length} referentes del marketing. Ninguno participa en MaKo.` },
+        { icono: I.columnas, titulo: 'Mira tus campañas', texto: 'En tres columnas: <strong>Funcionan, En prueba y Para revisar</strong>.' },
+        { icono: I.chat, titulo: 'Pídeselo a MaKo', texto: 'Le escribes lo que quieres y te contesta con tu estrategia en la mano.' },
       ],
     },
     {
@@ -89,7 +93,8 @@ export const LANDING_ADS: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      titulo: '«MaKo, lo de siempre»: las piezas de tu CoPilot',
+      titulo: '“MaKo, lo de siempre”.',
+      bajada: 'Las cinco piezas de tu CoPilot.',
       items: [
         { icono: I.sol, titulo: 'Hoy', texto: 'Las decisiones del día sobre tus anuncios de Meta, listas para aprobar.' },
         { icono: I.plan, titulo: 'Plan', texto: 'Tu funnel paso a paso, con lo que hay que hacer esta semana y dónde se hace en MaKo.' },
@@ -100,7 +105,8 @@ export const LANDING_ADS: LandingCompetencia = {
     },
     {
       tipo: 'filas',
-      titulo: '«Un reporte, por favor»: lo que vendió cada anuncio',
+      titulo: '“Un reporte, por favor”.',
+      bajada: 'Lo que vendió cada anuncio, al lado de lo que gastaste.',
       slug: 'ads',
       items: [
         { grafico: 0, titulo: 'Tus anuncios, con lo que cerraron', texto: 'Los leads de cada anuncio que <strong>agendaron y cerraron</strong> en tu CRM, al lado de lo que gastaste en Meta.' },
@@ -110,8 +116,9 @@ export const LANDING_ADS: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Desde WhatsApp: pregúntale a tu negocio',
-      bajada: 'En el grupo de MaKo le preguntas como le preguntarías a tu media buyer.',
+      etiqueta: 'Desde WhatsApp',
+      titulo: 'Pregúntale a tu negocio como le preguntarías a tu media buyer.',
+      bajada: 'Le escribes en el grupo de MaKo y te contesta con los datos de tu cuenta de Meta.',
       items: [
         { icono: I.chat, titulo: '«¿Qué campañas tengo activas?»', texto: 'El estado en vivo de tu cuenta de Meta: cada campaña con su estado y su presupuesto del día.' },
         { icono: I.lista, titulo: '«¿Cuánto gasté este mes?»', texto: 'Lo gastado en cada campaña en los últimos 30 días, en la moneda de tu cuenta.' },

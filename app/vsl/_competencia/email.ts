@@ -1,13 +1,15 @@
 // =============================================================================
-// /vsl/email — el Email de MaKo, con la ESTRUCTURA de la portada de beehiiv (11/11/2026)
+// /vsl/email — el Email de MaKo, con la ESTRUCTURA y el DISEÑO de la portada de beehiiv (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, también el DISEÑO):
 //   https://www.beehiiv.com/  (leída el 11/11/2026 con Chromium)
-// Su orden, que se respeta acá: hero «NEWSLETTERS. PODCASTS. COMMUNITY. ONE PLATFORM.» → logos de sus clientes →
-// «Everything you need to turn attention into growth» (crear, crecer, monetizar, automatizar, integrar, medir) → un panel
-// por producto (podcasts, productos digitales, monetización, comunidad, sitios) → «Trusted by names you know» → (sus
-// planes) → citas → «The numbers tell the story» → «Powerful integrations» → «Have a question?» → «What are you waiting
-// for?» (el cierre). Por qué ganó: docs/competencia/landings-por-funcion.md → «Email marketing».
+// El diseño vive en ./disenos/email.tsx y sus valores medidos (getComputedStyle a 1440 y 390) en
+// docs/diseno/landings-competencia/email.md. beehiiv sirve dos portadas distintas según la visita; se copió la que tiene
+// este orden: hero «NEWSLETTERS. PODCASTS. COMMUNITY. ONE PLATFORM.» → logos de sus clientes → «Everything you need to turn
+// attention into growth» (con sus tarjetas por producto: newsletters, podcasts, productos digitales, monetización,
+// comunidad, sitios) → «Trusted by names you know» → (sus planes) → citas → «The numbers tell the story» → «Powerful
+// integrations» → «Have a question?» → «What are you waiting for?» (el cierre). Por qué ganó:
+// docs/competencia/landings-por-funcion.md → «Email marketing».
 //
 // Lo que se cambió de la referencia, y por qué:
 //   · Sus logos de clientes, sus citas, sus casos y sus cifras de uso («135K+ publishers») son suyos: no van. La prueba es
@@ -16,8 +18,9 @@
 //     lib/email-marketing.ts, que no se puede importar fuera del server, y un número escrito a mano se queda viejo.
 //   · De sus seis piezas, «crecer» (referidos, recomendaciones, SEO) y «monetizar» (anuncios, suscripciones pagas) MaKo no
 //     las tiene: quedan las otras cuatro, en su orden.
-//   · De sus paneles por producto, MaKo tiene uno: las secuencias. Podcasts, productos digitales, comunidad y sitios no son
-//     de Email. Sus planes con precio no van (ninguna landing de /vsl escribe un precio a mano).
+//   · De sus tarjetas por producto, MaKo tiene una: las secuencias (el bloque `filas`, que el diseño dibuja como la primera
+//     fila de tarjetas, con su gráfico). Podcasts, productos digitales, comunidad y sitios no son de Email. Sus planes con
+//     precio no van (ninguna landing de /vsl escribe un precio a mano).
 //   · Sus integraciones (Stripe, Zapier, Google Analytics) → de dónde salen los disparadores de las secuencias.
 //   · El newsletter de MaKo (app/newsletters) sigue en PRONTO, sólo para el super admin (app/newsletters/puerta.ts): no se
 //     promete, y la pregunta lo dice con «todavía no».
@@ -56,8 +59,8 @@ export const LANDING_EMAIL: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Email marketing conectado a tu CRM',
-      titulo: 'Secuencias. Envíos. Tu dominio. Todo con tu CRM.',
-      bajada: 'El email de tu negocio, adentro de MaKo: <strong>secuencias que salen solas</strong> por lo que hizo cada lead en tu embudo y envíos a un segmento de tu CRM, firmados con tu dominio.',
+      titulo: 'Secuencias.<br>Envíos.<br>Tu dominio.<br><em>Con tu CRM.</em>',
+      bajada: '<strong>Secuencias que salen solas</strong> por lo que hizo cada lead en tu embudo y envíos a un segmento de tu CRM, firmados con tu dominio.',
       puntos: ['MaKo escribe cada email en la voz de tu negocio', 'Sale desde tu dominio, nunca desde el de MaKo'],
       visual: { tipo: 'detalle', slug: 'email' },
     },
@@ -65,6 +68,7 @@ export const LANDING_EMAIL: LandingCompetencia = {
       tipo: 'tarjetas',
       fondo: true,
       columnas: 2,
+      etiqueta: 'Producto',
       titulo: 'Todo lo que necesitas para que tu email venda',
       bajada: 'Escribes, automatizas, eliges a quién le llega y mides lo que pasó, en el mismo lugar donde están tus leads.',
       items: [
@@ -77,12 +81,13 @@ export const LANDING_EMAIL: LandingCompetencia = {
     {
       tipo: 'filas',
       titulo: 'Una secuencia para cada momento de tu embudo',
+      bajada: 'Eliges la etapa y el disparador, escribes cada paso con su espera y la secuencia sale sola.',
       slug: 'email',
       items: [
         {
           grafico: 0,
           titulo: 'El email que sale solo, cuando el lead hace algo',
-          texto: 'Eliges la etapa y el disparador, escribes cada paso con su espera y la secuencia sale sola. Cada lead entra cuando le pasa algo como esto:',
+          texto: 'Cada lead entra cuando le pasa algo como esto:',
           puntos: ['Dejó el formulario de tu anuncio sin agendar', 'Vio tu VSL y no agendó', 'Agendó y no confirmó, o no asistió a su llamada', 'Confirmó la compra y no pagó', 'Se le puso una etiqueta'],
         },
       ],

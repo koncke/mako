@@ -1,8 +1,9 @@
 // =============================================================================
 // /vsl/image — Image, el editor de diseño de MaKo (copiado de Canva), con la ESTRUCTURA de la portada de PostNitro
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, el DISEÑO):
 //   https://postnitro.ai/es  (leída el 11/11/2026 con Chromium)
+// El diseño copiado vive en ./disenos/image.tsx; los valores medidos, en docs/diseno/landings-competencia/image.md.
 // Su orden, que se respeta acá: hero «El creador de carruseles con IA que diseña y programa tus publicaciones» → «Publica
 // en» (6 redes) → «Dale acceso a PostNitro a tu agente» → prueba social (5.0, creadores, plataformas) → «Pruébalo, no es
 // un video» → «Más de 100 plantillas, todas editables» → «De la idea a la publicación programada en tres pasos» → «Cada
@@ -147,6 +148,7 @@ export const LANDING_IMAGE: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
+      etiqueta: 'Chat de MaKo',
       titulo: 'MaKo lo diseña contigo',
       bajada: 'El chat de MaKo está al lado del lienzo, siempre abierto. Le describes lo que quieres o le pegas tu texto, y sigues hablando para cambiar cualquier lámina.',
       columnas: 2,
@@ -159,6 +161,7 @@ export const LANDING_IMAGE: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
+      etiqueta: 'Kit de marca',
       titulo: 'Tu marca hace el trabajo de diseño',
       bajada: 'Subes tu manual de marca una vez: MaKo saca tus colores, tus fuentes y tu logo, y tú lo confirmas antes de guardarlo.',
       columnas: 2,
@@ -172,6 +175,7 @@ export const LANDING_IMAGE: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
+      etiqueta: 'Lienzo',
       titulo: 'Después, el lienzo: lo pones exactamente donde quieras',
       bajada: 'El chat te lleva casi todo el camino. En el lienzo mandas tú, como en Canva.',
       columnas: 2,
@@ -184,6 +188,7 @@ export const LANDING_IMAGE: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
+      etiqueta: 'Automatizar',
       titulo: 'El mismo editor, le hables por donde le hables',
       bajada: 'Lo armas a mano, se lo pides en el chat o se lo pides a MaKo desde afuera: las mismas plantillas y los mismos diseños.',
       items: [

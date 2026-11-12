@@ -1,14 +1,17 @@
 // =============================================================================
 // /vsl/mako — el Ops Center (MaKo, el chat que conoce tu negocio), con la ESTRUCTURA de la portada de Holo (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, el DISEÑO):
 //   https://tryholo.ai/  (leída el 11/11/2026 con Chromium)
+// El diseño copiado vive en ./disenos/mako.tsx y los valores medidos de Holo, en docs/diseno/landings-competencia/mako.md.
 // Su orden, que se respeta acá: hero «Your Marketing Department. One Hire.» / «You just tap approve.» → (contadores de uso
 // e inversores) → «Ads that sell. Socials that grow. SEO that ranks. Emails that convert.» → «How it works? It's as easy as
 // 1, 2, 3…» (y lo que ahorras) → «Proactive. No prompt needed.» → «Real customer results» → para quién («Any niche… Any
-// integration») → «Inside your new marketing department» → «Every month beats the last» → (testimonios) → (premios) y
-// privacidad → (inversores) → «Skeptical? Good. Read this.» → cierre «Approve your first week…» (la banda de la llamada de
-// /vsl). Por qué ganó: docs/competencia/landings-por-funcion.md → «Ops Center / Second Brain».
+// integration») → «Early signals, first tweaks» / «Doubling down on what works» (semana a semana) → «Inside your new
+// marketing department» → (testimonios) → (premios) y privacidad → (inversores) → «Skeptical? Good. Read this.» → cierre
+// «Approve your first week…» (la banda de la llamada). Por qué ganó: docs/competencia/landings-por-funcion.md → «Ops Center
+// / Second Brain». Al copiar el diseño (11/11/2026) se midió que su sección semana a semana va ANTES de «Inside…»: el bloque
+// «Cuanto más lo usas» se pasó adelante. Los títulos llevan su segunda mitad en <em>, que el diseño pinta en gris como Holo.
 //
 // Lo que se cambió de la referencia, y por qué:
 //   · Sus contadores, su «4.6/5», sus premios, sus inversores y lo que ahorras contra una agencia (87 %, 11x, 23 h, 51 %) son
@@ -67,9 +70,9 @@ export const LANDING_MAKO: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'MaKo, el chat que conoce tu negocio',
-      titulo: 'Tu negocio entero, en un chat que te propone. Tú solo apruebas.',
-      bajada: 'MaKo lee tu CRM, tus chats, tus llamadas y tu oferta, te contesta con tus números y te deja lo que hay que hacer en una tarjeta. <strong>Nada se ejecuta sin tu sí.</strong>',
-      puntos: ['Lo que hablas con MaKo en cada tab, en un solo lugar', 'Con tu propia IA: tu Claude o tu ChatGPT'],
+      titulo: 'Tu negocio,<br>en un chat.<br><em>Tú apruebas.</em>',
+      bajada: 'MaKo lee tu CRM, tus chats y tus llamadas, te contesta con tus números y te deja lo que hay que hacer en una tarjeta. <strong>Nada se ejecuta sin tu sí.</strong>',
+      puntos: ['<strong>En un solo lugar</strong> Lo que hablas con MaKo en cada tab', '<strong>Con tu propia IA</strong> Tu Claude o tu ChatGPT'],
       visual: { tipo: 'detalle', slug: 'mako' },
     },
     {
@@ -90,7 +93,7 @@ export const LANDING_MAKO: LandingCompetencia = {
     {
       tipo: 'pasos',
       fondo: true,
-      titulo: 'Cómo funciona: así de fácil',
+      titulo: '¿Cómo funciona?<br><em>Así de fácil: 1, 2, 3.</em>',
       bajada: 'Sin llenar formularios ni aprender otra herramienta: le hablas y apruebas.',
       pasos: [
         { titulo: 'Le cuentas tu negocio', texto: 'En una conversación: qué vendes, cómo cobras y cómo te llegan los clientes. Con eso MaKo arma tu Second Brain.' },
@@ -100,7 +103,7 @@ export const LANDING_MAKO: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Te sugiere, sin que se lo pidas',
+      titulo: 'Te sugiere. <em>Sin que se lo pidas.</em>',
       bajada: 'Sólo cuando un dato de tu negocio lo sostiene, con el número a la vista. <strong>Si no hay nada que decir, MaKo no dice nada.</strong>',
       items: [
         { icono: I.reloj, titulo: 'Contesta antes', texto: `Si quienes te escriben por primera vez esperan más de ${HORAS_PRIMERA} tu respuesta, te propone una bienvenida que conteste al instante.`, meta: 'De tus chats de WhatsApp' },
@@ -117,21 +120,9 @@ export const LANDING_MAKO: LandingCompetencia = {
       fondo: true,
       titulo: 'Hecho para tu negocio, no para uno de ejemplo',
       items: [
-        { icono: I.mapa, titulo: 'Tu oferta, tus clientes, tu funnel', texto: 'Tu Second Brain conecta lo que le contaste y lo que MaKo dedujo. De ahí saca lo que necesita para contestarte.' },
-        { icono: I.equipo, titulo: 'Para ti y para tu equipo', texto: 'Tu closer y tu setter también le escriben a MaKo desde su propia cuenta.' },
-        { icono: I.telefono, titulo: 'En la computadora y en el teléfono', texto: 'Le escribes desde donde estés y confirmas sus tarjetas desde el teléfono.' },
-      ],
-    },
-    {
-      tipo: 'tarjetas',
-      titulo: 'Adentro de tu Ops Center',
-      items: [
-        { icono: I.conversaciones, titulo: 'Tus conversaciones, juntas', texto: 'Lo que hablas con MaKo en cada tab queda aquí, en una sola lista.' },
-        { icono: I.mapa, titulo: 'El Second Brain', texto: 'El mapa de tu negocio: tu oferta, tus clientes, tu funnel y tu mensaje. Si un dato de tu oferta está mal, lo tocas y lo corriges.' },
-        { icono: I.aprende, titulo: '«Aprende solo»', texto: 'Si lo prendes, MaKo aprende de tus conversaciones de WhatsApp con leads: sus objeciones y sus pedidos. Ves de qué aprendió y cuándo.' },
-        { icono: I.documento, titulo: 'Sumar un documento', texto: 'Lo pegas o lo adjuntas en el chat: queda en El Archivero y te muestra lo que va a tu perfil antes de que digas que sí.' },
-        { icono: I.marca, titulo: 'Tu marca', texto: 'Subes tu manual de marca y MaKo saca tus colores, tus fuentes y tu logo. Los usan Image, Video y Web Generator.' },
-        { icono: I.coach, titulo: 'Funnel Coach', texto: 'Un chat que trabaja tu oferta contigo y después arma cómo conseguir clientes, con el presupuesto de anuncios calculado.' },
+        { icono: I.mapa, titulo: 'Tu oferta, <em>tus clientes y tu funnel.</em>', texto: 'Tu Second Brain conecta lo que le contaste y lo que MaKo dedujo. De ahí saca lo que necesita para contestarte.' },
+        { icono: I.equipo, titulo: 'Para ti <em>y para tu equipo.</em>', texto: 'Tu closer y tu setter también le escriben a MaKo desde su propia cuenta.' },
+        { icono: I.telefono, titulo: 'En la computadora <em>y en el teléfono.</em>', texto: 'Le escribes desde donde estés y confirmas sus tarjetas desde el teléfono.' },
       ],
     },
     {
@@ -147,6 +138,18 @@ export const LANDING_MAKO: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
+      titulo: 'Adentro de tu Ops Center',
+      items: [
+        { icono: I.conversaciones, titulo: 'Tus conversaciones, juntas', texto: 'Lo que hablas con MaKo en cada tab queda aquí, en una sola lista.' },
+        { icono: I.mapa, titulo: 'El Second Brain', texto: 'El mapa de tu negocio: tu oferta, tus clientes, tu funnel y tu mensaje. Si un dato de tu oferta está mal, lo tocas y lo corriges.' },
+        { icono: I.aprende, titulo: '«Aprende solo»', texto: 'Si lo prendes, MaKo aprende de tus conversaciones de WhatsApp con leads: sus objeciones y sus pedidos. Ves de qué aprendió y cuándo.' },
+        { icono: I.documento, titulo: 'Sumar un documento', texto: 'Lo pegas o lo adjuntas en el chat: queda en El Archivero y te muestra lo que va a tu perfil antes de que digas que sí.' },
+        { icono: I.marca, titulo: 'Tu marca', texto: 'Subes tu manual de marca y MaKo saca tus colores, tus fuentes y tu logo. Los usan Image, Video y Web Generator.' },
+        { icono: I.coach, titulo: 'Funnel Coach', texto: 'Un chat que trabaja tu oferta contigo y después arma cómo conseguir clientes, con el presupuesto de anuncios calculado.' },
+      ],
+    },
+    {
+      tipo: 'tarjetas',
       titulo: 'Tus datos y tus decisiones, tuyos',
       items: [
         { icono: I.mako, titulo: 'Con tu propia IA', texto: 'Para escribir por ti, MaKo usa tu Claude o tu ChatGPT, conectado a tu cuenta.' },
@@ -156,7 +159,7 @@ export const LANDING_MAKO: LandingCompetencia = {
     },
     {
       tipo: 'preguntas',
-      titulo: '¿Dudas? Bien. Lee esto.',
+      titulo: '¿Dudas?<br>Bien. Lee esto.',
       items: [
         { p: '¿No es ChatGPT con otro nombre?', r: 'No. ChatGPT no sabe nada de tu negocio: MaKo lee tu CRM, tus chats y tus llamadas para contestarte, y lo que cambia algo te lo deja en una tarjeta. Para escribir sí usa tu IA: tu Claude o tu ChatGPT.' },
         { p: '¿Qué tengo que hacer yo?', r: 'Preguntarle, y decir sí o no a lo que te propone. Cada tarjeta dice qué va a cambiar antes del botón.' },

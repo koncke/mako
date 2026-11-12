@@ -1,8 +1,10 @@
 // =============================================================================
 // /vsl/seguimiento — Automations, tu setter con IA, con la ESTRUCTURA de la landing de SetSmart (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y el DISEÑO):
 //   https://setsmart.io/es  (leída el 11/11/2026 con Chromium)
+// El diseño copiado (barra, hero, secciones, tipografía, espacios, pie) es ./disenos/seguimiento.tsx; los valores medidos
+// con getComputedStyle a 1440 y 390 px, en docs/diseno/landings-competencia/seguimiento.md.
 // Su orden, que se respeta acá: hero con la bandeja → integraciones → «La solución»: el lead que se enfría contra el que
 // avanza → lo que dicen los clientes → «Todo lo que hace tu setter IA» → «Automatiza el agendamiento…» (cómo trabaja,
 // paso del lead a la reunión) → «Operativo en menos de 10 minutos» (3 pasos) → «Controla SetSmart desde tu propia IA» →
@@ -11,7 +13,8 @@
 // Lo que se cambió de la referencia, y por qué:
 //   · Sus testimonios y sus «500+ coaches» son suyos: la prueba de MaKo es el caso de Mauricio, el de todas sus landings.
 //   · Su tabla contra el setter humano, la calculadora de ROI y las «estadísticas en vivo» son números que MaKo no tiene
-//     medidos: no van (nada se inventa).
+//     medidos: no van (nada se inventa). Tampoco su «Crea tu IA en solo unos clics» (el asistente por nicho), su grilla
+//     «Funciona con tu stack», su cita suelta ni su badge de Meta: no tienen contenido de MaKo.
 //   · «Agenda dentro del chat» no se promete: lib/funciones-mako.ts dice que MaKo le RECUERDA la reunión al lead y lo
 //     mueve de etapa. Tampoco el «riesgo de baneo» de sus preguntas: no se vende el ritmo de envío como protección.
 //   · Su «controla SetSmart desde tu propia IA» (MCP) es, en MaKo, la API: crear_automatizacion_desde_plantilla y
@@ -42,7 +45,7 @@ export const LANDING_SEGUIMIENTO: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Tu setter con IA',
-      titulo: 'Tu setter con IA contesta y sigue a cada lead. Tú solo cierras en la llamada.',
+      titulo: 'Tu setter con IA contesta y sigue a cada lead. <em>Tú solo cierras en la llamada.</em>',
       bajada: 'Un agente que contesta por <strong>WhatsApp, Instagram, Messenger y email</strong>, le recuerda la reunión al lead, lo mueve de etapa en tu CRM y te lo pasa cuando hace falta una persona.',
       puntos: ['Arrancas de una plantilla o se la pides a MaKo en palabras', 'Nace pausada: la pruebas antes de prenderla'],
       visual: { tipo: 'detalle', slug: 'seguimiento' },
@@ -60,7 +63,7 @@ export const LANDING_SEGUIMIENTO: LandingCompetencia = {
     {
       tipo: 'contraste',
       etiqueta: 'La solución',
-      titulo: 'El lead que nadie sigue se enfría. El que MaKo sigue, avanza.',
+      titulo: 'El lead que nadie sigue se enfría. <em>El que MaKo sigue, avanza.</em>',
       sin: {
         titulo: 'Te escribe, contestas tarde, y se enfrió',
         texto: 'Llega un mensaje a la noche o en medio de una llamada. Cuando lo ves, el lead ya se distrajo. Y al que agendó y no vino, o al que vio tu video y no agendó, <strong>nadie le vuelve a escribir</strong>: ahí se queda la plata.',
