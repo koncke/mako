@@ -22,7 +22,7 @@ import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { VideoEditorCliente } from './VideoEditorCliente';
 import { leerOutliersVideo } from '@/lib/video-outliers-servidor';
 import { OutliersVideo } from './OutliersVideo';
-import { familiaDe, replicarDe, vistaDeVideo } from './vista';
+import { abreElEditor, familiaDe, recetaPedida, replicarDe, vistaDeVideo } from './vista';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -42,7 +42,7 @@ export default async function VideoEditorPage({ searchParams }: { searchParams: 
   const [ws, senales] = await Promise.all([getWorkspaceActual(), senalesDelNegocio().catch(() => null)]);
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-      <VideoEditorCliente vista="inicio" ws={ws} senales={senales} replicar={replicarDe(q)} />
+      <VideoEditorCliente vista="inicio" ws={ws} senales={senales} replicar={replicarDe(q)} receta={recetaPedida(q)} alEntrar={abreElEditor(q) ? 'editor' : 'crear'} />
     </Pagina>
   );
 }

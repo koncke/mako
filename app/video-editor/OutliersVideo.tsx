@@ -30,7 +30,7 @@ import { FAMILIAS_EDICION, embedDeReel, type FamiliaEdicion, type OutlierVideo, 
 import s from '@/app/image-editor/carruseles/explorar.module.css';
 import o from './outliers.module.css';
 import { VerReel } from './VerReel';
-import { RUTA_CREAR_VIDEO, rutaReplicar } from './vista';
+import { RUTA_CREAR_VIDEO, rutaReplicar, rutaReplicarReceta } from './vista';
 
 const RED: Record<OutlierVideo['red'], string> = { instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube', 'meta-ads': 'Anuncio de Meta' };
 
@@ -146,7 +146,7 @@ export function TarjetaPlantilla({ x, telefono }: { x: OutlierVideo; telefono: b
 }
 
 /** Un reel de una cuenta que el negocio sigue: la tarjeta de Image (`TarjetaCarrusel`), en 9:16, con lo que enseña. También la usa la sección del editor. */
-export function TarjetaReel({ x, ahora }: { x: OutlierVideo; ahora: number }) {
+export function TarjetaReel({ x, ahora, telefono = false }: { x: OutlierVideo; ahora: number; telefono?: boolean }) {
   const veces = x.multiplo?.veces ?? null;
   const nivel = nivelDeMultiplo(veces);
   const quien = quienDe(x);
@@ -170,6 +170,8 @@ export function TarjetaReel({ x, ahora }: { x: OutlierVideo; ahora: number }) {
         red={RED[x.red]}
         clase={`${s.mini} ${o.mini916}`}
         etiqueta={`Ver el reel de ${quien}`}
+        // «Replicar» de su receta: arma el proyecto y MaKo la dice en el chat (./VideoEditorCliente.tsx). En el teléfono no hay editor.
+        pie={receta && !telefono ? <Link href={rutaReplicarReceta(receta.id)} className={o.replicar}>Replicar</Link> : undefined}
         detalle={(
           <>
             <div className={o.verBloque}>
@@ -287,7 +289,7 @@ export function OutliersVideo({
         ) : null}
         {visibles.length > 0 ? (
           <ul className={`${s.grilla} ${o.grillaReels}`}>
-            {visibles.map((x) => (x.plantilla ? <TarjetaPlantilla key={x.id} x={x} telefono={telefono} /> : <TarjetaReel key={x.id} x={x} ahora={ahora} />))}
+            {visibles.map((x) => (x.plantilla ? <TarjetaPlantilla key={x.id} x={x} telefono={telefono} /> : <TarjetaReel key={x.id} x={x} ahora={ahora} telefono={telefono} />))}
           </ul>
         ) : null}
         {reels.length === 0 && (

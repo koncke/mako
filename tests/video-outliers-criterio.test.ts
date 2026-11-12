@@ -24,7 +24,7 @@ import {
   type CriterioReel, type FuenteOutliersVideo, type OutlierVideo,
 } from '../lib/video-outliers';
 import { leerCriterio } from '../lib/video-outliers-criterio';
-import { familiaDe } from '../app/video-editor/vista';
+import { abreElEditor, familiaDe, recetaPedida, rutaReplicarReceta } from '../app/video-editor/vista';
 
 const leer = (ruta: string) => readFileSync(new URL(`../${ruta}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
@@ -146,7 +146,7 @@ test('6. el cableado: la tarjeta abre el reproductor, Spy aplica el criterio y l
   assert.match(portada, /href=\{`\$\{rutaPortada\}&patron=\$\{f\}`\}/, 'el filtro sin `ver=outliers` abre el editor, no la portada');
 });
 
-test('8. el editor primero, y los outliers ADENTRO, junto a «Importar» (11/11/2026)', () => {
+test('8. el editor primero, y los outliers ADENTRO, junto a «Importar» (11/11/2026)', async () => {
   // Martín: «ya no depender de "Encuentra tu siguiente outlier", sino que sea directamente todo el sistema de edición primero, y
   // que en alguna parte, por ejemplo del lado de Importar, estén estos outliers».
   const registro = leer('app/video-editor/_opencut/outliers/registro.ts');
@@ -155,6 +155,26 @@ test('8. el editor primero, y los outliers ADENTRO, junto a «Importar» (11/11/
   const vista = leer('app/video-editor/_opencut/outliers/components/outliers-view.tsx');
   assert.match(vista, /fetch\("\/api\/video-editor\/outliers"/);
   assert.match(vista, /<TarjetaPlantilla key=\{x\.id\} x=\{x\} telefono=\{false\} \/> : <TarjetaReel key=\{x\.id\} x=\{x\} ahora=\{ahora\} \/>/, 'las mismas tarjetas que la portada');
+  // La tab ENTRA al editor (Martín, por el Cerebro: «En lugar de la vista de Outliers, que esté la vista del lienzo de edición»):
+  // el último proyecto o uno vertical nuevo; «Nuevo video» (`ver=crear`) y «Replicar» no.
+  assert.equal(abreElEditor({}), true);
+  assert.equal(abreElEditor({ ver: 'crear' }), false);
+  assert.equal(abreElEditor({ ver: 'crear', receta: 'novato-experto' }), false);
+  const cliente = leer('app/video-editor/VideoEditorCliente.tsx');
+  assert.match(cliente, /if \(proyectos\[0\]\) \{ router\.replace\(`\/video-editor\/\$\{proyectos\[0\]\.id\}`\); return; \}/, 'no abre el último proyecto');
+  assert.match(cliente, /proyectoConLienzo\(LIENZO_GUIADO, 'Mi video'\)/, 'sin proyectos, no arma uno vertical');
+  assert.match(leer('app/video-editor/page.tsx'), /receta=\{recetaPedida\(q\)\} alEntrar=\{abreElEditor\(q\) \? 'editor' : 'crear'\} \/>/);
+  // «Replicar» de una receta: el proyecto con su nombre y MaKo la dice en el chat.
+  assert.equal(recetaPedida({ receta: 'novato-experto' }), 'novato-experto');
+  assert.equal(recetaPedida({ receta: '<x>' }), null);
+  assert.equal(rutaReplicarReceta('novato-experto'), '/video-editor?ver=crear&receta=novato-experto');
+  assert.match(cliente, /proyectoConLienzo\(LIENZO_GUIADO, r\.nombre\)/);
+  assert.match(cliente, /conId\(\{ de: 'mako', texto: textoDeReceta\(r\) \}\)/, 'el proyecto sin la receta en el chat');
+  assert.match(leer('app/video-editor/OutliersVideo.tsx'), /pie=\{receta && !telefono \? <Link href=\{rutaReplicarReceta\(receta\.id\)\}/);
+  const { RECETAS, textoDeReceta } = await import('../lib/video-recetas');
+  const texto = textoDeReceta(RECETAS[0]);
+  assert.match(texto, new RegExp(`replicar «${RECETAS[0].nombre}»`));
+  for (const p of [...RECETAS[0].edicion, ...RECETAS[0].grabacion.avatar]) assert.ok(texto.includes(p), `falta en el chat: ${p}`);
   const ruta = leer('app/api/video-editor/outliers/route.ts');
   assert.match(ruta, /if \(rol !== 'admin'\) return/);
   assert.match(ruta, /if \(!\(await veEditorVideo\(\)\)\) return/);

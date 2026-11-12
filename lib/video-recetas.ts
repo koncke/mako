@@ -149,6 +149,21 @@ export const RECETAS: readonly Receta[] = [
 
 export const recetaDe = (id: string | null | undefined): Receta | null => (id ? RECETAS.find((r) => r.id === id) ?? null : null);
 
+/**
+ * Lo que dice MaKo en el chat del proyecto que arma «Replicar» de una receta (app/video-editor/VideoEditorCliente.tsx): la
+ * estructura, la edición en el editor y las dos grabaciones, para seguirla paso a paso. Texto plano: el chat no dibuja markdown.
+ */
+export function textoDeReceta(r: Receta): string {
+  const lista = (xs: readonly string[]) => xs.map((x, i) => `${i + 1}. ${x}`).join('\n');
+  return [
+    `Armé este proyecto para replicar «${r.nombre}» (el reel de @${r.referencia.cuenta}). ${r.porque}`,
+    `La estructura (${r.duracionS} s):\n${r.estructura.map((b) => `· ${b.nombre} (${b.desde}–${b.hasta} s): ${b.que}`).join('\n')}`,
+    `Para grabarlo con tu avatar de IA:\n${lista(r.grabacion.avatar)}`,
+    `Si lo graba otra persona:\n${lista(r.grabacion.persona)}`,
+    `Cuando tengas tus tomas, impórtalas y la edición es así:\n${lista(r.edicion)}`,
+  ].join('\n\n');
+}
+
 /** La receta de una familia de edición (la primera que la tenga): todos los reels de esa familia muestran «Cómo se hace». */
 export const recetaDeFamilia = (familia: string | null | undefined): Receta | null =>
   familia ? RECETAS.find((r) => r.familia === familia) ?? null : null;
