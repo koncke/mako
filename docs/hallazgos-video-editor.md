@@ -6,6 +6,31 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## La tab Video probada entera en producción: lo que quedó roto (12/11/2026)
+
+Prueba pedida por Martín («que no lo dejes a la guía de MaKo… quiero que lo pruebes enteramente»), en el ws 9, con el
+deploy de las 11:05 UTC. La tabla con cada captura está en la carpeta de notas del Cerebro (create-video-tabla-claude5-12-11.md).
+Lo arreglado ese día tiene su entrada propia (el chat sin conversación, la tira del teléfono, el título fuera del cuadro, el
+motor triplicado). **Lo que quedó SIN hacer, con dónde vive:**
+
+- **B-roll sin imágenes en el negocio de MaKo:** «Conectar Pexels para las imágenes»; el ws 9 no tiene Pexels y el B-roll queda
+  en cambios de plano. Es configuración (Integraciones), no código.
+- **El audio del chat tarda ~3 min** en transcribir una nota de 5 s (`/api/plan-dictado` → `transcribirAudio`, lib/ai-cheap, con
+  `pii`: sin la red de la plataforma). Medir qué proveedor contesta y cuál se cuelga antes de tocarlo.
+- **El botón de enviar del audio queda tapado** (41 de sus 44 px, también a 1440): `.cr-tarjeta` con `overflow: hidden`. Lo
+  arregla el chat «Create» en la caja compartida.
+- **Con un clip elegido, el panel Video › Básico se redibuja en cada salto del cabezal** (167–477 componentes):
+  `components/editor/panels/properties/video/basico.tsx:323` lee `getCurrentTime()` para los fotogramas clave. Que lea sólo si
+  hay un fotograma en el cabezal.
+- **El teléfono muestra el video NEGRO sin aviso** cuando falta el archivo en el navegador (`app/m/video-editor/EditorVideoM.tsx`);
+  la computadora dice «falta en este navegador el archivo…».
+- **Publicar muestra la portada negra** (`export/dialogo-exportar.tsx`), cuando Exportar sí la dibuja.
+- **Clips mágicos deja el aviso viejo** («ya dura como un clip») después de agregar más video, y corre el botón
+  (`clips/components/clips-view.tsx`).
+- **La receta de un reel replicado sale en dos pedidos:** con la toma recién puesta, `borrar_silencios` la descarta («no hay un
+  video con sonido en la pista principal»: la revisión excluye lo `nuevo`) y las palabras clave esperan a los subtítulos del
+  mismo pedido (chat/linea.ts). La Edición automática no sigue la receta (claves del mismo tamaño).
+
 ## Un título del chat salía del cuadro: «tamaño 48» eran letras de 1.000 px (12/11/2026)
 
 **El síntoma** (producción, ws 9, pedido por audio): «Pone un título que diga oferta de noviembre» → MaKo puso el texto y le
