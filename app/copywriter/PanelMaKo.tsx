@@ -332,7 +332,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
       return true;
     }
     cambiarMensaje(mako.id, { estado: 'pendiente' });
-    if (nacida) aceptar({ ...mako, estado: 'pendiente' });
+    // Con algo descartado queda como propuesta: la tarjeta dice qué no se pudo poner (12/11/2026, el Carrusel: 3 de 4 cambios).
+    if (nacida && !propuesta.descartadas.length) aceptar({ ...mako, estado: 'pendiente' });
     return true;
   }, [cambiarMensaje, onPausa, tituloCharla]); // eslint-disable-line react-hooks/exhaustive-deps
 
