@@ -25,3 +25,10 @@ export function rutaEditor(href: string): string {
 export function rutaDiseno(id: string): string {
   return rutaEditor(`${RUTA_INICIO}/${encodeURIComponent(id)}`);
 }
+
+/**
+ * El parámetro con que «Usar plantilla» abre el diseño nuevo (12/11/2026): `?escribir=1` → el chat de MaKo escribe la plantilla
+ * entera para el negocio y la deja escrita sin «Aceptar» (mako/chat/PanelMakoIA.tsx). Se saca de la dirección apenas se pide, así
+ * que recargar no vuelve a escribir encima.
+ */
+export const ESCRIBIR_PLANTILLA = 'escribir';

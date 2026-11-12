@@ -39,7 +39,7 @@ import { borrarDiseno, crearDiseno, guardarDiseno, leerDiseno, listarDisenos } f
 import { leerHilo, suscribir, type Hilo } from './mako/chat/hilo';
 import { crearDisenoNuevoAction } from './actions';
 import { EJEMPLOS_NUEVO_DISENO, PLANTILLAS_NUEVO_DISENO } from './plantillas-crear';
-import { RUTA_CREAR, RUTA_INICIO, rutaDiseno } from './ruta';
+import { ESCRIBIR_PLANTILLA, RUTA_CREAR, RUTA_INICIO, rutaDiseno } from './ruta';
 import { ExplorarCarruseles, type DatosExplorador } from './carruseles/ExplorarCarruseles';
 import { BASE_SIN_DATOS, ChatReplica, ReplicarGuiado, useGuiado, type BaseGuiado } from './carruseles/ReplicarGuiado';
 import { useCarruselesDeImage } from './carruseles/useCarruselesDeImage';
@@ -171,7 +171,12 @@ export function ImageEditorCliente({ vista, disenoId, ws, senales = null, salir 
     if (propia !== false) return propia ?? new Promise<null>(() => {});
     const r = await crearDisenoNuevoAction(p.id);
     if (!r.ok) return r.error;
-    router.push(rutaDiseno(r.id));
+    // Una plantilla CON contenido (un carrusel por tipo o una plantilla real) abre pidiendo que MaKo la escriba entera para el
+    // negocio (12/11/2026, memoria `replicar-deja-todo-escrito`; mako/chat/PanelMakoIA.tsx lee `escribir`). Un formato en blanco,
+    // no: ahí MaKo pregunta dónde se publica.
+    const conContenido = PLANTILLAS_NUEVO_DISENO.find((x) => x.id === p.id);
+    const ruta = rutaDiseno(r.id);
+    router.push(conContenido?.carrusel || conContenido?.real ? `${ruta}${ruta.includes('?') ? '&' : '?'}${ESCRIBIR_PLANTILLA}=1` : ruta);
     return new Promise<null>(() => {});
   }, [router, propias]);
 

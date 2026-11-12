@@ -236,6 +236,17 @@
   display: none;
 }
 
+/* En el teléfono las siete entran (12/11/2026): pedían 477 px en 375 y «Herramientas» y «Apps» quedaban cortadas en el borde.
+   Repartidas por su contenido y sin el piso de 60 px, cada etiqueta cabe en su botón (medido en producción: 375 de 375). */
+.compactTools {
+  gap: 0;
+}
+.compactTools .entry {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-inline: 2px;
+}
+
 .entry {
   display: inline-flex;
   flex: 1 0 auto;

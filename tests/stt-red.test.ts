@@ -71,6 +71,17 @@ test('si las keys del negocio no pudieron, escucha la RED DE PLATAFORMA, Groq pr
   assert.match(t, /if \(wsSA != null && wsActual !== wsSA\)/, 'el super admin repetiría sus propias keys');
 });
 
+test('una nota de voz CORTA que alguien espera (los chats, el dictado): Groq primero y Gemini de respaldo (12/11/2026)', () => {
+  // Medido en producción (ws 9, una nota de 4,5 s): con Gemini primero, de 11 s a ~105 s con «Enviando…» en la caja.
+  const t = bloque('export async function transcribirAudio(');
+  assert.match(t, /o\.notaDeVozCorta \? \['groq', \.\.\.CASCADA_STT\.filter\(\(x\) => x !== 'groq'\)\] : CASCADA_STT/,
+    'la nota corta no puso a Groq primero');
+  assert.match(t, /const stt = cascada\.filter\(/, 'el orden de la nota corta se armó y no se usa');
+  assert.ok(!/notaDeVozCorta[^\n]*gemini'\)\)/.test(t), 'la nota corta sacó a Gemini: es el respaldo, no se va');
+  const ruta = sinComentarios(leer('../app/api/plan-dictado/route.ts'));
+  assert.match(ruta, /transcribirAudio\([^)]*notaDeVozCorta: true/, 'la ruta de los chats y el dictado no pide la nota corta');
+});
+
 test('los errores del negocio y los de la red viajan SEPARADOS', () => {
   assert.match(bloque('export async function transcribirAudio('), /throw new SttSinEscucha\(errores, erroresPlataforma\)/);
   const doer = sinComentarios(leer('../lib/mako-doer-in.ts'));

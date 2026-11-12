@@ -54,7 +54,8 @@ export async function POST(req: Request) {
       if (negocio.suIA && !(await Promise.all(PROVS_SU_IA.map((p) => provsDe(p as never)))).some((l) => l.length)) return null;
       // La nota de voz de una caja de chat (24/10/2026, app/_chat/nota-que-se-manda.ts) se anota con su motivo.
       const motivo = form.get('para') === 'chat' ? 'Nota de voz de un chat' : 'Dictar una tarea del plan';
-      return transcribirAudio(base64, file.type || 'audio/webm', { motivo, pii: true });
+      // Alguien está mirando «Enviando…»: Groq primero, Gemini de respaldo (`notaDeVozCorta`; de 11 a ~105 s medido con Gemini primero).
+      return transcribirAudio(base64, file.type || 'audio/webm', { motivo, pii: true, notaDeVozCorta: true });
     });
     if (texto == null) return Response.json({ ok: false, error: SIN_OIDO_SU_IA }, { status: 200 });
     return Response.json({ ok: true, texto: texto.trim() });

@@ -1793,7 +1793,14 @@ export type SttOpts = { language?: string; prompt?: string; feature?: string; mo
    * así que vale con datos de clientes), después el Groq o el OpenAI del negocio, y Gemini NUNCA: ni el del negocio ni la red.
    * Medido en el ws10 (Leandro, 28/10): Gemini cortó por tiempo y MaKo contestó sin el audio; Groq lo escuchó en segundos.
    */
-  notaDeVozDelGrupo?: boolean };
+  notaDeVozDelGrupo?: boolean;
+  /**
+   * Una nota de voz CORTA que alguien está esperando (la caja de un chat, un dictado: /api/plan-dictado, 12/11/2026). El Groq del
+   * negocio escucha primero y Gemini queda de respaldo. Medido en producción (ws 9, una nota de 4,5 s): con Gemini primero, de 11 s
+   * a ~105 s con «Enviando…» en pantalla, porque `gemini-flash-latest` se cuelga hasta su plazo de 60 s por cuenta. Lo mismo que
+   * ya se había medido con los grupos (`notaDeVozDelGrupo`), pero acá Gemini no sale: es el respaldo.
+   */
+  notaDeVozCorta?: boolean };
 
 // Gemini manda el audio DENTRO del request (inline_data), así que hay un techo de
 // tamaño. Una nota de voz de WhatsApp pesa kilobytes; un audio largo se va a Whisper.
@@ -2183,8 +2190,9 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   const buf = Buffer.from(base64, 'base64');
   if (!buf.length) return '';
   // Proactivo: los que ya quemaron su cuota de hoy van al final (mismo criterio que el chat).
-  // La nota de voz de un grupo, sin Gemini (`notaDeVozDelGrupo`).
-  const stt = CASCADA_STT.filter((x) => !(o.sinGroq && x === 'groq') && !(o.notaDeVozDelGrupo && x === 'gemini'));
+  // La nota de voz de un grupo, sin Gemini (`notaDeVozDelGrupo`). Una nota corta que alguien espera, Groq primero (`notaDeVozCorta`).
+  const cascada: ProvName[] = o.notaDeVozCorta ? ['groq', ...CASCADA_STT.filter((x) => x !== 'groq')] : CASCADA_STT;
+  const stt = cascada.filter((x) => !(o.sinGroq && x === 'groq') && !(o.notaDeVozDelGrupo && x === 'gemini'));
   const orden = await ordenarPorCuota(stt.map(String)).catch(() => stt.map(String));
 
   const errores: string[] = [];

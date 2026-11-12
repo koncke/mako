@@ -23,7 +23,7 @@ import { parseJsonObject } from '../json-del-modelo';
 import { altoEnElEditor, comoSeDibuja, medidorReal } from './medir-letra';
 import { partirEnRenglones, sinSuperponer, type FuenteTexto } from './tipografia-medida';
 import { esSaturacion, esTimeout, esTopeDeTamano } from '../fallo-ia-texto';
-import { ANCHO_CARRUSEL, ALTO_CARRUSEL, altoEstimado, esOscuro, familia, texto, type Marca } from './documento';
+import { ANCHO_CARRUSEL, ALTO_CARRUSEL, altoEstimado, esOscuro, familia, rect, texto, type Marca } from './documento';
 import type { EstiloCarrusel } from './tipos';
 
 /** El papel de un texto en la lámina: lo usa el nombre de la capa («Titular», «Texto»…), que es como el chat la encuentra. */
@@ -63,8 +63,21 @@ export type FotoReplica = { x: number; y: number; ancho: number; alto: number; p
  *     de fotos), nunca la foto del negocio pegada entera: la foto del negocio no es ese lugar;
  *   · `retrato`: la persona sola, recortada o en primer plano, como un elemento del diseño. Ahí sí va la foto del negocio.
  */
-export type CuadroReplica = { x: number; y: number; ancho: number; alto: number; tipo: 'escena' | 'retrato'; persona: boolean; descripcion: string; busqueda: string };
-export type LaminaReplica = { fondo: string; textos: TextoReplica[]; foto: FotoReplica | null; cuadros: CuadroReplica[] };
+export type CuadroReplica = {
+  x: number; y: number; ancho: number; alto: number; tipo: 'escena' | 'retrato'; persona: boolean; descripcion: string; busqueda: string;
+  /** El recorte (12/11/2026): «circulo» para un avatar redondo (un tuit), «redondeado» para una foto con las esquinas curvas. */
+  forma?: FormaDelCuadro;
+};
+export const FORMAS_DEL_CUADRO = ['rect', 'circulo', 'redondeado'] as const;
+export type FormaDelCuadro = (typeof FORMAS_DEL_CUADRO)[number];
+/**
+ * El MARCO de la lámina (12/11/2026, el Cerebro mirando @lifeofarjav lado a lado: «se pierden el encabezado con el @, el contador
+ * «02 / 06», la línea divisoria, el pie y la tarjeta»). Una `linea` (divisoria) o una `caja` (una tarjeta, una franja, un
+ * recuadro de color), en su lugar, debajo de las fotos y los textos. Los textos del marco (el @, el contador, el pie) van como
+ * textos, con su papel.
+ */
+export type FormaReplica = { tipo: 'linea' | 'caja'; x: number; y: number; ancho: number; alto: number; color: string; borde: string | null; radio: number; sombra: boolean };
+export type LaminaReplica = { fondo: string; textos: TextoReplica[]; foto: FotoReplica | null; cuadros: CuadroReplica[]; formas?: FormaReplica[] };
 export type Proporcion = '4:5' | '1:1' | '16:9';
 /** `lectura`: lo que la IA LEYÓ de la composición del original antes de escribir (queda en las notas del diseño). */
 export type Replica = { proporcion: Proporcion; titulo: string; laminas: LaminaReplica[]; lectura?: string };
@@ -176,7 +189,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     'Reglas:',
     '- Copia el patrón (cómo abre, cuántas ideas por lámina, cómo cierra), NUNCA sus frases: cada texto lo escribes tú para este negocio, con un largo parecido al original para que entre en el mismo lugar.',
     '- Y tampoco sus HECHOS. Si el original cuenta algo que le pasó a su autor (una anécdota, un premio, un familiar, una fecha, un lugar, una cifra), eso no le pasó a este negocio: usa la misma estructura con lo que sabes del negocio de abajo, y si no sabes nada que contar ahí, escribe la idea sin la anécdota. Nunca cuentes como propio del negocio algo que le pasó a otra persona.',
-    '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su firma va el NOMBRE del negocio, tal como está escrito abajo, y nada más: nunca un @, un usuario ni un sitio web, porque no los sabes.',
+    '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su nombre o su firma va el NOMBRE del negocio, tal como está escrito abajo. Donde el original muestra su @ (un encabezado, un tuit, un pie), escribe exactamente @usuario: el sistema pone el del negocio. Nunca otro @, un usuario inventado ni un sitio web.',
     '- Español neutro, de «tú», como se habla en México.',
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra que tenga sentido para este negocio (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
     // La COMPOSICIÓN se lee antes de escribir (11/11/2026, @jasonrewired_: el original eran dos cuadros apilados de la misma playa
@@ -187,8 +200,9 @@ export function promptDeReplica(p: PedidoReplica): string {
     // no se nombra (memoria «prompt corto gana al técnico»).
     vistas > 0 ? '- PRIMERO LEE la composición de ESTAS láminas y escríbela en "lectura" (en español, 1 a 3 frases): cuántos cuadros de imagen tiene cada una, dónde están y qué muestran, y dónde va cada texto, de qué tamaño y sobre qué (el fondo, una foto, una pastilla o una caja de color). Describe sólo lo que ves: si no hay fotos, dilo. Después copia ESA composición, lámina por lámina.' : '',
     vistas > 0
-      ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original; si una lámina tiene dos fotos, son dos cuadros. "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto PARECIDA de lo que muestra, sin gente. Si la lámina es sólo tipografía, "cuadros": [].'
+      ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original; si una lámina tiene dos fotos, son dos cuadros. "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño (también la foto de perfil de un tuit). "forma": "circulo" si la foto es redonda, "redondeado" si tiene las esquinas curvas, "rect" si no. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto PARECIDA de lo que muestra, sin gente. Si la lámina es sólo tipografía, "cuadros": [].'
       : '- Sin las láminas no hay cuadros: "cuadros": [] y la lámina es tipografía y color.',
+    vistas > 0 ? '- "formas": el MARCO de la lámina, en su lugar: cada línea divisoria ("tipo": "linea") y cada tarjeta, franja o recuadro de color que va detrás de textos o fotos ("tipo": "caja", con su "color", su "borde" o null, "radio" de 0 a 0.5 si tiene las esquinas curvas y "sombra"). Los textos del marco (el @, el número de lámina como «02 / 06», el pie) van en "textos" con su papel ("firma" o "rotulo"), en cada lámina que los tenga. Sin marco, "formas": [].' : '',
     '- "relleno": si el texto va sobre una pastilla, una etiqueta, un botón o una caja de color (por fuera del fondo de la lámina), el color de esa forma; si no, null. El "color" del texto tiene que leerse sobre su relleno, o sobre el fondo si no tiene.',
     p.conAvatar ? '- Donde el original tiene a una persona, marca "persona": true: el dueño del negocio va en su lugar.' : '- No pongas personas: "persona": false en todos los cuadros (la escena va sin gente).',
     '- Cada texto va en el MISMO lugar, con el MISMO tamaño y el MISMO estilo que en el original: si el original usa subtítulos chicos (tamano de 0.035 a 0.045) abajo de cada cuadro, aquí también; nunca un título grande al centro si el original no lo tiene. Una frase que en el original ocupa dos renglones es UN texto (con "\\n" donde corta), no dos. Sólo si el original es tipografía sin fotos, el texto LLENA la lámina (titulares de 0.08 a 0.14, cuerpo de 0.045 a 0.06). Pocas palabras, las justas para leerse de un vistazo.',
@@ -206,7 +220,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     COMPACTO,
-    `{"lectura":"lo que leíste de la composición","proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"lectura":"lo que leíste de la composición","proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"forma":"rect|circulo|redondeado","descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"formas":[{"tipo":"linea|caja","x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"color":"#RRGGBB","borde":"#RRGGBB" o null,"radio":0..0.5,"sombra":true|false}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. Exactamente ${n} elementos en "laminas".`,
   ].filter((l) => l !== '').join('\n');
 }
@@ -304,7 +318,9 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
     const textos: TextoReplica[] = [];
     for (const crudoT of Array.isArray(l.textos) ? l.textos.slice(0, TEXTOS_POR_LAMINA) : []) {
       const t = crudoT && typeof crudoT === 'object' ? (crudoT as Record<string, unknown>) : {};
-      const contenido = conElArrobaDelNegocio(limpio(t.texto, LARGO_TEXTO), o.usuario);
+      // `@usuario` es el comodín del prompt para el @ del original (12/11/2026): el del negocio, si está cargado; si no, se va.
+      const handle = o.usuario?.trim() ? `@${o.usuario.trim().replace(/^@+/, '')}` : '';
+      const contenido = conElArrobaDelNegocio(limpio(t.texto, LARGO_TEXTO).replace(/@usuario\b/gi, handle), o.usuario);
       if (!contenido) continue;
       const x = num(t.x, 0, 0.95, 0.08);
       textos.push({
@@ -327,7 +343,7 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
     const foto: FotoReplica | null = f
       ? { x: fx, y: fy, ancho: num(f.ancho, 0.05, 1 - fx, 1 - fx), alto: num(f.alto, 0.05, 1 - fy, 1 - fy), persona: f.persona === true || f.persona === 'true', descripcion: limpio(f.descripcion, 200) }
       : null;
-    laminas.push({ fondo, textos, foto, cuadros: cuadrosDe(l.cuadros, foto) });
+    laminas.push({ fondo, textos, foto, cuadros: cuadrosDe(l.cuadros, foto), formas: formasDe(l.formas) });
   }
   if (!laminas.some((l) => l.textos.length)) return { error: 'La IA no encontró textos en las láminas: vuelve a intentar o elige otro ejemplo.' };
   // Una miniatura es UNA lámina 16:9, diga lo que diga el modelo.
@@ -355,11 +371,33 @@ export function cuadrosDe(crudo: unknown, foto: FotoReplica | null): CuadroRepli
     const ancho = num(q.ancho, 0.05, 1 - x, 1 - x);
     const alto = num(q.alto, 0.05, 1 - y, 1 - y);
     const tipo = q.tipo === 'retrato' ? 'retrato' : 'escena';
-    out.push({ x, y, ancho, alto, tipo, persona: q.persona === true || q.persona === 'true', descripcion: limpio(q.descripcion, 200), busqueda: limpio(q.busqueda, 80) });
+    const forma = (FORMAS_DEL_CUADRO as readonly string[]).includes(String(q.forma)) ? (q.forma as FormaDelCuadro) : 'rect';
+    out.push({ x, y, ancho, alto, tipo, persona: q.persona === true || q.persona === 'true', descripcion: limpio(q.descripcion, 200), busqueda: limpio(q.busqueda, 80), forma });
   }
   if (out.length || !foto) return out;
   const tipo = foto.ancho * foto.alto >= 0.6 ? 'escena' : 'retrato';
-  return [{ x: foto.x, y: foto.y, ancho: foto.ancho, alto: foto.alto, tipo, persona: foto.persona, descripcion: foto.descripcion, busqueda: '' }];
+  return [{ x: foto.x, y: foto.y, ancho: foto.ancho, alto: foto.alto, tipo, persona: foto.persona, descripcion: foto.descripcion, busqueda: '', forma: 'rect' }];
+}
+
+/** Cuántas formas del marco se leen por lámina (líneas, tarjetas, franjas). */
+export const FORMAS_POR_LAMINA = 8;
+
+/** El marco de una lámina, acotado: una línea tiene un mínimo de grosor; una caja, de tamaño; un color que no es #RRGGBB no va. */
+export function formasDe(crudo: unknown): FormaReplica[] {
+  const out: FormaReplica[] = [];
+  for (const c of (Array.isArray(crudo) ? crudo : []).slice(0, FORMAS_POR_LAMINA)) {
+    const q = c && typeof c === 'object' ? (c as Record<string, unknown>) : null;
+    const relleno = q ? color(q.color, '') : '';
+    if (!q || !relleno) continue;
+    const tipo = q.tipo === 'linea' ? 'linea' : 'caja';
+    const x = num(q.x, 0, 0.98, 0);
+    const y = num(q.y, 0, 0.99, 0);
+    out.push({
+      tipo, x, y, ancho: num(q.ancho, tipo === 'linea' ? 0.001 : 0.02, 1 - x, 1 - x), alto: num(q.alto, 0.001, 1 - y, tipo === 'linea' ? 0.002 : 0.1),
+      color: relleno, borde: color(q.borde, '') || null, radio: num(q.radio, 0, 0.5, 0), sombra: q.sombra === true || q.sombra === 'true',
+    });
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -477,6 +515,64 @@ export type TextoPuesto = { left: number; top: number; width: number; tam: numbe
 // ACELERADOR y te la envío» quedaron blancos sobre crema. Nadie lo medía: el color venía de la IA y se pegaba tal cual.
 
 const SOMBRA_SOBRE_FOTO = { color: 'rgba(0,0,0,0.55)', blur: 14, offsetX: 0, offsetY: 2 } as const;
+const SOMBRA_DE_TARJETA = { color: 'rgba(0,0,0,0.12)', blur: 28, offsetX: 0, offsetY: 8 } as const;
+
+/**
+ * El recorte de una foto en su cuadro (12/11/2026): redondo para un avatar (el tuit de @AlexHormozi), con las esquinas curvas
+ * para una foto en tarjeta. Es el `slot` del editor (app/image-editor/_doory/editor/engine/objects/slot.ts): el marco queda quieto y
+ * la foto se mueve adentro. Un rectángulo no lleva nada.
+ */
+function conRecorte(caja: { left: number; top: number; width: number; height: number }, forma: FormaDelCuadro | undefined): Obj {
+  if (!forma || forma === 'rect') return {};
+  return {
+    slot: {
+      cx: caja.left + caja.width / 2, cy: caja.top + caja.height / 2, width: caja.width, height: caja.height, angle: 0,
+      mask: forma === 'circulo' ? 'circle' : 'rounded', ...(forma === 'redondeado' ? { radius: 0.06 } : {}),
+    },
+  };
+}
+
+/**
+ * LA CARA DE MARCA ENTRA SI SE ELIGIÓ (12/11/2026, el Cerebro: «tiene que entrar cuando se eligió, aunque la IA no marque un
+ * retrato»). Con @vilmanunez se eligió «Mi cara de marca» y la réplica salió sin él: la IA leyó todas las fotos como escenas.
+ * ⚠️ Una escena NO se convierte en su retrato: pegar la foto del negocio como si fuera el lugar es lo que se descartó el 11/11
+ * (su foto en un balcón de noche en vez de la playa; tests/carruseles-letras-y-cuadros.test.ts 4). La cara entra como un retrato
+ * NUEVO en la portada:
+ *   · sobre una foto de la portada, redondo, en su esquina de abajo a la izquierda (la cara del creador sobre su foto);
+ *   · sin fotos en la portada, redondo y chico abajo a la izquierda (la firma con foto de las plantillas de la casa);
+ *   · en una miniatura, grande, a la derecha y a todo el alto (la persona es lo principal de una miniatura).
+ * Y en una miniatura la persona es GRANDE (Dan Martell: la IA la dejó chica en una esquina; en el original ocupa todo el alto): un
+ * retrato de menos del 70 % del alto crece a todo el alto, con el mismo centro.
+ */
+export function conLaCara(laminas: readonly LaminaReplica[], miniatura: boolean): LaminaReplica[] {
+  const out = laminas.map((l) => ({ ...l, cuadros: [...(l.cuadros ?? [])] }));
+  const tieneLaCara = out.some((l) => l.cuadros.some((c) => c.tipo === 'retrato' && c.persona));
+  const portada = out[0];
+  // Sólo donde el original tiene a una PERSONA: en un paisaje sin nadie, su cara no va (tests/carruseles-replica.test.ts). En
+  // @vilmanunez la cara entró en las láminas 7 y 10 y faltaba en la portada, que tiene gente: la portada es lo que se ve primero.
+  const hayPersona = out.some((l) => l.cuadros.some((c) => c.persona));
+  const portadaConPersona = !!portada?.cuadros.some((c) => c.persona);
+  const portadaConCara = !!portada?.cuadros.some((c) => c.tipo === 'retrato' && c.persona);
+  if (portada && !portadaConCara && (portadaConPersona || (!tieneLaCara && hayPersona))) {
+    const suya = { tipo: 'retrato' as const, persona: true, descripcion: 'el dueño del negocio', busqueda: '' };
+    const foto = [...portada.cuadros].sort((a, b) => b.ancho * b.alto - a.ancho * a.alto)[0];
+    if (miniatura) portada.cuadros.push({ ...suya, x: 0.56, y: 0, ancho: 0.44, alto: 1, forma: 'rect' });
+    else if (foto) {
+      // Un círculo de un tercio del lado corto de la foto, montado sobre su esquina (sin salirse de la lámina).
+      const lado = Math.min(foto.ancho, foto.alto * 1.25) * 0.36;
+      portada.cuadros.push({ ...suya, x: Math.max(0.03, foto.x + 0.03), y: Math.min(0.97 - lado * 0.8, foto.y + foto.alto - lado * 0.8 * 0.7), ancho: lado, alto: lado * 0.8, forma: 'circulo' });
+    } else portada.cuadros.push({ ...suya, x: 0.06, y: 0.8, ancho: 0.12, alto: 0.096, forma: 'circulo' });
+  }
+  if (miniatura) {
+    for (const c of out.flatMap((l) => l.cuadros)) {
+      if (c.tipo !== 'retrato' || !c.persona || c.alto >= 0.7) continue;
+      const centro = c.x + c.ancho / 2;
+      const ancho = Math.min(0.6, Math.max(c.ancho * (1 / c.alto), 0.38));
+      Object.assign(c, { y: 0, alto: 1, ancho, x: Math.min(1 - ancho, Math.max(0, centro - ancho / 2)) });
+    }
+  }
+  return out;
+}
 
 /** La luminancia relativa de un #RRGGBB (WCAG 2). */
 function luminancia(hex: string): number {
@@ -607,19 +703,38 @@ export function documentoDeReplica(o: {
   // Una escena que la búsqueda no trajo lleva otra de la misma réplica (12/11/2026): un hueco del color de fondo del tamaño de la
   // foto se ve roto; una foto parecida de otra lámina, no.
   const otraEscena = o.escenas ? [...o.escenas.values()][0] : undefined;
-  const pages = o.replica.laminas.map((l, i) => {
+  // La cara de marca entra si se eligió, aunque la IA no haya marcado ningún retrato (12/11/2026: @vilmanunez salió sin él).
+  const laminas = o.foto ? conLaCara(o.replica.laminas, o.replica.proporcion === '16:9') : o.replica.laminas;
+  const pages = laminas.map((l, i) => {
     const objetos: Obj[] = [];
+    // El MARCO primero (debajo de todo): las líneas divisorias y las tarjetas del original.
+    const cajas: Array<{ x: number; y: number; ancho: number; alto: number; color: string }> = [];
+    for (const f of l.formas ?? []) {
+      const caja = { left: Math.round(f.x * W), top: Math.round(f.y * H), width: Math.max(1, Math.round(f.ancho * W)), height: Math.max(f.tipo === 'linea' ? 2 : 1, Math.round(f.alto * H)) };
+      const radio = Math.round(f.radio * Math.min(caja.width, caja.height));
+      objetos.push({
+        ...rect(o.nuevoId(), f.tipo === 'linea' ? 'Marco: línea' : 'Marco: tarjeta', { ...caja, fill: f.color, radio }),
+        ...(f.borde ? { stroke: f.borde, strokeWidth: 2 } : {}),
+        ...(f.sombra ? { shadow: { ...SOMBRA_DE_TARJETA }, effects: { shadow: { ...SOMBRA_DE_TARJETA } } } : {}),
+      });
+      if (f.tipo === 'caja') cajas.push({ x: caja.left, y: caja.top, ancho: caja.width, alto: caja.height, color: f.color });
+    }
     // Los cuadros de imagen, en el lugar del original: un retrato lleva la foto del negocio; una escena, la escena PARECIDA. La
     // foto del negocio NUNCA se pega como si fuera el lugar (11/11/2026: su foto en un balcón de noche en vez de la playa).
     const cuadros = l.cuadros ?? [];
     const fotos: Array<{ x: number; y: number; ancho: number; alto: number }> = [];
     for (const c of cuadros) {
-      const caja = { left: Math.round(c.x * W), top: Math.round(c.y * H), width: Math.round(c.ancho * W), height: Math.round(c.alto * H) };
+      // Un avatar redondo es un círculo, aunque la IA haya medido un rectángulo.
+      const lado = Math.round(Math.min(c.ancho * W, c.alto * H));
+      const caja = c.forma === 'circulo'
+        ? { left: Math.round(c.x * W + (c.ancho * W - lado) / 2), top: Math.round(c.y * H + (c.alto * H - lado) / 2), width: lado, height: lado }
+        : { left: Math.round(c.x * W), top: Math.round(c.y * H), width: Math.round(c.ancho * W), height: Math.round(c.alto * H) };
       const puesta = () => fotos.push({ x: caja.left, y: caja.top, ancho: caja.width, alto: caja.height });
-      if (c.tipo === 'retrato' && c.persona && o.foto) { objetos.push(fotoQueCubre(o.nuevoId(), o.foto, caja)); puesta(); }
+      const recorte = conRecorte(caja, c.forma);
+      if (c.tipo === 'retrato' && c.persona && o.foto) { objetos.push({ ...fotoQueCubre(o.nuevoId(), o.foto, caja), ...recorte }); puesta(); }
       else {
         const escena = (c.busqueda ? o.escenas?.get(c.busqueda) : undefined) ?? (c.tipo === 'escena' ? otraEscena : undefined);
-        if (escena) { objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), name: 'Foto: escena parecida' }); puesta(); }
+        if (escena) { objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), ...recorte, name: 'Foto: escena parecida' }); puesta(); }
       }
     }
     // Con fotos, cada texto se queda en su lugar (es la composición del original); sin ninguna, llena la lámina. Cuentan las fotos
@@ -638,7 +753,9 @@ export function documentoDeReplica(o: {
     const lectura = conLetra.map((x) => {
       const caja = { x: x.t.x * W, y: x.t.y * H, ancho: x.t.ancho * W, alto: x.t.tamano * W * 1.3 };
       const sobreFoto = fotos.some((f) => cubre(f, caja) >= 0.4);
-      const c = colorQueSeLee(x.t, { fondo: l.fondo, sobreFoto, acento });
+      // Lo que está DETRÁS del texto: la tarjeta del marco que lo tapa, o el fondo de la lámina.
+      const detras = [...cajas].reverse().find((k) => cubre(k, caja) >= 0.5)?.color ?? l.fondo;
+      const c = colorQueSeLee(x.t, { fondo: detras, sobreFoto, acento });
       const contenido = c.relleno ? x.t.texto.split('\n').map((r) => `\u2002${r}\u2002`).join('\n') : x.t.texto;
       return { c, sobreFoto, contenido };
     });
