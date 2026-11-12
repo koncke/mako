@@ -87,6 +87,7 @@ import { AVISO_SCROLL, animacionesDeReplica, conAnimaciones, scrollEnCss, scroll
 import {
   ERROR_WEB_PARCIAL, PEDIDO_SIN_ESTRUCTURA, TOPE_OFERTA, formatoConPartes, instruccionDePartes, listaDePartes, marcaDeUrl, mencionesDe,
   nombreDeCopia, partesDePedido, recetaDePartes, enlacesDeLaOriginal, sinDestinoDeBoton, sinEnlacesALaOriginal, type PartesReplica,
+  adaptacionSinNingunaSeccion, errorDeAdaptacion, nombresDeLaReferencia,
 } from './replicar-partes';
 import {
   acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
@@ -352,7 +353,10 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
       ...(notas ? { nota: notas[i] } : {}),
     })),
   };
-  const instruccionSecciones = instruccionDePartes(partes, { angulos: angulos ? textoDeAngulos(angulos) : undefined, oferta: entrada.oferta, marca: marca ?? undefined });
+  // Los nombres propios de la referencia (su autor, el que da la clase, sus @cuentas): la lista va a la IA y después se cuenta
+  // lo que quedó (12/11/2026, «Quién es Clara Pérez» entero en la réplica de MaKo).
+  const nombres = partes.texto ? [] : nombresDeLaReferencia([esq.titulo, ...esq.secciones.flatMap((s) => [s.titulo, ...s.puntos])]);
+  const instruccionSecciones = instruccionDePartes(partes, { angulos: angulos ? textoDeAngulos(angulos) : undefined, oferta: entrada.oferta, marca: marca ?? undefined, nombres });
   // El `adaptar` del formato (el pedido viejo) no manda: lo deciden las partes.
   const { adaptar: _adaptarDelFormato, ...delFormato } = recetaFormato;
   void _adaptarDelFormato;
@@ -373,6 +377,8 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const tandas = tandasDe(esq.secciones.length);
   const porIndice = new Map<number, JsonNodo>();
   let sinIA = 0;
+  /** Lo último que dijo la IA al fallar una tanda (lo que se le muestra a la persona si no salió NINGUNA). */
+  let errorDeIA = '';
 
   // Las tandas, de a EN_PARALELO, mientras quede plazo para una entera.
   const correr = async (lista: readonly number[][], vuelta: string) => {
@@ -384,7 +390,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
         try {
           const r = await pedirSecciones({ esquema: esqTandas, indices, params: receta.paramsSecciones ?? params });
           if (r.ok) r.tarjetas.forEach((t, k) => { porIndice.set(indices[k], t); avisar({ fase: 'seccion', indice: indices[k], titulo: esq.secciones[indices[k]]?.titulo ?? '' }); });
-          else console.warn(`[editor-landing/replicar] ${vuelta} tanda ${indices.join(',')} de ${url}: ${r.error}`);
+          else { errorDeIA = r.error; console.warn(`[editor-landing/replicar] ${vuelta} tanda ${indices.join(',')} de ${url}: ${r.error}`); }
         } catch (err) {
           console.warn(`[editor-landing/replicar] ${vuelta} tanda ${indices.join(',')} de ${url}: ${err instanceof Error ? err.message : String(err)}`);
         }
@@ -400,6 +406,12 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   // fallar queda con el texto de la original, como siempre, y lo dice el aviso.
   const faltan = tandas.map((t) => t.filter((i) => !porIndice.has(i))).filter((t) => t.length > 0);
   if (faltan.length) await correr(faltan, '2ª vuelta');
+  // ⚠️ ADAPTADA SIN NINGUNA SECCIÓN ESCRITA (12/11/2026, ws3 sin IA): la «Adaptada de clase.highticketclarity.com» salió con el
+  // texto de la competencia en las 9 secciones, y lo único que lo decía era un aviso de 3,5 s. Eso no es una réplica adaptada:
+  // no se crea, y se dice por qué (lo que contestó la IA) y qué hacer.
+  if (adaptacionSinNingunaSeccion(!!receta.adaptar, esq.secciones.length, porIndice.size)) {
+    return falla(errorDeAdaptacion(errorDeIA), 503);
+  }
 
   // Con el texto escrito de nuevo, lo que la IA dejó TEXTUAL de la original (sus citas y sus cifras) se vacía, y las frases
   // iguales se cuentan (28/10/2026, `quitarPruebaDeLaOriginal`): «de la referencia no pasa nada propio» no es sólo un prompt.
@@ -431,6 +443,9 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   avisar({ fase: 'diseno' });
   // La marca de la original que quedó nombrada en una copia escrita de nuevo: se cuenta y se dice (no se adivina el reemplazo).
   const menciones = partes.texto ? 0 : mencionesDe(tarjetas.map((t) => textoDe(t, ' ')).join(' '), marca);
+  // Y los nombres propios de la referencia que quedaron igual (su autor, sus @cuentas).
+  const textoCopia = nombres.length ? tarjetas.map((t) => textoDe(t, ' ')).join(' ') : '';
+  const nombrados = nombres.map((n) => ({ n, veces: mencionesDe(textoCopia, n) })).filter((x) => x.veces > 0);
   if (!tarjetas.length) return falla('No encontré secciones en esa página.', 422);
 
   // Las imágenes que faltan para los huecos que dejó la IA (una galería, las caras de un equipo), si
@@ -478,6 +493,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     pruebaQuitada ? (pruebaQuitada === 1 ? 'Una cita o cifra de la original quedó vacía: pon la tuya.' : `${pruebaQuitada} citas o cifras de la original quedaron vacías: pon las tuyas.`) : '',
     frasesIguales ? (frasesIguales === 1 ? 'Una frase quedó igual a la original: revísala.' : `${frasesIguales} frases quedaron iguales a la original: revísalas.`) : '',
     menciones ? `${marca} quedó nombrada ${menciones === 1 ? 'una vez' : `${menciones} veces`}: cámbialo por lo tuyo.` : '',
+    nombrados.length ? `De la original quedó: ${nombrados.map((x) => `${x.n} (${x.veces})`).join(', ')}. Cámbialo por lo tuyo.` : '',
     enlacesAjenos ? (enlacesAjenos === 1 ? 'Un enlace llevaba a la original: ahora va a «#», pon el tuyo.' : `${enlacesAjenos} enlaces llevaban a la original: ahora van a «#», pon los tuyos.`) : '',
     anim?.avisoScroll ? AVISO_SCROLL : '',
   ].filter(Boolean);

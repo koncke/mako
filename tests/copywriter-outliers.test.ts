@@ -358,9 +358,10 @@ test('la tarjeta es de COPY: el texto primero y YouTube en 16:9, no la foto vert
 
 test('teléfono: «Mis guiones» y «Crear desde cero» debajo del título, no al final de la fila de formatos (11/11, a 375 no se veían)', () => {
   const portada = leer('app/copywriter/OutliersCopy.tsx');
-  assert.match(portada, /\{telefono \? <div className=\{`\$\{s\.filtros\} \$\{oc\.filaTelefono\}`\}>\{botones\}<\/div> : botones\}/);
+  assert.match(portada, /<\/h1>\s*\{\/\*[\s\S]*?\*\/\}\s*\{botones\}/, 'debajo del título');
   assert.doesNotMatch(portada, /\{segmento\}\n\s+\{telefono \? botones : null\}/);
+  // 12/11/2026: en dos renglones si no entran (en la fila que se deslizaba, «+ Crear desde cero» quedaba cortado a 375).
+  assert.doesNotMatch(portada, /oc\.filaTelefono/);
   const css = leer('app/copywriter/outliers.module.css');
-  assert.match(css, /\.filaTelefono\.filaTelefono \{ align-self: stretch; min-width: 0; \}/);
-  assert.match(css, /\.botonesTelefono\.botonesTelefono \{ justify-content: flex-start; \}/);
+  assert.match(css, /\.botonesTelefono\.botonesTelefono\.botonesTelefono\.botonesTelefono \{ flex-wrap: wrap; justify-content: center;/);
 });
