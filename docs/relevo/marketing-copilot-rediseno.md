@@ -141,6 +141,19 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Pedido de la decimocuarta vuelta (Martín, 12/11, sobre `maqueta-trece.html`), en curso.** Las fuentes, como en la 13 (`cuerpo-trece.html` + `bloque-catorce.js`).
+1. **Sacar «Tu página de compra» del análisis de anuncios:** la web ya se analiza en su paso.
+2. **Ningún subtítulo chico debajo de un título, en ningún lugar:** le quita profesionalismo y no se lee.
+3. **Tus mejores anuncios:** si hay lugar, las filas van completas antes del botón (8, no 6), y el botón dice «Ver más», no «Ver los 9».
+4. **El popup de los reels, los carruseles y los videos:**
+   - sin lo que no hace falta de la réplica (abajo del título de YouTube, el canal con «Suscribirse», «Me gusta», «No me gusta» y «Compartir»);
+   - abajo va directo el bloque de lo que dice MaKo, con mejor diseño.
+5. **El piloto:**
+   - «Espera tu OK» no queda chico al lado de un hueco blanco gigante;
+   - una sola columna: «Espera tu OK» arriba y «Lo que hice» con «Ver más».
+6. **Que todo funcione de punta a punta:** el análisis, la acción y el piloto conectados, teniendo en cuenta todas las variables.
+7. **«Métricas» del piloto lleva a la tab Dashboard, con la hoja de esa tarjeta,** en lugar de traer la hoja adentro.
+
 **Hecho (12/11, decimotercera vuelta):** `maqueta-trece.html` (Artifact claude.ai/artifact/XWUpEUoyEBfW3R5f8qrMzh). Los 8 puntos de abajo. Detalles:
 - **La portada de YouTube no estaba inventada «de mala fe», pero estaba inventada.** El canal NO tiene portada: el encabezado público no trae `banner`. Se leyó de la página pública el 12/11, con la descripción, «11,4 mil suscriptores • 90 videos», el único link (Instagram), el avatar y el video destacado. Ahora MaKo marca la falta de portada como «Arreglar».
 - **La app todavía no trae la portada.** Spy y YouTube leen la API sin `brandingSettings` (`image.bannerExternalUrl`), así que la portada hay que sumarla a esa lectura.
