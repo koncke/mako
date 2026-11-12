@@ -32,22 +32,41 @@ export type DepsRegistro = {
   cambiarSi: (ws: number, version: string | null, nuevo: string) => Promise<boolean>;
 };
 
-/** Escribe en el registro de un negocio sin pisar lo de otro: compare-and-set, y otra vuelta si alguien escribió. */
+/**
+ * Escribe en el registro de un negocio sin pisar lo de otro: compare-and-set, y otra vuelta si alguien escribió.
+ *
+ * ⚠️ SÓLO CAMBIA LAS ENTRADAS QUE TOCA: las demás se escriben TAL CUAL estaban, también con los campos que esta versión
+ * no conoce. Antes se reescribía el registro entero pasado por `leerRegistro`, que descarta lo que no conoce: el
+ * 12/11/2026, producción (con el código de antes de `sinPersona`) borraba de TODO el negocio las marcas que el Runner
+ * ponía con el script nuevo, cada vez que se leía cualquier competidor. Entre que algo llega a main y se despliega, el
+ * código viejo y el nuevo escriben el mismo registro.
+ */
 async function anotarEn(deps: DepsRegistro, ws: number, cambios: ReadonlyMap<number, (e: EntradaCaricatura | undefined) => EntradaCaricatura | null>): Promise<boolean> {
   for (let vuelta = 0; vuelta < 3; vuelta += 1) {
     const l = await deps.leer(ws);
     const r: RegistroCaricaturas = leerRegistro(l.crudo);
+    const tal = registroCrudo(l.crudo);
     let cambio = false;
     for (const [id, f] of cambios) {
       const nuevo = f(r[String(id)]);
       if (nuevo == null) continue;
-      r[String(id)] = nuevo;
+      tal[String(id)] = nuevo;
       cambio = true;
     }
     if (!cambio) return true;
-    if (await deps.cambiarSi(ws, l.version, JSON.stringify(r))) return true;
+    if (await deps.cambiarSi(ws, l.version, JSON.stringify(tal))) return true;
   }
   return false;
+}
+
+/** El registro como estaba, sin limpiar: lo que no se toca se escribe igual. Lo que no es un objeto cuenta como vacío. */
+function registroCrudo(crudo: string | null): Record<string, unknown> {
+  try {
+    const v: unknown = JSON.parse(crudo ?? '{}');
+    return v && typeof v === 'object' && !Array.isArray(v) ? { ...(v as Record<string, unknown>) } : {};
+  } catch {
+    return {};
+  }
 }
 
 // ── 1. Encolar (el servidor, al leer un competidor) ──────────────────────────────────────────────────────────────────
