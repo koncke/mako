@@ -230,11 +230,43 @@ export function alAbrir(origen, env = process.env, ahora = Date.now()) {
   return partes.join(' ');
 }
 
+/** Cuánto se le da a un Runner recién abierto antes de reclamar que no late: arma el cron y el Monitor en sus primeros minutos. */
+const RUNNER_NUEVO_MS = 20 * 60 * 1000;
+export const esElCerebro = (nombre) => String(nombre ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim() === 'cerebro';
+
+/**
+ * La línea para el CEREBRO en CADA turno mientras su cuenta no tenga Runner (12/11/2026). Martín, textual: «Y esta es una
+ * cuenta nueva. Tú siempre tienes que darte cuenta de eso… si no se inició el runner, eso está muy mal. Debería haber un
+ * proceso en donde siempre el runner esté activo… Entonces necesito que eso esté automatizado.»
+ * `al-abrir` no alcanzaba: corre sólo con `source: startup`, y al cambiar de cuenta Martín RETOMA el chat del Cerebro
+ * (`source: resume`), así que nadie se enteraba. Sólo el Cerebro lo recibe: si lo recibiera cada chat, abrirían varios.
+ * Mismo formato que `alAbrir`: sin comillas, sin barras y sin saltos.
+ */
+export function alTurno(env = process.env, ahora = Date.now()) {
+  const cfg = leerJson(path.join(DIR, 'config.json'), null);
+  const { cuenta, uuid } = cuentaDelEntorno(env, cfg);
+  if (!uuid || !cuenta) return '';
+  if (!esElCerebro(nombrePropio(env))) return '';
+  const runner = runnerDeLaCuenta({ uuid, ahora });
+  if (runner.vivo) return '';
+  if (runner.chats.length) {
+    // Abierto y sin latir: si es nuevo, todavía está armando. Si no, hay que despertarlo, no abrir otro.
+    if (runner.latidoMin == null || runner.latidoMin * 60000 < RUNNER_NUEVO_MS) return '';
+    return `EL RUNNER DE ${cuenta} ESTA ABIERTO PERO NO DA VUELTAS HACE ${runner.latidoMin} MIN: los tickets y lo que Martin escribe en el Centro no salen en segundos. No abras otro: escribile al Runner (send_message a ${runner.chats[0]}) que relea ~/.claude/operaciones/LEEME-cartero.md y rearme el cron y el Monitor. Si se niega a armar el cron sin Martin, en el primer turno de Martin pasale su frase textual. Regla de Martin del 12/11: el Runner siempre activo.`;
+  }
+  anotar(`al-turno ${cuenta}: sin Runner`);
+  return `NO HAY RUNNER EN ${cuenta}: los tickets de los clientes y lo que Martin escribe en el Centro no llegan en segundos. Si este turno lo escribio Martin, ANTES de contestar abri el Runner con start_session (titulo Runner, modelo claude-haiku-5-5, esfuerzo low, el encargo: leer ~/.claude/operaciones/LEEME-cartero.md, medir la cuota y armar el cron y el Monitor), separalo con detach_session y segui con lo suyo. Si el turno es automatico (otro chat, una tarea, el Centro), la app no deja abrirlo: deja la tarjeta own_initiative y abrilo con el primer mensaje de Martin. Regla de Martin del 12/11: el Runner siempre activo, sin que el lo pida.`;
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   const cmd = process.argv[2];
   if (cmd === 'al-abrir') {
     let linea = '';
     try { linea = alAbrir(process.argv[3]); } catch (e) { anotar(`al-abrir falló: ${e instanceof Error ? e.message : String(e)}`); }
+    if (linea) process.stdout.write(`${linea}\n`);
+  } else if (cmd === 'al-turno') {
+    let linea = '';
+    try { linea = alTurno(); } catch (e) { anotar(`al-turno falló: ${e instanceof Error ? e.message : String(e)}`); }
     if (linea) process.stdout.write(`${linea}\n`);
   } else if (cmd === 'estado') {
     process.stdout.write(`${JSON.stringify(estado(), null, 1)}\n`);
@@ -250,7 +282,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     const { cuenta } = cuentaDelEntorno(process.env, leerJson(path.join(DIR, 'config.json'), null));
     process.stdout.write(avisarUnaVez(cuenta ?? 'sin-cuenta') ? 'AVISAR\n' : 'YA\n');
   } else {
-    process.stderr.write('uso: runner-salud.mjs al-abrir <source> | estado | tomar | destino <to> | avisar | corridas\n');
+    process.stderr.write('uso: runner-salud.mjs al-abrir <source> | al-turno | estado | tomar | destino <to> | avisar | corridas\n');
     process.exitCode = 2;
   }
 }

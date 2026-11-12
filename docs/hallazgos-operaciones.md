@@ -4019,3 +4019,26 @@ tienda y es definitivo). Las pantallas de otras empresas van entre comillas: «P
   (`chrome-web-store` aprobado con la versión nueva) pero no escribe código.
 - La verificación del negocio de Meta tiene API (`verification_status` del Business), pero pide un token con acceso al negocio que
   la plataforma no tiene: queda en el panel. Lo mismo SSL.com, cuya API pide claves de cuenta que no están cargadas.
+
+## Al cambiar de cuenta nadie abría el Runner, porque el chat del Cerebro se RETOMA (12/11/2026)
+
+**Síntoma:** el 12/11 la cuenta claude4 llegó al 100 % y Martín siguió en claude5 retomando el chat del Cerebro. Durante horas
+no hubo Runner: tres tickets (#73, #77 y #78) quedaron con acuse de error y la guardia avisó «SIN_DESTINO». Martín: «si no se
+inició el runner, eso está muy mal… necesito que eso esté automatizado».
+
+**Causa:** el aviso «NO HAY RUNNER» sólo salía en `runner-salud.mjs al-abrir`, que corre con `source: startup`. Al cambiar de
+cuenta no se arranca un chat nuevo: se retoma el del Cerebro (`resume`), así que el aviso no salía nunca. Lo obvio era culpar a
+la guardia, pero la guardia funcionó: entregó al pipe del Cerebro anterior, que ya estaba cerrado.
+
+**Regla que queda:** `runner-salud.mjs al-turno`, desde `bitacora-sesion.sh turno` (UserPromptSubmit), le dice SÓLO al chat
+llamado «Cerebro», en CADA turno, que su cuenta no tiene Runner, hasta que lo abra. A los demás chats no les dice nada, para que
+no abran varios. Si el Runner está abierto pero no late hace más de 20 minutos, pide despertarlo en vez de abrir otro.
+`start_session` sólo anda en un turno de Martín: en uno automático, la tarjeta.
+
+**Trampa del entorno:** la copia de `runner-salud.mjs` instalada en la PC era más VIEJA que la del repo (le faltaba lo de la
+guardia apagada del 6/11). Desde el 12/11 se instala la del repo. Antes de tocar `~/.claude/operaciones/*`, compara con
+`scripts/operaciones/` con `diff --strip-trailing-cr`: los fines de línea hacen parecer distinto todo el archivo.
+
+**Sin hacer:** las cuentas claude2, claude3 y claude4 no tienen su `runner-guardia-<cuenta>`, y sólo se crea en un turno de
+Martín dentro de esa cuenta (`guardia-runner.md`, «Crear la guardia»). El aviso de cada turno cubre la apertura, pero no la
+red de 20 minutos.

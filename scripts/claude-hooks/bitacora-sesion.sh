@@ -72,7 +72,18 @@ if [ "$accion" = "turno" ]; then
   USO="${USO_SEMANAL:-$HOME/.claude/uso-semanal.txt}"
   ESTADO="${UMBRALES_ESTADO:-$HOME/.claude/umbrales-avisados.tsv}"
   REPO="${RELEVO_REPO:-$HOME/OneDrive/Escritorio/dashboard-marketing-main/dashboard-marketing}"
-  emitir() { printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$1"; exit 0; }
+  # 12/11/2026, Martín: «Debería haber un proceso en donde siempre el runner esté activo… necesito que eso esté
+  # automatizado». Al cambiar de cuenta se RETOMA el chat del Cerebro (source: resume) y `al-abrir` no corre: por eso
+  # el Cerebro lo oye en CADA turno mientras su cuenta no tenga Runner. A los demás chats no les dice nada.
+  runner_linea=""
+  if [ -f "$HOME/.claude/operaciones/runner-salud.mjs" ]; then
+    runner_linea=$(timeout 8 node "$HOME/.claude/operaciones/runner-salud.mjs" al-turno </dev/null 2>/dev/null | tr -d '\r\n"\\')
+  fi
+  emitir() {
+    local texto="$1"
+    [ -n "$runner_linea" ] && texto="${runner_linea}${texto:+ ||| $texto}"
+    printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$texto"; exit 0;
+  }
 
   pct=""; resets=""; medido=""; de_cuenta=""
   [ -s "$USO" ] && read -r pct resets medido de_cuenta < "$USO"
@@ -128,6 +139,7 @@ if [ "$accion" = "turno" ]; then
   if [ "$viejo" = 1 ]; then
     emitir "USO SEMANAL SIN MEDIR (o con mas de 30 min, o medido por la OTRA cuenta): antes de contestar, llama a la herramienta get_usage y pasale sus ventanas al cartero, que las anota para este hook, para el corte del 97% y para el Uso del Ops Center: node ~/.claude/operaciones/cartero.mjs medir <5h %> <5h resetsAt> <semana %> <semana resetsAt>, con los valores de '5-hour limit' y 'Weekly - all models'. Si medir se niega, la huella de la semana no cierra con el marcador: nunca uses --renovada sin que lo diga Martin; decile en una linea, y deja la semanal para este hook con: echo <percentUsed> <resetsAt> \$(date -u +%FT%TZ) \$(head -1 ~/.claude/cuenta-activa.txt) > ~/.claude/uso-semanal.txt. No hace falta comentarselo al usuario."
   fi
+  [ -n "$runner_linea" ] && emitir ""
   exit 0
 fi
 
