@@ -24,7 +24,7 @@
 //   · Las tarjetas con fotos y cifras de sus clientes, los planes con precio y «The numbers tell the story»: clientes,
 //     precios y contadores suyos. La cita es la de Mauricio, sin «Read the story» ni las flechas (es un solo caso).
 //   · La imagen de sus integraciones → las fichas de lo que dispara una secuencia.
-//   · En la caja del cierre, su «What are you waiting for?»: queda sólo el botón de la llamada.
+//   · En la caja del cierre, su «What are you waiting for?» va tal cual desde el 12/11/2026, con el botón de la llamada.
 //   · En el pie: el formulario de su newsletter, sus links legales y de redes. Queda el lema de /vsl, las funciones de MaKo
 //     en columnas y la estrella en el lugar de su isotipo.
 // Server component sin JavaScript. Las animaciones son de CSS y se apagan con prefers-reduced-motion.
@@ -221,12 +221,12 @@ function PreguntasD({ b }: { b: Preguntas }) {
   );
 }
 
-/** Su caja del cierre, con el botón de la llamada. */
+/** Su caja del cierre: su «What are you waiting for?» tal cual (12/11/2026) y el botón de la llamada. */
 function Cierre() {
   return (
     <section className="d-email-cierre">
       <div className="d-email-cont">
-        <div className="d-email-cierre-caja"><Boton /></div>
+        <div className="d-email-cierre-caja"><h2 className="d-email-h2 d-email-cierre-h">¿Qué estás esperando?</h2><Boton /></div>
       </div>
     </section>
   );
@@ -400,7 +400,8 @@ const CSS = `
 
 /* La caja del cierre: 64 arriba y abajo, 1184 de ancho, #0D0B28 con borde del color de marca al 50 % y radio 12. */
 .d-email-cierre{padding:64px 0}
-.d-email-cierre-caja{display:flex;align-items:center;justify-content:center;padding:97px 24px;background:${CARD};border:1px solid rgba(47,111,237,.5);border-radius:12px}
+.d-email-cierre-h{margin-top:0}
+.d-email-cierre-caja{display:flex;flex-direction:column;gap:32px;text-align:center;align-items:center;justify-content:center;padding:97px 24px;background:${CARD};border:1px solid rgba(47,111,237,.5);border-radius:12px}
 
 /* El pie: filete arriba, 64 de aire; el lema a la izquierda (384 px) y las columnas de links a partir de x = 624. */
 .d-email-pie{border-top:1px solid ${LINEA};padding:64px 0}

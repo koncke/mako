@@ -18,6 +18,24 @@
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['video-editor', 'ai-avatar']) y del editor (la «Edición automática» de
 // app/video-editor/_opencut/enjambre/, los lienzos y las plantillas de app/video-editor/plantillas-crear.ts). Lo que todavía no
 // (guardar en la nube, filmar sola los clips) va en las preguntas con «Todavía no».
+//
+// LOS TEXTOS DE CHERRY, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»):
+//   · «ESTUDIO DE CONTENIDO CON IA»; «[Cherry Studio] tu contenido, de la idea a los resultados» → «[MaKo] tu contenido,
+//     de la idea al video listo» (Video no mide los resultados de tus videos: exporta);
+//   · su cierre «Súbelo tal cual salió y míralo volver cortado, con subtítulos y con tu voz de estudio» como bajada, sin
+//     la voz de estudio (MaKo deja el volumen listo y quita el ruido);
+//   · sus chips «Corta las pausas», «Subtítulos al ritmo»; «Publica sola» y «Te dice qué grabar» no son de MaKo → «Replica
+//     lo que funciona» (los outliers) y «Tu personaje con IA»;
+//   · «Lo que Cherry hace por ti» (→ MaKo) con sus pasos «Edita tu reel sola» (su frase: «Subes los clips tal cual salen
+//     del celular… Corta las pausas, que es donde la gente desliza»), «Pone los efectos y los gráficos» (→ los subtítulos
+//     que «caen justo cuando dices cada palabra» y el B-roll), «Te dice qué grabar para crecer» (→ «Te muestra qué
+//     grabar»: los outliers; no lee estadísticas); «Publica tus reels por ti» no va;
+//   · «Mira lo que le quita a tu video» con «Tal cual salió» / «Con MaKo»; «Antes y después de grabar» / «Y todo lo que
+//     rodea al video también lo tiene» con «Guiones» («Con tu tono y tus frases, a mano o con ayuda de la IA») y «Voz y
+//     sonido» (→ el ruido y el volumen: «Reducir el ruido» de app/video-editor/_opencut/audio/);
+//   · «Cómo empiezas» / «Tres pasos y tienes tu primer reel», «Sube tu video tal cual salió» / «Con las pausas, los
+//     errores y todo», «Revísalo y publícalo» (→ «descárgalo»); «Lo que más nos preguntan» con «¿Tengo que saber editar?»
+//     (su respuesta tal cual) y «¿Tengo que conectar mi Instagram?».
 // =============================================================================
 
 import { PLANTILLAS_AVATAR } from '@/lib/ai-avatar/plantillas';
@@ -43,29 +61,27 @@ export const LANDING_VIDEO: LandingCompetencia = {
   nombre: 'Video',
   icono: I.video,
   referencia: { nombre: 'Cherry Studio — editor de reels con IA', url: 'https://cherrysweet.app/', leida: '2026-11-11' },
-  metaTitle: 'Video de MaKo: sube tu clip y MaKo lo edita contigo',
-  metaDesc: 'Un editor como CapCut con MaKo al lado: la Edición automática quita las pausas, subtitula, propone B-roll y deja el volumen listo. Replica un video que funciona o crea tu personaje con IA.',
+  metaTitle: 'Video de MaKo: tu contenido, de la idea al video listo',
+  metaDesc: 'Súbelo tal cual salió y míralo volver cortado y con subtítulos. Un editor como CapCut con MaKo al lado, los videos que funcionan para replicarlos y tu personaje con IA.',
   bloques: [
     {
       tipo: 'hero',
-      etiqueta: 'Video: tus reels y tus anuncios, editados con IA',
+      etiqueta: 'Estudio de contenido con IA',
       // <em> marca la palabra que Cherry pone en su pastilla de color (allá, «Cherry Studio»).
-      titulo: 'Súbelo como salió del celular. <em>MaKo</em> lo edita contigo.',
-      bajada: 'Un editor como CapCut con MaKo al lado. La <strong>Edición automática</strong> quita las pausas, subtitula, propone B-roll y deja el volumen listo, y todo lo ves pasar en la línea de tiempo.',
-      puntos: ['Quita las pausas y los silencios', 'Subtítulos que siguen tu voz', 'Replica un video que ya funciona'],
+      titulo: '<em>MaKo</em> tu contenido, de la idea al video listo',
+      bajada: 'Súbelo tal cual salió y míralo volver cortado y con subtítulos. La <strong>Edición automática</strong> quita las pausas, subtitula, propone B-roll y deja el volumen listo, y todo lo ves pasar en la línea de tiempo.',
+      puntos: ['Corta las pausas', 'Subtítulos al ritmo', 'Replica lo que funciona', 'Tu personaje con IA'],
       visual: { tipo: 'propio', slug: 'video' },
     },
     {
       tipo: 'tarjetas',
       etiqueta: 'Lo que hace',
-      titulo: 'Lo que MaKo hace <em>por tu video</em>',
+      titulo: 'Lo que MaKo <em>hace por ti</em>',
       items: [
-        { icono: I.varita, titulo: 'Edición automática', texto: 'Un equipo de agentes trabaja tu video <strong>a la vista</strong>: lo ves avanzar paso por paso en el editor.' },
-        { icono: I.tijera, titulo: 'Quita las pausas', texto: 'Corta los silencios y los tiempos muertos para que el video vaya al ritmo.' },
-        { icono: I.texto, titulo: 'Subtítulos', texto: 'Escucha lo que dices y lo pone en pantalla, con estilos para elegir.' },
-        { icono: I.capas, titulo: 'B-roll de MaKo', texto: 'Te propone las tomas de apoyo para los momentos que lo piden.' },
-        { icono: I.volumen, titulo: 'El volumen, listo', texto: 'Deja el audio parejo de punta a punta, sin que toques un control.' },
-        { icono: I.chat, titulo: 'Pídeselo a MaKo', texto: 'Le escribes el cambio y te lo muestra: <strong>original y modificado</strong>, y lo aceptas tú.' },
+        { icono: I.varita, titulo: 'Edita tu reel solo', texto: 'Subes el clip tal cual sale del celular y MaKo corta las pausas, que es donde la gente desliza, y deja el volumen listo. Un equipo de agentes lo hace <strong>a la vista</strong>, paso por paso en el editor.' },
+        { icono: I.texto, titulo: 'Pone los subtítulos y el B-roll', texto: 'Los subtítulos caen justo cuando dices cada palabra, con estilos para elegir, y en los momentos que lo piden te propone tomas de apoyo.' },
+        { icono: I.rayo, titulo: 'Te muestra qué grabar', texto: 'Abre con «Encuentra tu siguiente outlier»: videos que funcionan, para <strong>replicarlos con tu mensaje</strong> con un toque.' },
+        { icono: I.chat, titulo: 'Lo cambias con MaKo', texto: 'Le escribes el cambio y te lo muestra: <strong>original y modificado</strong>, y lo aceptas tú. Y si quieres, lo haces a mano en la línea de tiempo.' },
       ],
     },
     {
@@ -73,45 +89,45 @@ export const LANDING_VIDEO: LandingCompetencia = {
       etiqueta: 'Antes y después',
       titulo: 'Mira lo que le quita <em>a tu video</em>',
       sin: {
-        titulo: 'El clip como salió del celular',
+        titulo: 'Tal cual salió',
         texto: 'Silencios al principio, pausas para pensar, nada escrito en pantalla y el volumen que sube y baja. <strong>Así, la gente pasa al siguiente.</strong>',
       },
       con: {
-        titulo: 'El mismo clip, editado con MaKo',
+        titulo: 'Con MaKo',
         texto: 'Sin pausas, con subtítulos que siguen tu voz, B-roll donde hace falta y el audio parejo. Y si algo no te gusta, lo cambias a mano en la línea de tiempo.',
       },
     },
     {
       tipo: 'tarjetas',
       fondo: true,
-      etiqueta: 'Además del editor',
+      etiqueta: 'Antes y después de grabar',
       titulo: 'Y todo lo que rodea al video también lo tiene',
       items: [
-        { icono: I.rayo, titulo: 'Encuentra tu siguiente outlier', texto: 'Videos que funcionan, para <strong>replicarlos con tu mensaje</strong> con un toque.' },
+        { icono: I.guion, titulo: 'Guiones', texto: 'Con tu tono y tus frases, a mano o con ayuda de la IA, en Copywriting.' },
+        { icono: I.volumen, titulo: 'Voz y sonido', texto: 'Quita el ruido de fondo y deja el volumen parejo de punta a punta.' },
         { icono: I.guia, titulo: '«Mensaje para…»', texto: 'Una plantilla guiada: MaKo te pide en el chat la referencia, tu guion, tu foto, tu voz y el fondo, paso a paso.' },
         { icono: I.avatar, titulo: 'Tu personaje con IA', texto: `Tu avatar con tu cara, en una de ${PLANTILLAS_AVATAR.length} escenas, diciendo tu guion.` },
         { icono: I.video, titulo: 'Generar con IA', texto: 'Tus guiones pasan a tomas y montaje, generados con Google Flow, y de ahí al editor.' },
         { icono: I.formato, titulo: 'El formato de cada red', texto: 'Arrancas en Reel o TikTok, YouTube, cuadrado o post, o desde una plantilla de anuncio.' },
-        { icono: I.guion, titulo: 'Tus guiones', texto: 'Los escribes con MaKo en Copywriting y los grabas o los generas desde Video.' },
       ],
     },
     {
       tipo: 'pasos',
       etiqueta: 'Cómo empiezas',
-      titulo: 'Tres pasos y tienes tu primer video',
+      titulo: 'Tres pasos y tienes tu primer reel',
       pasos: [
         { titulo: 'Elige de dónde arrancas', texto: 'Un video que funciona para replicar, una plantilla o un formato vacío.' },
-        { titulo: 'Sube tu clip', texto: 'Tal como salió del celular, o crea las tomas con tu personaje o con IA.' },
-        { titulo: 'Edítalo con MaKo y expórtalo', texto: 'La Edición automática hace el trabajo pesado, ajustas lo que quieras y lo descargas.' },
+        { titulo: 'Sube tu video tal cual salió', texto: 'Con las pausas, los errores y todo. O crea las tomas con tu personaje o con IA.' },
+        { titulo: 'Revísalo y descárgalo', texto: 'MaKo hace el trabajo pesado. Tú decides qué queda y lo exportas.' },
       ],
     },
     {
       tipo: 'preguntas',
       titulo: 'Lo que más <em>nos preguntan</em>',
       items: [
-        { p: '¿Necesito saber editar?', r: 'No. Las plantillas guiadas abren en un modo simple, con menos botones. Si quieres todo, está «Todas las herramientas».' },
+        { p: '¿Tengo que saber editar?', r: 'No. Subes el video como salió del celular y MaKo hace el trabajo pesado. Tú lo revisas y decides qué sale. Las plantillas guiadas abren en un modo simple, con menos botones; si quieres todo, está «Todas las herramientas».' },
         { p: '¿Puedo editar a mano?', r: 'Sí: línea de tiempo con cortes y keyframes, como en CapCut. Lo que hace MaKo lo puedes cambiar.' },
-        { p: '¿Lo publica en Instagram?', r: 'No. Video exporta el archivo y lo publicas tú donde quieras.' },
+        { p: '¿Tengo que conectar mi Instagram?', r: 'No. Video exporta el archivo y lo publicas tú donde quieras: no publica en Instagram.' },
         { p: '¿Filma los clips sola?', r: 'Todavía no: en «Mensaje para…» las tomas se arman con tu personaje con IA y con el Video Generator.' },
         { p: '¿Dónde se guardan mis proyectos?', r: 'En tu navegador. Todavía no se guardan en la nube.' },
       ],

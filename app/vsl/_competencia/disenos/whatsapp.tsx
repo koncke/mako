@@ -15,8 +15,8 @@
 //   · «+2,800 empresas…» con sus logos de clientes, «Planes desde $97» y «Hemos aparecido en los siguientes medios» (Forbes,
 //     Shark Tank): MaKo no tiene ese contenido.
 //   · El link «Conoce más de WhatsApp Business API» y el «Ver más casos de éxito»: no hay a dónde llevarlos.
-//   · El texto del panel «Tu próximo paso» y la frase del pie: la landing de MaKo no los tiene; el panel queda con el botón
-//     y la órbita de los canales.
+//   · La frase del pie: la landing de MaKo no la tiene. El texto del panel «Tu próximo paso» va tal cual desde el
+//     12/11/2026, con la llamada en lugar de su demo.
 //   · Sus cuatro testimonios extra: la prueba de MaKo es el caso de Mauricio (dos tarjetas: su video y sus meses).
 // Las pantallas de su producto (capturas) son los gráficos de la landing de /vsl (FEATURE_VISUALS.whatsapp) y el visual de
 // la portada, dentro de los mismos marcos. Server component sin JavaScript: las pestañas son radios ocultos con :checked.
@@ -371,6 +371,9 @@ function Panel() {
       <div className={c('panel')}>
         <div className={c('panel-in')}>
           <div className={c('panel-txt')}>
+            {/* Su texto del cierre, tal cual (12/11/2026): la demo pasa a la llamada, y su prueba de 14 días no va. */}
+            <h2 className={`${c('h2')} ${c('panel-h')}`}>Tu próximo paso: <em>organizar las ventas de tu equipo.</em></h2>
+            <p className={`${c('top-p')} ${c('panel-p')}`}>Revisa tu operación con nosotros en una llamada.</p>
             <div className={c('acciones')}><a href={CALENDLY} className={`${c('btn')} ${c('btn-panel')}`}>{TEXTO_CTA}<Flecha /></a></div>
           </div>
           <figure className={c('orbita')} aria-hidden="true">
@@ -656,7 +659,8 @@ const BASE = `
   background-size: 160px auto, auto, auto, auto, auto;
   box-shadow: rgba(255, 255, 255, .9) 0 1px 0 0 inset, rgba(47, 111, 237, .09) 0 0 0 1px, rgba(32, 43, 55, .16) 0 18px 40px -16px; }
 .d-whatsapp-panel-in { display: grid; grid-template-columns: 548.89fr 449.11fr; gap: 40px; align-items: center; padding: 56px; }
-.d-whatsapp-panel-txt .d-whatsapp-acciones { margin-top: 0; }
+.d-whatsapp-panel-txt .d-whatsapp-acciones { margin-top: 32px; }
+.d-whatsapp-panel-p { margin-top: 16px; max-width: 420px; }
 .d-whatsapp-btn-panel { border-radius: 8px; gap: 16px; }
 .d-whatsapp-orbita { position: relative; width: 400px; height: 400px; justify-self: center; }
 .d-whatsapp-anillos { position: absolute; inset: 0; width: 100%; height: 100%; }

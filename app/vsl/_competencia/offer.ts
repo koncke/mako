@@ -26,6 +26,21 @@
 //     esos dos bloques se acortaron y el «sin / con» perdió su etiqueta (la tarjeta de la referencia no tiene).
 // Lo que NO se promete: que Offer cambie el precio que cobras (eso se corrige en el Second Brain, `noHace`). La palabra de
 // la pieza de devolución de la oferta del dueño no se escribe: el test de /vsl la toma por una promesa de MaKo.
+//
+// LOS TEXTOS DE DONE FOR YOU, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»):
+//   · «For Anyone Tired of Guessing What to Sell» (ya estaba); «How I Build Profitable OFFERS in Hours — Not Months» →
+//     «Cómo armar tu OFERTA en una conversación, no en meses» (sin «rentables» ni «en horas»: no están medidos);
+//   · «…Even If You've Never Sold Online, Don't Have A Niche, Or Hate Writing Sales Copy» → «aunque nunca hayas vendido en
+//     línea, no tengas un nicho u odies escribir textos de venta» (sin «In Minutes»);
+//   · «While everyone else is using AI to crank out posts, "build a following," or chase the next viral trend…» y
+//     «…clarity — before they even worry about traffic», con su lista «Without spending months trying to "find your
+//     niche"», «Without needing followers, funnels, or ads», «Without hiring a copywriter or marketing agency», «Without
+//     wasting time building things people don't want», cada una con lo que hace MaKo;
+//   · «Here's Everything You're Getting» / «Here's the complete system that helps entrepreneurs, coaches, and creators stop
+//     guessing what to sell» (sin «profitable offers in hours»), y sus piezas: «Atlas AI Offer Builder» → «Tu arquitecto de
+//     ofertas con IA» («does the heavy lifting»), «AI Offer Packaging Blueprint» → «Tu oferta, empaquetada como un
+//     profesional» (el nombre y la promesa), «Fast Action Sales System» → «Prueba y valida tu oferta». Su masterclass, su
+//     «Traffic-To-Offer», su precio y su garantía no van.
 // =============================================================================
 
 import { DIMENSIONES, PIEZAS, PUNTOS_CONTROL } from '@/lib/offer-marco';
@@ -60,14 +75,14 @@ export const LANDING_OFFER: LandingCompetencia = {
   nombre: 'Offer',
   icono: I.oferta,
   referencia: { nombre: 'Atlas AI de Done For You — The Offer Creation Formula', url: 'https://go.doneforyou.com/offer-formula', leida: '2026-11-11' },
-  metaTitle: 'Offer de MaKo: deja de adivinar qué vender y arma tu oferta en un chat',
-  metaDesc: `MaKo te pregunta por cada pieza de tu oferta, la diagnostica con una rúbrica de ${N_DIMENSIONES} partes y te escribe la oferta nueva, descargable en PDF.`,
+  metaTitle: 'Offer de MaKo: cómo armar tu OFERTA en una conversación, no en meses',
+  metaDesc: `MaKo te pregunta por cada pieza de tu oferta, la diagnostica con una rúbrica de ${N_DIMENSIONES} partes y te escribe la oferta nueva, descargable en PDF, aunque nunca hayas vendido en línea, no tengas un nicho u odies escribir textos de venta.`,
   bloques: [
     {
       tipo: 'hero',
       etiqueta: 'Para quien ya se cansó de adivinar qué vender',
-      titulo: 'Tu oferta, armada en un chat. No a prueba y error.',
-      bajada: `MaKo te pregunta por cada pieza, la diagnostica con una rúbrica y te escribe la oferta nueva en un PDF, <strong>aunque no sepas por dónde empezar ni te guste escribir textos de venta</strong>.`,
+      titulo: 'Cómo armar tu OFERTA en una conversación, no en meses',
+      bajada: `MaKo te pregunta por cada pieza, la diagnostica con una rúbrica y te escribe la oferta nueva en un PDF, <strong>aunque nunca hayas vendido en línea, no tengas un nicho u odies escribir textos de venta</strong>.`,
       puntos: [`${N_PIEZAS} piezas de una oferta, de tu cliente a tu precio`, `Una rúbrica de ${N_DIMENSIONES} partes, cada una con su nota de 0 a 10`],
       visual: { tipo: 'propio', slug: 'offer' },
     },
@@ -75,38 +90,38 @@ export const LANDING_OFFER: LandingCompetencia = {
       tipo: 'contraste',
       titulo: 'Primero la oferta. Después, a quién se la muestras.',
       sin: {
-        titulo: 'Mientras la IA se usa para sacar más posts,',
-        texto: 'la oferta sigue igual: una promesa vaga, un precio que no sale del valor y nadie que te diga qué le falta. Más contenido no arregla una oferta que no se entiende.',
+        titulo: 'Mientras todos usan la IA para sacar posts, «hacer comunidad» o perseguir la próxima tendencia viral,',
+        texto: 'la oferta sigue igual: una promesa vaga, un precio que no sale del valor y nadie que te diga qué le falta.',
       },
       con: {
-        titulo: 'Con MaKo, primero trabajas tu oferta:',
+        titulo: 'Con MaKo, primero trabajas tu oferta, antes de preocuparte por el tráfico:',
         texto: `te pregunta por cada pieza —tu cliente, el problema, el resultado, el precio—, la diagnostica con una rúbrica de ${N_DIMENSIONES} partes y te escribe la oferta nueva. Ves qué ya está bien y qué conviene subir, parte por parte.`,
       },
     },
     {
       // Como su lista «Without…»: una línea por renglón, dentro de la misma tarjeta que el «sin / con».
       tipo: 'tarjetas',
-      titulo: 'Lo que no necesitas para trabajar tu oferta:',
+      titulo: 'Para tener claridad en tu oferta:',
       columnas: 2,
       items: [
-        { icono: I.cliente, titulo: 'Meses buscando a quién venderle', texto: 'la rúbrica mide qué tan específico es tu cliente ideal.' },
-        { icono: I.clip, titulo: 'Tener seguidores o anuncios antes', texto: 'partes de tu guion, tu propuesta o el link de tu landing.' },
-        { icono: I.lapiz, titulo: 'Contratar a alguien que te la escriba', texto: 'MaKo la escribe y cada versión queda guardada.' },
-        { icono: I.matraz, titulo: 'Construir algo que nadie pidió', texto: 'cada cambio lo pruebas como experimento.' },
+        { icono: I.cliente, titulo: 'Sin pasar meses tratando de «encontrar tu nicho»', texto: 'la rúbrica mide qué tan específico es tu cliente ideal.' },
+        { icono: I.clip, titulo: 'Sin necesitar seguidores, funnels ni anuncios', texto: 'partes de tu guion, tu propuesta o el link de tu landing.' },
+        { icono: I.lapiz, titulo: 'Sin contratar a un copywriter ni a una agencia de marketing', texto: 'MaKo la escribe y cada versión queda guardada.' },
+        { icono: I.matraz, titulo: 'Sin perder tiempo construyendo algo que nadie quiere', texto: 'cada cambio lo pruebas como experimento.' },
       ],
     },
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Todo lo que incluye Offer',
-      bajada: 'Lo que te deja la conversación con MaKo para dejar de adivinar qué vender.',
+      titulo: 'Esto es todo lo que tienes en Offer',
+      bajada: 'El sistema completo que ayuda a emprendedores, coaches y creadores a dejar de adivinar qué vender.',
       cta: true,
       items: [
         { icono: I.plantilla, titulo: `${N_PLANTILLAS} plantillas con su ejemplo completo`, texto: `${PLANTILLAS_EJEMPLO}…: cada una con su forma y un ejemplo armado de punta a punta.` },
-        { icono: I.chat, titulo: 'MaKo, en un chat', texto: 'Te pregunta por cada pieza de tu oferta, de tu cliente a tu precio. Le puedes escribir, adjuntar un documento o mandarle una nota de voz.' },
+        { icono: I.chat, titulo: 'Tu arquitecto de ofertas con IA', texto: 'Hace el trabajo pesado: te pregunta por cada pieza de tu oferta, de tu cliente a tu precio. Le puedes escribir, adjuntar un documento o mandarle una nota de voz.' },
         { icono: I.nota, titulo: 'El diagnóstico, con su nota', texto: `${N_DIMENSIONES} partes —${DIM_EJEMPLO} y más— con su nota de 0 a 10, lo que ya está bien y lo que conviene subir. Y ${N_PUNTOS} chequeos antes de decirte que está lista para vender.` },
-        { icono: I.lapiz, titulo: 'La oferta nueva, sección por sección', texto: 'El nombre, la frase, la ruta por fases, lo que incluye y la inversión. Lo que no le dijiste queda <strong>marcado para completar</strong>: MaKo no inventa casos, cifras ni cupos.' },
-        { icono: I.matraz, titulo: 'Cada cambio, como experimento', texto: 'Los tres cambios con más impacto, del más importante al menos. Con «Probarlo» abres el experimento para medirlo.' },
+        { icono: I.lapiz, titulo: 'Tu oferta, empaquetada como un profesional', texto: 'El nombre, la frase, la ruta por fases, lo que incluye y la inversión. Lo que no le dijiste queda <strong>marcado para completar</strong>: MaKo no inventa casos, cifras ni cupos.' },
+        { icono: I.matraz, titulo: 'Prueba y valida tu oferta', texto: 'Los tres cambios con más impacto, del más importante al menos. Con «Probarlo» abres el experimento para medirlo.' },
         { icono: I.pdf, titulo: 'Tu PDF, y otro para tu cliente', texto: 'Descargas el PDF con el diagnóstico y la oferta, y otro con la oferta sola para mostrársela a tu cliente. Y la guardas en el funnel donde la vendes.' },
       ],
     },

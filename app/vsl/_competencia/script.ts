@@ -33,6 +33,24 @@
 // crons diarios transcribe-ads y ads-analyst-sync) y las lecturas de Ads Analyst de lib/api-mako/areas/ads.def.ts. Los
 // gráficos, de la landing anterior de esta ruta (app/vsl/_detalle/feature-visuals.ts): el 2 y el 3 traen voseo, y el 1 pone
 // plata y ROAS por guion, que Ads Analyst no calcula (cuenta agendas y cierres): no van.
+//
+// LOS TEXTOS DE GETHOOKD, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»):
+//   · «Your AI cannot see Meta's ad library. Now it can.» → «Tu IA no puede ver tus anuncios de Meta. Ahora puede.»
+//     (Ads Analyst lee los TUYOS, no la biblioteca); «Give Your AI 22 Million Live Meta Ads» → «Dale a tu IA tus anuncios
+//     de Meta, leídos palabra por palabra»;
+//   · «Connect GetHookd to Claude… Ask what your market is running. Get back live ads, hooks, angles…» → «Conecta tu Meta
+//     a MaKo, o MaKo a tu Claude. Pregúntale qué está corriendo tu cuenta…»: las lecturas de Ads Analyst
+//     (listar_guiones_analizados, ver_ficha_guion, ver_cuadrante_retencion… en lib/api-mako/areas/ads.def.ts) salen por
+//     HTTP, así que tu Claude las lee con un token de la API de MaKo (la nota de abajo que decía «MaKo no tiene MCP» sigue
+//     siendo cierta: no es MCP, es la API);
+//   · «[ AI agent access ]» / «Ask your AI», «Two ways to run it» / «Do it yourself, or hand it to your AI.» / «Same live
+//     ad data either way.», «Click through it yourself.» (→ «Revísalo tú mismo»), «A full interface, built for people who
+//     like to look at the ads themselves», «Ask, and skip the clicking.» / «Same data, reached from the chat you already have
+//     open», «Type it the way you would say it out loud» / «…does the searching, the filtering and the reading, and hands
+//     the answer back inside the same chat»;
+//   · sus preguntas «Do I need to be technical to connect my AI agent?», «How do I know the numbers are real?», «How
+//     current is the data?», «Can I use it without an AI agent?», «I am just starting out. Is this useful for me?».
+//     Su cierre «Your competitors already found the winning ad» no va: Ads Analyst no mira a la competencia.
 // =============================================================================
 
 import { IMPR_ALTA, IMPR_MEDIA, VEREDICTO_ROTULO } from '@/lib/ads-analyst-patrones';
@@ -52,7 +70,7 @@ const VEREDICTOS = [VEREDICTO_ROTULO.escalar, VEREDICTO_ROTULO.mejorar, VEREDICT
   .map((v) => v.toLowerCase()).join(', ').replace(/, ([^,]+)$/, ' o $1');
 const miles = (n: number) => n.toLocaleString('es-MX').replace(/,/g, '.');
 /** Los dos caminos (la columna de la app y la de MaKo): la tarjeta de «Dos formas» y su columna llevan el mismo nombre. */
-const EN_LA_APP = 'Míralo tú, anuncio por anuncio';
+const EN_LA_APP = 'Revísalo tú mismo, anuncio por anuncio';
 const CON_MAKO = 'Pregúntale y sáltate los clics';
 
 export const LANDING_SCRIPT: LandingCompetencia = {
@@ -60,23 +78,23 @@ export const LANDING_SCRIPT: LandingCompetencia = {
   nombre: 'Ads Analyst',
   icono: I.guion,
   referencia: { nombre: 'Gethookd — la biblioteca de anuncios de Meta para tu IA', url: 'https://www.gethookd.ai/', leida: '2026-11-11' },
-  metaTitle: 'Ads Analyst de MaKo: qué guion de tus anuncios gana, y por qué',
+  metaTitle: 'Ads Analyst de MaKo: dale a tu IA tus anuncios de Meta, leídos palabra por palabra',
   metaDesc: 'MaKo transcribe tus anuncios de Meta, los parte en bloques y los cruza con su retención, tus agendas y los cierres de tu CRM. Le preguntas cuál escalar o le pegas un guion nuevo para valorarlo.',
   bloques: [
     {
       tipo: 'hero',
-      etiqueta: 'Meta no lee el guion de tus anuncios. MaKo sí.',
-      titulo: 'Tus anuncios, leídos <strong>palabra por palabra</strong>.',
-      bajada: 'Conectas tu Meta y MaKo lee cada anuncio solo y lo cruza con tus ventas. Le preguntas cuál escalar y te contesta con el gancho, el ángulo y <strong>los cierres de tu CRM</strong>.',
+      etiqueta: 'Tu IA no puede ver tus anuncios de Meta. Ahora puede.',
+      titulo: 'Dale a tu IA tus anuncios de Meta, leídos <strong>palabra por palabra</strong>',
+      bajada: 'Conecta tu Meta a MaKo, o MaKo a tu Claude. Pregúntale qué está corriendo tu cuenta y te devuelve tus anuncios, sus ganchos, sus ángulos y <strong>los cierres de tu CRM</strong>.',
       puntos: ['Se actualiza solo, cada día', 'Con las agendas de Meta y los cierres de tu CRM'],
       visual: { tipo: 'detalle', slug: 'script' },
     },
     { tipo: 'caso' },
     {
       tipo: 'tarjetas',
-      etiqueta: 'Con MaKo',
-      titulo: 'Pregúntale a MaKo',
-      bajada: 'Desde el chat de la app o tu WhatsApp. Le preguntas por tus anuncios y te contesta con tus números.',
+      etiqueta: 'Acceso para tu IA',
+      titulo: 'Pregúntale a tu IA',
+      bajada: 'Desde el chat de MaKo, tu WhatsApp o tu Claude, por la API de MaKo: le preguntas por tus anuncios y te contesta con tus números.',
       items: [
         { icono: I.trofeo, titulo: '«¿Qué guion rinde mejor?»', texto: 'Te los ordena por agendas y gasto, con sus cierres del CRM y el gancho que conviene probar.' },
         { icono: I.caida, titulo: '«¿Dónde se me cae la gente?»', texto: 'Te muestra el guion del anuncio por bloques, con la retención que llegó a cada uno.' },
@@ -87,13 +105,13 @@ export const LANDING_SCRIPT: LandingCompetencia = {
       tipo: 'tarjetas',
       fondo: true,
       etiqueta: 'Dos formas de usarlo',
-      titulo: 'Hazlo tú, o pásaselo a MaKo.',
-      bajada: 'Los mismos datos en las dos.',
+      titulo: 'Hazlo tú, o pásaselo a tu IA.',
+      bajada: 'Los mismos datos de tus anuncios, en las dos.',
       columnas: 2,
       // Las dos tarjetas son las cabezas de las dos columnas que siguen (como en Gethookd): se llaman como ellas.
       items: [
-        { icono: I.hojas, titulo: EN_LA_APP, texto: 'Las hojas «Anuncio ganador» y «Hooks y retención» del Dashboard, para quien quiere ver sus anuncios uno por uno.', meta: 'En la app' },
-        { icono: I.chat, titulo: CON_MAKO, texto: 'Los mismos números desde el chat, sin armar un filtro: le escribes como lo dirías en voz alta.', meta: 'Por chat o WhatsApp' },
+        { icono: I.hojas, titulo: EN_LA_APP, texto: 'Una interfaz completa, hecha para quien quiere ver sus anuncios uno por uno: las hojas «Anuncio ganador» y «Hooks y retención» del Dashboard.', meta: 'En la app' },
+        { icono: I.chat, titulo: CON_MAKO, texto: 'Los mismos datos, desde el chat que ya tienes abierto: le escribes como lo dirías en voz alta, sin armar un filtro.', meta: 'Con tu IA' },
       ],
     },
     {
@@ -128,7 +146,7 @@ export const LANDING_SCRIPT: LandingCompetencia = {
       bajada: 'Los dos caminos terminan en lo mismo: tu próximo guion, valorado antes de grabarlo.',
       pasos: [
         { titulo: 'Conectas tu Meta', texto: 'Una sola vez. Cada día MaKo transcribe tus anuncios nuevos y los analiza.' },
-        { titulo: 'Le preguntas como lo dirías', texto: '«¿Qué guion escalo?» o «¿qué ganchos me funcionan?», en el chat de la app o por WhatsApp.' },
+        { titulo: 'Escríbelo como lo dirías en voz alta', texto: '«¿Qué guion escalo?» o «¿qué ganchos me funcionan?». MaKo busca, filtra y lee, y te devuelve la respuesta en el mismo chat: la app, tu WhatsApp o tu Claude.' },
         { titulo: 'Tu próximo guion, valorado', texto: 'Le pegas un guion nuevo y te dice si se parece a lo que ya te rinde, con cuánto probarlo y contra cuál medirlo.' },
       ],
     },
@@ -136,17 +154,17 @@ export const LANDING_SCRIPT: LandingCompetencia = {
       tipo: 'preguntas',
       titulo: 'Preguntas frecuentes',
       items: [
-        { p: '¿Tengo que saber de tecnología?', r: 'No. Conectas tu Meta una vez y MaKo transcribe y analiza tus anuncios solo. Para preguntarle, le escribes como a una persona.' },
+        { p: '¿Tengo que saber de tecnología para conectar mi IA?', r: 'No. Conectas tu Meta una vez y MaKo transcribe y analiza tus anuncios solo. Para preguntarle, le escribes como a una persona.' },
         { p: '¿Qué anuncios analiza?', r: 'Los tuyos: los de tu cuenta de Meta. De un video lee el guion; de una imagen, su texto.' },
         { p: '¿Y los anuncios de mi competencia?', r: 'Esos no: Ads Analyst lee los tuyos. Los de tu competencia los guarda <strong>Competitor Spy</strong>.' },
         { p: '¿Qué le puedo preguntar?', r: 'Qué guion rinde mejor, cuál escalar o pausar, dónde se te cae la gente, qué ángulos y ganchos te funcionan, y si publicas un guion nuevo.' },
-        { p: '¿De dónde salen los números?', r: 'El gasto, el hook rate, la retención y las agendas, de Meta; los cierres, de tu CRM. La retención por bloque es una <strong>estimación</strong> sobre los cuartiles de Meta, y MaKo lo dice.' },
-        { p: '¿Cada cuánto se actualiza?', r: 'Cada día MaKo transcribe y analiza tus anuncios nuevos. Los números se vuelven a calcular cada vez que abres la hoja.' },
+        { p: '¿Cómo sé que los números son reales?', r: 'El gasto, el hook rate, la retención y las agendas, de Meta; los cierres, de tu CRM. La retención por bloque es una <strong>estimación</strong> sobre los cuartiles de Meta, y MaKo lo dice.' },
+        { p: '¿Qué tan actuales son los datos?', r: 'Cada día MaKo transcribe y analiza tus anuncios nuevos. Los números se vuelven a calcular cada vez que abres la hoja.' },
         { p: '¿Es sólo para Meta?', r: 'Sí: lee tus anuncios de Facebook e Instagram.' },
         { p: '¿Por qué no alcanza con lo que me muestra Meta?', r: 'Meta te da el hook rate y los cuartiles, pero no lee tu guion ni lo cruza con tus ventas. MaKo junta las dos cosas en cada anuncio.' },
         { p: '¿En qué se distingue de una biblioteca de anuncios?', r: 'Una biblioteca te muestra anuncios de otros. Ads Analyst lee los tuyos y te dice cuál te trae agendas y cierres.' },
-        { p: '¿Lo puedo usar sin preguntarle a MaKo?', r: 'Sí: las hojas «Anuncio ganador» y «Hooks y retención» del Dashboard te muestran lo mismo.' },
-        { p: 'Estoy empezando con anuncios, ¿me sirve?', r: 'Con pocos anuncios, MaKo te marca los de <strong>muestra chica</strong> en vez de darte un ganador que no lo es. Para valorar un guion nuevo necesita anuncios tuyos ya analizados.' },
+        { p: '¿Lo puedo usar sin una IA?', r: 'Sí: las hojas «Anuncio ganador» y «Hooks y retención» del Dashboard te muestran lo mismo.' },
+        { p: 'Estoy empezando. ¿Me sirve?', r: 'Con pocos anuncios, MaKo te marca los de <strong>muestra chica</strong> en vez de darte un ganador que no lo es. Para valorar un guion nuevo necesita anuncios tuyos ya analizados.' },
       ],
     },
   ],

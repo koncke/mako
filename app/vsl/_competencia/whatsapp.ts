@@ -20,6 +20,24 @@
 //   · Las pestañas de su galería son las piezas de «Así funciona Chats»: el título de cada una es el rótulo de la pestaña y
 //     su texto, la tarjeta que flota sobre la pantalla.
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['chats', 'whatsapp', 'email']); los gráficos, de la landing anterior.
+//
+// LOS TEXTOS DE LEADSALES, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»):
+//   · el titular «CRM para WhatsApp, Facebook e Instagram», igual (MaKo es eso: Chats + CRM, con Messenger e Instagram);
+//   · «Unifica tu bandeja, ordena a tu equipo y multiplica su rendimiento con IA; para que escales tu operación sin escalar
+//     el caos» → «…y deja que MaKo le proponga qué contestar…» (el «multiplica su rendimiento» no está medido);
+//   · «Así funciona el CRM para WhatsApp de Leadsales» (→ «Así funciona el CRM de MaKo»: a 390 la leyenda larga quedaba tapada por la tarjeta que flota), con su pestaña «Conversaciones»;
+//   · la tabla «Tu equipo necesita un CRM pensado para vender por WhatsApp.», «Cuando todo vive en chats» / «Con MaKo», y
+//     sus filas «Campañas y embudo» (→ «Difusión y embudo»: MaKo manda difusiones, lib/difusion.ts), «Equipo y
+//     conversaciones» (las dos frases tal cual) y «Lead Agent» (→ «Setter con IA», las Automations; sin «califica al 100%»);
+//   · «Del primer mensaje al cierre de cada venta.» / «Las cuatro funciones que cubren el ciclo completo de tu cliente en
+//     WhatsApp.», con sus frases «Envía mensajes masivos a tus contactos.», «Da seguimiento a tus vendedores y ordena tu
+//     proceso.», «Programa mensajes y no pierdas leads.» (→ «Pospón…»: Chats pospone, no programa) y «Un agente de IA que
+//     atiende tus embudos.» (sin «24/7» ni la asignación automática: no están);
+//   · «Todo lo que incluye Leadsales, tu CRM para WhatsApp y redes sociales.» (→ MaKo), con «Bandeja unificada»,
+//     «Organiza tus chats» y «Personaliza tu atención»;
+//   · las preguntas «¿Qué es un CRM para WhatsApp y para quién es…?», «¿Sirve si varias personas atienden el mismo
+//     WhatsApp?», «¿Qué hace Lead Agent y qué sigue haciendo mi equipo?» (→ MaKo), «¿Necesito WhatsApp Business API?», y
+//     el cierre «Tu próximo paso: organizar las ventas de tu equipo.» (en ./disenos/whatsapp.tsx, sin su prueba de 14 días).
 // =============================================================================
 
 import type { LandingCompetencia } from './tipos';
@@ -40,79 +58,80 @@ export const LANDING_WHATSAPP: LandingCompetencia = {
   nombre: 'Chats',
   icono: I.chat,
   referencia: { nombre: 'Leadsales — CRM para WhatsApp, Facebook e Instagram', url: 'https://leadsales.io/', leida: '2026-11-11' },
-  metaTitle: 'Chats de MaKo: WhatsApp, Instagram y Messenger en una bandeja, con tu CRM',
-  metaDesc: 'Una conversación por contacto con todos sus canales y su ficha del CRM al lado. Asignas, cambias la etapa, dejas notas internas y MaKo te propone qué contestar.',
+  metaTitle: 'MaKo: CRM para WhatsApp, Facebook e Instagram',
+  metaDesc: 'Unifica tu bandeja, ordena a tu equipo y deja que MaKo le proponga qué contestar, para que escales tu operación sin escalar el caos. Cada conversación es el lead de tu CRM.',
   bloques: [
     {
       tipo: 'hero',
-      etiqueta: 'Chats para vender por WhatsApp, Instagram y Messenger',
-      titulo: 'Todos tus chats de venta en una bandeja. Cada uno, con su lead.',
-      bajada: 'Tu WhatsApp, Instagram, Messenger y email en <strong>una conversación por contacto</strong>, con su ficha del CRM al lado. Ordenas a tu equipo y MaKo te propone qué contestar, sin salir del chat.',
+      etiqueta: 'Chats de MaKo',
+      titulo: 'CRM para WhatsApp, Facebook e Instagram',
+      bajada: 'Unifica tu bandeja, ordena a tu equipo y deja que <strong>MaKo le proponga qué contestar</strong>; para que escales tu operación sin escalar el caos.',
       // La tarjeta que flota sobre la primera pestaña de la galería (el hilo del lead).
       puntos: ['Cada contacto es el lead de tu CRM, con todos sus canales.'],
       visual: { tipo: 'detalle', slug: 'whatsapp' },
     },
     {
       tipo: 'filas',
-      titulo: 'Así funciona Chats',
+      titulo: 'Así funciona el CRM de MaKo',
       slug: 'whatsapp',
       items: [
-        { grafico: 0, titulo: 'Bandeja', texto: 'WhatsApp, Instagram, Messenger y email, con <strong>una conversación por contacto</strong>. Si te escribió por dos lados, lo ves junto.' },
+        { grafico: 0, titulo: 'Conversaciones', texto: 'WhatsApp, Instagram, Messenger y email, con <strong>una conversación por contacto</strong>. Si te escribió por dos lados, lo ves junto.' },
         { grafico: 2, titulo: 'Borrador de MaKo', texto: 'MaKo lee la conversación y te propone el mensaje. Lo cambias si quieres y lo mandas tú.' },
         { grafico: 4, titulo: 'Embudo', texto: 'El contacto es el lead de tu CRM: le cambias la etapa, lo asignas o lo cierras desde la conversación.' },
       ],
     },
     {
       tipo: 'contraste',
-      etiqueta: 'Canales',
-      titulo: 'Tu equipo necesita vender por chat <em>con orden, no en chats sueltos.</em>',
-      sin: { titulo: 'Cuando todo vive en chats sueltos', texto: 'Cada vendedor contesta desde su teléfono, e Instagram queda por un lado y WhatsApp por otro.' },
-      con: { titulo: 'Con Chats de MaKo', texto: 'WhatsApp, Instagram, Messenger y email en una bandeja, con una conversación por contacto.' },
+      etiqueta: 'Difusión y embudo',
+      titulo: 'Tu equipo necesita un CRM <em>pensado para vender por WhatsApp.</em>',
+      sin: { titulo: 'Cuando todo vive en chats', texto: 'Envías una campaña. Las respuestas se mezclan con el resto de los chats.' },
+      con: { titulo: 'Con MaKo', texto: 'Envías una difusión por WhatsApp a una columna de tu CRM y sigues cada respuesta en su conversación, con su etapa.' },
     },
     {
       tipo: 'contraste',
       titulo: 'Equipo y conversaciones',
-      sin: { titulo: 'Cuando todo vive en chats sueltos', texto: 'Para saber quién le contestó a quién y qué se le prometió, hay que preguntarle al equipo.' },
-      con: { titulo: 'Con Chats de MaKo', texto: 'Cada conversación tiene su responsable y las notas internas de tu equipo, y ves lo que no se leyó.' },
+      sin: { titulo: 'Cuando todo vive en chats', texto: 'Para saber quién atiende cada oportunidad, tienes que preguntarle al equipo.' },
+      con: { titulo: 'Con MaKo', texto: 'Asignas cada conversación y consultas su historial, su responsable y su etapa.' },
     },
     {
       tipo: 'contraste',
-      titulo: 'Embudo y seguimiento',
-      sin: { titulo: 'Cuando todo vive en chats sueltos', texto: 'Nadie sabe en qué etapa está el lead. <strong>Y el lead que nadie vio, se enfría.</strong>' },
-      con: { titulo: 'Con Chats de MaKo', texto: 'Cada conversación es el lead de tu CRM: le cambias la etapa sin salir del chat.' },
+      titulo: 'Setter con IA',
+      sin: { titulo: 'Cuando todo vive en chats', texto: 'Si tu equipo no está, nadie responde. <strong>Y el lead que nadie vio, se enfría.</strong>' },
+      con: { titulo: 'Con MaKo', texto: 'Con las <a href="/vsl/seguimiento">Automations</a>, un agente contesta y le da seguimiento a cada lead por los mismos canales.' },
     },
     {
       tipo: 'tarjetas',
       titulo: 'Del primer mensaje <em>al cierre de cada venta.</em>',
-      bajada: 'Lo que tu equipo hace en cada conversación, sin salir del chat.',
+      bajada: 'Las cuatro funciones que cubren el ciclo completo de tu cliente en WhatsApp.',
       columnas: 2,
       items: [
-        { icono: I.persona, meta: 'Equipo', titulo: 'Asigna y deja notas internas', texto: 'Cada conversación tiene su responsable, y tu equipo se deja comentarios que el lead no ve.' },
-        { icono: I.etapa, meta: 'Embudo', titulo: 'Cambia la etapa sin salir del chat', texto: 'Lo que pasa en la conversación lo pasas al embudo en un toque.' },
-        { icono: I.reloj, meta: 'Seguimiento', titulo: 'Cierra o pospone', texto: 'Cierras lo que ya se resolvió y pospones lo que tienes que retomar después.' },
-        { icono: I.estrella, meta: 'Borrador de MaKo', titulo: 'MaKo te propone qué contestar', texto: 'Lee la conversación y te propone qué escribir; tú decides si sale. Para que una conversación avance sola están las <a href="/vsl/seguimiento">Automations</a>.' },
+        { icono: I.lineas, meta: 'Difusión', titulo: 'Envía mensajes masivos a tus contactos.', texto: 'Mandas una difusión por WhatsApp, email o Instagram a una columna de tu CRM y sigues cada respuesta en tu embudo.' },
+        { icono: I.etapa, meta: 'Embudo de ventas', titulo: 'Da seguimiento a tus vendedores y ordena tu proceso.', texto: 'Cada lead tiene etapa y responsable, y le cambias la etapa sin salir del chat.' },
+        { icono: I.reloj, meta: 'Seguimiento', titulo: 'Pospón y no pierdas leads.', texto: 'Pospones la conversación que tienes que retomar y cierras lo que ya se resolvió, para que ningún prospecto se quede sin respuesta.' },
+        { icono: I.estrella, meta: 'Setter con IA', titulo: 'Un agente de IA que atiende tus embudos.', texto: 'Decides en qué etapas contesta una automatización de MaKo y en cuáles tu equipo. Responde y le da seguimiento a tus prospectos: son las <a href="/vsl/seguimiento">Automations</a>.' },
       ],
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Todo lo que incluye Chats, <em>tu bandeja para vender por chat.</em>',
+      titulo: 'Todo lo que incluye MaKo, <em>tu CRM para WhatsApp y redes sociales.</em>',
       items: [
-        { icono: I.lineas, titulo: 'Tus números de WhatsApp', texto: 'Los conectas y los administras sin salir de Chats, y cada número aparece en la misma bandeja.' },
-        { icono: I.chat, titulo: 'Instagram y Messenger', texto: 'Los mensajes directos llegan a la misma conversación del contacto.' },
-        { icono: I.email, titulo: 'Email con tu dominio', texto: 'Secuencias por etapa y envíos puntuales, desde tu propio dominio.' },
+        { icono: I.chat, titulo: 'Bandeja unificada', texto: 'WhatsApp, Messenger, Instagram y email en un solo lugar.' },
+        { icono: I.persona, titulo: 'Organiza tus chats', texto: 'Asignas, cierras y pospones, y cada uno ve lo que no leyó, guardado en el servidor.' },
+        { icono: I.etapa, titulo: 'Personaliza tu atención', texto: 'La ficha del CRM, la etapa y las notas internas de cada contacto junto al chat.' },
         { icono: I.estrella, titulo: 'El borrador de MaKo', texto: 'Lee la conversación y te propone qué escribir. Tú decides si sale.' },
-        { icono: I.persona, titulo: 'Tu equipo, ordenado', texto: 'Responsables, comentarios internos y lo no leído de cada uno, guardado en el servidor.' },
-        { icono: I.etapa, titulo: 'Conectado a tu CRM', texto: 'El contacto es el lead: la etapa, la ficha y su historia, en el mismo lugar.' },
+        { icono: I.lineas, titulo: 'Tus números de WhatsApp', texto: 'El oficial y el de empresa: los conectas y los administras sin salir de Chats.' },
+        { icono: I.email, titulo: 'Email con tu dominio', texto: 'Secuencias por etapa y envíos puntuales, desde tu propio dominio.' },
       ],
     },
     { tipo: 'caso' },
     {
       tipo: 'preguntas',
-      titulo: 'Lo que necesitas saber <em>para usar Chats.</em>',
+      titulo: 'Lo que necesitas saber <em>para usar MaKo.</em>',
       items: [
-        { p: '¿Qué canales junta?', r: 'WhatsApp (cada uno de tus números), Instagram, Messenger y email, en una conversación por contacto.' },
-        { p: '¿Cómo conecto mi WhatsApp?', r: 'Lo conectas y lo administras desde Chats, sin salir de la pantalla.' },
-        { p: '¿MaKo contesta solo?', r: 'En Chats, MaKo te propone el borrador y lo mandas tú. Para que una conversación avance sola están las <a href="/vsl/seguimiento">Automations</a>, que contestan por los mismos canales.' },
+        { p: '¿Qué es un CRM para WhatsApp y para quién es MaKo?', r: 'Es una bandeja donde cada conversación de WhatsApp, Instagram, Messenger o email es un lead de tu CRM, con su etapa y su ficha. MaKo es para negocios que venden High Ticket por chat y por llamada.' },
+        { p: '¿Sirve si varias personas atienden el mismo WhatsApp?', r: 'Sí. Cada conversación tiene su responsable, tu equipo se deja notas internas y cada uno ve lo que no leyó.' },
+        { p: '¿Qué hace MaKo y qué sigue haciendo mi equipo?', r: 'En Chats, MaKo te propone el borrador y lo mandas tú. Para que una conversación avance sola están las <a href="/vsl/seguimiento">Automations</a>, que contestan por los mismos canales.' },
+        { p: '¿Necesito WhatsApp Business API?', r: 'No. Conectas tu WhatsApp de empresa o el oficial, cada uno de tus números, y los administras sin salir de Chats.' },
         { p: '¿Tiene respuestas rápidas y menciones?', r: 'Todavía no: las bandejas a medida, las respuestas rápidas con «/» y las @menciones no están.' },
         { p: '¿Hace llamadas de voz?', r: 'No. Chats es para mensajes: WhatsApp, Instagram, Messenger y email.' },
       ],

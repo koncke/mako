@@ -361,14 +361,14 @@ function Banda({ b }: { b: De<'pasos'> }) {
 }
 
 // ── El cierre y el pie ───────────────────────────────────────────────────────
-/** El cierre: el texto es el de la banda de la llamada de todas las landings de /vsl (app/vsl/_detalle/FeatureDetail.tsx). */
+/** El cierre: su «Ready to ship more winning ads?» tal cual (12/11/2026); la bajada es la de la banda de la llamada de /vsl. */
 function Cierre({ visual }: { visual?: VisualHero }) {
   return (
     <section className={`${P}-cierre`}>
       <div className={`${P}-wrap`}>
         <div className={`${P}-cierre-in`}>
           <div className={`${P}-head ${P}-cierre-head`}>
-            <h2 className={`${P}-h2`}>¿Lo quieres andando en tu negocio?</h2>
+            <h2 className={`${P}-h2`}>¿Listo para lanzar más anuncios ganadores?</h2>
             <p className={`${P}-head-p ${P}-cierre-p`}>Agenda una llamada y te mostramos MaKo con tus propios números.</p>
           </div>
           <div className={`${P}-cierre-btns`}><Cta /></div>
