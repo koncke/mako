@@ -26,13 +26,16 @@ import type { Bloque, LandingCompetencia as Landing } from '../app/vsl/_competen
 import { PLANTILLAS_AVATAR, CATEGORIAS } from '../lib/ai-avatar/plantillas';
 import { PLANTILLAS_VENTA_AVATAR } from '../lib/ai-avatar/plantillas-venta';
 import { marcasDeVoseo } from '../lib/voseo';
+import { DISENOS } from '../app/vsl/_competencia/disenos';
+import { CALENDLY } from '../app/vsl/_detalle/FeatureDetail';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const dibujar = (l: Landing) => renderToStaticMarkup(createElement(LandingCompetencia, { landing: l }));
-/** Sólo lo propio de la landing: lo de abajo (la grilla del resto de las funciones) sale de la landing principal. */
-const propio = (html: string) => html.slice(0, html.indexOf('<nav class="mk-more"'));
+/** Sólo lo propio de la landing: lo de abajo (la grilla del resto de las funciones) sale de la landing principal. Una
+ *  landing con diseño copiado (./disenos) no la tiene: ahí el resto de las funciones va en su pie, y se lee la página entera. */
+const propio = (html: string) => (html.includes('<nav class="mk-more"') ? html.slice(0, html.indexOf('<nav class="mk-more"')) : html);
 /** El texto que se lee: sin etiquetas, sin el <style> y con las entidades más comunes resueltas. */
 const textoVisible = (html: string) => html
   .replace(/<style[\s\S]*?<\/style>/g, ' ')
@@ -86,7 +89,15 @@ test('los bloques salen en el orden de la referencia', () => {
 test('lo dibujado no promete lo que MaKo no hace y no habla de vos', () => {
   for (const l of LANDINGS_COMPETENCIA) {
     const html = dibujar(l);
-    assert.ok(html.includes('<nav class="mk-more"'), `${l.slug}: sin la grilla del resto`);
+    if (DISENOS[l.slug]) {
+      // Con su diseño copiado: de MaKo lleva el logo, el botón de la llamada y, en el pie, los links al resto de las funciones.
+      assert.match(html, /aria-label="MaKo — volver a la landing"/, `${l.slug}: sin el logo de MaKo`);
+      assert.ok(html.includes(`href="${CALENDLY}"`), `${l.slug}: sin el botón de la llamada`);
+      const otras = LANDINGS_COMPETENCIA.filter((x) => x.slug !== l.slug && html.includes(`href="/vsl/${x.slug}"`)).length;
+      assert.ok(otras >= LANDINGS_COMPETENCIA.length - 1, `${l.slug}: el pie lleva ${otras} de las otras ${LANDINGS_COMPETENCIA.length - 1} landings`);
+    } else {
+      assert.ok(html.includes('<nav class="mk-more"'), `${l.slug}: sin la grilla del resto`);
+    }
     const t = textoVisible(propio(html));
     assert.doesNotMatch(t, /garant[ií]a|te devolvemos|reembols/i, `${l.slug}: una garantía de devolución (no existe)`);
     assert.doesNotMatch(t, /bane[oa]|goteo/i, `${l.slug}: el ritmo de envío vendido como protección`);
