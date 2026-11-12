@@ -148,6 +148,25 @@ Cada entrada dice de qué corrida y de qué fecha viene.
     busca el cupón del 50%, que con la prueba prendida no se crea («son una cosa o la otra»): `Cannot read properties of
     undefined (reading 'p')` parece un cobro roto y no lo es. Esos tests corren sólo con la prueba apagada.
 
+- **Sexta vuelta (12/11/2026, claude5): el testimonio, los logos y las grabaciones de la app.**
+  - **«Vuélvelo como estaba» es reusar el componente, no redibujarlo.** El caso de Mauricio del sitio se había rehecho «con el
+    diseño de beehiiv» (foto y tres cifras) y perdió el video, la historia y el carrusel, que era lo que a Martín le servía.
+    Ahora el sitio usa `CasoMauricio` de `app/vsl/_detalle/FeatureDetail.tsx` con su CSS exportado (`CSS_CASO`): si cambia
+    allá, cambia en las dos.
+  - **El sol y la luna dejaba la letra de la tira blanca en modo claro.** Para no invertir los logos se saltean sus recuadros,
+    y la regla de «recuadro de logo» (un solo hijo que es imagen) también agarraba la tarjeta de la tira con su nombre. Un
+    recuadro de logo es uno SIN texto (`esRecuadro` en `TemaSitio.tsx`).
+  - **Un logo con `loading="lazy"` en una tira que se desliza queda en blanco**: el navegador no lo pide hasta que «entra» y la
+    copia de la tira nunca entra. En las marquesinas, sin lazy.
+  - **Grabar una animación de la app sin levantar Next**: se arma el componente de verdad con esbuild (alias `@` al worktree,
+    `nodePaths` a sus `node_modules`, `process.env.NODE_ENV` definido) en una página suelta con un guion de eventos, y Playwright
+    la graba (`recordVideo`, sin cabeza y `--mute-audio`). El video vuelve a empezar desde el principio en cada vuelta: se le
+    corta la pantalla de carga con ffmpeg (`-ss`) para que el bucle arranque con la app en movimiento.
+  - **La película de Competitor Spy mostraba la misma miniatura 46 veces**: las piezas de prueba no tenían `id` y el componente
+    las busca por id. Un dato de prueba lleva los campos que la app usa para identificar, no sólo los que se ven.
+  - **Los precios del sitio son los bloques de /planes** (`TarjetasPlanes`): había una copia oscura propia que no tenía el
+    Acelerador. Un bloque de precios se dibuja en UN lugar.
+
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
 **Vive en:** `scripts/landing-valores-tilvo.mjs` (con su test), `scripts/banco-editor-web/landing.tsx`, `app/vsl/CartelPromo.tsx`.

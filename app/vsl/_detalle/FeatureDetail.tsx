@@ -319,6 +319,55 @@ export default function FeatureDetail({ slug }: { slug: string }) {
   );
 }
 
+/** El caso de Mauricio (CasoMauricio): sus estilos aparte, para usarlo igual en la portada nueva (app/vsl/_sitio, 12/11/2026). */
+export const CSS_CASO = `
+.mk-hist { margin: 76px 0 0; padding: 68px 0; position: relative; }
+.mk-hist::before { content: ''; position: absolute; inset: 0; left: 50%; width: 100vw; transform: translateX(-50%); background: #F5F7FA; border-top: 1px solid #EEF0F3; border-bottom: 1px solid #EEF0F3; }
+.mk-hist > * { position: relative; }
+.mk-hist-head { text-align: center; max-width: 860px; margin: 0 auto 48px; }
+.mk-hist-h { margin: 0; font-size: 33px; line-height: 1.22; letter-spacing: -0.025em; font-weight: 600; color: #12151B; text-wrap: balance; }
+.mk-nowrap { white-space: nowrap; }
+.mk-mark { background: linear-gradient(transparent 55%, rgba(47,111,237,.2) 55%); }
+.mk-hist-sub { margin: 15px 0 0; font-size: 18px; font-weight: 500; color: #5B6472; }
+.mk-hist-row { display: flex; flex-wrap: wrap; gap: 44px; align-items: flex-start; }
+.mk-hist-vidcol { flex: 1 1 300px; min-width: 260px; max-width: 380px; }
+.mk-hist-vid { position: relative; aspect-ratio: 4 / 5; border-radius: 18px; overflow: hidden; background: #101319; box-shadow: 0 24px 50px -28px rgba(16,19,25,.45); }
+.mk-hist-vid video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mk-hist-badge { position: absolute; top: 13px; left: 13px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 999px; background: rgba(16,19,25,.5); backdrop-filter: blur(6px); font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: rgba(236,239,244,.9); }
+.mk-hist-dot { width: 6px; height: 6px; border-radius: 50%; background: #ED6A5E; }
+.mk-hist-txt { flex: 1 1 440px; min-width: 300px; display: flex; flex-direction: column; gap: 15px; }
+.mk-hist-txt p { margin: 0; font-size: 16.5px; line-height: 1.68; color: #4A515E; }
+.mk-hist-txt strong { font-weight: 600; color: #12151B; }
+.mk-hist-txt em { font-style: italic; }
+.mk-hist-result { margin-top: 4px; padding: 20px 22px; border-radius: 14px; background: #fff; border-left: 3px solid #2F6FED; box-shadow: 0 16px 40px -26px rgba(47,111,237,.45); font-size: 16.5px; line-height: 1.6; color: #2E3646; }
+.mk-hist-result strong { color: #12151B; font-weight: 600; }
+/* Segundo bloque del caso: texto + descartes (por qué nada estándar servía) */
+.mk-hist-row2 { margin-top: 56px; align-items: flex-start; }
+.mk-hist-lead { font-size: 21px !important; line-height: 1.35 !important; font-weight: 600 !important; color: #12151B !important; }
+.mk-descarte { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 13px; background: #fff; border: 1px solid #E7ECF5; }
+.mk-descarte-x { flex: none; width: 24px; height: 24px; border-radius: 7px; background: #FCEBEC; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+.mk-descarte-t { display: block; font-size: 14.5px; font-weight: 600; color: #12151B; }
+.mk-descarte-d { display: block; font-size: 13.5px; line-height: 1.5; color: #5B6472; margin-top: 2px; }
+.mk-hist-check { display: flex; gap: 11px; align-items: flex-start; margin-top: 6px; }
+.mk-hist-check-ic { flex: none; width: 26px; height: 26px; border-radius: 50%; background: #EAF1FE; color: #2F6FED; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.mk-hist-check span:last-child { font-size: 16px; line-height: 1.56; color: #12151B; font-weight: 500; }
+.mk-hist-cierre { margin: 8px 0 0 !important; font-size: 18.5px !important; line-height: 1.5 !important; font-weight: 600 !important; color: #12151B !important; }
+.mk-hist-cierre-b { color: #2F6FED; }
+
+/* Carrusel de fotos del caso (igual que la landing) */
+.mk-hist-carrcol { flex: 1 1 330px; min-width: 280px; max-width: 400px; }
+.mk-carr { position: relative; aspect-ratio: 3 / 4; border-radius: 18px; overflow: hidden; background: #101319; box-shadow: 0 24px 50px -28px rgba(16,19,25,.45); }
+.mk-carr-track { display: flex; width: 100%; height: 100%; transition: transform .55s cubic-bezier(.4,0,.2,1); }
+.mk-carr-track img { flex: 0 0 100%; width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
+.mk-carr-fade { position: absolute; left: 0; right: 0; bottom: 0; height: 96px; background: linear-gradient(transparent, rgba(16,19,25,.5)); pointer-events: none; }
+.mk-carr-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: none; background: rgba(255,255,255,.92); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,.25); color: #101319; }
+.mk-carr-prev { left: 12px; } .mk-carr-next { right: 12px; }
+.mk-carr-dots { position: absolute; left: 0; right: 0; bottom: 14px; display: flex; justify-content: center; gap: 7px; }
+.mk-carr-dot { width: 7px; height: 7px; border-radius: 50%; border: none; padding: 0; cursor: pointer; background: rgba(255,255,255,.45); }
+.mk-carr-dot.on { background: #fff; width: 18px; border-radius: 999px; }
+@media (max-width: 760px) { .mk-hist-row, .mk-hist-row2 { flex-direction: column; } }
+`;
+
 export const CSS_DETALLE = `
 body:has(.mk-det) aside { display: none !important; }
 
@@ -468,50 +517,7 @@ body:has(.mk-det) aside { display: none !important; }
 .mk-cor.br { bottom: 9px; right: 9px; border-left: 0; border-top: 0; }
 
 /* Caso Mauricio (idéntico a la landing principal) */
-.mk-hist { margin: 76px 0 0; padding: 68px 0; position: relative; }
-.mk-hist::before { content: ''; position: absolute; inset: 0; left: 50%; width: 100vw; transform: translateX(-50%); background: #F5F7FA; border-top: 1px solid #EEF0F3; border-bottom: 1px solid #EEF0F3; }
-.mk-hist > * { position: relative; }
-.mk-hist-head { text-align: center; max-width: 860px; margin: 0 auto 48px; }
-.mk-hist-h { margin: 0; font-size: 33px; line-height: 1.22; letter-spacing: -0.025em; font-weight: 600; color: #12151B; text-wrap: balance; }
-.mk-nowrap { white-space: nowrap; }
-.mk-mark { background: linear-gradient(transparent 55%, rgba(47,111,237,.2) 55%); }
-.mk-hist-sub { margin: 15px 0 0; font-size: 18px; font-weight: 500; color: #5B6472; }
-.mk-hist-row { display: flex; flex-wrap: wrap; gap: 44px; align-items: flex-start; }
-.mk-hist-vidcol { flex: 1 1 300px; min-width: 260px; max-width: 380px; }
-.mk-hist-vid { position: relative; aspect-ratio: 4 / 5; border-radius: 18px; overflow: hidden; background: #101319; box-shadow: 0 24px 50px -28px rgba(16,19,25,.45); }
-.mk-hist-vid video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.mk-hist-badge { position: absolute; top: 13px; left: 13px; display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 999px; background: rgba(16,19,25,.5); backdrop-filter: blur(6px); font-family: 'Geist Mono', monospace; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: rgba(236,239,244,.9); }
-.mk-hist-dot { width: 6px; height: 6px; border-radius: 50%; background: #ED6A5E; }
-.mk-hist-txt { flex: 1 1 440px; min-width: 300px; display: flex; flex-direction: column; gap: 15px; }
-.mk-hist-txt p { margin: 0; font-size: 16.5px; line-height: 1.68; color: #4A515E; }
-.mk-hist-txt strong { font-weight: 600; color: #12151B; }
-.mk-hist-txt em { font-style: italic; }
-.mk-hist-result { margin-top: 4px; padding: 20px 22px; border-radius: 14px; background: #fff; border-left: 3px solid #2F6FED; box-shadow: 0 16px 40px -26px rgba(47,111,237,.45); font-size: 16.5px; line-height: 1.6; color: #2E3646; }
-.mk-hist-result strong { color: #12151B; font-weight: 600; }
-/* Segundo bloque del caso: texto + descartes (por qué nada estándar servía) */
-.mk-hist-row2 { margin-top: 56px; align-items: flex-start; }
-.mk-hist-lead { font-size: 21px !important; line-height: 1.35 !important; font-weight: 600 !important; color: #12151B !important; }
-.mk-descarte { display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 13px; background: #fff; border: 1px solid #E7ECF5; }
-.mk-descarte-x { flex: none; width: 24px; height: 24px; border-radius: 7px; background: #FCEBEC; color: #DC2626; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
-.mk-descarte-t { display: block; font-size: 14.5px; font-weight: 600; color: #12151B; }
-.mk-descarte-d { display: block; font-size: 13.5px; line-height: 1.5; color: #5B6472; margin-top: 2px; }
-.mk-hist-check { display: flex; gap: 11px; align-items: flex-start; margin-top: 6px; }
-.mk-hist-check-ic { flex: none; width: 26px; height: 26px; border-radius: 50%; background: #EAF1FE; color: #2F6FED; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
-.mk-hist-check span:last-child { font-size: 16px; line-height: 1.56; color: #12151B; font-weight: 500; }
-.mk-hist-cierre { margin: 8px 0 0 !important; font-size: 18.5px !important; line-height: 1.5 !important; font-weight: 600 !important; color: #12151B !important; }
-.mk-hist-cierre-b { color: #2F6FED; }
-
-/* Carrusel de fotos del caso (igual que la landing) */
-.mk-hist-carrcol { flex: 1 1 330px; min-width: 280px; max-width: 400px; }
-.mk-carr { position: relative; aspect-ratio: 3 / 4; border-radius: 18px; overflow: hidden; background: #101319; box-shadow: 0 24px 50px -28px rgba(16,19,25,.45); }
-.mk-carr-track { display: flex; width: 100%; height: 100%; transition: transform .55s cubic-bezier(.4,0,.2,1); }
-.mk-carr-track img { flex: 0 0 100%; width: 100%; height: 100%; object-fit: cover; object-position: center; display: block; }
-.mk-carr-fade { position: absolute; left: 0; right: 0; bottom: 0; height: 96px; background: linear-gradient(transparent, rgba(16,19,25,.5)); pointer-events: none; }
-.mk-carr-btn { position: absolute; top: 50%; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; border: none; background: rgba(255,255,255,.92); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,.25); color: #101319; }
-.mk-carr-prev { left: 12px; } .mk-carr-next { right: 12px; }
-.mk-carr-dots { position: absolute; left: 0; right: 0; bottom: 14px; display: flex; justify-content: center; gap: 7px; }
-.mk-carr-dot { width: 7px; height: 7px; border-radius: 50%; border: none; padding: 0; cursor: pointer; background: rgba(255,255,255,.45); }
-.mk-carr-dot.on { background: #fff; width: 18px; border-radius: 999px; }
+${CSS_CASO}
 
 .mk-quote { max-width: 820px; margin: 44px auto 0; padding: 6px 0 6px 20px; border-left: 3px solid #2F6FED; font-size: 19px; line-height: 1.5; font-style: italic; font-weight: 500; color: #2E3646; }
 

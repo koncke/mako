@@ -116,7 +116,8 @@ export const CSS_BARRA = `
 .s-mg-t{display:block;font-size:15px;line-height:20px;font-weight:700;color:#fff}
 .s-mg-d{display:block;margin-top:4px;font-size:15px;line-height:20px;font-weight:500;color:${TEXTO}}
 /* Sus columnas: filete arriba al 6 %, 40 de aire, el rótulo 12/16 700 en mayúsculas #9393A9 y los links 16/20 500 de 32 de alto. */
-.s-mega-cols{margin-top:40px;padding-top:40px;border-top:1px solid ${LINEA};display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:48px}
+.s-mega-cols{margin-top:40px;padding-top:40px;border-top:1px solid ${LINEA};display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:40px}
+.s-mega-cols:first-child{margin-top:0;padding-top:0;border-top:0}
 .s-mega-r{font-size:12px;line-height:16px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:${GRIS3};margin-bottom:12px}
 .s-mega-l{display:block;width:fit-content;margin-left:-8px;padding:6px 8px;border-radius:6px;font-size:16px;line-height:20px;font-weight:500;color:#fff;transition:color .15s cubic-bezier(.4,0,.2,1),background-color .15s cubic-bezier(.4,0,.2,1)}
 .s-mega-l:hover{background:rgba(255,255,255,.1);color:${AZUL_HOVER}}
@@ -288,11 +289,12 @@ export const CSS_PORTADA = `
 .s-tira-p{display:flex;width:max-content;animation:s-desliza 85s linear infinite}
 .s-tira-l{display:flex;align-items:center;gap:48px;padding-right:48px}
 .s-tira-i{display:flex;align-items:center;gap:10px;height:48px;font-size:24px;line-height:28px;font-weight:800;letter-spacing:-.02em;color:#fff;white-space:nowrap;opacity:.92}
-/* La de las apps que MaKo reemplaza (12/11/2026): cada logo original en su recuadro blanco, para que se vea sobre el fondo oscuro,
+/* La de las apps que MaKo reemplaza (12/11/2026): cada logo original flotando, sin recuadro (Martín: «prefiero que los logos estén
+   flotando nada más»),
    más lenta porque son muchas, y el link a la comparación debajo. */
 .s-tira-reemplaza{padding-top:8px;padding-bottom:48px}
 .s-tira-reemplaza .s-tira-p{animation-duration:170s}
-.s-tira-app img{width:34px;height:34px;flex:none;border-radius:9px;background:#fff;padding:3px;object-fit:contain}
+.s-tira-app img{width:34px;height:34px;flex:none;border-radius:9px;object-fit:contain}
 .s-tira-ver{margin-top:20px;text-align:center;padding:0 16px}
 .s-tira-ver a{display:inline-flex;align-items:center;gap:8px;font-size:16px;line-height:24px;font-weight:700;color:${DORADO_CLARO}}
 .s-tira-ver a:hover{text-decoration:underline}
@@ -333,6 +335,15 @@ export const CSS_PORTADA = `
 .s-card-a:hover svg{transform:translateX(3px)}
 .s-card-vis{position:absolute;left:85px;top:204px;width:640px}
 .s-card-chica .s-card-vis{left:40px;top:248px;width:520px}
+/* Las grabaciones de la app y la pared de gurús (Martín, 12/11/2026: «imágenes o videos de las cosas que tenemos dentro»). */
+.s-card-video{display:block;width:100%;height:auto;background:#fff}
+.s-gurus{padding:18px 18px 14px;background:#fff}
+.s-gurus-ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px}
+
+.s-gurus-ul img{display:block;width:100%;height:auto;aspect-ratio:1;border-radius:10px;object-fit:cover;background:#F1F4F9}
+.s-gurus-pie{margin:0 0 12px;font-size:12px;line-height:16px;color:#5B6372}
+.s-card-vis.s-card-vis-gurus{left:24px;right:24px;width:auto}
+.s-card-chica .s-card-vis-gurus .s-gurus-ul{grid-template-columns:repeat(5,minmax(0,1fr))}
 
 /* El caso, con el tratamiento de sus tarjetas de clientes: la de la persona (foto a todo el alto, el nombre abajo) y las de cifra
    (#0D0B28, radio 12, el número 64/68 abajo y su renglón). */
@@ -350,6 +361,13 @@ export const CSS_PORTADA = `
    16 entre piezas): el nombre 24/32, la bajada 14/20 #4E4E6C, el precio 48/48, el botón de 46, el filete #D6D6E0 y la lista 14/20. */
 .s-btn-sec{display:inline-flex;align-items:center;gap:8px;padding:8px 24px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:#100E22;font-size:18px;line-height:28px;font-weight:700;color:#fff;transition:background-color .15s}
 .s-btn-sec:hover{background:#1A1836}
+/* Los precios sobre franja clara, con los bloques de /planes (app/planes/Tarjetas.tsx). */
+.s-precios{background:#F6F8FC;color:#12151B}
+.s-precios .s-rotulo{color:#2F6FED}
+.s-precios .s-h2,.s-precios .s-lede{color:#12151B}
+.s-precios .s-lede{color:#4A5260}
+.s-precios-bloques{margin:48px auto 0;max-width:1120px}
+.s-precios .s-btn-sec{background:#fff;color:#12151B;border-color:#D5DBE6}
 .s-planes{margin-top:64px;display:grid;grid-template-columns:repeat(var(--n,2),minmax(0,384px));justify-content:center;gap:16px}
 .s-plan{display:flex;flex-direction:column;gap:16px;background:#fff;color:${TINTA};border-radius:12px;padding:24px 20px 20px}
 .s-plan-dest{box-shadow:0 0 0 2px ${DORADO}}
@@ -460,6 +478,8 @@ export const CSS_PORTADA = `
   .s-card-mas{display:none}
   .s-card-vis,.s-card-chica .s-card-vis{position:relative;left:auto;top:auto;width:auto;margin:32px -24px 0 0}
   .s-card-vis .s-panel{border-radius:12px 0 0 0}
+  .s-card-vis.s-card-vis-gurus{right:auto;margin-right:0}
+  .s-card-vis-gurus .s-panel{border-radius:12px 12px 0 0}
   /* A 390 sus tarjetas de clientes son una fila de 220 × 300 que se corta en el borde: aquí se corre con el dedo. */
   .s-casos{margin:40px -20px 0;padding:0 20px;display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory}
   .s-caso{flex:none;width:220px;height:300px;scroll-snap-align:start}
@@ -489,7 +509,7 @@ export const CSS_COMPARACIONES = `
 /* Las apps de cada fila, con su logo original sobre un recuadro blanco (12/11/2026: de 8 apps a todas). */
 .s-apps{display:flex;flex-wrap:wrap;gap:8px 14px}
 .s-app{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
-.s-app img{width:22px;height:22px;border-radius:6px;background:#fff;box-shadow:0 0 0 1px rgba(6,4,25,.12);object-fit:contain}
+.s-app img{width:22px;height:22px;border-radius:6px;object-fit:contain}
 /* Su hero: el fondo lavanda con la trama de puntos, 80 + 64 de aire; el logo de 160 en su marco, el titular 64/66, el texto 24/32
    en 768 y el botón con su flecha, separados 24. */
 .s-ch{background-color:${AZUL_TINTE};background-image:radial-gradient(rgba(6,4,25,.13) 1px,transparent 1.4px);background-size:12px 12px;padding:144px 24px;text-align:center}
