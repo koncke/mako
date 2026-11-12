@@ -30,7 +30,7 @@
 // =============================================================================
 
 import type { CSSProperties } from 'react';
-import { CASO, TEXTO_CTA, TEXTO_CIERRE } from '../_competencia/marca';
+import { CASO, TEXTO_CTA } from '../_competencia/marca';
 import { VisualDeLanding } from '../_competencia/Visuales';
 import type { Bloque } from '../_competencia/tipos';
 import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
@@ -44,8 +44,9 @@ import { Pie } from './Pie';
 import { Boton, Flecha, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
 import {
-  HISTORIA, PREGUNTAS_SITIO, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto, numerosDelSitio,
+  HISTORIA, PREGUNTAS_SITIO, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto, numerosDelSitio,
 } from './datos';
+import { appsQueReemplaza } from './reemplaza';
 
 /** Un plan como lo devuelve planesParaLanding() (lib/compra-plan.ts). */
 export type PlanSitio = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean };
@@ -62,18 +63,46 @@ function HeroSitio() {
     <section className="s-hero">
       <div className="s-cont s-hero-in">
         <div>
-          <h1 className="s-h1">Ventas.<br />Marketing.<br />Contenido.<br /><em>Una sola app.</em></h1>
-          <p className="s-hero-p">La app con IA para vender High Ticket, de punta a punta: del primer clic en tu anuncio al cliente que paga.</p>
+          {/* Martín (12/11/2026): «el título principal me gustaría que sea el mejor software para ventas high ticket. Y me gusta eso
+              de ventas, marketing, contenido en una sola app. Eso tal vez abajo». Y la frase debajo del botón se fue: repetía lo
+              que el botón ya dice. */}
+          <h1 className="s-h1">El mejor software para ventas <em>High Ticket.</em></h1>
+          <p className="s-hero-p"><strong>Ventas, marketing y contenido en una sola app.</strong> Con una IA que conoce tu negocio, del primer clic en tu anuncio al cliente que paga.</p>
           <div className="s-hero-btns">
             <Boton clase="s-btn-alto" />
             <Boton href={RUTA_PRECIOS} texto="Ver planes" clase="s-btn-alto s-btn-borde" />
           </div>
-          <p className="s-nota">{TEXTO_CIERRE}</p>
         </div>
         {/* Martín (12/11/2026): «en esa parte debería estar el VSL que yo ya grabé», y no las tres pantallas (CRM, Ops Center
             y Automations) que ponía beehiiv en su composición. Es el VSL de la portada de hoy (hola-mako.com). */}
         <div className="s-hero-vsl"><PandaPlayer src={VSL_PORTADA} title="MaKo: el video de presentación" /></div>
       </div>
+    </section>
+  );
+}
+
+/**
+ * Debajo del hero, las apps que MaKo reemplaza, con su logo original (./reemplaza.ts) y el link a la comparación. Martín
+ * (12/11/2026): «ese carrusel de aplicaciones lo pondría tal vez en otra sección más abajo, ahí pondría el mismo carrusel de MaKo
+ * reemplaza las apps que ya estás pagando, que ahí justamente salga la comparativa». La de integraciones bajó a su sección.
+ */
+function TiraReemplaza() {
+  const apps = appsQueReemplaza();
+  const lista = (oculta: boolean) => (
+    <ul className="s-tira-l" aria-hidden={oculta || undefined}>
+      {apps.map((a) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <li key={a.logo} className="s-tira-i s-tira-app"><img src={a.logo} alt="" width={30} height={30} />{a.nombre}</li>
+      ))}
+    </ul>
+  );
+  return (
+    <section className="s-tira s-tira-reemplaza" aria-label="Las apps que MaKo reemplaza">
+      <p className="s-tira-r">MaKo reemplaza {apps.length} apps que ya estás pagando</p>
+      <div className="s-tira-v">
+        <div className="s-tira-p">{lista(false)}{lista(true)}</div>
+      </div>
+      <p className="s-tira-ver"><a href={RUTA_COMPARACIONES}>Ver la comparación, trabajo por trabajo <Flecha size={18} /></a></p>
     </section>
   );
 }
@@ -317,11 +346,12 @@ export function PortadaSitio({ planes }: { planes: readonly PlanSitio[] }) {
       <Barra />
       <main>
         <HeroSitio />
-        <TiraSitio />
+        <TiraReemplaza />
         <ProductoSitio />
         <CasoSitio />
         <PlanesSitio planes={planes} />
         <NumerosSitio />
+        <TiraSitio />
         <IntegracionesSitio />
         <PreguntasSitio />
         <CierreSitio />

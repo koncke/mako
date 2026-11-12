@@ -8,9 +8,9 @@
 
 import type { Metadata } from 'next';
 import { ComparacionesSitio } from '../_sitio/Comparaciones';
-import { filasDeComparacion } from '../_sitio/datos';
+import { nAppsQueReemplaza } from '../_sitio/datos';
 
-const n = filasDeComparacion().length;
+const n = nAppsQueReemplaza();
 
 export const metadata: Metadata = {
   title: `MaKo · Comparaciones: una sola app en lugar de ${n}`,

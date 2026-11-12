@@ -15,8 +15,13 @@ import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
  * prueba apagada, /planes cobra al empezar, y la landing no puede prometer días gratis que el cobro no da.
  */
 export const RUTA_CTA = '/planes';
-export const TEXTO_CTA = PRUEBA_GRATIS_PRENDIDA ? 'Comienza tu prueba gratuita' : 'Empieza con MaKo';
-/** La frase de la banda final de cada landing, debajo de su titular y al lado del botón. */
+// Martín, 12/11/2026: «en lugar de que sea el CTA en todos lados, comienza tu prueba gratuita, me gustaría que sea pruébalo
+// gratis, ahora. Que sea bien marketinero».
+export const TEXTO_CTA = PRUEBA_GRATIS_PRENDIDA ? 'Pruébalo gratis ahora' : 'Empieza con MaKo';
+/**
+ * La frase de la banda final de cada landing, al lado del botón: lo que el botón NO dice (Martín, 12/11/2026, de la que repetía
+ * «Prueba MaKo 7 días gratis»: «eso no tiene sentido, ya que eso mismo ya lo dice el propio botón»). Es la regla de /reembolsos.
+ */
 export const TEXTO_CIERRE = PRUEBA_GRATIS_PRENDIDA
-  ? `Prueba MaKo ${PRUEBA_DIAS} días gratis en tu negocio.`
+  ? `${PRUEBA_DIAS} días gratis. Si te das de baja antes del día ${PRUEBA_DIAS + 1}, no pagas nada.`
   : 'Eliges tu plan y entras a MaKo en el acto.';
