@@ -141,6 +141,18 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Pedido de la undécima vuelta (Martín, 12/11, sobre `maqueta-checklist.html`), en curso:**
+1. **La acción, con las 5 tarjetas** (oferta, web, anuncios, Instagram, YouTube): sin elegir ninguna, la checklist de todo; con una elegida, sólo la suya.
+2. **El botón de cada tarea, simple** («Hacerlo»), nunca «En Offer» ni «En Competitor Spy».
+3. **La oferta elegida:** la checklist de un lado y el chat de Offer del otro. La web, igual con la página.
+4. **El ícono de la oferta** es el de la app (no la estrellita), del mismo tamaño que los otros logos.
+5. **El piloto:**
+   - sin «Pausar el piloto»: arriba va «Configurar piloto», con la configuración de la tarjeta elegida (todas tienen piloto: la web hace cambios, anuncios lo maneja todo, Instagram publica y hace variaciones de hooks);
+   - «qué hago solo y qué te pregunto» va adentro de la configuración, y el modal se rediseña con referencias de otras apps;
+   - si todo está en «lo hago solo», no va «Espera tu OK»;
+   - sin la línea de MaKo arriba: el logo de MaKo va en «Lo que hice»;
+   - «Métricas» con las plantillas que ya hay en el Dashboard (anuncios, Instagram, YouTube, web).
+
 **Hecho (12/11, décima vuelta):** `maqueta-checklist.html` (Artifact claude.ai/artifact/SaGw8C5x76yzEJXM8RT75r). Lo de Martín:
 - los pasos sin subtítulo, con un aviso de lo pendiente;
 - la oferta en su desplegable;
