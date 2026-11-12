@@ -82,8 +82,16 @@ test('3. qué hace: avisa con el QR en un paso, repite cada 3 h, cierra al volve
   const c = queHacerConLaSordera(true, a.marca, T('2026-11-11T17:10:00Z'), extra);
   assert.equal(c.accion, 'pedir-qr', 'a las 3 h no insistió con el QR');
   assert.equal(queHacerConLaSordera(true, c.marca, T('2026-11-11T18:00:00Z'), extra).accion, 'nada');
-  assert.deepEqual(queHacerConLaSordera(false, c.marca, T('2026-11-11T22:05:00Z')), { accion: 'volvio', marca: null });
+  // ⚠️ CAMBIADO A PROPÓSITO el 12/11/2026: «volvió» pide la PRUEBA, una persona con hora posterior a la marca (Joan, 22:00).
+  assert.deepEqual(queHacerConLaSordera(false, c.marca, T('2026-11-11T22:05:00Z'), extra, T('2026-11-11T22:00:00Z')), { accion: 'volvio', marca: null });
   assert.deepEqual(queHacerConLaSordera(false, null, T('2026-11-11T22:05:00Z')), { accion: 'nada', marca: null });
+  // Sin la prueba (de noche «fuera de horario», o MaKo sin mandar nada) la marca QUEDA: antes, a las 23 se borraba con un «volvió» falso.
+  assert.deepEqual(queHacerConLaSordera(false, c.marca, T('2026-11-12T02:30:00Z'), extra, T('2026-11-11T12:14:14Z')), { accion: 'nada', marca: c.marca }, 'la noche borró la marca');
+  assert.deepEqual(queHacerConLaSordera(false, c.marca, T('2026-11-12T02:30:00Z'), extra), { accion: 'nada', marca: c.marca });
+  // Lo que llega tarde, en tanda, trae su hora vieja: no es la prueba de que volvió.
+  assert.equal(queHacerConLaSordera(false, c.marca, T('2026-11-12T06:00:00Z'), extra, T('2026-11-11T13:30:00Z')).accion, 'nada');
+  // Re-vinculada después de marcarla: la marca es de otro dispositivo; se limpia, sin aviso.
+  assert.deepEqual(queHacerConLaSordera(false, c.marca, T('2026-11-11T23:30:00Z'), { ...extra, vinculadaDesde: T('2026-11-11T21:50:20Z') }), { accion: 'nada', marca: null });
   // La marca de la versión que reiniciaba (desplegada sólo en la punta) se lee: lo último que se avisó.
   const vieja = { desde: '2026-11-11T15:20:00.000Z', reiniciadaAt: '2026-11-11T15:20:00.000Z', qrPedidoAt: '2026-11-11T15:41:00.000Z' } as unknown as MarcaDeSordera;
   assert.equal(queHacerConLaSordera(true, vieja, T('2026-11-11T16:00:00Z')).accion, 'nada');
@@ -113,6 +121,18 @@ test('4. la función real: mail y campanita (nunca WhatsApp), la marca para el p
   assert.deepEqual([o.volvio.r.accion, o.volvio.mails, o.volvio.marca], ['volvio', ['La voz de MaKo volvió a recibir'], '']);
   // Martín la re-vinculó: lo de antes del QR (los envíos de la tarde, ya sin nadie que escriba) no la vuelve a marcar.
   assert.deepEqual([o.reVinculada.r.accion, o.reVinculada.r.sorda, o.reVinculada.mails.length], ['nada', false, 0], JSON.stringify(o.reVinculada.r));
+  // La noche del 12/11, con el store real de esa noche: Mauricio a las 00:40 UTC, MaKo manda a la 01:04, 02:50 y 03:31, y nada más.
+  // A las 9 de Argentina la marca (antes no puede: de noche nadie escribe); a las 23:30 la noche NO la borra; la tanda que llega tarde
+  // (el mensaje de las 05:44, con su hora vieja) tampoco; se cierra cuando escribe una persona.
+  const n = o.nocheDel12;
+  assert.deepEqual([n.antesDeLas9.r.accion, n.antesDeLas9.r.motivo, n.antesDeLas9.mails.length], ['nada', 'fuera de horario', 0]);
+  assert.deepEqual([n.alas9.r.accion, n.alas9.mails], ['avisar', ['La voz de MaKo no recibe mensajes']]);
+  assert.match(n.alas9.r.motivo, /manda y no recibe de una persona hace 11\.3 h/);
+  assert.deepEqual([n.alas2330.r.accion, n.alas2330.mails, !!n.alas2330.marca], ['nada', [], true], 'a las 23 la noche borró la marca con un «volvió» falso');
+  assert.deepEqual([n.tanda.r.accion, n.tanda.mails, !!n.tanda.marca], ['nada', [], true], 'la tanda atrasada cerró la marca');
+  assert.deepEqual([n.volvio.r.accion, n.volvio.mails, n.volvio.marca], ['volvio', ['La voz de MaKo volvió a recibir'], '']);
+  assert.deepEqual([n.reVinculadaConMarca.r.accion, n.reVinculadaConMarca.mails, n.reVinculadaConMarca.marca], ['nada', [], ''], 'la marca de un dispositivo viejo quedó (o avisó un «volvió» sin prueba)');
+  for (const k of ['antesDeLas9', 'alas9', 'alas2330', 'tanda', 'volvio', 'reVinculadaConMarca']) assert.equal(n[k].whatsapp + n[k].reinicios, 0, k);
   for (const k of ['antes', 'sorda', 'diezMin', 'tresHoras', 'volvio', 'reVinculada']) {
     assert.equal(o[k].whatsapp, 0, `${k}: la alarma de la voz salió por la voz`);
     assert.equal(o[k].reinicios, 0, `${k}: reinició la voz (un restart no la cura)`);
@@ -124,7 +144,7 @@ test('5. el cableado: corre en el cron alerta-critica; ningún `restart` en el c
   const vig = sinComentarios(leer('lib/canal-vigilante.ts'));
   assert.match(vig, /await avisarPorEmail\(wsSA, aviso\.titulo, aviso\.cuerpo\);/);
   assert.match(vig, /tipo: 'voz-sorda'/);
-  assert.match(vig, /queHacerConLaSordera\(sorda, marca, ahora, \{ linea: voz, vinculadaDesde: vinculadaDesdeMs, motivo \}\)/);
+  assert.match(vig, /queHacerConLaSordera\(sorda, marca, ahora, \{ linea: voz, vinculadaDesde: vinculadaDesdeMs, motivo \}, lectura\.ultimaPersonaMs\)/, 'sin la prueba, cualquier «no sé» cierra la marca');
   const conRestart = readdirSync(new URL('../lib/', import.meta.url), { recursive: true }).map(String).filter((f) => f.endsWith('.ts'))
     .filter((f) => /instance\/restart/.test(sinComentarios(leer(`lib/${f.replace(/\\/g, '/')}`))));
   assert.deepEqual(conRestart, [], 'volvió un POST /instance/restart: no cura una línea sorda (informe del 11/11)');
@@ -138,3 +158,9 @@ test('5. el cableado: corre en el cron alerta-critica; ningún `restart` en el c
 //   S5 sin recortar lo de antes de vincularse                                      → falla el 2
 //   S6 vuelve el reinicio en el primer aviso                                       → fallan el 4 y el 5
 //   S7 el cron sin el detector                                                     → falla el 5
+// ── Probado rompiéndolo (12/11/2026, «no está sorda» no es «volvió»; base 5/0) ──────────────────────────────────────────
+//   D1 la versión de antes: cualquier «no está sorda» cierra la marca               → fallan el 3 y el 4
+//   D2 el cron sin pasarle la prueba (`lectura.ultimaPersonaMs`)                     → fallan el 4 y el 5
+//   D3 la marca vieja no se borra (sólo se escribe si hay una nueva)                 → falla el 4
+//   D4 la tanda atrasada (con su hora vieja) cuenta como prueba                      → fallan el 3 y el 4
+//   D5 sin limpiar la marca de un dispositivo viejo                                  → fallan el 3 y el 4

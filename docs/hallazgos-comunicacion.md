@@ -20,6 +20,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 - **«MaKo no responde» puede ser que el clasificador dijo CHARLA** (12/11/2026, Mauricio). La charla es «no pide nada», y el turno la
   leía como «no hay nada que contestar»: 8 de las 12 charlas calladas de una semana traían una aclaración, una objeción o la respuesta
   a lo último que se dijo. Antes de mirar la línea, mirar `anthropic_usage` (`clase-doer`). Ver «La charla callaba lo que traía algo», abajo.
+- **Una voz sorda de noche no la ve nadie hasta las 9** (12/11/2026). De noche no escribe nadie, el testigo (la línea de Martín) estaba
+  atrasado también, y los acuses siguen llegando a una línea sorda. Y «no sé» se leía como «volvió»: cada noche a las 23 se borraba la
+  marca con un mail falso. Ver «La voz sorda de noche», abajo.
 - **El freno de la línea callaba también la RESPUESTA, y lo que no llegaba se guardaba como dicho** (11/11/2026). Un 403 de UN
   chat dejaba a MaKo mudo 6 horas en todos los grupos, y nadie se enteraba: ni el vigía, ni un ticket. Ahora la respuesta al grupo
   donde alguien acaba de escribir pasa el freno, y la que WhatsApp no toma abre su ticket. Ver «MaKo se callaba con la línea frenada».
@@ -121,6 +124,36 @@ relleno) y queda en charla: la oferta no se cumple (lib/mako-intencion-ia.ts, el
 lead se contesta pero no hace nada: la consulta es de sólo lectura y no pasa el lead a contactado (lib/doer-hilo.ts, `laCharlaConAlgo`).
 (4) Después del deploy, medir cuántas `clase:consultar` con «charla con algo adentro» salen por día y cuántas terminaron en «era todo
 relleno».
+
+---
+
+## La voz sorda de noche: el detector no la puede ver, y «no sé» se leía como «volvió» (12/11/2026, claude5)
+
+**Síntoma:** la voz (`mako_superadmin_muylqv8r`) dejó de recibir después de las 00:40 UTC del 12/11 (21:40 de Argentina): el mensaje de
+Mauricio de las 05:44 UTC no llegó a Evolution. El detector de la voz sorda (`vigilarSorderaDeLaVoz`, lib/canal-vigilante.ts) no la
+marcó ni avisó: la campanita `voz-sorda` no salió NUNCA (0 en toda la historia; se desplegó el 11/11 a la noche, minutos antes de que se
+re-vinculara la voz).
+**Por qué no la vio (medido en sólo lectura, con el store real de esa noche):**
+- La regla de las 3 h sin una persona recién podía decidir a las 03:40 UTC (00:40 de Argentina), ya fuera del horario activo (9 a 23):
+  de noche contesta «fuera de horario». Con el store real, la marca sale a las 12:00 UTC (9 de Argentina) si sigue sorda.
+- **De noche no puede decidir, y está bien que no:** entre las 3 y las 8 de Argentina no escribió nadie en 8 días (87 mensajes de personas
+  en total). Cualquier regla de silencio daría una falsa alarma cada noche. De día también hay huecos de 4 a 7 h sin sordera.
+- **El testigo estaba enfermo también:** la prueba directa es la otra línea (la de Martín, `mako_ws9`) viendo en los grupos lo que la voz
+  no; esa noche estaba marcada con 23 h de atraso (`mako.lineas.atrasadas`), así que no vio nada a tiempo. Las líneas de los negocios
+  no están en los grupos de MaKo (0 mensajes compartidos en 12 h): no sirven de testigo.
+- **Los acuses no sirven de latido (el diagnóstico obvio era el equivocado):** las líneas atrasadas (ws20, ws21, ws22, ws9) siguen
+  recibiendo «entregado» y «leído» de lo que mandan mientras los mensajes les llegan con 24 a 33 h de atraso. Y el store de la voz no
+  guarda los acuses: `MessageUpdate` viene vacío también cuando recibía bien.
+**El bug, al lado:** «no está sorda» se leía como «volvió». `estaSorda` contesta que no también cuando no puede decidir (de noche, o si
+MaKo no mandó nada), y `queHacerConLaSordera` cerraba la marca: cada noche a las 23, con la voz sorda, salía un mail de «volvió a
+recibir» falso, la marca se borraba y el panel perdía el QR en un paso hasta las 9. **La regla:** «volvió» sólo con la prueba, un
+mensaje de una persona con hora POSTERIOR a la marca (lib/linea-sorda.ts). Lo que llega tarde, en tanda, trae su hora vieja y no cuenta.
+Re-vinculada después de marcarla, la marca es de otro dispositivo: se limpia sin aviso. Lo fijan tests/linea-sorda.test.ts 3 y 4 (la
+noche del 12/11 con el store real; roturas D1-D5).
+**Sin hacer (lo decide Martín):** ver una voz sorda de noche pide una prueba ACTIVA, un mensaje que otra línea manda y la voz tiene que
+recibir. El único emisor posible hoy es la línea de Martín (su WhatsApp personal, que además recibe atrasada) o un número testigo nuevo
+en los grupos. Hasta entonces, una sordera que empieza después de las 20 de Argentina se ve recién a las 9. La causa de fondo (Baileys
+rc.9 en Railway) la llevan el Cerebro y Martín.
 
 ---
 

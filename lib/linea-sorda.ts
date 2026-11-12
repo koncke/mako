@@ -102,10 +102,20 @@ export type MarcaDeSordera = { desde: string; avisadaAt: string | null; linea?: 
 export type Accion = 'nada' | 'avisar' | 'pedir-qr' | 'volvio';
 
 /** Qué hacer ahora, y la marca que queda. `marca` null = no estaba sorda. La marca vieja (`reiniciadaAt`/`qrPedidoAt`, la versión que
- *  reiniciaba) se lee igual: lo último que se avisó. */
-export function queHacerConLaSordera(sorda: boolean, marca: MarcaDeSordera | null, ahoraMs: number, extra: Pick<MarcaDeSordera, 'linea' | 'vinculadaDesde' | 'motivo'> = {}): { accion: Accion; marca: MarcaDeSordera | null } {
+ *  reiniciaba) se lee igual: lo último que se avisó.
+ *  ⚠️ «NO ESTÁ SORDA» NO ES «VOLVIÓ» (12/11/2026). `estaSorda` dice que no también cuando no puede decidir: de noche («fuera de
+ *  horario»: nadie escribe entre las 3 y las 8 de Argentina, medido en 8 días) o si MaKo no mandó nada. Con eso, cada noche a las 23 la
+ *  marca se borraba con un mail de «volvió a recibir» falso, y el panel perdía el QR en un paso. Volvió sólo con la PRUEBA: un mensaje
+ *  de una persona con hora POSTERIOR a la marca (`ultimaPersonaMs`; lo que llega tarde, en tanda, trae su hora vieja y no cuenta). Si
+ *  la re-vincularon después de marcarla, la marca es de otro dispositivo: se limpia sin aviso, que nadie escribió todavía. */
+export function queHacerConLaSordera(sorda: boolean, marca: MarcaDeSordera | null, ahoraMs: number, extra: Pick<MarcaDeSordera, 'linea' | 'vinculadaDesde' | 'motivo'> = {}, ultimaPersonaMs: number | null = null): { accion: Accion; marca: MarcaDeSordera | null } {
   const ahora = new Date(ahoraMs).toISOString();
-  if (!sorda) return marca ? { accion: 'volvio', marca: null } : { accion: 'nada', marca: null };
+  if (!sorda) {
+    if (!marca) return { accion: 'nada', marca: null };
+    if (ultimaPersonaMs != null && ultimaPersonaMs > Date.parse(marca.desde)) return { accion: 'volvio', marca: null };
+    if (extra.vinculadaDesde != null && marca.vinculadaDesde != null && extra.vinculadaDesde > marca.vinculadaDesde) return { accion: 'nada', marca: null };
+    return { accion: 'nada', marca };
+  }
   if (!marca) return { accion: 'avisar', marca: { desde: ahora, avisadaAt: ahora, ...extra } };
   const vieja = marca as MarcaDeSordera & { qrPedidoAt?: string | null; reiniciadaAt?: string | null };
   const ultimo = vieja.avisadaAt ?? vieja.qrPedidoAt ?? vieja.reiniciadaAt ?? null;

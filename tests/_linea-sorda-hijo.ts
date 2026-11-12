@@ -79,6 +79,28 @@ async function main() {
   storeVoz.pop();
   vinculo.disconnectionAt = '2026-11-11T21:50:20.391Z';
   await corrida('reVinculada', '2026-11-11T23:30:00Z');
+  // ── La noche del 12/11 (lo que pasó de verdad): Mauricio escribió a las 00:40 UTC (21:40 de Argentina), MaKo mandó a la 01:04, 02:50 y
+  // 03:31 (avisos de los crons), y desde ahí no entró nada: el mensaje de Mauricio de las 05:44 no llegó. La regla de las 3 h recién
+  // podía decidir a las 03:40 UTC, de noche. Va después de todo y sobre la misma vinculación (21:50:20). ──
+  const noche: Record<string, unknown> = {};
+  const MAURICIO = '120363421096661065@g.us';
+  storeVoz.push(persona('MB-0040', '2026-11-12T00:40:48Z', MAURICIO, 'Mauricio Bustos Eguía'), propio('MK-0104', '2026-11-12T01:04:00Z', MAURICIO),
+    propio('MK-0250', '2026-11-12T02:50:00Z', MAURICIO), propio('MK-0331', '2026-11-12T03:31:00Z', CODIGO));
+  const enLaNoche = async (k: string, iso: string) => { await corrida(`noche:${k}`, iso); noche[k] = out[`noche:${k}`]; delete out[`noche:${k}`]; };
+  await enLaNoche('antesDeLas9', '2026-11-12T08:50:00Z'); // 05:50 de Argentina: no decide
+  await enLaNoche('alas9', '2026-11-12T12:00:00Z');       // 09:00: la marca, con el QR
+  await enLaNoche('alas2330', '2026-11-13T02:30:00Z');    // 23:30: fuera de horario, la marca QUEDA
+  storeVoz.push(persona('MB-0544', '2026-11-12T05:44:00Z', MAURICIO, 'Mauricio Bustos Eguía')); // la tanda: llega un día tarde, con su hora
+  await enLaNoche('tanda', '2026-11-13T06:00:00Z');
+  storeVoz.push(persona('MB-1300', '2026-11-13T13:00:00Z', MAURICIO, 'Mauricio Bustos Eguía'));
+  await enLaNoche('volvio', '2026-11-13T13:05:00Z');      // escribió alguien después de la marca: volvió
+  // Marcada sobre la vinculación de las 21:50:20 y re-vinculada a las 20:00 del 13 (otro QR), sin nadie que escriba todavía: la marca es
+  // de un dispositivo que ya no existe. Se limpia (el panel no soltaría la línea nueva) y sin el «volvió»: nadie lo probó.
+  const fila = pg.db.app_settings.find((s) => s.key === 'mako.voz.sorda');
+  if (fila) fila.value = JSON.stringify({ desde: '2026-11-13T14:00:00.000Z', avisadaAt: '2026-11-13T14:00:00.000Z', linea: VOZ, vinculadaDesde: Date.parse('2026-11-11T21:50:20.391Z'), motivo: 'x' });
+  vinculo.disconnectionAt = '2026-11-13T20:00:00.000Z';
+  await enLaNoche('reVinculadaConMarca', '2026-11-13T23:00:00Z');
+  out.nocheDel12 = noche;
   process.stdout.write(`@@SORDA@@${JSON.stringify(out)}\n`);
 }
 

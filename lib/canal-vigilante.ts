@@ -495,9 +495,11 @@ export async function vigilarSorderaDeLaVoz(ahora = Date.now()): Promise<{ sorda
   let marca: MarcaDeSordera | null = null;
   try { const c = await runWithWorkspace(wsSA, () => getSettingEstricto(KEY_SORDERA)); marca = c ? (JSON.parse(c) as MarcaDeSordera) : null; } catch { return { sorda, motivo: `${motivo} (no pude leer la marca: no hago nada)`, accion: 'nada', voz }; }
   // La marca lleva la línea y la vinculación sobre la que se midió: con eso el panel la suelta y da el QR en un paso.
-  const { accion, marca: nueva } = queHacerConLaSordera(sorda, marca, ahora, { linea: voz, vinculadaDesde: vinculadaDesdeMs, motivo });
+  // «Volvió» sólo con la prueba: una persona con hora posterior a la marca (12/11/2026, lib/linea-sorda.ts). Sin decidir —de noche, o si
+  // MaKo no mandó nada— la marca queda; si la re-vincularon, se limpia sin aviso (`nueva` null con `accion: 'nada'`).
+  const { accion, marca: nueva } = queHacerConLaSordera(sorda, marca, ahora, { linea: voz, vinculadaDesde: vinculadaDesdeMs, motivo }, lectura.ultimaPersonaMs);
   if (accion === 'nada') {
-    if (nueva && JSON.stringify(nueva) !== JSON.stringify(marca)) await runWithWorkspace(wsSA, () => setSetting(KEY_SORDERA, JSON.stringify(nueva))).catch(() => {});
+    if (JSON.stringify(nueva) !== JSON.stringify(marca)) await runWithWorkspace(wsSA, () => setSetting(KEY_SORDERA, nueva ? JSON.stringify(nueva) : '')).catch(() => {});
     return { sorda, motivo, accion, voz };
   }
   if (accion !== 'volvio') console.error(`[canal-vigilante] ⛔ la voz ${voz} no recibe (${motivo}): aviso con el QR`);
