@@ -160,6 +160,10 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
   - «Nota por nota», con las barras del 1 al 10 (9 criterios en cada una);
   - al lado, la nota (41 y 47), lo más flojo, «Mejorar ángulos» o «Mejorar tu voz» y «Lo que leí»;
   - «Mejorar» en una nota abre la acción en esa parte, con el chat en ese punto.
+- **Después, sin pedido nuevo (revisando todos los estados):**
+  - «Sin nada todavía» también tiene Ángulos y Tu voz, con el molde de borrador de la oferta: los primeros ángulos que arma MaKo con las respuestas y lo que le falta;
+  - «8 · Teléfono» estaba en blanco desde la octava vuelta (llamaba a `operacion()`, que pasó a ser la acción). Ahora muestra en el teléfono el análisis, la acción y el piloto de Oferta y comunicación.
+  - Sigue de antes: en «Sin nada todavía», la acción de la oferta muestra los datos de Federico.
 
 **Pedido de la decimoctava vuelta (Martín, 12/11, sobre `maqueta-diecisiete.html`).**
 1. Sacar «Formatos»: se ve al crear el contenido, y para eso están los outliers de las tabs.
