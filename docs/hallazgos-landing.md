@@ -102,6 +102,25 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   - **Las fuentes de las referencias van en `public/vsl-assets/fuentes/<familia>/`** (OFL, woff2): la política de seguridad
     del sitio no deja cargar Google Fonts.
   - **El tsc acotado de los 54 archivos de las landings pasó con `--heap=6000`**; con el tope por defecto (2560) muere sin heap.
+- **Cuarta vuelta (12/11/2026, claude5): el visor de Martín y las fotos de AI Avatar.**
+  - **Lo que Martín veía en el visor («Landings de MaKo», un artifact) NO estaba en producción.** El visor son fotos de `main`
+    tomadas con `next dev`; producción había quedado en `a23bad24f`, antes de los textos del 12/11 (`23ed3633e`, `a4d60b930`)
+    y del sitio estilo beehiiv (`/vsl/sitio` daba 404). El diagnóstico obvio («si está en el visor, está en el aire») era el
+    equivocado. Antes de decir «en producción»: `git merge-base --is-ancestor <sha> <sha-que-sirve-el-dominio>`.
+  - **Un artifact publicado desde otra cuenta de Claude no se actualiza en su URL**: la herramienta lo trata como de otra
+    organización (no hay permiso de escritura). La versión nueva sale con otra URL, desde la cuenta que trabaja. El primer visor
+    se armó en la nube y su fuente no quedó en disco: lo que sí quedó escrito es cómo se arma, en `docs/relevo/landings-vsl.md`.
+  - **Mirar una landing sin `next dev`** (con varios chats abiertos no entra en la RAM, y la guardia frena hasta el `tsc`):
+    `renderToStaticMarkup` de `LandingCompetencia` + el CSS global + un servidor estático sobre `public/` + Chromium headless y
+    mudo. Sirve para lo que no hidrata (fotos, tipografía, layout, el ancho a 375); los gráficos que se dibujan al hidratar
+    salen vacíos (ver arriba). Dos trampas del script suelto fuera del repo: `import 'react'` no resuelve desde la carpeta del
+    script (va con `createRequire(<worktree>/package.json)`), y en Windows el `import()` de una ruta `C:\…` necesita
+    `pathToFileURL(…).href` (si no, `ERR_UNSUPPORTED_ESM_URL_SCHEME`).
+  - **El hero de AI Avatar lleva las imágenes REALES de los presets** (`public/formatos/presets/`, con la cara de Martín; él lo
+    aprobó: «Sí, con imágenes»): tres plantillas de venta en abanico (`ESCENAS_AVATAR` en `ai-avatar.ts`), la principal con la
+    primera frase de su gancho como subtítulo. El visual se comparte con los pasos: cada paso esconde por CSS lo que no le toca
+    (`.mk-c-av-foto`, `.mk-c-av-escenas`, `.mk-c-av-tel-lado`). En el teléfono de un costado se ve un tercio: su nombre se
+    esconde a menos de 560 px, y el de la derecha va contra su borde derecho, que es el que no tapa el principal.
 
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 

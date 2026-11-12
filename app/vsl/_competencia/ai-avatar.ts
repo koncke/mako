@@ -43,10 +43,10 @@
 // =============================================================================
 
 import { CATEGORIAS, PLANTILLAS_AVATAR } from '@/lib/ai-avatar/plantillas';
-import { PLANTILLAS_VENTA_AVATAR } from '@/lib/ai-avatar/plantillas-venta';
+import { PLANTILLAS_VENTA_AVATAR, PRESETS_NUEVOS_VENTA, ganchoDeEjemplo } from '@/lib/ai-avatar/plantillas-venta';
 import { CONSEJO_FOTO } from '@/lib/ai-avatar/estudio';
 import { CREDITOS } from '@/lib/ai-avatar/requisitos';
-import type { LandingCompetencia } from './tipos';
+import type { EscenaAvatar, LandingCompetencia } from './tipos';
 
 const I = {
   avatar: ['M10 9a2 2 0 1 0 4 0a2 2 0 0 0 -4 0', 'M4 8v-2a2 2 0 0 1 2 -2h2', 'M4 16v2a2 2 0 0 0 2 2h2', 'M16 4h2a2 2 0 0 1 2 2v2', 'M16 20h2a2 2 0 0 0 2 -2v-2', 'M8 16a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2'],
@@ -58,10 +58,25 @@ const I = {
   guion: ['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z', 'M9 9l1 0', 'M9 13l6 0', 'M9 17l6 0'],
 };
 
-// El ejemplo del visual: la primera plantilla de venta, con su escena y la primera línea de su guion (el gancho).
-const EJEMPLO = PLANTILLAS_VENTA_AVATAR[0];
-const ESCENA_EJEMPLO = PLANTILLAS_AVATAR.find((p) => p.id === EJEMPLO.presetId);
-const GANCHO_EJEMPLO = EJEMPLO.ejemplo.guion.split('\n')[1] ?? '';
+// El visual del hero: tres plantillas de venta con la IMAGEN REAL de su preset (public/formatos/presets/, hechas en Flow con
+// la cara de Martín; él lo aprobó el 12/11/2026: «Sí, con imágenes»). HeyGen pone ahí el video de un creador; MaKo, tu
+// cara en tres escenas. La primera es la principal: lleva la primera frase de su gancho como subtítulo. Se eligieron por
+// la imagen (una selfie, la calle con micrófono, el podcast): las tres se leen al primer vistazo como un anuncio UGC.
+const ESCENAS_DEL_HERO = ['respondo-comentario', 'entrevista-calle', 'episodio-podcast'] as const;
+const PRESETS = [...PLANTILLAS_AVATAR, ...PRESETS_NUEVOS_VENTA];
+
+/** La primera oración de lo que dice el avatar en el gancho: es lo que entra en el subtítulo de un teléfono. */
+function primeraFrase(texto: string): string {
+  const m = texto.match(/^.+?[.!?»](?=\s|$)/);
+  return (m ? m[0] : texto).trim();
+}
+
+export const ESCENAS_AVATAR: EscenaAvatar[] = ESCENAS_DEL_HERO.flatMap((id) => {
+  const p = PLANTILLAS_VENTA_AVATAR.find((x) => x.id === id);
+  const preset = p ? PRESETS.find((x) => x.id === p.presetId) : undefined;
+  if (!p || !preset?.ejemplo?.poster) return [];
+  return [{ escena: p.nombre, poster: preset.ejemplo.poster, frase: primeraFrase(ganchoDeEjemplo(p).dice), segundos: p.duracion }];
+});
 
 const N_ESCENAS = PLANTILLAS_AVATAR.length;
 const N_ESTILOS = CATEGORIAS.length;
@@ -81,7 +96,7 @@ export const LANDING_AI_AVATAR: LandingCompetencia = {
       titulo: 'Anuncios de video estilo UGC con tu cara, sin contratar creadores',
       bajada: 'Genera anuncios de video UGC con <strong>tu avatar de IA</strong>, que se ven y se sienten como un video grabado con el celular. Produce más anuncios para TikTok, Instagram y Meta sin tener que coordinar creadores, negociar tarifas ni esperar entregas.',
       puntos: ['Una foto de tu cara alcanza para empezar', 'Actualiza el anuncio cuando cambie tu oferta: cambias el guion y lo vuelves a generar'],
-      visual: { tipo: 'avatar', escena: EJEMPLO.nombre, estilo: ESCENA_EJEMPLO?.categoria ?? 'UGC y TikTok', frase: GANCHO_EJEMPLO, segundos: EJEMPLO.duracion },
+      visual: { tipo: 'avatar', escenas: ESCENAS_AVATAR },
     },
     {
       tipo: 'cifras',

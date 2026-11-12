@@ -335,7 +335,7 @@ const CSS = `
 .d-ai-avatar-checks { display: flex; flex-direction: column; gap: 10px; }
 .d-ai-avatar-checks li, .d-ai-avatar-final-checks li { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 16px; line-height: 24px; }
 .d-ai-avatar-tilde { flex: none; color: var(--d-av-azul); }
-.d-ai-avatar-video { position: relative; border-radius: 24px; background: #000; padding: 40px 24px; display: flex; align-items: center; justify-content: center; min-height: 460px; }
+.d-ai-avatar-video { position: relative; overflow: hidden; border-radius: 24px; background: #000; padding: 40px 24px; display: flex; align-items: center; justify-content: center; min-height: 460px; }
 
 /* El visual de AI Avatar (sus clases viven en LandingCompetencia; acá van con el marco de HeyGen) */
 .d-ai-avatar .mk-c-av { display: flex; align-items: center; justify-content: center; gap: 14px; }
@@ -344,12 +344,25 @@ const CSS = `
 .d-ai-avatar .mk-c-av-foto-t { font-size: 14px; font-weight: 600; color: #12151B; line-height: 1.3; }
 .d-ai-avatar .mk-c-av-foto-d { font-size: 12px; line-height: 1.35; color: #6B7280; }
 .d-ai-avatar .mk-c-av-flecha { flex: none; color: #6E9BF5; display: inline-flex; }
-.d-ai-avatar .mk-c-av-tel { flex: none; width: 216px; aspect-ratio: 9 / 16; padding: 7px; border-radius: 30px; background: #22252C; box-shadow: 0 28px 60px -30px rgba(16,19,25,.6); }
-.d-ai-avatar .mk-c-av-escena { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 24px; background: linear-gradient(170deg, #F3C989 0%, #D9925A 38%, #8E5A3A 72%, #4A3424 100%); }
-.d-ai-avatar .mk-c-av-escena::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 70% 18%, rgba(255,255,255,.35), transparent 42%); pointer-events: none; }
+/* Las escenas: la principal al frente y las otras dos abiertas en abanico detrás, como tres anuncios del mismo avatar */
+.d-ai-avatar .mk-c-av-escenas { display: flex; align-items: center; justify-content: center; }
+.d-ai-avatar .mk-c-av-tel { position: relative; z-index: 2; flex: none; width: 216px; aspect-ratio: 9 / 16; padding: 7px; border-radius: 30px; background: #22252C; box-shadow: 0 28px 60px -30px rgba(16,19,25,.6); }
+.d-ai-avatar .mk-c-av-tel-lado { z-index: 1; width: 172px; }
+.d-ai-avatar .mk-c-av-escenas > .mk-c-av-tel-lado:first-child { margin-right: -46px; transform: rotate(-7deg) translateY(14px); }
+.d-ai-avatar .mk-c-av-escenas > .mk-c-av-tel-lado:last-child { margin-left: -46px; transform: rotate(7deg) translateY(14px); }
+.d-ai-avatar .mk-c-av-escena { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 24px; background: linear-gradient(170deg, #3A3F4A 0%, #1D2027 100%); }
+.d-ai-avatar .mk-c-av-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.d-ai-avatar .mk-c-av-escena::after { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(to top, rgba(0,0,0,.62), transparent 44%); pointer-events: none; }
+.d-ai-avatar .mk-c-av-tel-lado .mk-c-av-escena::after { background: linear-gradient(to top, rgba(0,0,0,.45), rgba(0,0,0,.18) 50%); }
 .d-ai-avatar .mk-c-av-pill { position: absolute; top: 12px; left: 12px; z-index: 2; max-width: calc(100% - 64px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 9px; border-radius: 999px; background: rgba(16,19,25,.55); color: #fff; font-size: 10.5px; line-height: 1.3; font-weight: 600; }
+.d-ai-avatar .mk-c-av-tel-lado .mk-c-av-pill { max-width: calc(100% - 50px); }
+/* El de la derecha queda medio tapado por el principal: su nombre va contra su borde derecho, que es el que se ve. */
+.d-ai-avatar .mk-c-av-escenas > .mk-c-av-tel-lado:last-child .mk-c-av-pill { left: auto; right: 12px; }
 .d-ai-avatar .mk-c-av-dur { position: absolute; top: 17px; right: 12px; z-index: 2; font-size: 10.5px; line-height: 1.3; font-weight: 600; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.85); }
-.d-ai-avatar .mk-c-av-sil { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 72%; }
+/* En el hero van sólo las escenas, un poco más grandes: el marco negro de HeyGen es el video de un creador */
+.d-ai-avatar-video .mk-c-av-foto, .d-ai-avatar-video .mk-c-av-flecha { display: none; }
+.d-ai-avatar-video .mk-c-av-tel { width: 236px; }
+.d-ai-avatar-video .mk-c-av-tel-lado { width: 184px; }
 .d-ai-avatar .mk-c-av-sub { position: absolute; left: 12px; right: 12px; bottom: 16px; z-index: 2; margin: 0; text-align: center; font-size: 13px; line-height: 1.38; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.55); }
 .d-ai-avatar .mk-c-av-sub span { animation-name: dAvPalabra; animation-iteration-count: infinite; animation-timing-function: steps(1, end); }
 @keyframes dAvPalabra { 0% { color: #fff; } 6% { color: #F2B01E; } 18%, 100% { color: #fff; } }
@@ -398,10 +411,14 @@ const CSS = `
 .d-ai-avatar-paso-img { position: relative; display: flex; align-items: center; justify-content: center; min-height: 450px; }
 .d-ai-avatar-paso-pieza { transform: rotate(-9deg); transition: transform .4s ease; }
 .d-ai-avatar-paso:hover .d-ai-avatar-paso-pieza { transform: rotate(-5deg) scale(1.02); }
-.d-ai-avatar-paso-img-1 .mk-c-av-flecha, .d-ai-avatar-paso-img-1 .mk-c-av-tel { display: none; }
+.d-ai-avatar-paso-img-1 .mk-c-av-flecha, .d-ai-avatar-paso-img-1 .mk-c-av-escenas { display: none; }
 .d-ai-avatar-paso-img-1 .d-ai-avatar-paso-pieza { transform: rotate(-9deg) scale(1.7); }
 .d-ai-avatar-paso:hover .d-ai-avatar-paso-img-1 .d-ai-avatar-paso-pieza { transform: rotate(-5deg) scale(1.74); }
+/* Paso 2 («Elige tu escena»): las tres escenas en abanico, casi derechas. Paso 3: tu foto → el anuncio, sin las de los lados. */
 .d-ai-avatar-paso-img-2 .mk-c-av-foto, .d-ai-avatar-paso-img-2 .mk-c-av-flecha { display: none; }
+.d-ai-avatar-paso-img-2 .d-ai-avatar-paso-pieza { transform: rotate(-3deg); }
+.d-ai-avatar-paso:hover .d-ai-avatar-paso-img-2 .d-ai-avatar-paso-pieza { transform: rotate(-1deg) scale(1.02); }
+.d-ai-avatar-paso-img-3 .mk-c-av-tel-lado { display: none; }
 .d-ai-avatar-paso-img-3 .d-ai-avatar-paso-pieza { transform: rotate(-4deg) scale(.92); }
 .d-ai-avatar-paso-txt { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 10px; padding: 20px 50px; }
 .d-ai-avatar-paso-n { padding: 6px 12px; border-radius: 80px; background: var(--d-av-azul-claro); color: var(--d-av-azul); font-family: var(--d-av-tit); font-size: 15px; line-height: 22.5px; font-weight: 700; }
@@ -529,13 +546,23 @@ const CSS = `
   .d-ai-avatar-pie-grid { grid-template-columns: 1fr; gap: 40px; }
   .d-ai-avatar-pie-cols { grid-template-columns: 1fr 1fr; }
 }
+@media (max-width: 560px) {
+  /* El abanico entra en el ancho del teléfono: 116 + 150 + 116 − 2 × 42 ≈ 300 px. La duración se va para que entre el nombre. */
+  .d-ai-avatar .mk-c-av-tel, .d-ai-avatar-video .mk-c-av-tel { width: 150px; padding: 5px; border-radius: 22px; }
+  .d-ai-avatar .mk-c-av-tel-lado, .d-ai-avatar-video .mk-c-av-tel-lado { width: 116px; }
+  .d-ai-avatar .mk-c-av-escena { border-radius: 18px; }
+  .d-ai-avatar .mk-c-av-escenas > .mk-c-av-tel-lado:first-child { margin-right: -42px; transform: rotate(-7deg) translateY(10px); }
+  .d-ai-avatar .mk-c-av-escenas > .mk-c-av-tel-lado:last-child { margin-left: -42px; transform: rotate(7deg) translateY(10px); }
+  .d-ai-avatar .mk-c-av-pill { top: 8px; left: 8px; max-width: calc(100% - 16px); padding: 4px 7px; font-size: 9px; }
+  /* A este tamaño, de los de los lados se ve un tercio: sin su nombre, y sin la duración del principal. */
+  .d-ai-avatar .mk-c-av-tel-lado .mk-c-av-pill, .d-ai-avatar .mk-c-av-dur { display: none; }
+  .d-ai-avatar .mk-c-av-sub { left: 8px; right: 8px; bottom: 10px; font-size: 11px; }
+}
 @media (max-width: 420px) {
   .d-ai-avatar-btn { font-size: 16px; padding: 0 13px; }
   .d-ai-avatar .mk-c-av { gap: 8px; }
   .d-ai-avatar .mk-c-av-foto { width: 96px; padding: 12px 6px; }
   .d-ai-avatar .mk-c-av-foto-cara { width: 48px; height: 48px; }
-  .d-ai-avatar .mk-c-av-tel { width: 170px; }
-  .d-ai-avatar .mk-c-av-sub { font-size: 11.5px; }
   .d-ai-avatar-final-checks li { font-size: 16px; }
 }
 `;

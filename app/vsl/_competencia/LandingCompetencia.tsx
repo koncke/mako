@@ -319,12 +319,14 @@ const CSS = `
 .mk-c-av-foto-t { font-size: 14px; font-weight: 600; color: #12151B; }
 .mk-c-av-foto-d { font-size: 12px; line-height: 1.35; color: #6B7280; }
 .mk-c-av-flecha { flex: none; color: #2F6FED; }
-.mk-c-av-tel { flex: none; width: 216px; aspect-ratio: 9 / 16; padding: 7px; border-radius: 30px; background: #12151B; box-shadow: 0 28px 60px -30px rgba(16,19,25,.6); }
-.mk-c-av-escena { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 24px; background: linear-gradient(170deg, #F3C989 0%, #D9925A 38%, #8E5A3A 72%, #4A3424 100%); }
-.mk-c-av-escena::after { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 70% 18%, rgba(255,255,255,.35), transparent 42%); pointer-events: none; }
+.mk-c-av-escenas { display: flex; align-items: center; justify-content: center; }
+.mk-c-av-tel { position: relative; z-index: 2; flex: none; width: 216px; aspect-ratio: 9 / 16; padding: 7px; border-radius: 30px; background: #12151B; box-shadow: 0 28px 60px -30px rgba(16,19,25,.6); }
+.mk-c-av-tel-lado { display: none; }
+.mk-c-av-escena { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 24px; background: linear-gradient(170deg, #3A3F4A 0%, #1D2027 100%); }
+.mk-c-av-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.mk-c-av-escena::after { content: ''; position: absolute; inset: 0; z-index: 1; background: linear-gradient(to top, rgba(0,0,0,.62), transparent 44%); pointer-events: none; }
 .mk-c-av-pill { position: absolute; top: 12px; left: 12px; z-index: 2; max-width: calc(100% - 64px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 9px; border-radius: 999px; background: rgba(16,19,25,.55); color: #fff; font-size: 10.5px; font-weight: 600; backdrop-filter: blur(4px); }
 .mk-c-av-dur { position: absolute; top: 17px; right: 12px; z-index: 2; font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; color: rgba(255,255,255,.85); }
-.mk-c-av-sil { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 72%; }
 .mk-c-av-sub { position: absolute; left: 12px; right: 12px; bottom: 16px; z-index: 2; margin: 0; text-align: center; font-size: 13px; line-height: 1.38; font-weight: 700; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.55); }
 .mk-c-av-sub span { animation-name: mkCavPalabra; animation-iteration-count: infinite; animation-timing-function: steps(1, end); }
 @keyframes mkCavPalabra { 0% { color: #fff; } 6% { color: #F2B01E; } 18%, 100% { color: #fff; } }

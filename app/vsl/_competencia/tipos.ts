@@ -43,9 +43,15 @@ export type Bloque =
   /** Una fila de logos de lo que se conecta (sólo logos que existen en /vsl-assets/logos). */
   | { tipo: 'logos'; titulo: string; items: { logo: string; nombre: string }[] };
 
+/** Una escena del visual de AI Avatar: la imagen REAL del preset (public/formatos/presets/, hecha en Flow con la cara de
+ *  Martín) y lo que dice el avatar. Todo sale del código de la función: el nombre de la plantilla de venta, la imagen de su
+ *  preset, la primera frase de su gancho y los segundos del ejemplo. */
+export type EscenaAvatar = { escena: string; poster: string; frase: string; segundos: number };
+
 /** El visual de la portada. Cada función tiene el suyo, dibujado en ./Visuales.tsx. */
 export type VisualHero =
-  | { tipo: 'avatar'; escena: string; estilo: string; frase: string; segundos: number }
+  /** AI Avatar: tu foto → tus escenas. La primera es la principal (con su subtítulo); las otras van a sus lados. */
+  | { tipo: 'avatar'; escenas: readonly EscenaAvatar[] }
   /** Lo que ya tiene la landing de /vsl de ese slug: su mini-VSL de Panda si lo tiene, si no su gráfico de portada. */
   | { tipo: 'detalle'; slug: string }
   /** Un visual propio de la función, dibujado en ./visuales-propios/<slug>.tsx (para las funciones que no tenían landing en /vsl). */

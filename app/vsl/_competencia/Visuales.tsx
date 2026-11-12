@@ -1,21 +1,47 @@
 // =============================================================================
 // Los visuales de la portada de las landings que copian a un competidor (app/vsl/_competencia)
 // =============================================================================
-// Un visual por función, dibujado con HTML y CSS (las clases viven en ./LandingCompetencia.tsx). No usa fotos de nadie:
-// el avatar es una silueta. Lo que dice el subtítulo y el nombre de la escena salen del código de la función (lo pasa
-// el bloque `hero`), nunca escritos acá.
+// Un visual por función, dibujado con HTML y CSS (las clases viven en ./LandingCompetencia.tsx). El de AI Avatar usa las
+// imágenes REALES de sus presets (public/formatos/presets/, hechas en Flow con la cara de Martín; él lo aprobó el 12/11/2026:
+// «Sí, con imágenes»): antes era una silueta sobre un degradado. Lo que dice el subtítulo, el nombre de la escena y la
+// imagen salen del código de la función (lo pasa el bloque `hero`), nunca escritos acá.
 // =============================================================================
 
-import type { VisualHero } from './tipos';
+import type { EscenaAvatar, VisualHero } from './tipos';
 import { FEATURES } from '../_detalle/features';
 import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
 import { Visual } from '../_detalle/Visual';
 import PandaPlayer from '../_detalle/PandaPlayer';
 import { VISUALES_PROPIOS } from './visuales-propios';
 
-/** AI Avatar: tu foto → la escena → el video vertical, con el subtítulo de la plantilla. */
-function Avatar({ escena, estilo, frase, segundos }: Extract<VisualHero, { tipo: 'avatar' }>) {
-  const palabras = frase.split(/\s+/).filter(Boolean);
+/** Un teléfono con la imagen real de una escena. El principal lleva la duración y el subtítulo que se va pintando; los de
+ *  los lados, sólo el nombre de su escena. */
+function Telefono({ e, principal }: { e: EscenaAvatar; principal: boolean }) {
+  const palabras = principal ? e.frase.split(/\s+/).filter(Boolean) : [];
+  return (
+    <div className={principal ? 'mk-c-av-tel' : 'mk-c-av-tel mk-c-av-tel-lado'}>
+      <div className="mk-c-av-escena">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img className="mk-c-av-img" src={e.poster} alt="" width={540} height={968} loading={principal ? 'eager' : 'lazy'} decoding="async" />
+        <span className="mk-c-av-pill">{e.escena}</span>
+        {principal ? <span className="mk-c-av-dur">0:{String(e.segundos).padStart(2, '0')}</span> : null}
+        {principal ? (
+          <p className="mk-c-av-sub">
+            {palabras.map((p, i) => (
+              <span key={i} style={{ animationDelay: `${(i * 0.32).toFixed(2)}s`, animationDuration: `${(palabras.length * 0.32 + 1.6).toFixed(2)}s` }}>{p} </span>
+            ))}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** AI Avatar: tu foto → tus escenas, en video vertical, con el subtítulo de la plantilla en la principal. Cada diseño elige
+ *  qué partes muestra (el hero, sólo las escenas; el paso 1, sólo la foto). */
+function Avatar({ escenas }: Extract<VisualHero, { tipo: 'avatar' }>) {
+  const [principal, izquierda, ...resto] = escenas;
+  if (!principal) return null;
   return (
     <div className="mk-c-av" aria-hidden="true">
       <div className="mk-c-av-foto">
@@ -28,23 +54,10 @@ function Avatar({ escena, estilo, frase, segundos }: Extract<VisualHero, { tipo:
       <span className="mk-c-av-flecha">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="M13 18l6 -6" /><path d="M13 6l6 6" /></svg>
       </span>
-      <div className="mk-c-av-tel">
-        <div className="mk-c-av-escena">
-          <span className="mk-c-av-pill">{estilo} · {escena}</span>
-          <span className="mk-c-av-dur">0:{String(segundos).padStart(2, '0')}</span>
-          <svg className="mk-c-av-sil" viewBox="0 0 120 150" preserveAspectRatio="xMidYMax meet">
-            <defs>
-              <linearGradient id="mkcav" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3B3226" /><stop offset="1" stopColor="#1D1912" /></linearGradient>
-            </defs>
-            <circle cx="60" cy="52" r="24" fill="url(#mkcav)" />
-            <path d="M14 150c0-34 20-58 46-58s46 24 46 58z" fill="url(#mkcav)" />
-          </svg>
-          <p className="mk-c-av-sub">
-            {palabras.map((p, i) => (
-              <span key={i} style={{ animationDelay: `${(i * 0.32).toFixed(2)}s`, animationDuration: `${(palabras.length * 0.32 + 1.6).toFixed(2)}s` }}>{p} </span>
-            ))}
-          </p>
-        </div>
+      <div className="mk-c-av-escenas">
+        {izquierda ? <Telefono e={izquierda} principal={false} /> : null}
+        <Telefono e={principal} principal />
+        {resto.map((e) => <Telefono key={e.poster} e={e} principal={false} />)}
       </div>
     </div>
   );

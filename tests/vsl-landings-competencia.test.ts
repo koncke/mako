@@ -117,3 +117,23 @@ test('AI Avatar cuenta sus escenas, estilos y plantillas del código', () => {
   // Lo que todavía no hace se dice como tal (lib/funciones-mako.ts → noHace).
   assert.match(textoVisible(html), /Todavía no\. El video habla con una voz generada/);
 });
+
+test('el hero de AI Avatar muestra las imágenes reales de sus presets, no una silueta', () => {
+  // Martín, 12/11/2026: «Sí, con imágenes». Las de public/formatos/presets/, hechas en Flow con su cara.
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'ai-avatar');
+  assert.ok(l, 'falta la landing de AI Avatar');
+  const hero = l.bloques.find((b) => b.tipo === 'hero');
+  assert.ok(hero && hero.tipo === 'hero' && hero.visual.tipo === 'avatar', 'el hero de AI Avatar sin su visual de avatar');
+  const escenas = hero.visual.escenas;
+  assert.equal(escenas.length, 3, 'el hero lleva tres escenas: la principal y una a cada lado');
+  for (const e of escenas) {
+    assert.match(e.poster, /^\/formatos\/presets\/[a-z0-9-]+\.jpg$/, `${e.escena}: la imagen no es de un preset`);
+    assert.ok(existsSync(join(RAIZ, 'public', e.poster)), `${e.escena}: falta ${e.poster}`);
+    assert.ok(PLANTILLAS_VENTA_AVATAR.some((p) => p.nombre === e.escena), `${e.escena}: no es una plantilla de venta`);
+  }
+  // La frase del subtítulo es la primera oración del gancho: entra en el teléfono.
+  assert.ok(escenas[0].frase.split(/\s+/).length <= 16, `subtítulo largo: «${escenas[0].frase}»`);
+  const html = dibujar(l);
+  for (const e of escenas) assert.ok(html.includes(`src="${e.poster}"`), `no se dibuja ${e.poster}`);
+  assert.doesNotMatch(html, /mk-c-av-sil/, 'vuelve la silueta');
+});

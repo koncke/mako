@@ -115,4 +115,15 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/vsl/copywriting',
   },
+  {
+    fecha: '12 nov', hora: '07:20', chat: 'Landings de /vsl', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'AI Avatar con las imágenes reales de sus escenas en la portada',
+    puntos: [
+      'Martín aprobó poner imágenes reales de avatares en el hero («Sí, con imágenes»): van tres plantillas de venta con la imagen de su preset (public/formatos/presets/, con su cara), en abanico, la principal con la primera frase de su gancho. La silueta se fue.',
+      'Los pasos «Elige tu escena» y «Genera tu anuncio» usan las mismas imágenes. Mirado a 1440 y a 375, sin scroll horizontal.',
+      '⚠️ Producción servía a23bad24f, antes de los textos del 12/11 y del sitio estilo beehiiv: lo que Martín vio en el visor estaba en main y no en el aire.',
+    ],
+    revisar: '/vsl/ai-avatar',
+  },
 ];
