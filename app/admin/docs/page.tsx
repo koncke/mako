@@ -35,28 +35,29 @@ export const dynamic = 'force-dynamic';
 /** Los que se abren primero: el orden en que conviene leerlos. */
 const PRIMEROS = ['AGENTS', 'mapa-del-proyecto', 'hallazgos', 'dos-cuentas', 'conectores', 'chats', 'corridas-multiagente'];
 
-// ⚠️ LA CARPETA NO VA ESCRITA (12/11/2026): con `readdirSync(join(raiz, CARPETA_DOCS))` el trazado de la build metía TODA docs/ en
-// la función, con las capturas de pruebas y las maquetas, y pasó los 250 MB de Vercel (el deploy de d9b6802e8 cayó con
-// NOW_SANDBOX_WORKER_MAX_LAMBDA_SIZE: /admin/docs en 253 MB). Con el nombre armado al correr, el trazado no la sigue y sólo
-// viaja lo de `outputFileTracingIncludes` en next.config.ts: los .md y AGENTS.md.
-const CARPETA_DOCS = process.env.MAKO_DOCS_DIR || ['do', 'cs'].join('');
+// ⚠️ EL TRAZADO NO SIGUE ESTAS LECTURAS (12/11/2026). Con `readdirSync(join(process.cwd(), 'docs'))` la build de Turbopack
+// metía TODA docs/ en la función —capturas de pruebas y maquetas incluidas— y pasó los 250 MB de Vercel (deploy de d9b6802e8:
+// /admin/docs en 253 MB, NOW_SANDBOX_WORKER_MAX_LAMBDA_SIZE). Armar el nombre de la carpeta al correr fue PEOR: con una parte
+// desconocida el trazado mete el proyecto entero (8e1c58ce7: 511 MB). Lo que corta el trazado es el comentario
+// `turbopackIgnore` sobre `process.cwd()` (es el arreglo que sugiere el propio aviso de Turbopack). Los .md viajan igual,
+// por `outputFileTracingIncludes` de next.config.ts: './docs/**/*.md' y './AGENTS.md'.
+const enDocs = (...partes: string[]) => join(/*turbopackIgnore: true*/ process.cwd(), 'docs', ...partes);
 
 function cargar(): { docs: Doc[]; error?: string } {
-  const raiz = process.cwd();
   try {
-    const archivos = readdirSync(join(raiz, CARPETA_DOCS))
+    const archivos = readdirSync(enDocs())
       .filter((f) => f.endsWith('.md'))
-      .map((f) => ({ slug: f.replace(/\.md$/, ''), ruta: join(raiz, CARPETA_DOCS, f), rel: `docs/${f}` }));
+      .map((f) => ({ slug: f.replace(/\.md$/, ''), ruta: enDocs(f), rel: `docs/${f}` }));
 
-    archivos.unshift({ slug: 'AGENTS', ruta: join(raiz, 'AGENTS.md'), rel: 'AGENTS.md' });
+    archivos.unshift({ slug: 'AGENTS', ruta: join(/*turbopackIgnore: true*/ process.cwd(), 'AGENTS.md'), rel: 'AGENTS.md' });
 
     // Las transcripciones viven en su propia carpeta para no ahogar la lista:
     // son 49 contra 22. Sus slugs arrancan con `chat-`, que es lo que las manda
     // al grupo «Chats» del final.
     try {
-      for (const f of readdirSync(join(raiz, CARPETA_DOCS, 'chats'))) {
+      for (const f of readdirSync(enDocs('chats'))) {
         if (f.endsWith('.md')) {
-          archivos.push({ slug: f.replace(/\.md$/, ''), ruta: join(raiz, CARPETA_DOCS, 'chats', f), rel: `docs/chats/${f}` });
+          archivos.push({ slug: f.replace(/\.md$/, ''), ruta: enDocs('chats', f), rel: `docs/chats/${f}` });
         }
       }
     } catch { /* todavía no hay transcripciones exportadas */ }
