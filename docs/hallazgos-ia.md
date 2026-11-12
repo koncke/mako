@@ -4,6 +4,20 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## Una nota de voz de 4 s tardaba de 11 a ~105 s: Gemini escuchaba primero (12/11/2026, medido en producción)
+
+**Síntoma:** en el chat de Image, grabar una nota y mandarla dejaba «Enviando…» hasta 105 s; la misma nota, medida tres veces
+contra `/api/plan-dictado` (ws 9): 16 s, 11 s y más de 29 s. La transcripción salía bien: el problema era sólo el tiempo.
+
+**Causa:** el orden de escucha es `CASCADA_STT = ['gemini', 'groq', 'openai']`, y `gemini-flash-latest` se cuelga hasta su plazo de
+60 s por cuenta (`sttGemini`, `AbortSignal.timeout(60000)`), cuenta por cuenta, antes de llegar a Groq (Whisper, ~1-2 s). Lo mismo
+que se había medido el 28/10 con los grupos de WhatsApp (`notaDeVozDelGrupo`), que ya iban con Groq primero; las notas de los chats y
+el dictado no.
+
+**La regla:** una nota CORTA que alguien está esperando (`notaDeVozCorta`, la pide /api/plan-dictado, que es la ruta de todas las
+cajas de chat y del dictado) escucha con Groq primero, y Gemini queda de respaldo (no se saca, como en los grupos). El audio de un
+anuncio o de una clase sigue con la cascada de siempre. Test: tests/stt-red.test.ts.
+
 ## No hay caché de prompt: cada llamada del turno de WhatsApp paga sus ~9.900 tokens de entrada enteros (11/11/2026, medido)
 
 **Lo medido** (`anthropic_usage`, 7 días): `mako-doer-in` hizo 101 llamadas en Haiku 4.5, con 9.916 tokens de entrada y 108 de salida

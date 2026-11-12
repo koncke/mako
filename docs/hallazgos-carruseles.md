@@ -39,9 +39,26 @@ vio sólo poniendo cada lámina dibujada AL LADO de la original.
   tipografía (`libre` cuenta las fotos PUESTAS, no los cuadros que leyó la IA).
 - El prompt sin ejemplos de composición; pide describir sólo lo que se ve.
 
-**Sin hacer:** los mockups de pantallas del original (las capturas de una app) no tienen equivalente: la mitad de esas láminas queda
-con tipografía. La miniatura deja a la persona chica en una esquina cuando el original la pone grande al centro. La foto de la cara de
-marca no entra si la IA no marca ningún cuadro como `retrato` (en @vilmanunez se eligió «Mi cara de marca» y la portada salió sin él).
+**Segunda vuelta, el mismo día (el Cerebro mirando las capturas lado a lado):**
+- **El marco**: el JSON no podía decir una línea divisoria ni una tarjeta, así que la lámina 2 de @lifeofarjav quedó «un muro de
+  texto sobre fondo liso». Ahora `formas` (linea / caja con color, borde, radio y sombra) va DEBAJO de todo, y el color de cada texto
+  se mide contra la tarjeta que tiene detrás, no contra el fondo (un blanco sobre tarjeta blanca de una lámina oscura no se leía).
+  Los textos del marco (el @, el «02 / 06», el pie) son textos con su papel.
+- **El @**: el prompt pedía «nunca un @», y un tuit o un encabezado SON su @. Ahora la IA escribe el comodín `@usuario` y el código
+  pone el del negocio (si está cargado) o lo saca: el handle nunca lo escribe la IA (la trampa del 6/11: inventaba `@martinkoncke`).
+- **El avatar de un tuit**: `forma: circulo` en el cuadro → el `slot` del editor con `mask: 'circle'` (cuadrado, aunque la IA mida un
+  rectángulo). `redondeado` para fotos en tarjeta.
+- ⚠️ **La cara de marca: el diagnóstico obvio era el equivocado.** Parecía que la cara no entraba nunca; entró en las láminas 7 y 10
+  y faltaba en la PORTADA, que tiene gente. Y convertir esa escena en su retrato es justo lo que se descartó el 11/11 (la foto del
+  negocio pegada como si fuera el lugar). `conLaCara`: si la portada tiene una persona y no lleva su cara, se le suma un retrato
+  REDONDO sobre la esquina de su foto; sin personas en el original, no va (un paisaje sin nadie no lleva su cara).
+- **La miniatura**: un retrato de menos del 70 % del alto crece a todo el alto (Dan Martell: la IA lo dejó chico en una esquina).
+
+**Sin hacer:** los mockups de pantallas del original (las capturas de una app) no tienen equivalente: esas zonas quedan con
+tipografía. **La persona SIN FONDO** (lo que pidió el Cerebro para la miniatura) no se puede en el servidor: `onnxruntime-node` está
+excluido del deploy a propósito (next.config.ts, llenaba el disco). El editor ya tiene un «Quitar fondo» en el navegador
+(onnxruntime-web) APAGADO porque no hay modelo alojado; prenderlo (MODNet, Apache-2.0, ~25 MB, servido desde hola-mako.com con su
+sha256) es la vía, y espera el sí del Cerebro.
 
 ## «Tu versión» de @jasonrewired_: letras encimadas, la composición perdida y la persona fuera de lugar (11/11/2026)
 

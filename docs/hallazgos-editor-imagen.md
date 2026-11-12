@@ -49,6 +49,27 @@ Con las dos, «Enviar audio» queda en 354→398. El Video Editor tiene el mismo
 
 ---
 
+## «Replicar» y «Usar plantilla» sin preguntar, y el editor en el teléfono (12/11/2026, segunda vuelta)
+
+**Sin preguntar** (memoria `replicar-deja-todo-escrito`): «Editar» arranca a escribir con lo de por defecto
+(`respuestasPorDefecto`, lib/carruseles/guiado.ts: la oferta principal, su cara, sólo los textos) y lo demás va DESPUÉS, al lado
+de «Abrir el diseño» («Para «otra oferta»», «Sin mi foto», «Con mis colores»; cada uno es otra vuelta del armado). Las preguntas
+quedan para «Cambiar algo». ⚠️ El pedido se congela por su VALOR: la lectura de «¿tiene persona?» termina mientras se arma, cambia
+`hechos`, y con un pedido recalculado por referencia el armado arrancaba de nuevo a la mitad.
+«Usar plantilla» (una con contenido: un carrusel por tipo o una plantilla real; un formato en blanco no) abre con `?escribir=1` y el
+chat de MaKo escribe cada texto de guía para el negocio (`conNegocio`: el chat de siempre no lleva el negocio, son tokens) con
+[DATO: …] donde falte, y como la plantilla está sin tocar la deja escrita sin «Aceptar». La dirección pierde el `escribir` en el
+acto: recargar no escribe encima.
+
+**El teléfono:** el encabezado de cada página medía 372 px con la página en 279 y la pantalla en 375: el último ícono quedaba
+afuera. ⚠️ **No era el mínimo de 372: era una regla que nunca ganó.** `@container (max-width: 440px) { .meta { display: none } }`
+estaba ARRIBA de `.meta { display: inline-flex }` con la misma especificidad, así que el tamaño («1080 × 1350 px») no se iba nunca,
+y por eso alguien había subido el mínimo a 372. Con `.header .meta` la regla gana, y el mínimo baja a 260. Medido inyectando las
+reglas en producción. La barra de abajo pedía 477 px en 375 («Herramie…»): repartida por contenido y sin el piso de 60 px, entra.
+Una regla de un `@container` ubicada antes que la regla base, con la misma especificidad, no hace nada: se mira el orden.
+
+---
+
 ## El panel «Diseño» estuvo vacío cinco días: el buscador nunca encontraba nada (11/11/2026)
 
 **Síntoma:** en el editor, el panel «Diseño» mostraba un buscador y «Todas las plantillas», y buscar «lista» contestaba «Ninguna
