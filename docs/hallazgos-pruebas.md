@@ -276,3 +276,9 @@ sueltos, y la cabecera del teléfono con el título tapado por una pastilla.
 - **La regla:** antes de probar, `/api/auth/me` en la pestaña propia (nunca darlo por sabido de la mañana). Sin sesión de Martín en
   ninguno de los dos, no se prueba en el otro: se pide que Martín vuelva a entrar (lo pide el Cerebro). En el Chrome con Leandro no se toca nada.
 
+
+## En el navegador de la app con el panel oculto, `loading="lazy"` no carga nada (11/11/2026, Web Generator)
+
+Midiendo la portada de outliers, `document.images` daba 0 de 42 cargadas a los 8 s: con el panel escondido la página no se pinta,
+y una imagen diferida espera a estar cerca de la pantalla, que nunca llega. No es una falla de la página. Para medir el peso, se
+piden las imágenes con `fetch` (o se pasan a `eager`) y se suman; para mirarlas, se repite `resize_window` antes de la captura.

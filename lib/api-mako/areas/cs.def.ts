@@ -290,4 +290,15 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },
+  {
+    // EL NEGOCIO POR SU NOMBRE (11/11/2026): «¿cuánto va a pagar Código Inmobiliario…?» y MaKo no sabía que era el 13. Sólo la
+    // plataforma (a un cliente no se le cuenta qué otros negocios hay); sin HTTP. Al final del área (AGENTS.md).
+    id: 'buscar_negocio', area: 'cs', tipo: 'lectura',
+    titulo: 'Buscar un negocio de la plataforma',
+    descripcion: 'Sólo para la plataforma: qué negocio es un nombre o un número («Código Inmobiliario», «Leila», «13»), sin importar las tildes. Devuelve su número de cuenta, su nombre, su capa, si está en pausa, la agencia que lo administra y, si es una agencia, sus clientes. Sin montos. Con más de uno, pregunta cuál.',
+    parametros: [
+      { nombre: 'nombre', rotulo: 'Nombre o número', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre del negocio (o parte: todas sus palabras) o su número.' },
+    ],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
 ];

@@ -74,36 +74,104 @@ export function puntoDeCursor({
 	return caja ? lugarEn(caja, agente) : null;
 }
 
-/** Cada cuánto se corre el cursor de un agente que trabaja sin un renglón nuevo. */
-export const PASEO_MS = 900;
+/**
+ * Cada cuánto un agente pasa a la tarea siguiente, y cuánto tarda su cursor en llegar. Martín (11/11/2026, mirando el GIF):
+ * «tiene que funcionar mucho más rápido… que pasen los cursores todos juntos al mismo tiempo… se tiene que notar la
+ * automatización».
+ */
+export const PASEO_MS = 520;
+export const TRANSICION_CURSOR_MS = 260;
+
+// ── Las tareas: cada cursor va a algo REAL del editor y lo trabaja (11/11/2026) ─────────────────────────────────────────
+// Martín, el mismo día: «los cursores se mueven random para todos lados… tienen que moverse de tal manera que estén
+// trabajando, hagan cosas». En el reel de referencia (la rama `referencias/reels-0911`, `edicion-mako.mp4`, mirado cuadro por
+// cuadro cada 0,25 s) cada cursor AGARRA algo: el recuadro del subtítulo en el video (con su caja de selección y el cursor en
+// la esquina, ajustándolo), un clip de la línea de tiempo, un efecto de la biblioteca, una rueda de color. Y todos a la vez.
+// Así: cada agente tiene SUS objetivos (los cortes, los clips; los subtítulos, los textos y el cuadro del subtítulo; el B-roll,
+// los medios de la biblioteca…), va a uno, lo marca con una caja de su color y queda en su esquina; a la vuelta siguiente,
+// al otro. Un renglón con hora («marca una pausa en 00:03») lo lleva a ESE segundo de la línea de tiempo.
+
+/** Lo que hay para tocar, medido en el DOM (./components/cursores.tsx). */
+export type Objetivos = {
+  /** Los clips de video e imagen de la línea de tiempo. */
+  clips: readonly Caja[];
+  /** Los textos y subtítulos de la línea de tiempo. */
+  textos: readonly Caja[];
+  /** Los clips de audio. */
+  audios: readonly Caja[];
+  /** Los controles del panel de propiedades. */
+  controles: readonly Caja[];
+  /** Los medios de la biblioteca. */
+  medios: readonly Caja[];
+  /** El cuadro del video en el reproductor, y la franja donde van los subtítulos. */
+  cuadro: Caja | null;
+  subtitulo: Caja | null;
+};
+
+export const SIN_OBJETIVOS: Objetivos = { clips: [], textos: [], audios: [], controles: [], medios: [], cuadro: null, subtitulo: null };
+
+type Fuente = keyof Objetivos;
+
+/** Lo que toca cada agente, por su rol (./plan.ts). El primero que tenga algo es el que se usa más. */
+export const OBJETIVOS_DE: Record<AgenteId, readonly Fuente[]> = {
+  "corte-01": ["clips", "audios"],
+  "corte-02": ["clips", "textos"],
+  "subs-01": ["textos", "subtitulo"],
+  "subs-02": ["subtitulo", "textos"],
+  "subs-03": ["subtitulo", "controles"],
+  "broll-01": ["medios", "clips"],
+  "gfx-01": ["cuadro", "controles"],
+  "mezcla-01": ["audios", "controles"],
+  "mezcla-02": ["controles", "audios"],
+  "qa-01": ["cuadro", "clips", "textos"],
+};
+
+/** Lo que hace un agente en una vuelta: la caja que trabaja (con su color) y dónde queda su cursor. */
+export type Tarea = { caja: Caja; punto: Punto };
+
+const cajasDe = (o: Objetivos, f: Fuente): readonly Caja[] => {
+  const v = o[f];
+  return v == null ? [] : Array.isArray(v) ? v : [v as Caja];
+};
+
+/** El cursor en la esquina de abajo a la derecha, adentro: como quien ajusta lo que seleccionó. */
+const esquina = (c: Caja): Punto => ({ x: c.left + Math.max(4, c.width - 10), y: c.top + Math.max(4, c.height - 8) });
 
 /**
- * Adónde va el cursor de un agente que TRABAJA: su punto (`puntoDeCursor`) y, desde la vuelta 1, un poco corrido, sin
- * salir de su caja. Martín (11/11/2026): los cursores son «súper importante que esté en todo momento». Medido en
- * producción ese día: de los 58 s de una edición automática, subs-01 transcribió 42 con el cursor clavado en el mismo
- * píxel, y un cursor quieto parece colgado. Con la hora del video se corre a lo largo de la línea de tiempo (como quien
- * la recorre); en su panel, alrededor de su lugar. Sin azar: la misma vuelta da el mismo lugar, y el ángulo de oro no
- * repite el lugar de la vuelta anterior. La vuelta 0 es el punto exacto (un renglón nuevo lleva el cursor ahí).
+ * La tarea de un agente en esta vuelta. Con la hora del video (`en`), el corte en ESE segundo de la línea de tiempo, de la altura
+ * del clip que cae ahí. Sin hora, uno de sus objetivos: los del mismo rol se reparten (cada uno empieza en otro) y avanzan uno por
+ * vuelta, sin azar. Sin nada medido, su panel (`puntoDeCursor`), sin caja.
  */
-export function puntoTrabajando(args: {
-	agente: AgenteId;
-	en: number | null;
-	zonas: Partial<Record<Zona, Caja>>;
-	linea: LineaMedida | null;
-	vuelta: number;
-}): Punto | null {
-	const punto = puntoDeCursor(args);
-	if (!punto || args.vuelta <= 0) return punto;
-	const { agente, en, zonas, linea, vuelta } = args;
-	const caja = en !== null && linea && linea.pps > 0 ? linea.caja : zonas[ZONA_DE[agente]];
-	if (!caja) return punto;
-	const i = Math.max(0, AGENTES.findIndex((a) => a.id === agente));
-	const angulo = vuelta * 2.39996 + i * 1.7;
-	// ±42 px se veía como un temblor (mirado a 1440 el 11/11/2026): hasta un cuarto del panel, como quien trabaja.
-	const x = punto.x + Math.cos(angulo) * Math.min(110, caja.width * 0.22);
-	const y = punto.y + Math.sin(angulo) * Math.min(48, caja.height * 0.12);
-	return {
-		x: Math.min(caja.left + caja.width - 12, Math.max(caja.left + 4, x)),
-		y: Math.min(caja.top + caja.height - 12, Math.max(caja.top + 4, y)),
-	};
+export function tareaDeAgente(args: {
+  agente: AgenteId;
+  en: number | null;
+  vuelta: number;
+  zonas: Partial<Record<Zona, Caja>>;
+  linea: LineaMedida | null;
+  objetivos: Objetivos;
+}): Tarea | { caja: null; punto: Punto } | null {
+  const { agente, en, vuelta, linea, objetivos } = args;
+  if (en !== null && linea && linea.pps > 0) {
+    const x = Math.min(linea.caja.left + linea.caja.width - 20, Math.max(linea.caja.left + 4, linea.caja.left + en * linea.pps - linea.scrollLeft));
+    const fila = [...objetivos.clips, ...objetivos.textos, ...objetivos.audios].find((c) => x >= c.left && x <= c.left + c.width);
+    const caja: Caja = fila ? { left: x - 10, top: fila.top, width: 20, height: fila.height } : { left: x - 10, top: linea.caja.top + 8, width: 20, height: Math.max(20, linea.caja.height * 0.3) };
+    return { caja, punto: esquina(caja) };
+  }
+  const todas = OBJETIVOS_DE[agente].flatMap((f) => cajasDe(objetivos, f));
+  if (todas.length) {
+    const i = Math.max(0, AGENTES.findIndex((a) => a.id === agente));
+    const caja = todas[(vuelta + i * 3) % todas.length];
+    return { caja, punto: esquina(caja) };
+  }
+  const p = puntoDeCursor({ agente, en: null, zonas: args.zonas, linea });
+  return p ? { caja: null, punto: p } : null;
+}
+
+/** Las dos cajas del reproductor que se trabajan aunque sean un canvas: el cuadro entero y la franja del subtítulo. */
+export function cajasDelCuadro(canvas: Caja | null): { cuadro: Caja | null; subtitulo: Caja | null } {
+  if (!canvas || canvas.width <= 0 || canvas.height <= 0) return { cuadro: null, subtitulo: null };
+  return {
+    cuadro: canvas,
+    subtitulo: { left: canvas.left + canvas.width * 0.12, top: canvas.top + canvas.height * 0.6, width: canvas.width * 0.76, height: canvas.height * 0.14 },
+  };
 }

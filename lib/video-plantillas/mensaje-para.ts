@@ -152,6 +152,9 @@ export const PLANTILLA_MENSAJE_PARA = {
   referencia: {
     creador: { nombre: 'Josep Casas', usuario: 'soyjosepcasas' },
     url: 'https://www.instagram.com/reel/DdTdIIPDzHU/',
+    // Su portada de Instagram (la de los pistachos), servida por nosotros: la de su CDN vence a las horas (11/11/2026, Martín:
+    // «ni siquiera se ve la miniatura»).
+    miniatura: '/ve/plantillas/mensaje-para.jpg',
     red: 'instagram' as const,
     formato: 'reel' as const,
   },

@@ -47,7 +47,7 @@ import {
 } from './replica';
 import { imagenDeVideo, urlDeVideo, type Thumbnail } from '../thumbnails/explorar';
 import { LAMINAS_DE_LA_LECTURA, PROMPT_LECTURA, fotoDelGuiado, leerLectura, type Lectura, type PedidoGuiado } from './guiado';
-import type { OfertaDelPrompt } from './replica';
+import type { OfertaDelPrompt, Replica } from './replica';
 
 /** La función de la IA para el registro del uso y la puerta de «sólo su IA» (lib/model-catalogo.ts). */
 export const FEATURE_REPLICA = 'carrusel-replica';
@@ -292,15 +292,60 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   }
 
   const estilo = estiloSinSerif(estiloConKit((tipoCarrusel((c ? estructuraDe(c).tipo : null) ?? 'lista') ?? tipoCarrusel('lista'))!.estilo, kit, fuenteDelEditorDeImagen), kit);
-  const doc = documentoDeReplica({ replica, estilo, marca, foto, nuevoId: randomUUID, notas: t ? notasDeMiniatura(t) : notasDeReplica(c as Carrusel), conFuentesDeMarca: !!kit?.fuentes.titulos });
+  // La escena PARECIDA de cada cuadro de tipo «escena» (11/11/2026): nunca la foto del negocio pegada como si fuera el lugar.
+  const escenas = await escenasParecidas(ws, replica, !!o.seco);
+  const notasBase = t ? notasDeMiniatura(t) : notasDeReplica(c as Carrusel);
+  const notas = replica.lectura ? `${notasBase}
+
+Lo que leí del original: ${replica.lectura}` : notasBase;
+  const doc = documentoDeReplica({ replica, estilo, marca, foto, nuevoId: randomUUID, notas, conFuentesDeMarca: !!kit?.fuentes.titulos, escenas });
   mostrar(doc);
   const titulo = `${miniatura ? 'Miniatura' : anuncio ? 'Anuncio' : 'Carrusel'} · ${replica.titulo}`.slice(0, 120);
-  const aviso = foto || !replica.laminas.some((l) => l.foto?.persona) ? null : 'Sube tu foto en AI Avatar o en tu cara de marca y va donde el ejemplo tiene una persona.';
+  const cuadros = replica.laminas.flatMap((l) => l.cuadros ?? []);
+  const retratoSinFoto = !foto && cuadros.some((x) => x.tipo === 'retrato' && x.persona);
+  const personaEnEscena = !!foto && cuadros.some((x) => x.tipo === 'escena' && x.persona);
+  const aviso = retratoSinFoto
+    ? 'Sube tu foto en AI Avatar o en tu cara de marca y va donde el ejemplo tiene una persona.'
+    : personaEnEscena
+      ? 'Puse un lugar parecido al del original, sin gente. Ponerte a ti dentro de esa escena todavía no está.'
+      : null;
   if (o.seco) return { ok: true, id: '(seco)', titulo, aviso, doc, vistas: imagenes.length, errores };
   const r = await crearDiseno(ws, quien, { titulo, doc });
   if (!r.ok) return { ok: false, error: r.error, falla: true };
   avisar({ fase: 'fin', ok: true, id: r.id, titulo, aviso });
   return { ok: true, id: r.id, titulo, aviso, vistas: imagenes.length };
+}
+
+/**
+ * La escena PARECIDA de cada cuadro «escena» de la réplica (11/11/2026): una foto libre del banco (Openverse y Picsum,
+ * lib/imagenes-stock.ts) por cada búsqueda que escribió la IA (en inglés, «rocky beach at sunset»), copiada a nuestro bucket.
+ * UNA por búsqueda: el original repite el mismo lugar en todas sus láminas, y la réplica también. En seco, se busca sin copiar
+ * (la URL del proveedor: no se guarda nada). Hasta 3 búsquedas. Nunca tira: sin foto, el cuadro queda con el color de fondo.
+ */
+async function escenasParecidas(ws: number, replica: Replica, seco: boolean): Promise<Map<string, FotoDelCliente>> {
+  const out = new Map<string, FotoDelCliente>();
+  const cuadros = replica.laminas.flatMap((l) => l.cuadros ?? []).filter((c) => c.tipo === 'escena' && c.busqueda);
+  const busquedas = [...new Set(cuadros.map((c) => c.busqueda))].slice(0, 3);
+  if (!busquedas.length) return out;
+  const { buscarStock, buscarYCopiar } = await import('../imagenes-stock');
+  for (const q of busquedas) {
+    try {
+      const c = cuadros.find((x) => x.busqueda === q)!;
+      const orientacion = c.ancho * 1080 >= c.alto * 1350 ? 'horizontal' : 'vertical';
+      let url: string | null = null;
+      if (seco) { const r = await buscarStock(q, 1, orientacion); url = r.ok ? r.fotos[0]?.grande ?? null : null; }
+      else url = await buscarYCopiar(q, ws, orientacion);
+      if (!url) continue;
+      const r = await fetch(url, { signal: AbortSignal.timeout(ESPERA_IMAGEN_MS * 2), cache: 'no-store' });
+      if (!r.ok) continue;
+      const medidas = medidasDeImagen(new Uint8Array(await r.arrayBuffer()));
+      if (!medidas) continue;
+      out.set(q, { id: '', url, ancho: medidas.ancho, alto: medidas.alto });
+    } catch (e) {
+      console.warn(`[carruseles] sin escena parecida para «${q.slice(0, 60)}»:`, e instanceof Error ? e.message : e);
+    }
+  }
+  return out;
 }
 
 /** Las notas de la miniatura (no salen en la imagen): de qué video salió el diseño. */

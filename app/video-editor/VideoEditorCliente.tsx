@@ -37,7 +37,9 @@ import { fijarEspacio } from './espacio';
 import type { DesdeEditor } from './desde/desde';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { SenalesNegocioProvider } from './sugeridas';
-import { EJEMPLOS_NUEVO_VIDEO, GENERAR_CON_IA, PERSONAJE_CON_IA, destinoDe, plantillasNuevoVideo, rutaDePlantilla, type LienzoNuevo } from './plantillas-crear';
+import { cambiarHilo, conId } from './_opencut/chat/hilo';
+import { recetaDe, textoDeReceta } from '@/lib/video-recetas';
+import { EJEMPLOS_NUEVO_VIDEO, GENERAR_CON_IA, LIENZO_GUIADO, PERSONAJE_CON_IA, destinoDe, plantillasNuevoVideo, rutaDePlantilla, type LienzoNuevo } from './plantillas-crear';
 import { empezarGuia } from './guia/estado';
 import { RUTA_CREAR_VIDEO } from './vista';
 import { ejemploDeVideo, type EjemploVideo } from '@/lib/editor-video/plantillas-ejemplos';
@@ -68,6 +70,13 @@ type Props = {
   senales?: SenalesNegocio | null;
   /** El «Replicar» de un outlier (`?replicar=`, ya validado en ./vista.ts): arma ese proyecto guiado al abrir. */
   replicar?: string | null;
+  /**
+   * Al entrar a la tab sin pedir nada (./vista.ts → `abreElEditor`): 'editor' abre el lienzo de edición (el último proyecto, o
+   * uno vertical nuevo). Martín, 11/11/2026: «que se note que ahí se editan videos antes de que ahí sean full Outliers».
+   */
+  alEntrar?: 'editor' | 'crear';
+  /** El «Replicar» de una receta (`?receta=`, validado en ./vista.ts): arma su proyecto y MaKo la dice en el chat. */
+  receta?: string | null;
 };
 
 export function VideoEditorCliente(props: Props) {
@@ -116,7 +125,7 @@ async function duplicar(id: string, nombre: string, nombres: readonly string[]):
   await editor.project.renameProject({ id: nuevo, name: nombreLibre(nombre.replace(/\s\(\d+\)$/, ''), nombres) });
 }
 
-function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, senales = null, replicar = null }: Props) {
+function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, senales = null, replicar = null, alEntrar = 'crear', receta = null }: Props) {
   const router = useRouter();
   const editor = vista === 'editor' && !!proyectoId;
   // El proyecto abierto de verdad: mientras se importa o se arma uno (`?desde=`, `?plantilla=`), la URL dice «nuevo».
@@ -208,6 +217,41 @@ function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, sen
       router.replace(RUTA_CREAR_VIDEO);
     });
   }, [replicar]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // EL EDITOR PRIMERO (11/11/2026, Martín: «En lugar de la vista de Outliers, que esté la vista del lienzo de edición, donde
+  // están todas las configuraciones de edición, y que de última ahí haya un lugarcito para seleccionar ciertos Outliers, por
+  // ejemplo donde se hace la importación»). Entrando a la tab sin pedir nada, se abre el último proyecto (la lista ya viene del
+  // más reciente: ./proyectos.ts) y, sin ninguno, uno vertical nuevo. Los outliers: Multimedia › «Outliers», al lado de
+  // «Importar». «Nuevo video» (`?ver=crear`) sigue mostrando las plantillas.
+  // «Replicar» de una RECETA (lib/video-recetas.ts; 11/11/2026, Martín: «replicarlo y que arme el proyecto»): el proyecto
+  // vertical con el nombre de la receta y, en su chat, MaKo con la receta entera (estructura, grabación con avatar o con otra
+  // persona, y la edición). El chat une lo escrito acá con lo que traiga la base al abrir (_opencut/chat/hilo.ts → cargarHilo).
+  const recetaHecha = useRef(false);
+  useEffect(() => {
+    const r = recetaDe(receta);
+    if (!r || recetaHecha.current) return;
+    recetaHecha.current = true;
+    proyectoConLienzo(LIENZO_GUIADO, r.nombre)
+      .then((id) => {
+        cambiarHilo(id, (h) => ({ ...h, mensajes: [...h.mensajes, conId({ de: 'mako', texto: textoDeReceta(r) })] }));
+        if (montado.current) router.replace(`/video-editor/${id}`);
+      })
+      .catch(() => {
+        if (!montado.current) return;
+        toast.error('No pude armar el proyecto. Vuelve a intentar.');
+        router.replace(RUTA_CREAR_VIDEO);
+      });
+  }, [receta]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const entrado = useRef(false);
+  useEffect(() => {
+    if (alEntrar !== 'editor' || editor || replicar || receta || entrado.current || !proyectos) return;
+    entrado.current = true;
+    if (proyectos[0]) { router.replace(`/video-editor/${proyectos[0].id}`); return; }
+    proyectoConLienzo(LIENZO_GUIADO, 'Mi video')
+      .then((id) => { if (montado.current) router.replace(`/video-editor/${id}`); })
+      .catch(() => { entrado.current = false; toast.error('No pude abrir el editor. Vuelve a intentar.'); });
+  }, [alEntrar, editor, replicar, proyectos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pieza = !editor ? null
     : desde ? <ImportarDesde desde={desde} />

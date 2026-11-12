@@ -8,6 +8,48 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## «Tu versión» de @jasonrewired_: letras encimadas, la composición perdida y la persona fuera de lugar (11/11/2026)
+
+**Síntoma (Martín):** «se superponen las letras… no siguió para nada la estética del carrusel original. La idea era ponerme a
+mí en el lugar del influencer, o de última en un paisaje parecido, y con la división de pantalla como lo tiene». El original
+(pieza −1378): cada lámina son DOS cuadros apilados de la misma playa al atardecer, con un subtítulo blanco chico abajo de cada uno.
+MaKo hizo UNA foto de fondo y un titular grande al centro.
+
+**Tres causas, medidas sobre el diseño que vio (`e9d65c62…`, ws 9):**
+1. **Las letras.** La IA devolvió el titular como DOS textos («¿Te preocupa lo que», top 513; «piensan de tu oferta?», top 648).
+   A 97 px el de arriba no entra en 864 px, el editor lo parte en dos y mide 226 px (el alto de fabric: cuerpo × 1,13 ×
+   (interlineado × (renglones − 1) + 1)), no los 206 que guardábamos: termina en 739 y pisa al de abajo. Nadie medía:
+   `altoEstimado` contaba 0,58 del cuerpo por letra y, con foto en la lámina, `ajustarTextos` dejaba cada texto donde lo puso
+   la IA. `encajarEnCaja` y `sinSuperponer` (./tipografia-medida.ts) existían desde el 9/11 y **nadie las llamaba**: les
+   faltaba un medidor en el servidor.
+2. **La composición.** El JSON de la réplica tenía UNA `foto` por lámina: una pantalla dividida no se podía ni decir. Y la
+   regla «el texto LLENA la lámina (titulares de 0.08 a 0.14)» empujaba a un título grande aunque el original fueran subtítulos.
+3. **La persona.** ⚠️ **El diagnóstico obvio era el equivocado.** «Una foto de OTRA persona» parecía un banco de imágenes o el
+   negocio de otro. No: es la primera foto de la **cara de marca de ws 9** (`mako.persona`, «foto-1080.jpg», subida el 9/11,
+   en un balcón de noche, con un gafete que dice «MARTÍN»). La falla fue pegar esa foto ENTERA como si fuera el lugar: la foto
+   del negocio no es la playa del original.
+
+**Lo que se hizo:**
+- **Medir de verdad** (lib/carruseles/medir-letra.ts): los anchos de cada letra de las 13 variantes que usa la réplica, medidos
+  en el navegador con las woff2 del editor (./anchos-de-letra.json). Sumar letra por letra sobra 1,3 % (nunca dice que entra algo
+  que el editor parte). `acomodarTextos` parte en renglones como fabric, guarda el alto de fabric, separa lo que se pisa y, si algo
+  se sale, achica todos juntos.
+- **Leer la composición antes de escribir:** el prompt pide `lectura` (queda en las notas del diseño) y `cuadros` (cada imagen
+  en su lugar: `escena` o `retrato`, con una búsqueda en inglés de un lugar parecido). Los textos van en su lugar y con su tamaño;
+  una frase de dos renglones es UN texto. Medido con la IA real de ws 9 sobre −1378: «Cada lámina presenta dos cuadros apilados
+  con paisajes naturales (mar y rocas) y texto en subtítulo blanco centrado en la parte inferior de cada cuadro».
+- **La foto del negocio sólo en un retrato.** En una escena va un lugar parecido (`escenasParecidas`, el banco de fotos libre).
+- Test: tests/carruseles-letras-y-cuadros.test.ts (el caso exacto a 1080 × 1350; roto a propósito, cae donde dice).
+
+**Sin hacer, y por qué (11/11 a la noche):**
+- **Ponerlo a él EN la escena** es la plancha (./plancha.ts: la lámina original sin el texto, con su cara en lugar de la persona,
+  UN cambio por pedido). Está diseñada y sin orquestar. Necesita una IA de imagen:
+  - **Flow**, por el puente: el de ws 9 decía «sin sesión»;
+  - o **Gemini con imagen**: las 4 claves de ws 9 no sirven, 2 inválidas (401) y 2 gratis sin cupo para `gemini-2.5-flash-image` (429).
+- **El paisaje parecido** depende de Openverse, que ese día devolvía 504 y se colgaba. Sin escena, el cuadro queda del color de
+  fondo.
+- La réplica de 9 láminas con la IA de ws 9 tardó 190 s (el techo de la ruta es 300).
+
 ## «Traer tu outlier»: un carrusel por su link, del negocio que lo trae (11/11/2026)
 
 **El pedido:** Martín, 11/11: «en los outliers haya una opción para traer tu propio [outlier], pegar el link de Instagram, o el

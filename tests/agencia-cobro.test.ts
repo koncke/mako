@@ -24,10 +24,11 @@ import assert from 'node:assert/strict';
 import { CAPACIDADES_PASARELA } from '../lib/cobros-tipos';
 import { readFileSync } from 'node:fs';
 import {
-  PRECIO_CLIENTE_AGENCIA_DEFAULT, clienteDeAgenciaTocable, cobrosParaLaAgencia, desdeDelMes, inicioDeRenovacion,
+  PRECIO_CLIENTE_AGENCIA_DEFAULT, clienteDeAgenciaTocable, cobraPorPasarela, cobrosParaLaAgencia, desdeDelMes, inicioDeRenovacion,
   sanearPrecioClienteAgencia, unMesDespues,
   type CobroDeCliente,
 } from '../lib/agencia-cobro-reglas';
+import { accionDeCuenta } from '../app/agency/menu-contextual-agency';
 
 /** Sin comentarios y con LF: lo que se fija es el código, no lo que dice un comentario. */
 const fuente = (rel: string) => readFileSync(rel, 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -119,11 +120,36 @@ test('abrir la cuenta crea el link del primer mes y, sin link, la cuenta queda c
   // (lib/partners.ts); la acción de Clients la envuelve (docs/diseno-clients.md, D8).
   const a = fuente('lib/partners.ts');
   const i = a.indexOf('await crearUsuario({');
-  // Desde el 25/10/2026 la llamada ocupa varias líneas (quién paga cambia el email): se busca su comienzo.
-  const j = a.indexOf('const cobro = await linkPrimerMes({');
+  // Desde el 25/10/2026 la llamada ocupa varias líneas (quién paga cambia el email): se busca su comienzo. Desde el 11/11
+  // (#85) va detrás de la pregunta por la mensualidad: el test de abajo.
+  const j = a.indexOf('? await linkPrimerMes({');
   assert.ok(i > 0 && j > i, 'el link sale después de crear la cuenta y su usuario');
   assert.match(a, /return \{ ok: true, clienteWs: ws\.id, link: cobro\.ok \? cobro\.link : null, sinLink: cobro\.ok \? null : cobro\.motivo, paga, acceso \};/);
   assert.match(fuente('app/customer-success/actions.ts'), /const r = await abrirCuentaDePartner\(\{ agenciaWs,/, 'la de Clients es un envoltorio');
+});
+
+// Ticket #85 (11/11/2026). Código Inmobiliario paga por su mensualidad (Binance) desde el 6/11, y el alta de Sellers (negocio
+// 24) creó igual el link de Mercado Pago de su primer mes. Pagó la entrada por Binance, Martín la habilitó y el link quedó
+// PENDIENTE: «Pagar su mes» tapaba «Inspeccionar» y Joan no podía entrar a su cuenta ni hacerle el onboarding.
+test('con la mensualidad prendida no hay cobro de pasarela: ni link en el alta ni «Pagar su mes» en lugar de «Inspeccionar» (#85)', () => {
+  assert.equal(cobraPorPasarela(true), false, 'paga por su mensualidad');
+  assert.equal(cobraPorPasarela(false), true, 'paga con tarjeta: lo de siempre');
+  assert.equal(cobraPorPasarela(null), true, '«no pude leer la mensualidad» no le esconde su link a una agencia que paga con tarjeta');
+
+  // El caso real, con lo que la base tenía: aprobada, paga la agencia, el link del primer mes pendiente.
+  const deLaPasarela = cobrosParaLaAgencia([
+    { cliente_ws: 24, tipo: 'unico', estado: 'pendiente', suscripcion_estado: null, link: 'https://pagar/x', inicio_at: null, created_at: '2026-11-11T17:25:17.710Z' },
+  ]);
+  const sellers = (mensualidad: boolean | null) =>
+    ({ estado: 'aprobado' as const, paga: 'agencia' as const, cobro: cobraPorPasarela(mensualidad) ? (deLaPasarela[24] ?? null) : null });
+  assert.equal(accionDeCuenta(sellers(true), false), 'inspeccionar', 'habilitada y pagada por la mensualidad: se entra');
+  assert.equal(accionDeCuenta(sellers(false), false), 'pagar', 'sin mensualidad, el link sigue a la vista');
+
+  // El cableado (lib/partners.ts es de servidor: se fija la fuente). La cartera y el alta preguntan lo mismo.
+  const p = fuente('lib/partners.ts');
+  assert.match(p, /mensualidadPrendida\(agenciaWs\),\s*\]\);\s*const porPasarela = cobraPorPasarela\(mensualidad\);/, 'la cartera lee la mensualidad');
+  assert.match(p, /cobro: porPasarela \? \(\(cobros as Record<number, CobroCuenta>\)\[ws\] \?\? null\) : null,/, 'y sin pasarela no hay cobro en la cuenta');
+  assert.match(p, /const porPasarela = cobraPorPasarela\(await mensualidadPrendida\(p\.agenciaWs\)\);\s*const cobro: ResultadoLinkCliente = porPasarela\s*\? await linkPrimerMes\(\{/, 'el alta no crea el link');
 });
 
 test('⚠️ una agencia ve SÓLO sus cobros: la lectura filtra por `agencia_ws`', () => {

@@ -168,6 +168,11 @@ export type PropsInicio = {
    * cuando cambia `n`, sin remontar el Panel (remontarlo tira lo escrito en el cuadro).
    */
   derechaPedida?: { n: number; derecha: Derecha } | null;
+  /**
+   * Un diseño de landing elegido desde la portada (`?vista=plantillas&diseno=<id>`, 11/11/2026: «además de los outliers,
+   * también deberían estar los templates»): el Panel abre con su pregunta del objetivo, el mismo paso que tocarlo acá.
+   */
+  disenoInicial?: string | null;
 };
 
 type PlantillaGaleria = Plantilla | PlantillaPresentacion;
@@ -201,7 +206,10 @@ export function Inicio(props: PropsInicio) {
   const [ahora, setAhora] = useState(props.ahora);
   const [menu, setMenu] = useState<{ fila: FilaPanel; ancla: HTMLElement } | null>(null);
   const [renombrando, setRenombrandoEstado] = useState<{ id: number; texto: string } | null>(null);
-  const [dialogo, setDialogo] = useState<Dialogo | null>(null);
+  const [dialogo, setDialogo] = useState<Dialogo | null>(() => {
+    const d = props.disenoInicial ? plantillasDe('landing').find((p) => p.id === props.disenoInicial) : null;
+    return d ? { tipo: 'diseno', plantilla: d } : null;
+  });
   const [creando, setCreando] = useState(false);
   /** «Del generador anterior» abierto (con la hora de cuando se abrió, para el «hace…»), o null. */
   const [borradores, setBorradores] = useState<number | null>(null);
