@@ -466,6 +466,7 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
   - Lo que anda: `height: 740px` en `.frn-trabajo--oferta`, el chat con `flex: 1` y el bloque con su lista desplazable. Medido: 740 px en las tres partes, con cualquier desplegable abierto.
 - **El popup va fuera del tablero:** ahí no llegan los colores de `.frn` (`--panel`, `--muted`). Usa los de la app (`--surface`, `--surface-2`, `--dim`, `--good`, `--bad`, `--warn` y sus `-bg`), que cambian solos con el modo oscuro.
 - **«Falta sus palabras» no se lee bien.** El estado del grupo va con dos puntos («Falta: sus palabras», «Por confirmar: ángulos para probar»), y así no hay que concordar con el nombre de cada pieza.
+- **Un estado que ninguna vuelta fotografía se rompe sin que nadie lo vea.** «8 · Teléfono» estaba en blanco desde la octava vuelta: `telefonos()` llamaba a `operacion()`, que dejó de existir cuando la operación pasó a ser la acción, y el error cortaba el dibujo sin aviso (`window.__errores` sólo junta los de los toques). Las fotos de cada vuelta llevan TODOS los estados del índice, también «Sin nada todavía» y «Teléfono».
 
 ## Sin hacer (9/11/2026)
 
