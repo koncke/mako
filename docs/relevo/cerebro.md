@@ -1,5 +1,31 @@
 # Relevo del Cerebro
 
+## 12/11/2026, ~03:50 UTC — LEER PRIMERO (cuenta claude4 al 100% semanal; vuelve el 17/11 20:00 UTC)
+
+**Producción = a23bad24f (12/11 03:25 UTC, READY, mirado en pantalla).** Trae todo lo de main de esa hora: la pasarela nueva
+(/planes/esencial: Mercado Pago + tarjeta con Stripe, clave de prueba ya pegada por Martín, cuenta …WlJT), las 19 landings por
+función con el diseño de su referencia, crédito de Claude para lo interno, Copywriting/Web Generator/Image/Video, WhatsApp.
+Los dos deploys anteriores cayeron por /admin/docs > 250 MB (docs/hallazgos-infra.md → «Volvió el 12/11 con /admin/docs»).
+
+**Pendiente, en orden:**
+1. **Fotos reales de avatares en /vsl/ai-avatar** (Martín: «Sí, con imágenes»; «Esperar landings»). Pedido mandado a la sesión
+   de la nube «Competencia y landings por función de MaKo»: usar public/formatos/presets/*.jpg en el hero, push a
+   punta/landings-competencia. Cuando llegue a main → UN despliegue (`node --env-file=C:/dev/mako-api/.env.local
+   scripts/desplegar-ya.mjs` desde C:/dev/wt-push-q) y mirar /vsl/ai-avatar a 1440 y 375. Si la nube no lo hizo, hacerlo acá.
+2. **Compra de prueba 4242 en hola-mako.com/planes/esencial**: la hace MARTÍN (datos de tarjeta, producción). Después, mirar que
+   el alta aparezca y que el webhook (…fdbZ) haya entrado.
+3. **Tickets:** #85 cerrado y desplegado; falta mirar que en el panel de Código, Sellers diga «Inspeccionar». El link de pago con
+   tarjeta del primer mes de Sellers (ARS 73.555) sigue pendiente de Martín. Estado en tickets-1011.md (carpeta compartida).
+4. **Marketing CoPilot:** vuelta 15 de la maqueta (claude.ai/artifact/PFrF84h2p99ppmr7orUrct, 870c0df66). No se programa sin el OK.
+5. **WhatsApp:** las líneas sordas son Evolution 2.3.7 + Baileys rc.9 (Evolution #2647). Falta la sesión de Railway de Martín para
+   subir Baileys (rc14); confirmar el costo antes. ws20/21/22/ws9 con ~24 h de atraso. Relevo: docs/relevo/mako-en-whatsapp-conexiones.md.
+6. Lo de Martín de antes sigue igual (sección de abajo): Flow para Image, Apify de Video, claves de Gemini muertas, Closing Sonnet
+   vence 13/11, nota #77 de Giselle, clase 16 de THE NET LAB, hojas del Dashboard.
+
+**Chats:** todos quietos; todo lo suyo está en main (punta/planes-1111 y punta/tope-historial ya tenían su contenido adentro).
+**Cosecha:** punta/cosecha-docs-trazado (22f96c20a): regla del turbopackIgnore en AGENTS.md; entra sola con verde.
+**Vigía de rojos:** `node ~/.claude/guardia/vigia-ci.mjs esperar` en segundo plano al abrir.
+
 ## 12/11/2026, ~01:30 UTC — LEER PRIMERO (cuenta claude4 al 90% semanal; mi contexto al 89%)
 
 **Despliegue:** el automático sale a las 11:05 UTC (08:05 ART). Producción hoy: 2507c11c7 (15:55 UTC). Main trae para mañana:
