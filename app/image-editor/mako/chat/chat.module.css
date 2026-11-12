@@ -322,20 +322,12 @@
 }
 
 /* El pie: el alcance y la caja (la del Ops Center, `.co-caja`) */
+/* Con un audio grabado, «Enviar audio» quedaba afuera (12/11/2026, docs/hallazgos-editor-imagen.md): lo resuelve la regla común de
+   `.co-caja` (centro.css) y la barra de grabación contenida (VoiceRecorder.tsx), para todos los chats. Acá no va nada propio. */
 .pie {
   display: grid;
-  /* UNA columna que NO crece con lo de adentro (12/11/2026). Sin esto la columna implícita mide lo que mide su contenido: con
-     un audio grabado, la barra (borrar · escuchar · seguir · enviar) pedía 363 px en una tarjeta de 316, la tarjeta la cortaba
-     y «Enviar audio» quedaba afuera (413→457 con el corte en 416). Medido en producción; docs/hallazgos-editor-imagen.md. */
-  grid-template-columns: minmax(0, 1fr);
   flex: none;
   gap: 8px;
-}
-/* Y la caja ocupa esa columna: con `margin-inline: auto` (la de `.co-caja`), un elemento de grilla no se estira, se mide «a su
-   contenido» y volvía a pedir 375 px. Medido con la regla inyectada en producción: «Enviar audio» pasa a 354→398, adentro. */
-.pie > :global(.co-caja) {
-  min-width: 0;
-  width: 100%;
 }
 .chip {
   height: 26px;
