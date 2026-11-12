@@ -514,6 +514,10 @@ export type TextoPuesto = { left: number; top: number; width: number; tam: numbe
 // naranja, y el CTA, blanco sobre una caja. La réplica traía el blanco sin la pastilla: «PASO 1», «EL RESULTADO» y «Comenta
 // ACELERADOR y te la envío» quedaron blancos sobre crema. Nadie lo medía: el color venía de la IA y se pegaba tal cual.
 
+/** El nombre con que se marca la foto que el editor recorta al abrir (el mismo de app/image-editor/mako/quitar-fondo.ts; lo cuida
+ *  tests/image-quitar-fondo.test.ts): la persona de una miniatura, «recortada, sin fondo y grande» (el Cerebro, 12/11/2026). */
+export const FOTO_A_RECORTAR = 'Foto: la tuya · quitar el fondo';
+
 const SOMBRA_SOBRE_FOTO = { color: 'rgba(0,0,0,0.55)', blur: 14, offsetX: 0, offsetY: 2 } as const;
 const SOMBRA_DE_TARJETA = { color: 'rgba(0,0,0,0.12)', blur: 28, offsetX: 0, offsetY: 8 } as const;
 
@@ -731,7 +735,8 @@ export function documentoDeReplica(o: {
         : { left: Math.round(c.x * W), top: Math.round(c.y * H), width: Math.round(c.ancho * W), height: Math.round(c.alto * H) };
       const puesta = () => fotos.push({ x: caja.left, y: caja.top, ancho: caja.width, alto: caja.height });
       const recorte = conRecorte(caja, c.forma);
-      if (c.tipo === 'retrato' && c.persona && o.foto) { objetos.push({ ...fotoQueCubre(o.nuevoId(), o.foto, caja), ...recorte }); puesta(); }
+      // En una miniatura la persona va SIN fondo: se marca y el editor la recorta al abrir (app/image-editor/mako/quitar-fondo.ts).
+      if (c.tipo === 'retrato' && c.persona && o.foto) { objetos.push({ ...fotoQueCubre(o.nuevoId(), o.foto, caja), ...recorte, ...(reacomodar ? {} : { name: FOTO_A_RECORTAR }) }); puesta(); }
       else {
         const escena = (c.busqueda ? o.escenas?.get(c.busqueda) : undefined) ?? (c.tipo === 'escena' ? otraEscena : undefined);
         if (escena) { objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), ...recorte, name: 'Foto: escena parecida' }); puesta(); }

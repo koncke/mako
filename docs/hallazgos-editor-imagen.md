@@ -49,6 +49,27 @@ Con las dos, «Enviar audio» queda en 354→398. El Video Editor tiene el mismo
 
 ---
 
+## «Quitar fondo» prendido: MODNet desde Hugging Face, y la persona de una miniatura sin fondo (12/11/2026)
+
+**El pedido** (el Cerebro, mirando la miniatura de Dan Martell): «persona recortada, sin fondo y grande». **Lo que había:** el
+servidor no puede recortar (onnxruntime-node excluido del deploy en next.config.ts, por el ENOSPC del 3/11), y el editor traía un
+«Quitar fondo» en el navegador (onnxruntime-web en un worker, el runtime desde jsDelivr) que NADIE prendía: `configureBackgroundRemoval`
+no se llamaba en ningún lado y el motor sólo aceptaba un modelo del mismo origen.
+
+**Cómo quedó** (app/image-editor/mako/quitar-fondo.ts y modelo-modnet.ts; test tests/image-quitar-fondo.test.ts, roto a propósito):
+- el modelo baja de Hugging Face, `Xenova/modnet` (Apache-2.0), con la URL FIJADA al commit `fa2fa546…` y su sha256 (el motor lo
+  verifica antes de usarlo); `model.ts` acepta de afuera SÓLO esa forma (`/resolve/<40 hex>/…onnx`), no una rama;
+- el descriptor (entrada `input`, salida `output`, 512 px, media y desvío 0,5) salió de la API del repo y de su preprocessor_config;
+  medido en producción: CORS deja pasar a hola-mako.com, sha256 igual, entrada y salida como dice el README;
+- ⚠️ **el cuantizado no alcanzó.** Con Dan Martell (de frente, buena luz) recorta bien, pelo incluido; con la foto de Martín (de
+  noche, cuerpo entero, chico en el cuadro) le comió brazos, piernas y la mitad del cuerpo. El grande (25,9 MB) lo recorta entero.
+  Va el grande (docs/pruebas/image-12-11/33);
+- la réplica marca la persona de una miniatura (`FOTO_A_RECORTAR`) y el editor, al abrir, le quita el fondo UNA vez y la ENCUADRA
+  desde la cabeza para su cuadro: `replaceSelectedImage` reinicia el encuadre y centra la foto entera, y la persona quedaba chica.
+  Si el modelo no carga, la foto queda con su fondo (grande, por la réplica) y pierde la marca: no se reintenta ni traba nada.
+
+**Sin hacer:** alojar el modelo nosotros (más rápido y sin depender de Hugging Face) espera el sí de Martín: lo pide el Cerebro.
+
 ## «Replicar» y «Usar plantilla» sin preguntar, y el editor en el teléfono (12/11/2026, segunda vuelta)
 
 **Sin preguntar** (memoria `replicar-deja-todo-escrito`): «Editar» arranca a escribir con lo de por defecto

@@ -17,6 +17,9 @@ el dictado no.
 **La regla:** una nota CORTA que alguien está esperando (`notaDeVozCorta`, la pide /api/plan-dictado, que es la ruta de todas las
 cajas de chat y del dictado) escucha con Groq primero, y Gemini queda de respaldo (no se saca, como en los grupos). El audio de un
 anuncio o de una clase sigue con la cascada de siempre. Test: tests/stt-red.test.ts.
+⚠️ **Dos tests leen ESE fuente con una expresión exacta** (tests/chat-nota-de-voz.test.ts 6, tests/doer-falla.test.ts 15): sumar
+`notaDeVozCorta` a la llamada y renombrar la cascada los puso en rojo en la punta, aunque lo que cuidan (`pii` en la nota, Gemini
+fuera del grupo) seguía igual. Antes de tocar una línea de `transcribirAudio` o de una ruta de audio, `grep` de esa línea en tests/.
 
 ## No hay caché de prompt: cada llamada del turno de WhatsApp paga sus ~9.900 tokens de entrada enteros (11/11/2026, medido)
 

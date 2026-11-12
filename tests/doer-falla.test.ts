@@ -333,7 +333,8 @@ test('15. la nota de voz de un grupo: Groq de la plataforma primero, Gemini nunc
   // ws10, Leandro, 28/10/2026: Gemini cortó por tiempo, MaKo contestó sólo el texto de al lado («Tal cual como lo hace manychat»)
   // con un consejo inventado, y el segundo audio quedó en 👍 y silencio. Con el Groq de la plataforma salían en segundos.
   const ai = leer('lib/ai-cheap.ts');
-  assert.match(ai, /const stt = CASCADA_STT\.filter\(\(x\) => !\(o\.sinGroq && x === 'groq'\) && !\(o\.notaDeVozDelGrupo && x === 'gemini'\)\);/, 'Gemini sigue en la cadena del grupo');
+  // 12/11/2026: la cascada puede venir con Groq adelante para una nota corta (`notaDeVozCorta`); el corte de Gemini del grupo es el mismo.
+  assert.match(ai, /const stt = (CASCADA_STT|cascada)\.filter\(\(x\) => !\(o\.sinGroq && x === 'groq'\) && !\(o\.notaDeVozDelGrupo && x === 'gemini'\)\);/, 'Gemini sigue en la cadena del grupo');
   const iCero = ai.indexOf('if (o.notaDeVozDelGrupo && !o.sinGroq) {\n    for (const p of await groqDeLaPlataforma()) {');
   const iNegocio = ai.indexOf('for (const nombre of orden as ProvName[]) {');
   assert.ok(iCero > 0 && iCero < iNegocio, 'el Groq de la plataforma no va primero');
