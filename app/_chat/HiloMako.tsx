@@ -221,7 +221,9 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
         {x.voz ? (
           <div className="co-burbuja ch-voz">
             {enGlobo}
-            <AudioPlay src={x.voz.url} duracion={x.voz.secs} color="var(--primary)" style={{ width: 240 }} />
+            {/* `maxWidth`: en una columna angosta (la de Copywriting, 360 px) el globo da ~160 px y los 240 fijos se metían debajo
+                del avatar (12/11/2026, en producción). La barra se achica en chat.css (`.ch-voz [data-reproductor]`). */}
+            <AudioPlay src={x.voz.url} duracion={x.voz.secs} color="var(--primary)" style={{ width: 240, maxWidth: '100%' }} />
             {texto && <span className="ch-voz__texto">{texto}</span>}
             {pie}
           </div>

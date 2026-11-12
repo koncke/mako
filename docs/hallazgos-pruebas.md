@@ -4,6 +4,19 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+
+## Grabar un audio en el navegador de la app, que bloquea el micrófono (12/11/2026, chat «probar-copy»)
+
+- El navegador de la app no da micrófono («No se pudo acceder al micrófono»). Para probar una nota de voz de punta a punta se le
+  da a la página una voz sintetizada: el sintetizador de Windows (`System.Speech`, voz «Helena», es-ES) escribe un WAV, y la
+  página reemplaza `navigator.mediaDevices.getUserMedia` por un `AudioContext` que lo reproduce en un `MediaStreamDestination`.
+  La transcripción y la respuesta de MaKo son las de verdad.
+- ⚠️ **Las tres trampas para meter el WAV en la página:** pegarlo en base64 cuesta ~30.000 tokens por 25 KB; `fetch` de
+  hola-mako a `http://localhost` falla («Failed to fetch»: el acceso a la red local se bloquea sin preguntar); y `window.open`
+  desde una página local abre en la MISMA pestaña, así que `postMessage` no tiene a quién. **Lo que anduvo:** una página local
+  pone el WAV en `window.name` (sobrevive a la navegación a otro origen en la misma pestaña) y navega a MaKo; ahí un `<script>`
+  insertado (corre en el mundo de la página) lee `window.name` y reemplaza `getUserMedia`.
+
 ## Mirar la foto ACHICADA también engaña: el velo del recorrido «no estaba», y el píxel decía que sí (11/11/2026)
 
 **Síntoma:** en la sexta maqueta de Marketing CoPilot, la foto de 1440 × 900 del recorrido de «Tu web» se veía con la página clara. Parecía que el velo oscuro no se dibujaba.

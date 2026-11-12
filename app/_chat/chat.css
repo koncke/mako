@@ -230,6 +230,8 @@
 .ch-voz { display: flex; flex-direction: column; gap: 6px; white-space: normal; }
 .ch-voz__texto { font-size: var(--fs-sm); line-height: 1.45; color: var(--dim); white-space: pre-wrap; overflow-wrap: anywhere; }
 .ch-voz > .co-burbuja__pie { align-self: flex-end; float: none; margin: 0; }
+/* En un globo angosto la barra de avance cede su mínimo de 40 px (el resto del reproductor no entra en menos). */
+.ch-voz [data-reproductor] input[type="range"] { min-width: 0 !important; }
 /* «Conectar tu Claude» al final de la caja (21/10/2026): sólo si la persona todavía no conectó su IA; abre «Tus cuentas de IA» ahí
    mismo. Un chip, no otro botón redondo: no compite con el de mandar. */
 .co-conectar-ia {

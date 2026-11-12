@@ -493,7 +493,46 @@ app/m/copywriter/GuionM.tsx
   transcribirlo al replicar (`asegurarGuion`, tope de 20 por día). Sin la app de escritorio, la réplica no se escribe sola (la
   regla de todo chat de MaKo).
 
+## Probar Create como Martín: lo que «escribió todo» no dice (12/11/2026, prueba en producción, chat «probar-copy»)
+
+Se replicó un outlier de cada tipo y se usó una plantilla, comparando CADA resultado con su original (capturas en
+side-session-notes/…/probar-copy-1211/). El recorrido andaba: Replicar escribía solo, sin preguntas. Lo que estaba mal sólo se ve
+leyendo el resultado al lado del original:
+
+- **El largo:** un anuncio de ~40 palabras salió de ~200, con una «Historia» que el original no tiene. El pedido decía «su
+  estructura, su gancho y su ritmo» y nunca el largo. Ahora el original que manda el server dice cuántas palabras tiene y el
+  rango (±25 %) (`reglasDeLaReplica`, lib/copywriter/outliers.ts).
+- **El formato:** un carrusel de 7 láminas salió como un post en prosa. Ahora se pide lámina por lámina, en tabla, con el pie aparte.
+- **Las pruebas:** la réplica de un video de YouTube inventó porcentajes, casos de clientes y «3 a 5 clientes garantizados o
+  devolvemos lo que pagaste», con «nunca inventes cifras ni garantías» en el prompt. Capa 2: `cifrasSinFuente`
+  (lib/copywriter/ia-reglas.ts) avisa los porcentajes, los «N veces» y la garantía que no están en lo que MaKo leyó.
+- **⚠️ Los avisos no se veían donde más hacían falta:** la tarjeta sólo los dibujaba con «Aceptar», y la réplica se acepta sola.
+  El aviso de frases copiadas (11/11) nunca salió en una réplica. Ahora se ven también en lo aceptado.
+- **El título** quedaba con el gancho del competidor («Como @den.borgg: Cobrar mejor no es suerte, es sistema.») cuando MaKo no
+  lo cambiaba, y un video salió «Método Probado 2025». Se pide un título propio y el año en curso.
+- **La voz:** en un negocio rioplatense salía «Mandás un anuncio… esperas» en el mismo párrafo. La regla decía «de "tú" salvo
+  que esa variedad use otra forma» y el modelo quedaba a mitad de camino. Ahora dice UNA forma (`bloqueIdiomaCopy(…, vosea)`).
+  ⚠️ El guard de voseo marca la palabra «vos» suelta aun en un prompt: se escribe «voseo» / «tuteo».
+- **⚠️ El pedido técnico aparecía como mensaje de Martín:** `oculto` vive en la memoria del panel y no se guarda; al reabrir la
+  réplica, «Escribe el guion ENTERO como el original… Pon en propiedades el ángulo…» era una burbuja suya. **Regla:** lo que es
+  para el modelo y no para la persona va en el server (la referencia del original, en cada pedido), no en el texto del mensaje.
+- **La plantilla preguntaba tres datos más y no escribía** (después de sus dos preguntas): `copywriter.adaptar.user` decía «si
+  falta el precio, a quién le habla o qué tiene que hacer, todavía no escribes». Ahora escribe con [DATO: …] y pregunta después.
+  Y lo escrito sobre la plantilla SIN TOCAR (sus guías) queda en la página sin «Aceptar», como la réplica.
+- **El negocio de prueba (ws 3) no sirve para esto:** no tiene IA ni computadora conectada («Instala MaKo para escribir») ni
+  anuncios de competencia (no hay filtro Anuncios). La escritura se midió en el negocio de MaKo, que corre primero con el
+  crédito de Claude (Haiku). Los errores de redacción («estás improviso», «sin handle qué responde») son del modelo.
+
+**La regla:** probar una pieza generada es ponerla al lado del original y medir largo, formato, partes, pruebas y título. Que
+MaKo diga «repliqué la estructura y el ritmo» no es una medición: lo dijo las cuatro veces, y en dos no era cierto.
+
 ## Qué quedó sin hacer
+
+- (12/11/2026) La mezcla de «vos» y «tú» no tiene capa 2 (sólo el voseo en un negocio que no vosea): lib/copywriter/ia.ts.
+- (12/11/2026) Los reels con «su pie» (46 de cada 48 en la portada del negocio de MaKo), todos los carruseles y todos los
+  YouTube se replican sin lo que se DICE en la pieza: la estructura real no está. Transcribir al replicar sigue pendiente.
+- (12/11/2026) Las listas de guiones (la «←» y el teléfono) van de la más vieja a la más nueva.
+- (12/11/2026) Un pedido puntual («usa el testimonio en la Solución») a veces toca otra sección que no se pidió.
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
 - Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).
