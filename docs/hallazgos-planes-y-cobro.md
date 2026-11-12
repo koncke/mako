@@ -2917,7 +2917,8 @@ en docs/relevo/planes-y-cobros.md. **Sin hacer:** la verificación de identidad 
 
 ## La agencia por su nombre y `buscar_negocio` (11/11/2026, sobre el mes que viene de WhatsApp)
 
-Lo del mes que viene y el bloque de la plataforma está en [hallazgos-comunicacion.md](hallazgos-comunicacion.md) (c88df3ff6). Lo de
+Lo del mes que viene y el bloque de la plataforma los trae el chat de WhatsApp (punta/wa-sorda-1011, c88df3ff6; al 12/11 todavía
+no en main, su cosecha va a hallazgos-comunicacion.md). Lo de
 acá es lo que faltaba para «¿cuánto paga Código Inmobiliario…?»: `ver_mensualidades_agencias` pedía la agencia por **número**.
 
 **La regla:**
@@ -2925,5 +2926,5 @@ acá es lo que faltaba para «¿cuánto paga Código Inmobiliario…?»: `ver_me
   encadenar. Se busca **sólo entre las agencias**: entre todos los negocios, «Código» también puede ser un cliente con ese nombre y
   devolver la mensualidad de quien no es agencia. Con más de una, se pregunta cuál; nunca se elige la primera.
 - `buscar_negocio` (área cs, sólo la plataforma, sin HTTP) lee la cartera **estricto**. El lector del bloque del grupo
-  (`leerLaPlataforma`, lib/doer-plataforma.ts) tolera que falle, y para el bloque está bien: sin cartera el turno sigue. Para la
+  (`leerLaPlataforma`, lib/doer-plataforma.ts, de esa punta) tolera que falle, y para el bloque está bien: sin cartera el turno sigue. Para la
   herramienta no: una cartera que no se leyó diría «sin agencia» de un cliente que sí la tiene, y el modelo lo repite como dato.

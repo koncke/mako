@@ -1,8 +1,8 @@
 // =============================================================================
 // buscar-negocio-reglas — qué negocio de la plataforma es un nombre (11/11/2026)
 // =============================================================================
-// «¿cuánto va a pagar Código Inmobiliario…?» y MaKo no sabía que era el 13. El bloque del grupo SuperAdmin ya lista los negocios
-// (lib/doer-plataforma.ts); esto es la herramienta `buscar_negocio` (lib/api-mako/areas/cs.run.ts), para cualquier canal de la
+// «¿cuánto va a pagar Código Inmobiliario…?» y MaKo no sabía que era el 13. El bloque del grupo SuperAdmin que lista los negocios lo
+// trae el chat de WhatsApp (lib/doer-plataforma.ts en punta/wa-sorda-1011, todavía no en main); esto es la herramienta `buscar_negocio` (lib/api-mako/areas/cs.run.ts), para cualquier canal de la
 // plataforma: el número, el nombre, la capa, si está en pausa, la agencia que lo administra y, si es una agencia, sus clientes.
 // Sin montos (los trae ver_mensualidades_agencias). Puro, con test (tests/buscar-negocio.test.ts).
 // =============================================================================

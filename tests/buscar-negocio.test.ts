@@ -3,7 +3,7 @@
 // =============================================================================
 // Martín, en el grupo SuperAdmin: «cuanto va a pagar codigo inmobiliario el mes entrante con todos los clientes», y MaKo: «Necesito
 // saber a qué me refiero con "código inmobiliario"». El mes que viene y el bloque de la plataforma los trajo el chat de WhatsApp
-// (c88df3ff6, tests/hilo-del-superadmin.test.ts). Esto cuida lo que faltaba:
+// (punta/wa-sorda-1011, c88df3ff6, todavía no en main). Esto cuida lo que no depende de eso:
 //   · `ver_mensualidades_agencias` acepta la agencia por NOMBRE, sin tildes y SÓLO entre las agencias; con más de una, pregunta;
 //   · `buscar_negocio`: número, nombre, capa, pausa, su agencia y, si es agencia, sus clientes; una cartera revocada no cuenta;
 //   · las dos, sólo en la plataforma; `buscar_negocio` lee la cartera estricto y sin HTTP.
