@@ -9,14 +9,13 @@
 //   1. desde cuándo espera la pendiente más vieja de un negocio (y qué NO cuenta: la que falló y espera, la rendida,
 //      la que ya está, la de un referente dibujado);
 //   2. «frenada» es una espera que pasó el umbral, no cualquier espera;
-//   3. el cableado: la lista lo devuelve, la página lo pasa SÓLO al super admin, la ruta del refresco lo mantiene al
-//      día, y la pantalla lo dice en una línea con la espera, sin reproche.
+//   3. (12/11/2026) la pantalla NO lo dice: Martín, «hay un texto innecesario que dice las caricaturas no se están
+//      haciendo... el texto innecesario no lo pongas». La espera queda en `masVieja` del script del Runner.
 //
 // PROBADO ROMPIÉNDOLO (6/11/2026), una rotura por vez, base en verde:
 //   · `esperaMasVieja` que cuenta las que esperan su reintento                 → 1
 //   · `colaFrenadaDesde` sin el umbral (cualquier espera es «frenada»)         → 2
-//   · la ruta que manda `frenadaDesde` a cualquiera                           → 3
-//   · la pantalla sin el renglón                                              → 3
+//   · (12/11) el renglón de vuelta en la pantalla, la prop en la página o `frenadaDesde` en la ruta → 3
 // Correr: node --import tsx --test tests/spy-cola-frenada.test.ts
 // =============================================================================
 
@@ -76,28 +75,15 @@ test('2. «frenada» es una espera que pasó el umbral, no cualquier espera', ()
   assert.ok(COLA_FRENADA_MS < ESPERA_TRAS_FALLO_MS, 'con un umbral más largo que la espera tras un fallo, nunca se diría');
 });
 
-test('3. el cableado: la lista, la página del super admin, la ruta y el renglón', () => {
+test('3. la pantalla no dice que la cola está frenada: ni a un cliente, ni al super admin', () => {
+  // La espera se sigue calculando (el script del Runner la imprime como `masVieja`): lo que se fue es el renglón.
   const spy = sinComentarios(leer('lib/spy.ts'));
-  assert.match(spy, /caricaturasDesde: esperaMasVieja\(registro, filas\.map/, 'la lista del negocio lo calcula de su propio registro');
-  assert.match(spy, /caricaturasDesde: string \| null \} \| \{ ok: false/, 'y viaja en el tipo');
-
-  const pagina = sinComentarios(leer('app/competitor-spy/page.tsx'));
-  assert.match(pagina, /getSesionAdmin\(\)\.then\(\(s\) => s != null\)/, 'quién es super admin se pregunta en el server');
-  assert.match(pagina, /caricaturasFrenadasDesde=\{superAdmin && r\.ok \? colaFrenadaDesde\(r\.caricaturasDesde, Date\.now\(\)\) : null\}/,
-    'al super admin y a nadie más: un cliente no puede hacer nada con esto');
-
-  const ruta = sinComentarios(leer('app/api/competitor-spy/caricaturas/route.ts'));
-  assert.match(ruta, /const frenadaDesde = \(await getSesionAdmin\(\)[\s\S]{0,80}?\) \? colaFrenadaDesde\(r\.caricaturasDesde, Date\.now\(\)\) : null;/,
-    'la ruta del refresco también pregunta quién es antes de mandarlo');
-  assert.match(ruta, /\.\.\.\(frenadaDesde \? \{ frenadaDesde \} : \{\}\)/, 'y no manda la clave cuando no hay nada que decir');
+  assert.match(spy, /caricaturasDesde: esperaMasVieja\(registro, filas\.map/);
 
   const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
-  assert.match(app, /const \[frenadaDesde, setFrenadaDesde\] = useState<string \| null>\(caricaturasFrenadasDesde\);/, 'llega del server al abrir');
-  assert.match(app, /setFrenadaDesde\(r\.frenadaDesde \?\? null\);/, 'y el refresco la apaga sola cuando el Runner vuelve a generar');
-  const renglon = app.slice(app.indexOf('{!c && frenadaDesde && ('), app.indexOf('{!c && !competidores.length && ('));
-  assert.ok(renglon.length > 100 && renglon.length < 900, 'el recorte es el renglón de la cola frenada');
-  assert.match(renglon, /Las caricaturas no se est[áa]n haciendo/, 'dice el hecho');
-  assert.match(renglon, /haceCuanto\(frenadaDesde\)/, 'con cuánto espera la que más espera');
-  assert.match(renglon, /Las hace el Runner con Canva/, 'y dónde mirar');
-  assert.doesNotMatch(renglon, /spy-error/, 'no es un error del cliente: es nuestro');
+  assert.doesNotMatch(app, /no se est[áa]n haciendo/, 'Martín, 12/11: «el texto innecesario no lo pongas»');
+  assert.doesNotMatch(app, /Runner|Canva/, 'la pantalla no explica cómo se hacen las caricaturas');
+  assert.doesNotMatch(app, /frenadaDesde|caricaturasFrenadasDesde/);
+  assert.doesNotMatch(sinComentarios(leer('app/competitor-spy/page.tsx')), /caricaturasFrenadasDesde|colaFrenadaDesde/);
+  assert.doesNotMatch(sinComentarios(leer('app/api/competitor-spy/caricaturas/route.ts')), /frenadaDesde|colaFrenadaDesde/);
 });
