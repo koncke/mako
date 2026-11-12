@@ -416,6 +416,7 @@ export function TimelineElement({
 						// Lo que los cursores de los agentes van a tocar (enjambre/components/cursores.tsx): cada clip, con su tipo.
 						data-ce-clip=""
 						data-ce-tipo={element.type}
+						data-ce-id={element.id}
 						className={cn(
 							"group/clip absolute top-0 select-none",
 							bloqueada && "pointer-events-none",
