@@ -1,8 +1,10 @@
 // =============================================================================
 // /vsl/script — Ads Analyst (el guion de tus anuncios con su retención y tus ventas), con la ESTRUCTURA de Gethookd
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, también el DISEÑO):
 //   https://www.gethookd.ai/  (leída el 11/11/2026 con Chromium, de arriba a abajo)
+// El diseño copiado vive en ./disenos/script.tsx; los valores medidos de la referencia (Inter con eje óptico, la escala,
+// los colores, las cajas), en docs/diseno/landings-competencia/script.md.
 // Su orden, que se respeta acá: hero «Your AI cannot see Meta's ad library. Now it can. / Give Your AI 22 Million Live
 // Meta Ads» con sus tres chips → «Trusted by teams at» (logos) → «Ask your AI» → «Two ways to run it: Do it yourself, or
 // hand it to your AI» (las dos tarjetas) → la columna «In the app» (Explore, Brand Spy, Shops, Boards, Clone Ads) → la
@@ -49,6 +51,9 @@ const I = {
 const VEREDICTOS = [VEREDICTO_ROTULO.escalar, VEREDICTO_ROTULO.mejorar, VEREDICTO_ROTULO.reescribir, VEREDICTO_ROTULO.repensar]
   .map((v) => v.toLowerCase()).join(', ').replace(/, ([^,]+)$/, ' o $1');
 const miles = (n: number) => n.toLocaleString('es-MX').replace(/,/g, '.');
+/** Los dos caminos (la columna de la app y la de MaKo): la tarjeta de «Dos formas» y su columna llevan el mismo nombre. */
+const EN_LA_APP = 'Míralo tú, anuncio por anuncio';
+const CON_MAKO = 'Pregúntale y sáltate los clics';
 
 export const LANDING_SCRIPT: LandingCompetencia = {
   slug: 'script',
@@ -61,8 +66,8 @@ export const LANDING_SCRIPT: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Meta no lee el guion de tus anuncios. MaKo sí.',
-      titulo: 'Tus anuncios, leídos palabra por palabra y cruzados con tus ventas.',
-      bajada: 'Conectas tu Meta y MaKo lee cada anuncio solo. Le preguntas cuál escalar y te contesta con el gancho, el ángulo y <strong>los cierres de tu CRM</strong>.',
+      titulo: 'Tus anuncios, leídos <strong>palabra por palabra</strong>.',
+      bajada: 'Conectas tu Meta y MaKo lee cada anuncio solo y lo cruza con tus ventas. Le preguntas cuál escalar y te contesta con el gancho, el ángulo y <strong>los cierres de tu CRM</strong>.',
       puntos: ['Se actualiza solo, cada día', 'Con las agendas de Meta y los cierres de tu CRM'],
       visual: { tipo: 'detalle', slug: 'script' },
     },
@@ -85,15 +90,16 @@ export const LANDING_SCRIPT: LandingCompetencia = {
       titulo: 'Hazlo tú, o pásaselo a MaKo.',
       bajada: 'Los mismos datos en las dos.',
       columnas: 2,
+      // Las dos tarjetas son las cabezas de las dos columnas que siguen (como en Gethookd): se llaman como ellas.
       items: [
-        { icono: I.hojas, titulo: 'Míralo tú', texto: 'Las hojas «Anuncio ganador» y «Hooks y retención» del Dashboard, para quien quiere ver sus anuncios uno por uno.', meta: 'En la app' },
-        { icono: I.chat, titulo: 'O pregúntale a MaKo', texto: 'Los mismos números desde el chat, sin armar un filtro: le escribes como lo dirías en voz alta.', meta: 'Por chat o WhatsApp' },
+        { icono: I.hojas, titulo: EN_LA_APP, texto: 'Las hojas «Anuncio ganador» y «Hooks y retención» del Dashboard, para quien quiere ver sus anuncios uno por uno.', meta: 'En la app' },
+        { icono: I.chat, titulo: CON_MAKO, texto: 'Los mismos números desde el chat, sin armar un filtro: le escribes como lo dirías en voz alta.', meta: 'Por chat o WhatsApp' },
       ],
     },
     {
       tipo: 'filas',
       etiqueta: 'En la app',
-      titulo: 'Míralo tú, anuncio por anuncio',
+      titulo: EN_LA_APP,
       slug: 'script',
       items: [
         {
@@ -118,7 +124,7 @@ export const LANDING_SCRIPT: LandingCompetencia = {
       tipo: 'pasos',
       fondo: true,
       etiqueta: 'Con MaKo',
-      titulo: 'Pregúntale y sáltate los clics',
+      titulo: CON_MAKO,
       bajada: 'Los dos caminos terminan en lo mismo: tu próximo guion, valorado antes de grabarlo.',
       pasos: [
         { titulo: 'Conectas tu Meta', texto: 'Una sola vez. Cada día MaKo transcribe tus anuncios nuevos y los analiza.' },

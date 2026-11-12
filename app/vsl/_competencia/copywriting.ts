@@ -1,9 +1,11 @@
 // =============================================================================
-// /vsl/copywriting — Copywriting, las páginas de MaKo (copiadas de Notion), con la ESTRUCTURA de The Copy Machine
+// /vsl/copywriting — Copywriting (las páginas de MaKo), con la ESTRUCTURA y el DISEÑO de The Copy Machine
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
-//   https://theoperatorstack.io/copy-machine  (leída el 11/11/2026 con Chromium)
-// Su orden, que se respeta acá: hero «100 years of copywriting, installed into your AI» → «What's inside, at a glance» →
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, también el diseño):
+//   https://theoperatorstack.io/copy-machine  (leída el 11/11/2026 con Chromium, a 1440 y a 390 px)
+// El diseño copiado vive en ./disenos/copywriting.tsx; los valores medidos de la referencia (fuentes, escala, colores,
+// espacios), en docs/diseno/landings-competencia/copywriting.md.
+// Su orden, que se respeta aquí: hero «100 years of copywriting, installed into your AI» → «What's inside, at a glance» →
 // «See what the Copy Machine does to a real page» (3 páginas) → «What buyers wrote back» → «Start with the copy you need
 // next» (por tipo de negocio) → «Copy only you can run» (el «papel tapiz») → «Who built it» → «What you get» (7 skills) →
 // «Your first hour» → «Who it's for» y «Who it isn't for» → «The math» → «The offer» → los agregados → preguntas → cierre.
@@ -23,6 +25,11 @@
 //     las tres preguntas («¿la podría firmar un competidor?»), las estructuras y los ángulos, y [DATO: …] en lugar de un
 //     número inventado (la página cuenta cuántos quedan: app/copywriter/editor/EditorGuion.tsx). Su «Chief» que revisa es,
 //     en MaKo, la propuesta que se acepta, se descarta o se reintenta (app/copywriter/PanelMaKo.tsx).
+//   · Con el diseño copiado (11/11/2026): el titular lleva su segunda mitad en itálica con una palabra de color (como su
+//     «installed into *your* AI»); el «sin / con» se escribe como el texto de su banda oscura («If yes, you don't have copy.
+//     You have wallpaper.»); los renglones del hero son sus checks con el comienzo en negrita; las tres plantillas se
+//     muestran como su banda «Three real pages and ads, rewritten», y «¿Para quién es?» se partió en dos bloques, como sus
+//     tarjetas «Who it's for» y «Who it isn't for», con una línea por punto.
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['copywriter']) y de docs/diseno-copywriter.md (D5, D9, D11-D13).
 // =============================================================================
 
@@ -82,9 +89,9 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'El copywriter de MaKo',
-      titulo: 'El método de un copywriter de respuesta directa, escribiendo en tus páginas.',
+      titulo: 'El método de un copywriter, <em>escribiendo en <strong>tus</strong> páginas.</em>',
       bajada: 'Tu IA escribe como la de todos porque no sabe nada de ti. MaKo lee tu negocio, te pregunta lo que falta y escribe <strong>en tu página</strong>: anuncios, reels, stories, emails, VSL y videos de YouTube.',
-      puntos: ['Lo que tu negocio no dice queda marcado para que lo completes', 'Escribe con la IA que conectas a tu negocio'],
+      puntos: ['<strong>No inventa lo que no sabe.</strong> Lo que tu negocio no dice queda marcado para que lo completes.', '<strong>Escribe con tu IA.</strong> La que conectas a tu negocio en Integraciones.'],
       visual: { tipo: 'propio', slug: 'copywriting' },
     },
     {
@@ -99,8 +106,8 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      etiqueta: 'Lo que escribe',
-      titulo: 'Mira lo que trae cada plantilla, ya escrita',
+      etiqueta: 'Un anuncio, un reel y un email, de un negocio ficticio.',
+      titulo: 'Tres plantillas, con su ejemplo ya escrito',
       bajada: 'Cada plantilla de «Nueva» trae un ejemplo completo de un negocio ficticio: muestra la forma, el largo y el tono. Son ejemplos, no clientes ni resultados medidos. Tu página nace con las secciones vacías y una guía en cada una.',
       items: MUESTRA.map((p) => ({ icono: ICONO_GRUPO[p.grupo] ?? I.copy, titulo: p.nombre, texto: `«${extractoDe(p)}»`, meta: `${p.insignia} · ${p.ejemplo?.negocio ?? ''}` })),
     },
@@ -118,16 +125,17 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       })),
     },
     {
+      // Como su banda oscura «Copy only you can run»: la pregunta del titular y un párrafo que sigue de corrido.
       tipo: 'contraste',
       etiqueta: 'Copy que solo tú puedes firmar',
-      titulo: '¿Un competidor podría pegar tu titular en su página sin que nadie lo note?',
+      titulo: '¿Un competidor podría pegar tu titular en su página sin que nadie lo note? Si la respuesta es sí, <em>no es tu copy.</em>',
       sin: {
-        titulo: 'Copy que podría firmar cualquiera',
-        texto: 'Suena bien y podría ser de cualquiera, porque la IA no sabe nada de ti. Un prompt mejor no lo arregla, ni un modelo más grande: si un competidor puede pegarlo en su página, no es tu copy.',
+        titulo: 'La IA escribe copy que suena bien y podría firmar cualquiera,',
+        texto: 'porque no sabe nada de ti. Un prompt mejor no lo arregla, ni un modelo más grande.',
       },
       con: {
-        titulo: 'Copy que sale de lo que es verdad de tu negocio',
-        texto: 'MaKo parte de tu oferta, tu cliente ideal y lo que ya sabe de tu negocio. A cada parte le hace tres preguntas: ¿se puede imaginar?, ¿se puede comprobar?, <strong>¿la podría firmar un competidor?</strong> Si la podría firmar, la cambia por un dato tuyo. Y lo que falta, te lo pregunta.',
+        titulo: 'MaKo parte de lo que es verdad de tu negocio:',
+        texto: 'tu oferta, tu cliente ideal y lo que ya sabe de ti. A cada parte le hace tres preguntas: ¿se puede imaginar?, ¿se puede comprobar?, <strong>¿la podría firmar un competidor?</strong> Si la podría firmar, la cambia por un dato tuyo. Y lo que falta, te lo pregunta.',
       },
     },
     {
@@ -155,12 +163,23 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       ],
     },
     {
+      // Como sus dos tarjetas «Who it's for» / «Who it isn't for»: una línea por punto, el comienzo en negrita.
       tipo: 'tarjetas',
       titulo: '¿Para quién es?',
       columnas: 2,
       items: [
-        { icono: I.si, titulo: 'Es para ti si…', texto: 'Vendes High Ticket y el marketing lo haces tú: los anuncios, los reels, los emails y la VSL caen en ti. O escribes para clientes y cada borrador tiene que pasar su revisión: le compartes la página y la edita ahí.' },
-        { icono: I.no, titulo: 'No es para ti si…', texto: 'Ya te gusta lo que escribe tu IA. O no le vas a contar de tu negocio: escribe desde tu oferta y tu cliente, y sin eso sale el mismo borrador de siempre. O quieres que publique por ti: MaKo te entrega el texto en la página, no publica ni envía.' },
+        { icono: I.si, titulo: 'Vendes High Ticket y el marketing lo haces tú:', texto: 'los anuncios, los reels, los emails y la VSL caen en ti.' },
+        { icono: I.si, titulo: 'Escribes para clientes', texto: 'y cada borrador tiene que pasar su revisión: le compartes la página y la edita ahí.' },
+      ],
+    },
+    {
+      tipo: 'tarjetas',
+      titulo: '¿Para quién no es?',
+      columnas: 2,
+      items: [
+        { icono: I.no, titulo: 'Ya te gusta lo que escribe tu IA.', texto: 'Si lo que te entrega ya te sirve, sigue con ella.' },
+        { icono: I.no, titulo: 'No le vas a contar de tu negocio.', texto: 'Escribe desde tu oferta y tu cliente: sin eso sale el mismo borrador de siempre.' },
+        { icono: I.no, titulo: 'Quieres que publique por ti.', texto: 'MaKo te entrega el texto en la página: no publica ni envía.' },
       ],
     },
     {

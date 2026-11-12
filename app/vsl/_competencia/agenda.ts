@@ -1,8 +1,10 @@
 // =============================================================================
 // /vsl/agenda — la Agenda de MaKo (tu Calendly o Cal.com conectado al CRM, y Calendar), con la ESTRUCTURA de iClosed
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y el DISEÑO):
 //   https://www.iclosed.io/  (leída el 11/11/2026 con Chromium)
+// El diseño copiado (barra, hero, secciones, tipografía, espacios, pie) es ./disenos/agenda.tsx; los valores medidos
+// con getComputedStyle a 1440 y 390 px, en docs/diseno/landings-competencia/agenda.md.
 // Su orden, que se respeta acá: hero «Triple your leads using high-converting scheduler» → tres citas cortas → «Keep the
 // same funnels. Change the scheduler, make more profit.» (Qualify & Route, Engage, Measure, AI Agent) → «You already
 // follow them» → «The money's already in your funnel. Plug in. Take it back.» y sus tres pasos → «Everything your booking
@@ -79,7 +81,7 @@ export const LANDING_AGENDA: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Tu misma agenda. Ahora, conectada a tu embudo.',
+      titulo: 'Tu misma agenda. <em>Ahora, conectada a tu embudo.</em>',
       bajada: `No cambias de ${AGENDAS}: MaKo lee cada reserva y la pone donde va.`,
       items: [
         { icono: I.etapa, titulo: 'Cada reserva, en su etapa', texto: 'Vinculas cada evento de tu agenda a una etapa de reunión, y quien lo reserva cae ahí, en ese funnel. Si ya era tu lead, MaKo lo suma a ese funnel <strong>sin cambiarle el que ya tenía</strong>.' },
@@ -90,7 +92,7 @@ export const LANDING_AGENDA: LandingCompetencia = {
     {
       tipo: 'pasos',
       fondo: true,
-      titulo: 'Las reservas ya te llegan. Conecta tu agenda y caen en su lugar.',
+      titulo: 'Las reservas ya te llegan. <em>Conecta tu agenda y caen en su lugar.</em>',
       bajada: 'Un evento de tu agenda para cada etapa de reunión, sin cambiar tu página de reservas.',
       pasos: [
         { titulo: 'Conecta tu agenda', texto: `Conectas tu ${AGENDAS} en Integraciones, con el evento de tu llamada. Con Calendly, el aviso de cada reserva pide uno de sus planes pagos.` },
@@ -100,7 +102,7 @@ export const LANDING_AGENDA: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Todo lo que tu agenda debió hacer desde el principio',
+      titulo: 'Todo lo que tu agenda debió hacer <em>desde el principio</em>',
       items: [
         { icono: I.ficha, titulo: 'Lo que contestó, en su ficha', texto: 'Las respuestas del formulario de tu agenda quedan en el resumen del lead, para que llegues a la llamada sabiendo con quién hablas.' },
         { icono: I.link, titulo: 'El link de la reunión, guardado', texto: 'MaKo guarda el link para entrar a la llamada, y es el que lleva el recordatorio que le llega al lead.' },
@@ -112,7 +114,7 @@ export const LANDING_AGENDA: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Las llamadas de todo tu equipo, en un solo lugar',
+      titulo: 'Las llamadas de todo tu equipo, <em>en un solo lugar</em>',
       bajada: 'En Calendar, la lista de tus llamadas de venta: próximas, pasadas y canceladas, cada una con su lead y su estado.',
       items: [
         { icono: I.persona, titulo: 'Cada uno ve las suyas', texto: 'Un closer o un setter entra a Calendar y arranca en sus llamadas.' },
