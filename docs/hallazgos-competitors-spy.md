@@ -2266,3 +2266,19 @@ moverlos de lugar: es que lleguen.
 - **«Agregar un canal» busca por el NOMBRE y no siempre encuentra.** Con «Cole Gordon» no aparecía nada, porque su canal es @colethomasgordon. Escribiendo el @ apareció enseguida. Antes de sumar un canal, verificalo con la API: nombre, suscriptores y de qué hablan sus últimos videos. Un @ que coincide por nombre puede ser de otra persona: el de Sarah Tran es una instructora vietnamita de pilates.
 
 **Sin hacer:** Sarah Tran (37) sigue sin canal: el único que coincide por nombre no es ella. Las fotos que son logos (The Ramsey Show, School of Mentors, Mindvalley, MasterClass y el 41) esperan el `--sin-persona` del Runner, y Tina Ghazi su caricatura. Instagram sigue sin leerse para ningún suelto hasta que Martín arregle Apify o Meta.
+
+## La tarjeta de una pieza es la de los outliers de Create (12/11/2026)
+
+**Vive en:** `app/competitor-spy/TarjetaPieza.tsx`. Usa las clases de `app/image-editor/carruseles/explorar.module.css`, y lo propio de Spy está en `tarjeta-pieza.module.css`. Test: `tests/spy-tarjetas-sin-relleno.test.ts`.
+
+**La regla:** una pieza se ve igual en Spy y en Create. No hay un componente común: la tarjeta es un juego de CLASES, y cada pantalla arma la suya con ellas. Si Create cambia esas clases, Spy cambia solo. Las reglas viejas de Martín siguen:
+- la proporción de su red;
+- sólo los números que hay;
+- el texto debajo de la foto y debajo de las marcas;
+- el nombre en dos renglones.
+
+**Trampa:** `LogoRed` dibuja con los `<symbol>` de `<BrandDefs />`, y la pantalla del teléfono (`SpyM.tsx`) no lo montaba: el logo de la red salía vacío. Toda pantalla que dibuje tarjetas lo monta, y el test 2 lo cuida.
+
+**Trampa de los tests:** un componente que importa un `.module.css` no carga con `node --import tsx`. Hay que registrar un hook que devuelva el CSS vacío, como `tests/carruseles-pantalla.test.ts`, y recién después importar el componente. Con eso, el test mira el contenido y no las clases.
+
+**Sin hacer:** la grilla de Spy sigue siendo por filas (`GrillaPiezas`). Un short al lado de un video largo deja un hueco debajo del largo. Create usa `GrillaMixta` (`app/_crear/GrillaMixta.tsx`), que reparte en columnas. Pasarla a Spy obliga a rehacer la paginación «por filas enteras», que tiene su test.
