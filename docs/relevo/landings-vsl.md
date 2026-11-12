@@ -17,12 +17,61 @@ referencia y el sitio estilo beehiiv (`/vsl/sitio`, `/vsl/comparaciones`). Mart�
 
 | Pedido | Dónde quedó |
 |---|---|
-| Ningún «agendar llamada»: el botón es «Comienza tu prueba gratuita» | `app/vsl/_competencia/cta.ts` (`RUTA_CTA` = `/planes`, `TEXTO_CTA`, `TEXTO_CIERRE`), en las 19 landings y el sitio. Sigue al interruptor de la prueba (prendida: abajo) |
-| Arriba: iniciar sesión, ver planes, registrarse | `app/vsl/_sitio/Barra.tsx`: «Iniciar sesión» (/login), «Ver planes» (/planes), el sol y la luna, «Comienza tu prueba gratuita» |
+| Ningún «agendar llamada»: el botón es «Pruébalo gratis ahora» (antes «Comienza tu prueba gratuita») | `app/vsl/_competencia/cta.ts` (`RUTA_CTA` = `/planes`, `TEXTO_CTA`, `TEXTO_CIERRE`, que dice hasta qué día se cancela sin pagar: lo que el botón NO dice), en las 19 landings y el sitio. Sigue al interruptor de la prueba (prendida: abajo) |
+| Arriba: iniciar sesión y registrarse (sin «Ver planes»: ya está «Precios») | `app/vsl/_sitio/Barra.tsx`: «Iniciar sesión» (/login), «Pruébalo gratis ahora» y, a la derecha del todo, el sol y la luna |
 | El sol y la luna, con el barrido de la app, y que se mantenga | `app/vsl/_competencia/TemaSitio.tsx`: un script en línea (anda sin React y en el visor), recuerda el modo en `localStorage['mako.sitio.modo']` |
 | El VSL de Martín en la portada nueva | `app/vsl/_sitio/Portada.tsx` (`VSL_PORTADA`, el Panda `25c0684d-…` de la portada de hoy) |
 | «Precios» y los links que no andaban | «Industrias» llevaba a `/vsl/mako-<avatar>` (404, nunca se subieron): ahora a `/vsl/coaches`, `/vsl/infoproductores` y `/vsl/inmobiliarias` (publicadas el 23/10). Agencias no tiene página: fuera del menú |
 | El visor sin la lista, navegable | `scripts/visor-landings/visor.html`: la página entera, sus links abren la página que corresponde (el logo → la portada nueva, Precios → /planes, Iniciar sesión → /login…), abajo Atrás / Computadora-Teléfono / Copiado-Diseño MaKo |
+
+## La portada nueva y la comparación (12/11/2026, tercera vuelta de Martín)
+
+> «el título principal me gustaría que sea el mejor software para ventas high ticket… ventas, marketing, contenido en una sola
+> app… tal vez abajo… ese carrusel de aplicaciones lo pondría en otra sección más abajo, ahí pondría el mismo carrusel de MaKo
+> reemplaza las apps que ya estás pagando… MaKo reemplaza a muchísimas más apps… te quedaste muy corto con esas 8. Pero fíjate
+> que siempre los logos sean los logos reales originales… el de Facebook está negro… el de Mercado Pago no se nota.»
+
+- Título: «El mejor software para ventas High Ticket.», bajada «**Ventas, marketing y contenido en una sola app.** …», sin la
+  frase de debajo del botón.
+- **54 apps en 16 trabajos** (`app/vsl/_sitio/reemplaza.ts`, de los competidores de `docs/competencia/landings-por-funcion.md`),
+  con el ícono ORIGINAL de cada una en `public/vsl-assets/logos/apps/` (bajado de su sitio; si no tenía, el de Google). Sin las
+  apps con las que MaKo se conecta (Calendly, Fathom, Stripe…). Se usa en la comparación y en la tira de debajo del hero.
+  `tests/vsl-sitio-reemplaza.test.ts` cuida los archivos y el número.
+- El Facebook negro: lo invertía el sol y la luna (la «f» blanca del `<symbol>`). Ahora no se invierten los logos ni su recuadro.
+  El Mercado Pago: su apretón de manos pasó de blanco a su azul oscuro (#2D3277) en `app/_components/ServicioVisual.tsx`.
+- Las animaciones de la app en «Todo lo que necesitas»: ver la cuarta vuelta.
+
+## Cuarta vuelta de Martín (12/11/2026)
+
+> «prueba lo gratis ahora siempre tiene que estar todo en mayúscula… unificar el color del fondo en todos lados… en la parte de
+> pricing está todo en negro… falta el MaKo Accelerator… rediseñes los tres bloques de los planes… compara los planes… vuelve a
+> como estaba antes la parte del testimonio de Mauricio… MaKo en números lo eliminaría… no le cambiaste el color de la letra al
+> carrusel… logos flotando… funciona con la app que ya usas… Mercado Pago… Plan, Email [sin referencia]… arriba las cuatro esas
+> y abajo esas otras… de qué landing te inspiraste… rediseñes la landing de Offer.» Y después: el checkout en el visor, que
+> diga que el cobro empieza a los 7 días, y **los 7 días gratis sólo en Pro (97); Esencial (47) se paga directo**.
+
+| Pedido | Dónde quedó |
+|---|---|
+| «PRUÉBALO GRATIS AHORA» en mayúsculas | `app/vsl/_competencia/cta.ts` (`TEXTO_CTA`) |
+| El testimonio de Mauricio como antes | `CasoSitio` usa `CasoMauricio` de `app/vsl/_detalle/FeatureDetail.tsx` (`CSS_CASO` exportado) |
+| Sin «MaKo, en números» | fuera de `Portada.tsx` |
+| La letra de la tira en modo claro | `esRecuadro` en `TemaSitio.tsx` (un recuadro de logo no tiene texto) |
+| Logos flotando, los reales en «Funciona con las apps que ya usas» | `LOGO_INTEGRACION` (`datos.ts`) y `public/vsl-assets/logos/integraciones/` |
+| El menú Producto todo igual, sin las cuatro grandes | `GRANDES = []` y `COLUMNAS` en `datos.ts` (MaKo, Today, Sales, Marketing, Create) |
+| Precios del sitio en claro y con el Acelerador | `PlanesSitio` dibuja `TarjetasPlanes` de `app/planes/Tarjetas.tsx` (los mismos bloques de /planes) |
+| Videos de la app en «Todo lo que necesitas» | `TARJETAS_PORTADA` (`datos.ts`): Competitor Spy y Web Generator (Replicar) con su grabación en `public/vsl-assets/sitio/`, Copywriting con los 32 gurús («Inspirado en») |
+
+**Sin hacer (cada uno su sesión):** los tres bloques de planes con menos ítems y otras apps de referencia, «Compara los planes»
+con el relevamiento de lo que incluye cada uno, el fondo de /planes sin crema, la prueba sólo en Pro y el checkout con «el cobro
+empieza a los 7 días» (`app/planes/`, `lib/planes-mako.ts`); Plan (Motion) y Email (beehiiv) copiadas de nuevo de su
+referencia y Offer (Atlas AI) rediseñada con sus textos; el relevamiento de funciones que no se mencionan (miniaturas de
+YouTube, outliers…). El checkout entra al visor cuando esté diseñado (`DE_LA_APP` en `armar.mjs`).
+
+**Qué referencia copió cada landing** (`referencia` de cada `app/vsl/_competencia/<slug>.ts`): sitio y comparaciones → beehiiv;
+Video → Cherry Studio; Competitor Spy → Foreplay; Marketing CoPilot → Master Ads; AI Avatar → HeyGen; Image → PostNitro;
+Copywriting → The Copy Machine; Web Generator → HighLevel AI Studio; Offer → Atlas AI; Chats → Leadsales; CRM → GoHighLevel;
+Automations → SetSmart; Agenda → iClosed; Cobranza → Rebill; Email → beehiiv; Dashboard → Reportei; Ads Analyst → Gethookd;
+Funnel → Hyros; Ops Center → Holo; Plan → Motion.
 
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 

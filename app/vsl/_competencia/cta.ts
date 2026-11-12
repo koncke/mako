@@ -17,7 +17,8 @@ import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
 export const RUTA_CTA = '/planes';
 // Martín, 12/11/2026: «en lugar de que sea el CTA en todos lados, comienza tu prueba gratuita, me gustaría que sea pruébalo
 // gratis, ahora. Que sea bien marketinero».
-export const TEXTO_CTA = PRUEBA_GRATIS_PRENDIDA ? 'Pruébalo gratis ahora' : 'Empieza con MaKo';
+// Y después: «prueba lo gratis ahora siempre tiene que estar todo en mayúscula. El CTA principal».
+export const TEXTO_CTA = PRUEBA_GRATIS_PRENDIDA ? 'PRUÉBALO GRATIS AHORA' : 'EMPIEZA CON MAKO';
 /**
  * La frase de la banda final de cada landing, al lado del botón: lo que el botón NO dice (Martín, 12/11/2026, de la que repetía
  * «Prueba MaKo 7 días gratis»: «eso no tiene sentido, ya que eso mismo ya lo dice el propio botón»). Es la regla de /reembolsos.

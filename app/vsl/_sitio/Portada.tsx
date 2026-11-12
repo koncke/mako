@@ -13,38 +13,37 @@
 //     producto superpuestas) son tres de MaKo con los visuales de sus landings: el CRM, el Ops Center y Automations.
 //   · La tira: no hay logos de clientes. Van las apps conocidas con las que MaKo se conecta, con su logo oficial
 //     (app/_components/ServicioVisual.tsx) y su nombre, deslizándose como la suya.
-//   · Sus seis tarjetas son seis funciones de MaKo, cada una con el visual de su landing y su link. Su «+» de arriba a la derecha (allá
+//   · Sus tarjetas son ocho funciones de MaKo, cada una con el visual de su landing (o una grabación de la app, o los gurús) y su link. Su «+» de arriba a la derecha (allá
 //     da vuelta la tarjeta, con JavaScript) lleva a la misma landing. El resto de las funciones está en el menú «Producto» y en el pie.
-//   · «Trusted by names you know»: su marquesina de fotos y cifras de clientes → el caso de Mauricio (el único): su foto con su
-//     nombre y las tres cifras de sus meses, con el diseño de esas tarjetas, quietas (cuatro entran en el ancho; a 390, como su
-//     fila de 220 × 300 cortada en el borde, se corren con el dedo). Sin «See all
-//     customer stories» ni la caja con la cita de otro cliente que va después de los planes (no hay otro caso).
-//   · «Build your way»: los planes salen de planesParaLanding() (lib/compra-plan.ts) y cada uno lleva a /planes/<id>, como en la
-//     portada de hoy. Sin sus chips de «All plans include», su regla de suscriptores ni su selector anual: el precio de MaKo no
-//     depende de los suscriptores y el anual se pide en /planes. Con dos planes las tarjetas son de 384 en vez de 284.
-//   · «The numbers tell the story»: cuatro números CONTADOS del código (./datos.ts, `numerosDelSitio`), nunca de uso.
+//   · «Trusted by names you know» → el caso de Mauricio TAL CUAL estaba en la landing de /vsl (CasoMauricio: su video, su historia
+//     y el carrusel de fotos). Martín, 12/11/2026: «vuelve a como estaba antes la parte del testimonio de Mauricio».
+//   · «Build your way»: los planes salen de planesParaLanding() (lib/compra-plan.ts) y se dibujan con los MISMOS bloques de
+//     /planes (TarjetasPlanes, con el Acelerador), sobre una franja clara (Martín: «está todo en negro… y falta el Accelerator»).
+//   · «The numbers tell the story» se fue el 12/11/2026 (Martín: «la parte de MaKo en números para mí no tiene mucho sentido»).
 //   · «Powerful integrations»: su imagen de logos son los logos de las integraciones del catálogo que un negocio puede conectar.
 //   · «Have a question?»: las preguntas de las landings de MaKo, que el código sostiene.
 //   · El cierre dice la frase de la landing de MaKo antes de la llamada («¿Lo quieres andando en tu negocio?»).
 // Server component. Lo único que no es del servidor son los logos (SvcIcon, de ServicioVisual), que no tienen interacción.
 // =============================================================================
 
-import type { CSSProperties } from 'react';
-import { CASO, TEXTO_CTA } from '../_competencia/marca';
+import { TEXTO_CTA } from '../_competencia/marca';
 import { VisualDeLanding } from '../_competencia/Visuales';
 import type { Bloque } from '../_competencia/tipos';
 import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
 import { Visual } from '../_detalle/Visual';
 import PandaPlayer from '../_detalle/PandaPlayer';
+import { CSS_CASO, CasoMauricio } from '../_detalle/FeatureDetail';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
-import { bajadaDePlanes, botonDelPlan } from '@/lib/compra-plan-reglas';
+import { CSS_TARJETAS, TarjetasPlanes } from '@/app/planes/Tarjetas';
+import { ASESORES, inspiradoEn } from '@/lib/asesores/catalogo';
+import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
 import type { PlanMako } from '@/lib/planes-mako';
 import { Barra } from './Barra';
 import { Pie } from './Pie';
 import { Boton, Flecha, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
 import {
-  HISTORIA, PREGUNTAS_SITIO, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto, numerosDelSitio,
+  LOGO_INTEGRACION, PREGUNTAS_SITIO, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
 } from './datos';
 import { appsQueReemplaza } from './reemplaza';
 
@@ -53,7 +52,6 @@ export type PlanSitio = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 
 
 type Hero = Extract<Bloque, { tipo: 'hero' }>;
 const heroDe = (slug: string): Hero | undefined => landingDeSlug(slug)?.bloques.find((b): b is Hero => b.tipo === 'hero');
-const precio = (n: number) => n.toLocaleString('es-AR');
 
 /** El VSL que grabó Martín, el mismo de la portada de hoy (el documento publicado de hola-mako.com, 12/11/2026). */
 export const VSL_PORTADA = 'https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=25c0684d-528e-4382-9796-d1ec74b79634&color=%232F6FED';
@@ -113,7 +111,11 @@ function TiraSitio() {
   const lista = (oculta: boolean) => (
     <ul className="s-tira-l" aria-hidden={oculta || undefined}>
       {apps.map((d) => (
-        <li key={d.key} className="s-tira-i"><SvcIcon k={d.key} size={18} box={30} radius={8} />{d.nombre}</li>
+        <li key={d.key} className="s-tira-i s-tira-app">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {LOGO_INTEGRACION[d.key] ? <img src={`/vsl-assets/logos/integraciones/${LOGO_INTEGRACION[d.key]}`} alt="" width={30} height={30} /> : <SvcIcon k={d.key} size={18} box={30} radius={8} />}
+          {d.nombre}
+        </li>
       ))}
     </ul>
   );
@@ -130,8 +132,9 @@ function TiraSitio() {
 function TarjetaFuncion({ slug, texto, visual, chica }: (typeof TARJETAS_PORTADA)[number] & { chica: boolean }) {
   const l = landingDeSlug(slug);
   if (!l) return null;
-  const hero = heroDe(slug);
-  const pedido = visual === 'hero' ? null : visual;
+  const hero = visual === 'hero' ? heroDe(slug) : undefined;
+  const pedido = typeof visual === 'object' && 'grupo' in visual ? visual : null;
+  const grabacion = typeof visual === 'object' && 'video' in visual ? visual : null;
   const spec = pedido ? FEATURE_VISUALS[pedido.grupo]?.groups.find((g) => g.type === pedido.tipo) : undefined;
   return (
     <article className={`s-card${chica ? ' s-card-chica' : ''}`}>
@@ -142,10 +145,35 @@ function TarjetaFuncion({ slug, texto, visual, chica }: (typeof TARJETAS_PORTADA
       </div>
       {/* Su «+» de arriba a la derecha (allá da vuelta la tarjeta, con JavaScript): aquí lleva a la misma landing. */}
       <a className="s-card-mas" href={`/vsl/${l.slug}`} tabIndex={-1} aria-hidden="true"><Icono d={['M12 5v14', 'M5 12h14']} size={24} /></a>
-      <div className="s-card-vis" aria-hidden="true">
-        <div className="s-panel">{spec ? <Visual spec={spec} /> : hero ? <VisualDeLanding visual={hero.visual} /> : null}</div>
+      <div className={`s-card-vis${visual === 'gurus' ? ' s-card-vis-gurus' : ''}`} aria-hidden="true">
+        <div className="s-panel">
+          {grabacion ? (
+            // Sin sonido y en bucle: arranca sola, como un GIF (el navegador sólo deja eso si está muda).
+            <video className="s-card-video" src={grabacion.video} poster={grabacion.poster} autoPlay muted loop playsInline preload="metadata" />
+          ) : visual === 'gurus' ? (
+            <Gurus />
+          ) : spec ? (
+            <Visual spec={spec} />
+          ) : hero ? (
+            <VisualDeLanding visual={hero.visual} />
+          ) : null}
+        </div>
       </div>
     </article>
+  );
+}
+
+/** La pared de caricaturas de Copywriting (public/asesores/<id>.png), con «Inspirado en»: ninguno participa en MaKo ni la respalda. */
+function Gurus() {
+  return (
+    <div className="s-gurus">
+      <p className="s-gurus-pie">{ASESORES.length} referentes · Inspirado en su método · Ninguno participa en MaKo ni la respalda</p>
+      <ul className="s-gurus-ul">
+        {ASESORES.map((a) => (
+          <li key={a.id} title={`${inspiradoEn(a)} · ${a.especialidad}`}><img src={`/asesores/${a.id}.png`} alt={inspiradoEn(a)} width={200} height={200} decoding="async" /></li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -181,92 +209,37 @@ function ProductoSitio() {
   );
 }
 
+/**
+ * El caso de Mauricio TAL CUAL estaba en la landing de /vsl (CasoMauricio: el video «Mauricio, en vivo», su historia, lo que no
+ * lo habría resuelto y el carrusel de fotos). Martín (12/11/2026): «vuelve a como estaba antes la parte del testimonio de
+ * Mauricio… vuélvelo como estaba». Va sobre su franja clara, como en la landing.
+ */
 function CasoSitio() {
   return (
-    <section className="s-sec" id="caso">
-      <div className="s-cont">
-        <div className="s-centro">
-          <p className="s-rotulo">Caso</p>
-          <h2 className="s-h2" dangerouslySetInnerHTML={{ __html: CASO.titulo }} />
-          <p className="s-lede">{CASO.sub}</p>
-          <Boton />
-        </div>
-        <ul className="s-casos">
-          <li className="s-caso s-caso-foto">
-            {/* eslint-disable-next-line @next/next/no-img-element -- su foto de cliente, servida de /public */}
-            <img className="s-caso-img" src={HISTORIA.foto} alt={HISTORIA.fotoAlt} loading="lazy" />
-            <div className="s-caso-velo">
-              <p className="s-caso-n">{CASO.quien}</p>
-              <p className="s-caso-r">{CASO.rol}</p>
-            </div>
-          </li>
-          {CASO.meses.map((m) => (
-            <li key={m.mes} className="s-caso s-caso-cifra">
-              <p className="s-caso-num">{m.monto}</p>
-              <p className="s-caso-txt">en {m.mes.toLowerCase()}</p>
-            </li>
-          ))}
-        </ul>
-      </div>
+    <section className="s-caso-orig" id="caso">
+      <style dangerouslySetInnerHTML={{ __html: CSS_CASO + '.s-caso-orig{color:#12151B}.s-caso-orig .mk-hist{margin:0}.s-caso-orig .mk-hist::before{background:#F6F8FC}' }} />
+      <div className="s-cont"><CasoMauricio /></div>
     </section>
   );
 }
 
+/**
+ * Los precios: LOS MISMOS tres bloques de /planes (app/planes/Tarjetas.tsx → TarjetasPlanes: Esencial, Pro y el Acelerador), sobre
+ * una franja clara. Martín (12/11/2026): «en la parte de pricing está todo en negro cuando no debería ser así. Y falta el MaKo
+ * Accelerator». Lo que se cambie en los bloques de /planes se ve aquí sin tocar nada.
+ */
 function PlanesSitio({ planes }: { planes: readonly PlanSitio[] }) {
   return (
-    <section className="s-sec" id="precios">
+    <section className="s-sec s-precios" id="precios">
+      <style dangerouslySetInnerHTML={{ __html: CSS_TARJETAS }} />
       <div className="s-cont">
         <div className="s-centro">
           <p className="s-rotulo">Precios</p>
           <h2 className="s-h2">Elige cómo quieres crecer.</h2>
           <p className="s-lede">{bajadaDePlanes(planes.some((p) => p.cobrable))}</p>
-          <a className="s-btn-sec" href={RUTA_PRECIOS}>Comparar los planes <Flecha /></a>
         </div>
-        {planes.length ? (
-          <div className="s-planes" style={{ '--n': planes.length } as CSSProperties}>
-            {planes.map((p) => {
-              const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable: p.cobrable, sufijo: '' });
-              return (
-                <article key={p.id} className={`s-plan${p.destacado ? ' s-plan-dest' : ''}`}>
-                  <div className="s-plan-top">
-                    <div className="s-plan-nom">
-                      <h3 className="s-plan-h">{p.nombre}</h3>
-                      {p.destacado ? <span className="s-plan-chip">Recomendado</span> : null}
-                    </div>
-                    {p.resumen ? <p className="s-plan-res">{p.resumen}</p> : null}
-                    <p className="s-plan-pr"><span className="s-plan-num">US$ {precio(p.precioUsd)}</span><span className="s-plan-mes">/mes</span></p>
-                    {p.precioAnualUsd ? <p className="s-plan-sub">o US$ {precio(p.precioAnualUsd)} al año</p> : null}
-                  </div>
-                  <a className="s-plan-btn" href={boton.href}>{boton.texto}</a>
-                  <div className="s-plan-hr" />
-                  <ul className="s-plan-ul">
-                    <li>Incluye:</li>
-                    {p.incluye.map((x) => <li key={x}>{x}</li>)}
-                  </ul>
-                </article>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
-    </section>
-  );
-}
-
-function NumerosSitio() {
-  const nums = numerosDelSitio();
-  return (
-    <section className="s-sec">
-      <div className="s-cont">
-        <div className="s-centro"><h2 className="s-h2">MaKo, en números.</h2></div>
-        <div className="s-nums">
-          {nums.map((n) => (
-            <article key={n.texto} className="s-num">
-              <p className="s-num-v">{n.valor}</p>
-              <p className="s-num-t">{n.texto}</p>
-            </article>
-          ))}
-        </div>
+        {planes.length ? <div className="s-precios-bloques"><TarjetasPlanes planes={planes} sufijo="" /></div> : null}
+        <div className="s-centro"><a className="s-btn-sec" href={RUTA_PRECIOS}>Comparar los planes <Flecha /></a></div>
       </div>
     </section>
   );
@@ -350,7 +323,6 @@ export function PortadaSitio({ planes }: { planes: readonly PlanSitio[] }) {
         <ProductoSitio />
         <CasoSitio />
         <PlanesSitio planes={planes} />
-        <NumerosSitio />
         <TiraSitio />
         <IntegracionesSitio />
         <PreguntasSitio />

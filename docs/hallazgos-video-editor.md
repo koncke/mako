@@ -6,6 +6,18 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Un título del chat salía del cuadro: «tamaño 48» eran letras de 1.000 px (12/11/2026)
+
+**El síntoma** (producción, ws 9, pedido por audio): «Pone un título que diga oferta de noviembre» → MaKo puso el texto y le
+subió el tamaño a 48; en el 9:16 sólo se veía «EN», gigante.
+
+- **La causa:** la letra mide `tamaño × alto del lienzo / 90` (`text/primitives.ts`, `FONT_SIZE_SCALE_REFERENCE`) y un texto NO
+  se parte solo (`text/layout.ts` mide cada renglón como es). El catálogo decía «1 a 300, el de siempre es 15», y en un 9:16
+  hasta el de siempre se sale con una frase de 10 letras. **Regla:** la revisión (`tamanoQueEntra`, chat/linea.ts) achica lo
+  que no entra en el 90 % del ancho según las letras del renglón más largo (ancho de letra medido en Chrome: ~0,63 del alto en
+  mayúsculas, ~0,5 en minúsculas) y lo dice; un subtítulo no, porque se vuelve a partir solo.
+- **Sin hacer:** `cambiar_texto` (un texto más largo con el mismo tamaño) y las plantillas de texto que ya traen su tamaño.
+
 ## El chat del editor no sabía lo que se había hablado: «Replicar» escribía la receta y después preguntaba qué hacer (12/11/2026)
 
 **El síntoma** (probando la tab Video entera en producción, ws 9): «Replicar» un reel de Outliers arma el proyecto y MaKo
