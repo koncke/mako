@@ -1,13 +1,15 @@
 // =============================================================================
-// /vsl/offer — Offer, tu oferta trabajada en un chat, con la ESTRUCTURA de la página de Atlas AI de DFY (11/11/2026)
+// /vsl/offer — Offer, tu oferta trabajada en un chat, con la ESTRUCTURA y el DISEÑO de la página de Atlas AI de DFY
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
-//   https://go.doneforyou.com/offer-formula  (leída el 11/11/2026 con Chromium)
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, también el diseño):
+//   https://go.doneforyou.com/offer-formula  (leída el 11/11/2026 con Chromium, a 1440 y a 390 px)
+// El diseño copiado vive en ./disenos/offer.tsx; los valores medidos de la referencia (fuentes, escala, colores, espacios),
+// en docs/diseno/landings-competencia/offer.md.
 // Su orden, que se respeta aquí: «For Anyone Tired of Guessing What to Sell» (la cejilla) → «How I Build Profitable OFFERS
 // in Hours — Not Months», su bajada, el VSL y el botón → (su precio) → «This Is Exactly How…»: mientras todos usan la IA
 // para sacar posts, los que la usan bien arman su oferta → «Without…» (sin buscar nicho, sin seguidores, sin copywriter,
-// sin construir lo que nadie quiere) → «Here's Everything You're Getting» (seis piezas) y el botón → (su calificación y su
-// garantía de 30 días) → el botón final. Por qué ganó: docs/competencia/landings-por-funcion.md → «Offer».
+// sin construir lo que nadie quiere), en la MISMA tarjeta → «Here's Everything You're Getting» (seis piezas) y el botón →
+// (su calificación y su garantía de 30 días) → el botón final. Por qué ganó: docs/competencia/landings-por-funcion.md → «Offer».
 //
 // Lo que se cambió de la referencia, y por qué:
 //   · Su VSL no va: Offer no tiene uno. En su lugar, el visual de la pantalla (./visuales-propios/offer.tsx).
@@ -19,6 +21,9 @@
 //     keys: ['offer'], estado «parcial»): las plantillas de «Nueva oferta» (lib/offer-plantillas.ts), el chat que pregunta
 //     por cada pieza (lib/offer-marco.ts → PIEZAS), la rúbrica (DIMENSIONES), la oferta nueva sin datos inventados
 //     (MARCA_COMPLETAR), el cambio como experimento («Probarlo», app/offer/Conclusion.tsx) y el PDF y «Guardar».
+//   · Con el diseño copiado (11/11/2026): el «sin / con» se escribe como los párrafos de su tarjeta blanca («While everyone
+//     else is using AI…»), y lo que no necesitas, como su lista de una línea por renglón («Without…»): por eso los textos de
+//     esos dos bloques se acortaron y el «sin / con» perdió su etiqueta (la tarjeta de la referencia no tiene).
 // Lo que NO se promete: que Offer cambie el precio que cobras (eso se corrige en el Second Brain, `noHace`). La palabra de
 // la pieza de devolución de la oferta del dueño no se escribe: el test de /vsl la toma por una promesa de MaKo.
 // =============================================================================
@@ -61,33 +66,33 @@ export const LANDING_OFFER: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Para quien ya se cansó de adivinar qué vender',
-      titulo: 'Tu oferta, armada en una conversación. No a prueba y error.',
+      titulo: 'Tu oferta, armada en un chat. No a prueba y error.',
       bajada: `MaKo te pregunta por cada pieza, la diagnostica con una rúbrica y te escribe la oferta nueva en un PDF, <strong>aunque no sepas por dónde empezar ni te guste escribir textos de venta</strong>.`,
       puntos: [`${N_PIEZAS} piezas de una oferta, de tu cliente a tu precio`, `Una rúbrica de ${N_DIMENSIONES} partes, cada una con su nota de 0 a 10`],
       visual: { tipo: 'propio', slug: 'offer' },
     },
     {
       tipo: 'contraste',
-      etiqueta: 'Así funciona Offer',
       titulo: 'Primero la oferta. Después, a quién se la muestras.',
       sin: {
-        titulo: 'Usar la IA para sacar más posts',
-        texto: 'Mientras tanto, la oferta sigue igual: una promesa vaga, un precio que no sale del valor y nadie que te diga qué le falta. <strong>Más contenido no arregla una oferta que no se entiende.</strong>',
+        titulo: 'Mientras la IA se usa para sacar más posts,',
+        texto: 'la oferta sigue igual: una promesa vaga, un precio que no sale del valor y nadie que te diga qué le falta. Más contenido no arregla una oferta que no se entiende.',
       },
       con: {
-        titulo: 'Usar MaKo para trabajar tu oferta',
-        texto: `MaKo te pregunta por cada pieza —tu cliente, el problema, el resultado, el precio—, la diagnostica con una rúbrica de ${N_DIMENSIONES} partes y te escribe la oferta nueva. Ves qué ya está bien y qué conviene subir, parte por parte.`,
+        titulo: 'Con MaKo, primero trabajas tu oferta:',
+        texto: `te pregunta por cada pieza —tu cliente, el problema, el resultado, el precio—, la diagnostica con una rúbrica de ${N_DIMENSIONES} partes y te escribe la oferta nueva. Ves qué ya está bien y qué conviene subir, parte por parte.`,
       },
     },
     {
+      // Como su lista «Without…»: una línea por renglón, dentro de la misma tarjeta que el «sin / con».
       tipo: 'tarjetas',
-      titulo: 'Lo que no necesitas para trabajar tu oferta',
+      titulo: 'Lo que no necesitas para trabajar tu oferta:',
       columnas: 2,
       items: [
-        { icono: I.cliente, titulo: 'Meses buscando a quién venderle', texto: 'La rúbrica te dice qué tan específico es tu cliente ideal, si puede pagar y si de verdad le duele lo que resuelves.' },
-        { icono: I.clip, titulo: 'Tener seguidores o anuncios antes', texto: 'Trabajas la oferta con lo que ya sabes de tu negocio, y puedes partir de lo que tienes: adjuntas tu guion o tu propuesta, o pegas el link de tu landing.' },
-        { icono: I.lapiz, titulo: 'Contratar a alguien que te la escriba', texto: 'MaKo la escribe por ti con lo que le contaste, y la sigues afinando las veces que quieras: cada versión queda guardada.' },
-        { icono: I.matraz, titulo: 'Construir algo que nadie pidió', texto: 'Cada cambio que propone MaKo es una hipótesis: <strong>lo pruebas como experimento</strong> antes de cambiarlo todo.' },
+        { icono: I.cliente, titulo: 'Meses buscando a quién venderle', texto: 'la rúbrica mide qué tan específico es tu cliente ideal.' },
+        { icono: I.clip, titulo: 'Tener seguidores o anuncios antes', texto: 'partes de tu guion, tu propuesta o el link de tu landing.' },
+        { icono: I.lapiz, titulo: 'Contratar a alguien que te la escriba', texto: 'MaKo la escribe y cada versión queda guardada.' },
+        { icono: I.matraz, titulo: 'Construir algo que nadie pidió', texto: 'cada cambio lo pruebas como experimento.' },
       ],
     },
     {

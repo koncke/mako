@@ -1,8 +1,9 @@
 // =============================================================================
 // /vsl/prioridades — el Plan (las prioridades, con el Perro Guardián), con la ESTRUCTURA de la portada de Motion (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, el DISEÑO):
 //   https://www.usemotion.com/  (leída el 11/11/2026 con Chromium)
+// El diseño copiado vive en ./disenos/prioridades.tsx y los valores medidos de Motion, en docs/diseno/landings-competencia/prioridades.md.
 // Su orden, que se respeta acá: (navegación) → hero «Get an unfair advantage by using AI to double productivity» → (confianza y
 // cuatro citas) → «Stop using tech from the pre-AI era» → «AI Task Planner» → «AI Project Manager» → «AI Meeting Notetaker» →
 // «AI Docs Assistant» → (AI Calendar Assistant) → (AI Workflows Builder) → «AI Business Intelligence» → reseñas → «Why Motion's
@@ -10,7 +11,7 @@
 // de /vsl). Por qué ganó: docs/competencia/landings-por-funcion.md → «Plan (prioridades)».
 //
 // Lo que se cambió de la referencia, y por qué:
-//   · La navegación es la cabecera de /vsl. Su «Over 1 million top performers», sus cuatro citas con ahorros en dinero y sus
+//   · La navegación es la de Motion con el logo de MaKo. Su «Over 1 million top performers», sus cuatro citas con ahorros en dinero y sus
 //     reseñas de G2 son de uso o de antes y después: no van. La prueba es el caso de Mauricio, en el lugar de sus reseñas.
 //   · Su «AI Calendar Assistant» arma tu día hora por hora en el calendario: MaKo NO lo hace, así que esa sección no va (lo
 //     único cierto, que las fechas del Plan se ven en Calendar, va en «todo en uno»). Su «AI Workflows Builder» (de un SOP a un
@@ -64,9 +65,11 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Tu plan de trabajo, priorizado con IA',
-      titulo: 'Deja que MaKo ordene tu plan. Tú haz primero lo que importa.',
+      titulo: 'Deja que MaKo ordene tu plan. <em>Tú haz primero lo que importa.</em>',
       bajada: `MaKo saca las tareas de tus reuniones grabadas y, con un toque, le pone a cada una un puntaje de 1 a 100 con su razón. Después te deja <strong>las ${MAX_PRIORIDAD} que van primero</strong>.`,
-      puntos: ['Prioridades, Tareas, Proyectos y Recurrentes, en un tablero', 'La prioridad la pone MaKo; la cambias a mano cuando quieras'],
+      // El primer renglón es la tarjeta del hero (copia la de Motion «What AI tools would you like to use?»): lo de antes de los dos
+      // puntos es su título y cada vista, una casilla.
+      puntos: ['Cuatro vistas en un tablero: Prioridades, Tareas, Proyectos y Recurrentes', 'La prioridad la pone MaKo; la cambias a mano cuando quieras'],
       visual: { tipo: 'detalle', slug: 'prioridades' },
     },
     {
@@ -75,11 +78,12 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
       titulo: 'Tu lista de pendientes no sabe qué va primero',
       sin: {
         titulo: 'La lista de siempre',
-        texto: 'Listas que no se terminan, fechas que se pasan y lo que se acordó en una reunión, perdido en tus notas. <strong>Todo parece urgente</strong> y terminas eligiendo lo fácil.',
+        // Un renglón por <br>: el diseño los dibuja como la lista de Motion («Normal Task Manager…»).
+        texto: 'Listas que no se terminan<br>Fechas que se pasan<br>Lo que se acordó en una reunión, perdido en tus notas<br><strong>Todo parece urgente</strong> y terminas eligiendo lo fácil',
       },
       con: {
         titulo: 'El Plan de MaKo',
-        texto: 'Las tareas salen de tus reuniones, MaKo le pone a cada una su puntaje y su razón, y la vista Prioridades te deja sólo lo que va primero.',
+        texto: 'Las tareas salen de tus reuniones<br>MaKo le pone a cada una su puntaje y su razón<br>La vista Prioridades te deja sólo lo que va primero<br>Lo que fijas a mano, MaKo no lo vuelve a tocar',
       },
     },
     {

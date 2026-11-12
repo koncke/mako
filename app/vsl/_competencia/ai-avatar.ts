@@ -1,15 +1,17 @@
 // =============================================================================
 // /vsl/ai-avatar — la landing de AI Avatar, con la ESTRUCTURA de la página de HeyGen para anuncios UGC (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, el DISEÑO):
 //   https://www.heygen.com/es-mx/business/marketing/ugc-video-ads  (leída el 11/11/2026 con Chromium)
+// El diseño copiado vive en ./disenos/ai-avatar.tsx; los valores medidos, en docs/diseno/landings-competencia/ai-avatar.md.
 // Su orden, que se respeta acá bloque por bloque: hero (etiqueta, titular, bajada, dos renglones y el botón) → contadores →
 // «El reto»: sin HeyGen / con HeyGen → 6 beneficios → «De la idea al video publicado en 3 pasos» → 6 casos de uso →
 // reseñas y testimonios → preguntas frecuentes. Por qué ganó ésta: docs/competencia/landings-por-funcion.md → «AI Avatar».
 //
 // Lo que se cambió de la referencia, y por qué:
 //   · Sus contadores son de USO (180 millones de videos). MaKo no tiene uno que mostrar: van los números de lo que la
-//     función TRAE, contados del código (las escenas, los estilos y las plantillas de venta).
+//     función TRAE, contados del código (las escenas, los estilos y las plantillas de venta). Son tres, como sus tres
+//     tarjetas negras; «una foto tuya para empezar» ya lo dice el hero.
 //   · Sus reseñas son de HeyGen entero. La prueba de MaKo es la de todas sus landings: el caso de Mauricio. No se inventa
 //     un testimonio de AI Avatar.
 //   · Sus 6 beneficios se dicen con lo que AI Avatar hace hoy (lib/funciones-mako.ts y lib/ai-avatar/): tu cara y no un
@@ -71,7 +73,6 @@ export const LANDING_AI_AVATAR: LandingCompetencia = {
         { valor: String(N_ESCENAS), label: 'escenas listas para usar' },
         { valor: String(N_ESTILOS), label: 'estilos: UGC, Instagram, cámara, negocio, producto y clima' },
         { valor: String(N_PLANTILLAS), label: 'plantillas de venta con su guion' },
-        { valor: '1', label: 'foto tuya para empezar' },
       ],
     },
     {
@@ -114,7 +115,7 @@ export const LANDING_AI_AVATAR: LandingCompetencia = {
       tipo: 'tarjetas',
       titulo: 'Una plantilla de venta para cada momento del embudo',
       bajada: 'Cada una trae su escena, su estructura de guion y un ejemplo completo para reemplazar con lo tuyo.',
-      columnas: 2,
+      columnas: 3,
       items: PLANTILLAS_VENTA_AVATAR.map((p) => ({ icono: I.guion, titulo: p.nombre, texto: p.cuando, meta: `Ejemplo de ${p.duracion} s` })),
     },
     { tipo: 'caso' },

@@ -1,7 +1,8 @@
 // =============================================================================
 // /vsl/crm — el CRM de MaKo, con la ESTRUCTURA de la portada de GoHighLevel (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA, el orden, el storytelling y el DISEÑO (./disenos/crm.tsx, con los valores medidos en
+// docs/diseno/landings-competencia/crm.md):
 //   https://www.gohighlevel.com/  (leída el 11/11/2026 con Chromium)
 // Su orden, que se respeta acá: hero → contadores → «Your all-in-one solution for business growth», el ciclo del cliente
 // en cinco partes (Capture, Nurture, Close, Evangelize, Reactivate) → tres principios (all-in-one, la IA como base, la
@@ -48,7 +49,6 @@ export const LANDING_CRM: LandingCompetencia = {
       etiqueta: 'El CRM para vender High Ticket',
       titulo: 'Tu CRM se llena y se mueve solo. Tú solo cierras.',
       bajada: 'La ficha se crea cuando entra el lead, se mueve de etapa cuando agenda y la grabación se engancha cuando termina la llamada. <strong>Con su plan de cuotas y su contrato</strong> en el mismo lugar.',
-      puntos: ['Kanban por etapa, tabla y la ficha de cada lead', 'Conectado a tus chats, tu agenda y tus automatizaciones'],
       visual: { tipo: 'detalle', slug: 'crm' },
     },
     {
@@ -63,15 +63,14 @@ export const LANDING_CRM: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      etiqueta: 'Todo el ciclo de tu cliente',
       titulo: 'Del anuncio al pago, en un solo CRM',
       bajada: 'Cada etapa del lead se registra sola, y cada dato queda anotado con nombre y hora.',
       items: [
-        { icono: I.entra, titulo: 'Entra', texto: 'Entra alguien por tu anuncio y <strong>la ficha se crea sola</strong>. Tú decides las etapas de tu embudo y por dónde entra la gente.' },
-        { icono: I.sigue, titulo: 'Se sigue', texto: 'Dos días sin agendar y pasa a seguimiento. La nutrición de cada etapa le escribe sola, en la voz de tu negocio.' },
-        { icono: I.cierra, titulo: 'Cierra', texto: 'Agenda y se mueve a la etapa que toca. Termina la reunión y MaKo engancha la grabación; si no se presentó, también lo sabe.' },
-        { icono: I.cobra, titulo: 'Cobra', texto: 'El plan de pagos por cuotas vive en la ficha, con el contrato y los comprobantes leídos por IA.' },
-        { icono: I.ordena, titulo: 'Se ordena', texto: 'Mueves, etiquetas, asignas o pasas a otro funnel muchos leads a la vez, o una columna entera.' },
+        { icono: I.entra, meta: 'Entra', titulo: 'Cada lead entra con su ficha', texto: 'Entra alguien por tu anuncio y <strong>la ficha se crea sola</strong>. Tú decides las etapas de tu embudo y por dónde entra la gente.' },
+        { icono: I.sigue, meta: 'Se sigue', titulo: 'Cada etapa, con su seguimiento', texto: 'Dos días sin agendar y pasa a seguimiento. La nutrición de cada etapa le escribe sola, en la voz de tu negocio.' },
+        { icono: I.cierra, meta: 'Cierra', titulo: 'La reunión mueve la etapa', texto: 'Agenda y se mueve a la etapa que toca. Termina la reunión y MaKo engancha la grabación; si no se presentó, también lo sabe.' },
+        { icono: I.cobra, meta: 'Cobra', titulo: 'El cobro vive en la ficha', texto: 'El plan de pagos por cuotas vive en la ficha, con el contrato y los comprobantes leídos por IA.' },
+        { icono: I.ordena, meta: 'Se ordena', titulo: 'Muchos leads, en un movimiento', texto: 'Mueves, etiquetas, asignas o pasas a otro funnel muchos leads a la vez, o una columna entera.' },
       ],
     },
     {

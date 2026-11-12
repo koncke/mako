@@ -1,8 +1,9 @@
 // =============================================================================
 // /vsl/video — Video, el editor de video de MaKo, con la ESTRUCTURA de la portada de Cherry Studio (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, el DISEÑO):
 //   https://cherrysweet.app/  (leída el 11/11/2026 con Chromium)
+// El diseño copiado vive en ./disenos/video.tsx; los valores medidos, en docs/diseno/landings-competencia/video.md.
 // Su orden, que se respeta acá: hero con cuatro chips («Corta las pausas», «Subtítulos al ritmo»…) → «Lo que Cherry hace
 // por ti» → (su video en acción y su simulador) → «Arrastra y mira lo que le quita a tu video» (antes / después) → «Y todo lo
 // que rodea al video también lo tiene» → (publicar sola, conectar Instagram) → «Tres pasos y tienes tu primer reel» →
@@ -48,14 +49,16 @@ export const LANDING_VIDEO: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Video: tus reels y tus anuncios, editados con IA',
-      titulo: 'Súbelo como salió del celular. MaKo lo edita contigo.',
+      // <em> marca la palabra que Cherry pone en su pastilla de color (allá, «Cherry Studio»).
+      titulo: 'Súbelo como salió del celular. <em>MaKo</em> lo edita contigo.',
       bajada: 'Un editor como CapCut con MaKo al lado. La <strong>Edición automática</strong> quita las pausas, subtitula, propone B-roll y deja el volumen listo, y todo lo ves pasar en la línea de tiempo.',
       puntos: ['Quita las pausas y los silencios', 'Subtítulos que siguen tu voz', 'Replica un video que ya funciona'],
       visual: { tipo: 'propio', slug: 'video' },
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Lo que MaKo hace por tu video',
+      etiqueta: 'Lo que hace',
+      titulo: 'Lo que MaKo hace <em>por tu video</em>',
       items: [
         { icono: I.varita, titulo: 'Edición automática', texto: 'Un equipo de agentes trabaja tu video <strong>a la vista</strong>: lo ves avanzar paso por paso en el editor.' },
         { icono: I.tijera, titulo: 'Quita las pausas', texto: 'Corta los silencios y los tiempos muertos para que el video vaya al ritmo.' },
@@ -67,7 +70,8 @@ export const LANDING_VIDEO: LandingCompetencia = {
     },
     {
       tipo: 'contraste',
-      titulo: 'Mira lo que le quita a tu video',
+      etiqueta: 'Antes y después',
+      titulo: 'Mira lo que le quita <em>a tu video</em>',
       sin: {
         titulo: 'El clip como salió del celular',
         texto: 'Silencios al principio, pausas para pensar, nada escrito en pantalla y el volumen que sube y baja. <strong>Así, la gente pasa al siguiente.</strong>',
@@ -80,6 +84,7 @@ export const LANDING_VIDEO: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
+      etiqueta: 'Además del editor',
       titulo: 'Y todo lo que rodea al video también lo tiene',
       items: [
         { icono: I.rayo, titulo: 'Encuentra tu siguiente outlier', texto: 'Videos que funcionan, para <strong>replicarlos con tu mensaje</strong> con un toque.' },
@@ -92,6 +97,7 @@ export const LANDING_VIDEO: LandingCompetencia = {
     },
     {
       tipo: 'pasos',
+      etiqueta: 'Cómo empiezas',
       titulo: 'Tres pasos y tienes tu primer video',
       pasos: [
         { titulo: 'Elige de dónde arrancas', texto: 'Un video que funciona para replicar, una plantilla o un formato vacío.' },
@@ -101,7 +107,7 @@ export const LANDING_VIDEO: LandingCompetencia = {
     },
     {
       tipo: 'preguntas',
-      titulo: 'Lo que más nos preguntan',
+      titulo: 'Lo que más <em>nos preguntan</em>',
       items: [
         { p: '¿Necesito saber editar?', r: 'No. Las plantillas guiadas abren en un modo simple, con menos botones. Si quieres todo, está «Todas las herramientas».' },
         { p: '¿Puedo editar a mano?', r: 'Sí: línea de tiempo con cortes y keyframes, como en CapCut. Lo que hace MaKo lo puedes cambiar.' },

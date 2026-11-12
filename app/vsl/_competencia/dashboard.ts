@@ -1,8 +1,10 @@
 // =============================================================================
 // /vsl/dashboard — el Dashboard de MaKo, con la ESTRUCTURA de la portada de Reportei (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y desde el 11/11/2026 también el DISEÑO):
 //   https://reportei.com/es/  (leída el 11/11/2026 con Chromium)
+// El diseño copiado (barra, hero, tarjetas de colores, banda azul, testimonios, pie) vive en ./disenos/dashboard.tsx, y los
+// valores que se midieron con getComputedStyle a 1440 y 390 px, en docs/diseno/landings-competencia/dashboard.md.
 // Su orden, que se respeta acá: hero «Crea Informes y Dashboards de Marketing Digital en 3 segundos» → logos de lo que
 // conecta → «¡Deja de perder tiempo con informes y dashboards hechos a mano y gana productividad!» (la grilla de piezas)
 // → «Los indicadores de todos tus canales en una sola pantalla» → (sus otros productos) → «Mira los resultados de
@@ -41,7 +43,7 @@ export const LANDING_DASHBOARD: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Informes de tu marketing y tus ventas',
-      titulo: 'Tu marketing y tus ventas en una hoja. Le pides un gráfico a MaKo y lo arma.',
+      titulo: 'Tu <em>marketing</em> y tus <em>ventas</em> en una hoja. Le pides un gráfico a MaKo y lo arma.',
       bajada: 'Hojas de <strong>Marketing y Comercial</strong> con tus anuncios, tu embudo y tus llamadas, las hojas de análisis de cada área y Focus, tu día. Sin armar un informe a mano.',
       puntos: ['Copiado de Looker Studio: lo editas como quieras', '«Editar con MaKo»: pides el gráfico o el cambio en palabras'],
       visual: { tipo: 'detalle', slug: 'dashboard' },
@@ -60,12 +62,11 @@ export const LANDING_DASHBOARD: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Deja de armar informes a mano',
-      bajada: 'Todo lo que trae el Dashboard, listo para mirar o para cambiar.',
+      titulo: '<em>Deja de armar</em> informes a mano',
       items: [
         { icono: I.hoja, titulo: 'Hojas de Marketing y Comercial', texto: 'Gráficos de tus anuncios y de tus ventas, con su estilo y el período que elijas.' },
         { icono: I.lupa, titulo: 'Las hojas de análisis', texto: 'Ads Analyst, Closing (tus llamadas de venta), VSL Analyst, Chat Analyst y CS Analyst.' },
-        { icono: I.reloj, titulo: 'El primer contacto', texto: 'Cuánto tarda una persona de tu equipo en escribirle o llamar a cada lead nuevo, sin contar los mensajes automáticos.' },
+        { icono: I.reloj, titulo: 'El primer contacto', texto: 'Cuánto tarda tu equipo en escribirle o llamar a cada lead nuevo, sin contar los mensajes automáticos.' },
         { icono: I.foco, titulo: 'Focus, tu día', texto: 'El objetivo y la acción del día, tus KPIs, el semáforo del negocio y el mes.' },
         { icono: I.ia, titulo: 'Editar con MaKo', texto: 'Le pides un gráfico o un cambio en palabras, o pruebas un experimento y lo mides contra el dato real.' },
         { icono: I.estilo, titulo: 'Tuyo de verdad', texto: 'Como en Looker Studio: mueves, cambias y diseñas cada hoja a tu manera.' },
@@ -73,7 +74,7 @@ export const LANDING_DASHBOARD: LandingCompetencia = {
     },
     {
       tipo: 'filas',
-      titulo: 'Los números de todos tus canales en una sola pantalla',
+      titulo: 'Los números de <em>todos tus canales</em> en una sola pantalla',
       slug: 'dashboard',
       items: [
         { grafico: 1, titulo: 'Tu embudo, de punta a punta', texto: 'Del anuncio a la llamada en una sola hoja, para ver <strong>en qué paso se cae</strong> la gente.' },

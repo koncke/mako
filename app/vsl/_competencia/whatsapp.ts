@@ -1,18 +1,24 @@
 // =============================================================================
 // /vsl/whatsapp — Chats, la bandeja de WhatsApp, Instagram y Messenger, con la ESTRUCTURA de la landing de Leadsales
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA, el orden, el storytelling y el DISEÑO (./disenos/whatsapp.tsx, con los valores medidos en
+// docs/diseno/landings-competencia/whatsapp.md):
 //   https://leadsales.io/  (leída el 11/11/2026 con Chromium)
-// Su orden, que se respeta acá: hero «CRM para WhatsApp, Facebook e Instagram» → «Así funciona…», la herramienta por
-// partes → «Ventas en chats sueltos» contra «con Leadsales» → «Del primer mensaje al cierre de cada venta» (4 piezas) →
-// «Todo lo que incluye» → (sus planes) → «Lo que dicen nuestros clientes» → «Lo que necesitas saber» (preguntas) →
-// «Tu próximo paso» (el cierre). Por qué ganó: docs/competencia/landings-por-funcion.md → «Chats».
+// Su orden, que se respeta acá: hero «CRM para WhatsApp, Facebook e Instagram» con su galería por pestañas («Así funciona…»,
+// la herramienta por partes) → «Tu equipo necesita un CRM…», su tabla de chats sueltos contra Leadsales (una fila por tema)
+// → «Del primer mensaje al cierre de cada venta» (4 piezas) → «Todo lo que incluye» → (sus planes) → «Lo que dicen nuestros
+// clientes» → «Lo que necesitas saber» (preguntas) → «Tu próximo paso» (el cierre). Por qué ganó:
+// docs/competencia/landings-por-funcion.md → «Chats».
 //
 // Lo que se cambió de la referencia, y por qué:
 //   · Sus planes con precio no van: ninguna landing de /vsl escribe un precio a mano (el cierre es la llamada).
 //   · Sus clientes, sus medios y Shark Tank son suyos: la prueba de MaKo es el caso de Mauricio.
 //   · Su «Lead Agent» que atiende solo es, en MaKo, Automations: acá va el borrador de MaKo (te propone, tú mandas) y el
 //     puente a /vsl/seguimiento. Sus envíos masivos por la API oficial no se prometen.
+//   · Su tabla compara TRES temas (una fila cada uno): acá son tres bloques «contraste» seguidos, uno por fila. El primero
+//     lleva el título de la sección y su `etiqueta` es el tema de su fila; los otros dos llevan el tema como título.
+//   · Las pestañas de su galería son las piezas de «Así funciona Chats»: el título de cada una es el rótulo de la pestaña y
+//     su texto, la tarjeta que flota sobre la pantalla.
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['chats', 'whatsapp', 'email']); los gráficos, de la landing anterior.
 // =============================================================================
 
@@ -42,7 +48,8 @@ export const LANDING_WHATSAPP: LandingCompetencia = {
       etiqueta: 'Chats para vender por WhatsApp, Instagram y Messenger',
       titulo: 'Todos tus chats de venta en una bandeja. Cada uno, con su lead.',
       bajada: 'Tu WhatsApp, Instagram, Messenger y email en <strong>una conversación por contacto</strong>, con su ficha del CRM al lado. Ordenas a tu equipo y MaKo te propone qué contestar, sin salir del chat.',
-      puntos: ['Cada contacto es el lead de tu CRM, con todos sus canales', 'Cada uno de tus números de WhatsApp, en la misma bandeja'],
+      // La tarjeta que flota sobre la primera pestaña de la galería (el hilo del lead).
+      puntos: ['Cada contacto es el lead de tu CRM, con todos sus canales.'],
       visual: { tipo: 'detalle', slug: 'whatsapp' },
     },
     {
@@ -50,53 +57,58 @@ export const LANDING_WHATSAPP: LandingCompetencia = {
       titulo: 'Así funciona Chats',
       slug: 'whatsapp',
       items: [
-        { grafico: 0, titulo: 'Una bandeja con todos tus canales', texto: 'WhatsApp, Instagram, Messenger y email en una sola tab, con <strong>una conversación por contacto</strong>. Si te escribió por dos lados, lo ves junto y eliges por cuál contestar.' },
-        { grafico: 2, titulo: 'MaKo te propone qué contestar', texto: 'El borrador de MaKo lee la conversación y te propone el mensaje. Lo cambias si quieres y lo mandas tú.' },
-        { grafico: 4, titulo: 'El chat y el embudo, juntos', texto: 'El contacto es el lead de tu CRM: le cambias la etapa, lo asignas o lo cierras desde la misma conversación.' },
+        { grafico: 0, titulo: 'Bandeja', texto: 'WhatsApp, Instagram, Messenger y email, con <strong>una conversación por contacto</strong>. Si te escribió por dos lados, lo ves junto.' },
+        { grafico: 2, titulo: 'Borrador de MaKo', texto: 'MaKo lee la conversación y te propone el mensaje. Lo cambias si quieres y lo mandas tú.' },
+        { grafico: 4, titulo: 'Embudo', texto: 'El contacto es el lead de tu CRM: le cambias la etapa, lo asignas o lo cierras desde la conversación.' },
       ],
     },
     {
       tipo: 'contraste',
-      etiqueta: 'Tu equipo necesita vender por chat con orden',
-      titulo: 'Vender por chats sueltos sale caro',
-      sin: {
-        titulo: 'Ventas en chats sueltos',
-        texto: 'Cada vendedor contesta desde su teléfono, Instagram queda por un lado y WhatsApp por otro. Nadie sabe quién le contestó a quién, en qué etapa está el lead ni qué se le prometió. <strong>Y el lead que nadie vio, se enfría.</strong>',
-      },
-      con: {
-        titulo: 'Con Chats de MaKo',
-        texto: 'Una bandeja con todos los canales, donde cada conversación es el lead de tu CRM: con su etapa, su responsable y las notas internas de tu equipo. Ves lo que no se leyó y a quién le toca.',
-      },
-      cta: true,
+      etiqueta: 'Canales',
+      titulo: 'Tu equipo necesita vender por chat <em>con orden, no en chats sueltos.</em>',
+      sin: { titulo: 'Cuando todo vive en chats sueltos', texto: 'Cada vendedor contesta desde su teléfono, e Instagram queda por un lado y WhatsApp por otro.' },
+      con: { titulo: 'Con Chats de MaKo', texto: 'WhatsApp, Instagram, Messenger y email en una bandeja, con una conversación por contacto.' },
+    },
+    {
+      tipo: 'contraste',
+      titulo: 'Equipo y conversaciones',
+      sin: { titulo: 'Cuando todo vive en chats sueltos', texto: 'Para saber quién le contestó a quién y qué se le prometió, hay que preguntarle al equipo.' },
+      con: { titulo: 'Con Chats de MaKo', texto: 'Cada conversación tiene su responsable y las notas internas de tu equipo, y ves lo que no se leyó.' },
+    },
+    {
+      tipo: 'contraste',
+      titulo: 'Embudo y seguimiento',
+      sin: { titulo: 'Cuando todo vive en chats sueltos', texto: 'Nadie sabe en qué etapa está el lead. <strong>Y el lead que nadie vio, se enfría.</strong>' },
+      con: { titulo: 'Con Chats de MaKo', texto: 'Cada conversación es el lead de tu CRM: le cambias la etapa sin salir del chat.' },
     },
     {
       tipo: 'tarjetas',
-      fondo: true,
-      titulo: 'Del primer mensaje al cierre de cada venta',
+      titulo: 'Del primer mensaje <em>al cierre de cada venta.</em>',
+      bajada: 'Lo que tu equipo hace en cada conversación, sin salir del chat.',
       columnas: 2,
       items: [
-        { icono: I.persona, titulo: 'Asigna y deja notas internas', texto: 'Cada conversación tiene su responsable, y tu equipo se deja comentarios que el lead no ve.' },
-        { icono: I.etapa, titulo: 'Cambia la etapa sin salir del chat', texto: 'Lo que pasa en la conversación lo pasas al embudo en un toque.' },
-        { icono: I.reloj, titulo: 'Cierra o pospone', texto: 'Cierras lo que ya se resolvió y pospones lo que tienes que retomar después.' },
-        { icono: I.campana, titulo: 'Lo no leído, por persona', texto: 'Cada uno ve lo que le falta leer a él, guardado en el servidor: no depende de en qué teléfono lo abrió.' },
+        { icono: I.persona, meta: 'Equipo', titulo: 'Asigna y deja notas internas', texto: 'Cada conversación tiene su responsable, y tu equipo se deja comentarios que el lead no ve.' },
+        { icono: I.etapa, meta: 'Embudo', titulo: 'Cambia la etapa sin salir del chat', texto: 'Lo que pasa en la conversación lo pasas al embudo en un toque.' },
+        { icono: I.reloj, meta: 'Seguimiento', titulo: 'Cierra o pospone', texto: 'Cierras lo que ya se resolvió y pospones lo que tienes que retomar después.' },
+        { icono: I.estrella, meta: 'Borrador de MaKo', titulo: 'MaKo te propone qué contestar', texto: 'Lee la conversación y te propone qué escribir; tú decides si sale. Para que una conversación avance sola están las <a href="/vsl/seguimiento">Automations</a>.' },
       ],
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Todo lo que incluye Chats',
+      titulo: 'Todo lo que incluye Chats, <em>tu bandeja para vender por chat.</em>',
       items: [
         { icono: I.lineas, titulo: 'Tus números de WhatsApp', texto: 'Los conectas y los administras sin salir de Chats, y cada número aparece en la misma bandeja.' },
         { icono: I.chat, titulo: 'Instagram y Messenger', texto: 'Los mensajes directos llegan a la misma conversación del contacto.' },
         { icono: I.email, titulo: 'Email con tu dominio', texto: 'Secuencias por etapa y envíos puntuales, desde tu propio dominio.' },
         { icono: I.estrella, titulo: 'El borrador de MaKo', texto: 'Lee la conversación y te propone qué escribir. Tú decides si sale.' },
-        { icono: I.persona, titulo: 'Tu equipo, ordenado', texto: 'Responsables, comentarios internos y lo no leído de cada uno.' },
+        { icono: I.persona, titulo: 'Tu equipo, ordenado', texto: 'Responsables, comentarios internos y lo no leído de cada uno, guardado en el servidor.' },
         { icono: I.etapa, titulo: 'Conectado a tu CRM', texto: 'El contacto es el lead: la etapa, la ficha y su historia, en el mismo lugar.' },
       ],
     },
     { tipo: 'caso' },
     {
       tipo: 'preguntas',
-      titulo: 'Lo que necesitas saber para usar Chats',
+      titulo: 'Lo que necesitas saber <em>para usar Chats.</em>',
       items: [
         { p: '¿Qué canales junta?', r: 'WhatsApp (cada uno de tus números), Instagram, Messenger y email, en una conversación por contacto.' },
         { p: '¿Cómo conecto mi WhatsApp?', r: 'Lo conectas y lo administras desde Chats, sin salir de la pantalla.' },

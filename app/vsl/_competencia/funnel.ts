@@ -1,8 +1,11 @@
 // =============================================================================
 // /vsl/funnel — Funnels (tu embudo de punta a punta, con la venta real), con la ESTRUCTURA de la portada de Hyros
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y desde el 11/11/2026 también el DISEÑO):
 //   https://hyros.com/  (leída el 11/11/2026 con Chromium, de arriba a abajo)
+// El diseño copiado (barra, hero con su ventana, pasos, la ventana de cifras, los renglones en cajas, la banda de modelos
+// de negocio y el pie) vive en ./disenos/funnel.tsx; los valores medidos a 1440 y 390 px, en
+// docs/diseno/landings-competencia/funnel.md.
 // Su orden, que se respeta acá: (aviso de Black Friday) → hero «Tracking that grows ads / Custom Made For You.» con su
 // demo «Meta vs HYROS» → «Tracking $5B+ in ad spend for:» (logos y la cita de un cliente) → «How it works: Any Feature You
 // Want Is Just A Prompt Away» (tres pasos) → «Brands that add Hyros see… optimized on real sales instead of platform
@@ -68,7 +71,7 @@ export const LANDING_FUNNEL: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'El embudo con tu venta real',
-      titulo: 'Que Meta aprenda de lo que pasa en tu CRM.',
+      titulo: 'Que Meta aprenda <em>de tu CRM.</em>',
       bajada: 'MaKo junta tu anuncio, tu landing, tu VSL, tu agenda y tu CRM en <strong>un solo recorrido</strong>, y le avisa a Meta quién agendó, quién calificó y quién pagó. El gráfico que te falte, se lo pides en palabras.',
       puntos: ['Del anuncio al pago, lead por lead', 'Cuánto te costó un cliente de verdad, no un lead'],
       visual: { tipo: 'detalle', slug: 'funnel' },
@@ -77,7 +80,7 @@ export const LANDING_FUNNEL: LandingCompetencia = {
     {
       tipo: 'pasos',
       etiqueta: 'Cómo funciona',
-      titulo: 'Cualquier número de tu embudo, a un pedido de distancia',
+      titulo: 'Cualquier número de tu embudo, <em>a un pedido de distancia</em>',
       bajada: 'Arrancas con tus hojas de Marketing y Comercial, y le pides a MaKo lo que falte.',
       pasos: [
         { titulo: 'Lo pides en palabras', texto: '«Muéstrame mis agendas y cierres por día». Sin fórmulas ni filtros.' },
@@ -93,7 +96,7 @@ export const LANDING_FUNNEL: LandingCompetencia = {
       bajada: 'Para que Meta optimice con lo que pasa de verdad en tu embudo, no con lo que adivina. Esto es lo que MaKo le avisa:',
       columnas: 2,
       items: [
-        { icono: I.lead, titulo: 'Entró un lead', texto: 'Cuando alguien deja sus datos en tu formulario de Meta.', meta: 'Lead' },
+        { icono: I.lead, titulo: 'Entró', texto: 'Cuando alguien deja sus datos en tu formulario de Meta.', meta: 'Lead' },
         { icono: I.agenda, titulo: 'Agendó', texto: 'Cuando reserva en tu Calendly. Si tu página ya se lo avisa, no la cuenta dos veces.', meta: 'Schedule' },
         { icono: I.califica, titulo: 'Calificó', texto: 'Cuando lo marcas como calificado en tu CRM.', meta: 'SubmitApplication y QualifiedLead' },
         { icono: I.pago, titulo: 'Pagó', texto: 'Cuando paga con un link de pago de tu Stripe, con su monto.', meta: 'Purchase' },
@@ -102,7 +105,7 @@ export const LANDING_FUNNEL: LandingCompetencia = {
     {
       tipo: 'filas',
       etiqueta: 'Todo tu embudo',
-      titulo: 'Del anuncio al pago, en una sola pantalla',
+      titulo: '<span>Del anuncio</span> <span>al pago,</span> <strong>en una sola</strong> <em>pantalla</em>',
       bajada: 'Lo mide el Pixel de MaKo en tu página y lo cierra tu CRM.',
       slug: 'funnel',
       items: [
@@ -139,8 +142,7 @@ export const LANDING_FUNNEL: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       etiqueta: 'Tu tipo de funnel',
-      titulo: 'Elige cómo entra tu gente',
-      bajada: 'Cada funnel de tu CRM declara por dónde llega el lead.',
+      titulo: 'Elige cómo <em>entra tu gente.</em>',
       items: TIPOS_FUNNEL.map((t) => ({ icono: POR_TIPO[t.id].icono, titulo: t.label, texto: POR_TIPO[t.id].texto })),
     },
   ],

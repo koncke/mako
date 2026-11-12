@@ -1,18 +1,21 @@
 // =============================================================================
-// /vsl/web-generator — el Web Generator, con la ESTRUCTURA de la página de HighLevel AI Studio (11/11/2026)
+// /vsl/web-generator — el Web Generator, con la ESTRUCTURA y el DISEÑO de la página de HighLevel AI Studio (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA, el orden, el storytelling y el DISEÑO (./disenos/web-generator.tsx, con los valores medidos
+// en docs/diseno/landings-competencia/web-generator.md):
 //   https://www.gohighlevel.com/ai-studio  (leída el 11/11/2026 con Chromium)
-// Su orden, que se respeta aquí bloque por bloque: hero «Your website is one sentence away» → «They typed a sentence.
-// Here's what came out» (posts de sus usuarios) → «Trusted by businesses using AI to grow» (contadores) → «What is AI
-// Studio?» (lo describes y lo arma · más que landings · conectado el día que sale) → «What can AI Studio build?» (seis
-// tipos) → «Why Businesses Use It» (tres razones) → «Who is AI Studio for?» con «After they hit submit» → «Built with AI
-// Studio» (galería) → «Meet your 24/7 AI Team» → preguntas frecuentes → cierre. Por qué ganó:
-// docs/competencia/landings-por-funcion.md → «Web Generator».
+// Su orden (la noche del 11/11 la página ya no tenía «Built with AI Studio» ni «Meet your 24/7 AI Team»), que se respeta
+// aquí bloque por bloque: hero «Websites powered by AI Studio» → «They typed a sentence. Here's what came out» (una galería
+// de lo que armaron sus usuarios, con «Yours could be next») → «Trusted by businesses using AI to grow» (contadores) →
+// «What is AI Studio?» (lo describes y lo arma · más que landings · conectado el día que sale) → «What can AI Studio
+// build?» (seis tipos) → «Why Businesses Use It» (tres razones, cada una con un testimonio al lado) → «Who is AI Studio
+// for?» → preguntas frecuentes → cierre. Por qué ganó: docs/competencia/landings-por-funcion.md → «Web Generator».
 //
 // Lo que se cambió de la referencia, y por qué:
 //   · Su prueba de 14 días y su botón de la barra no van: el cierre de /vsl es la llamada, y no se escribe un precio.
-//   · Sus posts de usuarios son suyos: en ese lugar va la prueba de MaKo, el caso de Mauricio (el mismo de todas).
+//   · Su galería de lo que armaron sus usuarios es suya: en ese lugar van los diseños con los que arranca una landing
+//     (lib/editor-landing/disenos-landing.ts). Sus testimonios, al lado de cada razón de «Why Businesses Use It», son suyos:
+//     ahí va la prueba de MaKo, el caso de Mauricio (el mismo de todas), por eso el bloque `caso` va después de las razones.
 //   · Sus contadores son de USO (700K sitios, 85K negocios). Van los números de lo que la función TRAE, contados del
 //     código: los diseños, las plantillas de landing y de presentación, y los bloques del menú «/».
 //   · De sus seis tipos, «Dashboards» y «Storefronts» no existen en el Web Generator: en su lugar, las presentaciones y
@@ -22,9 +25,8 @@
 //     (lib/editor-landing/plantillas.ts). Su cadena «After they hit submit» (cita, cuadrilla avisada) se dice sólo hasta
 //     donde llega MaKo: lo que dejan en el formulario entra a tu CRM (lib/funciones-mako.ts → `conecta`, y
 //     app/api/track/optin/route.ts, que recibe el formulario de una página publicada).
-//   · «Built with AI Studio» muestra sitios de sus usuarios; aquí, los diseños con los que arranca una landing
-//     (lib/editor-landing/disenos-landing.ts). «Meet your 24/7 AI Team» es la grilla de funciones del final de toda landing
-//     de /vsl. De sus nueve preguntas sale la de agencias: no está medido qué hace el Web Generator para el cliente de una.
+//   · Su video de producto debajo del hero no va (no hay un video del Web Generator). De sus nueve preguntas sale la de
+//     agencias: no está medido qué hace el Web Generator para el cliente de una.
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['landing-writer']) y del editor (lib/editor-landing/,
 // app/web-generator/): crear con IA en dos pasos, editar por secciones y bloques, replicar, publicar en hola-mako.site o
 // en tu dominio (lib/editor-landing/dominios.ts), el SEO de Publicar (lib/editor-landing/seo-pagina.ts) y «Duplicar»
@@ -76,15 +78,19 @@ export const LANDING_WEB_GENERATOR: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Landings y presentaciones con IA',
-      titulo: 'Tu landing está a una frase de distancia.',
+      titulo: 'Tu landing está <em>a una frase</em> de distancia.',
       bajada: 'Describes lo que necesitas y MaKo la diseña, la escribe y la arma por secciones, con lo que sabe de tu funnel y tu negocio. <strong>Lo que dejan en el formulario entra a tu CRM.</strong>',
-      puntos: [`${N_LANDINGS} plantillas por objetivo: agendar una llamada, un webinar, una descarga y más`, 'La editas por secciones, o le pides el cambio a MaKo'],
       visual: { tipo: 'propio', slug: 'web-generator' },
     },
-    { tipo: 'caso' },
+    {
+      tipo: 'tarjetas',
+      titulo: 'Los diseños de <em>Web Generator</em>',
+      bajada: 'Cada landing arranca vestida con uno de estos diseños, y el objetivo que elijas pone el texto.',
+      items: DISENOS_LANDING.map((d) => ({ icono: I.estilo, titulo: d.nombre, texto: d.descripcion })),
+    },
     {
       tipo: 'cifras',
-      titulo: 'Lo que trae Web Generator hoy',
+      titulo: 'Lo que trae <em>Web Generator</em> hoy',
       items: [
         { valor: String(N_DISENOS), label: 'diseños para arrancar tu landing' },
         { valor: String(N_LANDINGS), label: 'plantillas de landing, una por objetivo' },
@@ -94,7 +100,7 @@ export const LANDING_WEB_GENERATOR: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      titulo: '¿Qué es Web Generator?',
+      titulo: '¿Qué es <em>Web Generator</em>?',
       bajada: 'Es el editor de landings y presentaciones de MaKo. Le dices qué página necesitas, con tus palabras, y la arma entera: <strong>el diseño, el texto y las secciones</strong>, con el formulario que capta a tus leads.',
       items: [
         { icono: I.frase, titulo: 'Lo describes y lo arma', texto: 'No arrancas de una hoja en blanco: MaKo te propone el esquema, lo editas y escribe las secciones. Después cambias lo que quieras <strong>pidiéndoselo</strong>, como a un diseñador.' },
@@ -105,7 +111,7 @@ export const LANDING_WEB_GENERATOR: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: '¿Qué puedes armar con Web Generator?',
+      titulo: '¿Qué puedes armar con <em>Web Generator</em>?',
       items: [
         { icono: I.pagina, titulo: 'Páginas completas, no sólo un diseño', texto: `${N_LANDINGS} plantillas de landing, cada una con su texto y sus secciones, vestidas con uno de los ${N_DISENOS} diseños.` },
         { icono: I.quiz, titulo: 'Un quiz que diagnostica', texto: 'Preguntas con puntos y un resultado distinto según lo que contestan.' },
@@ -117,29 +123,24 @@ export const LANDING_WEB_GENERATOR: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Por qué los negocios usan Web Generator',
+      titulo: 'Por qué los negocios <em>usan Web Generator</em>',
       items: [
         { icono: I.reloj, titulo: 'Sin semanas de ida y vuelta', texto: 'Una página nueva suele ser un ir y venir con un diseñador. Aquí describes lo que necesitas, MaKo arma el borrador y lo publicas cuando quieras, mientras la idea sigue fresca.' },
         { icono: I.crm, titulo: 'Una sola página, ya conectada', texto: 'Una landing hecha en otra herramienta hay que conectarla a tu CRM. La de Web Generator ya vive en MaKo: <strong>el formulario, el lead y tu CRM están en el mismo lugar</strong>.' },
         { icono: I.duplicar, titulo: 'La haces una vez y la duplicas', texto: '¿Otro lanzamiento u otro producto? Duplicas la landing desde su menú y partes de ahí, en vez de empezar de cero.' },
       ],
     },
+    { tipo: 'caso' },
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: '¿Para quién es Web Generator?',
+      titulo: '¿Para quién es <em>Web Generator</em>?',
       bajada: 'Para cualquier negocio que capta leads o agendas con una página. Elige la tuya: <strong>lo que dejan en el formulario entra a tu CRM.</strong>',
       items: QUE_CAPTAN.map((p) => ({ icono: I.objetivo, titulo: p.nombre, texto: p.descripcion, meta: p.categoria })),
     },
     {
-      tipo: 'tarjetas',
-      titulo: 'Los diseños de Web Generator',
-      bajada: 'Cada landing arranca vestida con uno de estos diseños, y el objetivo que elijas pone el texto.',
-      items: DISENOS_LANDING.map((d) => ({ icono: I.estilo, titulo: d.nombre, texto: d.descripcion })),
-    },
-    {
       tipo: 'preguntas',
-      titulo: 'Preguntas frecuentes',
+      titulo: 'Preguntas <em>frecuentes</em>',
       items: [
         { p: '¿Qué es Web Generator?', r: 'El editor de landings y presentaciones de MaKo. Describes la página que necesitas y MaKo la arma: el diseño, el texto y las secciones. Después la editas por secciones y bloques.' },
         { p: '¿En qué se diferencia de otros creadores de páginas con IA?', r: 'Vive dentro de MaKo: arranca de lo que sabe de tu funnel y tu negocio, y lo que dejan en el formulario entra a tu CRM.' },

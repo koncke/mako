@@ -1,8 +1,10 @@
 // =============================================================================
 // /vsl/cobranza — la Cobranza de MaKo, con la ESTRUCTURA de la portada de Rebill (11/11/2026)
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones y el storytelling; la cara es la de /vsl):
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y el DISEÑO):
 //   https://www.rebill.com/es  (leída el 11/11/2026 con Chromium)
+// El diseño copiado (barra, hero, secciones, tipografía, espacios, pie) es ./disenos/cobranza.tsx; los valores medidos
+// con getComputedStyle a 1440 y 390 px, en docs/diseno/landings-competencia/cobranza.md.
 // Su orden, que se respeta acá: hero «Infraestructura financiera para las Américas» → «… para tu negocio en las Américas»,
 // tres tarjetas con cifras → «Conexiones locales. Pagos locales y cross-border.», sus cinco piezas (links de pago, cuotas,
 // suscripciones, notificaciones, dashboard) → «Integración simple. Resultado profesional.» → «Automatiza flujos complejos
@@ -74,7 +76,7 @@ export const LANDING_COBRANZA: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Cobranza para ventas en cuotas',
-      titulo: 'Cobra tus cuotas con un link. Cada pago entra solo a tu CRM.',
+      titulo: '<em>Cobra tus cuotas</em> con un link. Cada pago entra solo a tu CRM.',
       bajada: `Arma el plan de cuotas de cada cliente, cóbrale con un link de <strong>${MO_PASARELAS}</strong> y mira en una hoja lo que entró, lo que vence y a quién cobrarle hoy.`,
       puntos: ['Pago único o suscripción, con tu propia cuenta', '¿Te pagaron por transferencia? MaKo lee el comprobante'],
       visual: { tipo: 'detalle', slug: 'cobranza' },
@@ -113,7 +115,7 @@ export const LANDING_COBRANZA: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Conecta tu pasarela. Cobra con tu cuenta.',
+      titulo: 'Conecta tu pasarela. <em>Cobra con tu cuenta.</em>',
       bajada: 'Elige la que mejor se adapte a tu negocio, o conecta varias. Cada una cobra en tu cuenta, no en la de MaKo.',
       items: PASARELAS.map((p) => ({
         icono: I.tarjeta,
