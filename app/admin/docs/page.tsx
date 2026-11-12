@@ -35,12 +35,18 @@ export const dynamic = 'force-dynamic';
 /** Los que se abren primero: el orden en que conviene leerlos. */
 const PRIMEROS = ['AGENTS', 'mapa-del-proyecto', 'hallazgos', 'dos-cuentas', 'conectores', 'chats', 'corridas-multiagente'];
 
+// ⚠️ LA CARPETA NO VA ESCRITA (12/11/2026): con `readdirSync(join(raiz, CARPETA_DOCS))` el trazado de la build metía TODA docs/ en
+// la función, con las capturas de pruebas y las maquetas, y pasó los 250 MB de Vercel (el deploy de d9b6802e8 cayó con
+// NOW_SANDBOX_WORKER_MAX_LAMBDA_SIZE: /admin/docs en 253 MB). Con el nombre armado al correr, el trazado no la sigue y sólo
+// viaja lo de `outputFileTracingIncludes` en next.config.ts: los .md y AGENTS.md.
+const CARPETA_DOCS = process.env.MAKO_DOCS_DIR || ['do', 'cs'].join('');
+
 function cargar(): { docs: Doc[]; error?: string } {
   const raiz = process.cwd();
   try {
-    const archivos = readdirSync(join(raiz, 'docs'))
+    const archivos = readdirSync(join(raiz, CARPETA_DOCS))
       .filter((f) => f.endsWith('.md'))
-      .map((f) => ({ slug: f.replace(/\.md$/, ''), ruta: join(raiz, 'docs', f), rel: `docs/${f}` }));
+      .map((f) => ({ slug: f.replace(/\.md$/, ''), ruta: join(raiz, CARPETA_DOCS, f), rel: `docs/${f}` }));
 
     archivos.unshift({ slug: 'AGENTS', ruta: join(raiz, 'AGENTS.md'), rel: 'AGENTS.md' });
 
@@ -48,9 +54,9 @@ function cargar(): { docs: Doc[]; error?: string } {
     // son 49 contra 22. Sus slugs arrancan con `chat-`, que es lo que las manda
     // al grupo «Chats» del final.
     try {
-      for (const f of readdirSync(join(raiz, 'docs', 'chats'))) {
+      for (const f of readdirSync(join(raiz, CARPETA_DOCS, 'chats'))) {
         if (f.endsWith('.md')) {
-          archivos.push({ slug: f.replace(/\.md$/, ''), ruta: join(raiz, 'docs', 'chats', f), rel: `docs/chats/${f}` });
+          archivos.push({ slug: f.replace(/\.md$/, ''), ruta: join(raiz, CARPETA_DOCS, 'chats', f), rel: `docs/chats/${f}` });
         }
       }
     } catch { /* todavía no hay transcripciones exportadas */ }
