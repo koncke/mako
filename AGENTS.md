@@ -2638,6 +2638,15 @@ botones mal». No faltaba nada: no se veía nada.
 **Cómo se ve desde afuera, para reconocerlo rápido:** cuando está *todo* lavado —texto,
 bordes y botones a la vez— no es hidratación ni son los datos. **Es una paleta.**
 
+## Y un sondeo montado en el layout pide en CADA pestaña abierta: va por `sondearALaVista`
+
+El contador de WhatsApp de la barra (NotificationsProvider) pedía cada 12 s con un `setInterval` pelado: también con la
+pestaña oculta y sin esperar al pedido anterior. Eran 300 funciones de Vercel por hora por pestaña olvidada (12/11/2026,
+más de 1.300 pedidos vistos en producción). Un sondeo nuevo, en el layout o en una pantalla que queda abierta, va por
+`sondearALaVista` (lib/sondeo-a-la-vista.ts): pide al arrancar y cada `cadaMs`, nada con la pestaña oculta, en el acto al
+volver y nunca dos a la vez. Un `setInterval` con un `fetch` adentro es justo lo que esto evita. Detalle en
+docs/hallazgos-ui.md.
+
 # Si una columna puede REPETIRSE, lo contesta la CONSTRAINT — no un `create index`, y no un `count` de 0
 
 De esto depende cada `.maybeSingle()` del repo: sobre una columna que puede repetirse, con dos filas PostgREST
@@ -2763,6 +2772,9 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 
 - **Un ejemplo entre comillas en un prompt es lo que el modelo va a decir.** Antes de escribir uno,
   preguntá si es verdad en TODOS los turnos que lo leen.
+  - **También lo que dice que VE** (12/11/2026): el prompt de la réplica de carruseles traía «por ejemplo «pantalla dividida: dos
+    cuadros apilados»», y ante un anuncio que era una tarjeta de tuit blanca la IA «leyó» exactamente eso. En un prompt que mira
+    imágenes no van ejemplos de composición: se pide describir lo que hay ([docs/hallazgos-carruseles.md](docs/hallazgos-carruseles.md)).
 - **«No puedo» casi nunca es que no puede: es que el turno llegó sin la herramienta.** Antes de
   culpar a la integración, armá el turno con la frase real (`clasificarIntencion` +
   `herramientasDelTurno`) y mirá qué viajó.

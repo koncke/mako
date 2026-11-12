@@ -1641,11 +1641,22 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-el__cuerpo--ancho { max-width: min(82%, 720px); }
 .co-caja-wrap { padding: 8px clamp(12px, 3vw, 40px) 14px; }
 .co-caja { padding: 6px; border-radius: 26px; }
+/* LA CAJA NUNCA MÁS ANCHA QUE SU COLUMNA (12/11/2026, Web Generator y Video, el chat de ~335 px del editor). Con una nota de voz
+   lista para mandar, la fila (borrar, el reproductor, el micrófono y «Enviar audio») pide ~375 px de mínimo; la caja es hija de
+   una GRILLA (`.gma-ag-pie`, el <footer> del chat de Video) y con `margin-inline: auto` toma ese mínimo en vez del ancho de la
+   columna: «Enviar audio» quedaba cortado contra el borde. Con el ancho de su lugar y sin mínimo propio, el reproductor se
+   achica (su barra tiene 40 px de mínimo) y los botones entran. En un bloque es lo mismo que antes (ya ocupaba todo, hasta su
+   `max-width`, centrada).
+   ES LA ÚNICA REGLA DEL AUDIO CORTADO para todos los chats (12/11/2026: la tenían también Copywriting en `.nt-mako-pie`, Image en
+   su `.pie` y el pie del Video Editor; se juntaron acá). La otra mitad está en la barra de grabación (`BARRA` en
+   app/whatsapp/_shared/VoiceRecorder.tsx, `contain: inline-size`: grabando, la onda crecía sola, 451 px en una tarjeta de 340) y
+   en el `range` del reproductor (`width: 0`, AudioPlay.tsx). Un chat nuevo con el pie en grilla no necesita nada propio. */
+.co-caja { width: 100%; min-width: 0; }
 /* LA FILA DE LA CAJA, ALINEADA COMO WHATSAPP (17/10/2026; Martín: «El + y el emoji están desalineados»). UNA medida para el «+»,
    la carita, el campo de un renglón y el botón de mandar (`--caja-toque`: 40 con mouse, 44 con el dedo), todos alineados ABAJO:
    con un renglón comparten el centro, y cuando el campo crece los botones se quedan en el último renglón. Antes el «+» medía
    34 (teléfono) y la carita 36×42, y el campo se centraba en vez de ir abajo. Lo fija tests/centro-ops7.test.ts. */
-.co-caja__fila { --caja-toque: 40px; display: flex; align-items: flex-end; gap: 4px; }
+.co-caja__fila { --caja-toque: 40px; display: flex; align-items: flex-end; gap: 4px; min-width: 0; }
 @media (pointer: coarse) { .co-caja__fila { --caja-toque: 44px; } }
 .co-caja__fila > .co-caja__campo { flex: 1; min-width: 0; align-self: flex-end; }
 /* Un renglón del campo mide lo que el botón: la letra y su renglón, y el resto de relleno arriba y abajo. */

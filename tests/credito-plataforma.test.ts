@@ -49,9 +49,17 @@ test('2. cualquier otra función que no sea del Plan, SÓLO en la plataforma; «
 test('3. el Plan nunca; las funciones con `fallback: []` tampoco; vencido o en pausa, no', () => {
   for (const f of FEATURES_DEL_PLAN) assert.equal(puede(f, true).ok, false, `«${f}» es del Plan y usó el crédito`);
   // Un juicio que nadie revisa corre con UN proveedor: el crédito primero mezclaría dos modelos (lib/model-catalogo.ts).
-  const sinDegradar = CATALOGO_MODELOS.filter((f) => f.fallback?.length === 0).map((f) => f.feature);
+  const sinDegradar = CATALOGO_MODELOS.filter((f) => f.fallback?.length === 0 && f.deSuIA !== true).map((f) => f.feature);
   assert.ok(sinDegradar.includes('cs-sesion') && sinDegradar.includes('cs-autoasignar'), `cambió la lista de las que no se degradan: ${sinDegradar.join(', ')}`);
   for (const f of sinDegradar) assert.equal(puede(f, true).ok, false, `«${f}» tiene \`fallback: []\` y probó el crédito antes que su proveedor`);
+  // `deSuIA` (12/11/2026): su `fallback: []` es «su Claude o su GPT, nunca Gemini». El crédito es Claude: en el espacio de MaKo, sí
+  // (sin esto el chat del Image Editor del ws 9 no contestaba nunca); en un negocio, no.
+  const deSuIA = CATALOGO_MODELOS.filter((f) => f.fallback?.length === 0 && f.deSuIA === true).map((f) => f.feature);
+  assert.ok(deSuIA.includes('image-editor-ia'), `«image-editor-ia» dejó de ser de su IA: ${deSuIA.join(', ')}`);
+  for (const f of deSuIA) {
+    assert.equal(para(puede(f, true)), 'plataforma', `«${f}» (su Claude o su GPT) no usó el crédito en el espacio de MaKo`);
+    assert.equal(puede(f, false).ok, false, `«${f}» usó el crédito en un negocio: cada negocio paga su IA`);
+  }
   assert.equal(puede('mako-doer', true, { pausa: true }).ok, false, 'la pausa de pánico no apagó el crédito de la plataforma');
   assert.equal(puede(FEATURE_DE_LOS_GRUPOS, false, { pausa: true }).ok, false, 'la pausa de pánico no apagó el crédito de los grupos');
   const despues = new Date(`${CREDITO_PARA_LA_PLATAFORMA.hasta}T12:00:00Z`);

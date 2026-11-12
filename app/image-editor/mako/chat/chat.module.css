@@ -322,6 +322,8 @@
 }
 
 /* El pie: el alcance y la caja (la del Ops Center, `.co-caja`) */
+/* Con un audio grabado, «Enviar audio» quedaba afuera (12/11/2026, docs/hallazgos-editor-imagen.md): lo resuelve la regla común de
+   `.co-caja` (centro.css) y la barra de grabación contenida (VoiceRecorder.tsx), para todos los chats. Acá no va nada propio. */
 .pie {
   display: grid;
   flex: none;

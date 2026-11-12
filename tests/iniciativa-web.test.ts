@@ -60,8 +60,10 @@ test('2. el montaje: «Sí» abre el diálogo de Publicar, la pieza entra con ne
   assert.match(panel, /const AperturaAgente = dynamic\(\(\) => import\('\.\/ChatAgente'\)\.then\(\(m\) => m\.AperturaAgente\)\);/,
     'con next/dynamic: AperturaMako trae el CSS del hilo y tumbaría los tests que cargan el panel');
   assert.doesNotMatch(panel, /from '@\/app\/_chat\/AperturaMako'/);
-  assert.match(panel, /\{hilo\.mensajes\.length === 0 && !aperturaHabla && \(\n\s*<>\n\s*<div className="gma-ag-burbuja" data-de="mako">/,
-    'el saludo y sus sugerencias, sólo sin la apertura');
+  // (12/11/2026: sin la burbuja «Pídeme que edite…» que iba primero: fuera los textos que explican. Quedan las sugerencias.)
+  assert.match(panel, /\{hilo\.mensajes\.length === 0 && !aperturaHabla && \(\r?\n\s*<>\r?\n(?:\s*\{\s*\}\r?\n)?\s*<div className="gma-ag-pildoras">/,
+    'las sugerencias, sólo sin la apertura');
+  assert.doesNotMatch(panel, /Pídeme que edite, cree o diseñe/);
   const chat = sinComentarios(leer('app/web-generator/editor/paneles/ChatAgente.tsx'));
   assert.match(chat, /useEffect\(\(\) => \{ onHabla\(habla\); return \(\) => onHabla\(false\); \}, \[habla, onHabla\]\);/, 'al irse, el saludo vuelve');
   assert.match(chat, /acciones=\{\{ publicar: onPublicar \}\}/);

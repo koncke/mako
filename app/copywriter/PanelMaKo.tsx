@@ -166,8 +166,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   const pedidoInicial = useRef<string | null>(null);
   const appEscritorio = useAppDeEscritorio();
   const adj = useAdjuntosDelChat({ puede: !corriendo && !!id, onError: setErrorCaja });
-  const vivo = useRef({ mensajes, id, leerVivo, editor, paginas, leerApi, catalogos });
-  vivo.current = { mensajes, id, leerVivo, editor, paginas, leerApi, catalogos };
+  const vivo = useRef({ mensajes, id, leerVivo, editor, paginas, leerApi, catalogos, plantilla });
+  vivo.current = { mensajes, id, leerVivo, editor, paginas, leerApi, catalogos, plantilla };
 
   const conPropuestaAbierta = mensajes.some((m) => m.de === 'mako' && (m.estado === 'construyendo' || m.estado === 'pendiente'));
 
@@ -292,6 +292,11 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     }
     // Otra vez contra lo de AHORA (la persona pudo escribir mientras MaKo pensaba): un id que ya no está se descarta.
     const antes = ed.leer();
+    // La plantilla como NACIÓ (sus secciones con las guías, nada escrito por la persona): no hay nada que pisar, así que lo que
+    // escribe MaKo queda en la página sin «Aceptar», como la réplica (12/11/2026, en producción: la plantilla quedaba como
+    // propuesta; memoria «replicar-deja-todo-escrito»). Sobre lo ya escrito sigue siendo propuesta.
+    const pl = vivo.current.plantilla;
+    const nacida = adaptar && !!pl && textoDelDoc(antes as JsonNodo).trim() === textoDelDoc(pl.esqueleto()).trim();
     const cat = vivo.current.catalogos;
     const s = sanearOperaciones(r.operaciones, antes, { angulos: new Set(cat.angulos.map((a) => a.id)), estructuras: new Set(cat.estructuras.map((e) => e.id)) });
     const res = aplicarTodo(antes, s.ops);
@@ -327,6 +332,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
       return true;
     }
     cambiarMensaje(mako.id, { estado: 'pendiente' });
+    // Con algo descartado queda como propuesta: la tarjeta dice qué no se pudo poner (12/11/2026, el Carrusel: 3 de 4 cambios).
+    if (nacida && !propuesta.descartadas.length) aceptar({ ...mako, estado: 'pendiente' });
     return true;
   }, [cambiarMensaje, onPausa, tituloCharla]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -362,7 +369,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   const otrasReplica = replicaHecha ? otrasOfertasDeReplica(replicaHecha.oferta, ofertas) : [];
 
   // La pregunta de la iniciativa que sigue (sólo con el chat vacío), y contestarla: con la última, el pedido a la IA.
-  const pasoIni = mensajes.length === 0 && id ? pasoPendiente(pasosIni, respIni) : null;
+  // Recién con la charla leída: antes, una página vieja mostraba un instante la primera pregunta (12/11/2026, en producción).
+  const pasoIni = hiloLeido && mensajes.length === 0 && id ? pasoPendiente(pasosIni, respIni) : null;
   const responderIni = (valor: string) => {
     if (!pasoIni) return;
     const r = { ...respIni, [pasoIni.id]: valor };
@@ -530,6 +538,9 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
           {/* La tecla, sólo donde hay teclado (11/11/2026, en producción el teléfono decía «Ctrl+Z en la página lo deshace»):
               `.nt[data-movil]` la esconde, y en una Mac es ⌘Z. */}
           {m.estado === 'aceptada' && <div className="nt-mako-estado">{m.id === replicaHecha?.mensaje ? 'Quedó escrito en la página.' : 'Aceptado.'}<span className="nt-solo-teclado"> {teclaDeshacer()} en la página lo deshace.</span></div>}
+          {/* Lo que avisa también cuando quedó escrito solo (la réplica, la plantilla sin tocar): hasta el 12/11/2026 sólo se veía con
+              «Aceptar», así que el aviso de frases copiadas nunca salía en una réplica. */}
+          {m.estado === 'aceptada' && p.avisos.map((a) => <div key={a} className="nt-propuesta-aviso">{a}</div>)}
           {/* La réplica escrita sola: con qué oferta, y las otras para rehacerla (11/11/2026: «si hay una oferta principal, usala
               y dejá cambiarla»). */}
           {m.id === replicaHecha?.mensaje && (m.estado === 'aceptada' || m.estado === 'pendiente') && otrasReplica.length > 0 && (
@@ -594,22 +605,14 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
               ))}
             </div>
           </>
-        ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && (
-          <>
-            <div className="nt-mako-bienvenida">
-              {!id ? 'Elige un outlier y tócale «Replicar»: te escribo el guion entero con tu oferta. Tus guiones están en la «←».'
-                : intencion === 'discutir' ? 'Pregúntame lo que quieras de esta página: te digo qué cambiaría, sin tocar nada.'
-                  : 'Pídeme que escriba o edite esta página: lo escribo aquí al lado y tú decides si queda.'}
-              {id && ' Con @ citas otra página, la oferta o un archivo.'}
-            </div>
-            {id && (
-              <div className="nt-mako-pildoras">
-                {sugerencias.map((s) => (
-                  <button key={s} type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => pedirSugerencia(s)}>{s}</button>
-                ))}
-              </div>
-            )}
-          </>
+        ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && (
+          // Sin el texto que explicaba cómo usar el chat (12/11/2026, Martín: «arriba en MaKo dice un texto que es innecesario… eso es
+          // totalmente innecesario»): sólo lo que se le puede pedir, en botones. Sin página abierta no hay nada que decir.
+          <div className="nt-mako-pildoras">
+            {sugerencias.map((s) => (
+              <button key={s} type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => pedirSugerencia(s)}>{s}</button>
+            ))}
+          </div>
         )}
         <HiloAgente items={nota.conNotas(items)} corriendo={corriendo} enMensaje={enMensaje} onCitar={citar}
           onReintentar={nota.reintentar(() => {})} onDescartar={nota.descartar} />

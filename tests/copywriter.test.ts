@@ -30,7 +30,9 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy } from '../lib/copywriter/ia-reglas';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras } from '../lib/copywriter/ia-reglas';
+import { etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
+import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
 
 const raiz = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(raiz, r), 'utf8').replace(/\r\n/g, '\n');
@@ -136,6 +138,43 @@ test('lo que lee la IA: cada bloque con su id, y la sección con su etiqueta', (
   // Lo que dice el guion lo dice el NEGOCIO: nunca con la voz rioplatense de MaKo.
   assert.match(bloqueIdiomaCopy(null), /sin modismos rioplatenses/);
   assert.match(bloqueIdiomaCopy(null), /sin voseo/);
+  // UNA forma en todo el guion (12/11/2026, en producción: un negocio rioplatense salía con «Mandás un anuncio… esperas»).
+  assert.match(bloqueIdiomaCopy('Argentino (rioplatense)', true), /con el voseo de esa variedad en TODO el guion, nunca mezclado con el tuteo/);
+  assert.match(bloqueIdiomaCopy('Mexicano', false), /de «tú» en TODO el guion, sin voseo/);
+  assert.doesNotMatch(bloqueIdiomaCopy('Argentino (rioplatense)', true), /salvo que esa variedad/);
+});
+
+test('las cifras y la garantía sin fuente se avisan (12/11/2026, en producción: la réplica de YouTube las inventó)', () => {
+  const escrito = 'Cada uno vio sus conversaciones subir 3 veces. El 73 % llegaba a la propuesta. Costo 60 % más bajo. En 30 días. 3 a 5 clientes garantizados o devolvemos lo que pagaste.';
+  const c = cifrasSinFuente(escrito, 'EL NEGOCIO: WhatsApp Ads Funnel, 497 dólares, 30 días de ajustes. Subió 3 veces sus mensajes.');
+  assert.deepEqual(c.cifras, ['73 %', '60 %'], 'las «3 veces» con fuente; los «30 días» no son una prueba');
+  assert.equal(c.garantia, true);
+  assert.equal(cifrasSinFuente('Una garantía de 30 días.', 'Garantía de devolución de 30 días.').garantia, false, 'la garantía del negocio sí');
+  assert.deepEqual(cifrasSinFuente('El 41 % de los que escriben compra.', 'testimonio: 41 % compró').cifras, []);
+  const avisos = avisosDeCifras(c);
+  assert.match(avisos[0], /Tiene cifras que no salen de tu negocio \(73 %, 60 %\)/);
+  assert.match(avisos[1], /Promete una garantía o una devolución/);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes("avisos.push(...avisosDeCifras(cifrasSinFuente(`${r.titulo ?? ''}\\n${escrito}`, fuentes)));"), 'Editar avisa las cifras');
+  // Y los avisos se ven también cuando la página quedó escrita sola (la réplica): antes, sólo con «Aceptar».
+  assert.ok(leer('app/copywriter/PanelMaKo.tsx').includes(`{m.estado === 'aceptada' && p.avisos.map((a) => <div key={a} className="nt-propuesta-aviso">{a}</div>)}`));
+});
+
+test('la plantilla sin tocar queda escrita sin «Aceptar», y la caja y la nota de voz entran en la columna (12/11/2026, en producción)', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.ok(panel.includes('const nacida = adaptar && !!pl && textoDelDoc(antes as JsonNodo).trim() === textoDelDoc(pl.esqueleto()).trim();'));
+  assert.ok(panel.includes("if (nacida && !propuesta.descartadas.length) aceptar({ ...mako, estado: 'pendiente' });"), 'sola sólo si entró todo');
+  // El método: una acción que crea escribe la pieza entera y pregunta DESPUÉS (antes pedía 3 datos y no escribía nada).
+  assert.doesNotMatch(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /todavía no escribes/);
+  assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /no le preguntas nada antes de escribir/);
+  assert.match(PROMPTS_EXPERTO_COPY.experto.tpl, /Nunca contestas con preguntas en lugar de la pieza\./);
+  // Grabando, «Terminar» quedaba cortado y, al escuchar, «Enviar audio» no se veía: la caja tomaba el ancho de su contenido.
+  // Lo resuelve UNA regla común para todos los chats (centro.css + la barra contenida): acá no va una propia (12/11/2026).
+  assert.ok(!leer('app/copywriter/notion.css').includes('.nt-mako-pie > .co-caja {'), 'sin regla propia sobre la caja');
+  assert.ok(leer('app/admin/operaciones/centro.css').includes('.co-caja { width: 100%; min-width: 0; }'));
+  // La nota de voz del hilo, 240 px fijos en un globo de ~160: se metía bajo el avatar.
+  assert.ok(leer('app/_chat/HiloMako.tsx').includes("style={{ width: 240, maxWidth: '100%' }}"));
+  assert.ok(leer('app/_chat/chat.css').includes('.ch-voz [data-reproductor] input[type="range"] { min-width: 0 !important; }'));
 });
 
 test('un documento vacío nuevo es válido para el saneo', () => {
@@ -334,4 +373,27 @@ test('la caja trabada se vuelve a medir cuando llega su frase y cada vez que cam
   assert.match(efecto, /const fila = el\.parentElement\?\.parentElement \?\? null;/);
   assert.match(efecto, /mo\?\.observe\(fila, \{ childList: true, subtree: true \}\);/);
   assert.match(efecto, /return \(\) => \{ ro\?\.disconnect\(\); mo\?\.disconnect\(\); \};/);
+});
+
+test('la sección que nombra MaKo se lee con tolerancia (12/11/2026, en producción: el Carrusel perdió sus 3 secciones)', () => {
+  const doc = docDeEstructura(['SLIDES', 'CTA', 'CAPTION', 'SOLUCIÓN']);
+  const titulo = (doc.content ?? []).find((b) => b.attrs?.seccion === 'CTA');
+  const casos: Array<[Record<string, unknown>, string]> = [
+    [{ seccion: 'SLIDES' }, 'SLIDES'],
+    [{ seccion: 'Slides' }, 'SLIDES'],
+    [{ seccion: 'SECCIÓN SLIDES: Slides' }, 'SLIDES'],
+    [{ seccion: `[${String(titulo?.attrs?.bid)}] ## SECCIÓN CTA: CTA` }, 'CTA'],
+    [{ section: 'caption' }, 'CAPTION'],
+    [{ etiqueta: 'Solucion' }, 'SOLUCIÓN'],
+    [{ seccion: 'La sección CAPTION (el pie)' }, 'CAPTION'],
+    [{ bid: String(titulo?.attrs?.bid) }, 'CTA'],
+    // Una sección nueva sigue siendo válida (escribir_seccion la agrega al final).
+    [{ seccion: 'PIE' }, 'PIE'],
+    [{ seccion: '¿¿??' }, ''],
+  ];
+  for (const [o, esperado] of casos) assert.equal(etiquetaDeSeccion(o, doc), esperado, JSON.stringify(o));
+  const cat = { angulos: new Set<string>(), estructuras: new Set<string>() };
+  const s = sanearOperaciones([{ op: 'escribir_seccion', seccion: 'SECCIÓN SLIDES: Slides', bloques: [{ tipo: 'tabla', filas: [['Lámina', 'Texto'], ['1', 'Hola']] }] }], doc, cat);
+  assert.equal(s.descartadas.length, 0);
+  assert.equal(s.ops[0]?.op === 'escribir_seccion' && s.ops[0].seccion, 'SLIDES');
 });

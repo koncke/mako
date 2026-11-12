@@ -1,0 +1,30 @@
+/* La tarjeta de una pieza de Competitor Spy (TarjetaPieza.tsx), 12/11/2026. La caja, el marco, las marcas, el múltiplo y el pie son
+   los de los outliers de Create (app/image-editor/carruseles/explorar.module.css), para que una pieza se vea igual en Spy y en Create.
+   Acá va sólo lo propio de Spy. */
+
+.abrir { cursor: pointer; color: inherit; text-decoration: none; }
+.abrir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ⚠️ LA FOTO VA ENCIMA DEL TEXTO, no en su lugar: una miniatura que no carga se borra y abajo ya está el texto. Antes el texto era el
+   `else` de la foto, y una foto rota dejaba la caja vacía (Martín, 2/11/2026: «las miniaturas de IG no se ven, sólo cajas vacías»). */
+.foto { position: absolute; inset: 0; z-index: 1; display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ⚠️ EL TEXTO DE UNA PIEZA SIN FOTO ARRANCA DEBAJO DE LAS MARCAS (Martín, con Leila, 4/11/2026: «"Hace 2 d" tapa el texto de la
+   pieza»): las marcas van a 8 px y miden 24. Y se desvanece antes del borde de abajo. */
+.texto {
+  position: absolute; inset: 0; display: block; padding: 44px 14px 0; color: var(--ink); font-size: 13px; line-height: 1.45;
+  overflow: hidden; overflow-wrap: anywhere;
+  -webkit-mask-image: linear-gradient(#000 calc(100% - 36px), transparent calc(100% - 6px));
+  mask-image: linear-gradient(#000 calc(100% - 36px), transparent calc(100% - 6px));
+}
+
+/* Sin acciones a la derecha, las marcas usan todo el ancho; y van encima de la foto. */
+.marcas.marcas { z-index: 2; max-width: calc(100% - 16px); }
+
+/* La marca de la red, como la de Copywriting (app/copywriter/outliers.module.css, `.red`), legible sobre cualquier foto. */
+.red {
+  display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px 0 4px; border-radius: 999px; white-space: nowrap;
+  background: rgba(255, 255, 255, 0.92); color: #12151b; font-size: 12px; font-weight: 650; backdrop-filter: blur(6px);
+}
+
+.destino { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

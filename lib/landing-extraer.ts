@@ -143,6 +143,13 @@ const ENTIDADES: Record<string, string> = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—',
   hellip: '…', laquo: '«', raquo: '»', ldquo: '"', rdquo: '"', lsquo: "'", rsquo: '’', aacute: 'á',
   eacute: 'é', iacute: 'í', oacute: 'ó', uacute: 'ú', ntilde: 'ñ', Ntilde: 'Ñ', uuml: 'ü', iexcl: '¡', iquest: '¿',
+  // 12/11/2026, la réplica de clase.highticketclarity.com: la «×» de cerrar un modal (`&times;`) llegó como «&times;» a un
+  // botón de la copia. Las que más aparecen en una landing, con su mayúscula cuando la tiene (se prueba primero tal cual).
+  Aacute: 'Á', Eacute: 'É', Iacute: 'Í', Oacute: 'Ó', Uacute: 'Ú', Uuml: 'Ü', ccedil: 'ç', agrave: 'à', egrave: 'è',
+  ograve: 'ò', auml: 'ä', ouml: 'ö', ordm: 'º', ordf: 'ª', times: '×', divide: '÷', copy: '©', reg: '®', trade: '™',
+  bull: '•', middot: '·', deg: '°', euro: '€', pound: '£', cent: '¢', yen: '¥', sect: '§', larr: '←', rarr: '→',
+  uarr: '↑', darr: '↓', harr: '↔', check: '✓', starf: '★', star: '☆', hearts: '♥', thinsp: ' ', ensp: ' ', emsp: ' ',
+  shy: '', zwj: '', zwnj: '',
 };
 
 /** Las entidades de HTML a texto. Un código fuera de Unicode no rompe nada: se va. */
@@ -185,6 +192,54 @@ const RE_CTA_CLASE = /\b(btn|button|cta|action)\b/i;
 // Los de inglés de las páginas del relevo de outliers (11/11/2026): el «I'M READY TO SCALE» del hero de acquisition.com es un
 // <a> sin clase de botón, y la réplica salía sin el botón del hero.
 const RE_CTA_TEXTO = /^(agenda|reserva|solicita|quiero|empez|comenz|descarg|regist|contrat|compr|apl(i|í)ca|hablemos|ver\s|cont(a|á)ct|book\b|get|start|schedule|i'?m ready|i['’]?m in|yes\b|join|claim|reserve|apply|register|sign ?up|enroll|buy|order|download|grab|unlock|send me|save my)/i;
+/**
+ * Los botones del REPRODUCTOR no son botones de venta (12/11/2026, clase.highticketclarity.com): el «Activá el sonido» que va
+ * encima del video del hero salía como el primer botón de la réplica, al lado de «Quiero mi lugar». El texto entero tiene que
+ * ser el del control: «Activar el sonido de la clase» o «Ver el video» (que abre un VSL) siguen siendo copy.
+ */
+export const RE_CONTROL_MEDIA = /^(?:(?:activ|quit|silenci|prend|encend)[a-záéí]*\s+(?:el\s+)?(?:sonido|audio|volumen)|(?:tap|click)\s+(?:here\s+)?to\s+unmute|(?:un)?mute|sound\s+(?:on|off)|(?:play|pause|reproducir|pausar))$/i;
+
+/**
+ * Lo que la página trae escondido y no es su copy (12/11/2026, la réplica de clase.highticketclarity.com): el formulario de un
+ * modal y el popup de salida (`<div class="modal" hidden role="dialog" aria-modal="true">`) salían como secciones a la vista,
+ * con la «×» de cerrar como botón y «Esperá un segundo… No, gracias» al final de la página. Fuera:
+ *   · los diálogos (`role="dialog"`/`"alertdialog"`, `aria-modal="true"`), escondidos o no: un cartel de cookies o un popup;
+ *   · lo `hidden` con nombre de ventana (modal, popup, overlay, lightbox, exit-intent).
+ * Un `hidden` a secas NO: muchos acordeones esconden ahí la respuesta de una pregunta frecuente (y `until-found` es justo eso).
+ */
+const RE_NOMBRE_DE_VENTANA = /(?:^|[\s_-])(?:modal|popup|pop-up|overlay|lightbox|exit|salida)(?:$|[\s_-])/i;
+function esOcultoQueNoEsCopy(attrs: string): boolean {
+  const rol = (atributo(attrs, 'role') ?? '').toLowerCase();
+  if (rol === 'dialog' || rol === 'alertdialog') return true;
+  if ((atributo(attrs, 'aria-modal') ?? '').toLowerCase() === 'true') return true;
+  const oculto = atributo(attrs, 'hidden');
+  if (oculto === null || oculto.toLowerCase() === 'until-found') return false;
+  return RE_NOMBRE_DE_VENTANA.test(`${atributo(attrs, 'class') ?? ''} ${atributo(attrs, 'id') ?? ''}`);
+}
+
+/** El HTML sin lo de `esOcultoQueNoEsCopy` (cada uno, entero: hasta SU cierre, contando los del mismo nombre adentro). */
+export function sinLoOculto(html: string): string {
+  const apertura = /<([a-zA-Z][\w:-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+  let out = html;
+  for (let m = apertura.exec(out); m; m = apertura.exec(out)) {
+    const tag = m[1].toLowerCase();
+    const attrs = m[2] ?? '';
+    if (VACIOS.has(tag) || /\/\s*$/.test(attrs) || !esOcultoQueNoEsCopy(attrs)) continue;
+    const re = new RegExp(`<(/?)${escaparRe(tag)}(?=[\\s/>])[^>]*>`, 'gi');
+    re.lastIndex = m.index + m[0].length;
+    let nivel = 1;
+    let fin = -1;
+    for (let t = re.exec(out); t; t = re.exec(out)) {
+      nivel += t[1] ? -1 : 1;
+      if (nivel === 0) { fin = t.index + t[0].length; break; }
+    }
+    // Sin cierre (HTML roto): se deja como está; quitar hasta el final se llevaría la página.
+    if (fin < 0) continue;
+    out = out.slice(0, m.index) + ' ' + out.slice(fin);
+    apertura.lastIndex = m.index;
+  }
+  return out;
+}
 
 type Tipo = BloqueLanding['tipo'];
 /**
@@ -298,8 +353,8 @@ export function armarStreaming(html: string): string {
  */
 export function extraerBloques(htmlCrudo: string): BloqueLanding[] {
   // Sin comentarios ni scripts ANTES de armar el streaming (un `<div` dentro de un script no cuenta), y el RUIDO después: se
-  // lleva los <template>, que son los marcadores donde va el contenido.
-  const html = armarStreaming(htmlCrudo.replace(COMENTARIOS, ' ').replace(SCRIPTS, ' ')).replace(RUIDO, ' ');
+  // lleva los <template>, que son los marcadores donde va el contenido. Y lo escondido que no es copy (modales, popups).
+  const html = sinLoOculto(armarStreaming(htmlCrudo.replace(COMENTARIOS, ' ').replace(SCRIPTS, ' ')).replace(RUIDO, ' '));
   const out: BloqueLanding[] = [];
   const vistos = new Set<string>();
   const raiz: Marco = { tag: '#raiz', rol: 'bloque', tipo: 'texto', textual: false, partes: [], ctaPorClase: false, enNav: false, item: { pregunta: false, padre: null } };
@@ -314,6 +369,7 @@ export function extraerBloques(htmlCrudo: string): BloqueLanding[] {
   const emitir = (tipo: Tipo, crudo: string, de?: Marco): boolean => {
     const texto = sinLetrasDobles(decodificar(crudo).replace(/\s+/g, ' ').trim());
     if (texto.length < 2 || texto.length > MAX_BLOQUE) return false;
+    if (tipo === 'cta' && RE_CONTROL_MEDIA.test(texto)) return false;
     // Dedup: los menús y footers repiten el mismo texto muchas veces.
     const clave = `${tipo}:${texto.toLowerCase()}`;
     if (vistos.has(clave)) return false;

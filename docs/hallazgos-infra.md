@@ -12409,3 +12409,16 @@ estirarla», es la base). Lo que apareció al sacar 65 landings y mirarlas una p
   cifras. Lo que se muestra como «la página» es una captura de la página.
 - Sin esquivar controles anti-robots: manychat (Cloudflare) y las de ClickFunnels quedan afuera, anotadas
   (docs/web-generator/outliers-capturas-afuera.md).
+
+## Mirar un componente sin levantar la app, a 1440 y a 375 (12/11/2026)
+
+**Por qué:** levantar el servidor local escribe en producción (`migrarEnvACredenciales`), y el navegador integrado no saca capturas cuando su panel está oculto.
+
+**Lo que anda:**
+1. esbuild empaqueta el componente real con `loader: { '.css': 'local-css' }`, que deja los nombres de clase de verdad y saca su CSS aparte.
+2. `renderToStaticMarkup` arma el HTML. Se le suman las variables del primer `:root` de `app/globals.css`, y `<BrandDefs />` si hay logos.
+3. Chrome sin ventana, manejado por su protocolo de depuración (`Emulation.setDeviceMetricsOverride` + `Page.captureScreenshot`), saca la captura.
+
+Los dos scripts de Spy quedaron como modelo: `armar.mjs` y `capturar.mjs`. Están en el scratchpad del chat de Spy; la página que arman está en las notas compartidas, `spy-sueltos-1211/tarjeta-pieza-prueba.html`.
+
+**⚠️ Trampa:** `chrome --headless --window-size=375,…` NO da 375. Una ventana no baja de unos 500 px, así que la página sale más ancha y la captura la recorta: parece que la tarjeta se desborda, y no es así. El ancho se emula con el protocolo de depuración. Y hay que esperar la animación de entrada antes de capturar (la de las tarjetas dura 280 ms y arranca en opacidad 0): una captura inmediata sale lavada.

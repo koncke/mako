@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, restoDelTexto,
-  outliersCopyDeSpy, textoParaMaKo, tipoDeOutlier, tituloDeReplica,
+  outliersCopyDeSpy, palabrasDe, reglasDeLaReplica, textoParaMaKo, tipoDeOutlier, tituloDeReplica,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
 } from '../lib/copywriter/outliers';
 import { sanearProps } from '../lib/copywriter/tipos';
@@ -226,8 +226,12 @@ test('Replicar: MaKo escribe el guion ENTERO solo, con la oferta principal, y de
   assert.equal(ofertaDeReplica(ofertas), 'oferta:3');
   assert.equal(ofertaDeReplica([]), AL_NEGOCIO);
   const pedido = pedidoDeReplica({ oferta: 'oferta:3' }, ofertas).texto;
-  assert.match(pedido, /Escribe el guion ENTERO como el original: su misma estructura \(todas sus partes, en su orden\), su tipo de gancho y su ritmo, con mi oferta «Mentoría 90 días»/);
-  assert.match(pedido, /Pon en propiedades el ángulo y la estructura de la biblioteca/, 'Ángulo y Estructura no quedan «Vacío»');
+  // Lo que se ve en la charla al reabrir es lo que la persona pidió con un toque (12/11/2026, en producción: el pedido técnico
+  // entero aparecía como un mensaje de Martín). Lo técnico va en el ORIGINAL que suma el server (`reglasDeLaReplica`).
+  assert.equal(pedido, 'Replícalo entero con mi oferta «Mentoría 90 días»: su estructura, su tipo de gancho y su ritmo.');
+  const reglas = textoParaMaKo(outlier({ deDonde: 'guion' }), null, new Date('2026-11-12T12:00:00Z'));
+  assert.match(reglas, /el guion ENTERO, todas sus partes en su orden/);
+  assert.match(reglas, /en propiedades, el ángulo y la estructura de la biblioteca/, 'Ángulo y Estructura no quedan «Vacío»');
   assert.equal(pedidoDeReplica({ oferta: NO_ADAPTAR }, ofertas).adaptar, false);
   assert.deepEqual(otrasOfertasDeReplica('oferta:3', ofertas).map((o) => o.texto), ['Taller']);
   const panel = leer('app/copywriter/PanelMaKo.tsx');
@@ -238,6 +242,27 @@ test('Replicar: MaKo escribe el guion ENTERO solo, con la oferta principal, y de
   assert.match(panel, /if \(aceptarAlTerminar\.current && ultimo\.estado === 'pendiente'\) aceptar\(ultimo\);/);
   assert.match(panel, /onClick=\{\(\) => escribirReplica\(o\.valor, false\)\}/);
   assert.match(panel, /void pedirEdicion\(pedidoDeReplica\(\{ oferta \}, ofertas\)\.texto, \[\], \[\], false, false\);/, 'una réplica es «Editar», no «adaptar»');
+});
+
+test('la réplica respeta el LARGO, escribe el carrusel por láminas, no inventa pruebas y lleva título propio (12/11, en producción)', () => {
+  // El anuncio de ~40 palabras salió de ~200: el largo del original, ±25 %, y ninguna sección que no tenga.
+  const anuncio = reglasDeLaReplica({ formato: 'anuncio', deDonde: 'copy', texto: Array.from({ length: 40 }, (_, i) => `p${i}`).join(' '), laminas: null });
+  assert.match(anuncio[0], /el original tiene unas 40 palabras; el tuyo, entre 30 y 50 palabras, con la misma cantidad de partes\. Ni una sección que el original no tenga\./);
+  assert.equal(palabrasDe('Learn How to Scale Your Business. We’re hosting a workshop.'), 10);
+  // El carrusel de 7 láminas salió en prosa: lámina por lámina, en tabla, y el pie aparte.
+  const carrusel = reglasDeLaReplica({ formato: 'carrusel', deDonde: 'pie', texto: 'Un pie corto de ejemplo para medir.', laminas: 7 });
+  assert.match(carrusel[0], /un carrusel de 7 láminas\. Escríbelo lámina por lámina, en una tabla \(Lámina \| Texto en la imagen \| Visual\) con 7 filas/);
+  assert.match(carrusel[0], /una sección «Pie»/);
+  // El pie de un reel y la descripción de YouTube no son lo que se dice: su largo no es el de la pieza.
+  assert.match(reglasDeLaReplica({ formato: 'reel', deDonde: 'pie', texto: 'x', laminas: null })[0], /es el PIE de la publicación, no lo que se dice en el reel/);
+  assert.match(reglasDeLaReplica({ formato: 'youtube', deDonde: 'descripcion', texto: 'x', laminas: null })[0], /Si trae capítulos \(0:00 …\), ésos son sus partes y su orden/);
+  // YouTube inventó cifras, casos y una garantía; el reel quedó con el título del competidor y el video, con «2025».
+  const todas = reglasDeLaReplica({ formato: 'youtube', deDonde: 'descripcion', texto: 'x', laminas: null }, new Date('2026-11-12T12:00:00Z')).join('\n');
+  assert.match(todas, /salen SÓLO de EL NEGOCIO\. Si el original muestra una prueba y el negocio no tiene una, escribe \[DATO: la prueba que falta\]\. Nunca inventes un número ni una garantía\./);
+  assert.match(todas, /un título PROPIO con \{"op": "titulo"\}/);
+  assert.match(todas, /Si el original nombra un año, el tuyo es 2026\./);
+  // Y viaja en el original (lo suma el server en cada pedido), después de la regla de las frases.
+  assert.match(textoParaMaKo(outlier({ deDonde: 'guion' }), null), /CÓMO SE REPLICA: [^\n]+\nEL LARGO: /);
 });
 
 test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cero» siguen', () => {
@@ -258,7 +283,7 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   assert.match(portadaTsx, /<TarjetaPlantilla key=\{pl\.id\} pl=\{pl\}/);
   assert.match(portadaTsx, /<Link href=\{rutaCrear\} className=\{s\.texto\}>Ver todas<\/Link>/);
   // De a tandas, no las 2.291 de una (medido: 46.030 elementos y de 1 a 7 s por cambio de filtro).
-  assert.match(portadaTsx, /vistos\.slice\(0, mostrar\)\.map/);
+  assert.match(portadaTsx, /const enGrilla = useMemo\(\(\) => vistos\.slice\(0, mostrar\), \[vistos, mostrar\]\);/);
   assert.match(portadaTsx, /useEffect\(\(\) => \{ setMostrar\(TANDA\); \}, \[formato, q, orden\]\);/);
   // Y el original abierto pide el texto ENTERO (la tarjeta trae 280 letras).
   assert.match(leer('app/copywriter/OutlierAbierto.tsx'), /void pedirOriginal\(o\.id\)\.then\(\(r\) => \{ if \(vivo && r\.ok\) setCompleto\(r\.outlier\.texto\); \}\);/);
@@ -322,20 +347,21 @@ test('la tarjeta es de COPY: el texto primero y YouTube en 16:9, no la foto vert
   assert.equal(restoDelTexto({ gancho: 'Change My Mind', texto: 'Change My Mind' }), '', 'un video sin descripción: sólo su título');
   assert.equal(restoDelTexto({ gancho: 'Otro gancho', texto: 'El texto entero.' }), 'El texto entero.');
   const portada = leer('app/copywriter/OutliersCopy.tsx');
-  // La hoja del copy: qué texto es, el gancho grande y lo que sigue. La foto sólo en un video de YouTube, y horizontal.
-  assert.match(portada, /<div className=\{oc\.hoja\} data-video=\{video \? 'si' : undefined\}/);
-  assert.match(portada, /\{video && o\.miniatura \? \(/);
+  // El texto adentro del marco con la forma de su red (12/11/2026: YouTube 16:9, reel 9:16, carrusel 4:5); la foto del original
+  // sólo al pasar el cursor (tests/create-outliers-tarjeta.test.ts).
+  assert.match(portada, /style=\{\{ aspectRatio: ASPECTO_FORMATO\[o\.formato\] \}\}/);
   assert.match(portada, /<button type="button" className=\{oc\.ganchoGrande\} onClick=\{onAbrir\}>\{o\.gancho\}<\/button>/);
   assert.doesNotMatch(portada, /className=\{s\.miniImagen\}/, 'sin la foto vertical de Image');
   const css = leer('app/copywriter/outliers.module.css');
-  assert.match(css, /\.video \{ display: block; width: 100%; aspect-ratio: 16 \/ 9;/);
+  assert.match(css, /\.original \{ position: absolute; inset: 0; background: #0d0f13; opacity: 0;/);
 });
 
 test('teléfono: «Mis guiones» y «Crear desde cero» debajo del título, no al final de la fila de formatos (11/11, a 375 no se veían)', () => {
   const portada = leer('app/copywriter/OutliersCopy.tsx');
-  assert.match(portada, /\{telefono \? <div className=\{`\$\{s\.filtros\} \$\{oc\.filaTelefono\}`\}>\{botones\}<\/div> : botones\}/);
+  assert.match(portada, /<\/h1>\s*\{\/\*[\s\S]*?\*\/\}\s*\{botones\}/, 'debajo del título');
   assert.doesNotMatch(portada, /\{segmento\}\n\s+\{telefono \? botones : null\}/);
+  // 12/11/2026: en dos renglones si no entran (en la fila que se deslizaba, «+ Crear desde cero» quedaba cortado a 375).
+  assert.doesNotMatch(portada, /oc\.filaTelefono/);
   const css = leer('app/copywriter/outliers.module.css');
-  assert.match(css, /\.filaTelefono\.filaTelefono \{ align-self: stretch; min-width: 0; \}/);
-  assert.match(css, /\.botonesTelefono\.botonesTelefono \{ justify-content: flex-start; \}/);
+  assert.match(css, /\.botonesTelefono\.botonesTelefono\.botonesTelefono\.botonesTelefono \{ flex-wrap: wrap; justify-content: center;/);
 });

@@ -2242,6 +2242,8 @@ moverlos de lugar: es que lleguen.
 
 **Trampa que encontró el test:** cuando la foto cambia de dirección (otra extensión), la cola le pasaba al Runner la foto de la ENTRADA, o sea el logo de antes: la habría caricaturizado. Ahora va la de ahora, y al marcar «sin persona» de nuevo también se guarda la de ahora.
 
+**⚠️ El mismo día, las marcas se borraban solas.** El Runner marcaba el 26, el 39 y el 41 con `--sin-persona`, y a los pocos minutos volvían a «pendientes» con `sinPersona` vacío. No era el Runner ni una foto nueva: **producción corría el código del despliegue anterior**, que no conocía `sinPersona`. Al leer cualquier competidor del negocio, `encolarCaricatura` → `anotarEn` leía el registro con `leerRegistro`, que descarta lo que no conoce, y lo escribía ENTERO. La primera sospecha, una foto que había cambiado, era la equivocada. **La regla:** quien escribe un registro compartido toca sólo su entrada y deja las demás tal cual, también con los campos que no conoce. Desde ahora `anotarEn` hace eso (test 9). Entre que algo llega a main y se despliega a las 11:05 UTC, el código viejo y el nuevo escriben el mismo JSON. No hace falta una columna en `spy_competidores`: el registro ya es por competidor, y lo que fallaba era quien lo reescribía.
+
 **Sin hacer:** la tarjeta no dice «Haciendo…» para una que volvió por la huella (el servidor no baja la foto para saberlo): muestra su foto hasta que el Runner la hace. El competidor 41 del ws 9 sigue en la cola hasta que el Runner corra `spy-caricatura-guardar.mjs 9 41 --sin-persona "es un logo"` con esto en main.
 
 ## Medio emoji tumba el lote entero, y los sueltos del ws 9 sin Instagram (12/11/2026)
@@ -2260,4 +2262,23 @@ moverlos de lugar: es que lleguen.
 - **Integraciones dice «Conectada», pero la clave de Apify del ws 9 contesta 401.** La pantalla mira si la clave existe, no si funciona. Además Meta no tiene un Instagram conectado. Por eso ningún suelto trae Instagram: ni su foto, ni sus posts, ni sus reels. Arreglarlo le toca a Martín, pegando una clave válida o conectando Meta.
 - **YouTube contestaba «Falta conectar YouTube» hasta el despliegue de las 11:05 UTC.** Después leyó bien: llegaron unas 500 piezas y las fotos de 9 sueltos. En main no es lo mismo que en producción: hasta el despliegue, lo que se mide es el código viejo.
 
-**Sin hacer:** Sarah Tran (37) sigue sin canal verificado. Maria Wendt (29) tiene canal pero no trajo foto ni videos y hay que revisarla. Las fotos nuevas que son logos (Mindvalley, The Ramsey Show) esperan el `--sin-persona` del Runner.
+- **Cargar el canal de un suelto no alcanza: la lectura arranca cuando alguien ABRE su ficha.** Maria Wendt tenía su @ de YouTube desde las 10:28 y seguía con 0 piezas. Al abrirla trajo 500, su funnel y su oferta en menos de un minuto. El cron no la había tomado.
+- **«Agregar un canal» busca por el NOMBRE y no siempre encuentra.** Con «Cole Gordon» no aparecía nada, porque su canal es @colethomasgordon. Escribiendo el @ apareció enseguida. Antes de sumar un canal, verificalo con la API: nombre, suscriptores y de qué hablan sus últimos videos. Un @ que coincide por nombre puede ser de otra persona: el de Sarah Tran es una instructora vietnamita de pilates.
+
+**Sin hacer:** Sarah Tran (37) sigue sin canal: el único que coincide por nombre no es ella. Las fotos que son logos (The Ramsey Show, School of Mentors, Mindvalley, MasterClass y el 41) esperan el `--sin-persona` del Runner, y Tina Ghazi su caricatura. Instagram sigue sin leerse para ningún suelto hasta que Martín arregle Apify o Meta.
+
+## La tarjeta de una pieza es la de los outliers de Create (12/11/2026)
+
+**Vive en:** `app/competitor-spy/TarjetaPieza.tsx`. Usa las clases de `app/image-editor/carruseles/explorar.module.css`, y lo propio de Spy está en `tarjeta-pieza.module.css`. Test: `tests/spy-tarjetas-sin-relleno.test.ts`.
+
+**La regla:** una pieza se ve igual en Spy y en Create. No hay un componente común: la tarjeta es un juego de CLASES, y cada pantalla arma la suya con ellas. Si Create cambia esas clases, Spy cambia solo. Las reglas viejas de Martín siguen:
+- la proporción de su red;
+- sólo los números que hay;
+- el texto debajo de la foto y debajo de las marcas;
+- el nombre en dos renglones.
+
+**Trampa:** `LogoRed` dibuja con los `<symbol>` de `<BrandDefs />`, y la pantalla del teléfono (`SpyM.tsx`) no lo montaba: el logo de la red salía vacío. Toda pantalla que dibuje tarjetas lo monta, y el test 2 lo cuida.
+
+**Trampa de los tests:** un componente que importa un `.module.css` no carga con `node --import tsx`. Hay que registrar un hook que devuelva el CSS vacío, como `tests/carruseles-pantalla.test.ts`, y recién después importar el componente. Con eso, el test mira el contenido y no las clases.
+
+**Sin hacer:** la grilla de Spy sigue siendo por filas (`GrillaPiezas`). Un short al lado de un video largo deja un hueco debajo del largo. Create usa `GrillaMixta` (`app/_crear/GrillaMixta.tsx`), que reparte en columnas. Pasarla a Spy obliga a rehacer la paginación «por filas enteras», que tiene su test.

@@ -47,6 +47,13 @@ export type TextoReplica = {
   alinear: 'left' | 'center' | 'right';
   mayus: boolean;
   letra: Letra;
+  /**
+   * El color de la PASTILLA o la caja detrás del texto en el original (un rótulo «STEP 1» en naranja, un botón de CTA), o null
+   * (12/11/2026). Sin esto el JSON no tenía cómo decirlo: la IA ponía el texto blanco del original y la pastilla se perdía, así que
+   * «PASO 1» y «Comenta ACELERADOR» salían blancos sobre crema, invisibles. Va como el resaltado del propio texto (el efecto
+   * `background` del editor): sigue al texto cuando se edita, nunca una forma suelta detrás.
+   */
+  relleno?: string | null;
 };
 export type FotoReplica = { x: number; y: number; ancho: number; alto: number; persona: boolean; descripcion: string };
 /**
@@ -174,10 +181,15 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra que tenga sentido para este negocio (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
     // La COMPOSICIÓN se lee antes de escribir (11/11/2026, @jasonrewired_: el original eran dos cuadros apilados de la misma playa
     // con un subtítulo chico abajo de cada uno, y salió UNA foto de fondo con un título grande al centro). Lo leído queda escrito.
-    vistas > 0 ? '- PRIMERO LEE la composición y escríbela en "lectura" (en español, 1 a 3 frases): cuántos cuadros de imagen tiene cada lámina y cómo están (por ejemplo «pantalla dividida: dos cuadros apilados de la misma escena»), qué muestra cada uno, y dónde va cada texto y de qué tamaño (por ejemplo «subtítulo blanco chico, centrado abajo de cada cuadro»). Después copia ESA composición, lámina por lámina.' : '',
+    // ⚠️ SIN EJEMPLOS DE COMPOSICIÓN (12/11/2026). Hasta acá decía «por ejemplo «pantalla dividida: dos cuadros apilados»», y con un
+    // anuncio que es una tarjeta de tuit blanca (@AlexHormozi) la IA «leyó» justo eso: «pantalla dividida, dos cuadros apilados del
+    // dueño», y salieron dos fotos con texto negro encima. Un ejemplo en el prompt es una respuesta servida: lo que no se quiere,
+    // no se nombra (memoria «prompt corto gana al técnico»).
+    vistas > 0 ? '- PRIMERO LEE la composición de ESTAS láminas y escríbela en "lectura" (en español, 1 a 3 frases): cuántos cuadros de imagen tiene cada una, dónde están y qué muestran, y dónde va cada texto, de qué tamaño y sobre qué (el fondo, una foto, una pastilla o una caja de color). Describe sólo lo que ves: si no hay fotos, dilo. Después copia ESA composición, lámina por lámina.' : '',
     vistas > 0
-      ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original (una pantalla dividida son DOS cuadros). "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto PARECIDA de ese lugar, sin gente (por ejemplo «rocky beach at sunset, sea, trees»). Si la lámina es sólo tipografía, "cuadros": [].'
+      ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original; si una lámina tiene dos fotos, son dos cuadros. "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto PARECIDA de lo que muestra, sin gente. Si la lámina es sólo tipografía, "cuadros": [].'
       : '- Sin las láminas no hay cuadros: "cuadros": [] y la lámina es tipografía y color.',
+    '- "relleno": si el texto va sobre una pastilla, una etiqueta, un botón o una caja de color (por fuera del fondo de la lámina), el color de esa forma; si no, null. El "color" del texto tiene que leerse sobre su relleno, o sobre el fondo si no tiene.',
     p.conAvatar ? '- Donde el original tiene a una persona, marca "persona": true: el dueño del negocio va en su lugar.' : '- No pongas personas: "persona": false en todos los cuadros (la escena va sin gente).',
     '- Cada texto va en el MISMO lugar, con el MISMO tamaño y el MISMO estilo que en el original: si el original usa subtítulos chicos (tamano de 0.035 a 0.045) abajo de cada cuadro, aquí también; nunca un título grande al centro si el original no lo tiene. Una frase que en el original ocupa dos renglones es UN texto (con "\\n" donde corta), no dos. Sólo si el original es tipografía sin fotos, el texto LLENA la lámina (titulares de 0.08 a 0.14, cuerpo de 0.045 a 0.06). Pocas palabras, las justas para leerse de un vistazo.',
     '- `letra` es el estilo de la letra del original: sans (palo seco), gruesa (palo seco muy pesada), condensada (alta y angosta), serif, manuscrita o mono. Si dudas, sans.',
@@ -194,7 +206,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     COMPACTO,
-    `{"lectura":"lo que leíste de la composición","proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"descripcion":"qué muestra","busqueda":"rocky beach at sunset"}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"lectura":"lo que leíste de la composición","proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. Exactamente ${n} elementos en "laminas".`,
   ].filter((l) => l !== '').join('\n');
 }
@@ -305,6 +317,8 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
         alinear: t.alinear === 'center' || t.alinear === 'right' ? t.alinear : 'left',
         mayus: t.mayus === true || t.mayus === 'true',
         letra: (LETRAS as readonly string[]).includes(String(t.letra)) ? (t.letra as Letra) : 'sans',
+        // Una «pastilla» del mismo color que el fondo no es una pastilla.
+        relleno: (() => { const r = color(t.relleno, ''); return r && r.toUpperCase() !== fondo.toUpperCase() ? r : null; })(),
       });
     }
     const f = l.foto && typeof l.foto === 'object' ? (l.foto as Record<string, unknown>) : null;
@@ -455,23 +469,114 @@ function fotoQueCubre(id: string, f: FotoDelCliente, caja: { left: number; top: 
 /** Un texto ya puesto: dónde va, con qué cuerpo y el alto que le da el editor. */
 export type TextoPuesto = { left: number; top: number; width: number; tam: number; alto: number; renglones: string[] };
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Que cada texto SE LEA (12/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// Probado en producción con @lifeofarjav (crema, naranja y negro): «STEP 1» y «The Result» eran texto blanco sobre una pastilla
+// naranja, y el CTA, blanco sobre una caja. La réplica traía el blanco sin la pastilla: «PASO 1», «EL RESULTADO» y «Comenta
+// ACELERADOR y te la envío» quedaron blancos sobre crema. Nadie lo medía: el color venía de la IA y se pegaba tal cual.
+
+const SOMBRA_SOBRE_FOTO = { color: 'rgba(0,0,0,0.55)', blur: 14, offsetX: 0, offsetY: 2 } as const;
+
+/** La luminancia relativa de un #RRGGBB (WCAG 2). */
+function luminancia(hex: string): number {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return 1;
+  const n = parseInt(m[1], 16);
+  const canal = (v: number) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * canal((n >> 16) & 255) + 0.7152 * canal((n >> 8) & 255) + 0.0722 * canal(n & 255);
+}
+
+/** El contraste entre dos colores, de 1 (iguales) a 21 (negro sobre blanco). Blanco sobre el crema de @lifeofarjav: 1,15. */
+export function contraste(a: string, b: string): number {
+  const [x, y] = [luminancia(a), luminancia(b)].sort((p, q) => q - p);
+  return (x + 0.05) / (y + 0.05);
+}
+
+/** Qué parte de la caja `t` cae adentro de `f` (0 a 1). */
+function cubre(f: { x: number; y: number; ancho: number; alto: number }, t: { x: number; y: number; ancho: number; alto: number }): number {
+  const ancho = Math.max(0, Math.min(f.x + f.ancho, t.x + t.ancho) - Math.max(f.x, t.x));
+  const alto = Math.max(0, Math.min(f.y + f.alto, t.y + t.alto) - Math.max(f.y, t.y));
+  return t.ancho * t.alto > 0 ? (ancho * alto) / (t.ancho * t.alto) : 0;
+}
+
+/** El color de acento de la lámina: el relleno o el color de texto que más resalta sobre el fondo y no es blanco ni negro. */
+function acentoDeLaLamina(l: LaminaReplica): string | null {
+  const candidatos = [...l.textos.map((t) => t.relleno ?? ''), ...l.textos.map((t) => t.color)]
+    .filter((c) => /^#[0-9a-f]{6}$/i.test(c) && !/^#(FFFFFF|000000|111111)$/i.test(c) && contraste(c, l.fondo) >= 2.5);
+  return candidatos[0] ?? null;
+}
+
+/**
+ * El color con que va un texto, y su resaltado si lo lleva:
+ *   · con `relleno`: el resaltado, y el texto en el color que se lea sobre él (el de la IA si se lee; si no, blanco o casi negro);
+ *   · sobre una foto: el de la IA (va con sombra); oscuro, se pasa a blanco: la foto no es la del original;
+ *   · sobre el fondo y no se lee (contraste < 2): un rótulo, un dato o un CTA es una pastilla que se perdió → resaltado con el
+ *     acento de la lámina; un titular o un texto, la tinta del fondo.
+ */
+export function colorQueSeLee(t: Pick<TextoReplica, 'rol' | 'color' | 'relleno'>, o: { fondo: string; sobreFoto: boolean; acento: string | null }): { color: string; relleno: string | null } {
+  const tinta = (sobre: string) => (esOscuro(sobre) ? '#FFFFFF' : '#111111');
+  const sobreRelleno = (relleno: string) => ({ color: contraste(t.color, relleno) >= 3 ? t.color : tinta(relleno), relleno });
+  if (t.relleno) return sobreRelleno(t.relleno);
+  if (o.sobreFoto) return { color: esOscuro(t.color) ? '#FFFFFF' : t.color, relleno: null };
+  if (contraste(t.color, o.fondo) >= 2) return { color: t.color, relleno: null };
+  const esPastilla = t.rol === 'rotulo' || t.rol === 'cta' || t.rol === 'dato';
+  if (esPastilla) return sobreRelleno(o.acento ?? tinta(o.fondo));
+  return { color: tinta(o.fondo), relleno: null };
+}
+
 /**
  * NINGÚN TEXTO SE PISA CON OTRO, medido (11/11/2026, la lámina 1 de @jasonrewired_: «¿Te preocupa lo que» se partía en dos
  * renglones y se montaba sobre «piensan de tu oferta?»). Cada texto se mide con los anchos REALES de su fuente
  * (./medir-letra.ts), se parte en renglones como el editor y toma el alto que le da el editor. Los que se pisan se separan de
  * arriba abajo (`sinSuperponer`, con un aire de un cuarto del cuerpo más chico). Si así algo se sale de la lámina, TODOS se achican
  * juntos (la jerarquía no cambia) hasta que entran. Devuelve uno por texto, en el mismo orden.
+ *
+ * Y A LO ANCHO (12/11/2026, «MaKo + Claude = Tu Acelerador»: «Acelerador» en Archivo Black a 119 px no entraba en su caja de
+ * 518 px, el editor la estira y la lámina la corta: «= Tu Acelerad»). Partir en renglones no alcanza cuando UNA palabra es más
+ * ancha que la caja: ese texto se achica hasta que su palabra más larga entra, y con él los de su mismo papel y cuerpo (los dos
+ * pedazos de un titular siguen iguales).
+ *
+ * `obstaculos` (12/11/2026, @vilmanunez): las fotos ya puestas. Un texto que la IA puso ARRIBA de una foto no puede bajar hasta
+ * meterse en ella («ACELERADOR», negro, quedaba sobre un teclado oscuro): cuenta como salirse, y se achica como el resto.
  */
-export function acomodarTextos(items: ReadonlyArray<{ t: TextoReplica; fuente: FuenteTexto; interlineado: number }>, lamina: { ancho: number; alto: number }): TextoPuesto[] {
+export function acomodarTextos(
+  items: ReadonlyArray<{ t: TextoReplica; fuente: FuenteTexto; interlineado: number }>,
+  lamina: { ancho: number; alto: number },
+  o: { obstaculos?: ReadonlyArray<{ x: number; y: number; ancho: number; alto: number }> } = {},
+): TextoPuesto[] {
   const W = lamina.ancho;
   const H = lamina.alto;
   const borde = Math.round(0.02 * H);
+  // A lo ancho: el factor de cada texto para que su renglón más ancho entre en su caja, el más chico de su grupo.
+  const anchoDe = (t: TextoReplica) => Math.round(t.ancho * W);
+  const masAncho = (t: TextoReplica, fuente: FuenteTexto, tam: number) =>
+    Math.max(0, ...partirEnRenglones(comoSeDibuja(t.texto, t.mayus), anchoDe(t), { ...fuente, tam }, medidorReal).map((r) => medidorReal(r, { ...fuente, tam })));
+  const kAncho = items.map(({ t, fuente }) => {
+    let f = 1;
+    for (let i = 0; i < 10; i++) {
+      const tam = Math.max(12, Math.round(fuente.tam * f));
+      const w = masAncho(t, fuente, tam);
+      if (w <= anchoDe(t) || tam <= 12) break;
+      f *= Math.max(0.5, (anchoDe(t) / w) * 0.98);
+    }
+    return f;
+  });
+  const grupo = (i: number) => `${items[i].t.rol}|${Math.round(items[i].fuente.tam)}`;
+  const kGrupo = new Map<string, number>();
+  items.forEach((_, i) => kGrupo.set(grupo(i), Math.min(kGrupo.get(grupo(i)) ?? 1, kAncho[i])));
+  const obstaculos = o.obstaculos ?? [];
+  /** El texto `i` empezaba arriba de una foto (en lo que puso la IA) y terminó adentro de ella. */
+  const seMeteEnUnaFoto = (i: number, p: TextoPuesto) => {
+    const yIA = Math.round(items[i].t.y * H);
+    return obstaculos.some((c) => yIA < c.y && p.left < c.x + c.ancho && c.x < p.left + p.width && p.top + p.alto > c.y);
+  };
   let k = 1;
   let salida: TextoPuesto[] = [];
   for (let vuelta = 0; vuelta < 12; vuelta++) {
     const medidos = items.map(({ t, fuente, interlineado }, i) => {
-      const tam = Math.max(12, Math.round(fuente.tam * k));
-      const ancho = Math.round(t.ancho * W);
+      const tam = Math.max(12, Math.round(fuente.tam * (kGrupo.get(grupo(i)) ?? 1) * k));
+      const ancho = anchoDe(t);
       const renglones = partirEnRenglones(comoSeDibuja(t.texto, t.mayus), ancho, { ...fuente, tam }, medidorReal);
       const alto = Math.ceil(altoEnElEditor(renglones.length, tam, interlineado));
       return { id: String(i), caja: { x: Math.round(t.x * W), y: Math.round(t.y * H), ancho, alto }, tam, renglones, altoReal: alto };
@@ -479,7 +584,7 @@ export function acomodarTextos(items: ReadonlyArray<{ t: TextoReplica; fuente: F
     const aire = Math.max(6, Math.round(0.25 * Math.min(...medidos.map((m) => m.tam), 999)));
     const puestos = sinSuperponer(medidos, { ancho: W, alto: H }, aire);
     salida = puestos.map((m) => ({ left: m.caja.x, top: m.caja.y, width: m.caja.ancho, tam: m.tam, alto: m.altoReal, renglones: m.renglones }));
-    if (salida.every((p) => p.top + p.alto <= H - borde) || !items.length) break;
+    if (!items.length || salida.every((p, i) => p.top + p.alto <= H - borde && !seMeteEnUnaFoto(i, p))) break;
     k *= 0.92;
   }
   return salida;
@@ -499,21 +604,27 @@ export function documentoDeReplica(o: {
   const { ancho: W, alto: H } = medidasDe(o.replica.proporcion);
   // Una miniatura NO se reacomoda para «llenar»: su diseño es justamente dónde va el texto grande y dónde la cara.
   const reacomodar = o.replica.proporcion !== '16:9';
+  // Una escena que la búsqueda no trajo lleva otra de la misma réplica (12/11/2026): un hueco del color de fondo del tamaño de la
+  // foto se ve roto; una foto parecida de otra lámina, no.
+  const otraEscena = o.escenas ? [...o.escenas.values()][0] : undefined;
   const pages = o.replica.laminas.map((l, i) => {
     const objetos: Obj[] = [];
     // Los cuadros de imagen, en el lugar del original: un retrato lleva la foto del negocio; una escena, la escena PARECIDA. La
     // foto del negocio NUNCA se pega como si fuera el lugar (11/11/2026: su foto en un balcón de noche en vez de la playa).
     const cuadros = l.cuadros ?? [];
+    const fotos: Array<{ x: number; y: number; ancho: number; alto: number }> = [];
     for (const c of cuadros) {
       const caja = { left: Math.round(c.x * W), top: Math.round(c.y * H), width: Math.round(c.ancho * W), height: Math.round(c.alto * H) };
-      if (c.tipo === 'retrato' && c.persona && o.foto) objetos.push(fotoQueCubre(o.nuevoId(), o.foto, caja));
+      const puesta = () => fotos.push({ x: caja.left, y: caja.top, ancho: caja.width, alto: caja.height });
+      if (c.tipo === 'retrato' && c.persona && o.foto) { objetos.push(fotoQueCubre(o.nuevoId(), o.foto, caja)); puesta(); }
       else {
-        const escena = c.busqueda ? o.escenas?.get(c.busqueda) : undefined;
-        if (escena) objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), name: 'Foto: escena parecida' });
+        const escena = (c.busqueda ? o.escenas?.get(c.busqueda) : undefined) ?? (c.tipo === 'escena' ? otraEscena : undefined);
+        if (escena) { objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), name: 'Foto: escena parecida' }); puesta(); }
       }
     }
-    // Con cuadros, cada texto se queda en su lugar (es la composición del original); sólo tipografía, llena la lámina.
-    const ajustados = ajustarTextos(l.textos, { ancho: W, alto: H, libre: reacomodar && !cuadros.length });
+    // Con fotos, cada texto se queda en su lugar (es la composición del original); sin ninguna, llena la lámina. Cuentan las fotos
+    // PUESTAS, no los cuadros que leyó la IA (12/11/2026): un cuadro sin foto dejaba los textos arriba y abajo de un hueco vacío.
+    const ajustados = ajustarTextos(l.textos, { ancho: W, alto: H, libre: reacomodar && !fotos.length });
     const conLetra = ajustados.map((t) => {
       const titular = ES_TITULAR.has(t.rol);
       const letra = LETRA_DEL_EDITOR[t.letra] ?? LETRA_DEL_EDITOR.sans;
@@ -521,13 +632,32 @@ export function documentoDeReplica(o: {
       const peso = o.conFuentesDeMarca ? (t.negrita && !titular ? 700 : base.peso) : titular ? letra.titular.peso : t.negrita ? letra.texto.negrita : letra.texto.peso;
       return { t, fam: familia(base), peso, interlineado: interlineadoDe(t.rol) };
     });
-    const puestos = acomodarTextos(conLetra.map((x) => ({ t: x.t, fuente: { familia: x.fam, peso: x.peso, italica: false, tam: Math.round(x.t.tamano * W) }, interlineado: x.interlineado })), { ancho: W, alto: H });
+    // Cómo se lee cada texto se decide ANTES de medir (con la caja que puso la IA): el resaltado lleva un espacio de cada lado en cada
+    // renglón (pegado a las letras no se lee como pastilla), y esos espacios también tienen que entrar.
+    const acento = acentoDeLaLamina(l);
+    const lectura = conLetra.map((x) => {
+      const caja = { x: x.t.x * W, y: x.t.y * H, ancho: x.t.ancho * W, alto: x.t.tamano * W * 1.3 };
+      const sobreFoto = fotos.some((f) => cubre(f, caja) >= 0.4);
+      const c = colorQueSeLee(x.t, { fondo: l.fondo, sobreFoto, acento });
+      const contenido = c.relleno ? x.t.texto.split('\n').map((r) => `\u2002${r}\u2002`).join('\n') : x.t.texto;
+      return { c, sobreFoto, contenido };
+    });
+    const puestos = acomodarTextos(
+      conLetra.map((x, k) => ({ t: { ...x.t, texto: lectura[k].contenido }, fuente: { familia: x.fam, peso: x.peso, italica: false, tam: Math.round(x.t.tamano * W) }, interlineado: x.interlineado })),
+      { ancho: W, alto: H }, { obstaculos: fotos },
+    );
     conLetra.forEach((x, k) => {
       const p = puestos[k];
-      objetos.push(texto(o.nuevoId(), NOMBRE_DE_ROL[x.t.rol], x.t.texto, {
-        left: p.left, top: p.top, width: p.width, alto: p.alto,
-        tam: p.tam, peso: x.peso, fam: x.fam, color: x.t.color, alin: x.t.alinear, interlineado: x.interlineado, mayus: x.t.mayus,
-      }));
+      const { c, sobreFoto, contenido } = lectura[k];
+      objetos.push({
+        ...texto(o.nuevoId(), NOMBRE_DE_ROL[x.t.rol], contenido, {
+          left: p.left, top: p.top, width: p.width, alto: p.alto,
+          tam: p.tam, peso: x.peso, fam: x.fam, color: c.color, alin: x.t.alinear, interlineado: x.interlineado, mayus: x.t.mayus,
+        }),
+        ...(c.relleno ? { textBackgroundColor: c.relleno, effects: { background: { color: c.relleno } } } : {}),
+        // Sobre una foto que no es la del original, una sombra suave: el texto se lee sobre la foto que sea.
+        ...(sobreFoto && !c.relleno ? { shadow: { ...SOMBRA_SOBRE_FOTO }, effects: { shadow: { ...SOMBRA_SOBRE_FOTO } } } : {}),
+      });
     });
     return {
       id: o.nuevoId(), name: o.replica.proporcion === '16:9' ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`,

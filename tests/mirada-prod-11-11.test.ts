@@ -22,7 +22,7 @@
 //   · volver «Crear el regalo» a '/copywriter'                                   → 10 / 1
 //   · dibujar la cabecera aunque no haya título (`conCab` siempre true)          → 10 / 1
 //   · que un teléfono vuelva a recibir «Ctrl K»                                  → 10 / 1
-//   · volver el pie de la tarjeta a flex (el nombre al lado de la píldora)       → 10 / 1
+//   · poner los números en la fila del nombre (TarjetaPieza, 12/11)             → 10 / 1
 //   · dejar la consulta en el link (`${u.pathname}${u.search}`)                  → 10 / 1
 //   · volver «Revisado hace…» al riel                                            → 10 / 1
 //   · sacarle `style={CON_SU_CLASE}` a «Conectar mi IA»                          → 10 / 1
@@ -101,13 +101,15 @@ test('3. una sección del teléfono sin título no dibuja el lugar del título',
   assert.match(renderToStaticMarkup(createElement(SeccionM, { titulo: null, accion: createElement('a', null, 'Ver') })), /m-seccion__cab/);
 });
 
-test('5. Spy: el nombre de la pieza usa todo el ancho de la tarjeta (la píldora sube a la fila de su tipo)', () => {
-  // Medido en producción a 1440: el nombre tenía 104 px de 234 y 14 de 15 videos de Leila quedaban cortados; con esto, 3.
-  const css = readFileSync(new URL('../app/competitor-spy/SpyApp.tsx', import.meta.url), 'utf8');
-  assert.match(css, /\.spy-pcard__pie\{display:grid;grid-template-columns:minmax\(0,1fr\) auto;/);
-  assert.match(css, /\.spy-pcard__texto\{display:contents\}/);
-  assert.match(css, /\.spy-pcard__texto b\{grid-column:1 \/ -1;grid-row:2;/, 'el nombre de lado a lado, debajo');
-  assert.match(css, /\.spy-pcard__num\{grid-column:2;grid-row:1;/, 'la píldora arriba, al lado de su tipo');
+test('5. Spy: el nombre de la pieza usa todo el ancho de la tarjeta (desde el 12/11, la de los outliers de Create)', () => {
+  // Medido en producción a 1440 (11/11): con la píldora al lado, el nombre tenía 104 px de 234 y 14 de 15 videos de Leila quedaban
+  // cortados. En la tarjeta de Create el nombre va en su fila (sólo el múltiplo adelante) y los números, debajo.
+  const t = readFileSync(new URL('../app/competitor-spy/TarjetaPieza.tsx', import.meta.url), 'utf8');
+  assert.match(t, /<div className=\{s\.fila1\}>[\s\S]*?className=\{s\.gancho\}/, 'el nombre en su fila');
+  const fila = t.slice(t.indexOf('<div className={s.fila1}>'), t.indexOf('</div>', t.indexOf('<div className={s.fila1}>')));
+  assert.doesNotMatch(fila, /numeros|s\.datos/, 'los números no van en la fila del nombre');
+  const css = readFileSync(new URL('../app/image-editor/carruseles/explorar.module.css', import.meta.url), 'utf8');
+  assert.match(css, /\.gancho \{[^}]*flex: 1; min-width: 0;/, 'el nombre toma lo que queda de la fila');
 });
 
 test('6. Spy: los links de una descripción se leen como su sitio y su camino, sin el rastreo', () => {
@@ -174,7 +176,8 @@ test('13. Spy en el teléfono: la cara de 48 px es el dibujo chico, y el nombre 
   const m = readFileSync(new URL('../app/m/competitor-spy/SpyM.tsx', import.meta.url), 'utf8');
   assert.match(m, /caricaturaDeCompetidor\(c\)\?\.replace\('\/asesores\/grandes\/', '\/asesores\/'\)/);
   const t = readFileSync(new URL('../app/competitor-spy/TarjetaPieza.tsx', import.meta.url), 'utf8');
-  assert.match(t, /\{titulo && <b title=\{titulo\}>\{titulo\}<\/b>\}/);
+  // Desde el 12/11 el nombre es el gancho de los outliers de Create, con su title.
+  assert.match(t, /\{titulo && <span className=\{s\.gancho\} title=\{titulo\}>\{titulo\}<\/span>\}/);
 });
 
 test('10. Spy: el aviso de la cola de caricaturas ya no está (12/11, «el texto innecesario no lo pongas»)', () => {

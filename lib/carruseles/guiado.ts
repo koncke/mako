@@ -220,7 +220,9 @@ export function preguntaDe(h: HechosGuiado, r: RespuestasGuiado): Apertura<never
       const botones: Boton<never>[] = [respuesta('Sólo los textos', VALOR.cambio('textos'))];
       if (h.kit) botones.push(respuesta('Textos y mis colores', VALOR.cambio('marca')));
       botones.push(respuesta('Lo escribo yo', VALOR.cambioLibre), callar);
-      return { id: id('cambio'), alcance: 'entidad', texto: 'Conservo la imagen y el diseño del original. ¿Qué cambio además de los textos?', botones };
+      // «Conservo la imagen» era falso (12/11/2026): las fotos del original no se usan (son de otro; lib/carruseles/replica.ts),
+      // van fotos PARECIDAS o la tuya donde hay una persona. Se dice lo que de verdad pasa.
+      return { id: id('cambio'), alcance: 'entidad', texto: 'Copio el diseño del original, con fotos parecidas en lugar de las suyas. ¿Qué cambio además de los textos?', botones };
     }
     case 'resumen': {
       const n = Math.max(1, Math.round(h.laminas) || 1);

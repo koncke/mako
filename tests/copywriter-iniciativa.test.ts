@@ -81,7 +81,9 @@ test('la pantalla: pregunta sin IA, lo escrito contesta la pregunta abierta y el
   const panel = sinComentarios(leer('app/copywriter/PanelMaKo.tsx'));
   // 11/11/2026: una página que replica un outlier (D18) NO pregunta: se escribe sola (tests/copywriter-outliers.test.ts).
   assert.match(panel, /const pasosIni = useMemo\(\(\) => \(plantilla \? pasosDeIniciativa\(plantilla, ofertas\) : \[\]\), \[plantilla, ofertas\]\);/);
-  assert.match(panel, /const pasoIni = mensajes\.length === 0 && id \? pasoPendiente\(pasosIni, respIni\) : null;/, 'sólo con el chat vacío');
+  // Sólo con el chat vacío, y recién con la charla leída (12/11/2026, en producción: una página vieja mostraba un instante la
+  // primera pregunta antes de que llegara su charla).
+  assert.match(panel, /const pasoIni = hiloLeido && mensajes\.length === 0 && id \? pasoPendiente\(pasosIni, respIni\) : null;/, 'sólo con el chat vacío y leído');
   // La última respuesta, a adaptar la plantilla.
   assert.match(panel, /if \(pedido\.adaptar\) \{ void pedirEdicion\(pedido\.texto, \[\], \[\], true, false\); return; \}/, 'la última respuesta, a adaptar');
   // El pedido que arman las respuestas no se dibuja otra vez (11/11/2026: una burbuja de más, con otro estilo, repetía lo dicho).

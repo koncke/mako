@@ -697,9 +697,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 						: <AperturaMako estado={estadoApertura} quien={QUIEN} acciones={{ subtitulos: ponerSubtitulos }} />)}
 					{hilo.mensajes.length === 0 && !estadoApertura.apertura && !guiaHablando && (
 						<>
-							<div className="self-start rounded-[12px] bg-(--surface-2) px-3 py-2 text-[12.5px] leading-[1.5] text-(--ink)">
-								Pídeme que edite lo que quieras del video.
-							</div>
+							{/* Sin el texto que explicaba el chat («Pídeme que edite…», 12/11/2026, Martín: «un texto que es innecesario»). */}
 							<div className="flex flex-wrap gap-1.5">
 								{visibles.map((s) => (
 									<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={atajoApagado} title={porQueApagado}>{s.rotulo}</button>
@@ -725,6 +723,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 				</div>
 			</div>
 
+			{/* El audio grabado entra en este pie por la regla común de `.co-caja` (centro.css) y la barra contenida (VoiceRecorder.tsx). */}
 			<footer className="grid shrink-0 gap-2 px-3 pt-2 pb-3">
 				<div className="flex min-w-0 gap-1.5" role="group" aria-label="Alcance">
 					<button

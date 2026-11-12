@@ -62,7 +62,8 @@ test('3. el selector y los filtros adentro de la tarjeta del gráfico; su esquel
   assert.doesNotMatch(g, /Cada miniatura es/);
   assert.match(g, /const m = medidaEnElGrafico\(p, telefono \? 30 : 42\);/);
   const t = sinComentarios(leer('app/competitor-spy/TarjetaPieza.tsx'));
-  assert.match(t, /className="spy-pcard__media" style=\{\{ aspectRatio: `\$\{proporcionDe\(p\)\.ancho\} \/ \$\{proporcionDe\(p\)\.alto\}` \}\}/);
+  assert.match(t, /const \{ ancho, alto \} = proporcionDe\(p\);/);
+  assert.match(t, /<div className=\{s\.mini\} style=\{\{ aspectRatio: `\$\{ancho\} \/ \$\{alto\}` \}\}>/, 'el marco de Create con SU proporción');
 });
 
 test('4. la ficha abierta muestra su foto REAL de perfil; la lista, su caricatura', () => {

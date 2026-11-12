@@ -65,9 +65,10 @@ const playa = { id: 'p1', url: 'https://x.supabase.co/storage/v1/object/public/l
 
 test('3 · armando el documento: ninguna capa de texto se pisa, y cada una guarda el alto del editor', () => {
   const r: Replica = { proporcion: '4:5', titulo: 'X', laminas: [{ ...BASE, cuadros: [], textos: [titulo('¿Te preocupa lo que', 513 / 1350), titulo('piensan de tu oferta?', 648 / 1350)] }] };
-  // Con un cuadro, los textos se quedan donde los puso la IA (la composición) y sólo se separan si se pisan.
+  // Con una foto, los textos se quedan donde los puso la IA (la composición) y sólo se separan si se pisan. (12/11/2026: cuenta la
+  // foto PUESTA; un cuadro que se quedó sin foto ya no deja los textos al lado de un hueco: tests/carruseles-replica-se-lee.test.ts.)
   r.laminas[0].cuadros = [{ ...escena(0), alto: 1 }];
-  const doc = documentoDeReplica({ replica: r, estilo, marca: { nombre: 'X', usuario: null }, foto: null, nuevoId });
+  const doc = documentoDeReplica({ replica: r, estilo, marca: { nombre: 'X', usuario: null }, foto: null, nuevoId, escenas: new Map([['rocky beach at sunset', playa]]) });
   const textos = ((doc.pages as Array<Record<string, unknown>>)[0].objects as Array<Record<string, unknown>>).filter((o) => o.type === 'textbox');
   assert.equal(textos.length, 2);
   const cajas = textos.map((t) => ({ x: t.left as number, y: t.top as number, ancho: t.width as number, alto: t.height as number }));

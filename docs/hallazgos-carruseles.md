@@ -8,6 +8,41 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## La réplica que no se lee y los huecos: probada lámina por lámina al lado del original (12/11/2026)
+
+Prueba de Image en producción (docs/pruebas/image-12-11.md), con la IA real del ws 9. El recorrido andaba entero; lo que fallaba se
+vio sólo poniendo cada lámina dibujada AL LADO de la original.
+
+**Síntomas y causas:**
+- **Texto blanco invisible** (@lifeofarjav, crema y naranja): «STEP 1» y «The Result» son texto blanco sobre una pastilla naranja, y
+  el CTA, sobre una caja. El JSON de la réplica no tenía dónde decir «pastilla»: la IA copiaba el color del texto y la forma se perdía.
+  «PASO 1», «EL RESULTADO» y «Comenta ACELERADOR» quedaron blanco sobre crema (contraste 1,15). Nadie medía el contraste.
+- **«= Tu Acelerad»**: `acomodarTextos` medía el ALTO (11/11) pero no el ancho de una palabra. «Acelerador» en Archivo Black a 119 px
+  no entra en 518 px; el editor estira la caja y la lámina la corta.
+- **7 de 10 láminas con un hueco** del color de fondo (@vilmanunez, traído por link): `escenasParecidas` buscaba «hasta 3» escenas, de
+  a una, pensando en un original que repite el mismo lugar. La IA escribe UNA búsqueda por cuadro.
+- **Texto sobre una foto oscura**: los textos se separaban entre sí (`sinSuperponer`), no de las fotos. Un titular que la IA puso arriba
+  de la foto, al medirse en dos renglones, bajaba hasta meterse en ella.
+- ⚠️ **El diagnóstico obvio era el equivocado en el anuncio de @AlexHormozi.** Una tarjeta de tuit blanca salió como «dos fotos
+  apiladas con texto negro encima». Parecía que la IA no había visto la imagen (un PNG con transparencia que se ve negro, o una
+  descarga fallida): el PNG es opaco y llegó bien. La «lectura» de la IA decía «pantalla dividida: dos cuadros apilados», que es
+  **el ejemplo que traía el prompt**. Un ejemplo de composición en el prompt es una respuesta servida.
+
+**Lo que se hizo** (lib/carruseles/replica.ts, replica-servidor.ts; test tests/carruseles-replica-se-lee.test.ts, roto a propósito):
+- `relleno` en cada texto: la pastilla va como el RESALTADO del propio texto (`textBackgroundColor` y `effects.background`), que
+  sigue al texto si se edita; nunca una forma suelta detrás (la regla de las plantillas de la casa). `colorQueSeLee` decide el
+  color: con pastilla, el que se lea sobre ella; sobre una foto, claro y con sombra; sobre el fondo sin leerse, un rótulo/dato/CTA
+  recupera la pastilla con el acento de la lámina y un titular toma la tinta.
+- A lo ancho: el texto con la palabra que no entra se achica, con los de su mismo papel y cuerpo (los dos pedazos de un titular).
+- Las fotos puestas son obstáculos: un texto que empezaba arriba de una foto no puede terminar adentro.
+- Hasta 8 escenas, en paralelo; un cuadro sin su escena lleva otra de la réplica; una lámina sin ninguna foto se arma como
+  tipografía (`libre` cuenta las fotos PUESTAS, no los cuadros que leyó la IA).
+- El prompt sin ejemplos de composición; pide describir sólo lo que se ve.
+
+**Sin hacer:** los mockups de pantallas del original (las capturas de una app) no tienen equivalente: la mitad de esas láminas queda
+con tipografía. La miniatura deja a la persona chica en una esquina cuando el original la pone grande al centro. La foto de la cara de
+marca no entra si la IA no marca ningún cuadro como `retrato` (en @vilmanunez se eligió «Mi cara de marca» y la portada salió sin él).
+
 ## «Tu versión» de @jasonrewired_: letras encimadas, la composición perdida y la persona fuera de lugar (11/11/2026)
 
 **Síntoma (Martín):** «se superponen las letras… no siguió para nada la estética del carrusel original. La idea era ponerme a

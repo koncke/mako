@@ -4,6 +4,36 @@ El motor de las pruebas A/B de toda la app: el reparto (`asignar.ts`), las cuent
 (`juez.ts`), el volumen (`volumen.ts`) y las métricas (`metricas.ts`). Lo usan la tarjeta «A/B TEST» de Automations y
 la landing (Landings). El diseño está en `docs/diseno-pruebas-ab.md`; donde chocan, manda la crítica (Anexo 2).
 
+## Cómo juzgar una réplica con el panel oculto: los lienzos del editor al lado del original (12/11/2026, Image)
+
+**El problema:** con el panel oculto la captura sale a 800 × 500 para una página de 1440: una lámina del editor queda en ~260 px de
+ancho, y así no se ve si un rótulo blanco se lee o si un titular se corta.
+
+**Lo que sirvió:** copiar el `canvas.lower-canvas` de cada página (los píxeles que dibujó fabric, sin manijas) a una imagen, recortarla
+al borde de la página, y armar una hoja propia en la pestaña (un `div` fijo con el original y la réplica de 500 px de alto); después
+`resize_window` a 800 × 600 (sin escalar) y captura normal. El editor sólo dibuja las páginas cercanas: un lienzo de 300 × 150 es uno
+que todavía no se dibujó (se repite la vuelta). Los datos (textos, colores, cajas) se leen de `/api/image-editor/disenos/<id>`.
+
+**Y el micrófono:** un audio se prueba reemplazando `navigator.mediaDevices.getUserMedia` por un `MediaStream` de WebAudio que
+reproduce una nota de voz real (la voz de Windows con System.Speech, pasada a Opus de 8 KB). Graba, transcribe y manda como con
+una persona. Así se vio el «Enviar» cortado y se midieron los 105 s de transcripción.
+
+**Y el guiado de «Editar»**, que el 10/11 y el 11/11 «no abría con el panel oculto»: en ws 3 tampoco abrió hoy, ni «Anuncios»
+cambió la grilla (la URL sí cambiaba); en ws 9, recargando y esperando 8 s, abrió y se recorrió entero, también a 375. Antes de
+anotarlo como falla de la pantalla se prueba otra carga.
+
+## Grabar un audio en el navegador de la app, que bloquea el micrófono (12/11/2026, chat «probar-copy»)
+
+- El navegador de la app no da micrófono («No se pudo acceder al micrófono»). Para probar una nota de voz de punta a punta se le
+  da a la página una voz sintetizada: el sintetizador de Windows (`System.Speech`, voz «Helena», es-ES) escribe un WAV, y la
+  página reemplaza `navigator.mediaDevices.getUserMedia` por un `AudioContext` que lo reproduce en un `MediaStreamDestination`.
+  La transcripción y la respuesta de MaKo son las de verdad.
+- ⚠️ **Las tres trampas para meter el WAV en la página:** pegarlo en base64 cuesta ~30.000 tokens por 25 KB; `fetch` de
+  hola-mako a `http://localhost` falla («Failed to fetch»: el acceso a la red local se bloquea sin preguntar); y `window.open`
+  desde una página local abre en la MISMA pestaña, así que `postMessage` no tiene a quién. **Lo que anduvo:** una página local
+  pone el WAV en `window.name` (sobrevive a la navegación a otro origen en la misma pestaña) y navega a MaKo; ahí un `<script>`
+  insertado (corre en el mundo de la página) lee `window.name` y reemplaza `getUserMedia`.
+
 ## Mirar la foto ACHICADA también engaña: el velo del recorrido «no estaba», y el píxel decía que sí (11/11/2026)
 
 **Síntoma:** en la sexta maqueta de Marketing CoPilot, la foto de 1440 × 900 del recorrido de «Tu web» se veía con la página clara. Parecía que el velo oscuro no se dibujaba.

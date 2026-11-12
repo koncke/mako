@@ -422,7 +422,11 @@ export function LecturaDeLaPagina({ lectura }: { lectura: LecturaReplica }) {
             {fila('Oferta', a.oferta)}
           </dl>
         ) : (
-          <p className="gp-rp-nota" role="status">{lectura.errorAngulos ?? 'MaKo no pudo leer los ángulos.'} La estructura y el diseño se replican igual.</p>
+          // Sin error, los ángulos no se leyeron A PROPÓSITO (la copia tal cual no los usa: `sinAngulos`), y «MaKo no pudo leer
+          // los ángulos» parecía una falla (12/11/2026, al replicar una tarjeta de outliers). Sólo con error se dice que no pudo.
+          <p className="gp-rp-nota" role="status">{lectura.errorAngulos
+            ? `${lectura.errorAngulos} La estructura y el diseño se replican igual.`
+            : 'Van con el texto de cada sección: MaKo los toma al replicar.'}</p>
         )}
       </div>
       <div className="gp-rp-bloque">
