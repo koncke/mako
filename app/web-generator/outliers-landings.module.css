@@ -38,3 +38,8 @@
 @media (prefers-reduced-motion: reduce) { .plantilla:hover .plantillaMini { transform: none; } }
 
 @media (max-width: 520px) { .grilla { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+
+/* Los tipos de página, en el encabezado: centrados si entran y, si no, en dos renglones (12/11/2026, en el banco a 375: la fila
+   centrada era más ancha que la pantalla y se cortaba por los DOS lados, con «Todas» fuera de alcance). La clase cuádruple gana a la
+   fila deslizable del teléfono de Image (`.raiz[data-telefono='si'] .filtros`, 0,3,0). */
+.filtros.filtros.filtros.filtros { flex-wrap: wrap; justify-content: center; row-gap: 8px; overflow: visible; margin: 0; padding: 0; align-self: stretch; }
