@@ -723,8 +723,8 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 				</div>
 			</div>
 
-			{/* `minmax(0, 1fr)`: la columna de la grilla no crece con lo que pide su contenido (la fila de un audio grabado, 12/11/2026). */}
-			<footer className="grid shrink-0 grid-cols-[minmax(0,1fr)] gap-2 px-3 pt-2 pb-3">
+			{/* El audio grabado entra en este pie por la regla común de `.co-caja` (centro.css) y la barra contenida (VoiceRecorder.tsx). */}
+			<footer className="grid shrink-0 gap-2 px-3 pt-2 pb-3">
 				<div className="flex min-w-0 gap-1.5" role="group" aria-label="Alcance">
 					<button
 						type="button"

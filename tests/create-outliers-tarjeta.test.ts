@@ -83,7 +83,6 @@ test('sin los textos que explican el chat', () => {
 test('el audio grabado entra en el chat más angosto: el ➤ no queda afuera', () => {
   // El `range` del reproductor pedía 129 px de mínimo (su ancho propio en Chrome) y el pie del chat del Video Editor es una grilla.
   assert.match(leer('app/whatsapp/_shared/AudioPlay.tsx'), /style=\{\{ flex: 1, width: 0, minWidth: 40, margin: 0,/);
-  assert.match(leer('app/video-editor/_opencut/chat/PanelChat.tsx'), /<footer className="grid shrink-0 grid-cols-\[minmax\(0,1fr\)\] gap-2 px-3 pt-2 pb-3">/);
   const css = leer('app/admin/operaciones/centro.css');
   assert.match(css, /\.co-caja__fila \{ --caja-toque: 40px; display: flex; align-items: flex-end; gap: 4px; min-width: 0; \}/);
   // La barra (grabando y escuchando) no empuja su ancho: en Copywriting la onda contaba barras según su ancho y crecía sola (451 px
@@ -92,5 +91,10 @@ test('el audio grabado entra en el chat más angosto: el ➤ no queda afuera', (
   assert.match(voz, /const BARRA: CSSProperties = \{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0, contain: 'inline-size' \};/);
   assert.equal((voz.match(/<div data-barra-voz="(grabando|revisando)"[^>]*style=\{BARRA\}>/g) ?? []).length, 2, 'las dos caras de la barra');
   // Y a todo el ancho: con `margin-inline: auto`, en una grilla la caja se ajustaba a lo que pedía su fila (medido: 286 de 316).
-  assert.match(css, /\.co-caja \{ min-width: 0; width: 100%; \}/);
+  // UNA regla, en la pieza común (12/11/2026, pedido del Cerebro: cuatro chats habían puesto la suya).
+  assert.equal((css.match(/\.co-caja \{[^}]*width: 100%[^}]*\}/g) ?? []).length, 1, 'una sola regla de ancho sobre la caja');
+  assert.match(css, /\.co-caja \{ width: 100%; min-width: 0; \}/);
+  assert.ok(!leer('app/copywriter/notion.css').includes('> .co-caja {'), 'sin regla propia en Copywriting');
+  assert.ok(!leer('app/image-editor/mako/chat/chat.module.css').includes(':global(.co-caja)'), 'sin regla propia en Image');
+  assert.ok(!leer('app/video-editor/_opencut/chat/PanelChat.tsx').includes('grid-cols-[minmax(0,1fr)]'), 'ni en el pie del Video Editor');
 });

@@ -52,6 +52,7 @@ import { GraficoSpy } from '@/app/competitor-spy/GraficoSpy';
 import { GrillaPiezas } from '@/app/competitor-spy/GrillaPiezas';
 import { MejoresPiezas } from '@/app/competitor-spy/MejoresPiezas';
 import { TarjetaPieza } from '@/app/competitor-spy/TarjetaPieza';
+import { BrandDefs } from '@/app/_components/ServicioVisual';
 import { sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista } from '@/app/competitor-spy/actions';
 import { multiplosDe } from '@/lib/multiplo-rendimiento';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
@@ -423,6 +424,8 @@ export function SpyM({ competidores, resumen, sugeridos, abierto, piezas }: {
         </Bloque>
       )}
 
+      {/* El logo de la red en cada tarjeta (LogoRed, en TarjetaPieza, desde el 12/11) se dibuja con estos <symbol>: sin ellos sale vacío. */}
+      <BrandDefs />
       {contenido.length > 0 && (
         /* UNA columna (§8), PEDIDA: es la que se dibuja y la que se cuenta, así que una página son tres tarjetas y no
            seis. Taparle el estilo en línea con un `!important` desde la hoja dejaba la cuenta en dos columnas: el doble
