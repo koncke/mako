@@ -46,6 +46,7 @@ Corré (Bash): node ~/.claude/operaciones/runner-salud.mjs estado
 
 ## Qué es cada pieza
 
+- **`runner-salud.mjs al-turno`** (dentro de `bitacora-sesion.sh turno`, 12/11): en CADA turno del chat «Cerebro», si su cuenta no tiene Runner, le pide abrirlo; si está abierto y no late hace más de 20 min, despertarlo. Al cambiar de cuenta el Cerebro se retoma y `al-abrir` no corre.
 - **`runner-salud.mjs al-abrir`** (dentro de `bitacora-sesion.sh inicio`, sólo con `source: startup`): corrige el marcador con el uuid de la app. Al primer chat que abre le encarga crear la guardia si falta, y le avisa si no hay Runner.
 - **`runner-salud.mjs estado`:** cuenta, Runner vivo (chat de esta cuenta y `continuo.latido` de menos de 6 min) y si hace falta medir.
 - **La guardia:** una corrida cada 20 minutos mientras la app esté abierta, con ~10 minutos de demora que le suma la app. Si la app estaba cerrada, corre al abrirla. Sin Runner, cada corrida entrega lo que haya: lo escrito sale en menos de 30 minutos, no en segundos.
