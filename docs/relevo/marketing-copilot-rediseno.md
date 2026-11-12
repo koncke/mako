@@ -141,6 +141,19 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Hecho (12/11, novena vuelta):** `maqueta-accionables.html` (Artifact claude.ai/artifact/K79HrsuoncwRD44U452fJf). Lo de Martín:
+- los logos de cada alojador del VSL;
+- la estrategia abajo de lo principal;
+- todo más chico, y los dos lados del mismo alto (la cara y la lista se desplazan adentro);
+- las tarjetas no se mueven al cambiar de paso (la cabecera tiene el mismo alto en los tres);
+- espacio para hacer algo nuevo («Empezar algo nuevo»: una oferta, una campaña, un video, un lanzamiento, una página);
+- cambiar entre ofertas;
+- el modo oscuro, que en el Artifact el visor pisaba, ahora con la luna y el sol de la app;
+- sólo los canales elegidos, y los demás apagados para empezarlos;
+- el piloto y la acción, rehechos con las referencias de `docs/media-buyer/referencias/otras-apps/`.
+
+El cuerpo vigente es `cuerpo-nueve.html`.
+
 **Hecho (12/11, octava vuelta):** `maqueta-tres-pasos.html` (Artifact claude.ai/artifact/3BL3fTaSEPksVsZkfnWeqR). El pedido de Martín, punto por punto:
 - todo en mono, sin el verde;
 - las historias y las destacadas de Instagram con su feedback (Zernio trae las historias desde que se conecta; las destacadas y la bio salen de la lectura pública);

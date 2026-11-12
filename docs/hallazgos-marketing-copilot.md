@@ -358,6 +358,16 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
 - **La lista del costado del recorrido se perdía:** eran muchas tarjetitas con todo el texto a la vista. Ahora es una sola tarjeta, con una fila por comentario que se abre al tocarla. «Cada cuánto publicas» pasa abajo de la cara.
 - **Tres fases en un teléfono de 390 px no entran con el título a 22 px.** «La acción» quedaba cortada. En el teléfono va sin la flecha ni el subtítulo, con el título a 15 px.
 
+## La novena maqueta: la acción es una lista, el piloto pone a la par lo que espera y lo que hizo (12/11/2026)
+
+`docs/marketing-copilot/rediseno/maqueta-accionables.html`. Lo que vale para lo que venga:
+
+- **«El modo oscuro no anda» era el visor del Artifact, no el CSS.** En Chrome sin pantalla, el botón cambiaba bien. El visor vuelve a poner su `data-theme`, y la maqueta lo seguía con un MutationObserver, así que pisaba el clic de la persona. Una vez que la persona elige, se deja de seguir al visor.
+- **Una lista de tareas con columnas fijas se rompe en una columna angosta.** En la vista de la oferta, el título se partía palabra por palabra. La lista se mide contra su propia tarjeta (`container: tareas`), no contra la pantalla. Y `.frn .frn-btn` trae un ancho mínimo que hay que sacar en una columna chica.
+- **Dos lados del mismo alto:** se fija el alto de la fila y cada lado se desplaza adentro. Estirar el más corto deja un hueco abajo.
+- **Entrar directo a un paso borraba los canales elegidos:** `cargarTodo()` los pisaba con los tres. Ahora sólo los pone si no hay ninguno.
+- **Un `const` con el mismo nombre que el código común** (`MAS`, que trae `//@@COMUNES@@`) rompe el script entero sin aviso: la pantalla queda en blanco. Antes de las fotos se chequea la sintaxis del HTML armado (`revisar-script.mjs` en la carpeta de la maqueta).
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
