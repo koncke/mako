@@ -73,7 +73,7 @@ function Barra() {
         <LogoMaKo className={`${P}-brand`} tamano={34} />
         <nav className={`${P}-navlinks`} aria-label="Funciones de MaKo">
           <div className={`${P}-dd`}>
-            <button type="button" className={`${P}-dd-btn`}>Funciones<Chev /></button>
+            <span tabIndex={0} className={`${P}-dd-btn`}>Funciones<Chev /></span>
             <div className={`${P}-dd-list`}>
               {otras.map((o) => <a key={o.href} href={o.href}>{o.nombre}</a>)}
             </div>

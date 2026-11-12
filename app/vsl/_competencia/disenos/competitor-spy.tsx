@@ -96,10 +96,10 @@ function Barra() {
           <LogoMaKo className={`${P}-brand`} tamano={30} claro />
           <nav className={`${P}-nav-menu`} aria-label="Funciones de MaKo">
             <div className={`${P}-dd`}>
-              <button type="button" className={`${P}-navlink ${P}-dd-btn`}>
+              <span tabIndex={0} className={`${P}-navlink ${P}-dd-btn`}>
                 Funciones
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6.5 8.5L10 12l3.5-3.5" /></svg>
-              </button>
+              </span>
               <div className={`${P}-dd-panel`}>
                 <p className={`${P}-overline`}>Funciones de MaKo</p>
                 <div className={`${P}-dd-grid`}>
