@@ -27,7 +27,7 @@
 //   · volver «Revisado hace…» al riel                                            → 10 / 1
 //   · sacarle `style={CON_SU_CLASE}` a «Conectar mi IA»                          → 10 / 1
 //   · sacar `recargarSugeridos()` de `quitar`                                    → 10 / 1
-//   · volver a `lleva {haceCuanto(frenadaDesde)}`                                → 10 / 1
+//   · volver a poner el aviso de la cola (12/11: Martín lo sacó)                  → 10 / 1
 //
 // CUARTA VUELTA (11/11, después del despliegue de las 15:55 UTC, mirado en producción). Lo que siguió mal:
 // 9 bis. Desde la ficha, Alex seguía sin volver a «Sugeridos»: el pedido iba DESPUÉS de `irA(null)`, y ahí no sale ninguno.
@@ -177,9 +177,10 @@ test('13. Spy en el teléfono: la cara de 48 px es el dibujo chico, y el nombre 
   assert.match(t, /\{titulo && <b title=\{titulo\}>\{titulo\}<\/b>\}/);
 });
 
-test('10. Spy: el aviso de la cola de caricaturas dice «lleva 1 d», no «lleva hace 1 d»', () => {
-  const app = readFileSync(new URL('../app/competitor-spy/SpyApp.tsx', import.meta.url), 'utf8');
-  assert.match(app, /la que más espera lleva \{haceCuanto\(frenadaDesde\)\.replace\(\/\^hace \/, ''\)\} en la cola\./);
+test('10. Spy: el aviso de la cola de caricaturas ya no está (12/11, «el texto innecesario no lo pongas»)', () => {
+  // Decía «lleva hace 1 d» y se arregló el 11/11; al otro día Martín pidió sacarlo entero. Lo cuida tests/spy-cola-frenada.test.ts.
+  const app = readFileSync(new URL('../app/competitor-spy/SpyApp.tsx', import.meta.url), 'utf8').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+  assert.doesNotMatch(app, /la que más espera lleva/);
 });
 
 test('4. el 404 no le dice «Ctrl K» a un teléfono', () => {

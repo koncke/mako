@@ -947,7 +947,7 @@ function CajaDestinos({ piezas }: { piezas: PiezaVista[] }) {
   return <CajaMix titulo="A dónde manda" filas={destinos.slice(0, 6)} total={piezas.length} />;
 }
 
-export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [], conVistaPrevia = false, caricaturasFrenadasDesde = null }: {
+export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [], conVistaPrevia = false }: {
   iniciales: Competidor[];
   resumenInicial: Record<number, ResumenPiezas>;
   /** El `?competidor=` de la URL. La ficha es una URL: se comparte, se marca y se vuelve. */
@@ -963,11 +963,6 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   sugeridosIniciales?: Sugerido[];
   /** La vista previa de sus páginas: la ruta del Diagnóstico del Web Generator pide el admin y esa tab en el plan. */
   conVistaPrevia?: boolean;
-  /**
-   * Desde cuándo espera la caricatura pendiente más vieja, si la cola está FRENADA. Sólo llega al super admin: el Runner
-   * es nuestro. `null` = no hay nada que decir.
-   */
-  caricaturasFrenadasDesde?: string | null;
 }) {
   const [competidores, setCompetidores] = useState<Competidor[]>(iniciales);
   const [sugeridos, setSugeridos] = useState<Sugerido[]>(sugeridosIniciales);
@@ -1083,9 +1078,6 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   // debería»). Mientras alguna está en camino, se pregunta por una RUTA (no una action: haría fila detrás de una lectura) cada
   // pocos segundos, y la nueva entra sola en su tarjeta con un fundido. Llegadas todas, deja de preguntar. Con la pestaña
   // escondida no pregunta; a los ~40 minutos se rinde (la próxima apertura la trae).
-  // La cola frenada: llega del server al abrir, y el refresco de las caricaturas la mantiene al día (se apaga sola
-  // cuando el Runner vuelve a generar, porque la ruta deja de mandarla).
-  const [frenadaDesde, setFrenadaDesde] = useState<string | null>(caricaturasFrenadasDesde);
   const enCamino = competidores.filter((x) => x.caricaturaPendiente && !x.caricatura).map((x) => x.id).join(',');
   useEffect(() => {
     if (!enCamino) return;
@@ -1095,12 +1087,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     const vuelta = async () => {
       if (!vivo) return;
       if (document.visibilityState === 'visible') {
-        type R = { ok: boolean; caras?: Array<{ id: number; caricatura: string | null; pendiente: boolean }>; frenadaDesde?: string };
+        type R = { ok: boolean; caras?: Array<{ id: number; caricatura: string | null; pendiente: boolean }> };
         const r: R | null = await fetch('/api/competitor-spy/caricaturas', { cache: 'no-store', signal: AbortSignal.timeout(10_000) })
           .then((x) => x.json() as Promise<R>).catch(() => null);
         if (!vivo) return;
         if (r?.ok && r.caras) {
-          setFrenadaDesde(r.frenadaDesde ?? null);
           const caras = new Map(r.caras.map((k) => [k.id, k]));
           setCompetidores((v) => (v.some((x) => { const k = caras.get(x.id); return !!k && (k.caricatura !== (x.caricatura ?? null) || k.pendiente !== !!x.caricaturaPendiente); })
             ? v.map((x) => { const k = caras.get(x.id); return k ? { ...x, caricatura: k.caricatura, caricaturaPendiente: k.pendiente } : x; })
@@ -1855,20 +1846,10 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
         )}
         {!c && error && <p className="spy-aviso spy-error">{error}</p>}
 
-        {/* ⚠️ LA COLA DE CARICATURAS FRENADA SE VE (6/11/2026). Las hace el Runner en la PC con Canva; si su cuenta de
-            Claude no tiene Canva conectado NO se anota ningún error: la pendiente espera, la tarjeta sigue diciendo
-            «Haciendo su caricatura…» y lo único que lo delata es la espera, que crece. Hasta hoy no se veía en NINGUNA
-            pantalla: sólo corriendo `scripts/spy-caricaturas-pendientes.mjs` a mano. Es del SUPER ADMIN (el server
-            sólo se lo manda a él) y dice el hecho, no un reproche: no hay nada que un cliente pueda hacer. */}
-        {!c && frenadaDesde && (
-          <p className="spy-aviso spy-cola-frenada" aria-live="polite">
-            <Icon name="warning" size={14} />
-            {/* «lleva 1 d», no «lleva hace 1 d» (así se leía en producción el 11/11/2026): `haceCuanto` ya trae el «hace». */}
-            Las caricaturas no se están haciendo: la que más espera lleva {haceCuanto(frenadaDesde).replace(/^hace /, '')} en la cola.
-            <small>Las hace el Runner con Canva.</small>
-          </p>
-        )}
-
+        {/* ⚠️ SIN AVISO DE LA COLA DE CARICATURAS (12/11/2026). Hubo un renglón para el super admin, «Las caricaturas no se
+            están haciendo: la que más espera lleva 2 d en la cola. Las hace el Runner con Canva». Martín: «hay un texto
+            innecesario... Todo eso, el texto innecesario no lo pongas». Lo que espera se mira con
+            `scripts/spy-caricaturas-pendientes.mjs` (`masVieja`), no en la pantalla. */}
         {/* ── Cero competidores: un bloque, cuatro elementos, nunca cuatro cajas. ── */}
         {!c && !competidores.length && (
           <Vacio

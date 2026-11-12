@@ -12,8 +12,6 @@ import { SpyApp } from './SpyApp';
 import { piezasAction } from './actions';
 import { listarCompetidores, resumenDePiezas } from '@/lib/spy';
 import { sugeridosDelNegocio } from '@/lib/spy-sugeridos-server';
-import { getSesionAdmin } from '@/lib/auth';
-import { colaFrenadaDesde } from '@/lib/spy-caricatura-reglas';
 import { requireRolWs } from '@/lib/tab-access';
 import { tabEnCapa } from '@/lib/capas';
 import { getCapaActual, getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
@@ -36,7 +34,7 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
   // ⚠️ TODO EN PARALELO, Y LAS PIEZAS DEL QUE SE ABRE YA DESDE ACÁ (4/11/2026, Martín: «que cargue más rápido»). Antes eran cuatro
   // lecturas una detrás de otra, y las piezas recién se pedían después de hidratar, por una action (que además hace fila con las
   // demás). Con el `?competidor=` en la URL, la ficha llega con lo suyo y dibuja sin esperar otra vuelta.
-  const [r, resumen, sugeridos, rol, ws, delAbierto, capa, superAdmin] = await Promise.all([
+  const [r, resumen, sugeridos, rol, ws, delAbierto, capa] = await Promise.all([
     listarCompetidores().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) })),
     resumenDePiezas().catch(() => ({})),
     sugeridosDelNegocio().catch(() => []),
@@ -44,7 +42,6 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
     getWorkspaceActual(),
     abierto ? piezasAction(abierto).catch(() => null) : Promise.resolve(null),
     getCapaActual(),
-    getSesionAdmin().then((s) => s != null).catch(() => false),
   ]);
   const esAdmin = rol === 'admin';
   return (
@@ -59,9 +56,6 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
       sugeridosIniciales={sugeridos}
       // La vista previa de sus páginas es la ruta del Diagnóstico del Web Generator, con SU puerta: el admin y esa tab en el plan.
       conVistaPrevia={esAdmin && tabEnCapa('landing-writer', capa)}
-      // Si la cola de caricaturas está frenada, el super admin lo ve AL ABRIR y no a los 5 s de la primera vuelta del
-      // refresco: una cola frenada hace días es justo lo que nadie va a esperar mirando.
-      caricaturasFrenadasDesde={superAdmin && r.ok ? colaFrenadaDesde(r.caricaturasDesde, Date.now()) : null}
     />
   );
 }

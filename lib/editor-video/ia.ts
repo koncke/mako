@@ -38,13 +38,14 @@ import { resumenParaTickets } from './marcas-chat';
 import { bloqueDeMarca } from '../marca/kits';
 import { kitParaUsar } from '../marca/kits-server';
 import { esDiscutir, reglaDiscutir, respuestaDeDiscutir } from '../chat-editor-discutir';
+import { REGLA_CONVERSACION, sanearConversacion, textoDeConversacion } from './chat-conversacion';
 
 export const FEATURE_CHAT_VIDEO = 'video-editor-ia';
 
 /** El chat espera hasta acá a la IA; la ruta corta a 120 s. */
 const PLAZO_IA_MS = 90_000;
 
-export type PedidoChatVideo = { instruccion?: unknown; linea?: unknown; alcance?: unknown; /** Lo que el sistema leyó de las fotos o los PDF del pedido (28/10/2026): va aparte, como dato. */ archivos?: string; /** «discutir» contesta sin cambiar nada (lib/chat-editor-discutir.ts); lo demás, Editar. */ intencion?: unknown };
+export type PedidoChatVideo = { instruccion?: unknown; linea?: unknown; alcance?: unknown; /** Lo que el sistema leyó de las fotos o los PDF del pedido (28/10/2026): va aparte, como dato. */ archivos?: string; /** «discutir» contesta sin cambiar nada (lib/chat-editor-discutir.ts); lo demás, Editar. */ intencion?: unknown; /** Los últimos mensajes del hilo, como los manda el editor (./chat-conversacion.ts): contexto, no instrucción. */ conversacion?: unknown };
 
 /**
  * La marca del negocio para el chat del video (5/11/2026, lib/marca/kits.ts): el kit de por defecto, sus colores y sus
@@ -125,9 +126,13 @@ export async function editarVideo(p: PedidoChatVideo): Promise<ResultadoChatVide
       })),
       marcaParaVideo(),
     ]);
-    const sys = `${[base, marca, discutir ? reglaDiscutir('el video') : ''].filter(Boolean).join('\n\n')}\n\n${reglaNoExisteEn('resumen')}`;
+    // Lo que se habló antes en el chat (12/11/2026, ./chat-conversacion.ts): sin eso, «hazlo» no sabía qué era, ni la
+    // receta de un reel replicado que el propio MaKo acababa de escribir. Va como DATO, antes de la instrucción.
+    const conversacion = textoDeConversacion(sanearConversacion(p.conversacion));
+    const sys = `${[base, marca, conversacion ? REGLA_CONVERSACION : '', discutir ? reglaDiscutir('el video') : ''].filter(Boolean).join('\n\n')}\n\n${reglaNoExisteEn('resumen')}`;
+    const conContexto = conversacion ? `LA CONVERSACIÓN HASTA AHORA:\n${contenidoNoConfiable(conversacion, 'conversacion')}\n\n${user}` : user;
     const hastaIA = t0 + PLAZO_IA_MS;
-    const salida = await chatClaude(sys, [{ role: 'user', content: conLaLecturaAparte(user, p.archivos) }], {
+    const salida = await chatClaude(sys, [{ role: 'user', content: conLaLecturaAparte(conContexto, p.archivos) }], {
       feature: FEATURE_CHAT_VIDEO,
       motivo: 'Editar el video con el chat',
       maxTokens: 4_000,

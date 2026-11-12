@@ -6,6 +6,23 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## El chat del editor no sabía lo que se había hablado: «Replicar» escribía la receta y después preguntaba qué hacer (12/11/2026)
+
+**El síntoma** (probando la tab Video entera en producción, ws 9): «Replicar» un reel de Outliers arma el proyecto y MaKo
+escribe la receta (cortes, subtítulos chicos, palabras clave gigantes, sin silencios). Con la toma en la línea de tiempo,
+«Hacé la edición de la referencia con mi toma» → «necesito que me digas qué cambios hacés: ¿cortás silencios?, ¿subtítulos?…».
+
+- **La causa:** la IA que edita (`/api/video-editor/ia` → `editarVideo`) recibía SÓLO la instrucción y la línea de tiempo; el
+  hilo vivía en el navegador y no viajaba. Ni «hazlo» ni la receta que el propio MaKo acababa de escribir. **Regla:** el
+  pedido lleva los últimos mensajes del hilo (sin el de ahora), saneados y como DATO (`lib/editor-video/chat-conversacion.ts`,
+  `contenidoNoConfiable`); la regla de cómo usarlos va en el system SÓLO si hay conversación, y FUERA de la plantilla
+  editable de /configuraciones (una plantilla guardada sin el slot la perdería sin avisar).
+- **Lo que quedó SIN medir:** que con la conversación la receta salga entera en un pedido (se mide después del deploy, con
+  la misma toma: `public/formatos/plano-secuencia-full.mp4`, 56 s con voz, que la página baja del mismo origen).
+- **La tira del teléfono** (`app/m/video-editor/EditorVideoM.tsx`) dibujaba los clips en el orden del ARREGLO, no del video:
+  el ⊕ de la computadora suelta en el cabezal y el imán lo pone adelante sin moverlo en el arreglo. Ahora se ordena por
+  `startTime`.
+
 ## «Se me traba exageradamente todo»: el motor bajaba tres veces y la raíz se redibujaba con el cabezal (12/11/2026)
 
 **El síntoma:** Martín, 12/11: «cada vez que ingreso desde la web a utilizar esta pestaña de edición, se me traba
