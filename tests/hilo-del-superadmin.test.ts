@@ -109,7 +109,16 @@ test('4. la entrada real: el aviso queda en la memoria y los dos turnos de Mart�
   const cuanto = o.cuantoPaga.alTurno[0];
   assert.ok(cuanto, `la pregunta no llegó al turno: ${JSON.stringify(o.cuantoPaga.r)}`);
   assert.ok(cuanto.tools.includes('ver_mensualidades_agencias'), `la pregunta no trae ver_mensualidades_agencias: ${cuanto.tools.join(', ')}`);
-  assert.match(cuanto.system, /· 13 Código Inmobiliario — AGENCIA; sus clientes: 31 Giselle, 32 Pablo Chavez, 33 Marcela, 34 Nico Sellers/);
+  assert.ok(cuanto.tools.includes('buscar_negocio'), `nombrar a Código no trae buscar_negocio: ${cuanto.tools.join(', ')}`);
+  assert.match(cuanto.system, /· 13 Código Inmobiliario — AGENCIA; sus clientes: 31 Giselle, 32 Pablo Chavez, 33 Marcela, 34 Nico Sellers, 35 Brigitte Eberlin, 36 Natalia, 37 Patricia Contreras, 38 Sergio Arriata/);
+  // DE PUNTA A PUNTA (12/11/2026): el turno llama a `ver_mensualidades_agencias` con la agencia por NOMBRE y la herramienta real, con la
+  // cartera de Código de esa noche, devuelve diciembre: US$426 (Pro 97 + 7 × 47), en este mes y en el que viene; Pablo, sin su entrada, no.
+  const conElDato = o.cuantoPaga.alTurno[1];
+  assert.ok(conElDato, 'el turno no siguió después de la herramienta');
+  assert.ok((conElDato.mensajes.match(/\\"total_usd\\":426/g) ?? []).length >= 2, `no llegaron los 426 de este mes y del que viene: ${conElDato.mensajes.slice(-1500)}`);
+  assert.match(conElDato.mensajes, /\\"mes_que_viene\\":\{\\"mes\\":\\"\d{4}-\d{2}\\"/, 'no llegó el mes que viene');
+  assert.match(conElDato.mensajes, /Tu plan MaKo Pro\\",\\"monto_usd\\":97/, 'no llegó el desglose');
+  assert.doesNotMatch(conElDato.mensajes, /Pablo Chavez · MaKo/, 'Pablo, sin su entrada, entró a la cuenta');
   assert.match(cuanto.mensajes, /Comprobante de Código Inmobiliario[\s\S]*Si perfecto, dalo de alta[\s\S]*¿Marco pagada la entrada de Nico Sellers/, 'la charla de antes no llegó a la pregunta');
   // El aviso está en la memoria Y en el chat de la línea (con el mismo id): una sola vez en el historial.
   assert.equal((si.mensajes.match(/¿lo marco como pagado\?/g) ?? []).length, 1, 'el aviso se repitió en el historial');

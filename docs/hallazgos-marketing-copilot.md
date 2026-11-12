@@ -344,6 +344,20 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
 - **El número de una tarjeta y lo que muestra su pestaña salen de la MISMA lista.** En la primera armada, YouTube decía «1 para mejorar» y su recorrido tenía 4 pasos, porque contaban cosas distintas.
 - **El ciclo de historias de Fran Doglio dura 10 días, no 7** (arcadia · 2). `lib/asesores/ficha-francisco-doglio.ts` y `referentes.md` dicen siete y omiten los días 8 a 10. No se corrigió: es del agente del CoPilot y se toca con su batería.
 
+## La octava maqueta: tres pasos, todo en mono, y lo que el usuario hace separado de lo que hace MaKo (12/11/2026)
+
+`docs/marketing-copilot/rediseno/maqueta-tres-pasos.html`. Lo que vale para lo que venga:
+
+- **Mono no tenía modo oscuro.** La paleta mono (`.frn.frn--mono`) pisaba también la oscura de Fernly (`.frn:where([data-tema="oscuro"] *)` tiene especificidad 0,1,0). En oscuro, el tablero quedaba claro con pastillas y botones oscuros. Hace falta su propio bloque `:root[data-tema="oscuro"] .frn.frn--mono`, y los botones primarios van claros con letra oscura. La flecha de la tarjeta elegida estaba fija en menta (`#e3f2e9` en frn.css): en mono hay que pisarla.
+- **Zernio trae las historias, pero no las destacadas ni la bio.** Las historias llegan sólo desde que se conecta. Las destacadas y la bio no aparecen en su documentación, y el objeto de la cuenta (`ListedAccount`) no publica sus campos. Salen de la lectura pública del perfil, la de Competitor Spy. En la maqueta son de ejemplo. El detalle está en `docs/marketing-copilot/analisis/zernio.md`.
+- **Lo que ya existe y se reusa:**
+  - elegir los chats y separar los de venta: el paso «Tu forma de escribir» del Chat Agent (`app/automations/OnboardingChatAgent.tsx`, `lib/chat-agent-clasificador.ts`). Hoy sólo lista WhatsApp;
+  - dónde está el VSL: `lib/integraciones-catalogo.ts`. Sólo Panda da la retención por API, y la curva de verdad sale del Pixel de MaKo;
+  - WhatsApp se conecta con el QR de la línea, no por Zernio (`app/chats/ConectarCanal.tsx`).
+- **«La acción» y «lo que hace MaKo» eran una sola pantalla y no se entendía de quién era cada cosa.** Ahora son dos pasos con las mismas tarjetas que el análisis: la acción (paso 2) tiene sólo lo que hace el usuario, con Offer y Web Generator adentro; el piloto automático (paso 3) tiene lo que hace MaKo, con su OK y «Deshacer». Una tarjeta que falta no deja hueco: las que quedan se estiran (`--n`).
+- **La lista del costado del recorrido se perdía:** eran muchas tarjetitas con todo el texto a la vista. Ahora es una sola tarjeta, con una fila por comentario que se abre al tocarla. «Cada cuánto publicas» pasa abajo de la cara.
+- **Tres fases en un teléfono de 390 px no entran con el título a 22 px.** «La acción» quedaba cortada. En el teléfono va sin la flecha ni el subtítulo, con el título a 15 px.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
