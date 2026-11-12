@@ -22,7 +22,7 @@
 // =============================================================================
 
 import { areasDelMensaje, clasificarIntencion, makoPidioDatos, makoPreguntoAlgo, sinPrefijoDeLote, type VeredictoIntencion } from './mako-intencion';
-import { esAcusePuro } from './doer-para-quien';
+import { charlaQueCalla, esAcusePuro } from './doer-para-quien';
 import type { Area } from './api-mako/tipos';
 
 /**
@@ -152,6 +152,27 @@ export function enElGrupoSinSenal(v: VeredictoIntencion, mensaje: string, areasD
     areas: [...new Set<Area>([...(areasDelHilo as readonly Area[]), ...AREAS_SIN_SENAL])], relevancia: RELEVANCIA_SIN_SENAL,
   };
 }
+
+/**
+ * UNA CHARLA CON ALGO ADENTRO SE CONTESTA (12/11/2026, «yo no conecte a mako», Mauricio en el ws1; lib/doer-para-quien.ts, `charlaQueCalla`).
+ * La charla que no es literalmente un acuse, un saludo, un «sí» suelto o un agradecimiento —una aclaración, una objeción, un dato, la
+ * respuesta a lo último de MaKo o del equipo— corre como una CONSULTA (nunca «pensar»: es una respuesta corta): con la lectura de las reglas si ya
+ * consultan (sus áreas), y si no, la del grupo sin señal (las áreas del hilo, MaKo y el CRM). Sólo lecturas cuando la decidió la IA
+ * (`soloLeer`, lib/mako-doer-in.ts): una charla nunca escribe. El turno la reconoce por la marca del `porque` (`esCharlaConAlgo`), que
+ * también queda en el registro de la clase. Lo demás queda como vino.
+ * ⚠️ Dos capas, a propósito: el acuse puro también lo frena `enElGrupoSinSenal`. Por eso un test con «gracias» pasa aunque
+ * `charlaQueCalla` se rompa: lo que la fija en el turno es «Bien ahí por la velocidad» (tests/grupos-ops-turno.test.ts).
+ */
+export const MARCA_CHARLA_CON_ALGO = 'charla con algo adentro: se contesta, corto';
+export function laCharlaConAlgo(v: VeredictoIntencion, reglas: VeredictoIntencion, mensaje: string, areasDelHilo: readonly string[] = []): VeredictoIntencion {
+  if (v.intencion !== 'charlar' || charlaQueCalla(sinPrefijoDeLote(mensaje || '').trim())) return v;
+  const consulta = reglas.intencion === 'consultar' ? reglas : enElGrupoSinSenal({ ...reglas, sinSenal: true }, mensaje, areasDelHilo);
+  if (consulta.intencion !== 'consultar') return v;
+  // El porqué se corta ANTES de la marca: cortado después, un resumen largo de la IA se la llevaba y el turno no la veía.
+  return { ...consulta, dudosa: false, fuente: v.fuente, porque: `${v.porque.slice(0, 230)} · ${MARCA_CHARLA_CON_ALGO}` };
+}
+/** ¿El veredicto es una charla con algo adentro (`laCharlaConAlgo`)? El turno le suma la nota de contestar corto. */
+export const esCharlaConAlgo = (v: VeredictoIntencion): boolean => v.intencion === 'consultar' && v.porque.includes(MARCA_CHARLA_CON_ALGO);
 
 export function conElHilo(
   v: VeredictoIntencion, mensaje: string, pedido: PedidoDelHilo | null, ultimoDeMako: string | null,

@@ -203,6 +203,31 @@ test('una pregunta a MaKo no se queda en el 👍, en la app y en WhatsApp (4/11/
   assert.equal(q.graciasPorWhatsApp.llamadasAlTurno, 0);
 });
 
+test('una charla con algo adentro se contesta, corto y con lo de antes; «gracias» y «ok 👍» siguen en el 👍 (12/11/2026, Mauricio)', () => {
+  const { mauricio, gracias, okPulgar, bienAhi, respondido } = R().charlaConAlgo;
+  assert.equal(mauricio.textosPorWhatsApp, 1, '«yo no conecte a mako» después del mensaje del equipo: la IA dijo charla y MaKo se quedaba en el 👍');
+  assert.ok(mauricio.deMaKo.includes('Entonces la conectó alguien más: le paso al equipo que lo revise.'), JSON.stringify(mauricio.deMaKo));
+  assert.equal(mauricio.llamadasAlTurno, 1);
+  assert.equal(mauricio.conElEquipo, true, 'contesta sin saber qué le había dicho el equipo');
+  assert.equal(mauricio.conLaNota, true, 'sin la nota, el turno lo trata como una pregunta a investigar');
+  assert.equal(mauricio.comoPregunta, false, 'la nota de la pregunta («míralo con tus herramientas») pelea con la de contestar corto');
+  assert.ok(mauricio.herramientas > 0, 'una consulta: mira antes de contestar');
+  assert.deepEqual(mauricio.escrituras, [], 'una charla nunca escribe');
+  // «Respondido» trae un dato: con la regla literal de Martín («al menos que sean literalmente del tipo gracias, ok»), se contesta.
+  assert.equal(respondido.textosPorWhatsApp, 1, '«Respondido» al aviso de un lead quedaba en el 👍');
+  assert.equal(respondido.conLaNota, true);
+  // «Bien ahí por la velocidad» no es un acuse puro: sólo lo deja en el 👍 la regla nueva (`charlaQueCalla`). «gracias» y «ok 👍» también
+  // los frena `enElGrupoSinSenal`: fijan el resultado, no la regla.
+  for (const [nombre, c] of [['gracias', gracias], ['ok 👍', okPulgar], ['Bien ahí por la velocidad', bienAhi]] as const) {
+    assert.ok(c.alClasificador > 0, `«${nombre}»: la escena no llegó al clasificador, y no prueba la charla`);
+    assert.equal(c.skip, 'charla: la reacción alcanza', `«${nombre}»: ${c.skip}`);
+    assert.ok(c.reacciones > 0, `«${nombre}»: sin el 👍`);
+    assert.equal(c.textosPorWhatsApp, 0, `«${nombre}»: el 👍 es la respuesta`);
+    assert.equal(c.llamadasAlTurno, 0, `«${nombre}»: la IA dijo charla y es un acuse: no llega al turno`);
+    assert.deepEqual(c.deMaKo, []);
+  }
+});
+
 test('personas hablando entre ellas: MaKo no aparece', () => {
   const p = R().personas;
   assert.deepEqual(p.noReply.deMaKo, []);
@@ -390,3 +415,13 @@ test('la API de MaKo: escribir no toca Evolution; leer no sale por WhatsApp ni H
 // PROBADO ROMPIÉNDOLO (4/11/2026, dos líneas de MaKo en el grupo), corriendo este archivo y tests/doer-para-quien.test.ts, base 29/0 y 14/0:
 //   · `esEcoDeMaKo` sólo con `fromMe` → 2 en rojo (este y el 13 de doer-para-quien) · `esEcoDeMaKoAhora` sólo con `fromMe` → 2 en rojo
 //   · el lote sin `sinLosEcos` → 1 en rojo: «MaKo no se contesta a sí misma» (el eco llegaba al turno junto con el pedido de Joan)
+// PROBADO ROMPIÉNDOLO (12/11/2026, la charla con algo adentro), una por vez sobre el código real, con respaldo, corriendo este archivo y
+// tests/doer-para-quien.test.ts, base 30/0 y 16/0; las 11 en rojo:
+//   · el turno sin `laCharlaConAlgo` (el código de antes) → 1 en rojo acá: «una charla con algo adentro» (Mauricio queda en el 👍)
+//   · `charlaQueCalla` nunca calla → 2 en doer-para-quien y 4 acá (la charla con algo, la pregunta a MaKo, personas, el invitado)
+//   · la consulta con `fuente: 'reglas'` (no es de sólo lectura) → 1 y 1 · sin la nota de contestar corto → 1 acá
+//   · la charla nunca se corta → 4 acá · sin el agradecimiento con motivo → 1 y 2 · el «ya lo contacté» vuelve a callar → 1 y 1
+//   · el porqué cortado después de la marca, sin el «no, gracias», sin mirar el «no»/«pero», la charla con algo que actúa → 1 cada una
+//     en doer-para-quien
+// ⚠️ Con `charlaQueCalla` rota, «gracias» y «ok 👍» seguían verdes acá: los frena también `enElGrupoSinSenal`. Lo que fija la regla en el
+// turno es «Bien ahí por la velocidad» (docs/hallazgos-comunicacion.md, «La charla callaba lo que traía algo»).

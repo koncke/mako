@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **«MaKo no responde» puede ser que el clasificador dijo CHARLA** (12/11/2026, Mauricio). La charla es «no pide nada», y el turno la
+  leía como «no hay nada que contestar»: 8 de las 12 charlas calladas de una semana traían una aclaración, una objeción o la respuesta
+  a lo último que se dijo. Antes de mirar la línea, mirar `anthropic_usage` (`clase-doer`). Ver «La charla callaba lo que traía algo», abajo.
 - **El freno de la línea callaba también la RESPUESTA, y lo que no llegaba se guardaba como dicho** (11/11/2026). Un 403 de UN
   chat dejaba a MaKo mudo 6 horas en todos los grupos, y nadie se enteraba: ni el vigía, ni un ticket. Ahora la respuesta al grupo
   donde alguien acaba de escribir pasa el freno, y la que WhatsApp no toma abre su ticket. Ver «MaKo se callaba con la línea frenada».
@@ -69,6 +72,55 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
   que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+---
+
+## La charla callaba lo que traía algo: «yo no conecte a mako» se quedó en el 👍 (12/11/2026, claude5)
+
+**Síntoma:** Martín, 12/11: «Mauricio le escribió a MaKo en WhatsApp y otra vez no respondió». En el grupo del ws1, a las 00:39 UTC el
+equipo le explicó cómo pasar Resend a Pro «con la cuenta que conectaste a MaKo» (ticket #86); a las 00:40 Mauricio: «yo no conecte a
+mako». Sólo el 👍.
+**El diagnóstico obvio era el equivocado:** la línea (la voz estuvo sorda esos días). El mensaje está en el store de la voz y en
+`grupo_mensajes`, y la fila de `anthropic_usage` (`feature='clase-doer'`, `model='clase:charlar'`) dice «IA: charla («Aclara que no
+conectó a MaKo.») · reglas: consultar»: `procesarDoer` cortó en «charla: la reacción alcanza».
+**Medido (sólo lectura, 5 al 12/11):** 59 turnos clasificados; 12 charlas y 3 «no es para MaKo» terminaron sin texto. De las 12
+charlas, 8 traían algo: «Hola Mako, no trabajo esa zona» (Patricia, ws22, al aviso de un lead), «el mail que me pediste de Sellers»
+(Joan, ws13, después de un «no entiendo» de MaKo), «Por aquí» (Giselle, ws17, a la pregunta del equipo por los reels), «PRUEBA»
+(Martín), «yo no conecte a mako». De las 3 «no es para MaKo», una ya estaba arreglada («Dile a Claude…», 11/11) y dos eran para otra
+persona o para el equipo.
+**La causa:** la clase CHARLA dice «no pide nada», y el turno la leía como «no hay nada que contestar». Los parches anteriores salvaban
+sólo la charla que nombra a MaKo y PREGUNTA (`preguntaAMaKo`, 4/11) y el «sí» a una oferta (11/11): una aclaración o una objeción no
+pregunta ni pide.
+**La regla (Martín, 12/11: «no tomes absolutamente nada como charla del tipo gracias, ok, al menos que sean literalmente del tipo
+gracias, ok»):** la charla calla sólo si TODO el mensaje es literal: un acuse o un saludo (`esAcusePuro`), un «sí» suelto, emojis, un
+agradecimiento con su motivo («bien ahí por la velocidad», que él nombró el 24/10) o un «no, gracias» (`charlaQueCalla`,
+lib/doer-para-quien.ts). Lo demás corre como una CONSULTA de sólo lectura, con el historial y la nota de contestar en una o dos líneas en
+lugar de la de «es una pregunta» (`laCharlaConAlgo` y su marca en el porqué, lib/doer-hilo.ts; `NOTA_CHARLA_CON_ALGO` en
+`bloqueDeLaClase`, lib/mako-doer-in.ts). La clase no cambia (el banco la mide igual): cambia qué hace el turno con ella. Si la respuesta
+es todo relleno, `sinMuletillas` la saca y queda el 👍.
+**Lo que se probó y se descartó:** dejar también en el 👍 el «ya lo contacté» al aviso de un lead («Respondido», «Ya conteste»): son 5
+de las 15 CHARLA del banco (tests/fixtures/banco-grupos-2910.json) y el ws15 recibe varios avisos por día, así que cada uno va a traer
+una respuesta corta de MaKo. Igual se contesta: trae un dato, y es lo que Martín pidió. Si el ruido molesta, lo que corresponde es que
+esa respuesta HAGA algo (pasar el lead a contactado), no volver a callar. «Con» no cuenta como motivo de un agradecimiento: «dale con la
+campaña» es un pedido.
+**Trampa del test (dos veces):** un «gracias» suelto por WhatsApp no llega al clasificador (lo corta antes el acuse de `noEsParaMaKo`),
+y aunque llegue, la consulta de respaldo (`enElGrupoSinSenal`) lo vuelve a reconocer como acuse. Con `charlaQueCalla` rota a «nunca
+calla», las escenas de «gracias» y «ok 👍» seguían verdes: fijan el resultado, no la regla. Lo que la fija en el turno es «Bien ahí por
+la velocidad» (no es acuse puro: sólo lo para la regla nueva), y el test exige que cada escena haya llegado al clasificador y que el
+corte sea «charla: la reacción alcanza» (tests/grupos-ops-turno.test.ts, «una charla con algo adentro»). La escena «charla» de
+tests/clase-del-grupo.test.ts usaba «Excelente, ya le escribimos al propietario, gracias», que ahora se contesta: se cambió a propósito.
+**Trampa de las guardas:** el system del turno tiene el orden de sus bloques fijado por tres guardas que leen el código
+(tests/doer-falla.test.ts, tests/doer-hilo.test.ts, tests/grupos-ops-guarda.test.ts). Un bloque nuevo entre `ctxFalla` y `conMemoria`
+las pone en rojo: lo que el turno sabe de su clase va en `bloqueDeLaClase` (lib/mako-doer-in.ts), que ya está adentro de `ctxFalla`.
+**Para diagnosticar un silencio:** `anthropic_usage` con `feature='clase-doer'` (`model` = `clase:<intención>`; el `motivo` trae la IA y
+las reglas), cruzado con `grupo_mensajes` del mismo ws en los 90 s anteriores. Desde este cambio, la charla que se contesta queda como
+`clase:consultar` con «charla con algo adentro» en el motivo.
+**Sin hacer:** (1) el «no es para MaKo» no se tocó: la respuesta al equipo sin citar («Nico sellers» con la foto del comprobante, ws13)
+sigue en silencio, y está bien mientras el equipo la vea. (2) Un «ok 👍» a un «¿Quieres que…?» de MaKo no es `confirmacionPura` («ok» es
+relleno) y queda en charla: la oferta no se cumple (lib/mako-intencion-ia.ts, el «sí» a lo ofrecido). (3) El «Respondido» al aviso de un
+lead se contesta pero no hace nada: la consulta es de sólo lectura y no pasa el lead a contactado (lib/doer-hilo.ts, `laCharlaConAlgo`).
+(4) Después del deploy, medir cuántas `clase:consultar` con «charla con algo adentro» salen por día y cuántas terminaron en «era todo
+relleno».
 
 ---
 

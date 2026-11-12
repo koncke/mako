@@ -61,7 +61,7 @@ import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTick
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
-import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, enElGrupoSinSenal, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
+import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, enElGrupoSinSenal, esCharlaConAlgo, laCharlaConAlgo, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { conElNegocio } from '@/lib/nucleo-grupo';
 import { bloqueDeLaCita, conElTextoCitado, bloqueDelEquipo, citaDelMensaje, CLAVE_EQUIPO_EN_EL_GRUPO, CLAVE_RESPUESTAS_AVISADAS, conLaAvisada, delEquipo, esGraciasOSaludo, esPreguntaDelEquipo, esSoloUnPedidoAMaKo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, type DelEquipo } from '@/lib/doer-equipo';
 import { esFirmaDelEquipo, sinFirmaDelEquipo } from '@/lib/aviso-arreglo-reglas';
@@ -169,6 +169,8 @@ function bloqueDeLaClase(v: VeredictoIntencion): string {
     // El despacho (lib/despacho-grupo.ts): lo que no hace con sus herramientas lo pasa el CÓDIGO al equipo. Que no lo prometa.
     return `\n\nESTE MENSAJE PIDE UNA ACCIÓN. Hazla con tus herramientas. Si pide varias cosas, haz las que puedas y NO prometas ni anuncies el resto: lo que no hagas lo pasa el código al equipo, con su número. Un WhatsApp a un lead queda propuesto y se aprueba con un toque en la app: no le pidas un «sí» por aquí.${ticket}`;
   }
+  // La charla con algo adentro (12/11/2026, lib/doer-hilo.ts): no es una pregunta a investigar, es una respuesta a lo que se habló.
+  if (esCharlaConAlgo(v)) return `\n\n${NOTA_CHARLA_CON_ALGO}${ticket}`;
   if (v.intencion === 'consultar' || v.intencion === 'pensar') {
     return `\n\nESTE MENSAJE ES UNA PREGUNTA. Contéstala con lo que devuelven tus herramientas de lectura o con CÓMO FUNCIONA MAKO. No te apoyes en lo que crees saber: si no lo ves ahí, di en una línea que no lo sabes y marca [[no-pude: …]]. Nada de pasos genéricos («revisa tu conexión», «puede ser que…») sin haberlo mirado.${ticket}`;
   }
@@ -442,6 +444,9 @@ CÓMO CONTESTAS:
 - Si te preguntan si algo YA quedó hecho, arreglado o actualizado, contesta con el estado de su pedido y lo que salió en producción (el bloque PEDIDOS ABIERTOS DE ESTE NEGOCIO), no con lo que tú puedes o no puedes hacer.
 - ⛔ No prometas volver con el dato: tu respuesta es el final del turno.
 - ⛔ No indiques borrar datos, ni afirmes cómo funciona algo de MaKo que no leíste, ni el estado de una integración que no miraste.`;
+
+/** La charla con algo adentro (12/11/2026, `laCharlaConAlgo`, lib/doer-hilo.ts): no pide nada, le contesta a lo último que se habló. */
+const NOTA_CHARLA_CON_ALGO = `ES UNA RESPUESTA, NO UN PEDIDO: lo que te escribieron le contesta a lo último del chat (lo tuyo, lo del equipo de MaKo o un aviso): cuenta algo, aclara o no está de acuerdo. Contéstale a ESO en una o dos líneas, con lo que se habló antes en el historial. Si corrige o contradice lo que le dijeron, reconócelo y di qué sigue. Sin saludo, sin agradecer y sin repetir lo que ya se dijo.`;
 
 const DOER_WA_VOZ = `CONTEXTO: estás en un grupo de WhatsApp con el dueño del negocio (y a veces su equipo). Te escriben a ti. Ves el HISTORIAL de la conversación: úsalo, no arranques de cero ni pidas datos que ya te dieron antes. Responde como MaKo: breve, humano, estilo WhatsApp (2-5 líneas, sin volcar JSON ni tecnicismos).
 
@@ -2056,9 +2061,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       texto: sinPrefijoDeLote(texto), reglasConsultan: delMensaje.intencion === 'consultar' && !delMensaje.sinSenal,
       leHabla: leHabla() || (await citaAMaKo(data)),
     });
-    const intencion: VeredictoIntencion = pregunta
+    const elegida: VeredictoIntencion = pregunta
       ? { ...porReglas, fuente: 'reglas', porque: `${porReglas.porque} · le pregunta a MaKo (la IA: ${delClasificador.porque})`.slice(0, 280) }
       : delClasificador;
+    // ── UNA CHARLA CON ALGO ADENTRO SE CONTESTA (12/11/2026, Mauricio en el ws1: el equipo le explicó cómo pasar Resend a Pro «con la
+    // cuenta que conectaste a MaKo», contestó «yo no conecte a mako», la IA dijo charla y quedó el 👍) ── Sólo lo que es literalmente un
+    // acuse («gracias», «ok», «listo»), un saludo o un «sí» suelto se queda en el 👍 (lib/doer-para-quien.ts, `charlaQueCalla`). Lo demás corre como una
+    // consulta de lectura, con lo que se habló antes y la nota de contestar corto (`NOTA_CHARLA_CON_ALGO`, en `bloqueDeLaClase`).
+    const intencion = laCharlaConAlgo(elegida, porReglas, texto, pedidoDelHilo(historial)?.areas ?? []);
     // En el grupo de la plataforma, nombrar un negocio suma sus áreas: «cuánto va a pagar codigo inmobiliario» no nombraba ninguna (12/11/2026,
     // lib/doer-plataforma.ts, `areasDeLaPlataforma`).
     const deLaPlataforma = laPlataforma ? areasDeLaPlataforma(sinPrefijoDeLote(texto), laPlataforma.negocios) : [];

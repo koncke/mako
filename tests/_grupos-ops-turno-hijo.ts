@@ -544,6 +544,42 @@ async function main() {
   const ecoConId = { encolado: db.mako_doer_buffer.some((f) => f.wa_message_id === 'WAecoConId'), llamadasAlTurno: lo().length, textosPorWhatsApp: aEvolution().filter((x) => x.includes('/message/sendText/')).length };
   out.ecoDeOtraLinea = { tarde: ecoTarde, conId: ecoConId };
 
+  // ── Una charla con algo adentro se contesta (12/11/2026, Mauricio en el ws1) ──
+  // El equipo le explicó cómo pasar Resend a Pro «con la cuenta que conectaste a MaKo»; Mauricio contestó «yo no conecte a mako», la IA
+  // dijo charla y MaKo se quedó en el 👍. La clase la pone la escena (la salida real del modelo de ese turno); lo demás corre de verdad:
+  // `manejarEntranteDoer` con el payload de Evolution v2, las reglas, `laCharlaConAlgo` y el turno. Al final y con un número que no
+  // escribió antes (el tope por minuto de cada persona).
+  const { NOMBRES_ACCION } = await import('../lib/mako-doer-acciones');
+  const DEL_EQUIPO = '👨‍💻 *Desarrollador de MaKo*\nMauricio, para pasar Resend a Pro (ticket #86): entra a resend.com con la cuenta que conectaste a MaKo, ve a Settings, Billing y elige Pro.';
+  // `makoPregunto`: MaKo acaba de preguntar algo. Sin eso, un «gracias» suelto ni llega al clasificador (el acuse de la capa 0): con eso
+  // llega, la IA dice charla, y lo que se prueba es que la charla de un acuse siga en el 👍.
+  // `antes`: lo último que dijo MaKo. «¿Algo más?» hace que un «gracias» suelto llegue al clasificador (sin una pregunta de MaKo, lo
+  // corta antes el acuse de la capa 0); el aviso de un lead es lo que contesta el «Respondido» de Brigitte (ws15, 7/11): trae un dato, y
+  // con la regla literal de Martín se contesta.
+  const unaCharla = async (texto: string, resumen: string, respuesta: string, alt: string, antes: string | null = null) => {
+    limpiar(); escenaNueva({ clase: clase('CHARLA', resumen), respuesta });
+    db.app_settings.push({ workspace_id: WS, key: 'mako.equipo.grupo', value: JSON.stringify([{ at: new Date(Date.now() - 60_000).toISOString(), texto: DEL_EQUIPO, id: 'WAdelEquipo86' }]) });
+    if (antes) db.mako_doer_conv.push({ id: 990100, workspace_id: WS, grupo_jid: JID, role: 'assistant', content: antes, wa_message_id: null, created_at: new Date(Date.now() - 30_000).toISOString() });
+    const r = await manejarEntranteDoer(LINEA, { ...deWhatsApp(`WAcharla${alt}`, texto, `54911000001${alt}@s.whatsapp.net`), pushName: 'Mauricio Bustos Eguía' } as never) as { skip?: string } | undefined;
+    await correrDespues();
+    const [m] = lo();
+    return {
+      skip: r?.skip ?? null, deMaKo: deMaKo(), llamadasAlTurno: lo().length, textosPorWhatsApp: aEvolution().filter((x) => x.includes('/message/sendText/')).length,
+      reacciones: aEvolution().filter((x) => x.includes('/message/sendReaction/')).length, alClasificador: red.filter((x) => x.host === 'api.anthropic.com').length,
+      conElEquipo: !!m && (m.sys + JSON.stringify(m.mensajes)).includes('Resend a Pro'), conLaNota: !!m && m.sys.includes('ES UNA RESPUESTA, NO UN PEDIDO'),
+      comoPregunta: !!m && m.sys.includes('ESTE MENSAJE ES UNA PREGUNTA'),
+      herramientas: m?.nombres.length ?? 0, escrituras: (m?.nombres ?? []).filter((n: string) => NOMBRES_ACCION.has(n) || porId(n)?.tipo === 'accion'),
+    };
+  };
+  out.charlaConAlgo = {
+    mauricio: await unaCharla('yo no conecte a mako', 'Aclara que no conectó a MaKo.', 'Entonces la conectó alguien más: le paso al equipo que lo revise.', '31'),
+    gracias: await unaCharla('gracias', 'Agradece.', 'No debería salir.', '32', 'Listo, la nota quedó en la ficha. ¿Algo más?'),
+    okPulgar: await unaCharla('ok 👍', 'Acuse de recibo.', 'No debería salir.', '33', 'Listo, la nota quedó en la ficha. ¿Algo más?'),
+    bienAhi: await unaCharla('Bien ahí por la velocidad', 'Agradece la rapidez.', 'No debería salir.', '34', 'Listo, la nota quedó en la ficha.'),
+    respondido: await unaCharla('Respondido', 'Acuse de recibido indicando que ya contactó al propietario.', 'Bien. ¿Lo paso a contactado en el CRM?', '35',
+      'Hola Bri! Llegó un nuevo propietario, se llama Sylvia Colasurdo, te dejo la información que completó en el formulario para que lo contactes.'),
+  };
+
   await decirYSalir(decirResultado(out));
 }
 
