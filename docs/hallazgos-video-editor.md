@@ -71,6 +71,10 @@ lima y del MISMO tamaño que el resto.
   guarda con el hilo; sirve también para los proyectos replicados antes) y `enjambre/plan.ts → decidirPaso` la usa. El chat la
   recibe escrita al final de la receta («En el editor de MaKo, todo en un pedido: …»). El estilo nuevo «Palabra gigante»
   (Playfair Display blanca y chica, claves en blanco al 160 %) está en la galería de Subtítulos.
+- **Trampa del catálogo:** el `para` de cada operación es también lo que elige las herramientas de WhatsApp por relevancia y
+  con presupuesto (`toolsDelRegistro`). Escribir «borrarle los silencios» en `agregar_medios` la metía en cada pedido de
+  silencios y dejaba afuera `listar_proyectos_video` (rojo en tests/video-editor-propuestas-api.test.ts, 9). Un `para` nombra
+  lo suyo, no las palabras de otra operación.
 - **Lo que quedó SIN hacer:** la receta pide la palabra «3 o 4 veces más grande» y el editor llega a 1,6×
   (`TOPES_CLAVES_TAMANO`, params/extra/subtitulos.ts): el renglón se parte midiendo la letra normal (`partirEnLineas`,
   subtitles/build-subtitle-text-element.ts, no suma la reserva de la clave agrandada que sí suma el dibujo:
