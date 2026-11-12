@@ -30,6 +30,7 @@
 
 import './crear.css';
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { PortadaCrearCtx } from './portada-ctx';
 import Link from '@/app/_ui/Link';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { PlegarChatCtx } from '@/app/admin/operaciones/PanelChat';
@@ -114,9 +115,18 @@ export type PropsPantallaCrear = {
   nueva?: ReactNode;
   /** «Nuevo …» desde afuera de la portada (el editor de Image no tiene los ejemplos leídos): la tab navega a donde están. */
   alNuevo?: () => void;
+  /**
+   * Lo del centro es la PORTADA de outliers («Encuentra tu siguiente OUTLIER»): va SIN el chat de MaKo (12/11/2026, Martín: «Si yo
+   * estoy en la tab principal donde digo encuentra tu siguiente outlier, no debería salir el chat de MaKo porque es confuso… cuando
+   * le doy clic a uno y entro a editar, ahí sí que salga el chat»). Web Generator la pone de pieza (`children`) y lo dice con esto;
+   * con `nueva` (Copywriting, Image) es portada sola mientras se ve. Corrige el «chat SIEMPRE a la izquierda» del 29/10.
+   */
+  portada?: boolean;
   /** La pieza abierta (el editor). Sin esto, el centro es «¿Qué vas a crear hoy?». */
   children?: ReactNode;
 };
+
+// Lo que la portada de outliers le pide a la pantalla («Mis guiones» abre la lista): ./portada-ctx.ts, liviano a propósito.
 
 /**
  * La tarjeta plegada, por tab y en el navegador (`mk-crear-plegada:<tab>`): Martín la pliega una vez en el Video Editor y
@@ -220,6 +230,30 @@ export function PantallaCrear(p: PropsPantallaCrear) {
     <button type="button" className="cr-volver" onClick={() => setCara('lista')} title={`Ver tus proyectos de ${tab}`} aria-label={`Ver tus proyectos de ${tab}`}>←</button>
   );
 
+  // La PORTADA de outliers va sin chat (`portada`): a la izquierda no hay nada, salvo la lista de proyectos cuando la piden
+  // («Mis guiones»); se cierra con su ✕. Al abrir una pieza (otra ruta o `children`), vuelve el chat.
+  const enPortada = !!p.portada || (centro === 'nueva' && p.nueva != null);
+  const [listaEnPortada, setListaEnPortada] = useState(false);
+  const ctxPortada = useMemo(() => ({ verProyectos: () => setListaEnPortada(true) }), []);
+  if (enPortada) {
+    return (
+      <div className="cr" data-portada="si" data-movil={listaEnPortada ? 'mako' : 'pieza'}>
+        {listaEnPortada && (
+          <section role="complementary" className="cr-tarjeta" aria-label={`Tus proyectos de ${tab}`}>
+            <ListaDeProyectos {...p} creando={centro === 'nueva' && !p.portada} onNuevo={() => { setListaEnPortada(false); alNuevo(); }}
+              onChat={() => setListaEnPortada(false)} cerrar onElegido={() => { setListaEnPortada(false); setCreando(false); setCara('chat'); setMovil('pieza'); }} />
+          </section>
+        )}
+        <PortadaCrearCtx.Provider value={ctxPortada}>
+          <div className="cr-centro">
+            {hayPieza && <div className="cr-pieza" hidden={centro === 'nueva'}>{children}</div>}
+            {centro === 'nueva' && p.nueva}
+          </div>
+        </PortadaCrearCtx.Provider>
+      </div>
+    );
+  }
+
   return (
     <div className="cr" data-movil={movil}>
       <div className="cr-movil" role="group" aria-label="Qué ver">
@@ -262,8 +296,10 @@ export function PantallaCrear(p: PropsPantallaCrear) {
 }
 
 /** La otra cara de la tarjeta: la lista de proyectos (copiada de paneles/PanelLandings.tsx del Web Generator). */
-function ListaDeProyectos({ tab, nuevo, proyectos, errorProyectos, onReintentar, actual, onAbrir, pieLista, creando, onNuevo, onChat, onElegido }: PropsPantallaCrear & {
+function ListaDeProyectos({ tab, nuevo, proyectos, errorProyectos, onReintentar, actual, onAbrir, pieLista, creando, onNuevo, onChat, onElegido, cerrar = false }: PropsPantallaCrear & {
   creando: boolean; onNuevo: () => void; onChat: () => void; onElegido: () => void;
+  /** En la portada (sin chat): el botón de la cabecera cierra la lista (✕) en vez de volver al chat. */
+  cerrar?: boolean;
 }) {
   const [busca, setBusca] = useState('');
   const visibles = useMemo(() => proyectosVisibles(proyectos ?? [], busca), [proyectos, busca]);
@@ -273,9 +309,15 @@ function ListaDeProyectos({ tab, nuevo, proyectos, errorProyectos, onReintentar,
     <div className="cr-lista">
       <div className="cr-lista__cab">
         <input className="cr-lista__busca" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label={`Buscar en tus proyectos de ${tab}`} />
-        <button type="button" className="cr-lista__mako" onClick={onChat} title="Volver al chat con MaKo" aria-label="Volver al chat con MaKo">
-          <Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="despierto" size={26} />
-        </button>
+        {cerrar ? (
+          <button type="button" className="cr-lista__mako" onClick={onChat} title="Cerrar" aria-label={`Cerrar tus proyectos de ${tab}`}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        ) : (
+          <button type="button" className="cr-lista__mako" onClick={onChat} title="Volver al chat con MaKo" aria-label="Volver al chat con MaKo">
+            <Muneco titulo="MaKo" aspecto={ASPECTO_MAKO} animo="despierto" size={26} />
+          </button>
+        )}
       </div>
       <nav className="cr-lista__items" aria-label={`Tus proyectos de ${tab}`}>
         <button type="button" className="cr-item cr-item--nuevo" aria-current={creando ? 'true' : undefined} onClick={onNuevo}>

@@ -1093,11 +1093,7 @@ export function PanelAgente() {
           )}
           {hilo.mensajes.length === 0 && !aperturaHabla && (
             <>
-              <div className="gma-ag-burbuja" data-de="mako">
-                {intencion === 'discutir'
-                  ? 'Pregúntame lo que quieras de tu landing: te digo qué cambiaría, sin tocar nada.'
-                  : 'Pídeme que edite, cree o diseñe lo que quieras.'}
-              </div>
+              {/* Sin la burbuja que explicaba cómo usar el chat (12/11/2026, Martín: «un texto que es innecesario»): los botones. */}
               <div className="gma-ag-pildoras">
                 {sugerencias.map((s) => (
                   <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={hilo.corriendo || !editor}>{s.rotulo}</button>

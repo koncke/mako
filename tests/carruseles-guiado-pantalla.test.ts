@@ -147,7 +147,10 @@ test('5. PantallaCrear con `nueva`: los ejemplos EN LUGAR de «¿Qué vas a crea
   const con = renderToStaticMarkup(createElement(PantallaCrear, { ...base, nueva: createElement('p', { id: 'los-outliers' }, 'Encuentra tu siguiente OUTLIER') }));
   assert.match(con, /id="los-outliers"/, 'el centro de «Nuevo carrusel» son los ejemplos');
   assert.ok(!con.includes(TITULO_CAJA), '«¿Qué vas a crear hoy?» no se dibuja');
-  assert.match(con, /className="cr-tarjeta"|class="cr-tarjeta"/, 'la tarjeta de MaKo sigue a la izquierda');
+  // 12/11/2026, Martín: «Si yo estoy en la tab principal donde digo encuentra tu siguiente outlier, no debería salir el chat de MaKo
+  // porque es confuso… cuando le doy clic a uno y entro a editar, ahí sí que salga el chat». Corrige el «siempre a la izquierda».
+  assert.doesNotMatch(con, /className="cr-tarjeta"|class="cr-tarjeta"/, 'la portada de outliers va sin el chat');
+  assert.match(con, /data-portada="si"/);
   const sin = renderToStaticMarkup(createElement(PantallaCrear, base));
   assert.ok(sin.includes(TITULO_CAJA), 'las demás tabs se ven igual');
 });

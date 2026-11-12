@@ -37,6 +37,7 @@
 //   · `listarCola` que la devuelve a la cola si la foto no se pudo bajar       → 8b
 //   · al Runner le llega la foto vieja, o se marca con ella                      → 8b
 //   · el script sin la salida `--sin-persona`                                   → 8c
+//   · `anotarEn` que reescribe el registro entero limpio (lo de antes del 12/11) → 9
 // Correr: node --import tsx --test tests/spy-caricatura-cola.test.ts
 // =============================================================================
 
@@ -301,6 +302,19 @@ test('8. un logo sale de la cola en el acto, con su foto, y NO es un fallo de Ca
   assert.equal(caraDeTarjeta({ caricatura: caricaturasListas(reg).get(41) ?? null, avatar: FOTO_LOGO }, null), FOTO_LOGO);
   // Leerlo otra vez no lo vuelve a encolar.
   assert.equal(await encolarCaricatura(b.deps, logo(9, 41), T0 + 5 * ESPERA_TRAS_FALLO_MS), 'sin-cambio');
+});
+
+test('9. escribir una entrada no borra lo que las OTRAS tienen y esta versión no conoce (12/11: se perdía «sin persona»)', async () => {
+  // Producción corría el código de antes de `sinPersona` y el Runner marcaba con el script nuevo: cada lectura de
+  // cualquier competidor reescribía el registro limpio y la marca desaparecía. Acá «del futuro» hace de lo que hoy no se conoce.
+  const b = baseDeMentira([den(9, 42)]);
+  const logo41 = { foto: FOTO_DEN, desde: new Date(T0).toISOString(), sinPersona: 'es un logo', sinPersonaEn: new Date(T0).toISOString(), delFuturo: { marca: 'en el competidor' } };
+  b.settings.set(9, { valor: JSON.stringify({ '41': logo41 }), version: 1 });
+  assert.equal(await encolarCaricatura(b.deps, den(9, 42, { instagram: 'otra.persona', avatar: `${STORAGE}spy/avatar/otra.persona.jpg` }), T0), 'pendiente');
+  const crudo = JSON.parse(b.settings.get(9)?.valor ?? '{}');
+  assert.deepEqual(crudo['41'], logo41, 'la entrada que no se tocó queda TAL CUAL');
+  assert.equal(crudo['42']?.foto, `${STORAGE}spy/avatar/otra.persona.jpg`);
+  assert.equal(b.registro(9)['41']?.sinPersona, 'es un logo');
 });
 
 test('8b. vuelve a la cola sólo si cambia la foto, aunque la URL sea la misma (y no por no poder bajarla)', async () => {

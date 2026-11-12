@@ -41,6 +41,32 @@ export function rotuloDeFormato(o: { formato: FormatoCopy; laminas?: number | nu
   return o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas} láminas` : INFO_FORMATO[o.formato].label;
 }
 
+/**
+ * El MARCO de la tarjeta, con la forma de su plataforma (12/11/2026, Martín: «para que se note la diferencia entre un copywriting y
+ * otro, tenga como el formato del video. Si es en YouTube, que sea más horizontal, si es en Reels, que sea más vertical, si es en
+ * Carrusel, que sea más cuadrado»). Ancho / alto. El anuncio va cuadrado, como su tarjeta en Image.
+ */
+export const PROPORCION_FORMATO: Readonly<Record<FormatoCopy, number>> = { youtube: 16 / 9, reel: 9 / 16, carrusel: 4 / 5, anuncio: 1 };
+export const ASPECTO_FORMATO: Readonly<Record<FormatoCopy, string>> = { youtube: '16 / 9', reel: '9 / 16', carrusel: '4 / 5', anuncio: '1 / 1' };
+
+/** El id de un video de YouTube en su link (`watch?v=`, `youtu.be/`, `shorts/`, `embed/`). null = no es uno. */
+export function idDeYouTube(url: string | null | undefined): string | null {
+  const m = /(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/i.exec(url ?? '');
+  return m ? m[1] : null;
+}
+
+/**
+ * La imagen del ORIGINAL, la que aparece al pasar el cursor por la tarjeta (12/11/2026, Martín: «si yo le paso el cursor, que veo
+ * el carrusel original o el reel original o el video o la miniatura de YouTube original»): la que guardamos (la portada del reel, la
+ * primera lámina, la del anuncio) y, si no hay, la miniatura pública de un video de YouTube. null = no hay qué mostrar: la tarjeta
+ * se queda con el texto.
+ */
+export function imagenDelOriginal(o: Pick<OutlierCopy, 'miniatura' | 'url' | 'formato'>): string | null {
+  if (o.miniatura) return o.miniatura;
+  const yt = o.formato === 'youtube' ? idDeYouTube(o.url) : null;
+  return yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : null;
+}
+
 /** Los días al aire de un anuncio, como en Image. */
 export const rotuloDiasAlAire = (d: number | null | undefined): string | null => (d == null ? null : d === 1 ? '1 día al aire' : `${d} días al aire`);
 
@@ -341,7 +367,7 @@ export function tituloDeReplica(o: Pick<OutlierCopy, 'gancho' | 'creador'>): str
  * El original, como lo lee MaKo (una referencia del server en cada pedido de la página replicada: lib/copywriter/referencias.ts).
  * Dice qué es, cuánto funcionó y el texto, y la regla: copiar la estructura, el tipo de gancho y el ritmo, nunca las frases.
  */
-export function textoParaMaKo(o: OutlierCopy, rotuloMultiplo: string | null): string {
+export function textoParaMaKo(o: OutlierCopy, rotuloMultiplo: string | null, hoy: Date = new Date()): string {
   const quien = o.creador.usuario ? `@${o.creador.usuario}` : o.creador.nombre;
   const cuanto = rotuloMultiplo ? `; le fue ${rotuloMultiplo} lo que suele rendir su cuenta`
     : o.diasAlAire != null ? `; lleva ${o.diasAlAire} días al aire` : '';
@@ -352,7 +378,32 @@ export function textoParaMaKo(o: OutlierCopy, rotuloMultiplo: string | null): st
     `${ROTULO_TEXTO[o.deDonde].toUpperCase()}:`,
     texto,
     'CÓMO SE REPLICA: copia su estructura (las partes y su orden), su tipo de gancho y su ritmo, con el negocio y la oferta de EL NEGOCIO. Nunca copies sus frases, sus datos, sus nombres ni sus resultados: son de otro. Tampoco su gancho con dos palabras cambiadas: el mismo TIPO de gancho, dicho con tus palabras, y ninguna frase de 5 palabras seguidas igual a la suya.',
+    ...reglasDeLaReplica(o, hoy),
   ].join('\n');
+}
+
+/** Las palabras de un texto (para medir el largo del original y el de la réplica). */
+export const palabrasDe = (t: string): number => (t.match(/[\p{L}\p{N}][\p{L}\p{N}'’]*/gu) ?? []).length;
+
+/**
+ * Lo que la réplica tiene que cumplir además de la estructura (12/11/2026, prueba en producción): el anuncio de 40 palabras salió
+ * de 200; el carrusel de 7 láminas, en prosa; el video de YouTube, con cifras, casos y una garantía inventados; el reel, con el
+ * título del competidor. Va en el ORIGINAL (lo manda el server en cada pedido de la página), no en el pedido que se ve en la charla.
+ */
+export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | 'texto' | 'laminas'>, hoy: Date = new Date()): string[] {
+  const n = palabrasDe(o.texto);
+  const entre = `entre ${Math.max(5, Math.round(n * 0.75))} y ${Math.max(10, Math.round(n * 1.25))} palabras`;
+  const largo = o.formato === 'carrusel'
+    ? `EL FORMATO: un carrusel${o.laminas ? ` de ${o.laminas} láminas` : ''}. Escríbelo lámina por lámina, en una tabla (Lámina | Texto en la imagen | Visual)${o.laminas ? ` con ${o.laminas} filas` : ''}: la primera es el gancho, la última el llamado, y cada una con pocas palabras (se leen en la imagen). Debajo, una sección «Pie» con el texto de la publicación, de ${entre} como su pie.`
+    : o.deDonde === 'pie' ? 'EL LARGO: lo de arriba es el PIE de la publicación, no lo que se dice en el reel. Copia su gancho y su idea, y escribe el reel con la forma de un reel (gancho, desarrollo, cierre), de 30 a 60 segundos dichos.'
+      : o.deDonde === 'descripcion' ? 'EL LARGO: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Si trae capítulos (0:00 …), ésos son sus partes y su orden: una sección por capítulo.'
+        : `EL LARGO: el original tiene unas ${n} palabras; el tuyo, ${entre}, con la misma cantidad de partes. Ni una sección que el original no tenga.`;
+  return [
+    largo,
+    'LAS PRUEBAS: cifras, porcentajes, casos, clientes, testimonios y garantías salen SÓLO de EL NEGOCIO. Si el original muestra una prueba y el negocio no tiene una, escribe [DATO: la prueba que falta]. Nunca inventes un número ni una garantía.',
+    `EL TÍTULO: ponle a la página un título PROPIO con {"op": "titulo"} (el de ahora es la frase del original). Si el original nombra un año, el tuyo es ${hoy.getFullYear()}.`,
+    'AL ESCRIBIRLA (la primera vez, o cuando te pidan rehacerla): el guion ENTERO, todas sus partes en su orden y cada sección lista para grabar o publicar; en propiedades, el ángulo y la estructura de la biblioteca que más se parezcan al original. Después, un cambio puntual toca sólo lo pedido.',
+  ];
 }
 
 /** El nombre con que el original viaja entre las referencias de MaKo (lib/copywriter/referencias.ts, lib/copywriter/ia.ts). */

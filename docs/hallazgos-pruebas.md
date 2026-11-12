@@ -22,6 +22,18 @@ una persona. Así se vio el «Enviar» cortado y se midieron los 105 s de transc
 cambió la grilla (la URL sí cambiaba); en ws 9, recargando y esperando 8 s, abrió y se recorrió entero, también a 375. Antes de
 anotarlo como falla de la pantalla se prueba otra carga.
 
+## Grabar un audio en el navegador de la app, que bloquea el micrófono (12/11/2026, chat «probar-copy»)
+
+- El navegador de la app no da micrófono («No se pudo acceder al micrófono»). Para probar una nota de voz de punta a punta se le
+  da a la página una voz sintetizada: el sintetizador de Windows (`System.Speech`, voz «Helena», es-ES) escribe un WAV, y la
+  página reemplaza `navigator.mediaDevices.getUserMedia` por un `AudioContext` que lo reproduce en un `MediaStreamDestination`.
+  La transcripción y la respuesta de MaKo son las de verdad.
+- ⚠️ **Las tres trampas para meter el WAV en la página:** pegarlo en base64 cuesta ~30.000 tokens por 25 KB; `fetch` de
+  hola-mako a `http://localhost` falla («Failed to fetch»: el acceso a la red local se bloquea sin preguntar); y `window.open`
+  desde una página local abre en la MISMA pestaña, así que `postMessage` no tiene a quién. **Lo que anduvo:** una página local
+  pone el WAV en `window.name` (sobrevive a la navegación a otro origen en la misma pestaña) y navega a MaKo; ahí un `<script>`
+  insertado (corre en el mundo de la página) lee `window.name` y reemplaza `getUserMedia`.
+
 ## Mirar la foto ACHICADA también engaña: el velo del recorrido «no estaba», y el píxel decía que sí (11/11/2026)
 
 **Síntoma:** en la sexta maqueta de Marketing CoPilot, la foto de 1440 × 900 del recorrido de «Tu web» se veía con la página clara. Parecía que el velo oscuro no se dibujaba.

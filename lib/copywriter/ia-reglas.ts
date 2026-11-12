@@ -93,7 +93,40 @@ export const PROMPTS_COPY = {
  * El bloque de idioma: el guion lo dice el negocio, con su acento (el texto en inglés que da lib/acento-workspace.ts,
  * el mismo del Video Generator). Las respuestas en el chat van en español neutro, de «tú».
  */
-export function bloqueIdiomaCopy(acentoPrompt: string | null): string {
-  const acento = acentoPrompt ? ` Lo que va EN EL GUION lo dice una persona del negocio en voz alta: escríbelo para que suene natural en esta variedad (${acentoPrompt}), tratando a la audiencia de «tú» salvo que esa variedad use otra forma.` : ' Lo que va EN EL GUION lo dice una persona del negocio en voz alta: español neutro latinoamericano, tratando a la audiencia de «tú», sin modismos rioplatenses.';
+export function bloqueIdiomaCopy(acentoPrompt: string | null, vosea = false): string {
+  // UNA forma en todo el guion (12/11/2026, en producción, un negocio rioplatense): «tratando de "tú" salvo que esa variedad use
+  // otra forma» dejaba al modelo a mitad de camino, y salía «Mandás un anuncio… esperas» en el mismo párrafo.
+  const trato = vosea
+    ? 'tratando a la audiencia con el voseo de esa variedad en TODO el guion, nunca mezclado con el tuteo (si una frase usa voseo, todas)'
+    : 'tratando a la audiencia de «tú» en TODO el guion, sin voseo';
+  const acento = acentoPrompt ? ` Lo que va EN EL GUION lo dice una persona del negocio en voz alta: escríbelo para que suene natural en esta variedad (${acentoPrompt}), ${trato}.` : ' Lo que va EN EL GUION lo dice una persona del negocio en voz alta: español neutro latinoamericano, tratando a la audiencia de «tú», sin modismos rioplatenses.';
   return `IDIOMA (IMPORTANTE): le contestas a la persona en español neutro, de «tú», sin voseo.${acento}`;
+}
+
+/**
+ * Las cifras y la garantía que MaKo escribió sin fuente (capa 2 de «no inventas cifras ni garantías», AGENTS.md: una regla en un
+ * prompt no es una regla). 12/11/2026, en producción: la réplica de un video de YouTube trajo «el 73 %», «60 % más bajo», «más de
+ * 50 negocios» y «3 a 5 clientes garantizados o devolvemos lo que pagaste», con la regla en el prompt. Mira los porcentajes y los
+ * «N veces / Nx» (las duraciones y las cantidades de la estructura, como «30 días» o «3 segundos», no), y una promesa de garantía
+ * o devolución. Una cifra tiene fuente si ese número aparece en lo que MaKo leyó (el negocio, el original, la charla, el guion de
+ * antes, los adjuntos).
+ */
+export function cifrasSinFuente(escrito: string, fuentes: string): { cifras: string[]; garantia: boolean } {
+  const digitos = (t: string) => t.replace(/[.,\s]/g, '');
+  const conFuente = new Set((fuentes.match(/\d+(?:[.,]\d+)*/g) ?? []).map(digitos));
+  const cifras: string[] = [];
+  for (const m of escrito.matchAll(/(\d+(?:[.,]\d+)*)\s*(%|por ciento|veces\b|x\b)/gi)) {
+    const tal = m[0].replace(/\s+/g, ' ').trim();
+    if (!conFuente.has(digitos(m[1])) && !cifras.includes(tal)) cifras.push(tal);
+  }
+  const PROMESA = /garantiz|te devolvemos|devolvemos (?:tu|lo que|el)|reembols/i;
+  return { cifras: cifras.slice(0, 4), garantia: PROMESA.test(escrito) && !/garant|devol|reembols/i.test(fuentes) };
+}
+
+/** Lo que dice la tarjeta de la propuesta sobre esas cifras. */
+export function avisosDeCifras(c: { cifras: string[]; garantia: boolean }): string[] {
+  return [
+    ...(c.cifras.length ? [`Tiene cifras que no salen de tu negocio (${c.cifras.join(', ')}): revísalas o pídele a MaKo que las cambie por [DATO].`] : []),
+    ...(c.garantia ? ['Promete una garantía o una devolución que tu negocio no dice: revísala antes de publicar.'] : []),
+  ];
 }
