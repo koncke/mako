@@ -21,21 +21,21 @@ después white-labels de GoHighLevel, setters con IA y fábricas de creativos; l
 | CRM | GoHighLevel (`gohighlevel.com`) | Sí | **`/vsl/crm`** (rehecha) |
 | Automations / setter con IA | SetSmart (`setsmart.io/es`) | Sí | **`/vsl/seguimiento`** (rehecha) |
 | Dashboard y reportes | Reportei (`reportei.com/es`) | Sí | **`/vsl/dashboard`** (rehecha) |
-| Agenda | iClosed (`iclosed.io`) | Sí | falta |
+| Agenda | iClosed (`iclosed.io`) | Sí | **`/vsl/agenda`** (nueva) |
 | Closing Analyst | **Sin ganadora**: Voicit graba reuniones de RR. HH., no analiza llamadas de venta | Sí | falta (`/vsl/closing` sigue como estaba) |
-| Cobranza | Rebill (`rebill.com`) | Sí | falta (`/vsl/cobranza` sigue como estaba) |
-| Marketing CoPilot / Media Buyer | Master Ads (`masterads.ai`) | Sí | falta (`/vsl/ads` sigue como estaba) |
-| Ads Analyst | Gethookd (`gethookd.ai`) | Sí | falta (`/vsl/script` sigue como estaba) |
-| Competitor Spy | Foreplay (`foreplay.co`) | Sí | falta |
-| Video (editor) | Cherry Studio (`cherrysweet.app`) | Sí | falta |
-| Image (carruseles y creativos) | PostNitro (`postnitro.ai`) | Sí | falta |
-| Copywriting | The Copy Machine (`theoperatorstack.io/copy-machine`) | Sí | falta |
-| Web Generator | HighLevel AI Studio (`gohighlevel.com/ai-studio`) | Sí | falta |
-| Ops Center / Second Brain (MaKo, tu consultor) | Holo (`tryholo.ai`) | Sí | falta (`/vsl/mako` sigue como estaba) |
-| Plan (prioridades) | Motion (`usemotion.com`) | Sí | falta (`/vsl/prioridades` sigue como estaba) |
-| Offer | Atlas AI de DFY (`go.doneforyou.com/offer-formula`) | Sí | falta |
-| Funnels / embudo | Hyros (`hyros.com`) | Sí | falta (`/vsl/funnel` sigue como estaba) |
-| Email marketing | beehiiv (`beehiiv.com`) | Sí | falta (`/vsl/email` sigue como estaba) |
+| Cobranza | Rebill (`rebill.com`) | Sí | **`/vsl/cobranza`** (rehecha) |
+| Marketing CoPilot / Media Buyer | Master Ads (`masterads.ai`) | Sí | **`/vsl/ads`** (rehecha) |
+| Ads Analyst | Gethookd (`gethookd.ai`) | Sí | **`/vsl/script`** (rehecha) |
+| Competitor Spy | Foreplay (`foreplay.co`) | Sí | **`/vsl/competitor-spy`** (nueva) |
+| Video (editor) | Cherry Studio (`cherrysweet.app`) | Sí | **`/vsl/video`** (nueva) |
+| Image (carruseles y creativos) | PostNitro (`postnitro.ai`) | Sí | **`/vsl/image`** (nueva) |
+| Copywriting | The Copy Machine (`theoperatorstack.io/copy-machine`) | Sí | **`/vsl/copywriting`** (nueva) |
+| Web Generator | HighLevel AI Studio (`gohighlevel.com/ai-studio`) | Sí | **`/vsl/web-generator`** (nueva) |
+| Ops Center / Second Brain (MaKo, tu consultor) | Holo (`tryholo.ai`) | Sí | **`/vsl/mako`** (rehecha) |
+| Plan (prioridades) | Motion (`usemotion.com`) | Sí | **`/vsl/prioridades`** (rehecha) |
+| Offer | Atlas AI de DFY (`go.doneforyou.com/offer-formula`) | Sí | **`/vsl/offer`** (nueva) |
+| Funnels / embudo | Hyros (`hyros.com`) | Sí | **`/vsl/funnel`** (rehecha) |
+| Email marketing | beehiiv (`beehiiv.com`) | Sí | **`/vsl/email`** (rehecha) |
 | Classroom (curso y comunidad) | Skool (`skool.com`) | **No**: su portada carga vacía sin sesión | falta |
 
 Newsletter, VSL Generator, Sales Email, Closing Script y Sales Roleplay **no se investigaron**: en el código están como

@@ -118,11 +118,12 @@ test('3. los outliers: lo inválido afuera, sin repetidos, lo que se replica pri
   assert.deepEqual(r.outliers.map((x) => x.id), ['mako:mensaje-para', 'spy:1', 'spy:5'], 'lo replicable primero, después por múltiplo');
   assert.equal(r.outliers.find((x) => x.id === 'spy:5')?.plantilla, null);
   assert.deepEqual(r.caidas, [{ fuente: 'fuera', nombre: 'fuera', motivo: 'No respondió.' }]);
-  // La fuente de MaKo: una por plantilla guiada, válida, sin la imagen de un tercero y sin un múltiplo inventado.
+  // La fuente de MaKo: una por plantilla guiada, válida, con la portada de su reel servida por NOSOTROS (11/11/2026, Martín: «ni
+  // siquiera se ve la miniatura»; la del CDN de Instagram vence a las horas) y sin un múltiplo inventado.
   assert.ok(OUTLIERS_CON_PLANTILLA.length >= 1);
   for (const o of OUTLIERS_CON_PLANTILLA) {
     assert.ok(outlierValido(o), o.id);
-    assert.equal(o.miniatura, null);
+    assert.match(o.miniatura ?? '', /^\/ve\/plantillas\/[a-z-]+\.jpg$/);
     assert.equal(o.multiplo?.veces, null);
   }
 });
@@ -190,19 +191,22 @@ test('3b. los reels de Spy (11/11/2026): el «×» de su cuenta, su miniatura y 
   assert.match(servidor, /if \(r\.error === 'sin-clave' \|\| r\.error === 'sin-cuenta' \|\| r\.error === 'sin-analytics'\) return \{ ok: true, outliers: \[\] \};/, 'sin Zernio no es una caída');
   assert.match(servidor, /podarVencido\(f\)/, 'los textos y números vencidos de Spy no se muestran');
   const portada = sinComentarios(leer('app/video-editor/OutliersVideo.tsx'));
-  assert.match(portada, /<span className=\{o\.marca\}>MaKo te guía<\/span>/);
+  assert.match(portada, /<Miniatura src=\{x\.miniatura\} marca="MaKo te guía" \/>/);
   assert.doesNotMatch(portada, /rotuloCortoDeMultiplo/, '«Sin datos de su cuenta» no va en la tarjeta de la plantilla');
-  assert.match(portada, /<img src=\{x\.miniatura\} alt="" className=\{s\.miniImagen\}/);
+  assert.match(portada, /<img src=\{src\} alt="" className=\{s\.miniImagen\}/);
   assert.match(portada, /<Link href="\/competitor-spy" className=\{s\.pastilla\}>\+ Seguir cuentas<\/Link>/);
   // En el teléfono también, como Image: los outliers primero (dos columnas, sin «Replicar»: el guiado es de la computadora).
   const movil = sinComentarios(leer('app/m/video-editor/page.tsx'));
-  assert.match(movil, /if \(vistaDeVideo\(q\) === 'outliers'\) \{[\s\S]*?<OutliersVideo portada=\{await leerOutliersVideo\(\)\} telefono rutaCrear="\/video-editor\?ver=crear" \/>/);
+  assert.match(movil, /if \(vistaDeVideo\(q\) === 'outliers'\) \{[\s\S]*?<OutliersVideo portada=\{await leerOutliersVideo\(\)\} telefono rutaCrear="\/video-editor\?ver=crear" rutaPortada="\/m\/video-editor\?ver=outliers" familia=\{familiaDe\(q\)\} \/>/);
   assert.match(portada, /<div className=\{s\.raiz\} data-telefono=\{telefono \? 'si' : undefined\}>/);
-  assert.match(portada, /\{x\.plantilla && !telefono && <Link href=\{rutaReplicar\(x\.plantilla\)\}/);
+  assert.match(portada, /const replicar = x\.plantilla && !telefono \? <Link href=\{rutaReplicar\(x\.plantilla\)\}/);
 });
 
 test('4. la portada: outliers primero, «Crear desde cero» con `ver=crear`, y «Replicar» sólo con una plantilla que existe', () => {
-  assert.equal(vistaDeVideo({}), 'outliers');
+  // 11/11/2026, Martín: «directamente todo el sistema de edición primero»: la tab abre en crear; la portada, con `ver=outliers`.
+  assert.equal(vistaDeVideo({}), 'crear');
+  assert.equal(vistaDeVideo({ ver: 'outliers' }), 'outliers');
+  assert.equal(vistaDeVideo({ ver: 'outliers', replicar: 'mensaje-para' }), 'crear');
   assert.equal(vistaDeVideo({ ver: 'crear' }), 'crear');
   assert.equal(vistaDeVideo({ replicar: 'mensaje-para' }), 'crear');
   assert.equal(replicarDe({ replicar: 'mensaje-para' }), 'mensaje-para');
@@ -212,7 +216,7 @@ test('4. la portada: outliers primero, «Crear desde cero» con `ver=crear`, y �
   // La página lee la vista y monta los outliers sin el motor (el server no importa un valor del motor).
   const page = sinComentarios(leer('app/video-editor/page.tsx'));
   assert.match(page, /if \(vistaDeVideo\(q\) === 'outliers'\)/);
-  assert.match(page, /<OutliersVideo portada=\{await leerOutliersVideo\(\)\} \/>/);
+  assert.match(page, /<OutliersVideo portada=\{await leerOutliersVideo\(\)\} familia=\{familiaDe\(q\)\} \/>/);
   const portada = leer('app/video-editor/OutliersVideo.tsx');
   assert.match(portada, /role="alert"[\s\S]*?<ReportarASoporte \/>/, 'una fuente caída se dice, con «Reportar a Soporte»');
   assert.doesNotMatch(sinComentarios(portada), /_opencut/, 'la portada no carga el motor');

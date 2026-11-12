@@ -4,14 +4,18 @@ Pedido de Martín (11/11, por el Cerebro): «generar lo mismo que venimos hacien
 outliers de páginas que estén buenas… empezar por la competencia… por las páginas de todos los gurús. Puedes googlear y
 encontrarlas… hacer un relevo de páginas que nos podrían llegar a interesar, y ponerlas ahí como outlier».
 
-**Dónde se ven:** la portada de Web Generator (`/web-generator`, «Encuentra tu siguiente OUTLIER»,
-`app/web-generator/OutliersLandings.tsx`), copiada de la de Video y la de Image: la misma grilla y la misma tarjeta.
-**De dónde salen** (`lib/landing-outliers-servidor.ts`):
+**Dónde se ven:** la portada de Web Generator (`/web-generator`, «Encuentra tu siguiente OUTLIER», `app/web-generator/OutliersLandings.tsx`),
+adentro del armazón de Create (el chat de MaKo a la izquierda: `app/web-generator/PortadaWeb.tsx`), con las plantillas arriba.
+Cada tarjeta muestra la CAPTURA LARGA de la página (la página entera) y la baja sola al pasar el cursor.
 
-1. **Tu competencia**: las landings de los competidores que el negocio sigue en Competitors Spy (`spy_competidores.landing_url`),
-   primero. Su imagen es la que la misma página publica para compartirse (`og:image`); sin ella, la tarjeta dibuja el sitio.
-2. **El relevo**: las de abajo, de los gurús y referentes del nicho, con su captura en `public/web-generator/outliers/`
-   (`node --import tsx scripts/capturas-outliers-landings.mjs`) y su lugar en `RELEVO` (`lib/landing-outliers.ts`).
+**De dónde salen** (`lib/landing-outliers-servidor.ts` y `lib/landing-outliers-datos.ts`):
+
+1. **Tu competencia**: las landings de los competidores que el negocio sigue en Competitors Spy, primero, si tienen su captura
+   larga. Las que no, esperan (la portada dice cuántas) y se sacan con el script de abajo.
+2. **El relevo**: las del manifiesto `lib/landing-outliers-capturas.json`, cada una con su captura en
+   `public/web-generator/outliers/largas/<id>.webp`, mirada antes de entrar: gurús y referentes del nicho, la competencia de
+   cada función de MaKo (`docs/competencia/landings-por-funcion.md`) y las de los competidores que siguen los negocios en Spy.
+   Las que quedaron afuera, con su motivo: `docs/web-generator/outliers-capturas-afuera.md`.
 
 «Replicar» abre Replicar con esa página arrancando sola (`/web-generator?replicar=<url>`), el mismo camino que «Copiar su sitio»
 de Spy.
@@ -32,37 +36,68 @@ de Spy.
 | ws 11 | Víctor Heras | http://www.viralidad.com | Sí |
 | ws 11 | Tito Gálvez | https://tittogalvez.online | Sí |
 
-Ninguna pieza de landing de Spy tiene miniatura guardada: por eso la imagen de la competencia es su `og:image`.
+Ninguna pieza de landing de Spy tiene miniatura guardada. Hasta la noche del 11/11 la tarjeta usaba la `og:image` de la página (la de viralidad.com es un recuadro negro con su logo): desde entonces cada una entra con su captura larga, sacada por el script.
 
-## El relevo de gurús y referentes
+## Las 52 que entran (11/11/2026)
 
-Verificadas el 11/11/2026: cada una abre sin login y vende algo (relevo hecho con búsqueda web y la página leída). El titular va
-TAL CUAL está en la página, en su idioma. En español primero.
+En español primero. El titular va TAL CUAL está en la página.
 
-| De quién | Nicho | Tipo | Idioma | Titular (link) | Por qué funciona | Captura |
-|---|---|---|---|---|---|---|
-| Clara Pérez (High Ticket Clarity) | Coaches high ticket | Webinar | es | [Imaginá agregar 10K AL MES a tu facturación](https://clase.highticketclarity.com/) | Resultado concreto para un público muy definido (coaches, consultoras y dueñas de agencia), una masterclass en vivo que se da una sola vez y cupos limitados. | `clara-perez-clase` |
-| Clara Pérez (High Ticket Clarity) | Coaches high ticket | VSL | es | [Sin publicidad y sin reels virales: las claves para escalar tu negocio en redes](https://vender-en-redes.highticketclarity.com/) | La clase gratis de 11 minutos queda detrás de un formulario que califica (facturación, seguidores, problema), y después el equipo te contacta por WhatsApp: precalifica antes de vender. | `clara-perez-vsl` |
-| Josué Peña (Digital Closer Academy) | Closers de ventas | Webinar | es | [Las Empresas Están Contratando Personas Para Atender Sus Llamadas de Ventas](https://masterclassdeventas.com/) | Gancho de oportunidad laboral con la comisión por llamada en el subtítulo, masterclass en vivo con fecha y hora, testimonios con país y el botón de reservar repetido en toda la página. | `masterclass-de-ventas` |
-| Programa Momentum | Eventos presenciales | VSL | es | [Genera una nueva línea de ingresos](https://programa.formacionmomentum.com/video) | Embudo VSL en dos pasos (ver el video y agendar la llamada) con un filtro de facturación mínima para atraer sólo negocios que ya venden. | `momentum-vsl` |
-| Vilma Núñez | IA para negocios | Página de venta | es | [Ya no basta con chatear con la IA. Tienes que saber construir con ella.](https://ai.vilmanunez.com/ai-training) | Titular que rompe una creencia («chatear» contra «construir»), video corto de la autora, método con nombre propio, precio bajo de pago único con descuento y bonos. | `vilma-ai-training` |
-| Juan Lombana (Mercatitlán) | Video con IA | Webinar | es | [Haz videos que sí venden, en minutos y sin saber editar](https://ia.mercatitlan.com/registro) | Promesa concreta y sin fricción (videos que venden, con IA y sin saber editar), masterclass gratuita de una hora y muchos testimonios con nombre y oficio. | `mercatitlan-ia` |
-| Franck Scipion (La Transformateca) | Negocios digitales | Página de venta | es | [¿TE FALTA CLARIDAD SOBRE LOS PASOS QUE TIENES QUE DAR PARA LLEGAR A TU METAS?](https://latransformateca.com/sesion-estrategica/) | Titular en forma de pregunta sobre el dolor, una sesión de pago con un entregable claro (plan a 12 meses), el cliente ideal bien descrito y escasez real de pocas plazas al mes. | `transformateca` |
-| Oscar Feito | Negocio online | Lead magnet | es | [MILLONES DE PROFESIONALES YA ESTÁN CREANDO UN PLAN «B» PARA COMPLEMENTAR SU SUELDO Y VIVIR MEJOR…](https://www.oscarfeito.com/) | Página de captura que abre con prueba social («millones ya lo hacen»), regala una hoja de ruta a cambio del correo y muestra testimonios con nombre y empresa. | `oscar-feito` |
-| Isra Bravo | Copywriting | Lead magnet | es | [Desde 2017 mando un email diario.](https://www.israbravo.com/) | Lo mínimo posible: una frase que da autoridad por constancia y un solo campo de correo, sin promesas ni diseño, para vender después con el correo diario. | `isra-bravo` |
-| Alex Hormozi (Acquisition.com) | Ofertas y leads | Libro | en | [THE $100M BOOK SERIES](https://www.acquisition.com/books) | Regala los audiolibros a cambio del correo y un curso en video por cada libro, y desde ahí escala hacia los workshops presenciales. | `hormozi-libros` |
-| Iman Gadzhi (Monetise) | Productos digitales con IA | Página de venta | en | [Let My AI System Build You A Profitable Digital Product](https://www.monetise.com/) | Promesa grande que responde la objeción en el subtítulo (sin experiencia y sin mostrar la cara), pila de valor con software y bonos, garantía de seguir hasta que ganes y cierre con cuenta regresiva. | `monetise` |
-| Russell Brunson | Embudos | Libro | en | [How To Launch And Scale Your Company Online With Simple Sales Funnels...!](https://www.dotcomsecrets.com/) | El clásico «gratis + envío»: video de venta arriba, respaldos de figuras conocidas, bonos con valor declarado, garantía de devolver el envío y escasez por tirada limitada. | `dotcom-secrets` |
-| Russell Brunson | Expertos y coaches | Libro | en | [Find Your Message... Build A Tribe, And Change The World!](https://www.expertsecrets.com/) | La misma estructura de libro gratis + envío, con testimonios de alumnos con nombre, cinco bonos con valor declarado, una garantía con nombre propio y ventas adicionales en el pago. | `expert-secrets` |
-| Sabri Suby | Marketing y ventas | Libro | en | [Breaking News: Shark Tank Investor Releases 10,000 Copies of His $10.2 Billion 'Selling System' For Free](https://selllikecrazybook.com/free/) | Titular en formato noticia con el libro gratis y sólo el envío a tu cargo, tres bonos apilados, garantía de devolver el envío y escasez de stock limitado. | `sell-like-crazy` |
-| Sabri Suby (King Kong) | Agencia de marketing | Agendar llamada | en | [Last Step: Schedule Your Free 30-Min Strategy Session Call Now](https://kingkong.co/30-minute-strategy-session/) | Página de «último paso» que regala la sesión y un mapa de crecimiento, con un formulario por pasos que califica presupuesto, facturación y compromiso antes de dejarte agendar. | `king-kong-sesion` |
-| Dan Henry | Escalar negocios | Agendar llamada | en | [READY TO SCALE YOUR BUSINESS?](https://www.getclients.com/) | Una aplicación corta que filtra por facturación y reemplaza la llamada de ventas por un chat de WhatsApp en 24 horas, sin la fricción de agendar. | `get-clients` |
-| Alex Becker (Hyros) | Seguimiento de anuncios | Agendar llamada | en | [Tracking that grows ads Custom Made For You.](https://hyros.com/) | Software presentado como servicio a medida con llamada de demo, logos de marcas conocidas como prueba social y la garantía «resultados o no pagas». | `hyros` |
-| Grant Cardone | Inversión inmobiliaria | Webinar | en | [How to Find, Fund, and Close Your First Real Estate Deal in 2026](https://cardonefreetraining.com/) | Webinar en vivo con una promesa de tres verbos (encontrar, financiar, cerrar), un libro de regalo por registrarte, cuenta regresiva y cupos limitados. | `cardone-webinar` |
-| Grant Cardone | Negocios | Evento | en | [10X Your Business](https://10xbusinesslive.com/business-summit-main-2027) | Evento de 3 días con una promesa concreta (los 7 sistemas que le faltan a tu negocio), entradas por niveles, cuenta regresiva y un nivel agotado como escasez. | `cardone-10x` |
-| Tony Robbins | Desarrollo personal | Evento | en | [Unleash the Power Within](https://www.tonyrobbins.com/events/unleash-the-power-within/) | Evento con precios por niveles, agenda día por día, testimonios de asistentes y una oferta 2x1 por tiempo limitado que empuja a comprar. | `robbins-upw` |
+| De quién | Tipo | Idioma | De dónde | Titular (link) | Captura |
+|---|---|---|---|---|---|
+| Clara Pérez (High Ticket Clarity) | Webinar | es | Relevo | [Imagina agregar 10K AL MES a tu facturación](https://clase.highticketclarity.com/) | 3848 px |
+| Clara Pérez (High Ticket Clarity) | VSL | es | Relevo | [Sin publicidad y sin reels virales: las claves para escalar tu negocio en redes](https://vender-en-redes.highticketclarity.com/) | 1105 px |
+| Josué Peña (Digital Closer Academy) | Webinar | es | Relevo | [Las Empresas Están Contratando Personas Para Atender Sus Llamadas de Ventas](https://masterclassdeventas.com/) | 1680 px |
+| Programa Momentum | VSL | es | Relevo | [Genera una nueva línea de ingresos](https://programa.formacionmomentum.com/video) | 1265 px |
+| Vilma Núñez | Página de venta | es | Relevo | [Ya no basta con chatear con la IA. Tienes que saber construir con ella.](https://ai.vilmanunez.com/ai-training) | 4500 px |
+| Franck Scipion (La Transformateca) | Página de venta | es | Relevo | [¿TE FALTA CLARIDAD SOBRE LOS PASOS QUE TIENES QUE DAR PARA LLEGAR A TU METAS?](https://latransformateca.com/sesion-estrategica/) | 4500 px |
+| Oscar Feito | Lead magnet | es | Relevo | [MILLONES DE PROFESIONALES YA ESTÁN CREANDO UN PLAN «B» PARA COMPLEMENTAR SU SUELDO Y VIVIR](https://www.oscarfeito.com/) | 4500 px |
+| HeyGen | Página de venta | es | Competencia de MaKo | [Anuncios de video estilo UGC que generan conversiones sin contratar creadores](https://www.heygen.com/es-mx/business/marketing/ugc-video-ads) | 4500 px |
+| Arcads | Sitio | es | Competencia de MaKo | [Genera winning ads con Arcads 3.0](https://www.arcads.ai/es) | 4500 px |
+| Creatify | Sitio | es | Competencia de MaKo | [Anuncios de IA que ganan.](https://creatify.ai/es) | 4500 px |
+| Novoads | Sitio | es | Competencia de MaKo | [Tu próximo anuncio está a 4 minutos](https://novoads.ai/es) | 4476 px |
+| Leadsales | Sitio | es | Competencia de MaKo | [CRM para WhatsApp, Facebook e Instagram](https://leadsales.io/) | 4500 px |
+| respond.io | Sitio | es | Competencia de MaKo | [Los clientes preguntan por chat. Llama para más detalles. Confirma por correo electrónico.](https://respond.io/es) | 3914 px |
+| Kommo | Sitio | es | Competencia de MaKo | [Potencia tus chats, evita todo el caos](https://www.kommo.com/es/) | 3869 px |
+| Darwin AI | Sitio | es | Competencia de MaKo | [Delega las conversaciones con clientes a los empleados-IA](https://www.getdarwin.ai/) | 4500 px |
+| Clint | Sitio | es | Competencia de MaKo | [El CRM de ventas y atención al cliente que simplifica y acelera tus resultados](https://clint.digital/es) | 4500 px |
+| SetSmart | Sitio | es | Competencia de MaKo | [Tu AI setter convierte tus DM de Instagram en llamadas de venta calificadas](https://setsmart.io/es) | 4500 px |
+| Voicit | Sitio | es | Competencia de MaKo | [De reuniones y entrevistas a grandes resultados con IA. Sin bots.](https://voicit.com/) | 3748 px |
+| Master Ads | Sitio | es | Competencia de MaKo | [“Master, que las campañas de la empresa mejoren”.](https://masterads.ai/) | 2415 px |
+| SaleADS | Sitio | es | Competencia de MaKo | [A 52 segundos de... más ventas](https://saleads.ai/es) | 4500 px |
+| Reportei | Sitio | es | Competencia de MaKo | [Crea Informes y Dashboards de Marketing Digital en 3 segundos](https://reportei.com/es/) | 4500 px |
+| Cherry Studio | Sitio | es | Competencia de MaKo | [Cherry Studio tu contenido, de la idea a los resultados](https://cherrysweet.app/) | 4328 px |
+| PostNitro | Sitio | es | Competencia de MaKo | [El creador de carruseles con IA que diseña y programa tus publicaciones.](https://postnitro.ai/es) | 4500 px |
+| Motion Ads (Impultienda) | Página de venta | es | Competencia de MaKo | [Tu primer anuncio en motion graphics en menos de 1 hora. Sin saber editar.](https://motionads.impultienda.ar/) | 4500 px |
+| Vilma Núñez (Journi) | Evento | es | Spy | [Tu experiencia ya tiene valor. Haz que tu marca personal lo demuestre.](https://ai.digitaljourni.com/tallermarcapersonal) | 4500 px |
+| Julio Iero | Sitio | es | Spy | [Si quieres que el 2026 sea el año en que vendas todos los días desde tus redes sociales…](https://julioiero.com/) | 4416 px |
+| Víctor Heras (Viralidad) | VSL | es | Spy | [El método viral que utilizan gurús e influencers de redes sociales para ganar 100.000 Segu](https://www.viralidad.com/) | 2791 px |
+| Titto Gálvez | Lead magnet | es | Spy | [¿Cuántos días aguanta tu negocio sin ti?](https://tittogalvez.online/) | 1156 px |
+| Alex Hormozi (Acquisition.com) | Libro | en | Relevo | [THE $100M BOOK SERIES](https://www.acquisition.com/books) | 1476 px |
+| Iman Gadzhi (Monetise) | Página de venta | en | Relevo | [Let My AI System Build You A Profitable Digital Product](https://www.monetise.com/) | 4500 px |
+| Russell Brunson | Libro | en | Relevo | [How To Launch And Scale Your Company Online With Simple Sales Funnels...!](https://www.dotcomsecrets.com/) | 794 px |
+| Russell Brunson | Libro | en | Relevo | [Find Your Message... Build A Tribe, And Change The World!](https://www.expertsecrets.com/) | 4500 px |
+| Sabri Suby | Libro | en | Relevo | [Breaking News: Shark Tank Investor Releases 10,000 Copies of His $10.2 Billion 'Selling Sy](https://selllikecrazybook.com/free/) | 4500 px |
+| Dan Henry | Agendar llamada | en | Relevo | [READY TO SCALE YOUR BUSINESS?](https://www.getclients.com/) | 1004 px |
+| Alex Becker (Hyros) | Agendar llamada | en | Relevo | [Tracking that grows ads Custom Made For You.](https://hyros.com/) | 3258 px |
+| Grant Cardone | Webinar | en | Relevo | [How to Find, Fund, and Close Your First Real Estate Deal in 2026](https://cardonefreetraining.com/) | 2039 px |
+| Grant Cardone | Evento | en | Relevo | [10X Your Business](https://10xbusinesslive.com/business-summit-main-2027) | 2923 px |
+| Tony Robbins | Evento | en | Relevo | [Unleash the Power Within](https://www.tonyrobbins.com/events/unleash-the-power-within/) | 4500 px |
+| HeyGen | Sitio | en | Competencia de MaKo | [AI videos starring you, made in minutes](https://www.heygen.com/) | 4500 px |
+| HighLevel | Sitio | en | Competencia de MaKo | [The AI-powered business operating system](https://www.gohighlevel.com/) | 4500 px |
+| HighLevel AI Studio | Página de venta | en | Competencia de MaKo | [Websites powered by AI Studio](https://www.gohighlevel.com/ai-studio) | 4500 px |
+| iClosed | Sitio | en | Competencia de MaKo | [Triple your leads using high-converting Scheduler](https://www.iclosed.io/) | 4500 px |
+| Fastlane | Sitio | en | Competencia de MaKo | [Your next winning ad on autopilot](https://www.usefastlane.ai/) | 4500 px |
+| Holo | Sitio | en | Competencia de MaKo | [Your Marketing Department. One Hire.](https://tryholo.ai/) | 4500 px |
+| Gethookd | Sitio | en | Competencia de MaKo | [Give Your AI 22 Million Live Meta Ads](https://www.gethookd.ai/) | 4500 px |
+| Foreplay | Sitio | en | Competencia de MaKo | [The Complete Winning Ad Workflow](https://www.foreplay.co/) | 4500 px |
+| The Copy Machine (The Operator Stack) | Página de venta | en | Competencia de MaKo | [100 years of copywriting, installed into your AI.](https://theoperatorstack.io/copy-machine) | 4500 px |
+| Motion | Sitio | en | Competencia de MaKo | [Get an unfair advantage by using AI to double productivity](https://www.usemotion.com/) | 4500 px |
+| Atlas AI (Done For You) | VSL | en | Competencia de MaKo | [How I Build Profitable OFFERS in Hours — Not Months](https://go.doneforyou.com/offer-formula) | 2890 px |
+| beehiiv | Sitio | en | Competencia de MaKo | [NEWSLETTERS. PODCASTS. COMMUNITY. ONE PLATFORM.](https://www.beehiiv.com/) | 4500 px |
+| Acquisition.com (Alex y Leila Hormozi) | Sitio | en | Spy | [DO YOU WANT TO SCALE YOUR BUSINESS?](https://www.acquisition.com/) | 1729 px |
+| Leila Hormozi (Acquisition.com) | Lead magnet | en | Spy | [THE 5 FRAMEWORKS I USE TO SCALE OUR TEAMS. YOURS FREE.](https://lp.acquisition.com/leila-frameworks) | 1374 px |
 
-### Verificadas pero FUERA de la grilla por ahora (sin una captura limpia)
+## Las del relevo de la mañana que quedaron afuera (capturas chicas, 11/11)
 
 Abren para una persona; la captura automática salió mal (se miró la hoja de contacto, 11/11/2026). No se esquiva el control de
 robots de nadie: se pueden sacar a mano desde Chrome cuando haya turno y sumarse.
@@ -87,8 +122,9 @@ robots de nadie: se pueden sacar a mano desde Chrome cuando haya turno y sumarse
 
 ## Cómo sumar una
 
-1. Agregarla a `RELEVO` en `lib/landing-outliers.ts` (id, url, de quién, nicho, tipo, titular tal cual, por qué funciona en una
-   frase, en neutro).
-2. `node --import tsx scripts/capturas-outliers-landings.mjs <id>` saca su captura (Chrome sin ventana, perfil temporal) a
-   `public/web-generator/outliers/<id>.jpg`.
-3. Sumarla a la tabla de arriba. `tests/web-generator-outliers.test.ts` exige la captura y esta fila.
+1. `node --env-file=<.env con DATABASE_URL> --import tsx scripts/capturas-outliers-landings.mjs` saca las que faltan (las de
+   Spy de todos los negocios y las del documento; `--url <url>` para una suelta). Una entrada nueva llega con `"revisar": true`
+   y la portada no la muestra.
+2. Mirar su hoja (`--vistas <carpeta>`): si no se ve la landing de verdad (en blanco, negra, un logo, sólo texto, bloqueada),
+   se borra y va a la lista de afuera con su motivo. Si sirve, escribir `nicho` y `porque` (una frase en neutro) y sacarle `revisar`.
+3. `tests/web-generator-outliers.test.ts` exige la captura, el titular, el por qué y el tipo de cada una.

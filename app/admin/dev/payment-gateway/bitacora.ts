@@ -711,4 +711,20 @@ export const BITACORA: Hito[] = [
     revisar: '/admin/cobros',
     tickets: [80],
   },
+  {
+    fecha: '11 nov', hora: '20:55', chat: 'Tickets', sesion: 'local_dd6bb6fb-b110-49de-8105-e2755bc74490', cuenta: 'claude4', actor: 'claude', tipo: 'correccion',
+    titulo: 'Si pagas con tu mensualidad, Agency Dashboard ya no te pide «Pagar su mes»: entras a la cuenta de tu cliente con «Inspeccionar»',
+    puntos: [
+      '**Ticket #85 (Joan, Código Inmobiliario, 11/11).** «No me deja iniciar el onboarding ni inspeccionar», sobre Sellers (negocio 24), minutos después de que Martín la habilitara. La cartera estaba aprobada y el servidor lo dejaba entrar: lo que tapaba «Inspeccionar» era el link de Mercado Pago del primer mes (cobro 3, ARS 73.555) que el alta creó aunque la agencia paga por su mensualidad (Binance). Pagado por Binance y firmado, el link quedó pendiente y `accionDeCuenta` pone «Pagar su mes» antes que entrar.',
+      '**`cobraPorPasarela`** contesta en los dos lados: con la mensualidad prendida el alta no crea el link («Cuenta pedida») y la cartera no lleva cobro de pasarela. «No pude leer la mensualidad» sigue como antes (pasarela).',
+      '**Falta el dato:** el cobro 3 sigue pendiente y cobrable (doble cobro); se anula con `anularCobro`, que también vence la preferencia en Mercado Pago. Pide el sí de Martín.',
+    ],
+    archivos: [
+      'lib/agencia-cobro-reglas.ts — `cobraPorPasarela` (puro) · lib/partners.ts — la cartera y el alta la preguntan',
+      'tests/agencia-cobro.test.ts — el caso real de Sellers; probado rompiéndolo (cuatro roturas, 14 / 1 cada una)',
+      'docs/hallazgos-agencias.md — «No me deja iniciar el onboarding ni inspeccionar»',
+    ],
+    revisar: '/agency',
+    tickets: [85],
+  },
 ];

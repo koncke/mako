@@ -24,8 +24,9 @@ import { listarUsuarios, crearUsuario, buscarUsuarioPorEmail } from './usuarios'
 import { carteraDeAgencia, altasDeAgencia, esAgencia, agenciasHabilitadas, type FilaAlta } from './agencia';
 import { clientesAprobados, ESTADOS_CARTERA, type EstadoCartera } from './agencia-cartera';
 import { emailNormalizado, emailUtilizable } from './agencia-altas';
-import { cobrosDeClientesDeAgencia, linkPrimerMes, precioClienteDeAgencia } from './agencia-cobro';
-import { CAPA_DE_PLAN, KEY_PLAN_CAMBIADO, leerCambioDePlan, paisDeZona, planCuentaDe, planQueVeLaAgencia, type PlanCuenta, type PrecioClienteAgencia } from './agencia-cobro-reglas';
+import { cobrosDeClientesDeAgencia, linkPrimerMes, precioClienteDeAgencia, type ResultadoLinkCliente } from './agencia-cobro';
+import { CAPA_DE_PLAN, KEY_PLAN_CAMBIADO, cobraPorPasarela, leerCambioDePlan, paisDeZona, planCuentaDe, planQueVeLaAgencia, type PlanCuenta, type PrecioClienteAgencia } from './agencia-cobro-reglas';
+import { mensualidadPrendida } from './agencia-mes';
 import { CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO } from './plan-esencial-reglas';
 import { zonaDelNegocioDetalle } from './timezone';
 import { caraDeUsuario } from './gravatar';
@@ -87,7 +88,7 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
   const aprobados = new Set(clientesAprobados(agenciaWs, cartera));
   const todos = new Set(cartera.map((f) => Number(f.cliente_ws)));
 
-  const [wss, usuarios, altas, cobros, leads, precio, pagan] = await Promise.all([
+  const [wss, usuarios, altas, cobros, leads, precio, pagan, mensualidad] = await Promise.all([
     listarWorkspaces().catch(() => []),
     // `null` = no se pudo leer, que no es «nadie» (ver abajo).
     aprobados.size ? listarUsuarios().catch(() => null) : Promise.resolve([]),
@@ -96,7 +97,10 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
     leadsConCuenta(),
     precioClienteDeAgencia().catch(() => ({ usd: 47, mp: null }) as PrecioClienteAgencia),
     quienPagaDeClientes([...todos]),
+    // Con la mensualidad prendida la agencia paga por fuera de MaKo: el link de la pasarela no se le ofrece (#85, abajo).
+    mensualidadPrendida(agenciaWs),
   ]);
+  const porPasarela = cobraPorPasarela(mensualidad);
   // Qué cuentas ya tienen el plan elegido, y cuál (la marca `agency.plan_cambiado`). Sin poder leerlo, todas «elegidas»: de las aprobadas se muestra su capa.
   const elegidas = await getSupabaseServer().from('app_settings').select('workspace_id, value').eq('key', KEY_PLAN_CAMBIADO).in('workspace_id', [...todos])
     .then(({ data, error }) => (error ? null : new Map(((data ?? []) as Array<{ workspace_id: number; value: unknown }>).map((x) => [Number(x.workspace_id), leerCambioDePlan(x.value)?.plan ?? null]))), () => null);
@@ -133,7 +137,9 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
       ...planQueVeLaAgencia({ estado: estadoValido(f.estado), capa: aprobada ? w?.capa : null, hayCuenta: !!w, elegido: elegidas?.get(ws) ?? null, sinElegir: sinElegir(ws) }),
       equipo: aprobada ? (equipoPorWs.get(ws) ?? null) : null,
       altas: altasPorWs.get(ws) ?? [],
-      cobro: (cobros as Record<number, CobroCuenta>)[ws] ?? null,
+      // ⚠️ Sin esto, un link de pasarela PENDIENTE de una agencia con mensualidad tapaba «Inspeccionar» con «Pagar su mes»
+      // (`accionDeCuenta`) en una cuenta ya habilitada y pagada por la mensualidad (ticket #85, Sellers).
+      cobro: porPasarela ? ((cobros as Record<number, CobroCuenta>)[ws] ?? null) : null,
       lead: leads.get(ws) ?? null,
       paga: pagan.get(ws) ?? 'agencia',
     };
@@ -260,12 +266,18 @@ export async function abrirCuentaDePartner(p: AbrirCuenta): Promise<CuentaAbiert
 
   // El primer mes, en el acto (#866): pagarlo la habilita. Su mes corre desde que termina el onboarding (#867). Si paga el
   // cliente, el link sale a SU email (la renovación del mes siguiente se la pide a él) y él lo ve en su cartel.
-  const cobro = await linkPrimerMes({
-    agenciaWs: p.agenciaWs, clienteWs: ws.id, nombreCliente: nombre,
-    email: paga === 'cliente' ? correo : p.pagador, creadoPor: paga === 'cliente' ? `agencia para ${correo}` : (p.pagador ?? 'agencia'),
-    plan, pais,
-  });
-  if (!cobro.ok) console.warn(`[partners] cuenta ${ws.id} de la agencia ${p.agenciaWs} sin link del primer mes: ${cobro.motivo}`);
+  // ⚠️ CON LA MENSUALIDAD PRENDIDA, NINGUNO (ticket #85, 11/11/2026): la agencia paga la entrada de su cliente por fuera de
+  // MaKo y la habilita el super admin con ese pago. El link de Sellers se creó igual, quedó vivo después de la habilitación
+  // —tapando «Inspeccionar»— y seguía cobrable: pagarlo era pagar el mismo mes dos veces. Sin link, queda «Cuenta pedida».
+  const porPasarela = cobraPorPasarela(await mensualidadPrendida(p.agenciaWs));
+  const cobro: ResultadoLinkCliente = porPasarela
+    ? await linkPrimerMes({
+      agenciaWs: p.agenciaWs, clienteWs: ws.id, nombreCliente: nombre,
+      email: paga === 'cliente' ? correo : p.pagador, creadoPor: paga === 'cliente' ? `agencia para ${correo}` : (p.pagador ?? 'agencia'),
+      plan, pais,
+    })
+    : { ok: false, motivo: 'Tu agencia paga por su mensualidad, por fuera de MaKo: la cuenta se habilita con ese pago.' };
+  if (!cobro.ok && porPasarela) console.warn(`[partners] cuenta ${ws.id} de la agencia ${p.agenciaWs} sin link del primer mes: ${cobro.motivo}`);
 
   // ⚠️ SI PAGA EL CLIENTE, SU ACCESO SALE YA: tiene que entrar para hacer su onboarding, que es cuando le aparece el pago.
   // La agencia sigue sin entrar a su cuenta hasta que se pague (la cartera queda 'pendiente'): abrir cuentas sin pagar no

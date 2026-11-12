@@ -16,8 +16,9 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { leerPorPaginas } from './supabase-paginado';
 import { podarVencido } from './spy-reglas';
 import { rendimientoInstagram } from './zernio-organico';
+import { criterioDeReel } from './video-outliers-criterio';
 import {
-  FUENTE_MAKO, juntarOutliers, outliersDeSpy, outliersPropios,
+  FUENTE_MAKO, conCriterio, juntarOutliers, outliersDeSpy, outliersPropios,
   type CuentaSpy, type FuenteOutliersVideo, type LecturaFuente, type PiezaReel, type PortadaOutliers,
 } from './video-outliers';
 
@@ -45,7 +46,9 @@ export const FUENTE_SPY: FuenteOutliersVideo = {
       for (const f of pagina) piezas.push(podarVencido(f) as unknown as PiezaReel);
       return piezas.length < REELS_A_LEER;
     }, { orden: 'id', filtros: (q) => q.eq('canal', 'instagram').in('competidor_id', cuentas.map((c) => c.id)) });
-    return { ok: true, outliers: outliersDeSpy(piezas, cuentas) };
+    // Sólo los que enseñan un patrón de edición (11/11/2026, Martín: «no reels random al azar»); los demás se cuentan.
+    const { outliers, resumen } = conCriterio(outliersDeSpy(piezas, cuentas), criterioDeReel);
+    return { ok: true, outliers, resumen };
   },
 };
 
