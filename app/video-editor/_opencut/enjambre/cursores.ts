@@ -79,8 +79,8 @@ export function puntoDeCursor({
  * «tiene que funcionar mucho más rápido… que pasen los cursores todos juntos al mismo tiempo… se tiene que notar la
  * automatización».
  */
-export const PASEO_MS = 520;
-export const TRANSICION_CURSOR_MS = 260;
+export const PASEO_MS = 420;
+export const TRANSICION_CURSOR_MS = 220;
 
 // ── Las tareas: cada cursor va a algo REAL del editor y lo trabaja (11/11/2026) ─────────────────────────────────────────
 // Martín, el mismo día: «los cursores se mueven random para todos lados… tienen que moverse de tal manera que estén
@@ -135,7 +135,7 @@ const cajasDe = (o: Objetivos, f: Fuente): readonly Caja[] => {
 };
 
 /** El cursor en la esquina de abajo a la derecha, adentro: como quien ajusta lo que seleccionó. */
-const esquina = (c: Caja): Punto => ({ x: c.left + Math.max(4, c.width - 10), y: c.top + Math.max(4, c.height - 8) });
+export const esquina = (c: Caja): Punto => ({ x: c.left + Math.max(4, c.width - 10), y: c.top + Math.max(4, c.height - 8) });
 
 /**
  * La tarea de un agente en esta vuelta. Con la hora del video (`en`), el corte en ESE segundo de la línea de tiempo, de la altura

@@ -30,6 +30,8 @@ import {
   agentesDeOperaciones,
   agentesSueltos,
   mostrarCursores,
+  sumarTiempo,
+  tareasDeOperaciones,
   useCursoresSueltos,
 } from '../app/video-editor/_opencut/enjambre/cursores-sueltos';
 import { AGENTES } from '../app/video-editor/_opencut/enjambre/plan';
@@ -154,12 +156,27 @@ test('4. el cableado: el componente dibuja los sueltos y pasea, el chat los pren
   assert.match(leer(`${OC}/timeline/components/timeline-element.tsx`), /data-ce-clip=""\s*data-ce-tipo=\{element\.type\}/, 'los clips sin su marca: los cursores no los encuentran');
   // Todos juntos (Martín, 11/11/2026): los que no trabajan también recorren su panel, con una vuelta que no se reinicia.
   assert.match(comp, /transform \$\{TRANSICION_CURSOR_MS\}ms/);
-  assert.match(comp, /const t = tareaDeAgente\(\{ agente: id, en: null, vuelta, \.\.\.medida \}\);/, 'los sueltos no trabajan sus objetivos');
+  assert.match(comp, /: tareaDeAgente\(\{ agente: id, en: null, vuelta, \.\.\.medida \}\);/, 'los sueltos no trabajan sus objetivos');
   assert.match(comp, /dibujo = ultimos\.current\.map\(\(d\) => \(\{ \.\.\.d, opacidad: 0 \}\)\);/, 'al terminar se desvanecen');
 
   const chat = leer(`${OC}/chat/PanelChat.tsx`);
   const aceptar = chat.slice(chat.indexOf('const aceptar = async'), chat.indexOf('const restaurar'));
-  assert.match(aceptar, /const soltarCursores = mostrarCursores\(agentesDeOperaciones\(m\.propuesta\.operaciones\)\);/);
+  assert.match(aceptar, /const soltarCursores = mostrarCursores\(agentesDeOperaciones\(m\.propuesta\.operaciones\), tareasDeOperaciones\(m\.propuesta\)\);/);
+  assert.match(aceptar, /if \(p\.tipo === "silencio"\) sumarTiempo\("corte-01", p\.desde\);/, 'las pausas que se van encontrando no llegan al cursor');
+  // Lo de un pedido: sus clips (ref → id) y sus segundos, y nada de otro agente.
+  const t = tareasDeOperaciones({
+    operaciones: [{ op: 'velocidad', ref: 'c2' }, { op: 'cortar_tramo', ref: 'c1', desde: 3.5 }, { op: 'edicion_automatica' }] as never,
+    refsPorId: new Map([['id-1', 'c1'], ['id-2', 'c2']]),
+  });
+  assert.deepEqual(t, { 'gfx-01': { tiempos: [], ids: ['id-2'] }, 'corte-01': { tiempos: [3.5], ids: ['id-1'] } });
+  const soltar = mostrarCursores(['corte-01'], {});
+  sumarTiempo('corte-01', 1.2);
+  sumarTiempo('corte-01', 4.4);
+  assert.deepEqual(useCursoresSueltos.getState().tareas['corte-01']?.tiempos, [1.2, 4.4]);
+  soltar();
+  const comp2 = leer(`${OC}/enjambre/components/cursores.tsx`);
+  assert.match(comp2, /const conHora = tarea\?\.tiempos\.length \? tarea\.tiempos\[vuelta % tarea\.tiempos\.length\] : null;/, 'el cursor no recorre los segundos de su pedido');
+  assert.match(comp2, /\[data-ce-clip\]\[data-ce-id="/, 'el cursor no busca los clips de su pedido');
   assert.match(aceptar, /aceptarPropuesta\([^\n]*\)\.finally\(soltarCursores\);/, 'si falla, el cursor queda prendido para siempre');
 
   const correr = leer(`${OC}/enjambre/correr.ts`);
