@@ -19,6 +19,7 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
   | `maqueta-accion.html` (la vigente: la séptima vuelta) | CqxfbFNRY54GZnTLFmxj6s |
 
   Todos los links son `claude.ai/artifact/<id>`.
+- **Desde la vuelta diecisiete, las fuentes están en el scratchpad de la sesión ea110555** (`C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/ea110555-3023-4ac9-9b9e-1f6c71c392f3/scratchpad/maqueta/`, con `css-prod/` al lado). Las de antes siguen en la de 3b078c27. La vigente se arma con `node aplicar-diecisiete.mjs <carpeta>` y `node armar.mjs cuerpo-diecisiete.html <repo> <artifact>`. Para mirarla, `servir-vigente.cjs` sirve en el puerto 4451 el archivo que nombra `vigente.txt` (la entrada `maqueta-copilot` de `.claude/launch.json` del escritorio).
 - **Cómo se arman** (en el scratchpad de la sesión 3b078c27, carpeta `maqueta/`):
   - `cuerpo-visual.html` es el cuerpo vigente (los anteriores: `cuerpo-analisis.html` y `cuerpo-canales.html`).
   - Lo que se mete adentro:
@@ -140,6 +141,28 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - la máquina de contenido;
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
+
+**Hecho (12/11, decimoséptima vuelta):** `maqueta-diecisiete.html` (Artifact claude.ai/artifact/Nkh7PfEGZcYmZiEhnPceyp). Los cinco puntos de abajo, mirados en fotos (1440 y 375, claro y oscuro) y tocados uno por uno en el navegador sin errores. Lo de los cursos: `docs/marketing-copilot/analisis/comunicacion.md`.
+- **«Oferta y comunicación» tiene cuatro partes en los tres pasos:** Oferta, Ángulos, Formatos y Tu voz. Se elige la parte al lado de la oferta (en el análisis) o arriba de la tarjeta (en la acción), y se conserva al pasar de un paso a otro.
+- **En el análisis,** cada parte tiene sus filas («Mejorar» suma la tarea a Oferta y comunicación) y, a la derecha, lo importante: tus ángulos con su estado, qué te funciona por tipo de pieza, así hablas.
+- **En la acción:**
+  - los ángulos, con el dolor que más vende arriba (dolor y ángulo no son lo mismo: con el mismo dolor, gana el ángulo que trae más agendas);
+  - los formatos, con «Para empezar, de nicho», los del nicho y los tuyos, y algo nuevo (un formato de otro nicho);
+  - tu voz: cómo hablas, tu historia, contra qué estás, lo que muestras, y cuándo no suenas a ti;
+  - el chat habla de la parte elegida.
+  - Las tareas de comunicación van primero.
+- **El bloque de la oferta, rehecho:** sin el medidor ni la barra de 20 rayitas, sin las 20 pastillas juntas. La nota en grande, lo más flojo debajo, y los seis grupos en filas que dicen en palabras lo que falta («Falta resultado», «Confirma 2», «Listo»). Abierto, un grupo muestra sus piezas con lo que sabe MaKo.
+- **En el piloto,** lo que MaKo hace con la comunicación: busca ángulos nuevos cada semana, los prueba en reels de prueba antes de pautarlos, mira si una pieza rindió por el ángulo o por el formato, avisa cuando un ángulo se quema y revisa que cada guion suene a ti.
+- **«Web»,** sin el «Tu».
+
+Lo que es de ejemplo: los formatos del nicho (4,2×, 3,4×, 2,9×), lo que dicen las llamadas, los reels de prueba y lo que hizo el piloto. Los ángulos, los formatos propios y la voz salen de lo que ya se leyó de Federico: sus reels, sus videos, sus anuncios de ejemplo y los comentarios.
+
+**Pedido de la decimoséptima vuelta (Martín, 12/11, sobre `maqueta-dieciseis.html`).** Las fuentes: `cuerpo-dieciseis.html` + `bloque-diecisiete-*.js` + `css-diecisiete.css`, en el scratchpad de la sesión ea110555.
+1. Que MaKo y el CoPilot te ayuden a identificar tus **ángulos** de comunicación: las razones de Jan, las «temáticas hot» de Doglio, el «ángulo ganador» de Cubría. Es lo primero, para cualquier funnel.
+2. Después, los **formatos** ganadores (los outliers), y muchas veces ir en contra y crear algo nuevo.
+3. Tu **comunicación única**, que construye la marca personal: no tener miedo a ser uno mismo y comunicar como uno habla.
+4. **Nada viral en TOFU.** Los primeros reels y anuncios, de nicho; pero de nicho no quita un hook y un formato ganador. Revisar a fondo los cursos de Cubría, Doglio y Carrizo.
+5. «Tu oferta» pasa a **«Oferta y comunicación»** y «Tu web», a **«Web»**. En la acción, rediseñar el bloque de la oferta: demasiados botones juntos, y la barra de progreso se confunde con el gráfico de arriba. Ubicar dónde va lo nuevo.
 
 **Hecho (12/11, decimosexta vuelta):** `maqueta-dieciseis.html` (Artifact claude.ai/artifact/XYPQKhQ93158N2VsvzyQbv). Los 5 puntos de abajo, mirados en fotos. Pasar de un paso a otro conserva la tarjeta: del análisis en Instagram, el piloto abre en Instagram.
 
@@ -308,6 +331,8 @@ El cuerpo vigente es `cuerpo-ocho.html`, en la carpeta de la maqueta.
 
 ## Sigue abierto
 
+- **La masterclass de «temáticas ganadoras» de Doglio no la tenemos:** es un recurso enlazado de ARCADIA que nunca se bajó (`C:/cursos/arcadia/recursos.json`, sin URL ni archivo). Si Martín la tiene, se baja y se transcribe. Lo que se usó en su lugar: `docs/marketing-copilot/analisis/comunicacion.md`.
+- **Dolor y ángulo, en el código:** hoy no existen. Las razones de compra están en `lib/razones.ts` y los outliers en Competitor Spy. Para hacerlo de verdad, cada pieza necesita su ángulo y su formato, y cada venta, su primer y su último contacto.
 - **Quién paga leer el propio negocio** (Apify más la IA). Se pregunta antes de programarlo.
 - **Dónde se pliega el chat:** Martín lo deja para más adelante.
 - **La recomendación del funnel:** la cerraba el chat; sin chat en el paso 4, falta decidir dónde va.

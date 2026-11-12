@@ -435,6 +435,25 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
   - **Clase repetida:** `.frn-pasos` ya existía, con `flex-direction: column`, y dejó los pasos apilados. Se renombró a `.frn-tresp`. Es la tercera vez que pasa en esta maqueta: antes de nombrar, buscar en todo el cuerpo.
   - **Lo fijo adentro de un contenedor de consultas:** `.frn` es `container-type: inline-size`, y eso hace que un `position: fixed` adentro no se pegue a la pantalla, sino al tablero. Por eso el chat se dibuja afuera, con los popups.
 
+## La decimoséptima maqueta: Oferta y comunicación; dolor y ángulo no son lo mismo (12/11/2026)
+
+`docs/marketing-copilot/rediseno/maqueta-diecisiete.html`. Lo de los cursos: `docs/marketing-copilot/analisis/comunicacion.md`, con el detalle de cada curso al lado.
+
+- **Las «temáticas hot» de Doglio no están en Knowledge.**
+  - Síntoma: la frase no aparece en ninguna de las 9.719 transcripciones de `public/cono-tx/`.
+  - Causa: ARCADIA vino de un revendedor que colgó otros videos bajo los módulos reales (bajo «Ángulos de marketing» está «EOD Setter»). La masterclass «Encontrando temáticas ganadoras» es un recurso enlazado que nunca se bajó: `C:/cursos/arcadia/recursos.json` la nombra, sin URL ni archivo.
+  - Regla: en ARCADIA, el título de un módulo no dice qué hay adentro; se busca en la transcripción.
+- **El «ángulo ganador» no lo enseña Ramiro Cubría.** Lo da su socio, Mati Molina, en SYK (· 32, · 33), y quien lo define con precisión es Carrizo (· 48). Trampa de las fuentes: los `.md` de `C:/cursos/<curso>/texto/` cortan tramos; el JSON de `public/cono-tx/` de la misma clase está más completo.
+- **Dolor y ángulo no son lo mismo (el diagnóstico obvio era el equivocado).**
+  - La primera lista de ángulos mezclaba un problema («Publicas y no vendes») con puntos de vista.
+  - Para Carrizo, el dolor es el problema y el ángulo, desde dónde se cuenta. El ganador es el que más vende con el dolor fijo.
+  - La pantalla pone el dolor arriba y los ángulos debajo.
+- **El estado de un ángulo sale del dato de su pieza, no de cómo suena.** Marqué «Trabaja con los founders» como quemado, y era el anuncio que más agendas trae (31, a US$ 20). El quemado era el del workshop: frecuencia 4,7 y el costo, 60 % más alto.
+- **La tesis de Martín (nada viral al empezar) la respaldan Cubría y Carrizo; Doglio la matiza.** Doglio pide un orgánico sin llamar al cliente por su nombre, y ese llamado sólo en anuncios. Para MaKo, «de nicho» es el problema que más tiene el cliente ideal, con un hook y un formato probados.
+- **Un medidor arriba y una barra de rayitas abajo se leen como dos cosas distintas** (Martín: «se confunde»). La nota queda como número grande, y lo que falta, en palabras, por grupo.
+- **«Oferta y comunicación» es el nombre más largo de las tarjetas.** A 1440 no entraba al lado de la flecha de 38 px: la flecha bajó a 32 y el título a 15 px. La tarjeta pasó de `height` a `min-height`, para que en el teléfono crezca en vez de cortar el número.
+- **Sumar tareas al principio de la checklist corre los números.** `CHECK`, `POR_QUE_CHK` y `RESP_WEB` (las respuestas del chat de la web) van por número de tarea. Al insertar arriba se insertan las dos listas y se corren las claves de `RESP_WEB`.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
