@@ -109,7 +109,9 @@ test('3. el turno lo trae en paralelo, al final del system, con la plata según 
   // la llamada arranque ANTES de armar el system y se espere DESPUÉS —o sea, en paralelo— y que
   // lleve el filtro de la plata por rol. Fijar el objeto entero convierte cualquier opción nueva en
   // un rojo que no dice nada.
-  assert.match(t, /const segundoCerebroP = paqueteParaElTurno\(textoPersona \|\| textoMemoria, \{[^}]*sinPlata: persona\.rol !== 'admin'[^}]*\}\);\s*const base = await buildSystemPrompt\([^\n]*\);\s*const segundoCerebro = await segundoCerebroP;/,
+  // Desde el 12/11/2026 se busca con el mensaje Y los anteriores de la persona (`busquedaConLoAnterior`, tests/chat-app-hilo.test.ts):
+  // «dalo de alta» solo no nombra a nadie. Lo que cuida este test sigue igual.
+  assert.match(t, /const segundoCerebroP = paqueteParaElTurno\(busquedaConLoAnterior\(textoPersona \|\| textoMemoria, anterioresDeLaPersona\(deLaTab\)\), \{[^}]*sinPlata: persona\.rol !== 'admin'[^}]*\}\);\s*const base = await buildSystemPrompt\([^\n]*\);\s*const segundoCerebro = await segundoCerebroP;/,
     'el Second Brain no viaja en el turno, no va en paralelo o no lleva el filtro del rol');
   assert.match(t, /const system = `[^\n]*\$\{segundoCerebro \? `\\n\\n\$\{segundoCerebro\}` : ''\}\$\{ctxDesde \? `\\n\\n\$\{ctxDesde\}` : ''\}\$\{ctxAtado \? `\\n\\n\$\{ctxAtado\}` : ''\}`;/, 'el bloque no va en el system, o no va antes de ctxDesde y del contexto atado');
   const c = fuente('lib/cerebro-para-chat.ts');

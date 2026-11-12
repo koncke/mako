@@ -98,14 +98,17 @@ import {
   diagnosticoConFuentes, diagnosticoFaltante, diagnosticoParaPrompt, docsDeLaConversacion, estadoDiagnostico, faltanTexto, faseDeSetting,
   canalQueDijo, conCobroDelPrecio, conCanalDeLaOferta, conLoQueDijoElDueno, fundirPiezasDelTurno, preguntaPorOtrasOfertas, estadoDeLaOferta, faseVigenteDe, fuentesDelDueno, linkParaLeer, mensajeDeMako, mensajePdf, mergePiezas, motivoArchivoOffer, planDiagnostico, primerMensaje, primerMensajeFunnel, provisionalDe, recortar,
   repartirTranscripcion, respuestaDiagnostico, respuestaSinIA, seArchivaDesdeOffer, armadoEnCurso, pasoInicialDelArmado, valoresDeLasPiezas,
-  MAX_DOCS_LOTE, leyendoParaVista, mensajeLeyendo, resumenDelLote, credencialEnLaUrl, PIDE_ACCESO,
+  MAX_DOCS_LOTE, leyendoParaVista, mensajeLeyendo, resumenDelLote, credencialEnLaUrl, PIDE_ACCESO, sinResumirDeOffer,
   type AudioGuardado, type DocumentoGuardado, type MensajeGuardado, type PlanDiagnostico,
 } from '@/lib/offer-reglas';
+import { getSetting } from '@/lib/settings';
+import { resumirDespues } from '@/lib/conversacion-resumen';
+import { KEY_RESUMEN, leerResumen, type ResumenGuardado } from '@/lib/conversacion-resumen-reglas';
 import { contextoOffer, type ContextoOffer } from '@/lib/offer-contexto';
 import { linksDe } from '@/app/offer/ayudas';
 import { avisarOfertaLista } from '@/lib/oferta-lista-server';
 import { crearNotificacion } from '@/lib/notificaciones';
-import { FEATURE_OFFER, diagnosticoOffer, lecturaDeParte, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
+import { FEATURE_OFFER, diagnosticoOffer, lecturaDeParte, pedirResumenDeOffer, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
 import { contextoDeReferente } from '@/lib/asesores/contexto';
 import { leerReferente } from '@/lib/funnel-plan-db';
 import {
@@ -937,8 +940,25 @@ async function referenteDelOfferCoach(mensajes: MensajeGuardado[]): Promise<stri
   return [contextoDeReferente(id), await cursoDelReferente(id, ultimo, PRESUPUESTO_CURSO_OFFER)].filter(Boolean).join('\n\n');
 }
 
+/** La clave de una conversación de Offer en el módulo común (su resumen: lib/conversacion-resumen.ts). */
+const claveDeOffer = (sesionId: number): string => `offer:${sesionId}`;
+
+/** Lo que pasa los 30 mensajes, resumido (12/11/2026, «como un chat con Claude»). Sin poder leerlo, null: la conversación como siempre. */
+async function resumenDeLaConversacion(sesionId: number): Promise<ResumenGuardado | null> {
+  return leerResumen(await getSetting(KEY_RESUMEN(claveDeOffer(sesionId))).catch(() => null));
+}
+
+/** Después de contestar, lo que pasa los 30 y el resumen no cubre se resume (con candado; Offer nunca paga: `pedirResumenDeOffer`). */
+async function resumirLoViejo(sesionId: number, mensajes: readonly MensajeGuardado[], resumen: ResumenGuardado | null): Promise<void> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  if (ws == null) return;
+  const { porResumir } = sinResumirDeOffer(mensajes, resumen);
+  resumirDespues({ ws, clave: claveDeOffer(sesionId), porResumir, pedir: pedirResumenDeOffer });
+}
+
 async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOffer; nuevos: string[]; inicio: number; arranque?: boolean }): Promise<Response> {
   const { fila, ctx } = p;
+  const resumen = await resumenDeLaConversacion(p.sesionId);
   const optsDiag = { canal: ctx.canal, yaGuardado: !!ctx.faseGuardada };
   await asegurarFaseGuardada(fila, ctx);
   const duenos = (ms: MensajeGuardado[]) => ms.filter((m) => m.de === 'yo').length;
@@ -954,6 +974,7 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     voz: ctx.voz, arranque: p.arranque,
     // El coach (1/11/2026; uno solo desde el 4/11): con quién aconseja. El onboarding no: ahí sólo se cuenta qué se vende.
     referente: p.arranque ? '' : await referenteDelOfferCoach(fila.mensajes),
+    resumen,
   });
   // Sin IA sólo se sigue si la pregunta que toca es la obligatoria del diagnóstico (sale la original).
   if (!ia.ok && plan.modo !== 'forzar') return no(502, ia.error, { sesion: await vistaSesion(fila) });
@@ -1005,6 +1026,7 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     return { mensajes: [...inferida.mensajes, mensaje], piezas };
   });
   await asegurarFaseGuardada(final, ctx);
+  await resumirLoViejo(p.sesionId, final.mensajes, resumen);
   return ok({ sesion: await vistaSesion(final) });
 }
 
@@ -1030,6 +1052,7 @@ async function diagnosticarSesion(id: number, inicio: number): Promise<{ ok: tru
   const alertas = [...(avisos.foco ? [avisos.foco] : []), ...avisos.otras];
   const ia = await diagnosticoOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto, embudo: ctx.embudo, inicio,
+    resumen: await resumenDeLaConversacion(id),
     alertas,
   });
   if (!ia.ok) return { ok: false, status: 502, error: ia.error };
@@ -1162,6 +1185,7 @@ async function generarSesion(id: number, inicio: number): Promise<{ ok: true; fi
   const ia = await propuestaOffer({
     mensajes: fila.mensajes, piezas: fila.piezas, docs: docsDeLaConversacion(fila.documentos, fila.mensajes), contexto: ctx.texto,
     diagnostico: borrador.diagnostico, calculo: borrador.calculo, inicio, reglas: { fuentes, negocio }, voz: ctx.voz,
+    resumen: await resumenDeLaConversacion(id),
   });
   if (!ia.ok) return { ok: false, status: 502, error: ia.error };
   const nombre = ia.valor.nombre.trim();

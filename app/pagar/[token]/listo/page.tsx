@@ -43,35 +43,50 @@ export const metadata: Metadata = {
 
 // Colores fijos, como las páginas legales: no hay sesión, así que no hay tema. Y la barra de la app
 // se esconde igual que en ellas (app/_legal/LegalShell.tsx): viaja en el HTML aunque no haya sesión.
+// EL DISEÑO (12/11/2026, Martín: «todo el diseño de la pasarela»): la página de después del pago de Stripe Checkout —un ícono que
+// dice en qué quedó, el título, el detalle y lo que sigue— con la letra y los colores de MaKo. Sin el logo de MaKo: esta página
+// la ven también los clientes de los negocios que cobran con MaKo (arriba va el nombre de ESE negocio).
 const CSS = `
 body:has(.pagar-root) aside { display: none !important; }
-body:has(.pagar-root) { background: #F4F6F9; }
-.pagar-root { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; color: #12151B;
-  font: 400 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-.pagar-card { max-width: 460px; width: 100%; background: #fff; border: 1px solid #EAECF1; border-radius: 16px;
-  padding: 32px 28px; text-align: center; box-shadow: 0 1px 2px rgba(18,21,27,.04), 0 8px 24px rgba(18,21,27,.06); }
-.pagar-negocio { font-weight: 600; font-size: 14px; color: #5B6472; margin-bottom: 18px; }
-.pagar-card h1 { margin: 0 0 8px; font-size: 22px; line-height: 1.25; }
-.pagar-card p { margin: 8px 0 0; color: #5B6472; }
-.pagar-detalle { font-weight: 600; color: #12151B !important; }
-.pagar-chip { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 600; color: #8A5A00;
-  background: #FFF4D6; border-radius: 999px; padding: 2px 10px; }
-.pagar-btn { display: inline-block; margin-top: 22px; background: #2F6FED; color: #fff !important; text-decoration: none;
-  font-weight: 600; font-size: 15px; padding: 12px 24px; border-radius: 10px; border: 0; cursor: pointer; }
+body:has(.pagar-root) { background: #efefed; }
+.pagar-root { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; color: #121212;
+  font: 400 16px/1.55 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.pagar-card { max-width: 460px; width: 100%; background: #fcfcfb; border: 1px solid rgba(17,17,17,.09); border-radius: 18px;
+  padding: 36px 28px 30px; text-align: center; box-shadow: 0 1px 2px rgba(17,17,17,.04), 0 12px 32px rgba(17,17,17,.08); }
+.pagar-negocio { font-weight: 700; font-size: 14px; color: #4f4f4c; margin-bottom: 20px; letter-spacing: -.005em; }
+.pagar-icono { width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 999px; display: grid; place-items: center; font-size: 26px; font-weight: 800; }
+.pagar-icono.ok { background: #d5eee4; color: #22735c; }
+.pagar-icono.espera { background: #FDF4DE; color: #8F6709; }
+.pagar-icono.mal { background: #f8e1da; color: #b1412a; }
+.pagar-icono.espera span { display: block; width: 22px; height: 22px; border-radius: 999px; border: 3px solid currentColor; border-right-color: transparent;
+  animation: pagar-gira 1s linear infinite; }
+@keyframes pagar-gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .pagar-icono.espera span { animation: none; } }
+.pagar-card h1 { margin: 0 0 8px; font-size: 24px; line-height: 1.2; font-weight: 800; letter-spacing: -.015em; }
+.pagar-card p { margin: 8px 0 0; color: #4f4f4c; }
+.pagar-card a { color: #121212; }
+.pagar-detalle { font-weight: 700; color: #121212 !important; margin-top: 14px !important; padding: 12px 14px; border-radius: 12px; background: #f0f0ef; }
+.pagar-chip { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 700; color: #8F6709;
+  background: #FDF4DE; border-radius: 999px; padding: 2px 10px; }
+.pagar-btn { display: inline-block; margin-top: 22px; background: #121212; color: #fff !important; text-decoration: none;
+  font-weight: 700; font-size: 15px; padding: 13px 24px; border-radius: 10px; border: 0; cursor: pointer; font-family: inherit; }
+.pagar-btn:hover { background: #202020; }
+.pagar-btn:focus-visible { outline: 2px solid #F2B01E; outline-offset: 2px; }
 .pagar-btn[disabled] { opacity: .6; cursor: default; }
-.pagar-link { background: none; border: 0; padding: 0; margin-top: 16px; color: #2F6FED; font: inherit; font-size: 14px;
+.pagar-link { background: none; border: 0; padding: 0; margin-top: 16px; color: #121212; font: inherit; font-size: 14px;
   text-decoration: underline; cursor: pointer; }
-.pagar-acceso { margin-top: 22px; padding-top: 20px; border-top: 1px solid #EAECF1; }
+.pagar-acceso { margin-top: 22px; padding-top: 20px; border-top: 1px solid rgba(17,17,17,.09); }
 .pagar-form { margin-top: 16px; text-align: left; }
 .pagar-form label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
-.pagar-form input { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid #D5D9E0; border-radius: 10px; }
+.pagar-form input { width: 100%; box-sizing: border-box; font: inherit; padding: 11px 12px; border: 1px solid rgba(17,17,17,.17); border-radius: 10px; background: #fff; }
+.pagar-form input:focus { outline: none; border-color: #121212; box-shadow: 0 0 0 3px rgba(242,176,30,.35); }
 .pagar-form .pagar-btn { width: 100%; margin-top: 12px; }
-.pagar-error { color: #B42318 !important; font-size: 14px; }
-.pagar-ok { color: #067647 !important; font-size: 14px; }
+.pagar-error { color: #b1412a !important; font-size: 14px; }
+.pagar-ok { color: #22735c !important; font-size: 14px; }
 `;
 
 /** La tarjeta. `refrescar` = la página se recarga sola (mientras el pago se confirma). */
-function Tarjeta({ negocio, titulo, children, refrescar }: { negocio?: string | null; titulo: string; children?: ReactNode; refrescar?: boolean }) {
+function Tarjeta({ negocio, titulo, children, refrescar, tono }: { negocio?: string | null; titulo: string; children?: ReactNode; refrescar?: boolean; tono?: 'ok' | 'espera' | 'mal' }) {
   return (
     <div className="pagar-root">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -79,6 +94,7 @@ function Tarjeta({ negocio, titulo, children, refrescar }: { negocio?: string | 
       {refrescar && <meta httpEquiv="refresh" content="8" />}
       <main className="pagar-card">
         {negocio && <div className="pagar-negocio">{negocio}</div>}
+        {tono && <div className={`pagar-icono ${tono}`} aria-hidden="true">{tono === 'ok' ? '✓' : tono === 'mal' ? '!' : <span />}</div>}
         <h1>{titulo}</h1>
         {children}
       </main>
@@ -100,7 +116,7 @@ export default async function PagoListo({ params, searchParams }: Params) {
   } catch (e) {
     console.error('[pagar/listo] no pude leer el cobro:', e instanceof Error ? e.message : e);
     return (
-      <Tarjeta titulo="No pudimos cargar tu pago" refrescar>
+      <Tarjeta titulo="No pudimos cargar tu pago" refrescar tono="espera">
         <p>Es un problema nuestro, no de tu pago. Esta página se vuelve a cargar sola.</p>
       </Tarjeta>
     );
@@ -125,7 +141,7 @@ export default async function PagoListo({ params, searchParams }: Params) {
 
   if (c.estado === 'pagado') {
     return (
-      <Tarjeta negocio={negocio} titulo="Pago recibido" refrescar={!!c.alta_capa && (c.alta_estado == null || c.alta_estado === 'pendiente')}>
+      <Tarjeta negocio={negocio} titulo="Pago recibido" tono="ok" refrescar={!!c.alta_capa && (c.alta_estado == null || c.alta_estado === 'pendiente')}>
         {detalle}
         <p>{pasarela} confirmó tu pago.{c.tipo === 'suscripcion' ? ' Se renueva cada mes hasta que lo canceles.' : ''}</p>
         {c.alta_capa && <AltaDeMako c={c} />}
@@ -137,7 +153,7 @@ export default async function PagoListo({ params, searchParams }: Params) {
   if (esPruebaDePlan(c) && c.estado === 'pendiente' && c.suscripcion_estado === 'activa') {
     const inicio = await inicioDeLaPrueba(c).catch(() => null);
     return (
-      <Tarjeta negocio={negocio} titulo="Tu prueba gratis empezó" refrescar={!!c.alta_capa && (c.alta_estado == null || c.alta_estado === 'pendiente')}>
+      <Tarjeta negocio={negocio} titulo="Tu prueba gratis empezó" tono="ok" refrescar={!!c.alta_capa && (c.alta_estado == null || c.alta_estado === 'pendiente')}>
         {detalle}
         <p>
           No se te cobró nada.{inicio ? ` El ${diaDelCobro(inicio)} ${pasarela} cobra ${formatoMonto(c.monto, c.moneda)} con tu tarjeta, y te avisamos dos días antes.` : ''}{' '}
@@ -163,7 +179,7 @@ export default async function PagoListo({ params, searchParams }: Params) {
     // (cancelUrl de Stripe, lib/cobros.ts). Si igual el cobro ya está pagado, manda el cobro.
     if (cancelado) {
       return (
-        <Tarjeta negocio={negocio} titulo="No se completó el pago">
+        <Tarjeta negocio={negocio} titulo="No se completó el pago" tono="mal">
           {detalle}
           <p>Puedes volver a intentarlo cuando quieras.</p>
           <a className="pagar-btn" href={pagarDeNuevo}>Volver a intentar</a>
@@ -171,7 +187,7 @@ export default async function PagoListo({ params, searchParams }: Params) {
       );
     }
     return (
-      <Tarjeta negocio={negocio} titulo="Estamos confirmando tu pago" refrescar>
+      <Tarjeta negocio={negocio} titulo="Estamos confirmando tu pago" refrescar tono="espera">
         {detalle}
         <p>Esperamos la confirmación de {pasarela}. Esta página se actualiza sola.</p>
         <p>¿Todavía no pagaste? <a href={pagarDeNuevo}>Ir a pagar</a></p>
@@ -181,7 +197,7 @@ export default async function PagoListo({ params, searchParams }: Params) {
 
   if (c.estado === 'fallido') {
     return (
-      <Tarjeta negocio={negocio} titulo="No se pudo cobrar">
+      <Tarjeta negocio={negocio} titulo="No se pudo cobrar" tono="mal">
         {detalle}
         <p>{pasarela} no aprobó el pago. Puedes intentarlo de nuevo, con el mismo medio o con otro.</p>
         <a className="pagar-btn" href={pagarDeNuevo}>Volver a intentar</a>

@@ -49,7 +49,8 @@ test('2. el turno lo cuelga del mensaje de MaKo, sin dibujarlo dos veces', () =>
   assert.match(s, /herramientaActual = name;\s*const out = conInstruccionDeTarjeta\(/, 'sabe qué herramienta dibujó');
   assert.match(s, /const dibujos = bloquesDelTurno\.filter\(\(x\) => !pregunta \|\| !x\.accion\)\.map\(\(x\) => x\.b\);/, 'con una pregunta, sólo lo de las lecturas');
   assert.match(s, /const pantallas = retirado\.pantallas\.filter\(\(p\) => !conBloque\.has\(p\.escritorio\)\);/, 'la propuesta que ya trae su bloque no se dibuja dos veces');
-  assert.match(s, /await appendMessage\(s\.id, 'assistant', respuesta, conElMensaje\.length \? conElMensaje\.map\(aGuardar\) : undefined\);/, 'va con el mensaje: vuelve al recargar');
+  // Desde el 12/11/2026 va con «lo que leí» al final (una marca que la pantalla no dibuja, tests/chat-app-hilo.test.ts): los bloques, igual.
+  assert.match(s, /const conLoLeido = \[\.\.\.conElMensaje\.map\(aGuardar\), \.\.\.\(leido \? \[marcaLeido\(leido\)\] : \[\]\)\];\s*await appendMessage\(s\.id, 'assistant', respuesta, conLoLeido\.length \? conLoLeido : undefined\);/, 'va con el mensaje: vuelve al recargar');
   assert.doesNotMatch(s, /bloqueDeSalida/, 'nada lee un `bloque` de un JSON a ciegas');
   const items = itemsDeRespuesta({ ok: true, sesion: { id: 1, titulo: null, updatedAt: '' }, mensajes: [{ role: 'assistant', content: 'Aquí lo tienes.', bloques: [{ t: 'creado', titulo: 'x', abrir: { titulo: 'Abrir', href: '/x' } }] }], aviso: null, paraLaPersona: [], propuestas: [], pantallas: [] } as never);
   assert.deepEqual(items.map((x) => x.k), ['msg', 'bloque'], 'y se ve sin recargar');

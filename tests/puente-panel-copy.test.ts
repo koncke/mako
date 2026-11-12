@@ -153,6 +153,10 @@ export const FUERA_DE_ALCANCE: { ruta: string; porque: string }[] = [
     porque: 'detector de lo que ESCRIBE la persona en el grupo (11/11/2026): «decile a Claude», «pedile al equipo» le piden algo al equipo de MaKo, y el clasificador no puede tomarlo por un mensaje a otra persona; no le habla a nadie',
   },
   {
+    ruta: 'lib/conversacion-resumen-reglas.ts',
+    porque: 'el validador del resumen de una conversación (12/11/2026): lee lo que ESCRIBIÓ la gente para saber qué nombres tiene que conservar, y «acá» al principio de una frase no dice que lo que sigue sea un nombre; su pedido al modelo (SYSTEM_RESUMEN) está en tú y lo cuida tests/conversacion-resumen-reglas.test.ts',
+  },
+  {
     ruta: 'lib/media-buyer/copiloto-pedido.ts',
     porque: 'detector de lo que ESCRIBE la persona en el Marketing CoPilot («dale, guardalo», «hacelo»): reconoce su voseo para saber si pide o pregunta; no le habla a nadie',
   },

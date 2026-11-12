@@ -9,6 +9,9 @@
 //     persona no (un adjunto leído). Y el chat de la línea (el store de Evolution, con los `fromMe`) suma lo que se mandó a MANO por la
 //     línea y no pasó por ningún código nuestro: el pedido del correo de Sellers del 11/11 a las 23:33 no estaba ni en el hilo.
 //   · PRIVADO: la memoria del turno y el chat de la línea con esa persona.
+//   · LA APP Y OFFER (12/11/2026): el chat que llama arma su conversación con su adaptador y la pasa en `entradas` (la app, de
+//     `chart_chats`: lib/chat-app-hilo.ts). Sin ventana (`ventanaMs: null`): volver al chat al otro día sigue el hilo. Y con
+//     `conResumen`, lo que queda afuera del tope se resume (lib/conversacion-resumen.ts) en vez de perderse.
 // Si una fuente no contesta, sigue con las otras; si no contesta ninguna, null y el turno sigue con su memoria (lib/mako-doer-in.ts).
 // =============================================================================
 
@@ -20,8 +23,9 @@ import { chatDelGrupo } from './evolution';
 import { memoriaDelGrupo, type FilaConv } from './mako-doer-conv';
 import { firmadoPorElEquipo, textoDelMensajeDelChat, type MensajeDelChat } from './hilo-real';
 import {
-  fundirFuentes, turnosDelHilo, ultimoDeMaKoEn, TOPE_TOKENS, type CanalDelTurno, type EntradaDelHilo, type TurnoDelModelo,
+  fundirFuentes, turnosDelHilo, ultimoDeMaKoEn, TOPE_TOKENS, VENTANA_MS, type CanalDelTurno, type EntradaDelHilo, type TurnoDelModelo,
 } from './conversacion-reglas';
+import { cortarConResumen, KEY_RESUMEN, leerResumen } from './conversacion-resumen-reglas';
 
 /** Dónde se prende por negocio (`si`/`no`); sin el ajuste, la lista de abajo. */
 export const KEY_CONVERSACION = 'mako.conversacion';
@@ -46,10 +50,13 @@ export type Conversacion = {
   ultimoDeMaKo: string | null;
   /** Todo lo que se juntó, en orden (para medir y para los tests). */
   entradas: EntradaDelHilo[];
+  /** Con `conResumen`: lo que quedó afuera del tope y el resumen todavía no cubre. Se lo pasa a `resumirDespues`
+   *  (lib/conversacion-resumen.ts), que lo resume si pasa el umbral. Sin `conResumen`, vacío. */
+  porResumir: EntradaDelHilo[];
 };
 
-/** El resumen guardado de una conversación (lo escribe lib/conversacion-resumen.ts, con su candado). */
-export const KEY_RESUMEN = (clave: string): string => `mako.conversacion.resumen.${clave}`;
+/** El resumen guardado de una conversación (lo escribe lib/conversacion-resumen.ts, con su candado; lo lee `leerResumen`). */
+export { KEY_RESUMEN };
 
 type FilaDelHilo = { id: number; autor_tipo: string; usuario_id: number | null; autor_nombre: string | null; texto: string | null; aviso_tipo: string | null; wa_message_id: string | null; wa_at: string | null; created_at: string; adjunto: { tipo?: string; nombre?: string } | null };
 
@@ -100,22 +107,39 @@ function deLaLinea(chat: readonly MensajeDelChat[], idsDelEquipo: ReadonlySet<st
 export async function conversacionDelTurno(p: {
   canal: CanalDelTurno; ws: number; clave: string; instancia?: string | null; excluirIds?: readonly string[]; textoActual?: string;
   presupuesto?: number; citadoId?: string | null; idsDelEquipo?: ReadonlySet<string>; ahoraMs?: number;
+  /** La conversación ya armada por el chat que llama (su adaptador de lectura): con esto no se lee el grupo, la memoria ni la línea. */
+  entradas?: readonly EntradaDelHilo[];
+  /** Sin decir, la de siempre (14 h: un «sí» pegado a una charla vieja duplicó tareas en un grupo). `null`: sin ventana. */
+  ventanaMs?: number | null;
+  /** Lo que el resumen no cubre va entero hasta el tope más el umbral, y se devuelve `porResumir` (lib/conversacion-resumen-reglas.ts).
+   *  Sin esto, el corte de siempre: los grupos siguen igual hasta que lo prendan. */
+  conResumen?: boolean;
 }): Promise<Conversacion | null> {
   const ahora = p.ahoraMs ?? Date.now();
-  const desde = ahora - 14 * 3_600_000;
-  const [hilo, memoria, chat] = await Promise.all([
-    p.canal === 'grupo' ? delHiloDelGrupo(p.ws, desde).catch(() => null) : Promise.resolve([] as EntradaDelHilo[]),
-    memoriaDelGrupo(p.ws, p.clave, { turnos: 40 }).catch(() => null),
-    p.instancia ? chatDelGrupo(p.instancia, p.clave).catch(() => null) : Promise.resolve(null),
-  ]);
-  if (!hilo && !memoria && !chat) return null;
-  const entradas = fundirFuentes(hilo ?? [], deLaMemoria(memoria?.recienteFilas ?? []), deLaLinea(chat ?? [], p.idsDelEquipo ?? new Set()));
-  const corte = turnosDelHilo(entradas, {
-    ahoraMs: ahora, presupuesto: p.presupuesto ?? TOPE_TOKENS[p.canal], excluirIds: new Set(p.excluirIds ?? []), textoActual: p.textoActual,
-  });
-  const resumen = await runWithWorkspace(p.ws, () => getSetting(KEY_RESUMEN(p.clave))).catch(() => null);
+  const ventana = p.ventanaMs === null ? Number.POSITIVE_INFINITY : p.ventanaMs ?? VENTANA_MS;
+  let entradas: EntradaDelHilo[];
+  let hechos: FilaConv[] = [];
+  if (p.entradas) {
+    // Una sola fuente: no se funde (fundir junta dos «sí» seguidos del mismo lado como si fueran el mismo mensaje).
+    entradas = p.entradas.filter((e) => Number.isFinite(e.at) && (e.texto ?? '').trim()).sort((a, b) => a.at - b.at);
+  } else {
+    const desde = Number.isFinite(ventana) ? ahora - ventana : 0;
+    const [hilo, memoria, chat] = await Promise.all([
+      p.canal === 'grupo' ? delHiloDelGrupo(p.ws, desde).catch(() => null) : Promise.resolve([] as EntradaDelHilo[]),
+      memoriaDelGrupo(p.ws, p.clave, { turnos: 40 }).catch(() => null),
+      p.instancia ? chatDelGrupo(p.instancia, p.clave).catch(() => null) : Promise.resolve(null),
+    ]);
+    if (!hilo && !memoria && !chat) return null;
+    entradas = fundirFuentes(hilo ?? [], deLaMemoria(memoria?.recienteFilas ?? []), deLaLinea(chat ?? [], p.idsDelEquipo ?? new Set()));
+    hechos = memoria?.antes ?? [];
+  }
+  const resumen = leerResumen(await runWithWorkspace(p.ws, () => getSetting(KEY_RESUMEN(p.clave))).catch(() => null));
+  const o = {
+    ahoraMs: ahora, presupuesto: p.presupuesto ?? TOPE_TOKENS[p.canal], ventanaMs: ventana, excluirIds: new Set(p.excluirIds ?? []), textoActual: p.textoActual,
+  };
+  const corte = p.conResumen ? cortarConResumen(entradas, { ...o, resumen }) : { ...turnosDelHilo(entradas, o), porResumir: [] as EntradaDelHilo[] };
   return {
-    turnos: corte.turnos, hechos: memoria?.antes ?? [], resumen: resumen || null,
-    ultimoDeMaKo: ultimoDeMaKoEn(corte.usados, { ahoraMs: ahora, citadoId: p.citadoId }), entradas,
+    turnos: corte.turnos, hechos, resumen: resumen?.texto ?? null,
+    ultimoDeMaKo: ultimoDeMaKoEn(corte.usados, { ahoraMs: ahora, citadoId: p.citadoId }), entradas, porResumir: corte.porResumir,
   };
 }

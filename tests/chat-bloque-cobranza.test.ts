@@ -122,7 +122,8 @@ test('4. el turno lo guarda con la respuesta de MaKo, y la pantalla lo suma deba
   assert.match(turno, /aDibujar: dibujar,/);
   // (21/10/2026: `dibujar` devuelve si entró; el repetido cuenta como dibujado.)
   assert.match(turno, /if \(bloquesDelTurno\.some\(\(x\) => JSON\.stringify\(x\.b\) === JSON\.stringify\(b\)\)\) return true;/, 'un turno re-arrancado no repite lo dibujado');
-  assert.match(turno, /await appendMessage\(s\.id, 'assistant', respuesta, conElMensaje\.length \? conElMensaje\.map\(aGuardar\) : undefined\);/);
+  // Desde el 12/11/2026 va con «lo que leí» al final (una marca que la pantalla no dibuja, tests/chat-app-hilo.test.ts): los bloques, igual.
+  assert.match(turno, /const conLoLeido = \[\.\.\.conElMensaje\.map\(aGuardar\), \.\.\.\(leido \? \[marcaLeido\(leido\)\] : \[\]\)\];\s*await appendMessage\(s\.id, 'assistant', respuesta, conLoLeido\.length \? conLoLeido : undefined\);/);
   assert.match(turno, /guardados\.push\(\{ role: 'assistant', content: respuesta, \.\.\.\(conElMensaje\.length \? \{ bloques: conElMensaje \} : \{\}\) \}\);/);
 
   const b = bloqueACobrar([CUOTA], HOY, 'America/Tijuana');

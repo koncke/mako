@@ -76,7 +76,11 @@ test('4. lo usan el panel de cada tab, la primera entrada del CoPilot y el histo
   assert.match(panel, /const k = \{ \.\.\.base, items,/, 'y lo filtrado es lo que llega al hilo');
   assert.match(leer('app/ads-manager/PrimeraEntrada.tsx'), /delHiloDeLaTab\(motor\.items, ORIGEN_COPILOTO, origenDelItem\)/);
   assert.match(leer('app/m/ads/HojaDelCopiloto.tsx'), /delHiloDeLaTab\(base\.items, ORIGEN_COPILOTO, origenDelItem\)/, 'y la hoja del teléfono');
-  assert.match(leer('lib/mako-turno-app.ts'), /historialParaModelo\(delHiloDeLaTab\(hilo, desde\?\.tab,/, 'el modelo lee de historial sólo lo de su tab');
+  // Desde el 12/11/2026 el historial sale del módulo común con lo de su tab (tests/chat-app-hilo.test.ts); el de antes queda de respaldo.
+  const turno = leer('lib/mako-turno-app.ts');
+  assert.match(turno, /const deLaTab = delHiloDeLaTab\(previos, desde\?\.tab,/, 'el modelo lee de historial sólo lo de su tab');
+  assert.match(turno, /entradas: entradasDeLaApp\(deLaTab\)/, 'el módulo no recibe lo de su tab');
+  assert.match(turno, /historialParaModelo\(delHiloDeLaTab\(hilo, desde\?\.tab,/, 'el respaldo lee de historial más que lo de su tab');
 });
 
 // PROBADO ROMPIÉNDOLO (10/11/2026):

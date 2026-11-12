@@ -38,6 +38,8 @@
 // =============================================================================
 
 import { parseJsonObject } from './json-del-modelo';
+import { tokensAprox, type EntradaDelHilo } from './conversacion-reglas';
+import { UMBRAL_RESUMEN_TOKENS, type ResumenGuardado } from './conversacion-resumen-reglas';
 import { urgenciaUsable, type UrgenciaTipo } from './oferta-modelo';
 import { CANALES, PREGUNTAS, VOLUMEN_POR_CANAL, diagnosticar, type CanalId, type Diagnostico } from './fase-diagnostico';
 import { RE_LO_HACE_EL_CLIENTE, RE_LO_HACE_EL_NEGOCIO, RE_PROMETE_HACERLO } from './offer-quien-hace';
@@ -3263,26 +3265,75 @@ export const TOPE_DOCS_PROMPT = 24_000;
  * cascada barata manda un system y un user, y porque así el rótulo «DUEÑO» es parte de lo que el
  * modelo lee como dato.
  */
-/** Lo que el prompt lee de un mensaje: le da igual si es la forma guardada o la de la pantalla. */
-export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos' | 'linksSinLeer' | 'leyendo'> & { audio?: unknown };
+/** Lo que el prompt lee de un mensaje: le da igual si es la forma guardada o la de la pantalla. `id` y `at`, para el resumen. */
+export type MensajeParaPrompt = Pick<OfferMensaje, 'de' | 'texto' | 'adjuntos' | 'linksSinLeer' | 'leyendo'> & { audio?: unknown; id?: string; at?: string };
 
-export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_MENSAJES_PROMPT): string {
+/** Un mensaje como lo lee el modelo: quién, lo que adjuntó, los links que no abrió y el texto con su tope. */
+function partesDelMensaje(m: MensajeParaPrompt): { quien: string; nota: string; cuerpo: string } {
+  // «por audio»: el texto es una transcripción, y el modelo tiene que poder dudar de una palabra rara.
+  const quien = m.de === 'yo' ? (m.audio ? 'DUEÑO (por audio)' : 'DUEÑO') : 'MaKo';
+  const adj = m.adjuntos?.length ? ` (adjuntó: ${m.adjuntos.map((a) => a.nombre).join(', ')})` : '';
+  // Un link que no abrió, dicho (20/10/2026, Florencia): sin esto MaKo dijo «vi tu Instagram» infiriéndolo del nombre.
+  const sinLeer = m.de === 'yo' && m.linksSinLeer?.length ? ` (NO se pudo abrir: ${m.linksSinLeer.join(', ')}; no lo viste)` : '';
+  const cuerpo = (m.texto ?? '').trim() || (m.adjuntos?.length ? '(mandó documentos sin texto)' : '(vacío)');
+  // Lo del DUEÑO va entero hasta el tope que acepta la ruta (12.000, TOPE_MENSAJE en
+  // app/api/offer/route.ts): recortarlo a 2.000 guardaba el mensaje y nunca se lo leía al modelo,
+  // que preguntaba por el precio que estaba en el tramo cortado. Lo de MaKo es corto por construcción.
+  return { quien, nota: `${adj}${sinLeer}`, cuerpo: recortar(cuerpo, m.de === 'yo' ? 12_000 : 2_000) };
+}
+
+/** La conversación de Offer como la del módulo común (lib/conversacion-reglas.ts): para el resumen de lo que pasa los 30. */
+export function entradasDeOffer(mensajes: readonly MensajeParaPrompt[]): EntradaDelHilo[] {
+  let ultimo = 0;
+  return mensajes.filter((m) => !m.leyendo).map((m) => {
+    const leida = Date.parse(m.at ?? '');
+    const at = Number.isFinite(leida) ? leida : ultimo + 1;
+    ultimo = at;
+    const { nota, cuerpo } = partesDelMensaje(m);
+    return { id: m.id ?? null, at, rol: m.de === 'yo' ? 'persona' : 'mako', quien: m.de === 'yo' ? 'El dueño' : null, texto: `${cuerpo}${nota}` };
+  });
+}
+
+/**
+ * Lo que pasa los 30 y el resumen guardado todavía no cubre (12/11/2026, «como un chat con Claude»). Mientras sume menos del umbral
+ * va entero con los 30 (sin hueco entre el resumen y la conversación); lo que pasa el umbral lo resume `resumirDespues`
+ * (lib/conversacion-resumen.ts) después del turno.
+ */
+export function sinResumirDeOffer(mensajes: readonly MensajeParaPrompt[], resumen: ResumenGuardado | null, max = MAX_MENSAJES_PROMPT): { enteros: number; porResumir: EntradaDelHilo[] } {
+  const e = entradasDeOffer(mensajes);
+  if (e.length <= max) return { enteros: e.length, porResumir: [] };
+  const desde = resumen?.hastaAt ?? Number.NEGATIVE_INFINITY;
+  const porResumir = e.slice(0, -max).filter((x) => x.at > desde);
+  // Los más nuevos de lo que no cubre, hasta el umbral, van enteros con los 30.
+  let gasto = 0;
+  let extra = 0;
+  for (let i = porResumir.length - 1; i >= 0; i--) {
+    const t = tokensAprox(porResumir[i].texto);
+    if (gasto + t > UMBRAL_RESUMEN_TOKENS) break;
+    gasto += t; extra++;
+  }
+  return { enteros: max + extra, porResumir };
+}
+
+/**
+ * La conversación para el prompt. `resumen` (12/11/2026): sin pasarlo, como siempre (los 30 y «se omiten»); pasado (aunque sea
+ * null), lo que pasa los 30 va resumido y lo que el resumen todavía no cubre, entero (`sinResumirDeOffer`).
+ */
+export function conversacionParaPrompt(mensajes: MensajeParaPrompt[], max = MAX_MENSAJES_PROMPT, resumen?: ResumenGuardado | null): string {
   // «Estoy leyendo tus documentos» es de la pantalla, no de la conversación: al modelo no le dice nada (O9, 22/10/2026).
   const visibles = mensajes.filter((m) => !m.leyendo);
-  const ult = visibles.slice(-max);
+  const n = resumen === undefined ? max : sinResumirDeOffer(visibles, resumen, max).enteros;
+  const ult = visibles.slice(-n);
   const lineas = ult.map((m) => {
-    // «por audio»: el texto es una transcripción, y el modelo tiene que poder dudar de una palabra rara.
-    const quien = m.de === 'yo' ? (m.audio ? 'DUEÑO (por audio)' : 'DUEÑO') : 'MaKo';
-    const adj = m.adjuntos?.length ? ` (adjuntó: ${m.adjuntos.map((a) => a.nombre).join(', ')})` : '';
-    // Un link que no abrió, dicho (20/10/2026, Florencia): sin esto MaKo dijo «vi tu Instagram» infiriéndolo del nombre.
-    const sinLeer = m.de === 'yo' && m.linksSinLeer?.length ? ` (NO se pudo abrir: ${m.linksSinLeer.join(', ')}; no lo viste)` : '';
-    const cuerpo = (m.texto ?? '').trim() || (m.adjuntos?.length ? '(mandó documentos sin texto)' : '(vacío)');
-    // Lo del DUEÑO va entero hasta el tope que acepta la ruta (12.000, TOPE_MENSAJE en
-    // app/api/offer/route.ts): recortarlo a 2.000 guardaba el mensaje y nunca se lo leía al modelo,
-    // que preguntaba por el precio que estaba en el tramo cortado. Lo de MaKo es corto por construcción.
-    return `${quien}${adj}${sinLeer}: ${recortar(cuerpo, m.de === 'yo' ? 12_000 : 2_000)}`;
+    const { quien, nota, cuerpo } = partesDelMensaje(m);
+    return `${quien}${nota}: ${cuerpo}`;
   });
-  if (visibles.length > ult.length) lineas.unshift(`(Se omiten los ${visibles.length - ult.length} mensajes más viejos.)`);
+  const omitidos = visibles.length - ult.length;
+  if (omitidos > 0) {
+    lineas.unshift(resumen?.texto
+      ? `(Antes de esto hubo ${omitidos} mensajes más. Lo que se habló ahí, resumido: ${resumen.texto})`
+      : `(Se omiten los ${omitidos} mensajes más viejos.)`);
+  }
   return lineas.join('\n');
 }
 

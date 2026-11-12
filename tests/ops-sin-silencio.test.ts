@@ -103,9 +103,13 @@ test('5. el modelo no lee el porqué como algo que dijo (un cartel de la platafo
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(turno, /const previos = \(await getSessionMessagesConBloques\(s\.id\)\)\.filter\(\(m\) => !\(m\.role === 'assistant' && esPorQueGuardado\(m\.bloques\)\)\);/);
   // 32f430356 (tipos, 24/10) le puso un alias tipado a `previos`: mismo arreglo, así que se sigue el alias hasta el historial.
-  // Desde el 10/11/2026 pasa por `delHiloDeLaTab` (la charla del CoPilot no es historial de otra tab, tests/hilo-propio-de-tab.test.ts):
-  // sigue saliendo de `hilo`, el mismo `previos` sin el porqué.
-  assert.match(turno, /const hilo: readonly ChartMsg\[\] = previos;\s*const historial = historialParaModelo\((?:delHiloDeLaTab\()?hilo,/, 'el historial del modelo sale de `previos`, ya sin el porqué');
+  // Desde el 10/11/2026 pasa por `delHiloDeLaTab` (la charla del CoPilot no es historial de otra tab, tests/hilo-propio-de-tab.test.ts).
+  // Desde el 12/11/2026 el historial sale del módulo común (lib/chat-app-hilo.ts, tests/chat-app-hilo.test.ts) con las entradas de
+  // `deLaTab`, y si el módulo no contesta, de `hilo`: los dos son el mismo `previos` sin el porqué.
+  assert.match(turno, /const hilo: readonly ChartMsg\[\] = previos;/);
+  assert.match(turno, /const deLaTab = delHiloDeLaTab\(previos, desde\?\.tab, origenDelMensaje\);/, 'el historial del modelo sale de `previos`, ya sin el porqué');
+  assert.match(turno, /entradas: entradasDeLaApp\(deLaTab\)/);
+  assert.match(turno, /const historial = conv \? historialDeTurnos\(conv\.turnos\) : historialParaModelo\(delHiloDeLaTab\(hilo, desde\?\.tab, origenDelMensaje\), 12\);/);
 });
 
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 2/0):

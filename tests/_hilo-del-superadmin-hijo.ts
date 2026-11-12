@@ -46,6 +46,9 @@ const S = (msAtras: number) => Math.floor((Date.now() - msAtras) / 1000);
 const deMaKo = (id: string, texto: string, msAtras: number, jid: string) => ({ key: { id, fromMe: true, remoteJid: jid }, messageTimestamp: S(msAtras), messageType: 'conversation', message: { conversation: texto }, source: 'web' });
 /** Lo que contesta el turno de mentira: lo que haría MaKo con el contexto (una pregunta concreta, nunca «¿a quién le doy de alta?»). */
 let respuesta = 'Listo.';
+/** La herramienta que el turno de mentira llama en su primer paso (null: contesta directo). */
+let herramienta: { name: string; input: Record<string, unknown> } | null = null;
+let pasosDelTurno = 0;
 const alTurno: Array<{ system: string; mensajes: string; tools: string[] }> = [];
 const red: Array<{ host: string; camino: string; cuerpo: string }> = [];
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -68,6 +71,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     // El clasificador se reconoce por su formato de salida (lib/mako-intencion-ia.ts, SYSTEM_DE_CLASE).
     if (system.includes('{"clase":"PREGUNTA|ACCION')) return json(200, { id: 'm0', type: 'message', role: 'assistant', model: 'claude-haiku-4-5', stop_reason: 'end_turn', content: [{ type: 'text', text: clase }], usage: { input_tokens: 9, output_tokens: 9 } });
     alTurno.push({ system, mensajes: (b.messages ?? []).map((m) => `${m.role}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`).join('\n---\n'), tools: (b.tools ?? []).map((t) => String(t.name ?? '')) });
+    if (herramienta && pasosDelTurno++ === 0) return json(200, { id: 'm1', type: 'message', role: 'assistant', model: 'claude-haiku-4-5', stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 'tu_1', name: herramienta.name, input: herramienta.input }], usage: { input_tokens: 9, output_tokens: 9 } });
     return json(200, { id: 'm1', type: 'message', role: 'assistant', model: 'claude-haiku-4-5', stop_reason: 'end_turn', content: [{ type: 'text', text: respuesta }], usage: { input_tokens: 9, output_tokens: 9 } });
   }
   return json(500, { error: { message: `red de mentira: ${u.href}` } });
@@ -79,6 +83,12 @@ async function main() {
     { id: 32, capa: 'cliente', nombre: 'Pablo Chavez', estado: 'activo' }, { id: 33, capa: 'cliente', nombre: 'Marcela', estado: 'activo' },
     { id: 34, capa: 'cliente', nombre: 'Nico Sellers', estado: 'activo' }, { id: 10, capa: 'cliente', nombre: 'Leila', estado: 'activo' });
   pg.db.agencias.push({ ws: 13 });
+  // La cartera de Código del 11/11 (medida en producción): 8 clientes; 7 con su entrada pagada y Pablo sin la suya (queda afuera).
+  pg.db.workspaces.push({ id: 35, capa: 'cliente', nombre: 'Brigitte Eberlin', estado: 'activo' }, { id: 36, capa: 'cliente', nombre: 'Natalia', estado: 'activo' },
+    { id: 37, capa: 'cliente', nombre: 'Patricia Contreras', estado: 'activo' }, { id: 38, capa: 'cliente', nombre: 'Sergio Arriata', estado: 'activo' });
+  for (const c of [35, 36, 37, 38]) pg.db.agencia_clientes.push({ id: ++n, agencia_ws: 13, cliente_ws: c, estado: 'aprobado', created_at: '2026-10-20T12:00:00.000Z' });
+  pg.db.app_settings.push({ workspace_id: PLATAFORMA, key: 'agencia.mensualidad.13.config', value: JSON.stringify({ desde: '2026-12', entradasDesde: '2026-11-01', medio: 'binance' }) });
+  for (const c of [31, 33, 34, 35, 36, 37, 38]) pg.db.app_settings.push({ workspace_id: PLATAFORMA, key: `agencia.mensualidad.13.entrada.${c}`, value: JSON.stringify({ ws: c, desde: '2026-11-01', montoUsd: 47, pagadoUsd: 47, pagadoEl: '2026-11-01' }) });
   for (const c of [31, 32, 33, 34]) pg.db.agencia_clientes.push({ id: ++n, agencia_ws: 13, cliente_ws: c, estado: 'aprobado', created_at: '2026-10-20T12:00:00.000Z' });
   pg.db.app_settings.push({ workspace_id: 1, key: 'mako.superadmin.grupo_jid', value: SA }, { workspace_id: 1, key: 'mako.voz.instancia', value: VOZ }, { workspace_id: 1, key: 'mako.doer.grupos', value: JSON.stringify([SA]) }, { workspace_id: 13, key: 'mako.grupo_jid', value: CODIGO });
   const { cifrarSecreto } = await import('../lib/credenciales');
@@ -106,7 +116,8 @@ async function main() {
     message: { conversation: texto }, pushName: 'Martin Koncke', messageTimestamp: Math.floor(Date.now() / 1000),
   } as never);
   const turno = async (k: string, c: string, id: string, texto: string, dice: string) => {
-    clase = c; respuesta = dice; alTurno.splice(0);
+    clase = c; respuesta = dice; alTurno.splice(0); pasosDelTurno = 0;
+    herramienta = k === 'cuantoPaga' ? { name: 'ver_mensualidades_agencias', input: { agencia: 'Código Inmobiliario' } } : null;
     const r = await deMartin(id, texto);
     out[k] = { r, salio: red.filter((x) => x.camino.includes('/message/sendText/')).map((x) => String((JSON.parse(x.cuerpo || '{}') as { text?: string }).text ?? '')).slice(-1), alTurno: alTurno.map((x) => ({ ...x })), clases: pg.db.anthropic_usage.filter((f) => f.feature === 'clase-doer').map((f) => String(f.motivo ?? '')).slice(-1) };
   };

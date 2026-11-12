@@ -2928,3 +2928,28 @@ acá es lo que faltaba para «¿cuánto paga Código Inmobiliario…?»: `ver_me
 - `buscar_negocio` (área cs, sólo la plataforma, sin HTTP) lee la cartera **estricto**. El lector del bloque del grupo
   (`leerLaPlataforma`, lib/doer-plataforma.ts, de esa punta) tolera que falle, y para el bloque está bien: sin cartera el turno sigue. Para la
   herramienta no: una cartera que no se leyó diría «sin agencia» de un cliente que sí la tiene, y el modelo lo repite como dato.
+
+## El diseño de la pasarela: Stripe Checkout en estructura, MaKo en colores (12/11/2026)
+
+Martín: «Puedes hacer absolutamente todo el diseño de la pasarela de pago». La referencia la eligió el Cerebro y no se inventa:
+**Stripe Checkout** para el checkout de un plan (a la izquierda el resumen —el plan, el precio grande, qué incluye, subtotal,
+descuento y total de hoy—; a la derecha tus datos y las formas de pago como filas; en el teléfono el resumen arriba y plegable con
+«Ver detalle», sin JavaScript) y la **Pricing Table** de Stripe para /planes. Lo de MaKo: el fondo #efefed, la superficie #fcfcfb,
+la tinta y el botón #121212, el dorado #F2B01E y Urbanist (declarada «Geist»). Las capturas de Stripe y de MaKo, una al lado de la
+otra, quedaron en la carpeta de notas del Cerebro (`pasarela/`).
+
+**Las trampas:**
+- **Las tarjetas de /planes las comparte la landing de /vsl** (`CSS_TARJETAS`, app/planes/Tarjetas.tsx). Cambiarlas ahí cambia
+  la landing. Los colores de /planes van como reglas dentro de `.planes-root` (app/planes/estilo.ts).
+- **/pagar/<token>/listo no es sólo de MaKo:** la ven los clientes de todo negocio que cobra con MaKo, con el nombre de ESE negocio
+  arriba. Va neutra: sin el logo de MaKo, sólo la letra y los colores.
+- **Diez tests leen el código de estas páginas** (el `className` del botón de pagar, el catálogo `NOMBRE` de las pasarelas, el
+  orden email → WhatsApp → trampa, el ternario con `<QuieroPlan>`). Se corren antes de commitear: `cobro-lanzamiento`,
+  `creem-pasarela`, `pagar-publico`, `partners-solo-plata`, `planes-sin-pasarela`, `planes-stripe-afuera`, `planes-tres-bloques`,
+  `primer-mes`, `prueba-plan` y `whatsapp-checkout`.
+- **Mirar sin levantar la app:** `next dev` escribe en producción al arrancar y pesa 2,5 GB por página. El marco del checkout vive
+  aparte (app/planes/[plan]/Checkout.tsx) para dibujarlo con `renderToStaticMarkup` y datos del catálogo, servirlo y mirarlo a
+  1440 y 375. Eso mira el diseño, **no el recorrido**: el pedido y la salida a la pasarela se prueban en producción.
+
+**Sin hacer:** el recorrido como comprador hasta la página de la pasarela (sin pagar), en producción después del deploy; y la
+compra de prueba con 4242, cuando Martín pegue la clave de prueba de Stripe.
