@@ -28,7 +28,7 @@ import { CodigoReferido, codigoParaMandar } from './CodigoReferido';
 // (TS2741) — pero `next.config.ts` tiene `typescript: { ignoreBuildErrors: true }`, así que el build lo dejó pasar.
 const NOMBRE: Readonly<Record<Pasarela, string>> = {
   stripe: 'Tarjeta de crédito o débito',
-  mercadopago: 'Mercado Pago (desde Argentina, en pesos)',
+  mercadopago: 'Mercado Pago',
   creem: 'Tarjeta internacional (en dólares)',
 };
 /**
@@ -37,7 +37,7 @@ const NOMBRE: Readonly<Record<Pasarela, string>> = {
  */
 const DETALLE: Readonly<Record<Pasarela, { icono: string; sub: string; marcas?: readonly string[] }>> = {
   stripe: { icono: '▭', sub: 'Pagas en la página segura de Stripe', marcas: ['VISA', 'MC', 'AMEX'] },
-  mercadopago: { icono: 'MP', sub: 'Tarjeta, débito o dinero en tu cuenta de Mercado Pago' },
+  mercadopago: { icono: 'MP', sub: 'En pesos, desde Argentina: tarjeta, débito o dinero en tu cuenta' },
   creem: { icono: '▭', sub: 'Pagas en la página segura de Creem', marcas: ['VISA', 'MC'] },
 };
 // Los colores fijos de las páginas de planes (app/planes/estilo.ts): el selector de país es de la app y viene con los del tema.

@@ -170,7 +170,7 @@ body:has(.ck-root) { background: #fcfcfb; }
 .ck-totales div.ck-total dt, .ck-totales div.ck-total dd { font-weight: 800; color: #121212; }
 .ck-totales div.ck-descuento dd { color: #22735c; }
 .ck-nota-res { margin: 10px 0 0 58px; color: #636360; font-size: 13px; line-height: 1.45; }
-.ck-pie .ck-col { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; color: #636360; font-size: 12.5px; }
+.ck-pie .ck-col { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: #636360; font-size: 12.5px; }
 .ck-pie a { color: #636360; text-decoration: none; }
 .ck-pie a:hover { color: #121212; text-decoration: underline; }
 .ck-pie .ck-procesa { padding-right: 14px; border-right: 1px solid rgba(17,17,17,.15); }
@@ -209,8 +209,8 @@ body:has(.ck-root) { background: #fcfcfb; }
   .ck-plegable .ck-precio { font-size: 32px; }
   .ck-ver { justify-self: start; display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 7px 12px; border-radius: 8px;
     background: rgba(17,17,17,.06); font-size: 14px; font-weight: 600; }
-  .ck-ver::after { content: "⌄"; font-size: 15px; line-height: 1; transform: translateY(-3px); transition: transform .2s ease; }
-  .ck-plegable[open] .ck-ver::after { transform: translateY(2px) rotate(180deg); }
+  .ck-ver::after { content: ""; width: 6px; height: 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: translateY(-2px) rotate(45deg); transition: transform .2s ease; }
+  .ck-plegable[open] .ck-ver::after { transform: translateY(2px) rotate(225deg); }
   .ck-plegable[open] .ck-ver-abrir, .ck-plegable:not([open]) .ck-ver-cerrar { display: none; }
   .ck-detalle { margin-top: 18px; }
   .ck-incluye, .ck-totales, .ck-nota-res { margin-left: 0; }
