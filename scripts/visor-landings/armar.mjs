@@ -59,6 +59,8 @@ export const PAGINAS = [
  */
 export const DE_LA_APP = [
   { slug: 'planes', nombre: 'Precios', ruta: '/planes' },
+  { slug: 'planes-pro', nombre: 'Checkout · MaKo Pro', ruta: '/planes/pro' },
+  { slug: 'planes-esencial', nombre: 'Checkout · MaKo Esencial', ruta: '/planes/esencial' },
   { slug: 'login', nombre: 'Iniciar sesión', ruta: '/login' },
   { slug: 'coaches', nombre: 'Industrias · Coaches', ruta: '/vsl/coaches' },
   { slug: 'infoproductores', nombre: 'Industrias · Infoproductores', ruta: '/vsl/infoproductores' },

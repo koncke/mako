@@ -87,6 +87,17 @@ export const PRUEBA_DIAS = 7;
  */
 export const PRUEBA_GRATIS_PRENDIDA: boolean = true;
 
+/**
+ * LA PRUEBA, SÓLO EN PRO (12/11/2026, Martín: «como oferta para que vayan a la de 97 y no la de 47, ponerlo 7 días gratis ahí,
+ * en la de 97… que para acceder a la de 47 haya que pagar directamente»). La prueba empuja hacia Pro: Esencial se paga al
+ * empezar. Todo lo que dice o decide la prueba de UN plan pregunta aquí: las tarjetas (app/planes/Tarjetas.tsx), el checkout
+ * (app/planes/[plan]/page.tsx) y el cobro (lib/compra-plan.ts, `comprarPlan`). El interruptor de arriba la apaga en todos.
+ */
+export const PLANES_CON_PRUEBA: readonly string[] = ['pro'];
+export const planConPrueba = (id: string): boolean => PRUEBA_GRATIS_PRENDIDA && PLANES_CON_PRUEBA.includes(id);
+/** El plan de la prueba, como lo nombran los textos generales («MaKo Pro empieza con 7 días gratis»). */
+export const NOMBRE_PLAN_CON_PRUEBA = 'MaKo Pro';
+
 /** El descuento del primer mes, sobre los dos planes (§3). Con la prueba prendida no se ofrece: son una cosa o la otra. */
 export const DESCUENTO_PRIMER_MES_PCT = PROMO_ENTRADA.pct;
 
@@ -211,14 +222,14 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
   // Todo lo de docs/ofertas-mako.md §3, dicho entero: antes la tarjeta mostraba cinco renglones y se veía como «Pro más
   // caro» (Martín, 24/10: «el acompañamiento debe tener mas beneficios y verse diferencial, porque sino no tiene sentido»).
   // Cada entregable con su tope (§6c: «entregables escritos con tope de horas»): lo que se promete se puede contar.
+  // 12/11/2026 (Martín: «tienen muchos ítems»): cada renglón corto, y MaKo Pro va en el título de la lista («Todo lo de MaKo
+  // Pro los 3 meses, más:», app/planes/Tarjetas.tsx). Lo de cada entregable sigue entero en /reembolsos §2.
   incluye: [
-    `Todo armado en la primera semana, con hasta ${HORAS_SEMANA_1} horas de nuestro equipo: tu página de venta, tu tablero de clientes, tus mensajes de apertura y tus seguimientos`,
-    'Tu IA conectada y lista para trabajar desde el primer día',
-    `${ASESORIAS_DEL_PROGRAMA} asesorías grupales en vivo con Martín, una por semana: revisamos tus páginas, tus anuncios y tus mensajes`,
-    'Las grabaciones de cada asesoría',
-    'Plantillas probadas: páginas por tipo de cliente, mensajes para conseguir clientes y guiones de video y de llamada',
-    'Un grupo de WhatsApp con los demás negocios del programa y respuestas de Martín',
-    'MaKo Pro incluido los 3 meses',
+    `Tu página, tu tablero de clientes, tus mensajes y tus seguimientos, armados la primera semana (hasta ${HORAS_SEMANA_1} horas de nuestro equipo)`,
+    'Tu IA conectada y lista desde el primer día',
+    `${ASESORIAS_DEL_PROGRAMA} asesorías grupales en vivo con Martín, una por semana, con su grabación`,
+    'Plantillas probadas de páginas, mensajes y guiones',
+    'Un grupo de WhatsApp con respuestas de Martín',
   ],
   despues: { nombre: 'Continuidad', precioUsd: 297 },
   // 25/10/2026, el Cerebro (Martín: «no hagas preguntas»), sobre la frase que propuso: un resultado con plazo, dicho en lo

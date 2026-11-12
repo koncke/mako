@@ -14,7 +14,7 @@
 
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { RAZON_SOCIAL_MAKO, PUBLICA_EN_PLAY } from '@/lib/titular-mako';
-import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
+import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
 import { H, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
 export const dynamic = 'force-dynamic';
@@ -199,8 +199,9 @@ export default function Page() {
         </li>
         {PRUEBA_GRATIS_PRENDIDA && (
           <li>
-            <strong>Empiezan con {PRUEBA_DIAS} días gratis</strong>, con tu tarjeta cargada: si te das de baja antes
-            del día {PRUEBA_DIAS + 1}, no se te cobra nada; si no, ese día se cobra solo el primer período.
+            <strong>{NOMBRE_PLAN_CON_PRUEBA} empieza con {PRUEBA_DIAS} días gratis</strong>, con tu tarjeta cargada: si te das de
+            baja antes del día {PRUEBA_DIAS + 1}, no se te cobra nada; si no, ese día se cobra solo el primer período. MaKo
+            Esencial no tiene prueba: se paga al empezar.
           </li>
         )}
         {!PRUEBA_GRATIS_PRENDIDA && (

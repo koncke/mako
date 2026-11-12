@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FUNCIONES_SOLO_PRO, TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
 import { AI_AVATAR_SE_VENDE, GRUPOS_COMPARACION, NOMBRE_AI_AVATAR, NOMBRE_FUNCION_PRO, NOMBRE_TAB_PRO, TABS_TODAVIA_CERRADAS, filasDeComparacion } from '../lib/planes-comparacion';
-import { HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, precioEnPesos, textoDespuesDeLaPrueba } from '../lib/planes-mako';
+import { HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, precioEnPesos, textoDespuesDeLaPrueba } from '../lib/planes-mako';
 import { botonAnualDelPlan, leerPedidoCompra, TEXTO_ANUAL_SE_PIDE } from '../lib/compra-plan-reglas';
 import { avisoAltaAMano } from '../lib/plan-esencial-reglas';
 
@@ -202,13 +202,15 @@ test('lo que incluye cada plan dice los topes del CÓDIGO, no números escritos 
   assert.doesNotMatch(lib.slice(lib.indexOf('PLANES_MAKO_DEFAULT'), lib.indexOf("id: 'continuidad'")), /[Hh]asta \d|\d+ WhatsApp|\d\.\d{3} contactos/, 'ningún tope a mano');
 });
 
-test('el acompañamiento se ve DISTINTO y con más: su bloque oscuro, su insignia, cómo se trabaja y todo lo del programa', async () => {
+// 12/11/2026 (Martín: «rediseñes los tres bloques… tienen muchos ítems», con beehiiv de referencia): el Acelerador ya no es un
+// bloque oscuro (el sol y la luna llevan la página a un solo modo) ni una lista más larga: es «Todo lo de MaKo Pro, más:» y lo
+// suyo, con su insignia y su botón negro.
+test('el acompañamiento se ve DISTINTO: su insignia, cómo se trabaja, todo lo de Pro y lo del programa', async () => {
   const tj = fuente('app/planes/Tarjetas.tsx');
   assert.match(tj, /<section className="mkpl-card mkpl-programa">\s*<span className="mkpl-insignia">Con acompañamiento<\/span>\s*<div className="mkpl-ceja">\{CEJA_PROGRAMA\}<\/div>/);
-  assert.match(tj, /\.mkpl-programa \{ background: radial-gradient/, 'un bloque oscuro, no una tarjeta blanca más');
-  const masLargo = Math.max(...PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => x.incluye.length));
-  assert.ok(PROGRAMA_ACELERADOR.incluye.length > masLargo, 'el programa trae más que cualquier plan de software');
+  assert.match(tj, /\.mkpl-programa \.mkpl-btn \{ background: #12151B; \}/, 'su botón negro, como el «Contact sales» de beehiiv');
   const t = await vitrina();
+  assert.match(t, /Todo lo de MaKo Pro los 3 meses, más:/, 'el programa trae Pro entero');
   assert.match(t, /Lo haces tú, con MaKo MaKo Esencial/);
   assert.match(t, /Con acompañamiento Lo armamos contigo MaKo Acelerador/);
   for (const r of PROGRAMA_ACELERADOR.incluye) assert.ok(t.includes(r), r);
@@ -286,14 +288,23 @@ test('el ANUAL: 2 meses gratis, se elige arriba, y SIEMPRE se pide (el checkout 
 test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mismo que el cobro', async () => {
   assert.equal(PRUEBA_DIAS, 7, 'no se borró');
   assert.equal(textoDespuesDeLaPrueba(97, 'mes', true), 'Después US$ 97/mes. Cancela cuando quieras antes del día 8.');
+  // LA PRUEBA, SÓLO EN PRO (12/11/2026, Martín: «7 días gratis en la de 97… para acceder a la de 47 haya que pagar directamente»).
+  assert.equal(planConPrueba('pro'), PRUEBA_GRATIS_PRENDIDA, 'Pro trae la prueba');
+  assert.equal(planConPrueba('esencial'), false, 'Esencial se paga al empezar');
+  const { notaDelBoton } = await import('../app/planes/Tarjetas');
+  if (PRUEBA_GRATIS_PRENDIDA) assert.equal(notaDelBoton({ id: 'pro', cobrable: true }), 'Hoy no pagas nada. El primer cobro es el día 8.');
+  assert.equal(notaDelBoton({ id: 'esencial', cobrable: true }), 'Pagas hoy y cancelas cuando quieras.');
+  assert.match(fuente('lib/compra-plan.ts'), /const conPrueba = planConPrueba\(plan\.id\) && !p\.sinPrueba;/, 'el cobro abre la prueba sólo en el plan que la trae');
+  assert.match(fuente('app/planes/[plan]/page.tsx'), /const conPrueba = planConPrueba\(plan\.id\) && uno\('sinPrueba'\) !== '1';/, 'y el checkout la dice sólo ahí');
   const t = await vitrina();
   assert.ok(t.includes('MaKo Pro ¿Ya vendes?'), 'la tarjeta de Pro');
   if (PRUEBA_GRATIS_PRENDIDA) assert.match(t, new RegExp(`${PRUEBA_DIAS} días gratis`), '/planes dice la prueba');
   else assert.doesNotMatch(t, /días gratis|prueba gratis/i, '/planes no promete una prueba que ya no existe');
   assert.ok(t.includes('Recomendado Lo haces tú, con MaKo MaKo Pro'));
-  assert.ok(t.includes(`Quiero MaKo Pro ${textoDespuesDeLaPrueba(97, 'mes')}`), 'abajo del botón del mensual');
-  assert.ok(t.includes(`Quiero MaKo Esencial ${textoDespuesDeLaPrueba(47, 'mes')}`));
-  assert.ok(t.includes(`Quiero el anual ${textoDespuesDeLaPrueba(970, 'año')}`), 'y del anual');
+  // La vitrina del test no tiene pasarela (`cobrable: false`): cada botón es un pedido, y su nota lo dice.
+  assert.ok(t.includes(`Quiero MaKo Pro ${notaDelBoton({ id: 'pro', cobrable: false })}`), 'abajo del botón del mensual');
+  assert.ok(t.includes(`Quiero MaKo Esencial ${notaDelBoton({ id: 'esencial', cobrable: false })}`));
+  assert.ok(t.includes(`Quiero el anual ${notaDelBoton({ id: 'pro', cobrable: true }, true)}`), 'y del anual');
   assert.ok(t.includes(PRUEBA_GRATIS_PRENDIDA ? '¿Cómo es la prueba gratis?' : '¿Cuándo pago y cuándo entro?'), 'la pregunta de cómo se paga');
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -317,7 +328,7 @@ test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mism
   for (const rel of ['lib/planes-mako.ts', 'app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/reembolsos/page.tsx', 'app/planes/[plan]/page.tsx']) {
     assert.doesNotMatch(fuente(rel), /GARANTIA_DIAS/, rel);
   }
-  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'prendida vuelve, con los días de la constante');
+  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{NOMBRE_PLAN_CON_PRUEBA\}: \{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'prendida vuelve, con los días de la constante y su plan');
 });
 
 test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo tiene (nunca con una tasa)', async () => {
@@ -341,7 +352,7 @@ test('el MEDIA BUYER en Esencial: propone, 2 recomendaciones por día, del tope 
   // Dicha sin «media buyer» desde el 27/10/2026 (Leila: «Una persona que no sabe no entiende…»).
   const f = filasDeComparacion().find((x) => x.que === 'Ideas por día para mejorar tus anuncios');
   assert.ok(f, 'la fila en la comparación');
-  assert.deepEqual([f!.grupo, f!.esencial, f!.pro, f!.acelerador], ['Anuncios y contenido', '2', 'Sin tope', 'Sin tope']);
+  assert.deepEqual([f!.grupo, f!.esencial, f!.pro, f!.acelerador], ['Anuncios', '2', 'Sin tope', 'Sin tope']);
   const esencial = PLANES_MAKO_DEFAULT.find((x) => x.id === 'esencial')!;
   assert.ok(esencial.incluye.some((x) => x.includes(`${TOPES.completo['ads.recomendaciones_dia']} recomendaciones por día`) && /tú decides si las aplicas/.test(x)),
     'en lo que incluye Esencial, y que no aplica solo');

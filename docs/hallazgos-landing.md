@@ -167,6 +167,33 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   - **Los precios del sitio son los bloques de /planes** (`TarjetasPlanes`): había una copia oscura propia que no tenía el
     Acelerador. Un bloque de precios se dibuja en UN lugar.
 
+- **Séptima vuelta (12/11/2026, claude5): el sol y la luna parejo, el título, las grabaciones en bucle.**
+  - **Invertir no es cambiar de modo.** El script daba vuelta los colores de toda la página: lo que nació claro (la franja de
+    los precios, el caso de Mauricio) quedaba NEGRO en el modo claro. Martín: «si estoy en white mode, todo debería ser white
+    mode». Ahora cada color se LLEVA al modo (`aModo` en `app/vsl/_competencia/TemaSitio.tsx`): en el claro, los fondos oscuros
+    pasan a claros y los claros quedan; la tinta, al revés. Y se aplica también al modo de nacimiento.
+  - **⚠️ El diagnóstico obvio era el equivocado: los paneles salían al revés por el VISOR, no por el script.** `pulir.mjs` abre
+    cada página en Chromium y guarda su HTML: el script ya había corrido y la foto llevaba los colores del modo puestos en línea.
+    En el visor, el script tomaba esa foto oscura como «de nacimiento» y daba vuelta todo. En producción no pasa (no hay foto).
+    Al fotografiar una página con el sol y la luna: `window.__mkTemaSitio = 1` antes de cargarla, así no corre.
+  - **En un SVG, el `fill` de un rectángulo es FONDO, no letra**: las columnas del tablero del CRM quedaban blancas en el modo
+    oscuro porque su relleno se trataba como texto. Y un `::before` con fondo (la franja del caso) no se alcanza con estilos en
+    línea: el fondo va en el elemento mismo. Y los botones conservan sus colores (el negro del Acelerador es a propósito).
+  - **Cambiar de modo trababa los carruseles**: leer el color calculado de cada elemento en cada cambio frena la página justo
+    dentro del barrido. Se lee una vez al abrir y cada modo arma una vez su lista. El segundo en negro al entrar: con un modo
+    elegido, la página no se muestra hasta tenerlo puesto (con un tope de 1,5 s).
+  - **El título en 3 renglones a cualquier ancho**: renglones fijos (`<br />`) y la letra al ancho de su columna con unidades
+    de contenedor (`container-type: inline-size` en la columna y `font-size: min(60px, 9.2cqi)` en el título). Medido con el
+    alto del título sobre su interlineado a 1440, 1024, 390 y 375.
+  - **Un video en bucle se corta en UN ciclo de la animación**: el banco vuelve a montar el componente cada N ms (`key`), se graba
+    de más y se recorta con ffmpeg desde que arranca el segundo ciclo hasta justo antes de que se quede quieto (en Spy, antes
+    de «46 piezas ordenadas»). Lo que no es la animación (títulos, cifras, «Saltar») se esconde con CSS en el banco. Las
+    carpetas de Spy quedaban cortadas en los bordes: la escena va con margen (`inset`). La escena de Replicar tiene alto fijo
+    (320 px): se estira a la pantalla, y la landing de fondo es la captura larga de un outlier
+    (`public/web-generator/outliers/largas/`).
+  - **Lo que quedó SIN hacer**: grabar Video, Chats, Marketing CoPilot, CRM y Automations como Spy y Replicar (hoy muestran el
+    visual de su landing). Los bancos están en el scratchpad de la sesión; la receta es la de arriba.
+
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
 **Vive en:** `scripts/landing-valores-tilvo.mjs` (con su test), `scripts/banco-editor-web/landing.tsx`, `app/vsl/CartelPromo.tsx`.

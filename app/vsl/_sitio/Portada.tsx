@@ -13,7 +13,7 @@
 //     producto superpuestas) son tres de MaKo con los visuales de sus landings: el CRM, el Ops Center y Automations.
 //   · La tira: no hay logos de clientes. Van las apps conocidas con las que MaKo se conecta, con su logo oficial
 //     (app/_components/ServicioVisual.tsx) y su nombre, deslizándose como la suya.
-//   · Sus tarjetas son ocho funciones de MaKo, cada una con el visual de su landing (o una grabación de la app, o los gurús) y su link. Su «+» de arriba a la derecha (allá
+//   · Sus tarjetas pasaron a FILAS (12/11/2026, Martín): texto de un lado y la grabación de la app del otro, intercalando. Su «+» de arriba a la derecha (allá
 //     da vuelta la tarjeta, con JavaScript) lleva a la misma landing. El resto de las funciones está en el menú «Producto» y en el pie.
 //   · «Trusted by names you know» → el caso de Mauricio TAL CUAL estaba en la landing de /vsl (CasoMauricio: su video, su historia
 //     y el carrusel de fotos). Martín, 12/11/2026: «vuelve a como estaba antes la parte del testimonio de Mauricio».
@@ -60,11 +60,12 @@ function HeroSitio() {
   return (
     <section className="s-hero">
       <div className="s-cont s-hero-in">
-        <div>
+        <div className="s-hero-tx">
           {/* Martín (12/11/2026): «el título principal me gustaría que sea el mejor software para ventas high ticket. Y me gusta eso
               de ventas, marketing, contenido en una sola app. Eso tal vez abajo». Y la frase debajo del botón se fue: repetía lo
-              que el botón ya dice. */}
-          <h1 className="s-h1">El mejor software para ventas <em>High Ticket.</em></h1>
+              que el botón ya dice. Y «debería tener como máximo 3 saltos de línea, no 4»: tres renglones fijos, y la letra se
+              achica con el ancho de su columna (`cqi` en estilos.ts) para que «El mejor software» entre siempre en uno. */}
+          <h1 className="s-h1">El mejor software<br /> para ventas<br /> <em>High Ticket.</em></h1>
           <p className="s-hero-p"><strong>Ventas, marketing y contenido en una sola app.</strong> Con una IA que conoce tu negocio, del primer clic en tu anuncio al cliente que paga.</p>
           <div className="s-hero-btns">
             <Boton clase="s-btn-alto" />
@@ -129,7 +130,8 @@ function TiraSitio() {
   );
 }
 
-function TarjetaFuncion({ slug, texto, visual, chica }: (typeof TARJETAS_PORTADA)[number] & { chica: boolean }) {
+/** Una fila: el texto de un lado y lo que se ve del otro (`inv`: al revés). */
+function FilaFuncion({ slug, rotulo, titulo, texto, visual, inv }: (typeof TARJETAS_PORTADA)[number] & { inv: boolean }) {
   const l = landingDeSlug(slug);
   if (!l) return null;
   const hero = visual === 'hero' ? heroDe(slug) : undefined;
@@ -137,49 +139,44 @@ function TarjetaFuncion({ slug, texto, visual, chica }: (typeof TARJETAS_PORTADA
   const grabacion = typeof visual === 'object' && 'video' in visual ? visual : null;
   const spec = pedido ? FEATURE_VISUALS[pedido.grupo]?.groups.find((g) => g.type === pedido.tipo) : undefined;
   return (
-    <article className={`s-card${chica ? ' s-card-chica' : ''}`}>
-      <div className="s-card-tx">
-        <h3 className="s-card-t">{nombreCorto(l)}</h3>
-        <p className="s-card-p">{texto}</p>
-        <a className="s-card-a" href={`/vsl/${l.slug}`}>Ver cómo funciona <Flecha /></a>
+    <div className={`s-zz-fila${inv ? ' s-zz-inv' : ''}`}>
+      <div className="s-zz-tx">
+        <p className="s-zz-r">{rotulo ?? nombreCorto(l)}</p>
+        <h3 className="s-zz-t">{titulo}</h3>
+        <p className="s-zz-p">{texto}</p>
+        <a className="s-zz-a" href={`/vsl/${l.slug}`}>Ver cómo funciona <Flecha /></a>
       </div>
-      {/* Su «+» de arriba a la derecha (allá da vuelta la tarjeta, con JavaScript): aquí lleva a la misma landing. */}
-      <a className="s-card-mas" href={`/vsl/${l.slug}`} tabIndex={-1} aria-hidden="true"><Icono d={['M12 5v14', 'M5 12h14']} size={24} /></a>
-      <div className={`s-card-vis${visual === 'gurus' ? ' s-card-vis-gurus' : ''}`} aria-hidden="true">
-        <div className="s-panel">
-          {grabacion ? (
-            // Sin sonido y en bucle: arranca sola, como un GIF (el navegador sólo deja eso si está muda).
-            <video className="s-card-video" src={grabacion.video} poster={grabacion.poster} autoPlay muted loop playsInline preload="metadata" />
-          ) : visual === 'gurus' ? (
-            <Gurus />
-          ) : spec ? (
-            <Visual spec={spec} />
-          ) : hero ? (
-            <VisualDeLanding visual={hero.visual} />
-          ) : null}
-        </div>
+      <div className={`s-zz-vis${grabacion ? ' s-zz-video' : visual === 'gurus' ? ' s-zz-gurus' : ''}`} aria-hidden="true">
+        {grabacion ? (
+          // Sin sonido y en bucle: arranca sola, como un GIF (el navegador sólo deja eso si está muda).
+          <video src={grabacion.video} poster={grabacion.poster} autoPlay muted loop playsInline preload="metadata" />
+        ) : visual === 'gurus' ? (
+          <Gurus />
+        ) : (
+          <div className="s-panel">{spec ? <Visual spec={spec} /> : hero ? <VisualDeLanding visual={hero.visual} /> : null}</div>
+        )}
       </div>
-    </article>
+    </div>
   );
 }
 
-/** La pared de caricaturas de Copywriting (public/asesores/<id>.png), con «Inspirado en»: ninguno participa en MaKo ni la respalda. */
+/**
+ * Los referentes (public/asesores/<id>.png), en una pared que se desliza sola hacia arriba y vuelve a empezar sin corte (la lista
+ * va dos veces). Sin texto encima (Martín, 12/11/2026: «no pongas texto innecesario»): «Inspirado en» queda en el nombre de cada
+ * imagen, y la landing de Copywriting lo dice entero.
+ */
 function Gurus() {
+  const una = (copia: boolean) => ASESORES.map((a) => (
+    <li key={`${copia ? 'b' : 'a'}-${a.id}`}><img src={`/asesores/${a.id}.png`} alt={copia ? '' : inspiradoEn(a)} title={copia ? undefined : inspiradoEn(a)} width={200} height={200} decoding="async" /></li>
+  ));
   return (
     <div className="s-gurus">
-      <p className="s-gurus-pie">{ASESORES.length} referentes · Inspirado en su método · Ninguno participa en MaKo ni la respalda</p>
-      <ul className="s-gurus-ul">
-        {ASESORES.map((a) => (
-          <li key={a.id} title={`${inspiradoEn(a)} · ${a.especialidad}`}><img src={`/asesores/${a.id}.png`} alt={inspiradoEn(a)} width={200} height={200} decoding="async" /></li>
-        ))}
-      </ul>
+      <ul className="s-gurus-ul">{una(false)}{una(true)}</ul>
     </div>
   );
 }
 
 function ProductoSitio() {
-  const filas: (typeof TARJETAS_PORTADA)[number][][] = [];
-  for (let i = 0; i < TARJETAS_PORTADA.length; i += 2) filas.push(TARJETAS_PORTADA.slice(i, i + 2));
   return (
     <section className="s-sec">
       <div className="s-cont">
@@ -193,16 +190,8 @@ function ProductoSitio() {
             <Boton />
           </div>
         </div>
-        <div className="s-bento">
-          {filas.map((par, i) => {
-            // Como sus filas: la primera de 2 a 1, la siguiente de 1 a 2, y así.
-            const inv = i % 2 === 1;
-            return (
-              <div key={i} className={`s-fila${inv ? ' s-fila-inv' : ''}`}>
-                {par.map((t, j) => <TarjetaFuncion key={t.slug} {...t} chica={inv ? j === 0 : j === 1} />)}
-              </div>
-            );
-          })}
+        <div className="s-zz">
+          {TARJETAS_PORTADA.map((t, i) => <FilaFuncion key={`${t.slug}-${i}`} {...t} inv={i % 2 === 1} />)}
         </div>
       </div>
     </section>
@@ -217,7 +206,7 @@ function ProductoSitio() {
 function CasoSitio() {
   return (
     <section className="s-caso-orig" id="caso">
-      <style dangerouslySetInnerHTML={{ __html: CSS_CASO + '.s-caso-orig{color:#12151B}.s-caso-orig .mk-hist{margin:0}.s-caso-orig .mk-hist::before{background:#F6F8FC}' }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_CASO + '.s-caso-orig{color:#12151B;background:#F6F8FC}.s-caso-orig .mk-hist{margin:0}.s-caso-orig .mk-hist::before{display:none}' }} />
       <div className="s-cont"><CasoMauricio /></div>
     </section>
   );

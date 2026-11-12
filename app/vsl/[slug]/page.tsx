@@ -16,6 +16,16 @@ import { notFound } from 'next/navigation';
 import { Portada } from '../Portada';
 import { disenoDeLanding, landingMako } from '@/lib/editor-landing/landing-mako';
 import { planesParaLanding } from '@/lib/compra-plan';
+import { BarraGlobal } from '../_sitio/Barra';
+
+/**
+ * LA BARRA DEL SITIO TAMBIÉN AQUÍ (12/11/2026, Martín: «cuando me voy a industrias como inmobiliarias, infoproductos, coaches,
+ * desaparece la top bar de arriba. La top bar jamás debe desaparecer en ningún momento»). Estas páginas son documentos de Web
+ * Generator: se dibujan en `.vsl-root`, una caja FIJA a pantalla completa con su propio scroll (app/vsl/Portada.tsx), y traen
+ * su barra (el `<header>` del documento). La del sitio va arriba, la del documento se oculta, y la caja empieza debajo de la
+ * barra: 76 px + su borde en la computadora, 56 px + su borde desde 1023 px (app/vsl/_sitio/estilos.ts, `.s-barra-in`).
+ */
+const CSS_BAJO_LA_BARRA = '.vsl-root{top:77px!important}@media (max-width:1023px){.vsl-root{top:57px!important}}';
 
 export const revalidate = 300;
 
@@ -42,5 +52,11 @@ export default async function LandingDeMako({ params }: Props) {
   const { slug } = await params;
   const [diseno, planes] = await Promise.all([landingMako(slug).then(disenoDeLanding), planesParaLanding()]);
   if (!diseno) notFound();
-  return <Portada diseno={diseno} conSuspense={false} planes={planes} landing={slug} />;
+  return (
+    <>
+      <BarraGlobal claro barraPropia=".vsl-root header" />
+      <style dangerouslySetInnerHTML={{ __html: CSS_BAJO_LA_BARRA }} />
+      <Portada diseno={diseno} conSuspense={false} planes={planes} landing={slug} />
+    </>
+  );
 }

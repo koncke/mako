@@ -11,9 +11,8 @@
 // =============================================================================
 
 import { EstrellaMaKo } from '../_competencia/marca';
-import { EMAIL_MAKO } from '@/lib/app-url';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
-import { LEGALES, columnasDelPie } from './datos';
+import { columnasDelPie } from './datos';
 
 export function Pie() {
   const columnas = columnasDelPie();
@@ -22,8 +21,9 @@ export function Pie() {
       <div className="s-cont">
         <div className="s-pie-in">
           <div className="s-pie-marca">
-            <p className="s-pie-lema">El mejor SaaS para ventas High Ticket, de punta a punta.</p>
-            <p className="s-pie-sub">Del primer clic en tu anuncio al cliente que paga.</p>
+            {/* Lo mismo que dice arriba (Martín, 12/11/2026: «sigue el texto viejo… tienes que copiarlo de cómo está arriba hoy»). */}
+            <p className="s-pie-lema">El mejor software para ventas High Ticket.</p>
+            <p className="s-pie-sub">Ventas, marketing y contenido en una sola app.</p>
           </div>
           <div className="s-pie-cols">
             {columnas.map((c) => (
@@ -36,10 +36,6 @@ export function Pie() {
         </div>
         <div className="s-pie-base">
           <div>
-            <nav className="s-pie-leg" aria-label="Legales">
-              {LEGALES.map((l) => <a key={l.href} href={l.href}>{l.nombre}</a>)}
-              <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>
-            </nav>
             <p className="s-pie-c">© {new Date().getFullYear()} MaKo · Razón social: {RAZON_SOCIAL_MAKO}</p>
           </div>
           <EstrellaMaKo size={32} />
