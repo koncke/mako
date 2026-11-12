@@ -16,6 +16,7 @@ import { COOKIE_PROMO } from '@/lib/promo-entrada-reglas';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
 import { paisDelVisitante } from '@/lib/compra-plan-reglas';
 import { VitrinaPlanes } from './Vitrina';
+import { BarraGlobal } from '../vsl/_sitio/Barra';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -41,5 +42,11 @@ export default async function PlanesPage({ searchParams }: { searchParams: Promi
   // Y según el PAÍS (27/10/2026): Mercado Pago sólo en el suyo; desde México, «Empezar» sólo si Stripe cobra.
   const ofertas = await ofertasDeLosPlanes(paisDelVisitante((await headers()).get('x-vercel-ip-country')));
   // El origen de la campaña y el código de partner viajan en el sufijo al plan elegido, y de ahí al pedido o al pago.
-  return <VitrinaPlanes ofertas={ofertas} sufijo={sufijo} promoVigente={relojVivo((await cookies()).get(COOKIE_PROMO)?.value)} />;
+  // Con la barra del sitio arriba (12/11/2026): «Precios» de la barra trae acá, y desde acá se sigue navegando.
+  return (
+    <>
+      <BarraGlobal claro />
+      <VitrinaPlanes ofertas={ofertas} sufijo={sufijo} promoVigente={relojVivo((await cookies()).get(COOKIE_PROMO)?.value)} />
+    </>
+  );
 }

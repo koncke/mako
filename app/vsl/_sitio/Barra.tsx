@@ -21,6 +21,7 @@ import { LogoMaKo, TEXTO_CTA, RUTA_CTA } from '../_competencia/marca';
 import { TemaSitio } from '../_competencia/TemaSitio';
 import { HISTORIA, INDUSTRIAS, RUTA_COMPARACIONES, RUTA_ENTRAR, RUTA_PRECIOS, menuProducto, type MenuProducto } from './datos';
 import { Chevron, Icono } from './Piezas';
+import { CSS_BARRA, CSS_BASE } from './estilos';
 
 /** Uno de los cuatro grandes (o una industria): el cuadro con el ícono, el nombre y su bajada. */
 function Grande({ href, icono, nombre, bajada }: { href: string; icono: readonly string[]; nombre: string; bajada: string }) {
@@ -164,3 +165,22 @@ export function Barra({ claro = false }: { claro?: boolean }) {
     </header>
   );
 }
+
+/**
+ * LA BARRA DEL SITIO EN CUALQUIER PÁGINA (las 19 landings por función y /planes). Martín, 12/11/2026: «me voy a otra tab y
+ * después ya no sale la top bar de arriba para seguir navegando. Eso no puede ser, ahora ya no puedo regresar». Cada landing
+ * traía la barra copiada de su referencia, sin Producto, Industrias, Comparaciones ni Precios: como en beehiiv, la barra es UNA
+ * para todo el sitio y queda fija arriba al bajar. `barraPropia`: el selector de la barra copiada que esta reemplaza (se oculta).
+ */
+export function BarraGlobal({ claro = false, barraPropia }: { claro?: boolean; barraPropia?: string }) {
+  const ocultar = barraPropia ? `${barraPropia}{display:none!important}` : '';
+  return (
+    <div className={`s-sitio s-solo-barra${claro ? ' s-claro' : ''}`}>
+      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_SOLO_BARRA + ocultar }} />
+      <Barra claro={claro} />
+    </div>
+  );
+}
+
+/** Sola, la barra no es una página: sin el alto de pantalla de .s-sitio, y la que queda fija arriba es la caja entera. */
+const CSS_SOLO_BARRA = '.s-sitio.s-solo-barra{min-height:0;position:sticky;top:0;z-index:2147480000;overflow:visible}';

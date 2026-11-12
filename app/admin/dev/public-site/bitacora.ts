@@ -146,4 +146,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/vsl/sitio',
   },
+  {
+    fecha: '12 nov', hora: '09:20', chat: 'Landings de /vsl', sesion: 'local_ec06a1f5-08a0-4404-80fb-5123883b13aa', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Prender la prueba gratis, y la barra de arriba en todas las páginas',
+    pedido: 'Sí, préndela\nAlgo que pasa muchísimo es que me voy a otra tab y después ya no sale la top bar de arriba para seguir navegando. Eso no puede ser, ahora ya no puedo regresar.',
+    puntos: ['«Sí, préndela» contesta la pregunta de prender la prueba gratis de 7 días en /planes.'],
+  },
+  {
+    fecha: '12 nov', hora: '10:05', chat: 'Landings de /vsl', sesion: 'local_ec06a1f5-08a0-4404-80fb-5123883b13aa', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La prueba gratis prendida, y la barra del sitio fija arriba en las 19 landings y en /planes',
+    puntos: [
+      'PRUEBA_GRATIS_PRENDIDA en true: /planes, /reembolsos y /terminos dicen los 7 días gratis y el botón de todo el sitio es «Comienza tu prueba gratuita». Los tests del 50% del primer mes corren sólo con la prueba apagada.',
+      'Cada landing traía la barra de su referencia, sin el menú del sitio: ahora va la del sitio arriba, fija al bajar, y la copiada se oculta (BARRA_PROPIA).',
+      '⚠️ Falta una compra de prueba con la prueba prendida en producción (la tarjeta la pone Martín).',
+    ],
+    revisar: '/vsl/crm',
+  },
 ];

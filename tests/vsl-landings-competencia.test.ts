@@ -150,3 +150,22 @@ test('ninguna landing ofrece agendar una llamada: el botón es empezar con MaKo,
     assert.ok(dibujar(l).includes('data-tema-sitio'), `${l.slug}: sin el botón de sol y luna`);
   }
 });
+
+test('cada landing lleva la barra del sitio arriba y esconde la copiada de su referencia', async () => {
+  // Martín, 12/11/2026: «me voy a otra tab y después ya no sale la top bar de arriba para seguir navegando».
+  const { BARRA_PROPIA } = await import('../app/vsl/_competencia/TemaSitio');
+  for (const l of LANDINGS_COMPETENCIA) {
+    if (!DISENOS[l.slug]) continue;
+    const html = dibujar(l);
+    assert.ok(html.includes('s-solo-barra'), `${l.slug}: sin la barra del sitio`);
+    for (const [r, que] of [['/vsl/comparaciones', 'Comparaciones'], ['/planes', 'Precios'], ['/login', 'Iniciar sesión']] as const) {
+      assert.ok(html.includes(`href="${r}">${que}</a>`), `${l.slug}: la barra sin «${que}»`);
+    }
+    const sel = BARRA_PROPIA[l.slug];
+    assert.ok(sel, `${l.slug}: falta su barra en BARRA_PROPIA (quedaría debajo de la del sitio)`);
+    const propia = html.search(new RegExp(`class="[^"]*\\b${sel.slice(1)}\\b`));
+    assert.ok(propia > 0, `${l.slug}: ${sel} no está en la página: ¿cambió la clase de su barra?`);
+    assert.ok(html.indexOf('s-solo-barra') < propia, `${l.slug}: la barra del sitio va antes que la copiada`);
+    assert.ok(html.includes(`${sel}{display:none!important}`), `${l.slug}: su barra copiada no se esconde`);
+  }
+});

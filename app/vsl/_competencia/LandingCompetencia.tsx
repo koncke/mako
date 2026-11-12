@@ -19,7 +19,8 @@ import type { Bloque, LandingCompetencia as Landing } from './tipos';
 import { VisualDeLanding } from './Visuales';
 import { DISENOS } from './disenos';
 import { RUTA_CTA, TEXTO_CTA } from './marca';
-import { LANDINGS_OSCURAS, TemaSitio } from './TemaSitio';
+import { BARRA_PROPIA, LANDINGS_OSCURAS } from './TemaSitio';
+import { BarraGlobal } from '../_sitio/Barra';
 
 export function metadataDeLanding(l: Landing): Metadata {
   return {
@@ -190,7 +191,8 @@ export default function LandingCompetencia({ landing }: { landing: Landing }) {
   // Con su diseño copiado de la referencia (./disenos/<slug>.tsx), la página entera es ésa: la cara común de abajo es la de
   // las landings que todavía no lo tienen.
   const Diseno = DISENOS[landing.slug];
-  if (Diseno) return <><Diseno landing={landing} /><TemaSitio base={LANDINGS_OSCURAS.has(landing.slug) ? 'oscuro' : 'claro'} /></>;
+  // Arriba, la barra del sitio (la misma en todas las páginas, con el sol y la luna); la copiada de la referencia se oculta.
+  if (Diseno) return <><BarraGlobal claro={!LANDINGS_OSCURAS.has(landing.slug)} barraPropia={BARRA_PROPIA[landing.slug]} /><Diseno landing={landing} /></>;
   return (
     <div className="mk-det">
       <style dangerouslySetInnerHTML={{ __html: CSS_DETALLE + CSS }} />

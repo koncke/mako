@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { archivoDelPdf, mensajesParaCopiar, pdfDeVenta } from '../lib/partners-recursos';
-import { PLANES_MAKO_DEFAULT, type PlanMako } from '../lib/planes-mako';
+import { PLANES_MAKO_DEFAULT, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from '../lib/planes-mako';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -29,8 +29,9 @@ test('los MENSAJES: uno por situación, cada uno con su link; el del precio, con
   assert.deepEqual(m.map((x) => x.id), ['conocido', 'estado', 'instagram', 'precio', 'seguimiento']);
   for (const x of m) {
     assert.ok(x.texto.includes(LINK), `${x.id}: sin su link no cuenta para el partner`);
-    // La prueba gratis se apagó el 30/10/2026 (`PRUEBA_GRATIS_PRENDIDA`): un partner no puede prometer lo que el checkout ya no da.
-    assert.doesNotMatch(x.texto, /d[ií]as gratis|prueba gratis|lo pruebas/i, `${x.id}: promete una prueba que ya no existe`);
+    // Un partner no puede prometer lo que el checkout no da: la prueba sólo si está prendida (`PRUEBA_GRATIS_PRENDIDA`; apagada
+    // el 30/10/2026, prendida de nuevo el 12/11/2026).
+    if (!PRUEBA_GRATIS_PRENDIDA) assert.doesNotMatch(x.texto, /d[ií]as gratis|prueba gratis|lo pruebas/i, `${x.id}: promete una prueba que ya no existe`);
     assert.doesNotMatch(x.texto, JERGA, x.id);
     assert.doesNotMatch(x.texto, PROMESA, `${x.id}: no promete lo que el programa no da`);
     assert.ok(x.texto.length <= 280, `${x.id}: corto, para un WhatsApp`);
@@ -59,7 +60,8 @@ test('el PDF: qué hace MaKo, los dos planes con lo que trae cada uno (como /pla
   assert.equal(d.planes[1].incluye[0], 'Todo lo de MaKo Esencial, con más lugar');
   assert.ok(d.planes[1].incluye.includes('Sumar a tu lista los contactos de tus grupos de WhatsApp'), 'Pro sí');
   assert.ok(!d.planes[1].incluye.some((x) => /asesoría grupal/.test(x)), 'lo del Acelerador no va en Pro');
-  assert.doesNotMatch(d.prueba, /d[ií]as gratis/i, 'el PDF no promete una prueba que ya no existe');
+  if (PRUEBA_GRATIS_PRENDIDA) assert.match(d.prueba, /d[ií]as gratis/i, 'el PDF dice la prueba');
+  else assert.doesNotMatch(d.prueba, /d[ií]as gratis/i, 'el PDF no promete una prueba que ya no existe');
   for (const t of [d.titulo, d.bajada, ...d.queHace, ...d.planes.flatMap((p) => [p.resumen, ...p.incluye]), d.prueba]) {
     assert.doesNotMatch(t, PROMESA, t);
   }

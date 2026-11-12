@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FUNCIONES_SOLO_PRO, TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
 import { AI_AVATAR_SE_VENDE, GRUPOS_COMPARACION, NOMBRE_AI_AVATAR, NOMBRE_FUNCION_PRO, NOMBRE_TAB_PRO, TABS_TODAVIA_CERRADAS, filasDeComparacion } from '../lib/planes-comparacion';
-import { HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, PRUEBA_DIAS, precioEnPesos, textoDespuesDeLaPrueba } from '../lib/planes-mako';
+import { HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, precioEnPesos, textoDespuesDeLaPrueba } from '../lib/planes-mako';
 import { botonAnualDelPlan, leerPedidoCompra, TEXTO_ANUAL_SE_PIDE } from '../lib/compra-plan-reglas';
 import { avisoAltaAMano } from '../lib/plan-esencial-reglas';
 
@@ -112,7 +112,8 @@ test('el tercer bloque es el Acelerador: 1.500 en 3 cuotas de 500, y no es un pl
 
 test('/planes: tres bloques, el programa se pide, la comparación, y el link a MaKo Partners', () => {
   const p = fuente('app/planes/Vitrina.tsx');
-  assert.match(fuente('app/planes/page.tsx'), /return <VitrinaPlanes ofertas=\{ofertas\} sufijo=\{sufijo\} promoVigente=/, 'la página lee y la vitrina dibuja');
+  // Desde el 12/11/2026 con la barra del sitio arriba (BarraGlobal): la página lee, la barra navega y la vitrina dibuja.
+  assert.match(fuente('app/planes/page.tsx'), /<BarraGlobal claro \/>\s*<VitrinaPlanes ofertas=\{ofertas\} sufijo=\{sufijo\} promoVigente=/, 'la página lee y la vitrina dibuja');
   assert.match(p, /^\s*const programa = PROGRAMA_ACELERADOR;/m);
   const t = fuente('app/planes/Tarjetas.tsx');
   assert.match(p, /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} promoVigente=/, 'los bloques son los de la landing');
@@ -280,25 +281,34 @@ test('el ANUAL: 2 meses gratis, se elige arriba, y SIEMPRE se pide (el checkout 
 
 // La prueba gratis se apagó el 30/10/2026 (docs/estrategia-lanzamiento-low-to-high.md §4, `PRUEBA_GRATIS_PRENDIDA`): ninguna pantalla pública
 // la promete. Prendida vuelve a decir lo de antes (tests/primer-mes.test.ts); lo que se fija acá es lo que se ve hoy.
-test('la prueba gratis APAGADA (30/10): nadie la promete, y debajo de cada botón se dice que se paga al empezar', async () => {
+// La prueba se apagó el 30/10/2026 y se prendió de nuevo el 12/11/2026 (Martín: «Sí, préndela»): /planes y /reembolsos dicen lo
+// mismo que el cobro, con el interruptor como esté.
+test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mismo que el cobro', async () => {
   assert.equal(PRUEBA_DIAS, 7, 'no se borró');
   assert.equal(textoDespuesDeLaPrueba(97, 'mes', true), 'Después US$ 97/mes. Cancela cuando quieras antes del día 8.');
   const t = await vitrina();
   assert.ok(t.includes('MaKo Pro ¿Ya vendes?'), 'la tarjeta de Pro');
-  assert.doesNotMatch(t, /días gratis|prueba gratis/i, '/planes no promete una prueba que ya no existe');
+  if (PRUEBA_GRATIS_PRENDIDA) assert.match(t, new RegExp(`${PRUEBA_DIAS} días gratis`), '/planes dice la prueba');
+  else assert.doesNotMatch(t, /días gratis|prueba gratis/i, '/planes no promete una prueba que ya no existe');
   assert.ok(t.includes('Recomendado Lo haces tú, con MaKo MaKo Pro'));
   assert.ok(t.includes(`Quiero MaKo Pro ${textoDespuesDeLaPrueba(97, 'mes')}`), 'abajo del botón del mensual');
   assert.ok(t.includes(`Quiero MaKo Esencial ${textoDespuesDeLaPrueba(47, 'mes')}`));
   assert.ok(t.includes(`Quiero el anual ${textoDespuesDeLaPrueba(970, 'año')}`), 'y del anual');
-  assert.ok(t.includes('¿Cuándo pago y cuándo entro?'));
+  assert.ok(t.includes(PRUEBA_GRATIS_PRENDIDA ? '¿Cómo es la prueba gratis?' : '¿Cuándo pago y cuándo entro?'), 'la pregunta de cómo se paga');
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { default: Reembolsos } = await import('../app/reembolsos/page');
   const r = sinMarcas(renderToStaticMarkup(React.createElement(Reembolsos)));
-  assert.ok(r.includes('Se paga al empezar.'), '/reembolsos dice lo mismo');
-  assert.ok(r.includes('se aplica sólo a ese primer cobro'), 'el 50% del primer mes, dicho');
-  assert.ok(r.includes('Si empezaste con una prueba gratis, sigue con las condiciones con las que la empezaste'), 'a quien ya está en prueba no se le toca nada');
-  assert.doesNotMatch(r, /7 días gratis/);
+  if (PRUEBA_GRATIS_PRENDIDA) {
+    assert.ok(r.includes(`${PRUEBA_DIAS} días gratis.`), '/reembolsos dice la prueba');
+    assert.ok(r.includes('una prueba por negocio'), 'y que es una sola');
+    assert.doesNotMatch(r, /Se paga al empezar\./, 'no dice las dos cosas');
+  } else {
+    assert.ok(r.includes('Se paga al empezar.'), '/reembolsos dice lo mismo');
+    assert.ok(r.includes('se aplica sólo a ese primer cobro'), 'el 50% del primer mes, dicho');
+    assert.ok(r.includes('Si empezaste con una prueba gratis, sigue con las condiciones con las que la empezaste'), 'a quien ya está en prueba no se le toca nada');
+    assert.doesNotMatch(r, /7 días gratis/);
+  }
   assert.ok(r.includes('Después del primer cobro, lo ya pagado no se reembolsa'), 'después, no hay devolución');
   for (const [que, txt] of [['la vitrina', t], ['/reembolsos', r]] as const) {
     assert.doesNotMatch(txt, /días de garantía|Garantía de 14|te devolvemos tu pago/, `${que}: sin la garantía de los planes`);

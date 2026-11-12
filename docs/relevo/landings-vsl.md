@@ -17,22 +17,28 @@ referencia y el sitio estilo beehiiv (`/vsl/sitio`, `/vsl/comparaciones`). Mart�
 
 | Pedido | Dónde quedó |
 |---|---|
-| Ningún «agendar llamada»: el botón es «Comienza tu prueba gratuita» | `app/vsl/_competencia/cta.ts` (`RUTA_CTA` = `/planes`, `TEXTO_CTA`, `TEXTO_CIERRE`), en las 19 landings y el sitio. Sigue al interruptor de la prueba (abajo) |
+| Ningún «agendar llamada»: el botón es «Comienza tu prueba gratuita» | `app/vsl/_competencia/cta.ts` (`RUTA_CTA` = `/planes`, `TEXTO_CTA`, `TEXTO_CIERRE`), en las 19 landings y el sitio. Sigue al interruptor de la prueba (prendida: abajo) |
 | Arriba: iniciar sesión, ver planes, registrarse | `app/vsl/_sitio/Barra.tsx`: «Iniciar sesión» (/login), «Ver planes» (/planes), el sol y la luna, «Comienza tu prueba gratuita» |
 | El sol y la luna, con el barrido de la app, y que se mantenga | `app/vsl/_competencia/TemaSitio.tsx`: un script en línea (anda sin React y en el visor), recuerda el modo en `localStorage['mako.sitio.modo']` |
 | El VSL de Martín en la portada nueva | `app/vsl/_sitio/Portada.tsx` (`VSL_PORTADA`, el Panda `25c0684d-…` de la portada de hoy) |
 | «Precios» y los links que no andaban | «Industrias» llevaba a `/vsl/mako-<avatar>` (404, nunca se subieron): ahora a `/vsl/coaches`, `/vsl/infoproductores` y `/vsl/inmobiliarias` (publicadas el 23/10). Agencias no tiene página: fuera del menú |
 | El visor sin la lista, navegable | `scripts/visor-landings/visor.html`: la página entera, sus links abren la página que corresponde (el logo → la portada nueva, Precios → /planes, Iniciar sesión → /login…), abajo Atrás / Computadora-Teléfono / Copiado-Diseño MaKo |
 
-## ⚠️ Lo que decide Martín: prender la prueba gratis
+## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
-`PRUEBA_GRATIS_PRENDIDA` (`lib/planes-mako.ts`) está en `false` desde el 30/10: `/planes` cobra al empezar. Con `false`, el
-botón de las landings dice «Empieza con MaKo» (no se promete una prueba que el cobro no da). Prenderla cambia `/planes`
-(«7 días gratis», cobra el día 8 con la tarjeta), `/reembolsos`, `/terminos` y los mensajes y el PDF de Partners. Medido el
-12/11 con `true`: 341 de 345 tests de planes y cobros pasan; fallan 4 que fijan la decisión del 30/10
-(`tests/primer-mes.test.ts` y los mensajes y el PDF de Partners en `tests/partners-recursos.test.ts`). Si Martín dice que sí:
-`true`, esos 4 tests pasan a seguir al interruptor, y mirar el checkout nuevo (`app/planes/[plan]`) con la prueba.
-El visor del 12/11 se armó con la prueba PRENDIDA como vista previa (así lo pidió Martín), sin commitear el interruptor.
+`PRUEBA_GRATIS_PRENDIDA = true` (`lib/planes-mako.ts`): `/planes` dice «7 días gratis» y cobra el día 8 con la tarjeta,
+`/reembolsos` y `/terminos` dicen la prueba, y el botón de todo el sitio es «Comienza tu prueba gratuita». El 50% del primer
+mes no se ofrece con la prueba prendida (son una cosa o la otra): sus tests (`tests/primer-mes.test.ts`, la simulación del
+cobro y las tarjetas con el reloj) se saltean y vuelven solos si el interruptor vuelve a `false`. `tests/planes-tres-bloques`
+y `tests/partners-recursos` siguen al interruptor. Medido con `true`: 358 tests de planes y cobros, 347 pasan, 10 se
+saltean, 0 fallan. Falta mirar en producción una compra de prueba con la tarjeta de prueba (la hace Martín).
+
+## La barra del sitio en todas las páginas (12/11/2026)
+
+Martín: «me voy a otra tab y después ya no sale la top bar de arriba para seguir navegando… ya no puedo regresar». Cada
+landing traía la barra de su referencia, sin el menú del sitio. Ahora arriba de las 19 landings y de `/planes` va la barra del
+sitio (`BarraGlobal` en `app/vsl/_sitio/Barra.tsx`), fija al bajar, y la copiada se oculta (`BARRA_PROPIA` en
+`app/vsl/_competencia/TemaSitio.tsx`, una clase por diseño; el test exige que esté).
 
 ## El visor («Landings de MaKo»)
 

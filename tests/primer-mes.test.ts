@@ -23,7 +23,11 @@ import { esPruebaDePlan } from '../lib/prueba-plan-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
-const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_primer-mes-hijo.ts')], {
+// ⚠️ EL 50% DEL PRIMER MES SÓLO EXISTE CON LA PRUEBA APAGADA (son una cosa o la otra, lib/planes-mako.ts). Desde el 12/11/2026 la
+// prueba está PRENDIDA (Martín: «Sí, préndela»): la simulación del cobro con el 50% y las tarjetas con el reloj no corren, y
+// vuelven solas el día que el interruptor vuelva a false. Lo de la prueba lo cuidan tests/prueba-plan.test.ts y compañía.
+const conPromo = PRUEBA_GRATIS_PRENDIDA ? test.skip : test;
+const salida = PRUEBA_GRATIS_PRENDIDA ? '@@RESULTADO@@{}' : execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_primer-mes-hijo.ts')], {
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, stdio: ['ignore', 'pipe', 'inherit'],
 });
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,8 +36,9 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
 const DIA = 86_400_000;
 const AHORA = Date.parse('2026-10-30T12:00:00.000Z');
 
-test('el interruptor está APAGADO y es uno solo; se puede volver a prender', () => {
-  assert.equal(PRUEBA_GRATIS_PRENDIDA, false);
+test('el interruptor es uno solo, y dice lo suyo prendido y apagado', () => {
+  // Apagado el 30/10/2026; prendido de nuevo el 12/11/2026 (Martín: «Sí, préndela»: el botón de todo el sitio es la prueba).
+  assert.equal(typeof PRUEBA_GRATIS_PRENDIDA, 'boolean');
   assert.equal(PRUEBA_DIAS, 7, 'no se borró');
   assert.equal(textoDespuesDeLaPrueba(97, 'mes', false), 'Pagas al empezar y cancelas cuando quieras.');
   assert.match(textoDespuesDeLaPrueba(97, 'mes', true), /antes del día 8/, 'prendida, vuelve a decir lo de antes');
@@ -42,14 +47,14 @@ test('el interruptor está APAGADO y es uno solo; se puede volver a prender', ()
   assert.match(bajadaDePlanes(true, true), /7 días gratis/);
 });
 
-test('sin reloj: el precio de lista, sin prueba y sin cupón; se paga antes de entrar', () => {
+conPromo('sin reloj: el precio de lista, sin prueba y sin cupón; se paga antes de entrar', () => {
   assert.equal(R.sinToken.ok, true);
   assert.deepEqual(R.sinTokenCobro, { creado_por: 'planes:pro', monto: 97, inicio_at: null });
   assert.equal(R.sinTokenCupones, 0);
   assert.deepEqual(R.sinTokenSesion, { descuento: null, prueba: null, monto: '9700' });
 });
 
-test('con el reloj vivo: el 50% de un solo cobro en Stripe, y el cobro sigue valiendo la mensualidad', () => {
+conPromo('con el reloj vivo: el 50% de un solo cobro en Stripe, y el cobro sigue valiendo la mensualidad', () => {
   assert.equal(R.conToken.ok, true);
   assert.deepEqual(R.conTokenCobro, { creado_por: 'planes:pro:primer-mes-50', monto: 97, monto_usd: 97 });
   assert.deepEqual(R.cupon, { pct: '50', duracion: 'once' }, '`once`: Stripe vuelve solo al precio de lista');
@@ -58,7 +63,7 @@ test('con el reloj vivo: el 50% de un solo cobro en Stripe, y el cobro sigue val
   assert.equal(R.sesion.prueba, null, 'las dos juntas no: el motivo 1 de Martín');
 });
 
-test('un reloj vencido se dice a quien lo vio y no crea nada; la gracia, la cookie falsa y el interruptor apagado', () => {
+conPromo('un reloj vencido se dice a quien lo vio y no crea nada; la gracia, la cookie falsa y el interruptor apagado', () => {
   assert.equal(R.vencida.status, 409);
   assert.equal(R.vencida.sinPromo, true);
   assert.match(R.vencida.error, /venció/);
@@ -71,7 +76,7 @@ test('un reloj vencido se dice a quien lo vio y no crea nada; la gracia, la cook
   assert.equal(R.apagadaCobro, 'planes:pro', 'con `PROMO_ENTRADA_ACTIVA` apagado no hay descuento');
 });
 
-test('un descuento por email: ni una cuenta que ya existe, ni quien ya lo pagó, ni quien lo abandonó hace más de 24 h', () => {
+conPromo('un descuento por email: ni una cuenta que ya existe, ni quien ya lo pagó, ni quien lo abandonó hace más de 24 h', () => {
   for (const r of [R.cuenta, R.yaPago, R.abandonoViejo]) {
     assert.equal(r.status, 409, JSON.stringify(r));
     assert.equal(r.sinPromo, true);
@@ -82,24 +87,24 @@ test('un descuento por email: ni una cuenta que ya existe, ni quien ya lo pagó,
   assert.equal(R.abandonoReciente.ok, true, 'dentro de las 24 h rearma el pago: se le cerró la pestaña, no lo perdió');
 });
 
-test('lo que entra: el primer pago a mitad y la renovación entera, en el cash y en dólares', () => {
+conPromo('lo que entra: el primer pago a mitad y la renovación entera, en el cash y en dólares', () => {
   assert.deepEqual(R.pagosStripe.map((p: { id: string; usd: number; original: number }) => [p.id, Number(p.usd), Number(p.original)]), [['in_1', 48.5, 48.5], ['in_2', 97, 97]]);
   assert.equal(Number(R.pagosMp[0].original), 48500, 'en su moneda');
   assert.equal(R.stripeMontoCobro, 97, 'la mensualidad no se toca: la deuda y Tu plan salen de acá');
 });
 
-test('se paga antes de entrar: abrir el pago no da de alta a nadie; el pago sí, con su onboarding pendiente', () => {
+conPromo('se paga antes de entrar: abrir el pago no da de alta a nadie; el pago sí, con su onboarding pendiente', () => {
   assert.equal(R.usuarioAntesDePagar, 0);
   assert.equal(R.usuarioDespuesDePagar, 1);
   assert.match(String(R.onboardingDelAlta), /pending/, 'la primera pantalla es el onboarding: ahí va la pregunta del WhatsApp');
 });
 
-test('Mercado Pago: nace a mitad y sube al entrar el primer pago', () => {
+conPromo('Mercado Pago: nace a mitad y sube al entrar el primer pago', () => {
   assert.equal(R.mpNace, 48500);
   assert.equal(R.mpTrasElPrimero, 97000);
 });
 
-test('el cron arregla lo que quedó rebajado, avisa si no puede, no repite y no pisa una retención', () => {
+conPromo('el cron arregla lo que quedó rebajado, avisa si no puede, no repite y no pisa una retención', () => {
   assert.equal(R.cronAntes, 48500, 'la llamada del pago falló');
   assert.ok(R.cronCaido.errores >= 1);
   assert.ok(R.cronMails.some((m: string) => /precio del primer mes/.test(m)), R.cronMails.join(' | '));
@@ -109,7 +114,7 @@ test('el cron arregla lo que quedó rebajado, avisa si no puede, no repite y no 
   assert.equal(R.retenidaSigue, 48500, '«2 meses al 50%» está rebajado a propósito');
 });
 
-test('a quien ya está en prueba no se le toca nada: su cobro sigue siendo una prueba, con sus 7 días y sus topes', () => {
+conPromo('a quien ya está en prueba no se le toca nada: su cobro sigue siendo una prueba, con sus 7 días y sus topes', () => {
   assert.deepEqual(R.pruebaAbierta, { dias: '7', cupon: null });
   assert.equal(R.pruebaEstado, true);
   assert.equal(R.pruebaFreno, false);
@@ -136,7 +141,7 @@ test('las reglas del primer mes', () => {
   assert.equal(usdPrimerMesVigente({ ...c, creado_por: 'planes:pro' }, AHORA), null);
 });
 
-test('las tarjetas, dibujadas: con el reloj vivo dicen el primer mes de los dos planes; sin él, no lo prometen', async () => {
+conPromo('las tarjetas, dibujadas: con el reloj vivo dicen el primer mes de los dos planes; sin él, no lo prometen', async () => {
   const React = await import('react');
   (globalThis as unknown as { React: unknown }).React = React;
   const { renderToStaticMarkup } = await import('react-dom/server');

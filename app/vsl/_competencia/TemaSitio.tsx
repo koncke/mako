@@ -131,6 +131,19 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
  */
 export const LANDINGS_OSCURAS: ReadonlySet<string> = new Set(['cobranza', 'competitor-spy', 'crm', 'email', 'mako', 'offer', 'web-generator']);
 
+/**
+ * La barra copiada de cada diseño, que reemplaza la barra del sitio (app/vsl/_sitio/Barra.tsx → BarraGlobal). Medida en cada
+ * página a 1440 y a 390 (12/11/2026): es la misma clase en los dos anchos. Un diseño nuevo suma la suya acá; sin ella, su
+ * barra queda debajo de la del sitio (el test lo cuida).
+ */
+export const BARRA_PROPIA: Readonly<Record<string, string>> = {
+  ads: '.d-ads-nav', agenda: '.d-agenda-barra', 'ai-avatar': '.d-ai-avatar-barra', cobranza: '.d-cobranza-barra',
+  'competitor-spy': '.d-competitor-spy-nav', copywriting: '.d-copywriting-barra', crm: '.d-crm-barra', dashboard: '.d-dashboard-barra',
+  email: '.d-email-barra', funnel: '.d-funnel-barra', image: '.d-image-barra', mako: '.d-mako-nav', offer: '.d-offer-nav',
+  prioridades: '.d-prioridades-nav', script: '.d-script-nav', seguimiento: '.d-seguimiento-barra', video: '.d-video-barra',
+  'web-generator': '.d-wg-nav-fondo', whatsapp: '.d-whatsapp-hdr',
+};
+
 /** El estilo y el script: UNA vez por página, al final. `base`: cómo nació la página (sin ella, se mide). */
 export function TemaSitio({ base }: { base?: 'claro' | 'oscuro' }) {
   return (

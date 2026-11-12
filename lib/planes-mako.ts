@@ -75,6 +75,8 @@ export const MESES_GRATIS_ANUAL = 2;
 export const PRUEBA_DIAS = 7;
 
 /**
+ * ⚠️ PRENDIDA DE NUEVO EL 12/11/2026 (Martín: «Sí, préndela»): el botón de todo el sitio público es «Comienza tu prueba gratuita»
+ * (app/vsl/_competencia/cta.ts) y ninguna página ofrece agendar una llamada. Lo de abajo es por qué se había apagado.
  * ⚠️ EL INTERRUPTOR DE LA PRUEBA GRATIS (30/10/2026, docs/estrategia-lanzamiento-low-to-high.md §4): APAGADA. No se borró: vuelve con
  * esto en true, el día que se venda MaKo como SaaS suelto. Es de la PLATAFORMA, no de cada negocio (el Cerebro): es cómo vende MaKo.
  * Los motivos de Martín, que deciden los bordes: 50% + prueba gratis se lee como sospechoso; la prueba es para vender un SaaS por
@@ -83,7 +85,7 @@ export const PRUEBA_DIAS = 7;
  * ⚠️ A QUIEN YA ESTÁ EN PRUEBA NO SE LE TOCA NADA: esto apaga las altas nuevas. El cobro de una prueba abierta sigue siendo una prueba
  * (`esPruebaDePlan` mira el cobro, no este interruptor), con su aviso y su cobro del día 8.
  */
-export const PRUEBA_GRATIS_PRENDIDA: boolean = false;
+export const PRUEBA_GRATIS_PRENDIDA: boolean = true;
 
 /** El descuento del primer mes, sobre los dos planes (§3). Con la prueba prendida no se ofrece: son una cosa o la otra. */
 export const DESCUENTO_PRIMER_MES_PCT = PROMO_ENTRADA.pct;

@@ -139,6 +139,14 @@ Cada entrada dice de qué corrida y de qué fecha viene.
     adentro: se excluyen `details` y los menús; (3) un hero con fondo en DEGRADADO tiene `backgroundColor` transparente, y
     la página oscura se leía como clara: la luz se mide también de los colores de `background-image`. La política de
     seguridad de `/:path*` (`next.config.ts`) no tiene `script-src`: el script en línea corre en producción.
+  - **«No puedo seguir navegando»: la barra copiada de cada referencia no tenía el menú del sitio.** Copiar el diseño entero
+    de cada competidor copió también 19 barras distintas, sin Producto, Industrias ni Precios: entrar a una landing era un
+    callejón. En un sitio de SaaS la barra es UNA (como en beehiiv): `BarraGlobal` va arriba de cada landing y de /planes, fija
+    al bajar, y la copiada se oculta por su clase (`BARRA_PROPIA`). La caja fija es el envoltorio entero: un `sticky` dentro de
+    una caja del alto de la barra no se pega a nada.
+  - **Prender la prueba gratis tumba los tests del 50% del primer mes, no el cobro.** La simulación de `tests/_primer-mes-hijo.ts`
+    busca el cupón del 50%, que con la prueba prendida no se crea («son una cosa o la otra»): `Cannot read properties of
+    undefined (reading 'p')` parece un cobro roto y no lo es. Esos tests corren sólo con la prueba apagada.
 
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
