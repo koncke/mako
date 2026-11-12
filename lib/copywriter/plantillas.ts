@@ -339,7 +339,12 @@ function corto140(t: string): string {
  * sin rótulos ni comillas, hasta 140 caracteres. Es la hoja de la tarjeta, y sale del mismo ejemplo: nunca se desfasa.
  */
 export function extractoDe(p: Plantilla): string {
-  const bloques = bloquesDelDoc(p.contenido());
+  return extractoDelDoc(p.contenido());
+}
+
+/** Lo mismo sobre cualquier página: lo primero que se dice o se lee después de su primera sección (el título de respaldo). */
+export function extractoDelDoc(doc: JsonNodo): string {
+  const bloques = bloquesDelDoc(doc);
   const desde = bloques.findIndex((b) => b.tipo === 'seccion');
   for (const b of bloques.slice(desde + 1)) {
     if (b.tipo === 'seccion' || b.tipo === 'destacado' || b.tipo === 'separador') continue;

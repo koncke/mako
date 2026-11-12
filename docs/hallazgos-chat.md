@@ -51,8 +51,10 @@ común (la caja, la barra) va en la pieza común; si ya hay uno local, se junta 
   parecía un lazo que agrandaba la fila. Pero `min-width: 0` en el contenedor no cambió nada. La causa: `.co-caja` trae
   `margin-inline: auto` (para centrarse en el Ops Center), y en una GRILLA un margen auto saca al ítem del estirado: toma el ancho
   de su contenido. El pie de Copywriting (`.nt-mako-pie`) es una grilla.
-- **Cómo quedó:** `.nt-mako-pie > .co-caja { margin-inline: 0; min-width: 0; }` (app/copywriter/notion.css). Cualquier pantalla
-  que meta la caja en una grilla necesita lo mismo.
+- **Cómo quedó:** UNA regla común, `.co-caja { width: 100%; min-width: 0; }` (app/admin/operaciones/centro.css, del chat «Create:
+  outliers», que cubre también el pie del Video Editor y el de Image), más `contain: inline-size` en la fila de la barra
+  (VoiceRecorder.tsx) y `width: 0` en el `range` del reproductor. Copywriting tuvo su propia regla en notion.css unas horas y se
+  sacó: dos reglas sobre `.co-caja` es lo que no tiene que volver a pasar.
 - **La nota de voz del hilo** tenía `width: 240` fijo: en la columna de 360 px el globo da ~160 y se metía debajo del avatar.
   Ahora `maxWidth: '100%'` (app/_chat/HiloMako.tsx) y la barra de avance cede su mínimo en `.ch-voz` (app/_chat/chat.css).
 

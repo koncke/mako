@@ -13,7 +13,7 @@ import { useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Button } from '@/app/_ui/Button';
 import { FilaM, ListaM, PieFijoM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
-import { enOrdenDeArbol } from '@/lib/copywriter/arbol';
+import { enOrdenReciente } from '@/lib/copywriter/arbol';
 import { INFO_TIPO, propsNuevas, type PaginaCopy, type TipoGuion } from '@/lib/copywriter/tipos';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { plantillasDe, plantillasVisibles, type Plantilla } from '@/lib/copywriter/plantillas';
@@ -25,7 +25,8 @@ export function ListaGuionesM({ paginas, catalogos, tipoInicial = null, abrirHoj
   // «Crear desde cero» de la portada (`?nueva`) también la abre (11/11/2026, D18).
   const [hoja, setHoja] = useState(!!tipoInicial || abrirHoja);
   const [creando, setCreando] = useState(false);
-  const filas = enOrdenDeArbol(paginas);
+  // La última editada arriba (12/11/2026, en producción iba de la más vieja a la más nueva).
+  const filas = enOrdenReciente(paginas);
 
   const todas = plantillasVisibles(plantillasDe(catalogos));
   const plantillas = tipoInicial ? [...todas.filter((x) => x.tipo === tipoInicial), ...todas.filter((x) => x.tipo !== tipoInicial)] : todas;
