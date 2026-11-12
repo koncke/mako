@@ -16,8 +16,14 @@ El plan y sus mapas: `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/
 - **Después de aa318ca29 (sin subir al escribir esto):** el paso 2 (en el privado, lo que termina en charla o NO_REPLY también se
   guarda: `guardarLoQueNoSeContesta`, lib/mako-doer-in.ts) y la caché de prompt (`systemConCache` en `chatClaudeTools`,
   lib/anthropic.ts; tests/cache-de-prompt.test.ts).
-- **Sigue faltando:** la prueba de punta a punta «¿cuánto paga Código Inmobiliario el mes que viene?» → 426 con las herramientas de
-  Planes (`punta/cobros-agencia-por-nombre`, 31f25b902: hay que traerla y armar en el hijo la mensualidad de Código), el paso 7.
+- **Hecho y subido:** f72e2d9fb (caché de prompt y el paso 2), main fusionado (a035a525c) y 56eb05e91 (de punta a punta: la pregunta
+  de Martín llega a `ver_mensualidades_agencias` con la agencia por nombre y da US$426; el hijo siembra la mensualidad de Código en
+  `agencia.mensualidad.13.*` de la plataforma).
+- **Sigue faltando (12/11 ~03:00 UTC), en este orden:** (2) el paso 7, el privado (identidad al modelo; el super admin no salta al ws
+  del cliente, lib/mako-bot-reglas.ts:166; cada skip de `manejarEntranteBot` deja registro, webhook :236; lo mandado a mano queda
+  como equipo, lib/mako-bot-reglas.ts:72); (3) `avisoTipo` en la copia de `enviarAlGrupoSuperAdmin` (lib/mako-grupo.ts); (4) prender
+  `conResumen` de `conversacionDelTurno` en el grupo y el privado (lib/mako-doer-in.ts; el parámetro lo trae punta/chats-copilot,
+  f38faa1db: fusionarla antes). ⛔ lib/conversacion*.ts es de Marketing CoPilot: sólo el parámetro.
 - **Lo viejo del plan, para el registro:** paso 2 (guardar el mensaje antes de CHARLA/NO_REPLY en el privado), paso 5 (áreas por `aviso_tipo`;
   y que `enviarAlGrupoSuperAdmin` copie con `avisoTipo`), paso 6 (cobros sólo en la plataforma, cuidando lib/mako-intencion.ts:553;
   `buscarNegocio` suma cobros), paso 7 (privado: identidad al modelo, el super admin no salta al ws del cliente, cada skip del bot
