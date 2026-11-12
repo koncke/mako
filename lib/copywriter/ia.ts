@@ -29,7 +29,7 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, TOPES_IA, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, propsParaIA } from './ia-reglas';
+import { PROMPTS_COPY, TOPES_IA, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, propsParaIA, tituloDeRespaldo } from './ia-reglas';
 import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
@@ -50,7 +50,7 @@ import { NOMBRE_DEL_ORIGINAL, frasesDelOriginal } from './outliers';
 import type { Referencia } from './referencias-reglas';
 import { textoDeNodo, textoDelDoc } from './doc';
 import { PROMPTS_EXPERTO, pideParaIA } from './experto';
-import { plantillaPorId } from './plantillas';
+import { extractoDelDoc, plantillaPorId } from './plantillas';
 
 /** El método del Copywriter (editable en /configuraciones): va en los dos system, antes de la regla de lo que no existe. */
 const metodo = () => renderPrompt(PROMPTS_EXPERTO.experto.key, PROMPTS_EXPERTO.experto.tpl, {});
@@ -253,7 +253,8 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       guion: contenidoNoConfiable(guionParaIA(g.doc), 'guion'),
       // Desde el 29/10/2026 la página nace con la estructura, no con el ejemplo: el ejemplo viaja acá, marcado ficticio,
       // para que MaKo vea la forma (sin un slot nuevo: el override guardado no lo tendría).
-      estructura: `${estructuraParaIA(estructura ?? sugerida, !estructura)}EL EJEMPLO COMPLETO (de ${pl.ejemplo.negocio}, un negocio FICTICIO: sólo la forma, ningún dato):\n${textoDelDoc(pl.contenido())}\n\n`,
+      // Y la biblioteca, para que ponga el ÁNGULO (12/11/2026, en producción la plantilla quedaba «Ángulo: Vacío»: sin ids no podía).
+      estructura: `${estructuraParaIA(estructura ?? sugerida, !estructura)}${bibliotecaParaIA(lite)}EL EJEMPLO COMPLETO (de ${pl.ejemplo.negocio}, un negocio FICTICIO: sólo la forma, ningún dato):\n${textoDelDoc(pl.contenido())}\n\n`,
       negocio: bloqueNegocio(negocio),
       charla: `\n\nLA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable([charla, `LA PERSONA, AHORA: ${instruccion}`].filter(Boolean).join('\n'), 'charla')}`,
     }) : await renderPrompt(PROMPTS_EDITAR.editarUser.key, PROMPTS_EDITAR.editarUser.tpl, {
@@ -283,6 +284,14 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const s = sanearOperaciones(raw.operaciones, g.doc, catalogo);
     // La voz (capa 2 de la regla del idioma): lo escrito por MaKo con formas de «vos» en un negocio que no habla así.
     const r = aplicarTodo(g.doc, s.ops);
+    // El título (capa 2 de «ponle un título propio», 12/11/2026, en producción: la plantilla quedaba «Sin título» y la réplica con el
+    // gancho del competidor): una pieza escrita entera sobre una página sin título propio sale con lo primero que se dice.
+    const entera = s.ops.filter((op) => op.op === 'escribir_seccion').length >= 2;
+    const sinTituloPropio = !g.titulo.trim() || g.titulo === SIN_TITULO || /^Como @/.test(g.titulo);
+    if (entera && sinTituloPropio && !s.ops.some((op) => op.op === 'titulo')) {
+      const t = tituloDeRespaldo(extractoDelDoc(r.doc));
+      if (t) s.ops.push({ op: 'titulo', texto: t });
+    }
     const nuevos = new Set(r.nuevos);
     const escrito = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string)).map(textoDeNodo).join('\n');
     const voseo = acento && VOSEAN.has(acento.id) ? [] : marcasDeVoseo(escrito);

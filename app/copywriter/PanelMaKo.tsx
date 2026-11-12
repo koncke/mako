@@ -92,6 +92,8 @@ const SUGERENCIAS: Readonly<Record<'discutir' | 'editar', readonly string[]>> = 
   discutir: ['¿Qué le falta para vender más?', '¿El gancho frena el scroll?', 'Resúmelo en 3 líneas'],
   editar: ['Mejorar la escritura', 'Acortar', 'Alargar', 'Cambiar el tono', 'Continuar escribiendo', 'Agregar una sección'],
 };
+/** Sobre una página VACÍA no hay nada que acortar ni mejorar (12/11/2026, en producción): pedidos para escribirla. */
+const SUGERENCIAS_VACIA: readonly string[] = ['Escribe un reel de 30 segundos para mi oferta', 'Escribe un anuncio para mi oferta', 'Dame 10 ganchos para probar'];
 
 /** Un archivo del pedido, en el hilo (no se abre desde ahí: viajó su texto, no se guardó). */
 const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|avif)$/i.test(nombre) ? 'image' as const : 'document' as const, sinAbrir: true });
@@ -296,7 +298,9 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     // escribe MaKo queda en la página sin «Aceptar», como la réplica (12/11/2026, en producción: la plantilla quedaba como
     // propuesta; memoria «replicar-deja-todo-escrito»). Sobre lo ya escrito sigue siendo propuesta.
     const pl = vivo.current.plantilla;
-    const nacida = adaptar && !!pl && textoDelDoc(antes as JsonNodo).trim() === textoDelDoc(pl.esqueleto()).trim();
+    // Y una página VACÍA, pida lo que pida (12/11/2026, en producción: «Página en blanco» + «escribe un reel» pedía «Aceptar»).
+    const textoAntes = textoDelDoc(antes as JsonNodo).trim();
+    const nacida = !textoAntes || (adaptar && !!pl && textoAntes === textoDelDoc(pl.esqueleto()).trim());
     const cat = vivo.current.catalogos;
     const s = sanearOperaciones(r.operaciones, antes, { angulos: new Set(cat.angulos.map((a) => a.id)), estructuras: new Set(cat.estructuras.map((e) => e.id)) });
     const res = aplicarTodo(antes, s.ops);
@@ -559,7 +563,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     };
   };
 
-  const sugerencias = SUGERENCIAS[intencion];
+  const vacia = !!editor && !textoDelDoc(editor.leer() as JsonNodo).trim();
+  const sugerencias = intencion === 'editar' && vacia ? SUGERENCIAS_VACIA : SUGERENCIAS[intencion];
 
   return (
     // Un <section> y no un <aside> (la barra de la agencia le fuerza el alto de la ventana a todo <aside>: PanelAgente.tsx).
