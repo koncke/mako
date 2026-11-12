@@ -368,6 +368,20 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
 - **Entrar directo a un paso borraba los canales elegidos:** `cargarTodo()` los pisaba con los tres. Ahora sólo los pone si no hay ninguno.
 - **Un `const` con el mismo nombre que el código común** (`MAS`, que trae `//@@COMUNES@@`) rompe el script entero sin aviso: la pantalla queda en blanco. Antes de las fotos se chequea la sintaxis del HTML armado (`revisar-script.mjs` en la carpeta de la maqueta).
 
+## La décima maqueta: la acción es una checklist dentro de MaKo; el piloto muestra en qué se basa (12/11/2026)
+
+`docs/marketing-copilot/rediseno/maqueta-checklist.html`. Lo que vale para lo que venga:
+
+- **Una tarea vale si se hace DENTRO de MaKo y en orden.** «Responde los chats de la noche» no servía: MaKo tiene Automations, así que la tarea es «Automatiza la respuesta». Cada tarea dice dónde se hace y, si hay, con qué plantilla. Grabar anuncios va después de mirar la competencia, elegir ganadores, armar las razones y adaptar los guiones.
+- **La máquina de contenido no va en la acción.** Pasa a las plantillas de cada tab (Copywriting, Automations). La acción es sólo la checklist y su calendario.
+- **El piloto tiene que mostrar el dato detrás de cada decisión.** Por tarjeta, «Métricas» (qué miró) y «Acciones» (qué propone o hizo).
+- **Dos trampas al sumar código a la maqueta:**
+  - una función con el mismo nombre que otra (`acciones`) la pisa sin error;
+  - una clase que el molde ya usa (`frn-check`) le cambia el diseño a lo nuevo.
+
+  Antes de armar, buscar si el nombre ya existe en el cuerpo y en el código común.
+- **`margin-left: auto` en todos los `span` de una fila** centra el ícono (el logo también es un `span`). Hay que acotarlo al último.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

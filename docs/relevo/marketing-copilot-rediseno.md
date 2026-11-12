@@ -141,6 +141,18 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Hecho (12/11, décima vuelta):** `maqueta-checklist.html` (Artifact claude.ai/artifact/SaGw8C5x76yzEJXM8RT75r). Lo de Martín:
+- los pasos sin subtítulo, con un aviso de lo pendiente;
+- la oferta en su desplegable;
+- Offer y la web a la izquierda, con protagonismo, cuando se trabaja una tarea;
+- la acción como una sola checklist, con su calendario y los días que propone MaKo;
+- cada tarea dentro de MaKo y en orden: para los anuncios, primero Competitor Spy, después elegir ganadores, las 9 razones (plantilla 3 × 3 de Copywriting), los guiones, grabar, editar y automatizar;
+- sin la máquina de contenido en la acción;
+- el piloto por tarjeta en «Acciones» y «Métricas», con la oferta también en piloto (las objeciones de las llamadas y los chats, el bono o la garantía, llevar la versión nueva a todos lados);
+- «Configurar» en anuncios: inversión por mes, días de cada prueba, costo por agenda, cuánto sube y qué hace solo.
+
+**Para programar, lo que falta en otras tabs:** las plantillas de Copywriting que nombra la checklist (razones de compra 3 × 3, guion de anuncio, bio, reel con palabra clave, semana de historias, descripción del canal, título y miniatura, video largo) y las de Automations (respuesta a un anuncio de mensajes, palabra clave → mensaje).
+
 **Hecho (12/11, novena vuelta):** `maqueta-accionables.html` (Artifact claude.ai/artifact/K79HrsuoncwRD44U452fJf). Lo de Martín:
 - los logos de cada alojador del VSL;
 - la estrategia abajo de lo principal;
