@@ -142,6 +142,34 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Hecho (12/11, decimoctava vuelta):** `maqueta-dieciocho.html` (Artifact claude.ai/artifact/3DyGopshnXdMjH2TRo6TA3). Se arma sobre la dieciséis con `aplicar-dieciocho.mjs` (`bloque-dieciocho.js`, `bloque-dieciocho-b.js`, `css-dieciocho.css`); la diecisiete queda como estaba. Mirada en fotos (1440 y 375, claro y oscuro) y tocada botón por botón sin errores.
+- **Sin «Formatos».** Oferta y comunicación tiene tres partes: Oferta, Ángulos y Tu voz.
+- **En la acción, las tres con el mismo molde que la oferta:**
+  - desplegables con lo que hay que completar; cada uno dice en palabras lo que le falta: en rojo si falta, en ámbar si hay que confirmar y en verde si está listo;
+  - adentro, una explicación del desplegable y cada cosa con su check, como las tareas de Web;
+  - lo que falta va en rojo y dice qué es;
+  - lo que sabe MaKo va con su fuente: el PDF, la llamada, el anuncio o el reel.
+- **Sin nota en la acción.** La nota es del análisis.
+- **El popup de cada cosa, rehecho:**
+  - el nombre y su estado;
+  - «Qué es»;
+  - «Lo que sé», con la fuente y «Ver» (abre la pieza);
+  - abajo, «Marcar como listo» y «Completarlo / Confirmarlo / Cambiarlo en el chat».
+- **El mismo alto siempre:** el chat y el bloque miden 740 px en las tres partes, aunque se abra otro desplegable (lo de adentro se desplaza). En el análisis, las tres partes miden 660 px por defecto.
+- **En el análisis, Ángulos y Tu voz con el molde de la oferta:**
+  - «Nota por nota», con las barras del 1 al 10 (9 criterios en cada una);
+  - al lado, la nota (41 y 47), lo más flojo, «Mejorar ángulos» o «Mejorar tu voz» y «Lo que leí»;
+  - «Mejorar» en una nota abre la acción en esa parte, con el chat en ese punto.
+
+**Pedido de la decimoctava vuelta (Martín, 12/11, sobre `maqueta-diecisiete.html`).**
+1. Sacar «Formatos»: se ve al crear el contenido, y para eso están los outliers de las tabs.
+2. Ángulos y Tu voz, con la misma estructura que la oferta: desplegables donde se completa lo que falta. Adentro, que se note lo que falta (más en rojo) y lo que ya está.
+3. «46 de 100» parece 46 cosas de 100, no una calificación. En la acción no va la nota: para eso está el análisis.
+4. Mejorar el diseño del popup de cada ítem.
+5. Al cambiar de parte nunca puede cambiar el alto de las secciones, chat incluido.
+6. Como en Web, que cada cosa se pueda marcar «ya está». En cada desplegable, una explicación. «Lo que sé», más referenciado.
+7. En el análisis, Ángulos (y Tu voz) rompieron el diseño: tienen que seguir el patrón de la oferta, los desplegables con las barras del 1 al 10.
+
 **Hecho (12/11, decimoséptima vuelta):** `maqueta-diecisiete.html` (Artifact claude.ai/artifact/Nkh7PfEGZcYmZiEhnPceyp). Los cinco puntos de abajo, mirados en fotos (1440 y 375, claro y oscuro) y tocados uno por uno en el navegador sin errores. Lo de los cursos: `docs/marketing-copilot/analisis/comunicacion.md`.
 - **«Oferta y comunicación» tiene cuatro partes en los tres pasos:** Oferta, Ángulos, Formatos y Tu voz. Se elige la parte al lado de la oferta (en el análisis) o arriba de la tarjeta (en la acción), y se conserva al pasar de un paso a otro.
 - **En el análisis,** cada parte tiene sus filas («Mejorar» suma la tarea a Oferta y comunicación) y, a la derecha, lo importante: tus ángulos con su estado, qué te funciona por tipo de pieza, así hablas.

@@ -454,6 +454,19 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
 - **«Oferta y comunicación» es el nombre más largo de las tarjetas.** A 1440 no entraba al lado de la flecha de 38 px: la flecha bajó a 32 y el título a 15 px. La tarjeta pasó de `height` a `min-height`, para que en el teléfono crezca en vez de cortar el número.
 - **Sumar tareas al principio de la checklist corre los números.** `CHECK`, `POR_QUE_CHK` y `RESP_WEB` (las respuestas del chat de la web) van por número de tarea. Al insertar arriba se insertan las dos listas y se corren las claves de `RESP_WEB`.
 
+## La decimoctava maqueta: un solo molde para las partes hermanas, y el alto se fija en la grilla (12/11/2026)
+
+`docs/marketing-copilot/rediseno/maqueta-dieciocho.html`.
+
+- **Una parte nueva repite el molde de su hermana aprobada.** En la diecisiete, Ángulos, Formatos y Tu voz salieron cada una con su diseño; Martín: «rompiste completamente el diseño, no seguiste el patrón». Si la oferta usa «Nota por nota» en el análisis y desplegables en la acción, las demás partes también.
+- **Una nota al lado de una lista de cosas por completar se lee como un conteo.** «46 de 100» arriba de las piezas parecía «46 cosas de 100». La nota va sólo en el análisis; en la acción, lo que falta se dice en palabras y con color.
+- **El alto fijo se pone en la grilla, no en un hijo (el diagnóstico obvio era el equivocado).**
+  - Para que el bloque no le diera alto a la fila se le puso `height: 0; min-height: 100%`. Igual, la fila medía 576, 557 o 536 px según la parte.
+  - Causa: el chat (`.mq-offer`, `height: 680px` con `overflow: hidden`) está adentro de un flex en columna, y ahí su `min-height: auto` vale 0, así que se achicaba.
+  - Lo que anda: `height: 740px` en `.frn-trabajo--oferta`, el chat con `flex: 1` y el bloque con su lista desplazable. Medido: 740 px en las tres partes, con cualquier desplegable abierto.
+- **El popup va fuera del tablero:** ahí no llegan los colores de `.frn` (`--panel`, `--muted`). Usa los de la app (`--surface`, `--surface-2`, `--dim`, `--good`, `--bad`, `--warn` y sus `-bg`), que cambian solos con el modo oscuro.
+- **«Falta sus palabras» no se lee bien.** El estado del grupo va con dos puntos («Falta: sus palabras», «Por confirmar: ángulos para probar»), y así no hay que concordar con el nombre de cada pieza.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
