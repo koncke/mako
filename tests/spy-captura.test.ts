@@ -449,7 +449,7 @@ test('los días al aire de uno que terminó se cuentan hasta que terminó', () =
   // Un anuncio dice cuántos días lleva al aire; lo orgánico, hace cuánto se publicó. «a la vista» se fue el 4/11/2026: Martín
   // no lo entendía («Más tiempo a la vista… le pusiste nombres que no se entienden»).
   const tarjeta = leer('app/competitor-spy/TarjetaPieza.tsx');
-  assert.match(tarjeta, /\{t\.dias\} d al aire/);
+  assert.match(tarjeta, /\{tiempo\.dias\} d al aire/);
   assert.doesNotMatch(tarjeta.replace(/^\s*\/\/.*$/gm, ''), /a la vista/);
 });
 
