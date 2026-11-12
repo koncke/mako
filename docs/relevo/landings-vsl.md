@@ -61,11 +61,36 @@ referencia y el sitio estilo beehiiv (`/vsl/sitio`, `/vsl/comparaciones`). Mart�
 | Precios del sitio en claro y con el Acelerador | `PlanesSitio` dibuja `TarjetasPlanes` de `app/planes/Tarjetas.tsx` (los mismos bloques de /planes) |
 | Videos de la app en «Todo lo que necesitas» | `TARJETAS_PORTADA` (`datos.ts`): Competitor Spy y Web Generator (Replicar) con su grabación en `public/vsl-assets/sitio/`, Copywriting con los 32 gurús («Inspirado en») |
 
-**Sin hacer (cada uno su sesión):** los tres bloques de planes con menos ítems y otras apps de referencia, «Compara los planes»
-con el relevamiento de lo que incluye cada uno, el fondo de /planes sin crema, la prueba sólo en Pro y el checkout con «el cobro
-empieza a los 7 días» (`app/planes/`, `lib/planes-mako.ts`); Plan (Motion) y Email (beehiiv) copiadas de nuevo de su
-referencia y Offer (Atlas AI) rediseñada con sus textos; el relevamiento de funciones que no se mencionan (miniaturas de
-YouTube, outliers…). El checkout entra al visor cuando esté diseñado (`DE_LA_APP` en `armar.mjs`).
+## Quinta vuelta (12/11/2026, la misma tarde): Planes, el sol y la luna, el título, las filas
+
+Martín pidió hacer aquí «Planes: 3 bloques, comparar, prueba sólo en Pro» y «Landings Plan, Email y Offer», y sumó: el título
+en 3 renglones como máximo; «si estoy en white mode, todo debería ser white mode» (Precios en negro); el segundo en negro al
+entrar; los carruseles que se frenan al cambiar de modo; «Todo lo que necesitas» como antes (texto de un lado, video del otro,
+intercalando), los videos en bucle y sólo con lo que importa, Replicar sobre una landing de outlier, los gurús fuera de
+Copywriting y deslizándose sin texto; la barra arriba también en Industrias («jamás debe desaparecer»); el pie con el texto de
+arriba, una sección para lo legal y sin dos «MaKo»; y sin la animación rara del botón al pasar el mouse.
+
+| Pedido | Dónde quedó |
+|---|---|
+| 7 días gratis sólo en Pro; Esencial se paga al empezar | `planConPrueba` (`lib/planes-mako.ts`): cobro (`lib/compra-plan.ts`), checkout, tarjetas, `/reembolsos`, `/terminos`, Partners |
+| Los tres bloques con menos ítems, copiados de otra app | `app/planes/Tarjetas.tsx`, copiado de beehiiv.com/pricing (sin la lista de ✗: va en la comparación) |
+| «Compara los planes» con todo lo que incluye | `lib/planes-comparacion.ts` (todo lo que anda, por grupos plegables como beehiiv) y `CompararPlanes` (`app/planes/Vitrina.tsx`) |
+| Sin fondo crema en /planes y en el checkout | `app/planes/estilo.ts` (blanco) |
+| El checkout en el visor, con cuándo empieza el cobro | `resumenDelPlan` (`app/planes/[plan]/Checkout.tsx`: «Desde el 19 de noviembre»); en el visor, `planes-pro` y `planes-esencial` |
+| Todo de un solo modo; sin el segundo en negro; sin frenar los carruseles | `TemaSitio.tsx`: lleva cada color al modo (no invierte), lee una vez, esconde la página hasta tener el modo |
+| El título en 3 renglones | `Portada.tsx` (`<br />`) y `estilos.ts` (`9.2cqi`) |
+| «Todo lo que necesitas» en filas, con videos | `TARJETAS_PORTADA` y `FilaFuncion`; videos en `public/vsl-assets/sitio/` (Spy sin textos y en bucle; Replicar sobre la landing de Oscar Feito) |
+| La barra en Industrias y en el checkout | `app/vsl/[slug]/page.tsx` y `Ficha` (`Checkout.tsx`) |
+| El pie | `Pie.tsx` y `columnasDelPie` (`datos.ts`): «Empezar», las familias, Industrias y «Legal» |
+| El botón sin la animación de capas | `.s-btn` en `estilos.ts` (al pasar, se aclara apenas) |
+| Offer «rompe completamente» | Lo rompía el sol y la luna viejo (invertía su hero negro y sus franjas blancas). Con cada modo parejo queda limpio; el video de Mauricio pasó de 200 a 320 px |
+| Plan y Email «sin referencia» | Sí la tienen y la siguen sección por sección: Plan → Motion, Email → la página de email de beehiiv. Lo que los hace ver genéricos son sus visuales (cajas), no su estructura |
+
+**Sin hacer:** grabar Video, Chats, Marketing CoPilot, CRM y Automations como Spy y Replicar (hoy, el visual de su landing), y
+los visuales de Plan y Email con la app de verdad. El relevamiento de funciones que no se mencionan (miniaturas de YouTube,
+outliers…). Las páginas de Industrias (documentos de Web Generator) siguen ofreciendo «Agenda tu llamada»: cambiarlas es
+publicar esos documentos, con el permiso de Martín. La compra de prueba con la tarjeta (Pro empieza en 0, Esencial cobra hoy):
+la hace Martín. «Inspirado en» de los referentes quedó sólo en el nombre de cada imagen de la portada (Martín pidió sin texto).
 
 **Qué referencia copió cada landing** (`referencia` de cada `app/vsl/_competencia/<slug>.ts`): sitio y comparaciones → beehiiv;
 Video → Cherry Studio; Competitor Spy → Foreplay; Marketing CoPilot → Master Ads; AI Avatar → HeyGen; Image → PostNitro;
