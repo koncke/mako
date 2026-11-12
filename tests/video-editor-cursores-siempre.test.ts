@@ -10,7 +10,8 @@
 //     prendieron;
 //   · fuera de la Edición automática (el chat, «Sí, en el feed», el botón de Subtítulos) no había ningún cursor.
 // Lo que se fija:
-//   1. un agente que trabaja pasea (enjambre/cursores.ts, `puntoTrabajando`), sin salir de su caja;
+//   1. cada cursor TRABAJA algo real del editor, como en el reel de referencia (enjambre/cursores.ts, `tareaDeAgente`): sus
+//      objetivos, uno por vuelta, con su caja de selección (Martín: «no moverse random»);
 //   2. cada cambio del chat tiene su agente, y los trabajos largos prenden el suyo (enjambre/cursores-sueltos.ts);
 //   3. lo que prende el chat se ve como mínimo `A_LA_VISTA_MS`;
 //   4. el cableado: el componente dibuja también los sueltos y pasea; el chat los prende al aplicar; cada paso de la
@@ -22,7 +23,7 @@
 import { mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { PASEO_MS, TRANSICION_CURSOR_MS, puntoDeCursor, puntoTrabajando, ZONA_DE } from '../app/video-editor/_opencut/enjambre/cursores';
+import { OBJETIVOS_DE, PASEO_MS, SIN_OBJETIVOS, TRANSICION_CURSOR_MS, cajasDelCuadro, puntoDeCursor, tareaDeAgente, type Objetivos } from '../app/video-editor/_opencut/enjambre/cursores';
 import {
   A_LA_VISTA_MS,
   AGENTE_DE_OPERACION,
@@ -46,29 +47,45 @@ const zonas = {
 const dentro = (p: { x: number; y: number } | null, c: { left: number; top: number; width: number; height: number }) =>
   !!p && p.x >= c.left && p.x <= c.left + c.width && p.y >= c.top && p.y <= c.top + c.height;
 
-test('1. el que trabaja pasea: la vuelta 0 es su punto exacto, después se corre sin salir de su caja ni repetir', () => {
+test('1. cada cursor TRABAJA algo real (no se mueve al azar): sus objetivos, una caja por vuelta, y el segundo de su renglón', () => {
   assert.ok(PASEO_MS > TRANSICION_CURSOR_MS, 'más corto que la transición: el cursor nunca llega a ningún lado');
-  // «Mucho más rápido» (Martín, 11/11/2026, mirando el GIF de 900 ms): un paso de cursor por menos de medio segundo.
-  assert.ok(PASEO_MS <= 400, `el cursor pasea cada ${PASEO_MS} ms: se ve lento`);
+  assert.ok(PASEO_MS <= 600, `una tarea cada ${PASEO_MS} ms: se ve lento`);
+  const caja = (left: number, top: number, width = 60, height = 30) => ({ left, top, width, height });
+  const objetivos: Objetivos = {
+    ...SIN_OBJETIVOS,
+    clips: [caja(120, 520, 200, 40), caja(330, 520, 200, 40)],
+    textos: [caja(120, 470, 90, 30), caja(220, 470, 90, 30), caja(320, 470, 90, 30)],
+    audios: [caja(120, 570, 400, 40)],
+    controles: [caja(760, 100, 200, 24), caja(760, 140, 200, 24)],
+    medios: [caja(10, 100, 100, 160), caja(120, 100, 100, 160)],
+    ...cajasDelCuadro(caja(450, 60, 225, 400)),
+  };
   for (const a of AGENTES) {
-    for (const en of [null, 3]) {
-      const base = puntoDeCursor({ agente: a.id, en, zonas, linea });
-      assert.deepEqual(puntoTrabajando({ agente: a.id, en, zonas, linea, vuelta: 0 }), base, `${a.id}: un renglón nuevo va al punto exacto`);
-      const caja = en === null ? zonas[ZONA_DE[a.id]] : linea.caja;
-      let antes = base;
-      for (let vuelta = 1; vuelta <= 30; vuelta++) {
-        const p = puntoTrabajando({ agente: a.id, en, zonas, linea, vuelta });
-        assert.ok(dentro(p, caja), `${a.id} (en ${en}) se sale de su caja en la vuelta ${vuelta}`);
-        assert.notDeepEqual(p, antes, `${a.id} (en ${en}) quieto en la vuelta ${vuelta}`);
-        antes = p;
-      }
+    const suyas = OBJETIVOS_DE[a.id].flatMap((f) => { const v = objetivos[f]; return v == null ? [] : Array.isArray(v) ? v : [v]; });
+    assert.ok(suyas.length > 0, `${a.id} sin nada que tocar`);
+    const vistas = new Set<string>();
+    for (let vuelta = 0; vuelta < 8; vuelta++) {
+      const t = tareaDeAgente({ agente: a.id, en: null, vuelta, zonas, linea, objetivos });
+      assert.ok(t?.caja, `${a.id}: sin caja`);
+      assert.ok(suyas.includes(t.caja), `${a.id}: tocó algo que no es suyo`);
+      assert.ok(dentro(t.punto, t.caja), `${a.id}: el cursor no está sobre lo que trabaja`);
+      vistas.add(JSON.stringify(t.caja));
     }
+    assert.equal(vistas.size, Math.min(8, suyas.length), `${a.id}: no recorre sus objetivos (uno por vuelta)`);
   }
-  // Pasea de verdad (no un píxel): a lo largo de 10 vueltas recorre al menos 60 px de ancho.
-  const xs = Array.from({ length: 10 }, (_, i) => puntoTrabajando({ agente: 'subs-01', en: null, zonas, linea, vuelta: i + 1 })!.x);
-  assert.ok(Math.max(...xs) - Math.min(...xs) >= 60, `pasea ${Math.max(...xs) - Math.min(...xs)} px`);
-  // Sin nada medido no se inventa un lugar.
-  assert.equal(puntoTrabajando({ agente: 'subs-01', en: null, zonas: {}, linea: null, vuelta: 3 }), null);
+  // Los del mismo rol no empiezan en lo mismo (si no, dos cursores uno encima del otro).
+  const c1 = tareaDeAgente({ agente: 'corte-01', en: null, vuelta: 0, zonas, linea, objetivos })!.caja;
+  const c2 = tareaDeAgente({ agente: 'corte-02', en: null, vuelta: 0, zonas, linea, objetivos })!.caja;
+  assert.notDeepEqual(c1, c2);
+  // Con la hora del video: el corte en ESE segundo (3 s × 40 px = 120 px desde 100), de la altura del clip que cae ahí.
+  const t = tareaDeAgente({ agente: 'corte-01', en: 3, vuelta: 5, zonas, linea, objetivos })!;
+  assert.equal(t.caja!.left + t.caja!.width / 2, 220);
+  assert.deepEqual([t.caja!.top, t.caja!.height], [520, 40], 'el clip de video que cubre ese segundo (el que se corta)');
+  // El subtítulo, en el tercio de abajo del cuadro; sin nada medido, su panel y sin caja; sin zonas, nada.
+  const sub = cajasDelCuadro(caja(450, 60, 225, 400)).subtitulo!;
+  assert.ok(sub.top > 60 + 400 * 0.5 && sub.top + sub.height < 60 + 400);
+  assert.deepEqual(tareaDeAgente({ agente: 'subs-01', en: null, vuelta: 2, zonas, linea, objetivos: SIN_OBJETIVOS }), { caja: null, punto: puntoDeCursor({ agente: 'subs-01', en: null, zonas, linea })! });
+  assert.equal(tareaDeAgente({ agente: 'subs-01', en: null, vuelta: 2, zonas: {}, linea: null, objetivos: SIN_OBJETIVOS }), null);
 });
 
 test('2. cada cambio del chat tiene su agente; los trabajos largos prenden el suyo', () => {
@@ -130,11 +147,14 @@ test('4. el cableado: el componente dibuja los sueltos y pasea, el chat los pren
   assert.match(comp, /const brolleando = useTrabajoBroll\(\(s\) => s\.fase !== "inactivo" \|\| s\.cambiando !== null\);/);
   assert.match(comp, /const recortando = useTrabajoClips\(\(s\) => s\.fase !== "inactivo"\);/);
   assert.match(comp, /setInterval\(\(\) => \{ setVuelta\(\(v\) => v \+ 1\); setPaso\(\(v\) => v \+ 1\); \}, PASEO_MS\)/, 'sin la vuelta, el cursor queda clavado');
-  assert.match(comp, /\? puntoTrabajando\(\{ agente: a\.id, en: ultimo\.get\(a\.id\) \?\? null, \.\.\.medida, vuelta \}\)/, 'el que trabaja en la edición automática pasea');
+  // Cada uno trabaja SUS objetivos (Martín, 11/11/2026: «que estén trabajando, hagan cosas, no moverse random»).
+  assert.match(comp, /const t = tareaDeAgente\(\{ agente: a\.id, en, vuelta: trabajando \? vuelta : paso, \.\.\.medida \}\);/, 'el de la edición automática no trabaja sus objetivos');
+  assert.match(comp, /border: `1\.5px solid \$\{color\}`/, 'sin la caja de selección no se ve QUÉ agarró');
+  assert.match(comp, /\[data-ce-linea\] \[data-ce-clip\]\[data-ce-tipo=/, 'los clips de la línea de tiempo, medidos');
+  assert.match(leer(`${OC}/timeline/components/timeline-element.tsx`), /data-ce-clip=""\s*data-ce-tipo=\{element\.type\}/, 'los clips sin su marca: los cursores no los encuentran');
   // Todos juntos (Martín, 11/11/2026): los que no trabajan también recorren su panel, con una vuelta que no se reinicia.
-  assert.match(comp, /: puntoTrabajando\(\{ agente: a\.id, en: null, \.\.\.medida, vuelta: paso \}\);/, 'los que esperan, quietos');
   assert.match(comp, /transform \$\{TRANSICION_CURSOR_MS\}ms/);
-  assert.match(comp, /const p = puntoTrabajando\(\{ agente: id, en: null, \.\.\.medida, vuelta \}\);/, 'los sueltos pasean');
+  assert.match(comp, /const t = tareaDeAgente\(\{ agente: id, en: null, vuelta, \.\.\.medida \}\);/, 'los sueltos no trabajan sus objetivos');
   assert.match(comp, /dibujo = ultimos\.current\.map\(\(d\) => \(\{ \.\.\.d, opacidad: 0 \}\)\);/, 'al terminar se desvanecen');
 
   const chat = leer(`${OC}/chat/PanelChat.tsx`);
@@ -153,7 +173,7 @@ test('4. el cableado: el componente dibuja los sueltos y pasea, el chat los pren
 });
 
 // PROBADO ROMPIÉNDOLO (11/11/2026, cada uno dio rojo y se volvió atrás):
-//   · `puntoTrabajando` sin el corrimiento (devuelve el punto)                → rojo el 1 (quieto)
+//   · `tareaDeAgente` siempre con la primera caja (sin avanzar por vuelta)    → rojo el 1 (no recorre sus objetivos)
 //   · el corrimiento sin el tope de la caja                                  → rojo el 1 (se sale)
 //   · `mostrarCursores` apagando en el acto, sin esperar el mínimo           → rojo el 3
 //   · el componente sin el intervalo de la vuelta                             → rojo el 4

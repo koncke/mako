@@ -123,7 +123,7 @@ test('3. los outliers: lo inválido afuera, sin repetidos, lo que se replica pri
   assert.ok(OUTLIERS_CON_PLANTILLA.length >= 1);
   for (const o of OUTLIERS_CON_PLANTILLA) {
     assert.ok(outlierValido(o), o.id);
-    assert.match(o.miniatura ?? '', /^\/video\/plantillas\/[a-z-]+\.jpg$/);
+    assert.match(o.miniatura ?? '', /^\/ve\/plantillas\/[a-z-]+\.jpg$/);
     assert.equal(o.multiplo?.veces, null);
   }
 });

@@ -16,7 +16,7 @@ MaKo; la portada decía «159 reels» y mezclaba cualquier cosa (podcasts, gente
   carruseles e imágenes. Traer sus reels, y bajar los videos para clasificarlos por movimiento, cuesta Apify: a la clave de Spy le
   quedaban US$1,44 (debajo de la reserva de US$2 para Spy). Se le preguntó a Martín, por el Cerebro, con el número.
 - **La miniatura de la plantilla:** la portada de Instagram de un reel (la del CDN) vence a las horas. Se sirve la nuestra:
-  `public/video/plantillas/mensaje-para.jpg` (la portada real del reel de los pistachos).
+  `public/ve/plantillas/mensaje-para.jpg` (la portada real del reel de los pistachos; en `ve/`, que el proxy deja pasar sin sesión: en `public/video/` caía en el login, `tests/proxy-matcher-completo.test.ts`).
 - **Reproducir adentro:** el embed OFICIAL de Instagram (`https://www.instagram.com/reel/<código>/embed/`) reproduce dentro de
   un `<iframe>` sin abrir otra pestaña (probado el 11/11/2026 en el navegador de la app). La CSP de MaKo no tiene `frame-src`
   (sólo `frame-ancestors`), así que no hay que tocar nada. Nunca una copia nuestra del video: el reproductor es el de la red.

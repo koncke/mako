@@ -56,7 +56,7 @@ export const RECETAS: readonly Receta[] = [
     ],
     edicion: [
       'Dos pistas de video: arriba la toma del experto, abajo la del novato, las dos con la cámara en el mismo lugar.',
-      'En la de arriba, Propiedades › Máscara: una línea vertical al medio, para que de cada toma se vea sólo su lado. Muévela hasta que el corte caiga en algo recto del fondo y no se note.',
+      'En la de arriba, la Máscara de sus propiedades: una línea vertical al medio, para que de cada toma se vea sólo su lado. Muévela hasta que el corte caiga en algo recto del fondo y no se note.',
       'Dos textos con caja amarilla y letra negra, arriba de cada uno, todo el video: «Vendedor experto» y «Vendedor novato».',
       'Sin subtítulos ni música: lo que engancha es la conversación. Si los usas, chicos y abajo, para no tapar los rótulos.',
       'Los últimos 5 s, una tarjeta blanca arriba con la pregunta para comentar.',
@@ -84,7 +84,7 @@ export const RECETAS: readonly Receta[] = [
     referencia: { codigo: 'DPUxQ8_DiVY', cuenta: 'den.borgg' },
     duracionS: 55,
     estructura: [
-      { nombre: 'El golpe de arranque', desde: 0, hasta: 7, que: 'Primer plano y una frase que pincha («Que paga la gente que paga poco…»); la primera palabra gigante cae acá.' },
+      { nombre: 'El golpe de arranque', desde: 0, hasta: 7, que: 'Primer plano y una frase que pincha («Que paga la gente que paga poco…»); la primera palabra gigante cae aquí.' },
       { nombre: 'El desarrollo', desde: 7, hasta: 19, que: 'El mismo plano; frases cortas con la palabra clave grande cada 5 a 10 s.' },
       { nombre: 'El contexto', desde: 19, hasta: 25, que: 'Plano abierto: el escenario, el público, la pantalla. Dice «esto es una charla de verdad».' },
       { nombre: 'El remate', desde: 25, hasta: 55, que: 'Dos planos más (lateral y cerrado); la idea fuerte del final y la última palabra gigante.' },
@@ -132,7 +132,7 @@ export const RECETAS: readonly Receta[] = [
     ],
     grabacion: {
       avatar: [
-        'Dos personajes sentados frente a micrófonos de podcast, en el mismo estudio: vos (el que responde) y quien pregunta. Primero el estudio solo, al 100 %.',
+        'Dos personajes sentados frente a micrófonos de podcast, en el mismo estudio: tú (el que responde) y quien pregunta. Primero el estudio solo, al 100 %.',
         'Las tomas en HORIZONTAL (16:9): cada personaje en su plano, mirando hacia el otro.',
         'El guion es una pregunta fuerte y una respuesta en frases cortas; un video por frase, con la duración por las palabras.',
         'Dos voces distintas: la tuya (el clon) para las respuestas y otra para las preguntas.',

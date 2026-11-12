@@ -122,8 +122,8 @@ test('4. la vidriera: los curados por su múltiplo, sin ventana ni variedad; lo 
 
 test('5. la plantilla con su portada real (servida por nosotros) y el filtro por familia validado', () => {
   const pl = OUTLIERS_CON_PLANTILLA.find((o) => o.plantilla === 'mensaje-para');
-  assert.equal(pl?.miniatura, '/video/plantillas/mensaje-para.jpg', 'la plantilla sin miniatura (lo que vio Martín)');
-  assert.ok(existsSync(new URL('../public/video/plantillas/mensaje-para.jpg', import.meta.url)), 'la portada no está en /public');
+  assert.equal(pl?.miniatura, '/ve/plantillas/mensaje-para.jpg', 'la plantilla sin miniatura (lo que vio Martín)');
+  assert.ok(existsSync(new URL('../public/ve/plantillas/mensaje-para.jpg', import.meta.url)), 'la portada no está en /public');
   assert.equal(familiaDe({ patron: 'titulo-en-caja' }), 'titulo-en-caja');
   assert.equal(familiaDe({ patron: '<script>' }), null);
   assert.equal(familiaDe({}), null);

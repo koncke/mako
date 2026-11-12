@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { FAMILIAS_EDICION, type FamiliaEdicion, type PortadaOutliers } from "@/lib/video-outliers";
+import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
 import { TarjetaPlantilla, TarjetaReel } from "@/app/video-editor/OutliersVideo";
 import s from "@/app/image-editor/carruseles/explorar.module.css";
 import o from "@/app/video-editor/outliers.module.css";
@@ -44,7 +45,7 @@ export function OutliersView() {
 	}, [estado]);
 
 	if (estado.tipo === "cargando") return <p className={o.panelNota}>Buscando los reels que enseñan edición…</p>;
-	if (estado.tipo === "error") return <p className={o.panelNota} role="alert">{estado.texto}</p>;
+	if (estado.tipo === "error") return <p className={o.panelNota} role="alert">{estado.texto} <ReportarASoporte /></p>;
 	const { portada } = estado;
 	const r = portada.resumen;
 	const ahora = Date.now();

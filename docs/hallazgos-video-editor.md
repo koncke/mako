@@ -23,6 +23,16 @@ momento. Porque es lo que hace atractivo justamente a esta funcionalidad de edic
   cursor de su agente (`enjambre/cursores-sueltos.ts`: el chat con `mostrarCursores`, y los trabajos largos por su store de fase).
   Una edición nueva de MaKo que tenga su propio store de trabajo se suma en `agentesSueltos`; una operación nueva del chat, en
   `AGENTE_DE_OPERACION` (sin agente, no hay cursor).
+- **El paseo al azar era el equivocado (Martín, la misma noche: «se mueven random… tienen que estar trabajando, hacer cosas»).**
+  El reel de referencia (`referencias/reels-0911` → `edicion-mako.mp4`, mirado cada 0,25 s) muestra cada cursor AGARRANDO algo:
+  el recuadro del subtítulo con su caja de selección, un clip, un efecto, una rueda de color, y todos a la vez. Ahora cada agente
+  tiene SUS objetivos reales (`OBJETIVOS_DE`, `tareaDeAgente` en `enjambre/cursores.ts`): los clips (`data-ce-clip` +
+  `data-ce-tipo` en `timeline-element.tsx`), los textos, el audio, los controles de propiedades, los medios de la biblioteca y,
+  del canvas del reproductor, el cuadro y la franja del subtítulo. Una caja de su color marca lo que trabaja; la caja NO viaja
+  (deslizándose, una caja grande cruzaba la pantalla cambiando de tamaño), viaja el cursor.
+- ⚠️ **Un arnés sin Tailwind miente sobre las posiciones**: el componente usa `absolute top-0 left-0`; sin esas clases, cada
+  cursor y cada caja quedan uno debajo del otro y su `translate` se suma. Los primeros GIF de los cursores (11/11/2026) tenían
+  ese corrimiento. En el arnés van las clases a mano.
 - **Sin hacer:** los renglones que llegan juntos (subs-01 anota sus 7 subtítulos en el mismo instante) llevan el cursor sólo al
   último; el panel de «Borrar silencios» y otros botones sin store de fase no prenden cursor (el chat sí).
 
