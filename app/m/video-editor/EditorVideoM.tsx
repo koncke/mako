@@ -197,7 +197,9 @@ function TiraClips() {
 
   return (
     <div className="m-video-editor-tira" data-m-sin-pull>
-      {principal.elements.map((el) => {
+      {/* En el ORDEN DEL VIDEO, no en el del arreglo: el ⊕ de la computadora suelta en el cabezal y el imán lo pone ADELANTE
+          sin moverlo en el arreglo. Medido el 12/11/2026: la tira decía toma-a, toma-b y el video empezaba con toma-b. */}
+      {[...principal.elements].sort((a, b) => a.startTime - b.startTime).map((el) => {
         const seg = mediaTimeToSeconds({ time: el.duration });
         const img = 'mediaId' in el && typeof el.mediaId === 'string' ? miniatura.get(el.mediaId) : null;
         const es = elegido.has(el.id);

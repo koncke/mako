@@ -40,6 +40,7 @@ import { HiloMako, type EnMensaje } from "@/app/_chat/HiloMako";
 import { useNotaEnElActo } from "@/app/_chat/useNotaEnElActo";
 import { cuerpoConArchivos, useAdjuntosDelChat } from "@/app/_chat/useAdjuntosDelChat";
 import { ERROR_ADJUNTO, memoriaConArchivos } from "@/lib/mako-adjuntos";
+import { TOPES_CONVERSACION } from "@/lib/editor-video/chat-conversacion";
 import type { ItemHilo } from "@/app/m/mako/chat-ui";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -225,7 +226,17 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		return;
 	}
 
-	const r = await pedirIA({ instruccion: paraEditar, linea: vista.json, alcance: alcanceReal, ...(discutir ? { intencion: "discutir" } : {}) }, corte.signal, archivos);
+	// Lo que se habló ANTES de este pedido (lib/editor-video/chat-conversacion.ts, 12/11/2026): sin eso, «hazlo» o «la edición de
+	// la referencia» no sabían a qué se referían, ni a la receta que MaKo escribió al replicar un reel. El pedido de ahora es el
+	// último «yo» del hilo: va como instrucción, no repetido como conversación.
+	const hilo = leerHilo(proyectoId).mensajes;
+	let ultimoYo = hilo.length - 1;
+	while (ultimoYo >= 0 && hilo[ultimoYo].de !== "yo") ultimoYo--;
+	const conversacion = hilo
+		.slice(0, Math.max(0, ultimoYo))
+		.slice(-TOPES_CONVERSACION.mensajes)
+		.map((m) => ({ de: m.de, texto: m.texto, ...(m.de === "mako" && m.error ? { error: true } : {}) }));
+	const r = await pedirIA({ instruccion: paraEditar, linea: vista.json, alcance: alcanceReal, ...(discutir ? { intencion: "discutir" } : {}), ...(conversacion.length ? { conversacion } : {}) }, corte.signal, archivos);
 	if (!r.ok) {
 		terminar({ de: "mako", texto: r.error, error: !("cortado" in r) });
 		return;

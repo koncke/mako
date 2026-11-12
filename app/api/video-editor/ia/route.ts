@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
     if (c.adjuntos.length && !lecturas.length && !escrita) return fallo(`No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}: escribe qué quieres cambiar.`, 422);
     const instruccion = c.adjuntos.length && !escrita ? 'Usa lo que traen estos archivos en el video.' : body.instruccion;
     const archivos = lecturas.length ? lecturaDeArchivos(lecturas, TOPE_LECTURA_EDITOR) : undefined;
-    const r = await editarVideo({ instruccion, linea: body.linea, alcance: body.alcance, intencion: body.intencion, archivos });
+    const r = await editarVideo({ instruccion, linea: body.linea, alcance: body.alcance, intencion: body.intencion, archivos, conversacion: body.conversacion });
     if (!r.ok) return fallo(r.error, r.status);
     return Response.json(r, { headers: { 'cache-control': 'no-store' } });
   });
