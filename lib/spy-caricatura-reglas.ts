@@ -19,6 +19,11 @@
 //
 // ⚠️ NO SE ENCOLA: un referente (sus caricaturas ya están dibujadas y aprobadas), ni quien no tiene foto en nuestro
 // Storage. Un fallo NO se reintenta en cadena: espera un día, y a los 3 queda «rendida», visible para el super admin.
+//
+// ⚠️ LAS CARICATURAS SON SÓLO PARA PERSONAS (12/11/2026). Una marca o una agencia cuya foto es un logo no tiene cara
+// que caricaturizar: el Runner la saca con `--sin-persona` y la tarjeta se queda con su logo. NO es un fallo de Canva
+// (no suma fallos, no termina en «rendidas»), y no vuelve a la cola salvo que cambie la foto. Caso que lo pidió: el
+// competidor 41 del ws 9, un cuadrado con una letra en 3D; la única salida era anotar tres fallos en tres días.
 // =============================================================================
 
 /** Lo que se recuerda de la caricatura de UN competidor. Vive en `spy.caricaturas` (app_settings del negocio). */
@@ -37,6 +42,18 @@ export type EntradaCaricatura = {
   ultimoFallo?: string;
   /** Lo que dijo el Runner la última vez que falló. Texto nuestro, para el super admin. */
   motivo?: string;
+  /**
+   * Su foto no es una persona (un logo, una marca): no hay caricatura que hacer. El texto es el motivo que dio el Runner.
+   * Mientras su foto sea la misma, queda fuera de la cola: ni pendiente, ni fallo, ni rendida.
+   */
+  sinPersona?: string;
+  /** Cuándo se decidió (ISO). */
+  sinPersonaEn?: string;
+  /**
+   * El sha-256 de la foto cuando se decidió. ⚠️ HACE FALTA porque la URL de la foto NO cambia cuando cambia la foto: es
+   * por su cuenta (`spy/avatar/<usuario>`), y se pisa. Sin esto, «salvo que cambie la foto» no se podría ver nunca.
+   */
+  huella?: string;
 };
 
 export type RegistroCaricaturas = Record<string, EntradaCaricatura>;
@@ -122,6 +139,12 @@ export function leerRegistro(crudo: string | null | undefined): RegistroCaricatu
       if (fecha(o.ultimoFallo)) entrada.ultimoFallo = o.ultimoFallo;
       const m = motivoLimpio(o.motivo as string);
       if (m) entrada.motivo = m;
+      const sp = motivoLimpio(o.sinPersona as string);
+      if (sp) {
+        entrada.sinPersona = sp;
+        if (fecha(o.sinPersonaEn)) entrada.sinPersonaEn = o.sinPersonaEn;
+        if (typeof o.huella === 'string' && /^[0-9a-f]{64}$/.test(o.huella)) entrada.huella = o.huella;
+      }
     }
     if (entrada.url || entrada.foto) out[k] = entrada;
   }
@@ -160,7 +183,7 @@ export function cuentasDe(c: CuentaCompetidor): string[] {
 export const refDeCuenta = (cuenta: string): string => cuenta.replace(':', '-');
 
 /** El estado de UN competidor en la cola. */
-export type EstadoCola = 'lista' | 'pendiente' | 'esperando' | 'rendida' | 'fuera';
+export type EstadoCola = 'lista' | 'pendiente' | 'esperando' | 'rendida' | 'sin-persona' | 'fuera';
 
 /**
  * Dónde está la caricatura de un competidor. `fuera`: no entra a la cola (es un referente, o no tiene su foto en
@@ -175,6 +198,9 @@ export function estadoEnCola(
   if (e?.url) return 'lista';
   if (c.referente) return 'fuera';
   if (!fotoEsNuestra(e?.foto ?? c.avatar)) return 'fuera';
+  // Con OTRA foto (otra dirección) vuelve: la decisión era sobre la de antes. Que la misma dirección traiga otra imagen
+  // lo mira `listarCola` con la huella, que necesita bajarla.
+  if (e?.sinPersona && (!c.avatar || c.avatar === e.foto)) return 'sin-persona';
   if ((e?.fallos ?? 0) >= FALLOS_HASTA_RENDIRSE) return 'rendida';
   if (e?.ultimoFallo && ahora - Date.parse(e.ultimoFallo) < ESPERA_TRAS_FALLO_MS) return 'esperando';
   return 'pendiente';
@@ -224,12 +250,21 @@ export const caricaturaEnCamino = (
   e: EntradaCaricatura | undefined, c: { avatar?: string | null; referente: boolean }, ahora: number,
 ): boolean => estadoEnCola(e, c, ahora) === 'pendiente';
 
+/**
+ * La foto que se le pasa al Runner. La de la entrada, salvo que la entrada sea de un «sin persona» que volvió porque
+ * cambió de foto: ahí va la de ahora. Con la de la entrada le pediría caricaturizar el logo de antes.
+ */
+const fotoParaElRunner = (e: EntradaCaricatura | undefined, c: { avatar: string | null }): string =>
+  (e?.sinPersona && fotoEsNuestra(c.avatar) ? c.avatar : (e?.foto ?? c.avatar)) as string;
+
 /** Un competidor de un negocio, como lo ve la cola. */
 export type CompetidorCola = CuentaCompetidor & { ws: number; id: number; avatar: string | null; referente: boolean };
 
 /** Lo que lee el Runner: SÓLO ws, id y la URL de la foto (nuestra). Sin nombre ni nada traído de afuera. */
 export type ItemCola = { ws: number; id: number; foto: string };
 export type ItemRendido = ItemCola & { fallos: number; motivo?: string };
+/** Una foto sin persona: fuera de la cola, y aparte de las rendidas porque no es un fallo de Canva. */
+export type ItemSinPersona = ItemCola & { motivo: string };
 
 /**
  * La cola de todos los negocios. Una caricatura por PERSONA: los competidores que comparten una cuenta (misma red y
@@ -241,7 +276,7 @@ export function colaDeCaricaturas(
   competidores: readonly CompetidorCola[],
   registros: ReadonlyMap<number, RegistroCaricaturas>,
   ahora: number,
-): { pendientes: ItemCola[]; rendidas: ItemRendido[]; masVieja: string | null } {
+): { pendientes: ItemCola[]; rendidas: ItemRendido[]; sinPersona: ItemSinPersona[]; masVieja: string | null } {
   // Agrupar por cuentas compartidas (unión de conjuntos: A comparte Instagram con B, y B YouTube con C → un grupo).
   const padre = new Map<number, number>();
   const raiz = (i: number): number => { let r = i; while (padre.get(r) !== r) r = padre.get(r) as number; return r; };
@@ -259,6 +294,7 @@ export function colaDeCaricaturas(
 
   const pendientes: ItemCola[] = [];
   const rendidas: ItemRendido[] = [];
+  const sinPersona: ItemSinPersona[] = [];
   // Desde cuándo espera la pendiente más vieja: si crece, el Runner no está generando (por ejemplo, corre en una cuenta
   // de Claude sin Canva). Es una fecha nuestra, para el super admin: en la pantalla no se dice nada.
   let masVieja: string | null = null;
@@ -269,6 +305,12 @@ export function colaDeCaricaturas(
       return { c, e, estado: estadoEnCola(e, c, ahora) };
     }).filter((x) => x.estado !== 'fuera');
     if (!vistos.length || vistos.some((x) => x.estado === 'lista')) continue;
+    // Antes que lo rendido: un logo no es un fallo, aunque antes de saberlo se hayan anotado algunos.
+    const logo = vistos.find((x) => x.estado === 'sin-persona');
+    if (logo) {
+      sinPersona.push({ ws: logo.c.ws, id: logo.c.id, foto: (logo.e?.foto ?? logo.c.avatar) as string, motivo: logo.e?.sinPersona as string });
+      continue;
+    }
     const rendido = vistos.find((x) => x.estado === 'rendida');
     if (rendido) {
       rendidas.push({ ws: rendido.c.ws, id: rendido.c.id, foto: (rendido.e?.foto ?? rendido.c.avatar) as string, fallos: rendido.e?.fallos ?? FALLOS_HASTA_RENDIRSE, ...(rendido.e?.motivo ? { motivo: rendido.e.motivo } : {}) });
@@ -281,12 +323,13 @@ export function colaDeCaricaturas(
     const desde = (x: (typeof vistos)[number]) => Date.parse(x.e?.desde ?? '') || Number.POSITIVE_INFINITY;
     const [primero] = vistos.slice().sort((a, b) =>
       (b.e?.fallos ?? 0) - (a.e?.fallos ?? 0) || desde(a) - desde(b) || a.c.ws - b.c.ws || a.c.id - b.c.id);
-    pendientes.push({ ws: primero.c.ws, id: primero.c.id, foto: (primero.e?.foto ?? primero.c.avatar) as string });
+    pendientes.push({ ws: primero.c.ws, id: primero.c.id, foto: fotoParaElRunner(primero.e, primero.c) });
     for (const x of vistos) if (x.e?.desde && (!masVieja || x.e.desde < masVieja)) masVieja = x.e.desde;
   }
   pendientes.sort((a, b) => a.ws - b.ws || a.id - b.id);
   rendidas.sort((a, b) => a.ws - b.ws || a.id - b.id);
-  return { pendientes, rendidas, masVieja };
+  sinPersona.sort((a, b) => a.ws - b.ws || a.id - b.id);
+  return { pendientes, rendidas, sinPersona, masVieja };
 }
 
 /**

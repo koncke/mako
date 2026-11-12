@@ -2228,3 +2228,17 @@ pero **cero anuncios y `pagina_anuncios` vacío**, porque su paso de anuncios ta
 el logo de Meta (`LogoRed.tsx`, `SpyApp.tsx:1595`, por pedido de Martín del 4/11). El botón «Ver sus
 anuncios en Meta» del Funnel es el camino de respaldo para cuando no hay ninguno. Lo que falta no es
 moverlos de lugar: es que lleguen.
+
+## Una foto que es un logo: «sin persona» no es un fallo, y la URL de la foto no dice si cambió (12/11/2026)
+
+**Vive en:** `lib/spy-caricatura-reglas.ts` (`estadoEnCola`, `colaDeCaricaturas`), `lib/spy-caricatura-cola.ts` (`marcarSinPersona`, `listarCola`), `scripts/spy-caricatura-guardar.mjs --sin-persona`. El contrato: `docs/relevo/nube-spy.md`.
+
+**Síntoma:** el competidor 41 del ws 9 tiene un logo de foto (un cuadrado con una letra en 3D). El Runner no tenía cara que caricaturizar, no anotó fallo porque Canva no había fallado, y la única salida era anotar tres fallos en tres días hasta que quedara «rendida»: el super admin lo habría visto como un fallo de Canva.
+
+**La regla:** las caricaturas son sólo para personas (los referentes y los competidores con cara). Una marca o agencia sin persona visible se queda con su logo: `--sin-persona "<motivo>"` la saca de la cola en el acto, borra los fallos que hubiera y la lista la muestra aparte (`sinPersona`), no en `rendidas`. Tampoco frena la cola.
+
+**⚠️ El diagnóstico obvio era el equivocado:** «vuelve a la cola si cambia la foto» parecía un `if` sobre la URL, y **la URL de la foto no cambia cuando cambia la foto**: es por su cuenta (`spy/avatar/<usuario>`) y se pisa. Comparando la URL, un competidor que pone su cara después de un logo no volvería nunca. Se guarda el sha-256 de la imagen al marcarlo, y la lista de pendientes baja SÓLO esas fotos y compara. Si no se puede bajar, no se mueve nada (si no, un corte del Storage las devolvería a todas a la cola).
+
+**Trampa que encontró el test:** cuando la foto cambia de dirección (otra extensión), la cola le pasaba al Runner la foto de la ENTRADA, o sea el logo de antes: la habría caricaturizado. Ahora va la de ahora, y al marcar «sin persona» de nuevo también se guarda la de ahora.
+
+**Sin hacer:** la tarjeta no dice «Haciendo…» para una que volvió por la huella (el servidor no baja la foto para saberlo): muestra su foto hasta que el Runner la hace. El competidor 41 del ws 9 sigue en la cola hasta que el Runner corra `spy-caricatura-guardar.mjs 9 41 --sin-persona "es un logo"` con esto en main.

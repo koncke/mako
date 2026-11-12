@@ -158,8 +158,10 @@ node --env-file=<clon>/.env.local --import tsx scripts/spy-caricaturas-pendiente
 ```
 
 Imprime un JSON con `pendientes` (`[{ ws, id, foto }]`: sólo eso, sin nombre ni nada traído de afuera; la foto es una URL
-pública de nuestro Storage), `rendidas` (`[{ ws, id, foto, fallos, motivo }]`: fallaron 3 veces y ya no se intentan) y
-`masVieja` (desde cuándo espera la pendiente más vieja). Una persona que miran varios negocios sale una sola vez. Sólo lee.
+pública de nuestro Storage), `rendidas` (`[{ ws, id, foto, fallos, motivo }]`: fallaron 3 veces y ya no se intentan),
+`sinPersona` (`[{ ws, id, foto, motivo }]`: su foto es un logo, ver abajo; no son un fallo) y `masVieja` (desde cuándo espera
+la pendiente más vieja). Una persona que miran varios negocios sale una sola vez. Sólo lee: para las `sinPersona` baja su foto y
+compara la huella, y si cambió la devuelve a `pendientes` sin escribir nada.
 
 ```bash
 node --env-file=<clon>/.env.local --import tsx scripts/spy-caricatura-guardar.mjs <ws> <id> <archivo>
@@ -176,7 +178,22 @@ node --env-file=<clon>/.env.local --import tsx scripts/spy-caricatura-guardar.mj
 ```
 
 Anota que Canva no pudo. No se reintenta en cadena: vuelve a la lista al día siguiente, y a los 3 fallos queda en
-`rendidas`. **Sin Canva conectado en la cuenta de Claude del Runner no se anota nada**: la pendiente espera, sin error y
+`rendidas`. **No es para un logo**: eso va por `--sin-persona`, abajo.
+
+```bash
+node --env-file=<clon>/.env.local --import tsx scripts/spy-caricatura-guardar.mjs <ws> <id> --sin-persona "<motivo>"
+```
+
+**Las caricaturas son sólo para personas** (los referentes y los competidores con cara). Cuando la foto es un logo, una marca
+o una agencia sin una persona a la vista, no hay nada que caricaturizar: con esto el competidor sale de la cola en el acto y
+su tarjeta se queda con su foto (el logo). **No es un fallo de Canva**: borra los fallos que hubiera, no suma ninguno, no
+termina en `rendidas` y no frena la cola (no cuenta para `masVieja`). El super admin lo ve aparte, en `sinPersona`, con el
+motivo. Se marca también en la misma cuenta de cualquier otro negocio (el mismo logo).
+
+**Vuelve a la cola sólo si cambia su foto.** Como la dirección de la foto es por su cuenta y se pisa (`spy/avatar/<usuario>`),
+se guarda la huella (sha-256) de la imagen al marcarlo, y la lista de pendientes la compara: si es otra imagen, vuelve a
+`pendientes` con la foto nueva y se decide de nuevo (la caricatura, o `--sin-persona` otra vez). Si la foto no se puede bajar,
+no se mueve nada. El primer caso: el competidor 41 del ws 9 (`spy-caricatura-guardar.mjs 9 41 --sin-persona "es un logo"`). **Sin Canva conectado en la cuenta de Claude del Runner no se anota nada**: la pendiente espera, sin error y
 sin cartel en la pantalla, y lo único que lo delata es `masVieja` creciendo (para el super admin).
 
 **La receta** (medida por ti el 4/11 con Den Borg, ~30 s): `upload-asset-from-url` con la foto → `generate-image` con

@@ -13,7 +13,9 @@
 //   4. un negocio nuevo que agrega a la misma persona la recibe en el acto, sin entrar a la cola;
 //   5. un fallo no se reintenta en cadena (ni en el negocio del lado), y a los 3 queda rendida;
 //   6. un referente o una foto que no es nuestra no entran; el registro del camino de antes no sobrevive;
-//   7. el camino de antes (IA del negocio + Flow) no existe más, y la pantalla no pide nada.
+//   7. el camino de antes (IA del negocio + Flow) no existe más, y la pantalla no pide nada;
+//   8. una foto que no es una persona (un logo) sale de la cola con `--sin-persona`: no es un fallo, no se rinde, y
+//      vuelve sólo si cambia la foto, aunque su URL siga igual.
 //
 // PROBADO ROMPIÉNDOLO (4/11/2026), una rotura por vez y restaurada, base en verde (qué tests caen):
 //   · `estadoEnCola` sin exigir la foto en nuestro Storage                    → 1, 6
@@ -26,6 +28,15 @@
 //   · `FALLOS_HASTA_RENDIRSE` en 99                                            → 5
 //   · el primero de un grupo sin mirar quién ya falló                         → 5b
 //   · `mirarCompetidor` sin encolar al leer                                    → 7
+// Y la salida sin persona (12/11/2026), igual:
+//   · `estadoEnCola` sin el estado `sin-persona`                              → 8
+//   · `colaDeCaricaturas` que la manda a las rendidas                           → 8
+//   · `marcarSinPersona` que conserva los fallos                                → 8
+//   · `marcarSinPersona` que marca sólo el competidor pedido                    → 8
+//   · `listarCola` sin comparar la huella (la foto cambió y la URL no)          → 8b
+//   · `listarCola` que la devuelve a la cola si la foto no se pudo bajar       → 8b
+//   · al Runner le llega la foto vieja, o se marca con ella                      → 8b
+//   · el script sin la salida `--sin-persona`                                   → 8c
 // Correr: node --import tsx --test tests/spy-caricatura-cola.test.ts
 // =============================================================================
 
@@ -33,10 +44,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { anotarFallo, encolarCaricatura, guardarCaricatura, listarCola, type DepsGuardar } from '../lib/spy-caricatura-cola';
+import { anotarFallo, encolarCaricatura, guardarCaricatura, listarCola, marcarSinPersona, type DepsGuardar } from '../lib/spy-caricatura-cola';
 import {
-  CLAVE_CARICATURAS, ESPERA_TRAS_FALLO_MS, FALLOS_HASTA_RENDIRSE, caraDeTarjeta, caricaturasListas, leerRegistro, medidasDeImagen,
-  refDeCuenta,
+  CLAVE_CARICATURAS, ESPERA_TRAS_FALLO_MS, FALLOS_HASTA_RENDIRSE, caraDeTarjeta, caricaturaEnCamino, caricaturasListas, esperaMasVieja,
+  leerRegistro, medidasDeImagen, refDeCuenta,
   type CompetidorCola,
 } from '../lib/spy-caricatura-reglas';
 import { rutaDeMiniatura } from '../lib/spy-miniaturas';
@@ -102,7 +113,7 @@ test('1. alta → pendiente, con su foto de NUESTRO Storage; la lista lleva sól
   assert.equal(await encolarCaricatura(b.deps, den(3, 17), T0 + 60_000), 'sin-cambio');
   assert.equal(b.escrituras.length, 1);
   const cola = await listarCola(b.deps, T0);
-  assert.deepEqual(cola, { pendientes: [{ ws: 3, id: 17, foto: FOTO_DEN }], rendidas: [], masVieja: new Date(T0).toISOString() });
+  assert.deepEqual(cola, { pendientes: [{ ws: 3, id: 17, foto: FOTO_DEN }], rendidas: [], sinPersona: [], masVieja: new Date(T0).toISOString() });
   assert.deepEqual(Object.keys(cola.pendientes[0]).sort(), ['foto', 'id', 'ws'], 'ni nombre, ni bio, ni nada de afuera');
 });
 
@@ -185,7 +196,7 @@ test('5. un fallo no se reintenta en cadena (tampoco por el negocio del lado), y
   assert.deepEqual(cola.rendidas, [{ ws: 3, id: 17, foto: FOTO_DEN, fallos: 3, motivo: 'y otra' }], 'a la vista del super admin');
   // Una caricatura que llega igual (el Runner la hizo a mano) la saca de las rendidas.
   assert.ok((await guardarCaricatura(b.deps, 3, 17, PNG, T0)).ok);
-  assert.deepEqual(await listarCola(b.deps, T0 + 10 * ESPERA_TRAS_FALLO_MS), { pendientes: [], rendidas: [], masVieja: null });
+  assert.deepEqual(await listarCola(b.deps, T0 + 10 * ESPERA_TRAS_FALLO_MS), { pendientes: [], rendidas: [], sinPersona: [], masVieja: null });
 });
 
 test('5b. los fallos se juntan en UNO: la próxima vez se le pide al que ya falló, no al del negocio del lado', async () => {
@@ -244,4 +255,98 @@ test('una cara que no carga cae a su foto, y recién sin foto se saca', () => {
   assert.match(app, /<img key=\{cara\} src=\{cara\} alt="" loading="lazy" onError=\{\(e\) => \{ caerAFoto\(e\.currentTarget, c\.avatar\); \}\} \/>/);
   const fn = app.slice(app.indexOf('function caerAFoto('), app.indexOf('function RejillaCompetidores('));
   assert.ok(fn.indexOf('img.src = foto') > 0 && fn.indexOf('img.src = foto') < fn.indexOf('img.remove()'), 'primero la foto, después sacarla');
+});
+
+// ── 8. Una foto que no es una persona (12/11/2026) ──────────────────────────────────────────────────────────────────
+// El caso real: el competidor 41 del ws 9, «Agencia Generación de Leads», cuya foto es un logo (un cuadrado con una letra
+// en 3D). No hay cara que caricaturizar, y la única salida era anotar tres fallos en tres días.
+
+const FOTO_LOGO = `${STORAGE}spy/avatar/bastidafarina.jpg`;
+const logo = (ws: number, id: number, o: Partial<CompetidorCola> = {}): CompetidorCola =>
+  ({ ws, id, instagram: 'bastidafarina', youtube_id: null, tiktok: null, avatar: FOTO_LOGO, referente: false, ...o });
+/** La base de mentira, con la huella de cada foto: lo que daría bajarla. */
+function conHuellas(competidores: CompetidorCola[], huellas: Map<string, string | null>) {
+  const b = baseDeMentira(competidores);
+  const deps = { ...b.deps, huella: async (url: string) => huellas.get(url) ?? null };
+  return { ...b, deps };
+}
+const H1 = 'a'.repeat(64);
+const H2 = 'b'.repeat(64);
+
+test('8. un logo sale de la cola en el acto, con su foto, y NO es un fallo de Canva', async () => {
+  const huellas = new Map([[FOTO_LOGO, H1]]);
+  const b = conHuellas([logo(9, 41), logo(11, 7, { instagram: 'BastidaFarina' })], huellas);
+  await encolarCaricatura(b.deps, logo(9, 41), T0);
+  // Antes de saber que era un logo, el Runner llegó a anotar dos fallos.
+  await anotarFallo(b.deps, 9, 41, 'no hay cara', T0);
+  await anotarFallo(b.deps, 9, 41, 'no hay cara', T0 + ESPERA_TRAS_FALLO_MS);
+
+  const r = await marcarSinPersona(b.deps, 9, 41, 'es un logo:\nuna letra en 3D', T0 + 2 * ESPERA_TRAS_FALLO_MS);
+  assert.ok(r.ok);
+  assert.deepEqual(r.ok ? r.marcadas.map((m) => `${m.ws}#${m.id}`).sort() : [], ['11#7', '9#41'], 'la misma cuenta en otro negocio es el mismo logo');
+  assert.deepEqual(b.registro(9)['41'], {
+    foto: FOTO_LOGO, desde: new Date(T0).toISOString(), sinPersona: 'es un logo: una letra en 3D',
+    sinPersonaEn: new Date(T0 + 2 * ESPERA_TRAS_FALLO_MS).toISOString(), huella: H1,
+  }, 'sin fallos, sin último fallo y sin motivo de Canva');
+
+  // Ni pendiente, ni esperando, ni rendida: aparte, y para siempre mientras la foto sea la misma.
+  for (const dias of [0, 1, 30]) {
+    const cola = await listarCola(b.deps, T0 + (2 + dias) * ESPERA_TRAS_FALLO_MS);
+    assert.deepEqual(cola, { pendientes: [], rendidas: [], sinPersona: [{ ws: 9, id: 41, foto: FOTO_LOGO, motivo: 'es un logo: una letra en 3D' }], masVieja: null });
+  }
+  // La tarjeta se queda con su foto: no dice «Haciendo…», y la cola no cuenta como frenada.
+  const reg = leerRegistro(b.settings.get(9)?.valor);
+  assert.equal(caricaturaEnCamino(reg['41'], { avatar: FOTO_LOGO, referente: false }, T0), false);
+  assert.equal(esperaMasVieja(reg, [{ id: 41, avatar: FOTO_LOGO, referente: false }], T0 + 99 * ESPERA_TRAS_FALLO_MS), null);
+  assert.equal(caraDeTarjeta({ caricatura: caricaturasListas(reg).get(41) ?? null, avatar: FOTO_LOGO }, null), FOTO_LOGO);
+  // Leerlo otra vez no lo vuelve a encolar.
+  assert.equal(await encolarCaricatura(b.deps, logo(9, 41), T0 + 5 * ESPERA_TRAS_FALLO_MS), 'sin-cambio');
+});
+
+test('8b. vuelve a la cola sólo si cambia la foto, aunque la URL sea la misma (y no por no poder bajarla)', async () => {
+  const huellas = new Map<string, string | null>([[FOTO_LOGO, H1]]);
+  const b = conHuellas([logo(9, 41)], huellas);
+  await encolarCaricatura(b.deps, logo(9, 41), T0);
+  assert.ok((await marcarSinPersona(b.deps, 9, 41, 'es un logo', T0)).ok);
+  const escrituras = b.escrituras.length;
+
+  // La foto no se pudo bajar: no se sabe si cambió, y no se mueve nada.
+  huellas.set(FOTO_LOGO, null);
+  assert.deepEqual((await listarCola(b.deps, T0)).pendientes, []);
+  // La misma URL, otra imagen (la ruta es por su cuenta y se pisa): vuelve, para que el Runner decida de nuevo.
+  huellas.set(FOTO_LOGO, H2);
+  const cola = await listarCola(b.deps, T0);
+  assert.deepEqual(cola.pendientes, [{ ws: 9, id: 41, foto: FOTO_LOGO }]);
+  assert.deepEqual(cola.sinPersona, []);
+  assert.equal(b.escrituras.length, escrituras, 'listar no escribe');
+  // Otra URL también: sin bajar nada.
+  const otra = `${STORAGE}spy/avatar/bastidafarina.png`;
+  const sinHuella = baseDeMentira([logo(9, 41, { avatar: otra })]);
+  sinHuella.settings.set(9, b.settings.get(9) as { valor: string; version: number });
+  assert.deepEqual((await listarCola(sinHuella.deps, T0)).pendientes, [{ ws: 9, id: 41, foto: otra }]);
+  // Si la nueva también es un logo, la decisión queda sobre la de AHORA: con la de la entrada volvería en el acto.
+  assert.ok((await marcarSinPersona(sinHuella.deps, 9, 41, 'el logo nuevo también', T0 + 2)).ok);
+  assert.equal(sinHuella.registro(9)['41'].foto, otra);
+  assert.deepEqual((await listarCola(sinHuella.deps, T0 + 2)).pendientes, []);
+  // Y si es un logo otra vez, sale con la huella nueva.
+  assert.ok((await marcarSinPersona(b.deps, 9, 41, 'sigue siendo un logo', T0 + 1)).ok);
+  assert.equal(b.registro(9)['41'].huella, H2);
+  assert.deepEqual((await listarCola(b.deps, T0 + 1)).pendientes, []);
+});
+
+test('8c. lo que no está en la cola no se marca, y el script tiene la salida', async () => {
+  const b = conHuellas([logo(9, 41), logo(9, 42, { instagram: 'otra', avatar: null }), den(3, 17)], new Map([[FOTO_LOGO, H1]]));
+  assert.deepEqual(await marcarSinPersona(b.deps, 9, 99, 'x', T0), { ok: false, error: 'No existe el competidor 99 en el negocio 9.' });
+  assert.deepEqual(await marcarSinPersona(b.deps, 9, 42, 'x', T0), { ok: false, error: 'No tiene su foto en nuestro Storage: no está en la cola.' });
+  assert.ok((await guardarCaricatura(b.deps, 3, 17, PNG, T0)).ok);
+  assert.deepEqual(await marcarSinPersona(b.deps, 3, 17, 'x', T0), { ok: false, error: 'Ya tiene su caricatura: no está en la cola.' });
+  // Sin motivo, igual sale: el motivo es para el super admin.
+  assert.ok((await marcarSinPersona(b.deps, 9, 41, '   ', T0)).ok);
+  assert.equal(b.registro(9)['41'].sinPersona, 'Su foto no es una persona');
+
+  const guardar = sinComentarios(leer('scripts/spy-caricatura-guardar.mjs'));
+  assert.match(guardar, /if \(tercero === '--sin-persona'\) \{\n\s+const r = await marcarSinPersona\(deps, ws, id, resto\.join\(' '\)\);/);
+  const base = sinComentarios(leer('scripts/spy-caricatura-base.mjs'));
+  assert.match(base, /async huella\(url\) \{/, 'sin huella, una foto nueva con la misma URL no vuelve nunca');
+  assert.match(leer('docs/relevo/nube-spy.md'), /spy-caricatura-guardar\.mjs <ws> <id> --sin-persona "<motivo>"/, 'el contrato del Runner');
 });

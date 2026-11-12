@@ -10,11 +10,14 @@
 // Imprime UN JSON:
 //   { "pendientes": [{ "ws": 9, "id": 17, "foto": "https://…/spy-miniaturas/spy/avatar/den_borgg.jpg" }, …],
 //     "rendidas":   [{ "ws": 11, "id": 13, "foto": "https://…", "fallos": 3, "motivo": "…" }, …],
+//     "sinPersona": [{ "ws": 9, "id": 41, "foto": "https://…", "motivo": "es un logo" }, …],
 //     "masVieja":   "2026-11-04T12:00:00.000Z" }      ← desde cuándo espera la pendiente más vieja (null si no hay)
 //
 // ⚠️ SÓLO ws, id y la URL de la foto (nuestra, en el Storage, pública). Sin nombre, sin bio, sin ningún texto traído de
 // afuera: esto lo lee un chat con permisos. Una persona que miran varios negocios sale UNA vez. «rendidas» son las que
-// fallaron 3 veces: ya no se intentan, y quedan a la vista del super admin. Sólo lee: no escribe nada.
+// fallaron 3 veces: ya no se intentan, y quedan a la vista del super admin. «sinPersona» son las que el Runner sacó con
+// `--sin-persona` (la foto es un logo): no son un fallo. Si la foto de una cambió, vuelve a «pendientes»; para saberlo
+// baja ESAS fotos y compara su huella, porque la URL no cambia. Sólo lee: no escribe nada.
 //
 // LA RECETA (medida por el Cerebro el 4/11/2026 con Den Borg, ~30 s cada una):
 //   upload-asset-from-url (la foto) → generate-image con imageReferences y SQUARE_1_1 → get-generate-image-job hasta
