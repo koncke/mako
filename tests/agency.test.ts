@@ -154,7 +154,9 @@ test('abrir: el email, la agencia, el lead, el email libre ANTES de crear, nace 
     'update({ cliente_ws: ws.id })',
     'await crearUsuario({',
     "await guardarQuienPaga(ws.id, 'cliente')",
-    'const cobro = await linkPrimerMes(',
+    // Desde el 11/11/2026 (#85) el link sale sólo si la agencia no paga por su mensualidad (tests/agencia-cobro.test.ts).
+    'const porPasarela = cobraPorPasarela(await mensualidadPrendida(p.agenciaWs));',
+    '? await linkPrimerMes(',
     'acceso = await invitarPorEmail(',
   ];
   let desde = 0;

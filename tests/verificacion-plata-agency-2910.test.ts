@@ -52,7 +52,9 @@ test('H1: los candados y los topes de una cuenta de agencia preguntan si su plan
 test('H1: abrir una cuenta deja el plan elegido, y la ficha ofrece elegirlo a las de antes', () => {
   const p = fuente('lib/partners.ts');
   const marca = p.indexOf("const { error: eMarca } = await getSupabaseServer().from('app_settings').upsert({ workspace_id: ws.id, key: KEY_PLAN_CAMBIADO");
-  assert.ok(marca > 0 && marca < p.indexOf('const cobro = await linkPrimerMes({'), 'la marca, al abrirla y antes del primer mes');
+  // Desde el 11/11/2026 (#85) el link va detrás de la pregunta por la mensualidad: `? await linkPrimerMes({`.
+  const primerMes = p.indexOf('? await linkPrimerMes({');
+  assert.ok(marca > 0 && primerMes > 0 && marca < primerMes, 'la marca, al abrirla y antes del primer mes');
   assert.match(p, /if \(eMarca\) return \{ ok: false/);
   assert.match(p, /\.\.\.planQueVeLaAgencia\(\{[^}]*sinElegir: sinElegir\(ws\) \}\),/);
   assert.match(fuente('lib/agencia-cobro-reglas.ts'), /planElegido: !p\.sinElegir \};/);
