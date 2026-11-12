@@ -1174,6 +1174,8 @@ export const RUNNERS: Runners = {
           en_pausa: m.clientes.filter((c) => c.enPausa).map((c) => ({ cliente_ws: c.ws, nombre: c.nombre })),
           se_debe_usd: Math.round(m.pendientes.reduce((a, p) => a + p.debeUsd, 0) * 100) / 100,
           meses_sin_pagar: m.anteriores.filter((x) => !x.pagado).map((x) => x.mes),
+          // «¿Cuánto paga el mes que viene?» (12/11/2026, Martín, de Código Inmobiliario): con los clientes de hoy.
+          mes_que_viene: m.siguiente ? { mes: m.siguiente.mes, total_usd: m.siguiente.cuenta.totalUsd, clientes: m.siguiente.cuenta.lineas.filter((l) => l.tipo !== 'agencia').length } : null,
         };
       }));
       return json({ agencias: filas, nota: 'apagada: true = esa agencia paga con su link (cobro por pasarela); lo de total_usd es cómo quedaría. Con agenciaWs, el detalle de una.' });

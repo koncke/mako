@@ -140,6 +140,70 @@ scripts/diagnostico-mako-whatsapp.mts · tests/mako-responde-siempre.test.ts.
   salió a MEDIAS se guarda entera. La pendiente que propuso una respuesta perdida sigue viva y un «sí» de después la puede confirmar.
 - **El «listo» de un pedido delegado**, que vuelve al grupo cuando se cierra fuera del turno, sigue frenado con la línea frenada.
 
+## El grupo de SuperAdmin no era un chat: lo que mandan los crons nunca entraba a la memoria del turno (11/11/2026, claude4)
+
+**El síntoma:** Martín, en «MaKo · SuperAdmin»: «Funciona increíblemente mal el WhatsApp, no guarda contexto de nada… No funciona como
+un chat contigo y sí debería». A las 20:18 (ART) MaKo le mandó el comprobante de Código Inmobiliario para revisar (15.67 USDT, la
+orden de Binance, lo que se debía). A las 20:25 Martín contestó «Si perfecto, dalo de alta», y MaKo preguntó «¿a quién le doy de alta
+al CRM?». A las 20:26 preguntó «cuánto va a pagar codigo inmobiliario el mes entrante», y MaKo contestó «¿qué es "código
+inmobiliario"?».
+
+**Las causas, medidas (sólo lectura), una encima de la otra:**
+- **El aviso no estaba en la memoria.** `enviarAlGrupoSuperAdmin` (lib/mako-grupo.ts) mandaba y copiaba al hilo de la app, pero no
+  escribía `mako_doer_conv`. `enviarAlGrupoMaKo` sí, con la memoria obligatoria (`MemoriaDelEnvio`). En 7 días, la memoria del grupo
+  de SuperAdmin tenía sólo los 5 turnos de MaKo: ni un comprobante, ni un atraso, ni una respuesta al equipo, ni una alerta. El de
+  `emitirAviso` con `alDueno` sí se guardaba, pero con el `workspace_id` del CLIENTE, y la memoria se lee por negocio: ningún turno
+  la veía.
+- **Aunque estuviera, se tiraba.** `saneaHistorial` (lib/mako-doer-in.ts) «arrancaba en user» y salteaba todo turno de MaKo que
+  quedara primero en la ventana. Un aviso de un cron es justo eso: lo único antes de la respuesta de la persona.
+- **El aviso no preguntaba.** Cerraba con «márcalo con marcar_mensualidad_pagada o marcar_entrada_pagada (con la orden)», sin «?»: el
+  «sí» no seguía la oferta (`makoPreguntoAlgo`), y además nombraba herramientas internas.
+- **Ni la herramienta viajaba.** «pagar», «mensualidad», «comprobante» y «pagado» no eran del área de cobros, así que la pregunta no
+  llevaba `ver_mensualidades_agencias`. Y en una ACCIÓN que decidió la IA sólo viajan las escrituras simples (`viajaEnLaAccion`):
+  `marcar_entrada_pagada` no estaba, y el «sí» se habría delegado al equipo.
+- **Y el turno no sabía qué negocio es Código.** En ese grupo se habla de los negocios por su nombre, y el system no los tenía.
+
+**No era sólo esa noche:** de los 8 mensajes de Martín a MaKo en 10 días (más 2 de prueba por la app y 0 por privado), otros dos
+perdieron el hilo por lo mismo. El 9/11 a las 23:18, «Si, está bien, es de Patricia… admite a Patricia la entrada» contestaba un aviso
+de comprobante que MaKo no tenía, y buscó a Patricia en los leads. El 10/11 a las 23:47, «¿Por qué me envías esto por 2da vez?» hablaba
+de un aviso del cron, y el ticket #80 salió sin saber cuál.
+
+**Y el mismo bug, una hora después, en el grupo de Código (23:33 UTC):** el equipo de MaKo (el Cerebro, con `/message/sendText` por la
+línea de MaKo, sin pasar por ningún código nuestro) le pidió a Joan «¿Me pasan el correo bien escrito?». Joan contestó
+«ceo@sellersoficial.com», y MaKo: «No entiendo a qué se refiere ceo@sellersoficial.com. ¿Es un email que querés que busque…?». El
+pedido no estaba ni en la memoria ni en el anillo del equipo: lo que sale por la línea a mano, o desde el teléfono, no lo ve ningún
+choke point. **El diagnóstico obvio («que cada envío guarde su memoria») no alcanza:** siempre va a haber un envío que no pasa por
+el código. El chat de verdad está en el store de Evolution de esa línea, con los `fromMe`.
+
+**La regla:**
+- **El contexto del turno sale del CHAT de la línea** (`chatDelGrupo` + `conElChatReal`, lib/hilo-real.ts): la memoria del turno
+  fundida con lo que el store tiene y ella no, en orden.
+  - No se repite lo que la memoria ya tiene, por id o por texto: MaKo manda en partes y guarda el turno entero, y un lote junta
+    varios mensajes de personas.
+  - No entra el mensaje que se está atendiendo.
+  - Lo firmado por el equipo, o lo que está en su anillo, va marcado como del equipo (`[Equipo de MaKo]`), y `ultimoDeMako` lo
+    saltea: un «sí» a una pregunta del equipo no es un «sí» a una oferta de MaKo (la regla del 28/10, F2).
+  - Si el store no contesta (3 s), el turno sigue con la memoria sola.
+- Todo lo que sale a un grupo queda en la memoria del turno que lo va a leer: el negocio de ESE grupo, y para el de SuperAdmin, la
+  plataforma.
+- Un aviso que pide una decisión termina en una pregunta («¿lo marco como pagado?»). Ninguno nombra una herramienta interna: un test
+  barre las llamadas que mandan a un grupo contra las 1.000 operaciones del registro.
+- El historial conserva lo que dijo MaKo, aunque sea lo primero de la ventana.
+
+Lo fija tests/hilo-del-superadmin.test.ts, con las tres líneas de esa noche y las de Código, por la entrada real (roturas H1-H10).
+Y el «querés» / «habilitás» de esas respuestas los pasa a tú `alTuteo` (tests/links-con-ws.test.ts, con los dos textos reales).
+- **Para «el mes que viene»:** `mensualidadDeAgencia` ahora arma también el mes siguiente con los clientes de hoy (`siguiente`,
+  `mes_que_viene` en `ver_mensualidades_agencias`). No sabe de altas ni bajas que todavía no pasaron.
+  ⚠️ **La trampa (la midió Planes y cobros):** se cuenta desde HOY (`mesSiguiente(mesHoy)`), no desde `actual`. Con la mensualidad
+  prendida desde un mes que todavía no llegó (Código, desde diciembre), `actual` ya ES ese mes, y desde `actual` daba enero. Medido en
+  producción el 12/11: diciembre, US$426 (Pro 97 + 7 × 47; Pablo, en pausa por su entrada, no cuenta). Lo fija el test 7, con ese dato.
+
+**Sin hacer:**
+- **«no nombrarme todos los otros»** (Martín, 9/11): cuando el monto calza con varias cosas, el aviso lista todo lo que se debía. Qué
+  mostrar, y cómo elegir (Patricia era obvia para él), es una decisión de Martín.
+- **Sin probar con el modelo de verdad:** el test fija lo que le LLEGA al turno (el historial, las herramientas, los negocios), no lo
+  que contesta. Se mide en producción con el próximo comprobante.
+
 ## «MaKo no responde nada» en Código: el «Si» a una OFERTA de MaKo salió charla (11/11/2026, claude4)
 
 **El síntoma:** Martín, 11/11: «MaKo no responde nada… responde al grupo de Código ya». **Lo medido (sólo lectura):** en 24 h, sólo

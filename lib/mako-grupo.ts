@@ -898,17 +898,43 @@ export async function asegurarGrupoSuperAdmin(
 /**
  * Manda un texto al grupo del SuperAdmin. Primero al hilo del grupo de la plataforma (`copiarAlGrupo`), salvo `sinCopia`: lo pasa `emitirAviso`, que ya copió.
  * Si WhatsApp no lo entrega y quedó en el hilo, salió (`enApp`).
+ *
+ * ⚠️ LO QUE SALE QUEDA EN LA MEMORIA DEL TURNO, como en `enviarAlGrupoMaKo` (12/11/2026, Martín: «Funciona increíblemente mal el
+ * WhatsApp, no guarda contexto de nada… No funciona como un chat contigo»). A las 20:18 (ART) MaKo le mandó el comprobante de Código
+ * Inmobiliario para revisar; a las 20:25 Martín contestó «Si perfecto, dalo de alta» y MaKo preguntó «¿a quién le doy de alta al
+ * CRM?». El aviso nunca había entrado a `mako_doer_conv`: en 7 días, la memoria del grupo de SuperAdmin tenía sólo los turnos de MaKo,
+ * ni un aviso de un cron (comprobantes, atrasos, respuestas al equipo, alertas). Se guarda como turno de MaKo, en el negocio de la
+ * plataforma —el que lee el turno de ese grupo— y con la clave de la conversación. `sinMemoria`: quien llama lo guarda (`emitirAviso`).
  */
-export async function enviarAlGrupoSuperAdmin(texto: string, o: { sinCopia?: true } = {}): Promise<EnvioGrupo> {
+export async function enviarAlGrupoSuperAdmin(texto: string, o: { sinCopia?: true; sinMemoria?: true } = {}): Promise<EnvioGrupo> {
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
   const app = o.sinCopia ? null : await grupoApp();
   const wsApp = app ? await wsSuperAdmin().catch(() => null) : null;
   const copia = app && wsApp != null ? await app.copiarAlGrupo(wsApp, { texto, de: 'mako' }) : null;
   const jid = await getGrupoSuperAdminJid();
-  if (!jid) return copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no hay grupo de SuperAdmin todavía' };
-  const r = await enviarTextoVozMaKo(jid, texto);
-  if (r.ok) { if (copia && app && wsApp != null) await app.atarIdDeWhatsApp(wsApp, copia.id, r.id); return { ok: true, id: r.id }; }
-  return copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no se pudo enviar', fallaElEnvio: true };
+  let r: EnvioGrupo;
+  if (!jid) r = copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no hay grupo de SuperAdmin todavía' };
+  else {
+    const e = await enviarTextoVozMaKo(jid, texto);
+    if (e.ok) { if (copia && app && wsApp != null) await app.atarIdDeWhatsApp(wsApp, copia.id, e.id); r = { ok: true, id: e.id }; }
+    else r = copia ? { ok: true, id: idDeLaApp(copia.id), enApp: true } : { ok: false, error: 'no se pudo enviar', fallaElEnvio: true };
+  }
+  if (r.ok && !o.sinMemoria) await anotarEnLaMemoriaDelSuperAdmin(jid, texto, r.id);
+  return r;
+}
+
+/** Lo que salió al grupo de SuperAdmin, a la conversación que lee su turno: el negocio de la plataforma y el jid del grupo (o, sin grupo,
+ *  la clave de la conversación de la app). Si no se puede anotar, el mensaje ya salió: se loguea. */
+async function anotarEnLaMemoriaDelSuperAdmin(jid: string | null, texto: string, id: string): Promise<void> {
+  try {
+    const ws = await wsSuperAdmin();
+    const clave = jid ?? (await (await grupoApp()).claveDeConversacion(ws).catch(() => null));
+    if (!clave) return;
+    const { guardarTurno } = await import('./mako-doer-conv');
+    await guardarTurno(ws, clave, 'assistant', texto, id && !id.startsWith('app:') ? id : undefined);
+  } catch (e) {
+    console.error(`[mako-grupo] salió al grupo de SuperAdmin y no pude guardarlo en la conversación: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 // ── Grupo suelto (pruebas): crear sin persistir + postear a un JID cualquiera ──

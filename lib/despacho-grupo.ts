@@ -27,6 +27,10 @@ export const ACCIONES_SIMPLES: ReadonlySet<string> = new Set([
   // El CRM: una ficha, una etapa, una nota, una etiqueta, quién la atiende.
   'proponer_lead', 'proponer_cambio_etapa', 'agregar_nota_lead', 'marcar_calificado', 'asignar_closer_setter', 'poner_etiqueta_lead', 'sacar_etiqueta_lead',
   'editar_dato_deal', 'editar_venta_lead', 'editar_cuota', 'marcar_pago_cobrado',
+  // El pago de la mensualidad de una agencia o de la entrada de un cliente (12/11/2026, Martín: «Si perfecto, dalo de alta» al
+  // comprobante de Código Inmobiliario que MaKo le mandó para revisar). Sólo la plataforma (`soloPlataforma`) y con el «sí» del chat
+  // (`confirmacion: 'chat'`). Sin estas, la acción se delegaba al equipo: justo lo que MaKo le acababa de preguntar a Martín.
+  'marcar_entrada_pagada', 'marcar_mensualidad_pagada',
   // La agenda: agendar, mover o cambiar UNA reunión, marcar si vino.
   'proponer_agendar_reunion', 'proponer_agendar_agenda', 'proponer_mover_reunion', 'proponer_cambiar_reunion', 'marcar_asistencia_reunion',
   'crear_evento_calendario', 'crear_evento_google',

@@ -20,6 +20,10 @@ const TU: Record<string, string> = {
   // Presente (la -s acentuada sólo existe en vos).
   querés: 'quieres', podés: 'puedes', tenés: 'tienes', sabés: 'sabes', preguntás: 'preguntas', necesitás: 'necesitas', mandás: 'mandas',
   pasás: 'pasas', decís: 'dices', hacés: 'haces', venís: 'vienes', preferís: 'prefieres', pensás: 'piensas', sos: 'eres',
+  // 11/11/2026, a Joan: «No me queda claro qué cuenta habilitás». Sólo verbos: «además», «Tomás», «francés» también terminan en tilde.
+  habilitás: 'habilitas', buscás: 'buscas', usás: 'usas', hablás: 'hablas', llamás: 'llamas', cargás: 'cargas', ponés: 'pones',
+  agregás: 'agregas', armás: 'armas', conectás: 'conectas', cambiás: 'cambias', enviás: 'envías', escribís: 'escribes', recibís: 'recibes',
+  pedís: 'pides', seguís: 'sigues', abrís: 'abres', elegís: 'eliges',
   // Imperativos en -á / -é (el pretérito de yo es «miré», «puse»: no chocan).
   mirá: 'mira', esperá: 'espera', probá: 'prueba', entrá: 'entra', tocá: 'toca', poné: 'pon', revisá: 'revisa', confirmá: 'confirma',
   avisá: 'avisa', contá: 'cuenta', fijá: 'fija',
