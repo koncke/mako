@@ -14,6 +14,13 @@ referencia y el sitio estilo beehiiv (`/vsl/sitio`, `/vsl/comparaciones`). Mart�
 
 - El primero (https://claude.ai/artifact/LKcMqfaNfLJXxizHtXqwnQ) lo publicó la cuenta claude4 / la nube: desde otra cuenta
   **no se puede actualizar**, así que cada versión nueva sale con su URL.
+- **El de claude5: https://claude.ai/artifact/3QRCSF8oaK1ZK2PXADuQow** (12/11, main en `52dab569d`, con las fotos de AI Avatar
+  y el sitio estilo beehiiv). Desde esta cuenta se actualiza en la misma URL (publicar con `url`).
+- Si producción va atrás y Martín no quiere esperar el despliegue, se puede armar desde main sin servidor: cada página con
+  `renderToStaticMarkup` (las landings de `registro.ts`, `PortadaSitio` con los planes de `PLANES_MAKO_DEFAULT` porque
+  `lib/compra-plan.ts` es server-only, y `ComparacionesSitio`), las hojas de estilo de una foto de producción, y los gráficos
+  que se dibujan al hidratar (`.recharts-responsive-container`: Cobranza, Dashboard, Plan, Ads Analyst) copiados de la foto de
+  producción en el mismo orden y al mismo ancho. Así se armó el del 12/11; los scripts quedaron fuera del repo, la receta es ésta.
 - Qué es: `index.html` (la lista de páginas; «Copiado» / «Diseño MaKo», que cambia la letra a Urbanist y Geist Mono y pasa
   los tonos de la referencia al azul y al dorado de MaKo; claro / oscuro, que invierte los colores; computadora a 1440 o
   teléfono a 390) + `paginas/<slug>.html`, una FOTO de cada página ya dibujada (el CSS adentro, sin scripts, las imágenes en

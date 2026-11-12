@@ -1,8 +1,4 @@
-<!doctype html>
-<html lang="es">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- La publicación del artifact pone el <!doctype>, <head> y <body>: aquí va sólo el contenido. -->
 <title>Landings de MaKo</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -67,8 +63,6 @@ main{display:flex;flex-direction:column;min-width:0;min-height:0}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
-</head>
-<body>
 <div class="app">
   <aside>
     <div class="marca">
@@ -272,5 +266,3 @@ const desdeHash = () => abrir((location.hash || '').slice(1) || PAGINAS[0].slug)
 addEventListener('hashchange', desdeHash);
 desdeHash();
 </script>
-</body>
-</html>
