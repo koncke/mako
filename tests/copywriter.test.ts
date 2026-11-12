@@ -312,7 +312,7 @@ test('teléfono: las preguntas de MaKo con la letra de las burbujas del chat (16
 
 test('después de «Aceptar», la tecla de deshacer sólo donde hay teclado, y la de su sistema (11/11/2026: el teléfono decía Ctrl+Z)', () => {
   const panel = leer('app/copywriter/PanelMaKo.tsx');
-  assert.match(panel, /Aceptado\.<span className="nt-solo-teclado"> \{teclaDeshacer\(\)\} en la página lo deshace\.<\/span>/);
+  assert.match(panel, /'Aceptado\.'\}<span className="nt-solo-teclado"> \{teclaDeshacer\(\)\} en la página lo deshace\.<\/span>/);
   assert.match(panel, /\? '⌘Z' : 'Ctrl\+Z'/);
   assert.match(leer('app/copywriter/notion.css'), /\.nt\[data-movil\] \.nt-solo-teclado \{ display: none; \}/);
   // Y el número concuerda: «1 bloque nuevo, marcado», no «1 bloque nuevos, marcados» (visto en la misma prueba).

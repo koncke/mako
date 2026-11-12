@@ -25,7 +25,7 @@ test('la landing más reciente (sin la papelera); /web-generator pelada es la po
   assert.equal(landingMasReciente([doc(2, '2026-10-20', { papelera: true })]), null);
   assert.equal(landingMasReciente([]), null);
   const page = sinComentarios(leer('app/web-generator/page.tsx'));
-  assert.match(page, /if \(esPanelPelado\(sp\)\) \{\s*return \(/, 'la pelada dibuja la portada');
+  assert.match(page, /if \(esPanelPelado\(sp\)\) \{[\s\S]*?return \(\s*<Pagina[^>]*>[\s\S]*?<PortadaWeb /, 'la pelada dibuja la portada, con el armazón de Create');
   assert.doesNotMatch(page, /redirect\(await rutaConWs\(`\/web-generator\/\$\{ultima\.id\}`\)\)/, 'ya no salta a la última');
 });
 

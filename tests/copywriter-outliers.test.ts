@@ -18,13 +18,13 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FORMATOS_COPY, TEXTO_EN_TARJETA, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca,
+  FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, restoDelTexto,
   outliersCopyDeSpy, textoParaMaKo, tipoDeOutlier, tituloDeReplica,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
 } from '../lib/copywriter/outliers';
 import { sanearProps } from '../lib/copywriter/tipos';
 import { sanearReferencias } from '../lib/copywriter/referencias-reglas';
-import { AL_NEGOCIO, NO_ADAPTAR, pasosDeReplica, pedidoDeReplica } from '../lib/copywriter/iniciativa';
+import { AL_NEGOCIO, NO_ADAPTAR, ofertaDeReplica, otrasOfertasDeReplica, pedidoDeReplica } from '../lib/copywriter/iniciativa';
 import { vistaDeCopy } from '../app/copywriter/vista';
 import type { Carrusel } from '../lib/carruseles/explorar';
 
@@ -220,17 +220,24 @@ test('lo que le llega a MaKo: el original con la regla de copiar la estructura y
   assert.match(leer('lib/copywriter/referencias.ts'), /if \(r\.tipo === 'outlier'\) \{\n\s+\/\/[^\n]*\n\s+const t = await originalParaMaKo\(r\.id\);/);
 });
 
-test('MaKo pregunta para qué oferta y pide un «Editar» común (no adaptar una plantilla)', () => {
-  const ofertas = [{ id: 3, nombre: 'Mentoría 90 días' }];
-  const [p] = pasosDeReplica(ofertas);
-  assert.equal(p.pregunta, '¿Lo replico para tu oferta? ¿Para cuál?');
-  assert.deepEqual(p.opciones.map((o) => o.valor), ['oferta:3', NO_ADAPTAR]);
-  assert.equal(pasosDeReplica([])[0].opciones[0].valor, AL_NEGOCIO);
-  assert.match(pedidoDeReplica({ oferta: 'oferta:3' }, ofertas).texto, /su misma estructura, su tipo de gancho y su ritmo, con mi oferta «Mentoría 90 días»/);
+test('Replicar: MaKo escribe el guion ENTERO solo, con la oferta principal, y deja cambiarla (11/11, Martín: «sólo replica el título»)', () => {
+  const ofertas = [{ id: 3, nombre: 'Mentoría 90 días' }, { id: 5, nombre: 'Taller' }];
+  // Sin preguntar: la principal (la primera), o el negocio.
+  assert.equal(ofertaDeReplica(ofertas), 'oferta:3');
+  assert.equal(ofertaDeReplica([]), AL_NEGOCIO);
+  const pedido = pedidoDeReplica({ oferta: 'oferta:3' }, ofertas).texto;
+  assert.match(pedido, /Escribe el guion ENTERO como el original: su misma estructura \(todas sus partes, en su orden\), su tipo de gancho y su ritmo, con mi oferta «Mentoría 90 días»/);
+  assert.match(pedido, /Pon en propiedades el ángulo y la estructura de la biblioteca/, 'Ángulo y Estructura no quedan «Vacío»');
   assert.equal(pedidoDeReplica({ oferta: NO_ADAPTAR }, ofertas).adaptar, false);
+  assert.deepEqual(otrasOfertasDeReplica('oferta:3', ofertas).map((o) => o.texto), ['Taller']);
   const panel = leer('app/copywriter/PanelMaKo.tsx');
-  assert.match(panel, /replica \? pasosDeReplica\(ofertas\)/);
-  assert.match(panel, /void pedirEdicion\(pedido\.texto, \[\], \[\], !replica, false\)/, 'una réplica es «Editar», no «adaptar»');
+  // Se escribe sola al abrir la réplica vacía (charla leída y vacía, editor listo, página sin texto), con la oferta principal.
+  assert.match(panel, /if \(!replica \|\| !id \|\| !editor \|\| !hiloLeido \|\| corriendo \|\| replicaHecha \|\| appEscritorio\.bloqueada\) return;/);
+  assert.match(panel, /if \(mensajes\.length \|\| textoDelDoc\(editor\.leer\(\) as JsonNodo\)\.trim\(\)\) return;\n\s+escribirReplica\(ofertaDeReplica\(ofertas\), true\);/);
+  // Sobre la página vacía queda escrita SIN «Aceptar»; al rehacerla para otra oferta, es una propuesta.
+  assert.match(panel, /if \(aceptarAlTerminar\.current && ultimo\.estado === 'pendiente'\) aceptar\(ultimo\);/);
+  assert.match(panel, /onClick=\{\(\) => escribirReplica\(o\.valor, false\)\}/);
+  assert.match(panel, /void pedirEdicion\(pedidoDeReplica\(\{ oferta \}, ofertas\)\.texto, \[\], \[\], false, false\);/, 'una réplica es «Editar», no «adaptar»');
 });
 
 test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cero» siguen', () => {
@@ -240,7 +247,22 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   assert.equal(vistaDeCopy({ nuevo: 'reel' }), 'crear', 'las rutas viejas (/reels, /stories, /youtube-writer) siguen yendo a crear');
   const page = leer('app/copywriter/page.tsx');
   assert.match(page, /if \(vista === 'outliers'\) \{/);
-  assert.match(page, /<OutliersCopy portada=\{await leerOutliersCopy\(\)\} \/>/);
+  // Dentro de la pantalla de Create, con el chat de MaKo a la izquierda (11/11/2026, Martín: «no está el chat de MaKo» y «no hay
+  // cómo volver a los outliers»): la portada va en `nueva`, y «Nueva página» desde un guion o las plantillas vuelve a ella.
+  assert.match(page, /portada=\{portada\} \/>/);
+  const cw = leer('app/copywriter/Copywriter.tsx');
+  assert.match(cw, /nueva=\{portada \? <OutliersCopy portada=\{portada\} plantillas=\{conPropias\} onPlantilla=\{usarPlantilla\} \/> : undefined\}/);
+  // Y las plantillas AL LADO de los outliers (11/11/2026, Martín: «también deberían estar los templates»), con la tarjeta común.
+  const portadaTsx = leer('app/copywriter/OutliersCopy.tsx');
+  assert.match(portadaTsx, /\{plantillas\?\.length && onPlantilla \? \(/);
+  assert.match(portadaTsx, /<TarjetaPlantilla key=\{pl\.id\} pl=\{pl\}/);
+  assert.match(portadaTsx, /<Link href=\{rutaCrear\} className=\{s\.texto\}>Ver todas<\/Link>/);
+  // De a tandas, no las 2.291 de una (medido: 46.030 elementos y de 1 a 7 s por cambio de filtro).
+  assert.match(portadaTsx, /vistos\.slice\(0, mostrar\)\.map/);
+  assert.match(portadaTsx, /useEffect\(\(\) => \{ setMostrar\(TANDA\); \}, \[formato, q, orden\]\);/);
+  // Y el original abierto pide el texto ENTERO (la tarjeta trae 280 letras).
+  assert.match(leer('app/copywriter/OutlierAbierto.tsx'), /void pedirOriginal\(o\.id\)\.then\(\(r\) => \{ if \(vivo && r\.ok\) setCompleto\(r\.outlier\.texto\); \}\);/);
+  assert.match(cw, /alNuevo=\{portada \? undefined : \(\) => router\.push\(base\)\}/);
   const ruta = leer('app/api/copywriter/route.ts');
   assert.match(ruta, /case 'replicar':\n\s+return responder\(await replicarOutlier\(texto\(b\.outlier\)\)\);/);
   const m = leer('app/m/copywriter/page.tsx');
@@ -282,6 +304,31 @@ test('teléfono: «Crear desde cero» y «Mis guiones» llegan a su vista, no a 
   assert.equal(vistaDeCopy({ nueva: '1' }), 'crear');
   assert.match(leer('app/copywriter/vista.ts'), /export const RUTA_CREAR_COPY = '\/copywriter\?nueva=1';/);
   assert.match(leer('app/m/copywriter/page.tsx'), /rutaCrear="\/m\/copywriter\?nueva=1"/);
+});
+
+test('la portada no trae todo: hasta TOPE_POR_FORMATO por formato y TEXTO_EN_TARJETA letras (11/11: 7,5 MB y 2.291 tarjetas)', () => {
+  const reel = (n: number) => outlier({ id: `spy:${n}`, url: `https://www.instagram.com/reel/t${n}/`, gancho: `Gancho ${n}`, texto: `${COPY} ${'palabra '.repeat(60)}(${n})`,
+    multiplo: { veces: 1000 - n, metrica: 'vistas', valor: 1, mediana: 1, formato: 'corto', canal: 'instagram', comparadas: 8 }, creador: { nombre: `C${n}`, usuario: `c${n}`, foto: null, competidorId: n } });
+  const carrusel = (n: number) => outlier({ id: `biblioteca:-${n}`, fuente: 'biblioteca', formato: 'carrusel', url: `https://www.instagram.com/p/t${n}/`, gancho: `Carrusel ${n}`, texto: `${COPY} (${n})`, creador: { nombre: `K${n}`, usuario: `k${n}`, foto: null, competidorId: null } });
+  const p = juntarOutliersCopy([{ fuente: fuente('spy'), lectura: { ok: true, outliers: [...Array.from({ length: TOPE_POR_FORMATO + 10 }, (_, i) => reel(i + 1)), ...Array.from({ length: 5 }, (_, i) => carrusel(i + 1))] } }]);
+  assert.equal(p.outliers.filter((o) => o.formato === 'reel').length, TOPE_POR_FORMATO);
+  assert.equal(p.outliers.filter((o) => o.formato === 'carrusel').length, 5, 'y el intercalado termina aunque una fila quede más corta');
+  assert.ok(p.outliers.every((o) => o.texto.length <= TEXTO_EN_TARJETA));
+  assert.ok(TEXTO_EN_TARJETA <= 300 && TOPE_POR_FORMATO <= 300);
+});
+
+test('la tarjeta es de COPY: el texto primero y YouTube en 16:9, no la foto vertical de un carrusel (11/11, Martín)', () => {
+  assert.equal(restoDelTexto({ gancho: 'Cobrar mejor no es suerte.', texto: 'Cobrar mejor no es suerte. Es sistema, y te cuento por qué.' }), 'Es sistema, y te cuento por qué.');
+  assert.equal(restoDelTexto({ gancho: 'Change My Mind', texto: 'Change My Mind' }), '', 'un video sin descripción: sólo su título');
+  assert.equal(restoDelTexto({ gancho: 'Otro gancho', texto: 'El texto entero.' }), 'El texto entero.');
+  const portada = leer('app/copywriter/OutliersCopy.tsx');
+  // La hoja del copy: qué texto es, el gancho grande y lo que sigue. La foto sólo en un video de YouTube, y horizontal.
+  assert.match(portada, /<div className=\{oc\.hoja\} data-video=\{video \? 'si' : undefined\}/);
+  assert.match(portada, /\{video && o\.miniatura \? \(/);
+  assert.match(portada, /<button type="button" className=\{oc\.ganchoGrande\} onClick=\{onAbrir\}>\{o\.gancho\}<\/button>/);
+  assert.doesNotMatch(portada, /className=\{s\.miniImagen\}/, 'sin la foto vertical de Image');
+  const css = leer('app/copywriter/outliers.module.css');
+  assert.match(css, /\.video \{ display: block; width: 100%; aspect-ratio: 16 \/ 9;/);
 });
 
 test('teléfono: «Mis guiones» y «Crear desde cero» debajo del título, no al final de la fila de formatos (11/11, a 375 no se veían)', () => {

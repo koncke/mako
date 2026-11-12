@@ -50,3 +50,53 @@
 .replicar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
 .caida { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-size: 13.5px; }
+
+/* ── Ver el reel AHÍ MISMO (./VerReel.tsx, 11/11/2026): la miniatura abre el reproductor oficial de su red en una caja ── */
+.verBoton { padding: 0; border: 0; width: 100%; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+.verBoton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ver { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 22px; align-items: start; }
+/* El embed de Instagram trae arriba la cuenta y abajo los «me gusta»: con 380 de ancho el video entra entero en ~720 de alto
+   y lo que sobra se desplaza ADENTRO del reproductor, no la caja. */
+.verVideo { height: min(72vh, 720px); border-radius: 12px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); }
+.verVideo iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+.verInfo { display: flex; flex-direction: column; gap: 14px; min-width: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
+.verInfo h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dim); }
+.verInfo p { margin: 0; }
+.verInfo ol, .verInfo ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.verBloque { display: flex; flex-direction: column; gap: 6px; }
+.verNota { font-size: 12.5px; color: var(--dim); }
+.verPie { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.verAbrir {
+  display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--ink); font-size: 13.5px; font-weight: 600; text-decoration: none;
+}
+.verAbrir:hover { background: var(--velo-hover); }
+.verAbrir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* En el teléfono la caja ocupa la pantalla (`completaEnCelular`): el video arriba, lo demás debajo. */
+@media (max-width: 640px) {
+  .ver { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .verVideo { height: min(78vh, 680px); }
+}
+
+/* Lo que enseña cada reel, en la tarjeta: su familia de edición, una línea. */
+.familia {
+  align-self: flex-start; display: inline-flex; align-items: center; max-width: 100%; height: 22px; padding: 0 9px; border-radius: 999px;
+  background: var(--primary-bg); color: var(--primary-strong, var(--primary)); font-size: 11.5px; font-weight: 650;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.patronLinea { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* La plantilla de MaKo con su miniatura real: la estructura va adentro de la caja, no en la tarjeta. */
+.estructuraCaja { position: relative; height: 300px; border-radius: 12px; overflow: hidden; }
+/* El filtro elegido: el `aria-pressed` de Image, en un link (`aria-current`). */
+.chipActivo { background: var(--primary-bg); border-color: transparent; color: var(--primary-strong, var(--primary)); }
+
+/* ── Los outliers ADENTRO del editor (Multimedia › «Outliers», 11/11/2026): dos columnas en el panel de la biblioteca ── */
+.panel { display: flex; flex-direction: column; gap: 12px; padding: 4px 2px 16px; }
+.panelNota { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--dim); }
+/* Una sola fila que se desliza de costado: con las 16 familias en renglones, el panel de 346 px se llenaba de filtros
+   (8 renglones, mirado el 11/11/2026) antes del primer reel. */
+.panelFiltros { display: flex; flex-wrap: nowrap; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.panelFiltros::-webkit-scrollbar { display: none; }
+.panelFiltros > button { flex: none; white-space: nowrap; }
+.panelFiltros > button { cursor: pointer; font: inherit; font-size: 12px; }
+.grillaPanel { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 10px; }

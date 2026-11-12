@@ -120,6 +120,21 @@ export function cobrosParaLaAgencia(cobros: readonly CobroDeCliente[]): Record<n
   return out;
 }
 
+/**
+ * ¿A esta agencia se le cobra por la PASARELA (el link del primer mes, #866, y la renovación, #867)? No, si paga por su
+ * MENSUALIDAD por fuera de MaKo (lib/agencia-mes.ts, prendida por agencia): son dos cobros del mismo cliente y no se mezclan.
+ *
+ * ⚠️ Ticket #85 (11/11/2026). Con la mensualidad prendida desde el 6/11, el alta de Sellers (negocio 24) creó igual el
+ * link de Mercado Pago de su primer mes (ARS 73.555). La agencia pagó la entrada por Binance, Martín la habilitó, y el
+ * link quedó PENDIENTE: como `accionDeCuenta` pone «Pagar su mes» antes que «Inspeccionar», Joan no tenía cómo entrar a
+ * su cuenta (ni hacerle el onboarding), con el aviso «Falta pagar su mes» sobre un mes que ya había pagado. Y el link
+ * seguía cobrable: pagarlo era pagar dos veces.
+ *
+ * `null` es «no pude leer la mensualidad» y cuenta como pasarela: es lo que pasaba antes, y para una agencia que paga con
+ * tarjeta esconderle su link sería dejar la cuenta sin forma de pagarse.
+ */
+export const cobraPorPasarela = (mensualidadPrendida: boolean | null): boolean => mensualidadPrendida !== true;
+
 // =============================================================================
 // EL PLAN Y LA PASARELA DE CADA CUENTA (29/10/2026, llamada con Thiago, agencia de España con 27 clientes)
 // =============================================================================

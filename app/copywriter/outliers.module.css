@@ -22,3 +22,46 @@
 .botonesTelefono.botonesTelefono { justify-content: flex-start; }
 /* Y su fila ocupa el ancho de la pantalla: el encabezado centra a sus hijos, y la fila (más ancha que la pantalla) se salía por los dos lados. */
 .filaTelefono.filaTelefono { align-self: stretch; min-width: 0; }
+
+/* ── La tarjeta de COPY (11/11/2026, Martín: «los outliers parecen carruseles… tienen que verse como COPY: el texto primero, no la
+   foto. Y los de YouTube van en horizontal»). En lugar de la foto vertical de Image, la HOJA: qué texto es, el gancho grande y el
+   arranque del texto. Un video de YouTube lleva su miniatura 16:9 arriba del título. El pie es el de Image. ── */
+.hoja {
+  position: relative; display: flex; flex-direction: column; aspect-ratio: 4 / 5; border-radius: 16px; overflow: hidden; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border); transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.hoja[data-video='si'] { aspect-ratio: auto; }
+.tarjeta:hover .hoja { box-shadow: 0 14px 30px -14px rgba(18, 21, 27, 0.35); transform: translateY(-2px); }
+.video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #0d0f13; flex: none; }
+.copy { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 18px 18px 16px; overflow: hidden; }
+.hoja[data-video='si'] .copy { gap: 6px; padding: 12px 14px 14px; }
+.deQue { font-size: 11.5px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; color: var(--dim); }
+.ganchoGrande {
+  all: unset; cursor: pointer; font-size: 19px; line-height: 1.3; font-weight: 700; color: var(--ink);
+  display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+}
+.ganchoGrande:focus-visible { box-shadow: var(--focus-ring); border-radius: 6px; }
+.hoja[data-video='si'] .ganchoGrande { font-size: 15.5px; -webkit-line-clamp: 2; }
+.sigue {
+  margin: 0; font-size: 14px; line-height: 1.55; color: var(--dim); white-space: pre-line; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 8; -webkit-box-orient: vertical; overflow: hidden;
+}
+.hoja[data-video='si'] .sigue { font-size: 13px; -webkit-line-clamp: 2; }
+/* Las plantillas con estructura, AL LADO de los outliers (11/11/2026): una fila que se desliza, con la tarjeta común de Create. */
+.plantillas { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.plantillasCabeza { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.plantillasCabeza h2 { margin: 0; }
+.plantillasFila {
+  display: grid; grid-auto-flow: column; grid-auto-columns: 210px; gap: 16px; overflow-x: auto; padding: 4px 2px 10px;
+  scrollbar-width: thin; overscroll-behavior-x: contain;
+}
+@media (max-width: 640px) { .plantillasFila { grid-auto-columns: 160px; gap: 12px; } }
+
+/* «Ver más» al pie de la grilla (la carga por tandas). */
+.masAbajo { display: flex; justify-content: center; padding: 22px 0 8px; }
+@media (max-width: 640px) {
+  .copy { gap: 8px; padding: 12px; }
+  .ganchoGrande { font-size: 15px; }
+  .sigue { font-size: 12.5px; -webkit-line-clamp: 7; }
+  .hoja[data-video='si'] .ganchoGrande { font-size: 13.5px; }
+}
