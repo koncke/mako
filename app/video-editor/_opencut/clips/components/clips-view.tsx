@@ -17,9 +17,9 @@ import { rutaEditor } from "@/app/video-editor/ruta";
 import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
 import type { ClipElegido } from "@/lib/editor-video/clips";
 import { abrirClip } from "../abrir";
-import { buscarClips } from "../buscar";
+import { buscarClips, vigenciaDe } from "../buscar";
 import { TEXTO_FASE_CLIPS, usePreferenciasClips, useTrabajoClips } from "../estado";
-import { TEXTO_MOTIVO_ABRIR } from "../resultado";
+import { TEXTO_MOTIVO_ABRIR, mensajeVigente } from "../resultado";
 
 const OPCIONES_CUANTOS = [3, 5, 8].map((n) => ({ id: String(n), etiqueta: `${n} clips` }));
 
@@ -69,19 +69,23 @@ export function ClipsView() {
 	const editor = useEditor();
 	const router = useRouter();
 	const prefs = usePreferenciasClips();
-	const { fase, progreso, proyectoId, clips, conIA, mensaje, error } = useTrabajoClips();
+	const { fase, progreso, proyectoId, clips, conIA, mensaje, error, vigencia } = useTrabajoClips();
 	const actual = useEditor((e) => e.project.getActiveOrNull()?.metadata.id ?? null);
-	const hayLinea = useEditor((e) => e.timeline.getTotalDuration() > 0);
+	const duracion = useEditor((e) => e.timeline.getTotalDuration());
+	const hayLinea = duracion > 0;
 	const deEste = proyectoId && proyectoId === actual ? clips : [];
 	const trabajando = fase !== "inactivo";
+	// Lo dicho sobre OTRA línea (más corta, de otro proyecto) ya no vale: «ya dura como un clip» se va al sumar video.
+	const aviso = !trabajando && mensaje && mensajeVigente(vigencia, { proyectoId: actual, duracion }) ? mensaje : null;
 
 	const abrir = async (clip: ClipElegido) => {
 		const r = await abrirClip(editor, clip);
 		if (!r.ok) {
-			useTrabajoClips.getState().fijar({ mensaje: TEXTO_MOTIVO_ABRIR[r.motivo], error: true });
+			useTrabajoClips.getState().fijar({ mensaje: TEXTO_MOTIVO_ABRIR[r.motivo], error: true, vigencia: vigenciaDe(editor) });
 			return;
 		}
-		useTrabajoClips.getState().fijar({ mensaje: r.aviso, error: false });
+		// El aviso de «Abrir» se lee en el proyecto NUEVO: sin vigencia.
+		useTrabajoClips.getState().fijar({ mensaje: r.aviso, error: false, vigencia: null });
 		router.push(rutaEditor(`/video-editor/${r.id}`));
 	};
 
@@ -115,6 +119,18 @@ export function ClipsView() {
 			</div>
 			<div className="shrink-0 border-t border-(--cc-line-2) px-3 pt-2.5 pb-3">
 				<div className="flex flex-col gap-2.5">
+					{/* El mensaje va ARRIBA del botón: el pie está pegado abajo y crece hacia arriba, así el botón no se corre. */}
+					{aviso && !error && (
+						<p className="text-[12px] leading-snug text-(--cc-text)" role="status">
+							{aviso}
+						</p>
+					)}
+					{aviso && error && (
+						<p className="text-[12px] leading-snug text-(--cc-text)" role="alert">
+							{aviso}
+							<ReportarASoporte />
+						</p>
+					)}
 					{trabajando ? (
 						<div className="flex flex-col gap-1.5">
 							<span className="flex min-w-0 items-center gap-1.5 text-[12px] text-(--cc-text-2)">
@@ -129,17 +145,6 @@ export function ClipsView() {
 						<Button type="button" className="w-full" disabled={!hayLinea} onClick={() => void buscarClips(editor, { cuantos: prefs.cuantos })}>
 							{deEste.length ? "Buscar de nuevo" : "Buscar los mejores momentos"}
 						</Button>
-					)}
-					{!trabajando && mensaje && !error && (
-						<p className="text-[11px] text-(--cc-text-3)" role="status">
-							{mensaje}
-						</p>
-					)}
-					{!trabajando && mensaje && error && (
-						<p className="text-[11px] text-(--cc-text-2)" role="alert">
-							{mensaje}
-							<ReportarASoporte />
-						</p>
 					)}
 				</div>
 			</div>

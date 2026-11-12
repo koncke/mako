@@ -26,7 +26,7 @@
 // de MaKo y el archivo nuevo cubriendo el rectángulo donde se veía el viejo.
 // =============================================================================
 
-import type { Frase, Tramo } from "@/lib/editor-video/broll";
+import type { Frase, HuecoBroll, Tramo } from "@/lib/editor-video/broll";
 import type {
 	EffectElement,
 	ElementRef,
@@ -355,4 +355,59 @@ export function conPropuestas({
 	}
 	if (!imagenes.length && !capas.length) return tracks;
 	return { ...tracks, overlay };
+}
+
+// ── Sin Pexels: los clips del propio proyecto (12/11/2026) ─────────────────────────────────────────────────────────
+// Probando la tab Video en el negocio de MaKo, el B-roll quedó en «Conectar Pexels» y sólo cambios de plano: ese negocio no
+// tiene clave (ni la plataforma: Pexels es de cada negocio, lib/pexels.ts). Mientras no la conecte, el B-roll sale de lo que la
+// persona YA subió a Multimedia.
+
+/** Un archivo de Multimedia que puede ir de B-roll. `duracion` en segundos (null en una foto). */
+export type MedioPropio = { id: string; nombre: string; tipo: "video" | "image"; duracion: number | null; ancho?: number; alto?: number };
+
+/** El motivo que lleva un B-roll propio (lo lee la fila de la propuesta). */
+export const MOTIVO_PROPIO = "Un archivo tuyo de Multimedia (sin Pexels conectado)";
+
+/** Los archivos que ya están en la línea de tiempo (en cualquier pista): no se proponen de B-roll. */
+function mediosEnUso(tracks: SceneTracks | null | undefined): Set<string> {
+	const ids = new Set<string>();
+	for (const t of [...(tracks?.overlay ?? []), ...(tracks ? [tracks.main] : [])]) {
+		for (const el of t.elements as TimelineElement[]) if ("mediaId" in el && typeof el.mediaId === "string") ids.add(el.mediaId);
+	}
+	return ids;
+}
+
+/**
+ * Qué archivo propio va en qué hueco: los videos y fotos de Multimedia que NO están en la línea de tiempo (el de la cara
+ * está en la principal; uno que ya está encima no se repite), cada uno UNA vez, en los huecos de más peso y en el orden del
+ * video. Un video va sólo donde alcanza su largo (`margen` de más, como los de Pexels). `tracks`: la línea SIN lo pendiente.
+ */
+export function brollPropio({
+	medios,
+	tracks,
+	huecos,
+	objetivo,
+	margen = 0,
+}: {
+	medios: readonly MedioPropio[];
+	tracks: SceneTracks | null | undefined;
+	huecos: readonly HuecoBroll[];
+	objetivo: number;
+	margen?: number;
+}): Array<{ hueco: HuecoBroll; medio: MedioPropio }> {
+	const enUso = mediosEnUso(tracks);
+	const libres = medios.filter((m) => !enUso.has(m.id));
+	if (!libres.length || objetivo <= 0) return [];
+	// Con menos archivos que huecos, van a los de más peso.
+	const mejores = [...huecos].sort((a, b) => b.puntaje - a.puntaje || a.inicio - b.inicio).slice(0, Math.min(objetivo, libres.length));
+	const pares: Array<{ hueco: HuecoBroll; medio: MedioPropio }> = [];
+	const usados = new Set<string>();
+	for (const hueco of mejores.sort((a, b) => a.inicio - b.inicio)) {
+		const largo = hueco.fin - hueco.inicio;
+		const medio = libres.find((m) => !usados.has(m.id) && (m.tipo === "image" || (m.duracion ?? 0) >= largo + margen));
+		if (!medio) continue;
+		usados.add(medio.id);
+		pares.push({ hueco, medio });
+	}
+	return pares;
 }

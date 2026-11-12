@@ -69,6 +69,8 @@ import { Exportacion, datosDelProyecto, portada } from "./exportar";
 import { carpetaElegida, elegirCarpeta, puedeElegirCarpeta } from "./destino";
 import { frameRateToFloat } from "@/app/video-editor/_opencut/fps/utils";
 import { quedanMuestras } from "@/app/video-editor/_opencut/plantillas/huecos";
+import { archivosFaltantes } from "@/app/video-editor/_opencut/media/archivos-faltantes";
+import { avisoSinArchivo } from "./portada-reglas";
 import { useRouter } from "@/app/_ui/Link";
 import { llevarAlCalendario } from "@/app/calendario/publicar-desde-crear";
 import { prepararUsarEnAnuncio } from "@/app/_crear/usar-en-anuncio";
@@ -219,6 +221,17 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 	const [datos] = useState(() => datosDelProyecto(editor));
 	// Una plantilla con clips sin sustituir se exporta igual (no bloquea), pero se avisa.
 	const [conMuestras] = useState(() => quedanMuestras(editor.scenes.getActiveScene().tracks));
+	// Un archivo de la línea que no está en este navegador (el OPFS se vació): la portada y el video salen sin él. Se dice,
+	// en vez de una portada negra muda (12/11/2026, ./portada-reglas.ts).
+	const [sinArchivo] = useState(() =>
+		editor.media.isLoadingMedia()
+			? null
+			: avisoSinArchivo(
+					archivosFaltantes(editor.scenes.getActiveScene().tracks, new Set(editor.media.getAssets().map((m) => m.id))).map(
+						(f) => f.nombre,
+					),
+				),
+	);
 	const [elegidas, setOpciones] = useState<OpcionesExportar>(() =>
 		opcionesIniciales({
 			nombre: datos.proyecto.metadata.name,
@@ -255,7 +268,7 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 	// La portada y el soporte de audio, una vez por apertura.
 	useEffect(() => {
 		let vigente = true;
-		void portada(editor, 480, datos.tramo?.desde ?? 0).then((url) => {
+		void portada(editor, 480, datos.tramo?.desde ?? 0, datos.tramo?.hasta).then((url) => {
 			if (vigente) setImagen(url);
 		});
 		void soporteAudio().then((s) => {
@@ -389,7 +402,12 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 				</DialogPrimitive.Title>
 
 				<div className="flex min-h-0 flex-1 gap-6 overflow-y-auto px-5 pt-2 pb-4">
-					<Portada imagen={imagen} fase={fase} conMuestras={conMuestras && fase.tipo === "formulario"} />
+					<Portada
+						imagen={imagen}
+						fase={fase}
+						conMuestras={conMuestras && fase.tipo === "formulario"}
+						sinArchivo={fase.tipo === "formulario" ? sinArchivo : null}
+					/>
 					<div className="min-w-0 flex-1">
 						{fase.tipo === "formulario" && publicar ? (
 							<PasoPublicar codecListo={codecListo} />
@@ -494,7 +512,18 @@ function CuerpoExportar({ onCerrar, publicar }: { onCerrar: () => void; publicar
 	);
 }
 
-function Portada({ imagen, fase, conMuestras }: { imagen: string | null; fase: Fase; conMuestras: boolean }) {
+function Portada({
+	imagen,
+	fase,
+	conMuestras,
+	sinArchivo,
+}: {
+	imagen: string | null;
+	fase: Fase;
+	conMuestras: boolean;
+	/** «Falta «x» en este navegador» (./portada-reglas.ts › avisoSinArchivo), o null. */
+	sinArchivo: string | null;
+}) {
 	return (
 		<div className="flex w-[384px] shrink-0 flex-col gap-2">
 			<div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-[4px] bg-black">
@@ -516,6 +545,15 @@ function Portada({ imagen, fase, conMuestras }: { imagen: string | null; fase: F
 					</div>
 				)}
 			</div>
+			{/* Un archivo que no está en este navegador: la portada sale sin él (negra, si es el video), y el video también. */}
+			{sinArchivo && (
+				<p data-portada-sin-archivo="" role="alert" className="flex items-center gap-1.5 text-[13px] text-destructive">
+					<HugeiconsIcon icon={InformationCircleIcon} className="size-4 shrink-0" />
+					<span className="min-w-0 truncate" title={sinArchivo}>
+						{sinArchivo}
+					</span>
+				</p>
+			)}
 			{/* Una plantilla con un hueco sin sustituir (plantillas/huecos.ts): avisa, no bloquea. */}
 			{conMuestras && (
 				<p className="flex items-center gap-1.5 text-[12px] text-(--cc-text-2)">

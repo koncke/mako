@@ -57,7 +57,8 @@
 .ver { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 22px; align-items: start; }
 /* El embed de Instagram trae arriba la cuenta y abajo los «me gusta»: con 380 de ancho el video entra entero en ~720 de alto
    y lo que sobra se desplaza ADENTRO del reproductor, no la caja. */
-.verVideo { height: min(72vh, 720px); border-radius: 12px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); }
+/* `relative`: el loader (CargandoMako `cubre`, absoluto) tapa la caja mientras llega el reproductor de la red. */
+.verVideo { position: relative; height: min(72vh, 720px); border-radius: 12px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); }
 .verVideo iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
 .verInfo { display: flex; flex-direction: column; gap: 14px; min-width: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
 .verInfo h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dim); }

@@ -17,6 +17,23 @@ import type { FamiliaEdicion } from './video-outliers';
 
 export type BloqueReceta = { nombre: string; desde: number; hasta: number; que: string };
 
+/**
+ * Lo que el editor de MaKo APLICA de una receta (12/11/2026). Probando la tab Video entera, la «Edición automática» de un
+ * proyecto replicado puso sus subtítulos de siempre (claves en lima, del mismo tamaño) y no los de la receta, porque la
+ * receta era sólo texto. Esto lo leen la Edición automática (enjambre/plan.ts → decidirPaso) y el chat (lo dice el texto de
+ * la receta, `textoDeReceta`).
+ */
+export type EdicionDeReceta = {
+  /** El estilo de los subtítulos: un id de la galería de Subtítulos (app/video-editor/_opencut/subtitles/estilos.ts). */
+  subtitulos?: string;
+  /** La receta va sin subtítulos: la Edición automática no los genera. */
+  sinSubtitulos?: true;
+  /** Las palabras clave: su tamaño en % (100–160, el tope del editor) y su color. */
+  claves?: { tamano: number; color: string };
+  /** La pausa más corta que se borra, en segundos. */
+  pausaMinima?: number;
+};
+
 export type Receta = {
   id: string;
   familia: FamiliaEdicion;
@@ -29,6 +46,8 @@ export type Receta = {
   estructura: readonly BloqueReceta[];
   /** Lo que hace el editor de MaKo, en orden. */
   edicion: readonly string[];
+  /** Lo que el editor aplica solo (ver `EdicionDeReceta`). */
+  editor?: EdicionDeReceta;
   grabacion: {
     /** Con el avatar de IA del usuario. */
     avatar: readonly string[];
@@ -61,6 +80,7 @@ export const RECETAS: readonly Receta[] = [
       'Sin subtítulos ni música: lo que engancha es la conversación. Si los usas, chicos y abajo, para no tapar los rótulos.',
       'Los últimos 5 s, una tarjeta blanca arriba con la pregunta para comentar.',
     ],
+    editor: { sinSubtitulos: true },
     grabacion: {
       avatar: [
         'Parte de TU personaje aprobado. Primero el fondo solo (la sala, los dos sillones) al 100 %; después, la persona.',
@@ -96,6 +116,9 @@ export const RECETAS: readonly Receta[] = [
       'Borrar silencios: que ningún hueco sin voz pase de medio segundo.',
       'Sin música, o muy baja: manda la voz.',
     ],
+    // La palabra clave en blanco (la MISMA letra) y al 160 %, el tope del editor: más grande, el renglón no la mide al
+    // partirse (subtitles/build-subtitle-text-element.ts) y se sale del cuadro.
+    editor: { subtitulos: 'palabra-gigante', claves: { tamano: 160, color: '#ffffff' }, pausaMinima: 0.5 },
     grabacion: {
       avatar: [
         'Tu personaje de pie, en un escenario oscuro con una pantalla detrás; primero el fondo solo al 100 %, después la persona.',
@@ -130,6 +153,7 @@ export const RECETAS: readonly Receta[] = [
       'Subtítulos automáticos con la plantilla «Hormozi» (mayúsculas gruesas, una o dos palabras), en el borde de abajo del video.',
       'Corta por quien habla y borra los silencios; el pedazo, de 1 a 2,5 minutos.',
     ],
+    editor: { subtitulos: 'hormozi' },
     grabacion: {
       avatar: [
         'Dos personajes sentados frente a micrófonos de podcast, en el mismo estudio: tú (el que responde) y quien pregunta. Primero el estudio solo, al 100 %.',
@@ -149,6 +173,33 @@ export const RECETAS: readonly Receta[] = [
 
 export const recetaDe = (id: string | null | undefined): Receta | null => (id ? RECETAS.find((r) => r.id === id) ?? null : null);
 
+/** Cómo empieza lo que dice MaKo al replicar (`textoDeReceta`): de ahí se sabe que un proyecto sigue una receta. */
+const INICIO_RECETA = 'Armé este proyecto para replicar «';
+
+/**
+ * La receta de un proyecto replicado, leída del chat de ese proyecto: el primer mensaje de MaKo que es una receta. El
+ * proyecto no guarda la receta aparte; el mensaje sí (se guarda con el hilo), también en los proyectos replicados antes.
+ */
+export function recetaDelHilo(mensajes: readonly { de: string; texto?: string }[]): Receta | null {
+  for (const m of mensajes) {
+    if (m.de !== 'mako' || typeof m.texto !== 'string' || !m.texto.startsWith(INICIO_RECETA)) continue;
+    const nombre = m.texto.slice(INICIO_RECETA.length).split('»')[0];
+    const r = RECETAS.find((x) => x.nombre === nombre);
+    if (r) return r;
+  }
+  return null;
+}
+
+/** Lo que el editor aplica, dicho para el chat (la IA lo lee en la conversación y lo pide con sus operaciones). */
+export function textoDeEdicionEnEditor(e: EdicionDeReceta): string | null {
+  const partes: string[] = [];
+  if (e.sinSubtitulos) partes.push('sin subtítulos');
+  if (e.subtitulos) partes.push(`subtítulos con el estilo «${e.subtitulos}» de la galería de Subtítulos`);
+  if (e.claves) partes.push(`palabras clave en ${e.claves.color} al ${e.claves.tamano} %`);
+  if (e.pausaMinima) partes.push(`borrar los silencios de ${String(e.pausaMinima).replace('.', ',')} s o más`);
+  return partes.length ? `En el editor de MaKo, todo en un pedido: ${partes.join(', ')}.` : null;
+}
+
 /**
  * Lo que dice MaKo en el chat del proyecto que arma «Replicar» de una receta (app/video-editor/VideoEditorCliente.tsx): la
  * estructura, la edición en el editor y las dos grabaciones, para seguirla paso a paso. Texto plano: el chat no dibuja markdown.
@@ -161,6 +212,7 @@ export function textoDeReceta(r: Receta): string {
     `Para grabarlo con tu avatar de IA:\n${lista(r.grabacion.avatar)}`,
     `Si lo graba otra persona:\n${lista(r.grabacion.persona)}`,
     `Cuando tengas tus tomas, impórtalas y la edición es así:\n${lista(r.edicion)}`,
+    ...(r.editor && textoDeEdicionEnEditor(r.editor) ? [textoDeEdicionEnEditor(r.editor)!] : []),
   ].join('\n\n');
 }
 

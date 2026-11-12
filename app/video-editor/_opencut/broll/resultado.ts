@@ -19,6 +19,8 @@ export type ResultadoBroll =
 			/** Cuántas fotos y cuántos acercamientos quedaron propuestos. */
 			broll: number;
 			planos: number;
+			/** Cuántos de `broll` son archivos de la persona (de Multimedia, sin Pexels: ./pistas.ts → brollPropio). */
+			propios?: number;
 			/** Lo que conviene saber (sin IA, una búsqueda sin fotos…), en una línea. */
 			aviso: string | null;
 			/** El B-roll no se pudo buscar porque falta conectar Pexels (los planos sí se propusieron). */
@@ -41,15 +43,33 @@ export function textoDeBroll(r: Extract<ResultadoBroll, { ok: false }>): string 
 	return r.detalle?.trim() || TEXTO_MOTIVO_BROLL[r.motivo];
 }
 
-/** El aviso cuando falta Pexels, con lo que se pidió (fotos o videos). */
-export function avisoFaltaPexels(medio: "fotos" | "videos"): string {
-	return `para ${medio === "videos" ? "los videos" : "las fotos"}, conecta Pexels en «B-roll de MaKo»`;
+/** Cómo se consigue la clave de Pexels, en una frase (la misma del modal: lib/metodo-catalogo.ts). */
+export const COMO_CONECTAR_PEXELS = "Es gratis: crea tu clave en pexels.com/api y pégala en «Conectar Pexels»";
+
+/**
+ * El aviso cuando falta Pexels, con lo que se pidió (fotos o videos) y qué se hizo mientras tanto: con `propios`, que el
+ * B-roll salió de Multimedia; sin ninguno, que importando sus clips MaKo los usa.
+ */
+export function avisoFaltaPexels(medio: "fotos" | "videos", propios = 0): string {
+	const que = medio === "videos" ? "los videos" : "las fotos";
+	if (propios > 0) return `usé ${propios === 1 ? "un archivo tuyo" : `${propios} archivos tuyos`} de Multimedia; para ${que} de stock, conecta Pexels en «B-roll de MaKo» (gratis, con tu clave de pexels.com/api)`;
+	return `para ${que}, conecta Pexels en «B-roll de MaKo» (gratis, con tu clave de pexels.com/api); mientras tanto, si importas tus clips a Multimedia, MaKo los usa de B-roll`;
+}
+
+/** Lo que dice la sección «B-roll de MaKo» sin Pexels, debajo del botón para conectarlo. */
+export function textoSinPexels(propios: number): string {
+	return propios > 0
+		? `Sin Pexels conectado, el B-roll salió de tus archivos de Multimedia. ${COMO_CONECTAR_PEXELS}.`
+		: `Sin Pexels conectado no hay fotos de stock. ${COMO_CONECTAR_PEXELS}. Mientras tanto, importa tus clips a Multimedia y vuelve a proponer: MaKo los usa de B-roll.`;
 }
 
 /** Lo que se dice cuando salió: cuántas de cada cosa, en una línea. */
 export function resumenDeBroll(r: Extract<ResultadoBroll, { ok: true }>): string {
 	const partes: string[] = [];
-	if (r.broll) partes.push(r.broll === 1 ? "1 imagen" : `${r.broll} imágenes`);
+	const propios = r.propios ?? 0;
+	const deStock = r.broll - propios;
+	if (deStock) partes.push(deStock === 1 ? "1 imagen" : `${deStock} imágenes`);
+	if (propios) partes.push(propios === 1 ? "1 archivo tuyo" : `${propios} archivos tuyos`);
 	if (r.planos) partes.push(r.planos === 1 ? "1 cambio de plano" : `${r.planos} cambios de plano`);
 	return partes.length ? `Propuestas: ${partes.join(" y ")}. Deja o saca cada una.` : "No hubo nada que proponer.";
 }

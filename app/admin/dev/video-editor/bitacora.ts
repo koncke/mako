@@ -687,4 +687,27 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '12 nov', hora: '09:00', chat: 'Ticket 73: videos a la línea desde el chat', sesion: 'local_72d0c3fe-1e3d-43ff-bf60-f9362f94676e', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que falló probando la tab Video entera: la receta en un pedido, el B-roll sin Pexels, el teléfono sin archivo y cuatro detalles',
+    puntos: [
+      'La receta de un reel replicado se aplica en UN pedido: MaKo pone la toma, genera los subtítulos y DESPUÉS les da el estilo de la receta, las palabras clave y borra los silencios. Antes decía «pide el preset después».',
+      'La Edición automática de un proyecto replicado sigue su receta: el estilo de subtítulos de la receta (nuevo en la galería: «Palabra gigante»), las palabras clave más grandes y del color de la receta, y la pausa que pide.',
+      'Sin Pexels conectado, el B-roll usa tus propios videos y fotos de Multimedia que no están en el video, y dice cómo conseguir la clave de Pexels (gratis, en pexels.com/api).',
+      'En el teléfono, si falta el archivo de un clip, lo dice y deja elegirlo otra vez; el clip vuelve tal cual estaba. Y el teléfono pide al navegador que no borre los archivos.',
+      'La portada de Exportar y Publicar ya no sale negra por un cuadro vacío, y avisa si falta un archivo. El reel de Outliers muestra que está cargando. El aviso viejo de Clips mágicos ya no queda ni corre el botón. La franja de la Edición automática ya no tapa el nombre del proyecto.',
+      'El panel Video › Básico ya no se redibuja en cada salto del cabezal con un clip elegido.',
+      'Todavía no: la palabra clave 3 o 4 veces más grande (el editor llega a 1,6 veces), y reenlazar un archivo desde la computadora. No se miró en un navegador antes de subir.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/chat/linea.ts · chat/aplicar.ts — lo encadenado y las vueltas de «Aceptar»',
+      'lib/video-recetas.ts · enjambre/plan.ts · enjambre/correr.ts · subtitles/estilos.ts — la receta que aplica el editor',
+      'app/video-editor/_opencut/broll/ — el B-roll con lo propio sin Pexels',
+      'app/m/video-editor/EditorVideoM.tsx · _opencut/media/{archivos-faltantes,reenlazar}.ts · core/managers/media-manager.ts — el archivo que falta',
+      'export/{exportar,portada-reglas,dialogo-exportar} · VerReel.tsx · clips/ · editor-header.tsx · enjambre/pastilla.ts — los detalles',
+      'properties/hooks/use-element-playhead.ts · use-params-con-fotogramas.ts · video/basico.tsx — el panel sin redibujar',
+      'tests/video-editor-receta-un-pedido.test.ts · video-editor-broll-propio.test.ts · video-editor-m-archivo-falta.test.ts · video-editor-detalles-12-11.test.ts · video-editor-fluidez.test.ts (F3)',
+    ],
+    revisar: '/video-editor',
+  },
 ];
