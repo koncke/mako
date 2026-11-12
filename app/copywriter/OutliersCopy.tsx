@@ -127,7 +127,6 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
           {/* Con el guion transcripto, se nota (12/11/2026, prueba en producción: 46 de los primeros 48 reels traían sólo su pie, y
               replicar el pie no copia lo que se DICE en la pieza). */}
           {o.deDonde === 'guion' ? <span className={oc.conGuion}>Guion</span> : null}
-          {aire ? <span className={s.aire}>{aire}</span> : null}
         </span>
         <span className={s.sobreImagen}>
           <button type="button" className={s.editar} onClick={onReplicar} disabled={replicando}>{replicando ? 'Armando…' : 'Replicar'}</button>
@@ -160,6 +159,8 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
           {o.formato === 'reel' || o.formato === 'youtube' ? <span title="Vistas">▶ {contadorCorto(o.vistas)}</span> : null}
           {o.formato !== 'anuncio' ? <span title="Me gusta">♥ {contadorCorto(o.megusta)}</span> : null}
           {o.formato !== 'anuncio' ? <span title="Comentarios">💬 {contadorCorto(o.comentarios)}</span> : null}
+          {/* Los días al aire de un anuncio van acá y no en el marco: a 375 su pastilla bajaba de renglón y tapaba el gancho (banco, 12/11). */}
+          {aire ? <span title="Días al aire">⏱ {aire}</span> : null}
         </div>
         {/* En el celular no hay «pasar el mouse»: «Replicar» queda a la vista, liviano. */}
         <button type="button" className={s.editarLiviano} onClick={onReplicar} disabled={replicando}>{replicando ? 'Armando…' : 'Replicar'}</button>

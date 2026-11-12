@@ -177,9 +177,21 @@ export function cambiarPagina(paginas: readonly PaginaCopy[], id: string, c: Par
 
 /** Las páginas vivas en el orden del árbol (cada una seguida de las suyas), con su nivel. */
 export function enOrdenDeArbol(paginas: readonly PaginaCopy[]): { p: PaginaCopy; nivel: number; padre: PaginaCopy | null }[] {
+  return arbolCon(paginas, hijasDe);
+}
+
+/**
+ * Lo mismo, con la última editada ARRIBA entre hermanas (12/11/2026, en producción: «Mis guiones» del teléfono y la «←» de
+ * escritorio iban de la más vieja a la más nueva, y el guion recién hecho quedaba al fondo). Las de una página, debajo de ella.
+ */
+export function enOrdenReciente(paginas: readonly PaginaCopy[]): { p: PaginaCopy; nivel: number; padre: PaginaCopy | null }[] {
+  return arbolCon(paginas, (ps, padre) => hijasDe(ps, padre).sort((a, b) => (b.actualizado > a.actualizado ? 1 : b.actualizado < a.actualizado ? -1 : 0)));
+}
+
+function arbolCon(paginas: readonly PaginaCopy[], hijas: (ps: readonly PaginaCopy[], padre: string | null) => PaginaCopy[]): { p: PaginaCopy; nivel: number; padre: PaginaCopy | null }[] {
   const out: { p: PaginaCopy; nivel: number; padre: PaginaCopy | null }[] = [];
   const bajar = (padre: PaginaCopy | null, nivel: number) => {
-    for (const p of hijasDe(paginas, padre?.id ?? null)) {
+    for (const p of hijas(paginas, padre?.id ?? null)) {
       out.push({ p, nivel, padre });
       if (nivel < TOPES.profundidadArbol) bajar(p, nivel + 1);
     }

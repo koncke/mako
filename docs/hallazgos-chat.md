@@ -30,8 +30,18 @@ chat de Copywriting (`.nt-mako-pie`) y el de Image (`.pie`) también son grillas
 grababa. Ahí el culpable es la onda (`OndaGrabando`): cuenta sus barras según el ancho que mide, y ese ancho sale de las barras que
 ya dibujó — **un `ResizeObserver` que alimenta el contenido que él mismo mide crece solo** (451 px medidos en una tarjeta de 340).
 El arreglo de fondo es `contain: inline-size` en la fila de la barra (`BARRA` en VoiceRecorder.tsx): mide lo que le da su caja y
-nunca empuja hacia afuera. Probado sobre la página viva: grabando y escuchando, el botón queda adentro (342-386 con el borde en 416). La regla: un `<input>` adentro de una fila flex que
-tiene que achicarse lleva `width: 0` además del `flex`; `min-width` sólo pone un piso, no le baja el ancho que pide.
+nunca empuja hacia afuera. Probado sobre la página viva: grabando y escuchando, el botón queda adentro (342-386 con el borde en 416).
+
+La regla: un `<input>` adentro de una fila flex que tiene que achicarse lleva `width: 0` además del `flex`; `min-width` sólo pone
+un piso, no le baja el ancho que pide.
+
+⚠️ **El mismo día, CUATRO chats pusieron su propia regla sobre `.co-caja`.** Cada uno probaba su tab y arregló su pie:
+`.nt-mako-pie > .co-caja` en Copywriting, `.pie > :global(.co-caja)` en Image, `.co-caja` en centro.css por Web, y lo mío. Las cuatro
+entraron a main sin chocar, y el Cerebro pidió dejar UNA. Quedó en la pieza común: `.co-caja { width: 100%; min-width: 0 }` en
+centro.css, más la barra contenida y el `range` con ancho 0. Las locales se fueron, y un test cuenta que haya una sola
+(tests/create-outliers-tarjeta.test.ts). Medido después en producción, con SÓLO esas reglas inyectadas y un audio grabado, el
+botón queda adentro en el Video Editor, Copywriting, Image, Web Generator y Copywriting a 375. **La regla: un arreglo de una pieza
+común (la caja, la barra) va en la pieza común; si ya hay uno local, se junta ahí en vez de sumar otro.**
 
 ## La caja se salía de la columna al grabar: no era la onda, era `margin-inline: auto` en una grilla (12/11/2026)
 
@@ -41,8 +51,10 @@ tiene que achicarse lleva `width: 0` además del `flex`; `min-width` sólo pone 
   parecía un lazo que agrandaba la fila. Pero `min-width: 0` en el contenedor no cambió nada. La causa: `.co-caja` trae
   `margin-inline: auto` (para centrarse en el Ops Center), y en una GRILLA un margen auto saca al ítem del estirado: toma el ancho
   de su contenido. El pie de Copywriting (`.nt-mako-pie`) es una grilla.
-- **Cómo quedó:** `.nt-mako-pie > .co-caja { margin-inline: 0; min-width: 0; }` (app/copywriter/notion.css). Cualquier pantalla
-  que meta la caja en una grilla necesita lo mismo.
+- **Cómo quedó:** UNA regla común, `.co-caja { width: 100%; min-width: 0; }` (app/admin/operaciones/centro.css, del chat «Create:
+  outliers», que cubre también el pie del Video Editor y el de Image), más `contain: inline-size` en la fila de la barra
+  (VoiceRecorder.tsx) y `width: 0` en el `range` del reproductor. Copywriting tuvo su propia regla en notion.css unas horas y se
+  sacó: dos reglas sobre `.co-caja` es lo que no tiene que volver a pasar.
 - **La nota de voz del hilo** tenía `width: 240` fijo: en la columna de 360 px el globo da ~160 y se metía debajo del avatar.
   Ahora `maxWidth: '100%'` (app/_chat/HiloMako.tsx) y la barra de avance cede su mínimo en `.ch-voz` (app/_chat/chat.css).
 
