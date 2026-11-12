@@ -105,9 +105,10 @@ test('el Image y el Video Editor: la ruta lee los archivos con la IA del negocio
     assert.match(s, /const c = await cuerpoYArchivos\(req\);/, `${ruta}: no recibe archivos`);
     // Se leen ADENTRO del workspace: la visión usa la IA del negocio.
     assert.match(s, /return runWithWorkspace\(p\.ws, async \(\) => \{\n\s+const \{ lecturas, noLeidos \} = await leerLosArchivos\(c\.adjuntos, '[a-z-]+'\);/, `${ruta}: lee los archivos afuera del workspace`);
-    assert.match(s, new RegExp(`${motor}\\(\\{ instruccion, [^}]*archivos \\}\\)`), `${ruta}: la lectura no llega al motor`);
+    // El Video Editor manda además la conversación (lib/editor-video/chat-conversacion.ts, 12/11/2026).
+    assert.match(s, new RegExp(`${motor}\\(\\{ instruccion, [^}]*archivos(, conversacion: body\\.conversacion)? \\}\\)`), `${ruta}: la lectura no llega al motor`);
     assert.match(s, /export const maxDuration = 300;/);
-    assert.match(sinComentarios(leer(lib)), /content: conLaLecturaAparte\(user, p\.archivos\)/, `${lib}: la lectura no va al modelo`);
+    assert.match(sinComentarios(leer(lib)), /content: conLaLecturaAparte\((user|conContexto), p\.archivos\)/, `${lib}: la lectura no va al modelo`);
   }
   for (const f of ['app/image-editor/mako/chat/acciones.ts', 'app/video-editor/_opencut/chat/PanelChat.tsx']) {
     const s = sinComentarios(leer(f));
