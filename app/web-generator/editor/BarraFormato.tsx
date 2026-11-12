@@ -167,7 +167,10 @@ export const CSS_G2: string = [
   '.gmx-nv-barra{position:absolute;left:0;bottom:calc(100% + 12px);z-index:6;display:flex;align-items:center;flex-wrap:wrap;gap:1px;padding:4px;background:var(--gmx-fondo);border:1px solid var(--gmx-borde);border-radius:8px;box-shadow:var(--gmx-sombra);font-size:13px;width:max-content;max-width:min(720px,calc(100vw - 32px));user-select:none;cursor:default}',
   '.gmx-nv-sep{flex:none;width:1px;height:20px;margin:0 4px;background:var(--gmx-borde)}',
   '.gmx-nv-etq{flex:none;font-size:12px;font-weight:600;color:var(--gmx-tenue);padding:0 6px}',
-  '.gmx-nv-vacio{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:120px;padding:18px;border:1.5px dashed rgba(127,127,127,.45);border-radius:10px;background:rgba(127,127,127,.06);text-align:center;color:var(--gmx-texto-2);cursor:pointer}',
+  '.gmx-nv-vacio{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:120px;padding:18px;border:1.5px dashed rgba(127,127,127,.45);border-radius:10px;background:rgba(127,127,127,.06);text-align:center;color:inherit;cursor:pointer}',
+  // El texto del hueco con el color de la SECCIÓN, no el de la interfaz (12/11/2026, «Oscuro moderno»: «Pega el enlace de tu
+  // video» iba en rgb(47,55,71) sobre el azul marino del tema y no se leía). La nota, un poco más tenue.
+  '.gmx-nv-vacio .gmx-nota{color:inherit;opacity:.72}',
   '.gmx-nv-vacio .gmx-ico{color:var(--gmx-azul)}',
   // El hueco de un VIDEO (el VSL de un diseño, 14/10/2026): 16:9 como el video que va a ocupar, con un ▶.
   // min-height:auto y no 0: con 0 el 16:9 es estricto y en una columna angosta el ▶ y los textos se

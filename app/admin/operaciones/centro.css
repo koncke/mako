@@ -1641,6 +1641,13 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-el__cuerpo--ancho { max-width: min(82%, 720px); }
 .co-caja-wrap { padding: 8px clamp(12px, 3vw, 40px) 14px; }
 .co-caja { padding: 6px; border-radius: 26px; }
+/* LA CAJA NUNCA MÁS ANCHA QUE SU COLUMNA (12/11/2026, Web Generator y Video, el chat de ~335 px del editor). Con una nota de voz
+   lista para mandar, la fila (borrar, el reproductor, el micrófono y «Enviar audio») pide ~375 px de mínimo; la caja es hija de
+   una GRILLA (`.gma-ag-pie`, el <footer> del chat de Video) y con `margin-inline: auto` toma ese mínimo en vez del ancho de la
+   columna: «Enviar audio» quedaba cortado contra el borde. Con el ancho de su lugar y sin mínimo propio, el reproductor se
+   achica (su barra tiene 40 px de mínimo) y los botones entran. En un bloque es lo mismo que antes (ya ocupaba todo, hasta su
+   `max-width`, centrada). */
+.co-caja { width: 100%; min-width: 0; }
 /* LA FILA DE LA CAJA, ALINEADA COMO WHATSAPP (17/10/2026; Martín: «El + y el emoji están desalineados»). UNA medida para el «+»,
    la carita, el campo de un renglón y el botón de mandar (`--caja-toque`: 40 con mouse, 44 con el dedo), todos alineados ABAJO:
    con un renglón comparten el centro, y cuando el campo crece los botones se quedan en el último renglón. Antes el «+» medía

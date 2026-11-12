@@ -116,8 +116,11 @@ export const TOPE_OFERTA = 1_200;
  */
 export function marcaDeUrl(url: string): string | null {
   let host = '';
-  try { host = new URL(url).hostname.replace(/^www\./, ''); } catch { return null; }
-  const nombre = (host.split('.')[0] ?? '').replace(/^(?:try|get|use|join|go)(?=[a-z]{3,})/, '');
+  // ⚠️ El nombre del DOMINIO, no el del primer subdominio (12/11/2026): las landings de los gurús viven en
+  // `clase.highticketclarity.com`, `lp.acquisition.com`, `programa.formacionmomentum.com`, y la «marca» que la IA no debía
+  // nombrar salía «Clase», «Programa» o ninguna («lp»): la réplica adaptada siguió diciendo «High Ticket Clarity».
+  try { host = new URL(url).hostname; } catch { return null; }
+  const nombre = (dominioBase(host).split('.')[0] ?? '').replace(/^(?:try|get|use|join|go)(?=[a-z]{3,})/, '');
   return nombre.length >= 3 ? nombre.charAt(0).toUpperCase() + nombre.slice(1) : null;
 }
 
@@ -131,9 +134,41 @@ export function mencionesDe(texto: string, marca: string | null): number {
   let n = 0;
   for (let i = 0; i < palabras.length; i++) {
     if (palabras[i] === m || palabras[i].startsWith(m)) { n++; continue; }
-    if (i + 1 < palabras.length && palabras[i] + palabras[i + 1] === m) { n++; i++; }
+    if (i + 1 < palabras.length && palabras[i] + palabras[i + 1] === m) { n++; i++; continue; }
+    // En tres palabras: «High Ticket Clarity» es «Highticketclarity» (12/11/2026).
+    if (i + 2 < palabras.length && palabras[i] + palabras[i + 1] + palabras[i + 2] === m) { n++; i += 2; }
   }
   return n;
+}
+
+/**
+ * Los NOMBRES PROPIOS de la referencia, además de su marca (12/11/2026, la réplica adaptada de la masterclass de Clara Pérez
+ * en el ws9, CON la oferta de MaKo escrita: el hero habló de MaKo y el resto siguió con «Quién es Clara Pérez», sus alumnas
+ * y @soyclaraperez). La regla general («ni sus nombres») no alcanzó: la IA necesita la LISTA. De lo que se lee de la página:
+ *   · el autor: «Quién es / Quién soy / Me llamo / Conoce a / Sobre / Who is / Meet / About» + Nombre Apellido;
+ *   · el que la da: «con Nombre Apellido» (una clase «con Clara Pérez»);
+ *   · las cuentas: @usuario (3 a 30 letras, números, punto o guion bajo).
+ * Sin repetidos, en el orden en que aparecen, hasta `max`. Puro.
+ */
+export function nombresDeLaReferencia(textos: readonly string[], max = 12): string[] {
+  const out: string[] = [];
+  const vistos = new Set<string>();
+  const sumar = (s: string) => {
+    const limpio = s.replace(/\s+/g, ' ').trim();
+    const clave = limpio.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+    if (limpio.length < 3 || vistos.has(clave) || out.length >= max) return;
+    vistos.add(clave);
+    out.push(limpio);
+  };
+  const MAY = '[A-ZÁÉÍÓÚÑÜ][a-záéíóúñü]+';
+  // SIN la `i`: el nombre tiene que ir con mayúscula («con un sistema de contenido» no es nadie); la palabra de antes, en las dos.
+  const persona = new RegExp(`(?:^|[^\\p{L}])(?:[Qq]ui[eé]n es|[Qq]ui[eé]n soy|[Mm]e llamo|[Cc]onoc[eé] a|[Ss]obre|[Ww]ho is|[Mm]eet|[Aa]bout|[Cc]on)\\s+(${MAY}(?:\\s+${MAY}){1,2})(?![\\p{L}])`, 'gu');
+  for (const t of textos) {
+    const s = String(t ?? '');
+    for (const m of s.matchAll(persona)) sumar(m[1]);
+    for (const m of s.matchAll(/(?:^|[\s(«"'·,])(@[a-z0-9._]{3,30})/gi)) sumar(m[1].replace(/[._]+$/, ''));
+  }
+  return out;
 }
 
 /**
@@ -223,9 +258,10 @@ export const TOPE_INSTRUCCION = 5_000;
  * TERCERO. Las REGLAS van primero y los datos al final: si algo no entra en `TOPE_INSTRUCCION`, se recortan los datos,
  * nunca la regla de no copiar.
  */
-export function instruccionDePartes(p: PartesReplica, extra: { molde?: string; angulos?: string; oferta?: string; marca?: string } = {}): string | null {
+export function instruccionDePartes(p: PartesReplica, extra: { molde?: string; angulos?: string; oferta?: string; marca?: string; nombres?: readonly string[] } = {}): string | null {
   if (p.texto) return null;
   const oferta = (extra.oferta ?? '').replace(/\s+/g, ' ').trim().slice(0, TOPE_OFERTA);
+  const nombres = (extra.nombres ?? []).map((n) => String(n).trim()).filter(Boolean).slice(0, 12);
   const reglas: string[] = [
     p.estructura
       ? 'REPLICAR UNA LANDING DE REFERENCIA PARA ESTE NEGOCIO. El esquema es la página de OTRO negocio.'
@@ -233,6 +269,8 @@ export function instruccionDePartes(p: PartesReplica, extra: { molde?: string; a
     // 28/10/2026, medido en el ws9: sin una oferta (el perfil del negocio vacío) la IA reescribía la de la competencia.
     oferta ? `LA OFERTA DE ESTE NEGOCIO (manda sobre todo lo demás; de esto habla la landing): ${oferta}` : '',
     extra.marca ? `La referencia es «${extra.marca}»: no la nombres, ni a sus productos, sus clientes, sus cifras ni su precio.` : '',
+    // 12/11/2026: con «ni sus nombres» solo, «Quién es Clara Pérez» pasó entero a la réplica de MaKo. La lista, con nombre y apellido.
+    nombres.length ? `NOMBRES DE LA REFERENCIA (no los escribas en ninguna forma; donde la referencia habla de su autor o sus clientes, habla de ESTE negocio con lo que sabes de él, o deja «[tu nombre]» / «[testimonio real de un cliente]»): ${nombres.join(', ')}.` : '',
     p.estructura
       ? 'ESTRUCTURA (se toma): las mismas secciones, en el mismo orden y con el mismo tipo de bloque. En cada sección, la misma cantidad de títulos, subtítulos, párrafos, viñetas, botones y preguntas que la de la referencia, con un largo parecido y el mismo acomodo (si la referencia tiene tres tarjetas con un título y dos renglones cada una, la copia también; si tiene una imagen, la copia deja su hueco). Cada sección pedida trae su «Molde de la referencia».'
       : 'ESTRUCTURA (no se toma): elige las secciones y su orden para vender la oferta de ESTE negocio.',
@@ -251,6 +289,19 @@ export function instruccionDePartes(p: PartesReplica, extra: { molde?: string; a
   ].filter(Boolean);
   const texto = [...reglas.filter(Boolean), ...datos].join('\n\n');
   return texto.length > TOPE_INSTRUCCION ? `${texto.slice(0, TOPE_INSTRUCCION - 1)}…` : texto;
+}
+
+/**
+ * ¿Una réplica que se escribe para el negocio (`adaptar`) terminó sin NINGUNA sección escrita por la IA? (12/11/2026: en el
+ * ws3, sin IA, la «Adaptada de …» salía igual, con el texto de la competencia entero.) Entonces no se crea. Puro.
+ */
+export const adaptacionSinNingunaSeccion = (adaptar: boolean, secciones: number, escritas: number): boolean =>
+  adaptar && secciones > 0 && escritas === 0;
+
+/** Lo que lee la persona cuando no se creó la adaptada: qué pasó, lo que dijo la IA y qué hacer. */
+export function errorDeAdaptacion(errorDeIA: string): string {
+  const dijo = String(errorDeIA ?? '').replace(/\s+/g, ' ').trim();
+  return `MaKo no pudo escribir el texto para tu oferta, así que no creó la copia adaptada.${dijo ? ` ${/[.!?]$/.test(dijo) ? dijo : `${dijo}.`}` : ''} Para copiarla tal cual, prende «Texto literal».`;
 }
 
 /** El pedido del esquema cuando la estructura NO se toma (la IA arma las secciones para la oferta del negocio). */
