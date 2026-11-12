@@ -4342,3 +4342,58 @@ docs/web-generator/outliers-landings.md.
   entra; y la portada ya no pide ninguna página afuera en cada visita (era hasta 30 pedidos con tope de 3,5 s).
 - **El manifiesto no va al navegador:** con la portada como componente de cliente, importar lib/landing-outliers.ts habría metido
   el JSON de decenas de landings en su JavaScript. Lo pesado vive en lib/landing-outliers-datos.ts, que sólo lee el server.
+
+## La prueba en producción del 12/11: replicar una outlier, plantillas, chat y publicar, mirando (12/11/2026, chat «probar-web»)
+
+Probado como Martín en hola-mako.com, ws3 y ws9, con captura por paso (carpeta de notas del Cerebro, `probar-web-1211/`).
+Réplica: la masterclass de clase.highticketclarity.com desde su tarjeta de outliers, comparada con la original de página entera a
+1440 y a 375 (Chrome sin ventana, silenciado, perfil descartable).
+
+- **⚠️ Ningún negocio de prueba da HOY una réplica adaptada sin escribir la oferta a mano, y no era el código de la réplica.** El
+  ws3 no tiene IA (las tandas fallan y cada sección cae a `tarjetaDesdeEsquema`: el texto de la competencia entero, con el título
+  «Adaptada de …»), y el ws9 tiene IA pero el PERFIL del negocio vacío (`perfilNegocioTexto` < 30 caracteres → «Tu negocio no tiene
+  la oferta cargada»): la IA no sabe qué vender y parafrasea a la competencia. **Regla:** la réplica adaptada se mide en un negocio
+  con IA Y con la oferta cargada; si no, se escribe «Tu oferta» y se dice que se escribió.
+- **Una adaptada sin NINGUNA sección escrita no se crea** (`adaptacionSinNingunaSeccion`, `errorDeAdaptacion`): se queda en Replicar
+  con lo que contestó la IA y «prende Texto literal». Con alguna escrita sale como antes, y el aviso de lo que quedó de la original
+  dura lo que tarda leerlo (8–15 s; antes, 3,5 s: se iba antes de terminar la primera línea).
+- **`marcaDeUrl` tomaba el PRIMER subdominio**: para `clase.highticketclarity.com` la «marca» que la IA no debía nombrar era «Clase»
+  (`lp.` no daba ninguna, `programa.` daba «Programa»): casi todas las landings de gurús viven en un subdominio. Sale del dominio
+  (`dominioBase`), y `mencionesDe` cuenta también la marca en tres palabras («High Ticket Clarity»).
+- **«Ni sus nombres» en la regla no alcanzó:** con la oferta de MaKo escrita, el hero habló de MaKo y siguieron «Quién es Clara
+  Pérez», su TEDx y @soyclaraperez. La IA necesita la LISTA: `nombresDeLaReferencia` (el autor por «Quién es / Me llamo / con …», y
+  las @cuentas) va en la instrucción de las secciones, y lo que quede se cuenta en el aviso.
+- **El extractor leía como copy lo que la página tiene escondido:** el formulario de un modal y el popup de salida
+  (`<div class="modal" hidden role="dialog" aria-modal="true">`) salían como secciones a la vista, con la «×» de cerrar como botón,
+  y como `&times;` literal porque `ENTIDADES` no la tenía. `sinLoOculto` saca los diálogos y lo `hidden` con nombre de ventana;
+  **un `hidden` a secas NO**: muchos acordeones esconden ahí la respuesta de una pregunta frecuente. Y el «Activá el sonido» de
+  encima del video era el primer botón de la réplica: los controles del reproductor no son CTA (`RE_CONTROL_MEDIA`, el texto entero).
+- **El hueco del video usaba el color de la INTERFAZ** (`--gmx-texto-2`, rgb(47,55,71)) y en «Oscuro moderno» no se leía: va con el
+  color de la sección. **«Vista previa» con las ventanas emergentes bloqueadas no hacía nada** (ni avisaba): ahora avisa. Ojo: con
+  `noopener`, `window.open` devuelve null SIEMPRE; para saber si se abrió, se abre sin él y se suelta el `opener` después.
+- **«MaKo no pudo leer los ángulos»** salía al replicar una tarjeta aunque con las cuatro partes la lectura NO los pide
+  (`sinAngulos`): parecía una falla. Sólo con `errorAngulos` se dice que no pudo.
+- **Lo que anduvo (con captura):** las 12 plantillas (un objetivo con cada diseño) crean y se ven; volver (`←` lista las landings
+  en la columna del chat), abrir una vieja (0,75 s), editar a mano, el chat por TEXTO (ws9, ~30 s, Aceptar/Restaurar), por AUDIO
+  (nota grabada → transcripta → propuesta aplicada) y publicar en hola-mako.site.
+- **Trampas del navegador de la app de Claude para probar esto:** bloquea las ventanas emergentes (la copia «Página web», la vista
+  previa); no tiene micrófono (se le da uno: `getUserMedia` devuelve un `MediaStreamDestination` con una nota de voz de Windows SAPI
+  en Opus, y la grabación de MaKo la toma como real); con el panel escondido la captura llega con retraso o en un pedazo de 800 px.
+  La página de MaKo no deja pedir a `localhost` ni meterse en un iframe propio (CSP): los recorridos van por la pantalla.
+
+**Sin hacer, con su archivo:**
+- **Replicar desde una tarjeta de outliers arranca en la copia LITERAL** (`PARTES_TODAS`, regla del 28/10 «copia idéntica primero»,
+  app/web-generator/crear/Replicar.tsx) y pide un segundo «Replicar»: choca con «Replicar deja todo escrito» (11/11) y con lo que
+  se espera de un outlier (adaptada al negocio). Decide Martín.
+- **La réplica «Landing» con el texto literal no se parece a la original:** sin el video del hero ni su fondo; los testimonios con
+  foto en grilla de 3 pasan a una lista de viñetas y UNA foto (o, con el diseño, una foto por fila a todo el ancho con las CARAS de
+  sus alumnas); los rótulos «Parte 1 · …» quedan como viñeta del paso ANTERIOR (lib/editor-landing/replicar-estructura.ts,
+  `esquemaDeReplica`); los párrafos de «Quién es», como viñetas. La copia fiel («Página web») no se pudo probar acá (ventana).
+- **La publicada es liviana pero lenta en un teléfono real:** 41 KB y FCP 0,87 s sin limitar; con 4G lenta y CPU ×4, FCP 3,9 s
+  (la original de Clara: 1,2 s). Lleva **186 KB de CSS en línea** en una página simple, `Cache-Control: public, no-cache` (siempre
+  MISS en Vercel) y la función corre en **pdx1** (Portland) aunque el pedido entra por gru1 (São Paulo). Lo publicado (el render de
+  `/l/<slug>`) podría llevar sólo las reglas que usa y cachearse hasta el próximo «Publicar».
+- **La plantilla «Quiz con diagnóstico» publica «Empieza aquí» VACÍA:** no hay bloque de quiz, es un hueco para insertar
+  (lib/editor-landing/plantillas.ts). Una sección vacía publicada es una falla a la vista.
+- **El chat del editor inventa datos al adaptar:** le pasó a Martín las cifras de Clara («más de 10 años… más de 50 negocios high
+  ticket»). Es la IA de editar (lib/editor-landing/ia.ts); «PROHIBIDO INVENTAR» no le llega con el perfil del negocio vacío.
