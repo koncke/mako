@@ -6,10 +6,10 @@
 // docs/diseno/sitio-beehiiv.md; aquí va SÓLO el contenido, y casi todo sale de algo que ya existe:
 //   · las funciones del menú «Producto» son las 19 landings de app/vsl/_competencia/registro.ts (su nombre, su ícono y su
 //     ruta). Una landing nueva que no esté en ningún grupo entra sola en la columna de su lado (`menuProducto`);
-//   · «Industrias» son los avatares de lib/origen-cuenta.ts (AVATARES), cada uno a su landing /vsl/mako-<avatar>, con la
-//     bajada que esa landing dice en su `seo` (scripts/landings-mako-v2-funnels.mts);
-//   · la tabla de comparaciones sale de los `reemplaza` de lib/funciones-mako.ts: si una función deja de reemplazar algo
-//     (o vuelve Lead Magnet, que está archivado), la tabla y el número del titular cambian solos;
+//   · «Industrias» son los avatares de lib/origen-cuenta.ts (AVATARES), cada uno a su landing PUBLICADA (LANDING_DEL_AVATAR,
+//     abajo; desde el 12/11/2026, porque /vsl/mako-<avatar> nunca se subió y daba 404);
+//   · la tabla de comparaciones sale de ./reemplaza.ts (los trabajos y TODAS las apps que MaKo reemplaza en cada uno, con su
+//     logo): si cambia la lista, la tabla, la tira de la portada y el número del titular cambian solos;
 //   · las integraciones son las del catálogo (lib/integraciones-catalogo.ts) que un negocio ve y puede conectar hoy;
 //   · los números se CUENTAN aquí abajo; ninguno se escribe a mano.
 // Las agrupaciones (qué landing va en qué columna) siguen las familias de la barra de la app (app/_components/nav.ts:
@@ -17,12 +17,11 @@
 // Puro y sin `server-only`: lo leen las páginas y la foto de comparación.
 // =============================================================================
 
+import { STACK_QUE_REEMPLAZA, appsQueReemplaza, type AppQueReemplaza } from './reemplaza';
 import { LANDINGS_COMPETENCIA } from '../_competencia/registro';
 import { CASO } from '../_competencia/marca';
 import type { LandingCompetencia } from '../_competencia/tipos';
 import { AVATARES, type AvatarOrigen } from '@/lib/origen-cuenta';
-import { funcionesMako } from '@/lib/funciones-mako';
-import { FAMILIAS } from '@/app/_components/nav';
 import { DEFS, defsVisibles, ordenCategoria, type Def } from '@/lib/integraciones-catalogo';
 import { SIN_USO_TODAVIA, tarjetaDeRed, type RedConTarjeta } from '@/lib/zernio-redes';
 import { CATALOGO_GRABADORES } from '@/lib/grabadores/catalogo';
@@ -153,7 +152,7 @@ export function columnasDelPie(): { titulo: string; links: { nombre: string; hre
   const grandes = GRANDES.flatMap((g) => { const l = landingDe(g.slug); return l ? [{ familia: g.familia, item: itemDe(l) }] : []; });
   const ops = grandes.find((g) => g.familia == null)?.item;
   return [
-    { titulo: 'MaKo', links: [...(ops ? [{ nombre: ops.nombre, href: ops.href }] : []), { nombre: 'Precios', href: RUTA_PRECIOS }, { nombre: 'Comparaciones', href: RUTA_COMPARACIONES }, { nombre: 'Entrar', href: RUTA_ENTRAR }] },
+    { titulo: 'MaKo', links: [...(ops ? [{ nombre: ops.nombre, href: ops.href }] : []), { nombre: 'Precios', href: RUTA_PRECIOS }, { nombre: 'Comparaciones', href: RUTA_COMPARACIONES }, { nombre: 'Iniciar sesión', href: RUTA_ENTRAR }] },
     ...m.columnas.map((c) => ({
       titulo: c.rotulo,
       links: [...grandes.filter((g) => g.familia === c.rotulo).map((g) => g.item), ...c.items].map((i) => ({ nombre: i.nombre, href: i.href })),
@@ -228,7 +227,7 @@ export function numerosDelSitio(): { valor: string; texto: string }[] {
   const plantillas = plantillasDeCopywriting();
   return [
     { valor: String(LANDINGS_COMPETENCIA.length), texto: 'funciones en una sola app' },
-    { valor: String(filasDeComparacion().length), texto: 'apps que MaKo reemplaza' },
+    { valor: String(nAppsQueReemplaza()), texto: 'apps que MaKo reemplaza' },
     { valor: String(integracionesVivas().length), texto: 'integraciones con las apps que ya usas' },
     ...(plantillas ? [{ valor: plantillas, texto: 'plantillas de Copywriting, cada una con su ejemplo' }] : []),
   ];
@@ -254,29 +253,14 @@ export const PREGUNTAS_SITIO: readonly { p: string; r: string }[] = [
 // Comparaciones: MaKo contra el stack que reemplaza
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Cada función con `reemplaza` en lib/funciones-mako.ts: el trabajo (la fila), y la landing de MaKo de esa función (la tarjeta
- * «MaKo vs …»). Classroom no tiene landing todavía: su tarjeta lleva a su fila de la tabla. Lead Magnet está archivado
- * (lib/lead-magnets/archivado.ts) y por eso hoy no sale de `funcionesMako()`; si vuelve, ya tiene su trabajo.
- */
-const TRABAJO: Readonly<Record<string, { trabajo: string; landing: string | null }>> = {
-  graphics: { trabajo: 'Dashboards', landing: 'dashboard' },
-  chats: { trabajo: 'Chats', landing: 'whatsapp' },
-  'customer-success': { trabajo: 'Cursos y comunidad', landing: null },
-  'landing-writer': { trabajo: 'Páginas de venta', landing: 'web-generator' },
-  'ads-manager': { trabajo: 'Anuncios', landing: 'ads' },
-  'video-editor': { trabajo: 'Video', landing: 'video' },
-  'image-editor': { trabajo: 'Imágenes', landing: 'image' },
-  copywriter: { trabajo: 'Textos', landing: 'copywriting' },
-  'lead-magnet-generator': { trabajo: 'Lead magnets', landing: null },
-};
-
 export type FilaComparacion = {
   key: string;
   familia: string;
   /** El trabajo («Dashboards»): la primera columna. */
   trabajo: string;
-  /** La app que hoy hace ese trabajo, tal como la nombra lib/funciones-mako.ts. */
+  /** Las apps que hoy hacen ese trabajo, con su logo (./reemplaza.ts). */
+  apps: readonly AppQueReemplaza[];
+  /** Sus nombres en una frase («CapCut, Submagic y Captions»). */
   app: string;
   /** La función de MaKo que lo hace. */
   funcion: string;
@@ -285,19 +269,23 @@ export type FilaComparacion = {
   ancla: string;
 };
 
-/** Las filas de la tabla, en el orden de las familias de la barra de la app. Sólo las funciones que ve un negocio. */
+const enFrase = (xs: readonly string[]) => (xs.length < 2 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
+
+/**
+ * Las filas de la tabla: un trabajo por fila, con todas las apps que MaKo reemplaza en él (./reemplaza.ts; hasta el 12/11/2026
+ * era una sola app por función, de los `reemplaza` de lib/funciones-mako.ts, y eran 8). Classroom no tiene landing: su tarjeta
+ * lleva a su fila de la tabla.
+ */
 export function filasDeComparacion(): FilaComparacion[] {
-  const orden = FAMILIAS.map((f) => f.label);
-  const lugar = (fam: string) => { const i = orden.indexOf(fam); return i < 0 ? orden.length : i; };
-  return funcionesMako()
-    .filter((f) => !!f.reemplaza && !f.soloSuperAdmin)
-    .map((f) => {
-      const t = TRABAJO[f.key];
-      const ancla = `fila-${f.key}`;
-      return { key: f.key, familia: f.familia, trabajo: t?.trabajo ?? f.nombre, app: f.reemplaza as string, funcion: f.nombre, href: t?.landing ? `/vsl/${t.landing}` : `#${ancla}`, ancla };
-    })
-    .sort((a, b) => lugar(a.familia) - lugar(b.familia));
+  return STACK_QUE_REEMPLAZA.map((t) => {
+    const key = t.landing ?? t.trabajo.toLowerCase().replace(/[^a-z]+/g, '-');
+    const ancla = `fila-${key}`;
+    return { key, familia: t.familia, trabajo: t.trabajo, apps: t.apps, app: enFrase(t.apps.map((a) => a.nombre)), funcion: t.funcion, href: t.landing ? `/vsl/${t.landing}` : `#${ancla}`, ancla };
+  });
 }
+
+/** Cuántas apps distintas reemplaza: el titular de la comparación. */
+export const nAppsQueReemplaza = () => appsQueReemplaza().length;
 
 /** Las filas agrupadas por familia (los encabezados de la tabla, como «Pricing» o «Website Features» en beehiiv). */
 export function gruposDeComparacion(): { familia: string; filas: FilaComparacion[] }[] {

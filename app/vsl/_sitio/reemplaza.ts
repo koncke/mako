@@ -1,0 +1,72 @@
+// =============================================================================
+// Las apps que MaKo reemplaza, trabajo por trabajo (12/11/2026)
+// =============================================================================
+// Martín (12/11/2026), de la comparación de 8 apps: «deberías fijarte porque realmente MaKo reemplaza muchísimas más apps. Desde
+// Higgsfield… reemplaza Notion… te quedaste muy corto con esas 8. Pero fíjate que siempre los logos sean los logos reales
+// originales».
+//
+// De dónde sale cada app: los competidores de cada función en docs/competencia/landings-por-funcion.md (la investigación del
+// 11/11, con su URL) y los `reemplaza` de lib/funciones-mako.ts. Sólo trabajos que MaKo hace hoy, con su landing. No van las apps
+// con las que MaKo se CONECTA (Calendly, Cal.com, Fathom, Stripe, Mercado Pago): ésas no se reemplazan, se suman.
+// Ningún precio ni ninguna afirmación sobre lo que hace otra app: sólo su nombre y su logo.
+//
+// Los logos: el ícono ORIGINAL que cada app publica en su sitio (su apple-touch-icon o el ícono de su manifest; si no tiene, el
+// que da Google para su dominio), bajado el 12/11/2026 y guardado en public/vsl-assets/logos/apps/<archivo>.png (128 px). Se
+// dibujan sobre un recuadro blanco: así se ven sobre fondo claro y oscuro (el de Facebook negro sobre negro no se veía).
+// =============================================================================
+
+export type AppQueReemplaza = { nombre: string; logo: string };
+export type TrabajoQueReemplaza = {
+  /** El trabajo, como lo dice el dueño del negocio. */
+  trabajo: string;
+  /** La función de MaKo que lo hace. */
+  funcion: string;
+  /** Su landing en /vsl, o null si no tiene (Classroom). */
+  landing: string | null;
+  /** La familia de la tabla de la comparación. */
+  familia: 'Crear' | 'Marketing' | 'Vender' | 'Medir y ordenar';
+  apps: readonly AppQueReemplaza[];
+};
+
+const app = (nombre: string, archivo: string): AppQueReemplaza => ({ nombre, logo: `/vsl-assets/logos/apps/${archivo}.png` });
+
+export const STACK_QUE_REEMPLAZA: readonly TrabajoQueReemplaza[] = [
+  { trabajo: 'Anuncios con tu cara', funcion: 'AI Avatar', landing: 'ai-avatar', familia: 'Crear',
+    apps: [app('HeyGen', 'heygen'), app('Higgsfield', 'higgsfield'), app('Arcads', 'arcads'), app('Creatify', 'creatify')] },
+  { trabajo: 'Video', funcion: 'Video', landing: 'video', familia: 'Crear',
+    apps: [app('CapCut', 'capcut'), app('Submagic', 'submagic'), app('Captions', 'captions'), app('OpusClip', 'opusclip'), app('Descript', 'descript')] },
+  { trabajo: 'Imágenes y carruseles', funcion: 'Image', landing: 'image', familia: 'Crear',
+    apps: [app('Canva', 'canva'), app('PostNitro', 'postnitro'), app('AdCreative.ai', 'adcreative'), app('Predis.ai', 'predis')] },
+  { trabajo: 'Textos', funcion: 'Copywriting', landing: 'copywriting', familia: 'Crear',
+    apps: [app('Jasper', 'jasper'), app('Copy.ai', 'copyai')] },
+  { trabajo: 'Páginas de venta', funcion: 'Web Generator', landing: 'web-generator', familia: 'Crear',
+    apps: [app('Gamma', 'gamma'), app('ClickFunnels', 'clickfunnels'), app('Framer', 'framer'), app('Systeme.io', 'systemeio')] },
+  { trabajo: 'Espiar a la competencia', funcion: 'Competitor Spy', landing: 'competitor-spy', familia: 'Marketing',
+    apps: [app('Foreplay', 'foreplay'), app('Minea', 'minea'), app('BigSpy', 'bigspy')] },
+  { trabajo: 'Anuncios de Meta', funcion: 'Marketing CoPilot', landing: 'ads', familia: 'Marketing',
+    apps: [app('Madgicx', 'madgicx')] },
+  { trabajo: 'Analizar tus anuncios', funcion: 'Ads Analyst', landing: 'script', familia: 'Marketing',
+    apps: [app('Motion (anuncios)', 'motionapp'), app('Atria', 'atria'), app('Gethookd', 'gethookd')] },
+  { trabajo: 'Email', funcion: 'Email', landing: 'email', familia: 'Marketing',
+    apps: [app('Mailchimp', 'mailchimp'), app('ActiveCampaign', 'activecampaign'), app('Kit', 'kit'), app('MailerLite', 'mailerlite')] },
+  { trabajo: 'CRM', funcion: 'CRM', landing: 'crm', familia: 'Vender',
+    apps: [app('GoHighLevel', 'gohighlevel'), app('HubSpot', 'hubspot'), app('Pipedrive', 'pipedrive'), app('Clientify', 'clientify')] },
+  { trabajo: 'Chats', funcion: 'Chats', landing: 'whatsapp', familia: 'Vender',
+    apps: [app('respond.io', 'respondio'), app('Kommo', 'kommo'), app('Leadsales', 'leadsales'), app('Wati', 'wati')] },
+  { trabajo: 'Setter con IA', funcion: 'Automations', landing: 'seguimiento', familia: 'Vender',
+    apps: [app('ManyChat', 'manychat'), app('SetSmart', 'setsmart')] },
+  { trabajo: 'Cursos y comunidad', funcion: 'Classroom', landing: null, familia: 'Vender',
+    apps: [app('Skool', 'skool'), app('Kajabi', 'kajabi'), app('Hotmart', 'hotmart'), app('Circle', 'circle')] },
+  { trabajo: 'Dashboards', funcion: 'Dashboard', landing: 'dashboard', familia: 'Medir y ordenar',
+    apps: [app('Looker Studio', 'lookerstudio'), app('Reportei', 'reportei'), app('AgencyAnalytics', 'agencyanalytics'), app('DashThis', 'dashthis')] },
+  { trabajo: 'Atribución de ventas', funcion: 'Funnels', landing: 'funnel', familia: 'Medir y ordenar',
+    apps: [app('Hyros', 'hyros')] },
+  { trabajo: 'Tareas y prioridades', funcion: 'Plan', landing: 'prioridades', familia: 'Medir y ordenar',
+    apps: [app('Notion', 'notion'), app('Motion (tareas)', 'usemotion'), app('ClickUp', 'clickup'), app('Asana', 'asana'), app('Trello', 'trello')] },
+];
+
+/** Todas, una vez cada una, en el orden de la lista: la tira de la portada. */
+export function appsQueReemplaza(): AppQueReemplaza[] {
+  const vistas = new Set<string>();
+  return STACK_QUE_REEMPLAZA.flatMap((t) => t.apps).filter((a) => (vistas.has(a.logo) ? false : (vistas.add(a.logo), true)));
+}
