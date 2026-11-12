@@ -21,7 +21,7 @@
 // =============================================================================
 
 import { Fragment } from 'react';
-import { CALENDLY, EstrellaMaKo, TEXTO_CTA } from '../_competencia/marca';
+import { RUTA_CTA, EstrellaMaKo, TEXTO_CTA } from '../_competencia/marca';
 import { Barra } from './Barra';
 import { Pie } from './Pie';
 import { Boton, Flecha, Tilde } from './Piezas';
@@ -58,7 +58,7 @@ export function ComparacionesSitio() {
                     <th scope="col"><span className="s-sr">Trabajo</span></th>
                     <th scope="col">
                       <span className="s-th-n">MaKo</span>
-                      <a className="s-th-btn" href={CALENDLY}>{TEXTO_CTA}</a>
+                      <a className="s-th-btn" href={RUTA_CTA}>{TEXTO_CTA}</a>
                     </th>
                     <th scope="col">
                       <span className="s-th-n">Lo usas hoy en</span>

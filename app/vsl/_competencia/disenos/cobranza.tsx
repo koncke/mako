@@ -26,7 +26,7 @@
 
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { Visual } from '../../_detalle/Visual';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
@@ -38,7 +38,7 @@ function Chevron() {
 }
 
 function BotonBlanco({ clase = '' }: { clase?: string }) {
-  return <a href={CALENDLY} className={`${c('btn-bl')} ${clase}`}><span>{TEXTO_CTA}</span><Chevron /></a>;
+  return <a href={RUTA_CTA} className={`${c('btn-bl')} ${clase}`}><span>{TEXTO_CTA}</span><Chevron /></a>;
 }
 
 function Barra({ links }: { links: { href: string; t: string }[] }) {
@@ -51,14 +51,14 @@ function Barra({ links }: { links: { href: string; t: string }[] }) {
         </nav>
         <div className={c('barra-der')}>
           <a href="/login" className={c('login')}>Iniciar sesión</a>
-          <a href={CALENDLY} className={c('btn-barra')}><span>{TEXTO_CTA}</span><Chevron /></a>
+          <a href={RUTA_CTA} className={c('btn-barra')}><span>{TEXTO_CTA}</span><Chevron /></a>
         </div>
         <details className={c('menu')}>
           <summary aria-label="Menú"><span /><span /><span /></summary>
           <div className={c('menu-panel')}>
             {links.map((l) => <a key={l.href} href={l.href}>{l.t}</a>)}
             <a href="/login">Iniciar sesión</a>
-            <a href={CALENDLY} className={c('menu-cta')}>{TEXTO_CTA}</a>
+            <a href={RUTA_CTA} className={c('menu-cta')}>{TEXTO_CTA}</a>
           </div>
         </details>
       </div>
@@ -165,7 +165,7 @@ function Caso() {
           <ul className={c('his-lista')}>
             {CASO.meses.map((m) => <li key={m.mes}><span className={c('his-pt')} aria-hidden="true" />{m.mes}<strong>{m.monto}</strong></li>)}
           </ul>
-          <a href={CALENDLY} className={c('btn-az')}>{TEXTO_CTA}<Chevron /></a>
+          <a href={RUTA_CTA} className={c('btn-az')}>{TEXTO_CTA}<Chevron /></a>
         </div>
       </article>
     </section>
@@ -197,7 +197,7 @@ function Cierre() {
     <section className={c('cierre')}>
       <div className={c('cierre-in')}>
         <h2 className={`${c('h2')} ${c('cierre-h2')}`}>¿Lo quieres andando <em>en tu negocio?</em></h2>
-        <p className={c('cierre-p')}>Agenda una llamada y te mostramos MaKo con tus propios números.</p>
+        <p className={c('cierre-p')}>{TEXTO_CIERRE}</p>
         <BotonBlanco />
       </div>
     </section>

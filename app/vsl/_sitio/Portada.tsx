@@ -29,12 +29,13 @@
 // Server component. Lo único que no es del servidor son los logos (SvcIcon, de ServicioVisual), que no tienen interacción.
 // =============================================================================
 
-import type { CSSProperties, ReactNode } from 'react';
-import { CASO, TEXTO_CTA } from '../_competencia/marca';
+import type { CSSProperties } from 'react';
+import { CASO, TEXTO_CTA, TEXTO_CIERRE } from '../_competencia/marca';
 import { VisualDeLanding } from '../_competencia/Visuales';
 import type { Bloque } from '../_competencia/tipos';
 import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
 import { Visual } from '../_detalle/Visual';
+import PandaPlayer from '../_detalle/PandaPlayer';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { bajadaDePlanes, botonDelPlan } from '@/lib/compra-plan-reglas';
 import type { PlanMako } from '@/lib/planes-mako';
@@ -53,19 +54,10 @@ type Hero = Extract<Bloque, { tipo: 'hero' }>;
 const heroDe = (slug: string): Hero | undefined => landingDeSlug(slug)?.bloques.find((b): b is Hero => b.tipo === 'hero');
 const precio = (n: number) => n.toLocaleString('es-AR');
 
-function Ventana({ titulo, clase, children }: { titulo: string; clase: string; children: ReactNode }) {
-  return (
-    <div className={`s-hv ${clase}`}>
-      <p className="s-hv-t">{titulo}</p>
-      <div className="s-hv-c"><div className="s-panel">{children}</div></div>
-    </div>
-  );
-}
+/** El VSL que grabó Martín, el mismo de la portada de hoy (el documento publicado de hola-mako.com, 12/11/2026). */
+export const VSL_PORTADA = 'https://player-vz-dd4ad08b-375.tv.pandavideo.com/embed/?v=25c0684d-528e-4382-9796-d1ec74b79634&color=%232F6FED';
 
 function HeroSitio() {
-  const ops = heroDe('mako')?.visual;
-  const chats = heroDe('seguimiento')?.visual;
-  const kanban = FEATURE_VISUALS.pipeline?.groups.find((g) => g.type === 'kanban');
   return (
     <section className="s-hero">
       <div className="s-cont s-hero-in">
@@ -76,17 +68,11 @@ function HeroSitio() {
             <Boton clase="s-btn-alto" />
             <Boton href={RUTA_PRECIOS} texto="Ver planes" clase="s-btn-alto s-btn-borde" />
           </div>
-          <p className="s-nota">Agenda una llamada y te mostramos MaKo con tus propios números.</p>
+          <p className="s-nota">{TEXTO_CIERRE}</p>
         </div>
-        {ops ? (
-          // Como su composición: tres pantallas del producto superpuestas (atrás a la izquierda, al centro, adelante a la
-          // derecha), fundidas abajo. Son el CRM, el Ops Center y Automations, con los visuales de sus landings.
-          <div className="s-hero-vis" aria-hidden="true">
-            {kanban ? <Ventana titulo="CRM" clase="s-hv-a"><Visual spec={kanban} /></Ventana> : null}
-            <Ventana titulo="Ops Center" clase="s-hv-b"><VisualDeLanding visual={ops} /></Ventana>
-            {chats ? <Ventana titulo="Automations" clase="s-hv-c2"><VisualDeLanding visual={chats} /></Ventana> : null}
-          </div>
-        ) : null}
+        {/* Martín (12/11/2026): «en esa parte debería estar el VSL que yo ya grabé», y no las tres pantallas (CRM, Ops Center
+            y Automations) que ponía beehiiv en su composición. Es el VSL de la portada de hoy (hola-mako.com). */}
+        <div className="s-hero-vsl"><PandaPlayer src={VSL_PORTADA} title="MaKo: el video de presentación" /></div>
       </div>
     </section>
   );

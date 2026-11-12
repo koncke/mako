@@ -25,7 +25,7 @@
 import type { ReactNode } from 'react';
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, TEXTO_CIERRE, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
@@ -115,14 +115,14 @@ function Barra() {
             {links.map((l) => <a key={l.href} href={l.href} className={c('link')}>{l.t}</a>)}
           </nav>
           <a href="/login" className={c('entrar')}>Entrar</a>
-          <a href={CALENDLY} className={`${c('btn')} ${c('btn-nav')}`}>{TEXTO_CTA}<Flecha /></a>
+          <a href={RUTA_CTA} className={`${c('btn')} ${c('btn-nav')}`}>{TEXTO_CTA}<Flecha /></a>
         </div>
         <details className={c('menu')}>
           <summary aria-label="Menú"><span className={c('hamb')} aria-hidden="true"><i /><i /><i /></span></summary>
           <div className={c('menu-panel')}>
             {links.map((l) => <a key={l.href} href={l.href} className={c('menu-link')}>{l.t}</a>)}
             <a href="/login" className={c('menu-link')}>Entrar</a>
-            <a href={CALENDLY} className={`${c('btn')} ${c('btn-menu')}`}>{TEXTO_CTA}<Flecha /></a>
+            <a href={RUTA_CTA} className={`${c('btn')} ${c('btn-menu')}`}>{TEXTO_CTA}<Flecha /></a>
           </div>
         </details>
       </div>
@@ -175,7 +175,7 @@ function SeccionHero({ b, filas }: { b: Hero; filas?: Filas }) {
           <h1 className={c('h1')} dangerouslySetInnerHTML={html(b.titulo)} />
           <p className={c('hero-p')} dangerouslySetInnerHTML={html(b.bajada)} />
           <div className={c('acciones')}>
-            <a href={CALENDLY} className={`${c('btn')} ${c('btn-hero')}`}>{TEXTO_CTA}<Flecha /></a>
+            <a href={RUTA_CTA} className={`${c('btn')} ${c('btn-hero')}`}>{TEXTO_CTA}<Flecha /></a>
           </div>
         </div>
         <Galeria hero={b} filas={filas} />
@@ -343,7 +343,7 @@ function SeccionPreguntas({ b }: { b: Preguntas }) {
     <section className={`${c('shell')} ${c('faq')}`} id="d-whatsapp-preguntas">
       <div className={c('faq-izq')}>
         <h2 className={`${c('h2')} ${c('h2-46')}`} dangerouslySetInnerHTML={html(b.titulo)} />
-        <a href={CALENDLY} className={c('textlink')}>{TEXTO_CTA}<Flecha /></a>
+        <a href={RUTA_CTA} className={c('textlink')}>{TEXTO_CTA}<Flecha /></a>
       </div>
       <div className={c('preguntas')}>
         {b.items.map((q) => (
@@ -371,10 +371,10 @@ function Panel() {
       <div className={c('panel')}>
         <div className={c('panel-in')}>
           <div className={c('panel-txt')}>
-            {/* Su texto del cierre, tal cual (12/11/2026): la demo pasa a la llamada, y su prueba de 14 días no va. */}
+            {/* Su texto del cierre, tal cual (12/11/2026); su «prueba de 14 días» es la de MaKo, de 7 (TEXTO_CIERRE). */}
             <h2 className={`${c('h2')} ${c('panel-h')}`}>Tu próximo paso: <em>organizar las ventas de tu equipo.</em></h2>
-            <p className={`${c('top-p')} ${c('panel-p')}`}>Revisa tu operación con nosotros en una llamada.</p>
-            <div className={c('acciones')}><a href={CALENDLY} className={`${c('btn')} ${c('btn-panel')}`}>{TEXTO_CTA}<Flecha /></a></div>
+            <p className={`${c('top-p')} ${c('panel-p')}`}>{TEXTO_CIERRE}</p>
+            <div className={c('acciones')}><a href={RUTA_CTA} className={`${c('btn')} ${c('btn-panel')}`}>{TEXTO_CTA}<Flecha /></a></div>
           </div>
           <figure className={c('orbita')} aria-hidden="true">
             <svg className={c('anillos')} viewBox="0 0 400 400" width="400" height="400"><circle cx="200" cy="200" r="166" /><circle cx="200" cy="200" r="112" /></svg>
@@ -405,7 +405,7 @@ function Pie({ slug }: { slug: string }) {
             <LogoMaKo tamano={30} />
             <div className={c('contacto')}>
               <span className={c('contacto-l')}>Contacto</span>
-              <a href={CALENDLY} className={c('contacto-a')}>{TEXTO_CTA}</a>
+              <a href={RUTA_CTA} className={c('contacto-a')}>{TEXTO_CTA}</a>
             </div>
           </div>
         </div>

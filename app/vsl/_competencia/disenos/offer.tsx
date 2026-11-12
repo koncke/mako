@@ -31,7 +31,7 @@
 import type { ReactNode } from 'react';
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 
 const F = '/vsl-assets/fuentes';
@@ -168,7 +168,7 @@ const Flecha = () => (
 );
 
 function Boton({ className = '' }: { className?: string }) {
-  return <a href={CALENDLY} className={['d-offer-btn', className].filter(Boolean).join(' ')}>{TEXTO_CTA}<Flecha /></a>;
+  return <a href={RUTA_CTA} className={['d-offer-btn', className].filter(Boolean).join(' ')}>{TEXTO_CTA}<Flecha /></a>;
 }
 
 function Icono({ paths }: { paths?: string[] }) {
@@ -197,7 +197,7 @@ function secciones(bloques: Bloque[]) {
             <div className="d-offer-fila">
               <div className="d-offer-izq">
                 <div className="d-offer-video"><div className="d-offer-video-in"><VisualDeLanding visual={b.visual} /></div></div>
-                <a href={CALENDLY} className="d-offer-amano">{TEXTO_CTA} &gt;&gt;</a>
+                <a href={RUTA_CTA} className="d-offer-amano">{TEXTO_CTA} &gt;&gt;</a>
               </div>
               <div className="d-offer-tarjeta">
                 {b.puntos?.[0] && <p className="d-offer-tarjeta-h" dangerouslySetInnerHTML={html(b.puntos[0])} />}
@@ -288,7 +288,7 @@ export default function DisenoOffer({ landing }: PropsDiseno) {
           <LogoMaKo className="d-offer-logo" tamano={34} />
           <ul className="d-offer-links">
             <li><a href="#d-offer-funciones">Funciones</a></li>
-            <li><a href={CALENDLY}>{TEXTO_CTA}</a></li>
+            <li><a href={RUTA_CTA}>{TEXTO_CTA}</a></li>
           </ul>
         </div>
       </header>

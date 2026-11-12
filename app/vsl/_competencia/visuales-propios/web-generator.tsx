@@ -64,7 +64,7 @@ export default function VisualWebGenerator() {
         <span className="mk-v-web-generator-estrella">
           <svg width="14" height="14" viewBox="-12 -12 24 24"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg>
         </span>
-        <span className="mk-v-web-generator-frase">Una landing para que agenden una llamada sobre mi mentoría de ventas</span>
+        <span className="mk-v-web-generator-frase">Una landing para vender mi mentoría de ventas</span>
         <span className="mk-v-web-generator-enviar">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V5" /><path d="M6 11l6 -6l6 6" /></svg>
         </span>
@@ -81,8 +81,8 @@ export default function VisualWebGenerator() {
             <span className="mk-v-web-generator-sec-r">Portada</span>
             <span className="mk-v-web-generator-etq">Mentoría de ventas</span>
             <p className="mk-v-web-generator-h">Cierra tus llamadas de venta con un método</p>
-            <p className="mk-v-web-generator-x">Una llamada de diagnóstico para ver cómo vendes hoy.</p>
-            <span className="mk-v-web-generator-btn">Agenda tu llamada</span>
+            <p className="mk-v-web-generator-x">Seis semanas para ordenar cómo vendes, con tus propias llamadas.</p>
+            <span className="mk-v-web-generator-btn">Quiero mi lugar</span>
           </div>
           <div className="mk-v-web-generator-sec mk-v-web-generator-s2">
             <span className="mk-v-web-generator-sec-r">Video</span>

@@ -38,7 +38,7 @@
 import type { ReactNode } from 'react';
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { ASESORES, inspiradoEn } from '@/lib/asesores/catalogo';
 
 const F = '/vsl-assets/fuentes';
@@ -380,7 +380,7 @@ function Icono({ paths, tam = 20 }: { paths?: string[]; tam?: number }) {
 }
 
 function Boton() {
-  return <a href={CALENDLY} className="d-copywriting-btn">{TEXTO_CTA}</a>;
+  return <a href={RUTA_CTA} className="d-copywriting-btn">{TEXTO_CTA}</a>;
 }
 
 /** Un renglón «titulo texto» con el comienzo en negrita, como sus checks y sus «Who it's for». */

@@ -251,6 +251,13 @@ export const CSS_PORTADA = `
    degradado, la bajada 20/28 en 512 px, los dos botones de 50 separados 12, la nota 14/20 #B8B8C8 y el visual de 634 × 475. */
 .s-hero{position:relative;padding:96px 0}
 .s-hero-in{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:center}
+/* El VSL de Martín en el lugar de la composición de beehiiv (12/11/2026): 16:9, con el halo azul de su composición. */
+.s-hero-vsl{position:relative}
+.s-hero-vsl::before{content:'';position:absolute;inset:-8% -8% -4%;background:radial-gradient(closest-side,rgba(47,111,237,.32),rgba(47,111,237,0));filter:blur(24px);pointer-events:none}
+.s-hero-vsl .mk-vsl-slot{position:relative;width:100%;aspect-ratio:16/9}
+.s-hero-vsl .mk-vsl{position:absolute;inset:0;border-radius:14px;overflow:hidden;background:#0B0D12;border:1px solid rgba(255,255,255,.14);box-shadow:0 30px 70px -32px rgba(0,0,0,.7)}
+.s-hero-vsl .mk-vsl iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+.s-hero-vsl .mk-cor,.s-hero-vsl .mk-vsl-x{display:none}
 .s-h1{${TITULAR};font-size:60px;line-height:60px;color:#fff}
 .s-h1 em{font-style:normal;background:linear-gradient(to right,${DORADO_CLARO},${DORADO});-webkit-background-clip:text;background-clip:text;color:transparent}
 .s-hero-p{margin-top:16px;max-width:512px;font-size:20px;line-height:28px;font-weight:500;color:${TEXTO}}
@@ -410,6 +417,7 @@ export const CSS_PORTADA = `
 /* Como su hero, que pasa a una columna debajo de 890 px. */
 @media (max-width:889px){
   .s-hero-in{grid-template-columns:minmax(0,1fr)}
+  .s-hero-vsl{margin-top:32px}
   .s-hero-vis{width:576px;max-width:none;margin:40px auto 0}
   .s-fila{flex-direction:column}
   .s-bento .s-fila > :nth-child(n){flex:none}

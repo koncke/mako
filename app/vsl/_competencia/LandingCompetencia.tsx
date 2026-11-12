@@ -11,13 +11,15 @@
 // =============================================================================
 
 import type { Metadata } from 'next';
-import { CALENDLY, CSS_DETALLE, CalIcon, Cabecera, CasoMauricio, Check, CtaBand, Icon, Pie } from '../_detalle/FeatureDetail';
+import { CSS_DETALLE, Cabecera, CasoMauricio, Check, CtaBand, Icon, Pie } from '../_detalle/FeatureDetail';
 import { gridHtml } from '../_detalle/grid-landing';
 import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
 import { Visual } from '../_detalle/Visual';
 import type { Bloque, LandingCompetencia as Landing } from './tipos';
 import { VisualDeLanding } from './Visuales';
 import { DISENOS } from './disenos';
+import { RUTA_CTA, TEXTO_CTA } from './marca';
+import { LANDINGS_OSCURAS, TemaSitio } from './TemaSitio';
 
 export function metadataDeLanding(l: Landing): Metadata {
   return {
@@ -30,8 +32,8 @@ export function metadataDeLanding(l: Landing): Metadata {
 
 const html = (s: string) => ({ __html: s });
 
-function BotonLlamada({ clase = 'mk-btn-hero' }: { clase?: string }) {
-  return <a href={CALENDLY} className={clase}><CalIcon />Agenda tu llamada</a>;
+function BotonCta({ clase = 'mk-btn-hero' }: { clase?: string }) {
+  return <a href={RUTA_CTA} className={clase}>{TEXTO_CTA}</a>;
 }
 
 function Encabezado({ etiqueta, titulo, bajada }: { etiqueta?: string; titulo: string; bajada?: string }) {
@@ -58,7 +60,7 @@ function DibujarBloque({ b, icono }: { b: Bloque; icono: string[] }) {
                 {b.puntos.map((p) => <li key={p}><Check /><span dangerouslySetInnerHTML={html(p)} /></li>)}
               </ul>
             ) : null}
-            <BotonLlamada />
+            <BotonCta />
           </div>
           <div className="mk-hero-media"><div className="mk-panel mk-panel-hero mk-c-panel-hero"><VisualDeLanding visual={b.visual} /></div></div>
         </div>
@@ -93,7 +95,7 @@ function DibujarBloque({ b, icono }: { b: Bloque; icono: string[] }) {
               <p className="mk-c-lado-x" dangerouslySetInnerHTML={html(b.con.texto)} />
             </div>
           </div>
-          {b.cta ? <div className="mk-c-cta-fila"><BotonLlamada clase="mk-btn-lg" /></div> : null}
+          {b.cta ? <div className="mk-c-cta-fila"><BotonCta clase="mk-btn-lg" /></div> : null}
         </section>
       );
     case 'tarjetas':
@@ -110,7 +112,7 @@ function DibujarBloque({ b, icono }: { b: Bloque; icono: string[] }) {
               </div>
             ))}
           </div>
-          {b.cta ? <div className="mk-c-cta-fila"><BotonLlamada clase="mk-btn-lg" /></div> : null}
+          {b.cta ? <div className="mk-c-cta-fila"><BotonCta clase="mk-btn-lg" /></div> : null}
         </section>
       );
     case 'pasos':
@@ -188,7 +190,7 @@ export default function LandingCompetencia({ landing }: { landing: Landing }) {
   // Con su diseño copiado de la referencia (./disenos/<slug>.tsx), la página entera es ésa: la cara común de abajo es la de
   // las landings que todavía no lo tienen.
   const Diseno = DISENOS[landing.slug];
-  if (Diseno) return <Diseno landing={landing} />;
+  if (Diseno) return <><Diseno landing={landing} /><TemaSitio base={LANDINGS_OSCURAS.has(landing.slug) ? 'oscuro' : 'claro'} /></>;
   return (
     <div className="mk-det">
       <style dangerouslySetInnerHTML={{ __html: CSS_DETALLE + CSS }} />

@@ -42,6 +42,7 @@
 
 import { ASESORES } from '@/lib/asesores/catalogo';
 import { FUNNELS } from '@/lib/media-buyer/copiloto';
+import { TEXTO_CIERRE } from './cta';
 import type { LandingCompetencia } from './tipos';
 
 const I = {
@@ -102,9 +103,10 @@ export const LANDING_ADS: LandingCompetencia = {
       tipo: 'tarjetas',
       fondo: true,
       titulo: 'Inteligencia artificial, atención humana.',
-      bajada: 'Agenda tu llamada: te mostramos cómo obtener lo mejor de la IA en tu marketing y juntos lo ajustamos a las necesidades de tu negocio.',
+      // Antes: «Agenda tu llamada: te mostramos…». Martín (12/11/2026): ningún lado ofrece agendar una llamada; se empieza con la prueba.
+      bajada: 'Empiezas por tu cuenta, con la IA de MaKo, y detrás hay personas que la mantienen andando.',
       items: [
-        { icono: I.llamada, titulo: 'Una llamada para empezar.', texto: 'Te mostramos MaKo con tus propios números y lo dejamos andando en tu negocio.' },
+        { icono: I.copiloto, titulo: 'Entras hoy.', texto: TEXTO_CIERRE },
         { icono: I.chat, titulo: 'Personas detrás de MaKo.', texto: 'Si algo no anda, lo reportas desde la app y el equipo de MaKo lo arregla y <strong>te avisa en tu grupo de WhatsApp</strong>.' },
       ],
     },

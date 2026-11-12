@@ -37,7 +37,7 @@
 
 import type { PropsDiseno } from '.';
 import { Icon } from '../../_detalle/FeatureDetail';
-import { CALENDLY, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import type { Bloque } from '../tipos';
 import { VisualDeLanding } from '../Visuales';
 
@@ -108,7 +108,7 @@ function DibujarBloque({ b, hero, icono, n, nombre }: { b: Bloque; hero: Hero | 
               <p className="d-image-hero-cej"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" /></svg>{b.etiqueta}</p>
               <h1 className="d-image-h1" dangerouslySetInnerHTML={html(b.titulo)} />
               <p className="d-image-hero-p" dangerouslySetInnerHTML={html(b.bajada)} />
-              <a href={CALENDLY} className="d-image-btn"><Lapiz />{TEXTO_CTA}</a>
+              <a href={RUTA_CTA} className="d-image-btn"><Lapiz />{TEXTO_CTA}</a>
               {b.puntos?.length ? <p className="d-image-hero-nota">{b.puntos.map((p, i) => <span key={p} dangerouslySetInnerHTML={html((i ? ' · ' : '') + p)} />)}</p> : null}
             </div>
             <Marco nombre={nombre} clase="d-image-marco-hero"><VisualDeLanding visual={b.visual} /></Marco>
@@ -209,7 +209,7 @@ function DibujarBloque({ b, hero, icono, n, nombre }: { b: Bloque; hero: Hero | 
               </li>
             ))}
           </ol>
-          <a href={CALENDLY} className="d-image-btn d-image-btn-linea">{TEXTO_CTA}<Flecha /></a>
+          <a href={RUTA_CTA} className="d-image-btn d-image-btn-linea">{TEXTO_CTA}<Flecha /></a>
         </section>
       );
     case 'caso':
@@ -235,7 +235,7 @@ function DibujarBloque({ b, hero, icono, n, nombre }: { b: Bloque; hero: Hero | 
               </ul>
             </div>
           </div>
-          <div className="d-image-testis-btns"><a href={CALENDLY} className="d-image-btn">{TEXTO_CTA}<Flecha /></a></div>
+          <div className="d-image-testis-btns"><a href={RUTA_CTA} className="d-image-btn">{TEXTO_CTA}<Flecha /></a></div>
         </section>
       );
     case 'preguntas':
@@ -277,7 +277,7 @@ export default function DisenoImage({ landing }: PropsDiseno) {
           <a href="/vsl" className="d-image-barra-link">Funcionalidades</a>
         </div>
         <div className="d-image-barra-caja">
-          <a href={CALENDLY} className="d-image-barra-btn"><Lapiz />{TEXTO_CTA}</a>
+          <a href={RUTA_CTA} className="d-image-barra-btn"><Lapiz />{TEXTO_CTA}</a>
         </div>
       </header>
 

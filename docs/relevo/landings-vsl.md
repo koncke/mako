@@ -3,39 +3,62 @@
 Sigue el trabajo de la nube (`docs/relevo/nube-landings-competencia.md`): las 19 landings por función copiadas de su
 referencia y el sitio estilo beehiiv (`/vsl/sitio`, `/vsl/comparaciones`). Martín da su feedback mirando un visor.
 
-## Dónde quedó (12/11/2026)
+## El feedback de Martín del 12/11 (textual), y qué se hizo
 
-- **Producción iba atrás de main.** Servía `a23bad24f`: las landings con el diseño copiado, pero sin los textos de la
-  referencia del 12/11 (`23ed3633e`, `a4d60b930`) ni `/vsl/sitio` (404). Main los tiene. Hay que desplegar main.
-- **Hecho:** el hero de `/vsl/ai-avatar` con las imágenes reales de los presets (`public/formatos/presets/`): tres escenas en
-  abanico, la principal con su subtítulo. Martín: «Sí, con imágenes». Los pasos 2 y 3 usan las mismas imágenes.
+> «Elimines de todos lados lo de agendar llamada porque hoy en día vamos a hacer que el CTA de todos sea comienza tu prueba
+> gratuita… elimina también la sidebar de landings de Maco porque yo debería poder navegar por todo con lo que ya tenemos…
+> la tab de precios no hace nada… haz que todo sea navegable tal cual como quedaría. Por ejemplo, si le aprieto el logo de
+> Maco, que me vaya [a la portada]. Luego no tiene sentido arriba entrar, ver planes, agenda tu llamada… debería ser
+> registrarse, loguearse… ver planes… el botoncito de luna y sol que tenemos… el círculo que se va expandiendo… y que eso se
+> mantenga… revises todo lo que falta porque tal vez hay botones que todavía no andan.» Y: «en la landing principal, pusiste
+> CRM, Ops Center y Automation, cuando en esa parte debería estar el VSL que yo ya grabé».
+
+(Ese feedback se lo dio a la cuenta claude4 en la sesión de la nube y NO llegó al relevo: lo volvió a pegar en este chat.)
+
+| Pedido | Dónde quedó |
+|---|---|
+| Ningún «agendar llamada»: el botón es «Comienza tu prueba gratuita» | `app/vsl/_competencia/cta.ts` (`RUTA_CTA` = `/planes`, `TEXTO_CTA`, `TEXTO_CIERRE`), en las 19 landings y el sitio. Sigue al interruptor de la prueba (abajo) |
+| Arriba: iniciar sesión, ver planes, registrarse | `app/vsl/_sitio/Barra.tsx`: «Iniciar sesión» (/login), «Ver planes» (/planes), el sol y la luna, «Comienza tu prueba gratuita» |
+| El sol y la luna, con el barrido de la app, y que se mantenga | `app/vsl/_competencia/TemaSitio.tsx`: un script en línea (anda sin React y en el visor), recuerda el modo en `localStorage['mako.sitio.modo']` |
+| El VSL de Martín en la portada nueva | `app/vsl/_sitio/Portada.tsx` (`VSL_PORTADA`, el Panda `25c0684d-…` de la portada de hoy) |
+| «Precios» y los links que no andaban | «Industrias» llevaba a `/vsl/mako-<avatar>` (404, nunca se subieron): ahora a `/vsl/coaches`, `/vsl/infoproductores` y `/vsl/inmobiliarias` (publicadas el 23/10). Agencias no tiene página: fuera del menú |
+| El visor sin la lista, navegable | `scripts/visor-landings/visor.html`: la página entera, sus links abren la página que corresponde (el logo → la portada nueva, Precios → /planes, Iniciar sesión → /login…), abajo Atrás / Computadora-Teléfono / Copiado-Diseño MaKo |
+
+## ⚠️ Lo que decide Martín: prender la prueba gratis
+
+`PRUEBA_GRATIS_PRENDIDA` (`lib/planes-mako.ts`) está en `false` desde el 30/10: `/planes` cobra al empezar. Con `false`, el
+botón de las landings dice «Empieza con MaKo» (no se promete una prueba que el cobro no da). Prenderla cambia `/planes`
+(«7 días gratis», cobra el día 8 con la tarjeta), `/reembolsos`, `/terminos` y los mensajes y el PDF de Partners. Medido el
+12/11 con `true`: 341 de 345 tests de planes y cobros pasan; fallan 4 que fijan la decisión del 30/10
+(`tests/primer-mes.test.ts` y los mensajes y el PDF de Partners en `tests/partners-recursos.test.ts`). Si Martín dice que sí:
+`true`, esos 4 tests pasan a seguir al interruptor, y mirar el checkout nuevo (`app/planes/[plan]`) con la prueba.
+El visor del 12/11 se armó con la prueba PRENDIDA como vista previa (así lo pidió Martín), sin commitear el interruptor.
 
 ## El visor («Landings de MaKo»)
 
 - El primero (https://claude.ai/artifact/LKcMqfaNfLJXxizHtXqwnQ) lo publicó la cuenta claude4 / la nube: desde otra cuenta
-  **no se puede actualizar**, así que cada versión nueva sale con su URL.
-- **El de claude5: https://claude.ai/artifact/3QRCSF8oaK1ZK2PXADuQow** (12/11, main en `52dab569d`, con las fotos de AI Avatar
-  y el sitio estilo beehiiv). Desde esta cuenta se actualiza en la misma URL (publicar con `url`).
-- Si producción va atrás y Martín no quiere esperar el despliegue, se puede armar desde main sin servidor: cada página con
-  `renderToStaticMarkup` (las landings de `registro.ts`, `PortadaSitio` con los planes de `PLANES_MAKO_DEFAULT` porque
-  `lib/compra-plan.ts` es server-only, y `ComparacionesSitio`), las hojas de estilo de una foto de producción, y los gráficos
-  que se dibujan al hidratar (`.recharts-responsive-container`: Cobranza, Dashboard, Plan, Ads Analyst) copiados de la foto de
-  producción en el mismo orden y al mismo ancho. Así se armó el del 12/11; los scripts quedaron fuera del repo, la receta es ésta.
-- Qué es: `index.html` (la lista de páginas; «Copiado» / «Diseño MaKo», que cambia la letra a Urbanist y Geist Mono y pasa
-  los tonos de la referencia al azul y al dorado de MaKo; claro / oscuro, que invierte los colores; computadora a 1440 o
-  teléfono a 390) + `paginas/<slug>.html`, una FOTO de cada página ya dibujada (el CSS adentro, sin scripts, las imágenes en
-  `assets/`).
-- **Cómo se arma uno nuevo** (unos 3 minutos, sin `next dev`): con lo nuevo YA desplegado,
-  `node scripts/visor-landings/armar.mjs <carpeta> https://hola-mako.com` (con `VISOR_NUEVAS=ai-avatar,…` marca «nuevo» en la
-  lista). Fotografía las 21 páginas a 1440 y a 390 con Chromium headless y mudo, sin sumar visitas (corta el Pixel, Panda y
-  `/api/`), baja las hojas de estilo, imágenes y letras a `<carpeta>/assets/` y escribe `index.html` desde
-  `scripts/visor-landings/visor.html`. Se publica con la herramienta Artifact: `file_path` = `<carpeta>/index.html` y en
-  `files` cada `paginas/*.html` y cada `assets/**` con su misma ruta. Para cambiar la lista o los grupos: `PAGINAS` en `armar.mjs`.
-- El visor del 12/11 tenía un error en el teléfono: el escenario quedaba con alto cero (en blanco). Ya está corregido en la plantilla.
+  **no se puede actualizar**.
+- **El de claude5: https://claude.ai/artifact/3QRCSF8oaK1ZK2PXADuQow**. Desde esta cuenta se actualiza en la misma URL.
+- Qué es: `index.html` (sin lista: la portada nueva y sus links; abajo Atrás, Computadora / Teléfono y Copiado / Diseño MaKo)
+  + `paginas/<slug>.html` y `paginas/<slug>-tel.html`, una FOTO de cada página (sin scripts, salvo el del sol y la luna) +
+  `assets/` con las hojas de estilo, imágenes y letras. Las páginas de la app a las que llevan los links (`DE_LA_APP` en
+  `armar.mjs`: /planes, /login, las de Industrias y las legales) también van.
+- **Cómo se arma uno nuevo** (unos 3 minutos, sin `next dev`), con lo nuevo YA desplegado:
+  `node scripts/visor-landings/armar.mjs <carpeta> https://hola-mako.com`. Con `<carpeta> <base> indice` escribe sólo el
+  índice. Se publica con la herramienta Artifact: `file_path` = `<carpeta>/index.html`, `root` = `<carpeta>` y en `files`
+  cada `paginas/*.html` y cada `assets/**`.
+- **Si producción va atrás** (como el 12/11): cada página se dibuja desde main sin servidor (`renderToStaticMarkup` de las
+  landings de `registro.ts`, `PortadaSitio` con `PLANES_MAKO_DEFAULT` porque `lib/compra-plan.ts` es server-only,
+  `ComparacionesSitio` y `VitrinaPlanes` para /planes), con las hojas de estilo de una foto de producción, y los gráficos que se
+  dibujan al hidratar (`.recharts-responsive-container`: Cobranza, Dashboard, Plan, Ads Analyst) se copian de la foto de
+  producción en el mismo orden y al mismo ancho. Los scripts de esa receta quedaron en el scratchpad de la sesión: la receta es ésta.
 
 ## Lo pendiente
 
-- Desplegar main (los textos del 12/11, el sitio estilo beehiiv y las fotos de AI Avatar) y publicar el visor nuevo.
-- Lo que sigue abierto desde la nube (detalle en su relevo): la captura real de «Carruseles que funcionan» para Image; los
-  heros viejos de `/vsl/mako` (gráfico del CoPilot), `/vsl/cobranza` (rótulos en inglés) y `/vsl/funnel` (Panda en negro);
-  Closing y Classroom sin landing; y las 8 decisiones de Martín de la sección «Lo que decide Martín».
+- Desplegar main (textos del 12/11, sitio estilo beehiiv, fotos de AI Avatar, el CTA, el sol y la luna, el VSL).
+- **Las páginas que NO son código y siguen ofreciendo la llamada:** la portada de hoy (`/`, un documento de Web Generator con
+  Calendly) y las de Industrias (`/vsl/coaches`, `/vsl/infoproductores`, `/vsl/inmobiliarias`, documentos del 23/10). Se
+  cambian publicando esos documentos en producción, con el permiso de Martín (`scripts/landings-mako-v2*.mts --subir`).
+- La portada nueva no es `/` todavía: el logo lleva a `/`, que hoy es la portada vieja. Cambiarla la decide Martín.
+- Lo que sigue abierto desde la nube: la captura real de «Carruseles que funcionan» para Image; los heros de `/vsl/mako`
+  (gráfico del CoPilot), `/vsl/cobranza` (rótulos en inglés) y `/vsl/funnel` (Panda en negro); Closing y Classroom.

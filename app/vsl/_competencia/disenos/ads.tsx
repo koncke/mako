@@ -30,7 +30,7 @@
 import type { ReactNode } from 'react';
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { Visual } from '../../_detalle/Visual';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
@@ -60,7 +60,7 @@ const ICONO = {
 };
 
 function Cta({ clase = '' }: { clase?: string }) {
-  return <a href={CALENDLY} className={`${P}-cta ${clase}`}>{TEXTO_CTA}</a>;
+  return <a href={RUTA_CTA} className={`${P}-cta ${clase}`}>{TEXTO_CTA}</a>;
 }
 
 // ── La barra ─────────────────────────────────────────────────────────────────
@@ -71,7 +71,7 @@ function Barra() {
         <LogoMaKo className={`${P}-brand`} tamano={32} />
         <div className={`${P}-navright`}>
           <a href="/login" className={`${P}-pill ${P}-pill-claro`}>Iniciar sesión</a>
-          <a href={CALENDLY} className={`${P}-pill ${P}-pill-oscuro`}>{TEXTO_CTA}</a>
+          <a href={RUTA_CTA} className={`${P}-pill ${P}-pill-oscuro`}>{TEXTO_CTA}</a>
         </div>
       </div>
     </header>

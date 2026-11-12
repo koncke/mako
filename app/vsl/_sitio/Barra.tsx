@@ -5,7 +5,8 @@
 // dos botones. En MaKo: «Producto» (las 19 landings: cuatro grandes con ícono y bajada, y el resto en columnas por familia, como
 // sus columnas Publish / Grow / Earn / Analyze / Connect), «Industrias» (su «Solutions»: la columna «For publishers» son los
 // avatares de MaKo y «Featured stories» el caso de Mauricio; su columna de anunciantes y socios no va), «Comparaciones» y
-// «Precios» (/planes). A la derecha «Entrar», «Ver planes» y el botón de la llamada.
+// «Precios» (/planes). A la derecha «Iniciar sesión», «Ver planes», el sol y la luna, y «Comienza tu prueba gratuita» (Martín,
+// 12/11/2026: «no tiene sentido arriba entrar, ver planes, agenda tu llamada… debería ser registrarse, loguearse»).
 //
 // Lo que cambió, y por qué:
 //   · Sus menús abren con JavaScript; estos con CSS (:hover y :focus-within). El que abre es un <span tabIndex={0}>, no un
@@ -16,7 +17,8 @@
 // Los valores, en ./estilos.ts y docs/diseno/sitio-beehiiv.md. Server component.
 // =============================================================================
 
-import { LogoMaKo, TEXTO_CTA, CALENDLY } from '../_competencia/marca';
+import { LogoMaKo, TEXTO_CTA, RUTA_CTA } from '../_competencia/marca';
+import { TemaSitio } from '../_competencia/TemaSitio';
 import { HISTORIA, INDUSTRIAS, RUTA_COMPARACIONES, RUTA_ENTRAR, RUTA_PRECIOS, menuProducto, type MenuProducto } from './datos';
 import { Chevron, Icono } from './Piezas';
 
@@ -118,9 +120,9 @@ function MenuMovil({ m }: { m: MenuProducto }) {
         <a className="s-mv-fila" href={RUTA_COMPARACIONES}>Comparaciones</a>
         <a className="s-mv-fila" href={RUTA_PRECIOS}>Precios</a>
         <div className="s-mv-pie">
-          <a className="s-nb s-mv-entrar" href={RUTA_ENTRAR}>Entrar</a>
+          <a className="s-nb s-mv-entrar" href={RUTA_ENTRAR}>Iniciar sesión</a>
           <a className="s-nb" href={RUTA_PRECIOS}>Ver planes</a>
-          <a className="s-nb s-nb-lleno" href={CALENDLY}>{TEXTO_CTA}</a>
+          <a className="s-nb s-nb-lleno" href={RUTA_CTA}>{TEXTO_CTA}</a>
         </div>
       </div>
     </details>
@@ -151,12 +153,14 @@ export function Barra({ claro = false }: { claro?: boolean }) {
           </nav>
         </div>
         <div className="s-barra-der">
-          <a className="s-nav-a s-solo-pc" href={RUTA_ENTRAR}>Entrar</a>
+          <a className="s-nav-a s-solo-pc" href={RUTA_ENTRAR}>Iniciar sesión</a>
           <a className="s-nb s-solo-pc" href={RUTA_PRECIOS}>Ver planes</a>
-          <a className="s-nb s-nb-lleno" href={CALENDLY}>{TEXTO_CTA}</a>
+          <a className="s-nb s-nb-lleno" href={RUTA_CTA}>{TEXTO_CTA}</a>
           <MenuMovil m={m} />
         </div>
       </div>
+      {/* El sol y la luna de la app, con su barrido (Martín, 12/11/2026): el script lo pone antes del botón para empezar. */}
+      <TemaSitio base={claro ? 'claro' : 'oscuro'} />
     </header>
   );
 }

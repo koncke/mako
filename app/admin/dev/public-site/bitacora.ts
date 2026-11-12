@@ -126,4 +126,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/vsl/ai-avatar',
   },
+  {
+    fecha: '12 nov', hora: '08:10', chat: 'Landings de /vsl', sesion: 'local_ec06a1f5-08a0-4404-80fb-5123883b13aa', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sin agendar llamadas: la prueba gratis en todos lados, el sitio navegable, el sol y la luna, y su VSL en la portada',
+    pedido: 'Bueno, lo primero que te pido es que elimines de todos lados lo de agendar llamada porque hoy en día vamos a hacer que el CTA de todos sea comienza tu prueba gratuita. Porque promocionamos la prueba gratuita, entonces en todos lados tiene que ser comienza tu prueba gratuita. Luego elimina también la sidebar de landings de Maco porque yo debería poder navegar por todo con lo que ya tenemos, ¿no? De en la navegación de la top bar, etc. Luego, por ejemplo, hay ciertas cosas que no funcionan todavía, como por ejemplo la tab de precios no hace nada, y deberíamos ya tener eso. Y haz que todo sea navegable tal cual como quedaría. Por ejemplo, si le aprieto el logo de Maco, que me vaya el logo de Maco. Luego no tiene sentido arriba entrar, ver planes, agenda tu llamada. O sea, debería ser registrarse, loguearse también. Sí podría ser ver planes. En lugar de agenda tu llamada y registrarse gratis o algo así. Luego estaría bueno de que ahí arriba también esté como el botoncito de luna y sol que tenemos, que si se aprieta haga la misma animación que tenemos dentro de Maco, que es como el círculo que se va expandiendo, que hace dark mode, etcétera, y que obviamente eso se mantenga. Si yo me voy a tratar que se mantenga lo último que hice, en una parte me gustaría que revises todo lo que falta porque tal vez hay botones que todavía no andan, como por ejemplo el de precios.\nY por otro lado, también en la página principal, en la landing principal, pusiste CRM Ops Center y Automation, cuando en esa parte debería estar el VSL que yo ya grabé.',
+    puntos: ['Se lo había dado a la cuenta claude4 en la sesión de la nube y no llegó al relevo: lo volvió a pegar en el chat de claude5.'],
+  },
+  {
+    fecha: '12 nov', hora: '09:05', chat: 'Landings de /vsl', sesion: 'local_ec06a1f5-08a0-4404-80fb-5123883b13aa', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un solo botón para empezar, el sol y la luna en las 21 páginas, y la portada con el VSL',
+    puntos: [
+      'El botón de las 19 landings y del sitio sale de app/vsl/_competencia/cta.ts y lleva a /planes. Sigue al interruptor de la prueba gratis: con la prueba apagada dice «Empieza con MaKo», para no prometer días gratis que el cobro no da.',
+      'La barra del sitio: «Iniciar sesión», «Ver planes», el sol y la luna, y el botón para empezar. El sol y la luna es un script en línea (TemaSitio.tsx) con el barrido de la app, y recuerda el modo de una página a otra.',
+      '«Industrias» llevaba a cuatro páginas que daban 404: ahora a las publicadas el 23/10 (coaches, infoproductores, inmobiliarias); agencias no tiene página.',
+      'La portada nueva muestra el VSL de Martín (el de la portada de hoy) en lugar de las pantallas del CRM, el Ops Center y Automations.',
+      '⚠️ Sin prender: la prueba gratis (PRUEBA_GRATIS_PRENDIDA). Cambia /planes, /reembolsos, /terminos y Partners: lo decide Martín.',
+    ],
+    revisar: '/vsl/sitio',
+  },
 ];

@@ -27,7 +27,7 @@
 import type { ReactNode } from 'react';
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { Visual } from '../../_detalle/Visual';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
@@ -61,7 +61,7 @@ function Chev() {
 
 /** El botón principal (el «Start a 7-Day Trial for $0» de la referencia). */
 function Cta({ clase = '' }: { clase?: string }) {
-  return <a href={CALENDLY} className={`${P}-cta ${clase}`}>{TEXTO_CTA}<Flecha /></a>;
+  return <a href={RUTA_CTA} className={`${P}-cta ${clase}`}>{TEXTO_CTA}<Flecha /></a>;
 }
 
 // ── La barra ─────────────────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ function Barra() {
         </nav>
         <div className={`${P}-navright`}>
           <a href="/login" className={`${P}-login`}>Iniciar sesión</a>
-          <a href={CALENDLY} className={`${P}-navcta`}>{TEXTO_CTA}<Flecha /></a>
+          <a href={RUTA_CTA} className={`${P}-navcta`}>{TEXTO_CTA}<Flecha /></a>
           <details className={`${P}-burger`}>
             <summary aria-label="Menú">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" aria-hidden="true"><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></svg>
@@ -150,7 +150,7 @@ function Pregunta({ b }: { b: De<'tarjetas'> }) {
           <h2 className={`${P}-ask-h2`} dangerouslySetInnerHTML={html(b.titulo)} />
           {b.bajada ? <p className={`${P}-ask-copy`} dangerouslySetInnerHTML={html(b.bajada)} /> : null}
         </div>
-        <a href={CALENDLY} className={`${P}-learn`}>{TEXTO_CTA}</a>
+        <a href={RUTA_CTA} className={`${P}-learn`}>{TEXTO_CTA}</a>
       </div>
       <div className={`${P}-iface`}>
         <div className={`${P}-cards`}>
@@ -295,7 +295,7 @@ function Preguntas({ b }: { b: De<'preguntas'> }) {
       <div className={`${P}-wrap ${P}-faq2`}>
         <div className={`${P}-faq2-left`}>
           <h2 className={`${P}-h2`} dangerouslySetInnerHTML={html(b.titulo)} />
-          <p><a href={CALENDLY}>{TEXTO_CTA}</a></p>
+          <p><a href={RUTA_CTA}>{TEXTO_CTA}</a></p>
         </div>
         <div className={`${P}-faq2-right`}>
           {b.items.map((q) => (
@@ -316,8 +316,8 @@ function Cierre() {
     <section className={`${P}-closer`}>
       <div className={`${P}-wrap ${P}-closer-in`}>
         <h2>¿Lo quieres andando <span className={`${P}-q`}>en tu negocio?</span></h2>
-        <p>Agenda una llamada y te mostramos MaKo con tus propios números.</p>
-        <a href={CALENDLY} className={`${P}-cta ${P}-cta-big`}>{TEXTO_CTA}<Flecha size={16} /></a>
+        <p>{TEXTO_CIERRE}</p>
+        <a href={RUTA_CTA} className={`${P}-cta ${P}-cta-big`}>{TEXTO_CTA}<Flecha size={16} /></a>
       </div>
     </section>
   );
@@ -336,7 +336,7 @@ function PieDePagina() {
           <div className={`${P}-foot-col`}>
             <p className={`${P}-foot-h`}>Mapa del sitio</p>
             <a href="/">Funcionalidades</a>
-            <a href={CALENDLY}>{TEXTO_CTA}</a>
+            <a href={RUTA_CTA}>{TEXTO_CTA}</a>
           </div>
         </div>
         <div className={`${P}-foot-more`}>

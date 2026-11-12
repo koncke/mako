@@ -32,7 +32,7 @@
 
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
@@ -46,7 +46,7 @@ type Preguntas = Extract<Bloque, { tipo: 'preguntas' }>;
 /** Su botón: la cara de color y, debajo, dos capas que se corren al pasar el mouse. */
 function Boton({ clase = '' }: { clase?: string }) {
   return (
-    <a href={CALENDLY} className={`d-email-btn ${clase}`.trim()}>
+    <a href={RUTA_CTA} className={`d-email-btn ${clase}`.trim()}>
       <span className="d-email-btn-t">{TEXTO_CTA}</span>
       <span className="d-email-btn-c2" aria-hidden="true" />
       <span className="d-email-btn-c1" aria-hidden="true" />
@@ -60,7 +60,7 @@ function Barra() {
       <LogoMaKo className="d-email-logo" tamano={28} claro />
       <div className="d-email-barra-der">
         <a href="/vsl" className="d-email-barra-link">Todas las funcionalidades</a>
-        <a href={CALENDLY} className="d-email-barra-btn">{TEXTO_CTA}</a>
+        <a href={RUTA_CTA} className="d-email-barra-btn">{TEXTO_CTA}</a>
       </div>
     </header>
   );

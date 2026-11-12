@@ -121,6 +121,24 @@ Cada entrada dice de qué corrida y de qué fecha viene.
     primera frase de su gancho como subtítulo. El visual se comparte con los pasos: cada paso esconde por CSS lo que no le toca
     (`.mk-c-av-foto`, `.mk-c-av-escenas`, `.mk-c-av-tel-lado`). En el teléfono de un costado se ve un tercio: su nombre se
     esconde a menos de 560 px, y el de la derecha va contra su borde derecho, que es el que no tapa el principal.
+- **Quinta vuelta (12/11/2026, claude5): el CTA, el sol y la luna, y los links que no andaban.**
+  - **El feedback que Martín le dio a una cuenta en la nube no llegó a la siguiente.** El relevo terminaba en el pedido anterior
+    y la búsqueda en las sesiones de la PC no lo encontró: estaba en la sesión de la nube. Él tuvo que volver a pegarlo. Lo que
+    Martín pide en un chat va al relevo del área en el MISMO turno, no al final de la tanda.
+  - **Un botón no puede prometer lo que el cobro no da.** El CTA («Comienza tu prueba gratuita») sale de
+    `app/vsl/_competencia/cta.ts` y sigue a `PRUEBA_GRATIS_PRENDIDA`: con la prueba apagada, `/planes` cobra al empezar y el
+    botón dice «Empieza con MaKo». Vive aparte de `marca.tsx` porque marca importa el registro y los `.ts` de cada landing
+    usan la frase: importarla de marca armaba el ciclo marca → registro → ads → marca (en un ciclo, una constante se lee antes
+    de existir).
+  - **«Industrias» llevaba a cuatro 404.** El menú armaba `/vsl/mako-<avatar>` porque el script que las genera existe, pero
+    nunca se subieron; las publicadas son las del 23/10 (`/vsl/coaches`, …). Antes de linkear una ruta de documento de Web
+    Generator, se pide en producción (`curl -o /dev/null -w '%{http_code}'`).
+  - **El sol y la luna es un script en línea, no un componente**: las landings son server components sin JS y el visor no
+    tiene React. Tres trampas: (1) un `<button>` en el JSX sin `onClick` lo marca `tests/ningun-boton-muerto.test.ts`, así
+    que el script lo crea; (2) en el teléfono el menú desplegable también tiene un link a `/planes`, y el botón terminaba
+    adentro: se excluyen `details` y los menús; (3) un hero con fondo en DEGRADADO tiene `backgroundColor` transparente, y
+    la página oscura se leía como clara: la luz se mide también de los colores de `background-image`. La política de
+    seguridad de `/:path*` (`next.config.ts`) no tiene `script-src`: el script en línea corre en producción.
 
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
