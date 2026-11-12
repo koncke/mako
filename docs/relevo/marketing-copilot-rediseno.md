@@ -141,7 +141,9 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
-**Pedido de la decimosexta vuelta (Martín, 12/11, sobre `maqueta-quince.html`), en curso.** Las fuentes, en el scratchpad (`cuerpo-quince.html` + `bloque-dieciseis.js`).
+**Hecho (12/11, decimosexta vuelta):** `maqueta-dieciseis.html` (Artifact claude.ai/artifact/XYPQKhQ93158N2VsvzyQbv). Los 5 puntos de abajo, mirados en fotos. Pasar de un paso a otro conserva la tarjeta: del análisis en Instagram, el piloto abre en Instagram.
+
+**Pedido de la decimosexta vuelta (Martín, 12/11, sobre `maqueta-quince.html`).** Las fuentes, en el scratchpad (`cuerpo-quince.html` + `bloque-dieciseis.js`).
 1. «Configurar piloto» afuera, como «Volver a analizar» y «Empezar algo nuevo», con la tuerca (no un sol). En los tres puntitos queda «Clases».
 2. Al pasar de un paso a otro se conserva la tarjeta elegida: si estabas en Anuncios, sigues en Anuncios.
 3. «Tus anuncios»: si hay lugar, salen todos (los 9).
