@@ -62,7 +62,7 @@ import { anotarProgreso, empezarArmado, useArmado, type ArmadoChat } from "./arm
 import { ArmadoEnVivo } from "@/app/_ui/ArmadoEnVivo";
 import { fasesDesde } from "@/app/_ui/armado-en-vivo";
 import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
-import { agentesDeOperaciones, mostrarCursores } from "@/app/video-editor/_opencut/enjambre/cursores-sueltos";
+import { agentesDeOperaciones, mostrarCursores, sumarTiempo, tareasDeOperaciones } from "@/app/video-editor/_opencut/enjambre/cursores-sueltos";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
 import { marcarCerrada, resolverEnServidor, traerPropuestas } from "./propuestas";
@@ -534,8 +534,10 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 		cambiarMensaje(proyectoId, m.id, { estado: "aplicando", aviso: undefined });
 		empezarArmado(m.id);
 		// Los cursores de los agentes que hacen este cambio, a la vista mientras se aplica (enjambre/cursores-sueltos.ts).
-		const soltarCursores = mostrarCursores(agentesDeOperaciones(m.propuesta.operaciones));
-		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion, alProgreso: (p) => anotarProgreso(m.id, p) }).finally(soltarCursores);
+		// Sólo los agentes de ESTE pedido, sobre lo que toca: sus clips y sus segundos; cada pausa que encuentra «Borrar silencios»,
+		// al cursor de corte-01 en el momento (Martín, 11/11/2026: «que no aparezcan cursores que no tengan sentido con lo pedido»).
+		const soltarCursores = mostrarCursores(agentesDeOperaciones(m.propuesta.operaciones), tareasDeOperaciones(m.propuesta));
+		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion, alProgreso: (p) => { anotarProgreso(m.id, p); if (p.tipo === "silencio") sumarTiempo("corte-01", p.desde); } }).finally(soltarCursores);
 		if (!r.ok) {
 			cambiarMensaje(proyectoId, m.id, { estado: r.sinVersion ? "sin-version" : "pendiente", aviso: r.error });
 			return;

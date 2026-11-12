@@ -90,19 +90,41 @@ export function agentesSueltos(t: { delChat: readonly AgenteId[]; subtitulando: 
 	return AGENTES.map((a) => a.id).filter((id) => usados.has(id));
 }
 
-/** Los agentes que prendió el chat (cada uno, mientras alguno de sus cambios siga aplicándose o a la vista). */
-export const useCursoresSueltos = create<{ delChat: AgenteId[] }>()(() => ({ delChat: [] }));
+/**
+ * Lo que trabaja cada cursor del chat (Martín, 11/11/2026: «dependiendo de lo que el usuario pidió… tienen que realizar las
+ * acciones necesarias… a alta velocidad pero que no sean random»): los SEGUNDOS donde actúa (cada pausa que se corta, mientras
+ * se encuentran) y los CLIPS que toca (sus ids). Sin nada, recorre sus objetivos de siempre (../cursores.ts → OBJETIVOS_DE).
+ */
+export type TareaSuelta = { tiempos: number[]; ids: string[] };
+
+/** Los agentes que prendió el chat (cada uno, mientras alguno de sus cambios siga aplicándose o a la vista) y lo que trabaja cada uno. */
+export const useCursoresSueltos = create<{ delChat: AgenteId[]; tareas: Partial<Record<AgenteId, TareaSuelta>> }>()(() => ({ delChat: [], tareas: {} }));
+
+/** Suma un segundo de trabajo a un agente prendido (p. ej. cada pausa que encuentra «Borrar silencios»). */
+export function sumarTiempo(agente: AgenteId, t: number): void {
+	if (!Number.isFinite(t)) return;
+	useCursoresSueltos.setState((s) => {
+		const a = s.tareas[agente] ?? { tiempos: [], ids: [] };
+		return { tareas: { ...s.tareas, [agente]: { ...a, tiempos: [...a.tiempos, t] } } };
+	});
+}
 
 const prendidos = new Map<AgenteId, number>();
-const publicar = () => useCursoresSueltos.setState({ delChat: [...prendidos.keys()] });
+const publicar = () =>
+	useCursoresSueltos.setState((s) => ({
+		delChat: [...prendidos.keys()],
+		// Lo de un agente que se apagó se olvida: la próxima vez arranca de cero.
+		tareas: Object.fromEntries(Object.entries(s.tareas).filter(([a]) => prendidos.has(a as AgenteId))),
+	}));
 
 /**
  * Prende los cursores de `agentes`. Lo que devuelve los apaga, pero no antes de `A_LA_VISTA_MS` desde que se
  * prendieron (dos cambios a la vez con el mismo agente: queda prendido hasta que se apaguen los dos).
  */
-export function mostrarCursores(agentes: readonly AgenteId[]): () => void {
+export function mostrarCursores(agentes: readonly AgenteId[], tareas: Partial<Record<AgenteId, TareaSuelta>> = {}): () => void {
 	if (!agentes.length) return () => {};
 	for (const a of agentes) prendidos.set(a, (prendidos.get(a) ?? 0) + 1);
+	useCursoresSueltos.setState((s) => ({ tareas: { ...s.tareas, ...tareas } }));
 	publicar();
 	const desde = Date.now();
 	let apagado = false;
@@ -121,4 +143,32 @@ export function mostrarCursores(agentes: readonly AgenteId[]): () => void {
 			Math.max(0, A_LA_VISTA_MS - (Date.now() - desde)),
 		);
 	};
+}
+
+/**
+ * Lo que trabaja cada agente en un pedido del chat: los clips que nombran sus operaciones (`ref`/`refs`, traducidos a ids con
+ * `refsPorId`, que va del id del elemento a su ref) y los segundos donde actúan (`inicio`, `desde`). Sin nada de eso, el agente
+ * recorre sus objetivos de siempre.
+ */
+export function tareasDeOperaciones(p: {
+	operaciones: readonly { op: OperacionChat["op"] }[];
+	refsPorId: ReadonlyMap<string, string>;
+}): Partial<Record<AgenteId, TareaSuelta>> {
+	const idDeRef = new Map([...p.refsPorId].map(([id, ref]) => [ref, id] as const));
+	const out: Partial<Record<AgenteId, TareaSuelta>> = {};
+	for (const o of p.operaciones) {
+		const a = AGENTE_DE_OPERACION[o.op];
+		if (!a) continue;
+		const t = (out[a] ??= { tiempos: [], ids: [] });
+		const x = o as unknown as Record<string, unknown>;
+		for (const ref of [x.ref, ...(Array.isArray(x.refs) ? x.refs : [])]) {
+			const id = typeof ref === "string" ? idDeRef.get(ref) : undefined;
+			if (id && !t.ids.includes(id)) t.ids.push(id);
+		}
+		for (const k of ["inicio", "desde"]) {
+			const v = x[k];
+			if (typeof v === "number" && Number.isFinite(v)) t.tiempos.push(v);
+		}
+	}
+	return out;
 }
