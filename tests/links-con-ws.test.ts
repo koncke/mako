@@ -104,6 +104,11 @@ test('6. lo que MaKo escribe sale en tú; lo que va entre «…» no se toca', a
   assert.equal(alTuteo('Ayer elegí la plantilla y escribí el copy. Recibí tu audio.'), 'Ayer elegí la plantilla y escribí el copy. Recibí tu audio.', 'pasó un pretérito de yo a una orden');
   assert.equal(alTuteo('Acá estoy, por WhatsApp.'), 'Acá estoy, por WhatsApp.', '«acá» no es voseo');
   assert.equal(alTuteo('Mandaste un SOS. Sos el dueño.'), 'Mandaste un SOS. Eres el dueño.', 'tocó la sigla o dejó el «sos»');
+  // Las dos respuestas reales a Joan del 11/11 a las 23:33 y 23:37 UTC (grupo de Código Inmobiliario).
+  assert.equal(alTuteo('No entiendo a qué se refiere `ceo@sellersoficial.com`. ¿Es un email que querés que busque en los leads, una cuenta nueva que conectaste, o algo más?'),
+    'No entiendo a qué se refiere `ceo@sellersoficial.com`. ¿Es un email que quieres que busque en los leads, una cuenta nueva que conectaste, o algo más?');
+  assert.equal(alTuteo('No me queda claro qué cuenta habilitás.'), 'No me queda claro qué cuenta habilitas.');
+  assert.equal(alTuteo('Además, Tomás habló en francés.'), 'Además, Tomás habló en francés.', 'tocó una palabra que no es voseo');
   assert.equal(alTuteo('Anoté tu pedido: «mandale el borrador a Juan, que vos sabés»'), 'Anoté tu pedido: «mandale el borrador a Juan, que vos sabés»', 'cambió las palabras de la persona');
   assert.equal(alTuteo('Las quieres hoy. Puedes verlas en el CRM.'), 'Las quieres hoy. Puedes verlas en el CRM.', 'tocó lo que ya estaba en tú');
   assert.equal(alTuteo('Acacia y mirador quedan igual'), 'Acacia y mirador quedan igual', 'cortó una palabra por la mitad');

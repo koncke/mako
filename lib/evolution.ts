@@ -651,6 +651,25 @@ export async function vinculacionesDeLasLineas(topeMs = 8000): Promise<Map<strin
   return m;
 }
 
+/**
+ * El chat de un grupo como lo ve la línea (los últimos `cuantos` del store de Evolution, con los `fromMe`). Es el contexto de verdad del
+ * turno: ahí está también lo que salió por la línea SIN pasar por el turno (un aviso, el equipo, un envío a mano; lib/hilo-real.ts,
+ * 11/11/2026). Con tope corto: es una lectura antes de contestar. null = no contestó (el turno sigue con su memoria).
+ */
+export async function chatDelGrupo(instance: string, jid: string, cuantos = 40, topeMs = 3000): Promise<EvRecord[] | null> {
+  if (!instance || !jid) return null;
+  const r = await evFetch<{ messages?: { records?: EvRecord[] } } | EvRecord[]>(
+    `/chat/findMessages/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ where: { key: { remoteJid: jid } }, page: 1, offset: cuantos }) },
+    topeMs,
+  );
+  if (!r.ok) return null;
+  const d = r.data;
+  const filas = Array.isArray(d) ? d : Array.isArray(d?.messages?.records) ? d.messages.records : [];
+  // Sólo los de ESE chat: si una versión ignorara el filtro, no se mezclan otros grupos.
+  return filas.filter((m) => (m.key?.remoteJid ?? '') === jid);
+}
+
 /** Los últimos mensajes que guardó una línea, de todos sus chats (sin orden garantizado). null = Evolution no contestó. */
 export async function ultimosMensajesDeLaLinea(instance: string, cuantos = 100, topeMs = 8000): Promise<Array<EvRecord & { key?: { participantAlt?: string } }> | null> {
   const r = await evFetch<{ messages?: { records?: EvRecord[] } } | EvRecord[]>(

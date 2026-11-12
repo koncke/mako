@@ -1461,6 +1461,13 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   dice MaKo (queda en la conversación), 'equipo' si lo dice el equipo (al anillo del equipo, nunca como turno de MaKo), null si
   quien llama ya lo guarda. Sin eso, el turno no sabe a qué le contestan (28/10/2026, tests/grupo-ve-el-grupo.test.ts). `null` es
   sólo de `emitirAviso`: es la única que ya copió al grupo de la app (lib/grupo-app.ts, tests/grupos-ops-guarda.test.ts).
+  **Y el grupo de SuperAdmin también** (11/11/2026, «no guarda contexto de nada»): `enviarAlGrupoSuperAdmin` lo guarda en el negocio de
+  la PLATAFORMA, que es el que lee su turno (`sinMemoria` sólo para `emitirAviso`, que lo guarda él). Un aviso que pide una decisión
+  termina en una pregunta y no nombra herramientas internas («¿lo marco como pagado?», nunca «márcalo con marcar_entrada_pagada»):
+  sin el «?», el «sí» que contesta no sigue la oferta (tests/hilo-del-superadmin.test.ts).
+  **Y el contexto del turno no depende de que cada envío se acuerde:** sale del chat de la línea (`chatDelGrupo` + `conElChatReal`,
+  lib/hilo-real.ts), fundido con la memoria. Lo que el equipo manda a mano por la línea entra igual. Un historial nuevo para un turno
+  se arma con eso, nunca sólo con `mako_doer_conv`.
 - **Todo lo que MaKo le manda a una PERSONA por WhatsApp sale por `lib/mako-salida.ts`**, que no deja escribirle a quien no escribió en las últimas 24 horas (3/11/2026, «no va a mandar ni
   mensajes a nadie»). Nunca `instanciaVoz()` ni `enviarAGrupoJid` de lib/mako-grupo.ts para un número: la voz puede ser el WhatsApp personal de Martín. El bot no tiene línea por defecto y `mako_ws<n>` no puede serlo. La cañería
   (Evolution o la API oficial) vive en `lib/mako-salida-drivers.ts` y no decide nada (docs/hallazgos-comunicacion.md, tests/mako-bot.test.ts).

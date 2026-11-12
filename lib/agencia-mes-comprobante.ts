@@ -24,7 +24,7 @@ import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { referenciaNormal } from './recibos-reglas';
 import { anotarAplicadoDelGrupo, guardarLecturaDelGrupo, lecturaPreviaDelGrupo, leerArchivoComprobante, mimeDeComprobante, ordenEnUnaLecturaDelGrupo } from './comprobantes';
 import { estadoDeLectura, resumenDeLectura, type LecturaComprobante } from './comprobante-reglas';
-import { asignarPago, esDolar, nombreDelMes, usd, veredictoDeLectura, type Pendiente } from './agencia-mes-reglas';
+import { asignarPago, avisoDeComprobanteParaRevisar, esDolar, nombreDelMes, usd, veredictoDeLectura, type Pendiente } from './agencia-mes-reglas';
 import {
   aplicarPagoDeAgencia, avisarAMartin, emitirReciboDeLoCompleto, mensualidadDeAgencia, mensualidadPrendida, revisarPausasDeAgencia,
   textoAlGrupoDeLaAgencia, textoDeComprobante, type MensualidadOk,
@@ -48,9 +48,9 @@ function concepto(clave: string, m: MensualidadOk): string {
   return `la entrada de ${m.clientes.find((c) => c.ws === ws)?.nombre ?? `la cuenta ${ws}`}`;
 }
 
-/** Lo que se debía, en una línea para Martín. */
+/** Lo que se debía, en una línea para Martín. Con el número de cuenta de cada cliente: el turno de MaKo lo necesita para marcarlo. */
 const loQueDebe = (ps: readonly Pendiente[]): string =>
-  ps.length ? ps.map((p) => `${p.tipo === 'mes' ? `mensualidad de ${nombreDelMes(p.mes)}` : `entrada de ${p.nombre}`} ${usd(p.debeUsd)}`).join(' · ') : 'nada pendiente';
+  ps.length ? ps.map((p) => `${p.tipo === 'mes' ? `mensualidad de ${nombreDelMes(p.mes)}` : `entrada de ${p.nombre} (cuenta ${p.ws})`} ${usd(p.debeUsd)}`).join(' · ') : 'nada pendiente';
 
 export type Atendido = { atendido: boolean; que: string };
 
@@ -93,7 +93,11 @@ export async function atenderComprobanteDeAgencia(p: { agenciaWs: number; waMens
   const revisar = async (porque: string, esperadoUsd: number | null): Promise<Atendido> => {
     await guardar(ag, p, mime, l, leida.proveedor, esperadoUsd, null);
     await textoAlGrupoDeLaAgencia(ag, textoDeComprobante({ tipo: 'revisar' }));
-    await avisarAMartin(`Comprobante de ${m.agencia} para revisar (${porque}): ${resumenDeLectura(l, 'dudoso', esperadoUsd != null ? { monto: esperadoUsd, moneda: 'USD', pagoId: null } : null)} Lo que debía: ${loQueDebe(m.pendientes)}. Si está bien, márcalo con marcar_mensualidad_pagada o marcar_entrada_pagada (con la orden).`);
+    await avisarAMartin(avisoDeComprobanteParaRevisar({
+      agencia: m.agencia, agenciaWs: ag, porque,
+      lectura: resumenDeLectura(l, 'dudoso', esperadoUsd != null ? { monto: esperadoUsd, moneda: 'USD', pagoId: null } : null),
+      debe: loQueDebe(m.pendientes),
+    }));
     return { atendido: true, que: `a Martín: ${porque}` };
   };
   const totalDebe = Math.round(m.pendientes.reduce((a, x) => a + x.debeUsd, 0) * 100) / 100;

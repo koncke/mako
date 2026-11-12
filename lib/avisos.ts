@@ -303,7 +303,7 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
     // cuántas le llegaron al grupo, y el historial guarda ésas (no las que no salieron).
     const porPartes = canal.wa && salida ? await enviarPartesAlGrupoMaKo(ws, salida) : null;
     const env = canal.wa
-      ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto, { sinCopia: true })
+      ? (a.alDueno === true ? await enviarAlGrupoSuperAdmin(texto, { sinCopia: true, sinMemoria: true })
         : porPartes ? (porPartes.ok ? { ok: true as const, id: porPartes.ids[porPartes.ids.length - 1] ?? '' } : { ok: false as const, error: porPartes.error ?? 'no salió', ...(porPartes.sinGrupo ? { sinGrupo: true as const } : {}), ...(porPartes.fallaElEnvio ? { fallaElEnvio: true as const } : {}) })
           // La memoria la guarda este mismo aviso, abajo (con las partes que salieron): `null`.
           : await enviarAlGrupoMaKo(ws, texto, null))
@@ -358,7 +358,9 @@ export async function emitirAviso(a: EmitirAvisoInput): Promise<EmitirAvisoResul
       // Se guarda el texto QUE SE MANDÓ (con rótulo), no el pelado: el historial
       // del doer tiene que ser lo que el dueño ve en el chat, o el modelo razona
       // sobre un mensaje que nadie leyó. Por partes, los textos de las partes.
-      if (jid) await guardarTurno(ws, jid, 'assistant', textoTurno, idDelTurno).catch(() => {});
+      // ⚠️ El de `alDueno` va al negocio de la PLATAFORMA (`wsLector`): es el que lee el turno del grupo de SuperAdmin. Con el `ws` del cliente
+      // (lo de antes del 12/11/2026) la fila existía y ningún turno la veía: la memoria se lee por negocio.
+      if (jid) await guardarTurno(a.alDueno === true ? wsLector : ws, jid, 'assistant', textoTurno, idDelTurno).catch(() => {});
 
       // ¿ESTE AVISO INSISTE? Si el cliente lo configuró en Configuraciones ›
       // Notificaciones, además de salir queda una insistencia abierta: vuelve cada N
