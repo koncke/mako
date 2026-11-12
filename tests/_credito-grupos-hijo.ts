@@ -52,7 +52,12 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     const clave = new Headers(init.headers).get('x-api-key') ?? '';
     let modelo = '';
     let system = '';
-    try { const b = JSON.parse(String(init.body ?? '{}')); modelo = String(b.model ?? ''); system = String(b.system ?? ''); } catch { /* sin cuerpo */ }
+    // El system llega como texto o, con la caché de prompt (12/11/2026, lib/anthropic.ts), como bloques: se leen los dos.
+    try {
+      const b = JSON.parse(String(init.body ?? '{}')) as { model?: unknown; system?: string | Array<{ text?: string }> };
+      modelo = String(b.model ?? '');
+      system = typeof b.system === 'string' ? b.system : Array.isArray(b.system) ? b.system.map((x) => x.text ?? '').join('\n') : '';
+    } catch { /* sin cuerpo */ }
     anthropic.push({ clave: clave.slice(0, 29), modelo });
     conPlazo.push(!!init.signal);
     if (system === 'herramienta-y-falla') {

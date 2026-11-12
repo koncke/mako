@@ -10,7 +10,15 @@ El plan y sus mapas: `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/
 - **El módulo común (siguiente commit):** lib/conversacion-reglas.ts (puro) + lib/conversacion.ts (`conversacionDelTurno`,
   `conversacionPrendida`: plataforma y ws13). Cableado en lib/mako-doer-in.ts (historial, ultimoDeMako, rol del equipo y
   preguntaDelEquipo al clasificador). Tests: conversacion-reglas 5/5, hilo-del-superadmin 7/7 (roturas C1-C6).
-- **Falta del plan, en orden:** paso 2 (guardar el mensaje antes de CHARLA/NO_REPLY en el privado), paso 5 (áreas por `aviso_tipo`;
+- **aa318ca29:** el rojo 1054 (cobros sin «pagar» genérico; `areasDeLaPlataforma` suma cs/cobros al nombrar un negocio en el grupo
+  de la plataforma; la firma del equipo sólo en lib/aviso-arreglo-reglas.ts) y el módulo común. ⛔ Desde el 12/11 `lib/conversacion*.ts`
+  lo toca Marketing CoPilot (el resumidor y `entradas`/`ventanaMs` para la app): no tocarlos desde acá.
+- **Después de aa318ca29 (sin subir al escribir esto):** el paso 2 (en el privado, lo que termina en charla o NO_REPLY también se
+  guarda: `guardarLoQueNoSeContesta`, lib/mako-doer-in.ts) y la caché de prompt (`systemConCache` en `chatClaudeTools`,
+  lib/anthropic.ts; tests/cache-de-prompt.test.ts).
+- **Sigue faltando:** la prueba de punta a punta «¿cuánto paga Código Inmobiliario el mes que viene?» → 426 con las herramientas de
+  Planes (`punta/cobros-agencia-por-nombre`, 31f25b902: hay que traerla y armar en el hijo la mensualidad de Código), el paso 7.
+- **Lo viejo del plan, para el registro:** paso 2 (guardar el mensaje antes de CHARLA/NO_REPLY en el privado), paso 5 (áreas por `aviso_tipo`;
   y que `enviarAlGrupoSuperAdmin` copie con `avisoTipo`), paso 6 (cobros sólo en la plataforma, cuidando lib/mako-intencion.ts:553;
   `buscarNegocio` suma cobros), paso 7 (privado: identidad al modelo, el super admin no salta al ws del cliente, cada skip del bot
   deja registro, lo mandado a mano queda como equipo), la caché de prompt en lib/anthropic.ts (lo estable primero con

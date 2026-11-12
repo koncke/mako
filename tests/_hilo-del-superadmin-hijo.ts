@@ -63,7 +63,8 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.host === 'api.resend.com') return json(200, { id: `mail-${red.length}` });
   if (u.host === 'api.anthropic.com') {
     const b = JSON.parse(cuerpo || '{}') as { system?: unknown; messages?: Array<{ role: string; content: unknown }>; tools?: Array<{ name?: string }> };
-    const system = typeof b.system === 'string' ? b.system : JSON.stringify(b.system ?? '');
+    // El system llega como texto o, con la caché de prompt (lib/anthropic.ts), como bloques.
+    const system = typeof b.system === 'string' ? b.system : Array.isArray(b.system) ? (b.system as Array<{ text?: string }>).map((x) => x.text ?? '').join('\n') : '';
     // El clasificador se reconoce por su formato de salida (lib/mako-intencion-ia.ts, SYSTEM_DE_CLASE).
     if (system.includes('{"clase":"PREGUNTA|ACCION')) return json(200, { id: 'm0', type: 'message', role: 'assistant', model: 'claude-haiku-4-5', stop_reason: 'end_turn', content: [{ type: 'text', text: clase }], usage: { input_tokens: 9, output_tokens: 9 } });
     alTurno.push({ system, mensajes: (b.messages ?? []).map((m) => `${m.role}: ${typeof m.content === 'string' ? m.content : JSON.stringify(m.content)}`).join('\n---\n'), tools: (b.tools ?? []).map((t) => String(t.name ?? '')) });

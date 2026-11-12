@@ -878,15 +878,20 @@ export async function chatClaudeTools(
   const maxSteps = opts.maxSteps ?? 8;
   const msgs: RichMsg[] = [...messages];
 
+  // ⚡ CACHÉ DE PROMPT (12/11/2026, docs/hallazgos-ia.md «No hay caché de prompt»): medido en 7 días, 101 llamadas del turno de WhatsApp con
+  // ~9.900 tokens de entrada cada una y 0 leídos de caché. Lo estable va primero (las herramientas y el system) y lleva la marca: la
+  // segunda llamada del turno, que re-manda lo mismo, lo paga a una décima parte. Lo que cambia (la charla, el mensaje) queda afuera.
+  // Por debajo del mínimo del modelo (4.096 tokens en Haiku 4.5) la marca se ignora sin error.
+  const systemConCache = [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }];
   for (let step = 0; step < maxSteps; step++) {
     // Con la clave del negocio, el pedido de `conClaveDelNegocio` (el modelo barato, sin thinking ni effort) más las
     // herramientas: es la forma que ya anda con su clave.
     const payload: Record<string, unknown> = delNegocio
-      ? { model, max_tokens: opts.maxTokens ?? 4096, system, messages: msgs, tools }
+      ? { model, max_tokens: opts.maxTokens ?? 4096, system: systemConCache, messages: msgs, tools }
       : {
         model,
         max_tokens: opts.maxTokens ?? 16000,
-        system,
+        system: systemConCache,
         messages: msgs,
         output_config: { effort },
         thinking: { type: 'adaptive' },

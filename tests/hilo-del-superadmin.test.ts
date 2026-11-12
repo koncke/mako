@@ -179,6 +179,10 @@ test('5. el cableado: la memoria del SuperAdmin, la del aviso al dueño, el hist
   const sanea = doer.slice(doer.indexOf('function saneaHistorial('), doer.indexOf('function saneaHistorial(') + 600);
   assert.doesNotMatch(sanea, /!out\.length && t\.role !== 'user'/, 'el historial vuelve a tirar lo que dijo MaKo al principio');
   assert.match(doer, /const laPlataforma = esElGrupoDeLaPlataforma && !hayInvitado \? await leerLaPlataforma\(\) : null;/);
+  // El paso 2: en el privado, lo que termina en charla o en «no es para MaKo» también queda en la memoria (un «sí» que sólo tuvo 👍).
+  assert.match(doer, /if \(!esGrupo && !hayInvitado\) await guardarTurno\(wsData, jid, 'user', sinPrefijoDeLote\(texto\), msgId \|\| undefined\)/);
+  assert.match(doer, /if \(intencion\.intencion === 'no_reply' && !saludoDelChat\) \{ await guardarLoQueNoSeContesta\(\);/, 'lo que no es para MaKo no queda en el privado');
+  assert.match(doer, /if \(intencion\.intencion === 'charlar' && !saludoDelChat\) \{ await guardarLoQueNoSeContesta\(\);/, 'la charla no queda en el privado');
   const mes = sinComentarios(leer('lib/agencia-mes.ts'));
   // El que viene desde HOY: con la mensualidad prendida desde diciembre, `actual` ya es diciembre, y desde `actual` daba enero.
   assert.match(mes, /const siguiente = armar\(mesSiguiente\(mesHoy\)\);/, 'el mes que viene se cuenta desde `actual`');

@@ -287,7 +287,8 @@ test('un negocio con SÓLO su Claude: el chat contesta con su clave, y «Conecta
   assert.match(tools, /if \(n && 'permiso' in n\) delNegocio = n\.permiso;\s*else if \(n && 'pausa' in n && opts\.sinFallbackClaude\) throw new Error\(`falló la IA \(\$\{CLAUDE_EN_PAUSA\}\)`\);\s*else if \(opts\.sinFallbackClaude\) throw/);
   assert.match(tools, /if \(delNegocio\) permiso = delNegocio;/, 'el permiso es el de la puerta 2, no el de la plataforma');
   assert.match(tools, /const key = delNegocio \? delNegocio\.clave : await credWs\('ANTHROPIC_API_KEY'\);/, 'la clave que verificó el veto');
-  assert.match(tools, /delNegocio\s*\? \{ model, max_tokens: opts\.maxTokens \?\? 4096, system, messages: msgs, tools \}/, 'el pedido que ya anda con su clave');
+  assert.match(tools, /delNegocio\s*\? \{ model, max_tokens: opts\.maxTokens \?\? 4096, system: systemConCache, messages: msgs, tools \}/, 'el pedido que ya anda con su clave');
+  // 12/11/2026: el system viaja como bloque con cache_control (tests/cache-de-prompt.test.ts); el pedido con su clave es el mismo.
   // La marca del gasto, PRIMERO: la del negocio, o la del crédito de la plataforma si su clave es el crédito (`marcaDelGasto`,
   // revisión del lote 2).
   assert.match(tools, /delNegocio \? \[marcaDelGasto\(delNegocio\), /, 'lo paga el negocio: su marca primero');
