@@ -14,6 +14,29 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## En WhatsApp las herramientas se eligen por PALABRAS CLAVE: «cuánto va a pagar Código» no traía la que lo dice (11/11/2026)
+
+**El síntoma:** Martín preguntó en el grupo de SuperAdmin «cuánto va a pagar codigo inmobiliario el mes entrante», y MaKo contestó
+«¿qué es "código inmobiliario"?». `ver_mensualidades_agencias` existía y no viajó.
+
+**Por qué:** en WhatsApp una operación del registro viaja sólo si el mensaje nombra su ÁREA, y el área sale de listas fijas de palabras
+(`AREA_KEYWORDS`, lib/mako-intencion.ts; `herramientasDelTurno`, lib/doer-herramientas.ts). Se probaron las 28 listas contra las tres
+frases reales de esa noche y ninguna daba área: cobros no tenía ni «pagar», ni «mensualidad», ni «comprobante». En la app sí se busca en
+todo el registro (`buscaEnTodo`), y WhatsApp no.
+- ⚠️ **Y aun llamándola:** `buscar_leads` compara sin quitar tildes (lib/mako-tools.ts:228), y «codigo» no encuentra «Código
+  Inmobiliario». `buscarNegocio` (lib/diagnostico-negocio.ts) sí las quita, pero sólo lo usa el DEBUG. El diagnóstico obvio («no
+  llamó a la herramienta») no alcanzaba.
+- ⚠️ **Y en una ACCIÓN que decidió la IA viajan sólo las escrituras simples** (`viajaEnLaAccion`, lib/despacho-grupo.ts). Lo demás se
+  delega al equipo: el «sí» al comprobante se habría delegado justo a quien lo preguntaba.
+
+**La regla:**
+- Una operación nueva que se pide por WhatsApp entra con las palabras con que la pide la gente en el área que la trae.
+- Si escribe y se confirma con el «sí» del chat, va en `ACCIONES_SIMPLES`.
+- Lo de cobros de esa noche ya está: «pagar», «mensualidad», «comprobante» y `marcar_entrada_pagada` / `marcar_mensualidad_pagada`.
+
+**Sin hacer:** que WhatsApp busque en todo el registro como la app; `buscar_leads` sin tildes; `buscar_negocio` para la plataforma; y la
+agencia por nombre en `ver_mensualidades_agencias` (las dos últimas, de «Planes y cobros»).
+
 ## Un texto que sale por HTTP nombraba una operación sin HTTP: el 404 era a propósito, lo que mentía era la nota (10/11/2026, ticket #61)
 
 Fiesta Music (ws 10), desde su Claude por la API: «la landing de la formación que duplicamos el 2/11 no aparece» y

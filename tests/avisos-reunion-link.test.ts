@@ -165,7 +165,8 @@ test('Todo aviso arranca con su rótulo, y se pega en el choke point', () => {
   // Se manda el texto CON rótulo, no el pelado.
   assert.ok(/enviarAlGrupoSuperAdmin\(texto\b/.test(avisos) && /enviarAlGrupoMaKo\(ws, texto, null\)/.test(avisos),
     'se volvió a mandar a.texto sin el rótulo');
-  assert.ok(/guardarTurno\(ws, jid, 'assistant', texto/.test(avisos),
+  // (El aviso al dueño se guarda en el negocio de la plataforma desde el 12/11/2026: el texto es el mismo, cambia de quién es la memoria.)
+  assert.ok(/guardarTurno\((?:ws|a\.alDueno === true \? wsLector : ws), jid, 'assistant', texto/.test(avisos),
     'el historial del doer guarda un texto distinto del que se mandó');
 
   // Todo id del catálogo tiene área declarada: el default 'sistema' existe para

@@ -4,6 +4,19 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## No hay caché de prompt: cada llamada del turno de WhatsApp paga sus ~9.900 tokens de entrada enteros (11/11/2026, medido)
+
+**Lo medido** (`anthropic_usage`, 7 días): `mako-doer-in` hizo 101 llamadas en Haiku 4.5, con 9.916 tokens de entrada y 108 de salida
+de promedio, US$1,06 en total, y **0 tokens leídos de caché**. `lib/anthropic.ts` no manda `cache_control`. Un turno son unas 2,1
+llamadas, y la segunda re-manda el mismo system y las mismas herramientas.
+
+**Por qué importa ahora:** el historial de la conversación del módulo común (lib/conversacion.ts) suma entre 3.000 y 6.000 tokens por
+llamada. Estimado: unos US$35 por mes entre WhatsApp y la app, el 4 % del crédito.
+
+**La regla:** lo estable va primero y con `cache_control` (el system y las herramientas), y lo que cambia (la charla, el mensaje), al
+final. Haiku 4.5 cachea desde 4.096 tokens, y el turno de WhatsApp los pasa. Estimado: la segunda llamada del turno paga una décima
+parte de lo cacheado, un ahorro de ~40 %. **Sin hacer:** el cambio en `lib/anthropic.ts` (el paso 4 del plan del 11/11).
+
 ## Un prompt «hardcodeado» puede tener el default en un archivo que la UI importa — y entonces el registro no alcanza (6/11/2026)
 
 **Síntoma (items 26, 129 y 197 del barrido del 6/11):** «Las instrucciones de carruseles y stories están fijas y no se pueden

@@ -234,7 +234,8 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   // Desde el 11/11/2026 el historial es la memoria FUNDIDA con el chat de verdad de la línea (lib/hilo-real.ts: lo que salió por la línea
   // sin pasar por el turno —un aviso, el equipo, un envío a mano— no estaba en la memoria; tests/hilo-del-superadmin.test.ts). Sin el
   // store, la memoria sola, como antes.
-  assert.match(doer, /const historial = chatReal\n\s*\? conElChatReal\(memoria\.recienteFilas, chatReal, \{[^\n]*\}\)\n\s*: memoria\.reciente;/);
+  // Y donde está prendida, la conversación del módulo común (lib/conversacion.ts, 12/11/2026) va primero.
+  assert.match(doer, /const historial = conversacion \? conversacion\.turnos\n\s*: chatReal\n\s*\? conElChatReal\(memoria\.recienteFilas, chatReal, \{[^\n]*\}\)\n\s*: memoria\.reciente;/);
   // (`historialGrupo(wsData, jid, 1)` sí: es el último turno, para saber si un «ok» contesta una pregunta, lib/doer-para-quien.ts.)
   assert.doesNotMatch(doer, /const historial = await historialGrupo\(/, 'el doer volvió a leer la memoria sin lo de antes');
   // (Desde el 27/10/2026 pasa también por la corrección de monto: tests/doer-falla.test.ts.)

@@ -19,6 +19,8 @@
 // Puro, con test (tests/hilo-del-superadmin.test.ts).
 // =============================================================================
 
+import { esFirmaDelEquipo } from './aviso-arreglo-reglas';
+
 export type FilaDeMemoria = { role: 'user' | 'assistant'; content: string; created_at: string; wa_message_id?: string | null };
 export type MensajeDelChat = {
   key?: { id?: string; fromMe?: boolean; remoteJid?: string; participantAlt?: string };
@@ -30,8 +32,9 @@ export type TurnoDelHilo = { role: 'user' | 'assistant'; content: string };
 export const MARCA_DEL_EQUIPO = '[Equipo de MaKo] ';
 export const esDelEquipoEnElHilo = (content: string): boolean => content.startsWith(MARCA_DEL_EQUIPO);
 
-/** Firmado por el equipo (lib/doer-equipo.ts, `sinFirmaDelEquipo`): «— Equipo de MaKo», «👨‍💻 Desarrollador de MaKo». */
-const FIRMA_DEL_EQUIPO = /(?:^|\n)\s*(?:—|–|-)\s*Equipo de MaKo\s*$|Desarrollador de MaKo|^👨‍💻/iu;
+/** Firmado por el equipo: «— Equipo de MaKo» al pie, o la firma del aviso de un arreglo. ⚠️ Esa firma la reconoce SÓLO su archivo
+ *  (lib/aviso-arreglo-reglas.ts, `esFirmaDelEquipo`): nadie más la escribe, ni en un regex (tests/aviso-arreglo.test.ts). */
+export const firmadoPorElEquipo = (texto: string): boolean => esFirmaDelEquipo(texto) || /(?:^|\n)\s*(?:—|–|-)\s*Equipo de MaKo\s*$/iu.test(texto);
 
 /** El texto de un mensaje del store, o null si no es para el contexto (una reacción, un mensaje de protocolo). */
 export function textoDelMensajeDelChat(m: MensajeDelChat): string | null {
@@ -92,7 +95,7 @@ export function conElChatReal(memoria: readonly FilaDeMemoria[], chat: readonly 
     const deMaKo = !!m.key?.fromMe || (o.esDeMaKo?.(m.key?.participantAlt) ?? false);
     if (deMaKo) {
       if (memNorm.some((x) => x.role === 'assistant' && yaEsta(x.n, n))) continue;
-      const delEquipo = (!!id && !!o.idsDelEquipo?.has(id)) || FIRMA_DEL_EQUIPO.test(texto);
+      const delEquipo = (!!id && !!o.idsDelEquipo?.has(id)) || firmadoPorElEquipo(texto);
       items.push({ at, role: 'assistant', content: delEquipo ? `${MARCA_DEL_EQUIPO}${texto}` : texto });
     } else {
       if (actual && yaEsta(actual, n)) continue;

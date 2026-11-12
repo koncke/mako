@@ -81,7 +81,7 @@ import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro, nombraGoogleCalendar, type VeredictoIntencion } from '@/lib/mako-intencion';
 import { permisoCalendarioGoogle } from '@/lib/google-calendar';
 import { pideBuscarEnElGrupo } from '@/lib/doer-hilo';
-import { bloqueDeLaPlataforma, leerLaPlataforma } from '@/lib/doer-plataforma';
+import { areasDeLaPlataforma, bloqueDeLaPlataforma, leerLaPlataforma } from '@/lib/doer-plataforma';
 import { aFormatoWhatsapp, conMarcaDeTicket, numerosSinFuente, queNoSupo, sanearSalida, sinLoQueMaKoNoDice, sinMuletillas, promesasDe, SANEO_HECHO, SIN_EL_DATO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
@@ -90,6 +90,8 @@ import { CHAT_1A1, esSaludoDeChat } from '@/lib/mako-bot-reglas';
 import { enviarAlChat, escribiendoEnElChat, reaccionarEnElChat } from '@/lib/mako-salida';
 import { chatDelGrupo, enviarPresencia, fetchMediaBase64EnInstancia as bajarDeEvolution, numeroDeInstancia } from '@/lib/evolution';
 import { conElChatReal, esDelEquipoEnElHilo } from '@/lib/hilo-real';
+import { conversacionDelTurno, conversacionPrendida } from '@/lib/conversacion';
+import { preguntaDelEquipoEn, rolParaLaClase } from '@/lib/conversacion-reglas';
 import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno, getWorkspace } from '@/lib/workspace';
 import { informeParaRango } from '@/lib/informe-congelado';
@@ -1939,13 +1941,21 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // aviso, el equipo, un envío a mano— no estaba en la memoria, y MaKo le contestó a Joan «No entiendo a qué se refiere
     // ceo@sellersoficial.com» al correo que el equipo le acababa de pedir. Se funde con el store de la línea; sin él, la memoria sola.
     // ⛔ Un invitado, no: el chat del grupo es del negocio.
-    const chatReal = hayInvitado ? null : await chatDelGrupo(instance, jid).catch(() => null);
     // El anillo del equipo, leído una vez: marca lo suyo en el chat y arma su bloque del system (`ctxEquipo`, abajo).
     const memoriaDelEquipo = await runWithWorkspace(wsData, () => getSetting(CLAVE_EQUIPO_EN_EL_GRUPO)).catch(() => null);
     const idsDelEquipo = new Set(delEquipo(memoriaDelEquipo).map((d) => d.id ?? '').filter(Boolean));
-    const historial = chatReal
-      ? conElChatReal(memoria.recienteFilas, chatReal, { ahoraMs: Date.now(), turnos: 16, idActual: msgId, textoActual: sinPrefijoDeLote(texto), idsDelEquipo })
-      : memoria.reciente;
+    // ⚠️ Y DONDE ESTÁ PRENDIDA, LA CONVERSACIÓN DEL MÓDULO COMÚN (12/11/2026, lib/conversacion.ts): el hilo del grupo como base (lo que PASÓ:
+    // personas, MaKo, el equipo y los avisos), la memoria por id y el chat de la línea; cortada por tokens. Primero la plataforma y Código.
+    const conversacion = hayInvitado || !(await conversacionPrendida(wsData).catch(() => false)) ? null
+      : await conversacionDelTurno({
+        canal: jid.endsWith('@g.us') ? 'grupo' : 'privado', ws: wsData, clave: jid, instancia: instance,
+        excluirIds: msgId ? [msgId] : [], textoActual: sinPrefijoDeLote(texto), idsDelEquipo,
+      }).catch(() => null);
+    const chatReal = hayInvitado || conversacion ? null : await chatDelGrupo(instance, jid).catch(() => null);
+    const historial = conversacion ? conversacion.turnos
+      : chatReal
+        ? conElChatReal(memoria.recienteFilas, chatReal, { ahoraMs: Date.now(), turnos: 16, idActual: msgId, textoActual: sinPrefijoDeLote(texto), idsDelEquipo })
+        : memoria.reciente;
     // Router PRIMERO (elige el modelo por turno) para decidir cuánto contexto mandar:
     // razonamiento/copy/media (Opus) → contexto completo; el resto (cargar tareas, leer
     // un dato, confirmar, charla) → LEAN (las tools traen el dato). Recorta el INPUT, que
@@ -1965,7 +1975,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // hacer lo que ofreció (lib/mako-intencion.ts, regla 3-ter). Se mira sólo el final del
     // historial: un ofrecimiento de hace diez mensajes no lo contesta un «sí» de ahora.
     // Lo del EQUIPO no es una oferta de MaKo (lib/hilo-real.ts, `MARCA_DEL_EQUIPO`): un «sí» a una pregunta del equipo no hace lo que el equipo ofreció.
-    const ultimoDeMako = historial.slice(-2).reverse().find((r) => r.role === 'assistant' && !esDelEquipoEnElHilo(r.content))?.content ?? null;
+    const ultimoDeMako = conversacion ? conversacion.ultimoDeMaKo
+      : historial.slice(-2).reverse().find((r) => r.role === 'assistant' && !esDelEquipoEnElHilo(r.content))?.content ?? null;
     /**
      * EL PEDIDO QUE MaKo PROMETIÓ CUMPLIR, si su último mensaje prometió algo («Eso lo miro y te lo paso»). Es el último
      * de los tres anteriores de la persona que pidió algo de verdad: entre el pedido y el reclamo suele haber un «ok»
@@ -2010,6 +2021,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // acción dentro de MaKo»; lib/mako-intencion-ia.ts) ── Sobre todo lo que pasó la capa 0 (eco, equipo, acuse, el «sí»), no sólo
     // lo dudoso: con reglas, TICKET dio 0 de 11 en el banco de casos reales. Las reglas son el piso: sin IA, mandan ellas.
     const esElGrupoDeLaPlataforma = wsData === (await wsSuperAdmin().catch(() => null));
+    // Quiénes son los negocios de la plataforma (lib/doer-plataforma.ts): para el system y para las áreas de lo que nombra. Nunca con un invitado.
+    const laPlataforma = esElGrupoDeLaPlataforma && !hayInvitado ? await leerLaPlataforma() : null;
     // ⚠️ EL DEBUG LO HABILITA QUIEN ESCRIBE, NO EL GRUPO (la revisión de privacidad de 85a0d9ead, M3): el grupo de SuperAdmin y los de
     // prueba de la allowlist dan la plataforma, y en ésos escribe más gente. Es el dueño si escribe desde SU línea (un `fromMe` que no
     // fue eco: arriba) o un admin de MaKo por su teléfono (`participantAlt` en un grupo con `@lid`). Sin teléfono, o en un lote de varios
@@ -2026,12 +2039,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const { veredicto: delClasificador, clase: claseDeLaIA } = await clasificarConIA({
       texto,
       historial: [
-        ...historial.slice(-6).map((r) => ({ rol: r.role === 'user' ? 'persona' as const : 'mako' as const, texto: typeof r.content === 'string' ? r.content : '' })),
+        // Con su rol: lo del equipo es del equipo, no de MaKo ni de la persona (12/11/2026, el paso 3 del plan; lib/conversacion-reglas.ts).
+        ...historial.slice(-6).map((r) => ({ rol: rolParaLaClase(r), texto: typeof r.content === 'string' ? r.content : '' })),
         ...(textoDeLaCita ? [{ rol: 'persona' as const, texto: `(el mensaje que cita ahora) ${textoDeLaCita.slice(0, 500)}` }] : []),
       ],
       // DEBUG, sólo en el grupo de SuperAdmin (lo integra el equipo de la plataforma) y sólo si escribe el dueño: si no, el deny gana.
       esSuperAdmin: esElGrupoDeLaPlataforma, escribeElDueno,
-      pendiente: vigentes.length > 0, preguntaDelEquipo: null, quien: data.pushName ?? null,
+      pendiente: vigentes.length > 0, preguntaDelEquipo: preguntaDelEquipoEn(historial), quien: data.pushName ?? null,
     }, porReglas, clasificadorDelGrupo(sinPrefijoDeLote(texto).slice(0, 60)));
     // ── UNA PREGUNTA A MaKo NO SE QUEDA EN EL 👍 (4/11/2026, Joan en el grupo de ws13: «mako estas vivo?» → la IA dijo charla → sólo
     // el 👍) ── Si le habla a MaKo y pregunta algo (lib/doer-para-quien.ts, `preguntaAMaKo`), la charla o el «no es para MaKo» corre
@@ -2045,6 +2059,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const intencion: VeredictoIntencion = pregunta
       ? { ...porReglas, fuente: 'reglas', porque: `${porReglas.porque} · le pregunta a MaKo (la IA: ${delClasificador.porque})`.slice(0, 280) }
       : delClasificador;
+    // En el grupo de la plataforma, nombrar un negocio suma sus áreas: «cuánto va a pagar codigo inmobiliario» no nombraba ninguna (12/11/2026,
+    // lib/doer-plataforma.ts, `areasDeLaPlataforma`).
+    const deLaPlataforma = laPlataforma ? areasDeLaPlataforma(sinPrefijoDeLote(texto), laPlataforma.negocios) : [];
+    if (deLaPlataforma.length) intencion.areas = [...new Set([...(intencion.areas ?? []), ...deLaPlataforma])];
     // La decisión queda registrada (sin migración: el registro del gasto), con su porqué.
     void recordUsage('clase-doer', `clase:${intencion.intencion}`, {}, `ws${wsData} · ${intencion.fuente ?? 'reglas'} · ${intencion.porque}`.slice(0, 300), 'mako', 1).catch(() => {});
     // NO ES PARA MaKo: silencio.
@@ -2149,7 +2167,6 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     );
     // En el grupo de SuperAdmin, quiénes son los negocios y las agencias (12/11/2026, lib/doer-plataforma.ts): «cuánto va a pagar Código
     // Inmobiliario el mes entrante» se contestó «¿qué es "código inmobiliario"?». Nunca con un invitado.
-    const laPlataforma = esElGrupoDeLaPlataforma && !hayInvitado ? await leerLaPlataforma() : null;
     // Y los ids que mostraron las herramientas del turno anterior («descartá esa», «la segunda»): se guardan al final del turno.
     const refsGuardadas = await getSetting(CLAVE_REFS(jid)).catch(() => null);
     const ctxMostrado = bloqueLoQueMostraste(refsGuardadas, Date.now());

@@ -33,7 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { avisoDeComprobanteParaRevisar, cuentaDelMes, mesSiguiente, type ClienteDeAgencia } from '../lib/agencia-mes-reglas';
 import { areasDelMensaje, makoPreguntoAlgo } from '../lib/mako-intencion';
 import { viajaEnLaAccion } from '../lib/despacho-grupo';
-import { bloqueDeLaPlataforma } from '../lib/doer-plataforma';
+import { areasDeLaPlataforma, bloqueDeLaPlataforma } from '../lib/doer-plataforma';
 import { conElChatReal, MARCA_DEL_EQUIPO, textoDelMensajeDelChat } from '../lib/hilo-real';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -64,7 +64,12 @@ test('1. el aviso del comprobante termina en una pregunta y no nombra herramient
 });
 
 test('2. «pagar», «mensualidad» y el comprobante son de cobros; marcar el pago viaja en una ACCIÓN', () => {
-  assert.deepEqual(areasDelMensaje('Y dime cuanto va a pagar codigo inmobiliario el mes entrante con todos los clientes'), ['cobros']);
+  // «pagar» no es cobros en todas partes (son las cuotas de un lead, tests/api-mako-cobros.test.ts): lo suma la plataforma al nombrar el negocio.
+  assert.deepEqual(areasDelMensaje('Y dime cuanto va a pagar codigo inmobiliario el mes entrante con todos los clientes'), []);
+  const negocios = [{ ws: 9, nombre: 'MaKo', capa: 'superadmin' }, { ws: 13, nombre: 'Código Inmobiliario', capa: 'agencia' }];
+  assert.deepEqual(areasDeLaPlataforma('Y dime cuanto va a pagar codigo inmobiliario el mes entrante con todos los clientes', negocios), ['cs', 'cobros']);
+  assert.deepEqual(areasDeLaPlataforma('¿cómo está Código Inmobiliario?', negocios), ['cs']);
+  assert.deepEqual(areasDeLaPlataforma('¿cuánto le falta pagar a Ana de sus pagos?', negocios), [], 'sin nombrar un negocio no suma nada');
   assert.ok(areasDelMensaje(AVISO).includes('cobros'), 'el aviso no lleva al área de cobros');
   assert.deepEqual(areasDelMensaje('la página de ventas'), ['landing'], '«página» se volvió cobros');
   assert.ok(viajaEnLaAccion('marcar_entrada_pagada') && viajaEnLaAccion('marcar_mensualidad_pagada'), 'marcar el pago se delega en vez de proponerse');
@@ -116,6 +121,8 @@ test('4. la entrada real: el aviso queda en la memoria y los dos turnos de Mart�
   assert.ok(joan, `el correo de Joan no llegó al turno: ${JSON.stringify(o.correoDeJoan.r)}`);
   assert.match(joan.mensajes, /\[Equipo de MaKo\] Listo: entró el pago de la entrada de Sellers[\s\S]*¿Me pasan el correo bien escrito\?[\s\S]*\nuser: ceo@sellersoficial\.com$/, 'el turno de Joan no vio lo que le pidió el equipo');
   assert.equal((joan.mensajes.match(/ceo@sellersoficial\.com(?!\S)/g) ?? []).length, 1, 'el mensaje de Joan entró también como contexto');
+  // Código (ws13) arranca con la conversación del módulo común (lib/conversacion.ts): lo del equipo entra como user, nunca como MaKo.
+  assert.match(joan.mensajes, /user: \[Equipo de MaKo\] Listo: entró el pago/, 'Código no arma el turno con el módulo común');
 });
 
 test('6. la fusión con el chat de la línea: lo que la memoria no tiene, en orden, sin repetir, lo del equipo marcado', () => {
@@ -155,8 +162,10 @@ test('6. la fusión con el chat de la línea: lo que la memoria no tiene, en ord
   assert.equal(textoDelMensajeDelChat({ message: { imageMessage: { caption: 'el comprobante' } } }), '[foto] el comprobante');
   // Y en el turno, lo del equipo no es la oferta de MaKo que un «sí» acepta.
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  assert.match(doer, /const ultimoDeMako = historial\.slice\(-2\)\.reverse\(\)\.find\(\(r\) => r\.role === 'assistant' && !esDelEquipoEnElHilo\(r\.content\)\)/);
-  assert.match(doer, /const chatReal = hayInvitado \? null : await chatDelGrupo\(instance, jid\)\.catch\(\(\) => null\);/, 'un invitado lee el chat del negocio');
+  assert.match(doer, /const ultimoDeMako = conversacion \? conversacion\.ultimoDeMaKo\n\s*: historial\.slice\(-2\)\.reverse\(\)\.find\(\(r\) => r\.role === 'assistant' && !esDelEquipoEnElHilo\(r\.content\)\)/);
+  assert.match(doer, /const conversacion = hayInvitado \|\| !\(await conversacionPrendida\(wsData\)/, 'un invitado lee la conversación del negocio');
+  assert.match(doer, /const chatReal = hayInvitado \|\| conversacion \? null : await chatDelGrupo\(instance, jid\)\.catch\(\(\) => null\);/, 'un invitado lee el chat del negocio');
+  assert.match(doer, /preguntaDelEquipo: preguntaDelEquipoEn\(historial\)/, 'la pregunta del equipo no llega al clasificador');
 });
 
 test('5. el cableado: la memoria del SuperAdmin, la del aviso al dueño, el historial y el mes que viene', () => {

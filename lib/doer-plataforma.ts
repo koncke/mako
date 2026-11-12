@@ -42,6 +42,27 @@ export function bloqueDeLaPlataforma(negocios: readonly NegocioDeLaPlataforma[],
   ].join('\n');
 }
 
+const sinTildes = (s: string): string => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+/** Lo que pregunta por la plata de una agencia: lo que paga, su mensualidad, el mes que viene, lo que debe. */
+const DE_LO_QUE_PAGA = /\b(paga|pagar|pagan|pago|pagos|pagado|mensualidad(es)?|mes (que viene|entrante|proximo)|proximo mes|debe|deben|cobra|cobrarle)\b/;
+
+/**
+ * Las áreas que suma nombrar un NEGOCIO en el grupo de la plataforma (12/11/2026, el plan del Cerebro, paso 6): «cuánto va a pagar
+ * codigo inmobiliario el mes entrante» no nombraba ningún área, y MaKo preguntó qué es «código inmobiliario». Con el nombre de un
+ * negocio de la lista (sin tildes, como lo escribe la gente), suma `cs` (`buscar_negocio`); si además pregunta por lo que paga, `cobros`
+ * (`ver_mensualidades_agencias`, con la agencia por nombre). Sólo para el grupo de la plataforma: en el de un cliente, «paga» y
+ * «mensualidad» son de sus leads (tests/api-mako-cobros.test.ts, `esPedidoDeCobro`).
+ */
+export function areasDeLaPlataforma(texto: string, negocios: readonly NegocioDeLaPlataforma[]): Array<'cs' | 'cobros'> {
+  const t = sinTildes(texto ?? '');
+  const nombra = negocios.some((n) => {
+    const nombre = sinTildes(n.nombre ?? '').trim();
+    return n.capa !== 'superadmin' && nombre.length >= 4 && t.includes(nombre);
+  });
+  if (!nombra) return [];
+  return DE_LO_QUE_PAGA.test(t) ? ['cs', 'cobros'] : ['cs'];
+}
+
 /** Los negocios y las carteras de las agencias, para el bloque. null si no se pudo leer: el turno sigue sin el bloque. */
 export async function leerLaPlataforma(): Promise<{ negocios: NegocioDeLaPlataforma[]; cartera: FilaDeCartera[] } | null> {
   try {

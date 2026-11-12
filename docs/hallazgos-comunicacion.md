@@ -198,7 +198,22 @@ Y el «querés» / «habilitás» de esas respuestas los pasa a tú `alTuteo` (t
   prendida desde un mes que todavía no llegó (Código, desde diciembre), `actual` ya ES ese mes, y desde `actual` daba enero. Medido en
   producción el 12/11: diciembre, US$426 (Pro 97 + 7 × 47; Pablo, en pausa por su entrada, no cuenta). Lo fija el test 7, con ese dato.
 
+**El módulo común (12/11, el plan del Cerebro):** donde está prendido (`conversacionPrendida`: la plataforma y Código, el ws13), el
+turno arma su conversación con `conversacionDelTurno` (lib/conversacion.ts).
+- La base es el hilo del grupo (`grupo_mensajes`: lo que PASÓ, con personas, MaKo, el equipo y los avisos). La memoria completa por
+  id lo leído de un adjunto, y el chat de la línea suma lo mandado a mano.
+- Se corta por tokens (6.000), con la ventana de 14 h.
+- El equipo entra como user `[Equipo de MaKo]`, nunca como MaKo. El clasificador recibe su rol y su pregunta viva
+  (`preguntaDelEquipo` iba siempre en null).
+- El último de MaKo no es un aviso, salvo citado o si es lo único que dijo en media hora. Tampoco vale si después escribieron dos
+  personas.
+- Lo fija tests/conversacion-reglas.test.ts.
+
 **Sin hacer:**
+- **El aviso sin `avisoTipo`:** lo que sale por `enviarAlGrupoSuperAdmin` se copia al hilo sin `aviso_tipo`, así que en el hilo es
+  «MaKo» y no «aviso». Para el «sí» no cambia nada (si es lo único en media hora, cuenta igual), pero el plan lo pide.
+- **«mensualidad de X» se lee como el plan de pagos de un lead** (lib/mako-intencion.ts:553). Sumar cobros sólo en la plataforma
+  cuidando esa regla es el paso 6 del plan; hoy cobros suma «pagar» y «mensualidad» en todas partes.
 - **«no nombrarme todos los otros»** (Martín, 9/11): cuando el monto calza con varias cosas, el aviso lista todo lo que se debía. Qué
   mostrar, y cómo elegir (Patricia era obvia para él), es una decisión de Martín.
 - **Sin probar con el modelo de verdad:** el test fija lo que le LLEGA al turno (el historial, las herramientas, los negocios), no lo
