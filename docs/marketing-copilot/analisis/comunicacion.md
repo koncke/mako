@@ -80,17 +80,17 @@ Carrizo ordena todo en cascada: dolor ganador → ángulos → presentación (po
 - **Cómo se junta en MaKo:** «de nicho» es **el problema que más tiene tu cliente**, con un hook y un formato que ya funcionan. No es un tema para cualquiera. El llamado explícito («si tienes una marca…») va en los anuncios.
 - **Un matiz honesto:** Cubría y Carrizo crecieron primero con una etapa viral. Carrizo lo sigue haciendo a propósito, porque su cliente quiere ver que él sabe viralizarse (· 193).
 
-## 5. Dónde va cada cosa en la maqueta (vuelta diecisiete)
+## 5. Dónde va cada cosa en la maqueta (vuelta dieciocho)
 
-La tarjeta «Oferta y comunicación» tiene cuatro partes en los tres pasos: **Oferta, Ángulos, Formatos y Tu voz**.
+La tarjeta «Oferta y comunicación» tiene tres partes en los tres pasos: **Oferta, Ángulos y Tu voz**. Los formatos salieron (vuelta dieciocho): se ven al crear el contenido, con los outliers de cada tab.
 
-| Paso | Ángulos | Formatos | Tu voz |
-|---|---|---|---|
-| **El análisis** | Tu dolor que más vende; los anuncios que repiten ángulo; lo que te piden; el tema del momento sin usar; lo que dicen tus clientes (leyendo). A la derecha, tus ángulos con su estado. | Tu reel más visto es para cualquiera; tu formato que mejor rinde; lo que rinde en tu nicho y no haces; lo que no rinde. A la derecha, qué te funciona, por tipo de pieza. | Cuando hablas como hablas, rinde; tus anuncios suenan a marca; tu caso salió sin tu voz; tu forma de hablar entera (leyendo). A la derecha, así hablas. |
-| **La acción** | El dolor que más vende y los ángulos para contarlo: Ganador, Para probar, Quemado. Cada uno abre su popup con de dónde sale y un hook de nicho. | «Para empezar, de nicho»; los que rinden en tu nicho y los tuyos; algo nuevo, un formato de otro nicho. | Cómo hablas, tu historia, contra qué estás, lo que muestras; y cuándo no suenas a ti. |
-| **El piloto** | Busca ángulos nuevos cada semana; los prueba en reels de prueba antes de pautarlos; avisa cuando uno se quema. | Mira cada semana si una pieza rindió por el ángulo o por el formato. | Revisa que cada guion suene a ti. |
+| Paso | Ángulos | Tu voz |
+|---|---|---|
+| **El análisis** | «Nota por nota» con 9 criterios del 1 al 10: tu dolor, el ángulo ganador, ángulos distintos, de nicho, lo que te piden, temas del momento, las palabras de tu cliente, qué trajo cada venta y ángulos quemados. Al lado, la nota y «Lo que leí». | Lo mismo: hablas como hablas, cómo arrancas, tus anuncios con tu voz, tu historia, contra qué estás, quién no eres, las palabras de tu cliente, lo que muestras y tus casos. |
+| **La acción** | Desplegables, como la oferta: tu dolor (el que más vende, otro, sus palabras), tus ángulos (ganador, para probar, quemado), de dónde salen (lo que te piden, tu competencia, el momento) y cómo los mides (qué trajo cada venta, la revisión semanal). | Cómo hablas (tono, cómo arrancas, palabras que atraen y que evitar), tu historia (de dónde vienes, lo que te cambió, tus casos), lo que defiendes (contra qué estás, quién no eres, lo que quieres que crean) y lo que muestras. |
+| **El piloto** | Busca dolores y ángulos nuevos cada semana; los prueba en reels de prueba antes de pautarlos; avisa cuando uno se quema. | Revisa que cada guion suene a ti. |
 
-En la acción, las tareas de comunicación van **primero** en Oferta y comunicación: elegir los ángulos, mirar los formatos del nicho, grabar 3 reels de nicho y grabarse 2 minutos para la voz.
+En la acción, cada cosa tiene su check, lo que sabe MaKo con su fuente (o qué es, si falta) y su popup. Las tareas de comunicación van primero en Oferta y comunicación: elegir los ángulos, grabar 3 reels de nicho y grabarse 2 minutos para la voz.
 
 ## Qué tendría que leer MaKo para hacerlo de verdad
 
