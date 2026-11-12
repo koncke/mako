@@ -993,3 +993,24 @@ texto de la página y el código. Recién al poner cada hoja en una captura, al 
 - **La regla:** una hoja que se quiera mostrar estática (un PDF, un correo o una captura del servidor) necesita un tamaño de partida para
   sus gráficos. Si no, salen vacíos, sin error.
 
+## 43. Tarjetas que dicen otra cosa que su título (relevo del 12/11/2026)
+
+El relevo entero, hoja por hoja: [`marketing-copilot/rediseno/relevo-dashboards.md`](marketing-copilot/rediseno/relevo-dashboards.md).
+Se leyó el código; nada se midió contra la base. Lo que engaña sin dar error:
+
+- **Tres «agendas» en Marketing.**
+  - La frase y los números cuentan las agendas de TODO el CRM, por la fecha de la reunión (`lib/graficos-datos.ts:209`, `:414`), así que
+    «tus anuncios trajeron N agendas» incluye las orgánicas.
+  - La tabla por anuncio usa las que reporta Meta (`agendas_meta`).
+  - «Qué red trae agendas» hace otra lectura en vivo.
+  - El Media Buyer ya las separa (`agendasMeta` / `agendasCrm`, `lib/media-buyer/senales.ts`).
+- **«Anuncio ganador» y «Hooks» sólo ven los anuncios con el guion analizado** (`lib/graficos-datos-extra.ts:125-130`). Un ganador sin
+  análisis no aparece, y ninguna tarjeta dice cuántos quedan afuera.
+- **El hook rate suma las imágenes con 0 reproducciones** (`lib/graficos-datos-extra.ts:190-199`), aunque «El gancho en el tiempo» dice
+  «de los anuncios con video».
+- **«Costo por vista» (VSL)** divide todo el gasto de Meta entre vistas que suman YouTube orgánico y Panda.
+- **«Lo que trae la pauta» (Marketing)** junta Meta, el CRM entero y YouTube en un embudo.
+- **Las hojas de guiones abren con el período «todo»**, y el piloto decide con 7 a 30 días.
+- **La regla:** antes de sumar un gráfico a una hoja, hay que escribir de qué fuente sale cada número del título y de la frase. Dos
+  fuentes en una misma tarjeta se notan en el código, no en la pantalla.
+

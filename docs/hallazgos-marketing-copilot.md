@@ -408,6 +408,11 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
 - **Lo que la app no hace todavía:** pedir `brandingSettings` en la lectura de YouTube. Hoy ningún archivo de `lib/` lo pide (buscado el 12/11).
 - **Copiar la cara real de cada cosa vale también para lo que no es nuestro.** Los anuncios se entienden en la tarjeta de la Biblioteca de Anuncios de Meta («Activo», el identificador, desde cuándo circula, las plataformas, «Ver detalles del anuncio»), con los números de MaKo abajo. Un bloque con su diseño viejo («Tu página de compra») se nota al lado de los nuevos.
 - **Una tarjeta suelta debajo de otra pierde el sentido.** La nota de la oferta pasó a la misma tarjeta que sus piezas.
+- **Las reglas del piloto de la maqueta no usan los umbrales de MaKo.** Lo encontró el relevo `docs/marketing-copilot/rediseno/relevo-dashboards.md`, §0.4. Al programarlo, salen de la casa:
+  - «Cambiar el hook si se va más del 60 % en 3 s» es un hook rate menor a 40 %. El buen gancho de MaKo es 28 % (`lib/ads-analyst-patrones.ts:26`): la regla prendería en casi todos los anuncios.
+  - «+25 % por vez» choca con el tope del Media Buyer, de 20 % por día (`lib/media-buyer/tipos.ts:33`).
+  - «Desde frecuencia 4»: MaKo guarda un promedio de las frecuencias diarias, no la frecuencia del período. Hay que decir de qué ventana es.
+- **«Métricas» muestra cómo le fue, no si cruzó el umbral.** Casi ninguna tarjeta de las hojas dibuja el umbral del que decide el piloto. Instagram y YouTube casi no tienen su dato: sus hojas miden la pauta y el VSL.
 
 ## Sin hacer (9/11/2026)
 
