@@ -54,9 +54,11 @@ function MenuProductoPc({ m }: { m: MenuProducto }) {
   return (
     <div className="s-mega">
       <div className="s-mega-in">
-        <div className="s-mega-grandes">
-          {m.grandes.map((g) => <Grande key={g.slug} href={g.href} icono={g.icono} nombre={g.nombre} bajada={g.bajada} />)}
-        </div>
+        {m.grandes.length ? (
+          <div className="s-mega-grandes">
+            {m.grandes.map((g) => <Grande key={g.slug} href={g.href} icono={g.icono} nombre={g.nombre} bajada={g.bajada} />)}
+          </div>
+        ) : null}
         <div className="s-mega-cols">
           {m.columnas.map((c) => (
             <div key={c.rotulo}>

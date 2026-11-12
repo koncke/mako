@@ -530,6 +530,30 @@ export function nombreParaBuscar(nombre: string): string {
 export const dominioComparable = (s: string): string =>
   (s ?? '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
 
+const REEMPLAZO = String.fromCharCode(0xfffd);
+const esAlto = (u: number) => u >= 0xd800 && u <= 0xdbff;
+const esBajo = (u: number) => u >= 0xdc00 && u <= 0xdfff;
+
+/**
+ * Corta un texto a `n` SIN dejar medio emoji, y cambia por «�» cualquier mitad suelta que ya viniera de la fuente.
+ *
+ * `.slice(0, n)` cuenta unidades UTF-16, y un emoji son dos: cortar justo entre las dos deja una mitad suelta, que
+ * JSON.stringify escribe como un escape que PostgreSQL rechaza. Y PostgREST rechaza el LOTE ENTERO: el 12/11/2026 un
+ * solo video de Dave Ramsey (descripción de 4280 caracteres, con un emoji en el 4000) dejó sin guardar sus 200 videos,
+ * con un «invalid input syntax for type json» que no decía cuál. Todo texto ajeno que va a la base se corta con esto.
+ */
+export function cortarTexto(s: string, n: number): string {
+  let c = s.length > n ? s.slice(0, n) : s;
+  if (c.length < s.length && c.length && esAlto(c.charCodeAt(c.length - 1))) c = c.slice(0, -1);
+  let out = '';
+  for (let i = 0; i < c.length; i++) {
+    const u = c.charCodeAt(i);
+    if (esAlto(u) && esBajo(c.charCodeAt(i + 1))) { out += c.slice(i, i + 2); i++; }
+    else out += esAlto(u) || esBajo(u) ? REEMPLAZO : c[i];
+  }
+  return out;
+}
+
 export const TOPES = {
   /** El @ de Instagram, el id de un canal de YouTube o el id de la Biblioteca de Anuncios. */
   ref: 200,

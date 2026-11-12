@@ -54,7 +54,7 @@
 // `traerVideosDelCanal`, que recibe el `fetch` por parámetro.
 // =============================================================================
 
-import { contadorPublicado, TOPES } from './spy-reglas';
+import { contadorPublicado, cortarTexto, TOPES } from './spy-reglas';
 
 const API = 'https://www.googleapis.com/youtube/v3';
 
@@ -315,8 +315,8 @@ export function leerVideos(cuerpo: unknown): VideoYoutube[] {
       .find((u) => /^https:\/\//.test(u)) ?? null;
     return {
       id: str(v.id),
-      titulo: str(snippet.title).slice(0, TOPES.titulo),
-      descripcion: str(snippet.description).slice(0, TOPES.texto),
+      titulo: cortarTexto(str(snippet.title), TOPES.titulo),
+      descripcion: cortarTexto(str(snippet.description), TOPES.texto),
       publicadoEn: str(snippet.publishedAt),
       // Vienen SÓLO por este endpoint. Un video sin etiquetas y uno de `search.list` se ven igual.
       etiquetas: Array.isArray(snippet.tags) ? snippet.tags.map(str).filter(Boolean).slice(0, 40) : [],

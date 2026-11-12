@@ -48,12 +48,9 @@ const itemDe = (l: LandingCompetencia): ItemFuncion => ({ slug: l.slug, nombre: 
  *   · ads         → su metaTitle: «Marketing CoPilot de MaKo: tu estrategia y tus anuncios, con un copiloto que propone»
  * `familia` es la columna del pie donde va (la de la barra de la app); el Ops Center va en la de MaKo.
  */
-const GRANDES: readonly { slug: string; bajada: string; familia: string | null }[] = [
-  { slug: 'mako', bajada: 'El chat que conoce tu negocio', familia: null },
-  { slug: 'crm', bajada: 'Se llena y se mueve solo', familia: 'Sales' },
-  { slug: 'seguimiento', bajada: 'Tu setter con IA', familia: 'Sales' },
-  { slug: 'ads', bajada: 'Tu estrategia y tus anuncios', familia: 'Marketing' },
-];
+// Las cuatro grandes de arriba (Ops Center, CRM, Automations y CoPilot con ícono y bajada) se fueron el 12/11/2026. Martín: «No me
+// gusta tampoco de que esté arriba las cuatro esas y abajo esas otras. Me gustaría que todas estén como están abajo».
+const GRANDES: readonly { slug: string; bajada: string; familia: string | null }[] = [];
 
 /**
  * Las columnas de «Producto» (las de beehiiv: Publish, Grow, Earn, Analyze, Connect): las familias de la barra de la app, con
@@ -61,9 +58,10 @@ const GRANDES: readonly { slug: string; bajada: string; familia: string | null }
  * Marketing porque hablan de tus anuncios; Cobranza (el plan de cuotas del CRM) y Agenda (Calendar) en Sales.
  */
 const COLUMNAS: readonly { rotulo: string; slugs: readonly string[] }[] = [
+  { rotulo: 'MaKo', slugs: ['mako'] },
   { rotulo: 'Today', slugs: ['dashboard', 'whatsapp', 'prioridades', 'email'] },
-  { rotulo: 'Sales', slugs: ['agenda', 'cobranza'] },
-  { rotulo: 'Marketing', slugs: ['offer', 'competitor-spy', 'script', 'funnel'] },
+  { rotulo: 'Sales', slugs: ['crm', 'seguimiento', 'agenda', 'cobranza'] },
+  { rotulo: 'Marketing', slugs: ['ads', 'offer', 'competitor-spy', 'script', 'funnel'] },
   { rotulo: 'Create', slugs: ['video', 'ai-avatar', 'image', 'copywriting', 'web-generator'] },
 ];
 
@@ -174,18 +172,28 @@ export const LEGALES: readonly { nombre: string; href: string }[] = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Las seis tarjetas de «Everything you need…» (las seis de beehiiv, en filas de 2 a 1 y de 1 a 2). El texto es una frase de
+ * Las ocho tarjetas de «Everything you need…» (las de beehiiv, de a pares en filas de 2 a 1 y de 1 a 2). El texto es una frase de
  * su landing (su hero o su metaDesc), y el visual el que ya tiene esa landing:
  *   · crm         → «La ficha se crea cuando entra el lead, se mueve de etapa cuando agenda…» (hero). Su visual de portada se
  *                   dibuja en un canvas; va el tablero de etapas de app/vsl/_detalle/feature-visuals.ts (`kanban` de pipeline).
- *   · seguimiento → su metaDesc. · ads → su hero. · video → su hero. · web-generator → su metaDesc. · whatsapp → su metaDesc.
+ *   · seguimiento → su metaDesc. · ads → su hero. · video → su hero. · whatsapp → su metaDesc.
+ *   · competitor-spy → su «Después de MaKo». · web-generator → la bajada de su hero (replicar). · copywriting → su FAQ de los
+ *                   referentes; la pared de caricaturas lleva «Inspirado en» (la regla de lib/asesores/catalogo.ts).
  */
-export const TARJETAS_PORTADA: readonly { slug: string; texto: string; visual: 'hero' | { grupo: string; tipo: string } }[] = [
+/** Lo que dibuja una tarjeta: el visual de su landing, uno de app/vsl/_detalle/feature-visuals.ts, una grabación de la app o los gurús. */
+export type VisualTarjeta = 'hero' | 'gurus' | { grupo: string; tipo: string } | { video: string; poster: string };
+
+export const TARJETAS_PORTADA: readonly { slug: string; texto: string; visual: VisualTarjeta }[] = [
   { slug: 'crm', texto: 'La ficha se crea cuando entra el lead y se mueve de etapa cuando agenda.', visual: { grupo: 'pipeline', tipo: 'kanban' } },
   { slug: 'seguimiento', texto: 'Un agente que contesta por WhatsApp, Instagram, Messenger y email.', visual: 'hero' },
+  // Las grabaciones de la app (Martín, 12/11/2026: «la animación… posteos que se van acomodando… cursores»): el componente de
+  // verdad (app/competitor-spy/OrdenSpy.tsx → PeliculaDeOrden, app/web-generator/crear/EscenarioReplica.tsx) armado aparte con
+  // esbuild y grabado con Playwright; cómo, en docs/hallazgos-landing.md («Grabar la app sin Next»).
   { slug: 'ads', texto: 'Cada día mira tus anuncios de Meta y te propone qué subir, pausar o probar.', visual: 'hero' },
+  { slug: 'competitor-spy', texto: 'Cada competidor con sus piezas, ordenadas por formato, y tu versión a un toque en Image.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
+  { slug: 'web-generator', texto: 'Pega el link de una landing que ya funciona y MaKo la replica con tu oferta.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
+  { slug: 'copywriting', texto: 'Habla con los referentes del marketing: cada uno te contesta con su método.', visual: 'gurus' },
   { slug: 'video', texto: 'Un editor como CapCut con MaKo al lado: quita las pausas y subtitula.', visual: 'hero' },
-  { slug: 'web-generator', texto: 'Describes la landing que necesitas y MaKo la arma por secciones.', visual: 'hero' },
   { slug: 'whatsapp', texto: 'Una conversación por contacto, con su ficha del CRM al lado.', visual: 'hero' },
 ];
 
@@ -194,6 +202,17 @@ export const landingDeSlug = landingDe;
 
 /** Las apps de la tira de arriba (la de los logos de beehiiv): las conocidas de una venta High Ticket, si están conectables. */
 const TIRA: readonly string[] = ['meta', 'whatsapp', 'red-instagram', 'red-facebook', 'calendly', 'calcom', 'zoom', 'fathom', 'stripe', 'mercadopago', 'youtube', 'red-tiktok'];
+
+/**
+ * El logo ORIGINAL de cada app de la tira, flotando (Martín, 12/11/2026: «hay logos que están un poco raros todavía, como el de
+ * Mercado Pago»). En public/vsl-assets/logos/integraciones/: el ícono que publica su sitio, o, donde era chico (Meta, WhatsApp,
+ * Zoom, Mercado Pago), su logo de simple-icons 13.21.0 en el color de su marca.
+ */
+export const LOGO_INTEGRACION: Readonly<Record<string, string>> = {
+  meta: 'meta.svg', whatsapp: 'whatsapp.svg', 'red-instagram': 'instagram.png', 'red-facebook': 'facebook.png', calendly: 'calendly.png',
+  calcom: 'calcom.png', zoom: 'zoom.svg', fathom: 'fathom.png', stripe: 'stripe.png', mercadopago: 'mercadopago.svg', youtube: 'youtube.png',
+  'red-tiktok': 'tiktok.png',
+};
 
 /**
  * Las integraciones que un negocio puede conectar HOY: las que ve un negocio en /integraciones (`defsVisibles` sin super

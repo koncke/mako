@@ -2243,3 +2243,21 @@ moverlos de lugar: es que lleguen.
 **Trampa que encontró el test:** cuando la foto cambia de dirección (otra extensión), la cola le pasaba al Runner la foto de la ENTRADA, o sea el logo de antes: la habría caricaturizado. Ahora va la de ahora, y al marcar «sin persona» de nuevo también se guarda la de ahora.
 
 **Sin hacer:** la tarjeta no dice «Haciendo…» para una que volvió por la huella (el servidor no baja la foto para saberlo): muestra su foto hasta que el Runner la hace. El competidor 41 del ws 9 sigue en la cola hasta que el Runner corra `spy-caricatura-guardar.mjs 9 41 --sin-persona "es un logo"` con esto en main.
+
+## Medio emoji tumba el lote entero, y los sueltos del ws 9 sin Instagram (12/11/2026)
+
+**Vive en:** `lib/spy-reglas.ts` (`cortarTexto`), usado por `guardarVistas` (`lib/spy.ts`), `lib/spy-youtube.ts`, `lib/spy-captura.ts`, `lib/spy-que-es.ts` y `lib/spy-todo-reglas.ts`. Test: `tests/spy-corte-emoji.test.ts`.
+
+**Síntoma:** Dave Ramsey (26 del ws 9) quedó con foto y web pero sin ningún video. «Volver a leer» contestaba `invalid input syntax for type json`, sin decir de cuál. No hay triggers en `spy_piezas`, y `comun` no escribe ninguna columna jsonb.
+
+**Causa:** de sus 200 videos, uno solo (`t2h2lK2hN4M`, con una descripción de 4280 caracteres) tenía un emoji justo en la posición 4000. `.slice(0, TOPES.texto)` corta por unidades UTF-16, y un emoji ocupa dos: el corte dejó la mitad suelta, JSON.stringify la escribe como un escape y PostgreSQL rechaza el JSON. **PostgREST manda el upsert como un solo JSON, así que una pieza mala tumba el lote entero.**
+
+**⚠️ El diagnóstico obvio era el equivocado:** «json» hacía buscar una columna jsonb, como `analisis` o `funnel`, o la escritura aparte de `guardarMedios`. Pero el JSON con problemas es el CUERPO del pedido a PostgREST, y el error sale aunque todas las columnas sean texto. Además, revisar sólo los últimos 50 videos no lo mostraba: estaba en la página 2.
+
+**La regla:** todo texto ajeno que se recorta antes de ir a la base se corta con `cortarTexto`, nunca con `.slice`. Así no queda medio emoji al final, y cualquier mitad suelta que ya traiga la fuente se reemplaza por «�». El test 4 avisa si alguno de esos archivos vuelve a usar `.slice(0, TOPES.…)`.
+
+**Trampas del entorno, medidas el mismo día:**
+- **Integraciones dice «Conectada», pero la clave de Apify del ws 9 contesta 401.** La pantalla mira si la clave existe, no si funciona. Además Meta no tiene un Instagram conectado. Por eso ningún suelto trae Instagram: ni su foto, ni sus posts, ni sus reels. Arreglarlo le toca a Martín, pegando una clave válida o conectando Meta.
+- **YouTube contestaba «Falta conectar YouTube» hasta el despliegue de las 11:05 UTC.** Después leyó bien: llegaron unas 500 piezas y las fotos de 9 sueltos. En main no es lo mismo que en producción: hasta el despliegue, lo que se mide es el código viejo.
+
+**Sin hacer:** Sarah Tran (37) sigue sin canal verificado. Maria Wendt (29) tiene canal pero no trajo foto ni videos y hay que revisarla. Las fotos nuevas que son logos (Mindvalley, The Ramsey Show) esperan el `--sin-persona` del Runner.

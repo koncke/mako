@@ -517,7 +517,10 @@ test('32: estilo de texto: los params del panel, la fuente de la lista, y en un 
     { op: 'estilo_texto', ref: 'v1', estilo: { color: '#ffffff' } },
   ]);
   assert.equal(r.resueltas.length, 3);
-  assert.deepEqual((r.resueltas[0] as Params).params, { fontFamily: 'Montserrat', fontSize: 24, color: '#ffd400', fontWeight: 'bold', 'trazo.activo': true, 'trazo.color': '#000000' });
+  // «Oferta» en 24 en un 9:16 eran letras de 512 px y ~1.500 px de ancho: no entraba. Desde el 12/11/2026 queda en el tamaño
+  // que entra, y se dice (tests/video-editor-chat-texto-entra.test.ts).
+  assert.deepEqual((r.resueltas[0] as Params).params, { fontFamily: 'Montserrat', fontSize: 14, color: '#ffd400', fontWeight: 'bold', 'trazo.activo': true, 'trazo.color': '#000000' });
+  assert.match(r.descartes.join(), /el tamaño 24 saca «Oferta» del cuadro: queda en 14/);
   assert.match(r.cambios[0].antes, /color #ffffff/);
   assert.match(r.cambios[0].despues, /fuente Montserrat/);
   // El color de un subtítulo no le cambia el ancho al renglón: va directo, en el lote.

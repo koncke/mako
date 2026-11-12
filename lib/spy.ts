@@ -49,7 +49,7 @@ import { nombresDe } from './landing-snapshot';
 import { mirarLanding } from './landing-vigilancia';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
 import {
-  contadorPublicado, diasCorriendo, etapaDeTendencia, leerTramo, podarVencido, TOPES,
+  contadorPublicado, cortarTexto, diasCorriendo, etapaDeTendencia, leerTramo, podarVencido, TOPES,
   type CanalSpy, type FuentePieza, type TipoPieza,
   nombreComparable, dominioComparable, canalDeLaBio,
 } from './spy-reglas';
@@ -250,7 +250,7 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string, d
   // distintos para la base, dos tarjetas para la persona. Con el nombre completo, la deduplicación
   // por nombre comparable de abajo los junta sola la próxima vez.
   const referente = referenteDeCompetidor(comoAQuienMira(leido));
-  const nombre = (nombrePedido ?? '').trim().slice(0, TOPES.nombre)
+  const nombre = cortarTexto((nombrePedido ?? '').trim(), TOPES.nombre)
     || (referente ? nombreDeReferente(referente) : '')
     || (leido.campo === 'nombre' ? leido.valor : leido.valor.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]);
   const db = await getTenantDb();
@@ -550,8 +550,9 @@ export async function guardarVistas(
   const comun = (v: PiezaVista) => ({
     competidor_id: competidorId, canal: v.canal, tipo: v.tipo, ref: v.ref.slice(0, TOPES.ref), fuente: v.fuente,
     url: v.url ?? null,
-    titulo: v.titulo?.slice(0, TOPES.titulo) ?? null,
-    texto: v.texto?.slice(0, TOPES.texto) ?? null,
+    // `cortarTexto` y no `.slice`: medio emoji hace que PostgREST rechace el lote entero (Dave Ramsey, 12/11/2026).
+    titulo: v.titulo != null ? cortarTexto(v.titulo, TOPES.titulo) : null,
+    texto: v.texto != null ? cortarTexto(v.texto, TOPES.texto) : null,
     etiquetas: v.etiquetas ?? null,
     texto_leido_en: ahora,
     // `contadorPublicado` y no `?? 0`: ausente es «no lo publica», y son dos datos distintos.
@@ -979,7 +980,7 @@ function objetoJson(texto: string): unknown {
 
 /** El dominio de una URL, para titular la fila de la landing sin bajar la página otra vez. */
 function hostDe(url: string): string {
-  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url.slice(0, TOPES.titulo); }
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return cortarTexto(url, TOPES.titulo); }
 }
 
 const esObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);

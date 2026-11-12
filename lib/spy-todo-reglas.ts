@@ -17,6 +17,7 @@
 
 import type { AnuncioLeido } from './spy-captura';
 import { medioDeAnuncio } from './spy-medio';
+import { cortarTexto, TOPES } from './spy-reglas';
 
 /** El actor de publicaciones de Instagram: el mismo `apify~instagram-scraper` que ya busca por nombre, con `resultsType: posts`. */
 export const APIFY_ACTOR_PUBLICACIONES = 'apify~instagram-scraper';
@@ -309,8 +310,8 @@ export function anuncioDeApify(crudo: unknown): AnuncioLeido | null {
     desde: fechaDeAnuncio(primero(crudo, 'startDate', 'start_date', 'startDateFormatted')),
     hasta: activo === false ? fechaDeAnuncio(primero(crudo, 'endDate', 'end_date', 'endDateFormatted')) : null,
     pagina: nombre ? { nombre, handle } : null,
-    texto: texto ? texto.replace(/\s+/g, ' ').trim().slice(0, 4000) : null,
-    titulo: titulo ? titulo.slice(0, 300) : null,
+    texto: texto ? cortarTexto(texto.replace(/\s+/g, ' ').trim(), TOPES.texto) : null,
+    titulo: titulo ? cortarTexto(titulo, TOPES.titulo) : null,
     destino,
     miniatura,
     // Imagen, video o carrusel (6/11/2026): el explorador de Image muestra sólo los de imagen (lib/carruseles/anuncios.ts).
