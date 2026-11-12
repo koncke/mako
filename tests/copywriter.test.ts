@@ -250,7 +250,7 @@ test('«Mis guiones» y la «←»: la última editada arriba, las subpáginas d
     p('ga111111', null, 0, { actualizado: '2026-10-30T00:00:00.000Z' }),
     p('gb111111', null, 1, { actualizado: '2026-11-12T07:11:00.000Z' }),
     p('gc111111', 'ga111111', 0, { actualizado: '2026-11-12T09:00:00.000Z' }),
-    p('gd111111', null, 2, { actualizado: '2026-11-01T00:00:00.000Z', papelera: true }),
+    p('gd111111', null, 2, { actualizado: '2026-11-01T00:00:00.000Z', papelera: '2026-11-02T00:00:00.000Z' }),
   ];
   assert.deepEqual(enOrdenReciente(base).map((x) => x.p.id), ['gb111111', 'ga111111', 'gc111111'], 'la de la Papelera no sale');
   assert.match(leer('app/m/copywriter/ListaGuionesM.tsx'), /const filas = enOrdenReciente\(paginas\);/);
