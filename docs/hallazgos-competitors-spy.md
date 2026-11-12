@@ -1283,7 +1283,9 @@ Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que 
 - La miniatura sólo puede ser del CDN de Meta: la baja el servidor, y si no, un token cualquiera le hace pedir lo que quiera.
 
 **Sin hacer:**
-- ⚠️ **Falta verlo escrito de verdad.** Guardar en el ws3 lo frenó el clasificador de permisos, `lib/spy-captura-db.ts` y la ruta se probaron con una base de mentira y capturas reales (`tests/spy-captura-db.test.ts`). Falta correrlo contra producción, en el ws3.
+- ~~Falta verlo escrito de verdad~~ **Medido en producción el 12/11, sólo lectura:** la columna `funnel` está, y en el ws3 Acquisition.com tiene los mismos píxeles que se midieron acá (Analytics, Tag Manager, Google Ads, TikTok y Vidalytics). Hay 8 landings con funnel en tres negocios. **Todavía ninguna con lo del navegador** (`navegador` vacío en todas): «Guardar en la ficha de…» sobre un sitio no se usó en producción.
+- ⚠️ **Dos landings leídas bien quedaron sin funnel** (ws3, Leila Hormozi, 11/11; ws11, viralidad.com, 6/11), y otra fila con la misma página en otro negocio sí lo tiene. Leídas de nuevo el 12/11 en local, `leerFunnel` las lee bien en 17 y 11 ms: no es el lector. Lo que encaja: algo tiró DESPUÉS de `guardarVistas` y antes de escribir el funnel, el `catch` de `mirarCompetidor` dijo «no pude leer su sitio» y la fila ya estaba. Sin los logs de esa hora no se confirma. Se arregla solo con la próxima lectura.
+- ⚠️ **Los anuncios que trae Apify dicen «lo guardaste desde tu navegador».** `lib/spy-todo.ts` (4/11, otro trabajo) los guarda con `piezaDeAnuncio`, que pone `fuente: 'recorrido'`. En producción son los 318 de ws9 y ws11 (262 en 15 segundos: no pueden ser clics, la extensión guarda hasta 50 por vez). La API de MaKo se lo dice así al cliente (`NOMBRE_FUENTE`, `que_esta_haciendo`). Hace falta una fuente propia, y eso es una migración (el `check` de `spy_piezas.fuente`) más corregir esas filas.
 - Publicar la 0.75.0 lo decide el Cerebro: la 0.74.5 sigue en revisión. **Al subir esta parte a main**, `EXTENSION_VERSION` pasa a 0.75.0 y la tienda queda atrás (`EXTENSION_EN_TIENDA`), así que la app vuelve a ofrecer el zip.
 - Sin medir: que `activeTab` no desactive la extensión al actualizar desde la tienda (deducido de la documentación). El clic se midió con `Extensions.triggerAction`, no con una persona.
 - **La miniatura que no se llega a bajar se pierde:** `guardarMiniaturas` tiene 9 s de presupuesto, y un anuncio no se relee solo. La que no entró queda apuntando al CDN, que vence, hasta que se vuelva a guardar esa pestaña.
@@ -2226,3 +2228,17 @@ pero **cero anuncios y `pagina_anuncios` vacío**, porque su paso de anuncios ta
 el logo de Meta (`LogoRed.tsx`, `SpyApp.tsx:1595`, por pedido de Martín del 4/11). El botón «Ver sus
 anuncios en Meta» del Funnel es el camino de respaldo para cuando no hay ninguno. Lo que falta no es
 moverlos de lugar: es que lleguen.
+
+## Una foto que es un logo: «sin persona» no es un fallo, y la URL de la foto no dice si cambió (12/11/2026)
+
+**Vive en:** `lib/spy-caricatura-reglas.ts` (`estadoEnCola`, `colaDeCaricaturas`), `lib/spy-caricatura-cola.ts` (`marcarSinPersona`, `listarCola`), `scripts/spy-caricatura-guardar.mjs --sin-persona`. El contrato: `docs/relevo/nube-spy.md`.
+
+**Síntoma:** el competidor 41 del ws 9 tiene un logo de foto (un cuadrado con una letra en 3D). El Runner no tenía cara que caricaturizar, no anotó fallo porque Canva no había fallado, y la única salida era anotar tres fallos en tres días hasta que quedara «rendida»: el super admin lo habría visto como un fallo de Canva.
+
+**La regla:** las caricaturas son sólo para personas (los referentes y los competidores con cara). Una marca o agencia sin persona visible se queda con su logo: `--sin-persona "<motivo>"` la saca de la cola en el acto, borra los fallos que hubiera y la lista la muestra aparte (`sinPersona`), no en `rendidas`. Tampoco frena la cola.
+
+**⚠️ El diagnóstico obvio era el equivocado:** «vuelve a la cola si cambia la foto» parecía un `if` sobre la URL, y **la URL de la foto no cambia cuando cambia la foto**: es por su cuenta (`spy/avatar/<usuario>`) y se pisa. Comparando la URL, un competidor que pone su cara después de un logo no volvería nunca. Se guarda el sha-256 de la imagen al marcarlo, y la lista de pendientes baja SÓLO esas fotos y compara. Si no se puede bajar, no se mueve nada (si no, un corte del Storage las devolvería a todas a la cola).
+
+**Trampa que encontró el test:** cuando la foto cambia de dirección (otra extensión), la cola le pasaba al Runner la foto de la ENTRADA, o sea el logo de antes: la habría caricaturizado. Ahora va la de ahora, y al marcar «sin persona» de nuevo también se guarda la de ahora.
+
+**Sin hacer:** la tarjeta no dice «Haciendo…» para una que volvió por la huella (el servidor no baja la foto para saberlo): muestra su foto hasta que el Runner la hace. El competidor 41 del ws 9 sigue en la cola hasta que el Runner corra `spy-caricatura-guardar.mjs 9 41 --sin-persona "es un logo"` con esto en main.

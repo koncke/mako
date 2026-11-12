@@ -5,6 +5,7 @@
 // Uso:
 //   node --env-file=<clon>/.env.local --import tsx scripts/spy-caricatura-guardar.mjs <ws> <id> <archivo>
 //   node --env-file=<clon>/.env.local --import tsx scripts/spy-caricatura-guardar.mjs <ws> <id> --fallo "<motivo>"
+//   node --env-file=<clon>/.env.local --import tsx scripts/spy-caricatura-guardar.mjs <ws> <id> --sin-persona "<motivo>"
 //
 // Con el archivo (JPG, PNG o WebP, cuadrado, de 128 px o más, hasta 2 MB): lo sube a NUESTRO Storage, por su cuenta
 // (`spy/caricatura/instagram-…`), y la marca lista en ese competidor y en la misma persona (misma red y mismo usuario)
@@ -14,17 +15,21 @@
 // Con `--fallo`: anota que Canva NO PUDO hacerla (no que no había Canva: sin Canva no se anota nada). No se reintenta en cadena: la lista de pendientes no la vuelve a traer hasta
 // el día siguiente, y a los 3 fallos queda «rendida» (visible para el super admin en la misma lista).
 //
+// Con `--sin-persona` (12/11/2026): su foto no es una persona (un logo, una marca) y no hay caricatura que hacer. Sale de
+// la cola en el acto, la tarjeta se queda con su foto, y NO es un fallo de Canva: no suma fallos y no termina en
+// «rendidas» (la lista lo muestra aparte, en «sinPersona»). Vuelve a la cola sólo si cambia la foto: se guarda su huella.
+//
 // Sale con 0 si quedó hecho, 1 si no (y dice por qué).
 // =============================================================================
 import { readFileSync } from 'node:fs';
-import { anotarFallo, guardarCaricatura } from '../lib/spy-caricatura-cola.ts';
+import { anotarFallo, guardarCaricatura, marcarSinPersona } from '../lib/spy-caricatura-cola.ts';
 import { depsDeLaBase } from './spy-caricatura-base.mjs';
 
 const [wsTxt, idTxt, tercero, ...resto] = process.argv.slice(2);
 const ws = Number(wsTxt);
 const id = Number(idTxt);
 if (!Number.isInteger(ws) || ws <= 0 || !Number.isInteger(id) || id <= 0 || !tercero) {
-  console.error('Uso: spy-caricatura-guardar.mjs <ws> <id> <archivo>  |  <ws> <id> --fallo "<motivo>"');
+  console.error('Uso: spy-caricatura-guardar.mjs <ws> <id> <archivo>  |  <ws> <id> --fallo "<motivo>"  |  <ws> <id> --sin-persona "<motivo>"');
   process.exit(2);
 }
 const deps = depsDeLaBase();
@@ -33,6 +38,13 @@ if (tercero === '--fallo') {
   const r = await anotarFallo(deps, ws, id, resto.join(' '));
   if (!r.ok) { console.error(r.error); process.exit(1); }
   console.log(r.rendida ? `Anotado (${r.fallos} fallos): queda rendida, ya no se intenta.` : `Anotado (${r.fallos} de 3): vuelve a la lista mañana.`);
+  process.exit(0);
+}
+
+if (tercero === '--sin-persona') {
+  const r = await marcarSinPersona(deps, ws, id, resto.join(' '));
+  if (!r.ok) { console.error(r.error); process.exit(1); }
+  console.log(`Fuera de la cola, con su foto (no es un fallo). Marcado en ${r.marcadas.length} competidor(es): ${r.marcadas.map((m) => `ws${m.ws}#${m.id}`).join(', ')}`);
   process.exit(0);
 }
 

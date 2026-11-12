@@ -8,6 +8,7 @@
 // Lee NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY del entorno (`--env-file=<clon>/.env.local`). Nunca imprime
 // una clave.
 // =============================================================================
+import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { CLAVE_CARICATURAS } from '../lib/spy-caricatura-reglas.ts';
 import { referenteDeCompetidor } from '../lib/spy-caricatura.ts';
@@ -50,6 +51,14 @@ export function depsDeLaBase() {
       const { data, error } = await (version ? base.eq('updated_at', version) : base.is('updated_at', null)).select('key');
       if (error) throw new Error(`No pude guardar las caricaturas del negocio ${ws}: ${error.message}`);
       return (data?.length ?? 0) > 0;
+    },
+    /** El sha-256 de una foto nuestra, o null si no se pudo bajar. Sólo se usa con las fotos sin persona. */
+    async huella(url) {
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+        if (!r.ok) return null;
+        return createHash('sha256').update(new Uint8Array(await r.arrayBuffer())).digest('hex');
+      } catch { return null; }
     },
     async subir(ruta, bytes, mime) {
       const { error } = await sb.storage.from(BUCKET_MINIATURAS).upload(ruta, bytes, { contentType: mime, upsert: true, cacheControl: '31536000' });

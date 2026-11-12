@@ -17,7 +17,7 @@
 import {
   CLAVE_CARICATURAS, FALLOS_HASTA_RENDIRSE, LADO_MINIMO_CARICATURA, PESO_MAXIMO_CARICATURA, colaDeCaricaturas, cuentasDe,
   estadoEnCola, fotoEsNuestra, leerRegistro, medidasDeImagen, mismaPersona, motivoLimpio, refDeCuenta,
-  type CompetidorCola, type EntradaCaricatura, type ItemCola, type ItemRendido, type RegistroCaricaturas,
+  type CompetidorCola, type EntradaCaricatura, type ItemCola, type ItemRendido, type ItemSinPersona, type RegistroCaricaturas,
 } from './spy-caricatura-reglas';
 import { rutaDeMiniatura, tipoDeImagen } from './spy-miniaturas';
 
@@ -80,18 +80,43 @@ export async function encolarCaricatura(deps: DepsEncolar, c: CompetidorCola, ah
 
 // ── 2. Listar (el Runner) ────────────────────────────────────────────────────────────────────────────────────────────
 
-/** Lo que el Runner lee: ws, id y la URL de la foto. Y lo rendido y la más vieja, para el super admin. */
-export type Cola = { pendientes: ItemCola[]; rendidas: ItemRendido[]; masVieja: string | null };
+/** Lo que el Runner lee: ws, id y la URL de la foto. Y lo rendido, lo sin persona y la más vieja, para el super admin. */
+export type Cola = { pendientes: ItemCola[]; rendidas: ItemRendido[]; sinPersona: ItemSinPersona[]; masVieja: string | null };
 
 export type DepsTodos = DepsRegistro & {
   /** Todos los competidores de todos los negocios (sin nombres: sólo cuentas, foto y si es un referente). */
   todos: () => Promise<CompetidorCola[]>;
+  /**
+   * El sha-256 de la imagen de esa URL, o null si no se pudo bajar. Sólo hace falta para las fotos sin persona: es lo
+   * único que dice que la foto cambió, porque su URL no cambia. Sin esto, una sin persona queda fuera mientras su URL
+   * sea la misma.
+   */
+  huella?: (url: string) => Promise<string | null>;
 };
 
 export async function listarCola(deps: DepsTodos, ahora = Date.now()): Promise<Cola> {
   const todos = await deps.todos();
   const registros = new Map<number, RegistroCaricaturas>();
   for (const ws of new Set(todos.map((c) => c.ws))) registros.set(ws, leerRegistro((await deps.leer(ws)).crudo));
+  // ¿Cambió la foto de alguna sin persona? Se mira acá y no se escribe nada: si cambió, vuelve a la lista, y el Runner
+  // decide de nuevo (la caricatura, o `--sin-persona` con la huella nueva). Si no se pudo bajar, no se cambia nada.
+  if (deps.huella) {
+    const vistas = new Map<string, string | null>();
+    for (const c of todos) {
+      const e = registros.get(c.ws)?.[String(c.id)];
+      if (!e?.huella || estadoEnCola(e, c, ahora) !== 'sin-persona') continue;
+      const url = (c.avatar ?? e.foto) as string;
+      if (!vistas.has(url)) vistas.set(url, await deps.huella(url).catch(() => null));
+      const ahoraEs = vistas.get(url);
+      if (ahoraEs && ahoraEs !== e.huella) {
+        const deNuevo: EntradaCaricatura = { ...e };
+        delete deNuevo.sinPersona;
+        delete deNuevo.sinPersonaEn;
+        delete deNuevo.huella;
+        (registros.get(c.ws) as RegistroCaricaturas)[String(c.id)] = deNuevo;
+      }
+    }
+  }
   return colaDeCaricaturas(todos, registros, ahora);
 }
 
@@ -143,7 +168,45 @@ export async function guardarCaricatura(deps: DepsGuardar, ws: number, id: numbe
   return { ok: true, url, lado, marcadas };
 }
 
-// ── 4. Un fallo (el Runner, cuando Canva no pudo) ────────────────────────────────────────────────────────────────────
+// ── 4. Sin persona (el Runner, cuando la foto es un logo) ────────────────────────────────────────────────────────────
+
+/**
+ * Saca de la cola a un competidor cuya foto no es una persona (un logo, una marca): no hay caricatura que hacer y la
+ * tarjeta se queda con su foto. NO es un fallo de Canva: borra los fallos que hubiera, no suma ninguno y no termina en
+ * «rendidas». Se marca también en la misma persona de cualquier otro negocio (la misma cuenta, la misma foto). Vuelve
+ * a la cola sólo si cambia su foto: por eso se guarda su huella.
+ */
+export async function marcarSinPersona(deps: DepsTodos, ws: number, id: number, motivo: string, ahora = Date.now()): Promise<{ ok: true; marcadas: Array<{ ws: number; id: number }> } | { ok: false; error: string }> {
+  const todos = await deps.todos();
+  const c = todos.find((x) => x.ws === ws && x.id === id);
+  if (!c) return { ok: false, error: `No existe el competidor ${id} en el negocio ${ws}.` };
+  const suya = leerRegistro((await deps.leer(ws)).crudo)[String(id)];
+  if (suya?.url) return { ok: false, error: 'Ya tiene su caricatura: no está en la cola.' };
+  const foto = fotoEsNuestra(c.avatar) ? c.avatar : suya?.foto;
+  if (!foto) return { ok: false, error: 'No tiene su foto en nuestro Storage: no está en la cola.' };
+  const huella = deps.huella ? await deps.huella(foto).catch(() => null) : null;
+  const cuando = new Date(ahora).toISOString();
+  const porque = motivoLimpio(motivo) || 'Su foto no es una persona';
+  const misma = cuentasDe(c).length ? mismaPersona(c, todos) : [c];
+  const porWs = new Map<number, CompetidorCola[]>();
+  for (const o of misma) porWs.set(o.ws, [...(porWs.get(o.ws) ?? []), o]);
+  const marcadas: Array<{ ws: number; id: number }> = [];
+  for (const [w, otros] of porWs) {
+    const cambios = new Map(otros.map((o) => [o.id, (e: EntradaCaricatura | undefined): EntradaCaricatura | null => {
+      if (e?.url) return null;
+      // La foto de AHORA: la decisión es sobre ésta, y con la de la entrada (si cambió) volvería a la cola en el acto.
+      const suFoto = fotoEsNuestra(o.avatar) ? o.avatar : (e?.foto ?? null);
+      if (!suFoto) return null;
+      // Sin `fallos`, `ultimoFallo` ni `motivo`: no fue Canva.
+      return { foto: suFoto, ...(e?.desde ? { desde: e.desde } : {}), sinPersona: porque, sinPersonaEn: cuando, ...(huella ? { huella } : {}) };
+    }]));
+    if (await anotarEn(deps, w, cambios)) otros.forEach((o) => marcadas.push({ ws: w, id: o.id }));
+  }
+  if (!marcadas.some((m) => m.ws === ws && m.id === id)) return { ok: false, error: 'No pude anotarlo: vuelve a correrlo.' };
+  return { ok: true, marcadas };
+}
+
+// ── 5. Un fallo (el Runner, cuando Canva no pudo) ────────────────────────────────────────────────────────────────────
 
 /**
  * Anota que el Runner no pudo hacerla. NO se reintenta en cadena: la próxima lista no la trae hasta el día siguiente,
