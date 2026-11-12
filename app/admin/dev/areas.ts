@@ -1011,7 +1011,7 @@ export const AREAS: AreaDev[] = [
     slug: 'public-site', titulo: 'Public Site', familia: 'Business', grupo: 'Go-to-Market',
     estado: 'listo',
     alcance: 'La landing + las 25 páginas de detalle. Lo único que ve un prospecto antes de pagar.',
-    vive: ['app/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/landing-html.ts', 'app/vsl/showcase.ts', 'app/vsl/_detalle/FeatureDetail.tsx', 'app/vsl/_detalle/features.ts'],
+    vive: ['app/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/landing-html.ts', 'app/vsl/showcase.ts', 'app/vsl/_detalle/FeatureDetail.tsx', 'app/vsl/_detalle/features.ts', 'app/vsl/_competencia/', 'app/vsl/_sitio/', 'docs/competencia/landings-por-funcion.md', 'tests/vsl-landings-competencia.test.ts'],
     proyectos: ['Vender MaKo: Landing y VSL'],
   },
   {

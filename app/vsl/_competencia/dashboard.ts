@@ -18,9 +18,31 @@
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['graphics', 'general', 'experimentos']); los gráficos, de la landing
 // anterior de esta ruta. El de «¿Apago este anuncio o lo escalo?» no va: muestra a MaKo subiendo un presupuesto, que es del
 // Media Buyer y no del Dashboard; la audiencia por edad sí (la fuente «Audiencia» de lib/graficos-catalogo.ts).
+//
+// LOS TEXTOS DE REPORTEI, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»):
+//   · «Crea Informes y Dashboards de Marketing Digital en 3 segundos» → «…de marketing digital y ventas, pidiéndoselos a
+//     MaKo» (los 3 segundos no están medidos; «y Ventas» sale de su propio pie: «Informes y Dashboards de Marketing
+//     Digital y Ventas»);
+//   · «Reúne datos de más de 50 plataformas en una sola pantalla: …» → «Reúne N fuentes de datos de tu negocio…», con N
+//     CONTADO de lib/graficos-catalogo.ts (FUENTES) y la lista de lo que MaKo lee;
+//   · «Crea dashboards en tiempo real e informes multicanal. Recibe análisis con IA, … conecta tus datos a asistentes de
+//     IA vía MCP…» → sin «en tiempo real», con la API de MaKo (consultar_datos_dashboard sale por HTTP) y el link para
+//     compartir (compartir_dashboard); sin «automatiza los envíos por email y WhatsApp» (no está);
+//   · «Integración con…», «¡Deja de perder tiempo con informes y dashboards hechos a mano y gana productividad!», sus
+//     piezas «Informe» («Informes que transforman tus datos en estrategia»), «Dashboard» («Un panel para seguir tus
+//     resultados», sin «en tiempo real»), «Control» (sus metas y objetivos: Focus), «Reportei AI» (→ «MaKo AI»: las hojas
+//     de análisis) y «Tus datos en los asistentes de IA» (su MCP → la API de MaKo); su Studio (presentaciones) no es de
+//     MaKo y en su lugar va «Pídeselo a MaKo». Sin «Automatización de informes», «Línea de tiempo» ni «Overview»;
+//   · «Los indicadores de todos tus canales en una sola pantalla» y «Consulta en una sola pantalla los principales
+//     indicadores de: …» con los canales de MaKo. Los tipos de gráfico (N_TIPOS) también se cuentan del catálogo.
 // =============================================================================
 
+import { FUENTES, TIPOS } from '@/lib/graficos-catalogo';
 import type { LandingCompetencia } from './tipos';
+
+// Contados del catálogo del Dashboard (lib/graficos-catalogo.ts): los conjuntos de datos que lee y los tipos de gráfico.
+const N_FUENTES = FUENTES.length;
+const N_TIPOS = TIPOS.length;
 
 const I = {
   dashboard: ['M3 13a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M9 9a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v10a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M15 5a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-4a1 1 0 0 1 -1 -1z', 'M4 20l14 0'],
@@ -37,20 +59,20 @@ export const LANDING_DASHBOARD: LandingCompetencia = {
   nombre: 'Dashboard',
   icono: I.dashboard,
   referencia: { nombre: 'Reportei — informes y dashboards de marketing', url: 'https://reportei.com/es/', leida: '2026-11-11' },
-  metaTitle: 'Dashboard de MaKo: tu marketing y tus ventas en hojas que arma MaKo',
-  metaDesc: 'Hojas de Marketing y Comercial con tus anuncios, tu embudo y tus llamadas, las hojas de análisis de cada área y Focus, tu día. Le pides un gráfico a MaKo y lo arma.',
+  metaTitle: 'Dashboard de MaKo: crea informes y dashboards de marketing digital y ventas, pidiéndoselos a MaKo',
+  metaDesc: `Reúne ${N_FUENTES} fuentes de datos de tu negocio en una sola pantalla: tus anuncios de Meta, tu landing y tu VSL, tu CRM, tus pagos, tus llamadas y tus automatizaciones.`,
   bloques: [
     {
       tipo: 'hero',
       etiqueta: 'Informes de tu marketing y tus ventas',
-      titulo: 'Tu <em>marketing</em> y tus <em>ventas</em> en una hoja. Le pides un gráfico a MaKo y lo arma.',
-      bajada: 'Hojas de <strong>Marketing y Comercial</strong> con tus anuncios, tu embudo y tus llamadas, las hojas de análisis de cada área y Focus, tu día. Sin armar un informe a mano.',
-      puntos: ['Copiado de Looker Studio: lo editas como quieras', '«Editar con MaKo»: pides el gráfico o el cambio en palabras'],
+      titulo: 'Crea informes y dashboards de marketing digital y ventas, <em>pidiéndoselos a MaKo</em>',
+      bajada: `Reúne <strong>${N_FUENTES} fuentes de datos</strong> de tu negocio en una sola pantalla: tus anuncios de Meta, tu landing y tu VSL, tus leads del CRM, tus pagos, tus llamadas grabadas, tus mensajes de WhatsApp y tus automatizaciones.`,
+      puntos: ['Crea dashboards e informes de todos tus canales', 'Recibe análisis con IA, pídele a MaKo el gráfico que te falte, conecta tus datos a tu propia IA por la API de MaKo y compártelos con un link'],
       visual: { tipo: 'detalle', slug: 'dashboard' },
     },
     {
       tipo: 'logos',
-      titulo: 'Tus hojas leen de',
+      titulo: 'Integración con',
       items: [
         { logo: 'meta.png', nombre: 'Meta Ads' },
         { logo: 'calendly.png', nombre: 'Tu agenda' },
@@ -62,19 +84,20 @@ export const LANDING_DASHBOARD: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: '<em>Deja de armar</em> informes a mano',
+      titulo: '¡Deja de perder tiempo con informes y dashboards hechos a mano <em>y gana productividad!</em>',
       items: [
-        { icono: I.hoja, titulo: 'Hojas de Marketing y Comercial', texto: 'Gráficos de tus anuncios y de tus ventas, con su estilo y el período que elijas.' },
-        { icono: I.lupa, titulo: 'Las hojas de análisis', texto: 'Ads Analyst, Closing (tus llamadas de venta), VSL Analyst, Chat Analyst y CS Analyst.' },
-        { icono: I.reloj, titulo: 'El primer contacto', texto: 'Cuánto tarda tu equipo en escribirle o llamar a cada lead nuevo, sin contar los mensajes automáticos.' },
-        { icono: I.foco, titulo: 'Focus, tu día', texto: 'El objetivo y la acción del día, tus KPIs, el semáforo del negocio y el mes.' },
-        { icono: I.ia, titulo: 'Editar con MaKo', texto: 'Le pides un gráfico o un cambio en palabras, o pruebas un experimento y lo mides contra el dato real.' },
-        { icono: I.estilo, titulo: 'Tuyo de verdad', texto: 'Como en Looker Studio: mueves, cambias y diseñas cada hoja a tu manera.' },
+        { icono: I.hoja, titulo: 'Informe', texto: `Informes que transforman tus datos en estrategia, con ${N_TIPOS} tipos de gráfico.` },
+        { icono: I.estilo, titulo: 'Dashboard', texto: 'Un panel para seguir tus resultados, que diseñas a tu manera.' },
+        { icono: I.foco, titulo: 'Control', texto: 'Sigue el rendimiento de tus metas y objetivos en Focus, tu día.' },
+        { icono: I.lupa, titulo: 'MaKo AI', texto: 'Recibe análisis inteligentes en tus hojas con IA: Ads, Closing, VSL, Chat y CS Analyst.' },
+        { icono: I.ia, titulo: 'Pídeselo a MaKo', texto: 'Le pides un gráfico o un cambio en palabras, y MaKo lo arma.' },
+        { icono: I.reloj, titulo: 'API de MaKo', texto: 'Tus datos en los asistentes de IA, para consultar tus números desde tu propio chat.' },
       ],
     },
     {
       tipo: 'filas',
-      titulo: 'Los números de <em>todos tus canales</em> en una sola pantalla',
+      titulo: 'Los indicadores de <em>todos tus canales</em> en una sola pantalla',
+      bajada: 'Consulta en una sola pantalla los principales indicadores de: Meta Ads, tu landing, tu VSL, tu CRM, tus pagos, tus llamadas grabadas, WhatsApp y tus automatizaciones.',
       slug: 'dashboard',
       items: [
         { grafico: 1, titulo: 'Tu embudo, de punta a punta', texto: 'Del anuncio a la llamada en una sola hoja, para ver <strong>en qué paso se cae</strong> la gente.' },

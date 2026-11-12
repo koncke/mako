@@ -16,6 +16,24 @@
 //   · Su principio «comunidad» es su red de agencias; el de MaKo es el aviso por WhatsApp, que es lo que vive el dueño.
 //   · Sus precios no van (ninguna landing de /vsl escribe un precio a mano) y la prueba es el caso de Mauricio.
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['crm']) y de la landing anterior; el mini-VSL de Panda sigue en el hero.
+//
+// LOS TEXTOS DE GOHIGHLEVEL, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»),
+// traducidos a español neutro de tú (las pestañas se leyeron haciendo clic en cada una):
+//   · «Power up your business with AI» → «Potencia tu negocio con IA»; «The AI-powered business operating system» →
+//     «El sistema operativo de tu negocio, con IA» (MaKo es eso: CRM, chats, agenda, anuncios y automatizaciones);
+//   · «All the tools you need to capture, nurture and close new leads into bookings, sales, reviews and repeat
+//     customers!» → «…en reuniones, ventas y cuotas cobradas» (las reseñas y la recompra no son de MaKo);
+//   · «We're in the business of helping you grow your business», «Your all-in-one solution for business growth» / «All
+//     the tools you need in one AI-powered platform»;
+//   · sus pestañas Capture / Nurture / Close / Reactivate con su titular y su bajada: «Get more leads in the door» /
+//     «Attract the right people, turn interest into leads and keep your pipeline full», «Build relationships that
+//     convert» / «The tools you need to follow up, stay relevant and build trust», «Close deals with less back-and-forth»
+//     / «Remove friction and turn conversations into paying customers», «Get back on their radar» / «Re-engage past
+//     leads…» (sin «that drive repeat sales»: no está medido; lo de MaKo es la difusión a una columna, lib/difusion.ts).
+//     «Evangelize» (reseñas, referidos) no es de MaKo: en su lugar, «Cobrar»;
+//   · «We exist to remove friction from growth and give business owners the systems they need to operate, scale and win»
+//     y sus principios «All-in-one» / «AI as the foundation» con su línea; «Community-driven» (su red de agencias) no es
+//     de MaKo y queda el aviso por WhatsApp; «What's included with HighLevel» → «Lo que incluye MaKo».
 // =============================================================================
 
 import type { LandingCompetencia } from './tipos';
@@ -41,51 +59,51 @@ export const LANDING_CRM: LandingCompetencia = {
   nombre: 'CRM',
   icono: I.crm,
   referencia: { nombre: 'GoHighLevel — portada', url: 'https://www.gohighlevel.com/', leida: '2026-11-11' },
-  metaTitle: 'CRM de MaKo para High Ticket: se llena y se mueve solo',
-  metaDesc: 'La ficha se crea cuando entra el lead, se mueve de etapa cuando agenda y la grabación se engancha cuando termina la llamada. Con su plan de cuotas y su contrato en el mismo lugar.',
+  metaTitle: 'MaKo: el sistema operativo de tu negocio High Ticket, con IA',
+  metaDesc: 'Todas las herramientas que necesitas para captar, nutrir y cerrar leads nuevos y convertirlos en reuniones, ventas y cuotas cobradas, con tu CRM en el centro.',
   bloques: [
     {
       tipo: 'hero',
-      etiqueta: 'El CRM para vender High Ticket',
-      titulo: 'Tu CRM se llena y se mueve solo. Tú solo cierras.',
-      bajada: 'La ficha se crea cuando entra el lead, se mueve de etapa cuando agenda y la grabación se engancha cuando termina la llamada. <strong>Con su plan de cuotas y su contrato</strong> en el mismo lugar.',
+      etiqueta: 'Potencia tu negocio con IA',
+      titulo: 'El sistema operativo de tu negocio, con IA',
+      bajada: 'Todas las herramientas que necesitas para captar, nutrir y cerrar leads nuevos y convertirlos en reuniones, ventas y cuotas cobradas, <strong>con tu CRM en el centro</strong>.',
       visual: { tipo: 'detalle', slug: 'crm' },
     },
     {
       tipo: 'cifras',
-      titulo: 'En el CRM de Mauricio, en nueve días',
+      titulo: 'Estamos en el negocio de ayudarte a hacer crecer tu negocio',
       items: [
-        { valor: '1.400+', label: 'movimientos de leads que hizo MaKo' },
-        { valor: '9 de 10', label: 'de los movimientos de ese CRM' },
+        { valor: '1.400+', label: 'movimientos de MaKo en el CRM de Mauricio' },
+        { valor: '9 de 10', label: 'de los movimientos de ese CRM, en nueve días' },
         { valor: '0', label: 'tarjetas arrastradas a mano' },
       ],
     },
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Del anuncio al pago, en un solo CRM',
-      bajada: 'Cada etapa del lead se registra sola, y cada dato queda anotado con nombre y hora.',
+      titulo: 'Tu solución todo en uno para hacer crecer tu negocio',
+      bajada: 'Todas las herramientas que necesitas, en una plataforma con IA.',
       items: [
-        { icono: I.entra, meta: 'Entra', titulo: 'Cada lead entra con su ficha', texto: 'Entra alguien por tu anuncio y <strong>la ficha se crea sola</strong>. Tú decides las etapas de tu embudo y por dónde entra la gente.' },
-        { icono: I.sigue, meta: 'Se sigue', titulo: 'Cada etapa, con su seguimiento', texto: 'Dos días sin agendar y pasa a seguimiento. La nutrición de cada etapa le escribe sola, en la voz de tu negocio.' },
-        { icono: I.cierra, meta: 'Cierra', titulo: 'La reunión mueve la etapa', texto: 'Agenda y se mueve a la etapa que toca. Termina la reunión y MaKo engancha la grabación; si no se presentó, también lo sabe.' },
-        { icono: I.cobra, meta: 'Cobra', titulo: 'El cobro vive en la ficha', texto: 'El plan de pagos por cuotas vive en la ficha, con el contrato y los comprobantes leídos por IA.' },
-        { icono: I.ordena, meta: 'Se ordena', titulo: 'Muchos leads, en un movimiento', texto: 'Mueves, etiquetas, asignas o pasas a otro funnel muchos leads a la vez, o una columna entera.' },
+        { icono: I.entra, meta: 'Captar', titulo: 'Haz que entren más leads', texto: 'Atrae a la gente correcta, convierte el interés en leads y mantén tu pipeline lleno. Cada lead que entra por tu anuncio, tu landing o tu WhatsApp <strong>llega con su ficha creada</strong>, en la etapa que elegiste.' },
+        { icono: I.sigue, meta: 'Nutrir', titulo: 'Construye relaciones que convierten', texto: 'Las herramientas que necesitas para dar seguimiento, seguir presente y generar confianza. La nutrición de cada etapa le escribe sola, en la voz de tu negocio, y le recuerda la reunión.' },
+        { icono: I.cierra, meta: 'Cerrar', titulo: 'Cierra tratos con menos ida y vuelta', texto: 'Quita la fricción y convierte conversaciones en clientes que pagan. Agenda y se mueve a la etapa que toca; termina la reunión y MaKo engancha la grabación, y si no se presentó, también lo sabe.' },
+        { icono: I.cobra, meta: 'Cobrar', titulo: 'Cobra cada cuota desde su ficha', texto: 'El plan de pagos por cuotas vive en la ficha, con el contrato y los comprobantes leídos por IA.' },
+        { icono: I.ordena, meta: 'Reactivar', titulo: 'Vuelve a estar en su radar', texto: 'Reactiva leads pasados con un mensaje a tiempo: eliges una columna entera o los leads que quieras y les mandas una <strong>difusión por WhatsApp, email o Instagram</strong>.' },
       ],
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Tres cosas que lo hacen distinto',
+      titulo: 'Existimos para quitarle la fricción al crecimiento y darles a los dueños de negocio los sistemas que necesitan para operar, escalar y ganar',
       items: [
-        { icono: I.todo, titulo: 'Todo en uno', texto: 'Las conversaciones del lead están en Chats, sus reuniones en Calendar y sus automatizaciones lo mueven de etapa. Un solo lugar, no cinco pestañas.' },
-        { icono: I.ia, titulo: 'La IA como base', texto: 'En cada ficha, <strong>MaKo Analyst</strong> cruza la ficha, las llamadas y el comportamiento del lead, y te da el diagnóstico.' },
+        { icono: I.todo, titulo: 'Todo en uno', texto: 'Una plataforma de verdad todo en uno, hecha para quienes operan el negocio: las conversaciones del lead, sus reuniones y sus automatizaciones, junto a tu CRM.' },
+        { icono: I.ia, titulo: 'La IA como base', texto: 'IA integrada a fondo en todo el ciclo del negocio: en cada ficha, <strong>MaKo Analyst</strong> cruza la ficha, las llamadas y el comportamiento del lead, y te da el diagnóstico.' },
         { icono: I.wa, titulo: 'Te avisa por WhatsApp', texto: 'Entró un lead, agendó, vino o no se presentó: te llega en tu WhatsApp, no en una pestaña más.' },
       ],
     },
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Lo que incluye el CRM',
+      titulo: 'Lo que incluye MaKo',
       items: [
         { icono: I.tablero, titulo: 'Kanban y tabla', texto: 'Tus leads por etapa, o en una tabla para filtrar y ordenar.' },
         { icono: I.ficha, titulo: 'La ficha del lead', texto: 'Su historia, sus llamadas y su plan de pagos, en una sola ficha.' },

@@ -489,7 +489,7 @@ const CSS = `
 /* ¿Qué puedes armar?: seis pestañas de 208 × 105 (radio 14) y la vista previa de 1300 (radio 16). */
 .d-wg-puedes { padding: 80px 20px 60px; }
 .d-wg-radio { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
-.d-wg-tabs-fila { margin: 60px 0 26px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.d-wg-tabs-fila { margin: 60px 0 26px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
 .d-wg-tab { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; min-height: 105px; padding: 16px 12px 18px; border-radius: 14px; background: #fff; border: 1px solid #E7EBF1; cursor: pointer; text-align: center; transition: border-color .25s, background .25s, transform .25s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .d-wg-tab:hover { transform: translateY(-2px); border-color: #C9D7F5; }
 .d-wg-tab-ic { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: #F8FAFD; color: #98A2B3; transition: background .3s, color .3s; }

@@ -31,6 +31,19 @@
 // «Al día»), app/crm/[id]/cobros-actions.ts y lib/cobros.ts (el link, único o suscripción, el que salda una cuota, el paso a
 // la etapa de venta), app/crm/lead-view/ficha/pagos/recibo-leido.ts (el comprobante), lib/graficos-plantillas-generales.ts
 // (la hoja Cobranza y «A quién perseguir»), lib/cuentas-integracion.ts (varias cuentas por pasarela).
+//
+// LOS TEXTOS DE REBILL, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»):
+//   · «Infraestructura financiera para las Américas» → «Cobranza en cuotas para las Américas» (MaKo no es una
+//     infraestructura financiera: cobra con TU cuenta de cada pasarela), y su H2 «… para tu negocio en las Américas»;
+//   · «Acepta pagos locales, ofrece cuotas y gestiona suscripciones…» → con las pasarelas de lib/cobros-tipos.ts (sin
+//     «liquidaciones en USD o moneda local», que no son de MaKo);
+//   · sus piezas «Links de pago sin escribir una línea de código» / «Genera enlaces… con monto, moneda… listos para
+//     enviar», «Pagos en cuotas» (sin «con o sin interés»: MaKo no calcula interés) y «Dashboard» / «Obtén una visión clara
+//     de tu rendimiento…» (la hoja Cobranza); sus suscripciones van en el mismo link y sus notificaciones son las
+//     plantillas de Automations;
+//   · «Integración simple. Resultado profesional.» / «Elige la forma que mejor se adapte a tu modelo de negocio.»,
+//     «Automatiza flujos complejos sin escribir código» (→ «flujos de cobranza»), «Preguntas Frecuentes» con «¿Qué métodos
+//     de pago locales ofrecen en cada país?» (→ «¿Qué métodos de pago puedo ofrecer en cada país?»).
 // =============================================================================
 
 import { CAPACIDADES_PASARELA, NOMBRE_PASARELA, PASARELAS } from '@/lib/cobros-tipos';
@@ -70,20 +83,20 @@ export const LANDING_COBRANZA: LandingCompetencia = {
   nombre: 'Cobranza',
   icono: I.cobranza,
   referencia: { nombre: 'Rebill — pagos y cobros recurrentes en las Américas', url: 'https://www.rebill.com/es', leida: '2026-11-11' },
-  metaTitle: 'Cobranza de MaKo: tus cuotas cobradas con un link y a la vista en tu CRM',
+  metaTitle: 'Cobranza de MaKo: cobranza en cuotas para las Américas, con tu CRM',
   metaDesc: `Arma el plan de cuotas de cada cliente, cóbrale con un link de ${MO_PASARELAS} y mira lo que entró, lo que vence y a quién cobrarle hoy.`,
   bloques: [
     {
       tipo: 'hero',
       etiqueta: 'Cobranza para ventas en cuotas',
-      titulo: '<em>Cobra tus cuotas</em> con un link. Cada pago entra solo a tu CRM.',
-      bajada: `Arma el plan de cuotas de cada cliente, cóbrale con un link de <strong>${MO_PASARELAS}</strong> y mira en una hoja lo que entró, lo que vence y a quién cobrarle hoy.`,
+      titulo: '<em>Cobranza en cuotas</em> para las Américas',
+      bajada: `Acepta pagos con un link de <strong>${MO_PASARELAS}</strong>, ofrece cuotas y gestiona suscripciones, con tu propia cuenta de cada pasarela. Cada pago entra solo a tu CRM, y en una hoja ves lo que entró, lo que vence y a quién cobrarle hoy.`,
       puntos: ['Pago único o suscripción, con tu propia cuenta', '¿Te pagaron por transferencia? MaKo lee el comprobante'],
       visual: { tipo: 'detalle', slug: 'cobranza' },
     },
     {
       tipo: 'cifras',
-      titulo: 'Lo que trae la cobranza de MaKo hoy',
+      titulo: 'Cobranza para tu negocio en las Américas',
       items: [
         { valor: String(PASARELAS.length), label: `pasarelas para cobrar: ${LISTA_PASARELAS}` },
         { valor: String(DIAS_PRONTO), label: 'días antes de que venza, la cuota se marca como próxima a vencer' },
@@ -97,26 +110,26 @@ export const LANDING_COBRANZA: LandingCompetencia = {
       items: [
         {
           grafico: 0,
-          titulo: 'Links de pago, únicos o cada mes',
-          texto: 'Desde la ficha del cliente creas un link de pago único o de suscripción, <strong>sin escribir una línea de código</strong>. Cuando paga, el pago entra solo a su ficha y el cliente pasa a la etapa de venta de su embudo.',
+          titulo: 'Links de pago sin escribir una línea de código',
+          texto: 'Generas el link con su monto, en la moneda de tu cuenta, de pago único o de suscripción, desde la ficha del cliente, listo para enviar. Cuando paga, el pago entra solo a su ficha y el cliente pasa a la etapa de venta de su embudo.',
         },
         {
           grafico: 2,
-          titulo: 'El plan de cuotas de cada cliente',
+          titulo: 'Pagos en cuotas',
           texto: 'Armas el pago inicial y las cuotas con su fecha, o cada cuota a mano. Y en su ficha ves de un vistazo lo que pagó y lo que debe.',
           puntos: ['Cada cuota puede tener su propio link: al pagarse, se marca sola', '¿Te pagaron por fuera? Subes el comprobante, MaKo lee el monto, la fecha y la hora, y tú lo confirmas'],
         },
         {
           grafico: 1,
-          titulo: 'A quién cobrarle hoy',
-          texto: 'La hoja Cobranza del Dashboard te muestra lo que entró, lo que vence y lo que falta, y <strong>a quién perseguir</strong>: el más urgente arriba, con «Marcar cobrada» en la fila.',
+          titulo: 'Dashboard',
+          texto: 'Obtén una visión clara de tu cobranza: la hoja Cobranza te muestra lo que entró, lo que vence y lo que falta, y <strong>a quién perseguir</strong>, el más urgente arriba, con «Marcar cobrada» en la fila.',
         },
       ],
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Conecta tu pasarela. <em>Cobra con tu cuenta.</em>',
-      bajada: 'Elige la que mejor se adapte a tu negocio, o conecta varias. Cada una cobra en tu cuenta, no en la de MaKo.',
+      titulo: 'Integración simple. <em>Resultado profesional.</em>',
+      bajada: 'Elige la pasarela que mejor se adapte a tu modelo de negocio, o conecta varias. Cada una cobra en tu cuenta, no en la de MaKo.',
       items: PASARELAS.map((p) => ({
         icono: I.tarjeta,
         titulo: NOMBRE_PASARELA[p],
@@ -126,7 +139,7 @@ export const LANDING_COBRANZA: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Automatiza tu cobranza sin escribir código',
+      titulo: 'Automatiza flujos de cobranza sin escribir código',
       bajada: 'Plantillas de la galería de Automations: las agregas y las cambias como quieras.',
       items: PLANTILLAS_COBRANZA.map((p) => ({ icono: I.campana, titulo: p.nombre, texto: p.linea })),
     },
@@ -135,7 +148,7 @@ export const LANDING_COBRANZA: LandingCompetencia = {
       tipo: 'preguntas',
       titulo: 'Preguntas frecuentes',
       items: [
-        { p: '¿Con qué medios de pago puedo cobrar?', r: `Con ${LISTA_PASARELAS}: conectas tu cuenta y cobras con un link. ${yLista(EN_SU_PAIS)} le cobra a quien está en el país de su cuenta; ${yLista(EN_EL_MUNDO)} cobran en todo el mundo.` },
+        { p: '¿Qué métodos de pago puedo ofrecer en cada país?', r: `Con ${LISTA_PASARELAS}: conectas tu cuenta y cobras con un link. ${yLista(EN_SU_PAIS)} le cobra a quien está en el país de su cuenta; ${yLista(EN_EL_MUNDO)} cobran en todo el mundo.` },
         { p: '¿Qué pasa cuando mi cliente paga el link?', r: 'El pago entra solo a su ficha: si el link era de una cuota, la cuota se marca cobrada, y el cliente pasa a la etapa de venta de su embudo. Con la plantilla «Entró un Pago», además te avisa en tu grupo.' },
         { p: '¿MaKo le escribe a mi cliente para cobrarle?', r: 'Por una cuota vencida, no: el aviso y sus recordatorios te llegan a ti, en tu grupo de WhatsApp, para que decidas cómo cobrar. Al cliente le escriben dos plantillas, si las agregas: su recibo en PDF cuando paga, y un mensaje para que lo reintente cuando la pasarela le rechaza el pago.' },
         { p: '¿Y si me paga por transferencia?', r: 'Marcas la cuota como cobrada en su ficha. Si subes el comprobante, MaKo lee el monto, la fecha y la hora y te llena el registro; tú lo confirmas.' },

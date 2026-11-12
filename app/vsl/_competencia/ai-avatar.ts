@@ -23,6 +23,23 @@
 //
 // Desde el 11/11/2026 AI Avatar no es una tab: se usa desde Video, con la plantilla «Tu personaje con IA»
 // (app/video-editor/plantillas-crear.ts). La pregunta «¿Dónde está en MaKo?» lo dice con el nombre que se lee en pantalla.
+//
+// LOS TEXTOS DE HEYGEN, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual, porque
+// coinciden con MaKo»), traducidos a español neutro de tú. Sólo se cambió la palabra que en MaKo no es cierta:
+//   · el titular «Anuncios de video estilo UGC que generan conversiones sin contratar creadores» → «…con tu cara, sin
+//     contratar creadores» (las conversiones no están medidas; la cara es lo que MaKo pone);
+//   · la bajada «Genera anuncios de video UGC auténticos con avatares de IA que se ven y se sienten como contenido real de
+//     creadores…» → con TU avatar, que se ve como un video grabado con el celular (las escenas imperfectas a propósito);
+//   · «Actualiza el contenido al instante cuando cambien tus productos» → «…cuando cambie tu oferta: cambias el guion»;
+//   · «El reto del marketing», «El reto de crear contenido de marketing», «La solución de HeyGen» (→ de MaKo), sin sus
+//     números ($200-500 por video, 3-5 veces más conversiones, 175 idiomas: no son de MaKo);
+//   · los seis beneficios con sus nombres: «Pruebas ilimitadas…» → «Más pruebas de creatividades» (cada video gasta
+//     créditos de Flow), «Estética auténtica de creador», «Control creativo total», «Calidad constante», «Sin problemas de
+//     derechos de uso»; «Resultados al instante» se cambió por «Tu cara, no la de un actor» (el tiempo no está medido);
+//   · los 3 pasos «Escribe tu gancho» (su texto entero), «Elige tu estilo de creador» → «Elige tu escena» (con escenas de
+//     MaKo de lib/ai-avatar/plantillas.ts), «Genera e implementa» → «Genera tu anuncio» (MaKo no lo sube a Meta solo);
+//   · «De la idea al video publicado en 3 pasos» → «…al anuncio listo» (no publica), «Diseñado para todas tus
+//     necesidades de marketing» → «…para cada momento de tu embudo», «¿Tienes preguntas? Tenemos respuestas».
 // =============================================================================
 
 import { CATEGORIAS, PLANTILLAS_AVATAR } from '@/lib/ai-avatar/plantillas';
@@ -55,15 +72,15 @@ export const LANDING_AI_AVATAR: LandingCompetencia = {
   nombre: 'AI Avatar',
   icono: I.avatar,
   referencia: { nombre: 'HeyGen — anuncios UGC con avatares (es-MX)', url: 'https://www.heygen.com/es-mx/business/marketing/ugc-video-ads', leida: '2026-11-11' },
-  metaTitle: 'AI Avatar de MaKo: tus anuncios con tu cara, sin grabarte cada vez',
+  metaTitle: 'AI Avatar de MaKo: anuncios de video estilo UGC con tu cara, sin contratar creadores',
   metaDesc: `Subes una foto tuya, eliges una de ${N_ESCENAS} escenas y MaKo genera tu avatar diciendo tu guion, en video vertical para tus anuncios de Meta, TikTok e Instagram.`,
   bloques: [
     {
       tipo: 'hero',
-      etiqueta: 'Anuncios con tu avatar de IA',
-      titulo: 'Tus anuncios con tu cara, sin grabarte cada vez.',
-      bajada: 'Subes una foto tuya, eliges una escena y MaKo te pone ahí, <strong>diciendo tu guion</strong>. Videos verticales para tus anuncios de Meta, TikTok e Instagram, sin volver a prender la cámara.',
-      puntos: ['Una foto de tu cara alcanza para empezar', `${N_ESCENAS} escenas y ${N_PLANTILLAS} plantillas de venta con su guion`],
+      etiqueta: 'Anuncios en video estilo UGC',
+      titulo: 'Anuncios de video estilo UGC con tu cara, sin contratar creadores',
+      bajada: 'Genera anuncios de video UGC con <strong>tu avatar de IA</strong>, que se ven y se sienten como un video grabado con el celular. Produce más anuncios para TikTok, Instagram y Meta sin tener que coordinar creadores, negociar tarifas ni esperar entregas.',
+      puntos: ['Una foto de tu cara alcanza para empezar', 'Actualiza el anuncio cuando cambie tu oferta: cambias el guion y lo vuelves a generar'],
       visual: { tipo: 'avatar', escena: EJEMPLO.nombre, estilo: ESCENA_EJEMPLO?.categoria ?? 'UGC y TikTok', frase: GANCHO_EJEMPLO, segundos: EJEMPLO.duracion },
     },
     {
@@ -77,51 +94,51 @@ export const LANDING_AI_AVATAR: LandingCompetencia = {
     },
     {
       tipo: 'contraste',
-      etiqueta: 'El reto de los anuncios con tu cara',
-      titulo: 'Probar un gancho nuevo no debería costarte otra grabación',
+      etiqueta: 'El reto del marketing',
+      titulo: 'Crea anuncios a escala con una plataforma que convierte tu guion en video con IA.',
       sin: {
-        titulo: 'Cada gancho nuevo es otra sesión frente a la cámara',
-        texto: 'Para que tus anuncios no se cansen tienes que probar ganchos nuevos todo el tiempo. Y cada uno es volver a armar la luz, buscar el lugar y repetir la toma hasta que salga. Contratar creadores tampoco te resuelve: en high ticket la gente compra tu experiencia, y en el anuncio tiene que estar <strong>tu</strong> cara.',
+        titulo: 'El reto de crear contenido de marketing',
+        texto: 'Tus anuncios que mejor funcionan suelen ser videos estilo UGC, pero producirlos a gran escala es lento y costoso. Coordinar creadores, negociar derechos de uso y esperar las entregas pronto se vuelve una carga, mientras tú sigues necesitando decenas de variantes para descubrir qué funciona. Y en high ticket la gente compra tu experiencia: en el anuncio tiene que estar <strong>tu</strong> cara.',
       },
       con: {
-        titulo: 'Una foto tuya, y cada anuncio sale de un guion',
-        texto: 'Subes tu foto una vez. Eliges dónde quieres aparecer —tu auto, una oficina, un podcast, la calle— y escribes lo que vas a decir. MaKo arma tu avatar en esa escena y lo anima diciendo tu guion. ¿Otro gancho? <strong>Cambias el texto y lo vuelves a generar.</strong>',
+        titulo: 'La solución de MaKo',
+        texto: `El creador de anuncios con IA de MaKo genera anuncios de video estilo UGC sin contratar creadores. Subes tu foto una vez y eliges una de ${N_ESCENAS} escenas que se ven naturales en TikTok e Instagram. Solo escribe tu guion y genera tu anuncio sin coordinar creadores, negociar derechos de uso ni esperar. ¿Necesitas varias versiones para probar distintos ganchos? <strong>Cambias el texto y lo vuelves a generar</strong> con el mismo avatar.`,
       },
       cta: true,
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Todo lo que necesitas para probar más anuncios con tu cara',
+      titulo: 'Todo lo que necesitas para crear anuncios a gran escala',
       items: [
+        { icono: I.otra, titulo: 'Más pruebas de creatividades', texto: 'Genera variantes de tu anuncio para probar distintos ganchos, problemas de tu audiencia, beneficios y llamados a la acción. <strong>Sin pagarle a un creador por cada variante.</strong>' },
+        { icono: I.camara, titulo: 'Estética auténtica de creador', texto: 'Un look de video grabado con celular: grano, luz real, encuadres de selfie. Un mensaje directo a cámara. Las escenas son imperfectas a propósito, para que tus anuncios se integren en el feed como contenido nativo.' },
         { icono: I.avatar, titulo: 'Tu cara, no la de un actor', texto: 'La identidad la pone tu foto. MaKo describe la escena —el lugar, la luz, el encuadre— y <strong>nunca tu cara</strong>, para que el avatar se siga pareciendo a ti.' },
-        { icono: I.camara, titulo: 'Escenas imperfectas a propósito', texto: 'Grano de celular, luz real, encuadres de selfie: lo perfecto delata a la IA, así que las escenas se ven como un video grabado con el teléfono.' },
-        { icono: I.otra, titulo: 'Más ganchos, sin volver a grabarte', texto: 'Cambias el guion y generas otra versión con el mismo avatar. Pruebas el gancho, no tu paciencia frente a la cámara.' },
-        { icono: I.lapiz, titulo: 'Ajustas la escena con tus palabras', texto: '«Con camisa blanca de lino», «de noche»: lo escribes y se suma a la escena, sin tocar tu cara.' },
-        { icono: I.carpeta, titulo: 'Tu avatar queda listo para el próximo anuncio', texto: 'Vuelves a cada avatar y a sus videos desde tu estudio, y partes de ahí para la siguiente versión.' },
-        { icono: I.lista, titulo: 'Te dice qué falta antes de generar', texto: 'Si te falta algo para generar, MaKo te lo muestra paso a paso <strong>antes</strong> de que aprietes el botón. Nada falla callado.' },
+        { icono: I.lapiz, titulo: 'Control creativo total', texto: 'Tu visión, sin interpretaciones de un creador. Escribe en el guion exactamente lo que quieres decir, y ajusta la escena con tus palabras: «con camisa blanca de lino», «de noche».' },
+        { icono: I.carpeta, titulo: 'Calidad constante', texto: 'El mismo avatar, la misma escena y un estilo uniforme. Vuelves a cada avatar y a sus videos desde tu estudio, y partes de ahí para el próximo anuncio.' },
+        { icono: I.lista, titulo: 'Sin problemas de derechos de uso', texto: 'Es tu cara: sin contratos que vencen ni renegociar para seguir usándola. Y si te falta algo para generar, MaKo te lo muestra paso a paso <strong>antes</strong> de que aprietes el botón.' },
       ],
     },
     {
       tipo: 'pasos',
       fondo: true,
-      titulo: 'De tu foto al anuncio, en 3 pasos',
+      titulo: 'De la idea al anuncio listo en 3 pasos',
       pasos: [
-        { titulo: 'Sube tu foto', texto: `${CONSEJO_FOTO} Es la que pone tu cara en cada escena.` },
-        { titulo: 'Elige la escena', texto: `Tu auto, el podcast, la oficina, la cocina o la calle: ${N_ESCENAS} escenas en ${N_ESTILOS} estilos. Si quieres, la ajustas escribiendo, por ejemplo «con camisa blanca de lino».` },
-        { titulo: 'Escribe tu guion y genera', texto: 'Pegas lo que vas a decir o partes del guion de ejemplo de la plantilla. MaKo anima tu avatar diciéndolo, en <strong>video vertical</strong> para Reels, TikTok y tus anuncios.' },
+        { titulo: 'Escribe tu gancho', texto: 'Escribe el guion de tu anuncio. Empieza con un gancho que haga que la gente deje de deslizar. Aborda un problema. Presenta una solución. Incluye un llamado a la acción claro. O parte del guion de ejemplo de una plantilla de venta.' },
+        { titulo: 'Elige tu escena', texto: `Sube ${CONSEJO_FOTO.charAt(0).toLowerCase()}${CONSEJO_FOTO.slice(1)} Después eliges el escenario: tu auto para un toque auténtico, un gimnasio para marcas de fitness, una oficina o un podcast para un experto. ${N_ESCENAS} escenas en ${N_ESTILOS} estilos.` },
+        { titulo: 'Genera tu anuncio', texto: 'Haz clic en generar. MaKo anima tu avatar diciendo tu guion, en <strong>formato vertical 9:16</strong> para Reels, TikTok y tus anuncios.' },
       ],
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Una plantilla de venta para cada momento del embudo',
-      bajada: 'Cada una trae su escena, su estructura de guion y un ejemplo completo para reemplazar con lo tuyo.',
+      titulo: 'Diseñado para cada momento de tu embudo',
+      bajada: 'Cada plantilla de venta trae su escena, su estructura de guion y un ejemplo completo para reemplazar con lo tuyo.',
       columnas: 3,
       items: PLANTILLAS_VENTA_AVATAR.map((p) => ({ icono: I.guion, titulo: p.nombre, texto: p.cuando, meta: `Ejemplo de ${p.duracion} s` })),
     },
     { tipo: 'caso' },
     {
       tipo: 'preguntas',
-      titulo: '¿Tienes preguntas? Aquí las respuestas',
+      titulo: '¿Tienes preguntas? Tenemos respuestas',
       items: [
         { p: '¿Tengo que grabarme?', r: `No. ${CONSEJO_FOTO} Con eso MaKo arma tu avatar en la escena que elijas.` },
         { p: '¿El video habla con mi voz?', r: 'Todavía no. El video habla con una voz generada: tu voz clonada en el video no está disponible.' },
