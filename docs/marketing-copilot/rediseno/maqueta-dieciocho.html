@@ -6047,6 +6047,49 @@ manejarDoce = function (a, b) {
   return manejarAnt18(a, b);
 };
 
+
+// ─── «Sin nada todavía»: los ángulos van primero para cualquier funnel, también para quien arranca de cero. Las tres partes, con el
+// molde de borrador que ya tenía la oferta: a la izquierda lo que MaKo arma con las respuestas; a la derecha, lo que le falta. ───
+function borradorOC(p) {
+  const r = S.resp;
+  const quien = sinA(r.aquien) || 'tu cliente';
+  const logra = min1(r.logra) || 'su resultado';
+  const fila = ([t, x]) => `<li><div class="frn-tlist__txt"><b>${t}</b><span>${esc(x)}</span></div>${pill('hacer')}</li>`;
+  if (p === 'angulos') {
+    const angs = [`Por qué los ${quien} no consiguen ${logra}`, `El error que cometen los ${quien} al buscar ${logra}`, `Lo que haría hoy si tuviera que conseguir ${logra} desde cero`];
+    return `<div class="frn-dos"><section class="frn-card"><h2 class="frn-card__t">Tus primeros ángulos</h2><dl class="frn-datos">${angs.map((a, i) => `<div><dt>${['El problema', 'Lo que todos creen', 'Tu forma'][i]}</dt><dd>«${esc(a)}»</dd></div>`).join('')}</dl></section>
+      <div class="frn-col"><section class="frn-card frn-rem"><h2 class="frn-card__t">Lo que le falta</h2><ul class="frn-tlist">${[['Tu dolor que más vende', 'Sale de tus primeras charlas con clientes: lo que más repiten.'], ['Probarlos de nicho', 'Tres reels, uno por ángulo, para quien es tu cliente. Nada para cualquiera.'], ['Sus palabras', 'Cómo cuenta tu cliente su problema, palabra por palabra.']].map(fila).join('')}</ul><button type="button" class="frn-btn" data-accion="oc-accion" data-k="angulos">Armar mis ángulos</button></section></div></div>`;
+  }
+  return `<div class="frn-dos"><section class="frn-card"><h2 class="frn-card__t">Tu voz, en borrador</h2><dl class="frn-datos">${r.aquien ? `<div><dt>Le hablas a</dt><dd>${esc(r.aquien)}</dd></div>` : ''}${r.logra ? `<div><dt>Para que logre</dt><dd>${esc(r.logra)}</dd></div>` : ''}</dl></section>
+    <div class="frn-col"><section class="frn-card frn-rem"><h2 class="frn-card__t">Lo que le falta</h2><ul class="frn-tlist">${[['Cómo hablas', 'Grábate 2 minutos contándome de tu cliente, como se lo contarías a un amigo.'], ['Tu historia', 'Dónde estabas cuando tenías el problema de tu cliente.'], ['Contra qué estás', 'Una idea o una práctica que tu cliente sufre y tú rechazas.']].map(fila).join('')}</ul><button type="button" class="frn-btn" data-accion="oc-accion" data-k="voz">Grabar mi voz</button></section></div></div>`;
+}
+const detalleOfertaAnt18c = detalleOferta;
+detalleOferta = function () {
+  if (!sinNada()) return detalleOfertaAnt18c();
+  const p = parteOC();
+  return `<div class="frn-pila"><div class="frn-subtabs oc-fila">${segOC()}</div>${p === 'oferta' ? detalleOfertaAnt18c() : borradorOC(p)}</div>`;
+};
+
+// ─── «8 · Teléfono» estaba en blanco (desde la octava vuelta): llamaba a `operacion()`, el paso que pasó a llamarse «La acción».
+// Ahora dibuja los pasos de hoy en el teléfono: el análisis, la acción y el piloto, en Oferta y comunicación. ───
+telefonos = function () {
+  const guardado = { estado: S.estado, canales: S.canales, cargado: S.cargado, ofertas: S.ofertas, ruta: S.ruta, vista: S.vista, vistaAcc: S.vistaAcc, vistaPil: S.vistaPil, abierto: S.abierto, oc: S.oc, offer: S.offer };
+  S.canales = new Set(['youtube']); S.ofertas = [];
+  const t1 = app(pasoCanales(), { rail: false });
+  S.canales = new Set(['anuncios', 'instagram']); S.cargado = { instagram: FUENTES.instagram.hecho }; S.ofertas = NEGOCIO.ofertas.slice(0, 1);
+  const t2 = app(pasoFuentes(), { rail: false });
+  cargarTodo(); S.ruta = 'negocio'; S.abierto = null; S.offer = null; S.oc = 'angulos';
+  S.estado = 4; S.vista = 'oferta';
+  const t4 = app(`<div class="mq-solo">${negocio()}</div>`, { rail: false });
+  S.estado = 5; S.vistaAcc = 'oferta';
+  const t5 = app(`<div class="mq-solo">${accionPantalla()}</div>`, { rail: false });
+  S.estado = 8; S.vistaPil = 'oferta';
+  const t6 = app(`<div class="mq-solo">${pilotoPantalla()}</div>`, { rail: false });
+  Object.assign(S, guardado);
+  const col = (rot, html, extra = '') => `<div class="mq-tel-col"><span class="mq-tel-rot">${rot}${extra}</span><div class="mq-tel">${html}</div></div>`;
+  return `<div class="mq-telefonos">${col('¿Por dónde vendes?', t1)}${col('Lo que tienes', t2)}${col('La lectura', app('<div class="mq-lectura" data-lectura-tel=""></div>', { rail: false }), ' <button type="button" data-accion="otra-vez">Ver de nuevo</button>')}${col('El análisis · Ángulos', t4)}${col('La acción · Ángulos', t5)}${col('Piloto automático', t6)}</div>`;
+};
+
 // ─── Empezar un canal apagado, o algo nuevo ───
 const EMPEZAR = {
   web: ['Tu página', ['Copiamos el diseño de una que funciona', 'MaKo la escribe con tu oferta', 'La publicas con tu dominio']],
