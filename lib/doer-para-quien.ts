@@ -42,6 +42,41 @@ export function esAcusePuro(texto: string): boolean {
   return ACUSE_PURO.test(sinEstirar((texto || '').trim()));
 }
 
+// ── ¿LA CHARLA SE QUEDA EN EL 👍? (12/11/2026, Mauricio en el ws1) ──────────────────────────────────────────────────────────────────
+// El equipo le escribió cómo pasar Resend a Pro «con la cuenta que conectaste a MaKo», y Mauricio contestó «yo no conecte a mako». La
+// IA lo leyó como charla («Aclara que no conectó a MaKo») y MaKo puso el 👍 y se calló. Medido en los 7 días de antes: 8 de las 12
+// charlas que callaron a MaKo traían algo adentro («Hola Mako, no trabajo esa zona», «el mail que me pediste de Sellers»). Martín, ese
+// día: «no tomes absolutamente nada como charla del tipo gracias, ok, al menos que sean literalmente del tipo gracias, ok». La charla es
+// la clase de lo que NO PIDE nada, pero un chat como uno con Claude contesta lo que le dicen. Se queda en el 👍 sólo lo que entero es:
+//   · un acuse o un saludo (`esAcusePuro`: gracias, ok, listo, dale, 👍, buen día), un «sí» suelto (`confirmacionPura`), emojis;
+//   · un agradecimiento con su motivo («bien ahí por la velocidad», «gracias por la info»), que nombró Martín el 24/10;
+//   · el «no, gracias» a lo que MaKo ofreció.
+// Lo que trae un dato se contesta aunque sea corto: «Respondido» o «ya lo contacté» al aviso de un lead (se probó dejarlos en el 👍, por
+// el ruido en los negocios con muchos leads, y es justo lo que Martín no quiere). «Con» no es un motivo: «dale con la campaña» es un
+// pedido. Un «no», un «pero» o un «todavía» lo sacan del agradecimiento: «gracias por no avisar» se contesta.
+const LLAMADO_AL_ARRANQUE = /^(?:@\S+[\s,:]*)*(?:mako\b[\s,.:!¡]*)?/iu;
+const SOLO_EMOJIS = /^[\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}\u200d\ufe0f\s.,!¡]+$/u;
+const AGRADECE = String.raw`(?:(?:muchas|mil)\s+)?gracias|(?:muy\s+)?bien|genial|excelente|perfecto|buen[ií]simo|b[aá]rbaro|joya`;
+const AGRADECE_CON_MOTIVO = new RegExp(String.raw`^(?:${AGRADECE})(?:[\s,.!¡]+(?:${AGRADECE}))*(?:[\s,]+(?:ah[ií]|por(?:\s+[\p{L}\d]+){1,3}|mako|crack))+[\s.!¡]*$`, 'iu');
+const NIEGA = /\b(?:no|nunca|pero|todavia|aun|falta|mal)\b/;
+/** «No, gracias» a lo que MaKo ofreció: cierra, no pide. Un «no» solo, no: puede contestar «¿lo contactaron?». */
+const NO_GRACIAS = /^no(?:[\s,.!]+(?:gracias|mil gracias|por ahora|hace falta|mako))+[\s.!]*$/;
+const sinTildes = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+function lineaQueCalla(linea: string): boolean {
+  const t = sinEstirar(linea.trim().replace(LLAMADO_AL_ARRANQUE, '').trim());
+  if (!t || SOLO_EMOJIS.test(t) || esAcusePuro(t) || confirmacionPura(t)) return true;
+  const n = sinTildes(t);
+  if (NO_GRACIAS.test(n)) return true;
+  if (NIEGA.test(n)) return false;
+  return AGRADECE_CON_MOTIVO.test(t);
+}
+
+/** ¿Una charla se queda en el 👍? Sólo si todo lo que escribió es eso (cada línea de un lote: quien llama le saca el encabezado). */
+export function charlaQueCalla(texto: string): boolean {
+  return (texto || '').split(/\n+/).every(lineaQueCalla);
+}
+
 /** Las @menciones del mensaje de WhatsApp (los jid de `contextInfo.mentionedJid`). */
 export function mencionesDe(message: Record<string, unknown> | undefined): string[] {
   const ctx = ((message?.extendedTextMessage as { contextInfo?: { mentionedJid?: unknown } } | undefined)?.contextInfo

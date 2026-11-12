@@ -147,8 +147,11 @@ async function main() {
   await correr('sumado', { clase: '{"clase":"TICKET","resumen":"El DM de rechazo tampoco sale","reenviado":false}' },
     'y además el DM de rechazo tampoco sale', { limpiar: false });
   // CHARLA: el 👍 y nada más (los «Bien ahí por la velocidad» de la semana).
+  // ⚠️ CAMBIADO A PROPÓSITO el 12/11/2026: el mensaje era «Excelente, ya le escribimos al propietario, gracias», que trae un dato, y Martín:
+  // «no tomes absolutamente nada como charla del tipo gracias, ok, al menos que sean literalmente del tipo gracias, ok» (lib/doer-para-quien.ts,
+  // `charlaQueCalla`). Ahora ese se contesta; lo que esta escena fija es la charla literal.
   await correr('charla', { clase: '{"clase":"CHARLA","resumen":"agradece","reenviado":false}', respuesta: 'Bien ahí por la velocidad. Anota esto…' },
-    'Excelente, ya le escribimos al propietario, gracias');
+    'Excelente, gracias por la velocidad');
   // NO_REPLY: le habla a otra persona del grupo.
   await correr('noReply', { clase: '{"clase":"NO_REPLY","resumen":"le contesta a otra persona","reenviado":false}', respuesta: 'Tiene todo el sentido separar las aguas…' },
     'basicamente si, despues creamos otro grupo, este es para cuando lleguen los leads');

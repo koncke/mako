@@ -9,7 +9,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, preguntaAMaKo, quienesMencionados, sinElLlamadoAMaKo, type ParaQuien } from '../lib/doer-para-quien';
+import { esCharlaConAlgo, laCharlaConAlgo } from '../lib/doer-hilo';
+import { bloqueQuienEscribe, charlaQueCalla, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, preguntaAMaKo, quienesMencionados, sinElLlamadoAMaKo, type ParaQuien } from '../lib/doer-para-quien';
 import { confirmacionPura } from '../lib/confirmacion-pura';
 import { clasificarIntencion } from '../lib/mako-intencion';
 
@@ -309,4 +310,48 @@ test('preguntaAMaKo: le habla y pregunta; el «gracias» y lo que es para otro, 
   assert.equal(p('bien ahí', false), false);
   assert.equal(p('Juan, ¿venís?', false), false, 'pregunta, pero no a MaKo');
   assert.equal(p('Juan, ¿venís?', false, true), false, 'ni con las reglas leyendo una consulta');
+});
+
+// La charla con algo adentro (12/11/2026, Mauricio en el ws1: «yo no conecte a mako» → la IA dijo charla → sólo el 👍). Los textos son
+// los de producción de los 7 días anteriores y los del banco (tests/fixtures/banco-grupos-2910.json). El turno real, en
+// tests/grupos-ops-turno.test.ts; acá la regla sola, y la que arma la consulta (lib/doer-hilo.ts, `laCharlaConAlgo`).
+// Martín, 12/11: «no tomes absolutamente nada como charla del tipo gracias, ok, al menos que sean literalmente del tipo gracias, ok».
+test('charlaQueCalla: sólo lo literal (acuse, saludo, «sí» suelto, gracias con su motivo) se queda en el 👍; lo que trae un dato se contesta', () => {
+  const calla = ['gracias', 'ok 👍', 'Listo', 'ok gracias', 'Si', 'dale', 'bien ahí', 'Bien ahí por la velocidad', 'gracias por la info', 'MaKo, gracias',
+    'mako, gracias, buen día', 'Buen día! Geniall', 'Buendiaa', 'perfecto, gracias', '🫡', '👍👍', 'ok gracias\n👍', 'No, gracias', 'no hace falta',
+    'Excelente, gracias por la velocidad'];
+  for (const t of calla) assert.equal(charlaQueCalla(t), true, t);
+  const contesta = ['yo no conecte a mako', 'Hola Mako, no trabajo esa zona', 'el mail que me pediste de Sellers', 'Por aquí', 'PRUEBA',
+    'automatizacion probada y funcionando correctamente mako', 'es una prueba, ya estamos 🫡', 'Si ya es la tercera vez q se contacta',
+    'gracias por no avisar', 'ya lo contacté pero no contesta', 'no lo contacté', 'ok pero mañana', 'ok gracias\nyo no conecte a mako',
+    'no', 'no, gracias, pero el de ayer sí',
+    // Un dato, aunque sea corto (el «ya lo contacté» al aviso de un lead, del banco y de producción).
+    'Respondido', 'Ya conteste', 'Si contacte Eli', 'Ya esta contactado', 'Excelente, ya le escribimos al propietario, gracias',
+    // «con» no es un motivo: es un pedido.
+    'dale con la campaña', 'dale por whatsapp'];
+  for (const t of contesta) assert.equal(charlaQueCalla(t), false, t);
+});
+
+test('laCharlaConAlgo: la charla con algo es una consulta (con las áreas de las reglas o del hilo); el acuse y lo que no es charla, igual', () => {
+  const charla = { intencion: 'charlar' as const, dudosa: false, porque: 'IA: charla («Aclara que no conectó a MaKo.»)', fuente: 'ia' as const };
+  const consultaDeLasReglas = { intencion: 'consultar' as const, dudosa: false, porque: 'reglas', areas: ['integraciones' as never] };
+  const v = laCharlaConAlgo(charla, consultaDeLasReglas, 'yo no conecte a mako');
+  assert.equal(v.intencion, 'consultar');
+  assert.equal(v.fuente, 'ia', 'sin la fuente de la IA, el turno no es de sólo lectura');
+  assert.deepEqual(v.areas, ['integraciones']);
+  assert.match(v.porque, /charla con algo adentro/);
+  // Las reglas actúan («el mail que me pediste» leído como un pedido): una charla nunca actúa; consulta con el hilo, MaKo y el CRM.
+  const w = laCharlaConAlgo(charla, { intencion: 'actuar', dudosa: false, porque: 'reglas' }, '[Te mandó 2 mensajes seguidos. Léelos juntos.]\n(1) el mail que me pediste de Sellers', ['plan']);
+  assert.equal(w.intencion, 'consultar');
+  assert.deepEqual(w.areas, ['plan', 'mako', 'crm']);
+  // Un acuse se queda en charla; lo que no es charla no se toca.
+  assert.equal(laCharlaConAlgo(charla, consultaDeLasReglas, '[Te mandó 2 mensajes seguidos. Léelos juntos.]\n(1) ok gracias\n(2) 👍'), charla);
+  const pregunta = { intencion: 'consultar' as const, dudosa: false, porque: 'IA: pregunta' };
+  assert.equal(laCharlaConAlgo(pregunta, consultaDeLasReglas, 'gracias'), pregunta);
+  // El turno la reconoce por la marca (la nota de contestar corto): también con un resumen largo de la IA, y una pregunta no la tiene.
+  assert.equal(esCharlaConAlgo(v), true);
+  assert.equal(esCharlaConAlgo(laCharlaConAlgo({ ...charla, porque: `IA: charla («${'x'.repeat(260)}») · reglas: consultar` }, consultaDeLasReglas, 'PRUEBA')), true, 'el corte del porqué se llevaba la marca');
+  assert.equal(esCharlaConAlgo(pregunta), false);
+  // Las reglas dicen charla y el texto trae algo («PRUEBA», Martín 11/11): consulta igual. Y si las reglas lo leen como acuse, queda en charla.
+  assert.equal(laCharlaConAlgo(charla, { intencion: 'charlar', dudosa: false, porque: 'saludo/charla' }, 'PRUEBA').intencion, 'consultar');
 });
