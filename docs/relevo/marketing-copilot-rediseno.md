@@ -179,7 +179,7 @@ El cuerpo vigente es `cuerpo-ocho.html`, en la carpeta de la maqueta.
 - **Dónde se pliega el chat:** Martín lo deja para más adelante.
 - **La recomendación del funnel:** la cerraba el chat; sin chat en el paso 4, falta decidir dónde va.
 - **Qué hace MaKo solo y qué te pregunta en el piloto automático** (presupuesto, apagar, publicar): la maqueta lo hace solo, con «Deshacer».
-- **El nombre del paso 3:** propuse «Piloto automático». Otras opciones: «MaKo se encarga», «En marcha».
+- **El nombre del paso 3 está decidido** (Martín, 12/11): «Piloto automático».
 - **Lo que falta en el código para hacerlo de verdad:** la lista está en `esquema-descubrimiento.md`.
   - Zernio: historias y analytics de YouTube.
   - Meta: conversaciones y compras.
