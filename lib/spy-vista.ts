@@ -470,3 +470,24 @@ export function botonesDePaginas(actual: number, paginas: number): Array<number 
   out.push(paginas);
   return out;
 }
+
+/**
+ * Los links de un texto ajeno, como se leen: su sitio y su camino, sin el rastreo (11/11/2026, mirado en producción). La
+ * descripción de un video de Leila Hormozi eran renglones enteros de «https://www.acquisition.com/fivescalingframeworks?
+ * utm_source=youtube&utm_medium=organic-description&utm_campaign=…»: lo que importa es A DÓNDE manda, que queda
+ * «acquisition.com/fivescalingframeworks». Un link que no se puede leer como dirección queda como está.
+ */
+export function linksLegibles(texto: string): string {
+  return texto.replace(/https?:\/\/[^\s<>"')\]]+/gi, (crudo) => {
+    // El punto o la coma que cierra la frase no es parte del link.
+    const cola = crudo.match(/[.,;:!?]+$/)?.[0] ?? '';
+    const link = cola ? crudo.slice(0, -cola.length) : crudo;
+    try {
+      const u = new URL(link);
+      const camino = u.pathname.replace(/\/+$/, '');
+      return `${u.hostname.replace(/^www\./, '')}${camino}${cola}`;
+    } catch {
+      return crudo;
+    }
+  });
+}

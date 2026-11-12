@@ -315,7 +315,12 @@ const FUENTES_BASE: readonly Fuente[] = [
     metricas: [
       m('envios', 'Envíos'), m('abiertos', 'Abiertos'), m('clics', 'Clics'), m('respuestas', 'Respuestas'),
       m('enviados', 'Enviados'), m('fallaron', 'Fallaron'), m('avisos', 'Avisos al equipo'), dist('leads', 'Leads'),
-      r('tasa_apertura', 'Tasa de apertura', 'pct', 'abiertos', 'envios', 100), r('tasa_respuesta', 'Tasa de respuesta', 'pct', 'respuestas', 'envios', 100),
+      // A quiénes les SALIÓ un mensaje (11/11/2026). `leads` cuenta a cualquiera con una fila (una acción, un simulado, un omitido)
+      // y es lo que va en «Cuántos llegan a cada tarjeta»; «Les escribió MaKo» decía 21 en un negocio que no mandó ninguno.
+      dist('escritos', 'Les salió un mensaje'),
+      // Sobre lo que SALIÓ (11/11/2026): `envios` cuenta también las acciones, los simulados y los omitidos, que nadie abre ni
+      // contesta, y bajaban la tasa (ws 3: 239 envíos, ninguno salido, «27,2%»).
+      r('tasa_apertura', 'Tasa de apertura', 'pct', 'abiertos', 'enviados', 100), r('tasa_respuesta', 'Tasa de respuesta', 'pct', 'respuestas', 'enviados', 100),
     ],
   },
   // ── Plan ──────────────────────────────────────────────────────────────────────────────

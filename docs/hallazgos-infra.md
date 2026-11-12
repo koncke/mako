@@ -596,6 +596,16 @@ cliente en su terminal.
   SIEMPRE, por diseño (AGENTS.md → «Qué elige `tests-afectados`»), así que una punta que no las corrió
   no está medida. Esta se escapó por correr «los tests que parecían del cambio» en vez de preguntarle al
   selector.
+  **Otra vez el 11/11/2026 («Traer tu outlier», corridas 963 y 973): CINCO barredoras, ninguna del área tocada, y la segunda
+  corrida mostró dos que la primera tapaba.**
+  - Una ruta nueva sin clasificar para la cuenta de revisión (tests/cuenta-revision-escrituras.test.ts: se regenera el snapshot).
+  - Un lector nuevo de la clave de Apify (tests/leads-scraper-retirado.test.ts: la lista va en orden alfabético).
+  - Un «acá» en un error (tests/puente-panel-copy.test.ts).
+  - Un `role="alert"` sin `<ReportarASoporte />` (tests/reportar-a-soporte.test.ts).
+  - Una columna `workspace_id` nueva, aunque sea en una tabla GLOBAL: va a `TABLAS_DE_INQUILINO`, y como no se lee con el
+    proxy, a `FUERA_DEL_PROXY` con su porqué (tests/tenant-tables-contract.test.ts, INVERSO 1 y 2).
+  Las cinco corren siempre, y la orden «corré sólo el test del archivo tocado» (por la RAM) no las incluye. Si la guardia de
+  RAM no deja correr el selector, estas cinco se corren a mano igual: son livianas, segundos cada una.
 - El mensaje del guard es bueno y hay que leerlo entero: trae archivo, línea, la forma y **con qué
   reemplazarla** («mandás» → «mandas»), más la salida legítima (`FUERA_DE_ALCANCE`, para un detector o
   un prompt que necesita NOMBRAR la forma). No hay que buscar la regla en ninguna parte.
@@ -12361,3 +12371,26 @@ Chrome se abre recién cuando hay aire, uno solo y cerrándolo por su PID.
 - **La otra trampa del mismo día:** tres chats (Image, Copywriting y THE NET LAB) estaban quietos «esperando RAM» para correr sus
   tests o el tsc completo antes de subir. `scripts/filtro-punta.mjs` NO espera RAM: si no alcanza, avisa y deja subir, y la suite
   la corre «punta → main» en GitHub. Con varios chats abiertos, en la PC sólo el test del archivo tocado.
+
+## Capturas largas de páginas de terceros: lo que deja huecos (11/11/2026, la portada de outliers de Web Generator)
+
+El script es `scripts/capturas-outliers-landings.mjs` (Chrome por CDP; lo de arriba, «La captura de una página entera sin
+estirarla», es la base). Lo que apareció al sacar 65 landings y mirarlas una por una:
+
+- **La captura de una sola vez deja huecos:**
+  - un iframe por debajo de los primeros 800 px sale en blanco (el formulario de Typeform de getclients.com);
+  - una sección que se anima al entrar en vista y se esconde al salir queda como un hueco (voicit, saleads, fastlane).
+  Por tramos de 800 px sí salen. **Trampa:** el `clip` de `Page.captureScreenshot` va en coordenadas del DOCUMENTO: con la página
+  bajada, `y: 0` sale gris; va `clip.y = scrollY`.
+- **Los chats de terceros viven dentro de un shadow root:** el de LeadConnector/HighLevel (`lc_text-widget`) no lo ve un
+  `querySelectorAll`; hay que recorrer los shadow roots. Algunas cabeceras se vuelven a montar al bajar: lo fijo se esconde justo
+  antes de cada foto, no una vez.
+- **El alto de la página se mide en cada paso del recorrido:** cherrysweet.app suma secciones a medida que se baja; medido al
+  principio salía de 521 px, y es de 4.328.
+- **⚠️ El diagnóstico obvio era el equivocado:** los cuelgues de `Runtime.evaluate` y `Target.createTarget` parecían culpa de una
+  página, pero la misma página había salido bien antes. Era abrir varias páginas en el MISMO Chrome, en pestañas de fondo, con
+  1,4 GB libres. Se arregló con un Chrome nuevo por página, usando su pestaña del frente.
+- **Una `og:image` no es la página:** la de viralidad.com es un recuadro negro con su logo, y su página es un VSL con testimonios y
+  cifras. Lo que se muestra como «la página» es una captura de la página.
+- Sin esquivar controles anti-robots: manychat (Cloudflare) y las de ClickFunnels quedan afuera, anotadas
+  (docs/web-generator/outliers-capturas-afuera.md).

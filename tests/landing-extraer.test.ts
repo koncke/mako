@@ -50,7 +50,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  ErrorDeLectura, MIN_PALABRAS, bloqueaLaLectura, bloqueadaParaGuardar, copyDeHtml, extraerBloques, textoDeBloques, type BloqueLanding,
+  ErrorDeLectura, MIN_PALABRAS, armarStreaming, bloqueaLaLectura, bloqueadaParaGuardar, copyDeHtml, extraerBloques, textoDeBloques,
+  type BloqueLanding,
 } from '../lib/landing-extraer';
 
 const pares = (bs: BloqueLanding[]) => bs.map((b) => `${b.tipo}:${b.texto}`);
@@ -252,4 +253,38 @@ test('bloqueada en la fila: null si la leyó el navegador (no sabemos), y lo de 
   const fila = an.slice(an.indexOf('function filaAnalizada('), an.indexOf('function filaError('));
   assert.match(fila, /bloqueada: bloqueadaParaGuardar\(p\),/);
   assert.doesNotMatch(an, /bloqueada: (p|pagina)\.bloqueada\b/, 'una fila volvió a guardar la bandera de la página tal cual');
+});
+
+// ── 6. El streaming de React (11/11/2026) ─────────────────────────────────────
+
+test('una página de Next.js con streaming se lee en el orden del navegador: el pie al final, no antes del titular', () => {
+  // Como acquisition.com el 11/11/2026: <main> trae los marcadores, el pie va después, y el contenido llega al final en
+  // <div hidden id="S:N">. Leído en el orden del archivo, la réplica ponía el aviso legal del pie debajo del titular del hero.
+  const html = `<body><header><nav><a href="/">Inicio</a></nav></header>
+    <main id="main-content"><!--$?--><template id="B:0"></template><div class="esqueleto"></div><!--/$-->
+    <!--$?--><template id="B:1"></template><!--/$--></main>
+    <footer><div><span>Los resultados no son típicos ni una garantía.</span></div></footer>
+    <script>self.__next_f.push([1,"<div>no cuenta</div>"])</script>
+    <div hidden id="S:0"><section><div><h2>¿Quieres escalar tu negocio?</h2><h2>Aprende del equipo que escaló una cartera.</h2></div>
+      <div><a class="btn" href="/taller">Quiero escalar</a></div><!--$?--><template id="B:2"></template><!--/$--></section></div>
+    <script>$RC("B:0","S:0")</script>
+    <div hidden id="S:1"><section><h2>Preguntas frecuentes</h2></section></div>
+    <div hidden id="S:2"><div><span>10.000</span><span>Negocios asesorados</span></div></div>
+  </body>`;
+  assert.deepEqual(pares(extraerBloques(html)), [
+    'h2:¿Quieres escalar tu negocio?',
+    'h2:Aprende del equipo que escaló una cartera.',
+    'cta:Quiero escalar',
+    'texto:10.000 Negocios asesorados',
+    'h2:Preguntas frecuentes',
+    'texto:Los resultados no son típicos ni una garantía.',
+  ], 'el contenido en su lugar (con el S:2 anidado adentro del S:0) y el pie al final');
+  // El botón del hero de acquisition.com: un <a> sin clase de botón, con texto de acción en inglés.
+  assert.deepEqual(pares(extraerBloques(`<div><a class="rounded bg-electric-purple" href="/workshop-4b">I'M READY TO SCALE</a>
+    <a href="/books">Books</a><a href="/apply">Apply now</a><a href="#f">Join the waitlist</a></div>`)),
+  ["cta:I'M READY TO SCALE", 'cta:Apply now', 'cta:Join the waitlist'], 'un link de navegación («Books») sigue sin ser copy');
+  // Sin streaming vuelve tal cual; un S:N sin su marcador se queda donde está.
+  const plano = '<main><h1>Hola</h1></main><footer>Pie</footer>';
+  assert.equal(armarStreaming(plano), plano);
+  assert.equal(armarStreaming('<div hidden id="S:9"><p>huérfano</p></div>'), '<div hidden id="S:9"><p>huérfano</p></div>');
 });

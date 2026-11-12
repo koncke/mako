@@ -6,6 +6,54 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Los cursores de los agentes no se veían «en todo momento» (11/11/2026)
+
+**El síntoma:** Martín, mirando tres rondas de capturas de producción, pidió los cursores: «súper importante que esté en todo
+momento. Porque es lo que hace atractivo justamente a esta funcionalidad de edición». No estaban en ninguna.
+
+- **El diagnóstico obvio («los cursores no andan en producción») era el equivocado.** Andaban. Las capturas se sacaron cuando la
+  corrida ya había terminado, y los cursores sólo existen mientras trabajan. Para verlos hay que sacar las capturas DURANTE la
+  corrida y muestrear el DOM (la capa `z-[58]` del portal) con un `setInterval`: con eso salió la medida de abajo.
+- **Lo que sí estaba mal, medido en producción** (ws 3, clip de 14 s, muestreo cada 200 ms): de 58 s de corrida, subs-01 transcribió
+  42 s con el cursor clavado en el mismo píxel (los cursores se movían sólo con un renglón nuevo, y la transcripción no escribe
+  ninguno en un minuto); muletillas, B-roll y volumen trabajaban 0,2–0,8 s, menos que los 520 ms que tarda en llegar el cursor;
+  cinco agentes ni se prendían; y fuera de la Edición automática (el chat, «Sí, en el feed», el botón de Subtítulos) no había cursores.
+- **La regla que queda:** un agente que trabaja nunca está quieto (`puntoTrabajando` en `enjambre/cursores.ts`: cada `PASEO_MS` se
+  corre dentro de su caja), cada paso dura al menos `PASO_A_LA_VISTA_MS` (`enjambre/correr.ts`), y TODO lo que edita MaKo prende el
+  cursor de su agente (`enjambre/cursores-sueltos.ts`: el chat con `mostrarCursores`, y los trabajos largos por su store de fase).
+  Una edición nueva de MaKo que tenga su propio store de trabajo se suma en `agentesSueltos`; una operación nueva del chat, en
+  `AGENTE_DE_OPERACION` (sin agente, no hay cursor).
+- **El paseo al azar era el equivocado (Martín, la misma noche: «se mueven random… tienen que estar trabajando, hacer cosas»).**
+  El reel de referencia (`referencias/reels-0911` → `edicion-mako.mp4`, mirado cada 0,25 s) muestra cada cursor AGARRANDO algo:
+  el recuadro del subtítulo con su caja de selección, un clip, un efecto, una rueda de color, y todos a la vez. Ahora cada agente
+  tiene SUS objetivos reales (`OBJETIVOS_DE`, `tareaDeAgente` en `enjambre/cursores.ts`): los clips (`data-ce-clip` +
+  `data-ce-tipo` en `timeline-element.tsx`), los textos, el audio, los controles de propiedades, los medios de la biblioteca y,
+  del canvas del reproductor, el cuadro y la franja del subtítulo. Una caja de su color marca lo que trabaja; la caja NO viaja
+  (deslizándose, una caja grande cruzaba la pantalla cambiando de tamaño), viaja el cursor.
+- ⚠️ **Un arnés sin Tailwind miente sobre las posiciones**: el componente usa `absolute top-0 left-0`; sin esas clases, cada
+  cursor y cada caja quedan uno debajo del otro y su `translate` se suma. Los primeros GIF de los cursores (11/11/2026) tenían
+  ese corrimiento. En el arnés van las clases a mano.
+- **Sin hacer:** los renglones que llegan juntos (subs-01 anota sus 7 subtítulos en el mismo instante) llevan el cursor sólo al
+  último; el panel de «Borrar silencios» y otros botones sin store de fase no prenden cursor (el chat sí).
+
+**Vive en:** `app/video-editor/_opencut/enjambre/{cursores,cursores-sueltos,correr}.ts` · `enjambre/components/cursores.tsx` ·
+`chat/PanelChat.tsx` (`aceptar`) · test `tests/video-editor-cursores-siempre.test.ts`.
+
+## Probar el editor en el navegador de la app de Claude: tres trampas que no son de MaKo (11/11/2026)
+
+Probado en producción el 11/11 (docs/pruebas/video-produccion-11-11.md). El panel del navegador de la app de Claude
+suele estar oculto. Lo que ahí parece una falla del editor, en una pestaña visible de Chrome no pasa:
+
+- **«Importando…» para siempre,** con un video y también con una imagen. La importación espera dos cuadros de pantalla
+  antes de empezar (`waitForNextPaint`, `media/upload-toast.ts`), y el panel oculto sólo pinta cuando se le saca una
+  captura. **Regla:** sacar capturas mientras importa; entra en segundos.
+- **El OPFS se vació y el IndexedDB no:** el proyecto quedó sin sus archivos (vista previa negra), y los subtítulos
+  decían «sin voz». En Chrome, el proyecto del día anterior seguía entero. Desde el 11/11 el mensaje dice «falta en este
+  navegador el archivo…» (`faltaAlgunArchivo`, `subtitles/resultado.ts`).
+- **La primera captura de la portada sale en blanco** aunque las imágenes ya cargaron: aparecen en la siguiente.
+- Y sin la app de escritorio de MaKo conectada en la PC, el chat no deja escribir. Es la regla del 25/10, no el negocio
+  de prueba. Desde el 11/11 los atajos se apagan diciendo por qué, en vez de no hacer nada.
+
 ## La memoria del editor, medida: achicar la vista previa NO la baja, la copia liviana sí (11/11/2026)
 
 Martín preguntó si con Remotion se podía editar sin gastar la RAM del cliente. Antes de decidir, se midió dónde se va hoy.

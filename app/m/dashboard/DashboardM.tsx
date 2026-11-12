@@ -118,12 +118,10 @@ export function DashboardM({ hojas, hojaInicial, periodo, periodos, fichaLead }:
       {/* La oración de apertura de la hoja (lib/graficos-frase.ts), como en escritorio: la primera línea. */}
       {hoja.frase && <p className="m-dash-frase">{hoja.frase}</p>}
 
-      {/* Falta conectar la fuente (./datos.ts): lo que dice la compu, sin «Reportar a Soporte» (no falló nada). */}
-      {hoja.falta && (
-        <SeccionM titulo={visto?.nombre ?? hoja.nombre} accion={botonPeriodo}>
-          <VacioM frase={hoja.falta} />
-        </SeccionM>
-      )}
+      {/* Falta conectar la fuente (./datos.ts): lo que dice la compu, sin «Reportar a Soporte» (no falló nada). Va SOLO, sin el
+          encabezado del período: `falta` es que no se leyó nada, y cambiar el período no lo arregla. Con el encabezado, la
+          pantalla decía «Todo ······ Todo» encima del aviso (11/11/2026, Closing, Anuncio y Hooks en producción). */}
+      {hoja.falta && <VacioM frase={hoja.falta} />}
 
       {/* Si no se pudo leer nada de la hoja, UN aviso (no uno por sección), con el período a mano. */}
       {hoja.graficoError && hoja.numerosError && (

@@ -75,6 +75,8 @@ export function tamanoQueLlena(t: string, o: { ancho: number; alto: number; min:
  */
 export function texto(id: string, nombre: string, t: string, o: {
   left: number; top: number; width: number; tam: number; peso: number; fam: string; color: string; alin?: 'left' | 'center' | 'right'; interlineado?: number; espaciado?: number; mayus?: boolean; italica?: boolean;
+  /** El alto MEDIDO (./medir-letra.ts: el que le da el editor). Sin esto, el estimado de siempre. */
+  alto?: number;
 }): Obj {
   const inter = o.interlineado ?? 1.2;
   return {
@@ -82,7 +84,7 @@ export function texto(id: string, nombre: string, t: string, o: {
     charSpacing: o.espaciado ?? 0, textAlign: o.alin ?? 'left', styles: [], pathStartOffset: 0, pathSide: 'left', pathAlign: 'baseline',
     underline: false, overline: false, linethrough: false, textBackgroundColor: '', direction: 'ltr', textDecorationThickness: 66.667,
     minWidth: 20, splitByGrapheme: false, id, name: nombre, type: 'textbox', originX: 'left', originY: 'top',
-    left: o.left, top: o.top, width: o.width, height: altoDeTexto(t, o.tam, o.width, inter), fill: o.color,
+    left: o.left, top: o.top, width: o.width, height: o.alto ?? altoDeTexto(t, o.tam, o.width, inter), fill: o.color,
     ...BASE, strokeWidth: 1,
     ...(o.mayus ? { textCase: 'upper', caseSource: t } : {}),
   };

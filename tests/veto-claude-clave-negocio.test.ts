@@ -113,7 +113,9 @@ function cuerpoDelIntento(): string {
   // elige el negocio y el crédito de Martín, IA5, y las claves de la plataforma en su propia función, en el medio).
   // El 22/10/2026 a la noche, unos 10.800: el crédito asignado a un negocio (lib/credito-negocio.ts), al principio.
   // El 28/10/2026, unos 12.300: la cuenta del crédito de los grupos de WhatsApp (`cuentaDeLosGrupos`, lib/credito-negocio.ts).
-  assert.ok(b.length > 800 && b.length < 13_500, `el recorte mide ${b.length}: está mirando otra cosa`);
+  // El 11/11/2026, unos 14.000: la regla del crédito para la plataforma (`puedeUsarUnaCuentaDelCredito`) y el fallo de una
+  // cuenta del crédito escrito en el Uso, no en la tarjeta del negocio (`anotarFalloDelCredito`).
+  assert.ok(b.length > 800 && b.length < 15_500, `el recorte mide ${b.length}: está mirando otra cosa`);
   return sinComentarios(b);
 }
 

@@ -510,9 +510,10 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_mensualidades_agencias', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver las mensualidades de las agencias',
-    descripcion: 'Sólo para la plataforma: las agencias con la mensualidad por fuera de MaKo prendida y, de cada una, el total de este mes (cubre del 5 al 5), hasta qué día se paga, cuánto entró, qué se debe hoy, quién está en pausa y los meses anteriores sin pagar. Con agenciaWs, el detalle de una: cada renglón, lo que se debe hoy (meses y entradas, con sus días y el precio por día), en qué está cada cliente (cuenta, sin costo, debe su entrada, paga para entrar, de baja) y desde qué día corre su reloj. Una agencia con la mensualidad apagada sale con apagada: true y cómo quedaría este mes.',
+    descripcion: 'Sólo para la plataforma: las agencias con la mensualidad por fuera de MaKo prendida y, de cada una, el total de este mes (cubre del 5 al 5) y el del mes que viene con los clientes de hoy, hasta qué día se paga, cuánto entró, qué se debe hoy, quién está en pausa y los meses anteriores sin pagar. Con agenciaWs, el detalle de una: cada renglón, lo que se debe hoy (meses y entradas, con sus días y el precio por día), en qué está cada cliente (cuenta, sin costo, debe su entrada, paga para entrar, de baja) y desde qué día corre su reloj. Una agencia con la mensualidad apagada sale con apagada: true y cómo quedaría este mes.',
     parametros: [
-      { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, descripcion: 'el número de cuenta de la agencia. Sin esto, todas.' },
+      { nombre: 'agenciaWs', rotulo: 'Agencia', tipo: 'number', entero: true, minimo: 1, descripcion: 'el número de cuenta de la agencia. Sin esto ni agencia, todas.' },
+      { nombre: 'agencia', rotulo: 'Nombre de la agencia', tipo: 'string', max: 120, descripcion: 'el nombre de la agencia («Código Inmobiliario»), con o sin tildes, en lugar de su número: da el detalle de esa.' },
     ],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },

@@ -141,6 +141,32 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Hecho (12/11, novena vuelta):** `maqueta-accionables.html` (Artifact claude.ai/artifact/K79HrsuoncwRD44U452fJf). Lo de Martín:
+- los logos de cada alojador del VSL;
+- la estrategia abajo de lo principal;
+- todo más chico, y los dos lados del mismo alto (la cara y la lista se desplazan adentro);
+- las tarjetas no se mueven al cambiar de paso (la cabecera tiene el mismo alto en los tres);
+- espacio para hacer algo nuevo («Empezar algo nuevo»: una oferta, una campaña, un video, un lanzamiento, una página);
+- cambiar entre ofertas;
+- el modo oscuro, que en el Artifact el visor pisaba, ahora con la luna y el sol de la app;
+- sólo los canales elegidos, y los demás apagados para empezarlos;
+- el piloto y la acción, rehechos con las referencias de `docs/media-buyer/referencias/otras-apps/`.
+
+El cuerpo vigente es `cuerpo-nueve.html`.
+
+**Hecho (12/11, octava vuelta):** `maqueta-tres-pasos.html` (Artifact claude.ai/artifact/3BL3fTaSEPksVsZkfnWeqR). El pedido de Martín, punto por punto:
+- todo en mono, sin el verde;
+- las historias y las destacadas de Instagram con su feedback (Zernio trae las historias desde que se conecta; las destacadas y la bio salen de la lectura pública);
+- la descripción del canal de YouTube con su feedback;
+- **la estrategia de cada canal** (anuncios, Instagram, YouTube): si habla de lo que vende, si le habla a su cliente, si lleva a una venta;
+- la lista del recorrido en filas, y «Cada cuánto publicas» a la izquierda;
+- conectar ahí mismo el VSL (Panda, Vimeo, Wistia, Bunny, YouTube) y los chats (WhatsApp, Instagram), elegir los chats de venta y ver cada chat con la cara de su app;
+- «Volver a analizar»;
+- la acción con las mismas tarjetas que el análisis, y Offer y Web Generator adentro;
+- **el paso 3, «Piloto automático»**: lo que hace MaKo solo. El nombre lo propuse yo y lo decide Martín.
+
+El cuerpo vigente es `cuerpo-ocho.html`, en la carpeta de la maqueta.
+
 **Hecho (11/11, séptima vuelta):** `maqueta-accion.html` con los puntos 1 a 9 de la séptima, más el pedido de después: la acción como lugar de trabajo de MaKo (decisiones, lo que te toca, lo que hice), no como tablero. Los relevos: `analisis/estrategia.md` (la estrategia por canal) y `rediseno/diseno-referencias.md` (el molde de Fernly). El cuerpo vigente es `cuerpo-accion.html`, armado con `parte-accion-*.js`.
 
 **Hecho (11/11, sexta vuelta):** `maqueta-visual.html` con los puntos 1 a 7 de la sexta vuelta. Qué cambió y qué es de ejemplo: `esquema-descubrimiento.md`.
@@ -152,7 +178,8 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
 - **Quién paga leer el propio negocio** (Apify más la IA). Se pregunta antes de programarlo.
 - **Dónde se pliega el chat:** Martín lo deja para más adelante.
 - **La recomendación del funnel:** la cerraba el chat; sin chat en el paso 4, falta decidir dónde va.
-- **Qué hace MaKo solo y qué te pregunta en la operación** (presupuesto, apagar, publicar): la maqueta lo hace solo, con «Deshacer».
+- **Qué hace MaKo solo y qué te pregunta en el piloto automático** (presupuesto, apagar, publicar): la maqueta lo hace solo, con «Deshacer».
+- **El nombre del paso 3:** propuse «Piloto automático». Otras opciones: «MaKo se encarga», «En marcha».
 - **Lo que falta en el código para hacerlo de verdad:** la lista está en `esquema-descubrimiento.md`.
   - Zernio: historias y analytics de YouTube.
   - Meta: conversaciones y compras.

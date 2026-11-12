@@ -244,3 +244,125 @@ de cada captura (la segunda captura seguida vuelve como un pedazo de 800×600).
     `lib/graficos-frase.ts`, `tests/dashboard-frase-y-destinos.test.ts`.
 16. **Números sin unidad en el teléfono:** la unidad que el catálogo dice entre paréntesis («(min)», «(días)») va con el valor si el título no
     la dice. `app/m/dashboard/modelo.ts` (`conUnidad`).
+
+# Producción (11/11, 14:45 a 15:40 UTC): los 16 arreglos mirados en hola-mako.com — capturas 65 a 92
+
+Producción servía `ada98995d` (despliegue de las 11:05 UTC, medido con la API de Vercel), que trae los tres lotes (`git merge-base`).
+En el navegador de la app, en mi pestaña, con la sesión de Martín (`/api/auth/me`: martinkoncke, ws 3 «Cliente de Prueba» con
+`?ws=3`; ws 19 «Natalia», cliente de Código Inmobiliario, sólo mirando con un bloqueador de escrituras: ninguna salió).
+
+⚠️ A las 14:43 UTC el navegador de la app no tenía sesión (se cerró la app de Claude en la PC) y el Chrome de la extensión tenía la de
+LEANDRO (ws 10): no se tocó nada ahí. Martín volvió a entrar y recién ahí se miró.
+
+## Los 16 arreglos, uno por uno
+
+| # | Arreglo | Dónde se miró | Captura | En producción |
+|---|---|---|---|---|
+| 1 | Doble Ctrl+Z rápido | Comercial ws 3, 1440: agregar una tabla, estirarla y Ctrl+Z dos veces | 75 | ✅ volvió a 13 tarjetas, ninguna encimada |
+| 2 | Estirar por el borde no mueve la tarjeta | Comercial, borde derecho | 74 | ✅ 649 → 762 px de ancho, quieta en (92, 548) |
+| 3 | «Añadir datos» cae a la vista | Comercial → Añadir datos → Visitas a la landing | 73 | ✅ arriba de «Todas las piezas», seleccionada |
+| 4 | La galería no pierde el `?ws=` | Nueva hoja → General | 76 | ✅ `?hoja=general&ws=3`, «Cliente de Prueba» |
+| 5 | Botón de filtro sobre la tarjeta oscura | Hoja «Focus» de Martín en ws 3 | 72 | ✅ fondo transparente, se ve el embudo |
+| 6 | Marketing con gasto cero | Marketing 1440 | 67 | ✅ «Llegaron 3 agendas.» |
+| 7 | Teléfono sin grabador | Closing 375 | 78 | ✅ un solo «Conecta tu grabador…», sin «No pudimos leer» |
+| 8 | La franja «falta conectar» | Closing y Marketing 1440 | 65, 67 | ✅ «Conecta tu grabador…» / «Conecta Meta para ver tu audiencia» |
+| 9 | Closing sin duración | Closing 1440, «Duración promedio» | 66 | ✅ «—» y «En total —» |
+| 10 | Marketing: ceros dobles | Marketing 1440 | 67 | ✅ costos en «—», ningún «0 0» |
+| 11 | General y Cobranza: ceros en color | General / Cobranza 1440 | 68, 69 | ✅ «Igual que el mismo período de octubre»; «Vencido US$0» en tinta |
+| 12 | Contenido: US$0.0000 y el eje | Contenido 1440 | 70 | ✅ «US$0.000038», eje US$0.05 · 0.033 · 0.017 |
+| 13 | Teléfono: «no pudimos leer» de hojas vacías | Anuncio y Hooks 375 | 79, 82 | ✅ «Conecta Meta en Integraciones», una vez |
+| 14 | Marketing en el teléfono | 375 | 81 | ✅ «Llegaron 3 agendas.», costos «—» |
+| 15 | Singular después de «1» | Landing 1440 y 375 | 77, 83 | ✅ «Entraron 3 visitas de 1 persona» |
+| 16 | Unidades en el teléfono | Chat 375 | 84 | ✅ «10 min» |
+
+Además, las cinco hojas que faltaban a 375: Automatizaciones (85), Contenido (86), Inmobiliaria (87), Cold Calling (88) y Velocidad (89).
+Y un cliente de Código: Natalia (ws 19) abre en «Focus» vacío con la galería (90, la propuesta de «Focus» de arriba), su Velocidad a
+1440 (91) se ve como Tend (129 leads nuevos, 126 esperando, el tablero de leads con «Llamar», WhatsApp con «Urgente»), y en el teléfono
+(92) no.
+
+## Lo que se vio mal y se arregló en este lote (17 a 24)
+
+17. **«1 no se presentaron»** (80, Comercial en el teléfono): el singular sólo miraba UNA palabra. Ahora también las frases de las
+    plantillas de varias palabras («no se presentó», «te respondió», «ya compró», «lo vio», «persona le dio play», «tarea activa», «ya
+    hecha») y «1 de tus 5 clientes **pide** atención». `lib/graficos-frase.ts`, `tests/dashboard-frase-y-destinos.test.ts`.
+18. **«Todo ······ Todo»** encima del aviso de «falta conectar» (78, 79, 82): el aviso va solo, sin el encabezado del período (sin la
+    fuente conectada, cambiar el período no trae nada). `app/m/dashboard/DashboardM.tsx`.
+19. **«Salieron 0 mensajes · 4 fallaron · 65 te respondieron»** (85, Automatizaciones): medido en la base (sólo lectura), el ws 3 no
+    mandó NINGÚN mensaje en 30 días (172 simulados, 60 acciones, 4 fallos, 3 omitidos), y las 65 «respuestas» se le adjudicaban al
+    último envío de cada inscripción que contestó: una acción en 58, un simulado en 6, un omitido en 1. Ahora la respuesta es del
+    último envío que SALIÓ, y la tasa de respuesta y la de apertura se calculan sobre lo que salió, no sobre todas las filas.
+    `lib/graficos-datos-puro.ts` (`enviosRespondidos`), `lib/graficos-datos.ts`, `lib/graficos-catalogo.ts`, `tests/graficos-datos-puro.test.ts`.
+20. **«clase:no_reply» como un modelo** (71, Contenido): la tabla del gasto de IA guarda también lo que NO es una llamada (las decisiones
+    de MaKo con `provider: 'mako'`, los vetos `vetado:`, los 429 `rebote429:`, los saltos `rebote:` y los fallos `fallo:`, todos a US$0).
+    Contados, inflaban «Usaste la IA 705 veces» y bajaban el costo por llamada. `esLlamadaDeIa` (`lib/graficos-datos-puro.ts`) los deja afuera.
+21. **Claves crudas** (71 y 75): «chatbot-crear-ia», «offer», «mako-pedidos» en «Para qué se usa»; «calendly», «carga_manual» en «De dónde
+    vienen los que cierran». Ahora dicen el nombre que la app ya les da: el del catálogo de modelos («Crear una automatización con IA
+    (Automations)») y el del CRM («Calendly», «Cargado a mano»). Sólo cambia la etiqueta: la clave queda, y un filtro guardado sigue
+    filtrando. `lib/graficos-nombres.ts` (nuevo), `tests/dashboard-nombres.test.ts`. Antes de subirlo se probó en la página de producción
+    con los nombres puestos a mano: los largos se salían 94 px de la tarjeta, porque la lista es una grilla que no se achica. La
+    columna va en `minmax(0, 1fr)` y entran con «…» (captura 93; `app/dashboard/disenos/contenido-css.ts`, docs/hallazgos-templates-dashboard.md §41).
+22. **«Costo por llamada US$0»** en el teléfono (86): un costo de US$0.000038 se escribía «US$0». Debajo de un centavo, dos cifras
+    significativas («US$0,000038»), como la compu. `lib/graficos-agregar.ts` (`fmtValor`), `tests/graficos.test.ts`.
+23. **El eje de lo gastado en «0 · 0 · 0 · 0»** en el teléfono (86): debajo de 1, dos cifras significativas («0,01 · 0,02 · 0,03»), y los
+    pasos del eje sin redondear a milésimas. `app/m/dashboard/modelo.ts` (`ejeCompacto`, `geometria`), `tests/m-dashboard-modelo.test.ts`.
+24. **Velocidad en el teléfono decía «Leads por día · 0 en 30 días» y «Primer contacto 129»** (89, 92; Natalia tiene 129 leads y 126
+    esperando): el teléfono dibuja sólo la PRIMERA métrica de cada pieza, con el título de la pieza. Con varias métricas, ahora el rótulo es
+    el de la que se ve: «Contactados · 0 en 30 días» y «Leads 129». `app/m/dashboard/modelo.ts` (`rotuloDePieza`), `datos.ts`.
+
+Todos con su test, corrido de a uno en la PC (los demás, GitHub). Se ven en producción con el próximo despliegue.
+
+## Crítica, al lado de su referencia (deciden Martín)
+
+- **Velocidad en el teléfono (92) contra Tend:** con el rótulo arreglado dice la verdad, pero es un gráfico en cero y un número. Tend en el
+  celular es la lista de quién espera, con «Llamar». Propuesta: que el teléfono de Velocidad muestre «Esperando contacto» y los que más
+  esperan, como la compu (91).
+- **La franja «Conecta tu grabador…» no tiene botón** (65), y la de Claude justo arriba sí («Conectar Claude»). No hay UN modal de
+  grabador (son Fathom, tl;dv, Fireflies, Zoom…) y un link a Integraciones saca de la pestaña, que Martín prohibió. Decide Martín cuál abre.
+- **«Ad Spend» en inglés** en Marketing del teléfono (81) y en /general, cuando la compu dice «Gasto». Es el título de la plantilla.
+- **El «—» de «igual» en el teléfono** («Tasa de cierre 0% — 0,0 pts», 80) se lee como un menos. Es el ícono del diseño.
+- **Dos pestañas «Focus»** en el ws 3 de Martín (una hoja suya y la plantilla): con el mismo nombre no se sabe cuál es cuál.
+- **Contenido e IA en la compu, «Qué modelo cuesta más»**: lista modelos de US$0.00 con «0% del costo». Con el arreglo 20 se van los que
+  no eran llamadas; los gratis de verdad (Gemini) siguen.
+
+## Lo que falta
+
+- ~~Mirar los arreglos 17 a 24 en producción~~: mirados abajo (16:05 UTC).
+- La captura 86 salió recortada a la derecha (la trampa del panel oculto); lo que muestra se leyó también del texto de la página.
+
+# Producción, segunda vuelta (11/11, 16:00 a 16:20 UTC, 2507c11c7): los arreglos 17 a 25 — capturas 94 a 103
+
+Despliegue de las 15:55 UTC (Vercel: `2507c11c7`). Mi pestaña del navegador de la app; `/api/auth/me`: Martín en ws 3 y en ws 19
+(Natalia, sólo mirando: todo lo que salió fue GET).
+
+| # | Arreglo | Captura | En producción |
+|---|---|---|---|
+| 17 | Singular de varias palabras | 98 | ✅ «1 no se presentó» |
+| 18 | El aviso de «falta conectar» va solo | 99 | ✅ sin «Todo · Todo» |
+| 19 | La respuesta es del último envío que salió | 97, 100 | ✅ «Te respondieron —» en la compu; «0 te respondieron» y tasa «—» en el teléfono |
+| 20 | La IA cuenta sólo llamadas | 94, 95 | ✅ «Usaste la IA 629 veces» (antes 705), sin «clase:no_reply» ni «cuota» |
+| 21 | Nombres en vez de claves | 95, 96 | ✅ «Crear una automatización con IA (A…», «Calendly», «Cargado a mano» (y las iniciales «CA») |
+| 22 | Costo de centavos | 94, 101 | ✅ «US$0.000043» en la compu, «US$0,000043» en el teléfono |
+| 23 | El eje en centavos | 101 | ✅ «0 · 0,01 · 0,02 · 0,03» |
+| 24 | El rótulo es lo que se dibuja | 98, 102, 103 | ✅ Comercial «Vendido»; Velocidad «Contactados · 0» y «Leads 135» (ws 3), «Leads 131» (Natalia) |
+| 25 | Los nombres largos con «…» | 95 | ✅ adentro de la tarjeta |
+
+## Lo que se vio mal en esta vuelta y se arregló (26 a 28; salen con el despliegue de mañana)
+
+26. **«Les escribió MaKo · recibieron al menos un mensaje · 109»** (97) con «Salieron 0 mensajes» arriba. El paso contaba los leads con
+    CUALQUIER fila de envío (una acción, un simulado, un omitido). Medido en la base (sólo lectura), no es sólo el ws 3: en 30 días, ws 11
+    tiene 183 leads con filas y 37 con un mensaje salido, y los clientes de Código (13, 15, 17, 19, 20, 22) tienen filas y CERO mensajes
+    salidos (Natalia: 21 y 0). Ahora hay una métrica `escritos` (los leads a los que les SALIÓ un mensaje); `leads` queda como estaba
+    porque «Cuántos llegan a cada tarjeta» sí cuenta las acciones. Una hoja copiada antes de esa métrica muestra «—» en ese paso, no el
+    número falso. `lib/graficos-catalogo.ts`, `lib/graficos-datos.ts`, `lib/graficos-plantillas-generales.ts`, `lib/automatizaciones-diseno.ts`,
+    `tests/dashboard-diseno-automatizaciones.test.ts`.
+27. **«Plan de arranque del cliente nuevo · 1 · 0%»** (95): una llamada de 629 no es el 0 %. Debajo de medio punto dice «<1%».
+    `lib/contenido-diseno.ts` (`parteEnTexto`), `app/dashboard/disenos/HojaContenido.tsx`, `tests/dashboard-diseno-contenido.test.ts`.
+28. **Automatizaciones en el teléfono decía otra frase que la compu** (100: «Salieron 0 mensajes · 4 fallaron · 0 te respondieron»; 97:
+    «Salieron 0 mensajes. 4 no salieron y esperan que los mires.»). El teléfono dice la del diseño, como Marketing (14).
+    `app/m/dashboard/datos.ts`.
+
+## Crítica de esta vuelta, al lado de Tend
+
+- **Velocidad en el teléfono (102, 103)**: ahora no miente, pero es «Contactados 0» y «Leads 131». La compu de Natalia (91) muestra 126
+  esperando, quién espera más y «Llamar»; Tend en el celular es esa lista. Sigue siendo la propuesta para Martín.
+- **«Qué modelo cuesta más» lista modelos de US$0.00** (95): son llamadas gratis de verdad (Gemini, gpt-oss), no un error.

@@ -11,7 +11,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb } from '../workspace';
+import { getTenantDb, getWorkspaceActual } from '../workspace';
 import { leerPorPaginas } from '../supabase-paginado';
 import { podarVencido } from '../spy-reglas';
 import { guionesGuardados } from '../spy-transcripcion-servidor';
@@ -74,7 +74,19 @@ export const FUENTE_BIBLIOTECA_COPY: FuenteOutliersCopy = {
 /** Las fuentes, en orden: lo del negocio primero. Los anuncios propios (`ad_transcripts`) entran acá (D18, lo que sigue). */
 export const FUENTES_OUTLIERS_COPY: readonly FuenteOutliersCopy[] = [FUENTE_SPY_COPY, FUENTE_BIBLIOTECA_COPY];
 
+/**
+ * La portada armada, por negocio, unos minutos en la memoria del server. 11/11/2026, Martín: «anda increíblemente lento». Medido
+ * en producción: 3,8 s hasta el primer byte, casi todo en leer ~2.500 piezas de Spy, sus guiones y la biblioteca. Spy cambia una
+ * vez por día: cinco minutos de atraso no se notan, y volver a la portada (después de replicar) no lo paga otra vez. Una portada
+ * con una fuente caída no se guarda (la próxima vuelve a intentar). Sólo con las fuentes de siempre (los tests pasan las suyas).
+ */
+const PORTADAS = new Map<number, { hasta: number; portada: PortadaCopy }>();
+export const VIVE_LA_PORTADA_MS = 5 * 60_000;
+
 export async function leerOutliersCopy(fuentes: readonly FuenteOutliersCopy[] = FUENTES_OUTLIERS_COPY): Promise<PortadaCopy> {
+  const ws = fuentes === FUENTES_OUTLIERS_COPY ? await getWorkspaceActual().catch(() => null) : null;
+  const guardada = ws != null ? PORTADAS.get(ws) : undefined;
+  if (guardada && guardada.hasta > Date.now()) return guardada.portada;
   const lecturas = await Promise.all(fuentes.map(async (fuente) => {
     let lectura: LecturaFuenteCopy;
     try { lectura = await fuente.leer(); } catch (e) {
@@ -82,7 +94,9 @@ export async function leerOutliersCopy(fuentes: readonly FuenteOutliersCopy[] = 
     }
     return { fuente, lectura };
   }));
-  return juntarOutliersCopy(lecturas);
+  const portada = juntarOutliersCopy(lecturas);
+  if (ws != null && !portada.caidas.length) PORTADAS.set(ws, { hasta: Date.now() + VIVE_LA_PORTADA_MS, portada });
+  return portada;
 }
 
 /**

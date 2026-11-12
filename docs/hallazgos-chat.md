@@ -5,6 +5,57 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## Ningún chat de la app conversa como Claude, y el lugar «libre» para un resumen no está libre (11/11/2026, medido por el Cerebro)
+
+**Lo medido:** todos los chats de la app cortan por CANTIDAD de mensajes y nada resume lo que queda afuera:
+- el Ops Center, el Second Brain y la estrella de cada tab: 12 mensajes (`lib/mako-turno-app.ts:609`);
+- Copywriting y «Discutir» del Web Generator: 8 de 600 letras, pegados como texto en UN mensaje;
+- «Editar» del Web Generator y el Video Editor: ninguno;
+- Offer: 30.
+
+De los 27 chats del Ops Center activos en 14 días, 22 (81 %) pasan los 12: el modelo ya no ve cómo empezaron. Lo que leyó una
+herramienta no queda en la historia, sólo el texto final. El Second Brain se busca con el mensaje actual solo, así que «¿y cuánto
+paga?» no trae nada.
+
+⚠️ **La trampa:** `chart_sessions.contexto` parece el lugar natural para guardar un resumen, porque se crea vacío. No lo es: el
+onboarding lo usa de marca y borra sesiones por él (`lib/onboarding-arranque-server.ts:202-205`), y el turno lo lee
+(`lib/mako-turno-app.ts:702`). El resumen va en `app_settings` con su candado (`KEY_RESUMEN`, lib/conversacion-resumen-reglas.ts).
+
+**La regla:** un chat nuevo arma su historia con el módulo común (`conversacionDelTurno`, lib/conversacion.ts, y sus reglas en
+lib/conversacion-reglas.ts). Corta por TOKENS: 8.000 en la app, 6.000 en un grupo y 1.500 para el clasificador. Cada canal suma su
+adaptador de lectura y pasa la conversación ya armada en `entradas`.
+
+**Hecho el 12/11 (el Ops Center, la estrella de cada tab, el CoPilot y Offer):**
+- La app pasa por el módulo con `lib/chat-app-hilo.ts`: sin ventana, con «lo que leí» y con el Second Brain buscado con los
+  mensajes anteriores de la persona.
+- El resumidor es `lib/conversacion-resumen.ts`. Corre en `after()`, con candado y compare-and-set, y un validador lo descarta si
+  pierde un monto o un nombre.
+- Offer resume lo que pasa los 30 mensajes.
+- El test con el caso real (volver al CoPilot al otro día) está en `tests/chat-app-hilo.test.ts`.
+
+Lo que mordió:
+- **La ventana de 14 h de los grupos borra «volver al otro día».** Se queda en los grupos, donde un «sí» pegado a una charla vieja
+  duplicó tareas. La app y Offer van sin ventana (`ventanaMs: null`).
+- **Resumir «cuando lo de afuera suma 3.000 tokens» deja un hueco.** Entre lo resumido y lo que va entero quedaban hasta 3.000
+  tokens que no veía nadie. `cortarConResumen` deja entrar entero lo que el resumen no cubre hasta el tope MÁS el umbral, así que no
+  hay hueco. Lo único que puede faltar es lo que pasa eso la primera vez, en un chat largo: falta un turno, no más.
+- **`fundirFuentes` no sirve para una sola fuente.** Junta dos mensajes del mismo lado con el mismo texto dentro de 5 minutos, y así
+  dos «sí» seguidos quedaban en uno. Con `entradas`, el módulo no funde.
+- **`historialParaModelo` tiraba el primer mensaje de MaKo**, y en el CoPilot era la pregunta que la persona contestaba («¿Cuánto te
+  deja una venta?» → «300»). `historialDeTurnos` lo deja y lo marca.
+- **El validador de nombres unía por «de».** «la entrada de Nico Sellers de Código Inmobiliario» salía como UN nombre que no se
+  repetía nunca, y nada era obligatorio. Ahora los nombres no se unen por «de». Al principio de una frase, la primera palabra se
+  saca sólo si es de todos los días: «Gracias Nico Sellers» da «Nico Sellers», y «Ana Gómez pagó» queda entero.
+- **`Intl` en es-AR escribe «1/1», no «01/01»**, aunque se pida `2-digit`. Los tests comparan con `0?`.
+- **Quién paga el resumen:** la IA del chat que resume. La app va con la de su turno: en el espacio de MaKo el crédito, en un negocio
+  la suya. Offer va con su propia cascada (las keys del negocio y la red gratis) y nunca paga. No se usa `chatClaude` en Offer.
+
+**Sin hacer:**
+- Los adaptadores de Copywriting, Web Generator, Image y Video: son de sus chats.
+- Prender `conResumen` en los grupos de WhatsApp (`lib/mako-doer-in.ts`): es del chat de WhatsApp.
+- El RAG de `buildSystemPrompt` (`query`, lib/mako-context.ts:115) se sigue buscando sólo con el mensaje actual.
+- La memoria entre chats, como la de Claude: es una decisión de Martín.
+
 ## Create: el ejemplo pregunta la oferta, y la tarjeta reenvía la apertura de su tab (5/11/2026, nube)
 
 - **Qué cambió:** `primerMensajeDeEjemplo` (app/_crear/ejemplo.ts) ya no pregunta «¿Lo adapto a tu negocio?» (una ACCIÓN, lo
@@ -303,3 +354,20 @@ mismo en el Ops Center, la estrella y la tarjeta de Create.
   las aperturas de cada tab (T4 a T17, cada una en su `lib/aperturas/<superficie>.ts`); el teléfono (T16: `aperturaOps` calla
   con `en-la-computadora`). **Nada se vio en el navegador**: falta recorrer el Cerebro del ws3 sin la app («¿Cuál usas?», sus
   botones, dos «Ahora no» la callan) y la estrella cerrada (su corto, la primera visita).
+
+## La caja trabada cortaba «Instala MaKo para escribir»: medir al llegar la frase no alcanzaba (11/11/2026, prueba de Copywriting)
+
+- **Síntoma:** en una caja angosta (el panel de MaKo de las tabs de Create, a 1440), sin la app de escritorio, el campo de
+  104 px mostraba «Instala MaKo» y la mitad de «para escribir». Medido: 40 px de alto con 61 de frase.
+- **⚠️ El diagnóstico obvio era el equivocado.** Parecía que la frase llegaba tarde (con la respuesta del servidor) y nadie volvía
+  a medir. Se arregló así y se desplegó: seguía cortada. Lo que llega tarde es el BOTÓN «Instalar MaKo»: es dinámico
+  (`dynamic(..., { ssr: false })`) y, al aparecer, angosta el campo. La frase ya estaba medida con el ancho de antes.
+- **La regla:** el alto de un campo que depende de su ancho se mide cuando cambia el ANCHO (`ResizeObserver`), no cuando cambia
+  lo que tiene adentro. Sólo el ancho, porque el alto que se pone también dispara al observador. Vive en
+  app/_chat/CajaChat.tsx (el efecto de la caja trabada); el test, en tests/copywriter.test.ts.
+- **⚠️ Y el observador del ancho TAMPOCO alcanzó** (desplegado otra vez y medido igual: 40 px). `ResizeObserver` avisa con los
+  cuadros de dibujo, y una pestaña de fondo (el panel del navegador de la app oculto, una pestaña detrás de otra) no dibuja: el
+  campo midió antes de que llegara el botón y el aviso no llegó nunca. Lo que sí avisa en segundo plano es `MutationObserver` sobre
+  la fila (el botón al llegar ES una mutación). Probado en vivo con la página oculta: 1 aviso y la medida pasa a 61 px.
+- **La regla, completa:** para re-medir cuando aparece algo al lado, se observan las MUTACIONES de la fila; el `ResizeObserver`
+  queda para cuando cambia la ventana. Y lo que depende de `requestAnimationFrame` no se puede probar con el panel oculto.

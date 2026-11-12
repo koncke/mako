@@ -29,6 +29,10 @@
 //     en la base, el test daba verde con el bug puesto (caso `dosClaves`).
 //   · sacarle el `usuario` a `leerReplica` no cambia nada cuando el negocio no tiene ningún @ cargado (hoy, ninguno): el saneo
 //     saca igual todo @ ajeno. Lo que hay que romper para ver el agujero es el saneo mismo.
+//
+// El JSON CORTADO (11/11/2026, base 10/0): `gemini-flash-latest` escribió 7.996 de 8.000 tokens para un carrusel de 6 láminas
+// del ws9 y el JSON llegó cortado a mitad de una clave («La IA no devolvió el diseño en un formato que pueda leer»). Sacar el
+// `MAX_TOKENS` de `leerConGemini` (lib/ai-cheap.ts) → 10/1; volver al pedido con sangría (`COMPACTO`) → 10/1.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -140,10 +144,20 @@ test('el guiado: la oferta que eligió el dueño LLEGA al pedido de la IA, y una
   const texto = g.pedidos.map((p) => p.texto ?? '').join('\n');
   assert.match(texto, /<<<OFERTA[\s\S]*Limpieza dental en una visita[\s\S]*Dientes limpios en 40 minutos[\s\S]*OFERTA>>>/, 'la oferta elegida tiene que viajar al pedido');
   assert.match(texto, /Que hable de la primera visita/, 'lo que escribió el dueño en el guiado viaja');
-  assert.match(texto, /No pongas fotos ni personas/, '«Sin persona»: no se pone ninguna foto');
+  assert.match(texto, /No pongas personas/, '«Sin persona»: la escena va sin gente');
   assert.doesNotMatch(texto, /OTRO negocio/);
   const ajena = R.guiadoOfertaAjena;
   assert.equal(ajena.ok, false, 'una oferta de otro negocio no se usa');
   assert.match(String(ajena.error), /Esa oferta ya no está activa/);
   assert.equal(ajena.pedidos.length, 0, 'sin la oferta no se le pide nada a la IA');
+});
+
+test('si el modelo que mira se queda sin tokens y corta el JSON, se prueba el de respaldo, y el JSON se pide COMPACTO', () => {
+  const c = R.cortado;
+  assert.equal(c.ok, true, String(c.error));
+  assert.deepEqual(c.pedidos.map((p) => `${p.via}:${p.modelo}`), ['vision-nativa:gemini-flash-latest', 'vision-nativa:gemini-flash-lite-latest'],
+    'el JSON cortado no es una respuesta: el respaldo mira las MISMAS láminas antes de caer a escribir sin verlas');
+  assert.equal(c.sinIA, undefined, 'con el respaldo contestando, sale el diseño de la IA y no las guías');
+  assert.equal(c.paginas, 9, 'las 9 láminas enteras, no las que entraron en la mitad del JSON');
+  assert.ok(c.pedidos.every((p) => /JSON compacto, en UNA sola línea/.test(p.texto ?? '')), 'con sangría el mismo diseño ocupa casi el doble de tokens');
 });

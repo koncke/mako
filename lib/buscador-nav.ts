@@ -22,6 +22,12 @@ export const ALIAS: Readonly<Record<string, string | readonly string[]>> = {
   'customer success': 'customer-success', clientes: 'customer-success', curso: 'cs-curso', clases: 'cs-curso', comunidad: 'cs-comunidad',
   calendario: 'calendario', whatsapp: 'bandeja', email: 'bandeja', mensajes: 'bandeja',
   'tu cuenta': 'perfil', perfil: 'perfil', configuracion: 'configuraciones', ajustes: 'configuraciones',
+  // Lo que salió de la barra el 11/11/2026 sigue encontrando DÓNDE se hace (mirado en producción ese día: «lead magnet» y
+  // «avatar» daban «Nothing found», y el 404 de las rutas viejas dice que el buscador «entiende también los nombres viejos»).
+  // Lead Magnet se archivó (lib/lead-magnets/archivado.ts): el regalo se escribe en el Copywriter. AI Avatar salió de la
+  // barra (nav.ts, `fueraDeLaBarra`): se abre desde Video, «Tu personaje con IA».
+  'lead magnet': 'copywriter', leadmagnet: 'copywriter', regalo: 'copywriter',
+  avatar: 'video-editor', 'ai avatar': 'video-editor', personaje: 'video-editor',
 };
 
 const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').trim();

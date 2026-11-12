@@ -55,6 +55,7 @@ import { EditarCarrusel } from './EditarCarrusel';
 import { CarruselAbierto } from './CarruselAbierto';
 import { FiltrosCarruselModal } from './FiltrosCarruselModal';
 import { useImagenesVivas } from './imagenes-vivas';
+import { esLinkDeVideo, linkDeInstagram } from '@/lib/carruseles/link';
 import { PanelThumbnails, type DatosThumbnails } from './Thumbnails';
 import { borrarBusquedaAction, guardarBusquedaAction, guardarCarruselAction, guardarThumbnailAction } from './actions';
 import s from './explorar.module.css';
@@ -142,7 +143,7 @@ const Lupa = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
 );
 
-export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciales, telefono = false, rutaCrear = '/image-editor?ver=crear', onReplicar }: {
+export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, thumbnailsIniciales, telefono = false, rutaCrear = '/image-editor?ver=crear', onReplicar }: {
   datos: DatosExplorador;
   filtrosIniciales?: FiltrosCarrusel;
   /** Los filtros de las miniaturas que dice la URL (lib/thumbnails/explorar.ts, `filtrosThumbnailDeQuery`). */
@@ -159,6 +160,12 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
    */
   onReplicar?: (c: Carrusel) => void;
 }) {
+  // Lo traído por su link en esta visita («Traer tu outlier», 11/11/2026) se suma ya a la lista, primero: no espera a que el
+  // server la vuelva a leer (`router.refresh()` no sirve acá: la pantalla también se dibuja fuera del router, en los tests).
+  const [traidos, setTraidos] = useState<Carrusel[]>([]);
+  const datos = useMemo<DatosExplorador>(() => (traidos.length
+    ? { ...datosDelServer, carruseles: [...traidos, ...datosDelServer.carruseles.filter((c) => !traidos.some((t) => t.id === c.id))] }
+    : datosDelServer), [datosDelServer, traidos]);
   const [f, setF] = useState<FiltrosCarrusel>(filtrosIniciales ?? FILTROS_INICIALES);
   const [ft, setFt] = useState<FiltrosThumbnail>(thumbnailsIniciales ?? FILTROS_THUMBNAIL);
   const [guardados, setGuardados] = useState<Set<number>>(() => new Set(datos.guardados));
@@ -174,6 +181,36 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
   const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
   const [parecidosDe, setParecidosDe] = useState<Carrusel | null>(null);
   const [, start] = useTransition();
+  // «Traer tu outlier» (11/11/2026, Martín: «una opción para traer tu propio [outlier], pegar el link de Instagram»): lo escrito en
+  // el buscador es el link de una publicación → se lee y se suma a los outliers del negocio (app/api/image-editor/carruseles/traer).
+  const [trayendo, setTrayendo] = useState(false);
+  // El error queda atado al link que lo dio: pegar otro lo borra. Y si no vale reintentar (no existe, es un reel), «Traer» no se
+  // vuelve a ofrecer para ESE link: cada intento es una lectura pagada que termina igual (11/11/2026).
+  const [errorTraer, setErrorTraer] = useState<{ texto: string; para: string; reintentar: boolean } | null>(null);
+  const linkPegado = f.que !== 'anuncios' && !enThumbs ? linkDeInstagram(f.q) : null;
+  // Un reel se sabe por su dirección (11/11/2026): se dice en el acto y NO se ofrece «Traer», que pagaba una lectura para terminar
+  // en el mismo «es un reel» (y después del error seguía ofreciendo el botón, o sea otra lectura).
+  const reelPegado = !!linkPegado && esLinkDeVideo(f.q);
+  const errorDeEsteLink = errorTraer && errorTraer.para === f.q ? errorTraer : null;
+  const traer = async () => {
+    if (!linkPegado || trayendo) return;
+    setTrayendo(true);
+    setErrorTraer(null);
+    try {
+      const res = await fetch('/api/image-editor/carruseles/traer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ texto: f.q }) });
+      const r = (await res.json().catch(() => null)) as { ok?: boolean; error?: string; reintentar?: boolean; carrusel?: Carrusel } | null;
+      if (!r?.ok || !r.carrusel) { setErrorTraer({ texto: r?.error || 'No pude traer ese carrusel. Vuelve a intentar.', para: f.q, reintentar: !r?.error || r.reintentar === true }); return; }
+      // Ya es uno más: se suma a la lista, el buscador se limpia (si no, el link lo seguiría escondiendo) y se abre.
+      const c = r.carrusel;
+      setTraidos((xs) => [c, ...xs.filter((x) => x.id !== c.id)]);
+      cambiar({ q: '' });
+      setAbierto(c);
+    } catch {
+      setErrorTraer({ texto: 'No pude traer ese carrusel. Vuelve a intentar.', para: f.q, reintentar: true });
+    } finally {
+      setTrayendo(false);
+    }
+  };
   // El «hace cuánto» se calcula una vez montada la pantalla (el server no dibuja fechas relativas).
   const [ahora, setAhora] = useState<number | null>(null);
   useEffect(() => { setAhora(Date.now()); }, []);
@@ -319,16 +356,17 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
             <label className={s.busca}>
               <Lupa />
               {enThumbs ? (
-                <input type="search" value={ft.q} onChange={(e) => cambiarT({ q: e.target.value })} placeholder={telefono ? 'Busca miniaturas o @canales' : 'Busca miniaturas, temas o @canales'}
-                  aria-label="Buscar miniaturas por tema o por @canal" enterKeyHint="search" />
+                <input type="search" value={ft.q} onChange={(e) => cambiarT({ q: e.target.value })} placeholder={telefono ? 'Busca o pega un link de YouTube' : 'Busca miniaturas, temas o @canales, o pega un link de YouTube'}
+                  aria-label="Buscar miniaturas por tema o por @canal, o pegar el link de un video para traerlo" enterKeyHint="search" />
               ) : (
                 // En «Anuncios» la búsqueda es la misma, pero lo que se busca son anuncios: el texto decía «carruseles» con la
                 // pestaña de anuncios elegida (6/11/2026, revisión de las capturas).
                 <input type="search" value={f.q} onChange={(e) => { setParecidosDe(null); cambiar({ q: e.target.value }); }}
                   placeholder={f.que === 'anuncios'
                     ? (telefono ? 'Busca anuncios o @creadores' : 'Busca anuncios, temas o @creadores')
-                    : (telefono ? 'Busca carruseles o @creadores' : 'Busca carruseles, temas o @creadores')}
-                  aria-label={f.que === 'anuncios' ? 'Buscar anuncios por tema o por @creador' : 'Buscar carruseles por tema o por @creador'} enterKeyHint="search" />
+                    // «Traer tu outlier» (11/11/2026): el buscador también trae, y lo dice (si no se ve, la opción no existe).
+                    : (telefono ? 'Busca o pega un link de Instagram' : 'Busca carruseles, temas o @creadores, o pega un link de Instagram')}
+                  aria-label={f.que === 'anuncios' ? 'Buscar anuncios por tema o por @creador' : 'Buscar carruseles por tema o por @creador, o pegar el link de una publicación para traerla'} enterKeyHint="search" />
               )}
             </label>
           )}
@@ -381,7 +419,8 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
               )}
               <span className={s.espacio} />
               {!sinFiltrosDe(f) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
-              {!sinFiltrosDe(f) && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
+              {/* Un link pegado no es una búsqueda para guardar: es «Traer tu outlier» (11/11/2026, la prueba en producción). */}
+              {!sinFiltrosDe(f) && !linkPegado && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
               {telefono ? null : (
                 <span className={s.total}>
                   {contadorCorto(vistos.length)} {f.que === 'anuncios' ? (vistos.length === 1 ? 'anuncio' : 'anuncios') : (vistos.length === 1 ? 'carrusel' : 'carruseles')}
@@ -416,12 +455,19 @@ export function ExplorarCarruseles({ datos, filtrosIniciales, thumbnailsIniciale
 
             {listas.length === 0 ? (
               <div className={s.vacio}>
-                <p>{parecidosDe ? 'No hay otros ejemplos parecidos a este.' : guardadosVista && !guardados.size
+                <p>{parecidosDe ? 'No hay otros ejemplos parecidos a este.' : reelPegado
+                  ? 'Ese link es de un reel: aquí se traen carruseles y publicaciones con imagen.'
+                  : linkPegado
+                  ? 'Ese link no está entre tus outliers.'
+                  : guardadosVista && !guardados.size
                   ? 'Guarda un carrusel con el marcador y aparece aquí.'
                   : f.que === 'anuncios' && !anuncios
                     ? 'Todavía no hay anuncios de las cuentas que sigues. Spy los trae de la Biblioteca de Anuncios al leer cada cuenta.'
                     : 'Ningún ejemplo pasa estos filtros.'}</p>
+                {errorDeEsteLink && linkPegado ? <p role="alert">{errorDeEsteLink.texto}<ReportarASoporte /></p> : null}
                 {parecidosDe ? <button type="button" className={s.boton} onClick={() => setParecidosDe(null)}>Volver</button>
+                  : reelPegado ? null
+                  : linkPegado && (!errorDeEsteLink || errorDeEsteLink.reintentar) ? <button type="button" className={s.boton} onClick={() => { void traer(); }} disabled={trayendo} aria-busy={trayendo || undefined}>{trayendo ? 'Trayendo…' : 'Traer este carrusel'}</button>
                   // Guardados vacío (10/11/2026): no hay filtro que quitar, hay que volver a buscar qué guardar.
                   : guardadosVista && !guardados.size ? <button type="button" className={s.boton} onClick={() => cambiar({ vista: 'todos' })}>Volver</button>
                   : f.que === 'anuncios' && !anuncios

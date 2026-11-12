@@ -1,58 +1,85 @@
 # Relevo — Copywriting (el chat de la tab; cuenta claude4, 11/11/2026)
 
-Rama `copy-outliers-1111`, worktree `C:/dev/wt-copy-outliers-1111`. Se sube a `punta/copywriting-outliers` (hoy en 1142164a1)
-y el Cerebro integra. **Despliegue único de hoy: 13:00 UTC, a mano**; lo que salga tiene que estar en main en verde a las 12:57.
+Rama `copy-outliers-1111`, worktree `C:/dev/wt-copy-outliers-1111`. Se sube a `punta/copywriting-outliers` (hoy en 08dd1cedb,
+rebasada sobre main ada98995d) y el Cerebro integra. Producción tiene hasta e2cb5fb8e (el despliegue de las 11:05 UTC del 11/11).
 
 ## Lo pedido (Martín, 11/11, por el Cerebro)
 
 «lo mismo que te acabo de decir con web generator, aplícalo para copywriting, me gustaría traer outliers. Tenemos la
 transcripción de un montón de cosas, tanto de anuncios como de carruseles, como de reels, y videos de YouTube… podríamos mantener
-templates con ciertas estructuras, pero también traer los outliers». El Cerebro pidió además la prueba de punta a punta, mirando
-con capturas en el ws 3: replicar, editar, guardar, reabrir, las plantillas, MaKo adaptando a la oferta, cada botón, escritorio y
-celular.
+templates con ciertas estructuras, pero también traer los outliers». Más la prueba de punta a punta en producción, mirando, a
+1440 y 375: (1) Copywriting primero en Create, (2) los outliers sin perder las plantillas, (3) pedir un guion, que MaKo lo escriba
+y editarlo.
 
-## Lo hecho
+## Lo hecho y probado en producción (11/11)
 
-- **8ff1e99fe: la portada de outliers.** Diseño en D18 (docs/diseno-copywriter.md).
-  - `/copywriter` abre «Encuentra tu siguiente OUTLIER», con la grilla, la tarjeta y el modal de Image.
-  - «Mis guiones» (`?ver=guiones`) lleva a la última página, y «Crear desde cero» (`?nueva`) a las plantillas, que quedan.
-  - También en el teléfono.
-  - «Replicar» crea la página atada al original (`props.outlier`). MaKo pregunta para qué oferta y la escribe; el original le
-    llega en cada pedido, y la página tiene «Ver el original».
-  - API de MaKo: `outliers_copywriter` y `replicar_outlier_copywriter`.
-- **6cc78461f: lo que mostró la simulación con los datos reales del ws 3.**
-  - YouTube quedaba en UN video de 369 por cómo se comparaban los links.
-  - Los pies de pocas palabras no son copy.
-- **La prueba en producción del 11/11 (ws 3 y ws 9, 375 y 1440) y sus 7 arreglos** (a49c3fa7c … 1142164a1):
-  - la barra del teléfono decía «Sin título» con el título escrito;
-  - «Ver ejemplo» cortaba el texto a 375;
-  - una burbuja de más después de las preguntas de MaKo;
-  - «Instala MaKo para escribir» cortada (app/_chat/CajaChat.tsx, compartida);
-  - «Ctrl+Z» en el teléfono (y ⌘Z en Mac);
-  - «1 bloque nuevos»;
-  - la letra de las preguntas en el teléfono.
-  (3) «pedir un guion, que MaKo lo escriba y editarlo» anda de punta a punta en el ws 9: el ws 3 no tiene IA a propósito.
-- **Tests:** copywriter-outliers 13/0 (13 de 13 roturas cazadas). Pasan además copywriter-ia, copywriter-iniciativa,
-  copywriter, copywriter-tipos, copywriter-compartir, movil-mas-secciones, publicar-desde-crear, usar-en-anuncio,
-  api-mako-registro, api-mako-rest y doer-recetas-video-imagen.
+- **En producción (e2cb5fb8e), probado:** la portada «Encuentra tu siguiente OUTLIER» (ws 3: 1,2k; ws 9: 2,3k), los filtros, el
+  buscador, el modal con «SU GUION» transcripto y su «×», Replicar (MaKo pregunta la oferta y escribe; «Ver el original» entero),
+  «Mis guiones», «Crear desde cero» con las plantillas, y el orden de Create (Copywriting, Video, Image, Web Generator; también en
+  «More» del teléfono). (3) anda en el ws 9 a 1440 y a 375; el ws 3 no tiene IA a propósito.
+- **Arreglado DESPUÉS del despliegue (en la punta, sale en el próximo):**
+  - «Todos» intercala los formatos (eran 24 carruseles en inglés seguidos);
+  - el modal muestra la pieza arriba y el texto abajo (era una caja blanca casi vacía);
+  - en una página vacía (la de Replicar) MaKo escribe en el renglón vacío (quedaba «Escribe "/"…» arriba);
+  - si la réplica repite 5 palabras seguidas del original, la propuesta lo avisa (pasó: «no es suerte, es sistema»);
+  - la caja trabada se mide cuando cambia su ancho (el primer arreglo, desplegado, no alcanzó: docs/hallazgos-chat.md);
+  - teléfono: «Mis guiones» y «Crear desde cero» debajo del título (no se veían), y llegan a su vista (el paso al teléfono
+    perdía `nueva` y `ver`: lib/movil-creacion.ts).
+- **Páginas de prueba:** borradas y comprobado en la base (fila, documento y charla): ws 9 `ghqvixe3uzr`, `gwp14mkuww8`,
+  `gdioc06j32n`; ws 3 `g9mzb3l58qt`. Script: `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/419b79ec-cbd8-462f-a8bc-088b55605527/scratchpad/limpiar-prueba.mjs`.
+
+## Segunda vuelta en producción (2507c11c7, 15:55 UTC del 11/11)
+
+- **Vistos y bien:** el modal con la pieza arriba; en el teléfono los botones debajo del título, «Crear desde cero» → plantillas
+  y «Mis guiones» → la lista; la réplica empieza en «Gancho» (sin renglón vacío) y avisa la frase copiada.
+- **Seguían mal y van en la punta (sale en el próximo despliegue):** el intercalado se deshacía después de la primera vuelta
+  (`44bcd2e5a`); la caja trabada seguía cortada con la página en segundo plano (`0738ce0d1`, ahora con `MutationObserver`);
+  el aviso no miraba el título propuesto (`4322790ff`).
+- **Páginas de prueba de esta vuelta:** ws 9 `gzq1mp4ggrs`, borrada y comprobada en la base.
+
+## Tercera vuelta: lo que pidió Martín con capturas (11/11, noche) — SALE EL 12/11 A LAS 11:05 UTC
+
+- **En la punta (39dd39bbd y 9ced6db76):** Replicar escribe el guion ENTERO solo (oferta principal, sin «Aceptar»; las otras
+  ofertas, como botones debajo); la portada va en el centro de Create con el chat de MaKo a la izquierda y «Nueva página» vuelve a
+  ella; tarjetas de copy (texto primero, YouTube 16:9); fila de plantillas en la portada; la portada liviana. Recorrido y lista de
+  lo que frenaba: la nota `copywriting-recorrido-1111.md` en la carpeta de notas del Cerebro.
+- **ANTES de la velocidad** (producción 2507c11c7, ws 9, 1440): 7,5 MB de HTML, 3,8 s al primer byte, 5,3 s hasta poder usarla,
+  8,9 s a la carga entera, 2.291 tarjetas, 46.030 elementos, filtros Reels 1,0 s · Todos 1,7 s · YouTube 7,2 s · Todos 2,2 s.
+  Se mide igual: `performance.getEntriesByType('navigation')` y un `MutationObserver` alrededor del clic en el filtro.
+- **LA PRUEBA DE MAÑANA, apenas producción tenga 39dd39bbd o posterior** (con capturas a 1440 y 375, en el ws 9):
+  1. el DESPUÉS de la velocidad con los mismos números;
+  2. tres réplicas reales AL LADO de su original con el cuerpo entero: el YouTube «¿Se puede vivir como creador de contenidos en
+     Argentina?» (tiene transcripción, pieza 2605), el reel «Cobrar mejor no es suerte, es sistema» (pieza 1115) y un anuncio;
+  3. la ida y vuelta: portada → Replicar → guion → «←» → «Nueva página» → portada, con el chat a la izquierda;
+  4. las plantillas en la portada;
+  5. borrar las páginas de prueba (script de arriba) y comprobarlo en la base. La página de Martín `gd0cztjgxek` es SUYA: no se borra.
+
+## ENCARGO SIGUIENTE (del Cerebro, 11/11 noche): el punto 9 del plan de los chats — DESPUÉS de la prueba de mañana
+
+- **Martín, textual:** «El chat de MaKo tiene que funcionar exactamente igual que un chat acá contigo en Claude. Tiene que guardar
+  todo el contexto… Todos los chats de MaKo tienen que funcionar exactamente igual».
+- **El plan:** `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/6ea62e88-206b-49e4-b5fe-e446feb70ded/scratchpad/chats-plan.md`
+  (y `chats-app.md`). El módulo común ya está hecho: `lib/conversacion-reglas.ts` + `lib/conversacion.ts`
+  (`conversacionDelTurno({canal, ws, clave, excluirIds, presupuesto})` → `{turnos, resumen, hechos, ultimoDeMaKo}`), en
+  `punta/wa-sorda-1011` `aa318ca29`. **Se arranca cuando `git merge-base --is-ancestor aa318ca29 origin/main` dé sí** (el 11/11 a las
+  22:50 UTC todavía no estaba). **NO tocar `lib/conversacion*`.**
+- **Mi parte (punto 9):** en Copywriting la historia viaja como TURNOS de verdad armados en el SERVIDOR (hoy la arma la pantalla y
+  llega como texto: `charla()` en app/copywriter/PanelMaKo.tsx → `charlaParaIA` en lib/copywriter/ia.ts:152 y :246). Con un adaptador
+  de lectura del almacén del guion (la charla vive en `chart_sessions`/`chart_chats` con la clave `copywriter:<id>`,
+  lib/hilo-de-tab-reglas.ts → `claveDeGuion`), más el Second Brain del negocio (`paqueteParaElTurno`, buscado con el mensaje y los
+  2 o 3 anteriores). App: 8.000 tokens de historia entera, lo más viejo en el resumen del módulo común.
+- **El test:** volver a un guion de ayer y que MaKo se acuerde de lo que hablaron y de la oferta elegida. Roto a propósito y
+  vuelto a verde.
 
 ## Lo que falta
 
-- **El chequeo de tipos:** lo corre el filtro de antes de subir (acotado) y GitHub («Tipos» completo), por orden del Cerebro.
-- **Después del despliegue de las 13:00**, en el ws 3 y en el ws 9, a 1440 y a 375, con capturas:
-  - la portada de outliers, abrir uno y Replicar;
-  - MaKo escribiendo la réplica en el ws 9 y «Ver el original»;
-  - «Mis guiones» y «Crear desde cero»;
-  - los 7 arreglos;
-  - Copywriting primero en Create.
-- **Borrar las páginas de prueba** y comprobarlo en la base. Las del 11/11 llevan «[prueba Copywriting 11/11]»; las de Replicar,
-  «Como @…». Hoy: ws 9 `ghqvixe3uzr`, ws 3 `g9mzb3l58qt`. Script: `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/419b79ec-cbd8-462f-a8bc-088b55605527/scratchpad/limpiar-prueba.mjs` (sin
-  `--borrar` sólo lista). Hay que pasarle al Cerebro los ids.
+- **Mirar en producción, después del próximo despliegue, los arreglos de arriba** (a 1440 y 375).
+- **⚠️ Avisado al Cerebro:** a las ~15:05 UTC la IA del ws 9 contestó «API key not valid» de Gemini (502 a los 110 s); 15 minutos
+  antes había escrito bien. El mensaje le muestra al usuario el texto técnico y le pide «pega una nueva» (errorDeCascada).
 - **Visto y NO arreglado (otra tab):** en el teléfono, el chip «Cliente de Prueba» del super admin tapa el título de la barra (app/m/_ui).
 - **Dos caminos al mismo lugar:** «Copiar estructura» de Spy y «Replicar» de Copywriting (hallazgos-copywriter).
-- **«Copywriting primero en Create»** NO es de esta rama: ya lo trae `punta/spy-pruebas` (el chat de Competitor Spy tocó la
-  barra el 11/11). No se toca `app/_components/nav.ts` acá para no pisarlo; se verifica en producción.
-- **Los anuncios propios como fuente** (`ad_transcripts` + el veredicto del Script Analyst).
+- **El texto del modal llega cortado a 600 letras** (`TEXTO_EN_TARJETA`); «Ver el original» de la página sí lo trae entero.
+- **Los anuncios propios como fuente** (`ad_transcripts` + el veredicto del Script Analyst): sólo hay en negocios de clientes.
 - **Transcribir al replicar** un reel o un video sin guion (`asegurarGuion` de Spy, con su tope de 20 por día).
 
 ## Lo que espera a Martín

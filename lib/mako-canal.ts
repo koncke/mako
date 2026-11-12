@@ -17,8 +17,10 @@
 import 'server-only';
 import {
   sondearSocket, motivoCaida, registrarWebhookInstancia, permitirGruposEnInstancia,
-  getInstanciaRow, conectar, estadoEnVivo,
+  getInstanciaRow, conectar, estadoEnVivo, vinculadaDesdeDeLinea,
 } from './evolution';
+import { puedeSoltarseSorda } from './linea-sorda';
+import { marcaDeLineaEnferma } from './lineas-enfermas';
 import { mensajeEvolution } from './evolution-sonda';
 import { instanciaVoz, setInstanciaVoz } from './mako-grupo';
 import { getSettingEstricto, cambiarSettingSi } from './settings';
@@ -255,7 +257,15 @@ export async function conectarCanalMaKo(): Promise<Conexion> {
   // (revisión del 11/09/2026).
   const sondeo = await sondearSocket(inst, 15000);
   if (sondeo === 'vivo') {
-    return { ok: false, error: 'La línea ya está conectada y respondiendo: no hace falta reconectarla.' };
+    // ⚠️ VIVA PARA LA SONDA NO ES QUE RECIBA (informe del 11/11/2026, docs/hallazgos-comunicacion.md «La línea sorda»): la voz sorda
+    // contesta la sonda y MANDA. Con este corte solo, «Conectar por QR» decía «ya está conectada» justo cuando hacía falta, y Martín
+    // tenía que desvincularla desde el teléfono primero. Si el vigilante la marcó sorda sobre ESTA vinculación (`puedeSoltarseSorda`:
+    // una marca de antes del último QR es de otro dispositivo y no cuenta), sigue al logout de abajo y da el QR en un paso.
+    const marca = await marcaDeLineaEnferma(inst);
+    if (!marca || !puedeSoltarseSorda(marca, await vinculadaDesdeDeLinea(inst).catch(() => null))) {
+      return { ok: false, error: 'La línea ya está conectada y respondiendo: no hace falta reconectarla.' };
+    }
+    console.warn(`[mako-canal] ${inst} ${marca.motivo}: contesta la sonda, pero se suelta para dar el QR en un paso`);
   }
   if (sondeo === 'sin_respuesta') {
     return { ok: false, error: 'WhatsApp no contestó a tiempo y no puedo confirmar que la línea esté caída, así que no toqué nada. Reintenta en un minuto.' };

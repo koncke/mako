@@ -454,6 +454,45 @@ app/m/copywriter/GuionM.tsx
   original citado adentro) y la portada de Copywriting tiene «Replicar» (la página nace vacía, atada al original, y MaKo la
   escribe). **Sin hacer:** que Spy use «Replicar» y quede uno solo.
 
+## Lo que la prueba en producción encontró en los outliers (11/11/2026, después del despliegue)
+
+- **«Todos» era una sola fila de carruseles:** las 24 primeras tarjetas eran carruseles en inglés de la biblioteca (de 1.219× a
+  29×), porque su «×» está en otra escala que el de los reels del nicho. Ahora cada vuelta trae el mejor de cada formato
+  (`intercalarFormatos`); dentro de un formato el orden no cambia.
+- **La réplica copiaba la frase del original:** «Cobrar mejor no es suerte, es sistema.» se replicó como «Cobrar más caro no es
+  suerte, es sistema.», con la regla «nunca copies sus frases» en el prompt. Segunda capa: `frasesDelOriginal` (5 palabras
+  seguidas) avisa en la propuesta con la frase. ⚠️ Una vez MaKo también «arregló» una línea editada a mano que no se le pidió
+  tocar; repetido con una edición limpia, la respetó: la primera vez, la frase que dejó la prueba estaba rota.
+- **El visor del modal era una caja blanca casi vacía** con un pie de dos renglones: ahora la pieza va arriba y el texto abajo.
+- **⚠️ El intercalado se deshacía solo** (desplegado y medido): carrusel, reel y YouTube en la primera vuelta y después nueve
+  carruseles. La variedad de creadores («2 del mismo cada 12») corría DESPUÉS de intercalar y empujaba abajo los reels y
+  videos, que son de pocas cuentas. Va dentro de cada formato, antes de intercalar (`intercalarFormatos(xs, porFormato)`).
+- **El aviso de frases copiadas anduvo, pero no miraba el título** (desplegado y medido): avisó «es lo peor que puedes hacer» del
+  cuerpo y dejó pasar el título «Cobrar más no es suerte, es sistema». Ahora mira los dos por separado.
+- **Sin hacer:** el aviso ve frases iguales, no paráfrasis. La historia de la réplica todavía sigue de cerca la del original
+  («qué rabia cuando cobras poco y el cliente te exige el triple»).
+
+## «Lo único que me replica es el título»: probar no es mirar que anda, es usarlo como Martín (11/11/2026)
+
+- **Síntoma** (Martín, con capturas): Replicar dejaba una página con título, Ángulo y Estructura «Vacío» y el cuerpo VACÍO; MaKo
+  preguntaba «¿Lo replico para tu oferta? ¿Para cuál?» y no escribía. Además: no había cómo volver a los outliers, la portada no
+  tenía el chat de MaKo, las tarjetas parecían carruseles y la pestaña andaba «increíblemente lenta».
+- **⚠️ El diagnóstico obvio era el equivocado: «anda, lo probé».** Las pruebas de la tarde pasaron porque YO contestaba la
+  pregunta de la oferta y tocaba «Aceptar». Una persona que toca «Replicar» espera el guion escrito: la pregunta y el «Aceptar»
+  eran dos pasos que nadie le pidió. La prueba tiene que ser el recorrido de quien la usa, de punta a punta, sin conocer la app.
+- **Lo que quedó:** al abrir la réplica vacía MaKo la escribe SOLA con la oferta principal y queda en la página (no había nada
+  que pisar); las otras ofertas, como botones debajo; el pedido pide el guion ENTERO y el ángulo y la estructura. La portada va
+  en el centro de la pantalla de Create (`nueva` de PantallaCrear, como Image), con el chat a la izquierda, y «Nueva página»
+  vuelve a ella. La tarjeta es de copy (el gancho grande y el texto; YouTube en 16:9), y las plantillas van en una fila al lado.
+- **La lentitud, medida** (producción, ws 9, 1440): 7,5 MB de página, 3,8 s al primer byte, 5,3 s hasta poder usarla, 2.291
+  tarjetas con 46.030 elementos, y de 1 a 7 s por cambio de filtro. Era traer y dibujar TODO: de a 48 tarjetas, 300 por formato,
+  280 letras por tarjeta (el texto entero se pide al abrir) y la portada guardada 5 min por negocio. El intercalado NO era (se
+  calcula una vez en el server).
+- **La regla:** una portada de outliers no manda ni dibuja todo lo que hay: tope por formato, texto corto en la tarjeta y tandas.
+- **Sin hacer:** un video de YouTube sin transcripción se replica con su título y su descripción (no sigue su estructura real);
+  transcribirlo al replicar (`asegurarGuion`, tope de 20 por día). Sin la app de escritorio, la réplica no se escribe sola (la
+  regla de todo chat de MaKo).
+
 ## Qué quedó sin hacer
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».

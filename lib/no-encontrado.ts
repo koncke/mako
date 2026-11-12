@@ -39,8 +39,11 @@ export function inicioDesde(search: string): string {
  * Decirle «Ctrl K» a alguien en una Mac es decirle una tecla que no existe para él: la combinación es ⌘ K
  * (app/_components/BuscadorNav.tsx la escucha con `metaKey || ctrlKey`).
  */
-export const atajoBuscador = (plataforma: string): string =>
-  /Mac|iPhone|iPad|iPod/i.test(plataforma || '') ? '⌘ K' : 'Ctrl K';
+export const atajoBuscador = (plataforma: string): string | null =>
+  // Un TELÉFONO no tiene teclado ni el buscador de la barra: decirle «presiona Ctrl K» (mirado en producción el 11/11/2026,
+  // en el 404 de Lead Magnet a 375 px) es mandarlo a buscar una tecla que no existe. Ahí la frase no va.
+  /iPhone|iPod|Android.*Mobile/i.test(plataforma || '') ? null
+    : /Mac|iPad/i.test(plataforma || '') ? '⌘ K' : 'Ctrl K';
 
 // =============================================================================
 // QUE EL TÍTULO DE LA PESTAÑA SEPA QUE ESTÁ EN UN 404 (9/11/2026)

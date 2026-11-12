@@ -80,9 +80,16 @@ const NO_ARRANCA: Record<Extract<ResultadoEnjambre, { ok: false }>["motivo"], st
 };
 
 /** La pausa entre un paso y el siguiente, para que el cambio se vea en la línea de tiempo. */
-const PAUSA_ENTRE_PASOS_MS = 450;
+const PAUSA_ENTRE_PASOS_MS = 120;
 /** Cuánto se ve cada estilo que prueba subs-03 antes de volver atrás (el «A/B testing caption fonts…» del reel). */
-const PAUSA_PRUEBA_MS = 700;
+const PAUSA_PRUEBA_MS = 350;
+/**
+ * Lo mínimo que trabaja cada agente a la vista: que su cursor llegue (TRANSICION_CURSOR_MS, 300) y se lo vea ahí. Medido en producción el
+ * 11/11/2026: muletillas, B-roll y volumen duraban 0,2–0,8 s y cinco agentes ni se prendían (Martín: los cursores,
+ * «súper importante que esté en todo momento»). Con «reducir movimiento», nada.
+ */
+// 1.400 → 600 ms (11/11/2026, Martín: «mucho más rápido… tiene que ser eficiente»), y la pausa entre pasos 450 → 120.
+const PASO_A_LA_VISTA_MS = 600;
 
 const sinMovimiento = (): boolean => {
 	try {
@@ -522,6 +529,7 @@ export async function correrEnjambre(
 			fijarAgente(paso.agente, "trabajando");
 			anotar(paso.agente, "empieza", renglon(paso.titulo));
 			const ctx: Contexto = { editor, paso, agente: paso.agente, quietos, ...lugar, frases, subtitulosNoSalieron };
+			const empezo = Date.now();
 			let como: ComoTermina;
 			try {
 				if (!enSuLugar(ctx)) {
@@ -543,6 +551,7 @@ export async function correrEnjambre(
 				como = "fallo";
 			}
 			esperada = editor.scenes.getActiveSceneOrNull()?.tracks ?? esperada;
+			if (!quietos) await esperar(Math.max(0, PASO_A_LA_VISTA_MS - (Date.now() - empezo)));
 			fijarAgente(paso.agente, como === "hecho" ? "listo" : como === "fallo" ? "fallo" : "salteado");
 			if (paso.id === "subtitulos" && como === "hecho") subtitulosNuevos = true;
 			if (paso.id === "subtitulos" && como !== "hecho") subtitulosNoSalieron = true;

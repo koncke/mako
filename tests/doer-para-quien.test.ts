@@ -44,7 +44,8 @@ test('4. el doer: lo saltea antes del turno (leyendo la memoria sólo si hace fa
   assert.match(doer, /if \(nombraAMaKo\(texto\) \|\| quien\.aMaKo \|\| delLote\?\.nombra\) return null;/, 'una @mención a MaKo dejó de contar como nombrarla');
   assert.match(doer, /const pideUnSi = async \(\) => \(await hayPendientes\(\)\) \|\| \(await makoAcabaDePreguntar\(wsData, jid\)\);/);
   assert.match(doer, /return \(await pideUnSi\(\)\) \? null : candidato;/, 'el «ok» después de una pregunta de MaKo dejó de ser un sí');
-  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxCita, )?(?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado\]/);
+  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxCita, )?(?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado(?:,\n\s*laPlataforma \? [^\]]*)?\]/);
+  // (Desde el 12/11/2026 el último es el bloque de la plataforma, sólo en el grupo de SuperAdmin: lib/doer-plataforma.ts.)
 });
 
 // La revisión adversarial de 92d23e11d: elegir a MaKo con la @ manda el jid de su línea, no la palabra «mako», y quedaba callado.

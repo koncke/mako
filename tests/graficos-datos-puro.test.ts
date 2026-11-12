@@ -17,7 +17,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CORTES_VSL, TRAMOS_CONTACTO, TRAMOS_VISTO, chatsEsperando, diasEntre, enviosRespondidos, esChatIndividual, esSelloDelConstructor,
+  CORTES_VSL, TRAMOS_CONTACTO, TRAMOS_VISTO, chatsEsperando, diasEntre, enviosRespondidos, esChatIndividual, esLlamadaDeIa, esSelloDelConstructor,
   fraccionCta, gano, llegaronAlCta, regionIso, rotuloMadurez, rotuloSenal, rotuloUrgencia, tramoDeContacto, tramoVisto, tramosDelCiclo,
   turnosDeChats, ubicacionDeHeaders, type MensajeChat,
 } from '../lib/graficos-datos-puro';
@@ -161,6 +161,17 @@ test('envíos respondidos: el ÚLTIMO envío de una inscripción que contestó; 
   assert.deepEqual([...enviosRespondidos(envios, (i) => estado[i])].sort(), [2, 4, 5]);
 });
 
+test('envíos respondidos: el último que SALIÓ; una acción, un simulado o un omitido no se contestan (11/11/2026, ws 3)', () => {
+  const envios = [
+    { id: 1, inscripcionId: 20, t: '2026-11-01T10:00:00Z', respondioAt: null, salio: true }, // el mensaje que contestó
+    { id: 2, inscripcionId: 20, t: '2026-11-01T10:05:00Z', respondioAt: null, salio: false }, // la acción de después (una etiqueta)
+    { id: 3, inscripcionId: 21, t: '2026-11-02T10:00:00Z', respondioAt: null, salio: false }, // simulado: no salió nada
+    { id: 4, inscripcionId: 21, t: '2026-11-02T10:01:00Z', respondioAt: null, salio: false }, // y una acción
+  ];
+  const estado: Record<number, string> = { 20: 'respondio', 21: 'respondio' };
+  assert.deepEqual([...enviosRespondidos(envios, (i) => estado[i])], [1], 'la 21 contestó, pero no a un mensaje de este flujo: no suma');
+});
+
 test('el sello del constructor de Lovable se reconoce por su selector, no por cualquier «lovable»', () => {
   assert.ok(esSelloDelConstructor('#lovable-badge-close'));
   assert.ok(esSelloDelConstructor('#lovable-badge-cta'));
@@ -168,4 +179,15 @@ test('el sello del constructor de Lovable se reconoce por su selector, no por cu
   assert.ok(!esSelloDelConstructor('#root > div:nth-of-type(2) > section:nth-of-type(1)'));
   assert.ok(!esSelloDelConstructor('#lovable-badges-de-mi-cliente'), 'otro id que empieza igual no es el sello');
   assert.ok(!esSelloDelConstructor(null));
+});
+
+test('el uso de la IA cuenta sólo las llamadas: ni las decisiones de MaKo ni los vetos, 429, saltos o fallos (11/11/2026, ws 3)', () => {
+  assert.equal(esLlamadaDeIa('anthropic', 'claude-haiku-4-5'), true);
+  assert.equal(esLlamadaDeIa('gemini', 'gemini-flash-latest'), true);
+  assert.equal(esLlamadaDeIa('mako', 'clase:no_reply'), false, 'una decisión del clasificador no es una llamada');
+  assert.equal(esLlamadaDeIa('anthropic', 'vetado:claude-sonnet-4-5'), false);
+  assert.equal(esLlamadaDeIa('gemini', 'rebote429:gemini-flash-latest'), false);
+  assert.equal(esLlamadaDeIa('groq', 'rebote:llama-3.3-70b'), false);
+  assert.equal(esLlamadaDeIa('openai', 'fallo:gpt-4o-mini'), false);
+  assert.equal(esLlamadaDeIa(null, null), true, 'una fila sin datos se cuenta, como antes');
 });

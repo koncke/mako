@@ -93,7 +93,9 @@ test('3. el turno: lleva la herramienta, la corre antes que todo, retira y guard
   assert.deepEqual(bloquesDelMensaje(['d1', 'd2', 'd3', 'd4'], 'P', 4), ['d1', 'd2', 'd3', 'P'], 'con 4 dibujos, la pregunta igual va');
   assert.deepEqual(bloquesDelMensaje(['d1', 'd2'], 'P', 4), ['d1', 'd2', 'P']);
   assert.deepEqual(bloquesDelMensaje(['d1', 'd2', 'd3', 'd4', 'd5'], null, 4), ['d1', 'd2', 'd3', 'd4'], 'sin pregunta, el tope de siempre');
-  assert.match(s, /await appendMessage\(s\.id, 'assistant', respuesta, conElMensaje\.length \? conElMensaje\.map\(aGuardar\) : undefined\);/);
+  // Desde el 12/11/2026 la respuesta va con «lo que leí» al final (una marca que no se dibuja, tests/chat-app-hilo.test.ts). La regla
+  // sigue: la pregunta va en `conElMensaje`, y `conElMensaje` se guarda con la respuesta.
+  assert.match(s, /const conLoLeido = \[\.\.\.conElMensaje\.map\(aGuardar\), \.\.\.\(leido \? \[marcaLeido\(leido\)\] : \[\]\)\];\s*await appendMessage\(s\.id, 'assistant', respuesta, conLoLeido\.length \? conLoLeido : undefined\);/);
   // La frase del «Hecho»: hoy, sin herramientas (es de la 1.2). Cuando el clasificador la mande a actuar, esto cambia.
   const frase = 'todos los martes a las 3 a todo el funnel';
   const v = clasificarIntencion(frase, { hayMedia: false });
