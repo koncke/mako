@@ -345,6 +345,27 @@ const seg = (ticks: number, tps: number) => Math.round((ticks / tps) * 100) / 10
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const r1 = (n: number) => Math.round(n * 10) / 10;
 const corto = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+
+/** El tamaño de un texto nuevo sin plantilla (el de `leerEstilo` y la pestaña Texto). */
+export const TAMANO_TEXTO_DE_SIEMPRE = 15;
+/** La letra mide `tamaño × alto del lienzo / esto` (FONT_SIZE_SCALE_REFERENCE de text/typography.ts: lo fija el test). */
+export const REFERENCIA_TAMANO_LETRA = 90;
+/**
+ * El tamaño más grande con el que el renglón más largo de `texto` entra en el 90 % del ancho del lienzo, o null sin
+ * lienzo. Un texto NO se parte solo (text/layout.ts mide cada renglón como es), así que el tamaño depende de cuántas
+ * letras tiene. Ancho promedio de una letra, medido en Chrome con Arial (12/11/2026): ~0,63 de su alto en mayúsculas y
+ * ~0,5 en minúsculas; se toma un poco más, para que sobre.
+ */
+export function tamanoQueEntra(texto: string, lienzo: { ancho: number; alto: number } | null, mayusculas: boolean): number | null {
+	if (!lienzo || lienzo.ancho <= 0 || lienzo.alto <= 0) return null;
+	const renglones = texto.split("\n").map((l) => l.trim()).filter(Boolean);
+	if (!renglones.length) return null;
+	const largo = Math.max(...renglones.map((l) => l.length));
+	const enMayusculas = mayusculas || !/[a-záéíóúñü]/.test(renglones.join(""));
+	const letra = enMayusculas ? 0.66 : 0.54;
+	const maximo = (0.9 * lienzo.ancho * REFERENCIA_TAMANO_LETRA) / (largo * letra * lienzo.alto);
+	return Math.max(1, Math.floor(maximo * 2) / 2);
+}
 const num = (p: ParamValues, clave: string, porDefecto: number) => {
 	const v = p[clave];
 	return typeof v === "number" && Number.isFinite(v) ? v : porDefecto;
@@ -1537,6 +1558,12 @@ export function revisarOperaciones({
 				params = paramsParaLienzo(plantilla.params, lienzo ? { width: lienzo.ancho, height: lienzo.alto } : null);
 				nombrePlantilla = plantilla.nombre;
 			}
+			// Que entre en el cuadro (12/11/2026): el texto no se parte solo, y el de siempre (15) ya se sale en un 9:16 con
+			// una frase larga.
+			const entra = tamanoQueEntra(op.texto, lienzo, params?.[TEXTO.mayusculas] === "mayusculas");
+			const pedido = typeof params?.fontSize === "number" ? params.fontSize : TAMANO_TEXTO_DE_SIEMPRE;
+			const achicado = entra !== null && pedido > entra;
+			if (achicado) params = { ...(params ?? {}), fontSize: entra };
 			const anim: ParamValues = {};
 			for (const c of categoriasPara("text")) for (const k of [ANIM[c].id, ANIM[c].duracion]) if (params?.[k] !== undefined) anim[k] = params[k];
 			const estadoNuevo: EstadoElemento = { anim, transform: leerTransform({}), estilo: leerEstilo(params ?? {}) };
@@ -1546,7 +1573,7 @@ export function revisarOperaciones({
 				tipo: "agrega",
 				titulo: nombrePlantilla ? `Texto nuevo · plantilla «${nombrePlantilla}»` : "Texto nuevo",
 				antes: "",
-				despues: `«${corto(op.texto, 80)}» · de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + op.duracion)}`,
+				despues: `«${corto(op.texto, 80)}» · de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + op.duracion)}${achicado ? ` · letra ${textoNumero(entra!)} para que entre en el cuadro` : ""}`,
 			});
 			continue;
 		}
@@ -2044,6 +2071,16 @@ export function revisarOperaciones({
 						break;
 					}
 					estilo.fuente = canonica;
+				}
+				// Que entre en el cuadro (12/11/2026, medido en producción: «tamaño 48» dejaba «OFERTA DE NOVIEMBRE» en
+				// letras de 1.000 px y sólo se veía «EN»). Un subtítulo no: se vuelve a partir en renglones solo.
+				if (estilo.tamano !== undefined && !el.subtitulo && typeof st.texto === "string") {
+					const mayus = (estilo.mayusculas ?? e.estilo.mayusculas) === "mayusculas";
+					const entra = tamanoQueEntra(st.texto, lienzo, mayus);
+					if (entra !== null && estilo.tamano > entra) {
+						descartes.push(`el tamaño ${textoNumero(estilo.tamano)} saca «${corto(st.texto, 30)}» del cuadro: queda en ${textoNumero(entra)} (para un texto más grande, pártelo en renglones)`);
+						estilo.tamano = entra;
+					}
 				}
 				const { nuevo, params } = aplicarEstilo(e.estilo, estilo);
 				const fila = filaCampos(
