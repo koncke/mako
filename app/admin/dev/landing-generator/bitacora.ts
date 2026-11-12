@@ -1712,4 +1712,40 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '12 nov', hora: '08:10', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Probado entero en producción: la réplica adaptada ya no sale con el texto de la competencia',
+    puntos: [
+      'Se probó como lo usaría Martín: replicar una landing de la competencia desde su tarjeta, las 12 plantillas, editar a mano, el chat por texto y por audio, y publicar. Cada paso tiene su captura.',
+      'Si MaKo no pudo escribir el texto para tu oferta, ya no crea una «Adaptada de…» con el texto del otro: te dice por qué y te ofrece copiarla tal cual.',
+      'Al adaptar, MaKo ya no nombra a la marca ni a las personas de la página original (antes, en las de gurús, ni la marca reconocía).',
+      'La copia ya no trae como secciones el formulario escondido, el cartel que sale al irse de la página ni el botón del sonido del video.',
+      'En el chat de los editores, «Enviar audio» ya no queda cortado. En los diseños oscuros se lee el lugar del video.',
+    ],
+    archivos: [
+      'lib/editor-landing/replicar.ts — la adaptada sin ninguna sección escrita no se crea',
+      'lib/editor-landing/replicar-partes.ts — la marca por el dominio y los nombres de la referencia',
+      'lib/landing-extraer.ts — modales, popups, entidades y los botones del reproductor',
+      'app/admin/operaciones/centro.css — la caja del chat nunca más ancha que su columna',
+      'tests/web-generator-probar-1211.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '12 nov', hora: '08:40', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: tocar una plantilla de la portada ya no rompe la pantalla (ticket #88)',
+    puntos: [
+      'Al tocar un diseño en «Plantillas» de la portada, la pregunta «¿De qué quieres crearla?» se armaba antes de llegar al navegador y fallaba; la pantalla se rehacía sola y MaKo lo anotaba como «se rompió».',
+      'Ahora esa pregunta y los menús de la tab aparecen recién en tu navegador. Se ve igual, sin el error.',
+      '**Cómo se prueba:** en Web Generator, toca una plantilla de la fila de arriba; sale la pregunta y no se abre ningún aviso.',
+    ],
+    archivos: [
+      'app/web-generator/MiniaturaLanding.tsx — `useEnElNavegador`: el diálogo y el menú de Gamma no se dibujan en el servidor',
+      'tests/web-generator-ticket-88.test.ts — se dibujan en node sin tirar; probado rompiéndolo',
+    ],
+    revisar: '/web-generator?vista=plantillas',
+    tickets: [88],
+  },
 ];

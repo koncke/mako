@@ -41,10 +41,22 @@
 // =============================================================================
 
 import {
-  useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
+  useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
   type CSSProperties, type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+
+const sinSuscripcion = () => () => {};
+/**
+ * ¿Ya estamos en el navegador? false en el servidor y en la hidratación; true después (12/11/2026, ticket #88). Un portal a
+ * `document.body` no se puede dibujar en el servidor: `?vista=plantillas&diseno=<id>` (el enlace de las plantillas de la
+ * portada) abre «¿De qué quieres crearla?» desde el PRIMER render, el servidor tiraba «document is not defined», React pasaba
+ * esa parte a dibujarse en el cliente (error #419) y la Ticketera abría «La pantalla Web Generator se rompió». Con
+ * `useSyncExternalStore` el servidor y la hidratación dan false (lo mismo los dos: sin desajuste) y el render siguiente, true.
+ */
+export function useEnElNavegador(): boolean {
+  return useSyncExternalStore(sinSuscripcion, () => true, () => false);
+}
 import { conWs } from '@/lib/ws-tab';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
@@ -270,10 +282,12 @@ export function MenuFlotante({ ancla, onCerrar, children, ancho = 240, alinear =
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const cerrar = useFijo(onCerrar);
+  const enNavegador = useEnElNavegador();
 
+  // `enNavegador` en las dependencias: abierto desde la hidratación, el primer render no tiene el menú para medir.
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!ancla || !el) return;
+    if (!enNavegador || !ancla || !el) return;
     const r = ancla.getBoundingClientRect();
     const alto = el.offsetHeight;
     const vw = window.innerWidth;
@@ -284,7 +298,7 @@ export function MenuFlotante({ ancla, onCerrar, children, ancho = 240, alinear =
     let top = r.bottom + 6;
     if (top + alto > vh - 8 && r.top - 6 - alto > 8) top = r.top - 6 - alto;
     setPos({ top: Math.max(8, top), left });
-  }, [ancla, ancho, alinear]);
+  }, [enNavegador, ancla, ancho, alinear]);
 
   useEffect(() => {
     const fuera = (e: MouseEvent) => {
@@ -313,6 +327,7 @@ export function MenuFlotante({ ancla, onCerrar, children, ancho = 240, alinear =
     };
   }, [ancla, esArriba, cerrar]);
 
+  if (!enNavegador) return null;
   return createPortal(
     <div className="gma gp gp-capa">
       <div
@@ -441,6 +456,7 @@ export function DialogoGamma({ titulo: tit, children, pie, onCerrar, ancho = 440
   const cerrableRef = useRef(cerrable);
   useLayoutEffect(() => { cerrableRef.current = cerrable; });
   const cerrar = useFijo(() => { if (cerrableRef.current) onCerrar(); });
+  const enNavegador = useEnElNavegador();
 
   // El foco vuelve a donde estaba al cerrar (se anota al montar, una vez).
   useEffect(() => {
@@ -451,13 +467,13 @@ export function DialogoGamma({ titulo: tit, children, pie, onCerrar, ancho = 440
   // El foco inicial espera a que la capa SE VEA: el primer render es `display:none`
   // (la pila todavía no registró el diálogo) y un focus ahí no llega.
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !enNavegador) return;
     const id = requestAnimationFrame(() => {
       const el = caja.current?.querySelector<HTMLElement>('[data-foco]') ?? caja.current;
       el?.focus();
     });
     return () => cancelAnimationFrame(id);
-  }, [visible]);
+  }, [visible, enNavegador]);
 
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
@@ -469,6 +485,8 @@ export function DialogoGamma({ titulo: tit, children, pie, onCerrar, ancho = 440
     return () => document.removeEventListener('keydown', tecla, true);
   }, [esArriba, cerrar]);
 
+  // En el servidor (y en la hidratación) no hay `document.body` (ticket #88): el diálogo aparece en el render siguiente.
+  if (!enNavegador) return null;
   return createPortal(
     <div className="gma gp gp-capa">
       <div
