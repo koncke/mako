@@ -33,6 +33,20 @@
 // ROAS cobrado, de lib/graficos-catalogo.ts; cada lead uno por uno, de app/crm/lead-view/ComportamientoCard.tsx; «Editar con
 // MaKo», de lib/graficos-ia-edicion.ts; los tipos de funnel, de `TIPOS_FUNNEL` y `ENTRADAS` (lib/pipeline.ts). Los gráficos, de
 // la landing anterior de esta ruta: el de WhatsApp (2) no va, muestra avisos del VSL de un lead que MaKo no manda.
+//
+// LOS TEXTOS DE HYROS, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»):
+//   · «Tracking that grows ads / Custom Made For You.» → «Un seguimiento que entrena a tus anuncios. Hecho a tu medida.»
+//     (que «haga crecer» tus anuncios no está medido; lo que MaKo hace es mandarle a Meta los eventos de tu CRM);
+//   · «Hyros catches missed ad sales and uses them to train Meta's Ad AI… Then adds any feature you want in a few prompts.»
+//     → «MaKo junta las ventas de tu CRM y las usa para entrenar a la IA de anuncios de Meta… Y el gráfico que te falte, se
+//     lo pides en unas palabras» (sin «to get you more sales»; los eventos, de lib/meta-capi-payload.ts);
+//   · «How it works» / «Any Feature You Want Is Just A Prompt Away» (→ «Cualquier gráfico»: en MaKo se pide un gráfico, no
+//     una función), «Start with the base Hyros app. Add any feature you want in a few plain English prompts.», «You prompt
+//     it, in plain English» / «No specs, no tickets, no developer.», «It's built into your app», «We maintain it for you» /
+//     «…the tracking underneath — handled»;
+//   · «Same ad accounts, now optimized on real sales instead of platform guesses» (sin sus números de ROI, CPA y AOV);
+//   · «Integrations», «Pick your business model.» → «Elige tu tipo de funnel.» (lo que se declara en el CRM). Su MCP,
+//     su garantía y su Black Friday no van.
 // =============================================================================
 
 import { TIPOS_FUNNEL, type TipoFunnel } from '@/lib/pipeline';
@@ -65,14 +79,14 @@ export const LANDING_FUNNEL: LandingCompetencia = {
   nombre: 'Funnels',
   icono: I.funnel,
   referencia: { nombre: 'Hyros — tracking y atribución de anuncios', url: 'https://hyros.com/', leida: '2026-11-11' },
-  metaTitle: 'Funnels de MaKo: tu embudo de punta a punta, y Meta aprendiendo de tu CRM',
+  metaTitle: 'Funnels de MaKo: un seguimiento que entrena a tus anuncios, hecho a tu medida',
   metaDesc: 'Del anuncio al pago en un solo recorrido, lead por lead. MaKo le avisa a Meta quién agendó, quién calificó y quién pagó, y te dice cuánto te costó un cliente de verdad.',
   bloques: [
     {
       tipo: 'hero',
       etiqueta: 'El embudo con tu venta real',
-      titulo: 'Que Meta aprenda <em>de tu CRM.</em>',
-      bajada: 'MaKo junta tu anuncio, tu landing, tu VSL, tu agenda y tu CRM en <strong>un solo recorrido</strong>, y le avisa a Meta quién agendó, quién calificó y quién pagó. El gráfico que te falte, se lo pides en palabras.',
+      titulo: 'Un seguimiento que entrena a tus anuncios. <em>Hecho a tu medida.</em>',
+      bajada: 'MaKo junta las ventas de tu CRM y las usa para entrenar a la IA de anuncios de Meta: le avisa quién agendó, quién calificó y quién pagó. Tu anuncio, tu landing, tu VSL, tu agenda y tu CRM, en <strong>un solo recorrido</strong>. Y el gráfico que te falte, se lo pides en unas palabras.',
       puntos: ['Del anuncio al pago, lead por lead', 'Cuánto te costó un cliente de verdad, no un lead'],
       visual: { tipo: 'detalle', slug: 'funnel' },
     },
@@ -80,20 +94,20 @@ export const LANDING_FUNNEL: LandingCompetencia = {
     {
       tipo: 'pasos',
       etiqueta: 'Cómo funciona',
-      titulo: 'Cualquier número de tu embudo, <em>a un pedido de distancia</em>',
-      bajada: 'Arrancas con tus hojas de Marketing y Comercial, y le pides a MaKo lo que falte.',
+      titulo: 'Cualquier gráfico que quieras, <em>a un pedido de distancia</em>',
+      bajada: 'Arrancas con tus hojas de Marketing y Comercial. Agregas el gráfico que quieras en unas palabras.',
       pasos: [
-        { titulo: 'Lo pides en palabras', texto: '«Muéstrame mis agendas y cierres por día». Sin fórmulas ni filtros.' },
+        { titulo: 'Lo pides en palabras', texto: '«Muéstrame mis agendas y cierres por día». Sin fórmulas, sin filtros, sin un desarrollador.' },
         { titulo: 'Aparece en tu hoja', texto: 'Con «Editar con MaKo», el gráfico se arma en tu Dashboard, con tus datos de Meta, tu agenda y tu CRM.' },
-        { titulo: 'Se mantiene al día', texto: 'Lee de tus apps conectadas: no exportas ni pegas nada.' },
+        { titulo: 'Se mantiene al día', texto: 'Lee de tus apps conectadas y el seguimiento de abajo lo cuida MaKo: no exportas ni pegas nada.' },
       ],
     },
     {
       tipo: 'tarjetas',
       fondo: true,
       etiqueta: 'Lo que le llega a Meta',
-      titulo: 'Las mismas campañas, ahora con tus ventas de verdad',
-      bajada: 'Para que Meta optimice con lo que pasa de verdad en tu embudo, no con lo que adivina. Esto es lo que MaKo le avisa:',
+      titulo: 'Las mismas cuentas de anuncios, ahora optimizadas con tus ventas reales',
+      bajada: 'En vez de lo que adivina la plataforma. Esto es lo que MaKo le avisa a Meta:',
       columnas: 2,
       items: [
         { icono: I.lead, titulo: 'Entró', texto: 'Cuando alguien deja sus datos en tu formulario de Meta.', meta: 'Lead' },
@@ -128,7 +142,7 @@ export const LANDING_FUNNEL: LandingCompetencia = {
     },
     {
       tipo: 'logos',
-      titulo: 'Tu recorrido junta',
+      titulo: 'Integraciones',
       items: [
         { logo: 'meta.png', nombre: 'Meta Ads' },
         { logo: 'landing.svg', nombre: 'Tu landing' },
@@ -142,7 +156,7 @@ export const LANDING_FUNNEL: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       etiqueta: 'Tu tipo de funnel',
-      titulo: 'Elige cómo <em>entra tu gente.</em>',
+      titulo: 'Elige tu <em>tipo de funnel.</em>',
       items: TIPOS_FUNNEL.map((t) => ({ icono: POR_TIPO[t.id].icono, titulo: t.label, texto: POR_TIPO[t.id].texto })),
     },
   ],

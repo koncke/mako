@@ -20,6 +20,24 @@
 // las secciones, de `seccionesDe` (mismo archivo); las columnas de Campañas, de lib/media-buyer/campanas-grupos.ts; lo que se
 // pide por WhatsApp, de lib/api-mako/areas/ads.def.ts (ver_estado_meta, listar_campanas_meta, ver_media_buyer y
 // lanzar_decision_media_buyer, que se confirma en una pantalla). Los gráficos, de la landing anterior de esta ruta.
+//
+// LOS TEXTOS DE MASTER ADS, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»; y
+// sobre «tú apruebas»: «no tiene sentido eso ahí»):
+//   · «Marketing digital simple.», «“Master, que las campañas de la empresa mejoren”.» → «“MaKo, que las campañas de mi
+//     negocio mejoren”.», «Pídele lo que quieras y nuestra IA te va a ayudar a crear y optimizar campañas que
+//     traccionen.» (→ MaKo, + «medidas contra lo que vendiste»), «¿Con qué arrancamos?»;
+//   · «Inteligencia artificial, atención humana.» IGUAL (lo humano de MaKo es la llamada y el soporte que arregla y avisa
+//     en el grupo: lib/aviso-arreglo.ts), con su «Te mostramos cómo obtener lo mejor de la IA… y juntos lo ajustamos a las
+//     necesidades de tu empresa» (→ negocio). Sale «Inteligencia artificial que propone. Tú decides.»;
+//   · «“Master, lo de siempre”.» / «5 piezas claves para manejar tu marketing digital sin depender de terceros.», con
+//     «Optimiza con nuestra IA» en «Hoy» (sin «tú los apruebas»);
+//   · «“Te pido un cafecito y un reporte por favor”.» / «Reportes profesionales en segundos.» (sin «en segundos»);
+//   · «Agente desde WhatsApp», «Pregúntale a tu negocio como le preguntarías a un especialista.», «Escribe tu pregunta como
+//     si le hablaras a una persona. Master Ads responde con tus propios datos» (→ MaKo, sin «en segundos»), su
+//     «¿Qué me recomiendas cambiar?», «Se conecta con»;
+//   · «Pensado para el día a día de las pymes.» (→ de tu negocio), «Sin curva de aprendizaje» / «Si sabes usar WhatsApp,
+//     sabes usar Master Ads.» (→ MaKo), «Resultados a la vista» / «Un solo panel te dice qué está funcionando y qué no.»;
+//     su «Creces a tu ritmo» no va (en su lugar, los funnels con y sin anuncios de lib/media-buyer/copiloto.ts).
 // =============================================================================
 
 import { ASESORES } from '@/lib/asesores/catalogo';
@@ -55,16 +73,16 @@ export const LANDING_ADS: LandingCompetencia = {
   nombre: 'Marketing CoPilot',
   icono: I.copiloto,
   referencia: { nombre: 'Master Ads — marketing digital simple', url: 'https://masterads.ai/', leida: '2026-11-11' },
-  metaTitle: 'Marketing CoPilot de MaKo: tu estrategia y tus anuncios, con un copiloto que propone',
-  metaDesc: 'Una charla para elegir tu funnel y tu estrategia, y cada día un media buyer con IA que mira tus anuncios de Meta y te propone qué subir, pausar o probar, con su porqué, medido contra lo que vendiste.',
+  metaTitle: 'Marketing CoPilot de MaKo: marketing digital simple',
+  metaDesc: 'Pídele lo que quieras y MaKo te va a ayudar a crear y optimizar campañas que traccionen, medidas contra lo que vendiste: tu funnel, tu estrategia y cada día lo que conviene subir, pausar o probar.',
   bloques: [
     {
       tipo: 'hero',
       // Como en Master Ads: la etiqueta dice qué es, el titular es lo que la persona le pide (entre comillas inglesas, como
       // los titulares de la referencia), y la bajada lo que pasa.
-      etiqueta: 'Marketing CoPilot: marketing simple.',
-      titulo: '“MaKo, que mis anuncios traigan más agendas”.',
-      bajada: 'Le dices lo que quieres y te ayuda a elegir tu funnel y tu estrategia. Cada día mira tus anuncios de Meta y te propone qué subir, pausar o probar, <strong>con su porqué y medido contra lo que vendiste</strong>.',
+      etiqueta: 'Marketing digital simple.',
+      titulo: '“MaKo, que las campañas de mi negocio mejoren”.',
+      bajada: 'Pídele lo que quieras y MaKo te va a ayudar a crear y optimizar campañas que traccionen, <strong>medidas contra lo que vendiste</strong>.',
       visual: { tipo: 'propio', slug: 'ads' },
     },
     {
@@ -83,46 +101,45 @@ export const LANDING_ADS: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Inteligencia artificial que propone. Tú decides.',
-      bajada: 'MaKo no cambia nada a tus espaldas: cada decisión llega explicada y la apruebas tú.',
+      titulo: 'Inteligencia artificial, atención humana.',
+      bajada: 'Agenda tu llamada: te mostramos cómo obtener lo mejor de la IA en tu marketing y juntos lo ajustamos a las necesidades de tu negocio.',
       items: [
-        { icono: I.lista, titulo: 'Qué cambia y por qué', texto: 'Cada decisión trae qué cambia, por qué y <strong>la tabla de números que la disparó</strong>.' },
-        { icono: I.tope, titulo: 'Tus topes', texto: 'Cuánto puede subir un presupuesto por día y el máximo de la cuenta los fijas tú. Un interruptor lo frena todo.' },
-        { icono: I.deshacer, titulo: 'Todo se deshace', texto: 'El antes y el después de cada cambio, con un botón para volver atrás.' },
+        { icono: I.llamada, titulo: 'Una llamada para empezar.', texto: 'Te mostramos MaKo con tus propios números y lo dejamos andando en tu negocio.' },
+        { icono: I.chat, titulo: 'Personas detrás de MaKo.', texto: 'Si algo no anda, lo reportas desde la app y el equipo de MaKo lo arregla y <strong>te avisa en tu grupo de WhatsApp</strong>.' },
       ],
     },
     {
       tipo: 'tarjetas',
       titulo: '“MaKo, lo de siempre”.',
-      bajada: 'Las cinco piezas de tu CoPilot.',
+      bajada: '5 piezas clave para manejar tu marketing digital sin depender de terceros.',
       items: [
-        { icono: I.sol, titulo: 'Hoy', texto: 'Las decisiones del día sobre tus anuncios de Meta, listas para aprobar.' },
+        { icono: I.sol, titulo: 'Hoy', texto: 'Optimiza con MaKo: las decisiones del día sobre tus anuncios de Meta, cada una con qué cambia, por qué y los números que la dispararon.' },
         { icono: I.plan, titulo: 'Plan', texto: 'Tu funnel paso a paso, con lo que hay que hacer esta semana y dónde se hace en MaKo.' },
         { icono: I.columnas, titulo: 'Campañas', texto: 'Lo que funciona, lo que está en prueba y lo que hay que mirar hoy.' },
         { icono: I.biblioteca, titulo: 'Biblioteca', texto: 'Tus mejores anuncios, para pedirle variaciones a MaKo o subir creativos nuevos.' },
-        { icono: I.ajustes, titulo: 'Ajustes', texto: 'Tu estrategia, tu objetivo y tus metas del mes, y tus topes.' },
+        { icono: I.ajustes, titulo: 'Ajustes', texto: 'Tu estrategia, tu objetivo y tus metas del mes, y tus topes: cuánto puede subir un presupuesto y un interruptor que lo frena todo.' },
       ],
     },
     {
       tipo: 'filas',
-      titulo: '“Un reporte, por favor”.',
-      bajada: 'Lo que vendió cada anuncio, al lado de lo que gastaste.',
+      titulo: '“Te pido un cafecito y un reporte, por favor”.',
+      bajada: 'Reportes profesionales: lo que vendió cada anuncio, al lado de lo que gastaste.',
       slug: 'ads',
       items: [
         { grafico: 0, titulo: 'Tus anuncios, con lo que cerraron', texto: 'Los leads de cada anuncio que <strong>agendaron y cerraron</strong> en tu CRM, al lado de lo que gastaste en Meta.' },
-        { grafico: 2, titulo: 'Cada día, una mirada a tu cuenta', texto: 'MaKo mira tu cuenta una vez por día, decide qué proponer y te lo explica. Tú lo apruebas o lo deshaces.' },
+        { grafico: 2, titulo: 'Cada día, una mirada a tu cuenta', texto: 'MaKo mira tu cuenta una vez por día, decide qué proponer y te lo explica, con el antes y el después de cada cambio y un botón para volver atrás.' },
       ],
     },
     {
       tipo: 'tarjetas',
       fondo: true,
-      etiqueta: 'Desde WhatsApp',
-      titulo: 'Pregúntale a tu negocio como le preguntarías a tu media buyer.',
-      bajada: 'Le escribes en el grupo de MaKo y te contesta con los datos de tu cuenta de Meta.',
+      etiqueta: 'Agente desde WhatsApp',
+      titulo: 'Pregúntale a tu negocio como le preguntarías a un especialista.',
+      bajada: 'Escribe tu pregunta como si le hablaras a una persona. MaKo responde con tus propios datos, en tu grupo de WhatsApp.',
       items: [
         { icono: I.chat, titulo: '«¿Qué campañas tengo activas?»', texto: 'El estado en vivo de tu cuenta de Meta: cada campaña con su estado y su presupuesto del día.' },
         { icono: I.lista, titulo: '«¿Cuánto gasté este mes?»', texto: 'Lo gastado en cada campaña en los últimos 30 días, en la moneda de tu cuenta.' },
-        { icono: I.sol, titulo: '«¿Qué me propones hoy?»', texto: 'Las decisiones abiertas con su porqué. Para lanzar una, la confirmas en una pantalla de MaKo.' },
+        { icono: I.sol, titulo: '«¿Qué me recomiendas cambiar?»', texto: 'Las decisiones abiertas con su porqué. Para lanzar una, la confirmas en una pantalla de MaKo.' },
       ],
     },
     {
@@ -136,11 +153,11 @@ export const LANDING_ADS: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Pensado para el día a día de quien vende servicios de alto valor',
+      titulo: 'Pensado para el día a día de tu negocio.',
       items: [
-        { icono: I.llamada, titulo: 'Si vendes con llamada', texto: `${nombres((f) => f.conLlamada)}, con el seguimiento hasta la llamada.` },
-        { icono: I.carrito, titulo: 'Si vendes sin llamada', texto: `${nombres((f) => !f.conLlamada && f.anuncios !== 'no')}, sin una llamada en el medio.` },
-        { icono: I.organico, titulo: 'Si no pones anuncios', texto: `${nombres((f) => f.anuncios === 'no')}: tu semana de contenido, tu plan y qué medir, sin cuenta de Meta.` },
+        { icono: I.chat, titulo: 'Sin curva de aprendizaje', texto: 'Si sabes usar WhatsApp, sabes usar MaKo: le escribes como a una persona.' },
+        { icono: I.columnas, titulo: 'Resultados a la vista', texto: 'Un solo panel te dice qué está funcionando y qué no: Funcionan, En prueba y Para revisar.' },
+        { icono: I.llamada, titulo: 'Con o sin anuncios', texto: `Si vendes con llamada (${nombres((f) => f.conLlamada)}), sin llamada o sin anuncios, tu funnel tiene su plan.` },
       ],
     },
   ],

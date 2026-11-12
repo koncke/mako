@@ -20,6 +20,27 @@
 //   · Su «controla SetSmart desde tu propia IA» (MCP) es, en MaKo, la API: crear_automatizacion_desde_plantilla y
 //     crear_automatizacion_con_ia (lib/api-mako/areas/chatbot.def.ts).
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['setting']); los gráficos, de la landing anterior de este slug.
+//
+// LOS TEXTOS DE SETSMART, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»):
+//   · el titular «Tu AI setter convierte tus DM de Instagram en llamadas de venta calificadas», igual («AI setter» →
+//     «setter con IA»): MaKo califica con el criterio de la estrategia (lib/setting-estrategia.ts → CriterioCalificacion,
+//     evaluado en lib/nutricion.ts con evaluarCalificacion) y su AI Step tiene el objetivo «Que agende una llamada»;
+//   · la bajada sin «Entrenado con 2,9M de conversaciones» (su número), sin «24/7» y con «los lleva a agendar» en lugar
+//     de «agenda tus llamadas» (MaKo no reserva en el chat); «Tú solo cierras en la llamada. También en WhatsApp y
+//     Messenger» (+ email);
+//   · «Hecho para coaches…», «Se integra con», «La solución», «Gestionar tus DM con SetSmart» (→ MaKo) y «Responde
+//     demasiado lento y tus leads se enfrían, y te dejan en visto para siempre»;
+//   · «Todo lo que hace tu setter IA» / «Del primer comentario a la llamada reservada» (sin «100% automático»: hay
+//     paso a una persona), con «Del comentario al DM, automático», «Califica a cada prospecto» y «Seguimientos
+//     automáticos» con sus frases; «Suena 100% humana» → «Con tu tono y tu estilo» (sin «nunca parece una IA»);
+//   · «Automatiza el agendamiento de citas con IA conversacional» y su bajada (script → criterio de calificación);
+//   · «Operativo en menos de 10 minutos» → «en 3 pasos» (el tiempo no está medido), «Sin prompts complicados, sin código.
+//     Simple, rápido, claro.», «Crea tu IA», «Conecta Instagram», «La IA agenda tus llamadas» (→ «lleva a agendar»);
+//   · «Controla SetSmart desde tu propia IA.» (→ MaKo, por la API: crear_automatizacion_desde_plantilla,
+//     crear_automatizacion_con_ia y duplicar_automatizacion, que PROPONEN y nacen pausadas), sin «el primer AI setter con
+//     soporte MCP nativo»;
+//   · sus preguntas «¿Qué es un setter con IA?», «¿Qué canales soporta…?», «¿Es difícil crear mi asistente de IA?»,
+//     «¿Puedo mantener el control de las conversaciones?», «¿Funciona para ofertas high-ticket y llamadas de venta?».
 // =============================================================================
 
 import type { LandingCompetencia } from './tipos';
@@ -39,20 +60,20 @@ export const LANDING_SEGUIMIENTO: LandingCompetencia = {
   nombre: 'Automations · tu setter con IA',
   icono: I.setter,
   referencia: { nombre: 'SetSmart — setter con IA para coaches', url: 'https://setsmart.io/es', leida: '2026-11-11' },
-  metaTitle: 'Automations de MaKo: tu setter con IA para WhatsApp, Instagram y email',
-  metaDesc: 'Un agente que contesta por WhatsApp, Instagram, Messenger y email, le recuerda la reunión al lead, lo mueve de etapa en tu CRM y te lo pasa cuando hace falta una persona. Tú solo cierras en la llamada.',
+  metaTitle: 'Automations de MaKo: tu setter con IA convierte tus DM de Instagram en llamadas de venta calificadas',
+  metaDesc: 'Tu setter con IA responde tus DM de Instagram, califica a tus prospectos con tus propios criterios y los lleva a agendar su llamada de venta. Tú solo cierras en la llamada. También en WhatsApp, Messenger y email.',
   bloques: [
     {
       tipo: 'hero',
-      etiqueta: 'Tu setter con IA',
-      titulo: 'Tu setter con IA contesta y sigue a cada lead. <em>Tú solo cierras en la llamada.</em>',
-      bajada: 'Un agente que contesta por <strong>WhatsApp, Instagram, Messenger y email</strong>, le recuerda la reunión al lead, lo mueve de etapa en tu CRM y te lo pasa cuando hace falta una persona.',
+      etiqueta: 'Hecho para coaches y expertos',
+      titulo: 'Tu setter con IA convierte tus DM de Instagram en <em>llamadas de venta calificadas</em>',
+      bajada: 'Tu setter con IA responde tus DM de Instagram, <strong>califica a tus prospectos con tus propios criterios</strong> y los lleva a agendar su llamada de venta. Tú solo cierras en la llamada. También en WhatsApp, Messenger y email.',
       puntos: ['Arrancas de una plantilla o se la pides a MaKo en palabras', 'Nace pausada: la pruebas antes de prenderla'],
       visual: { tipo: 'detalle', slug: 'seguimiento' },
     },
     {
       tipo: 'logos',
-      titulo: 'Contesta y sigue por',
+      titulo: 'Se integra con',
       items: [
         { logo: 'whatsapp.png', nombre: 'WhatsApp' },
         { logo: 'meta.png', nombre: 'Instagram y Messenger' },
@@ -63,13 +84,13 @@ export const LANDING_SEGUIMIENTO: LandingCompetencia = {
     {
       tipo: 'contraste',
       etiqueta: 'La solución',
-      titulo: 'El lead que nadie sigue se enfría. <em>El que MaKo sigue, avanza.</em>',
+      titulo: 'Gestiona tus DM con MaKo',
       sin: {
-        titulo: 'Te escribe, contestas tarde, y se enfrió',
-        texto: 'Llega un mensaje a la noche o en medio de una llamada. Cuando lo ves, el lead ya se distrajo. Y al que agendó y no vino, o al que vio tu video y no agendó, <strong>nadie le vuelve a escribir</strong>: ahí se queda la plata.',
+        titulo: 'Respondes demasiado lento y tus leads se enfrían',
+        texto: 'Y te dejan en visto para siempre. Llega un mensaje a la noche o en medio de una llamada; cuando lo ves, el lead ya se distrajo. Y al que agendó y no vino, o al que vio tu video y no agendó, <strong>nadie le vuelve a escribir</strong>.',
       },
       con: {
-        titulo: 'MaKo contesta, le recuerda y lo empuja al siguiente paso',
+        titulo: 'MaKo contesta, le recuerda y lo lleva al siguiente paso',
         texto: 'La automatización contesta con la voz de tu negocio, le recuerda la reunión al que agendó y le escribe al que se quedó en el camino. Lo mueve de etapa en tu CRM y, cuando hace falta una persona, <strong>te lo pasa</strong>.',
       },
       cta: true,
@@ -78,19 +99,21 @@ export const LANDING_SEGUIMIENTO: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       titulo: 'Todo lo que hace tu setter con IA',
+      bajada: 'Del primer comentario a la llamada reservada.',
       items: [
-        { icono: I.comentario, titulo: 'Del comentario al mensaje directo', texto: 'Arranca con un comentario en tu publicación, tu Reel o tu En vivo, con la respuesta a una historia o con un mensaje directo. Y puede mandar el mensaje con botones debajo.' },
-        { icono: I.voz, titulo: 'Escribe con la voz de tu negocio', texto: 'Las secuencias las escribe MaKo en la voz de tu negocio, no en la de una plantilla genérica.' },
-        { icono: I.ramas, titulo: 'Ramas, condiciones y horarios', texto: 'Si contestó, si agendó, qué etiqueta tiene: cada lead sigue el camino que le toca, en el horario que pones.' },
+        { icono: I.comentario, titulo: 'Del comentario al DM, automático', texto: 'Cuando alguien comenta tu publicación, tu Reel o tu En vivo, o responde a una historia, la IA responde y abre la conversación por DM automáticamente. Y puede mandar el mensaje con botones debajo.' },
+        { icono: I.persona, titulo: 'Califica a cada prospecto', texto: 'Cada prospecto se califica con tus propios criterios —las señales de tu cliente ideal y las que lo descartan— antes de que una llamada llegue a tu agenda: si la charla lo descarta, MaKo lo marca «No calificado» en tu CRM y te avisa.' },
         { icono: I.reunion, titulo: 'Le recuerda la reunión', texto: 'Al que agendó le escribe antes de la llamada, para que llegue.' },
-        { icono: I.crm, titulo: 'Mueve al lead en tu CRM', texto: 'Lo que pasa en la conversación cambia la etapa del lead, sin que nadie la toque a mano.' },
-        { icono: I.persona, titulo: 'Te lo pasa cuando hace falta una persona', texto: 'Cuando la conversación necesita a alguien de tu equipo, la automatización se corre y la sigue una persona.' },
+        { icono: I.ramas, titulo: 'Seguimientos automáticos', texto: 'Reactiva a los prospectos inactivos en el momento justo para no perder ninguna oportunidad: si contestó, si agendó, qué etiqueta tiene, cada lead sigue su camino, en el horario que pones.' },
+        { icono: I.voz, titulo: 'Con tu tono y tu estilo', texto: 'Las secuencias las escribe MaKo en la voz de tu negocio, con tu tono y tu estilo, no en la de una plantilla genérica.' },
+        { icono: I.crm, titulo: 'Te lo pasa cuando hace falta una persona', texto: 'Cuando la conversación necesita a alguien de tu equipo, la automatización se corre y la sigue una persona. Y lo que pasa en la conversación cambia la etapa del lead en tu CRM.' },
       ],
     },
     {
       tipo: 'filas',
       fondo: true,
-      titulo: 'Del primer mensaje a la reunión, sin que se te escape nadie',
+      titulo: 'Automatiza el agendamiento de citas con IA conversacional',
+      bajada: 'La IA sigue tu criterio de calificación y lleva a los prospectos calificados a agendar su llamada.',
       slug: 'seguimiento',
       items: [
         { grafico: 0, titulo: 'Arranca en el momento justo del lead', texto: 'Cada automatización tiene su disparador: una <strong>etapa de tu CRM</strong>, una etiqueta que se le agrega al lead o un evento. Así le escribe al que se trabó en ese paso, no a todos igual.' },
@@ -100,31 +123,34 @@ export const LANDING_SEGUIMIENTO: LandingCompetencia = {
     },
     {
       tipo: 'pasos',
-      titulo: 'Andando en 3 pasos',
+      titulo: 'Operativo en 3 pasos',
+      bajada: 'Sin prompts complicados, sin código. Simple, rápido, claro.',
       pasos: [
-        { titulo: 'Elige la plantilla o pídesela a MaKo', texto: 'Arrancas de la galería de plantillas o le dices a MaKo en palabras qué quieres que haga. La automatización nace pausada.' },
-        { titulo: 'Conecta tus canales', texto: 'Tu WhatsApp, tu Instagram o tu Messenger, y tu email para las secuencias.' },
-        { titulo: 'Pruébala como si fueras el lead y actívala', texto: 'Simulas la conversación de punta a punta, ves cómo contesta y recién ahí la prendes.' },
+        { titulo: 'Crea tu IA', texto: 'Arrancas de la galería de plantillas o le dices a MaKo en palabras qué quieres que haga. Tu automatización está lista sin prompt técnico, y nace pausada.' },
+        { titulo: 'Conecta Instagram', texto: 'Conectas tu cuenta de Instagram (y WhatsApp, Messenger o tu email si quieres). Sin técnica, sin código.' },
+        { titulo: 'La IA lleva a tus prospectos a agendar', texto: 'Responde tus DM, califica a tus prospectos y los lleva a agendar su llamada. Antes de prenderla, la pruebas como si fueras el lead. Tú solo cierras en la llamada.' },
       ],
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Y la manejas desde tu propia IA',
-      bajada: 'Con la API de MaKo, tu Claude puede ver tus plantillas, crear una automatización desde una plantilla o desde un pedido en palabras, duplicarla y cambiar su configuración.',
+      titulo: 'Controla MaKo desde tu propia IA.',
+      bajada: 'Con la API de MaKo, tu Claude ve tus plantillas, crea una automatización desde una plantilla o desde un pedido en palabras, la duplica y cambia su configuración, desde el chat.',
       columnas: 2,
       items: [
-        { icono: I.setter, titulo: 'Desde una plantilla', texto: 'Le dices a tu IA cuál de la galería quieres y la crea en tu MaKo.' },
-        { icono: I.voz, titulo: 'Desde un pedido en palabras', texto: '«Una automatización que le escriba al que agendó y no vino»: la arma con su disparador y nace pausada.' },
+        { icono: I.setter, titulo: 'Crea la automatización de recordatorio de la reunión, desde la galería.', texto: 'Lista para confirmar: nace en pausa, con todas sus tarjetas.' },
+        { icono: I.voz, titulo: 'Arma una automatización que le escriba al que agendó y no vino.', texto: 'Lista para confirmar: con su disparador, en pausa.' },
+        { icono: I.ramas, titulo: 'Duplica la automatización de bienvenida.', texto: 'Lista para confirmar: «Copia de…», con los mismos pasos, en pausa.' },
       ],
     },
     {
       tipo: 'preguntas',
       titulo: 'Preguntas frecuentes',
       items: [
-        { p: '¿Por qué canales contesta?', r: 'Por WhatsApp, Instagram, Messenger y email. Ves todas las conversaciones juntas en Chats.' },
-        { p: '¿Tengo que armar los flujos de cero?', r: 'No. Arrancas de una plantilla de la galería o se la pides a MaKo en palabras. Después la ajustas: ramas, condiciones, horarios, etiquetas y acciones.' },
-        { p: '¿Puedo probarla antes de que le escriba a un lead?', r: 'Sí. La automatización nace pausada y puedes simular la conversación como si fueras el lead antes de activarla.' },
-        { p: '¿Qué pasa cuando el lead necesita hablar con una persona?', r: 'La automatización te pasa la conversación y la sigue alguien de tu equipo.' },
+        { p: '¿Qué es un setter con IA?', r: 'Un agente que contesta los mensajes de tus leads, los califica con tus criterios y los lleva a agendar la llamada de venta, para que tú solo cierres.' },
+        { p: '¿Qué canales soporta MaKo?', r: 'WhatsApp, Instagram, Messenger y email. Ves todas las conversaciones juntas en Chats.' },
+        { p: '¿Es difícil crear mi asistente de IA?', r: 'No. Arrancas de una plantilla de la galería o se la pides a MaKo en palabras. Después la ajustas: ramas, condiciones, horarios, etiquetas y acciones.' },
+        { p: '¿Puedo mantener el control de las conversaciones?', r: 'Sí. La automatización nace pausada y puedes simular la conversación como si fueras el lead antes de activarla. Y cuando hace falta una persona, te pasa la conversación.' },
+        { p: '¿Funciona para ofertas high ticket y llamadas de venta?', r: 'Sí: MaKo está hecho para vender High Ticket por llamada. Tu setter lleva al lead a agendar, le recuerda la reunión y lo mueve de etapa en tu CRM.' },
         { p: '¿Quién escribe los mensajes?', r: 'MaKo escribe las secuencias en la voz de tu negocio, y tú las editas cuando quieras.' },
       ],
     },

@@ -78,6 +78,30 @@ colores, el tema del logo y cambios sutiles, pero no inventes, copia la estructu
   publicadas antes de cambiar `/`**), «Precios» va a `/planes` (no se hace otra página de precios) y las comparaciones
   salen de los `reemplaza` de `lib/funciones-mako.ts`, sin precios ni afirmaciones sobre la competencia.
 
+## El feedback del 12/11/2026, y lo que quedó de él
+
+Martín (12/11, textual en la bitácora `app/admin/dev/public-site/bitacora.ts`): aprovechar lo que MaKo hace de verdad
+(los carruseles de la competencia con sus outliers, los referentes en Copywriting, «Replicar» en Web Generator), copiar
+TAL CUAL los textos de la referencia que son verdad para MaKo («Your Marketing Department. One Hire.» de Holo, sin el
+«Tú apruebas»), y una tercera captura con el diseño de MaKo (su letra y sus colores) sin romper el original.
+
+- **La regla que sale, para cualquier landing nueva:** los textos de la referencia se traducen frase por frase y se cambia
+  sólo la palabra que no es cierta. Cada `.ts` lleva arriba el bloque «TEXTOS COPIADOS TAL CUAL» con lo que se copió.
+- **Copywriting dice «32 referentes», no «más de 100»:** es `ASESORES.length` (`lib/asesores/catalogo.ts`), y su método
+  llega a tu IA en el chat de MaKo (`contextoDeReferente` en `app/api/mako/chat/route.ts`), no en el writer de las páginas
+  (`lib/copywriter/ia.ts` no usa fichas). Las caricaturas son las de `public/asesores/`, con «Inspirado en su método ·
+  Ninguno participa en MaKo ni la respalda».
+- **⚠️ Falta la captura real de «Carruseles que funcionan»** (Image): en la nube no hay `AUTH_SECRET` ni la base, así que
+  `/api/auth/dev-login` no entra. Se toma desde la PC de Martín: `npm run dev`, entrar con
+  `/api/auth/dev-login?ws=9&next=/image-editor`, abrir «Carruseles que funcionan» y fotografiarla con Playwright a
+  `deviceScaleFactor: 2`; se guarda en `public/vsl-assets/landings/image-carruseles-que-funcionan.webp` (menos de 400 KB)
+  y va en el marco que dice la cabecera de `disenos/image.tsx`. Antes, mirar que no muestre nada privado de un cliente.
+- **La versión «con el diseño de MaKo» es una VISTA PREVIA en capturas, no código:** se arma inyectando en la página la
+  letra de MaKo (Urbanist, que en la app se llama «Geist», y Geist Mono) y pasando los tonos propios de la referencia
+  (rosas, violetas, turquesas, naranjas) al azul o al dorado de MaKo con la misma luz; grises y colores de estado quedan.
+  Si Martín la elige, se pasa al código por diseño: las letras a `public/vsl-assets/fuentes/` y cada `disenos/<slug>.tsx`
+  con sus familias y colores cambiados.
+
 ## Lo que falta
 
 - **Closing**: sin ganadora (nadie en español analiza llamadas de venta); `/vsl/closing` sigue como estaba.
@@ -113,6 +137,11 @@ listar los grupos por índice (ver la trampa en `docs/hallazgos-landing.md`, ent
 4. **El caso de Mauricio en `/vsl/offer`** dice «Sin cambiar la oferta. Sin cambiar el funnel.», en una landing que vende
    trabajar la oferta. Va porque es la prueba de todas las landings; si se lee en contra, se saca de ésa.
 5. **¿Las landings nuevas entran a la grilla de funcionalidades de `/vsl`?** Hoy se llega a cada una por su link.
+6. **¿Van las caricaturas de los referentes en una landing pública?** Copywriting las muestra con «Inspirado en su
+   método · Ninguno participa en MaKo ni la respalda», como la app; en una página que vende puede leerse como un respaldo.
+7. **¿Cuál de las dos versiones de diseño queda:** la copiada (letra de la referencia) o la «con el diseño de MaKo»?
+8. **¿Se cambia la portada (`/`) por el sitio estilo beehiiv (`/vsl/sitio`)?** Antes, confirmar que `/vsl/mako-<avatar>`
+   (el menú Industrias) esté publicada.
 
 ## Cómo seguir desde la nube
 

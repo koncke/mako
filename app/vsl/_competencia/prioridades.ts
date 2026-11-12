@@ -23,6 +23,27 @@
 // columnas (lib/todo-estados.ts), las reuniones (lib/reunion-auto.ts, lib/grabadores/catalogo.ts), los archivos
 // (app/plan/board/ImportarModal.tsx), el dictado (app/plan/board/dictado-vivo.ts), las fechas en Calendar (lib/calendario.ts)
 // y la API para tu Claude (app/api/agente/plan). Nada de un calendario hora por hora ni de dependencias (son del tablero del dueño).
+//
+// LOS TEXTOS DE MOTION, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»):
+//   · «Get an unfair advantage by using AI to double productivity» → «Consigue una ventaja injusta usando la IA para
+//     priorizar» (el «duplicar tu productividad» no está medido; lo que MaKo hace es priorizar); «The #1 Rated
+//     Productivity Platform for the AI Era. AI Projects, AI Tasks, … AI Reports» → «El plan de trabajo para la era de
+//     la IA: tareas, proyectos, reuniones, notas e informes con IA» (sin el «#1», sin «AI Calendar» ni «AI
+//     Workflows»); «What AI tools would you like to use?» → «¿Qué vista te gustaría usar?»;
+//   · «Stop using tech from the pre-AI era», «Your existing, average tools» / «Motion's AI», con sus renglones «Endless
+//     lists, missed deadlines, forgotten tasks», «Requires babysitting and hours of daily, manual work», «Take notes
+//     manually, miss important details» y, del otro lado, «Automatically creates and prioritizes tasks», «manages statuses
+//     for you» (la tarea al 100 % pasa sola a hecha) y «follows-up with action items» (los compromisos);
+//   · «Motion's AI detects and prioritizes your most urgent and important tasks» (sin «automatically»: Re-priorizar es con
+//     un toque) y «Motion takes all of your projects and tasks — their priorities, … deadlines — and prioritizes them»
+//     (según la fase y los objetivos: lib/plan-repriorizar.ts);
+//   · «Stop babysitting your project list», «Your AI executive assistant for every meeting» / «Stop juggling note-taking,
+//     listening, and speaking… so you can focus on the meeting», «Motion's AI transforms words in docs into organized
+//     projects and tasks» / «Messy notes? Long brainstorms?…», «Analyze your business and processes with AI-powered
+//     dashboards» (la hoja Productividad; «Nothing ever slips through the crack»);
+//   · «Why Motion's all-in-one platform is better than using 10 separate tools» (sin el 10) con «Everything is
+//     well-integrated into a single experience», el «Context: AI models are … more accurate with the right context» y «Add
+//     your ideas… whether at or away from desk»; «Motion integrates with…» → «MaKo se integra con».
 // =============================================================================
 
 import { MAX_PRIORIDAD } from '@/app/plan/board/types';
@@ -59,36 +80,37 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
   nombre: 'Plan',
   icono: I.plan,
   referencia: { nombre: 'Motion — portada', url: 'https://www.usemotion.com/', leida: '2026-11-11' },
-  metaTitle: 'Plan de MaKo: tus tareas, ordenadas por lo que mueve tu negocio',
+  metaTitle: 'Plan de MaKo: consigue una ventaja injusta usando la IA para priorizar',
   metaDesc: `MaKo saca las tareas de tus reuniones grabadas, le pone a cada una un puntaje de 1 a 100 con su razón y te muestra las ${MAX_PRIORIDAD} que van primero, en un tablero por estado.`,
   bloques: [
     {
       tipo: 'hero',
       etiqueta: 'Tu plan de trabajo, priorizado con IA',
-      titulo: 'Deja que MaKo ordene tu plan. <em>Tú haz primero lo que importa.</em>',
-      bajada: `MaKo saca las tareas de tus reuniones grabadas y, con un toque, le pone a cada una un puntaje de 1 a 100 con su razón. Después te deja <strong>las ${MAX_PRIORIDAD} que van primero</strong>.`,
+      titulo: 'Consigue una ventaja injusta usando la IA <em>para priorizar</em>',
+      bajada: `El plan de trabajo para la era de la IA: tareas, proyectos, reuniones, notas e informes con IA. MaKo saca las tareas de tus reuniones grabadas, le pone a cada una un puntaje de 1 a 100 con su razón y te deja <strong>las ${MAX_PRIORIDAD} que van primero</strong>.`,
       // El primer renglón es la tarjeta del hero (copia la de Motion «What AI tools would you like to use?»): lo de antes de los dos
       // puntos es su título y cada vista, una casilla.
-      puntos: ['Cuatro vistas en un tablero: Prioridades, Tareas, Proyectos y Recurrentes', 'La prioridad la pone MaKo; la cambias a mano cuando quieras'],
+      puntos: ['¿Qué vista te gustaría usar?: Prioridades, Tareas, Proyectos y Recurrentes', 'La prioridad la pone MaKo; la cambias a mano cuando quieras'],
       visual: { tipo: 'detalle', slug: 'prioridades' },
     },
     {
       tipo: 'contraste',
-      etiqueta: 'Deja la lista de pendientes de siempre',
-      titulo: 'Tu lista de pendientes no sabe qué va primero',
+      etiqueta: 'Tus herramientas de siempre, contra la IA de MaKo',
+      titulo: 'Deja de usar herramientas de antes de la IA',
       sin: {
-        titulo: 'La lista de siempre',
+        titulo: 'Tus herramientas de siempre',
         // Un renglón por <br>: el diseño los dibuja como la lista de Motion («Normal Task Manager…»).
-        texto: 'Listas que no se terminan<br>Fechas que se pasan<br>Lo que se acordó en una reunión, perdido en tus notas<br><strong>Todo parece urgente</strong> y terminas eligiendo lo fácil',
+        texto: 'Listas que no se terminan, fechas que se pasan, tareas olvidadas<br>Proyectos que hay que cuidar, con horas de trabajo manual cada día<br>Notas de la reunión a mano, y detalles importantes que se pierden<br><strong>Todo parece urgente</strong> y terminas eligiendo lo fácil',
       },
       con: {
-        titulo: 'El Plan de MaKo',
-        texto: 'Las tareas salen de tus reuniones<br>MaKo le pone a cada una su puntaje y su razón<br>La vista Prioridades te deja sólo lo que va primero<br>Lo que fijas a mano, MaKo no lo vuelve a tocar',
+        titulo: 'La IA de MaKo',
+        texto: 'Crea y prioriza tus tareas: cada una con su puntaje y su razón<br>A la tarea sin proyecto le busca uno, y la que llega al 100 % pasa sola a hecha<br>Lee tus reuniones grabadas y saca los compromisos de cada uno<br>La vista Prioridades te deja sólo lo que va primero',
       },
     },
     {
       tipo: 'filas',
-      titulo: 'MaKo prioriza tus tareas por ti',
+      titulo: 'La IA de MaKo detecta y prioriza tus tareas más urgentes e importantes',
+      bajada: 'MaKo toma todas tus tareas y proyectos —sus prioridades, sus fechas y más— y los prioriza según la fase de tu negocio y tus objetivos.',
       slug: 'prioridades',
       items: [
         {
@@ -104,7 +126,7 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Cada tarea en su proyecto, y cada proyecto a la vista',
+      titulo: 'Deja de cuidar tu lista de proyectos a mano',
       items: [
         { icono: I.tablero, titulo: 'Un tablero por estado', texto: `${COLUMNAS_TXT}. Una tarea que llega al 100 % pasa sola a ${HECHA}.` },
         { icono: I.persona, titulo: 'Por proyecto y por responsable', texto: 'Filtras por proyecto o por quién lo tiene que hacer: lo tuyo, lo de un cliente o lo de un tercero.' },
@@ -113,8 +135,8 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
     },
     {
       tipo: 'pasos',
-      titulo: 'Las tareas salen solas de tus reuniones',
-      bajada: `Conectas tu grabador —${GRABADORES_TXT}— y MaKo lee cada reunión de tu equipo y con tus clientes.`,
+      titulo: 'Tu asistente con IA para cada reunión',
+      bajada: `Deja de tomar notas mientras escuchas y hablas. Conectas tu grabador —${GRABADORES_TXT}— y MaKo saca los compromisos de cada reunión de tu equipo y con tus clientes, para que te concentres en la reunión.`,
       pasos: [
         { titulo: 'Termina tu reunión', texto: 'La grabación cae en tu grabador y MaKo la lee sola: no tienes que apretar nada.' },
         { titulo: 'Saca los compromisos', texto: 'Separa lo tuyo de lo que le toca a otra persona y marca lo que ya está en tu plan, para no duplicar.' },
@@ -124,7 +146,8 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'De tus notas a tareas, sin pasarlas a mano',
+      titulo: 'La IA de MaKo convierte tus notas en tareas organizadas',
+      bajada: '¿Notas desordenadas? ¿Una lluvia de ideas larga? MaKo las convierte en tareas, y las revisas antes de que entren.',
       items: [
         { icono: I.subir, titulo: 'Subes tus archivos', texto: 'Notas, un PDF, un Word, una planilla, una foto o un audio: MaKo saca las tareas y las revisas antes de que entren.' },
         { icono: I.chat, titulo: 'Se lo dices a MaKo', texto: 'En el chat o en tu grupo de WhatsApp: «anota que…», y te deja un borrador para confirmar.' },
@@ -133,8 +156,8 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Sabes cómo va cada proyecto',
-      bajada: 'En la hoja Productividad del Dashboard, armada con tu tablero.',
+      titulo: 'Analiza tu negocio y tus procesos con dashboards',
+      bajada: 'En la hoja Productividad del Dashboard, armada con tu tablero: que nada se te escape.',
       items: [
         { icono: I.avance, titulo: 'El avance de cada proyecto', texto: 'Cuánto lleva cada proyecto y todo tu tablero, en una pantalla.' },
         { icono: I.quieta, titulo: 'Lo que se estancó', texto: 'Las tareas que nadie mueve hace días, y las de prioridad alta que no tienen fecha.' },
@@ -145,18 +168,18 @@ export const LANDING_PRIORIDADES: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Por qué tu plan vive adentro de MaKo',
+      titulo: 'Por qué la plataforma todo en uno de MaKo es mejor que usar herramientas separadas',
       columnas: 2,
       items: [
-        { icono: I.todo, titulo: 'Todo en un lugar', texto: 'Las tareas llegan de tus reuniones, de tu chat y de tu WhatsApp, sin copiar nada de una app a otra.' },
-        { icono: I.foco, titulo: 'Con el contexto de tu negocio', texto: 'MaKo prioriza mirando la fase de tu negocio y tus objetivos, <strong>no sólo la lista</strong>.' },
+        { icono: I.todo, titulo: 'Todo en un lugar', texto: 'Todo integrado en una sola experiencia: las tareas llegan de tus reuniones, de tu chat y de tu WhatsApp, sin instalar más apps ni copiar nada de una a otra.' },
+        { icono: I.foco, titulo: 'Con el contexto de tu negocio', texto: 'La IA acierta más con el contexto correcto: MaKo prioriza mirando la fase de tu negocio y tus objetivos, <strong>no sólo la lista</strong>.' },
         { icono: I.agenda, titulo: 'Tus fechas, en tu calendario', texto: 'Las tareas y los proyectos con fecha aparecen en Calendar, y desde ahí abres la tarjeta.' },
-        { icono: I.telefono, titulo: 'También en el teléfono', texto: 'Las mismas cuatro vistas en la app del teléfono, para ver qué sigue desde donde estés.' },
+        { icono: I.telefono, titulo: 'También en el teléfono', texto: 'Sumas tus ideas y tus tareas estés o no frente a la computadora: las mismas cuatro vistas en la app del teléfono.' },
       ],
     },
     {
       tipo: 'logos',
-      titulo: 'Las tareas de tu plan llegan de',
+      titulo: 'MaKo se integra con',
       items: [
         { logo: 'llamada.svg', nombre: 'Tus reuniones grabadas' },
         { logo: 'whatsapp.png', nombre: 'Tu grupo de MaKo en WhatsApp' },

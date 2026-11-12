@@ -16,9 +16,11 @@
 //   · La barra de Black Friday, la barra fija de abajo («53 left at $47»), la letra chica del precio, «The math», «The
 //     offer» y sus dos agregados, «Already own another Machine?», «Not ready yet? Start free» con su Hook Vault, «Who built
 //     it» y la tira de su fundador: son su precio, su escasez, sus otros productos y su persona.
-//   · Su frase «You're not getting a prompt…» debajo del hero: no hay un texto de MaKo para ese lugar.
-//   · La imagen de los 14 libros de su tarjeta del hero: en ese cuadro va el visual de Copywriting (la página y la
-//     propuesta de MaKo), con el mismo encuadre (442 px, radio 8).
+//   · Su frase «You're not getting a prompt…» debajo del hero va traducida (12/11/2026), con los referentes de MaKo.
+//   · La imagen de los 14 libros de su tarjeta del hero: desde el 12/11/2026 (Martín: «podemos poner… las caricaturas»)
+//     va su titular traducido («Los N referentes… Ahora tu IA puede trabajar con su método.») y la pared de caricaturas de
+//     los referentes (lib/asesores/catalogo.ts, public/asesores/), con «Inspirado en» y que ninguno participa ni respalda.
+//     El visual de la página con la propuesta de MaKo (../visuales-propios/copywriting.tsx) queda para quien lo use.
 //   · En su banda «Three real pages and ads, rewritten» hay un original y una reescritura lado a lado: MaKo muestra el
 //     ejemplo de cada plantilla, así que va UN panel (el de «My rewrite»), con el extracto del ejemplo.
 //   · Sus 11 reseñas: en su carrusel va el caso de Mauricio en tres tarjetas (su historia, su resultado y su video), sin
@@ -26,7 +28,7 @@
 //   · La conversación de ejemplo de su «Chief» dentro del renglón 3 de «What you get»: el renglón queda destacado, sin la
 //     demo (el visual ya está en el hero).
 //   · Sus preguntas viven en una tarjeta de 372 px al lado de la de su precio: sin el precio, la tarjeta ocupa el ancho.
-//   · El cierre «Traffic is an expensive place to find the weak line.» lleva el título y la descripción de la landing.
+//   · El cierre «Traffic is an expensive place to find the weak line.» va traducido tal cual (12/11/2026), con la llamada.
 //   · El pie: su fila de productos lleva el resto de las funciones de MaKo; abajo, «© MaKo» y los términos y la privacidad.
 // Server component sin JavaScript: los desplegables son <details>, las pestañas de las plantillas son radios con :checked y
 // las animaciones (el pulso del botón redondo, el cambio de color al pasar el cursor) son CSS, apagadas con «reducir
@@ -37,7 +39,7 @@ import type { ReactNode } from 'react';
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
 import { CALENDLY, CASO, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFunciones } from '../marca';
-import { VisualDeLanding } from '../Visuales';
+import { ASESORES, inspiradoEn } from '@/lib/asesores/catalogo';
 
 const F = '/vsl-assets/fuentes';
 const AZUL = MAKO.azul;
@@ -89,6 +91,8 @@ const CSS = `
 .d-copywriting-checks li strong { font-weight: 600; color: var(--tinta); }
 .d-copywriting-checks li::before { content: ''; position: absolute; left: 0; top: 2px; width: 20px; height: 20px; border-radius: 50%; background: ${PETROLEO}; }
 .d-copywriting-checks li::after { content: ''; position: absolute; left: 7px; top: 6px; width: 5px; height: 9px; border: solid #FBF6EA; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.d-copywriting-noprompt { margin-top: 34px; max-width: 573px; font-family: var(--serif); font-size: 24px; line-height: 30px; letter-spacing: -0.2px; color: #8A7F70; }
+.d-copywriting-noprompt strong { font-weight: 400; color: var(--tinta); }
 .d-copywriting-tarjeta { background: var(--papel); border: 1px solid var(--linea); border-radius: 16px; padding: 20px 18px; }
 .d-copywriting-cuadro { min-height: 548px; border-radius: 8px; background: #F3E9D6; display: flex; align-items: center; justify-content: center; padding: 22px 18px; }
 .d-copywriting-cuadro > * { width: 100%; }
@@ -252,6 +256,22 @@ const CSS = `
 .d-copywriting-cierre h2 { margin-top: 33px; font-family: var(--serif); font-size: 40px; line-height: 42px; letter-spacing: -0.4px; font-weight: 400; }
 .d-copywriting-cierre p { max-width: 560px; margin: 10px auto 20px; font-size: 16px; color: var(--cuerpo); }
 
+/* La tarjeta del hero (12/11/2026): donde la referencia pone «The 14 books great copywriters learned from. Now your AI works
+   from them too.» y la foto de la pila de libros, van los referentes de MaKo: el titular de su tarjeta (serif, la palabra de
+   color), la línea mono con su regla, la pared de caricaturas (public/asesores/<id>.png) y su pie mono con «Inspirado en». */
+.d-copywriting-refs { display: flex; flex-direction: column; gap: 0; width: 100%; }
+.d-copywriting-refs-h { font-family: var(--serif); font-size: 31px; line-height: 31px; letter-spacing: -0.4px; color: var(--tinta); }
+.d-copywriting-refs-h em { font-style: normal; color: ${AZUL}; }
+.d-copywriting-refs-sub { margin-top: 14px; padding-top: 7px; border-top: 1.5px solid ${AZUL}; font-family: var(--mono); font-size: 11px; line-height: 14px;
+  letter-spacing: .6px; text-transform: uppercase; color: var(--tinta); }
+.d-copywriting-refs-pared { margin-top: 20px; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; padding: 22px 14px; border-radius: 6px;
+  background: linear-gradient(180deg, #ECE3D0 0%, #E4D7BE 100%); box-shadow: inset 0 -10px 18px rgba(120,90,50,.08); }
+.d-copywriting-refs-pared li { aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #fff; box-shadow: 0 1px 2px rgba(50,40,25,.18), 0 3px 8px rgba(50,40,25,.08);
+  transition: transform .18s ease; }
+.d-copywriting-refs-pared li:hover { transform: translateY(-2px) scale(1.06); }
+.d-copywriting-refs-pared img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.d-copywriting-refs-pie { margin-top: 12px; font-family: var(--mono); font-size: 10.5px; line-height: 14px; letter-spacing: .6px; text-transform: uppercase; color: var(--gris); }
+
 /* El pie: la fila de productos (aquí, las funciones de MaKo) y la línea de abajo. */
 .d-copywriting-pie { border-top: 1px solid var(--linea); }
 .d-copywriting-productos { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 18px; padding: 27px 0 16px; border-bottom: 1px solid var(--linea); }
@@ -263,7 +283,7 @@ const CSS = `
 
 @media (prefers-reduced-motion: reduce) {
   .d-copywriting-flecha, .d-copywriting-flecha svg { animation: none; }
-  .d-copywriting-btn, .d-copywriting-link, .d-copywriting-faq summary::after, .d-copywriting-productos a { transition: none; }
+  .d-copywriting-btn, .d-copywriting-link, .d-copywriting-faq summary::after, .d-copywriting-productos a, .d-copywriting-refs-pared li { transition: none; }
 }
 
 @media (max-width: 1180px) {
@@ -291,9 +311,13 @@ const CSS = `
   .d-copywriting-acciones .d-copywriting-btn { order: 4; margin-top: 32px; padding: 16px 12px; }
   .d-copywriting-checks { order: 5; }
   .d-copywriting-acciones .d-copywriting-link { order: 6; align-self: center; margin-top: 14px; }
+  .d-copywriting-noprompt { order: 7; margin-top: 26px; font-size: 21px; line-height: 26px; }
   .d-copywriting-checks li { font-size: 15px; line-height: 21.75px; }
   .d-copywriting-tarjeta { padding: 26px 24px; }
   .d-copywriting-cuadro { min-height: 0; padding: 14px 10px; }
+  .d-copywriting-refs-h { font-size: 26px; line-height: 27px; }
+  .d-copywriting-refs-pared { gap: 4px; padding: 10px 8px; }
+  .d-copywriting-refs-pared li { border-radius: 6px; }
   .d-copywriting-toggle { flex-wrap: wrap; gap: 14px; padding-block: 20px; }
   .d-copywriting-toggle-t { order: 3; flex: 1 1 100%; }
   .d-copywriting-toggle-a { margin-left: auto; }
@@ -325,6 +349,27 @@ const CSS = `
 `;
 
 type Tarjetas = Extract<Bloque, { tipo: 'tarjetas' }>;
+
+/**
+ * Los referentes, en el cuadro de la tarjeta del hero (donde la referencia pone su pila de 14 libros). Contados del catálogo
+ * (lib/asesores/catalogo.ts), con su caricatura y «Inspirado en»: ninguno participa en MaKo ni la respalda. Que su método
+ * llega a tu IA es el chat con un referente (lib/asesores/contexto.ts → contextoDeReferente, en cada mensaje).
+ */
+function Referentes() {
+  return (
+    <div className="d-copywriting-refs">
+      <p className="d-copywriting-refs-h">Los {ASESORES.length} referentes del marketing que MaKo estudió. Ahora <em>tu IA</em> puede trabajar con su método.</p>
+      <p className="d-copywriting-refs-sub">Lo que enseñan, destilado de sus cursos.</p>
+      <ul className="d-copywriting-refs-pared">
+        {ASESORES.map((a) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <li key={a.id} title={`${inspiradoEn(a)} · ${a.especialidad}`}><img src={`/asesores/${a.id}.png`} alt={inspiradoEn(a)} width={200} height={200} loading="lazy" decoding="async" /></li>
+        ))}
+      </ul>
+      <p className="d-copywriting-refs-pie">Inspirado en su método · Ninguno participa en MaKo ni la respalda</p>
+    </div>
+  );
+}
 
 function Icono({ paths, tam = 20 }: { paths?: string[]; tam?: number }) {
   return (
@@ -364,9 +409,12 @@ function secciones(bloques: Bloque[]): ReactNode[] {
               {b.puntos && b.puntos.length > 0 && (
                 <ul className="d-copywriting-checks">{b.puntos.map((p, j) => <li key={j} dangerouslySetInnerHTML={html(p)} />)}</ul>
               )}
+              {/* Su «You're not getting a prompt. You're getting the thinking behind the best ads and sales pages ever written,
+                  working inside your own AI.», traducido con lo que MaKo tiene: los referentes (la tarjeta de la derecha). */}
+              <p className="d-copywriting-noprompt"><strong>No te llevas un prompt.</strong> Te llevas el método de {ASESORES.length} referentes del marketing, destilado de sus cursos, trabajando dentro de tu propia IA.</p>
             </div>
             <aside className="d-copywriting-tarjeta">
-              <div className="d-copywriting-cuadro"><VisualDeLanding visual={b.visual} /></div>
+              <div className="d-copywriting-cuadro"><Referentes /></div>
               <Boton />
               {vistazo && (
                 <details className="d-copywriting-vistazo">
@@ -587,8 +635,9 @@ export default function DisenoCopywriting({ landing }: PropsDiseno) {
       <main>
         {secciones(landing.bloques)}
         <section className="d-copywriting-cont d-copywriting-cierre">
-          <h2>{landing.metaTitle}</h2>
-          <p>{landing.metaDesc}</p>
+          {/* Su cierre, traducido: «Traffic is an expensive place to find the weak line.» */}
+          <h2>El tráfico es un lugar caro para encontrar la línea débil.</h2>
+          <p>Dale a MaKo tu próximo anuncio, guion o email primero: te llevas el borrador, con lo que falta marcado, antes de que lo vea un comprador.</p>
           <Boton />
         </section>
       </main>
