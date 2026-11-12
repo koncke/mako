@@ -554,7 +554,9 @@ export async function chatClaude(
           // `deSuIA` (lib/model-catalogo.ts): su Claude y su GPT, nunca Gemini (ni el suyo).
           sinGemini: deSuIADeFeature(opts.feature),
           // `fallback: []` (11/11/2026): un solo proveedor, así que tampoco el crédito de Claude primero (mezclaría dos modelos).
-          sinCredito: permitidos?.length === 0,
+          // Salvo `deSuIA` (12/11/2026): «su Claude o su GPT» admite el crédito, que es Claude; quién puede lo decide igual
+          // `puedeUsarUnaCuentaDelCredito` (sólo el espacio de MaKo). Sin esto, el chat de Image no contestaba nunca en el ws 9.
+          sinCredito: permitidos?.length === 0 && !deSuIADeFeature(opts.feature),
         });
         if (salida.trim()) return salida;
         // Lo que contestó cada key del negocio, para que el caller diga la causa (errorDeCascada).

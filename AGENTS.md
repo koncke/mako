@@ -2763,6 +2763,9 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 
 - **Un ejemplo entre comillas en un prompt es lo que el modelo va a decir.** Antes de escribir uno,
   preguntá si es verdad en TODOS los turnos que lo leen.
+  - **También lo que dice que VE** (12/11/2026): el prompt de la réplica de carruseles traía «por ejemplo «pantalla dividida: dos
+    cuadros apilados»», y ante un anuncio que era una tarjeta de tuit blanca la IA «leyó» exactamente eso. En un prompt que mira
+    imágenes no van ejemplos de composición: se pide describir lo que hay ([docs/hallazgos-carruseles.md](docs/hallazgos-carruseles.md)).
 - **«No puedo» casi nunca es que no puede: es que el turno llegó sin la herramienta.** Antes de
   culpar a la integración, armá el turno con la frase real (`clasificarIntencion` +
   `herramientasDelTurno`) y mirá qué viajó.

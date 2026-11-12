@@ -273,7 +273,6 @@ export function PanelMakoIA() {
             <div className={styles.saludo}>
               <span className={styles.chispa} aria-hidden="true"><Sparkles size={20} /></span>
               <p className={styles.saludoTitulo}>{intencion === 'discutir' ? '¿Qué quieres pensar?' : '¿Qué cambiamos?'}</p>
-              <p className={styles.saludoTexto}>{intencion === 'discutir' ? 'Te digo qué cambiaría, sin tocar nada.' : 'Pídeme lo que quieras del diseño.'}</p>
               {/* Sin marca, MaKo la pide (5/11/2026): un link, nunca un paso que trabe el chat. */}
               {sinMarca && (
                 <p className={styles.saludoTexto}>

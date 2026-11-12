@@ -103,6 +103,17 @@ export function rotuloAire(c: Pick<Carrusel, 'diasAlAire' | 'activo'>): string |
 }
 
 /**
+ * El texto de un anuncio SIN las variables de un anuncio de catálogo de Meta (12/11/2026). La Biblioteca de Anuncios guarda la
+ * plantilla, no lo que vio cada persona: dos anuncios de @sofiacontreras se mostraban con el título «{{product.name}}» y
+ * «{{product.brand}}», y eso mismo iba como «pie» al prompt de la réplica. Una línea que era sólo variables se va entera.
+ */
+export function sinVariablesDeCatalogo(x: string | null | undefined): string | null {
+  if (!x) return null;
+  const limpio = x.split('\n').map((r) => r.replace(/\{\{\s*[\w.]+\s*\}\}/g, '').replace(/[ \t]+/g, ' ').trim()).filter(Boolean).join('\n');
+  return limpio || null;
+}
+
+/**
  * Los anuncios de los competidores como tarjetas del explorador (clase «anuncio»). Sólo los de un competidor que el negocio
  * sigue y sólo los que NO se sabe que son video (ver arriba); uno sin miniatura se ve con su texto.
  *
@@ -116,7 +127,7 @@ export function anunciosDe(piezas: readonly PiezaAnuncio[], competidores: readon
     const c = porId.get(p.competidor_id);
     const medio = medioGuardadoDeAnuncio(p);
     if (!c || p.canal !== 'anuncios' || p.tipo !== 'anuncio' || medio === 'video') continue;
-    const texto = [p.titulo, p.texto].map((x) => x?.trim()).filter(Boolean).join('\n') || null;
+    const texto = [sinVariablesDeCatalogo(p.titulo), sinVariablesDeCatalogo(p.texto)].filter(Boolean).join('\n') || null;
     const formato = formatoDe(p.analisis?.formato) || tipoDeCarrusel({ texto });
     out.push({
       id: p.id,
@@ -126,7 +137,7 @@ export function anunciosDe(piezas: readonly PiezaAnuncio[], competidores: readon
       url: p.url,
       miniatura: p.miniatura,
       texto,
-      gancho: p.analisis?.gancho?.trim() || p.titulo?.trim() || null,
+      gancho: sinVariablesDeCatalogo(p.analisis?.gancho) || sinVariablesDeCatalogo(p.titulo) || null,
       tipoGancho: p.analisis?.tipoGancho?.trim() || null,
       cierre: cierreDeTexto(texto),
       formato,

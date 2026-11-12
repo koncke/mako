@@ -605,22 +605,14 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
               ))}
             </div>
           </>
-        ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && (
-          <>
-            <div className="nt-mako-bienvenida">
-              {!id ? 'Elige un outlier y tócale «Replicar»: te escribo el guion entero con tu oferta. Tus guiones están en la «←».'
-                : intencion === 'discutir' ? 'Pregúntame lo que quieras de esta página: te digo qué cambiaría, sin tocar nada.'
-                  : 'Pídeme que escriba o edite esta página: lo escribo aquí al lado y tú decides si queda.'}
-              {id && ' Con @ citas otra página, la oferta o un archivo.'}
-            </div>
-            {id && (
-              <div className="nt-mako-pildoras">
-                {sugerencias.map((s) => (
-                  <button key={s} type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => pedirSugerencia(s)}>{s}</button>
-                ))}
-              </div>
-            )}
-          </>
+        ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && (
+          // Sin el texto que explicaba cómo usar el chat (12/11/2026, Martín: «arriba en MaKo dice un texto que es innecesario… eso es
+          // totalmente innecesario»): sólo lo que se le puede pedir, en botones. Sin página abierta no hay nada que decir.
+          <div className="nt-mako-pildoras">
+            {sugerencias.map((s) => (
+              <button key={s} type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => pedirSugerencia(s)}>{s}</button>
+            ))}
+          </div>
         )}
         <HiloAgente items={nota.conNotas(items)} corriendo={corriendo} enMensaje={enMensaje} onCitar={citar}
           onReintentar={nota.reintentar(() => {})} onDescartar={nota.descartar} />

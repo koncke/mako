@@ -125,7 +125,8 @@ test('6. en el teléfono, la portada primero (como Video); la lista con ?ver=lis
   assert.match(m, /const RUTA_LISTA_M = '\/m\/landing\?ver=lista';/);
   assert.match(leer('app/m/landing/[id]/page.tsx'), /const VOLVER = \{ rotulo: 'Volver a las landings', href: '\/m\/landing\?ver=lista' \};/);
   const p = sinComentarios(leer('app/web-generator/OutliersLandings.tsx'));
-  assert.match(p, /<Link href=\{rutaCrear\} className=\{s\.crear\}>\{telefono \? 'Tus landings' : <><span aria-hidden>＋<\/span> Crear desde cero<\/>\}<\/Link>/,
+  // 12/11/2026: crear es el botón principal de la portada («＋ Nueva landing»), que va sin el chat.
+  assert.match(p, /<Link href=\{rutaCrear\} className=\{telefono \? s\.pastilla : s\.nuevo\}>\{telefono \? 'Tus landings' : <><span aria-hidden>＋<\/span> Nueva landing<\/>\}<\/Link>/,
     'en el teléfono no se crea: el botón lleva a tus landings y lo dice');
   // Mirado en producción el 11/11/2026: en dos columnas una página apaisada medía 180px. De a una, con la grilla ancha de Image.
   assert.match(p, /<ul className=\{`\$\{s\.grilla\} \$\{l\.grilla\}\$\{telefono \? ` \$\{s\.grillaAncha\}` : ''\}`\}>/);

@@ -5,6 +5,33 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## El ➤ de un audio grabado quedaba afuera en el Video Editor, y no por angosto (12/11/2026)
+
+**El síntoma (Martín, con captura):** «grabé un audio y fíjate que se corta porque el chat más angosto y no se ve el botón para
+enviar el audio». Con lo grabado para escuchar, la fila «🗑 · ▶ · barra · 0:05 · 🎤 · ➤» se salía por la derecha del chat (~420 px).
+
+⚠️ **El diagnóstico obvio («el chat es angosto») era el equivocado**: la tarjeta de Copywriting mide 340 px, MÁS angosta, y ahí la
+fila entra. La diferencia es el CONTENEDOR: el pie del chat del Video Editor (`_opencut/chat/PanelChat.tsx`) es una **grilla**, y
+un hijo de grilla no baja de lo que pide su contenido (`min-width: auto`); en una columna flex (las demás tabs), sí se achica.
+Y lo que pedía era el `<input type="range">` del reproductor (`app/whatsapp/_shared/AudioPlay.tsx`): su ancho propio en Chrome,
+**129 px**, cuenta como mínimo aunque tenga `flex: 1` y `minWidth: 40`. Sumado, la fila pedía ~363 px más los rellenos de la caja.
+
+Medido en producción a 1440 (chat de 340 px): la barra pedía **363 px**, la caja medía 375 y el ➤ quedaba entre 413 y 457 con el
+borde del chat en 416.
+
+**Lo que quedó:** el `range` con `width: 0` (crece igual con `flex: 1`, no baja de 40), `.co-caja` y `.co-caja__fila` con
+`min-width: 0`, y la columna del pie del Video Editor en `minmax(0, 1fr)`. ⚠️ **Y `.co-caja` con `width: 100%`**: probado el
+arreglo sobre la página viva, el ➤ entraba pero la caja se ACHICABA a 286 de 316 px, porque con `margin-inline: auto` un hijo
+de grilla (o de columna flex) no se estira: mide lo que pide su fila, y sin los 129 px del `range` pedía menos. En un bloque
+(el Ops Center) `width: 100%` con `max-width: 760px` da lo mismo que antes.
+
+⚠️ **No era sólo el Video Editor ni sólo al escuchar** (lo vieron a la vez los chats que probaban Copywriting e Image): el pie del
+chat de Copywriting (`.nt-mako-pie`) y el de Image (`.pie`) también son grillas, y en Copywriting el ✓ quedaba afuera MIENTRAS se
+grababa. Ahí el culpable es la onda (`OndaGrabando`): cuenta sus barras según el ancho que mide, y ese ancho sale de las barras que
+ya dibujó — **un `ResizeObserver` que alimenta el contenido que él mismo mide crece solo** (451 px medidos en una tarjeta de 340).
+El arreglo de fondo es `contain: inline-size` en la fila de la barra (`BARRA` en VoiceRecorder.tsx): mide lo que le da su caja y
+nunca empuja hacia afuera. Probado sobre la página viva: grabando y escuchando, el botón queda adentro (342-386 con el borde en 416). La regla: un `<input>` adentro de una fila flex que
+tiene que achicarse lleva `width: 0` además del `flex`; `min-width` sólo pone un piso, no le baja el ancho que pide.
 
 ## La caja se salía de la columna al grabar: no era la onda, era `margin-inline: auto` en una grilla (12/11/2026)
 

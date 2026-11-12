@@ -59,6 +59,7 @@ import { esLinkDeVideo, linkDeInstagram } from '@/lib/carruseles/link';
 import { PanelThumbnails, type DatosThumbnails } from './Thumbnails';
 import { borrarBusquedaAction, guardarBusquedaAction, guardarCarruselAction, guardarThumbnailAction } from './actions';
 import s from './explorar.module.css';
+import { usePortadaCrear } from '@/app/_crear/portada-ctx';
 
 /** Lo que llega del servidor (`leerExplorador`, lib/carruseles/explorar-servidor.ts). */
 export type DatosExplorador = {
@@ -160,6 +161,8 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
    */
   onReplicar?: (c: Carrusel) => void;
 }) {
+  // Adentro de la pantalla de Create (la portada, sin chat): «Mis diseños» abre la lista a la izquierda. En el teléfono, null.
+  const pantalla = usePortadaCrear();
   // Lo traído por su link en esta visita («Traer tu outlier», 11/11/2026) se suma ya a la lista, primero: no espera a que el
   // server la vuelva a leer (`router.refresh()` no sirve acá: la pantalla también se dibuja fuera del router, en los tests).
   const [traidos, setTraidos] = useState<Carrusel[]>([]);
@@ -331,8 +334,10 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
           onChange={usarBusqueda} buttonStyle={pastilla(false, telefono)} />
       )}
       <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
-      {/* Las plantillas de «¿Qué vas a crear hoy?» (6/11/2026: lo principal son los ejemplos; crear de cero queda a un toque). */}
-      <Link href={rutaCrear} className={s.crear}><span aria-hidden>＋</span> Crear desde cero</Link>
+      {/* La portada va sin el chat (12/11/2026): tus diseños se abren a la izquierda. */}
+      {pantalla ? <button type="button" className={s.pastilla} onClick={pantalla.verProyectos}>Mis diseños</button> : null}
+      {/* Las plantillas de «¿Qué vas a crear hoy?»: crear es el botón principal de la portada (12/11/2026). */}
+      <Link href={rutaCrear} className={s.nuevo}><span aria-hidden>＋</span> Nuevo carrusel</Link>
     </div>
   );
 
