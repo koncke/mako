@@ -5,7 +5,46 @@
 // Una landing sin diseño acá se dibuja con la cara común de /vsl (LandingCompetencia.tsx).
 import type { ComponentType } from 'react';
 import type { LandingCompetencia } from '../tipos';
+import DisenoAiAvatar from './ai-avatar';
+import DisenoSeguimiento from './seguimiento';
+import DisenoWhatsapp from './whatsapp';
+import DisenoCrm from './crm';
+import DisenoDashboard from './dashboard';
+import DisenoVideo from './video';
+import DisenoCompetitorSpy from './competitor-spy';
+import DisenoAds from './ads';
+import DisenoImage from './image';
+import DisenoCopywriting from './copywriting';
+import DisenoWebGenerator from './web-generator';
+import DisenoOffer from './offer';
+import DisenoMako from './mako';
+import DisenoPrioridades from './prioridades';
+import DisenoScript from './script';
+import DisenoFunnel from './funnel';
+import DisenoEmail from './email';
+import DisenoCobranza from './cobranza';
+import DisenoAgenda from './agenda';
 
 export type PropsDiseno = { landing: LandingCompetencia };
 
-export const DISENOS: Record<string, ComponentType<PropsDiseno>> = {};
+export const DISENOS: Record<string, ComponentType<PropsDiseno>> = {
+  'ai-avatar': DisenoAiAvatar,
+  'seguimiento': DisenoSeguimiento,
+  'whatsapp': DisenoWhatsapp,
+  'crm': DisenoCrm,
+  'dashboard': DisenoDashboard,
+  'video': DisenoVideo,
+  'competitor-spy': DisenoCompetitorSpy,
+  'ads': DisenoAds,
+  'image': DisenoImage,
+  'copywriting': DisenoCopywriting,
+  'web-generator': DisenoWebGenerator,
+  'offer': DisenoOffer,
+  'mako': DisenoMako,
+  'prioridades': DisenoPrioridades,
+  'script': DisenoScript,
+  'funnel': DisenoFunnel,
+  'email': DisenoEmail,
+  'cobranza': DisenoCobranza,
+  'agenda': DisenoAgenda,
+};
