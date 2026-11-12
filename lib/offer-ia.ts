@@ -45,9 +45,10 @@ import {
   type CalculoDiagnostico, type DiagnosticoOferta, type PiezasSabidas, type PropuestaOferta,
 } from './offer-marco';
 import {
-  bloqueOfertaDeOtro, conversacionParaPrompt, documentosParaPrompt, faltanDelArranqueParaPrompt, guiaDelArranque, guiaParaPrompt, parseDiagnostico, parseLectura, parsePropuesta, parseTurno,
+  bloqueOfertaDeOtro, conversacionParaPrompt, documentosParaPrompt, faltanDelArranqueParaPrompt, guiaDelArranque, guiaParaPrompt, MAX_MENSAJES_PROMPT, parseDiagnostico, parseLectura, parsePropuesta, parseTurno,
   parseTurnoConDiagnostico, piezasParaPrompt, validadorConRespaldo, type ContextoReglas, type DocParaPrompt, type MensajeParaPrompt, type TurnoOffer,
 } from './offer-reglas';
+import { parseResumen, type ResumenGuardado } from './conversacion-resumen-reglas';
 import { parsePropuestaCrm, tiposParaPrompt, type PropuestaCrm } from './onboarding-crm';
 import type { TipoCrm } from './pipeline';
 import { reglaNoExisteEn } from './no-existe';
@@ -495,8 +496,9 @@ async function pedir<T>(p: Pedido<T>): Promise<ResultadoIA<T>> {
   return { ok: false, error: await errorDeCascada(errores, p.tema) };
 }
 
-/** Las cuatro piezas de texto que comparten los tres pedidos. */
-function bloquesComunes(p: { mensajes: MensajeParaPrompt[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; nuevos?: string[]; contexto: string }) {
+/** Las cuatro piezas de texto que comparten los tres pedidos. `resumen` (12/11/2026): lo que pasa los 30 mensajes, resumido
+ *  (lib/conversacion-resumen.ts); sin pasarlo, la conversación como siempre. */
+function bloquesComunes(p: { mensajes: MensajeParaPrompt[]; piezas: PiezasSabidas; docs: DocParaPrompt[]; nuevos?: string[]; contexto: string; resumen?: ResumenGuardado | null }) {
   const { sabidas, faltan } = piezasParaPrompt(p.piezas);
   const docs = documentosParaPrompt(p.docs, p.nuevos ?? []);
   return {
@@ -505,8 +507,22 @@ function bloquesComunes(p: { mensajes: MensajeParaPrompt[]; piezas: PiezasSabida
     piezas: contenidoNoConfiable(sabidas, 'piezas'),
     faltan,
     documentos: docs ? contenidoNoConfiable(docs, 'documentos') : '(ninguno)',
-    conversacion: contenidoNoConfiable(conversacionParaPrompt(p.mensajes) || '(todavía no hay mensajes)', 'conversacion'),
+    conversacion: contenidoNoConfiable(conversacionParaPrompt(p.mensajes, MAX_MENSAJES_PROMPT, p.resumen) || '(todavía no hay mensajes)', 'conversacion'),
   };
+}
+
+/**
+ * El resumen de lo viejo de una conversación de Offer (12/11/2026, lib/conversacion-resumen.ts), con la cascada de Offer: las keys del
+ * negocio, el crédito sólo en el onboarding y la red gratis. Offer nunca paga, tampoco por esto. Corre fuera del turno.
+ */
+export async function pedirResumenDeOffer(p: { system: string; user: string; motivo: string }): Promise<string | null> {
+  const ahora = Date.now();
+  const r = await pedir({
+    system: p.system, user: p.user, maxTokens: 1_500, timeoutMs: 45_000, esfuerzo: 'low',
+    hastaMs: ahora + 60_000, hastaRedMs: ahora + 120_000,
+    motivo: `Offer: ${p.motivo}`, tema: 'resumir la conversación', parse: parseResumen,
+  });
+  return r.ok ? JSON.stringify({ resumen: r.valor }) : null;
 }
 
 // ── Las tres llamadas ────────────────────────────────────────────────────────
@@ -531,6 +547,8 @@ export async function turnoOffer(p: {
   arranque?: boolean;
   /** Con qué referente aconseja (el del coach, que es uno desde el 4/11/2026: lib/asesores/contexto.ts → contextoDeReferente). Vacío: MaKo. */
   referente?: string;
+  /** Lo que pasa los 30 mensajes, resumido (ver `bloquesComunes`). */
+  resumen?: ResumenGuardado | null;
 }): Promise<ResultadoIA<TurnoOffer>> {
   const b = bloquesComunes(p);
   // Lo que no existe en MaKo se dice y se marca (lib/no-existe.ts): la ruta saca la marca y levanta el pedido sola. El ARRANQUE
@@ -605,6 +623,8 @@ export async function diagnosticoOffer(p: {
   deOtro?: { nombre: string };
   /** Sólo la IA del negocio (ver `Pedido.soloDelNegocio`). */
   soloDelNegocio?: boolean;
+  /** Lo que pasa los 30 mensajes, resumido (ver `bloquesComunes`). */
+  resumen?: ResumenGuardado | null;
 }): Promise<ResultadoIA<DiagnosticoOferta>> {
   const b = bloquesComunes(p);
   const armado = await renderPrompt('offer.diagnostico.system', OFFER_DIAGNOSTICO_SYSTEM_TEMPLATE, { marco: b.marco });
@@ -651,6 +671,8 @@ export async function propuestaOffer(p: {
   diagnostico: DiagnosticoOferta; calculo: CalculoDiagnostico; inicio: number; reglas: ContextoReglas;
   /** La voz del negocio (ContextoOffer.voz), o null. */
   voz: string | null;
+  /** Lo que pasa los 30 mensajes, resumido (ver `bloquesComunes`). */
+  resumen?: ResumenGuardado | null;
 }): Promise<ResultadoIA<PropuestaOferta>> {
   const b = bloquesComunes(p);
   const system = await renderPrompt('offer.propuesta.system', OFFER_PROPUESTA_SYSTEM_TEMPLATE, { marco: b.marco, voz: vozParaPrompt(p.voz) });

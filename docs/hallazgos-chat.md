@@ -19,15 +19,42 @@ paga?» no trae nada.
 
 ⚠️ **La trampa:** `chart_sessions.contexto` parece el lugar natural para guardar un resumen, porque se crea vacío. No lo es: el
 onboarding lo usa de marca y borra sesiones por él (`lib/onboarding-arranque-server.ts:202-205`), y el turno lo lee
-(`lib/mako-turno-app.ts:702`). El resumen va en `app_settings` con su candado (`KEY_RESUMEN` en lib/conversacion.ts).
+(`lib/mako-turno-app.ts:702`). El resumen va en `app_settings` con su candado (`KEY_RESUMEN`, lib/conversacion-resumen-reglas.ts).
 
 **La regla:** un chat nuevo arma su historia con el módulo común (`conversacionDelTurno`, lib/conversacion.ts, y sus reglas en
 lib/conversacion-reglas.ts). Corta por TOKENS: 8.000 en la app, 6.000 en un grupo y 1.500 para el clasificador. Cada canal suma su
-adaptador de lectura.
+adaptador de lectura y pasa la conversación ya armada en `entradas`.
 
-**Sin hacer:** los adaptadores de la app (CoPilot, Copywriting, Web Generator, Image, Video, Offer), el resumidor
-(lib/conversacion-resumen.ts, fuera del turno), «lo que leí» en la app y el Second Brain con los mensajes anteriores. Los reparte el
-Cerebro cuando el módulo esté en main.
+**Hecho el 12/11 (el Ops Center, la estrella de cada tab, el CoPilot y Offer):**
+- La app pasa por el módulo con `lib/chat-app-hilo.ts`: sin ventana, con «lo que leí» y con el Second Brain buscado con los
+  mensajes anteriores de la persona.
+- El resumidor es `lib/conversacion-resumen.ts`. Corre en `after()`, con candado y compare-and-set, y un validador lo descarta si
+  pierde un monto o un nombre.
+- Offer resume lo que pasa los 30 mensajes.
+- El test con el caso real (volver al CoPilot al otro día) está en `tests/chat-app-hilo.test.ts`.
+
+Lo que mordió:
+- **La ventana de 14 h de los grupos borra «volver al otro día».** Se queda en los grupos, donde un «sí» pegado a una charla vieja
+  duplicó tareas. La app y Offer van sin ventana (`ventanaMs: null`).
+- **Resumir «cuando lo de afuera suma 3.000 tokens» deja un hueco.** Entre lo resumido y lo que va entero quedaban hasta 3.000
+  tokens que no veía nadie. `cortarConResumen` deja entrar entero lo que el resumen no cubre hasta el tope MÁS el umbral, así que no
+  hay hueco. Lo único que puede faltar es lo que pasa eso la primera vez, en un chat largo: falta un turno, no más.
+- **`fundirFuentes` no sirve para una sola fuente.** Junta dos mensajes del mismo lado con el mismo texto dentro de 5 minutos, y así
+  dos «sí» seguidos quedaban en uno. Con `entradas`, el módulo no funde.
+- **`historialParaModelo` tiraba el primer mensaje de MaKo**, y en el CoPilot era la pregunta que la persona contestaba («¿Cuánto te
+  deja una venta?» → «300»). `historialDeTurnos` lo deja y lo marca.
+- **El validador de nombres unía por «de».** «la entrada de Nico Sellers de Código Inmobiliario» salía como UN nombre que no se
+  repetía nunca, y nada era obligatorio. Ahora los nombres no se unen por «de». Al principio de una frase, la primera palabra se
+  saca sólo si es de todos los días: «Gracias Nico Sellers» da «Nico Sellers», y «Ana Gómez pagó» queda entero.
+- **`Intl` en es-AR escribe «1/1», no «01/01»**, aunque se pida `2-digit`. Los tests comparan con `0?`.
+- **Quién paga el resumen:** la IA del chat que resume. La app va con la de su turno: en el espacio de MaKo el crédito, en un negocio
+  la suya. Offer va con su propia cascada (las keys del negocio y la red gratis) y nunca paga. No se usa `chatClaude` en Offer.
+
+**Sin hacer:**
+- Los adaptadores de Copywriting, Web Generator, Image y Video: son de sus chats.
+- Prender `conResumen` en los grupos de WhatsApp (`lib/mako-doer-in.ts`): es del chat de WhatsApp.
+- El RAG de `buildSystemPrompt` (`query`, lib/mako-context.ts:115) se sigue buscando sólo con el mensaje actual.
+- La memoria entre chats, como la de Claude: es una decisión de Martín.
 
 ## Create: el ejemplo pregunta la oferta, y la tarjeta reenvía la apertura de su tab (5/11/2026, nube)
 

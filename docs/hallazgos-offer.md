@@ -83,6 +83,12 @@ chat, se fusionaba con el Generator en una tab con dos modos. Los DOS proyectos 
   devuelve JSON cortado, el tope es lo primero a mirar.
 - `ConclusionOferta.modelo` dice la lista que se probó, no el proveedor exacto: la cascada no
   lo devuelve. El dato exacto queda en el Saldo de IA.
+- **El resumen de lo que pasa los 30 mensajes (12/11/2026)** también va por `pedir`
+  (`pedirResumenDeOffer`), por lo mismo de arriba: con `chatClaude` caería a Sonnet. Lo arma
+  el módulo común (lib/conversacion-resumen.ts) después del turno, y lo reciben los tres
+  pedidos: el turno, el diagnóstico y la oferta. Sin pasarlo, `conversacionParaPrompt` hace lo
+  de siempre, y así Competitors Spy no cambia. Lo que mordió está en
+  [hallazgos-chat.md](hallazgos-chat.md).
 
 ## Lo de la plataforma que mordió
 
