@@ -395,6 +395,20 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
   - **Una imagen con `height: 100%` no toma el alto de su padre `display: grid`**, aunque el padre tenga alto fijo: la fila automática se mide por la imagen. Las destacadas salían ovaladas. El círculo va `display: block`.
 - **Los popups viven fuera de `.frn`:** las pastillas (`frn-pill`) salían sin color. Llevan su estilo también bajo `.mq-igm`, `.mq-ytm`, `.mq-hv`, `.mq-tarjeta` y `.mq-clases`.
 
+## La decimotercera maqueta: lo que se puede leer, se lee; lo que no, se dice (12/11/2026)
+
+`docs/marketing-copilot/rediseno/maqueta-trece.html`.
+
+- **La portada de YouTube.**
+  - **Síntoma:** la maqueta 12 dibujaba una portada «de ejemplo» y le ponía un comentario. Martín preguntó si estaba extraída o inventada.
+  - **Lo que pasaba:** estaba inventada, y el canal de Federico NO tiene portada.
+  - **Cómo se sabe:** en el `ytInitialData` de la página pública, `header.pageHeaderRenderer.content.pageHeaderViewModel` no trae la clave `banner`, y en la página no hay nada arriba.
+  - **Por qué importa:** inventarla escondía justo el punto más fuerte («no tiene portada»).
+- **La regla:** la cara de una red (portada, bio, descripción, links, video destacado) se lee siempre del canal. Si no se pudo leer, se dice que falta; nunca se dibuja una parecida.
+- **Lo que la app no hace todavía:** pedir `brandingSettings` en la lectura de YouTube. Hoy ningún archivo de `lib/` lo pide (buscado el 12/11).
+- **Copiar la cara real de cada cosa vale también para lo que no es nuestro.** Los anuncios se entienden en la tarjeta de la Biblioteca de Anuncios de Meta («Activo», el identificador, desde cuándo circula, las plataformas, «Ver detalles del anuncio»), con los números de MaKo abajo. Un bloque con su diseño viejo («Tu página de compra») se nota al lado de los nuevos.
+- **Una tarjeta suelta debajo de otra pierde el sentido.** La nota de la oferta pasó a la misma tarjeta que sus piezas.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

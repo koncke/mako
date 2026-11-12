@@ -985,6 +985,11 @@ texto de la página y el código. Recién al poner cada hoja en una captura, al 
   - funciona porque el repo es CommonJS: `tsx` deja `react_1.useState` como acceso vivo.
   
   El script es `docs/marketing-copilot/rediseno/herramientas/ssr-hojas.mts`, con las medidas en `hojas-tam.json`.
+- **La segunda trampa (Martín: «VSL y YouTube se ve aplanado»):** las primeras medidas se tomaron en la pestaña del navegador de la app,
+  más angosta que 1440 y sin avisarlo. Cada gráfico se dibujó más chico que su caja. El de «¿Los que más ven, más agendan?» quedó achatado
+  contra la base (310 de alto en una caja de 481).
+  - **Para medir:** primero fijar el ancho de la ventana. Medir con los gráficos ya dibujados (las cajas vacías no tienen el alto final).
+    Volver a medir hasta que el `viewBox` de cada gráfico sea igual al tamaño de su caja.
 - **La regla:** una hoja que se quiera mostrar estática (un PDF, un correo o una captura del servidor) necesita un tamaño de partida para
   sus gráficos. Si no, salen vacíos, sin error.
 

@@ -141,7 +141,14 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
-**Pedido de la decimotercera vuelta (Martín, 12/11, sobre `maqueta-doce.html`), en curso.** Las fuentes de la maqueta están en el scratchpad de la sesión (`cuerpo-doce.html`, `bloque-doce.js`, `css-doce.css`, `aplicar-doce.mjs`, `armar.mjs`); las hojas del Dashboard se dibujan con `herramientas/ssr-hojas.mts`.
+**Hecho (12/11, decimotercera vuelta):** `maqueta-trece.html` (Artifact claude.ai/artifact/XWUpEUoyEBfW3R5f8qrMzh). Los 8 puntos de abajo. Detalles:
+- **La portada de YouTube no estaba inventada «de mala fe», pero estaba inventada.** El canal NO tiene portada: el encabezado público no trae `banner`. Se leyó de la página pública el 12/11, con la descripción, «11,4 mil suscriptores • 90 videos», el único link (Instagram), el avatar y el video destacado. Ahora MaKo marca la falta de portada como «Arreglar».
+- **La app todavía no trae la portada.** Spy y YouTube leen la API sin `brandingSettings` (`image.bannerExternalUrl`), así que la portada hay que sumarla a esa lectura.
+- **Los anuncios siguen de ejemplo,** pero ya son nueve. El identificador de la biblioteca también es de ejemplo.
+- **La página de compra y el formulario** son dibujos de ejemplo (no se leyeron), marcados así.
+- **El relevo de las hojas del Dashboard** está en `docs/marketing-copilot/rediseno/relevo-dashboards.md`.
+
+**Pedido de la decimotercera vuelta (Martín, 12/11, sobre `maqueta-doce.html`).** Las fuentes de la maqueta están en el scratchpad de la sesión (`cuerpo-doce.html`, `bloque-doce.js`, `css-doce.css`, `aplicar-doce.mjs`, `armar.mjs`); las hojas del Dashboard se dibujan con `herramientas/ssr-hojas.mts`.
 1. **Análisis, anuncios:** el bloque «Tu página de compra» quedó viejo y no se parece a lo demás. Hay que ponerlo al día, y lo mismo en los otros lugares que hayan quedado así.
 2. **Tus anuncios ganadores, como en la biblioteca de anuncios:** la tarjeta y el popup. Que sean más de 3.
 3. **Instagram:** las pestañas Publicaciones, Reels y Etiquetadas no acompañan el scroll.
