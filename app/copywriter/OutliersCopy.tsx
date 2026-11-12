@@ -18,8 +18,8 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { contadorCorto, nivelDeMultiplo, rotuloOutlier } from '@/lib/carruseles/explorar';
 import {
-  FORMATOS_COPY, INFO_FORMATO, ROTULO_TEXTO, filtrarOutliersCopy, restoDelTexto, rotuloDeFormato, rotuloDiasAlAire,
-  type FormatoCopy, type OrdenCopy, type OutlierCopy, type PortadaCopy,
+  ASPECTO_FORMATO, FORMATOS_COPY, INFO_FORMATO, PROPORCION_FORMATO, ROTULO_TEXTO, filtrarOutliersCopy, imagenDelOriginal, restoDelTexto,
+  rotuloDeFormato, rotuloDiasAlAire, type FormatoCopy, type OrdenCopy, type OutlierCopy, type PortadaCopy,
 } from '@/lib/copywriter/outliers';
 import { pedirReplicar } from './cliente';
 import { OutlierAbierto } from './OutlierAbierto';
@@ -28,6 +28,8 @@ import s from '@/app/image-editor/carruseles/explorar.module.css';
 import v from '@/app/video-editor/outliers.module.css';
 import oc from './outliers.module.css';
 import { TarjetaPlantilla } from '@/app/_crear/TarjetaPlantilla';
+import { GrillaMixta } from '@/app/_crear/GrillaMixta';
+import { usePortadaCrear } from '@/app/_crear/portada-ctx';
 import type { PlantillaCrear } from '@/app/_crear/reglas';
 
 /** Cuántas plantillas van en la fila de la portada (las demás, en «Ver todas»). */
@@ -53,6 +55,8 @@ function haceCuanto(iso: string | null | undefined, ahora: number): string {
   return m < 12 ? `hace ${m} ${m === 1 ? 'mes' : 'meses'}` : `hace ${Math.floor(m / 12)} ${m < 24 ? 'año' : 'años'}`;
 }
 
+const proporcionDe = (o: OutlierCopy) => PROPORCION_FORMATO[o.formato];
+
 const inicial = (n: string) => Array.from(n.trim())[0]?.toUpperCase() ?? '·';
 
 const chip = (activo: boolean) => ({
@@ -66,38 +70,74 @@ const Lupa = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
 );
 
+/** El ícono de la red en la marca del marco: se distingue de un vistazo de dónde es el copy. */
+function IconoRed({ formato }: { formato: FormatoCopy }) {
+  if (formato === 'youtube') {
+    return <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden><rect x="2" y="5" width="20" height="14" rx="4" fill="#ff0033" /><path d="M10 9v6l5-3z" fill="#fff" /></svg>;
+  }
+  if (formato === 'anuncio') {
+    return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden><path d="M3 10v4h4l6 4V6L7 10z" /><path d="M17 9a4 4 0 0 1 0 6" strokeLinecap="round" /></svg>;
+  }
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" /></svg>;
+}
+
+/** Lo que suma el pie de la tarjeta al alto (la grilla mixta lo usa para repartir las columnas). */
+const ALTO_PIE = 92;
+const ALTO_PIE_TELEFONO = 118;
+
 /**
- * La tarjeta de un outlier de COPY (11/11/2026, Martín: «los outliers parecen carruseles… en Copywriting tienen que verse como COPY:
- * el texto primero (gancho, un pedazo del guion), no la foto. Y los de YouTube van en horizontal»). Arriba, la HOJA del copy: qué
- * texto es, el gancho grande y el arranque del texto; un video de YouTube lleva su miniatura 16:9 encima del título. Abajo, el pie
- * de la tarjeta de Image: el «×», la cuenta, hace cuánto y los números. Tocar la hoja abre el original; «Replicar» lo replica.
+ * La tarjeta de un outlier de COPY, en UNA caja (12/11/2026): arriba el MARCO con la forma de su plataforma (YouTube 16:9, reel 9:16,
+ * carrusel 4:5, anuncio 1:1) y, adentro, el texto: el gancho grande y el arranque del guion (11/11/2026, Martín: «tienen que verse
+ * como COPY: el texto primero»). Al pasar el cursor, el ORIGINAL (su portada, su primera lámina, la miniatura de YouTube) tapa el
+ * texto; sin mouse (el teléfono), lo muestra el botón de la esquina. Abajo, en la misma caja: el «×», la cuenta, hace cuánto y los
+ * números. Tocar el marco abre el original entero; «Replicar» lo replica.
  */
 function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
   o: OutlierCopy; ahora: number; replicando: boolean; onAbrir: () => void; onReplicar: () => void;
 }) {
+  const [verOriginal, setVerOriginal] = useState(false);
+  const [rota, setRota] = useState(false);
   const veces = o.multiplo?.veces ?? null;
   const nivel = nivelDeMultiplo(veces);
   const aire = o.formato === 'anuncio' ? rotuloDiasAlAire(o.diasAlAire) : null;
   const quien = o.creador.usuario ? `@${o.creador.usuario}` : o.creador.nombre;
   const cuando = haceCuanto(o.publicada, ahora);
-  const video = o.formato === 'youtube';
-  const sigue = restoDelTexto(o);
+  const sigue = o.formato === 'youtube' ? '' : restoDelTexto(o);
+  const original = rota ? null : imagenDelOriginal(o);
+  const video = o.formato === 'reel' || o.formato === 'youtube';
   return (
-    <li className={`${s.tarjeta} ${oc.tarjeta}`} data-formato={o.formato}>
-      <div className={oc.hoja} data-video={video ? 'si' : undefined}
+    <li className={`${s.tarjeta} ${oc.tarjeta}`} data-formato={o.formato} data-original={verOriginal ? 'si' : undefined}>
+      <div className={`${s.mini} ${oc.marco}`} style={{ aspectRatio: ASPECTO_FORMATO[o.formato] }}
         onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a')) onAbrir(); }}>
-        {video && o.miniatura ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={o.miniatura} alt="" className={oc.video} loading="lazy" referrerPolicy="no-referrer" draggable={false} />
-        ) : null}
         <div className={oc.copy}>
-          <span className={oc.deQue}>{rotuloDeFormato(o)} · {ROTULO_TEXTO[o.deDonde]}{aire ? ` · ${aire}` : ''}</span>
           <button type="button" className={oc.ganchoGrande} onClick={onAbrir}>{o.gancho}</button>
           {sigue ? <p className={oc.sigue}>{sigue}</p> : null}
         </div>
+        {original ? (
+          <span className={oc.original} aria-hidden>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={original} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setRota(true)} />
+            {video ? <span className={oc.play}>▶</span> : null}
+          </span>
+        ) : null}
+        <span className={`${s.marcas} ${oc.marcas}`}>
+          <span className={oc.red} title={`${rotuloDeFormato(o)} · ${ROTULO_TEXTO[o.deDonde]}`}>
+            <IconoRed formato={o.formato} />{o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas}` : INFO_FORMATO[o.formato].label}
+          </span>
+          {aire ? <span className={s.aire}>{aire}</span> : null}
+        </span>
         <span className={s.sobreImagen}>
           <button type="button" className={s.editar} onClick={onReplicar} disabled={replicando}>{replicando ? 'Armando…' : 'Replicar'}</button>
         </span>
+        {original ? (
+          // Sin mouse no hay «pasar el cursor»: el original se ve con este botón.
+          <button type="button" className={oc.verOriginal} aria-pressed={verOriginal} onClick={() => setVerOriginal((x) => !x)}
+            aria-label={verOriginal ? 'Ver el texto' : 'Ver el original'} title={verOriginal ? 'Ver el texto' : 'Ver el original'}>
+            {verOriginal
+              ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M5 7h14M5 12h14M5 17h9" /></svg>
+              : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden><rect x="3" y="4" width="18" height="16" rx="3" /><path d="m3 16 5-5 4 4 3-3 6 6" /></svg>}
+          </button>
+        ) : null}
       </div>
       <div className={s.pie}>
         <div className={s.creador}>
@@ -161,6 +201,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   // y cada cambio de filtro tardaba de 1 a 7 s). Al bajar se suman solas; «Ver más» por si el navegador no avisa (una pestaña de
   // fondo no dispara el IntersectionObserver). Cambiar el filtro vuelve a la primera tanda.
   const [mostrar, setMostrar] = useState(TANDA);
+  const enGrilla = useMemo(() => vistos.slice(0, mostrar), [vistos, mostrar]);
   useEffect(() => { setMostrar(TANDA); }, [formato, q, orden]);
   const fin = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -181,11 +222,15 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
     router.push(rutaGuion.replace('{id}', r.pagina.id));
   };
 
+  // Sin chat en la portada (12/11/2026): «Mis guiones» abre la lista a la izquierda (`usePortadaCrear`); en el teléfono, su ruta.
+  const pantalla = usePortadaCrear();
   const botones = (
     <div className={telefono ? `${s.botones} ${oc.botonesTelefono}` : s.botones}>
       <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
-      <Link href={rutaGuiones} className={s.pastilla}>Mis guiones</Link>
-      <Link href={rutaCrear} className={s.crear}><span aria-hidden>＋</span> Crear desde cero</Link>
+      {pantalla
+        ? <button type="button" className={s.pastilla} onClick={pantalla.verProyectos}>Mis guiones</button>
+        : <Link href={rutaGuiones} className={s.pastilla}>Mis guiones</Link>}
+      <Link href={rutaCrear} className={s.nuevo}><span aria-hidden>＋</span> Nuevo copy</Link>
     </div>
   );
 
@@ -271,11 +316,13 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
               <div className={s.vacio}><p>Nada con esa búsqueda.</p><button type="button" className={s.texto} onClick={() => { setQ(''); setFormato(null); }}>Quitar filtros</button></div>
             ) : (
               <>
-                <ul className={s.grilla} aria-label="Outliers de copy">
-                  {vistos.slice(0, mostrar).map((o) => (
-                    <TarjetaCopy key={o.id} o={o} ahora={ahora} replicando={replicando === o.id} onAbrir={() => setAbierto(o)} onReplicar={() => void replicar(o)} />
-                  ))}
-                </ul>
+                {/* Cada una con la forma de su red: en columnas, sin los huecos que dejaba un reel al lado de los de YouTube. */}
+                <GrillaMixta items={enGrilla} clave={(o) => o.id} proporcion={proporcionDe} etiqueta="Outliers de copy"
+                  pie={telefono ? ALTO_PIE_TELEFONO : ALTO_PIE} minimo={telefono ? 150 : 250} hueco={telefono ? 10 : 20} fila={telefono ? 14 : 22}
+                  porDefecto={telefono ? 2 : 4}
+                  render={(o) => (
+                    <TarjetaCopy o={o} ahora={ahora} replicando={replicando === o.id} onAbrir={() => setAbierto(o)} onReplicar={() => void replicar(o)} />
+                  )} />
                 {mostrar < vistos.length ? (
                   <div ref={fin} className={oc.masAbajo}>
                     <button type="button" className={s.pastilla} onClick={() => setMostrar((n) => n + TANDA)}>Ver más ({vistos.length - mostrar})</button>

@@ -47,14 +47,11 @@ export function OutliersView() {
 	if (estado.tipo === "cargando") return <p className={o.panelNota}>Buscando los reels que enseñan edición…</p>;
 	if (estado.tipo === "error") return <p className={o.panelNota} role="alert">{estado.texto} <ReportarASoporte /></p>;
 	const { portada } = estado;
-	const r = portada.resumen;
 	const ahora = Date.now();
 	const visibles = familia ? portada.outliers.filter((x) => x.edicion?.familia === familia) : portada.outliers;
+	// Sin la frase que explicaba el panel («N de M reels de tus cuentas enseñan…», 12/11/2026: fuera los textos que explican).
 	return (
 		<div className={o.panel}>
-			{r && r.medidos > 0 ? (
-				<p className={o.panelNota}>{r.conPatron} de {r.medidos} reels de tus cuentas enseñan un patrón de edición y le ganaron a su cuenta.</p>
-			) : null}
 			{familias.length > 1 ? (
 				<div className={o.panelFiltros} role="group" aria-label="Patrones de edición">
 					<button type="button" className={`${s.chip} ${!familia ? o.chipActivo : ""}`} aria-pressed={!familia} onClick={() => setFamilia(null)}>Todos</button>

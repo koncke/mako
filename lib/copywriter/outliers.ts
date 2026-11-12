@@ -41,6 +41,32 @@ export function rotuloDeFormato(o: { formato: FormatoCopy; laminas?: number | nu
   return o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas} láminas` : INFO_FORMATO[o.formato].label;
 }
 
+/**
+ * El MARCO de la tarjeta, con la forma de su plataforma (12/11/2026, Martín: «para que se note la diferencia entre un copywriting y
+ * otro, tenga como el formato del video. Si es en YouTube, que sea más horizontal, si es en Reels, que sea más vertical, si es en
+ * Carrusel, que sea más cuadrado»). Ancho / alto. El anuncio va cuadrado, como su tarjeta en Image.
+ */
+export const PROPORCION_FORMATO: Readonly<Record<FormatoCopy, number>> = { youtube: 16 / 9, reel: 9 / 16, carrusel: 4 / 5, anuncio: 1 };
+export const ASPECTO_FORMATO: Readonly<Record<FormatoCopy, string>> = { youtube: '16 / 9', reel: '9 / 16', carrusel: '4 / 5', anuncio: '1 / 1' };
+
+/** El id de un video de YouTube en su link (`watch?v=`, `youtu.be/`, `shorts/`, `embed/`). null = no es uno. */
+export function idDeYouTube(url: string | null | undefined): string | null {
+  const m = /(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{11})/i.exec(url ?? '');
+  return m ? m[1] : null;
+}
+
+/**
+ * La imagen del ORIGINAL, la que aparece al pasar el cursor por la tarjeta (12/11/2026, Martín: «si yo le paso el cursor, que veo
+ * el carrusel original o el reel original o el video o la miniatura de YouTube original»): la que guardamos (la portada del reel, la
+ * primera lámina, la del anuncio) y, si no hay, la miniatura pública de un video de YouTube. null = no hay qué mostrar: la tarjeta
+ * se queda con el texto.
+ */
+export function imagenDelOriginal(o: Pick<OutlierCopy, 'miniatura' | 'url' | 'formato'>): string | null {
+  if (o.miniatura) return o.miniatura;
+  const yt = o.formato === 'youtube' ? idDeYouTube(o.url) : null;
+  return yt ? `https://i.ytimg.com/vi/${yt}/hqdefault.jpg` : null;
+}
+
 /** Los días al aire de un anuncio, como en Image. */
 export const rotuloDiasAlAire = (d: number | null | undefined): string | null => (d == null ? null : d === 1 ? '1 día al aire' : `${d} días al aire`);
 

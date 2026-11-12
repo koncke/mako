@@ -258,7 +258,7 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   assert.match(portadaTsx, /<TarjetaPlantilla key=\{pl\.id\} pl=\{pl\}/);
   assert.match(portadaTsx, /<Link href=\{rutaCrear\} className=\{s\.texto\}>Ver todas<\/Link>/);
   // De a tandas, no las 2.291 de una (medido: 46.030 elementos y de 1 a 7 s por cambio de filtro).
-  assert.match(portadaTsx, /vistos\.slice\(0, mostrar\)\.map/);
+  assert.match(portadaTsx, /const enGrilla = useMemo\(\(\) => vistos\.slice\(0, mostrar\), \[vistos, mostrar\]\);/);
   assert.match(portadaTsx, /useEffect\(\(\) => \{ setMostrar\(TANDA\); \}, \[formato, q, orden\]\);/);
   // Y el original abierto pide el texto ENTERO (la tarjeta trae 280 letras).
   assert.match(leer('app/copywriter/OutlierAbierto.tsx'), /void pedirOriginal\(o\.id\)\.then\(\(r\) => \{ if \(vivo && r\.ok\) setCompleto\(r\.outlier\.texto\); \}\);/);
@@ -322,13 +322,13 @@ test('la tarjeta es de COPY: el texto primero y YouTube en 16:9, no la foto vert
   assert.equal(restoDelTexto({ gancho: 'Change My Mind', texto: 'Change My Mind' }), '', 'un video sin descripción: sólo su título');
   assert.equal(restoDelTexto({ gancho: 'Otro gancho', texto: 'El texto entero.' }), 'El texto entero.');
   const portada = leer('app/copywriter/OutliersCopy.tsx');
-  // La hoja del copy: qué texto es, el gancho grande y lo que sigue. La foto sólo en un video de YouTube, y horizontal.
-  assert.match(portada, /<div className=\{oc\.hoja\} data-video=\{video \? 'si' : undefined\}/);
-  assert.match(portada, /\{video && o\.miniatura \? \(/);
+  // El texto adentro del marco con la forma de su red (12/11/2026: YouTube 16:9, reel 9:16, carrusel 4:5); la foto del original
+  // sólo al pasar el cursor (tests/create-outliers-tarjeta.test.ts).
+  assert.match(portada, /style=\{\{ aspectRatio: ASPECTO_FORMATO\[o\.formato\] \}\}/);
   assert.match(portada, /<button type="button" className=\{oc\.ganchoGrande\} onClick=\{onAbrir\}>\{o\.gancho\}<\/button>/);
   assert.doesNotMatch(portada, /className=\{s\.miniImagen\}/, 'sin la foto vertical de Image');
   const css = leer('app/copywriter/outliers.module.css');
-  assert.match(css, /\.video \{ display: block; width: 100%; aspect-ratio: 16 \/ 9;/);
+  assert.match(css, /\.original \{ position: absolute; inset: 0; background: #0d0f13; opacity: 0;/);
 });
 
 test('teléfono: «Mis guiones» y «Crear desde cero» debajo del título, no al final de la fila de formatos (11/11, a 375 no se veían)', () => {

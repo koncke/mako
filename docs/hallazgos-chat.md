@@ -5,6 +5,21 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## El ➤ de un audio grabado quedaba afuera en el Video Editor, y no por angosto (12/11/2026)
+
+**El síntoma (Martín, con captura):** «grabé un audio y fíjate que se corta porque el chat más angosto y no se ve el botón para
+enviar el audio». Con lo grabado para escuchar, la fila «🗑 · ▶ · barra · 0:05 · 🎤 · ➤» se salía por la derecha del chat (~420 px).
+
+⚠️ **El diagnóstico obvio («el chat es angosto») era el equivocado**: la tarjeta de Copywriting mide 340 px, MÁS angosta, y ahí la
+fila entra. La diferencia es el CONTENEDOR: el pie del chat del Video Editor (`_opencut/chat/PanelChat.tsx`) es una **grilla**, y
+un hijo de grilla no baja de lo que pide su contenido (`min-width: auto`); en una columna flex (las demás tabs), sí se achica.
+Y lo que pedía era el `<input type="range">` del reproductor (`app/whatsapp/_shared/AudioPlay.tsx`): su ancho propio en Chrome,
+**129 px**, cuenta como mínimo aunque tenga `flex: 1` y `minWidth: 40`. Sumado, la fila pedía ~363 px más los rellenos de la caja.
+
+**Lo que quedó:** el `range` con `width: 0` (crece igual con `flex: 1`, no baja de 40), `.co-caja` y `.co-caja__fila` con
+`min-width: 0`, y la columna del pie del Video Editor en `minmax(0, 1fr)`. La regla: un `<input>` adentro de una fila flex que
+tiene que achicarse lleva `width: 0` además del `flex`; `min-width` sólo pone un piso, no le baja el ancho que pide.
+
 ## Ningún chat de la app conversa como Claude, y el lugar «libre» para un resumen no está libre (11/11/2026, medido por el Cerebro)
 
 **Lo medido:** todos los chats de la app cortan por CANTIDAD de mensajes y nada resume lo que queda afuera:
