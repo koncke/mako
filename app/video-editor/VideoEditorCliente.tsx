@@ -46,16 +46,18 @@ import { ejemploDeVideo, type EjemploVideo } from '@/lib/editor-video/plantillas
 import { EjemploPlantillaVideo } from './EjemploPlantillaVideo';
 import { cargarMotor, useProyectosVideo } from './proyectos';
 
-const EditorPage = dynamic(() => import('./_opencut/editor-page').then((m) => m.EditorPage), { ssr: false });
+// ⚠️ Todo lo que se carga a pedido entra por UNA puerta (./editor-cargado.ts): un `import()` por cada pieza bajaba y
+// compilaba el núcleo del motor TRES veces (12/11/2026, «se me traba exageradamente todo»).
+const EditorPage = dynamic(() => import('./editor-cargado').then((m) => m.EditorPage), { ssr: false });
 // «Editar con IA»: el chat del editor, en la tarjeta izquierda y siempre abierto (antes, una columna a la derecha que se
 // abría y cerraba con un botón de la barra superior).
-const PanelChat = dynamic(() => import('./_opencut/chat/PanelChat').then((m) => m.PanelChat), { ssr: false });
+const PanelChat = dynamic(() => import('./editor-cargado').then((m) => m.PanelChat), { ssr: false });
 // «Editar en el editor» de Video Generator (`?desde=`): baja el anuncio, arma el
 // proyecto y recién ahí reemplaza la URL por la del proyecto (desde/ImportarDesde.tsx).
-const ImportarDesde = dynamic(() => import('./desde/ImportarDesde').then((m) => m.ImportarDesde), { ssr: false });
+const ImportarDesde = dynamic(() => import('./editor-cargado').then((m) => m.ImportarDesde), { ssr: false });
 // «Utilizar plantilla» (`?plantilla=`): proyecto nuevo, la plantilla armada, y recién
 // ahí la URL del proyecto (plantilla/ArmarPlantilla.tsx).
-const ArmarPlantilla = dynamic(() => import('./plantilla/ArmarPlantilla').then((m) => m.ArmarPlantilla), { ssr: false });
+const ArmarPlantilla = dynamic(() => import('./editor-cargado').then((m) => m.ArmarPlantilla), { ssr: false });
 
 type Props = {
   vista: 'inicio' | 'editor';
@@ -87,7 +89,7 @@ export function VideoEditorCliente(props: Props) {
   // reinicia: si no, seguiría con el proyecto del cliente anterior en memoria.
   const wsPrevio = useRef<number | null | undefined>(undefined);
   if (wsPrevio.current !== ws) {
-    if (wsPrevio.current !== undefined) void import('./_opencut/core').then((m) => m.EditorCore.reset());
+    if (wsPrevio.current !== undefined) void import('./editor-cargado').then((m) => m.EditorCore.reset());
     fijarEspacio(ws);
     wsPrevio.current = ws;
   }
@@ -109,7 +111,7 @@ export function VideoEditorCliente(props: Props) {
  * components/editor/editor-header.tsx, más el tamaño). Sin nombre, el de siempre («1011»); con nombre, ése, sin repetir.
  */
 async function proyectoConLienzo(lienzo: LienzoNuevo, nombre?: string): Promise<string> {
-  const [motor, { nombreProyectoNuevo, nombreProyectoLibre }] = await Promise.all([cargarMotor(), import('./_opencut/inicio/nombre')]);
+  const [motor, { nombreProyectoNuevo, nombreProyectoLibre }] = await Promise.all([cargarMotor(), import('./editor-cargado')]);
   if (motor.project.getActiveOrNull()) await motor.project.prepareExit().catch(() => {});
   const id = await motor.project.createNewProject({ name: nombre ? await nombreProyectoLibre(nombre) : await nombreProyectoNuevo() });
   await motor.project.updateSettings({ settings: lienzo, pushHistory: false });
@@ -119,7 +121,7 @@ async function proyectoConLienzo(lienzo: LienzoNuevo, nombre?: string): Promise<
 
 /** El nombre de la copia: «1011 (1)» como CapCut (el motor la nombraría «(1) 1011»). */
 async function duplicar(id: string, nombre: string, nombres: readonly string[]): Promise<void> {
-  const [editor, { nombreLibre }] = await Promise.all([cargarMotor(), import('./_opencut/inicio/nombre')]);
+  const [editor, { nombreLibre }] = await Promise.all([cargarMotor(), import('./editor-cargado')]);
   const [nuevo] = await editor.project.duplicateProjects({ ids: [id] });
   if (!nuevo) return;
   await editor.project.renameProject({ id: nuevo, name: nombreLibre(nombre.replace(/\s\(\d+\)$/, ''), nombres) });

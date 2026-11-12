@@ -60,6 +60,12 @@ import {
 	bookmarkNotesPreviewOverlay,
 	getBookmarkPreviewOverlaySource,
 } from "@/app/video-editor/_opencut/timeline/bookmarks/index";
+import { ZERO_MEDIA_TIME } from "@/app/video-editor/_opencut/wasm";
+
+/** Si algún marcador tiene una nota escrita (lo único que muestra la capa de notas del reproductor). */
+function hayNotasDeMarcador(bookmarks: ReadonlyArray<{ note?: string | null }> | undefined): boolean {
+	return !!bookmarks?.some((b) => b.note != null && b.note.trim() !== "");
+}
 
 export function EditorPage({ projectId, propuesta = null }: { projectId: string; propuesta?: string | null }) {
 	const editor = useEditor();
@@ -191,7 +197,6 @@ function EditorLayout() {
 	const activeScene = useEditor((editor) =>
 		editor.scenes.getActiveSceneOrNull(),
 	);
-	const currentTime = useEditor((editor) => editor.playback.getCurrentTime());
 	const activeGuide = usePreviewStore((state) => state.activeGuide);
 	const overlays = usePreviewStore((state) => state.overlays);
 	const setOverlayVisibility = usePreviewStore(
@@ -201,6 +206,17 @@ function EditorLayout() {
 		overlay: bookmarkNotesPreviewOverlay,
 		overlays,
 	});
+	// ⚠️ El tiempo del cabezal, SÓLO si se ven las notas de los marcadores y hay alguna (es lo único que lo usa:
+	// getBookmarkPreviewOverlaySource no dibuja nada sin eso). Esta es la RAÍZ del editor: leerlo siempre la
+	// redibujaba ENTERA —biblioteca, reproductor, propiedades y línea de tiempo, con sus ~90 tooltips y menús— en
+	// cada salto del cabezal (cada movimiento del mouse al arrastrarlo) y en cada aviso de CUALQUIER manager mientras
+	// se reproduce, porque `useEditor` escucha a los nueve (editor/use-editor.ts). Martín, 12/11/2026: «se me traba
+	// exageradamente todo... ni siquiera lo puedo utilizar» (docs/hallazgos-video-editor.md).
+	const currentTime = useEditor((editor) =>
+		showBookmarkNotes && hayNotasDeMarcador(editor.scenes.getActiveSceneOrNull()?.bookmarks)
+			? editor.playback.getCurrentTime()
+			: ZERO_MEDIA_TIME,
+	);
 
 	const overlaySource = useMemo(
 		() =>

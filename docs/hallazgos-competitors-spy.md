@@ -1252,6 +1252,7 @@ Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que 
 **La regla que queda:**
 - Un id se ancla en la forma de cargarlo (`gtm.js?id=`, `fbq('init',`, `gtag('config',`), nunca en el texto suelto: un artículo que enseña a instalar un píxel no es un píxel. Se descartan los comentarios, `<pre>`, `<code>` y los rellenos (`GTM-XXXXXX`, `123456789`).
 - Lo que viene de la columna se vuelve a validar: sólo `https://`, porque termina en un `href`.
+- Lo que se repite se agrupa, como los píxeles: un sitio con tres productos en Stripe y tres en Hotmart se dibujaba «Stripe Stripe Stripe Hotmart Hotmart Hotmart» (julioiero.com, en producción, visto el 12/11). Ahora es una pastilla por plataforma con «+2» (`checkoutsPorPlataforma`).
 - `guardarFunnel` va aparte de `guardarVistas` y no tira: sin la columna, un upsert con `funnel` adentro perdería la lectura entera de la landing.
 
 **Sin hacer:**

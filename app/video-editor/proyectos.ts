@@ -20,8 +20,9 @@ import type { EditorCore } from './_opencut/core';
 import type { TProjectMetadata } from './_opencut/project/types';
 
 /** El motor (un singleton), cargado a pedido. */
-export const cargarMotor = (): Promise<EditorCore> => import('./_opencut/core').then((m) => m.EditorCore.getInstance());
-const cargarAlmacen = () => import('./_opencut/services/storage/service').then((m) => m.storageService);
+// ⚠️ Por la puerta del motor (./editor-cargado.ts): un `import()` propio duplicaba el núcleo en la página (12/11/2026).
+export const cargarMotor = (): Promise<EditorCore> => import('./editor-cargado').then((m) => m.EditorCore.getInstance());
+const cargarAlmacen = () => import('./editor-cargado').then((m) => m.storageService);
 
 /** Lo último tocado arriba (el orden de la lista de la tarjeta). */
 export function ordenarProyectos(lista: readonly TProjectMetadata[]): TProjectMetadata[] {

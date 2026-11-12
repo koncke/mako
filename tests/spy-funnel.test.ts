@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { RE_CHECKOUT } from '../lib/landing-conversion';
 import { analizarHtml, HOSTS_VIDEO } from '../lib/landing-analisis';
 import {
-  conLectura, enlaceSusAnuncios, funnelDeFila, funnelDeLasPaginas, funnelEnPalabras, funnelUnido, leerFunnel, piezasDeVideoEn, type LecturaFunnel,
+  checkoutsPorPlataforma, conLectura, enlaceSusAnuncios, funnelDeFila, funnelDeLasPaginas, funnelEnPalabras, funnelUnido, leerFunnel, piezasDeVideoEn, type LecturaFunnel,
 } from '../lib/spy-funnel';
 
 const ids = (l: LecturaFunnel, p: string) => l.pixeles.find((x) => x.proveedor === p)?.ids;
@@ -255,4 +255,19 @@ test('«Ver sus anuncios» busca su nombre (o su @), nunca una página de enlace
   assert.equal(q({ nombre: '', instagram: '@den.borgg', landing_url: 'https://beacons.page/denborg' }), '"den.borgg"');
   assert.equal(q({ nombre: '', instagram: null, landing_url: 'https://linktr.ee/alguien' }), '""', 'una página de enlaces no es su web');
   assert.equal(q({ nombre: '', landing_url: 'https://www.acquisition.com/x' }), '"acquisition.com"', 'sin nombre ni @, su web propia');
+});
+
+test('«Cobra con»: una pastilla por plataforma, no una por enlace', () => {
+  // julioiero.com, en producción el 12/11/2026: tres productos en Stripe y tres en Hotmart se veían como seis pastillas.
+  // Verificado volviendo a dibujar una por enlace: 1 fallo.
+  const leido = leerFunnel({ html: [1, 2, 3].map((n) => `<a href="https://buy.stripe.com/s${n}">x</a><a href="https://pay.hotmart.com/H${n}">y</a>`).join('') });
+  assert.equal(leido.checkouts.length, 6);
+  assert.deepEqual(checkoutsPorPlataforma(leido.checkouts), [
+    { nombre: 'Stripe', url: 'https://buy.stripe.com/s1', urls: ['https://buy.stripe.com/s1', 'https://buy.stripe.com/s2', 'https://buy.stripe.com/s3'] },
+    { nombre: 'Hotmart', url: 'https://pay.hotmart.com/H1', urls: ['https://pay.hotmart.com/H1', 'https://pay.hotmart.com/H2', 'https://pay.hotmart.com/H3'] },
+  ]);
+  assert.deepEqual(checkoutsPorPlataforma([]), []);
+  const pantalla = leer('app/competitor-spy/SuFunnel.tsx');
+  assert.match(pantalla, /checkoutsPorPlataforma\(u\.checkouts\)\.map\(\(c\) => \(\n\s+<a key=\{c\.nombre\}/);
+  assert.doesNotMatch(pantalla, /u\.checkouts\.map\(/);
 });
