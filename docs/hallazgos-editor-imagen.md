@@ -28,6 +28,27 @@ Tres cosas que esto deja, y la tercera es la que no se ve:
 
 ---
 
+## El chat del editor no editaba en el espacio de MaKo, y el audio escondía «Enviar» (12/11/2026)
+
+**El chat.** En el ws 9, todo pedido al chat de un diseño (por texto o por audio) contestaba «Tu IA está conectada pero no pudo editar
+el diseño ahora mismo… (image-editor-ia: openai no contestó y esta feature no se degrada ni se paga…)». `image-editor-ia` y
+`marca-leer` son `deSuIA` con `fallback: []`: «su Claude o su GPT, nunca Gemini». La cascada leía `fallback: []` como «un solo
+modelo, tampoco el crédito de Claude» (lib/anthropic.ts y `puedeUsarUnaCuentaDelCredito`, lib/veto-claude.ts), una regla pensada
+para juicios medidos con UN proveedor (cs-sesion). En el ws 9 no hay «su IA»: queda la OpenAI de la plataforma, sin saldo. **Regla:**
+`fallback: []` significa dos cosas distintas según `deSuIA`; para «su IA», el crédito de Claude del espacio de MaKo vale (es Claude).
+Un negocio sigue sin el crédito. Test: tests/credito-plataforma.test.ts (3), roto a propósito.
+
+**El audio.** Después de grabar, la barra (borrar · escuchar · seguir · enviar) pedía 363 px en una tarjeta de 316: «Enviar audio»
+quedaba en 413→457 con el corte en 416. Dos causas, y la primera sola NO alcanzaba (medido inyectando la regla en producción):
+- `.pie` era una grilla sin columnas: la implícita mide lo que mide su contenido (375 px);
+- con la columna en `minmax(0, 1fr)`, la caja SEGUÍA en 375: `.co-caja` tiene `margin-inline: auto`, y un elemento de grilla con
+  márgenes automáticos no se estira, se mide «a su contenido». Hace falta `width: 100%` en la caja.
+Con las dos, «Enviar audio» queda en 354→398. El Video Editor tiene el mismo síntoma con otra hoja (`centro.css`): ahí no se tocó.
+
+**La transcripción** de una nota de 4,5 s tardó ~105 s con «Enviando…» (`/api/plan-dictado`); salió exacta. No es de Image.
+
+---
+
 ## El panel «Diseño» estuvo vacío cinco días: el buscador nunca encontraba nada (11/11/2026)
 
 **Síntoma:** en el editor, el panel «Diseño» mostraba un buscador y «Todas las plantillas», y buscar «lista» contestaba «Ninguna
