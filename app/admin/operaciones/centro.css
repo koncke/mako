@@ -1647,8 +1647,9 @@ a.co-link:hover { color: var(--primary-strong); }
    34 (teléfono) y la carita 36×42, y el campo se centraba en vez de ir abajo. Lo fija tests/centro-ops7.test.ts. */
 .co-caja__fila { --caja-toque: 40px; display: flex; align-items: flex-end; gap: 4px; min-width: 0; }
 /* La caja nunca es más ancha que el chat (12/11/2026, el Video Editor: su pie es una GRILLA, y un hijo de grilla no baja de lo
-   que pide su contenido; con lo grabado para escuchar, el ➤ quedaba afuera). */
-.co-caja { min-width: 0; }
+   que pide su contenido; con lo grabado para escuchar, el ➤ quedaba afuera). Y a todo el ancho: con `margin-inline: auto`, en una
+   grilla o una columna flex la caja se ajustaba a lo que pedía su fila (sin el mínimo de la barra, 286 de 316 px en el Video Editor). */
+.co-caja { min-width: 0; width: 100%; }
 @media (pointer: coarse) { .co-caja__fila { --caja-toque: 44px; } }
 .co-caja__fila > .co-caja__campo { flex: 1; min-width: 0; align-self: flex-end; }
 /* Un renglón del campo mide lo que el botón: la letra y su renglón, y el resto de relleno arriba y abajo. */

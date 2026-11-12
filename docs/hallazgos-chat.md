@@ -16,8 +16,14 @@ un hijo de grilla no baja de lo que pide su contenido (`min-width: auto`); en un
 Y lo que pedía era el `<input type="range">` del reproductor (`app/whatsapp/_shared/AudioPlay.tsx`): su ancho propio en Chrome,
 **129 px**, cuenta como mínimo aunque tenga `flex: 1` y `minWidth: 40`. Sumado, la fila pedía ~363 px más los rellenos de la caja.
 
+Medido en producción a 1440 (chat de 340 px): la barra pedía **363 px**, la caja medía 375 y el ➤ quedaba entre 413 y 457 con el
+borde del chat en 416.
+
 **Lo que quedó:** el `range` con `width: 0` (crece igual con `flex: 1`, no baja de 40), `.co-caja` y `.co-caja__fila` con
-`min-width: 0`, y la columna del pie del Video Editor en `minmax(0, 1fr)`. La regla: un `<input>` adentro de una fila flex que
+`min-width: 0`, y la columna del pie del Video Editor en `minmax(0, 1fr)`. ⚠️ **Y `.co-caja` con `width: 100%`**: probado el
+arreglo sobre la página viva, el ➤ entraba pero la caja se ACHICABA a 286 de 316 px, porque con `margin-inline: auto` un hijo
+de grilla (o de columna flex) no se estira: mide lo que pide su fila, y sin los 129 px del `range` pedía menos. En un bloque
+(el Ops Center) `width: 100%` con `max-width: 760px` da lo mismo que antes. La regla: un `<input>` adentro de una fila flex que
 tiene que achicarse lleva `width: 0` además del `flex`; `min-width` sólo pone un piso, no le baja el ancho que pide.
 
 ## Ningún chat de la app conversa como Claude, y el lugar «libre» para un resumen no está libre (11/11/2026, medido por el Cerebro)
