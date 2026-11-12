@@ -2068,7 +2068,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // NO ES PARA MaKo: silencio.
     // En un chat de a dos, un saludo se contesta: hay alguien esperando (`esSaludoDeChat`).
     const saludoDelChat = !esGrupo && esSaludoDeChat(sinPrefijoDeLote(texto));
-    if (intencion.intencion === 'no_reply' && !saludoDelChat) return { engaged: false, skip: `no es para MaKo (${intencion.porque})`.slice(0, 200) };
+    // ⚠️ EN EL PRIVADO, LO QUE NO SE CONTESTA TAMBIÉN QUEDA (12/11/2026, el paso 2 del plan): un «sí», «ok» o «dale» que el clasificador tomó
+    // por charla quedaba sólo con el 👍, y el turno siguiente no sabía que la persona había dicho que sí. En un grupo lo tiene el hilo del grupo.
+    const guardarLoQueNoSeContesta = async (): Promise<void> => {
+      if (!esGrupo && !hayInvitado) await guardarTurno(wsData, jid, 'user', sinPrefijoDeLote(texto), msgId || undefined).catch(() => {});
+    };
+    if (intencion.intencion === 'no_reply' && !saludoDelChat) { await guardarLoQueNoSeContesta(); return { engaged: false, skip: `no es para MaKo (${intencion.porque})`.slice(0, 200) }; }
     // ⚠️ PERSONAS HABLANDO ENTRE ELLAS, SIN QUIEN CLASIFIQUE (el negocio sin su Claude y el crédito de los grupos agotado): en la app no hay @menciones que lo atajen, así que «Juan, mirá esto» iba a turno
     // completo y, sin IA, al cartel, la oferta de ayuda y un ticket, por cada tanda de 8 s. Si no lo nombran, no lo citan y no hay nada pendiente, MaKo no aparece. Con una sola persona en el grupo, sí.
     if (soloApp && !claseDeLaIA && !salida?.unaPersona && !nombraAMaKo(textoDirecto) && !nombraAMaKo(texto) && !data.paraQuien?.nombra && !vigentes.length && !(await citaAMaKo(data))) {
@@ -2077,7 +2082,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // EL 👍 DE LA APP, recién ahora: si el clasificador dice que no es para MaKo, MaKo no aparece.
     if (soloApp && msgId) await reaccionarMensaje(jid, key, EMOJI_RECIBIDO).catch(() => false);
     // UNA CHARLA O UN ACUSE: el 👍 que ya salió es la respuesta. Sin texto (los «Bien ahí por la velocidad» de la semana).
-    if (intencion.intencion === 'charlar' && !saludoDelChat) return { engaged: true, skip: 'charla: la reacción alcanza' };
+    if (intencion.intencion === 'charlar' && !saludoDelChat) { await guardarLoQueNoSeContesta(); return { engaged: true, skip: 'charla: la reacción alcanza' }; }
     // UN TICKET: lo abre el código, con los pasos y la clase, y la respuesta es fija (el número lo escribe el código).
     if (intencion.intencion === 'ticket') {
       const abierto = await abrirTicketDelGrupo({

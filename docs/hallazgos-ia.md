@@ -15,7 +15,9 @@ llamada. Estimado: unos US$35 por mes entre WhatsApp y la app, el 4 % del crédi
 
 **La regla:** lo estable va primero y con `cache_control` (el system y las herramientas), y lo que cambia (la charla, el mensaje), al
 final. Haiku 4.5 cachea desde 4.096 tokens, y el turno de WhatsApp los pasa. Estimado: la segunda llamada del turno paga una décima
-parte de lo cacheado, un ahorro de ~40 %. **Sin hacer:** el cambio en `lib/anthropic.ts` (el paso 4 del plan del 11/11).
+parte de lo cacheado, un ahorro de ~40 %. **Hecho el 12/11** en `chatClaudeTools` (`systemConCache`, lib/anthropic.ts;
+tests/cache-de-prompt.test.ts). Un hijo de test que leía el system con `String(b.system)` daba «[object Object]» con los bloques: se
+leen los dos formatos. **Sin medir:** que en producción `anthropic_usage.cache_read_tokens` deje de ser 0 en `mako-doer-in`.
 
 ## Un prompt «hardcodeado» puede tener el default en un archivo que la UI importa — y entonces el registro no alcanza (6/11/2026)
 
