@@ -12371,3 +12371,26 @@ Chrome se abre recién cuando hay aire, uno solo y cerrándolo por su PID.
 - **La otra trampa del mismo día:** tres chats (Image, Copywriting y THE NET LAB) estaban quietos «esperando RAM» para correr sus
   tests o el tsc completo antes de subir. `scripts/filtro-punta.mjs` NO espera RAM: si no alcanza, avisa y deja subir, y la suite
   la corre «punta → main» en GitHub. Con varios chats abiertos, en la PC sólo el test del archivo tocado.
+
+## Capturas largas de páginas de terceros: lo que deja huecos (11/11/2026, la portada de outliers de Web Generator)
+
+El script es `scripts/capturas-outliers-landings.mjs` (Chrome por CDP; lo de arriba, «La captura de una página entera sin
+estirarla», es la base). Lo que apareció al sacar 65 landings y mirarlas una por una:
+
+- **La captura de una sola vez deja huecos:**
+  - un iframe por debajo de los primeros 800 px sale en blanco (el formulario de Typeform de getclients.com);
+  - una sección que se anima al entrar en vista y se esconde al salir queda como un hueco (voicit, saleads, fastlane).
+  Por tramos de 800 px sí salen. **Trampa:** el `clip` de `Page.captureScreenshot` va en coordenadas del DOCUMENTO: con la página
+  bajada, `y: 0` sale gris; va `clip.y = scrollY`.
+- **Los chats de terceros viven dentro de un shadow root:** el de LeadConnector/HighLevel (`lc_text-widget`) no lo ve un
+  `querySelectorAll`; hay que recorrer los shadow roots. Algunas cabeceras se vuelven a montar al bajar: lo fijo se esconde justo
+  antes de cada foto, no una vez.
+- **El alto de la página se mide en cada paso del recorrido:** cherrysweet.app suma secciones a medida que se baja; medido al
+  principio salía de 521 px, y es de 4.328.
+- **⚠️ El diagnóstico obvio era el equivocado:** los cuelgues de `Runtime.evaluate` y `Target.createTarget` parecían culpa de una
+  página, pero la misma página había salido bien antes. Era abrir varias páginas en el MISMO Chrome, en pestañas de fondo, con
+  1,4 GB libres. Se arregló con un Chrome nuevo por página, usando su pestaña del frente.
+- **Una `og:image` no es la página:** la de viralidad.com es un recuadro negro con su logo, y su página es un VSL con testimonios y
+  cifras. Lo que se muestra como «la página» es una captura de la página.
+- Sin esquivar controles anti-robots: manychat (Cloudflare) y las de ClickFunnels quedan afuera, anotadas
+  (docs/web-generator/outliers-capturas-afuera.md).
