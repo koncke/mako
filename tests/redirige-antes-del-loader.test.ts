@@ -114,7 +114,8 @@ test('/web-generator: el layout redirige ANTES del loader en las dos rutas que r
   assert.match(lay, /return <>\{children\}<TooltipsFlotantes \/><\/>;\n\}/);
   // La página, con LA MISMA regla de «pelada», dibuja la portada (sin redirect).
   const pag = sinComentarios(leer('app/web-generator/page.tsx'));
-  assert.match(pag, /if \(esPanelPelado\(sp\)\) \{\s*return \(\s*<Pagina[^>]*>\s*<OutliersLandings portada=\{await leerOutliersLandings\(\)\} \/>/);
+  // Desde la noche del 11/11 adentro del armazón de Create (app/web-generator/PortadaWeb.tsx: el chat de MaKo a la izquierda).
+  assert.match(pag, /if \(esPanelPelado\(sp\)\) \{[\s\S]*?return \(\s*<Pagina[^>]*>[\s\S]*?<PortadaWeb [^>]*>\s*<OutliersLandings portada=\{portada\}/);
   assert.doesNotMatch(pag, /redirect\(/, 'la página de la tab no redirige');
 });
 

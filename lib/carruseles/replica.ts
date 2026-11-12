@@ -20,6 +20,8 @@
 // =============================================================================
 
 import { parseJsonObject } from '../json-del-modelo';
+import { altoEnElEditor, comoSeDibuja, medidorReal } from './medir-letra';
+import { partirEnRenglones, sinSuperponer, type FuenteTexto } from './tipografia-medida';
 import { esSaturacion, esTimeout, esTopeDeTamano } from '../fallo-ia-texto';
 import { ANCHO_CARRUSEL, ALTO_CARRUSEL, altoEstimado, esOscuro, familia, texto, type Marca } from './documento';
 import type { EstiloCarrusel } from './tipos';
@@ -47,9 +49,18 @@ export type TextoReplica = {
   letra: Letra;
 };
 export type FotoReplica = { x: number; y: number; ancho: number; alto: number; persona: boolean; descripcion: string };
-export type LaminaReplica = { fondo: string; textos: TextoReplica[]; foto: FotoReplica | null };
+/**
+ * Un CUADRO de imagen de la lámina original, leído antes de escribir (11/11/2026, @jasonrewired_: dos cuadros apilados de la
+ * misma playa, con un subtítulo chico abajo de cada uno; MaKo había hecho UNA foto de fondo y un título grande al centro):
+ *   · `escena`: una foto de un lugar (con o sin alguien adentro). Va UNA ESCENA PARECIDA (`busqueda`, en inglés, para el banco
+ *     de fotos), nunca la foto del negocio pegada entera: la foto del negocio no es ese lugar;
+ *   · `retrato`: la persona sola, recortada o en primer plano, como un elemento del diseño. Ahí sí va la foto del negocio.
+ */
+export type CuadroReplica = { x: number; y: number; ancho: number; alto: number; tipo: 'escena' | 'retrato'; persona: boolean; descripcion: string; busqueda: string };
+export type LaminaReplica = { fondo: string; textos: TextoReplica[]; foto: FotoReplica | null; cuadros: CuadroReplica[] };
 export type Proporcion = '4:5' | '1:1' | '16:9';
-export type Replica = { proporcion: Proporcion; titulo: string; laminas: LaminaReplica[] };
+/** `lectura`: lo que la IA LEYÓ de la composición del original antes de escribir (queda en las notas del diseño). */
+export type Replica = { proporcion: Proporcion; titulo: string; laminas: LaminaReplica[]; lectura?: string };
 
 /** La miniatura de un video de YouTube (6/11/2026, «Thumbnails»): una lámina de 1280 × 720. */
 export const ANCHO_MINIATURA = 1280;
@@ -161,8 +172,14 @@ export function promptDeReplica(p: PedidoReplica): string {
     '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su firma va el NOMBRE del negocio, tal como está escrito abajo, y nada más: nunca un @, un usuario ni un sitio web, porque no los sabes.',
     '- Español neutro, de «tú», como se habla en México.',
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra que tenga sentido para este negocio (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
-    p.conAvatar ? '- Donde el original tiene la foto de una persona, marca `persona: true`: ahí va la foto del dueño del negocio.' : '- No pongas fotos ni personas: la lámina es sólo tipografía y color. Deja `foto: null` en todas.',
-    '- El texto LLENA la lámina: titulares grandes (tamano entre 0.08 y 0.14), cuerpo de 0.045 a 0.06, nada chiquito ni mucho vacío. Pocas palabras por lámina, las justas para que se lean de un vistazo. Respeta la jerarquía del original: lo que en el original es grande, aquí también lo es.',
+    // La COMPOSICIÓN se lee antes de escribir (11/11/2026, @jasonrewired_: el original eran dos cuadros apilados de la misma playa
+    // con un subtítulo chico abajo de cada uno, y salió UNA foto de fondo con un título grande al centro). Lo leído queda escrito.
+    vistas > 0 ? '- PRIMERO LEE la composición y escríbela en "lectura" (en español, 1 a 3 frases): cuántos cuadros de imagen tiene cada lámina y cómo están (por ejemplo «pantalla dividida: dos cuadros apilados de la misma escena»), qué muestra cada uno, y dónde va cada texto y de qué tamaño (por ejemplo «subtítulo blanco chico, centrado abajo de cada cuadro»). Después copia ESA composición, lámina por lámina.' : '',
+    vistas > 0
+      ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original (una pantalla dividida son DOS cuadros). "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto PARECIDA de ese lugar, sin gente (por ejemplo «rocky beach at sunset, sea, trees»). Si la lámina es sólo tipografía, "cuadros": [].'
+      : '- Sin las láminas no hay cuadros: "cuadros": [] y la lámina es tipografía y color.',
+    p.conAvatar ? '- Donde el original tiene a una persona, marca "persona": true: el dueño del negocio va en su lugar.' : '- No pongas personas: "persona": false en todos los cuadros (la escena va sin gente).',
+    '- Cada texto va en el MISMO lugar, con el MISMO tamaño y el MISMO estilo que en el original: si el original usa subtítulos chicos (tamano de 0.035 a 0.045) abajo de cada cuadro, aquí también; nunca un título grande al centro si el original no lo tiene. Una frase que en el original ocupa dos renglones es UN texto (con "\\n" donde corta), no dos. Sólo si el original es tipografía sin fotos, el texto LLENA la lámina (titulares de 0.08 a 0.14, cuerpo de 0.045 a 0.06). Pocas palabras, las justas para leerse de un vistazo.',
     '- `letra` es el estilo de la letra del original: sans (palo seco), gruesa (palo seco muy pesada), condensada (alta y angosta), serif, manuscrita o mono. Si dudas, sans.',
     '- Si no sabes un dato del negocio (un número, un precio), no lo inventes: escribe la frase sin ese dato.',
     p.coloresDeMarca?.length ? `- Los colores: usa los de la marca del negocio (${p.coloresDeMarca.slice(0, 8).join(', ')}) en el fondo y en los textos, en lugar de los del original, con el mismo contraste.` : '',
@@ -177,7 +194,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     COMPACTO,
-    `{"proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"lectura":"lo que leíste de la composición","proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"descripcion":"qué muestra","busqueda":"rocky beach at sunset"}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. Exactamente ${n} elementos en "laminas".`,
   ].filter((l) => l !== '').join('\n');
 }
@@ -296,12 +313,39 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
     const foto: FotoReplica | null = f
       ? { x: fx, y: fy, ancho: num(f.ancho, 0.05, 1 - fx, 1 - fx), alto: num(f.alto, 0.05, 1 - fy, 1 - fy), persona: f.persona === true || f.persona === 'true', descripcion: limpio(f.descripcion, 200) }
       : null;
-    laminas.push({ fondo, textos, foto });
+    laminas.push({ fondo, textos, foto, cuadros: cuadrosDe(l.cuadros, foto) });
   }
   if (!laminas.some((l) => l.textos.length)) return { error: 'La IA no encontró textos en las láminas: vuelve a intentar o elige otro ejemplo.' };
   // Una miniatura es UNA lámina 16:9, diga lo que diga el modelo.
-  if (o.miniatura) return { proporcion: '16:9', titulo: limpio(j.titulo, 80) || 'Mi miniatura', laminas: laminas.slice(0, 1) };
-  return { proporcion: j.proporcion === '1:1' ? '1:1' : '4:5', titulo: limpio(j.titulo, 80) || 'Mi carrusel', laminas };
+  const lectura = limpio(j.lectura, 1200) || undefined;
+  if (o.miniatura) return { proporcion: '16:9', titulo: limpio(j.titulo, 80) || 'Mi miniatura', laminas: laminas.slice(0, 1), lectura };
+  return { proporcion: j.proporcion === '1:1' ? '1:1' : '4:5', titulo: limpio(j.titulo, 80) || 'Mi carrusel', laminas, lectura };
+}
+
+/** Cuántos cuadros de imagen se leen por lámina (una pantalla dividida son 2; un collage, 3 o 4). */
+export const CUADROS_POR_LAMINA = 4;
+
+/**
+ * Los cuadros de imagen de una lámina, acotados. Sin `cuadros` (una respuesta del prompt viejo), sale de `foto`: una foto que
+ * ocupa casi toda la lámina (≥ 60 %) es una ESCENA (un lugar, con o sin alguien), no un retrato — el caso de @jasonrewired_, donde
+ * pegar la foto del negocio entera dejó a otra persona en otro lugar.
+ */
+export function cuadrosDe(crudo: unknown, foto: FotoReplica | null): CuadroReplica[] {
+  const lista = Array.isArray(crudo) ? crudo : [];
+  const out: CuadroReplica[] = [];
+  for (const c of lista.slice(0, CUADROS_POR_LAMINA)) {
+    const q = c && typeof c === 'object' ? (c as Record<string, unknown>) : null;
+    if (!q) continue;
+    const x = num(q.x, 0, 0.95, 0);
+    const y = num(q.y, 0, 0.95, 0);
+    const ancho = num(q.ancho, 0.05, 1 - x, 1 - x);
+    const alto = num(q.alto, 0.05, 1 - y, 1 - y);
+    const tipo = q.tipo === 'retrato' ? 'retrato' : 'escena';
+    out.push({ x, y, ancho, alto, tipo, persona: q.persona === true || q.persona === 'true', descripcion: limpio(q.descripcion, 200), busqueda: limpio(q.busqueda, 80) });
+  }
+  if (out.length || !foto) return out;
+  const tipo = foto.ancho * foto.alto >= 0.6 ? 'escena' : 'retrato';
+  return [{ x: foto.x, y: foto.y, ancho: foto.ancho, alto: foto.alto, tipo, persona: foto.persona, descripcion: foto.descripcion, busqueda: '' }];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -401,11 +445,44 @@ function fotoQueCubre(id: string, f: FotoDelCliente, caja: { left: number; top: 
   const anchoVisible = caja.width / escala;
   const altoVisible = caja.height / escala;
   return {
-    type: 'image', id, name: 'Foto: la tuya', src: f.url, assetId: f.id, crossOrigin: 'anonymous', originX: 'left', originY: 'top',
+    type: 'image', id, name: 'Foto: la tuya', src: f.url, ...(f.id ? { assetId: f.id } : {}), crossOrigin: 'anonymous', originX: 'left', originY: 'top',
     left: caja.left, top: caja.top, width: Math.round(anchoVisible * 10) / 10, height: Math.round(altoVisible * 10) / 10,
     cropX: Math.round(((f.ancho - anchoVisible) / 2) * 10) / 10, cropY: Math.round(Math.max(0, (f.alto - altoVisible) / 4) * 10) / 10,
     scaleX: escala, scaleY: escala, angle: 0, opacity: 1, visible: true, strokeUniform: true,
   };
+}
+
+/** Un texto ya puesto: dónde va, con qué cuerpo y el alto que le da el editor. */
+export type TextoPuesto = { left: number; top: number; width: number; tam: number; alto: number; renglones: string[] };
+
+/**
+ * NINGÚN TEXTO SE PISA CON OTRO, medido (11/11/2026, la lámina 1 de @jasonrewired_: «¿Te preocupa lo que» se partía en dos
+ * renglones y se montaba sobre «piensan de tu oferta?»). Cada texto se mide con los anchos REALES de su fuente
+ * (./medir-letra.ts), se parte en renglones como el editor y toma el alto que le da el editor. Los que se pisan se separan de
+ * arriba abajo (`sinSuperponer`, con un aire de un cuarto del cuerpo más chico). Si así algo se sale de la lámina, TODOS se achican
+ * juntos (la jerarquía no cambia) hasta que entran. Devuelve uno por texto, en el mismo orden.
+ */
+export function acomodarTextos(items: ReadonlyArray<{ t: TextoReplica; fuente: FuenteTexto; interlineado: number }>, lamina: { ancho: number; alto: number }): TextoPuesto[] {
+  const W = lamina.ancho;
+  const H = lamina.alto;
+  const borde = Math.round(0.02 * H);
+  let k = 1;
+  let salida: TextoPuesto[] = [];
+  for (let vuelta = 0; vuelta < 12; vuelta++) {
+    const medidos = items.map(({ t, fuente, interlineado }, i) => {
+      const tam = Math.max(12, Math.round(fuente.tam * k));
+      const ancho = Math.round(t.ancho * W);
+      const renglones = partirEnRenglones(comoSeDibuja(t.texto, t.mayus), ancho, { ...fuente, tam }, medidorReal);
+      const alto = Math.ceil(altoEnElEditor(renglones.length, tam, interlineado));
+      return { id: String(i), caja: { x: Math.round(t.x * W), y: Math.round(t.y * H), ancho, alto }, tam, renglones, altoReal: alto };
+    });
+    const aire = Math.max(6, Math.round(0.25 * Math.min(...medidos.map((m) => m.tam), 999)));
+    const puestos = sinSuperponer(medidos, { ancho: W, alto: H }, aire);
+    salida = puestos.map((m) => ({ left: m.caja.x, top: m.caja.y, width: m.caja.ancho, tam: m.tam, alto: m.altoReal, renglones: m.renglones }));
+    if (salida.every((p) => p.top + p.alto <= H - borde) || !items.length) break;
+    k *= 0.92;
+  }
+  return salida;
 }
 
 /**
@@ -416,27 +493,42 @@ function fotoQueCubre(id: string, f: FotoDelCliente, caja: { left: number; top: 
  */
 export function documentoDeReplica(o: {
   replica: Replica; estilo: EstiloCarrusel; marca: Marca; foto: FotoDelCliente | null; nuevoId: () => string; notas?: string; conFuentesDeMarca?: boolean;
+  /** La escena PARECIDA de cada cuadro de tipo «escena», por su `busqueda` (el banco de fotos, ya en nuestro bucket). */
+  escenas?: ReadonlyMap<string, FotoDelCliente>;
 }): Record<string, unknown> {
   const { ancho: W, alto: H } = medidasDe(o.replica.proporcion);
   // Una miniatura NO se reacomoda para «llenar»: su diseño es justamente dónde va el texto grande y dónde la cara.
   const reacomodar = o.replica.proporcion !== '16:9';
   const pages = o.replica.laminas.map((l, i) => {
     const objetos: Obj[] = [];
-    const conFoto = !!(l.foto && l.foto.persona && o.foto);
-    if (l.foto && l.foto.persona && o.foto) {
-      const caja = { left: Math.round(l.foto.x * W), top: Math.round(l.foto.y * H), width: Math.round(l.foto.ancho * W), height: Math.round(l.foto.alto * H) };
-      objetos.push(fotoQueCubre(o.nuevoId(), o.foto, caja));
+    // Los cuadros de imagen, en el lugar del original: un retrato lleva la foto del negocio; una escena, la escena PARECIDA. La
+    // foto del negocio NUNCA se pega como si fuera el lugar (11/11/2026: su foto en un balcón de noche en vez de la playa).
+    const cuadros = l.cuadros ?? [];
+    for (const c of cuadros) {
+      const caja = { left: Math.round(c.x * W), top: Math.round(c.y * H), width: Math.round(c.ancho * W), height: Math.round(c.alto * H) };
+      if (c.tipo === 'retrato' && c.persona && o.foto) objetos.push(fotoQueCubre(o.nuevoId(), o.foto, caja));
+      else {
+        const escena = c.busqueda ? o.escenas?.get(c.busqueda) : undefined;
+        if (escena) objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), name: 'Foto: escena parecida' });
+      }
     }
-    for (const t of ajustarTextos(l.textos, { ancho: W, alto: H, libre: reacomodar && !conFoto })) {
+    // Con cuadros, cada texto se queda en su lugar (es la composición del original); sólo tipografía, llena la lámina.
+    const ajustados = ajustarTextos(l.textos, { ancho: W, alto: H, libre: reacomodar && !cuadros.length });
+    const conLetra = ajustados.map((t) => {
       const titular = ES_TITULAR.has(t.rol);
       const letra = LETRA_DEL_EDITOR[t.letra] ?? LETRA_DEL_EDITOR.sans;
       const base = o.conFuentesDeMarca ? (titular ? o.estilo.titular : o.estilo.texto) : titular ? letra.titular : letra.texto;
       const peso = o.conFuentesDeMarca ? (t.negrita && !titular ? 700 : base.peso) : titular ? letra.titular.peso : t.negrita ? letra.texto.negrita : letra.texto.peso;
-      objetos.push(texto(o.nuevoId(), NOMBRE_DE_ROL[t.rol], t.texto, {
-        left: Math.round(t.x * W), top: Math.round(t.y * H), width: Math.round(t.ancho * W),
-        tam: Math.round(t.tamano * W), peso, fam: familia(base), color: t.color, alin: t.alinear, interlineado: interlineadoDe(t.rol), mayus: t.mayus,
+      return { t, fam: familia(base), peso, interlineado: interlineadoDe(t.rol) };
+    });
+    const puestos = acomodarTextos(conLetra.map((x) => ({ t: x.t, fuente: { familia: x.fam, peso: x.peso, italica: false, tam: Math.round(x.t.tamano * W) }, interlineado: x.interlineado })), { ancho: W, alto: H });
+    conLetra.forEach((x, k) => {
+      const p = puestos[k];
+      objetos.push(texto(o.nuevoId(), NOMBRE_DE_ROL[x.t.rol], x.t.texto, {
+        left: p.left, top: p.top, width: p.width, alto: p.alto,
+        tam: p.tam, peso: x.peso, fam: x.fam, color: x.t.color, alin: x.t.alinear, interlineado: x.interlineado, mayus: x.t.mayus,
       }));
-    }
+    });
     return {
       id: o.nuevoId(), name: o.replica.proporcion === '16:9' ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`,
       background: { type: 'solid', color: l.fondo }, objects: objetos, ...(i === 0 && o.notas ? { notes: o.notas } : {}),

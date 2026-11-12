@@ -79,6 +79,20 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 - **No se pudo probar:** el motor de AI Avatar en vivo (el puente a Flow nunca se midió de punta a punta; la landing de
   avatares estaba pausada desde el 23/10), el mini-VSL de Panda en el hero de `/vsl/crm` (el entorno no llega a su CDN: se ve
   negro) y el desborde horizontal de 375 px, que ya tenían todas las páginas de `/vsl` antes de esto (lo tapa `overflow-x`).
+- **Segunda tanda, el mismo día (14 landings más, 5 de ellas hechas en paralelo por ayudantes):**
+  - **Cada ayudante toca SÓLO sus archivos** (su `<slug>.ts`, su `visuales-propios/<slug>.tsx`, su `page.tsx`); el registro y el índice
+    de visuales los conecta uno solo al final. Así no se pisan, y una landing sin registrar no la mira el test: hasta que se
+    suma a `registro.ts`, su verde no existe.
+  - **Una función sin gráfico en `/vsl` lleva un visual propio** (`visual: { tipo: 'propio', slug }`), server component sin JS
+    con su `<style>` y clases `mk-v-<slug>-`. Sin registrarlo en `visuales-propios/index.tsx`, el panel del hero sale vacío, sin error.
+  - **Cinco `tsc` acotados a la vez (uno por ayudante) más `next dev` agotan la RAM**: el kernel mató al servidor. Y
+    **`.next/dev` llegó a 21 GB y llenó el disco**: la máquina se reinició tres veces seguidas hasta borrarlo (es caché). Antes
+    de levantar la app en la nube, `du -sh .next/dev`.
+  - **Captura de una página de `/vsl`: `fullPage` devuelve sólo la ventana**, porque el documento no crece (scrollea un
+    contenedor). Se mide hasta `.mk-cta-end`, se agranda la ventana a esa altura y se corta en tramos.
+  - **Los gráficos viejos de `feature-visuals.ts` siguen trayendo sorpresas**: uno con voseo («Escalá presupuesto», el de portada
+    de `/vsl/mako`, corregido), uno con rótulos en inglés (el de `/vsl/cobranza`) y varios que afirman lo que MaKo no hace (el
+    98 % de entregabilidad, un DMARC que no se revisa). Antes de usar uno, se lee entero.
 
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 

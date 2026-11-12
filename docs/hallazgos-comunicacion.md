@@ -140,6 +140,31 @@ scripts/diagnostico-mako-whatsapp.mts · tests/mako-responde-siempre.test.ts.
   salió a MEDIAS se guarda entera. La pendiente que propuso una respuesta perdida sigue viva y un «sí» de después la puede confirmar.
 - **El «listo» de un pedido delegado**, que vuelve al grupo cuando se cierra fuera del turno, sigue frenado con la línea frenada.
 
+## «MaKo no responde nada» en Código: el «Si» a una OFERTA de MaKo salió charla (11/11/2026, claude4)
+
+**El síntoma:** Martín, 11/11: «MaKo no responde nada… responde al grupo de Código ya». **Lo medido (sólo lectura):** en 24 h, sólo
+dos mensajes de personas llegaron a la voz en ese grupo, los dos de Joan, y entraron a la cola en 2 s. Su audio («¿tenés acceso a las
+campañas de mis clientes?») salió PREGUNTA y MaKo contestó, cerrando con «¿Querés que revise si Marcela conectó sus anuncios?». Su
+«Si» salió **CHARLA** del clasificador («confirma que entendió»), aunque las reglas decían `actuar` con `sigueOfrecimiento`: 👍 y nada.
+**La causa:** `veredictoDeClase` (lib/mako-intencion-ia.ts) tomaba CHARLA de la IA siempre; la regla 6 del clasificador cubría sólo el
+«sí» a una PENDIENTE, no a un «¿Querés que…?».
+**La regla:** un «sí» suelto (`confirmacionPura`) a lo que MaKo acaba de OFRECER (`esOfrecimientoDeMaKo`, lib/oferta-de-mako.ts: «¿Quieres
+que…?», «¿Te lo agendo?», «¿Lo reviso?») nunca es charla: gana la regla, que sigue al ofrecimiento con sus herramientas. A una pregunta
+por un HECHO («Entró EDEST_OFICIAL, ¿lo contactaron?») sigue siendo charla. Y la regla 6b del prompt. tests/mako-intencion-ia.test.ts 6,
+con la salida REAL del modelo de ese turno.
+
+**Y la respuesta salió en VOSEO** («Preguntás… ¿Querés que revise…?»): el prompt pide tú y el modelo igual vosea, sobre todo cuando le
+escriben en vos. `alTuteo` (lib/al-tuteo.ts) corrige en la SALIDA (`partes` del doer: lo que sale al grupo y la memoria) las formas que
+aparecen, palabra entera, sin tocar lo que va entre «…». Lo fija tests/links-con-ws.test.ts (el turno real y el 6).
+
+**La trampa (corrida 1039 en rojo, el mismo día):** la primera versión pasaba «abrí» → «abre» y «acá» → «aquí». Rompió dos respuestas
+que ya estaban bien: la FIJA del código «Abrí el ticket #43: …» (lib/despacho-grupo.ts: es «yo abrí», pretérito, español neutro) salía
+«Abre el ticket», una orden a la persona; y «Acá estoy» (no es voseo) salía cambiada. Los imperativos de vos en -í (abrí, elegí,
+escribí, pedí, recibí) son IGUALES a la primera persona del pasado, y MaKo cuenta en pasado lo que hizo todo el tiempo.
+**La regla:** al diccionario sólo entran formas que, escritas así, no pueden ser otra cosa (la -ás/-és/-ís del presente, los
+imperativos en -á/-é, los que llevan el pronombre pegado sin tilde). Las mayúsculas («SOS») no se tocan. El test 6 fija los pretéritos
+intactos.
+
 ## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
 
 **El síntoma:** Martín, 9/11 ~19:00 ART: «MaKo no está respondiendo… Joan va a enviar el comprobante y nadie responde».
@@ -188,16 +213,97 @@ funcionando para nada bien»). Medido a las 01:00 y 01:34 UTC del 11/11, sólo l
   de lo que entró a la cola en las últimas 3 h y avisa por EMAIL si algo llegó con más de 20 min, cada 3 h mientras dure.
 - ⚠️ **Para volver a escanear una línea que contesta la sonda, el panel no deja:** `/agencia` responde «La línea ya está conectada y
   respondiendo» (lib/mako-canal.ts, el guard que evita desvincular una viva). Primero se cierra esa sesión desde el teléfono
-  (WhatsApp → Dispositivos vinculados), y después «Conectar por QR».
+  (WhatsApp → Dispositivos vinculados), y después «Conectar por QR». (Desde el 12/11, con la línea MARCADA por el vigilante, el
+  panel la desvincula solo y da el QR en un paso: ver «La causa de fondo», abajo.)
 ⚠️ **El freno de las 6 h avisó lo que ya estaba atendido (11/11, 13:14 y 14:04 UTC).** Martín reconectó su línea (`mako_ws9`) y la
 resincronización trajo lo de ayer: cuatro mensajes de la propia MaKo (vistos desde otra línea llegan como de una persona, `pushName`
 «Mako» y su número en `participantAlt`) y uno de Joan que MaKo ya había contestado. Salieron cinco avisos de ruido al grupo de Martín.
 El anillo de ids de MaKo guarda 40, así que lo de ayer ya no estaba. Ahora un atrasado se saltea en silencio si ya está en la cola o si
 su autor es el número de la voz, leída ESTRICTA (`atrasadoYaAtendido`; sin poder leerla, se avisa).
 
+⚠️ **TODAS las líneas de Evolution se reconectan cada 40-50 min, y eso no atrasa nada (medido el 11/11, sólo lectura).** La línea de
+Martín (`mako_ws9`) parecía caerse cada 40-50 min, y se sospechó de su teléfono (otra sesión de WhatsApp Web abierta). **Era el
+diagnóstico equivocado:**
+- `ultima_conexion_at` de `evolution_instancias` (el webhook guarda cada `connection.update`) coincide al segundo con el `updatedAt` de
+  Evolution, y se mueve en TODAS las líneas, cada una a su hora: las de clientes que ignoran grupos (ws10 17:51:54, ws13 17:38:44, ws11
+  18:16:24), la de MaKo (…2605, 17:59:04) y la de Martín (18:03:13). Evolution no guarda motivo: `disconnectionAt` vacío;
+- otra sesión de WhatsApp Web en un teléfono daría un 401 «conflict/replaced» en ESA línea sola;
+- no es código nuestro: `vigia-lineas-mako` (cada 3 min) mira sólo la voz y la de Martín y no tiene ninguna reapertura anotada
+  (`mako.linea.*` vacío), y `/instance/connect` sobre una línea `open` no hace nada. Queda el servidor de Evolution (Railway) o
+  WhatsApp cerrando y reabriendo sockets: el motivo de cada ciclo está en el log de Evolution, que desde el repo no se ve;
+- **no atrasa:** desde el QR (11/11 02:51), 8 de 8 mensajes de clientes llegaron en 1-2 s, a través de esos ciclos. ⚠️ PERO desde
+  las 12:14 UTC la voz quedó SORDA (ver abajo): «la cola está vacía, nadie escribió» fue otro diagnóstico equivocado mío.
+- ⚠️ **Corregido esa misma noche:** en las líneas ENFERMAS ese reloj de 50 min es el único momento en que entra algo (ver «La causa
+  de fondo», abajo). La reconexión sola no atrasa; lo que separa sanas de enfermas es lo que entra entre una y otra.
+**La demora del #79 era otra cosa:** la sesión vieja de la voz, medio muerta, que sólo entregaba al RECONECTARSE (las tandas de 23:47:55
+y 00:37:55 coinciden con sus reconexiones). El QR la arregló. El resguardo, si una sesión vuelve a quedar así, es la alarma de demora
+(`vigilarDemoraDeLaLinea`): mail a los 20 min del primer mensaje atrasado. **La regla:** una reconexión periódica no es una caída; lo
+que se mide es el atraso de lo que entra (la hora de WhatsApp contra la de la cola), no cuántas veces se mueve el `updatedAt`.
+
+⛔ **La voz SORDA del 11/11 (12:14 → 21:3x UTC): manda y no recibe, y nada la veía.** Martín: «MaKo no responde nada… soluciona eso de
+una vez por todas». En el grupo de Código, Juanfran mandó un audio, «mako labura», «hola?», «MAKOOOO», y Joan «queremos pagar la cuenta
+de Nico Sellers»: nada llegó a Evolution. La voz seguía `open`, contestaba la sonda y MANDABA avisos (14:03, 14:07, 20:39). La alarma de
+demora no la ve (si no entra nada, no hay nada atrasado), y `POST /instance/restart` no la curó (21:31; el «PRUEBA» de Martín de las 21:36
+no llegó): tercera medición, con la del 11/09 y la del 9/11. **El detector (lib/linea-sorda.ts, `vigilarSorderaDeLaVoz` en
+lib/canal-vigilante.ts, cron alerta-critica cada 10 min):** en horario activo (9-23 de Argentina), si MaKo mandó algo después del último
+mensaje de una persona y ese último tiene más de 3 h, o si la línea de Martín vio en un grupo mensajes de personas que la voz no tiene,
+está sorda. Avisa YA con el QR por mail y por la campanita (nunca por WhatsApp), repite cada 3 h y, al volver a recibir, avisa y se
+cierra. (La primera versión además reiniciaba la línea: se sacó esa misma noche, ver abajo.) Con el reloj de ese día la habría visto a
+las 15:14 UTC, seis horas antes; con la ráfaga de abajo, a las 14:10. Lo fija tests/linea-sorda.test.ts (la función real,
+tests/_linea-sorda-hijo.ts); roturas S1-S7.
+
+⛔ **La causa de fondo (11/11 a la noche, tres investigaciones en sólo lectura): no es «sólo la voz» ni «algo nuestro».** Desde el 2/11,
+Evolution 2.3.7 con Baileys 7.0.0-rc.9 (una pre-versión que Evolution deja fija) traba los dispositivos de a uno ([Evolution
+#2647](https://github.com/evolution-foundation/evolution-api/issues/2647), [Baileys #2491](https://github.com/WhiskeySockets/Baileys/issues/2491)).
+Son 5 de 10 líneas: ws21 (Florencia Carballo) y ws22 (Patricia Contreras) desde el 3/11, ws20 (Sergio Arriata) y ws9 (Martín) desde el
+7/11, y la voz. ws10, ws11, ws13, ws18 y ws19 siguen al día. **El diagnóstico obvio era el equivocado:** se midió que ni los grupos
+(`groupsIgnore`), ni el volumen, ni las sondas, ni un reinicio separan las líneas sanas de las enfermas.
+- **La firma:** cada línea se reconecta sola cada 50 min exactos, cada una a su minuto (`updatedAt` de `fetchInstances`). En las
+  enfermas, ~30 s después entran unos pocos mensajes de hace más de un día, y nada más.
+  - Cada tanda descarga 15-20 min de una cola de más de un día, así que el atraso crece todos los días (ws21: 383 min el 3/11, 1.884 el
+    11/11).
+  - El «~1 h de atraso» del ticket #79 era ese reloj.
+- **El restart no cura**: es el mismo dispositivo con la misma cola. **El QR cura por horas o días, y cada vez por menos tiempo**:
+  - la voz anduvo ~2,6 días hasta el 7/11;
+  - después 24 h (del 9/11 al 10/11);
+  - después 9,4 h (11/11, de las 02:51 a las 12:14).
+- **Nadie lo vio:** la alarma de demora sólo leía la cola de MaKo (`mako_doer_buffer`), y la sonda daba «viva». Los clientes de ws20,
+  ws21 y ws22 estuvieron hasta 9 días viendo todo con un día de atraso.
+- **`groupsIgnore` no le saca trabajo al socket** con `syncFullHistory:true`: las líneas de clientes ignoran grupos y se enferman igual.
+- ⚠️ **Lo que trae el importador no es atraso.** `wa_mensajes` también tiene lo que vuelcan `importarHistorial` y `sincronizarChat`,
+  con `created_at` de hoy (638 filas, mediana de 993 h). Se reconoce porque su `raw` trae el `id` interno de Evolution y el del webhook
+  no (23.773 filas, ninguna con `id`). Sin ese corte, conectar una línea nueva daba «un mes de atraso».
+
+**La regla:**
+- **Lo que no se hace más:**
+  - ⛔ `POST /instance/restart`: estuvo un día en el detector de sordera y se sacó. tests/linea-sorda.test.ts 5 busca que no vuelva a `lib/`;
+  - reiniciar el contenedor esperando que cure;
+  - tocar `syncFullHistory` o `groupsIgnore` como arreglo (cambiar `syncFullHistory` cambia el login);
+  - pedir un QR porque un contador estuvo quieto unos minutos (#79).
+- **La alarma mide `wa_mensajes` en TODAS las líneas** (`vigilarDemoraDeLaLinea` → `medirLineas` y `marcasDeAtraso`,
+  lib/linea-demora.ts).
+  - Mide el atraso TÍPICO (la mediana) de lo que entró por el webhook en las últimas 3 h, con un mínimo de 3 mensajes, y descarta lo de
+    los primeros 15 min después de vincularse.
+  - Más de 30 min → mail y campanita con el nombre del negocio, cada 3 h.
+  - Una línea que no se pudo medir no se da por curada: el silencio es justo lo que hace una línea sorda. tests/lineas-atrasadas.test.ts.
+- **La voz suma la ráfaga:** «MaKo mandó 2 o más mensajes a grupos en 30 min y no entró nada desde media hora antes del primero».
+  - Una respuesta en dos partes tiene su pedido justo antes, así que no cuenta.
+  - Evolution guarda cada envío dos veces con el mismo `key.id`, y por eso se cuenta sin duplicados ni reacciones.
+- **El QR en un paso:** con la línea marcada sorda o atrasada (lib/lineas-enfermas.ts), «Conectar» la desvincula por API y da el QR
+  aunque la sonda diga «viva» (`conectarCanalMaKo`, `conectar`).
+  - Sólo si la marca se midió sobre la vinculación de ahora (`puedeSoltarseSorda`, con `createdAt` y `disconnectionAt` de Evolution).
+    Una marca de antes del último QR es de otro dispositivo, y soltarla desvincularía la línea recién curada.
+  - Por lo mismo, al medir se descarta todo lo de antes de vincularse. tests/linea-enferma-qr.test.ts.
+
+**Sin hacer (lo decide Martín):**
+- **la versión:** forzar Baileys rc14 en el servicio de Evolution en Railway, de noche y **sin re-escanear**, así ws20, ws21, ws22 y
+  ws9 sirven de prueba. Si en 24 h no cura, el plan B es Evolution Go;
+- avisar a los dueños de ws20, ws21 y ws22;
+- ws9 sigue con `groupsIgnore:false` desde el 3/11: suma tráfico y los duplicados del #80;
+- los logs y las métricas de Evolution en Railway (el código de cada corte de 50 min). Se necesita la sesión de Martín.
+
 **Sin hacer:**
-- una línea SORDA del todo (no entrega nada) no la ve esta alarma, porque mide lo que llega. Para esa, lo que se mide es un mensaje
-  propio de prueba (con su hora) que tiene que volver por el webhook;
+- la línea de Martín (`mako_ws9`) también está sorda: mientras lo esté, la prueba cruzada («otra línea vio lo que la voz no») no aporta;
 - **dos pendientes y dos «sí», una se pierde** (Giselle, ws 17, 10/11 20:56): «agrega una nota a Maria Valeria…» y «…a Ana
   Vallejo…» dejaron las pendientes #847 y #848; el primer «Si» confirmó la última (#848), el segundo terminó en «Estoy atento al
   próximo mensaje» y la #847 se venció sola. El «sí» lo resuelve el modelo con `confirmar_accion`, que toma la más reciente: hace

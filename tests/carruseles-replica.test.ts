@@ -54,7 +54,10 @@ test('el prompt: con un original que pide comentar una palabra, la versión pide
   const p = promptDeReplica({ ...base, cta: 'GUÍA', conAvatar: true });
   assert.match(p, /pide comentar «GUÍA»/);
   assert.match(p, /UNA palabra que tenga sentido para este negocio/);
-  assert.match(p, /persona: true/);
+  assert.match(p, /"persona": true/);
+  // La composición se LEE antes de escribir y queda escrita (11/11/2026, @jasonrewired_).
+  assert.match(p, /PRIMERO LEE la composición/);
+  assert.match(p, /"cuadros":/);
   assert.match(promptDeReplica({ ...base, anuncio: true, laminas: 1, vistas: 1 }), /un anuncio de imagen/);
 });
 
@@ -144,7 +147,7 @@ test('el diseño: la foto del cliente va donde había una PERSONA, cubriendo su 
   assert.ok(Math.abs((img.height as number) * (img.scaleY as number) - lugarH) < 1, 'cubre el alto');
   assert.equal(img.scaleX, img.scaleY, 'sin deformarse');
   // Donde NO había una persona (un paisaje), no va su cara.
-  const paisaje = { ...r, laminas: [{ ...r.laminas[0], foto: { ...r.laminas[0].foto!, persona: false } }] };
+  const paisaje = { ...r, laminas: [{ ...r.laminas[0], cuadros: r.laminas[0].cuadros.map((c) => ({ ...c, persona: false })) }] };
   const sinCara = documentoDeReplica({ replica: paisaje, estilo, marca: { nombre: 'X', usuario: null }, foto, nuevoId });
   assert.ok(!((sinCara.pages as Array<Record<string, unknown>>)[0].objects as Array<Record<string, unknown>>).some((o) => o.type === 'image'));
   const cuadrado = documentoDeReplica({ replica: { ...r, proporcion: '1:1' }, estilo, marca: { nombre: 'X', usuario: null }, foto: null, nuevoId });
@@ -239,7 +242,7 @@ test('las letras: sólo del editor (si no, caen a la del sistema en silencio) y 
 
 test('el prompt: sin avatar no se piden fotos; el texto llena; con el pie, sólo para entender el tema', () => {
   const sin = promptDeReplica(base);
-  assert.match(sin, /No pongas fotos ni personas/);
+  assert.match(sin, /No pongas personas/);
   assert.match(sin, /LLENA la lámina/);
   assert.doesNotMatch(sin, /espacio para su foto/);
   const con = promptDeReplica({ ...base, vistas: 1, pie: 'Mi primer cliente de 1000 dólares. Comenta GUÍA' });

@@ -15,8 +15,16 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Resultado } from '../lib/graficos-agregar';
 import {
-  CELDAS, celdasMalas, deltaCosto, dolares, flowDe, fraseContenido, gastoDe, listaDe, rotuloEjeDolares, rotulosDe, tarjetasDe, topeDe, vistaContenido,
+  CELDAS, celdasMalas, deltaCosto, dolares, flowDe, fraseContenido, gastoDe, listaDe, parteEnTexto, rotuloEjeDolares, rotulosDe, tarjetasDe, topeDe, vistaContenido,
 } from '../lib/contenido-diseno';
+
+test('la parte de una fila: «<1%» si es algo pero redondea a cero (11/11/2026: 1 llamada de 629 decía «0%»)', () => {
+  assert.equal(parteEnTexto((1 / 629) * 100), '<1%');
+  assert.equal(parteEnTexto(0), '0%', 'un cero de verdad es «0%»');
+  assert.equal(parteEnTexto(24.3), '24%');
+  assert.equal(parteEnTexto(0.5), '1%');
+  assert.equal(parteEnTexto(null), null);
+});
 import { datosContenidoMuestra } from '../lib/contenido-diseno-muestra';
 import { DISENOS_HOJA } from '../lib/graficos-catalogo';
 import { PLANTILLAS_HOJA, PLANTILLAS_OFRECIDAS, instanciarPlantilla } from '../lib/graficos-plantillas';

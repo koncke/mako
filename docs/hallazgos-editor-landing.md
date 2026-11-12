@@ -4316,3 +4316,29 @@ docs/web-generator/outliers-landings.md.
 - **Quedan:** 4 capturas del relevo con el cartel de cookies (el Chrome sin cabeza de `scripts/capturas-outliers-landings.mjs` no
   puede cerrarlo; hace falta CDP para sacar el cartel antes de la foto), y mirar lo que anima (la copia idéntica con su ventana,
   los cursores) en el Chrome de Martín con su sesión.
+- **⚠️ Una regla de CSS correcta que no gana: el encuadre iba EN LÍNEA (11/11, después del despliegue).** La foto del costado en
+  el teléfono seguía cortada por el medio aunque la regla de «mirar arriba» estaba en la hoja: el acento llevaba
+  `background-position: 50% 50%` en el `style` (el encuadre por defecto, `imagenFocoX/Y`), y lo en línea le gana a todo. Probarlo
+  en el navegador con un `<style>` inyectado no lo mostró, porque se probó sobre el atributo y no sobre la página entera. Ahora el
+  encuadre va en línea sólo si la persona lo eligió. **Regla:** un valor por defecto no se escribe en línea; se deja a la hoja,
+  que puede variar por ancho. Y lo que se mira «a mano» antes de subir se mira en la página tal cual sale, no en un elemento.
+- **El subtítulo del hero en dos `<h2>` seguidos queda como sección aparte** (`esquemaDeReplica` corta en cada título del nivel
+  de sección). Sin arreglar: juntarlos pide una regla que puede romper otras páginas.
+
+### La portada de outliers rompió la regla de Create, y la copia fue la causa (11/11/2026, de noche)
+
+- **Síntoma** (Martín, con la captura de /web-generator): «¿Dónde está el chat de MaKo para ir a trabajar las páginas anteriores…?».
+  La portada de outliers del mismo día ocupaba la pantalla entera, sin la tarjeta del chat ni la lista de landings. Hasta ese día,
+  `/web-generator` saltaba a la última landing, que sí tenía las dos.
+- **Causa:** la portada se COPIÓ de la de Video, y la de Video tampoco tenía el chat («a pantalla completa y sin el chat»). Copiar
+  una pantalla de la casa no garantiza que cumpla las reglas de la casa: la regla («Create: UN solo diseño», 29/10: el chat de MaKo
+  SIEMPRE a la izquierda, los proyectos al costado con «Nueva», y «Nueva» con los templates) estaba en la memoria, no en la pantalla
+  copiada. **Regla:** antes de copiar una pantalla de otra tab, se leen las memorias de esa área y se mira la copia contra ellas.
+- **Arreglo:** la portada va ADENTRO de `PantallaCrear` (app/web-generator/PortadaWeb.tsx), el mismo armazón de Image: el chat a la
+  izquierda, «←» para tus landings, «Nueva landing» al Panel. Las plantillas (los diseños de la galería del Panel) van en una fila
+  arriba de los outliers; tocar una abre el Panel con su pregunta del objetivo (`?vista=plantillas&diseno=<id>`).
+- **Una `og:image` no es la página:** viralidad.com publica un recuadro negro con su logo, y lp.acquisition.com no publica imagen
+  (la tarjeta dibujada con su titular era «sólo texto»). Ahora cada landing entra con su captura LARGA mirada antes de entrar, o no
+  entra; y la portada ya no pide ninguna página afuera en cada visita (era hasta 30 pedidos con tope de 3,5 s).
+- **El manifiesto no va al navegador:** con la portada como componente de cliente, importar lib/landing-outliers.ts habría metido
+  el JSON de decenas de landings en su JavaScript. Lo pesado vive en lib/landing-outliers-datos.ts, que sólo lee el server.

@@ -28,6 +28,8 @@ import { topeParaLineaNueva, type TopeLineaNueva } from './tope-lineas';
 import { antesDeEscribir, trasEscribir } from './linea-freno';
 import { destinoDeEscritura, pausaDeEscritura } from './mako-salida-reglas';
 import type { FotoLinea } from './lineas-de-mako';
+import { puedeSoltarseSorda, vinculadaDesdeDe } from './linea-sorda';
+import { marcaDeLineaEnferma } from './lineas-enfermas';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
 // test). Se re-exporta para que ningún import cambie.
@@ -416,6 +418,28 @@ export async function conectar(
   // de una instancia que está esperando el escaneo. Las dos dicen `connecting`.
   const codigoCaida = Number(fila?.disconnectionReasonCode ?? 0);
   const desvinculada = codigoCaida === 403 || codigoCaida === 401;
+  // ⚠️ LA ÚNICA SESIÓN ABIERTA QUE SE TOCA: LA QUE EL VIGILANTE MARCÓ ATRASADA O SORDA (informe del 11/11/2026, docs/
+  // hallazgos-comunicacion.md «La línea sorda»). Abierta, `connect` no da QR y el panel decía «conectada»: el cliente tenía que
+  // desvincularla desde el teléfono antes de poder escanear. Con la marca medida sobre ESTA vinculación (`puedeSoltarseSorda`; si se
+  // re-vinculó después, la marca es de otro dispositivo y no se toca nada) se desvincula por API —SIN borrar la instancia: es re-vincular
+  // la misma línea— y se espera su QR. Es el dispositivo nuevo lo que la cura; un reinicio no.
+  if (abierta && c.ok && !c.data.base64 && !c.data.code) {
+    const marca = await marcaDeLineaEnferma(instance);
+    if (marca && puedeSoltarseSorda(marca, vinculadaDesdeDe(fila))) {
+      console.warn(`[evolution] ${instance} ${marca.motivo}: se desvincula para dar el QR en un paso`);
+      const lo = await evFetch(`/instance/logout/${encodeURIComponent(instance)}`, { method: 'DELETE' });
+      if (!lo.ok) return { ok: false, error: 'La línea recibe con atraso y Evolution no la soltó. Cierra la sesión desde el teléfono (WhatsApp → Dispositivos vinculados) y toca «Conectar» otra vez.' };
+      for (let i = 0; i < 4; i++) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const q = await evFetch<ConnectResp>(`/instance/connect/${encodeURIComponent(instance)}`);
+        if (q.ok && (q.data.base64 || q.data.code)) {
+          await upsertInstancia(instance, { estado: 'conectando' });
+          return { ok: true, estado: 'conectando', linea: instance, qr: { base64: q.data.base64 ?? null, code: q.data.code ?? null, pairingCode: q.data.pairingCode ?? null } };
+        }
+      }
+      return { ok: false, error: 'Solté la línea y Evolution todavía está armando el QR. Toca «Conectar» otra vez en unos segundos.' };
+    }
+  }
   if (hayQueRecrear({ abierta, desvinculada, qrBase64: c.ok ? c.data.base64 : null, conectarOk: c.ok })) {
     // Logout + delete SIN `revertirEstadoNoOficial`: esto es RE-VINCULAR la misma línea, no
     // desvincularla — mandar al cliente de vuelta al onboarding sería otro problema.
@@ -599,6 +623,44 @@ export async function fotoDeLinea(instance: string, topeMs?: number): Promise<Fo
  */
 export async function reabrirSesion(instance: string, topeMs?: number): Promise<void> {
   await evFetch(`/instance/connect/${encodeURIComponent(instance)}`, undefined, topeMs);
+}
+
+// ⛔ SIN `POST /instance/restart` (informe del 11/11/2026, docs/hallazgos-comunicacion.md «La línea sorda»): a una línea sorda no la
+// cura —es el mismo dispositivo con la misma cola— y estuvo acá un día, en el detector de sordera. Lo que cura es un dispositivo nuevo
+// (`conectar`/`conectarCanalMaKo` con la línea marcada: logout y QR en un paso).
+
+/**
+ * Desde cuándo está vinculado el dispositivo de cada línea (ms; lib/linea-sorda.ts, `vinculadaDesdeDe`). Lo de antes de esa hora es
+ * de otro dispositivo: ni cuenta como atraso ni deja marcada la línea nueva. null = Evolution no contestó.
+ */
+export async function vinculadaDesdeDeLinea(instance: string, topeMs = 8000): Promise<number | null> {
+  const r = await evFetch<Array<Record<string, unknown>>>(`/instance/fetchInstances?instanceName=${encodeURIComponent(instance)}`, undefined, topeMs);
+  if (!r.ok || !Array.isArray(r.data)) return null;
+  return vinculadaDesdeDe(r.data.find((i) => (i.name ?? i.instanceName) === instance) as { createdAt?: unknown; disconnectionAt?: unknown } | undefined);
+}
+
+export async function vinculacionesDeLasLineas(topeMs = 8000): Promise<Map<string, number> | null> {
+  const r = await evFetch<Array<Record<string, unknown>>>('/instance/fetchInstances', undefined, topeMs);
+  if (!r.ok || !Array.isArray(r.data)) return null;
+  const m = new Map<string, number>();
+  for (const i of r.data) {
+    const nombre = String(i.name ?? i.instanceName ?? '');
+    const t = vinculadaDesdeDe(i as { createdAt?: unknown; disconnectionAt?: unknown });
+    if (nombre && t != null) m.set(nombre, t);
+  }
+  return m;
+}
+
+/** Los últimos mensajes que guardó una línea, de todos sus chats (sin orden garantizado). null = Evolution no contestó. */
+export async function ultimosMensajesDeLaLinea(instance: string, cuantos = 100, topeMs = 8000): Promise<Array<EvRecord & { key?: { participantAlt?: string } }> | null> {
+  const r = await evFetch<{ messages?: { records?: EvRecord[] } } | EvRecord[]>(
+    `/chat/findMessages/${encodeURIComponent(instance)}`,
+    { method: 'POST', body: JSON.stringify({ where: {}, page: 1, offset: cuantos }) },
+    topeMs,
+  );
+  if (!r.ok) return null;
+  const d = r.data;
+  return Array.isArray(d) ? d : Array.isArray(d?.messages?.records) ? d.messages.records : [];
 }
 
 /** A quién se le pide el perfil de empresa en `sondearSocket`. Cualquier número sirve: lo que

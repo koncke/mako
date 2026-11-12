@@ -1,5 +1,18 @@
 # Retomar: «MaKo en WhatsApp: conexiones, ayuda y tickets» (el doer de los grupos)
 
+## ⚡ 11-12/11/2026, noche (claude4): la causa de fondo de la voz sorda, y lo que va en el despliegue del 12/11 11:05 UTC
+
+**Rama** `punta/wa-sorda-1011` (worktree `C:/dev/wt-wa-1011`). Lo de esta tanda, con el pedido del Cerebro (B1-B4):
+- **La causa (informe del Cerebro, sólo lectura):** Evolution 2.3.7 + Baileys rc.9 traba dispositivos; 5 de 10 líneas (ws20, ws21,
+  ws22, ws9 y la voz) reciben con ~24 h de atraso. Restart no cura; QR sí, por menos cada vez. El arreglo de fondo (la versión en
+  Railway) lo decide Martín: no se toca desde acá. Todo cosechado en docs/hallazgos-comunicacion.md («La causa de fondo»).
+- **B1** la alarma de demora mide `wa_mensajes` en todas las líneas (mail + campanita con el nombre del negocio; marca
+  `mako.lineas.atrasadas`). **B2** la voz suma la ráfaga («2 o más a grupos en 30 min y no entró nada») y **dejó de reiniciar**.
+  **B3** «Conectar» (voz y negocios) desvincula y da el QR en un paso con la línea marcada sobre su vinculación actual
+  (lib/lineas-enfermas.ts). Tests: linea-sorda, lineas-atrasadas, linea-enferma-qr (roturas S1-S7, L1-L7, Q1-Q4).
+- **Después del despliegue, medir en producción (sólo lectura):** el primer mail/campanita de ws21 (tiene que sonar el primer día),
+  la marca `mako.lineas.atrasadas` con sus `vinculadaDesde`, y que no salga ninguna falsa (ws10, ws11, ws13, ws18, ws19 al día).
+
 ## ⚡ 10-11/11/2026, noche (claude4; el chat se llama «MaKo en WhatsApp» desde el 10/11): «No funciona MaKo en WhatsApp»
 
 **Worktree** `C:/dev/wt-wa-1011`, **rama** `punta/wa-sorda-1011` (desde origin/main 482ac79f7). En GitHub: 9ef17d692. La despliega el
