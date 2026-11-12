@@ -3108,19 +3108,19 @@ body { background: var(--bg); color: var(--ink); font-family: Geist, Urbanist, s
 
 /* ═══ 15.ª vuelta (12/11) ═══ */
 /* La tab ocupa todo el ancho de MaKo: sin el recuadro del medio. */
-.frn { padding: 0; }
+.frn, .frn.frn--mono { padding: 0 !important; }
 .frn .frn-board { max-width: none; margin: 0; border-radius: 0; min-height: 100%; padding: 18px 28px 96px; }
 /* La cabeza: la marca, los tres pasos (del alto de un botón) y, a la derecha, el botón del paso y los tres puntitos. */
 .frn .frn-head2 { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; min-height: 52px; margin-bottom: 18px; }
 .frn .frn-head2 .frn-marca h1 { font-size: 22px; line-height: 28px; letter-spacing: -.5px; white-space: nowrap; }
 .frn .frn-head2 .frn-head__btns { margin-left: auto; }
-.frn .frn-pasos { display: inline-flex; align-items: center; gap: 4px; padding: 4px; border-radius: 999px; background: var(--card); box-shadow: inset 0 0 0 1px var(--hair); }
-.frn .frn-paso { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 6px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 600 14.5px/1 var(--font); cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
-.frn .frn-paso:hover { color: var(--ink); background: var(--panel); }
-.frn .frn-paso[aria-current="step"] { background: var(--ink); color: var(--card); }
-.frn .frn-paso__n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; background: var(--panel); color: var(--ink); }
-.frn .frn-paso[aria-current="step"] .frn-paso__n { background: color-mix(in srgb, var(--card) 18%, transparent); color: var(--card); }
-.frn .frn-paso .frn-aviso { margin-left: 2px; }
+.frn .frn-tresp { display: inline-flex; align-items: center; gap: 4px; padding: 4px; border-radius: 999px; background: var(--card); box-shadow: inset 0 0 0 1px var(--hair); }
+.frn .frn-tresp__b { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px 0 6px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 600 14.5px/1 var(--font); cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+.frn .frn-tresp__b:hover { color: var(--ink); background: var(--panel); }
+.frn .frn-tresp__b[aria-current="step"] { background: var(--ink); color: var(--card); }
+.frn .frn-tresp__n { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; background: var(--panel); color: var(--ink); }
+.frn .frn-tresp__b[aria-current="step"] .frn-tresp__n { background: color-mix(in srgb, var(--card) 18%, transparent); color: var(--card); }
+.frn .frn-tresp__b .frn-aviso { margin-left: 2px; }
 .frn .frn-mas { position: relative; }
 .frn .frn-mas__btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--hair); background: var(--card); color: var(--ink); display: grid; place-items: center; cursor: pointer; }
 .frn .frn-mas__btn:hover, .frn .frn-mas__btn[aria-expanded="true"] { background: var(--panel); }
@@ -3166,8 +3166,8 @@ body { background: var(--bg); color: var(--ink); font-family: Geist, Urbanist, s
 @media (max-width: 900px) {
   .frn .frn-board { padding: 14px 12px 96px; }
   .frn .frn-head2 { gap: 10px; }
-  .frn .frn-pasos { order: 3; width: 100%; overflow-x: auto; }
-  .frn .frn-paso { flex: none; }
+  .frn .frn-tresp { order: 3; width: 100%; overflow-x: auto; }
+  .frn .frn-tresp__b { flex: none; }
   .mq-chatd { top: 0; width: 100%; z-index: 80; }
   .con-chat .mq-solo { padding-right: 0; }
   .mq-chatb { right: 12px; bottom: 12px; height: 48px; padding: 0 16px 0 10px; font-size: 14px; }
@@ -5462,7 +5462,7 @@ manejarDoce = function (a, b) {
 // ═════════════════════════════════════════════════════════════════════════════
 // Los pasos ya van en la cabeza: el bloque de tres tarjetas de antes no se dibuja.
 function fases() { return ''; }
-const pasosNav = (paso) => `<nav class="frn-pasos" aria-label="Los tres pasos">${[['analisis', 1, 'El análisis', porRevisar()], ['accion', 2, 'La acción', tareasPendientes()], ['piloto', 3, 'Piloto automático', okPendientes()]].map(([k, n, t, aviso]) => `<button type="button" class="frn-paso"${k === paso ? ' aria-current="step"' : ''} data-accion="fase" data-k="${k}"><span class="frn-paso__n">${n}</span><span class="frn-paso__t">${t}</span>${aviso ? `<span class="frn-aviso" aria-label="${aviso} pendientes">${aviso}</span>` : ''}</button>`).join('')}</nav>`;
+const pasosNav = (paso) => `<nav class="frn-tresp" aria-label="Los tres pasos">${[['analisis', 1, 'El análisis', porRevisar()], ['accion', 2, 'La acción', tareasPendientes()], ['piloto', 3, 'Piloto automático', okPendientes()]].map(([k, n, t, aviso]) => `<button type="button" class="frn-tresp__b"${k === paso ? ' aria-current="step"' : ''} data-accion="fase" data-k="${k}"><span class="frn-tresp__n">${n}</span><span class="frn-tresp__t">${t}</span>${aviso ? `<span class="frn-aviso" aria-label="${aviso} pendientes">${aviso}</span>` : ''}</button>`).join('')}</nav>`;
 const menuMas = (paso) => `<div class="frn-mas"><button type="button" class="frn-mas__btn" data-accion="menu-mas" aria-label="Más opciones" aria-expanded="${!!S.menuMas}">${SVG('<circle cx="5" cy="12" r="1.6" fill="currentColor"></circle><circle cx="12" cy="12" r="1.6" fill="currentColor"></circle><circle cx="19" cy="12" r="1.6" fill="currentColor"></circle>', 20)}</button>${S.menuMas ? `<div class="frn-mas__menu" role="menu"><button type="button" role="menuitem" data-accion="clases">${IC_CLASE}Clases</button>${paso === 'piloto' ? `<button type="button" role="menuitem" data-accion="configurar">${SVG('<circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"></path>', 18)}Configurar piloto</button>` : ''}</div>` : ''}</div>`;
 
 // ─── El chat con MaKo, en toda la tab ───

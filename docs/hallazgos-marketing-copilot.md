@@ -425,6 +425,16 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
 - **Los pasos tienen que tocarse.** Lo que se pide en el análisis aparece en la acción, y lo que se aprueba en el piloto aparece en «Lo que hice». Para probarlo, cada `data-accion` tiene que tener su toque (lo cuenta `aplicar-catorce.mjs`) y se tocan todos los botones de cada estado buscando errores.
 - **«Métricas» no trae la hoja: lleva a ella.** Meter las hojas sumaba 460 KB a la maqueta y una segunda manera de ver lo mismo que el Dashboard.
 
+## La decimoquinta maqueta: los pasos son navegación, no tarjetas; el chat, en toda la tab (12/11/2026)
+
+`docs/marketing-copilot/rediseno/maqueta-quince.html`.
+
+- **Los pasos se navegan, no se leen.** Como tres tarjetas grandes competían con las tarjetas de las áreas. Van en la cabeza, del alto de un botón. Lo que no es un paso («Clases», «Configurar piloto») va en los tres puntitos.
+- **El chat con MaKo está en toda la tab** y sabe en qué paso y qué tarjeta estás. Lo que se le pide hacer («Escríbeme la bio nueva») entra a la acción, igual que «Mejorar».
+- **Dos trampas al sumar la cabeza y el chat:**
+  - **Clase repetida:** `.frn-pasos` ya existía, con `flex-direction: column`, y dejó los pasos apilados. Se renombró a `.frn-tresp`. Es la tercera vez que pasa en esta maqueta: antes de nombrar, buscar en todo el cuerpo.
+  - **Lo fijo adentro de un contenedor de consultas:** `.frn` es `container-type: inline-size`, y eso hace que un `position: fixed` adentro no se pegue a la pantalla, sino al tablero. Por eso el chat se dibuja afuera, con los popups.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

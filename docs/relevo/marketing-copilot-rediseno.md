@@ -141,6 +141,13 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Hecho (12/11, decimoquinta vuelta):** `maqueta-quince.html` (Artifact claude.ai/artifact/PFrF84h2p99ppmr7orUrct). Martín:
+- los pasos 1, 2 y 3, del alto de un botón, arriba;
+- «Clases» y «Configurar piloto» en los tres puntitos;
+- la tab a todo el ancho de MaKo;
+- el chat con MaKo en toda la tab;
+- «Tus anuncios» (no «mejores»), con tarjetas más cortas.
+
 **Hecho (12/11, decimocuarta vuelta):** `maqueta-catorce.html` (Artifact claude.ai/artifact/PPjeKD5ut9e4DTXbVjF321). Los 7 puntos de abajo. Cómo se probó que funciona de punta a punta:
 - Se tocaron uno por uno todos los botones de cada paso y de cada tarjeta, y lo que abre cada popup: 463 en el análisis y 1.062 en la acción y el piloto. No hubo ningún error.
 - Cada `data-accion` escrito tiene su toque. El único sin toque es `escribir`, que es el campo de texto y se atiende al escribir; lo verifica `aplicar-catorce.mjs`.
