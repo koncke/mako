@@ -25,8 +25,11 @@
 //   · Los íconos de los tres pasos (los pasos de MaKo no traen ícono) y la flecha y la línea mono de las tarjetas oscuras
 //     (en PostNitro son links con su comando; acá no llevan a otro lado).
 //   · Debajo de las plantillas, su renglón «Personaliza cualquier plantilla…» y el botón «Explora todas las plantillas»: no
-//     hay galería pública de MaKo a la que llevar. Y sus plantillas van en una fila de seis; las de MaKo son ocho tipos, en
-//     dos filas de cuatro con el mismo tamaño y la misma sombra.
+//     hay galería pública de MaKo a la que llevar. Y sus plantillas van en una fila de seis; las tarjetas de MaKo (desde el
+//     12/11/2026, lo que hace «Carruseles que funcionan») son ocho, en dos filas de cuatro con el mismo tamaño y la misma sombra.
+//   · Su captura del editor en «Pruébalo, no es un video»: la de «Carruseles que funcionan» dentro de MaKo NO se pudo tomar el
+//     12/11/2026 (el `next dev` de la sesión no tenía AUTH_SECRET ni la base: /api/auth/dev-login contestó «falta AUTH_SECRET»),
+//     y no se arma a mano. Cuando exista, va en un marco como el del hero, con el tamaño de su captura.
 //   · El título propio de la primera fila de «01 Diseño» (en MaKo esa fila es la del título de la sección) y la grilla de
 //     íconos de redes del pie.
 // Server component sin JavaScript: las preguntas son <details>; las animaciones, CSS.
@@ -123,7 +126,8 @@ function DibujarBloque({ b, hero, icono, n, nombre }: { b: Bloque; hero: Hero | 
       );
     case 'tarjetas': {
       if (n === 0) {
-        // «Más de 100 plantillas, todas editables.»: centrada, con las miniaturas 4:5 en fila.
+        // «Más de 100 plantillas, todas editables.»: centrada, con las miniaturas 4:5 en fila. Desde el 12/11/2026 son «Los
+        // carruseles que funcionan, todos editables.»: cada tarjeta, una cosa que hace la portada de Image (../image.ts).
         return (
           <section className="d-image-sec d-image-blanca d-image-centro">
             <Cejilla texto={b.etiqueta} />

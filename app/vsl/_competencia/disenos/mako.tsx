@@ -23,6 +23,10 @@
 //   · Los muñecos de Holo (su mascota) en las tarjetas y el del cierre, y las flechas del carrusel (piden JavaScript).
 // Lo que se agregó porque la landing de MaKo lo trae y Holo no: el título de las tarjetas inclinadas, de las tarjetas de
 // «Any niche» y la bajada de «Proactive», con la tipografía de los títulos de sección de Holo.
+// 12/11/2026 (Martín: «Your Marketing Department. One Hire… eso estaría bueno copiarlo»): los textos de Holo van traducidos
+// (../mako.ts); las tarjetas inclinadas son cuatro, como las suyas, una por departamento de MaKo, con su dibujo
+// (DIBUJO_DEPARTAMENTO); la tercera tarjeta de «Any…» es «Any integration» con lo que se conecta en Integraciones, y el cierre
+// dice «Pon a trabajar hoy tu departamento de marketing.» (su «Approve your first week…» habla de contenido que MaKo no arma solo).
 // Server component, sin JavaScript: las preguntas son <details>, el carrusel es un scroll con snap, las animaciones son CSS
 // y se apagan con prefers-reduced-motion.
 // =============================================================================
@@ -124,24 +128,79 @@ function Hero({ b }: { b: B<'hero'> }) {
   );
 }
 
-/** «Ads that sell. Socials that grow…»: sus cuatro tarjetas inclinadas, con las capacidades de MaKo y sus gráficos. */
+// ── «Ads that sell. Socials that grow. SEO that ranks. Emails that convert.» (12/11/2026): sus cuatro tarjetas son los cuatro
+//    departamentos de MaKo, en el orden de ../mako.ts (anuncios, contenido, landings, mensajes). Cada una lleva el dibujo de
+//    lo suyo: el chat de Ads Writer y la conversación de un seguimiento (los gráficos de FEATURE_VISUALS de esas landings, sin
+//    cifras) y dos dibujos propios con los nombres reales de las pantallas («Encuentra tu siguiente OUTLIER» de Image, el
+//    formulario que entra al CRM de Web Generator). Ninguno lleva un número. ──────────────────────────────────────────────
+function MockCarruseles() {
+  const tonos = ['#1F2028', '#2F6FED', '#FDF1D6'];
+  return (
+    <div className="d-mako-dep" aria-hidden="true">
+      <p className="d-mako-dep-h">Encuentra tu siguiente <span>OUTLIER</span></p>
+      <div className="d-mako-dep-grilla">
+        {tonos.map((t, i) => (
+          <span key={t} className="d-mako-dep-car">
+            <span className="d-mako-dep-lam" style={{ background: t }}>
+              <i className="d-mako-dep-pill">Outlier</i>
+              <i className="d-mako-dep-l" style={{ background: i === 2 ? '#1F2028' : '#fff' }} />
+              <i className="d-mako-dep-l d-mako-dep-l2" style={{ background: i === 2 ? '#1F2028' : '#fff' }} />
+            </span>
+            <span className="d-mako-dep-editar">Editar</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MockLanding() {
+  return (
+    <div className="d-mako-dep" aria-hidden="true">
+      <div className="d-mako-dep-nav"><i /><i /><i /><span>hola-mako.site</span></div>
+      <div className="d-mako-dep-pag">
+        <i className="d-mako-dep-t" /><i className="d-mako-dep-t d-mako-dep-t2" />
+        <span className="d-mako-dep-campos"><span>Nombre</span><span>WhatsApp</span></span>
+        <span className="d-mako-dep-boton">Quiero mi llamada</span>
+      </div>
+      <span className="d-mako-dep-chip">Nuevo lead en tu CRM</span>
+    </div>
+  );
+}
+
+const DIBUJO_DEPARTAMENTO = [
+  () => <Visual spec={FEATURE_VISUALS.ads?.groups?.[3]} />,
+  () => <MockCarruseles />,
+  () => <MockLanding />,
+  () => <Visual spec={FEATURE_VISUALS.seguimiento?.groups?.[1]} />,
+];
+const ICONO_DEPARTAMENTO = [
+  ['M18 8a3 3 0 0 1 0 6', 'M10 8v11a1 1 0 0 1 -1 1h-1a1 1 0 0 1 -1 -1v-5', 'M12 8h0l4.524 -3.77a.9 .9 0 0 1 1.476 .692v12.156a.9 .9 0 0 1 -1.476 .692l-4.524 -3.77h-8a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h8'],
+  ['M12 4l-8 4l8 4l8 -4l-8 -4', 'M4 12l8 4l8 -4', 'M4 16l8 4l8 -4'],
+  ['M3 5a1 1 0 0 1 1 -1h16a1 1 0 0 1 1 1v14a1 1 0 0 1 -1 1h-16a1 1 0 0 1 -1 -1z', 'M3 9h18', 'M7 6.5h.01', 'M10 6.5h.01'],
+  I.chat,
+];
+
+/** «Ads that sell. Socials that grow…»: sus cuatro tarjetas inclinadas, con los departamentos de MaKo y su dibujo. */
 function Inclinadas({ b }: { b: B<'filas'> }) {
-  const iconos = [<Ico key="c" paths={I.chat} size={24} grosor={2} />, <Ico key="k" paths={I.check} size={24} grosor={2} />, <EstrellaMaKo key="e" size={24} color="#fff" />];
   return (
     <section className="d-mako-s d-mako-oscuro d-mako-incl">
       <div className="d-mako-w">
         <h2 className="d-mako-h2 d-mako-centro" dangerouslySetInnerHTML={html(b.titulo)} />
       </div>
       <div className="d-mako-incl-fila">
-        {b.items.map((f, i) => (
-          <article key={f.titulo} className="d-mako-incl-t">
-            <span className={`d-mako-incl-ico d-mako-incl-ico-${i % 3}`}>{iconos[i % 3]}</span>
-            <h3 className="d-mako-incl-h" dangerouslySetInnerHTML={html(f.titulo)} />
-            <p className="d-mako-incl-p" dangerouslySetInnerHTML={html(f.texto)} />
-            {f.puntos?.length ? <ul className="d-mako-incl-l">{f.puntos.map((p) => <li key={p} dangerouslySetInnerHTML={html(p)} />)}</ul> : null}
-            <div className="d-mako-incl-vis"><Visual spec={FEATURE_VISUALS[b.slug]?.groups?.[f.grafico ?? i]} /></div>
-          </article>
-        ))}
+        {b.items.map((f, i) => {
+          const Dibujo = DIBUJO_DEPARTAMENTO[i];
+          return (
+            <article key={f.titulo} className="d-mako-incl-t">
+              <span className={`d-mako-incl-ico d-mako-incl-ico-${i % 3}`}><Ico paths={ICONO_DEPARTAMENTO[i] ?? I.chat} size={24} grosor={2} /></span>
+              <h3 className="d-mako-incl-h" dangerouslySetInnerHTML={html(f.titulo)} />
+              <p className="d-mako-incl-p" dangerouslySetInnerHTML={html(f.texto)} />
+              {f.puntos?.length ? <ul className="d-mako-incl-l">{f.puntos.map((p) => <li key={p} dangerouslySetInnerHTML={html(p)} />)}</ul> : null}
+              <div className="d-mako-incl-vis">{Dibujo ? <Dibujo /> : <Visual spec={FEATURE_VISUALS[b.slug]?.groups?.[f.grafico ?? i]} />}</div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -238,12 +297,12 @@ function Caso() {
 }
 
 // «Any niche / Any language / Any integration»: la búsqueda y las píldoras de cada tarjeta, con lo que es cierto de MaKo
-// (lo que tiene tu Second Brain, los roles de tu equipo, dónde le escribes). El color de cada píldora reparte el azul y el
+// (lo que tiene tu Second Brain, los roles de tu equipo y, desde el 12/11/2026, lo que conectas en Integraciones). El color de cada píldora reparte el azul y el
 // dorado donde Holo pone sus naranjas, azules, violetas y rosas; las grises quedan grises.
 const PILDORAS: { busca: string; items: { t: string; c: 'a' | 'd' | 'o' | 'g' }[] }[] = [
   { busca: 'Tu oferta', items: [{ t: 'Tu oferta', c: 'd' }, { t: 'Tus clientes', c: 'a' }, { t: 'Tu funnel', c: 'o' }, { t: 'Tu mensaje', c: 'a' }, { t: 'Tu marca', c: 'g' }] },
   { busca: 'Closer', items: [{ t: 'Admin', c: 'g' }, { t: 'Closer', c: 'a' }, { t: 'Setter', c: 'd' }] },
-  { busca: 'Teléfono', items: [{ t: 'Computadora', c: 'g' }, { t: 'Teléfono', c: 'a' }] },
+  { busca: 'Calendly', items: [{ t: 'Meta', c: 'a' }, { t: 'Calendly', c: 'd' }, { t: 'Fathom', c: 'o' }, { t: 'Stripe', c: 'a' }, { t: 'Tu IA', c: 'g' }] },
 ];
 
 function Nicho({ b }: { b: B<'tarjetas'> }) {
@@ -510,7 +569,7 @@ export default function DisenoMako({ landing }: PropsDiseno) {
           <span className="d-mako-cursor d-mako-cursor-2" aria-hidden="true">WhatsApp</span>
           <span className="d-mako-cursor d-mako-cursor-3" aria-hidden="true">Llamadas</span>
           <span className="d-mako-cursor d-mako-cursor-4" aria-hidden="true">Second Brain</span>
-          <h2 className="d-mako-h2 d-mako-h2-claro d-mako-centro d-mako-cierre-h">¿Lo quieres andando en tu negocio?</h2>
+          <h2 className="d-mako-h2 d-mako-h2-claro d-mako-centro d-mako-cierre-h">Pon a trabajar hoy tu departamento de marketing.</h2>
           <div className="d-mako-cierre-caja">
             <p>Agenda una llamada y te mostramos MaKo con tus propios números.</p>
             <div className="d-mako-cierre-pie"><Boton chico /></div>
@@ -620,6 +679,29 @@ const CSS = `
 .d-mako-incl-t:nth-child(1) { transform: rotate(-4deg); }
 .d-mako-incl-t:nth-child(2) { transform: translateY(21px) rotate(2.5deg); }
 .d-mako-incl-t:nth-child(3) { transform: translateY(7px) rotate(-2deg); }
+.d-mako-incl-t:nth-child(4) { transform: translateY(16px) rotate(3deg); }
+/* Los dibujos propios de las tarjetas (12/11/2026): la portada de Image y el formulario de Web Generator, en chico. */
+.d-mako-dep { position: relative; padding: 12px 10px 26px; color: #1F2028; font-size: 11px; line-height: 14px; text-align: left; }
+.d-mako-dep-h { font-size: 12.5px; line-height: 16px; font-weight: 800; letter-spacing: -0.2px; text-align: center; }
+.d-mako-dep-h span { display: inline-block; padding: 1px 5px; border-radius: 5px; background: #F2B01E; transform: rotate(-2deg); }
+.d-mako-dep-grilla { margin-top: 10px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.d-mako-dep-car { display: flex; flex-direction: column; gap: 5px; }
+.d-mako-dep-lam { position: relative; aspect-ratio: 4 / 5; border-radius: 7px; padding: 6px; display: flex; flex-direction: column; gap: 4px; border: 1px solid rgba(16,24,40,.08); }
+.d-mako-dep-pill { align-self: flex-start; font-style: normal; font-size: 8px; line-height: 10px; font-weight: 800; padding: 2px 4px; border-radius: 4px; background: #F2B01E; color: #1F2028; margin-bottom: 6px; }
+.d-mako-dep-l { display: block; height: 5px; width: 80%; border-radius: 3px; opacity: .9; }
+.d-mako-dep-l2 { width: 55%; }
+.d-mako-dep-editar { display: block; text-align: center; font-size: 9.5px; line-height: 18px; font-weight: 700; border-radius: 6px; background: #1F2028; color: #fff; }
+.d-mako-dep-nav { display: flex; align-items: center; gap: 4px; padding: 6px 8px; border-radius: 8px 8px 0 0; background: #F3F6FB; border: 1px solid #E4E9F2; }
+.d-mako-dep-nav i { width: 6px; height: 6px; border-radius: 50%; background: #D0D6E2; }
+.d-mako-dep-nav span { margin-left: 6px; font-size: 9.5px; color: #6D6E76; }
+.d-mako-dep-pag { display: flex; flex-direction: column; gap: 6px; padding: 12px 10px 14px; border: 1px solid #E4E9F2; border-top: 0; border-radius: 0 0 8px 8px; }
+.d-mako-dep-t { display: block; height: 8px; width: 78%; border-radius: 4px; background: #1F2028; }
+.d-mako-dep-t2 { width: 52%; background: #A5A5AD; height: 6px; }
+.d-mako-dep-campos { margin-top: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.d-mako-dep-campos span { padding: 5px 6px; border-radius: 5px; border: 1px solid #E4E9F2; font-size: 9px; color: #8A8B93; }
+.d-mako-dep-boton { display: block; text-align: center; padding: 5px; border-radius: 5px; background: #2F6FED; color: #fff; font-size: 9.5px; font-weight: 700; }
+.d-mako-dep-chip { position: absolute; right: 10px; bottom: 8px; padding: 4px 8px; border-radius: 9999px; background: #1F2028; color: #fff; font-size: 9.5px; font-weight: 700; box-shadow: 0 6px 16px -6px rgba(0,0,0,.4); }
+.d-mako-dep-chip::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 2px; background: #F2B01E; vertical-align: middle; }
 .d-mako-incl-t:hover { transform: translateY(-6px) rotate(0deg) scale(1.02); }
 .d-mako-incl-ico { margin-top: 10px; width: 47px; height: 47px; border-radius: 13px; display: inline-flex; align-items: center; justify-content: center; color: #fff; box-shadow: inset 0 -3px 6px rgba(0,0,0,.18), inset 0 2px 4px rgba(255,255,255,.35); }
 .d-mako-incl-ico-0 { background: linear-gradient(160deg, #6E9BF7, #2F6FED); }
