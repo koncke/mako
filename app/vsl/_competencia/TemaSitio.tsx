@@ -62,7 +62,9 @@ function cad(c,a){return a!==undefined?'rgba('+c.join(', ')+', '+a+')':'rgb('+c.
 // quedan; la tinta (texto y bordes) clara pasa a oscura. En el oscuro, al revés. El color de marca (tonos medios) queda.
 function aModo(r,g,b,a,tinta){var x=hsl(r,g,b),h=x[0],s=x[1],l=x[2],cr=(Math.max(r,g,b)-Math.min(r,g,b))/255,os=actual==='oscuro';
   var cambia=tinta?(os?l<.5:l>.5):(os?l>.5:l<.5);
-  if(cr<.14){if(!cambia)return null;var nl=Math.max(.045,Math.min(.975,1-l));return cad(nl<.3?rgb(222,.22,nl):rgb(h,Math.min(s,.25),nl),a);}
+  // Un fondo neutro que cambia queda CASI blanco en el claro y casi negro en el oscuro, conservando el orden entre ellos (un gris
+  // oscuro pasaba a un gris medio sucio, 12/11/2026). La tinta se espeja entera, para que se lea.
+  if(cr<.14){if(!cambia)return null;var nl=tinta?Math.max(.045,Math.min(.975,1-l)):(os?Math.max(.045,(1-l)*.35+.04):Math.min(.985,1-l*.35));return cad(nl<.3?rgb(222,.22,nl):rgb(h,Math.min(s,.25),nl),a);}
   if(l>.82&&cambia)return cad(rgb(h,s*.55,Math.max(.12,1.06-l)),a);
   if(l<.2&&cambia)return cad(rgb(h,s*.6,Math.min(.92,.95-l)),a);
   return null;}
