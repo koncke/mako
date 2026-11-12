@@ -93,6 +93,15 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   - **Los gráficos viejos de `feature-visuals.ts` siguen trayendo sorpresas**: uno con voseo («Escalá presupuesto», el de portada
     de `/vsl/mako`, corregido), uno con rótulos en inglés (el de `/vsl/cobranza`) y varios que afirman lo que MaKo no hace (el
     98 % de entregabilidad, un DMARC que no se revisa). Antes de usar uno, se lee entero.
+- **Tercera tanda (11-12/11/2026): cada landing con el DISEÑO de su referencia** (`app/vsl/_competencia/disenos/<slug>.tsx`,
+  registrados en `DISENOS`; si una landing no tiene diseño, vuelve a la cara común de `/vsl`). Lo que hay que saber:
+  - **Una página copiada es un server component entero, sin JS**: CSS en `<style>` con clases `d-<slug>-`, acordeones con
+    `<details>`, tabs con `:checked`. El test le exige el logo, el botón de la llamada y un link a cada otra landing en el pie.
+  - **Comparar sin servidor engaña con los gráficos:** el armado estático (`renderToStaticMarkup`) los deja vacíos (cajas
+    blancas en el hero) porque se dibujan al hidratar. Antes de «arreglar» una caja vacía, se mira con `next dev`.
+  - **Las fuentes de las referencias van en `public/vsl-assets/fuentes/<familia>/`** (OFL, woff2): la política de seguridad
+    del sitio no deja cargar Google Fonts.
+  - **El tsc acotado de los 54 archivos de las landings pasó con `--heap=6000`**; con el tope por defecto (2560) muere sin heap.
 
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
