@@ -86,6 +86,11 @@ test('el audio grabado entra en el chat más angosto: el ➤ no queda afuera', (
   assert.match(leer('app/video-editor/_opencut/chat/PanelChat.tsx'), /<footer className="grid shrink-0 grid-cols-\[minmax\(0,1fr\)\] gap-2 px-3 pt-2 pb-3">/);
   const css = leer('app/admin/operaciones/centro.css');
   assert.match(css, /\.co-caja__fila \{ --caja-toque: 40px; display: flex; align-items: flex-end; gap: 4px; min-width: 0; \}/);
+  // La barra (grabando y escuchando) no empuja su ancho: en Copywriting la onda contaba barras según su ancho y crecía sola (451 px
+  // en una tarjeta de 340), y el ✓ quedaba afuera también MIENTRAS grababa.
+  const voz = leer('app/whatsapp/_shared/VoiceRecorder.tsx');
+  assert.match(voz, /const BARRA: CSSProperties = \{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0, contain: 'inline-size' \};/);
+  assert.equal((voz.match(/<div data-barra-voz="(grabando|revisando)"[^>]*style=\{BARRA\}>/g) ?? []).length, 2, 'las dos caras de la barra');
   // Y a todo el ancho: con `margin-inline: auto`, en una grilla la caja se ajustaba a lo que pedía su fila (medido: 286 de 316).
   assert.match(css, /\.co-caja \{ min-width: 0; width: 100%; \}/);
 });

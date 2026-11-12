@@ -642,6 +642,15 @@ const btnRedondo: CSSProperties = { flex: 'none', width: 38, height: 38, borderR
 const btnVerde = (apagado: boolean): CSSProperties => ({ ...btnRedondo, width: 44, height: 44, background: 'var(--good)', color: 'var(--sobre-good, #fff)', cursor: apagado ? 'default' : 'pointer', opacity: apagado ? 0.6 : 1 });
 
 /**
+ * La fila de la barra, grabando y escuchando. `contain: inline-size` (12/11/2026, Martín: «grabé un audio y se corta… no se ve el
+ * botón para enviar»): la barra mide lo que le da su caja y NUNCA empuja su ancho hacia afuera. El pie de los chats de Create es una
+ * GRILLA (Copywriting `.nt-mako-pie`, Image `.pie`, el `<footer>` del Video Editor), y un hijo de grilla no baja de lo que pide su
+ * contenido: la onda pedía su ancho en barras (y las cuenta según su ancho: crecía sola, 451 px en una tarjeta de 340) y el `range`
+ * de escuchar, 129 px. El ➤ y el ✓ quedaban afuera. docs/hallazgos-chat.md.
+ */
+const BARRA: CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0, contain: 'inline-size' };
+
+/**
  * LA BARRA DE LA SESIÓN: la de grabar y la de escuchar antes de mandar. La usan el composer de WhatsApp
  * (el editor del lienzo, /whatsapp y el hilo), los grabadores de los onboardings (el del Chatbot y el del
  * Video Generator) y la tarea de AUDIO del alumno (app/compartido/curso/[token]/TareaAlumno.tsx).
@@ -666,7 +675,7 @@ export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar au
     // Con el micrófono pendiente no hay nada que pausar ni que terminar todavía; el 🗑 sí: cancela el pedido.
     const sinMic = voz.pidiendoMic;
     return (
-      <div data-barra-voz="grabando" aria-label={sinMic ? 'Abriendo el micrófono' : voz.paused ? 'Grabación en pausa' : 'Grabando'} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
+      <div data-barra-voz="grabando" aria-label={sinMic ? 'Abriendo el micrófono' : voz.paused ? 'Grabación en pausa' : 'Grabando'} style={BARRA}>
         <style>{WAVE_CSS}</style>
         <button type="button" onClick={voz.descartar} disabled={cerrando} title="Eliminar grabación" aria-label="Eliminar grabación" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconoBorrar size={20} /></button>
         {sinMic ? <AbriendoMic /> : (
@@ -691,7 +700,7 @@ export function BarraGrabacion({ voz, ocupado = false, rotuloEnviar = 'Enviar au
   const propia = !!voz.revision;
   const apagado = ocupado || voz.uniendo;
   return (
-    <div data-barra-voz="revisando" style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', minWidth: 0 }}>
+    <div data-barra-voz="revisando" style={BARRA}>
       <button type="button" onClick={() => (propia ? voz.descartar() : existente?.onBorrar())} disabled={apagado} title="Borrar el audio" aria-label="Borrar el audio" style={{ ...btnRedondo, color: 'var(--bad)' }}><IconoBorrar size={20} /></button>
       {/* ▶ DONDE ESTABA EL PUNTO ROJO: el reproductor de la casa, a todo el ancho. */}
       <AudioPlay key={r.url} src={r.url} duracion={r.secs || null} velocidad={false} style={{ flex: 1, minWidth: 0, width: 'auto' }} {...(colorPlay ? { color: colorPlay } : {})} />
