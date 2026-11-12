@@ -547,7 +547,7 @@ function Portada({
 			</div>
 			{/* Un archivo que no está en este navegador: la portada sale sin él (negra, si es el video), y el video también. */}
 			{sinArchivo && (
-				<p data-portada-sin-archivo="" role="alert" className="flex items-center gap-1.5 text-[13px] text-destructive">
+				<p data-portada-sin-archivo="" role="status" className="flex items-center gap-1.5 text-[13px] text-destructive">
 					<HugeiconsIcon icon={InformationCircleIcon} className="size-4 shrink-0" />
 					<span className="min-w-0 truncate" title={sinArchivo}>
 						{sinArchivo}

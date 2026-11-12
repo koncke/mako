@@ -197,7 +197,7 @@ function ArchivosFaltantes() {
   );
 
   return (
-    <div className="m-video-editor-falta" role="alert">
+    <div className="m-video-editor-falta" role="status">
       <p className="m-video-editor-falta__t">{textoDelAviso(faltan)}</p>
       {faltan.length === 1 ? boton(faltan[0], 'Elegir el archivo', 'm-video-editor-export__boton') : (
         <ul className="m-video-editor-falta__lista">
