@@ -8,7 +8,7 @@
 //   · leída y sin nada → «no se ve desde afuera», que NO es «no tiene píxeles».
 //   · leída y con algo → las filas, y sólo las que tienen algo.
 
-import { funnelDeLasPaginas, NOMBRE_PIXEL } from '@/lib/spy-funnel';
+import { checkoutsPorPlataforma, funnelDeLasPaginas, NOMBRE_PIXEL } from '@/lib/spy-funnel';
 
 export function SuFunnel({ filas }: { filas: readonly unknown[] }) {
   const u = funnelDeLasPaginas(filas);
@@ -37,8 +37,10 @@ export function SuFunnel({ filas }: { filas: readonly unknown[] }) {
         <div className="spy-funnel-fila">
           <b>Cobra con</b>
           <div className="spy-etiquetas">
-            {u.checkouts.map((c) => (
-              <a key={c.url} className="spy-pildora-gris" href={c.url} target="_blank" rel="noreferrer noopener" title={c.url}>{c.nombre}</a>
+            {checkoutsPorPlataforma(u.checkouts).map((c) => (
+              <a key={c.nombre} className="spy-pildora-gris spy-funnel-pixel" href={c.url} target="_blank" rel="noreferrer noopener" title={c.urls.join('\n')}>
+                {c.nombre}{c.urls.length > 1 && <small>+{c.urls.length - 1}</small>}
+              </a>
             ))}
           </div>
         </div>

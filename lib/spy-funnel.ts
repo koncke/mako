@@ -332,6 +332,17 @@ function unirLecturas(todas: ReadonlyArray<LecturaFunnel | null>): Omit<LecturaF
   };
 }
 
+/**
+ * Los checkouts de a una plataforma: el primer enlace y cuántos más hay. ⚠️ SIN ESTO SE REPETÍAN: un sitio con tres
+ * productos en Hotmart y tres en Stripe se dibujaba como «Stripe Stripe Stripe Hotmart Hotmart Hotmart» (julioiero.com,
+ * en producción, 12/11/2026). Es la misma forma que los píxeles: el nombre y un «+2».
+ */
+export function checkoutsPorPlataforma(checkouts: readonly CheckoutLeido[]): Array<{ nombre: string; url: string; urls: string[] }> {
+  const por = new Map<string, string[]>();
+  for (const c of checkouts) por.set(c.nombre, [...(por.get(c.nombre) ?? []), c.url]);
+  return [...por.entries()].map(([nombre, urls]) => ({ nombre, url: urls[0], urls }));
+}
+
 /** Para MaKo y la API: una línea por cosa, y nada si no hay nada. */
 export function funnelEnPalabras(f: Funnel): string[] {
   const u = funnelUnido(f);
