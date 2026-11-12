@@ -1008,7 +1008,8 @@ test('51: «Borrar silencios» desde el chat (Leila, 27/10): el MISMO trabajo qu
   assert.deepEqual(a, { fase: 'listo', escuchando: 'vid1.mp4', silencios: [{ titulo: 'vid1.mp4', desde: 1, hasta: 1.6 }, { titulo: 'vid1.mp4', desde: 3, hasta: 4.2 }], segundos: 1.8 });
   const panel = sinComentarios(leer('app/video-editor/_opencut/chat/PanelChat.tsx'));
   assert.match(panel, /<ArmadoEnVivo/);
-  assert.match(panel, /alProgreso: \(p\) => anotarProgreso\(m\.id, p\)/);
+  // El progreso al mensaje (y cada pausa, al cursor de corte-01: tests/video-editor-cursores-siempre.test.ts).
+  assert.match(panel, /alProgreso: \(p\) => \{ anotarProgreso\(m\.id, p\);/);
   // La API de MaKo la tiene (AGENTS.md: «todo MaKo se debe poder utilizar por API»), al final del área y proponiendo.
   const def = DEFS_VIDEO.find((d) => d.id === 'borrar_silencios_video');
   assert.ok(def && def.tipo === 'accion', 'falta borrar_silencios_video en la API');

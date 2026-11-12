@@ -1,5 +1,37 @@
 # Relevo del Cerebro
 
+## 12/11/2026, ~01:30 UTC — LEER PRIMERO (cuenta claude4 al 90% semanal; mi contexto al 89%)
+
+**Despliegue:** el automático sale a las 11:05 UTC (08:05 ART). Producción hoy: 2507c11c7 (15:55 UTC). Main trae para mañana:
+crédito de Claude para lo interno (punta/ia-credito-claude), Copywriting (Replicar con cuerpo entero, chat a la izquierda,
+plantillas, velocidad), Web Generator (portada con chat + plantillas + tarjetas grandes), Image (letras sin encimar, pantalla
+dividida), Video (abre en el EDITOR, outliers en Multimedia › Outliers), WhatsApp (el «sí» a una oferta, alTuteo, detector de
+sordera, alarma de atraso en todas las líneas, QR en un paso, contexto real del grupo SuperAdmin), cobros por nombre de agencia.
+**Después del despliegue, cada chat prueba en producción con capturas a 1440 y 375 AL LADO de la referencia** (memoria
+probar-mirando-no-leyendo: Martín los encontró «probados» y rotos el 11/11).
+
+**Pendiente de MARTÍN:**
+1. **Railway:** cambiar Baileys 7.0.0-rc.9 → 7.0.0-rc14 en el servicio de Evolution (causa de las líneas sordas: memoria
+   linea-sorda-manda-no-recibe; informe scratchpad voz-causa.md). Necesita su sesión de Railway en el navegador de la app o
+   Claude en Chrome conectado. Él dijo «sí, actualizá lo que necesites… avisame si cobran más». Antes de redeplegar: ver cómo
+   guarda las sesiones (no perder las 10 líneas). ws20/21/22 (Sergio, Florencia, Patricia) y ws9 reciben con ~24 h de atraso.
+2. **Stripe de Leila:** pegar la clave sk_test_ en /integraciones del negocio de MaKo (pasos dados); después compra de prueba 4242.
+3. **Flow abierto** en su Chrome para la réplica del carrusel @jasonrewired_ (Image).
+4. **Apify:** su sí en el chat de VIDEO (no alcanza el del Cerebro) para bajar los reels.
+5. Decidir: avisar a Sergio/Florencia/Patricia del atraso; el Plan al crédito (+US$5); el cartel si fallan las dos cuentas;
+   Closing con Sonnet vence el 13/11; link de MP de Sellers (Tickets); Gemini: reemplazar las 2 claves muertas.
+
+**En curso por chat:** Planes y cobros: diseño completo de la pasarela copiando Stripe Checkout (encargo 12/11). Marketing
+CoPilot: punta/chats-copilot f38faa1db (contexto como Claude en la app). MaKo en WhatsApp: SIN CONTEXTO; quedan (2) privado
+paso 7, (3) avisoTipo, (4) prender conResumen (fusionar chats-copilot antes): docs/relevo/mako-en-whatsapp-conexiones.md
+690334d5c — hay que dárselo a otra sesión. Copywriting, Web Generator, Image y Video: punto 9-12 del plan de contexto
+(scratchpad chats-plan.md) cuando aa318ca29 esté en main, después de su QA en producción. Nube «Competencia y landings»:
+quieta desde hace 12 h; Martín pidió avatares reales en /vsl/ai-avatar (reabrirla desde la PC).
+
+**Decisiones de Martín del 11/11 (memoria):** claude-credito-en-vez-de-gemini, mako-chat-como-claude, bot 1 a 1 sólo para su
+número, Video abre en el editor, Apify sin tope, Create = chat a la izquierda + outliers con plantillas.
+
+
 ## 8/11/2026, ~21:00 UTC — EL PUENTE DE FLOW ANDA, y lo que sigue del video
 
 ✅ **`ws9 · listo · v0.77.0`.** Costó media tarde y la causa nunca fue la sesión ni las cookies: la

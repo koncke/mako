@@ -25,7 +25,7 @@ import { useTrabajoBroll } from "@/app/video-editor/_opencut/broll/estado";
 import { useTrabajoClips } from "@/app/video-editor/_opencut/clips/estado";
 import { useTrabajoSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { AGENTES, agentePorId, type AgenteId } from "../plan";
-import { PASEO_MS, SIN_OBJETIVOS, TRANSICION_CURSOR_MS, cajasDelCuadro, tareaDeAgente, type Caja, type LineaMedida, type Objetivos, type Punto, type Zona } from "../cursores";
+import { PASEO_MS, SIN_OBJETIVOS, TRANSICION_CURSOR_MS, cajasDelCuadro, esquina, tareaDeAgente, type Caja, type LineaMedida, type Objetivos, type Punto, type Zona } from "../cursores";
 import { agentesSueltos, useCursoresSueltos } from "../cursores-sueltos";
 import { useEnjambre } from "../estado";
 
@@ -80,6 +80,14 @@ function medir(): { zonas: Partial<Record<Zona, Caja>>; linea: LineaMedida | nul
 	return { zonas, linea, objetivos };
 }
 
+/** Las cajas de esos clips de la línea de tiempo (`data-ce-id` en timeline-element.tsx), los que se ven. */
+function clipsPorId(ids: readonly string[]): Caja[] {
+	return ids.flatMap((i) => {
+		const c = cajaDe(document.querySelector(`[data-ce-clip][data-ce-id="${CSS.escape(i)}"]`));
+		return c ? [c] : [];
+	});
+}
+
 const sinMovimiento = (): boolean => {
 	try {
 		return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -103,6 +111,7 @@ export function CursoresAgentes() {
 	const agentes = useEnjambre((s) => s.agentes);
 	const lineas = useEnjambre((s) => s.lineas);
 	const delChat = useCursoresSueltos((s) => s.delChat);
+	const tareasSueltas = useCursoresSueltos((s) => s.tareas);
 	const subtitulando = useTrabajoSubtitulos((s) => s.fase !== "inactivo");
 	const brolleando = useTrabajoBroll((s) => s.fase !== "inactivo" || s.cambiando !== null);
 	const recortando = useTrabajoClips((s) => s.fase !== "inactivo");
@@ -177,7 +186,17 @@ export function CursoresAgentes() {
 					return t ? [{ id: a.id, color: a.color, p: t.punto, caja: t.caja, opacidad, adelante: trabajando }] : [];
 				})
 			: sueltos.flatMap((id) => {
-					const t = tareaDeAgente({ agente: id, en: null, vuelta, ...medida });
+					// Lo que pidió la persona, y nada más (Martín, 11/11/2026: «dependiendo de lo que el usuario pidió… las acciones
+					// necesarias… a alta velocidad pero que no sean random»): los segundos donde actúa (cada pausa que se corta) uno
+					// por vuelta; si no, los clips que toca su pedido; si no, sus objetivos de siempre.
+					const tarea = tareasSueltas[id];
+					const conHora = tarea?.tiempos.length ? tarea.tiempos[vuelta % tarea.tiempos.length] : null;
+					const susClips = !conHora && tarea?.ids.length ? clipsPorId(tarea.ids) : [];
+					const t = conHora !== null
+						? tareaDeAgente({ agente: id, en: conHora, vuelta, ...medida })
+						: susClips.length
+							? { caja: susClips[vuelta % susClips.length], punto: esquina(susClips[vuelta % susClips.length]) }
+							: tareaDeAgente({ agente: id, en: null, vuelta, ...medida });
 					return t ? [{ id, color: agentePorId(id).color, p: t.punto, caja: t.caja, opacidad: 1, adelante: true }] : [];
 				});
 		ultimos.current = dibujo;
