@@ -2914,3 +2914,16 @@ tocar el negocio, mirar de quién es la sesión (`/@me/settings/`): el nombre de
 **Hecho:** negocio MaKo `biz_XlyztIABgWi0S4` en la cuenta de Whop de Leandro, con la descripción corta (397 caracteres). El texto,
 en docs/relevo/planes-y-cobros.md. **Sin hacer:** la verificación de identidad (la hace Leandro) y el producto con los precios
 (cuando se arme el cobro por Whop, con el texto largo y la lista interna de lo que va afuera, en el mismo relevo).
+
+## La agencia por su nombre y `buscar_negocio` (11/11/2026, sobre el mes que viene de WhatsApp)
+
+Lo del mes que viene y el bloque de la plataforma está en [hallazgos-comunicacion.md](hallazgos-comunicacion.md) (c88df3ff6). Lo de
+acá es lo que faltaba para «¿cuánto paga Código Inmobiliario…?»: `ver_mensualidades_agencias` pedía la agencia por **número**.
+
+**La regla:**
+- Una lectura que la persona pide por nombre acepta el NOMBRE (`agencia`, con `buscarNegocio`, sin tildes); el número queda para
+  encadenar. Se busca **sólo entre las agencias**: entre todos los negocios, «Código» también puede ser un cliente con ese nombre y
+  devolver la mensualidad de quien no es agencia. Con más de una, se pregunta cuál; nunca se elige la primera.
+- `buscar_negocio` (área cs, sólo la plataforma, sin HTTP) lee la cartera **estricto**. El lector del bloque del grupo
+  (`leerLaPlataforma`, lib/doer-plataforma.ts) tolera que falle, y para el bloque está bien: sin cartera el turno sigue. Para la
+  herramienta no: una cartera que no se leyó diría «sin agencia» de un cliente que sí la tiene, y el modelo lo repite como dato.

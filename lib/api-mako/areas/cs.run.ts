@@ -34,7 +34,7 @@ import { cartera, type ClienteCartera, type EstadoCliente } from '@/lib/cs-carte
 import { darDeBajaClienteDeAgencia } from '@/lib/agencia-baja';
 import { planCuentaDe, type PlanCuenta } from '@/lib/agencia-cobro-reglas';
 import { claveNivel, conTrabajo, type ClaveNivel } from '@/lib/cs-senal';
-import { getWorkspace, getTenantDb } from '@/lib/workspace';
+import { getWorkspace, getTenantDb, wsSuperAdmin } from '@/lib/workspace';
 import { tableroDeCapa } from '@/lib/tablero-de-capa';
 import { clientesGanados } from '@/lib/clientes-ganados';
 import { tableroDeLaCartera } from '@/app/customer-success/trabajo';
@@ -56,6 +56,8 @@ import { quienPagaDe, ROTULO_QUIEN_PAGA, TEXTO_NO_AGENCY } from '@/lib/agency-re
 import { ESTADOS_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 import { cobrosDeClientesDeAgencia } from '@/lib/agencia-cobro';
 import { mensualidadDeAgencia, mensualidadParaMako } from '@/lib/agencia-mes';
+import { negociosDelPedido, type FilaCarteraLeida, type NegocioLeido } from '@/lib/buscar-negocio-reglas';
+import { getSupabaseServer } from '@/lib/supabase';
 import { productosDelAlumno } from '@/lib/curso-datos';
 import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
 import { invitadoAlProducto, entroAlProducto, correoQueFallo } from '@/lib/curso-invitar-reglas';
@@ -773,6 +775,31 @@ export const RUNNERS: Runners = {
       if (!m.ok) return fallo(`No pude armar la mensualidad: ${m.error}`);
       if (!m.config) return json({ prendida: false, nota: 'Tu agencia no tiene la mensualidad por fuera de MaKo: tus cuentas se pagan con su link (ver_pagos_clientes_agencia).' });
       return json(mensualidadParaMako(m));
+    },
+  },
+
+  // El negocio por su nombre (lib/buscar-negocio-reglas.ts): sólo en la plataforma, y leído ESTRICTO: una cartera que no se pudo
+  // leer diría «sin agencia» de un cliente que sí la tiene.
+  buscar_negocio: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Buscar negocios es sólo de la plataforma.');
+      const pedido = str(input, 'nombre');
+      if (!pedido) return fallo('Falta el nombre o el número del negocio.');
+      const db = getSupabaseServer();
+      const [w, c] = await Promise.all([
+        db.from('workspaces').select('id, nombre, capa, estado').order('id', { ascending: true }),
+        db.from('agencia_clientes').select('agencia_ws, cliente_ws, estado'),
+      ]);
+      if (w.error || c.error) return fallo(`No pude leer los negocios: ${(w.error ?? c.error)!.message}`);
+      const negocios: NegocioLeido[] = ((w.data ?? []) as Array<{ id: number; nombre: string | null; capa: string | null; estado: string | null }>)
+        .map((x) => ({ ws: Number(x.id), nombre: x.nombre, capa: x.capa, estado: x.estado }));
+      const cartera: FilaCarteraLeida[] = ((c.data ?? []) as FilaCarteraLeida[]).map((x) => ({ agencia_ws: Number(x.agencia_ws), cliente_ws: Number(x.cliente_ws), estado: x.estado }));
+      const halladas = negociosDelPedido(pedido, negocios, cartera);
+      return json({
+        pedido,
+        negocios: halladas,
+        nota: halladas.length === 0 ? 'Ningún negocio se llama así: pide el nombre de otra forma o su número.' : halladas.length > 1 ? 'Hay más de uno: pregunta cuál.' : 'Lo que paga una agencia lo trae ver_mensualidades_agencias (con agenciaWs o agencia).',
+      });
     },
   },
 };
