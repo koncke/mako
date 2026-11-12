@@ -29,6 +29,7 @@ import { PARTES as TESTSQA_PARTES, BITACORA as TESTSQA_BITACORA } from './tests-
 import { PARTES as BYOK_PARTES, BITACORA as BYOK_BITACORA } from './credentials-vault-byok/bitacora';
 import { PARTES as VSLGEN_PARTES, BITACORA as VSLGEN_BITACORA } from './vsl-generator/bitacora';
 import { PARTES as LANDINGGEN_PARTES, BITACORA as LANDINGGEN_BITACORA } from './landing-generator/bitacora';
+import { PARTES as PUBLICSITE_PARTES, BITACORA as PUBLICSITE_BITACORA } from './public-site/bitacora';
 import { PARTES as STORIES_PARTES, BITACORA as STORIES_BITACORA } from './stories/bitacora';
 import { PARTES as THUMBS_PARTES, BITACORA as THUMBS_BITACORA } from './thumbnails/bitacora';
 import { PARTES as LEADMAG_PARTES, BITACORA as LEADMAG_BITACORA } from './lead-magnet-generator/bitacora';
@@ -97,6 +98,7 @@ const REGISTROS: Record<string, Registro> = {
   'credentials-vault-byok': { partes: BYOK_PARTES, bitacora: BYOK_BITACORA },
   'vsl-generator': { partes: VSLGEN_PARTES, bitacora: VSLGEN_BITACORA },
   'landing-generator': { partes: LANDINGGEN_PARTES, bitacora: LANDINGGEN_BITACORA },
+  'public-site': { partes: PUBLICSITE_PARTES, bitacora: PUBLICSITE_BITACORA },
   stories: { partes: STORIES_PARTES, bitacora: STORIES_BITACORA },
   thumbnails: { partes: THUMBS_PARTES, bitacora: THUMBS_BITACORA },
   'closing-script': { partes: CLOSINGSC_PARTES, bitacora: CLOSINGSC_BITACORA },
