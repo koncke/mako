@@ -25,7 +25,7 @@
 
 import type { PropsDiseno } from '.';
 import { Icon } from '../../_detalle/FeatureDetail';
-import { CALENDLY, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import type { Bloque } from '../tipos';
 import { VisualDeLanding } from '../Visuales';
 
@@ -40,7 +40,7 @@ function Tilde() {
 }
 
 function Boton({ flecha = false, clase = '' }: { flecha?: boolean; clase?: string }) {
-  return <a href={CALENDLY} className={`d-ai-avatar-btn ${clase}`}>{TEXTO_CTA}{flecha ? <Flecha /> : null}</a>;
+  return <a href={RUTA_CTA} className={`d-ai-avatar-btn ${clase}`}>{TEXTO_CTA}{flecha ? <Flecha /> : null}</a>;
 }
 
 /** La miga de pan de HeyGen (arriba del hero y arriba del pie): el último paso, en el color de marca. */
@@ -85,7 +85,7 @@ function DibujarBloque({ b, hero, icono, n }: { b: Bloque; hero: Hero | undefine
                   </ul>
                 ) : null}
               </div>
-              <a href={CALENDLY} className="d-ai-avatar-btn d-ai-avatar-btn-negro">{TEXTO_CTA}<Flecha /></a>
+              <a href={RUTA_CTA} className="d-ai-avatar-btn d-ai-avatar-btn-negro">{TEXTO_CTA}<Flecha /></a>
             </div>
             <div className="d-ai-avatar-hero-media"><div className="d-ai-avatar-video"><VisualDeLanding visual={b.visual} /></div></div>
           </div>
@@ -241,7 +241,7 @@ export default function DisenoAiAvatar({ landing }: PropsDiseno) {
           <span className="d-ai-avatar-barra-nombre">{landing.nombre}</span>
           <div className="d-ai-avatar-barra-der">
             <a href="/vsl" className="d-ai-avatar-btn d-ai-avatar-btn-gris">Funcionalidades</a>
-            <a href={CALENDLY} className="d-ai-avatar-btn">{TEXTO_CTA}<Flecha /></a>
+            <a href={RUTA_CTA} className="d-ai-avatar-btn">{TEXTO_CTA}<Flecha /></a>
           </div>
         </div>
       </header>
@@ -252,7 +252,7 @@ export default function DisenoAiAvatar({ landing }: PropsDiseno) {
         <section className="d-ai-avatar-final">
           <div className="d-ai-avatar-final-c">
             <h2 className="d-ai-avatar-final-h">¿Lo quieres andando en tu negocio?</h2>
-            <p className="d-ai-avatar-final-p">Agenda una llamada y te mostramos MaKo con tus propios números.</p>
+            <p className="d-ai-avatar-final-p">{TEXTO_CIERRE}</p>
             <Boton />
             {hero?.puntos?.length ? (
               <ul className="d-ai-avatar-final-checks">

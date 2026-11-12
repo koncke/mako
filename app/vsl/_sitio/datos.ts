@@ -109,9 +109,22 @@ const ICONO_AVATAR: Record<AvatarOrigen, readonly string[]> = {
   agencias: ['M3 9a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v9a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z', 'M8 7v-2a2 2 0 0 1 2 -2h4a2 2 0 0 1 2 2v2', 'M12 12l0 .01', 'M3 13a20 20 0 0 0 18 0'],
 };
 
-export const INDUSTRIAS: readonly ItemIndustria[] = AVATARES.map((a) => ({
-  avatar: a, nombre: NOMBRE_AVATAR[a], bajada: BAJADA_AVATAR[a], href: `/vsl/mako-${a}`, icono: ICONO_AVATAR[a],
-}));
+/**
+ * La landing PUBLICADA de cada avatar (documentos de Web Generator de la tanda del 23/10, medido en producción el 12/11/2026:
+ * /vsl/coaches, /vsl/infoproductores y /vsl/inmobiliarias dan 200). Antes el menú iba a /vsl/mako-<avatar>, que arma
+ * scripts/landings-mako-v2-funnels.mts pero nunca se subieron: los cuatro links daban 404. Agencias no tiene página publicada
+ * y queda fuera del menú hasta que la tenga (Martín, 12/11: «revisa todo lo que falta porque tal vez hay botones que no andan»).
+ */
+const LANDING_DEL_AVATAR: Partial<Record<AvatarOrigen, string>> = {
+  coaches: '/vsl/coaches',
+  infoproductores: '/vsl/infoproductores',
+  inmobiliarias: '/vsl/inmobiliarias',
+};
+
+export const INDUSTRIAS: readonly ItemIndustria[] = AVATARES.flatMap((a) => {
+  const href = LANDING_DEL_AVATAR[a];
+  return href ? [{ avatar: a, nombre: NOMBRE_AVATAR[a], bajada: BAJADA_AVATAR[a], href, icono: ICONO_AVATAR[a] }] : [];
+});
 
 /**
  * La tarjeta de «Featured stories»: el caso de Mauricio, el único que hay. Lleva a su lugar en la portada. La foto es la que ya

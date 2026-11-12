@@ -19,7 +19,7 @@
 
 import type { PropsDiseno } from '.';
 import type { Bloque, Item } from '../tipos';
-import { CALENDLY, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
@@ -42,7 +42,7 @@ function Flecha() {
 
 /** Su botón oscuro (#011D38, 16px 40px, radio 10) con el brillo que cruza al pasar el mouse. */
 function BotonOscuro({ claro = false }: { claro?: boolean }) {
-  return <a href={CALENDLY} className={`d-crm-btn ${claro ? 'd-crm-btn-claro' : 'd-crm-btn-oscuro'}`}>{TEXTO_CTA}</a>;
+  return <a href={RUTA_CTA} className={`d-crm-btn ${claro ? 'd-crm-btn-claro' : 'd-crm-btn-oscuro'}`}>{TEXTO_CTA}</a>;
 }
 
 function Hero({ b }: { b: Extract<Bloque, { tipo: 'hero' }> }) {
@@ -52,7 +52,7 @@ function Hero({ b }: { b: Extract<Bloque, { tipo: 'hero' }> }) {
         <p className="d-crm-pill"><span className="d-crm-pill-ic"><EstrellaMaKo size={16} /></span>{b.etiqueta}</p>
         <h1 className="d-crm-h1" dangerouslySetInnerHTML={html(b.titulo)} />
         <p className="d-crm-hero-p" dangerouslySetInnerHTML={html(b.bajada)} />
-        <a href={CALENDLY} className="d-crm-btn-hero">{TEXTO_CTA}<span className="d-crm-btn-hero-ic"><Flecha /></span></a>
+        <a href={RUTA_CTA} className="d-crm-btn-hero">{TEXTO_CTA}<span className="d-crm-btn-hero-ic"><Flecha /></span></a>
       </div>
       <div className="d-crm-hero-media"><VisualDeLanding visual={b.visual} /></div>
     </div>
@@ -234,7 +234,7 @@ function Pie({ slug }: { slug: string }) {
         ))}
         <div className="d-crm-pie-col">
           <p className="d-crm-pie-h">Contacto</p>
-          <a href={CALENDLY} className="d-crm-pie-a">{TEXTO_CTA}</a>
+          <a href={RUTA_CTA} className="d-crm-pie-a">{TEXTO_CTA}</a>
         </div>
       </div>
       <div className="d-crm-pie-base">
@@ -258,7 +258,7 @@ export default function DisenoCrm({ landing }: PropsDiseno) {
             <LogoMaKo className="d-crm-logo" tamano={34} claro />
             <div className="d-crm-barra-btns">
               <a href="/login" className="d-crm-btn-login">Entrar</a>
-              <a href={CALENDLY} className="d-crm-btn-barra">{TEXTO_CTA}</a>
+              <a href={RUTA_CTA} className="d-crm-btn-barra">{TEXTO_CTA}</a>
             </div>
           </div>
         </header>

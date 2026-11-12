@@ -22,7 +22,7 @@
 
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { Visual } from '../../_detalle/Visual';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
@@ -73,7 +73,7 @@ function FlechaCorre() {
 function BotonNegro() {
   return (
     <div className={c('cta-fila')}>
-      <a href={CALENDLY} className={c('btn-negro')}>{TEXTO_CTA}<span className={c('btn-negro-fl')}><Icono d={FLECHA} size={16} /></span></a>
+      <a href={RUTA_CTA} className={c('btn-negro')}>{TEXTO_CTA}<span className={c('btn-negro-fl')}><Icono d={FLECHA} size={16} /></span></a>
     </div>
   );
 }
@@ -104,7 +104,7 @@ function Hero({ b, logos }: { b: Extract<Bloque, { tipo: 'hero' }>; logos?: Extr
             <div className={c('hero-caja')}>
               <Esquinas tono="azul" />
               <div className={c('hero-form')}>
-                <a href={CALENDLY} className={c('hero-btn')}>
+                <a href={RUTA_CTA} className={c('hero-btn')}>
                   <Rueda texto={TEXTO_CTA} />
                   <FlechaCorre />
                 </a>
@@ -393,7 +393,7 @@ function Barra({ landing }: { landing: PropsDiseno['landing'] }) {
           </nav>
           <div className={c('barra-der')}>
             <a href="/login" className={`${c('cf')} ${c('cf-rev')} ${c('nav-a')} ${c('login')}`}><Esquinas /><Rueda texto="Iniciar sesión" /></a>
-            <a href={CALENDLY} className={`${c('cf')} ${c('btn-barra')}`}>
+            <a href={RUTA_CTA} className={`${c('cf')} ${c('btn-barra')}`}>
               <span className={c('btn-barra-fill')} aria-hidden="true" />
               <Esquinas />
               <span className={c('btn-barra-ic')}><FlechaCorre /></span>
@@ -405,7 +405,7 @@ function Barra({ landing }: { landing: PropsDiseno['landing'] }) {
             <div className={c('menu-panel')}>
               {links.map((l) => <a key={l.href} href={l.href}>{l.t}</a>)}
               <a href="/login">Iniciar sesión</a>
-              <a href={CALENDLY} className={c('menu-cta')}>{TEXTO_CTA}</a>
+              <a href={RUTA_CTA} className={c('menu-cta')}>{TEXTO_CTA}</a>
             </div>
           </details>
         </div>

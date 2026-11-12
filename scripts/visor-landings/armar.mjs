@@ -51,7 +51,26 @@ export const PAGINAS = [
   { slug: 'funnel', nombre: 'Funnels', grupo: 'Medir y ordenar', ref: 'Hyros', url: 'https://hyros.com/' },
   { slug: 'mako', nombre: 'Ops Center', grupo: 'Medir y ordenar', ref: 'Holo', url: 'https://tryholo.ai/' },
   { slug: 'prioridades', nombre: 'Plan', grupo: 'Medir y ordenar', ref: 'Motion', url: 'https://www.usemotion.com/' },
-].map((p) => ({ que: 'el diseño y los textos', corto: `/vsl/${p.slug}`, ...p }));
+].map((p) => ({ que: 'el diseño y los textos', ruta: `/vsl/${p.slug}`, ...p }));
+
+/**
+ * Las páginas de la app a las que llevan los links de las landings (la barra, «Precios», el pie, «Industrias»). Se fotografían
+ * igual, para que el visor se navegue «tal cual como quedaría» (Martín, 12/11/2026). No tienen referencia: son de MaKo.
+ */
+export const DE_LA_APP = [
+  { slug: 'planes', nombre: 'Precios', ruta: '/planes' },
+  { slug: 'login', nombre: 'Iniciar sesión', ruta: '/login' },
+  { slug: 'coaches', nombre: 'Industrias · Coaches', ruta: '/vsl/coaches' },
+  { slug: 'infoproductores', nombre: 'Industrias · Infoproductores', ruta: '/vsl/infoproductores' },
+  { slug: 'inmobiliarias', nombre: 'Industrias · Inmobiliarias', ruta: '/vsl/inmobiliarias' },
+  { slug: 'terminos', nombre: 'Términos', ruta: '/terminos' },
+  { slug: 'privacidad', nombre: 'Privacidad', ruta: '/privacidad' },
+  { slug: 'aup', nombre: 'Uso aceptable', ruta: '/aup' },
+  { slug: 'soporte', nombre: 'Soporte', ruta: '/soporte' },
+];
+
+/** Los links que llevan a la portada: el logo (`/`) y `/vsl` (que redirige a `/`). En el visor, la portada es la nueva. */
+export const ALIAS = { '/': 'sitio', '/vsl': 'sitio' };
 
 const ANCHOS = [{ sufijo: '', ancho: 1440, alto: 900 }, { sufijo: '-tel', ancho: 390, alto: 844 }];
 const ORIGEN = new URL(base).origin;
@@ -73,7 +92,7 @@ function fotoDelDom() {
   });
   const doc = document.documentElement.cloneNode(true);
   [...doc.querySelectorAll('style')].forEach((s, i) => { if (estilos[i]) s.textContent = estilos[i]; });
-  doc.querySelectorAll('script, noscript, link[rel="preload"], link[rel="modulepreload"], link[rel="prefetch"], link[rel="preconnect"], link[rel="dns-prefetch"], next-route-announcer, nextjs-portal').forEach((n) => n.remove());
+  doc.querySelectorAll('script:not([data-tema-sitio]), noscript, link[rel="preload"], link[rel="modulepreload"], link[rel="prefetch"], link[rel="preconnect"], link[rel="dns-prefetch"], next-route-announcer, nextjs-portal').forEach((n) => n.remove());
   doc.querySelectorAll('link[rel="stylesheet"]').forEach((l) => l.setAttribute('href', abs(l.getAttribute('href'))));
   // next/image: la imagen original, sin el srcset del optimizador.
   doc.querySelectorAll('img').forEach((im) => {
@@ -99,10 +118,22 @@ function fotoDelDom() {
 const enSitio = (u) => u.startsWith('/') && !u.startsWith('//');
 const sinQuery = (u) => u.split('#')[0].split('?')[0];
 
+/** El visor: la plantilla con las páginas, las de la app y los alias. `armar.mjs <salida> <base> indice` escribe sólo esto. */
+function escribirIndice() {
+  const plantilla = readFileSync(join(AQUI, 'visor.html'), 'utf8');
+  const nuevas = (process.env.VISOR_NUEVAS || '').split(',').filter(Boolean);
+  mkdirSync(salida, { recursive: true });
+  writeFileSync(join(salida, 'index.html'), plantilla
+    .replace('/*PAGINAS*/[]', JSON.stringify(PAGINAS.map((p) => ({ ...p, nueva: nuevas.includes(p.slug) }))))
+    .replace('/*DE_LA_APP*/[]', JSON.stringify(DE_LA_APP))
+    .replace('/*ALIAS*/{}', JSON.stringify(ALIAS)));
+}
+
 async function main() {
+  if (soloArg === 'indice') { escribirIndice(); return; }
   const { chromium } = await cargarPlaywright();
   const solo = soloArg ? soloArg.split(',') : null;
-  const paginas = PAGINAS.filter((p) => !solo || solo.includes(p.slug));
+  const paginas = [...PAGINAS, ...DE_LA_APP].filter((p) => !solo || solo.includes(p.slug));
   mkdirSync(join(salida, 'paginas'), { recursive: true });
   const assets = new Set();
   const nav = await chromium.launch({ headless: true, args: ['--mute-audio'] });
@@ -116,7 +147,7 @@ async function main() {
         return r.continue();
       });
       const pag = await ctx.newPage();
-      await pag.goto(`${base}/vsl/${p.slug}`, { waitUntil: 'load', timeout: 90_000 });
+      await pag.goto(`${base}${p.ruta}`, { waitUntil: 'load', timeout: 90_000 });
       await pag.waitForTimeout(1500);
       // El recorrido: hacia abajo de a una pantalla (la ventana o el contenedor que scrollea), y de vuelta arriba.
       await pag.evaluate(async () => {
@@ -176,13 +207,7 @@ async function main() {
     if (!url) { console.warn(`⚠️ ${familia}: no encontré su woff2`); continue; }
     writeFileSync(join(salida, 'assets', 'fuentes-mako', `${archivo}.woff2`), Buffer.from(await (await fetch(url)).arrayBuffer()));
   }
-  // El visor: la plantilla con la lista de páginas y la fecha.
-  const fecha = new Date().toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires' });
-  const plantilla = readFileSync(join(AQUI, 'visor.html'), 'utf8');
-  const nuevas = (process.env.VISOR_NUEVAS || '').split(',').filter(Boolean);
-  writeFileSync(join(salida, 'index.html'), plantilla
-    .replace('/*PAGINAS*/[]', JSON.stringify(PAGINAS.map((p) => ({ ...p, nueva: nuevas.includes(p.slug) }))))
-    .replaceAll('{{FECHA}}', fecha));
+  escribirIndice();
   if (!existsSync(join(salida, 'assets', 'fuentes-mako', 'urbanist.woff2'))) console.warn('⚠️ Faltan las letras de «Diseño MaKo» en assets/fuentes-mako/.');
 }
 

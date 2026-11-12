@@ -29,7 +29,7 @@
 
 import type { PropsDiseno } from '.';
 import type { Bloque, Item } from '../tipos';
-import { CALENDLY, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
@@ -59,7 +59,7 @@ const VISTAS: Record<string, string[]> = {
 
 /** Su botón azul: 48 px, 12 20, radio 8, el degradado de arriba abajo y la sombra con el filo blanco adentro. */
 function Boton({ ancho = false }: { ancho?: boolean }) {
-  return <a href={CALENDLY} className={`d-prioridades-btn${ancho ? ' d-prioridades-btn-ancho' : ''}`}>{TEXTO_CTA}</a>;
+  return <a href={RUTA_CTA} className={`d-prioridades-btn${ancho ? ' d-prioridades-btn-ancho' : ''}`}>{TEXTO_CTA}</a>;
 }
 
 function Hero({ b }: { b: B<'hero'> }) {
@@ -344,7 +344,7 @@ export default function DisenoPrioridades({ landing }: PropsDiseno) {
           <div className="d-prioridades-w">
             <h2 className="d-prioridades-cierre-h">¿Lo quieres andando en tu negocio?</h2>
             <div className="d-prioridades-cta-c"><Boton /></div>
-            <p className="d-prioridades-nota d-prioridades-nota-c">Agenda una llamada y te mostramos MaKo con tus propios números.</p>
+            <p className="d-prioridades-nota d-prioridades-nota-c">{TEXTO_CIERRE}</p>
           </div>
         </section>
       </main>

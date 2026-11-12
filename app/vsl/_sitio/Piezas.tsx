@@ -5,10 +5,10 @@
 // el mouse. Su índigo es el azul de MaKo y sus rosas, los dorados (docs/diseno/sitio-beehiiv.md). Server component.
 // =============================================================================
 
-import { CALENDLY, TEXTO_CTA } from '../_competencia/marca';
+import { RUTA_CTA, TEXTO_CTA } from '../_competencia/marca';
 
-/** Su botón. Sin `href`, el de la llamada (el único llamado a la acción de las landings de /vsl). */
-export function Boton({ href = CALENDLY, texto = TEXTO_CTA, clase = '', flecha = false }: { href?: string; texto?: string; clase?: string; flecha?: boolean }) {
+/** Su botón. Sin `href`, el de empezar con MaKo (el único llamado a la acción de las landings de /vsl, ../_competencia/cta.ts). */
+export function Boton({ href = RUTA_CTA, texto = TEXTO_CTA, clase = '', flecha = false }: { href?: string; texto?: string; clase?: string; flecha?: boolean }) {
   return (
     <a href={href} className={`s-btn ${clase}`.trim()}>
       <span className="s-btn-t">{texto}{flecha ? <FlechaLarga /> : null}</span>

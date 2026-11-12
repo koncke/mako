@@ -20,7 +20,7 @@
 
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { DISENOS_LANDING } from '@/lib/editor-landing/disenos-landing';
 import { FUENTES, temaPorId } from '@/lib/editor-landing/temas';
@@ -38,7 +38,7 @@ function Ico({ paths, size = 20 }: { paths?: string[]; size?: number }) {
 }
 
 function Boton() {
-  return <a href={CALENDLY} className="d-wg-cta">{TEXTO_CTA}</a>;
+  return <a href={RUTA_CTA} className="d-wg-cta">{TEXTO_CTA}</a>;
 }
 
 function Puntos() {
@@ -323,7 +323,7 @@ function Pie({ slug }: { slug: string }) {
         ))}
         <div className="d-wg-pie-col">
           <p className="d-wg-pie-h">Contacto</p>
-          <a href={CALENDLY} className="d-wg-pie-a">{TEXTO_CTA}</a>
+          <a href={RUTA_CTA} className="d-wg-pie-a">{TEXTO_CTA}</a>
         </div>
       </div>
       <div className="d-wg-pie-base">
@@ -350,7 +350,7 @@ export default function DisenoWebGenerator({ landing }: PropsDiseno) {
             <a href="#disenos">Diseños</a>
             <a href="#preguntas">Preguntas</a>
           </nav>
-          <a href={CALENDLY} className="d-wg-nav-cta">{TEXTO_CTA}</a>
+          <a href={RUTA_CTA} className="d-wg-nav-cta">{TEXTO_CTA}</a>
         </header>
       </div>
       {bloques.map((b, i) => {

@@ -29,7 +29,7 @@
 
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
@@ -55,7 +55,7 @@ function Barra() {
         <LogoMaKo className="d-dashboard-logo" tamano={32} />
         <div className="d-dashboard-barra-der">
           <a href="/vsl" className="d-dashboard-barra-link">Todas las funcionalidades</a>
-          <a href={CALENDLY} className="d-dashboard-barra-btn">{TEXTO_CTA}</a>
+          <a href={RUTA_CTA} className="d-dashboard-barra-btn">{TEXTO_CTA}</a>
         </div>
       </div>
     </header>
@@ -77,7 +77,7 @@ function HeroD({ b }: { b: Hero }) {
           {b.puntos?.length ? <p dangerouslySetInnerHTML={html(b.puntos.map((p) => `${p}.`).join(' '))} /> : null}
         </div>
         <p className="d-dashboard-pill"><EstrellaMaKo size={16} /><span>{b.etiqueta}</span></p>
-        <a href={CALENDLY} className="d-dashboard-btn d-dashboard-hero-btn">{TEXTO_CTA}</a>
+        <a href={RUTA_CTA} className="d-dashboard-btn d-dashboard-hero-btn">{TEXTO_CTA}</a>
       </div>
     </section>
   );

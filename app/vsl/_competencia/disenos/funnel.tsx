@@ -27,7 +27,7 @@
 
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
@@ -60,7 +60,7 @@ function Barra() {
         <LogoMaKo className="d-funnel-logo" tamano={26} />
         <div className="d-funnel-barra-der">
           <a href="/vsl" className="d-funnel-barra-link">Todas las funcionalidades</a>
-          <a href={CALENDLY} className="d-funnel-barra-btn">{TEXTO_CTA}</a>
+          <a href={RUTA_CTA} className="d-funnel-barra-btn">{TEXTO_CTA}</a>
         </div>
       </div>
     </header>
@@ -78,7 +78,7 @@ function HeroD({ b, nombre, pasos }: { b: Hero; nombre: string; pasos?: Pasos })
           <h1 className="d-funnel-h1" dangerouslySetInnerHTML={html(b.titulo)} />
           <p className="d-funnel-sub" dangerouslySetInnerHTML={html(b.bajada)} />
           <div className="d-funnel-btns">
-            <a href={CALENDLY} className="d-funnel-btn-osc">{TEXTO_CTA} <i aria-hidden="true">→</i></a>
+            <a href={RUTA_CTA} className="d-funnel-btn-osc">{TEXTO_CTA} <i aria-hidden="true">→</i></a>
             {pasos?.etiqueta ? <a href={`#${ANCLA_PASOS}`} className="d-funnel-btn-suave">{pasos.etiqueta} <i aria-hidden="true">↓</i></a> : null}
           </div>
         </div>

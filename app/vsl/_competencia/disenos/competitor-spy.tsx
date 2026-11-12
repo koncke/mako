@@ -46,7 +46,7 @@
 import type { ReactNode } from 'react';
 import type { PropsDiseno } from '.';
 import type { Bloque, VisualHero } from '../tipos';
-import { CALENDLY, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import { LANDINGS_COMPETENCIA } from '../registro';
 import { VisualDeLanding } from '../Visuales';
 
@@ -76,7 +76,7 @@ function Chev() {
 /** El botón de la llamada, con las tres caras de la referencia: blanco, oscuro con filete, y el de la barra. */
 function Cta({ cara = 'blanco', clase = '' }: { cara?: 'blanco' | 'oscuro' | 'barra'; clase?: string }) {
   return (
-    <a href={CALENDLY} className={`${P}-btn ${P}-btn-${cara} ${clase}`}>
+    <a href={RUTA_CTA} className={`${P}-btn ${P}-btn-${cara} ${clase}`}>
       <span className={`${P}-btn-t`}>{TEXTO_CTA}</span>
       <Chev />
     </a>
@@ -369,7 +369,7 @@ function Cierre({ visual }: { visual?: VisualHero }) {
         <div className={`${P}-cierre-in`}>
           <div className={`${P}-head ${P}-cierre-head`}>
             <h2 className={`${P}-h2`}>¿Listo para lanzar más anuncios ganadores?</h2>
-            <p className={`${P}-head-p ${P}-cierre-p`}>Agenda una llamada y te mostramos MaKo con tus propios números.</p>
+            <p className={`${P}-head-p ${P}-cierre-p`}>{TEXTO_CIERRE}</p>
           </div>
           <div className={`${P}-cierre-btns`}><Cta /></div>
         </div>
@@ -426,7 +426,7 @@ function Pie() {
               <p className={`${P}-overline ${P}-pie-h`}>MaKo</p>
               <ul>
                 <li><a href="/">Inicio</a></li>
-                <li><a href={CALENDLY}>{TEXTO_CTA}</a></li>
+                <li><a href={RUTA_CTA}>{TEXTO_CTA}</a></li>
                 <li><a href="/login">Iniciar sesión</a></li>
               </ul>
             </div>

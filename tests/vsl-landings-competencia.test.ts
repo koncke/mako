@@ -27,7 +27,7 @@ import { PLANTILLAS_AVATAR, CATEGORIAS } from '../lib/ai-avatar/plantillas';
 import { PLANTILLAS_VENTA_AVATAR } from '../lib/ai-avatar/plantillas-venta';
 import { marcasDeVoseo } from '../lib/voseo';
 import { DISENOS } from '../app/vsl/_competencia/disenos';
-import { CALENDLY } from '../app/vsl/_detalle/FeatureDetail';
+import { RUTA_CTA, TEXTO_CTA } from '../app/vsl/_competencia/cta';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -90,9 +90,9 @@ test('lo dibujado no promete lo que MaKo no hace y no habla de vos', () => {
   for (const l of LANDINGS_COMPETENCIA) {
     const html = dibujar(l);
     if (DISENOS[l.slug]) {
-      // Con su diseño copiado: de MaKo lleva el logo, el botón de la llamada y, en el pie, los links al resto de las funciones.
+      // Con su diseño copiado: de MaKo lleva el logo, el botón para empezar y, en el pie, los links al resto de las funciones.
       assert.match(html, /aria-label="MaKo — volver a la landing"/, `${l.slug}: sin el logo de MaKo`);
-      assert.ok(html.includes(`href="${CALENDLY}"`), `${l.slug}: sin el botón de la llamada`);
+      assert.ok(html.includes(`href="${RUTA_CTA}"`), `${l.slug}: sin el botón para empezar`);
       const otras = LANDINGS_COMPETENCIA.filter((x) => x.slug !== l.slug && html.includes(`href="/vsl/${x.slug}"`)).length;
       assert.ok(otras >= LANDINGS_COMPETENCIA.length - 1, `${l.slug}: el pie lleva ${otras} de las otras ${LANDINGS_COMPETENCIA.length - 1} landings`);
     } else {
@@ -136,4 +136,17 @@ test('el hero de AI Avatar muestra las imágenes reales de sus presets, no una s
   const html = dibujar(l);
   for (const e of escenas) assert.ok(html.includes(`src="${e.poster}"`), `no se dibuja ${e.poster}`);
   assert.doesNotMatch(html, /mk-c-av-sil/, 'vuelve la silueta');
+});
+
+test('ninguna landing ofrece agendar una llamada: el botón es empezar con MaKo, y todas traen el sol y la luna', () => {
+  // Martín, 12/11/2026: «elimines de todos lados lo de agendar llamada porque hoy en día vamos a hacer que el CTA de todos sea
+  // comienza tu prueba gratuita». El botón sale de app/vsl/_competencia/cta.ts y sigue al interruptor de la prueba.
+  for (const l of LANDINGS_COMPETENCIA) {
+    const t = textoVisible(dibujar(l));
+    // El llamado a la acción de MaKo, no lo que hace el producto: Web Generator y Agenda arman páginas para que TUS clientes
+    // agenden («Agenda una llamada» como objetivo de una landing), y eso es una función, no el botón de esta página.
+    assert.doesNotMatch(t, /agenda tu llamada|agenda una llamada y te mostramos|con nosotros en una llamada/i, `${l.slug}: todavía ofrece una llamada`);
+    assert.ok(t.includes(TEXTO_CTA), `${l.slug}: sin «${TEXTO_CTA}»`);
+    assert.ok(dibujar(l).includes('data-tema-sitio'), `${l.slug}: sin el botón de sol y luna`);
+  }
 });

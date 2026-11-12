@@ -26,7 +26,7 @@
 
 import type { PropsDiseno } from '.';
 import { Icon } from '../../_detalle/FeatureDetail';
-import { CALENDLY, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import type { Bloque } from '../tipos';
 import { VisualDeLanding } from '../Visuales';
 
@@ -46,7 +46,7 @@ const RASGADO = (() => {
 })();
 
 function Boton({ clase = '' }: { clase?: string }) {
-  return <a href={CALENDLY} className={`d-video-btn ${clase}`}>{TEXTO_CTA}</a>;
+  return <a href={RUTA_CTA} className={`d-video-btn ${clase}`}>{TEXTO_CTA}</a>;
 }
 
 function Onda({ pausas }: { pausas: boolean }) {
@@ -202,7 +202,7 @@ export default function DisenoVideo({ landing }: PropsDiseno) {
         <LogoMaKo className="d-video-logo" tamano={30} />
         <nav className="d-video-barra-nav" aria-label="Principal">
           <a href="/vsl" className="d-video-barra-link">Funcionalidades</a>
-          <a href={CALENDLY} className="d-video-barra-btn">{TEXTO_CTA}</a>
+          <a href={RUTA_CTA} className="d-video-barra-btn">{TEXTO_CTA}</a>
         </nav>
       </header>
 
@@ -212,7 +212,7 @@ export default function DisenoVideo({ landing }: PropsDiseno) {
         <section className="d-video-banda d-video-final" style={{ clipPath: RASGADO }}>
           <span className="d-video-lunares" aria-hidden="true" />
           <h2 className="d-video-final-h">¿Lo quieres andando en tu negocio?</h2>
-          <p className="d-video-final-p">Agenda una llamada y te mostramos MaKo con tus propios números.</p>
+          <p className="d-video-final-p">{TEXTO_CIERRE}</p>
           <Boton />
           {/* Las tarjetas inclinadas que Cherry asoma al pie de la banda: acá, el visual de Video, cortado por el borde. */}
           {hero ? <div className="d-video-final-vis" aria-hidden="true"><VisualDeLanding visual={hero.visual} /></div> : null}

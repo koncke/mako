@@ -25,7 +25,7 @@
 
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import { VisualDeLanding } from '../Visuales';
 
 const c = (n: string) => `d-agenda-${n}`;
@@ -45,7 +45,7 @@ function DemoIcono({ d }: { d: string[] }) {
 }
 
 function BotonAzul({ grande = true }: { grande?: boolean }) {
-  return <a href={CALENDLY} className={`${c('btn-az')}${grande ? '' : ` ${c('btn-az-ch')}`}`}>{TEXTO_CTA} <span aria-hidden="true">→</span></a>;
+  return <a href={RUTA_CTA} className={`${c('btn-az')}${grande ? '' : ` ${c('btn-az-ch')}`}`}>{TEXTO_CTA} <span aria-hidden="true">→</span></a>;
 }
 
 function Barra({ links }: { links: { href: string; t: string }[] }) {
@@ -58,7 +58,7 @@ function Barra({ links }: { links: { href: string; t: string }[] }) {
         </nav>
         <div className={c('barra-der')}>
           <a href="/login" className={c('login')}>Iniciar sesión</a>
-          <a href={CALENDLY} className={c('btn-barra')}>{TEXTO_CTA}</a>
+          <a href={RUTA_CTA} className={c('btn-barra')}>{TEXTO_CTA}</a>
         </div>
         <details className={c('menu')}>
           <summary aria-label="Menú"><Icono d={['M4 7h16', 'M4 12h16', 'M4 17h16']} size={22} grosor={2} /></summary>
@@ -133,7 +133,7 @@ function Oscura({ b, visual }: { b: Extract<Bloque, { tipo: 'pasos' }>; visual?:
             {b.etiqueta ? <p className={c('ceja-osc')}>{b.etiqueta}</p> : null}
             <h2 className={`${c('h2')} ${c('osc-h2')}`} dangerouslySetInnerHTML={html(b.titulo)} />
             {b.bajada ? <p className={c('osc-p')} dangerouslySetInnerHTML={html(b.bajada)} /> : null}
-            <a href={CALENDLY} className={c('btn-bl')}>{TEXTO_CTA} <span aria-hidden="true">→</span></a>
+            <a href={RUTA_CTA} className={c('btn-bl')}>{TEXTO_CTA} <span aria-hidden="true">→</span></a>
           </div>
           {visual ? (
             <div className={c('osc-demo')}>
@@ -250,8 +250,8 @@ function Cierre() {
   return (
     <section className={c('cierre')}>
       <h2 className={`${c('h2')} ${c('cierre-h2')}`}>¿Lo quieres andando <em>en tu negocio?</em></h2>
-      <p className={c('cierre-p')}>Agenda una llamada y te mostramos MaKo con tus propios números.</p>
-      <a href={CALENDLY} className={`${c('btn-bl')} ${c('btn-bl-glow')}`}>{TEXTO_CTA} <span aria-hidden="true">→</span></a>
+      <p className={c('cierre-p')}>{TEXTO_CIERRE}</p>
+      <a href={RUTA_CTA} className={`${c('btn-bl')} ${c('btn-bl-glow')}`}>{TEXTO_CTA} <span aria-hidden="true">→</span></a>
     </section>
   );
 }
@@ -265,7 +265,7 @@ function Pie({ slug, metaDesc }: { slug: string; metaDesc: string }) {
         <div className={c('pie-marca')}>
           <LogoMaKo className={c('pie-logo')} tamano={28} claro />
           <p className={c('pie-desc')}>{metaDesc}</p>
-          <a href={CALENDLY} className={c('pie-btn')}>{TEXTO_CTA} <span aria-hidden="true">→</span></a>
+          <a href={RUTA_CTA} className={c('pie-btn')}>{TEXTO_CTA} <span aria-hidden="true">→</span></a>
         </div>
         <div className={c('pie-cols')}>
           <div className={c('pie-col')}>

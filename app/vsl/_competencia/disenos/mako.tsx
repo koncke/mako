@@ -33,7 +33,7 @@
 
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
-import { CALENDLY, CASO, EstrellaMaKo, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFunciones } from '../marca';
+import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
 
@@ -54,7 +54,7 @@ function Flecha({ size = 18 }: { size?: number }) {
 
 /** Su botón «Try Holo»: la píldora de 50 px con el degradado y el brillo blanco adentro (el degradado, en azul y dorado). */
 function Boton({ chico = false }: { chico?: boolean }) {
-  return <a href={CALENDLY} className={`d-mako-btn${chico ? ' d-mako-btn-chico' : ''}`}>{TEXTO_CTA}<Flecha size={chico ? 16 : 18} /></a>;
+  return <a href={RUTA_CTA} className={`d-mako-btn${chico ? ' d-mako-btn-chico' : ''}`}>{TEXTO_CTA}<Flecha size={chico ? 16 : 18} /></a>;
 }
 
 const I = {
@@ -542,7 +542,7 @@ function Pie({ slug }: { slug: string }) {
       </div>
       <div className="d-mako-pie-abajo">
         <p>© MaKo — Todos los derechos reservados.</p>
-        <a href={CALENDLY} className="d-mako-pie-cta">{TEXTO_CTA}</a>
+        <a href={RUTA_CTA} className="d-mako-pie-cta">{TEXTO_CTA}</a>
       </div>
     </footer>
   );
@@ -560,7 +560,7 @@ export default function DisenoMako({ landing }: PropsDiseno) {
           <a href="#datos">Tus datos</a>
           <a href="#preguntas">Preguntas</a>
         </nav>
-        <a href={CALENDLY} className="d-mako-nav-cta">{TEXTO_CTA}<Flecha size={15} /></a>
+        <a href={RUTA_CTA} className="d-mako-nav-cta">{TEXTO_CTA}<Flecha size={15} /></a>
       </div>
       <main>
         {landing.bloques.map((b, i) => <Seccion key={`${b.tipo}-${i}`} b={b} i={i} bloques={landing.bloques} />)}
@@ -571,7 +571,7 @@ export default function DisenoMako({ landing }: PropsDiseno) {
           <span className="d-mako-cursor d-mako-cursor-4" aria-hidden="true">Second Brain</span>
           <h2 className="d-mako-h2 d-mako-h2-claro d-mako-centro d-mako-cierre-h">Pon a trabajar hoy tu departamento de marketing.</h2>
           <div className="d-mako-cierre-caja">
-            <p>Agenda una llamada y te mostramos MaKo con tus propios números.</p>
+            <p>{TEXTO_CIERRE}</p>
             <div className="d-mako-cierre-pie"><Boton chico /></div>
           </div>
         </section>

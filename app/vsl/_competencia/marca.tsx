@@ -6,14 +6,15 @@
 // logo y cambios sutiles, pero no inventes, copia la estructura de las páginas».
 //
 // Cada diseño copia la página de su competidor (barra, hero, secciones, pie, tipografía, espacios) y de MaKo lleva SÓLO esto:
-// el logo, el botón de la llamada, los colores de marca (azul y la estrella dorada), el caso de Mauricio como prueba y los
-// links al resto de las funciones en el pie. Sin estilos: cada diseño los dibuja con el tratamiento de su referencia.
+// el logo, el botón para empezar (`RUTA_CTA` + `TEXTO_CTA`), los colores de marca (azul y la estrella dorada), el caso de
+// Mauricio como prueba y los links al resto de las funciones en el pie. Sin estilos: cada diseño los dibuja con el tratamiento
+// de su referencia.
 // =============================================================================
 
-import { CALENDLY } from '../_detalle/FeatureDetail';
 import { LANDINGS_COMPETENCIA } from './registro';
 
-export { CALENDLY };
+// El botón para empezar y la frase del cierre viven en ./cta.ts (sin imports del registro: los .ts de cada landing los usan).
+export { RUTA_CTA, TEXTO_CTA, TEXTO_CIERRE } from './cta';
 
 /** Los colores de marca de MaKo: el azul de los botones y la estrella dorada. Lo demás (fondos, grises, tipografía) es de la referencia. */
 export const MAKO = { azul: '#2F6FED', azulOscuro: '#1F57C8', dorado: '#F2B01E', tinta: '#12151B' } as const;
@@ -40,8 +41,6 @@ export function LogoMaKo({ className, tamano = 32, claro = false }: { className?
   );
 }
 
-/** El botón de la llamada: el único llamado a la acción de las landings de /vsl. */
-export const TEXTO_CTA = 'Agenda tu llamada';
 
 /** La prueba de todas las landings: el caso de Mauricio, como DATOS (cada diseño lo dibuja con el tratamiento de testimonio de su referencia). */
 export const CASO = {
