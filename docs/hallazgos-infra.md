@@ -11978,7 +11978,22 @@ adivinar nada con el reloj.
 
 **El arreglo:** el primer intento (`a5782a860`) fue `./public/cono-tx/**` en `outputFileTracingExcludes`, y **NO ANDUVO**: Turbopack ignora esa exclusión para lo que traza él, y las funciones siguieron con la carpeta. Lo que sí resuelve (`730e1b44e`) es que `textoDeClase` no toque fs: pide `APP_BASE_URL/cono-tx/<id>.json` al CDN. Sin `readFile`, no hay nada que trazar.
 
+**Volvió el 12/11 con `/admin/docs`, y el arreglo «obvio» lo duplicó (Cerebro claude4).** El deploy de `d9b6802e8` cayó con
+`NOW_SANDBOX_WORKER_MAX_LAMBDA_SIZE`: `/admin/docs` en **253 MB**. Ahí `readdirSync(join(process.cwd(), 'docs'))` hace que el
+trazado meta TODA `docs/` en la función, y ese día `docs/` ya traía cientos de capturas de pruebas y maquetas
+(`docs/diseno/mockups-dashboard` sola son 72 MB).
+- **El diagnóstico obvio era el equivocado:** «si el nombre de la carpeta se arma al correr, el trazado no la puede seguir». Se
+  probó (`8e1c58ce7`, `['do','cs'].join('')`) y fue PEOR: con una parte de la ruta desconocida, Turbopack mete **el proyecto
+  entero** (`/admin/docs` en **511 MB**).
+- **Lo que anduvo (`a23bad24f`, READY):** el comentario `/*turbopackIgnore: true*/` sobre `process.cwd()`, dentro del `join`:
+  `join(/*turbopackIgnore: true*/ process.cwd(), 'docs', …)`. Es el arreglo que sugiere el propio aviso de Turbopack (está en
+  el binario de next-swc 16.2.6, no en la doc). Lo que sí tiene que viajar va por `outputFileTracingIncludes` (acá:
+  `./docs/**/*.md` y `./AGENTS.md`). En producción la pantalla muestra los 225 documentos.
+
 **Las reglas que quedan:**
+- **Un `fs` del servidor sobre `process.cwd()` lleva `/*turbopackIgnore: true*/`**, y lo que la función necesita de verdad
+  se nombra en `outputFileTracingIncludes`. Nunca armar el nombre de la carpeta en tiempo de ejecución para «esconderla»:
+  eso traza todo el proyecto.
 - **Desde el servidor no se lee `public/` con fs**: lo que vive en `public/` se pide al CDN. Un `readFile` con ruta armada en tiempo de ejecución mete la carpeta entera en el bundle, y **con Turbopack `outputFileTracingExcludes` no lo saca**.
 - **El primer paso ante un deploy roto es `VERCEL_ANALYZE_BUILD_OUTPUT=1`** (ya quedó puesta): dice el peso por función y por dependencia, y evita perseguir hipótesis.
 - **Si una función mínima pesa más de 100 MB, el problema es compartido**, no de la ruta que nombra el error.

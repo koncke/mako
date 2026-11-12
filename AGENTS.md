@@ -680,6 +680,10 @@ al habilitar `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`, el build empezó a terminar bie
   todo el peso y el patrón parece correcto. Es la forma en que esto se rompe sin avisar.
 - ⚠️ **Excluir del trazado no lo saca del disco** del contenedor, y el disco es lo que se llenó:
   para eso está `scripts/sacar-cuda-de-onnx.mjs`, enganchado como `prebuild`.
+- ⚠️ **Un `fs` del servidor sobre `process.cwd()` va con `join(/*turbopackIgnore: true*/ process.cwd(), …)`**, y lo
+  que la función necesita leer se nombra en `outputFileTracingIncludes`. Sin el comentario, el trazado mete la carpeta
+  entera (`/admin/docs` llegó a 253 MB con las capturas de `docs/`). Con el nombre de la carpeta armado al correr, mete
+  el PROYECTO entero (511 MB). Pasó el 12/11/2026: `docs/hallazgos-infra.md` → «Volvió el 12/11 con `/admin/docs`».
 - ⚠️ **En Windows la exclusión no hace nada, en silencio**: Next normaliza las barras de los
   `Includes` y no las de los `Excludes` (`next/dist/build/collect-build-traces.js`). Un build local
   no sirve para comprobarla; el test mide en `path.posix`.

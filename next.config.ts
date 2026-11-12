@@ -87,6 +87,9 @@ const nextConfig: NextConfig = {
       './public/cono-tx/**',
       './node_modules/@huggingface/transformers/**',
     ],
+    // /admin/docs sólo muestra los .md. Segundo seguro del `turbopackIgnore` de app/admin/docs/page.tsx: el 12/11 las capturas
+    // y maquetas de docs/ la llevaron a 253 MB y tiraron el deploy (NOW_SANDBOX_WORKER_MAX_LAMBDA_SIZE).
+    '/admin/docs': ['./docs/**/*.{png,jpg,jpeg,webp,gif,mp4,webm,mov,pdf,zip,html,json,svg}'],
   },
   // /admin/docs renderiza los .md del repo (AGENTS.md + docs/*.md) en vez de
   // tener una copia propia. Para que la función serverless los encuentre, los
