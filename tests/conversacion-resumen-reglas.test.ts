@@ -18,6 +18,7 @@ import { tokensAprox, type EntradaDelHilo } from '../lib/conversacion-reglas';
 import {
   UMBRAL_RESUMEN_TOKENS, TOPE_TRAMO_TOKENS, candadoVencido, claveDeMonto, cortarConResumen, datosQueQuedan, guardarResumen, leerResumen,
   lineaDelTramo, parseResumen, promptDelResumen, tocaResumir, tramoParaResumir, validarResumen, KEY_RESUMEN, CANDADO_RESUMEN_MS,
+  SYSTEM_RESUMEN, bloqueDelResumen,
 } from '../lib/conversacion-resumen-reglas';
 
 const T0 = Date.parse('2026-11-11T12:00:00Z');
@@ -113,6 +114,11 @@ test('5. el pedido, lo que contesta el modelo, lo guardado y el candado', () => 
   assert.equal(candadoVencido(JSON.stringify({ at: 1000 }), 1000 + CANDADO_RESUMEN_MS - 1), false);
   assert.equal(candadoVencido(JSON.stringify({ at: 1000 }), 1000 + CANDADO_RESUMEN_MS), true);
   assert.equal(candadoVencido('roto', 0), true, 'un candado ilegible traba el resumen para siempre');
+  // El archivo está fuera de la guarda de voseo (tests/puente-panel-copy.test.ts: lee lo que escribe la gente); lo que le habla al
+  // modelo, en tú, se cuida aquí.
+  const VOSEO = /\b(querés|podés|tenés|sabés|hacé|decime|mirá|fijate|contame|vos|sos|acá)\b/i;
+  assert.doesNotMatch(SYSTEM_RESUMEN, VOSEO);
+  assert.doesNotMatch(bloqueDelResumen('x'), VOSEO);
 });
 
 // ── Probado rompiéndolo (12/11/2026; cada rotura sola, restaurada después; base 5/0) ──
