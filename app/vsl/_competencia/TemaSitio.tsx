@@ -72,7 +72,11 @@ function poner(n,p,v){hechos.push([n,p,n.style.getPropertyValue(p),n.style.getPr
 function deshacer(){for(var i=hechos.length-1;i>=0;i--){var x=hechos[i];if(x[2])x[0].style.setProperty(x[1],x[2],x[3]);else x[0].style.removeProperty(x[1]);}hechos=[];}
 function invertir(){
   var todos=[].slice.call(document.querySelectorAll('body, body *'));
-  var fuera=function(n){return n.closest('[aria-label^="MaKo"], img, video, picture, canvas, iframe, .mk-tema-sitio, script, style');};
+  // Los logos no se invierten: ni las fotos ni los SVG de marca (sus <symbol>, que dibujan la «f» blanca de Facebook: invertida
+  // quedaba negra, Martín 12/11/2026).
+  // Y el recuadro de color de un logo (el negro de TikTok, el blanco de Cal.com): invertido, el logo quedaba del mismo color.
+  var esRecuadro=function(n){return n.children.length===1&&n.firstElementChild.matches('svg:has(use), img');};
+  var fuera=function(n){return esRecuadro(n)||n.closest('[aria-label^="MaKo"], img, video, picture, canvas, iframe, symbol, defs, svg:has(use), .mk-tema-sitio, script, style');};
   var BOR=['border-top-color','border-bottom-color','border-left-color','border-right-color','outline-color'],TXT=['color','fill','stroke','text-decoration-color'];
   var leidos=todos.filter(function(n){return !fuera(n);}).map(function(n){var cs=getComputedStyle(n),o={n:n,bg:cs.backgroundColor,bi:cs.backgroundImage};BOR.concat(TXT).forEach(function(p){o[p]=cs.getPropertyValue(p);});return o;});
   var fondo=new Map(),quieto=new Set();

@@ -26,12 +26,12 @@ import { Barra } from './Barra';
 import { Pie } from './Pie';
 import { Boton, Flecha, Tilde } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_COMPARACIONES, CSS_PIE } from './estilos';
-import { filasDeComparacion, gruposDeComparacion, listaDeTrabajos } from './datos';
+import { filasDeComparacion, gruposDeComparacion, nAppsQueReemplaza } from './datos';
 
 export function ComparacionesSitio() {
   const filas = filasDeComparacion();
   const grupos = gruposDeComparacion();
-  const n = filas.length;
+  const n = nAppsQueReemplaza();
   return (
     <div className="s-sitio s-claro">
       <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_PIE + CSS_COMPARACIONES }} />
@@ -42,7 +42,7 @@ export function ComparacionesSitio() {
             <div className="s-ch-logo-in"><div className="s-ch-logo-c"><EstrellaMaKo size={56} /></div></div>
           </div>
           <h1 className="s-ch-h1">MaKo reemplaza {n} apps.</h1>
-          <p className="s-ch-p">{listaDeTrabajos(filas)}, en una sola app.</p>
+          <p className="s-ch-p">Las que ya pagas para vender, hacer contenido y medir: {filas.length} trabajos, en una sola app.</p>
           <Boton flecha />
         </section>
 
@@ -73,7 +73,14 @@ export function ComparacionesSitio() {
                         <tr key={f.key} id={f.ancla} className={`s-tf${i === g.filas.length - 1 ? ' s-tf-ult' : ''}`}>
                           <td>{f.trabajo}</td>
                           <td><span className="s-tilde"><span className="s-tilde-c"><Tilde /></span>{f.funcion}</span></td>
-                          <td>{f.app}</td>
+                          <td>
+                            <span className="s-apps">
+                              {f.apps.map((a) => (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <span key={a.logo} className="s-app"><img src={a.logo} alt="" width={22} height={22} loading="lazy" />{a.nombre}</span>
+                              ))}
+                            </span>
+                          </td>
                         </tr>
                       ))}
                     </Fragment>
@@ -91,7 +98,7 @@ export function ComparacionesSitio() {
               {filas.map((f) => (
                 <a key={f.key} className="s-vs" href={f.href}>
                   <span className="s-vs-cara">
-                    <span className="s-vs-t">MaKo vs {f.app}</span>
+                    <span className="s-vs-t">MaKo vs {f.apps[0]?.nombre}{f.apps.length > 1 ? ` y ${f.apps.length - 1} más` : ''}</span>
                     {/* beehiiv lleva a su página «vs»; MaKo todavía no tiene una (afirmaría cosas de la otra app): lleva a la landing de la función. */}
                     <span className="s-vs-a">{f.href.startsWith('#') ? 'Ver en la tabla' : `Ver ${f.funcion}`} <Flecha size={20} /></span>
                   </span>

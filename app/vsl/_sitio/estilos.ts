@@ -288,6 +288,15 @@ export const CSS_PORTADA = `
 .s-tira-p{display:flex;width:max-content;animation:s-desliza 85s linear infinite}
 .s-tira-l{display:flex;align-items:center;gap:48px;padding-right:48px}
 .s-tira-i{display:flex;align-items:center;gap:10px;height:48px;font-size:24px;line-height:28px;font-weight:800;letter-spacing:-.02em;color:#fff;white-space:nowrap;opacity:.92}
+/* La de las apps que MaKo reemplaza (12/11/2026): cada logo original en su recuadro blanco, para que se vea sobre el fondo oscuro,
+   más lenta porque son muchas, y el link a la comparación debajo. */
+.s-tira-reemplaza{padding-top:8px;padding-bottom:48px}
+.s-tira-reemplaza .s-tira-p{animation-duration:170s}
+.s-tira-app img{width:34px;height:34px;flex:none;border-radius:9px;background:#fff;padding:3px;object-fit:contain}
+.s-tira-ver{margin-top:20px;text-align:center;padding:0 16px}
+.s-tira-ver a{display:inline-flex;align-items:center;gap:8px;font-size:16px;line-height:24px;font-weight:700;color:${DORADO_CLARO}}
+.s-tira-ver a:hover{text-decoration:underline}
+.s-sitio .s-tira:not(.s-tira-reemplaza){padding-top:64px}
 @keyframes s-desliza{to{transform:translateX(-50%)}}
 
 /* Las secciones: 96 arriba y abajo. La cabecera: el rótulo 14/20 de color, el título 48/48 a 8 px; a la derecha el texto 20/28 y,
@@ -477,6 +486,10 @@ export const CSS_PORTADA = `
 // Comparaciones (/vsl/comparaciones), la página clara
 // ─────────────────────────────────────────────────────────────────────────────
 export const CSS_COMPARACIONES = `
+/* Las apps de cada fila, con su logo original sobre un recuadro blanco (12/11/2026: de 8 apps a todas). */
+.s-apps{display:flex;flex-wrap:wrap;gap:8px 14px}
+.s-app{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.s-app img{width:22px;height:22px;border-radius:6px;background:#fff;box-shadow:0 0 0 1px rgba(6,4,25,.12);object-fit:contain}
 /* Su hero: el fondo lavanda con la trama de puntos, 80 + 64 de aire; el logo de 160 en su marco, el titular 64/66, el texto 24/32
    en 768 y el botón con su flecha, separados 24. */
 .s-ch{background-color:${AZUL_TINTE};background-image:radial-gradient(rgba(6,4,25,.13) 1px,transparent 1.4px);background-size:12px 12px;padding:144px 24px;text-align:center}
