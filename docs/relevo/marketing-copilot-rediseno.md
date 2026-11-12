@@ -141,6 +141,13 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Pedido de la decimosexta vuelta (Martín, 12/11, sobre `maqueta-quince.html`), en curso.** Las fuentes, en el scratchpad (`cuerpo-quince.html` + `bloque-dieciseis.js`).
+1. «Configurar piloto» afuera, como «Volver a analizar» y «Empezar algo nuevo», con la tuerca (no un sol). En los tres puntitos queda «Clases».
+2. Al pasar de un paso a otro se conserva la tarjeta elegida: si estabas en Anuncios, sigues en Anuncios.
+3. «Tus anuncios»: si hay lugar, salen todos (los 9).
+4. «Pregúntale a MaKo», como en el CRM (`app/_ui/BotonMako.tsx`): un círculo blanco con la criatura, sin texto, alineado a la izquierda. Al abrirse se superpone a lo que estás viendo; no corre la tab.
+5. Sin «Marketing CoPilot» arriba: la criatura y, al lado, los pasos.
+
 **Hecho (12/11, decimoquinta vuelta):** `maqueta-quince.html` (Artifact claude.ai/artifact/PFrF84h2p99ppmr7orUrct). Martín:
 - los pasos 1, 2 y 3, del alto de un botón, arriba;
 - «Clases» y «Configurar piloto» en los tres puntitos;
