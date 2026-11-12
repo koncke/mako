@@ -99,4 +99,20 @@ export const BITACORA: Hito[] = [
       'El número de referentes es el del código (32 en lib/asesores/catalogo.ts, con su caricatura), no «más de 100».',
     ],
   },
+  {
+    fecha: '12 nov', hora: '00:55', chat: CHAT, sesion: SESION, cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las 19 landings con lo más vistoso de MaKo y los textos de su referencia tal cual',
+    puntos: [
+      'Image abre con «Carruseles que funcionan» (outliers, buscar, filtrar, «Editar»); Copywriting dice «32 referentes del marketing, instalados en tu IA» con sus caricaturas y el «Inspirado en»; Web Generator suma «Replicar»; Ops Center copia «Tu departamento de marketing. Una sola contratación.» de Holo.',
+      'En las 19, los textos de la referencia traducidos frase por frase; fuera lo que no está medido (conversiones, 24/7, «triplica»). Cada cabecera lista el original y la traducción.',
+      '⚠️ Falta la captura real de «Carruseles que funcionan»: en la nube no hay AUTH_SECRET para entrar a la app. Los pasos, en el relevo.',
+      'La tercera versión («con el diseño de MaKo»: su letra y sus colores sobre el diseño copiado) es una vista previa en capturas; se pasa al código si Martín la elige.',
+    ],
+    commits: [
+      { sha: '23ed3633e', msg: 'Image, Copywriting, Web Generator y Ops Center con lo más vistoso de MaKo y los textos de su referencia', lineas: 616, archivos: 9 },
+      { sha: 'a4d60b930', msg: 'Las otras 15 landings con los textos de su referencia, tal cual y traducidos', lineas: 866, archivos: 18 },
+    ],
+    revisar: '/vsl/copywriting',
+  },
 ];
