@@ -4035,6 +4035,15 @@ llamado «Cerebro», en CADA turno, que su cuenta no tiene Runner, hasta que lo 
 no abran varios. Si el Runner está abierto pero no late hace más de 20 minutos, pide despertarlo en vez de abrir otro.
 `start_session` sólo anda en un turno de Martín: en uno automático, la tarjeta.
 
+**Y cuando la PC se duerme, el Runner no falta: duerme (12/11, más tarde).** De 09:33 a 09:43 UTC la PC se suspendió (la
+pidió un programa, `Kernel-Power 187`) y volvió de hibernar sin el cargador. Los procesos de todos los chats murieron, pero
+los chats quedaron. `runnerDeLaCuenta` sólo cuenta los procesos vivos, así que `al-turno` decía «NO HAY RUNNER» y mandaba a
+abrir otro con `start_session`, con lo que se pierde su historia y quedan dos. Ahora `runnerDormido` busca el chat «Runner»
+de la cuenta (no archivado, no una corrida de la guardia, con actividad en los últimos 3 días) y el aviso pide despertarlo con
+`send_message`, que también anda en un turno automático. Al volver de una suspensión, además, mueren las esperas en segundo
+plano (los vigías de cada chat y el del Cerebro). Fallan con `fork: Resource temporarily unavailable` y código 4, y hay que
+volver a armarlas.
+
 **Trampa del entorno:** la copia de `runner-salud.mjs` instalada en la PC era más VIEJA que la del repo (le faltaba lo de la
 guardia apagada del 6/11). Desde el 12/11 se instala la del repo. Antes de tocar `~/.claude/operaciones/*`, compara con
 `scripts/operaciones/` con `diff --strip-trailing-cr`: los fines de línea hacen parecer distinto todo el archivo.

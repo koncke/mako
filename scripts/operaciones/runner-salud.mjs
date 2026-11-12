@@ -232,6 +232,31 @@ export function alAbrir(origen, env = process.env, ahora = Date.now()) {
 
 /** Cuánto se le da a un Runner recién abierto antes de reclamar que no late: arma el cron y el Monitor en sus primeros minutos. */
 const RUNNER_NUEVO_MS = 20 * 60 * 1000;
+/** Un Runner que no tocó nada en este rato ya no es «el de la cuenta»: se abre uno nuevo. */
+const DORMIDO_RECIENTE_MS = 3 * 24 * 60 * 60 * 1000;
+
+/**
+ * El chat Runner de la cuenta que existe pero cuyo proceso no corre (12/11/2026). Cuando la PC se duerme o la app se
+ * reinicia, el chat queda y su proceso no: `runnerDeLaCuenta` sólo cuenta los procesos vivos, así que decía «NO HAY RUNNER»
+ * y mandaba a abrir otro con start_session, que pierde su historia y deja dos. Se despierta con send_message.
+ * Gana el de actividad más reciente; nunca una corrida de la guardia ni uno archivado.
+ */
+export function runnerDormido({ uuid, ahora = Date.now() }) {
+  if (!uuid) return null;
+  let mejor = null;
+  for (const [id, archivo] of chatsDeLaCuenta(uuid)) {
+    let st;
+    try { st = fs.statSync(archivo); } catch { continue; }
+    if (ahora - st.mtimeMs > DORMIDO_RECIENTE_MS) continue;
+    const s = leerJson(archivo, null);
+    if (!s || s.isArchived === true || s.isArchived === 'true') continue;
+    if (!esRunner(s.title) || esGuardia(s.title)) continue;
+    const t = Number(s.lastActivityAt) || st.mtimeMs;
+    if (!mejor || t > mejor.t) mejor = { id, t };
+  }
+  return mejor?.id ?? null;
+}
+
 export const esElCerebro = (nombre) => String(nombre ?? '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim() === 'cerebro';
 
 /**
@@ -253,6 +278,11 @@ export function alTurno(env = process.env, ahora = Date.now()) {
     // Abierto y sin latir: si es nuevo, todavía está armando. Si no, hay que despertarlo, no abrir otro.
     if (runner.latidoMin == null || runner.latidoMin * 60000 < RUNNER_NUEVO_MS) return '';
     return `EL RUNNER DE ${cuenta} ESTA ABIERTO PERO NO DA VUELTAS HACE ${runner.latidoMin} MIN: los tickets y lo que Martin escribe en el Centro no salen en segundos. No abras otro: escribile al Runner (send_message a ${runner.chats[0]}) que relea ~/.claude/operaciones/LEEME-cartero.md y rearme el cron y el Monitor. Si se niega a armar el cron sin Martin, en el primer turno de Martin pasale su frase textual. Regla de Martin del 12/11: el Runner siempre activo.`;
+  }
+  const dormido = runnerDormido({ uuid, ahora });
+  if (dormido) {
+    anotar(`al-turno ${cuenta}: Runner dormido ${dormido}`);
+    return `EL RUNNER DE ${cuenta} ESTA DORMIDO: su chat existe pero no corre (la PC se durmio o la app se reinicio), y los tickets y lo que Martin escribe en el Centro no salen en segundos. NO abras otro: despertalo con send_message a ${dormido}, que tambien anda en un turno automatico, pidiendole que relea ~/.claude/operaciones/LEEME-cartero.md, mida la cuota y rearme el cron y el Monitor. Si se niega a armar el cron sin Martin, pasale su frase textual del 12/11. Regla de Martin del 12/11: el Runner siempre activo.`;
   }
   anotar(`al-turno ${cuenta}: sin Runner`);
   return `NO HAY RUNNER EN ${cuenta}: los tickets de los clientes y lo que Martin escribe en el Centro no llegan en segundos. Si este turno lo escribio Martin, ANTES de contestar abri el Runner con start_session (titulo Runner, modelo claude-haiku-5-5, esfuerzo low, el encargo: leer ~/.claude/operaciones/LEEME-cartero.md, medir la cuota y armar el cron y el Monitor), separalo con detach_session y segui con lo suyo. Si el turno es automatico (otro chat, una tarea, el Centro), la app no deja abrirlo: deja la tarjeta own_initiative y abrilo con el primer mensaje de Martin. Regla de Martin del 12/11: el Runner siempre activo, sin que el lo pida.`;

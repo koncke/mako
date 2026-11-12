@@ -289,3 +289,43 @@ test('dos corridas de la guardia no levantan dos Runners', () => {
   utimesSync(f, viejo, viejo);
   assert.equal(p.correr('tomar'), 'TOMADO', 'una corrida que murió antes de armar nada no traba a la siguiente');
 });
+
+// --- al-turno (12/11/2026): el aviso del Cerebro en cada turno ---
+// Probado rompiéndolo: sin `runnerDormido` cae «dormido»; sin saltear la guardia o lo archivado cae «ni la guardia ni lo
+// archivado»; sin mirar el nombre propio cae «sólo el Cerebro».
+const tituloEnApp = (p: ReturnType<typeof pc>, n: number, title: string, extra = {}) => {
+  const id = `local_00000000-0000-4000-8000-00000000002${n}`;
+  writeFileSync(join(p.app, UUID_5, ORG, `${id}.json`), JSON.stringify({ title, lastActivityAt: Date.now() - 20 * MIN, ...extra }));
+  return id;
+};
+
+test('al-turno: un Runner dormido (la PC se durmió) se despierta con send_message, no se abre otro', () => {
+  const p = pc();
+  p.chatVivo(1, 'Cerebro');
+  const dormido = tituloEnApp(p, 1, 'Runner');
+  p.latido(13 * MIN);
+  const linea = p.correr('al-turno', { CLAUDE_PID: '1' });
+  assert.match(linea, /DORMIDO/);
+  assert.ok(linea.includes(`send_message a ${dormido}`), linea);
+  assert.doesNotMatch(linea, /start_session/);
+  assert.ok(!/["\\\n]/.test(linea), 'va adentro de un JSON armado a mano');
+});
+
+test('al-turno: ni la guardia ni lo archivado cuentan como Runner dormido', () => {
+  const p = pc();
+  p.chatVivo(1, 'Cerebro');
+  tituloEnApp(p, 1, 'Guardia > Runner');
+  tituloEnApp(p, 2, 'Runner', { isArchived: true });
+  const linea = p.correr('al-turno', { CLAUDE_PID: '1' });
+  assert.match(linea, /^NO HAY RUNNER EN claude5/);
+});
+
+test('al-turno: sólo el Cerebro recibe el aviso, y con el Runner vivo nadie', () => {
+  const p = pc();
+  p.chatVivo(1, 'Landings');
+  assert.equal(p.correr('al-turno', { CLAUDE_PID: '1' }), '');
+  p.chatVivo(2, 'Cerebro');
+  p.chatVivo(3, 'Runner');
+  p.latido(1 * MIN);
+  assert.equal(p.correr('al-turno', { CLAUDE_PID: '2' }), '');
+});
