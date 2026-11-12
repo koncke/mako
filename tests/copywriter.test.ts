@@ -170,10 +170,10 @@ test('la plantilla sin tocar queda escrita sin «Aceptar», y la caja y la nota 
   assert.doesNotMatch(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /todavía no escribes/);
   assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /no le preguntas nada antes de escribir/);
   assert.match(PROMPTS_EXPERTO_COPY.experto.tpl, /Nunca contestas con preguntas en lugar de la pieza\./);
-  // Grabando, «Terminar» quedaba cortado y, al escuchar, «Enviar audio» no se veía: la caja (hija de la GRILLA del pie) tomaba el
-  // ancho de su contenido. Lo cubre la regla común de la caja; aquí no se repite (una sola regla sobre `.co-caja`).
+  // Grabando, «Terminar» quedaba cortado y, al escuchar, «Enviar audio» no se veía: la caja tomaba el ancho de su contenido.
+  // Lo resuelve UNA regla común para todos los chats (centro.css + la barra contenida): acá no va una propia (12/11/2026).
+  assert.ok(!leer('app/copywriter/notion.css').includes('.nt-mako-pie > .co-caja {'), 'sin regla propia sobre la caja');
   assert.ok(leer('app/admin/operaciones/centro.css').includes('.co-caja { width: 100%; min-width: 0; }'));
-  assert.ok(!leer('app/copywriter/notion.css').includes('> .co-caja {'), 'sin una segunda regla sobre la caja');
   // La nota de voz del hilo, 240 px fijos en un globo de ~160: se metía bajo el avatar.
   assert.ok(leer('app/_chat/HiloMako.tsx').includes("style={{ width: 240, maxWidth: '100%' }}"));
   assert.ok(leer('app/_chat/chat.css').includes('.ch-voz [data-reproductor] input[type="range"] { min-width: 0 !important; }'));

@@ -301,63 +301,9 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-orden{margin-left:0}
 .spy-conteo{margin:0 0 12px;color:var(--faint);font-size:var(--fs-sm);font-weight:600}
 
-/* ── LA GRILLA Y LA TARJETA, que es lo que más se ve: .pgrid + .pcard de fitlo.
-      La tarjeta no tiene borde: tiene un tinte, el creativo a sangre arriba en 4/5, un
-      punto del canal arriba a la izquierda, una píldora sobre la foto y un pie con el
-      texto a la izquierda y el número a la derecha. ── */
+/* ── LA GRILLA. La tarjeta de una pieza es la de los outliers de Create (12/11/2026): sus clases viven en
+      app/image-editor/carruseles/explorar.module.css y lo propio de Spy en tarjeta-pieza.module.css (TarjetaPieza.tsx). ── */
 .spy-pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:var(--gap)}
-.spy-pcard{position:relative;display:flex;flex-direction:column;min-width:0;isolation:isolate;overflow:hidden;
-  border-radius:var(--r-xl);background:var(--surface-2);color:inherit;text-decoration:none;
-  transition:transform .2s var(--ease-out),box-shadow .2s var(--ease-out)}
-.spy-pcard[data-canal=instagram]{background:var(--t3)}
-.spy-pcard[data-canal=youtube]{background:var(--t4)}
-.spy-pcard[data-canal=anuncios]{background:var(--t2)}
-.spy-pcard:hover{transform:translateY(-2px);box-shadow:var(--sombra-pop)}
-.spy-pcard__media{position:relative;display:block;aspect-ratio:4/5;overflow:hidden}
-/* La foto va ENCIMA del texto, no en vez del texto: si no carga, se borra y abajo queda el texto. */
-.spy-pcard__foto{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%;object-fit:cover}
-/* ⚠️ EL TEXTO DE UNA PUBLICACIÓN SIN FOTO NO VA DEBAJO DE LOS CHIPS (Martín, con Leila, 4/11/2026: «el chip "Analizando…" tapa el
-   nombre» y «"Hace 2 d" tapa el texto de la pieza»). Arranca debajo de la fila del punto y de «Analizando…», y se desvanece antes
-   de las píldoras de abajo (hasta dos apiladas: 70 px). */
-.spy-pcard__texto-creativo{position:absolute;inset:0;display:block;padding:46px 18px 0;color:var(--t-ink);
-  font-size:var(--fs-sm);line-height:1.45;overflow:hidden;
-  -webkit-mask-image:linear-gradient(#000 calc(100% - 78px),transparent calc(100% - 50px));
-  mask-image:linear-gradient(#000 calc(100% - 78px),transparent calc(100% - 50px))}
-.spy-pcard__puntos{position:absolute;z-index:2;top:16px;left:14px;display:flex}
-.spy-pcard__puntos i{width:18px;height:18px;border-radius:50%;
-  box-shadow:0 0 0 2px var(--surface),inset 0 0 0 1px #0000001f}
-.spy-pcard__tag{position:absolute;z-index:1;bottom:12px;left:14px;display:inline-flex;align-items:center;gap:5px;
-  height:26px;padding:0 10px;border-radius:99px;background:var(--surface);color:var(--ink);
-  font-size:var(--fs-meta);font-weight:700;box-shadow:var(--sombra-tarjeta)}
-.spy-pcard__tag--viva{padding-left:8px;background:rgba(22,26,25,.82);color:#fff}
-.spy-pcard .spy-pcard__tag.spy-pcard__tag--analizando{top:12px;right:14px;left:auto;bottom:auto;padding-left:8px;background:rgba(22,26,25,.82);color:#fff;max-width:none;display:inline-flex;line-height:normal}
-/* Su «3,7×» (TarjetaPieza.tsx, lib/multiplo-rendimiento.ts): arriba a la derecha, como en el explorador de carruseles; lo fuerte
-   (2× o más) en el amarillo de MaKo. Con «Analizando…» puesto, baja una fila. */
-.spy-pcard__veces{position:absolute;z-index:2;top:12px;right:12px;display:inline-flex;align-items:center;height:26px;padding:0 9px;
-  border-radius:99px;background:rgba(18,21,27,.72);color:#fff;font-size:var(--fs-meta);font-weight:700;font-variant-numeric:tabular-nums;
-  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);white-space:nowrap}
-.spy-pcard__veces[data-fuerte=si]{background:var(--mako);color:#12151b}
-.spy-pcard__tag--analizando ~ .spy-pcard__veces{top:44px}
-/* Dos píldoras apiladas, como .pcard__tag + .pcard__fit de la referencia: la segunda sube. */
-.spy-pcard__tag + .spy-pcard__tag{bottom:44px;max-width:calc(100% - 28px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;line-height:26px}
-/* El nombre con TODO el ancho (11/11/2026, mirado en producción después del despliegue): con la píldora del número al lado, el
-   nombre tenía 104 px de una tarjeta de 234, y 14 de 15 videos de YouTube seguían cortados aun en dos renglones («52 Minutes of /
-   Business…»). fitlo pone la píldora al lado porque sus nombres son cortos («Merino tee»); los de YouTube no. La píldora sube a la
-   fila de su tipo, y el nombre va debajo, de lado a lado. */
-.spy-pcard__pie{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:10px;row-gap:6px;padding:12px 14px 14px 16px}
-.spy-pcard__texto{display:contents}
-.spy-pcard__texto small{grid-column:1;grid-row:1;display:block;color:var(--t-dim);font-size:var(--fs-meta);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* El nombre en DOS renglones, como «.pcard__text b» de fitlo («clamp 2», docs/diseno/referencia-spy.md). En uno solo, con la
-   píldora del número al lado, un video de YouTube quedaba «The skill you N…» (11/11/2026, mirado con capturas). */
-.spy-pcard__texto b{grid-column:1 / -1;grid-row:2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;white-space:normal;
-  overflow-wrap:anywhere;font-size:var(--fs-card);font-weight:600;line-height:1.3;letter-spacing:-.005em}
-.spy-pcard__num{grid-column:2;grid-row:1;justify-self:end;display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;height:34px;padding:0 13px;
-  border-radius:99px;background:var(--ink);color:var(--on-ink);box-shadow:0 8px 18px -10px #11111173}
-.spy-pcard__num svg{opacity:.75;flex:0 0 auto}
-.spy-pcard__num b{font-size:var(--fs-md);font-weight:700;line-height:1;letter-spacing:-.01em}
-.spy-pcard__num--ausente{height:30px;padding:0 11px;background:var(--surface-2);color:var(--faint);
-  box-shadow:inset 0 0 0 1px var(--border)}
-.spy-pcard__num--ausente b{font-size:var(--fs-sm);font-weight:600}
 
 /* --- La lista: una tarjeta por competidor, con su cara. Misma anatomia que la pieza. --- */
 .spy-crejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:var(--gap)}
@@ -607,11 +553,6 @@ button.spy-campo:hover{color:var(--dim)}
   .spy-marca span{display:none}
   .spy-cuerpo{padding:8px 14px 32px}
   .spy-pgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
-  .spy-pcard__pie{padding:10px 11px 12px 12px}
-  .spy-pcard__mg{display:none}
-  .spy-pcard__texto b{font-size:var(--fs-sm)}
-  .spy-pcard__num{padding:4px 9px}
-  .spy-pcard__num small{display:none}
   /* En columna y SIN envolver: con wrap y la base de 280 px de arriba, cada tarjeta del riel quedaba con un hueco abajo
      (medido: los seguidores, 223 px de alto para 107 de contenido). */
   .spy-riel{flex-direction:column;flex-wrap:nowrap}

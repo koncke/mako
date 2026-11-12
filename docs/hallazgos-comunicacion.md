@@ -150,10 +150,11 @@ recibir» falso, la marca se borraba y el panel perdía el QR en un paso hasta l
 mensaje de una persona con hora POSTERIOR a la marca (lib/linea-sorda.ts). Lo que llega tarde, en tanda, trae su hora vieja y no cuenta.
 Re-vinculada después de marcarla, la marca es de otro dispositivo: se limpia sin aviso. Lo fijan tests/linea-sorda.test.ts 3 y 4 (la
 noche del 12/11 con el store real; roturas D1-D5).
-**Sin hacer (lo decide Martín):** ver una voz sorda de noche pide una prueba ACTIVA, un mensaje que otra línea manda y la voz tiene que
-recibir. El único emisor posible hoy es la línea de Martín (su WhatsApp personal, que además recibe atrasada) o un número testigo nuevo
-en los grupos. Hasta entonces, una sordera que empieza después de las 20 de Argentina se ve recién a las 9. La causa de fondo (Baileys
-rc.9 en Railway) la llevan el Cerebro y Martín.
+**Decidido (el Cerebro, 12/11 09:45 UTC): NO va una prueba activa de noche.** Verla de noche pedía un mensaje que otra línea manda y la
+voz tiene que recibir; el único emisor posible era la línea de Martín (su WhatsApp personal, que además recibe atrasada) o un número
+testigo nuevo en los grupos, y mandar mensajes entre líneas arriesga un bloqueo de WhatsApp (ver «WhatsApp BANEÓ la línea de MaKo»).
+Queda así: una sordera que empieza después de las 20 de Argentina se ve recién a las 9. No volver a proponerlo sin un dato nuevo. El
+arreglo de fondo es Baileys rc14 en Railway, y lo llevan el Cerebro y Martín.
 
 ---
 
