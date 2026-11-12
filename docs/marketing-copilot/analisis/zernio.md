@@ -14,6 +14,8 @@ Duda: `source` acepta `external` (posts "sincronizados de la plataforma"), pero 
 **3. Historias de Instagram: SÍ, pero sólo desde que se conecta.**
 `GET /v1/accounts/{id}/instagram/stories` lista las activas (24 h); con `includeExpired=true` devuelve también las vencidas, pero sólo las que Zernio archivó mientras estaban vivas, es decir las publicadas DESPUÉS de conectar. Las anteriores no se recuperan. Medición por hora, lectura final a las 23 h. Métricas: vistas, alcance, respuestas, compartidos, toques adelante, toques atrás, salidas, deslizamientos, visitas al perfil, follows, reposts, interacciones totales. Meta pone 0 si son menos de 5. Una vencida no archivada puede venir `unavailable` (docs.zernio.com/instagram/list-instagram-stories.mdx y get-instagram-story-insights.mdx). MaKo no usa estas rutas hoy (búsqueda en `lib` y `app`: ninguna coincidencia).
 
+**4 bis. Destacadas (12/11): NO están en la documentación.** La página de Instagram (docs.zernio.com/platforms/instagram.mdx) sólo habla de las historias para publicar y de las automatizaciones de respuestas a historias. En el índice (`llms.txt`) no hay ninguna ruta de destacadas. `list-accounts.mdx` nombra el esquema `ListedAccount`, pero sin sus campos: no se puede saber si trae la bio. Las destacadas y la bio salen de la lectura pública del perfil, la de Competitor Spy, como en la maqueta de la octava vuelta.
+
 **4. Biografía y link de la bio: NO SE PUDO SABER.**
 Ni la doc de Instagram ni la de analytics mencionan bio; en el índice de la doc no aparece ninguna ruta de perfil. No hay uso en el código (`grep` de bio/biography en `lib/zernio*.ts`: nada). Lo más cercano: «toques a links del perfil» y «clics al sitio» en account-insights (no es la bio ni el link).
 

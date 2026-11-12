@@ -27,6 +27,7 @@ import { ENMIENDA_III_L } from '../spy-reglas';
 import { multiplosDe, rotuloMultiplo, type Multiplo } from '../multiplo-rendimiento';
 import { plano } from '../carruseles/texto';
 import { conVariedad } from '../carruseles/variedad';
+import { traidaPor } from '../traida-por';
 
 // Las listas (rubros, idiomas, períodos, órdenes) viven en ../carruseles/opciones.ts, sin dependencias: las importa la API de MaKo
 // (lib/api-mako/areas/imagen.def.ts). Acá se re-exportan.
@@ -61,16 +62,22 @@ export type Thumbnail = {
   /** Cuántas veces lo que suele hacer su canal: null sin la enmienda o sin datos (y `multiplo` dice por qué). */
   outlier: number | null;
   multiplo?: Multiplo;
+  /** La trajo ESTE negocio por su link («Traer tu outlier», mig 0414): la ve sólo él. */
+  traida?: boolean;
 };
 
 /** Las filas como se leen de la base (mig 0409). */
 export type FilaVideo = {
   id: number; video_id: string; canal_id: number; titulo: string | null; publicado_en: string | null; duracion: string | null;
   vistas: number | null; megusta: number | null; comentarios: number | null; leido_en: string; oculto?: boolean | null;
+  /** El negocio que la trajo por su link (mig 0414): la ve sólo él. Ausente o null = de la plataforma. */
+  workspace_id?: number | string | null;
 };
 export type FilaCanal = {
   id: number; canal_id: string; nombre: string; handle: string | null; foto: string | null; nicho: string | null; idioma: string | null;
   estado?: string | null;
+  /** El negocio que trajo un video de este canal (mig 0414): el cron no lo relee. */
+  workspace_id?: number | string | null;
 };
 
 const ID_VIDEO = /^[A-Za-z0-9_-]{11}$/;
@@ -80,6 +87,26 @@ export const esIdDeVideo = (v: unknown): v is string => typeof v === 'string' &&
 export const imagenDeVideo = (video: string, tamano: 'hq' | 'max' = 'hq'): string =>
   `https://i.ytimg.com/vi/${encodeURIComponent(video)}/${tamano === 'max' ? 'maxresdefault' : 'hqdefault'}.jpg`;
 export const urlDeVideo = (video: string): string => `https://www.youtube.com/watch?v=${encodeURIComponent(video)}`;
+
+/**
+ * El video de un link de YouTube («Traer tu outlier», 11/11/2026): watch?v=, youtu.be/, /shorts/, /live/, /embed/ y /v/, con o
+ * sin www, m. o music., con o sin https. `corto` dice si el link era de un Short (la miniatura de un Short no se diseña: la
+ * pantalla lo dice en vez de leerlo). null = no es el link de un video.
+ */
+export function videoDeYoutube(texto: string): { video: string; corto: boolean } | null {
+  const t = String(texto ?? '').trim();
+  const m = /(?:^|[\s(])(?:https?:\/\/)?(?:(?:www|m|music)\.)?(?:youtube\.com\/(?:watch\?(?:[^\s#]*&)?v=|(shorts|live|embed|v)\/)|youtu\.be\/)([A-Za-z0-9_-]{11})(?![A-Za-z0-9_-])/i.exec(t);
+  return m ? { video: m[2], corto: (m[1] ?? '').toLowerCase() === 'shorts' } : null;
+}
+
+/**
+ * ¿El negocio `ws` ve este video? (mig 0414) Lo de la plataforma, todos; lo que trajo un negocio por su link, SÓLO ese negocio
+ * (nunca otro, ni quien no dice qué negocio es). La regla de los carruseles es la misma (lib/carruseles/biblioteca.ts → `seMuestraA`).
+ */
+export function seVeThumbnail(v: { workspace_id?: unknown }, ws: number | null | undefined): boolean {
+  const de = traidaPor(v);
+  return de == null || (ws != null && de === ws);
+}
 
 const unoDe = <T extends string>(v: unknown, lista: readonly { value: T }[]): T | null => (lista.find((x) => x.value === v)?.value ?? null);
 
@@ -129,9 +156,10 @@ export function esCorto(duracion: string | null): boolean {
  * Las miniaturas de la biblioteca: sólo videos largos de canales activos, leídos hace menos de 30 días y no escondidos, cada uno
  * con su múltiplo (calculado sobre TODOS los de su canal, también los que no se muestran: el mismo número que diría Spy).
  */
-export function thumbnailsDe(videos: readonly FilaVideo[], canales: readonly FilaCanal[], ahora = Date.now()): Thumbnail[] {
+export function thumbnailsDe(videos: readonly FilaVideo[], canales: readonly FilaCanal[], ahora = Date.now(), ws: number | null = null): Thumbnail[] {
   const porId = new Map(canales.filter((c) => (c.estado ?? 'activo') === 'activo').map((c) => [c.id, c]));
-  const vivos = videos.filter((v) => porId.has(v.canal_id) && esIdDeVideo(v.video_id) && vigente(v.leido_en, ahora));
+  // Lo que trajo OTRO negocio no se ve, ni entra en el múltiplo de nadie (`ws`: quién mira; sin decirlo, sólo la plataforma).
+  const vivos = videos.filter((v) => porId.has(v.canal_id) && esIdDeVideo(v.video_id) && vigente(v.leido_en, ahora) && seVeThumbnail(v, ws));
   const multiplos = multiplosDe(vivos.map((v) => ({
     id: v.id, competidor_id: v.canal_id, canal: 'youtube', tipo: 'video', duracion: v.duracion, publicada_en: v.publicado_en,
     vistas: v.vistas, megusta: v.megusta, comentarios: v.comentarios, titulo: v.titulo,
@@ -148,6 +176,7 @@ export function thumbnailsDe(videos: readonly FilaVideo[], canales: readonly Fil
       vistas: v.vistas, megusta: v.megusta, comentarios: v.comentarios,
       nicho: unoDe(c.nicho, NICHOS_THUMBNAIL), idioma: unoDe(c.idioma, IDIOMAS_THUMBNAIL),
       outlier: m?.veces ?? null, multiplo: m,
+      ...(traidaPor(v) != null ? { traida: true } : {}),
     });
   }
   return out;
@@ -180,6 +209,9 @@ export const FILTROS_THUMBNAIL: FiltrosThumbnail = {
 export const PASOS_MULTIPLO_THUMBNAIL = [0, 1, 2, 3, 4, 6, 10, 25, 50] as const;
 
 export function coincideThumbnail(t: Thumbnail, q: string): boolean {
+  // El link de un video encuentra ESE video (lo que se pega para «Traer tu outlier»).
+  const link = videoDeYoutube(q);
+  if (link) return t.video === link.video;
   const s = plano(q);
   if (!s) return true;
   if (s.startsWith('@')) {

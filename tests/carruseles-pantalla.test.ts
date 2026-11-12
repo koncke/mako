@@ -57,7 +57,7 @@ test('el encabezado de Top Carousels, sin la bajada ni las pestañas que se fuer
   const { ExplorarCarruseles } = await import('@/app/image-editor/carruseles/ExplorarCarruseles');
   const html = renderToStaticMarkup(createElement(ExplorarCarruseles, { datos: datos([carrusel({})]) }));
   assert.match(html, /<h1>Encuentra tu siguiente <mark>OUTLIER<\/mark><\/h1>/);
-  assert.match(html, /placeholder="Busca carruseles, temas o @creadores"/);
+  assert.match(html, /placeholder="Busca carruseles, temas o @creadores, o pega un link de Instagram"/);
   assert.doesNotMatch(html, /De las cuentas que sigues en/, 'la bajada se fue');
   assert.doesNotMatch(html, /Tamaño de la grilla|compacta/i, 'el botón «compacta» se fue');
   assert.doesNotMatch(html, /role="tab"/, 'las pestañas («Esta semana», «Cuentas») se fueron: son filtros');
@@ -201,4 +201,25 @@ test('el teléfono también ve las flechas para pasar las láminas (sin pasar el
   // En el teléfono el link se escribe con la ruta de /m y `Link` lo saca con la de la computadora (LAS MISMAS RUTAS): el proxy
   // sirve ahí la página del teléfono.
   assert.match(html, /href="\/image-editor\?ver=crear"[^>]*>.*Crear desde cero</, 'en el teléfono también, a un toque');
+});
+
+// «Traer tu outlier», lo que dejó la prueba en producción del 11/11/2026 (docs/pruebas/image-11-11.md): con el link de un REEL la
+// pantalla ofrecía «Traer este carrusel», pagaba una lectura de Apify para terminar en «es un reel» y después del error SEGUÍA
+// ofreciendo el botón; y con cualquier link pegado ofrecía «Guardar búsqueda», que no tiene sentido para un link.
+test('un link pegado: el de un carrusel ofrece «Traer»; el de un reel lo dice sin botón; ninguno ofrece «Guardar búsqueda»', async () => {
+  const { ExplorarCarruseles } = await import('@/app/image-editor/carruseles/ExplorarCarruseles');
+  const { FILTROS_INICIALES } = await import('@/lib/carruseles/explorar');
+  const con = (q: string) => renderToStaticMarkup(createElement(ExplorarCarruseles, { datos: datos([carrusel({})]), filtrosIniciales: { ...FILTROS_INICIALES, q } }));
+  const post = con('https://www.instagram.com/p/DflDIt_nyzx/?igsh=x');
+  assert.match(post, /Ese link no está entre tus outliers\./);
+  assert.match(post, />Traer este carrusel</);
+  assert.doesNotMatch(post, /Guardar búsqueda/, 'un link no es una búsqueda para guardar');
+  const reel = con('https://www.instagram.com/reel/DfmhoO8Srf1/');
+  assert.match(reel, /Ese link es de un reel: aquí se traen carruseles y publicaciones con imagen\./);
+  assert.doesNotMatch(reel, /Traer este carrusel/, 'un reel no se ofrece traer: la lectura se paga y termina en «es un reel»');
+  assert.doesNotMatch(reel, /Guardar búsqueda/);
+  // Una búsqueda de texto sin resultados sigue ofreciendo guardarla y quitar el filtro, como siempre.
+  const texto = con('algo que no está en ningún carrusel');
+  assert.match(texto, /Guardar búsqueda/);
+  assert.doesNotMatch(texto, /Traer este carrusel/);
 });

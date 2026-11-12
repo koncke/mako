@@ -31,7 +31,7 @@
 
 import 'server-only';
 import { exigirPermisoIa } from '@/lib/ia-permiso';
-import { CLAUDE_EN_PAUSA, chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
+import { CLAUDE_EN_PAUSA, chatClaude, chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
 import { aToolDef, gatingOk, parecidasQueNoViajaron, porId, visible } from '@/lib/api-mako/registro';
@@ -98,9 +98,18 @@ import {
   iaParaConectar, IA_PARA_CONECTAR, ENV_DE_IA, falloDeSuClave, AVISO_SU_CLAVE, falloDeSuOpenAI, AVISO_SU_OPENAI, avisoSinElModelo, AVISO_CONECTA_TU_PC, AVISO_NO_LEI_SU_IA, AVISO_SIN_ARCHIVERO, AVISO_ARCHIVERO_EN_PAUSA,
   type LinkCapturado, type MensajeChat, type RespuestaTurno, type ResultadoTarjeta, type SesionChat, type TarjetaPendiente,
 } from '@/lib/mako-turno-app-reglas';
+import { conversacionDelTurno } from '@/lib/conversacion';
+import { resumirDespues, type PedirResumen } from '@/lib/conversacion-resumen';
+import { bloqueDelResumen } from '@/lib/conversacion-resumen-reglas';
+import { anterioresDeLaPersona, busquedaConLoAnterior, claveDeLaApp, entradasDeLaApp, historialDeTurnos, loQueLei, marcaLeido } from '@/lib/chat-app-hilo';
 
 /** La feature registrada del doer (lib/model-catalogo.ts → Gemini). Claude está vetado. */
 const FEATURE = 'mako-doer';
+
+/** El resumen de lo viejo de una conversación de la app, con la IA del turno: en el espacio de MaKo el crédito, en un negocio la
+ *  suya (lib/conversacion-resumen.ts). Corre fuera del turno. */
+const pedirResumenDelChat: PedirResumen = ({ system, user, motivo }) =>
+  chatClaude(system, [{ role: 'user', content: user }], { feature: FEATURE, maxTokens: 900, motivo });
 /** Cuánto texto ESCRITO de la persona entra por mensaje (lo pegado tiene el suyo, lib/chat-pegado.ts). Eran 8.000 y Martín
  *  (18/10): «tiene que dejar mensajes mucho más largos». Lo que pasa de acá se dice y queda entero en El Archivero. */
 const TOPE_MENSAJE = 20_000;
@@ -606,7 +615,15 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // dibuja) y no son los `Bloque[]` ya saneados de `MensajeChat`. Por eso el hilo viaja como `ChartMsg`.
     const hilo: readonly ChartMsg[] = previos;
     // Sólo lo de esta tab (10/11/2026, lib/chat-desde.ts → delHiloDeLaTab): la entrevista del CoPilot no es historial de Image.
-    const historial = historialParaModelo(delHiloDeLaTab(hilo, desde?.tab, (m) => ({ dePersona: m.role === 'user', desde: m.role === 'user' ? sinDesde(m.content).desde : null })), 12);
+    const origenDelMensaje = (m: { role: string; content: string }) => ({ dePersona: m.role === 'user', desde: m.role === 'user' ? sinDesde(m.content).desde : null });
+    const deLaTab = delHiloDeLaTab(previos, desde?.tab, origenDelMensaje);
+    // COMO UN CHAT CON CLAUDE (Martín, 11/11/2026; lib/chat-app-hilo.ts): hasta acá iban los últimos 12 mensajes, sólo el texto, y
+    // volver al otro día a la entrevista del CoPilot ya no tenía cómo empezó. Ahora el módulo común: cortado por tokens, sin ventana,
+    // con lo que MaKo leyó en cada respuesta y con el resumen de lo que no entra (se arma después de contestar, `resumirDespues`).
+    // Si el módulo no contesta, lo de antes.
+    const claveConv = claveDeLaApp(s.id, desde?.tab);
+    const conv = await conversacionDelTurno({ canal: 'app', ws, clave: claveConv, entradas: entradasDeLaApp(deLaTab), ventanaMs: null, conResumen: true }).catch(() => null);
+    const historial = conv ? historialDeTurnos(conv.turnos) : historialParaModelo(delHiloDeLaTab(hilo, desde?.tab, origenDelMensaje), 12);
     const vigentes = await pendientesVigentes(ws, canalKey);
     const claveAgenda = `mako.doer.agenda.${canalKey}`;
     const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());
@@ -632,6 +649,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const erroresDelTurno: ErrorDelTurno[] = [];
     /** Lo que dibujaron las herramientas del turno (`ctx.aDibujar`), y si vino de una que escribe. */
     const bloquesDelTurno: { b: Bloque; accion: boolean }[] = [];
+    /** Lo que devolvieron las herramientas sin error: «lo que leí», que se guarda con la respuesta (lib/chat-app-hilo.ts). */
+    const salidasDelTurno: { herramienta: string; salida: unknown }[] = [];
     let herramientaActual = '';
     // Una sola vez cada uno: un turno que se re-arranca (la cascada rota de cuenta) vuelve a correr las lecturas. Dice si
     // quedó en pantalla (el repetido ya está): con el tope lleno, `false`, y la lectura no le dice al modelo «ya lo ve». Una
@@ -681,7 +700,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // El system se arma DESPUÉS de las tools: depende de ellas. Lo que el Second Brain sabe de la pregunta lo trae el servidor ANTES
     // del modelo y sin IA (lib/cerebro-para-chat.ts, 28/10/2026), en paralelo y con la plata según el rol: no depende de que el
     // modelo pida una herramienta. `paqueteParaElTurno` nunca tira.
-    const segundoCerebroP = paqueteParaElTurno(textoPersona || textoMemoria, { sinPlata: persona.rol !== 'admin', referente: entrada.referente });
+    // Con el mensaje Y los anteriores de la persona (12/11/2026, lib/chat-app-hilo.ts): «dalo de alta» solo no nombra a nadie.
+    const segundoCerebroP = paqueteParaElTurno(busquedaConLoAnterior(textoPersona || textoMemoria, anterioresDeLaPersona(deLaTab)), { sinPlata: persona.rol !== 'admin', referente: entrada.referente });
     const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
     const segundoCerebro = await segundoCerebroP;
     const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;
@@ -701,7 +721,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
     const ctxAtado = (entrada.contexto ?? '').trim();
     const ctxDesde = contextoDesde(desde);
-    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxGoogle}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${segundoCerebro ? `\n\n${segundoCerebro}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
+    // Lo que se habló antes y no entra entero (el resumen, lib/conversacion-resumen.ts).
+    const ctxResumen = conv?.resumen ? `\n\n${bloqueDelResumen(conv.resumen)}` : '';
+    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxGoogle}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxResumen}${segundoCerebro ? `\n\n${segundoCerebro}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
     // ── Las herramientas ───────────────────────────────────────────────────────
     const runRegistro = runnerDelRegistro(ctx);
@@ -763,6 +785,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       const out = conInstruccionDeTarjeta(await correr().catch((e: unknown) => { ultimaFueGuarda = false; tragadas++; throw e; }));
       memo.anotar(name, out);
       anotarLaUltima(name, out);
+      if ((out as { isError?: unknown }).isError !== true) salidasDelTurno.push({ herramienta: name, salida: out });
       if (esFallaTragadaDeHerramienta(out)) tragadas++;
       if (!escribe(name) && (out as { isError?: unknown }).isError !== true) leidas++;
       if (porId(name)?.tipo === 'control' && salioBien(out)) escribieron++;
@@ -994,9 +1017,15 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const conElMensaje = bloquesDelMensaje(dibujos, pregunta, MAX_BLOQUES_MENSAJE);
 
     if (respuesta) {
-      await appendMessage(s.id, 'assistant', respuesta, conElMensaje.length ? conElMensaje.map(aGuardar) : undefined);
+      // «Lo que leí» (12/11/2026, lib/chat-app-hilo.ts): lo que trajeron las herramientas viaja en la historia de los turnos
+      // siguientes, como una marca que la pantalla no dibuja. Antes se guardaba sólo el texto y «¿y el mes que viene?» releía o inventaba.
+      const leido = loQueLei(salidasDelTurno);
+      const conLoLeido = [...conElMensaje.map(aGuardar), ...(leido ? [marcaLeido(leido)] : [])];
+      await appendMessage(s.id, 'assistant', respuesta, conLoLeido.length ? conLoLeido : undefined);
       guardados.push({ role: 'assistant', content: respuesta, ...(conElMensaje.length ? { bloques: conElMensaje } : {}) });
     }
+    // Lo que no entra entero se resume DESPUÉS de contestar, con candado: el turno siguiente lo lee del resumen.
+    if (conv?.porResumir.length) resumirDespues({ ws, clave: claveConv, porResumir: conv.porResumir, pedir: pedirResumenDelChat });
     // Sin IA: lo dice MaKo, con el botón que abre el modal de las keys en esta misma pantalla (`conectar`). Salvo en el
     // workspace del entorno, donde la key que pegara pasaría a ser la de la plataforma (`avisoSinIA`): ahí, sin botón.
     // Con su computadora conectada pero apagada, no se le pide conectar otra IA: se le dice que la prenda. Y en un negocio

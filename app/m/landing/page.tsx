@@ -24,15 +24,31 @@ import { ComputadoraM, ErrorM, FilaM, ListaM, PantallaM, PildoraM, VacioM } from
 import { leerLandingsM, medidorDeVisitas } from './datos';
 import { MEDIDAS_A_LA_VEZ, PILDORA_LANDING, TOPE_MEDIDAS } from './modelo';
 import { NumerosLanding } from './NumerosLanding';
+import { OutliersLandings } from '@/app/web-generator/OutliersLandings';
+import { leerOutliersLandings } from '@/lib/landing-outliers-servidor';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const COMPU = 'Diseño, bloques y dominio';
+/** «Crear desde cero» de la portada en el teléfono: esta lista (la ruta del teléfono no lleva el `?panel=1` de la computadora). */
+const RUTA_LISTA_M = '/m/landing?ver=lista';
 
-export default async function LandingGeneratorMovil() {
+export default async function LandingGeneratorMovil({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const ctx = await requireMovil({ navKey: 'landing-writer' });
   if (ctx.ws == null) return <PantallaM><VacioM frase="No hay un negocio abierto." /></PantallaM>;
+
+  // Los outliers primero, también en el teléfono (11/11/2026), como Video, Image y Copywriting (app/m/video-editor/page.tsx): la
+  // MISMA portada de la computadora con las reglas de teléfono (sin «Replicar», que es del editor de la computadora). Hasta ese
+  // día el teléfono abría la lista y la portada no existía. Con `?ver=lista`, las landings del negocio.
+  const ver = (await searchParams).ver;
+  if ((Array.isArray(ver) ? ver[0] : ver) !== 'lista') {
+    return (
+      <PantallaM>
+        <OutliersLandings portada={await leerOutliersLandings()} telefono rutaCrear={RUTA_LISTA_M} />
+      </PantallaM>
+    );
+  }
 
   const r = await leerLandingsM(ctx.ws);
   if (!r.ok) {

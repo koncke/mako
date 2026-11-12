@@ -28,12 +28,21 @@ import { CodigoReferido, codigoParaMandar } from './CodigoReferido';
 // (TS2741) — pero `next.config.ts` tiene `typescript: { ignoreBuildErrors: true }`, así que el build lo dejó pasar.
 const NOMBRE: Readonly<Record<Pasarela, string>> = {
   stripe: 'Tarjeta de crédito o débito',
-  mercadopago: 'Mercado Pago (desde Argentina, en pesos)',
+  mercadopago: 'Mercado Pago',
   creem: 'Tarjeta internacional (en dólares)',
 };
+/**
+ * LAS FORMAS DE PAGO COMO FILAS (12/11/2026, la estructura de «Payment method» de Stripe Checkout): cada una con su ícono, lo que
+ * es y las marcas que acepta. Se ve aunque haya una sola: quien compra sabe con qué va a pagar antes de salir de MaKo.
+ */
+const DETALLE: Readonly<Record<Pasarela, { icono: string; sub: string; marcas?: readonly string[] }>> = {
+  stripe: { icono: '▭', sub: 'Pagas en la página segura de Stripe', marcas: ['VISA', 'MC', 'AMEX'] },
+  mercadopago: { icono: 'MP', sub: 'En pesos, desde Argentina: tarjeta, débito o dinero en tu cuenta' },
+  creem: { icono: '▭', sub: 'Pagas en la página segura de Creem', marcas: ['VISA', 'MC'] },
+};
 // Los colores fijos de las páginas de planes (app/planes/estilo.ts): el selector de país es de la app y viene con los del tema.
-const CAMPO_TEL: React.CSSProperties = { width: '100%', boxSizing: 'border-box', font: 'inherit', padding: '11px 12px', border: '1px solid #D5D9E0', borderRadius: 10, background: '#fff', color: '#12151B' };
-const CARA_LADA: React.CSSProperties = { height: '100%', minHeight: 46, border: '1px solid #D5D9E0', borderRadius: 10, background: '#fff', color: '#12151B' };
+const CAMPO_TEL: React.CSSProperties = { width: '100%', boxSizing: 'border-box', font: 'inherit', padding: '11px 12px', border: '1px solid rgba(17,17,17,.17)', borderRadius: 10, background: '#fff', color: '#121212' };
+const CARA_LADA: React.CSSProperties = { height: '100%', minHeight: 46, border: '1px solid rgba(17,17,17,.17)', borderRadius: 10, background: '#fff', color: '#121212' };
 
 export function CompraPlan(p: {
   plan: string;
@@ -96,19 +105,21 @@ export function CompraPlan(p: {
   if (pedido) {
     return (
       <div role="status" aria-live="polite">
-        <p className="planes-sub" style={{ marginBottom: 6, color: '#12151B', fontWeight: 600 }}>¡Listo! Recibimos tu pedido.</p>
+        <p className="planes-sub" style={{ marginBottom: 6, color: '#121212', fontWeight: 600 }}>¡Listo! Recibimos tu pedido.</p>
         <p className="planes-sub">Todavía no cobramos en línea desde tu país: te escribimos para darte de alta. Con tu email entras a MaKo.</p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={enviar} noValidate>
-      <label htmlFor="cp-nombre">Tu nombre</label>
+    <form className="ck-formulario" onSubmit={enviar} noValidate>
+      {/* Como «Contact information» de Stripe: el email primero (con él entras a MaKo). */}
+      <h2 className="ck-titulo">Tus datos</h2>
+      <label htmlFor="cp-email">Email</label>
+      <input id="cp-email" type="email" autoComplete="email" placeholder="tu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      <label htmlFor="cp-nombre">Nombre</label>
       <input id="cp-nombre" type="text" autoComplete="name" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
-      <label htmlFor="cp-email">Tu email</label>
-      <input id="cp-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      <label htmlFor="cp-whatsapp">Tu WhatsApp</label>
+      <label htmlFor="cp-whatsapp">WhatsApp <span className="planes-opcional">(opcional)</span></label>
       <TelefonoConPais lada={lada} numero={numero} onLada={(v) => { setLada(v); setErrorWhatsapp(null); }} onNumero={(v) => { setNumero(v); setErrorWhatsapp(null); }}
         inputStyle={CAMPO_TEL} estiloLada={CARA_LADA} anchoLada={112} autoComplete="tel" inputId="cp-whatsapp" />
       {errorWhatsapp && <p className="planes-error planes-codigo-error" role="status" aria-live="polite">{errorWhatsapp}</p>}
@@ -116,20 +127,20 @@ export function CompraPlan(p: {
         <label htmlFor="cp-web">Web</label>
         <input id="cp-web" type="text" tabIndex={-1} autoComplete="off" value={web} onChange={(e) => setWeb(e.target.value)} />
       </div>
-      {p.pasarelas.length > 1 && (
-        <>
-          <label>¿Con qué pagas?</label>
-          {p.pasarelas.map((x) => (
-            <label key={x.pasarela} className="planes-opcion">
-              <input type="radio" name="pasarela" checked={pasarela === x.pasarela} onChange={() => setPasarela(x.pasarela)} />
-              {NOMBRE[x.pasarela]}
-            </label>
-          ))}
-        </>
-      )}
+      <h2 className="ck-titulo">Forma de pago</h2>
+      <div className="ck-medios" role="radiogroup" aria-label="Forma de pago">
+        {p.pasarelas.map((x) => (
+          <label key={x.pasarela} className="ck-medio">
+            <input type="radio" name="pasarela" checked={pasarela === x.pasarela} onChange={() => setPasarela(x.pasarela)} />
+            <span className="ck-medio-icono" aria-hidden="true">{DETALLE[x.pasarela].icono}</span>
+            <span className="ck-medio-texto"><b>{NOMBRE[x.pasarela]}</b><small>{DETALLE[x.pasarela].sub}</small></span>
+            {DETALLE[x.pasarela].marcas && <span className="ck-marcas" aria-hidden="true">{DETALLE[x.pasarela].marcas!.map((m) => <span key={m}>{m}</span>)}</span>}
+          </label>
+        ))}
+      </div>
       <CodigoReferido valor={codigo} onCambio={(v) => { setCodigo(v); setErrorCodigo(null); }} delLink={p.refCodigo} error={errorCodigo} />
       <button className="planes-btn" type="submit" disabled={enviando}>
-        {enviando ? 'Abriendo…' : sinPrueba ? 'Ir a pagar' : `Empezar mis ${PRUEBA_DIAS} días gratis`}
+        {enviando ? 'Abriendo el pago…' : sinPrueba ? 'Suscribirme' : `Empezar mis ${PRUEBA_DIAS} días gratis`}
       </button>
       {/* role="status" y no "alert": /planes es pública y sin sesión, así que «Reportar a soporte» no serviría acá. */}
       {error && <p className="planes-error" role="status" aria-live="polite">{error}</p>}
@@ -141,9 +152,9 @@ export function CompraPlan(p: {
         <button className="planes-btn planes-btn-borde" type="button" disabled={enviando}
           onClick={(e) => { setSinPromo(true); setOfrecerSinPromo(false); void enviar(e, sinPrueba, true); }}>Seguir con el precio normal</button>
       )}
-      <p className="planes-nota">
+      <p className="ck-legal">
         {sinPrueba
-          ? 'Con ese email entras a MaKo: te llega el acceso apenas se confirme el pago.'
+          ? 'Con ese email entras a MaKo: te llega el acceso apenas se confirme el pago. Se cobra cada mes hasta que te des de baja.'
           : `Cargas tu tarjeta y no se te cobra nada hoy: el primer cobro es el día ${PRUEBA_DIAS + 1}, y te avisamos ${DIAS_AVISO_FIN_DE_PRUEBA} días antes. Con ese email entras a MaKo.`}
       </p>
       {/* La suscripción de Mercado Pago va a nombre de ESE email (payer_email): con otro, MP no deja autorizarla (revisión del 23/10/2026). */}

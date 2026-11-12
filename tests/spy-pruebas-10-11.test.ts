@@ -120,7 +120,8 @@ test('7. «Dejar de mirarlo» desde la ficha lo saca de la lista en el acto, sin
   const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
   const quitar = app.slice(app.indexOf('const quitar = async'), app.indexOf('const quitarDeLaLista'));
   assert.ok(quitar.length > 50, 'encontré quitar');
-  assert.match(quitar, /sacarDeLaLista\(id\);\s*irA\(null\);/, 'primero se saca, después se navega');
+  // Entre los dos, desde el 11/11, se piden los sugeridos (después de `irA(null)` no sale ningún pedido).
+  assert.match(quitar, /sacarDeLaLista\(id\);\s*(?:await recargarSugeridos\(\);\s*)?irA\(null\);/, 'primero se saca, después se navega');
   assert.match(app, /const sacarDeLaLista = \(id: number\) => \{\s*setCompetidores\(\(v\) => v\.filter\(\(x\) => x\.id !== id\)\);/);
 });
 
@@ -179,7 +180,8 @@ test('10. lo chico de YouTube va con la miniatura chica de YouTube (4,7 KB contr
 
 test('11. el nombre de una tarjeta va en dos renglones, como fitlo («clamp 2»)', () => {
   const app = leer('app/competitor-spy/SpyApp.tsx');
-  assert.match(app, /\.spy-pcard__texto b\{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;/);
+  // Desde el 11/11 el nombre además va en su propia fila, de lado a lado (tests/mirada-prod-11-11.test.ts, caso 5).
+  assert.match(app, /\.spy-pcard__texto b\{[^}]*display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;/);
   assert.doesNotMatch(app, /\.spy-pcard__texto b\{[^}]*white-space:nowrap/, 'en un renglón, «52 Minutes of…»');
 });
 

@@ -40,9 +40,10 @@ import { claveTiempo, clavesDelRango, fmtValor, periodoAnterior, type Resultado 
 import { firmaDe, hojaDestino } from '@/lib/graficos-plantillas';
 import { cambioEnPalabras, fraseEnTexto, tramosDeFrase } from '@/lib/graficos-frase';
 import { fraseMarketing } from '@/lib/marketing-diseno';
+import { fraseAutomatizaciones } from '@/lib/automatizaciones-diseno';
 import { pedidosDeHoja } from '@/app/dashboard/exportar';
 import {
-  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, conUnidad, deltaDe, esCostoSobreGasto, etiquetaBarra, faltaConectar, noSeLeyo, periodoDe,
+  ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, conUnidad, deltaDe, esCostoSobreGasto, etiquetaBarra, faltaConectar, noSeLeyo, periodoDe, rotuloDePieza,
   type BarraM, type GraficoM, type HojaM, type ModoDelta, type NumeroM, type PeriodoM,
 } from './modelo';
 
@@ -300,7 +301,8 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
       const en = out.graficoSiguePeriodo ? periodo?.en : serie.periodo !== 'auto' ? periodoDe(serie.periodo)?.en : !control ? periodoDe(PERIODO_DEFAULT)?.en : undefined;
       const textoTotal = met?.razon || met?.sinTotal ? fmtValor(total, formato) : `${fmtValor(total, formato)}${en ? ` ${en}` : ''}`;
       out.grafico = {
-        titulo: tituloDe(serie),
+        // Con varias métricas se dibuja la primera: el título es el de ESA (`rotuloDePieza`).
+        titulo: rotuloDePieza(tituloDe(serie), serie.metricas, met?.nombre),
         barras: barrasDe(res, dim, (v) => fmtValor(v, formato)),
         total: textoTotal,
         moneda: formato === 'usd',
@@ -328,10 +330,12 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
     const fuente = fuenteDe(g.fuente);
     if (gastoCero && esCostoSobreGasto(fuente ? metricaDe(fuente, g.metricas[0]) : undefined)) return { id: g.id, k: tituloDe(g), v: '—', delta: null };
     const v = res.totales[0] ?? null;
+    const nombre = fuente ? metricaDe(fuente, g.metricas[0])?.nombre : undefined;
     return {
       id: g.id,
-      k: tituloDe(g),
-      v: conUnidad(fmtValor(v, formato), fuente ? metricaDe(fuente, g.metricas[0])?.nombre : undefined, tituloDe(g)),
+      // Con varias métricas se ve la primera: el rótulo es el de ESA («Leads 135», no «Primer contacto 135»).
+      k: rotuloDePieza(tituloDe(g), g.metricas, nombre),
+      v: conUnidad(fmtValor(v, formato), nombre, tituloDe(g)),
       delta: deltaDe(v, res.anterior?.[0] ?? null, modoDe(formato), tono === 'bueno' ? true : tono === 'malo' ? false : null),
     };
   });
@@ -353,6 +357,11 @@ export async function hojaPropia(h: Hoja, periodo: PeriodoM | null, hoy: string)
         // La hoja Marketing dice en el teléfono la MISMA frase que su diseño en la compu (lib/marketing-diseno.ts): la de la
         // plantilla decía «Gastaste US$0 en anuncios · trajeron 3 agendas · cada una costó US$0» sin pauta (11/11/2026).
         const t = fraseMarketing(total('gasto'), total('agendas'), total('cpa')).map((x) => x.s).join('');
+        out.frase = t || null;
+      } else if (h.diseno?.id === 'automatizaciones') {
+        // Lo mismo con Automatizaciones (lib/automatizaciones-diseno.ts): la de la plantilla decía «Salieron 0 mensajes · 4 fallaron
+        // · 0 te respondieron» y la compu «Salieron 0 mensajes. 4 no salieron y esperan que los mires.» (11/11/2026, producción).
+        const t = fraseAutomatizaciones(total('enviados'), total('fallaron'), total('respuestas')).map((x) => x.s).join('');
         out.frase = t || null;
       } else {
         const tramos = tramosDeFrase(frase.frase, res.columnas, (i) => (res.totales[i] == null ? null : fmtValor(res.totales[i], res.columnas[i].formato)), (i) => cambioEnPalabras(res.totales[i], res.anterior?.[i]));

@@ -45,7 +45,7 @@ import {
   leerConfigMensualidad, leerEntrada, leerPagoDelMes, mesDe, mesQueSeAvisa, mesesEntre, nombreDelMes, periodoDelCiclo, planQueSeCobra,
   preciosDelCatalogo, situacion, arrancaElReloj, sumarDias, tablaDeEntradas, tablaDelMes, textoDeComprobante, textoDePausaDelMes,
   textoDeMesImpago, textoDelAvisoDeEntradas, textoDelAvisoDelMes, usd, clavePendiente, diferencialDe, DIAS_SIN_COSTO, DIA_LIMITE_DE_PAGO, MEDIO_POR_DEFECTO,
-  NOMBRE_PLAN, leerOrden,
+  NOMBRE_PLAN, leerOrden, mesSiguiente,
   type ClienteDeAgencia, type ConfigMensualidad, type CuentaDelMes, type Dia, type Diferencial, type EntradaGuardada, type Mes,
   type OrdenAnotada, type PagoDelMes, type Pendiente, type Precios, type Situacion,
 } from './agencia-mes-reglas';
@@ -184,6 +184,9 @@ export type MensualidadOk = {
   cartera: ClienteDeAgencia[];
   /** El mes de hoy (con la mensualidad apagada, cómo quedaría si se prendiera desde este mes). */
   actual: MesDeMensualidad;
+  /** El mes que viene, con los clientes de hoy (12/11/2026, Martín: «cuánto va a pagar Código Inmobiliario el mes entrante con todos los
+   *  clientes»). Cuenta a quien para entonces ya terminó sus días sin costo; no sabe de altas ni bajas que todavía no pasaron. */
+  siguiente: MesDeMensualidad | null;
   /** Los meses desde que se prendió, del más nuevo al más viejo (sin el de hoy). */
   anteriores: MesDeMensualidad[];
   /** Lo que se debe hoy, lo vencido primero: los meses y las entradas. */
@@ -277,6 +280,9 @@ export async function mensualidadDeAgencia(agenciaWs: number, ahora: Date = new 
     };
     // Prendida desde un mes que todavía no llegó: lo de hoy es cómo va a quedar ese primer mes.
     const actual = armar(mesHoy >= primerMes ? mesHoy : primerMes)!;
+    // ⚠️ El que viene desde HOY, no desde `actual` (12/11/2026, medido por Planes y cobros): con la mensualidad prendida desde un mes
+    // que todavía no llegó (Código, desde diciembre), `actual` YA es ese mes, y `mesSiguiente(actual.mes)` daba enero.
+    const siguiente = armar(mesSiguiente(mesHoy));
     const anteriores = config ? mesesEntre(primerMes, mesHoy).filter((m) => m !== mesHoy).reverse().map(armar).filter((x): x is MesDeMensualidad => !!x) : [];
 
     // Lo que se debe hoy: los meses que ya empezaron y no se cubrieron, y cada entrada por pagar (con lo que ya entró a cuenta).
@@ -303,7 +309,7 @@ export async function mensualidadDeAgencia(agenciaWs: number, ahora: Date = new 
     const estados = new Map<number, EstadoDeCuenta>([...cuentas].map(([ws, c]) => [ws, { pausada: c.pausada, corte: c.corte }]));
     return {
       ok: true, agenciaWs, agencia: ag.nombre || `Agencia ${agenciaWs}`, hoy, zona, config, entradasDesde, precios, planAgencia,
-      clientes: filas, cartera: clientes, actual, anteriores, pendientes, cuentas: estados, agenciaEnPausa: enPausaPorMensualidad(ag.corte, agenciaWs),
+      clientes: filas, cartera: clientes, actual, siguiente, anteriores, pendientes, cuentas: estados, agenciaEnPausa: enPausaPorMensualidad(ag.corte, agenciaWs),
       puedeCorregir: cartera.conColumna, libro,
     };
   } catch (e) {
@@ -884,6 +890,14 @@ export function mensualidadParaMako(m: MensualidadOk) {
       avisado_usd: m.actual.avisadoUsd,
       renglones: m.actual.cuenta.lineas.map((l) => ({ concepto: conceptoDeLinea(l), monto_usd: l.montoUsd })),
     },
+    // «¿Cuánto paga el mes que viene?» (12/11/2026): con los clientes de hoy; quien entra o se va en el medio no está.
+    mes_que_viene: m.siguiente ? {
+      mes: m.siguiente.mes,
+      cubre: periodoDelCiclo(m.siguiente.mes),
+      total_usd: m.siguiente.cuenta.totalUsd,
+      se_paga_hasta: m.siguiente.cuenta.limite,
+      renglones: m.siguiente.cuenta.lineas.map((l) => ({ concepto: conceptoDeLinea(l), monto_usd: l.montoUsd })),
+    } : null,
     se_debe_hoy: m.pendientes.map((p) => (p.tipo === 'mes'
       ? { que: `mensualidad de ${nombreDelMes(p.mes)}`, debe_usd: p.debeUsd, pagado_usd: p.pagadoUsd, vence: p.limite }
       : { que: `entrada de ${p.nombre}`, cliente_ws: p.ws, desde: p.entrada.desde, hasta: p.entrada.hasta, dias: p.entrada.dias, precio_dia_usd: p.entrada.tarifaUsd, debe_usd: p.debeUsd, pagado_usd: p.pagadoUsd, vence: p.limite })),

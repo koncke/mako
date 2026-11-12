@@ -58,7 +58,8 @@ test('2. Spy lee con su negocio y pide la fuente por nombre; pegar la clave no c
 });
 
 test('3. la salida está en la pantalla, y una clave pegada en el chat ofrece conectarla', () => {
-  assert.match(leer('app/competitor-spy/SpyApp.tsx'), /<BotonIntegracion servicio="apify-instagram" className="spy-boton" onConectado=\{\(\) => void leer\(c\.id\)\}>/);
+  // `style={CON_SU_CLASE}` desde el 11/11: sin él, el botón se veía como texto suelto (tests/mirada-prod-11-11.test.ts, caso 8).
+  assert.match(leer('app/competitor-spy/SpyApp.tsx'), /<BotonIntegracion servicio="apify-instagram" className="spy-boton" (?:style=\{CON_SU_CLASE\} )?onConectado=\{\(\) => void leer\(c\.id\)\}>/);
   assert.match(leer('lib/claves-en-el-chat.ts'), /servicio: 'apify-instagram' \}/);
 });
 

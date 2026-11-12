@@ -141,6 +141,92 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Pedido de la duodécima vuelta (Martín, 12/11, sobre `maqueta-piloto.html`), en curso.** El cuerpo de partida es `cuerpo-once.html`, en la carpeta de la maqueta del scratchpad; se arma con `armar.mjs`, y cada vuelta es un `bloque-*.js` + `css-*.css` + `aplicar-*.mjs`.
+
+1. **Análisis de Instagram como Instagram de verdad:**
+   - las historias se abren tocando la foto de perfil (con el aro), no como tarjetas;
+   - la bio y las destacadas, copiadas del diseño real de Instagram;
+   - se puede tocar cada publicación y cada reel.
+2. **«Cada cuánto publicas QUÉ»:** reels, historias y carruseles por separado.
+3. **El popup de cada pieza, mejor:**
+   - el carrusel, con sus láminas para deslizar y el feedback adentro;
+   - el de YouTube, rehecho, que hoy es feo.
+4. **YouTube como YouTube:**
+   - Inicio, Videos y Shorts que se cambian y se recorren;
+   - la portada del canal, con su feedback (si no tiene, o si no tiene que ver con lo que se recomienda).
+5. **Sacar «Tu estrategia»** de los tres canales: queda ambigua.
+6. **Anuncios:**
+   - el VSL sin conectar es un reproductor grande vacío, con los botones para conectar;
+   - los mensajes sin conectar son un chat vacío, con «Conectar».
+7. **La acción de la oferta:**
+   - la checklist grande que ya tenía Offer (garantía, escalera de valor, etc.);
+   - sin «Hacerlo», porque lo hace el chat.
+8. **La acción de la web:**
+   - cada sugerencia con un tacho para descartarla;
+   - «Hacerlo» pegado a la derecha;
+   - sin «Copia una que funciona»;
+   - el chat de MaKo en el mismo lugar que las tareas, con un cambio entre chat y tareas (como en otras partes de la app); «Hacerlo» le manda el mensaje a ese chat.
+9. **El calendario de la acción** copia el diseño del calendario que ya tiene la app.
+10. **Cada tarea** (en la checklist o en el calendario) abre un popup que la explica.
+11. **El piloto automático:**
+    - una lista larga de TODO lo que puede hacer MaKo en cada canal (web, oferta, anuncios, Instagram, YouTube), con decisiones basadas en datos: cambiar el hook de un reel, probarlo en reels de prueba, etc.;
+    - en «Lo que hice», la criatura de MaKo en lugar de cada punto.
+12. **Elegir sobre qué se trabaja, en los tres pasos:** qué oferta, qué web, qué campaña y para qué oferta (en anuncios), y qué cuenta (en Instagram y YouTube). Hoy sólo la oferta tiene el desplegable en la acción.
+13. **Terminar «Métricas»** trayendo las plantillas del Dashboard (anuncios, Instagram, YouTube, web), y revisar que todo esté bien.
+14. **Un botón visible de «Clases» (o «Classroom»):** Martín va a grabar clases de cómo hacer una buena oferta, una buena landing, cada funnel (Instagram, YouTube, anuncios) y cuándo hacer cada cosa.
+
+**Hecho (12/11, undécima vuelta):** `maqueta-piloto.html` (Artifact claude.ai/artifact/DFHqDKpAR5Hy8RQPceb31L). Puntos 1 a 5 de abajo, y además «Marketing CoPilot» arriba, con la criatura de MaKo que pestañea. La configuración va en una hoja al costado, como los ajustes de Linear o Notion. **Sin hacer:** «Métricas» todavía no usa las plantillas del Dashboard (no encontré rápido cuáles son por su nombre en el código); tiene un botón «Abrir en el Dashboard». El cuerpo vigente es `cuerpo-once.html`.
+
+**Pedido de la undécima vuelta (Martín, 12/11, sobre `maqueta-checklist.html`):**
+1. **La acción, con las 5 tarjetas** (oferta, web, anuncios, Instagram, YouTube): sin elegir ninguna, la checklist de todo; con una elegida, sólo la suya.
+2. **El botón de cada tarea, simple** («Hacerlo»), nunca «En Offer» ni «En Competitor Spy».
+3. **La oferta elegida:** la checklist de un lado y el chat de Offer del otro. La web, igual con la página.
+4. **El ícono de la oferta** es el de la app (no la estrellita), del mismo tamaño que los otros logos.
+5. **El piloto:**
+   - sin «Pausar el piloto»: arriba va «Configurar piloto», con la configuración de la tarjeta elegida (todas tienen piloto: la web hace cambios, anuncios lo maneja todo, Instagram publica y hace variaciones de hooks);
+   - «qué hago solo y qué te pregunto» va adentro de la configuración, y el modal se rediseña con referencias de otras apps;
+   - si todo está en «lo hago solo», no va «Espera tu OK»;
+   - sin la línea de MaKo arriba: el logo de MaKo va en «Lo que hice»;
+   - «Métricas» con las plantillas que ya hay en el Dashboard (anuncios, Instagram, YouTube, web).
+
+**Hecho (12/11, décima vuelta):** `maqueta-checklist.html` (Artifact claude.ai/artifact/SaGw8C5x76yzEJXM8RT75r). Lo de Martín:
+- los pasos sin subtítulo, con un aviso de lo pendiente;
+- la oferta en su desplegable;
+- Offer y la web a la izquierda, con protagonismo, cuando se trabaja una tarea;
+- la acción como una sola checklist, con su calendario y los días que propone MaKo;
+- cada tarea dentro de MaKo y en orden: para los anuncios, primero Competitor Spy, después elegir ganadores, las 9 razones (plantilla 3 × 3 de Copywriting), los guiones, grabar, editar y automatizar;
+- sin la máquina de contenido en la acción;
+- el piloto por tarjeta en «Acciones» y «Métricas», con la oferta también en piloto (las objeciones de las llamadas y los chats, el bono o la garantía, llevar la versión nueva a todos lados);
+- «Configurar» en anuncios: inversión por mes, días de cada prueba, costo por agenda, cuánto sube y qué hace solo.
+
+**Para programar, lo que falta en otras tabs:** las plantillas de Copywriting que nombra la checklist (razones de compra 3 × 3, guion de anuncio, bio, reel con palabra clave, semana de historias, descripción del canal, título y miniatura, video largo) y las de Automations (respuesta a un anuncio de mensajes, palabra clave → mensaje).
+
+**Hecho (12/11, novena vuelta):** `maqueta-accionables.html` (Artifact claude.ai/artifact/K79HrsuoncwRD44U452fJf). Lo de Martín:
+- los logos de cada alojador del VSL;
+- la estrategia abajo de lo principal;
+- todo más chico, y los dos lados del mismo alto (la cara y la lista se desplazan adentro);
+- las tarjetas no se mueven al cambiar de paso (la cabecera tiene el mismo alto en los tres);
+- espacio para hacer algo nuevo («Empezar algo nuevo»: una oferta, una campaña, un video, un lanzamiento, una página);
+- cambiar entre ofertas;
+- el modo oscuro, que en el Artifact el visor pisaba, ahora con la luna y el sol de la app;
+- sólo los canales elegidos, y los demás apagados para empezarlos;
+- el piloto y la acción, rehechos con las referencias de `docs/media-buyer/referencias/otras-apps/`.
+
+El cuerpo vigente es `cuerpo-nueve.html`.
+
+**Hecho (12/11, octava vuelta):** `maqueta-tres-pasos.html` (Artifact claude.ai/artifact/3BL3fTaSEPksVsZkfnWeqR). El pedido de Martín, punto por punto:
+- todo en mono, sin el verde;
+- las historias y las destacadas de Instagram con su feedback (Zernio trae las historias desde que se conecta; las destacadas y la bio salen de la lectura pública);
+- la descripción del canal de YouTube con su feedback;
+- **la estrategia de cada canal** (anuncios, Instagram, YouTube): si habla de lo que vende, si le habla a su cliente, si lleva a una venta;
+- la lista del recorrido en filas, y «Cada cuánto publicas» a la izquierda;
+- conectar ahí mismo el VSL (Panda, Vimeo, Wistia, Bunny, YouTube) y los chats (WhatsApp, Instagram), elegir los chats de venta y ver cada chat con la cara de su app;
+- «Volver a analizar»;
+- la acción con las mismas tarjetas que el análisis, y Offer y Web Generator adentro;
+- **el paso 3, «Piloto automático»**: lo que hace MaKo solo. El nombre lo propuse yo y lo decide Martín.
+
+El cuerpo vigente es `cuerpo-ocho.html`, en la carpeta de la maqueta.
+
 **Hecho (11/11, séptima vuelta):** `maqueta-accion.html` con los puntos 1 a 9 de la séptima, más el pedido de después: la acción como lugar de trabajo de MaKo (decisiones, lo que te toca, lo que hice), no como tablero. Los relevos: `analisis/estrategia.md` (la estrategia por canal) y `rediseno/diseno-referencias.md` (el molde de Fernly). El cuerpo vigente es `cuerpo-accion.html`, armado con `parte-accion-*.js`.
 
 **Hecho (11/11, sexta vuelta):** `maqueta-visual.html` con los puntos 1 a 7 de la sexta vuelta. Qué cambió y qué es de ejemplo: `esquema-descubrimiento.md`.
@@ -152,7 +238,8 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
 - **Quién paga leer el propio negocio** (Apify más la IA). Se pregunta antes de programarlo.
 - **Dónde se pliega el chat:** Martín lo deja para más adelante.
 - **La recomendación del funnel:** la cerraba el chat; sin chat en el paso 4, falta decidir dónde va.
-- **Qué hace MaKo solo y qué te pregunta en la operación** (presupuesto, apagar, publicar): la maqueta lo hace solo, con «Deshacer».
+- **Qué hace MaKo solo y qué te pregunta en el piloto automático** (presupuesto, apagar, publicar): la maqueta lo hace solo, con «Deshacer».
+- **El nombre del paso 3 está decidido** (Martín, 12/11): «Piloto automático».
 - **Lo que falta en el código para hacerlo de verdad:** la lista está en `esquema-descubrimiento.md`.
   - Zernio: historias y analytics de YouTube.
   - Meta: conversaciones y compras.

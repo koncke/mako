@@ -312,17 +312,26 @@ test('teléfono: las preguntas de MaKo con la letra de las burbujas del chat (16
 
 test('después de «Aceptar», la tecla de deshacer sólo donde hay teclado, y la de su sistema (11/11/2026: el teléfono decía Ctrl+Z)', () => {
   const panel = leer('app/copywriter/PanelMaKo.tsx');
-  assert.match(panel, /Aceptado\.<span className="nt-solo-teclado"> \{teclaDeshacer\(\)\} en la página lo deshace\.<\/span>/);
+  assert.match(panel, /'Aceptado\.'\}<span className="nt-solo-teclado"> \{teclaDeshacer\(\)\} en la página lo deshace\.<\/span>/);
   assert.match(panel, /\? '⌘Z' : 'Ctrl\+Z'/);
   assert.match(leer('app/copywriter/notion.css'), /\.nt\[data-movil\] \.nt-solo-teclado \{ display: none; \}/);
   // Y el número concuerda: «1 bloque nuevo, marcado», no «1 bloque nuevos, marcados» (visto en la misma prueba).
   assert.match(panel, /p\.nuevos\.length === 1 \? 'nuevo, marcado' : 'nuevos, marcados'/);
 });
 
-test('la caja trabada se vuelve a medir cuando llega su frase (11/11/2026: «Instala MaKo / para escribir» cortada a 1440)', () => {
+test('la caja trabada se vuelve a medir cuando llega su frase y cada vez que cambia su ancho (11/11/2026: cortada a 1440)', () => {
   // La caja es la compartida (app/_chat/CajaChat.tsx); el panel de Copywriting es angosto y la frase ocupa dos renglones.
+  // ⚠️ Medir sólo al llegar la frase NO alcanzó (desplegado y medido en producción: 40 px de alto con 61 de frase): el botón
+  // «Instalar MaKo» es dinámico y angosta el campo DESPUÉS. Por eso mide con un observador del ancho.
+  // ⚠️⚠️ Y el del ancho TAMPOCO alcanzó (desplegado otra vez, con la página en segundo plano): `ResizeObserver` avisa con los cuadros
+  // de dibujo, y una pestaña de fondo no tiene. El de mutaciones de la fila sí avisa, y es el que ve llegar el botón.
   const caja = leer('app/_chat/CajaChat.tsx');
-  const efecto = caja.slice(caja.indexOf('if (!el || altoMax == null || texto) return;'), caja.indexOf('}, [p.bloqueo?.frase]);'));
-  assert.ok(efecto.length > 0, 'hay un efecto que depende de la frase de la traba');
+  const efecto = caja.slice(caja.indexOf('if (!el || altoMax == null || !p.bloqueo) return;'), caja.indexOf('}, [p.bloqueo?.frase, altoMax]);'));
+  assert.ok(efecto.length > 0, 'hay un efecto de la caja trabada');
   assert.match(efecto, /el\.style\.height = altoDelCampo\(el\.scrollHeight, altoMax\);/);
+  assert.match(efecto, /if \(el\.value \|\| w === ancho\) return;/, 'mide sólo si cambió el ancho (el alto que pone también avisa)');
+  assert.match(efecto, /new ResizeObserver\(medir\)/);
+  assert.match(efecto, /const fila = el\.parentElement\?\.parentElement \?\? null;/);
+  assert.match(efecto, /mo\?\.observe\(fila, \{ childList: true, subtree: true \}\);/);
+  assert.match(efecto, /return \(\) => \{ ro\?\.disconnect\(\); mo\?\.disconnect\(\); \};/);
 });

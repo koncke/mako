@@ -24,7 +24,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Icon } from '../_components/icons';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { MakoStar } from '../_components/MakoBrand';
-import { BotonIntegracion } from '../_components/ConectarIntegracion';
+import { BotonIntegracion, CON_SU_CLASE } from '../_components/ConectarIntegracion';
 import { LogoRed, redDePieza } from './LogoRed';
 import { iniciales } from '@/lib/unicode-seguro';
 import { Modal } from '@/app/_ui/Modal';
@@ -33,7 +33,7 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { FORMATOS, formatoPorTexto, proporcionDe, puestoDe } from '@/lib/spy-detalle';
 import { explicarMultiplo, multiplosDe, rotuloCortoDeMultiplo } from '@/lib/multiplo-rendimiento';
 import { dibujarContador } from '@/lib/spy-reglas';
-import { fechaCorta, miniaturaDePieza } from '@/lib/spy-vista';
+import { fechaCorta, linksLegibles, miniaturaDePieza } from '@/lib/spy-vista';
 import { tieneGuion, type VistaGuion } from '@/lib/spy-transcripcion';
 import type { PiezaVista } from './actions';
 
@@ -136,7 +136,7 @@ function BloqueGuion({ guion, onConectado }: { guion: VistaGuion | null; onConec
       <p className="spyd-nota">
         Conecta tu GPT o tu Gemini para transcribirlo.
         {/* Escuchar un video lo hacen su GPT o su Gemini (Claude no escucha audio). Se conecta acá, sin salir de la tab. */}
-        <BotonIntegracion servicio="openai" className="spy-boton" onConectado={onConectado}>Conectar GPT</BotonIntegracion>
+        <BotonIntegracion servicio="openai" className="spy-boton" style={CON_SU_CLASE} onConectado={onConectado}>Conectar GPT</BotonIntegracion>
       </p>
     );
   } else if (guion.estado === 'sin-gemini') {
@@ -148,7 +148,7 @@ function BloqueGuion({ guion, onConectado }: { guion: VistaGuion | null; onConec
     cuerpo = (
       <p className="spyd-nota">
         Para transcribirlo hace falta tu clave de Apify.
-        <BotonIntegracion servicio="apify-instagram" className="spy-boton" onConectado={onConectado}>Conectar</BotonIntegracion>
+        <BotonIntegracion servicio="apify-instagram" className="spy-boton" style={CON_SU_CLASE} onConectado={onConectado}>Conectar</BotonIntegracion>
       </p>
     );
   } else if (guion.estado === 'listo' && guion.texto) {
@@ -250,7 +250,8 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
   const numeros = posibles.filter((n): n is NumeroDetalle => !!n);
   // Lo que dice su texto: la descripción de un video de YouTube o el texto de una publicación o un anuncio. El de un reel
   // va arriba, en su guion: su texto es el que acompaña al video y se ve en Instagram.
-  const textoPropio = p.texto?.replace(/#[\p{L}\p{N}_]+/gu, '').trim() || null;
+  // Sus links, como su sitio y su camino (sin el «?utm_…» que llenaba renglones); antes que los hashtags, por el «#» de un link.
+  const textoPropio = (p.texto ? linksLegibles(p.texto) : '').replace(/#[\p{L}\p{N}_]+/gu, '').trim() || null;
   const rotuloTexto = esVideoYt ? 'Descripción' : 'Su texto';
 
   const hacerUnoAsi = async () => {
@@ -354,7 +355,10 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
           {textoPropio && (
             <section>
               <div className="spyd-titulo"><h4>{rotuloTexto}</h4></div>
-              <div className="spyd-guion" style={{ maxHeight: 180 }}><p style={{ whiteSpace: 'pre-wrap' }}>{textoPropio}</p></div>
+              {/* Un video de YouTube no tiene guion arriba: su descripción usa el alto del modal (`min(90vh, 800px)` menos los
+                  480 px de lo demás: 320 a 900 de alto, sin una segunda barra en el modal). Con 180, la caja se cortaba con su
+                  barra y quedaban ~165 px vacíos debajo (mirado en producción el 11/11/2026). */}
+              <div className="spyd-guion" style={{ maxHeight: esVideoYt ? 'clamp(180px, calc(min(90vh, 800px) - 480px), 320px)' : 180 }}><p style={{ whiteSpace: 'pre-wrap' }}>{textoPropio}</p></div>
             </section>
           )}
           {tags.length > 0 && <div className="spyd-tags">{tags.map((t) => <span key={t}>{t}</span>)}</div>}

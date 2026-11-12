@@ -1,5 +1,48 @@
 # Retomar: «MaKo en WhatsApp: conexiones, ayuda y tickets» (el doer de los grupos)
 
+## ⚡ 12/11/2026 ~02:30 UTC (claude4): «que todos los chats conversen como un chat con Claude» (el plan del Cerebro)
+
+El plan y sus mapas: `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/6ea62e88-206b-49e4-b5fe-e446feb70ded/scratchpad/chats-plan.md`
+(y chats-grupos/privados/app/saber.md). Rama `punta/wa-sorda-1011`, worktree `C:/dev/wt-wa-1011`.
+- **Subido:** c88df3ff6 (el contexto: memoria del SuperAdmin, aviso al dueño, historial, chat de la línea con lib/hilo-real.ts, aviso
+  del comprobante en pregunta, cobros con pagar/mensualidad/comprobante, marcar el pago en una ACCIÓN, lib/doer-plataforma.ts,
+  mes_que_viene desde hoy = Código dic US$426). «Planes y cobros» parte de ese commit (la agencia por nombre y buscar_negocio son suyos).
+- **El módulo común (siguiente commit):** lib/conversacion-reglas.ts (puro) + lib/conversacion.ts (`conversacionDelTurno`,
+  `conversacionPrendida`: plataforma y ws13). Cableado en lib/mako-doer-in.ts (historial, ultimoDeMako, rol del equipo y
+  preguntaDelEquipo al clasificador). Tests: conversacion-reglas 5/5, hilo-del-superadmin 7/7 (roturas C1-C6).
+- **aa318ca29:** el rojo 1054 (cobros sin «pagar» genérico; `areasDeLaPlataforma` suma cs/cobros al nombrar un negocio en el grupo
+  de la plataforma; la firma del equipo sólo en lib/aviso-arreglo-reglas.ts) y el módulo común. ⛔ Desde el 12/11 `lib/conversacion*.ts`
+  lo toca Marketing CoPilot (el resumidor y `entradas`/`ventanaMs` para la app): no tocarlos desde acá.
+- **Después de aa318ca29 (sin subir al escribir esto):** el paso 2 (en el privado, lo que termina en charla o NO_REPLY también se
+  guarda: `guardarLoQueNoSeContesta`, lib/mako-doer-in.ts) y la caché de prompt (`systemConCache` en `chatClaudeTools`,
+  lib/anthropic.ts; tests/cache-de-prompt.test.ts).
+- **Hecho y subido:** f72e2d9fb (caché de prompt y el paso 2), main fusionado (a035a525c) y 56eb05e91 (de punta a punta: la pregunta
+  de Martín llega a `ver_mensualidades_agencias` con la agencia por nombre y da US$426; el hijo siembra la mensualidad de Código en
+  `agencia.mensualidad.13.*` de la plataforma).
+- **Sigue faltando (12/11 ~03:00 UTC), en este orden:** (2) el paso 7, el privado (identidad al modelo; el super admin no salta al ws
+  del cliente, lib/mako-bot-reglas.ts:166; cada skip de `manejarEntranteBot` deja registro, webhook :236; lo mandado a mano queda
+  como equipo, lib/mako-bot-reglas.ts:72); (3) `avisoTipo` en la copia de `enviarAlGrupoSuperAdmin` (lib/mako-grupo.ts); (4) prender
+  `conResumen` de `conversacionDelTurno` en el grupo y el privado (lib/mako-doer-in.ts; el parámetro lo trae punta/chats-copilot,
+  f38faa1db: fusionarla antes). ⛔ lib/conversacion*.ts es de Marketing CoPilot: sólo el parámetro.
+- **Lo viejo del plan, para el registro:** paso 2 (guardar el mensaje antes de CHARLA/NO_REPLY en el privado), paso 5 (áreas por `aviso_tipo`;
+  y que `enviarAlGrupoSuperAdmin` copie con `avisoTipo`), paso 6 (cobros sólo en la plataforma, cuidando lib/mako-intencion.ts:553;
+  `buscarNegocio` suma cobros), paso 7 (privado: identidad al modelo, el super admin no salta al ws del cliente, cada skip del bot
+  deja registro, lo mandado a mano queda como equipo), la caché de prompt en lib/anthropic.ts (lo estable primero con
+  `cache_control`), el resumidor lib/conversacion-resumen.ts, y medir con `scripts/medir-turnos-por-sha.mts --exigir-igual`.
+
+## ⚡ 11-12/11/2026, noche (claude4): la causa de fondo de la voz sorda, y lo que va en el despliegue del 12/11 11:05 UTC
+
+**Rama** `punta/wa-sorda-1011` (worktree `C:/dev/wt-wa-1011`). Lo de esta tanda, con el pedido del Cerebro (B1-B4):
+- **La causa (informe del Cerebro, sólo lectura):** Evolution 2.3.7 + Baileys rc.9 traba dispositivos; 5 de 10 líneas (ws20, ws21,
+  ws22, ws9 y la voz) reciben con ~24 h de atraso. Restart no cura; QR sí, por menos cada vez. El arreglo de fondo (la versión en
+  Railway) lo decide Martín: no se toca desde acá. Todo cosechado en docs/hallazgos-comunicacion.md («La causa de fondo»).
+- **B1** la alarma de demora mide `wa_mensajes` en todas las líneas (mail + campanita con el nombre del negocio; marca
+  `mako.lineas.atrasadas`). **B2** la voz suma la ráfaga («2 o más a grupos en 30 min y no entró nada») y **dejó de reiniciar**.
+  **B3** «Conectar» (voz y negocios) desvincula y da el QR en un paso con la línea marcada sobre su vinculación actual
+  (lib/lineas-enfermas.ts). Tests: linea-sorda, lineas-atrasadas, linea-enferma-qr (roturas S1-S7, L1-L7, Q1-Q4).
+- **Después del despliegue, medir en producción (sólo lectura):** el primer mail/campanita de ws21 (tiene que sonar el primer día),
+  la marca `mako.lineas.atrasadas` con sus `vinculadaDesde`, y que no salga ninguna falsa (ws10, ws11, ws13, ws18, ws19 al día).
+
 ## ⚡ 10-11/11/2026, noche (claude4; el chat se llama «MaKo en WhatsApp» desde el 10/11): «No funciona MaKo en WhatsApp»
 
 **Worktree** `C:/dev/wt-wa-1011`, **rama** `punta/wa-sorda-1011` (desde origin/main 482ac79f7). En GitHub: 9ef17d692. La despliega el

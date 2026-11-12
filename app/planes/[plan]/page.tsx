@@ -9,8 +9,6 @@
 // =============================================================================
 
 import type { Metadata } from 'next';
-import type { ReactNode } from 'react';
-import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
@@ -22,8 +20,8 @@ import { COOKIE_PROMO, PROMO_ENTRADA } from '@/lib/promo-entrada-reglas';
 import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { ladaDelPais } from '@/lib/paises';
-import { CSS_PLANES } from '../estilo';
 import { CompraPlan } from './CompraPlan';
+import { Ficha, resumenDelPlan } from './Checkout';
 import { QuieroPlan } from './QuieroPlan';
 
 export const dynamic = 'force-dynamic';
@@ -50,7 +48,11 @@ export default async function PlanPage({ params, searchParams }: {
   if (id === PROGRAMA_ACELERADOR.id) {
     const pr = PROGRAMA_ACELERADOR;
     return (
-      <Ficha titulo={pr.nombre} precio={`US$ ${pr.precioUsd.toLocaleString('es-AR')} en ${pr.cuotas} cuotas de US$ ${Math.round(pr.precioUsd / pr.cuotas).toLocaleString('es-AR')}`}>
+      <Ficha resumen={{
+        etiqueta: `Pedir ${pr.nombre}`, nombre: pr.nombre, precio: `US$ ${pr.precioUsd.toLocaleString('es-AR')}`,
+        periodo: `en ${pr.cuotas} cuotas de US$ ${Math.round(pr.precioUsd / pr.cuotas).toLocaleString('es-AR')}`,
+        detalle: 'Se cobra aparte, después de la llamada', incluye: pr.incluye, nota: pr.resumen,
+      }}>
         <QuieroPlan plan={pr.id} nombrePlan={pr.nombre} origen={origen} refCodigo={ref} preguntas={PREGUNTAS_DE_LA_PUERTA} />
       </Ficha>
     );
@@ -68,7 +70,10 @@ export default async function PlanPage({ params, searchParams }: {
   // del año. Sin precio anual, la página del plan es la de siempre.
   if (uno('periodo') === 'anual' && plan.precioAnualUsd) {
     return (
-      <Ficha titulo={`${plan.nombre}, anual`} precio={`US$ ${plan.precioAnualUsd.toLocaleString('es-AR')} por año: ${MESES_GRATIS_ANUAL} meses gratis`}>
+      <Ficha resumen={{
+        etiqueta: `Pedir ${plan.nombre}, anual`, nombre: `${plan.nombre}, anual`, precio: `US$ ${plan.precioAnualUsd.toLocaleString('es-AR')}`,
+        periodo: 'por año', otros: [`${MESES_GRATIS_ANUAL} meses gratis frente al pago mensual`], detalle: 'Un pago por año', incluye: plan.incluye,
+      }}>
         <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para darte de alta.{PRUEBA_GRATIS_PRENDIDA ? ` Empiezas con ${PRUEBA_DIAS} días gratis.` : ''}</p>
         <QuieroPlan plan={plan.id} nombrePlan={`${plan.nombre} anual`} origen={origen} refCodigo={ref} periodo="anual" />
       </Ficha>
@@ -81,8 +86,9 @@ export default async function PlanPage({ params, searchParams }: {
   const precio = pasarelas.map((x) => (conPromo
     ? `${formatoMonto(conPrimerMes(x.monto), x.moneda)} el primer mes, después ${formatoMonto(x.monto, x.moneda)} por mes`
     : `${formatoMonto(x.monto, x.moneda)} por mes`)).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`;
+  const conPrueba = !(uno('sinPrueba') === '1' || !PRUEBA_GRATIS_PRENDIDA);
   return (
-    <Ficha titulo={plan.nombre} precio={precio}>
+    <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumenDelPlan({ nombre: plan.nombre, incluye: plan.incluye, precioUsd: plan.precioUsd, pasarelas, conPromo, conPrueba, conPrimerMes, precio })}>
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
           agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
       {pasarelas.length
@@ -96,22 +102,3 @@ export default async function PlanPage({ params, searchParams }: {
     </Ficha>
   );
 }
-
-/** El marco de la página de un plan (o del programa): la marca, el nombre y el precio arriba. */
-function Ficha({ titulo, precio, children }: { titulo: string; precio: string; children: ReactNode }) {
-  return (
-    <main className="planes-root">
-      <style dangerouslySetInnerHTML={{ __html: CSS_PLANES }} />
-      <div className="planes-wrap">
-        <Link className="planes-volver" href="/planes">← Todos los planes</Link>
-        <div className="planes-form">
-          <div className="planes-marca">MaKo</div>
-          <h1 style={{ fontSize: 24 }}>{titulo}</h1>
-          <p className="planes-sub" style={{ marginBottom: 6 }}>{precio}</p>
-          {children}
-        </div>
-      </div>
-    </main>
-  );
-}
-

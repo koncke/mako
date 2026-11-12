@@ -13,6 +13,7 @@ import { Modal } from '@/app/_ui/Modal';
 import { contadorCorto, nivelDeMultiplo, rotuloOutlier } from '@/lib/carruseles/explorar';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { ROTULO_TEXTO, rotuloDeFormato, rotuloDiasAlAire, type OutlierCopy } from '@/lib/copywriter/outliers';
+import { pedirOriginal } from './cliente';
 import s from '@/app/image-editor/carruseles/explorar.module.css';
 import t from './outliers.module.css';
 
@@ -35,6 +36,16 @@ export function OutlierAbierto({ o, telefono, replicando, onReplicar, onCerrar }
     return () => mq.removeEventListener('change', poner);
   }, [telefono]);
 
+  // La tarjeta trae hasta TEXTO_EN_TARJETA letras (la portada pesaba 7,5 MB): al abrir, el texto ENTERO, del server.
+  const [completo, setCompleto] = useState<string | null>(null);
+  useEffect(() => {
+    setCompleto(null);
+    let vivo = true;
+    void pedirOriginal(o.id).then((r) => { if (vivo && r.ok) setCompleto(r.outlier.texto); });
+    return () => { vivo = false; };
+  }, [o.id]);
+  const texto = completo ?? o.texto;
+
   const anuncio = o.formato === 'anuncio';
   const veces = o.multiplo?.veces ?? null;
   const nivel = nivelDeMultiplo(veces);
@@ -50,11 +61,24 @@ export function OutlierAbierto({ o, telefono, replicando, onReplicar, onCerrar }
       pie={celular ? <button type="button" className={s.editarPie} onClick={onReplicar} disabled={replicando}>{boton}</button> : undefined}>
       <div className={s.abierto}>
         <div className={s.visor}>
+          {/* Con imagen, arriba la pieza (como las láminas de Image) y abajo su texto. 11/11/2026, en producción: con un pie de
+              dos renglones, el visor era una caja blanca enorme casi vacía. */}
           <div className={s.visorMarco}>
-            <div className={t.textoOriginal}>
-              <span className={t.deDonde}>{ROTULO_TEXTO[o.deDonde]}</span>
-              {o.texto}
-            </div>
+            {o.miniatura ? (
+              <div className={t.conImagen}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className={t.imagenOriginal} src={o.miniatura} alt="" referrerPolicy="no-referrer" />
+                <div className={`${t.textoOriginal} ${t.textoBajo}`}>
+                  <span className={t.deDonde}>{ROTULO_TEXTO[o.deDonde]}</span>
+                  {texto}
+                </div>
+              </div>
+            ) : (
+              <div className={t.textoOriginal}>
+                <span className={t.deDonde}>{ROTULO_TEXTO[o.deDonde]}</span>
+                {texto}
+              </div>
+            )}
           </div>
         </div>
 

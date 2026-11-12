@@ -41,7 +41,7 @@ import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tip
 import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
-import { diagnosticoEnTexto, leadDeLaCompra, pasarelaDeLaCompra, pasarelasDelPais, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
+import { diagnosticoEnTexto, leadDeLaCompra, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
 import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
 import { creadoPorPrimerMes, TEXTO_PROMO_CUENTA, TEXTO_PROMO_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
 import { PROMO_ENTRADA } from './promo-entrada-reglas';
@@ -108,11 +108,14 @@ export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean;
   if (!plan) return null;
   try {
     const ws = await wsSuperAdmin();
-    const monedas = (await monedasDeLaPlataforma(ws)).filter((m) => !m.prueba || opts.conPrueba === true);
-    const pasarelas = monedas.map((m) => ({ pasarela: m.pasarela, moneda: m.moneda, monto: precioEn(plan, m.moneda) })).filter((x): x is { pasarela: Pasarela; moneda: string; monto: number } => x.monto != null);
+    const monedas = await monedasDeLaPlataforma(ws);
+    const conPrecio = (ms: typeof monedas) => ms.map((m) => ({ pasarela: m.pasarela, moneda: m.moneda, monto: precioEn(plan, m.moneda) })).filter((x): x is { pasarela: Pasarela; moneda: string; monto: number } => x.monto != null);
+    const reales = conPrecio(monedas.filter((m) => !m.prueba));
+    const deUnaPrueba = opts.conPrueba === true ? conPrecio(monedas.filter((m) => m.prueba)) : [];
     // Mercado Pago sólo en su país; afuera, Stripe (27/10/2026, `pasarelasDelPais`). Después del precio: en Argentina sin
-    // precio en pesos, Mercado Pago no sirve y queda Stripe.
-    return { plan, pasarelas: pasarelasDelPais(opts.pais ?? null, pasarelas) };
+    // precio en pesos, Mercado Pago no sirve y queda Stripe. Las de PRUEBA, sólo al super admin y sin el filtro del país
+    // (11/11/2026, `pasarelasParaOfrecer`): si no, desde Argentina no se podía hacer la prueba de humo de Stripe.
+    return { plan, pasarelas: pasarelasParaOfrecer(opts.pais ?? null, reales, deUnaPrueba) };
   } catch (e) {
     console.warn('[compra-plan] no pude leer las pasarelas de la plataforma:', msg(e));
     return { plan, pasarelas: [] };

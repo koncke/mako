@@ -272,7 +272,9 @@ test('10. los cursores leen lo que marcan el editor y la línea de tiempo, y van
   assert.match(linea, /data-ce-linea=""\s*data-ce-pps=\{BASE_TIMELINE_PIXELS_PER_SECOND \* zoomLevel\}/, 'sin la escala, el cursor no sabe dónde cae cada segundo');
   const cursores = sinComentarios(leer('app/video-editor/_opencut/enjambre/components/cursores.tsx'));
   assert.match(cursores, /pointer-events-none fixed inset-0/, 'los cursores no le quitan el mouse a la persona');
-  assert.match(cursores, /if \(fase !== "corriendo" \|\| !medida/, 'sólo mientras trabajan');
+  // Sólo mientras MaKo edita: la edición automática o, fuera de ella, el chat y los trabajos largos (11/11/2026,
+  // tests/video-editor-cursores-siempre.test.ts).
+  assert.match(cursores, /if \(!enMarcha && !saliendo\) return null;/, 'sólo mientras trabajan');
 });
 
 // ─── La prueba de estilos (tanda 3) ─────────────────────────────────────────

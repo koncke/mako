@@ -18,6 +18,7 @@ import 'server-only';
 import { getSetting, setSetting } from '@/lib/settings';
 import { OWNER_WS, runWithWorkspace } from '@/lib/workspace';
 import { CATALOGO_MODELOS, type ModeloRef, type FeatureModelo } from '@/lib/model-catalogo';
+import { primeroConElCredito } from '@/lib/veto-claude';
 
 export {
   CATALOGO_MODELOS, PROVEEDORES_PAGOS, REGLA_DEFAULT_GRATIS,
@@ -82,11 +83,13 @@ export async function setModeloFeature(feature: string, ref: ModeloRef | null): 
 }
 
 /** Catálogo + el modelo efectivo (con override aplicado) para la UI de SuperAdmin. */
-export async function getModelosConfig(): Promise<Array<FeatureModelo & { actual: ModeloRef; overrideado: boolean }>> {
+export async function getModelosConfig(): Promise<Array<FeatureModelo & { actual: ModeloRef; overrideado: boolean; primero: string | null }>> {
   const ov = await leerOverrides();
   return CATALOGO_MODELOS.map((f) => {
     const o = ov[f.feature];
     const actual = (o?.provider && o?.model) ? o : f.def;
-    return { ...f, actual, overrideado: !!(o?.provider && o?.model) };
+    // Lo que corre ANTES del `actual` (11/11/2026): el crédito de Claude, según la MISMA regla que usa la puerta. El `def` no se
+    // toca (un `def` de Anthropic va a la puerta 1, que el veto frena): sin esto, la lista decía «Gemini» para lo que corre con Claude.
+    return { ...f, actual, overrideado: !!(o?.provider && o?.model), primero: primeroConElCredito(f.feature) };
   });
 }

@@ -230,7 +230,12 @@ test('8. el conocimiento del negocio se busca por el tema de la charla, no sólo
 
 test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el tema y los hechos sólo en su system', () => {
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const memoria = hayInvitado \? [^\n]* : await memoriaDelGrupo\(wsData, jid, \{ turnos: 12, dias: DIAS_DE_HECHOS \}\);\n\s*const historial = memoria\.reciente;/);
+  assert.match(doer, /const memoria = hayInvitado \? [^\n]* : await memoriaDelGrupo\(wsData, jid, \{ turnos: 12, dias: DIAS_DE_HECHOS \}\);\n/);
+  // Desde el 11/11/2026 el historial es la memoria FUNDIDA con el chat de verdad de la línea (lib/hilo-real.ts: lo que salió por la línea
+  // sin pasar por el turno —un aviso, el equipo, un envío a mano— no estaba en la memoria; tests/hilo-del-superadmin.test.ts). Sin el
+  // store, la memoria sola, como antes.
+  // Y donde está prendida, la conversación del módulo común (lib/conversacion.ts, 12/11/2026) va primero.
+  assert.match(doer, /const historial = conversacion \? conversacion\.turnos\n\s*: chatReal\n\s*\? conElChatReal\(memoria\.recienteFilas, chatReal, \{[^\n]*\}\)\n\s*: memoria\.reciente;/);
   // (`historialGrupo(wsData, jid, 1)` sí: es el último turno, para saber si un «ok» contesta una pregunta, lib/doer-para-quien.ts.)
   assert.doesNotMatch(doer, /const historial = await historialGrupo\(/, 'el doer volvió a leer la memoria sin lo de antes');
   // (Desde el 27/10/2026 pasa también por la corrección de monto: tests/doer-falla.test.ts.)
@@ -239,7 +244,8 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   assert.match(doer, /query: consultaDelTurno\(texto, conHilo\.hilo\)/);
   assert.match(doer, /bloqueYaSeHablo\(\s*memoria\.antes,\s*await accionesDelGrupo\(wsData, jid, DIAS_DE_HECHOS\)/, 'lo de antes no llega a los hechos');
   // Los hechos y lo que mostraste van al system del turno y NUNCA al de la red de la plataforma, que corre sin datos de clientes.
-  assert.match(doer, /const conMemoria = hayInvitado \? [^\n]*\n\s*: baseDelSystem === base \? \[(?:bloqueQuienEscribe\(data\.pushName\), )?(?:ctxCita, )?(?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
+  assert.match(doer, /const conMemoria = hayInvitado \? [^\n]*\n\s*: baseDelSystem === base \? \[(?:bloqueQuienEscribe\(data\.pushName\), )?(?:ctxCita, )?(?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado(?:,\n\s*laPlataforma \? [^\]]*)?\]\.filter\(Boolean\)/);
+  // (Desde el 12/11/2026 el último del system es el bloque de la plataforma, sólo en el grupo de SuperAdmin: lib/doer-plataforma.ts.)
   // Lo que mostraron las herramientas: se anota cada salida y se guarda al final del turno, si no fue un cartel.
   assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n(?:[^\n]*(?:escribioDelTurno\+\+|leyoDelTurno = true);\n)*\s*\/\/ Los ids que mostró[^\n]*\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
   assert.match(doer, /if \(!avisoDeSistema && !hayInvitado && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(jid\), unirRefs\(refsGuardadas, refsDelTurno, Date\.now\(\)\)\)/);
@@ -251,7 +257,8 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   const herr = leer('lib/doer-herramientas.ts');
   assert.match(herr, /: v\.sigueElHilo && p\.hilo \? `\$\{p\.hilo\}\\n\$\{propio\}`/);
   const conv = leer('lib/mako-doer-conv.ts');
-  assert.match(conv, /return partirMemoria\(filas, Date\.now\(\), \{ turnos, horas: HORAS_CONTEXTO \}\);/);
+  // (Desde el 12/11/2026 devuelve además las filas recientes con su hora y su id, para fundir el chat de la línea: lib/hilo-real.ts.)
+  assert.match(conv, /return \{ \.\.\.partirMemoria\(filas, Date\.now\(\), \{ turnos, horas: HORAS_CONTEXTO \}\), recienteFilas \};/);
   const pend = leer('lib/mako-pendientes.ts');
   assert.match(pend, /\.eq\('grupo_jid', grupoJid\)\.neq\('estado', 'pendiente'\)/, 'lo que hizo MaKo trae también las vigentes (ya van aparte)');
 });

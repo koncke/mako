@@ -76,7 +76,9 @@ const inicial = (nombre: string): string => iniciales(nombre, 1, '·');
 
 /** Su cara: la caricatura que ya tenemos, la dibujada de ese referente o su foto (`caraDeTarjeta`). */
 function Cara({ c }: { c: { nombre: string; caricatura?: string | null; avatar?: string | null; instagram?: string | null; youtube_id?: string | null; tiktok?: string | null } }) {
-  const cara = caraDeTarjeta(c, caricaturaDeCompetidor(c));
+  // La caricatura de un referente en su tamaño CHICO (200 px, la del Ops Center): acá mide 48 px. La grande (600 px, 150–190 KB)
+  // es para la tarjeta de la computadora; en el teléfono tardaba, y Sugeridos se veía con cuadrados verdes vacíos (11/11/2026).
+  const cara = caraDeTarjeta(c, caricaturaDeCompetidor(c)?.replace('/asesores/grandes/', '/asesores/') ?? null);
   return (
     <span className="m-competitor-spy__cara" aria-hidden>
       {cara
@@ -264,13 +266,17 @@ export function SpyM({ competidores, resumen, sugeridos, abierto, piezas }: {
             <ListaM etiqueta="Competidores">
               {competidores.map((x) => {
                 const r = resumen[x.id];
+                const conPiezas = !!r && r.vivas + r.idas > 0;
+                // Sin piezas, «Revisado hace…» va en la segunda línea y no a la derecha: ahí le quitaba 130 px al nombre, y
+                // «Acquisition.com» se veía «Acquisition.con», cortado sin «…» (mirado en producción a 375 px, 11/11/2026).
+                const canales = canalesEnLinea(x) || 'Sin canales todavía';
                 return (
                   <FilaM
                     key={x.id}
                     leading={<Cara c={x} />}
                     titulo={nombreDeTarjeta(x)}
-                    segunda={canalesEnLinea(x) || 'Sin canales todavía'}
-                    riel={r && r.vivas + r.idas > 0 ? `${r.vivas} ${r.vivas === 1 ? 'pieza' : 'piezas'}` : x.mirado_en ? `Revisado ${haceCuanto(x.mirado_en)}` : null}
+                    segunda={!conPiezas && x.mirado_en ? `${canales} · revisado ${haceCuanto(x.mirado_en)}` : canales}
+                    riel={conPiezas ? `${r.vivas} ${r.vivas === 1 ? 'pieza' : 'piezas'}` : null}
                     onClick={() => irA(x.id)}
                   />
                 );

@@ -49,6 +49,7 @@ import { nombreDePlan } from '@/lib/clientes-plataforma-reglas';
 import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
 import { agenciasHabilitadas } from '@/lib/agencia';
+import { buscarNegocio } from '@/lib/diagnostico-negocio';
 import { apagarMensualidad, corregirRelojDeCliente, FALTA_LA_0402, marcarEntradaPagada, marcarMesPagado, mensualidadDeAgencia, mensualidadParaMako, prenderMensualidad, quitarMesPagado } from '@/lib/agencia-mes';
 import { referenciaNormal } from '@/lib/recibos-reglas';
 import { esDia as esDiaMes, esMes, sumarDias as sumarDiasMes, usd as usdMes } from '@/lib/agencia-mes-reglas';
@@ -1155,12 +1156,23 @@ export const RUNNERS: Runners = {
     leer: async (input, ctx) => {
       if (ctx.ws !== (await wsSuperAdmin())) return fallo('Las mensualidades de las agencias son sólo de la plataforma.');
       if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo(NO_SUPER_ADMIN_MES);
-      const una = n(input.agenciaWs);
+      const agencias = await agenciasHabilitadas();
+      // LA AGENCIA POR SU NOMBRE (11/11/2026): «¿cuánto va a pagar Código Inmobiliario el mes entrante?» nombra la agencia, no
+      // su número. Se busca SÓLO entre las agencias y sin tildes (`buscarNegocio`); más de una, se pregunta cuál.
+      let una = n(input.agenciaWs);
+      const pedida = s(input.agencia);
+      if (una == null && pedida) {
+        const conNombre = (await listarWorkspaces()).filter((w) => agencias.some((a) => a.ws === Number(w.id))).map((w) => ({ ws: Number(w.id), nombre: w.nombre }));
+        const halladas = buscarNegocio(pedida, conNombre);
+        if (halladas.length !== 1) {
+          return fallo(halladas.length ? `«${pedida}» puede ser más de una agencia: ${halladas.map((h) => `${h.nombre} (${h.ws})`).join(', ')}. ¿Cuál?` : `No hay ninguna agencia que se llame «${pedida}». Las agencias: ${conNombre.map((h) => `${h.nombre} (${h.ws})`).join(', ') || 'ninguna'}.`);
+        }
+        una = halladas[0].ws;
+      }
       if (una != null) {
         const m = await mensualidadDeAgencia(una);
         return m.ok ? json(mensualidadParaMako(m)) : fallo(`No pude armar su mensualidad: ${m.error}`);
       }
-      const agencias = await agenciasHabilitadas();
       const filas = await Promise.all(agencias.map(async ({ ws }) => {
         const m = await mensualidadDeAgencia(ws);
         if (!m.ok) return { agencia_ws: ws, error: m.error };
@@ -1174,6 +1186,8 @@ export const RUNNERS: Runners = {
           en_pausa: m.clientes.filter((c) => c.enPausa).map((c) => ({ cliente_ws: c.ws, nombre: c.nombre })),
           se_debe_usd: Math.round(m.pendientes.reduce((a, p) => a + p.debeUsd, 0) * 100) / 100,
           meses_sin_pagar: m.anteriores.filter((x) => !x.pagado).map((x) => x.mes),
+          // «¿Cuánto paga el mes que viene?» (12/11/2026, Martín, de Código Inmobiliario): con los clientes de hoy.
+          mes_que_viene: m.siguiente ? { mes: m.siguiente.mes, total_usd: m.siguiente.cuenta.totalUsd, clientes: m.siguiente.cuenta.lineas.filter((l) => l.tipo !== 'agencia').length } : null,
         };
       }));
       return json({ agencias: filas, nota: 'apagada: true = esa agencia paga con su link (cobro por pasarela); lo de total_usd es cómo quedaría. Con agenciaWs, el detalle de una.' });

@@ -24,7 +24,11 @@ Las maquetas, en `docs/marketing-copilot/rediseno/`, una por vuelta para poder c
 
 | Maqueta | Qué cambia | Artifact |
 |---|---|---|
-| [`maqueta-accion.html`](maqueta-accion.html) | **La vigente.** El molde del dashboard Productividad (Fernly); las dos fases grandes, «El análisis» y «La acción»; el paso 1 con campañas, inversión y tiempo; web, Instagram y YouTube dibujados con recorrido y lista de comentarios; la acción como lugar de trabajo; la máquina de contenido por canal, con la estrategia de los cursos. | claude.ai/artifact/CqxfbFNRY54GZnTLFmxj6s |
+| [`maqueta-piloto.html`](maqueta-piloto.html) | **La vigente.** «Marketing CoPilot» con la criatura; la acción con las cinco tarjetas (sin elegir, la checklist de todo) y «Hacerlo»; la oferta con su ícono; el piloto sin la línea de arriba, con «Configurar piloto» de cada tarjeta en una hoja al costado (cuánto y qué hace solo); sin «Espera tu OK» si todo lo hace solo. | claude.ai/artifact/DFHqDKpAR5Hy8RQPceb31L |
+| [`maqueta-checklist.html`](maqueta-checklist.html) | Los pasos sin subtítulo y con aviso de lo pendiente; la acción como UNA checklist de lo que se hace dentro de MaKo (en orden, con su plantilla y su día) y su calendario; trabajar la oferta o la web con lo principal a la izquierda y la oferta en su desplegable; el piloto por tarjeta en «Acciones» y «Métricas», la oferta también en piloto, y «Configurar» los anuncios como el media buyer automático. La máquina de contenido sale de la acción: va a las plantillas de cada tab. | claude.ai/artifact/SaGw8C5x76yzEJXM8RT75r |
+| [`maqueta-accionables.html`](maqueta-accionables.html) | La acción como UNA lista de lo que te toca (con lo primero marcado y «Empezar algo nuevo»); el piloto automático con lo que espera tu OK y lo que hice a la par, y abajo qué hago solo y qué te pregunto; los canales que no haces, apagados para empezarlos; el cambio de oferta; los logos de dónde está el VSL; la estrategia abajo de lo principal; los dos lados del mismo alto; la luna y el sol de la app. | claude.ai/artifact/K79HrsuoncwRD44U452fJf |
+| [`maqueta-tres-pasos.html`](maqueta-tres-pasos.html) | Todo en mono. Tres pasos con las mismas tarjetas: el análisis (con la estrategia de cada canal, las historias y destacadas, la descripción de YouTube, conectar el VSL y los chats aquí mismo y «Volver a analizar»), la acción (lo que te toca, con Offer y Web Generator adentro) y el piloto automático (lo que hace MaKo). | claude.ai/artifact/3BL3fTaSEPksVsZkfnWeqR |
+| [`maqueta-accion.html`](maqueta-accion.html) | El molde del dashboard Productividad (Fernly); las dos fases grandes, «El análisis» y «La acción»; el paso 1 con campañas, inversión y tiempo; web, Instagram y YouTube dibujados con recorrido y lista de comentarios; la acción como lugar de trabajo; la máquina de contenido por canal, con la estrategia de los cursos. | claude.ai/artifact/CqxfbFNRY54GZnTLFmxj6s |
 | [`maqueta-visual.html`](maqueta-visual.html) | Cada canal con su cara (las miniaturas de verdad) y el feedback encima; el popup de cada pieza; mensajes como un chat de WhatsApp, el VSL con su reproductor, el formulario dibujado; «Tu web» con el recorrido del Web Analyst; «Mejorar oferta» lleva al chat de Offer; la operación en dos: lo que corre (el árbol de Ads Manager) y tu máquina de contenido, con el presupuesto. | claude.ai/artifact/F1WFdNi1nBJoWakPhVUxWU |
 | [`maqueta-analisis.html`](maqueta-analisis.html) | Zernio en el paso 2; «Tu negocio» como análisis y sin chat; «Tu oferta» con «Mejorar oferta», la nota al costado y «Mejorar» / «Corregir» en cada nota; «Tu web» dibujada; el paso 5, la operación. | claude.ai/artifact/6oFhRx6JnoHMVgFyoUxcNN |
 | [`maqueta-por-canal.html`](maqueta-por-canal.html) | «Tu negocio» con una pestaña por canal, cada una con la cara de su app; logos reales; varios archivos de oferta; el texto en tú. | claude.ai/artifact/97pKNFeiPV4U8asB9ejLwn |
@@ -36,6 +40,28 @@ Lo que hay que revisar en cada canal, con su curso y su clase, está en `docs/ma
 - `organico.md`: Instagram, YouTube, la web y la máquina de contenido;
 - `anuncios.md`: los cuatro tipos de funnel con anuncios, los anuncios en sí y su máquina;
 - `zernio.md`: qué trae de verdad la conexión.
+
+## Lo que cambió en la octava vuelta (12/11)
+
+- **Mono, sin el verde** (Martín: «para respetar el diseño de MaKo»), con su modo oscuro, que no existía.
+- **Tres pasos:**
+  1. el análisis: lo que leí;
+  2. la acción: lo que te toca a ti;
+  3. el piloto automático: lo que hace MaKo, con tu OK y «Deshacer».
+
+  Los tres tienen las mismas tarjetas (oferta, web, anuncios, Instagram, YouTube). La que falta no deja hueco.
+- **La estrategia de cada canal**, arriba: una frase de MaKo y cuatro preguntas (¿habla de lo que vendes?, ¿le habla a tu cliente?, ¿una oferta a la vez?, ¿lleva a una venta?).
+- **Instagram:** la bio, las destacadas y las historias de ayer, con la caída de cada una. Las tres tienen su paso en el recorrido.
+- **YouTube:** la descripción del canal, con su paso en el recorrido.
+- **La lista del recorrido**, en filas que se abren. «Cada cuánto publicas» va abajo de la cara.
+- **Anuncios:**
+  - el VSL sin conectar pide dónde está (Panda, Vimeo, Wistia, Bunny, YouTube);
+  - los mensajes sin conectar piden WhatsApp o Instagram;
+  - después se eligen los chats, con los de venta marcados y los personales aparte;
+  - cada chat se ve con la cara de su app.
+- **«Volver a analizar»**, en el análisis y en la oferta: después de mejorarla, la nota pasa de 46 a 63.
+- **Offer y Web Generator, adentro de la acción.** «Mejorar oferta» del análisis lleva ahí.
+- **Qué es de ejemplo:** la bio, las destacadas, las historias, la descripción de YouTube, los chats y todo el piloto automático. Lo demás es del Spy, como antes.
 
 ## Lo que cambió en la séptima vuelta (11/11)
 
