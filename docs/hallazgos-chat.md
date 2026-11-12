@@ -5,6 +5,20 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+
+## La caja se salía de la columna al grabar: no era la onda, era `margin-inline: auto` en una grilla (12/11/2026)
+
+- **Síntoma** (Martín, y medido en Copywriting a 1440): grabando, el botón de terminar quedaba cortado contra el borde; al
+  escuchar lo grabado, «Enviar audio» no se veía. La caja medía 338 a 375 px dentro de un pie de 292.
+- **⚠️ El diagnóstico obvio era el equivocado:** la onda dibuja sus barras según su ancho, y ese ancho lo sostienen sus barras;
+  parecía un lazo que agrandaba la fila. Pero `min-width: 0` en el contenedor no cambió nada. La causa: `.co-caja` trae
+  `margin-inline: auto` (para centrarse en el Ops Center), y en una GRILLA un margen auto saca al ítem del estirado: toma el ancho
+  de su contenido. El pie de Copywriting (`.nt-mako-pie`) es una grilla.
+- **Cómo quedó:** `.nt-mako-pie > .co-caja { margin-inline: 0; min-width: 0; }` (app/copywriter/notion.css). Cualquier pantalla
+  que meta la caja en una grilla necesita lo mismo.
+- **La nota de voz del hilo** tenía `width: 240` fijo: en la columna de 360 px el globo da ~160 y se metía debajo del avatar.
+  Ahora `maxWidth: '100%'` (app/_chat/HiloMako.tsx) y la barra de avance cede su mínimo en `.ch-voz` (app/_chat/chat.css).
+
 ## Ningún chat de la app conversa como Claude, y el lugar «libre» para un resumen no está libre (11/11/2026, medido por el Cerebro)
 
 **Lo medido:** todos los chats de la app cortan por CANTIDAD de mensajes y nada resume lo que queda afuera:

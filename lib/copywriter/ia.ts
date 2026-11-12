@@ -29,7 +29,7 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, TOPES_IA, bloqueIdiomaCopy, charlaParaIA, guionParaIA, propsParaIA } from './ia-reglas';
+import { PROMPTS_COPY, TOPES_IA, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, propsParaIA } from './ia-reglas';
 import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
@@ -243,7 +243,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       ? await metodologiaIgVigente(g.props.tipo).catch(() => metodologiaDe(g.props.tipo as 'reel' | 'story'))
       : '';
     const n = { angulo: angulo?.nombre ?? null, estructura: estructura?.nombre ?? null };
-    const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(acento?.prompt ?? null), formato: FORMATO_EDITAR })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
+    const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(acento?.prompt ?? null, !!acento && VOSEAN.has(acento.id)), formato: FORMATO_EDITAR })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
     const pl = p.adaptar ? plantillaPorId(lite, g.props.plantilla) : null;
     const user = pl?.ejemplo ? await renderPrompt(PROMPTS_EXPERTO.adaptarUser.key, PROMPTS_EXPERTO.adaptarUser.tpl, {
@@ -293,6 +293,9 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     // suerte, es sistema»). Por separado, para que una frase no se arme con el final del título y el principio del cuerpo.
     const copiadas = original ? [...new Set([...frasesDelOriginal(original, r.titulo ?? ''), ...frasesDelOriginal(original, escrito)])] : [];
     if (copiadas.length) avisos.push(`Repite frases del original («${copiadas.slice(0, 2).join('», «')}»): pídele a MaKo que lo diga con tus palabras.`);
+    // Las cifras y la garantía sin fuente (12/11/2026, en producción: la réplica de YouTube inventó porcentajes y una devolución).
+    const fuentes = [negocio, refs.textos.map((x) => x.texto).join('\n'), instruccion, charla, guionParaIA(g.doc), ...(p.lecturas ?? []).map((l) => l.texto)].join('\n');
+    avisos.push(...avisosDeCifras(cifrasSinFuente(`${r.titulo ?? ''}\n${escrito}`, fuentes)));
     const respuesta = [ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n') || (s.ops.length ? 'Listo: revisa lo que escribí.' : 'No cambié nada.');
     return { ok: true, respuesta, operaciones: s.ops, descartadas: [...s.descartadas, ...r.descartadas], avisos, noLeidas: refs.noLeidas };
   } catch (err) {
