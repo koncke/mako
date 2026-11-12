@@ -31,6 +31,7 @@ import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
 import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras } from '../lib/copywriter/ia-reglas';
+import { etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
 import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
 
 const raiz = join(__dirname, '..');
@@ -162,7 +163,7 @@ test('las cifras y la garantía sin fuente se avisan (12/11/2026, en producción
 test('la plantilla sin tocar queda escrita sin «Aceptar», y la caja y la nota de voz entran en la columna (12/11/2026, en producción)', () => {
   const panel = leer('app/copywriter/PanelMaKo.tsx');
   assert.ok(panel.includes('const nacida = adaptar && !!pl && textoDelDoc(antes as JsonNodo).trim() === textoDelDoc(pl.esqueleto()).trim();'));
-  assert.match(panel, /cambiarMensaje\(mako\.id, \{ estado: 'pendiente' \}\);\n\s+if \(nacida\) aceptar\(\{ \.\.\.mako, estado: 'pendiente' \}\);/);
+  assert.ok(panel.includes("if (nacida && !propuesta.descartadas.length) aceptar({ ...mako, estado: 'pendiente' });"), 'sola sólo si entró todo');
   // El método: una acción que crea escribe la pieza entera y pregunta DESPUÉS (antes pedía 3 datos y no escribía nada).
   assert.doesNotMatch(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /todavía no escribes/);
   assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /no le preguntas nada antes de escribir/);
@@ -370,4 +371,27 @@ test('la caja trabada se vuelve a medir cuando llega su frase y cada vez que cam
   assert.match(efecto, /const fila = el\.parentElement\?\.parentElement \?\? null;/);
   assert.match(efecto, /mo\?\.observe\(fila, \{ childList: true, subtree: true \}\);/);
   assert.match(efecto, /return \(\) => \{ ro\?\.disconnect\(\); mo\?\.disconnect\(\); \};/);
+});
+
+test('la sección que nombra MaKo se lee con tolerancia (12/11/2026, en producción: el Carrusel perdió sus 3 secciones)', () => {
+  const doc = docDeEstructura(['SLIDES', 'CTA', 'CAPTION', 'SOLUCIÓN']);
+  const titulo = (doc.content ?? []).find((b) => b.attrs?.seccion === 'CTA');
+  const casos: Array<[Record<string, unknown>, string]> = [
+    [{ seccion: 'SLIDES' }, 'SLIDES'],
+    [{ seccion: 'Slides' }, 'SLIDES'],
+    [{ seccion: 'SECCIÓN SLIDES: Slides' }, 'SLIDES'],
+    [{ seccion: `[${String(titulo?.attrs?.bid)}] ## SECCIÓN CTA: CTA` }, 'CTA'],
+    [{ section: 'caption' }, 'CAPTION'],
+    [{ etiqueta: 'Solucion' }, 'SOLUCIÓN'],
+    [{ seccion: 'La sección CAPTION (el pie)' }, 'CAPTION'],
+    [{ bid: String(titulo?.attrs?.bid) }, 'CTA'],
+    // Una sección nueva sigue siendo válida (escribir_seccion la agrega al final).
+    [{ seccion: 'PIE' }, 'PIE'],
+    [{ seccion: '¿¿??' }, ''],
+  ];
+  for (const [o, esperado] of casos) assert.equal(etiquetaDeSeccion(o, doc), esperado, JSON.stringify(o));
+  const cat = { angulos: new Set<string>(), estructuras: new Set<string>() };
+  const s = sanearOperaciones([{ op: 'escribir_seccion', seccion: 'SECCIÓN SLIDES: Slides', bloques: [{ tipo: 'tabla', filas: [['Lámina', 'Texto'], ['1', 'Hola']] }] }], doc, cat);
+  assert.equal(s.descartadas.length, 0);
+  assert.equal(s.ops[0]?.op === 'escribir_seccion' && s.ops[0].seccion, 'SLIDES');
 });
