@@ -17,8 +17,8 @@ import { create } from "zustand";
 import type { OperacionChat } from "@/lib/editor-video/chat-catalogo";
 import { AGENTES, type AgenteId } from "./plan";
 
-/** Lo mínimo que se ve un cursor prendido por el chat: lo que tarda en llegar (520 ms) y que se lo vea trabajando. */
-export const A_LA_VISTA_MS = 1600;
+/** Lo mínimo que se ve un cursor prendido por el chat: lo que tarda en llegar (300 ms) y que se lo vea trabajando. */
+export const A_LA_VISTA_MS = 900;
 
 /**
  * El agente de cada cambio del chat, por su rol (./plan.ts, AGENTES). La edición automática no tiene: dibuja los

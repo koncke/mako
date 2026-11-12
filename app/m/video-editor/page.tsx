@@ -23,7 +23,7 @@ import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import { PantallaM } from '@/app/m/_ui';
 import { InicioVideoEditorM } from './ClienteVideoM';
 import { OutliersVideo } from '@/app/video-editor/OutliersVideo';
-import { vistaDeVideo } from '@/app/video-editor/vista';
+import { familiaDe, vistaDeVideo } from '@/app/video-editor/vista';
 import { leerOutliersVideo } from '@/lib/video-outliers-servidor';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +37,7 @@ export default async function VideoEditorPagina({ searchParams }: { searchParams
   if (vistaDeVideo(q) === 'outliers') {
     return (
       <PantallaM>
-        <OutliersVideo portada={await leerOutliersVideo()} telefono rutaCrear="/video-editor?ver=crear" />
+        <OutliersVideo portada={await leerOutliersVideo()} telefono rutaCrear="/video-editor?ver=crear" rutaPortada="/m/video-editor?ver=outliers" familia={familiaDe(q)} />
       </PantallaM>
     );
   }
