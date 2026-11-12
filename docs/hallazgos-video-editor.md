@@ -6,6 +6,42 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## «Se me traba exageradamente todo»: el motor bajaba tres veces y la raíz se redibujaba con el cabezal (12/11/2026)
+
+**El síntoma:** Martín, 12/11: «cada vez que ingreso desde la web a utilizar esta pestaña de edición, se me traba
+exageradamente todo… ni siquiera lo puedo utilizar», peor que CapCut en su PC. La memoria ya se había bajado el 11/11 (ver
+abajo), pero nadie había medido el editor ENTERO en vivo.
+
+- **El diagnóstico obvio («es la memoria», «hay que pasarse a Remotion/AWS») no era.** Medido en producción con la API
+  `long-animation-frame` (dice qué script causó cada cuadro lento) y contando qué componentes de React se redibujan:
+  - **Al entrar, el motor bajaba y compilaba TRES veces.** Tres scripts de exactamente 1.118.038 bytes con los MISMOS 236
+    módulos (el núcleo, mediabunny, el WASM), y 453 de los 1.394 módulos de la página repetidos en más de un script. La tab
+    pedía el motor por siete `import()` distintos (`cargarMotor`/`cargarAlmacen` en `proyectos.ts`, y `EditorPage`,
+    `PanelChat`, `ImportarDesde`, `ArmarPlantilla`, `EditorCore.reset()` y el nombre del proyecto en `VideoEditorCliente.tsx`),
+    y el empaquetador arma un grupo con su PROPIA copia de lo compartido por cada uno. **Regla:** la tab carga a pedido
+    SÓLO por `app/video-editor/editor-cargado.ts`; lo nuevo se exporta ahí (lo fija `tests/video-editor-fluidez.test.ts`).
+  - **La RAÍZ del editor leía el tiempo del cabezal** (`editor-page.tsx`, para las notas de los marcadores). `useEditor`
+    escucha a los NUEVE managers (`editor/use-editor.ts`): cada salto del cabezal —cada movimiento del mouse al
+    arrastrarlo— y cada aviso de cualquier manager mientras se reproduce redibujaba el editor entero. Reproduciendo se
+    contaron ~90 tooltips (`Tooltip`, `Popper`, `Presence`) y decenas de menús redibujados POR CUADRO, con 10–50 ms de React
+    por cuadro (a 60 cuadros por segundo no entra). **Regla:** un componente de arriba no lee `getCurrentTime()` con
+    `useEditor`; lo que sigue al cabezal se suscribe abajo, con `playback.onUpdate`/`onSeek` (como `TimecodeDisplay`).
+- **Las trampas de la medición:**
+  - En el navegador de la app con la sesión SIN ventana, los cuadros salen cada ~1 s exactos: es el freno del panel
+    oculto, no el editor (el trabajo de cada cuadro sí vale, la cantidad no).
+  - `long-animation-frame` con `buffered: true` NO trae lo de la carga: hay que observar antes. Y volver a bajar los scripts
+    con `fetch` para inspeccionarlos suma entradas a `getEntriesByType('resource')`: parecen duplicados que no son.
+  - Contar redibujados sin las DevTools: por cada fibra de React, comparar la identidad de `memoizedState` entre dos
+    momentos; un componente que se redibujó tiene hooks nuevos, uno que no, los mismos.
+  - Al recargar, el panel perdió los archivos de Multimedia (OPFS vacío, IndexedDB entero) en menos de una hora: los videos
+    de prueba se fabrican EN la página (`canvas.captureStream` + `MediaRecorder`) y se sueltan con un `DragEvent`.
+
+**Lo que quedó SIN hacer (y sin confirmar):** medir después del deploy que la reproducción y el arrastre del cabezal van
+a 60 cuadros con un proyecto real, y buscar QUÉ manager avisa en cada cuadro reproduciendo (si alguno lo hace, sigue
+redibujando a quien lea el cabezal: `properties/video/basico.tsx`, `masks-tab.tsx`, `speed-tab.tsx`).
+`RenderTreeController` (`preview/components/index.tsx`) compara A FONDO todas las pistas y los medios en cada aviso de
+cualquier manager. Y el núcleo duplicado se confirma mirando los scripts del deploy nuevo.
+
 ## Ticket 73: «poné los dos videos en la línea de tiempo» y MaKo dijo que no existía (12/11/2026)
 
 **El síntoma:** Martín, en el chat del editor (ws 9, 10/11): «Poné los dos videos en la línea de tiempo, primero
@@ -16,8 +52,9 @@ archivo de un clip que ya está. Ahora es `agregar_medios` en el chat y `poner_m
 - **El camino obvio, copiar el ⊕ de Multimedia, da vuelta el orden.** El ⊕ (`agregarMedioEnCabezal`, assets.tsx) suelta en el
   CABEZAL con `placement: auto`. Dos seguidos en el mismo cabezal, con el imán prendido: el segundo cae dentro del primero,
   `bordeMasCercano` (timeline/placement/main-track.ts) lo lleva al borde de la mitad más cercana —el INICIO del primero— y el
-  imán empuja al primero detrás. «Primero X y después Y» quedaba Y, X. Sin imán, el segundo se iba a otra pista. (Leído del
-  código, no medido en pantalla.) Por eso el chat inserta en la PRINCIPAL, al FINAL, con el mismo `InsertElementCommand` +
+  imán empuja al primero detrás. «Primero X y después Y» quedaba Y, X. Sin imán, el segundo se iba a otra pista. **Medido en
+  producción el 12/11:** tocando el ⊕ de toma-1, toma-2, toma-3 y toma-1 sin mover el cabezal, la línea quedó toma-1, toma-3,
+  toma-2, toma-1. Por eso el chat inserta en la PRINCIPAL, al FINAL, con el mismo `InsertElementCommand` +
   `buildElementFromMedia` del ⊕ y la duración que usa el ⊕.
 - **El final se mide AL EJECUTAR, no al pedir** (`AgregarAlFinal`, chat/comandos.ts, como `Diferido`): lo de antes en el
   mismo lote pudo borrar o recortar un clip y el imán junta la principal. Y se vuelve a medir al rehacer.

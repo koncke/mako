@@ -671,4 +671,20 @@ export const BITACORA: Hito[] = [
     revisar: '/video-editor',
     tickets: [73],
   },
+  {
+    fecha: '12 nov', hora: '07:00', chat: 'Ticket 73: videos a la línea desde el chat', sesion: 'local_72d0c3fe-1e3d-43ff-bf60-f9362f94676e', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El editor se traba menos: el motor baja una vez y la pantalla no se redibuja entera con el cabezal',
+    puntos: [
+      'Martín: «cada vez que ingreso desde la web a utilizar esta pestaña de edición, se me traba exageradamente todo». Se midió en producción y no era la memoria.',
+      'Al entrar, la página bajaba y preparaba tres veces el mismo motor del editor (1,1 MB cada vez). Ahora lo baja una sola vez.',
+      'Al reproducir o mover el cabezal, se volvía a dibujar el editor entero en cada cuadro (biblioteca, reproductor, propiedades y línea de tiempo). Ahora sólo cambia lo que sigue al cabezal.',
+      'Falta medirlo con un proyecto real después del deploy, y buscar si algo más se redibuja en cada cuadro mientras se reproduce.',
+    ],
+    archivos: [
+      'app/video-editor/editor-cargado.ts — la única puerta para cargar el motor',
+      'app/video-editor/_opencut/editor-page.tsx — la raíz ya no lee el cabezal',
+      'tests/video-editor-fluidez.test.ts — 2 casos, 2 roturas',
+    ],
+    revisar: '/video-editor',
+  },
 ];
