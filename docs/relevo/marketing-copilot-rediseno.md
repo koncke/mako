@@ -141,6 +141,18 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
 
+**Pedido de la decimotercera vuelta (Martín, 12/11, sobre `maqueta-doce.html`), en curso.** Las fuentes de la maqueta están en el scratchpad de la sesión (`cuerpo-doce.html`, `bloque-doce.js`, `css-doce.css`, `aplicar-doce.mjs`, `armar.mjs`); las hojas del Dashboard se dibujan con `herramientas/ssr-hojas.mts`.
+1. **Análisis, anuncios:** el bloque «Tu página de compra» quedó viejo y no se parece a lo demás. Hay que ponerlo al día, y lo mismo en los otros lugares que hayan quedado así.
+2. **Tus anuncios ganadores, como en la biblioteca de anuncios:** la tarjeta y el popup. Que sean más de 3.
+3. **Instagram:** las pestañas Publicaciones, Reels y Etiquetadas no acompañan el scroll.
+4. **YouTube:**
+   - la portada se extrae siempre del canal, nunca se inventa;
+   - el diseño de la portada, la descripción y lo demás tiene que verse exactamente como YouTube.
+5. **La acción de la oferta:** «Tu nota» y «Tu oferta» en una sola tarjeta, para que la nota no quede suelta abajo. Rediseñar «Tu oferta» más lindo, sin copiar tal cual la de Offer, que rompe con el diseño.
+6. **El tacho siempre a la derecha de todo.**
+7. **Un relevo de las hojas y los gráficos del Dashboard:** si sirven, qué falta y qué sobra.
+8. **Las hojas que se rompieron:** la de VSL y YouTube se ve aplanada.
+
 **Hecho (12/11, duodécima vuelta):** `maqueta-doce.html` (Artifact claude.ai/artifact/PTjztn9WovQssXfKxYHVtj). Los 14 puntos de abajo. Y lo que Martín pidió a mitad de la vuelta, mirando el calendario:
 - sin los botones de cada área (ya están las tarjetas de arriba);
 - sin «Mes / Agenda» («¿cuál es la diferencia?»): sólo el mes;
