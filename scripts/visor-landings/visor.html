@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Landings de MaKo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700;800&family=Geist+Mono:wght@400;500&display=swap">
+<!-- El visor de las landings de hola-mako.com/vsl. Lo arma scripts/visor-landings/armar.mjs (docs/relevo/landings-vsl.md):
+     cada página es una FOTO del DOM de producción (paginas/<slug>.html a 1440 px y paginas/<slug>-tel.html a 390 px). -->
+<style>
+:root{
+  --bg:#F3F5F9;--panel:#FFFFFF;--fg:#12151B;--muted:#5C6676;--line:#DCE2EC;--soft:#E9EEF7;
+  --accent:#2F6FED;--accent-soft:#E4ECFD;--gold:#F2B01E;--stage:#E7EBF2;
+  --f-ui:"Urbanist",ui-sans-serif,system-ui,sans-serif;--f-mono:"Geist Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0D1017;--panel:#151A24;--fg:#E9EDF4;--muted:#98A2B3;--line:#252D3B;--soft:#1C2330;--accent:#6E9CFF;--accent-soft:#1A2744;--gold:#F2B01E;--stage:#090C12;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0D1017;--panel:#151A24;--fg:#E9EDF4;--muted:#98A2B3;--line:#252D3B;--soft:#1C2330;--accent:#6E9CFF;--accent-soft:#1A2744;--gold:#F2B01E;--stage:#090C12;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px;line-height:1.45}
+.app{height:100%;display:grid;grid-template-columns:268px minmax(0,1fr)}
+aside{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;padding-left:max(0px,env(safe-area-inset-left,0px))}
+.marca{display:flex;align-items:center;gap:10px;padding:18px 18px 14px;border-bottom:1px solid var(--line)}
+.marca svg{width:26px;height:26px;flex:none}
+.marca b{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.marca small{display:block;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:400}
+.lista{overflow-y:auto;padding:10px 10px 24px;display:flex;flex-direction:column;gap:14px}
+.grupo h2{margin:0 8px 6px;font-family:var(--f-mono);font-size:10.5px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.grupo ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.grupo a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-radius:8px;color:var(--fg);text-decoration:none;font-weight:600;font-size:14px}
+.grupo a:hover{background:var(--soft)}
+.grupo a[aria-current="page"]{background:var(--accent-soft);color:var(--accent)}
+.grupo a span{font-family:var(--f-mono);font-size:10.5px;font-weight:400;color:var(--muted)}
+.grupo a .nueva{font-family:var(--f-mono);font-size:9.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#7A5300;background:#FDF0CF;border-radius:5px;padding:2px 5px}
+main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.barra{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:12px max(16px,env(safe-area-inset-right,0px)) 12px 20px;background:var(--panel);border-bottom:1px solid var(--line)}
+.titulo{display:flex;flex-direction:column;gap:2px;min-width:0;margin-right:auto}
+.titulo h1{margin:0;font-size:19px;font-weight:800;letter-spacing:-.015em;text-wrap:balance}
+.titulo p{margin:0;font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.titulo a{color:var(--accent);font-weight:600;text-decoration:none}
+.titulo a:hover{text-decoration:underline}
+.ctl{display:flex;flex-direction:column;gap:4px}
+.ctl > span{font-family:var(--f-mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.seg{display:inline-flex;padding:3px;border-radius:9px;background:var(--soft);border:1px solid var(--line)}
+.seg button{appearance:none;border:0;background:transparent;color:var(--muted);font:600 13px/1 var(--f-ui);padding:7px 11px;border-radius:7px;cursor:pointer;white-space:nowrap}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg);box-shadow:0 1px 2px rgba(18,21,27,.12)}
+.seg button:focus-visible,.grupo a:focus-visible,.titulo a:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.seg button .orig{font-family:var(--f-mono);font-size:9.5px;font-weight:400;color:var(--accent);margin-left:5px}
+.escenario{flex:1;min-height:0;position:relative;background:var(--stage);overflow:hidden}
+.marco{position:absolute;top:0;left:50%;transform-origin:top center;background:#fff;box-shadow:0 0 0 1px var(--line)}
+.marco.tel{top:16px;border-radius:26px;overflow:hidden;box-shadow:0 0 0 10px #12151B,0 18px 50px rgba(0,0,0,.35)}
+.marco iframe{display:block;width:100%;height:100%;border:0;background:#fff}
+.aviso{position:absolute;left:12px;bottom:12px;max-width:min(520px,calc(100% - 24px));margin:0;font-size:12.5px;color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px 11px}
+.aviso[hidden]{display:none}
+.selector{display:none}
+@media (max-width:860px){
+  /* Sin la lista, `main` es la ÚNICA fila: con «auto» primero, el escenario quedaba con alto cero (en blanco en el teléfono). */
+  .app{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
+  aside{display:none}
+  .selector{display:block;padding:10px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));background:var(--panel)}
+  .selector span{display:block;margin-bottom:4px;font-family:var(--f-mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+  .selector select{width:100%;font:600 15px var(--f-ui);padding:9px 10px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+  .barra{padding-left:max(16px,env(safe-area-inset-left,0px));gap:10px 12px}
+  .seg button{padding:7px 9px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="marca">
+      <svg viewBox="-12 -12 24 24" aria-hidden="true"><rect x="-12" y="-12" width="24" height="24" rx="6" fill="#12151B"/><path d="M0 -8 C1 -3 3 -1 8 0 C3 1 1 3 0 8 C-1 3 -3 1 -8 0 C-3 -1 -1 -3 0 -8 Z" fill="#F2B01E"/></svg>
+      <div><b>Landings de MaKo</b><small>hola-mako.com/vsl · {{FECHA}}</small></div>
+    </div>
+    <nav class="lista" id="lista" aria-label="Páginas"></nav>
+  </aside>
+  <main>
+    <label class="selector" for="sel"><span>Página</span><select id="sel"></select></label>
+    <div class="barra">
+      <div class="titulo"><h1 id="nombre">—</h1><p id="ref"></p></div>
+      <div class="ctl"><span>Diseño</span><div class="seg" id="ctl-diseno"><button type="button" data-v="copiado">Copiado</button><button type="button" data-v="mako">Diseño MaKo</button></div></div>
+      <div class="ctl"><span>Modo</span><div class="seg" id="ctl-modo"><button type="button" data-v="claro">Claro</button><button type="button" data-v="oscuro">Oscuro</button></div></div>
+      <div class="ctl"><span>Pantalla</span><div class="seg" id="ctl-pantalla"><button type="button" data-v="pc">Computadora</button><button type="button" data-v="tel">Teléfono</button></div></div>
+    </div>
+    <div class="escenario" id="escenario">
+      <div class="marco" id="marco"><iframe id="pagina" title="La landing"></iframe></div>
+      <p class="aviso" id="aviso" hidden></p>
+    </div>
+  </main>
+</div>
+
+<script>
+const PAGINAS = /*PAGINAS*/[];
+// Las letras de MaKo para «Diseño MaKo», publicadas junto al visor (relativas a paginas/<slug>.html).
+const FUENTE_SANS = '../assets/fuentes-mako/urbanist.woff2';
+const FUENTE_MONO = '../assets/fuentes-mako/geist-mono.woff2';
+
+const estado = { slug: null, diseno: 'copiado', modo: null, pantalla: 'pc', base: 'claro' };
+const $ = (id) => document.getElementById(id);
+const iframe = $('pagina');
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+(function armarLista() {
+  const grupos = [];
+  for (const p of PAGINAS) { let g = grupos.find((x) => x.n === p.grupo); if (!g) grupos.push(g = { n: p.grupo, items: [] }); g.items.push(p); }
+  $('lista').innerHTML = grupos.map((g) => `<div class="grupo"><h2>${esc(g.n)}</h2><ul>${g.items.map((p) => `<li><a href="#${p.slug}" data-slug="${p.slug}">${esc(p.nombre)}${p.nueva ? '<em class="nueva">nuevo</em>' : `<span>${esc(p.corto)}</span>`}</a></li>`).join('')}</ul></div>`).join('');
+  $('sel').innerHTML = grupos.map((g) => `<optgroup label="${esc(g.n)}">${g.items.map((p) => `<option value="${p.slug}">${esc(p.nombre)}${p.nueva ? ' · nuevo' : ''}</option>`).join('')}</optgroup>`).join('');
+  $('sel').addEventListener('change', (e) => { location.hash = e.target.value; });
+})();
+
+function marcar() {
+  document.querySelectorAll('.grupo a').forEach((a) => a.setAttribute('aria-current', a.dataset.slug === estado.slug ? 'page' : 'false'));
+  $('sel').value = estado.slug;
+  for (const [id, k] of [['ctl-diseno', 'diseno'], ['ctl-modo', 'modo'], ['ctl-pantalla', 'pantalla']]) {
+    $(id).querySelectorAll('button').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.v === estado[k]));
+      if (k === 'modo') b.innerHTML = (b.dataset.v === 'claro' ? 'Claro' : 'Oscuro') + (b.dataset.v === estado.base ? '<span class="orig">original</span>' : '');
+    });
+  }
+}
+
+// La computadora se dibuja a 1440 px de ancho real y se achica para entrar; el teléfono, a 390 px con su propia foto.
+function encuadrar() {
+  const e = $('escenario'), m = $('marco');
+  const W = e.clientWidth, H = e.clientHeight;
+  if (estado.pantalla === 'pc') {
+    const k = Math.min(1, W / 1440);
+    m.className = 'marco'; m.style.width = '1440px'; m.style.height = (H / k) + 'px';
+    m.style.transform = `translateX(-50%) scale(${k})`;
+  } else {
+    const k = Math.min(1, (H - 32) / 844, (W - 28) / 390);
+    m.className = 'marco tel'; m.style.width = '390px'; m.style.height = Math.min(844, (H - 32) / k) + 'px';
+    m.style.transform = `translateX(-50%) scale(${k})`;
+  }
+}
+addEventListener('resize', encuadrar);
+
+function abrir(slug, conservarScroll) {
+  const p = PAGINAS.find((x) => x.slug === slug) || PAGINAS[0];
+  const cambio = estado.slug !== p.slug;
+  estado.slug = p.slug;
+  $('nombre').textContent = p.nombre;
+  $('ref').innerHTML = `Copia ${esc(p.que)} de <a href="${esc(p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.ref)} ↗</a>`;
+  let y = 0;
+  try { if (conservarScroll && !cambio) { const w = iframe.contentWindow; y = w.scrollY / Math.max(1, w.document.documentElement.scrollHeight); } } catch (e) {}
+  iframe.onload = () => prepararPagina(cambio, y);
+  iframe.src = `paginas/${p.slug}${estado.pantalla === 'tel' ? '-tel' : ''}.html`;
+  encuadrar(); marcar();
+}
+
+// ── Lo que se le hace a la página ya cargada ─────────────────────────────────────────────────────────
+const RGB = /rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/g;
+function aHsl(r, g, b) { r /= 255; g /= 255; b /= 255; const mx = Math.max(r, g, b), mn = Math.min(r, g, b); let h = 0, s = 0; const l = (mx + mn) / 2;
+  if (mx !== mn) { const d = mx - mn; s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; } return [h, s, l]; }
+function aRgb(h, s, l) { const k = (n) => (n + h / 30) % 12; const a = s * Math.min(l, 1 - l); const f = (n) => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))); return [f(0), f(8), f(4)].map((v) => Math.round(v * 255)); }
+const cadena = (rgb, a) => a !== undefined ? `rgba(${rgb.join(', ')}, ${a})` : `rgb(${rgb.join(', ')})`;
+function mapear(txt, fn) { return txt.replace(RGB, (m0, r, g, b, a) => { const nuevo = fn(+r, +g, +b, a); return nuevo || m0; }); }
+
+// Diseño MaKo: el tono propio de la referencia pasa al azul (220°) o al dorado (42°) de MaKo; grises y estados quedan.
+function haciaMaKo(r, g, b, a) {
+  const [h, s, l] = aHsl(r, g, b);
+  if (s < .25 || l < .08 || l > .97) return null;
+  if ((h >= 200 && h <= 235) || (h >= 35 && h <= 52) || h < 15 || h >= 345 || (h >= 90 && h <= 165)) return null;
+  return cadena(aRgb(h >= 15 && h < 35 ? 42 : 220, s, l), a);
+}
+// Claro ↔ oscuro: los neutros invierten su luz; los colores pálidos pasan a su versión oscura y los muy oscuros a la clara.
+function invertir(r, g, b, a) {
+  const [h, s, l] = aHsl(r, g, b);
+  const croma = (Math.max(r, g, b) - Math.min(r, g, b)) / 255;
+  if (croma < .14) { const nl = Math.max(.045, Math.min(.975, 1 - l)); return cadena(nl < .3 ? aRgb(222, .22, nl) : aRgb(h, Math.min(s, .25), nl), a); }
+  if (l > .82) return cadena(aRgb(h, s * .55, Math.max(.12, 1.06 - l)), a);
+  if (l < .2) return cadena(aRgb(h, s * .6, Math.min(.92, .95 - l)), a);
+  return null;
+}
+const esTransparente = (c) => !c || c === 'transparent' || /rgba\([^)]*,\s*0\)$/.test(c);
+
+function prepararPagina(nueva, y) {
+  const d = iframe.contentDocument, w = iframe.contentWindow;
+  if (!d) return;
+  // Los links: a otra landing de la lista, se abre en el visor; lo demás no navega.
+  d.addEventListener('click', (e) => {
+    const a = e.target.closest && e.target.closest('a'); if (!a) return;
+    const href = a.getAttribute('href') || '';
+    if (href.startsWith('#')) return;
+    e.preventDefault();
+    const m = href.match(/^(?:https:\/\/hola-mako\.com)?\/vsl\/([a-z0-9-]+)/);
+    if (m && PAGINAS.some((p) => p.slug === m[1])) location.hash = m[1];
+    else mostrarAviso(href.startsWith('/vsl#') || href.includes('calendly') ? 'Ese botón lleva a agendar la llamada: en el visor no navega.' : 'En el visor sólo se abren las landings de la lista.');
+  }, true);
+  // El modo en que nació la página: la luz del fondo de la primera pantalla.
+  let el = d.elementFromPoint(w.innerWidth / 2, Math.min(260, w.innerHeight / 2)), fondo = null;
+  while (el && !fondo) { const c = w.getComputedStyle(el).backgroundColor; if (!esTransparente(c)) fondo = c; el = el.parentElement; }
+  fondo = fondo || 'rgb(255, 255, 255)';
+  const [, , l0] = aHsl(...fondo.match(/[\d.]+/g).slice(0, 3).map(Number));
+  estado.base = l0 < .5 ? 'oscuro' : 'claro';
+  if (nueva || !estado.modo) estado.modo = estado.base;
+  marcar();
+  const todos = [...d.querySelectorAll('body, body *')];
+  if (estado.diseno === 'mako') {
+    const st = d.createElement('style');
+    st.textContent = `@font-face{font-family:'MaKo Sans';font-weight:100 900;src:url(${FUENTE_SANS}) format('woff2')}@font-face{font-family:'MaKo Mono';font-weight:100 900;src:url(${FUENTE_MONO}) format('woff2')}`;
+    d.head.appendChild(st);
+    const mono = /mono|courier|consol|menlo|code/i;
+    for (const n of todos) {
+      const cs = w.getComputedStyle(n);
+      n.style.setProperty('font-family', mono.test(cs.fontFamily) ? "'MaKo Mono', ui-monospace, monospace" : "'MaKo Sans', system-ui, sans-serif", 'important');
+      for (const prop of ['color', 'background-color', 'border-top-color', 'border-bottom-color', 'border-left-color', 'border-right-color', 'fill', 'stroke', 'background-image', 'box-shadow', 'outline-color', 'text-decoration-color']) {
+        const v = cs.getPropertyValue(prop); if (!v || v === 'none') continue;
+        const nv = mapear(v, haciaMaKo); if (nv !== v) n.style.setProperty(prop, nv, 'important');
+      }
+    }
+  }
+  if (estado.modo !== estado.base) {
+    // Primero se leen TODOS los colores; después se escriben (si no, un hijo hereda el color ya invertido y se invierte dos veces).
+    const fuera = (n) => n.closest('[aria-label^="MaKo"], img, video, picture, canvas, iframe');
+    const BORDES = ['border-top-color', 'border-bottom-color', 'border-left-color', 'border-right-color', 'outline-color'];
+    const TEXTO = ['color', 'fill', 'stroke', 'text-decoration-color'];
+    const leidos = todos.filter((n) => !fuera(n)).map((n) => { const cs = w.getComputedStyle(n); const o = { n, bg: cs.backgroundColor, bi: cs.backgroundImage };
+      for (const p of BORDES.concat(TEXTO)) o[p] = cs.getPropertyValue(p); return o; });
+    const fondoNuevo = new Map(), sinCambio = new Set();
+    for (const o of leidos) if (!esTransparente(o.bg)) { const nb = mapear(o.bg, invertir); if (nb !== o.bg) fondoNuevo.set(o.n, nb); else sinCambio.add(o.n); }
+    for (const o of leidos) {
+      const n = o.n;
+      if (fondoNuevo.has(n)) n.style.setProperty('background-color', fondoNuevo.get(n), 'important');
+      if (o.bi && o.bi !== 'none' && o.bi.includes('gradient')) { const v = mapear(o.bi, invertir); if (v !== o.bi) n.style.setProperty('background-image', v, 'important'); }
+      for (const p of BORDES) { const v = o[p]; if (v) { const nv = mapear(v, invertir); if (nv !== v) n.style.setProperty(p, nv, 'important'); } }
+      let a = n, quieto = false;
+      while (a) { if (sinCambio.has(a)) { quieto = true; break; } if (fondoNuevo.has(a)) break; a = a.parentElement; }
+      if (quieto) continue;
+      for (const p of TEXTO) { const v = o[p]; if (!v || v === 'none') continue; const nv = mapear(v, invertir); if (nv !== v) n.style.setProperty(p, nv, 'important'); }
+    }
+    for (const a of d.querySelectorAll('[aria-label^="MaKo"]')) {
+      const os = estado.modo === 'oscuro';
+      a.style.setProperty('color', os ? '#ffffff' : '#12151B', 'important');
+      const cuadro = a.querySelector('span'); if (cuadro) cuadro.style.setProperty('background', os ? 'rgba(255,255,255,.12)' : '#1A1712', 'important');
+      for (const t of a.querySelectorAll('span')) if (t !== cuadro) t.style.setProperty('color', os ? '#ffffff' : '#12151B', 'important');
+    }
+    d.documentElement.style.setProperty('color-scheme', estado.modo === 'oscuro' ? 'dark' : 'light');
+    if (!d.documentElement.style.backgroundColor) d.documentElement.style.setProperty('background-color', estado.modo === 'oscuro' ? '#0e1219' : '#ffffff', 'important');
+  }
+  const avisos = [];
+  if (estado.modo !== estado.base) avisos.push(`Esta página nació en modo ${estado.base}: el modo ${estado.modo} se arma solo, invirtiendo sus colores, para que veas cómo quedaría.`);
+  if (estado.diseno === 'mako') avisos.push('Diseño MaKo: la letra de MaKo y sus colores sobre el diseño copiado.');
+  avisoBase = avisos.join(' ');
+  $('aviso').textContent = avisoBase;
+  $('aviso').hidden = !avisoBase;
+  if (y) w.scrollTo(0, y * d.documentElement.scrollHeight);
+}
+
+let avisoTimer = 0, avisoBase = '';
+function mostrarAviso(t) {
+  const a = $('aviso'); a.textContent = t; a.hidden = false; clearTimeout(avisoTimer);
+  avisoTimer = setTimeout(() => { a.textContent = avisoBase; a.hidden = !avisoBase; }, 2600);
+}
+
+for (const [id, k] of [['ctl-diseno', 'diseno'], ['ctl-modo', 'modo'], ['ctl-pantalla', 'pantalla']]) {
+  $(id).addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b || estado[k] === b.dataset.v) return;
+    estado[k] = b.dataset.v;
+    try { localStorage.setItem('visor-' + k, b.dataset.v); } catch (err) {}
+    abrir(estado.slug, true);
+  });
+}
+try {
+  estado.diseno = localStorage.getItem('visor-diseno') || 'copiado';
+  estado.pantalla = localStorage.getItem('visor-pantalla') || (innerWidth < 860 ? 'tel' : 'pc');
+} catch (e) { estado.pantalla = innerWidth < 860 ? 'tel' : 'pc'; }
+const desdeHash = () => abrir((location.hash || '').slice(1) || PAGINAS[0].slug);
+addEventListener('hashchange', desdeHash);
+desdeHash();
+</script>
+</body>
+</html>

@@ -116,7 +116,7 @@ export const BITACORA: Hito[] = [
     revisar: '/vsl/copywriting',
   },
   {
-    fecha: '12 nov', hora: '07:20', chat: 'Landings de /vsl', cuenta: 'claude5',
+    fecha: '12 nov', hora: '07:20', chat: 'Landings de /vsl', sesion: 'local_ec06a1f5-08a0-4404-80fb-5123883b13aa', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'AI Avatar con las imágenes reales de sus escenas en la portada',
     puntos: [

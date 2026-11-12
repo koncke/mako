@@ -18,7 +18,13 @@ referencia y el sitio estilo beehiiv (`/vsl/sitio`, `/vsl/comparaciones`). Mart�
   los tonos de la referencia al azul y al dorado de MaKo; claro / oscuro, que invierte los colores; computadora a 1440 o
   teléfono a 390) + `paginas/<slug>.html`, una FOTO de cada página ya dibujada (el CSS adentro, sin scripts, las imágenes en
   `assets/`).
-- Cómo se arma uno nuevo: ver «Cómo se arma el visor» abajo (se completa al publicar el próximo).
+- **Cómo se arma uno nuevo** (unos 3 minutos, sin `next dev`): con lo nuevo YA desplegado,
+  `node scripts/visor-landings/armar.mjs <carpeta> https://hola-mako.com` (con `VISOR_NUEVAS=ai-avatar,…` marca «nuevo» en la
+  lista). Fotografía las 21 páginas a 1440 y a 390 con Chromium headless y mudo, sin sumar visitas (corta el Pixel, Panda y
+  `/api/`), baja las hojas de estilo, imágenes y letras a `<carpeta>/assets/` y escribe `index.html` desde
+  `scripts/visor-landings/visor.html`. Se publica con la herramienta Artifact: `file_path` = `<carpeta>/index.html` y en
+  `files` cada `paginas/*.html` y cada `assets/**` con su misma ruta. Para cambiar la lista o los grupos: `PAGINAS` en `armar.mjs`.
+- El visor del 12/11 tenía un error en el teléfono: el escenario quedaba con alto cero (en blanco). Ya está corregido en la plantilla.
 
 ## Lo pendiente
 
