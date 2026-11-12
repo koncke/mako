@@ -697,6 +697,17 @@ export function textoDeMesImpago(p: { agencia: string; mes: Mes; debeUsd: number
   return `${p.agencia}: la mensualidad de ${nombreDelMes(p.mes)} no entró y ${cuanto}. Falta ${usd(p.debeUsd)}. La cuenta de la agencia y las de sus clientes quedan en pausa hasta que entre el pago.`;
 }
 
+/**
+ * El aviso a Martín de un comprobante para revisar (lib/agencia-mes-comprobante.ts). ⚠️ TERMINA EN UNA PREGUNTA, y sin nombres de
+ * herramientas (12/11/2026, Martín: «Funciona increíblemente mal el WhatsApp, no guarda contexto de nada»). El de antes cerraba con
+ * «márcalo con marcar_mensualidad_pagada o marcar_entrada_pagada (con la orden)»: un nombre interno que Martín no tiene por qué leer,
+ * y SIN «?». Sin la pregunta, su «Si perfecto, dalo de alta» no seguía la oferta (`makoPreguntoAlgo`, lib/mako-intencion.ts) y MaKo
+ * contestó «¿a quién le doy de alta al CRM?». La agencia y cada cliente van con su número de cuenta: el turno lo usa para marcarlo.
+ */
+export function avisoDeComprobanteParaRevisar(p: { agencia: string; agenciaWs: number; porque: string; lectura: string; debe: string }): string {
+  return `Comprobante de ${p.agencia} (cuenta ${p.agenciaWs}) para revisar (${p.porque}): ${p.lectura} Lo que debía: ${p.debe}. Si está bien, ¿lo marco como pagado?`;
+}
+
 /** Lo que contesta MaKo a un comprobante del grupo, según lo que hizo. Lo arma el código, nunca un modelo. */
 export function textoDeComprobante(r:
   | { tipo: 'cubre'; montoUsd: number; conceptos: string[]; reabiertas: number }

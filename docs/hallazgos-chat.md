@@ -5,6 +5,30 @@ para todos los chats de MaKo. Lo que sabe cada pantalla de su chat (su motor, su
 es lo que muerde al montarlas. Qué caja ofrece qué, y la excepción con su porqué: `lib/cajas-de-chat.ts` (el barrido,
 `tests/cajas-de-chat-unificadas.test.ts`). Lo del Ops Center en particular: [hallazgos-operaciones.md](hallazgos-operaciones.md).
 
+## Ningún chat de la app conversa como Claude, y el lugar «libre» para un resumen no está libre (11/11/2026, medido por el Cerebro)
+
+**Lo medido:** todos los chats de la app cortan por CANTIDAD de mensajes y nada resume lo que queda afuera:
+- el Ops Center, el Second Brain y la estrella de cada tab: 12 mensajes (`lib/mako-turno-app.ts:609`);
+- Copywriting y «Discutir» del Web Generator: 8 de 600 letras, pegados como texto en UN mensaje;
+- «Editar» del Web Generator y el Video Editor: ninguno;
+- Offer: 30.
+
+De los 27 chats del Ops Center activos en 14 días, 22 (81 %) pasan los 12: el modelo ya no ve cómo empezaron. Lo que leyó una
+herramienta no queda en la historia, sólo el texto final. El Second Brain se busca con el mensaje actual solo, así que «¿y cuánto
+paga?» no trae nada.
+
+⚠️ **La trampa:** `chart_sessions.contexto` parece el lugar natural para guardar un resumen, porque se crea vacío. No lo es: el
+onboarding lo usa de marca y borra sesiones por él (`lib/onboarding-arranque-server.ts:202-205`), y el turno lo lee
+(`lib/mako-turno-app.ts:702`). El resumen va en `app_settings` con su candado (`KEY_RESUMEN` en lib/conversacion.ts).
+
+**La regla:** un chat nuevo arma su historia con el módulo común (`conversacionDelTurno`, lib/conversacion.ts, y sus reglas en
+lib/conversacion-reglas.ts). Corta por TOKENS: 8.000 en la app, 6.000 en un grupo y 1.500 para el clasificador. Cada canal suma su
+adaptador de lectura.
+
+**Sin hacer:** los adaptadores de la app (CoPilot, Copywriting, Web Generator, Image, Video, Offer), el resumidor
+(lib/conversacion-resumen.ts, fuera del turno), «lo que leí» en la app y el Second Brain con los mensajes anteriores. Los reparte el
+Cerebro cuando el módulo esté en main.
+
 ## Create: el ejemplo pregunta la oferta, y la tarjeta reenvía la apertura de su tab (5/11/2026, nube)
 
 - **Qué cambió:** `primerMensajeDeEjemplo` (app/_crear/ejemplo.ts) ya no pregunta «¿Lo adapto a tu negocio?» (una ACCIÓN, lo

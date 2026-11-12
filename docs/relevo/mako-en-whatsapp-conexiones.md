@@ -1,5 +1,21 @@
 # Retomar: «MaKo en WhatsApp: conexiones, ayuda y tickets» (el doer de los grupos)
 
+## ⚡ 12/11/2026 ~02:30 UTC (claude4): «que todos los chats conversen como un chat con Claude» (el plan del Cerebro)
+
+El plan y sus mapas: `C:/Users/marti/AppData/Local/Temp/claude/fb1d94a1aca5ced3/6ea62e88-206b-49e4-b5fe-e446feb70ded/scratchpad/chats-plan.md`
+(y chats-grupos/privados/app/saber.md). Rama `punta/wa-sorda-1011`, worktree `C:/dev/wt-wa-1011`.
+- **Subido:** c88df3ff6 (el contexto: memoria del SuperAdmin, aviso al dueño, historial, chat de la línea con lib/hilo-real.ts, aviso
+  del comprobante en pregunta, cobros con pagar/mensualidad/comprobante, marcar el pago en una ACCIÓN, lib/doer-plataforma.ts,
+  mes_que_viene desde hoy = Código dic US$426). «Planes y cobros» parte de ese commit (la agencia por nombre y buscar_negocio son suyos).
+- **El módulo común (siguiente commit):** lib/conversacion-reglas.ts (puro) + lib/conversacion.ts (`conversacionDelTurno`,
+  `conversacionPrendida`: plataforma y ws13). Cableado en lib/mako-doer-in.ts (historial, ultimoDeMako, rol del equipo y
+  preguntaDelEquipo al clasificador). Tests: conversacion-reglas 5/5, hilo-del-superadmin 7/7 (roturas C1-C6).
+- **Falta del plan, en orden:** paso 2 (guardar el mensaje antes de CHARLA/NO_REPLY en el privado), paso 5 (áreas por `aviso_tipo`;
+  y que `enviarAlGrupoSuperAdmin` copie con `avisoTipo`), paso 6 (cobros sólo en la plataforma, cuidando lib/mako-intencion.ts:553;
+  `buscarNegocio` suma cobros), paso 7 (privado: identidad al modelo, el super admin no salta al ws del cliente, cada skip del bot
+  deja registro, lo mandado a mano queda como equipo), la caché de prompt en lib/anthropic.ts (lo estable primero con
+  `cache_control`), el resumidor lib/conversacion-resumen.ts, y medir con `scripts/medir-turnos-por-sha.mts --exigir-igual`.
+
 ## ⚡ 11-12/11/2026, noche (claude4): la causa de fondo de la voz sorda, y lo que va en el despliegue del 12/11 11:05 UTC
 
 **Rama** `punta/wa-sorda-1011` (worktree `C:/dev/wt-wa-1011`). Lo de esta tanda, con el pedido del Cerebro (B1-B4):
