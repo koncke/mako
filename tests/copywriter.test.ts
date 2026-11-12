@@ -30,7 +30,8 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy } from '../lib/copywriter/ia-reglas';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras } from '../lib/copywriter/ia-reglas';
+import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
 
 const raiz = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(raiz, r), 'utf8').replace(/\r\n/g, '\n');
@@ -136,6 +137,41 @@ test('lo que lee la IA: cada bloque con su id, y la sección con su etiqueta', (
   // Lo que dice el guion lo dice el NEGOCIO: nunca con la voz rioplatense de MaKo.
   assert.match(bloqueIdiomaCopy(null), /sin modismos rioplatenses/);
   assert.match(bloqueIdiomaCopy(null), /sin voseo/);
+  // UNA forma en todo el guion (12/11/2026, en producción: un negocio rioplatense salía con «Mandás un anuncio… esperas»).
+  assert.match(bloqueIdiomaCopy('Argentino (rioplatense)', true), /con el voseo de esa variedad en TODO el guion, nunca mezclado con el tuteo/);
+  assert.match(bloqueIdiomaCopy('Mexicano', false), /de «tú» en TODO el guion, sin voseo/);
+  assert.doesNotMatch(bloqueIdiomaCopy('Argentino (rioplatense)', true), /salvo que esa variedad/);
+});
+
+test('las cifras y la garantía sin fuente se avisan (12/11/2026, en producción: la réplica de YouTube las inventó)', () => {
+  const escrito = 'Cada uno vio sus conversaciones subir 3 veces. El 73 % llegaba a la propuesta. Costo 60 % más bajo. En 30 días. 3 a 5 clientes garantizados o devolvemos lo que pagaste.';
+  const c = cifrasSinFuente(escrito, 'EL NEGOCIO: WhatsApp Ads Funnel, 497 dólares, 30 días de ajustes. Subió 3 veces sus mensajes.');
+  assert.deepEqual(c.cifras, ['73 %', '60 %'], 'las «3 veces» con fuente; los «30 días» no son una prueba');
+  assert.equal(c.garantia, true);
+  assert.equal(cifrasSinFuente('Una garantía de 30 días.', 'Garantía de devolución de 30 días.').garantia, false, 'la garantía del negocio sí');
+  assert.deepEqual(cifrasSinFuente('El 41 % de los que escriben compra.', 'testimonio: 41 % compró').cifras, []);
+  const avisos = avisosDeCifras(c);
+  assert.match(avisos[0], /Tiene cifras que no salen de tu negocio \(73 %, 60 %\)/);
+  assert.match(avisos[1], /Promete una garantía o una devolución/);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes("avisos.push(...avisosDeCifras(cifrasSinFuente(`${r.titulo ?? ''}\\n${escrito}`, fuentes)));"), 'Editar avisa las cifras');
+  // Y los avisos se ven también cuando la página quedó escrita sola (la réplica): antes, sólo con «Aceptar».
+  assert.ok(leer('app/copywriter/PanelMaKo.tsx').includes(`{m.estado === 'aceptada' && p.avisos.map((a) => <div key={a} className="nt-propuesta-aviso">{a}</div>)}`));
+});
+
+test('la plantilla sin tocar queda escrita sin «Aceptar», y la caja y la nota de voz entran en la columna (12/11/2026, en producción)', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.ok(panel.includes('const nacida = adaptar && !!pl && textoDelDoc(antes as JsonNodo).trim() === textoDelDoc(pl.esqueleto()).trim();'));
+  assert.match(panel, /cambiarMensaje\(mako\.id, \{ estado: 'pendiente' \}\);\n\s+if \(nacida\) aceptar\(\{ \.\.\.mako, estado: 'pendiente' \}\);/);
+  // El método: una acción que crea escribe la pieza entera y pregunta DESPUÉS (antes pedía 3 datos y no escribía nada).
+  assert.doesNotMatch(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /todavía no escribes/);
+  assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /no le preguntas nada antes de escribir/);
+  assert.match(PROMPTS_EXPERTO_COPY.experto.tpl, /Nunca contestas con preguntas en lugar de la pieza\./);
+  // Grabando, «Terminar» quedaba cortado y, al escuchar, «Enviar audio» no se veía: la caja tomaba el ancho de su contenido.
+  assert.ok(leer('app/copywriter/notion.css').includes('.nt-mako-pie > .co-caja { margin-inline: 0; min-width: 0; }'));
+  // La nota de voz del hilo, 240 px fijos en un globo de ~160: se metía bajo el avatar.
+  assert.ok(leer('app/_chat/HiloMako.tsx').includes("style={{ width: 240, maxWidth: '100%' }}"));
+  assert.ok(leer('app/_chat/chat.css').includes('.ch-voz [data-reproductor] input[type="range"] { min-width: 0 !important; }'));
 });
 
 test('un documento vacío nuevo es válido para el saneo', () => {

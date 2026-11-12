@@ -35,6 +35,8 @@ export function PortadaWeb({ docs, errorLista, children }: { docs: readonly Land
       ejemplos={[]}
       alNuevo={() => router.push(RUTA_PANEL)}
       pieLista={<Link href={RUTA_PANEL}>Ver todo en el Panel</Link>}
+      // La portada de outliers va SIN el chat (12/11/2026); «Mis landings» abre la lista a la izquierda.
+      portada
     >
       {children}
     </PantallaCrear>

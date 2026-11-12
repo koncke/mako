@@ -90,12 +90,10 @@ export function pedidoDeReplica(r: RespuestasIniciativa, ofertas: readonly Ofert
   const nombre = nombreDeOferta(oferta, ofertas);
   const con = nombre ? `con mi oferta «${nombre}»` : 'con mi negocio';
   // El guion ENTERO y las propiedades (11/11/2026, Martín: «lo único que me replica es el título… ¿y dónde está todo el
-  // cuerpo?», y el Ángulo y la Estructura quedaban «Vacío»).
-  return {
-    adaptar: true,
-    texto: `Escribe el guion ENTERO como el original: su misma estructura (todas sus partes, en su orden), su tipo de gancho y su ritmo, ${con}. `
-      + 'Cada sección completa, lista para grabar o publicar, nada a medio hacer. Pon en propiedades el ángulo y la estructura de la biblioteca que más se parezcan al original.',
-  };
+  // cuerpo?», y el Ángulo y la Estructura quedaban «Vacío») los pide el ORIGINAL que manda el server en cada pedido de la página
+  // (./outliers.ts → reglasDeLaReplica). Acá va lo que la persona pidió con un toque: al reabrir la página, este renglón es su
+  // mensaje en la charla (12/11/2026, en producción: el pedido técnico entero aparecía como si lo hubiera escrito Martín).
+  return { adaptar: true, texto: `Replícalo entero ${con}: su estructura, su tipo de gancho y su ritmo.` };
 }
 
 /** El nombre de una oferta elegida (`oferta:<id>`), o null (el negocio, o una que ya no está). */

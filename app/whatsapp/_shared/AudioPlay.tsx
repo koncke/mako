@@ -198,7 +198,10 @@ export function AudioPlay({ src: srcQueLlega, style, compacto = false, duracion,
       <input type="range" data-no-pan min={0} max={dur > 0 ? dur : 1} step={0.01} value={dur > 0 ? Math.min(actual, dur) : 0}
         onChange={(e) => saltar(Number(e.target.value))} onPointerDown={(e) => e.stopPropagation()} disabled={roto || !(dur > 0)}
         aria-label="Avance del audio"
-        style={{ flex: 1, minWidth: 40, margin: 0, accentColor: color, cursor: dur > 0 ? 'pointer' : 'default', height: 4 }} />
+        // `width: 0`: sin esto el `range` pide su ancho propio de Chrome (129 px) como MÍNIMO, y adentro de una grilla (el pie del
+        // chat del Video Editor, 12/11/2026) la fila de lo grabado no se achicaba y el ➤ de mandar quedaba afuera, cortado. Con 0
+        // crece igual (`flex: 1`) y no baja de 40.
+        style={{ flex: 1, width: 0, minWidth: 40, margin: 0, accentColor: color, cursor: dur > 0 ? 'pointer' : 'default', height: 4 }} />
       <span style={{ flex: 'none', fontSize: compacto ? 11 : 12, color: 'var(--dim)', fontVariantNumeric: 'tabular-nums', minWidth: compacto ? 28 : 32, textAlign: 'right' }}>
         {roto ? '—' : tiempoDelReproductor(actual, dur, sonando)}
       </span>

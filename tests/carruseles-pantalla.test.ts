@@ -67,7 +67,8 @@ test('el encabezado de Top Carousels, sin la bajada ni las pestañas que se fuer
   assert.doesNotMatch(html, />CTA</, 'el filtro CTA se fue');
   assert.doesNotMatch(html, /Biblioteca/, 'la pastilla «Biblioteca» y su modal se fueron');
   assert.match(html, /role="radio"[^>]*>Thumbnails</, 'Carruseles · Anuncios · Thumbnails');
-  assert.match(html, /href="\/image-editor\?ver=crear"[^>]*>.*Crear desde cero</, 'las plantillas, a un toque');
+  // 12/11/2026: crear es el botón principal de la portada, que va sin el chat («＋ Nuevo carrusel»).
+  assert.match(html, /href="\/image-editor\?ver=crear"[^>]*>.*Nuevo carrusel</, 'las plantillas, a un toque');
   assert.match(html, / Guardados</);
   assert.match(html, />\+ Seguir cuentas</);
 });
@@ -200,7 +201,7 @@ test('el teléfono también ve las flechas para pasar las láminas (sin pasar el
   assert.equal(cuantas(html, 'aria-label="Lámina siguiente"'), 1, 'flechas sólo en la que tiene sus láminas; sin láminas, ninguna');
   // En el teléfono el link se escribe con la ruta de /m y `Link` lo saca con la de la computadora (LAS MISMAS RUTAS): el proxy
   // sirve ahí la página del teléfono.
-  assert.match(html, /href="\/image-editor\?ver=crear"[^>]*>.*Crear desde cero</, 'en el teléfono también, a un toque');
+  assert.match(html, /href="\/image-editor\?ver=crear"[^>]*>.*Nuevo carrusel</, 'en el teléfono también, a un toque');
 });
 
 // «Traer tu outlier», lo que dejó la prueba en producción del 11/11/2026 (docs/pruebas/image-11-11.md): con el link de un REEL la
