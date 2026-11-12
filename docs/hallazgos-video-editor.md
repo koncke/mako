@@ -6,6 +6,39 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## Ticket 73: «poné los dos videos en la línea de tiempo» y MaKo dijo que no existía (12/11/2026)
+
+**El síntoma:** Martín, en el chat del editor (ws 9, 10/11): «Poné los dos videos en la línea de tiempo, primero
+prueba-con-pausa y después clip-4». MaKo: «Eso todavía no existe en MaKo». No mentía: el catálogo lo tenía en
+`NO_SE_PUEDE_CHAT` («agregar a la línea de tiempo videos, imágenes…»); sólo existía `reemplazar_clip`, que SUSTITUYE el
+archivo de un clip que ya está. Ahora es `agregar_medios` en el chat y `poner_medios_linea_tiempo` en la API.
+
+- **El camino obvio, copiar el ⊕ de Multimedia, da vuelta el orden.** El ⊕ (`agregarMedioEnCabezal`, assets.tsx) suelta en el
+  CABEZAL con `placement: auto`. Dos seguidos en el mismo cabezal, con el imán prendido: el segundo cae dentro del primero,
+  `bordeMasCercano` (timeline/placement/main-track.ts) lo lleva al borde de la mitad más cercana —el INICIO del primero— y el
+  imán empuja al primero detrás. «Primero X y después Y» quedaba Y, X. Sin imán, el segundo se iba a otra pista. (Leído del
+  código, no medido en pantalla.) Por eso el chat inserta en la PRINCIPAL, al FINAL, con el mismo `InsertElementCommand` +
+  `buildElementFromMedia` del ⊕ y la duración que usa el ⊕.
+- **El final se mide AL EJECUTAR, no al pedir** (`AgregarAlFinal`, chat/comandos.ts, como `Diferido`): lo de antes en el
+  mismo lote pudo borrar o recortar un clip y el imán junta la principal. Y se vuelve a medir al rehacer.
+- **Un clip nuevo de la principal lleva la pista de la principal en la simulación** (`trackId` de un principal que ya estaba,
+  chat/linea.ts). Con `trackId: ""`, como el resto de lo nuevo, «ponele una transición entre el último y el primero nuevo» se
+  descartaba con «no tiene un clip pegado a su derecha»: la revisión busca al vecino POR PISTA (`pegadoDerecha`).
+- **Lo que hay que tocar para una operación nueva del chat, y que tres tests fijan:** el tipo, `OPERACIONES_CHAT` (AL FINAL),
+  `validarOperacion` y `NO_SE_PUEDE_CHAT` (chat-catalogo.ts); `OperacionResuelta` y su revisión (linea.ts); su comando
+  (comandos.ts); `OPERACIONES_API` AL FINAL, **sin «video» en el id ni en el título** y con un título de **3 a 6 palabras**
+  (chat-api.ts; lo exigen tests/video-editor-broll-otra.test.ts y tests/api-mako-registro.test.ts); su runner (video.run.ts);
+  `refsDeOperacion` (propuestas.ts); `despuesDe` (propuesta-bloque.ts, y su campo en la muestra de
+  tests/video-editor-propuesta-bloque.test.ts); `AGENTE_DE_OPERACION` (enjambre/cursores-sueltos.ts); el conteo de
+  tests/doer-recetas-video-imagen.test.ts; y regenerar docs/api-mako.md y el snapshot.
+
+**Lo que quedó SIN hacer:** poner un medio en un segundo, en el medio de la principal o encima de otro clip (el catálogo lo dice
+en «no se puede»); los audios de Multimedia (música); y un medio puesto SIN ref no es vecino de nada en la simulación del mismo
+pedido (una transición hacia él se descarta; con "refs" sí anda). Todo en `chat/linea.ts` (rama `agregar_medios`).
+
+**Vive en:** lib/editor-video/chat-catalogo.ts · chat-api.ts · app/video-editor/_opencut/chat/linea.ts · comandos.ts ·
+tests/video-editor-chat-medios.test.ts (8 casos, 4 roturas).
+
 ## Los cursores de los agentes no se veían «en todo momento» (11/11/2026)
 
 **El síntoma:** Martín, mirando tres rondas de capturas de producción, pidió los cursores: «súper importante que esté en todo

@@ -651,4 +651,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: "/video-editor",
   },
+  {
+    fecha: '12 nov', hora: '07:20', chat: 'Ticket 73: videos a la línea desde el chat', sesion: 'local_72d0c3fe-1e3d-43ff-bf60-f9362f94676e', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat del editor pone videos de Multimedia en la línea de tiempo, en el orden que dices (ticket #73)',
+    puntos: [
+      '**El ticket #73** (Martín, 10/11: «Poné los dos videos en la línea de tiempo, primero prueba-con-pausa y después clip-4», y MaKo contestó «Eso todavía no existe en MaKo»): ahora existe. Le nombras los archivos de Multimedia y MaKo los pone al final del video, uno detrás del otro, en el orden que dijiste.',
+      'Sirve para videos y fotos (una foto dura 5 segundos, como con el ⊕ de la tarjeta). En el mismo pedido se les puede poner una transición, recortarlos o silenciarlos.',
+      'Antes de aplicar se ve qué entra y dónde («Video «prueba-con-pausa» de 10 s a 14,3 s, al final de la pista principal»), y se acepta o se descarta entero, como todo lo del chat.',
+      'También por la API de MaKo: poner_medios_linea_tiempo propone el cambio y se acepta en el editor.',
+      'Todavía no: ponerlos en un segundo, en el medio del video o encima de otro clip, ni la música de Multimedia. MaKo lo dice si se lo piden.',
+    ],
+    archivos: [
+      'lib/editor-video/chat-catalogo.ts — la operación agregar_medios: su forma, lo que lee la IA y lo que ya no está en «no se puede»',
+      'app/video-editor/_opencut/chat/linea.ts — la revisión: dónde cae cada uno, sus filas y sus refs nuevas',
+      'app/video-editor/_opencut/chat/comandos.ts — AgregarAlFinal: el comando del ⊕, al final de la principal medido al aplicar',
+      'lib/editor-video/chat-api.ts · lib/api-mako/areas/video.run.ts · docs/api-mako.md — poner_medios_linea_tiempo en la API',
+      'tests/video-editor-chat-medios.test.ts — 8 casos, 4 roturas',
+    ],
+    revisar: '/video-editor',
+    tickets: [73],
+  },
 ];

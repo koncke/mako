@@ -41,6 +41,11 @@ export function refsDeOperacion(op: OperacionChat): { usa: string[]; medios: str
   if (op.op === 'borrar') usa.push(...op.refs);
   if (op.op === 'reemplazar_clip') medios.push(op.medio);
   if (op.op === 'usar_plantilla') medios.push(...Object.values(op.clips));
+  // Ticket 73: los medios que pone en la línea de tiempo, y la ref nueva de cada uno.
+  if (op.op === 'agregar_medios') {
+    medios.push(...op.medios);
+    define.push(...(op.refs ?? []));
+  }
   return { usa, medios, define };
 }
 

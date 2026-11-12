@@ -240,7 +240,13 @@ export type OperacionChat =
   | ({ op: 'encuadre'; ref: string } & LadosEncuadre)
   | { op: 'encuadre'; ref: string; quitar: true }
   /** «Otra» de «B-roll de MaKo»: la siguiente foto (o video) de la MISMA búsqueda, en el mismo lugar y tiempo. */
-  | { op: 'cambiar_broll'; ref: string };
+  | { op: 'cambiar_broll'; ref: string }
+  /**
+   * Ticket 73 (10/11/2026): poner videos o fotos de Multimedia en la línea de tiempo, como el ⊕ de cada tarjeta.
+   * `medios`: sus refs («m1»…) EN EL ORDEN en que van; `refs`: opcional, una ref nueva por medio («n1»…), en el mismo
+   * orden, para cambiarlos en el mismo pedido.
+   */
+  | { op: 'agregar_medios'; medios: string[]; refs?: string[] };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -275,6 +281,13 @@ export const TOPES_CHAT = {
   interlineadoMax: 4,
   /** Los medios de Multimedia que lista la vista (los demás sólo se cuentan). */
   medios: 100,
+  /** Los medios que pone en la línea de tiempo UNA operación agregar_medios. */
+  mediosPorOperacion: 20,
+  /**
+   * Cuánto dura una foto que se pone con agregar_medios: DEFAULT_NEW_ELEMENT_DURATION de
+   * app/video-editor/_opencut/timeline/creation.ts, lo mismo que el ⊕ de Multimedia (lo fija el test).
+   */
+  fotoSegundos: 5,
   /** Cuánto se le puede mandar a la IA de una vez (la vista de la línea de tiempo, en JSON). */
   vistaMax: 60_000,
   instruccion: 2_000,
@@ -583,6 +596,12 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     forma: '{"op":"cambiar_broll","ref":"v3"}',
     para: 'Cambia la foto (o el video) de UN B-roll de MaKo que ya está (los que llevan "broll" en la vista, con su búsqueda) por la siguiente de la MISMA búsqueda de Pexels, en el mismo lugar y el mismo tiempo. No elige cuál: trae la siguiente que no se vio en ese lugar. Para buscar otra cosa, broll de nuevo. Se aplica al final.',
   },
+  {
+    // Ticket 73 (10/11/2026): «Poné los dos videos en la línea de tiempo, primero prueba-con-pausa y después clip-4».
+    op: 'agregar_medios',
+    forma: '{"op":"agregar_medios","medios":["m1","m2"],"refs":["n1","n2"]}',
+    para: `Pone en la línea de tiempo uno o varios videos o fotos de "medios" ("medios": sus refs, "m1"…, hasta ${TOPES_CHAT.mediosPorOperacion}), como el ⊕ de cada tarjeta de Multimedia: van a la PISTA PRINCIPAL, uno detrás del otro EN EL ORDEN de la lista, al FINAL de lo que ya tiene (en 0 si está vacía). Un video entra entero y con su sonido; una foto dura ${TOPES_CHAT.fotoSegundos} s. Si la persona nombra los archivos («prueba-con-pausa»), búscalos por su "nombre" en "medios" y respeta el orden que dice («primero X y después Y»). "refs" (opcional): una ref nueva por medio ("n1", "n2"…), en el mismo orden, para recortarlos, moverlos o ponerles una transición en este mismo pedido. El mismo medio puede ir dos veces. No pone audios ni los pone encima de otro clip.`,
+  },
 ];
 
 /**
@@ -590,7 +609,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
  * para que la IA lo DIGA en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT =
-  'agregar a la línea de tiempo videos, imágenes, música, sonidos, formas o stickers de la biblioteca que no son emojis (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos o videos de apoyo según lo que se dice, sí: broll; otra foto para un B-roll que ya está, sí: cambiar_broll; un emoji, sí: agregar_emoji; emojis encima de los subtítulos, sí: emojis_subtitulos; un motion graphic, sí: agregar_motion); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo de un clip o chroma key (el fondo del LIENZO, sí: fondo_lienzo); guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); guardar un efecto de texto propio («Guardar como parámetro predefinido», en el panel); pegar atributos de un elemento en otro; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
+  'agregar a la línea de tiempo música, sonidos, formas o stickers de la biblioteca que no son emojis (los videos y las fotos de "medios", sí: agregar_medios, al final de la pista principal; ponerlos encima de otro clip o en el medio de la principal, no; sustituir el archivo de un clip que ya está, sí: reemplazar_clip; fotos o videos de apoyo según lo que se dice, sí: broll; otra foto para un B-roll que ya está, sí: cambiar_broll; un emoji, sí: agregar_emoji; emojis encima de los subtítulos, sí: emojis_subtitulos; un motion graphic, sí: agregar_motion); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo de un clip o chroma key (el fondo del LIENZO, sí: fondo_lienzo); guardar un preset de subtítulos nuevo (se guarda desde el panel del subtítulo); guardar un efecto de texto propio («Guardar como parámetro predefinido», en el panel); pegar atributos de un elemento en otro; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
 
 const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 
@@ -1344,6 +1363,25 @@ export function validarOperacion(crudo: unknown): Validada {
       if (lados.izquierda + lados.derecha > 98 + EPS || lados.arriba + lados.abajo > 98 + EPS) return { ok: false, motivo: 'un encuadre que deja el cuadro sin nada (entre dos lados opuestos queda al menos el 2 %)' };
       if (LADOS_ENCUADRE.every((k) => lados[k] === 0)) return { ok: false, motivo: 'un encuadre sin nada que recortar (para dejarlo entero, "quitar": true)' };
       return { ok: true, op: { op: 'encuadre', ref, ...lados } };
+    }
+    case 'agregar_medios': {
+      const extra = sobrantes(raw, ['medios', 'refs']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de agregar_medios` };
+      // Un medio solo puede llegar sin la lista («"medios":"m1"»): es el mismo pedido.
+      const medios: unknown = typeof raw.medios === 'string' ? [raw.medios] : raw.medios;
+      if (!Array.isArray(medios) || !medios.length) return { ok: false, motivo: 'poner medios en la línea de tiempo sin decir cuáles («m1», «m2»…)' };
+      if (medios.length > TOPES_CHAT.mediosPorOperacion) return { ok: false, motivo: `más de ${TOPES_CHAT.mediosPorOperacion} medios de una vez` };
+      if (!medios.every(esRefMedio)) return { ok: false, motivo: 'un medio que no es una ref de "medios" («m1», «m2»…)' };
+      // Con un medio solo, la IA a veces nombra lo nuevo con "ref", como las otras operaciones que agregan.
+      if (ref !== undefined && raw.refs !== undefined) return { ok: false, motivo: 'agregar_medios lleva "refs" (una por medio), no "ref"' };
+      const refs: unknown = raw.refs !== undefined ? raw.refs : ref !== undefined && medios.length === 1 ? [ref] : ref;
+      if (refs !== undefined) {
+        if (!Array.isArray(refs) || refs.length !== medios.length || !refs.every(esRefNueva)) {
+          return { ok: false, motivo: 'las refs nuevas de agregar_medios van una por medio, en el mismo orden («n1», «n2»…)' };
+        }
+        if (new Set(refs).size !== refs.length) return { ok: false, motivo: 'dos medios con la misma ref nueva' };
+      }
+      return { ok: true, op: { op: 'agregar_medios', medios: [...medios], ...(refs ? { refs: [...(refs as string[])] } : {}) } };
     }
     case 'cambiar_broll': {
       const extra = sobrantes(raw, []);

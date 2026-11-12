@@ -47,6 +47,8 @@
 //                                              tarjeta de Stickers › Emojis
 //   el encuadre                                UpdateElementsCommand con `recorte.*` («params»),
 //                                              lo que guarda «Confirmar» del diálogo «Recortar»
+//   poner medios de Multimedia                 InsertElementCommand(buildElementFromMedia), el ⊕
+//   (ticket 73)                                de cada tarjeta, al FINAL de la principal y en orden
 //
 // Todo va en UN BatchCommand (chat/aplicar.ts). Los comandos que dependen de cómo quedó
 // el elemento después de los anteriores del lote (los efectos se REEMPLAZAN como lista, los
@@ -85,7 +87,8 @@ import { reajustarSubtitulos } from "./velocidad-subtitulos";
 import { paramsConTexto, ReemplazarSubtitulosCommand } from "@/app/video-editor/_opencut/subtitles/editar";
 import { conLoVinculado } from "@/app/video-editor/_opencut/ripple/iman";
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
-import { buildEffectElement, buildGraphicElement, buildStickerElement, buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
+import { buildEffectElement, buildElementFromMedia, buildGraphicElement, buildStickerElement, buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
+import { DEFAULT_NEW_ELEMENT_DURATION } from "@/app/video-editor/_opencut/timeline/creation";
 import { UpdateProjectSettingsCommand } from "@/app/video-editor/_opencut/commands/project";
 import { idDefinicionMotion } from "@/app/video-editor/_opencut/graphics/definitions/motion";
 import { PLANTILLAS as DEF_MOTION } from "@/lib/motion/plantillas";
@@ -160,6 +163,52 @@ class Duplicar extends Command implements Ubicable {
 	}
 	getElementId(): string {
 		return this.real?.getDuplicatedElements()[0]?.elementId ?? "";
+	}
+}
+
+/**
+ * Un medio de Multimedia al FINAL de la pista principal (ticket 73), armado al EJECUTAR: el final es el de ese momento
+ * del lote (lo de antes pudo correrlo o borrar un clip, y el imán junta la principal) y el medio, el que hay en
+ * Multimedia. Inserta lo mismo que el ⊕ de cada tarjeta (assets.tsx → agregarMedioEnCabezal: InsertElementCommand con
+ * buildElementFromMedia y su duración), pero en la principal y en su final, no en el cabezal. Con la línea de tiempo
+ * vacía, el primero fija el lienzo como al soltarlo a mano (InsertElementCommand, isFirstElement).
+ */
+class AgregarAlFinal extends Command implements Ubicable {
+	private real: InsertElementCommand | null = null;
+	constructor(private readonly mediaId: string) {
+		super();
+	}
+	execute(): CommandResult | undefined {
+		const editor = EditorCore.getInstance();
+		const asset = editor.media.getAssets().find((a) => a.id === this.mediaId);
+		const principal = editor.scenes.getActiveScene().tracks.main;
+		this.real = null;
+		if (!asset || asset.type === "audio" || principal.locked) return undefined;
+		const fin = principal.elements.reduce((max, e) => Math.max(max, e.startTime + e.duration), 0);
+		this.real = new InsertElementCommand({
+			element: buildElementFromMedia({
+				mediaId: asset.id,
+				mediaType: asset.type,
+				name: asset.name,
+				duration: asset.duration != null ? segundos(asset.duration) : DEFAULT_NEW_ELEMENT_DURATION,
+				startTime: mediaTime({ ticks: fin }),
+			}),
+			placement: { mode: "explicit", trackId: principal.id },
+		});
+		return this.real.execute();
+	}
+	undo(): void {
+		this.real?.undo();
+	}
+	redo(): CommandResult | undefined {
+		// Se vuelve a ARMAR, como Diferido: al rehacer, el final de la principal es el de ese momento.
+		return this.execute();
+	}
+	getTrackId(): string | null | undefined {
+		return this.real?.getTrackId();
+	}
+	getElementId(): string {
+		return this.real?.getElementId() ?? "";
 	}
 }
 
@@ -291,6 +340,14 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 				comandos.push(insercion);
 				break;
 			}
+			case "agregar_medios":
+				// En el orden pedido: cada uno mide el final de la principal después del anterior (ticket 73).
+				for (const m of r.medios) {
+					const insercion = new AgregarAlFinal(m.mediaId);
+					if (m.ref) nuevos.set(m.ref, insercion);
+					comandos.push(insercion);
+				}
+				break;
 			case "duplicar": {
 				const copia = new Duplicar(() => objetivo(r.el));
 				if (r.copia) nuevos.set(r.copia, copia);

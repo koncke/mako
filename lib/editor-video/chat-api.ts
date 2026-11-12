@@ -261,6 +261,18 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
   ] },
   // «Otra» del B-roll (10/11/2026), al FINAL del área. Sin «video» en el id ni en el título (lo llevan todas).
   { op: 'cambiar_broll', id: 'otra_imagen_broll', titulo: 'Traer otra imagen para un B-roll', parametros: [REF] },
+  // Ticket 73 (10/11/2026): poner videos o fotos de Multimedia en la línea de tiempo, al FINAL del área y, como «Otra»,
+  // sin «video» en el id ni en el título (lo llevan todas y suma un punto en cada empate: docs/hallazgos-api-mako.md).
+  { op: 'agregar_medios', id: 'poner_medios_linea_tiempo', titulo: 'Sumar archivos de Multimedia al final', parametros: [
+    {
+      nombre: 'medios', rotulo: 'Medios', tipo: 'string[]', obligatorio: true, max: TOPES_CHAT.mediosPorOperacion,
+      descripcion: 'Las refs de los medios de Multimedia («m1», «m2»…), de "medios" en ver_proyecto_video, EN EL ORDEN en que van (el primero, primero).',
+    },
+    {
+      nombre: 'refs', rotulo: 'Refs nuevas', tipo: 'string[]', max: TOPES_CHAT.mediosPorOperacion,
+      descripcion: 'Opcional: una ref nueva por medio («n1», «n2»…), en el mismo orden, para cambiarlos en la misma propuesta.',
+    },
+  ] },
 ];
 
 /** Lo de la API que acompaña al `para` del chat. */

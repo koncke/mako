@@ -282,7 +282,8 @@ test('O5: la forma: «cambiar_broll» lleva sólo su ref, y «broll» puede trae
   assert.equal(validarOperacion({ op: 'broll', videos: 'si' }).ok, false);
   const api = OPERACIONES_API.find((o) => o.op === 'cambiar_broll')!;
   assert.equal(api.id, 'otra_imagen_broll');
-  assert.equal(OPERACIONES_API.at(-1)?.op, 'cambiar_broll', 'una operación nueva va al final del área');
+  // Una operación nueva va al final del área: detrás de «Otra», sólo lo que se sumó después (agregar_medios, ticket 73, 12/11).
+  assert.deepEqual(OPERACIONES_API.slice(OPERACIONES_API.indexOf(api)).map((o) => o.op), ['cambiar_broll', 'agregar_medios'], 'una operación nueva va al final del área');
   assert.doesNotMatch(`${api.id} ${api.titulo}`, /video/i, 'sin la palabra de todas las del área');
   assert.deepEqual(operacionDesdeInput(api, { proyecto: 'p', ref: 'v2' }), { ok: true, op: { op: 'cambiar_broll', ref: 'v2' } });
   const deBroll = OPERACIONES_API.find((o) => o.op === 'broll')!;

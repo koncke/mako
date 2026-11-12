@@ -33,6 +33,7 @@ export const AGENTE_DE_OPERACION: Partial<Record<OperacionChat["op"], AgenteId>>
 	duracion: "corte-01",
 	mover: "corte-01",
 	duplicar: "corte-01",
+	agregar_medios: "corte-01",
 	congelar: "corte-01",
 	revertir: "corte-01",
 	eliminar_muletillas: "corte-02",

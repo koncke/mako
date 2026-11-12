@@ -532,6 +532,7 @@ poner_enlace_landing
 poner_etiqueta_lead
 poner_filtro_video
 poner_fundido_video
+poner_medios_linea_tiempo
 poner_transicion_video
 posponer_item_plan_retro
 preparar_subida_media_buyer
