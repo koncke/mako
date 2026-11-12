@@ -23,6 +23,7 @@ import { inAppActivo, type NotifInApp } from '@/lib/notif-catalogo';
 import { rutaChatsDeWhatsapp } from '@/lib/chats-links';
 import { esperarPausa, useDeslizarParaCerrar } from '@/app/_ui/descartar';
 import { iniciales } from '@/lib/unicode-seguro';
+import { RESUMEN_WA_CADA_MS, sondearALaVista } from '@/lib/sondeo-a-la-vista';
 
 /**
  * Aviso de que alguien acaba de guardar sus preferencias en Configuraciones ›
@@ -322,8 +323,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Polling del número de WhatsApp (Evolution) cada 12s: toast + badge para mensajes
-  // nuevos entrantes.
+  // Polling del número de WhatsApp (Evolution): toast + badge para mensajes nuevos entrantes.
+  // ⚠️ Cada 30 s y SÓLO con la pestaña a la vista (lib/sondeo-a-la-vista.ts). Era un
+  // setInterval de 12 s que seguía con la pestaña oculta: 300 funciones de Vercel por hora por
+  // pestaña olvidada (12/11/2026). Al volver a la pestaña pide en el acto.
   useEffect(() => {
     const tick = async () => {
       if (pathRef.current.startsWith('/login') || isPublicLandingPath(pathRef.current)) return;
@@ -376,9 +379,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         recomputeNoOf();
       } catch { /* ignore */ }
     };
-    void tick();
-    const iv = setInterval(() => void tick(), 12000);
-    return () => clearInterval(iv);
+    return sondearALaVista(tick, { cadaMs: RESUMEN_WA_CADA_MS });
   }, []);
 
   return (
