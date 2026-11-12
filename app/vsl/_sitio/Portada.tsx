@@ -30,7 +30,7 @@
 // =============================================================================
 
 import type { CSSProperties } from 'react';
-import { CASO, TEXTO_CTA, TEXTO_CIERRE } from '../_competencia/marca';
+import { CASO, TEXTO_CTA } from '../_competencia/marca';
 import { VisualDeLanding } from '../_competencia/Visuales';
 import type { Bloque } from '../_competencia/tipos';
 import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
@@ -62,13 +62,15 @@ function HeroSitio() {
     <section className="s-hero">
       <div className="s-cont s-hero-in">
         <div>
-          <h1 className="s-h1">Ventas.<br />Marketing.<br />Contenido.<br /><em>Una sola app.</em></h1>
-          <p className="s-hero-p">La app con IA para vender High Ticket, de punta a punta: del primer clic en tu anuncio al cliente que paga.</p>
+          {/* Martín (12/11/2026): «el título principal me gustaría que sea el mejor software para ventas high ticket. Y me gusta eso
+              de ventas, marketing, contenido en una sola app. Eso tal vez abajo». Y la frase debajo del botón se fue: repetía lo
+              que el botón ya dice. */}
+          <h1 className="s-h1">El mejor software para ventas <em>High Ticket.</em></h1>
+          <p className="s-hero-p"><strong>Ventas, marketing y contenido en una sola app.</strong> Con una IA que conoce tu negocio, del primer clic en tu anuncio al cliente que paga.</p>
           <div className="s-hero-btns">
             <Boton clase="s-btn-alto" />
             <Boton href={RUTA_PRECIOS} texto="Ver planes" clase="s-btn-alto s-btn-borde" />
           </div>
-          <p className="s-nota">{TEXTO_CIERRE}</p>
         </div>
         {/* Martín (12/11/2026): «en esa parte debería estar el VSL que yo ya grabé», y no las tres pantallas (CRM, Ops Center
             y Automations) que ponía beehiiv en su composición. Es el VSL de la portada de hoy (hola-mako.com). */}

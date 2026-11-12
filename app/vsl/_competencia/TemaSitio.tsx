@@ -101,11 +101,12 @@ function visible(a){return a.offsetParent!==null&&!a.closest('details, [role="me
 function barraDeArriba(){var mejor=null;[].forEach.call(document.querySelectorAll('header, nav, [class*="barra"], [class*="nav"]'),function(e){var r=e.getBoundingClientRect();
     if(r.height>0&&r.height<170&&r.top<130&&r.width>innerWidth*.6&&(!mejor||r.top<mejor.r.top-1||(Math.abs(r.top-mejor.r.top)<=1&&r.width*r.height<mejor.r.width*mejor.r.height)))mejor={e:e,r:r};});
   return mejor&&mejor.e;}
-// Dónde va: antes del botón para empezar de la barra; si la barra no lo muestra (el teléfono), antes de lo que está más a la
+// Dónde va: DESPUÉS del botón para empezar de la barra, a la derecha del todo (Martín, 12/11/2026); si la barra no lo muestra (el teléfono), antes de lo que está más a la
 // derecha (el ☰ del menú, que puede no ser un link); y si a la derecha no hay nada, al final de la barra, empujado a la derecha.
 function ubicar(){if(document.querySelector('[data-tema-sitio-boton]'))return;
   var barra=barraDeArriba(),b=boton(),ref=null;
-  if(barra){var cta=[].filter.call(barra.querySelectorAll('a[href="/planes"]'),visible);ref=cta[cta.length-1];
+  var despues=false;
+  if(barra){var cta=[].filter.call(barra.querySelectorAll('a[href="/planes"]'),visible);ref=cta[cta.length-1];despues=!!ref;
     if(!ref){var der=null;[].forEach.call(barra.querySelectorAll('*'),function(e){if(e.offsetParent===null&&!(e instanceof SVGElement))return;if(e.closest('[role="menu"], [aria-modal]')||(e.closest('details')&&!e.closest('summary')))return;var r=e.getBoundingClientRect();
         if(r.width<1||r.height<1||r.width>innerWidth*.45||r.left<innerWidth*.45)return;
         if(!der||r.right>der.r.right+1||(Math.abs(r.right-der.r.right)<=1&&r.width>der.r.width))der={e:e,r:r};});
@@ -114,7 +115,7 @@ function ubicar(){if(document.querySelector('[data-tema-sitio-boton]'))return;
       while(ref&&ref.parentElement&&ref.parentElement!==barra&&barra.contains(ref.parentElement)){var pr=ref.parentElement.getBoundingClientRect();if(Math.abs(pr.right-der.r.right)<=2&&pr.width<=innerWidth*.45)ref=ref.parentElement;else break;}}}
   if(ref){var padre=ref.parentNode;
     if(padre.tagName==='LI'){var li=document.createElement('li');li.style.display='flex';li.style.alignItems='center';li.style.listStyle='none';li.appendChild(b);padre.parentNode.insertBefore(li,padre);}
-    else{padre.insertBefore(b,ref);var cs=getComputedStyle(padre);if(cs.display.indexOf('flex')<0&&cs.display.indexOf('grid')<0){b.style.verticalAlign='middle';b.style.marginRight='8px';}}}
+    else{padre.insertBefore(b,despues?ref.nextSibling:ref);var cs=getComputedStyle(padre);if(cs.display.indexOf('flex')<0&&cs.display.indexOf('grid')<0){b.style.verticalAlign='middle';b.style[despues?'marginLeft':'marginRight']='8px';}}}
   else if(barra){var fila=barra;while(fila.children.length===1&&getComputedStyle(fila).display.indexOf('flex')<0)fila=fila.children[0];
     fila.appendChild(b);if(getComputedStyle(fila).display.indexOf('flex')>=0)b.style.marginLeft='auto';}
   else{b.classList.add('mk-tema-sitio-flota');document.body.appendChild(b);}}

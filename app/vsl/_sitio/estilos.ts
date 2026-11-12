@@ -261,6 +261,7 @@ export const CSS_PORTADA = `
 .s-h1{${TITULAR};font-size:60px;line-height:60px;color:#fff}
 .s-h1 em{font-style:normal;background:linear-gradient(to right,${DORADO_CLARO},${DORADO});-webkit-background-clip:text;background-clip:text;color:transparent}
 .s-hero-p{margin-top:16px;max-width:512px;font-size:20px;line-height:28px;font-weight:500;color:${TEXTO}}
+.s-hero-p strong{font-weight:700;color:#fff}
 .s-hero-btns{margin-top:32px;display:flex;flex-wrap:wrap;gap:12px}
 .s-nota{margin-top:16px;font-size:14px;line-height:20px;color:${NOTA}}
 /* Su imagen: tres pantallas oscuras superpuestas (#0D0B28, filete blanco al 12 %, radio 8, su título 15/20 600 con filete abajo),

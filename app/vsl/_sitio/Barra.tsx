@@ -5,8 +5,9 @@
 // dos botones. En MaKo: «Producto» (las 19 landings: cuatro grandes con ícono y bajada, y el resto en columnas por familia, como
 // sus columnas Publish / Grow / Earn / Analyze / Connect), «Industrias» (su «Solutions»: la columna «For publishers» son los
 // avatares de MaKo y «Featured stories» el caso de Mauricio; su columna de anunciantes y socios no va), «Comparaciones» y
-// «Precios» (/planes). A la derecha «Iniciar sesión», «Ver planes», el sol y la luna, y «Comienza tu prueba gratuita» (Martín,
-// 12/11/2026: «no tiene sentido arriba entrar, ver planes, agenda tu llamada… debería ser registrarse, loguearse»).
+// «Precios» (/planes). A la derecha «Iniciar sesión», el botón para empezar y, al final, el sol y la luna (Martín,
+// 12/11/2026: «no tiene sentido arriba entrar, ver planes, agenda tu llamada… debería ser registrarse, loguearse», y después:
+// «el Dark Mode y White Mode deberían estar a la derecha del todo. En la top bar elimina también ver planes… ya tenemos precios»).
 //
 // Lo que cambió, y por qué:
 //   · Sus menús abren con JavaScript; estos con CSS (:hover y :focus-within). El que abre es un <span tabIndex={0}>, no un
@@ -122,7 +123,6 @@ function MenuMovil({ m }: { m: MenuProducto }) {
         <a className="s-mv-fila" href={RUTA_PRECIOS}>Precios</a>
         <div className="s-mv-pie">
           <a className="s-nb s-mv-entrar" href={RUTA_ENTRAR}>Iniciar sesión</a>
-          <a className="s-nb" href={RUTA_PRECIOS}>Ver planes</a>
           <a className="s-nb s-nb-lleno" href={RUTA_CTA}>{TEXTO_CTA}</a>
         </div>
       </div>
@@ -155,7 +155,6 @@ export function Barra({ claro = false }: { claro?: boolean }) {
         </div>
         <div className="s-barra-der">
           <a className="s-nav-a s-solo-pc" href={RUTA_ENTRAR}>Iniciar sesión</a>
-          <a className="s-nb s-solo-pc" href={RUTA_PRECIOS}>Ver planes</a>
           <a className="s-nb s-nb-lleno" href={RUTA_CTA}>{TEXTO_CTA}</a>
           <MenuMovil m={m} />
         </div>
