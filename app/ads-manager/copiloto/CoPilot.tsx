@@ -313,7 +313,7 @@ function LoQueTeToca({ tareas, enPlan, onHecha, onHacer }: {
               <button type="button" className="cop-check" aria-pressed={lista} disabled={!enElPlan} aria-label={lista ? `Desmarcar «${t.titulo}»` : `Marcar «${t.titulo}» como hecha`} onClick={() => onHecha(t.clave, !lista)}>{lista ? '✓' : ''}</button>
               <div><b>{t.titulo}</b></div>
               <span className="cop-tarea__der">
-                {enElPlan && <span className="cop-plan" title="Está en tu Plan: completarla acá la completa allá">En tu Plan</span>}
+                {enElPlan && <span className="cop-plan" title="Está en tu Plan: completarla aquí la completa allá">En tu Plan</span>}
                 {lista ? null : t.abre === 'conectar' && t.red
                   ? <ConectarViaZernio red={t.red} volver={`/ads-manager/copiloto?tarjeta=${t.tarjeta}`} variant="secondary" size="sm">Hacerlo</ConectarViaZernio>
                   : t.href
