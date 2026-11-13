@@ -14,6 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { pedirReplicar } from '@/app/copywriter/cliente';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
@@ -158,7 +159,7 @@ export function Seguidos({ competidores, telefono = false, onAbrir, rutaGuion = 
         <h1>Seguidos</h1>
         {ids != null && <p>{ids.length} de {competidores.length}</p>}
       </header>
-      {error && <p className={s.error} role="alert">{error}</p>}
+      {error && <p className={s.error} role="alert">{error}<ReportarASoporte error={error} accion="Seguidos de Competitors Spy" /></p>}
 
       {/* ── 1. A quién sigues: tocar es seguir o dejar de seguir ── */}
       <div className={s.elegir} aria-busy={ids == null || undefined}>
