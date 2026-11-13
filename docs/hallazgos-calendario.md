@@ -10,6 +10,22 @@ trabajo" para crear guiones o lo que necesite el usuario... Se puede combinar co
 "OBJETIVOS", el Q, el PLAN... que sea simple de usar, que sirva para todos los casos, que tenga IA que te ayude o
 "templates" y que no sea restrictivo».
 
+## MaKo dice «te mostré arriba tu agenda» y la agenda llega ABAJO (13/11/2026, claude5, SIN ARREGLAR)
+
+**El síntoma:** probando el grupo de la app del ws9, a «¿qué reuniones tengo mañana?» MaKo contestó «Te mostré arriba lo que tienes
+en tu agenda de Google para mañana…» y la lista «🗓️ Tu agenda del sábado…» quedó en el mensaje SIGUIENTE (filas 577 y 578 de
+`grupo_mensajes`, 0,8 s después). Captura: notas del Cerebro, `mako-en-la-app-1311/06-audio-respuesta-y-agenda-debajo-1440.jpg`.
+
+**No es de la app:** WhatsApp sale igual. La agenda la escribe el CÓDIGO (lib/agenda-sin-ia.ts, `paraLaPersona`) y el doer la manda
+AL FINAL a propósito (lib/mako-doer-in.ts, `[...partes, ...paraLaPersona]`, «los reemplazos de arriba pisan `respuesta`»). Pero lo que
+se le dice al modelo es pasado: `ESTADOS_AGENDA.eventos_mostrados` = «El sistema YA le mostró a la persona lo que tiene ese día», y
+de ahí sale el «arriba». Lo mismo `reuniones_mostradas`, `horarios_mostrados` y `ERRORES_MOVER`.
+
+**Cómo se arregla (decidir uno):** o el texto al modelo dice que la lista va en un mensaje aparte DESPUÉS del suyo («no digas arriba
+ni abajo»), o el doer manda primero lo del código de lectura (la agenda) y después el texto del modelo, dejando al final lo que sí va
+después (la oferta de ayuda, los links para conectar). Lo primero toca el prompt y pide su arnés de casos; lo segundo cambia el orden
+de todas las respuestas con agenda en los dos canales.
+
 ## Las reuniones del equipo y el email enlazado (6/11/2026, nube, la promesa a la agencia de Thiago)
 
 **El pedido** (docs/promesas/2910-llamada-thiago.md, medido contra main el 6/11): «Gestionar las reuniones de tu equipo» y

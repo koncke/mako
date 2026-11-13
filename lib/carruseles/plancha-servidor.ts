@@ -153,7 +153,7 @@ async function completarLoQueFalta(
       };
       // Lo que leyó tiene que caber en su recorte: un texto el doble de largo (o la mitad) es la respuesta de OTRO recorte.
       const razon = anchoEsperadoDe(nuevo, W) / Math.max(1, c.ancho);
-      if (razon < 0.5 || razon > 2) return;
+      if (razon < 0.6 || razon > 1.7) return;
       textos[i].push(nuevo);
       asignados[i].push(b.map((x) => x.n));
     });
@@ -188,7 +188,7 @@ function quedanComoEnElOriginal(leidas: readonly LaminaLeida[], textos: TextoRep
       if (!rs.length) return;
       // Sólo lo que no cambia de un negocio a otro (el «© 2026», el «02 / 06»): a veces la IA escribe en «original» el texto NUEVO
       // (13/11/2026: en una corrida, en todos; «PASO 1» por «STEP 1»), así que un texto igual a su «original» no dice nada.
-      const igual = MARCO_FIJO.test(t.texto) && !!t.original && limpio(t.original) === limpio(t.texto);
+      const igual = MARCO_FIJO.test(t.texto) && !!t.original && limpio(t.original).replace(/\s/g, '') === limpio(t.texto).replace(/\s/g, '');
       // Adentro de una caja, la letra GRANDE es del diseño (la llamada a la acción en su recuadro) y se reescribe; la chica de un
       // párrafo, no.
       const alto = Math.max(...rs.map((r) => r.caja.alto));

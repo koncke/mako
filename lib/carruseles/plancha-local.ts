@@ -252,6 +252,8 @@ export type Bloque = {
   pastilla?: { color: string; letra: Caja; contorno?: boolean };
   /** La caja de cada renglón (de arriba a abajo), y lo que se midió de ellos: la alineación y las palabras de otro color. */
   franjas: Caja[];
+  /** ¿Sobre el fondo de la lámina (true) o adentro de una caja o una tarjeta (false)? */
+  principal?: boolean;
   alineacion?: 'left' | 'center' | 'right';
   acento?: { color: string; tramos: Array<Array<[number, number]>> };
 };
@@ -292,7 +294,8 @@ function costoDeBloque(t: TextoABuscar, b: readonly Renglon[], W: number): numbe
   const x1 = Math.max(...b.map((r) => r.caja.x + r.caja.ancho));
   const ancla = t.alinear === 'center' ? Math.abs((x0 + x1) / 2 - (t.x + t.ancho / 2)) : t.alinear === 'right' ? Math.abs(x1 - (t.x + t.ancho)) : Math.abs(x0 - t.x);
   // El ancho del renglón más largo contra el que tendría lo que dice: una pastilla «STEP 3» no es «Tell it How to Act».
-  const ancho = t.anchoEsperado ? 1.2 * Math.abs(Math.log((x1 - x0) / t.anchoEsperado)) : 0;
+  // Pesa más que el alto (13/11/2026): un ícono pegado agranda el alto de un renglón, no su ancho.
+  const ancho = t.anchoEsperado ? 2 * Math.abs(Math.log((x1 - x0) / t.anchoEsperado)) : 0;
   return Math.min(1.2, 0.08 * Math.abs(b[0].caja.y - t.y) / t.em) + (4 * ancla) / W + (2 * b.reduce((a, r) => a + Math.abs(Math.log(r.caja.alto / (0.85 * t.em))), 0)) / b.length + 0.35 * Math.abs(b.length - t.renglones) + ancho;
 }
 
@@ -370,6 +373,31 @@ export function asignarRenglones(textos: readonly TextoABuscar[], renglones: rea
     i = v.i;
     j = v.j;
   }
+  // Un bloque que no tiene el ancho de lo que dice (menos de la mitad o más del doble) no es de ese texto: el orden lo dejó pasar
+  // igual. 13/11/2026, lámina 6 de @lifeofarjav: el pie «Síguenos para más…» se llevó el segundo renglón de la caja de «Comenta…»
+  // (300 px contra 700 esperados) y el pie del original, con su @, quedó quemado. Suelto, ese renglón vuelve a su texto (abajo) y
+  // el pie queda sin dueño para el segundo pedido.
+  const porN = new Map(L.map((r) => [r.n, r]));
+  out.forEach((rs, i) => {
+    const t = textos[i];
+    if (!rs.length || !t.anchoEsperado) return;
+    const x0 = Math.min(...rs.map((n) => porN.get(n)!.caja.x));
+    const x1 = Math.max(...rs.map((n) => porN.get(n)!.caja.x + porN.get(n)!.caja.ancho));
+    const razon = (x1 - x0) / t.anchoEsperado;
+    if (razon < 0.45 || razon > 2.2) out[i] = [];
+  });
+  // Un texto cuyo bloque queda ADENTRO del bloque de otro es el mismo texto dicho dos veces (13/11/2026: la IA listó «STEP 2» dos
+  // veces, una se llevó el contorno de la etiqueta y la otra su letra, y salía «PASO 2» encima de «PASO 2»).
+  const cajaDeTexto = (rs: readonly number[]) => cajaDe(rs.map((n) => porN.get(n)!));
+  out.forEach((rs, j) => {
+    if (!rs.length) return;
+    const c = cajaDeTexto(rs);
+    const dueno = out.some((otro, i) => i !== j && otro.length && (() => {
+      const o = cajaDeTexto(otro);
+      return c.x >= o.x && c.y >= o.y && c.x + c.ancho <= o.x + o.ancho && c.y + c.alto <= o.y + o.alto && (o.ancho > c.ancho || o.alto > c.alto || i < j);
+    })());
+    if (dueno) out[j] = [];
+  });
   // Un renglón que sigue PEGADO debajo de un texto y no es de nadie es su continuación: la IA contó «Turn Claude into your…
   // step by step.» como un renglón, y el «step by step.» (otra letra, en itálica) quedaba quemado en la plancha.
   const usados = new Set(out.flat());
@@ -495,6 +523,7 @@ export function bloqueDeRenglones(img: Rgba, rs0: readonly Renglon[]): Bloque | 
     tinta: hex(tinta),
     fondo: hex(fondo),
     franjas,
+    principal: esPrincipal(img, rs0),
     ...(alineacion ? { alineacion } : {}),
     ...(acento ? { acento } : {}),
   };
