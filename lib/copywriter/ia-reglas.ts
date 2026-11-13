@@ -221,6 +221,23 @@ export function salidaVacia(raw: Record<string, unknown>): boolean {
 export const SALIDA_VACIA = 'No me salió nada esta vez: pídemelo de nuevo.';
 
 /**
+ * Las palabras sueltas en INGLÉS de un guion en español (13/11/2026, el relevo: «Gastan en creativos, en segmentación, en more
+ * budget», y «Title y CTA» en la respuesta). Una lista corta a propósito: palabras que en un guion en español no son jerga del rubro.
+ * «leads», «funnel», «CTA», «click», «coach» o «marketing» sí lo son y no cuentan; tampoco lo que está en `permitido` (el nombre del
+ * negocio o de la oferta, «WhatsApp Ads Funnel»). Van a la SEGUNDA pasada (lib/copywriter/ia.ts), como el largo.
+ */
+const INGLES = new Set([
+  'the', 'and', 'with', 'your', 'you', 'more', 'budget', 'title', 'here', 'this', 'that', 'what', 'how', 'why', 'get', 'free', 'best',
+  'just', 'about', 'from', 'will', 'our', 'they', 'are', 'was', 'were', 'been', 'have', 'has', 'for', 'into', 'than', 'when', 'where',
+  'which', 'who', 'would', 'should', 'could', 'people', 'business', 'money', 'sales', 'growth', 'scale', 'workshop', 'learn', 'join',
+  'now', 'today', 'every', 'make', 'want', 'need', 'know', 'think', 'like', 'big', 'fast', 'easy', 'step', 'steps', 'results', 'tips',
+]);
+export function palabrasEnIngles(texto: string, permitido = ''): string[] {
+  const ok = new Set((permitido.toLowerCase().match(/\p{L}+/gu) ?? []));
+  return [...new Set((texto.toLowerCase().match(/\p{L}+/gu) ?? []).filter((w) => INGLES.has(w) && !ok.has(w)))].slice(0, 6);
+}
+
+/**
  * Las operaciones con su texto en «tú» (13/11/2026, el Cerebro: «una sola voz, "tú" en español neutro, salvo que el negocio tenga
  * otra voz configurada; si quedan formas de voseo, se corrigen solas, sin aviso»). La misma `alTuteo` de lo que MaKo escribe en
  * WhatsApp, pero CON lo citado: en un guion, «…» es lo que se dice en cámara y lo escribió MaKo, no la persona.
