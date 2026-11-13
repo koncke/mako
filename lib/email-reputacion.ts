@@ -5,8 +5,9 @@
 // cada vez que llega un rebote o una queja (app/api/webhooks/resend/route.ts), SIN sesión: corre con el workspace de la FILA
 // del envío. Las columnas `rebotado_at` y `queja_at` son de la migración 0380: sin ellas la cuenta tira y no se frena
 // (lo dice el log), que es lo mismo que pasaba antes de esto. NUNCA TIRA: el webhook sigue contestando 200.
-// ⚠️ Mira los últimos 100 emails enviados desde que se prendió el envío (o de 7 días), no «las últimas 24 h»: ver el
-// porqué en lib/email-freno.ts (ticket #76, el apagado de Mauricio del 10/11/2026 con «3 de 52»).
+// ⚠️ Mira los últimos 300 emails enviados desde que se prendió el envío (o de 7 días), no «las últimas 24 h»: ver el
+// porqué en lib/email-freno.ts (ticket #76, el apagado de Mauricio del 10/11/2026 con «3 de 52»). Y desde el #93 (13/11) avisa
+// desde 5 % de rebotes y apaga sólo desde 10 % (o 0,3 % de quejas).
 // =============================================================================
 
 import 'server-only';
@@ -14,10 +15,12 @@ import { getTenantDb, getWorkspaceActual, runWithWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { envioEmailHabilitado, setEnvioEmail, KEY_ENVIO_EMAIL } from './envio-flags';
 import { emitirAviso } from './avisos';
-import { conteoDeLosUltimos, decidirFrenoEmail, desdeDelFreno, textoDelFreno, FRENO_EMAIL, type ConteoEmail, type EnvioParaFreno } from './email-freno';
+import { conteoDeLosUltimos, decidirFrenoEmail, desdeDelFreno, textoDelAvisoDeRebotes, textoDelFreno, FRENO_EMAIL, type ConteoEmail, type EnvioParaFreno } from './email-freno';
 
 /** El aviso del catálogo (lib/avisos-catalogo.ts). */
 export const TIPO_AVISO_EMAIL_FRENADO = 'email-frenado';
+/** El de ANTES de apagar (ticket #93): los rebotes pasan el 5 % y el envío sigue. Uno por día como mucho. */
+export const TIPO_AVISO_EMAIL_REBOTES = 'email-rebotes';
 
 /**
  * Cuándo se prendió el envío de email del negocio: el `updated_at` de la setting si hoy vale 'true'. null si no hay setting
@@ -52,11 +55,14 @@ export async function conteoEmailDelFreno(): Promise<ConteoEmail> {
   return conteoDeLosUltimos([...a, ...b]);
 }
 
-export type ResultadoFreno = { frenado: false; porque?: string } | { frenado: true; motivo: 'rebotes' | 'quejas'; conteo: ConteoEmail };
+export type ResultadoFreno =
+  | { frenado: false; porque?: string; avisado?: true }
+  | { frenado: true; motivo: 'rebotes' | 'quejas'; conteo: ConteoEmail };
 
 /**
- * Después de un rebote o una queja del negocio `ws`: si los últimos envíos pasan el umbral (`decidirFrenoEmail`), apaga el
- * envío de email y le avisa. Si ya estaba apagado, no hace nada (ni avisa dos veces). NUNCA TIRA.
+ * Después de un rebote o una queja del negocio `ws`: si los últimos envíos pasan el umbral de apagar (`decidirFrenoEmail`),
+ * apaga el envío de email y le avisa; si sólo pasan el del aviso (#93), le avisa y el envío SIGUE. Si ya estaba apagado, no
+ * hace nada (ni avisa dos veces). NUNCA TIRA.
  */
 export async function revisarFrenoEmail(ws: number): Promise<ResultadoFreno> {
   try {
@@ -64,6 +70,13 @@ export async function revisarFrenoEmail(ws: number): Promise<ResultadoFreno> {
       if (!(await envioEmailHabilitado())) return { frenado: false, porque: 'ya estaba apagado' };
       const conteo = await conteoEmailDelFreno();
       const f = decidirFrenoEmail(conteo);
+      if (!f.frena && f.avisa) {
+        await emitirAviso({
+          ws, tipo: TIPO_AVISO_EMAIL_REBOTES, titulo: 'Están rebotando tus emails', texto: textoDelAvisoDeRebotes(f, conteo),
+          categoria: 'aviso', semaforo: 'amarillo', link: '/email', dedupTtlMin: 1440,
+        }).catch((e: unknown) => console.error(`[email-reputacion] aviso de rebotes (ws ${ws}): ${e instanceof Error ? e.message : String(e)}`));
+        return { frenado: false, avisado: true };
+      }
       if (!f.frena) return { frenado: false };
       await setEnvioEmail(false);
       await emitirAviso({
