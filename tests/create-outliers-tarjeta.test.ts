@@ -54,13 +54,18 @@ test('UNA caja por outlier: la tarjeta de todas las portadas tiene su borde, y e
 
 test('Copywriting: el marco con la forma de su red, el texto adentro y el original encima al pasar el cursor', () => {
   const t = leer('app/copywriter/OutliersCopy.tsx');
-  assert.match(t, /<div className=\{`\$\{s\.mini\} \$\{oc\.marco\}`\} style=\{\{ aspectRatio: ASPECTO_FORMATO\[o\.formato\] \}\}/);
+  assert.match(t, /<div className=\{`\$\{s\.mini\} \$\{oc\.marco\}`\} data-con-imagen=\{original \? 'si' : undefined\} style=\{\{ aspectRatio: ASPECTO_FORMATO\[o\.formato\] \}\}/);
   assert.match(t, /const original = rota \? null : imagenDelOriginal\(o\);/);
   assert.match(t, /<GrillaMixta items=\{enGrilla\}/, 'formatos mezclados, en columnas');
   assert.match(t, /className=\{s\.nuevo\}><span aria-hidden>＋<\/span> Nuevo copy<\/Link>/);
   const css = leer('app/copywriter/outliers.module.css');
-  assert.match(css, /\.tarjeta:hover \.original, \.tarjeta\[data-original='si'\] \.original \{ opacity: 1; \}/);
-  assert.match(css, /@media \(hover: none\) \{ \.verOriginal \{ display: inline-flex; \}/, 'sin mouse, el botón del original');
+  // 13/11/2026 (el Cerebro, con el banco: «nunca blanco vacío»): la portada LLENA el marco y el texto va encima; al pasar el cursor
+  // el texto se va y queda el original limpio. Sin imagen, el marco toma el color de su red (nunca blanco).
+  assert.match(t, /<img src=\{original\} alt="" className=\{oc\.portada\}/);
+  assert.match(css, /\.marco\[data-con-imagen='si'\]:hover \.copy, \.tarjeta\[data-original='si'\] \.marco\[data-con-imagen='si'\] \.copy \{ opacity: 0; \}/);
+  assert.match(css, /\.tarjeta \.marco \{ cursor: pointer; color: #fff; background: linear-gradient\(/, 'sin imagen, un fondo con color, no blanco');
+  assert.doesNotMatch(css, /\.tarjeta \.marco \{[^}]*background: var\(--surface\)/);
+  assert.match(css, /@media \(hover: none\) \{\s*\.verOriginal \{ display: inline-flex; \}/, 'sin mouse, el botón del original');
 });
 
 test('la portada de outliers va SIN el chat; «Mis guiones / diseños / landings» abren la lista', () => {

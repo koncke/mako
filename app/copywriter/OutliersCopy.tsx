@@ -107,19 +107,22 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
   const video = o.formato === 'reel' || o.formato === 'youtube';
   return (
     <li className={`${s.tarjeta} ${oc.tarjeta}`} data-formato={o.formato} data-original={verOriginal ? 'si' : undefined}>
-      <div className={`${s.mini} ${oc.marco}`} style={{ aspectRatio: ASPECTO_FORMATO[o.formato] }}
+      {/* La portada del original LLENA el marco y el texto va encima (13/11/2026, el Cerebro al revisar el banco: «el reel y el YouTube
+          reservan su alto pero muestran sólo texto… nunca blanco vacío»). Sin imagen, el marco toma el color de su red y la
+          transcripción lo llena. Al pasar el cursor el texto se va y queda el original limpio. */}
+      <div className={`${s.mini} ${oc.marco}`} data-con-imagen={original ? 'si' : undefined} style={{ aspectRatio: ASPECTO_FORMATO[o.formato] }}
         onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a')) onAbrir(); }}>
-        <div className={oc.copy}>
-          <button type="button" className={oc.ganchoGrande} onClick={onAbrir}>{o.gancho}</button>
-          {sigue ? <p className={oc.sigue}>{sigue}</p> : null}
-        </div>
         {original ? (
-          <span className={oc.original} aria-hidden>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={original} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setRota(true)} />
-            {video ? <span className={oc.play}>▶</span> : null}
-          </span>
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={original} alt="" className={oc.portada} loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setRota(true)} />
         ) : null}
+        {original && video ? <span className={oc.play} aria-hidden>▶</span> : null}
+        <div className={oc.copy}>
+          <div className={oc.texto}>
+            <button type="button" className={oc.ganchoGrande} onClick={onAbrir}>{o.gancho}</button>
+            {sigue ? <p className={oc.sigue}>{sigue}</p> : null}
+          </div>
+        </div>
         <span className={`${s.marcas} ${oc.marcas}`}>
           <span className={oc.red} title={`${rotuloDeFormato(o)} · ${ROTULO_TEXTO[o.deDonde]}`}>
             <IconoRed formato={o.formato} />{o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas}` : INFO_FORMATO[o.formato].label}
