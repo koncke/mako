@@ -33,9 +33,13 @@
 // ser un bloque oscuro: el sol y la luna del sitio llevan la página entera a un solo modo (app/vsl/_competencia/TemaSitio.tsx),
 // y un bloque negro en el modo claro es lo que Martín pidió sacar. Se distingue por su insignia y su botón negro.
 // LA PRUEBA, SÓLO EN PRO (12/11/2026): `planConPrueba` (lib/planes-mako.ts). Esencial dice que se paga hoy.
+// LA TERCERA VUELTA (12/11/2026, noche, Martín: «no pongas tanto texto… los botones… todos tienen que estar alineados… me
+// gustaban los colores de las tarjetas anteriores, el Acelerador estaba negro»): listas cortas (`listaCorta`), sin notas debajo
+// de los botones ni la línea de pagos, filas comunes con subgrid y los colores de antes (el azul de Pro, el Acelerador grafito).
 // =============================================================================
 
-import { MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, precioEnPesos, type PlanMako } from '@/lib/planes-mako';
+import { ASESORIAS_DEL_PROGRAMA, MESES_GRATIS_ANUAL, NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, precioEnPesos, type PlanMako } from '@/lib/planes-mako';
+import { TOPES } from '@/lib/topes-plan';
 import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { PROMO_ENTRADA, precioPrimerMes, textoUsd } from '@/lib/promo-entrada-reglas';
@@ -44,7 +48,7 @@ import { PROMO_ENTRADA, precioPrimerMes, textoUsd } from '@/lib/promo-entrada-re
 export type PlanEnTarjeta = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean };
 
 export const TEXTO_PAGOS = 'Desde Argentina pagas en pesos, con Mercado Pago.';
-/** La línea de abajo de las tarjetas: cómo es la prueba (sólo de Pro desde el 12/11/2026). */
+/** La línea de la prueba, para quien la necesite fuera de las tarjetas (las tarjetas ya no la repiten abajo). */
 export const TEXTO_PRUEBA = PRUEBA_GRATIS_PRENDIDA
   ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: si te das de baja antes del día ${PRUEBA_DIAS + 1}, no se te cobra nada. Esencial se paga al empezar.`
   : 'Pagas al empezar y te das de baja cuando quieras.';
@@ -52,76 +56,104 @@ export const TEXTO_PRUEBA = PRUEBA_GRATIS_PRENDIDA
 export const CEJA_SOFTWARE = 'Lo haces tú, con MaKo';
 export const CEJA_PROGRAMA = 'Lo armamos contigo';
 
-/** La nota de debajo del botón (el «No credit card required» de beehiiv): cuándo se paga. */
-export function notaDelBoton(p: { id: string; cobrable: boolean }, anual = false): string {
-  if (anual || !p.cobrable) return 'Te escribimos por WhatsApp para darte de alta.';
-  return planConPrueba(p.id) ? `Hoy no pagas nada. El primer cobro es el día ${PRUEBA_DIAS + 1}.` : 'Pagas hoy y cancelas cuando quieras.';
-}
+const n = (v: number | null) => (v == null ? 'sin tope' : v.toLocaleString('es-AR'));
 
 /**
- * La lista de un plan como la de beehiiv: si su primer renglón es «Todo lo de Esencial, sin tope de…», ése es el título («Todo lo
- * de Esencial, más:») y el resto del renglón pasa a la lista. Sale de `incluye` (lib/planes-mako.ts o el setting `planes.mako`).
+ * LAS LISTAS CORTAS (12/11/2026, noche, Martín: «no pongas tanto texto… fíjate cómo lo hacen otras aplicaciones… es
+ * sobresaturación de información»). Como beehiiv: renglones de 2 a 6 palabras. Los números salen de los topes del código
+ * (lib/topes-plan.ts), por CAPA, así un plan del setting `planes.mako` con otro id dice lo que su capa le da. Lo largo (qué es
+ * cada cosa, lo que no trae) está en «Compara los planes».
  */
-export function listaDelPlan(incluye: readonly string[]): { titulo: string; items: string[] } {
-  const m = /^Todo lo de ([^,]+),\s*(.+)$/.exec(incluye[0] ?? '');
-  if (!m) return { titulo: 'Incluye:', items: [...incluye] };
-  return { titulo: `Todo lo de ${m[1]}, más:`, items: [m[2].charAt(0).toUpperCase() + m[2].slice(1), ...incluye.slice(1)] };
+export function listaCorta(capa: string): { titulo: string; items: string[] } {
+  const c = TOPES.completo, a = TOPES.agencia;
+  if (capa === 'agencia') {
+    return { titulo: 'Todo lo de Esencial, más:', items: [
+      'Contactos, páginas y seguimientos sin tope',
+      'MaKo aplica las mejoras de tus anuncios',
+      'Qué mejorar en cada llamada de venta',
+      'Editor de video y de imágenes',
+      `${n(a['chats.lineas_whatsapp'])} WhatsApp y ${n(a['equipo.usuarios'])} personas de tu equipo`,
+    ] };
+  }
+  return { titulo: 'Incluye:', items: [
+    'Tu asistente con IA',
+    `Hasta ${n(c['crm.leads'])} contactos`,
+    `${n(c['chats.lineas_whatsapp'])} WhatsApp e Instagram`,
+    `${n(c['automations.activas'])} seguimientos automáticos`,
+    `${n(c['web.landings_publicadas'])} páginas de venta`,
+  ] };
+}
+
+/** La lista corta del Acelerador: lo que suma a MaKo Pro (el detalle de cada entregable, en /reembolsos §2). */
+export const LISTA_PROGRAMA: readonly string[] = [
+  'Todo armado la primera semana',
+  `${ASESORIAS_DEL_PROGRAMA} asesorías en vivo con Martín`,
+  'Plantillas probadas',
+  'Un grupo de WhatsApp con Martín',
+];
+
+/** Debajo del precio, una sola cosa: los días gratis, que se paga hoy, o las cuotas. */
+export function bajoElPrecio(p: { id: string }): string {
+  return planConPrueba(p.id) ? `${PRUEBA_DIAS} días gratis` : 'Se paga al empezar';
 }
 
 export const CSS_TARJETAS = `
-.mkpl-grilla { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: stretch; text-align: left; }
-.mkpl-card { position: relative; display: flex; flex-direction: column; background: #FFFFFF; color: #12151B; border: 1px solid #E3E7EF;
-  border-radius: 12px; padding: 20px; }
-.mkpl-card.destacado { border: 2px solid #2F6FED; padding: 19px; }
-.mkpl-insignia { position: absolute; top: 18px; right: 18px; background: #12151B; color: #fff; font-size: 12px; line-height: 16px; font-weight: 600;
-  padding: 4px 8px; border-radius: 999px; }
-.mkpl-ceja { font-size: 11px; line-height: 16px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: #6B7280; padding-right: 130px; }
-.mkpl-card h3 { margin: 4px 0 0; font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -.01em; color: inherit; }
-.mkpl-resumen { margin: 4px 0 0; color: #4A5260; font-size: 14px; line-height: 20px; min-height: 40px; }
-.mkpl-gratis { display: inline-block; align-self: flex-start; margin: 20px 0 0; padding: 2px 8px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D;
-  font-size: 12px; line-height: 18px; font-weight: 700; }
-.mkpl-precio { margin-top: 28px; font-size: 48px; line-height: 1; font-weight: 600; letter-spacing: -.03em; }
-.mkpl-gratis + .mkpl-mes .mkpl-precio, .mkpl-gratis + .mkpl-precio { margin-top: 8px; }
-.mkpl-precio small { font-size: 18px; font-weight: 400; letter-spacing: 0; color: #12151B; }
-.mkpl-cuotas { margin: 6px 0 0; color: #4A5260; font-size: 12px; line-height: 16px; }
-.mkpl-btn { display: block; text-align: center; margin: 24px 0 0; background: #2F6FED; color: #fff !important; text-decoration: none;
-  font-weight: 600; font-size: 16px; line-height: 24px; padding: 10px 16px; border-radius: 6px; transition: filter .15s ease; }
-.mkpl-btn:hover { filter: brightness(1.08); }
-.mkpl-btn.borde { background: #fff; color: #2F6FED !important; box-shadow: inset 0 0 0 1px #2F6FED; }
-.mkpl-nota { margin: 8px 0 0; text-align: center; font-size: 12px; line-height: 16px; color: #6B7280; }
-.mkpl-hr { height: 1px; background: #E3E7EF; margin: 16px 0; }
-.mkpl-lista-t { margin: 0 0 6px; font-size: 14px; line-height: 20px; font-weight: 600; color: #12151B; }
-.mkpl-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; line-height: 20px; color: #4A5260; }
-/* El Acelerador: la misma tarjeta, con su insignia y el botón negro (el «Contact sales» de beehiiv). */
-.mkpl-programa .mkpl-btn { background: #12151B; }
-.mkpl-promesa { margin: 16px 0 0; padding: 10px 12px; border-radius: 8px; background: #FFF8E6; border-left: 3px solid #F2B01E;
-  font-size: 13px; line-height: 18px; color: #4A5260; }
-.mkpl-promesa b { color: #12151B; }
-.mkpl-garantia { margin: 8px 0 0; font-size: 12px; line-height: 16px; color: #6B7280; text-align: center; }
-.mkpl-garantia b { color: #4A5260; }
-.mkpl-garantia a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+/* LOS BOTONES ALINEADOS (12/11/2026, Martín: «todos tienen que estar alineados… no puede estar uno más arriba, otro más abajo»):
+   cada tarjeta tiene las MISMAS filas (nombre, frase, precio, botón, lista) y con subgrid el alto de cada fila lo pone la más
+   alta de las tres. Los colores, los de antes (Martín: «me gustaban los colores… el Acelerador estaba negro»). */
+.mkpl-grilla { display: grid; gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(5, auto); padding-top: 14px; align-items: stretch; text-align: left; }
+.mkpl-card { position: relative; display: grid; grid-row: span 5; grid-template-rows: subgrid; row-gap: 0; background: #FFFFFF; color: #12151B;
+  border: 1px solid #E6EAF2; border-radius: 20px; padding: 26px 24px 24px; box-shadow: 0 1px 2px rgba(18,21,27,.04), 0 10px 28px rgba(18,21,27,.06); }
+.mkpl-card.destacado { border-color: #2F6FED; box-shadow: 0 0 0 1px #2F6FED, 0 16px 40px rgba(47,111,237,.18); }
+.mkpl-insignia { position: absolute; top: -13px; left: 24px; background: #2F6FED; color: #fff; font-size: 12px; font-weight: 700;
+  letter-spacing: .03em; padding: 5px 12px; border-radius: 999px; }
+.mkpl-card h3 { margin: 0 0 6px; font-size: 22px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; color: inherit; }
+.mkpl-resumen { margin: 0 0 18px; color: #4A5260; font-size: 15px; line-height: 1.5; }
+.mkpl-r-precio { display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; }
+.mkpl-precio { font-size: 40px; line-height: 1; font-weight: 800; letter-spacing: -.03em; }
+.mkpl-precio small { font-size: 15px; font-weight: 500; letter-spacing: 0; color: #5B6472; }
+.mkpl-bajo { font-size: 13px; font-weight: 600; color: #5B6472; }
+.mkpl-bajo.gratis { align-self: flex-start; padding: 2px 10px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D; font-weight: 800; }
+.mkpl-r-boton { padding: 20px 0 22px; }
+.mkpl-btn { display: block; text-align: center; background: #2F6FED; color: #fff !important; text-decoration: none;
+  font-weight: 700; font-size: 15px; padding: 14px 20px; border-radius: 12px; box-shadow: 0 6px 18px rgba(47,111,237,.24); transition: filter .15s ease; }
+.mkpl-btn:hover { filter: brightness(1.06); }
+.mkpl-btn.borde { background: #fff; color: #2F6FED !important; box-shadow: inset 0 0 0 1.5px #2F6FED; }
+.mkpl-garantia { display: block; margin-top: 8px; text-align: center; font-size: 12.5px; color: #C4C8D0; text-decoration: underline; text-underline-offset: 2px; }
+.mkpl-lista-t { margin: 0 0 10px; font-size: 14px; font-weight: 700; }
+.mkpl-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 14.5px; line-height: 1.4; }
+.mkpl-lista li { display: flex; gap: 10px; align-items: flex-start; }
+.mkpl-lista li::before { content: "✓"; flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center;
+  justify-content: center; font-size: 12px; font-weight: 800; color: #1F7A4D; background: #E3F5EB; margin-top: 0; }
+/* El Acelerador, OSCURO para que se destaque (grafito #101319, el de la app, con el brillo dorado de su botón). No lo toca el sol
+   y la luna (data-tema-fijo): es negro en los dos modos. */
+.mkpl-programa { background: radial-gradient(700px 320px at 100% 0%, rgba(245,196,81,.14), transparent 60%), linear-gradient(160deg, #1C1F27 0%, #101319 100%);
+  color: #F4F5F7; border-color: #2A2F3A; box-shadow: 0 22px 54px rgba(16,19,25,.34); }
+.mkpl-programa .mkpl-insignia { background: #F5C451; color: #2A1E00; }
+.mkpl-programa .mkpl-resumen, .mkpl-programa .mkpl-bajo, .mkpl-programa .mkpl-precio small { color: #C4C8D0; }
+.mkpl-programa .mkpl-resumen b { color: #F5C451; }
+.mkpl-programa .mkpl-btn { background: #F5C451; color: #2A1E00 !important; box-shadow: 0 8px 22px rgba(245,196,81,.28); }
+.mkpl-programa .mkpl-lista li::before { color: #2A1E00; background: #F5C451; }
 /* Mensual o anual: dos radios (escondidos) y sus etiquetas como un selector; :has() muestra los precios del que está
    elegido. Sin :has(), se ven los dos: nunca queda una tarjeta sin precio. */
-.mkpl-periodo { display: flex; justify-content: center; margin: 0 0 24px; }
-.mkpl-periodo-caja { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: #EEF1F6; }
+.mkpl-periodo { display: flex; justify-content: center; margin: 0 0 22px; }
+.mkpl-periodo-caja { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: #E9EDF5; }
 .mkpl-periodo input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
-.mkpl-periodo label { cursor: pointer; padding: 8px 16px; border-radius: 999px; font-size: 14px; font-weight: 600; color: #4A5260; }
+.mkpl-periodo label { cursor: pointer; padding: 9px 18px; border-radius: 999px; font-size: 14.5px; font-weight: 700; color: #4A5260; }
 .mkpl-periodo label b { margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D; font-size: 12px; }
 .mkpl-periodo input:checked + label { background: #FFFFFF; color: #12151B; box-shadow: 0 1px 3px rgba(18,21,27,.14); }
 .mkpl-periodo input:focus-visible + label { outline: 2px solid #2F6FED; outline-offset: 2px; }
 .mkpl-bloques:has(#mkpl-p-anual:checked) .mkpl-mes { display: none; }
 .mkpl-bloques:has(#mkpl-p-mes:checked) .mkpl-anual { display: none; }
-.mkpl-primer-mes { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: #FFF8DB; color: #4A5260; font-size: 13px; line-height: 1.4; }
-.mkpl-primer-mes b { display: block; color: #12151B; font-size: 14px; }
-.mkpl-pagos { margin: 20px 0 0; text-align: center; color: #4A5260; font-size: 14px; line-height: 20px; }
-.mkpl-pagos b { color: #12151B; }
+.mkpl-primer-mes { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: #FFF8DB; color: #4A5260; font-size: 13.5px; line-height: 1.4; }
+.mkpl-primer-mes b { display: block; color: #12151B; font-size: 15px; }
 @media (max-width: 900px) {
-  .mkpl-grilla { grid-template-columns: 1fr; gap: 16px; }
-  .mkpl-resumen { min-height: 0; }
+  .mkpl-grilla { grid-template-columns: 1fr; grid-template-rows: none; gap: 26px; }
+  .mkpl-card { display: flex; flex-direction: column; grid-row: auto; }
 }
 `;
 
-const precio = (n: number) => n.toLocaleString('es-AR');
+const precio = (v: number) => v.toLocaleString('es-AR');
 
 export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
   planes: readonly PlanEnTarjeta[]; sufijo: string;
@@ -131,7 +163,6 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
   const pr = PROGRAMA_ACELERADOR;
   // El selector, sólo si TODOS los planes tienen anual: uno sin anual quedaría sin precio al elegirlo.
   const conAnual = planes.length > 0 && planes.every((p) => !!p.precioAnualUsd);
-  const pro = planes.find((p) => p.destacado) ?? planes[planes.length - 1];
   return (
     <div className="mkpl-bloques">
       {conAnual && (
@@ -150,53 +181,52 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
         const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable: p.cobrable, sufijo });
         const borde = `mkpl-btn${p.destacado ? '' : ' borde'}`;
         const pesos = precioEnPesos(p);
-        const lista = listaDelPlan(p.incluye);
+        const lista = listaCorta(p.capa);
         return (
-          <section key={p.id} className={`mkpl-card${p.destacado ? ' destacado' : ''}`}>
+          <section key={p.id} className={`mkpl-card${p.destacado ? ' destacado' : ''}`} aria-label={CEJA_SOFTWARE}>
             {p.destacado && <span className="mkpl-insignia">Recomendado</span>}
-            <div className="mkpl-ceja">{CEJA_SOFTWARE}</div>
             <h3>{p.nombre}</h3>
-            {p.resumen && <p className="mkpl-resumen">{p.resumen}</p>}
-            {planConPrueba(p.id) && <span className="mkpl-gratis">{PRUEBA_DIAS} días gratis</span>}
-            <div className="mkpl-mes">
-              <div className="mkpl-precio">US$ {precio(p.precioUsd)} <small>/ mes</small></div>
-              {pesos && <div className="mkpl-cuotas">o {formatoMonto(pesos, 'ARS')} por mes</div>}
-              {promoVigente && PROMO_ENTRADA.planes.includes(p.id) && (
-                <div className="mkpl-primer-mes"><b>Tu primer mes: US$ {textoUsd(precioPrimerMes(p.precioUsd))}</b> Después, el precio de siempre.</div>
-              )}
-              <a className={borde} href={boton.href}>{boton.texto}</a>
-              <p className="mkpl-nota">{notaDelBoton(p)}</p>
-            </div>
-            {conAnual && p.precioAnualUsd && (
-              <div className="mkpl-anual">
-                <div className="mkpl-precio">US$ {precio(p.precioAnualUsd)} <small>/ año</small></div>
-                <div className="mkpl-cuotas">Pagas una vez al año: {MESES_GRATIS_ANUAL} meses gratis.</div>
-                <a className={borde} href={botonAnualDelPlan({ id: p.id, sufijo }).href}>{botonAnualDelPlan({ id: p.id, sufijo }).texto}</a>
-                <p className="mkpl-nota">{notaDelBoton(p, true)}</p>
+            <p className="mkpl-resumen">{p.resumen}</p>
+            <div className="mkpl-r-precio">
+              <div className="mkpl-mes">
+                <div className="mkpl-precio">US$ {precio(p.precioUsd)} <small>/ mes</small></div>
+                {pesos && <div className="mkpl-bajo">o {formatoMonto(pesos, 'ARS')} por mes</div>}
+                {promoVigente && PROMO_ENTRADA.planes.includes(p.id) && (
+                  <div className="mkpl-primer-mes"><b>Tu primer mes: US$ {textoUsd(precioPrimerMes(p.precioUsd))}</b> Después, el precio de siempre.</div>
+                )}
               </div>
-            )}
-            <div className="mkpl-hr" />
-            <p className="mkpl-lista-t">{lista.titulo}</p>
-            <ul className="mkpl-lista">{lista.items.map((x) => <li key={x}>{x}</li>)}</ul>
+              {conAnual && p.precioAnualUsd && <div className="mkpl-anual"><div className="mkpl-precio">US$ {precio(p.precioAnualUsd)} <small>/ año</small></div></div>}
+              <span className={`mkpl-bajo${planConPrueba(p.id) ? ' gratis' : ''}`}>{bajoElPrecio(p)}</span>
+            </div>
+            <div className="mkpl-r-boton">
+              <a className={`${borde} mkpl-mes`} href={boton.href}>{boton.texto}</a>
+              {conAnual && p.precioAnualUsd && <a className={`${borde} mkpl-anual`} href={botonAnualDelPlan({ id: p.id, sufijo }).href}>{botonAnualDelPlan({ id: p.id, sufijo }).texto}</a>}
+            </div>
+            <div>
+              <p className="mkpl-lista-t">{lista.titulo}</p>
+              <ul className="mkpl-lista">{lista.items.map((x) => <li key={x}>{x}</li>)}</ul>
+            </div>
           </section>
         );
       })}
-      <section className="mkpl-card mkpl-programa">
+      <section className="mkpl-card mkpl-programa" data-tema-fijo="" aria-label={CEJA_PROGRAMA}>
         <span className="mkpl-insignia">Con acompañamiento</span>
-        <div className="mkpl-ceja">{CEJA_PROGRAMA}</div>
         <h3>{pr.nombre}</h3>
-        <p className="mkpl-resumen">{pr.resumen}</p>
-        <div className="mkpl-precio">US$ {precio(pr.precioUsd)}</div>
-        <div className="mkpl-cuotas">en {pr.cuotas} cuotas de US$ {precio(Math.round(pr.precioUsd / pr.cuotas))}</div>
-        {pr.promesa && <p className="mkpl-promesa"><b>Nuestra promesa:</b> {pr.promesa}</p>}
-        <a className="mkpl-btn" href={`/planes/${pr.id}${sufijo}`}>Quiero el Acelerador</a>
-        {pr.garantia && <p className="mkpl-garantia"><b>Garantía de entrega:</b> {pr.garantia} <a href="/reembolsos#grupal">Ver condiciones</a></p>}
-        <div className="mkpl-hr" />
-        <p className="mkpl-lista-t">Todo lo de {pro?.nombre ?? 'MaKo Pro'} los {pr.cuotas} meses, más:</p>
-        <ul className="mkpl-lista">{pr.incluye.map((x) => <li key={x}>{x}</li>)}</ul>
+        {pr.promesa ? <p className="mkpl-resumen"><b>Nuestra promesa:</b> {pr.promesa}</p> : <p className="mkpl-resumen">{pr.resumen}</p>}
+        <div className="mkpl-r-precio">
+          <div className="mkpl-precio">US$ {precio(pr.precioUsd)}</div>
+          <span className="mkpl-bajo">en {pr.cuotas} cuotas de US$ {precio(Math.round(pr.precioUsd / pr.cuotas))}</span>
+        </div>
+        <div className="mkpl-r-boton">
+          <a className="mkpl-btn" href={`/planes/${pr.id}${sufijo}`}>Quiero el Acelerador</a>
+          {pr.garantia && <a className="mkpl-garantia" href="/reembolsos#grupal">Con garantía de entrega</a>}
+        </div>
+        <div>
+          <p className="mkpl-lista-t">Todo lo de MaKo Pro, más:</p>
+          <ul className="mkpl-lista">{LISTA_PROGRAMA.map((x) => <li key={x}>{x}</li>)}</ul>
+        </div>
       </section>
       </div>
-      <p className="mkpl-pagos"><b>{TEXTO_PAGOS}</b> {TEXTO_PRUEBA} <a href="/reembolsos">Ver condiciones</a></p>
     </div>
   );
 }

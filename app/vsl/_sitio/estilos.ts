@@ -201,6 +201,7 @@ export const CSS_PIE = `
    14/20 500 #9393A9 cada 32 px, 40 entre columnas); filete con 48 de aire; los links legales, la estrella y el ©. */
 .s-pie{background:${FONDO};border-top:1px solid ${LINEA};padding:64px 0}
 .s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;padding-bottom:48px;border-bottom:1px solid ${LINEA}}
+.s-pie-logo{margin-bottom:14px}
 .s-pie-lema{font-size:16px;line-height:24px;font-weight:700;color:#fff;max-width:300px}
 .s-pie-sub{margin-top:12px;font-size:14px;line-height:20px;font-weight:500;color:${GRIS3};max-width:300px}
 .s-pie-cols{display:flex;gap:32px;justify-content:space-between}
@@ -347,6 +348,8 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-zz-vis{position:relative;border-radius:16px;overflow:hidden;border:1px solid ${LINEA};background:#fff;box-shadow:0 30px 80px -30px rgba(0,0,0,.6)}
 .s-zz-vis > .s-panel{border-radius:0;max-height:460px;overflow:hidden}
 .s-zz-video video{display:block;width:100%;height:auto}
+/* El recuadro de «Aquí falta la animación» va sin el marco blanco: el suyo es el borde punteado. */
+.s-zz-falta{border:0;background:transparent;box-shadow:none;overflow:visible}
 /* Los referentes: una pared que sube sola, sin texto, y vuelve a empezar sin corte (la lista va dos veces). */
 .s-zz-gurus{height:440px}
 .s-gurus{height:100%;overflow:hidden;padding:0 16px;background:#fff}

@@ -202,18 +202,18 @@ test('lo que incluye cada plan dice los topes del CÓDIGO, no números escritos 
   assert.doesNotMatch(lib.slice(lib.indexOf('PLANES_MAKO_DEFAULT'), lib.indexOf("id: 'continuidad'")), /[Hh]asta \d|\d+ WhatsApp|\d\.\d{3} contactos/, 'ningún tope a mano');
 });
 
-// 12/11/2026 (Martín: «rediseñes los tres bloques… tienen muchos ítems», con beehiiv de referencia): el Acelerador ya no es un
-// bloque oscuro (el sol y la luna llevan la página a un solo modo) ni una lista más larga: es «Todo lo de MaKo Pro, más:» y lo
-// suyo, con su insignia y su botón negro.
-test('el acompañamiento se ve DISTINTO: su insignia, cómo se trabaja, todo lo de Pro y lo del programa', async () => {
+// 12/11/2026, noche (Martín: «no pongas tanto texto… me gustaban los colores de las tarjetas anteriores, el Acelerador estaba
+// negro»): el Acelerador vuelve a ser el bloque OSCURO, de color fijo (el sol y la luna no lo toca), con su insignia, y su lista es
+// la corta: «Todo lo de MaKo Pro, más:» y lo suyo (el detalle de cada entregable, en /reembolsos §2).
+test('el acompañamiento se ve DISTINTO: su bloque oscuro de color fijo, su insignia, todo lo de Pro y lo del programa', async () => {
   const tj = fuente('app/planes/Tarjetas.tsx');
-  assert.match(tj, /<section className="mkpl-card mkpl-programa">\s*<span className="mkpl-insignia">Con acompañamiento<\/span>\s*<div className="mkpl-ceja">\{CEJA_PROGRAMA\}<\/div>/);
-  assert.match(tj, /\.mkpl-programa \.mkpl-btn \{ background: #12151B; \}/, 'su botón negro, como el «Contact sales» de beehiiv');
+  assert.match(tj, /<section className="mkpl-card mkpl-programa" data-tema-fijo="" aria-label=\{CEJA_PROGRAMA\}>\s*<span className="mkpl-insignia">Con acompañamiento<\/span>/);
+  assert.match(tj, /\.mkpl-programa \{ background: radial-gradient/, 'un bloque oscuro, no una tarjeta blanca más');
+  const { LISTA_PROGRAMA } = await import('../app/planes/Tarjetas');
   const t = await vitrina();
-  assert.match(t, /Todo lo de MaKo Pro los 3 meses, más:/, 'el programa trae Pro entero');
-  assert.match(t, /Lo haces tú, con MaKo MaKo Esencial/);
-  assert.match(t, /Con acompañamiento Lo armamos contigo MaKo Acelerador/);
-  for (const r of PROGRAMA_ACELERADOR.incluye) assert.ok(t.includes(r), r);
+  assert.match(t, /Todo lo de MaKo Pro, más:/, 'el programa trae Pro entero');
+  for (const r of LISTA_PROGRAMA) assert.ok(t.includes(r), r);
+  assert.ok(LISTA_PROGRAMA.every((r) => r.split(' ').length <= 7), 'renglones cortos, como los de beehiiv');
 });
 
 test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón, y que no promete plata', async () => {
@@ -237,10 +237,11 @@ test('la GARANTÍA del programa es sobre los entregables de la semana 1, abajo d
   assert.match(garantia!, /sistema de ventas no está armado/);
   assert.doesNotMatch(garantia!, /vend|factur|llamadas|clientes/i, 'no es una garantía de resultado (§6c: recién con datos)');
   assert.ok(PROGRAMA_ACELERADOR.incluye.some((x) => x.includes(`hasta ${HORAS_SEMANA_1} horas`)), 'el entregable, escrito con su tope de horas');
+  // En la tarjeta, sólo el link («Con garantía de entrega», 12/11 noche: menos texto); la garantía entera, en /reembolsos §2.
   const t = await vitrina();
   const boton = t.indexOf('Quiero el Acelerador');
-  assert.ok(t.indexOf(`Garantía de entrega: ${garantia}`) > boton, 'la garantía, abajo del botón');
-  assert.match(fuente('app/planes/Tarjetas.tsx'), /<a href="\/reembolsos#grupal">Ver condiciones<\/a>/);
+  assert.ok(t.indexOf('Con garantía de entrega') > boton, 'la garantía, abajo del botón');
+  assert.match(fuente('app/planes/Tarjetas.tsx'), /<a className="mkpl-garantia" href="\/reembolsos#grupal">Con garantía de entrega<\/a>/);
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { default: Reembolsos } = await import('../app/reembolsos/page');
@@ -258,7 +259,7 @@ test('el ANUAL: 2 meses gratis, se elige arriba, y SIEMPRE se pide (el checkout 
   }
   const t = await vitrina();
   assert.ok(t.includes(`Mensual Anual ${MESES_GRATIS_ANUAL} meses gratis`), 'el selector, arriba');
-  assert.ok(t.includes('US$ 970 / año Pagas una vez al año: 2 meses gratis. Quiero el anual'));
+  assert.ok(t.includes('US$ 970 / año') && t.includes('Quiero el anual'), 'el anual, con su precio y su pedido');
   const html = await vitrinaHtml();
   assert.match(html, /<input type="radio" id="mkpl-p-mes" name="mkpl-periodo" checked=""\/>/, 'arranca en mensual');
   assert.ok(html.includes('href="/planes/pro?periodo=anual"'));
@@ -291,20 +292,19 @@ test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mism
   // LA PRUEBA, SÓLO EN PRO (12/11/2026, Martín: «7 días gratis en la de 97… para acceder a la de 47 haya que pagar directamente»).
   assert.equal(planConPrueba('pro'), PRUEBA_GRATIS_PRENDIDA, 'Pro trae la prueba');
   assert.equal(planConPrueba('esencial'), false, 'Esencial se paga al empezar');
-  const { notaDelBoton } = await import('../app/planes/Tarjetas');
-  if (PRUEBA_GRATIS_PRENDIDA) assert.equal(notaDelBoton({ id: 'pro', cobrable: true }), 'Hoy no pagas nada. El primer cobro es el día 8.');
-  assert.equal(notaDelBoton({ id: 'esencial', cobrable: true }), 'Pagas hoy y cancelas cuando quieras.');
+  // Debajo del precio, una sola cosa (12/11 noche, menos texto): los días gratis en Pro, «Se paga al empezar» en Esencial.
+  const { bajoElPrecio } = await import('../app/planes/Tarjetas');
+  if (PRUEBA_GRATIS_PRENDIDA) assert.equal(bajoElPrecio({ id: 'pro' }), `${PRUEBA_DIAS} días gratis`);
+  assert.equal(bajoElPrecio({ id: 'esencial' }), 'Se paga al empezar');
   assert.match(fuente('lib/compra-plan.ts'), /const conPrueba = planConPrueba\(plan\.id\) && !p\.sinPrueba;/, 'el cobro abre la prueba sólo en el plan que la trae');
   assert.match(fuente('app/planes/[plan]/page.tsx'), /const conPrueba = planConPrueba\(plan\.id\) && uno\('sinPrueba'\) !== '1';/, 'y el checkout la dice sólo ahí');
   const t = await vitrina();
   assert.ok(t.includes('MaKo Pro ¿Ya vendes?'), 'la tarjeta de Pro');
   if (PRUEBA_GRATIS_PRENDIDA) assert.match(t, new RegExp(`${PRUEBA_DIAS} días gratis`), '/planes dice la prueba');
   else assert.doesNotMatch(t, /días gratis|prueba gratis/i, '/planes no promete una prueba que ya no existe');
-  assert.ok(t.includes('Recomendado Lo haces tú, con MaKo MaKo Pro'));
+  assert.ok(t.includes('Recomendado MaKo Pro'), 'Pro, el recomendado');
   // La vitrina del test no tiene pasarela (`cobrable: false`): cada botón es un pedido, y su nota lo dice.
-  assert.ok(t.includes(`Quiero MaKo Pro ${notaDelBoton({ id: 'pro', cobrable: false })}`), 'abajo del botón del mensual');
-  assert.ok(t.includes(`Quiero MaKo Esencial ${notaDelBoton({ id: 'esencial', cobrable: false })}`));
-  assert.ok(t.includes(`Quiero el anual ${notaDelBoton({ id: 'pro', cobrable: true }, true)}`), 'y del anual');
+  assert.ok(t.includes('Quiero MaKo Pro') && t.includes('Quiero MaKo Esencial') && t.includes('Quiero el anual'), 'los botones, mensual y anual');
   assert.ok(t.includes(PRUEBA_GRATIS_PRENDIDA ? '¿Cómo es la prueba gratis?' : '¿Cuándo pago y cuándo entro?'), 'la pregunta de cómo se paga');
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -334,12 +334,14 @@ test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mism
 test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo tiene (nunca con una tasa)', async () => {
   const { TEXTO_PAGOS } = await import('../app/planes/Tarjetas');
   assert.match(TEXTO_PAGOS, /en pesos, con Mercado Pago/);
-  assert.ok((await vitrina()).includes(TEXTO_PAGOS), '/planes');
+  assert.ok((await vitrina()).includes(TEXTO_PAGOS), '/planes lo dice en sus preguntas');
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { PreciosLanding } = await import('../app/vsl/PreciosLanding');
   const planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => ({ ...x, cobrable: false }));
-  assert.ok(sinMarcas(renderToStaticMarkup(React.createElement(PreciosLanding, { planes, sufijo: '' }))).includes(TEXTO_PAGOS), 'la landing de venta');
+  // Las tarjetas ya no repiten la línea de pagos (Martín, 12/11 noche: «desde Argentina pagás en pesos con Mercado Pago… todo eso
+  // es información innecesaria»): queda en la pregunta de /planes.
+  assert.doesNotMatch(sinMarcas(renderToStaticMarkup(React.createElement(PreciosLanding, { planes, sufijo: '' }))), /TEXTO_PAGOS_NO_VA/, 'la landing de venta');
   assert.doesNotMatch(await vitrina(), /\$ [\d.]+ ARS/, 'sin precio en pesos cargado, ningún número en pesos');
   assert.equal(precioEnPesos({ preciosLocales: {} }), null);
   const conPesos = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => (x.id === 'pro' ? { ...x, preciosLocales: { ARS: 97000 } } : x));

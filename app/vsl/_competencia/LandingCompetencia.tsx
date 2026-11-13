@@ -166,7 +166,7 @@ function DibujarBloque({ b, icono }: { b: Bloque; icono: string[] }) {
                     </ul>
                   ) : null}
                 </div>
-                <div className="mk-row-media"><div className="mk-panel"><Visual spec={FEATURE_VISUALS[b.slug]?.groups?.[f.grafico ?? i]} /></div></div>
+                <div className="mk-row-media"><div className="mk-panel"><Visual spec={FEATURE_VISUALS[b.slug]?.groups?.[f.grafico ?? i]} que={`«${f.titulo}», tal cual se ve en MaKo.`} /></div></div>
               </div>
             ))}
           </div>
