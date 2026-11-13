@@ -30,7 +30,7 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo } from '../lib/copywriter/ia-reglas';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion } from '../lib/copywriter/ia-reglas';
 import { marcasDeVoseo } from '../lib/voseo';
 import { aplicarTodo, bloqueAJson, etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
 import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
@@ -445,6 +445,9 @@ test('en un negocio que vosea, la MEZCLA con el tuteo se avisa (13/11/2026, en p
   assert.ok(marcasDeVoseo(reel).length > 0);
   // Las que también son sustantivos o se escriben igual con «vos» no cuentan.
   assert.deepEqual(marcasDeTuteo('Las pruebas, las cuentas y las ganas: ves, vas, estás.'), []);
+  // La «Clase gratuita» del 13/11: el «tú» con tilde y los verbos que se le escaparon a la lista.
+  assert.deepEqual(marcasDeTuteo('Cuando abres con una pregunta, tú controlas la charla. Hoy llevas tres.'), ['abres', 'tú', 'controlas', 'llevas']);
+  assert.deepEqual(marcasDeTuteo('Es tu oferta y tu precio.'), []);
   const ia = leer('lib/copywriter/ia.ts');
   assert.ok(ia.includes('if (conVoseo.length && conTuteo.length) avisos.push(`Mezcla voseo y tuteo'));
 });
@@ -487,4 +490,13 @@ test('el nombre de la sección repetido como título adentro, y las negritas en 
   // «**Antes:**» con los asteriscos a la vista: es negrita.
   const p = bloqueAJson({ tipo: 'texto', texto: '**Antes:** Me escribían por WhatsApp.' });
   assert.deepEqual(p.content?.map((n) => [n.text, n.marks?.[0]?.type ?? null]), [['Antes:', 'bold'], [' Me escribían por WhatsApp.', null]]);
+});
+
+test('las plantillas largas: el largo lo da la duración, no el ejemplo resumido (13/11/2026, en producción: VSL de 10 minutos en 587 palabras)', () => {
+  assert.match(avisoDeDuracion(587, 600) ?? '', /^Dura unos 4 minutos dichos y la pieza es de 10: pídele a MaKo que la complete \(unas 1500 palabras\)\.$/);
+  assert.equal(avisoDeDuracion(1_300, 600), null);
+  assert.match(avisoDeDuracion(600, 2_520) ?? '', /unas 2000 palabras/, 'la clase de 42 minutos topa en lo que entra en un pedido');
+  assert.equal(avisoDeDuracion(80, 45), null, 'un anuncio de 45 s: manda el ejemplo');
+  assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /EL LARGO lo da la DURACIÓN de la pieza, no el ejemplo \(que puede estar resumido\): unas 150 palabras dichas por minuto, hasta 2\.000 palabras/);
+  assert.ok(leer('lib/copywriter/ia.ts').includes('const duracion = avisoDeDuracion(palabrasDe(dicho), r.props.duracion ?? g.props.duracion);'));
 });

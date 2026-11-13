@@ -29,7 +29,7 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, TOPES_IA, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, marcasDeTuteo, propsParaIA, tituloDeRespaldo } from './ia-reglas';
+import { PROMPTS_COPY, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, marcasDeTuteo, propsParaIA, tituloDeRespaldo } from './ia-reglas';
 import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
@@ -320,6 +320,12 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       const capitulos = capitulosDe(original);
       const secciones = s.ops.flatMap((op) => (op.op === 'escribir_seccion' ? [op.seccion] : []));
       if (!siguenLosCapitulos(secciones, capitulos)) avisos.push(`El original tiene ${capitulos.length} capítulos y el guion no los sigue: pídele a MaKo una sección por capítulo.`);
+    }
+    // La duración de una pieza escrita entera que no replica nada (las plantillas largas: VSL, YouTube, la clase).
+    if (!original && entera) {
+      const dicho = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string) && b.type !== 'heading').map(textoDeNodo).join('\n');
+      const duracion = avisoDeDuracion(palabrasDe(dicho), r.props.duracion ?? g.props.duracion);
+      if (duracion) avisos.push(duracion);
     }
     const respuesta = [ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n') || (s.ops.length ? 'Listo: revisa lo que escribí.' : 'No cambié nada.');
     return { ok: true, respuesta, operaciones: s.ops, descartadas: [...s.descartadas, ...r.descartadas], avisos, noLeidas: refs.noLeidas };

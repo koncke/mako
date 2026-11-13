@@ -156,7 +156,22 @@ const TUTEO = new Set([
   'buscas', 'piensas', 'sientes', 'entiendes', 'empiezas', 'vuelves', 'inviertes', 'tiras', 'pagas', 'escribes', 'negocias',
   'llegas', 'cierras', 'vives', 'dices', 'vienes', 'prefieres', 'conviertes', 'consigues', 'sigues', 'pides', 'ejecutas',
   'copias', 'contigo', 'haz',
+  // 13/11/2026, la «Clase gratuita» en producción: «cuando abres… tú controlas… los entendés».
+  'tú', 'abres', 'llevas', 'controlas', 'trabajas',
 ]);
+/**
+ * El aviso de la DURACIÓN (capa 2 de «el largo lo da la duración», 13/11/2026, en producción: la «VSL para agendar» de 10 minutos
+ * salió de 587 palabras y el «YouTube de 12 minutos» de un largo parecido, porque seguían el largo del ejemplo, que es un resumen).
+ * Unas 150 palabras dichas por minuto, con el tope de 2.000 que entra en un pedido; menos de 0,6 de eso se dice con los números.
+ * null = sin duración (o menos de 2 minutos: ahí manda el ejemplo) o bien.
+ */
+export function avisoDeDuracion(palabras: number, segundos: number | null | undefined): string | null {
+  if (!segundos || segundos < 120) return null;
+  const objetivo = Math.min(2_000, Math.round(segundos * 2.5));
+  if (palabras >= objetivo * 0.6) return null;
+  return `Dura unos ${Math.max(1, Math.round(palabras / 150))} minutos dichos y la pieza es de ${Math.round(segundos / 60)}: pídele a MaKo que la complete (unas ${objetivo} palabras).`;
+}
+
 export function marcasDeTuteo(texto: string): string[] {
   return [...new Set((texto.toLowerCase().match(/\p{L}+/gu) ?? []).filter((w) => TUTEO.has(w)))];
 }
