@@ -19,6 +19,7 @@ import { zonaDelNegocioDetalle } from '@/lib/timezone';
 import { ZONA_POR_DEFECTO } from '@/lib/zona-negocio-reglas';
 import { KEY_HORARIO_ENVIO, horarioVigente, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limites-envio';
+import { opcionesDeRango } from '@/lib/limites-envio-cuenta';
 import { leerConfigAutomatizacion, guardarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import type { ConfigAutomatizacion } from '@/lib/config-automatizacion';
 
@@ -42,7 +43,7 @@ export async function getConfigAutomatizacionAction(secuenciaId: number): Promis
     getSettingEstricto(KEY_LIMITES_ENVIO),
     ws == null ? Promise.resolve(ZONA_POR_DEFECTO) : zonaDelNegocioDetalle(ws).then((d) => d.tz),
   ]);
-  const limites = limitesVigentes(rawLimites, limitesDeFabrica(process.env));
+  const limites = limitesVigentes(rawLimites, limitesDeFabrica(process.env), await opcionesDeRango());
   return {
     config, horarioNegocio: horarioVigente(rawHorario),
     lineaWa: { dia: limites.wa.dia, hora: limites.wa.hora },

@@ -16,6 +16,7 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getSettingEstricto } from './settings';
 import { KEY_HORARIO_ENVIO, horarioVigente } from './horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from './limites-envio';
+import { opcionesDeRango } from './limites-envio-cuenta';
 import { horarioDeLaAutomatizacion } from './config-automatizacion';
 import { configsDelNegocio } from './config-automatizacion-db';
 import { zonaDelNegocioEstricta } from './timezone';
@@ -60,7 +61,7 @@ export async function frenosDelNegocio(filas: readonly ConId[], secs: readonly F
       // El de email (10/11/2026): el mismo interruptor que mira el motor. Sin poder leerlo, no se afirma nada.
       envioEmailHabilitado().catch(() => undefined),
     ]);
-    const limites = limitesVigentes(limitesCrudos, limitesDeFabrica(process.env));
+    const limites = limitesVigentes(limitesCrudos, limitesDeFabrica(process.env), await opcionesDeRango());
     // El tope de HOY, con la rampa de la línea (5/11/2026): el mismo que el motor, con el mismo piso si no se puede leer.
     const diaHoy = await import('./nutricion').then((m) => m.topeDeHoyDelNegocio('whatsapp', limites.wa));
     const ctx: ContextoDelEnvio = {

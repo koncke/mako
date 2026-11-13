@@ -138,7 +138,8 @@ const PROC = bloque(NUTRI, 'export async function procesarEnvios(', '\nexport ')
 
 test('el motor lee los límites UNA vez por corrida, ESTRICTO, antes de cualquier tope', () => {
   const lector = bloque(NUTRI, 'async function limitesDeEnvio(', '\n}');
-  assert.match(lector, /limitesVigentes\(await getSettingEstricto\(KEY_LIMITES_ENVIO\), limitesDeFabrica\(process\.env\)\)/, 'no se lee estricto, o sin lo de fábrica del server');
+  // Desde el ticket #93 (13/11/2026), con el rango de la cuenta del negocio (`opcionesDeRango`, lib/limites-envio-cuenta.ts).
+  assert.match(lector, /limitesVigentes\(await getSettingEstricto\(KEY_LIMITES_ENVIO\), limitesDeFabrica\(process\.env\), await opcionesDeRango\(\)\)/, 'no se lee estricto, o sin lo de fábrica del server');
   assert.match(lector, /catch \{ return 'ilegible'; \}/);
   assert.equal(PROC.split('await limitesDeEnvio()').length - 1, 1, 'una lectura por corrida');
   const iLee = PROC.indexOf('const limites = await limitesDeEnvio();');
