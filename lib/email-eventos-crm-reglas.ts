@@ -67,3 +67,36 @@ export function dejaDeRecibir(o: { estadoLead: string | null | undefined; etapaE
   if ((o.estadoLead ?? 'abierto') !== 'abierto') return true;
   return o.etapaEnCrm != null && terminalEstadoFor(o.etapaEnCrm) !== 'abierto';
 }
+
+// =============================================================================
+// ACOMODAR LO QUE YA SALIÓ (13/11/2026, ticket #93)
+// =============================================================================
+// Las columnas sólo movían al llegar el evento: en «Sprint Ejecución» de Mauricio se eligieron a las 20:26 del 12/11, después
+// de los primeros 33 emails (17:02), y esos 33 quedaron en «Nuevo lead» aunque 6 lo habían abierto. Al elegirlas, cada lead
+// que ya recibió algo va a la columna de lo más lejos que llegó con los emails de ESA automatización.
+
+/** Lo que pasó con los emails de una automatización a un lead. */
+export type EmailYaEnviado = { abierto_at?: string | null; clic_at?: string | null; rebotado_at?: string | null };
+
+/** Lo más lejos que llegó un lead con esos emails: rebotó > hizo clic > abrió > le salió. null = no le salió ninguno. */
+export function eventoMasLejano(envios: ReadonlyArray<EmailYaEnviado>): EventoColumna | null {
+  if (!envios.length) return null;
+  if (envios.some((e) => e.rebotado_at)) return 'rebote';
+  if (envios.some((e) => e.clic_at)) return 'clic';
+  if (envios.some((e) => e.abierto_at)) return 'abrio';
+  return 'enviado';
+}
+
+/**
+ * La columna de ese evento, o la del escalón de abajo si ésa no se eligió (quien hizo clic y sólo hay «Abrió», a «Abrió»).
+ * El rebote no baja: sin columna de rebotados, no se mueve (un rebotado en «Correo enviado» dice algo que no pasó).
+ */
+export function columnaParaAcomodar(c: ColumnasEmail | undefined, etapas: ReadonlyArray<{ key: string; label?: string | null }>, evento: EventoColumna): { evento: EventoColumna; columna: string } | null {
+  if (evento === 'rebote') { const k = columnaDeRebote(c, etapas); return k ? { evento, columna: k } : null; }
+  const escalones: EventoColumna[] = ['clic', 'abrio', 'enviado'];
+  for (const e of escalones.slice(escalones.indexOf(evento))) {
+    const k = columnaDelEvento(c, e);
+    if (k) return { evento: e, columna: k };
+  }
+  return null;
+}

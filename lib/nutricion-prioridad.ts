@@ -18,7 +18,8 @@
 //      (`reservaParaEntradas`: una hora del cupo por hora, hasta `TOPE_RESERVA_DIA`, por día; y 1 por hora). Lo que
 //      entra usa el cupo entero. Sin esto, ordenar no alcanza: el cupo del día se gasta de a poco a lo largo de la
 //      tarde, y lo que entra después lo encuentra vacío.
-// Lo de siempre que no cambia: el carril del recordatorio, las acciones y el email no pasan por el cupo de WhatsApp.
+// Lo de siempre que no cambia: el carril del recordatorio, las acciones y el email no pasan por el cupo de WhatsApp. El email
+// tiene su propia reserva para los leads nuevos desde el 13/11/2026 (abajo, ticket #93).
 // =============================================================================
 
 /** Cuántas horas «entró o agendó» cuenta como entrada fresca. */
@@ -70,4 +71,53 @@ export function textoPrioridad(wa: { dia: number; hora: number }): string {
   const deja = [r.dia ? `${r.dia} por día` : '', r.hora ? `${r.hora} por hora` : ''].filter(Boolean).join(' y ');
   return `Primero lo que entra: a un lead que llegó por un formulario, una landing o una agenda, o que agendó, en las últimas ${HORAS_ENTRADA} h le sale antes que a una campaña.`
     + (deja ? ` La campaña le deja ${deja}.` : '');
+}
+
+// =============================================================================
+// EL EMAIL TAMBIÉN DEJA LUGAR (13/11/2026, ticket #93)
+// =============================================================================
+// El tope de email del negocio también es UNO (hasta 500 por día, rodante) y lo de arriba sólo cuidaba el de WhatsApp. El
+// 12/11 la lista fría de Mauricio («Sprint correos · Fríos», 853 leads de junio a octubre, inscriptos de una vez) mandó 398
+// emails a las 7 de Tijuana —su horario propio— y a las 9, cuando abre el de «Leads calientes · Email», quedaban ~100: 34 de
+// los 67 leads nuevos nunca recibieron el suyo. Ordenar no alcanza (a las 7 los calientes todavía no podían salir).
+//   · CALIENTE, para el email: entró por un canal (`origen_lead`) hace menos de `DIAS_CALIENTE_EMAIL`, o es entrada fresca
+//     (agendó). Son días y no las 24 h del WhatsApp: los emails de una secuencia de bienvenida siguen varios días.
+//   · LA LISTA FRÍA DEJA LUGAR: un email a quien no es caliente usa el presupuesto del día MENOS la reserva
+//     (`RESERVA_EMAIL_CALIENTES` del tope de hoy); a un caliente, el presupuesto entero. Sin ningún caliente en el negocio, no
+//     se reserva nada: una campaña sola usa su tope entero.
+// =============================================================================
+
+/** Cuántos días un lead que entró por un canal cuenta como CALIENTE para el email. */
+export const DIAS_CALIENTE_EMAIL = 7;
+/** La parte del tope de email del día que una lista fría le deja a los calientes (de 500, 100). */
+export const RESERVA_EMAIL_CALIENTES = 0.2;
+
+/** El corte de «caliente» para el email, en ms. */
+export const corteCalienteEmail = (ahoraMs: number): number => ahoraMs - DIAS_CALIENTE_EMAIL * 86_400_000;
+
+/** ¿Un email a este lead va antes que una lista fría? Entró por un canal en los últimos días, o es entrada fresca (agendó). */
+export function esCalienteParaEmail(lead: LeadParaPrioridad | null | undefined, ahoraMs: number): boolean {
+  if (!lead) return false;
+  if (esEntradaFresca(lead, ahoraMs)) return true;
+  const alta = lead.created_at ? Date.parse(lead.created_at) : NaN;
+  const porUnCanal = typeof lead.origen_lead === 'string' && lead.origen_lead.trim() !== '';
+  return porUnCanal && Number.isFinite(alta) && alta >= corteCalienteEmail(ahoraMs);
+}
+
+/** Lo que la lista fría le deja a los calientes del tope de email de hoy. Sin calientes, nada. Nunca el tope entero. */
+export function reservaEmailParaCalientes(o: { topeDia: number; hayCalientes: boolean }): number {
+  if (!o.hayCalientes || o.topeDia <= 1) return 0;
+  return Math.min(o.topeDia - 1, Math.floor(o.topeDia * RESERVA_EMAIL_CALIENTES));
+}
+
+/** ¿Un email más a este lead ya no entra en la corrida? `presupuesto`: lo que queda del tope de hoy; `enCorrida`: lo que ya salió. */
+export function emailSinLugar(o: { caliente: boolean; enCorrida: number; presupuesto: number; reserva: number }): boolean {
+  return o.enCorrida >= (o.caliente ? o.presupuesto : o.presupuesto - o.reserva);
+}
+
+/** La línea de «ver los límites» del email: la regla, con el tope del negocio. */
+export function textoPrioridadEmail(topeDia: number): string {
+  const r = reservaEmailParaCalientes({ topeDia, hayCalientes: true });
+  return `Primero los leads nuevos: a quien entró por un formulario, una landing o una agenda en los últimos ${DIAS_CALIENTE_EMAIL} días le sale el email antes que a una lista fría.`
+    + (r ? ` Una lista fría usa como mucho ${topeDia - r} de los ${topeDia} del día: los otros ${r} quedan para los leads nuevos.` : '');
 }
