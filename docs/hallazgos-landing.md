@@ -275,6 +275,27 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   - **Lo que quedó SIN hacer**: el scrapeo de grupos (necesita simular la extensión de WhatsApp), Automations (`FlujoLienzo` es
     enorme), Classroom, el editor de video con sus agentes (`app/video-editor/_opencut/enjambre/`), Marketing CoPilot (hay banco:
     `scripts/banco-copilot`), Spy y Copywriting con Hormozi (sin sus reels en el espacio de MaKo) y la réplica de carruseles.
+- **Undécima vuelta (13/11/2026, tarde, claude5): el editor de video, Grupos de WhatsApp, Automations y Chats, desde el código.**
+  - **⚠️ El diagnóstico obvio era el equivocado: la «toma de prueba» del editor NO es una toma cruda.**
+    `public/formatos/plano-secuencia-full.mp4` (la que usa el chat del editor para probar) es un anuncio TERMINADO, con subtítulos
+    quemados («UNA EMPRESA QUE») y sin pausas largas: sobre ella los subtítulos de MaKo salen encima de otros. Las tomas crudas
+    (sin subtítulos, con sus pausas) son las del reel de Martín: `C:/dev/reel-mentores/clips-espanol/CLIPn-…-CON-TU-VOZ.mp4`.
+  - **Un componente de OpenCut sin Tailwind sale sin forma.** El banco compila `app/globals.css` con `@tailwindcss/postcss`
+    (`{ base: <worktree> }`, que escanea el proyecto entero: 27 s, 352 KB) y lo sirve como `app.css`. Con eso el panel REAL del
+    enjambre (`enjambre-view.tsx`) se ve igual que en la app; el motor (EditorCore, el WASM) y `correr.ts` quedan afuera, y el
+    guion escribe los renglones con las mismas funciones del store (`anotar`, `fijarAgente`) y los textos de `correr.ts`.
+  - **Los datos de la toma se MIDEN**: las pausas con la envolvente del audio (bajo −34 dB por 0,5 s o más, la regla de la receta),
+    las palabras con su tiempo con Whisper (Groq, `whisper-large-v3`, `timestamp_granularities[]=word`), los cuadros con
+    `ffmpeg fps=…,tile=Nx1` (el paso en segundos = ancho del cuadro / píxeles por segundo, así no se deforma).
+  - **La grabación de Playwright arranca TARDE respecto de las marcas del script** (1 a 1,7 s): el recorte se decide mirando
+    cuadros, no con los ms del script. Y **mover el mouse cada 16 ms mientras graba se arrastra** (8 s para 1,4 s de recorrido):
+    con pasos de 45 ms va a tiempo.
+  - **Grupos de WhatsApp**: `TraerDeGrupoWA` y `ExtraccionModal` reales con el servidor (`grupo-wa-actions`) y la extensión
+    (`wa-fichas-cliente`, `usar-extension-fichas`) de mentira y los textos de avance de la extensión (`extension/popup.js` → FASES).
+    Un `Modal` nuevo tapa al anterior: al tocar «Extraer» queda sólo el del avance, sobre el CRM.
+  - **El bucle**: el final se funde 0,5 s con el principio (`xfade` del final con los primeros 0,5 s, y el video arranca en el 0,5):
+    no hay salto al volver a empezar aunque el final no se parezca al principio.
+
 
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 

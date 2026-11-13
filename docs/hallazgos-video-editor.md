@@ -6,6 +6,20 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## El registro de la Edición automática no muestra lo último mientras trabajan (13/11/2026, visto armando la portada)
+
+**El síntoma:** con el panel de «Edición automática» a la altura de siempre (el reproductor y la línea de tiempo abajo), mientras
+los agentes trabajan el registro deja ver SUS PRIMEROS renglones («sigue la receta…», «Quitar las pausas») y no los de ahora. Se
+ve en la captura del chat del editor (`prueba-video-13-11/07-`) y se reprodujo montando `enjambre-view.tsx` en un banco.
+
+- **La causa:** el `<ol>` del registro (`min-h-[120px] flex-1 overflow-y-auto`) no tiene alto máximo y crece con los renglones; el
+  que se desplaza es el CUERPO del panel, no la lista. El «pegado» que lleva la lista al final (`el.scrollTop = el.scrollHeight`)
+  actúa sobre el `<ol>`, que nunca tiene nada que desplazar: lo último queda debajo del pie.
+- **Lo que quedó SIN hacer** (no es de la portada): que la lista tenga su alto y se desplace sola (por ejemplo, el cuerpo con el
+  registro como último hijo `min-h-0` y la lista con un tope), sin perder lo que pide el comentario de `EnjambreView` (que en una
+  ventana baja el registro no baje de 120 px ni se meta debajo de «Editar con MaKo»). En la portada el banco le pone
+  `max-height: 120px` al `<ol>` y así se lee lo último.
+
 ## La tab Video probada entera en producción: lo que quedó roto (12/11/2026)
 
 Prueba pedida por Martín («que no lo dejes a la guía de MaKo… quiero que lo pruebes enteramente»), en el ws 9, con el
