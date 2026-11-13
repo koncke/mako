@@ -64,8 +64,10 @@ sentido esos cursores que están haciendo cosas sobre algo que ya está creado»
   cambio queda con el agente que trabajaba. Él y los de su rol (`FAMILIA`) se reparten su última tanda y van a cosas distintas a
   la vez (`repartoDeCambios`). El que no tiene nada que hacer espera quieto y apagado en su panel; sólo la revisión (qa-01)
   recorre lo que ya está, porque revisar es eso. Lo fija `tests/video-editor-enjambre-cambios.test.ts`.
-- **Sin hacer:** que los bloques nuevos aparezcan de a uno a medida que llega el cursor (hoy aparecen todos juntos y los cursores
-  los recorren), el cursor de texto escribiendo el subtítulo en el programa y la medida del recuadro («348 × 107») del reel. Y
+- **Lo nuevo aparece cuando llega su cursor:** la línea de tiempo esconde (un `<style>` con los `data-ce-id`, `opacity: 0`) los
+  bloques de la tanda que ningún cursor alcanzó (`pendientesDeTanda`), así se llena mientras trabajan. Sólo en la línea de
+  tiempo: el reproductor dibuja todo junto. Con «reducir movimiento», nada se esconde.
+- **Sin hacer:** el cursor de texto escribiendo el subtítulo en el programa y la medida del recuadro («348 × 107») del reel. Y
   mirarlo en pantalla: se subió sin sesión en el navegador de la app.
 
 ## Ticket 91: «La pantalla Video se rompió» era el Router de Next, no el editor (12/11/2026)

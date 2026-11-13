@@ -749,7 +749,8 @@ export const BITACORA: Hito[] = [
       'Martín: «no tiene sentido esos cursores que están haciendo cosas sobre algo que ya está creado». Se miró el reel de referencia cuadro por cuadro.',
       'Ahora cada cursor va a lo que su agente acaba de hacer: el subtítulo nuevo en su pista, el punto donde cortó una pausa, el B-roll recién puesto, el subtítulo al que le cambia el estilo.',
       'Los agentes del mismo rol se reparten el trabajo y se ven varios cursores a la vez, cada uno en algo distinto. El que no tiene nada que hacer espera quieto en su lugar.',
-      'Todavía no: que cada bloque aparezca recién cuando llega su cursor, el cursor escribiendo el texto en el video y la medida del recuadro. No se miró en un navegador antes de subir.',
+      'Cada bloque nuevo aparece en la línea de tiempo recién cuando llega su cursor: la línea se va llenando mientras trabajan.',
+      'Todavía no: el cursor escribiendo el texto en el video y la medida del recuadro. No se miró en un navegador antes de subir.',
     ],
     archivos: [
       'app/video-editor/_opencut/enjambre/cambios.ts — qué apareció, qué se cortó y qué cambió en la línea de tiempo',

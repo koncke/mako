@@ -36,6 +36,7 @@ import {
 	TRANSICION_CURSOR_MS,
 	cajasDelCuadro,
 	esquina,
+	pendientesDeTanda,
 	puntoDeCursor,
 	repartoDeCambios,
 	tareaDeAgente,
@@ -232,6 +233,8 @@ export function CursoresAgentes() {
 	if (!enMarcha && !saliendo) return null;
 	if (typeof document === "undefined") return null;
 	let dibujo: Dibujo[];
+	/** Los bloques nuevos que su cursor todavía no soltó: la línea de tiempo los esconde hasta que llega (../cursores.ts). */
+	let escondidos: string[] = [];
 	if (enMarcha && medida) {
 		// Quién muestra qué cambio: el que trabaja y los de su rol se reparten los de su última tanda (../cursores.ts).
 		const ahora = Date.now();
@@ -239,6 +242,7 @@ export function CursoresAgentes() {
 		const reparto = new Map<AgenteId, { cambio: CambioARepartir; de: AgenteId }>();
 		for (const w of ocupados) {
 			for (const [a, cambio] of repartoDeCambios({ trabajando: w, cambios, ahora, ocupados })) if (!reparto.has(a)) reparto.set(a, { cambio, de: w });
+			if (!quieto) escondidos = escondidos.concat(pendientesDeTanda({ trabajando: w, cambios, ahora, ocupados }));
 		}
 		/** El panel del agente, quieto: el que no tiene nada que hacer no hace como que trabaja sobre lo que ya está. */
 		const enSuLugar = (id: AgenteId) => puntoDeCursor({ agente: id, en: null, zonas: medida.zonas, linea: medida.linea });
@@ -298,6 +302,14 @@ export function CursoresAgentes() {
 
 	return createPortal(
 		<div aria-hidden className="pointer-events-none fixed inset-0 z-[58]">
+			{/* Lo nuevo aparece cuando llega su cursor (sin «reducir movimiento»): se esconde en la línea de tiempo hasta entonces. */}
+			{enMarcha && !quieto ? (
+				<style>
+					{`[data-ce-linea] [data-ce-clip]{transition:opacity 180ms ease-out}${escondidos
+						.map((id) => `[data-ce-linea] [data-ce-clip][data-ce-id="${CSS.escape(id)}"]`)
+						.join(",")}${escondidos.length ? "{opacity:0}" : ""}`}
+				</style>
+			) : null}
 			{/* La caja de lo que trabaja cada uno, con su color y debajo de los cursores: como en el reel, se ve QUÉ agarró. */}
 			{dibujo.map(({ id, color, caja, opacidad }) =>
 				caja ? (

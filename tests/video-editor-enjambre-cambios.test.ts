@@ -95,3 +95,18 @@ test('C7: el cableado: se escucha la línea de tiempo mientras trabajan, y el qu
   assert.match(comp, /const \[caja\] = c\.id \? clipsPorId\(\[c\.id\]\) : \[\];/);
   assert.match(comp, /if \(esElQueTrabaja && agente === "subs-03" && c\.elemento === "text" && sub\)/);
 });
+
+test('C8: lo nuevo que ningún cursor alcanzó se esconde hasta que llega el suyo (la línea se llena mientras trabajan)', async () => {
+  const { pendientesDeTanda } = await import('../app/video-editor/_opencut/enjambre/cursores');
+  const cambios = tanda('subs-01', 7, 0);
+  // Paso 0: la familia de 3 tiene los 0, 1 y 2; del 3 al 6 esperan.
+  assert.deepEqual(pendientesDeTanda({ trabajando: 'subs-01', cambios, ahora: 0, paseoMs: 100 }), ['subs-01-3', 'subs-01-4', 'subs-01-5', 'subs-01-6']);
+  assert.deepEqual(pendientesDeTanda({ trabajando: 'subs-01', cambios, ahora: 150, paseoMs: 100 }), ['subs-01-6']);
+  assert.deepEqual(pendientesDeTanda({ trabajando: 'subs-01', cambios, ahora: 250, paseoMs: 100 }), []);
+  // Un corte o un cambio no se esconde (el elemento ya estaba): sólo lo que aparece.
+  const cortes = tanda('corte-01', 4, 0).map((c) => ({ ...c, tipo: 'corte' as const }));
+  assert.deepEqual(pendientesDeTanda({ trabajando: 'corte-01', cambios: cortes, ahora: 0, paseoMs: 100 }), []);
+  const comp = sinComentarios(leer('app/video-editor/_opencut/enjambre/components/cursores.tsx'));
+  assert.match(comp, /if \(!quieto\) escondidos = escondidos\.concat\(pendientesDeTanda\(\{ trabajando: w, cambios, ahora, ocupados \}\)\);/);
+  assert.match(comp, /\[data-ce-linea\] \[data-ce-clip\]\[data-ce-id="\$\{CSS\.escape\(id\)\}"\]/);
+});

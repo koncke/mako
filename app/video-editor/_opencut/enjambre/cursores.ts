@@ -234,3 +234,30 @@ export function repartoDeCambios({
 	});
 	return out;
 }
+
+/**
+ * Los elementos NUEVOS de la última tanda del que trabaja que ningún cursor alcanzó todavía: la línea de tiempo los esconde
+ * hasta que llega el suyo, así se llena a medida que trabajan (en el reel, cada bloque aparece cuando el cursor lo suelta).
+ * Mismo reparto que `repartoDeCambios`: en el paso p, la familia de k va por los p·k … p·k+k−1.
+ */
+export function pendientesDeTanda({
+	trabajando,
+	cambios,
+	ahora,
+	ocupados = [],
+	paseoMs = PASEO_MS,
+}: {
+	trabajando: AgenteId;
+	cambios: readonly (CambioARepartir & { agente: AgenteId })[];
+	ahora: number;
+	ocupados?: readonly AgenteId[];
+	paseoMs?: number;
+}): string[] {
+	const suyos = cambios.filter((c) => c.agente === trabajando);
+	if (!suyos.length) return [];
+	const desde = Math.max(...suyos.map((c) => c.t));
+	const tanda = suyos.filter((c) => c.t === desde).sort((a, b) => a.en - b.en);
+	const k = FAMILIA[trabajando].filter((a, i) => i === 0 || !ocupados.includes(a)).length;
+	const paso = Math.max(0, Math.floor((ahora - desde) / Math.max(1, paseoMs)));
+	return tanda.slice((paso + 1) * k).filter((c) => c.tipo === "aparece" && c.id).map((c) => c.id);
+}
