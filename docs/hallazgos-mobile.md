@@ -42,7 +42,6 @@ total. Lo que falta probar es hoy, con la línea baneada, y en el teléfono.
   (tests/m-chat-pantalla.test.ts, 3, rechaza una regla sin alcance).
 
 **Sin hacer, con su archivo:**
-- El chat con un lead (/chats/[clave], app/m/chats/[clave]/ComposerChatsM.tsx): sin la piel de WhatsApp, sin adjuntar y sin audio.
 - Volver a una pestaña sin esperar (cada vuelta re-pide la página: 0,5–1,4 s medidos) y los 364 KB del polyfill de `node:crypto` en
   cada pantalla (cinco importadores de cliente de lib/auth-session.ts: PanelAgencia, TemaCandidato, pila-modales, LoginForm, bitacora).
 - Verlo en un teléfono de verdad y en producción, y que MaKo conteste HOY en el grupo de la app cuando lo nombran (espera el sí de
@@ -50,7 +49,9 @@ total. Lo que falta probar es hoy, con la línea baneada, y en el teléfono.
 
 **Hecho después, el mismo día:** la última línea de cada chat con MaKo en la lista (`listarSesiones` la lee con `ultimosDeSesiones`, una lectura
 para todas; si falla, la lista sale igual), y la caricatura del Funnel Coach «rota» de las capturas era del arnés, que no servía `public/`
-(en producción /asesores/hormozi.png da 200).
+(en producción /asesores/hormozi.png da 200). Y el chat con un lead (ComposerChatsM): la caja de WhatsApp con el clip (WhatsApp y email, con la vista previa a pantalla
+completa VistaAdjuntosM y el multipart de escritorio) y la nota de voz por WhatsApp; los globos verde y blanco en app/m/chats/chats.css.
+Su trampa: el foco del campo ya no es de un <textarea> propio, así que el teclado de iOS (#51) se mide escuchando focus/blur del  de la caja.
 
 **Vive en:** app/m/_chat/PantallaChatM.tsx · app/m/_chat/pantalla-chat.ts · app/m/_chat/chat-wa.css · app/m/_chat/NuevoChatFlotante.tsx ·
 app/m/second-brain/ChatClienteM.tsx · app/m/second-brain/HojaDelGrupo.tsx · app/m/second-brain/FilasDelGrupoM.tsx ·
