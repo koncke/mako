@@ -33,6 +33,7 @@ import type { AnuncioDestacado } from '@/lib/media-buyer/productos';
 import type { Tarea } from '@/lib/media-buyer/copiloto';
 import type { NumeroDelReel } from '@/lib/copiloto/piloto';
 import type { VistaRT } from '@/lib/retargeting-motor';
+import type { PaginaAnalizada } from '@/lib/copiloto/web';
 import { CSS_RETARGETING, Retargeting } from './Retargeting';
 import { CSS_COPILOTO } from './copiloto-css';
 import { Flecha, Grafico, Tuerca } from './iconos';
@@ -55,6 +56,8 @@ export type DatosCoPilot = {
   /** El retargeting sin VSL (lib/retargeting.ts): lo que marcó MaKo; null si no se pudo leer. */
   retargeting: VistaRT | null;
   web: string[];
+  /** Lo último que analizó el Landing Analyst de cada página (lib/copiloto/web.ts). */
+  paginas: PaginaAnalizada[];
   redes: Record<'instagram' | 'youtube', Array<{ usuario: string; vencida: boolean }>>;
 };
 
@@ -81,6 +84,21 @@ const CSS_EXTRA = `
 .frn .frn-stat { cursor: pointer; }
 .frn .frn-stat .mq-logo { display: inline-grid; place-items: center; flex: none; color: #fff; }
 @container frn (max-width: 700px) { .frn .cop-lista > li { grid-template-columns: 44px minmax(0, 1fr); } .frn .cop-mini { width: 44px; height: 44px; } .frn .cop-num { grid-column: 2; text-align: left; } }
+/* La web, como análisis: la nota, el veredicto y lo más grave con su arreglo. */
+.frn .cop-web__cab { display: flex; align-items: center; gap: 18px; margin: 10px 0 6px; }
+.frn .cop-web__n { margin: 0; font-size: 40px; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
+.frn .cop-web__n span { font-size: 18px; color: var(--muted); }
+.frn .cop-web__v { margin: 0; font-size: 16px; line-height: 1.5; color: var(--ink); max-width: 70ch; }
+.frn .cop-web__lista { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+.frn .cop-web__lista li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: start; padding: 14px 2px; }
+.frn .cop-web__lista li + li { border-top: 1px solid var(--hair); }
+.frn .cop-web__lista b { display: block; font-size: 15.5px; font-weight: 600; color: var(--ink); }
+.frn .cop-web__lista p { margin: 4px 0 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
+.frn .cop-web__sev { justify-self: start; display: inline-flex; align-items: center; height: 26px; padding: 0 11px; border-radius: 999px; font-size: 13.5px; font-weight: 700; }
+.frn .cop-web__lista li[data-sev="alta"] .cop-web__sev { color: var(--bad); background: var(--bad-bg); }
+.frn .cop-web__lista li[data-sev="media"] .cop-web__sev { color: var(--warn); background: var(--warn-bg); }
+.frn .cop-web__lista li[data-sev="baja"] .cop-web__sev { color: var(--muted); background: var(--panel); }
+@container frn (max-width: 700px) { .frn .cop-web__lista li { grid-template-columns: 1fr; gap: 6px; } }
 /* Con cuántas vistas se publica un reel de prueba: el número grande y de dónde sale. */
 .frn .cop-reel { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
 .frn .cop-reel__n { margin: 6px 0 4px; font-size: 44px; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
@@ -179,7 +197,11 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
   const analisisDe = (t: Tarjeta): { n: string; de?: string; s: string } => {
     switch (t) {
       case 'oferta': return notaOC != null ? { n: String(notaOC), de: '/100', s: 'Tu nota' } : { n: '—', s: 'Sin analizar' };
-      case 'web': return datos.web.length ? { n: String(datos.web.length), s: datos.web.length === 1 ? 'página' : 'páginas' } : { n: '—', s: 'Sin tu web' };
+      case 'web': {
+        const p = datos.paginas[0];
+        if (p?.score != null) return { n: p.score.toLocaleString('es', { maximumFractionDigits: 1 }), de: '/10', s: 'Tu página' };
+        return datos.web.length ? { n: String(datos.web.length), s: datos.web.length === 1 ? 'página' : 'páginas' } : { n: '—', s: 'Sin tu web' };
+      }
       case 'anuncios': return datos.anuncios.conectada ? { n: String(datos.anuncios.mejores.length), s: `con ${KPI[datos.anuncios.kpi]} este mes` } : { n: '—', s: 'Sin conectar' };
       default: { const r = datos.redes[t]; return r.length ? { n: '1', s: `@${r[0].usuario.replace(/^@/, '')}` } : { n: '—', s: 'Sin conectar' }; }
     }
@@ -251,7 +273,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
                 </>
               )}
               {tarjeta === 'anuncios' && <AnalisisAnuncios datos={datos} />}
-              {tarjeta === 'web' && <TarjetaWeb paso="analisis" web={datos.web} />}
+              {tarjeta === 'web' && (datos.paginas.length ? <AnalisisWeb paginas={datos.paginas} /> : <TarjetaWeb paso="analisis" web={datos.web} />)}
               {(tarjeta === 'instagram' || tarjeta === 'youtube') && <TarjetaRed red={tarjeta} paso="analisis" cuentas={datos.redes[tarjeta]} />}
               {tarjeta === 'instagram' && <NumeroDelReelCard reel={datos.reel} />}
               <LoQueTeToca tareas={tareas[tarjeta]} enPlan={enPlan} onHecha={marcarTarea}
@@ -292,6 +314,7 @@ function resumenParaTareas(datos: DatosCoPilot, oc: EstadoComunicacion): Resumen
     oferta: { sesion: oc.sesion, notaOferta: !!oc.nota.oferta, notaAngulos: !!oc.nota.angulos, notaVoz: !!oc.nota.voz, faltan: { oferta: faltan('oferta'), angulos: faltan('angulos'), voz: faltan('voz') } },
     anuncios: { conectada: datos.anuncios.conectada, funnel: datos.funnel, semana: datos.tareas.map((t) => ({ titulo: t.titulo, href: t.href })) },
     web: datos.web,
+    webArreglos: datos.paginas.flatMap((p) => p.hallazgos.filter((h) => h.severidad === 'alta').map((h) => ({ url: p.url, titulo: h.titulo }))),
     redes: { instagram: { conectada: conectada('instagram') }, youtube: { conectada: conectada('youtube') } },
     seguidos: datos.reel ? datos.reel.seguidos : null,
   };
@@ -390,6 +413,41 @@ function AnalisisAnuncios({ datos }: { datos: DatosCoPilot }) {
         </ul>
       ) : <p className="frn-rem__h">Este mes ningún anuncio trajo {KPI[a.kpi]} todavía.</p>}
     </section>
+  );
+}
+
+// ── La Web, como análisis (Martín, 13/11: «Oferta y Web se quedan en CoPilot como análisis») ───────────
+// Lo último que analizó el Landing Analyst de cada página: la nota, el veredicto y lo más grave, con su arreglo. Se trabaja en
+// Web Generator, con la página y sus comentarios (`?analizar=`).
+
+const ETIQUETA_SEVERIDAD: Record<PaginaAnalizada['hallazgos'][number]['severidad'], string> = { alta: 'Arreglar', media: 'Mejorar', baja: 'Detalle' };
+
+function AnalisisWeb({ paginas }: { paginas: PaginaAnalizada[] }) {
+  return (
+    <>
+      {paginas.map((p) => (
+        <section key={p.url} className="frn-card cop-web">
+          <div className="frn-card__head">
+            <h2 className="frn-card__t">{p.titulo || p.url.replace(/^https?:\/\//, '')}</h2>
+            <Link className="frn-chip" href={`/web-generator?analizar=${encodeURIComponent(p.url)}`}>Ver la página con sus comentarios</Link>
+          </div>
+          <div className="cop-web__cab">
+            {p.score != null && <p className="cop-web__n frn-num">{p.score.toLocaleString('es', { maximumFractionDigits: 1 })}<span>/10</span></p>}
+            {p.veredicto && <p className="cop-web__v">{p.veredicto}</p>}
+          </div>
+          {p.hallazgos.length > 0 && (
+            <ul className="cop-web__lista">
+              {p.hallazgos.map((h, i) => (
+                <li key={i} data-sev={h.severidad}>
+                  <span className="cop-web__sev">{ETIQUETA_SEVERIDAD[h.severidad]}</span>
+                  <div><b>{h.titulo}</b>{h.arreglo && <p>{h.arreglo}</p>}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ))}
+    </>
   );
 }
 

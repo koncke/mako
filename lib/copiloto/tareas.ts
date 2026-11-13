@@ -29,6 +29,8 @@ export type ResumenParaTareas = {
   oferta: { sesion: number | null; notaOferta: boolean; notaAngulos: boolean; notaVoz: boolean; faltan: Record<ParteOC, number> };
   anuncios: { conectada: boolean; funnel: string | null; semana: Array<{ titulo: string; href: string }> };
   web: string[];
+  /** Lo más grave de cada página ya analizada (Landing Analyst): cada uno es una tarea. */
+  webArreglos?: Array<{ url: string; titulo: string }>;
   redes: Record<'instagram' | 'youtube', { conectada: boolean }>;
   /** Cuántos competidores sigue en Competitor Spy (null = no se sabe todavía). */
   seguidos: number | null;
@@ -64,7 +66,12 @@ export function tareasDelCoPilot(r: ResumenParaTareas): { tareas: TareaCoPilot[]
 
   // Web
   hay(!r.web.length, { clave: 'web:analizar', tarjeta: 'web', titulo: 'Analiza tu web', href: '/web-generator' });
-  for (const u of r.web.slice(0, 3)) tareas.push({ clave: `web:mejorar-${claveDeTitulo(sinProtocolo(u))}`, tarjeta: 'web', titulo: `Mejora ${sinProtocolo(u)} con su análisis`, href: `/web-generator?analizar=${encodeURIComponent(u)}` });
+  // Con la página analizada, cada arreglo grave es su tarea; sin análisis todavía, analizarla.
+  if (r.webArreglos?.length) {
+    for (const h of r.webArreglos.slice(0, 4)) tareas.push({ clave: `web:arreglar-${claveDeTitulo(`${sinProtocolo(h.url)} ${h.titulo}`)}`, tarjeta: 'web', titulo: `Arregla en ${sinProtocolo(h.url)}: ${h.titulo}`, href: `/web-generator?analizar=${encodeURIComponent(h.url)}` });
+  } else {
+    for (const u of r.web.slice(0, 3)) tareas.push({ clave: `web:mejorar-${claveDeTitulo(sinProtocolo(u))}`, tarjeta: 'web', titulo: `Mejora ${sinProtocolo(u)} con su análisis`, href: `/web-generator?analizar=${encodeURIComponent(u)}` });
+  }
 
   // Instagram y YouTube
   hay(!r.redes.instagram.conectada, { clave: 'instagram:conectar', tarjeta: 'instagram', titulo: 'Conecta tu Instagram', abre: 'conectar', red: 'instagram' });
