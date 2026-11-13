@@ -208,7 +208,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     // 13/11/2026, el Cerebro mirando @lifeofarjav: «La voz de MaKo, sus 3 libros» (los libros eran de Hormozi) y «MaKo + Claude =
     // 100M Business». Adaptar no es buscar y reemplazar el nombre del gurú por el del negocio: es contar lo mismo con lo que el negocio
     // tiene de verdad. Capa 2: `cifrasDeLaReplica` (abajo) avisa las cifras que se escapan igual.
-    '- Adaptar es contar LO MISMO con la oferta del negocio, NO cambiar el nombre del creador, de su gurú o de su marca por el del negocio. Lo que es del original (sus libros, sus herramientas, sus cifras, sus resultados, su promesa) se cambia por algo VERDADERO del negocio de abajo, o se saca. Ninguna cifra, monto, resultado ni garantía que no esté en lo que se sabe del negocio: ni las del original ni inventadas.',
+    '- Adaptar es contar LO MISMO con la oferta del negocio, NO cambiar el nombre del creador, de su gurú o de su marca por el del negocio. Lo que es del original (sus libros, sus herramientas, sus cifras, sus resultados, su promesa) se cambia por algo VERDADERO del negocio de abajo, o se saca. Ninguna cifra, monto, resultado ni garantía que no esté en lo que se sabe del negocio: ni las del original ni inventadas. Tampoco le atribuyas al negocio algo que no está en lo que se sabe de él (un método, un framework, un libro, una herramienta propia): si hace falta, di «tu método» o «tu forma de trabajar».',
     '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su nombre o su firma va el NOMBRE del negocio, tal como está escrito abajo. Donde el original muestra su @ (un encabezado, un tuit, un pie), escribe exactamente @usuario: el sistema pone el del negocio. Nunca otro @, un usuario inventado ni un sitio web.',
     '- Español neutro, de «tú», como se habla en México.',
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra que tenga sentido para este negocio (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
@@ -984,9 +984,9 @@ function laminaFiel(l: LaminaReplica, plancha: PlanchaDeLamina, o: { W: number; 
     const centro = b.caja.x + b.caja.ancho / 2;
     // La alineación MEDIDA en la lámina manda sobre la que dijo la IA.
     const alinear = b.alineacion ?? t.alinear;
-    // Adentro de una caja (no sobre la lámina), ni un poco más ancho que el original: al lado suele haber un ícono (el globito de
-    // «Comment GIFT» tapaba «guía.»).
-    const tope = b.principal === false ? b.caja.ancho : Math.max(b.caja.ancho * 1.15, b.caja.ancho + 0.02 * W);
+    // Adentro de una caja (no sobre la lámina), un poco MÁS angosto que el original: al lado suele haber un ícono (el globito de
+    // «Comment GIFT» tapaba «guía.» y, al mismo ancho, rozaba las comillas de «ACELERA»).
+    const tope = b.principal === false ? 0.95 * b.caja.ancho : Math.max(b.caja.ancho * 1.15, b.caja.ancho + 0.02 * W);
     let left: number;
     let width: number;
     if (pastilla) { const aire = Math.max(6, 0.6 * (pastilla.letra.x - b.caja.x)); left = b.caja.x + aire; width = b.caja.ancho - 2 * aire; }
