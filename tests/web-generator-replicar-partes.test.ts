@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { transformSync } from 'esbuild';
 import {
-  acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, juntarHasta, moldeDeEsquema, moldeDeSeccion, nivelDeSeccion,
+  acomodoDeSeccion, cerrarSecciones, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, juntarHasta, moldeDeEsquema, moldeDeSeccion, nivelDeSeccion,
   notaDeSeccion, resumenDeMolde, textoDeMolde,
 } from '../lib/editor-landing/replicar-estructura';
 import {
@@ -186,8 +186,8 @@ test('3. las partes: el texto trae la estructura y los ángulos, nunca quedan la
 
 test('2b. cómo está acomodada cada sección: dónde lleva imágenes y si sus subtítulos son tarjetas', () => {
   const m = moldeDeSeccion({ titulo: 'Beneficios', puntos: ['### Rápido', 'a', '### Barato', 'b', '### Fácil', 'c'] });
-  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: false }), 'una imagen junto al texto, 3 tarjetas o pasos con su subtítulo');
-  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: true }), 'imagen de fondo, 3 tarjetas o pasos con su subtítulo');
+  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: false }), 'una imagen junto al texto, 3 tarjetas o pasos con su subtítulo, ni uno más ni uno menos');
+  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: true }), 'imagen de fondo, 3 tarjetas o pasos con su subtítulo, ni uno más ni uno menos');
   assert.equal(acomodoDeSeccion(moldeDeSeccion({ titulo: 'Logos', puntos: ['x'] }), { cantidad: 6, fondo: false }), '6 imágenes (galería o logos)');
   assert.equal(acomodoDeSeccion(moldeDeSeccion({ titulo: 'Solo', puntos: ['x'] }), null), '');
   // Las imágenes de cada sección de la réplica: las de SUS partes de la original.
@@ -201,7 +201,9 @@ test('2b. cómo está acomodada cada sección: dónde lleva imágenes y si sus s
   assert.match(rep, /const estilo = partes\.diseno \? estiloLeido : null;/);
   // La nota de cada sección (su ángulo, su forma y su acomodo) viaja CON la sección a su tanda.
   assert.match(rep, /return notaDeSeccion\(m, acomodos\[i\], /);
-  assert.match(rep, /pedirSecciones\(\{ esquema: esqTandas, indices, params: receta\.paramsSecciones \?\? params \}\)/);
+  // 13/11/2026: cada vuelta puede llevar su esquema (la de la cantidad exacta suma su nota); por defecto, el de las notas.
+  assert.match(rep, /const correr = async \(lista: readonly number\[\]\[\], vuelta: string, esquemaVuelta: Esquema = esqTandas\) => \{/);
+  assert.match(rep, /pedirSecciones\(\{ esquema: esquemaVuelta, indices, params: receta\.paramsSecciones \?\? params \}\)/);
 });
 
 // Medido el 28/10/2026: con el molde y el ángulo de cada sección en la instrucción común (5.000 caracteres, la misma para
@@ -487,8 +489,18 @@ test('10d. los enchufes de la revisión: la API no paga ángulos que no usa, Pre
   assert.match(rep, /\.\.\.\(mismasSecciones && !partes\.texto \? \{ adaptar: true as const \} : \{\}\),/);
   // 3. La IA no ve el destino, y los enlaces a la original pasan a «#» en todas las tarjetas, las de respaldo también.
   assert.match(rep, /\.\.\.\(partes\.texto \? \{\} : \{ puntos: s\.puntos\.map\(sinDestinoDeBoton\) \}\),/);
-  // 13/11/2026: el paso se llama `sinEnlacesAjenos` (después viene el botón por sección); la regla es la misma.
-  assert.match(rep, /const sinEnlacesAjenos = partes\.texto \? tarjetasCrudas : tarjetasCrudas\.map\(\(t\) => \{\r?\n\s*const r = sinEnlacesALaOriginal\(t, url, destinosOriginal\);/);
+  // Por el RESULTADO (13/11/2026: la línea copiada se rompió al sumar el botón por sección, sin que nada se rompiera): en la
+  // adaptada, el botón a la original y a su agenda pasa a «#», el del negocio queda; la copia literal conserva los suyos.
+  const conEnlaces = (href: string) => ({ type: 'tarjeta', attrs: { id: 't' }, content: [{ type: 'botones', attrs: { alinea: 'izquierda' }, content: [{ type: 'boton', attrs: { href, variante: 'primario' }, content: [{ type: 'text', text: 'Quiero' }] }] }] });
+  const hrefDe = (t: unknown) => JSON.stringify(t).match(/"href":"([^"]*)"/)?.[1];
+  const destinos = enlacesDeLaOriginal('[BOTÓN] Agenda → https://calendly.com/competidor/30min');
+  const opciones = { url: 'https://www.competidor.com/oferta', destinos, botonEnPartes: 0 };
+  const adaptada = cerrarSecciones([conEnlaces('https://www.competidor.com/checkout'), conEnlaces('https://calendly.com/competidor/30min'), conEnlaces('https://mi-negocio.com')], { ...opciones, literal: false });
+  assert.deepEqual(adaptada.tarjetas.map(hrefDe), ['#', '#', 'https://mi-negocio.com']);
+  assert.equal(adaptada.enlacesAjenos, 2);
+  const literal = cerrarSecciones([conEnlaces('https://www.competidor.com/checkout')], { ...opciones, literal: true });
+  assert.deepEqual(literal.tarjetas.map(hrefDe), ['https://www.competidor.com/checkout'], 'la copia literal conserva sus enlaces');
+  assert.match(rep, /cerrarSecciones\(tarjetasCrudas, \{ literal: partes\.texto, url, destinos: destinosOriginal,/, 'la réplica cierra TODAS sus secciones con eso');
   assert.match(rep, /const destinosOriginal = mismasSecciones && !partes\.texto \? enlacesDeLaOriginal\(esq\.secciones\.flatMap\(\(s\) => s\.puntos\)\.join\('\\n'\)\) : new Set<string>\(\);/);
   // 6. El texto pegado se corta como la lectura que vio la persona.
   assert.match(rep, /pedirEsquema\(\{ modo: 'pegar', texto: entrada\.texto, params, corte: 'pagina' \}\)/);

@@ -460,11 +460,29 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'arranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'WhatsApp arranca con estos por día. Sin esto, 20.' },
       { nombre: 'arranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'y sube esto, hasta porDia. Sin esto, 20.' },
       { nombre: 'sinArranque', tipo: 'boolean', descripcion: 'true: con el tope desde el primer día.' },
+      // SEGUIR CON LOS QUE CONTESTAN (13/11/2026, Leila, ws11): va EN la difusión. Armado aparte, con «Contestó» como primera
+      // tarjeta, se decide al entrar y no corre nunca (lib/difusion-reglas.ts, `conSiContesta`).
+      { nombre: 'siContesta', tipo: 'string[]', max: 5, descripcion: 'opcional, sólo por WhatsApp (solo): lo que les sale, en orden y en el momento, a los que CONTESTEN la difusión, TAL CUAL lo pidió la persona. A los que no contestan no les sale nada más. Úsalo cuando pide «a los que contesten, seguir con…»; NO armes otra automatización para eso.' },
+      { nombre: 'escucharDias', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'con siContesta: cuántos días después del mensaje se escucha la respuesta. Sin esto, 7.' },
     ],
-    reversible: false, escribe: 'crea una automatización en nutricion_secuencias (A mano, prendida, con su goteo en app_settings) e inscribe a los leads elegidos en nutricion_inscripciones: les llega el mensaje por los canales que tienen',
+    reversible: false, escribe: 'crea una automatización en nutricion_secuencias (A mano, prendida, con su goteo en app_settings) e inscribe a los leads elegidos en nutricion_inscripciones: les llega el mensaje por los canales que tienen (y, con siContesta, el seguimiento a los que contestan)',
     // ⚠️ SÓLO EN LA APP (la verificación del Cerebro sobre 69b49a31c, 29/10/2026): por el grupo de WhatsApp el doer arma el rol
     // como 'admin' para cualquiera que escriba (lib/mako-doer-in.ts), y un setter o un closer lanzaba una difusión a toda una
     // columna. Es la regla de AGENTS.md «Traer leads de a muchos…»: lo que toca números de terceros en lote, sólo en la app.
+    canales: ['app'], costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // SEGUIR CON LOS QUE CONTESTAN EN UNA DIFUSIÓN QUE YA ESTÁ SALIENDO (13/11/2026, Leila: la #732 seguía con 88 por recibir y el
+  // seguimiento lo había armado aparte, en la #730, donde no corría nunca). Sólo en la app, como la difusión: le escribe a muchos.
+  {
+    id: 'seguir_con_los_que_contestan', aTerceros: true, area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Seguir con los que contestan una difusión',
+    descripcion: 'PROPONE agregarle a una DIFUSIÓN por WhatsApp que ya está saliendo lo que les sale, en el momento, a los que la CONTESTAN (queda pendiente hasta el «sí»). Les llega a los que todavía no recibieron el mensaje y a los que lo recibieron hace menos de escucharDias; a los que ya terminaron, no (se dice cuántos). Si ya tenía un seguimiento, lo reemplaza. Úsala cuando la persona pide «a los que contesten la difusión, seguir con…» sobre una difusión que ya mandó: NO armes otra automatización con «Contestó» (no ve lo que contestaron a la difusión). Para una difusión nueva, usa siContesta de difundir_a_leads. El id sale de listar_secuencias_nutricion (las difusiones se llaman «Difusión · …»).',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'mensajes', tipo: 'string[]', obligatorio: true, max: 5, descripcion: 'lo que les sale, en orden, a los que contestan, TAL CUAL lo pidió la persona ({{nombre}} es el nombre del lead).' },
+      { nombre: 'escucharDias', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'cuántos días después del mensaje se escucha la respuesta. Sin esto, 7.' },
+    ],
+    reversible: true, escribe: 'cambia los pasos de esa difusión en nutricion_secuencias: después del mensaje, una espera y «Contestó» con los mensajes; les llegan a los que contestan',
     canales: ['app'], costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // «Volver a probar» (28/10/2026, ticket #19 de Leandro): «un lead no vuelve a entrar a una secuencia en la que ya estuvo»,
@@ -879,7 +897,8 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'waHora', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'opcional: WhatsApp por hora de reloj.' },
       { nombre: 'waArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: la rampa del número: WhatsApp el primer día.' },
       { nombre: 'waArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: y cuánto sube cada día que llega a su tope.' },
-      { nombre: 'emailDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: emails por día (en 24 h).' },
+      // Hasta 2.000 (#93): el rango real lo decide el runner según la cuenta (`limitesParaGuardar` con `opcionesDeRango`): 500 con la de la plataforma.
+      { nombre: 'emailDia', tipo: 'number', entero: true, minimo: 1, maximo: 2000, descripcion: 'opcional: emails por día (en 24 h; hasta 2.000 con tu cuenta de Resend y tu dominio, si no 500).' },
       { nombre: 'emailArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: la rampa del dominio: emails el primer día.' },
       { nombre: 'emailArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y cuánto sube cada día que llega a su tope.' },
       { nombre: 'makoSolasPor24h', tipo: 'number', entero: true, minimo: 0, maximo: 10, descripcion: 'opcional: respuestas que MaKo manda sola a una persona en 24 h (0 = siempre borrador).' },

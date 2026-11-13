@@ -6,6 +6,20 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## El registro de la Edición automática no muestra lo último mientras trabajan (13/11/2026, visto armando la portada)
+
+**El síntoma:** con el panel de «Edición automática» a la altura de siempre (el reproductor y la línea de tiempo abajo), mientras
+los agentes trabajan el registro deja ver SUS PRIMEROS renglones («sigue la receta…», «Quitar las pausas») y no los de ahora. Se
+ve en la captura del chat del editor (`prueba-video-13-11/07-`) y se reprodujo montando `enjambre-view.tsx` en un banco.
+
+- **La causa:** el `<ol>` del registro (`min-h-[120px] flex-1 overflow-y-auto`) no tiene alto máximo y crece con los renglones; el
+  que se desplaza es el CUERPO del panel, no la lista. El «pegado» que lleva la lista al final (`el.scrollTop = el.scrollHeight`)
+  actúa sobre el `<ol>`, que nunca tiene nada que desplazar: lo último queda debajo del pie.
+- **Lo que quedó SIN hacer** (no es de la portada): que la lista tenga su alto y se desplace sola (por ejemplo, el cuerpo con el
+  registro como último hijo `min-h-0` y la lista con un tope), sin perder lo que pide el comentario de `EnjambreView` (que en una
+  ventana baja el registro no baje de 120 px ni se meta debajo de «Editar con MaKo»). En la portada el banco le pone
+  `max-height: 120px` al `<ol>` y así se lee lo último.
+
 ## La tab Video probada entera en producción: lo que quedó roto (12/11/2026)
 
 Prueba pedida por Martín («que no lo dejes a la guía de MaKo… quiero que lo pruebes enteramente»), en el ws 9, con el
@@ -68,7 +82,26 @@ Clips mágicos va arriba del botón y se va al cambiar el video; la pastilla de 
   para probar el archivo faltante hubo que borrar a mano el archivo de un proyecto de prueba en el OPFS.
 - ⚠️ **El video de prueba `public/formatos/plano-secuencia-full.mp4` trae subtítulos QUEMADOS** («A VER EN»): no confundirlos
   con los de MaKo.
-- **Sin mirar todavía:** la palabra clave a 3× (se desplegó después) y el redibujo de Video › Básico medido en vivo.
+- **Sin mirar todavía:** el redibujo de Video › Básico medido en vivo.
+
+**Segunda pasada, deploy de las 18:36 UTC (d3f6bd9b3).** La palabra clave a 3× se dibuja bien: entra en el renglón y, partida en
+dos, no tapa al otro renglón (capturas 20 a 22). Clips mágicos ya no ofrece Soporte (26). Dos fallas nuevas:
+
+- **El reel de Outliers seguía «en blanco» con el loader PUESTO.** El arreglo de la primera pasada (esperar al reproductor) estaba
+  bien: el loader estaba montado hasta el `postMessage` (1,3 a 4 s). Pero no se veía. **El diagnóstico obvio («el loader se va
+  antes») ya no era.** Medido: mientras el iframe de Instagram se arma, la página dibuja 2 cuadros en el primer segundo SIN que el
+  hilo esté ocupado (los `setTimeout` de 100 ms llegan a tiempo, una sola tarea larga de 101 ms), y las animaciones quedan
+  `pending` en el tiempo 0. El loader (`ui.css → .cm-carga__centro / __cria`) entra con `both` y 150 ms de demora: con el tiempo
+  quieto se queda en su primer cuadro, opacidad 0. **Regla:** un loader que tapa algo que carga un iframe de otra red no puede
+  depender de que su animación corra para verse: en la caja del reel va `animation-fill-mode: forwards`
+  (`outliers.module.css`). Visto en el navegador de la app; en Chrome no se midió.
+- **«Las palabras clave 3 veces más grandes» por el chat agrandaba el subtítulo ENTERO.** MaKo contestó «Cambio las palabras
+  clave al 300 %» y mandó `estilo_texto` con `tamano: 7` en 30 subtítulos (la tarjeta decía «tamaño 7»; se descartó). La causa:
+  `palabras_clave` no tenía cómo cambiar SÓLO el tamaño («auto» las vuelve a elegir, «sumar» pide palabras) y la IA buscó otro
+  camino. **Regla:** `palabras_clave` con `"modo":"mantener"` deja las claves de cada subtítulo y cambia su `tamano` o `color`;
+  el catálogo lo dice en `palabras_clave` y en `estilo_texto` («el tamaño de las palabras clave no va aquí»). Lo fija
+  `tests/video-editor-clave-gigante.test.ts` (G6 a G8). Ojo al leer una propuesta: el texto de la IA y la operación pueden decir
+  cosas distintas; la tarjeta («Original | Modificado») es lo que se aplica.
 
 ## Los cursores de la Edición automática hacían como que trabajaban sobre lo que ya estaba (12/11/2026, noche)
 

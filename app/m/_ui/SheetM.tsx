@@ -16,7 +16,10 @@
 //
 // Gestos (app/m/_ui/gestos.ts): se arrastra 1:1 desde el grabber o la cabecera,
 // o desde el cuerpo cuando está arriba de todo y se tira hacia abajo. Pasado el
-// tope, rubber-band 0,55. Al soltar, el destino sale de PROYECTAR la velocidad, y
+// tope, rubber-band 0,55. En «medio», tirar hacia ARRIBA desde el cuerpo (o la rueda
+// del mouse) primero la agranda a «alto» y después scrollea, como la hoja de iOS: en
+// «medio» lo último de la lista queda fuera de la pantalla y no se alcanzaba (13/11/2026).
+// Al soltar, el destino sale de PROYECTAR la velocidad, y
 // un flick > 0,11 px/ms hacia abajo cierra aunque no se haya pasado de la mitad.
 // Abre en 320 ms y cierra en 220 ms con --ease-drawer; con movimiento reducido
 // aparece y se va con un fundido de 200 ms (el arrastre sigue 1:1: lo mueve el dedo).
@@ -51,7 +54,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type 
 import { createPortal } from 'react-dom';
 import { shadow } from '@/app/_ui/tokens';
 import { Icon } from '@/app/_components/icons';
-import { destinoDelSheet, ejeDelGesto, HISTERESIS, rubberband, velocidadDe, type Muestra, type SnapSheet } from './gestos';
+import { cuerpoMueveElSheet, destinoDelSheet, ejeDelGesto, HISTERESIS, rubberband, velocidadDe, type Muestra, type SnapSheet } from './gestos';
 import { registrarApertura, soltarAlDesmontar, soltarPorCodigo, soltarPorGesto } from './hoja-historial';
 
 type Snap = 'medio' | 'alto';
@@ -300,12 +303,14 @@ export function SheetM({
   const gestos = { onPointerDown: alBajar, onPointerMove: alMover, onPointerUp: alSoltar, onPointerCancel: alSoltar };
 
   // Desde el cuerpo: eventos touch (el navegador se queda con el pan vertical y
-  // mandaría pointercancel). Sólo arriba de todo y tirando hacia abajo.
+  // mandaría pointercancel). Hacia abajo, sólo arriba de todo; hacia arriba, sólo en
+  // «medio» (cuerpoMueveElSheet, en ./gestos.ts).
   useEffect(() => {
     const c = cuerpo.current;
     if (!c || !montada || !capa) return;
     let t0: { x: number; y: number } | null = null;
     let tomado = false;
+    const enMedio = () => actual.current === 'medio' && permitidosRef.current.includes('alto');
     const inicio = (e: TouchEvent) => {
       if (e.touches.length !== 1 || arrastre.current) { t0 = null; return; }
       t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -318,12 +323,13 @@ export function SheetM({
       const y = e.touches[0].clientY;
       if (!tomado) {
         const dy = y - t0.y;
+        const mueve = cuerpoMueveElSheet({ dy, scrollTop: c.scrollTop, enMedio: enMedio() });
         // En iOS, si el primer touchmove no se frena, el scroll arranca y los
-        // siguientes ya no se pueden cancelar: arriba de todo y hacia abajo, se frena YA.
-        if (c.scrollTop <= 0 && dy > 0 && e.cancelable) e.preventDefault();
+        // siguientes ya no se pueden cancelar: si el gesto va a mover la hoja, se frena YA.
+        if (mueve && e.cancelable) e.preventDefault();
         const eje = ejeDelGesto(x - t0.x, dy);
         if (!eje) return;
-        if (eje !== 'y' || dy <= 0 || c.scrollTop > 0) { t0 = null; return; }
+        if (eje !== 'y' || !mueve) { t0 = null; return; }
         tomado = true;
         iniciar(t0.y, e.timeStamp);
       }
@@ -331,15 +337,26 @@ export function SheetM({
       moverA(y, e.timeStamp);
     };
     const fin = () => { if (tomado) soltar(); t0 = null; tomado = false; };
+    // La rueda del mouse (o el trackpad) hace lo mismo que el dedo: en «medio», bajar la lista primero la agranda.
+    const rueda = (e: WheelEvent) => {
+      if (e.deltaY <= 0 || e.ctrlKey || arrastre.current || !enMedio()) return;
+      const m = medir();
+      if (!m) return;
+      e.preventDefault();
+      actual.current = 'alto';
+      aplicar(offsetDe('alto', m), sinMovimiento() ? 0 : 320);
+    };
     c.addEventListener('touchstart', inicio, { passive: true });
     c.addEventListener('touchmove', mover, { passive: false });
     c.addEventListener('touchend', fin, { passive: true });
     c.addEventListener('touchcancel', fin, { passive: true });
+    c.addEventListener('wheel', rueda, { passive: false });
     return () => {
       c.removeEventListener('touchstart', inicio);
       c.removeEventListener('touchmove', mover);
       c.removeEventListener('touchend', fin);
       c.removeEventListener('touchcancel', fin);
+      c.removeEventListener('wheel', rueda);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [montada, capa]);

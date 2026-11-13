@@ -187,4 +187,36 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/automations',
   },
+  {
+    fecha: '13 nov', hora: '20:10', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Con tu propia cuenta de Resend y tu dominio, el email por día llega a 2.000',
+    puntos: [
+      'Un negocio que manda con su propia cuenta de Resend y su dominio puede subir «Email por día» hasta 2.000. Con la cuenta de la plataforma sigue en 500.',
+      'El primer día y cuánto sube por día siguen de 1 a 500 para todos.',
+      'Si un día no se puede leer con qué cuenta manda, el tope baja a 500, nunca a lo de fábrica.',
+    ],
+    archivos: [
+      'lib/limites-envio.ts — `rangoDeLimite` y el rango de cada cuenta',
+      'lib/limites-envio-cuenta.ts — con qué cuenta manda el negocio',
+      'tests/limites-email-cuenta-propia-93.test.ts · tests/email-campana-topes.test.ts — los dos casos, también por la API',
+    ],
+    revisar: '/automations',
+  },
+  {
+    fecha: '13 nov', hora: '21:10', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El tope por día de una automatización también llega a 2.000 con tu propia cuenta de Resend',
+    puntos: [
+      'Con tu propia cuenta de Resend y tu dominio, a una automatización le puedes poner hasta 2.000 envíos por día. Con la cuenta de la plataforma sigue en 500.',
+      'Vale en Configuraciones de la automatización (las flechas llegan hasta tu máximo) y por la API.',
+      'La difusión sigue en 500 por día.',
+    ],
+    archivos: [
+      'lib/config-automatizacion.ts — `rangosGoteo`',
+      'lib/config-automatizacion-db.ts · lib/api-mako/areas/chatbot.run.ts · app/automations/ConfigAutomatizacionPanel.tsx — con el rango de la cuenta',
+      'tests/goteo-cuenta-propia-93.test.ts · tests/email-campana-columnas.test.ts — las dos cuentas, también por la API',
+    ],
+    revisar: '/automations',
+  },
 ];

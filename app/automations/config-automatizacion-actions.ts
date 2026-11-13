@@ -19,8 +19,9 @@ import { zonaDelNegocioDetalle } from '@/lib/timezone';
 import { ZONA_POR_DEFECTO } from '@/lib/zona-negocio-reglas';
 import { KEY_HORARIO_ENVIO, horarioVigente, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limites-envio';
+import { opcionesDeRango } from '@/lib/limites-envio-cuenta';
 import { leerConfigAutomatizacion, guardarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
-import type { ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { rangosGoteo, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 
 export async function getConfigAutomatizacionAction(secuenciaId: number): Promise<{
   config: ConfigAutomatizacion;
@@ -30,6 +31,8 @@ export async function getConfigAutomatizacionAction(secuenciaId: number): Promis
   lineaWa: { dia: number; hora: number };
   /** El tope por día de email de la LÍNEA (el techo del goteo del email). */
   lineaEmailDia: number;
+  /** Los rangos del goteo de ESTE negocio (#93): el tope por día llega a 2.000 con su Resend y su dominio. */
+  rangosGoteo: ReturnType<typeof rangosGoteo>;
   zona: string;
   puedeEditar: boolean;
 }> {
@@ -42,11 +45,13 @@ export async function getConfigAutomatizacionAction(secuenciaId: number): Promis
     getSettingEstricto(KEY_LIMITES_ENVIO),
     ws == null ? Promise.resolve(ZONA_POR_DEFECTO) : zonaDelNegocioDetalle(ws).then((d) => d.tz),
   ]);
-  const limites = limitesVigentes(rawLimites, limitesDeFabrica(process.env));
+  const cuenta = await opcionesDeRango();
+  const limites = limitesVigentes(rawLimites, limitesDeFabrica(process.env), cuenta);
   return {
     config, horarioNegocio: horarioVigente(rawHorario),
     lineaWa: { dia: limites.wa.dia, hora: limites.wa.hora },
     lineaEmailDia: limites.email.dia,
+    rangosGoteo: rangosGoteo(cuenta),
     zona, puedeEditar: rol === 'admin',
   };
 }

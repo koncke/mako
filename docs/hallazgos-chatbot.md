@@ -27,6 +27,42 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## «Seguir con los que contestan» la difusión no corría nunca: «Contestó» se decidía al entrar (13/11/2026, Leila, ws11, claude5)
+
+**Síntoma (la llamada del 13/11 con Martín):** la difusión de Leila a sus alumnas sale bien (de 20 a 30 por día), pero la
+automatización para seguir con las que le CONTESTAN no hizo nada: ella contesta todo a mano. No había ticket: lo contó en la
+llamada.
+**Lo medido (sólo lectura):** la difusión es la #732, «Hola corazón. ¿Cómo estás?» a 143 de la columna «agenda» de La Academia
+del Coach: un solo mensaje, sin nada después; 32 contestaron y ahí terminó. El seguimiento lo armó APARTE, en la #730: CRON
+«está en la etapa agenda» de ese embudo y, como PRIMERA tarjeta, «Contestó + está en el producto + está en la etapa» → el pedido
+de testimonio. A las 21:00:27 UTC del 9/11 el CRON inscribió a las 143 de golpe y la condición se decidió en ese instante,
+cuando casi nadie había recibido la difusión (sale con goteo): 143 envíos `omitido` («la condición cerró el flujo sin mandar
+nada»), las 143 inscripciones `completada`, sin reentrada. Nadie se enteró.
+**La causa (dos, juntas):** «Contestó» es de ESA inscripción (`contestoEnEsta`; `alContestar` sólo mueve a quien ya le salió
+algo de esa automatización): no ve lo que le contestaron a OTRA. Y como primera tarjeta se decide al entrar, cuando nadie pudo
+contestar. ⚠️ **El diagnóstico obvio era el equivocado:** «el motor no detecta las respuestas» — las detecta (32 `respondio`
+en la #732, la regla «Contestó corta» del 23/10 anda); el problema es DÓNDE quedó la condición. La difusión no tenía cómo
+decir «a los que contesten, seguir con…», y armarlo aparte es lo natural para quien no conoce el motor.
+**La regla:**
+- «Seguir con los que contestan» va EN la difusión: el mensaje → «Escuchar N días» → «Contestó» → lo que sigue, sin «si
+  no» (`conSiContesta`, lib/difusion-reglas.ts). Quien contesta va a la rama en el momento y sólo eso le sale.
+- **Sólo en una difusión por WhatsApp sola:** con varios canales la inscripción tiene hilos en paralelo y `alContestar` no
+  la mueve (la guarda de `procesarEnvios` le corta los mensajes igual): el seguimiento no saldría nunca.
+- MaKo lo arma desde el chat: `difundir_a_leads` con `siContesta`, o `seguir_con_los_que_contestan` sobre una difusión que
+  ya está saliendo. A las que ya terminaron no les llega: el motor no reabre una inscripción cerrada, y la propuesta dice
+  cuántas son.
+- Publicar no deja un «Contestó» antes de escribirle nada (`contestoAntesDeEscribir`, lib/flujo-grafo.ts). Medido sobre las
+  87 sin archivar de producción: sólo la #730.
+
+Lo fija `tests/difusion-si-contesta.test.ts` (roturas L1-L10).
+**Sin hacer:**
+- La hoja de la difusión del CRM (`app/automations/difusion/HojaDifusion.tsx`) todavía no tiene el campo «Si contesta»: hoy
+  se pide por el chat de MaKo.
+- El seguimiento gasta un turno del goteo de la difusión como cualquier mensaje: el día que la difusión llega a su tope, quien
+  contesta espera al día siguiente (`sinLugar`, lib/nutricion.ts). Lo justo es que una respuesta a quien escribió no espere
+  el goteo; es del motor y no se tocó.
+- La #730 sigue ACTIVA y sin nadie adentro: Publicar ya no la deja así, pero hay que pausarla o archivarla (la decide Leila).
+
 ## «No me deja poner 2do nombre»: el «{ }» de «Mandar mensaje» elegía por el AUDIO, no por la ruta (ticket #70, 10/11/2026)
 
 **Vive en:** `arbolDelEditor` (app/automations/EditorMensajeWhatsApp.tsx) · la hoja que lo monta,

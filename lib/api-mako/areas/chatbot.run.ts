@@ -15,6 +15,8 @@ import 'server-only';
 import { after } from 'next/server';
 import type { Ctx, Runners, SalidaLectura } from '../tipos';
 import { textoPrioridadEmail } from '@/lib/nutricion-prioridad';
+import { opcionesDeRango } from '@/lib/limites-envio-cuenta';
+import { siContestaDe } from '@/lib/difusion-reglas';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { getSecuenciasConStats, setSecuenciaPasos, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, PasosInvalidosError, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
 import { avisoDuplicada, primerMensajeDe } from '@/lib/automatizacion-duplicada';
@@ -65,7 +67,7 @@ import { listarEtiquetas } from '@/lib/etiquetas';
 import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@/lib/flujo-ia-crear';
 import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
-import { KEY_LIMITES_ENVIO, conLimite, limitesDeFabrica, limitesParaGuardar, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
+import { KEY_LIMITES_ENVIO, conLimite, limitesDeFabrica, limitesParaGuardar, limitesVigentes, rangoDeLimite, type LimitesEnvio, type OpcionesRango } from '@/lib/limites-envio';
 import { horarioDeLaAutomatizacion, origenDelHorario, textoDeHorario, configParaGuardar, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
 import { crmDeLaAutomatizacion } from '@/lib/email-eventos-crm';
 import { etapasDeProducto } from '@/lib/lead-funnel';
@@ -116,7 +118,7 @@ const str = (input: Record<string, unknown>, k: string): string => (typeof input
  * (el email con su asunto) y el goteo (por defecto, el de la hoja). Un dato que no se entiende vuelve como error.
  */
 function pedidoDeDifusion(input: Record<string, unknown>):
-  | { seleccion: import('@/lib/difusion').SeleccionDifusion; canales: import('@/lib/difusion-reglas').CanalDifusion[]; mensajes: import('@/lib/difusion-reglas').MensajesDifusion; goteo: import('@/lib/difusion-reglas').GoteoDifusion; texto: string }
+  | { seleccion: import('@/lib/difusion').SeleccionDifusion; canales: import('@/lib/difusion-reglas').CanalDifusion[]; mensajes: import('@/lib/difusion-reglas').MensajesDifusion; goteo: import('@/lib/difusion-reglas').GoteoDifusion; texto: string; siContesta: import('@/lib/difusion-reglas').SiContestaDifusion | null }
   | { error: string } {
   const etapa = str(input, 'etapa');
   const ids = (Array.isArray(input.leadIds) ? input.leadIds : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
@@ -137,8 +139,13 @@ function pedidoDeDifusion(input: Record<string, unknown>):
     minutos: input.minutos == null ? 3 : num(input, 'minutos'), dia: input.porDia == null ? 40 : num(input, 'porDia'),
     ...(canales.includes('whatsapp') && input.sinArranque !== true ? { arranque: { dia: input.arranqueDia == null ? 20 : num(input, 'arranqueDia'), sube: input.arranqueSube == null ? 20 : num(input, 'arranqueSube') } } : {}),
   };
-  return { seleccion, canales, mensajes, goteo, texto };
+  // Lo que les sale a los que CONTESTAN (13/11/2026, Leila): va en la difusión misma, no en otra automatización.
+  return { seleccion, canales, mensajes, goteo, texto, siContesta: siContestaDe(input.siContesta, input.escucharDias) };
 }
+
+/** «Si contesta» en palabras, para la propuesta que la persona confirma. */
+const textoSiContesta = (sc: { mensajes: string[]; dias: number }): string =>
+  `A quienes contesten en los ${sc.dias} días siguientes al mensaje, les sale en ese momento ${sc.mensajes.length === 1 ? `«${sc.mensajes[0].slice(0, 160)}»` : sc.mensajes.map((m, k) => `${k + 1}) «${m.slice(0, 120)}»`).join(' ')}; a quienes no contesten, nada más.`;
 
 // Hasta el 17/09 acá había un `avisoTope()` que contaba las filas reales y avisaba
 // «los conteos quedan CORTOS» porque getSecuenciasConStats, getSettingData y
@@ -169,7 +176,7 @@ async function secuenciaVigente(id: number) {
  */
 
 type ColumnasPedidas = { valor: unknown; partes: string[] } | null;
-function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Parameters<typeof configParaGuardar>[0], columnas: ColumnasPedidas = null): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
+function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Parameters<typeof configParaGuardar>[0], columnas: ColumnasPedidas = null, cuenta?: OpcionesRango): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
   const cambio: Record<string, unknown> = {};
   const partes: string[] = [];
   if (columnas) { cambio.columnasEmail = columnas.valor; partes.push(...columnas.partes); }
@@ -201,7 +208,7 @@ function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Paramete
   }
   if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), el goteo (goteoMinutos, goteoPorDia) o las columnas del email (columnasEmail).' };
   // Contra lo que tiene: el arranque sube hasta su tope, que puede estar puesto de antes (`configParaGuardar`).
-  const prueba = configParaGuardar(previo, cambio);
+  const prueba = configParaGuardar(previo, cambio, cuenta);
   if (!prueba.ok) return { error: prueba.error };
   return { cambio, resumen: partes.join(' · ') };
 }
@@ -550,7 +557,8 @@ export const RUNNERS: Runners = {
   ver_limites_envio: {
     leer: async () => {
       const fabrica = limitesDeFabrica(process.env);
-      const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica);
+      const rangoCuenta = await opcionesDeRango();
+      const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica, rangoCuenta);
       const [{ usoDelCupo, topeDeHoyDelNegocio }, { envioEmailHabilitado }, { conteoEmailDelFreno }, { FRENO_EMAIL }] = await Promise.all([
         import('@/lib/nutricion'), import('@/lib/envio-flags'), import('@/lib/email-reputacion'), import('@/lib/email-freno'),
       ]);
@@ -569,6 +577,8 @@ export const RUNNERS: Runners = {
           rampa: { primer_dia: vigentes.email.arranqueDia, sube_por_dia: vigentes.email.arranqueSube, nota: 'Arranca en primer_dia y sube cada día que llega a su tope, hasta por_dia.' },
           // Ticket #93 (13/11/2026): una lista fría le deja lugar a los leads nuevos (lib/nutricion-prioridad.ts).
           prioridad: textoPrioridadEmail(emailHoy),
+          // Hasta cuánto puede subir «Email por día» (#93): 2.000 con su clave de Resend y su dominio, 500 con la de la plataforma.
+          por_dia_maximo: rangoDeLimite('email', 'dia', rangoCuenta)[1],
           freno: {
             // Desde el ticket #93 (13/11/2026): avisa antes, y apaga sólo con números peligrosos.
             regla: `Mira los últimos ${FRENO_EMAIL.ultimos} emails enviados (desde que se prendió el envío, hasta ${FRENO_EMAIL.dias} días): con ${FRENO_EMAIL.minimoEnviados} o más, rebotes de ${FRENO_EMAIL.rebotesAviso * 100} % te avisan y el envío sigue; rebotes de ${FRENO_EMAIL.rebotes * 100} % o quejas de ${FRENO_EMAIL.quejas * 100} % apagan el envío y te avisan.`,
@@ -587,7 +597,8 @@ export const RUNNERS: Runners = {
   cambiar_limites_envio: {
     preparar: async (input) => {
       const fabrica = limitesDeFabrica(process.env);
-      const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica);
+      const rangoCuenta = await opcionesDeRango();
+      const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica, rangoCuenta);
       if (input.restaurar === true) return { payload: { limites: fabrica }, resumen: 'Volver los topes de envío a los de fábrica' };
       const CAMBIOS: Array<[string, keyof LimitesEnvio, string, string]> = [
         ['waDia', 'wa', 'dia', 'WhatsApp por día'], ['waHora', 'wa', 'hora', 'WhatsApp por hora'],
@@ -604,12 +615,13 @@ export const RUNNERS: Runners = {
         partes.push(`${dice}: ${num(input, param)}`);
       }
       if (!partes.length) return { error: 'No dice qué cambiar: waDia, waHora, waArranqueDia, waArranqueSube, emailDia, emailArranqueDia, emailArranqueSube, makoSolasPor24h, o restaurar.' };
-      const prueba = limitesParaGuardar(nuevo, fabrica);
+      // El rango de «Email por día» depende de con qué cuenta manda (#93): 2.000 con la suya, 500 con la de la plataforma.
+      const prueba = limitesParaGuardar(nuevo, fabrica, rangoCuenta);
       if (!prueba.ok) return { error: prueba.error };
       return { payload: { limites: nuevo }, resumen: `Topes de envío: ${partes.join(' · ')}` };
     },
     ejecutar: async (payload) => {
-      const r = limitesParaGuardar(payload.limites, limitesDeFabrica(process.env));
+      const r = limitesParaGuardar(payload.limites, limitesDeFabrica(process.env), await opcionesDeRango());
       if (!r.ok) return { ok: false, resumen: r.error };
       await setSetting(KEY_LIMITES_ENVIO, r.valor);
       return { ok: true, resumen: 'Listo: los topes de envío quedaron guardados.' };
@@ -1104,7 +1116,7 @@ export const RUNNERS: Runners = {
       if (!s) return errorLectura(noExiste(id));
       const [config, horario, limites] = await Promise.all([leerConfigAutomatizacion(id), getSettingEstricto(KEY_HORARIO_ENVIO), getSettingEstricto(KEY_LIMITES_ENVIO)]);
       const delNegocio = horarioVigente(horario);
-      const lim = limitesVigentes(limites, limitesDeFabrica(process.env));
+      const lim = limitesVigentes(limites, limitesDeFabrica(process.env), await opcionesDeRango());
       const vale = horarioDeLaAutomatizacion(config, delNegocio);
       return json({
         secuencia: { id, nombre: s.nombre },
@@ -1126,7 +1138,8 @@ export const RUNNERS: Runners = {
       if (!s) return { error: noExiste(id) };
       const columnas = await columnasDelInput(input, id);
       if (columnas && 'error' in columnas) return { error: columnas.error };
-      const r = cambioDeConfigDelInput(input, await leerConfigAutomatizacion(id), columnas);
+      // Con el rango de la cuenta (#93): el tope por día del goteo llega al de su email.
+      const r = cambioDeConfigDelInput(input, await leerConfigAutomatizacion(id), columnas, await opcionesDeRango());
       if ('error' in r) return { error: r.error };
       return { payload: { secuenciaId: id, cambio: r.cambio }, resumen: `«${s.nombre}»: ${r.resumen}` };
     },
@@ -1278,7 +1291,9 @@ export const RUNNERS: Runners = {
       const pedido = pedidoDeDifusion(input);
       if ('error' in pedido) return { error: pedido.error };
       const { prepararDifusion } = await import('@/lib/difusion');
-      const { problemaDeDifusion, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, textoDeDuracionPorCanal, goteoValido } = await import('@/lib/difusion-reglas');
+      const { problemaDeDifusion, problemaDeSiContesta, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, textoDeDuracionPorCanal, goteoValido } = await import('@/lib/difusion-reglas');
+      const sinSeguimiento = problemaDeSiContesta(pedido.canales, pedido.siContesta);
+      if (sinSeguimiento) return { error: `${sinSeguimiento}.` };
       // El goteo fuera de rango se dice ANTES del «sí» (la verificación de 69b49a31c: fallaba recién al confirmar).
       const goteo = goteoValido(pedido.goteo);
       if (!goteo) {
@@ -1293,7 +1308,7 @@ export const RUNNERS: Runners = {
       const de = v.etapa ? `de «${v.etapa}»` : 'elegidos';
       return {
         payload: { ...input },
-        resumen: `Mandar «${pedido.texto.slice(0, 120)}» a ${v.alcance.llegan} de ${v.alcance.total} leads ${de}${v.cortado ? ' (los primeros)' : ''}: ${porCanal.join(' · ')}. De a uno cada ${pedido.goteo.minutos} min y hasta ${pedido.goteo.dia} por día en cada canal${goteo.arranque ? `; por WhatsApp arranca con ${goteo.arranque.dia} y sube ${goteo.arranque.sube} por día` : ''} (${textoDeDuracionPorCanal(v.alcance.porCanal, goteo)}).${pedido.mensajes.whatsapp?.variantes?.length ? ` Por WhatsApp, a cada uno le toca una de ${pedido.mensajes.whatsapp.variantes.length + 1} formas; las otras: ${pedido.mensajes.whatsapp.variantes.map((t) => `«${t.slice(0, 120)}»`).join(' · ')}.` : ''}${pedido.canales.includes('whatsapp') ? ' Por WhatsApp de QR: mandarle a muchos puede hacer que WhatsApp bloquee el número.' : ''} Queda como una automatización en Automations.`,
+        resumen: `Mandar «${pedido.texto.slice(0, 120)}» a ${v.alcance.llegan} de ${v.alcance.total} leads ${de}${v.cortado ? ' (los primeros)' : ''}: ${porCanal.join(' · ')}. De a uno cada ${pedido.goteo.minutos} min y hasta ${pedido.goteo.dia} por día en cada canal${goteo.arranque ? `; por WhatsApp arranca con ${goteo.arranque.dia} y sube ${goteo.arranque.sube} por día` : ''} (${textoDeDuracionPorCanal(v.alcance.porCanal, goteo)}).${pedido.mensajes.whatsapp?.variantes?.length ? ` Por WhatsApp, a cada uno le toca una de ${pedido.mensajes.whatsapp.variantes.length + 1} formas; las otras: ${pedido.mensajes.whatsapp.variantes.map((t) => `«${t.slice(0, 120)}»`).join(' · ')}.` : ''}${pedido.siContesta ? ` ${textoSiContesta(pedido.siContesta)}` : ''}${pedido.canales.includes('whatsapp') ? ' Por WhatsApp de QR: mandarle a muchos puede hacer que WhatsApp bloquee el número.' : ''} Queda como una automatización en Automations.`,
       };
     },
     ejecutar: async (payload, ctx) => {
@@ -1301,7 +1316,7 @@ export const RUNNERS: Runners = {
       if ('error' in pedido) return { ok: false, resumen: pedido.error };
       try {
         const { crearDifusion } = await import('@/lib/difusion');
-        const r = await crearDifusion(ctx.ws, { seleccion: pedido.seleccion, canales: pedido.canales, mensajes: pedido.mensajes, goteo: pedido.goteo, autor: ctx.actor?.trim() || 'MaKo' });
+        const r = await crearDifusion(ctx.ws, { seleccion: pedido.seleccion, canales: pedido.canales, mensajes: pedido.mensajes, goteo: pedido.goteo, siContesta: pedido.siContesta, autor: ctx.actor?.trim() || 'MaKo' });
         // El MISMO pedido otra vez retoma la difusión que ya existía (lib/difusion.ts): se dice, para que no parezca otra.
         const yaEstaba = r.ok && r.yaEstaban != null
           ? `Esa misma difusión ya estaba: «${r.nombre}». ${r.leads - r.yaEstaban ? `Sumé a los ${r.leads - r.yaEstaban} que faltaban; ` : 'No la mandé dos veces; '}le escribe a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}. Está en Automations.`
@@ -1313,6 +1328,38 @@ export const RUNNERS: Runners = {
         const msg = e instanceof Error ? e.message : String(e);
         console.error('[api-mako chatbot] difundir_a_leads:', msg);
         return { ok: false, resumen: `No se pudo mandar la difusión (${msg}).` };
+      }
+    },
+  },
+
+  // SEGUIR CON LOS QUE CONTESTAN, en una difusión que ya está saliendo (13/11/2026, Leila: la #732). `soloVer` al preparar
+  // (decide y cuenta sin escribir) y de verdad al confirmar, que vuelve a decidir contra la base.
+  seguir_con_los_que_contestan: {
+    preparar: async (input) => {
+      const secuenciaId = num(input, 'secuenciaId');
+      const sc = siContestaDe(input.mensajes, input.escucharDias);
+      if (!sc) return { error: 'Falta qué les sale a quienes contestan (mensajes).' };
+      const { seguirConLosQueContestan } = await import('@/lib/difusion');
+      const v = await seguirConLosQueContestan(secuenciaId, sc, { soloVer: true });
+      if (!v.ok) return { error: v.error };
+      return {
+        payload: { secuenciaId, mensajes: sc.mensajes, escucharDias: sc.dias },
+        resumen: `En «${v.nombre}»: ${textoSiContesta(sc)} Le llega a ${v.loVan} ${v.loVan === 1 ? 'persona' : 'personas'} (las que todavía no recibieron el mensaje o lo recibieron hace menos de ${sc.dias} días).${v.yaPasaron ? ` A las otras ${v.yaPasaron} no: ya terminaron (o ya contestaron).` : ''}${v.antes ? ' Reemplaza el seguimiento que tenía.' : ''}`,
+      };
+    },
+    ejecutar: async (payload) => {
+      const sc = siContestaDe(payload.mensajes, payload.escucharDias);
+      if (!sc) return { ok: false, resumen: 'Falta qué les sale a quienes contestan.' };
+      try {
+        const { seguirConLosQueContestan } = await import('@/lib/difusion');
+        const r = await seguirConLosQueContestan(num(payload, 'secuenciaId'), sc);
+        return r.ok
+          ? { ok: true, resumen: `Listo: en «${r.nombre}», a quienes contesten les sale el seguimiento en el momento. Le llega a ${r.loVan}.`, datos: { secuenciaId: r.secuenciaId, loVan: r.loVan } }
+          : { ok: false, resumen: r.error };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] seguir_con_los_que_contestan:', msg);
+        return { ok: false, resumen: `No pude agregar el seguimiento (${msg}).` };
       }
     },
   },

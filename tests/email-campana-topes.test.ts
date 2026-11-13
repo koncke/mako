@@ -167,8 +167,21 @@ test('el freno por el webhook: un temporal no cuenta; 5 de 100 avisa y sigue; 10
   assert.deepEqual(R.verDespues.email.freno.ultimos_envios, { enviados: 100, rebotes: 10, quejas: 0 });
 });
 
+// Ticket #93 (13/11/2026, decisión del Cerebro): con SU clave de Resend y SU dominio, «Email por día» llega a 2.000; con la de
+// la plataforma, a 500. El arranque y la suba siguen de 1 a 500. Mauricio: 1.600, arrancando en 500 y sumando 300.
+test('#93: el email por día llega a 2.000 con cuenta propia, y a 500 con la de la plataforma', () => {
+  assert.equal(R.cambiarPropia.error, undefined, 'con su cuenta, 1.600 entra');
+  assert.equal(R.ejecPropia.ok, true);
+  assert.deepEqual(JSON.parse(R.limitesPropia).email, { dia: 1600, arranqueDia: 500, arranqueSube: 300 });
+  assert.equal(R.verPropia.email.por_dia, 1600, 'y se lee así (no cae a lo de fábrica)');
+  assert.equal(R.verPropia.email.por_dia_maximo, 2000);
+  assert.match(R.cambiarMal.error, /Email por día: entre 1 y 2000\./, 'más de 2.000, ni con su cuenta');
+  assert.match(R.cambiarArranqueMal.error, /Email el primer día: entre 1 y 500\./, 'el arranque sigue de 1 a 500');
+  assert.match(R.cambiarPlataforma.error, /Email por día: entre 1 y 500\./, 'con la clave de la plataforma, 500');
+});
+
 test('cambiar los topes por la API: fuera de rango no; adentro guarda sólo lo que difiere; restaurar vuelve a fábrica', () => {
-  assert.match(R.cambiarMal.error, /Email por día: entre 1 y 500/);
+  assert.match(R.cambiarMal.error, /Email por día: entre 1 y 2000/);
   assert.match(R.cambiarNada.error, /No dice qué cambiar/);
   assert.equal(R.ejecCambiar.ok, true);
   assert.deepEqual(JSON.parse(R.limitesGuardados), { email: { dia: 200, arranqueDia: 40 } });
