@@ -181,7 +181,9 @@ horrible». Y después: «tenés que mostrar los outliers verdaderos, no inventa
 | Tableros: carrusel con la entrada de cada uno | `Tableros()` + `SCRIPT_TABLEROS` (`Portada.tsx`); los videos, del banco `banco-tab` (scratchpad) |
 | Sin «Producto»; prueba gratis en cada función | `ProductoSitio` / `FilaFuncion` (`.s-zz-acc`) |
 | Apps arriba; «MaKo reemplaza apps» sin el 54 y con el ahorro | `TiraSitio` debajo del hero; `TiraReemplaza` + `Ahorro` con `STACK_TIPICO` (`reemplaza.ts`) |
-| El caso de Mauricio rediseñado («MaKo le ayudó») | `CasoSitio` (`.s-exito`): la franja que corre, el video, sus meses, antes / con MaKo, las fotos |
+| El caso de Mauricio rediseñado («MaKo le ayudó») | `CasoSitio` (`.s-exito`): la franja que corre, el video, sus meses, antes / con MaKo. Desde el 13/11: «más de US$100k vendidos» (a la fecha, dice Martín), sin las fotos, sin el cierre y sin el botón |
+| El ahorro con más apps | `STACK_TIPICO`: GoHighLevel, ManyChat, Canva, CapCut, Higgsfield (en lugar de Foreplay, pedido de Martín), Notion, Gamma, Skool y Mailchimp; sin la nota de los precios |
+| Tableros: flechas y puntos afuera, deslizable | La pista es el recuadro (`scroll-snap`, se desliza con el dedo, el trackpad o arrastrando con el mouse); flechas a los costados, nombre y puntos debajo |
 | CRM moviendo tarjetas | `banco-crm` (scratchpad) → `crm.webm` |
 
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
