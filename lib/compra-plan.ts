@@ -41,7 +41,7 @@ import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tip
 import { CLAVE_PLANES, conceptoDelPlan, planConPrueba, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
-import { diagnosticoEnTexto, leadDeLaCompra, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
+import { diagnosticoEnTexto, esFalloPasajero, leadDeLaCompra, opcionStripe, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
 import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
 import { creadoPorPrimerMes, TEXTO_PROMO_CUENTA, TEXTO_PROMO_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
 import { PROMO_ENTRADA } from './promo-entrada-reglas';
@@ -73,7 +73,9 @@ async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasa
     // 7 días gratis, y un plan que se cobrara desde el primer día sin avisarlo sería otro precio. Con otra, el plan se pide.
     if (!PASARELAS_CON_PRUEBA.includes(p)) continue;
     if (p === 'stripe') {
-      out.push({ pasarela: 'stripe', moneda: 'USD', prueba: modoDeClaveStripe(await credDelCliente('STRIPE_SECRET_KEY', ws)) === 'prueba' });
+      // Lo que no se sabe que es real no lo es (13/11/2026, `opcionStripe`): con la clave sin leer, la de PRUEBA iba al público.
+      const st = opcionStripe(modoDeClaveStripe(await claveDeLaPasarela('STRIPE_SECRET_KEY', ws)));
+      if (st) out.push(st);
       continue;
     }
     // ⚠️ RAMA PROPIA, NO EL `else` DE MERCADO PAGO (31/10/2026). Antes esto era `if (p === 'stripe') {…}` y después,
@@ -88,12 +90,27 @@ async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasa
       out.push({ pasarela: 'creem', moneda: 'USD', prueba: modoDeClaveCreem(key) === 'prueba' });
       continue;
     }
-    const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', ws);
+    // ⚠️ «SÓLO TARJETA» DESDE ARGENTINA (13/11/2026): un token que no se leyó, o un Mercado Pago que no contestó una vez,
+    // sacaban a Mercado Pago del checkout sin decir nada. Un reintento de cada uno, y si igual no está, queda en el log.
+    const token = await claveDeLaPasarela('MERCADOPAGO_ACCESS_TOKEN', ws);
     if (!token) continue;
-    const c = await leerCuentaMp(token);
+    let c = await leerCuentaMp(token);
+    if (!c.ok && esFalloPasajero(c.status)) c = await leerCuentaMp(token);
     if (c.ok && c.moneda) out.push({ pasarela: 'mercadopago', moneda: c.moneda, prueba: c.modo === 'prueba' });
+    else console.warn(`[compra-plan] no pude leer la cuenta de Mercado Pago de la plataforma (${c.ok ? 'sin moneda' : `${c.status} ${c.error}`}): no se ofrece`);
   }
   return out;
+}
+
+/**
+ * La clave de una pasarela que `pasarelasConectadas` YA dio por conectada (13/11/2026). `credDelCliente` contesta `null`
+ * también cuando la base no contestó (`credDeBase` no mira el `error` de supabase-js), y acá «no pude leer» no es «no la
+ * tiene»: se reintenta una vez, y si sigue sin leerse esa pasarela no se ofrece, con la línea en el log.
+ */
+async function claveDeLaPasarela(clave: string, ws: number): Promise<string | null> {
+  const v = (await credDelCliente(clave, ws)) ?? (await credDelCliente(clave, ws));
+  if (!v) console.warn(`[compra-plan] ${clave} del ws ${ws}: la pasarela figura conectada y no pude leer la clave; no se ofrece`);
+  return v;
 }
 
 /**
