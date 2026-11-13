@@ -61,10 +61,12 @@ function cad(c,a){return a!==undefined?'rgba('+c.join(', ')+', '+a+')':'rgb('+c.
 // negra en el modo claro. Ahora cada color se lleva al modo: en el claro, los fondos oscuros pasan a claros y los claros
 // quedan; la tinta (texto y bordes) clara pasa a oscura. En el oscuro, al revés. El color de marca (tonos medios) queda.
 function aModo(r,g,b,a,tinta){var x=hsl(r,g,b),h=x[0],s=x[1],l=x[2],cr=(Math.max(r,g,b)-Math.min(r,g,b))/255,os=actual==='oscuro';
-  var cambia=tinta?(os?l<.5:l>.5):(os?l>.5:l<.5);
+  // tinta: true = texto (se espeja), 2 = borde (se lleva al modo como un fondo, a un gris del modo), false = fondo.
+  var esTinta=tinta===true,esBorde=tinta===2;
+  var cambia=esTinta?(os?l<.5:l>.5):(os?l>.5:l<.5);
   // Un fondo neutro que cambia queda CASI blanco en el claro y casi negro en el oscuro, conservando el orden entre ellos (un gris
   // oscuro pasaba a un gris medio sucio, 12/11/2026). La tinta se espeja entera, para que se lea.
-  if(cr<.14){if(!cambia)return null;var nl=tinta?Math.max(.045,Math.min(.975,1-l)):(os?Math.max(.045,(1-l)*.35+.04):Math.min(.985,1-l*.35));return cad(nl<.3?rgb(222,.22,nl):rgb(h,Math.min(s,.25),nl),a);}
+  if(cr<.14){if(!cambia)return null;var nl=esTinta?Math.max(.045,Math.min(.975,1-l)):esBorde?(os?.24:.86):(os?Math.max(.045,(1-l)*.35+.04):Math.min(.985,1-l*.35));return cad(nl<.3?rgb(222,.22,nl):rgb(h,Math.min(s,.25),nl),a);}
   if(l>.82&&cambia)return cad(rgb(h,s*.55,Math.max(.12,1.06-l)),a);
   if(l<.2&&cambia)return cad(rgb(h,s*.6,Math.min(.92,.95-l)),a);
   return null;}
@@ -92,12 +94,13 @@ var leidosBase=null,planDe={};
 var BOR=['border-top-color','border-bottom-color','border-left-color','border-right-color','outline-color'],TXT=['color','fill','stroke','text-decoration-color'];
 function leer(){
   var todos=[].slice.call(document.querySelectorAll('body, body *'));
+  // Lo marcado «data-tema-fijo» (el Acelerador negro de los precios, el caso de Mauricio) queda igual en los dos modos.
   // Los logos no se tocan: ni las fotos ni los SVG de marca (sus <symbol>, que dibujan la «f» blanca de Facebook: invertida
   // quedaba negra, Martín 12/11/2026).
   // Y el recuadro de color de un logo (el negro de TikTok, el blanco de Cal.com): cambiado, el logo quedaba del mismo color.
   // Sólo si no tiene texto: el renglón de la tira («logo + nombre») sí cambia, o el nombre queda blanco sobre blanco.
   var esRecuadro=function(n){return n.children.length===1&&!n.textContent.trim()&&n.firstElementChild.matches('svg:has(use), img');};
-  var fuera=function(n){return esRecuadro(n)||n.closest('[aria-label^="MaKo"], img, video, picture, canvas, iframe, symbol, defs, svg:has(use), .mk-tema-sitio, script, style');};
+  var fuera=function(n){return esRecuadro(n)||n.closest('[aria-label^="MaKo"], img, video, picture, canvas, iframe, symbol, defs, svg:has(use), .mk-tema-sitio, script, style, [data-tema-fijo]');};
   return todos.filter(function(n){return !fuera(n);}).map(function(n){var cs=getComputedStyle(n),o={n:n,bg:cs.backgroundColor,bi:cs.backgroundImage};BOR.concat(TXT).forEach(function(p){o[p]=cs.getPropertyValue(p);});
     if(o.bi&&o.bi.indexOf('gradient')>=0){var r2=n.getBoundingClientRect();o.chico=r2.width<480&&r2.height<140;}
     // En un SVG, el relleno de un rectángulo o un círculo es FONDO (las columnas del tablero), no letra: se lleva al modo como fondo.
@@ -114,7 +117,7 @@ function planDelModo(){
   leidosBase.forEach(function(o){var n=o.n;
     if(fondo.has(n))lista.push([n,'background-color',fondo.get(n)]);
     if(o.bi&&o.bi!=='none'&&o.bi.indexOf('gradient')>=0){var v=mapear(o.bi,false);if(v!==o.bi)lista.push([n,'background-image',v]);}
-    BOR.forEach(function(p){var v=o[p];if(v){var nv=mapear(v,true);if(nv!==v)lista.push([n,p,nv]);}});
+    BOR.forEach(function(p){var v=o[p];if(v){var nv=mapear(v,2);if(nv!==v)lista.push([n,p,nv]);}});
     var a=n,q=false;while(a){if(quieto.has(a)){q=true;break;}if(fondo.has(a))break;a=a.parentElement;}
     if(q)return;
     TXT.forEach(function(p){var v=o[p];if(!v||v==='none')return;var nv=mapear(v,!(p==='fill'&&o.area));if(nv!==v)lista.push([n,p,nv]);});});

@@ -6,12 +6,21 @@
 //   · dejar una carpeta sin miniaturas al cortar             → 2
 //   · rectDe sin calcular cuántas entran                     → 3 (se salen de su carpeta)
 //   · la animación montada también sin piezas                → 5
+// Y del 12/11/2026 (Martín: «más cuadros» y «que esté centrada»):
+//   · carpetasDe sin partir por formato                      → 6
+//   · partir sin el tope de carpetas                         → 6
+//   · dejar la carpeta del tipo vacía cuando un formato se lleva todas → 6
+//   · las miniaturas de una carpeta arriba a la izquierda    → 7
+//   · las carpetas pegadas a los bordes de la escena         → 7
+//   · la bola arriba en una escena de 850 (el umbral de 860) → 7
+//   · el teléfono con 8 carpetas (de 60 px)                 → 8
+//   · cerrar la película antes de medir el ancho            → 8
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { TOPE_MINIATURAS, carpetasDe, disponer, repartirMiniaturas, type PiezaParaOrdenar } from '../lib/spy-orden';
+import { MAXIMO_CARPETAS, MAXIMO_CARPETAS_ANGOSTA, TOPE_MINIATURAS, carpetasDe, disponer, maximoDeCarpetas, repartirMiniaturas, type PiezaParaOrdenar } from '../lib/spy-orden';
 
 const RAIZ = resolve(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(resolve(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
@@ -103,4 +112,73 @@ test('5. sólo anima lo que se leyó, nunca traba y una relectura sola va callad
   assert.match(o, /if \(!total \|\| quieto\(\)\) \{ terminar\.current\(\); return; \}/, 'con «reducir movimiento» no corre');
   assert.match(o, /className="spyo-saltar" onClick=\{onTerminar\}>Saltar/);
   assert.match(o, /return \(\) => \{ vivo = false; anims\.forEach\(\(a\) => a\.cancel\(\)\); \};/, 'salir a la mitad no deja nada corriendo');
+});
+
+test('6. más carpetas: de cada tipo sale una por formato, la más grande primero, hasta el tope', () => {
+  const con = (id: number, canal: string, tipo: PiezaParaOrdenar['tipo'], formato: string | null, duracion?: string): PiezaParaOrdenar =>
+    ({ id, canal, tipo, duracion, analisis: formato ? { formato } : null });
+  // 46 de Instagram, como la que se grabó para el sitio: 2 carpetas por tipo, y ahora se parten por formato.
+  const ig = [
+    ...Array.from({ length: 14 }, (_, i) => con(i, 'instagram', 'reel', 'tutorial')),
+    ...Array.from({ length: 9 }, (_, i) => con(100 + i, 'instagram', 'reel', 'storytime')),
+    con(200, 'instagram', 'reel', 'pov'), // uno solo: no tiene su carpeta
+    ...Array.from({ length: 6 }, (_, i) => con(300 + i, 'instagram', 'reel', null)),
+    ...Array.from({ length: 16 }, (_, i) => con(400 + i, 'instagram', 'publicacion', 'testimonio')),
+  ];
+  const cs = carpetasDe(ig);
+  assert.deepEqual(cs.map((c) => [c.rotulo, c.detalle ?? '', c.n]), [
+    ['Tutorial', 'Reels', 14], ['Storytime', 'Reels', 9], ['Reels', 'Otros formatos', 7], ['Testimonio', 'Carruseles e imágenes', 16],
+  ], 'los carruseles son todos testimonios: su carpeta es «Testimonio» y no queda una vacía');
+  assert.equal(cs.reduce((s, c) => s + c.n, 0), ig.length, 'ninguna se pierde ni se repite');
+  assert.equal(new Set(cs.flatMap((c) => c.ids)).size, ig.length);
+
+  // Con muchos formatos, el tope: las más grandes tienen la suya y el resto queda en la de su tipo.
+  const muchos = ['tutorial', 'lista', 'storytime', 'pov', 'antes-despues', 'testimonio', 'opinion', 'mito', 'resena', 'detras']
+    .flatMap((f, k) => Array.from({ length: 12 - k }, (_, i) => con(k * 100 + i, 'youtube', 'video', f, 'PT10M')));
+  const tope = carpetasDe(muchos);
+  assert.equal(tope.length, MAXIMO_CARPETAS);
+  assert.deepEqual(tope.slice(0, 3).map((c) => c.rotulo), ['Tutorial', 'Lista o tips', 'Storytime'], 'la más grande primero');
+  assert.equal(tope.at(-1)?.detalle, 'Otros formatos');
+  assert.equal(tope.reduce((s, c) => s + c.n, 0), muchos.length);
+  // Sin formatos, como antes: una por tipo.
+  assert.deepEqual(carpetasDe(piezas(30)).map((c) => c.rotulo), ['Reels', 'Videos de YouTube']);
+});
+
+test('7. centrada: la bola en el medio de la escena, las carpetas junto a ella y las miniaturas en el medio de su carpeta', () => {
+  const cs = carpetasDe(piezas(46));
+  const v = repartirMiniaturas(cs);
+  // 960 de pantalla: la escena mide ~850. Con el umbral de antes (860) la bola iba ARRIBA y las carpetas debajo, de borde a borde.
+  for (const [ancho, alto] of [[850, 420], [1170, 560]] as const) {
+    const d = disponer(ancho, alto, cs, v);
+    assert.equal(d.centro.y, alto / 2, `en ${ancho} la bola va en el medio, no arriba`);
+    const izq = d.carpetas.filter((c) => c.x + c.w / 2 < ancho / 2);
+    const der = d.carpetas.filter((c) => c.x + c.w / 2 >= ancho / 2);
+    assert.ok(izq.length && der.length, `en ${ancho}, a los dos lados`);
+    assert.ok(izq.every((c) => c.x > 0) && der.every((c) => c.x + c.w < ancho), `en ${ancho} no van pegadas a los bordes`);
+    const margenIzq = Math.min(...izq.map((c) => c.x));
+    const margenDer = ancho - Math.max(...der.map((c) => c.x + c.w));
+    assert.ok(Math.abs(margenIzq - margenDer) < 1, `en ${ancho} el conjunto queda centrado (${margenIzq} / ${margenDer})`);
+  }
+  // Las miniaturas, en el medio de su carpeta: con una sola, su centro es el de la carpeta (debajo de la cabecera).
+  const una = carpetasDe([{ id: 1, canal: 'instagram', tipo: 'reel' }]);
+  const d1 = disponer(1170, 560, una, repartirMiniaturas(una));
+  const r = d1.carpetas[0];
+  assert.ok(Math.abs(r.huecos[0].x - (r.x + r.w / 2)) < 1, 'centrada a lo ancho');
+  assert.ok(Math.abs(r.huecos[0].y - (r.y + 40 + (r.h - 40 - 10) / 2)) < 1, 'centrada a lo alto, debajo de su cabecera');
+});
+
+test('8. en el teléfono, menos carpetas; y la película no se cierra antes de medir el ancho', () => {
+  assert.equal(maximoDeCarpetas(343), MAXIMO_CARPETAS_ANGOSTA, 'a 375 van debajo de la bola, de a dos');
+  assert.equal(maximoDeCarpetas(850), MAXIMO_CARPETAS, 'una pantalla de 960 ya las pone a los costados');
+  const con = (id: number, formato: string): PiezaParaOrdenar => ({ id, canal: 'instagram', tipo: 'reel', analisis: { formato } });
+  const muchas = ['tutorial', 'lista', 'storytime', 'pov', 'opinion', 'mito'].flatMap((f, k) => Array.from({ length: 6 }, (_, i) => con(k * 10 + i, f)));
+  assert.equal(carpetasDe(muchas, maximoDeCarpetas(343)).length, MAXIMO_CARPETAS_ANGOSTA);
+  // Cada carpeta del teléfono tiene lugar para sus miniaturas (con 8 quedaban de 60 px de alto).
+  const cs = carpetasDe(muchas, maximoDeCarpetas(343));
+  for (const r of disponer(343, 560, cs, repartirMiniaturas(cs)).carpetas) assert.ok(r.h >= 100, `${r.clave}: ${Math.round(r.h)} px`);
+
+  const o = leer('app/competitor-spy/OrdenSpy.tsx');
+  assert.match(o, /carpetasDe\(piezas, maximoDeCarpetas\(ancho\)\)/, 'las carpetas, según el ancho de SU escena');
+  assert.match(o, /if \(!piezas \|\| ancho == null\) return;\n\s+if \(!total \|\| quieto\(\)\) \{ terminar\.current\(\); return; \}/,
+    'sin el ancho no hay carpetas y total da 0: cerrar ahí cortaba la película');
 });

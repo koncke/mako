@@ -2311,3 +2311,20 @@ moverlos de lugar: es que lleguen.
 **⚠️ Trampa que casi llega a main:** la hoja de `SpyApp.tsx` es un template literal. Un comentario CSS con comillas invertidas (para marcar código) corta el string, y la pantalla entera deja de compilar. Los tests no lo vieron porque leen el archivo como texto; lo frenó el chequeo de hooks del pre-push con un «Parsing error». Ahora el test 5 de `tests/spy-grilla-mixta.test.ts` parsea la pantalla con TypeScript.
 
 **Trampa de la página de prueba:** para copiar las reglas de `SpyApp.tsx` hay que tomar la regla ENTERA, no el renglón. Una regla de varios renglones cortada queda sin cerrar y se traga todo el CSS que viene después: la página sale sin estilos y parece que el componente está roto.
+
+## La película de «Ordenando»: más carpetas, por formato, y centrada (13/11/2026)
+
+**Vive en:** `lib/spy-orden.ts` (`carpetasDe`, `maximoDeCarpetas`, `disponer`) y `app/competitor-spy/OrdenSpy.tsx`. Test: los casos 6 a 8 de `tests/spy-orden.test.ts`.
+
+**El pedido (Martín, 12/11):** «que se vean más tarjetas y que se acomoden no solamente en 2 cuadros, sino en más cuadros. Y que cuando se agrupen, centrados, porque se están agrupando alineado arriba del todo».
+
+**Causa de «arriba del todo»:** la película ponía las carpetas a los costados de la bola sólo desde 860 px de escena. En una pantalla de 960, la escena mide ~850, así que la bola iba ARRIBA y las carpetas debajo, de borde a borde. Ahora el corte está en 640 px, y la bola queda en el medio de la escena.
+
+**Las reglas:**
+- **Más carpetas:** la del tipo de contenido sigue (pedido del 4/11), pero de cada tipo sale una carpeta por formato (Tutorial, Storytime…), la más grande primero. El tope es 8, y 4 en el teléfono, donde van debajo de la bola: con 8 quedaban de 60 px. Lo que no tiene formato, o tiene uno con menos de 2 piezas, queda en la del tipo como «Otros formatos». El formato es el de la IA y, si no hay, el de `formatoPorTexto`, igual que «¿Qué formatos le funcionan?».
+- **Centrado:** las carpetas van pegadas a la bola, no a los bordes, y las miniaturas se centran en su carpeta.
+- **Más tarjetas:** el tope de miniaturas pasó de 140 a 200.
+
+**⚠️ El diagnóstico obvio era el equivocado:** en la página de prueba todo se veía arriba aun con el arreglo. Era la página, no la película: sin `app/_ui/ui.css`, la criatura de carga (`.cm-carga--cubre`) queda en el flujo en vez de en `position:absolute`, la escena se mide más baja y después crece. Para probar un componente fuera de la app, hay que copiarle también las reglas globales que lo posicionan.
+
+**Trampa del código:** el máximo de carpetas sale del ancho de la escena, que se mide al montar. Antes de medir no hay carpetas y `total` da 0, y el efecto que mide cerraba la película en el acto si llegaba con las piezas puestas. Ahora espera el ancho, y el caso 8 lo cuida.

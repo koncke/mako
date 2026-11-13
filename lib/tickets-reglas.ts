@@ -949,3 +949,18 @@ export function textoDelAviso(t: AvisoCliente): string {
   if (t.estado === 'duplicado') return `Sobre ${cual}: ya lo teníamos en el ticket #${t.duplicado_de}. Te avisamos cuando esté.`;
   return `Cerramos ${cual}.${r ? ` ${r}` : ''}`;
 }
+
+/**
+ * EL PLAN DE LA FICHA ES EL QUE SE VENDE, NO LA CAPA (12/11/2026, después del ticket #89). La ficha decía «plan Completo» para
+ * «Sellers», que paga MaKo Esencial por su agencia, y el Cerebro leyó «un plan completo con tope 1»: Completo es la CAPA
+ * (lib/capas.ts), y la capa `completo` ES Esencial; la `agencia`, Pro (`CAPA_DE_PLAN`, lib/agencia-cobro-reglas.ts). Pero la
+ * misma capa la tienen el ws1 y los acuerdos a mano, que no pagan un plan y no tienen topes. Lo que separa es `rige`: si se le
+ * aplican los topes de su plan (`aplicanTopes`, lib/topes-plan-server.ts). `null` = no se pudo leer.
+ */
+export function planDeLaFicha(p: { capa: string | null; nombreCapa: string; rige: boolean | null }): string {
+  const vendible = p.capa === 'completo' || p.capa === 'agencia';
+  if (!vendible) return p.nombreCapa;
+  if (p.rige === true) return p.capa === 'agencia' ? 'Pro' : 'Esencial';
+  if (p.rige === false) return `sin cobro de MaKo, sin topes (capa ${p.nombreCapa})`;
+  return `? (capa ${p.nombreCapa})`;
+}

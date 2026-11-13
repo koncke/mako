@@ -83,7 +83,6 @@ function Cta({ cara = 'blanco', clase = '' }: { cara?: 'blanco' | 'oscuro' | 'ba
   );
 }
 
-const ICONO_SPY = ['M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0', 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0', 'M12 3v2', 'M12 19v2', 'M3 12h2', 'M19 12h2'];
 const ICONO_CHECK = ['M5 12l5 5l10 -10'];
 
 // ── La barra ─────────────────────────────────────────────────────────────────
@@ -134,29 +133,17 @@ const ICONOS_PUNTOS = [
   ['M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-12a2 2 0 0 0 -2 -2h-2', 'M9 12l2 2l4 -4'],
 ];
 
-/** La captura de la app (el video de 1264 px de la referencia): la barra lateral oscura y el panel claro con el visual. */
-function Captura({ visual, nombre }: { visual: VisualHero; nombre: string }) {
+/** Donde la referencia pone el video de su app: el visual de la landing, sin barra lateral ni cabecera dibujadas
+ *  (12/11/2026: el marco de app inventado se sacó). */
+function Captura({ visual }: { visual: VisualHero }) {
   return (
-    <div className={`${P}-mock`} aria-hidden="true">
-      <div className={`${P}-mock-app`}>
-        <div className={`${P}-mock-side`}>
-          <span className={`${P}-mock-marca`}><EstrellaMaKo size={18} />MaKo</span>
-          <span className={`${P}-mock-item`}><Icono d={ICONO_SPY} size={16} />{nombre}</span>
-        </div>
-        <div className={`${P}-mock-panel`}>
-          <div className={`${P}-mock-head`}>
-            <span className={`${P}-mock-tile`}><Icono d={ICONO_SPY} size={18} grosor={1.8} /></span>
-            <span>{nombre}</span>
-          </div>
-          <div className={`${P}-pantalla`}><VisualDeLanding visual={visual} /></div>
-        </div>
-      </div>
-      <div className={`${P}-mock-fade`} />
+    <div className={`${P}-captura`}>
+      <div className={`${P}-pantalla`}><VisualDeLanding visual={visual} /></div>
     </div>
   );
 }
 
-function Hero({ b, nombre }: { b: De<'hero'>; nombre: string }) {
+function Hero({ b }: { b: De<'hero'> }) {
   return (
     <section className={`${P}-hero`}>
       <div className={`${P}-dots`} aria-hidden="true" />
@@ -182,7 +169,7 @@ function Hero({ b, nombre }: { b: De<'hero'>; nombre: string }) {
               </ul>
             ) : null}
           </div>
-          <Captura visual={b.visual} nombre={nombre} />
+          <Captura visual={b.visual} />
         </div>
       </div>
     </section>
@@ -307,12 +294,6 @@ function Fila({ b, n, visual }: { b: De<'tarjetas'>; n: number; visual?: VisualH
       </div>
       <div className={`${P}-figura`}>
         <div className={`${P}-figura-halo`} aria-hidden="true" />
-        {n === 0 ? (
-          <span className={`${P}-figura-pill`} aria-hidden="true">
-            <Icono d={b.items[0]?.icono} size={18} grosor={1.7} />
-            Guardar en Spy
-          </span>
-        ) : null}
         {visual ? (
           <div className={`${P}-ventana ${P}-ventana-${parte}`} aria-hidden="true">
             <div className={`${P}-pantalla ${P}-pantalla-${parte}`}><VisualDeLanding visual={visual} /></div>
@@ -454,7 +435,7 @@ export default function DisenoCompetitorSpy({ landing }: PropsDiseno) {
   bl.forEach((b, i) => {
     const actual = secciones[secciones.length - 1];
     switch (b.tipo) {
-      case 'hero': cabeza.push(<Hero key={i} b={b} nombre={landing.nombre} />); break;
+      case 'hero': cabeza.push(<Hero key={i} b={b} />); break;
       case 'contraste': cabeza.push(<Contraste key={i} b={b} />); break;
       case 'tarjetas':
         if (!b.items.length) { secciones.push({ cabeza: <Cabeza key={i} b={b} />, cuerpo: [] }); break; }
@@ -573,6 +554,7 @@ const CSS = `
 .${P}-punto:hover { color: rgba(255,255,255,.92); }
 
 /* La captura de la app: 1264 × 659, fundida en negro los últimos 330 px y tapada por el bloque blanco. */
+.${P}-captura { width: 100%; max-width: 1000px; margin: 0 auto; border-radius: 14px; background: #fff; overflow: hidden; }
 .${P}-mock { position: relative; height: 659px; margin-bottom: -40px; }
 .${P}-mock-app { position: absolute; inset: 0; display: flex; border-radius: 4px; overflow: hidden; background: #08090F;
   background-image: radial-gradient(60% 55% at 0% 70%, rgba(47,111,237,.32), transparent 70%), radial-gradient(40% 40% at 12% 15%, rgba(47,111,237,.16), transparent 70%); }

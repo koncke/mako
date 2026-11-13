@@ -26,7 +26,7 @@ import { fotoDePersonaSegura } from './foto-perfil';
 import {
   TOPE_AUTOMATICOS_POR_DIA, TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, delegadoQueDecideMartin, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type PersonaDelNegocio, type Prioridad, type TipoTicket, type Triage,
-  ESTADOS, PRIORIDADES, emailDelTelefono, esRefDelSistema, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, triageAlSumarLaPersona, TOPES,
+  ESTADOS, PRIORIDADES, emailDelTelefono, esRefDelSistema, esTipo, mismoTelefono, nombreDelActor, planDeLaFicha, sanearContexto, telefonoDelActor, triageAlSumarLaPersona, TOPES,
 } from './tickets-reglas';
 
 /** El número del dueño que cargó el negocio: la misma clave que `KEY_NUMERO_DUENO` (lib/mako-grupo.ts, lib/mako-bot.ts). */
@@ -161,6 +161,21 @@ async function administraUnaAgencia(u: { rol: string; rol_ws: string | null; wor
 }
 
 /**
+ * El plan del negocio para la ficha: el que se VENDE (Esencial o Pro), no la capa (`planDeLaFicha`, 12/11/2026, #89). Con
+ * import diferido, como `administraUnaAgencia`. «No pude leer» → `null`.
+ * ⚠️ NO `aplicanTopes` (lib/topes-plan-server.ts): importa lib/cobros, que alcanza una IA, y la Ticketera la llama el Ops Center:
+ *    tests/d6b-rutas.test.ts (caso 4) dio ROJO en la punta. `pagaUnPlanDe` lee lo mismo sin lib/cobros (lib/plan-esencial.ts).
+ */
+async function planDelNegocio(ws: number, w: { capa?: string | null } | null): Promise<string | null> {
+  if (!w) return null;
+  const capa = w.capa ?? null;
+  const rige = capa === 'completo' || capa === 'agencia'
+    ? await import('./plan-esencial').then((m) => m.pagaUnPlanDe(ws, capa)).catch(() => null)
+    : null;
+  return planDeLaFicha({ capa, nombreCapa: capaDef(capa).nombre, rige });
+}
+
+/**
  * La foto de quién lo levanta, leída de la BASE con el email de la sesión (nunca de lo que diga el navegador): su
  * nombre, su rol en el negocio y el plan del negocio ESE día.
  */
@@ -171,10 +186,10 @@ export async function identidadDe(ws: number, email: string, nombreSesion = ''):
     getWorkspace(ws).catch(() => null),
   ]);
   const rol = !u ? null : u.rol === 'admin' ? 'admin de MaKo' : (u.rol_ws ?? 'admin');
-  const agencia = await administraUnaAgencia(u);
+  const [agencia, plan] = await Promise.all([administraUnaAgencia(u), planDelNegocio(ws, w as { capa?: string | null } | null)]);
   return {
     ws, email: limpio, nombre: (u?.nombre || nombreSesion || '').slice(0, 120), usuarioId: u ? Number(u.id) : null,
-    rol, plan: w ? capaDef((w as { capa?: string | null }).capa ?? null).nombre : null, ...(agencia ? { agencia: true } : {}),
+    rol, plan, ...(agencia ? { agencia: true } : {}),
   };
 }
 
@@ -188,7 +203,7 @@ export async function identidadDelActor(ws: number, actor: string | null | undef
   const crudo = String(actor ?? '').trim();
   const a = crudo.toLowerCase();
   if (!a.startsWith('whatsapp:')) return a.includes('@') ? identidadDe(ws, a) : null;
-  const plan = async () => { const w = await getWorkspace(ws).catch(() => null); return w ? capaDef((w as { capa?: string | null }).capa ?? null).nombre : null; };
+  const plan = async () => planDelNegocio(ws, (await getWorkspace(ws).catch(() => null)) as { capa?: string | null } | null);
   const tel = telefonoDelActor(a);
   if (tel) {
     const db = getSupabaseServer();

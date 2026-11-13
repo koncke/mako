@@ -748,6 +748,12 @@ Ahora `ctaDeTope` (lib/plan-esencial-reglas.ts) le da a la agencia «Pasar a Pro
 **Regla:** en una cuenta de cliente de agencia hay TRES lectores posibles —el cliente, su agencia adentro y el super admin— y
 `clienteDeAgencia` no los separa. Todo texto que diga «tu agencia» se decide también con `modoAgencia`.
 
-**Lo que quedó sin hacer:** el super admin mirando al cliente de una agencia sigue viendo «Pídele a tu agencia…» (no es quien le
-cambia el plan, pero tampoco es «el cliente»). Y la mobile (app/m/configuraciones/equipo/EquipoM.tsx) dice sólo «Llegaste al tope
-de tu plan.», sin CTA: no lleva `CtaPasarAPro`.
+**El super admin, el mismo día:** tampoco es «el cliente». `superAdminMira` (el `agencia` que /api/auth/me le manda sólo a él)
+lo lleva a `/agency?ws=<agencia>&cuenta=<ws>`, el escalón al que vuelve su «Salir». Su rótulo dice «Ver su plan…» y no «Pasar a
+Pro»: en la ficha, el botón de cambiar el plan es de la agencia (AgencyApp lo esconde al super admin). Sale como su barra: borra la
+impersonación sólo si entró con la cookie; si entró por `?ws=`, no toca nada global.
+
+**⚠️ El teléfono NO lleva botón para subir de plan, y no es un olvido:** EquipoM dice sólo «Llegaste al tope de tu plan.» por la
+regla de las tiendas (AGENTS.md → «El teléfono no vende», 3/11; `tests/tiendas-telefono-no-vende.test.ts`): Apple y Google
+prohíben ofrecer subir de plan sin su cobro, «ni con un link ni con un botón ni con palabras», y el Agency Dashboard no va en
+ningún teléfono. El 12/11 se pidió ese botón y se dejó afuera por esto: cambiarlo es una decisión de Martín, no un arreglo.

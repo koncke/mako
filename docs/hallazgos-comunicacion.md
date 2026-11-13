@@ -179,6 +179,19 @@ a cuál, con el número (lib/registro-lineas.ts, una lista con tope en `app_sett
 Analytics › Events, tipo «linea», y la voz que queda en una línea de negocio (`mako_ws<n>`) va en rojo. Se anota el CAMBIO y no el
 botón: una acción nueva entra sola, y una foto que no se pudo leer no cuenta como «sin cambio». ⚠️ «Usar la línea de MaKo» también
 lo hace el panel SOLO cuando la línea vuelve (`autoVozRef`): con la sesión de quien tenía la pantalla abierta, que no apretó nada.
+**Y Martín decidió dejarla ahí (13/11: «Dejarla en mi personal»)**: la voz en su personal NO va en rojo (`vozEnLineaAjena`: rojo
+sólo en la línea de OTRO negocio; cada renglón guarda cuál era su personal al anotarse).
+
+**Re-vincular la voz por «Tu número» la dejaba SORDA EN LOS GRUPOS (13/11, al armarle los pasos del QR a Martín).** El QR de «Tu
+número» (/agencia) pasa por `conectar` (lib/evolution.ts), el de las líneas de negocio, y su `setSettings` les pone
+`groupsIgnore: true` —la regla anti-bloqueo de un negocio— también a la línea que es la voz. El …3479 habría vuelto a recibir los
+chats y MaKo habría seguido sin oír a nadie en los grupos, con el panel en «conectado». Ahora `setSettings` lee la voz y no le
+cierra los grupos (`ignoraGrupos`, lib/evolution-sonda.ts). Hasta que eso se despliega, el remedio es «Dejar de usarlo para MaKo» y
+enseguida «Usarlo para MaKo» (`permitirGruposEnInstancia`). **Y el botón del QR no aparece con la línea sorda:** «Vincular por QR»
+de «Tu número» sólo se dibuja si la línea NO figura conectada, y una sorda figura conectada. Hay que cerrar el dispositivo desde el
+teléfono (WhatsApp → Dispositivos vinculados → Cerrar sesión) y recién ahí sale el botón. `conectar` ya sabe soltar una línea
+marcada sorda y dar el QR en un paso (`marcaDeLineaEnferma` + `puedeSoltarseSorda`): falta un botón que lo ofrezca con la línea
+conectada (propuesto al Cerebro el 13/11, sin hacer).
 
 ---
 

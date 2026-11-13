@@ -33,7 +33,7 @@ import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE
 import { VisualDeLanding } from '../Visuales';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
-import { ESTADOS } from '@/lib/todo-estados';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 
 type B<T extends Bloque['tipo']> = Extract<Bloque, { tipo: T }>;
 
@@ -115,71 +115,22 @@ function Contraste({ b }: { b: B<'contraste'> }) {
   );
 }
 
-// ── Las ventanas de producto de las funciones que no tienen gráfico propio en FEATURE_VISUALS. Muestran la pantalla de MaKo
-//    de cada cosa (el borrador de una reunión, lo que se sube, la hoja Productividad) con nombres de ejemplo, sin números de uso.
+// ── Las ventanas de producto de las funciones que no tienen gráfico propio en FEATURE_VISUALS: va la pantalla real del Plan de
+//    cada cosa. Hasta tener la grabación, el recuadro que dice qué va (12/11/2026: los dibujos a mano se sacaron).
 function MockReunion() {
-  const filas = [{ t: 'Grabar el video de la oferta', tag: 'Tuya' }, { t: 'Mandar la propuesta a Laura', tag: 'De otra persona' }, { t: 'Revisar el guion de ventas', tag: 'Ya está en tu plan', gris: true }];
-  return (
-    <div className="d-prioridades-mock">
-      <div className="d-prioridades-mock-cab"><span className="d-prioridades-mock-pt" /><b>Borrador de tu reunión</b></div>
-      <ul className="d-prioridades-mock-l">
-        {filas.map((f) => <li key={f.t}><span className={`d-prioridades-mock-cb${f.gris ? ' d-prioridades-mock-cb-off' : ''}`} /><span className={f.gris ? 'd-prioridades-mock-gris' : ''}>{f.t}</span><i className={f.gris ? 'd-prioridades-mock-i-gris' : ''}>{f.tag}</i></li>)}
-      </ul>
-      <div className="d-prioridades-mock-pie"><span className="d-prioridades-mock-b">Cargar</span></div>
-    </div>
-  );
+  return <FaltaAnimacion que="El borrador de una reunión en el Plan, tal cual es." />;
 }
 
-/** El tablero por estado: las columnas como las dibuja el Plan (lib/todo-estados.ts), con tareas de ejemplo. */
 function MockTablero() {
-  const cols = ESTADOS.filter((e) => e.key !== 'no_cumple');
-  const tareas: Record<string, { t: string; p: string }[]> = {
-    por_hacer: [{ t: 'Grabar el video de la oferta', p: 'Alta' }, { t: 'Armar el guion de ventas', p: 'Media' }],
-    en_curso: [{ t: 'Página de la oferta', p: 'Alta' }],
-    en_seguimiento: [{ t: 'Propuesta a Laura', p: 'Media' }],
-    hecho: [{ t: 'Calendario de contenido', p: 'Baja' }],
-  };
-  return (
-    <div className="d-prioridades-mock">
-      <div className="d-prioridades-mock-cab"><span className="d-prioridades-mock-pt" /><b>Tareas</b></div>
-      <div className="d-prioridades-mock-tab">
-        {cols.map((c) => (
-          <div key={c.key} className="d-prioridades-mock-col">
-            <p>{c.label}</p>
-            {(tareas[c.key] ?? []).map((x) => <span key={x.t} className={`d-prioridades-mock-card${c.key === 'hecho' ? ' d-prioridades-mock-card-ok' : ''}`}>{x.t}<i data-p={x.p}>{x.p}</i></span>)}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+  return <FaltaAnimacion que="El tablero del Plan con las tareas puntuadas, tal cual es." />;
 }
 
 function MockArchivos() {
-  const tipos = ['Notas', 'PDF', 'Word', 'Planilla', 'Foto', 'Audio'];
-  return (
-    <div className="d-prioridades-mock">
-      <div className="d-prioridades-mock-cab"><span className="d-prioridades-mock-pt" /><b>Subir archivos</b></div>
-      <div className="d-prioridades-mock-chips">{tipos.map((t) => <span key={t}>{t}</span>)}</div>
-      <p className="d-prioridades-mock-sub">Tareas para revisar</p>
-      <ul className="d-prioridades-mock-l">
-        <li><span className="d-prioridades-mock-cb" /><span>Llamar a los leads de ayer</span></li>
-        <li><span className="d-prioridades-mock-cb" /><span>Armar la página de la oferta</span></li>
-      </ul>
-    </div>
-  );
+  return <FaltaAnimacion que="Subir archivos al Plan y ver las tareas que salen." />;
 }
 
 function MockProductividad() {
-  const filas = [{ t: 'Lanzamiento', p: 72 }, { t: 'Contenido', p: 45 }, { t: 'Ventas', p: 88 }];
-  return (
-    <div className="d-prioridades-mock">
-      <div className="d-prioridades-mock-cab"><span className="d-prioridades-mock-pt" /><b>Productividad</b></div>
-      <ul className="d-prioridades-mock-barras">
-        {filas.map((f) => <li key={f.t}><span>{f.t}</span><i><b style={{ width: `${f.p}%` }} /></i></li>)}
-      </ul>
-      <div className="d-prioridades-mock-tags"><span>Lo que se estancó</span><span>Lo que terminaste a tiempo</span></div>
-    </div>
-  );
+  return <FaltaAnimacion que="La hoja Productividad del Dashboard, tal cual es." />;
 }
 
 type Acordeon = { id: string; titulo: string; bajada?: string; items: { titulo: string; texto: string; puntos?: string[] }[]; visuales: React.ReactNode[]; derecha: boolean };
