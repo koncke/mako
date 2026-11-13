@@ -180,9 +180,9 @@ export async function acomodarPorEmailsEnviados(o: { ws: number; secuenciaId: nu
     const [etapas, posiciones] = await Promise.all([etapasDeProducto(funnelId), posicionesEnCrm([...porLead.keys()], funnelId)]);
     const res: Acomodo = { leads: porLead.size, movidos: 0, porColumna: {}, quedan: 0 };
     for (const [leadId, suyos] of porLead) {
-      const lejano = eventoMasLejano(suyos);
-      const destino = lejano ? columnaParaAcomodar(config.columnasEmail, etapas, lejano) : null;
-      const posicion = posiciones.get(leadId) ?? null;
+      const lejano: EventoColumna | null = eventoMasLejano(suyos);
+      const destino: { evento: EventoColumna; columna: string } | null = lejano ? columnaParaAcomodar(config.columnasEmail, etapas, lejano) : null;
+      const posicion: PosicionEnCrm = posiciones.get(leadId) ?? null;
       if (!destino || !posicion) continue;
       if (!decidirMovimiento({ etapas, actual: posicion.etapa, destino: destino.columna, evento: destino.evento }).mover) continue;
       if (res.movidos >= tope) { res.quedan += 1; continue; }
