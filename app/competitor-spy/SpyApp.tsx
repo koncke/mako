@@ -98,7 +98,7 @@ import type { VistaOferta } from '@/lib/spy-oferta';
 import { TarjetaPieza } from './TarjetaPieza';
 import { GraficoSpy } from './GraficoSpy';
 import { DetallePieza } from './DetallePieza';
-import { grupoDe, repartoDePublicaciones } from '@/lib/spy-detalle';
+import { grupoDe, proporcionDe, repartoDePublicaciones } from '@/lib/spy-detalle';
 import { PeliculaDeOrden } from './OrdenSpy';
 import { EntradaFicha, cajaDelCentro, centroDe, type Caja, type FaseEntrada } from './EntradaFicha';
 import { quieto } from './precarga';
@@ -374,6 +374,8 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-pgrid--ancha{gap:16px;align-items:start}
 .spy-pgrid__celda{min-width:0;display:flex;align-self:start}
 .spy-pgrid__celda > *{flex:1;min-width:0}
+/* En las columnas de GrillaMixta (13/11/2026) cada celda va a lo ancho de su columna: con `align-self:start` se encogía a su contenido. */
+.spy-mixta .spy-pgrid__celda{align-self:stretch}
 .spy-paginas{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px;flex-wrap:wrap}
 .spy-paginas__cuenta{color:var(--faint);font-size:var(--fs-sm);font-weight:600;font-variant-numeric:tabular-nums}
 .spy-paginas__botones{display:flex;align-items:center;gap:4px}
@@ -1967,6 +1969,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                   <GrillaPiezas
                     piezas={visibles}
                     reinicio={`${c.id}|${buscar}|${tipo}|${minimo}|${orden}`}
+                    proporcion={(p) => proporcionDe(p).ancho / proporcionDe(p).alto}
                     tarjeta={(p) => (
                       <TarjetaPieza p={p} analizando={autoAnalisis === c.id && !p.analisis && p.canal !== 'anuncios'} multiplo={multiplos.get(p.id)}
                         onAbrir={() => setAbierta({ p, todas: p.canal === 'anuncios' ? anuncios : piezas.filter((x) => grupoDe(x) === grupoDe(p)) })} />

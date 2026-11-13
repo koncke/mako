@@ -2281,7 +2281,7 @@ moverlos de lugar: es que lleguen.
 
 **Trampa de los tests:** un componente que importa un `.module.css` no carga con `node --import tsx`. Hay que registrar un hook que devuelva el CSS vacío, como `tests/carruseles-pantalla.test.ts`, y recién después importar el componente. Con eso, el test mira el contenido y no las clases.
 
-**Sin hacer:** la grilla de Spy sigue siendo por filas (`GrillaPiezas`). Un short al lado de un video largo deja un hueco debajo del largo. Create usa `GrillaMixta` (`app/_crear/GrillaMixta.tsx`), que reparte en columnas. Pasarla a Spy obliga a rehacer la paginación «por filas enteras», que tiene su test.
+**Hecho el 13/11:** la grilla reparte en columnas, como Create. Está explicado en la entrada «Todas sus piezas se reparte en columnas», más abajo.
 
 ## Un logo se marca por CUENTA, no por negocio (13/11/2026)
 
@@ -2294,3 +2294,18 @@ moverlos de lugar: es que lleguen.
 **Para no pedir una migración:** una columna en `spy_competidores` tampoco servía, porque el competidor es por negocio. La caricatura ya resolvía lo mismo por cuenta.
 
 **Sin hacer:** las cinco marcas de antes (26, 35, 39, 40 y 41 del ws 9) no tienen su copia. Las deja volver a correr `--sin-persona` sobre cada una, con este código en main.
+
+## «Todas sus piezas» se reparte en columnas, como Create (13/11/2026)
+
+**Vive en:** `app/competitor-spy/GrillaPiezas.tsx` (prop `proporcion`), que usa `GrillaMixta` de `app/_crear/` sin tocarla. Test: `tests/spy-grilla-mixta.test.ts`.
+
+**Síntoma:** con la forma de su red en cada tarjeta, una grilla de FILAS deja un hueco debajo de cada video largo que tiene un short al lado. El Cerebro lo vio en la captura: «un hueco bajo cada video largo no es buen diseño».
+
+**La regla:**
+- **La página no cambia:** sigue teniendo `columnas × FILAS_POR_PAGINA` tarjetas. Lo que cambia es cómo se apilan: cada una, en orden, va a la columna más baja.
+- **Mismas columnas:** `GrillaMixta` recibe los mismos `minimo` y `hueco` con que `GrillaPiezas` midió, así cuenta las mismas columnas que la paginación.
+- **El teléfono:** con una sola columna no hay huecos que llenar, así que sigue con su grilla.
+
+**Trampa:** en las columnas de `GrillaMixta` (un flex vertical), `.spy-pgrid__celda{align-self:start}` encoge la tarjeta a su contenido. `.spy-mixta .spy-pgrid__celda{align-self:stretch}` la devuelve al ancho de su columna.
+
+**Trampa de la página de prueba:** para copiar las reglas de `SpyApp.tsx` hay que tomar la regla ENTERA, no el renglón. Una regla de varios renglones cortada queda sin cerrar y se traga todo el CSS que viene después: la página sale sin estilos y parece que el componente está roto.
