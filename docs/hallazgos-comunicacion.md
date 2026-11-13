@@ -111,6 +111,25 @@ firma «Equipo de MaKo», no va a la cola, no acusa insistencias, le suena al cl
 sale por WhatsApp. Test: tests/equipo-en-la-app.test.ts. Si Martín quiere preguntarle algo a MaKo sobre un cliente, va al chat de MaKo
 de ese negocio, no a su grupo.
 
+**Probado en producción (13/11, ws9, sesión de Martín en el navegador de la app), a 1440 y 375:** texto, nota de voz, foto y un
+pedido con «sí» contestan en el hilo de la app con el mismo turno de WhatsApp. Tiempos: la pregunta 2 min (la consulta con
+herramientas), el audio 1 min (lo transcribió bien), la foto 16 s (leyó los números de la imagen), la propuesta 34 s y el «sí» 41 s,
+con la nota guardada de verdad en la ficha. Capturas en las notas del Cerebro, `mako-en-la-app-1311/`. Lo que salió mal en las
+respuestas, sin ser de la app: «te mostré arriba» con la agenda abajo (docs/hallazgos-calendario.md), «Cargá… agendá» (arreglado en
+lib/al-tuteo.ts) y «la cuenta de este grupo, ws9» (un número de negocio en un texto para personas; sin arreglar, viene del contexto
+de la plataforma que recibe el modelo).
+
+**Las trampas del entorno al probar el grupo:**
+- **El navegador de la app BLOQUEA el micrófono**: tocar el micrófono muestra «No se pudo acceder al micrófono». La nota de voz se
+  prueba mandando un mp3 al MISMO endpoint con los mismos campos que arma la caja (`voz` como `nota.mp3`, `secs`, `clienteId`),
+  con `fetch` desde la página: va con la sesión. Lo mismo la foto (`archivo`). Grabar de verdad queda para un teléfono.
+- **La página no puede traer un archivo de la PC**: `fetch` a un servidor en 127.0.0.1 da «Failed to fetch» aun con CORS. El archivo
+  va en base64 dentro del JS (un mp3 de 8 s a 8 kbps son 11 KB).
+- **Las capturas del panel quedan como .jpg en `tool-results` de la sesión** (`mcp-Claude_Browser-blob-*.jpg`): se copian con nombre.
+  A 1440 hay que repetir `resize_window` antes de cada captura, o sale un pedazo de 800×600.
+- **En el teléfono el grupo está en la pestaña Ops Center**, sección Chats, fijado primero; NO en la pestaña «Chats» de abajo, que
+  es la de los leads.
+
 **Regla:** algo nuevo que se engancha ANTES del turno en `atenderEntranteDoer` (WhatsApp) no llega solo a la app. Se mira también
 la ruta del grupo de la app y /api/cron/grupo-turno, y se prueba con un mensaje que nace en la app.
 
