@@ -111,7 +111,8 @@ export function partirYUbicar({
 	const claves = resaltado && resaltado.claves.length > 0 && resaltado.clavesEscala > 1 ? { indices: resaltado.claves, escala: resaltado.clavesEscala } : null;
 	const medir = (palabra: string) => ctx.measureText(aplicarMayusculas(palabra, mayusculas)).width;
 	const content = partirEnLineas({
-		ancho: medir,
+		// Mide como se dibuja: en mayúsculas si van en mayúsculas.
+		ancho: (s) => ctx.measureText(aplicarMayusculas(s, mayusculas)).width,
 		texto,
 		anchoPx: anchoDisponible / escalaX,
 		...(claves ? { extra: (indice: number, palabra: string) => (claves.indices.includes(indice) ? (claves.escala - 1) * medir(palabra) : 0) } : {}),
