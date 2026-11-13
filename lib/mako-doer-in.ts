@@ -835,10 +835,12 @@ export async function rescatarDelStore(ahora = Date.now()): Promise<{ voz: strin
   const { queRescatar } = await import('@/lib/rescate-del-store');
   const { espejarDeWhatsApp } = await import('@/lib/grupo-espejo');
   const rescatados: Array<{ ws: number; id: string; r: string }> = [];
-  for (const jid of jids) {
+  // Las lecturas van juntas: corre dentro de alerta-critica (120 s), y una por una con Evolution lento serían ~14 × 4 s.
+  const leidos = await Promise.all(jids.map(async (jid) => {
     const ws = await wsDelGrupoOficial(jid).catch(() => null);
-    if (ws == null) continue;
-    const registros = await chatDelGrupo(voz, jid, 40, 5000);
+    return ws == null ? null : { jid, ws, registros: await chatDelGrupo(voz, jid, 40, 4000).catch(() => null) };
+  }));
+  for (const { jid, ws, registros } of leidos.filter((x): x is NonNullable<typeof x> => x != null)) {
     if (!registros?.length) continue;
     const ids = [...new Set(registros.map((r) => r.key?.id ?? '').filter(Boolean))];
     const vistos = await idsQueVioElWebhook(ws, jid, ids);
