@@ -42,7 +42,7 @@ import { cortarSinPartir } from '@/lib/unicode-seguro'
 import { aCentavos } from './metricas'
 import { medioEnTexto, ROTULO_ESTADO_PEDIDO, type Pedido, type ReciboVenta } from './ventas'
 import { rutaDePedido } from './cliente'
-import { describirLinea, TOPE_REGISTRO_LINEAS, vozEnLineaDeNegocio, type CambioDeLinea } from '@/lib/registro-lineas-reglas'
+import { describirLinea, TOPE_REGISTRO_LINEAS, vozEnLineaAjena, type CambioDeLinea } from '@/lib/registro-lineas-reglas'
 
 export const NOMBRES_EVENTO = ['pago', 'devolucion', 'suscripcion', 'alta', 'mako', 'lectura', 'error', 'reporte', 'agente', 'linea'] as const
 export type NombreEvento = (typeof NOMBRES_EVENTO)[number]
@@ -353,12 +353,13 @@ export function botonDelCambio(c: Pick<CambioDeLinea, 'accion' | 'activar'>): st
 
 /**
  * Quién movió la voz o el canal de MaKo (lib/registro-lineas-reglas.ts): un evento por cambio, de la plataforma (sin negocio).
- * La voz que queda en una línea de NEGOCIO (`mako_ws<n>`: la del super admin es el WhatsApp personal de Martín) va en rojo.
+ * La voz que queda en la línea de OTRO negocio va en rojo. En la personal de Martín (el …3479) NO: es su decisión (13/11/2026,
+ * «Dejarla en mi personal»), y la fila lo dice («tu número»).
  */
 export function eventosDeCambiosDeLinea(cambios: readonly CambioDeLinea[]): EventoAdmin[] {
   const id = idsUnicos()
   return cambios.map((c) => {
-    const linea = (i: string | null) => describirLinea(i, c.numeros)
+    const linea = (i: string | null) => (i && i === c.personal ? `tu número, ${describirLinea(i, c.numeros)}` : describirLinea(i, c.numeros))
     const principal = c.voz ? { que: 'La voz', m: c.voz } : { que: 'El canal', m: c.canal! }
     const campos: CampoEvento[] = [
       { label: 'Quién', valor: c.quien, copiar: true },
@@ -371,7 +372,7 @@ export function eventosDeCambiosDeLinea(cambios: readonly CambioDeLinea[]): Even
     return conTexto({
       id: id(`linea:${c.at}`), nombre: 'linea', label: `${principal.que} de MaKo pasó a ${linea(principal.m.a)}`, timestamp: c.at,
       negocios: [], persona: c.quien, monto: null, veces: null, falla: false, campos, secciones: [],
-      negativo: vozEnLineaDeNegocio(c), resumen: `Antes: ${linea(principal.m.de)} · ${botonDelCambio(c)}`,
+      negativo: vozEnLineaAjena(c), resumen: `Antes: ${linea(principal.m.de)} · ${botonDelCambio(c)}`,
     })
   })
 }
