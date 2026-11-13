@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **El grupo de la app está armado y NADIE lo usó** (13/11/2026). En 14 días, 99 mensajes de clientes por WhatsApp y 3 por la app, los
+  tres pruebas del 4/11. «Funciona en la app» no se puede leer en `grupo_mensajes`: se prueba escribiendo. Y lo que en WhatsApp corre
+  ANTES de la cola (el comprobante de la agencia) en la app no corría nunca. Ver «Lo de WhatsApp que la app no hacía», abajo.
 - **«MaKo no responde» puede ser que el clasificador dijo CHARLA** (12/11/2026, Mauricio). La charla es «no pide nada», y el turno la
   leía como «no hay nada que contestar»: 8 de las 12 charlas calladas de una semana traían una aclaración, una objeción o la respuesta
   a lo último que se dijo. Antes de mirar la línea, mirar `anthropic_usage` (`clase-doer`). Ver «La charla callaba lo que traía algo», abajo.
@@ -75,6 +78,46 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
   que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+---
+
+## Lo de WhatsApp que la app no hacía: el comprobante de la agencia, y quién firma (13/11/2026, claude5)
+
+**El pedido:** Martín, 13/11, con el número de MaKo baneado otra vez: «vamos a implementar todo directamente dentro de MaKo y vamos
+a dejar los grupos por ahora». Se midió qué hicieron los clientes en sus grupos en 14 días y qué camino lo atiende en la app (la tabla
+entera, en las notas del Cerebro: `mako-en-la-app-claude5-13-11.md`).
+
+**Lo obvio era el equivocado: «el grupo de la app ya contesta igual, es el mismo despachante».** Es cierto para el TURNO
+(`manejarEntranteDeLaApp` llama al mismo `bufferearYResponder`), y por eso preguntas, pedidos con «sí», tickets, notas de voz y
+avisos andan igual. Pero en WhatsApp hay cosas que corren ANTES del turno, en `atenderEntranteDoer` (lib/mako-doer-in.ts): el mensaje
+atrasado y **el comprobante de la mensualidad de una agencia** (`comprobanteDeLaMensualidad`). La app entra por otra puerta
+(app/api/grupos/[ws]/mensajes → /api/cron/grupo-turno) y se las saltaba. Juan Francisco mandó así el de Nico Sellers el 9 y el 11/11:
+en la app, la foto suelta ni entraba a la cola (`vaALaCola`: en un grupo de 2+ personas, una foto sin nombrar a MaKo es charla), y
+nombrándola, el turno la miraba como una foto cualquiera y nadie anotaba el pago.
+
+**Lo arreglado:** una foto o un PDF de quien administra, en el grupo de una agencia con la mensualidad prendida, NO entra a la cola en
+la ruta (`puedeSerComprobante`): va al cron del turno con `comprobante: true`, que lo lee primero (`comprobanteDeLaApp`, el mismo
+`atenderComprobanteDeAgencia` de WhatsApp, con el archivo bajado del bucket). Si lo era, ya se contestó y no hay turno; si no, entra a
+la cola sólo si iba para MaKo (`paraMaKo`). **Por qué no se encola y se descarta después:** un turno que está juntando mensajes del
+mismo grupo (la ventana de 8 s) se lleva la foto, y MaKo contesta dos veces; en WhatsApp el 11/11 pasó exactamente esa secuencia
+(«Nico sellers» + la foto, en el mismo minuto). Lo durable no se pierde: si el autollamado no llega y era para MaKo, la ruta la encola
+igual y la levanta doer-flush. Test: tests/comprobante-en-la-app.test.ts (POST, cron y turno reales).
+
+**Regla:** algo nuevo que se engancha ANTES del turno en `atenderEntranteDoer` (WhatsApp) no llega solo a la app. Se mira también
+la ruta del grupo de la app y /api/cron/grupo-turno, y se prueba con un mensaje que nace en la app.
+
+**Lo que quedó SIN hacer (y dónde vive):**
+- **Quién firma:** Joan y Juan Francisco escriben en WhatsApp como dos personas y en la app comparten UNA cuenta (Código, usuario 10):
+  los dos firman «Codigo Inmobiliario» y MaKo no los distingue. Charly (ws15) no tiene cuenta. Se arregla invitándolos desde el grupo
+  (`invitarAlGrupo`), no con código.
+- **El equipo no puede contestar como «Equipo de MaKo» desde la app.** El super admin entra al grupo por soporte y lo que escribe sale
+  como persona («Martin Koncke») y entra a la cola de MaKo. Hoy se contesta con `enviarAlGrupoMaKo(ws, texto, 'equipo')`
+  (`node --conditions=react-server --import tsx`). Vive en app/api/grupos/[ws]/mensajes/route.ts y lib/grupo-reglas.ts.
+- **Un archivo que no es foto, PDF ni audio** (un .md, un Excel, un video) que manda MaKo o el equipo queda en el hilo como
+  «(un archivo: X)» sin poder bajarlo (`filaDeParte`, lib/grupo-app.ts). Y el cliente no puede mandar uno desde la app
+  (`validarAdjuntos`: foto y PDF). En 14 días, 1 caso (a Martín) y 0 de clientes.
+- **Una foto SUELTA en un grupo de 2+ personas no despierta a MaKo en la app y en WhatsApp sí.** Es la regla del 3/11, con su test
+  (`grupos-ops-turno`, «una foto suelta sigue sin despertarla»): en la app no hay @menciones. Se dejó así a propósito.
 
 ---
 

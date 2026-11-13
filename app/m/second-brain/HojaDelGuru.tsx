@@ -12,7 +12,7 @@
 import '@/app/admin/operaciones/centro.css';
 import '@/app/m/operaciones/operaciones.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SheetM } from '@/app/m/_ui';
+import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
@@ -28,7 +28,7 @@ export function HojaDelGuru({ referente: r, onCerrar }: { referente: Asesor; onC
   const { k, aspecto, quien, vacio, saludo } = useChatDelReferente(r, caja);
   const [viendoCerebro, setViendoCerebro] = useState(false);
   // La hoja mide su cuerpo después del primer pintado: se baja en el cuadro siguiente (el mismo cuidado que ChatClienteM.tsx).
-  const seguirHoja = useCallback(() => hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null, []);
+  const seguirHoja = useCallback(() => hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null, []);
   useEffect(() => {
     const t = setTimeout(() => { const el = seguirHoja(); if (el) el.scrollTop = el.scrollHeight; }, 80);
     return () => clearTimeout(t);
@@ -40,7 +40,7 @@ export function HojaDelGuru({ referente: r, onCerrar }: { referente: Asesor; onC
 
   return (
     <>
-      <SheetM abierto onCerrar={onCerrar} snap="alto" id={`guru-${r.id}`}
+      <PantallaChatM abierto onCerrar={onCerrar} id={`guru-${r.id}`}
         titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : panel === 'cerebro' ? rotuloSecondBrain(r, false) : (
           <span className="m-operaciones-titulo">
             <span className="m-operaciones-titulo__muneco"><Muneco titulo={r.nombre} aspecto={aspecto} animo={k.enCurso ? 'trabajando' : 'despierto'} size={34} /></span>
@@ -86,7 +86,7 @@ export function HojaDelGuru({ referente: r, onCerrar }: { referente: Asesor; onC
             ) : <HiloDelCliente k={k} />}
           </div>
         )}
-      </SheetM>
+      </PantallaChatM>
       <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} reportable={esRespuestaDeMaKo} />
     </>
   );

@@ -47,7 +47,8 @@ test('el botón que abre el grafo se llama «Second Brain», en la computadora y
   assert.ok(!/\/>Mapa/.test(boton), 'nunca «Mapa»');
   // El teléfono: el chat del cliente de ahora (ChatClienteM.tsx; el viejo, app/m/mako/ChatMako.tsx, se borró el 22/10/2026).
   const tel = readFileSync(join(__dirname, '..', 'app/m/second-brain/ChatClienteM.tsx'), 'utf8');
-  assert.match(tel, /<FilaM navegacion titulo="Second Brain" icono="cerebro" href=\{hrefMapa\} \/>/);
+  // Un chip arriba de los chats desde el 13/11/2026 (el prototipo aprobado).
+  assert.match(tel, /<Link className="m-ops-chip" href=\{hrefMapa\}>Second Brain<\/Link>/);
 });
 
 // 20/10/2026 (el Cerebro: «confirmá que "Mapa" ya no aparece en ningún otro lado»): lo que se LEE en el grafo, en la

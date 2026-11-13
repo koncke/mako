@@ -7,6 +7,56 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## El Ops Center del teléfono como WhatsApp: cada chat a pantalla completa y el grupo arriba (13/11/2026)
+
+**Síntoma (medido en producción el 3/11, ws3, 390×844):** la conversación con MaKo era una hoja con asa y ✕ que dejaba ver la página
+atrás, la caja ocupaba el 23 % de la pantalla (el chip «Conectar tu IA» y el aviso de la computadora encima de la fila), y abrirla
+tardaba 0,5 s en blanco. Martín pidió un chat «muy simple, muy parecido a WhatsApp» y aprobó el prototipo
+(docs/prototipos/mako-mobile-chat.html, artifact W5vqkTgaaCLsMKwGnGaByM) el 13/11, con el grupo del negocio fijado arriba.
+
+**Lo obvio era lo equivocado: «MaKo nunca contestó en el grupo de la app».** Leído en producción el 13/11: SÍ contestó, dos veces (4/11,
+ws 9 «¿estás vivo?» y ws 19, un cliente, con la lista de leads, a menos de un minuto), y los avisos YA caen en el hilo (115 filas con
+`aviso_tipo`, porque `copiarAlGrupo` escribe antes de intentar WhatsApp). Lo que no hay es uso: tres mensajes de personas en la app en
+total. Lo que falta probar es hoy, con la línea baneada, y en el teléfono.
+
+**Trampas que cuestan tiempo:**
+- **La caja es UNA en toda la app** (CajaChat, tests/chat-unico.test.ts): la de WhatsApp no es otra caja. Se reordena con grid en
+  `.m-wa` y la píldora es el `::before` de la fila (un pseudo-elemento es un ítem de la grilla: con ubicación explícita para todos,
+  si no los demás se van a la fila 2). El clip es el «+» con la máscara del clip, sin tocar el componente.
+- **El historial de las hojas es UNO** (hoja-historial.ts): PantallaChatM lo comparte para que el «atrás» de Android la cierre. Por eso
+  una SheetM que se abra encima CIERRA la conversación: Participantes, la Info y tus cuentas de IA siguen ADENTRO, con su «‹».
+- **Un `.module.css` rompe los tests que dibujan una pantalla con esbuild** («Cannot import … module.css into a JavaScript file without
+  an output path»): BotonFlotanteM no se puede usar en ChatClienteM. El «+» verde es NuevoChatFlotante, con su CSS en chat-wa.css.
+- **Mirar sin servidor (la PC no tiene RAM para `next dev`):** las pantallas REALES armadas con esbuild, el router de Next con
+  `AppRouterContext`/`PathnameContext`/`SearchParamsContext`, un `fetch` que contesta con datos de ejemplo, los archivos `'use server'`
+  cambiados por funciones que dicen «no», globals.css sin sus `@import`/`@source` de Tailwind, y Chrome sin pantalla a 375 con toque por
+  CDP (un servidor estático en el mismo proceso: un `type="module"` no carga desde file://). ⚠️ `outdir` relativo se resuelve contra
+  `absWorkingDir`: escribió la salida ADENTRO del worktree.
+- **La guardia de RAM toma `tsc` en cualquier lugar del comando**, también un `ls node_modules/.bin/tsc`: el `git switch` que lo llevaba
+  quedó frenado tres veces.
+
+**Reglas:**
+- Toda conversación del teléfono va en PantallaChatM (app/m/_chat): a pantalla completa, con el historial de las hojas. Lo que sigue
+  la conversación la busca con `closest(CUERPO_CHAT)`, nunca `.m-sheet__cuerpo` (el chat no bajaba a lo último).
+- El aspecto de WhatsApp sólo adentro de `.m-wa`: el hilo y la caja son los de toda la app y la computadora no cambia
+  (tests/m-chat-pantalla.test.ts, 3, rechaza una regla sin alcance).
+
+**Sin hacer, con su archivo:**
+- La última línea de cada chat de MaKo en la lista (la del grupo ya está): `SesionChat` no la trae (lib/mako-turno-app.ts →
+  `listarSesiones`).
+- El chat con un lead (/chats/[clave], app/m/chats/[clave]/ComposerChatsM.tsx): sin la piel de WhatsApp, sin adjuntar y sin audio.
+- Volver a una pestaña sin esperar (cada vuelta re-pide la página: 0,5–1,4 s medidos) y los 364 KB del polyfill de `node:crypto` en
+  cada pantalla (cinco importadores de cliente de lib/auth-session.ts: PanelAgencia, TemaCandidato, pila-modales, LoginForm, bitacora).
+- Verlo en un teléfono de verdad y en producción, y que MaKo conteste HOY en el grupo de la app cuando lo nombran (espera el sí de
+  Martín para escribir en su grupo y la sesión del navegador de la app).
+
+**Vive en:** app/m/_chat/PantallaChatM.tsx · app/m/_chat/pantalla-chat.ts · app/m/_chat/chat-wa.css · app/m/_chat/NuevoChatFlotante.tsx ·
+app/m/second-brain/ChatClienteM.tsx · app/m/second-brain/HojaDelGrupo.tsx · app/m/second-brain/FilasDelGrupoM.tsx ·
+app/m/operaciones/ChatsMovil.tsx · tests/m-chat-pantalla.test.ts
+
+*13/11/2026, chat «MaKo Mobile: diseño» (claude5).*
+
+
 ## Un título vacío y una palabra larga: lo que el teléfono dibujaba de más y de menos (11/11/2026)
 
 **Vive en:** `app/m/_ui/SeccionM.tsx` · `app/m/m.css` (`.m-fila__t`). Lo fija `tests/mirada-prod-11-11.test.ts` (casos 3 y 7).

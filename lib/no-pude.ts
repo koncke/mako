@@ -49,8 +49,11 @@ export const REGLA_NO_PUDE = [
   '- NO la uses cuando el «no» es una regla de MaKo (la persona lo confirma en su tarjeta, un cobro o un borrado se hace en su pantalla, su rol no lo permite, una clave), ni para una opinión («no puedo asegurarte…»).',
 ].join('\n');
 
-/** La marca: `[[no-pude: …]]` (con o sin guion, con espacios de más). */
-const MARCA = /\[\[\s*no[\s-]*pude\s*:\s*([^\]\n]{3,300}?)\s*\]\]/giu;
+/**
+ * La marca: `[[no-pude: …]]` (con o sin guion, con espacios de más, y LARGA o en varias líneas). ⚠️ Hasta el 13/11/2026 tenía tope de 300 letras y sin saltos: la del 4/11 en el grupo de Natalia
+ * (ws19) tenía ~430 y le llegó ENTERA al cliente en el hilo de la app, sin ticket. Lo que no matchea no se saca: el tope corto no protegía nada. Lo que se guarda sigue cortado a 200.
+ */
+const MARCA = /\[\[\s*no[\s-]*pude\s*:\s*([^\]]{3,4000}?)\s*\]\]/giu;
 
 /** El texto SIN la marca (nunca le llega a la persona) y lo que no pudo (la primera), o null. */
 export function sacarNoPude(texto: string): { texto: string; noPudo: string | null } {
