@@ -2352,3 +2352,15 @@ moverlos de lugar: es que lleguen.
 - **Ninguna alerta sale por WhatsApp:** viven en la vista, en la API y en CoPilot. Mandarlas sería un evento de MaKo con su plantilla (todo mensaje que sale solo es una automatización).
 - **Historias:** Spy no las lee.
 - **El YouTube de los seguidos sólo se relee en los negocios con la clave de Spy:** el cron de `app/api/cron/spy-todo/route.ts` corre por `correrRonda('apify-instagram')`.
+## Los anuncios en video también se transcriben, pero NO al abrirlos en Spy (13/11/2026, chat «probar-copy»)
+
+- **Por qué:** Copywriting replicaba anuncios en video de la competencia sin saber qué se dice (Martín: «no está transcribiendo»).
+  `ad_transcripts` y `creative_transcripts` no servían: son los anuncios PROPIOS del negocio (por el `ad_id` de su cuenta de Meta).
+- **Cómo:** la misma ruta (/api/competitor-spy/transcribir). `esAnuncioConVideo` (canal anuncios, `medio` video) arma el enlace de la
+  biblioteca de Meta por su id, y `videoDeUnAnuncio` (lib/spy-todo.ts) pide el video FRESCO al actor de anuncios. Usa la clave del
+  negocio y el mismo tope del día de las transcripciones, porque el enlace de `snapshot.videos` vence. Lo escucha la IA del
+  negocio, como un reel.
+- **⚠️ La trampa:** `tieneGuion` decide también qué pide SOLA la pantalla al abrir un detalle (DetallePieza.tsx). Sumarle los anuncios
+  habría gastado Apify e IA por cada anuncio que alguien abre. Por eso va aparte, y sólo lo pide Copywriting al replicar.
+- **Sin probar en producción:** que el actor `apify~facebook-ads-scraper` acepte el enlace `ads/library/?id=` de UN anuncio y traiga
+  `snapshot.videos`. La importación de siempre lo trae con las búsquedas por página; con un solo id, se mide al desplegar.

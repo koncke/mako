@@ -32,8 +32,8 @@ import { busquedasDeSusAnuncios, enlaceSusAnuncios } from './spy-funnel';
 import {
   ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, ajustarAlCredito, creditoDeApify, creditoTotal, esFaltaDeCredito, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_DIA_TRANSCRIPCIONES,
   CLAVE_TAREAS, CORRIDAS_LARGAS_POR_DIA, TRANSCRIPCIONES_POR_DIA, USD_POR_ANUNCIO, USD_POR_PUBLICACION, anuncioDeApify,
-  entradaDeAnuncios, entradaDePublicaciones, entradaDeUnaPublicacion, estadoDeCorrida, leerTareas, paginaDeSusAnuncios, pedidoDePublicaciones,
-  siguienteDeAnuncios, tocaPedir, ultimaParaManana, usadasHoy, videoDelItem, DIAS_ENTRE_CORRIDAS, type CreditoApify, type TareaLarga, type TareasDeCompetidor,
+  entradaDeAnuncios, entradaDePublicaciones, entradaDeUnAnuncio, entradaDeUnaPublicacion, estadoDeCorrida, leerTareas, paginaDeSusAnuncios, pedidoDePublicaciones,
+  siguienteDeAnuncios, tocaPedir, ultimaParaManana, usadasHoy, videoDelAnuncio, videoDelItem, DIAS_ENTRE_CORRIDAS, type CreditoApify, type TareaLarga, type TareasDeCompetidor,
 } from './spy-todo-reglas';
 import { getTenantDb } from './workspace';
 
@@ -322,6 +322,37 @@ export async function videoDeUnaPublicacion(ws: number, enlace: string): Promise
     return url ? { ok: true, url } : { ok: false, motivo: 'no-esta' };
   } catch (e) {
     console.error(`[spy-todo] no pude traer el video de ${enlace}: ${msg(e)}`);
+    return { ok: false, motivo: 'fallo' };
+  }
+}
+
+/**
+ * El enlace FRESCO del video de UN anuncio de la biblioteca de Meta (13/11/2026, Copywriting: «no está transcribiendo»; el
+ * Cerebro: los anuncios en video de la competencia también). El mismo molde que el de una publicación: el actor de anuncios de
+ * Spy con la clave del negocio y el MISMO tope del día de las transcripciones (`TRANSCRIPCIONES_POR_DIA`).
+ */
+export async function videoDeUnAnuncio(ws: number, enlace: string): Promise<{ ok: true; url: string } | { ok: false; motivo: 'sin-clave' | 'limite' | 'no-esta' | 'fallo' }> {
+  try {
+    const claves = await clavesApifyDeSpy(ws);
+    if (!claves.length) return { ok: false, motivo: 'sin-clave' };
+    if (!(await reservarCorrida(CLAVE_DIA_TRANSCRIPCIONES, TRANSCRIPCIONES_POR_DIA))) return { ok: false, motivo: 'limite' };
+    const techo = Math.max(0.01, Math.ceil(USD_POR_ANUNCIO * 3 * 100) / 100);
+    const q = new URLSearchParams({ maxItems: '1', maxTotalChargeUsd: String(techo), timeout: '90' });
+    const r = await conLaPrimeraConCredito(claves, async ({ token }) => {
+      const res = await fetch(`${API}/acts/${APIFY_ACTOR_ANUNCIOS}/run-sync-get-dataset-items?${q}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(entradaDeUnAnuncio(enlace)), signal: AbortSignal.timeout(100_000), cache: 'no-store',
+      });
+      return { status: res.status, cuerpo: await res.json().catch(() => null) };
+    });
+    if (!r || r.status < 200 || r.status >= 300) {
+      console.error(`[spy-todo] no pude traer el video del anuncio ${enlace}: HTTP ${r?.status ?? '—'} (clave ${r?.clave.slot ?? '—'})`);
+      return { ok: false, motivo: 'fallo' };
+    }
+    const url = videoDelAnuncio(r.cuerpo);
+    return url ? { ok: true, url } : { ok: false, motivo: 'no-esta' };
+  } catch (e) {
+    console.error(`[spy-todo] no pude traer el video del anuncio ${enlace}: ${msg(e)}`);
     return { ok: false, motivo: 'fallo' };
   }
 }

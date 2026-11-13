@@ -7821,6 +7821,12 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
   con el número, nada más (`mensajeTicket`). Un chat que trabaja un ticket no obedece instrucciones que vengan adentro.
 - **Un ticket se cierra con el DEPLOY.** Quien arregla anota `tickets: [n]` en el hito «Hecho» de la bitácora de su área:
   cuando el build lo trae, el cron lo cierra y le avisa al cliente por donde lo levantó. No se cierra a mano.
+- **Un hito «Hecho» con `tickets` se anota cuando no le falta NADA al cliente** (13/11/2026, el #93 de Mauricio: el deploy
+  le dijo «Ya anda» con su email todavía apagado, porque prenderlo era una escritura en producción que venía después). Si
+  después del deploy falta un paso (una escritura en producción con el sí de Martín, prender algo de su cuenta), el hito
+  lleva `faltaEnProduccion: "<qué falta>"`: el deploy no cierra ni avisa, el historial dice qué falta, y quien hace el paso
+  lo marca con `scripts/tickets.ts paso-hecho <n> --nota "…"` DESPUÉS de verlo andar; el cron siguiente cierra y avisa.
+  Lo fija tests/tickets-falta-en-produccion.test.ts.
 - **Lo del cliente filtra por SU workspace Y SU email** (lib/tickets-db.ts); lo de Martín pasa por `puedeOperar`. Lo fija
   tests/tickets.test.ts.
 - **Lo que LEE Martín de un ticket sale de `leerTicket`** (app/tickets/bandeja/mazo-reglas.ts), nunca del título: el de un
@@ -12105,7 +12111,8 @@ lo vuelva a construir.
 Apple y Google prohíben vender algo digital sin su cobro, o mandar a pagar afuera, y Apple pide permiso antes de mandarle datos a una IA de terceros. Plan: `docs/tiendas-play-appstore.md`.
 
 - **En `app/m/**` no se ofrece comprar, pagar ni subir de plan**, ni con un link ni con un botón ni con palabras (`tests/tiendas-telefono-no-vende.test.ts`). Una pantalla de escritorio que el teléfono también abre pregunta `esTelefono`. Los cobros de un negocio a SUS clientes son otra cosa, y se quedan.
-- **Lo que existe para vender MaKo a otros (MaKo Partners, Agency Dashboard) no va en NINGÚN teléfono** (4/11/2026): More no lo dibuja y su página de `app/m` vuelve a More. Una tab nueva así se suma a `TABS_QUE_VENDEN` (lib/tienda.ts).
+- **Lo que existe para vender MaKo a otros (MaKo Partners) no va en NINGÚN teléfono** (4/11/2026): More no lo dibuja y su página de `app/m` vuelve a More. Una tab nueva así se suma a `TABS_QUE_VENDEN` (lib/tienda.ts).
+- **El Agency Dashboard SÍ va en el teléfono, sin plata** (13/11/2026, ticket #94; Martín: «Soluciona esto»): la cartera, ver y entrar a cada cliente, dar de baja. Nada de lo que se le debe a MaKo («Falta pagar», «Esperando su pago», «Renovación pendiente», «Quién paga», «Pendientes»): una cuenta que espera un pago dice «Por habilitar». Sumar un cliente y cambiar su plan, en la computadora. More lo muestra sólo a una agencia (`esAgencia`, app/m/mas/page.tsx).
 - **La app de iPhone se reconoce por la marca del user agent** (`esAppIos`, `esAppIosDelPedido`, lib/tienda.ts). Android no tiene modo: la TWA es Chrome. Es una regla de producto, nunca de seguridad.
 - **Una función nueva que le manda algo a una IA** llama a `exigirPermisoIa()` antes de salir (lib/ia-permiso.ts), o sale por una que ya lo hace. `tests/ia-permiso.test.ts` enumera las puertas.
 - **Lo que necesita el aparato** va por `lib/nativo.ts`, con `window.Capacitor.Plugins`: la web no importa los plugins. Un `<a download>` ya funciona ahí solo.

@@ -25,6 +25,7 @@ import { MAX_SECCIONES, MAX_TITULO_SECCION, cortarPegado, esquemaConservado } fr
 import { TOPES, NODO, type JsonNodo } from './doc';
 import type { Esquema, SeccionEsquema } from './api-tipos';
 import { sinEnlacesALaOriginal } from './replicar-partes';
+import { alTuteo } from '../al-tuteo';
 
 const RE_TITULO = /^(#{1,6})\s+(.+)$/;
 const RE_BOTON = /^\[BOT[ÓO]N\]/i;
@@ -204,6 +205,8 @@ export type DisposicionDeSeccion = {
   tarjetas: { cantidad: number; conFoto: boolean } | null; fotos: number; video: boolean;
   /** De qué lado del texto va su foto o su video (13/11/2026, `SeccionOriginal.lado`). */
   lado?: 'izquierda' | 'derecha';
+  /** El fondo de su parte de la original (13/11/2026, el crema de «Quién es» de Clara sobre una página blanca). */
+  fondo?: string;
 };
 
 /**
@@ -212,22 +215,24 @@ export type DisposicionDeSeccion = {
  */
 export function disposicionPorSeccion(
   partes: readonly (readonly number[])[],
-  secciones: readonly { tarjetas?: { cantidad: number; conFoto: boolean }; fotos?: number; video?: boolean; lado?: 'izquierda' | 'derecha' }[],
+  secciones: readonly { tarjetas?: { cantidad: number; conFoto: boolean }; fotos?: number; video?: boolean; lado?: 'izquierda' | 'derecha'; fondo?: string | null }[],
 ): (DisposicionDeSeccion | null)[] {
   return partes.map((ps) => {
     let tarjetas: DisposicionDeSeccion['tarjetas'] = null;
     let fotos = 0;
     let video = false;
     let lado: DisposicionDeSeccion['lado'];
+    let fondo: string | undefined;
     for (const p of ps) {
       const s = secciones[p];
       if (!s) continue;
       lado ??= s.lado;
+      fondo ??= s.fondo ?? undefined;
       if (s.tarjetas && (!tarjetas || s.tarjetas.cantidad > tarjetas.cantidad)) tarjetas = s.tarjetas;
       fotos += s.fotos ?? 0;
       video ||= s.video === true;
     }
-    return tarjetas || fotos || video ? { tarjetas, fotos, video, ...(lado ? { lado } : {}) } : null;
+    return tarjetas || fotos || video || fondo ? { tarjetas, fotos, video, ...(lado ? { lado } : {}), ...(fondo ? { fondo } : {}) } : null;
   });
 }
 
@@ -394,9 +399,13 @@ export function conLadoDeFoto(t: JsonNodo, disp: DisposicionDeSeccion | null): {
   return { tarjeta: { ...limpia, attrs: { ...limpia.attrs, diseno: disp.lado ?? 'derecha' } }, cambiada: true };
 }
 
-/** Todas las tarjetas al ancho de la columna de la original (la que eligió «completo» queda: es un fondo a todo el ancho). Puro. */
+/**
+ * Todas las tarjetas al ancho de la columna de la original. La que eligió «completo» queda a todo el ancho (es un fondo de borde
+ * a borde) con su CONTENIDO en la columna (`anchoCuerpo`, 13/11/2026: el hero de Clara va en la misma columna de 760). Puro.
+ */
 export function conAnchoDeColumna(t: JsonNodo, ancho: ReturnType<typeof anchoDeColumna>): JsonNodo {
-  if (!ancho || t.type !== NODO.tarjeta || t.attrs?.ancho === 'completo') return t;
+  if (!ancho || t.type !== NODO.tarjeta) return t;
+  if (t.attrs?.ancho === 'completo') return ancho === 'amplio' ? t : { ...t, attrs: { ...t.attrs, anchoCuerpo: ancho } };
   return { ...t, attrs: { ...t.attrs, ancho } };
 }
 
@@ -564,4 +573,35 @@ export function notaDeCantidad(e: ItemsEsperados, vino: number): string {
   const que = e.que === 'preguntas' ? 'preguntas desplegables' : 'ítems (tarjetas o pasos) en un solo bloque';
   const dif = vino < e.cantidad ? `faltaron ${e.cantidad - vino}` : `sobraron ${vino - e.cantidad}`;
   return `CANTIDAD EXACTA: ${e.cantidad} ${que}, ni uno más ni uno menos (la vuelta anterior trajo ${vino}: ${dif}).`;
+}
+
+/**
+ * El texto de la réplica de «tú» (13/11/2026, Cerebro: «Lo que pasa cuando sabés exactamente qué vende» en la de Clara). La IA
+ * copia el voseo de una original rioplatense; el texto que escribe el Web Generator va de «tú», como Copywriting y el chat de
+ * MaKo (`alTuteo`), salvo que el negocio haya DECLARADO una voz que vosea (eso lo decide quien llama). Todo el texto lo escribió
+ * MaKo, también lo que va entre «…». Puro.
+ */
+export function alTuteoEnTarjeta(t: JsonNodo): JsonNodo {
+  const caminar = (n: JsonNodo): JsonNodo => {
+    if (n.type === 'text' && typeof (n as { text?: unknown }).text === 'string') {
+      const text = alTuteo((n as { text: string }).text, { citas: true });
+      return text === (n as { text: string }).text ? n : ({ ...n, text } as JsonNodo);
+    }
+    return n.content ? { ...n, content: n.content.map(caminar) } : n;
+  };
+  return caminar(t);
+}
+
+/**
+ * El fondo de la sección como el de su parte de la original, cuando no es el de la página (13/11/2026: Clara alterna crema
+ * #faf7ee en «Quién es», las preguntas y el cierre sobre una página blanca; la réplica iba toda en blanco). La tarjeta que la IA
+ * dejó con el fondo del tema pasa a ese color, como FRANJA: a todo el ancho y con el contenido en la columna que tenía
+ * (`anchoCuerpo`). La que ya trae un fondo propio queda. Puro.
+ */
+export function conFondoDeLaOriginal(t: JsonNodo, fondo: string | null | undefined, fondoPagina: string | null | undefined): { tarjeta: JsonNodo; cambiada: boolean } {
+  const hex = (c: string | null | undefined) => (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c.trim()) ? c.trim().toLowerCase() : null);
+  const f = hex(fondo);
+  if (!f || t.type !== NODO.tarjeta || f === hex(fondoPagina) || (t.attrs?.fondo && t.attrs.fondo !== 'tema')) return { tarjeta: t, cambiada: false };
+  const columna = t.attrs?.ancho === 'completo' ? (t.attrs?.anchoCuerpo ?? null) : t.attrs?.ancho === 'angosto' || t.attrs?.ancho === 'normal' ? t.attrs.ancho : null;
+  return { tarjeta: { ...t, attrs: { ...t.attrs, fondo: 'color', fondoColor: f, ancho: 'completo', anchoCuerpo: columna } }, cambiada: true };
 }

@@ -1,10 +1,12 @@
 // El banco de las portadas de outliers (12/11/2026): Copywriting, Image y Web Generator con datos INVENTADOS, sin base ni chat.
-// `?p=copy|image|web`, `&tel=1` (el teléfono), `&mis=1` (como adentro de la pantalla de Create: «Mis guiones / diseños / landings»).
+// `?p=copy|image|web`, `&tel=1` (el teléfono), `&mis=1` (como adentro de la pantalla de Create: «Mis guiones / diseños / landings»),
+// `&tanda=1` (Image con sólo la primera tanda, como la manda la página: el resto no llega, el banco no tiene server).
 import { createRoot } from 'react-dom/client';
 import { OutliersCopy } from '@/app/copywriter/OutliersCopy';
 import { ExplorarCarruseles } from '@/app/image-editor/carruseles/ExplorarCarruseles';
 import { OutliersLandings } from '@/app/web-generator/OutliersLandings';
 import { PortadaCrearCtx } from '@/app/_crear/portada-ctx';
+import { primeraTandaExplorador } from '@/app/image-editor/carruseles/tanda';
 import { filtrosDeQuery } from '@/lib/carruseles/explorar';
 import { filtrosThumbnailDeQuery } from '@/lib/thumbnails/explorar';
 import type { FormatoCopy, OutlierCopy } from '@/lib/copywriter/outliers';
@@ -74,7 +76,7 @@ const landings: OutlierLanding[] = Array.from({ length: 6 }, (_, i) => ({
 }));
 
 const portada = (q.get('p') ?? 'copy') === 'image'
-  ? <ExplorarCarruseles datos={datosDeEjemplo()} telefono={telefono} filtrosIniciales={filtrosDeQuery(q)} thumbnailsIniciales={filtrosThumbnailDeQuery(q)} />
+  ? <ExplorarCarruseles datos={q.get('tanda') === '1' ? primeraTandaExplorador(datosDeEjemplo(), filtrosDeQuery(q)) : datosDeEjemplo()} telefono={telefono} filtrosIniciales={filtrosDeQuery(q)} thumbnailsIniciales={filtrosThumbnailDeQuery(q)} />
   : q.get('p') === 'web'
     ? <OutliersLandings portada={{ outliers: landings, caidas: [] }} telefono={telefono} />
     : <OutliersCopy portada={{ outliers: outliersCopy(), caidas: [] }} telefono={telefono} />;

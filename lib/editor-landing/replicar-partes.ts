@@ -94,9 +94,20 @@ export const ERROR_WEB_PARCIAL = 'La copia idéntica copia todo: para elegir qu�
  * El nombre de la copia en el Panel: con el texto, el título de la original (es la misma página); sin él ya no es la
  * de la original y no lleva su nombre («Adaptada de 100ads.ai» desde el 27/10, «Basada en …» desde el 28/10).
  */
-export function nombreDeCopia(p: PartesReplica, host: string, tituloOriginal: string): string {
+export function nombreDeCopia(p: PartesReplica, host: string, tituloOriginal: string, oferta?: string): string {
   if (p.texto) return tituloOriginal;
+  // 13/11/2026 (Cerebro): escrita para el negocio, se llama como su oferta; de qué página salió queda en `config.origen.basadoEnUrl`.
+  const nombre = nombreDeOferta(oferta);
+  if (nombre) return `Landing · ${nombre}`;
   return p.diseno && p.estructura ? `Adaptada de ${host}` : `Basada en ${host}`;
+}
+
+/** El nombre de la oferta: lo primero de `textoDeOferta` (hasta el «;»), o el primer renglón de lo que escribió la persona. */
+export function nombreDeOferta(oferta: string | null | undefined): string {
+  const primero = String(oferta ?? '').split(/;|\n/)[0].replace(/\s+/g, ' ').trim();
+  if (primero.length <= 60) return primero;
+  const corte = primero.slice(0, 60);
+  return `${corte.slice(0, corte.lastIndexOf(' ') > 30 ? corte.lastIndexOf(' ') : 60).trim()}…`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
