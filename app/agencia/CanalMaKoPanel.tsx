@@ -18,7 +18,8 @@ type Estado = 'desconectado' | 'conectando' | 'conectado' | 'sin_confirmar' | 'e
 type Linea = { estado: Estado; numero: string | null; perfil: string | null };
 /** `esVozActiva: null` = no se pudo leer cuál es la voz. No es «no». */
 type Info = Linea & { esVozActiva: boolean | null };
-type Personal = { estado: string; numero: string | null; perfil: string | null; linea: string | null; esVoz: boolean };
+/** `sorda`: figura conectada y no recibe (lib/linea-sorda.ts, `motivoParaVolverAVincular`). */
+type Personal = { estado: string; numero: string | null; perfil: string | null; linea: string | null; esVoz: boolean; sorda?: string | null };
 type Paso = { jid: string; nombre: string; listo: boolean; motivo?: string };
 type Mudanza = { ok: boolean; error?: string; numero?: string; pasos?: Paso[] };
 type Flash = { txt: string; error?: boolean };
@@ -264,6 +265,8 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
   const cambiando = !!qrNuevo || !!nuevo || (!!mudanza && !mudanza.ok);
   const fallaron = (mudanza?.pasos ?? []).filter((p) => !p.listo);
   const personalConectado = personal?.estado === 'conectado';
+  // Con la marca de sordera medida sobre ESTA vinculación: el mismo corte con el que `conectar` la suelta y da el QR.
+  const personalSorda = personalConectado && !!personal?.sorda;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -351,10 +354,16 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
           <Fila estado={personal.estado} numero={personal.numero} perfil={personal.perfil} etiqueta={!personal.linea ? 'Sin vincular' : undefined} />
         )}
         {qrPersonal && <Qr src={qrPersonal} pie={<>Escanéalo con <b>tu WhatsApp personal</b>.</>} />}
-        {personal?.esVoz && <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--good)' }}>MaKo habla por este número ✓</div>}
+        {/* Conectada y SORDA (13/11/2026): el ✓ mentía. Se dice que no recibe y se ofrece el QR, que la suelta y la re-vincula en un paso. */}
+        {personalSorda ? (
+          <div title={personal?.sorda ?? undefined} style={{ fontSize: 13, fontWeight: 600, color: 'var(--bad)' }}>No recibe mensajes: vuelve a vincularlo.</div>
+        ) : personal?.esVoz && <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--good)' }}>MaKo habla por este número ✓</div>}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {personal !== null && !personalConectado && (
             <button style={{ ...btn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={vincularPersonal}>{qrPersonal ? 'Regenerar QR' : 'Vincular por QR'}</button>
+          )}
+          {personalSorda && (
+            <button style={{ ...btn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={vincularPersonal}>{qrPersonal ? 'Regenerar QR' : 'Volver a vincular por QR'}</button>
           )}
           {personalConectado && (
             <button style={{ ...(personal?.esVoz ? btnGhost : btn), opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => cambiarVozPersonal(!personal?.esVoz)}>

@@ -29,11 +29,9 @@ import { Icon } from '../../_detalle/FeatureDetail';
 import { RUTA_CTA, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import type { Bloque } from '../tipos';
 import { VisualDeLanding } from '../Visuales';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 
 type Hero = Extract<Bloque, { tipo: 'hero' }>;
-
-/** Las barras de una onda de voz, fijas (la de Cherry es un dibujo, no una medición). */
-const ONDA = [38, 62, 30, 78, 54, 88, 46, 70, 34, 58, 82, 40, 66, 50, 92, 36, 60, 44, 74, 52, 84, 32, 64, 48, 76, 42, 90, 56];
 
 /** El borde rasgado de la banda: un zigzag irregular, el mismo arriba y abajo (en % del ancho). */
 const RASGADO = (() => {
@@ -49,17 +47,12 @@ function Boton({ clase = '' }: { clase?: string }) {
   return <a href={RUTA_CTA} className={`d-video-btn ${clase}`}>{TEXTO_CTA}</a>;
 }
 
+/** Antes y después: va la línea de tiempo real del editor de Video. Hasta tenerla grabada, el recuadro de lo que falta
+ *  (12/11/2026: la onda dibujada a mano se sacó). */
 function Onda({ pausas }: { pausas: boolean }) {
-  // Con pausas: dos huecos con su rótulo, donde la voz se calla. Sin pausas: la misma voz, seguida.
-  const tramos = pausas ? [ONDA.slice(0, 8), ONDA.slice(8, 15), ONDA.slice(15, 22)] : [ONDA.slice(0, 22)];
   return (
-    <div className="d-video-onda" aria-hidden="true">
-      {tramos.map((t, k) => (
-        <span key={k} className="d-video-onda-tramo">
-          {k > 0 ? <span className="d-video-onda-pausa">pausa</span> : null}
-          {t.map((h, i) => <i key={i} style={{ height: `${h}%` }} />)}
-        </span>
-      ))}
+    <div className="d-video-falta">
+      <FaltaAnimacion que={`La línea de tiempo real del editor de Video, ${pausas ? 'antes' : 'después'} de editar.`} />
     </div>
   );
 }
@@ -323,6 +316,7 @@ const CSS = `
 .d-video-cmp-chip { align-self: flex-start; padding: 7px 9px; border-radius: 8px; font-family: var(--d-vid-mono); font-size: 10.5px; line-height: 10.5px; font-weight: 500; letter-spacing: 1.26px; text-transform: uppercase; }
 .d-video-cmp-antes .d-video-cmp-chip { background: rgba(47,111,237,.22); color: #9DBBF7; }
 .d-video-cmp-despues .d-video-cmp-chip { margin-left: auto; background: rgba(110,212,156,.16); color: #6ED49C; }
+.d-video-falta { border-radius: 14px; background: #fff; }
 .d-video-onda { height: 96px; display: flex; align-items: center; gap: 0; padding: 0 6px; }
 .d-video-onda-tramo { height: 100%; display: flex; align-items: center; gap: 4px; }
 .d-video-onda-tramo i { display: block; width: 4px; border-radius: 2px; background: #F4ECE7; }

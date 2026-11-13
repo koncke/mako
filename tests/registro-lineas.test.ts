@@ -10,14 +10,20 @@
 //   R2 el registro sólo en el `try` (un pedido que tira no se anota)      → falla «la ruta anota»
 //   R3 `cambioEntre` que anota aunque no cambie nada                      → falla «sin cambio, sin renglón»
 //   R4 una foto que no se pudo leer cuenta como «sin cambio»             → falla «una foto sin leer»
-//   R5 la voz en la línea de un negocio sin el rojo                       → falla «el evento del 12/11»
+//   R5 la voz en la línea de un cliente sin el rojo                       → falla «el evento del 12/11»
 //   R6 el lector de eventos sin los cambios de línea                      → falla «el lector de Events los lee»
+//
+// Y EL MISMO DÍA (13/11): Martín decidió dejar la voz en su personal («Dejarla en mi personal»), así que ahí NO va en rojo; y
+// re-vincular esa línea por QR la dejaba ignorando los grupos (`ignoraGrupos`, lib/evolution-sonda.ts):
+//   R7 la personal de Martín vuelve a salir en rojo                       → fallan «su decisión» y «el evento del 12/11»
+//   R8 setSettings con el groupsIgnore:true fijo de antes                 → falla «re-vincular la línea que es la voz»
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   NO_SE_LEYO, SIN_PANTALLA, TOPE_REGISTRO_LINEAS, cambioEntre, conElCambio, describirLinea, instanciasDe, leerRegistroLineas,
-  pantallaDelPedido, vozEnLineaDeNegocio, type CambioDeLinea,
+  pantallaDelPedido, vozEnLineaAjena, vozEnSuPersonal, type CambioDeLinea,
 } from '../lib/registro-lineas-reglas';
+import { ignoraGrupos } from '../lib/evolution-sonda';
 import { armarEventos, eventosDeCambiosDeLinea, tiposDeUrl, textoDeCorte, type EntradasEventos } from '../app/admin/_polar/datos/eventos';
 import { fuenteSinComentarios } from './_fuente-sin-comentarios';
 
@@ -33,8 +39,17 @@ test('el cambio del 12/11: la voz del …2605 al …3479, con quién, qué botó
   assert.equal(c.quien, 'martinkoncke@gmail.com');
   assert.equal(c.pantalla, '/agencia');
   assert.equal(c.activar, true);
-  assert.equal(vozEnLineaDeNegocio(c), true, 'la voz quedó en una línea de negocio y no se marcó');
   assert.deepEqual(instanciasDe(c).sort(), [CANAL, 'mako_ws9'].sort());
+});
+
+test('la voz en el personal de Martín es su decisión, no una alarma; en la línea de un cliente, sí', () => {
+  const c = cambioEntre(ANTES, { voz: 'mako_ws9', canal: CANAL }, DATOS)!;
+  // 13/11/2026, Martín: «Dejarla en mi personal».
+  assert.equal(vozEnSuPersonal({ ...c, personal: 'mako_ws9' }), true);
+  assert.equal(vozEnLineaAjena({ ...c, personal: 'mako_ws9' }), false, 'su personal sale como alarma');
+  const deUnCliente = cambioEntre(ANTES, { voz: 'mako_ws13', canal: CANAL }, DATOS)!;
+  assert.equal(vozEnLineaAjena({ ...deUnCliente, personal: 'mako_ws9' }), true, 'la voz en la línea de un cliente no se marca');
+  assert.equal(vozEnLineaAjena({ ...c, personal: null }), true, 'sin saber cuál es su personal, una línea de negocio se marca');
 });
 
 test('sin cambio, sin renglón: un botón que no movió nada no ensucia la lista', () => {
@@ -42,7 +57,7 @@ test('sin cambio, sin renglón: un botón que no movió nada no ensucia la lista
   const delCanal = cambioEntre(ANTES, { voz: CANAL, canal: `${CANAL}_2` }, { ...DATOS, accion: 'conectar' });
   assert.ok(delCanal && delCanal.voz === null && delCanal.canal?.a === `${CANAL}_2`, 'un cambio sólo del canal también se anota');
   const vuelta = cambioEntre({ voz: 'mako_ws9', canal: CANAL }, ANTES, { ...DATOS, accion: 'usar' });
-  assert.equal(vuelta && vozEnLineaDeNegocio(vuelta), false, 'volver a la línea de MaKo no es rojo');
+  assert.equal(vuelta && vozEnLineaAjena(vuelta), false, 'volver a la línea de MaKo no es rojo');
 });
 
 test('una foto sin leer no es «sin cambio»: se anota igual', () => {
@@ -72,21 +87,38 @@ test('la lista: lo nuevo primero, con tope, y un renglón roto no la voltea', ()
   assert.equal(l[0].quien, 'martinkoncke@gmail.com');
 });
 
-test('el evento del 12/11 en Admin › Events: dice quién, el botón, la pantalla y va en rojo', () => {
-  const c: CambioDeLinea = { ...cambioEntre(ANTES, { voz: 'mako_ws9', canal: CANAL }, DATOS)!, numeros: { mako_ws9: '5490000003479', [CANAL]: '5490000002605' } };
+test('el evento del 12/11 en Admin › Events: dice quién, el botón, la pantalla y que es su número, sin rojo', () => {
+  const numeros = { mako_ws9: '5490000003479', mako_ws13: '5490000001313', [CANAL]: '5490000002605' };
+  const c: CambioDeLinea = { ...cambioEntre(ANTES, { voz: 'mako_ws9', canal: CANAL }, DATOS)!, numeros, personal: 'mako_ws9' };
   const [ev] = eventosDeCambiosDeLinea([c]);
   assert.equal(ev.nombre, 'linea');
-  assert.equal(ev.label, 'La voz de MaKo pasó a mako_ws9 (…3479)');
+  assert.equal(ev.label, 'La voz de MaKo pasó a tu número, mako_ws9 (…3479)');
   assert.equal(ev.persona, 'martinkoncke@gmail.com');
-  assert.equal(ev.negativo, true, 'la voz en el personal de Martín no va en rojo');
+  assert.equal(ev.negativo, false, 'la voz en el personal de Martín sale en rojo: es su decisión');
   assert.deepEqual(ev.negocios, [], 'es de la plataforma, no de un negocio');
   const campo = (l: string) => ev.campos.find((x) => x.label === l)?.valor;
   assert.equal(campo('Botón'), '«Usarlo para MaKo» (tu número)');
   assert.equal(campo('Pantalla'), '/agencia');
-  assert.equal(campo('Voz'), `${CANAL} (…2605) → mako_ws9 (…3479)`);
+  assert.equal(campo('Voz'), `${CANAL} (…2605) → tu número, mako_ws9 (…3479)`);
   assert.equal(campo('Canal'), undefined);
+  const [ajena] = eventosDeCambiosDeLinea([{ ...cambioEntre(ANTES, { voz: 'mako_ws13', canal: CANAL }, DATOS)!, numeros, personal: 'mako_ws9' }]);
+  assert.equal(ajena.negativo, true, 'la voz en la línea de un cliente no va en rojo');
+  assert.equal(ajena.label, 'La voz de MaKo pasó a mako_ws13 (…1313)');
   assert.equal(describirLinea('mako_ws9', {}), 'mako_ws9', 'sin número, la instancia sola');
   assert.deepEqual(tiposDeUrl('voz'), ['linea']);
+});
+
+test('re-vincular la línea que es la voz le deja los grupos abiertos; las demás los ignoran', () => {
+  // 13/11/2026: el QR de «Tu número» pasaba por `conectar` → `setSettings`, que le ponía groupsIgnore:true a la voz (…3479).
+  assert.equal(ignoraGrupos('mako_ws9', 'mako_ws9'), false, 'la voz quedó ignorando los grupos: MaKo no oye a nadie');
+  assert.equal(ignoraGrupos('mako_ws13', 'mako_ws9'), true, 'la línea de un cliente dejó de ignorar los grupos');
+  assert.equal(ignoraGrupos('mako_ws9', null), true);
+  assert.equal(ignoraGrupos('mako_ws9', undefined), true, 'sin poder leer la voz, la regla de siempre');
+  const src = fuenteSinComentarios('lib/evolution.ts');
+  const ajustes = src.slice(src.indexOf('async function setSettings('), src.indexOf('export async function permitirGruposEnInstancia'));
+  assert.match(ajustes, /const voz = await vozDeMaKoEstricta\(\)\.catch\(\(\) => undefined\);/);
+  assert.match(ajustes, /groupsIgnore: ignoraGrupos\(instance, voz\)/);
+  assert.doesNotMatch(ajustes, /groupsIgnore: true/, 'volvió el groupsIgnore fijo');
 });
 
 test('armarEventos los suma, y dice cuando la lista llegó a su tope', () => {

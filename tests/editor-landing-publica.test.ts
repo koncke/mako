@@ -32,6 +32,7 @@ import {
 } from '../lib/editor-landing/pagina-publica';
 import { CONFIG_DEFAULT, type ConfigLanding } from '../lib/editor-landing/api-tipos';
 import { CSS_CONTENIDO } from '../lib/editor-landing/css';
+import { podarCss, usadasDe } from '../lib/editor-landing/css-usado';
 import { origenImagenes } from '../lib/editor-landing/especificacion';
 import { lineaCargador } from '../lib/pixel-cargador';
 import { esPublica, esPublicaSoloLeer } from '../lib/rutas-publicas';
@@ -556,7 +557,10 @@ test('el documento sale de lo CONGELADO en la foto: la hoja, el sitio y el títu
   assert.match(doc({ titulo: '', config: config({ seoTitulo: 'SEO del sitio' }), tituloRespaldo: 'La landing' }), /<title>SEO del sitio<\/title>/);
   assert.match(doc({ titulo: '', tituloRespaldo: 'La landing' }), /<title>La landing<\/title>/);
   // Una foto sin hoja (vacía) no deja la página sin estilos: va la de hoy. Con hoja, sólo la suya.
-  assert.ok(doc({ css: '' }).includes(CSS_CONTENIDO), 'sin hoja congelada: CSS_CONTENIDO');
+  // (12/11/2026: la hoja va PODADA a lo que la página usa, css-usado.ts; la de hoy, entonces, es CSS_CONTENIDO podada.)
+  const conHoy = doc({ css: '' });
+  const podada = podarCss(CSS_CONTENIDO, usadasDe(conHoy));
+  assert.ok(podada.length > 1_000 && conHoy.includes(podada), 'sin hoja congelada: CSS_CONTENIDO (podada a lo que usa la página)');
   assert.ok(!doc({ css: '.solo-esta{}' }).includes(CSS_CONTENIDO), 'con hoja congelada, no se mezcla con la de hoy');
 });
 

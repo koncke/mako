@@ -24,6 +24,7 @@ import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
 import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 import { Visual } from '../../_detalle/Visual';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 
@@ -295,26 +296,15 @@ function Pasos({ b }: { b: Extract<Bloque, { tipo: 'pasos' }> }) {
   );
 }
 
-/** «Controla SetSmart desde tu propia IA»: la terminal oscura con cada pedido («›») y lo que hizo (✓). */
+/** «Controla SetSmart desde tu propia IA»: donde la referencia pone su terminal va una sesión real de la API de MaKo. Hasta
+ *  tenerla grabada, el recuadro de lo que falta (12/11/2026: la terminal dibujada a mano se sacó). */
 function Terminal({ b }: { b: Extract<Bloque, { tipo: 'tarjetas' }> }) {
   return (
     <section className={c('term')}>
       <div className={c('term-in')}>
         <TituloEnCorchetes titulo={b.titulo} bajada={b.bajada} />
-        <div className={c('term-caja')}>
-          <div className={c('term-cab')}>
-            <span className={c('term-cab-i')}><Icono d={['M5 7l5 5l-5 5', 'M12 19l7 0']} size={14} />API de MaKo</span>
-            <span className={c('term-cab-d')}>Claude</span>
-          </div>
-          <div className={c('term-cu')}>
-            {b.items.map((t) => (
-              <div key={t.titulo}>
-                <div className={c('term-l')}><span className={c('term-pr')}>›</span><span className={c('term-cmd')} dangerouslySetInnerHTML={html(t.titulo)} /></div>
-                <div className={`${c('term-l')} ${c('term-l2')}`}><span className={c('term-ok')}><Icono d={CHEQUE} size={14} /></span><span className={c('term-res')} dangerouslySetInnerHTML={html(t.texto)} /></div>
-              </div>
-            ))}
-            <div className={c('term-l')}><span className={c('term-pr')}>›</span><span className={c('term-cur')} aria-hidden="true" /></div>
-          </div>
+        <div className={c('term-falta')}>
+          <FaltaAnimacion que="Una sesión real de la API de MaKo con Claude." />
         </div>
         {b.cta ? <BotonNegro /> : null}
       </div>
@@ -653,6 +643,7 @@ const CSS = `
 /* Terminal */
 .s-term{background:var(--n0);padding:80px 0}
 .s-term-in{max-width:896px;margin:0 auto;padding:0 32px}
+.s-term-falta{max-width:672px;margin:0 auto}
 .s-term-caja{max-width:672px;margin:0 auto;border:1px solid #27272a;border-radius:4px;overflow:hidden;background:#09090b;text-align:left}
 .s-term-cab{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid #27272a}
 .s-term-cab-i{display:inline-flex;align-items:center;gap:8px;font-family:var(--fm);font-size:12px;line-height:16px;color:var(--z5)}

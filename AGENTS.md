@@ -1479,6 +1479,9 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   Martín, con el botón de /agencia, y no se supo quién). Lo que pasa por `/api/admin/mako-canal` se anota solo: la ruta compara la
   foto de antes con la de después (lib/registro-lineas.ts) y se ve en Admin › Analytics › Events, tipo «linea». Otro camino que
   llame a `setInstanciaVoz` o escriba `mako.canal.instancia` anota con `anotarCambioDeLinea` (tests/registro-lineas.test.ts).
+  **Y la voz escucha los grupos aunque sea una línea de negocio:** un ajuste nuevo de Evolution (`/settings/set`, que PISA todos
+  los ajustes) decide `groupsIgnore` con `ignoraGrupos(instancia, voz)`, nunca un `true` fijo: re-vincular el …3479 por QR lo
+  dejaba sordo en los grupos (13/11/2026).
 - **En el grupo de WhatsApp no van MAKO_NUCLEO ni la persona de consultor**: el system del grupo es `buildSystemPrompt` con
   `canal: 'grupo'` (NUCLEO_GRUPO, lib/nucleo-grupo.ts, fijo y primero). Todo texto nuevo del turno del grupo va ahí o en
   DOER_WA_VOZ, nunca en MAKO_NUCLEO, que es del dashboard y de la app (28/10/2026, tests/banco-grupo.test.ts).

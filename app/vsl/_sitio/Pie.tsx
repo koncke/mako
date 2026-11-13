@@ -10,7 +10,7 @@
 // donde va su isotipo. Server component.
 // =============================================================================
 
-import { EstrellaMaKo } from '../_competencia/marca';
+import { EstrellaMaKo, LogoMaKo } from '../_competencia/marca';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { columnasDelPie } from './datos';
 
@@ -21,7 +21,9 @@ export function Pie() {
       <div className="s-cont">
         <div className="s-pie-in">
           <div className="s-pie-marca">
-            {/* Lo mismo que dice arriba (Martín, 12/11/2026: «sigue el texto viejo… tienes que copiarlo de cómo está arriba hoy»). */}
+            {/* Lo mismo que dice arriba (Martín, 12/11/2026: «sigue el texto viejo… tienes que copiarlo de cómo está arriba hoy»), con
+                el logo encima («tienes que poner también el logo otra vez. No puede quedar flotando eso»). */}
+            <LogoMaKo className="s-pie-logo" tamano={30} claro />
             <p className="s-pie-lema">El mejor software para ventas High Ticket.</p>
             <p className="s-pie-sub">Ventas, marketing y contenido en una sola app.</p>
           </div>
