@@ -287,6 +287,19 @@ ella diría «ya está conectada» al tocarlo. Son dos pasos: el botón y escane
 los pasos del mail y la campanita eran fijos («Conectar por QR», «el teléfono de MaKo (…2605)») con la voz en el …3479; ahora
 salen de la línea (`pasosQrDe`). Lo fija tests/volver-a-vincular.test.ts (V1-V6).
 
+**Falsa alarma con la voz bien: «otra línea vio» contaba los grupos PERSONALES de Martín (13/11 18:20, medido en sólo lectura).**
+A las 17:12 Martín devolvió la voz al …2605 («Dejar de usarlo para MaKo», desde /chats) y el …3479, recién re-vinculado, quedó
+como «la otra línea» del detector. A las 18:20 la marca dijo «otra línea vio 6 mensaje(s) de personas que la voz no tiene», y a las
+18:23 a la voz le entró Martín al instante y MaKo lo clasificó. Los 6 eran de 3 grupos suyos donde MaKo no está; en el grupo de MaKo
+que comparten (el de Mauricio), la voz tenía todos. **La causa:** la regla filtraba «grupo» (`@g.us`) y no «grupo compartido», como
+decía su comentario. No se había visto porque desde el 3/11 la voz estuvo casi siempre en el …3479, y con la voz y la otra en la
+misma línea la regla no corre. ⚠️ **La pista de al lado era la equivocada:** el historial que WhatsApp trae al re-vincular el
+…3479 (mensajes de las 15:59 a las 16:08, antes del QR) no es la causa: un mensaje de un grupo de MaKo que llega así y la voz no
+tiene SÍ es la prueba que la regla busca. **La regla:** la otra línea cuenta sólo los grupos de MaKo (`mako.grupo_jid` de cada
+negocio y `mako.superadmin.grupo_jid`, los mismos que lista `gruposDeMaKoEstricto` de lib/mako-chat.ts); sin esa lista no cuenta
+nada (`ajenosQueLaVozNoVio`, lib/linea-sorda.ts). Lo fija tests/linea-sorda.test.ts 4 y 6 (roturas O1-O5). La marca que quedó en el
+…2605 se cierra sola con el despliegue (hay una persona después de la marca): no hace falta re-vincular el …2605.
+
 ---
 
 ## MaKo se callaba con la línea frenada, y lo que no llegaba se guardaba como dicho (11/11/2026, nube)
