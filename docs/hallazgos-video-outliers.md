@@ -66,6 +66,38 @@ de edición primero, y que en alguna parte, por ejemplo del lado de Importar, es
 También dijo que la selección «es sobre todo animaciones de texto» y que faltan los más complejos, como el de los pistachos: es el
 límite de mirar la PORTADA (ver arriba). Lo arregla la pasada con el video.
 
+## Desarmar el video de la competencia: lo averiguado antes de programar (ticket 97, 13/11/2026)
+
+Martín mandó https://github.com/JuneYaooo/rea-video: «extraer al 100 % con ingeniería inversa cómo está construido ese video,
+cómo está la edición, para replicarlo; investiga si hay algo mejor». Es lo que hoy hacen a mano las recetas (arriba), para
+cualquier outlier. Se leyó el repo y se relevaron 12 herramientas abiertas y 12 comerciales (13/11/2026):
+
+- **rea-video sirve, pero no tal cual.** Apache-2.0 (conservar su NOTICE), CLI en Python ≥ 3.10 con ffmpeg y onnxruntime. Baja
+  ~216 MB de modelos para separar voz, música y efectos (UVR MDX-Net + BandIt v2) y ~160 MB para la voz. Corta en planos (95 %
+  recall, 94 % precisión en 9 clips anotados, `eval/RESULTS.md` del repo), hace OCR de subtítulos (RapidOCR), dice si cada plano
+  es grabado, IA o código, y escribe un paquete **VIDEO.md** (ficha, resumen, línea de tiempo por plano, un archivo por plano;
+  formato abierto, https://videomd.github.io/videomd). La visión es opcional, por un endpoint compatible con OpenAI
+  (`REA_VLM_*`). **No corre en Vercel**: necesita un contenedor.
+- **No entiende español, y no es una opción.** El reconocimiento de voz es SenseVoice con el modelo FIJO en `rea_video/speech.py`
+  (zh, en, ja, ko, yue; bengalí aparte). Un reel en español sale sin lo que se dice, o con basura. Se reemplaza por
+  **faster-whisper** (MIT, CPU int8, tiempo por palabra) o **WhisperX** (BSD-2, trae alineación para `es`).
+- **Hypit (https://github.com/hypit-ai/hypit) NO se puede usar en MaKo**, aunque se presente como Apache-2.0: su LICENSE prohíbe
+  operarlo multi-tenant o como SaaS, cobre o no, y define un tenant como un workspace. Sólo se toma la idea: anclar los cortes y
+  los subtítulos a PALABRAS, no a segundos.
+- **Railway no tiene GPU**: todo en CPU (PySceneDetect BSD-3 para los cortes, faster-whisper int8, RapidOCR). Qwen3-VL y
+  Qwen-Image-Layered piden GPU: fuera.
+- **Gemini mira 1 cuadro por segundo por defecto** y pierde los cortes de menos de 1 s de un reel. Se le pasa la lista de cortes y
+  la transcripción medidas antes, o se sube el `fps`. Con la clave del negocio, nunca la de la plataforma.
+- **No hay dónde correr Python hoy**: el worker de montaje (`worker/`) nunca se prendió («Lo que cuesta prender el worker»,
+  `hallazgos-video-pipeline.md`). Prenderlo en Railway es con la cuenta de Martín.
+- **Mantenimiento**: TransNetV2 no cambia desde 12/2023 y Demucs de Meta está archivado → python-audio-separator (MIT). La
+  licencia de CADA modelo que baja se revisa aparte, como con madmom/BeatNet (arriba, en «Cortar al ritmo», del editor).
+- **Choque con reglas ya decididas**: lo que parte una imagen en capas (Canva Magic Layers, Qwen-Image-Layered) sólo sirve para
+  sacar el texto editable y el fondo limpio. La imagen se regenera; nunca se entrega por partes ni recortada.
+- **La competencia**: Foreplay, Atria y Minea transcriben y etiquetan (Atria clona sólo imágenes); CapCut Remake sólo rehace
+  plantillas armadas en CapCut; ChatCut (patrocina a rea-video), invideo, Pippit y Topview rehacen generando con IA por créditos.
+  Ninguno cruza el rendimiento real (el múltiplo de Spy) + español + plantilla editable en el propio editor + IA del negocio.
+
 ## Trampas del entorno
 
 - **Un `<Modal>` adentro de una tarjeta con animación de entrada queda ENCERRADO en la tarjeta.** `.tarjeta` tiene `animation:
@@ -85,3 +117,6 @@ límite de mirar la PORTADA (ver arriba). Lo arregla la pasada con el video.
   propio editor de guion (`app/video-editor/guia/EditorGuion.tsx`, tipos de `mensaje-para.ts`); cada receta necesita la suya o
   una guía genérica. Hoy la receta se lee en la caja del reel.
 - La clasificación automática de lo que Spy lea de ahora en más.
+- **El desarme automático (ticket 97)**: fase 1 sin servidor (Gemini del negocio sobre el video entero → la receta como
+  `EdicionDeReceta` de `lib/video-recetas.ts`, abierta en el editor como plantilla «toca para reemplazar»); fase 2 en el worker
+  (cortes, voz en español, OCR, y el código de rea-video sin SenseVoice), que espera que Martín prenda el contenedor.

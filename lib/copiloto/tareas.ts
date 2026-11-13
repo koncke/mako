@@ -29,9 +29,13 @@ export type ResumenParaTareas = {
   oferta: { sesion: number | null; notaOferta: boolean; notaAngulos: boolean; notaVoz: boolean; faltan: Record<ParteOC, number> };
   anuncios: { conectada: boolean; funnel: string | null; semana: Array<{ titulo: string; href: string }> };
   web: string[];
+  /** Lo más grave de cada página ya analizada (Landing Analyst): cada uno es una tarea. */
+  webArreglos?: Array<{ url: string; titulo: string }>;
   redes: Record<'instagram' | 'youtube', { conectada: boolean }>;
   /** Cuántos competidores sigue en Competitor Spy (null = no se sabe todavía). */
   seguidos: number | null;
+  /** Los avisos de la nevera de contenido (./nevera-reglas.ts) y el lunes de esta semana (YYYY-MM-DD): una tarea por formato y semana. */
+  nevera?: { lunes: string; avisos: Array<{ formato: 'reel' | 'story' | 'post' | 'video'; titulo: string }> };
 };
 
 const NOMBRE_PARTE: Record<ParteOC, string> = { angulos: 'tus ángulos', voz: 'tu voz', oferta: 'tu oferta' };
@@ -64,7 +68,12 @@ export function tareasDelCoPilot(r: ResumenParaTareas): { tareas: TareaCoPilot[]
 
   // Web
   hay(!r.web.length, { clave: 'web:analizar', tarjeta: 'web', titulo: 'Analiza tu web', href: '/web-generator' });
-  for (const u of r.web.slice(0, 3)) tareas.push({ clave: `web:mejorar-${claveDeTitulo(sinProtocolo(u))}`, tarjeta: 'web', titulo: `Mejora ${sinProtocolo(u)} con su análisis`, href: `/web-generator?analizar=${encodeURIComponent(u)}` });
+  // Con la página analizada, cada arreglo grave es su tarea; sin análisis todavía, analizarla.
+  if (r.webArreglos?.length) {
+    for (const h of r.webArreglos.slice(0, 4)) tareas.push({ clave: `web:arreglar-${claveDeTitulo(`${sinProtocolo(h.url)} ${h.titulo}`)}`, tarjeta: 'web', titulo: `Arregla en ${sinProtocolo(h.url)}: ${h.titulo}`, href: `/web-generator?analizar=${encodeURIComponent(h.url)}` });
+  } else {
+    for (const u of r.web.slice(0, 3)) tareas.push({ clave: `web:mejorar-${claveDeTitulo(sinProtocolo(u))}`, tarjeta: 'web', titulo: `Mejora ${sinProtocolo(u)} con su análisis`, href: `/web-generator?analizar=${encodeURIComponent(u)}` });
+  }
 
   // Instagram y YouTube
   hay(!r.redes.instagram.conectada, { clave: 'instagram:conectar', tarjeta: 'instagram', titulo: 'Conecta tu Instagram', abre: 'conectar', red: 'instagram' });
@@ -72,6 +81,19 @@ export function tareasDelCoPilot(r: ResumenParaTareas): { tareas: TareaCoPilot[]
   // «Selecciona a tus competidores»: de los que sigues sale con qué número se publica un reel de prueba.
   if (r.seguidos == null || r.seguidos === 0) tareas.push({ clave: 'instagram:competidores', tarjeta: 'instagram', titulo: 'Selecciona a tus competidores en Competitor Spy', href: '/competitor-spy?ver=seguidos' });
   else resueltas.push('instagram:competidores');
+
+  // La nevera: una tarea por formato que se queda corto, y por SEMANA (la clave lleva el lunes): una cerrada no vuelve a nacer, pero la
+  // semana siguiente, si sigue faltando, es otra tarea.
+  if (r.nevera) {
+    const semana = r.nevera.lunes.replace(/-/g, '');
+    for (const f of ['reel', 'story', 'post', 'video'] as const) {
+      const aviso = r.nevera.avisos.find((a) => a.formato === f);
+      const tarjeta: TarjetaCoPilot = f === 'video' ? 'youtube' : 'instagram';
+      const clave = `${tarjeta}:nevera-${f}-${semana}`;
+      if (aviso) tareas.push({ clave, tarjeta, titulo: aviso.titulo, href: '/calendario' });
+      else resueltas.push(clave);
+    }
+  }
 
   return { tareas, resueltas };
 }
