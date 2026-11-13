@@ -21,6 +21,7 @@ import { porId } from '@/lib/api-mako/registro'
 import { getSupabaseServer } from '@/lib/supabase'
 import { listarUsuarios } from '@/lib/usuarios'
 import { listarWorkspaces, wsSuperAdmin } from '@/lib/workspace'
+import { leerCambiosDeLinea } from '@/lib/registro-lineas'
 import { leerIngresos } from './clientes-server'
 import { vistaOrders } from './ventas-server'
 import {
@@ -123,7 +124,7 @@ export async function leerEventos(ahora = new Date(), opciones: OpcionesEventos 
   const negocios = [...new Set(opciones.negocios ?? [])].slice(0, TOPE_NEGOCIOS_A_FONDO)
   const solo = opciones.soloEsos === true && negocios.length > 0
   const avisos: string[] = []
-  const [ord, ing, alt, act, err, age, usr, fondo] = await Promise.allSettled([
+  const [ord, ing, alt, act, err, age, usr, fondo, lin] = await Promise.allSettled([
     leerOrdenes(),
     leerIngresos(),
     leerNegocios(),
@@ -132,6 +133,8 @@ export async function leerEventos(ahora = new Date(), opciones: OpcionesEventos 
     leerSesiones(),
     solo ? leerUsuarios() : Promise.resolve(null),
     Promise.all(negocios.map((ws) => leerAFondo(ws))),
+    // Los cambios de las líneas de MaKo son de la plataforma, no de un negocio: la ficha de uno no los lee.
+    solo ? Promise.resolve(null) : leerCambiosDeLinea(),
   ])
 
   let pedidos: EntradasEventos['pedidos'] = null
@@ -180,8 +183,11 @@ export async function leerEventos(ahora = new Date(), opciones: OpcionesEventos 
     agente = { sesiones: age.value.sesiones, nombres: Object.fromEntries(age.value.nombreWs) }
   } else avisos.push(`No pude leer las sesiones del agente: ${mensaje(age.reason)}`)
 
+  const lineas = lin.status === 'fulfilled' ? lin.value : null
+  if (lin.status === 'rejected') avisos.push(`No pude leer los cambios de las líneas de MaKo: ${mensaje(lin.reason)}`)
+
   return armarEventos({
-    pedidos, ingresos, altas, actividad, errores, agente, aFondo: aFondo.map((f) => f.lectura), avisos: [...new Set(avisos)], ahora,
+    pedidos, ingresos, altas, actividad, errores, agente, lineas, aFondo: aFondo.map((f) => f.lectura), avisos: [...new Set(avisos)], ahora,
     topes: {
       acciones: TOPE_ACCIONES, reportes: TOPE_REPORTES, sesiones: TOPE_SESIONES,
       accionesDeUnNegocio: TOPE_ACCIONES_DE_UN_NEGOCIO, reportesDeUnNegocio: TOPE_REPORTES_DE_UN_NEGOCIO,

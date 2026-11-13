@@ -20,21 +20,41 @@
 //
 // ⚠️ ES COSMÉTICO, como `nav-visibilidad`: el cierre de verdad es el guard de cada pantalla y el tope del servidor.
 //    Esconder el link no defiende nada; es dejar de ofrecerle una puerta que no le sirve.
+//
+// ⚠️ Y LA AGENCIA ADENTRO DE SU CLIENTE NO ES «EL CLIENTE» (12/11/2026, ticket #89): Código Inmobiliario, operando dentro de
+//    «Sellers», leyó «Pídele a tu agencia que te pase a Pro» — se lo decía a ella misma. La cuenta es cliente de una agencia,
+//    pero quien la mira es la agencia: a ella le toca el botón que sale de la vista y abre la ficha de esa cuenta en el Agency
+//    Dashboard, donde está «Pasar a Pro». La decisión es `ctaDeTope` (lib/plan-esencial-reglas.ts).
 // =============================================================================
 
-import type { ReactNode } from 'react';
-import { TEXTO_PEDIR_PRO_A_LA_AGENCIA } from '@/lib/plan-esencial-reglas';
-import { useClienteDeAgencia } from './useClienteDeAgencia';
+import { useState, type ReactNode } from 'react';
+import { ctaDeTope } from '@/lib/plan-esencial-reglas';
+import { useAgenciaAdentro, useClienteDeAgencia } from './useClienteDeAgencia';
+
+/** Salir de la vista de la agencia (la misma puerta que «Salir» de su barra: borra `mako_agencia`) e ir a la ficha. */
+async function irALaFicha(href: string): Promise<void> {
+  try { await fetch('/api/agencia/entrar', { method: 'DELETE' }); } catch { /* sin red: igual se intenta */ }
+  window.location.href = href;
+}
 
 /** El CTA de un cartel de tope: `children` (el link «Pasar a Pro» de ese cartel) o, al cliente de una agencia, el texto. */
 export function CtaPasarAPro({ children }: { children: ReactNode }) {
+  const [yendo, setYendo] = useState(false);
   // ⚠️ POR VERDAD Y NO CONTRA `false`, al revés que los usos de `esClienteDeAgencia` (lib/agencia.ts), y a propósito: acá el
   //    `null` es «el fetch a /api/auth/me no contestó todavía», no «no pude leer la cartera». Ese «no sé» de la BASE ya
   //    llega resuelto como `true` desde la ruta (`cuentaActualEsDeAgencia` compara `!== false`, lib/vista-de-otro.ts), así
   //    que el lado seguro está cubierto antes de llegar acá. Y tratar el `null` del primer dibujo como «sí» le esconderíamos
   //    el link a TODOS por un instante: estos carteles aparecen después de un error, cuando la lectura ya contestó.
-  const deAgencia = useClienteDeAgencia();
-  if (!deAgencia) return <>{children}</>;
+  const cta = ctaDeTope({ clienteDeAgencia: useClienteDeAgencia(), agenciaAdentroDe: useAgenciaAdentro() });
+  if (cta.tipo === 'link') return <>{children}</>;
+  if (cta.tipo === 'agencia') {
+    return (
+      <button type="button" disabled={yendo} onClick={() => { setYendo(true); void irALaFicha(cta.href); }}
+        style={{ background: 'none', border: 0, padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--primary)', cursor: yendo ? 'default' : 'pointer', textDecoration: 'underline' }}>
+        {yendo ? 'Abriendo…' : cta.rotulo}
+      </button>
+    );
+  }
   // Sin link y sin color de acción: no hay nada que toque él. Dim porque no es un error, es a quién pedírselo.
-  return <span style={{ fontWeight: 600, color: 'var(--dim)' }}>{TEXTO_PEDIR_PRO_A_LA_AGENCIA}</span>;
+  return <span style={{ fontWeight: 600, color: 'var(--dim)' }}>{cta.texto}</span>;
 }

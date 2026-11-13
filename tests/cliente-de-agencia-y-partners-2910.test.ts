@@ -81,10 +81,12 @@ test('«Tu plan» del cliente de una agencia: sin «Pasar a Pro» ni «Recomiend
 // clic y le pagaba a MaKo un SEGUNDO plan del que su agencia ya paga. Ahora el link va envuelto en `CtaPasarAPro`.
 test('los carteles de tope: el «Pasar a Pro» va envuelto en CtaPasarAPro, y sin él no hay link', () => {
   const cta = fuente('app/_components/CtaPasarAPro.tsx');
-  assert.match(cta, /const deAgencia = useClienteDeAgencia\(\);\n\s*if \(!deAgencia\) return <>\{children\}<\/>;/,
+  // Desde el 12/11/2026 (#89) la decisión es `ctaDeTope` (pura, en lib/plan-esencial-reglas.ts; la prueba
+  // tests/tope-agencia-adentro-89.test.ts): el `null` del primer dibujo sigue yendo por el link.
+  assert.match(cta, /const cta = ctaDeTope\(\{ clienteDeAgencia: useClienteDeAgencia\(\), agenciaAdentroDe: useAgenciaAdentro\(\) \}\);\n\s*if \(cta\.tipo === 'link'\) return <>\{children\}<\/>;/,
     'el `null` del primer dibujo va por el link: el «no sé» de la BASE ya llega como `true` desde /api/auth/me');
-  assert.match(cta, /\{TEXTO_PEDIR_PRO_A_LA_AGENCIA\}<\/span>/);
-  assert.doesNotMatch(cta.slice(cta.indexOf('if (!deAgencia)')), /<a |<Link /, 'al cliente de una agencia, SIN link: no hay nada que toque él');
+  assert.match(cta, /\{cta\.texto\}<\/span>/);
+  assert.doesNotMatch(cta.slice(cta.indexOf("if (cta.tipo === 'link')")), /<a |<Link /, 'al cliente de una agencia, SIN link: no hay nada que toque él');
   assert.match(TEXTO_PEDIR_PRO_A_LA_AGENCIA, /^Pídele a tu agencia/, 'de TÚ, y dice a quién pedírselo');
   // Una sola lectura de /api/auth/me para los ocho carteles (el hook la memoiza a nivel de módulo).
   assert.match(fuente('app/_components/useClienteDeAgencia.ts'), /promesa \?\?= fetch\('\/api\/auth\/me'\)/);

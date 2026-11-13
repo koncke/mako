@@ -245,12 +245,13 @@ test('10: vacío → se arma ahí; con algo → proyecto nuevo, armado ANTES de 
   const j = (s: string) => a.indexOf(s);
   assert.ok(a.includes('const enVuelo = new Map<string, Promise<string>>()'), 'la promesa en vuelo sobrevive a un remontaje');
   assert.ok(a.includes('if (arrancado.current === intento) return;'), 'el pestillo por ref (StrictMode)');
-  const efecto = a.slice(j('useEffect(() => {'), j('}, [plantilla, intento, router]);'));
+  const efecto = a.slice(j('useEffect(() => {'), j('}, [plantilla, intento]);'));
   assert.ok(!efecto.includes('return () =>'), 'el efecto NO cancela en su cleanup');
   // Crear recién después de que corra la «salida» del editor de antes (una microtarea después de desmontarse).
   assert.ok(j('setTimeout(listo, 0)') > 0 && j('setTimeout(listo, 0)') < j('createNewProject('), 'una vuelta del bucle antes de crear');
   assert.ok(j('createNewProject(') < j('usarPlantilla(editor, plantilla)') && j('usarPlantilla(editor, plantilla)') < j('command.clear()') && j('command.clear()') < j('saveCurrentProject()'));
-  assert.ok(j('saveCurrentProject()') < j('router.replace(`/video-editor/${proyecto}`)'), 'la URL, sin el ?plantilla=, recién al final');
+  // Con una carga entera, no router.replace (ticket #91: tests/video-editor-ticket-91.test.ts).
+  assert.ok(j('saveCurrentProject()') < j('abrirProyectoCreado(proyecto)'), 'la URL, sin el ?plantilla=, recién al final');
   assert.ok(a.includes('deleteProjects({ ids: [id] })'), 'si falla, no queda un proyecto vacío');
 });
 

@@ -30,6 +30,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link, { useRouter } from "@/app/_ui/Link";
+import { abrirProyectoCreado } from "@/app/video-editor/ruta";
 import { Loader2 } from "lucide-react";
 import { EditorCore } from "@/app/video-editor/_opencut/core";
 import { importarArchivos } from "@/app/video-editor/_opencut/media/importar";
@@ -102,7 +103,6 @@ export function ImportarDesde({ desde }: { desde: DesdeEditor }) {
 }
 
 function Importando({ desde }: { desde: Listo }) {
-	const router = useRouter();
 	const [fase, setFase] = useState<Fase>({ fase: "bajando", pct: 0 });
 	const [intento, setIntento] = useState(0);
 	const arrancado = useRef(-1);
@@ -120,9 +120,10 @@ function Importando({ desde }: { desde: Listo }) {
 			promesa.finally(() => enVuelo.delete(clave)).catch(() => {});
 		}
 		promesa
-			.then((id) => router.replace(`/video-editor/${id}`))
+			// Una carga entera, no router.replace: navegar solo al cargar rompía el Router de Next (ticket #91, ../ruta.ts).
+			.then((id) => abrirProyectoCreado(id))
 			.catch((e) => setFase({ fase: "fallo", donde: e instanceof FalloImportar ? e.donde : "importar" }));
-	}, [desde, intento, router]);
+	}, [desde, intento]);
 
 	if (fase.fase === "fallo") {
 		return (

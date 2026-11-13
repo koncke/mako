@@ -289,6 +289,7 @@ function EditorLayout() {
 								overlayControls={overlayControls}
 								overlayInstances={overlaySource.instances}
 								onOverlayVisibilityChange={setOverlayVisibility}
+								avisoArchivos
 							/>
 						</Marco>
 					</ResizablePanel>

@@ -173,6 +173,12 @@ corrida filtrada habría escrito muchas claves, no una. **La trampa:** la ruta p
 (`actividad_acciones` y `chat_eventos` vacías en ese minuto; los logs de Vercel de hace horas no se leen por la API: el stream
 no devuelve ni los encabezados). Desde las 17:38, por el …3479 salieron 36 mensajes, todos de la API: 33 al grupo de SuperAdmin
 (los avisos de atraso), 2 al de Código Inmobiliario y 1 al de un cliente (ws24); ninguno a un chat personal.
+**Desde el 13/11 deja rastro** (el botón se queda: lo pidió Martín). La ruta saca una foto de la voz y el canal antes de atender y
+otra en el `finally`, y si cambiaron anota quién (el email de la sesión), qué botón, desde qué pantalla (el Referer) y de qué línea
+a cuál, con el número (lib/registro-lineas.ts, una lista con tope en `app_settings` del dueño, sin migración). Se ve en Admin ›
+Analytics › Events, tipo «linea», y la voz que queda en una línea de negocio (`mako_ws<n>`) va en rojo. Se anota el CAMBIO y no el
+botón: una acción nueva entra sola, y una foto que no se pudo leer no cuenta como «sin cambio». ⚠️ «Usar la línea de MaKo» también
+lo hace el panel SOLO cuando la línea vuelve (`autoVozRef`): con la sesión de quien tenía la pantalla abierta, que no apretó nada.
 
 ---
 

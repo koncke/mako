@@ -299,7 +299,7 @@ export type AbrirSecuencia = { id: number; mako?: true; pedido?: string; cron?: 
 // (Acá vivía `AbrirAviso`, el pedido de abrir un Mensaje de MaKo desde el link de Notificaciones,
 // `/automations?aviso=<id>`. Se fue el 11/10/2026 con esos mensajes: un mensaje de MaKo se abre con `?sec=`.)
 
-export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, onReload, productos, disparadores, menu, Configuraciones, configPropia, tz, abrir, handoffs, onElegida, onMakoTrabajando, onCrearOtra }: {
+export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negocio, rolAdmin, audios, canalCaido, onAudioNuevo, onNueva, errorNueva, avisoNueva, onReload, productos, disparadores, menu, Configuraciones, configPropia, tz, abrir, handoffs, onElegida, onMakoTrabajando, onCrearOtra }: {
   /**
    * EL MODAL DE CONFIGURACIONES DE UNA AUTOMATIZACIÓN (20/10/2026): lo abren la tuerca del título y «Configuraciones» del
    * «⋯». Llega como COMPONENTE por lo mismo que `menu`: importado acá, sus acciones arrastrarían `server-only` a los tests.
@@ -342,6 +342,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   onNueva: () => void;
   /** Por qué no se pudo crear la última («＋ Nueva»): se dibuja pegado al botón. */
   errorNueva?: string | null;
+  /** Lo que el server avisa de la última que SÍ se creó (el CRON de una copia, #90): aviso, no error, y sin «Reportar a Soporte». */
+  avisoNueva?: string | null;
   onReload: () => void;
   // ⚠️ ACÁ VIVÍAN `pie` (el de «N etapas sin secuencia · Armar una») y `pedidoIA` (el pedido que «Armar
   // una» le dejaba a la caja de Crear con IA). Salieron el 10/10/2026 con el pie: era de una versión
@@ -954,6 +956,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
             </button>
           )}
           {rolAdmin && errorNueva && <div role="alert" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--bad)' }}>{errorNueva}<ReportarASoporte /></div>}
+          {rolAdmin && avisoNueva && !errorNueva && <div role="status" style={{ padding: '0 12px 8px', fontSize: 12.5, color: 'var(--warn)' }}>{avisoNueva}</div>}
           {/* Sólo con algo que filtre: con la lista VACÍA de verdad (un negocio nuevo, duodécima tanda) no hay nada
               que «no coincida», y «＋ Nueva automatización» de arriba ya dice qué hacer. */}
           {lista.length === 0 && (q !== '' || filtros.length > 0) && <div style={{ padding: 16, color: 'var(--faint)', fontSize: 13 }}>Ninguna coincide</div>}

@@ -48,6 +48,23 @@ motor triplicado) y, a la tarde, las de abajo (la receta en un pedido, Pexels, V
 `enjambre/{pastilla.ts,components/en-vivo.tsx}` · `clips/{resultado,buscar,estado,components/clips-view}` · test
 `tests/video-editor-detalles-12-11.test.ts`.
 
+## Ticket 91: «La pantalla Video se rompió» era el Router de Next, no el editor (12/11/2026)
+
+**El síntoma:** MaKo lo detectó solo (`errores_app`, huella 84301bc4ac03cb14): React #310 («más hooks que en el render
+anterior») en `/video-editor/:token`, ws 9, 17:36 y 17:37 UTC, después del deploy de las 11:05.
+
+- **El diagnóstico obvio («vino de los cambios del lag: un hook en un `if`») no era.** La traza guardada (`errores_app.ejemplo.stack`)
+  apunta al `Router` de Next (`app-router`, el `useMemo` sobre la URL, en el chunk de Next), no a un componente del editor. Para
+  leerla: bajar el chunk de producción con su `?dpl=` y mirar la columna. Y las DOS veces seguidas son la recarga automática del
+  centinela (`CentinelaArranque`) volviendo a la MISMA URL: algo que pasa SOLO al cargar.
+- **La causa:** `/video-editor/nuevo`, un id que no está en ese navegador, `?plantilla=` y `?desde=` crean el proyecto y cambiaban
+  la URL con `router.replace` apenas cargaban. Es vercel/next.js#63121: una navegación que se resuelve por promesa (la página es
+  `force-dynamic`) deja al Router con otra cuenta de hooks. Arreglado en React (react#36911) y en Next después de la 16.2.11 que usa
+  MaKo. **Regla:** lo que navega SOLO al cargar el editor usa `abrirProyectoCreado` (app/video-editor/ruta.ts: una carga entera
+  del proyecto ya guardado), no `router.replace`; lo fija `tests/video-editor-ticket-91.test.ts`.
+- **Sin hacer:** subir Next a ≥ 16.3 (decisión de todo el repo) y volver a `router.replace`. No se pudo reproducir en el navegador
+  de la app: estaba sin sesión.
+
 ## La receta de un reel replicado salía en dos pedidos, y la Edición automática no la seguía (12/11/2026, tarde)
 
 **El síntoma** (ws 9, «Replicar» de «La palabra clave gigante»): «hacé la edición de la referencia con mi toma» ponía la toma
@@ -79,7 +96,9 @@ lima y del MISMO tamaño que el resto.
   (`TOPES_CLAVES_TAMANO`, params/extra/subtitulos.ts): el renglón se parte midiendo la letra normal (`partirEnLineas`,
   subtitles/build-subtitle-text-element.ts, no suma la reserva de la clave agrandada que sí suma el dibujo:
   text/resaltado.ts → `reservasDeRenglones`), y una clave al 300 % se saldría del cuadro. Para subir el tope, primero que el
-  partido mida con la reserva. Tampoco: los cortes de plano alternando la escala 100/130 % que pide la receta.
+  partido mida con la reserva, Y que el renglón reserve ALTO: la clave se agranda desde su centro, y a 3× en un subtítulo
+  de dos renglones tapa al otro (por eso el tope de 160 %, «tapa a las vecinas»); `reservasDeRenglones` sólo reserva ancho.
+  Tampoco: los cortes de plano alternando la escala 100/130 % que pide la receta.
 
 ## Pexels: no hay clave en NINGÚN lado, y el B-roll ahora usa lo que la persona subió (12/11/2026)
 
@@ -110,7 +129,8 @@ lima y del MISMO tamaño que el resto.
 - **Trampa:** volver a importar el archivo NO lo arregla, ni en la computadora: `MediaManager.addMediaAsset` le da un id nuevo y el
   clip sigue apuntando al viejo. **Regla:** `MediaManager.reenlazarMedio` guarda el archivo elegido con el MISMO mediaId
   (`media/reenlazar.ts`; qué falta: `media/archivos-faltantes.ts`). El teléfono avisa «Falta «x» en este teléfono» con «Elegir el
-  archivo». **Sin hacer:** la computadora todavía no ofrece reenlazar (sólo lo dice al subtitular y en Exportar).
+  archivo». La computadora, igual, encima del reproductor (`media/components/aviso-archivos-faltantes.tsx`, con
+  `PreviewPanel avisoArchivos`: el teléfono usa el MISMO `PreviewPanel` y tiene su aviso propio, por eso va con prop).
 
 ## Un título del chat salía del cuadro: «tamaño 48» eran letras de 1.000 px (12/11/2026)
 

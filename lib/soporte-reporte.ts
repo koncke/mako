@@ -57,8 +57,13 @@ export function sinSecretos(texto: string): string {
     .replace(/\b[A-Za-z0-9+/_-]{32,}={0,2}/g, '«clave»');
 }
 
-/** Las palabras con mayúscula que NO son un nombre: la marca, las tabs y los servicios que nombra un error. */
+/**
+ * Las palabras con mayúscula que NO son un nombre: la marca, las tabs y los servicios que nombra un error.
+ * ⚠️ Y LOS PLANES (12/11/2026, ticket #89): el cartel de tope decía «Pasa a MaKo Pro… que te pase a Pro» y a la Ticketera
+ *    llegó «Pasa a MaKo «…»… que te pase a «…»»: el ticket parecía un bug del nombre del plan, y era este filtro.
+ */
 const PALABRAS_DE_MAKO = new Set([
+  'Pro', 'Esencial', 'Agency', 'Partners',
   'MaKo', 'Ops', 'Center', 'Second', 'Brain', 'CRM', 'Dashboard', 'General', 'Automations', 'Web', 'Generator', 'Image', 'Video',
   'Editor', 'Offer', 'Clients', 'Calendar', 'Plan', 'Ads', 'Manager', 'Writer', 'Analyst', 'Ticketera', 'Soporte', 'Today', 'Sales',
   'Marketing', 'Create', 'Meta', 'Google', 'WhatsApp', 'Instagram', 'Facebook', 'Gmail', 'Drive', 'Sheets', 'Stripe', 'Mercado',

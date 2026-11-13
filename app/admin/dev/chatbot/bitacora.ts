@@ -3484,4 +3484,23 @@ FEEDBACK PROBAR:
     revisar: '/crm',
     tickets: [70],
   },
+  {
+    fecha: '12 nov', hora: '22:10', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Automations: al pegar una automatización, el aviso dice en qué etapa y en qué funnels quedó, y ya no sale como error',
+    puntos: [
+      'Sellers (#90) pegó «Un Lead Entró 2» y leyó en rojo «El CRON quedó en esa etapa de todos tus funnels: revisa cuál», con «Reportar a Soporte».',
+      'Medido: su etapa «lead» está en sus dos funnels, «Sellers» y «Captaciones», y la automatización escucha en los dos. Sus funnels están bien.',
+      'Ahora dice: «El CRON escucha «Lead» en tus 2 funnels: «Sellers» y «Captaciones». Si es para uno solo, abre el CRON y elige la etapa de ese funnel.»',
+      'Y se dibuja como aviso, sin rojo ni «Reportar a Soporte»: la automatización sí se creó. Lo mismo «Elige qué la dispara» de una plantilla o una copia.',
+    ],
+    archivos: [
+      'lib/copia-disparador.ts — `avisoDeCron`: la etapa y los funnels por su nombre, y qué hacer',
+      'app/automations/ChatAgentApp.tsx · app/automations/SimuladorWhatsApp.tsx — `avisoCrear` / `avisoNueva`, aparte del error',
+      'tests/copia-disparador.test.ts — el caso de Sellers y la pantalla',
+      'docs/hallazgos-chatbot.md — por qué no era un problema de sus funnels',
+    ],
+    revisar: '/automations',
+    tickets: [90],
+  },
 ];

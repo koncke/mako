@@ -62,11 +62,14 @@ export function archivosFaltantes(tracks: PistasSueltas, idsDeMedios: ReadonlySe
 		.map(({ inicio: _inicio, ...f }) => ({ ...f, nombre: f.nombre || NOMBRE_SIN_NOMBRE[f.tipo] }));
 }
 
-/** El título del aviso: nombra el archivo si es uno; si son varios, cuántos (cada uno va en su fila). */
-export function textoDelAviso(faltan: readonly Pick<ArchivoFaltante, "nombre">[]): string {
+/**
+ * El título del aviso: nombra el archivo si es uno; si son varios, cuántos (cada uno va en su fila). `donde`: el teléfono
+ * (app/m/video-editor/EditorVideoM.tsx) o la computadora (./components/aviso-archivos-faltantes.tsx).
+ */
+export function textoDelAviso(faltan: readonly Pick<ArchivoFaltante, "nombre">[], donde: "teléfono" | "navegador" = "teléfono"): string {
 	if (faltan.length === 0) return "";
-	if (faltan.length === 1) return `Falta «${faltan[0].nombre}» en este teléfono`;
-	return `Faltan ${faltan.length} archivos en este teléfono`;
+	if (faltan.length === 1) return `Falta «${faltan[0].nombre}» en este ${donde}`;
+	return `Faltan ${faltan.length} archivos en este ${donde}`;
 }
 
 /** Lo que deja elegir el selector de archivos: el MISMO tipo del clip (un video no se reenlaza con una foto). */
