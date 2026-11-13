@@ -39,6 +39,15 @@ const db = () => getSupabaseServer();
 const COLS = 'id, workspace_id, autor_tipo, usuario_id, autor_nombre, canal, texto, adjunto, responde_a, reaccion, aviso_tipo, wa_message_id, wa_at, cliente_id, created_at';
 /** Lo que espera un envío a que quede la copia: lo mismo que el anillo anti-eco. Después sigue sola. */
 export const TOPE_DE_LA_COPIA_MS = 3000;
+/** Lo que la función se queda viva DESPUÉS de responder esperando una copia lenta (`after`). Una base colgada no la retiene hasta el corte de Vercel. */
+export const TOPE_DE_LA_COPIA_DESPUES_MS = 10_000;
+
+/** `p`, o null pasados `ms`. El reloj no retiene el proceso. */
+function conTope<T>(p: Promise<T>, ms: number): Promise<T | null> {
+  let t: ReturnType<typeof setTimeout> | undefined;
+  const tope = new Promise<null>((r) => { t = setTimeout(() => r(null), ms); (t as { unref?: () => void }).unref?.(); });
+  return Promise.race([p, tope]).finally(() => { if (t) clearTimeout(t); });
+}
 /** Los hosts de MaKo: lo que se le saca a un invitado. */
 export const hostsDeMaKo = (): string[] => [APP_BASE_URL, ...DOMINIOS_MAKO];
 
@@ -166,6 +175,11 @@ export async function copiarAlGrupo(ws: number, o: { texto: string; de?: 'mako' 
     console.error(`[grupo-app] ws${ws}: la copia falló: ${e instanceof Error ? e.message : String(e)}`);
     return null;
   });
+  // ⚠️ LA COPIA QUE PASA EL TOPE NO PUEDE QUEDAR SUELTA (13/11/2026). Quien manda espera `TOPE_DE_LA_COPIA_MS` y sigue; la copia sigue sola, pero en
+  // Vercel una promesa que nadie espera se congela cuando el cron o el webhook contestan, y ese aviso no caía en el hilo ni sonaba, sin un error.
+  // Registrada en `after`, la función vive hasta que termina (Next espera la promesa que devuelve la función), con su propio tope: una base colgada no
+  // retiene la función hasta el corte. Sin pedido en curso (un script) `after` tira, y la copia termina igual.
+  try { after(() => conTope(trabajo, TOPE_DE_LA_COPIA_DESPUES_MS)); } catch { /* sin pedido en curso */ }
   let t: ReturnType<typeof setTimeout> | undefined;
   const tope = new Promise<null>((r) => { t = setTimeout(() => r(null), TOPE_DE_LA_COPIA_MS); (t as { unref?: () => void }).unref?.(); });
   try { return await Promise.race([trabajo, tope]); } finally { if (t) clearTimeout(t); }
