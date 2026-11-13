@@ -80,7 +80,8 @@ test('3. los enchufes: la ruta, replicar(), el pedido de la pantalla y la operac
   assert.match(rep, /if \(p\.adaptar === true && formato === 'web'\) return falla\(ERROR_ADAPTAR_WEB, 400, 'landing'\);/);
   assert.match(rep, /configDeReplica\(formato, url, \{ adaptar: p\.adaptar === true \}\)/);
   // 28/10/2026: el esquema de las tandas lleva la nota de cada sección (su molde y su ángulo: tests/web-generator-replicar-partes.test.ts).
-  assert.match(rep, /pedirSecciones\(\{ esquema: esqTandas, indices, params: receta\.paramsSecciones \?\? params \}\)/, 'las tandas usan los parámetros de adaptar');
+  // 13/11/2026: cada vuelta lleva su esquema (por defecto el de las notas, `esquemaVuelta = esqTandas`); los parámetros, los mismos.
+  assert.match(rep, /pedirSecciones\(\{ esquema: esquemaVuelta, indices, params: receta\.paramsSecciones \?\? params \}\)/, 'las tandas usan los parámetros de adaptar');
   assert.match(rep, /sinIA && receta\.adaptar\s*\?\s*\(sinIA === 1 \? `Una \$\{una\} quedó con el texto de la original: adáptala con MaKo\.`/,
     'una adaptada: la sección sin IA quedó con el texto de la otra, y se dice así (no «quedó sin diseño»)');
   const pantalla = fuente('app/web-generator/crear/Replicar.tsx');
