@@ -14,6 +14,12 @@
 // estilo en línea con un `!important` desde su hoja: eso cambiaba lo que se VE sin cambiar lo que se CUENTA, y una página del
 // teléfono traía el doble de tarjetas —el doble de miniaturas que bajar con datos (docs/hallazgos-mobile.md, 6/11/2026).
 //
+// ⚠️ CON VARIAS COLUMNAS, LA GRILLA DE CREATE (13/11/2026, Martín: «buen diseño»): cada tarjeta lleva la forma de su red desde el
+// 12/11, y en una grilla de FILAS un short al lado de un video largo dejaba un hueco debajo del largo. Con `proporcion`, la página
+// se reparte en columnas con `GrillaMixta` (app/_crear/GrillaMixta.tsx, la de Copywriting): cada tarjeta, en orden, va a la
+// columna más baja. La página sigue siendo `columnas × FILAS_POR_PAGINA` tarjetas: lo que cambia es cómo se apilan, no cuántas.
+// Con una columna (el teléfono) no hay huecos que llenar: la grilla de siempre.
+//
 // El paginador copia el de GitHub y el de Linear: primera, última, la actual con sus vecinas y «…» (`botonesDePaginas`).
 // Cambiar de página lleva la cabecera de la grilla a la vista (si no se ve), sin animar el scroll de toda la página.
 // =============================================================================
@@ -21,6 +27,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '../_components/icons';
 import { FILAS_POR_PAGINA, botonesDePaginas, columnasQueEntran, paginaEnRango } from '@/lib/spy-vista';
+import { GrillaMixta } from '@/app/_crear/GrillaMixta';
 
 /** El chevron de la casa apunta abajo: girado, apunta a un costado (no hay variante por lado: icons.tsx). */
 export function Flecha({ a, size = 16 }: { a: 'izquierda' | 'derecha'; size?: number }) {
@@ -33,8 +40,11 @@ const MINIMO = 210;
     teléfono no entra por acá: pide `columnas={1}` y no se mide nada. */
 const MINIMO_ANGOSTO = 150;
 const HUECO = 16;
+const HUECO_ANGOSTO = 12;
+/** Lo que suma el pie de la tarjeta (TarjetaPieza: el nombre en dos renglones y los números) para ESTIMAR su alto al repartirlas. */
+const PIE_TARJETA = 92;
 
-export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarjeta, cabecera, vacio, columnas: pedidas }: {
+export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarjeta, cabecera, vacio, columnas: pedidas, proporcion }: {
   piezas: readonly T[];
   /** Cuando cambia (la búsqueda, el tipo, el orden, el competidor), vuelve a la página 1. */
   reinicio: string;
@@ -49,10 +59,16 @@ export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarje
    * tiene que pelearle el `grid-template-columns` del estilo en línea desde su hoja. Sin esto, se mide.
    */
   columnas?: number;
+  /**
+   * Ancho / alto del marco de cada una (`proporcionDe`). Con esto y más de una columna, se reparten como en Create
+   * (`GrillaMixta`) y no quedan huecos entre formatos distintos. Sin esto, la grilla de filas.
+   */
+  proporcion?: (p: T) => number;
 }) {
   const caja = useRef<HTMLDivElement>(null);
   const arriba = useRef<HTMLDivElement>(null);
   const [medidas, setMedidas] = useState(5);
+  const [angosto, setAngosto] = useState(false);
   const [pagina, setPagina] = useState(1);
   /** Nunca menos de 1: con 0 columnas una página no tiene tarjetas y las páginas son infinitas. */
   const columnas = Math.max(1, Math.floor(pedidas ?? medidas));
@@ -61,7 +77,10 @@ export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarje
     if (pedidas != null) return;
     const el = caja.current;
     if (!el) return;
-    const medir = () => setMedidas(columnasQueEntran(el.clientWidth, el.clientWidth < 600 ? MINIMO_ANGOSTO : MINIMO, el.clientWidth < 600 ? 12 : HUECO));
+    const medir = () => {
+      setAngosto(el.clientWidth < 600);
+      setMedidas(columnasQueEntran(el.clientWidth, el.clientWidth < 600 ? MINIMO_ANGOSTO : MINIMO, el.clientWidth < 600 ? HUECO_ANGOSTO : HUECO));
+    };
     medir();
     const ro = new ResizeObserver(medir);
     ro.observe(el);
@@ -86,8 +105,20 @@ export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarje
   return (
     <section className="spy-todas" aria-label="Todas sus piezas" data-recorrido="spy-grilla">
       <div ref={arriba} className="spy-todas__cabecera">{cabecera}</div>
-      <div ref={caja} className="spy-pgrid spy-pgrid--ancha" style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}>
-        {estas.map((p) => <div key={p.id} className="spy-pgrid__celda">{tarjeta(p)}</div>)}
+      <div ref={caja}>
+        {proporcion && columnas > 1 ? (
+          // Los mismos `minimo` y `hueco` con que se midió: la que reparte cuenta las mismas columnas que la paginación.
+          <GrillaMixta
+            items={estas} clave={(p) => String(p.id)} proporcion={proporcion} pie={PIE_TARJETA}
+            minimo={angosto ? MINIMO_ANGOSTO : MINIMO} hueco={angosto ? HUECO_ANGOSTO : HUECO} fila={angosto ? HUECO_ANGOSTO : HUECO}
+            porDefecto={columnas} etiqueta="Sus piezas" className="spy-mixta"
+            render={(p) => <li className="spy-pgrid__celda">{tarjeta(p)}</li>}
+          />
+        ) : (
+          <div className="spy-pgrid spy-pgrid--ancha" style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}>
+            {estas.map((p) => <div key={p.id} className="spy-pgrid__celda">{tarjeta(p)}</div>)}
+          </div>
+        )}
       </div>
       {!piezas.length && vacio}
       {paginas > 1 && (

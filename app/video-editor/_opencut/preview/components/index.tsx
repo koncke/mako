@@ -48,6 +48,7 @@ import { tiempoEjeVistaPrevia } from "@/app/video-editor/_opencut/timeline/compo
 import { Reglas, GROSOR_REGLA } from "@/app/video-editor/_opencut/guides/reglas";
 import { LineasGuia } from "@/app/video-editor/_opencut/guides/lineas-guia";
 import { useArrastreGuia } from "@/app/video-editor/_opencut/guides/use-arrastre-guia";
+import { AvisoArchivosFaltantes } from "@/app/video-editor/_opencut/media/components/aviso-archivos-faltantes";
 
 function usePreviewSize() {
 	const canvasSize = useEditor(
@@ -84,6 +85,7 @@ export function PreviewPanel({
 	overlayControls,
 	overlayInstances,
 	onOverlayVisibilityChange,
+	avisoArchivos = false,
 }: {
 	overlayControls: PreviewOverlayControl[];
 	overlayInstances: PreviewOverlayInstance[];
@@ -91,6 +93,8 @@ export function PreviewPanel({
 		overlayId: string;
 		isVisible: boolean;
 	}) => void;
+	/** El aviso de los archivos que faltan en este navegador, con «Elegir» (la computadora; el teléfono tiene el suyo). */
+	avisoArchivos?: boolean;
 }) {
 	const panelRef = useRef<HTMLDivElement>(null);
 	const pantalla = usePantallaCompleta({ panelRef });
@@ -115,6 +119,7 @@ export function PreviewPanel({
 				overlayInstances={overlayInstances}
 				onOverlayVisibilityChange={onOverlayVisibilityChange}
 			/>
+			{avisoArchivos ? <AvisoArchivosFaltantes /> : null}
 			<RenderTreeController />
 		</div>
 	);
