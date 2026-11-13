@@ -115,9 +115,11 @@ de ese negocio, no a su grupo.
 pedido con «sí» contestan en el hilo de la app con el mismo turno de WhatsApp. Tiempos: la pregunta 2 min (la consulta con
 herramientas), el audio 1 min (lo transcribió bien), la foto 16 s (leyó los números de la imagen), la propuesta 34 s y el «sí» 41 s,
 con la nota guardada de verdad en la ficha. Capturas en las notas del Cerebro, `mako-en-la-app-1311/`. Lo que salió mal en las
-respuestas, sin ser de la app: «te mostré arriba» con la agenda abajo (docs/hallazgos-calendario.md), «Cargá… agendá» (arreglado en
-lib/al-tuteo.ts) y «la cuenta de este grupo, ws9» (un número de negocio en un texto para personas; sin arreglar, viene del contexto
-de la plataforma que recibe el modelo).
+respuestas, sin ser de la app, y quedó arreglado: «te mostré arriba» con la agenda abajo (docs/hallazgos-calendario.md), «Cargá…
+agendá» (lib/al-tuteo.ts) y «la cuenta de este grupo, ws9». Esto último: el modelo copia el número de lo que ve en su contexto, y el
+prompt no alcanza; ahora la salida del turno cambia «wsN» por el nombre del negocio (lib/sin-codigos-de-negocio.ts, en las `partes`
+de lib/mako-doer-in.ts, junto a `alTuteo`). En el grupo de un cliente sólo nombra al suyo: el número de otro negocio queda «este
+negocio», para no decir ahí el nombre de otro cliente.
 
 **Las trampas del entorno al probar el grupo:**
 - **El navegador de la app BLOQUEA el micrófono**: tocar el micrófono muestra «No se pudo acceder al micrófono». La nota de voz se

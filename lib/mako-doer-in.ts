@@ -77,6 +77,7 @@ import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { conElDominioDeMaKo, linksConWs } from '@/lib/links-con-ws';
 import { llegoTarde } from '@/lib/linea-demora';
 import { alTuteo } from '@/lib/al-tuteo';
+import { idsDeNegocioEn, sinCodigosDeNegocio } from '@/lib/sin-codigos-de-negocio';
 import { DOMINIOS_MAKO } from '@/lib/email-remitente';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro, nombraGoogleCalendar, type VeredictoIntencion } from '@/lib/mako-intencion';
 import { permisoCalendarioGoogle } from '@/lib/google-calendar';
@@ -1765,6 +1766,16 @@ async function siNoLlego(ws: number, actor: string | null | undefined, soloApp: 
   } catch (e) {
     console.warn(`[mako-doer-in] ws=${ws} la respuesta perdida no se registró: ${e instanceof Error ? e.message : String(e)}`);
   }
+}
+
+/**
+ * Los nombres que la salida de este turno puede decir en lugar de «wsN» (lib/sin-codigos-de-negocio.ts). En el grupo de un CLIENTE, sólo
+ * el suyo: un número de otro negocio no se convierte ahí en su nombre (queda «este negocio»). En el de la plataforma, cualquiera. Nunca tira.
+ */
+async function nombresParaLaSalida(texto: string, wsData: number, esPlataforma: boolean): Promise<Map<number, string>> {
+  const ids = idsDeNegocioEn(texto).filter((id) => esPlataforma || id === wsData).slice(0, 10);
+  const pares = await Promise.all(ids.map(async (id) => [id, (await getWorkspace(id).catch(() => null))?.nombre ?? ''] as const));
+  return new Map(pares.filter(([, n]) => !!n.trim()));
 }
 
 async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts: { acuse?: Acuse } = {}): Promise<ResultadoDoer> {
@@ -3742,7 +3753,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // El dominio que el modelo inventa («hola-malo.com/crm/2761», 28/10/2026, lib/links-con-ws.ts) se corrige al de MaKo, en lo que
       // sale y en la memoria: si quedaba en el historial, el modelo lo repetía.
       // Y en TÚ (11/11/2026, lib/al-tuteo.ts): a Joan le salió «Preguntás… ¿Querés que revise…?».
-      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => alTuteo(conElDominioDeMaKo(p.trim(), APP_URL, DOMINIOS_MAKO))).filter(Boolean);
+      // Y con el NOMBRE del negocio, nunca «ws9» (13/11/2026, lib/sin-codigos-de-negocio.ts): en el grupo de un cliente sólo el suyo; en el de la
+      // plataforma, el de cualquier negocio que nombre.
+      const nombresDeNegocios = await nombresParaLaSalida(respuesta ?? '', wsData, esElGrupoDeLaPlataforma);
+      const partes = (respuesta ?? '').split(/\n\s*-{3,}\s*\n/).map((p) => sinCodigosDeNegocio(alTuteo(conElDominioDeMaKo(p.trim(), APP_URL, DOMINIOS_MAKO)), nombresDeNegocios)).filter(Boolean);
       // Lo que escribió el CÓDIGO (la agenda) va al final, cada bloque como su propio
       // mensaje. Va acá y no antes porque los reemplazos de arriba (el borrador, el
       // lead, el cartel) pisan `respuesta`, y el validador no tiene por qué leerlo.
