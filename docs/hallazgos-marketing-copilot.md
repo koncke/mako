@@ -503,6 +503,13 @@ La punta cayó en rojo (corrida 1265) con cinco a la vez, ninguna en lo que corr
 - **`integracion-sin-salir`**: para conectar algo JAMÁS se sale de la tab. El test barre `app/` y una tarea con `href: '/integraciones'` escrita en `lib/` se le escapó: la regla vale igual. «Conecta tu…» abre `ConectarViaZernio` ahí mismo.
 - **`ningun-boton-muerto`**: un botón sin `onClick` (el único ítem del menú de la configuración) no puede verse apretable: o hace algo o es un rótulo.
 
+## La nevera de contenido sólo ve lo que está en el Calendario (13/11/2026)
+
+- **El único lugar donde una pieza tiene formato, archivo, red y si salió es `calendario_eventos`** (con su publicación, lib/calendario-publicar.ts → `leerPublicaciones`). Los proyectos del editor de video viven en el navegador (el servidor sólo tiene un espejo sin formato ni exportación), los diseños de Image no dicen si son carrusel ni si se publicaron, y los guiones son texto. Así que «guardado» = programado en el Calendario con su archivo: lo grabado y no programado no se ve, y la pantalla lo dice.
+- **El enum de formatos no tiene carrusel ni short**: un carrusel es un `post` y un short es un `video` fuera de YouTube; un video EN YouTube es un video largo.
+- **Una tarea que vuelve cada semana necesita la semana en su clave**: sincronizar nunca reabre lo que la persona cerró, así que «Graba 3 reels» cerrado el lunes no volvería nunca. La clave lleva el lunes de la semana (`instagram:nevera-reel-20261109`): la semana siguiente, si sigue faltando, es otra tarea.
+- **Sin ritmo respondido no se avisa**: inventar cuánto publica alguien que no lo dijo es el error del «$0 al mes» de la batería (el dato no dicho no es un dato).
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

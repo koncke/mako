@@ -30,6 +30,7 @@ import { conexionesViaZernio } from '@/lib/zernio-conectar';
 import { numeroDelReel } from '@/lib/copiloto/piloto';
 import { verRetargeting } from '@/lib/retargeting';
 import { paginasAnalizadas } from '@/lib/copiloto/web';
+import { leerNevera } from '@/lib/copiloto/nevera';
 import { CoPilot, type DatosCoPilot } from './CoPilot';
 
 export const dynamic = 'force-dynamic';
@@ -65,6 +66,8 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
     callar(paginasAnalizadas(ws), []),
   ]);
   const vista = config ? await callar(vistaMediaBuyer(ws, config.kpi, config.objetivo), null) : null;
+  // La nevera de contenido: lo listo y lo publicado del Calendario, con el ritmo que respondió en el CoPilot (sólo se lee).
+  const nevera = await callar(leerNevera(ws, perfil), null);
   const f = funnelElegido(perfil);
   const datos: DatosCoPilot = {
     comunicacion,
@@ -82,6 +85,7 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
     retargeting,
     web: landings.map((l) => l.url).slice(0, 6),
     paginas,
+    nevera,
     redes: {
       instagram: ig.map((c) => ({ usuario: c.usuario, vencida: !!c.vencida })),
       youtube: yt.map((c) => ({ usuario: c.usuario, vencida: !!c.vencida })),

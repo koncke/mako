@@ -34,6 +34,8 @@ export type ResumenParaTareas = {
   redes: Record<'instagram' | 'youtube', { conectada: boolean }>;
   /** Cuántos competidores sigue en Competitor Spy (null = no se sabe todavía). */
   seguidos: number | null;
+  /** Los avisos de la nevera de contenido (./nevera-reglas.ts) y el lunes de esta semana (YYYY-MM-DD): una tarea por formato y semana. */
+  nevera?: { lunes: string; avisos: Array<{ formato: 'reel' | 'story' | 'post' | 'video'; titulo: string }> };
 };
 
 const NOMBRE_PARTE: Record<ParteOC, string> = { angulos: 'tus ángulos', voz: 'tu voz', oferta: 'tu oferta' };
@@ -79,6 +81,19 @@ export function tareasDelCoPilot(r: ResumenParaTareas): { tareas: TareaCoPilot[]
   // «Selecciona a tus competidores»: de los que sigues sale con qué número se publica un reel de prueba.
   if (r.seguidos == null || r.seguidos === 0) tareas.push({ clave: 'instagram:competidores', tarjeta: 'instagram', titulo: 'Selecciona a tus competidores en Competitor Spy', href: '/competitor-spy?ver=seguidos' });
   else resueltas.push('instagram:competidores');
+
+  // La nevera: una tarea por formato que se queda corto, y por SEMANA (la clave lleva el lunes): una cerrada no vuelve a nacer, pero la
+  // semana siguiente, si sigue faltando, es otra tarea.
+  if (r.nevera) {
+    const semana = r.nevera.lunes.replace(/-/g, '');
+    for (const f of ['reel', 'story', 'post', 'video'] as const) {
+      const aviso = r.nevera.avisos.find((a) => a.formato === f);
+      const tarjeta: TarjetaCoPilot = f === 'video' ? 'youtube' : 'instagram';
+      const clave = `${tarjeta}:nevera-${f}-${semana}`;
+      if (aviso) tareas.push({ clave, tarjeta, titulo: aviso.titulo, href: '/calendario' });
+      else resueltas.push(clave);
+    }
+  }
 
   return { tareas, resueltas };
 }

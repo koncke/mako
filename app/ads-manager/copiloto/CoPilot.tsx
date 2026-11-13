@@ -34,6 +34,8 @@ import type { Tarea } from '@/lib/media-buyer/copiloto';
 import type { NumeroDelReel } from '@/lib/copiloto/piloto';
 import type { VistaRT } from '@/lib/retargeting-motor';
 import type { PaginaAnalizada } from '@/lib/copiloto/web';
+import type { Nevera } from '@/lib/copiloto/nevera';
+import { diaCorto, lunesDe, nombreFormato, type FormatoNevera } from '@/lib/copiloto/nevera-reglas';
 import { CSS_RETARGETING, Retargeting } from './Retargeting';
 import { CSS_COPILOTO } from './copiloto-css';
 import { Flecha, Grafico, Tuerca } from './iconos';
@@ -58,6 +60,8 @@ export type DatosCoPilot = {
   web: string[];
   /** Lo último que analizó el Landing Analyst de cada página (lib/copiloto/web.ts). */
   paginas: PaginaAnalizada[];
+  /** La nevera de contenido (lib/copiloto/nevera.ts): lo listo, lo publicado y hasta cuándo alcanza; null si no se pudo leer. */
+  nevera: Nevera | null;
   redes: Record<'instagram' | 'youtube', Array<{ usuario: string; vencida: boolean }>>;
 };
 
@@ -99,6 +103,14 @@ const CSS_EXTRA = `
 .frn .cop-web__lista li[data-sev="media"] .cop-web__sev { color: var(--warn); background: var(--warn-bg); }
 .frn .cop-web__lista li[data-sev="baja"] .cop-web__sev { color: var(--muted); background: var(--panel); }
 @container frn (max-width: 700px) { .frn .cop-web__lista li { grid-template-columns: 1fr; gap: 6px; } }
+/* La nevera de contenido: un bloque por formato, en rojo el que se queda corto. */
+.frn .cop-nevera__lista { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.frn .cop-nevera__lista li { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 16px; background: var(--panel); }
+.frn .cop-nevera__lista li[data-falta="true"] { background: color-mix(in srgb, var(--bad) 7%, var(--card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 30%, transparent); }
+.frn .cop-nevera__lista b { font-size: 34px; font-weight: 700; color: var(--ink); line-height: 1.1; }
+.frn .cop-nevera__que { font-size: 16px; font-weight: 600; color: var(--ink); }
+.frn .cop-nevera__hasta, .frn .cop-nevera__pub { font-size: 15px; color: var(--ink); }
+.frn .cop-nevera__lista li[data-falta="true"] .cop-nevera__hasta { color: var(--bad); font-weight: 600; }
 /* Con cuántas vistas se publica un reel de prueba: el número grande y de dónde sale. */
 .frn .cop-reel { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
 .frn .cop-reel__n { margin: 6px 0 4px; font-size: 44px; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
@@ -276,6 +288,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
               {tarjeta === 'web' && (datos.paginas.length ? <AnalisisWeb paginas={datos.paginas} /> : <TarjetaWeb paso="analisis" web={datos.web} />)}
               {(tarjeta === 'instagram' || tarjeta === 'youtube') && <TarjetaRed red={tarjeta} paso="analisis" cuentas={datos.redes[tarjeta]} />}
               {tarjeta === 'instagram' && <NumeroDelReelCard reel={datos.reel} />}
+              {(tarjeta === 'instagram' || tarjeta === 'youtube') && <NeveraCard nevera={datos.nevera} formatos={tarjeta === 'youtube' ? ['video'] : ['reel', 'story', 'post']} />}
               <LoQueTeToca tareas={tareas[tarjeta]} enPlan={enPlan} onHecha={marcarTarea}
                 onHacer={(t) => { if (t.abre === 'oc') { setParte(t.parte ?? 'oferta'); setTodo(true); } else if (t.abre === 'leer') void oc.leer(t.parte ?? 'angulos'); }} />
             </div>
@@ -317,6 +330,7 @@ function resumenParaTareas(datos: DatosCoPilot, oc: EstadoComunicacion): Resumen
     webArreglos: datos.paginas.flatMap((p) => p.hallazgos.filter((h) => h.severidad === 'alta').map((h) => ({ url: p.url, titulo: h.titulo }))),
     redes: { instagram: { conectada: conectada('instagram') }, youtube: { conectada: conectada('youtube') } },
     seguidos: datos.reel ? datos.reel.seguidos : null,
+    nevera: datos.nevera ? { lunes: lunesDe(datos.nevera.hoy), avisos: datos.nevera.avisos } : undefined,
   };
 }
 
@@ -368,6 +382,30 @@ function NumeroDelReelCard({ reel }: { reel: NumeroDelReel | null }) {
         {reel.seguidos > 0 && <Link className="frn-btn frn-btn--ghost" href="/ads-manager/copiloto/configurar?red=instagram">Cambiarlo</Link>}
         <Link className="frn-btn frn-btn--ghost" href="/competitor-spy?ver=seguidos">{reel.seguidos ? 'Ver los que sigues' : 'Elegir a quién sigues'}</Link>
       </div>
+    </section>
+  );
+}
+
+/**
+ * La nevera de contenido (Martín, 13/11): cuánto hay listo para publicar, cuánto salió en 30 días y hasta cuándo alcanza. Lo listo es
+ * lo que está en el Calendario con su archivo; lo que se grabó y no se programó no se ve.
+ */
+function NeveraCard({ nevera, formatos }: { nevera: Nevera | null; formatos: readonly FormatoNevera[] }) {
+  if (!nevera) return null;
+  const filas = nevera.filas.filter((f) => formatos.includes(f.formato));
+  return (
+    <section className="frn-card cop-nevera">
+      <div className="frn-card__head"><h2 className="frn-card__t">Tu nevera de contenido</h2><Link className="frn-chip" href="/calendario">Abrir el Calendario</Link></div>
+      <ul className="cop-nevera__lista">
+        {filas.map((f) => (
+          <li key={f.formato} data-falta={f.faltan > 0}>
+            <b className="frn-num">{f.listas}</b>
+            <span className="cop-nevera__que">{nombreFormato(f.formato, f.listas)} {f.formato === 'story' ? (f.listas === 1 ? 'lista' : 'listas') : (f.listas === 1 ? 'listo' : 'listos')}</span>
+            <span className="cop-nevera__hasta">{f.hasta ? `Te alcanzan hasta ${diaCorto(f.hasta)}` : 'Nada listo para publicar'}</span>
+            <span className="cop-nevera__pub">{f.publicadas30} {f.formato === 'story' ? 'publicadas' : 'publicados'} en 30 días</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
