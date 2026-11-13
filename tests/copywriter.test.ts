@@ -30,7 +30,8 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion, salidaVacia, tipoDelPedido, dichoQueNoQuedo, operacionesAlTuteo, sinExtrasNoPedidos } from '../lib/copywriter/ia-reglas';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion, salidaVacia, tipoDelPedido, dichoQueNoQuedo, operacionesAlTuteo, sinExtrasNoPedidos, objetivoDeDuracion, cortaParaSuDuracion } from '../lib/copywriter/ia-reglas';
+import { pedidoDeCorreccion } from '../lib/copywriter/outliers';
 import { alTuteo } from '../lib/al-tuteo';
 import { marcasDeVoseo } from '../lib/voseo';
 import { aplicarTodo, bloqueAJson, etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
@@ -446,6 +447,22 @@ test('lo que la respuesta dice que puso y no quedó en la página se avisa (13/1
   assert.equal(dichoQueNoQuedo(respuesta, `${pagina} Cuesta US$ 497 con 14 días de garantía.`), null);
   // Lo que describe la pieza no cuenta.
   assert.equal(dichoQueNoQuedo('Te escribo un reel de 30 segundos en 3 partes.', 'Gancho…'), null);
+});
+
+test('una plantilla corta para su duración se completa sola; el aviso, sólo si ni así (13/11/2026, el Cerebro)', () => {
+  assert.equal(objetivoDeDuracion(600), 1_500);
+  assert.equal(objetivoDeDuracion(2_520), 2_000, 'la clase de 42 minutos topa en lo que entra en un pedido');
+  assert.equal(objetivoDeDuracion(45), null, 'un anuncio de 45 s: manda el ejemplo');
+  // La VSL de 10 minutos en 587 palabras: segunda pasada (< 75 %); con 1.200, no (80 %).
+  assert.equal(cortaParaSuDuracion(587, 600), true);
+  assert.equal(cortaParaSuDuracion(1_200, 600), false);
+  assert.equal(cortaParaSuDuracion(80, 45), false);
+  const pedido = pedidoDeCorreccion({ largo: null, capitulos: [], duracion: { segundos: 600, objetivo: 1_500, escritas: 587 } });
+  assert.match(pedido, /la pieza dura 10 minutos y lo que se dice en tu guion tiene 587 palabras \(unos 4 minutos dichos\)\. Complétala ENTERA hasta unas 1500 palabras \(entre 1275 y 1500/);
+  assert.match(pedido, /con las mismas secciones y en el mismo orden/);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes('corta: !original && x.entera && cortaParaSuDuracion(x.escritas, segundosDe(x)),'));
+  assert.ok(ia.includes('duracion: f1.corta ? { segundos, objetivo: objetivoDeDuracion(segundos) ?? 0, escritas: m.escritas } : null,'));
 });
 
 test('una sola voz: lo que escribe Copywriting y su chat van en «tú» solos, también lo citado (13/11/2026, el Cerebro)', () => {

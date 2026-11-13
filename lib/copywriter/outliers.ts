@@ -426,11 +426,20 @@ export const largoFuera = (n: number, escritas: number): boolean => escritas > n
  * mal»). Lo que se le dice al modelo, con los números, después de su primera respuesta: el largo real contra el pedido, y los
  * capítulos que no siguió, en orden. Pide todas las operaciones de nuevo, contra la página como estaba al principio.
  */
-export function pedidoDeCorreccion(p: { largo: { n: number; escritas: number } | null; capitulos: readonly string[] }): string {
+export function pedidoDeCorreccion(p: {
+  largo: { n: number; escritas: number } | null;
+  capitulos: readonly string[];
+  /** Una PLANTILLA corta para su duración (13/11/2026: la VSL de 10 minutos en 587 palabras): las palabras que pide. */
+  duracion?: { segundos: number; objetivo: number; escritas: number } | null;
+}): string {
   const partes: string[] = ['Corrige tu respuesta antes de que la vea la persona:'];
   if (p.largo) {
     const { n, escritas } = p.largo;
     partes.push(`- EL LARGO: lo que se dice en tu guion tiene ${escritas} palabras y el original ${n}. Reescríbelo ENTERO entre ${Math.round(n * 0.8)} y ${Math.round(n * 1.2)} palabras (sin contar los títulos de las secciones), con las mismas partes del original y ninguna de más.`);
+  }
+  if (p.duracion) {
+    const { segundos, objetivo, escritas } = p.duracion;
+    partes.push(`- LA DURACIÓN: la pieza dura ${Math.round(segundos / 60)} minutos y lo que se dice en tu guion tiene ${escritas} palabras (unos ${Math.max(1, Math.round(escritas / 150))} minutos dichos). Complétala ENTERA hasta unas ${objetivo} palabras (entre ${Math.round(objetivo * 0.85)} y ${objetivo}, sin contar los títulos), con las mismas secciones y en el mismo orden: cada sección dice lo que se dice, entero, no un resumen de lo que habría que decir.`);
   }
   if (p.capitulos.length) {
     partes.push(`- LOS CAPÍTULOS: el original tiene ${p.capitulos.length} y tu guion no los sigue. Una sección por capítulo, en este orden, con su nombre como título:\n${p.capitulos.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}`);

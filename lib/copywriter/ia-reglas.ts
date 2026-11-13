@@ -182,6 +182,16 @@ const TUTEO = new Set([
   // Y el reel del teléfono: «WhatsApp vende. Sólo que sin ti.» junto a «Mientras vos estás…».
   'ti',
 ]);
+/** Las palabras que pide una duración (150 por minuto, con el tope de 2.000 que entra en un pedido); null = sin duración o menos de 2 minutos. */
+export function objetivoDeDuracion(segundos: number | null | undefined): number | null {
+  return segundos && segundos >= 120 ? Math.min(2_000, Math.round(segundos * 2.5)) : null;
+}
+/** ¿Corta para su duración? (la SEGUNDA PASADA de una plantilla: por debajo del 75 % de lo que pide; el aviso, del 60 %). */
+export const cortaParaSuDuracion = (palabras: number, segundos: number | null | undefined): boolean => {
+  const objetivo = objetivoDeDuracion(segundos);
+  return objetivo != null && palabras < objetivo * 0.75;
+};
+
 /**
  * El aviso de la DURACIÓN (capa 2 de «el largo lo da la duración», 13/11/2026, en producción: la «VSL para agendar» de 10 minutos
  * salió de 587 palabras y el «YouTube de 12 minutos» de un largo parecido, porque seguían el largo del ejemplo, que es un resumen).
@@ -189,8 +199,8 @@ const TUTEO = new Set([
  * null = sin duración (o menos de 2 minutos: ahí manda el ejemplo) o bien.
  */
 export function avisoDeDuracion(palabras: number, segundos: number | null | undefined): string | null {
-  if (!segundos || segundos < 120) return null;
-  const objetivo = Math.min(2_000, Math.round(segundos * 2.5));
+  const objetivo = objetivoDeDuracion(segundos);
+  if (objetivo == null || !segundos) return null;
   if (palabras >= objetivo * 0.6) return null;
   return `Dura unos ${Math.max(1, Math.round(palabras / 150))} minutos dichos y la pieza es de ${Math.round(segundos / 60)}: pídele a MaKo que la complete (unas ${objetivo} palabras).`;
 }

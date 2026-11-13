@@ -578,7 +578,8 @@ Tabla con cada paso y su captura: side-session-notes/local_3f1a66d3-…/probar-c
   mal». Los avisos del largo, la voz y los capítulos (9e5a80238) pasaron a ser el ÚLTIMO recurso. **Regla:** lo que se puede medir
   se corrige antes de mostrar. Una réplica fuera del ±25 % del largo, o que no sigue los capítulos, tiene una SEGUNDA PASADA
   automática con los números (`pedidoDeCorreccion`, lib/copywriter/outliers.ts) y gana la que mejor cumple. La respuesta dice el
-  largo contado, no el que dijo el modelo («unas 38» sobre 83: `conElLargoReal`).
+  largo contado, no el que dijo el modelo («unas 38» sobre 83: `conElLargoReal`). Lo mismo una plantilla corta para su duración
+  (debajo del 75 % de 150 palabras por minuto, `cortaParaSuDuracion`): se completa sola, y el aviso queda para debajo del 60 %.
 - **⚠️ La voz «configurada» es la DECLARADA, no la de la zona horaria:** el negocio de MaKo escribía con voseo porque
   `resolverAcento` lo deducía de su zona (Argentina), y la regla del producto es «tú» en español neutro. Ahora vosea sólo un
   acento declarado (`seguro`); si no, lo escrito pasa solo a «tú» con `alTuteo` (lib/al-tuteo.ts, la misma de WhatsApp), también
@@ -588,9 +589,8 @@ Tabla con cada paso y su captura: side-session-notes/local_3f1a66d3-…/probar-c
 
 ## Qué quedó sin hacer
 
-- (13/11/2026) Las plantillas largas (VSL, YouTube 12, Clase) todavía AVISAN el largo corto en vez de corregirlo: la segunda pasada
-  es sólo de la réplica (lib/copywriter/ia.ts, `fallas`). Y un negocio que declaró un acento que vosea sigue con el aviso de la
-  mezcla: `alTuteo` va hacia el «tú», no hacia el «vos».
+- (13/11/2026) Un negocio que declaró un acento que vosea sigue con el aviso de la mezcla: `alTuteo` va hacia el «tú», no hacia
+  el «vos». Y la segunda pasada pide hasta 2.000 palabras: una clase de 42 minutos (6.300 dichas) sigue siendo un resumen de sí misma.
 - (13/11/2026) Los imperativos de voseo en -í («escribí», «compartí») no se pasan solos (también son pretérito); quedan con aviso.
 - (13/11/2026) Una vez, en el teléfono, la Página quedó corrida a la derecha justo después de escribir la plantilla; no se repitió
   y la medición después daba `scrollX = 0` (captura 28b de la segunda vuelta).

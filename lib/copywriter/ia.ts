@@ -29,7 +29,7 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, dichoQueNoQuedo, guionParaIA, marcasDeTuteo, operacionesAlTuteo, propsParaIA, salidaVacia, sinExtrasNoPedidos, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
+import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, cortaParaSuDuracion, dichoQueNoQuedo, objetivoDeDuracion, guionParaIA, marcasDeTuteo, operacionesAlTuteo, propsParaIA, salidaVacia, sinExtrasNoPedidos, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
 import { alTuteo } from '../al-tuteo';
 import type { ClaudeMsg } from '../anthropic';
 import { sanearContenido } from './doc';
@@ -313,13 +313,29 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const original = g.props.outlier ? refs.textos.find((x) => x.nombre === NOMBRE_DEL_ORIGINAL)?.texto ?? '' : '';
     const largo = original ? largoPedido(original) : null;
     const capitulos = original ? capitulosDe(original) : [];
-    const fallas = (x: typeof m) => ({ largo: largo != null && x.entera && largoFuera(largo, x.escritas), capitulos: x.entera && !siguenLosCapitulos(x.secciones, capitulos) });
-    const puntos = (x: typeof m) => { const f = fallas(x); return Number(f.largo) + Number(f.capitulos) + (largo ? Math.abs(x.escritas - largo) / largo / 10 : 0); };
+    // Y UNA PLANTILLA (o cualquier pieza escrita entera que no replica nada) corta para su DURACIÓN se completa sola (13/11/2026, el
+    // Cerebro; en producción la VSL de 10 minutos salió de 587 palabras y la Clase de 42 de 617): debajo del 75 % de lo que pide.
+    const segundosDe = (x: typeof m) => x.r.props.duracion ?? g.props.duracion;
+    const fallas = (x: typeof m) => ({
+      largo: largo != null && x.entera && largoFuera(largo, x.escritas),
+      capitulos: x.entera && !siguenLosCapitulos(x.secciones, capitulos),
+      corta: !original && x.entera && cortaParaSuDuracion(x.escritas, segundosDe(x)),
+    });
+    const puntos = (x: typeof m) => {
+      const f = fallas(x);
+      const objetivo = original ? null : objetivoDeDuracion(segundosDe(x));
+      return Number(f.largo) + Number(f.capitulos) + Number(f.corta) + (largo ? Math.abs(x.escritas - largo) / largo / 10 : 0) + (objetivo ? Math.abs(x.escritas - objetivo) / objetivo / 10 : 0);
+    };
     const f1 = fallas(m);
-    if (original && m.entera && (f1.largo || f1.capitulos) && Date.now() < t0 + 170_000) {
-      const correccion = pedidoDeCorreccion({ largo: f1.largo && largo ? { n: largo, escritas: m.escritas } : null, capitulos: f1.capitulos ? capitulos : [] });
+    if (m.entera && (f1.largo || f1.capitulos || f1.corta) && Date.now() < t0 + 170_000) {
+      const segundos = segundosDe(m) ?? 0;
+      const correccion = pedidoDeCorreccion({
+        largo: f1.largo && largo ? { n: largo, escritas: m.escritas } : null,
+        capitulos: f1.capitulos ? capitulos : [],
+        duracion: f1.corta ? { segundos, objetivo: objetivoDeDuracion(segundos) ?? 0, escritas: m.escritas } : null,
+      });
       const raw2 = await pedir([...primero, { role: 'assistant', content: JSON.stringify(raw) }, { role: 'user', content: correccion }], Math.min(Date.now() + 90_000, t0 + 270_000))
-        .catch((e) => { console.warn('[copywriter] la segunda pasada de la réplica no salió', e instanceof Error ? e.message : e); return null; });
+        .catch((e) => { console.warn('[copywriter] la segunda pasada no salió', e instanceof Error ? e.message : e); return null; });
       if (raw2 && !salidaVacia(raw2)) {
         const m2 = medir(raw2);
         if (m2.entera && puntos(m2) < puntos(m)) { raw = raw2; m = m2; }
