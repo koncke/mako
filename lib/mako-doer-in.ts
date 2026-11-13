@@ -774,7 +774,8 @@ export async function manejarEntranteDoer(instance: string, data: MsgIn): Promis
   // este turno le mande a ESTE grupo es la respuesta a quien escribió, y el freno la deja pasar (lib/respuesta-en-curso.ts).
   return conRespuestaA(jid, () => (oficial != null ? conSalidaDelGrupo({ ws: oficial, clave: jid, soloApp: false, hayInvitado: false }, () => atenderEntranteDoer(instance, data, jid)) : atenderEntranteDoer(instance, data, jid)));
 }
-async function atenderEntranteDoer(instance: string, data: MsgIn, jid: string): Promise<ResultadoDoer> {
+/** `soloEncolar`: el rescate del store (`rescatarDelStore`) pasa por las mismas puertas y deja el mensaje en la cola; el turno lo corre `doer-flush`. */
+async function atenderEntranteDoer(instance: string, data: MsgIn, jid: string, o: { soloEncolar?: boolean } = {}): Promise<ResultadoDoer> {
 
   // Aislamiento PRIMERO: ¿de quién es este grupo? wsDeGrupoJid solo reconoce grupos
   // creados por la app (el `mako.grupo_jid` de un workspace, el SuperAdmin, o los de
@@ -813,7 +814,61 @@ async function atenderEntranteDoer(instance: string, data: MsgIn, jid: string): 
   // TAPA en el mensaje entero —el texto, el caption, la cita y por eso el payload que va a la cola— antes de todo: la
   // cola, la memoria (`mako_doer_conv`), el router y el modelo. Desde acá el crudo no se vuelve a leer (lib/doer-claves.ts).
   const tapado = taparClavesDelMensaje(data);
-  return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, tapado.mensaje, tapado));
+  return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, tapado.mensaje, tapado, { soloEncolar: o.soloEncolar }));
+}
+
+/**
+ * ⚠️ LO QUE LA VOZ GUARDÓ Y EL WEBHOOK NUNCA VIO (13/11/2026, Mauricio; lib/rescate-del-store.ts). Al re-vincular una línea, WhatsApp
+ * entrega lo atrasado como sincronización de historial: Evolution lo guarda en su store y no manda `messages.upsert`, así que ni el
+ * doer, ni el espejo, ni el aviso de «llegó tarde» se enteraban. Siete mensajes de Mauricio (12 y 13/11) quedaron así, callados.
+ * Lo corre el cron alerta-critica: lee el store de la VOZ en cada grupo oficial, toma lo que entró hace poco y no está en el hilo ni
+ * en la cola, lo pasa por la entrada de siempre (`atenderEntranteDoer`, `soloEncolar`) y lo espeja a la app. Contesta `doer-flush`.
+ * Si no se puede leer qué vio el webhook, ese grupo no se toca: contestar dos veces es peor que esperar a la vuelta siguiente.
+ */
+export async function rescatarDelStore(ahora = Date.now()): Promise<{ voz: string | null; grupos: number; rescatados: Array<{ ws: number; id: string; r: string }>; error?: string }> {
+  const voz = await instanciaVoz({ estricto: true }).catch(() => null);
+  if (!voz) return { voz: null, grupos: 0, rescatados: [] };
+  const { data, error } = await getSupabaseServer().from('app_settings').select('value').eq('key', KEY_GRUPO_JID);
+  if (error) return { voz, grupos: 0, rescatados: [], error: error.message };
+  const superadmin = await runWithWorkspace(OWNER_WS, () => getSetting(KEY_GRUPO_SUPERADMIN)).catch(() => null);
+  const jids = [...new Set([...((data ?? []) as Array<{ value: unknown }>).map((f) => String(f.value ?? '')), superadmin ?? ''])].filter((j) => j.endsWith('@g.us'));
+  const { queRescatar } = await import('@/lib/rescate-del-store');
+  const { espejarDeWhatsApp } = await import('@/lib/grupo-espejo');
+  const rescatados: Array<{ ws: number; id: string; r: string }> = [];
+  for (const jid of jids) {
+    const ws = await wsDelGrupoOficial(jid).catch(() => null);
+    if (ws == null) continue;
+    const registros = await chatDelGrupo(voz, jid, 40, 5000);
+    if (!registros?.length) continue;
+    const ids = [...new Set(registros.map((r) => r.key?.id ?? '').filter(Boolean))];
+    const vistos = await idsQueVioElWebhook(ws, jid, ids);
+    if (!vistos) continue;
+    for (const m of queRescatar(registros as never, { ahora, vistos })) {
+      const id = m.key?.id ?? '';
+      const r = await conRespuestaA(jid, () => conSalidaDelGrupo({ ws, clave: jid, soloApp: false, hayInvitado: false }, () => atenderEntranteDoer(voz, m as MsgIn, jid, { soloEncolar: true })))
+        .catch((e: unknown): ResultadoDoer => ({ engaged: false, skip: `error: ${e instanceof Error ? e.message : String(e)}` }));
+      rescatados.push({ ws, id, r: r.skip ?? (r.engaged ? 'atendido' : 'sin atender') });
+      console.warn(`[mako-doer-in] rescate del store: ws${ws} ${jid} ${id} → ${r.skip ?? 'atendido'}`);
+      // Al hilo de la app DESPUÉS de la cola: si la cola falló, la vuelta siguiente lo vuelve a encontrar (el hilo es lo que dice «ya visto»).
+      if (!r.skip?.startsWith('error')) await espejarDeWhatsApp(voz, [m as Record<string, unknown>]);
+    }
+  }
+  return { voz, grupos: jids.length, rescatados };
+}
+
+/** Los ids de `ids` que el webhook ya vio en este grupo: están en el hilo de la app (el espejo los escribe todos) o en la cola. null: no se pudo leer. */
+async function idsQueVioElWebhook(ws: number, jid: string, ids: readonly string[]): Promise<Set<string> | null> {
+  if (!ids.length) return new Set();
+  const db = getSupabaseServer();
+  const [hilo, cola] = await Promise.all([
+    db.from('grupo_mensajes').select('wa_message_id').eq('workspace_id', ws).in('wa_message_id', ids as string[]),
+    db.from('mako_doer_buffer').select('wa_message_id').eq('grupo_jid', jid).in('wa_message_id', ids as string[]),
+  ]);
+  if (hilo.error || cola.error) {
+    console.error(`[mako-doer-in] rescate del store: ws${ws} no pude leer qué vio el webhook: ${(hilo.error ?? cola.error)?.message}`);
+    return null;
+  }
+  return new Set([...(hilo.data ?? []), ...(cola.data ?? [])].map((f) => String((f as { wa_message_id: unknown }).wa_message_id ?? '')).filter(Boolean));
 }
 
 /**
@@ -1343,7 +1398,7 @@ function acusarSiNoReacciono(jid: string, reaccion: Promise<boolean> | null, tex
  * Todo mensaje se ENCOLA. Una sola invocación gana el candado del grupo, espera el
  * silencio y contesta una vez por todo. Las otras encolan y se van calladas.
  */
-async function bufferearYResponder(wsData: number, instance: string, data: MsgIn, tapado?: { tapadas: number; servicio: string | null }, o: { yaEnCola?: boolean } = {}): Promise<ResultadoDoer> {
+async function bufferearYResponder(wsData: number, instance: string, data: MsgIn, tapado?: { tapadas: number; servicio: string | null }, o: { yaEnCola?: boolean; soloEncolar?: boolean } = {}): Promise<ResultadoDoer> {
   const jid = data.key?.remoteJid ?? '';
   /** Lo escribió alguien en el grupo de la app: la ruta ya lo encoló, no lleva 👍 al llegar (sale después del clasificador) y lo de un invitado no le contesta al equipo. */
   const deLaApp = leerParticipanteDeApp(data.key?.participant);
@@ -1468,6 +1523,9 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     if (soloClave) return { engaged: true, reply: aviso };
   }
   if (soloClave) return { engaged: false, skip: 'sólo una clave (tapada)' };
+  // El rescate del store (`rescatarDelStore`) termina acá: el mensaje quedó en la cola con su 👍, y el turno lo corre `doer-flush`
+  // (levanta la cola sin candado). El cron que rescata no espera el silencio ni el turno.
+  if (o.soloEncolar) { await reaccion; return { engaged: true, skip: 'rescatado del store: en la cola' }; }
 
   const quien = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
   if (!(await reclamar(jid, quien))) return { engaged: false, skip: 'encolado — ya hay alguien juntando' };
