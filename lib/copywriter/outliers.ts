@@ -388,7 +388,8 @@ export function textoParaMaKo(o: OutlierCopy, rotuloMultiplo: string | null, hoy
  */
 export function capitulosDe(texto: string): string[] {
   const out: string[] = [];
-  for (const m of texto.matchAll(/(?:^|\s)\d{1,2}:\d{2}(?::\d{2})?\s+(.+?)(?=\s+\d{1,2}:\d{2}(?::\d{2})?\s|$)/gs)) {
+  // `[\s\S]` y no el flag `s`: el repo compila a ES2017 y el `s` es de ES2018 (TS1501, rojo de la punta el 13/11/2026).
+  for (const m of texto.matchAll(/(?:^|\s)\d{1,2}:\d{2}(?::\d{2})?\s+([\s\S]+?)(?=\s+\d{1,2}:\d{2}(?::\d{2})?\s|$)/g)) {
     const t = m[1].split(/_{3,}|\n/)[0].replace(/^#\d+\s*/, '').replace(/\s+/g, ' ').trim().slice(0, 60);
     if (t.length >= 3) out.push(t);
     if (out.length === 15) break;
@@ -411,14 +412,51 @@ export function siguenLosCapitulos(secciones: readonly string[], capitulos: read
 /** Las palabras de un texto (para medir el largo del original y el de la réplica). */
 export const palabrasDe = (t: string): number => (t.match(/[\p{L}\p{N}][\p{L}\p{N}'’]*/gu) ?? []).length;
 
+/** El largo que el original le pide a la réplica (la línea «EL LARGO» de `reglasDeLaReplica`); null = no pide (el pie, la descripción). */
+export function largoPedido(original: string): number | null {
+  const n = Number(original.match(/EL LARGO: el original tiene unas (\d+) palabras/)?.[1] ?? NaN);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** ¿Fuera del ±25 % que pide «EL LARGO»? (la segunda pasada; el aviso, más abajo, queda para lo que ni así entró). */
+export const largoFuera = (n: number, escritas: number): boolean => escritas > n * 1.25 || escritas < n * 0.75;
+
+/**
+ * La SEGUNDA PASADA de una réplica (13/11/2026, el Cerebro: «Martín quiere que la réplica SALGA bien, no que le avisen que salió
+ * mal»). Lo que se le dice al modelo, con los números, después de su primera respuesta: el largo real contra el pedido, y los
+ * capítulos que no siguió, en orden. Pide todas las operaciones de nuevo, contra la página como estaba al principio.
+ */
+export function pedidoDeCorreccion(p: { largo: { n: number; escritas: number } | null; capitulos: readonly string[] }): string {
+  const partes: string[] = ['Corrige tu respuesta antes de que la vea la persona:'];
+  if (p.largo) {
+    const { n, escritas } = p.largo;
+    partes.push(`- EL LARGO: lo que se dice en tu guion tiene ${escritas} palabras y el original ${n}. Reescríbelo ENTERO entre ${Math.round(n * 0.8)} y ${Math.round(n * 1.2)} palabras (sin contar los títulos de las secciones), con las mismas partes del original y ninguna de más.`);
+  }
+  if (p.capitulos.length) {
+    partes.push(`- LOS CAPÍTULOS: el original tiene ${p.capitulos.length} y tu guion no los sigue. Una sección por capítulo, en este orden, con su nombre como título:\n${p.capitulos.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}`);
+  }
+  partes.push('Devuelve el MISMO formato JSON, con TODAS las operaciones de nuevo (la página está como antes de tu primera respuesta), y en «respuesta» el número real de palabras.');
+  return partes.join('\n');
+}
+
+/**
+ * La respuesta con el largo REAL (13/11/2026: «unas 38 palabras, mismo tempo» sobre 83 escritas). Cada «N palabras» que dice el
+ * modelo pasa a ser el número contado; si no dice ninguno, se suma al final.
+ */
+export function conElLargoReal(respuesta: string, escritas: number, n: number): string {
+  // El largo del ORIGINAL, si lo nombra bien, queda («el original tiene 35 palabras»).
+  const dicho = respuesta.replace(/(?:unas?|aproximadamente|aprox\.?|cerca de|alrededor de|~)?\s*\b(\d+)\s+palabras/gi, (m, d: string) => (Number(d) === n ? m : `${/^\s/.test(m) ? ' ' : ''}${escritas} palabras`));
+  return dicho.includes(`${escritas} palabras`) ? dicho : `${dicho.trim()} Quedó de ${escritas} palabras; el original tiene ${n}.`.trim();
+}
+
 /**
  * El aviso del LARGO (capa 2 de «EL LARGO», 13/11/2026, en producción después del despliegue: el anuncio de 35 palabras salió de
  * 83 y MaKo dijo «unas 38 palabras, mismo tempo»). Lee el largo que el original le pidió (`reglasDeLaReplica`) y lo compara con
  * lo escrito: más de 1,5 veces o menos de 0,6, se dice con los números. null = sin largo pedido (el pie, la descripción) o bien.
  */
 export function avisoDeLargo(original: string, escritas: number): string | null {
-  const n = Number(original.match(/EL LARGO: el original tiene unas (\d+) palabras/)?.[1] ?? NaN);
-  if (!Number.isFinite(n) || n <= 0) return null;
+  const n = largoPedido(original);
+  if (n == null) return null;
   if (escritas <= n * 1.5 && escritas >= n * 0.6) return null;
   return `Quedó de ${escritas} palabras y el original tiene ${n}: pídele a MaKo que lo deje de ese largo${escritas > n ? ' (sin secciones de más)' : ''}.`;
 }

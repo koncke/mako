@@ -30,7 +30,8 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion, salidaVacia, tipoDelPedido, dichoQueNoQuedo } from '../lib/copywriter/ia-reglas';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion, salidaVacia, tipoDelPedido, dichoQueNoQuedo, operacionesAlTuteo, sinExtrasNoPedidos } from '../lib/copywriter/ia-reglas';
+import { alTuteo } from '../lib/al-tuteo';
 import { marcasDeVoseo } from '../lib/voseo';
 import { aplicarTodo, bloqueAJson, etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
 import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
@@ -447,6 +448,48 @@ test('lo que la respuesta dice que puso y no quedó en la página se avisa (13/1
   assert.equal(dichoQueNoQuedo('Te escribo un reel de 30 segundos en 3 partes.', 'Gancho…'), null);
 });
 
+test('una sola voz: lo que escribe Copywriting y su chat van en «tú» solos, también lo citado (13/11/2026, el Cerebro)', () => {
+  // Lo que salió en producción, tal cual: el reel de la plantilla y el del teléfono.
+  assert.equal(alTuteo('«Primero: respondés tarde. El lead te escribió con calor, vos contestas al otro día. Respondé en menos de una hora.»', { citas: true }),
+    '«Primero: respondes tarde. El lead te escribió con calor, tú contestas al otro día. Responde en menos de una hora.»');
+  assert.equal(alTuteo('Mientras vos estás en las redes, tu WhatsApp trabaja. Un flujo que respete al lead y a vos. Comentá FUNNEL.'),
+    'Mientras tú estás en las redes, tu WhatsApp trabaja. Un flujo que respete al lead y a ti. Comenta FUNNEL.');
+  assert.equal(alTuteo('Con vos, siempre. Para vos.'), 'Contigo, siempre. Para ti.');
+  // Sin `citas`, lo de la persona queda (WhatsApp); «VOS» es una sigla; el pretérito de yo no se toca.
+  assert.equal(alTuteo('Me pediste «mandale el borrador, que vos sabés»'), 'Me pediste «mandale el borrador, que vos sabés»');
+  assert.equal(alTuteo('El VOS del contrato. Ayer escribí el guion.'), 'El VOS del contrato. Ayer escribí el guion.');
+  // Las operaciones: textos, listas, tablas y el título.
+  const ops = operacionesAlTuteo([
+    { op: 'escribir_seccion', seccion: 'GANCHO', bloques: [{ tipo: 'texto', texto: '¿Querés vender más?' }, { tipo: 'tabla', filas: [['Dice'], ['«Creés que WhatsApp es para atender»']] }, { tipo: 'vinetas', items: ['Guardá esto'] }] },
+    { op: 'titulo', texto: 'Si tenés un negocio' },
+  ]);
+  assert.deepEqual(ops, [
+    { op: 'escribir_seccion', seccion: 'GANCHO', bloques: [{ tipo: 'texto', texto: '¿Quieres vender más?' }, { tipo: 'tabla', filas: [['Dice'], ['«Crees que WhatsApp es para atender»']] }, { tipo: 'vinetas', items: ['Guarda esto'] }] },
+    { op: 'titulo', texto: 'Si tienes un negocio' },
+  ]);
+  // En `editar` y `discutir`: la variedad sólo si el negocio la DECLARÓ; si no, se pasa sola y la respuesta siempre va en «tú».
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.equal((ia.match(/const declarado = acento\?\.seguro \? acento : null;/g) ?? []).length, 2);
+  assert.ok(ia.includes('if (!vosea) s.ops = operacionesAlTuteo(s.ops);'));
+  assert.ok(ia.includes("let respuesta = alTuteo([ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\\n\\n'), { citas: !vosea })"));
+  assert.ok(ia.includes("const respuesta = alTuteo([ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\\n\\n'), { citas: !vosea });"));
+});
+
+test('un pedido corto sale sin lo que nadie pidió: notas de producción, variantes (13/11/2026, en producción en el teléfono)', () => {
+  const ops = sinExtrasNoPedidos([
+    { op: 'escribir_seccion', seccion: 'GANCHO', bloques: [{ tipo: 'texto', texto: 'El gancho' }, { tipo: 'titulo2', texto: 'Variantes rápidas' }, { tipo: 'texto', texto: 'Variante 2…' }] },
+    { op: 'escribir_seccion', seccion: 'NOTAS DE PRODUCCION', bloques: [{ tipo: 'texto', texto: 'Ritmo acelerado' }] },
+    { op: 'escribir_seccion', seccion: 'CIERRE', bloques: [{ tipo: 'texto', texto: 'Comenta FUNNEL' }] },
+  ], [], 'Escribime un reel de 30 segundos para WhatsApp Ads Funnel');
+  assert.deepEqual(ops.map((o) => (o.op === 'escribir_seccion' ? `${o.seccion}:${o.bloques.length}` : o.op)), ['GANCHO:1', 'CIERRE:1']);
+  // Si el pedido las nombra, o la página ya trae esa sección (una plantilla), quedan.
+  const conVariantes = sinExtrasNoPedidos([{ op: 'escribir_seccion', seccion: 'VARIANTES', bloques: [{ tipo: 'texto', texto: 'x' }] }], [], 'Dame tres variantes del gancho');
+  assert.equal(conVariantes.length, 1);
+  const dePlantilla = sinExtrasNoPedidos([{ op: 'escribir_seccion', seccion: 'NOTAS', bloques: [{ tipo: 'texto', texto: 'x' }] }], ['NOTAS'], 'Adáptala');
+  assert.equal(dePlantilla.length, 1);
+  assert.ok(leer('lib/copywriter/ia.ts').includes('s.ops = sinExtrasNoPedidos(s.ops, seccionesDeLaPagina, instruccion);'));
+});
+
 test('sin la app de escritorio, las ofertas apagadas de la plantilla dicen por qué (13/11/2026, en producción, ws de prueba)', () => {
   const panel = leer('app/copywriter/PanelMaKo.tsx');
   assert.match(panel, /\{appEscritorio\.bloqueada && pasoIni\.opciones\.some\(\(o\) => llamaALaIA\(o\.valor\)\) && \(\s*<div className="nt-mako-estado">Para que MaKo lo escriba, instala su app: el botón está abajo\.<\/div>/);
@@ -485,7 +528,7 @@ test('una salida VACÍA de la IA se pide otra vez y no se disfraza de «No cambi
   assert.equal(salidaVacia({ respuesta: '¿Para quién es?', operaciones: [] }), false);
   assert.equal(salidaVacia({ operaciones: [{ op: 'titulo', texto: 'x' }] }), false);
   const ia = leer('lib/copywriter/ia.ts');
-  assert.ok(ia.includes('if (Date.now() < t0 + PLAZOS.editar - 45_000) raw = await pedir();'));
+  assert.ok(ia.includes('if (Date.now() < t0 + PLAZOS.editar - 45_000) raw = await pedir(primero, t0 + PLAZOS.editar);'));
   assert.ok(ia.includes("salidaVacia(raw) ? SALIDA_VACIA : 'No cambié nada.'"));
 });
 
@@ -550,5 +593,5 @@ test('las plantillas largas: el largo lo da la duración, no el ejemplo resumido
   assert.match(avisoDeDuracion(600, 2_520) ?? '', /unas 2000 palabras/, 'la clase de 42 minutos topa en lo que entra en un pedido');
   assert.equal(avisoDeDuracion(80, 45), null, 'un anuncio de 45 s: manda el ejemplo');
   assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /EL LARGO lo da la DURACIÓN de la pieza, no el ejemplo \(que puede estar resumido\): unas 150 palabras dichas por minuto, hasta 2\.000 palabras/);
-  assert.ok(leer('lib/copywriter/ia.ts').includes('const duracion = avisoDeDuracion(palabrasDe(dicho), r.props.duracion ?? g.props.duracion);'));
+  assert.ok(leer('lib/copywriter/ia.ts').includes('const duracion = avisoDeDuracion(m.escritas, r.props.duracion ?? g.props.duracion);'));
 });

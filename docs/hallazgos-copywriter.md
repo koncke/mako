@@ -574,12 +574,24 @@ Tabla con cada paso y su captura: side-session-notes/local_3f1a66d3-…/probar-c
   app (la regla del 23/10), las ofertas de la plantilla salían grises sin decir por qué: ahora una línea lo dice bajo los botones.
 - **Las sugerencias genéricas parpadeaban** («Mejorar la escritura · Acortar…», de uno a cinco segundos) antes de la pregunta de
   una plantilla: salían antes de leer el hilo.
+- **⚠️ Avisar no era el arreglo (el Cerebro, el mismo día):** «Martín quiere que la réplica SALGA bien, no que le avisen que salió
+  mal». Los avisos del largo, la voz y los capítulos (9e5a80238) pasaron a ser el ÚLTIMO recurso. **Regla:** lo que se puede medir
+  se corrige antes de mostrar. Una réplica fuera del ±25 % del largo, o que no sigue los capítulos, tiene una SEGUNDA PASADA
+  automática con los números (`pedidoDeCorreccion`, lib/copywriter/outliers.ts) y gana la que mejor cumple. La respuesta dice el
+  largo contado, no el que dijo el modelo («unas 38» sobre 83: `conElLargoReal`).
+- **⚠️ La voz «configurada» es la DECLARADA, no la de la zona horaria:** el negocio de MaKo escribía con voseo porque
+  `resolverAcento` lo deducía de su zona (Argentina), y la regla del producto es «tú» en español neutro. Ahora vosea sólo un
+  acento declarado (`seguro`); si no, lo escrito pasa solo a «tú» con `alTuteo` (lib/al-tuteo.ts, la misma de WhatsApp), también
+  lo citado (`citas: true`: en un guion, «…» lo escribió MaKo, no la persona), y la respuesta del chat siempre va en «tú».
+- **Lo que nadie pidió se saca solo:** «un reel de 30 segundos» salía con «Notas de producción» y «Variantes rápidas». Una sección
+  nueva de notas o variantes que el pedido no nombra no entra (`sinExtrasNoPedidos`), sin descartada (frenaría el «se acepta sola»).
 
 ## Qué quedó sin hacer
 
-- (13/11/2026) Los avisos miran la PÁGINA; la respuesta en el chat también mezcla voseo y tuteo («llevas… tenés») y nadie la mira.
-- (13/11/2026) Un reel corto pedido por chat sale con extras («Notas de producción», «Variantes rápidas»): 417 palabras para 30 s,
-  y el aviso de la duración no mira piezas de menos de 2 minutos (`avisoDeDuracion`).
+- (13/11/2026) Las plantillas largas (VSL, YouTube 12, Clase) todavía AVISAN el largo corto en vez de corregirlo: la segunda pasada
+  es sólo de la réplica (lib/copywriter/ia.ts, `fallas`). Y un negocio que declaró un acento que vosea sigue con el aviso de la
+  mezcla: `alTuteo` va hacia el «tú», no hacia el «vos».
+- (13/11/2026) Los imperativos de voseo en -í («escribí», «compartí») no se pasan solos (también son pretérito); quedan con aviso.
 - (13/11/2026) Una vez, en el teléfono, la Página quedó corrida a la derecha justo después de escribir la plantilla; no se repitió
   y la medición después daba `scrollX = 0` (captura 28b de la segunda vuelta).
 - (13/11/2026) La Clase escribió «un funnel que vende sin anuncios pagos» para una oferta llamada «WhatsApp Ads Funnel»: lo que

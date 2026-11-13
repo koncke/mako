@@ -15,6 +15,8 @@
 
 import { bloquesDelDoc } from './doc';
 import { INFO_TIPO, type JsonNodo, type PropsGuion, type TipoGuion } from './tipos';
+import type { BloqueIA, OperacionIA } from './operaciones';
+import { alTuteo } from '../al-tuteo';
 
 /** Los topes de lo que se le pasa al modelo (el texto, no el JSON: en «Discutir» no edita). */
 export const TOPES_IA = { porBloque: 1_500, guion: 24_000, mensajes: 8, porMensaje: 600, pregunta: 4_000 } as const;
@@ -207,6 +209,39 @@ export function salidaVacia(raw: Record<string, unknown>): boolean {
   return !respuesta && !(Array.isArray(raw.operaciones) && raw.operaciones.length);
 }
 export const SALIDA_VACIA = 'No me salió nada esta vez: pídemelo de nuevo.';
+
+/**
+ * Las operaciones con su texto en «tú» (13/11/2026, el Cerebro: «una sola voz, "tú" en español neutro, salvo que el negocio tenga
+ * otra voz configurada; si quedan formas de voseo, se corrigen solas, sin aviso»). La misma `alTuteo` de lo que MaKo escribe en
+ * WhatsApp, pero CON lo citado: en un guion, «…» es lo que se dice en cámara y lo escribió MaKo, no la persona.
+ */
+export function operacionesAlTuteo(ops: OperacionIA[]): OperacionIA[] {
+  const t = (s: string) => alTuteo(s, { citas: true });
+  const bloque = (b: BloqueIA): BloqueIA => ('texto' in b ? { ...b, texto: t(b.texto) } : 'items' in b ? { ...b, items: b.items.map(t) } : 'filas' in b ? { ...b, filas: b.filas.map((f) => f.map(t)) } : b);
+  return ops.map((op): OperacionIA => (op.op === 'titulo' ? { ...op, texto: t(op.texto) } : 'bloques' in op ? { ...op, bloques: op.bloques.map(bloque) } : op));
+}
+
+/**
+ * Lo que nadie pidió (13/11/2026, en producción en el teléfono: «Escribime un reel de 30 segundos» sobre una página en blanco salió
+ * con «Notas de producción» y «Variantes rápidas», 417 palabras para 30 segundos). Una sección NUEVA de notas, variantes o
+ * alternativas, si el pedido no las nombra, no entra; tampoco un título con ese nombre adentro de una sección y lo que le sigue.
+ * Las secciones que ya están en la página (las de una plantilla) no se tocan. Sin descartadas a propósito: una descartada frena el
+ * «se acepta sola» de la página vacía, y esto no es un error de la IA que la persona tenga que decidir.
+ */
+const EXTRA = /^(?:notas?(?: de (?:produccion|grabacion|edicion|direccion))?|tips de (?:produccion|grabacion)|variantes?(?: rapidas)?|variaciones|alternativas|versiones alternativas|ideas extra|otras ideas|bonus)$/;
+const sinTildesMin = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+export function sinExtrasNoPedidos(ops: OperacionIA[], seccionesDeLaPagina: readonly string[], pedido: string): OperacionIA[] {
+  if (/variante|variacion|alternativ|nota|produccion|version|bonus|idea/.test(sinTildesMin(pedido))) return ops;
+  const yaEstan = new Set(seccionesDeLaPagina.map(sinTildesMin));
+  const esExtra = (t: string) => EXTRA.test(sinTildesMin(t));
+  return ops.flatMap((op): OperacionIA[] => {
+    if (op.op === 'escribir_seccion' && esExtra(op.seccion) && !yaEstan.has(sinTildesMin(op.seccion))) return [];
+    if (!('bloques' in op)) return [op];
+    const corte = op.bloques.findIndex((b) => (b.tipo === 'titulo1' || b.tipo === 'titulo2' || b.tipo === 'titulo3') && esExtra(b.texto));
+    if (corte < 0) return [op];
+    return corte === 0 ? [] : [{ ...op, bloques: op.bloques.slice(0, corte) }];
+  });
+}
 
 /**
  * El TIPO que nombra el pedido (capa 2 de «el tipo va en propiedades», 13/11/2026, en producción en el teléfono: «Escribime un

@@ -29,7 +29,9 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, dichoQueNoQuedo, guionParaIA, marcasDeTuteo, propsParaIA, salidaVacia, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
+import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, dichoQueNoQuedo, guionParaIA, marcasDeTuteo, operacionesAlTuteo, propsParaIA, salidaVacia, sinExtrasNoPedidos, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
+import { alTuteo } from '../al-tuteo';
+import type { ClaudeMsg } from '../anthropic';
 import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
@@ -46,7 +48,7 @@ import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../
 import { FORMATO_EDITAR, PROMPTS_EDITAR, bibliotecaParaIA, estructuraParaIA } from './ia-editar';
 import { sanearOperaciones, aplicarTodo, type Descartada, type OperacionIA } from './operaciones';
 import { leerReferencias } from './referencias';
-import { NOMBRE_DEL_ORIGINAL, avisoDeLargo, capitulosDe, frasesDelOriginal, palabrasDe, siguenLosCapitulos } from './outliers';
+import { NOMBRE_DEL_ORIGINAL, avisoDeLargo, capitulosDe, conElLargoReal, frasesDelOriginal, largoFuera, largoPedido, palabrasDe, pedidoDeCorreccion, siguenLosCapitulos } from './outliers';
 import type { Referencia } from './referencias-reglas';
 import { textoDeNodo, textoDelDoc } from './doc';
 import { PROMPTS_EXPERTO, pideParaIA } from './experto';
@@ -76,16 +78,14 @@ async function falloIA(e: unknown, tema: string): Promise<string> {
 }
 
 /** El acento del negocio (el del Video Generator: lo declarado, o la zona horaria, o el neutro). Nunca tira. */
-async function acentoDelNegocio(): Promise<string | null> {
-  return (await acentoConId())?.prompt ?? null;
-}
-async function acentoConId(): Promise<{ id: string; prompt: string } | null> {
+async function acentoConId(): Promise<{ id: string; prompt: string; seguro: boolean } | null> {
   try {
     const ws = await getWorkspaceActual().catch(() => null);
     const voz = await getVozCliente().catch((): VozCliente => ({ acento: '', muletillas: [], muestras: [] }));
     const zona = ws != null ? await tzDeWorkspace(ws).catch(() => null) : null;
     const a = resolverAcento(voz.acento, zona, voz.muletillas, voz.acentoOrigen);
-    return { id: a.id, prompt: a.prompt };
+    // `seguro` = lo DECLARÓ el negocio (no salió de su zona horaria): es «la voz configurada» que le gana al «tú» del producto.
+    return { id: a.id, prompt: a.prompt, seguro: a.seguro };
   } catch {
     return null;
   }
@@ -148,8 +148,11 @@ export async function discutir(p: { pregunta: unknown; guion: GuionDelPedido; ch
   if (!pregunta) return invalido('Escribe qué quieres pensar.');
   const g = guionDe(p.guion);
   try {
-    const [acento, negocio, n, refs] = await Promise.all([acentoDelNegocio(), contextoDelNegocio(pregunta), nombres(g.props), leerReferencias(conElOriginal(p.referencias, g.props))]);
-    const sys = await brandSystem(`${await renderPrompt(PROMPTS_COPY.discutirSystem.key, PROMPTS_COPY.discutirSystem.tpl, { idioma: bloqueIdiomaCopy(acento) })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
+    const [acento, negocio, n, refs] = await Promise.all([acentoConId(), contextoDelNegocio(pregunta), nombres(g.props), leerReferencias(conElOriginal(p.referencias, g.props))]);
+    // La voz como en `editar`: la variedad sólo si el negocio la DECLARÓ (la de su zona horaria no cuenta).
+    const declarado = acento?.seguro ? acento : null;
+    const vosea = !!declarado && VOSEAN.has(declarado.id);
+    const sys = await brandSystem(`${await renderPrompt(PROMPTS_COPY.discutirSystem.key, PROMPTS_COPY.discutirSystem.tpl, { idioma: bloqueIdiomaCopy(declarado?.prompt ?? null, vosea) })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
     const user = await renderPrompt(PROMPTS_COPY.discutirUser.key, PROMPTS_COPY.discutirUser.tpl, {
       pregunta: contenidoNoConfiable(pregunta, 'pregunta'),
@@ -170,7 +173,8 @@ export async function discutir(p: { pregunta: unknown; guion: GuionDelPedido; ch
     });
     const limpio = String(salida ?? '').replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/i, '').trim();
     const ne = await conPedidoDeNoExisteDeLaSesion(limpio, { chat: 'copywriter (Discutir)', ruta: '/copywriter', pedido: pregunta });
-    const respuesta = [ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\n\n');
+    // A la persona, siempre en «tú» (13/11/2026: «llevas… tenés» en la misma respuesta); lo citado, salvo que el negocio vosee.
+    const respuesta = alTuteo([ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\n\n'), { citas: !vosea });
     if (!respuesta) return sinResultado('MaKo no contestó. Vuelve a intentar.');
     return { ok: true, respuesta, noLeidas: refs.noLeidas };
   } catch (err) {
@@ -243,7 +247,12 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       ? await metodologiaIgVigente(g.props.tipo).catch(() => metodologiaDe(g.props.tipo as 'reel' | 'story'))
       : '';
     const n = { angulo: angulo?.nombre ?? null, estructura: estructura?.nombre ?? null };
-    const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(acento?.prompt ?? null, !!acento && VOSEAN.has(acento.id)), formato: FORMATO_EDITAR })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
+    // UNA SOLA VOZ (13/11/2026, el Cerebro: «"tú", en español neutro —es la regla del producto, que se usa en México—, salvo que el
+    // negocio tenga otra voz configurada»). La configurada es la DECLARADA; la que sale de la zona horaria no cuenta (así el negocio
+    // de MaKo, en Argentina por su zona, escribía con voseo y mezclado). Sin declarar: español neutro y «tú».
+    const declarado = acento?.seguro ? acento : null;
+    const vosea = !!declarado && VOSEAN.has(declarado.id);
+    const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(declarado?.prompt ?? null, vosea), formato: FORMATO_EDITAR })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
     const pl = p.adaptar ? plantillaPorId(lite, g.props.plantilla) : null;
     const user = pl?.ejemplo ? await renderPrompt(PROMPTS_EXPERTO.adaptarUser.key, PROMPTS_EXPERTO.adaptarUser.tpl, {
@@ -271,27 +280,55 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       negocio: bloqueNegocio(negocio),
       adjuntos: bloqueAdjuntos(p.lecturas ?? []),
     });
-    const pedir = async () => objetoConUnaReparacion(String(await chatClaude(sys, [{ role: 'user', content: user }], {
-      feature: FEATURE_COPY,
-      motivo: pl?.ejemplo ? 'Adaptar una plantilla al negocio (Copywriter)' : 'Escribir en un guion (Copywriter)',
-      maxTokens: 6_000,
-      thinking: false,
-      hastaMs: t0 + PLAZOS.editar,
-    }) ?? ''), reparador(t0 + PLAZOS.editar));
-    let raw = await pedir();
+    const motivo = pl?.ejemplo ? 'Adaptar una plantilla al negocio (Copywriter)' : 'Escribir en un guion (Copywriter)';
+    const pedir = async (mensajes: ClaudeMsg[], hastaMs: number) => objetoConUnaReparacion(String(await chatClaude(sys, mensajes, {
+      feature: FEATURE_COPY, motivo, maxTokens: 6_000, thinking: false, hastaMs,
+    }) ?? ''), reparador(hastaMs));
+    const primero: ClaudeMsg[] = [{ role: 'user', content: user }];
+    let raw = await pedir(primero, t0 + PLAZOS.editar);
     // Una salida VACÍA se pide una vez más si queda tiempo (ia-reglas → salidaVacia); las claves van al log para saber qué fue.
     if (salidaVacia(raw)) {
       console.warn('[copywriter] la IA devolvió un objeto vacío', JSON.stringify(raw).slice(0, 300));
-      if (Date.now() < t0 + PLAZOS.editar - 45_000) raw = await pedir();
+      if (Date.now() < t0 + PLAZOS.editar - 45_000) raw = await pedir(primero, t0 + PLAZOS.editar);
     }
-    const ne = await conPedidoDeNoExisteDeLaSesion(typeof raw.respuesta === 'string' ? raw.respuesta.trim() : '', { chat: 'copywriter (Editar)', ruta: '/copywriter', pedido: instruccion });
     const catalogo = { angulos: new Set(lite.angulos.map((a) => a.id)), estructuras: new Set(lite.estructuras.map((e) => e.id)) };
-    const s = sanearOperaciones(raw.operaciones, g.doc, catalogo);
-    // La voz (capa 2 de la regla del idioma): lo escrito por MaKo con formas de «vos» en un negocio que no habla así.
-    const r = aplicarTodo(g.doc, s.ops);
+    const seccionesDeLaPagina = (g.doc.content ?? []).flatMap((b) => (b.type === 'heading' && typeof b.attrs?.seccion === 'string' ? [b.attrs.seccion] : []));
+    // Lo que escribió, ya saneado, en la voz del negocio y sin lo que nadie pidió, aplicado y medido.
+    const medir = (x: Record<string, unknown>) => {
+      const s = sanearOperaciones(x.operaciones, g.doc, catalogo);
+      // La voz (13/11/2026): «tú» salvo un acento DECLARADO que vosea; lo que el modelo voseó igual se pasa solo (ia-reglas).
+      if (!vosea) s.ops = operacionesAlTuteo(s.ops);
+      s.ops = sinExtrasNoPedidos(s.ops, seccionesDeLaPagina, instruccion);
+      const r = aplicarTodo(g.doc, s.ops);
+      const nuevos = new Set(r.nuevos);
+      const dicho = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string) && b.type !== 'heading').map(textoDeNodo).join('\n');
+      const secciones = s.ops.flatMap((op) => (op.op === 'escribir_seccion' ? [op.seccion] : []));
+      return { s, r, nuevos, entera: secciones.length >= 2, escritas: palabrasDe(dicho), secciones };
+    };
+    let m = medir(raw);
+    // LA RÉPLICA SE CORRIGE SOLA (13/11/2026, el Cerebro: «Martín quiere que la réplica SALGA bien, no que le avisen que salió mal»;
+    // en producción el anuncio de 35 palabras salió de 83 y el YouTube no siguió sus 8 capítulos). Fuera del ±25 % del largo, o sin
+    // seguir los capítulos, una SEGUNDA PASADA con los números (outliers → pedidoDeCorreccion), y queda la que mejor cumple. El
+    // aviso (más abajo) es el último recurso: lo que ni así entró.
+    const original = g.props.outlier ? refs.textos.find((x) => x.nombre === NOMBRE_DEL_ORIGINAL)?.texto ?? '' : '';
+    const largo = original ? largoPedido(original) : null;
+    const capitulos = original ? capitulosDe(original) : [];
+    const fallas = (x: typeof m) => ({ largo: largo != null && x.entera && largoFuera(largo, x.escritas), capitulos: x.entera && !siguenLosCapitulos(x.secciones, capitulos) });
+    const puntos = (x: typeof m) => { const f = fallas(x); return Number(f.largo) + Number(f.capitulos) + (largo ? Math.abs(x.escritas - largo) / largo / 10 : 0); };
+    const f1 = fallas(m);
+    if (original && m.entera && (f1.largo || f1.capitulos) && Date.now() < t0 + 170_000) {
+      const correccion = pedidoDeCorreccion({ largo: f1.largo && largo ? { n: largo, escritas: m.escritas } : null, capitulos: f1.capitulos ? capitulos : [] });
+      const raw2 = await pedir([...primero, { role: 'assistant', content: JSON.stringify(raw) }, { role: 'user', content: correccion }], Math.min(Date.now() + 90_000, t0 + 270_000))
+        .catch((e) => { console.warn('[copywriter] la segunda pasada de la réplica no salió', e instanceof Error ? e.message : e); return null; });
+      if (raw2 && !salidaVacia(raw2)) {
+        const m2 = medir(raw2);
+        if (m2.entera && puntos(m2) < puntos(m)) { raw = raw2; m = m2; }
+      }
+    }
+    const { s, r, nuevos, entera } = m;
+    const ne = await conPedidoDeNoExisteDeLaSesion(typeof raw.respuesta === 'string' ? raw.respuesta.trim() : '', { chat: 'copywriter (Editar)', ruta: '/copywriter', pedido: instruccion });
     // El título (capa 2 de «ponle un título propio», 12/11/2026, en producción: la plantilla quedaba «Sin título» y la réplica con el
     // gancho del competidor): una pieza escrita entera sobre una página sin título propio sale con lo primero que se dice.
-    const entera = s.ops.filter((op) => op.op === 'escribir_seccion').length >= 2;
     const sinTituloPropio = !g.titulo.trim() || g.titulo === SIN_TITULO || /^Como @/.test(g.titulo);
     if (entera && sinTituloPropio && !s.ops.some((op) => op.op === 'titulo')) {
       const t = tituloDeRespaldo(extractoDelDoc(r.doc));
@@ -302,18 +339,17 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       const tipo = tipoDelPedido(instruccion);
       if (tipo) s.ops.push({ op: 'propiedades', tipo });
     }
-    const nuevos = new Set(r.nuevos);
     const escrito = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string)).map(textoDeNodo).join('\n');
-    const voseo = acento && VOSEAN.has(acento.id) ? [] : marcasDeVoseo(escrito);
+    // La voz, ÚLTIMO RECURSO: lo que `alTuteo` no pudo pasar solo (un imperativo en -í, que también es pretérito) en un negocio de «tú».
+    const voseo = vosea ? [] : marcasDeVoseo(escrito);
     const avisos = voseo.length ? [`Tiene voseo (${voseo.slice(0, 4).join(', ')}): si tu audiencia no habla así, pídele a MaKo que lo cambie.`] : [];
-    // Y en un negocio que vosea, la MEZCLA (13/11/2026, en producción: «pedís… vos» con «tiras… negocias» en el mismo reel).
-    if (acento && VOSEAN.has(acento.id)) {
+    // Y en un negocio que DECLARÓ un acento que vosea, la MEZCLA (13/11/2026, en producción: «pedís… vos» con «tiras… negocias»).
+    if (vosea) {
       const conVoseo = marcasDeVoseo(escrito);
       const conTuteo = marcasDeTuteo(escrito);
       if (conVoseo.length && conTuteo.length) avisos.push(`Mezcla voseo y tuteo (${conVoseo.slice(0, 2).join(', ')} y ${conTuteo.slice(0, 2).join(', ')}): pídele a MaKo una sola forma.`);
     }
     // La réplica de un outlier (capa 2 de «nunca copies sus frases», lib/copywriter/outliers.ts → frasesDelOriginal).
-    const original = g.props.outlier ? refs.textos.find((x) => x.nombre === NOMBRE_DEL_ORIGINAL)?.texto ?? '' : '';
     // También el TÍTULO que propone (11/11/2026, en producción: el cuerpo ya era propio y el título seguía siendo «Cobrar más no es
     // suerte, es sistema»). Por separado, para que una frase no se arme con el final del título y el principio del cuerpo.
     const copiadas = original ? [...new Set([...frasesDelOriginal(original, r.titulo ?? ''), ...frasesDelOriginal(original, escrito)])] : [];
@@ -324,23 +360,22 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     // Y lo que la respuesta dice que puso y no quedó (ia-reglas → dichoQueNoQuedo).
     const noQuedo = dichoQueNoQuedo(typeof raw.respuesta === 'string' ? raw.respuesta : '', `${r.titulo ?? g.titulo}\n${textoDelDoc(r.doc)}`);
     if (noQuedo) avisos.push(noQuedo);
-    // El largo de la réplica escrita entera, medido (13/11/2026: 35 palabras pedidas, 83 escritas y «unas 38» en la respuesta).
+    // El largo y los capítulos de la réplica, ÚLTIMO RECURSO: lo que ni con la segunda pasada entró (13/11/2026: 35 palabras pedidas
+    // y 83 escritas; 8 capítulos en el original y las 9 secciones de la biblioteca en la réplica).
     if (original && entera) {
-      const dicho = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string) && b.type !== 'heading').map(textoDeNodo).join('\n');
-      const largo = avisoDeLargo(original, palabrasDe(dicho));
-      if (largo) avisos.push(largo);
-      // Los capítulos del video (13/11/2026: 8 capítulos en el original y las 9 secciones de la biblioteca en la réplica).
-      const capitulos = capitulosDe(original);
-      const secciones = s.ops.flatMap((op) => (op.op === 'escribir_seccion' ? [op.seccion] : []));
-      if (!siguenLosCapitulos(secciones, capitulos)) avisos.push(`El original tiene ${capitulos.length} capítulos y el guion no los sigue: pídele a MaKo una sección por capítulo.`);
+      const largoMal = avisoDeLargo(original, m.escritas);
+      if (largoMal) avisos.push(largoMal);
+      if (!siguenLosCapitulos(m.secciones, capitulos)) avisos.push(`El original tiene ${capitulos.length} capítulos y el guion no los sigue: pídele a MaKo una sección por capítulo.`);
     }
     // La duración de una pieza escrita entera que no replica nada (las plantillas largas: VSL, YouTube, la clase).
     if (!original && entera) {
-      const dicho = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string) && b.type !== 'heading').map(textoDeNodo).join('\n');
-      const duracion = avisoDeDuracion(palabrasDe(dicho), r.props.duracion ?? g.props.duracion);
+      const duracion = avisoDeDuracion(m.escritas, r.props.duracion ?? g.props.duracion);
       if (duracion) avisos.push(duracion);
     }
-    const respuesta = [ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n') || (s.ops.length ? 'Listo: revisa lo que escribí.' : salidaVacia(raw) ? SALIDA_VACIA : 'No cambié nada.');
+    // La respuesta a la persona va SIEMPRE en «tú» (la regla del chat, ia-reglas → bloqueIdiomaCopy); lo citado en ella es del guion,
+    // así que se pasa también, salvo en un negocio que vosea (ahí lo citado es su voz). Y con el largo REAL de la réplica.
+    let respuesta = alTuteo([ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n'), { citas: !vosea }) || (s.ops.length ? 'Listo: revisa lo que escribí.' : salidaVacia(raw) ? SALIDA_VACIA : 'No cambié nada.');
+    if (largo != null && entera) respuesta = conElLargoReal(respuesta, m.escritas, largo);
     return { ok: true, respuesta, operaciones: s.ops, descartadas: [...s.descartadas, ...r.descartadas], avisos, noLeidas: refs.noLeidas };
   } catch (err) {
     return { ok: false, error: await falloIA(err, 'escribir'), status: 502 };
