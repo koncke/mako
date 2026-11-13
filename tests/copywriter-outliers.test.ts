@@ -19,7 +19,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, primeraLinea, restoDelTexto, textoDeTarjeta,
-  outliersCopyDeSpy, palabrasDe, reglasDeLaReplica, textoParaMaKo, tipoDeOutlier, tituloDeReplica,
+  outliersCopyDeSpy, palabrasDe, reglasDeLaReplica, textoParaMaKo, tipoDeOutlier, tituloDeReplica, avisoDeLargo, capitulosDe, siguenLosCapitulos,
+  largoPedido, largoFuera, pedidoDeCorreccion, conElLargoReal,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
 } from '../lib/copywriter/outliers';
 import { sanearProps } from '../lib/copywriter/tipos';
@@ -374,4 +375,55 @@ test('teléfono: «Mis guiones» y «Crear desde cero» debajo del título, no a
   assert.doesNotMatch(portada, /oc\.filaTelefono/);
   const css = leer('app/copywriter/outliers.module.css');
   assert.match(css, /\.botonesTelefono\.botonesTelefono\.botonesTelefono\.botonesTelefono \{ flex-wrap: wrap; justify-content: center;/);
+});
+
+test('la réplica de YouTube sigue sus capítulos, y el largo se mide (13/11/2026, en producción después del despliegue)', () => {
+  // La descripción REAL del video de @herasmedia: 8 capítulos (más la intro y un «#9» vacío).
+  const desc = 'El método viral para ganar 100.000 Seguidores y +20.000€ / mes (en menos de 90 días) https://bit.ly/4f6BZ7w He generado + de 600 Millones de visualizaciones. 0:00 Intro 0:45 #1 Reel viral paso a paso en el nuevo instagram 2024 1:56 #2 La idea que elijas para crear ese vídeo 3:05 #3 Idea Ganadora 11:53 #4 El contenido debe gustar a cualquier persona 17:18 #5 Lo que mas importa es que la gente se quede 50 segundos 23:37 #6 El formato de contenido 38:13 #7 ¿Cómo publicar el contenido? 41:52 #8 ¿A que hora debo publicar los contenidos? 19:55 #9 ____________ Y literalmente lo he hecho en todos los nichos.';
+  const caps = capitulosDe(desc);
+  assert.deepEqual(caps, ['Intro', 'Reel viral paso a paso en el nuevo instagram 2024', 'La idea que elijas para crear ese vídeo', 'Idea Ganadora',
+    'El contenido debe gustar a cualquier persona', 'Lo que mas importa es que la gente se quede 50 segundos', 'El formato de contenido',
+    '¿Cómo publicar el contenido?', '¿A que hora debo publicar los contenidos?']);
+  assert.deepEqual(capitulosDe('Mira el minuto 0:45 del video.'), [], 'un tiempo suelto no son capítulos');
+  // Van uno por uno en lo que lee MaKo (con «si trae capítulos…» salieron las 9 secciones de la biblioteca).
+  const regla = reglasDeLaReplica({ formato: 'youtube', deDonde: 'descripcion', texto: desc, laminas: null })[0];
+  assert.match(regla, /UNA sección por capítulo, en este orden[^:]*: 1\) Intro · 2\) Reel viral paso a paso/);
+  // El aviso: las secciones de la biblioteca no siguen los capítulos; las que los nombran, sí.
+  assert.equal(siguenLosCapitulos(['GANCHO', 'INTRO', 'BLOQUE UNO', 'CTA MEDIO', 'BLOQUE DOS', 'BLOQUE TRES', 'REGANCHO', 'BLOQUE FINAL', 'CIERRE'], caps), false);
+  assert.equal(siguenLosCapitulos(['INTRO', 'PASO A PASO', 'LA IDEA', 'IDEA GANADORA', 'GUSTAR A TODOS', 'QUE SE QUEDEN', 'EL FORMATO', 'CÓMO PUBLICAR', 'A QUÉ HORA'], caps), true);
+  assert.equal(siguenLosCapitulos(['CAPITULO 1', 'CAPITULO 2', 'CAPITULO 3', 'CAPITULO 4', 'CAPITULO 5'], caps), true);
+  // El largo: el anuncio de 35 palabras salió de 83 («unas 38», decía MaKo).
+  const original = textoParaMaKo(outlier({ texto: Array.from({ length: 35 }, (_, i) => `p${i}`).join(' '), deDonde: 'copy' }), null);
+  assert.match(avisoDeLargo(original, 83) ?? '', /Quedó de 83 palabras y el original tiene 35: pídele a MaKo que lo deje de ese largo \(sin secciones de más\)\./);
+  assert.equal(avisoDeLargo(original, 40), null);
+  assert.equal(avisoDeLargo(textoParaMaKo(outlier({ deDonde: 'pie' }), null), 500), null, 'el pie de un reel no pide largo');
+  const ia = leer('lib/copywriter/ia.ts');
+  // El aviso queda como ÚLTIMO RECURSO, después de la segunda pasada (13/11/2026).
+  assert.ok(ia.includes('const largoMal = avisoDeLargo(original, m.escritas);'));
+  assert.ok(ia.includes('if (!siguenLosCapitulos(m.secciones, capitulos)) avisos.push('));
+});
+
+test('la réplica se CORRIGE sola: segunda pasada con los números y el largo real en la respuesta (13/11/2026, el Cerebro)', () => {
+  const original = textoParaMaKo(outlier({ texto: Array.from({ length: 35 }, (_, i) => `p${i}`).join(' '), deDonde: 'copy' }), null);
+  assert.equal(largoPedido(original), 35);
+  assert.equal(largoPedido(textoParaMaKo(outlier({ deDonde: 'pie' }), null)), null);
+  // Fuera del ±25 %: 83 sobre 35 sí; 40 no.
+  assert.equal(largoFuera(35, 83), true);
+  assert.equal(largoFuera(35, 40), false);
+  assert.equal(largoFuera(35, 25), true);
+  const pedido = pedidoDeCorreccion({ largo: { n: 35, escritas: 83 }, capitulos: ['Intro', 'Idea Ganadora', 'Cómo publicar'] });
+  assert.match(pedido, /tiene 83 palabras y el original 35\. Reescríbelo ENTERO entre 28 y 42 palabras/);
+  assert.match(pedido, /el original tiene 3 y tu guion no los sigue\. Una sección por capítulo[\s\S]*1\. Intro\n {2}2\. Idea Ganadora\n {2}3\. Cómo publicar/);
+  assert.match(pedido, /TODAS las operaciones de nuevo/);
+  assert.doesNotMatch(pedidoDeCorreccion({ largo: null, capitulos: ['a', 'b', 'c'] }), /EL LARGO/);
+  // «unas 38 palabras» con 83 escritas: el número real; el del original, si lo nombra bien, queda.
+  assert.equal(conElLargoReal('Repliqué el anuncio: unas 38 palabras, mismo tempo.', 83, 35), 'Repliqué el anuncio: 83 palabras, mismo tempo.');
+  assert.equal(conElLargoReal('El original tiene 35 palabras y el mío 40 palabras.', 37, 35), 'El original tiene 35 palabras y el mío 37 palabras.');
+  assert.equal(conElLargoReal('Repliqué el anuncio.', 37, 35), 'Repliqué el anuncio. Quedó de 37 palabras; el original tiene 35.');
+  // La segunda pasada va en `editar`, con el pedido de corrección después de su primera respuesta, y gana la que mejor cumple.
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes('if (m.entera && (f1.largo || f1.capitulos || f1.corta) && Date.now() < t0 + 170_000) {'));
+  assert.ok(ia.includes("{ role: 'assistant', content: JSON.stringify(raw) }, { role: 'user', content: correccion }"));
+  assert.ok(ia.includes('if (m2.entera && puntos(m2) < puntos(m)) { raw = raw2; m = m2; }'));
+  assert.ok(ia.includes('if (largo != null && entera) respuesta = conElLargoReal(respuesta, m.escritas, largo);'));
 });

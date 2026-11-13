@@ -15,6 +15,7 @@
 import type { MensajeChat, SesionChat } from './mako-turno-app-reglas';
 import { asesorPorId, type IdAsesor } from './asesores/catalogo';
 import type { MensajeChatMako } from './automatizacion-chat';
+import { sinDesde } from './chat-desde';
 
 /** El nombre del jefe del chat con MaKo: «Cerebro», con la estrella de MaKo (lib/centro-munecos.ts → esCriaturaDeMako), como el
  *  del Ops Center del super admin (21/10/2026, Martín: «El chat principal, al igual que SuperAdmin, debe ser "Cerebro" y tener la
@@ -475,7 +476,8 @@ export function temaDe(texto: string | null | undefined): string {
  */
 export function previaDeMensaje(m: { role: string; content: string | null | undefined } | null | undefined): string | null {
   if (!m) return null;
-  const t = String(m.content ?? '')
+  // Sin la marca de la tab (13/11/2026, medido en producción: la fila decía «Tú: [desde: Dashboard › Marketing] Analiza…»).
+  const t = sinDesde(String(m.content ?? '')).texto
     .replace(/https?:\/\/(?:www\.)?([^/\s]+)\S*/g, '$1')
     .replace(/[*_`#>|]+/g, '')
     .replace(/\s+/g, ' ')

@@ -18,6 +18,14 @@ export const TEXTO_MOTIVO_CLIPS: Readonly<Record<MotivoClips, string>> = {
 	red: "No pude hablar con MaKo. Revisa tu conexión y vuelve a intentar.",
 };
 
+/**
+ * ¿Es una FALLA (va con «Reportar a Soporte»)? Sólo no poder hablar con MaKo. Lo demás dice qué hacer —el video ya es corto,
+ * no tiene voz, no hay momentos que se entiendan solos—: con «Reportar a Soporte» parecía que algo se había roto (13/11/2026).
+ */
+export function esFallaDeClips(r: ResultadoClips): boolean {
+	return !r.ok && r.motivo === "red";
+}
+
 export function textoDeClips(r: Extract<ResultadoClips, { ok: false }>): string {
 	return r.detalle?.trim() || TEXTO_MOTIVO_CLIPS[r.motivo];
 }

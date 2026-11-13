@@ -18,6 +18,18 @@ export function columnaDelEvento(c: ColumnasEmail | undefined, evento: EventoCol
   return typeof k === 'string' && k.trim() ? k.trim() : null;
 }
 
+/**
+ * LA COLUMNA DE LOS REBOTADOS (13/11/2026, ticket #93). Mauricio: «debemos poner en una columna o fase del CRM los correos
+ * rebotados para sacarlos de la secuencia pero no apagarla». La elegida (`columnasEmail.rebote`) o, sin elegir, la columna
+ * del CRM que se llame «Rebotado/s» o «Rebote/s» (la primera): así alcanza con crear la columna, sin configurar cada
+ * automatización. null = ese CRM no tiene dónde ponerlos (el lead igual sale de la secuencia: la baja del email).
+ */
+export function columnaDeRebote(c: ColumnasEmail | undefined, etapas: ReadonlyArray<{ key: string; label?: string | null }>): string | null {
+  const elegida = columnaDelEvento(c, 'rebote');
+  if (elegida) return elegida;
+  return etapas.find((e) => /(^|[^\p{L}])rebot/iu.test(String(e.label ?? '')))?.key ?? null;
+}
+
 /** ¿La automatización eligió alguna columna? Sin ninguna, nada de esto corre (ni el movimiento ni el corte del punto 6). */
 export function tieneColumnasEmail(c: ColumnasEmail | undefined): boolean {
   return (['enviado', 'abrio', 'clic'] as const).some((e) => columnaDelEvento(c, e) != null);
@@ -31,12 +43,15 @@ export type Movimiento =
  * ¿La tarjeta pasa de `actual` a `destino`? `etapas`: las columnas del CRM, en el orden del tablero. `actual` null = el lead
  * no está en ese CRM.
  */
-export function decidirMovimiento(o: { etapas: ReadonlyArray<{ key: string }>; actual: string | null; destino: string }): Movimiento {
+export function decidirMovimiento(o: { etapas: ReadonlyArray<{ key: string }>; actual: string | null; destino: string; evento?: EventoColumna }): Movimiento {
   if (o.actual == null) return { mover: false, motivo: 'no-esta' };
   const iDestino = o.etapas.findIndex((e) => e.key === o.destino);
   if (iDestino < 0) return { mover: false, motivo: 'columna-que-no-existe' };
   if (terminalEstadoFor(o.actual) !== 'abierto') return { mover: false, motivo: 'terminal' };
   if (o.actual === o.destino) return { mover: false, motivo: 'ya-esta' };
+  // UN REBOTE NO ES AVANZAR (#93): la dirección no existe, esté donde esté la tarjeta. Va a «Rebotado» aunque la columna quede
+  // antes en el tablero; de una terminal (quien ya compró), no.
+  if (o.evento === 'rebote') return { mover: true };
   const iActual = o.etapas.findIndex((e) => e.key === o.actual);
   // Una columna que el tablero ya no tiene no tiene lugar: no se sabe si el destino es adelante. No se mueve.
   if (iActual < 0 || iDestino < iActual) return { mover: false, motivo: 'atras' };
@@ -51,4 +66,37 @@ export function decidirMovimiento(o: { etapas: ReadonlyArray<{ key: string }>; a
 export function dejaDeRecibir(o: { estadoLead: string | null | undefined; etapaEnCrm: string | null }): boolean {
   if ((o.estadoLead ?? 'abierto') !== 'abierto') return true;
   return o.etapaEnCrm != null && terminalEstadoFor(o.etapaEnCrm) !== 'abierto';
+}
+
+// =============================================================================
+// ACOMODAR LO QUE YA SALIÓ (13/11/2026, ticket #93)
+// =============================================================================
+// Las columnas sólo movían al llegar el evento: en «Sprint Ejecución» de Mauricio se eligieron a las 20:26 del 12/11, después
+// de los primeros 33 emails (17:02), y esos 33 quedaron en «Nuevo lead» aunque 6 lo habían abierto. Al elegirlas, cada lead
+// que ya recibió algo va a la columna de lo más lejos que llegó con los emails de ESA automatización.
+
+/** Lo que pasó con los emails de una automatización a un lead. */
+export type EmailYaEnviado = { abierto_at?: string | null; clic_at?: string | null; rebotado_at?: string | null };
+
+/** Lo más lejos que llegó un lead con esos emails: rebotó > hizo clic > abrió > le salió. null = no le salió ninguno. */
+export function eventoMasLejano(envios: ReadonlyArray<EmailYaEnviado>): EventoColumna | null {
+  if (!envios.length) return null;
+  if (envios.some((e) => e.rebotado_at)) return 'rebote';
+  if (envios.some((e) => e.clic_at)) return 'clic';
+  if (envios.some((e) => e.abierto_at)) return 'abrio';
+  return 'enviado';
+}
+
+/**
+ * La columna de ese evento, o la del escalón de abajo si ésa no se eligió (quien hizo clic y sólo hay «Abrió», a «Abrió»).
+ * El rebote no baja: sin columna de rebotados, no se mueve (un rebotado en «Correo enviado» dice algo que no pasó).
+ */
+export function columnaParaAcomodar(c: ColumnasEmail | undefined, etapas: ReadonlyArray<{ key: string; label?: string | null }>, evento: EventoColumna): { evento: EventoColumna; columna: string } | null {
+  if (evento === 'rebote') { const k = columnaDeRebote(c, etapas); return k ? { evento, columna: k } : null; }
+  const escalones: EventoColumna[] = ['clic', 'abrio', 'enviado'];
+  for (const e of escalones.slice(escalones.indexOf(evento))) {
+    const k = columnaDelEvento(c, e);
+    if (k) return { evento: e, columna: k };
+  }
+  return null;
 }

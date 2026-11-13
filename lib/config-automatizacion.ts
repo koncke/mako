@@ -32,7 +32,7 @@
 
 import { arranqueLlega, ARRANQUE_MAX_DIAS } from './goteo';
 import { sanearHorario, dentroDelHorario, acabaDeAbrir, horaTexto, relojEnZona, DIAS_PANTALLA, HORARIO_SUGERIDO, type HorarioEnvio, type DiaSemana } from './horario-envio';
-import { RANGOS_LIMITES } from './limites-envio';
+import { RANGOS_LIMITES, rangoDeLimite, type OpcionesRango } from './limites-envio';
 import { TRIGGER_ETAPA } from './nutricion-etapa';
 
 /** El prefijo de las claves (el motor las lee todas juntas). */
@@ -90,8 +90,12 @@ export type ConfigAutomatizacion = {
   columnasEmail?: ColumnasEmail;
 };
 
-/** Los tres momentos de un email que mueven la tarjeta. */
-export const EVENTOS_COLUMNA = ['enviado', 'abrio', 'clic'] as const;
+/**
+ * Los momentos de un email que mueven la tarjeta. `rebote` (13/11/2026, ticket #93: Mauricio pidió «una columna o fase del CRM
+ * para los correos rebotados»): la dirección no existe. Sin columna elegida, va a la del CRM que se llame «Rebotado»
+ * (`columnaDeRebote`, lib/email-eventos-crm-reglas.ts). El lead ya sale de la secuencia por la baja del email.
+ */
+export const EVENTOS_COLUMNA = ['enviado', 'abrio', 'clic', 'rebote'] as const;
 export type EventoColumna = (typeof EVENTOS_COLUMNA)[number];
 export type ColumnasEmail = Partial<Record<EventoColumna, string>>;
 
@@ -116,6 +120,22 @@ function columnasGuardadas(raw: unknown): ColumnasEmail | undefined {
  * día de 300 deja pasar 300 emails, y los WhatsApp los sigue cortando su línea, que es más baja).
  */
 export const RANGOS_GOTEO = { minutos: [1, 240] as const, dia: [RANGOS_LIMITES.wa.dia[0], RANGOS_LIMITES.email.dia[1]] as const } as const;
+
+/**
+ * EL GOTEO SIGUE A LA CUENTA (13/11/2026, ticket #93; decisión del Cerebro). El tope por día de UNA automatización llega al
+ * tope de email del negocio: 2.000 con SU clave de Resend y SU dominio, 500 con la de la plataforma (`rangoDeLimite`,
+ * lib/limites-envio.ts). Sin esto, con un tope de 1.600, a «Sprint correos · Fríos» de Mauricio no se le podía poner más de
+ * 500 por día. `RANGOS_GOTEO` queda como el de la plataforma (lo usa la difusión).
+ */
+export function rangosGoteo(o?: OpcionesRango): { minutos: readonly [number, number]; dia: readonly [number, number] } {
+  return { minutos: RANGOS_GOTEO.minutos, dia: [RANGOS_GOTEO.dia[0], rangoDeLimite('email', 'dia', o)[1]] };
+}
+
+/**
+ * Al LEER, el más ancho: lo guardado ya pasó el rango de SU cuenta al guardarse. Descartar un tope por día de 1.200 (leído sin
+ * saber la cuenta) dejaba la automatización SIN tope por día: mandaba más, no menos. El tope de la línea corta igual.
+ */
+const RANGOS_GOTEO_LECTURA = rangosGoteo({ cuentaPropia: true });
 
 const enRango = (n: unknown, [min, max]: readonly [number, number]): n is number =>
   typeof n === 'number' && Number.isInteger(n) && n >= min && n <= max;
@@ -148,11 +168,11 @@ export function hoyGotea(c: ConfigAutomatizacion, ahoraMs: number, tz: string | 
 function goteoGuardado(raw: unknown): ConfigAutomatizacion['goteo'] {
   const g = raw && typeof raw === 'object' ? raw as Record<string, unknown> : null;
   if (!g) return undefined;
-  const min = enRango(g.minutos, RANGOS_GOTEO.minutos) ? g.minutos : undefined;
-  const dia = enRango(g.dia, RANGOS_GOTEO.dia) ? g.dia : undefined;
+  const min = enRango(g.minutos, RANGOS_GOTEO_LECTURA.minutos) ? g.minutos : undefined;
+  const dia = enRango(g.dia, RANGOS_GOTEO_LECTURA.dia) ? g.dia : undefined;
   // El arranque sube hasta el tope: sin tope no hay nada que suba.
   const a = g.arranque && typeof g.arranque === 'object' ? g.arranque as Record<string, unknown> : null;
-  const arranque = dia !== undefined && a && enRango(a.dia, RANGOS_GOTEO.dia) && enRango(a.sube, RANGOS_GOTEO.dia) ? { dia: a.dia, sube: a.sube } : undefined;
+  const arranque = dia !== undefined && a && enRango(a.dia, RANGOS_GOTEO_LECTURA.dia) && enRango(a.sube, RANGOS_GOTEO_LECTURA.dia) ? { dia: a.dia, sube: a.sube } : undefined;
   // ⚠️ VACÍO NO SE GUARDA, igual que en el horario: una lista de días vacía sería «no goteés nunca»,
   // que nadie quiere elegir y que además no se distingue de no haber elegido. Ausente = los del horario.
   const dias = diasDeGoteo(g.dias);
@@ -237,7 +257,7 @@ export function origenDelHorario(c: ConfigAutomatizacion, delNegocio: HorarioEnv
  * LO QUE SE GUARDA, o el error. `null` en una parte la saca (el horario vuelve al del negocio); `horario: { activo: false }`
  * es «sin horario» propio. Devuelve el texto para `app_settings` y si quedó vacío (entonces se borra la clave).
  */
-export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown): { ok: true; config: ConfigAutomatizacion; valor: string; vacia: boolean } | { ok: false; error: string } {
+export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown, cuenta?: OpcionesRango): { ok: true; config: ConfigAutomatizacion; valor: string; vacia: boolean } | { ok: false; error: string } {
   if (!cambio || typeof cambio !== 'object' || Array.isArray(cambio)) return { ok: false, error: 'No entiendo qué cambiar.' };
   const o = cambio as Record<string, unknown>;
   const out: ConfigAutomatizacion = { ...previo };
@@ -266,7 +286,9 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
     else {
       const g = o.goteo && typeof o.goteo === 'object' ? o.goteo as Record<string, unknown> : {};
       const nuevo = { ...(out.goteo ?? {}) };
-      for (const [campo, rango, texto] of [['minutos', RANGOS_GOTEO.minutos, 'Los minutos entre envíos'], ['dia', RANGOS_GOTEO.dia, 'El tope por día']] as const) {
+      // El rango de la CUENTA del negocio (#93): `cuenta` lo pasa quien guarda (lib/config-automatizacion-db.ts, la API).
+      const rg = rangosGoteo(cuenta);
+      for (const [campo, rango, texto] of [['minutos', rg.minutos, 'Los minutos entre envíos'], ['dia', rg.dia, 'El tope por día']] as const) {
         if (!(campo in g)) continue;
         if (g[campo] === null) { delete nuevo[campo]; continue; }
         if (!enRango(g[campo], rango)) return { ok: false, error: `${texto} van de ${rango[0]} a ${rango[1]}.` };
@@ -275,7 +297,7 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
       if ('arranque' in g) {
         const a = g.arranque && typeof g.arranque === 'object' ? g.arranque as Record<string, unknown> : null;
         if (g.arranque === null) delete nuevo.arranque;
-        else if (!a || !enRango(a.dia, RANGOS_GOTEO.dia) || !enRango(a.sube, RANGOS_GOTEO.dia)) return { ok: false, error: `El arranque y lo que sube por día van de ${RANGOS_GOTEO.dia[0]} a ${RANGOS_GOTEO.dia[1]}.` };
+        else if (!a || !enRango(a.dia, rg.dia) || !enRango(a.sube, rg.dia)) return { ok: false, error: `El arranque y lo que sube por día van de ${rg.dia[0]} a ${rg.dia[1]}.` };
         else if (nuevo.dia === undefined) return { ok: false, error: 'El arranque gradual sube hasta el tope por día: pon primero el tope.' };
         else nuevo.arranque = { dia: a.dia, sube: a.sube };
       }

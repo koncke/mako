@@ -125,7 +125,7 @@ test('el hecho dice el estado real y, si falta algo, CUÁL de las dos', () => {
 test('el hecho va en los dos turnos, sólo si nombra Google Calendar', () => {
   const doer = leer('lib/mako-doer-in.ts');
   // Con un invitado al grupo de la app, vacío (4/11/2026): si el negocio tiene su Google Calendar conectado es un dato del negocio. Lo prueba con datos tests/grupos-ops-turno.test.ts.
-  assert.match(doer, /const ctxGoogle = hayInvitado \? '' : nombraGoogleCalendar\(sinPrefijoDeLote\(texto\)\) \? hechoGoogleCalendar\(\{ \.\.\.\(await permisoCalendarioGoogle\(\)\), rol: 'admin' \}\) : ''/);
+  assert.match(doer, /const ctxGoogle = recortado \? '' : nombraGoogleCalendar\(sinPrefijoDeLote\(texto\)\) \? hechoGoogleCalendar\(\{ \.\.\.\(await permisoCalendarioGoogle\(\)\), rol: 'admin' \}\) : ''/);
   assert.match(doer, /\$\{reglaDeLasMarcas\}\$\{ctxGoogle\}/);
   const app = leer('lib/mako-turno-app.ts');
   assert.match(app, /const ctxGoogle = nombraGoogleCalendar\(textoPersona\) \? hechoGoogleCalendar\(\{ \.\.\.\(await permisoCalendarioGoogle\(\)\), rol: persona\.rol \}\) : ''/);

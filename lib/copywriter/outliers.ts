@@ -400,8 +400,93 @@ export function textoParaMaKo(o: OutlierCopy, rotuloMultiplo: string | null, hoy
   ].join('\n');
 }
 
+/**
+ * Los capítulos de la descripción de un video («0:00 Intro 0:45 #1 Reel viral paso a paso…»): sus títulos, en orden, sin el
+ * «#N», hasta 60 letras y como mucho 15. Menos de 3 no son capítulos (un «0:45» suelto en el texto).
+ */
+export function capitulosDe(texto: string): string[] {
+  const out: string[] = [];
+  // `[\s\S]` y no el flag `s`: el repo compila a ES2017 y el `s` es de ES2018 (TS1501, rojo de la punta el 13/11/2026).
+  for (const m of texto.matchAll(/(?:^|\s)\d{1,2}:\d{2}(?::\d{2})?\s+([\s\S]+?)(?=\s+\d{1,2}:\d{2}(?::\d{2})?\s|$)/g)) {
+    const t = m[1].split(/_{3,}|\n/)[0].replace(/^#\d+\s*/, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (t.length >= 3) out.push(t);
+    if (out.length === 15) break;
+  }
+  return out.length >= 3 ? out : [];
+}
+
+/**
+ * ¿Las secciones escritas siguen los capítulos? (capa 2 de «una sección por capítulo»). Sí, si al menos la mitad de los capítulos
+ * tiene una sección que comparte una palabra de 4 letras o más con su título, o que se llama «CAPÍTULO N».
+ */
+export function siguenLosCapitulos(secciones: readonly string[], capitulos: readonly string[]): boolean {
+  if (!capitulos.length) return true;
+  const palabras = (t: string) => new Set(plano(t).split(/[^a-z0-9]+/).filter((w) => w.length >= 4));
+  const conCapitulo = secciones.filter((s) => /^cap[ií]tulo\s*\d+/i.test(s)).length;
+  const nombradas = capitulos.filter((c) => { const pc = palabras(c); return secciones.some((s) => [...palabras(s)].some((w) => pc.has(w))); }).length;
+  return Math.max(conCapitulo, nombradas) >= capitulos.length / 2;
+}
+
 /** Las palabras de un texto (para medir el largo del original y el de la réplica). */
 export const palabrasDe = (t: string): number => (t.match(/[\p{L}\p{N}][\p{L}\p{N}'’]*/gu) ?? []).length;
+
+/** El largo que el original le pide a la réplica (la línea «EL LARGO» de `reglasDeLaReplica`); null = no pide (el pie, la descripción). */
+export function largoPedido(original: string): number | null {
+  const n = Number(original.match(/EL LARGO: el original tiene unas (\d+) palabras/)?.[1] ?? NaN);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** ¿Fuera del ±25 % que pide «EL LARGO»? (la segunda pasada; el aviso, más abajo, queda para lo que ni así entró). */
+export const largoFuera = (n: number, escritas: number): boolean => escritas > n * 1.25 || escritas < n * 0.75;
+
+/**
+ * La SEGUNDA PASADA de una réplica (13/11/2026, el Cerebro: «Martín quiere que la réplica SALGA bien, no que le avisen que salió
+ * mal»). Lo que se le dice al modelo, con los números, después de su primera respuesta: el largo real contra el pedido, y los
+ * capítulos que no siguió, en orden. Pide todas las operaciones de nuevo, contra la página como estaba al principio.
+ */
+export function pedidoDeCorreccion(p: {
+  largo: { n: number; escritas: number } | null;
+  capitulos: readonly string[];
+  /** Una PLANTILLA corta para su duración (13/11/2026: la VSL de 10 minutos en 587 palabras): las palabras que pide. */
+  duracion?: { segundos: number; objetivo: number; escritas: number } | null;
+}): string {
+  const partes: string[] = ['Corrige tu respuesta antes de que la vea la persona:'];
+  if (p.largo) {
+    const { n, escritas } = p.largo;
+    partes.push(`- EL LARGO: lo que se dice en tu guion tiene ${escritas} palabras y el original ${n}. Reescríbelo ENTERO entre ${Math.round(n * 0.8)} y ${Math.round(n * 1.2)} palabras (sin contar los títulos de las secciones), con las mismas partes del original y ninguna de más.`);
+  }
+  if (p.duracion) {
+    const { segundos, objetivo, escritas } = p.duracion;
+    partes.push(`- LA DURACIÓN: la pieza dura ${Math.round(segundos / 60)} minutos y lo que se dice en tu guion tiene ${escritas} palabras (unos ${Math.max(1, Math.round(escritas / 150))} minutos dichos). Complétala ENTERA hasta unas ${objetivo} palabras (entre ${Math.round(objetivo * 0.85)} y ${objetivo}, sin contar los títulos), con las mismas secciones y en el mismo orden: cada sección dice lo que se dice, entero, no un resumen de lo que habría que decir.`);
+  }
+  if (p.capitulos.length) {
+    partes.push(`- LOS CAPÍTULOS: el original tiene ${p.capitulos.length} y tu guion no los sigue. Una sección por capítulo, en este orden, con su nombre como título:\n${p.capitulos.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}`);
+  }
+  partes.push('Devuelve el MISMO formato JSON, con TODAS las operaciones de nuevo (la página está como antes de tu primera respuesta), y en «respuesta» el número real de palabras.');
+  return partes.join('\n');
+}
+
+/**
+ * La respuesta con el largo REAL (13/11/2026: «unas 38 palabras, mismo tempo» sobre 83 escritas). Cada «N palabras» que dice el
+ * modelo pasa a ser el número contado; si no dice ninguno, se suma al final.
+ */
+export function conElLargoReal(respuesta: string, escritas: number, n: number): string {
+  // El largo del ORIGINAL, si lo nombra bien, queda («el original tiene 35 palabras»).
+  const dicho = respuesta.replace(/(?:unas?|aproximadamente|aprox\.?|cerca de|alrededor de|~)?\s*\b(\d+)\s+palabras/gi, (m, d: string) => (Number(d) === n ? m : `${/^\s/.test(m) ? ' ' : ''}${escritas} palabras`));
+  return dicho.includes(`${escritas} palabras`) ? dicho : `${dicho.trim()} Quedó de ${escritas} palabras; el original tiene ${n}.`.trim();
+}
+
+/**
+ * El aviso del LARGO (capa 2 de «EL LARGO», 13/11/2026, en producción después del despliegue: el anuncio de 35 palabras salió de
+ * 83 y MaKo dijo «unas 38 palabras, mismo tempo»). Lee el largo que el original le pidió (`reglasDeLaReplica`) y lo compara con
+ * lo escrito: más de 1,5 veces o menos de 0,6, se dice con los números. null = sin largo pedido (el pie, la descripción) o bien.
+ */
+export function avisoDeLargo(original: string, escritas: number): string | null {
+  const n = largoPedido(original);
+  if (n == null) return null;
+  if (escritas <= n * 1.5 && escritas >= n * 0.6) return null;
+  return `Quedó de ${escritas} palabras y el original tiene ${n}: pídele a MaKo que lo deje de ese largo${escritas > n ? ' (sin secciones de más)' : ''}.`;
+}
 
 /**
  * Lo que la réplica tiene que cumplir además de la estructura (12/11/2026, prueba en producción): el anuncio de 40 palabras salió
@@ -414,7 +499,11 @@ export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | '
   const largo = o.formato === 'carrusel'
     ? `EL FORMATO: un carrusel${o.laminas ? ` de ${o.laminas} láminas` : ''}. Escríbelo lámina por lámina, en una tabla (Lámina | Texto en la imagen | Visual)${o.laminas ? ` con ${o.laminas} filas` : ''}: la primera es el gancho, la última el llamado, y cada una con pocas palabras (se leen en la imagen). Debajo, una sección «Pie» con el texto de la publicación, de ${entre} como su pie.`
     : o.deDonde === 'pie' ? 'EL LARGO: lo de arriba es el PIE de la publicación, no lo que se dice en el reel. Copia su gancho y su idea, y escribe el reel con la forma de un reel (gancho, desarrollo, cierre), de 30 a 60 segundos dichos.'
-      : o.deDonde === 'descripcion' ? 'EL LARGO: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Si trae capítulos (0:00 …), ésos son sus partes y su orden: una sección por capítulo.'
+      : o.deDonde === 'descripcion' ? (capitulosDe(o.texto).length
+        // Los capítulos, uno por uno (13/11/2026, en producción: con «si trae capítulos, una sección por capítulo» el video de 8
+        // capítulos salió con las 9 secciones de la biblioteca, «Bloque uno, Bloque dos…»).
+        ? `LAS PARTES: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Sus capítulos SON sus partes: UNA sección por capítulo, en este orden, con lo que se dice en ese capítulo y no las secciones de la biblioteca: ${capitulosDe(o.texto).map((c, i) => `${i + 1}) ${c}`).join(' · ')}. Cada sección con un nombre corto en mayúscula (hasta 20 letras) que diga de qué trata ese capítulo en tu negocio.`
+        : 'EL LARGO: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Si trae capítulos (0:00 …), ésos son sus partes y su orden: una sección por capítulo.')
         : `EL LARGO: el original tiene unas ${n} palabras; el tuyo, ${entre}, con la misma cantidad de partes. Ni una sección que el original no tenga.`;
   return [
     largo,

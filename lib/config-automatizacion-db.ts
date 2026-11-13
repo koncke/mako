@@ -14,6 +14,7 @@ import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual } from './workspace';
 import { setSetting } from './settings';
 import { secuenciaDelWorkspace } from './automatizacion-chat-db';
+import { opcionesDeRango } from './limites-envio-cuenta';
 import {
   CLAVE_PREFIJO, claveConfigAutomatizacion, configParaGuardar, sanearConfigAutomatizacion, secuenciaDeClave, tieneConfigPropia,
   type ConfigAutomatizacion,
@@ -60,7 +61,8 @@ export async function guardarConfigAutomatizacion(secuenciaId: number, cambio: u
   if (ws == null) return { ok: false, error: 'No sé de qué negocio es.' };
   if (!(await secuenciaDelWorkspace(ws, secuenciaId))) return { ok: false, error: 'Esa automatización no existe en este negocio.' };
   const previo = await leerConfigAutomatizacion(secuenciaId);
-  const r = configParaGuardar(previo, cambio);
+  // El tope por día del goteo con el rango de SU cuenta (#93): 2.000 con su Resend y su dominio, 500 con la de la plataforma.
+  const r = configParaGuardar(previo, cambio, await opcionesDeRango());
   if (!r.ok) return r;
   // Todo como el negocio: la clave se BORRA (revisión del 20/10/2026). Un '{}' por cada «volver a como el negocio» se
   // acumulaba y engordaba la lectura de todas las del tick.

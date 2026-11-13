@@ -6,6 +6,20 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## El registro de la Edición automática no muestra lo último mientras trabajan (13/11/2026, visto armando la portada)
+
+**El síntoma:** con el panel de «Edición automática» a la altura de siempre (el reproductor y la línea de tiempo abajo), mientras
+los agentes trabajan el registro deja ver SUS PRIMEROS renglones («sigue la receta…», «Quitar las pausas») y no los de ahora. Se
+ve en la captura del chat del editor (`prueba-video-13-11/07-`) y se reprodujo montando `enjambre-view.tsx` en un banco.
+
+- **La causa:** el `<ol>` del registro (`min-h-[120px] flex-1 overflow-y-auto`) no tiene alto máximo y crece con los renglones; el
+  que se desplaza es el CUERPO del panel, no la lista. El «pegado» que lleva la lista al final (`el.scrollTop = el.scrollHeight`)
+  actúa sobre el `<ol>`, que nunca tiene nada que desplazar: lo último queda debajo del pie.
+- **Lo que quedó SIN hacer** (no es de la portada): que la lista tenga su alto y se desplace sola (por ejemplo, el cuerpo con el
+  registro como último hijo `min-h-0` y la lista con un tope), sin perder lo que pide el comentario de `EnjambreView` (que en una
+  ventana baja el registro no baje de 120 px ni se meta debajo de «Editar con MaKo»). En la portada el banco le pone
+  `max-height: 120px` al `<ol>` y así se lee lo último.
+
 ## La tab Video probada entera en producción: lo que quedó roto (12/11/2026)
 
 Prueba pedida por Martín («que no lo dejes a la guía de MaKo… quiero que lo pruebes enteramente»), en el ws 9, con el
@@ -47,6 +61,28 @@ motor triplicado) y, a la tarde, las de abajo (la receta en un pedido, Pexels, V
 **Vive en:** `export/{exportar,portada-reglas,dialogo-exportar}` · `components/editor/editor-header.tsx` ·
 `enjambre/{pastilla.ts,components/en-vivo.tsx}` · `clips/{resultado,buscar,estado,components/clips-view}` · test
 `tests/video-editor-detalles-12-11.test.ts`.
+
+## La prueba de Video repasada en producción después del deploy del 13/11 (11:05 UTC)
+
+Capturas en la carpeta de notas del Cerebro (`prueba-video-13-11/`). **Bien:** `/video-editor/nuevo` abre sin romperse (#91);
+la receta replicada sale en UN pedido (toma, subtítulos y, encadenados, estilo, claves y silencios); la Edición automática sigue
+la receta («aplica Palabra gigante», claves «al 160 %, como pide la receta») y sus cursores van donde aparece cada cambio, con
+los que esperan quietos; el B-roll sin Pexels propone los archivos propios y dice cómo conectar Pexels; la portada de Publicar
+tiene un cuadro del video; el aviso del archivo que falta y su reenlace andan en la computadora y en el teléfono; el aviso de
+Clips mágicos va arriba del botón y se va al cambiar el video; la pastilla de los agentes no tapa el nombre.
+
+- **El reel de Outliers seguía en blanco unos segundos:** el `load` del iframe llega con el reproductor VACÍO y el reel se dibuja
+  ~5 s después, así que el loader se iba antes. **Regla:** el loader espera el `postMessage` del reproductor (el de Instagram avisa
+  al dibujarse) o un tope de 8 s después del `load` (`VerReel.tsx`).
+- **«Ya dura como un clip» salía con «Reportar a Soporte»:** todo motivo de Clips mágicos era «error». **Regla:** sólo una caída de
+  red es falla (`clips/resultado.ts → esFallaDeClips`); lo que dice qué hacer va sin Soporte.
+- **El aviso de Pexels se borraba en la Edición automática:** el B-roll y los cambios de plano son dos llamadas a `proponerBroll`
+  y la segunda (sólo planos) pisaba el estado. **Regla:** sin B-roll en la llamada, lo dicho de Pexels queda (`pexelsAntes`).
+- ⚠️ **Al iniciar sesión, el almacenamiento del navegador de la app quedó VACÍO** (IndexedDB y OPFS, sólo los proyectos nuevos):
+  para probar el archivo faltante hubo que borrar a mano el archivo de un proyecto de prueba en el OPFS.
+- ⚠️ **El video de prueba `public/formatos/plano-secuencia-full.mp4` trae subtítulos QUEMADOS** («A VER EN»): no confundirlos
+  con los de MaKo.
+- **Sin mirar todavía:** la palabra clave a 3× (se desplegó después) y el redibujo de Video › Básico medido en vivo.
 
 ## Los cursores de la Edición automática hacían como que trabajaban sobre lo que ya estaba (12/11/2026, noche)
 

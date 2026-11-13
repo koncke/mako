@@ -78,14 +78,18 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 	const ritmo = opciones.ritmo ?? "normal";
 	const medio: MedioBroll = opciones.medio === "videos" ? "videos" : "fotos";
 	const conVideos = medio === "videos";
+	// Sólo los cambios de plano (la Edición automática los corre aparte, después del B-roll): lo que se dijo de Pexels queda.
+	// Antes el segundo paso lo borraba y la sección quedaba sin decir cómo conectarlo (mirado en producción el 13/11/2026).
+	const pexelsAntes = { faltaPexels: trabajo.faltaPexels, propios: trabajo.propios };
 	const terminar = (r: ResultadoBroll): ResultadoBroll => {
 		trabajo.fijar({
 			fase: "inactivo",
 			progreso: 0,
 			mensaje: r.ok ? [resumenDeBroll(r), r.aviso].filter(Boolean).join(" ") : textoDeBroll(r),
 			error: !r.ok,
-			faltaPexels: r.ok ? r.faltaPexels : false,
-			propios: r.ok ? (r.propios ?? 0) : 0,
+			...(conBroll || !r.ok
+				? { faltaPexels: r.ok ? r.faltaPexels : false, propios: r.ok ? (r.propios ?? 0) : 0 }
+				: pexelsAntes),
 		});
 		return r;
 	};
