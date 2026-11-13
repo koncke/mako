@@ -29,7 +29,7 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, marcasDeTuteo, propsParaIA, salidaVacia, tituloDeRespaldo } from './ia-reglas';
+import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, marcasDeTuteo, propsParaIA, salidaVacia, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
 import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
@@ -296,6 +296,11 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     if (entera && sinTituloPropio && !s.ops.some((op) => op.op === 'titulo')) {
       const t = tituloDeRespaldo(extractoDelDoc(r.doc));
       if (t) s.ops.push({ op: 'titulo', texto: t });
+    }
+    // Y el tipo: una pieza escrita sobre una «Página» vacía toma el que nombra el pedido, si la IA no lo puso (ia-reglas → tipoDelPedido).
+    if (g.props.tipo === 'pagina' && r.nuevos.length && !textoDelDoc(g.doc).trim() && !s.ops.some((op) => op.op === 'propiedades' && op.tipo)) {
+      const tipo = tipoDelPedido(instruccion);
+      if (tipo) s.ops.push({ op: 'propiedades', tipo });
     }
     const nuevos = new Set(r.nuevos);
     const escrito = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string)).map(textoDeNodo).join('\n');

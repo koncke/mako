@@ -14,7 +14,7 @@
 // =============================================================================
 
 import { bloquesDelDoc } from './doc';
-import { INFO_TIPO, type JsonNodo, type PropsGuion } from './tipos';
+import { INFO_TIPO, type JsonNodo, type PropsGuion, type TipoGuion } from './tipos';
 
 /** Los topes de lo que se le pasa al modelo (el texto, no el JSON: en «Discutir» no edita). */
 export const TOPES_IA = { porBloque: 1_500, guion: 24_000, mensajes: 8, porMensaje: 600, pregunta: 4_000 } as const;
@@ -158,6 +158,8 @@ const TUTEO = new Set([
   'copias', 'contigo', 'haz',
   // 13/11/2026, la «Clase gratuita» en producción: «cuando abres… tú controlas… los entendés».
   'tú', 'abres', 'llevas', 'controlas', 'trabajas',
+  // Y el reel del teléfono: «WhatsApp vende. Sólo que sin ti.» junto a «Mientras vos estás…».
+  'ti',
 ]);
 /**
  * El aviso de la DURACIÓN (capa 2 de «el largo lo da la duración», 13/11/2026, en producción: la «VSL para agendar» de 10 minutos
@@ -186,3 +188,26 @@ export function salidaVacia(raw: Record<string, unknown>): boolean {
   return !respuesta && !(Array.isArray(raw.operaciones) && raw.operaciones.length);
 }
 export const SALIDA_VACIA = 'No me salió nada esta vez: pídemelo de nuevo.';
+
+/**
+ * El TIPO que nombra el pedido (capa 2 de «el tipo va en propiedades», 13/11/2026, en producción en el teléfono: «Escribime un
+ * reel de 30 segundos» en una «Página en blanco» dejó la página como «Página»). Gana el que aparece PRIMERO: «un reel para
+ * WhatsApp Ads Funnel» es un reel (por eso «ads» no cuenta: es parte de nombres de ofertas). null = el pedido no nombra ninguno.
+ */
+const TIPO_DEL_PEDIDO: readonly (readonly [RegExp, TipoGuion])[] = [
+  [/\breels?\b/i, 'reel'],
+  [/\b(?:stor(?:y|ies)|historias)\b/i, 'story'],
+  [/\byoutube\b/i, 'youtube'],
+  [/\bvsl\b/i, 'vsl'],
+  [/\b(?:e-?mails?|correos?|newsletter)\b/i, 'email'],
+  [/\b(?:carrusel(?:es)?|posts?|publicaci[oó]n)\b/i, 'post'],
+  [/\banuncios?\b/i, 'ad'],
+];
+export function tipoDelPedido(pedido: string): TipoGuion | null {
+  let mejor: { en: number; tipo: TipoGuion } | null = null;
+  for (const [re, tipo] of TIPO_DEL_PEDIDO) {
+    const m = re.exec(pedido);
+    if (m && (!mejor || m.index < mejor.en)) mejor = { en: m.index, tipo };
+  }
+  return mejor?.tipo ?? null;
+}

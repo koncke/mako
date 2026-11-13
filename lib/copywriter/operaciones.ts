@@ -21,7 +21,7 @@
 // =============================================================================
 
 import { BID_RE, BLOQUES_DE_PRIMER_NIVEL, EMOJI_DESTACADO, NODOS, bidNuevo, esEtiqueta, parrafo, tituloDeSeccion } from './doc';
-import type { JsonNodo, PropsGuion } from './tipos';
+import { esTipoGuion, type JsonNodo, type PropsGuion, type TipoGuion } from './tipos';
 
 export const OPERACIONES_IA = ['escribir_seccion', 'reemplazar_bloque', 'insertar_despues', 'borrar_bloque', 'titulo', 'propiedades'] as const;
 export type NombreOperacion = (typeof OPERACIONES_IA)[number];
@@ -49,7 +49,7 @@ export type OperacionIA =
   | { op: 'insertar_despues'; bid: string | null; bloques: BloqueIA[] }
   | { op: 'borrar_bloque'; bid: string }
   | { op: 'titulo'; texto: string }
-  | { op: 'propiedades'; angulo?: string | null; estructura?: string | null; duracion?: number | null };
+  | { op: 'propiedades'; tipo?: TipoGuion; angulo?: string | null; estructura?: string | null; duracion?: number | null };
 
 export type Descartada = { op: string; motivo: string };
 
@@ -272,6 +272,8 @@ export function sanearOperaciones(raw: unknown, doc: JsonNodo, catalogo: { angul
       }
       case 'propiedades': {
         const p: Extract<OperacionIA, { op: 'propiedades' }> = { op: 'propiedades' };
+        // El TIPO (13/11/2026, en producción en el teléfono: un reel escrito en una «Página en blanco» quedaba «Página»).
+        if (esTipoGuion(o.tipo)) p.tipo = o.tipo;
         if (typeof o.angulo === 'string' && catalogo.angulos.has(o.angulo)) p.angulo = o.angulo;
         if (typeof o.estructura === 'string' && catalogo.estructuras.has(o.estructura)) p.estructura = o.estructura;
         const d = typeof o.duracion === 'number' && Number.isFinite(o.duracion) ? Math.round(o.duracion) : null;
@@ -346,7 +348,7 @@ export type ResultadoOps = {
   /** Los ids de todo lo que escribió MaKo, en orden (lo que la pantalla marca como propuesta). */
   nuevos: string[];
   titulo: string | null;
-  props: Partial<Pick<PropsGuion, 'angulo' | 'estructura' | 'duracion'>>;
+  props: Partial<Pick<PropsGuion, 'tipo' | 'angulo' | 'estructura' | 'duracion'>>;
   descartadas: Descartada[];
 };
 
@@ -360,6 +362,7 @@ export function aplicarTodo(doc: JsonNodo, ops: readonly OperacionIA[]): Resulta
   for (const op of ops) {
     if (op.op === 'titulo') { titulo = op.texto; continue; }
     if (op.op === 'propiedades') {
+      if (op.tipo !== undefined) props.tipo = op.tipo;
       if (op.angulo !== undefined) props.angulo = op.angulo;
       if (op.estructura !== undefined) props.estructura = op.estructura;
       if (op.duracion !== undefined) props.duracion = op.duracion;

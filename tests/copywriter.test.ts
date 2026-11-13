@@ -30,7 +30,7 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion, salidaVacia } from '../lib/copywriter/ia-reglas';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion, salidaVacia, tipoDelPedido } from '../lib/copywriter/ia-reglas';
 import { marcasDeVoseo } from '../lib/voseo';
 import { aplicarTodo, bloqueAJson, etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
 import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
@@ -438,6 +438,18 @@ test('sin IA, el chat lleva a conectarla y no a Soporte (12/11/2026, en producci
   assert.match(leer('lib/ia-mensajes.ts'), /return `No hay ninguna IA conectada, así que MaKo no puede \$\{tema\}\./);
 });
 
+test('una pieza escrita en una «Página» vacía toma el tipo que nombra el pedido (13/11/2026, en producción en el teléfono)', () => {
+  assert.equal(tipoDelPedido('Escribime un reel de 30 segundos para WhatsApp Ads Funnel'), 'reel', 'gana el primero, y «Ads» no cuenta');
+  assert.equal(tipoDelPedido('Un anuncio para vender mi curso de reels'), 'ad');
+  assert.equal(tipoDelPedido('Armame 5 stories para el lanzamiento'), 'story');
+  assert.equal(tipoDelPedido('Un email de cierre'), 'email');
+  assert.equal(tipoDelPedido('Un carrusel de 7 láminas'), 'post');
+  assert.equal(tipoDelPedido('Escribe un guion para WhatsApp Ads Funnel'), null);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes("if (g.props.tipo === 'pagina' && r.nuevos.length && !textoDelDoc(g.doc).trim()"));
+  assert.ok(leer('lib/copywriter/ia-editar.ts').includes('"op": "propiedades", "tipo": "reel"'));
+});
+
 test('una salida VACÍA de la IA se pide otra vez y no se disfraza de «No cambié nada.» (13/11/2026, en producción en el teléfono)', () => {
   assert.equal(salidaVacia({}), true);
   assert.equal(salidaVacia({ respuesta: '  ', operaciones: [] }), true);
@@ -459,6 +471,7 @@ test('en un negocio que vosea, la MEZCLA con el tuteo se avisa (13/11/2026, en p
   // La «Clase gratuita» del 13/11: el «tú» con tilde y los verbos que se le escaparon a la lista.
   assert.deepEqual(marcasDeTuteo('Cuando abres con una pregunta, tú controlas la charla. Hoy llevas tres.'), ['abres', 'tú', 'controlas', 'llevas']);
   assert.deepEqual(marcasDeTuteo('Es tu oferta y tu precio.'), []);
+  assert.deepEqual(marcasDeTuteo('WhatsApp vende. Sólo que sin ti.'), ['ti']);
   const ia = leer('lib/copywriter/ia.ts');
   assert.ok(ia.includes('if (conVoseo.length && conTuteo.length) avisos.push(`Mezcla voseo y tuteo'));
 });
