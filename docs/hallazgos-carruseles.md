@@ -25,7 +25,8 @@ Es «Horizontales · Verticales» en Thumbnails (`tformato=vertical`), con estas
 
 - ⚠️ **El lector obvio era el equivocado.** La portada de Video (`leerOutliersVideo`) ya lee los reels de Spy, pero
   `FUENTE_SPY` deja sólo los que enseñan un patrón de EDICIÓN y superaron a su cuenta (`conCriterio`). Para una portada importa
-  la imagen, no el montaje, y con ese filtro quedaban unos pocos. Ahora sale `leerReelsDeSpy` (lib/video-outliers-servidor.ts),
+  la imagen, no el montaje. Medido en el ws 9 el 13/11: 561 reels con portada (559 en nuestro bucket), y el filtro deja 149.
+  Ahora sale `leerReelsDeSpy` (lib/video-outliers-servidor.ts),
   la misma lectura sin el criterio. tests/video-outliers-criterio.test.ts exige, palabra por palabra, la línea `conCriterio(…)`
   de `FUENTE_SPY`: el código se reacomodó para dejarla igual, y el test no se tocó.
 - **La biblioteca de Thumbnails deja afuera los Shorts a propósito** (lib/thumbnails/carga.ts: «un Short no es una miniatura que
