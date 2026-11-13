@@ -129,7 +129,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_notificaciones_inapp', area: 'equipo', tipo: 'lectura',
     titulo: 'Pop-up y sonido de la persona',
-    descripcion: 'Las preferencias de la persona logueada dentro de la app: interruptores generales de pop-up y de sonido, y el estado de cada notificación (mensaje de WhatsApp, WhatsApp de la empresa, plantilla resuelta, uso de IA). Son de quien está frente a la pantalla, no del negocio. Úsala para explicar por qué no le suena o no le aparece un aviso; se cambian con configurar_notificaciones_inapp.',
+    descripcion: 'Las preferencias de la persona logueada dentro de la app: interruptores generales de pop-up y de sonido, y el estado de cada notificación que la app muestra (hoy, sólo el mensaje de WhatsApp, que no suena). Son de quien está frente a la pantalla, no del negocio. Úsala para explicar por qué no le suena o no le aparece un aviso; se cambian con configurar_notificaciones_inapp.',
     parametros: [],
     salida: 'json', canales: SOLO_APP, costo: 'gratis',
   },

@@ -30,10 +30,17 @@ al arrancar y cada `cadaMs`, nada con la pestaña oculta (tampoco al arrancar en
 (salvo que el último tenga menos de 10 s) y nunca dos a la vez. El contador va cada 30 s. Un `setInterval` propio con un
 `fetch` adentro es el error que esto evita.
 
-**Sin hacer:** el resto de los sondeos del mismo provider y del layout siguen con su propio reloj. `/api/whatsapp/templates/status`
-(cada 30 s) tampoco mira si la pestaña está oculta, y según su propio comentario contesta vacío desde que se fue Chatwoot.
-`AlertaVozMaKo`, `SaldoMaKo`, `AvisoMoraPlan` y `MedidorDeUso` sí se frenan, pero cada uno con su código: pasarlos a
-`sondearALaVista` es la segunda tanda.
+**Y el de las plantillas de Meta se fue entero (el mismo día):** `/api/whatsapp/templates/status`, cada 30 s con un reloj de 6 s y
+también con la pestaña oculta, para el aviso «Plantilla aprobada/rechazada». No podía salir NUNCA: la ruta lee la cuenta de WhatsApp
+Business con `getWabaConfig` (lib/meta-templates.ts), que tira desde que se borró Chatwoot el 09/10/2026. Con WhatsApp conectado
+contestaba 500; sin él, una lista vacía. Se fueron el pedido, la ruta, el aviso y el interruptor «Plantilla de WhatsApp resuelta» de
+Ajustes (la regla del catálogo: un interruptor de algo que no sale no se ofrece). El provider quedó sin ningún `setInterval`.
+
+**Sin hacer:** con `wa-plantilla` se fue el ÚNICO aviso que sonaba. El interruptor general «Sonido» de Ajustes › Notificaciones › En
+la app ahora sólo maneja el sonido del aviso de prueba («Enviar prueba»): sacarlo o darle algo que suene es una decisión de producto
+(app/perfil/NotificacionesPanel.tsx, `resumenApp` en app/perfil/notificaciones-reglas.ts, `cambiar_notificacion_inapp` en
+lib/api-mako/areas/equipo.run.ts). `AlertaVozMaKo`, `SaldoMaKo`, `AvisoMoraPlan` y `MedidorDeUso` ya se frenan con la pestaña oculta,
+pero cada uno con su código: pasarlos a `sondearALaVista` es otra tanda.
 
 ## Sacar algo de la barra lo saca también del BUSCADOR (Ctrl K) (11/11/2026)
 

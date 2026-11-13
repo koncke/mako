@@ -95,13 +95,14 @@ test('ningún temporizador de aviso lo cierra sin mirar si se lo está mirando',
     assert.doesNotMatch(src, /setTimeout\(\(\) => set(Tpl)?Toast\(/, `${p}: un setTimeout que cierra a pelo`);
     assert.match(src, /setTimeout\(esperarPausa\(/, `${p}: su temporizador pasa por esperarPausa`);
   }
-  // Los dos de NotificationsProvider (el de WhatsApp y el de la plantilla).
+  // El de NotificationsProvider: el de WhatsApp (y el de prueba, que es el mismo). El de la plantilla se fue el
+  // 12/11/2026 con su sondeo: no podía salir nunca (docs/hallazgos-ui.md).
   const np = sinComentarios(leer('app/_components/NotificationsProvider.tsx'));
-  assert.equal((np.match(/setTimeout\(esperarPausa\(/g) || []).length, 2);
+  assert.equal((np.match(/setTimeout\(esperarPausa\(/g) || []).length, 1);
 });
 
 test('el aviso de arriba abre lo suyo al tocarlo, y su ✕ no lo abre', () => {
   const np = sinComentarios(leer('app/_components/NotificationsProvider.tsx'));
   assert.match(np, /aria-label="Cerrar aviso" onClick=\{\(e\) => \{ e\.stopPropagation\(\); onCerrar\(\); \}\}/);
-  assert.equal((np.match(/<AvisoArriba onAbrir=/g) || []).length, 2, 'el de WhatsApp y el de la plantilla');
+  assert.equal((np.match(/<AvisoArriba onAbrir=/g) || []).length, 1, 'el de WhatsApp (el de la plantilla se fue el 12/11/2026)');
 });
