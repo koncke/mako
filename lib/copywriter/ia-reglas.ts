@@ -132,6 +132,25 @@ export function avisosDeCifras(c: { cifras: string[]; garantia: boolean }): stri
 }
 
 /**
+ * Lo que la RESPUESTA dice que escribió y no quedó en la página (13/11/2026, en producción en el teléfono: «Completé los datos
+ * del archivo: precio (US$ 497), garantía (14 días), caso concreto…» y en la página estaban el caso y los clientes, pero ni el
+ * precio ni la garantía). Mira sólo lo que no se nombra de pasada: plata, porcentajes y plazos en días, semanas o meses (no
+ * «30 segundos» ni «3 partes», que describen la pieza). null = todo lo que nombra está escrito.
+ */
+export function dichoQueNoQuedo(respuesta: string, pagina: string): string | null {
+  const digitos = (t: string) => t.replace(/[.,\s]/g, '');
+  const enLaPagina = new Set((pagina.match(/\d+(?:[.,]\d+)*/g) ?? []).map(digitos));
+  const faltan: string[] = [];
+  const CIFRA = /(?:(?:US\$|USD|U\$S|\$|€|ARS)\s?(\d+(?:[.,]\d+)*))|(?:(\d+(?:[.,]\d+)*)\s*(?:%|por ciento|d[ií]as\b|semanas?\b|meses\b|mes\b))/gi;
+  for (const m of respuesta.matchAll(CIFRA)) {
+    const n = m[1] ?? m[2];
+    const tal = m[0].replace(/\s+/g, ' ').trim();
+    if (!enLaPagina.has(digitos(n)) && !faltan.includes(tal)) faltan.push(tal);
+  }
+  return faltan.length ? `Dice que puso ${faltan.slice(0, 3).map((f) => `«${f}»`).join(', ')} y no está en la página: pídele a MaKo que lo agregue.` : null;
+}
+
+/**
  * El título de respaldo de una pieza escrita entera sin título propio (capa 2 de «ponle un título», 12/11/2026, en producción:
  * la plantilla quedaba «Sin título» y la réplica con el gancho del competidor). Recibe lo primero que se dice (`extractoDelDoc`,
  * lib/copywriter/plantillas.ts): su primera oración, sin [DATO] ni signos del final, hasta 70 letras cortando en una palabra.

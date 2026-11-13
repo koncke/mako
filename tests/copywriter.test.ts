@@ -30,7 +30,7 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion, salidaVacia, tipoDelPedido } from '../lib/copywriter/ia-reglas';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion, salidaVacia, tipoDelPedido, dichoQueNoQuedo } from '../lib/copywriter/ia-reglas';
 import { marcasDeVoseo } from '../lib/voseo';
 import { aplicarTodo, bloqueAJson, etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
 import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
@@ -436,6 +436,15 @@ test('sin IA, el chat lleva a conectarla y no a Soporte (12/11/2026, en producci
   assert.ok(panel.includes("<Link href={rutaDeTarjeta('ia')} className=\"nt-mako-pildora\">Conectar mi IA</Link>"));
   // La frase es la de lib/ia-mensajes.ts: si cambia, el botón deja de salir.
   assert.match(leer('lib/ia-mensajes.ts'), /return `No hay ninguna IA conectada, así que MaKo no puede \$\{tema\}\./);
+});
+
+test('lo que la respuesta dice que puso y no quedó en la página se avisa (13/11/2026, en producción en el teléfono)', () => {
+  const respuesta = 'Completé los datos del archivo en el anuncio: precio (US$ 497), garantía (14 días), caso concreto (Lucía, de 9 a 31 consultas por semana) y cantidad de clientes acompañados (42).';
+  const pagina = 'Lucía, que hace estética en Rosario, pasó de 9 a 31 consultas por semana en un mes. Ya son 42 clientes.';
+  assert.equal(dichoQueNoQuedo(respuesta, pagina), 'Dice que puso «US$ 497», «14 días» y no está en la página: pídele a MaKo que lo agregue.');
+  assert.equal(dichoQueNoQuedo(respuesta, `${pagina} Cuesta US$ 497 con 14 días de garantía.`), null);
+  // Lo que describe la pieza no cuenta.
+  assert.equal(dichoQueNoQuedo('Te escribo un reel de 30 segundos en 3 partes.', 'Gancho…'), null);
 });
 
 test('en el teléfono, la propuesta de MaKo se acepta desde la Página (13/11/2026, en producción a 375: «Aceptar» quedaba en la pestaña MaKo)', () => {

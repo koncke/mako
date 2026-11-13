@@ -29,7 +29,7 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, marcasDeTuteo, propsParaIA, salidaVacia, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
+import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, dichoQueNoQuedo, guionParaIA, marcasDeTuteo, propsParaIA, salidaVacia, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
 import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
@@ -321,6 +321,9 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     // Las cifras y la garantía sin fuente (12/11/2026, en producción: la réplica de YouTube inventó porcentajes y una devolución).
     const fuentes = [negocio, refs.textos.map((x) => x.texto).join('\n'), instruccion, charla, guionParaIA(g.doc), ...(p.lecturas ?? []).map((l) => l.texto)].join('\n');
     avisos.push(...avisosDeCifras(cifrasSinFuente(`${r.titulo ?? ''}\n${escrito}`, fuentes)));
+    // Y lo que la respuesta dice que puso y no quedó (ia-reglas → dichoQueNoQuedo).
+    const noQuedo = dichoQueNoQuedo(typeof raw.respuesta === 'string' ? raw.respuesta : '', `${r.titulo ?? g.titulo}\n${textoDelDoc(r.doc)}`);
+    if (noQuedo) avisos.push(noQuedo);
     // El largo de la réplica escrita entera, medido (13/11/2026: 35 palabras pedidas, 83 escritas y «unas 38» en la respuesta).
     if (original && entera) {
       const dicho = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string) && b.type !== 'heading').map(textoDeNodo).join('\n');
