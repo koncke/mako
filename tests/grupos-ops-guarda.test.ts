@@ -215,20 +215,15 @@ test('⛔ un bloque nuevo en el system del turno del grupo se decide para un inv
   assert.deepEqual(bloques, BLOQUES_DEL_SYSTEM, 'cambió lo que entra al system: si el bloque nuevo dice algo del negocio, con `hayInvitado` va vacío (como `ctxFalla` y `ctxPuntos`); después se suma acá');
   // Los que traen algo del negocio, vacíos con un invitado.
   assert.match(doer, /const conMemoria = hayInvitado \? \(bloqueQuienEscribe/, 'la memoria del turno le llegaría a un invitado');
-  assert.match(doer, /const ctxFalla = recortado \? ''/, 'el estado de las claves del negocio le llegaría a un invitado');
-  assert.match(doer, /const ctxPuntos = recortado \? ''/);
+  assert.match(doer, /const ctxFalla = hayInvitado \? ''/, 'el estado de las claves del negocio le llegaría a un invitado');
+  assert.match(doer, /const ctxPuntos = hayInvitado \? ''/);
   assert.match(doer, /const vigentes = hayInvitado \? \[\]/, 'las pendientes (`ctxPend`) le llegarían a un invitado');
-  assert.match(doer, /const agendaAbierta = recortado \? null/, 'la agenda abierta (`ctxAgenda`) le llegaría a un invitado');
-  assert.match(doer, /const ctxGoogle = recortado \? ''/, 'si el negocio tiene su Google Calendar conectado le llegaría a un invitado');
+  assert.match(doer, /const agendaAbierta = hayInvitado \? null/, 'la agenda abierta (`ctxAgenda`) le llegaría a un invitado');
+  assert.match(doer, /const ctxGoogle = hayInvitado \? ''/, 'si el negocio tiene su Google Calendar conectado le llegaría a un invitado');
   // La cita (`ctxCita`, ticket #40) va sólo en la rama de la memoria que no es de invitado.
   const ramaDelInvitado = /const conMemoria = hayInvitado \? [^\n]*/.exec(doer)?.[0] ?? '';
   assert.ok(ramaDelInvitado, 'no encuentro la memoria del turno: esta guarda dejó de mirar');
   assert.doesNotMatch(ramaDelInvitado, /ctxCita|ctxParaElEquipo|ctxPedidos|ctxYaSeHablo|ctxMostrado/, 'la memoria del negocio le llegaría a un invitado');
-  // EL EQUIPO (13/11/2026): `recortado` es el invitado O alguien del equipo, y su rama de la memoria lleva lo SUYO (su clave), no lo del negocio.
-  assert.match(doer, /const recortado = hayInvitado \|\| !!miembroDelEquipo;/, 'el closer correría con el contexto entero del negocio');
-  const ramaDelEquipo = /: miembroDelEquipo \? \[[^\n]*/.exec(doer)?.[0] ?? '';
-  assert.ok(ramaDelEquipo, 'no encuentro la memoria del turno del equipo: esta guarda dejó de mirar');
-  assert.doesNotMatch(ramaDelEquipo, /ctxParaElEquipo|ctxPedidos|ctxEquipo|laPlataforma/, 'lo del negocio le llegaría a un closer');
 });
 
 test('la cañería del bot 1 a 1 no escribe en un grupo: su puerta lo corta antes', () => {

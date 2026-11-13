@@ -172,8 +172,8 @@ test('6. la fusión con el chat de la línea: lo que la memoria no tiene, en ord
   // Y en el turno, lo del equipo no es la oferta de MaKo que un «sí» acepta.
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
   assert.match(doer, /const ultimoDeMako = conversacion \? conversacion\.ultimoDeMaKo\n\s*: historial\.slice\(-2\)\.reverse\(\)\.find\(\(r\) => r\.role === 'assistant' && !esDelEquipoEnElHilo\(r\.content\)\)/);
-  assert.match(doer, /const conversacion = recortado \|\| !\(await conversacionPrendida\(wsData\)/, 'un invitado lee la conversación del negocio');
-  assert.match(doer, /const chatReal = recortado \|\| conversacion \? null : await chatDelGrupo\(instance, jid\)\.catch\(\(\) => null\);/, 'un invitado lee el chat del negocio');
+  assert.match(doer, /const conversacion = hayInvitado \|\| !\(await conversacionPrendida\(wsData\)/, 'un invitado lee la conversación del negocio');
+  assert.match(doer, /const chatReal = hayInvitado \|\| conversacion \? null : await chatDelGrupo\(instance, jid\)\.catch\(\(\) => null\);/, 'un invitado lee el chat del negocio');
   assert.match(doer, /preguntaDelEquipo: preguntaDelEquipoEn\(historial\)/, 'la pregunta del equipo no llega al clasificador');
 });
 
@@ -187,7 +187,7 @@ test('5. el cableado: la memoria del SuperAdmin, la del aviso al dueño, el hist
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
   const sanea = doer.slice(doer.indexOf('function saneaHistorial('), doer.indexOf('function saneaHistorial(') + 600);
   assert.doesNotMatch(sanea, /!out\.length && t\.role !== 'user'/, 'el historial vuelve a tirar lo que dijo MaKo al principio');
-  assert.match(doer, /const laPlataforma = esElGrupoDeLaPlataforma && !recortado \? await leerLaPlataforma\(\) : null;/);
+  assert.match(doer, /const laPlataforma = esElGrupoDeLaPlataforma && !hayInvitado \? await leerLaPlataforma\(\) : null;/);
   // El paso 2: en el privado, lo que termina en charla o en «no es para MaKo» también queda en la memoria (un «sí» que sólo tuvo 👍).
   assert.match(doer, /if \(!esGrupo && !hayInvitado\) await guardarTurno\(wsData, jid, 'user', sinPrefijoDeLote\(texto\), msgId \|\| undefined\)/);
   assert.match(doer, /if \(intencion\.intencion === 'no_reply' && !saludoDelChat\) \{ await guardarLoQueNoSeContesta\(\);/, 'lo que no es para MaKo no queda en el privado');
