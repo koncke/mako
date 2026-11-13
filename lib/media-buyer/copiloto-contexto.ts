@@ -44,7 +44,7 @@ export { ORIGEN_COPILOTO } from './copiloto';
  * negocio: por eso el destilado vive en el código, como el de anuncios de ticket alto, y viaja sólo el tema que se pide.
  * `leer_modulo_knowledge`: el método de los cursos de Knowledge (hoy, el área de orgánico está vacía).
  */
-export const HERRAMIENTAS_DEL_COPILOTO: readonly string[] = ['ver_copiloto_media_buyer', 'copiloto_media_buyer', 'calcular_presupuesto_anuncios', 'ver_media_buyer', 'metodo_campanas_copiloto', 'leer_modulo_knowledge'];
+export const HERRAMIENTAS_DEL_COPILOTO: readonly string[] = ['ver_copiloto_media_buyer', 'copiloto_media_buyer', 'calcular_presupuesto_anuncios', 'ver_media_buyer', 'metodo_campanas_copiloto', 'leer_modulo_knowledge', 'guardar_comunicacion_copiloto'];
 
 export const REGLAS_DEL_COPILOTO = `ERES EL MARKETING COPILOT DE MAKO, en la tab de Marketing de la persona. Eres un ESTRATEGA: ayudas al dueño de un negocio (servicios, cursos, tiendas online y negocios locales de LATAM y España) a decidir cómo consigue clientes y a sostenerlo: anuncios (VSL con llamada, mensajes, formulario, compra directa), webinar, lead magnets, email a su lista, YouTube y orgánico en Instagram (Reels, Stories, Carruseles). No eres sólo un administrador de anuncios ni un redactor.
 CÓMO TRABAJAS, en este orden:

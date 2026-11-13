@@ -35,6 +35,8 @@ import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/l
 import { leerPerfilCopiloto, guardarPerfilCopiloto } from '@/lib/media-buyer/copiloto-store';
 import { METODO_ANUNCIOS, TEMAS_METODO, type TemaMetodo } from '@/lib/media-buyer/copiloto-metodo-anuncios';
 import { esPreguntaHipotetica } from '@/lib/media-buyer/copiloto-pedido';
+import { ETIQUETA_ESTADO_OC, OC, clavesOC, esItemOC, esParteOC, nombreItemOC, type ParteOC } from '@/lib/copiloto/comunicacion';
+import { decirCosaOC, elegirSesion, leerComunicacion, leerOfertaElegida, sesionesDeOffer } from '@/lib/copiloto/comunicacion-store';
 import {
   sanearPerfil, pasoDeCopiloto, propuestaDe, funnelElegido, seccionesDe, recomendarFunnel, evaluarFunnel, aplicarCambio as aplicarPerfil, datosDeDecision, datosDichos,
   fichaDelNegocio, compararFunnels, cuentaDe, TIPOS_DE_NEGOCIO, type PerfilCopiloto,
@@ -1517,6 +1519,42 @@ export const RUNNERS: Runners = {
       // El tema equivocado vuelve como REGLA con la lista, no como vacío (el mismo criterio que leer_modulo_knowledge).
       if (!(TEMAS_METODO as readonly string[]).includes(t)) return `No existe el tema «${t}». Los que hay: ${TEMAS_METODO.join(', ')}.`;
       return `## Método de campañas de Meta › ${t}\n${METODO_ANUNCIOS[t]}\n\n(Criterio de un curso de 2026, sin auditar: úsalo en tus palabras, sin nombrar de dónde sale, y bájalo a los números de ESTE negocio; si choca con lo que ya sabes, gana lo más parecido a este negocio.)`;
+    },
+  },
+  // «Oferta y comunicación» (12/11/2026, lib/copiloto/comunicacion*.ts).
+  ver_comunicacion_copiloto: {
+    leer: async (input, ctx) => {
+      const e = await leerComunicacion(ctx.ws, null);
+      const partes: ParteOC[] = esParteOC(input.parte) ? [input.parte] : ['oferta', 'angulos', 'voz'];
+      return J({
+        oferta: e.sesion != null ? { numero: e.sesion, nombre: e.ofertas.find((o) => o.id === e.sesion)?.titulo ?? null } : null,
+        partes: partes.map((p) => ({
+          parte: p, nota: e.nota[p]?.total ?? null,
+          grupos: OC[p].grupos.map((g) => ({ grupo: g.titulo, cosas: g.items.map((k) => {
+            const c = e.cosas[p][k];
+            return { clave: k, nombre: nombreItemOC(p, k), estado: ETIQUETA_ESTADO_OC[c.estado], valor: c.valor || null, de: c.fuente?.texto ?? null, que: c.estado === 'vacia' ? OC[p].items[k].que : undefined };
+          }) })),
+        })),
+      });
+    },
+  },
+  guardar_comunicacion_copiloto: {
+    preparar: async (input) => {
+      const p = str(input, 'parte');
+      const k = str(input, 'clave');
+      const v = str(input, 'valor').replace(/s+/g, ' ').slice(0, 600);
+      if (!esParteOC(p)) return { error: 'parte tiene que ser oferta, angulos o voz.', faltan: ['parte'] };
+      if (!esItemOC(p, k)) return { error: `No existe «${k}» en ${p}. Las claves: ${clavesOC(p).join(', ')}.`, faltan: ['clave'] };
+      if (!v) return { error: 'Falta lo que dijo.', faltan: ['valor'] };
+      return { payload: { parte: p, clave: k, valor: v }, resumen: `${nombreItemOC(p, k)}: «${v.slice(0, 140)}»` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const p = payload.parte;
+      if (!esParteOC(p) || !esItemOC(p, payload.clave)) return { ok: false, resumen: 'Esa cosa no existe.' };
+      // La oferta que el negocio tiene elegida en la tarjeta (la guarda la pantalla al cambiarla).
+      const sesion = elegirSesion(await sesionesDeOffer(ctx.ws), await leerOfertaElegida(ctx.ws));
+      await decirCosaOC(ctx.ws, p, sesion, payload.clave, String(payload.valor ?? ''));
+      return { ok: true, resumen: 'Guardado en Oferta y comunicación.' };
     },
   },
   modo_agente_media_buyer: {

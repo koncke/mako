@@ -322,6 +322,7 @@ guardar_borrador_plantilla
 guardar_campo_perfil
 guardar_capacidad
 guardar_como_plantilla
+guardar_comunicacion_copiloto
 guardar_cuotas
 guardar_deal_details
 guardar_diagnostico_fase
@@ -692,6 +693,7 @@ ver_cobro_landing
 ver_codigo_pixel
 ver_comentarios_clase_comunidad
 ver_comportamiento_landing
+ver_comunicacion_copiloto
 ver_comunidad
 ver_conexion_meta
 ver_configuracion_landing
