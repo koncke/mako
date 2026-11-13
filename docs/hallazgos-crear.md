@@ -99,7 +99,7 @@ con la página:
 | /copywriter | 1.188 KB | 185 KB | 924 outliers |
 | /image-editor | 3.376 KB | 374 KB | 1.301 carruseles y anuncios (2,1 MB) + las miniaturas de YouTube (1,1 MB) |
 | /video-editor?ver=outliers | 1.137 KB | 67 KB | no es una lista: es el HTML del editor (424 `<script>`) |
-| /web-generator | 889 KB | 93 KB | 52 páginas; el resto, plantillas y scripts |
+| /web-generator | 889 KB | 93 KB | 52 páginas en 29 KB; el resto, la hoja del contenido dos veces y la primera sección de cada landing tuya |
 
 ⚠️ **Dos medidas distintas que se confunden.** «Probar Copywriting» midió 4,9 s hasta el primer byte, y era la LECTURA de Spy sin
 caché (una instancia nueva de Vercel; lo arregló guardándola entre instancias, `cachedRead`). Con la instancia caliente, el primer
@@ -117,9 +117,16 @@ outliers van adentro.
   rehacer el explorador, así que la lista entera sigue llegando, pero DESPUÉS: la página trae los 40 que se ven primero y los
   totales (`primeraTandaExplorador`, app/image-editor/carruseles/tanda.ts), la pantalla pide el resto apenas se dibuja (GET
   /api/image-editor/explorador) y las miniaturas de YouTube sólo al abrir «Thumbnails».
-- **Video y Web** no mandan una lista de outliers grande: no se tocaron.
+- **Web**: el diagnóstico obvio («cada tarjeta trae la landing entera») era el equivocado: las 52 tarjetas son 29 KB, ~570 bytes
+  cada una. Lo pesado era (1) la hoja del contenido de las landings (`CSS_CONTENIDO`, ~170 KB) puesta en un `<style>` desde el
+  server, que viaja DOS veces (en el HTML y en los datos de React) sólo para las miniaturas de las plantillas, que igual se dibujan
+  después de montar; y (2) `listar()` con la primera sección de las 56 landings del negocio (en una importada, el HTML de la página
+  original) para la lista de «Mis landings», que usa id, título y fecha. Ahora la hoja la pone la fila de plantillas al dibujar
+  (`<style href="gm-contenido" precedence>`, en el código que el navegador guarda) y la lista recibe sólo lo suyo (`paraLaLista`).
+- **Video** no manda una lista de outliers: lo pesado es el editor. No se tocó.
 
-**La regla:** una portada manda con la página lo que entra en la primera pantalla y los totales; lo demás se pide. Si los filtros
+**La regla:** una portada manda con la página lo que entra en la primera pantalla y los totales; lo demás se pide. Antes de
+recortar, se mira QUÉ pesa (las claves del HTML, los `<script>` más grandes): no siempre es la lista. Si los filtros
 viven en el navegador, la lista entera llega después de dibujar, nunca antes. Un componente que recibe una portada recortada se
 entera por un campo (`total`, `pendiente`), y sin ese campo funciona como antes (el banco, la API de MaKo).
 

@@ -41,7 +41,8 @@ import { Icon } from '@/app/_components/icons';
 import { FAMILIAS_MAS, RUTA_CENTRO_M, RUTA_PRONTO, barraMovil, masCompleto, type FilaMas } from '@/lib/movil-rutas';
 import { esNavSoloPro } from '@/lib/plan-esencial-reglas';
 import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
-import { masParaAppIos } from '@/lib/tienda';
+import { masParaAppIos, sinFilas } from '@/lib/tienda';
+import { esAgencia } from '@/lib/agencia';
 import { esAppIosDelPedido } from '@/lib/tienda-pedido';
 import { Criatura } from '@/app/_components/Criatura';
 import { MAKO_NAV } from '@/app/_components/nav';
@@ -73,7 +74,12 @@ export default async function MasPagina() {
   // La app de iPhone sin lo que Apple lee como relleno: «En la computadora» y «Coming soon» (guía 2.1, lib/tienda.ts).
   const appIos = await esAppIosDelPedido();
   const completo = masCompleto(ctx.rol, ctx.capa, veOpsCenter);
-  const grupos = appIos ? masParaAppIos(completo, RUTA_PRONTO) : completo;
+  // EL AGENCY DASHBOARD, SÓLO A UNA AGENCIA (13/11/2026, ticket #94): volvió al teléfono para que una agencia vea y abra a sus
+  // clientes; a un negocio que no es agencia no le sirve (su página dice «se usa en la computadora»). `esAgencia` es la capa
+  // y la fila de `agencias`, y «no pude leer» es «no» (lib/agencia.ts).
+  const conAgency = ctx.ws != null && (await esAgencia(ctx.ws));
+  const paraEste = conAgency ? completo : sinFilas(completo, (k) => k === 'agency');
+  const grupos = appIos ? masParaAppIos(paraEste, RUTA_PRONTO) : paraEste;
   // MaKo Esencial por la pasarela (23/10/2026): las tabs de Pro se ven, marcadas (lib/plan-esencial-reglas.ts). Sin «Pasar a
   // Pro»: el teléfono no vende (T5, docs/tiendas-play-appstore.md).
   const esencial = await esEsencialDeLaSesion();

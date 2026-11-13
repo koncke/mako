@@ -794,15 +794,37 @@ export const decisionDeAprobar = (tipo: TipoTicket): 'arreglar' | 'hacer' | null
 
 // ── El cierre: qué tickets nombra la bitácora desplegada ──────────────────────────────────────────────────────────
 /** Los tickets que nombran los hitos (`tickets: [12]`), con el primer hito que lo nombra. Lo que no es un número
- *  entero positivo no cuenta. Lo usa lib/tickets-cierre.ts con las bitácoras del build. */
-export function ticketsDeHitos(registros: ReadonlyArray<{ area: string; bitacora: ReadonlyArray<{ titulo: string; tickets?: readonly number[] }> }>): Map<number, { area: string; titulo: string }> {
-  const m = new Map<number, { area: string; titulo: string }>();
+ *  entero positivo no cuenta. Lo usa lib/tickets-cierre.ts con las bitácoras del build.
+ *  `falta` (13/11/2026): lo que dice `faltaEnProduccion` de CUALQUIER hito que lo nombre (no sólo el primero: el que avisa que
+ *  falta un paso suele llegar después del «Hecho»). Mientras haya `falta`, el deploy no lo cierra (`loCierraElDeploy`). */
+export function ticketsDeHitos(registros: ReadonlyArray<{ area: string; bitacora: ReadonlyArray<{ titulo: string; tickets?: readonly number[]; faltaEnProduccion?: string }> }>): Map<number, { area: string; titulo: string; falta?: string }> {
+  const m = new Map<number, { area: string; titulo: string; falta?: string }>();
   for (const r of registros) {
     for (const h of r.bitacora) {
-      for (const n of h.tickets ?? []) if (Number.isInteger(n) && n > 0 && !m.has(n)) m.set(n, { area: r.area, titulo: h.titulo });
+      const falta = String(h.faltaEnProduccion ?? '').trim();
+      for (const n of h.tickets ?? []) {
+        if (!Number.isInteger(n) || n <= 0) continue;
+        const ya = m.get(n);
+        if (!ya) m.set(n, { area: r.area, titulo: h.titulo, ...(falta ? { falta } : {}) });
+        else if (falta && !ya.falta?.includes(falta)) m.set(n, { ...ya, falta: ya.falta ? `${ya.falta} · ${falta}` : falta });
+      }
     }
   }
   return m;
+}
+
+/** El renglón del historial con que alguien marca HECHO el paso en producción de un ticket (`scripts/tickets.ts paso-hecho`). */
+export const TIPO_PASO_HECHO = 'paso_en_produccion_hecho';
+/** El renglón que deja el cron UNA vez cuando el deploy trae el hito pero falta un paso: por qué el ticket sigue abierto. */
+export const TIPO_FALTA_EN_PRODUCCION = 'falta_en_produccion';
+
+/**
+ * ¿El deploy que trae el hito cierra el ticket? (13/11/2026, el #93 de Mauricio). Sí, salvo que el hito diga que falta un paso
+ * en producción (`faltaEnProduccion`) y nadie lo haya marcado hecho. Cerrar es avisarle al cliente «ya anda»: con su email
+ * todavía apagado, Mauricio recibió exactamente eso.
+ */
+export function loCierraElDeploy(hito: { falta?: string }, pasoHecho: boolean): boolean {
+  return !hito.falta?.trim() || pasoHecho;
 }
 
 /**

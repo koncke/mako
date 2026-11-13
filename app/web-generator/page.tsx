@@ -45,6 +45,7 @@ import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { TEMAS, temaPorId, urlFuentes } from '@/lib/editor-landing/temas';
 import type { LandingResumen, TemaPropio } from '@/lib/editor-landing/api-tipos';
 import { consultaDerecha, derechaDeQuery, esPanelPelado, type Analizada } from './panel-reglas';
+import { paraLaLista } from './portada-reglas';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { leerOutliersLandings } from '@/lib/landing-outliers-servidor';
 import { OutliersLandings } from './OutliersLandings';
@@ -79,9 +80,11 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
     const fuentesDisenos = urlFuentes(DISENOS_LANDING.map((d) => temaPorId(d.tema)));
     return (
       <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-        <style dangerouslySetInnerHTML={{ __html: CSS_CONTENIDO }} />
+        {/* La hoja del contenido la pone la fila de plantillas cuando dibuja sus miniaturas (./PlantillasPortada.tsx), y de cada landing
+            viaja sólo lo de la lista (13/11/2026: la hoja dos veces, en el HTML y en los datos, y la primera sección de las 56
+            landings eran ~600 KB de los 887 de la portada). */}
         {fuentesDisenos && <link rel="stylesheet" href={fuentesDisenos} />}
-        <PortadaWeb docs={rDocs.ok ? rDocs.docs : []} errorLista={rDocs.ok ? null : rDocs.error}>
+        <PortadaWeb docs={rDocs.ok ? paraLaLista(rDocs.docs) : []} errorLista={rDocs.ok ? null : rDocs.error}>
           <OutliersLandings portada={portada} plantillas={<PlantillasPortada />} />
         </PortadaWeb>
       </Pagina>
