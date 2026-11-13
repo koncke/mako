@@ -10,12 +10,15 @@
 // pestaña. Sin reproductor para esa red, la tarjeta abre el original como antes.
 // =============================================================================
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Modal } from '@/app/_ui/Modal';
 // Directo, no desde el índice de app/_ui (ver el ⚠️ de CargandoMako.tsx).
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 import o from './outliers.module.css';
+
+/** Lo más que se espera, después del `load` del iframe, el aviso del reproductor de que ya dibujó el reel. */
+const TOPE_TRAS_CARGAR_MS = 8_000;
 
 export function VerReel({
   embed,
@@ -44,8 +47,25 @@ export function VerReel({
 }) {
   const [abierto, setAbierto] = useState(false);
   // El reproductor de la red tarda unos segundos en llegar y mientras tanto la caja quedaba en blanco, sin decir nada
-  // (prueba en producción del 12/11/2026): el loader de la app la tapa hasta que el iframe carga.
+  // (prueba en producción del 12/11/2026): el loader de la app la tapa hasta que el reproductor se DIBUJA.
   const [cargado, setCargado] = useState(false);
+  // 13/11/2026, mirado en producción: el `load` del iframe llega con el documento del reproductor VACÍO, y el reel se dibuja
+  // ~5 s después; el loader se iba antes y la caja seguía en blanco. El reproductor de Instagram avisa al dibujarse con un
+  // `postMessage` a la página («MEASURE»): ése apaga el loader. Si no llega (otra red, otra versión), un tope después del `load`.
+  const marco = useRef<HTMLIFrameElement>(null);
+  const [documento, setDocumento] = useState(false);
+  useEffect(() => {
+    if (!abierto || cargado) return;
+    const alMensaje = (e: MessageEvent) => {
+      if (marco.current && e.source === marco.current.contentWindow) setCargado(true);
+    };
+    window.addEventListener('message', alMensaje);
+    const tope = documento ? setTimeout(() => setCargado(true), TOPE_TRAS_CARGAR_MS) : null;
+    return () => {
+      window.removeEventListener('message', alMensaje);
+      if (tope) clearTimeout(tope);
+    };
+  }, [abierto, cargado, documento]);
   if (!embed) {
     return <a href={url} target="_blank" rel="noopener noreferrer" className={clase} aria-label={etiqueta}>{children}</a>;
   }
@@ -57,6 +77,7 @@ export function VerReel({
         aria-label={etiqueta}
         onClick={() => {
           setCargado(false);
+          setDocumento(false);
           setAbierto(true);
         }}
       >
@@ -82,11 +103,12 @@ export function VerReel({
             <div className={o.verVideo}>
               <iframe
                 src={embed}
+                ref={marco}
                 title={titulo}
                 allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                 allowFullScreen
                 referrerPolicy="strict-origin-when-cross-origin"
-                onLoad={() => setCargado(true)}
+                onLoad={() => setDocumento(true)}
               />
               {!cargado && <CargandoMako cubre que="el reel" size={56} />}
             </div>

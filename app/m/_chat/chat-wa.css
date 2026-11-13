@@ -127,9 +127,19 @@
 [data-m] .m-wa .m-operaciones-caja .co-enviar:disabled { opacity: .55; }
 [data-m] .m-wa .m-operaciones-caja .co-enviar--mic[data-escuchando] { background: var(--bad); color: #fff; }
 [data-m] .m-wa .m-operaciones-caja .co-enviar:active:not(:disabled) { transform: scale(.96); }
-/* Lo de arriba de la caja (conectar tu IA, el aviso de la computadora): una línea chica, no un bloque. */
-[data-m] .m-wa .ch-app-franja { margin: 0 4px 2px; padding: 6px 12px; border-radius: 12px; font-size: 13px; line-height: 1.35; }
-[data-m] .m-wa .co-conectar-ia-arriba { margin: 0 4px 2px; }
+/* Lo que le falta para que MaKo conteste (AvisoDeIA.tsx): no arriba de la caja, sino UNA línea pegada a la cabecera, como el
+   prototipo (`.falta-ia`): el texto a la izquierda, la acción a la derecha. */
+.m-chat__aviso {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; z-index: 1;
+  padding: 7px calc(14px + env(safe-area-inset-right, 0px)) 7px calc(14px + env(safe-area-inset-left, 0px));
+  background: var(--surface); box-shadow: 0 1px 0 var(--border); color: var(--dim); font-size: 13px; line-height: 1.35;
+}
+.m-chat__aviso-texto { min-width: 0; }
+.m-chat__aviso-boton {
+  flex: none; min-height: 32px; padding: 0 2px; border: 0; background: none; cursor: pointer;
+  color: var(--good); font: inherit; font-size: 14px; font-weight: 700;
+}
+.m-chat__aviso-boton:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 6px; }
 
 /* ── La lista de chats del Ops Center, como WhatsApp (ChatClienteM.tsx) ─────────────────────────────────────────────────
    El buscador, los chips de lo que no es un chat, y los chats de borde a borde: sin caja, la foto grande, el filete desde el texto. */

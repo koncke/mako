@@ -9,16 +9,25 @@
 // envío de Mauricio a las 9:01 con «3 de 52 (5,8 %)»: el envío de ayer (Piloto A, 100 a las 9:00) se había ido yendo de la
 // ventana y quedaba su COLA, con 2 de sus 3 rebotes, más los primeros 7 del de hoy (Piloto B). Los envíos enteros estaban
 // en 3 de 100 (3 %) y 2 de 78 (2,6 %). Una ventana de tiempo parte un envío por la mitad y deja un denominador chico en el
-// borde; una de CANTIDAD siempre mira la misma muestra. Los umbrales son los mismos (50, 5 %, 0,3 %).
+// borde; una de CANTIDAD siempre mira la misma muestra. Los umbrales siguieron (50, 5 %, 0,3 %) hasta el #93 (abajo).
 // Y la cuenta arranca cuando una persona PRENDE el envío: «Revisa la lista y vuelve a prenderlo» no sirve si los rebotes
 // que ya lo apagaron siguen adentro y el próximo lo vuelve a apagar (`desdeDelFreno`, que usa lib/email-reputacion.ts).
+//
+// ⚠️ AVISA ANTES Y APAGA SÓLO CON NÚMEROS PELIGROSOS (ticket #93, 13/11/2026). El 13/11 a las 15:09 UTC el freno apagó el
+// email de Mauricio —su ÚNICO seguimiento de dos CRMs— con «5 de los últimos 100» (5,0 %). Su lista «Fríos» rebota 2,7 % y
+// 4,2 % por día: con 100 de muestra, un 5 % sale por azar (los rebotes llegan en racha). Medido ese día: en los últimos 300
+// había 11 (3,7 %), y ninguna ventana de 300 de toda la campaña (1.030 enviados, 28 rebotes) pasó de 3,7 %. Ahora:
+//   · mira los últimos 300, desde 100 enviados (con 50, una lista al 4 % se apagaba por azar en ~6 % de los arranques);
+//   · desde 5 % de rebotes AVISA y no apaga (un rebote ya da de baja esa dirección: no se le vuelve a escribir);
+//   · APAGA desde 10 % de rebotes —la referencia de la industria: Amazon SES revisa una cuenta desde 5 % y la pausa desde
+//     10 %— o desde 0,3 % de quejas (el límite de Gmail), que castigan más.
 //
 // Rebote = el permanente (la dirección no existe); el temporal (buzón lleno) no cuenta, como no da de baja al lead
 // (app/api/webhooks/resend). Apagar es el mismo interruptor de siempre (`envio_email_enabled`): lo vuelve a prender una
 // persona, nunca solo.
 // =============================================================================
 
-export const FRENO_EMAIL = { minimoEnviados: 50, rebotes: 0.05, quejas: 0.003, ultimos: 100, dias: 7 } as const;
+export const FRENO_EMAIL = { minimoEnviados: 100, rebotesAviso: 0.05, rebotes: 0.1, quejas: 0.003, ultimos: 300, dias: 7 } as const;
 
 export type ConteoEmail = { enviados: number; rebotes: number; quejas: number };
 
@@ -49,17 +58,20 @@ export function desdeDelFreno(ahoraMs: number, prendidoAt: string | null): strin
   return new Date(Number.isFinite(prendido) && prendido > dias && prendido <= ahoraMs ? prendido : dias).toISOString();
 }
 
+/** `avisa`: los rebotes pasan el umbral del AVISO pero no el de apagar (#93): se avisa y el envío sigue. */
 export type FrenoEmail =
-  | { frena: false }
+  | { frena: false; avisa?: undefined }
+  | { frena: false; avisa: 'rebotes'; porcentaje: number }
   | { frena: true; motivo: 'rebotes' | 'quejas'; porcentaje: number };
 
-/** ¿Se apaga el envío? Primero las quejas (castigan más), después los rebotes. */
+/** ¿Se apaga el envío, o se avisa? Primero las quejas (castigan más), después los rebotes. */
 export function decidirFrenoEmail(c: ConteoEmail): FrenoEmail {
   if (c.enviados < FRENO_EMAIL.minimoEnviados) return { frena: false };
   const quejas = c.quejas / c.enviados;
   if (quejas >= FRENO_EMAIL.quejas) return { frena: true, motivo: 'quejas', porcentaje: quejas * 100 };
   const rebotes = c.rebotes / c.enviados;
   if (rebotes >= FRENO_EMAIL.rebotes) return { frena: true, motivo: 'rebotes', porcentaje: rebotes * 100 };
+  if (rebotes >= FRENO_EMAIL.rebotesAviso) return { frena: false, avisa: 'rebotes', porcentaje: rebotes * 100 };
   return { frena: false };
 }
 
@@ -70,4 +82,14 @@ export function textoDelFreno(f: Extract<FrenoEmail, { frena: true }>, c: Conteo
     ? `de los últimos ${c.enviados} emails, ${c.quejas} se marcaron como spam (${pct} %)`
     : `de los últimos ${c.enviados} emails, ${c.rebotes} rebotaron: esas direcciones no existen (${pct} %)`;
   return `Apagué el envío de email: ${que}. Si sigue, Gmail y Outlook mandan tus emails a spam. Revisa la lista y vuelve a prenderlo desde Email.`;
+}
+
+/**
+ * El aviso de ANTES de apagar (#93): cuántos rebotaron, que a esas direcciones ya no se les escribe, y desde cuánto se apaga.
+ * El envío sigue.
+ */
+export function textoDelAvisoDeRebotes(f: Extract<FrenoEmail, { avisa: 'rebotes' }>, c: ConteoEmail): string {
+  const pct = f.porcentaje.toLocaleString('es-MX', { maximumFractionDigits: 1 });
+  const apaga = (FRENO_EMAIL.rebotes * 100).toLocaleString('es-MX');
+  return `De tus últimos ${c.enviados} emails, ${c.rebotes} rebotaron (${pct} %): esas direcciones no existen y ya no les escribo. El envío sigue. Si los rebotes llegan a ${apaga} %, lo apago para cuidar tu dominio: revisa la lista.`;
 }
