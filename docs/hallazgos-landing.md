@@ -245,6 +245,29 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   - **Lo que quedó SIN hacer**: las pantallas que piden la sesión de Martín (CRM, Chats, Automations, el scrapeo de grupos,
     Classroom).
 
+- **Décima vuelta (13/11/2026, madrugada, claude5): las pantallas salen del código, no de capturas.**
+  - **Martín: «no es necesario que captures nada si tienes el código».** Una pantalla de la app se graba montando su componente
+    REAL en un banco de esbuild (el molde: `scripts/banco-outliers/build.mjs`, con las acciones de servidor y `next/*` de mentira)
+    con datos de ejemplo de nombres ficticios. Así salieron el CRM (`app/crm/CrmBoard.tsx` con `DEFAULT_STAGES`) y los 13 tableros.
+  - **⚠️ El diagnóstico obvio era el equivocado: las capturas «mako-1440.png» de los tableros NO son el componente**, son la maqueta
+    adaptada (docs/diseno/mockups-dashboard/<id>/; la del componente es `producto-*.png`). Para tener la ENTRADA propia de cada uno:
+    `DisenoEnMiniatura` (la miniatura de «Nueva hoja», que dibuja cada diseño con sus datos de ejemplo) con la hoja que arma su
+    plantilla (`PLANTILLAS_HOJA` y `PLANTILLAS_GENERAL` → `sanearHoja`) y la entrada prendida: esa miniatura pasa `quieta`, y el
+    banco la cambia por `quieta={false}` en el `onLoad` de esbuild. Con una hoja sin sus componentes, el diseño sale «Todavía no hay
+    datos».
+  - **El arrastre del CRM es HTML5 (`draggable`) y Playwright lo hace en Chromium** con `mouse.down` / `mouse.move` / `mouse.up`: la
+    tarjeta flota, la columna marca dónde cae y sale el aviso real («Valeria Campos → Agenda R1 · Deshacer»).
+  - **El visor no copia lo que se pide por `data-src`** (los videos de los tableros se cargan recién al mostrarse): después de
+    `armar-v2.sh` hay que copiar `public/vsl-assets/sitio/tableros/*.webm` a mano, o el publish dice «not found».
+  - **Un script dentro de una página sin React** (el carrusel de tableros, el sonido de AI Avatar): `<script dangerouslySetInnerHTML>`
+    con `document.currentScript.parentNode` para encontrar su bloque; anda en el sitio y en el visor estático.
+  - **Replicar: un fondo se pinta ANTES que lo de adentro.** Con la captura entera por sección, el fondo traía todo lo de adentro y
+    por eso iba al final (Martín: «todo el fondo está negro y después se va poniendo blanco»): ahora el lienzo es el blanco de la
+    página, cada sección y cada tarjeta pinta su COLOR medido primero, y la captura exacta se asienta al final sin que se note.
+  - **Lo que quedó SIN hacer**: el scrapeo de grupos (necesita simular la extensión de WhatsApp), Automations (`FlujoLienzo` es
+    enorme), Classroom, el editor de video con sus agentes (`app/video-editor/_opencut/enjambre/`), Marketing CoPilot (hay banco:
+    `scripts/banco-copilot`), Spy y Copywriting con Hormozi (sin sus reels en el espacio de MaKo) y la réplica de carruseles.
+
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
 **Vive en:** `scripts/landing-valores-tilvo.mjs` (con su test), `scripts/banco-editor-web/landing.tsx`, `app/vsl/CartelPromo.tsx`.
