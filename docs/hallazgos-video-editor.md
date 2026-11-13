@@ -96,7 +96,9 @@ lima y del MISMO tamaño que el resto.
   (`TOPES_CLAVES_TAMANO`, params/extra/subtitulos.ts): el renglón se parte midiendo la letra normal (`partirEnLineas`,
   subtitles/build-subtitle-text-element.ts, no suma la reserva de la clave agrandada que sí suma el dibujo:
   text/resaltado.ts → `reservasDeRenglones`), y una clave al 300 % se saldría del cuadro. Para subir el tope, primero que el
-  partido mida con la reserva. Tampoco: los cortes de plano alternando la escala 100/130 % que pide la receta.
+  partido mida con la reserva, Y que el renglón reserve ALTO: la clave se agranda desde su centro, y a 3× en un subtítulo
+  de dos renglones tapa al otro (por eso el tope de 160 %, «tapa a las vecinas»); `reservasDeRenglones` sólo reserva ancho.
+  Tampoco: los cortes de plano alternando la escala 100/130 % que pide la receta.
 
 ## Pexels: no hay clave en NINGÚN lado, y el B-roll ahora usa lo que la persona subió (12/11/2026)
 
@@ -127,7 +129,8 @@ lima y del MISMO tamaño que el resto.
 - **Trampa:** volver a importar el archivo NO lo arregla, ni en la computadora: `MediaManager.addMediaAsset` le da un id nuevo y el
   clip sigue apuntando al viejo. **Regla:** `MediaManager.reenlazarMedio` guarda el archivo elegido con el MISMO mediaId
   (`media/reenlazar.ts`; qué falta: `media/archivos-faltantes.ts`). El teléfono avisa «Falta «x» en este teléfono» con «Elegir el
-  archivo». **Sin hacer:** la computadora todavía no ofrece reenlazar (sólo lo dice al subtitular y en Exportar).
+  archivo». La computadora, igual, encima del reproductor (`media/components/aviso-archivos-faltantes.tsx`, con
+  `PreviewPanel avisoArchivos`: el teléfono usa el MISMO `PreviewPanel` y tiene su aviso propio, por eso va con prop).
 
 ## Un título del chat salía del cuadro: «tamaño 48» eran letras de 1.000 px (12/11/2026)
 

@@ -727,4 +727,19 @@ export const BITACORA: Hito[] = [
     revisar: '/video-editor/nuevo',
     tickets: [91],
   },
+  {
+    fecha: '12 nov', hora: '22:30', chat: 'Ticket 73: videos a la línea desde el chat', sesion: 'local_72d0c3fe-1e3d-43ff-bf60-f9362f94676e', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'En la computadora, si falta el archivo de un clip, lo dice y deja elegirlo otra vez',
+    puntos: [
+      'Si el navegador perdió el archivo de un clip, el reproductor quedaba negro sin decir nada. Ahora aparece un aviso encima del reproductor con el nombre del archivo y «Elegir el archivo».',
+      'Al elegirlo, el clip vuelve tal cual estaba (recorte, velocidad, efectos). Importarlo de nuevo no servía: entraba como un archivo distinto.',
+      'Es lo mismo que ya tenía el teléfono. No se miró en un navegador antes de subir.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/media/components/aviso-archivos-faltantes.tsx — el aviso y el «Elegir»',
+      'app/video-editor/_opencut/preview/components/index.tsx · editor-page.tsx — encima del reproductor, sólo en la computadora',
+      'tests/video-editor-m-archivo-falta.test.ts (A9)',
+    ],
+    revisar: '/video-editor',
+  },
 ];
