@@ -4,6 +4,23 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## La marca `[[no-pude: …]]` larga le llegaba entera al cliente, y sin ticket (13/11/2026, claude5)
+
+**El síntoma:** el 4/11 Natalia (ws19) le pidió a MaKo, en el grupo de la APP, la lista de leads de una campaña. La respuesta terminó
+con «[[no-pude: traer el número de contacto de los leads. Los datos mostrados tienen id, nombre y etapa, pero para sacar el número
+completo necesito ficha_lead de cada uno…]]»: la marca interna, con el nombre de una herramienta, en el hilo del cliente. Medido en
+`grupo_mensajes` el 13/11, buscando qué había contestado MaKo en la app.
+
+**El diagnóstico obvio era el equivocado: «la app se salta el saneo».** No: el turno de la app es el mismo de WhatsApp y pasa por
+`conTicketsDeMaKo`. La causa era la regex de la marca (`MARCA`, lib/no-pude.ts y lib/no-existe.ts): `[^\]\n]{3,300}`. Esa tenía ~430
+letras. Una marca que no matchea **no se saca y tampoco abre el ticket**: el tope corto no protegía nada, hacía las dos cosas mal a la
+vez. Pasaba igual en WhatsApp.
+
+**Regla:** una marca del sistema se saca SIEMPRE, mida lo que mida y en las líneas que ocupe; lo que se GUARDA es lo que se corta
+(`noPudo`, a 200). Tope 4000 y con saltos. Test con el texto real: tests/marca-larga-no-llega.test.ts.
+
+---
+
 ## «Tarjeta» no es una tarjeta de crédito, y el dueño en su grupo no era nadie (9/11/2026, Leandro)
 
 **El síntoma:** Martín, 9/11: «no está solucionando su problema con Automations hace días». Leandro tiene la vía libre
