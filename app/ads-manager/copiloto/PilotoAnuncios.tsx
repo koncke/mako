@@ -90,7 +90,7 @@ export function PilotoAnuncios({ conectada, existeTabla, piloto, decisiones, onD
       {(!piloto || !piloto.encendido || piloto.modo !== 'piloto') && (
         <section className="frn-card frn-rem frn-rem--ancho">
           <p className="frn-rem__h">{!existeTabla ? 'El piloto todavía no está listo en tu cuenta.' : piloto?.encendido ? 'Hoy te propongo y tú apruebas: nada se hace solo.' : 'El piloto está apagado: no reviso tu cuenta cada día.'}</p>
-          <Link className="frn-btn" href="/ads-manager/ajustes">Configurar piloto</Link>
+          <Link className="frn-btn" href="/ads-manager/copiloto/configurar">Configurar piloto</Link>
         </section>
       )}
       {esperan.length > 0 && (

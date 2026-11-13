@@ -373,6 +373,40 @@ export function ModalCosa({ estado, p, k, onCerrar, onMarcar, onChat }: {
   );
 }
 
+/**
+ * «Mejorar» (vuelta 20): lo que sé y lo que falta de la parte elegida, con los mismos desplegables, en un popup. Se completa en el
+ * chat de MaKo (la oferta se construye en el Ops Center; en CoPilot queda el análisis). Adentro de un `.frn`: los desplegables
+ * tienen todo su CSS bajo `.frn` (afuera salían sin estilo, medido en la maqueta).
+ */
+export function ModalTodoOC({ estado, parte, onParte, onCerrar, onMarcar, onAbrir, onChat }: {
+  estado: EstadoComunicacion; parte: ParteOC; onParte: (p: ParteOC) => void; onCerrar: () => void;
+  onMarcar: (p: ParteOC, k: string, listo: boolean) => void; onAbrir: (p: ParteOC, k: string) => void; onChat: (texto: string) => void;
+}) {
+  const dialogo = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    dialogo.current?.focus();
+    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') onCerrar(); };
+    document.addEventListener('keydown', tecla);
+    return () => document.removeEventListener('keydown', tecla);
+  }, [onCerrar]);
+  const montado = useMontado();
+  if (!montado) return null;
+  const falta = primeraQueFalta(estado, parte);
+  const titulo = parte === 'oferta' ? 'Tu oferta' : parte === 'angulos' ? 'Tus ángulos' : 'Tu voz';
+  return createPortal(
+    <div className="mq-modal-fondo cop-fondo" onMouseDown={(e) => { if (e.target === e.currentTarget) onCerrar(); }}>
+      <div className="ocm ocm--todo" role="dialog" aria-modal="true" aria-label={titulo} tabIndex={-1} ref={dialogo}>
+        <header className="ocm__cab"><h2>{titulo}</h2><span /><button type="button" className="ocm__x" aria-label="Cerrar" onClick={onCerrar}>×</button></header>
+        <div className="frn frn--mono ocm__frn"><BloqueOC estado={estado} parte={parte} onParte={onParte} onMarcar={onMarcar} onAbrir={onAbrir} /></div>
+        <footer className="ocm__pie"><span />
+          <button type="button" className="ocm__ir" onClick={() => onChat(falta ? textoCompletar(parte, falta, estado) : `Mejoremos ${NOMBRE_PARTE[parte]}.`)}>Completarlo en el chat</button>
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function useMontado() {
   const [m, setM] = useState(false);
   useEffect(() => setM(true), []);
