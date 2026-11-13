@@ -312,6 +312,11 @@ Cada entrada dice de qué corrida y de qué fecha viene.
     antes de sospechar de los datos.
   - **Un botón que no está hace esperar 30 s a Playwright** (su espera por defecto) y la grabación sale con medio minuto quieto:
     al recortar, mirar los cuadros, no las marcas.
+  - **⚠️ En el sitio, un `aria-label` que empieza con «MaKo» es el LOGO para `TemaSitio`**: le pone el color de la marca y le pinta
+    el fondo a su primer `span` (`[aria-label^="MaKo"]`, `app/vsl/_competencia/TemaSitio.tsx`). El recuadro «MaKo conectado con
+    Claude…» de la sección de la IA salió con el cuadro de Claude gris y los íconos en blanco. **Regla:** una etiqueta que no es el
+    logo no empieza con «MaKo». Y otra vez una clase repetida: `.s-casos` ya era una grilla de 4 columnas del sitio (como `.s-caso`):
+    antes de nombrar una clase nueva, `grep` en `estilos.ts`.
   - **El bucle**: el final se funde 0,5 s con el principio (`xfade` del final con los primeros 0,5 s, y el video arranca en el 0,5):
     no hay salto al volver a empezar aunque el final no se parezca al principio.
 
