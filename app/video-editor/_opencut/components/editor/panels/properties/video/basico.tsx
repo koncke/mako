@@ -319,22 +319,27 @@ const ALINEACIONES: ReadonlyArray<{ lado: Lado; titulo: string; Icono: typeof Al
 
 function Alineacion({ element, trackId }: { element: TimelineElement; trackId: string }) {
 	const posicion = useGrupo(element, trackId, ["transform.positionX", "transform.positionY"]);
+	const editor = useEditor();
 	const tracks = useEditor((e) => e.timeline.getPreviewTracks() ?? e.scenes.getActiveScene().tracks);
-	const currentTime = useEditor((e) => e.playback.getCurrentTime());
 	const mediaAssets = useEditor((e) => e.media.getAssets());
 	const lienzo = useEditor((e) => e.project.getActive().settings.canvasSize);
 
-	const caja = useMemo(() => {
-		// Fuera del clip se mide en su borde más cercano, como hace la máscara.
-		const t = Math.min(Math.max(currentTime, element.startTime), element.startTime + element.duration - 1);
+	// La caja se mide en el cabezal AL TOCAR, no escuchándolo: leerlo con useEditor redibujaba los seis botones con sus
+	// tooltips en cada salto y en cada cuadro reproduciendo (12/11/2026, docs/hallazgos-video-editor.md → «Se me traba…»).
+	// Fuera del clip se mide en su borde más cercano, como hace la máscara.
+	const medir = (cabezal: number) => {
+		const t = Math.min(Math.max(cabezal, element.startTime), element.startTime + element.duration - 1);
 		return (
-			getVisibleElementsWithBounds({ tracks, currentTime: t, canvasSize: lienzo, mediaAssets }).find(
+			getVisibleElementsWithBounds({ tracks, currentTime: t as typeof element.startTime, canvasSize: lienzo, mediaAssets }).find(
 				(it) => it.trackId === trackId && it.elementId === element.id,
 			)?.bounds ?? null
 		);
-	}, [tracks, currentTime, lienzo, mediaAssets, element.startTime, element.duration, element.id, trackId]);
+	};
+	// Para habilitar los botones alcanza saber si el clip se ve: se mide en su arranque.
+	const seVe = useMemo(() => medir(element.startTime) !== null, [tracks, lienzo, mediaAssets, element.startTime, element.duration, element.id, trackId]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	const alinear = (lado: Lado) => {
+		const caja = medir(editor.playback.getCurrentTime());
 		if (!caja) return;
 		// La caja que ocupa en pantalla, girada incluida.
 		const rad = (caja.rotation * Math.PI) / 180;
@@ -368,7 +373,7 @@ function Alineacion({ element, trackId }: { element: TimelineElement; trackId: s
 						<button
 							type="button"
 							aria-label={titulo}
-							disabled={!caja}
+							disabled={!seVe}
 							onClick={() => alinear(lado)}
 							className="flex h-[26px] flex-1 cursor-pointer items-center justify-center rounded-[4px] bg-(--cc-sunken) text-(--cc-icon) hover:text-foreground disabled:cursor-default disabled:text-(--cc-icon-off)"
 						>

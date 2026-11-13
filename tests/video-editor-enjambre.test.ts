@@ -324,7 +324,8 @@ test('13. subs-03 aplica cada prueba DE VERDAD, la mide y la vuelve atrás, sin 
   assert.doesNotMatch(correr, /usePreferenciasSubtitulos\.getState\(\)\.fijar/, 'el estilo del agente es de este proyecto, no la plantilla de la persona para todos');
   assert.match(correr, /editor\.command\.undo\(\);\s*editor\.command\.olvidarRehacer\(\);/, 'Ctrl+Y no vuelve a poner un estilo descartado');
   assert.match(correr, /if \(!enSuLugar\(ctx\)\) \{\s*anotar\(agente, "falla", "se cerró el proyecto o cambió la escena: no sigue probando"\);/, 'no prueba estilos en otro proyecto');
-  assert.match(correr, /const estiloLibre = subtitulosNuevos && usePreferenciasSubtitulos\.getState\(\)\.plantilla === PLANTILLA_POR_DEFECTO\.id;/, 'el estilo de la persona no se toca');
+  // Con receta (12/11/2026), el de la receta: tests/video-editor-receta-un-pedido.test.ts.
+  assert.match(correr, /const estiloLibre = subtitulosNuevos && \(!!receta\?\.subtitulos \|\| usePreferenciasSubtitulos\.getState\(\)\.plantilla === PLANTILLA_POR_DEFECTO\.id\);/, 'el estilo de la persona no se toca');
 });
 
 test('14. «no había nada que hacer» no es «no pudo»: una falla real se dice como falla', () => {

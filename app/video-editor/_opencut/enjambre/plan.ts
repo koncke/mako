@@ -20,6 +20,7 @@
 // =============================================================================
 
 import type { OperacionChat } from "@/lib/editor-video/chat-catalogo";
+import type { EdicionDeReceta } from "@/lib/video-recetas";
 import { NO_ENCONTRE } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { NO_HAY_MULETILLAS } from "@/app/video-editor/_opencut/transcripcion/modelo";
@@ -170,7 +171,12 @@ export type Decision =
 
 const SIN_VOZ = "no hay un video con sonido en la pista principal";
 
-export function decidirPaso(paso: PasoId, e: EstadoLinea): Decision {
+/**
+ * `receta` (12/11/2026): la de un proyecto replicado (lib/video-recetas.ts → `editor`). Probando la tab entera, la
+ * Edición automática de «La palabra clave gigante» dejó las claves en lima y del mismo tamaño que el resto: ahora la
+ * receta manda en la pausa que se borra, si hay subtítulos, su estilo (correr.ts) y el tamaño y color de las claves.
+ */
+export function decidirPaso(paso: PasoId, e: EstadoLinea, receta: EdicionDeReceta | null = null): Decision {
 	const voz = e.conVoz.length > 0;
 	switch (paso) {
 		case "pausas":
@@ -178,10 +184,11 @@ export function decidirPaso(paso: PasoId, e: EstadoLinea): Decision {
 			// Los tiempos por palabra de los subtítulos no se mueven con un corte de la principal (chat/linea.ts): cortar las
 			// pausas debajo de unos subtítulos que ya estaban los desfasa, y después las muletillas cortarían otra parte.
 			if (e.subtitulos.length) return { hace: false, porque: "ya tiene subtítulos: cortar las pausas los desfasaría (usa «Borrar silencios» antes de subtitular)" };
-			return { hace: true, operaciones: [{ op: "borrar_silencios" }] };
+			return { hace: true, operaciones: [{ op: "borrar_silencios", ...(receta?.pausaMinima ? { pausa_min: receta.pausaMinima } : {}) }] };
 		case "subtitulos":
 			if (!voz) return { hace: false, porque: SIN_VOZ };
 			if (e.subtitulos.length) return { hace: false, porque: `ya tiene ${cuantos(e.subtitulos.length, "subtítulo", "subtítulos")}` };
+			if (receta?.sinSubtitulos) return { hace: false, porque: "la receta de este proyecto va sin subtítulos" };
 			return { hace: true, operaciones: [{ op: "generar_subtitulos" }] };
 		case "estilo":
 			if (!e.subtitulos.length) return { hace: false, porque: "no hay subtítulos a los que darles estilo" };
@@ -194,6 +201,7 @@ export function decidirPaso(paso: PasoId, e: EstadoLinea): Decision {
 		case "claves":
 			if (!e.subtitulos.length) return { hace: false, porque: "no hay subtítulos para resaltar" };
 			if (e.subtitulos.some((s) => s.claves.length)) return { hace: false, porque: "los subtítulos ya tienen sus palabras clave" };
+			if (receta?.claves) return { hace: true, operaciones: [{ op: "palabras_clave", modo: "auto", color: receta.claves.color, tamano: receta.claves.tamano }] };
 			return { hace: true, operaciones: [{ op: "palabras_clave", modo: "auto", color: LIMA }] };
 		case "broll":
 		case "planos":

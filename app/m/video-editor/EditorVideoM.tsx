@@ -7,7 +7,8 @@
 // tema claro u oscuro desde el 29/10/2026, no el oscuro fijo de CapCut):
 //   · arriba, ✕ (vuelve a los proyectos), el nombre y «Exportar»;
 //   · el reproductor (el MISMO de escritorio: PreviewPanel del motor; su cabecera «Reproductor ≡» y su fila de abajo se
-//     esconden, ./video-editor.css);
+//     esconden, ./video-editor.css). Si al teléfono le falta el archivo de algún clip, encima va el aviso que lo nombra
+//     con «Elegir» para volver a enlazarlo (ArchivosFaltantes, 12/11/2026: antes se veía negro y mudo);
 //   · ▶ y el cabezal, para moverse por el video con el dedo;
 //   · la tira de clips de la pista principal (tocar uno lo elige y lleva el cabezal a su inicio) y el «+» del final,
 //     que agrega clips de la galería del teléfono, como el «+» de la línea de tiempo de CapCut;
@@ -33,10 +34,13 @@ import { Icon } from '@/app/_components/icons';
 import { TooltipProvider } from '@/app/video-editor/_opencut/components/ui/tooltip';
 import { Toaster } from '@/app/video-editor/_opencut/components/ui/sonner';
 import { EditorProvider } from '@/app/video-editor/_opencut/components/providers/editor-provider';
+import { StoragePersistenceDialog } from '@/app/video-editor/_opencut/services/storage/components/storage-persistence-dialog';
 import { PreviewPanel } from '@/app/video-editor/_opencut/preview/components';
 import { useEditor } from '@/app/video-editor/_opencut/editor/use-editor';
 import { invokeAction } from '@/app/video-editor/_opencut/actions';
 import { importarArchivos } from '@/app/video-editor/_opencut/media/importar';
+import { aceptaDelFaltante, archivosFaltantes, textoDelAviso, type ArchivoFaltante } from '@/app/video-editor/_opencut/media/archivos-faltantes';
+import { reenlazarArchivo } from '@/app/video-editor/_opencut/media/reenlazar';
 import { buildElementFromMedia } from '@/app/video-editor/_opencut/timeline/element-utils';
 import { DEFAULT_NEW_ELEMENT_DURATION } from '@/app/video-editor/_opencut/timeline/creation';
 import { mediaTimeFromSeconds, mediaTimeToSeconds, ZERO_MEDIA_TIME, type MediaTime } from '@/app/video-editor/_opencut/wasm';
@@ -82,6 +86,9 @@ export function EditorVideoM({ proyectoId, desde, plantilla }: { proyectoId: str
     <div className="ce m-video-editor-ed">
       <TooltipProvider>
         <Toaster />
+        {/* Los archivos viven en el navegador (OPFS): sin el permiso persistente, el del teléfono los puede borrar solo.
+            La computadora lo pide en editor-page.tsx; el teléfono no lo pedía (12/11/2026: el video quedó negro). */}
+        <StoragePersistenceDialog />
         {desde ? <ImportarDesde desde={desde} />
           : plantilla !== undefined ? <ArmarPlantilla id={plantilla} />
             : <EditorProvider projectId={proyectoId}><Editor /></EditorProvider>}
@@ -128,6 +135,7 @@ function Editor() {
 
       <div className="m-video-editor-escenario">
         <PreviewPanel overlayControls={[]} overlayInstances={[]} onOverlayVisibilityChange={() => {}} />
+        <ArchivosFaltantes />
       </div>
 
       <Cabezal />
@@ -137,6 +145,73 @@ function Editor() {
 
       {exportando && <Exportar nombre={nombre} onCerrar={() => setExportando(false)} />}
     </>
+  );
+}
+
+/** Los archivos que la línea usa y no están en este teléfono (media/archivos-faltantes.ts), uno por archivo. */
+function useArchivosFaltantes(): ArchivoFaltante[] {
+  const tracks = useEditor((e) => e.scenes.getActiveScene().tracks);
+  const medios = useEditor((e) => e.media.getAssets());
+  // Mientras carga la biblioteca está vacía: todo «faltaría» un instante.
+  const cargando = useEditor((e) => e.media.isLoadingMedia());
+  return useMemo(
+    () => (cargando ? [] : archivosFaltantes(tracks, new Set(medios.map((m) => m.id)))),
+    [tracks, medios, cargando],
+  );
+}
+
+/**
+ * El aviso de los archivos que faltan en este teléfono, ENCIMA del reproductor: si el navegador perdió el archivo de
+ * un clip (el OPFS se vació y el proyecto en IndexedDB quedó), el reproductor quedaba negro y mudo sin decir nada
+ * (producción, 12/11/2026). Nombra cada archivo con «Elegir», que abre la galería y lo vuelve a enlazar con el MISMO
+ * medio (media/reenlazar.ts → MediaManager.reenlazarMedio): el clip conserva todo, el aviso se va y el video se ve.
+ */
+function ArchivosFaltantes() {
+  const editor = useEditor();
+  const faltan = useArchivosFaltantes();
+  const entrada = useRef<HTMLInputElement>(null);
+  const pedido = useRef<ArchivoFaltante | null>(null);
+  const [enlazando, setEnlazando] = useState<string | null>(null);
+  if (!faltan.length) return null;
+
+  // El selector se abre en el mismo toque (si no, el navegador no lo abre), con el tipo del clip.
+  const elegir = (f: ArchivoFaltante) => {
+    const input = entrada.current;
+    if (!input || enlazando) return;
+    pedido.current = f;
+    input.accept = aceptaDelFaltante(f.tipo);
+    input.click();
+  };
+  const enlazar = async (file: File | undefined) => {
+    const f = pedido.current;
+    pedido.current = null;
+    if (!file || !f) return;
+    setEnlazando(f.mediaId);
+    try { await reenlazarArchivo({ editor, mediaId: f.mediaId, tipo: f.tipo, file }); } finally { setEnlazando(null); }
+  };
+  const boton = (f: ArchivoFaltante, texto: string, clase: string) => (
+    <button type="button" className={clase} disabled={enlazando !== null} aria-label={`Elegir ${f.nombre}`}
+      onClick={() => elegir(f)}>
+      {enlazando === f.mediaId ? <span className="mk-spin" aria-hidden /> : texto}
+    </button>
+  );
+
+  return (
+    <div className="m-video-editor-falta" role="status">
+      <p className="m-video-editor-falta__t">{textoDelAviso(faltan)}</p>
+      {faltan.length === 1 ? boton(faltan[0], 'Elegir el archivo', 'm-video-editor-export__boton') : (
+        <ul className="m-video-editor-falta__lista">
+          {faltan.map((f) => (
+            <li key={f.mediaId}>
+              <span className="m-video-editor-falta__nombre">{f.nombre}</span>
+              {boton(f, 'Elegir', 'm-video-editor-exportar')}
+            </li>
+          ))}
+        </ul>
+      )}
+      <input ref={entrada} type="file" hidden
+        onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ''; void enlazar(file); }} />
+    </div>
   );
 }
 
@@ -185,7 +260,10 @@ function TiraClips() {
   const galeria = useRef<HTMLInputElement>(null);
   const [agregando, setAgregando] = useState(false);
 
+  const faltan = useArchivosFaltantes();
+
   const miniatura = useMemo(() => new Map(medios.map((m) => [m.id, m.thumbnailUrl ?? null])), [medios]);
+  const sinArchivo = useMemo(() => new Set(faltan.map((f) => f.mediaId)), [faltan]);
   const elegido = new Set(elegidos.map((r) => r.elementId));
   const totalSeg = Math.max(1, mediaTimeToSeconds({ time: total }));
 
@@ -201,7 +279,10 @@ function TiraClips() {
           sin moverlo en el arreglo. Medido el 12/11/2026: la tira decía toma-a, toma-b y el video empezaba con toma-b. */}
       {[...principal.elements].sort((a, b) => a.startTime - b.startTime).map((el) => {
         const seg = mediaTimeToSeconds({ time: el.duration });
-        const img = 'mediaId' in el && typeof el.mediaId === 'string' ? miniatura.get(el.mediaId) : null;
+        const mediaId = 'mediaId' in el && typeof el.mediaId === 'string' ? el.mediaId : null;
+        const img = mediaId ? miniatura.get(mediaId) : null;
+        // Sin su archivo en este teléfono: borde punteado de aviso (el aviso con «Elegir» va sobre el reproductor).
+        const falta = mediaId !== null && sinArchivo.has(mediaId);
         const es = elegido.has(el.id);
         return (
           <button
@@ -209,7 +290,8 @@ function TiraClips() {
             type="button"
             className="m-video-editor-clip"
             aria-pressed={es}
-            aria-label={`${el.name}, ${Math.round(seg)} segundos`}
+            data-falta={falta || undefined}
+            aria-label={falta ? `${el.name}, falta el archivo` : `${el.name}, ${Math.round(seg)} segundos`}
             // El ancho dice cuánto dura (como la línea de tiempo), con un mínimo para poder tocarlo.
             style={{ flexBasis: `${Math.max(64, Math.round((seg / totalSeg) * 520))}px` }}
             onClick={() => {

@@ -13,6 +13,8 @@
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Modal } from '@/app/_ui/Modal';
+// Directo, no desde el índice de app/_ui (ver el ⚠️ de CargandoMako.tsx).
+import { CargandoMako } from '@/app/_ui/CargandoMako';
 import o from './outliers.module.css';
 
 export function VerReel({
@@ -41,12 +43,23 @@ export function VerReel({
   children: ReactNode;
 }) {
   const [abierto, setAbierto] = useState(false);
+  // El reproductor de la red tarda unos segundos en llegar y mientras tanto la caja quedaba en blanco, sin decir nada
+  // (prueba en producción del 12/11/2026): el loader de la app la tapa hasta que el iframe carga.
+  const [cargado, setCargado] = useState(false);
   if (!embed) {
     return <a href={url} target="_blank" rel="noopener noreferrer" className={clase} aria-label={etiqueta}>{children}</a>;
   }
   return (
     <>
-      <button type="button" className={`${clase} ${o.verBoton}`} aria-label={etiqueta} onClick={() => setAbierto(true)}>
+      <button
+        type="button"
+        className={`${clase} ${o.verBoton}`}
+        aria-label={etiqueta}
+        onClick={() => {
+          setCargado(false);
+          setAbierto(true);
+        }}
+      >
         {children}
       </button>
       {/* POR PORTAL al body (11/11/2026, mirado a 1440): la tarjeta tiene una animación de entrada con `transform` (`entra`,
@@ -73,7 +86,9 @@ export function VerReel({
                 allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                 allowFullScreen
                 referrerPolicy="strict-origin-when-cross-origin"
+                onLoad={() => setCargado(true)}
               />
+              {!cargado && <CargandoMako cubre que="el reel" size={56} />}
             </div>
             <div className={o.verInfo}>{detalle}</div>
           </div>

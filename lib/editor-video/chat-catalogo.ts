@@ -490,7 +490,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'generar_subtitulos',
     forma: '{"op":"generar_subtitulos"}',
-    para: 'Subtítulos automáticos de todo el video: transcribe la voz en el navegador (gratis) con el idioma y la plantilla elegidos en Subtítulos. Se aplica al final.',
+    para: 'Subtítulos automáticos de todo el video: transcribe la voz en el navegador (gratis) con el idioma y la plantilla elegidos en Subtítulos. Se aplica al final. En el MISMO pedido puedes pedir su estilo, sus palabras clave, el resaltado, la animación de la palabra y cortar frases o muletillas: van solos después de generarlos.',
   },
   {
     op: 'cortar_frase',
@@ -512,7 +512,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     // Sin "ref" en el ejemplo (ticket 31, 29/10/2026): con `"ref":"v1"` el modelo nombraba siempre UN clip, y a Leila, que
     // pidió «borrar silencios» del video, le buscó en uno de 0,9 s y le dijo que no había.
     forma: '{"op":"borrar_silencios"}',
-    para: '«Borrar silencios», como el botón de la barra: escucha el sonido, saca cada pausa de 0,4 s o más (deja 80 ms a cada lado) y pega lo que queda; lo que viene después en su pista se corre. SIN "ref" (lo normal: «borra los silencios», «saca las pausas»): todo el video, cada clip con sonido de la pista principal (con el alcance de la selección, los elegidos). Con "ref" SÓLO si la persona nombra un clip o un audio en particular. "pausa_min" (opcional, de 0.2 a 2 segundos): la pausa más corta que se saca, cuando pide pausas más cortas o más largas que 0,4 s. No hace falta tener subtítulos. Se aplica al final, después de las demás; no lo combines con otros cortes (cortar_frase, cortar_tramo, eliminar_muletillas): pídelo aparte.',
+    para: '«Borrar silencios», como el botón de la barra: escucha el sonido, saca cada pausa de 0,4 s o más (deja 80 ms a cada lado) y pega lo que queda; lo que viene después en su pista se corre. SIN "ref" (lo normal: «borra los silencios», «saca las pausas»): todo el video, cada clip con sonido de la pista principal (con el alcance de la selección, los elegidos). Con "ref" SÓLO si la persona nombra un clip o un audio en particular. "pausa_min" (opcional, de 0.2 a 2 segundos): la pausa más corta que se saca, cuando pide pausas más cortas o más largas que 0,4 s. No hace falta tener subtítulos. Se aplica al final; con otros cortes o con un video que pone este pedido, va solo después de ellos.',
   },
   {
     op: 'usar_plantilla',
@@ -600,7 +600,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     // Ticket 73 (10/11/2026): «Poné los dos videos en la línea de tiempo, primero prueba-con-pausa y después clip-4».
     op: 'agregar_medios',
     forma: '{"op":"agregar_medios","medios":["m1","m2"],"refs":["n1","n2"]}',
-    para: `Pone en la línea de tiempo uno o varios videos o fotos de "medios" ("medios": sus refs, "m1"…, hasta ${TOPES_CHAT.mediosPorOperacion}), como el ⊕ de cada tarjeta de Multimedia: van a la PISTA PRINCIPAL, uno detrás del otro EN EL ORDEN de la lista, al FINAL de lo que ya tiene (en 0 si está vacía). Un video entra entero y con su sonido; una foto dura ${TOPES_CHAT.fotoSegundos} s. Si la persona nombra los archivos («prueba-con-pausa»), búscalos por su "nombre" en "medios" y respeta el orden que dice («primero X y después Y»). "refs" (opcional): una ref nueva por medio ("n1", "n2"…), en el mismo orden, para recortarlos, moverlos o ponerles una transición en este mismo pedido. El mismo medio puede ir dos veces. No pone audios ni los pone encima de otro clip.`,
+    para: `Pone en la línea de tiempo uno o varios videos o fotos de "medios" ("medios": sus refs, "m1"…, hasta ${TOPES_CHAT.mediosPorOperacion}), como el ⊕ de cada tarjeta de Multimedia: van a la PISTA PRINCIPAL, uno detrás del otro EN EL ORDEN de la lista, al FINAL de lo que ya tiene (en 0 si está vacía). Un video entra entero y con su sonido; una foto dura ${TOPES_CHAT.fotoSegundos} s. Si la persona nombra los archivos («prueba-con-pausa»), búscalos por su "nombre" en "medios" y respeta el orden que dice («primero X y después Y»). "refs" (opcional): una ref nueva por medio ("n1", "n2"…), en el mismo orden, para recortarlos, moverlos o ponerles una transición en este mismo pedido. El mismo medio puede ir dos veces. No pone audios ni los pone encima de otro clip. Lo que se le hace después (subtítulos, estilo, cortes) puede ir en el mismo pedido.`,
   },
 ];
 
