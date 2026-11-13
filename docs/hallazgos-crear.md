@@ -89,6 +89,48 @@ Igual se ven vacías el tiempo que tardan, y en una red lenta es mucho. Debajo d
 tipo y el dominio de la página (`.espera`), y si la captura no carga se saca: no queda el ícono de imagen rota.
 **La regla: toda imagen de una tarjeta tiene debajo algo que la reemplaza mientras llega, nunca el gris de fondo.**
 
+## La portada no viaja entera: la primera tanda con la página y el resto después (13/11/2026)
+
+**Síntoma:** «Copywriting tarda en abrir» (Leila). Medido en producción con la sesión de Martín (ws 9), lo que manda cada portada
+con la página:
+
+| Portada | Descomprimido | Comprimido | Qué viaja |
+| --- | --- | --- | --- |
+| /copywriter | 1.188 KB | 185 KB | 924 outliers |
+| /image-editor | 3.376 KB | 374 KB | 1.301 carruseles y anuncios (2,1 MB) + las miniaturas de YouTube (1,1 MB) |
+| /video-editor?ver=outliers | 1.137 KB | 67 KB | no es una lista: es el HTML del editor (424 `<script>`) |
+| /web-generator | 889 KB | 93 KB | 52 páginas; el resto, plantillas y scripts |
+
+⚠️ **Dos medidas distintas que se confunden.** «Probar Copywriting» midió 4,9 s hasta el primer byte, y era la LECTURA de Spy sin
+caché (una instancia nueva de Vercel; lo arregló guardándola entre instancias, `cachedRead`). Con la instancia caliente, el primer
+byte llega en 0,35–0,5 s en las cuatro, pero igual viaja la lista entera, y el navegador la tiene que leer e hidratar antes de que
+la portada responda. Achicar lo que viaja no acelera el primer byte: acelera todo lo que viene después.
+Cómo se mide sin herramientas: `fetch(url)` con la sesión, el tamaño del texto, y contar `\"gancho\"` en el HTML dice cuántos
+outliers van adentro.
+
+**Lo que quedó:**
+- **Copywriting**: la página lleva 48 (la primera tanda de «Todos» por outlier) con el total y la cuenta de cada formato
+  (`primeraTandaCopy`). El resto llega al bajar o con «Ver más» desde /api/copywriter (`accion: 'outliers'`), filtrado y ordenado
+  en el server con la MISMA función que usa la pantalla (`tandaDeOutliersCopy`). Buscar, cambiar de formato u orden vuelve a pedir
+  desde la primera tanda; lo escrito se pide al terminar de escribir (300 ms), y mientras llega se ve lo que ya está a mano.
+- **Image**: sus filtros (cuentas, formatos, «parecidos», guardados) se calculan en el navegador sobre TODOS. Pasarlos al server era
+  rehacer el explorador, así que la lista entera sigue llegando, pero DESPUÉS: la página trae los 40 que se ven primero y los
+  totales (`primeraTandaExplorador`, app/image-editor/carruseles/tanda.ts), la pantalla pide el resto apenas se dibuja (GET
+  /api/image-editor/explorador) y las miniaturas de YouTube sólo al abrir «Thumbnails».
+- **Video y Web** no mandan una lista de outliers grande: no se tocaron.
+
+**La regla:** una portada manda con la página lo que entra en la primera pantalla y los totales; lo demás se pide. Si los filtros
+viven en el navegador, la lista entera llega después de dibujar, nunca antes. Un componente que recibe una portada recortada se
+entera por un campo (`total`, `pendiente`), y sin ese campo funciona como antes (el banco, la API de MaKo).
+
+⚠️ **Una tanda que falló no se vuelve a pedir sola.** El «Ver más» se dispara al bajar (IntersectionObserver); si el pedido falla y
+el observador se vuelve a armar, pide de nuevo en cada movimiento. Con una falla queda el botón, y el reintento es a mano.
+
+⚠️ **Dos trampas de la primera subida (corrida #1258 en rojo).** Una ruta que sólo LEE va por GET: como POST entró en la lista de
+lo que escribe la app (tests/cuenta-revision-escrituras.snapshot.txt) y pedía decidir si la cuenta de revisión de las tiendas la
+puede usar. Y un «Trayendo más…» como `<button disabled>` sin `title` es un botón muerto para tests/ningun-boton-muerto.test.ts:
+un estado que se espera es un texto (`role="status"`), no un botón.
+
 ## Sin hacer
 
 - La portada de Video (`app/video-editor/OutliersVideo.tsx`, hoy sólo en el teléfono y en `?ver=outliers`) conserva su párrafo

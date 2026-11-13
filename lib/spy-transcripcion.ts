@@ -80,14 +80,24 @@ export type VistaGuion =
 export const tieneGuion = (p: { canal: string; tipo: string; ref?: string }): boolean =>
   (p.canal === 'instagram' && p.tipo === 'reel') || (p.canal === 'youtube' && /^[\w-]{11}$/.test(p.ref ?? ''));
 
-/** Su enlace: el de Instagram que se guardó (o armado con su código), o el `watch?v=` de su video de YouTube. */
+/**
+ * ¿Es un ANUNCIO en video de la biblioteca de Meta? (13/11/2026, Copywriting: «no está transcribiendo»; el Cerebro: también los
+ * anuncios de la competencia). Aparte de `tieneGuion` a propósito: la pantalla de Spy pide el guion SOLA al abrir un detalle
+ * (app/competitor-spy/DetallePieza.tsx), y abrir un anuncio no tiene que gastar Apify ni IA; lo pide Copywriting al replicarlo.
+ */
+export const esAnuncioConVideo = (p: { canal: string; tipo: string; ref?: string; medio?: string | null }): boolean =>
+  p.canal === 'anuncios' && p.tipo === 'anuncio' && p.medio === 'video' && /^\d{6,25}$/.test(p.ref ?? '');
+
+/** Su enlace: el de Instagram que se guardó (o armado con su código), el `watch?v=` de su video de YouTube, o el anuncio en la biblioteca. */
 export function enlaceDeLaPublicacion(p: { canal?: string; url: string | null; ref: string }): string | null {
   if (p.canal === 'youtube') return /^[\w-]{11}$/.test(p.ref) ? `https://www.youtube.com/watch?v=${p.ref}` : null;
+  if (p.canal === 'anuncios') return /^\d{6,25}$/.test(p.ref) ? `https://www.facebook.com/ads/library/?id=${p.ref}` : null;
   if (p.url && /^https:\/\/(www\.)?instagram\.com\//i.test(p.url)) return p.url;
   return /^[\w-]{5,40}$/.test(p.ref) ? `https://www.instagram.com/p/${p.ref}/` : null;
 }
 
 export const esDeYoutube = (enlace: string): boolean => /^https:\/\/www\.youtube\.com\/watch\?v=/.test(enlace);
+export const esDeLaBibliotecaDeAnuncios = (enlace: string): boolean => /^https:\/\/www\.facebook\.com\/ads\/library\/\?id=\d+$/.test(enlace);
 
 /** «PT1H2M3S» → 3723. null si no se sabe. */
 export function segundosDeDuracion(d: string | null | undefined): number | null {
@@ -238,7 +248,7 @@ export async function transcribirGuion(
   try {
     bajado = await deps.bajar(v.url);
   } catch {
-    return fallo('No pude bajar el video de Instagram.');
+    return fallo(esDeLaBibliotecaDeAnuncios(enlace) ? 'No pude bajar el video del anuncio.' : 'No pude bajar el video de Instagram.');
   }
   if (!bajado) return fallo('El video pesa demasiado para transcribirlo.');
   const e = await deps.escuchar(bajado.bytes, bajado.mime);
