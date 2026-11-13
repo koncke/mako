@@ -88,7 +88,7 @@ export type DatosExplorador = {
 /** El resto de la portada (13/11/2026, ./tanda.ts): los carruseles apenas se dibuja, las miniaturas al abrir «Thumbnails». */
 async function pedirResto<T>(que: 'carruseles' | 'thumbnails'): Promise<({ ok: true } & T) | { ok: false; error: string }> {
   try {
-    const res = await fetch('/api/image-editor/explorador', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ que }) });
+    const res = await fetch(`/api/image-editor/explorador?que=${que}`, { cache: 'no-store' });
     const r = (await res.json().catch(() => null)) as ({ ok: true } & T) | { ok: false; error?: string } | null;
     if (r?.ok) return r as { ok: true } & T;
     return { ok: false, error: (r && !r.ok && r.error) || 'No pude traer el resto de los ejemplos.' };
@@ -546,7 +546,7 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
                 {listas.length > cuantas ? (
                   <button type="button" className={s.mas} onClick={() => setCuantas((n) => n + DE_A)}>Ver más</button>
                 ) : pendiente && !falloResto && (cuantosSeVen ?? 0) > listos.length ? (
-                  <button type="button" className={s.mas} disabled>Trayendo más…</button>
+                  <p className={s.mas} role="status">Trayendo más…</p>
                 ) : null}
               </>
             )}

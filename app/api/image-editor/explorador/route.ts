@@ -1,7 +1,8 @@
 // =============================================================================
-// POST /api/image-editor/explorador — el resto de la portada de Image (13/11/2026)
+// GET /api/image-editor/explorador — el resto de la portada de Image (13/11/2026)
 // =============================================================================
-// POST json {que: 'carruseles' | 'thumbnails'} → {ok, carruseles} o {ok, lista}. La página trae sólo lo que se ve primero
+// GET ?que=carruseles|thumbnails → {ok, carruseles} o {ok, lista}. Un GET: sólo lee (no entra en la lista de lo que escribe la
+// app, tests/cuenta-revision-escrituras.snapshot.txt). La página trae sólo lo que se ve primero
 // (app/image-editor/carruseles/tanda.ts) y la pantalla pide acá el resto apenas se dibuja; las miniaturas de YouTube, al abrir
 // «Thumbnails». Lee lo MISMO que la página (`leerExplorador`, `leerThumbnails`), en el negocio de la pestaña.
 // La puerta es la del Image Editor (`puerta`), como «traer» y «replicar». Un fetch y no una server action: las acciones se encolan
@@ -19,11 +20,10 @@ export const maxDuration = 60;
 
 const sinCache = { 'cache-control': 'no-store' };
 
-export async function POST(req: NextRequest) {
+export async function GET(req: NextRequest) {
   const p = await puerta();
   if (p instanceof Response) return p;
-  const body = (await req.json().catch(() => null)) as { que?: unknown } | null;
-  if (body?.que === 'thumbnails') {
+  if (req.nextUrl.searchParams.get('que') === 'thumbnails') {
     const t = await runWithWorkspace(p.ws, () => leerThumbnails());
     return t.ok
       ? Response.json({ ok: true, lista: t.thumbnails }, { headers: sinCache })

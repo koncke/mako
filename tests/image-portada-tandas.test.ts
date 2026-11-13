@@ -3,7 +3,7 @@
 // =============================================================================
 // Medido en producción el 13/11: /image-editor mandaba con la página los 1.301 carruseles y anuncios (2,1 MB) y las miniaturas de
 // YouTube (1,1 MB): 3,4 MB. Ahora la página trae lo que se ve primero con los totales (`primeraTandaExplorador`,
-// app/image-editor/carruseles/tanda.ts) y la pantalla pide el resto apenas se dibuja (POST /api/image-editor/explorador); las
+// app/image-editor/carruseles/tanda.ts) y la pantalla pide el resto apenas se dibuja (GET /api/image-editor/explorador); las
 // miniaturas, al abrir «Thumbnails». Los filtros de Image se siguen calculando en el navegador sobre TODOS.
 // =============================================================================
 
@@ -57,7 +57,7 @@ test('las páginas mandan la primera tanda; la ruta da el resto detrás de la pu
   assert.match(leer('app/image-editor/page.tsx'), /datos: primeraTandaExplorador\(\{[\s\S]*?\}, filtrosDeQuery\(q\)\),/);
   assert.match(leer('app/m/image-editor/page.tsx'), /datos=\{primeraTandaExplorador\(\{[\s\S]*?\}, filtrosDeQuery\(q\)\)\} \/>/);
   const ruta = leer('app/api/image-editor/explorador/route.ts');
-  assert.match(ruta, /const p = await puerta\(\);\n\s+if \(p instanceof Response\) return p;/);
+  assert.match(ruta, /export async function GET\(req: NextRequest\) \{\n\s+const p = await puerta\(\);\n\s+if \(p instanceof Response\) return p;/, 'un GET: sólo lee');
   assert.match(ruta, /runWithWorkspace\(p\.ws, \(\) => leerExplorador\(\)\)/);
   assert.match(ruta, /runWithWorkspace\(p\.ws, \(\) => leerThumbnails\(\)\)/);
   const e = leer('app/image-editor/carruseles/ExplorarCarruseles.tsx');
