@@ -57,6 +57,18 @@ lectura reales y las escrituras anotadas (etiquetas, historial, estado y Meta). 
 Martín. Con el ws9 mostró que **su clave de Gemini está vencida** («API key not valid»): sus dudosos quedan sin revisar
 hasta renovarla.
 
+**Las cuatro reglas de la casa que la primera subida rompió (rojo de 402907c5f), y cómo se cumplen sin tocar sus tests:**
+- **Una operación nueva del registro le quita lugar a las viejas.** El turno ordena por cuántas palabras del mensaje nombra
+  cada operación (el id y el título valen doble) y corta en 12.000 caracteres. Cuatro descripciones largas que decían
+  «leads», «anuncio» y «semanal» dejaron afuera a `ver_rendimiento_anuncios` en «¿qué anuncio tiene el mejor costo por lead
+  esta semana?» (tests/ops-center-bateria.test.ts). Van cortas y sin esas palabras, y antes de `armar_tab_ficha`, que es la
+  última del CRM a propósito (tests/ficha-tabs.test.ts).
+- **El tope del plan vive sólo en las altas A MANO** (tests/crm-topes-plan-23-10.test.ts): un `frenarAltaPorTope` en un archivo
+  nuevo se decide a propósito. La página del CoPilot reusa el alta de /chats (`crearLeadDesdeWhatsappAction`), y la operación
+  de la API hace la suya en su runner (crm.run.ts), como `agregar_contacto_al_crm`.
+- **Zernio se habla sólo por el canal** (tests/sin-instagram.test.ts): ni la URL de su API ni su cliente fuera de la lista.
+  Los pedidos del retargeting son rutas relativas, y los manda `zernioPedir` (lib/meta-via.ts).
+
 **Lo que quedó SIN hacer:**
 - La pantalla: el interruptor, «X charlas sin lead» con su botón y los números van en el CoPilot (lo arma el chat de
   Marketing CoPilot con esta API).

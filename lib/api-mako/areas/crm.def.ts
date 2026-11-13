@@ -1533,6 +1533,42 @@ export const DEFS: readonly OperacionDef[] = [
     canales: ['http'], costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'crea cada contacto como un lead quieto (origen «Migrado de otro CRM») en su etapa, con su id del CRM anterior; no le escribe a nadie',
   },
+  // EL RETARGETING DE LOS FUNNELS SIN VSL (13/11/2026, lib/retargeting.ts): cada lunes MaKo revisa las charlas de WhatsApp de los leads, los
+  // marca con etiquetas del CRM y, sólo con el interruptor del negocio, mantiene dos públicos de Meta. Lo usa el piloto de Marketing CoPilot.
+  // ⚠️ CORTAS y sin «anuncio», «semana» ni «lead» en el título: el turno ordena por las palabras del mensaje que nombra cada operación y
+  //    corta en 12.000 caracteres, y las primeras versiones dejaban afuera a ver_rendimiento_anuncios en «¿qué anuncio tiene el mejor
+  //    costo por lead esta semana?» (tests/ops-center-bateria.test.ts).
+  {
+    id: 'ver_retargeting', area: 'crm', tipo: 'lectura',
+    titulo: 'Cómo va el retargeting',
+    descripcion: 'El retargeting sin VSL, de la última revisión: cuántos contactos quedaron en cada grupo (no respondió, no siguió, no compró, no califica, compró, sigue, agendó), cuántas charlas de WhatsApp no son de ningún contacto y los dos públicos de Meta (id y tamaño) si el negocio los prendió.',
+    parametros: [],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: TAB,
+  },
+  {
+    id: 'revisar_retargeting', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Revisar el retargeting ya',
+    descripcion: 'PROPONE correr ya la revisión del retargeting (la que corre sola cada lunes): etiqueta a cada contacto según su charla de WhatsApp, sin moverlo de etapa, y actualiza los públicos de Meta si están prendidos. Con enSeco no toca Meta.',
+    parametros: [{ nombre: 'enSeco', tipo: 'boolean', rotulo: 'En seco', descripcion: 'true: sin tocar Meta.' }],
+    canales: ['whatsapp', 'app'], costo: 'ia', lenta: true, gating: TAB_ADMIN,
+    reversible: true, escribe: 'las etiquetas de retargeting de los leads revisados y una línea en su historial; con los públicos prendidos, agrega o saca personas de dos públicos de su cuenta de Meta',
+  },
+  {
+    id: 'configurar_retargeting', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Prender los públicos de retargeting',
+    descripcion: 'PROPONE prender o apagar los públicos de Meta del retargeting («MaKo · No avanzaron» y «MaKo · Compraron»). Prendidos, la próxima revisión los crea en su cuenta de Meta y los mantiene.',
+    parametros: [{ nombre: 'publicosMeta', tipo: 'boolean', rotulo: 'Públicos de Meta', descripcion: 'true prende, false apaga.', obligatorio: true }],
+    canales: ['whatsapp', 'app'], costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'el ajuste del retargeting del negocio (retargeting.config); no toca Meta hasta la próxima revisión',
+  },
+  {
+    id: 'pasar_chats_al_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Pasar charlas sueltas al CRM',
+    descripcion: 'PROPONE sumar al CRM cada charla de WhatsApp de los últimos 7 días que no es de ningún contacto (cuántas: ver_retargeting), con la misma alta de Chats. Con varios funnels pide funnelId.',
+    parametros: [{ nombre: 'funnelId', tipo: 'number', rotulo: 'Funnel', descripcion: 'El funnel donde entran (de listar_funnels).' }],
+    canales: ['whatsapp', 'app'], costo: 'gratis', lenta: true, gating: TAB_ADMIN,
+    reversible: false, escribe: 'un lead nuevo por cada charla sin lead, con el origen «WhatsApp»',
+  },
   // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
   // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp
   //    (12.000 caracteres, lib/doer-herramientas.ts) corta por orden de declaración, y declarada antes dejaba
@@ -1549,38 +1585,5 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'ia', lenta: true, gating: TAB_ADMIN,
     reversible: true, escribe: 'guarda la tab armada en la ficha del CRM (funnels.data.ficha); cambia lo que ven todos sus leads',
-  },
-  // EL RETARGETING DE LOS FUNNELS SIN VSL (13/11/2026, lib/retargeting.ts): cada lunes MaKo revisa las charlas de WhatsApp de los leads, los
-  // marca con etiquetas del CRM y, sólo con el interruptor del negocio, mantiene dos públicos de Meta. Lo usa el piloto de Marketing CoPilot.
-  {
-    id: 'ver_retargeting', area: 'crm', tipo: 'lectura',
-    titulo: 'Cómo va el retargeting',
-    descripcion: 'Lo que dejó la última revisión semanal del retargeting de los funnels sin VSL: cuántos leads no respondieron, no siguieron, no compraron, no califican, compraron, siguen conversando o agendaron; cuántos dudosos quedaron sin revisar (la IA del negocio no los alcanzó a leer); cuántas charlas de WhatsApp con movimiento en 7 días no son de ningún lead; y los dos públicos de Meta («MaKo · No avanzaron», para el anuncio de retargeting, y «MaKo · Compraron», para excluir), con su id de Meta, cuántas personas tienen y si el negocio los prendió. Sin datos de ningún lead.',
-    parametros: [],
-    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: TAB,
-  },
-  {
-    id: 'revisar_retargeting', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Revisar el retargeting ahora',
-    descripcion: 'PROPONE correr ahora la revisión del retargeting que corre sola cada lunes: MaKo lee las charlas de WhatsApp de los leads (menos los de un funnel VSL; la IA del negocio sólo lee las que contestaron, quedaron quietas y tienen mensajes nuevos), les pone la etiqueta del CRM que corresponde («Retargeting: no respondió», «… no siguió», «… no compró», «… no califica» o «… compró») sin moverlos de etapa, y si el negocio prendió los públicos de Meta, los actualiza. Con enSeco arma todo y no llama a Meta.',
-    parametros: [{ nombre: 'enSeco', tipo: 'boolean', rotulo: 'En seco', descripcion: 'true para armar todo sin llamar a Meta (las etiquetas sí se ponen). Default false.' }],
-    canales: ['whatsapp', 'app'], costo: 'ia', lenta: true, gating: TAB_ADMIN,
-    reversible: true, escribe: 'las etiquetas de retargeting de los leads revisados y una línea en su historial; con los públicos prendidos, agrega o saca personas de dos públicos de su cuenta de Meta',
-  },
-  {
-    id: 'configurar_retargeting', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Prender los públicos de retargeting',
-    descripcion: 'PROPONE prender o apagar los públicos de Meta del retargeting. Prendidos, la próxima revisión crea en la cuenta de Meta del negocio (por su conexión de Zernio o por su token) «MaKo · No avanzaron» y «MaKo · Compraron», y los mantiene cada lunes con los teléfonos y emails de esos leads (Meta los recibe con hash). Apagados, MaKo no toca Meta.',
-    parametros: [{ nombre: 'publicosMeta', tipo: 'boolean', rotulo: 'Públicos de Meta', descripcion: 'true para prenderlos, false para apagarlos.', obligatorio: true }],
-    canales: ['whatsapp', 'app'], costo: 'gratis', gating: TAB_ADMIN,
-    reversible: true, escribe: 'el ajuste del retargeting del negocio (retargeting.config); no toca Meta hasta la próxima revisión',
-  },
-  {
-    id: 'pasar_chats_al_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Pasar charlas sin lead al CRM',
-    descripcion: 'PROPONE crear un lead por cada charla de WhatsApp con movimiento en los últimos 7 días que no es de ningún lead (cuántas son lo dice ver_retargeting, chatsSinLead), con la misma alta de una charla de Chats: el nombre de la agenda del negocio, el origen «WhatsApp» y el tope del plan. Si el negocio tiene varios funnels hay que decir en cuál (funnelId); sin él, la respuesta trae la lista para elegir. Lo pide el dueño: MaKo no crea leads solo.',
-    parametros: [{ nombre: 'funnelId', tipo: 'number', rotulo: 'Funnel', descripcion: 'El funnel donde entran (de listar_funnels). Sin él, el del negocio si hay uno solo.' }],
-    canales: ['whatsapp', 'app'], costo: 'gratis', lenta: true, gating: TAB_ADMIN,
-    reversible: false, escribe: 'un lead nuevo por cada charla sin lead, con el origen «WhatsApp»',
   },
 ];

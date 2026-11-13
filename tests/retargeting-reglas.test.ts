@@ -65,18 +65,16 @@ test('la diferencia de un público: sale lo que ya no va, entra lo nuevo, y un t
   assert.deepEqual(Object.keys(d.quedan), ['2', '3', '4']);
 });
 
-test('los pedidos por Zernio: lista de clientes, y las personas por el id de ZERNIO', () => {
-  const c = { clave: 'zk_1', accountId: 'acc_9', adAccountId: 'act_564003520636790' };
-  const crear = crearPorZernio(c, 'noAvanzaron');
-  assert.equal(crear.url, 'https://zernio.com/api/v1/ads/audiences');
+test('los pedidos por Zernio: lista de clientes, y las personas por el id de ZERNIO (sólo la ruta: lo manda el canal)', () => {
+  const crear = crearPorZernio({ accountId: 'acc_9', adAccountId: 'act_564003520636790' }, 'noAvanzaron');
+  assert.equal(crear.ruta, '/ads/audiences');
   assert.equal(crear.init.method, 'POST');
-  assert.equal(crear.init.headers.authorization, 'Bearer zk_1');
   assert.deepEqual(JSON.parse(crear.init.body), {
     accountId: 'acc_9', adAccountId: 'act_564003520636790', name: 'MaKo · No avanzaron',
     description: 'Leads que no respondieron, no siguieron o no compraron. Lo actualiza MaKo cada lunes.', type: 'customer_list', customerFileSource: 'USER_PROVIDED_ONLY',
   });
-  const quitar = personasPorZernio(c, 'z_77', [{ phone: '5491122334455' }], true);
-  assert.equal(quitar.url, 'https://zernio.com/api/v1/ads/audiences/z_77/users');
+  const quitar = personasPorZernio('z_77', [{ phone: '5491122334455' }], true);
+  assert.equal(quitar.ruta, '/ads/audiences/z_77/users');
   assert.equal(quitar.init.method, 'DELETE');
   assert.deepEqual(JSON.parse(quitar.init.body), { users: [{ phone: '5491122334455' }] }, 'Zernio hace el hash: va en claro');
   assert.deepEqual(idsDeZernio({ audience: { _id: 'z_77', platformAudienceId: '120200000001' } }), { zernioId: 'z_77', metaId: '120200000001' });

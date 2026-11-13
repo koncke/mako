@@ -155,6 +155,7 @@ async function etiquetasPuertos(): Promise<PuertosRT['etiquetas']> {
 
 // ── Meta ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
+/** Un pedido a la Graph API con el token del negocio. Zernio va por su canal (`zernioPedir`). */
 async function mandar(p: Pedido): Promise<unknown> {
   const res = await fetch(p.url, { ...p.init, signal: AbortSignal.timeout(60_000) });
   const texto = await res.text();
@@ -176,7 +177,9 @@ function metaPuertos(ws: number): PuertosRT['meta'] {
     crear: async (cual) => {
       const c = await canal();
       if (c.via === 'zernio') {
-        const ids = idsDeZernio(await mandar(crearPorZernio(c, cual)));
+        const { zernioPedir } = await import('./meta-via');
+        const pedido = crearPorZernio(c, cual);
+        const ids = idsDeZernio(await zernioPedir(c, pedido.ruta, pedido.init));
         if (!ids.zernioId) throw new Error('Zernio creó el público sin devolver su id.');
         // Sin el id de Meta en la respuesta, se lee el público (`GET /ads/audiences/{id}`): sin él, el piloto no lo puede usar.
         const metaId = ids.metaId ?? idsDeZernio(await (await import('./meta-via')).zernioGet(c, `/ads/audiences/${encodeURIComponent(ids.zernioId)}`)).metaId;
@@ -199,7 +202,8 @@ async function personasA(c: Awaited<ReturnType<typeof import('./meta-via').canal
   if (c.via !== pub.via) throw new Error('La conexión de Meta del negocio cambió desde que se creó el público.');
   if (c.via === 'zernio') {
     if (!pub.zernioId) throw new Error('Falta el id de Zernio del público.');
-    await mandar(personasPorZernio(c, pub.zernioId, personas, quitar));
+    const pedido = personasPorZernio(pub.zernioId, personas, quitar);
+    await (await import('./meta-via')).zernioPedir(c, pedido.ruta, pedido.init);
   } else if (c.via === 'token') await mandar(personasPorToken(c, pub.metaId, personas, quitar));
   else throw new Error('El negocio no tiene Meta conectado.');
 }
@@ -256,32 +260,30 @@ export async function configurarRetargeting(ws: number, publicosMeta: boolean): 
   return verRetargeting(ws);
 }
 
-/**
- * «Pasarlas al CRM» (el botón del CoPilot): crea el lead de cada charla sin lead, con la MISMA alta de una charla de /chats
- * (`crearLeadDesdeWhatsappAction`: el nombre de la agenda, el funnel de destino y el tope del plan). Lo pide el dueño; nunca solo.
- */
-export async function pasarChatsAlCrm(ws: number, funnelId: number | null = null): Promise<{ creados: number; yaEstaban: number; elegir?: Array<{ id: number; nombre: string }>; error?: string }> {
-  return runWithWorkspace(ws, () => pasarChatsAlCrmEnElNegocio(ws, funnelId));
+/** Las charlas de WhatsApp con movimiento en 7 días que no son de ningún lead, con su teléfono y su nombre (lo que cuenta `chatsSinLead`). */
+export async function charlasSinLeadDe(ws: number): Promise<Array<{ chat: string; telefono: string; nombre: string | null }>> {
+  return runWithWorkspace(ws, () => charlasSinLead());
 }
 
-async function pasarChatsAlCrmEnElNegocio(ws: number, funnelId: number | null): Promise<{ creados: number; yaEstaban: number; elegir?: Array<{ id: number; nombre: string }>; error?: string }> {
-  const [{ destinoDelAlta }, { leerFunnels }, { frenarAltaPorTope, TopeDelPlanError }, { createLead }, { LeadDuplicadoError }, { ORIGEN_LEAD }, { getNombreContacto }, { nombreParaAlta }] = await Promise.all([
-    import('./lead-funnel-reglas'), import('./funnels'), import('./topes-crm'), import('./leads'), import('./leads-duplicados'), import('@/app/crm/origen-lead'), import('./evolution-contactos'), import('./contacto-lead'),
-  ]);
-  const destino = destinoDelAlta(await leerFunnels(), funnelId);
-  if ('error' in destino) return { creados: 0, yaEstaban: 0, error: destino.error, ...(destino.elegir ? { elegir: destino.elegir.map((p) => ({ id: p.id, nombre: p.nombre })) } : {}) };
-  let creados = 0, yaEstaban = 0;
-  for (const c of await charlasSinLead()) {
-    try {
-      await frenarAltaPorTope(ws, 'crm.leads');
-      const agenda = await getNombreContacto(c.telefono).catch(() => null);
-      await createLead({ nombre: nombreParaAlta({ agenda, pantalla: c.nombre, telefono: c.telefono }), telefono: c.telefono, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa, nombreOpcional: true });
-      creados++;
-    } catch (e) {
-      if (e instanceof LeadDuplicadoError) { yaEstaban++; continue; }
-      if (e instanceof TopeDelPlanError) return { creados, yaEstaban, error: e.message };
-      return { creados, yaEstaban, error: e instanceof Error ? e.message : String(e) };
+export type PasoAlCrm = { creados: number; yaEstaban: number; elegir?: Array<{ id: number; nombre: string }>; error?: string };
+
+/**
+ * «Pasarlas al CRM» (el botón del CoPilot): crea el lead de cada charla sin lead con la MISMA alta a mano de una charla de /chats,
+ * `crearLeadDesdeWhatsappAction` (app/crm/actions.ts): el nombre de la agenda, el funnel de destino, los duplicados y el TOPE DEL
+ * PLAN viven ahí, porque el freno va sólo en las altas a mano (tests/crm-topes-plan-23-10.test.ts). Pide la sesión de quien toca
+ * el botón: lo pide el dueño, nunca solo. Por la API de MaKo (sin sesión, por WhatsApp) el alta la hace su runner (crm.run.ts).
+ */
+export async function pasarChatsAlCrm(ws: number, funnelId: number | null = null): Promise<PasoAlCrm> {
+  return runWithWorkspace(ws, async () => {
+    const { crearLeadDesdeWhatsappAction } = await import('@/app/crm/actions');
+    let creados = 0, yaEstaban = 0;
+    for (const c of await charlasSinLead()) {
+      const r = await crearLeadDesdeWhatsappAction(c.nombre ?? '', c.telefono, funnelId);
+      if ('id' in r) { creados++; continue; }
+      if (r.elegir?.length) return { creados, yaEstaban, error: r.error, elegir: r.elegir.map((x) => ({ id: x.id, nombre: x.nombre })) };
+      if (r.coincidencias.length) { yaEstaban++; continue; }
+      return { creados, yaEstaban, error: r.error };
     }
-  }
-  return { creados, yaEstaban };
+    return { creados, yaEstaban };
+  });
 }

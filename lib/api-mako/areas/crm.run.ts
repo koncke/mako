@@ -3485,12 +3485,30 @@ export const RUNNERS: Runners = {
       const funnelId = n(input.funnelId) ?? null;
       return { payload: { funnelId }, resumen: `Crear un lead por cada charla de WhatsApp sin lead${v ? ` (${v.chatsSinLead} en la última revisión)` : ''}.` };
     },
+    // El alta es la de una charla de Chats (chats.run.ts, `agregar_contacto_al_crm`), una por charla: con el TOPE DEL PLAN acá, porque es un
+    // alta a mano por la API (tests/crm-topes-plan-23-10.test.ts). La página del CoPilot usa `pasarChatsAlCrm`, que va por la de /chats.
     ejecutar: (payload, ctx) => seguro('pasar las charlas al CRM', async () => {
-      const { pasarChatsAlCrm } = await import('@/lib/retargeting');
-      const r = await pasarChatsAlCrm(ctx.ws, n(payload.funnelId) ?? null);
-      if (r.creados) invalidar('leads');
-      if (r.error) return { ok: r.creados > 0, resumen: `${r.creados ? `Se crearon ${r.creados}. ` : ''}${r.error}`, datos: r as unknown as Record<string, unknown> };
-      return { ok: true, resumen: `Listo: ${r.creados} leads nuevos${r.yaEstaban ? ` (${r.yaEstaban} ya estaban)` : ''}.`, datos: r as unknown as Record<string, unknown> };
+      const [{ charlasSinLeadDe }, { destinoDelAlta }, { leerFunnels }, { createLead }, { LeadDuplicadoError }, { ORIGEN_LEAD }, { getNombreContacto }, { nombreParaAlta }] = await Promise.all([
+        import('@/lib/retargeting'), import('@/lib/lead-funnel-reglas'), import('@/lib/funnels'), import('@/lib/leads'), import('@/lib/leads-duplicados'), import('@/app/crm/origen-lead'), import('@/lib/evolution-contactos'), import('@/lib/contacto-lead'),
+      ]);
+      const destino = destinoDelAlta(await leerFunnels(), n(payload.funnelId) ?? null);
+      if ('error' in destino) return { ok: false, resumen: destino.elegir?.length ? `${destino.error} Pásame el funnelId: ${destino.elegir.map((p) => `${p.nombre} (${p.id})`).join(', ')}.` : destino.error };
+      let creados = 0, yaEstaban = 0;
+      for (const c of await charlasSinLeadDe(ctx.ws)) {
+        try {
+          await frenarAltaPorTope(ctx.ws, 'crm.leads');
+          const agenda = await getNombreContacto(c.telefono).catch(() => null);
+          await createLead({ nombre: nombreParaAlta({ agenda, pantalla: c.nombre, telefono: c.telefono }), telefono: c.telefono, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa, nombreOpcional: true });
+          creados++;
+        } catch (e) {
+          if (e instanceof LeadDuplicadoError) { yaEstaban++; continue; }
+          if (creados) invalidar('leads');
+          const motivo = e instanceof TopeDelPlanError ? `${e.message} Planes: /planes.` : e instanceof Error ? e.message : String(e);
+          return { ok: creados > 0, resumen: `${creados ? `Se sumaron ${creados}. ` : ''}${motivo}`, datos: { creados, yaEstaban } };
+        }
+      }
+      if (creados) invalidar('leads');
+      return { ok: true, resumen: `Listo: ${creados} leads nuevos${yaEstaban ? ` (${yaEstaban} ya estaban)` : ''}.`, datos: { creados, yaEstaban } };
     }),
   },
 };
