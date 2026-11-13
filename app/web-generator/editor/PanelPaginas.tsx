@@ -29,6 +29,7 @@ import { useEditorLanding } from './contexto';
 import { DialogoGma, Ico, ItemMenu, Menu, SepMenu } from './MenuDocumento';
 import { useReordenar } from './TiraSecciones';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import DialogoFunnel from './DialogoFunnel';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reglas puras (las fija tests/editor-landing-armazon.test.ts)
@@ -57,6 +58,8 @@ type Edicion = { id: string; campo: 'titulo' | 'ruta'; valor: string; error: str
 export default function PanelPaginas({ onCerrar }: { onCerrar: () => void }) {
   const { paginas, paginaActual, irAPagina, setPaginas, editor, avisar } = useEditorLanding();
   const [menu, setMenu] = useState<{ id: string; ancla: HTMLElement } | null>(null);
+  // La vista de funnel (13/11/2026): las mismas páginas como el recorrido de un lead (DialogoFunnel.tsx).
+  const [funnel, setFunnel] = useState(false);
   const [edicion, setEdicion] = useState<Edicion | null>(null);
   const [borrar, setBorrar] = useState<Pagina | null>(null);
   const paginasRef = useRef(paginas);
@@ -178,6 +181,9 @@ export default function PanelPaginas({ onCerrar }: { onCerrar: () => void }) {
             (25/10/2026, Martín: «siempre con un botón de flecha para regresar... No la X que tiene ahora»). */}
         <button type="button" className="gma-izq-volver gma-tip" data-tip="Volver al chat" aria-label="Volver al chat" onClick={onCerrar}>←</button>
         <span className="gma-izq-titulo">Páginas</span>
+        <button type="button" className="gma-boton gma-boton--chico gma-tip" data-tip="Ver las páginas como el recorrido de un lead" onClick={() => setFunnel(true)}>
+          Funnel
+        </button>
         <button type="button" className="gma-boton gma-boton--chico gma-boton--icono gma-tip" data-tip="Añadir página" aria-label="Añadir página"
           disabled={paginas.length >= TOPES.paginas} onClick={agregar}>
           <Ico n="mas" t={16} />
@@ -271,6 +277,7 @@ export default function PanelPaginas({ onCerrar }: { onCerrar: () => void }) {
           <p className="gma-dialogo-texto">Se elimina con todas sus secciones.</p>
         </DialogoGma>
       ) : null}
+      {funnel ? <DialogoFunnel onCerrar={() => setFunnel(false)} /> : null}
     </>
   );
 }
