@@ -24,6 +24,7 @@ import { insistirAlertasCriticas } from '@/lib/alerta-critica';
 import { vigilarDemoraDeLaLinea, vigilarSorderaDeLaVoz, vigilarVozMaKo } from '@/lib/canal-vigilante';
 import { vigilarLineasClientes } from '@/lib/lineas-vigilante';
 import { vigilarCreditoClaude } from '@/lib/credito-vigia';
+import { rescatarDelStore } from '@/lib/mako-doer-in';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -58,6 +59,15 @@ export async function GET(request: NextRequest) {
     return null;
   });
   if (sorda?.sorda) console.error(`[cron:alerta-critica] ⛔ LA VOZ NO RECIBE (${sorda.motivo}) → ${sorda.accion}`);
+  // Y lo que la voz GUARDÓ sin que el webhook lo viera (13/11/2026, Mauricio; lib/rescate-del-store.ts): al re-vincular una línea,
+  // WhatsApp entrega lo atrasado como historial, que no llega como `messages.upsert`. Se encola por la entrada de siempre y lo
+  // contesta `doer-flush`. Nunca tira, como lo de arriba.
+  const rescate = await rescatarDelStore().catch((e) => {
+    console.error(`[cron:alerta-critica] no se pudo rescatar lo del store de la voz: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  });
+  if (rescate?.error) console.error(`[cron:alerta-critica] rescate del store: ${rescate.error}`);
+  if (rescate?.rescatados.length) console.warn(`[cron:alerta-critica] rescate del store (${rescate.voz}): ${rescate.rescatados.map((x) => `ws${x.ws} ${x.id} → ${x.r}`).join(' · ')}`);
   if (demora?.lineas.atrasadas.length || demora?.lineas.error) console.error(`[cron:alerta-critica] ⚠️ líneas que reciben con atraso: ${demora.lineas.atrasadas.join(', ') || '—'}${demora.lineas.avisadas.length ? ` (avisadas: ${demora.lineas.avisadas.join(', ')})` : ''}${demora.lineas.error ? ` · error: ${demora.lineas.error}` : ''}`);
   if (demora?.demoras.length) console.error(`[cron:alerta-critica] ⚠️ WhatsApp entrega tarde (${demora.demoras.map((d) => `${d.instancia} ${d.maxMin} min`).join(', ')}) → ${demora.aviso}${demora.error ? `: ${demora.error}` : ''}`);
 
@@ -105,7 +115,7 @@ export async function GET(request: NextRequest) {
       }
       return res;
     });
-    return Response.json({ ok: true, voz, lineas, credito, workspaces, ms: Date.now() - t0 });
+    return Response.json({ ok: true, voz, lineas, credito, rescate, workspaces, ms: Date.now() - t0 });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[cron:alerta-critica] error: ${message}`);
