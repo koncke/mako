@@ -201,7 +201,7 @@ estilos, `app/globals.css` compilado con Tailwind → `app.css`), grabado a 1280
 
 | Pedido | Estado | Dónde |
 |---|---|---|
-| Titular «para negocios High Ticket» y revisar los copies | Hecho (hero, pie, título de /vsl/sitio) | `HeroSitio` (`Portada.tsx`), `Pie.tsx`, `app/vsl/sitio/page.tsx` |
+| Titular y revisar los copies | Hecho. El titular quedó «El mejor software para vender High Ticket» (Martín, 13/11 noche: «ese sería nuestro principal», en todos lados): hero, pie y título de /vsl/sitio | `HeroSitio` (`Portada.tsx`), `Pie.tsx`, `app/vsl/sitio/page.tsx` |
 | Producto en «Adquisición de clientes» y «Entrega del servicio» | Hecho; dos filas nuevas de entrega con su animación PENDIENTE (tablero de entrega y Cobranza) | `APARTADOS_PORTADA` y `apartado` en `TARJETAS_PORTADA` (`datos.ts`) |
 | Mini landings por funnel (VSL, WhatsApp, Instagram con lead magnet, YouTube) | Hecho, con el contenido de `docs/marketing-copilot/funnels-simples.md` | `app/vsl/_sitio/funnels-datos.ts`, `Funnels.tsx`, `app/vsl/funnels/[funnel]/page.tsx`; sección en la portada y columna en el pie |
 | CRM: entrar a la ficha (de dónde vino, qué hizo, % del VSL) | Banco listo (`LeadSheet` real con `ficha-datos.ts`); falta grabar | `C:/dev/bancos-portada/banco-ficha` |
