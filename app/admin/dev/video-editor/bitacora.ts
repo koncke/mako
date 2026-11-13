@@ -710,4 +710,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '12 nov', hora: '21:50', chat: 'Ticket 73: videos a la línea desde el chat', sesion: 'local_72d0c3fe-1e3d-43ff-bf60-f9362f94676e', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La pantalla Video ya no se rompe al abrir un proyecto nuevo (ticket #91)',
+    puntos: [
+      '**El ticket #91** (MaKo lo detectó solo, 12/11): la pantalla Video se rompía con un error de React apenas abría, y otra vez al recargarse sola.',
+      'No era el editor: era una falla conocida del enrutador de Next.js cuando la página cambia su propia dirección apenas carga. Pasaba al abrir un proyecto nuevo, una plantilla, un video de Video Generator o un proyecto que no está en ese navegador.',
+      'Ahora, en esos casos, MaKo guarda el proyecto y abre su página de nuevo, entera. Tarda un poco más sólo al crear, y no se rompe.',
+      'Para más adelante: con una versión más nueva de Next.js se puede volver a abrirlo sin recargar.',
+    ],
+    archivos: [
+      'app/video-editor/ruta.ts — abrirProyectoCreado: la carga entera con el ?ws= de la pestaña',
+      'app/video-editor/_opencut/components/providers/editor-provider.tsx · plantilla/ArmarPlantilla.tsx · desde/ImportarDesde.tsx — sin router.replace al cargar',
+      'tests/video-editor-ticket-91.test.ts — 3 casos; con el código de antes cae en los tres archivos',
+    ],
+    revisar: '/video-editor/nuevo',
+    tickets: [91],
+  },
 ];

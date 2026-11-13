@@ -1,8 +1,7 @@
 "use client";
 
-import { rutaEditor } from "@/app/video-editor/ruta";
+import { abrirProyectoCreado } from "@/app/video-editor/ruta";
 import { useEffect, useState } from "react";
-import { useRouter } from "@/app/_ui/Link";
 import { Loader2 } from "lucide-react";
 import { EditorCore } from "@/app/video-editor/_opencut/core";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
@@ -27,7 +26,6 @@ interface EditorProviderProps {
 
 export function EditorProvider({ projectId, propuesta = null, children }: EditorProviderProps) {
 	const activeProject = useEditor((e) => e.project.getActiveOrNull());
-	const router = useRouter();
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const { setLoadingProject } = useKeybindingsStore();
@@ -71,7 +69,8 @@ export function EditorProvider({ projectId, propuesta = null, children }: Editor
 						const newProjectId = await editor.project.createNewProject({
 							name: await nombreProyectoNuevo(),
 						});
-						router.replace(rutaEditor(`/video-editor/${newProjectId}`));
+						// Una carga entera, no router.replace: navegar solo al cargar rompía el Router de Next (ticket #91, ../../../ruta.ts).
+						abrirProyectoCreado(newProjectId);
 					} catch (_createErr) {
 						setError("No se pudo abrir el proyecto");
 						setIsLoading(false);
@@ -97,7 +96,7 @@ export function EditorProvider({ projectId, propuesta = null, children }: Editor
 		return () => {
 			cancelled = true;
 		};
-	}, [projectId, propuesta, router]);
+	}, [projectId, propuesta]);
 
 	if (error) {
 		return (
