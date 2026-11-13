@@ -213,6 +213,8 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'social-tope': 'sistema',
   // El freno del email (4/11/2026, lib/email-reputacion.ts): muchos rebotes o quejas apagan el envío.
   'email-frenado': 'sistema',
+  // El aviso de ANTES de apagar (13/11/2026, ticket #93): los rebotes pasan el 5 % y el envío sigue.
+  'email-rebotes': 'sistema',
   'tareas-autocompletadas': 'plan', 'ads-grabaste': 'plan',
   'plan-proyecto-vence': 'plan',
   'avisos-resumen': 'reporte',
@@ -990,8 +992,17 @@ https://hola-mako.com/integraciones?abrir=anthropic — MaKo`,
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     // 4/11/2026, la campaña de email de Mauricio (punto 7): lo emite el webhook de Resend (`revisarFrenoEmail`,
     // lib/email-reputacion.ts) con la regla de lib/email-freno.ts. Uno por hora como mucho; apagado, no vuelve a avisar.
-    disparador: 'Llega un rebote o una queja de un email del negocio y, de los últimos 100 emails enviados desde que se prendió el envío (50 o más), rebotó el 5 % o más o se marcó como spam el 0,3 % o más. Apaga el envío de email.',
-    ejemplo: `Apagué el envío de email: de los últimos 60 emails, 4 rebotaron: esas direcciones no existen (6,7 %). Si sigue, Gmail y Outlook mandan tus emails a spam. Revisa la lista y vuelve a prenderlo desde Email.`,
+    // 13/11/2026, ticket #93: apagaba con 5 de los últimos 100; ahora con 10 % de los últimos 300 (el 5 % es `email-rebotes`).
+    disparador: 'Llega un rebote o una queja de un email del negocio y, de los últimos 300 emails enviados desde que se prendió el envío (100 o más), rebotó el 10 % o más o se marcó como spam el 0,3 % o más. Apaga el envío de email.',
+    ejemplo: `Apagué el envío de email: de los últimos 300 emails, 31 rebotaron: esas direcciones no existen (10,3 %). Si sigue, Gmail y Outlook mandan tus emails a spam. Revisa la lista y vuelve a prenderlo desde Email.`,
+  },
+  {
+    id: 'email-rebotes', titulo: 'Están rebotando tus emails', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'media', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    // 13/11/2026, ticket #93 (Mauricio: «no deberías apagarlos»): el aviso de ANTES de apagar. El envío sigue: un rebote ya da
+    // de baja esa dirección. Lo emite `revisarFrenoEmail` (lib/email-reputacion.ts). Uno por día como mucho.
+    disparador: 'Llega un rebote de un email del negocio y, de los últimos 300 emails enviados (100 o más), rebotó entre el 5 % y el 10 %. No apaga nada.',
+    ejemplo: `De tus últimos 300 emails, 16 rebotaron (5,3 %): esas direcciones no existen y ya no les escribo. El envío sigue. Si los rebotes llegan a 10 %, lo apago para cuidar tu dominio: revisa la lista.`,
   },
   {
     id: 'social-tope', titulo: 'Instagram frenó los mensajes de tus automatizaciones', categoria: 'aviso', porDefecto: 'on',

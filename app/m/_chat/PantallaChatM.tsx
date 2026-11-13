@@ -38,7 +38,7 @@ function sinMovimiento(): boolean {
   try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
 }
 
-export function PantallaChatM({ abierto, onCerrar, titulo, children, pie, id = 'chat', ocupado = false, grupo = false, accion }: {
+export function PantallaChatM({ abierto, onCerrar, titulo, children, pie, id = 'chat', ocupado = false, grupo = false, accion, aviso }: {
   abierto: boolean;
   /** Lo llama la pantalla cuando la persona vuelve (flecha, «atrás», borde, Escape). */
   onCerrar: () => void;
@@ -55,6 +55,8 @@ export function PantallaChatM({ abierto, onCerrar, titulo, children, pie, id = '
   grupo?: boolean;
   /** A la derecha de la cabecera (Invitar, la ficha). */
   accion?: ReactNode;
+  /** Una línea fina pegada a la cabecera, que no scrollea: lo que le falta para que MaKo conteste (./AvisoDeIA.tsx). */
+  aviso?: ReactNode;
 }) {
   const [montada, setMontada] = useState(abierto);
   const [capa, setCapa] = useState<HTMLElement | null>(null);
@@ -186,6 +188,7 @@ export function PantallaChatM({ abierto, onCerrar, titulo, children, pie, id = '
           <div className="m-chat__titulo" id={tituloId}>{titulo}</div>
           {accion}
         </header>
+        {aviso}
         <div className="m-chat__cuerpo">{children}</div>
         {pie != null && <div className="m-chat__pie">{pie}</div>}
       </section>

@@ -5,7 +5,8 @@
 // Eventos que nos importan:
 //   email.opened     → marca abierto_at (y mueve la tarjeta a la columna «abrió» de la automatización, si la eligió)
 //   email.clicked    → marca clic_at (y la mueve a la columna «clic»)
-//   email.bounced    → da de baja al lead (supresión), anota el rebote y mira el freno del email (lib/email-reputacion.ts)
+//   email.bounced    → da de baja al lead (supresión), anota el rebote, mueve la tarjeta a «Rebotado» (#93) y mira el freno
+//                      del email (lib/email-reputacion.ts)
 //   email.complained → da de baja al lead (marcó spam), anota la queja y mira el freno
 //   email.received   → un email que LLEGA dispara las automatizaciones de su lead
 //                      (lib/email-entrante.ts, sexta tanda, CRON 8)
@@ -118,6 +119,9 @@ export async function POST(req: NextRequest) {
           // Se anota con su hora (mig 0380) y se mira el freno del email del negocio (lib/email-reputacion.ts, 4/11/2026).
           const fila = await marcarEventoEmail(emailId, 'rebote', when, soloWs);
           await suprimirPorRebote(emailId, soloWs);
+          // Y la tarjeta a «Rebotado» en el CRM de su automatización (ticket #93): la baja ya la saca de la secuencia; esto la
+          // deja a la vista. No tira.
+          await moverPorEventoDeEmail(fila, 'rebote');
           if (fila?.workspace_id != null) await revisarFrenoEmail(fila.workspace_id);
         }
         break;

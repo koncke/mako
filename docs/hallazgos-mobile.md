@@ -38,6 +38,12 @@ total. Lo que falta probar es hoy, con la línea baneada, y en el teléfono.
   (qué ofrece), `EXENTAS` de tests/app-de-escritorio-todos-los-chats.test.ts (si no se bloquea sin la app de escritorio, por qué) y
   `SIN_ADJUNTOS` de tests/chat-formatos.test.ts (si usa `sinAdjuntos`, por qué). Los tests de la pantalla pasan igual: los guards barren
   el repo entero y en la PC no se corren solos.
+- **«En main» no es «en producción»: producción compila UNA vez por día** (el cron /api/cron/desplegar-main, ~11:09 UTC; lo urgente va
+  con scripts/desplegar-ya.mjs). Mirado a 375 el 13/11 a las 16 UTC, el chat con un lead mergeado a las 15 seguía con la caja vieja y
+  se leía como «no se hizo». Antes de mirar producción: el sha del último deploy (GitHub → deployments, entorno Production) contra el
+  commit (`git merge-base --is-ancestor`).
+- **La marca de la tab viaja en el texto guardado** (`[desde: Dashboard › Marketing]\n…`, lib/chat-desde.ts): todo lo que muestre un
+  mensaje fuera del hilo (la previa de la lista, un resumen) la saca con `sinDesde`. La previa de la lista decía «Tú: [desde: …] Analiza…».
 
 **Reglas:**
 - Toda conversación del teléfono va en PantallaChatM (app/m/_chat): a pantalla completa, con el historial de las hojas. Lo que sigue
@@ -48,16 +54,21 @@ total. Lo que falta probar es hoy, con la línea baneada, y en el teléfono.
 **Sin hacer, con su archivo:**
 - Volver a una pestaña sin esperar (cada vuelta re-pide la página: 0,5–1,4 s medidos) y los 364 KB del polyfill de `node:crypto` en
   cada pantalla (cinco importadores de cliente de lib/auth-session.ts: PanelAgencia, TemaCandidato, pila-modales, LoginForm, bitacora).
-- Verlo en un teléfono de verdad y en producción, y que MaKo conteste HOY en el grupo de la app cuando lo nombran (espera el sí de
-  Martín para escribir en su grupo y la sesión del navegador de la app).
+- Verlo en un teléfono de verdad, y que MaKo conteste HOY en el grupo de la app cuando lo nombran (la prueba en vivo es del chat
+  «MaKo dentro de la app»). La lista, el grupo y el chat con MaKo ya se miraron en producción a 375 (13/11); el chat con un lead
+  y la línea de aviso, recién con el deploy siguiente.
+- La cabecera del grupo no dice quiénes están (el prototipo lo pone debajo del nombre): app/m/second-brain/HojaDelGrupo.tsx.
 
 **Hecho después, el mismo día:** la última línea de cada chat con MaKo en la lista (`listarSesiones` la lee con `ultimosDeSesiones`, una lectura
 para todas; si falla, la lista sale igual), y la caricatura del Funnel Coach «rota» de las capturas era del arnés, que no servía `public/`
 (en producción /asesores/hormozi.png da 200). Y el chat con un lead (ComposerChatsM): la caja de WhatsApp con el clip (WhatsApp y email, con la vista previa a pantalla
 completa VistaAdjuntosM y el multipart de escritorio) y la nota de voz por WhatsApp; los globos verde y blanco en app/m/chats/chats.css.
 Su trampa: el foco del campo ya no es de un <textarea> propio, así que el teclado de iOS (#51) se mide escuchando focus/blur del `campo` de la caja.
+Mirado en producción a 375 (13/11, ws3): el chip «Conectar tu IA» y la franja de la app seguían apilados arriba de la caja (~90 px).
+Ahora son UNA línea debajo de la cabecera (app/m/_chat/AvisoDeIA.tsx, el `.falta-ia` del prototipo) y la caja, con `avisosArriba`,
+no los repite; la computadora no cambia.
 
-**Vive en:** app/m/_chat/PantallaChatM.tsx · app/m/_chat/pantalla-chat.ts · app/m/_chat/chat-wa.css · app/m/_chat/NuevoChatFlotante.tsx ·
+**Vive en:** app/m/_chat/PantallaChatM.tsx · app/m/_chat/pantalla-chat.ts · app/m/_chat/chat-wa.css · app/m/_chat/NuevoChatFlotante.tsx · app/m/_chat/AvisoDeIA.tsx ·
 app/m/second-brain/ChatClienteM.tsx · app/m/second-brain/HojaDelGrupo.tsx · app/m/second-brain/FilasDelGrupoM.tsx ·
 app/m/operaciones/ChatsMovil.tsx · tests/m-chat-pantalla.test.ts
 

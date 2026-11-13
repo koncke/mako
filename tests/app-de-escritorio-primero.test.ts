@@ -63,7 +63,8 @@ test('3. sin la app, LA CAJA MISMA no deja escribir: «Instalar MaKo» en el lug
   const hilo = p.slice(p.indexOf('export function HiloDelCliente('), p.indexOf('export function CajaDelCliente('));
   // Vacía y bloqueada: sin la portada ni sus arranques, PERO con la apertura (29/10/2026: sus botones no escriben nada).
   assert.match(hilo, /!k\.items\.length && !k\.trabajo \? \(apertura \?\? \(k\.app === 'bloquea' \? null : \(/, 'vacía y bloqueada: la apertura, sin la portada');
-  assert.match(p, /\{k\.app === 'en-la-computadora' && <FranjaApp \/>\}/, 'en el teléfono, el aviso arriba de la caja');
+  // En la conversación del teléfono la franja va debajo de la cabecera (app/m/_chat/AvisoDeIA.tsx, test 9 de m-chat-pantalla).
+  assert.match(p, /\{k\.app === 'en-la-computadora' && !avisosArriba && <FranjaApp \/>\}/, 'en el teléfono, el aviso arriba de la caja');
   // La caja: el campo apagado con la frase, y en el lugar del botón el que la destraba.
   const c = sinComentarios(leer('app/_chat/CajaChat.tsx'));
   assert.match(c, /const quieto = enviando \|\| apagado \|\| !!p\.bloqueo;/);
