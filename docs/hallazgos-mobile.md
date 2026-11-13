@@ -51,7 +51,7 @@ total. Lo que falta probar es hoy, con la línea baneada, y en el teléfono.
 para todas; si falla, la lista sale igual), y la caricatura del Funnel Coach «rota» de las capturas era del arnés, que no servía `public/`
 (en producción /asesores/hormozi.png da 200). Y el chat con un lead (ComposerChatsM): la caja de WhatsApp con el clip (WhatsApp y email, con la vista previa a pantalla
 completa VistaAdjuntosM y el multipart de escritorio) y la nota de voz por WhatsApp; los globos verde y blanco en app/m/chats/chats.css.
-Su trampa: el foco del campo ya no es de un <textarea> propio, así que el teclado de iOS (#51) se mide escuchando focus/blur del  de la caja.
+Su trampa: el foco del campo ya no es de un <textarea> propio, así que el teclado de iOS (#51) se mide escuchando focus/blur del `campo` de la caja.
 
 **Vive en:** app/m/_chat/PantallaChatM.tsx · app/m/_chat/pantalla-chat.ts · app/m/_chat/chat-wa.css · app/m/_chat/NuevoChatFlotante.tsx ·
 app/m/second-brain/ChatClienteM.tsx · app/m/second-brain/HojaDelGrupo.tsx · app/m/second-brain/FilasDelGrupoM.tsx ·
