@@ -1842,7 +1842,7 @@ hojas de General, abrir hola-mako.com/general en el celular y tocar la segunda.
 **Vive en:** app/m/hoy/page.tsx · app/m/hoy/modelo.ts · app/m/hoy/hoy.css.
 *17/10/2026, claude4 (chat Dashboard).*
 
-## Una hoja en «medio» no deja ver el final de su cuerpo (17/10/2026, lo halló el Ops Center)
+## Una hoja en «medio»: el final del cuerpo no se alcanzaba, y las filas tapaban el botón del pie (17/10 y 13/11/2026)
 
 **Síntoma:** Martín, en «Uso y Runners» del Ops Center: «esa sección se traba y no se puede scrollear hasta el final».
 
@@ -1852,11 +1852,31 @@ pantalla. El pie sí se compensa (sube lo mismo); el cuerpo no. Desde el cuerpo 
 sube a «alto»: sin agarrar la manija no hay forma de ver el final. Lo obvio era «un contenedor con alto fijo o un overflow
 hidden» y no era eso.
 
-**Arreglo hecho:** esa hoja abre en `snap="alto"` (app/m/operaciones/CentroAppMovil.tsx).
+**Primer arreglo (17/10):** esa hoja abre en `snap="alto"` (app/m/operaciones/CentroAppMovil.tsx). El 13/11 el Agency
+Dashboard hizo lo mismo (app/m/agency/AgencyM.tsx, ticket #94). Ya no hace falta, pero tampoco molesta.
 
-**Sin hacer (es de SheetM, para todas):** en «medio», sumarle al cuerpo un `padding-bottom` igual al corrimiento (el mismo
-número que ya se usa para el pie), o subir a «alto» cuando el cuerpo llega al fondo. Toda hoja que abre en «medio» con un
-cuerpo más largo que el 55% de la pantalla tiene el mismo defecto.
+**Segundo síntoma, por el mismo corrimiento (13/11, ticket #94, lo vio el chat de tickets):** en «medio», con una lista larga,
+«Entrar a su cuenta» no respondía. `elementFromPoint` en el centro del botón devolvía una `.m-fila--toca`. En el arnés a
+375×812, el botón recibía 0 toques en «medio» y 1 en «alto».
+- **Causa:** el pie se corre hacia ARRIBA, encima del cuerpo. Con el `transform`, el pie pinta en la capa de z-index 0, pero
+  `.m-fila` lleva `z-index: 1` y `.m-casilla` `2`, así que pintaban por encima.
+- **Lo que parecía y no era:** un fondo transparente o mal calculado el corrimiento del pie. El pie estaba bien puesto, sólo que
+  debajo de las filas. En la captura sólo se ve que «la tarjeta tapa el botón».
+- **Trampa:** una captura no dice quién recibe el toque. Para eso está `elementFromPoint` sobre el centro del botón.
+
+**Arreglo de fondo, en SheetM, para todas (13/11/2026):**
+- **Encima:** `.m-sheet__cuerpo` lleva `isolation: isolate`, así que ningún z-index de adentro sale de su capa, y
+  `.m-sheet__pie` lleva `position: relative; z-index: 1` (app/m/m.css).
+- **El final:** en «medio», tirar hacia ARRIBA desde el cuerpo primero agranda la hoja a «alto» y después scrollea, como la
+  hoja de iOS. La rueda del mouse hace lo mismo. Lo decide `cuerpoMueveElSheet` (app/m/_ui/gestos.ts).
+- **Medido:** a 375, el botón recibe el toque en las dos alturas. Un tirón hacia arriba deja la hoja en «alto» con la lista
+  quieta, y el segundo llega a la última fila, que queda encima del pie (661–721 con el pie en 738). A 1440 hace lo mismo con
+  la rueda. El test es `tests/m-sheet-pie-en-medio.test.ts`: cinco roturas, una roja cada una.
+- **Por qué no el `padding-bottom` que proponía el 17/10:** tendría que cambiar en cada cuadro del arrastre, o saltaría el
+  contenido al agrandarse con la lista al fondo.
+
+**Regla:** dentro de una hoja, lo que se desliza ENCIMA de otra cosa necesita su orden de capas explícito. Y una hoja nueva se
+prueba con `elementFromPoint` sobre su botón principal, en las dos alturas.
 
 
 ## More y la barra de abajo con la sidebar del prototipo (17/10/2026, noche)
