@@ -65,7 +65,7 @@ export function bloqueDeOferta(o: Oferta | null, p: Producto | null): string {
   ].filter(Boolean);
   const falta = faltaDeLaOferta(o, p);
   return [
-    `LA OFERTA ELEGIDA: «${nombre}». La pieza habla de ESTA oferta, con estos datos y nada más: lo que no está acá ni en EL NEGOCIO no se inventa (ni un dominio, ni un regalo, ni una cifra), va como [DATO: …].`,
+    `LA OFERTA ELEGIDA: «${nombre}». La pieza habla de ESTA oferta, con estos datos y nada más: lo que no está aquí ni en EL NEGOCIO no se inventa (ni un dominio, ni un regalo, ni una cifra), va como [DATO: …].`,
     ...(datos.length ? datos : ['(La oferta no tiene datos cargados: sólo su nombre.)']),
     ...(falta.length ? [`Le falta: ${falta.join(', ')}. Escribe con [DATO: …] en esos lugares y, en la respuesta, pregunta UNO de ellos (el que más mejora la pieza).`] : []),
   ].join('\n');
