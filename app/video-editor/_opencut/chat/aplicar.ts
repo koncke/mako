@@ -391,17 +391,17 @@ export async function aceptarPropuesta(
 	// de AHORA y se aplica, con sus pasos (así «Restaurar» lo deshace todo junto). Una receta replicada sale en UN pedido.
 	let pendientes = encadenadas ?? [];
 	for (let vuelta = 0; pendientes.length && vuelta < VUELTAS_ENCADENADAS; vuelta++) {
-		const aca = enSuLugar();
-		if ("error" in aca) {
+		const enLaLinea = enSuLugar();
+		if ("error" in enLaLinea) {
 			descartes.push("cambiaste de proyecto o de escena antes de terminar: lo que seguía no se aplicó");
 			pendientes = [];
 			break;
 		}
-		const datosAhora = datosDeLinea(editor, aca.escena.tracks);
+		const datosAhora = datosDeLinea(editor, enLaLinea.escena.tracks);
 		const otra = revisarOperaciones({
 			operaciones: pendientes,
 			vista: vistaDeLinea({
-				tracks: aca.escena.tracks,
+				tracks: enLaLinea.escena.tracks,
 				tps: TICKS_PER_SECOND,
 				cabezal: 0,
 				elegidos: p.elegidos,

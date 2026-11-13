@@ -95,8 +95,8 @@ test('R3: «Aceptar» da otra vuelta con lo encadenado, contra la línea de AHOR
   assert.match(apl, /const \{ resueltas, descartes, encadenadas \} = revisarOperaciones\(/);
   assert.match(apl, /for \(let vuelta = 0; pendientes\.length && vuelta < VUELTAS_ENCADENADAS; vuelta\+\+\) \{/);
   const vuelta = apl.slice(apl.indexOf('let pendientes = encadenadas'));
-  assert.match(vuelta, /const aca = enSuLugar\(\);/, 'otra vez en su proyecto y escena');
-  assert.match(vuelta, /tracks: aca\.escena\.tracks,/, 'la línea de AHORA');
+  assert.match(vuelta, /const enLaLinea = enSuLugar\(\);/, 'otra vez en su proyecto y escena');
+  assert.match(vuelta, /tracks: enLaLinea\.escena\.tracks,/, 'la línea de AHORA');
   assert.match(vuelta, /refsPrevias: p\.refsPorId,/);
   assert.match(vuelta, /if \(otra\.resueltas\.length\) await aplicarVuelta\(otra\.resueltas, datosAhora\.transcripcion\.idioma\);/);
   // `pasos` es de toda la propuesta: «Restaurar» deshace las vueltas juntas.
