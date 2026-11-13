@@ -1873,4 +1873,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '13 nov', hora: '18:10', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Funnel: tus páginas como el recorrido de un lead',
+    puntos: [
+      'En «Páginas», el botón «Funnel» muestra tus páginas en orden, como las recorre un lead: del formulario al video, a la agenda y a la de gracias.',
+      'Entre una página y la siguiente se ve qué las conecta (el formulario o un botón); si una no lleva a la siguiente, se marca en rojo y un clic la conecta.',
+      'Con «+ Siguiente paso» creas la próxima página (formulario, video, agenda, venta o gracias) y queda conectada a la anterior.',
+    ],
+    archivos: [
+      'lib/editor-landing/funnel.ts — el recorrido, el objetivo de cada página y cómo se conectan',
+      'app/web-generator/editor/DialogoFunnel.tsx · PanelPaginas.tsx — la vista',
+      'tests/web-generator-funnel.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
 ];
