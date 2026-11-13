@@ -37,6 +37,7 @@ import { ASESORES, inspiradoEn } from '@/lib/asesores/catalogo';
 import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
 import { PLANES_MAKO_DEFAULT, type PlanMako } from '@/lib/planes-mako';
 import { Barra } from './Barra';
+import { AvatarVideos, TablerosCarrusel } from './Interactivos';
 import { Pie } from './Pie';
 import { Boton, Flecha, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
@@ -134,7 +135,6 @@ function Ahorro() {
         <p className="s-ahorro-t">Con MaKo Pro, todo eso en una sola app</p>
         <p className="s-ahorro-pro"><strong>{usd(pro.precioUsd)}</strong> por mes</p>
         <p className="s-ahorro-gana">Ahorras <strong>{usd(mes)}</strong> por mes: <strong>{usd(Math.round(mes * 12))}</strong> por año.</p>
-        <p className="s-ahorro-nota">Precios de lista mensuales en dólares, pagando mes a mes, publicados por cada app en noviembre de 2026.</p>
       </div>
     </div>
   );
@@ -190,9 +190,9 @@ function FilaFuncion({ slug, rotulo, titulo, texto, visual, inv }: (typeof TARJE
         ) : visual === 'gurus' ? (
           <Gurus />
         ) : visual === 'tableros' ? (
-          <Tableros />
+          <TablerosCarrusel tableros={TABLEROS} />
         ) : visual === 'avatar' ? (
-          <AvatarVideos />
+          <AvatarVideos videos={VIDEOS_AVATAR} />
         ) : falta ? (
           <FaltaAnimacion que={falta} />
         ) : (
@@ -219,66 +219,7 @@ function Gurus() {
   );
 }
 
-/**
- * Los tableros en un carrusel: pasa solo cada 6 s y también con las flechas y los puntos. Cada tablero, al aparecer, corre SU entrada
- * (el video de su componente) y se queda en su último cuadro. Sin JavaScript se ve el primero, quieto. Lo mueve SCRIPT_TABLEROS.
- */
-function Tableros() {
-  return (
-    <div className="s-tab" data-tableros="">
-      <div className="s-tab-pista">
-        {TABLEROS.map((t, i) => (
-          <figure key={t.id} className="s-tab-uno" data-activo={i === 0 ? 'si' : undefined} aria-hidden={i === 0 ? undefined : true}>
-            <video data-src={`/vsl-assets/sitio/tableros/${t.id}.webm`} poster={`/vsl-assets/sitio/tableros/${t.id}.jpg`} muted playsInline preload="none"
-              aria-label={`El tablero «${t.nombre}» de MaKo`} />
-          </figure>
-        ))}
-      </div>
-      <div className="s-tab-ctrl">
-        <button type="button" className="s-tab-fl" data-paso="-1" data-por-script="" aria-label="El tablero anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg></button>
-        <span className="s-tab-nombre" aria-live="polite">{TABLEROS[0].nombre}</span>
-        <button type="button" className="s-tab-fl" data-paso="1" data-por-script="" aria-label="El tablero siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
-      </div>
-      <div className="s-tab-puntos">
-        {TABLEROS.map((t, i) => <button key={t.id} type="button" data-ir={i} data-por-script="" aria-label={t.nombre} aria-current={i === 0 ? 'true' : undefined} />)}
-      </div>
-      <script dangerouslySetInnerHTML={{ __html: SCRIPT_TABLEROS(TABLEROS.map((t) => t.nombre)) }} />
-    </div>
-  );
-}
-
-const SCRIPT_TABLEROS = (nombres: readonly string[]) => `(function(){var c=document.currentScript.parentNode;var u=[].slice.call(c.querySelectorAll('.s-tab-uno'));var p=[].slice.call(c.querySelectorAll('.s-tab-puntos button'));var nom=c.querySelector('.s-tab-nombre');var N=${JSON.stringify(nombres)};var i=0,t=null,visto=false;
-function mostrar(k){u[i].removeAttribute('data-activo');u[i].setAttribute('aria-hidden','true');p[i].removeAttribute('aria-current');i=(k+u.length)%u.length;var f=u[i];f.setAttribute('data-activo','si');f.removeAttribute('aria-hidden');p[i].setAttribute('aria-current','true');nom.textContent=N[i];var v=f.querySelector('video');if(!v.src)v.src=v.getAttribute('data-src');try{v.currentTime=0}catch(e){}var r=v.play();if(r&&r.catch)r.catch(function(){});var sig=u[(i+1)%u.length].querySelector('video');if(!sig.src){sig.preload='auto';sig.src=sig.getAttribute('data-src');}}
-function andar(){clearTimeout(t);t=setTimeout(function(){mostrar(i+1);andar();},6000);}
-c.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;if(b.hasAttribute('data-paso'))mostrar(i+Number(b.getAttribute('data-paso')));else if(b.hasAttribute('data-ir'))mostrar(Number(b.getAttribute('data-ir')));andar();});
-var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&!visto){visto=true;mostrar(0);andar();}});},{threshold:.35});io.observe(c);})();`;
-
-/**
- * AI Avatar: dos anuncios de verdad, cada uno con la foto de la que salió. Arrancan mudos (el navegador no deja otra cosa) y el botón
- * de cada uno lo hace sonar (y calla al otro): lo hace SCRIPT_SONIDO, un script de la página, porque el sitio no carga React.
- */
-function AvatarVideos() {
-  return (
-    <div className="s-av">
-      {VIDEOS_AVATAR.map((v) => (
-        <figure key={v.id} className="s-av-par">
-          <span className="s-av-foto"><img src={`/vsl-assets/sitio/avatar/${v.id}-foto.jpg`} alt={`La foto de ${v.nombre}`} width={240} height={300} /><small>Foto original</small></span>
-          <span className="s-av-tel">
-            <video src={`/vsl-assets/sitio/avatar/${v.id}.webm`} poster={`/vsl-assets/sitio/avatar/${v.id}.jpg`} muted loop playsInline preload="none" aria-label={`El anuncio con IA de ${v.nombre}`} />
-            <button type="button" className="s-av-son" data-sonido="" data-por-script="" aria-pressed="false" aria-label={`Escuchar el anuncio de ${v.nombre}`}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z" /><path className="s-av-on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" /><path className="s-av-off" d="m23 9-6 6M17 9l6 6" /></svg>
-            </button>
-          </span>
-          <figcaption>{v.nombre}</figcaption>
-        </figure>
-      ))}
-      <script dangerouslySetInnerHTML={{ __html: SCRIPT_SONIDO }} />
-    </div>
-  );
-}
-
-// Los dos videos son largos (completos): arrancan recién cuando se ven, y se pausan al salir de la pantalla.
-const SCRIPT_SONIDO = `(function(){var vs=document.querySelectorAll('.s-av video');var bs=document.querySelectorAll('.s-av [data-sonido]');var io=new IntersectionObserver(function(es){es.forEach(function(e){var v=e.target;if(e.isIntersecting){var r=v.play();if(r&&r.catch)r.catch(function(){});}else{v.pause();}});},{threshold:.4});vs.forEach(function(v){io.observe(v);});bs.forEach(function(b){b.addEventListener('click',function(){var v=b.parentNode.querySelector('video');var on=v.muted;vs.forEach(function(o){o.muted=true;});bs.forEach(function(o){o.setAttribute('aria-pressed','false');});if(on){v.muted=false;v.currentTime=0;var r=v.play();if(r&&r.catch)r.catch(function(){});b.setAttribute('aria-pressed','true');}});});})();`;
+// El carrusel de tableros y los videos de AI Avatar son componentes de cliente con su onClick: ./Interactivos.tsx.
 
 function ProductoSitio() {
   return (
@@ -302,7 +243,8 @@ function ProductoSitio() {
  * la misma oferta y el mismo funnel; Meta, Calendly y un Excel. Lo que hizo MaKo es lo que hace en todos los planes: juntar sus
  * campañas de Meta, su agenda y sus ventas (lib/planes-comparacion.ts, «Tus campañas de Meta, cruzadas con tus ventas»).
  */
-const CASO_TIRA = ['Caso real', 'Mauricio', 'Más de 20 años vendiendo', 'US$14k en abril', 'US$20k en mayo', 'Más de US$40k en junio', 'La misma oferta y el mismo funnel'];
+// Martín, 13/11/2026: «en realidad son 100 mil dólares, porque a la fecha llevamos más de 100 mil dólares».
+const CASO_TIRA = ['Caso real', 'Mauricio', 'Más de US$100k vendidos', 'US$14k en abril', 'US$20k en mayo', 'Más de US$40k en junio', 'La misma oferta y el mismo funnel'];
 const CASO_MESES = [
   { mes: 'Antes', valor: 10, rotulo: 'menos de US$10k', antes: true },
   { mes: 'Abril', valor: 14, rotulo: 'US$14k' },
@@ -341,7 +283,7 @@ function CasoSitio() {
           </div>
           <div className="s-caso-tx">
             <p className="s-caso-r">Caso de éxito</p>
-            <h2 className="s-caso-h">Con MaKo, Mauricio pasó de meses por debajo de US$10k a más de <em>US$70k en tres meses.</em></h2>
+            <h2 className="s-caso-h">Con MaKo, Mauricio pasó de meses por debajo de US$10k a más de <em>US$100k vendidos.</em></h2>
             <p className="s-caso-sub">Sin cambiar la oferta ni el funnel. Lo que cambió fue cómo decidía: con sus números, todos en un solo lugar.</p>
             <ol className="s-caso-barras" aria-label="Lo que vendió Mauricio">
               {CASO_MESES.map((m) => (
@@ -362,18 +304,6 @@ function CasoSitio() {
             <p className="s-caso-col-t">Con MaKo</p>
             <ul>{CASO_CON_MAKO.map((t) => <li key={t}><span className="s-caso-ok" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10" /></svg></span>{t}</li>)}</ul>
           </div>
-        </div>
-        <ul className="s-caso-fotos" aria-label="Fotos de Mauricio">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <li><img src="/vsl-assets/caso-stage.png" alt="Mauricio presentando en vivo" loading="lazy" /></li>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <li><img src="/vsl-assets/caso-equipo.jpg" alt="Mauricio con su equipo" loading="lazy" /></li>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <li><img src="/vsl-assets/caso-martin.jpg" alt="Martín Koncke, de MaKo, junto a Mauricio" loading="lazy" /></li>
-        </ul>
-        <div className="s-caso-cierre">
-          <p>No fue un método genérico: fue su negocio, leído con sus números. <strong>Eso es lo que MaKo hace con el tuyo.</strong></p>
-          <Boton />
         </div>
       </div>
     </section>

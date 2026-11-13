@@ -68,8 +68,8 @@ export const STACK_QUE_REEMPLAZA: readonly TrabajoQueReemplaza[] = [
 /**
  * El ahorro de la portada (Martín, 13/11/2026: «haz un pequeño cálculo de cuántos estarían ahorrando, que sea realista… no de las 54,
  * porque nadie estaría pagando las 54»). UN stack típico de quien vende High Ticket, una app por trabajo, sólo trabajos que MaKo Pro
- * hace sin cobrar aparte (lib/planes-comparacion.ts: CRM, chats y agente en todos los planes; los editores de imagen y video, desde
- * Pro). Afuera: Skool (Classroom no está en los planes), HeyGen (la IA de AI Avatar la paga cada negocio) y lo que no es de todos.
+ * hace (lib/planes-comparacion.ts: CRM, chats y agente en todos los planes; los editores de imagen y video, desde Pro), más las que
+ * Martín pidió sumar el 13/11 (Higgsfield, Gamma, Skool y Mailchimp).
  * El precio: el de lista mensual en dólares, pagando mes a mes, buscado el 13/11/2026 (las fuentes, en `fuente`). Si cambia, se
  * cambia acá: la portada hace la cuenta.
  */
@@ -78,6 +78,14 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; pla
   { app: app('ManyChat', 'manychat'), trabajo: 'Respuestas automáticas', plan: 'Pro', precioUsd: 39, fuente: 'https://help.manychat.com/hc/en-us/articles/25800228332572' },
   { app: app('Canva', 'canva'), trabajo: 'Diseño', plan: 'Pro', precioUsd: 18, fuente: 'https://www.canva.com/pricing/' },
   { app: app('CapCut', 'capcut'), trabajo: 'Edición de video', plan: 'Pro', precioUsd: 19.99, fuente: 'https://www.capcut.com/pricing' },
+  // Martín, 13/11/2026: «no incluiste muchas otras apps que un emprendedor sí pagaría… no quiero que exageres», y después: «antes de
+  // Foreplay prefiero el más famoso, que es Higgsfield» y «puedes agregar Gamma, Skool y Mailchimp también». El plan más barato de
+  // cada una que sirve para ese trabajo, pagando mes a mes (Skool: Pro, el que no se queda con el 10 % de cada venta).
+  { app: app('Higgsfield', 'higgsfield'), trabajo: 'Videos con IA', plan: 'Starter', precioUsd: 19, fuente: 'https://higgsfield.ai/pricing' },
+  { app: app('Notion', 'notion'), trabajo: 'Tareas y prioridades', plan: 'Plus', precioUsd: 12, fuente: 'https://www.notion.com/pricing' },
+  { app: app('Gamma', 'gamma'), trabajo: 'Páginas y presentaciones', plan: 'Plus', precioUsd: 10, fuente: 'https://gamma.app/pricing' },
+  { app: app('Skool', 'skool'), trabajo: 'Cursos y comunidad', plan: 'Pro', precioUsd: 99, fuente: 'https://www.skool.com/pricing' },
+  { app: app('Mailchimp', 'mailchimp'), trabajo: 'Email', plan: 'Standard', precioUsd: 20, fuente: 'https://mailchimp.com/pricing/' },
 ];
 
 /** Todas, una vez cada una, en el orden de la lista: la tira de la portada. */

@@ -60,6 +60,7 @@ const EXENTAS: Readonly<Record<string, string>> = {
   'app/second-brain/PiezasCliente.tsx': 'el chat común (Ops Center del cliente, la estrella de cada tab): bloquea con lo que le dice su propio motor (`k.app`, `?suIA=1`), tests/app-de-escritorio-primero.test.ts',
   'app/_chat/grupo/CajaDelGrupo.tsx': 'el grupo de un negocio (3/11/2026; Martín: «tipo grupos de WhatsApp»): personas hablando entre ellas y MaKo corre como en WhatsApp, no en la computadora de nadie. El pedido es posterior a la regla del 25/10 y pide sin fricción',
   'app/chats/Composer.tsx': 'la tab Chats: la persona le escribe a SUS leads por WhatsApp, no a MaKo',
+  'app/m/chats/[clave]/ComposerChatsM.tsx': 'la tab Chats en el teléfono (13/11/2026): la persona le escribe a SUS leads, no a MaKo',
   'app/tickets/soporte/PiezasSoporte.tsx': 'la Ticketera (Soporte): le escribe al equipo de MaKo, no a su IA (23/10)',
   'app/admin/operaciones/Conversacion.tsx': 'el Ops Center del super admin: le escribe a los chats de Claude Code de la PC de Martín por el cartero, no a la IA de MaKo',
   'app/m/operaciones/ChatsMovil.tsx': 'lo mismo, en el teléfono del super admin',

@@ -30,6 +30,8 @@ import type { CreateTextElement, TextElement } from "@/app/video-editor/_opencut
 import { PARAM_SUBTITULO } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import type { SubtitleCue, SubtitleStyleOverrides } from "./types";
 import { codificarPalabras, PARAM_PALABRAS } from "./palabras";
+import { resaltadoDe } from "@/app/video-editor/_opencut/text/resaltado";
+import { partirEnLineas } from "./partir";
 import { anchoMaximo, margenInferior, type Lienzo } from "./estilos";
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -46,62 +48,6 @@ function comoTexto(params: ParamValues): TextElement {
 		trimEnd: ZERO_MEDIA_TIME,
 		params,
 	} as TextElement;
-}
-
-/**
- * Parte cada párrafo en líneas que entran en `anchoPx` (por palabras). `ancho` mide
- * como se DIBUJA: con «May./min.» en Mayúscula, «PALABRA» es más ancha que «palabra»,
- * y medida en minúscula una línea en mayúsculas se salía por los costados.
- */
-function partirEnLineas({
-	ancho,
-	texto,
-	anchoPx,
-}: {
-	ancho: (s: string) => number;
-	texto: string;
-	anchoPx: number;
-}): string {
-	return texto
-		.replace(/\r\n/g, "\n")
-		.split("\n")
-		.map((parrafo) => {
-			const palabras = parrafo.trim().split(/\s+/).filter(Boolean);
-			if (palabras.length === 0) return "";
-			const lineas: string[] = [];
-			let linea = palabras[0];
-			for (let i = 1; i < palabras.length; i++) {
-				const candidata = `${linea} ${palabras[i]}`;
-				if (ancho(candidata) <= anchoPx) {
-					linea = candidata;
-				} else {
-					lineas.push(linea);
-					linea = palabras[i];
-				}
-			}
-			lineas.push(linea);
-			return equilibrar({ ancho, lineas });
-		})
-		.join("\n");
-}
-
-/**
- * Dos líneas desparejas («Esto es lo que vas a ver en / esto») se leen peor que
- * dos parejas: si la segunda quedó con menos de un tercio, se pasa una palabra.
- */
-function equilibrar({ ancho, lineas }: { ancho: (s: string) => number; lineas: string[] }): string {
-	if (lineas.length !== 2) return lineas.join("\n");
-	let [a, b] = lineas;
-	while (ancho(b) < ancho(a) / 3) {
-		const corte = a.lastIndexOf(" ");
-		if (corte <= 0) break;
-		const nuevaA = a.slice(0, corte);
-		const nuevaB = `${a.slice(corte + 1)} ${b}`;
-		if (ancho(nuevaB) > ancho(a)) break;
-		a = nuevaA;
-		b = nuevaB;
-	}
-	return `${a}\n${b}`;
 }
 
 export type Ubicacion = {
@@ -160,10 +106,16 @@ export function partirYUbicar({
 	ctx.save();
 	ctx.font = layout.fontString;
 	setCanvasLetterSpacing({ ctx, letterSpacingPx: layout.letterSpacing });
+	// Las claves agrandadas suman su reserva (13/11/2026): la misma cuenta del dibujo (text/resaltado.ts).
+	const resaltado = resaltadoDe({ params: { ...params, content: texto }, tiempo: 0, recorteInicio: 0 });
+	const claves = resaltado && resaltado.claves.length > 0 && resaltado.clavesEscala > 1 ? { indices: resaltado.claves, escala: resaltado.clavesEscala } : null;
+	const medir = (palabra: string) => ctx.measureText(aplicarMayusculas(palabra, mayusculas)).width;
 	const content = partirEnLineas({
+		// Mide como se dibuja: en mayúsculas si van en mayúsculas.
 		ancho: (s) => ctx.measureText(aplicarMayusculas(s, mayusculas)).width,
 		texto,
 		anchoPx: anchoDisponible / escalaX,
+		...(claves ? { extra: (indice: number, palabra: string) => (claves.indices.includes(indice) ? (claves.escala - 1) * medir(palabra) : 0) } : {}),
 	});
 	ctx.restore();
 
