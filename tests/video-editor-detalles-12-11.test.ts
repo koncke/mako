@@ -95,7 +95,17 @@ test('2. el reel de Outliers: el loader de la app tapa la caja hasta que el repr
   // Volver a abrir la caja vuelve a mostrar el loader.
   assert.match(v, /onClick=\{\(\) => \{\s*setCargado\(false\);\s*setDocumento\(false\);\s*setAbierto\(true\);\s*\}\}/);
   // El loader es absoluto: la caja del video lo contiene.
-  assert.match(leer('app/video-editor/outliers.module.css'), /\.verVideo \{ position: relative;/);
+  const css = leer('app/video-editor/outliers.module.css');
+  assert.match(css, /\.verVideo \{ position: relative;/);
+  // 13/11/2026, mirado en producción otra vez: el loader ya esperaba al reproductor, pero no se VEÍA. Mientras el iframe de
+  // Instagram se arma la página casi no dibuja cuadros y las animaciones quedan pendientes en el tiempo 0; con `both` (ui.css)
+  // el loader se quedaba en su primer cuadro, con opacidad 0. En la caja del reel va sin relleno hacia atrás.
+  const sinRelleno = sinComentarios(css);
+  assert.match(sinRelleno, /\.verVideo :global\(\.cm-carga__centro\), \.verVideo :global\(\.cm-carga__cria\) \{ animation-fill-mode: forwards; \}/);
+  // Lo que se pisa: las dos entran con `both` y una demora (si eso cambia en ui.css, esta regla se revisa).
+  const ui = leer('app/_ui/ui.css');
+  assert.match(ui, /\.cm-carga__centro \{[^}]*animation: cm-aparece \.2s ease-out \.15s both;/);
+  assert.match(ui, /\.cm-carga__cria \{ display: flex; animation: cm-nace \.5s cubic-bezier\(\.34, 1\.56, \.64, 1\) \.15s both,/);
 });
 
 test('3a. un mensaje de Clips mágicos vale para la línea sobre la que se dijo', () => {

@@ -186,6 +186,39 @@ horrible». Y después: «tenés que mostrar los outliers verdaderos, no inventa
 | Tableros: flechas y puntos afuera, deslizable | La pista es el recuadro (`scroll-snap`, se desliza con el dedo, el trackpad o arrastrando con el mouse); flechas a los costados, nombre y puntos debajo |
 | CRM moviendo tarjetas | `banco-crm` (scratchpad) → `crm.webm` |
 
+## Novena vuelta (13/11/2026, tarde): las filas que faltaban, desde el código
+
+Martín: «Continúa con todo hasta finalizar». Cada fila es su componente REAL en un banco de esbuild del scratchpad de la sesión
+(`banco-video/`, `banco-grupos/`, `banco-flujo/`, `banco-chats/`, `banco-copilot-hoy/`: build.mjs + entrada.tsx + grabar.mjs; los
+estilos, `app/globals.css` compilado con Tailwind → `app.css`), grabado a 1280 × 800 y pasado a 960 × 600 en bucle fundido.
+
+| Fila | Qué se ve | Dónde |
+|---|---|---|
+| Edita tus videos sin saber editar | El panel REAL de la Edición automática (`enjambre-view.tsx` y su store) sobre tres tomas crudas del personaje de Martín (las de su reel: `C:/dev/reel-mentores/clips-espanol`): sus 7 pausas medidas se marcan y se cortan (19 s → 11 s), los subtítulos de su voz (Whisper), «Palabra gigante», B-roll de MaKo en «una app», un cambio de plano, voz y volumen, la revisión, y «Reproducir el corte final» | `video.webm` |
+| Trae los contactos de tus grupos | `TraerDeGrupoWA` + `ExtraccionModal` reales con un grupo de ejemplo (nombres inventados, teléfonos 555): elegir el grupo, «Extraer 43», el avance con los textos de la extensión, el resultado con su etiqueta | `grupos.webm` |
+
+## Décima vuelta (13/11/2026, noche): el feedback de la llamada con Leila (Fathom 202965885, lo pasó el Cerebro)
+
+| Pedido | Estado | Dónde |
+|---|---|---|
+| Titular y revisar los copies | Hecho. El titular quedó «El mejor software para vender High Ticket» (Martín, 13/11 noche: «ese sería nuestro principal», en todos lados): hero, pie y título de /vsl/sitio | `HeroSitio` (`Portada.tsx`), `Pie.tsx`, `app/vsl/sitio/page.tsx` |
+| Producto en «Adquisición de clientes» y «Entrega del servicio» | Hecho; dos filas nuevas de entrega con su animación PENDIENTE (tablero de entrega y Cobranza) | `APARTADOS_PORTADA` y `apartado` en `TARJETAS_PORTADA` (`datos.ts`) |
+| Mini landings por funnel (VSL, WhatsApp, Instagram con lead magnet, YouTube) | Hecho, con el contenido de `docs/marketing-copilot/funnels-simples.md` | `app/vsl/_sitio/funnels-datos.ts`, `Funnels.tsx`, `app/vsl/funnels/[funnel]/page.tsx`; sección en la portada y columna en el pie |
+| CRM: entrar a la ficha (de dónde vino, qué hizo, % del VSL) | Banco listo (`LeadSheet` real con `ficha-datos.ts`); falta grabar | `C:/dev/bancos-portada/banco-ficha` |
+| «Se conecta con tu Claude y tu GPT» | Hecho: lo que hay de verdad (tu clave de Claude/OpenAI/Gemini y el conector «MaKo para Claude»; para ChatGPT no hay conector y no se dice) | `SeccionesIA.tsx` → `ConectaTuIA` |
+| El costo de la IA, en su sección | Hecho con los gastos REALES de 30 días (sólo lectura): Martín US$15 de Claude, un cliente (Mauricio, sin nombre) US$11; Gemini gratis | `SeccionesIA.tsx` → `CostoDeLaIA` |
+| Reemplaza apps: HeyGen, OpusClip, sólo Notion | Hecho: US$392 contra MaKo Pro (HeyGen Creator 29, OpusClip Pro 29; el Cerebro: «el plan que se paga para usarla de verdad») | `reemplaza.ts` |
+| Industrias: Agencias, Coaches, Infoproductores, Inmobiliarias | Hecho | `ORDEN_INDUSTRIAS` (`datos.ts`) |
+| Comparativa de planes con movimiento | Hecho (cabecera pegada, Pro resaltado, grupos en tarjetas, tildes que aparecen, filas que entran) | `CompararPlanes` (`app/planes/Vitrina.tsx`), `app/planes/estilo.ts` |
+| Prueba sólo en el de 97, botón grande | Hecho: «Comienza tu prueba gratuita» | `botonDelPlan` (`lib/compra-plan-reglas.ts`), `.mkpl-btn.prueba` |
+| Casos: Axel y otro | Hecho con los cuatro testimonios que Martín ya publicó (Axel, Securiters, QS Media, Social Media Lab), como «los que trabajaron con Martín» | `MasCasos.tsx` |
+| Mercado Pago en el checkout | No es de landings: el chat de la pasarela (`app/planes/[plan]/Checkout.tsx`); avisado al Cerebro | — |
+
+**Los bancos se mudaron a `C:/dev/bancos-portada/`** (13/11, noche): esbuild no podía leer la carpeta Temp («being used by another
+process») y ningún banco del scratchpad compilaba. Ahí están todos (`banco-video`, `banco-grupos`, `banco-flujo`, `banco-chats`,
+`banco-copilot-hoy`, `banco-ficha`, `banco-crm`, `banco-clase`), con `build.mjs`, `entrada.tsx` y `grabar.mjs`, y sobreviven a la
+sesión. Grabar pide 3 GB de RAM libres (la guardia corta antes).
+
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
 `PRUEBA_GRATIS_PRENDIDA = true` (`lib/planes-mako.ts`): `/planes` dice «7 días gratis» y cobra el día 8 con la tarjeta,

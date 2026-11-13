@@ -1319,3 +1319,24 @@ leerlo, «? (capa Completo)». Vale para los tickets NUEVOS: el plan se guarda a
 importa lib/cobros, que alcanza una IA en su grafo, y la Ticketera la llama el navegador del Ops Center
 (tests/d6b-rutas.test.ts, caso 4). **Regla:** lo que importe la Ticketera (lib/tickets-db.ts) no pasa por lib/cobros; para leer
 el plan, `lib/plan-esencial.ts`, que lee la suscripción con los mismos filtros sin importarla.
+
+## «Desplegado» no es «le anda al cliente»: el deploy le dijo «Ya anda» a Mauricio con su email apagado (13/11/2026, ticket #93)
+
+- **Síntoma:** el hito «Hecho» con `tickets: [93]` llegó en el deploy de las 18:45 UTC; el cron cerró el ticket y a las 18:46
+  le mandó a Mauricio «Arreglamos… Ya anda». Su caso necesitaba además escrituras en producción DESPUÉS del deploy (prender
+  su email, el tope de 1.600 y las columnas, con el sí de Martín), y todavía no estaban.
+- **Causa:** el cierre tenía una sola señal, «el build trae el hito». Eso mide el CÓDIGO; lo que le falta al cliente puede
+  ser un DATO, y el código desplegado no sabe si ya se escribió. El hito no tenía cómo decirlo, así que quien arregla anota
+  `tickets` (el hito «Hecho» es la costumbre) y el cron hace lo único que sabe.
+- **El arreglo:** `faltaEnProduccion: "<qué falta>"` en el hito. Con eso el deploy no cierra ni avisa: deja UNA vez en el
+  historial `falta_en_produccion` (qué falta), `scripts/tickets.ts pendientes` lo lista, y quien hace el paso lo marca con
+  `paso-hecho <n> --nota "…"` (renglón `paso_en_produccion_hecho`) después de verlo andar. El cron siguiente cierra y avisa.
+  Sin poder leer el historial, no cierra: un «ya anda» falso no se deshace; esperar 15 minutos más, sí.
+- **La regla (AGENTS.md):** un hito «Hecho» con `tickets` se anota cuando no le falta NADA al cliente. Si falta algo en
+  producción, `faltaEnProduccion`. Cerrar un ticket es mandarle un mensaje al cliente: va con la misma vara que cualquier
+  «ya está» (la entrada del #80, más arriba, es el mismo error por otra puerta: el cierre de un delegado).
+- **Dos trampas del test:** el negocio de un ticket de prueba no puede ser el 1 ni el 11 (tienen la regla de Martín,
+  `aprobadoPorRegla`, y el aviso sale por el grupo, con otras tablas); y una base «caída» se simula con 500, no con 503:
+  postgrest-js reintenta solo los 503 y 520 de un GET (docs/hallazgos-planes-y-cobro.md, 13/11).
+- **Sin hacer:** el #93 ya está cerrado y avisado; esto no lo reabre. Lo que se le diga a Mauricio cuando su email esté
+  prendido lo decide el Cerebro.

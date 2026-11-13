@@ -108,6 +108,38 @@ body:has(.planes-root) { background: #FFFFFF; }
 .planes-tabla th[scope=row] { font-weight: 500; color: #12151B; padding-right: 16px; }
 .planes-tabla td { color: #12151B; }
 .planes-si { color: #12151B; font-weight: 700; }
+/* ── La comparación con movimiento (13/11/2026, la llamada con Leila: «muy plana») ── */
+.planes-compara-cab { z-index: 5; padding-top: 14px; background: rgba(255,255,255,.88); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+/* Pegada arriba al bajar, debajo de la barra del sitio (76 px y su borde) donde la hay (/planes); en la landing, arriba de todo. */
+.planes-compara-cab { position: sticky; top: 0; }
+body:has(.s-barra) .planes-compara-cab { top: 77px; }
+.planes-compara-plan { position: relative; padding: 12px; border-radius: 14px; transition: transform .2s ease, box-shadow .2s ease; }
+.planes-compara-plan[data-destacado] { background: linear-gradient(180deg, #EEF4FF, #fff); box-shadow: 0 10px 28px rgba(47,111,237,.16), inset 0 0 0 1.5px rgba(47,111,237,.35); }
+.planes-compara-plan:hover { transform: translateY(-2px); }
+.planes-compara-reco { position: absolute; top: -11px; left: 12px; padding: 2px 10px; border-radius: 999px; background: #2F6FED; color: #fff; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; }
+.planes-compara-btn { transition: filter .15s ease, transform .15s ease; }
+.planes-compara-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.planes-grupo-d { margin-top: 12px; border: 1px solid #E3E7EF; border-radius: 16px; padding: 0 16px; background: #fff; transition: box-shadow .2s ease, border-color .2s ease; interpolate-size: allow-keywords; }
+.planes-grupo-d:hover { border-color: #C9D6EE; }
+.planes-grupo-d[open] { box-shadow: 0 12px 32px rgba(18,21,27,.07); border-color: #C9D6EE; }
+.planes-grupo-d::details-content { block-size: 0; overflow: hidden; transition: block-size .35s ease, content-visibility .35s allow-discrete; }
+.planes-grupo-d[open]::details-content { block-size: auto; }
+.planes-grupo-n { margin-left: 10px; margin-right: auto; padding: 1px 9px; border-radius: 999px; background: #EEF1F5; color: #5B6170; font-size: 12.5px; font-weight: 600; }
+.planes-tabla td[data-destacado] { background: rgba(47,111,237,.06); }
+.planes-tabla tr { transition: background-color .15s ease; }
+.planes-tabla tbody tr:hover { background: #F6F8FC; }
+.planes-si { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border-radius: 50%; background: #12151B; color: #fff; }
+.planes-tabla td[data-destacado] .planes-si { background: #2F6FED; }
+.planes-grupo-d[open] .planes-si { animation: planes-tilde .38s cubic-bezier(.34,1.56,.64,1) both; animation-delay: calc(var(--i, 0) * 45ms + 80ms); }
+@keyframes planes-tilde { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@supports (animation-timeline: view()) {
+  .planes-tabla tbody tr { animation: planes-fila linear both; animation-timeline: view(); animation-range: entry 0% entry 60%; }
+  @keyframes planes-fila { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .planes-grupo-d[open] .planes-si, .planes-tabla tbody tr { animation: none; }
+  .planes-grupo-d::details-content { transition: none; }
+}
 .planes-no { color: #9AA1AD; }
 .planes-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .planes-corto { display: none; }

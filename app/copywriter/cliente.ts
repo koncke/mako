@@ -9,7 +9,7 @@
 
 import { postJson, type FallaPedido } from '@/app/web-generator/cliente';
 import type { EditadoPor, GuionAbierto, JsonNodo, PaginaCopy, PropsGuion, TipoGuion } from '@/lib/copywriter/tipos';
-import type { OutlierCopy } from '@/lib/copywriter/outliers';
+import type { FiltrosCopy, OrdenCopy, OutlierCopy, TandaCopy } from '@/lib/copywriter/outliers';
 import { marcarRecienCreada } from './pedido-guardado';
 
 export const RUTA_COPY = '/api/copywriter';
@@ -86,6 +86,11 @@ export async function pedirReplicar(outlier: string) {
   const r = await (postJson<{ ok: true; paginas: PaginaCopy[] } & GuionAbierto>(RUTA_COPY, { accion: 'replicar', outlier }, PLAZO_COPY_MS) as Promise<({ ok: true; paginas: PaginaCopy[] } & GuionAbierto) | FallaCopy>);
   if (r.ok) marcarRecienCreada(r.pagina.id);
   return r;
+}
+
+/** Una tanda de la portada de outliers (la primera viaja con la página; ésta es la de «Ver más» o la de otro filtro). */
+export function pedirOutliers(c: { filtros: FiltrosCopy; orden: OrdenCopy; desde: number }) {
+  return postJson<{ ok: true } & TandaCopy>(RUTA_COPY, { accion: 'outliers', ...c.filtros, orden: c.orden, desde: c.desde }, PLAZO_COPY_MS) as Promise<({ ok: true } & TandaCopy) | FallaCopy>;
 }
 
 /** El original entero de un outlier («Ver el original» de la página replicada). */

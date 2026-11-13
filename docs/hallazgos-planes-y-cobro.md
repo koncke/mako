@@ -2975,3 +2975,41 @@ compra de prueba con 4242, cuando Martín pegue la clave de prueba de Stripe.
   pasarela del 12/11 de mañana). El checkout dice la FECHA del primer cobro («Desde el 19 de noviembre»), como el «Total after
   trial» de Stripe Checkout, y lleva la barra del sitio arriba.
 
+
+## «Sólo tarjeta» desde Argentina: Mercado Pago se caía de la lista y la Stripe de PRUEBA pasaba por real (13/11/2026, claude5)
+
+El reporte: desde Argentina, en /planes/<plan>, «NO apareció el botón de Mercado Pago, sólo tarjeta. Tiene que ofrecer
+tarjeta y Mercado Pago».
+
+- **El diagnóstico obvio era el equivocado: «falta la credencial» o «el país no se detecta».** Medido en producción (sólo
+  lectura) ese día: la Mercado Pago de la plataforma está bien (real, sitio MLA, ARS), los planes tienen precio en pesos desde
+  el 6/11, y desde una IP argentina /planes/esencial y /planes/pro mostraban **sólo Mercado Pago** (la regla del 27/10). Con
+  todo leído, «sólo tarjeta» no sale por ningún camino. Sale cuando Mercado Pago NO llega a la lista.
+- **Por qué no llegaba: `credDelCliente` no distingue «no pude leer» de «no la tiene».** `credDeBase` ignora el `error` de
+  supabase-js y devuelve `null`; en `monedasDeLaPlataforma` un token `null` es `continue`, y un `leerCuentaMp` que no contestó
+  una vez (red, 5xx) también. Sin una sola línea en el log.
+- **Y la trampa grande, en el mismo pedido: `modoDeClaveStripe(null) === 'prueba'` es `false`.** La línea era
+  `prueba: modoDeClaveStripe(clave) === 'prueba'`: con la clave sin leer, la Stripe de **PRUEBA** de la plataforma pasaba por
+  REAL y se le ofrecía al **público** (el agujero que el 23/10 se había cerrado: pagar con la 4242 y sacar una cuenta de verdad).
+  Desde Argentina, con Mercado Pago caída: la única opción era esa tarjeta. **La regla: lo que no se sabe que es real, no lo
+  es** — un booleano que se calcula como «¿es prueba?» tiene que preguntar «¿es real?» (`opcionStripe`).
+- **El arreglo:** `claveDeLaPasarela` reintenta una vez la clave de una pasarela que `pasarelasConectadas` ya dio por
+  conectada (ahí `null` sólo puede ser «no pude leer»), `leerCuentaMp` se reintenta ante un fallo pasajero
+  (`esFalloPasajero`: 0, 429, 5xx; un 401 no mejora reintentando), y lo que igual no está queda en el log.
+- **Trampa del entorno: postgrest-js ya reintenta solo, pero sólo los 503 y 520 de un GET** (3 veces, esperando 1, 2 y 4 s;
+  `RETRYABLE_STATUS_CODES` en node_modules/@supabase/postgrest-js). Un 500, un 502 o un corte de red llegan como `error` en el
+  primer intento. En un test que simula «la base no contestó», un 503 se lo come la librería: la rotura «sin reintento» pasaba
+  y el archivo tardaba 50 s. Para probar un reintento PROPIO, la caída va con 500.
+- **La tarjeta en Argentina va en `pasarelasParaOfrecer`, no en `pasarelasDelPais`.** `pasarelasDelPais` la usan también los
+  caminos donde NO elige nadie (el primer plan propio de una cuenta que soltó su agencia, `lib/compra-plan.ts`, y el cobro de
+  la agencia): ahí `opciones.find(stripe) ?? opciones[0]` habría mandado a un argentino a pagar en dólares sin preguntarle.
+  El checkout es el único lugar con alguien que elige: Mercado Pago primero (el precio en pesos del resumen) y la tarjeta como
+  «o US$ … con tarjeta».
+- **Lo que falta en producción (no se tocó):** la Stripe de la plataforma tiene claves de PRUEBA (sk_/rk_test_), así que al
+  público todavía no le sale la tarjeta en ningún país; sale sola cuando se conecten las reales en /integraciones del
+  workspace de la plataforma. Hasta entonces el super admin la ve (la prueba de humo).
+- **Sin medir:** si el reporte lo vio el super admin con una IP que Vercel ubicó fuera de Argentina (eso también da «sólo la
+  Stripe de prueba»): el encabezado de ese pedido no quedó en ningún lado.
+
+Probado con el checkout real (`tests/checkout-argentina-tarjeta-y-mp.test.ts` y su hijo): las dos reales, una caída de una
+vez de cada lectura, la Stripe de prueba y todo caído.

@@ -26,6 +26,7 @@ import { proporcionDe } from '@/lib/spy-detalle';
 import { chipDeMultiplo, explicarMultiplo, type Multiplo } from '@/lib/multiplo-rendimiento';
 import { nivelDeMultiplo } from '@/lib/carruseles/explorar';
 import s from '@/app/image-editor/carruseles/explorar.module.css';
+import type { ReactNode } from 'react';
 import { LogoRed, redDePieza } from './LogoRed';
 import t from './tarjeta-pieza.module.css';
 import type { PiezaVista } from './actions';
@@ -40,13 +41,19 @@ export function numerosDeTarjeta(p: PiezaVista): Array<{ k: string; icono: strin
   ].filter((n) => /^\d/.test(n.valor)).map((n) => ({ ...n, titulo: `${n.valor} ${n.titulo}` }));
 }
 
-export function TarjetaPieza({ p, analizando = false, multiplo = null, onAbrir }: {
+export function TarjetaPieza({ p, analizando = false, multiplo = null, onAbrir, extra }: {
   p: PiezaVista;
   analizando?: boolean;
   /** Su múltiplo, calculado sobre TODAS las piezas del competidor (`multiplosDe`): una tarjeta sola no tiene con qué comparar. */
   multiplo?: Multiplo | null;
   /** Abre su detalle (DetallePieza.tsx, con «Copiar estructura»). Sin esto, la tarjeta lleva a la pieza en su red. */
   onAbrir?: () => void;
+  /**
+   * Lo que va DEBAJO de los números, dentro del pie (las alertas de los seguidos: de quién es, el ángulo y «¿Creamos uno
+   * parecido?», ./Seguidos.tsx). Un botón de acá frena el clic: si no, abriría la tarjeta. Quien lo usa le pasa a la grilla el
+   * alto de más (`pie` de GrillaPiezas), o la grilla mixta se descuadra.
+   */
+  extra?: ReactNode;
 }) {
   const esAnuncio = p.canal === 'anuncios';
   const tiempo = tiempoDePieza(p);
@@ -95,6 +102,7 @@ export function TarjetaPieza({ p, analizando = false, multiplo = null, onAbrir }
             {destino && <span className={t.destino} title={`Manda a ${destino}`}>→ {destino}</span>}
           </div>
         )}
+        {extra && <div className={t.extra}>{extra}</div>}
       </div>
     </>
   );

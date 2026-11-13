@@ -17,8 +17,8 @@ import { getTenantDb } from './workspace';
 import {
   alcanceDeMotivos, motivosDe, problemaDeDifusion, pasosDeDifusion, nombreDeDifusion, goteoValido, TOPE_DIFUSION, esCanalDifusion,
   claveDeDifusion, leerMarcaDifusion, decidirRepetida, GOTEO_DIFUSION_INICIAL, PREFIJO_CLAVE_DIFUSION, ESTADOS_DIFUSION_EN_CURSO,
-  MIN_DIFUSION_ANTES_DE_PAUSAR,
-  type LeadDifusion, type MotivosDelLead, type Alcance, type CanalDifusion, type MensajesDifusion, type GoteoDifusion,
+  MIN_DIFUSION_ANTES_DE_PAUSAR, problemaDeSiContesta, conSiContesta, siContestaDeLosPasos,
+  type LeadDifusion, type MotivosDelLead, type Alcance, type CanalDifusion, type MensajesDifusion, type GoteoDifusion, type SiContestaDifusion,
 } from './difusion-reglas';
 import { getSettingEstricto, cambiarSettingSi, borrarSettingSi } from './settings';
 import { conversacionDeFila } from './canal-social';
@@ -109,6 +109,8 @@ export type PedidoDifusion = {
   canales: CanalDifusion[];
   mensajes: MensajesDifusion;
   goteo: GoteoDifusion;
+  /** Lo que les sale a los que CONTESTAN (`conSiContesta`, lib/difusion-reglas.ts). Sólo por WhatsApp. */
+  siContesta?: SiContestaDifusion | null;
   /** Quién la mandó (el historial de la automatización y del lead). */
   autor: string;
 };
@@ -190,11 +192,11 @@ export async function crearDifusion(ws: number, p: PedidoDifusion): Promise<Resu
   if (!goteo) return { ok: false, error: `El goteo va de ${RANGOS_GOTEO.minutos[0]} a ${RANGOS_GOTEO.minutos[1]} minutos y de ${RANGOS_GOTEO.dia[0]} a ${RANGOS_GOTEO.dia[1]} por día.` };
   const vista = await prepararDifusion(ws, p.seleccion, canales, goteo);
   if (canales.includes('whatsapp') && !vista.whatsappQr) return { ok: false, error: 'No hay un WhatsApp por QR conectado: conéctalo o saca WhatsApp de la difusión.' };
-  const falta = problemaDeDifusion({ canales, mensajes: p.mensajes, alcance: vista.alcance });
+  const falta = problemaDeDifusion({ canales, mensajes: p.mensajes, alcance: vista.alcance }) ?? problemaDeSiContesta(canales, p.siContesta ?? null);
   if (falta) return { ok: false, error: `${falta}.` };
 
   // EL MISMO PEDIDO: si no se puede leer la marca, no se manda (mandar dos veces es peor que pedir que lo intente de nuevo).
-  const key = keyDeDifusion(claveDeDifusion({ seleccion: p.seleccion, canales, mensajes: p.mensajes, goteo }));
+  const key = keyDeDifusion(claveDeDifusion({ seleccion: p.seleccion, canales, mensajes: p.mensajes, goteo, siContesta: p.siContesta ?? null }));
   const previo = await getSettingEstricto(key);
   const repetida = decidirRepetida(leerMarcaDifusion(previo), Date.now());
   if (repetida.es === 'en_curso') return { ok: false, error: EN_CURSO };
@@ -213,7 +215,7 @@ export async function crearDifusion(ws: number, p: PedidoDifusion): Promise<Resu
   const fila = await crearSecuenciaVacia(nombre, { prefijoClave: PREFIJO_CLAVE_DIFUSION });
   const db = await getTenantDb();
   try {
-    await setSecuenciaPasos(fila.id, pasosDeDifusion(canales, p.mensajes) as Parameters<typeof setSecuenciaPasos>[1]);
+    await setSecuenciaPasos(fila.id, pasosDeDifusion(canales, p.mensajes, p.siContesta ?? null) as Parameters<typeof setSecuenciaPasos>[1]);
     const cfg = await guardarConfigAutomatizacion(fila.id, { goteo });
     if (!cfg.ok) throw new Error(cfg.error);
     await setSecuenciaReentrada(fila.id, 'una_vez');
@@ -242,6 +244,51 @@ export async function crearDifusion(ws: number, p: PedidoDifusion): Promise<Resu
   }
   console.log(`[difusion] ws=${ws} «${nombre}» (#${fila.id}) por ${canales.join(', ')}: ${inscriptos} leads, de a uno cada ${goteo.minutos} min y hasta ${goteo.dia} por día${goteo.arranque ? ` (arranca con ${goteo.arranque.dia} y sube ${goteo.arranque.sube})` : ''} — ${p.autor}`);
   return { ok: true, secuenciaId: fila.id, nombre, leads: inscriptos, alcance: vista.alcance };
+}
+
+export type ResultadoSiContesta =
+  | {
+    ok: true; secuenciaId: number; nombre: string; antes: SiContestaDifusion | null;
+    /** Les falta el mensaje (o lo están escuchando): a ellas les sale el seguimiento si contestan. */
+    loVan: number;
+    /** Ya lo recibieron y la difusión terminó con ellas, o ya contestaron: no les sale (se dice). */
+    yaPasaron: number;
+  }
+  | { ok: false; error: string };
+
+/** Antes del mensaje o escuchando la respuesta: a éstas les llega el seguimiento nuevo. */
+const NODOS_QUE_LO_VAN = new Set([null, 'entrada', 'd_c_whatsapp', 'd_whatsapp', 'd_escucha']);
+
+/**
+ * AGREGARLE «SEGUIR CON LOS QUE CONTESTAN» A UNA DIFUSIÓN QUE YA ESTÁ SALIENDO (13/11/2026, Leila: la #732 seguía con 88 por
+ * recibir). Reescribe sus pasos con `conSiContesta` por la puerta de siempre (`setSecuenciaPasos`, que lo valida). Les llega a
+ * las que todavía no recibieron el mensaje y a las que lo están escuchando; a las que ya terminaron (lo recibieron sin un
+ * seguimiento, o ya contestaron) no: el motor no vuelve a abrir una inscripción cerrada, y se dice cuántas son. `soloVer`: decide
+ * y cuenta sin escribir (la propuesta de MaKo).
+ */
+export async function seguirConLosQueContestan(secuenciaId: number, sc: SiContestaDifusion, o: { soloVer?: boolean } = {}): Promise<ResultadoSiContesta> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('nutricion_secuencias').select('id, nombre, clave, pasos, archivada_at').eq('id', secuenciaId).maybeSingle();
+  if (error) return { ok: false, error: `No pude leer la difusión (${error.message}).` };
+  const sec = data as { id: number; nombre: string; clave: string | null; pasos: unknown; archivada_at: string | null } | null;
+  if (!sec || sec.archivada_at) return { ok: false, error: 'Esa automatización no está (o está archivada).' };
+  if (!String(sec.clave ?? '').startsWith(PREFIJO_CLAVE_DIFUSION)) return { ok: false, error: `«${sec.nombre}» no es una difusión: a una automatización se le agrega «Contestó» en Automations, después de un mensaje y una espera.` };
+  const pasos = (Array.isArray(sec.pasos) ? sec.pasos : []) as Parameters<typeof conSiContesta>[0];
+  const canales = (['whatsapp', 'email', 'instagram'] as const).filter((c) => pasos.some((p) => p.id === `d_${c}`));
+  const falta = problemaDeSiContesta(canales, sc);
+  if (falta) return { ok: false, error: `${falta}.` };
+  const { data: ins, error: eI } = await db.from('nutricion_inscripciones').select('estado, nodo_actual').eq('secuencia_id', sec.id);
+  if (eI) return { ok: false, error: `No pude contar a quién le llega (${eI.message}).` };
+  const filas = (ins ?? []) as Array<{ estado: string; nodo_actual: string | null }>;
+  const loVan = filas.filter((f) => f.estado === 'activa' && NODOS_QUE_LO_VAN.has(f.nodo_actual)).length;
+  if (!loVan) return { ok: false, error: `«${sec.nombre}» ya terminó: a nadie le queda por recibirla ni la están escuchando. Para seguir con los que contesten, manda una difusión nueva con el seguimiento.` };
+  const antes = siContestaDeLosPasos(pasos);
+  if (!o.soloVer) {
+    const { setSecuenciaPasos } = await import('./nutricion');
+    await setSecuenciaPasos(sec.id, conSiContesta(pasos, sc) as Parameters<typeof setSecuenciaPasos>[1]);
+    console.log(`[difusion] «${sec.nombre}» (#${sec.id}): seguimiento a los que contestan (${sc.mensajes.length} mensajes, ${sc.dias} días); le llega a ${loVan}`);
+  }
+  return { ok: true, secuenciaId: sec.id, nombre: sec.nombre, antes, loVan, yaPasaron: filas.length - loVan };
 }
 
 /**

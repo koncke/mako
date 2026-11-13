@@ -1,0 +1,78 @@
+/* La vista de los competidores seguidos (./Seguidos.tsx), 13/11/2026. Sin subtítulos chicos: cada texto, del tamaño de la lista. */
+
+.seguidos { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+
+.cabeza { display: flex; align-items: baseline; gap: 14px; margin: 10px 0 0; }
+.cabeza h1 { margin: 0; font-size: clamp(28px, 2.6vw, 38px); font-weight: 600; line-height: 1.04; letter-spacing: -0.025em; }
+.cabeza p { margin: 0; color: var(--faint); font-size: var(--fs-md, 15px); }
+
+.error { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-size: 14px; }
+.vacio { margin: 0; color: var(--faint); font-size: 15px; line-height: 1.5; }
+
+/* ── A quién sigues ── */
+.elegir { display: flex; flex-wrap: wrap; gap: 8px; }
+.elegir[aria-busy='true'] { opacity: 0.6; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; height: 40px; max-width: 260px; padding: 0 12px 0 7px;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 14px; font-weight: 550; cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+.chip span:not(.cara) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip i { font-style: normal; color: var(--faint); font-size: 15px; line-height: 1; }
+.chip:hover:not(:disabled) { background: var(--surface-2); }
+.chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.chip:disabled { cursor: default; }
+.chip[data-sigue] { border-color: var(--ink); background: var(--surface-2); }
+.chip[data-sigue] i { color: var(--ink); font-weight: 700; }
+
+.cara {
+  flex: none; display: inline-grid; place-items: center; overflow: hidden; border-radius: 999px;
+  background: var(--surface-2); color: var(--faint); font-size: 12px; font-weight: 650;
+}
+.cara img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ── Los bloques ── */
+.bloque { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.bloque h2 { margin: 0; font-size: var(--fs-sect, 20px); font-weight: 600; letter-spacing: -0.015em; }
+
+/* ── El promedio de tus seguidos ── */
+.numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.numero {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border: 1px solid var(--border); border-radius: 16px;
+  background: var(--surface); min-width: 0;
+}
+.red { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); font-size: 15px; font-weight: 600; }
+.cifra { display: flex; flex-direction: column; gap: 2px; }
+.cifra b { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; }
+.cifra span { color: var(--ink); font-size: 15px; }
+.sin { color: var(--faint); font-size: 15px; line-height: 1.4; }
+
+/* ── Lo de más de cada alerta (dentro del pie de la tarjeta) ── */
+.quien {
+  display: inline-flex; align-items: center; gap: 7px; height: 28px; max-width: 100%; padding: 0; border: 0; background: none;
+  color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; text-align: left;
+}
+.quien span:not(.cara) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quien:hover span:not(.cara) { text-decoration: underline; }
+.quien:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 6px; }
+.angulo b { font-weight: 650; }
+.angulo {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 40px;
+  color: var(--ink); font-size: 13.5px; line-height: 1.45;
+}
+.parecido {
+  display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 16px; border: 0; border-radius: 999px;
+  background: var(--primary); color: var(--on-primary, #fff); font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+.parecido:hover:not(:disabled) { filter: brightness(1.06); }
+.parecido:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.parecido:disabled { opacity: 0.6; cursor: default; }
+
+.seguidos[data-telefono] .numeros { grid-template-columns: 1fr 1fr; gap: 8px; }
+.seguidos[data-telefono] .numero { padding: 12px 14px; }
+.seguidos[data-telefono] .cifra b { font-size: 21px; }
+.seguidos[data-telefono] .cifra span { font-size: 14px; }
+/* En el teléfono, a quién sigues va en UNA fila que se corre de costado: 24 competidores en filas eran casi una pantalla. */
+.seguidos[data-telefono] .elegir { flex-wrap: nowrap; overflow-x: auto; margin: 0 -14px; padding: 0 14px 4px; scrollbar-width: none; }
+.seguidos[data-telefono] .elegir::-webkit-scrollbar { display: none; }
+.seguidos[data-telefono] .chip { flex: none; max-width: 220px; }

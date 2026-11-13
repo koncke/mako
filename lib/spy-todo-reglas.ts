@@ -64,6 +64,31 @@ export function videoDelItem(items: unknown): string | null {
   return null;
 }
 
+/**
+ * Lo que se le pide al actor de anuncios para UN anuncio: su página de la biblioteca (13/11/2026, Copywriting transcribe los
+ * anuncios en video de la competencia; el enlace del video vence, así que se pide fresco al transcribir, como el de un reel).
+ */
+export function entradaDeUnAnuncio(enlace: string): Record<string, unknown> {
+  return { startUrls: [{ url: enlace }], resultsLimit: 1, isDetailsPerAd: false, onlyTotal: false };
+}
+
+/** El video de un anuncio: `snapshot.videos[].videoHdUrl` (o el SD), o el de una de sus tarjetas. null = no vino ninguno. */
+export function videoDelAnuncio(items: unknown): string | null {
+  const https = (v: unknown) => (typeof v === 'string' && /^https:\/\//.test(v) ? v : null);
+  const deUno = (o: unknown) => {
+    const x = (o && typeof o === 'object' ? o : {}) as Record<string, unknown>;
+    return https(x.videoHdUrl) ?? https(x.video_hd_url) ?? https(x.videoSdUrl) ?? https(x.video_sd_url);
+  };
+  for (const it of Array.isArray(items) ? items : []) {
+    const snap = (it && typeof it === 'object' ? (it as { snapshot?: unknown }).snapshot : null) as Record<string, unknown> | null;
+    if (!snap || typeof snap !== 'object') continue;
+    for (const lista of [snap.videos, snap.cards]) {
+      for (const v of Array.isArray(lista) ? lista : []) { const u = deUno(v); if (u) return u; }
+    }
+  }
+  return null;
+}
+
 /** Cuántas corridas largas ya empezó el negocio en `dia` (YYYY-MM-DD). Otro día, o algo ilegible, es 0. */
 export function usadasHoy(crudo: string | null, dia: string): number {
   try {
@@ -142,12 +167,22 @@ export function leerTareas(crudo: string | null | undefined): RegistroTareas {
   return out;
 }
 
-/** ¿Toca empezar otra corrida? Si nunca hubo, o la última terminó hace más de `DIAS_ENTRE_CORRIDAS`. Nunca con una en marcha. */
-export function tocaPedir(t: TareaLarga | undefined, ahora: number): boolean {
+/**
+ * ¿Toca empezar otra corrida? Si nunca hubo, o la última terminó hace más de `dias` (`DIAS_ENTRE_CORRIDAS`; un competidor
+ * SEGUIDO, cada día: `DIAS_ENTRE_CORRIDAS_SEGUIDO`, lib/spy-seguidos-reglas.ts). Nunca con una en marcha.
+ */
+export function tocaPedir(t: TareaLarga | undefined, ahora: number, dias: number = DIAS_ENTRE_CORRIDAS): boolean {
   if (t?.run) return false;
   if (!t?.ultima) return true;
-  return ahora - Date.parse(t.ultima) >= DIAS_ENTRE_CORRIDAS * 86_400_000;
+  return ahora - Date.parse(t.ultima) >= dias * 86_400_000;
 }
+
+/**
+ * La `ultima` que deja una corrida que no sirvió (sin su clave, vacía) para volver a intentar MAÑANA, con cualquier cadencia:
+ * con 7 días es «hace 6», como antes; con la de un seguido (1 día), «ahora».
+ */
+export const ultimaParaManana = (ahora: number, dias: number = DIAS_ENTRE_CORRIDAS): string =>
+  new Date(ahora - Math.max(0, dias - 1) * 86_400_000).toISOString();
 
 /** Cuántas publicaciones pedir y desde cuándo: la primera vez, muchas; después, sólo lo nuevo. */
 export function pedidoDePublicaciones(t: TareaLarga | undefined): { cuantas: number; desde: string | null; techoUsd: number } {

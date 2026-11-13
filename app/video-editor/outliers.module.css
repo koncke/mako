@@ -60,6 +60,12 @@
 /* `relative`: el loader (CargandoMako `cubre`, absoluto) tapa la caja mientras llega el reproductor de la red. */
 .verVideo { position: relative; height: min(72vh, 720px); border-radius: 12px; overflow: hidden; background: var(--surface-2); border: 1px solid var(--border); }
 .verVideo iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+/* 13/11/2026, mirado en producción: mientras el reproductor de Instagram arma su iframe, la página casi no dibuja cuadros
+   (2 en el primer segundo, sin que el hilo esté ocupado) y las animaciones quedan PENDIENTES en el tiempo 0. El loader
+   entra con `both` y 150 ms de demora (ui.css → .cm-carga__centro / __cria), así que se quedaba en su primer cuadro, con
+   opacidad 0: estaba puesto y no se veía (la caja en blanco). Acá, sin relleno hacia atrás: se ve desde el primer cuadro,
+   y si la animación corre, flota igual. La demora antiparpadeo no hace falta: el reel nunca tarda menos de un segundo. */
+.verVideo :global(.cm-carga__centro), .verVideo :global(.cm-carga__cria) { animation-fill-mode: forwards; }
 .verInfo { display: flex; flex-direction: column; gap: 14px; min-width: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
 .verInfo h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dim); }
 .verInfo p { margin: 0; }
