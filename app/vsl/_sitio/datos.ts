@@ -22,7 +22,7 @@ import { LANDINGS_COMPETENCIA } from '../_competencia/registro';
 import { CASO } from '../_competencia/marca';
 import type { LandingCompetencia } from '../_competencia/tipos';
 import { AVATARES, type AvatarOrigen } from '@/lib/origen-cuenta';
-import { FUNNELS_SITIO, rutaFunnel } from './funnels';
+import { FUNNELS_SITIO, rutaFunnel } from './funnels-datos';
 import { DEFS, defsVisibles, ordenCategoria, type Def } from '@/lib/integraciones-catalogo';
 import { SIN_USO_TODAVIA, tarjetaDeRed, type RedConTarjeta } from '@/lib/zernio-redes';
 import { CATALOGO_GRABADORES } from '@/lib/grabadores/catalogo';

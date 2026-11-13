@@ -1,4 +1,5 @@
 // =============================================================================
+// ⚠️ NO SE LLAMA funnels.ts: en Windows ./funnels y ./Funnels son el mismo nombre, y la portada cargaba estos datos en vez del componente.
 // Las mini landings por funnel: cómo se arma en MaKo cada uno (13/11/2026)
 // =============================================================================
 // La llamada de Martín con Leila (13/11/2026): «mini landings por funnel: cómo se hace en MaKo un VSL, un WhatsApp, Instagram con

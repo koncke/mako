@@ -1,6 +1,6 @@
 // La sección «Tu funnel, armado en MaKo» de la portada y el cuerpo de cada mini landing (./funnels.ts, 13/11/2026).
 import { Boton, Flecha, Icono } from './Piezas';
-import { FUNNELS_SITIO, rutaFunnel, type FunnelSitio } from './funnels';
+import { FUNNELS_SITIO, rutaFunnel, type FunnelSitio } from './funnels-datos';
 
 /** En la portada: los cuatro funnels, cada uno con su recorrido y el link a su mini landing. */
 export function FunnelsSitio() {
