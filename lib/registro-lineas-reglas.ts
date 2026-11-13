@@ -42,6 +42,11 @@ export type CambioDeLinea = {
   canal: Movida | null;
   /** Instancia → número, de lo que se pudo leer al anotarlo (best-effort: sin número, se muestra la instancia sola). */
   numeros: Record<string, string>;
+  /**
+   * La línea personal de Martín al anotarlo: la de por defecto del negocio del super admin (el …3479). Con la voz ahí no es una
+   * alarma: es su decisión (13/11/2026, «Dejarla en mi personal»). null = no se supo.
+   */
+  personal?: string | null;
 };
 
 export const SIN_PANTALLA = '(sin pantalla)';
@@ -89,11 +94,15 @@ export function describirLinea(inst: string | null, numeros: Readonly<Record<str
   return n.length >= 4 ? `${inst} (…${n.slice(-4)})` : inst;
 }
 
+/** ¿La voz quedó en la línea personal de Martín? (Su decisión: se dice, no se alarma.) */
+export const vozEnSuPersonal = (c: CambioDeLinea): boolean => !!c.voz?.a && !!c.personal && c.voz.a === c.personal;
+
 /**
- * ¿La voz quedó en una línea que no es de MaKo? `mako_ws<n>` es la línea de un NEGOCIO (la del super admin es el …3479, el
- * WhatsApp personal de Martín): ahí MaKo firma con el nombre de una persona y un bloqueo le corta también sus chats.
+ * ¿La voz quedó en la línea de OTRO negocio? `mako_ws<n>` es la línea de un negocio: ahí MaKo habla con el número de un cliente.
+ * La del negocio del super admin —el …3479, el WhatsApp personal de Martín— NO cuenta: el 13/11/2026 Martín decidió dejar la voz
+ * ahí («Dejarla en mi personal»), y un evento en rojo por su propia decisión es una alarma que enseña a no mirar las alarmas.
  */
-export const vozEnLineaDeNegocio = (c: CambioDeLinea): boolean => !!c.voz?.a && /^mako_ws\d/.test(c.voz.a);
+export const vozEnLineaAjena = (c: CambioDeLinea): boolean => !!c.voz?.a && /^mako_ws\d/.test(c.voz.a) && !vozEnSuPersonal(c);
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 const strONull = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
@@ -119,7 +128,7 @@ export function normalizarCambio(raw: unknown): CambioDeLinea | null {
   return {
     at, quien: str(o.quien) || '(sin sesión)', accion: str(o.accion) || '(sin acción)',
     ...(typeof o.activar === 'boolean' ? { activar: o.activar } : {}),
-    pantalla: str(o.pantalla) || SIN_PANTALLA, voz, canal, numeros,
+    pantalla: str(o.pantalla) || SIN_PANTALLA, voz, canal, numeros, personal: strONull(o.personal),
   };
 }
 

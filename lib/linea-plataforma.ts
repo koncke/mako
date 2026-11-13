@@ -29,6 +29,12 @@ const BASE = 'mako_superadmin';
 /** Cómo se dice en pantalla. */
 export const ETIQUETA_LINEA_MAKO = 'WhatsApp de MaKo';
 
+/** Por qué instancia habla MaKo hoy, o null sin el setting. TIRA si la base no contestó: «no sé» no es «ninguna». */
+export async function vozDeMaKoEstricta(): Promise<string | null> {
+  const v = await runWithWorkspace(OWNER_WS, () => getSettingEstricto(KEY_VOZ_INSTANCIA));
+  return (v ?? '').trim() || null;
+}
+
 /** ¿Este nombre es una línea del canal de MaKo? (La misma regla que `esNombreDeCanal`, lib/mako-canal.ts.) */
 export const esLineaDeMaKo = (n: string): boolean => n === BASE || n.startsWith(`${BASE}_`);
 
