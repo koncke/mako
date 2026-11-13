@@ -81,6 +81,7 @@ import { createHash } from 'node:crypto';
 import { CONFIG_DEFAULT, type ConfigLanding } from './api-tipos';
 import { CSS_CONTENIDO } from './css';
 import { podarCss, usadasDe } from './css-usado';
+import { conRespaldo, fuentesPropias as leerFuentesPropias, type FuentesPropias } from './fuentes-propias';
 import { SCRIPT_DISENO, hayMediosAjenos, origenesDeMedios, usaCalendly, type OrigenesDeMedios } from './html-editable';
 // `origenesDeMedios` vive en html-editable.ts (lo usa también el iframe del editor, que es del navegador).
 export { TOPE_ORIGENES_MEDIOS, origenesDeMedios, type OrigenesDeMedios } from './html-editable';
@@ -161,6 +162,12 @@ export type EntradaDocumento = {
    */
   cssDiseno?: string | null;
   fuentes?: string | readonly string[] | null;
+  /**
+   * Las hojas de `fuentes` ya leídas en el servidor (fuentes-propias.ts, 13/11/2026): con ellas la fuente va en línea,
+   * desde el dominio de la página y sin frenar el primer pintado. Sin ellas (Google no contestó, o un test), los
+   * `<link>` a Google como antes.
+   */
+  fuentesPropias?: FuentesPropias | null;
   workspaceId: number;
   modo: ModoDocumento;
   /** La URL pública de ESTA página (canonical y og:url). */
@@ -769,10 +776,17 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
   if (descripcion) head.push(`<meta name="twitter:description" content="${a(descripcion)}">`);
   if (ogImagen) head.push(`<meta name="twitter:image" content="${a(ogImagen)}">`);
   if (favicon) head.push(`<link rel="icon" href="${a(favicon)}">`);
-  if (fuentes.length) {
+  // La fuente PROPIA (13/11/2026): en línea, desde el dominio de la página, precargada y con una letra de respaldo de
+  // sus mismas medidas. Ningún pedido antes de pintar (la hoja de Google bloqueaba el primer pintado).
+  const propias = fuentes.length && e.fuentesPropias ? e.fuentesPropias : null;
+  if (propias) {
+    for (const r of propias.precargas) head.push(`<link rel="preload" href="${a(r)}" as="font" type="font/woff2" crossorigin>`);
+    head.push(`<style>${propias.css.replace(/<\/style/gi, '<\\/style')}</style>`);
+  } else if (fuentes.length) {
     head.push('<link rel="preconnect" href="https://fonts.googleapis.com">', '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>');
     for (const f of fuentes) head.push(`<link rel="stylesheet" href="${a(f)}">`);
   }
+  const html = propias ? conRespaldo(e.html, propias.familias) : e.html;
   // La hoja no viene de nadie de afuera, pero un `</style>` adentro cortaría el documento.
   const hoja = typeof e.css === 'string' && e.css.trim() ? e.css : CSS_CONTENIDO;
   // La hoja va PODADA a lo que la página usa (12/11/2026, css-usado.ts): se llena al final, cuando ya están el HTML y los
@@ -786,7 +800,7 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
   if (cssDiseno) cola.push(`<script>${SCRIPT_DISENO}</script>`);
   if (meta) cola.push(`<script>${meta.script}</script>`, meta.noscript);
   if (token) cola.push(lineaCargador(token, entorno.appBaseUrl));
-  const usadas = usadasDe([e.html, ...cola, ...head].join('\n'));
+  const usadas = usadasDe([html, ...cola, ...head].join('\n'));
   head[lugarHoja] = `<style>${podarCss(`${CSS_DOCUMENTO}\n${hoja}`, usadas).replace(/<\/style/gi, '<\\/style')}</style>`;
 
   return [
@@ -796,7 +810,7 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
     ...head,
     '</head>',
     `<body${animar ? ' data-gm-animar="1"' : ''}>`,
-    e.html,
+    html,
     ...cola,
     '</body>',
     '</html>',
@@ -826,6 +840,8 @@ export type DepDocumento = {
   /** Reemplaza la lectura del token (tests). */
   tokenPixel?: (ws: number) => Promise<string | null>;
   entorno?: Entorno;
+  /** Reemplaza la lectura de las hojas de Google (tests: sin red). */
+  fuentesPropias?: (urls: readonly string[]) => Promise<FuentesPropias | null>;
 };
 
 /**
@@ -833,8 +849,12 @@ export type DepDocumento = {
  * previa (`modo: 'vista'`). Tira si el token del Pixel no se pudo leer.
  */
 export async function documentoPublico(e: EntradaDocumento, dep: DepDocumento = {}): Promise<string> {
-  const tokenPixel = e.modo === 'publico' ? await (dep.tokenPixel ?? tokenDelPixel)(e.workspaceId) : null;
-  return armarDocumento({ ...e, tokenPixel }, dep.entorno ?? entornoActual());
+  const [tokenPixel, propias] = await Promise.all([
+    e.modo === 'publico' ? (dep.tokenPixel ?? tokenDelPixel)(e.workspaceId) : null,
+    // Si Google no contesta, null y la página sale con los `<link>` de siempre: la fuente nunca tira la página.
+    (dep.fuentesPropias ?? leerFuentesPropias)(urlsDeFuentes(e.fuentes)).catch(() => null),
+  ]);
+  return armarDocumento({ ...e, tokenPixel, fuentesPropias: propias }, dep.entorno ?? entornoActual());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -992,7 +1012,7 @@ export async function responderPublico(req: Request, pedido: PedidoPublico, dep:
         workspaceId: lectura.workspaceId, modo, urlCanonica,
         titulo: lectura.pagina.titulo, descripcion: lectura.pagina.descripcion, tituloRespaldo: lectura.titulo,
       },
-      { tokenPixel: dep.tokenPixel, entorno },
+      { tokenPixel: dep.tokenPixel, entorno, fuentesPropias: dep.fuentesPropias },
     );
   } catch (err) {
     console.error(`[l] no pude armar ${rotulo(pedido)} (token del Pixel): ${err instanceof Error ? err.message : String(err)}`);

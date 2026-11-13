@@ -1768,4 +1768,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '13 nov', hora: '13:30', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La página publicada muestra el texto sin esperar la letra',
+    puntos: [
+      'La letra de tu página ahora se sirve desde tu propio dominio, y la página ya no espera a Google para mostrarse.',
+      'Mientras llega la letra se ve una del sistema del mismo tamaño, así el cambio casi no se nota.',
+      'En un teléfono con 4G lenta, el texto aparece en 1,1 segundos en vez de 1,25, y la página termina de cargar en 1,4 en vez de 1,8.',
+    ],
+    archivos: [
+      'lib/editor-landing/fuentes-propias.ts — la hoja de Google leída en el servidor, las caras en línea y la letra de respaldo',
+      'app/l/html/fuentes/[...ruta]/route.ts — los archivos de la fuente desde el dominio de la página',
+      'lib/editor-landing/metricas-fuentes.ts · scripts/generar-metricas-fuentes.mts — las medidas de cada fuente del catálogo',
+      'lib/editor-landing/pagina-publica.ts — el documento con la fuente propia',
+      'tests/web-generator-fuentes-propias.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
 ];

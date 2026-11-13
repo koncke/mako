@@ -4457,3 +4457,26 @@ CSS que usa.
 **Sin hacer:** medir en producción la adaptada nueva lado a lado (espera el despliegue); que la IA respete la cantidad exacta de
 tarjetas no está garantizado en código (se pide en la nota; `fidelidadDeEstructura` lo mide en el log); la región de la función
 no se movió (la base está en us-west-2: con el caché del borde, la mayoría de las visitas no llega a la función).
+
+### La fuente de la publicada, desde su dominio (13/11/2026)
+
+Medido en producción con el caché ya andando (`hola-mako.site/app-o-software`, 375 px, 4G lenta y CPU ×4): primer pintado
+1,22–1,32 s (antes del caché, 3,88 s). El borde contesta HIT en 0,17 s; frío (más de 5 min sin visitas), MISS en 0,85 s.
+Lo único que frenaba el pintado era `<link rel="stylesheet">` a Google Fonts (de 354 a 587 ms, con dos conexiones nuevas).
+
+- **Ahora (`fuentes-propias.ts`):** el servidor lee la hoja de Google (con memoria) y la pone EN LÍNEA; los archivos se piden
+  al dominio de la página (`/l/html/fuentes/<familia>/<v>/<archivo>.woff2`, la ruta los trae de fonts.gstatic.com y el borde
+  los guarda un año); el latino se precarga; y «<Familia> respaldo» (Arial/Roboto o Times con `size-adjust` y los
+  `*-override`, la cuenta de next/font: Inter da 107,12 %) va en la pila, así el cambio de letra casi no mueve nada.
+- **Por qué bajo `/l/html`:** ese prefijo ya pasa por el proxy en hola-mako.site y en el dominio de un cliente, y `html` es
+  slug reservado. Una ruta nueva (`/l/fuentes`) pedía tocar `decidirLandings`, `decidirHost` y reservar otro slug.
+- **El respaldo se mete en la pila al SERVIR** (`conRespaldo`, reemplazo literal de `'<Familia>',` y `&#39;<Familia>&#39;,`):
+  el HTML publicado está congelado en la foto, así que las páginas ya publicadas lo reciben sin volver a publicar.
+- **La trampa de la medición:** medida en un servidor local SIN comprimir (77 KB en vez de 18), la nueva salía MÁS lenta:
+  la página tardaba tanto en bajar que tapaba la hoja de Google, y la precarga le competía. Comprimida como Vercel, la
+  nueva gana: mediana de 7 pares 1,09 s contra 1,25 s de primer pintado y 1,42 contra 1,80 de carga completa (dos corridas
+  sueltas de 2–3 s fueron la PC saturada). Antes de comparar una página en local, comprimirla como la sirve producción.
+- La política va escapada dentro del `<meta>` (`font-src &#39;self&#39;`): un test que la busque con comillas no la ve.
+
+**Sin hacer:** medir la publicada en producción con la fuente propia (espera el despliegue).
+
