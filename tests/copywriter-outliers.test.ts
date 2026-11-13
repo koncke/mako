@@ -416,7 +416,7 @@ test('la réplica se CORRIGE sola: segunda pasada con los números y el largo re
   assert.equal(conElLargoReal('Repliqué el anuncio.', 37, 35), 'Repliqué el anuncio. Quedó de 37 palabras; el original tiene 35.');
   // La segunda pasada va en `editar`, con el pedido de corrección después de su primera respuesta, y gana la que mejor cumple.
   const ia = leer('lib/copywriter/ia.ts');
-  assert.ok(ia.includes('if (m.entera && (f1.largo || f1.capitulos || f1.corta) && Date.now() < t0 + 170_000) {'));
+  assert.ok(ia.includes('if (m.entera && (f1.largo || f1.capitulos || f1.corta || f1.ingles) && Date.now() < t0 + 170_000) {'));
   assert.ok(ia.includes("{ role: 'assistant', content: JSON.stringify(raw) }, { role: 'user', content: correccion }"));
   assert.ok(ia.includes('if (m2.entera && puntos(m2) < puntos(m)) { raw = raw2; m = m2; }'));
   assert.ok(ia.includes('if (largo != null && entera) respuesta = conElLargoReal(respuesta, m.escritas, largo);'));

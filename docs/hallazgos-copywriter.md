@@ -625,6 +625,13 @@ probar-copy-relevo/relevamiento.md y la maqueta del flujo nuevo, que Martín rev
 - **La transcripción casi no existe donde se replica:** 2 de 48 reels, 0 de 48 YouTube, ningún anuncio en video. MaKo replicó un
   video de 8 capítulos leyendo su descripción y dijo «Repliqué la estructura entera».
 - **La portada no es del negocio:** para uno de marketing, fitness y autoayuda arriba, y 35 de 48 carruseles en inglés.
+- **Hecho sin esperar la maqueta:** la oferta elegida va ENTERA (`bloqueDeOferta`, lib/copywriter/oferta-elegida.ts: sus campos,
+  el producto del mismo nombre y lo que le falta, con «no se inventa: [DATO]»); un REEL sin transcribir se transcribe antes de
+  replicarlo, como el YouTube; las palabras sueltas en inglés (`palabrasEnIngles`) van a la segunda pasada.
+- **⚠️ `ad_transcripts` no sirve para los anuncios de la portada:** son los videos de los anuncios PROPIOS del negocio (por el
+  `ad_id` de su cuenta de Meta, los llena el cron `transcribe-ads`; `creative_transcripts`, sus creativos). Los anuncios de la
+  portada son de la competencia (Competitors Spy), y Spy no transcribe anuncios (`tieneGuion`: sólo reels y YouTube). Para usarlas,
+  los anuncios propios tienen que entrar como fuente de la portada (estaba previsto en D18): es un cambio del paso 1 de la maqueta.
 
 ## Qué quedó sin hacer
 

@@ -18,7 +18,9 @@ export const ESPERA_TRANSCRIPCION_MS = 4 * 60_000;
 export const CADA_MS = 6_000;
 
 export const TRANSCRITO = 'Transcribí el video para replicarlo: lo ves en «Ver el original».';
-export const sinTranscripcion = (motivo: string) => `No pude transcribir el video (${motivo}): lo escribo con su título y su descripción, y tomo sólo el gancho y la estructura.`;
+/** Sin transcripción: con qué se escribe (un YouTube, con su título y su descripción; un reel, con el texto de su publicación). */
+export const sinTranscripcion = (motivo: string, formato: 'youtube' | 'reel' = 'youtube') =>
+  `No pude transcribir el video (${motivo}): lo escribo con ${formato === 'reel' ? 'el texto de su publicación' : 'su título y su descripción'}, y tomo sólo el gancho y la estructura.`;
 export const LINEA_TRANSCRIBIENDO = 'Transcribiendo el video para replicarlo: puede tardar un par de minutos.';
 
 /** Por qué no hay transcripción, en una frase corta. */
@@ -53,18 +55,20 @@ const DEPENDENCIAS: Dependencias = {
 export async function transcribirSiHaceFalta(outlier: string, onLinea: (t: string) => void, d: Dependencias = DEPENDENCIAS): Promise<{ ok: boolean; texto: string } | null> {
   if (!outlier.startsWith('spy:')) return null;
   const o = await d.original(outlier);
-  if (!o.ok || o.outlier.formato !== 'youtube' || o.outlier.deDonde === 'guion') return null;
+  // Un YouTube y un REEL (13/11/2026, el relevo: 2 de 48 reels de la portada traían lo que se dice): los dos los transcribe Spy.
+  if (!o.ok || (o.outlier.formato !== 'youtube' && o.outlier.formato !== 'reel') || o.outlier.deDonde === 'guion') return null;
+  const formato: 'youtube' | 'reel' = o.outlier.formato === 'reel' ? 'reel' : 'youtube';
   const piezaId = Number(outlier.split(':')[1]);
   if (!Number.isInteger(piezaId) || piezaId <= 0) return null;
   onLinea(LINEA_TRANSCRIBIENDO);
   const hasta = d.ahora() + ESPERA_TRANSCRIPCION_MS;
   while (d.ahora() < hasta) {
     const r = await d.transcribir(piezaId);
-    if (!r.ok) return { ok: false, texto: sinTranscripcion(r.error.replace(/\.$/, '').toLowerCase()) };
+    if (!r.ok) return { ok: false, texto: sinTranscripcion(r.error.replace(/\.$/, '').toLowerCase(), formato) };
     const g = r.guion;
     if (g.estado === 'listo' && g.texto) return { ok: true, texto: TRANSCRITO };
-    if (g.estado !== 'transcribiendo') return { ok: false, texto: sinTranscripcion(motivoSinTranscripcion(g)) };
+    if (g.estado !== 'transcribiendo') return { ok: false, texto: sinTranscripcion(motivoSinTranscripcion(g), formato) };
     await d.espera(CADA_MS);
   }
-  return { ok: false, texto: sinTranscripcion('tardó más de 4 minutos') };
+  return { ok: false, texto: sinTranscripcion('tardó más de 4 minutos', formato) };
 }
