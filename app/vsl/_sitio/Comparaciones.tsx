@@ -26,12 +26,11 @@ import { Barra } from './Barra';
 import { Pie } from './Pie';
 import { Boton, Flecha, Tilde } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_COMPARACIONES, CSS_PIE } from './estilos';
-import { filasDeComparacion, gruposDeComparacion, nAppsQueReemplaza } from './datos';
+import { filasDeComparacion, gruposDeComparacion } from './datos';
 
 export function ComparacionesSitio() {
   const filas = filasDeComparacion();
   const grupos = gruposDeComparacion();
-  const n = nAppsQueReemplaza();
   return (
     <div className="s-sitio s-claro">
       <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_PIE + CSS_COMPARACIONES }} />
@@ -41,7 +40,7 @@ export function ComparacionesSitio() {
           <div className="s-ch-logo" aria-hidden="true">
             <div className="s-ch-logo-in"><div className="s-ch-logo-c"><EstrellaMaKo size={56} /></div></div>
           </div>
-          <h1 className="s-ch-h1">MaKo reemplaza {n} apps.</h1>
+          <h1 className="s-ch-h1">MaKo reemplaza apps que ya estás pagando.</h1>
           <p className="s-ch-p">Las que ya pagas para vender, hacer contenido y medir: {filas.length} trabajos, en una sola app.</p>
           <Boton flecha />
         </section>

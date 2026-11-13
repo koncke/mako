@@ -221,9 +221,10 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo
 ];
 
 /**
- * Los tableros de MaKo, para el carrusel de la fila «Tus números, en tableros» (Martín, 12/11/2026, noche: «un carrusel con todos
- * los dashboards que tenemos y que se vea la animación de entrada»). Son las capturas de la app de cada plantilla, con sus datos de
- * ejemplo (docs/diseno/mockups-dashboard/<id>/captura/mako-1440.png), recortadas a 16:10 en public/vsl-assets/sitio/tableros/.
+ * Los tableros de MaKo, para el carrusel de la fila «Tus números, en tableros». Cada uno es la ENTRADA de su componente
+ * (app/dashboard/disenos/Hoja*.tsx, con los datos de ejemplo de su miniatura de «Nueva hoja»), grabada: public/vsl-assets/sitio/
+ * tableros/<id>.webm y su último cuadro, <id>.jpg. Martín, 13/11/2026: «que sea como un carrusel… que automáticamente se vaya
+ * desplazando, pero que el usuario también pueda ir cliqueando… cada dashboard tiene su propia animación de entrada».
  */
 export const TABLEROS: readonly { id: string; nombre: string }[] = [
   { id: 'velocidad-tend', nombre: 'Velocidad de llamada' }, { id: 'cobranza', nombre: 'Cobranza' }, { id: 'vsl-pelago', nombre: 'VSL y YouTube' },
@@ -236,9 +237,9 @@ export const TABLEROS: readonly { id: string; nombre: string }[] = [
 /**
  * AI Avatar en la portada: DOS videos de verdad, cada uno con la foto de la que salió (Martín, 13/11/2026: «poner mi personaje, el
  * de la noche, que es todo feo, y que se transformó en eso… que se vea literalmente el video que hicimos, que se reproduzca ahí. Y
- * lo mismo con el de Mauricio»). Martín: su foto de noche → el clip de su personaje con su voz (C:/dev/reel-mentores/clips-final/
- * CLIP1-CON-TU-VOZ.mp4). Mauricio: su foto → los primeros 12 s de su anuncio con IA (OneDrive/Escritorio/Mauricio/QUINTO VIDEO DE
- * IA). En public/vsl-assets/sitio/avatar/.
+ * lo mismo con el de Mauricio»). Martín: su foto de noche → su reel COMPLETO (C:/dev/reel-mentores/montaje/REEL-v7.mp4). Mauricio: su foto → su
+ * anuncio con IA completo, el del auto (OneDrive/Escritorio/Mauricio/TERCER VIDEO DE IA/Anuncio de IA 1 - Final.mp4; el del QUINTO
+ * había salido mal: Martín, 13/11/2026). En public/vsl-assets/sitio/avatar/.
  */
 export const VIDEOS_AVATAR: readonly { id: string; nombre: string }[] = [
   { id: 'martin', nombre: 'Martín' }, { id: 'mauricio', nombre: 'Mauricio' },
@@ -293,7 +294,6 @@ export function numerosDelSitio(): { valor: string; texto: string }[] {
   const plantillas = plantillasDeCopywriting();
   return [
     { valor: String(LANDINGS_COMPETENCIA.length), texto: 'funciones en una sola app' },
-    { valor: String(nAppsQueReemplaza()), texto: 'apps que MaKo reemplaza' },
     { valor: String(integracionesVivas().length), texto: 'integraciones con las apps que ya usas' },
     ...(plantillas ? [{ valor: plantillas, texto: 'plantillas de Copywriting, cada una con su ejemplo' }] : []),
   ];
@@ -311,7 +311,7 @@ export function numerosDelSitio(): { valor: string; texto: string }[] {
  * grupos de WhatsApp son de Pro (lib/topes-plan.ts); la IA es la del cliente.
  */
 export const PREGUNTAS_SITIO: readonly { p: string; r: string }[] = [
-  { p: 'Ya pago GoHighLevel, ManyChat y un editor de video. ¿Para qué cambiar?', r: `Porque MaKo hace ese trabajo en una sola app, con una IA que conoce tu negocio de punta a punta. En «Comparaciones» ves, trabajo por trabajo, las ${appsQueReemplaza().length} apps que reemplaza.` },
+  { p: 'Ya pago GoHighLevel, ManyChat y un editor de video. ¿Para qué cambiar?', r: `Porque MaKo hace ese trabajo en una sola app, con una IA que conoce tu negocio de punta a punta. En «Comparaciones» ves, trabajo por trabajo, las apps que reemplaza.` },
   { p: 'No tengo tiempo de aprender otra herramienta.', r: 'Le cuentas a MaKo qué vendes y a quién, y arma tu oferta, tus páginas y tus mensajes: tú revisas y apruebas. Si prefieres que lo armemos nosotros, el Acelerador lo deja listo en la primera semana.' },
   { p: '¿Y si la IA le contesta mal a un cliente y lo pierdo?', r: 'Cada conversación queda en tu bandeja y la tomas cuando quieras. El setter contesta con tu oferta, califica con tus propios criterios y lleva al interesado a agendar: no cierra ventas por ti.' },
   { p: 'Mi venta se cierra en una llamada. ¿En qué me ayuda?', r: 'La llamada la haces tú. MaKo te llena la agenda con interesados calificados y, con MaKo Pro, te dice qué mejorar en cada llamada de venta.' },
