@@ -118,6 +118,7 @@ export const CSS_TARJETAS = `
 .mkpl-btn { display: block; text-align: center; background: #2F6FED; color: #fff !important; text-decoration: none;
   font-weight: 700; font-size: 15px; padding: 14px 20px; border-radius: 12px; box-shadow: 0 6px 18px rgba(47,111,237,.24); transition: filter .15s ease; }
 .mkpl-btn:hover { filter: brightness(1.06); }
+.mkpl-btn.prueba { font-size: 17px; padding: 18px 20px; border-radius: 14px; box-shadow: 0 10px 26px rgba(47,111,237,.34); }
 .mkpl-btn.borde { background: #fff; color: #2F6FED !important; box-shadow: inset 0 0 0 1.5px #2F6FED; }
 .mkpl-garantia { display: block; margin-top: 8px; text-align: center; font-size: 12.5px; color: #C4C8D0; text-decoration: underline; text-underline-offset: 2px; }
 .mkpl-lista-t { margin: 0 0 10px; font-size: 14px; font-weight: 700; }
@@ -199,7 +200,7 @@ export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
               <span className={`mkpl-bajo${planConPrueba(p.id) ? ' gratis' : ''}`}>{bajoElPrecio(p)}</span>
             </div>
             <div className="mkpl-r-boton">
-              <a className={`${borde} mkpl-mes`} href={boton.href}>{boton.texto}</a>
+              <a className={`${borde} mkpl-mes${p.cobrable && planConPrueba(p.id) ? ' prueba' : ''}`} href={boton.href}>{boton.texto}</a>
               {conAnual && p.precioAnualUsd && <a className={`${borde} mkpl-anual`} href={botonAnualDelPlan({ id: p.id, sufijo }).href}>{botonAnualDelPlan({ id: p.id, sufijo }).texto}</a>}
             </div>
             <div>
