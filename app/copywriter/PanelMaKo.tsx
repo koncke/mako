@@ -630,9 +630,11 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
               ))}
             </div>
           </>
-        ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && (
+        ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && hiloLeido && !pasosIni.length && (
           // Sin el texto que explicaba cómo usar el chat (12/11/2026, Martín: «arriba en MaKo dice un texto que es innecesario… eso es
           // totalmente innecesario»): sólo lo que se le puede pedir, en botones. Sin página abierta no hay nada que decir.
+          // Con el hilo LEÍDO y fuera de una plantilla (13/11/2026, en producción: al abrir una plantilla salían «Mejorar la
+          // escritura · Acortar · Alargar» uno a cinco segundos, hasta que llegaba la pregunta de MaKo).
           <div className="nt-mako-pildoras">
             {sugerencias.map((s) => (
               <button key={s} type="button" className="nt-mako-pildora" disabled={!puede} onClick={() => pedirSugerencia(s)}>{s}</button>

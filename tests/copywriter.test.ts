@@ -447,6 +447,11 @@ test('lo que la respuesta dice que puso y no quedó en la página se avisa (13/1
   assert.equal(dichoQueNoQuedo('Te escribo un reel de 30 segundos en 3 partes.', 'Gancho…'), null);
 });
 
+test('las sugerencias genéricas no parpadean antes de la pregunta de una plantilla (13/11/2026, en producción)', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.ok(panel.includes(') : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && hiloLeido && !pasosIni.length && ('));
+});
+
 test('en el teléfono, la propuesta de MaKo se acepta desde la Página (13/11/2026, en producción a 375: «Aceptar» quedaba en la pestaña MaKo)', () => {
   const m = leer('app/m/copywriter/GuionM.tsx');
   assert.match(m, /\{decidir && vista === 'guion' && \(\s*<PieFijoM/);
