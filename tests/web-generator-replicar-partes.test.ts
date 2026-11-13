@@ -201,7 +201,9 @@ test('2b. cómo está acomodada cada sección: dónde lleva imágenes y si sus s
   assert.match(rep, /const estilo = partes\.diseno \? estiloLeido : null;/);
   // La nota de cada sección (su ángulo, su forma y su acomodo) viaja CON la sección a su tanda.
   assert.match(rep, /return notaDeSeccion\(m, acomodos\[i\], /);
-  assert.match(rep, /pedirSecciones\(\{ esquema: esqTandas, indices, params: receta\.paramsSecciones \?\? params \}\)/);
+  // 13/11/2026: cada vuelta puede llevar su esquema (la de la cantidad exacta suma su nota); por defecto, el de las notas.
+  assert.match(rep, /const correr = async \(lista: readonly number\[\]\[\], vuelta: string, esquemaVuelta: Esquema = esqTandas\) => \{/);
+  assert.match(rep, /pedirSecciones\(\{ esquema: esquemaVuelta, indices, params: receta\.paramsSecciones \?\? params \}\)/);
 });
 
 // Medido el 28/10/2026: con el molde y el ángulo de cada sección en la instrucción común (5.000 caracteres, la misma para
