@@ -247,7 +247,7 @@ export function CursoresAgentes() {
 		/** El panel del agente, quieto: el que no tiene nada que hacer no hace como que trabaja sobre lo que ya está. */
 		const enSuLugar = (id: AgenteId) => puntoDeCursor({ agente: id, en: null, zonas: medida.zonas, linea: medida.linea });
 		dibujo = enjambre
-			? AGENTES.flatMap((a) => {
+			? AGENTES.flatMap<Dibujo>((a) => {
 					const trabajando = agentes[a.id] === "trabajando";
 					const r = reparto.get(a.id);
 					if (r) {
@@ -266,7 +266,7 @@ export function CursoresAgentes() {
 					const opacidad = agentes[a.id] === "esperando" ? 0.55 : 0.4;
 					return p ? [{ id: a.id, color: a.color, p, caja: null, opacidad, adelante: false }] : [];
 				})
-			: sueltos.flatMap((id) => {
+			: sueltos.flatMap<Dibujo>((id) => {
 					// Lo que cambió por su trabajo (12/11/2026), como en la Edición automática.
 					const r = reparto.get(id);
 					if (r) {
@@ -290,7 +290,7 @@ export function CursoresAgentes() {
 					// Los de su rol que ayudan con su tanda (no corren nada propio).
 					[...reparto.entries()]
 						.filter(([a]) => !sueltos.includes(a))
-						.flatMap(([a, r]) => {
+						.flatMap<Dibujo>(([a, r]) => {
 							const t = tareaDeCambio(r.cambio, a, medida, false);
 							return t ? [{ id: a, color: agentePorId(a).color, p: t.punto, caja: t.caja, opacidad: 1, adelante: true }] : [];
 						}),
