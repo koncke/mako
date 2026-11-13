@@ -28,6 +28,7 @@ import { leerComunicacion } from '@/lib/copiloto/comunicacion-store';
 import { landingsDelWorkspace } from '@/lib/landing-config-leer';
 import { conexionesViaZernio } from '@/lib/zernio-conectar';
 import { numeroDelReel } from '@/lib/copiloto/piloto';
+import { verRetargeting } from '@/lib/retargeting';
 import { CoPilot, type DatosCoPilot } from './CoPilot';
 
 export const dynamic = 'force-dynamic';
@@ -45,7 +46,7 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const sesion = typeof sp.sesion === 'string' && /^\d{1,12}$/.test(sp.sesion) ? Number(sp.sesion) : null;
 
-  const [comunicacion, config, dec, cupo, perfil, meta, landings, ig, yt, reel] = await Promise.all([
+  const [comunicacion, config, dec, cupo, perfil, meta, landings, ig, yt, reel, retargeting] = await Promise.all([
     leerComunicacion(ws, sesion),
     callar(leerConfig(ws), null),
     callar(leerDecisiones(ws, 30), { decisiones: [], existeTabla: false }),
@@ -57,6 +58,8 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
     callar(conexionesViaZernio(ws, 'youtube'), []),
     // Con cuántas vistas se publica un reel de prueba: lo que propone Spy con los seguidos, o lo que eligió la persona.
     callar(numeroDelReel(ws), null),
+    // El retargeting sin VSL (lib/retargeting.ts): lo que marcó MaKo en el CRM. Sólo se lee; lo que escribe lo dispara un botón.
+    callar(verRetargeting(ws), null),
   ]);
   const vista = config ? await callar(vistaMediaBuyer(ws, config.kpi, config.objetivo), null) : null;
   const f = funnelElegido(perfil);
@@ -73,6 +76,7 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
     tareas: tareasDeLaSemana(perfil),
     funnel: f ? f.nombre : null,
     reel,
+    retargeting,
     web: landings.map((l) => l.url).slice(0, 6),
     redes: {
       instagram: ig.map((c) => ({ usuario: c.usuario, vencida: !!c.vencida })),

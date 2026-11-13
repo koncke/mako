@@ -87,9 +87,12 @@ const CSS = `
 
 const plata = (n: number) => `US$ ${n.toLocaleString('es')}`;
 
-export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial }: {
+export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial, publicosMeta }: {
   inicial: InicialPiloto; pilotoPermitido: boolean; reel: NumeroDelReel | null; canalInicial: 'anuncios' | 'instagram';
+  /** Los dos públicos de Meta del retargeting (lib/retargeting.ts), o null si no se pudo leer (no se muestra el interruptor). */
+  publicosMeta: boolean | null;
 }) {
+  const [publicos, setPublicos] = useState(publicosMeta ?? false);
   const router = useRouter();
   const [canal, setCanal] = useState<'anuncios' | 'instagram'>(canalInicial);
   const [numero, setNumero] = useState(reel?.numero ?? 1000);
@@ -119,6 +122,11 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial 
         } }),
       })).json() as { ok: boolean; error?: string };
       if (!r.ok) { show(r.error || 'No se pudo guardar.', undefined, 'bad'); return; }
+      // Los públicos del retargeting, sólo si cambiaron (lo pide el botón de quien administra: nunca la carga de la página).
+      if (publicosMeta != null && publicos !== publicosMeta) {
+        const rt = await (await fetch('/api/copiloto/piloto', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'retargeting', publicosMeta: publicos }) })).json() as { ok: boolean; error?: string };
+        if (!rt.ok) { show(rt.error || 'Guardé el piloto, pero no pude cambiar los públicos de Meta.', undefined, 'bad'); return; }
+      }
       show('Listo: el piloto está prendido.', undefined, 'good');
       router.push('/ads-manager/copiloto?paso=piloto&tarjeta=anuncios');
     } catch (e) {
@@ -197,6 +205,14 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial 
                 </div>
               );
             })}
+            {publicosMeta != null && (
+              <div className="mq-aj">
+                <div><b>Mantener en Meta dos públicos: los que no avanzaron en tus chats y los que ya compraron</b></div>
+                <button type="button" className="mq-interr" role="switch" aria-checked={publicos} onClick={() => setPublicos((v) => !v)}>
+                  <i /><span>{publicos ? 'Lo hago solo' : 'No'}</span>
+                </button>
+              </div>
+            )}
             {!pilotoPermitido && <p className="mq-cfg__nota">Con tu plan te propongo cada cambio y tú lo apruebas en el piloto.</p>}
           </section>
           )}

@@ -32,6 +32,8 @@ import type { Decision, KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import type { AnuncioDestacado } from '@/lib/media-buyer/productos';
 import type { Tarea } from '@/lib/media-buyer/copiloto';
 import type { NumeroDelReel } from '@/lib/copiloto/piloto';
+import type { VistaRT } from '@/lib/retargeting-motor';
+import { CSS_RETARGETING, Retargeting } from './Retargeting';
 import { CSS_COPILOTO } from './copiloto-css';
 import { Flecha, Grafico, Tuerca } from './iconos';
 import { AnalisisOC, ModalCosa, ModalTodoOC, SegPartes, SelectorOferta, useComunicacion, useNotaOC } from './OfertaComunicacion';
@@ -50,6 +52,8 @@ export type DatosCoPilot = {
   funnel: string | null;
   /** Con cuántas vistas se publica un reel de prueba (lib/copiloto/piloto.ts); null si no se pudo leer. */
   reel: NumeroDelReel | null;
+  /** El retargeting sin VSL (lib/retargeting.ts): lo que marcó MaKo; null si no se pudo leer. */
+  retargeting: VistaRT | null;
   web: string[];
   redes: Record<'instagram' | 'youtube', Array<{ usuario: string; vencida: boolean }>>;
 };
@@ -186,6 +190,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
       <style>{CSS_COPILOTO}</style>
       <style>{CSS_OFFER}</style>
       <style>{CSS_EXTRA}</style>
+      <style>{CSS_RETARGETING}</style>
       <main className="frn-board">
         <div className="frn-head frn-head--fija frn-head2">
           <span className="frn-marca frn-marca--sola" aria-label="Marketing CoPilot"><CriaturaMako size={34} /></span>
@@ -258,6 +263,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
             <PilotoAnuncios conectada={datos.anuncios.conectada} existeTabla={datos.anuncios.existeTabla} piloto={datos.anuncios.piloto}
               decisiones={decisiones} onDecisiones={setDecisiones} avisar={avisar} />
           )}
+          {paso === 'piloto' && tarjeta === 'anuncios' && <Retargeting vista={datos.retargeting} avisar={avisar} />}
           {paso === 'piloto' && tarjeta !== 'anuncios' && <SinPiloto que={tarjeta === 'oferta' ? 'tu oferta' : tarjeta === 'web' ? 'tu web' : `tu ${NOMBRE_RED[tarjeta]}`} />}
         </div>
       </main>

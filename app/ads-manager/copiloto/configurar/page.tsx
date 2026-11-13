@@ -15,6 +15,7 @@ import { EmptyState, PermissionState } from '@/app/_ui/Estados';
 import { leerConfig, cupoDe } from '@/lib/media-buyer/store';
 import { resolverTacticas } from '@/lib/media-buyer/tacticas';
 import { numeroDelReel } from '@/lib/copiloto/piloto';
+import { verRetargeting } from '@/lib/retargeting';
 import { ConfigurarPiloto, type InicialPiloto } from './ConfigurarPiloto';
 
 export const dynamic = 'force-dynamic';
@@ -27,7 +28,7 @@ export default async function ConfigurarPilotoPage({ searchParams }: { searchPar
   }
   const ws = await wsDeAdsManager();
   if (ws instanceof Response) return <Pagina><PermissionState motivo="rol" /></Pagina>;
-  const [config, cupo, reel] = await Promise.all([leerConfig(ws), cupoDe(ws), numeroDelReel(ws).catch(() => null)]);
+  const [config, cupo, reel, rt] = await Promise.all([leerConfig(ws), cupoDe(ws), numeroDelReel(ws).catch(() => null), verRetargeting(ws).catch(() => null)]);
   const red = (await searchParams).red === 'instagram' ? 'instagram' : 'anuncios';
   // Lo que vale hoy de cada táctica (el motor no viaja al navegador: se resuelve acá).
   const t = resolverTacticas(config.tacticas, { piloto: config.modo === 'piloto', pilotoPermitido: cupo.piloto });
@@ -38,7 +39,7 @@ export default async function ConfigurarPilotoPage({ searchParams }: { searchPar
   };
   return (
     <Pagina ancho="completo" style={{ padding: 0 }}>
-      <ConfigurarPiloto inicial={inicial} pilotoPermitido={cupo.piloto} reel={reel} canalInicial={red} />
+      <ConfigurarPiloto inicial={inicial} pilotoPermitido={cupo.piloto} reel={reel} canalInicial={red} publicosMeta={rt ? rt.publicosMeta.prendido : null} />
     </Pagina>
   );
 }
