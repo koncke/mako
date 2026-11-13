@@ -2786,6 +2786,9 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
     borrar o medir (35 a 290 px corridas en la réplica de @lifeofarjav), y numerar cosas sobre la imagen no la arregla (inventa su
     propia cuenta). Lo que hay que medir se detecta en los píxeles y a la IA se le pide lo que hace bien: leer, decir el orden y
     escribir (lib/carruseles/plancha-local.ts).
+  - **Y el orden tampoco alcanza cuando lista de más** (13/11/2026, en producción): la IA listó letra chica de una tarjeta con
+    cuerpos y lugares inventados y el orden corrió tres textos un lugar. Lo que se escribe encima de algo se COMPRUEBA por lo
+    que dice: el pedazo recortado se le muestra solo y se compara lo leído (`queVaEnLosRenglones` en lib/carruseles/replica.ts).
 - **«No puedo» casi nunca es que no puede: es que el turno llegó sin la herramienta.** Antes de
   culpar a la integración, armá el turno con la frase real (`clasificarIntencion` +
   `herramientasDelTurno`) y mirá qué viajó.

@@ -11,12 +11,48 @@
 // Sólo entiende lo que arma `documentoDeCarrusel`; un documento de otra plantilla no pasa por acá.
 // =============================================================================
 
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { ALTO_CARRUSEL, ANCHO_CARRUSEL } from '@/lib/carruseles/documento';
 
 type Obj = Record<string, unknown>;
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const str = (v: unknown, d = '') => (typeof v === 'string' ? v : d);
+
+/**
+ * El texto con sus palabras de acento en su color (fabric: `styles[renglón][letra]`, contando los renglones del texto y las
+ * letras como `Array.from`, igual que `estilosDeAcento` en lib/carruseles/replica.ts). Sin estilos, el texto tal cual.
+ */
+export function conSusColores(texto: string, styles: unknown): ReactNode {
+  if (!styles || typeof styles !== 'object' || Array.isArray(styles)) return texto;
+  const porRenglon = styles as Record<string, Record<string, { fill?: unknown } | undefined> | undefined>;
+  return texto.split('\n').flatMap((renglon, i) => {
+    const tramos: Array<{ t: string; color?: string }> = [];
+    Array.from(renglon).forEach((letra, k) => {
+      const fill = porRenglon[i]?.[k]?.fill;
+      const color = typeof fill === 'string' ? fill : undefined;
+      const ultimo = tramos[tramos.length - 1];
+      if (ultimo && ultimo.color === color) ultimo.t += letra;
+      else tramos.push({ t: letra, color });
+    });
+    const nodos: ReactNode[] = tramos.map((x, k) => (x.color ? <span key={`${i}-${k}`} style={{ color: x.color }}>{x.t}</span> : x.t));
+    return i ? ['\n', ...nodos] : nodos;
+  });
+}
+
+/**
+ * El fondo de una página: su color, o la IMAGEN de una réplica fiel (la lámina original sin sus letras, lib/carruseles/replica.ts
+ * → `laminaFiel`). 13/11/2026: sin ella, «Tu versión está lista» mostraba las láminas en blanco con los textos sueltos encima,
+ * y el editor, bien: lo primero que se ve no era lo que se iba a abrir.
+ */
+export function fondoDePagina(fondo: unknown): CSSProperties {
+  const f = fondo && typeof fondo === 'object' ? (fondo as Obj) : {};
+  const src = str(f.src);
+  if (f.type === 'image' && /^(https:\/\/|data:image\/)/.test(src)) {
+    return { backgroundColor: str(f.color, '#fff'), backgroundImage: `url(${JSON.stringify(src)})`, backgroundSize: f.fit === 'contain' ? 'contain' : 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' };
+  }
+  return { background: str(f.color, '#fff') };
+}
+
 function Objeto({ o, alto, ancho = ANCHO_CARRUSEL }: { o: Obj; alto: number; ancho?: number }) {
   const pctX = (v: number) => `${(v / ancho) * 100}%`;
   const cq = (v: number) => `${(v / ancho) * 100}cqw`;
@@ -29,10 +65,14 @@ function Objeto({ o, alto, ancho = ANCHO_CARRUSEL }: { o: Obj; alto: number; anc
       lineHeight: num(o.lineHeight, 1.2), color: str(o.fill, '#111'), textAlign: (str(o.textAlign, 'left') as CSSProperties['textAlign']),
       letterSpacing: `${num(o.charSpacing) / 1000}em`, whiteSpace: 'pre-wrap', overflowWrap: 'break-word',
     };
-    return <p style={estilo}>{str(o.text)}</p>;
+    return <p style={estilo}>{conSusColores(str(o.text), o.styles)}</p>;
   }
   if (tipo === 'rect') {
-    return <span style={{ position: 'absolute', left: pctX(num(o.left)), top: pctY(num(o.top)), width: pctX(num(o.width)), height: pctY(num(o.height)), background: str(o.fill), borderRadius: cq(num(o.rx)) }} />;
+    // Con su borde (el lugar marcado de la persona en una réplica fiel va punteado).
+    const borde = str(o.stroke) && num(o.strokeWidth) > 0
+      ? { border: `${cq(num(o.strokeWidth))} ${Array.isArray(o.strokeDashArray) && o.strokeDashArray.length ? 'dashed' : 'solid'} ${str(o.stroke)}`, boxSizing: 'border-box' as const }
+      : {};
+    return <span style={{ position: 'absolute', left: pctX(num(o.left)), top: pctY(num(o.top)), width: pctX(num(o.width)), height: pctY(num(o.height)), background: str(o.fill), borderRadius: cq(num(o.rx)), ...borde }} />;
   }
   if (tipo === 'ellipse') {
     const w = num(o.width); const h = num(o.height);
@@ -52,11 +92,10 @@ function Objeto({ o, alto, ancho = ANCHO_CARRUSEL }: { o: Obj; alto: number; anc
  * cuadrado es 1080 × 1080). El ancho lo pone quien la monta.
  */
 export function PaginaCarrusel({ pagina, style, etiqueta, alto = ALTO_CARRUSEL, ancho = ANCHO_CARRUSEL }: { pagina: Obj; style?: CSSProperties; etiqueta?: string; alto?: number; ancho?: number }) {
-  const fondo = str((pagina.background as Obj | undefined)?.color, '#fff');
   const objetos = Array.isArray(pagina.objects) ? (pagina.objects as Obj[]) : [];
   return (
     <div role="img" aria-label={etiqueta ?? str(pagina.name, 'Lámina')}
-      style={{ position: 'relative', aspectRatio: `${ancho} / ${alto}`, containerType: 'inline-size', background: fondo, overflow: 'hidden', borderRadius: 6, ...style }}>
+      style={{ position: 'relative', aspectRatio: `${ancho} / ${alto}`, containerType: 'inline-size', ...fondoDePagina(pagina.background), overflow: 'hidden', borderRadius: 6, ...style }}>
       {objetos.map((o, i) => <Objeto key={str(o.id, String(i))} o={o} alto={alto} ancho={ancho} />)}
     </div>
   );
