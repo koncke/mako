@@ -29,8 +29,8 @@ import { tabEnCapa } from '@/lib/capas';
 import { getSupabaseServer } from '@/lib/supabase';
 import { buscarStock, copiarStockABucket, copiarUrlABucket, type Orientacion } from '@/lib/imagenes-stock';
 import {
-  BUCKET_LANDING, CARPETA_SUBIDAS, esTipoVideo, pathDeSubida, sniffMedia,
-  subidaDelWs, topeDeTipo, validarSubida,
+  BUCKET_LANDING, CARPETA_SUBIDAS, esTipoVideo, finalConTipo, formatoVisto, pathDeSubida, sniffMedia,
+  subidaDelWs, topeDeTipo, validarSubida, veredictoDeSubida,
 } from '@/lib/editor-landing/server-reglas';
 import type { PedidoImagenes } from '@/lib/editor-landing/api-tipos';
 // La biblioteca vive en lib desde la corrección de la tanda 7: la misma la lee listar_imagenes_landing de la API.
@@ -137,21 +137,27 @@ async function registrar(ws: number, p: Extract<PedidoImagenes, { accion: 'regis
   const cabeza = await primerosBytes(bucket.getPublicUrl(path).data.publicUrl);
   if (!cabeza) return mal('No pude leer el archivo', 502);
   const real = sniffMedia(cabeza.buf);
-  // El tipo REAL tiene que ser el que dice la extensión (que salió del tipo declarado al firmar):
-  // un HTML subido como «image/png» pasa el filtro del bucket, y acá se va.
-  if (real !== sub.tipo) {
-    await descartar(`dice ${sub.tipo} y es ${real ?? 'otra cosa'}`);
-    return mal('El archivo no es lo que dice');
+  // El tipo REAL contra el que dice la extensión (que salió del tipo declarado al firmar): un HTML subido como «image/png» pasa
+  // el filtro del bucket, y acá se va. Pero una foto JPG con nombre .png es una imagen buena (tickets #95 y #96, 13/11/2026:
+  // salía «El archivo no es lo que dice»): vale lo que ES y se guarda con su extensión (`veredictoDeSubida`).
+  const visto = real ? null : formatoVisto(cabeza.buf);
+  const veredicto = veredictoDeSubida(sub.tipo, real, visto);
+  if (!veredicto.ok) {
+    await descartar(`dice ${sub.tipo} y es ${real ?? visto ?? 'otra cosa'}`);
+    return mal(veredicto.error);
   }
-  if (cabeza.total != null && cabeza.total > topeDeTipo(sub.tipo)) {
-    await descartar(`pesa ${cabeza.total} y el tope es ${topeDeTipo(sub.tipo)}`);
-    return mal(esTipoVideo(sub.tipo) ? 'Pasa de 100 MB' : 'Pasa de 15 MB');
+  const tipo = veredicto.tipo;
+  const final = tipo === sub.tipo ? sub.final : finalConTipo(sub.final, tipo);
+  if (tipo !== sub.tipo) console.warn(`[landing-imagenes] ${path}: dice ${sub.tipo} y es ${tipo}; queda como ${final}`);
+  if (cabeza.total != null && cabeza.total > topeDeTipo(tipo)) {
+    await descartar(`pesa ${cabeza.total} y el tope es ${topeDeTipo(tipo)}`);
+    return mal(esTipoVideo(tipo) ? 'Pasa de 100 MB' : 'Pasa de 15 MB');
   }
   if (cabeza.total == null) console.warn(`[landing-imagenes] ${path}: sin tamaño en la respuesta; queda el tope del bucket`);
 
-  const { error } = await bucket.move(path, sub.final);
+  const { error } = await bucket.move(path, final);
   if (error) return mal(error.message, 500);
-  return Response.json({ ok: true, url: bucket.getPublicUrl(sub.final).data.publicUrl, tipo: sub.tipo });
+  return Response.json({ ok: true, url: bucket.getPublicUrl(final).data.publicUrl, tipo });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

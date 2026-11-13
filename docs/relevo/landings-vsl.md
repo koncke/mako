@@ -202,9 +202,9 @@ estilos, `app/globals.css` compilado con Tailwind → `app.css`), grabado a 1280
 | Pedido | Estado | Dónde |
 |---|---|---|
 | Titular y revisar los copies | Hecho. El titular quedó «El mejor software para vender High Ticket» (Martín, 13/11 noche: «ese sería nuestro principal», en todos lados): hero, pie y título de /vsl/sitio | `HeroSitio` (`Portada.tsx`), `Pie.tsx`, `app/vsl/sitio/page.tsx` |
-| Producto en «Adquisición de clientes» y «Entrega del servicio» | Hecho; dos filas nuevas de entrega con su animación PENDIENTE (tablero de entrega y Cobranza) | `APARTADOS_PORTADA` y `apartado` en `TARJETAS_PORTADA` (`datos.ts`) |
+| Producto en «Adquisición de clientes» y «Entrega del servicio» | Hecho, con sus animaciones: el tablero de entrega (`KanbanEntrega`) y Cobranza (la pestaña Pagos de una clienta con una cuota vencida) | `APARTADOS_PORTADA` y `apartado` en `TARJETAS_PORTADA` (`datos.ts`) |
 | Mini landings por funnel (VSL, WhatsApp, Instagram con lead magnet, YouTube) | Hecho, con el contenido de `docs/marketing-copilot/funnels-simples.md` | `app/vsl/_sitio/funnels-datos.ts`, `Funnels.tsx`, `app/vsl/funnels/[funnel]/page.tsx`; sección en la portada y columna en el pie |
-| CRM: entrar a la ficha (de dónde vino, qué hizo, % del VSL) | Banco listo (`LeadSheet` real con `ficha-datos.ts`); falta grabar | `C:/dev/bancos-portada/banco-ficha` |
+| CRM: entrar a la ficha (de dónde vino, qué hizo, % del VSL) | Hecho: el tablero, «Ver info», «Abrir ficha», el Origen y la pestaña Tracking (3 visitas, VSL al 78 %) | `crm-ficha.webm` (`banco-ficha`) |
 | «Se conecta con tu Claude y tu GPT» | Hecho: lo que hay de verdad (tu clave de Claude/OpenAI/Gemini y el conector «MaKo para Claude»; para ChatGPT no hay conector y no se dice) | `SeccionesIA.tsx` → `ConectaTuIA` |
 | El costo de la IA, en su sección | Hecho con los gastos REALES de 30 días (sólo lectura): Martín US$15 de Claude, un cliente (Mauricio, sin nombre) US$11; Gemini gratis | `SeccionesIA.tsx` → `CostoDeLaIA` |
 | Reemplaza apps: HeyGen, OpusClip, sólo Notion | Hecho: US$392 contra MaKo Pro (HeyGen Creator 29, OpusClip Pro 29; el Cerebro: «el plan que se paga para usarla de verdad») | `reemplaza.ts` |
@@ -213,6 +213,16 @@ estilos, `app/globals.css` compilado con Tailwind → `app.css`), grabado a 1280
 | Prueba sólo en el de 97, botón grande | Hecho: «Comienza tu prueba gratuita» | `botonDelPlan` (`lib/compra-plan-reglas.ts`), `.mkpl-btn.prueba` |
 | Casos: Axel y otro | Hecho con los cuatro testimonios que Martín ya publicó (Axel, Securiters, QS Media, Social Media Lab), como «los que trabajaron con Martín» | `MasCasos.tsx` |
 | Mercado Pago en el checkout | No es de landings: el chat de la pasarela (`app/planes/[plan]/Checkout.tsx`); avisado al Cerebro | — |
+
+**En pausa (13/11, noche), hasta que Martín decida** publicar las páginas de Industrias y hacer de la portada nueva la `/` (avisa
+el Cerebro). Spy con Hormozi NO espera un OK de gasto (Martín ya dijo que se gaste Apify): la clave de Apify cargada en Spy da 401 y
+la tiene que pegar Martín en Integraciones → Apify. Copywriting con un reel de Hormozi espera su OK a la maqueta nueva.
+
+**Todas las filas de la portada ya son la app grabada** (13/11, noche), salvo Copywriting con Hormozi (espera el OK de Martín para
+replicar un reel suyo). Las de esta tanda: Marketing CoPilot (`copilot.webm`, la vista «Hoy» de MediaBuyer), Chats (`chats.webm`,
+la bandeja y el «Borrador de MaKo»), CRM con la ficha (`crm-ficha.webm`), Automations (`automations.webm`, el lienzo con «Un Lead
+Entró» y el AI Step), Entrega (`entrega.webm`) y Cobranza (`cobranza.webm`). Producción probada a 1440 y 375 (d3f6bd9b3): sin #418,
+el carrusel y el sonido andan (capturas en la carpeta de notas, `landings-prod-1311/`).
 
 **Los bancos se mudaron a `C:/dev/bancos-portada/`** (13/11, noche): esbuild no podía leer la carpeta Temp («being used by another
 process») y ningún banco del scratchpad compilaba. Ahí están todos (`banco-video`, `banco-grupos`, `banco-flujo`, `banco-chats`,
