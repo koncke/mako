@@ -121,3 +121,17 @@ test('A8: el teléfono pide el almacenamiento persistente, como la computadora (
   assert.match(src, /<StoragePersistenceDialog \/>/);
   assert.match(readFileSync(new URL('../app/video-editor/_opencut/editor-page.tsx', import.meta.url), 'utf8'), /<StoragePersistenceDialog \/>/);
 });
+
+test('A9: la computadora también avisa el archivo que falta y deja elegirlo (encima del reproductor; el teléfono, el suyo)', () => {
+  assert.equal(textoDelAviso([{ nombre: 'toma-a.mp4' }], 'navegador'), 'Falta «toma-a.mp4» en este navegador');
+  assert.equal(textoDelAviso([{ nombre: 'a.mp4' }, { nombre: 'b.mp4' }], 'navegador'), 'Faltan 2 archivos en este navegador');
+  const leerA = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8');
+  const aviso = leerA('app/video-editor/_opencut/media/components/aviso-archivos-faltantes.tsx');
+  assert.match(aviso, /await reenlazarArchivo\(\{ editor, mediaId: f\.mediaId, tipo: f\.tipo, file \}\);/, 'reenlaza con el MISMO medio');
+  assert.match(aviso, /cargando \|\| !tracks \? \[\] :/, 'no avisa mientras carga la biblioteca');
+  const panel = leerA('app/video-editor/_opencut/preview/components/index.tsx');
+  assert.match(panel, /\{avisoArchivos \? <AvisoArchivosFaltantes \/> : null\}/);
+  assert.match(leerA('app/video-editor/_opencut/editor-page.tsx'), /onOverlayVisibilityChange=\{setOverlayVisibility\}\s*avisoArchivos\s*\/>/);
+  // El teléfono no pide el de la computadora: tiene el suyo, que no se tapa con éste.
+  assert.doesNotMatch(leerA('app/m/video-editor/EditorVideoM.tsx'), /avisoArchivos/);
+});
