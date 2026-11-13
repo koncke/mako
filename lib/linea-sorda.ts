@@ -134,6 +134,21 @@ export function puedeSoltarseSorda(marca: { vinculadaDesde?: number | null } | n
   return !!marca && marca.vinculadaDesde != null && vinculadaAhora != null && marca.vinculadaDesde >= vinculadaAhora;
 }
 
+/**
+ * Lo que el panel dice de una línea que figura CONECTADA y no recibe, o null si no hay nada que decir (13/11/2026).
+ *
+ * «Tu número» (/agencia) dibujaba «Vincular por QR» sólo con la línea desconectada, y una sorda figura conectada: para re-vincular el
+ * …3479, Martín tenía que cerrar el dispositivo desde el teléfono primero. `conectar` (lib/evolution.ts) ya sabía soltarla y dar el
+ * QR en un paso; faltaba el botón. Se ofrece con la MISMA condición con la que `conectar` la suelta (`puedeSoltarseSorda`): si el
+ * botón apareciera sin ella, el clic diría «ya está conectada» y no daría nada.
+ */
+export function motivoParaVolverAVincular(
+  marca: { motivo: string; vinculadaDesde?: number | null } | null | undefined,
+  vinculadaAhora: number | null,
+): string | null {
+  return marca && puedeSoltarseSorda(marca, vinculadaAhora) ? marca.motivo : null;
+}
+
 /** Los pasos para re-vincular la voz. Con la marca, el panel la desvincula solo y da el QR (lib/mako-canal.ts, `conectarCanalMaKo`). */
 export const PASOS_QR = [
   '1. En hola-mako.com/agencia → «Conectar por QR»: como está marcada sorda, la desvincula sola y muestra el QR.',
@@ -142,6 +157,20 @@ export const PASOS_QR = [
   'Si el panel igual dice que ya está conectada: en ese teléfono, WhatsApp → Dispositivos vinculados → Cerrar sesión, y otra vez «Conectar por QR».',
 ].join('\n');
 
+/** Los pasos cuando la voz es la línea de Martín (el …3479, «Tu número»: su decisión del 13/11/2026). Mismo panel, otro botón y otro teléfono. */
+export const PASOS_QR_TU_NUMERO = [
+  '1. En hola-mako.com/agencia → «Tu número» → «Volver a vincular por QR»: como está marcada sorda, la desvincula sola y muestra el QR.',
+  '2. Escanearlo con tu teléfono personal: WhatsApp → Dispositivos vinculados → Vincular un dispositivo.',
+  '3. Lo que llegue por la resincronización no lo atiende MaKo sola: hay que leer los grupos y contestar lo que quedó.',
+  'Si el botón no aparece: en ese teléfono, WhatsApp → Dispositivos vinculados → Cerrar sesión del dispositivo de MaKo, y «Vincular por QR».',
+].join('\n');
+
+/**
+ * Los pasos para la línea que es la voz. ⚠️ No son siempre los del canal: el 13/11/2026 la voz estaba en el …3479 y el aviso decía
+ * «Conectar por QR» y «el teléfono de MaKo (…2605)», el botón y el teléfono equivocados.
+ */
+export const pasosQrDe = (linea: string): string => (linea.startsWith('mako_superadmin') ? PASOS_QR : PASOS_QR_TU_NUMERO);
+
 /** El aviso (mail y campanita) de cada acción, armado por el código. */
 export function avisoDeSordera(accion: Exclude<Accion, 'nada'>, motivo: string, linea: string): { titulo: string; cuerpo: string } {
   if (accion === 'volvio') return { titulo: 'La voz de MaKo volvió a recibir', cuerpo: `${linea} volvió a recibir mensajes de personas.` };
@@ -149,5 +178,5 @@ export function avisoDeSordera(accion: Exclude<Accion, 'nada'>, motivo: string, 
     ? `⛔ La voz de MaKo (${linea}) MANDA pero NO RECIBE: ${motivo}. Los clientes le escriben y MaKo no se entera. Un reinicio no la cura (medido el 11/09, el 9/11 y el 11/11): hay que re-vincularla.`
     : `⛔ La voz de MaKo (${linea}) sigue sin recibir: ${motivo}. Hay que re-vincularla.`;
   const fondo = 'La causa de fondo es la versión de la librería de WhatsApp de Evolution (Baileys 7.0.0-rc.9): el QR la cura por horas o días.';
-  return { titulo: accion === 'avisar' ? 'La voz de MaKo no recibe mensajes' : 'La voz de MaKo sigue sorda: hace falta el QR', cuerpo: `${cabeza}\n\n${PASOS_QR}\n\n${fondo}` };
+  return { titulo: accion === 'avisar' ? 'La voz de MaKo no recibe mensajes' : 'La voz de MaKo sigue sorda: hace falta el QR', cuerpo: `${cabeza}\n\n${pasosQrDe(linea)}\n\n${fondo}` };
 }

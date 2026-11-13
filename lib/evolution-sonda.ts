@@ -137,3 +137,17 @@ export function hayQueRecrear(p: { abierta: boolean; desvinculada: boolean; qrBa
   if (!p.conectarOk) return true;              // Evolution rechazó el connect sobre una sesión muerta
   return !p.qrBase64;                          // contestó, pero sin QR: zombi
 }
+
+/**
+ * ¿La línea IGNORA los grupos? Las de un negocio sí: es la regla anti-bloqueo de siempre (`setSettings`, lib/evolution.ts). Salvo
+ * la que hoy es la VOZ de MaKo (`mako.voz.instancia`), que vive de los grupos.
+ *
+ * 13/11/2026: la voz estaba en el …3479 (la línea del negocio de Martín, por su decisión) y sorda. Re-vincularla con el QR de «Tu
+ * número» (/agencia) pasa por `conectar`, que le aplicaba los ajustes de un negocio: `groupsIgnore: true`. La línea volvía a recibir
+ * los chats y MaKo seguía sin oír a nadie en los grupos, con todo en verde. Sólo lo arreglaba apagar y prender «Usarlo para MaKo».
+ *
+ * `voz` undefined = no se pudo leer: se ignoran, como siempre (quien llama lo deja en el log).
+ */
+export function ignoraGrupos(instancia: string, voz: string | null | undefined): boolean {
+  return !(voz && voz === instancia);
+}

@@ -291,6 +291,39 @@ export function instruccionDePartes(p: PartesReplica, extra: { molde?: string; a
   return texto.length > TOPE_INSTRUCCION ? `${texto.slice(0, TOPE_INSTRUCCION - 1)}…` : texto;
 }
 
+/** Lo que hace falta de una oferta para escribir la réplica (lo de `ofertas`, lib/oferta-modelo.ts). */
+export type OfertaParaReplica = {
+  nombre: string;
+  promesa?: string | null;
+  para_quien?: string | null;
+  incluye?: string | null;
+  precio_usd?: number | null;
+  precio_nota?: string | null;
+  garantia?: string | null;
+};
+
+/**
+ * La oferta en texto, para la instrucción de la réplica cuando la persona no escribió «Tu oferta» (12/11/2026, el Cerebro:
+ * «si el perfil del negocio está vacío, usa la oferta principal, como hacen Copywriting e Image»). Medido ese día en el ws9:
+ * con el perfil vacío y sin oferta escrita, la réplica de una masterclass seguía hablando de la competencia. Sólo lo que el
+ * negocio cargó: un campo vacío no se nombra (y no se inventa). '' sin nombre. Puro.
+ */
+export function textoDeOferta(o: OfertaParaReplica | null | undefined): string {
+  const nombre = String(o?.nombre ?? '').replace(/\s+/g, ' ').trim();
+  if (!o || !nombre) return '';
+  const limpio = (s: string | null | undefined) => String(s ?? '').replace(/\s+/g, ' ').trim();
+  const precio = typeof o.precio_usd === 'number' && Number.isFinite(o.precio_usd) && o.precio_usd > 0
+    ? `US$${o.precio_usd}${limpio(o.precio_nota) ? ` (${limpio(o.precio_nota)})` : ''}` : limpio(o.precio_nota);
+  return [
+    nombre,
+    limpio(o.promesa) && `promesa: ${limpio(o.promesa)}`,
+    limpio(o.para_quien) && `para: ${limpio(o.para_quien)}`,
+    limpio(o.incluye) && `incluye: ${limpio(o.incluye)}`,
+    precio && `precio: ${precio}`,
+    limpio(o.garantia) && `garantía: ${limpio(o.garantia)}`,
+  ].filter(Boolean).join('; ').slice(0, TOPE_OFERTA);
+}
+
 /**
  * ¿Una réplica que se escribe para el negocio (`adaptar`) terminó sin NINGUNA sección escrita por la IA? (12/11/2026: en el
  * ws3, sin IA, la «Adaptada de …» salía igual, con el texto de la competencia entero.) Entonces no se crea. Puro.

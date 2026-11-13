@@ -4397,3 +4397,63 @@ Réplica: la masterclass de clase.highticketclarity.com desde su tarjeta de outl
   (lib/editor-landing/plantillas.ts). Una sección vacía publicada es una falla a la vista.
 - **El chat del editor inventa datos al adaptar:** le pasó a Martín las cifras de Clara («más de 10 años… más de 50 negocios high
   ticket»). Es la IA de editar (lib/editor-landing/ia.ts); «PROHIBIDO INVENTAR» no le llega con el perfil del negocio vacío.
+
+### Ticket #88: «La pantalla Web Generator se rompió» era un diálogo abierto desde la URL dibujándose en el SERVIDOR (12/11/2026)
+
+- **Síntoma:** la Ticketera abrió «se rompió» con `Minified React error #419` en `/web-generator?vista=…&diseno=…`. La pantalla
+  se veía bien: #419 es un error RECUPERABLE (React tiró esa parte del HTML del servidor y la dibujó en el cliente), y Next lo
+  manda a `reportError`, que `ReportarErrores` convierte en ticket. **El error de verdad está en el servidor**, y el del navegador
+  no lo trae: se lee en Vercel (`npx vercel@latest logs --token … --scope mbustos-4239s-projects -p mako --since … -q
+  'requestPath:"/web-generator"' --json`): «ReferenceError: document is not defined» en el chunk de MiniaturaLanding, con el
+  mismo `digest` en las 11 visitas.
+- **Causa:** `?vista=plantillas&diseno=<id>` (el enlace de las plantillas de la portada) abre «¿De qué quieres crearla?» desde el
+  estado INICIAL de Inicio.tsx (`disenoInicial`), y `DialogoGamma` hace `createPortal(…, document.body)` al dibujarse. Abierto con
+  un clic nunca pasa por el servidor; abierto desde la URL, sí. Lo disparó la prueba de este chat (12 plantillas seguidas), pero
+  le pasa a cualquiera que toque una plantilla de la portada.
+- **Regla:** un portal a `document.body` va detrás de `useEnElNavegador()` (`useSyncExternalStore` con `() => false` para el
+  servidor: el servidor y la hidratación dan lo mismo y no hay desajuste), y los efectos que miden o enfocan lo portaleado
+  dependen de ese valor. Antes de abrir algo desde la URL, se pregunta si sus piezas se pueden dibujar en el servidor.
+
+### «La réplica no se parece al original»: lo que el lector del servidor no veía, y la publicada liviana (12/11/2026, noche)
+
+El Cerebro miró `orig/htc-1440.jpg` contra la réplica y decidió: de un outlier sale la ADAPTADA directo (la literal queda en
+«Qué replicar»), sin «Tu oferta» va la oferta principal, ninguna cifra inventada, y la publicada con caché en el borde y sólo el
+CSS que usa.
+
+- **⚠️ El diagnóstico obvio era el equivocado: «la IA no respeta el diseño».** La IA arma cada sección con el «acomodo» que le
+  pasa el lector, y el lector del SERVIDOR (sin la ventana del navegador) no veía casi nada de esta página:
+  - `section.tint{background:var(--panel-soft)}` es un selector COMPUESTO, y `indicesDe` sólo juntaba `.clase`, `#id` y
+    `etiqueta` sueltos: todas las secciones salían del blanco del body. Ahora los compuestos cuentan (`compuestoDe`), con su
+    especificidad entre la clase y el id;
+  - las fotos venían en base64 y se descartan (no se copian): con ellas se perdía también que la sección TENÍA foto. Ahora
+    `fotos` las cuenta para el acomodo, aunque no se suban;
+  - la foto de «Quién es» va ANTES de su h2, en un contenedor que cierra antes: caía en la parte anterior. Las fotos suben de
+    contenedor en contenedor hasta uno con títulos (antes de su primer título → ese; si no, el último anterior);
+  - los testimonios eran seis `<article class="caso">` sin títulos: el molde decía «22 párrafos». Ahora un contenedor con ≥3
+    hijos con la misma clase y con texto es una grilla de `tarjetas` (con foto o no), y el acomodo pide «N tarjetas en grilla, ni
+    una más ni una menos»; tres `<li>` sin clase NO son tarjetas;
+  - el video del hero (`<video>` o el iframe de un reproductor) va como «un video junto al texto».
+  Con la ventana del navegador (Chrome con ventanas emergentes) la lectura sale de los estilos computados y ya veía casi todo:
+  la prueba en el navegador de la app de Claude midió el PEOR caso.
+- **En la adaptada no se sube ninguna foto de la otra** (`conFotosAjenas`): quedan los colores, los fondos y el hueco.
+- **Las cifras: la fuente NO es la página.** El chat de editar respaldaba las cifras con el texto de la página, y en una réplica
+  ese texto es de la competencia: por eso «saca a Clara Pérez» le pasó a Martín sus «más de 10 años». Ahora `cifrasSinRespaldo`
+  (montos, %, «+N», «más de N», seguidores, clientes, años; no las cantidades de la estructura) mira sólo el negocio y el pedido,
+  y lo que no tiene respaldo se DICE (no se borra: una cifra en un párrafo no se vacía sin romper la frase).
+- **La hoja de la publicada: 186 KB → 39 KB, idéntica al píxel** (comparada a 1440 y 375 con Chrome sin ventana: 0 píxeles
+  distintos). Lo pesado no eran las clases sino los atributos: `[data-anim="…"]` 61 KB, `[data-variante="…"]` 41 KB y
+  `[data-dispositivo="…"]` (del EDITOR) 10 KB. `css-usado.ts` saca la regla sólo si TODOS sus selectores piden algo que la página
+  no tiene; lo que un script prende (`gm-visto`, `data-pausado`) se lee en el texto del script.
+- **Caché en el borde:** `Vercel-CDN-Cache-Control: s-maxage=30, stale-while-revalidate=300`; el navegador sigue con su ETag. Lo
+  que se paga: recién publicada, un visitante puede ver la anterior un rato; «Abrir» del editor lleva `?v=` y la ve nueva.
+  `@vercel/functions` (para invalidar por etiqueta) no está en el proyecto: sumarlo es tocar el `node_modules` que comparten todos.
+- **La plantilla del quiz publicaba «Empieza aquí» vacía** porque el bloque iba con la estructura sin textos (`QUIZ_NUEVO`) y
+  `render.ts` no dibuja un quiz incompleto: ahora va con textos de muestra entre corchetes, como el resto de la plantilla.
+- **La punta se puso roja por un test que copiaba la línea del código, no por un bug.** `replica-editable` 8b buscaba tal cual
+  `resumen: [hay ? … , ...noSePudo].join(' ')`; sumarle el aviso de cifras la cambió y el chat seguía diciendo lo que no se pudo.
+  El armado vive ahora en `resumenDeEdicion` (`ia-reglas.ts`), y los tests miran lo que la persona LEE (probado rompiéndolo).
+  Regla: lo que el chat le dice a la persona se fija con una función pura y su salida, no con una expresión regular sobre el código.
+
+**Sin hacer:** medir en producción la adaptada nueva lado a lado (espera el despliegue); que la IA respete la cantidad exacta de
+tarjetas no está garantizado en código (se pide en la nota; `fidelidadDeEstructura` lo mide en el log); la región de la función
+no se movió (la base está en us-west-2: con el caché del borde, la mayoría de las visitas no llega a la función).

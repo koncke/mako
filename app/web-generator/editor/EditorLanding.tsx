@@ -68,7 +68,7 @@ import type { Node as NodoPM } from '@tiptap/pm/model';
 import Link from '@/app/_ui/Link';
 import { TEMAS, temaPorId, urlFuentes, varsDeTema } from '@/lib/editor-landing/temas';
 import {
-  NODO, TOPES, docPagina, nuevoId, tarjetaVacia,
+  NODO, TOPES, conVersion, docPagina, nuevoId, tarjetaVacia,
   type DocPagina, type JsonNodo, type LandingContenido, type Pagina,
 } from '@/lib/editor-landing/doc';
 import {
@@ -1330,7 +1330,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
             <ItemMenu icono="ojo" texto="Vista previa" onClick={() => { void vistaPrevia(); }} />
             {urlPublica ? (
               <ItemMenu icono="flecha-externa" texto="Ver página publicada"
-                onClick={() => { window.open(urlPublica, '_blank', 'noopener,noreferrer'); }} />
+                onClick={() => { window.open(conVersion(urlPublica, Date.now().toString(36)), '_blank', 'noopener,noreferrer'); }} />
             ) : null}
             <SepMenu />
             <ItemMenu icono="descargar" texto="Descargar…" onClick={() => setDialogo('exportar')} />

@@ -178,15 +178,48 @@ export type ImagenesDeSeccion = { cantidad: number; fondo: boolean };
  * molde: sin el diseño de la original, la réplica deja el HUECO de la imagen donde la otra tenía una (la llena la
  * persona). Vacío si no hay nada que decir.
  */
-export function acomodoDeSeccion(m: MoldeSeccion, img: ImagenesDeSeccion | null): string {
+export function acomodoDeSeccion(m: MoldeSeccion, img: ImagenesDeSeccion | null, disp: DisposicionDeSeccion | null = null): string {
   const partes: string[] = [];
+  // 12/11/2026 (la réplica de la masterclass de Clara Pérez): un video junto al texto, y las fotos que vienen en base64 (no se
+  // copian, pero dicen cómo está acomodada: `fotos`) cuentan igual que una imagen.
+  if (disp?.video) partes.push('un video junto al texto (deja el hueco del video)');
+  const fotos = img?.cantidad ?? disp?.fotos ?? 0;
+  const enTarjetas = !!disp?.tarjetas?.conFoto;
   if (img?.fondo) partes.push('imagen de fondo');
-  else if (img && img.cantidad >= 3) partes.push(`${img.cantidad} imágenes (galería o logos)`);
-  else if (img && img.cantidad === 2) partes.push('dos imágenes');
-  else if (img && img.cantidad === 1) partes.push('una imagen junto al texto');
-  if (m.subtitulos >= 2) partes.push(`${m.subtitulos} tarjetas o pasos con su subtítulo`);
+  else if (!enTarjetas && fotos >= 3) partes.push(`${fotos} imágenes (galería o logos)`);
+  else if (!enTarjetas && fotos === 2) partes.push('dos imágenes');
+  else if (!enTarjetas && fotos === 1 && !disp?.video) partes.push('una imagen junto al texto');
+  // Las TARJETAS que se ven en la página (los testimonios, los pasos numerados): la grilla, con su cantidad EXACTA.
+  if (disp?.tarjetas) partes.push(`${disp.tarjetas.cantidad} tarjetas en grilla, ni una más ni una menos${disp.tarjetas.conFoto ? ', cada una con el hueco de su foto' : ''}`);
+  else if (m.subtitulos >= 2) partes.push(`${m.subtitulos} tarjetas o pasos con su subtítulo`);
   if (m.desplegables >= 2) partes.push('preguntas desplegables');
   return partes.join(', ');
+}
+
+/** Cómo está armada una sección de la original, más allá de sus imágenes (lo de `SeccionOriginal`, estilo-original.ts). */
+export type DisposicionDeSeccion = { tarjetas: { cantidad: number; conFoto: boolean } | null; fotos: number; video: boolean };
+
+/**
+ * La disposición de cada sección de la réplica: la de las partes de la original que le tocan (`partesDeCadaSeccion`). Las
+ * tarjetas, las de la parte que más tiene; las fotos, sumadas; el video, si alguna lo tiene. null si no hay nada que decir.
+ */
+export function disposicionPorSeccion(
+  partes: readonly (readonly number[])[],
+  secciones: readonly { tarjetas?: { cantidad: number; conFoto: boolean }; fotos?: number; video?: boolean }[],
+): (DisposicionDeSeccion | null)[] {
+  return partes.map((ps) => {
+    let tarjetas: DisposicionDeSeccion['tarjetas'] = null;
+    let fotos = 0;
+    let video = false;
+    for (const p of ps) {
+      const s = secciones[p];
+      if (!s) continue;
+      if (s.tarjetas && (!tarjetas || s.tarjetas.cantidad > tarjetas.cantidad)) tarjetas = s.tarjetas;
+      fotos += s.fotos ?? 0;
+      video ||= s.video === true;
+    }
+    return tarjetas || fotos || video ? { tarjetas, fotos, video } : null;
+  });
 }
 
 /** Las imágenes de cada sección de la réplica: las de las partes de la original que le tocan (`partesDeCadaSeccion`). */
