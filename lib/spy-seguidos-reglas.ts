@@ -161,13 +161,25 @@ export function rotuloDelNumero(n: Pick<NumeroDeRed, 'promedio' | 'metrica'>): s
   return n.promedio == null ? null : `${dibujarContador(n.promedio)} ${UNIDAD[n.metrica]}`;
 }
 
-function explicacionDe(motivo: MotivoSinNumero | null, contadas: number): string {
+/** Cómo se dice qué piezas hacen falta en cada red («7 reels con vistas»). */
+const QUE_FALTA: Record<RedDelNumero, string> = {
+  reel: 'reels con vistas',
+  publicacion: 'carruseles o imágenes con me gusta y comentarios',
+  short: 'shorts con vistas',
+  video: 'videos con vistas',
+};
+
+/**
+ * La frase que va debajo del número, lista para mostrar tal cual (CoPilot la pone así): en tú, nunca con voseo, y diciendo qué
+ * falta en ESA red, no «publicaciones de este formato».
+ */
+function explicacionDe(red: RedDelNumero, motivo: MotivoSinNumero | null, contadas: number): string {
   if (motivo === 'falta-enmienda') return FALTA_LA_ENMIENDA;
-  if (motivo === 'sin-seguidos') return 'Todavía no sigues a ninguna cuenta.';
-  if (motivo === 'pocas') return `Ninguna de las cuentas que sigues tiene ${MINIMO_PARA_COMPARAR} publicaciones de este formato con números.`;
+  if (motivo === 'sin-seguidos') return 'Todavía no sigues a ninguna cuenta: elige a tus competidores en Competitor Spy.';
+  if (motivo === 'pocas') return `Las cuentas que sigues todavía no tienen ${MINIMO_PARA_COMPARAR} ${QUE_FALTA[red]} de hace más de una semana para calcularlo.`;
   return contadas === 1
-    ? `Lo que suele hacer la única cuenta que sigues con este formato.`
-    : `Lo que suele hacer una cuenta que sigues: el promedio de ${contadas}.`;
+    ? 'Lo que suele hacer la única cuenta que sigues con números en esta red.'
+    : `Lo que suele hacer una cuenta que sigues: el promedio de ${contadas} cuentas.`;
 }
 
 /**
@@ -208,7 +220,7 @@ export function numeroDeSeguidos(
       : red.canal === 'youtube' && !conYouTube ? 'falta-enmienda'
         : !con.length ? 'pocas' : null;
     const promedio = motivo ? null : Math.round(con.reduce((s, c) => s + (c.mediana as number), 0) / con.length);
-    return { red: red.red, nombre: red.nombre, metrica: red.metrica, promedio, motivo, explicacion: explicacionDe(motivo, con.length), competidores: porCompetidor };
+    return { red: red.red, nombre: red.nombre, metrica: red.metrica, promedio, motivo, explicacion: explicacionDe(red.red, motivo, con.length), competidores: porCompetidor };
   });
   return { seguidos: competidores.length, redes };
 }

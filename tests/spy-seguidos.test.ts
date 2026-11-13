@@ -106,9 +106,13 @@ test('3. una cuenta con menos de 7 piezas no tiene número; si nadie tiene, el m
   assert.equal(n?.motivo, 'pocas');
   assert.equal(n?.competidores[0].mediana, null);
   assert.equal(n?.competidores[0].piezas, 6);
+  // La frase va tal cual debajo del número (CoPilot): dice qué falta en ESA red, en tú y sin voseo.
+  assert.equal(n?.explicacion, 'Las cuentas que sigues todavía no tienen 7 reels con vistas de hace más de una semana para calcularlo.');
   const nadie = numeroDeSeguidos([], [], AHORA);
   assert.equal(nadie.seguidos, 0);
   assert.ok(nadie.redes.every((r) => r.motivo === 'sin-seguidos' && r.promedio == null));
+  const voseo = /(?<![\p{L}])(eleg[ií]|segu[ií]s|ten[ée]s|pod[ée]s|quer[ée]s|sab[ée]s)(?![\p{L}])/iu;
+  for (const r of [...nadie.redes, n!]) assert.ok(!voseo.test(r.explicacion), r.explicacion);
 });
 
 test('4. YouTube no tiene número sin la enmienda (y lo dice); con ella, sale solo', () => {
