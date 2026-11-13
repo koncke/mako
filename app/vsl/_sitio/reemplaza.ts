@@ -79,9 +79,10 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; pla
   { app: app('ManyChat', 'manychat'), trabajo: 'Respuestas automáticas', plan: 'Pro', precioUsd: 39, fuente: 'https://help.manychat.com/hc/en-us/articles/25800228332572' },
   { app: app('Canva', 'canva'), trabajo: 'Diseño', plan: 'Pro', precioUsd: 18, fuente: 'https://www.canva.com/pricing/' },
   { app: app('CapCut', 'capcut'), trabajo: 'Edición de video', plan: 'Pro', precioUsd: 19.99, fuente: 'https://www.capcut.com/pricing' },
-  // Llamada con Leila (13/11/2026): OpusClip junto a CapCut y HeyGen junto a Higgsfield, en su plan más barato que se paga (buscado
-  // el 13/11/2026: OpusClip Starter US$15, sólo mensual; HeyGen Creator US$29 por mes).
-  { app: app('OpusClip', 'opusclip'), trabajo: 'Clips para redes', plan: 'Starter', precioUsd: 15, fuente: 'https://www.opus.pro/pricing' },
+  // Llamada con Leila (13/11/2026): OpusClip junto a CapCut y HeyGen junto a Higgsfield, cada una en el plan que se paga para usarla
+  // de verdad (el Cerebro, 13/11: «HeyGen Creator y Opus Clip Pro»), buscado el 13/11/2026: OpusClip Pro US$29 por mes pagando mes a
+  // mes; HeyGen Creator US$29 por mes. Contra MaKo Pro (US$97).
+  { app: app('OpusClip', 'opusclip'), trabajo: 'Clips para redes', plan: 'Pro', precioUsd: 29, fuente: 'https://www.opus.pro/pricing' },
   // Martín, 13/11/2026: «no incluiste muchas otras apps que un emprendedor sí pagaría… no quiero que exageres», y después: «antes de
   // Foreplay prefiero el más famoso, que es Higgsfield» y «puedes agregar Gamma, Skool y Mailchimp también». El plan más barato de
   // cada una que sirve para ese trabajo, pagando mes a mes (Skool: Pro, el que no se queda con el 10 % de cada venta).

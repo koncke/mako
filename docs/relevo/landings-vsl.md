@@ -206,12 +206,12 @@ estilos, `app/globals.css` compilado con Tailwind → `app.css`), grabado a 1280
 | Mini landings por funnel (VSL, WhatsApp, Instagram con lead magnet, YouTube) | Hecho, con el contenido de `docs/marketing-copilot/funnels-simples.md` | `app/vsl/_sitio/funnels-datos.ts`, `Funnels.tsx`, `app/vsl/funnels/[funnel]/page.tsx`; sección en la portada y columna en el pie |
 | CRM: entrar a la ficha (de dónde vino, qué hizo, % del VSL) | Banco listo (`LeadSheet` real con `ficha-datos.ts`); falta grabar | `C:/dev/bancos-portada/banco-ficha` |
 | «Se conecta con tu Claude y tu GPT» | Hecho: lo que hay de verdad (tu clave de Claude/OpenAI/Gemini y el conector «MaKo para Claude»; para ChatGPT no hay conector y no se dice) | `SeccionesIA.tsx` → `ConectaTuIA` |
-| El costo de la IA, en su sección | Hecho SIN números: `CONSUMOS_IA` vacío hasta que el Cerebro mande los gastos reales de Martín y Mauricio | `SeccionesIA.tsx` → `CostoDeLaIA` |
-| Reemplaza apps: HeyGen, OpusClip, sólo Notion | Hecho: US$378 (HeyGen Creator 29, OpusClip Starter 15). Duda abierta al Cerebro: «contra el plan básico» ¿es MaKo Esencial? | `reemplaza.ts` |
+| El costo de la IA, en su sección | Hecho con los gastos REALES de 30 días (sólo lectura): Martín US$15 de Claude, un cliente (Mauricio, sin nombre) US$11; Gemini gratis | `SeccionesIA.tsx` → `CostoDeLaIA` |
+| Reemplaza apps: HeyGen, OpusClip, sólo Notion | Hecho: US$392 contra MaKo Pro (HeyGen Creator 29, OpusClip Pro 29; el Cerebro: «el plan que se paga para usarla de verdad») | `reemplaza.ts` |
 | Industrias: Agencias, Coaches, Infoproductores, Inmobiliarias | Hecho | `ORDEN_INDUSTRIAS` (`datos.ts`) |
 | Comparativa de planes con movimiento | Hecho (cabecera pegada, Pro resaltado, grupos en tarjetas, tildes que aparecen, filas que entran) | `CompararPlanes` (`app/planes/Vitrina.tsx`), `app/planes/estilo.ts` |
 | Prueba sólo en el de 97, botón grande | Hecho: «Comienza tu prueba gratuita» | `botonDelPlan` (`lib/compra-plan-reglas.ts`), `.mkpl-btn.prueba` |
-| Casos: Axel y otro | Espera los datos del Cerebro (`public/vsl-assets/testi-axel.mp4` existe) | — |
+| Casos: Axel y otro | Hecho con los cuatro testimonios que Martín ya publicó (Axel, Securiters, QS Media, Social Media Lab), como «los que trabajaron con Martín» | `MasCasos.tsx` |
 | Mercado Pago en el checkout | No es de landings: el chat de la pasarela (`app/planes/[plan]/Checkout.tsx`); avisado al Cerebro | — |
 
 **Los bancos se mudaron a `C:/dev/bancos-portada/`** (13/11, noche): esbuild no podía leer la carpeta Temp («being used by another

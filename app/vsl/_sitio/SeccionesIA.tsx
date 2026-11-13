@@ -61,10 +61,15 @@ export function ConectaTuIA() {
 }
 
 /**
- * Lo que gastó de IA un negocio real en un mes: el de Martín y el de Mauricio. VACÍO hasta que el Cerebro mande los números de
- * verdad (pedidos el 13/11/2026): sin ellos la sección no muestra ninguno.
+ * Lo que gastó de IA un negocio REAL en 30 días, medido en la base en sólo lectura el 13/11/2026 (anthropic_usage, que guarda el gasto
+ * de todos los proveedores con su `provider` y su `feature`; C:/dev/bancos-portada/leer-costo-ia.mts). Martín (ws 9) va con su nombre;
+ * Mauricio (ws 1) sin el suyo, como «un cliente» (el Cerebro, 13/11/2026). Gemini figura con US$0: es su capa gratis. Si se vuelve a
+ * medir, se cambia acá.
  */
-export const CONSUMOS_IA: readonly { quien: string; negocio: string; mes: string; usd: number; proveedor: string; uso: string }[] = [];
+export const CONSUMOS_IA: readonly { quien: string; negocio: string; mes: string; usd: number; proveedor: string; uso: string }[] = [
+  { quien: 'Martín', negocio: 'MaKo', mes: '30 días', usd: 15, proveedor: 'Claude', uso: 'analizar sus llamadas de venta, mirar a su competencia, replicar carruseles y escribir guiones. Gemini, gratis, para lo demás (más de 1.000 pedidos).' },
+  { quien: 'Un cliente', negocio: 'unos 70 leads nuevos por mes', mes: '30 días', usd: 11, proveedor: 'Claude', uso: 'analizar sus llamadas de venta, armar su oferta y sus automatizaciones. Gemini, gratis, para lo demás (casi 1.000 pedidos).' },
+];
 
 /** «Lo que gasta tu IA»: cómo se paga (directo al proveedor, sin recargo) y, cuando estén, los consumos reales. */
 export function CostoDeLaIA() {

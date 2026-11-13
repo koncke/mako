@@ -40,6 +40,7 @@ import { Barra } from './Barra';
 import { AvatarVideos, TablerosCarrusel } from './Interactivos';
 import { CSS_IA, ConectaTuIA, CostoDeLaIA } from './SeccionesIA';
 import { CSS_FUNNELS, FunnelsSitio } from './Funnels';
+import { CSS_MAS_CASOS, MasCasos } from './MasCasos';
 import { Pie } from './Pie';
 import { Boton, Flecha, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
@@ -418,7 +419,7 @@ function CierreSitio() {
 export function PortadaSitio({ planes }: { planes: readonly PlanSitio[] }) {
   return (
     <div className="s-sitio">
-      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_PIE + CSS_PORTADA + CSS_IA + CSS_FUNNELS }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_PIE + CSS_PORTADA + CSS_IA + CSS_FUNNELS + CSS_MAS_CASOS }} />
       <BrandDefs />
       <Barra />
       <main>
@@ -431,6 +432,7 @@ export function PortadaSitio({ planes }: { planes: readonly PlanSitio[] }) {
             cuesta la IA va junto a lo que se ahorra (antes estaba escondido en una pregunta frecuente). */}
         <ConectaTuIA />
         <CasoSitio />
+        <MasCasos />
         <PlanesSitio planes={planes} />
         <TiraReemplaza />
         <CostoDeLaIA />
