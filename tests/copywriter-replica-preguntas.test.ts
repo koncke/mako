@@ -125,6 +125,7 @@ test('sin preguntas de más: una oferta completa no pide datos, «Seguir sin eso
   assert.equal(pedidoDeReplica(sinEso, p.ofertas).texto, 'Replícalo entero con mi oferta «WhatsApp Ads Funnel»: su estructura, su tipo de gancho y su ritmo.');
   // Para el negocio en general: sin datos de oferta que preguntar.
   assert.equal(pasoDeReplica(p, { oferta: AL_NEGOCIO }), null);
+  assert.match(pedidoDeReplica({ oferta: AL_NEGOCIO }, p.ofertas).texto, /^Replícalo entero para mi negocio en general \(sin ninguna oferta en particular\):/, 'así el server no cae a la principal');
   // Sin ofertas: no pregunta por la oferta.
   assert.equal(pasoDeReplica({ ...p, ofertas: [] }, {}), null);
 });

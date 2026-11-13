@@ -13,17 +13,34 @@ import type { Producto } from '../productos';
 const plano = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
 /**
- * La oferta que nombra el pedido (o la charla): primero la que va entre «…», después cualquiera que aparezca por su nombre; si no,
- * la principal. null = el pedido no nombra ninguna y el negocio no tiene principal.
+ * «Para mi negocio en general» (la respuesta a «¿Para qué oferta lo escribo?», lib/copywriter/iniciativa.ts): el pedido lo dice con
+ * esta frase y no se escribe con ninguna oferta, aunque el negocio tenga una principal.
  */
-export function ofertaDelPedido<T extends Pick<Oferta, 'nombre' | 'es_principal'>>(texto: string, ofertas: readonly T[]): T | null {
-  const t = plano(texto);
-  const citadas = [...texto.matchAll(/«([^»]{2,120})»/g)].map((m) => plano(m[1]));
+export const SIN_OFERTA = 'sin ninguna oferta en particular';
+
+/**
+ * La oferta que nombra el pedido: primero la que va entre «…», después cualquiera que aparezca por su nombre. Si el pedido no nombra
+ * ninguna, la de la charla (lo último que se habló) y si no, la principal. null = ninguna: el pedido (o lo último de la charla) pidió
+ * escribir para el negocio en general, o no se nombra ninguna y el negocio no tiene principal.
+ */
+export function ofertaDelPedido<T extends Pick<Oferta, 'nombre' | 'es_principal'>>(pedido: string, ofertas: readonly T[], charla = ''): T | null {
   const porNombre = (o: T) => plano(o.nombre);
-  return ofertas.find((o) => citadas.includes(porNombre(o)))
-    ?? [...ofertas].sort((a, b) => b.nombre.length - a.nombre.length).find((o) => porNombre(o).length >= 3 && t.includes(porNombre(o)))
-    ?? ofertas.find((o) => o.es_principal)
-    ?? null;
+  const buscar = (texto: string): T | null => {
+    const t = plano(texto);
+    const citadas = [...texto.matchAll(/«([^»]{2,120})»/g)].map((m) => plano(m[1]));
+    return ofertas.find((o) => citadas.includes(porNombre(o)))
+      ?? [...ofertas].sort((a, b) => b.nombre.length - a.nombre.length).find((o) => porNombre(o).length >= 3 && t.includes(porNombre(o)))
+      ?? null;
+  };
+  const delPedido = buscar(pedido);
+  if (delPedido) return delPedido;
+  if (pedido.includes(SIN_OFERTA)) return null;
+  // En la charla, lo ÚLTIMO que se decidió: «para mi negocio en general» después de nombrar una oferta, la deja afuera.
+  const general = charla.lastIndexOf(SIN_OFERTA);
+  const deLaCharla = buscar(general >= 0 ? charla.slice(general) : charla);
+  if (deLaCharla) return deLaCharla;
+  if (general >= 0) return null;
+  return ofertas.find((o) => o.es_principal) ?? null;
 }
 
 /** Lo mínimo que MaKo necesita de una oferta para escribir sin inventar (lo que el flujo nuevo le pregunta a la persona). */

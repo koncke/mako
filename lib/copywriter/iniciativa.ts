@@ -15,6 +15,8 @@
 // (app/copywriter/PanelMaKo.tsx) sólo dibuja pasos y junta respuestas: mudarla al patrón es cambiar de dónde salen.
 // =============================================================================
 
+import { SIN_OFERTA } from './oferta-elegida';
+
 export type OpcionIniciativa = { valor: string; texto: string };
 
 /** Una pregunta de MaKo: su texto, los botones y si se puede contestar escribiendo. */
@@ -88,7 +90,8 @@ export function pedidoDeReplica(r: RespuestasIniciativa, ofertas: readonly Ofert
   const oferta = r.oferta ?? AL_NEGOCIO;
   if (oferta === NO_ADAPTAR) return { adaptar: false, texto: 'No, lo escribo yo.' };
   const nombre = nombreDeOferta(oferta, ofertas);
-  const con = nombre ? `con mi oferta «${nombre}»` : 'con mi negocio';
+  // «Para mi negocio en general»: lo dice con la frase de `SIN_OFERTA`, así el server no cae a la principal (./oferta-elegida.ts).
+  const con = nombre ? `con mi oferta «${nombre}»` : oferta === AL_NEGOCIO ? `para mi negocio en general (${SIN_OFERTA})` : 'con mi negocio';
   // El guion ENTERO y las propiedades (11/11/2026, Martín: «lo único que me replica es el título… ¿y dónde está todo el
   // cuerpo?», y el Ángulo y la Estructura quedaban «Vacío») los pide el ORIGINAL que manda el server en cada pedido de la página
   // (./outliers.ts → reglasDeLaReplica). Acá va lo que la persona pidió con un toque: al reabrir la página, este renglón es su

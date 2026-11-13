@@ -673,8 +673,8 @@ original al lado (una columna en la computadora, la pestaña «Original» en el 
 
 - (13/11/2026) ~~Si MaKo PREGUNTA cuando el tema del original no tiene que ver con el negocio lo decide Martín~~: pregunta desde el
   flujo nuevo (lib/copywriter/iniciativa.ts, `pasoDeReplica`).
-- (13/11/2026) «Para mi negocio en general» no saca la oferta del pedido: `ofertaDelPedido` (lib/copywriter/oferta-elegida.ts)
-  cae a la principal si el pedido no nombra ninguna. Con una principal cargada, esa respuesta igual escribe con ella.
+- (13/11/2026) ~~«Para mi negocio en general» caía a la oferta principal~~: el pedido lo dice con `SIN_OFERTA` y `ofertaDelPedido`
+  (lib/copywriter/oferta-elegida.ts) mira primero el pedido y después lo ÚLTIMO de la charla.
 - (13/11/2026) Los anuncios PROPIOS (`ad_transcripts`) como fuente de la portada siguen afuera (lib/copywriter/outliers-servidor.ts,
   `FUENTES_OUTLIERS_COPY`).
 - (13/11/2026) El flujo nuevo está probado con tests; en producción falta el recorrido con capturas (reel, YouTube, anuncio en

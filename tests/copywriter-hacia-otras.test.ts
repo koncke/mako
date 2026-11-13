@@ -19,7 +19,7 @@ import { transcribirSiHaceFalta, TRANSCRITO, LINEA_TRANSCRIBIENDO, type Dependen
 import { esRecienCreada, marcarRecienCreada } from '../app/copywriter/pedido-guardado';
 import type { JsonNodo } from '../lib/copywriter/tipos';
 import type { OutlierCopy } from '../lib/copywriter/outliers';
-import { bloqueDeOferta, faltaDeLaOferta, ofertaDelPedido } from '../lib/copywriter/oferta-elegida';
+import { SIN_OFERTA, bloqueDeOferta, faltaDeLaOferta, ofertaDelPedido } from '../lib/copywriter/oferta-elegida';
 import type { Oferta } from '../lib/oferta-modelo';
 import type { Producto } from '../lib/productos';
 
@@ -151,6 +151,12 @@ test('la OFERTA ELEGIDA va entera a MaKo, con lo que le falta (13/11/2026, el re
   assert.equal(ofertaDelPedido('cambia el gancho para mako acelerador', [vacia, acelerador]), acelerador);
   assert.equal(ofertaDelPedido('cambia el gancho', [vacia, { ...acelerador, es_principal: true }])?.nombre, 'MaKo Acelerador');
   assert.equal(ofertaDelPedido('cambia el gancho', [vacia]), null);
+  // «Para mi negocio en general» (13/11, el flujo nuevo): ninguna, aunque haya principal; y en la charla manda lo ÚLTIMO.
+  const conPrincipal = [vacia, { ...acelerador, es_principal: true }];
+  assert.equal(ofertaDelPedido(`Replícalo entero para mi negocio en general (${SIN_OFERTA}): su estructura`, conPrincipal), null);
+  assert.equal(ofertaDelPedido('cambia el gancho', conPrincipal, `yo: Replícalo entero con mi oferta «WhatsApp Ads Funnel»\nyo: Replícalo para mi negocio en general (${SIN_OFERTA})`), null);
+  assert.equal(ofertaDelPedido('cambia el gancho', conPrincipal, `yo: Replícalo para mi negocio en general (${SIN_OFERTA})\nyo: Replícalo entero con mi oferta «WhatsApp Ads Funnel»`), vacia);
+  assert.equal(ofertaDelPedido('cambia el gancho', conPrincipal, 'yo: Replícalo entero con mi oferta «WhatsApp Ads Funnel»'), vacia, 'la de la charla, antes que la principal');
   // Vacía: lo dice, y pide [DATO] en vez de inventar.
   const bloque = bloqueDeOferta(vacia, { nombre: 'WhatsApp Ads Funnel', monto_usd: null, descripcion: null } as unknown as Producto);
   assert.match(bloque, /^LA OFERTA ELEGIDA: «WhatsApp Ads Funnel»\. La pieza habla de ESTA oferta[^\n]*ni un dominio, ni un regalo, ni una cifra[^\n]*\[DATO: …\]\./);
@@ -162,7 +168,7 @@ test('la OFERTA ELEGIDA va entera a MaKo, con lo que le falta (13/11/2026, el re
   assert.equal(faltaDeLaOferta(acelerador, { descripcion: 'Te acompañamos' } as Partial<Producto>).join(', '), '');
   // En `editar`: las ofertas y los productos se leen con lo demás, y la elegida va en el bloque del negocio de los dos pedidos.
   const ia = leer('lib/copywriter/ia.ts');
-  assert.ok(ia.includes('const elegida = ofertaDelPedido(`${instruccion}\\n${charla}`, ofertas);'));
+  assert.ok(ia.includes('const elegida = ofertaDelPedido(instruccion, ofertas, charla);'));
   assert.equal((ia.match(/negocio: conOferta,/g) ?? []).length, 2, 'réplica y plantilla');
   assert.ok(ia.includes('const fuentes = [negocio, oferta, '), 'las cifras de la oferta no son inventadas');
 });
