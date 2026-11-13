@@ -13705,7 +13705,17 @@ su CRM —elegida (`columnasEmail.rebote`) o por su nombre— aunque quede antes
   no se eligió, la de abajo; un rebotado sin columna de rebotados no se mueve). Corre en `after()` (hasta 400 por pasada; guardar
   otra vez sigue). Lee las posiciones en tandas de 200, no de a un lead.
 
+- **«Email por día» según la cuenta (decisión del Cerebro).** Con SU clave de Resend Y SU remitente (`opcionesDeRango`,
+  lib/limites-envio-cuenta.ts: `cuentaDeCorreo` «propia» + `remitenteDelNegocioActual` que pasa), hasta 2.000; con la de la
+  plataforma, 500. Arranque y suba, de 1 a 500 para todos. ⚠️ **La trampa que había:** un valor fuera de rango NO da error al
+  leer: `sanearLimites` lo saltea y queda lo de FÁBRICA (100). Subir el máximo sin pasarle la cuenta a todos los que leen
+  (motor, API, pantalla, «por qué no sale») habría dejado a Mauricio en 100 justo al subirlo a 1.600. Ahora lo de una cuenta
+  propia leído sin ella baja a 500, nunca a 100. Y la definición de la API (`emailDia`, chatbot.def.ts) tenía su propio
+  `maximo: 500`, que valida ANTES del runner: también subió (a 2.000; el rango real lo decide el runner).
+
 **Lo que quedó sin hacer:**
+- **El goteo por automatización sigue con máximo 500 por día** (`RANGOS_GOTEO`, lib/config-automatizacion.ts, toma el
+  `RANGOS_LIMITES.email.dia` de la plataforma): con un tope de 1.600, una sola automatización no se puede limitar a más de 500.
 - **El tope que frena un envío no deja fila** (`nutricion_envios`): sólo la nota en la corrida. Por eso los 34 parecían «sin motivo».
 - **La reserva no es por automatización:** una lista fría de leads NUEVOS (una base importada hoy con `origen_lead`) cuenta como
   caliente. Lo mismo que en el WhatsApp (lib/nutricion-prioridad.ts, la revisión adversarial del 21/10).

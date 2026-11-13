@@ -879,7 +879,8 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'waHora', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'opcional: WhatsApp por hora de reloj.' },
       { nombre: 'waArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: la rampa del número: WhatsApp el primer día.' },
       { nombre: 'waArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: y cuánto sube cada día que llega a su tope.' },
-      { nombre: 'emailDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: emails por día (en 24 h).' },
+      // Hasta 2.000 (#93): el rango real lo decide el runner según la cuenta (`limitesParaGuardar` con `opcionesDeRango`): 500 con la de la plataforma.
+      { nombre: 'emailDia', tipo: 'number', entero: true, minimo: 1, maximo: 2000, descripcion: 'opcional: emails por día (en 24 h; hasta 2.000 con tu cuenta de Resend y tu dominio, si no 500).' },
       { nombre: 'emailArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: la rampa del dominio: emails el primer día.' },
       { nombre: 'emailArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y cuánto sube cada día que llega a su tope.' },
       { nombre: 'makoSolasPor24h', tipo: 'number', entero: true, minimo: 0, maximo: 10, descripcion: 'opcional: respuestas que MaKo manda sola a una persona en 24 h (0 = siempre borrador).' },
