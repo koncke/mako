@@ -151,4 +151,36 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: CANALES, costo: 'gratis', gating: PUERTA,
   },
+  // ── Los SEGUIDOS (13/11/2026, lib/spy-seguidos-reglas.ts): a quién sigue el negocio, su número por red («con qué número se
+  // publica» de Marketing CoPilot) y sus alertas. Al final del área, a propósito.
+  {
+    id: 'ver_seguidos', area: 'spy', tipo: 'lectura',
+    datosDeClientes: false,
+    titulo: 'Los competidores que sigues',
+    descripcion: 'A quiénes sigue el negocio y lo que suele hacer una cuenta que sigue, por red (vistas de reels, de YouTube…). Sin parámetros.',
+    parametros: [],
+    salida: 'json', canales: CANALES, costo: 'gratis', gating: PUERTA,
+  },
+  {
+    id: 'seguir_competidor', area: 'spy', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    datosDeClientes: false,
+    titulo: 'Seguir a un competidor',
+    descripcion: 'PROPONE seguir (o dejar de seguir) a uno de los competidores: sus alertas y su número entran en lo de seguidos.',
+    parametros: [
+      { nombre: 'id', tipo: 'number', obligatorio: true, entero: true, minimo: 1, rotulo: 'Cuál', descripcion: 'El id que devuelve listar_vigilados.' },
+      { nombre: 'seguir', tipo: 'boolean', rotulo: 'Seguir', descripcion: 'false para dejar de seguirlo. Si no viene, lo sigue.' },
+    ],
+    escribe: 'anota a quién sigue el negocio (app_settings, spy.seguidos)',
+    canales: CANALES, costo: 'gratis', gating: PUERTA,
+  },
+  {
+    id: 'alertas_de_seguidos', area: 'spy', tipo: 'lectura',
+    datosDeClientes: false,
+    titulo: 'Lo nuevo de los que sigues',
+    descripcion: 'Lo que les está funcionando a los que sigues (outliers, con su ángulo) y lo que publicaron hace poco.',
+    parametros: [
+      { nombre: 'dias', tipo: 'number', entero: true, minimo: 1, maximo: 60, rotulo: 'Días', descripcion: 'Lo nuevo de cuántos días atrás. Si no viene, 14.' },
+    ],
+    salida: 'json', canales: CANALES, costo: 'gratis', gating: PUERTA,
+  },
 ];

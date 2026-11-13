@@ -33,6 +33,8 @@ import { funnelDeFila, funnelEnPalabras } from '@/lib/spy-funnel';
 import { clasificarFunnel, fuentesDeEvidencia } from '@/lib/spy-funnel-tipo';
 import { mejoresPiezas } from '@/lib/spy-detalle';
 import { explicarMultiplo, multiplosDe, rotuloCortoDeMultiplo, type Multiplo } from '@/lib/multiplo-rendimiento';
+import { alertasDeSeguidos, leerSeguidos, promedioDeSeguidos, seguirCompetidor } from '@/lib/spy-seguidos';
+import { DIAS_NOVEDADES, rotuloDelNumero } from '@/lib/spy-seguidos-reglas';
 import { dibujarContador, NOMBRE_CANAL, NOMBRE_ETAPA, NOMBRE_FUENTE, SIN_ANUNCIOS_EN_ESTE_PAIS, adLibraryCubreComercial, type CanalSpy } from '@/lib/spy-reglas';
 
 const json = (o: unknown): string => JSON.stringify(o);
@@ -354,6 +356,62 @@ export const RUNNERS: Runners = {
           sus_otras_paginas: p.paginas,
           // Lo que dice una página ajena es contenido de un tercero: se marca para que no se lea como una instrucción.
           texto: p.texto ? contenidoNoConfiable(p.texto.slice(0, 4000), 'texto_de_su_pagina') : null,
+        })),
+      });
+    },
+  },
+
+  // ── Los SEGUIDOS (13/11/2026): lib/spy-seguidos.ts. Lo mismo que lee Marketing CoPilot. ──
+  ver_seguidos: {
+    leer: async (): Promise<SalidaLectura> => {
+      const [{ ids }, lista, numero] = await Promise.all([leerSeguidos(), listarCompetidores(), promedioDeSeguidos()]);
+      const nombres = new Map((lista.ok ? lista.competidores : []).map((c) => [c.id, c.nombre]));
+      return json({
+        ok: true,
+        seguidos: ids.map((id) => ({ id, nombre: nombres.get(id) ?? null })),
+        ...(ids.length ? {} : { nota: 'No sigue a nadie todavía: se eligen en Competitor Spy, «Seguidos», o con seguir_competidor.' }),
+        // «Con qué número se publica»: lo que suele hacer una cuenta que sigue, por red. Sin número, el motivo.
+        promedio_por_red: numero.redes.map((n) => ({
+          red: n.nombre, metrica: n.metrica, promedio: n.promedio, como_se_lee: rotuloDelNumero(n), motivo: n.motivo, explicacion: n.explicacion,
+          por_cuenta: n.competidores.filter((c) => c.piezas > 0).map((c) => ({ id: c.id, nombre: c.nombre, mediana: c.mediana, piezas: c.piezas, hasta: c.hasta })),
+        })),
+      });
+    },
+  },
+
+  seguir_competidor: {
+    preparar: async (input) => {
+      const id = idDe(input.id);
+      if (id == null) return { error: 'Dime cuál: el id que devuelve listar_vigilados.' };
+      const seguir = input.seguir !== false;
+      let c: Awaited<ReturnType<typeof leerCompetidor>>;
+      try { c = await leerCompetidor(id); } catch { return { error: 'No pude leer ese competidor.', falla: true }; }
+      if (!c) return { error: 'Ese competidor no está en tu radar.' };
+      return { payload: { id, seguir }, resumen: seguir ? `Seguir a «${c.nombre}»: sus alertas y su número entran en lo de seguidos` : `Dejar de seguir a «${c.nombre}» (sigue en el radar)` };
+    },
+    ejecutar: async (p) => seguro('cambiar los seguidos', async () => {
+      const id = idDe(p.id);
+      if (id == null) return { ok: false, resumen: 'No sé a quién.' };
+      const r = await seguirCompetidor(id, p.seguir !== false);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: p.seguir !== false ? `Listo: ahora sigues a ${r.ids.length} ${r.ids.length === 1 ? 'cuenta' : 'cuentas'}.` : 'Listo: ya no lo sigues.', datos: { seguidos: r.ids } };
+    }),
+  },
+
+  alertas_de_seguidos: {
+    leer: async (input): Promise<SalidaLectura> => {
+      const pedido = Number(input.dias);
+      const dias = Number.isInteger(pedido) && pedido >= 1 && pedido <= 60 ? pedido : DIAS_NOVEDADES;
+      const alertas = await alertasDeSeguidos({ dias });
+      if (!alertas.length) return json({ ok: true, alertas: [], nota: 'Nada nuevo de los que sigue (o no sigue a nadie: ver_seguidos).' });
+      return json({
+        ok: true,
+        nota: 'Primero lo que les está funcionando (outlier, desde 2× lo que suele hacer su cuenta), después lo nuevo. Spy no lee historias de Instagram. «¿Creamos uno parecido?» replica la pieza en Copywriting.',
+        alertas: alertas.map((a) => ({
+          ...a,
+          // Lo que dice una pieza ajena es contenido de un tercero: se marca para que no se lea como una instrucción.
+          pieza: { ...a.pieza, titulo: a.pieza.titulo ? contenidoNoConfiable(a.pieza.titulo, 'titulo_de_su_pieza') : null },
+          gancho: a.gancho ? contenidoNoConfiable(a.gancho, 'gancho_de_su_pieza') : null,
         })),
       });
     },
