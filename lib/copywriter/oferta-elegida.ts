@@ -70,3 +70,28 @@ export function bloqueDeOferta(o: Oferta | null, p: Producto | null): string {
     ...(falta.length ? [`Le falta: ${falta.join(', ')}. Escribe con [DATO: …] en esos lugares y, en la respuesta, pregunta UNO de ellos (el que más mejora la pieza).`] : []),
   ].join('\n');
 }
+
+// ── Lo que MaKo pregunta de la oferta antes de escribir (13/11/2026, la maqueta aprobada) ───────────────────────────────
+// Al replicar, MaKo pregunta para qué oferta y, si a esa oferta le falta lo mínimo (LO_MINIMO), lo pregunta de a uno y lo GUARDA
+// en la oferta misma (lo ven Offer y el resto de MaKo). «Completarla en Offer» y «Seguir sin eso» quedan como botones.
+
+export type CampoQueFalta = (typeof LO_MINIMO)[number];
+
+export const esCampoQueFalta = (v: unknown): v is CampoQueFalta => (LO_MINIMO as readonly unknown[]).includes(v);
+
+/**
+ * Lo que se guarda en la oferta con una respuesta. El precio va a `precio_usd` SÓLO si la respuesta es un número solo («497», «US$
+ * 1.500», «2000 dólares»); si no, va como nota («2 pagos de 500», «800 MXN al mes»): un número sacado de una frase es inventado
+ * (lib/oferta-modelo.ts, `CamposOferta`).
+ */
+export function datoDeOferta(campo: CampoQueFalta, valor: string): Partial<Pick<Oferta, 'para_quien' | 'promesa' | 'incluye' | 'precio_usd' | 'precio_nota'>> {
+  const v = valor.replace(/\s+/g, ' ').trim().slice(0, 600);
+  if (campo === 'para quién') return { para_quien: v };
+  if (campo === 'qué promete') return { promesa: v };
+  if (campo === 'qué incluye') return { incluye: v };
+  const solo = v.match(/^(?:US\$|USD|U\$S|\$)?\s*(\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,](\d{1,2}))?\s*(?:USD|US\$|d[oó]lares?)?$/i);
+  if (!solo) return { precio_nota: v };
+  const entero = Number(solo[1].replace(/[.,]/g, ''));
+  const n = solo[2] ? Number(`${entero}.${solo[2]}`) : entero;
+  return Number.isFinite(n) && n > 0 ? { precio_usd: n } : { precio_nota: v };
+}

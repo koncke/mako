@@ -62,5 +62,5 @@ test('Copywriting pide el guion de un anuncio al replicarlo; uno de imagen no di
   });
   assert.deepEqual(await transcribirSiHaceFalta('spy:9', () => {}, deps('listo')), { ok: true, texto: TRANSCRITO });
   assert.equal(await transcribirSiHaceFalta('spy:9', () => {}, deps('no-aplica')), null, 'un anuncio de imagen');
-  assert.match((await transcribirSiHaceFalta('spy:9', () => {}, deps('sin-clave')))?.texto ?? '', /falta la clave de Competitors Spy\): lo escribo con el texto del anuncio/);
+  assert.match((await transcribirSiHaceFalta('spy:9', () => {}, deps('sin-clave')))?.texto ?? '', /falta la clave de Competitors Spy\), así que no sé lo que se dice: lo escribo con el texto del anuncio/);
 });

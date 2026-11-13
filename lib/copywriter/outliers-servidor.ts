@@ -17,6 +17,11 @@ import { leerPorPaginas } from '../supabase-paginado';
 import { podarVencido } from '../spy-reglas';
 import { guionesGuardados } from '../spy-transcripcion-servidor';
 import { carruselDeLaBiblioteca, carruselesDeLaBiblioteca } from '../carruseles/biblioteca-servidor';
+import { getAnswers } from '../onboarding';
+import { listarOfertas } from '../ofertas';
+import { listProductos } from '../productos';
+import { conTemaYIdioma, textoDelNegocio } from './portada-tema';
+import { temaDeTexto, type Tema } from './tema';
 import { rotuloMultiplo } from '../multiplo-rendimiento';
 import { crear, type Falla } from './server';
 import { docVacio } from './doc';
@@ -84,8 +89,22 @@ export const FUENTES_OUTLIERS_COPY: readonly FuenteOutliersCopy[] = [FUENTE_SPY_
 const PORTADAS = new Map<number, { hasta: number; portada: PortadaCopy }>();
 export const VIVE_LA_PORTADA_MS = 5 * 60_000;
 
-/** Lee las fuentes y arma la portada (sin guardar nada). */
-async function armarPortada(fuentes: readonly FuenteOutliersCopy[]): Promise<PortadaCopy> {
+/**
+ * El tema del negocio de la pestaña (./tema.ts): de lo que dijo de sí en el onboarding, sus ofertas y sus productos. null = no se
+ * sabe (no cargó nada, o no alcanza para decirlo). Una lectura que falla cuenta como vacía: nunca tira.
+ */
+export async function temaDelNegocioActual(): Promise<Tema | null> {
+  const [respuestas, ofertas, productos] = await Promise.all([
+    getAnswers().catch(() => ({} as Record<string, string>)),
+    listarOfertas(true).catch(() => []),
+    listProductos(true).catch(() => []),
+  ]);
+  return temaDeTexto(textoDelNegocio({ respuestas, ofertas, productos }));
+}
+
+/** Lee las fuentes y arma la portada (sin guardar nada). Con `conTema`, marca el tema y el idioma de cada outlier. */
+async function armarPortada(fuentes: readonly FuenteOutliersCopy[], conTema = false): Promise<PortadaCopy> {
+  const tema = conTema ? temaDelNegocioActual().catch(() => null) : null;
   const lecturas = await Promise.all(fuentes.map(async (fuente) => {
     let lectura: LecturaFuenteCopy;
     try { lectura = await fuente.leer(); } catch (e) {
@@ -93,7 +112,8 @@ async function armarPortada(fuentes: readonly FuenteOutliersCopy[]): Promise<Por
     }
     return { fuente, lectura };
   }));
-  return juntarOutliersCopy(lecturas);
+  const portada = juntarOutliersCopy(lecturas);
+  return conTema ? conTemaYIdioma(portada, await tema) : portada;
 }
 
 /** Una portada con una fuente caída: sale de la caché compartida como error, así no se guarda (y se muestra igual). */
@@ -106,8 +126,8 @@ class PortadaConCaidas extends Error {
  * 4,9 s hasta el primer byte en cada apertura (contra 0,5–1 s del resto de la tab), el «tarda mucho en abrir» de la llamada con
  * Leila. La caché de datos de Next (`cachedRead`, lib/cache.ts: por negocio, con el workspace fijado adentro) la comparten todas.
  */
-const portadaCompartida = cachedRead('copywriter-portada', async (): Promise<PortadaCopy> => {
-  const portada = await armarPortada(FUENTES_OUTLIERS_COPY);
+const portadaCompartida = cachedRead('copywriter-portada-tema', async (): Promise<PortadaCopy> => {
+  const portada = await armarPortada(FUENTES_OUTLIERS_COPY, true);
   if (portada.caidas.length) throw new PortadaConCaidas(portada);
   return portada;
 }, { tags: ['copywriter-portada'], revalidate: VIVE_LA_PORTADA_MS / 1000 });
@@ -122,7 +142,7 @@ export async function leerOutliersCopy(fuentes: readonly FuenteOutliersCopy[] = 
     portada = await portadaCompartida();
   } catch (e) {
     // Una fuente caída (no se guarda), o la caché que no contestó: se arma acá.
-    portada = e instanceof PortadaConCaidas ? e.portada : await armarPortada(fuentes);
+    portada = e instanceof PortadaConCaidas ? e.portada : await armarPortada(fuentes, true);
   }
   if (ws != null && !portada.caidas.length) PORTADAS.set(ws, { hasta: Date.now() + VIVE_LA_PORTADA_MS, portada });
   return portada;

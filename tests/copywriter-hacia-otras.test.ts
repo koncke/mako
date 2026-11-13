@@ -108,7 +108,7 @@ test('el YouTube se transcribe ANTES de replicarlo, y si no se puede, se dice', 
   assert.deepEqual(await transcribirSiHaceFalta('spy:42', (l) => lineas.push(l), bien.d), { ok: true, texto: TRANSCRITO });
   assert.deepEqual(bien.pedidos, [42, 42, 42]);
   assert.deepEqual(lineas, [LINEA_TRANSCRIBIENDO]);
-  assert.match((await transcribirSiHaceFalta('spy:42', () => {}, deps(['sin-gemini']).d))?.texto ?? '', /^No pude transcribir el video \(hace falta tu Gemini conectado\): lo escribo con su título y su descripción, y tomo sólo el gancho y la estructura\.$/);
+  assert.match((await transcribirSiHaceFalta('spy:42', () => {}, deps(['sin-gemini']).d))?.texto ?? '', /^No pude transcribir el video \(hace falta tu Gemini conectado\), así que no sé lo que se dice: lo escribo con su título y su descripción y tomo sólo su gancho y su estructura\.$/);
   assert.match((await transcribirSiHaceFalta('spy:42', () => {}, deps(['error']).d))?.texto ?? '', /\(no autorizado\)/);
   assert.match((await transcribirSiHaceFalta('spy:42', () => {}, deps([]).d))?.texto ?? '', /tardó más de 4 minutos/);
   // Lo que no hace falta: la biblioteca, lo que no es YouTube, lo ya transcrito.
@@ -120,12 +120,13 @@ test('el YouTube se transcribe ANTES de replicarlo, y si no se puede, se dice', 
   const reel = deps(['listo'], { original: async () => ({ ok: true as const, outlier: { formato: 'reel', deDonde: 'pie' } as OutlierCopy }) });
   assert.deepEqual(await transcribirSiHaceFalta('spy:43', () => {}, reel.d), { ok: true, texto: TRANSCRITO });
   const reelSin = deps(['sin-gemini'], { original: async () => ({ ok: true as const, outlier: { formato: 'reel', deDonde: 'pie' } as OutlierCopy }) });
-  assert.match((await transcribirSiHaceFalta('spy:43', () => {}, reelSin.d))?.texto ?? '', /lo escribo con el texto de su publicación, y tomo sólo el gancho y la estructura\.$/);
+  assert.match((await transcribirSiHaceFalta('spy:43', () => {}, reelSin.d))?.texto ?? '', /, así que no sé lo que se dice: lo escribo con el texto de su publicación y tomo sólo su gancho y su estructura\.$/);
 });
 
-test('la réplica de un tema que no tiene que ver: sin preguntar, sólo el gancho y la estructura, y lo dice', () => {
+test('la réplica de un tema que no tiene que ver: la pantalla ya preguntó cómo usarlo, y MaKo sigue el pedido', () => {
   const todas = reglasDeLaReplica({ formato: 'youtube', deDonde: 'guion', texto: 'hola', laminas: null }).join('\n');
-  assert.match(todas, /SI SU TEMA NO TIENE QUE VER CON EL NEGOCIO[^:]*: no preguntes\. Toma sólo su tipo de gancho y su estructura/);
+  assert.match(todas, /SI SU TEMA NO TIENE QUE VER CON EL NEGOCIO[^:]*: no preguntes, el pedido ya dice cómo usarlo\./);
+  assert.match(todas, /Si el pedido no dice nada, sólo su gancho y su estructura\./);
   // Un video transcrito más largo de lo que entra en un pedido pide el tope, y sin la línea que mide la segunda pasada.
   const largo = reglasDeLaReplica({ formato: 'youtube', deDonde: 'guion', texto: Array.from({ length: 5_000 }, (_, i) => `p${i}`).join(' '), laminas: null })[0];
   assert.match(largo, new RegExp(`el original es largo \\(unas 5000 palabras dichas\\); el tuyo, de unas ${LARGO_MAXIMO_REPLICA}`));
@@ -134,9 +135,10 @@ test('la réplica de un tema que no tiene que ver: sin preguntar, sólo el ganch
 
 test('la portada se guarda ENTRE instancias (4,9 s en cada apertura, medido el 13/11), y una con una fuente caída no', () => {
   const s = leer('lib/copywriter/outliers-servidor.ts');
-  assert.ok(s.includes("const portadaCompartida = cachedRead('copywriter-portada', async (): Promise<PortadaCopy> => {"));
+  // La clave cambió con «De tu tema» (13/11): una portada guardada sin el tema no se sirve después del deploy.
+  assert.ok(s.includes("const portadaCompartida = cachedRead('copywriter-portada-tema', async (): Promise<PortadaCopy> => {"));
   assert.ok(s.includes('if (portada.caidas.length) throw new PortadaConCaidas(portada);'));
-  assert.ok(s.includes('portada = e instanceof PortadaConCaidas ? e.portada : await armarPortada(fuentes);'));
+  assert.ok(s.includes('portada = e instanceof PortadaConCaidas ? e.portada : await armarPortada(fuentes, true);'));
   // Las fuentes de un test no pasan por ninguna caché.
   assert.ok(s.includes('if (fuentes !== FUENTES_OUTLIERS_COPY) return armarPortada(fuentes);'));
 });
