@@ -80,10 +80,11 @@ test('2. el checkout REAL desde México sin Creem: nada se cobra en línea, y un
   assert.equal(r.alCreem, 0, 'ni un pedido a Creem');
 });
 
-test('3. con Stripe conectado, México se cobra con Stripe y Argentina sigue con Mercado Pago', () => {
+test('3. con Stripe conectado, México se cobra con Stripe y Argentina con Mercado Pago o tarjeta', () => {
   const r = hijo();
   assert.equal(r.error, undefined, r.error);
   assert.deepEqual(r.conStripe.MX, ['stripe']);
-  assert.deepEqual(r.conStripe.AR, ['mercadopago']);
+  // Argentina: Mercado Pago y, desde el 13/11/2026, también la tarjeta (tests/checkout-argentina-tarjeta-y-mp.test.ts).
+  assert.deepEqual(r.conStripe.AR, ['mercadopago', 'stripe']);
   assert.ok(r.conStripe.cobrablesMx.every((c: boolean) => c === true), 'con Stripe, «Empezar»');
 });

@@ -67,9 +67,10 @@ function HeroSitio() {
               de ventas, marketing, contenido en una sola app. Eso tal vez abajo». Y la frase debajo del botón se fue: repetía lo
               que el botón ya dice. Y «debería tener como máximo 3 saltos de línea, no 4»: tres renglones fijos, y la letra se
               achica con el ancho de su columna (`cqi` en estilos.ts) para que «El mejor software» entre siempre en uno.
-              13/11/2026, la llamada con Leila: «para negocios High Ticket», no «para ventas», porque MaKo es marketing, ventas y
-              entrega; y la bajada ya no habla sólo del anuncio. */}
-          <h1 className="s-h1">El mejor software<br /> para negocios<br /> <em>High Ticket.</em></h1>
+              13/11/2026, la llamada con Leila: la bajada ya no habla sólo del anuncio (MaKo es marketing, ventas y entrega). El
+              título pasó un rato por «para negocios High Ticket» y Martín lo dejó, esa misma noche, en «el mejor software para
+              vender High Ticket… ese sería nuestro principal», en todos lados. */}
+          <h1 className="s-h1">El mejor software<br /> para vender<br /> <em>High Ticket.</em></h1>
           <p className="s-hero-p"><strong>Marketing, ventas y entrega del servicio en una sola app.</strong> Con una IA que conoce tu negocio, desde que alguien te descubre hasta que es tu cliente y le entregas lo que compró.</p>
           <div className="s-hero-btns">
             <Boton clase="s-btn-alto" />

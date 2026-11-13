@@ -89,7 +89,8 @@ test('⚠️ una pasarela en modo prueba no se ofrece en /planes, salvo al super
   assert.match(oferta, /const reales = conPrecio\(monedas\.filter\(\(m\) => !m\.prueba\)\);/);
   assert.match(oferta, /const deUnaPrueba = opts\.conPrueba === true \? conPrecio\(monedas\.filter\(\(m\) => m\.prueba\)\) : \[\];/);
   const monedas = bloque(COMPRA, 'async function monedasDeLaPlataforma(');
-  assert.match(monedas, /prueba: modoDeClaveStripe\(await credDelCliente\('STRIPE_SECRET_KEY', ws\)\) === 'prueba'/);
+  // Desde el 13/11/2026 por `opcionStripe`: una clave sin leer ya no pasa por real (tests/checkout-argentina-tarjeta-y-mp.test.ts).
+  assert.match(monedas, /const st = opcionStripe\(modoDeClaveStripe\(await claveDeLaPasarela\('STRIPE_SECRET_KEY', ws\)\)\);/);
   assert.match(monedas, /prueba: c\.modo === 'prueba'/);
   assert.match(bloque(COMPRA, 'export async function iniciarCompraDePlan('), /const oferta = await ofertaDelPlan\(p\.plan, opts\);/);
   // Las dos puertas le pasan quién es: la ruta del checkout y la página del plan.

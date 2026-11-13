@@ -15,6 +15,7 @@ import { useEffect, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { tarjetasDe, type JsonNodo } from '@/lib/editor-landing/doc';
 import { temaPorId } from '@/lib/editor-landing/temas';
+import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { plantillasDe } from './crear/tipo';
 import { CSS_GP, MiniaturaLanding } from './MiniaturaLanding';
 import { RUTA_PLANTILLAS, rutaDiseno } from './portada-reglas';
@@ -33,6 +34,9 @@ export function PlantillasPortada() {
   return (
     <section className={l.plantillas} aria-labelledby="wg-plantillas">
       <style dangerouslySetInnerHTML={{ __html: CSS_GP }} />
+      {/* La hoja del contenido, recién cuando hay miniaturas (después de montar): así no viaja en el HTML ni en los datos de cada
+          visita, sino una vez en el código, que el navegador guarda (13/11/2026). La misma `href` que el editor: React la pone una vez. */}
+      {muestras ? <style href="gm-contenido" precedence="medium">{CSS_CONTENIDO}</style> : null}
       <div className={l.plantillasCabeza}>
         <h2 id="wg-plantillas">Plantillas</h2>
         <Link href={RUTA_PLANTILLAS} className={l.verTodas}>Ver todas</Link>

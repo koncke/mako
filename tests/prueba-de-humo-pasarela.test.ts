@@ -38,7 +38,8 @@ test('el super admin en Argentina ve la Stripe de PRUEBA además de Mercado Pago
 });
 
 test('al público, como siempre: sólo las reales y según su país; sin ninguna de prueba', () => {
-  assert.deepEqual(pasarelasParaOfrecer('AR', [MP, ST], []), [MP], 'en Argentina, la de su país');
+  // En Argentina, Mercado Pago Y la tarjeta (13/11/2026, tests/checkout-argentina-tarjeta-y-mp.test.ts); antes, sólo [MP].
+  assert.deepEqual(pasarelasParaOfrecer('AR', [MP, ST], []), [MP, ST], 'en Argentina, la de su país y la tarjeta');
   assert.deepEqual(pasarelasParaOfrecer('US', [MP, ST], []), [ST]);
   assert.deepEqual(pasarelasParaOfrecer('AR', [MP], []), [MP]);
 });

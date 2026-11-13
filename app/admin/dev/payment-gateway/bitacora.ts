@@ -727,4 +727,21 @@ export const BITACORA: Hito[] = [
     revisar: '/agency',
     tickets: [85],
   },
+  {
+    fecha: '13 nov', hora: '16:15', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5', actor: 'claude', tipo: 'correccion',
+    titulo: 'Comprar un plan desde Argentina ofrece Mercado Pago y tarjeta, y Mercado Pago ya no desaparece por una lectura que falló',
+    puntos: [
+      '**El reporte (13/11):** desde Argentina, en /planes/<plan>, «NO apareció el botón de Mercado Pago, sólo tarjeta. Tiene que ofrecer tarjeta y Mercado Pago».',
+      '**Medido en producción (sólo lectura):** la Mercado Pago de la plataforma está bien (real, en pesos) y los planes tienen precio en pesos; con todo leído, desde Argentina salía SÓLO Mercado Pago. «Sólo tarjeta» salía cuando Mercado Pago no llegaba a la lista: una lectura de la clave que falló (la base contesta `null` y se lee «no la tiene») o Mercado Pago que no contestó una vez. Y en ese mismo pedido la clave de Stripe sin leer pasaba por REAL: la Stripe de PRUEBA de la plataforma se le ofrecía al público.',
+      '**Ahora:** en Argentina el checkout ofrece Mercado Pago (en pesos, primero) y la tarjeta, y elige la persona; la compra con tarjeta abre el pago de Stripe. Una clave que no se lee se reintenta una vez, igual que Mercado Pago, y lo que no se sabe que es real no se ofrece al público. El primer plan propio y la agencia, que no preguntan, siguen en pesos.',
+      '**Falta en producción (no se tocó):** la Stripe de la plataforma tiene claves de PRUEBA, así que al público todavía no le sale la tarjeta; aparece sola cuando se conecten las claves reales en /integraciones del workspace de la plataforma.',
+    ],
+    archivos: [
+      'lib/compra-plan-reglas.ts — `pasarelasParaOfrecer` (la tarjeta en el país de Mercado Pago) · `opcionStripe` · `esFalloPasajero`',
+      'lib/compra-plan.ts — `monedasDeLaPlataforma` y `claveDeLaPasarela` (el reintento)',
+      'tests/checkout-argentina-tarjeta-y-mp.test.ts — con el checkout real (tests/_checkout-ar-tarjeta-y-mp-hijo.ts); probado rompiéndolo',
+      'docs/hallazgos-planes-y-cobro.md — «Sólo tarjeta desde Argentina»',
+    ],
+    revisar: '/planes/esencial',
+  },
 ];

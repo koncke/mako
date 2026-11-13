@@ -2235,3 +2235,29 @@ iguales. `falta` es que no se leyó NADA de la hoja: cambiar el período no lo a
 Lo gastado en IA (US$0,027 en el mes) daba un eje «0 · 0 · 0 · 0»: `ejeCompacto` escribía hasta un decimal, y `geometria` redondeaba los
 pasos a milésimas. Debajo de 1, dos cifras significativas; los pasos, a precisión relativa (`toPrecision(10)`). app/m/dashboard/modelo.ts.
 
+---
+
+## El Agency Dashboard vuelve al teléfono sin plata, y la hoja a media altura tapaba su botón (13/11/2026, ticket #94)
+
+**El síntoma:** Joan Dowd (Código Inmobiliario) no encontraba a sus clientes en MaKo del teléfono; sólo con «versión
+computadora». Martín: «Soluciona esto».
+
+**No era un bug: era la regla de las tiendas del 4/11** (`TABS_QUE_VENDEN`, lib/tienda.ts): Agency y Partners fuera de TODO
+teléfono, porque la pantalla decía lo que se le debe a MaKo («Falta pagar», «Esperando su pago», «Renovación pendiente»,
+«Quién paga», «Pendientes»). La pantalla (app/m/agency) estaba escrita y apagada con un `redirect` a More. Volvió SIN eso:
+una cuenta que espera un pago dice «Por habilitar»; los números de arriba son «Activas» y «Clientes». Partners sigue afuera.
+More la muestra sólo a una agencia (`esAgencia`: capa `agencia` Y fila en `agencias`; la capa sola es la de Pro).
+
+**Lo que mostró la captura y no el código:** en la media altura (`snap="medio"`, el de fábrica de `SheetM`), con una lista
+larga, el pie sube con el panel (`translateY` negativo) y las filas de la lista quedan ENCIMA del botón del pie:
+`elementFromPoint` sobre «Entrar a su cuenta» devolvía una fila. El tope «alto» no tiene el problema. Lo arregló «MaKo
+Mobile» en `SheetM` para todas las hojas (13/11): la causa, la regla y las mediciones están en la entrada «Una hoja en
+«medio»…» (17/10 y 13/11). El `snap="alto"` de AgencyM queda: ya no hace falta, pero entrar es lo que vino a hacer.
+Y `DarDeBaja` (de la computadora) trae por defecto la clase `ad-acc`, que el teléfono no carga: salía el botón crudo del
+navegador. En el teléfono va con `className`.
+
+**Cómo se mira una pantalla del teléfono antes del despliegue (sin levantar la app, que escribe en producción):** el banco de
+`scripts/banco-copilot` (esbuild con stubs de next/*, la pantalla real con datos inventados). Para que se vea como en la app
+hay que envolverla en `ShellM` con `barraMovil(...)` (si no, falta la cabecera y los márgenes), y esperar la entrada de MaKo
+(el splash, unos 5 s con el panel de fondo) y la animación de la hoja antes de capturar. El tema oscuro no se prende con
+`data-tema`: el marco lo lee por su cuenta.
