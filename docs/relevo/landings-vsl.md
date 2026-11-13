@@ -214,6 +214,10 @@ estilos, `app/globals.css` compilado con Tailwind → `app.css`), grabado a 1280
 | Casos: Axel y otro | Hecho con los cuatro testimonios que Martín ya publicó (Axel, Securiters, QS Media, Social Media Lab), como «los que trabajaron con Martín» | `MasCasos.tsx` |
 | Mercado Pago en el checkout | No es de landings: el chat de la pasarela (`app/planes/[plan]/Checkout.tsx`); avisado al Cerebro | — |
 
+**En pausa (13/11, noche), hasta que Martín decida** publicar las páginas de Industrias y hacer de la portada nueva la `/` (avisa
+el Cerebro). Spy con Hormozi NO espera un OK de gasto (Martín ya dijo que se gaste Apify): la clave de Apify cargada en Spy da 401 y
+la tiene que pegar Martín en Integraciones → Apify. Copywriting con un reel de Hormozi espera su OK a la maqueta nueva.
+
 **Todas las filas de la portada ya son la app grabada** (13/11, noche), salvo Copywriting con Hormozi (espera el OK de Martín para
 replicar un reel suyo). Las de esta tanda: Marketing CoPilot (`copilot.webm`, la vista «Hoy» de MediaBuyer), Chats (`chats.webm`,
 la bandeja y el «Borrador de MaKo»), CRM con la ficha (`crm-ficha.webm`), Automations (`automations.webm`, el lienzo con «Un Lead
