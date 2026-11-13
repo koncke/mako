@@ -23,7 +23,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../_components/icons';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
-import { carpetasDe, disponer, repartirMiniaturas, type CarpetaOrden, type Disposicion } from '@/lib/spy-orden';
+import { carpetasDe, disponer, maximoDeCarpetas, repartirMiniaturas, type CarpetaOrden, type Disposicion } from '@/lib/spy-orden';
 import { NOMBRE_CANAL } from '@/lib/spy-reglas';
 import { miniaturaChica } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
@@ -125,7 +125,14 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar, pasos = [] }: {
   }, []);
   const fraseN = frases.paso === pasoDeAhora ? frases.n : 0;
 
-  const carpetas = useMemo(() => (piezas ? carpetasDe(piezas) : []), [piezas]);
+  // Cuántas carpetas, según el ancho de la escena (en el teléfono, menos: van debajo de la bola). La escena está en la página desde el
+  // primer cuadro (oculta), así que se mide al montar, antes de que lleguen las piezas.
+  const [ancho, setAncho] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hay que medir el DOM: no hay cómo saberlo antes
+    setAncho(escena.current?.getBoundingClientRect().width || 1200);
+  }, []);
+  const carpetas = useMemo(() => (piezas && ancho != null ? carpetasDe(piezas, maximoDeCarpetas(ancho)) : []), [piezas, ancho]);
   const visibles = useMemo(() => repartirMiniaturas(carpetas), [carpetas]);
   const total = carpetas.reduce((s, c) => s + c.n, 0);
   // Una miniatura por pieza dibujada, con su carpeta y su hueco adentro.
@@ -147,14 +154,15 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar, pasos = [] }: {
 
   // Con las miniaturas bajadas, se mide la escena (está debajo de la criatura, oculta) y se calcula dónde cae todo.
   useLayoutEffect(() => {
-    if (!piezas) return;
+    // ⚠️ Sin el ancho todavía no hay carpetas (`total` da 0): cerrar ahí cortaba la película antes de empezar, si llegaba con piezas.
+    if (!piezas || ancho == null) return;
     if (!total || quieto()) { terminar.current(); return; }
     if (!bajadas) return;
     const r = escena.current?.getBoundingClientRect();
     if (!r?.width || !r.height) { terminar.current(); return; }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hay que medir el DOM: no hay cómo calcularlo antes
     setDispo(disponer(r.width, r.height, carpetas, visibles));
-  }, [piezas, total, carpetas, visibles, bajadas]);
+  }, [piezas, ancho, total, carpetas, visibles, bajadas]);
 
   // La película.
   useEffect(() => {
@@ -288,7 +296,8 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar, pasos = [] }: {
               <div key={r.clave} className="spyo-carpeta" data-visible={fase === 'ordenando' || fase === 'fin'} style={{ left: r.x, top: r.y, width: r.w, height: r.h }}>
                 <div className="spyo-carpeta-cab">
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none' }}><path d="M3 7a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /></svg>
-                  <span>{c.rotulo}<small>{NOMBRE_CANAL[c.canal as keyof typeof NOMBRE_CANAL] ?? c.canal}</small></span>
+                  {/* Una carpeta de formato dice de qué tipo es («Shorts · YouTube»); la del resto, «Otros formatos». */}
+                  <span>{c.rotulo}<small>{[c.detalle, NOMBRE_CANAL[c.canal as keyof typeof NOMBRE_CANAL] ?? c.canal].filter(Boolean).join(' · ')}</small></span>
                   <b>{mostrado(c)}</b>
                 </div>
               </div>

@@ -21,18 +21,39 @@
 
 import { useEffect, useState } from 'react';
 
-/** Lo que hace falta de /api/auth/me. `agenciaAdentroDe`: el ws del cliente cuando quien lo mira es SU agencia (#89). */
-type QuienMira = { clienteDeAgencia: boolean; agenciaAdentroDe: number | null };
+/**
+ * Lo que hace falta de /api/auth/me. `agenciaAdentroDe`: el ws del cliente cuando quien lo mira es SU agencia (#89).
+ * `superAdminMira`: la agencia y el cliente cuando quien mira es el super admin y el cliente es de una agencia (`agencia` de
+ * /api/auth/me, que sólo viene para él: lib/vista-de-otro.ts).
+ */
+type SuperAdminMira = { agenciaWs: number; clienteWs: number };
+type QuienMira = { clienteDeAgencia: boolean; agenciaAdentroDe: number | null; superAdminMira: SuperAdminMira | null };
 let promesa: Promise<QuienMira | null> | null = null;
 
 function leerQuienMira(): Promise<QuienMira | null> {
   promesa ??= fetch('/api/auth/me')
     .then((r) => (r.ok ? r.json() : null))
     .then((j) => (j?.ok && j.autenticado
-      ? { clienteDeAgencia: j.clienteDeAgencia === true, agenciaAdentroDe: j.modoAgencia === true && Number(j.clienteWs) > 0 ? Number(j.clienteWs) : null }
+      ? {
+        clienteDeAgencia: j.clienteDeAgencia === true,
+        agenciaAdentroDe: j.modoAgencia === true && Number(j.clienteWs) > 0 ? Number(j.clienteWs) : null,
+        superAdminMira: j.rol === 'admin' && Number(j.agencia?.ws) > 0 && Number(j.clienteWs) > 0
+          ? { agenciaWs: Number(j.agencia.ws), clienteWs: Number(j.clienteWs) } : null,
+      }
       : null))
     .catch(() => null);
   return promesa;
+}
+
+/** ¿Quien mira es el SUPER ADMIN, adentro de un cliente de agencia? La agencia y el cliente, o null (12/11/2026). */
+export function useSuperAdminMira(): SuperAdminMira | null {
+  const [s, setS] = useState<SuperAdminMira | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void leerQuienMira().then((q) => { if (vivo) setS(q?.superAdminMira ?? null); });
+    return () => { vivo = false; };
+  }, []);
+  return s;
 }
 
 /** La lectura, una vez por pestaña. Si falla, `null`: nunca se asume que SÍ es cliente de una agencia. */

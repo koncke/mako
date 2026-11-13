@@ -4,7 +4,10 @@
 // Los cursores de los agentes, sobre el editor, mientras MaKo edita
 // =============================================================================
 // Copiado del reel (9/11/2026): una flecha del color del agente con su nombre al lado («broll-01», «caps-02»), que va
-// a donde trabaja. Adónde va lo decide ../cursores.ts con el último renglón del agente (la hora del video, o su
+// a donde trabaja. Desde el 12/11 (Martín: «no tiene sentido esos cursores que están haciendo cosas sobre algo que ya está
+// creado»), DONDE APARECE SU CAMBIO: se escucha la línea de tiempo mientras trabajan (../cambios.ts), cada cambio queda con el
+// agente que trabajaba, y él y los de su rol se los reparten (../cursores.ts → `repartoDeCambios`): el bloque del subtítulo
+// nuevo, el punto del corte, el B-roll recién puesto. Los que no tienen nada que hacer esperan quietos en su panel. Adónde va lo decide ../cursores.ts con el último renglón del agente (la hora del video, o su
 // panel); acá se miden las cajas y se dibuja. TODOS se mueven a la vez y rápido (Martín, 11/11/2026: «que pasen los cursores
 // todos juntos al mismo tiempo y mucho más rápido… se tiene que notar la automatización»): el que trabaja, encendido y adelante,
 // va a lo suyo; los demás trabajan sus objetivos, un poco apagados. Cada uno AGARRA algo real del editor (un clip, el
@@ -21,13 +24,32 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
+import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { useTrabajoBroll } from "@/app/video-editor/_opencut/broll/estado";
 import { useTrabajoClips } from "@/app/video-editor/_opencut/clips/estado";
 import { useTrabajoSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { AGENTES, agentePorId, type AgenteId } from "../plan";
-import { PASEO_MS, SIN_OBJETIVOS, TRANSICION_CURSOR_MS, cajasDelCuadro, esquina, tareaDeAgente, type Caja, type LineaMedida, type Objetivos, type Punto, type Zona } from "../cursores";
+import {
+	PASEO_MS,
+	SIN_OBJETIVOS,
+	TRANSICION_CURSOR_MS,
+	cajasDelCuadro,
+	esquina,
+	pendientesDeTanda,
+	puntoDeCursor,
+	repartoDeCambios,
+	tareaDeAgente,
+	type Caja,
+	type CambioARepartir,
+	type LineaMedida,
+	type Objetivos,
+	type Punto,
+	type Zona,
+} from "../cursores";
 import { agentesSueltos, useCursoresSueltos } from "../cursores-sueltos";
 import { useEnjambre } from "../estado";
+import { cambiosEntre, useCambiosEnjambre } from "../cambios";
 
 const ZONAS: Zona[] = ["biblioteca", "reproductor", "propiedades", "linea"];
 
@@ -88,6 +110,21 @@ function clipsPorId(ids: readonly string[]): Caja[] {
 	});
 }
 
+type Medida = { zonas: Partial<Record<Zona, Caja>>; linea: LineaMedida | null; objetivos: Objetivos };
+
+/**
+ * Dónde se ve un cambio: su elemento en la línea de tiempo (`data-ce-id`); si ya no está (lo que se sacó) o no se ve, su
+ * segundo en la línea de tiempo. El estilo de los subtítulos lo ajusta el que trabaja en el REPRODUCTOR, sobre el recuadro del
+ * subtítulo (en el reel, el cursor en la esquina de la caja de selección).
+ */
+function tareaDeCambio(c: CambioARepartir, agente: AgenteId, medida: Medida, esElQueTrabaja: boolean): { caja: Caja | null; punto: Punto } | null {
+	const sub = medida.objetivos.subtitulo;
+	if (esElQueTrabaja && agente === "subs-03" && c.elemento === "text" && sub) return { caja: sub, punto: esquina(sub) };
+	const [caja] = c.id ? clipsPorId([c.id]) : [];
+	if (caja) return { caja, punto: esquina(caja) };
+	return tareaDeAgente({ agente, en: c.en, vuelta: 0, ...medida });
+}
+
 const sinMovimiento = (): boolean => {
 	try {
 		return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -121,14 +158,37 @@ export function CursoresAgentes() {
 		[enjambre, delChat, subtitulando, brolleando, recortando],
 	);
 	const enMarcha = enjambre || sueltos.length > 0;
+	const cambios = useCambiosEnjambre((s) => s.lista);
+
+	// Lo que cambia en la línea de tiempo mientras trabajan, con el agente que trabajaba (../cambios.ts): ahí van los cursores.
+	const editor = useEditor();
+	const sueltosAhora = useRef<readonly AgenteId[]>([]);
+	sueltosAhora.current = sueltos;
+	useEffect(() => {
+		if (!enMarcha) return;
+		useCambiosEnjambre.getState().limpiar();
+		let previo = editor.scenes.getActiveSceneOrNull()?.tracks ?? null;
+		const mirar = () => {
+			const ahora = editor.scenes.getActiveSceneOrNull()?.tracks ?? null;
+			if (!ahora || ahora === previo) return;
+			const s = useEnjambre.getState();
+			const quien = s.fase === "corriendo" ? (AGENTES.find((a) => s.agentes[a.id] === "trabajando")?.id ?? null) : (sueltosAhora.current[0] ?? null);
+			if (quien) useCambiosEnjambre.getState().sumar(cambiosEntre(previo, ahora, TICKS_PER_SECOND), quien);
+			previo = ahora;
+		};
+		const soltarEscenas = editor.scenes.subscribe(mirar);
+		const soltarLinea = editor.timeline.subscribe(mirar);
+		return () => {
+			soltarEscenas();
+			soltarLinea();
+		};
+	}, [enMarcha, editor]);
 
 	// Se re-mide con cada renglón, al cambiar el tamaño de la ventana y dos veces por segundo mientras trabajan (la línea
 	// de tiempo se desplaza o cambia de zoom sin avisar: su escala está en `data-ce-pps`). La vuelta del paseo vuelve a 0
 	// con cada renglón: el cursor va primero al punto exacto de lo que dice, y después pasea.
 	const [medida, setMedida] = useState<ReturnType<typeof medir> | null>(null);
 	const [vuelta, setVuelta] = useState(0);
-	// La vuelta de los que NO trabajan: no vuelve a 0 con cada renglón (si no, todos saltaban juntos a su lugar).
-	const [paso, setPaso] = useState(1);
 	const [quieto, setQuieto] = useState(false);
 	useEffect(() => setQuieto(sinMovimiento()), []);
 	useEffect(() => {
@@ -138,7 +198,7 @@ export function CursoresAgentes() {
 		setVuelta(0);
 		window.addEventListener("resize", volver);
 		const t = setInterval(volver, 500);
-		const paseo = quieto ? null : setInterval(() => { setVuelta((v) => v + 1); setPaso((v) => v + 1); }, PASEO_MS);
+		const paseo = quieto ? null : setInterval(() => setVuelta((v) => v + 1), PASEO_MS);
 		return () => {
 			window.removeEventListener("resize", volver);
 			clearInterval(t);
@@ -173,22 +233,49 @@ export function CursoresAgentes() {
 	if (!enMarcha && !saliendo) return null;
 	if (typeof document === "undefined") return null;
 	let dibujo: Dibujo[];
+	/** Los bloques nuevos que su cursor todavía no soltó: la línea de tiempo los esconde hasta que llega (../cursores.ts). */
+	let escondidos: string[] = [];
 	if (enMarcha && medida) {
+		// Quién muestra qué cambio: el que trabaja y los de su rol se reparten los de su última tanda (../cursores.ts).
+		const ahora = Date.now();
+		const ocupados = enjambre ? AGENTES.filter((a) => agentes[a.id] === "trabajando").map((a) => a.id) : sueltos;
+		const reparto = new Map<AgenteId, { cambio: CambioARepartir; de: AgenteId }>();
+		for (const w of ocupados) {
+			for (const [a, cambio] of repartoDeCambios({ trabajando: w, cambios, ahora, ocupados })) if (!reparto.has(a)) reparto.set(a, { cambio, de: w });
+			if (!quieto) escondidos = escondidos.concat(pendientesDeTanda({ trabajando: w, cambios, ahora, ocupados }));
+		}
+		/** El panel del agente, quieto: el que no tiene nada que hacer no hace como que trabaja sobre lo que ya está. */
+		const enSuLugar = (id: AgenteId) => puntoDeCursor({ agente: id, en: null, zonas: medida.zonas, linea: medida.linea });
 		dibujo = enjambre
-			? AGENTES.flatMap((a) => {
+			? AGENTES.flatMap<Dibujo>((a) => {
 					const trabajando = agentes[a.id] === "trabajando";
-					// TODOS trabajan a la vez (Martín, 11/11/2026: «que pasen los cursores todos juntos al mismo tiempo… que estén
-					// trabajando, hagan cosas, no moverse random»): cada uno en SUS objetivos (../cursores.ts → `tareaDeAgente`), con
-					// su caja de selección. El que tiene un renglón con hora va a ESE segundo de la línea de tiempo.
-					const en = trabajando ? (ultimo.get(a.id) ?? null) : null;
-					const t = tareaDeAgente({ agente: a.id, en, vuelta: trabajando ? vuelta : paso, ...medida });
-					const opacidad = trabajando ? 1 : agentes[a.id] === "esperando" ? 0.85 : 0.6;
-					return t ? [{ id: a.id, color: a.color, p: t.punto, caja: t.caja, opacidad, adelante: trabajando }] : [];
+					const r = reparto.get(a.id);
+					if (r) {
+						const t = tareaDeCambio(r.cambio, a.id, medida, r.de === a.id);
+						return t ? [{ id: a.id, color: a.color, p: t.punto, caja: t.caja, opacidad: 1, adelante: true }] : [];
+					}
+					if (trabajando) {
+						// Sin cambios todavía (escucha, transcribe, mide): en el segundo que dice su último renglón, o en su panel. La
+						// revisión SÍ recorre lo que ya está: revisar es eso.
+						const en = ultimo.get(a.id) ?? null;
+						const t = a.id === "qa-01" ? tareaDeAgente({ agente: a.id, en, vuelta, ...medida }) : en !== null ? tareaDeAgente({ agente: a.id, en, vuelta, ...medida }) : null;
+						const p = t?.punto ?? enSuLugar(a.id);
+						return p ? [{ id: a.id, color: a.color, p, caja: t?.caja ?? null, opacidad: 1, adelante: true }] : [];
+					}
+					const p = enSuLugar(a.id);
+					const opacidad = agentes[a.id] === "esperando" ? 0.55 : 0.4;
+					return p ? [{ id: a.id, color: a.color, p, caja: null, opacidad, adelante: false }] : [];
 				})
-			: sueltos.flatMap((id) => {
+			: sueltos.flatMap<Dibujo>((id) => {
+					// Lo que cambió por su trabajo (12/11/2026), como en la Edición automática.
+					const r = reparto.get(id);
+					if (r) {
+						const t = tareaDeCambio(r.cambio, id, medida, r.de === id);
+						return t ? [{ id, color: agentePorId(id).color, p: t.punto, caja: t.caja, opacidad: 1, adelante: true }] : [];
+					}
 					// Lo que pidió la persona, y nada más (Martín, 11/11/2026: «dependiendo de lo que el usuario pidió… las acciones
 					// necesarias… a alta velocidad pero que no sean random»): los segundos donde actúa (cada pausa que se corta) uno
-					// por vuelta; si no, los clips que toca su pedido; si no, sus objetivos de siempre.
+					// por vuelta; si no, los clips que toca su pedido; si no, su panel.
 					const tarea = tareasSueltas[id];
 					const conHora = tarea?.tiempos.length ? tarea.tiempos[vuelta % tarea.tiempos.length] : null;
 					const susClips = !conHora && tarea?.ids.length ? clipsPorId(tarea.ids) : [];
@@ -196,9 +283,18 @@ export function CursoresAgentes() {
 						? tareaDeAgente({ agente: id, en: conHora, vuelta, ...medida })
 						: susClips.length
 							? { caja: susClips[vuelta % susClips.length], punto: esquina(susClips[vuelta % susClips.length]) }
-							: tareaDeAgente({ agente: id, en: null, vuelta, ...medida });
-					return t ? [{ id, color: agentePorId(id).color, p: t.punto, caja: t.caja, opacidad: 1, adelante: true }] : [];
-				});
+							: null;
+					const p = t?.punto ?? enSuLugar(id);
+					return p ? [{ id, color: agentePorId(id).color, p, caja: t?.caja ?? null, opacidad: 1, adelante: true }] : [];
+				}).concat(
+					// Los de su rol que ayudan con su tanda (no corren nada propio).
+					[...reparto.entries()]
+						.filter(([a]) => !sueltos.includes(a))
+						.flatMap<Dibujo>(([a, r]) => {
+							const t = tareaDeCambio(r.cambio, a, medida, false);
+							return t ? [{ id: a, color: agentePorId(a).color, p: t.punto, caja: t.caja, opacidad: 1, adelante: true }] : [];
+						}),
+				);
 		ultimos.current = dibujo;
 	} else if (saliendo) {
 		dibujo = ultimos.current.map((d) => ({ ...d, opacidad: 0 }));
@@ -206,6 +302,14 @@ export function CursoresAgentes() {
 
 	return createPortal(
 		<div aria-hidden className="pointer-events-none fixed inset-0 z-[58]">
+			{/* Lo nuevo aparece cuando llega su cursor (sin «reducir movimiento»): se esconde en la línea de tiempo hasta entonces. */}
+			{enMarcha && !quieto ? (
+				<style>
+					{`[data-ce-linea] [data-ce-clip]{transition:opacity 180ms ease-out}${escondidos
+						.map((id) => `[data-ce-linea] [data-ce-clip][data-ce-id="${CSS.escape(id)}"]`)
+						.join(",")}${escondidos.length ? "{opacity:0}" : ""}`}
+				</style>
+			) : null}
 			{/* La caja de lo que trabaja cada uno, con su color y debajo de los cursores: como en el reel, se ve QUÉ agarró. */}
 			{dibujo.map(({ id, color, caja, opacidad }) =>
 				caja ? (

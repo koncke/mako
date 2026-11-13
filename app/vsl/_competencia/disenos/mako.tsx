@@ -10,8 +10,9 @@
 // «Your Marketing» a 60,64 px da 415 px contra los 417 de Holo), bajada a public/vsl-assets/fuentes/figtree/.
 // De MaKo quedan el logo, el azul #2F6FED y el dorado donde Holo pone su degradado naranja-rosa-azul (los botones, el borde
 // del botón de la barra, la palabra que brilla del título, la línea de la semana activa), el botón de la llamada, el caso de
-// Mauricio y los textos. El visual del hero es propio: el chat de MaKo con una tarjeta que espera tu sí (el de /vsl/mako
-// era una respuesta del media buyer, que es del CoPilot y no del Ops Center).
+// Mauricio y los textos. Los dibujos a mano de la app (el chat del hero, las tarjetas de Image y Web Generator, las
+// búsquedas con píldoras, la curva de las semanas y las tres cajas de «Inside…») se sacaron el 12/11/2026: en su lugar va el
+// recuadro de FaltaAnimacion, que dice qué grabación va ahí.
 //
 // Secciones de la referencia que NO van, y por qué:
 //   · La píldora de «4.6/5 from 4,268 customers», la tira de logos de redes con su contador de contenido creado, los
@@ -36,6 +37,7 @@ import type { Bloque } from '../tipos';
 import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 
 type B<T extends Bloque['tipo']> = Extract<Bloque, { tipo: T }>;
 
@@ -70,37 +72,12 @@ const I = {
   enviar: ['M10 14l11 -11', 'M21 3l-6.5 18a.55 .55 0 0 1 -1 0l-3.5 -7l-7 -3.5a.55 .55 0 0 1 0 -1l18 -6.5'],
 };
 
-// ── El visual del hero: el chat de MaKo con la tarjeta que espera tu sí (los textos de la tarjeta son los de la app:
-//    «Aprobación pendiente» de lib/mako-gramatica.ts, el botón con el nombre de la acción y «No ejecutar la acción» de
-//    app/m/mako/chat-ui.ts; «Escribe a MaKo» es la caja de app/second-brain/PiezasCliente.tsx). Los chips de vidrio son los de
-//    Holo, con lo que MaKo lee de tu negocio. ─────────────────────────────────────────────────────────────────────────
+// ── El visual del hero: va la grabación del chat de MaKo en el Ops Center. Hasta tenerla, el recuadro que dice qué va
+//    (12/11/2026: el chat dibujado a mano y sus chips de vidrio se sacaron). ──────────────────────────────────────────
 function VisualChat() {
   return (
-    <div className="d-mako-vis" aria-hidden="true">
-      <div className="d-mako-vis-glow" />
-      <div className="d-mako-chat">
-        <div className="d-mako-chat-top">
-          <span className="d-mako-chat-av"><EstrellaMaKo size={15} /></span>
-          <span className="d-mako-chat-n">MaKo</span>
-          <span className="d-mako-chat-s">Ops Center</span>
-        </div>
-        <div className="d-mako-chat-yo">Laura ya agendó su llamada. Pásala de etapa.</div>
-        <div className="d-mako-chat-mk">
-          <span className="d-mako-chat-av d-mako-chat-av-chico"><EstrellaMaKo size={11} /></span>
-          <div className="d-mako-tarj">
-            <div className="d-mako-tarj-cab"><span className="d-mako-tarj-pill">Aprobación pendiente</span></div>
-            <div className="d-mako-tarj-t">Mover un lead de etapa</div>
-            <div className="d-mako-tarj-r">Laura pasa a «Agendó».</div>
-            <div className="d-mako-tarj-l"><span>Etapa</span><span>Contactado <b>→</b> Agendó</span></div>
-            <div className="d-mako-tarj-bot"><span className="d-mako-tarj-si">Mover un lead de etapa</span><span className="d-mako-tarj-no">No ejecutar la acción</span></div>
-          </div>
-        </div>
-        <div className="d-mako-chat-caja"><span>Escribe a MaKo</span><span className="d-mako-chat-env"><Ico paths={I.enviar} size={14} grosor={2} /></span></div>
-      </div>
-      <span className="d-mako-chip d-mako-chip-1"><b><Ico paths={I.crm} size={13} grosor={2.2} />Tu CRM</b><small>Leads y etapas</small></span>
-      <span className="d-mako-chip d-mako-chip-2"><b><Ico paths={I.wa} size={13} grosor={2.2} />Tus chats</b><small>WhatsApp</small></span>
-      <span className="d-mako-chip d-mako-chip-3"><b><Ico paths={I.llamada} size={13} grosor={2.2} />Tus llamadas</b><small>Grabadas</small></span>
-      <span className="d-mako-chip d-mako-chip-4"><b><Ico paths={I.mapa} size={13} grosor={2.2} />Tu Second Brain</b><small>Tu oferta y tu funnel</small></span>
+    <div className="d-mako-vis-falta">
+      <FaltaAnimacion que="El chat de MaKo en el Ops Center, tal cual es." />
     </div>
   );
 }
@@ -129,43 +106,15 @@ function Hero({ b }: { b: B<'hero'> }) {
 }
 
 // ── «Ads that sell. Socials that grow. SEO that ranks. Emails that convert.» (12/11/2026): sus cuatro tarjetas son los cuatro
-//    departamentos de MaKo, en el orden de ../mako.ts (anuncios, contenido, landings, mensajes). Cada una lleva el dibujo de
-//    lo suyo: el chat de Ads Writer y la conversación de un seguimiento (los gráficos de FEATURE_VISUALS de esas landings, sin
-//    cifras) y dos dibujos propios con los nombres reales de las pantallas («Encuentra tu siguiente OUTLIER» de Image, el
-//    formulario que entra al CRM de Web Generator). Ninguno lleva un número. ──────────────────────────────────────────────
+//    departamentos de MaKo, en el orden de ../mako.ts (anuncios, contenido, landings, mensajes). Cada una lleva lo
+//    suyo: los visuales de FEATURE_VISUALS de Ads Writer y de seguimiento, y para Image y Web Generator el recuadro de lo que
+//    falta grabar (12/11/2026: los dos dibujos a mano se sacaron). ─────────────────────────────────────────────────────
 function MockCarruseles() {
-  const tonos = ['#1F2028', '#2F6FED', '#FDF1D6'];
-  return (
-    <div className="d-mako-dep" aria-hidden="true">
-      <p className="d-mako-dep-h">Encuentra tu siguiente <span>OUTLIER</span></p>
-      <div className="d-mako-dep-grilla">
-        {tonos.map((t, i) => (
-          <span key={t} className="d-mako-dep-car">
-            <span className="d-mako-dep-lam" style={{ background: t }}>
-              <i className="d-mako-dep-pill">Outlier</i>
-              <i className="d-mako-dep-l" style={{ background: i === 2 ? '#1F2028' : '#fff' }} />
-              <i className="d-mako-dep-l d-mako-dep-l2" style={{ background: i === 2 ? '#1F2028' : '#fff' }} />
-            </span>
-            <span className="d-mako-dep-editar">Editar</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
+  return <FaltaAnimacion que="La pantalla de outliers de Image, tal cual es." />;
 }
 
 function MockLanding() {
-  return (
-    <div className="d-mako-dep" aria-hidden="true">
-      <div className="d-mako-dep-nav"><i /><i /><i /><span>hola-mako.site</span></div>
-      <div className="d-mako-dep-pag">
-        <i className="d-mako-dep-t" /><i className="d-mako-dep-t d-mako-dep-t2" />
-        <span className="d-mako-dep-campos"><span>Nombre</span><span>WhatsApp</span></span>
-        <span className="d-mako-dep-boton">Quiero mi llamada</span>
-      </div>
-      <span className="d-mako-dep-chip">Nuevo lead en tu CRM</span>
-    </div>
-  );
+  return <FaltaAnimacion que="Una landing real hecha con Web Generator." />;
 }
 
 const DIBUJO_DEPARTAMENTO = [
@@ -296,13 +245,12 @@ function Caso() {
   );
 }
 
-// «Any niche / Any language / Any integration»: la búsqueda y las píldoras de cada tarjeta, con lo que es cierto de MaKo
-// (lo que tiene tu Second Brain, los roles de tu equipo y, desde el 12/11/2026, lo que conectas en Integraciones). El color de cada píldora reparte el azul y el
-// dorado donde Holo pone sus naranjas, azules, violetas y rosas; las grises quedan grises.
-const PILDORAS: { busca: string; items: { t: string; c: 'a' | 'd' | 'o' | 'g' }[] }[] = [
-  { busca: 'Tu oferta', items: [{ t: 'Tu oferta', c: 'd' }, { t: 'Tus clientes', c: 'a' }, { t: 'Tu funnel', c: 'o' }, { t: 'Tu mensaje', c: 'a' }, { t: 'Tu marca', c: 'g' }] },
-  { busca: 'Closer', items: [{ t: 'Admin', c: 'g' }, { t: 'Closer', c: 'a' }, { t: 'Setter', c: 'd' }] },
-  { busca: 'Calendly', items: [{ t: 'Meta', c: 'a' }, { t: 'Calendly', c: 'd' }, { t: 'Fathom', c: 'o' }, { t: 'Stripe', c: 'a' }, { t: 'Tu IA', c: 'g' }] },
+// «Any niche / Any language / Any integration»: donde Holo pone su búsqueda con píldoras va la pantalla real de MaKo de
+// cada tarjeta (el Second Brain, los roles del equipo, Integraciones). Hasta tener la grabación, el recuadro que dice qué va.
+const FALTA_NICHO = [
+  'El Second Brain de MaKo, tal cual es.',
+  'Los roles de tu equipo en MaKo, tal cual son.',
+  'La pantalla de Integraciones de MaKo, tal cual es.',
 ];
 
 function Nicho({ b }: { b: B<'tarjetas'> }) {
@@ -312,16 +260,14 @@ function Nicho({ b }: { b: B<'tarjetas'> }) {
         <h2 className="d-mako-h2 d-mako-h2-claro" dangerouslySetInnerHTML={html(b.titulo)} />
         <div className="d-mako-nicho-lista">
           {b.items.map((it, i) => {
-            const p = PILDORAS[i % PILDORAS.length];
             return (
               <article key={it.titulo} className="d-mako-nicho-t">
                 <div>
                   <h3 className="d-mako-nicho-h" dangerouslySetInnerHTML={html(it.titulo)} />
                   <p className="d-mako-nicho-p" dangerouslySetInnerHTML={html(it.texto)} />
                 </div>
-                <div className="d-mako-nicho-vis" aria-hidden="true">
-                  <div className="d-mako-busca"><Ico paths={I.lupa} size={16} grosor={2.2} /><span>{p.busca}</span><i /></div>
-                  <div className="d-mako-pild">{p.items.map((x) => <span key={x.t} className={`d-mako-pild-${x.c}`}>{x.t}</span>)}</div>
+                <div className="d-mako-nicho-vis">
+                  <FaltaAnimacion que={FALTA_NICHO[i % FALTA_NICHO.length]} />
                 </div>
               </article>
             );
@@ -341,19 +287,8 @@ function Semanas({ b }: { b: B<'pasos'> }) {
           <h2 className="d-mako-sem-h" dangerouslySetInnerHTML={html(b.titulo)} />
           {b.bajada ? <p className="d-mako-cab-p d-mako-cab-p-claro" dangerouslySetInnerHTML={html(b.bajada)} /> : null}
         </div>
-        <div className="d-mako-sem-graf" aria-hidden="true">
-          <svg viewBox="0 0 1080 330" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id="d-mako-sem-l" x1="0" x2="1" y1="0" y2="0"><stop offset="0" stopColor="#2F6FED" /><stop offset=".55" stopColor="#5B8EF5" /><stop offset="1" stopColor={MAKO.dorado} /></linearGradient>
-              <linearGradient id="d-mako-sem-a" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#2F6FED" stopOpacity=".16" /><stop offset="1" stopColor="#2F6FED" stopOpacity=".03" /></linearGradient>
-              <radialGradient id="d-mako-sem-g"><stop offset="0" stopColor={MAKO.dorado} stopOpacity=".45" /><stop offset="1" stopColor={MAKO.dorado} stopOpacity="0" /></radialGradient>
-            </defs>
-            <path d="M0 296 C40 304 80 306 120 304 S200 292 250 294 S330 284 380 276 S460 246 520 238 S600 240 640 236 S690 222 720 205 L720 330 L0 330 Z" fill="url(#d-mako-sem-a)" />
-            <path d="M0 296 C40 304 80 306 120 304 S200 292 250 294 S330 284 380 276 S460 246 520 238 S600 240 640 236 S690 222 720 205" fill="none" stroke="url(#d-mako-sem-l)" strokeWidth="2.4" vectorEffect="non-scaling-stroke" />
-            <circle cx="720" cy="205" r="95" fill="url(#d-mako-sem-g)" />
-            <line x1="720" y1="205" x2="720" y2="330" stroke="#B9C8F5" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          </svg>
-          <span className="d-mako-sem-punto" />
+        <div className="d-mako-sem-falta">
+          <FaltaAnimacion que="Un tablero real del Dashboard." />
         </div>
         <ol className="d-mako-sem-tabs">
           {b.pasos.map((p, i) => (
@@ -368,59 +303,18 @@ function Semanas({ b }: { b: B<'pasos'> }) {
   );
 }
 
-// Lo que se ve adentro de las tres cajas grises de «Inside…» (Holo pone ahí sus demos): la pantalla de MaKo de cada cosa,
-// con sus nombres reales (las tabs, «Aprende solo», lo que tiene el Second Brain). Sin números de uso.
+// Lo que va adentro de las tres cajas grises de «Inside…» (Holo pone ahí sus demos): la pantalla real de MaKo de cada cosa.
+// Hasta tener la grabación, el recuadro que dice qué va (12/11/2026: nada dibujado a mano).
 function MockConversaciones() {
-  const filas = [
-    { t: 'Pasa a Laura a «Agendó»', tab: 'CRM' },
-    { t: '¿Qué hago primero hoy?', tab: 'Plan' },
-    { t: 'Arma la bienvenida de WhatsApp', tab: 'Automations' },
-  ];
-  return (
-    <div className="d-mako-mock">
-      <p className="d-mako-mock-h">Conversaciones</p>
-      <div className="d-mako-mock-panel">
-        {filas.map((f) => (
-          <div key={f.t} className="d-mako-mock-fila"><span>{f.t}</span><i>{f.tab}</i></div>
-        ))}
-      </div>
-    </div>
-  );
+  return <FaltaAnimacion que="La lista de conversaciones de MaKo, tal cual es." />;
 }
 
 function MockCerebro() {
-  const nodos = [
-    { t: 'Oferta', x: 52, y: 40 }, { t: 'Clientes', x: 208, y: 40 }, { t: 'Funnel', x: 52, y: 196 }, { t: 'Mensaje', x: 208, y: 196 },
-  ];
-  return (
-    <div className="d-mako-mock d-mako-mock-cerebro">
-      <p className="d-mako-mock-h">Second Brain</p>
-      <svg viewBox="0 0 260 236" width="100%">
-        {nodos.map((n) => <line key={n.t} x1="130" y1="118" x2={n.x} y2={n.y} stroke="#C9D7F8" strokeWidth="1.5" strokeDasharray="4 4" />)}
-        <circle cx="130" cy="118" r="34" fill="#2F6FED" />
-        <text x="130" y="122" textAnchor="middle" fontSize="12" fontWeight="700" fill="#fff">Tu negocio</text>
-        {nodos.map((n, i) => (
-          <g key={n.t}>
-            <rect x={n.x - 38} y={n.y - 15} width="76" height="30" rx="15" fill={i === 0 ? '#FDF1D6' : '#F3F6FB'} stroke={i === 0 ? '#F2B01E' : '#DCE5F7'} />
-            <text x={n.x} y={n.y + 4} textAnchor="middle" fontSize="11.5" fontWeight="700" fill="#1F2028">{n.t}</text>
-          </g>
-        ))}
-      </svg>
-    </div>
-  );
+  return <FaltaAnimacion que="El Second Brain de MaKo, tal cual es." />;
 }
 
 function MockAprende() {
-  return (
-    <div className="d-mako-mock">
-      <div className="d-mako-mock-tog"><p className="d-mako-mock-h">«Aprende solo»</p><span className="d-mako-mock-sw"><i /></span></div>
-      <p className="d-mako-mock-sub">De tus conversaciones de WhatsApp con leads</p>
-      <div className="d-mako-mock-panel">
-        <div className="d-mako-mock-fila"><span>Objeciones</span><i>WhatsApp</i></div>
-        <div className="d-mako-mock-fila"><span>Pedidos</span><i>WhatsApp</i></div>
-      </div>
-    </div>
-  );
+  return <FaltaAnimacion que="El ajuste «Aprende solo», tal cual es." />;
 }
 
 const MOCKS = [MockConversaciones, MockCerebro, MockAprende];
@@ -642,6 +536,7 @@ const CSS = `
 
 /* El chat del hero, en el lugar y el tamaño de su ilustración (647 × 485), con los chips de vidrio de Holo */
 .d-mako-vis { position: relative; height: 485px; }
+.d-mako-vis-falta { margin-left: 86px; border-radius: 14px; background: #fff; }
 .d-mako-vis-glow { position: absolute; inset: 40px 70px; border-radius: 50%; background: radial-gradient(closest-side, rgba(47,111,237,.38), rgba(47,111,237,.08) 60%, transparent), radial-gradient(closest-side at 70% 75%, rgba(242,176,30,.18), transparent); filter: blur(30px); }
 .d-mako-chat { position: absolute; left: 50%; top: 50%; width: 404px; transform: translate(-50%, -50%); display: flex; flex-direction: column; gap: 12px; padding: 14px 14px 12px; border-radius: 26px; background: #0E0F1A; border: 1px solid rgba(255,255,255,.12); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 14px 36px rgba(0,0,0,.3), 0 40px 80px -30px rgba(47,111,237,.35); }
 .d-mako-chat-top { display: flex; align-items: center; gap: 8px; padding: 2px 2px 10px; border-bottom: 1px solid rgba(255,255,255,.08); }
@@ -797,6 +692,7 @@ const CSS = `
 /* Semana a semana: el título de 52 px, el texto de 360 a la derecha, la curva y las pestañas de abajo */
 .d-mako-sem { padding: 96px 24px; }
 .d-mako-sem-h { max-width: 558px; font-size: 52px; line-height: 58.24px; letter-spacing: -0.5px; font-weight: 700; color: #1F2028; }
+.d-mako-sem-falta { margin-top: 64px; }
 .d-mako-sem-graf { position: relative; margin-top: 64px; height: 330px; background-image: repeating-linear-gradient(to bottom, #E5E6EB 0 2px, transparent 2px 7px); background-size: 1px 100%; background-repeat: no-repeat; background-position: 0 0; }
 .d-mako-sem-graf::before, .d-mako-sem-graf::after { content: ''; position: absolute; top: 0; bottom: 0; width: 1px; background-image: repeating-linear-gradient(to bottom, #E5E6EB 0 2px, transparent 2px 7px); }
 .d-mako-sem-graf::before { left: 33.333%; }
@@ -897,6 +793,7 @@ const CSS = `
 @media (max-width: 1023px) {
   .d-mako-hero-g { grid-template-columns: minmax(0, 1fr); }
   .d-mako-hero-vis { margin-left: 0; }
+  .d-mako-vis-falta { margin-left: 0; }
   .d-mako-incl-fila { overflow-x: auto; justify-content: flex-start; padding: 20px 24px 40px; scroll-snap-type: x mandatory; scrollbar-width: none; }
   .d-mako-incl-t { scroll-snap-align: center; }
   .d-mako-pro-g, .d-mako-datos-g { grid-template-columns: minmax(0, 1fr); }
@@ -960,6 +857,7 @@ const CSS = `
   .d-mako-sem { padding: 80px 24px; }
   .d-mako-sem-h { font-size: 41.44px; line-height: 46.41px; }
   .d-mako-sem-graf { margin-top: 40px; height: 180px; }
+  .d-mako-sem-falta { margin-top: 40px; }
   .d-mako-sem-tabs { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .d-mako-sem-tabs li { padding: 14px 0 12px; }
   .d-mako-sem-t { font-size: 17px; line-height: 22.1px; }

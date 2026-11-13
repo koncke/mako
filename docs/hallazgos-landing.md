@@ -194,6 +194,26 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   - **Lo que quedó SIN hacer**: grabar Video, Chats, Marketing CoPilot, CRM y Automations como Spy y Replicar (hoy muestran el
     visual de su landing). Los bancos están en el scratchpad de la sesión; la receta es la de arriba.
 
+- **Octava vuelta (12/11/2026, noche, claude5): nada inventado.**
+  - **⚠️ «La app de verdad» no es «un componente de verdad con datos de mentira».** Para el CRM, Chats, Marketing CoPilot y el
+    agente armé escenas en el banco con piezas reales (la tarjeta del kanban, la burbuja de WhatsApp) pero un tablero, una
+    bandeja y un guion inventados: Martín las rechazó igual («que sea exactamente el CRM que tenemos hoy en día, no un
+    inventado»). Lo que va al sitio es la pantalla real grabada (con datos de prueba, el ws 3) o el recuadro
+    `FaltaAnimacion` que dice qué va ahí. Nunca un dibujo, aunque se vea bien.
+  - **Mirar un reel de Instagram cuadro por cuadro sin bajarlo:** en el navegador del panel, pausar el `<video>`, ir a cada
+    momento con `currentTime` (esperando `seeked`), dibujarlo en un `<canvas>` encima de la página y capturar. Dos trampas: con
+    el panel oculto las capturas salen viejas (hay que mostrarlo), y con el panel chico la captura se corta (fijar el tamaño con
+    `resize_window` y volver a «desktop» al terminar).
+  - **Los botones de tarjetas con distinto texto, alineados:** `grid-template-rows: subgrid` en cada tarjeta, con las mismas filas
+    en todas (nombre, frase, precio, botón, lista): el alto de cada fila lo pone la más alta de las tres.
+  - **El sol y la luna:** lo marcado `data-tema-fijo` no se toca (el Acelerador negro, el caso de Mauricio). Los bordes no son
+    letra: un borde claro en el modo claro se oscurecía y aparecían marcos negros; ahora un borde se lleva al gris del modo.
+    Y una comilla invertida en un comentario DENTRO del script de `TemaSitio.tsx` corta la plantilla de JavaScript: el error de
+    esbuild («Expected ";" but found…») apunta a la línea del comentario.
+  - **Una constante usada antes de su línea rompe el módulo al cargar:** `PREGUNTAS_SITIO` (un arreglo que se arma al cargar)
+    llamaba a `nAppsQueReemplaza`, declarada más abajo con `const`: en el navegador sería un error de inicialización. Se usa la
+    función importada (`appsQueReemplaza`), que ya existe al cargar.
+
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
 **Vive en:** `scripts/landing-valores-tilvo.mjs` (con su test), `scripts/banco-editor-web/landing.tsx`, `app/vsl/CartelPromo.tsx`.

@@ -83,7 +83,7 @@ test('los carteles de tope: el «Pasar a Pro» va envuelto en CtaPasarAPro, y si
   const cta = fuente('app/_components/CtaPasarAPro.tsx');
   // Desde el 12/11/2026 (#89) la decisión es `ctaDeTope` (pura, en lib/plan-esencial-reglas.ts; la prueba
   // tests/tope-agencia-adentro-89.test.ts): el `null` del primer dibujo sigue yendo por el link.
-  assert.match(cta, /const cta = ctaDeTope\(\{ clienteDeAgencia: useClienteDeAgencia\(\), agenciaAdentroDe: useAgenciaAdentro\(\) \}\);\n\s*if \(cta\.tipo === 'link'\) return <>\{children\}<\/>;/,
+  assert.match(cta, /const cta = ctaDeTope\(\{ clienteDeAgencia: useClienteDeAgencia\(\), agenciaAdentroDe: useAgenciaAdentro\(\), superAdminMira: useSuperAdminMira\(\) \}\);\n\s*if \(cta\.tipo === 'link'\) return <>\{children\}<\/>;/,
     'el `null` del primer dibujo va por el link: el «no sé» de la BASE ya llega como `true` desde /api/auth/me');
   assert.match(cta, /\{cta\.texto\}<\/span>/);
   assert.doesNotMatch(cta.slice(cta.indexOf("if (cta.tipo === 'link')")), /<a |<Link /, 'al cliente de una agencia, SIN link: no hay nada que toque él');

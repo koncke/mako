@@ -690,4 +690,21 @@ Y también:
     revisar: '/equipo',
     tickets: [89],
   },
+  {
+    fecha: '12 nov', hora: '22:55', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Tope del plan: el super admin que mira a un cliente de agencia va a su ficha, no lee «Pídele a tu agencia»',
+    puntos: [
+      'Después del #89, el Cerebro: el super admin tampoco es «el cliente». Mirando a un cliente de una agencia leía «Pídele a tu agencia que te pase a Pro».',
+      'Ahora el cartel le ofrece «Ver su plan en Agency Dashboard»: abre la ficha de esa cuenta en el panel de SU agencia, el mismo lugar al que vuelve «Salir».',
+      'Dice «Ver» y no «Pasar a Pro»: cambiar el plan de un cliente de agencia es de la agencia.',
+      'El teléfono sigue sin botón para subir de plan: Apple y Google no dejan ofrecerlo (la regla del 3/11). Cambiarlo lo decide Martín.',
+    ],
+    archivos: [
+      'lib/plan-esencial-reglas.ts — `ctaDeTope` con `superAdminMira`',
+      'app/_components/CtaPasarAPro.tsx · app/_components/useClienteDeAgencia.ts — la lectura y la salida por la puerta del super admin',
+      'tests/tope-agencia-adentro-89.test.ts — el caso 2b',
+    ],
+    revisar: '/equipo',
+  },
 ];
