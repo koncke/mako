@@ -86,7 +86,7 @@ import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import { EN_PALABRAS, paresParecidos, type CompetidorJuntable } from '@/lib/spy-juntar-reglas';
 import {
   competidoresAction, guardarAnuncioAction, juntarCompetidoresAction, piezasAction, ponerPaisAction, quitarCanalAction, quitarCompetidorAction,
-  revisarAction, sugeridosAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista,
+  revisarAction, sugeridosAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista, type SeguidosLeidos,
 } from './actions';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { enlaceSusAnuncios } from '@/lib/spy-funnel';
@@ -106,6 +106,7 @@ import { canalesALeer, sumarPasos, type PasoLectura } from '@/lib/spy-lectura-pa
 import { BuscadorAlta } from './BuscadorAlta';
 import { Flecha, GrillaPiezas } from './GrillaPiezas';
 import { MejoresPiezas } from './MejoresPiezas';
+import { Seguidos } from './Seguidos';
 import { multiplosDe } from '@/lib/multiplo-rendimiento';
 
 const CSS = `
@@ -891,7 +892,7 @@ function CajaDestinos({ piezas }: { piezas: PiezaVista[] }) {
   return <CajaMix titulo="A dónde manda" filas={destinos.slice(0, 6)} total={piezas.length} />;
 }
 
-export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [], conVistaPrevia = false }: {
+export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = null, errorInicial, puedeBorrar = false, ws = null, sugeridosIniciales = [], conVistaPrevia = false, vistaInicial = 'todos', seguidosIniciales = null }: {
   iniciales: Competidor[];
   resumenInicial: Record<number, ResumenPiezas>;
   /** El `?competidor=` de la URL. La ficha es una URL: se comparte, se marca y se vuelve. */
@@ -907,7 +908,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   sugeridosIniciales?: Sugerido[];
   /** La vista previa de sus páginas: la ruta del Diagnóstico del Web Generator pide el admin y esa tab en el plan. */
   conVistaPrevia?: boolean;
+  /** El `?ver=seguidos` de la URL: la vista de los competidores seguidos (./Seguidos.tsx; la tarea de Marketing CoPilot lleva ahí). */
+  vistaInicial?: 'todos' | 'seguidos';
+  /** Lo de los seguidos, leído en el server cuando la URL ya pide esa vista. */
+  seguidosIniciales?: SeguidosLeidos | null;
 }) {
+  const [ver, setVer] = useState<'todos' | 'seguidos'>(vistaInicial);
   const [competidores, setCompetidores] = useState<Competidor[]>(iniciales);
   const [sugeridos, setSugeridos] = useState<Sugerido[]>(sugeridosIniciales);
   const [resumen, setResumen] = useState(resumenInicial);
@@ -1155,11 +1161,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [elegido, traerPiezas, leer]);
 
-  // Volver atrás en el navegador vuelve a la ficha o a la lista.
+  // Volver atrás en el navegador vuelve a la ficha o a la lista (la de todos o la de seguidos).
   useEffect(() => {
     const alVolver = () => {
-      const v = Number(new URLSearchParams(window.location.search).get('competidor'));
+      const q = new URLSearchParams(window.location.search);
+      const v = Number(q.get('competidor'));
       setElegido(Number.isInteger(v) && v > 0 ? v : null);
+      setVer(q.get('ver') === 'seguidos' ? 'seguidos' : 'todos');
     };
     window.addEventListener('popstate', alVolver);
     return () => window.removeEventListener('popstate', alVolver);
@@ -1178,6 +1186,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     const url = new URL(window.location.href);
     if (id == null) url.searchParams.delete('competidor');
     else url.searchParams.set('competidor', String(id));
+    window.history.pushState(null, '', url);
+  }, []);
+
+  /** Todos o Seguidos: la vista va en la URL (`?ver=seguidos`), así la tarea de CoPilot lleva directo y «atrás» vuelve. */
+  const cambiarVista = useCallback((v: 'todos' | 'seguidos') => {
+    setVer(v);
+    const url = new URL(window.location.href);
+    if (v === 'seguidos') url.searchParams.set('ver', 'seguidos'); else url.searchParams.delete('ver');
     window.history.pushState(null, '', url);
   }, []);
 
@@ -1820,8 +1836,17 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           );
         })}
 
-        {!c && competidores.length > 0 && <RejillaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} puedeBorrar={puedeBorrar} />}
-        {!c && <RejillaSugeridos sugeridos={sugeridos} ocupado={ocupado} onSumar={(x) => { void sumarSugerido(x); }} />}
+        {/* ── Todos o Seguidos (13/11/2026, Martín para Marketing CoPilot): la persona elige a quién seguir, y ahí ve el promedio
+             de sus seguidos y lo que les está funcionando (./Seguidos.tsx). ── */}
+        {!c && competidores.length > 0 && (
+          <nav className="spy-pestanas spy-vistas" aria-label="Qué competidores ver">
+            <button type="button" className="spy-pestana" data-activa={ver === 'todos'} onClick={() => cambiarVista('todos')}>Todos</button>
+            <button type="button" className="spy-pestana" data-activa={ver === 'seguidos'} onClick={() => cambiarVista('seguidos')}>Seguidos</button>
+          </nav>
+        )}
+        {!c && competidores.length > 0 && ver === 'seguidos' && <Seguidos competidores={competidores} onAbrir={(id) => irA(id)} inicial={seguidosIniciales} />}
+        {!c && competidores.length > 0 && ver === 'todos' && <RejillaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} puedeBorrar={puedeBorrar} />}
+        {!c && ver === 'todos' && <RejillaSugeridos sugeridos={sugeridos} ocupado={ocupado} onSumar={(x) => { void sumarSugerido(x); }} />}
 
         {/* ── MIENTRAS LEE Y ORDENA, NADA MÁS EN PANTALLA (punto 14 del 4/11): ni la miga, ni las pestañas, ni sus redes.
              Primero la criatura sola, después la animación, y recién al terminar el resto. ── */}

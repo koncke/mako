@@ -17,10 +17,9 @@
 import { useMemo, type ReactNode } from 'react';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { PantallaCrear } from '@/app/_crear/PantallaCrear';
-import type { LandingResumen } from '@/lib/editor-landing/api-tipos';
-import { RUTA_PANEL, proyectosDeLandings } from './portada-reglas';
+import { RUTA_PANEL, proyectosDeLandings, type LandingEnLista } from './portada-reglas';
 
-export function PortadaWeb({ docs, errorLista, children }: { docs: readonly LandingResumen[]; errorLista: string | null; children: ReactNode }) {
+export function PortadaWeb({ docs, errorLista, children }: { docs: readonly LandingEnLista[]; errorLista: string | null; children: ReactNode }) {
   const router = useRouter();
   const proyectos = useMemo(() => proyectosDeLandings(docs), [docs]);
   return (

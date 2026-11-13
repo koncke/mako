@@ -209,6 +209,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     // 100M Business». Adaptar no es buscar y reemplazar el nombre del gurú por el del negocio: es contar lo mismo con lo que el negocio
     // tiene de verdad. Capa 2: `cifrasDeLaReplica` (abajo) avisa las cifras que se escapan igual.
     '- Adaptar es contar LO MISMO con la oferta del negocio, NO cambiar el nombre del creador, de su gurú o de su marca por el del negocio. Lo que es del original (sus libros, sus herramientas, sus cifras, sus resultados, su promesa) se cambia por algo VERDADERO del negocio de abajo, o se saca. Ninguna cifra, monto, resultado ni garantía que no esté en lo que se sabe del negocio: ni las del original ni inventadas. Tampoco le atribuyas al negocio algo que no está en lo que se sabe de él (un método, un framework, un libro, una herramienta propia): si hace falta, di «tu método» o «tu forma de trabajar».',
+    '- El nombre de una marca, una app o una herramienta que va con su logo (como «Claude» debajo de su ícono) va IGUAL: el logo queda.',
     '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su nombre o su firma va el NOMBRE del negocio, tal como está escrito abajo. Donde el original muestra su @ (un encabezado, un tuit, un pie), escribe exactamente @usuario: el sistema pone el del negocio. Nunca otro @, un usuario inventado ni un sitio web.',
     '- Español neutro, de «tú», como se habla en México.',
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra que tenga sentido para este negocio (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
@@ -329,11 +330,60 @@ export function conElArrobaDelNegocio(texto: string, usuario: string | null | un
  */
 /**
  * El `@usuario` de la IA cambiado por el del negocio; sin uno cargado, se va CON la palabra que lo presentaba («Síguenos en
- * @usuario para más» quedaba «Síguenos en para más», 13/11/2026).
+ * @usuario para más» quedaba «Síguenos en para más», 13/11/2026). Y a quién seguir, sin @, es el negocio por su nombre: «Sigue
+ * @usuario para más…» quedaba «Sigue para más…» (13/11/2026, el pie de la lámina 6 en producción).
  */
-export function sinArroba(texto: string, handle: string): string {
+export function sinArroba(texto: string, handle: string, nombre = ''): string {
   if (handle) return texto.replace(/@usuario\b/gi, handle);
-  return texto.replace(/\s+(?:en|a|de|on|at|in)\s+@usuario\b/gi, '').replace(/@usuario\b/gi, '').replace(/[ \t]{2,}/g, ' ').trim();
+  const quien = nombre.trim();
+  const sinEn = texto.replace(/\s+(?:en|a|de|on|at|in)\s+@usuario\b/gi, '');
+  const conNombre = quien ? sinEn.replace(/(^|[\s¡«"])(sigue|seguí)\s+@usuario\b/gi, (_, antes: string, verbo: string) => `${antes}${verbo} a ${quien}`) : sinEn;
+  const sinElArroba = conNombre.replace(/@usuario\b/gi, '').replace(/[ \t]{2,}/g, ' ').trim();
+  // Y la IA también lo escribe así, sin @ («Sigue para más contenido…», tres corridas de tres): a quién, por su nombre.
+  return quien ? sinElArroba.replace(/(^|[\s¡«"])(sigue|seguí)\s+(para|por)\b/gi, (_, antes: string, verbo: string, prep: string) => `${antes}${verbo} a ${quien} ${prep}`) : sinElArroba;
+}
+
+/** Un texto para comparar: sin acentos, sin mayúsculas, sin espacios ni signos («© 2026» y «©2026» son lo mismo). */
+const paraComparar = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('es').replace(/[^\p{L}\p{N}]/gu, '');
+
+/** ¿La IA lo dejó como estaba? (el nombre de una marca con su logo, el «© 2026»): se deja como en el original, sin reescribirlo. */
+export function sinCambio(t: { texto: string; original?: string | null }): boolean {
+  const original = paraComparar(t.original ?? '');
+  return !!original && original === paraComparar(t.texto);
+}
+
+/**
+ * ¿Dos lecturas del MISMO texto? (lo que la IA principal dice que hay en unos renglones y lo que leyó el segundo pedido en su
+ * recorte): la mitad de sus pares de letras en común, por lo menos. «Alex Hormozi Set Up Guide» y «Comment "GIFT"…» no;
+ * «Turn Claude into your…» leído entero y leído sin el «step by step.» de abajo, sí.
+ */
+export function dicenLoMismo(a: string, b: string): boolean {
+  const x = paraComparar(a);
+  const y = paraComparar(b);
+  if (x.length < 2 || y.length < 2) return x === y;
+  const pares = (s: string) => { const m = new Map<string, number>(); for (let i = 0; i < s.length - 1; i++) m.set(s.slice(i, i + 2), (m.get(s.slice(i, i + 2)) ?? 0) + 1); return m; };
+  const px = pares(x);
+  const py = pares(y);
+  let comunes = 0;
+  for (const [k, n] of px) comunes += Math.min(n, py.get(k) ?? 0);
+  return (2 * comunes) / (x.length - 1 + y.length - 1) >= 0.5;
+}
+
+/**
+ * Qué va en unos renglones, con lo que el segundo pedido LEYÓ en su recorte (./plancha-servidor.ts → `completarLoQueFalta`):
+ *   · 'suyo': el texto de la IA principal (`suyo`), si el recorte dice lo que ella leyó: lo escribió con todo el carrusel a la vista;
+ *   · 'leido': lo que el segundo pedido leyó y adaptó: sin dueño, o la IA principal le puso a estos renglones otro texto;
+ *   · 'original': como está en la lámina, sin borrar: lo que vuelve igual (el nombre de una marca con su logo, el «© 2026»). Y un
+ *     nombre corto que el recorte deja igual gana aunque la IA principal lo haya cambiado («Claude» debajo de su logo salió
+ *     «PASO 2» en producción, 13/11/2026).
+ */
+export function queVaEnLosRenglones(suyo: { texto: string; original?: string | null } | null, leido: { texto: string; original?: string | null }): 'suyo' | 'leido' | 'original' {
+  const lo = (leido.original ?? '').trim();
+  // Un ícono que la IA «leyó» («[decorative element]» → «📄»): no es un texto.
+  if (!/[\p{L}\p{N}]/u.test(leido.texto) && !/^@/.test(lo)) return 'original';
+  const nombreCorto = lo.length <= 16 && lo.split(/\s+/).length <= 2 && sinCambio(leido);
+  if (suyo && (!suyo.original || dicenLoMismo(suyo.original, lo)) && !(nombreCorto && !sinCambio(suyo))) return 'suyo';
+  return sinCambio(leido) ? 'original' : 'leido';
 }
 
 /**
@@ -357,7 +407,7 @@ export function conAcentos(marcado: string): { texto: string; acentos: Array<[nu
   return { texto: recortado, acentos: acentos.map(([a, b]) => [Math.max(0, a - ini), Math.min(recortado.length, b - ini)] as [number, number]).filter(([a, b]) => b > a) };
 }
 
-export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; usuario?: string | null }): Replica | { error: string } {
+export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; usuario?: string | null; nombre?: string }): Replica | { error: string } {
   let j: Record<string, unknown>;
   try { j = parseJsonObject(crudo); } catch { return { error: 'La IA no devolvió el diseño en un formato que pueda leer.' }; }
   const lista = Array.isArray(j.laminas) ? j.laminas : [];
@@ -372,7 +422,7 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
       const t = crudoT && typeof crudoT === 'object' ? (crudoT as Record<string, unknown>) : {};
       // `@usuario` es el comodín del prompt para el @ del original (12/11/2026): el del negocio, si está cargado; si no, se va.
       const handle = o.usuario?.trim() ? `@${o.usuario.trim().replace(/^@+/, '')}` : '';
-      const marcado = conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle), o.usuario);
+      const marcado = conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle, o.nombre), o.usuario);
       const { texto: contenido, acentos } = conAcentos(marcado);
       const original = limpio(t.original, LARGO_TEXTO).replace(/\*/g, '');
       // Un texto que quedó vacío (el @ del original, con un negocio sin @ cargado) se queda SI se sabe qué decía: hay que borrarlo
@@ -434,6 +484,7 @@ export function promptDeCompletar(p: { textos: number; figuras: number; nombreNe
     p.figuras ? `Los ${p.figuras} siguientes son FIGURAS: en "personas", por cada una, true si muestra a una persona (una foto, un dibujo o una caricatura de alguien) y false si no (un logo, un ícono, una captura, un objeto).` : '',
     '- Español neutro, de «tú», como se habla en México. No copies frases ni hechos del original: escribe lo del negocio.',
     '- Adaptar no es cambiar el nombre del creador o de su gurú por el del negocio: lo que es del original (sus libros, sus cifras, sus resultados) se cambia por algo verdadero del negocio o se saca. Ninguna cifra que no esté en lo que se sabe del negocio.',
+    '- El nombre de una marca, una app o una herramienta que va con su logo (como «Claude» debajo de su ícono) va IGUAL en "texto": el logo queda.',
     p.oferta ? bloqueDeOferta(p.oferta) : '',
     p.contexto ? `Lo que ya dicen las láminas nuevas (para que lo tuyo siga igual):\n<<<LAMINAS\n${p.contexto.slice(0, 3_000)}\nLAMINAS>>>` : '',
     COMPACTO,
@@ -446,7 +497,7 @@ export function promptDeCompletar(p: { textos: number; figuras: number; nombreNe
 export type TextoCompletado = Pick<TextoReplica, 'rol' | 'texto' | 'color' | 'mayus' | 'relleno' | 'original' | 'acentos' | 'acento'>;
 
 /** Lo que contestó el segundo pedido, acotado. Un texto que no se entiende queda null (se deja como en el original). */
-export function leerCompletado(crudo: string, o: { textos: number; figuras: number; usuario?: string | null }): { textos: Array<TextoCompletado | null>; personas: boolean[] } {
+export function leerCompletado(crudo: string, o: { textos: number; figuras: number; usuario?: string | null; nombre?: string }): { textos: Array<TextoCompletado | null>; personas: boolean[] } {
   let j: Record<string, unknown>;
   try { j = parseJsonObject(crudo); } catch { return { textos: new Array(o.textos).fill(null), personas: new Array(o.figuras).fill(false) }; }
   // Por su número de recorte («n»): una respuesta que saltea uno no corre a todos los que siguen (13/11/2026: los textos de una
@@ -463,7 +514,10 @@ export function leerCompletado(crudo: string, o: { textos: number; figuras: numb
     const t = lista[k] && typeof lista[k] === 'object' ? (lista[k] as Record<string, unknown>) : null;
     if (!t) return null;
     const original = limpio(t.original, LARGO_TEXTO).replace(/\*/g, '');
-    const { texto, acentos } = conAcentos(conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle), o.usuario));
+    // El @ del creador es el @ del negocio, o nada: nunca otra palabra (13/11/2026: «@LIFEOFARJAV» volvió «Koncke»).
+    const esArroba = /^@[\w.]+$/.test(original.trim());
+    const { texto, acentos } = esArroba ? { texto: handle, acentos: [] as Array<[number, number]> }
+      : conAcentos(conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle, o.nombre), o.usuario));
     if (!original && !texto) return null;
     const acento = color(t.acento, '');
     const relleno = color(t.relleno, '');
@@ -859,6 +913,17 @@ export function anchoEsperadoDe(t: TextoReplica, W: number): number {
 /** La lámina original sin sus letras (./plancha-local.ts) y lo que se midió en ella, en el mismo orden que los textos de la IA. */
 export type PlanchaDeLamina = { src: string; textos: ReadonlyArray<Bloque | null>; personas: readonly Caja[] };
 
+/**
+ * El peso de Inter que tiene el trazo medido del original (./plancha-local.ts → `trazoMedido`), con el cuerpo de la letra. 0 =
+ * no se sabe (letra chica: el borde suavizado pesa más que el palo). Calibrado con Inter a 100 px: 400 → 9 px de trazo, 600 → 13,
+ * 700 → 15, 800 → 17; los cortes, a mitad de camino.
+ */
+export function pesoMedido(trazo: number | undefined, tam: number): 0 | 400 | 600 | 700 | 800 {
+  if (!trazo || tam < 40) return 0;
+  const r = trazo / tam;
+  return r < 0.11 ? 400 : r < 0.14 ? 600 : r < 0.16 ? 700 : 800;
+}
+
 /** El nombre del lugar de la persona en una réplica fiel: ahí va la del negocio GENERADA con la IA de imagen (./plancha.ts). */
 export const PERSONA_A_GENERAR = 'Persona: va la tuya, generada con IA';
 
@@ -929,8 +994,22 @@ function acentosPorPosicion(contenido: string, renglones: readonly string[], b: 
       pos += p.length + 1;
     }
   });
-  return out;
+  return sinVaciasSueltas(contenido, out);
 }
+
+/**
+ * Los acentos sin una palabra VACÍA sola (13/11/2026, la portada en producción: «Tu estrategia *de* ventas», porque en el original
+ * ahí estaba «Hormozi» en naranja). Entre dos palabras de acento («Acelerador *de* Ventas»), sí queda.
+ */
+export function sinVaciasSueltas(contenido: string, acentos: ReadonlyArray<readonly [number, number]>): Array<[number, number]> {
+  const vacia = (a: number, b: number) => PALABRAS_VACIAS.has(contenido.slice(a, b).toLocaleLowerCase('es').replace(/[^\p{L}]/gu, ''));
+  return acentos.filter(([a, b], i) => !vacia(a, b) || (i > 0 && i < acentos.length - 1 && !vacia(...acentos[i - 1]) && !vacia(...acentos[i + 1])))
+    .map(([a, b]) => [a, b]);
+}
+
+/** Las palabras que no dicen nada solas (para no pintarlas de acento: «cómo asesorarte *como* lo haría…», «para *más* contenido»,
+ *  donde el original tenía el nombre del gurú o su @ en naranja). */
+const PALABRAS_VACIAS = new Set(['a', 'al', 'como', 'con', 'de', 'del', 'e', 'el', 'en', 'es', 'la', 'las', 'lo', 'los', 'mas', 'más', 'mi', 'mis', 'o', 'para', 'por', 'que', 'se', 'su', 'sus', 'tu', 'tus', 'u', 'un', 'una', 'y']);
 
 /** El cuerpo de un texto por su tinta medida: con un renglón, el alto de la letra decide entre «tiene colitas» (0,95 em) y
  *  «sólo mayúsculas» (0,74 em), lo que quede más cerca de lo que dijo la IA. */
@@ -977,7 +1056,9 @@ function laminaFiel(l: LaminaReplica, plancha: PlanchaDeLamina, o: { W: number; 
     // ancha que cualquier titular medido); y el espaciado que iguala el ancho del original.
     const deInter = !o.conFuentesDeMarca && (t.letra === 'sans' || t.letra === 'gruesa');
     const fam = deInter ? familia({ familia: 'Inter', respaldo: 'sans-serif' }) : familia(base);
-    const peso = deInter ? (titular ? (t.letra === 'gruesa' ? 800 : 700) : t.negrita ? 700 : 400) : pesoBase;
+    // El peso MEDIDO en el original manda sobre el del papel (13/11/2026: el cuerpo regular de un tuit salía en Inter 800 porque
+    // la IA lo llamó «titular», apretado para entrar en el ancho).
+    const peso = deInter ? (pastilla ? 0 : pesoMedido(b.trazo, tam)) || (titular ? (t.letra === 'gruesa' ? 800 : 700) : t.negrita ? 700 : 400) : pesoBase;
     const espaciado = pastilla ? 0 : espaciadoMedido(t, b, { familia: fam, peso, italica: false, tam }, titular);
     tam = Math.max(12, Math.min(0.2 * W, tam));
     const interlineado = !pastilla && b.renglones > 1 ? Math.max(0.8, Math.min(1.8, b.paso / (tam * porRenglon))) : interlineadoDe(t.rol);

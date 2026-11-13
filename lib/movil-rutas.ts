@@ -358,7 +358,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Classroom)
   comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Classroom › Community; `?post=N` abre ESE post)
   ads: ['estrategia'], // app/ads-manager/page.tsx y app/m/ads/page.tsx (`?estrategia=1`: «Cambiar mi estrategia» reabre la charla del Marketing CoPilot)
-  'competitor-spy': ['competidor'], // app/competitor-spy/page.tsx y app/m/competitor-spy/page.tsx (la ficha de un competidor es una URL: se comparte y se vuelve)
+  'competitor-spy': ['competidor', 'ver'], // app/competitor-spy/page.tsx y app/m/competitor-spy/page.tsx (la ficha de un competidor es una URL: se comparte y se vuelve)
 };
 
 export type RolMovil = 'admin' | 'closer' | 'setter' | null;
@@ -649,8 +649,9 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
       { tipo: 'grupo', key: 'pronto', label: 'Coming soon', icon: 'reloj', filas: PRONTO.map((it) => filaDeItem(it, [it.key])) },
     ] });
   }
-  // ⚠️ SIN MaKo Partners NI Agency Dashboard, en cualquier teléfono (4/11/2026): existen para vender MaKo a otros, y el
-  //    teléfono no vende (lib/tienda.ts → `TABS_QUE_VENDEN`). Sus páginas vuelven a More si alguien llega por un link.
+  // ⚠️ SIN MaKo Partners, en cualquier teléfono (4/11/2026): existe para vender MaKo a otros, y el teléfono no vende
+  //    (lib/tienda.ts → `TABS_QUE_VENDEN`). Su página vuelve a More si alguien llega por un link. El Agency Dashboard volvió
+  //    el 13/11/2026 (#94), sin plata; la página de More la deja sólo a una agencia (`esAgencia`, app/m/mas/page.tsx).
   return sinLoQueVende(out);
 }
 

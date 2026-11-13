@@ -10,6 +10,10 @@
 // ⚠️ EL TELÉFONO NO VENDE (T5, docs/tiendas-play-appstore.md, 3/11/2026): abrir la cuenta de un cliente y pagar su primer
 //    mes o su renovación son compras de algo digital: quedan en la computadora, y acá sólo se ve el estado. Sin precios y
 //    sin links de pago (tests/tiendas-telefono-no-vende.test.ts).
+// ⚠️ Y SIN LO QUE SE LE DEBE A MaKo (13/11/2026, ticket #94): el 4/11 la tab se apagó en todos los teléfonos porque decía
+//    «Falta pagar», «Esperando su pago», «Renovación pendiente», «Quién paga» y el número de «Pendientes». Vuelve SIN eso:
+//    Joan (Código Inmobiliario) no encontraba a sus clientes en el teléfono, y Martín: «Soluciona esto». Una cuenta que
+//    espera un pago dice «Por habilitar»; el resto, como en la computadora. Ver y entrar a cada cliente, sí.
 
 import { useState } from 'react';
 import { DarDeBaja } from '@/app/agency/DarDeBaja';
@@ -20,20 +24,18 @@ import {
 } from '@/app/m/_ui';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
-import { ROTULO_QUIEN_PAGA } from '@/lib/agency-reglas';
 import type { CuentaPartner } from '@/lib/partners';
 import { aplicarPlantillaAction } from '@/app/agency/actions';
 import { MODELOS_CLIENTE, PLANTILLAS_MODELO, type ModeloCliente } from '@/lib/plantillas-modelo-reglas';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 
 function estadoDe(c: CuentaPartner): { texto: string; tono: TonoPildora } {
-  if (c.cobro?.pagar) return { texto: c.paga === 'cliente' ? 'Esperando su pago' : 'Falta pagar', tono: 'warn' };
-  if (c.cobro?.renovacion && !c.cobro.renovacion.activada) return { texto: 'Renovación pendiente', tono: 'warn' };
   // Habilitada y sin nadie adentro (`[]` = leí y no hay nadie; `null` = no pude leer). Igual que la computadora.
   if (c.estado === 'aprobado' && c.equipo?.length === 0) return { texto: 'Nadie puede entrar', tono: 'warn' };
   if (c.estado === 'aprobado') return { texto: 'Activa', tono: 'good' };
   if (c.estado === 'revocado') return { texto: ROTULO_CARTERA.revocado, tono: 'bad' };
-  return { texto: ROTULO_CARTERA.pendiente, tono: 'neutro' };
+  // Espera la aprobación o un pago: no se dice cuál (#94). La computadora dice el detalle.
+  return { texto: 'Por habilitar', tono: 'neutro' };
 }
 
 const fecha = (iso: string) => {
@@ -68,7 +70,8 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
   };
 
   const activas = cuentas.filter((x) => x.estado === 'aprobado').length;
-  const porPagar = cuentas.filter((x) => !!x.cobro?.pagar || (!!x.cobro?.renovacion && !x.cobro.renovacion.activada)).length;
+  // Los dos números de arriba: activas y clientes (#94: el de «Pendientes» contaba lo que se le debe a MaKo).
+  const clientes = cuentas.filter((x) => x.estado !== 'revocado').length;
 
   // «Reenviar el acceso» a quien maneja la cuenta, como en la computadora (/api/agencia/reinvitar decide el permiso).
   const quien = c?.equipo?.find((u) => u.rol === 'admin') ?? c?.equipo?.[0] ?? null;
@@ -101,7 +104,7 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
       <CabeceraM titulo="Agency Dashboard" padre={{ href: RUTA_MAS, label: 'More' }} />
       <div className="m-agency-kpis">
         <div><b>{activas}</b><span>{activas === 1 ? 'Activa' : 'Activas'}</span></div>
-        <div data-tono={porPagar ? 'warn' : undefined}><b>{porPagar}</b><span>Pendientes</span></div>
+        <div><b>{clientes}</b><span>{clientes === 1 ? 'Cliente' : 'Clientes'}</span></div>
       </div>
       {cuentas.length === 0 ? (
         <VacioM frase="Todavía no tienes clientes en tu Agency Dashboard." />
@@ -111,7 +114,7 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
             {cuentas.map((x) => {
               const e = estadoDe(x);
               return (
-                <FilaM key={x.ws} avatar={x.nombre} titulo={x.nombre} segunda={`${ROTULO_QUIEN_PAGA[x.paga]} · desde ${fecha(x.desde)}`}
+                <FilaM key={x.ws} avatar={x.nombre} titulo={x.nombre} segunda={`Desde ${fecha(x.desde)}`}
                   pill={<PildoraM tono={e.tono}>{e.texto}</PildoraM>} onClick={() => { setWs(x.ws); setAbierta(true); }} />
               );
             })}
@@ -119,7 +122,9 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
         </SeccionM>
       )}
 
-      <SheetM abierto={abierta && c != null} onCerrar={() => setAbierta(false)} titulo={c?.nombre ?? 'Cuenta'}
+      {/* ALTA (#94, 13/11/2026): en «medio», con sus 8 filas, la lista quedaba ENCIMA de «Entrar a su cuenta» (el pie sube con
+          el panel y las filas lo tapan: visto en la captura a 375 del banco). Entrar es lo que vino a hacer: la hoja abre entera. */}
+      <SheetM snap="alto" abierto={abierta && c != null} onCerrar={() => setAbierta(false)} titulo={c?.nombre ?? 'Cuenta'}
         pie={c ? (
           <PieM>
             {c.estado === 'aprobado' || superAdmin ? (
@@ -130,7 +135,6 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
         {c && (
           <ListaM>
             <FilaDatoM k="Estado" v={estadoDe(c).texto} />
-            <FilaDatoM k="Quién paga" v={ROTULO_QUIEN_PAGA[c.paga]} />
             <FilaDatoM k="Desde" v={fecha(c.desde)} />
             {c.plan && <FilaDatoM k="Plan" v={c.plan} />}
             <FilaDatoM k="Equipo" v={c.equipo ? `${c.equipo.length} ${c.equipo.length === 1 ? 'persona' : 'personas'}` : '—'} />
@@ -146,8 +150,9 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
         )}
         {/* DAR DE BAJA (29/10/2026, lib/agencia-baja.ts), como en la computadora: la agencia, nunca el super admin desde acá. */}
         {c && c.estado !== 'revocado' && puedeAbrir && !superAdmin && (
-          <div style={{ padding: '12px 16px' }}>
-            <DarDeBaja clienteWs={c.ws} nombre={c.nombre}
+          <div style={{ padding: '12px 0' }}>
+            {/* Con su clase del teléfono (#94): la de la computadora (`ad-acc`) no se carga acá y salía el botón crudo del navegador. */}
+            <DarDeBaja className="m-agency-baja" clienteWs={c.ws} nombre={c.nombre}
               onListo={(t) => { toast(t); setAbierta(false); setTimeout(() => router.refresh(), 400); }} onError={(m) => toast(m)} />
           </div>
         )}

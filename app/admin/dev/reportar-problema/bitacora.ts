@@ -260,4 +260,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/tickets/bandeja',
   },
+  {
+    fecha: '13 nov', hora: '16:45', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Un ticket al que le falta un paso en producción ya no se cierra con el deploy ni le dice «Ya anda» al cliente',
+    puntos: [
+      '**El #93 de Mauricio (13/11):** el hito «Hecho» con `tickets: [93]` cerró el ticket al desplegar (18:45 UTC) y a las 18:46 le dijo «Arreglamos… Ya anda». Faltaba prender su email, el tope y las columnas en producción, con el sí de Martín: le llegó «ya anda» con el email apagado.',
+      '**Ahora el hito puede decir qué falta** (`faltaEnProduccion`). Con eso el deploy no cierra ni avisa: deja una vez en el historial qué falta, y `scripts/tickets.ts pendientes` lo lista. Quien hace el paso lo marca con `paso-hecho <n> --nota "…"` después de verlo andar, y el cron siguiente cierra y avisa.',
+      '**Sin poder leer el historial, no cierra:** un «ya anda» falso no se deshace; esperar 15 minutos más, sí.',
+    ],
+    archivos: [
+      'app/admin/dev/_registro/tipos.ts — `faltaEnProduccion` en el hito',
+      'lib/tickets-reglas.ts — `ticketsDeHitos` lleva `falta` · `loCierraElDeploy` · los dos renglones del historial',
+      'lib/tickets-cierre.ts — `cerrarLosDesplegados` y `pasosEnProduccion`',
+      'scripts/tickets.ts — `paso-hecho` y la lista en `pendientes`',
+      'tests/tickets-falta-en-produccion.test.ts — el cierre real (tests/_tickets-falta-en-produccion-hijo.ts); probado rompiéndolo',
+      'AGENTS.md — la regla · docs/hallazgos-ticketera.md',
+    ],
+    revisar: '/tickets/bandeja',
+  },
 ];

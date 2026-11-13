@@ -21,11 +21,12 @@ import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { REGISTROS_SLUGS, registroDe } from '@/app/admin/dev/registros';
 import { anotarDelCerebro, ticketsDelNegocioEntre } from './tickets-db';
 import { HORAS_MAX_SIN_TOMAR, MIN_SIN_TOMAR, delegadosParaAvisar, textoDelegadoSinTomar, type DelegadoSinTomar } from './despacho-grupo';
-import { aprobadoPorRegla, hitosDeLosTickets, hitosDelNegocio, pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, ticketsQueNombran, type AvisoCliente } from './tickets-reglas';
+import { aprobadoPorRegla, hitosDeLosTickets, hitosDelNegocio, loCierraElDeploy, pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, ticketsQueNombran, TIPO_FALTA_EN_PRODUCCION, TIPO_PASO_HECHO, type AvisoCliente } from './tickets-reglas';
 
 const T = 'tickets';
 
-export type HitoDeTicket = { area: string; titulo: string };
+/** `falta`: el `faltaEnProduccion` del hito (13/11/2026). Con eso, el deploy no lo cierra hasta que el paso se marque hecho. */
+export type HitoDeTicket = { area: string; titulo: string; falta?: string };
 
 /** Los tickets que nombra alguna bitácora DESPLEGADA (la de este build), con el hito que los arregla. */
 export function ticketsDesplegados(): Map<number, HitoDeTicket> {
@@ -93,6 +94,12 @@ export const ESTADOS_QUE_CIERRA_EL_DEPLOY = ['nuevo', 'esperando_decision', 'esp
 /**
  * Cierra los tickets abiertos cuyo arreglo ya está en el código que corre, y sus duplicados. Compare-and-set sobre el
  * estado: dos crons a la vez no cierran dos veces. Devuelve los ids cerrados.
+ *
+ * ⚠️ «DESPLEGADO» NO SIEMPRE ES «LE ANDA AL CLIENTE» (13/11/2026, el #93 de Mauricio). Su arreglo necesitaba además prender su
+ * email, su tope y sus columnas EN PRODUCCIÓN, con el sí de Martín, después del deploy. El hito llegó con `tickets: [93]`, el
+ * cron lo cerró a las 18:45 UTC y a las 18:46 le dijo «Arreglamos… Ya anda» con el email apagado. Un hito con
+ * `faltaEnProduccion` no cierra: deja UNA vez en el historial qué falta, y espera a que alguien marque el paso hecho
+ * (`scripts/tickets.ts paso-hecho <n>`, un renglón `TIPO_PASO_HECHO`). El cron siguiente lo cierra y avisa como siempre.
  */
 export async function cerrarLosDesplegados(desplegados = ticketsDesplegados()): Promise<number[]> {
   if (!desplegados.size) return [];
@@ -102,9 +109,16 @@ export async function cerrarLosDesplegados(desplegados = ticketsDesplegados()): 
   if (error) throw new Error(`no pude leer los tickets abiertos: ${error.message}`);
   const cerrados: number[] = [];
   const ahora = new Date().toISOString();
+  const pasos = await pasosEnProduccion((data ?? []).map((f) => Number(f.id)).filter((id) => desplegados.get(id)?.falta));
   for (const f of data ?? []) {
     const id = Number(f.id);
     const hito = desplegados.get(id)!;
+    if (!loCierraElDeploy(hito, pasos.hechos.has(id))) {
+      if (!pasos.anotados.has(id)) {
+        await db.from('ticket_eventos').insert({ ticket_id: id, actor: 'sistema', tipo: TIPO_FALTA_EN_PRODUCCION, texto: `En producción: ${hito.titulo}. Falta antes de avisarle: ${hito.falta}`.slice(0, 2000), datos: null });
+      }
+      continue;
+    }
     const respuesta = (f.respuesta as string | null) || `Ya está arreglado: ${hito.titulo}.`;
     const { data: ok } = await db.from(T).update({ estado: 'resuelto', resuelto_at: ahora, respuesta: respuesta.slice(0, 2000), avisado_at: null, updated_at: ahora })
       .eq('id', id).in('estado', [...ESTADOS_QUE_CIERRA_EL_DEPLOY]).select('id');
@@ -117,6 +131,23 @@ export async function cerrarLosDesplegados(desplegados = ticketsDesplegados()): 
     for (const d of dups ?? []) await anotarDelCerebro(Number(d.id), `Resuelto con #${id}`, 'sistema');
   }
   return cerrados;
+}
+
+/**
+ * De los tickets con un paso en producción pendiente: cuáles ya lo tienen marcado HECHO y a cuáles ya se les anotó qué falta.
+ * Sin poder leerlo, ninguno está hecho (un «ya anda» falso no se deshace: mejor esperar 15 minutos) y todos anotados (no se
+ * repite el renglón cada 15 minutos).
+ */
+async function pasosEnProduccion(ids: readonly number[]): Promise<{ hechos: Set<number>; anotados: Set<number> }> {
+  if (!ids.length) return { hechos: new Set(), anotados: new Set() };
+  const { data, error } = await getSupabaseServer().from('ticket_eventos').select('ticket_id, tipo')
+    .in('ticket_id', [...ids]).in('tipo', [TIPO_PASO_HECHO, TIPO_FALTA_EN_PRODUCCION]);
+  if (error) {
+    console.error(`[tickets] no pude leer los pasos en producción de ${ids.map((i) => `#${i}`).join(', ')}: ${error.message}`);
+    return { hechos: new Set(), anotados: new Set(ids) };
+  }
+  const de = (tipo: string) => new Set((data ?? []).filter((e) => e.tipo === tipo).map((e) => Number(e.ticket_id)));
+  return { hechos: de(TIPO_PASO_HECHO), anotados: de(TIPO_FALTA_EN_PRODUCCION) };
 }
 
 type FilaAviso = AvisoCliente & { workspace_id: number; usuario_id: number | null; canal: string; contexto: { chat?: { hilo?: string } } | null };

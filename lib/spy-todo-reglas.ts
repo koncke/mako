@@ -167,12 +167,22 @@ export function leerTareas(crudo: string | null | undefined): RegistroTareas {
   return out;
 }
 
-/** ¿Toca empezar otra corrida? Si nunca hubo, o la última terminó hace más de `DIAS_ENTRE_CORRIDAS`. Nunca con una en marcha. */
-export function tocaPedir(t: TareaLarga | undefined, ahora: number): boolean {
+/**
+ * ¿Toca empezar otra corrida? Si nunca hubo, o la última terminó hace más de `dias` (`DIAS_ENTRE_CORRIDAS`; un competidor
+ * SEGUIDO, cada día: `DIAS_ENTRE_CORRIDAS_SEGUIDO`, lib/spy-seguidos-reglas.ts). Nunca con una en marcha.
+ */
+export function tocaPedir(t: TareaLarga | undefined, ahora: number, dias: number = DIAS_ENTRE_CORRIDAS): boolean {
   if (t?.run) return false;
   if (!t?.ultima) return true;
-  return ahora - Date.parse(t.ultima) >= DIAS_ENTRE_CORRIDAS * 86_400_000;
+  return ahora - Date.parse(t.ultima) >= dias * 86_400_000;
 }
+
+/**
+ * La `ultima` que deja una corrida que no sirvió (sin su clave, vacía) para volver a intentar MAÑANA, con cualquier cadencia:
+ * con 7 días es «hace 6», como antes; con la de un seguido (1 día), «ahora».
+ */
+export const ultimaParaManana = (ahora: number, dias: number = DIAS_ENTRE_CORRIDAS): string =>
+  new Date(ahora - Math.max(0, dias - 1) * 86_400_000).toISOString();
 
 /** Cuántas publicaciones pedir y desde cuándo: la primera vez, muchas; después, sólo lo nuevo. */
 export function pedidoDePublicaciones(t: TareaLarga | undefined): { cuantas: number; desde: string | null; techoUsd: number } {

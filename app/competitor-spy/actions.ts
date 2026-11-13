@@ -26,6 +26,9 @@ import { setSetting } from '@/lib/settings';
 import { sugeridosDelNegocio, sumarSugeridoAlNegocio, type Sugerido } from '@/lib/spy-sugeridos-server';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import type { CanalSpy, EtapaTendencia } from '@/lib/spy-reglas';
+import { lecturaDeSeguidos, seguirCompetidor } from '@/lib/spy-seguidos';
+import type { FormatoAlerta, NumeroDeSeguidos } from '@/lib/spy-seguidos-reglas';
+import type { Multiplo } from '@/lib/multiplo-rendimiento';
 
 /** null = entra. `getRolWsEfectivo` da 'admin' al admin del workspace y a la agencia. */
 /**
@@ -241,4 +244,40 @@ export async function quitarCompetidorAction(id: number): Promise<{ ok: true } |
   const no = await soloAdmin();
   if (no) return { ok: false, error: no };
   try { return await quitarCompetidor(id); } catch (e) { return { ok: false, error: msg(e) }; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los SEGUIDOS (13/11/2026, Martín para Marketing CoPilot): a quién sigue el negocio, su número por red y sus alertas.
+// Las reglas: lib/spy-seguidos-reglas.ts. Seguir es de cualquiera del equipo, como agregar: no borra nada.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Una alerta como la dibuja la pantalla: la pieza entera (para la tarjeta de siempre) y su múltiplo. */
+export type AlertaVista = { tipo: 'nueva' | 'outlier'; formato: FormatoAlerta; pieza: PiezaVista; multiplo: Multiplo | null };
+
+/** Lo que necesita la vista de seguidos: a quién sigue, su número por red y sus alertas. */
+export type SeguidosLeidos = { ids: number[]; numero: NumeroDeSeguidos; alertas: AlertaVista[] };
+
+export async function seguidosAction(): Promise<({ ok: true } & SeguidosLeidos) | { ok: false; error: string }> {
+  const no = await soloMiembro();
+  if (no) return { ok: false, error: no };
+  try {
+    const r = await lecturaDeSeguidos();
+    return {
+      ok: true,
+      ids: r.competidores.map((c) => c.id),
+      numero: r.numero,
+      alertas: r.alertas.map((a) => {
+        const p = a.pieza as unknown as Pieza;
+        return { tipo: a.tipo, formato: a.formato, multiplo: a.multiplo, pieza: { ...p, etapa: etapaDePieza(p) } };
+      }),
+    };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+export async function seguirAction(id: number, seguir: boolean): Promise<{ ok: true; ids: number[] } | { ok: false; error: string }> {
+  const no = await soloMiembro();
+  if (no) return { ok: false, error: no };
+  try { return await seguirCompetidor(id, seguir); } catch (e) { return { ok: false, error: msg(e) }; }
 }

@@ -140,7 +140,25 @@ function noSeCompara(p: PiezaParaMultiplo, f: FormatoMultiplo, t: number, ahora:
   return null;
 }
 
-const mediana = (xs: readonly number[]): number => {
+/**
+ * El número de UNA pieza tal como entra en una comparación, con las mismas reglas que el múltiplo (sin lo de menos de una
+ * semana, lo pago, los sorteos, YouTube sin su trámite), o el motivo por el que no entra. Lo usa el número de los competidores
+ * seguidos (lib/spy-seguidos-reglas.ts): así «lo que suele hacer una cuenta» se mide igual en toda la app.
+ */
+export function numeroParaComparar(
+  p: PiezaParaMultiplo,
+  ahora: number = Date.now(),
+  o: { conYouTube?: boolean } = {},
+): { formato: FormatoMultiplo; valor: number; t: number } | { formato: FormatoMultiplo | null; motivo: MotivoSinMultiplo } {
+  const f = formatoDeMultiplo(p);
+  if (!f) return { formato: null, motivo: 'sin-formato' };
+  const t = Date.parse(p.publicada_en ?? '');
+  const motivo = noSeCompara(p, f, t, ahora, o.conYouTube ?? ENMIENDA_III_L);
+  if (motivo) return { formato: f, motivo };
+  return { formato: f, valor: valorDe(p, f, ahora) as number, t };
+}
+
+export const mediana = (xs: readonly number[]): number => {
   const s = [...xs].sort((a, b) => a - b);
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
