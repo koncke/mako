@@ -103,7 +103,16 @@ export type OutlierCopy = {
 
 export type LecturaFuenteCopy = { ok: true; outliers: readonly OutlierCopy[] } | { ok: false; motivo: string };
 export type FuenteOutliersCopy = { id: string; nombre: string; leer: () => Promise<LecturaFuenteCopy> };
-export type PortadaCopy = { outliers: OutlierCopy[]; caidas: { fuente: string; nombre: string; motivo: string }[] };
+export type PortadaCopy = {
+  outliers: OutlierCopy[];
+  caidas: { fuente: string; nombre: string; motivo: string }[];
+  /**
+   * Sólo en la portada que viaja con la página (`primeraTandaCopy`): `outliers` es la primera tanda, y éstos son los de TODA la
+   * portada, para el total y la cuenta de cada formato. Sin ellos, `outliers` es la portada entera (la API de MaKo, el banco).
+   */
+  total?: number;
+  porFormato?: Partial<Record<FormatoCopy, number>>;
+};
 
 /**
  * Cuánto texto viaja a la pantalla por tarjeta (el entero se lee al abrir y al replicar), y cuántos outliers por formato.
@@ -368,6 +377,51 @@ export function filtrarOutliersCopy(xs: readonly OutlierCopy[], f: FiltrosCopy, 
     && (!q || plano(`${o.gancho}\n${o.texto}\n${o.creador.usuario ?? ''}\n${o.creador.nombre}`).includes(q.replace(/^@/, ''))));
   if (orden === 'recientes') return [...filtrados].sort((a, b) => (Date.parse(b.publicada ?? '') || 0) - (Date.parse(a.publicada ?? '') || 0));
   return filtrados;
+}
+
+// ── La portada por tandas (13/11/2026) ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * La portada viaja de a TANDA_COPY outliers. La página lleva la primera tanda de «Todos» por outlier, con el total y la cuenta de
+ * cada formato (`primeraTandaCopy`). El resto llega al bajar o con «Ver más» (`accion: 'outliers'` de /api/copywriter), filtrado y
+ * ordenado en el server con la MISMA función (`tandaDeOutliersCopy`). 13/11/2026, el Cerebro: la portada mandaba los 924 de una
+ * (1,19 MB de página) y abrir Copywriting tardaba. Lo leído se guarda 5 minutos (lib/copywriter/outliers-servidor.ts): pedir otra
+ * tanda no vuelve a leer Spy.
+ */
+export const TANDA_COPY = 48;
+export type TandaCopy = { outliers: OutlierCopy[]; total: number };
+export type ConsultaCopy = { filtros: FiltrosCopy; orden: OrdenCopy; desde: number };
+
+export function tandaDeOutliersCopy(xs: readonly OutlierCopy[], c: ConsultaCopy): TandaCopy {
+  const vistos = filtrarOutliersCopy(xs, c.filtros, c.orden);
+  const desde = Math.max(0, Math.floor(c.desde) || 0);
+  return { outliers: vistos.slice(desde, desde + TANDA_COPY), total: vistos.length };
+}
+
+/** Lo que viaja con la página: la primera tanda de «Todos» por outlier, con el total y la cuenta de cada formato. */
+export function primeraTandaCopy(p: PortadaCopy): PortadaCopy {
+  if (p.total != null) return p;
+  const porFormato: Partial<Record<FormatoCopy, number>> = {};
+  for (const o of p.outliers) porFormato[o.formato] = (porFormato[o.formato] ?? 0) + 1;
+  const t = tandaDeOutliersCopy(p.outliers, { filtros: { formato: null, q: '' }, orden: 'outlier', desde: 0 });
+  return { outliers: t.outliers, caidas: p.caidas, total: t.total, porFormato };
+}
+
+/** El pedido de una tanda, saneado (lo manda el navegador). */
+export function consultaDeTanda(b: Record<string, unknown>): ConsultaCopy {
+  const formato = (FORMATOS_COPY as readonly unknown[]).includes(b.formato) ? (b.formato as FormatoCopy) : null;
+  const q = typeof b.q === 'string' ? b.q.slice(0, 120) : '';
+  const desde = typeof b.desde === 'number' && Number.isFinite(b.desde) ? Math.min(100_000, Math.max(0, Math.floor(b.desde))) : 0;
+  return { filtros: { formato, q }, orden: b.orden === 'recientes' ? 'recientes' : 'outlier', desde };
+}
+
+/** La clave de lo que se está mirando: si cambia, la lista vuelve a pedirse desde la primera tanda. */
+export const claveDeConsulta = (f: FiltrosCopy, orden: OrdenCopy) => `${f.formato ?? 'todos'}|${orden}|${f.q.trim().toLowerCase()}`;
+
+/** Suma una tanda a la lista que se ve, sin repetir (si la portada se volvió a leer entre dos tandas, el orden pudo correrse). */
+export function sumarTanda(ya: readonly OutlierCopy[], t: readonly OutlierCopy[]): OutlierCopy[] {
+  const vistos = new Set(ya.map((o) => o.id));
+  return [...ya, ...t.filter((o) => !vistos.has(o.id))];
 }
 
 // ── Lo que le llega a MaKo al replicar ───────────────────────────────────────────────────────────────────────────

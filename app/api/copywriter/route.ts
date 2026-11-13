@@ -17,7 +17,8 @@ import { esTipoGuion } from '@/lib/copywriter/tipos';
 import { listFiles } from '@/lib/archivero';
 import { getUsuarioActual } from '@/lib/auth';
 import { nombreDeVisita } from '@/lib/copywriter/editado';
-import { outlierCopyPorId, replicarOutlier } from '@/lib/copywriter/outliers-servidor';
+import { leerOutliersCopy, outlierCopyPorId, replicarOutlier } from '@/lib/copywriter/outliers-servidor';
+import { consultaDeTanda, tandaDeOutliersCopy } from '@/lib/copywriter/outliers';
 
 export const dynamic = 'force-dynamic';
 
@@ -86,6 +87,12 @@ export async function POST(req: Request) {
       // Los dos leen en el negocio de la pestaña: una pieza de Spy de otro negocio no se encuentra.
       case 'replicar':
         return responder(await replicarOutlier(texto(b.outlier)));
+      // La portada por tandas (13/11/2026): la página trae la primera; las demás (al bajar, con «Ver más» o con otro filtro) salen
+      // de acá, filtradas y ordenadas con la misma función que usa la pantalla (lib/copywriter/outliers.ts, `tandaDeOutliersCopy`).
+      case 'outliers': {
+        const portada = await leerOutliersCopy();
+        return responder({ ok: true as const, ...tandaDeOutliersCopy(portada.outliers, consultaDeTanda(b)) });
+      }
       case 'outlier': {
         const o = await outlierCopyPorId(texto(b.outlier));
         const leido = { ok: true as const, outlier: o };

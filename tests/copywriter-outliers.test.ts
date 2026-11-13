@@ -288,7 +288,8 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   assert.match(portadaTsx, /<TarjetaPlantilla key=\{pl\.id\} pl=\{pl\}/);
   assert.match(portadaTsx, /<Link href=\{rutaCrear\} className=\{s\.texto\}>Ver todas<\/Link>/);
   // De a tandas, no las 2.291 de una (medido: 46.030 elementos y de 1 a 7 s por cambio de filtro).
-  assert.match(portadaTsx, /const enGrilla = useMemo\(\(\) => vistos\.slice\(0, mostrar\), \[vistos, mostrar\]\);/);
+  // Lo que llegó por tandas del server (13/11/2026) se dibuja entero; lo filtrado a mano, de a TANDA (tests/copywriter-outliers-tandas.test.ts).
+  assert.match(portadaTsx, /const enGrilla = useMemo\(\(\) => \(alDia \? vistos : vistos\.slice\(0, mostrar\)\), \[alDia, vistos, mostrar\]\);/);
   assert.match(portadaTsx, /useEffect\(\(\) => \{ setMostrar\(TANDA\); \}, \[formato, q, orden\]\);/);
   // Y el original abierto pide el texto ENTERO (la tarjeta trae 280 letras).
   assert.match(leer('app/copywriter/OutlierAbierto.tsx'), /void pedirOriginal\(o\.id\)\.then\(\(r\) => \{ if \(vivo && r\.ok\) setCompleto\(r\.outlier\.texto\); \}\);/);
@@ -296,7 +297,7 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   const ruta = leer('app/api/copywriter/route.ts');
   assert.match(ruta, /case 'replicar':\n\s+return responder\(await replicarOutlier\(texto\(b\.outlier\)\)\);/);
   const m = leer('app/m/copywriter/page.tsx');
-  assert.match(m, /<OutliersCopy portada=\{await leerOutliersCopy\(\)\} telefono rutaGuion="\/m\/copywriter\/\{id\}\?mako=1"/);
+  assert.match(m, /<OutliersCopy portada=\{primeraTandaCopy\(await leerOutliersCopy\(\)\)\} telefono rutaGuion="\/m\/copywriter\/\{id\}\?mako=1"/);
 });
 
 test('el original abierto: con imagen, la pieza arriba y su texto abajo (11/11, a 1440 era una caja blanca casi vacía)', () => {

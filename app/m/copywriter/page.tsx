@@ -19,6 +19,7 @@ import { ListaGuionesM } from './ListaGuionesM';
 import { OutliersCopy } from '@/app/copywriter/OutliersCopy';
 import { vistaDeCopy } from '@/app/copywriter/vista';
 import { leerOutliersCopy } from '@/lib/copywriter/outliers-servidor';
+import { primeraTandaCopy } from '@/lib/copywriter/outliers';
 
 export const dynamic = 'force-dynamic';
 // La mudanza de la primera apertura (lib/copywriter/mudanza.ts), como en app/copywriter/page.tsx.
@@ -35,7 +36,7 @@ export default async function CopywriterMovil({ searchParams }: { searchParams: 
   if (vista === 'outliers') {
     return (
       <PantallaM>
-        <OutliersCopy portada={await leerOutliersCopy()} telefono rutaGuion="/m/copywriter/{id}?mako=1"
+        <OutliersCopy portada={primeraTandaCopy(await leerOutliersCopy())} telefono rutaGuion="/m/copywriter/{id}?mako=1"
           rutaGuiones="/m/copywriter?ver=guiones" rutaCrear="/m/copywriter?nueva=1" />
       </PantallaM>
     );
