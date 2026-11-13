@@ -146,5 +146,5 @@ test('G8: el catálogo de la IA: agrandar las claves es palabras_clave, nunca es
   const c = catalogoParaPrompt();
   assert.match(c, /"mantener" deja las que hay y cambia sólo su "tamano" o "color"/);
   assert.match(c, /«3 veces más grandes» = 300\): agrandar las claves es esto, nunca estilo_texto/);
-  assert.match(c, /El tamaño o el color de las PALABRAS CLAVE no va acá: palabras_clave con "tamano"\/"color"/);
+  assert.match(c, /El tamaño o el color de las PALABRAS CLAVE no va aquí: palabras_clave con "tamano"\/"color"/);
 });

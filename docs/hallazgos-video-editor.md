@@ -99,7 +99,7 @@ dos, no tapa al otro renglón (capturas 20 a 22). Clips mágicos ya no ofrece So
   clave al 300 %» y mandó `estilo_texto` con `tamano: 7` en 30 subtítulos (la tarjeta decía «tamaño 7»; se descartó). La causa:
   `palabras_clave` no tenía cómo cambiar SÓLO el tamaño («auto» las vuelve a elegir, «sumar» pide palabras) y la IA buscó otro
   camino. **Regla:** `palabras_clave` con `"modo":"mantener"` deja las claves de cada subtítulo y cambia su `tamano` o `color`;
-  el catálogo lo dice en `palabras_clave` y en `estilo_texto` («el tamaño de las palabras clave no va acá»). Lo fija
+  el catálogo lo dice en `palabras_clave` y en `estilo_texto` («el tamaño de las palabras clave no va aquí»). Lo fija
   `tests/video-editor-clave-gigante.test.ts` (G6 a G8). Ojo al leer una propuesta: el texto de la IA y la operación pueden decir
   cosas distintas; la tarjeta («Original | Modificado») es lo que se aplica.
 
