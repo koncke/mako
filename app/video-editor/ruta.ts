@@ -17,3 +17,19 @@ export function rutaEditor(href: string): string {
   const ws = parseWs(new URLSearchParams(window.location.search).get(WS_PARAM));
   return conWs(href, ws);
 }
+
+/**
+ * Abre el proyecto que se ACABA de crear al cargar la página (`/video-editor/nuevo`, un id que no está en este navegador,
+ * `?plantilla=`, `?desde=`), con una carga entera y no con `router.replace` (ticket #91, 12/11/2026).
+ *
+ * «La pantalla Video se rompió»: React #310 («más hooks que en el render anterior») en el `Router` de Next (el `useMemo` de
+ * `app-router`), dos veces seguidas: la recarga automática volvía a la misma URL y volvía a navegar sola. Es el bug de
+ * vercel/next.js#63121: una navegación que se resuelve por promesa (la de una página `force-dynamic`, que pide al servidor)
+ * deja al Router con otra cuenta de hooks. Arreglado en React (react#36911) y en Next DESPUÉS de la 16.2 que usa MaKo.
+ *
+ * El proyecto ya está guardado (createNewProject / saveCurrentProject) antes de llamar acá: la carga nueva lo abre de la
+ * base local. Cuesta una carga de página, sólo al crear. Con Next ≥ 16.3, volver a `router.replace` (docs/hallazgos-video-editor.md).
+ */
+export function abrirProyectoCreado(id: string): void {
+  window.location.replace(rutaEditor(`/video-editor/${id}`));
+}

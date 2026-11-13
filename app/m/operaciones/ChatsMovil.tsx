@@ -24,7 +24,8 @@
 
 import '@/app/admin/operaciones/centro.css';
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { FilaM, ListaM, PieM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
+import { FilaM, ListaM, PieM, SeccionM, VacioM, useToastM } from '@/app/m/_ui';
+import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
 import { Button } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { chatTrabadoEnLaApp, filasDeGrupos, preguntasDeLaApp, preguntasIgnoradas, preguntasParaElBloque, tabDeChat, vaEnLaLista } from '@/lib/centro-chats';
@@ -133,11 +134,11 @@ const edad = (t: number | null, ahora: number): string => {
 function HojaChatNuevo({ centro, onCerrar, onAbrir, onGuru }: { centro: Centro; onCerrar: () => void; onAbrir: (clave: string) => void; onGuru: (id: IdAsesor) => void }) {
   const chatNuevo = useChatNuevo(centro, onAbrir);
   return (
-    <SheetM abierto onCerrar={onCerrar} snap="alto"
+    <PantallaChatM abierto onCerrar={onCerrar} id="chat-nuevo"
       titulo={<span className="m-operaciones-titulo"><span className="m-operaciones-titulo__muneco"><CriaturaChatNuevo n={chatNuevo} /></span><span className="m-operaciones-titulo__texto"><TituloChatNuevo n={chatNuevo} /></span></span>}
       pie={<CajaChatNuevo n={chatNuevo} movil />}>
       <div className="m-operaciones-hilo"><CuerpoChatNuevo n={chatNuevo} alPie={<GaleriaDeGurus onElegir={onGuru} />} /></div>
-    </SheetM>
+    </PantallaChatM>
   );
 }
 
@@ -269,11 +270,11 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   // La caja: el campo, para enfocarlo desde afuera. Lo que crece y el scroll que acompaña son de la caja única
   // (app/_chat/CajaChat.tsx): acá crece el CSS (`field-sizing`) y la que sigue abajo es la hoja.
   const caja = useRef<HTMLTextAreaElement>(null);
-  const seguirHoja = useCallback(() => hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null, []);
+  const seguirHoja = useCallback(() => hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null, []);
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado,
   // así que se baja en el cuadro siguiente (en el mismo efecto no hay todavía qué scrollear).
   useEffect(() => {
-    const t = setTimeout(() => { const el = hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null; if (el) el.scrollTop = el.scrollHeight; }, 80);
+    const t = setTimeout(() => { const el = hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null; if (el) el.scrollTop = el.scrollHeight; }, 80);
     return () => clearTimeout(t);
   }, [abierto, lineas.length]);
 
@@ -507,7 +508,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
           EL TÍTULO ES EL CHAT (17/10/2026, Martín): la criatura a la izquierda del nombre, como la foto de WhatsApp. Tocar la
           criatura la cambia; tocar el nombre lo renombra en el lugar. Sin desplegable, sin chips de cuenta ni «Tu foto de
           perfil» (eso se cambia en Tu cuenta). */}
-      {conHoja && <SheetM abierto={!!elegido} onCerrar={cerrarHoja} snap="alto"
+      {conHoja && <PantallaChatM abierto={!!elegido} onCerrar={cerrarHoja} id="chat"
         titulo={eligiendo ? 'Su criatura' : panelWA ? (panelWA.tipo === 'info' ? 'Info del mensaje' : 'Reenviar a…') : elegido ? (
           <TituloDeChat chat={elegido} aspecto={aspectoAbierto} avisos={centro.avisos(elegido)} renombre={renombre}
             onMuneco={esCriaturaDeMako(elegido.titulo) ? undefined : abrirMuneco}
@@ -561,7 +562,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
               delChat={bloque} onResponder={responderPregunta} avisoCerrado={(p) => centro.avisoDePregunta(elegido, p)} ignorar={paraIgnorar} ahora={ahora} deLaApp={deLaApp} />
           </div>
         )}
-      </SheetM>}
+      </PantallaChatM>}
       {conHoja && <MenuMensajeWA abierto={menuWA} marcas={marcas} onCerrar={() => setMenuWA(null)} onElegir={elegirEnMenu} />}
     </>
   );

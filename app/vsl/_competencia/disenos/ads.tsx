@@ -16,9 +16,8 @@
 // bandas, la menta #E3F3EA y el «fog» #F3F9F6): pasa a la misma familia en el azul de MaKo, con la misma luminosidad, así
 // que las bandas siguen oscuras y los fondos claros siguen claros.
 // Lo que se sacó de la referencia, y por qué:
-//   · Las cifras del tablero de ejemplo (gasto, ventas, ROAS) y su pestaña de tiendas: son de su demo. En el tablero van los
-//     dos gráficos del reporte de MaKo (app/_detalle/feature-visuals.ts → 'ads'), con el rótulo «Datos de ejemplo» que la
-//     referencia ya pone.
+//   · Su tablero de ejemplo (gasto, ventas, ROAS) y el teléfono con sus globos: van recuadros de «Aquí falta la animación»
+//     (FaltaAnimacion) hasta tener la grabación del CoPilot y del agente de WhatsApp reales (12/11/2026: nada dibujado a mano).
 //   · Las integraciones que MaKo no tiene (Google, TikTok, LinkedIn, Sheets…) y el carrusel: van sólo los tres logos de la
 //     landing, quietos.
 //   · El precio del cierre («por sólo US$ 29 al mes»): en su lugar va el botón de la llamada.
@@ -32,8 +31,7 @@ import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
 import { RUTA_CTA, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
-import { Visual } from '../../_detalle/Visual';
-import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 
 const P = 'd-ads';
 type De<T extends Bloque['tipo']> = Extract<Bloque, { tipo: T }>;
@@ -160,10 +158,8 @@ function BandaOscura({ b, cierre = false }: { b: De<'tarjetas'>; cierre?: boolea
   );
 }
 
-// ── El reporte: el tablero de la referencia con los gráficos de MaKo ─────────
-const VIS = FEATURE_VISUALS.ads;
-
-function Reporte({ b, pestanas }: { b: De<'filas'>; pestanas: string[] }) {
+// ── El reporte: donde la referencia pone su tablero va la grabación del CoPilot real (falta) ─
+function Reporte({ b }: { b: De<'filas'> }) {
   return (
     <section className={`${P}-sec ${P}-blanco`}>
       <div className={`${P}-wrap`}>
@@ -175,42 +171,8 @@ function Reporte({ b, pestanas }: { b: De<'filas'>; pestanas: string[] }) {
           <h2 className={`${P}-h2c`} dangerouslySetInnerHTML={html(b.titulo)} />
           {b.bajada ? <p className={`${P}-lede`} dangerouslySetInnerHTML={html(b.bajada)} /> : null}
         </div>
-        <div className={`${P}-tablero`}>
-          <div className={`${P}-tab-barra`}>
-            <EstrellaMaKo size={16} />
-            <strong>MaKo</strong>
-            <span className={`${P}-tab-sep`}>/</span>
-            <span className={`${P}-tab-donde`}>Marketing CoPilot</span>
-            <Icono d={ICONO.campana} size={16} clase={`${P}-tab-campana`} />
-          </div>
-          <div className={`${P}-tab-cuerpo`}>
-            <div className={`${P}-tab-lado`} aria-hidden="true">
-              {[ICONO.tablero, ICONO.barras, ICONO.reloj, ICONO.lineas, ICONO.persona].map((d, i) => <Icono key={i} d={d} size={16} />)}
-            </div>
-            <div className={`${P}-tab-main`}>
-              <div className={`${P}-tab-tit`}>
-                <h3>Marketing CoPilot</h3>
-                <span className={`${P}-tab-ej`}>Datos de ejemplo</span>
-              </div>
-              {pestanas.length ? (
-                <div className={`${P}-tab-pest`}>
-                  {pestanas.map((t, i) => <span key={t} className={i === 2 ? `${P}-tab-act` : undefined}>{t}</span>)}
-                </div>
-              ) : null}
-              <div className={`${P}-tab-graficos`}>
-                {b.items.map((it) => {
-                  const spec = typeof it.grafico === 'number' ? VIS?.groups?.[it.grafico] : undefined;
-                  return (
-                    <div key={it.titulo} className={`${P}-tab-g`}>
-                      <h4 dangerouslySetInnerHTML={html(it.titulo)} />
-                      <div className={`${P}-tab-svg`}>{spec ? <Visual spec={spec} /> : null}</div>
-                      <p dangerouslySetInnerHTML={html(it.texto)} />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
+        <div className={`${P}-tablero-falta`}>
+          <FaltaAnimacion que="El Marketing CoPilot real, con tus anuncios." />
         </div>
         <div className={`${P}-cta-fila`}><Cta clase={`${P}-respira`} /></div>
       </div>
@@ -235,22 +197,7 @@ function Whatsapp({ b }: { b: De<'tarjetas'> }) {
         </div>
         <div className={`${P}-tel-wrap`}>
           <span className={`${P}-tel-wa`} aria-hidden="true"><img src="/vsl-assets/logos/whatsapp.png" alt="" width={22} height={22} /></span>
-          <div className={`${P}-tel`}>
-            <div className={`${P}-tel-in`}>
-              <div className={`${P}-tel-cab`}>
-                <span className={`${P}-tel-av`}><EstrellaMaKo size={16} /></span>
-                <div><p className={`${P}-tel-nom`}>MaKo</p><p className={`${P}-tel-est`}>en línea</p></div>
-              </div>
-              <div className={`${P}-tel-msgs`}>
-                {b.items.map((it) => (
-                  <div key={it.titulo} className={`${P}-tel-par`}>
-                    <div className={`${P}-glob ${P}-glob-yo`} dangerouslySetInnerHTML={html(it.titulo)} />
-                    <div className={`${P}-glob ${P}-glob-mako`} dangerouslySetInnerHTML={html(it.texto)} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+          <FaltaAnimacion que="El agente de MaKo respondiendo por WhatsApp, tal cual es." />
         </div>
       </div>
     </section>
@@ -291,9 +238,6 @@ function Pie() {
 export default function DisenoAds({ landing }: PropsDiseno) {
   const bl = landing.bloques;
   const heroB = bl.find((b): b is De<'hero'> => b.tipo === 'hero');
-  // Las pestañas del tablero son las piezas del CoPilot (el bloque de las cinco tarjetas).
-  const piezas = bl.find((b): b is De<'tarjetas'> => b.tipo === 'tarjetas' && b.items.length >= 5);
-  const pestanas = piezas ? piezas.items.map((i) => i.titulo) : [];
   const ultimaTarjetas = bl.reduce((k, b, i) => (b.tipo === 'tarjetas' ? i : k), -1);
 
   const cabeza: ReactNode[] = [];
@@ -310,7 +254,7 @@ export default function DisenoAds({ landing }: PropsDiseno) {
         resto.push(<BandaOscura key={i} b={b} cierre={i === ultimaTarjetas} />);
         break;
       }
-      case 'filas': resto.push(<Reporte key={i} b={b} pestanas={pestanas} />); break;
+      case 'filas': resto.push(<Reporte key={i} b={b} />); break;
       case 'logos': resto.push(<Logos key={i} b={b} />); break;
       default: break;
     }
@@ -420,6 +364,7 @@ const CSS = `
 .d-ads-pide-m { position: absolute; right: 0; top: 0; }
 .d-ads-h2c { margin-top: 20px; font-family: 'd-ads-grotesk', sans-serif; font-size: 36px; font-weight: 700; line-height: 40px; color: var(--tinta); }
 .d-ads-blanco .d-ads-lede { margin-top: 16px; }
+.d-ads-tablero-falta { margin-top: 40px; }
 .d-ads-tablero { margin-top: 40px; overflow: hidden; background: #fff; border: 1px solid var(--borde); border-radius: 10px; box-shadow: 0 24px 48px -16px rgba(10,28,61,.18); }
 .d-ads-tab-barra { height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: var(--deep); color: #fff; font-size: 14px; line-height: 20px; }
 .d-ads-tab-barra strong { font-weight: 600; }

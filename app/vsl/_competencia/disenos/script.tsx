@@ -29,6 +29,7 @@ import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
 import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import { VisualDeLanding } from '../Visuales';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 import { Visual } from '../../_detalle/Visual';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 
@@ -153,22 +154,7 @@ function Pregunta({ b }: { b: De<'tarjetas'> }) {
         <a href={RUTA_CTA} className={`${P}-learn`}>{TEXTO_CTA}</a>
       </div>
       <div className={`${P}-iface`}>
-        <div className={`${P}-cards`}>
-          {b.items.map((it, i) => (
-            <article key={it.titulo} className={`${P}-acard`} style={{ animationDelay: `${(0.25 + i * 0.18).toFixed(2)}s` }}>
-              <div className={`${P}-acard-brand`}>
-                <span className={`${P}-acard-logo`}><Icono d={it.icono} size={12} /></span>
-                <span className={`${P}-acard-name`} dangerouslySetInnerHTML={html(it.titulo)} />
-              </div>
-              <p className={`${P}-acard-body`} dangerouslySetInnerHTML={html(it.texto)} />
-            </article>
-          ))}
-        </div>
-        <div className={`${P}-prompt`}>
-          <span className={`${P}-chip`}><EstrellaMaKo size={16} />MaKo</span>
-          <span className={`${P}-type`}><span className={`${P}-cursor`} /></span>
-          <span className={`${P}-submit`} aria-hidden="true">↑</span>
-        </div>
+        <FaltaAnimacion que="El chat de Ads Analyst respondiendo, tal cual es." />
       </div>
     </section>
   );
@@ -183,8 +169,9 @@ function Grafico({ i }: { i?: number }) {
   return <div className={`${P}-shot`}><Visual spec={spec} /></div>;
 }
 
-/** La imagen de cada paso de MaKo: lo que pasa en ese paso, dibujado con piezas de la referencia (su caja de chat). */
-function ImagenPaso({ i, texto, visual }: { i: number; texto: string; visual: De<'hero'>['visual'] | undefined }) {
+/** La imagen de cada paso de MaKo. La caja para pedirle a MaKo va grabada de la app: hasta tenerla, el recuadro de lo que
+ *  falta (12/11/2026: la caja dibujada a mano se sacó). */
+function ImagenPaso({ i, visual }: { i: number; visual: De<'hero'>['visual'] | undefined }) {
   if (i === 0) {
     return (
       <div className={`${P}-dm ${P}-dm-oscuro`}>
@@ -197,27 +184,16 @@ function ImagenPaso({ i, texto, visual }: { i: number; texto: string; visual: De
     );
   }
   if (i === 1) {
-    const pregunta = texto.match(/«([^»]+)»/)?.[1] ?? '';
     return (
       <div className={`${P}-dm ${P}-dm-negro`}>
-        <div className={`${P}-pide`}>
-          <span className={`${P}-pide-h`}><EstrellaMaKo size={20} />MaKo</span>
-          <div className={`${P}-pide-caja`}>
-            <span>{pregunta}</span>
-            <span className={`${P}-pide-send`} aria-hidden="true">↑</span>
-          </div>
-        </div>
+        <div className={`${P}-falta`}><FaltaAnimacion que="La caja para pedirle a MaKo, tal cual es." /></div>
       </div>
     );
   }
   return (
     <div className={`${P}-dm ${P}-dm-claro`}>
       {visual ? <div className={`${P}-shot ${P}-shot-claro`}><VisualDeLanding visual={visual} /></div> : null}
-      <div className={`${P}-sxprompt`}>
-        <span className={`${P}-chip`}><EstrellaMaKo size={14} />MaKo</span>
-        <span className={`${P}-type`}><span className={`${P}-cursor`} /></span>
-        <span className={`${P}-submit ${P}-submit-sm`} aria-hidden="true">↑</span>
-      </div>
+      <div className={`${P}-falta ${P}-falta-chica`}><FaltaAnimacion que="La caja para pedirle a MaKo, tal cual es." /></div>
     </div>
   );
 }
@@ -265,7 +241,7 @@ function DosFormas({ t, f, p, visual }: { t: De<'tarjetas'>; f: De<'filas'>; p: 
             {p.pasos.map((it, i) => (
               <div key={it.titulo} className={`${P}-demo`}>
                 <div className={`${P}-dmwrap`}>
-                  <ImagenPaso i={i} texto={it.texto} visual={visual} />
+                  <ImagenPaso i={i} visual={visual} />
                   {p.etiqueta ? <span className={`${P}-tag ${P}-tag-ag`}>{p.etiqueta}</span> : null}
                 </div>
                 <div className={`${P}-dc`}>
@@ -551,6 +527,10 @@ const CSS = `
 .d-script-pide-caja { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 14px 14px 18px; border-radius: 14px; background: #262626; border: 1px solid #3A3A3A; color: #E8E8E8; font-size: 14px; }
 .d-script-pide-send { flex: none; width: 30px; height: 30px; border-radius: 9px; background: var(--az); color: #fff; display: grid; place-items: center; font-weight: 800; }
 /* la caja del paso 3 */
+.d-script-falta { width: 88%; border-radius: 14px; background: #fff; }
+.d-script-falta .mk-falta { min-height: 0; }
+.d-script-falta-chica .mk-falta { aspect-ratio: auto; padding: 10px 14px; gap: 2px; }
+.d-script-falta-chica .mk-falta-t { font-size: 14px; }
 .d-script-sxprompt { width: 88%; display: flex; align-items: center; gap: 12px; padding: 0 9px 0 12px; height: 62px; background: #fff; border: 1px solid #DCE2E7; border-radius: 17.7px; box-shadow: 0 11.8px 29.5px rgba(6,21,35,.1); }
 .d-script-submit-sm { width: 41px; height: 41px; font-size: 20px; }
 /* la banda del final: #F5F7FF con filete #CCD4FF, radio 18 */

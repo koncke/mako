@@ -51,6 +51,7 @@ const ICONOS: Record<NombreEvento, ReactNode> = {
   mako: <BoltOutlined fontSize="inherit" />,
   lectura: <BoltOutlined fontSize="inherit" />,
   agente: <BoltOutlined fontSize="inherit" />,
+  linea: <BoltOutlined fontSize="inherit" />,
 }
 
 export const iconoDeEvento = (e: Pick<EventoDeTimeline, 'nombre'>): ReactNode => ICONOS[e.nombre]

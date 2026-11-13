@@ -13,6 +13,8 @@
 //    `alta_capa = 'agencia'`, y la suscripción más reciente pagada es la que vale (un upgrade gana).
 // ⚠️ PURO: lo leen el servidor, la barra (vía /api/auth/me) y los tests.
 
+import { WS_PARAM } from './ws-tab';
+
 /** Las claves de la barra (app/_components/nav.ts) de las tabs de Pro. AI Avatar salió el 29/10/2026: es de los tres planes. */
 // 25/10/2026: el Media Buyer (/ads-manager) ya NO es sólo de Pro: Esencial lo tiene en «propone», 2 recomendaciones por día y sin
 // piloto automático (decisión del Cerebro con la investigación de venta; memoria decisiones-venta-25-10). El cupo lo cumple lib/media-buyer.
@@ -71,6 +73,50 @@ export const ROTULO_PASAR_A_PRO = 'Pasar a Pro';
  * El mismo tono que «Tu plan» ya usa para él (app/configuraciones/plan/PlanPanel.tsx: «Lo maneja tu agencia»).
  */
 export const TEXTO_PEDIR_PRO_A_LA_AGENCIA = 'Pídele a tu agencia que te pase a Pro.';
+
+/**
+ * LA AGENCIA ADENTRO DE SU CLIENTE NO SE PIDE EL PLAN A SÍ MISMA (12/11/2026, ticket #89). Código Inmobiliario (ws13), operando
+ * dentro de «Sellers» (ws24, Esencial elegido por ella el 11/11), quiso invitar a alguien y el cartel le dijo «Pídele a tu
+ * agencia que te pase a Pro»: la cuenta ES cliente de una agencia (`clienteDeAgencia`), pero quien la mira ES la agencia
+ * (`modoAgencia` de /api/auth/me). A ella le toca la otra puerta: salir de la vista e ir a la ficha de esa cuenta en el Agency
+ * Dashboard (`/agency?cuenta=<ws>`), donde está «Pasar a Pro» (app/agency/AgencyApp.tsx).
+ *
+ * Y EL SUPER ADMIN TAMPOCO ES «EL CLIENTE» (12/11/2026, pedido del Cerebro después del #89): mirando a un cliente de agencia
+ * leía «Pídele a tu agencia». Va a la ficha de esa cuenta en el Agency Dashboard DE SU AGENCIA (`/agency?ws=<agencia>&cuenta=<ws>`,
+ * el mismo escalón al que vuelve «Salir» de su barra). Ahí ve el plan; el botón para cambiarlo es de la agencia (AgencyApp lo
+ * esconde al super admin), por eso su rótulo dice «Ver», no «Pasar a Pro».
+ */
+export const ROTULO_PRO_DESDE_AGENCY = 'Pasar a Pro desde Agency Dashboard';
+export const ROTULO_PLAN_EN_AGENCY = 'Ver su plan en Agency Dashboard';
+
+/** `puerta`: cómo se sale de la vista antes de ir (la agencia borra `mako_agencia`; el super admin, su impersonación). */
+export type CtaDeTope =
+  | { tipo: 'link' }
+  | { tipo: 'pedir'; texto: string }
+  | { tipo: 'agencia'; href: string; rotulo: string; puerta: 'agencia' | 'admin' };
+
+const esWs = (n: number | null | undefined): n is number => n != null && Number.isInteger(n) && n > 0;
+
+/**
+ * Qué lleva un cartel de tope donde iría «Pasar a Pro». `clienteDeAgencia`: la de /api/auth/me (`null` = todavía no se sabe,
+ * se dibuja el link, como siempre). `agenciaAdentroDe`: el ws del cliente cuando quien mira es SU agencia (`modoAgencia`), si no
+ * null. `superAdminMira`: la agencia y el cliente cuando quien mira es el super admin y el cliente es de una agencia.
+ */
+export function ctaDeTope(p: {
+  clienteDeAgencia: boolean | null;
+  agenciaAdentroDe: number | null;
+  superAdminMira?: { agenciaWs: number; clienteWs: number } | null;
+}): CtaDeTope {
+  if (esWs(p.agenciaAdentroDe)) {
+    return { tipo: 'agencia', href: `/agency?cuenta=${p.agenciaAdentroDe}`, rotulo: ROTULO_PRO_DESDE_AGENCY, puerta: 'agencia' };
+  }
+  const s = p.superAdminMira;
+  if (s && esWs(s.agenciaWs) && esWs(s.clienteWs)) {
+    return { tipo: 'agencia', href: `/agency?${WS_PARAM}=${s.agenciaWs}&cuenta=${s.clienteWs}`, rotulo: ROTULO_PLAN_EN_AGENCY, puerta: 'admin' };
+  }
+  if (p.clienteDeAgencia) return { tipo: 'pedir', texto: TEXTO_PEDIR_PRO_A_LA_AGENCIA };
+  return { tipo: 'link' };
+}
 
 /**
  * Lo que tiene que leer QUIEN DA DE ALTA A MANO (24/10/2026, el Cerebro: «dejalo donde lo lea quien da de alta a mano»). El

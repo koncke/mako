@@ -1,0 +1,178 @@
+/* =============================================================================
+   chat-wa.css — una conversación del teléfono con la cara de WhatsApp (PantallaChatM.tsx, 13/11/2026)
+   =============================================================================
+   El prototipo que aprobó Martín: docs/prototipos/mako-mobile-chat.html. El hilo y la caja son los de toda la app (HiloMako,
+   CajaChat): esto sólo los viste, y SÓLO adentro de `.m-wa`, que pone PantallaChatM. La computadora y las hojas del teléfono
+   no cambian. Ningún color nuevo: los tokens de app/globals.css, y se leen en claro y en oscuro.
+   ⚠️ Next deja esta hoja cargada al salir de la ruta: toda regla lleva `.m-chat` o `.m-wa` (y casi todas `[data-m]`).
+   ============================================================================= */
+
+/* ── La pantalla ─────────────────────────────────────────────────────────── */
+:root:has(.m-chat-capa) { overflow: hidden; }
+.m-chat-capa { position: fixed; inset: 0; z-index: 70; }
+.m-chat {
+  position: absolute; inset: 0; display: flex; flex-direction: column; height: 100dvh;
+  background: var(--bg); color: var(--ink); outline: none;
+  transform: translateX(100%); will-change: transform; touch-action: pan-y;
+  box-shadow: -8px 0 24px rgba(0, 0, 0, .08);
+}
+/* El fondo de la conversación: las chispas de MaKo, apenas, como el papel de WhatsApp. No scrollea. */
+.m-chat::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cg fill='%23000'%3E%3Cpath d='M22 12c1 5 3 7 8 8-5 1-7 3-8 8-1-5-3-7-8-8 5-1 7-3 8-8z'/%3E%3Cpath d='M88 58c.7 3.4 2.1 4.8 5.5 5.5-3.4.7-4.8 2.1-5.5 5.5-.7-3.4-2.1-4.8-5.5-5.5 3.4-.7 4.8-2.1 5.5-5.5z'/%3E%3Cpath d='M40 86c.9 4.2 2.6 5.9 6.8 6.8-4.2.9-5.9 2.6-6.8 6.8-.9-4.2-2.6-5.9-6.8-6.8 4.2-.9 5.9-2.6 6.8-6.8z'/%3E%3C/g%3E%3C/svg%3E");
+}
+[data-tema="oscuro"] .m-chat::before { filter: invert(1); opacity: .05; }
+.m-chat > * { position: relative; }
+
+.m-chat__cab {
+  flex: none; display: flex; align-items: center; gap: 4px; min-height: 58px;
+  padding: calc(4px + env(safe-area-inset-top, 0px)) calc(8px + env(safe-area-inset-right, 0px)) 4px calc(2px + env(safe-area-inset-left, 0px));
+  background: var(--surface); box-shadow: 0 1px 0 var(--border); z-index: 2;
+}
+.m-chat__volver {
+  flex: none; display: grid; place-items: center; width: 44px; height: 44px; padding: 0;
+  border: 0; border-radius: 50%; background: none; color: var(--ink); cursor: pointer;
+}
+.m-chat__volver:active:not(:disabled) { background: var(--velo-hover); }
+.m-chat__volver:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.m-chat__titulo { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; line-height: 1.2; }
+.m-chat__cuerpo {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
+  padding: 8px calc(10px + env(safe-area-inset-right, 0px)) 12px calc(10px + env(safe-area-inset-left, 0px));
+}
+.m-chat__pie {
+  flex: none; display: flex; flex-direction: column; gap: 4px;
+  padding: 4px calc(6px + env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) calc(6px + env(safe-area-inset-left, 0px));
+}
+@media (prefers-reduced-motion: reduce) { .m-chat { will-change: auto; } }
+
+/* La cabecera: la foto y el nombre que pone cada pantalla, más grandes. */
+[data-m] .m-chat__titulo .m-operaciones-titulo__nombre { font-size: 17px; font-weight: 600; }
+[data-m] .m-chat__titulo .gr-titulo-boton__ver { font-size: 13px; color: var(--faint); }
+
+/* ── El hilo ─────────────────────────────────────────────────────────────── */
+[data-m] .m-wa .m-operaciones-hilo { gap: 6px; padding-bottom: 4px; }
+/* El día, una píldora blanca sobre el fondo. */
+[data-m] .m-wa .co-dia {
+  padding: 4px 11px; border-radius: 8px; background: var(--surface); color: var(--dim);
+  font-size: 12.5px; font-weight: 600; box-shadow: 0 1px .5px rgba(11, 20, 26, .13);
+}
+[data-m] .m-wa .co-dia--sin-leer { background: var(--good-bg); color: var(--ink); }
+
+/* Lo tuyo: el globo verde de WhatsApp, a la derecha, sin tu foto (la foto es de los demás). */
+[data-m] .m-wa .co-yo, [data-m] .m-wa .m-operaciones-hilo .co-yo { padding-right: 0; max-width: 84%; }
+[data-m] .m-wa .co-yo > .co-mifoto { display: none; }
+[data-m] .m-wa .co-yo > .co-wa__mas { right: 4px; }
+[data-m] .m-wa .co-yo .co-burbuja {
+  padding: 6px 9px 7px; border-radius: 10px 0 10px 10px; background: var(--good-bg); color: var(--ink);
+  font-size: 16px; line-height: 1.35;
+}
+/* Dos seguidos: la colita sólo en el primero. */
+[data-m] .m-wa .co-yo + .co-yo .co-burbuja { border-radius: 10px; }
+[data-m] .m-wa .co-yo + .co-yo .co-burbuja::after { display: none; }
+[data-m] .m-wa .co-burbuja__pie { font-size: 11.5px; color: color-mix(in srgb, var(--ink) 55%, transparent); }
+
+/* Lo de MaKo: el globo blanco. En un chat de a dos, sin su criatura al costado, como un contacto de WhatsApp; en un grupo, con
+   ella (cada uno lleva su foto). */
+[data-m] .m-wa:not(.m-wa--grupo) .co-el > .mun { display: none; }
+[data-m] .m-wa .co-el { gap: 6px; }
+[data-m] .m-wa .co-el:not(.co-trabajando) > .co-el__cuerpo:not(.co-el__cuerpo--ancho) {
+  max-width: 86%; padding: 6px 9px 6px; border-radius: 0 10px 10px 10px; font-size: 16px;
+}
+[data-m] .m-wa .co-el-wa + .co-el-wa .co-el:not(.co-trabajando) > .co-el__cuerpo:not(.co-el__cuerpo--ancho) { border-radius: 10px; }
+[data-m] .m-wa .co-el-wa + .co-el-wa .co-el:not(.co-trabajando) > .co-el__cuerpo:not(.co-el__cuerpo--ancho)::before { display: none; }
+[data-m] .m-wa .co-el:not(.co-trabajando) > .co-el__cuerpo:not(.co-el__cuerpo--ancho) > .co-el__rotulo:last-of-type { font-size: 11.5px; margin-top: 2px; }
+/* Una tarjeta (lo que MaKo propone, una pregunta): el ancho del globo, no el de la pantalla. */
+[data-m] .m-wa .co-el__cuerpo--ancho { max-width: 92%; }
+/* MaKo escribiendo: el mismo globo blanco, con sus tres puntos. */
+[data-m] .m-wa .co-escribiendo { border: 0; border-radius: 0 10px 10px 10px; background: var(--surface); box-shadow: 0 1px .5px rgba(11, 20, 26, .13); }
+
+/* ── La caja: la de WhatsApp ─────────────────────────────────────────────────
+   UNA píldora con la carita, el campo y el clip, y afuera el círculo verde que graba y, con algo escrito, manda. La caja es la
+   única de la app (CajaChat): se reordena con la grilla, no se reescribe. La píldora es el ::before de la fila. */
+[data-m] .m-wa .m-chat__pie .m-operaciones-caja { gap: 4px; }
+[data-m] .m-wa .m-operaciones-caja__fila { --caja-toque: 48px; }
+[data-m] .m-wa .m-operaciones-caja__fila:has(> .co-caja__campo) {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: end; column-gap: 6px;
+}
+[data-m] .m-wa .m-operaciones-caja__fila:has(> .co-caja__campo)::before {
+  content: ''; grid-column: 1 / 4; grid-row: 1; align-self: stretch;
+  border-radius: 24px; background: var(--surface); box-shadow: 0 1px .5px rgba(11, 20, 26, .13);
+}
+[data-m] .m-wa .m-operaciones-caja__fila > .co-emojis { grid-column: 1; grid-row: 1; }
+[data-m] .m-wa .m-operaciones-caja__fila > .co-caja__campo { grid-column: 2; grid-row: 1; background: transparent; border-radius: 0; }
+[data-m] .m-wa .m-operaciones-caja__fila > .co-mas-caja { grid-column: 3; grid-row: 1; }
+[data-m] .m-wa .m-operaciones-caja__fila > :is(.co-enviar, .co-instalar, .ch-ancla) { grid-column: 4; grid-row: 1; }
+/* Sin la carita (la caja bloqueada), el campo arranca con su aire. */
+[data-m] .m-wa .m-operaciones-caja__fila:not(:has(> .co-emojis)) > .co-caja__campo { padding-left: 14px; }
+[data-m] .m-wa .m-operaciones-caja textarea {
+  min-height: 48px; padding: 12px 2px; border: 0; border-radius: 0; background: transparent; line-height: 24px;
+}
+[data-m] .m-wa .m-operaciones-caja textarea:focus { border: 0; }
+[data-m] .m-wa .m-operaciones-caja .co-caja__resalte { padding: 12px 2px; line-height: 24px; }
+[data-m] .m-wa .m-operaciones-caja :is(.co-emojis__boton, .ch-adjuntar) { width: 44px; height: 48px; background: none; color: var(--faint); }
+/* El «+» es el clip de WhatsApp (el ícono del set es un «+»: se tapa con la máscara del clip). */
+[data-m] .m-wa .m-operaciones-caja .ch-adjuntar > svg { display: none; }
+[data-m] .m-wa .m-operaciones-caja .ch-adjuntar::before {
+  content: ''; width: 23px; height: 23px; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11.5l-8.4 8.4a5.2 5.2 0 0 1-7.4-7.4l8.8-8.8a3.5 3.5 0 0 1 5 5l-8.8 8.8a1.7 1.7 0 0 1-2.5-2.5l8-8'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11.5l-8.4 8.4a5.2 5.2 0 0 1-7.4-7.4l8.8-8.8a3.5 3.5 0 0 1 5 5l-8.8 8.8a1.7 1.7 0 0 1-2.5-2.5l8-8'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* Los paneles salen de su botón hacia adentro de la pantalla: la carita está a la izquierda y el clip a la derecha. */
+[data-m] .m-wa .m-operaciones-caja .co-emojis__panel { left: -2px; }
+[data-m] .m-wa .m-operaciones-caja .co-mas-caja__panel { left: auto; right: -54px; }
+/* Mandar y grabar: el círculo verde. Grabando, rojo. */
+[data-m] .m-wa .m-operaciones-caja .co-enviar,
+[data-m] .m-wa .m-operaciones-caja .co-enviar--mic { width: 48px; height: 48px; background: var(--good); color: var(--bg); }
+[data-m] .m-wa .m-operaciones-caja .co-enviar:disabled { opacity: .55; }
+[data-m] .m-wa .m-operaciones-caja .co-enviar--mic[data-escuchando] { background: var(--bad); color: #fff; }
+[data-m] .m-wa .m-operaciones-caja .co-enviar:active:not(:disabled) { transform: scale(.96); }
+/* Lo de arriba de la caja (conectar tu IA, el aviso de la computadora): una línea chica, no un bloque. */
+[data-m] .m-wa .ch-app-franja { margin: 0 4px 2px; padding: 6px 12px; border-radius: 12px; font-size: 13px; line-height: 1.35; }
+[data-m] .m-wa .co-conectar-ia-arriba { margin: 0 4px 2px; }
+
+/* ── La lista de chats del Ops Center, como WhatsApp (ChatClienteM.tsx) ─────────────────────────────────────────────────
+   El buscador, los chips de lo que no es un chat, y los chats de borde a borde: sin caja, la foto grande, el filete desde el texto. */
+[data-m] .m-ops-buscar {
+  display: flex; align-items: center; gap: 10px; height: 44px; margin: 0 0 10px; padding: 0 14px;
+  border-radius: 22px; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--faint);
+}
+[data-m] .m-ops-buscar input {
+  flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; background: none; color: var(--ink);
+  font: inherit; font-size: 16px; outline: none; -webkit-appearance: none; appearance: none;
+}
+[data-m] .m-ops-buscar input::placeholder { color: var(--faint); }
+[data-m] .m-ops-buscar:focus-within { box-shadow: var(--focus-ring); }
+[data-m] .m-ops-chips { display: flex; gap: 8px; margin: 0 calc(-1 * var(--m-gutter)) 6px; padding: 0 var(--m-gutter) 4px; overflow-x: auto; scrollbar-width: none; }
+[data-m] .m-ops-chips::-webkit-scrollbar { display: none; }
+[data-m] .m-ops-chips:empty { display: none; }
+[data-m] .m-ops-chip {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px;
+  border: 1px solid var(--border); border-radius: 18px; background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 14.5px; font-weight: 500; text-decoration: none; cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+[data-m] .m-ops-chip:active { transform: scale(.97); }
+[data-m] .m-ops-chip:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+[data-m] .m-ops-chip__n {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+  background: var(--good); color: var(--bg); font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+[data-m] .m-ops-wa { margin: 0 calc(-1 * var(--m-gutter)); }
+[data-m] .m-ops-wa .m-lista { border: 0; border-radius: 0; background: none; }
+[data-m] .m-ops-wa .m-fila-envoltorio, [data-m] .m-ops-wa .m-fila { background: none; }
+[data-m] .m-ops-wa .m-fila { min-height: 72px; gap: 13px; padding: 9px var(--m-gutter); }
+[data-m] .m-ops-wa .m-fila__t { font-size: 16.5px; }
+[data-m] .m-ops-wa .m-fila__c { font-size: 14.5px; }
+[data-m] .m-ops-wa .m-fila__riel { align-self: flex-start; padding-top: 4px; font-size: 12.5px; }
+/* «Nuevo chat», el «+» flotante de la lista (NuevoChatFlotante.tsx): el de WhatsApp, verde, con las medidas de BotonFlotanteM. */
+[data-m] .m-ops-fab {
+  position: fixed; z-index: 38; right: calc(16px + env(safe-area-inset-right, 0px)); bottom: calc(var(--m-abajo, 0px) + 16px);
+  display: grid; place-items: center; width: 56px; height: 56px; padding: 0; border: 0; border-radius: 18px;
+  background: var(--good); color: var(--bg); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--good) 35%, transparent); transition: transform var(--dur-press) var(--ease-out);
+}
+[data-m] .m-ops-fab:active { transform: scale(.95); }
+[data-m] .m-ops-fab:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--good); }
+[data-m] .m-ops-hueco { height: 72px; }
+@media (prefers-reduced-motion: reduce) { [data-m] .m-ops-fab { transition: none; } }

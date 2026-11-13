@@ -21,15 +21,58 @@
 
 import { useEffect, useState } from 'react';
 
-let promesa: Promise<boolean | null> | null = null;
+/**
+ * Lo que hace falta de /api/auth/me. `agenciaAdentroDe`: el ws del cliente cuando quien lo mira es SU agencia (#89).
+ * `superAdminMira`: la agencia y el cliente cuando quien mira es el super admin y el cliente es de una agencia (`agencia` de
+ * /api/auth/me, que sólo viene para él: lib/vista-de-otro.ts).
+ */
+type SuperAdminMira = { agenciaWs: number; clienteWs: number };
+type QuienMira = { clienteDeAgencia: boolean; agenciaAdentroDe: number | null; superAdminMira: SuperAdminMira | null };
+let promesa: Promise<QuienMira | null> | null = null;
+
+function leerQuienMira(): Promise<QuienMira | null> {
+  promesa ??= fetch('/api/auth/me')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => (j?.ok && j.autenticado
+      ? {
+        clienteDeAgencia: j.clienteDeAgencia === true,
+        agenciaAdentroDe: j.modoAgencia === true && Number(j.clienteWs) > 0 ? Number(j.clienteWs) : null,
+        superAdminMira: j.rol === 'admin' && Number(j.agencia?.ws) > 0 && Number(j.clienteWs) > 0
+          ? { agenciaWs: Number(j.agencia.ws), clienteWs: Number(j.clienteWs) } : null,
+      }
+      : null))
+    .catch(() => null);
+  return promesa;
+}
+
+/** ¿Quien mira es el SUPER ADMIN, adentro de un cliente de agencia? La agencia y el cliente, o null (12/11/2026). */
+export function useSuperAdminMira(): SuperAdminMira | null {
+  const [s, setS] = useState<SuperAdminMira | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void leerQuienMira().then((q) => { if (vivo) setS(q?.superAdminMira ?? null); });
+    return () => { vivo = false; };
+  }, []);
+  return s;
+}
 
 /** La lectura, una vez por pestaña. Si falla, `null`: nunca se asume que SÍ es cliente de una agencia. */
 export function leerClienteDeAgencia(): Promise<boolean | null> {
-  promesa ??= fetch('/api/auth/me')
-    .then((r) => (r.ok ? r.json() : null))
-    .then((j) => (j?.ok && j.autenticado ? j.clienteDeAgencia === true : null))
-    .catch(() => null);
-  return promesa;
+  return leerQuienMira().then((q) => (q ? q.clienteDeAgencia : null));
+}
+
+/**
+ * ¿Quien mira es la AGENCIA, adentro de un cliente suyo? El ws de ese cliente, o null (12/11/2026, ticket #89: el cartel de
+ * tope le decía a la agencia «Pídele a tu agencia…»). La misma lectura que `useClienteDeAgencia`.
+ */
+export function useAgenciaAdentro(): number | null {
+  const [ws, setWs] = useState<number | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void leerQuienMira().then((q) => { if (vivo) setWs(q?.agenciaAdentroDe ?? null); });
+    return () => { vivo = false; };
+  }, []);
+  return ws;
 }
 
 /**

@@ -209,11 +209,12 @@ test('8. el teléfono: la lista es la pantalla y cada chat se abre en su hoja, c
   assert.match(page, /\{centro \? <SecondBrainCentroM centro=\{centro\} chat=\{chat\} \/> : <ChatClienteM \{\.\.\.chat\} \/>\}/);
   assert.doesNotMatch(page, /ChatMako/, 'el chat de antes del teléfono ya no se monta');
   const m = sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx'));
-  assert.match(m, /<SheetM abierto=\{abierta && elegido != null\} onCerrar=\{cerrar\} snap="alto"/, 'la conversación, en una hoja alta');
-  assert.match(m, /<FilaM leading=\{<CirculoNuevo size=\{40\} \/>\} titulo="Nuevo chat"/, '«Nuevo chat» arriba, con su círculo');
+  // Desde el 13/11/2026 (el prototipo aprobado): la conversación a pantalla completa y «Nuevo chat» como el «+» de WhatsApp (tests/m-chat-pantalla.test.ts).
+  assert.match(m, /<PantallaChatM abierto=\{abierta && elegido != null\} onCerrar=\{cerrar\} id="chat-cliente"/, 'la conversación, a pantalla completa');
+  assert.match(m, /<NuevoChatFlotante onClick=\{\(\) => abrir\(\{ virtual: 'nuevo' \}\)\} \/>/, '«Nuevo chat», el «+» flotante');
   // Desde el 22/10, agrupados por su origen con `porJefe` (tests/ops-center-lista-cliente.test.ts), en la misma lista.
   // Desde el 4/11/2026, entre los dos, el coach con sus conversaciones de oferta (tests/coaches-ops-center.test.ts, 15).
-  assert.match(m, /\{cerebro && fila\(cerebro\)\}\s*\{verCoach && \([\s\S]{0,700}?\{filasOffer\.map\(\(f\) => fila\(f, true\)\)\}\s*(?:\{\}\s*)?\{porJefe\(corte\)\.flatMap\(/, 'el Cerebro, el coach y después todos, en la MISMA lista');
+  assert.match(m, /\{cerebro && coincide\(cerebro\.titulo, busca\) && fila\(cerebro\)\}\s*\{verCoach && coincide\(ORIGEN_FUNNEL_COACH, busca\) && \([\s\S]{0,700}?\.map\(\(f\) => fila\(f, true\)\)\}\s*(?:\{\}\s*)?\{porJefe\(corte\)\.flatMap\(/, 'el Cerebro, el coach y después todos, en la MISMA lista');
 });
 
 // 21/10/2026 (~23:10), tres reglas de Martín para toda la app: el chat de MaKo de cada tab a la IZQUIERDA, con la estrella y al

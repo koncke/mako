@@ -42,8 +42,9 @@ import { cortarSinPartir } from '@/lib/unicode-seguro'
 import { aCentavos } from './metricas'
 import { medioEnTexto, ROTULO_ESTADO_PEDIDO, type Pedido, type ReciboVenta } from './ventas'
 import { rutaDePedido } from './cliente'
+import { describirLinea, TOPE_REGISTRO_LINEAS, vozEnLineaAjena, type CambioDeLinea } from '@/lib/registro-lineas-reglas'
 
-export const NOMBRES_EVENTO = ['pago', 'devolucion', 'suscripcion', 'alta', 'mako', 'lectura', 'error', 'reporte', 'agente'] as const
+export const NOMBRES_EVENTO = ['pago', 'devolucion', 'suscripcion', 'alta', 'mako', 'lectura', 'error', 'reporte', 'agente', 'linea'] as const
 export type NombreEvento = (typeof NOMBRES_EVENTO)[number]
 
 /** Los «system events» de Polar (lo que pasa con la cuenta) y sus «user events» (lo que hizo alguien: MaKo, una persona). */
@@ -66,6 +67,8 @@ export const TIPOS_EVENTO: Record<NombreEvento, { label: string; orden: number; 
   agente: { label: 'Agentes de los clientes', orden: 6, source: 'user', importancia: 'medium' },
   error: { label: 'Errores de la app', orden: 7, source: 'system', importancia: 'high' },
   reporte: { label: 'Reportes de las personas', orden: 8, source: 'user', importancia: 'medium' },
+  // Quién movió la voz o el canal de MaKo (lib/registro-lineas-reglas.ts, 13/11/2026). Alta: es por dónde habla MaKo.
+  linea: { label: 'Cambios de las líneas de MaKo', orden: 9, source: 'user', importancia: 'high' },
 }
 
 /**
@@ -93,6 +96,9 @@ export const ALIAS_TIPO: Record<string, NombreEvento[]> = {
   // La pantalla vieja de Activity mostraba las dos.
   actividad: ['mako', 'lectura'],
   reporte: ['reporte'],
+  linea: ['linea'],
+  lineas: ['linea'],
+  voz: ['linea'],
 }
 
 export const esNombreEvento = (s: string): s is NombreEvento => (NOMBRES_EVENTO as readonly string[]).includes(s)
@@ -330,6 +336,47 @@ export function eventosDeAltas(altas: readonly AltaEvento[]): EventoAdmin[] {
   }))
 }
 
+/** El botón de /agencia de cada `action` de /api/admin/mako-canal (`activar` sólo lo trae 'voz-personal'). */
+export function botonDelCambio(c: Pick<CambioDeLinea, 'accion' | 'activar'>): string {
+  switch (c.accion) {
+    case 'voz-personal': return c.activar === false ? '«Dejar de usarlo para MaKo» (tu número)' : '«Usarlo para MaKo» (tu número)'
+    case 'usar': return 'Usar la línea de MaKo (el panel lo hace solo cuando la línea vuelve)'
+    case 'conectar': return 'Conectar la línea de MaKo (QR)'
+    case 'desconectar': return 'Desconectar la línea de MaKo'
+    case 'pasar': return 'Pasar MaKo al número nuevo'
+    case 'nuevo-numero': return 'Número nuevo de MaKo (QR)'
+    case 'descartar-nuevo': return 'Descartar el número nuevo'
+    case 'personal': return 'Vincular tu número (QR)'
+    default: return c.accion
+  }
+}
+
+/**
+ * Quién movió la voz o el canal de MaKo (lib/registro-lineas-reglas.ts): un evento por cambio, de la plataforma (sin negocio).
+ * La voz que queda en la línea de OTRO negocio va en rojo. En la personal de Martín (el …3479) NO: es su decisión (13/11/2026,
+ * «Dejarla en mi personal»), y la fila lo dice («tu número»).
+ */
+export function eventosDeCambiosDeLinea(cambios: readonly CambioDeLinea[]): EventoAdmin[] {
+  const id = idsUnicos()
+  return cambios.map((c) => {
+    const linea = (i: string | null) => (i && i === c.personal ? `tu número, ${describirLinea(i, c.numeros)}` : describirLinea(i, c.numeros))
+    const principal = c.voz ? { que: 'La voz', m: c.voz } : { que: 'El canal', m: c.canal! }
+    const campos: CampoEvento[] = [
+      { label: 'Quién', valor: c.quien, copiar: true },
+      { label: 'Botón', valor: botonDelCambio(c) },
+      { label: 'Pantalla', valor: c.pantalla, mono: true },
+      ...(c.voz ? [{ label: 'Voz', valor: `${linea(c.voz.de)} → ${linea(c.voz.a)}`, mono: true }] : []),
+      ...(c.canal ? [{ label: 'Canal', valor: `${linea(c.canal.de)} → ${linea(c.canal.a)}`, mono: true }] : []),
+      { label: 'Cuándo', valor: c.at, fecha: true },
+    ]
+    return conTexto({
+      id: id(`linea:${c.at}`), nombre: 'linea', label: `${principal.que} de MaKo pasó a ${linea(principal.m.a)}`, timestamp: c.at,
+      negocios: [], persona: c.quien, monto: null, veces: null, falla: false, campos, secciones: [],
+      negativo: vozEnLineaAjena(c), resumen: `Antes: ${linea(principal.m.de)} · ${botonDelCambio(c)}`,
+    })
+  })
+}
+
 /**
  * Lo que hizo MaKo: una acción o una lectura por renglón de actividad_acciones. Una ACCIÓN (`tipo === 'accion'`, lo que cambió
  * algo) es un evento «mako»; lo demás que corrió, una «lectura» (punto 13: el mismo corte que el «hoy» de Overview).
@@ -496,6 +543,8 @@ export type EntradasEventos = {
   } | null
   errores: { errores: readonly FilaError[]; hayMas: boolean; reportes: readonly Reporte[]; nombres: Readonly<Record<number, string>> } | null
   agente: { sesiones: readonly SesionAgente[]; nombres: Readonly<Record<number, string>> } | null
+  /** Los cambios de la voz y del canal de MaKo (lib/registro-lineas.ts). Opcional: sin el lector, no hay. */
+  lineas?: readonly CambioDeLinea[] | null
   /** Los negocios del filtro, leídos a fondo. Sus acciones y reportes REEMPLAZAN a los suyos de la lectura de todos. */
   aFondo?: readonly LecturaAFondo[]
   avisos: string[]
@@ -557,6 +606,11 @@ export function armarEventos(e: EntradasEventos): VistaEventos {
     eventos.push(...sesiones)
     const desde = masViejoDe(sesiones)
     if (desde && e.agente.sesiones.length >= e.topes.sesiones) cortes.push({ nombre: 'agente', desde, tope: e.topes.sesiones })
+  }
+  if (e.lineas) {
+    eventos.push(...eventosDeCambiosDeLinea(e.lineas))
+    const desde = masViejo(e.lineas.map((c) => c.at))
+    if (desde && e.lineas.length >= TOPE_REGISTRO_LINEAS) cortes.push({ nombre: 'linea', desde, tope: TOPE_REGISTRO_LINEAS })
   }
   const vistos = new Map<number, NegocioEvento>()
   for (const ev of eventos) for (const n of ev.negocios) if (!vistos.has(n.ws)) vistos.set(n.ws, n)
@@ -663,6 +717,7 @@ export function textoDeCorte(c: CorteFuente, fecha: (iso: string) => string): st
   const que: Record<NombreEvento, string> = {
     pago: 'pagos', devolucion: 'devoluciones', suscripcion: 'cambios de suscripción', alta: 'altas', mako: 'acciones de MaKo',
     lectura: 'lecturas de MaKo', error: 'errores', reporte: 'reportes', agente: 'sesiones del agente',
+    linea: 'cambios de las líneas de MaKo',
   }
   return c.negocio
     ? `Antes del ${fecha(c.desde)} faltan ${que[c.nombre]} de ${c.negocio.nombre}: se leen los ${c.tope} más recientes de ese negocio.`

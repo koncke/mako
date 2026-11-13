@@ -840,6 +840,40 @@ async function comprobanteDeLaMensualidad(wsData: number, instance: string, data
 }
 
 /**
+ * EL COMPROBANTE QUE LLEGA POR EL GRUPO DE LA APP (13/11/2026, Martín: «vamos a implementar todo directamente dentro de MaKo y vamos a dejar los grupos por ahora»). En WhatsApp, la foto o el
+ * PDF de una persona en el grupo de una agencia con la mensualidad prendida se lee como comprobante ANTES de la cola (`atenderEntranteDoer`, arriba): Juan Francisco mandó así el de Nico Sellers el 9 y
+ * el 11/11. En la app no pasaba por acá: la foto suelta ni siquiera entraba a la cola (`vaALaCola`, app/api/grupos/[ws]/mensajes/route.ts) y nadie la leía. Ahora la ruta no la encola y la manda al
+ * cron del turno, que llama esto. `true` = ya se contestó en el hilo (lo arma el código) y el turno no corre; `false` = no era un comprobante, o no lo pude leer: sigue como cualquier foto.
+ * El contexto de salida (`soloApp`) es para que el archivo se baje del bucket y no de Evolution (`fetchMediaBase64EnInstancia`). La respuesta («Recibí tu comprobante…») la manda
+ * `textoAlGrupoDeLaAgencia` como cualquier aviso del cobro: queda en el hilo de la app y además intenta el grupo de WhatsApp. Un invitado, no: no le paga a nadie.
+ */
+export async function comprobanteDeLaApp(ws: number, data: MsgIn): Promise<boolean> {
+  const jid = data.key?.remoteJid ?? '';
+  const quien = leerParticipanteDeApp(data.key?.participant);
+  if (!jid || !quien || quien.letra === 'i' || !esIdDeLaApp(data.key?.id)) return false;
+  return conSalidaDelGrupo({ ws, clave: jid, soloApp: true, hayInvitado: false }, () => comprobanteDeLaMensualidad(ws, '', data, jid));
+}
+
+/** El texto de un mensaje de la app, con el pie de la foto o del PDF (`msgDeFila`): `textoDe` no lee el de un documento. */
+function textoDelMensajeDeLaApp(m: MsgIn): string {
+  const msg = m.message ?? {};
+  const doc = msg.documentMessage as { caption?: string } | undefined;
+  return doc ? String(doc.caption ?? '') : textoDe(m);
+}
+
+/**
+ * A LA COLA, el mensaje de la app que la ruta guardó aparte por si era un comprobante, y no lo era (13/11/2026). Lo mismo que hace la ruta con los demás (`runWithWorkspace` + `encolar`, con
+ * la cola del negocio del GRUPO). false: no entró (ya estaba, o la base no contestó).
+ */
+export async function encolarDeLaApp(ws: number, data: MsgIn): Promise<boolean> {
+  const jid = data.key?.remoteJid ?? '';
+  const id = data.key?.id ?? '';
+  if (!jid || !esIdDeLaApp(id)) return false;
+  const adj = adjuntoDe(data);
+  return runWithWorkspace(ws, () => encolar(jid, { waId: id, texto: textoDelMensajeDeLaApp(data), tieneMedia: !!adj, tieneAudio: !!audioDe(data), payload: data }));
+}
+
+/**
  * Un chat 1 a 1 de quien administra `wsData` (lib/mako-bot.ts ya decidió de quién es): el MISMO turno que en su grupo, con su memoria, sus herramientas y sus pendientes,
  * keyeados por el jid del chat (`mako_doer_conv.grupo_jid` es un jid: no hizo falta tocar la tabla). Lo que sale pasa por lib/mako-salida.ts: `enviarAGrupoJid` y
  * `reaccionarMensaje` desvían todo jid que no sea de un grupo, y ahí se mira la ventana de 24 horas.

@@ -13,9 +13,19 @@
 //   S4 la limpieza sin `removeEventListener`                           → falla «lo apaga todo»
 //   S5 `alVolverMs` en 0 (cada vuelta a la pestaña pide)               → falla «ir y venir rápido»
 //   S6 RESUMEN_WA_CADA_MS en 12_000                                    → fallan el intervalo, «10 minutos a la vista» y «al volver»
+//
+// Y EL DE LAS PLANTILLAS DE META (12/11/2026, el mismo día): `/api/whatsapp/templates/status` cada 30 s, con un reloj de 6 s
+// que seguía con la pestaña oculta. No podía avisar nunca (leía la cuenta de Chatwoot, borrado el 09/10/2026), así que se
+// fue entero: el pedido, la ruta, el aviso y su interruptor en Ajustes. Probado rompiéndolo:
+//   P1 el NotificationsProvider de antes                               → fallan «ningún setInterval» y «no vuelve»
+//   P2 la ruta de vuelta                                               → falla «no vuelve»
+//   P3 `wa-plantilla` de vuelta en el catálogo                         → falla «no vuelve»
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { RESUMEN_WA_CADA_MS, sondearALaVista, type DocConVisibilidad, type Reloj } from '../lib/sondeo-a-la-vista';
+import { NOTIF_IN_APP } from '../lib/notif-catalogo';
 import { fuenteSinComentarios } from './_fuente-sin-comentarios';
 
 class PestanaFalsa implements DocConVisibilidad {
@@ -135,6 +145,18 @@ test('lo que devuelve lo apaga todo: el reloj y el oyente de la pestaña', async
   pestana.poner('hidden');
   pestana.poner('visible');
   assert.equal(pedidos.length, 1, 'apagado, siguió pidiendo');
+});
+
+test('el NotificationsProvider no tiene relojes propios: ningún setInterval', () => {
+  // Tenía dos: el del resumen (12 s) y el de las plantillas (6 s). Un sondeo nuevo en el layout va por sondearALaVista.
+  assert.doesNotMatch(fuenteSinComentarios('app/_components/NotificationsProvider.tsx'), /setInterval\(/);
+});
+
+test('el sondeo de las plantillas de Meta no vuelve: nadie lo pide, la ruta no está y Ajustes no lo ofrece', () => {
+  // Leía la cuenta de WhatsApp Business de Chatwoot (getWabaConfig, que tira desde el 09/10/2026): no podía avisar nunca.
+  assert.doesNotMatch(fuenteSinComentarios('app/_components/NotificationsProvider.tsx'), /templates\/status/);
+  assert.equal(existsSync(join(import.meta.dirname, '..', 'app/api/whatsapp/templates/status/route.ts')), false, 'volvió la ruta');
+  assert.ok(!NOTIF_IN_APP.some((n) => n.id === 'wa-plantilla'), 'Ajustes ofrece un interruptor para un aviso que no sale');
 });
 
 test('el NotificationsProvider pide el resumen por sondearALaVista, y no con un setInterval propio', () => {

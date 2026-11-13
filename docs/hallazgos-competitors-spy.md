@@ -2281,4 +2281,50 @@ moverlos de lugar: es que lleguen.
 
 **Trampa de los tests:** un componente que importa un `.module.css` no carga con `node --import tsx`. Hay que registrar un hook que devuelva el CSS vacío, como `tests/carruseles-pantalla.test.ts`, y recién después importar el componente. Con eso, el test mira el contenido y no las clases.
 
-**Sin hacer:** la grilla de Spy sigue siendo por filas (`GrillaPiezas`). Un short al lado de un video largo deja un hueco debajo del largo. Create usa `GrillaMixta` (`app/_crear/GrillaMixta.tsx`), que reparte en columnas. Pasarla a Spy obliga a rehacer la paginación «por filas enteras», que tiene su test.
+**Hecho el 13/11:** la grilla reparte en columnas, como Create. Está explicado en la entrada «Todas sus piezas se reparte en columnas», más abajo.
+
+## Un logo se marca por CUENTA, no por negocio (13/11/2026)
+
+**Vive en:** `lib/spy-caricatura-cola.ts` (`encolarCaricatura` y `marcarSinPersona`, con `guardarMarca`), `lib/spy-miniaturas.ts` (`sinPersonaGuardada`) y `scripts/spy-caricatura-base.mjs`. Test: el 10 de `tests/spy-caricatura-cola.test.ts`.
+
+**El hueco:** la marca «sin persona» vivía en el registro de UN negocio. Los «Sugeridos» del negocio de la plataforma los agrega cualquier cliente: cada uno que sumaba Mindvalley o MasterClass lo volvía a mandar a la cola, y el Runner tenía que marcarlo otra vez.
+
+**La regla:** un logo se marca como la caricatura, por cuenta. `--sin-persona` deja una copia de su foto en `spy/sin-persona/<cuenta>`. El bucket `spy-miniaturas` sólo acepta jpeg, png y webp, así que la marca no puede ser un JSON. `encolarCaricatura` la busca antes de encolar a uno nuevo, y si está, lo anota ya marcado.
+
+**Para no pedir una migración:** una columna en `spy_competidores` tampoco servía, porque el competidor es por negocio. La caricatura ya resolvía lo mismo por cuenta.
+
+**Sin hacer:** las cinco marcas de antes (26, 35, 39, 40 y 41 del ws 9) no tienen su copia. Las deja volver a correr `--sin-persona` sobre cada una, con este código en main.
+
+## «Todas sus piezas» se reparte en columnas, como Create (13/11/2026)
+
+**Vive en:** `app/competitor-spy/GrillaPiezas.tsx` (prop `proporcion`), que usa `GrillaMixta` de `app/_crear/` sin tocarla. Test: `tests/spy-grilla-mixta.test.ts`.
+
+**Síntoma:** con la forma de su red en cada tarjeta, una grilla de FILAS deja un hueco debajo de cada video largo que tiene un short al lado. El Cerebro lo vio en la captura: «un hueco bajo cada video largo no es buen diseño».
+
+**La regla:**
+- **La página no cambia:** sigue teniendo `columnas × FILAS_POR_PAGINA` tarjetas. Lo que cambia es cómo se apilan: cada una, en orden, va a la columna más baja.
+- **Mismas columnas:** `GrillaMixta` recibe los mismos `minimo` y `hueco` con que `GrillaPiezas` midió, así cuenta las mismas columnas que la paginación.
+- **El teléfono:** con una sola columna no hay huecos que llenar, así que sigue con su grilla.
+
+**Trampa:** en las columnas de `GrillaMixta` (un flex vertical), `.spy-pgrid__celda{align-self:start}` encoge la tarjeta a su contenido. `.spy-mixta .spy-pgrid__celda{align-self:stretch}` la devuelve al ancho de su columna.
+
+**⚠️ Trampa que casi llega a main:** la hoja de `SpyApp.tsx` es un template literal. Un comentario CSS con comillas invertidas (para marcar código) corta el string, y la pantalla entera deja de compilar. Los tests no lo vieron porque leen el archivo como texto; lo frenó el chequeo de hooks del pre-push con un «Parsing error». Ahora el test 5 de `tests/spy-grilla-mixta.test.ts` parsea la pantalla con TypeScript.
+
+**Trampa de la página de prueba:** para copiar las reglas de `SpyApp.tsx` hay que tomar la regla ENTERA, no el renglón. Una regla de varios renglones cortada queda sin cerrar y se traga todo el CSS que viene después: la página sale sin estilos y parece que el componente está roto.
+
+## La película de «Ordenando»: más carpetas, por formato, y centrada (13/11/2026)
+
+**Vive en:** `lib/spy-orden.ts` (`carpetasDe`, `maximoDeCarpetas`, `disponer`) y `app/competitor-spy/OrdenSpy.tsx`. Test: los casos 6 a 8 de `tests/spy-orden.test.ts`.
+
+**El pedido (Martín, 12/11):** «que se vean más tarjetas y que se acomoden no solamente en 2 cuadros, sino en más cuadros. Y que cuando se agrupen, centrados, porque se están agrupando alineado arriba del todo».
+
+**Causa de «arriba del todo»:** la película ponía las carpetas a los costados de la bola sólo desde 860 px de escena. En una pantalla de 960, la escena mide ~850, así que la bola iba ARRIBA y las carpetas debajo, de borde a borde. Ahora el corte está en 640 px, y la bola queda en el medio de la escena.
+
+**Las reglas:**
+- **Más carpetas:** la del tipo de contenido sigue (pedido del 4/11), pero de cada tipo sale una carpeta por formato (Tutorial, Storytime…), la más grande primero. El tope es 8, y 4 en el teléfono, donde van debajo de la bola: con 8 quedaban de 60 px. Lo que no tiene formato, o tiene uno con menos de 2 piezas, queda en la del tipo como «Otros formatos». El formato es el de la IA y, si no hay, el de `formatoPorTexto`, igual que «¿Qué formatos le funcionan?».
+- **Centrado:** las carpetas van pegadas a la bola, no a los bordes, y las miniaturas se centran en su carpeta.
+- **Más tarjetas:** el tope de miniaturas pasó de 140 a 200.
+
+**⚠️ El diagnóstico obvio era el equivocado:** en la página de prueba todo se veía arriba aun con el arreglo. Era la página, no la película: sin `app/_ui/ui.css`, la criatura de carga (`.cm-carga--cubre`) queda en el flujo en vez de en `position:absolute`, la escena se mide más baja y después crece. Para probar un componente fuera de la app, hay que copiarle también las reglas globales que lo posicionan.
+
+**Trampa del código:** el máximo de carpetas sale del ancho de la escena, que se mide al montar. Antes de medir no hay carpetas y `total` da 0, y el efecto que mide cerraba la película en el acto si llegaba con las piezas puestas. Ahora espera el ancho, y el caso 8 lo cuida.

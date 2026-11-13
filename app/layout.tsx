@@ -17,6 +17,7 @@ import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRoute
 import { CentinelaArranque } from './_components/CentinelaArranque';
 import { PuenteNativo } from './_components/PuenteNativo';
 import { CopiaSinConexion } from './_components/CopiaSinConexion';
+import { PedirAvisos } from './_components/PedirAvisos';
 import { SeccionesTab } from './_components/SeccionesTab';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
@@ -286,6 +287,9 @@ export default async function RootLayout({
                 {/* La llamada que se está grabando (04/11/2026): el reloj y «Cortar» desde cualquier pantalla, aunque se haya cerrado
                     la ficha. Sin grabación no dibuja nada (app/_components/grabar/GrabarLlamada.tsx). */}
                 {sesion && <GrabacionEnCurso />}
+                {/* LOS AVISOS SIN WHATSAPP (13/11/2026, el número de MaKo baneado): al entrar, en la computadora y en el teléfono, se pide el push en ESTE
+                    dispositivo hasta que esté. Sólo con sesión propia y nunca mirando la cuenta de otro: el permiso es de cada persona. */}
+                {sesion && !sesion.legacy && !vista && <PedirAvisos />}
                 <MakoConfirmGate />
               </EsquinaAvisos>
               {/* Las secciones de las tabs unificadas (Video, Image, Copywriting): una barra, acá, para

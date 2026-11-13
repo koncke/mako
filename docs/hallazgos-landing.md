@@ -194,6 +194,80 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   - **Lo que quedó SIN hacer**: grabar Video, Chats, Marketing CoPilot, CRM y Automations como Spy y Replicar (hoy muestran el
     visual de su landing). Los bancos están en el scratchpad de la sesión; la receta es la de arriba.
 
+- **Octava vuelta (12/11/2026, noche, claude5): nada inventado.**
+  - **⚠️ «La app de verdad» no es «un componente de verdad con datos de mentira».** Para el CRM, Chats, Marketing CoPilot y el
+    agente armé escenas en el banco con piezas reales (la tarjeta del kanban, la burbuja de WhatsApp) pero un tablero, una
+    bandeja y un guion inventados: Martín las rechazó igual («que sea exactamente el CRM que tenemos hoy en día, no un
+    inventado»). Lo que va al sitio es la pantalla real grabada (con datos de prueba, el ws 3) o el recuadro
+    `FaltaAnimacion` que dice qué va ahí. Nunca un dibujo, aunque se vea bien.
+  - **Mirar un reel de Instagram cuadro por cuadro sin bajarlo:** en el navegador del panel, pausar el `<video>`, ir a cada
+    momento con `currentTime` (esperando `seeked`), dibujarlo en un `<canvas>` encima de la página y capturar. Dos trampas: con
+    el panel oculto las capturas salen viejas (hay que mostrarlo), y con el panel chico la captura se corta (fijar el tamaño con
+    `resize_window` y volver a «desktop» al terminar).
+  - **Los botones de tarjetas con distinto texto, alineados:** `grid-template-rows: subgrid` en cada tarjeta, con las mismas filas
+    en todas (nombre, frase, precio, botón, lista): el alto de cada fila lo pone la más alta de las tres.
+  - **El sol y la luna:** lo marcado `data-tema-fijo` no se toca (el Acelerador negro, el caso de Mauricio). Los bordes no son
+    letra: un borde claro en el modo claro se oscurecía y aparecían marcos negros; ahora un borde se lleva al gris del modo.
+    Y una comilla invertida en un comentario DENTRO del script de `TemaSitio.tsx` corta la plantilla de JavaScript: el error de
+    esbuild («Expected ";" but found…») apunta a la línea del comentario.
+  - **Una constante usada antes de su línea rompe el módulo al cargar:** `PREGUNTAS_SITIO` (un arreglo que se arma al cargar)
+    llamaba a `nAppsQueReemplaza`, declarada más abajo con `const`: en el navegador sería un error de inicialización. Se usa la
+    función importada (`appsQueReemplaza`), que ya existe al cargar.
+
+- **Novena vuelta (12/11/2026, noche, claude5): los outliers VERDADEROS.**
+  - **⚠️ El diagnóstico obvio era el equivocado: «la pantalla real» no alcanza si los datos son dibujos.** Para Carruseles grabé
+    el `ExplorarCarruseles` real del banco del repo (`scripts/banco-outliers`), pero sus láminas son SVG dibujados (texto sobre
+    un color) y Martín lo rechazó: «tenés que mostrar los outliers verdaderos, no inventarte imágenes… tenés prohibido hacerlo».
+    Lo que va al sitio: la biblioteca de la plataforma leída de producción, SÓLO LECTURA (`carruseles_biblioteca_*` con
+    `carruselesDeBiblioteca` + `recortarBiblioteca`, sin lo traído por un negocio: 800 carruseles, las imágenes en el bucket
+    público `spy-miniaturas`), y «tu versión» es una réplica que armó «Editar» de verdad (`image_disenos` del espacio de MaKo,
+    la nota «Diseño tomado de un ejemplo de @…»): @lifeofarjav → «MaKo Acelerador Blueprint». El banco de datos de ejemplo
+    sirve para probar la pantalla, nunca para mostrarla.
+  - **La réplica real tiene sus defectos y se ven:** la portada corta «Tu Acelera/dor» (la palabra que no entra a lo ancho; lo
+    arregló probar-image en `punta/probar-image`, todavía sin desplegar). Cuando esté desplegado, se vuelve a tocar «Editar» en
+    ese ejemplo y se graba de nuevo.
+  - **Trampas de la grabación** (Playwright `recordVideo`): no dibuja el cursor (va uno propio que sigue a `mousemove`); para
+    acercar la cámara al modal se escala el `body` con `transform` y el cursor va FUERA del body (`documentElement.append`), si
+    no se agranda con todo; esperar a que carguen las portadas es mirar sólo la PRIMERA imagen de cada tarjeta (las otras
+    láminas son `loading="lazy"` fuera de la vista y nunca terminan); `ffmpeg -ss` ANTES de `-i` en un webm da cuadros rotos
+    al mirar (se pone después); y el pedido de la réplica se contesta reemplazando `fetch` con un `ReadableStream` que larga los
+    eventos de a uno (`leer`, `escribir`, cada `lamina`, `fin`): con `route.fulfill` llega todo junto y las fases saltan.
+  - **AI Avatar decía «tu personaje» y mostraba a otros:** la foto de catálogo como «tu foto» y una persona distinta en cada
+    escena. Ahora: el personaje de Martín y la misma persona en tres escenas (las tomas Avatar Hype de su reel del 9/11).
+  - **Copywriting, también de verdad:** el `Copywriter` real (que es la portada sin guion y la página con guion) con los 924
+    outliers del espacio de MaKo, el reel de @den.borgg (70,9×, su guion transcripto por Spy), «Replicar» y la página que MaKo
+    escribió el 12/11 («Como @den.borgg: Cobrar mejor no es suerte, es sistema.»), con el hilo real del chat (`chart_chats`).
+  - **⚠️ postgres.js devuelve `bigint` y `numeric` como TEXTO** (supabase-js, como número). Pasando las filas crudas a las
+    funciones puras de la app, el múltiplo salía 0 (la mediana sumaba textos) y las piezas no se juntaban con su cuenta («17»
+    no es 17): todos los reels «sin guion». Se pasan a número las columnas de esos tipos (`information_schema.columns`).
+  - **BlockNote vuelve a dibujar sus nodos y se lleva los estilos puestos a mano:** para que el texto «se escriba», un velo
+    del color de la página por renglón, AFUERA del editor, que se corre; el texto arranca tapado por una clase en `<html>`.
+  - **Lo que quedó SIN hacer**: las pantallas que piden la sesión de Martín (CRM, Chats, Automations, el scrapeo de grupos,
+    Classroom).
+
+- **Décima vuelta (13/11/2026, madrugada, claude5): las pantallas salen del código, no de capturas.**
+  - **Martín: «no es necesario que captures nada si tienes el código».** Una pantalla de la app se graba montando su componente
+    REAL en un banco de esbuild (el molde: `scripts/banco-outliers/build.mjs`, con las acciones de servidor y `next/*` de mentira)
+    con datos de ejemplo de nombres ficticios. Así salieron el CRM (`app/crm/CrmBoard.tsx` con `DEFAULT_STAGES`) y los 13 tableros.
+  - **⚠️ El diagnóstico obvio era el equivocado: las capturas «mako-1440.png» de los tableros NO son el componente**, son la maqueta
+    adaptada (docs/diseno/mockups-dashboard/<id>/; la del componente es `producto-*.png`). Para tener la ENTRADA propia de cada uno:
+    `DisenoEnMiniatura` (la miniatura de «Nueva hoja», que dibuja cada diseño con sus datos de ejemplo) con la hoja que arma su
+    plantilla (`PLANTILLAS_HOJA` y `PLANTILLAS_GENERAL` → `sanearHoja`) y la entrada prendida: esa miniatura pasa `quieta`, y el
+    banco la cambia por `quieta={false}` en el `onLoad` de esbuild. Con una hoja sin sus componentes, el diseño sale «Todavía no hay
+    datos».
+  - **El arrastre del CRM es HTML5 (`draggable`) y Playwright lo hace en Chromium** con `mouse.down` / `mouse.move` / `mouse.up`: la
+    tarjeta flota, la columna marca dónde cae y sale el aviso real («Valeria Campos → Agenda R1 · Deshacer»).
+  - **El visor no copia lo que se pide por `data-src`** (los videos de los tableros se cargan recién al mostrarse): después de
+    `armar-v2.sh` hay que copiar `public/vsl-assets/sitio/tableros/*.webm` a mano, o el publish dice «not found».
+  - **Un script dentro de una página sin React** (el carrusel de tableros, el sonido de AI Avatar): `<script dangerouslySetInnerHTML>`
+    con `document.currentScript.parentNode` para encontrar su bloque; anda en el sitio y en el visor estático.
+  - **Replicar: un fondo se pinta ANTES que lo de adentro.** Con la captura entera por sección, el fondo traía todo lo de adentro y
+    por eso iba al final (Martín: «todo el fondo está negro y después se va poniendo blanco»): ahora el lienzo es el blanco de la
+    página, cada sección y cada tarjeta pinta su COLOR medido primero, y la captura exacta se asienta al final sin que se note.
+  - **Lo que quedó SIN hacer**: el scrapeo de grupos (necesita simular la extensión de WhatsApp), Automations (`FlujoLienzo` es
+    enorme), Classroom, el editor de video con sus agentes (`app/video-editor/_opencut/enjambre/`), Marketing CoPilot (hay banco:
+    `scripts/banco-copilot`), Spy y Copywriting con Hormozi (sin sus reels en el espacio de MaKo) y la réplica de carruseles.
+
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
 **Vive en:** `scripts/landing-valores-tilvo.mjs` (con su test), `scripts/banco-editor-web/landing.tsx`, `app/vsl/CartelPromo.tsx`.

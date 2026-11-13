@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **El grupo de la app está armado y NADIE lo usó** (13/11/2026). En 14 días, 99 mensajes de clientes por WhatsApp y 3 por la app, los
+  tres pruebas del 4/11. «Funciona en la app» no se puede leer en `grupo_mensajes`: se prueba escribiendo. Y lo que en WhatsApp corre
+  ANTES de la cola (el comprobante de la agencia) en la app no corría nunca. Ver «Lo de WhatsApp que la app no hacía», abajo.
 - **«MaKo no responde» puede ser que el clasificador dijo CHARLA** (12/11/2026, Mauricio). La charla es «no pide nada», y el turno la
   leía como «no hay nada que contestar»: 8 de las 12 charlas calladas de una semana traían una aclaración, una objeción o la respuesta
   a lo último que se dijo. Antes de mirar la línea, mirar `anthropic_usage` (`clase-doer`). Ver «La charla callaba lo que traía algo», abajo.
@@ -75,6 +78,46 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
   que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+---
+
+## Lo de WhatsApp que la app no hacía: el comprobante de la agencia, y quién firma (13/11/2026, claude5)
+
+**El pedido:** Martín, 13/11, con el número de MaKo baneado otra vez: «vamos a implementar todo directamente dentro de MaKo y vamos
+a dejar los grupos por ahora». Se midió qué hicieron los clientes en sus grupos en 14 días y qué camino lo atiende en la app (la tabla
+entera, en las notas del Cerebro: `mako-en-la-app-claude5-13-11.md`).
+
+**Lo obvio era el equivocado: «el grupo de la app ya contesta igual, es el mismo despachante».** Es cierto para el TURNO
+(`manejarEntranteDeLaApp` llama al mismo `bufferearYResponder`), y por eso preguntas, pedidos con «sí», tickets, notas de voz y
+avisos andan igual. Pero en WhatsApp hay cosas que corren ANTES del turno, en `atenderEntranteDoer` (lib/mako-doer-in.ts): el mensaje
+atrasado y **el comprobante de la mensualidad de una agencia** (`comprobanteDeLaMensualidad`). La app entra por otra puerta
+(app/api/grupos/[ws]/mensajes → /api/cron/grupo-turno) y se las saltaba. Juan Francisco mandó así el de Nico Sellers el 9 y el 11/11:
+en la app, la foto suelta ni entraba a la cola (`vaALaCola`: en un grupo de 2+ personas, una foto sin nombrar a MaKo es charla), y
+nombrándola, el turno la miraba como una foto cualquiera y nadie anotaba el pago.
+
+**Lo arreglado:** una foto o un PDF de quien administra, en el grupo de una agencia con la mensualidad prendida, NO entra a la cola en
+la ruta (`puedeSerComprobante`): va al cron del turno con `comprobante: true`, que lo lee primero (`comprobanteDeLaApp`, el mismo
+`atenderComprobanteDeAgencia` de WhatsApp, con el archivo bajado del bucket). Si lo era, ya se contestó y no hay turno; si no, entra a
+la cola sólo si iba para MaKo (`paraMaKo`). **Por qué no se encola y se descarta después:** un turno que está juntando mensajes del
+mismo grupo (la ventana de 8 s) se lleva la foto, y MaKo contesta dos veces; en WhatsApp el 11/11 pasó exactamente esa secuencia
+(«Nico sellers» + la foto, en el mismo minuto). Lo durable no se pierde: si el autollamado no llega y era para MaKo, la ruta la encola
+igual y la levanta doer-flush. Test: tests/comprobante-en-la-app.test.ts (POST, cron y turno reales).
+
+**Regla:** algo nuevo que se engancha ANTES del turno en `atenderEntranteDoer` (WhatsApp) no llega solo a la app. Se mira también
+la ruta del grupo de la app y /api/cron/grupo-turno, y se prueba con un mensaje que nace en la app.
+
+**Lo que quedó SIN hacer (y dónde vive):**
+- **Quién firma:** Joan y Juan Francisco escriben en WhatsApp como dos personas y en la app comparten UNA cuenta (Código, usuario 10):
+  los dos firman «Codigo Inmobiliario» y MaKo no los distingue. Charly (ws15) no tiene cuenta. Se arregla invitándolos desde el grupo
+  (`invitarAlGrupo`), no con código.
+- **El equipo no puede contestar como «Equipo de MaKo» desde la app.** El super admin entra al grupo por soporte y lo que escribe sale
+  como persona («Martin Koncke») y entra a la cola de MaKo. Hoy se contesta con `enviarAlGrupoMaKo(ws, texto, 'equipo')`
+  (`node --conditions=react-server --import tsx`). Vive en app/api/grupos/[ws]/mensajes/route.ts y lib/grupo-reglas.ts.
+- **Un archivo que no es foto, PDF ni audio** (un .md, un Excel, un video) que manda MaKo o el equipo queda en el hilo como
+  «(un archivo: X)» sin poder bajarlo (`filaDeParte`, lib/grupo-app.ts). Y el cliente no puede mandar uno desde la app
+  (`validarAdjuntos`: foto y PDF). En 14 días, 1 caso (a Martín) y 0 de clientes.
+- **Una foto SUELTA en un grupo de 2+ personas no despierta a MaKo en la app y en WhatsApp sí.** Es la regla del 3/11, con su test
+  (`grupos-ops-turno`, «una foto suelta sigue sin despertarla»): en la app no hay @menciones. Se dejó así a propósito.
 
 ---
 
@@ -155,6 +198,47 @@ voz tiene que recibir; el único emisor posible era la línea de Martín (su Wha
 testigo nuevo en los grupos, y mandar mensajes entre líneas arriesga un bloqueo de WhatsApp (ver «WhatsApp BANEÓ la línea de MaKo»).
 Queda así: una sordera que empieza después de las 20 de Argentina se ve recién a las 9. No volver a proponerlo sin un dato nuevo. El
 arreglo de fondo es Baileys rc14 en Railway, y lo llevan el Cerebro y Martín.
+
+**Medido en producción (13/11, 00:40 UTC):** marcó a las 12:00 UTC del 12/11 en punto, la primera vuelta del horario, como decía la
+simulación. **Y cambiar la voz de línea no la curó:** a las 17:38 la voz pasó a `mako_ws9` (la línea de Martín), que llevaba casi un
+día sin recibir de una persona (la misma traba de Baileys). El detector la marcó a las 17:40 («hace 23.9 h») y siguió con «hace falta
+el QR» a las 20:50 y a las 00:00. Entre las dos líneas, MaKo no clasificó un solo mensaje del 12/11 00:41 al 13/11 00:40. Antes de
+mover la voz a otra línea, mirar la última ENTRANTE de una persona en la línea nueva (`ultimosMensajesDeLaLinea`): de las 10 líneas,
+5 tenían la misma traba.
+
+**Quién la movió al …3479 (medido el 13/11, sólo lectura): el botón, no el código, y no queda rastro de quién.** A las 17:38:22 cambió
+SÓLO `mako.voz.instancia`; el canal siguió en el …2605 desde el 7/10. Eso es exactamente «Usarlo para MaKo» del panel de /agencia
+(`usarNumeroPersonalComoVoz(true)`, `action: 'voz-personal'`), el botón que Martín pidió el 3/11 con el …2605 baneado. Las otras
+dos escrituras de la voz (`conectar`/`pasar`, lib/mako-canal.ts) mueven también el canal, y la única acción automática del panel
+(`usar`) hace lo contrario: devuelve la voz al canal. ⚠️ **El diagnóstico obvio («un failover del código») era el equivocado**, y
+el de al lado también: un test (`tests/_altas-en-grupos-hijo.ts`) pone justo `mako_ws9`, pero en su base de mentira, y una
+corrida filtrada habría escrito muchas claves, no una. **La trampa:** la ruta pide una sesión de admin y no anota nada
+(`actividad_acciones` y `chat_eventos` vacías en ese minuto; los logs de Vercel de hace horas no se leen por la API: el stream
+no devuelve ni los encabezados). Desde las 17:38, por el …3479 salieron 36 mensajes, todos de la API: 33 al grupo de SuperAdmin
+(los avisos de atraso), 2 al de Código Inmobiliario y 1 al de un cliente (ws24); ninguno a un chat personal.
+**Desde el 13/11 deja rastro** (el botón se queda: lo pidió Martín). La ruta saca una foto de la voz y el canal antes de atender y
+otra en el `finally`, y si cambiaron anota quién (el email de la sesión), qué botón, desde qué pantalla (el Referer) y de qué línea
+a cuál, con el número (lib/registro-lineas.ts, una lista con tope en `app_settings` del dueño, sin migración). Se ve en Admin ›
+Analytics › Events, tipo «linea», y la voz que queda en una línea de negocio (`mako_ws<n>`) va en rojo. Se anota el CAMBIO y no el
+botón: una acción nueva entra sola, y una foto que no se pudo leer no cuenta como «sin cambio». ⚠️ «Usar la línea de MaKo» también
+lo hace el panel SOLO cuando la línea vuelve (`autoVozRef`): con la sesión de quien tenía la pantalla abierta, que no apretó nada.
+**Y Martín decidió dejarla ahí (13/11: «Dejarla en mi personal»)**: la voz en su personal NO va en rojo (`vozEnLineaAjena`: rojo
+sólo en la línea de OTRO negocio; cada renglón guarda cuál era su personal al anotarse).
+
+**Re-vincular la voz por «Tu número» la dejaba SORDA EN LOS GRUPOS (13/11, al armarle los pasos del QR a Martín).** El QR de «Tu
+número» (/agencia) pasa por `conectar` (lib/evolution.ts), el de las líneas de negocio, y su `setSettings` les pone
+`groupsIgnore: true` —la regla anti-bloqueo de un negocio— también a la línea que es la voz. El …3479 habría vuelto a recibir los
+chats y MaKo habría seguido sin oír a nadie en los grupos, con el panel en «conectado». Ahora `setSettings` lee la voz y no le
+cierra los grupos (`ignoraGrupos`, lib/evolution-sonda.ts). Hasta que eso se despliega, el remedio es «Dejar de usarlo para MaKo» y
+enseguida «Usarlo para MaKo» (`permitirGruposEnInstancia`). **Y el botón del QR no aparece con la línea sorda:** «Vincular por QR»
+de «Tu número» sólo se dibuja si la línea NO figura conectada, y una sorda figura conectada. Hay que cerrar el dispositivo desde el
+teléfono (WhatsApp → Dispositivos vinculados → Cerrar sesión) y recién ahí sale el botón. `conectar` ya sabe soltar una línea
+marcada sorda y dar el QR en un paso (`marcaDeLineaEnferma` + `puedeSoltarseSorda`); faltaba el botón. **Desde el 13/11 está:**
+con la línea conectada y marcada sorda, «Tu número» dice «No recibe mensajes» (en vez del ✓) y ofrece «Volver a vincular por QR»,
+con la MISMA condición con la que `conectar` la suelta (`motivoParaVolverAVincular`, lib/linea-sorda.ts): un botón que aparece sin
+ella diría «ya está conectada» al tocarlo. Son dos pasos: el botón y escanear. ⚠️ **Y el aviso mandaba al teléfono equivocado:**
+los pasos del mail y la campanita eran fijos («Conectar por QR», «el teléfono de MaKo (…2605)») con la voz en el …3479; ahora
+salen de la línea (`pasosQrDe`). Lo fija tests/volver-a-vincular.test.ts (V1-V6).
 
 ---
 
@@ -733,11 +817,13 @@ de no escribir primero, no invitar a desconocidos y frenar ante una restricción
 
 Martín, después del ban: *«conservar el chat de MaKo en WhatsApp con un bot ahí que responde automáticamente, pero no va a crear ni grupos de WhatsApp y no va a mandar ni mensajes a nadie»*, y los avisos por la app.
 
-**Vive en:** `lib/mako-salida.ts` (la puerta: todo lo que MaKo le manda a una persona) · `lib/mako-salida-drivers.ts` (las dos cañerías) · `lib/mako-bot.ts` y `lib/mako-bot-reglas.ts` (el bot) · `lib/avisos-telefono.ts` y `app/onboarding/TarjetaAvisos.tsx` (el paso del onboarding) · `lib/app-tiendas.ts` y `app/app/` (el link único `/app`, el del QR). El corte de los grupos está en la rama `avisos-bot-corte-0311`, sin integrar: espera al grupo de avisos del Ops Center (rama `grupos-ops-0311`, del Cerebro), que es a donde va a parar lo que hoy sale por WhatsApp.
+**Vive en:** `lib/mako-salida.ts` (la puerta: todo lo que MaKo le manda a una persona) · `lib/mako-salida-drivers.ts` (las dos cañerías) · `lib/mako-bot.ts` y `lib/mako-bot-reglas.ts` (el bot) · `lib/avisos-telefono.ts` y `app/onboarding/TarjetaAvisos.tsx` (el paso del onboarding) · `app/_components/PedirAvisos.tsx` y `lib/pedir-avisos-reglas.ts` (el pedido al entrar, 13/11) · `lib/app-tiendas.ts` y `app/app/` (el link único `/app`, el del QR). El corte de los grupos está en la rama `avisos-bot-corte-0311`, sin integrar: espera al grupo de avisos del Ops Center (rama `grupos-ops-0311`, del Cerebro), que es a donde va a parar lo que hoy sale por WhatsApp.
 
 ### ⚠️ Lo que parecía y no era
 
 - **«Nadie recibe avisos» no era un bug del push.** `push_suscripciones` tenía 0 filas porque nadie los había activado: el único camino era una hoja adentro de Notificaciones en el teléfono, y nada llevaba ahí. Las claves, `/sw.js` y las rutas ya estaban. Se arregla pidiéndolo, no tocando el envío.
+- **Pedirlo en el onboarding tampoco alcanzó: el 13/11 seguía en 0.** El paso obligatorio llega sólo a quien hace el onboarding después del 4/11, y el recordatorio de `/general` pedía escanear un QR y volver a entrar desde el teléfono: nadie lo hacía. Con el número de MaKo baneado otra vez y los grupos en pausa (Martín, 13/11), se pide **al entrar**, en cualquier pantalla y cualquier dispositivo, hasta que ese navegador los tenga: `app/_components/PedirAvisos.tsx`, con las reglas en `lib/pedir-avisos-reglas.ts`. Es una tarjeta que no bloquea (Martín no quiere modales que se abran solos): en la computadora va en la esquina de avisos, y en el teléfono sobre la barra de abajo. «Ahora no» la calla un día. Con el permiso bloqueado no se pide, porque no hay botón que pueda hacer algo. Un navegador ya suscripto vuelve a atar su fila a quien entró (`asegurarRegistro`), cosa que hasta ahora hacía sólo el shell de `/m`. **Regla:** un permiso que hace falta para que el producto funcione se pide donde la persona ya está, no en un paso por el que ya pasó. **Sin medir:** si las filas suben después del despliegue; hay que mirar `push_suscripciones` al día siguiente.
+- **«Que cada aviso del grupo caiga en la app con su push» ya estaba hecho; el hueco era otro (13/11).** Todo lo que sale a un grupo se copia antes al hilo de la app, y `tests/grupos-ops-guarda.test.ts` vuelve rojo un envío nuevo que lo saltee (la única excepción es la demo suelta de `/api/admin/avisos-demo`, que no tiene negocio). El push sale a los admin por `enviarPushAviso` y al resto del grupo por `avisarMiembros`. No llegan, a propósito: lo que el negocio apagó (los dos canales), lo espaciado, lo que espera al resumen de la mañana (llega con él) y la tarjeta que va sólo por mail. Los reportes no van al grupo, pero suenan desde el 3/11 (`despacharReporte`). Lo que fallaba era que el push no tenía a quién mandar.
 - **Los reportes no pasaban por `emitirAviso`:** salían por `despacharReporte`, sin push. Lo que se suma en `emitirAviso` no los alcanza.
 - **Un paso que se hace en otro dispositivo es una carrera.** El teléfono activa los avisos y la computadora lo ve a los 4 segundos: los dos llegan al cierre del onboarding juntos, y `cerrarArranque` no es atómico (oferta y producto repetidos). Por eso el cierre se reclama (`onboarding.cerrando`) y el que pierde sólo relee.
 
@@ -860,7 +946,7 @@ switching phones»*. **Desde el servidor no se distingue un ban de un cambio de 
 - ⚠️ **No medir la línea de MaKo con `mako_doer_conv`:** dio ~US$11 porque deja afuera casi la mitad de lo que sale y cuenta cada grupo como una persona. La medida buena es la base de Evolution: hasta ~US$60/mes.
 - ⚠️ **El dato que circula ya venció:** las respuestas dentro de las 24 h fueron gratis hasta el 30/09/2026.
 - **Si MaKo sólo contesta** (la idea de Martín del 03/11: la app como canal principal, WhatsApp 1 a 1, sin grupos y sin escribir primero), no hace falta plantilla ni cuenta oficial. Con ~270 consultas por mes y 2 a 3 mensajes por consulta: US$0 hoy, ~US$80-135 con 100 negocios, ~US$300-460 con 300.
-- ⚠️ **Hoy `push_suscripciones` tiene 0 filas:** nadie tiene avisos de la app. Sin grupos no llegaría ningún aviso hasta resolver eso (ver «Los avisos en el teléfono y el bot 1 a 1», arriba).
+- ⚠️ **Hoy `push_suscripciones` tiene 0 filas:** nadie tiene avisos de la app. Sin grupos no llegaría ningún aviso hasta resolver eso (ver «Los avisos en el teléfono y el bot 1 a 1», arriba). El 13/11 seguía en 0: desde entonces se pide al entrar (`PedirAvisos`).
 - **Se pierde del todo por la vía oficial:** leer los grupos del cliente, sumar gente directo, escribirle a quien no dio permiso y el historial de más de 6 meses (documentado por Meta). Etiquetas del WhatsApp, foto de perfil del contacto y preguntar si un número tiene WhatsApp: no aparecen en lo que expone la API, pero no se encontró un documento de Meta que lo diga. Coexistencia sólo para WhatsApp Business app, no para una cuenta personal.
 
 **Sin hacer, o sin medir:**

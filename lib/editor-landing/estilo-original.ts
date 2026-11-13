@@ -45,7 +45,12 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Un título de la página y el color de fondo que tiene detrás (el de su sección). */
-export type SeccionOriginal = { titulo: string; fondo: string | null };
+/**
+ * Una parte de la página. `tarjetas` (12/11/2026): la grilla de elementos repetidos que tiene (≥3 hermanos con la misma clase y
+ * con texto: los testimonios de una masterclass, los pasos numerados), y si cada uno lleva foto. `fotos`: cuántas <img> de verdad
+ * tiene, contando las que vienen en base64 (no se copian, pero dicen cómo está acomodada). Las dos, para el acomodo de la réplica.
+ */
+export type SeccionOriginal = { titulo: string; fondo: string | null; tarjetas?: { cantidad: number; conFoto: boolean }; fotos?: number; video?: boolean };
 
 /**
  * Una imagen de la página. `seccion`: el índice (en `secciones`) del título de la parte donde está.
@@ -500,7 +505,15 @@ export function sanearEstilo(raw: unknown): EstiloOriginal | null {
   const r = raw as Record<string, unknown>;
   const secciones: SeccionOriginal[] = (Array.isArray(r.secciones) ? r.secciones : []).slice(0, TOPES_ESTILO.secciones).map((x) => {
     const o = x && typeof x === 'object' ? (x as Record<string, unknown>) : {};
-    return { titulo: linea(o.titulo, TOPES_ESTILO.titulo), fondo: colorDeFondoCss(o.fondo) };
+    const t = o.tarjetas && typeof o.tarjetas === 'object' ? (o.tarjetas as Record<string, unknown>) : null;
+    const cantidad = t && typeof t.cantidad === 'number' && Number.isInteger(t.cantidad) && t.cantidad >= 3 && t.cantidad <= 24 ? t.cantidad : 0;
+    const fotos = typeof o.fotos === 'number' && Number.isInteger(o.fotos) && o.fotos > 0 ? Math.min(o.fotos, 99) : 0;
+    return {
+      titulo: linea(o.titulo, TOPES_ESTILO.titulo), fondo: colorDeFondoCss(o.fondo),
+      ...(cantidad ? { tarjetas: { cantidad, conFoto: t?.conFoto === true } } : {}),
+      ...(fotos ? { fotos } : {}),
+      ...(o.video === true ? { video: true } : {}),
+    };
   });
   const imagenes: ImagenOriginal[] = [];
   const vistas = new Set<string>();
@@ -649,11 +662,38 @@ function variablesDe(reglas: Regla[]): Map<string, string> {
   return vars;
 }
 
-/** Las reglas de UNA clase, UN id o UNA etiqueta (sin estados: un :hover no es el estilo de la página). */
-type Indices = { clases: Map<string, Decl>; ids: Map<string, Decl>; etiquetas: Map<string, Decl> };
+/**
+ * Un selector COMPUESTO de un solo elemento: etiqueta y/o clases y/o id pegados («section.tint», «.sec.tint», «div#hero.x»).
+ * 12/11/2026, la masterclass de clase.highticketclarity.com: sus secciones crema eran `section.tint{background:var(--panel-soft)}`
+ * y el índice sólo juntaba `.clase`, `#id` y `etiqueta` sueltos: el fondo se perdía y todas salían del blanco del body.
+ */
+export type Compuesto = { tag: string | null; clases: string[]; id: string | null; decl: Decl };
+
+/** Las reglas de UNA clase, UN id o UNA etiqueta (sin estados: un :hover no es el estilo de la página), y las compuestas. */
+type Indices = { clases: Map<string, Decl>; ids: Map<string, Decl>; etiquetas: Map<string, Decl>; compuestos: Compuesto[] };
+
+/** «section.tint» → { tag: 'section', clases: ['tint'] }; null si no es un compuesto de un elemento (hay espacio, `>`, `:`, `[`…). */
+export function compuestoDe(sel: string): Omit<Compuesto, 'decl'> | null {
+  const m = /^([a-zA-Z][\w-]*)?((?:[.#](?:\\.|[\w-])+){1,6})$/.exec(sel.trim());
+  if (!m) return null;
+  const partes = [...m[2].matchAll(/([.#])((?:\\.|[\w-])+)/g)].map((x) => [x[1], x[2].replace(/\\(.)/g, '$1')] as const);
+  const ids = partes.filter(([t]) => t === '#').map(([, v]) => v);
+  if (ids.length > 1) return null;
+  const clases = partes.filter(([t]) => t === '.').map(([, v]) => v);
+  // Los simples van a su mapa de siempre (`.x`, `#x`): esto es sólo lo que tiene más de una pieza.
+  if ((m[1] ? 1 : 0) + clases.length + ids.length < 2) return null;
+  return { tag: m[1]?.toLowerCase() ?? null, clases, id: ids[0] ?? null };
+}
+
+/** ¿El compuesto le corresponde a un elemento con esa etiqueta, esas clases y ese id? */
+export function aplicaCompuesto(c: Omit<Compuesto, 'decl'>, tag: string, clases: ReadonlySet<string>, id: string | null): boolean {
+  if (c.tag && c.tag !== tag) return false;
+  if (c.id && c.id !== id) return false;
+  return c.clases.every((k) => clases.has(k));
+}
 
 function indicesDe(reglas: Regla[]): Indices {
-  const ix: Indices = { clases: new Map(), ids: new Map(), etiquetas: new Map() };
+  const ix: Indices = { clases: new Map(), ids: new Map(), etiquetas: new Map(), compuestos: [] };
   const sumar = (m: Map<string, Decl>, k: string, d: Decl) => m.set(k, { ...(m.get(k) ?? {}), ...d });
   for (const r of reglas) {
     if (r.oscuro) continue;
@@ -664,7 +704,9 @@ function indicesDe(reglas: Regla[]): Indices {
       m = /^#([\w-]+)$/.exec(s);
       if (m) { sumar(ix.ids, m[1], r.decl); continue; }
       m = /^(html|body|h1|h2|h3|a|button|p)$/i.exec(s);
-      if (m) sumar(ix.etiquetas, m[1].toLowerCase(), r.decl);
+      if (m) { sumar(ix.etiquetas, m[1].toLowerCase(), r.decl); continue; }
+      const c = ix.compuestos.length < 2_000 ? compuestoDe(s) : null;
+      if (c) ix.compuestos.push({ ...c, decl: r.decl });
     }
   }
   return ix;
@@ -799,7 +841,13 @@ export function hojasDeHtml(html: string, base: string): string[] {
 }
 
 /** `pendientes`: lo que espera saber de qué parte es (las imágenes de fondo y, desde la tanda 8, las señales de animación). */
-type Marco = { tag: string; fondo: string | null; pendientes: { seccion: number }[] };
+type Marco = {
+  tag: string; fondo: string | null; pendientes: { seccion: number }[];
+  /** Para las tarjetas (12/11/2026): «article.caso» (sin clase, '' y no cuenta), la parte donde abrió, si tiene texto o foto adentro, y sus hijos por firma. */
+  firma?: string; seccion?: number; texto?: boolean; foto?: boolean; hijos?: Map<string, { n: number; conFoto: number }>;
+  /** El primer título que cerró adentro, y las fotos que todavía no saben de qué parte son (ver `cerrarMarco`). */
+  primerTitulo?: number; fotosPend?: { seccion: number; antes: number; video?: boolean }[];
+};
 type CandidatoBoton = { fondo: string; degradado: string | null; texto: string | null; radio: number | null; veces: number };
 
 /**
@@ -821,12 +869,17 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
   /** El estilo de un elemento: su etiqueta < sus clases < su id < su `style`, con las variables resueltas. */
   const estiloEl = (tag: string, attrs: string): Decl => {
     const d: Decl = { ...(ix.etiquetas.get(tag) ?? {}) };
-    for (const c of (atributo(attrs, 'class') ?? '').split(/\s+/).slice(0, 40)) {
-      const x = c && ix.clases.get(c);
+    const clases = (atributo(attrs, 'class') ?? '').split(/\s+/).filter(Boolean).slice(0, 40);
+    for (const c of clases) {
+      const x = ix.clases.get(c);
       if (x) Object.assign(d, x);
     }
     const id = atributo(attrs, 'id');
+    // Los compuestos («section.tint», «.sec.tint») ganan a la clase suelta y pierden con el id, como en el navegador.
+    const set = ix.compuestos.length ? new Set(clases) : null;
+    if (set) for (const c of ix.compuestos) if (!c.id && aplicaCompuesto(c, tag, set, id)) Object.assign(d, c.decl);
     if (id && ix.ids.get(id)) Object.assign(d, ix.ids.get(id));
+    if (set && id) for (const c of ix.compuestos) if (c.id && aplicaCompuesto(c, tag, set, id)) Object.assign(d, c.decl);
     const enLinea = atributo(attrs, 'style');
     if (enLinea) Object.assign(d, declaraciones(enLinea));
     const out: Decl = {};
@@ -883,13 +936,52 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
   let n = 0;
   const RE = /<(\/?)([a-zA-Z][\w:-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>|([^<]+)/g;
   let m: RegExpExecArray | null;
+  // Las TARJETAS y las FOTOS de cada parte (12/11/2026): ver `SeccionOriginal`. Se anotan en la parte donde ABRIÓ el contenedor
+  // (los pasos de «Qué vas a ver» traen un h3 cada uno: al cerrar, la última parte leída ya es el último paso).
+  const tarjetasPor = new Map<number, { cantidad: number; conFoto: boolean }>();
+  /** Cada foto, con la parte que le toca: como una imagen de fondo, la del primer título que cierra adentro de su contenedor
+   *  (la foto de «Quién es» va ANTES de su h2), o la última si no cierra ninguno. */
+  const fotos: { seccion: number; antes: number; video?: boolean }[] = [];
+  /** Al cerrar un contenedor: le pasa lo suyo al de arriba, y si tenía ≥3 hijos con la misma clase y con texto, son tarjetas. */
+  const cerrarMarco = (marco: Marco, padre: Marco | undefined) => {
+    // Las fotos: un contenedor con títulos adentro decide (antes de su primer título → ese título; si no, el último anterior a
+    // la foto); uno sin títulos se las pasa al de arriba.
+    for (const f of marco.fotosPend ?? []) {
+      if (marco.primerTitulo !== undefined) f.seccion = f.antes < marco.primerTitulo ? marco.primerTitulo : f.antes;
+      else if (padre) (padre.fotosPend ??= []).push(f);
+      else f.seccion = f.antes;
+    }
+    marco.fotosPend = undefined;
+    if (padre) {
+      if (marco.texto) padre.texto = true;
+      if (marco.foto) padre.foto = true;
+      if (marco.firma && marco.texto) {
+        const h = (padre.hijos ??= new Map());
+        const x = h.get(marco.firma) ?? { n: 0, conFoto: 0 };
+        x.n++;
+        if (marco.foto) x.conFoto++;
+        h.set(marco.firma, x);
+      }
+    }
+    if (!marco.hijos || marco.seccion === undefined || marco.seccion < 0) return;
+    let mejor: { cantidad: number; conFoto: boolean } | null = null;
+    for (const x of marco.hijos.values()) {
+      if (x.n >= 3 && x.n <= 24 && (!mejor || x.n > mejor.cantidad)) mejor = { cantidad: x.n, conFoto: x.conFoto * 2 >= x.n };
+    }
+    const ya = tarjetasPor.get(marco.seccion);
+    if (mejor && (!ya || mejor.cantidad > ya.cantidad)) tarjetasPor.set(marco.seccion, mejor);
+  };
   const sumarImagen = (img: ImagenOriginal) => {
     if (e.imagenes.length >= TOPES_ESTILO.imagenes * 2 || e.imagenes.some((x) => x.url === img.url)) return;
     e.imagenes.push(img);
     if (img.seccion === -1) sinTitulo.push(img);
   };
   while ((m = RE.exec(cuerpo)) && n++ < TOPES_ESTILO.etiquetas) {
-    if (m[4] !== undefined) { if (titulo) titulo.texto += m[4]; continue; }
+    if (m[4] !== undefined) {
+      if (titulo) titulo.texto += m[4];
+      if (pila.length && /\S/.test(m[4])) pila[pila.length - 1].texto = true;
+      continue;
+    }
     const cierra = m[1] === '/';
     const tag = m[2].toLowerCase();
     const attrs = m[3] ?? '';
@@ -903,6 +995,7 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
           e.secciones.push({ titulo: texto, fondo });
           for (const marco of pila) for (const img of marco.pendientes) if (img.seccion === -2) img.seccion = idx;
           for (const img of sinTitulo.splice(0)) img.seccion = idx;
+          for (const marco of pila) if (marco.primerTitulo === undefined) marco.primerTitulo = idx;
           ultimo = idx;
           if (!tituloLeido && (tag === 'h1' || (tag === 'h2' && !vistoH1))) {
             tituloLeido = true;
@@ -919,7 +1012,9 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
       }
       const k = pila.map((x) => x.tag).lastIndexOf(tag);
       if (k >= 0) {
-        for (const marco of pila.splice(k)) for (const img of marco.pendientes) if (img.seccion === -2) img.seccion = ultimo;
+        const cerrados = pila.splice(k);
+        for (const marco of cerrados) for (const img of marco.pendientes) if (img.seccion === -2) img.seccion = ultimo;
+        for (let i = cerrados.length - 1; i >= 0; i--) cerrarMarco(cerrados[i], i > 0 ? cerrados[i - 1] : pila[pila.length - 1]);
       }
       continue;
     }
@@ -934,6 +1029,13 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
       titulo = { tag, texto: '', attrs };
     }
     if ((tag === 'img' || tag === 'source') && enNav) continue;
+    // Un VIDEO (el del hero de una masterclass): <video>, o el iframe de un reproductor. Sólo para el acomodo, como las fotos.
+    if (!enNav && (tag === 'video' || (tag === 'iframe' && /youtube|youtu\.be|vimeo|panda|wistia|vturb|loom|vidalytics/i.test(atributo(attrs, 'src') ?? atributo(attrs, 'data-src') ?? '')))) {
+      const v = { seccion: -2, antes: ultimo, video: true };
+      fotos.push(v);
+      if (pila.length) (pila[pila.length - 1].fotosPend ??= []).push(v);
+      else v.seccion = ultimo;
+    }
     if (tag === 'img' || tag === 'source') {
       const lazy = atributo(attrs, 'data-src') ?? atributo(attrs, 'data-lazy-src') ?? atributo(attrs, 'data-original');
       const set = atributo(attrs, 'data-srcset') ?? atributo(attrs, 'srcset');
@@ -942,9 +1044,17 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
       const ancho = Number(atributo(attrs, 'width')) || 0;
       const alto = Number(atributo(attrs, 'height')) || 0;
       const chica = (ancho > 0 && ancho < 120) || (alto > 0 && alto < 80);
-      const pista = `${crudo ?? ''} ${atributo(attrs, 'alt') ?? ''} ${atributo(attrs, 'class') ?? ''}`;
-      if (url && !chica && !RE_NO_IMAGEN.test(pista) && !/^data:/i.test(crudo ?? '')) {
+      const enBase64 = /^data:/i.test(crudo ?? '');
+      const pista = `${enBase64 ? '' : crudo ?? ''} ${atributo(attrs, 'alt') ?? ''} ${atributo(attrs, 'class') ?? ''}`;
+      if (url && !chica && !RE_NO_IMAGEN.test(pista) && !enBase64) {
         sumarImagen({ url, seccion: ultimo >= 0 ? ultimo : -1, fondo: false, ancho, alto });
+      }
+      // Para el ACOMODO cuenta también la que viene en base64 (no se copia, pero es una foto ahí). Un <source> no: es la misma.
+      if (tag === 'img' && crudo && !chica && !RE_NO_IMAGEN.test(pista)) {
+        const foto = { seccion: -2, antes: ultimo };
+        fotos.push(foto);
+        if (pila.length) { pila[pila.length - 1].foto = true; (pila[pila.length - 1].fotosPend ??= []).push(foto); }
+        else foto.seccion = ultimo;
       }
       continue;
     }
@@ -961,6 +1071,10 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
     }
     if (vacio) continue;
     const marco: Marco = { tag, fondo: null, pendientes: animPendiente ? [animPendiente] : [] };
+    // La firma para las tarjetas: la etiqueta y sus clases (un hermano sin clase, como un <li> de viñetas, no es una tarjeta).
+    const clasesEl = enNav ? '' : (atributo(attrs, 'class') ?? '').split(/\s+/).filter(Boolean).sort().slice(0, 6).join('.');
+    if (clasesEl) marco.firma = `${tag}.${clasesEl}`;
+    marco.seccion = ultimo;
     if (CONTENEDORES.has(tag)) {
       const d = estiloEl(tag, attrs);
       marco.fondo = fondoDe(d);
@@ -972,6 +1086,15 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
       }
     }
     pila.push(marco);
+  }
+  // Lo que no cerró (HTML cortado o sin cierres) también suma sus tarjetas, de adentro hacia afuera.
+  for (let i = pila.length - 1; i >= 0; i--) cerrarMarco(pila[i], pila[i - 1]);
+  for (const [i, t] of tarjetasPor) if (e.secciones[i]) e.secciones[i].tarjetas = t;
+  for (const f of fotos) {
+    const i = f.seccion === -2 ? (f.antes >= 0 ? f.antes : 0) : Math.max(0, f.seccion);
+    if (!e.secciones[i]) continue;
+    if (f.video) e.secciones[i].video = true;
+    else e.secciones[i].fotos = Math.min((e.secciones[i].fotos ?? 0) + 1, 99);
   }
   // Una imagen de fondo cuyo contenedor no cerró va con la última parte; una de antes de todo título, con la primera.
   for (const img of e.imagenes) {

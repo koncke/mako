@@ -45,6 +45,10 @@ if (tercero === '--sin-persona') {
   const r = await marcarSinPersona(deps, ws, id, resto.join(' '));
   if (!r.ok) { console.error(r.error); process.exit(1); }
   console.log(`Fuera de la cola, con su foto (no es un fallo). Marcado en ${r.marcadas.length} competidor(es): ${r.marcadas.map((m) => `ws${m.ws}#${m.id}`).join(', ')}`);
+  // La marca por cuenta (12/11/2026): sin ella, el próximo negocio que lo agregue lo vuelve a mandar a la cola.
+  console.log(r.marca === true ? 'Marcado en su cuenta: el negocio que lo agregue después no lo manda a la cola.'
+    : r.marca === false ? 'NO pude dejar la marca en su cuenta: vuelve a correrlo.' : 'Sin cuenta que marcar (no tiene redes).');
+  if (r.marca === false) process.exit(1);
   process.exit(0);
 }
 

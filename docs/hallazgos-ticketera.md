@@ -4,6 +4,23 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## La marca `[[no-pude: …]]` larga le llegaba entera al cliente, y sin ticket (13/11/2026, claude5)
+
+**El síntoma:** el 4/11 Natalia (ws19) le pidió a MaKo, en el grupo de la APP, la lista de leads de una campaña. La respuesta terminó
+con «[[no-pude: traer el número de contacto de los leads. Los datos mostrados tienen id, nombre y etapa, pero para sacar el número
+completo necesito ficha_lead de cada uno…]]»: la marca interna, con el nombre de una herramienta, en el hilo del cliente. Medido en
+`grupo_mensajes` el 13/11, buscando qué había contestado MaKo en la app.
+
+**El diagnóstico obvio era el equivocado: «la app se salta el saneo».** No: el turno de la app es el mismo de WhatsApp y pasa por
+`conTicketsDeMaKo`. La causa era la regex de la marca (`MARCA`, lib/no-pude.ts y lib/no-existe.ts): `[^\]\n]{3,300}`. Esa tenía ~430
+letras. Una marca que no matchea **no se saca y tampoco abre el ticket**: el tope corto no protegía nada, hacía las dos cosas mal a la
+vez. Pasaba igual en WhatsApp.
+
+**Regla:** una marca del sistema se saca SIEMPRE, mida lo que mida y en las líneas que ocupe; lo que se GUARDA es lo que se corta
+(`noPudo`, a 200). Tope 4000 y con saltos. Test con el texto real: tests/marca-larga-no-llega.test.ts.
+
+---
+
 ## «Tarjeta» no es una tarjeta de crédito, y el dueño en su grupo no era nadie (9/11/2026, Leandro)
 
 **El síntoma:** Martín, 9/11: «no está solucionando su problema con Automations hace días». Leandro tiene la vía libre
@@ -1275,3 +1292,30 @@ el script); lo que no se hizo se le contesta en su grupo como equipo y el ticket
 
 *2026-11-10 claude4, chat Tickets*
 
+
+---
+
+## «Pasa a MaKo «…»» no era el nombre del plan roto: era `sinNombres` tapando «Pro» (12/11/2026, ticket #89)
+
+**El síntoma:** el ticket de Código Inmobiliario desde «Sellers» decía «Llegaste al tope de tu plan (1). Pasa a MaKo «…» para
+tener más. Pídele a tu agencia que te pase a «…»», y la ficha decía «plan Completo». Leído así, parecían dos bugs del plan: el
+nombre que no sale y un plan completo con tope 1.
+
+**El diagnóstico obvio era el equivocado.** En pantalla decía «MaKo Pro» y «que te pase a Pro». El «…» lo puso «Reportar a
+Soporte» al sanear el texto: `sinNombres` (lib/soporte-reporte.ts) tapa toda palabra con mayúscula que no empieza la frase y no
+está en `PALABRAS_DE_MAKO`, y «Pro» no estaba. Ahora están los planes (`Pro`, `Esencial`) y `Agency`/`Partners`.
+Y «plan Completo» es la CAPA del workspace (`capaDef(capa).nombre`, lib/tickets-db.ts → `Identidad.plan`), no el plan que se
+vende: **capa `completo` = MaKo Esencial** (1 usuario), capa `agencia` = Pro. El 1 era el de la tabla (lib/topes-plan.ts).
+
+**Regla:** un «…» en un ticket de Reportar a Soporte es el filtro de privacidad, no lo que vio el cliente. Antes de perseguir un
+«nombre que no sale», reconstruir la frase original (el texto del código: `git grep` de la frase sin el «…»). Y el «plan» de la
+ficha del ticket es la capa: para el plan comercial, `agency.plan_cambiado` (cliente de agencia) o el `alta_capa` de su cobro.
+
+**Hecho el mismo día:** la ficha dice el plan que se vende (`planDeLaFicha`, lib/tickets-reglas.ts). No alcanza con traducir la
+capa: el ws1 y los acuerdos a mano también tienen `completo` y no pagan un Esencial. Lo que separa es si paga un plan
+(`pagaUnPlanDe`, lib/plan-esencial.ts): sí, «Esencial» o «Pro»; no, «sin cobro de MaKo, sin topes (capa Completo)»; sin poder
+leerlo, «? (capa Completo)». Vale para los tickets NUEVOS: el plan se guarda al levantarlo, y los viejos siguen con la capa.
+⚠️ **La trampa:** la primera versión usó `aplicanTopes` (lib/topes-plan-server.ts), la respuesta obvia, y dio ROJO en GitHub:
+importa lib/cobros, que alcanza una IA en su grafo, y la Ticketera la llama el navegador del Ops Center
+(tests/d6b-rutas.test.ts, caso 4). **Regla:** lo que importe la Ticketera (lib/tickets-db.ts) no pasa por lib/cobros; para leer
+el plan, `lib/plan-esencial.ts`, que lee la suscripción con los mismos filtros sin importarla.

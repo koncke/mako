@@ -25,7 +25,8 @@
 // un remontaje.
 
 import { useEffect, useRef, useState } from "react";
-import Link, { useRouter } from "@/app/_ui/Link";
+import Link from "@/app/_ui/Link";
+import { abrirProyectoCreado } from "@/app/video-editor/ruta";
 import { Loader2 } from "lucide-react";
 import { EditorCore } from "@/app/video-editor/_opencut/core";
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
@@ -64,7 +65,6 @@ export function ArmarPlantilla({ id }: { id: string | null }) {
 }
 
 function Armando({ plantilla }: { plantilla: Plantilla }) {
-	const router = useRouter();
 	const [fallo, setFallo] = useState(false);
 	const [intento, setIntento] = useState(0);
 	const arrancado = useRef(-1);
@@ -80,8 +80,9 @@ function Armando({ plantilla }: { plantilla: Plantilla }) {
 			// Al terminar (bien o mal) sale del mapa: usarla otra vez, más tarde, es OTRO proyecto.
 			promesa.finally(() => enVuelo.delete(clave)).catch(() => {});
 		}
-		promesa.then((proyecto) => router.replace(`/video-editor/${proyecto}`)).catch(() => setFallo(true));
-	}, [plantilla, intento, router]);
+		// Una carga entera, no router.replace: navegar solo al cargar rompía el Router de Next (ticket #91, ../ruta.ts).
+		promesa.then((proyecto) => abrirProyectoCreado(proyecto)).catch(() => setFallo(true));
+	}, [plantilla, intento]);
 
 	if (fallo) {
 		return (

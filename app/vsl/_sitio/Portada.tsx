@@ -28,24 +28,22 @@
 
 import { TEXTO_CTA } from '../_competencia/marca';
 import { VisualDeLanding } from '../_competencia/Visuales';
+import { FaltaAnimacion } from '../_competencia/FaltaAnimacion';
 import type { Bloque } from '../_competencia/tipos';
-import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
-import { Visual } from '../_detalle/Visual';
 import PandaPlayer from '../_detalle/PandaPlayer';
-import { CSS_CASO, CasoMauricio } from '../_detalle/FeatureDetail';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { CSS_TARJETAS, TarjetasPlanes } from '@/app/planes/Tarjetas';
 import { ASESORES, inspiradoEn } from '@/lib/asesores/catalogo';
 import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
-import type { PlanMako } from '@/lib/planes-mako';
+import { PLANES_MAKO_DEFAULT, type PlanMako } from '@/lib/planes-mako';
 import { Barra } from './Barra';
 import { Pie } from './Pie';
 import { Boton, Flecha, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
 import {
-  LOGO_INTEGRACION, PREGUNTAS_SITIO, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
+  VIDEOS_AVATAR, LOGO_INTEGRACION, PREGUNTAS_SITIO, TABLEROS, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
 } from './datos';
-import { appsQueReemplaza } from './reemplaza';
+import { STACK_TIPICO, appsQueReemplaza } from './reemplaza';
 
 /** Un plan como lo devuelve planesParaLanding() (lib/compra-plan.ts). */
 export type PlanSitio = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean };
@@ -97,12 +95,48 @@ function TiraReemplaza() {
   );
   return (
     <section className="s-tira s-tira-reemplaza" aria-label="Las apps que MaKo reemplaza">
-      <p className="s-tira-r">MaKo reemplaza {apps.length} apps que ya estás pagando</p>
+      <p className="s-tira-r">MaKo reemplaza apps que ya estás pagando</p>
       <div className="s-tira-v">
         <div className="s-tira-p">{lista(false)}{lista(true)}</div>
       </div>
+      <Ahorro />
       <p className="s-tira-ver"><a href={RUTA_COMPARACIONES}>Ver la comparación, trabajo por trabajo <Flecha size={18} /></a></p>
     </section>
+  );
+}
+
+const usd = (n: number) => `US$${n.toLocaleString('es-AR', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
+
+/** Lo que paga hoy un negocio típico contra MaKo Pro (./reemplaza.ts → STACK_TIPICO), con la cuenta hecha acá. */
+function Ahorro() {
+  const pro = PLANES_MAKO_DEFAULT.find((p) => p.id === 'pro');
+  if (!pro) return null;
+  const hoy = STACK_TIPICO.reduce((s, x) => s + x.precioUsd, 0);
+  const mes = Math.round((hoy - pro.precioUsd) * 100) / 100;
+  if (mes <= 0) return null;
+  return (
+    <div className="s-ahorro">
+      <div className="s-ahorro-hoy">
+        <p className="s-ahorro-t">Lo que paga hoy un negocio que vende High Ticket</p>
+        <ul>
+          {STACK_TIPICO.map((x) => (
+            <li key={x.app.nombre}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={x.app.logo} alt="" width={28} height={28} />
+              <span className="s-ahorro-n">{x.app.nombre} <small>{x.plan} · {x.trabajo}</small></span>
+              <span className="s-ahorro-p">{usd(x.precioUsd)}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="s-ahorro-tot"><span>Por mes</span><strong>{usd(Math.round(hoy * 100) / 100)}</strong></p>
+      </div>
+      <div className="s-ahorro-mako" data-tema-fijo="">
+        <p className="s-ahorro-t">Con MaKo Pro, todo eso en una sola app</p>
+        <p className="s-ahorro-pro"><strong>{usd(pro.precioUsd)}</strong> por mes</p>
+        <p className="s-ahorro-gana">Ahorras <strong>{usd(mes)}</strong> por mes: <strong>{usd(Math.round(mes * 12))}</strong> por año.</p>
+        <p className="s-ahorro-nota">Precios de lista mensuales en dólares, pagando mes a mes, publicados por cada app en noviembre de 2026.</p>
+      </div>
+    </div>
   );
 }
 
@@ -130,30 +164,39 @@ function TiraSitio() {
   );
 }
 
-/** Una fila: el texto de un lado y lo que se ve del otro (`inv`: al revés). */
+/** Una fila: el texto de un lado y lo que se ve del otro (`inv`: al revés). Sin landing (Classroom), sin link. */
 function FilaFuncion({ slug, rotulo, titulo, texto, visual, inv }: (typeof TARJETAS_PORTADA)[number] & { inv: boolean }) {
-  const l = landingDeSlug(slug);
-  if (!l) return null;
-  const hero = visual === 'hero' ? heroDe(slug) : undefined;
-  const pedido = typeof visual === 'object' && 'grupo' in visual ? visual : null;
+  const l = slug ? landingDeSlug(slug) : undefined;
+  if (slug && !l) return null;
+  const hero = visual === 'hero' && slug ? heroDe(slug) : undefined;
   const grabacion = typeof visual === 'object' && 'video' in visual ? visual : null;
-  const spec = pedido ? FEATURE_VISUALS[pedido.grupo]?.groups.find((g) => g.type === pedido.tipo) : undefined;
+  const falta = typeof visual === 'object' && 'falta' in visual ? visual.falta : null;
   return (
     <div className={`s-zz-fila${inv ? ' s-zz-inv' : ''}`}>
       <div className="s-zz-tx">
-        <p className="s-zz-r">{rotulo ?? nombreCorto(l)}</p>
+        <p className="s-zz-r">{rotulo ?? (l ? nombreCorto(l) : '')}</p>
         <h3 className="s-zz-t">{titulo}</h3>
         <p className="s-zz-p">{texto}</p>
-        <a className="s-zz-a" href={`/vsl/${l.slug}`}>Ver cómo funciona <Flecha /></a>
+        {/* La prueba gratis arriba y «Ver cómo funciona» abajo (Martín, 13/11/2026). */}
+        <div className="s-zz-acc">
+          <Boton clase="s-zz-btn" />
+          {l ? <a className="s-zz-a" href={`/vsl/${l.slug}`}>Ver cómo funciona <Flecha /></a> : null}
+        </div>
       </div>
-      <div className={`s-zz-vis${grabacion ? ' s-zz-video' : visual === 'gurus' ? ' s-zz-gurus' : ''}`} aria-hidden="true">
+      <div className={`s-zz-vis${grabacion ? ' s-zz-video' : visual === 'gurus' ? ' s-zz-gurus' : visual === 'tableros' ? ' s-zz-tableros' : visual === 'avatar' ? ' s-zz-avatar' : falta ? ' s-zz-falta' : ''}`} aria-hidden={falta ? undefined : true}>
         {grabacion ? (
           // Sin sonido y en bucle: arranca sola, como un GIF (el navegador sólo deja eso si está muda).
           <video src={grabacion.video} poster={grabacion.poster} autoPlay muted loop playsInline preload="metadata" />
         ) : visual === 'gurus' ? (
           <Gurus />
+        ) : visual === 'tableros' ? (
+          <Tableros />
+        ) : visual === 'avatar' ? (
+          <AvatarVideos />
+        ) : falta ? (
+          <FaltaAnimacion que={falta} />
         ) : (
-          <div className="s-panel">{spec ? <Visual spec={spec} /> : hero ? <VisualDeLanding visual={hero.visual} /> : null}</div>
+          <div className="s-panel">{hero ? <VisualDeLanding visual={hero.visual} /> : null}</div>
         )}
       </div>
     </div>
@@ -176,22 +219,75 @@ function Gurus() {
   );
 }
 
+/**
+ * Los tableros en un carrusel: pasa solo cada 6 s y también con las flechas y los puntos. Cada tablero, al aparecer, corre SU entrada
+ * (el video de su componente) y se queda en su último cuadro. Sin JavaScript se ve el primero, quieto. Lo mueve SCRIPT_TABLEROS.
+ */
+function Tableros() {
+  return (
+    <div className="s-tab" data-tableros="">
+      <div className="s-tab-pista">
+        {TABLEROS.map((t, i) => (
+          <figure key={t.id} className="s-tab-uno" data-activo={i === 0 ? 'si' : undefined} aria-hidden={i === 0 ? undefined : true}>
+            <video data-src={`/vsl-assets/sitio/tableros/${t.id}.webm`} poster={`/vsl-assets/sitio/tableros/${t.id}.jpg`} muted playsInline preload="none"
+              aria-label={`El tablero «${t.nombre}» de MaKo`} />
+          </figure>
+        ))}
+      </div>
+      <div className="s-tab-ctrl">
+        <button type="button" className="s-tab-fl" data-paso="-1" data-por-script="" aria-label="El tablero anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg></button>
+        <span className="s-tab-nombre" aria-live="polite">{TABLEROS[0].nombre}</span>
+        <button type="button" className="s-tab-fl" data-paso="1" data-por-script="" aria-label="El tablero siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
+      </div>
+      <div className="s-tab-puntos">
+        {TABLEROS.map((t, i) => <button key={t.id} type="button" data-ir={i} data-por-script="" aria-label={t.nombre} aria-current={i === 0 ? 'true' : undefined} />)}
+      </div>
+      <script dangerouslySetInnerHTML={{ __html: SCRIPT_TABLEROS(TABLEROS.map((t) => t.nombre)) }} />
+    </div>
+  );
+}
+
+const SCRIPT_TABLEROS = (nombres: readonly string[]) => `(function(){var c=document.currentScript.parentNode;var u=[].slice.call(c.querySelectorAll('.s-tab-uno'));var p=[].slice.call(c.querySelectorAll('.s-tab-puntos button'));var nom=c.querySelector('.s-tab-nombre');var N=${JSON.stringify(nombres)};var i=0,t=null,visto=false;
+function mostrar(k){u[i].removeAttribute('data-activo');u[i].setAttribute('aria-hidden','true');p[i].removeAttribute('aria-current');i=(k+u.length)%u.length;var f=u[i];f.setAttribute('data-activo','si');f.removeAttribute('aria-hidden');p[i].setAttribute('aria-current','true');nom.textContent=N[i];var v=f.querySelector('video');if(!v.src)v.src=v.getAttribute('data-src');try{v.currentTime=0}catch(e){}var r=v.play();if(r&&r.catch)r.catch(function(){});var sig=u[(i+1)%u.length].querySelector('video');if(!sig.src){sig.preload='auto';sig.src=sig.getAttribute('data-src');}}
+function andar(){clearTimeout(t);t=setTimeout(function(){mostrar(i+1);andar();},6000);}
+c.addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;if(b.hasAttribute('data-paso'))mostrar(i+Number(b.getAttribute('data-paso')));else if(b.hasAttribute('data-ir'))mostrar(Number(b.getAttribute('data-ir')));andar();});
+var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&!visto){visto=true;mostrar(0);andar();}});},{threshold:.35});io.observe(c);})();`;
+
+/**
+ * AI Avatar: dos anuncios de verdad, cada uno con la foto de la que salió. Arrancan mudos (el navegador no deja otra cosa) y el botón
+ * de cada uno lo hace sonar (y calla al otro): lo hace SCRIPT_SONIDO, un script de la página, porque el sitio no carga React.
+ */
+function AvatarVideos() {
+  return (
+    <div className="s-av">
+      {VIDEOS_AVATAR.map((v) => (
+        <figure key={v.id} className="s-av-par">
+          <span className="s-av-foto"><img src={`/vsl-assets/sitio/avatar/${v.id}-foto.jpg`} alt={`La foto de ${v.nombre}`} width={240} height={300} /><small>Foto original</small></span>
+          <span className="s-av-tel">
+            <video src={`/vsl-assets/sitio/avatar/${v.id}.webm`} poster={`/vsl-assets/sitio/avatar/${v.id}.jpg`} muted loop playsInline preload="none" aria-label={`El anuncio con IA de ${v.nombre}`} />
+            <button type="button" className="s-av-son" data-sonido="" data-por-script="" aria-pressed="false" aria-label={`Escuchar el anuncio de ${v.nombre}`}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z" /><path className="s-av-on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" /><path className="s-av-off" d="m23 9-6 6M17 9l6 6" /></svg>
+            </button>
+          </span>
+          <figcaption>{v.nombre}</figcaption>
+        </figure>
+      ))}
+      <script dangerouslySetInnerHTML={{ __html: SCRIPT_SONIDO }} />
+    </div>
+  );
+}
+
+// Los dos videos son largos (completos): arrancan recién cuando se ven, y se pausan al salir de la pantalla.
+const SCRIPT_SONIDO = `(function(){var vs=document.querySelectorAll('.s-av video');var bs=document.querySelectorAll('.s-av [data-sonido]');var io=new IntersectionObserver(function(es){es.forEach(function(e){var v=e.target;if(e.isIntersecting){var r=v.play();if(r&&r.catch)r.catch(function(){});}else{v.pause();}});},{threshold:.4});vs.forEach(function(v){io.observe(v);});bs.forEach(function(b){b.addEventListener('click',function(){var v=b.parentNode.querySelector('video');var on=v.muted;vs.forEach(function(o){o.muted=true;});bs.forEach(function(o){o.setAttribute('aria-pressed','false');});if(on){v.muted=false;v.currentTime=0;var r=v.play();if(r&&r.catch)r.catch(function(){});b.setAttribute('aria-pressed','true');}});});})();`;
+
 function ProductoSitio() {
   return (
-    <section className="s-sec">
+    <section className="s-sec s-sec-funciones">
       <div className="s-cont">
-        <div className="s-cab">
-          <div>
-            <p className="s-rotulo">Producto</p>
-            <h2 className="s-h2">Todo lo que necesitas para vender High Ticket.</h2>
-          </div>
-          <div className="s-cab-der">
-            <p className="s-lede">Tu CRM, tus chats, tus anuncios y tu contenido en una sola app, con MaKo trabajando en tu negocio.</p>
-            <Boton />
-          </div>
-        </div>
+        {/* Sin «Producto / Todo lo que necesitas para vender High Ticket» ni su botón (Martín, 13/11/2026: «elimínalo»): cada
+            función lleva su prueba gratis. */}
         <div className="s-zz">
-          {TARJETAS_PORTADA.map((t, i) => <FilaFuncion key={`${t.slug}-${i}`} {...t} inv={i % 2 === 1} />)}
+          {TARJETAS_PORTADA.map((t, i) => <FilaFuncion key={`${t.slug ?? t.rotulo}-${i}`} {...t} inv={i % 2 === 1} />)}
         </div>
       </div>
     </section>
@@ -199,15 +295,87 @@ function ProductoSitio() {
 }
 
 /**
- * El caso de Mauricio TAL CUAL estaba en la landing de /vsl (CasoMauricio: el video «Mauricio, en vivo», su historia, lo que no
- * lo habría resuelto y el carrusel de fotos). Martín (12/11/2026): «vuelve a como estaba antes la parte del testimonio de
- * Mauricio… vuélvelo como estaba». Va sobre su franja clara, como en la landing.
+ * El caso de Mauricio, rediseñado para el sitio (Martín, 13/11/2026: «no se entiende bien la separación… un estilo de tipo carrusel
+ * como el que teníamos de MaKo reemplaza… y adapta los copies a que MaKo le ayudó: abajo dice "eso es lo que yo hago contigo"»).
+ * Arriba, una franja que corre (como la de las apps) marca que empieza otra cosa. Los hechos son los del caso de la landing
+ * (app/vsl/_detalle/FeatureDetail.tsx → CasoMauricio): menos de US$10k por mes antes; 14k en abril, 20k en mayo y más de 40k en junio;
+ * la misma oferta y el mismo funnel; Meta, Calendly y un Excel. Lo que hizo MaKo es lo que hace en todos los planes: juntar sus
+ * campañas de Meta, su agenda y sus ventas (lib/planes-comparacion.ts, «Tus campañas de Meta, cruzadas con tus ventas»).
  */
+const CASO_TIRA = ['Caso real', 'Mauricio', 'Más de 20 años vendiendo', 'US$14k en abril', 'US$20k en mayo', 'Más de US$40k en junio', 'La misma oferta y el mismo funnel'];
+const CASO_MESES = [
+  { mes: 'Antes', valor: 10, rotulo: 'menos de US$10k', antes: true },
+  { mes: 'Abril', valor: 14, rotulo: 'US$14k' },
+  { mes: 'Mayo', valor: 20, rotulo: 'US$20k' },
+  { mes: 'Junio', valor: 40, rotulo: '+US$40k' },
+];
+const CASO_ANTES = [
+  'Vendía por impulsos: un mes bien, dos flojos, y no sabía por qué.',
+  'Miraba Meta por un lado, Calendly por otro, y el resto lo cargaba en un Excel que rehacía cada vez.',
+  'Con más de 20 años de trayectoria y videos con millones de vistas, desde afuera todo parecía estar bien.',
+];
+const CASO_CON_MAKO = [
+  'Sus anuncios de Meta, su agenda y sus ventas, juntos en un solo lugar.',
+  'Vio qué campaña le traía clientes que pagaban, y no sólo mensajes.',
+  'Decidió con sus números: la misma oferta y el mismo funnel, otro resultado.',
+];
+
 function CasoSitio() {
+  const tira = (oculta: boolean) => (
+    <ul className="s-caso-tira-l" aria-hidden={oculta || undefined}>
+      {CASO_TIRA.map((t) => <li key={t}>{t}</li>)}
+    </ul>
+  );
+  const max = Math.max(...CASO_MESES.map((m) => m.valor));
   return (
-    <section className="s-caso-orig" id="caso">
-      <style dangerouslySetInnerHTML={{ __html: CSS_CASO + '.s-caso-orig{color:#12151B;background:#F6F8FC}.s-caso-orig .mk-hist{margin:0}.s-caso-orig .mk-hist::before{display:none}' }} />
-      <div className="s-cont"><CasoMauricio /></div>
+    <section className="s-exito" id="caso" aria-label="Caso de éxito: Mauricio">
+      <div className="s-caso-tira" data-tema-fijo="" aria-hidden="true">
+        <div className="s-caso-tira-p">{tira(false)}{tira(true)}</div>
+      </div>
+      <div className="s-cont">
+        <div className="s-caso-arriba">
+          <div className="s-caso-vid">
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video muted autoPlay loop playsInline preload="metadata" src="/vsl-assets/mauricio.mp4" />
+            <span className="s-caso-badge"><span className="s-caso-dot" />Mauricio, en vivo</span>
+          </div>
+          <div className="s-caso-tx">
+            <p className="s-caso-r">Caso de éxito</p>
+            <h2 className="s-caso-h">Con MaKo, Mauricio pasó de meses por debajo de US$10k a más de <em>US$70k en tres meses.</em></h2>
+            <p className="s-caso-sub">Sin cambiar la oferta ni el funnel. Lo que cambió fue cómo decidía: con sus números, todos en un solo lugar.</p>
+            <ol className="s-caso-barras" aria-label="Lo que vendió Mauricio">
+              {CASO_MESES.map((m) => (
+                <li key={m.mes} data-antes={m.antes ? '' : undefined}>
+                  <span className="s-caso-barra" style={{ height: `${Math.round((m.valor / max) * 100)}%` }}><b>{m.rotulo}</b></span>
+                  <span className="s-caso-mes">{m.mes}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+        <div className="s-caso-comp">
+          <div className="s-caso-col">
+            <p className="s-caso-col-t">Antes de MaKo</p>
+            <ul>{CASO_ANTES.map((t) => <li key={t}><span className="s-caso-x" aria-hidden="true">✕</span>{t}</li>)}</ul>
+          </div>
+          <div className="s-caso-col s-caso-col-mako">
+            <p className="s-caso-col-t">Con MaKo</p>
+            <ul>{CASO_CON_MAKO.map((t) => <li key={t}><span className="s-caso-ok" aria-hidden="true"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5l10 -10" /></svg></span>{t}</li>)}</ul>
+          </div>
+        </div>
+        <ul className="s-caso-fotos" aria-label="Fotos de Mauricio">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <li><img src="/vsl-assets/caso-stage.png" alt="Mauricio presentando en vivo" loading="lazy" /></li>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <li><img src="/vsl-assets/caso-equipo.jpg" alt="Mauricio con su equipo" loading="lazy" /></li>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <li><img src="/vsl-assets/caso-martin.jpg" alt="Martín Koncke, de MaKo, junto a Mauricio" loading="lazy" /></li>
+        </ul>
+        <div className="s-caso-cierre">
+          <p>No fue un método genérico: fue su negocio, leído con sus números. <strong>Eso es lo que MaKo hace con el tuyo.</strong></p>
+          <Boton />
+        </div>
+      </div>
     </section>
   );
 }
@@ -308,11 +476,11 @@ export function PortadaSitio({ planes }: { planes: readonly PlanSitio[] }) {
       <Barra />
       <main>
         <HeroSitio />
-        <TiraReemplaza />
+        <TiraSitio />
         <ProductoSitio />
         <CasoSitio />
         <PlanesSitio planes={planes} />
-        <TiraSitio />
+        <TiraReemplaza />
         <IntegracionesSitio />
         <PreguntasSitio />
         <CierreSitio />

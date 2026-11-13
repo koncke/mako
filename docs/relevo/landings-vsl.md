@@ -61,17 +61,128 @@ referencia y el sitio estilo beehiiv (`/vsl/sitio`, `/vsl/comparaciones`). Mart�
 | Precios del sitio en claro y con el Acelerador | `PlanesSitio` dibuja `TarjetasPlanes` de `app/planes/Tarjetas.tsx` (los mismos bloques de /planes) |
 | Videos de la app en «Todo lo que necesitas» | `TARJETAS_PORTADA` (`datos.ts`): Competitor Spy y Web Generator (Replicar) con su grabación en `public/vsl-assets/sitio/`, Copywriting con los 32 gurús («Inspirado en») |
 
-**Sin hacer (cada uno su sesión):** los tres bloques de planes con menos ítems y otras apps de referencia, «Compara los planes»
-con el relevamiento de lo que incluye cada uno, el fondo de /planes sin crema, la prueba sólo en Pro y el checkout con «el cobro
-empieza a los 7 días» (`app/planes/`, `lib/planes-mako.ts`); Plan (Motion) y Email (beehiiv) copiadas de nuevo de su
-referencia y Offer (Atlas AI) rediseñada con sus textos; el relevamiento de funciones que no se mencionan (miniaturas de
-YouTube, outliers…). El checkout entra al visor cuando esté diseñado (`DE_LA_APP` en `armar.mjs`).
+## Quinta vuelta (12/11/2026, la misma tarde): Planes, el sol y la luna, el título, las filas
 
-**Qué referencia copió cada landing** (`referencia` de cada `app/vsl/_competencia/<slug>.ts`): sitio y comparaciones → beehiiv;
-Video → Cherry Studio; Competitor Spy → Foreplay; Marketing CoPilot → Master Ads; AI Avatar → HeyGen; Image → PostNitro;
-Copywriting → The Copy Machine; Web Generator → HighLevel AI Studio; Offer → Atlas AI; Chats → Leadsales; CRM → GoHighLevel;
-Automations → SetSmart; Agenda → iClosed; Cobranza → Rebill; Email → beehiiv; Dashboard → Reportei; Ads Analyst → Gethookd;
-Funnel → Hyros; Ops Center → Holo; Plan → Motion.
+Martín pidió hacer aquí «Planes: 3 bloques, comparar, prueba sólo en Pro» y «Landings Plan, Email y Offer», y sumó: el título
+en 3 renglones como máximo; «si estoy en white mode, todo debería ser white mode» (Precios en negro); el segundo en negro al
+entrar; los carruseles que se frenan al cambiar de modo; «Todo lo que necesitas» como antes (texto de un lado, video del otro,
+intercalando), los videos en bucle y sólo con lo que importa, Replicar sobre una landing de outlier, los gurús fuera de
+Copywriting y deslizándose sin texto; la barra arriba también en Industrias («jamás debe desaparecer»); el pie con el texto de
+arriba, una sección para lo legal y sin dos «MaKo»; y sin la animación rara del botón al pasar el mouse.
+
+| Pedido | Dónde quedó |
+|---|---|
+| 7 días gratis sólo en Pro; Esencial se paga al empezar | `planConPrueba` (`lib/planes-mako.ts`): cobro (`lib/compra-plan.ts`), checkout, tarjetas, `/reembolsos`, `/terminos`, Partners |
+| Los tres bloques con menos ítems, copiados de otra app | `app/planes/Tarjetas.tsx`, copiado de beehiiv.com/pricing (sin la lista de ✗: va en la comparación) |
+| «Compara los planes» con todo lo que incluye | `lib/planes-comparacion.ts` (todo lo que anda, por grupos plegables como beehiiv) y `CompararPlanes` (`app/planes/Vitrina.tsx`) |
+| Sin fondo crema en /planes y en el checkout | `app/planes/estilo.ts` (blanco) |
+| El checkout en el visor, con cuándo empieza el cobro | `resumenDelPlan` (`app/planes/[plan]/Checkout.tsx`: «Desde el 19 de noviembre»); en el visor, `planes-pro` y `planes-esencial` |
+| Todo de un solo modo; sin el segundo en negro; sin frenar los carruseles | `TemaSitio.tsx`: lleva cada color al modo (no invierte), lee una vez, esconde la página hasta tener el modo |
+| El título en 3 renglones | `Portada.tsx` (`<br />`) y `estilos.ts` (`9.2cqi`) |
+| «Todo lo que necesitas» en filas, con videos | `TARJETAS_PORTADA` y `FilaFuncion`; videos en `public/vsl-assets/sitio/` (Spy sin textos y en bucle; Replicar sobre la landing de Oscar Feito) |
+| La barra en Industrias y en el checkout | `app/vsl/[slug]/page.tsx` y `Ficha` (`Checkout.tsx`) |
+| El pie | `Pie.tsx` y `columnasDelPie` (`datos.ts`): «Empezar», las familias, Industrias y «Legal» |
+| El botón sin la animación de capas | `.s-btn` en `estilos.ts` (al pasar, se aclara apenas) |
+| Offer «rompe completamente» | Lo rompía el sol y la luna viejo (invertía su hero negro y sus franjas blancas). Con cada modo parejo queda limpio; el video de Mauricio pasó de 200 a 320 px |
+| Plan y Email «sin referencia» | Sí la tienen y la siguen sección por sección: Plan → Motion, Email → la página de email de beehiiv. Lo que los hace ver genéricos son sus visuales (cajas), no su estructura |
+
+**Sin hacer:** grabar Video, Chats, Marketing CoPilot, CRM y Automations como Spy y Replicar (hoy, el visual de su landing), y
+los visuales de Plan y Email con la app de verdad. El relevamiento de funciones que no se mencionan (miniaturas de YouTube,
+outliers…). Las páginas de Industrias (documentos de Web Generator) siguen ofreciendo «Agenda tu llamada»: cambiarlas es
+publicar esos documentos, con el permiso de Martín. La compra de prueba con la tarjeta (Pro empieza en 0, Esencial cobra hoy):
+la hace Martín. «Inspirado en» de los referentes quedó sólo en el nombre de cada imagen de la portada (Martín pidió sin texto).
+
+## Sexta vuelta (12/11/2026, noche): nada inventado
+
+Martín, con dos reels de referencia (https://www.instagram.com/reel/DfZFAfzs3Ng/ para Replicar y
+https://www.instagram.com/reel/DffGz6yu565/ para la edición de video): «mira fotograma por fotograma cómo lo hace… se los
+releves a los chats correspondientes… no tiene sentido esos cursores que están haciendo cosas sobre algo que ya está creado».
+Y: «identifica la cantidad de cosas que hiciste inventándote cosas. Eso yo no lo quiero… elimina absolutamente todo… pon un
+placeholder con que aquí falta una animación… o si ya la tenemos, reemplázala»; Precios con menos texto, los botones alineados
+y los colores de antes; Mauricio exactamente como antes; preguntas con las objeciones reales; el pie con el logo; sin la
+columna «MaKo» sola; Agencias en Industrias; MaKo Partners en algún lado; AI Avatar en la portada; y la tabla de referencias.
+
+| Pedido | Dónde quedó |
+|---|---|
+| Los reels, a sus chats | Replicar → «Probar Web Generator» (local_10fb3135…), el enjambre del editor → «Video Editor» (local_72d0c3fe…), la película de Spy (más carpetas, centrada) → «Spy: funnel del competidor» (local_25016f6c…). Cada uno avisa al chat de landings cuando esté, para volver a grabar |
+| Nada inventado | `FaltaAnimacion` (`app/vsl/_competencia/FaltaAnimacion.tsx`). `VisualDeLanding` y `Visual` ya no dibujan maquetas: grabación real (Spy, Replicar), video de Panda, fotos reales, o el recuadro. Los 27 dibujos metidos en 11 diseños, también al recuadro |
+| Las filas de la portada | `TARJETAS_PORTADA` (`datos.ts`): Spy y Replicar (grabados), los referentes (sus caricaturas), AI Avatar (sus fotos); el resto, el recuadro con lo que falta (carruseles, copywriting, video, CoPilot, CRM, grupos de WhatsApp, Automations, Chats, tableros, Classroom) |
+| Replicar sobre Hormozi | El banco del scratchpad (`banco/replicar3.tsx`): cada caja muestra su pedazo de la landing (`hormozi-libros.webp`) recién cuando la arman, revelado como si se escribiera |
+| Precios | `app/planes/Tarjetas.tsx`: `listaCorta` (renglones cortos, con los topes del código), filas comunes con subgrid (los botones a la misma altura), sin notas ni la línea de pagos, los colores de antes (el Acelerador grafito, `data-tema-fijo`) |
+| Mauricio, exactamente como antes | `CasoSitio` con la franja clara de la landing (su `::before`) y `data-tema-fijo` |
+| Preguntas | `PREGUNTAS_SITIO` (`datos.ts`): 9 objeciones de quien vende High Ticket, con lo que MaKo hace (el setter lleva a agendar, no reserva) |
+| Pie y menú | El logo arriba del texto (`Pie.tsx`); Ops Center pasó a «Today» (sin columna «MaKo»); Industrias suma Agencias (`/agency`, pide iniciar sesión); «Empezar» suma MaKo Partners (`/mako-partners`) |
+
+**Qué falta grabar** (cada recuadro dice qué): Spy y Replicar otra vez cuando sus chats cambien la animación; el lienzo de video
+con el enjambre como el reel; carruseles (bajar por los outliers, elegir uno y duplicarlo); copywriting (elegir un reel de la
+competencia, transcribirlo y escribir el anuncio a toda velocidad, con poco texto); Marketing CoPilot (buscar un diseño que esté
+a la altura); el CRM real (una tarjeta que cambia de etapa y el menú «…»: asignar campañas, scrapear un grupo); el scrapeo de un
+grupo de WhatsApp (la pestaña, los grupos, los contactos y el cartel de MaKo); el lienzo de Automations; la bandeja de Chats; un
+carrusel con todos los tableros y su animación de entrada; las clases del Classroom; y cada recuadro de las 19 landings. Se
+graban con la app de verdad: con datos de prueba (el ws 3), nunca con los de un cliente.
+
+### Las referencias de cada página
+
+| Página | Copiada de |
+|---|---|
+| Portada nueva (`/vsl/sitio`) | beehiiv (beehiiv.com) |
+| Comparaciones (`/vsl/comparaciones`) | beehiiv (beehiiv.com/comparisons) |
+| Precios (`/planes`) | beehiiv (beehiiv.com/pricing) |
+| Checkout (`/planes/<plan>`) | Stripe Checkout |
+| Ops Center (`/vsl/mako`) | Holo (tryholo.ai) |
+| Dashboard | Reportei (reportei.com/es) |
+| Chats | Leadsales (leadsales.io) |
+| Plan (`/vsl/prioridades`) | Motion (usemotion.com) |
+| Email | beehiiv (beehiiv.com) |
+| CRM | GoHighLevel (gohighlevel.com) |
+| Automations (`/vsl/seguimiento`) | SetSmart (setsmart.io/es) |
+| Agenda | iClosed (iclosed.io) |
+| Cobranza | Rebill (rebill.com/es) |
+| Marketing CoPilot (`/vsl/ads`) | Master Ads (masterads.ai) |
+| Offer | Atlas AI de Done For You (go.doneforyou.com/offer-formula) |
+| Competitor Spy | Foreplay (foreplay.co) |
+| Ads Analyst (`/vsl/script`) | Gethookd (gethookd.ai) |
+| Funnels | Hyros (hyros.com) |
+| Video | Cherry Studio (cherrysweet.app) |
+| AI Avatar | HeyGen, anuncios UGC (heygen.com/es-mx) |
+| Image | PostNitro (postnitro.ai/es) |
+| Copywriting | The Copy Machine (theoperatorstack.io/copy-machine) |
+| Web Generator | HighLevel AI Studio (gohighlevel.com/ai-studio) |
+| MaKo Partners (`/mako-partners`) | LLM Pulse, Tolt y systeme.io |
+| Agency Dashboard (`/agency`) | Las páginas de agencias de GoHighLevel y Vendasta |
+| Portada de hoy (`/`, documento de Web Generator) | 100ads.ai |
+| **Industrias** (`/vsl/coaches`, `/vsl/infoproductores`, `/vsl/inmobiliarias`, documentos del 23/10) | **Sin referencia escrita en el código**: hay que rehacerlas copiando una (y publicarlas es con el permiso de Martín) |
+
+## Séptima vuelta (12/11/2026, noche): outliers verdaderos, nada dibujado
+
+Martín: «No necesitas grabar las pantallas… basta con una screenshot o una pequeña animación… Haz tú la animación de hacer un
+pequeño scroll por los outliers de carruseles, selecciona uno y haz que se duplique… Lo mismo con copywriting… AI Avatar… está
+horrible». Y después: «tenés que mostrar los outliers verdaderos, no inventarte imágenes… tenés prohibido hacerlo».
+
+| Fila | Qué muestra ahora | De dónde sale |
+|---|---|---|
+| Spy | La película con 6 carpetas por formato, centrada | `PeliculaDeOrden` real, `public/vsl-assets/sitio/spy.webm` |
+| Replicar | La landing de Hormozi construyéndose elemento por elemento, como el reel | `public/vsl-assets/sitio/replicar.webm` |
+| Carruseles | La grilla REAL de outliers (la biblioteca de producción), baja, vuelve, elige @lifeofarjav, la tarjeta se duplica y el modal real arma «tu versión» (la réplica real de «MaKo Acelerador Blueprint») | `carruseles.webm`; las lecturas (sólo lectura) y el grabador en el scratchpad: `banco-car/leer-biblioteca.mts`, `leer-replicas.mts`, `banco/grabar-carruseles.mjs` |
+| AI Avatar | El personaje de Martín y la misma persona en 3 escenas | `public/vsl-assets/sitio/avatar/` (tomas de `C:/dev/reel-mentores/omni/`) |
+| Tableros | Los 13 tableros de la app, de a uno, con su entrada | `public/vsl-assets/sitio/tableros/` (capturas de `docs/diseno/mockups-dashboard/<id>/captura/`) |
+| Copywriting | La portada real con los outliers del espacio de MaKo → «Reels» → @den.borgg (70,9×) y su guion transcripto → «Replicar» → la página que MaKo escribió de verdad, renglón por renglón, y su mensaje real en el chat | `copywriting.webm`; scratchpad `banco-copy/` (entrada, grabador, `leer-hilo.mts`) y `banco-car/leer-copy.mts` |
+
+## Octava vuelta (13/11/2026, madrugada): todo desde el código, Hormozi en todos los ejemplos
+
+| Pedido de Martín | Dónde quedó |
+|---|---|
+| Títulos y bajadas (más largas, de cada landing); «Ver cómo funciona» azul | `TARJETAS_PORTADA` (`app/vsl/_sitio/datos.ts`), `.s-zz-a` |
+| Sin «de su curso» en ningún lado | El sitio, la landing de Copywriting, el saludo del chat de un referente (`saludoDelReferente`) y el selector |
+| Replicar: el fondo blanco desde el principio y el recuadro que crece | `banco/replica-reel-blanco.tsx` (scratchpad) → `replicar.webm` |
+| Carruseles sin botones de MaKo ni su foto | `banco/salida/carruseles-simple.html` → `carruseles.webm` (la copia abre sus 6 láminas) |
+| Referentes: clic en Hormozi y su chat pregunta | `banco/salida/referentes.html` → `referentes.webm` (el saludo real) |
+| AI Avatar: dos videos completos con «Foto original» | `VIDEOS_AVATAR`: el reel de Martín (`montaje/REEL-v7.mp4`) y el anuncio de Mauricio del auto (`TERCER VIDEO DE IA`); el del QUINTO había salido mal |
+| Tableros: carrusel con la entrada de cada uno | `Tableros()` + `SCRIPT_TABLEROS` (`Portada.tsx`); los videos, del banco `banco-tab` (scratchpad) |
+| Sin «Producto»; prueba gratis en cada función | `ProductoSitio` / `FilaFuncion` (`.s-zz-acc`) |
+| Apps arriba; «MaKo reemplaza apps» sin el 54 y con el ahorro | `TiraSitio` debajo del hero; `TiraReemplaza` + `Ahorro` con `STACK_TIPICO` (`reemplaza.ts`) |
+| El caso de Mauricio rediseñado («MaKo le ayudó») | `CasoSitio` (`.s-exito`): la franja que corre, el video, sus meses, antes / con MaKo, las fotos |
+| CRM moviendo tarjetas | `banco-crm` (scratchpad) → `crm.webm` |
 
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
@@ -109,6 +220,16 @@ sitio (`BarraGlobal` en `app/vsl/_sitio/Barra.tsx`), fija al bajar, y la copiada
   producción en el mismo orden y al mismo ancho. Los scripts de esa receta quedaron en el scratchpad de la sesión: la receta es ésta.
 
 ## Lo pendiente
+
+- **Para la próxima vuelta (13/11):** el scrapeo de grupos (TraerDeGrupoWA + ExtraccionModal, con la extensión simulada), Automations
+  (el lienzo), Classroom, el editor de video con sus agentes, una propuesta para Marketing CoPilot (hay banco en
+  `scripts/banco-copilot`), Spy con Hormozi (link → sus piezas por formato → carpetas → el gráfico `GraficoSpy` con su entrada;
+  en ws 9 Alex Hormozi tiene sólo YouTube y anuncios: falta su Instagram en Spy) y Copywriting con un reel de Hormozi replicado de
+  verdad (el guion «Como @AlexHormozi…» de ws 9 está vacío). La réplica de carruseles espera al chat de Image (relevado el 13/11).
+
+- **Carruseles otra vez** cuando se despliegue `punta/probar-image`: la réplica real corta «Tu Acelera/dor».
+- **Las pantallas que piden sesión** (CRM, Chats, Automations, scrapeo de grupos, Classroom): Martín inicia sesión en el
+  navegador de la app con el espacio de prueba (ws 3) y se capturan.
 
 - Desplegar main (textos del 12/11, sitio estilo beehiiv, fotos de AI Avatar, el CTA, el sol y la luna, el VSL).
 - **Las páginas que NO son código y siguen ofreciendo la llamada:** la portada de hoy (`/`, un documento de Web Generator con

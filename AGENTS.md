@@ -1475,6 +1475,13 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
 - **Todo lo que MaKo le manda a una PERSONA por WhatsApp sale por `lib/mako-salida.ts`**, que no deja escribirle a quien no escribió en las últimas 24 horas (3/11/2026, «no va a mandar ni
   mensajes a nadie»). Nunca `instanciaVoz()` ni `enviarAGrupoJid` de lib/mako-grupo.ts para un número: la voz puede ser el WhatsApp personal de Martín. El bot no tiene línea por defecto y `mako_ws<n>` no puede serlo. La cañería
   (Evolution o la API oficial) vive en `lib/mako-salida-drivers.ts` y no decide nada (docs/hallazgos-comunicacion.md, tests/mako-bot.test.ts).
+- **Un cambio de la voz o del canal de MaKo deja rastro** (13/11/2026: el 12/11 la voz pasó al …3479, el WhatsApp personal de
+  Martín, con el botón de /agencia, y no se supo quién). Lo que pasa por `/api/admin/mako-canal` se anota solo: la ruta compara la
+  foto de antes con la de después (lib/registro-lineas.ts) y se ve en Admin › Analytics › Events, tipo «linea». Otro camino que
+  llame a `setInstanciaVoz` o escriba `mako.canal.instancia` anota con `anotarCambioDeLinea` (tests/registro-lineas.test.ts).
+  **Y la voz escucha los grupos aunque sea una línea de negocio:** un ajuste nuevo de Evolution (`/settings/set`, que PISA todos
+  los ajustes) decide `groupsIgnore` con `ignoraGrupos(instancia, voz)`, nunca un `true` fijo: re-vincular el …3479 por QR lo
+  dejaba sordo en los grupos (13/11/2026).
 - **En el grupo de WhatsApp no van MAKO_NUCLEO ni la persona de consultor**: el system del grupo es `buildSystemPrompt` con
   `canal: 'grupo'` (NUCLEO_GRUPO, lib/nucleo-grupo.ts, fijo y primero). Todo texto nuevo del turno del grupo va ahí o en
   DOER_WA_VOZ, nunca en MAKO_NUCLEO, que es del dashboard y de la app (28/10/2026, tests/banco-grupo.test.ts).
@@ -11320,6 +11327,11 @@ La app del teléfono vive en `app/m/` y se monta DENTRO del layout raíz (no hay
 técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo visual (v2) en
 [docs/diseno-mako-mobile-v2.md](docs/diseno-mako-mobile-v2.md) con su prototipo, y lo que costó en
 [docs/hallazgos-mobile.md](docs/hallazgos-mobile.md).
+
+- **UNA CONVERSACIÓN DEL TELÉFONO VA A PANTALLA COMPLETA, COMO WHATSAPP (13/11/2026, el prototipo que aprobó Martín):** con
+  `PantallaChatM` (app/m/_chat), nunca en una SheetM. Lo que sigue la conversación la busca con `closest(CUERPO_CHAT)`, y el aspecto de
+  WhatsApp vive SÓLO adentro de `.m-wa` (app/m/_chat/chat-wa.css): el hilo y la caja son los de toda la app. Lo fija
+  tests/m-chat-pantalla.test.ts.
 
 - **EL TELÉFONO DESTILA EL ESCRITORIO, NO LO REDISEÑA (14/10/2026, Martín, al rechazar el prototipo v1).** Textual:
   «en el celular todo se ve SIMILAR al escritorio, pero con menos texto y menos cosas». Una pantalla de app/m tiene las

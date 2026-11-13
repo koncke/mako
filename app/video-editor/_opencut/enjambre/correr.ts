@@ -37,7 +37,7 @@ import { OBJETIVOS_NORMALIZAR } from "@/lib/editor-video/chat-catalogo";
 import type { Frase } from "@/lib/editor-video/broll";
 import { textoDeBroll } from "@/app/video-editor/_opencut/broll/resultado";
 import { usePreferenciasBroll } from "@/app/video-editor/_opencut/broll/estado";
-import { pendientesDe, PARAM_BUSQUEDA } from "@/app/video-editor/_opencut/broll/pistas";
+import { MOTIVO_PROPIO, pendientesDe, PARAM_BUSQUEDA, PARAM_MOTIVO } from "@/app/video-editor/_opencut/broll/pistas";
 import { aceptarPropuesta, type PropuestaChat } from "@/app/video-editor/_opencut/chat/aplicar";
 import type { ProgresoChat } from "@/app/video-editor/_opencut/chat/armado";
 import { datosDeLinea } from "@/app/video-editor/_opencut/chat/contexto";
@@ -68,6 +68,8 @@ import {
 	type PruebaEstilo,
 } from "./plan";
 import { anotar, empezarCorrida, fijarAgente, SECCION_ENJAMBRE, useEnjambre } from "./estado";
+import { leerHilo } from "@/app/video-editor/_opencut/chat/hilo";
+import { recetaDelHilo, type EdicionDeReceta } from "@/lib/video-recetas";
 
 export type ResultadoEnjambre =
 	| { ok: true; pasos: number; hechos: number; saltados: number; fallas: number; detenido: boolean; tocado: boolean; resumen: string }
@@ -141,6 +143,8 @@ type Contexto = {
 	 * Sin esto, sin subtítulos, cada uno transcribía el video entero con Whisper (revisión del 9/11/2026).
 	 */
 	frases: { lista: Frase[] | null; fallo: boolean };
+	/** Lo que aplica la receta de un proyecto replicado (lib/video-recetas.ts), leída de su chat; null si no tiene. */
+	receta: EdicionDeReceta | null;
 	/**
 	 * Los subtítulos de esta corrida se intentaron y no salieron (fallaron, o no se reconoció la voz): transcribir otra
 	 * vez para el B-roll va a dar lo mismo.
@@ -190,7 +194,7 @@ const renglon = (s: string) => (s ? s[0].toLowerCase() + s.slice(1) : s);
  */
 async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: EstadoLinea }): Promise<ComoTermina> {
 	const { editor, paso, agente } = ctx;
-	const decision = decidirPaso(paso.id, antes.estado);
+	const decision = decidirPaso(paso.id, antes.estado, ctx.receta);
 	if (!decision.hace) {
 		anotar(agente, "salta", decision.porque);
 		return "salteado";
@@ -244,9 +248,16 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 			return "hecho";
 		}
 		case "estilo": {
+			const lienzo = lienzoDe(editor);
+			// Un proyecto replicado tiene el estilo de su receta: ése, sin probar otros.
+			if (ctx.receta?.subtitulos) {
+				const plantilla = plantillaPorId(ctx.receta.subtitulos);
+				await aplicarEstiloASubtitulos({ editor, estilo: paramsDePlantilla(plantilla, lienzo) });
+				anotar(agente, "listo", `aplica ${cita(plantilla.nombre)}, el estilo de la receta de este proyecto`);
+				return "hecho";
+			}
 			// Cada estilo se aplica DE VERDAD a todos los subtítulos, se mide cuántos renglones quedó cada uno, se ve un
 			// momento y se vuelve atrás (no queda en el historial). Al final se aplica el que entra.
-			const lienzo = lienzoDe(editor);
 			const pruebas: PruebaEstilo[] = [];
 			let probadasTodas = true;
 			for (const id of CANDIDATOS_ESTILO) {
@@ -315,7 +326,8 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 			const { primeros, resto } = conTope(conClaves);
 			for (const s of primeros) anotar(agente, "hace", `resalta ${cita(s.claves.join(", "), 32)}`, s.inicio);
 			if (resto) anotar(agente, "hace", `y ${cuantos(resto, "subtítulo", "subtítulos")} más`);
-			anotar(agente, "listo", conClaves.length ? `resaltó palabras en ${cuantos(conClaves.length, "subtítulo", "subtítulos")}, en lima` : "no había palabras que pesaran");
+			const como = ctx.receta?.claves ? `al ${ctx.receta.claves.tamano} %, como pide la receta` : "en lima";
+			anotar(agente, "listo", conClaves.length ? `resaltó palabras en ${cuantos(conClaves.length, "subtítulo", "subtítulos")}, ${como}` : "no había palabras que pesaran");
 			return "hecho";
 		}
 		case "broll":
@@ -350,8 +362,9 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 				anotar(agente, nada ? "salta" : "falla", renglon(textoDeBroll(r)));
 				return nada ? "salteado" : "fallo";
 			}
-			if (esBroll && r.faltaPexels) {
-				anotar(agente, "salta", "sin Pexels conectado: conéctalo en «B-roll de MaKo» para las fotos");
+			// Sin Pexels, el B-roll sale de Multimedia (broll/pistas.ts → brollPropio); sólo sin archivos propios se saltea.
+			if (esBroll && r.faltaPexels && !r.propios) {
+				anotar(agente, "salta", "sin Pexels conectado ni archivos tuyos en Multimedia: conecta Pexels en «B-roll de MaKo»");
 				return "salteado";
 			}
 			const tracks = editor.scenes.getActiveSceneOrNull()?.tracks;
@@ -359,7 +372,7 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 			const { primeros, resto } = conTope(propias);
 			for (const p of primeros) {
 				const en = p.element.startTime / TICKS_PER_SECOND;
-				if (esBroll) anotar(agente, "hace", `propone una foto: ${cita(String(p.element.params[PARAM_BUSQUEDA] ?? "imagen"), 32)}`, en);
+				if (esBroll) anotar(agente, "hace", `${p.element.params[PARAM_MOTIVO] === MOTIVO_PROPIO ? "propone un archivo tuyo" : "propone una foto"}: ${cita(String(p.element.params[PARAM_BUSQUEDA] ?? "imagen"), 32)}`, en);
 				else anotar(agente, "hace", `acerca: ${renglon(p.element.name || "cambio de plano")}`, en);
 			}
 			if (resto) anotar(agente, "hace", `y ${resto} más`);
@@ -368,7 +381,7 @@ async function correrPaso(ctx: Contexto, antes: { vista: VistaLinea; estado: Est
 				agente,
 				"listo",
 				esBroll
-					? `${cuantos(r.broll, "foto propuesta", "fotos propuestas")}: deja o saca cada una`
+					? `${r.propios ? cuantos(r.broll, "archivo tuyo propuesto", "archivos tuyos propuestos") : cuantos(r.broll, "foto propuesta", "fotos propuestas")}: deja o saca cada una`
 					: `${cuantos(r.planos, "cambio de plano propuesto", "cambios de plano propuestos")}`,
 			);
 			return "hecho";
@@ -520,6 +533,10 @@ export async function correrEnjambre(
 	let tocadaEntrePasos = false;
 	let tocado = false;
 	const frases: Contexto["frases"] = { lista: null, fallo: false };
+	// La receta de un proyecto replicado manda en el estilo, las claves y las pausas (./plan.ts → decidirPaso).
+	const recetaDelProyecto = recetaDelHilo(leerHilo(proyecto.metadata.id).mensajes);
+	const receta = recetaDelProyecto?.editor ?? null;
+	if (recetaDelProyecto && receta) anotar(PASOS[0].agente, "mira", `sigue la receta ${cita(recetaDelProyecto.nombre)}`);
 	let subtitulosNoSalieron = false;
 
 	try {
@@ -528,7 +545,7 @@ export async function correrEnjambre(
 			useEnjambre.setState({ paso: paso.id });
 			fijarAgente(paso.agente, "trabajando");
 			anotar(paso.agente, "empieza", renglon(paso.titulo));
-			const ctx: Contexto = { editor, paso, agente: paso.agente, quietos, ...lugar, frases, subtitulosNoSalieron };
+			const ctx: Contexto = { editor, paso, agente: paso.agente, quietos, ...lugar, frases, subtitulosNoSalieron, receta };
 			const empezo = Date.now();
 			let como: ComoTermina;
 			try {
@@ -539,7 +556,9 @@ export async function correrEnjambre(
 					break;
 				}
 				if (editor.scenes.getActiveSceneOrNull()?.tracks !== esperada) tocadaEntrePasos = true;
-				const estiloLibre = subtitulosNuevos && usePreferenciasSubtitulos.getState().plantilla === PLANTILLA_POR_DEFECTO.id;
+				// Con receta, el estilo de los subtítulos que puso esta corrida es el de la receta, aunque la persona tenga otra
+				// plantilla elegida para todos sus proyectos.
+				const estiloLibre = subtitulosNuevos && (!!receta?.subtitulos || usePreferenciasSubtitulos.getState().plantilla === PLANTILLA_POR_DEFECTO.id);
 				const antes = leer(editor, estiloLibre);
 				if (!antes) throw new Error("sin escena");
 				const lineasAntes = useEnjambre.getState().lineas.length;

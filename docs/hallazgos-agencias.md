@@ -727,3 +727,33 @@ tener recibo con la orden).
 
 *2026-11-10 claude4, chat Tickets*
 
+
+---
+
+## «Pídele a tu agencia» se lo decía a la agencia: `clienteDeAgencia` habla de la CUENTA, no de quién mira (12/11/2026, ticket #89)
+
+**El síntoma:** Código Inmobiliario (ws13), operando dentro de su cliente «Sellers» (ws24), quiso invitar a alguien al equipo y
+leyó «Llegaste al tope de tu plan (1). Pasa a MaKo Pro para tener más. Pídele a tu agencia que te pase a Pro».
+
+**Lo medido en la base:** Sellers es cliente aprobado de ws13 desde el 11/11, con `agency.plan_cambiado = esencial` (lo eligió la
+agencia al abrirla) y capa `completo`; tiene 1 usuario (su dueño). Esencial es 1 usuario: el tope era correcto. Quien reportó es
+el usuario 10, del ws13: la agencia, no el cliente.
+
+**La causa:** `CtaPasarAPro` (#494, 6/11) cambiaba el link por «Pídele a tu agencia…» con `clienteDeAgencia` de /api/auth/me, que
+dice si la CUENTA mirada es de una agencia. Pero cuando la agencia entra a su cliente, la cuenta mirada ES ese cliente: el texto
+le llegaba a la agencia. Lo que distingue a quién mira es `modoAgencia` (impersonando y no super admin) con `clienteWs`.
+Ahora `ctaDeTope` (lib/plan-esencial-reglas.ts) le da a la agencia «Pasar a Pro desde Agency Dashboard», que sale de la vista
+(DELETE /api/agencia/entrar: con la cookie puesta, /agency la manda a /inicio) y abre `/agency?cuenta=<ws>`, la ficha con «Pasar a Pro».
+
+**Regla:** en una cuenta de cliente de agencia hay TRES lectores posibles —el cliente, su agencia adentro y el super admin— y
+`clienteDeAgencia` no los separa. Todo texto que diga «tu agencia» se decide también con `modoAgencia`.
+
+**El super admin, el mismo día:** tampoco es «el cliente». `superAdminMira` (el `agencia` que /api/auth/me le manda sólo a él)
+lo lleva a `/agency?ws=<agencia>&cuenta=<ws>`, el escalón al que vuelve su «Salir». Su rótulo dice «Ver su plan…» y no «Pasar a
+Pro»: en la ficha, el botón de cambiar el plan es de la agencia (AgencyApp lo esconde al super admin). Sale como su barra: borra la
+impersonación sólo si entró con la cookie; si entró por `?ws=`, no toca nada global.
+
+**⚠️ El teléfono NO lleva botón para subir de plan, y no es un olvido:** EquipoM dice sólo «Llegaste al tope de tu plan.» por la
+regla de las tiendas (AGENTS.md → «El teléfono no vende», 3/11; `tests/tiendas-telefono-no-vende.test.ts`): Apple y Google
+prohíben ofrecer subir de plan sin su cobro, «ni con un link ni con un botón ni con palabras», y el Agency Dashboard no va en
+ningún teléfono. El 12/11 se pidió ese botón y se dejó afuera por esto: cambiarlo es una decisión de Martín, no un arreglo.

@@ -208,9 +208,10 @@ test('R4b: el cambio pregunta ANTES de bajar y otra vez al VOLVER, y el botón s
 // ── R5. Los textos ───────────────────────────────────────────────────────────
 
 test('R5: lo que se dice nombra lo que se pidió y, si no sale, qué hacer', () => {
-  assert.equal(avisoFaltaPexels('videos'), 'para los videos, conecta Pexels en «B-roll de MaKo»');
-  assert.equal(avisoFaltaPexels('fotos'), 'para las fotos, conecta Pexels en «B-roll de MaKo»');
-  assert.match(sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts')), /avisoFaltaPexels\(r\.videos \? "videos" : "fotos"\)/);
+  // Sin Pexels (12/11/2026): dice cómo se consigue la clave y qué hizo MaKo mientras tanto (tests/video-editor-broll-propio.test.ts).
+  assert.match(avisoFaltaPexels('videos'), /^para los videos, conecta Pexels en «B-roll de MaKo» \(gratis, con tu clave de pexels\.com\/api\)/);
+  assert.match(avisoFaltaPexels('fotos'), /^para las fotos, conecta Pexels en «B-roll de MaKo»/);
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts')), /avisoFaltaPexels\(r\.videos \? "videos" : "fotos", hecho\.propios \?\? 0\)/);
   assert.match(TEXTO_MOTIVO_CAMBIO_BROLL.corto, /: acorta el B-roll en la línea de tiempo y vuelve a pedir otro, o elige fotos\.$/);
   assert.match(FALLA_VIDEO_PEXELS.pesado.error, /: prueba con otro o elige fotos\.$/);
   assert.equal(FALLA_VIDEO_PEXELS.pesado.status, 413);

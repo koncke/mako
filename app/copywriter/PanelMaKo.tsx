@@ -34,6 +34,8 @@ import { cuerpoConArchivos, useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDe
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import Link from '@/app/_ui/Link';
+import { rutaDeTarjeta } from '@/lib/conexiones-catalogo';
 import { guardarEnHiloDeTab, leerHiloDeTab } from '@/lib/hilo-de-tab-cliente';
 import { claveDeGuion } from '@/lib/hilo-de-tab-reglas';
 import { filasDeAgente, mensajesDeFilas } from '@/app/web-generator/editor/hilo-agente';
@@ -511,6 +513,12 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
     const m = mensajes.find((y) => String(y.id) === x.id);
     if (!m || m.de !== 'mako') return null;
+    // Sin IA no es una falla para Soporte: es algo que se conecta (12/11/2026, en producción, el negocio de prueba replicando desde
+    // el teléfono: «No hay ninguna IA conectada…» con «Reportar a Soporte» y ningún camino). Es una invitación, no un error: va
+    // como `status` (un `alert` lleva siempre «Reportar a Soporte», tests/reportar-a-soporte.test.ts). El link es el de contrato.
+    if (m.error && /^No hay ninguna IA conectada/.test(m.texto)) {
+      return { arriba: <div className="nt-mako-error" role="status">{m.texto}<div className="nt-mako-pildoras"><Link href={rutaDeTarjeta('ia')} className="nt-mako-pildora">Conectar mi IA</Link></div></div> };
+    }
     if (m.error) return { arriba: <div className="nt-mako-error" role="alert">{m.texto}<ReportarASoporte /></div> };
     if (!m.propuesta || !m.estado) return null;
     const p = m.propuesta;

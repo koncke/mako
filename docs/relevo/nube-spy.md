@@ -190,6 +190,11 @@ su tarjeta se queda con su foto (el logo). **No es un fallo de Canva**: borra lo
 termina en `rendidas` y no frena la cola (no cuenta para `masVieja`). El super admin lo ve aparte, en `sinPersona`, con el
 motivo. Se marca también en la misma cuenta de cualquier otro negocio (el mismo logo).
 
+**Y se marca POR CUENTA (12/11/2026):** deja una copia de su foto en `spy/sin-persona/<cuenta>` (el bucket sólo acepta
+imágenes). Cuando OTRO negocio agrega la misma cuenta después (por ejemplo, desde «Sugeridos»), entra ya marcado y no
+pasa por la cola. La salida lo dice: «Marcado en su cuenta…», y si no pudo, «NO pude dejar la marca…» con código 1. Los
+que se marcaron antes del 12/11 no tienen esa copia: volver a correr `--sin-persona` sobre ellos la deja.
+
 **Vuelve a la cola sólo si cambia su foto.** Como la dirección de la foto es por su cuenta y se pisa (`spy/avatar/<usuario>`),
 se guarda la huella (sha-256) de la imagen al marcarlo, y la lista de pendientes la compara: si es otra imagen, vuelve a
 `pendientes` con la foto nueva y se decide de nuevo (la caricatura, o `--sin-persona` otra vez). Si la foto no se puede bajar,

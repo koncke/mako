@@ -201,6 +201,7 @@ export const CSS_PIE = `
    14/20 500 #9393A9 cada 32 px, 40 entre columnas); filete con 48 de aire; los links legales, la estrella y el ©. */
 .s-pie{background:${FONDO};border-top:1px solid ${LINEA};padding:64px 0}
 .s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;padding-bottom:48px;border-bottom:1px solid ${LINEA}}
+.s-pie-logo{margin-bottom:14px}
 .s-pie-lema{font-size:16px;line-height:24px;font-weight:700;color:#fff;max-width:300px}
 .s-pie-sub{margin-top:12px;font-size:14px;line-height:20px;font-weight:500;color:${GRIS3};max-width:300px}
 .s-pie-cols{display:flex;gap:32px;justify-content:space-between}
@@ -341,12 +342,101 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-zz-r{font-size:14px;line-height:20px;font-weight:600;color:${DORADO}}
 .s-zz-t{margin-top:8px;font-size:36px;line-height:42px;font-weight:700;letter-spacing:-.01em;color:#fff}
 .s-zz-p{margin-top:16px;font-size:18px;line-height:28px;font-weight:500;color:${TEXTO}}
-.s-zz-a{margin-top:20px;display:inline-flex;align-items:center;gap:6px;font-size:18px;line-height:28px;font-weight:500;color:${DORADO}}
+/* El caso de Mauricio: la franja que corre (separa), el video y sus meses, antes / con MaKo, las fotos y el cierre. */
+.s-exito{padding:0 0 96px}
+.s-caso-tira{overflow:hidden;background:#2F6FED;color:#fff;padding:16px 0;margin-bottom:72px}
+.s-caso-tira-p{display:flex;width:max-content;animation:s-caso-corre 38s linear infinite}
+.s-caso-tira-l{list-style:none;margin:0;padding:0;display:flex}
+.s-caso-tira-l li{display:flex;align-items:center;white-space:nowrap;font-size:20px;font-weight:700;letter-spacing:-.01em;padding:0 22px}
+.s-caso-tira-l li::after{content:'✦';margin-left:44px;font-size:14px;opacity:.7}
+@keyframes s-caso-corre{to{transform:translateX(-50%)}}
+.s-caso-arriba{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:56px;align-items:center}
+.s-caso-vid{position:relative;border-radius:22px;overflow:hidden;aspect-ratio:4/5;background:#0B0A1F;box-shadow:0 30px 70px -30px rgba(0,0,0,.6)}
+.s-caso-vid video{display:block;width:100%;height:100%;object-fit:cover}
+.s-caso-badge{position:absolute;left:16px;top:16px;display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#fff;background:rgba(10,13,20,.6);padding:7px 12px;border-radius:999px}
+.s-caso-dot{width:8px;height:8px;border-radius:50%;background:#EF4444;box-shadow:0 0 0 4px rgba(239,68,68,.25)}
+.s-caso-r{margin:0 0 14px;font-size:16px;font-weight:700;color:${DORADO}}
+.s-caso-h{margin:0;font-size:44px;line-height:1.12;font-weight:700;letter-spacing:-.02em}
+.s-caso-h em{font-style:normal;color:${DORADO}}
+.s-caso-sub{margin:18px 0 0;font-size:19px;line-height:1.5;opacity:.82}
+.s-caso-barras{list-style:none;margin:36px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:16px;height:210px;align-items:end}
+.s-caso-barras li{height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch;gap:10px}
+.s-caso-barra{position:relative;display:block;min-height:34px;border-radius:12px 12px 6px 6px;background:linear-gradient(180deg,#5B8EF5,#2F6FED)}
+.s-caso-barras li[data-antes] .s-caso-barra{background:#3A3F55}
+.s-caso-barra b{position:absolute;left:0;right:0;top:-26px;text-align:center;font-size:15px;font-weight:700}
+.s-caso-mes{text-align:center;font-size:14px;font-weight:600;opacity:.7}
+.s-caso-comp{margin-top:72px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.s-caso-col{border-radius:20px;padding:28px 30px;background:${CARD};border:1px solid rgba(255,255,255,.08)}
+.s-caso-col-mako{border-color:rgba(47,111,237,.6);box-shadow:0 0 0 1px rgba(47,111,237,.35) inset}
+.s-caso-col-t{margin:0 0 18px;font-size:20px;font-weight:700}
+.s-caso-col ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.s-caso-col li{display:flex;gap:12px;font-size:17px;line-height:1.5}
+.s-caso-x{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;color:#F87171;background:rgba(248,113,113,.14)}
+.s-caso-ok{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:#fff;background:#2F6FED}
+.s-caso-fotos{list-style:none;margin:40px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.s-caso-fotos img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:16px}
+.s-caso-cierre{margin-top:48px;display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.s-caso-cierre p{margin:0;max-width:640px;font-size:22px;line-height:1.45}
+@media (max-width:900px){.s-caso-arriba{grid-template-columns:1fr;gap:32px}.s-caso-vid{max-width:420px;width:100%;margin:0 auto}.s-caso-h{font-size:32px}.s-caso-comp{grid-template-columns:1fr}.s-caso-fotos{grid-template-columns:1fr 1fr}.s-caso-fotos li:last-child{display:none}.s-caso-tira{margin-bottom:48px}.s-caso-tira-l li{font-size:16px}}
+@media (prefers-reduced-motion:reduce){.s-caso-tira-p{animation:none}}
+/* El ahorro: lo que paga hoy un negocio típico (izquierda) contra MaKo Pro (derecha). */
+.s-ahorro{max-width:980px;margin:40px auto 8px;padding:0 24px;display:grid;grid-template-columns:1.25fr 1fr;gap:20px;text-align:left}
+.s-ahorro-hoy,.s-ahorro-mako{border-radius:18px;padding:24px 26px;background:#fff;border:1px solid rgba(18,21,27,.1)}
+.s-ahorro-mako{background:linear-gradient(140deg,#2F6FED,#1E3FA8);color:#fff;border-color:transparent;display:flex;flex-direction:column;justify-content:center}
+.s-ahorro-t{margin:0 0 14px;font-size:15px;font-weight:700;opacity:.75}
+.s-ahorro-hoy ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.s-ahorro-hoy li{display:flex;align-items:center;gap:12px;font-size:16px}
+.s-ahorro-hoy img{width:28px;height:28px;border-radius:7px;background:#fff;box-shadow:0 0 0 1px rgba(18,21,27,.08)}
+.s-ahorro-n{flex:1;font-weight:600}.s-ahorro-n small{display:block;font-size:13px;font-weight:500;opacity:.6}
+.s-ahorro-p{font-weight:700;font-variant-numeric:tabular-nums}
+.s-ahorro-tot{margin:16px 0 0;padding-top:14px;border-top:1px dashed rgba(18,21,27,.2);display:flex;justify-content:space-between;font-size:17px}
+.s-ahorro-tot strong{font-size:22px;text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#E11D48}
+.s-ahorro-pro{margin:0;font-size:18px}.s-ahorro-pro strong{font-size:40px;line-height:1.1}
+.s-ahorro-gana{margin:14px 0 0;font-size:18px;line-height:1.4}.s-ahorro-gana strong{color:#FDE68A}
+.s-ahorro-nota{margin:16px 0 0;font-size:12px;line-height:1.5;opacity:.6}
+@media (max-width:760px){.s-ahorro{grid-template-columns:1fr;padding:0 16px}}
+/* Cada función: su prueba gratis y, abajo, «Ver cómo funciona». */
+.s-zz-acc{margin-top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
+.s-zz-acc .s-zz-a{margin-top:10px}
+/* «Ver cómo funciona»: un link, en azul (Martín, 13/11/2026: «no me gusta que esté en amarillo… en azul, como si fuera un link»). */
+.s-zz-a{margin-top:20px;display:inline-flex;align-items:center;gap:6px;font-size:18px;line-height:28px;font-weight:500;color:#6EA8FF;text-decoration:none}
+.s-zz-a:hover{text-decoration:underline;text-underline-offset:4px}
 .s-zz-a svg{transition:transform .15s}
 .s-zz-a:hover svg{transform:translateX(3px)}
 .s-zz-vis{position:relative;border-radius:16px;overflow:hidden;border:1px solid ${LINEA};background:#fff;box-shadow:0 30px 80px -30px rgba(0,0,0,.6)}
 .s-zz-vis > .s-panel{border-radius:0;max-height:460px;overflow:hidden}
 .s-zz-video video{display:block;width:100%;height:auto}
+/* Los tableros: de a uno, 2,6 s cada uno, entrando de arriba hacia abajo (como su animación de entrada en la app). */
+.s-zz-tableros{background:#fff}
+/* El carrusel de tableros: uno a la vista (su entrada en video), flechas con el nombre abajo y los puntos. */
+.s-tab{position:relative;display:flex;flex-direction:column}
+.s-tab-pista{position:relative;aspect-ratio:16/10;overflow:hidden;background:#F4F3EF}
+.s-tab-uno{position:absolute;inset:0;margin:0;opacity:0;transition:opacity .35s ease;pointer-events:none}
+.s-tab-uno[data-activo]{opacity:1;pointer-events:auto}
+.s-tab-uno video{display:block;width:100%;height:100%;object-fit:cover;object-position:top}
+.s-tab-ctrl{display:flex;align-items:center;justify-content:center;gap:14px;padding:12px 12px 4px}
+.s-tab-fl{width:36px;height:36px;border-radius:50%;border:1px solid rgba(18,21,27,.14);background:#fff;color:#12151B;display:grid;place-items:center;cursor:pointer}
+.s-tab-fl:hover{background:#F2F4F7}
+.s-tab-nombre{min-width:170px;text-align:center;font-size:15px;font-weight:700;color:#12151B}
+.s-tab-puntos{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;padding:6px 12px 14px}
+.s-tab-puntos button{width:7px;height:7px;padding:0;border:0;border-radius:50%;background:rgba(18,21,27,.22);cursor:pointer}
+.s-tab-puntos button[aria-current]{width:20px;border-radius:99px;background:#2F6FED}
+/* AI Avatar: dos anuncios de verdad, cada uno con la foto de la que salió (la foto chica, montada sobre la esquina del teléfono). */
+.s-zz-avatar{background:linear-gradient(135deg,#EEF4FF,#F8F5FF)}
+.s-av{display:flex;align-items:flex-start;justify-content:center;gap:40px;padding:34px 24px 26px}
+.s-av-par{margin:0;position:relative;display:flex;flex-direction:column;align-items:center;gap:12px}
+.s-av-tel{position:relative;display:block;width:190px;aspect-ratio:9/16;border-radius:24px;overflow:hidden;background:#12151B;box-shadow:0 0 0 6px #12151B,0 24px 50px rgba(18,21,27,.3)}
+.s-av-tel video{display:block;width:100%;height:100%;object-fit:cover}
+.s-av-foto{position:absolute;left:-34px;top:26px;z-index:2;width:78px;aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:3px solid #fff;box-shadow:0 10px 24px rgba(18,21,27,.28);transform:rotate(-6deg)}
+.s-av-foto img{display:block;width:100%;height:100%;object-fit:cover}
+.s-av-foto small{position:absolute;left:0;right:0;bottom:0;padding:3px 0;text-align:center;font-size:9px;line-height:1.15;font-weight:700;color:#fff;background:rgba(18,21,27,.6)}
+.s-av-par figcaption{font-size:14px;font-weight:700;color:inherit;opacity:.85}
+.s-av-son{position:absolute;right:10px;bottom:10px;width:36px;height:36px;border-radius:50%;border:0;display:grid;place-items:center;color:#fff;background:rgba(18,21,27,.62);cursor:pointer}
+.s-av-son:hover{background:rgba(18,21,27,.8)}
+.s-av-son .s-av-on{display:none}.s-av-son[aria-pressed="true"] .s-av-on{display:inline}.s-av-son[aria-pressed="true"] .s-av-off{display:none}
+@media (max-width:560px){.s-av{gap:26px;padding:26px 14px 20px 30px}.s-av-tel{width:132px;border-radius:18px}.s-av-foto{width:56px;left:-24px;top:18px}.s-av-son{width:30px;height:30px;right:7px;bottom:7px}}
+/* El recuadro de «Aquí falta la animación» va sin el marco blanco: el suyo es el borde punteado. */
+.s-zz-falta{border:0;background:transparent;box-shadow:none;overflow:visible}
 /* Los referentes: una pared que sube sola, sin texto, y vuelve a empezar sin corte (la lista va dos veces). */
 .s-zz-gurus{height:440px}
 .s-gurus{height:100%;overflow:hidden;padding:0 16px;background:#fff}
