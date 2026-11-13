@@ -1,6 +1,6 @@
 # Relevo: el rediseño de Marketing CoPilot (maquetas, 11/11/2026)
 
-Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Nada se programa en la app hasta que Martín dé el OK.
+Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. **Martín dio el OK para construirlo** (12/11, vuelta 19: «que esté todo preparado para que en producción funcione… que el piloto automático funcione»; 13/11, por el Cerebro: «delegues absolutamente todo… que lo vayan construyendo»). Lo que ya está en la app y lo que falta: «En la app», abajo.
 
 ## Dónde está todo
 
@@ -32,6 +32,27 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
   - Para mirarla: una entrada en `.claude/launch.json` con un servidor estático, más el Chrome sin ventana con `--virtual-time-budget` y los enlaces por estado (`#canales`, `#cargar`, `#lectura`, `#negocio`, `#negocio-youtube`, `#negocio-instagram`, `#negocio-anuncios`, `#sin-nada`, `#sin-nada-armado`, `#telefono`). Ver `docs/hallazgos-infra.md`.
   - Si el scratchpad no está, el HTML del repo tiene todo adentro: se edita el segundo `<style>` y el `<script>` del final.
 - **El negocio simulado:** Federico Cristofari, Competitor Spy del ws 9, `competidor=20`. Sus videos, reels, vistas y fechas son reales; sus anuncios son de ejemplo.
+
+## En la app (desde el 12/11)
+
+- **Dónde:** `/ads-manager/copiloto`, al lado de `/ads-manager` (que sigue siendo el Media Buyer de siempre): un cliente que hoy opera campañas no cambia de pantalla de un día para el otro. Cuando Martín lo mire, `app/ads-manager/page.tsx` pasa a mostrar el nuevo y el de siempre queda en los tres puntitos («El Media Buyer de siempre»).
+- **El molde es el de la maqueta, medido:** `app/ads-manager/copiloto/copiloto-css.ts` sale de la maqueta con `sacar-css.mjs` + `css-a-ts.cjs` (scratchpad de la sesión ea110555): las reglas que tocan algo en cada pantalla, sin el marco de la maqueta. Un cambio de diseño se hace en la maqueta y se vuelve a sacar.
+- **Lo que funciona de verdad (12/11, la diecinueve):**
+  - **Oferta y comunicación** (`OfertaComunicacion.tsx`, `lib/copiloto/comunicacion*.ts`, `/api/copiloto/comunicacion`):
+    - la Oferta son las piezas de la conversación de Offer elegida (`offer_sesiones.piezas`): el check la confirma EN Offer y la nota es la del diagnóstico de Offer (D1-D9);
+    - Ángulos y Tu voz se guardan por negocio en `app_settings` (`marketing-copilot.oc.angulos.<conversación>`, `marketing-copilot.oc.voz`, y la oferta elegida en `marketing-copilot.oc.oferta`), sin tocar la base;
+    - «Leer mis ángulos / mi voz»: UNA llamada a la IA con la cascada de Offer (las claves del negocio y la red de MaKo: no cobra) sobre lo que el negocio ya tiene en MaKo (su perfil, la oferta y sus documentos, los anuncios de 60 días con agendas y frecuencia, las llamadas analizadas, su voz en los chats, las razones de compra). Lo leído entra «por confirmar» y nunca pisa lo confirmado; la nota la calcula el código;
+    - el chat guarda lo que dice la persona con `guardar_comunicacion_copiloto` (API de MaKo), en la oferta elegida.
+  - **Anuncios:** los que más resultados trajeron este mes, las tareas de la semana de su funnel y **el piloto de verdad del Media Buyer** («Aprobar» lanza con sus topes, «No» descarta, «Deshacer»); «Configurar piloto» va a sus Ajustes y «Métricas» a la hoja de Marketing.
+- **Lo que falta, en el orden de la vuelta 20 (cada uno, una pieza):**
+  1. ~~**La vista simple**~~ **hecha el 13/11** (910fa34e4): dos pasos, el análisis arriba y «Lo que te toca» debajo, armado con lo que falta de verdad en cada tarjeta. Falta el calendario (las tareas todavía no tienen fecha: la tienen cuando vivan en el Plan).
+  2. **Las tareas en el Plan:** hecho el 13/11 (el Plan no lo llevaba nadie: lo tomé con el OK del Cerebro). `lib/copiloto/tareas.ts` (puro) arma «Lo que te toca» con lo que falta de verdad y dice qué se resolvió; `lib/copiloto/tareas-plan.ts` las crea y las cierra con las funciones del Plan (`agregarTareasPlanOwner` sin IA y `moverPlanTarea` en el tablero del dueño; `crearTarea` y `moverTarea` en el de los clientes), por `/api/copiloto/tareas`. La tarea es del CoPilot por el link de su fuente (`…#copiloto:<clave>`): no hizo falta una columna nueva. Nunca reabre lo que la persona cerró en el Plan. Falta el calendario (las tareas nacen sin fecha; el Plan las fecha después).
+  3. **El piloto se configura la primera vez en su pantalla:** hecho para Anuncios el 13/11 (`/ads-manager/copiloto/configurar`, la configuración de verdad del Media Buyer: el gasto del mes y su tope por día, el costo por resultado escrito, cuánto sube por vez en cada campaña y qué hace solo cada táctica). Falta «el anuncio cansado se cambia por uno del stock» (no hay stock: es la nevera de contenido) y el piloto de Instagram, YouTube, la web y la oferta. **Audience Network:** Meta ya no deja sacarlo campaña por campaña desde fines de agosto de 2026 y sí en toda la cuenta (Configuración publicitaria → Controles de ubicación), cosa que MaKo no puede hacer por la API: va como tarea de una vez en Anuncios, no como interruptor del piloto.
+  4. **«Con qué número se publica»** un reel de prueba: hecho el 13/11. Spy arma los seguidos y el número (lib/spy-seguidos.ts → promedioDeSeguidos: la mediana de los últimos 20 reels de cada seguido, sin los de menos de una semana, y el promedio entre cuentas); el CoPilot lo muestra en la tarjeta de Instagram y se cambia en la configuración del piloto (lib/copiloto/piloto.ts, app_settings `marketing-copilot.piloto`, /api/copiloto/piloto). La tarea «Selecciona a tus competidores» se cierra sola con el primer seguido. Todavía no hay piloto de Instagram que use el número: hoy es para decidir a mano.
+  5. **Web, Instagram y YouTube:** la Web lleva a Web Generator con `?analizar=` (falta dibujar el análisis adentro: `app/web-generator/diagnostico/PanelDiagnostico.tsx` acepta `url`); Instagram y YouTube se conectan (Zernio) pero MaKo todavía no LEE la cuenta propia (perfil, destacadas, publicaciones con métricas, portada): hoy sólo Competitor Spy lee cuentas, por Apify, que cuesta.
+  6b. **El retargeting sin VSL:** enganchado el 13/11 (lib/retargeting.ts, del chat «MaKo en la app»). El piloto de Anuncios muestra lo que marcó MaKo en el CRM (no respondieron, no siguieron, no compraron, compraron) y «Pasarlas al CRM» para las charlas sin lead; la configuración prende los dos públicos de Meta. Lo que escribe lo dispara un botón, nunca la carga de la página.
+  6. **El piloto de Oferta, Web, Instagram y YouTube:** no existe (el del Media Buyer es sólo de Meta, y su tabla no acepta otras entidades): necesita su propia cola de decisiones.
+  7. **La entrada** («¿Por dónde vendes?», «Lo que tienes», «La lectura»): sigue la de siempre (`PrimeraEntrada.tsx`).
 
 ## Lo que pidió Martín sobre la maqueta por canal (11/11, cuarta vuelta): para hacer
 
@@ -141,6 +162,22 @@ Lo que sigue es para retomar sin este chat. Las maquetas son HTML navegables. Na
    - la máquina de contenido;
    - «Tu web» con la web dibujada (se puede usar la captura del Spy, «Copiar su sitio»).
 3. **Lo de siempre:** fotografiarla en claro, oscuro y teléfono; publicarla como Artifact aparte; actualizar el esquema; dejar lo aprendido en `docs/hallazgos-marketing-copilot.md`; subir a `punta/marketing-copilot-agente`.
+
+**Hecho (13/11, vigésima vuelta):** `maqueta-veinte.html` (Artifact claude.ai/artifact/TkiiQTvr375WTgN1AsXF6r), con `aplicar-veinte.mjs` (`bloque-veinte.js`, `css-veinte.css`) sobre la diecinueve. Los cuatro puntos, mirados en fotos (1440 y 375, claro y oscuro) y tocados botón por botón sin errores: dos pasos («Análisis y acción», «Piloto automático»); «Lo que te toca» debajo del análisis, con «En tu Plan» en cada tarea; «Mejorar» abre los desplegables en un popup y lleva al chat de Oferta del Ops Center; el piloto sin configurar dice «Antes de prenderlo, configúralo» y la configuración es una pantalla (no la hoja al costado), con lo del punto 7 de la llamada; «Selecciona a tus competidores» y «¿Con qué número se publica un reel de prueba?».
+
+**Pedido de la vigésima vuelta (Martín, 13/11, por el Cerebro, después de su llamada con Leila).** Decidido por Martín:
+1. Análisis y acción juntos, con una vista simple: el análisis arriba y, debajo, las tareas con el calendario.
+2. Las tareas viven en el Plan: se crean ahí y completarlas en un lado las completa en el otro.
+3. El piloto se configura la primera vez, en la pantalla de configuraciones.
+4. Nunca «graduar el reel de prueba»: «con qué número se publica». Sale del promedio de los competidores seguidos (una tarea es «Selecciona a tus competidores»); MaKo lo propone y el usuario lo sube o lo baja.
+5. Oferta y Web quedan en CoPilot como análisis (se construyen en el Ops Center, con sus chats Oferta y Funnel Coach, y en Web Generator).
+6. La nevera de contenido (cuántos videos, reels e historias hay guardados, cuántos se publicaron, hasta qué fecha alcanzan, y avisos para grabar).
+7. El piloto: en anuncios, textos que se entiendan, el costo por agenda escrito, el anuncio cansado del stock, y Audience Network fuera si Meta todavía deja sacarlo; en Instagram, la secuencia de historias con guion y qué grabar, sin «reordenar historias», el número con que se publica y Follow Me ads; en YouTube, miniaturas y títulos, shorts, la descripción con su llamado y las tendencias.
+8. CoPilot es el último día del reto de 7 días.
+
+**Hecho (12/11, decimonovena vuelta):** `maqueta-diecinueve.html` (Artifact claude.ai/artifact/FoGXwrRxMJobnPcqFTB2mp), con `aplicar-diecinueve.mjs` (`bloque-diecinueve.js`, `css-diecinueve.css`). Cada desplegable es UNA caja (la cabecera y sus cosas adentro, en filas con una línea; lo que falta con una raya roja dentro de la misma caja), sin las explicaciones de cada grupo, y la cabecera dice lo que falta en una línea («Falta: resultado», o «Faltan 2» si no entra). Y lo primero en la app («En la app», arriba).
+
+**Pedido de la decimonovena vuelta (Martín, 12/11, sobre la dieciocho).** El desplegable abierto «está como todo suelto, flotando»; sin la información de cada grupo («a quién le vendes, qué le duele y qué logra… es texto innecesario»); y «que esté todo preparado para que en producción funcione… el backend… que el piloto automático funcione».
 
 **Hecho (12/11, decimoctava vuelta):** `maqueta-dieciocho.html` (Artifact claude.ai/artifact/3DyGopshnXdMjH2TRo6TA3). Se arma sobre la dieciséis con `aplicar-dieciocho.mjs` (`bloque-dieciocho.js`, `bloque-dieciocho-b.js`, `css-dieciocho.css`); la diecisiete queda como estaba. Mirada en fotos (1440 y 375, claro y oscuro) y tocada botón por botón sin errores.
 - **Sin «Formatos».** Oferta y comunicación tiene tres partes: Oferta, Ángulos y Tu voz.

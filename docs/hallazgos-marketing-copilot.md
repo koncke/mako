@@ -468,6 +468,41 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
 - **«Falta sus palabras» no se lee bien.** El estado del grupo va con dos puntos («Falta: sus palabras», «Por confirmar: ángulos para probar»), y así no hay que concordar con el nombre de cada pieza.
 - **Un estado que ninguna vuelta fotografía se rompe sin que nadie lo vea.** «8 · Teléfono» estaba en blanco desde la octava vuelta: `telefonos()` llamaba a `operacion()`, que dejó de existir cuando la operación pasó a ser la acción, y el error cortaba el dibujo sin aviso (`window.__errores` sólo junta los de los toques). Las fotos de cada vuelta llevan TODOS los estados del índice, también «Sin nada todavía» y «Teléfono».
 
+## Pasar la maqueta a la app: el CSS se MIDE, y el chat del CoPilot tiene tope (12-13/11/2026)
+
+- **El CSS de una pantalla de la maqueta se saca midiendo, no se reescribe.** `sacar-css.mjs` abre la maqueta sin ventana, pinta cada estado (cada paso, cada parte, el popup, los menús abiertos, el teléfono, el oscuro) y se queda con las reglas de las hojas de la maqueta que tocan algo del DOM (`document.querySelector` sobre el selector sin `:hover` ni `::before`). Salieron 65 KB de 470 reglas, contra los ~250 KB de la maqueta entera. Tres trampas: la hoja 0 era el `<link>` de Google Fonts (los índices de `document.styleSheets` se corren uno); una regla con `:where(a, b)` se partía en la coma de adentro si se separaban los selectores con `split(',')`; y lo que no se pinta en ninguna toma no sale (el desplegable de ofertas, una nota abierta): hay que pintarlo.
+- **Al sacarlo, el marco de la maqueta queda afuera** (`html`, `body`, `:root`, `.mq-app`, `.mq-barra`, el riel, el chat de mentira): eso lo pone la app. Y lo que en la maqueta vive fuera de `.frn` (el popup) usa los colores de la app, no los del molde.
+- **El chat del CoPilot tiene dos topes medidos por tests, y una regla más en el prompt los rompió los dos** (`tests/marketing-copilot-agente.test.ts`: el contexto más grande por debajo de 33.000; `tests/marketing-copilot-descubrir.test.ts`: las herramientas dejan 4.000 libres de 12.000). Lo obvio era achicar el texto; lo que anduvo: la instrucción de la pantalla va en `pantalla` (lo que el chat sabe de dónde está la persona: qué falta, con su clave, y cómo se guarda), que no pesa en cada turno del CoPilot; la herramienta de leer (`ver_comunicacion_copiloto`) queda en el registro pero NO en las del CoPilot; y la oferta elegida se guarda (`marketing-copilot.oc.oferta`) en vez de pasarse como parámetro.
+- **Offer no distingue «por confirmar» de lo leído de un documento**: una pieza con fuente `doc` ya cuenta como confirmada. El CoPilot lo respeta (`negocio` = Confirmar; `chat` y `doc` = Listo) y no lo cambia: es de Offer.
+- **El piloto del Media Buyer es sólo de Meta**: su tabla (`media_buyer_decisiones`) no acepta otras entidades ni tácticas (CHECK), y «aprobar» lanza en el acto (no hay «aprobada, sin correr»). Oferta, Web, Instagram y YouTube necesitan su propia cola.
+- **Ningún lector lee la cuenta PROPIA**: Zernio conecta Instagram y YouTube pero el código no trae de ahí la bio, las destacadas ni la portada; Competitor Spy lee a cualquiera por Apify (con la clave del negocio, cuesta). «Quién paga leer tu propio negocio» sigue sin decidir.
+
+## La vigésima maqueta: análisis y acción en una pantalla, el piloto se configura en la suya (13/11/2026)
+
+- **Juntar dos pasos no es poner uno debajo del otro**: el análisis de la oferta medía casi dos pantallas (las nueve notas estiradas al alto de «Lo que leí», que en la oferta trae seis datos). Con la acción abajo, las notas van sin estirarse y «Lo que leí» muestra tres.
+- **Un popup que muestra piezas del tablero tiene que estar adentro de `.frn`**: los desplegables salieron sin estilo en el popup de «Mejorar», porque todo su CSS es `.frn .oc-g…`. Se envuelven en `<div class="frn frn--mono">` con el fondo transparente.
+- **Un piloto sin configurar no tiene nada esperando**: las tarjetas decían «1 espera tu OK» arriba de «Antes de prenderlo, configúralo». Dicen «Sin configurar».
+- **«Con qué número se publica»** (Martín: nunca «graduar el reel de prueba») es un NÚMERO que MaKo propone desde el promedio de los competidores seguidos y la persona sube o baja: va en la configuración del piloto de Instagram, con la lista de seguidos y lo de cada uno a la vista.
+
+## Audience Network ya no se saca por campaña, y por eso es una tarea y no un interruptor (13/11/2026)
+
+Martín pidió sacarlo del piloto «si Meta todavía deja». Lo medido el 13/11 (fuentes de terceros, ninguna oficial de Meta): desde fines de agosto de 2026 Meta empezó a quitar el control de ubicaciones por conjunto de anuncios (de a poco, no en todas las cuentas a la vez); el bloqueo para TODA la cuenta sigue, en Configuración publicitaria → Controles de ubicación, y es el único que también vale para Advantage+. MaKo no lo cambia por la API (el Media Buyer escribe presupuesto y estado, nada de ubicaciones): por eso en el CoPilot es la tarea «Bloquea Audience Network en tu cuenta», no un «Lo hago solo» que no podría cumplir.
+
+## Las tareas del CoPilot en el Plan: la clave va en el link de la fuente (13/11/2026)
+
+- **El Plan tiene dos tableros** (el del dueño en `plan_tareas`, el de los clientes en `experimento_tareas`) y cada negocio usa uno según su capa (`tableroDeCapa`). Se escribe por las funciones de cada uno, nunca por fuera: crear con `agregarTareasPlanOwner` (con `sinIA`, para que no gaste ni re-puntúe) o `crearTarea`; cerrar con `moverPlanTarea`/`moverTarea`, que respetan el avance, `hecho_at` y la columna.
+- **El tipo de fuente del Plan es una lista cerrada** (`FuenteTipo`: manual, mako, whatsapp, archivo…): «copiloto» no entra. La tarea va como `mako` y lo que la hace del CoPilot es su link, `/ads-manager/copiloto?tarjeta=…#copiloto:<clave>`, que además es el chip que lleva de vuelta. Sin columna nueva ni migración.
+- **Sincronizar no reabre nunca**: una tarea que la persona cerró en el Plan no vuelve a nacer aunque el CoPilot la siga pidiendo; sólo se crea lo que el Plan no tiene y se cierra lo que el CoPilot dio por resuelto (ya leí tus ángulos, ya conectaste Meta).
+
+## Una ruta o una operación nueva pasa por cinco guardas de la casa, y el filtro local no las corre (13/11/2026)
+
+La punta cayó en rojo (corrida 1265) con cinco a la vez, ninguna en lo que corrió el filtro local («FILTRO A MEDIAS»). Lo que pide cada una, para la próxima pieza del CoPilot:
+- **`cuenta-revision-escrituras`**: toda ruta nueva que escribe se clasifica para la cuenta de revisión de las tiendas. Las del CoPilot quedan «cortadas» (esa cuenta no escribe en el Plan ni en Offer); se regenera con `MAKO_REGENERAR_SNAPSHOT=1`.
+- **`api-mako-rest`**: cada operación de la API de MaKo que sale por HTTP lleva UNA ruta REST en `lib/api-mako/rest.ts` (y la referencia se regenera con `scripts/generar-api-doc.mjs`).
+- **`closing-entrega`**: quien lee `closing_analyses` filtrando «analizada» filtra también la categoría; para las objeciones de venta, `category = venta`.
+- **`integracion-sin-salir`**: para conectar algo JAMÁS se sale de la tab. El test barre `app/` y una tarea con `href: '/integraciones'` escrita en `lib/` se le escapó: la regla vale igual. «Conecta tu…» abre `ConectarViaZernio` ahí mismo.
+- **`ningun-boton-muerto`**: un botón sin `onClick` (el único ítem del menú de la configuración) no puede verse apretable: o hace algo o es un rótulo.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).
