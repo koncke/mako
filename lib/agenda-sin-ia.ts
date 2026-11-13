@@ -44,13 +44,19 @@ export type SlotDia = { hora: string; libre: boolean };
  * NEUTRAS a propósito: no dicen si hubo algo o no, y le prohíben al modelo afirmarlo
  * —el bloque del código puede decir «no tienes huecos» justo debajo, y un «¿a qué hora
  * la quieres?» que dé por hecho que hay se lee como una contradicción—.
+ *
+ * ⚠️ DÓNDE QUEDA LA LISTA (13/11/2026, la prueba del grupo de la app del ws9): el doer manda lo del código DESPUÉS de la respuesta del
+ * modelo (lib/mako-doer-in.ts, `[...partes, ...paraLaPersona]`, fijado por tests/agenda-sin-ia.test.ts). Esto decía «el sistema YA le
+ * mostró», y MaKo contestó «Te mostré arriba lo que tienes en tu agenda» con la agenda en el mensaje de abajo. Se le dice la verdad.
  */
+const DEBAJO = 'en un mensaje aparte, justo DEBAJO de tu respuesta';
+const NI_ARRIBA = 'Si la nombras, di que va abajo: nunca «arriba» ni «ya te la mostré».';
 export const ESTADOS_AGENDA = {
-  horarios_mostrados: 'El sistema ya le mostró a la persona lo que tiene libre ese día en su agenda (puede que no haya nada): tú NO lo ves, así que no digas qué horarios hay ni que no hay. Pregúntale a qué hora la quiere y, con la hora que diga, propón agendar.',
-  horarios_sin_verificar: 'No se pudo leer la agenda de ese día y el sistema ya se lo dijo a la persona. Pregúntale a qué hora la quiere.',
-  reuniones_mostradas: 'El sistema ya le mostró a la persona lo que tiene ese lead en la agenda (puede que no haya nada): tú NO lo ves, así que no digas qué reuniones hay ni que no hay. Si quiere mover una, que te diga el día y la hora que tiene hoy, y llama a proponer_mover_reunion con eso.',
-  eventos_mostrados: 'El sistema ya le mostró a la persona lo que tiene ese día en su agenda (puede que no haya nada): tú NO lo ves, así que no digas qué eventos hay, a qué hora ni que no hay. Si quiere mover, cambiar o cancelar uno, que te diga cuál con su hora, y llama a la herramienta que corresponda con fecha_actual y hora_actual.',
-  eventos_sin_verificar: 'No se pudo leer la agenda de ese día y el sistema ya se lo dijo a la persona: no afirmes qué tiene ni que no tiene nada.',
+  horarios_mostrados: `El sistema le muestra a la persona ${DEBAJO}, lo que tiene libre ese día en su agenda (puede que no haya nada): tú NO lo ves, así que no digas qué horarios hay ni que no hay. Pregúntale a qué hora la quiere y, con la hora que diga, propón agendar. ${NI_ARRIBA}`,
+  horarios_sin_verificar: `No se pudo leer la agenda de ese día y el sistema se lo dice a la persona ${DEBAJO}. Pregúntale a qué hora la quiere.`,
+  reuniones_mostradas: `El sistema le muestra a la persona ${DEBAJO}, lo que tiene ese lead en la agenda (puede que no haya nada): tú NO lo ves, así que no digas qué reuniones hay ni que no hay. Si quiere mover una, que te diga el día y la hora que tiene hoy, y llama a proponer_mover_reunion con eso. ${NI_ARRIBA}`,
+  eventos_mostrados: `El sistema le muestra a la persona ${DEBAJO}, lo que tiene ese día en su agenda (puede que no haya nada): tú NO lo ves, así que no digas qué eventos hay, a qué hora ni que no hay. Si quiere mover, cambiar o cancelar uno, que te diga cuál con su hora, y llama a la herramienta que corresponda con fecha_actual y hora_actual. ${NI_ARRIBA}`,
+  eventos_sin_verificar: `No se pudo leer la agenda de ese día y el sistema se lo dice a la persona ${DEBAJO}: no afirmes qué tiene ni que no tiene nada.`,
 } as const;
 export type EstadoAgenda = keyof typeof ESTADOS_AGENDA;
 
@@ -66,9 +72,9 @@ export const FALTA_CUAL = ['fecha_actual', 'hora_actual'] as const;
 /** Los errores de mover que el modelo SÍ tiene que leer para seguir. Sólo llevan lo que
  *  dijo la persona o lo que sale del CRM (el nombre del lead), nunca la agenda. */
 export const ERRORES_MOVER = {
-  varias: (lead: string) => `${lead} tiene más de una reunión que coincide. El sistema ya le mostró la lista y le preguntó cuál (tú no la ves): no repitas la pregunta. Cuando diga el día o la hora que tiene hoy, vuelve a llamar con fecha_actual y hora_actual.`,
+  varias: (lead: string) => `${lead} tiene más de una reunión que coincide. El sistema le muestra la lista ${DEBAJO}, y le pregunta cuál (tú no la ves): no repitas la pregunta. Cuando diga el día o la hora que tiene hoy, vuelve a llamar con fecha_actual y hora_actual. ${NI_ARRIBA}`,
   ninguna: (lead: string) => `No encontré reuniones próximas de ${lead} en la agenda de Google del negocio (si la lectura de Google falló, también da vacío).`,
-  ningunaQueCoincida: (lead: string) => `No encontré una reunión de ${lead} ese día u hora. El sistema ya le mostró las que tiene (tú no las ves): pregúntale cuál es.`,
+  ningunaQueCoincida: (lead: string) => `No encontré una reunión de ${lead} ese día u hora. El sistema le muestra las que tiene ${DEBAJO} (tú no las ves): pregúntale cuál es. ${NI_ARRIBA}`,
   otraCuenta: 'Esa reunión la organiza otra cuenta de Google: hay que moverla desde esa agenda.',
   mismoHorario: 'Esa reunión ya está en ese horario: no hay nada que mover.',
 } as const;
@@ -76,10 +82,10 @@ export const ERRORES_MOVER = {
 /** Los mismos errores para una reunión SIN lead, que se busca en el día que dijo la
  *  persona. Llevan sólo el día (lo dijo ella), nunca lo que hay en la agenda. */
 export const ERRORES_DEL_DIA = {
-  varias: 'Ese día hay más de una reunión que coincide. El sistema ya le mostró la lista y le preguntó cuál (tú no la ves): no repitas la pregunta. Cuando diga la hora, vuelve a llamar con fecha_actual y hora_actual.',
-  ninguna: 'No hay reuniones con hora ese día en la agenda de Google del negocio. El sistema ya se lo dijo a la persona.',
-  ningunaQueCoincida: 'No encontré una reunión a esa hora ese día. El sistema ya le mostró las que hay (tú no las ves): pregúntale cuál es.',
-  sinLeer: 'No se pudo leer la agenda de ese día y el sistema ya se lo dijo a la persona: no se propuso nada.',
+  varias: `Ese día hay más de una reunión que coincide. El sistema le muestra la lista ${DEBAJO}, y le pregunta cuál (tú no la ves): no repitas la pregunta. Cuando diga la hora, vuelve a llamar con fecha_actual y hora_actual. ${NI_ARRIBA}`,
+  ninguna: `No hay reuniones con hora ese día en la agenda de Google del negocio. El sistema se lo dice a la persona ${DEBAJO}.`,
+  ningunaQueCoincida: `No encontré una reunión a esa hora ese día. El sistema le muestra las que hay ${DEBAJO} (tú no las ves): pregúntale cuál es. ${NI_ARRIBA}`,
+  sinLeer: `No se pudo leer la agenda de ese día y el sistema se lo dice a la persona ${DEBAJO}: no se propuso nada.`,
 } as const;
 
 const VERBO: Record<AccionSobreReunion, { inf: string; part: string }> = {
