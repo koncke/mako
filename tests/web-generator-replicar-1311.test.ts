@@ -292,7 +292,7 @@ test('14. el nombre es el de la oferta (el origen queda en config), y el texto d
 });
 
 test('15. el fondo de cada sección como el de su parte de la original', () => {
-  const disp = disposicionPorSeccion([[0], [1]], [{ titulo: 'Hero', fondo: '#ffffff' }, { titulo: 'Quién es', fondo: '#faf7ee', fotos: 1 }]);
+  const disp = disposicionPorSeccion([[0], [1]], [{ fondo: '#ffffff' }, { fondo: '#faf7ee', fotos: 1 }]);
   assert.equal(disp[1]?.fondo, '#faf7ee');
   const quien = conFondoDeLaOriginal(tarjetaCon({ fondo: 'tema' }), disp[1]?.fondo, '#ffffff');
   assert.equal(quien.cambiada, true);
@@ -325,12 +325,13 @@ test('16. el titular y los títulos con su tamaño, cada uno con su escala', () 
   const tema = temaDeEstilo(e, 'https://x.com/')!;
   assert.deepEqual(tema.cambios.escala, { titulos: 1.22, titular: 0.7, subtitulos: 0.73 });
   const resuelto = sanearTemaPropio(tema)!;
-  assert.equal(resuelto.cambios.escala?.titular, 0.7, 'el saneo del tema la conserva');
+  const escalaDe = (t: { cambios: { escala?: unknown } }) => (t.cambios.escala ?? {}) as { titular?: number; subtitulos?: number };
+  assert.equal(escalaDe(resuelto).titular, 0.7, 'el saneo del tema la conserva');
   // El CSS: el h1 grande usa SU escala; sin ella, la de los títulos (ningún tema de antes cambia).
   assert.match(CSS_CONTENIDO, /\.gm-doc h1\.gm-titulo ?\{ font-size: calc\(5em \* var\(--gm-escala-titular, var\(--gm-escala-titulos, 1\)\)/);
   const vars = varsDeTema(temaPorId('pewter'));
   assert.equal(vars['--gm-escala-titular'], vars['--gm-escala-titulos'], 'un tema sin titular: la de los títulos');
   assert.equal(vars['--gm-escala-subtitulos'], vars['--gm-escala-titulos'], 'ni subtítulos: la de los títulos');
   assert.match(CSS_CONTENIDO, /\.gm-doc h3 ?\{ font-size: calc\(1\.45em \* var\(--gm-escala-subtitulos, var\(--gm-escala-titulos, 1\)\)/);
-  assert.equal(sanearTemaPropio(tema)!.cambios.escala?.subtitulos, 0.73);
+  assert.equal(escalaDe(sanearTemaPropio(tema)!).subtitulos, 0.73);
 });
