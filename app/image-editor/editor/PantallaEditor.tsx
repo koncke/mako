@@ -33,7 +33,7 @@ import { crearAdaptadorNube } from '../mako/adaptadorNube';
 import { mudarLocales } from '../mako/mudanza';
 import { crearDiseno, leerDiseno } from '../mako/nube';
 import { PanelMakoIA } from '../mako/chat/PanelMakoIA';
-import { RecortarAlAbrir, prenderQuitarFondo } from '../mako/quitar-fondo';
+import { prenderQuitarFondo } from '../mako/quitar-fondo';
 import { RUTA_CREAR, rutaDiseno } from '../ruta';
 import styles from './pantalla.module.css';
 
@@ -179,7 +179,7 @@ export function PantallaEditor({ disenoId, ws, senales = null, ranuraChat = null
               <ChevronLeft size={20} aria-hidden="true" />
             </Link>
           ) : undefined}
-          dentro={<><RecortarAlAbrir />{ranuraChat ? createPortal(<PanelMakoIA />, ranuraChat) : null}</>}
+          dentro={ranuraChat ? createPortal(<PanelMakoIA />, ranuraChat) : null}
         />
       </div>
     </div>

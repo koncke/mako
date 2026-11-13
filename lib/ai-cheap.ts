@@ -1793,14 +1793,21 @@ export type SttOpts = { language?: string; prompt?: string; feature?: string; mo
    * así que vale con datos de clientes), después el Groq o el OpenAI del negocio, y Gemini NUNCA: ni el del negocio ni la red.
    * Medido en el ws10 (Leandro, 28/10): Gemini cortó por tiempo y MaKo contestó sin el audio; Groq lo escuchó en segundos.
    */
-  notaDeVozDelGrupo?: boolean;
-  /**
-   * Una nota de voz CORTA que alguien está esperando (la caja de un chat, un dictado: /api/plan-dictado, 12/11/2026). El Groq del
-   * negocio escucha primero y Gemini queda de respaldo. Medido en producción (ws 9, una nota de 4,5 s): con Gemini primero, de 11 s
-   * a ~105 s con «Enviando…» en pantalla, porque `gemini-flash-latest` se cuelga hasta su plazo de 60 s por cuenta. Lo mismo que
-   * ya se había medido con los grupos (`notaDeVozDelGrupo`), pero acá Gemini no sale: es el respaldo.
-   */
-  notaDeVozCorta?: boolean };
+  notaDeVozDelGrupo?: boolean };
+
+/**
+ * UNA NOTA DE VOZ CORTA ESCUCHA CON GROQ PRIMERO (12/11/2026). Medido en producción (ws 9, /api/plan-dictado, una nota de 4,5 s):
+ * con Gemini primero tardaba de 11 s a ~105 s con «Enviando…» en la caja, y la transcripción salía igual de bien. El tiempo se iba
+ * en Gemini: `gemini-flash-latest` se cuelga hasta el plazo de `sttGemini` (60 s) en cada cuenta antes de llegar a Groq (Whisper,
+ * ~1-2 s). Lo mismo que ya se había medido con los grupos (`notaDeVozDelGrupo`), pero acá Gemini no sale: queda de respaldo.
+ * Se decide por el PESO (una nota de chat pesa decenas de KB; 2 MB de opus son varios minutos): así no cambian ni la llamada de las
+ * rutas (que cuidan tests/doer-falla.test.ts y tests/chat-nota-de-voz.test.ts) ni la cadena del grupo. Un audio largo (una clase,
+ * un anuncio) sigue con Gemini primero, que lo escucha entero.
+ */
+export const NOTA_CORTA_BYTES = 2 * 1024 * 1024;
+/** El orden de escucha de un audio: el de siempre, y con una nota corta Groq adelante (lo demás, en el mismo orden). */
+export const ordenDeEscucha = (stt: readonly ProvName[], bytes: number): ProvName[] =>
+  (bytes > 0 && bytes <= NOTA_CORTA_BYTES ? [...stt.filter((x) => x === 'groq'), ...stt.filter((x) => x !== 'groq')] : [...stt]);
 
 // Gemini manda el audio DENTRO del request (inline_data), así que hay un techo de
 // tamaño. Una nota de voz de WhatsApp pesa kilobytes; un audio largo se va a Whisper.
@@ -2190,10 +2197,11 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   const buf = Buffer.from(base64, 'base64');
   if (!buf.length) return '';
   // Proactivo: los que ya quemaron su cuota de hoy van al final (mismo criterio que el chat).
-  // La nota de voz de un grupo, sin Gemini (`notaDeVozDelGrupo`). Una nota corta que alguien espera, Groq primero (`notaDeVozCorta`).
-  const cascada: ProvName[] = o.notaDeVozCorta ? ['groq', ...CASCADA_STT.filter((x) => x !== 'groq')] : CASCADA_STT;
-  const stt = cascada.filter((x) => !(o.sinGroq && x === 'groq') && !(o.notaDeVozDelGrupo && x === 'gemini'));
-  const orden = await ordenarPorCuota(stt.map(String)).catch(() => stt.map(String));
+  // La nota de voz de un grupo, sin Gemini (`notaDeVozDelGrupo`).
+  const stt = CASCADA_STT.filter((x) => !(o.sinGroq && x === 'groq') && !(o.notaDeVozDelGrupo && x === 'gemini'));
+  // Una nota corta, Groq adelante (`ordenDeEscucha`, arriba: Gemini se colgaba hasta 60 s por cuenta antes de llegar a Groq).
+  const enOrden = ordenDeEscucha(stt, buf.length);
+  const orden = await ordenarPorCuota(enOrden.map(String)).catch(() => enOrden.map(String));
 
   const errores: string[] = [];
   let alguienEscuchó = false; // respondió OK pero sin texto → el audio está vacío, no falló nada

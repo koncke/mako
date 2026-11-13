@@ -68,6 +68,17 @@ no se llamaba en ningún lado y el motor sólo aceptaba un modelo del mismo orig
   desde la cabeza para su cuadro: `replaceSelectedImage` reinicia el encuadre y centra la foto entera, y la persona quedaba chica.
   Si el modelo no carga, la foto queda con su fondo (grande, por la réplica) y pierde la marca: no se reintenta ni traba nada.
 
+⚠️ **El recorte NO es la réplica.** Martín vio la miniatura de Dan Martell replicada así (su foto recortada, grande, sobre el fondo
+de color) y la llamó «increíblemente horrible… no se parece en nada». Una miniatura con persona se REGENERA con la IA de imagen:
+misma pose, misma ropa, el mismo auto atrás (o parecido) y la misma tipografía (docs/hallazgos-carruseles.md → la plancha). El
+recorte queda como herramienta del editor y como respaldo si la IA de imagen no está.
+
+⚠️ **Dónde se monta el recorte** (13/11, la punta en rojo): lo puse al lado del chat en el `dentro` del editor
+(app/image-editor/editor/PantallaEditor.tsx) y cayó tests/image-editor-chat.test.ts 24, que lee ESA línea tal cual. El diagnóstico
+obvio («el test cuida la regla vieja: la portada ya va sin chat») era el equivocado: la portada no tiene editor, y al EDITAR el chat
+sigue en la tarjeta. Ahora lo monta el panel de MaKo (`<RecortarAlAbrir />` en PanelMakoIA.tsx), que ya está adentro del editor y
+no se desmonta al plegar la tarjeta ni en el teléfono (`hidden`); sí se desmonta con la lista de proyectos a la vista.
+
 **Sin hacer:** alojar el modelo nosotros (más rápido y sin depender de Hugging Face) espera el sí de Martín: lo pide el Cerebro.
 
 ## «Replicar» y «Usar plantilla» sin preguntar, y el editor en el teléfono (12/11/2026, segunda vuelta)

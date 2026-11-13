@@ -51,6 +51,7 @@ import { useKitsDeMarca } from '@/app/_chat/kits-de-marca';
 import { kitElegido } from '@/lib/marca/kits';
 import { Dropdown } from '@/app/components/Dropdown';
 import { rutaSeccion } from '@/lib/secciones-negocio';
+import { RecortarAlAbrir } from '../quitar-fondo';
 
 const HILO_SERVER: Hilo = { mensajes: [], corriendo: false };
 const useHilo = (disenoId: string): Hilo => useSyncExternalStore(suscribir, () => leerHilo(disenoId), () => HILO_SERVER);
@@ -288,6 +289,10 @@ export function PanelMakoIA() {
 
   return (
     <div className={styles.panel}>
+      {/* La persona de una miniatura replicada se recorta al abrir (../quitar-fondo.ts). Va acá y no suelta en el `dentro` del
+          editor: esa línea es la del chat en la tarjeta, que cuida tests/image-editor-chat.test.ts (24). La tarjeta del chat no
+          se desmonta al plegarla ni en el teléfono (`hidden`), así que corre igual. */}
+      <RecortarAlAbrir />
       {/* Con su propio aire: el del Ops Center (24 px por lado) dejaba el hilo en 206 px en este panel. */}
       <div ref={hiloRef} className={`co-hilo ${styles.hilo}`} style={{ padding: '8px 4px' }} aria-live="polite">
         <div className="co-hilo__col">

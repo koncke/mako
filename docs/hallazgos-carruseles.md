@@ -95,7 +95,9 @@ MaKo hizo UNA foto de fondo y un titular grande al centro.
 
 **Sin hacer, y por qué (11/11 a la noche):**
 - **Ponerlo a él EN la escena** es la plancha (./plancha.ts: la lámina original sin el texto, con su cara en lugar de la persona,
-  UN cambio por pedido). Está diseñada y sin orquestar. Necesita una IA de imagen:
+  UN cambio por pedido). Está diseñada y sin orquestar. **Es la única réplica que vale con una persona** (12/11, Martín, sobre la
+  miniatura de Dan Martell con su foto recortada encima: «no se parece en nada»; pide la misma pose, la misma ropa, el mismo auto y
+  la misma tipografía, y un estándar «exageradamente más alto»). Necesita una IA de imagen:
   - **Flow**, por el puente: el de ws 9 decía «sin sesión»;
   - o **Gemini con imagen**: las 4 claves de ws 9 no sirven, 2 inválidas (401) y 2 gratis sin cupo para `gemini-2.5-flash-image` (429).
 - **El paisaje parecido** depende de Openverse, que ese día devolvía 504 y se colgaba. Sin escena, el cuadro queda del color de

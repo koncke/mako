@@ -99,6 +99,5 @@ test('6. la transcripción de una nota de chat se anota con su motivo', () => {
   assert.match(leer('app/_components/transcribir-nota.ts'), /if \(para\) fd\.append\('para', para\);/);
   const r = leer('app/api/plan-dictado/route.ts');
   assert.match(r, /const motivo = form\.get\('para'\) === 'chat' \? 'Nota de voz de un chat' : 'Dictar una tarea del plan';/);
-  // 12/11/2026: con `notaDeVozCorta` (Groq primero: de 11 a ~105 s medidos con Gemini primero; tests/stt-red.test.ts).
-  assert.match(r, /transcribirAudio\(base64, file\.type \|\| 'audio\/webm', \{ motivo, pii: true(, notaDeVozCorta: true)? \}\)/, 'sigue siendo un dato de un cliente (`pii`)');
+  assert.match(r, /transcribirAudio\(base64, file\.type \|\| 'audio\/webm', \{ motivo, pii: true \}\)/, 'sigue siendo un dato de un cliente (`pii`)');
 });

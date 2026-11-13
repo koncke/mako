@@ -63,7 +63,11 @@ test('3 · la réplica marca la persona de una miniatura; la de un carrusel, no'
 test('4 · el editor prende el motor y monta el recorte siempre', () => {
   const pantalla = readFileSync(new URL('../app/image-editor/editor/PantallaEditor.tsx', import.meta.url), 'utf8');
   assert.match(pantalla, /useEffect\(\(\) => \{ prenderQuitarFondo\(\); \}, \[\]\)/, '«Quitar fondo» sigue apagado');
-  assert.match(pantalla, /dentro=\{<><RecortarAlAbrir \/>\{ranuraChat \?/, 'el recorte depende de que el chat tenga su ranura');
+  // El chat en la tarjeta, la línea tal cual (tests/image-editor-chat.test.ts, 24): el recorte no se cuelga de ella (13/11/2026,
+  // la punta cayó en rojo por eso) y lo monta el panel de MaKo, que ya está adentro del editor.
+  assert.match(pantalla, /dentro=\{ranuraChat \? createPortal\(<PanelMakoIA \/>, ranuraChat\) : null\}/, 'se tocó la línea del chat en la tarjeta');
+  const panel = readFileSync(new URL('../app/image-editor/mako/chat/PanelMakoIA.tsx', import.meta.url), 'utf8');
+  assert.match(panel, /<div className=\{styles\.panel\}>[\s\S]{0,400}?<RecortarAlAbrir \/>/, 'nadie monta el recorte: la persona queda con fondo');
   const motor = readFileSync(new URL('../app/image-editor/mako/quitar-fondo.ts', import.meta.url), 'utf8');
   assert.match(motor, /editor\.arrange\.rename\(resto\.id, FOTO_RECORTADA\)/, 'la marca no se saca: se reintentaría en cada apertura');
 });
@@ -84,4 +88,5 @@ test('5 · la persona sin fondo se encuadra desde la cabeza al tamaño del cuadr
 //   Q2 la excepción aceptando cualquier `resolve/<algo>`                 → falla el 1 (la rama `main`)
 //   Q3 la réplica sin marcar la persona de la miniatura                  → falla el 3
 //   Q4 PantallaEditor sin `prenderQuitarFondo`                           → falla el 4
+//   Q6 el panel de MaKo sin `<RecortarAlAbrir />` (13/11)                 → falla el 4
 //   Q5 el encuadre centrado en la persona y no desde su cabeza           → falla el 5

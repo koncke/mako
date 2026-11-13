@@ -14,12 +14,16 @@ contra `/api/plan-dictado` (ws 9): 16 s, 11 s y más de 29 s. La transcripción 
 que se había medido el 28/10 con los grupos de WhatsApp (`notaDeVozDelGrupo`), que ya iban con Groq primero; las notas de los chats y
 el dictado no.
 
-**La regla:** una nota CORTA que alguien está esperando (`notaDeVozCorta`, la pide /api/plan-dictado, que es la ruta de todas las
-cajas de chat y del dictado) escucha con Groq primero, y Gemini queda de respaldo (no se saca, como en los grupos). El audio de un
-anuncio o de una clase sigue con la cascada de siempre. Test: tests/stt-red.test.ts.
-⚠️ **Dos tests leen ESE fuente con una expresión exacta** (tests/chat-nota-de-voz.test.ts 6, tests/doer-falla.test.ts 15): sumar
-`notaDeVozCorta` a la llamada y renombrar la cascada los puso en rojo en la punta, aunque lo que cuidan (`pii` en la nota, Gemini
-fuera del grupo) seguía igual. Antes de tocar una línea de `transcribirAudio` o de una ruta de audio, `grep` de esa línea en tests/.
+**La regla:** una nota CORTA (hasta `NOTA_CORTA_BYTES`, 2 MB: varios minutos de opus) escucha con Groq primero y Gemini queda de
+respaldo (no se saca, como en los grupos). Lo decide `transcribirAudio` adentro, por el PESO (`ordenDeEscucha`, lib/ai-cheap.ts),
+así que vale para toda nota que alguien espera sin que la ruta pida nada. El audio de un anuncio o de una clase (más pesado) sigue
+con la cascada de siempre. Test: tests/stt-red.test.ts (roto a propósito: sin usar el orden, cae).
+⚠️ **El arreglo obvio era el equivocado.** El primero sumó un `notaDeVozCorta` a la llamada de /api/plan-dictado y renombró la
+cascada: dos tests que leen ESAS líneas con una expresión exacta cayeron en la punta (tests/chat-nota-de-voz.test.ts 6, que la nota
+siga con `pii`; tests/doer-falla.test.ts 15, que la nota de un GRUPO nunca pase por Gemini). Aflojarles la expresión fue el
+segundo error: el Cerebro lo frenó, «NO cambies los tests: cuidan reglas a propósito». **Un test de guardia no se acomoda al
+cambio: el cambio se acomoda a él.** Antes de tocar una línea de `transcribirAudio` o de una ruta de audio, `grep` de esa línea en
+tests/, y si está, el cambio va en otra línea.
 
 ## No hay caché de prompt: cada llamada del turno de WhatsApp paga sus ~9.900 tokens de entrada enteros (11/11/2026, medido)
 
