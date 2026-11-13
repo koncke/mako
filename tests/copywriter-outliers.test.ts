@@ -347,13 +347,13 @@ test('la tarjeta es de COPY: el texto primero y YouTube en 16:9, no la foto vert
   assert.equal(restoDelTexto({ gancho: 'Change My Mind', texto: 'Change My Mind' }), '', 'un video sin descripción: sólo su título');
   assert.equal(restoDelTexto({ gancho: 'Otro gancho', texto: 'El texto entero.' }), 'El texto entero.');
   const portada = leer('app/copywriter/OutliersCopy.tsx');
-  // El texto adentro del marco con la forma de su red (12/11/2026: YouTube 16:9, reel 9:16, carrusel 4:5); la foto del original
-  // sólo al pasar el cursor (tests/create-outliers-tarjeta.test.ts).
+  // El marco con la forma de su red (12/11/2026: YouTube 16:9, reel 9:16, carrusel 4:5) y el TEXTO legible encima de la portada
+  // (13/11/2026: nunca blanco vacío); al pasar el cursor, el original limpio (tests/create-outliers-tarjeta.test.ts).
   assert.match(portada, /style=\{\{ aspectRatio: ASPECTO_FORMATO\[o\.formato\] \}\}/);
   assert.match(portada, /<button type="button" className=\{oc\.ganchoGrande\} onClick=\{onAbrir\}>\{o\.gancho\}<\/button>/);
   assert.doesNotMatch(portada, /className=\{s\.miniImagen\}/, 'sin la foto vertical de Image');
   const css = leer('app/copywriter/outliers.module.css');
-  assert.match(css, /\.original \{ position: absolute; inset: 0; background: #0d0f13; opacity: 0;/);
+  assert.match(css, /\.portada \{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;/);
 });
 
 test('teléfono: «Mis guiones» y «Crear desde cero» debajo del título, no al final de la fila de formatos (11/11, a 375 no se veían)', () => {

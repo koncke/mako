@@ -52,6 +52,22 @@ Las tres fallas que encontró el banco no se veían en los tests ni leyendo el c
 - **la fila de tipos de Web a 375 estaba centrada y era más ancha que la pantalla**: se cortaba por los dos lados y «Todas»
   quedaba fuera de alcance. Una fila centrada que puede no entrar va en dos renglones, nunca centrada y deslizable.
 
+## Nunca blanco vacío: la portada llena el marco y el texto va encima (13/11/2026)
+
+El Cerebro, mirando el banco: el reel y el YouTube reservaban su alto pero mostraban sólo texto, y quedaba una caja blanca alta
+con el título flotando. La tarjeta de copy cambió de concepto:
+- **con imagen**, la portada del original llena el marco, y el gancho y la transcripción van abajo, en blanco, sobre un panel
+  oscuro que mide lo que ocupa el texto, con un degradé corto arriba;
+- **sin imagen**, el marco toma un fondo oscuro con el color de su red y la transcripción lo llena;
+- **al pasar el cursor**, el texto se va y queda el original limpio.
+
+⚠️ El primer intento usaba un degradé de todo el alto. En un carrusel, el título propio de la lámina se mezclaba con el gancho y
+quedaban dos títulos encimados: el panel tiene que medir lo que mide el texto.
+
+⚠️ **Lo que «se veía cortado» al pasar el cursor no era la tarjeta.** El banco dibujaba portadas inventadas con los primeros 18
+caracteres del gancho («Cobrar mejor no»), y en la captura parecía un título cortado de la interfaz. Los datos inventados de un
+banco no llevan texto que se pueda confundir con la interfaz: ahora las portadas son una escena sin letras.
+
 ## Sin hacer
 
 - La portada de Video (`app/video-editor/OutliersVideo.tsx`, hoy sólo en el teléfono y en `?ver=outliers`) conserva su párrafo
