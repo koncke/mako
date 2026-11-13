@@ -105,16 +105,34 @@ async function vaALaCola(ws: number, quien: PersonaDelGrupo, f: FilaGrupo, citad
   return true;
 }
 
-/** El autollamado: el turno corre en otra invocación, sin la sesión de quien escribió. Si falla, el mensaje no se pierde: lo levanta `doer-flush`. */
-async function dispararTurno(ws: number, id: number): Promise<void> {
+/**
+ * ¿PUEDE SER UN COMPROBANTE? (13/11/2026) Una foto o un PDF de quien administra, en el grupo de una agencia con la mensualidad prendida: en WhatsApp se lee ANTES de la cola
+ * (lib/mako-doer-in.ts, `comprobanteDeLaMensualidad`) y en la app no se leía nunca. Juan Francisco mandó así el de Nico Sellers el 9 y el 11/11. Sin poder leer el libro, no: la foto sigue como
+ * siempre. Es una lectura de la plataforma, sin la sesión; el import es tardío para que la ruta no cargue el cobro de las agencias en cada mensaje.
+ */
+async function puedeSerComprobante(ws: number, quien: PersonaDelGrupo, f: FilaGrupo, soloClave: boolean): Promise<boolean> {
+  if (quien.invitado || soloClave || !tieneMediaLaFila(f)) return false;
+  try {
+    const { hayQueLeerComprobante } = await import('@/lib/agencia-mes-comprobante');
+    return await hayQueLeerComprobante(ws);
+  } catch { return false; }
+}
+
+/**
+ * El autollamado: el turno corre en otra invocación, sin la sesión de quien escribió. Si falla, el mensaje no se pierde: lo levanta `doer-flush`. `comprobante`: el mensaje NO está en la cola y el
+ * turno lo lee primero como comprobante (`paraMaKo` y `sigue` le dicen qué hacer si no lo era). false: no llegó.
+ */
+async function dispararTurno(ws: number, id: number, comprobante?: { paraMaKo: boolean; sigue: boolean }): Promise<boolean> {
   try {
     const r = await fetch(`${APP_BASE_URL}/api/cron/grupo-turno`, {
       method: 'POST', headers: { authorization: `Bearer ${process.env.CRON_SECRET ?? ''}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ ws, id }), signal: AbortSignal.timeout(5000),
+      body: JSON.stringify({ ws, id, ...(comprobante ? { comprobante: true, ...comprobante } : {}) }), signal: AbortSignal.timeout(5000),
     });
     if (!r.ok) console.warn(`[grupos] ws${ws}: el autollamado del turno dio ${r.status}; lo levanta doer-flush`);
+    return r.ok;
   } catch (e) {
     console.warn(`[grupos] ws${ws}: el autollamado del turno falló; lo levanta doer-flush: ${e instanceof Error ? e.message : String(e)}`);
+    return false;
   }
 }
 
@@ -179,16 +197,22 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // A la COLA antes de responder (es lo durable: si la función muere, la levanta el cron). Sin poder leer la clave, la fila queda y no se encola: otra clave sería otra cola, otro candado y otras
   // pendientes de un negocio que sí tiene grupo.
   let encolado = false;
-  if (await vaALaCola(ws, quien, fila, citada, soloClave)) {
+  const paraMaKo = await vaALaCola(ws, quien, fila, citada, soloClave);
+  // UN POSIBLE COMPROBANTE no entra a la cola acá: lo lee el turno primero (`puedeSerComprobante`). Si el autollamado no llega y era para MaKo, entra a la cola igual y lo levanta doer-flush.
+  const comprobante = await puedeSerComprobante(ws, quien, fila, soloClave);
+  const aLaCola = async (): Promise<boolean> => {
     const clave = await claveDeConversacion(ws).catch((e) => { console.error(`[grupos] ws${ws}: no pude leer la clave del grupo: ${e instanceof Error ? e.message : String(e)}`); return null; });
-    if (clave) {
-      const msg = msgDeFila(fila, { clave, email: quien.email, letra: quien.letra, nombre: fila.autor_nombre, citada });
-      encolado = await runWithWorkspace(ws, () => encolar(clave, { waId: msg.key.id, texto: fila.texto, tieneMedia: tieneMediaLaFila(fila), tieneAudio: tieneAudioLaFila(fila), payload: msg }));
-    }
-  }
+    if (!clave) return false;
+    const msg = msgDeFila(fila, { clave, email: quien.email, letra: quien.letra, nombre: fila.autor_nombre, citada });
+    return runWithWorkspace(ws, () => encolar(clave, { waId: msg.key.id, texto: fila.texto, tieneMedia: tieneMediaLaFila(fila), tieneAudio: tieneAudioLaFila(fila), payload: msg }));
+  };
+  if (paraMaKo && !comprobante) encolado = await aLaCola();
   after(async () => {
     // `sigue`: vienen más archivos de este mismo envío, y la respuesta es por todos. Se dispara con el último; si no llega, lo levanta el cron. A la vez que el push: uno que tarda no le demora el turno a MaKo.
-    await Promise.all([avisarMiembros(ws, fila), encolado && !pedido.sigue ? dispararTurno(ws, Number(fila.id)) : null]);
+    const turno = comprobante
+      ? dispararTurno(ws, Number(fila.id), { paraMaKo, sigue: pedido.sigue }).then(async (llego) => { if (!llego && paraMaKo) await aLaCola(); })
+      : encolado && !pedido.sigue ? dispararTurno(ws, Number(fila.id)) : null;
+    await Promise.all([avisarMiembros(ws, fila), turno]);
   });
   return NextResponse.json({ ok: true, mensaje });
 }

@@ -8,13 +8,11 @@
 
 import type { Metadata } from 'next';
 import { ComparacionesSitio } from '../_sitio/Comparaciones';
-import { nAppsQueReemplaza } from '../_sitio/datos';
 
-const n = nAppsQueReemplaza();
 
 export const metadata: Metadata = {
-  title: `MaKo · Comparaciones: una sola app en lugar de ${n}`,
-  description: `MaKo contra las ${n} apps que reemplaza, trabajo por trabajo: dashboards, chats, cursos, páginas de venta, anuncios, video, imágenes y textos.`,
+  title: 'MaKo · Comparaciones: una sola app en lugar de muchas',
+  description: `MaKo contra las apps que reemplaza, trabajo por trabajo: dashboards, chats, cursos, páginas de venta, anuncios, video, imágenes y textos.`,
   robots: { index: false, follow: false },
 };
 

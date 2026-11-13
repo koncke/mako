@@ -11,9 +11,12 @@ import type { Asesor } from '@/lib/asesores/catalogo';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import type { SesionChat } from '@/lib/mako-turno-app-reglas';
 
-/** Lo que dice el chat vacío. No se guarda: es la portada. Es MaKo con sus marcos, nunca la persona. */
-export const saludoDelReferente = (a: Pick<Asesor, 'completo' | 'curso'>): string =>
-  `Te ayudo con lo que enseña ${a.completo} en «${a.curso}», llevado a tu negocio. ¿Qué quieres resolver?`;
+/**
+ * Lo que dice el chat vacío. No se guarda: es la portada. Es MaKo con sus marcos, nunca la persona. Sin el nombre del curso
+ * (Martín, 13/11/2026: «no quiero que se mencione en ningún lado que es de su curso»).
+ */
+export const saludoDelReferente = (a: Pick<Asesor, 'completo'>): string =>
+  `Te ayudo con el método de ${a.completo}, llevado a tu negocio. ¿Qué quieres resolver?`;
 
 export function useChatDelReferente(r: Asesor, caja: RefObject<HTMLTextAreaElement | null>) {
   const tab = tabDeReferente(r.id);

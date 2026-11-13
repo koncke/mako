@@ -65,6 +65,21 @@ export const STACK_QUE_REEMPLAZA: readonly TrabajoQueReemplaza[] = [
     apps: [app('Notion', 'notion'), app('Motion (tareas)', 'usemotion'), app('ClickUp', 'clickup'), app('Asana', 'asana'), app('Trello', 'trello')] },
 ];
 
+/**
+ * El ahorro de la portada (Martín, 13/11/2026: «haz un pequeño cálculo de cuántos estarían ahorrando, que sea realista… no de las 54,
+ * porque nadie estaría pagando las 54»). UN stack típico de quien vende High Ticket, una app por trabajo, sólo trabajos que MaKo Pro
+ * hace sin cobrar aparte (lib/planes-comparacion.ts: CRM, chats y agente en todos los planes; los editores de imagen y video, desde
+ * Pro). Afuera: Skool (Classroom no está en los planes), HeyGen (la IA de AI Avatar la paga cada negocio) y lo que no es de todos.
+ * El precio: el de lista mensual en dólares, pagando mes a mes, buscado el 13/11/2026 (las fuentes, en `fuente`). Si cambia, se
+ * cambia acá: la portada hace la cuenta.
+ */
+export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; plan: string; precioUsd: number; fuente: string }[] = [
+  { app: app('GoHighLevel', 'gohighlevel'), trabajo: 'CRM y embudos', plan: 'Starter', precioUsd: 97, fuente: 'https://www.gohighlevel.com/pricing' },
+  { app: app('ManyChat', 'manychat'), trabajo: 'Respuestas automáticas', plan: 'Pro', precioUsd: 39, fuente: 'https://help.manychat.com/hc/en-us/articles/25800228332572' },
+  { app: app('Canva', 'canva'), trabajo: 'Diseño', plan: 'Pro', precioUsd: 18, fuente: 'https://www.canva.com/pricing/' },
+  { app: app('CapCut', 'capcut'), trabajo: 'Edición de video', plan: 'Pro', precioUsd: 19.99, fuente: 'https://www.capcut.com/pricing' },
+];
+
 /** Todas, una vez cada una, en el orden de la lista: la tira de la portada. */
 export function appsQueReemplaza(): AppQueReemplaza[] {
   const vistas = new Set<string>();

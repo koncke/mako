@@ -48,7 +48,7 @@ export function ElegirReferente({ titulo, elegido, onElegir, onCerrar }: {
         <div className="co-elegir__retrato">
           <Muneco titulo={a?.nombre ?? 'MaKo'} animo="despierto" size={128} aspecto={a ? aspectoDeReferente(a.id) : ASPECTO_MAKO} />
           <span className="co-elegir__nombre">{a?.nombre ?? 'MaKo'}</span>
-          {a && <small className="co-elegir__inspirado">{inspiradoEn(a)}<br />Con lo que enseña en {a.curso}</small>}
+          {a && <small className="co-elegir__inspirado">{inspiradoEn(a)}</small>}
         </div>
       </div>
     </Modal>

@@ -153,6 +153,37 @@ graban con la app de verdad: con datos de prueba (el ws 3), nunca con los de un 
 | Portada de hoy (`/`, documento de Web Generator) | 100ads.ai |
 | **Industrias** (`/vsl/coaches`, `/vsl/infoproductores`, `/vsl/inmobiliarias`, documentos del 23/10) | **Sin referencia escrita en el código**: hay que rehacerlas copiando una (y publicarlas es con el permiso de Martín) |
 
+## Séptima vuelta (12/11/2026, noche): outliers verdaderos, nada dibujado
+
+Martín: «No necesitas grabar las pantallas… basta con una screenshot o una pequeña animación… Haz tú la animación de hacer un
+pequeño scroll por los outliers de carruseles, selecciona uno y haz que se duplique… Lo mismo con copywriting… AI Avatar… está
+horrible». Y después: «tenés que mostrar los outliers verdaderos, no inventarte imágenes… tenés prohibido hacerlo».
+
+| Fila | Qué muestra ahora | De dónde sale |
+|---|---|---|
+| Spy | La película con 6 carpetas por formato, centrada | `PeliculaDeOrden` real, `public/vsl-assets/sitio/spy.webm` |
+| Replicar | La landing de Hormozi construyéndose elemento por elemento, como el reel | `public/vsl-assets/sitio/replicar.webm` |
+| Carruseles | La grilla REAL de outliers (la biblioteca de producción), baja, vuelve, elige @lifeofarjav, la tarjeta se duplica y el modal real arma «tu versión» (la réplica real de «MaKo Acelerador Blueprint») | `carruseles.webm`; las lecturas (sólo lectura) y el grabador en el scratchpad: `banco-car/leer-biblioteca.mts`, `leer-replicas.mts`, `banco/grabar-carruseles.mjs` |
+| AI Avatar | El personaje de Martín y la misma persona en 3 escenas | `public/vsl-assets/sitio/avatar/` (tomas de `C:/dev/reel-mentores/omni/`) |
+| Tableros | Los 13 tableros de la app, de a uno, con su entrada | `public/vsl-assets/sitio/tableros/` (capturas de `docs/diseno/mockups-dashboard/<id>/captura/`) |
+| Copywriting | La portada real con los outliers del espacio de MaKo → «Reels» → @den.borgg (70,9×) y su guion transcripto → «Replicar» → la página que MaKo escribió de verdad, renglón por renglón, y su mensaje real en el chat | `copywriting.webm`; scratchpad `banco-copy/` (entrada, grabador, `leer-hilo.mts`) y `banco-car/leer-copy.mts` |
+
+## Octava vuelta (13/11/2026, madrugada): todo desde el código, Hormozi en todos los ejemplos
+
+| Pedido de Martín | Dónde quedó |
+|---|---|
+| Títulos y bajadas (más largas, de cada landing); «Ver cómo funciona» azul | `TARJETAS_PORTADA` (`app/vsl/_sitio/datos.ts`), `.s-zz-a` |
+| Sin «de su curso» en ningún lado | El sitio, la landing de Copywriting, el saludo del chat de un referente (`saludoDelReferente`) y el selector |
+| Replicar: el fondo blanco desde el principio y el recuadro que crece | `banco/replica-reel-blanco.tsx` (scratchpad) → `replicar.webm` |
+| Carruseles sin botones de MaKo ni su foto | `banco/salida/carruseles-simple.html` → `carruseles.webm` (la copia abre sus 6 láminas) |
+| Referentes: clic en Hormozi y su chat pregunta | `banco/salida/referentes.html` → `referentes.webm` (el saludo real) |
+| AI Avatar: dos videos completos con «Foto original» | `VIDEOS_AVATAR`: el reel de Martín (`montaje/REEL-v7.mp4`) y el anuncio de Mauricio del auto (`TERCER VIDEO DE IA`); el del QUINTO había salido mal |
+| Tableros: carrusel con la entrada de cada uno | `Tableros()` + `SCRIPT_TABLEROS` (`Portada.tsx`); los videos, del banco `banco-tab` (scratchpad) |
+| Sin «Producto»; prueba gratis en cada función | `ProductoSitio` / `FilaFuncion` (`.s-zz-acc`) |
+| Apps arriba; «MaKo reemplaza apps» sin el 54 y con el ahorro | `TiraSitio` debajo del hero; `TiraReemplaza` + `Ahorro` con `STACK_TIPICO` (`reemplaza.ts`) |
+| El caso de Mauricio rediseñado («MaKo le ayudó») | `CasoSitio` (`.s-exito`): la franja que corre, el video, sus meses, antes / con MaKo, las fotos |
+| CRM moviendo tarjetas | `banco-crm` (scratchpad) → `crm.webm` |
+
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
 `PRUEBA_GRATIS_PRENDIDA = true` (`lib/planes-mako.ts`): `/planes` dice «7 días gratis» y cobra el día 8 con la tarjeta,
@@ -189,6 +220,16 @@ sitio (`BarraGlobal` en `app/vsl/_sitio/Barra.tsx`), fija al bajar, y la copiada
   producción en el mismo orden y al mismo ancho. Los scripts de esa receta quedaron en el scratchpad de la sesión: la receta es ésta.
 
 ## Lo pendiente
+
+- **Para la próxima vuelta (13/11):** el scrapeo de grupos (TraerDeGrupoWA + ExtraccionModal, con la extensión simulada), Automations
+  (el lienzo), Classroom, el editor de video con sus agentes, una propuesta para Marketing CoPilot (hay banco en
+  `scripts/banco-copilot`), Spy con Hormozi (link → sus piezas por formato → carpetas → el gráfico `GraficoSpy` con su entrada;
+  en ws 9 Alex Hormozi tiene sólo YouTube y anuncios: falta su Instagram en Spy) y Copywriting con un reel de Hormozi replicado de
+  verdad (el guion «Como @AlexHormozi…» de ws 9 está vacío). La réplica de carruseles espera al chat de Image (relevado el 13/11).
+
+- **Carruseles otra vez** cuando se despliegue `punta/probar-image`: la réplica real corta «Tu Acelera/dor».
+- **Las pantallas que piden sesión** (CRM, Chats, Automations, scrapeo de grupos, Classroom): Martín inicia sesión en el
+  navegador de la app con el espacio de prueba (ws 3) y se capturan.
 
 - Desplegar main (textos del 12/11, sitio estilo beehiiv, fotos de AI Avatar, el CTA, el sol y la luna, el VSL).
 - **Las páginas que NO son código y siguen ofreciendo la llamada:** la portada de hoy (`/`, un documento de Web Generator con
