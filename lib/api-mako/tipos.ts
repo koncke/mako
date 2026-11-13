@@ -367,8 +367,11 @@ export type Ctx = {
    *  propuso en ESTE canal — salvo la bandeja de la app, que ve todo el workspace. */
   canalKey: string;
   alcance: Alcance;
-  /** admin del workspace o miembro (closer/setter). http y whatsapp son siempre admin. */
+  /** admin del workspace o miembro (closer/setter). http y whatsapp son siempre admin, salvo el equipo en el grupo de la app (`rolWs`). */
   rol: Rol;
+  /** Un miembro del EQUIPO (closer, setter) que le habla a MaKo en el grupo de la app (13/11/2026): la vista se limita a lo que su rol ve en
+   *  pantalla (lib/api-mako/vista.ts, `soloTabs`) y `rol` cuenta como 'miembro' aunque diga otra cosa. */
+  rolWs?: 'closer' | 'setter';
   /** true solo desde la bandeja /mako/pendientes: una persona logueada confirmando
    *  cualquier pendiente del workspace, venga del canal que venga. */
   bandeja?: true;

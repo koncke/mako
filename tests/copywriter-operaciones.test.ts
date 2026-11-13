@@ -31,16 +31,17 @@ function guionPas(): JsonNodo {
 
 test('el saneo descarta lo que no es del catálogo, lo que apunta a la nada y lo vacío, con su motivo', () => {
   const doc = guionPas();
-  const [h1, p1] = bids(doc);
+  const [, p1] = bids(doc);
   const r = sanearOperaciones([
     { op: 'borrar_todo' },
     { op: 'reemplazar_bloque', bid: 'bnoexiste1', bloques: [{ tipo: 'texto', texto: 'x' }] },
     { op: 'escribir_seccion', seccion: 'gancho', bloques: [{ tipo: 'texto', texto: 'Nuevo gancho' }] },
     { op: 'escribir_seccion', seccion: 'CTA', bloques: [{ tipo: 'nada', texto: 'x' }] },
     { op: 'insertar_despues', bid: p1, bloques: [{ tipo: 'vinetas', items: ['a', '', 'b'] }] },
-    { op: 'borrar_bloque', bid: h1 },
+    // Un párrafo (el TÍTULO de una sección ya no se borra: tests/copywriter.test.ts, 13/11/2026).
+    { op: 'borrar_bloque', bid: p1 },
     { op: 'propiedades', angulo: 'inventado', estructura: 'pas', duracion: 30 },
-    { op: 'propiedades', angulo: 'inventado' },
+    { op: 'propiedades', angulo: 'inventado', tipo: 'podcast' },
     { op: 'titulo', texto: '  Un   título  ' },
   ], doc, cat);
   assert.deepEqual(r.ops.map((o) => o.op), ['escribir_seccion', 'insertar_despues', 'borrar_bloque', 'propiedades', 'titulo']);
@@ -52,6 +53,13 @@ test('el saneo descarta lo que no es del catálogo, lo que apunta a la nada y lo
   assert.deepEqual(r.ops[4], { op: 'titulo', texto: 'Un título' });
   assert.equal(r.descartadas.length, 4);
   assert.ok(r.descartadas.every((d) => d.motivo.length > 5), 'cada descarte dice por qué');
+});
+
+test('el TIPO entra por propiedades y llega a la página (13/11/2026: un reel en una «Página en blanco» quedaba «Página»)', () => {
+  const doc = docDeEstructura(['GANCHO']);
+  const r = sanearOperaciones([{ op: 'propiedades', tipo: 'reel' }], doc, cat);
+  assert.deepEqual(r.ops, [{ op: 'propiedades', tipo: 'reel' }]);
+  assert.deepEqual(aplicarTodo(doc, r.ops).props, { tipo: 'reel' });
 });
 
 test('escribir una sección reemplaza SU cuerpo y no toca las otras', () => {

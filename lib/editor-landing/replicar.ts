@@ -89,12 +89,12 @@ import { colorDeRelleno, temaPorId } from './temas';
 import { AVISO_SCROLL, animacionesDeReplica, conAnimaciones, scrollEnCss, scrollEnHtml } from './replicar-animaciones';
 import {
   ERROR_WEB_PARCIAL, PEDIDO_SIN_ESTRUCTURA, TOPE_OFERTA, formatoConPartes, instruccionDePartes, listaDePartes, marcaDeUrl, mencionesDe,
-  nombreDeCopia, partesDePedido, recetaDePartes, enlacesDeLaOriginal, sinDestinoDeBoton, sinEnlacesALaOriginal, type PartesReplica,
+  nombreDeCopia, partesDePedido, recetaDePartes, enlacesDeLaOriginal, sinDestinoDeBoton, type PartesReplica,
   adaptacionSinNingunaSeccion, errorDeAdaptacion, nombresDeLaReferencia, textoDeOferta,
 } from './replicar-partes';
 import {
-  acomodoDeSeccion, anchoDeColumna, conAnchoDeColumna, conBotonEnCadaSeccion, conHuecoDeFoto, conLadoDeFoto, disposicionPorSeccion,
-  testimoniosParaCompletar, PARTES_BOTON_REPETIDO, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
+  acomodoDeSeccion, anchoDeColumna, cerrarSecciones, conAnchoDeColumna, conHuecoDeFoto, conLadoDeFoto, disposicionPorSeccion,
+  testimoniosParaCompletar, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
   type DisposicionDeSeccion,
 } from './replicar-estructura';
 import { VARIANTES_CON_IMAGEN } from './ia-bloques';
@@ -515,14 +515,10 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     }
     return d.tarjeta;
   });
-  const sinEnlacesAjenos = partes.texto ? tarjetasCrudas : tarjetasCrudas.map((t) => {
-    const r = sinEnlacesALaOriginal(t, url, destinosOriginal);
-    enlacesAjenos += r.cambiados;
-    return r.tarjeta;
-  });
-  // Si la original repite su botón principal (en 4 partes o más), cada sección de la réplica cierra con el suyo (13/11/2026).
-  const conBotones = (estiloLeido?.botonEnPartes ?? 0) >= PARTES_BOTON_REPETIDO ? conBotonEnCadaSeccion(sinEnlacesAjenos) : null;
-  const tarjetas = conBotones ? conBotones.tarjetas : sinEnlacesAjenos;
+  // En la adaptada ningún enlace va a la original; y si la original repite su botón, cada sección cierra con el suyo.
+  const cierre = cerrarSecciones(tarjetasCrudas, { literal: partes.texto, url, destinos: destinosOriginal, botonEnPartes: estiloLeido?.botonEnPartes ?? 0 });
+  enlacesAjenos += cierre.enlacesAjenos;
+  const tarjetas = cierre.tarjetas;
   avisar({ fase: 'diseno' });
   // La marca de la original que quedó nombrada en una copia escrita de nuevo: se cuenta y se dice (no se adivina el reemplazo).
   const menciones = partes.texto ? 0 : mencionesDe(tarjetas.map((t) => textoDe(t, ' ')).join(' '), marca);
@@ -566,7 +562,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const fidelidad = moldes ? `, fidelidad: ${lineaDeFidelidad(fidelidadDeEstructura(moldes, tarjetas))}` : '';
   const noCopiadas = Math.max(0, intentadas.size - subidas.size);
   const resumenAnim = anim ? `${anim.estilo ?? 'sin estilo'} + ${animadas.propias} propias${anim.avisoScroll ? ', con scroll' : ''}` : 'no';
-  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}, enlaces a la original ${enlacesAjenos}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${datosAjenos.length} cifras, fechas u horas de la original a [DATO], ${frasesIguales} frases iguales y ${frasesReescritas} reescritas` : ''}, ${huecosDeFoto} grillas con el hueco de la foto, ${ladosDeFoto} fotos al costado, ${testimoniosVacios} testimonios para completar, ${conBotones?.sumados ?? 0} botones al final de sección, columna ${anchoColumna ?? 'sin medir'}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
+  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}, enlaces a la original ${enlacesAjenos}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${datosAjenos.length} cifras, fechas u horas de la original a [DATO], ${frasesIguales} frases iguales y ${frasesReescritas} reescritas` : ''}, ${huecosDeFoto} grillas con el hueco de la foto, ${ladosDeFoto} fotos al costado, ${testimoniosVacios} testimonios para completar, ${cierre.botonesSumados} botones al final de sección, columna ${anchoColumna ?? 'sin medir'}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
   const una = terminoTarjeta(receta.config);
   const varias = terminoTarjeta(receta.config, { plural: true });
   const avisos = [

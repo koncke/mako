@@ -26,7 +26,7 @@ LAS HERRAMIENTAS (una por objeto en "operaciones"; ${OPERACIONES_IA.join(', ')})
 - {"op": "insertar_despues", "bid": "<id>" o null, "bloques": [BLOQUES]} → agrega bloques después de ese (null = al principio del guion). Para «haz 3 variantes del CTA»: una lista numerada o tres destacados debajo del CTA, sin borrar el original.
 - {"op": "borrar_bloque", "bid": "<id>"} → saca un bloque.
 - {"op": "titulo", "texto": "..."} → el título de la página (máx 80 caracteres). Úsalo cuando el guion no tiene título o el pedido lo cambia.
-- {"op": "propiedades", "angulo": "<id>", "estructura": "<id>", "duracion": 30} → sólo con ids que estén en la BIBLIOTECA; lo que no cambia, no lo pongas.
+- {"op": "propiedades", "tipo": "reel", "angulo": "<id>", "estructura": "<id>", "duracion": 30} → sólo con ids que estén en la BIBLIOTECA; lo que no cambia, no lo pongas. El tipo (ad, reel, story, youtube, vsl, email, post) va cuando la página es de tipo «pagina» y escribes una pieza de otro tipo.
 
 LOS BLOQUES (tipos: ${TIPOS_BLOQUE_IA.join(', ')}):
 - {"tipo": "texto", "texto": "..."} · {"tipo": "titulo2", "texto": "..."} (también titulo1, titulo3) · {"tipo": "cita", "texto": "..."}

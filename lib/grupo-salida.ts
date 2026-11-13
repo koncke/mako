@@ -25,7 +25,15 @@ export type SalidaDelGrupo = {
   hayInvitado: boolean;
   /** Hay una sola persona en el grupo: lo que escribe es para MaKo aunque no lo nombre. */
   unaPersona?: boolean;
+  /** El lote es de UN miembro del equipo (closer, setter: 13/11/2026), con su email. El turno corre con lo que su rol ve (lib/mako-doer-in.ts). */
+  miembroDelEquipo?: { rol: 'closer' | 'setter'; email: string } | null;
 };
+
+/**
+ * LA CLAVE DE LO SUYO, para un miembro del EQUIPO en el grupo (13/11/2026): su memoria con MaKo, sus propuestas pendientes y lo último que le mostró. Así su «sí»
+ * no confirma lo que MaKo le propuso al dueño, y lo que se habló con el dueño no viaja en su turno. La cola, el candado y la salida siguen siendo del grupo (`clave`).
+ */
+export const claveDelMiembro = (clave: string, email: string): string => `${clave}#equipo:${email.trim().toLowerCase()}`;
 
 const store = new AsyncLocalStorage<SalidaDelGrupo>();
 export const salidaDelGrupo = (): SalidaDelGrupo | null => store.getStore() ?? null;

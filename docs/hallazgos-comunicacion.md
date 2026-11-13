@@ -135,10 +135,31 @@ negocio», para no decir ahí el nombre de otro cliente.
 **Regla:** algo nuevo que se engancha ANTES del turno en `atenderEntranteDoer` (WhatsApp) no llega solo a la app. Se mira también
 la ruta del grupo de la app y /api/cron/grupo-turno, y se prueba con un mensaje que nace en la app.
 
+**El equipo del negocio en su grupo (mismo día, decisión del Cerebro).** Hasta acá al grupo entraban sólo quienes administran; un closer o un
+setter, únicamente invitado (sin herramientas ni datos), y lo fijaba tests/grupos-ops-puerta.test.ts («el grupo trae plata»). El Cerebro: «un
+closer o un setter que hoy le habla a MaKo por WhatsApp no puede quedarse afuera en la app… nunca más de lo que su rol ve en pantalla». Ahora
+entran por su rol (`juzgarAcceso` → tipo `equipo`, letra `c`/`s`) y el «nunca más» se hace cumplir en TRES lugares, cada uno con su test
+(tests/equipo-en-el-grupo.test.ts):
+- **El hilo:** sin el recibo ni los avisos a la agencia (`laVeElEquipo`, lo mismo que se le saca a un invitado), en la lista, en cada
+  mensaje, en el contador y en el push. Lo anterior de WhatsApp, no: no está filtrado.
+- **Las herramientas:** la vista de la API de MaKo (`vistaDe` con `ctx.rolWs` → `soloTabs`) deja sólo las operaciones con una pestaña que
+  ese rol ve en la app, con la MISMA regla de la barra (`puedeVerKey`), más confirmar, cancelar y los tickets; nada `rolMinimo: admin` y
+  nada que lea el Google Calendar del dueño (`datosDeGoogle`: `agenda_del_dia` está en la pestaña CRM y le mostraba al closer el «Sleep»
+  del dueño). Esa vista la vuelven a mirar la ejecución y la confirmación. Las herramientas de afuera del registro no viajan.
+- **El contexto y la memoria:** el turno corre recortado como el de un invitado (sin perfil, objetivos, tickets, la plataforma ni la charla
+  del dueño), pero su memoria, sus pendientes y lo que le mostró viven en una clave PROPIA (`claveDelMiembro`, `jid#equipo:<email>`): su «sí»
+  no confirma lo que MaKo le propuso al dueño. La cola, el candado y la salida siguen siendo del grupo, y un lote se parte por persona.
+
+**Lo que esto NO cambia, y hay que saberlo:** el hilo es UNO. Lo que el dueño le pregunta a MaKo y lo que MaKo le contesta (por ejemplo
+cuánto facturó) lo ve el closer en el hilo, igual que en el grupo de WhatsApp. Lo que se le saca son los avisos con plata, no la charla. Si
+Martín lo quiere distinto, es una decisión de producto (marcar cada respuesta de MaKo con el rol de quien preguntó), no un arreglo.
+
 **Lo que quedó SIN hacer (y dónde vive):**
+- **El chat de MaKo de la app (Ops Center) de un closer** sigue con TODAS las pestañas de la capa como 'miembro' (lib/mako-turno-app.ts no
+  pasa `rolWs`): ahí sí ve, por ejemplo, el Email. Cerrarlo es sumarle `rolWs` a su contexto; no se tocó porque cambia lo que hoy usan.
 - **Quién firma:** Joan y Juan Francisco escriben en WhatsApp como dos personas y en la app comparten UNA cuenta (Código, usuario 10):
-  los dos firman «Codigo Inmobiliario» y MaKo no los distingue. Charly (ws15) no tiene cuenta. Se arregla invitándolos desde el grupo
-  (`invitarAlGrupo`), no con código.
+  los dos firman «Codigo Inmobiliario» y MaKo no los distingue. Charly (ws15) no tiene cuenta. Se arregla dándole a cada uno su usuario
+  en Equipo, no con código.
 - **Un archivo que no es foto, PDF ni audio** (un .md, un Excel, un video) que manda MaKo o el equipo queda en el hilo como
   «(un archivo: X)» sin poder bajarlo (`filaDeParte`, lib/grupo-app.ts). Y el cliente no puede mandar uno desde la app
   (`validarAdjuntos`: foto y PDF). En 14 días, 1 caso (a Martín) y 0 de clientes.
@@ -439,6 +460,12 @@ escribí, pedí, recibí) son IGUALES a la primera persona del pasado, y MaKo cu
 **La regla:** al diccionario sólo entran formas que, escritas así, no pueden ser otra cosa (la -ás/-és/-ís del presente, los
 imperativos en -á/-é, los que llevan el pronombre pegado sin tilde). Las mayúsculas («SOS») no se tocan. El test 6 fija los pretéritos
 intactos.
+
+**Y dos tandas al mismo diccionario (13/11/2026, corrida 1228 de `punta/probar-copy` en rojo):** el grupo de la app sumó «agendá»,
+«dejá», «mandá» en main y Copywriting sumó las mismas en su punta. Git las mezcló sin conflicto (líneas distintas) y quedó un objeto con
+claves repetidas: «An object literal cannot have multiple properties with the same name». **Los tests con `tsx` pasan igual**; sólo
+lo ve el `tsc` de la punta, 10 minutos después. Ahora un test cuenta las claves (tests/copywriter.test.ts, «una sola voz»). Y
+Copywriting la usa con `citas: true`: en un guion, lo que va entre «…» lo escribió MaKo, no la persona.
 
 ## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
 

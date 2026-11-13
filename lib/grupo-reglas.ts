@@ -37,8 +37,19 @@ export const tituloParaInvitado = (nombre: string, abrio: boolean): string => (a
 export const textoInvitacionSinCuenta = (quien: string): string =>
   `${quien.trim() || 'Alguien'} te invitó a su grupo de MaKo. Cuando entres a MaKo con este email, lo vas a ver arriba de todo.`;
 
-export type TipoDeAcceso = 'admin' | 'agencia' | 'invitado' | 'soporte';
-export type AccesoJuzgado = { tipo: TipoDeAcceso; administra: boolean; desdeId: number };
+export type TipoDeAcceso = 'admin' | 'agencia' | 'invitado' | 'soporte' | 'equipo';
+/** Un miembro del EQUIPO del negocio que no lo administra (13/11/2026): un closer o un setter. */
+export type RolDelEquipo = 'closer' | 'setter';
+export type AccesoJuzgado = { tipo: TipoDeAcceso; administra: boolean; desdeId: number; rolWs?: RolDelEquipo };
+
+/**
+ * ¿Es del EQUIPO del negocio sin administrarlo? (13/11/2026, el Cerebro, con los grupos de WhatsApp dejados: «un closer o un setter que hoy le
+ * habla a MaKo por WhatsApp no puede quedarse afuera en la app».) Activo y con su rol: closer o setter. Cualquier otro rol, no.
+ */
+export function rolDelEquipo(p: Pick<PersonaLeida, 'rol_ws' | 'estado'>): RolDelEquipo | null {
+  if (p.estado != null && p.estado !== 'activo') return null;
+  return p.rol_ws === 'closer' || p.rol_ws === 'setter' ? p.rol_ws : null;
+}
 /** Lo que hay que saber de la persona, leído de `usuarios` en este pedido. */
 export type PersonaLeida = { id: number; rol?: string | null; rol_ws?: string | null; estado?: string | null; workspace_id?: number | null };
 
@@ -66,19 +77,41 @@ export function juzgarAcceso(e: {
   if (esGlobal) return { tipo: 'soporte', administra: true, desdeId: 0 };
   if (e.negocioPausado) return null;
   if (Number(p.workspace_id) === e.ws && administraActivo(p)) return { tipo: 'admin', administra: true, desdeId: 0 };
+  // SU EQUIPO (13/11/2026): el closer y el setter del negocio entran a su grupo. Ven el hilo sin lo que es de quien administra (`laVeElEquipo`) y MaKo les contesta
+  // con lo que su rol ve en la app (lib/api-mako/vista.ts, `soloTabs`). No administran: no invitan, no acusan insistencias.
+  const deSuEquipo = Number(p.workspace_id) === e.ws ? rolDelEquipo(p) : null;
+  if (deSuEquipo) return { tipo: 'equipo', administra: false, desdeId: 0, rolWs: deSuEquipo };
   // La agencia: se calcula en cada pedido, así que revocar la cartera la saca sola. Closer y setter de la agencia, no.
   if (p.workspace_id != null && administraActivo(p) && (e.agenciasAprobadas ?? []).includes(Number(p.workspace_id))) return { tipo: 'agencia', administra: true, desdeId: 0 };
   if (e.invitacion && Number.isFinite(e.invitacion.desdeId)) return { tipo: 'invitado', administra: false, desdeId: e.invitacion.desdeId };
   return null;
 }
 
-export type LetraGrupo = 'm' | 'i';
-/** `m` (corre con todo) sólo con la prueba positiva; cualquier otra cosa, `i`. */
-export const letraDeAcceso = (a: AccesoJuzgado | null): LetraGrupo => (a && a.tipo !== 'invitado' ? 'm' : 'i');
+/**
+ * La letra con la que corre el turno de quien escribe: `m` (todo), `c` y `s` (lo que ve un closer o un setter en la app: lib/api-mako/vista.ts), `i` (nada).
+ * ⚠️ `c` y `s` también son «menos que todo»: lo que no sea `m` corre recortado (lib/mako-doer-in.ts, `rolDeLaLetra`).
+ */
+export type LetraGrupo = 'm' | 'i' | 'c' | 's';
+/** `m` (corre con todo) sólo con la prueba positiva; el equipo, con la letra de su rol; cualquier otra cosa, `i`. */
+export const letraDeAcceso = (a: AccesoJuzgado | null): LetraGrupo => {
+  if (!a || a.tipo === 'invitado') return 'i';
+  if (a.tipo === 'equipo') return a.rolWs === 'closer' ? 'c' : a.rolWs === 'setter' ? 's' : 'i';
+  return 'm';
+};
+/** El rol del equipo que lleva una letra, o null (todo, o nada). */
+export const rolDeLaLetra = (l: LetraGrupo | null | undefined): RolDelEquipo | null => (l === 'c' ? 'closer' : l === 's' ? 'setter' : null);
+
+/**
+ * ¿Esta fila la ve un miembro del EQUIPO? Lo mismo que se le saca a un invitado: los avisos «a la agencia» y el recibo (plata que el closer y el setter no ven en
+ * su pantalla), desde el principio del hilo.
+ */
+export const laVeElEquipo = (f: Pick<FilaGrupo, 'id' | 'aviso_tipo'>): boolean => laVeUnInvitado(f, 0);
+/** ¿A esta persona se le recorta el hilo? Un invitado (desde que entró) o el equipo. */
+export const veElHiloRecortado = (q: { invitado: boolean; tipo?: TipoDeAcceso }): boolean => q.invitado || q.tipo === 'equipo';
 
 // ── La identidad de la app en el mensaje del doer ─────────────────────────────────────────────────────────────
 
-const PARTICIPANTE = /^(.+)#([mi])@app\.mako$/;
+const PARTICIPANTE = /^(.+)#([mics])@app\.mako$/;
 /**
  * QUIÉN ESCRIBE EN LA APP, en el `participant` del mensaje. Va ahí y no en un campo nuevo porque los dos sintéticos del lote ya lo
  * copian (un campo nuevo se pierde en todo lote: ya pasó con `participant`). Sale de la SESIÓN, nunca del teléfono del perfil, que se
