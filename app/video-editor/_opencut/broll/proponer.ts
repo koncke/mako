@@ -32,9 +32,12 @@ import {
 } from "@/lib/editor-video/broll";
 import { fotosElegidas, orientacionDeLienzo, type FotoBroll, type VideoBroll } from "@/lib/editor-video/broll-pexels";
 import {
+	brollPropio,
 	conPropuestas,
 	idsEnUso,
 	type MedioBroll,
+	type MedioPropio,
+	MOTIVO_PROPIO,
 	PARAM_AUTOR,
 	PARAM_BUSQUEDA,
 	PARAM_FOTO,
@@ -82,6 +85,7 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 			mensaje: r.ok ? [resumenDeBroll(r), r.aviso].filter(Boolean).join(" ") : textoDeBroll(r),
 			error: !r.ok,
 			faltaPexels: r.ok ? r.faltaPexels : false,
+			propios: r.ok ? (r.propios ?? 0) : 0,
 		});
 		return r;
 	};
@@ -108,6 +112,8 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 
 		const avisos: string[] = [];
 		let faltaPexels = false;
+		/** Cuántos B-roll salieron de Multimedia (sin Pexels). */
+		let propios = 0;
 		// Lo pendiente de un tipo se reemplaza sólo si ese tipo se volvió a calcular entero: si Pexels falló, lo que ya
 		// estaba propuesto se queda.
 		let brollRehecho = conBroll;
@@ -211,6 +217,44 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 					}
 				}
 			}
+			// Sin Pexels, lo que la persona YA subió a Multimedia (./pistas.ts → brollPropio): sus videos y fotos que no están
+			// en la línea de tiempo, cada uno una vez, en los huecos de más peso. Sin IA: no hay nada que buscar.
+			if (faltaPexels && huecos.length && objetivo) {
+				const medios: MedioPropio[] = editor.media
+					.getAssets()
+					.filter((a) => (a.type === "video" || a.type === "image") && !a.ephemeral)
+					.map((a) => ({ id: a.id, nombre: a.name, tipo: a.type as "video" | "image", duracion: a.type === "video" ? (a.duration ?? 0) : null, ancho: a.width, alto: a.height }));
+				for (const { hueco, medio: m } of brollPropio({ medios, tracks: base, huecos, objetivo, margen: MARGEN_VIDEO_S })) {
+					const largo = hueco.fin - hueco.inicio;
+					const enLinea = mediaTimeFromSeconds({ seconds: largo });
+					const creado = buildElementFromMedia({
+						mediaId: m.id,
+						mediaType: m.tipo,
+						name: `B-roll: ${m.nombre}`,
+						duration: enLinea,
+						startTime: mediaTimeFromSeconds({ seconds: hueco.inicio }),
+					});
+					const fuenteVideo = m.tipo === "video" ? mediaTimeFromSeconds({ seconds: m.duracion ?? largo }) : null;
+					const fuente = { width: m.ancho ?? lienzo.width, height: m.alto ?? lienzo.height };
+					imagenes.push({
+						...creado,
+						id: generateUUID(),
+						...(fuenteVideo != null ? { sourceDuration: fuenteVideo, trimEnd: Math.max(0, fuenteVideo - enLinea) as MediaTime } : {}),
+						params: {
+							...creado.params,
+							...paramsDeCubrir(cubrirCelda({ fuente, celda: { x: 0, y: 0, ancho: lienzo.width, alto: lienzo.height }, lienzo })),
+							// Encima de quien habla: lo que se oye es su voz.
+							...(m.tipo === "video" ? { muted: true } : {}),
+							[PARAM_PROPUESTA]: "broll",
+							[PARAM_BUSQUEDA]: m.nombre,
+							[PARAM_MOTIVO]: MOTIVO_PROPIO,
+						},
+					} as ImageElement | VideoElement);
+					propios++;
+				}
+				// Los propios reemplazan lo pendiente de una propuesta anterior, como las fotos de Pexels.
+				if (propios) brollRehecho = true;
+			}
 		}
 
 		const capas: EffectElement[] = [];
@@ -231,7 +275,7 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 		}
 
 		if (!imagenes.length && !capas.length) {
-			if (faltaPexels) return terminar({ ok: true, broll: 0, planos: 0, aviso: null, faltaPexels: true });
+			if (faltaPexels) return terminar({ ok: true, broll: 0, planos: 0, propios: 0, aviso: null, faltaPexels: true });
 			return terminar({ ok: false, motivo: "sin-huecos" });
 		}
 		// La persona pudo abrir otro proyecto mientras tanto: no se escribe en él.
@@ -243,7 +287,7 @@ export async function proponerBroll(editor: EditorCore, opciones: OpcionesBroll 
 		if (conPlanos) limpias = sinPendientes(limpias, "plano");
 		const after = conPropuestas({ tracks: limpias, imagenes, capas, nuevoId: generateUUID });
 		editor.command.execute({ command: new TracksSnapshotCommand({ before, after }) });
-		return terminar({ ok: true, broll: imagenes.length, planos: capas.length, aviso: avisos.join(" ") || null, faltaPexels });
+		return terminar({ ok: true, broll: imagenes.length, planos: capas.length, propios, aviso: avisos.join(" ") || null, faltaPexels });
 	} catch (error) {
 		console.error("[broll] no se pudo proponer", error);
 		return terminar({ ok: false, motivo: "red" });

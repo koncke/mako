@@ -91,17 +91,24 @@ export function useParamsConFotogramas({
 		elementId: element.id,
 		fallback: element,
 	});
-	const { localTime, isPlayheadWithinElementRange: dentro } = useElementPlayhead({
-		startTime: element.startTime,
-		duration: element.duration,
-	});
-
 	const porClave = useMemo(
 		() => new Map(params.map((param) => [param.key, param])),
 		[params],
 	);
 	const animables = params.filter((param) => param.keyframable !== false);
 	const ruta = (key: string) => rutas?.[key] ?? key;
+	// Sin fotogramas clave en el grupo (ni en el vivo ni en el confirmado), los valores no dependen del tiempo: se escucha
+	// sólo si el cabezal está sobre el clip, no cada salto (./use-element-playhead.ts).
+	const conFotogramas = animables.some(
+		(param) =>
+			hasKeyframesForPath({ animations: vivo.animations, propertyPath: ruta(param.key) }) ||
+			hasKeyframesForPath({ animations: element.animations, propertyPath: ruta(param.key) }),
+	);
+	const { localTime, isPlayheadWithinElementRange: dentro, leerTiempoLocal } = useElementPlayhead({
+		startTime: element.startTime,
+		duration: element.duration,
+		seguirTiempo: conFotogramas,
+	});
 
 	const valores: Record<string, ParamValue> = {};
 	for (const param of params) {
@@ -189,12 +196,14 @@ export function useParamsConFotogramas({
 			});
 			return;
 		}
+		// El tiempo de AHORA: sin fotogramas, el panel no se redibujó con cada salto y `localTime` puede ser de antes.
+		const ahora = leerTiempoLocal();
 		editor.timeline.upsertKeyframes({
 			keyframes: animables.map((param) => ({
 				trackId,
 				elementId: element.id,
 				propertyPath: ruta(param.key),
-				time: localTime,
+				time: ahora,
 				value: valores[param.key] ?? param.default,
 			})),
 		});

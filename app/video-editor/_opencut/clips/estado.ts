@@ -7,6 +7,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { TOPES_CLIPS, type ClipElegido } from "@/lib/editor-video/clips";
+import type { VigenciaMensaje } from "./resultado";
 
 type Preferencias = { cuantos: number; fijar: (cambio: Partial<Omit<Preferencias, "fijar">>) => void };
 
@@ -36,6 +37,8 @@ type Trabajo = {
 	conIA: boolean;
 	mensaje: string | null;
 	error: boolean;
+	/** La línea sobre la que se dijo `mensaje` (./resultado.ts › mensajeVigente): si cambia, el mensaje no se muestra. */
+	vigencia: VigenciaMensaje | null;
 	fijar: (cambio: Partial<Omit<Trabajo, "fijar">>) => void;
 };
 
@@ -47,5 +50,6 @@ export const useTrabajoClips = create<Trabajo>()((set) => ({
 	conIA: false,
 	mensaje: null,
 	error: false,
+	vigencia: null,
 	fijar: (cambio) => set(cambio),
 }));
