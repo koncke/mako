@@ -128,10 +128,11 @@ test('7. More en iPhone: sólo lo que tiene pantalla; sin la marca, entero', () 
   for (const f of ios) {
     assert.equal(f.tipo, 'pantalla', `${f.key} en iPhone no tiene pantalla`);
     if (f.tipo === 'pantalla') assert.ok(!f.href.startsWith(`${RUTA_PRONTO}/`), `${f.key} es «Coming soon»`);
-    assert.ok(f.key !== 'agency' && f.key !== 'partners', `${f.key} existe para vender MaKo a otros`);
+    // Agency volvió el 13/11/2026 sin plata (#94, tests/agency-telefono-94.test.ts); Partners, no.
+    assert.ok(f.key !== 'partners', `${f.key} existe para vender MaKo a otros`);
   }
   const mas = sinComentarios(leer('app/m/mas/page.tsx'));
-  assert.match(mas, /const grupos = appIos \? masParaAppIos\(completo, RUTA_PRONTO\) : completo;/);
+  assert.match(mas, /const grupos = appIos \? masParaAppIos\(paraEste, RUTA_PRONTO\) : paraEste;/);
   assert.match(mas, /\{!appIos && \(\s*<div className="m-mas-compu">/, '«Versión de computadora» no va en iPhone');
   assert.match(sinComentarios(leer('app/m/_ui/EnComputadoraM.tsx')), /if \(appIos\) return null;/);
   assert.match(sinComentarios(leer('app/m/pronto/[key]/page.tsx')), /if \(!item \|\| await esAppIosDelPedido\(\)\) redirect/);
@@ -149,10 +150,12 @@ const UA = {
 const masDelTelefono = (ua: string, completo: GrupoMasCompleto[]) => (esAppIos(ua) ? masParaAppIos(completo, RUTA_PRONTO) : completo);
 const keysDe = (grupos: GrupoMasCompleto[]) => grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'grupo' ? [f.key, ...f.filas.map((x) => x.key)] : [f.key])));
 
+// 13/11/2026, ticket #94 (Martín: «Soluciona esto»): el Agency Dashboard VOLVIÓ al teléfono sin lo que se le debe a MaKo
+// (tests/agency-telefono-94.test.ts). MaKo Partners sigue afuera.
 test('9. las tabs que existen para vender MaKo a otros no van en NINGÚN teléfono, y las demás sí', () => {
-  assert.deepEqual([...TABS_QUE_VENDEN].sort(), ['agency', 'partners']);
+  assert.deepEqual([...TABS_QUE_VENDEN].sort(), ['partners']);
   assert.equal(esTabQueVende('partners'), true);
-  assert.equal(esTabQueVende('agency'), true);
+  assert.equal(esTabQueVende('agency'), false, 'desde el #94 la cartera de una agencia va en el teléfono, sin plata');
   assert.equal(esTabQueVende('crm'), false);
   // El filtro, con filas armadas a mano: también adentro de un desplegable, y el desplegable que queda vacío se va.
   const fila = (key: string, href: string) => ({ tipo: 'pantalla' as const, key, label: key, icon: 'x', href, seccion: null });
@@ -160,7 +163,7 @@ test('9. las tabs que existen para vender MaKo a otros no van en NINGÚN teléfo
     { id: 'menu', titulo: null, filas: [fila('agency', '/m/agency'), fila('partners', '/m/partners'), fila('crm', '/m/crm')] },
     { id: 'sales', titulo: 'Sales', filas: [{ tipo: 'grupo', key: 'mas', label: 'Más', icon: 'x', filas: [fila('partners', '/m/partners')] }] },
   ];
-  assert.deepEqual(keysDe(sinLoQueVende(grupos)), ['crm']);
+  assert.deepEqual(keysDe(sinLoQueVende(grupos)), ['agency', 'crm']);
   // More de verdad, para el admin de un negocio y el de una agencia: la sidebar les muestra las dos (el control), y ningún
   // teléfono —Android, iPhone en Safari, la app de iPhone— las dibuja.
   for (const capa of ['completo', 'agencia']) {
@@ -179,14 +182,16 @@ test('9. las tabs que existen para vender MaKo a otros no van en NINGÚN teléfo
   }
 });
 
-test('9b. un link a /partners o /agency en un teléfono cae en su página, que vuelve a More antes de leer nada; la computadora, igual', () => {
+test('9b. un link a /partners o /agency en un teléfono cae en su página; la de Partners vuelve a More antes de leer nada', () => {
   for (const [ruta, interna] of [['/partners', '/m/partners'], ['/agency', '/m/agency']] as const) {
     // El teléfono: el proxy le sirve la página de /m en la misma URL (ninguna cubierta «Abrirla igual» con el panel debajo).
     assert.deepEqual(pedidoMovil({ pathname: ruta, search: '', metodo: 'GET', telefono: true }), { tipo: 'reescribir', destino: interna });
     // La computadora: no cambia nada.
     assert.deepEqual(pedidoMovil({ pathname: ruta, search: '', metodo: 'GET', telefono: false }), { tipo: 'seguir' });
   }
-  for (const [rel, key] of [['app/m/partners/page.tsx', 'partners'], ['app/m/agency/page.tsx', 'agency']] as const) {
+  // Agency ya no vuelve a More (#94): su página dibuja la cartera sin plata, con la misma puerta que la computadora.
+  assert.doesNotMatch(sinComentarios(leer('app/m/agency/page.tsx')), /esTabQueVende/);
+  for (const [rel, key] of [['app/m/partners/page.tsx', 'partners']] as const) {
     const src = sinComentarios(leer(rel));
     const corte = src.indexOf(`if (esTabQueVende('${key}')) redirect(await rutaConWs(RUTA_MAS));`);
     assert.ok(corte > 0, `${rel}: no vuelve a More`);

@@ -649,8 +649,9 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
       { tipo: 'grupo', key: 'pronto', label: 'Coming soon', icon: 'reloj', filas: PRONTO.map((it) => filaDeItem(it, [it.key])) },
     ] });
   }
-  // ⚠️ SIN MaKo Partners NI Agency Dashboard, en cualquier teléfono (4/11/2026): existen para vender MaKo a otros, y el
-  //    teléfono no vende (lib/tienda.ts → `TABS_QUE_VENDEN`). Sus páginas vuelven a More si alguien llega por un link.
+  // ⚠️ SIN MaKo Partners, en cualquier teléfono (4/11/2026): existe para vender MaKo a otros, y el teléfono no vende
+  //    (lib/tienda.ts → `TABS_QUE_VENDEN`). Su página vuelve a More si alguien llega por un link. El Agency Dashboard volvió
+  //    el 13/11/2026 (#94), sin plata; la página de More la deja sólo a una agencia (`esAgencia`, app/m/mas/page.tsx).
   return sinLoQueVende(out);
 }
 
