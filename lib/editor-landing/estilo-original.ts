@@ -106,6 +106,11 @@ export type EstiloOriginal = {
    * titular va de un color. La réplica marca su frase clave con el acento (`conTituloResaltado`, replicar-estructura.ts).
    */
   tituloResalta?: { color: string; degradado?: string; peso?: number };
+  /** El tamaño en px del titular (el h1 que se lee) y el de los títulos (el h2 general), en escritorio (13/11/2026). */
+  tamTitular?: number;
+  tamTitulos?: number;
+  /** El de los subtítulos (la mediana de los h3: los títulos de tarjeta). */
+  tamSubtitulos?: number;
 };
 
 export const TOPES_ESTILO = {
@@ -574,6 +579,9 @@ export function sanearEstilo(raw: unknown): EstiloOriginal | null {
       const peso = pesoCss(t.peso);
       return { tituloResalta: { color, ...(deg ? { degradado: deg } : {}), ...(peso ? { peso } : {}) } };
     })(),
+    ...(typeof r.tamTitular === 'number' && r.tamTitular >= 12 && r.tamTitular <= 200 ? { tamTitular: Math.round(r.tamTitular) } : {}),
+    ...(typeof r.tamSubtitulos === 'number' && r.tamSubtitulos >= 10 && r.tamSubtitulos <= 200 ? { tamSubtitulos: Math.round(r.tamSubtitulos) } : {}),
+    ...(typeof r.tamTitulos === 'number' && r.tamTitulos >= 12 && r.tamTitulos <= 200 ? { tamTitulos: Math.round(r.tamTitulos) } : {}),
     ...(typeof r.botonEnPartes === 'number' && Number.isInteger(r.botonEnPartes) && r.botonEnPartes >= 2 ? { botonEnPartes: Math.min(r.botonEnPartes, 99) } : {}),
     ...(typeof r.anchoContenido === 'number' && Number.isFinite(r.anchoContenido) && r.anchoContenido >= 320 && r.anchoContenido <= 2000 ? { anchoContenido: Math.round(r.anchoContenido) } : {}),
   };
@@ -698,7 +706,7 @@ export type Compuesto = { tag: string | null; clases: string[]; id: string | nul
 
 /** Las reglas de UNA clase, UN id o UNA etiqueta (sin estados: un :hover no es el estilo de la página), y las compuestas. */
 /** `enTitulo`: las reglas de lo de ADENTRO de un título («h1 em», «h1 .x», «h1 em.x»; 13/11/2026, el span que resalta). */
-type Indices = { clases: Map<string, Decl>; ids: Map<string, Decl>; etiquetas: Map<string, Decl>; compuestos: Compuesto[]; enTitulo: Map<string, Decl> };
+type Indices = { clases: Map<string, Decl>; ids: Map<string, Decl>; etiquetas: Map<string, Decl>; compuestos: Compuesto[]; enTitulo: Map<string, Decl>; h2En: Map<string, Decl>; h3En: Map<string, Decl> };
 
 /** «section.tint» → { tag: 'section', clases: ['tint'] }; null si no es un compuesto de un elemento (hay espacio, `>`, `:`, `[`…). */
 export function compuestoDe(sel: string): Omit<Compuesto, 'decl'> | null {
@@ -721,7 +729,7 @@ export function aplicaCompuesto(c: Omit<Compuesto, 'decl'>, tag: string, clases:
 }
 
 function indicesDe(reglas: Regla[]): Indices {
-  const ix: Indices = { clases: new Map(), ids: new Map(), etiquetas: new Map(), compuestos: [], enTitulo: new Map() };
+  const ix: Indices = { clases: new Map(), ids: new Map(), etiquetas: new Map(), compuestos: [], enTitulo: new Map(), h2En: new Map(), h3En: new Map() };
   const sumar = (m: Map<string, Decl>, k: string, d: Decl) => m.set(k, { ...(m.get(k) ?? {}), ...d });
   for (const r of reglas) {
     if (r.oscuro) continue;
@@ -733,6 +741,9 @@ function indicesDe(reglas: Regla[]): Indices {
       if (m) { sumar(ix.ids, m[1], r.decl); continue; }
       m = /^(h1|h2)\s+(?:>\s*)?([a-z]+)?(?:\.([\w-]+))?$/i.exec(s);
       if (m && (m[2] || m[3])) { sumar(ix.enTitulo, `${m[1].toLowerCase()} ${(m[2] ?? '').toLowerCase()}${m[3] ? '.' + m[3] : ''}`, r.decl); continue; }
+      // El h2 de un contenedor («.sec-h h2», «.quien > h2»): Clara no tiene un h2 suelto, todos van así (13/11/2026).
+      m = /^\.([\w-]+)\s+(?:>\s*)?(h2|h3)$/i.exec(s);
+      if (m) { sumar(m[2].toLowerCase() === 'h2' ? ix.h2En : ix.h3En, m[1], r.decl); continue; }
       m = /^(html|body|h1|h2|h3|a|button|p)$/i.exec(s);
       if (m) { sumar(ix.etiquetas, m[1].toLowerCase(), r.decl); continue; }
       const c = ix.compuestos.length < 2_000 ? compuestoDe(s) : null;
@@ -812,6 +823,20 @@ const VACIOS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'inpu
 const CONTENEDORES = new Set(['body', 'section', 'header', 'footer', 'main', 'div', 'article', 'aside', 'figure']);
 /** Lo que no es una imagen DE la página: logos, íconos, avatares por defecto, banderas, espaciadores. */
 const RE_NO_IMAGEN = /logo|icon|favicon|sprite|spacer|blank\.gif|pixel\.gif|flag|badge|emoji|placeholder|loader|spinner/i;
+
+/**
+ * Un tamaño de letra en px, el de escritorio: de un `clamp(min, vw, max)` el máximo; px, rem y em (a 16). null con % o vw
+ * sueltos (dependen de algo que acá no se sabe) o fuera de 12–200 px.
+ */
+export function tamanoPx(v: string | undefined): number | null {
+  if (!v) return null;
+  const t = v.trim().toLowerCase();
+  const c = /^clamp\(([^,]+),([^,]+),([^)]+)\)$/.exec(t);
+  const m = /^(-?[\d.]+)(px|rem|em)$/.exec((c ? c[3] : t).trim());
+  if (!m) return null;
+  const n = Number(m[1]) * (m[2] === 'px' ? 1 : 16);
+  return Number.isFinite(n) && n >= 12 && n <= 200 ? Math.round(n) : null;
+}
 
 function medidaPx(v: string | undefined): number | null {
   if (!v) return null;
@@ -957,6 +982,8 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
     imagenes: [],
   };
   const dP = estiloEl('p', '');
+  const tamH2 = tamanoPx(estiloEl('h2', '')['font-size']);
+  if (tamH2) e.tamTitulos = tamH2;
   if (!e.fuenteCuerpo) e.fuenteCuerpo = familiaCss(dP['font-family']);
 
   // ── El recorrido: títulos con su fondo, imágenes con su parte, los botones ──
@@ -987,6 +1014,9 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
   const fotos: { seccion: number; antes: number; video?: boolean }[] = [];
   /** El `max-width` de la columna de cada título (ver `anchoContenido`). */
   const anchos: number[] = [];
+  /** El tamaño de cada h2 (ver `tamTitulos`). */
+  const tamsH2: number[] = [];
+  const tamsH3: number[] = [];
   /** Al cerrar un contenedor: le pasa lo suyo al de arriba, y si tenía ≥3 hijos con la misma clase y con texto, son tarjetas. */
   const cerrarMarco = (marco: Marco, padre: Marco | undefined) => {
     // Las fotos: un contenedor con títulos adentro decide (antes de su primer título → ese título; si no, el último anterior a
@@ -1051,6 +1081,8 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
             e.titulo = colorCss(d.color);
             e.fuenteTitulo = familiaCss(d['font-family']);
             e.pesoTitulo = pesoCss(d['font-weight']);
+            const tamH1 = tamanoPx(d['font-size']);
+            if (tamH1) e.tamTitular = tamH1;
             // La parte que resalta (13/11/2026: «10K AL MES» de Clara es un <span> con degradado dorado DENTRO del h1, y el
             // h1 es negro): con degradado recortado al texto, o en otro color que el título, es el acento y la réplica la marca.
             for (const s of titulo.partes ?? []) {
@@ -1084,6 +1116,16 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
     if (animPendiente) senales.push(animPendiente);
     if ((tag === 'h1' || tag === 'h2' || tag === 'h3') && !enNav) {
       if (tag === 'h1') vistoH1 = true;
+      if ((tag === 'h2' && tamsH2.length < 60) || (tag === 'h3' && tamsH3.length < 60)) {
+        // Su tamaño: el de su regla suelta, o el de la regla de su contenedor más cercano («.sec-h h2»).
+        let decl: Decl = estiloEl(tag, attrs);
+        for (let k = pila.length - 1; k >= 0; k--) {
+          const de = (atributo(pila[k].attrs ?? '', 'class') ?? '').split(' ').filter(Boolean).map((c) => (tag === 'h2' ? ix.h2En : ix.h3En).get(c)).find(Boolean);
+          if (de) { decl = { ...decl, ...Object.fromEntries(Object.entries(de).map(([kk, v]) => [kk, resolverVar(v, vars, de)])) }; break; }
+        }
+        const px = tamanoPx(decl['font-size']);
+        if (px) (tag === 'h2' ? tamsH2 : tamsH3).push(px);
+      }
       titulo = { tag, texto: '', attrs };
       // El ancho de su columna: el `max-width` del contenedor más cercano que lo tiene (entre 320 y 2000 px).
       if (anchos.length < 200) {
@@ -1167,6 +1209,14 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
     if (!e.secciones[i].lado) e.secciones[i].lado = f.seccion >= 0 && f.seccion > f.antes ? 'izquierda' : 'derecha';
     if (f.video) e.secciones[i].video = true;
     else e.secciones[i].fotos = Math.min((e.secciones[i].fotos ?? 0) + 1, 99);
+  }
+  if (tamsH3.length) {
+    const orden = [...tamsH3].sort((a, b) => a - b);
+    e.tamSubtitulos = orden[Math.floor(orden.length / 2)];
+  }
+  if (tamsH2.length) {
+    const orden = [...tamsH2].sort((a, b) => a - b);
+    e.tamTitulos = orden[Math.floor(orden.length / 2)];
   }
   if (anchos.length) {
     const orden = [...anchos].sort((a, b) => a - b);
@@ -1291,6 +1341,14 @@ export function temaDeEstilo(e: EstiloOriginal | null | undefined, url: string):
     tarjeta: { fondo, transparencia: 'normal', borde: null, sombra: false },
     colores: { texto, titulo: deg ?? tituloSolido, acento, enlace, boton: botonDeg ?? boton, botonTexto },
     ...(redondez ? { redondez: { boton: redondez } } : {}),
+    // El tamaño de los títulos y el del titular, por separado (13/11/2026): el h2 del editor mide 1,9em (30,4 px) y el titular
+    // 5em (80 px). Clara: 37 y 56 px → 1,21 y 0,7.
+    ...(e.tamTitulos || e.tamTitular || e.tamSubtitulos ? { escala: {
+      ...(e.tamTitulos ? { titulos: Math.round(Math.min(1.4, Math.max(0.8, e.tamTitulos / 30.4)) * 100) / 100 } : {}),
+      ...(e.tamTitular ? { titular: Math.round(Math.min(1.4, Math.max(0.5, e.tamTitular / 80)) * 100) / 100 } : {}),
+      // El h3 del editor mide 1,45em (23,2 px); Clara, 17 → 0,72.
+      ...(e.tamSubtitulos ? { subtitulos: Math.round(Math.min(1.4, Math.max(0.5, e.tamSubtitulos / 23.2)) * 100) / 100 } : {}),
+    } } : {}),
     paleta,
   };
   const sitio = sitioDe(url);

@@ -20,6 +20,63 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El retargeting de los funnels sin VSL: lo que había antes de escribirlo (13/11/2026, claude5)
+
+**El pedido:** Martín, 13/11, después de la llamada con Leila. Cada lunes MaKo revisa las charlas de WhatsApp de los leads
+(todos los que tienen charla, menos los de un funnel VSL), los marca con etiquetas y, si el negocio prende el interruptor,
+mantiene dos públicos de Meta: «MaKo · No avanzaron» y «MaKo · Compraron». El código vive en lib/retargeting*.ts, el cron en
+app/api/cron/retargeting-semanal y la API en `ver_retargeting`, `revisar_retargeting`, `configurar_retargeting` y
+`pasar_chats_al_crm` (área CRM).
+
+**Lo que mide la base y no se ve de afuera (producción, 13/11):**
+- **La charla casi nunca está unida al lead.** `wa_mensajes` tenía 114.695 mensajes y 403 leads enlazados. Leila: 449 charlas en
+  30 días, 102 con `lead_id`. Cruzar por teléfono sumó 4. En tres negocios (ws19, 20 y 21) había cientos de charlas por semana
+  y ningún lead. Por eso la revisión cuenta las «charlas sin lead» y el dueño decide pasarlas al CRM.
+- **El funnel casi nunca está dicho en el lead.** `lead_funnel` cubre a los funnels nuevos: de los 495 leads de Leila, 7.
+  «Sin VSL» se resuelve al revés: entra todo, menos lo que está en un funnel con `plantilla = 'vsl'`.
+- **Las etapas de un CRM no dicen lo mismo en otro.** Leila tiene 126 leads en «agenda» sin ninguna fecha: no se toman como
+  agendados (no se sabría cuándo dejan de estarlo). Los decide la charla.
+- **Meta:** Leila, Mauricio y Código siguen por el token viejo, que frena las escrituras pasado el corte (`frenoDelTokenMeta`).
+  Los que van por Zernio no tenían ni un público de lista de clientes.
+
+**Las trampas de Meta:**
+- **El `{id}` de `/ads/audiences/{id}/users` en Zernio es el de ZERNIO, no el de Meta.** El de Meta (`platformAudienceId`) es
+  el que va en un anuncio. Se guardan los dos.
+- **El teléfono va sin «+».** Meta compara el hash de los dígitos solos; con el «+», el hash no coincide con nadie y el
+  público queda vacío sin dar error (`telefonoParaMeta`).
+- **PostgREST corta en mil filas sin avisar.** Leer los leads o los mensajes de un negocio grande sin paginar da un número
+  falso con cara de verdadero (`todas()` en lib/retargeting.ts).
+
+**Lo que decide el costo de la IA:** el código decide solo lo que se sabe sin leer (compró, la etapa que puso una persona,
+la agenda, la charla viva, el que no contestó). La IA del negocio lee sólo a los que contestaron y quedaron quietos, en lotes
+de 15, y una charla sin mensajes nuevos no se relee: el último id leído queda en `retargeting.estado`. Medido con Leila: 46
+dudosos, o sea 4 llamadas la primera semana.
+
+**Cómo se probó sin escribir en producción:** `scripts/retargeting-simulacro.mts` corre el motor de verdad con los puertos de
+lectura reales y las escrituras anotadas (etiquetas, historial, estado y Meta). Así se mide un negocio real sin la frase de
+Martín. Con el ws9 mostró que **su clave de Gemini está vencida** («API key not valid»): sus dudosos quedan sin revisar
+hasta renovarla.
+
+**Las cuatro reglas de la casa que la primera subida rompió (rojo de 402907c5f), y cómo se cumplen sin tocar sus tests:**
+- **Una operación nueva del registro le quita lugar a las viejas.** El turno ordena por cuántas palabras del mensaje nombra
+  cada operación (el id y el título valen doble) y corta en 12.000 caracteres. Cuatro descripciones largas que decían
+  «leads», «anuncio» y «semanal» dejaron afuera a `ver_rendimiento_anuncios` en «¿qué anuncio tiene el mejor costo por lead
+  esta semana?» (tests/ops-center-bateria.test.ts). Van cortas y sin esas palabras, y antes de `armar_tab_ficha`, que es la
+  última del CRM a propósito (tests/ficha-tabs.test.ts). Y una operación nueva del CRM se ANOTA en la lista de las declaradas
+  después del cobro de etapa (tests/crm-vincular-22-10.test.ts), con su fecha: así se decide a propósito que va al final.
+- **El tope del plan vive sólo en las altas A MANO** (tests/crm-topes-plan-23-10.test.ts): un `frenarAltaPorTope` en un archivo
+  nuevo se decide a propósito. La página del CoPilot reusa el alta de /chats (`crearLeadDesdeWhatsappAction`), y la operación
+  de la API hace la suya en su runner (crm.run.ts), como `agregar_contacto_al_crm`.
+- **Zernio se habla sólo por el canal** (tests/sin-instagram.test.ts): ni la URL de su API ni su cliente fuera de la lista.
+  Los pedidos del retargeting son rutas relativas, y los manda `zernioPedir` (lib/meta-via.ts).
+
+**Lo que quedó SIN hacer:**
+- La pantalla: el interruptor, «X charlas sin lead» con su botón y los números van en el CoPilot (lo arma el chat de
+  Marketing CoPilot con esta API).
+- Los públicos por segmento (uno por «no respondió», «no siguió», «no compró»): Meta necesita unas 100 personas que
+  coincidan para entregar, y casi ningún negocio llega por segmento.
+- La cita y lo de antes de 120 días: una charla que no se movió en ese tiempo queda como la dejó la última revisión.
+
 ## Un candado en MEMORIA no es un candado: «Hacerlo» hacía la tarea dos veces (#514, 6/11/2026)
 
 **Síntoma:** apretar «Hacerlo» en una sugerencia del chat del CRM desde dos pestañas creaba DOS automatizaciones (o le

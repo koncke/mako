@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **Lo que una línea trae al re-vincularla NO pasa por el webhook** (13/11/2026, Mauricio). Siete mensajes estaban en el store de las dos
+  líneas y MaKo nunca los vio: entraron como historial, sin `messages.upsert`. La hora de guardado está en el id de la fila (un cuid).
+  Ahora los rescata el cron. Ver «Lo que trae la re-vinculación no pasa por el webhook», abajo.
 - **El grupo de la app está armado y NADIE lo usó** (13/11/2026). En 14 días, 99 mensajes de clientes por WhatsApp y 3 por la app, los
   tres pruebas del 4/11. «Funciona en la app» no se puede leer en `grupo_mensajes`: se prueba escribiendo. Y lo que en WhatsApp corre
   ANTES de la cola (el comprobante de la agencia) en la app no corría nunca. Ver «Lo de WhatsApp que la app no hacía», abajo.
@@ -78,6 +81,44 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
   que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+---
+
+## Lo que trae la re-vinculación no pasa por el webhook: siete mensajes de Mauricio callados con la línea ya sana (13/11/2026, claude5)
+
+**El síntoma:** Mauricio (ws1) escribió en su grupo de MaKo el 12/11 de 19:23 a 20:21 UTC y el 13/11 de 15:58 a 15:59, sobre su envío
+de email apagado. MaKo no le contestó nunca, tampoco después de que las líneas volvieran a recibir. Y no quedó NADA: 0 filas en
+`mako_doer_buffer`, en `grupo_mensajes` (el hilo de la app) y en `anthropic_usage` (`clase-doer`) del ws1, ni un aviso de «llegó tarde».
+
+**Lo obvio era el equivocado: «la línea estaba sorda».** Lo estaba (el …2605 cortado con 403 desde el 12/11 12:13 UTC; la voz en el
+…3479 desde las 17:38, recibiendo con ~24 h de atraso), pero eso explica el silencio de ESE rato, no el de después. Los siete mensajes
+están en el store de Evolution de las dos líneas. **La pista está en el id de la fila:** es un cuid de Prisma, y sus caracteres 2 a 9
+son la hora del guardado en base 36 (comprobado contra el `createdAt` del webhook). Los siete entraron EN LOTE al re-vincular:
+…2605 el 13/11 17:12:27, …3479 17:13:37. Además vienen sin `participant`, con el número del @lid como `pushName` y `source: unknown`:
+es la **sincronización de historial**. Evolution la guarda y no manda `messages.upsert`, que es el único evento de mensajes que lee el
+webhook. El doer, el espejo y el freno de «llegó tarde» (lib/linea-demora.ts) nunca se enteran: MaKo calla con los mensajes a la vista.
+
+**La regla que queda:**
+- **«MaKo no contestó» tiene TRES causas, y se miran en orden:** la línea (la última entrante; ver «La línea sorda», abajo), el
+  clasificador (`anthropic_usage`) y **si el mensaje llegó al webhook**. Un mensaje que está en el store pero no en `grupo_mensajes`
+  nunca pasó por el webhook. La hora del guardado sale del id (`horaDeGuardado`, lib/rescate-del-store.ts).
+- **Lo arregla el rescate del store** (`rescatarDelStore`, lib/mako-doer-in.ts, en el cron alerta-critica cada 10 min). Lee el store de
+  la VOZ en cada grupo oficial y toma lo de una persona que entró al store hace menos de 1 h, tiene más de 3 min y no está en el hilo
+  ni en la cola. Pasa por las MISMAS puertas que la entrada (`atenderEntranteDoer` con `soloEncolar`: más de 6 h va a SuperAdmin, el
+  comprobante, la respuesta al equipo, el 👍), se encola y lo contesta `doer-flush`. «Hace poco» es por la hora de GUARDADO, no la de
+  WhatsApp: el historial trae mensajes de un día antes, y así no se vuelve a barrer lo viejo del store.
+- **No sirve suscribir `MESSAGES_SET` al webhook:** al vincular una línea con `syncFullHistory: true` (todas las de los negocios, y el
+  …3479 personal de Martín) mandaría el historial entero a Vercel.
+- **Un aviso de ticket «Ya anda» sale con el DESPLIEGUE, no con las escrituras.** El #93 se cerró solo a las 18:45 UTC y Mauricio leyó
+  «Ya anda» con su `envio_email_enabled` todavía en false. Lo que depende de escribir en producción no se pone en el hito «Hecho» del
+  despliegue.
+
+**Una falsa alarma de al lado:** la marca `mako.voz.sorda` de las 18:20 UTC del 13/11 decía que el …2605 no recibía («otra línea vio 8
+mensajes…»), y a las 18:23 recibió al instante. Parecía el historial del …3479, y no era eso: los mensajes venían de grupos
+personales de Martín, donde MaKo no está, y la regla contaba cualquier @g.us de la otra línea. Lo arregló el chat «MaKo en WhatsApp:
+no callarse» en 3bfe00dda (`vigilarSorderaDeLaVoz` cuenta sólo los grupos de MaKo).
+
+Test: tests/rescate-del-store.test.ts (con las filas reales del store del 13/11) y su hijo, que corre el rescate y `doer-flush`.
 
 ---
 
@@ -13775,6 +13816,9 @@ su CRM —elegida (`columnasEmail.rebote`) o por su nombre— aunque quede antes
   pantalla, la API, la difusión, las plantillas) y la API antes del «sí». Al LEER se acepta hasta 2.000 sin preguntar la cuenta:
   lo guardado ya pasó su rango, y descartar un tope por día deja la automatización SIN tope (manda más, no menos; la misma trampa
   de los límites, al revés). El panel recibe sus rangos de la lectura (`rangosGoteo` de `getConfigAutomatizacionAction`).
+  ⚠️ Dio ROJO en GitHub (7360d439b): tres tests fijaban el texto de las líneas cambiadas, y la búsqueda de antes de subir no los
+  vio porque buscaba la línea tal cual y el test la tiene ESCAPADA como regex (`cambioDeConfigDelInput\(input`). **Regla:**
+  antes de subir, buscar cada línea cambiada con `grep -F` en sus dos formas (tal cual y con `\(` `\.`) en tests/.
 
 **Lo que quedó sin hacer:**
 - **La difusión sigue con el goteo de la plataforma (500 por día):** `goteoValido` (lib/difusion-reglas.ts) y la hoja

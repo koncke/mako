@@ -139,7 +139,7 @@ test('6. en el teléfono, la portada primero (como Video); la lista con ?ver=lis
 
 test('7. el armazón de Create: el chat de MaKo a la izquierda, tus landings a un toque y las plantillas al lado de los outliers', async () => {
   const pag = sinComentarios(leer('app/web-generator/page.tsx'));
-  assert.match(pag, /<PortadaWeb docs=\{rDocs\.ok \? rDocs\.docs : \[\]\} errorLista=\{rDocs\.ok \? null : rDocs\.error\}>\s*<OutliersLandings portada=\{portada\} plantillas=\{<PlantillasPortada \/>\} \/>\s*<\/PortadaWeb>/,
+  assert.match(pag, /<PortadaWeb docs=\{rDocs\.ok \? paraLaLista\(rDocs\.docs\) : \[\]\} errorLista=\{rDocs\.ok \? null : rDocs\.error\}>\s*<OutliersLandings portada=\{portada\} plantillas=\{<PlantillasPortada \/>\} \/>\s*<\/PortadaWeb>/,
     'la portada va ADENTRO del armazón de Create, con las plantillas');
   const w = sinComentarios(leer('app/web-generator/PortadaWeb.tsx'));
   assert.match(w, /import \{ PantallaCrear \} from '@\/app\/_crear\/PantallaCrear';/, 'el MISMO armazón de las otras tabs, no uno propio');

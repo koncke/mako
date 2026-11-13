@@ -150,6 +150,12 @@ export const CSS_BARRA = `
 html:has(.s-mv[open]){overflow:hidden}
 /* Abierto, como el suyo: arriba sólo el logo y la cruz (los botones quedan abajo). */
 .s-barra-der:has(.s-mv[open])>.s-nb-lleno{display:none}
+/* El botón para empezar, corto en el teléfono angosto; y el sol y la luna, adentro del menú (lo pone TemaSitio). */
+.s-nb-corto{display:none}
+.s-mv-tema{cursor:default}
+/* El botón (36 px) no estira la fila: «Claro u oscuro» mide lo mismo que «Precios» y las demás (61 px), con su raya igual. */
+.s-mv-tema .mk-tema-sitio{margin:-8px -8px -8px 0}
+@media (max-width:400px){.s-nb-lleno .s-nb-largo{display:none}.s-nb-lleno .s-nb-corto{display:inline}}
 
 /* La barra clara (la de su página de comparaciones): blanca, filete #060419 al 12 %, el botón principal del color de marca. */
 .s-claro .s-barra{background:#fff;border-bottom-color:rgba(6,4,25,.12)}
@@ -190,6 +196,9 @@ html:has(.s-mv[open]){overflow:hidden}
   .s-barra-der{gap:12px}
   .s-nb-lleno{font-size:14px;line-height:18px;padding:8px 12px}
   .s-mv{display:block}
+  /* En el teléfono el sol y la luna van en el menú (la fila «Claro u oscuro»): en la barra, con el logo, el botón y el ☰, no
+     entraban (13/11/2026, el Cerebro mirando la captura a 375). */
+  .s-barra-der>.mk-tema-sitio{display:none}
 }
 `;
 
@@ -396,6 +405,8 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-ahorro-nota{margin:16px 0 0;font-size:12px;line-height:1.5;opacity:.6}
 @media (max-width:760px){.s-ahorro{grid-template-columns:1fr;padding:0 16px}}
 /* Cada función: su prueba gratis y, abajo, «Ver cómo funciona». */
+.s-apartado + .s-apartado { margin-top: clamp(64px, 9vw, 120px); }
+.s-apartado-cab { margin-bottom: clamp(28px, 4vw, 48px); }
 .s-zz-acc{margin-top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .s-zz-acc .s-zz-a{margin-top:10px}
 /* «Ver cómo funciona»: un link, en azul (Martín, 13/11/2026: «no me gusta que esté en amarillo… en azul, como si fuera un link»). */

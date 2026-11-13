@@ -420,4 +420,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/privacidad',
   },
+  {
+    fecha: '13 nov', hora: '22:30', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El Agency Dashboard vuelve al teléfono: ves a tus clientes y entras a cada uno',
+    puntos: [
+      'Joan (Código Inmobiliario) no encontraba a sus clientes en el teléfono: sólo con «versión computadora».',
+      'Ahora, si tu negocio es una agencia, More trae «Agency Dashboard»: tus clientes, en qué estado está cada uno, y entrar a su cuenta.',
+      'Como el teléfono no vende, no dice lo que falta pagar ni quién paga: una cuenta que espera un pago dice «Por habilitar». Sumar un cliente y cambiar su plan siguen en la computadora.',
+    ],
+    archivos: [
+      'app/m/agency/AgencyM.tsx · app/m/agency/page.tsx · app/m/agency/agency.css — la cartera sin plata, la hoja entera',
+      'lib/tienda.ts · app/m/mas/page.tsx — Agency sale de lo que vende; More la muestra sólo a una agencia',
+      'tests/agency-telefono-94.test.ts · tests/tiendas-telefono-no-vende.test.ts',
+      'docs/hallazgos-mobile.md · AGENTS.md («El teléfono no vende»)',
+    ],
+    revisar: '/m/agency',
+    tickets: [94],
+  },
 ];

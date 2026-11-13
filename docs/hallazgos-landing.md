@@ -293,6 +293,30 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   - **Grupos de WhatsApp**: `TraerDeGrupoWA` y `ExtraccionModal` reales con el servidor (`grupo-wa-actions`) y la extensión
     (`wa-fichas-cliente`, `usar-extension-fichas`) de mentira y los textos de avance de la extensión (`extension/popup.js` → FASES).
     Un `Modal` nuevo tapa al anterior: al tocar «Extraer» queda sólo el del avance, sobre el CRM.
+  - **⚠️ Dos archivos que sólo cambian en mayúsculas se pisan en Windows**: `_sitio/funnels.ts` (los datos) y `_sitio/Funnels.tsx`
+    (el componente). `import … from './Funnels'` resolvía al `.ts` de datos (en Windows `Funnels.ts` y `funnels.ts` son el mismo
+    nombre, y `.ts` se prueba antes que `.tsx`): `FunnelsSitio` llegaba `undefined` y la portada entera rompía con «Element type is
+    invalid» sin decir cuál; en Linux (Vercel) andaba. **Regla:** nunca dos módulos con el mismo nombre salvo mayúsculas en una
+    carpeta; los datos van `funnels-datos.ts`.
+  - **⚠️ Un banco dentro de la carpeta Temp puede dejar de compilar sin que nada cambie**: esbuild sube por las carpetas buscando
+    `package.json` y `tsconfig`, y con la de Temp tomada por otro proceso falla («Cannot read directory … being used by another
+    process») y no resuelve ni la entrada. `absWorkingDir` no alcanza. Los bancos viven en `C:/dev/bancos-portada/`.
+  - **Lo que rompe un banco son las acciones de servidor de mentira con la FORMA equivocada**, no los componentes. El stub
+    genérico devuelve un objeto, y la pantalla se cae entera donde la acción de verdad devuelve otra cosa: una LISTA
+    (`getLeadNotasAction`, `cobrosDelLeadAction`, `getIdentidadesFiscalesAction` → «visibles.map is not a function»), un REGISTRO
+    (`proteccionesDeCuotasAction`), un TEXTO (`tzWorkspaceAction` → «Invalid time zone specified: #<Object>») o un objeto con sus
+    campos (`opcionesCobroAction` sin `pasarelas` → «reading 'length'» en `useCobrar`). Para encontrarla: la traza del `pageerror`
+    (`e.stack`) dice el componente; la forma, el `Promise<…>` de la acción. Están en `C:/dev/bancos-portada/banco-ficha/build.mjs`.
+  - **Un componente que en la app recibe el alto de su padre sale en blanco en un banco**: `FlujoLienzo` (Automations) dibujaba
+    todo, pero dentro de un contenedor de 0 px de alto (el padre de verdad es `SecuenciaPerfil`). Mirar el DOM con sus tamaños
+    antes de sospechar de los datos.
+  - **Un botón que no está hace esperar 30 s a Playwright** (su espera por defecto) y la grabación sale con medio minuto quieto:
+    al recortar, mirar los cuadros, no las marcas.
+  - **⚠️ En el sitio, un `aria-label` que empieza con «MaKo» es el LOGO para `TemaSitio`**: le pone el color de la marca y le pinta
+    el fondo a su primer `span` (`[aria-label^="MaKo"]`, `app/vsl/_competencia/TemaSitio.tsx`). El recuadro «MaKo conectado con
+    Claude…» de la sección de la IA salió con el cuadro de Claude gris y los íconos en blanco. **Regla:** una etiqueta que no es el
+    logo no empieza con «MaKo». Y otra vez una clase repetida: `.s-casos` ya era una grilla de 4 columnas del sitio (como `.s-caso`):
+    antes de nombrar una clase nueva, `grep` en `estilos.ts`.
   - **El bucle**: el final se funde 0,5 s con el principio (`xfade` del final con los primeros 0,5 s, y el video arranca en el 0,5):
     no hay salto al volver a empezar aunque el final no se parezca al principio.
 

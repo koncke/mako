@@ -7,7 +7,7 @@
 
 import { CAPACIDADES_PASARELA, esPasarela, type Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
-import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
+import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba } from './planes-mako';
 // De TIPO: se borra al compilar, así que no suma nada al bundle del cliente (esto lo importan componentes 'use client').
 import type { MotivoDuplicado } from './leads-duplicados';
 
@@ -214,6 +214,24 @@ export function pasarelaDeLaCompra(p: {
 // el recargo de la tarjeta internacional: docs/estrategia-financiera-mako.md); en el resto del mundo, Stripe. Sin saber el
 // país (sin el encabezado de Vercel: local, o una IP que Vercel no ubica), las dos, y elige la persona.
 
+/**
+ * Cómo se ofrece la Stripe de la plataforma según el MODO de su clave (13/11/2026). Sólo una clave `real` va al público; una
+ * de `prueba`, sólo al super admin; y sin modo (no se pudo leer, o no es una clave de Stripe) NO se ofrece.
+ *
+ * ⚠️ ERA `prueba: modoDeClaveStripe(clave) === 'prueba'`, Y `null` NO ES 'prueba'. `credDelCliente` contesta `null` también
+ * cuando la base no contestó, así que con una lectura caída la Stripe de PRUEBA de la plataforma pasaba por REAL: se le
+ * ofrecía al público (que pagaba con una tarjeta de prueba y sacaba una cuenta de verdad) y, en el mismo pedido, el token de
+ * Mercado Pago tampoco se leía. Desde Argentina, «sólo tarjeta». La regla, al revés: lo que no se sabe que es real, no lo es.
+ */
+export function opcionStripe(modo: 'real' | 'prueba' | null): { pasarela: 'stripe'; moneda: 'USD'; prueba: boolean } | null {
+  return modo == null ? null : { pasarela: 'stripe', moneda: 'USD', prueba: modo !== 'real' };
+}
+
+/** Un fallo de la API que puede no repetirse (red, 429, 5xx): se reintenta una vez antes de dejar de ofrecer la pasarela. */
+export function esFalloPasajero(status: number): boolean {
+  return status === 0 || status === 429 || status >= 500;
+}
+
 /** El país de cada sitio de Mercado Pago, por la moneda en que cobra su cuenta. */
 const PAIS_DE_MERCADO_PAGO: Readonly<Record<string, string>> = { ARS: 'AR', MXN: 'MX', BRL: 'BR', CLP: 'CL', COP: 'CO', PEN: 'PE', UYU: 'UY' };
 
@@ -245,7 +263,9 @@ const PAISES_LATAM: ReadonlySet<string> = new Set([
  *
  * EL ORDEN DE LAS PREGUNTAS:
  *   1. ¿Mercado Pago cobra en SU país? Entonces es la única: en pesos, sin el recargo de la tarjeta internacional
- *      (a un argentino, US$47 con tarjeta de afuera le salen el equivalente a US$71 por IVA y percepciones).
+ *      (a un argentino, US$47 con tarjeta de afuera le salen el equivalente a US$71 por IVA y percepciones). Es la que
+ *      se usa donde no elige nadie; el checkout, donde elige la persona, le suma la tarjeta (13/11/2026,
+ *      `pasarelasParaOfrecer`).
  *   2. Si no: en LatAm, la que sea merchant of record (se hace cargo del impuesto; era Creem, hoy ninguna); en el resto
  *      del mundo, la que no lo es (Stripe).
  *   3. Y si la que le toca no está conectada, lo que quede. Nunca se deja a alguien sin forma de pagar por una
@@ -279,11 +299,20 @@ export function pasarelasDelPais<T extends { pasarela: Pasarela; moneda: string 
  * que están en modo PRUEBA sin el filtro del país (11/11/2026). La prueba de humo de una pasarela nueva la hace el super admin
  * desde Argentina; con el filtro, en Argentina con Mercado Pago la Stripe de prueba quedaba tapada y no se podía probar. Una
  * pasarela que está real y de prueba a la vez se ofrece una sola vez, la real. Al público, `dePrueba` llega vacía.
+ *
+ * EN EL PAÍS DE MERCADO PAGO, TAMBIÉN LA TARJETA (13/11/2026): «Tiene que ofrecer tarjeta y Mercado Pago». Mercado Pago va
+ * primero (en pesos: el resumen del plan muestra su precio y la tarjeta como «o US$ … con tarjeta»), y la tarjeta es la que
+ * le tocaría a ese país si Mercado Pago no estuviera (`pasarelasDelPais` sin las que cobran sólo en su país). Elige la
+ * persona: el recargo de la tarjeta de afuera lo ve en el precio en dólares. Sólo acá, donde alguien elige: donde no elige
+ * nadie (el primer plan propio, la agencia) sigue `pasarelasDelPais`, que en su país da Mercado Pago sola.
  */
 export function pasarelasParaOfrecer<T extends { pasarela: Pasarela; moneda: string }>(pais: string | null, reales: readonly T[], dePrueba: readonly T[]): T[] {
   const segunPais = pasarelasDelPais(pais, reales);
+  // Con país, `pasarelasDelPais` sólo devuelve Mercado Pago si es la de ese país (sin país ya vienen todas).
+  const enSuPais = pais != null && segunPais.some((o) => o.pasarela === 'mercadopago');
+  const tarjeta = enSuPais ? pasarelasDelPais(pais, reales.filter((o) => !CAPACIDADES_PASARELA[o.pasarela].soloEnSuPais)) : [];
   const yaEstan = new Set(reales.map((o) => o.pasarela));
-  return [...segunPais, ...dePrueba.filter((o) => !yaEstan.has(o.pasarela))];
+  return [...segunPais, ...tarjeta, ...dePrueba.filter((o) => !yaEstan.has(o.pasarela))];
 }
 
 // =============================================================================
@@ -303,8 +332,13 @@ export function pasarelasParaOfrecer<T extends { pasarela: Pasarela; moneda: str
 export const TEXTO_SIN_PASARELA = 'Todavía no cobramos en línea. Déjanos tus datos y te escribimos por WhatsApp para darte de alta.';
 
 /** El botón de un plan: comprar si se puede cobrar; si no, pedirlo en su página (nunca «Empezar» sin cobro detrás). */
+/** El botón del plan con la prueba gratis (Martín: «Comienza tu prueba gratuita / Pruébalo gratis ahora»). */
+export const TEXTO_BOTON_PRUEBA = 'Comienza tu prueba gratuita';
+
 export function botonDelPlan(p: { id: string; nombre: string; cobrable: boolean; sufijo: string }): { href: string; texto: string } {
-  return { href: `/planes/${p.id}${p.sufijo}`, texto: p.cobrable ? `Empezar con ${p.nombre}` : `Quiero ${p.nombre}` };
+  // El plan de la prueba (llamada con Leila, 13/11/2026): el botón invita a la prueba, no a «empezar» (y va grande en la tarjeta).
+  const texto = !p.cobrable ? `Quiero ${p.nombre}` : planConPrueba(p.id) ? TEXTO_BOTON_PRUEBA : `Empezar con ${p.nombre}`;
+  return { href: `/planes/${p.id}${p.sufijo}`, texto };
 }
 
 /** El botón del anual: siempre «Quiero» (se pide), con el origen y el partner del sufijo más `periodo=anual`. */

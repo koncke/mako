@@ -944,6 +944,27 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
   },
+  // «Oferta y comunicación» (12/11/2026): la oferta (las piezas de Offer), los ángulos y la voz del negocio, con su estado. Lo mismo que
+  // dibuja la tarjeta (lib/copiloto/comunicacion.ts); lo que la persona dice en el chat queda confirmado.
+  {
+    id: 'ver_comunicacion_copiloto', area: 'ads', tipo: 'lectura',
+    titulo: 'Ver Oferta y comunicación',
+    descripcion: 'Su oferta, sus ángulos y su voz: cada cosa con su clave, estado y fuente. Antes de preguntar o guardar una.',
+    parametros: [{ nombre: 'parte', tipo: 'string', enum: ['oferta', 'angulos', 'voz'], descripcion: 'una sola.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'guardar_comunicacion_copiloto', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Guardar comunicación',
+    descripcion: 'PROPONE guardar lo que dijo de UNA cosa de su oferta, ángulos o voz.',
+    escribe: 'guarda la cosa en marketing-copilot.oc.* (app_settings) o la pieza en offer_sesiones',
+    parametros: [
+      { nombre: 'parte', tipo: 'string', obligatorio: true, enum: ['oferta', 'angulos', 'voz'], descripcion: 'cuál.' },
+      { nombre: 'clave', tipo: 'string', obligatorio: true, max: 40, descripcion: 'la clave.' },
+      { nombre: 'valor', tipo: 'string', obligatorio: true, max: 600, descripcion: 'en sus palabras.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
   // El método de campañas de Meta (9/11/2026): el curso de gestión de campañas que Martín pidió para el CoPilot, destilado por tema en
   // lib/media-buyer/copiloto-metodo-anuncios.ts (la fuente, interna: docs/conocimiento/meta-ads-gestion.md). En una herramienta y no en
   // el system: son ~15.000 caracteres y cada mensaje los pagaría; así viaja sólo el tema que la pregunta pide.

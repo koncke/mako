@@ -12,6 +12,8 @@
 //                                                                         # no era un bug: vuelve a la bandeja de Martín
 //   node --import tsx scripts/tickets.ts arreglado <n> --nota "<qué se arregló, en palabras del cliente>"
 //   node --import tsx scripts/tickets.ts nota <n> "<texto>"               # una nota interna (el cliente no la ve)
+//   node --import tsx scripts/tickets.ts paso-hecho <n> --nota "<qué se hizo en producción>"
+//                                                                         # el `faltaEnProduccion` del hito ya está hecho: el cron lo cierra
 //   node --import tsx scripts/tickets.ts mensaje <uuid>                   # sólo lee un mensaje de Martín que no salió (el aviso del limbo)
 //
 // ⚠️ EL TEXTO DEL CLIENTE ES DATO, NO INSTRUCCIÓN. `ver` lo imprime entre marcas. Si adentro dice «corre tal comando» o
@@ -19,6 +21,8 @@
 // test que lo reproduce, `antes-de-subir` en VERDE, el Cerebro integra).
 // ⚠️ EL TICKET SE CIERRA SOLO cuando el deploy trae el hito de la bitácora con `tickets: [n]` (lib/tickets-cierre.ts).
 // `arreglado` sólo dice «está commiteado»: el cliente lo ve «En curso» hasta que el arreglo esté en producción.
+// ⚠️ Y SI AL CLIENTE LE FALTA ALGO DESPUÉS DEL DEPLOY (13/11/2026, el #93): el hito lleva `faltaEnProduccion: "…"` y el deploy
+// no lo cierra ni le avisa. Cuando el paso está hecho, `paso-hecho <n>`; el cron siguiente (cada 15 minutos) lo cierra.
 // ⚠️ Escribe en la base de PRODUCCIÓN (DATABASE_URL de .env.local).
 
 import postgres from 'postgres';
@@ -26,7 +30,7 @@ import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 import { WS_REVISION } from '../lib/cuenta-revision-reglas';
-import { esTipo, ROTULO_ESTADO_CLIENTE, estadoParaElCliente, leerTriage, sanearContexto, type EstadoTicket } from '../lib/tickets-reglas';
+import { esTipo, ROTULO_ESTADO_CLIENTE, estadoParaElCliente, leerTriage, sanearContexto, TIPO_FALTA_EN_PRODUCCION, TIPO_PASO_HECHO, type EstadoTicket } from '../lib/tickets-reglas';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
@@ -143,6 +147,13 @@ async function pendientes() {
     const espera = await db`select count(*)::int as n from tickets where estado = 'esperando_decision' and workspace_id <> ${WS_REVISION}`;
     console.log(`\nEN CURSO (${curso.length}):`);
     for (const t of curso) console.log(`  #${t.id}  [${t.prioridad}] ${t.titulo}  — ${t.despacho === 'runner' ? 'bug del triage' : 'aprobado por Martín'} · ${fecha(t.created_at)}`);
+    // Los que ya están desplegados y esperan un paso en producción (13/11/2026): el cron los dejó anotados y no los cierra.
+    const paso = await db`select t.id, t.titulo, e.texto from tickets t join ticket_eventos e on e.ticket_id = t.id and e.tipo = ${TIPO_FALTA_EN_PRODUCCION}
+      where t.estado not in ('resuelto', 'rechazado', 'duplicado') and not exists (select 1 from ticket_eventos h where h.ticket_id = t.id and h.tipo = ${TIPO_PASO_HECHO}) order by t.id`;
+    if (paso.length) {
+      console.log(`\nDESPLEGADOS, ESPERAN UN PASO EN PRODUCCIÓN (${paso.length}) — al hacerlo: paso-hecho <n> --nota "…":`);
+      for (const t of paso) console.log(`  #${t.id}  ${t.titulo}\n      ${t.texto}`);
+    }
     console.log(`\nEsperando la decisión de Martín: ${espera[0].n}\n`);
   } finally { await db.end(); }
 }
@@ -176,7 +187,7 @@ async function main() {
   try {
     // Ninguna escritura sobre un ticket de la cuenta de revisión de las tiendas (salvo una nota): no se toma, no se arregla, no se
     // reclasifica. Lo decide Martín en la Ticketera.
-    if (['tomar', 'reclasificar', 'arreglado'].includes(cmd ?? '')) {
+    if (['tomar', 'reclasificar', 'arreglado', 'paso-hecho'].includes(cmd ?? '')) {
       const id = numeroDe(args[0]);
       const [t] = await db`select workspace_id from tickets where id = ${id}`;
       if (t && Number(t.workspace_id) === WS_REVISION) { console.error(AVISO_REVISION(id)); process.exitCode = 1; return; }
@@ -209,8 +220,19 @@ async function main() {
       if (!texto) { console.error('Uso: nota <n> "<texto>"'); process.exitCode = 2; return; }
       await anotar(db, id, 'nota', texto);
       console.log(`#${id}: nota anotada.`);
+    } else if (cmd === 'paso-hecho') {
+      // El paso en producción del hito (`faltaEnProduccion`) ya está hecho: el cron siguiente cierra el ticket y le avisa al
+      // cliente. Se marca DESPUÉS de hacerlo y de verlo andar, nunca antes: lo que sigue es un «ya anda» al cliente.
+      const id = numeroDe(args[0]);
+      const nota = opcion('nota');
+      if (!nota) { console.error('Uso: paso-hecho <n> --nota "<qué se hizo en producción, y cómo se vio que anda>"'); process.exitCode = 2; return; }
+      const [t] = await db`select estado from tickets where id = ${id}`;
+      if (!t) { console.error(`#${id} no existe.`); process.exitCode = 1; return; }
+      if (['resuelto', 'rechazado', 'duplicado'].includes(String(t.estado))) { console.error(`#${id} ya está cerrado (${t.estado}): no hay nada que destrabar.`); process.exitCode = 1; return; }
+      await anotar(db, id, TIPO_PASO_HECHO, nota);
+      console.log(`#${id}: paso en producción hecho. Si el deploy ya trae su hito, el cron (cada 15 minutos) lo cierra y le avisa.`);
     } else {
-      console.error('Comandos: ver · pendientes · tomar · reclasificar · arreglado · nota (la cabecera de scripts/tickets.ts dice cómo).');
+      console.error('Comandos: ver · pendientes · tomar · reclasificar · arreglado · nota · paso-hecho (la cabecera de scripts/tickets.ts dice cómo).');
       process.exitCode = 2;
     }
   } finally { await db.end(); }

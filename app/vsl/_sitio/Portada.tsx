@@ -38,11 +38,14 @@ import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
 import { PLANES_MAKO_DEFAULT, type PlanMako } from '@/lib/planes-mako';
 import { Barra } from './Barra';
 import { AvatarVideos, TablerosCarrusel } from './Interactivos';
+import { CSS_IA, ConectaTuIA, CostoDeLaIA } from './SeccionesIA';
+import { CSS_FUNNELS, FunnelsSitio } from './Funnels';
+import { CSS_MAS_CASOS, MasCasos } from './MasCasos';
 import { Pie } from './Pie';
 import { Boton, Flecha, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
 import {
-  VIDEOS_AVATAR, LOGO_INTEGRACION, PREGUNTAS_SITIO, TABLEROS, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
+  VIDEOS_AVATAR, LOGO_INTEGRACION, PREGUNTAS_SITIO, TABLEROS, RUTA_COMPARACIONES, RUTA_PRECIOS, APARTADOS_PORTADA, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
 } from './datos';
 import { STACK_TIPICO, appsQueReemplaza } from './reemplaza';
 
@@ -63,9 +66,12 @@ function HeroSitio() {
           {/* Martín (12/11/2026): «el título principal me gustaría que sea el mejor software para ventas high ticket. Y me gusta eso
               de ventas, marketing, contenido en una sola app. Eso tal vez abajo». Y la frase debajo del botón se fue: repetía lo
               que el botón ya dice. Y «debería tener como máximo 3 saltos de línea, no 4»: tres renglones fijos, y la letra se
-              achica con el ancho de su columna (`cqi` en estilos.ts) para que «El mejor software» entre siempre en uno. */}
-          <h1 className="s-h1">El mejor software<br /> para ventas<br /> <em>High Ticket.</em></h1>
-          <p className="s-hero-p"><strong>Ventas, marketing y contenido en una sola app.</strong> Con una IA que conoce tu negocio, del primer clic en tu anuncio al cliente que paga.</p>
+              achica con el ancho de su columna (`cqi` en estilos.ts) para que «El mejor software» entre siempre en uno.
+              13/11/2026, la llamada con Leila: la bajada ya no habla sólo del anuncio (MaKo es marketing, ventas y entrega). El
+              título pasó un rato por «para negocios High Ticket» y Martín lo dejó, esa misma noche, en «el mejor software para
+              vender High Ticket… ese sería nuestro principal», en todos lados. */}
+          <h1 className="s-h1">El mejor software<br /> para vender<br /> <em>High Ticket.</em></h1>
+          <p className="s-hero-p"><strong>Marketing, ventas y entrega del servicio en una sola app.</strong> Con una IA que conoce tu negocio, desde que alguien te descubre hasta que es tu cliente y le entregas lo que compró.</p>
           <div className="s-hero-btns">
             <Boton clase="s-btn-alto" />
             <Boton href={RUTA_PRECIOS} texto="Ver planes" clase="s-btn-alto s-btn-borde" />
@@ -226,10 +232,23 @@ function ProductoSitio() {
     <section className="s-sec s-sec-funciones">
       <div className="s-cont">
         {/* Sin «Producto / Todo lo que necesitas para vender High Ticket» ni su botón (Martín, 13/11/2026: «elimínalo»): cada
-            función lleva su prueba gratis. */}
-        <div className="s-zz">
-          {TARJETAS_PORTADA.map((t, i) => <FilaFuncion key={`${t.slug ?? t.rotulo}-${i}`} {...t} inv={i % 2 === 1} />)}
-        </div>
+            función lleva su prueba gratis. Y en DOS APARTADOS (la llamada con Leila, 13/11/2026): adquisición y entrega. */}
+        {(['adquisicion', 'entrega'] as const).map((ap) => {
+          const filas = TARJETAS_PORTADA.filter((t) => (t.apartado ?? 'adquisicion') === ap);
+          const a = APARTADOS_PORTADA[ap];
+          return (
+            <div key={ap} className="s-apartado" id={ap === 'entrega' ? 'entrega' : 'adquisicion'}>
+              <div className="s-centro s-apartado-cab">
+                <p className="s-rotulo">{a.rotulo}</p>
+                <h2 className="s-h2">{a.titulo}</h2>
+                <p className="s-lede">{a.bajada}</p>
+              </div>
+              <div className="s-zz">
+                {filas.map((t, i) => <FilaFuncion key={`${t.slug ?? t.rotulo}-${i}`} {...t} inv={i % 2 === 1} />)}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -401,16 +420,23 @@ function CierreSitio() {
 export function PortadaSitio({ planes }: { planes: readonly PlanSitio[] }) {
   return (
     <div className="s-sitio">
-      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_PIE + CSS_PORTADA }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_PIE + CSS_PORTADA + CSS_IA + CSS_FUNNELS + CSS_MAS_CASOS }} />
       <BrandDefs />
       <Barra />
       <main>
         <HeroSitio />
         <TiraSitio />
         <ProductoSitio />
+        {/* Las mini landings por funnel (la llamada con Leila, 13/11/2026): VSL, WhatsApp, Instagram con lead magnet y YouTube. */}
+        <FunnelsSitio />
+        {/* La llamada con Leila (13/11/2026): «ya trabajo con Claude y me conoce» se contesta después del producto, y lo que
+            cuesta la IA va junto a lo que se ahorra (antes estaba escondido en una pregunta frecuente). */}
+        <ConectaTuIA />
         <CasoSitio />
+        <MasCasos />
         <PlanesSitio planes={planes} />
         <TiraReemplaza />
+        <CostoDeLaIA />
         <IntegracionesSitio />
         <PreguntasSitio />
         <CierreSitio />

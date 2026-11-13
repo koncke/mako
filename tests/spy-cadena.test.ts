@@ -38,7 +38,7 @@ import { fileURLToPath } from 'node:url';
 import { cadenaDeRedes, type DepsCadena, type LeidoRed } from '../lib/spy-cadena';
 import { enlacesDeHtml, esAgregador, loQueEnlaza, usuariosParaProbar, veredictoDe } from '../lib/spy-otras-redes-reglas';
 import { canalDeLaBio } from '../lib/spy-reglas';
-import { avisoDeTraida, usadasHoy } from '../lib/spy-todo-reglas';
+import { avisoDeTraida, ultimaParaManana, usadasHoy } from '../lib/spy-todo-reglas';
 
 const DEN = { nombre: 'Den Borg', instagram: 'den.borgg', youtube_id: null, tiktok: null, landing_url: 'https://beacons.page/denborg', avatar: 'https://x/den.jpg' };
 
@@ -160,7 +160,10 @@ test('7. una corrida larga que termina sin nada no cuenta como la de la semana',
   const hecha = fuente.indexOf("await anotar(c.id, canal, { ultima: new Date().toISOString() });");
   assert.ok(vacia > 0, 'la rama de la corrida vacía');
   assert.ok(hecha > vacia, 'se anota como hecha DESPUÉS de mirar si trajo algo');
-  assert.match(fuente.slice(vacia, hecha), /6 \* 86_400_000/, 'y se vuelve a pedir mañana, no en una semana');
+  // «Mañana» con cualquier cadencia (13/11/2026): con 7 días es «hace 6», y con la de un SEGUIDO (1 día), «ahora». El «hace 6»
+  // fijo de antes hacía que un seguido reintentara en una hora (tests/spy-seguidos.test.ts, caso 7).
+  assert.match(fuente.slice(vacia, hecha), /ultimaParaManana\(Date\.now\(\), dias\)/, 'y se vuelve a pedir mañana, no en una semana');
+  assert.equal(ultimaParaManana(Date.parse('2026-11-13T00:00:00Z')), '2026-11-07T00:00:00.000Z', 'con la cadencia de siempre, «hace 6 días»');
 });
 
 test('8. el tope de corridas largas del día vive en la base, no en la memoria del proceso (el cron cae en instancias nuevas)', () => {

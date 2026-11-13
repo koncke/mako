@@ -512,6 +512,18 @@ function bloquesComunes(p: { mensajes: MensajeParaPrompt[]; piezas: PiezasSabida
 }
 
 /**
+ * Marketing CoPilot, «Oferta y comunicación» (12/11/2026): leer los ángulos y la voz del negocio con la MISMA cascada que Offer (sus
+ * keys primero, después la red de plataforma; no cobra). Lo llama lib/copiloto/comunicacion-ia.ts, dentro de su ruta (maxDuration 300).
+ */
+export async function pedirParaCopiloto<T>(p: { system: string; user: string; motivo: string; inicio: number; parse: (raw: string) => T | null }): Promise<ResultadoIA<T>> {
+  return pedir({
+    system: p.system, user: p.user, maxTokens: 6_000, timeoutMs: 120_000, esfuerzo: 'medium',
+    hastaMs: p.inicio + 200_000, hastaRedMs: p.inicio + 285_000,
+    motivo: `Marketing CoPilot: ${p.motivo}`, tema: 'leer tu comunicación', parse: p.parse,
+  });
+}
+
+/**
  * El resumen de lo viejo de una conversación de Offer (12/11/2026, lib/conversacion-resumen.ts), con la cascada de Offer: las keys del
  * negocio, el crédito sólo en el onboarding y la red gratis. Offer nunca paga, tampoco por esto. Corre fuera del turno.
  */

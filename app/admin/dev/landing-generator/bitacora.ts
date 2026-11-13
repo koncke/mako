@@ -1840,4 +1840,70 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '13 nov', hora: '16:40', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La landing replicada usa el tamaño de títulos y los fondos de la original, y te habla de «tú»',
+    puntos: [
+      'El titular y los títulos tienen el tamaño de los de la original, cada uno con el suyo.',
+      'Las secciones que en la original tienen otro color de fondo lo tienen también en la tuya.',
+      'El texto va de «tú» aunque la original use «vos», salvo que tu negocio haya elegido hablar de «vos».',
+      'La landing se llama como tu oferta (por ejemplo «Landing · WhatsApp Ads Funnel»), no como la página de la otra.',
+    ],
+    archivos: [
+      'lib/editor-landing/estilo-original.ts · temas.ts · css.ts — el tamaño del titular y de los títulos por separado',
+      'lib/editor-landing/replicar-estructura.ts · replicar.ts · replicar-partes.ts — el fondo, el tuteo y el nombre',
+      'tests/web-generator-replicar-1311.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '13 nov', hora: '17:20', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las secciones de color van de borde a borde, con el texto en su columna',
+    puntos: [
+      'Una sección puede tener su color de fondo de un lado al otro de la pantalla y el texto en una columna centrada, como en la página que replicaste.',
+      'Los títulos de las tarjetas también toman el tamaño de los de la original.',
+    ],
+    archivos: [
+      'lib/editor-landing/doc.ts · especificacion.ts · css.ts — el ancho del contenido de una sección a todo el ancho',
+      'lib/editor-landing/estilo-original.ts · temas.ts — el tamaño de los subtítulos',
+      'lib/editor-landing/replicar-estructura.ts — la franja en la réplica',
+      'tests/web-generator-replicar-1311.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '13 nov', hora: '18:10', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Funnel: tus páginas como el recorrido de un lead',
+    puntos: [
+      'En «Páginas», el botón «Funnel» muestra tus páginas en orden, como las recorre un lead: del formulario al video, a la agenda y a la de gracias.',
+      'Entre una página y la siguiente se ve qué las conecta (el formulario o un botón); si una no lleva a la siguiente, se marca en rojo y un clic la conecta.',
+      'Con «+ Siguiente paso» creas la próxima página (formulario, video, agenda, venta o gracias) y queda conectada a la anterior.',
+    ],
+    archivos: [
+      'lib/editor-landing/funnel.ts — el recorrido, el objetivo de cada página y cómo se conectan',
+      'app/web-generator/editor/DialogoFunnel.tsx · PanelPaginas.tsx — la vista',
+      'tests/web-generator-funnel.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '13 nov', hora: '18:40', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: subir una imagen ya no falla si la foto tiene otra extensión (tickets #95 y #96)',
+    puntos: [
+      'Una foto que es JPG pero tiene nombre .png (o al revés) ahora se sube y se usa: MaKo la guarda como lo que realmente es.',
+      'Si lo que subes no es una imagen que MaKo pueda usar, el mensaje dice qué archivo es y cómo subirlo (por ejemplo, una foto HEIC del iPhone: expórtala como JPG).',
+      '**Cómo se prueba:** en una landing, cambia una imagen por una foto JPG renombrada a .png; queda puesta, sin el aviso de antes.',
+    ],
+    archivos: [
+      'lib/editor-landing/server-reglas.ts — el veredicto de la subida, la foto HEIC y el mensaje',
+      'app/api/landing-generator/imagenes/route.ts — la subida guarda la imagen con su tipo real',
+      'tests/web-generator-ticket-95.test.ts — la foto de Martín pasa como JPG; lo que no es imagen dice qué es; probado rompiéndolo',
+    ],
+    revisar: '/web-generator',
+    tickets: [95, 96],
+  },
 ];
