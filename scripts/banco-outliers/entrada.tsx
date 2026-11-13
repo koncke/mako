@@ -15,12 +15,18 @@ const q = new URLSearchParams(window.location.search);
 const telefono = q.get('tel') === '1';
 const dia = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
 
-/** Una imagen dibujada con la forma de su red (la portada de un reel, la primera lámina, la miniatura de YouTube). */
+/**
+ * Una portada dibujada con la forma de su red: una escena con una persona, SIN texto (13/11/2026: con los primeros 18 caracteres del
+ * gancho dibujados, «Cobrar mejor no» parecía un título cortado de la tarjeta). El carrusel y el anuncio usan una lámina del otro banco.
+ */
 function dibujo(formato: FormatoCopy, texto: string, i: number): string {
   if (formato === 'carrusel' || formato === 'anuncio') return lamina(texto, i, 0, 6, i % 2 === 0);
   const [w, h] = formato === 'youtube' ? [1280, 720] : [1080, 1920];
-  const colores = ['#0F3D3E', '#2563EB', '#F25C54', '#1D3557', '#264653', '#111827'];
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="${colores[i % colores.length]}"/><circle cx="${w * 0.7}" cy="${h * 0.45}" r="${Math.min(w, h) * 0.18}" fill="#fff" opacity=".25"/><text x="70" y="${h * 0.2}" font-family="Arial Black, Arial" font-size="${formato === 'youtube' ? 92 : 110}" fill="#fff">${texto.slice(0, 18).replace(/&/g, '&amp;').replace(/</g, '&lt;')}</text></svg>`;
+  const fondos = [['#c9b8a6', '#7d6a58'], ['#9fb7c9', '#4f6b80'], ['#d8c3a5', '#8e6f4e'], ['#a7c4a0', '#56704f'], ['#c7a9c9', '#6e5070'], ['#b9b9b9', '#5e5e5e']];
+  const [claro, oscuro] = fondos[i % fondos.length];
+  const r = Math.min(w, h);
+  const cx = formato === 'youtube' ? w * 0.68 : w * 0.5;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${claro}"/><stop offset="1" stop-color="${oscuro}"/></linearGradient></defs><rect width="${w}" height="${h}" fill="url(#g)"/><rect x="${w * 0.08}" y="${h * 0.1}" width="${w * 0.25}" height="${h * 0.35}" rx="12" fill="#fff" opacity=".18"/><circle cx="${cx}" cy="${h * 0.42}" r="${r * 0.16}" fill="#2a211c"/><rect x="${cx - r * 0.3}" y="${h * 0.42 + r * 0.17}" width="${r * 0.6}" height="${h}" rx="${r * 0.2}" fill="#1f2a3a"/></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
