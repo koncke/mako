@@ -24,7 +24,7 @@ export function Pie() {
             {/* Lo mismo que dice arriba (Martín, 12/11/2026: «sigue el texto viejo… tienes que copiarlo de cómo está arriba hoy»), con
                 el logo encima («tienes que poner también el logo otra vez. No puede quedar flotando eso»). */}
             <LogoMaKo className="s-pie-logo" tamano={30} claro />
-            <p className="s-pie-lema">El mejor software para negocios High Ticket.</p>
+            <p className="s-pie-lema">El mejor software para vender High Ticket.</p>
             <p className="s-pie-sub">Ventas, marketing y contenido en una sola app.</p>
           </div>
           <div className="s-pie-cols">
