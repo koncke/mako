@@ -45,9 +45,9 @@
 
 import 'server-only';
 import { numeroDeInstancia, sondearSocketDetalle, ultimosMensajesDeLaLinea, vinculacionesDeLasLineas, vinculadaDesdeDeLinea, type Sondeo } from './evolution';
-import { avisoDeSordera, estaSorda, lecturaDeLaVoz, queHacerConLaSordera, SORDA_MS, type Accion, type MarcaDeSordera } from './linea-sorda';
+import { ajenosQueLaVozNoVio, avisoDeSordera, estaSorda, lecturaDeLaVoz, queHacerConLaSordera, type Accion, type MarcaDeSordera } from './linea-sorda';
 import { KEY_LINEAS_ATRASADAS, KEY_SORDERA, lineasAtrasadasMarcadas } from './lineas-enfermas';
-import { instanciaVoz } from './mako-grupo';
+import { instanciaVoz, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from './mako-grupo';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin, WS_NINGUNO } from './workspace';
 import { sendEmail } from './resend';
@@ -472,6 +472,14 @@ async function lineaDeMartin(ws: number): Promise<string | null> {
 
 const MAKO_EN_OTRA_LINEA = (alt: unknown, numeroVoz: string | null): boolean => !!numeroVoz && String(alt ?? '').replace(/\D/g, '').endsWith(numeroVoz.slice(-10));
 
+/** Los grupos de MaKo (el «MaKo <> cliente» de cada negocio y el del super admin): los únicos donde la voz está seguro. Tira si no los
+ *  pudo leer: sin la lista no se cuenta nada (una lista vacía por error callaría la regla sin que se note; así queda en el log). */
+async function gruposDeMaKoEstricto(): Promise<Set<string>> {
+  const { data, error } = await getSupabaseServer().from('app_settings').select('value').in('key', [KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN]);
+  if (error) { console.error(`[canal-vigilante] no pude leer los grupos de MaKo: ${error.message}`); throw new Error(error.message); }
+  return new Set(((data ?? []) as Array<{ value: unknown }>).map((r) => String(r.value ?? '')).filter((v) => v.endsWith('@g.us')));
+}
+
 export async function vigilarSorderaDeLaVoz(ahora = Date.now()): Promise<{ sorda: boolean; motivo: string; accion: Accion; voz: string | null }> {
   const voz = await instanciaVoz({ estricto: true });
   if (!voz) return { sorda: false, motivo: 'sin voz', accion: 'nada', voz: null };
@@ -479,17 +487,17 @@ export async function vigilarSorderaDeLaVoz(ahora = Date.now()): Promise<{ sorda
     ultimosMensajesDeLaLinea(voz, 150), numeroDeInstancia(voz).catch(() => null), vinculadaDesdeDeLinea(voz).catch(() => null),
   ]);
   if (!propios) return { sorda: false, motivo: 'Evolution no contestó: no se decide nada', accion: 'nada', voz };
-  const ts = (m: { messageTimestamp?: number | string }) => Number(m.messageTimestamp) * 1000;
   const lectura = lecturaDeLaVoz(propios, ahora, { vinculadaDesdeMs, esDeMaKo: (alt) => MAKO_EN_OTRA_LINEA(alt, numeroVoz) });
-  // La otra línea: mensajes de personas en GRUPOS, en las últimas `SORDA_MS` y desde que la voz se vinculó, que la voz no tiene.
+  // La otra línea: mensajes de personas en GRUPOS DE MaKo, en las últimas `SORDA_MS` y desde que la voz se vinculó, que la voz no tiene.
+  // ⛔ Sólo los grupos de MaKo: la de Martín está en muchos grupos personales sin la voz (13/11 18:20, falsa alarma; lib/linea-sorda.ts).
   const wsSA = await wsSuperAdmin();
   let ajenosQueNoVio = 0;
   const otra = await lineaDeMartin(wsSA).catch(() => null);
-  if (otra && otra !== voz) {
-    const vistos = new Set(propios.map((m) => m.key?.id).filter(Boolean));
+  const gruposDeMaKo = otra && otra !== voz ? await gruposDeMaKoEstricto().catch(() => null) : null;
+  if (otra && otra !== voz && gruposDeMaKo?.size) {
+    const vistos = new Set(propios.map((m) => m.key?.id).filter((id): id is string => !!id));
     const deOtra = (await ultimosMensajesDeLaLinea(otra, 100)) ?? [];
-    ajenosQueNoVio = deOtra.filter((m) => String(m.key?.remoteJid ?? '').endsWith('@g.us') && !m.key?.fromMe && ts(m) > (vinculadaDesdeMs ?? 0)
-      && !MAKO_EN_OTRA_LINEA(m.key?.participantAlt, numeroVoz) && ahora - ts(m) < SORDA_MS && ahora - ts(m) > 10 * 60_000 && !vistos.has(m.key?.id)).length;
+    ajenosQueNoVio = ajenosQueLaVozNoVio(deOtra, { vistos, gruposDeMaKo, vinculadaDesdeMs, ahoraMs: ahora, esDeMaKo: (alt) => MAKO_EN_OTRA_LINEA(alt, numeroVoz) });
   }
   const { sorda, motivo } = estaSorda({ ...lectura, ajenosQueNoVio }, ahora);
   let marca: MarcaDeSordera | null = null;
