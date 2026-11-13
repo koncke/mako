@@ -239,11 +239,15 @@ export async function anotarReaccion(ws: number, id: string, emoji: string): Pro
 
 export type NuevoDePersona = {
   ws: number; quien: PersonaDelGrupo; texto: string; clienteId?: string | null; respondeA?: number | null; adjunto?: AdjuntoGrupo | null;
+  /** Lo escribe el equipo de MaKo en el grupo de un cliente (app/api/grupos/[ws]/mensajes/route.ts, `escribeElEquipo`): sale como «Equipo de MaKo». */
+  comoEquipo?: boolean;
 };
+/** Cómo firma el equipo en el hilo: lo mismo que `filaDeParte` con `de: 'equipo'`. */
+export const FIRMA_DEL_EQUIPO = 'Equipo de MaKo';
 /** El mensaje de una persona en la app. Con el mismo `cliente_id` devuelve la fila de antes: un reintento del navegador no duplica. */
 export async function escribirDePersona(n: NuevoDePersona): Promise<{ fila: FilaGrupo; repetida: boolean } | { error: string }> {
   const r = await insertar(n.ws, {
-    autor_tipo: 'persona', usuario_id: n.quien.usuarioId, autor_nombre: autorDePersona(n.quien.nombre),
+    autor_tipo: n.comoEquipo ? 'equipo' : 'persona', usuario_id: n.quien.usuarioId, autor_nombre: n.comoEquipo ? FIRMA_DEL_EQUIPO : autorDePersona(n.quien.nombre),
     canal: 'app', texto: n.texto, adjunto: n.adjunto ?? null, responde_a: n.respondeA ?? null, cliente_id: n.clienteId ?? null,
   });
   if ('fila' in r) return { fila: r.fila, repetida: false };
