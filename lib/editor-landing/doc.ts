@@ -101,6 +101,9 @@ export type DisenoTarjeta = (typeof DISENOS_TARJETA)[number];
 
 export const ANCHOS_TARJETA = ['angosto', 'normal', 'amplio', 'completo'] as const;
 export type AnchoTarjeta = (typeof ANCHOS_TARJETA)[number];
+/** El ancho del contenido de una tarjeta a todo el ancho (la franja de color con la columna de la página). */
+export const ANCHOS_CUERPO = ['angosto', 'normal'] as const;
+export type AnchoCuerpo = (typeof ANCHOS_CUERPO)[number];
 
 export const ALINEACIONES_TARJETA = ['arriba', 'centro', 'abajo'] as const;
 export type AlineacionTarjeta = (typeof ALINEACIONES_TARJETA)[number];
@@ -266,6 +269,8 @@ export type AttrsTarjeta = {
   fondoColor: string | null;    // #rrggbb cuando fondo = 'color'
   fondoDegradado: Degradado | null;
   ancho: AnchoTarjeta;
+  /** Con `ancho: 'completo'`: el contenido en una columna angosta o normal, y el fondo de borde a borde (13/11/2026). */
+  anchoCuerpo: AnchoCuerpo | null;
   alineacion: AlineacionTarjeta;
   alto: AltoTarjeta;
   oculta: boolean;              // no se presenta ni se publica
@@ -289,6 +294,7 @@ export const ATTRS_TARJETA_DEFAULT: Omit<AttrsTarjeta, 'id'> = {
   fondoColor: null,
   fondoDegradado: null,
   ancho: 'normal',
+  anchoCuerpo: null,
   alineacion: 'centro',
   alto: 'auto',
   oculta: false,

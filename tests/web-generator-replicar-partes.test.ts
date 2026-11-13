@@ -356,7 +356,8 @@ test('6. los enchufes: la ruta, replicar(), la lectura y el esquema importado', 
   assert.match(rep, /!usaEstilo \? Promise\.resolve\(null\)/, 'sin el diseño ni la estructura reescrita no se lee el estilo de la original');
   assert.match(rep, /partes\.diseno \? await temaParaLaCopia\(estilo, url\)/);
   assert.match(rep, /pedirEsquema\(\{ modo: 'generar', prompt: PEDIDO_SIN_ESTRUCTURA, params \}\)/);
-  assert.match(rep, /crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo\), contenido, config\)/);
+  // 13/11/2026: con la oferta, «Landing · <oferta>» (tests/web-generator-replicar-1311.test.ts, el 14).
+  assert.match(rep, /crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo, entrada\.oferta\), contenido, config\)/);
   const ia = fuente('lib/editor-landing/ia.ts');
   assert.match(ia, /p\.modo === 'importar' \|\| p\.corte === 'pagina' \? esquemaDeReplica\(texto, tituloFallback\) : esquemaConservado\(texto, tituloFallback\)/);
 });

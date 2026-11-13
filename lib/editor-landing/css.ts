@@ -147,6 +147,10 @@ const TARJETA: string[] = [
   r(D + ' .gm-tarjeta:not([data-ancho="completo"]) + .gm-tarjeta[data-ancho="completo"]', 'margin-top: 3.5em;'),
   // A sangre, el texto no se estira de borde a borde de una pantalla de 1900px.
   r(D + ' .gm-tarjeta[data-ancho="completo"]:is([data-diseno="sin"], [data-diseno="arriba"], [data-diseno="fondo"]) > .gm-tarjeta-cuerpo', 'width: min(100%, 64.5em); justify-self: center;'),
+  // La FRANJA (13/11/2026, la réplica de Clara: el crema de borde a borde y el texto en su columna de 760 px): el fondo es
+  // absoluto (.gm-tarjeta-fondo), así que el relleno a los costados deja el contenido en la columna y el color a sangre.
+  r(D + ' .gm-tarjeta[data-ancho="completo"][data-cuerpo="angosto"]', 'padding-inline: max(0em, calc((100% - 48em) / 2));'),
+  r(D + ' .gm-tarjeta[data-ancho="completo"][data-cuerpo="normal"]', 'padding-inline: max(0em, calc((100% - 64.5em) / 2));'),
   // Alto: el del contenido o el de la pantalla.
   r(D + ' .gm-tarjeta[data-alto="pantalla"]', 'min-height: calc(100vh - 7em); min-height: calc(100svh - 7em);'),
   r(D + ' .gm-tarjeta[data-alto="pantalla"][data-ancho="completo"]', 'min-height: 100vh; min-height: 100svh;'),
@@ -199,6 +203,10 @@ const FLUJO = ['.gm-tarjeta-cuerpo', '.gm-columna', '.gm-item-cuerpo', '.gm-recu
 const enFlujo = (resto: string) => FLUJO.map((c) => D + ' ' + c + resto);
 /** El tamaño de un título: em de la sección × headingFontSize, sin el fontSize del cuerpo (que ya multiplicó al contenedor). */
 const tamTitulo = (em: number) => 'font-size: calc(' + em + 'em * var(--gm-escala-titulos, 1) / var(--gm-escala-cuerpo, 1));';
+/** El h1 grande (`h1.gm-titulo`) con SU escala (13/11/2026): la del tema, o la de los títulos si el tema no la trae. */
+/** Los subtítulos (h3: los títulos de tarjeta) con SU escala (13/11/2026): la del tema, o la de los títulos. */
+const tamSubtitulo = (em: number) => 'font-size: calc(' + em + 'em * var(--gm-escala-subtitulos, var(--gm-escala-titulos, 1)) / var(--gm-escala-cuerpo, 1));';
+const tamTitular = (em: number) => 'font-size: calc(' + em + 'em * var(--gm-escala-titular, var(--gm-escala-titulos, 1)) / var(--gm-escala-cuerpo, 1));';
 
 const TIPOGRAFIA: string[] = [
   '/* ── 4. Tipografía (gamma-tokens §3) y ritmo entre bloques (§2) ── */',
@@ -207,9 +215,9 @@ const TIPOGRAFIA: string[] = [
     // aire para que no se corten los descendentes); sin degradado, el relleno es el color.
     'background-image: var(--gm-titulo-degradado, none); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: var(--gm-titulo-relleno, currentColor); padding-block: var(--gm-titulo-sangrado, 0em);'),
   r(D + ' h1', tamTitulo(2.5)),
-  r(D + ' h1.gm-titulo', tamTitulo(5) + ' line-height: var(--gm-interlineado-titulos, 1.1);'),
+  r(D + ' h1.gm-titulo', tamTitular(5) + ' line-height: var(--gm-interlineado-titulos, 1.1);'),
   r(D + ' h2', tamTitulo(1.9)),
-  r(D + ' h3', tamTitulo(1.45)),
+  r(D + ' h3', tamSubtitulo(1.45)),
   r(D + ' h4', tamTitulo(1.25)),
   r([D + ' :is(h1, h2, h3, h4) :is(strong, b)'], 'font-weight: bolder;'),
   r(D + ' p', 'margin: 0;'),
@@ -939,7 +947,7 @@ const VIDEO_FONDO_CSS: string[] = [
 
 function tableta(p: string): string[] {
   return [
-    r(p + ' h1.gm-titulo', tamTitulo(4)),
+    r(p + ' h1.gm-titulo', tamTitular(4)),
     r(p + ' .gm-tarjeta-cuerpo', 'padding: 2.25em 2.5em;'),
     r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"])', 'min-height: 22em;'),
   ];
@@ -999,10 +1007,10 @@ function movil(p: string): string[] {
     r(p + ' .gm-tarjeta:is([data-diseno="izquierda"], [data-diseno="derecha"]) > .gm-acento', 'background-position: 50% 15%;'),
     r(p + ' .gm-tarjeta[data-diseno="fondo"]', 'min-height: 20em;'),
     r(p + ' .gm-tarjeta[data-alto="pantalla"]', 'min-height: calc(100vh - 3em); min-height: calc(100svh - 3em);'),
-    r(p + ' h1.gm-titulo', tamTitulo(2.6)),
+    r(p + ' h1.gm-titulo', tamTitular(2.6)),
     r(p + ' h1', tamTitulo(2)),
     r(p + ' h2', tamTitulo(1.6)),
-    r(p + ' h3', tamTitulo(1.3)),
+    r(p + ' h3', tamSubtitulo(1.3)),
     r(p + ' h4', tamTitulo(1.15)),
     // Columnas apiladas (el --gm-cols inline queda sin efecto: se pisa la propiedad, no la variable).
     r(p + ' .gm-columnas', 'grid-template-columns: minmax(0, 1fr); gap: 1.5em;'),
