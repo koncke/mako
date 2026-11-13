@@ -536,7 +536,61 @@ export function sniffImagen(buf: Uint8Array): 'image/jpeg' | 'image/png' | 'imag
 export function sniffMedia(buf: Uint8Array): string | null {
   const img = sniffImagen(buf);
   if (img) return img;
-  if (buf.length >= 12 && ascii(buf, 4, 8) === 'ftyp' && ascii(buf, 8, 12) !== 'qt  ') return 'video/mp4';
+  // Una foto HEIC o AVIF también lleva `ftyp` (marcas heic/mif1/avif…): no es un video (13/11/2026, tickets #95 y #96).
+  if (buf.length >= 12 && ascii(buf, 4, 8) === 'ftyp' && ascii(buf, 8, 12) !== 'qt  ' && !MARCAS_FOTO.test(ascii(buf, 8, 12))) return 'video/mp4';
   if (buf.length >= 4 && buf[0] === 0x1a && buf[1] === 0x45 && buf[2] === 0xdf && buf[3] === 0xa3) return 'video/webm';
   return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo que dice la subida contra lo que es (tickets #95 y #96, 13/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Las marcas `ftyp` de una foto HEIF/HEIC o AVIF (no de un video). */
+const MARCAS_FOTO = /^(heic|heix|hevc|hevx|heim|heis|mif1|msf1|avif|avis)$/;
+
+const NOMBRE_DE_TIPO: Readonly<Record<string, string>> = {
+  'image/png': 'PNG', 'image/jpeg': 'JPG', 'image/webp': 'WebP', 'image/gif': 'GIF', 'video/mp4': 'MP4', 'video/webm': 'WebM',
+};
+
+/**
+ * Qué es, por sus primeros bytes, un archivo que MaKo NO acepta: para decirlo en el mensaje. null si no se reconoce.
+ */
+export function formatoVisto(buf: Uint8Array): string | null {
+  if (buf.length >= 12 && ascii(buf, 4, 8) === 'ftyp') {
+    const marca = ascii(buf, 8, 12);
+    if (/^(avif|avis)$/.test(marca)) return 'AVIF';
+    if (MARCAS_FOTO.test(marca)) return 'HEIC';
+    if (marca === 'qt  ') return 'MOV';
+  }
+  if (buf.length >= 4 && ascii(buf, 0, 4) === '%PDF') return 'PDF';
+  if (buf.length >= 2 && buf[0] === 0x42 && buf[1] === 0x4d) return 'BMP';
+  if (buf.length >= 4 && ((buf[0] === 0x49 && buf[1] === 0x49 && buf[2] === 0x2a) || (buf[0] === 0x4d && buf[1] === 0x4d && buf[3] === 0x2a))) return 'TIFF';
+  if (/^\s*<(\?xml|svg|!doctype|html)/i.test(ascii(buf, 0, Math.min(buf.length, 64)))) return 'SVG o HTML';
+  return null;
+}
+
+/**
+ * Qué hacer con una subida según lo que DICE (la extensión, que salió del tipo que declaró el navegador) y lo que ES (sus
+ * bytes). Tickets #95 y #96 (13/11/2026, Martín en /web-generator/119): una foto JPG con nombre .png salía «El archivo no es lo
+ * que dice» y no se podía usar. El chequeo es para que no pase algo que NO es una imagen (un HTML disfrazado de PNG); entre dos
+ * imágenes raster no hay riesgo, así que vale lo que ES (y se guarda con su extensión). Lo que de verdad no sirve dice qué se
+ * vio y qué hacer. Puro.
+ */
+export function veredictoDeSubida(dice: string, es: string | null, visto: string | null = null): { ok: true; tipo: string } | { ok: false; error: string } {
+  if (es && es === dice) return { ok: true, tipo: dice };
+  if (es && esTipoImagen(dice) && esTipoImagen(es)) return { ok: true, tipo: es };
+  if (es && esTipoVideo(dice) && esTipoVideo(es)) return { ok: true, tipo: es };
+  const nombre = NOMBRE_DE_TIPO[dice] ?? dice;
+  if (es && esTipoVideo(es)) return { ok: false, error: `Tiene nombre de imagen ${nombre} pero es un video ${NOMBRE_DE_TIPO[es]}: súbelo como video.` };
+  if (es && esTipoImagen(es)) return { ok: false, error: `Tiene nombre de video pero es una imagen ${NOMBRE_DE_TIPO[es]}: súbela como imagen.` };
+  if (visto === 'HEIC') return { ok: false, error: `Es una foto HEIC (la del iPhone) con nombre de ${nombre}: expórtala como JPG y vuelve a subirla.` };
+  if (visto) return { ok: false, error: `Tiene nombre de ${nombre} pero es un archivo ${visto}: súbelo como JPG, PNG, WebP o GIF.` };
+  return { ok: false, error: `Tiene nombre de ${nombre} pero no es una imagen que MaKo pueda usar: súbela como JPG, PNG, WebP o GIF.` };
+}
+
+/** La ruta final con la extensión de lo que el archivo ES (`9/<uuid>.png` → `9/<uuid>.jpg`). */
+export function finalConTipo(final: string, tipo: string): string {
+  const ext = EXT_DE_TIPO[tipo];
+  return ext ? final.replace(/\.[a-z0-9]+$/i, `.${ext}`) : final;
 }
