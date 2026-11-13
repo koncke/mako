@@ -396,6 +396,8 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-ahorro-nota{margin:16px 0 0;font-size:12px;line-height:1.5;opacity:.6}
 @media (max-width:760px){.s-ahorro{grid-template-columns:1fr;padding:0 16px}}
 /* Cada función: su prueba gratis y, abajo, «Ver cómo funciona». */
+.s-apartado + .s-apartado { margin-top: clamp(64px, 9vw, 120px); }
+.s-apartado-cab { margin-bottom: clamp(28px, 4vw, 48px); }
 .s-zz-acc{margin-top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .s-zz-acc .s-zz-a{margin-top:10px}
 /* «Ver cómo funciona»: un link, en azul (Martín, 13/11/2026: «no me gusta que esté en amarillo… en azul, como si fuera un link»). */

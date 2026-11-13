@@ -62,7 +62,8 @@ export const STACK_QUE_REEMPLAZA: readonly TrabajoQueReemplaza[] = [
   { trabajo: 'Atribución de ventas', funcion: 'Funnels', landing: 'funnel', familia: 'Medir y ordenar',
     apps: [app('Hyros', 'hyros')] },
   { trabajo: 'Tareas y prioridades', funcion: 'Plan', landing: 'prioridades', familia: 'Medir y ordenar',
-    apps: [app('Notion', 'notion'), app('Motion (tareas)', 'usemotion'), app('ClickUp', 'clickup'), app('Asana', 'asana'), app('Trello', 'trello')] },
+    // De gestión, sólo Notion (llamada con Leila, 13/11/2026: «sin Trello»). Motion, ClickUp, Asana y Trello se fueron.
+    apps: [app('Notion', 'notion')] },
 ];
 
 /**
@@ -78,10 +79,15 @@ export const STACK_TIPICO: readonly { app: AppQueReemplaza; trabajo: string; pla
   { app: app('ManyChat', 'manychat'), trabajo: 'Respuestas automáticas', plan: 'Pro', precioUsd: 39, fuente: 'https://help.manychat.com/hc/en-us/articles/25800228332572' },
   { app: app('Canva', 'canva'), trabajo: 'Diseño', plan: 'Pro', precioUsd: 18, fuente: 'https://www.canva.com/pricing/' },
   { app: app('CapCut', 'capcut'), trabajo: 'Edición de video', plan: 'Pro', precioUsd: 19.99, fuente: 'https://www.capcut.com/pricing' },
+  // Llamada con Leila (13/11/2026): OpusClip junto a CapCut y HeyGen junto a Higgsfield, cada una en el plan que se paga para usarla
+  // de verdad (el Cerebro, 13/11: «HeyGen Creator y Opus Clip Pro»), buscado el 13/11/2026: OpusClip Pro US$29 por mes pagando mes a
+  // mes; HeyGen Creator US$29 por mes. Contra MaKo Pro (US$97).
+  { app: app('OpusClip', 'opusclip'), trabajo: 'Clips para redes', plan: 'Pro', precioUsd: 29, fuente: 'https://www.opus.pro/pricing' },
   // Martín, 13/11/2026: «no incluiste muchas otras apps que un emprendedor sí pagaría… no quiero que exageres», y después: «antes de
   // Foreplay prefiero el más famoso, que es Higgsfield» y «puedes agregar Gamma, Skool y Mailchimp también». El plan más barato de
   // cada una que sirve para ese trabajo, pagando mes a mes (Skool: Pro, el que no se queda con el 10 % de cada venta).
   { app: app('Higgsfield', 'higgsfield'), trabajo: 'Videos con IA', plan: 'Starter', precioUsd: 19, fuente: 'https://higgsfield.ai/pricing' },
+  { app: app('HeyGen', 'heygen'), trabajo: 'Avatares con IA', plan: 'Creator', precioUsd: 29, fuente: 'https://www.heygen.com/pricing' },
   { app: app('Notion', 'notion'), trabajo: 'Tareas y prioridades', plan: 'Plus', precioUsd: 12, fuente: 'https://www.notion.com/pricing' },
   { app: app('Gamma', 'gamma'), trabajo: 'Páginas y presentaciones', plan: 'Plus', precioUsd: 10, fuente: 'https://gamma.app/pricing' },
   { app: app('Skool', 'skool'), trabajo: 'Cursos y comunidad', plan: 'Pro', precioUsd: 99, fuente: 'https://www.skool.com/pricing' },
