@@ -175,3 +175,89 @@ export function cajasDelCuadro(canvas: Caja | null): { cuadro: Caja | null; subt
     subtitulo: { left: canvas.left + canvas.width * 0.12, top: canvas.top + canvas.height * 0.6, width: canvas.width * 0.76, height: canvas.height * 0.14 },
   };
 }
+
+// ── Cada cursor DONDE aparece su cambio (12/11/2026) ──────────────────────────────────────────────────────────────────
+// Martín, mirando la Edición automática: «no tiene sentido esos cursores que están haciendo cosas sobre algo que ya está
+// creado». En el reel cada cursor está donde aparece lo que hace: el bloque del subtítulo nuevo, el punto del corte, el B-roll
+// recién puesto. Ahora el agente que trabaja y sus compañeros de rol (`FAMILIA`) se reparten los cambios de su paso
+// (./cambios.ts) y van a cada uno a la vez, de a uno por `PASEO_MS`; los demás esperan quietos en su panel. La revisión
+// (qa-01) sí recorre lo que ya está: revisar es eso.
+
+/** El agente que corre su paso y los de su rol que lo ayudan a la vez (en el reel, varios cursores colocan subtítulos juntos). */
+export const FAMILIA: Record<AgenteId, readonly AgenteId[]> = {
+	"corte-01": ["corte-01", "corte-02"],
+	"corte-02": ["corte-02", "corte-01"],
+	"subs-01": ["subs-01", "subs-02", "subs-03"],
+	"subs-02": ["subs-02", "subs-01", "subs-03"],
+	"subs-03": ["subs-03", "subs-01", "subs-02"],
+	"broll-01": ["broll-01", "gfx-01"],
+	"gfx-01": ["gfx-01", "broll-01"],
+	"mezcla-01": ["mezcla-01", "mezcla-02"],
+	"mezcla-02": ["mezcla-02", "mezcla-01"],
+	"qa-01": ["qa-01"],
+};
+
+/** Un cambio para repartir: su elemento (para buscar su caja), su segundo y su tipo. */
+export type CambioARepartir = { id: string; en: number; tipo: "aparece" | "corte" | "cambia"; elemento: string; t: number };
+
+/**
+ * Qué cambio muestra cada cursor de la familia del que trabaja. Se reparten los de su ÚLTIMA tanda (los que trajo el mismo
+ * aviso de la línea de tiempo, en el orden del video): el i-ésimo de k se lleva el i, el i+k, el i+2k…, uno por `PASEO_MS`, así
+ * todos colocan a la vez cosas DISTINTAS. Al terminar, el que trabaja queda en el último y los ayudantes vuelven a su lugar.
+ * `ocupados`: los que corren su propio trabajo (no ayudan).
+ */
+export function repartoDeCambios({
+	trabajando,
+	cambios,
+	ahora,
+	ocupados = [],
+	paseoMs = PASEO_MS,
+}: {
+	trabajando: AgenteId;
+	cambios: readonly (CambioARepartir & { agente: AgenteId })[];
+	ahora: number;
+	ocupados?: readonly AgenteId[];
+	paseoMs?: number;
+}): Map<AgenteId, CambioARepartir> {
+	const out = new Map<AgenteId, CambioARepartir>();
+	const suyos = cambios.filter((c) => c.agente === trabajando);
+	if (!suyos.length) return out;
+	const desde = Math.max(...suyos.map((c) => c.t));
+	const tanda = suyos.filter((c) => c.t === desde).sort((a, b) => a.en - b.en);
+	const familia = FAMILIA[trabajando].filter((a, i) => i === 0 || !ocupados.includes(a));
+	const k = familia.length;
+	const paso = Math.max(0, Math.floor((ahora - desde) / Math.max(1, paseoMs)));
+	familia.forEach((agente, j) => {
+		const i = paso * k + j;
+		if (i < tanda.length) out.set(agente, tanda[i]);
+		else if (j === 0) out.set(agente, tanda[tanda.length - 1]);
+	});
+	return out;
+}
+
+/**
+ * Los elementos NUEVOS de la última tanda del que trabaja que ningún cursor alcanzó todavía: la línea de tiempo los esconde
+ * hasta que llega el suyo, así se llena a medida que trabajan (en el reel, cada bloque aparece cuando el cursor lo suelta).
+ * Mismo reparto que `repartoDeCambios`: en el paso p, la familia de k va por los p·k … p·k+k−1.
+ */
+export function pendientesDeTanda({
+	trabajando,
+	cambios,
+	ahora,
+	ocupados = [],
+	paseoMs = PASEO_MS,
+}: {
+	trabajando: AgenteId;
+	cambios: readonly (CambioARepartir & { agente: AgenteId })[];
+	ahora: number;
+	ocupados?: readonly AgenteId[];
+	paseoMs?: number;
+}): string[] {
+	const suyos = cambios.filter((c) => c.agente === trabajando);
+	if (!suyos.length) return [];
+	const desde = Math.max(...suyos.map((c) => c.t));
+	const tanda = suyos.filter((c) => c.t === desde).sort((a, b) => a.en - b.en);
+	const k = FAMILIA[trabajando].filter((a, i) => i === 0 || !ocupados.includes(a)).length;
+	const paso = Math.max(0, Math.floor((ahora - desde) / Math.max(1, paseoMs)));
+	return tanda.slice((paso + 1) * k).filter((c) => c.tipo === "aparece" && c.id).map((c) => c.id);
+}
