@@ -484,7 +484,11 @@ export function hoyLegible(tz: string, ahora = new Date()): string {
 
 // ── Lo que contesta el backend (la pantalla importa estos TIPOS) ─────────────
 
-export type SesionChat = { id: number; titulo: string | null; pinned: boolean; updatedAt: string };
+export type SesionChat = {
+  id: number; titulo: string | null; pinned: boolean; updatedAt: string;
+  /** La última línea, para la fila de la lista (lib/chat-mako-reglas.ts → `previaDeMensaje`). Sólo la trae `listarSesiones`. */
+  ultimo?: string | null;
+};
 
 export type RespuestaTurno = {
   /** false = MaKo no pudo contestar; el mensaje de la persona igual quedó guardado */

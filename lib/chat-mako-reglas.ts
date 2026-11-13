@@ -273,6 +273,8 @@ export type FilaDelCliente = {
   jefeDeGrupo?: true;
   /** La conversación con un gurú (`…:referente-<id>`): lleva su cara y se abre en su chat (ChatDelReferente.tsx). */
   guru?: IdAsesor;
+  /** Lo último que se dijo (`previaDeMensaje`), debajo del nombre en la lista del teléfono. Sólo los chats con MaKo lo traen. */
+  previa?: string | null;
 };
 
 /** `tema`: de qué se trata, para nombrar lo que no tiene título y distinguir dos que se llaman igual (lo pone el servidor:
@@ -467,6 +469,22 @@ export function temaDe(texto: string | null | undefined): string {
   return t.length > 48 ? `${t.slice(0, 48).trimEnd()}…` : t;
 }
 
+/**
+ * LA ÚLTIMA LÍNEA DE UN CHAT EN LA LISTA, como WhatsApp (13/11/2026, el prototipo aprobado): lo último que se dijo, en un renglón y sin el formato
+ * del markdown; lo de la persona con «Tú: » adelante. null = nada que mostrar (la fila queda con su nombre solo).
+ */
+export function previaDeMensaje(m: { role: string; content: string | null | undefined } | null | undefined): string | null {
+  if (!m) return null;
+  const t = String(m.content ?? '')
+    .replace(/https?:\/\/(?:www\.)?([^/\s]+)\S*/g, '$1')
+    .replace(/[*_`#>|]+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!/[\p{L}\p{N}]/u.test(t)) return null;
+  const corto = t.length > 90 ? `${t.slice(0, 90).trimEnd()}…` : t;
+  return m.role === 'user' ? `Tú: ${corto}` : corto;
+}
+
 /** «18 oct», con el reloj de Argentina. */
 const fechaCorta = (t: number | null): string => (t == null ? ''
   : new Date(t).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', timeZone: 'America/Argentina/Buenos_Aires' }).replace('.', ''));
@@ -534,11 +552,11 @@ export function listaDelCliente(p: {
   const { jefe, subs } = arbolDelJefe(p.sesiones);
   const cerebro: FilaDelCliente = {
     clave: 'jefe', elegido: jefe ? { id: jefe.id } : { virtual: 'jefe' }, titulo: NOMBRE_JEFE, criatura: JEFE_SECOND_BRAIN,
-    actividad: ms(jefe?.updatedAt), origen: 'mako',
+    actividad: ms(jefe?.updatedAt), origen: 'mako', previa: jefe?.ultimo ?? null,
   };
   const b = normal(p.busca);
   const todas: FilaDelCliente[] = [
-    ...subs.map((s): FilaDelCliente => ({ clave: `s${s.id}`, elegido: { id: s.id }, titulo: tituloDe(s), criatura: tituloDe(s), actividad: ms(s.updatedAt), origen: 'mako' })),
+    ...subs.map((s): FilaDelCliente => ({ clave: `s${s.id}`, elegido: { id: s.id }, titulo: tituloDe(s), criatura: tituloDe(s), actividad: ms(s.updatedAt), origen: 'mako', previa: s.ultimo ?? null })),
     ...p.offer.map((o): FilaDelCliente => {
       // «Offer › Mi oferta»; la del onboarding es su propio origen («Onboarding»).
       const base = o.titulo?.trim() || SECCION_OFFER;

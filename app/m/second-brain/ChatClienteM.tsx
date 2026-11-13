@@ -131,7 +131,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
       <FilaM key={f.clave} chevron={false}
         leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} size={sub ? 36 : 48} /></span>}
         titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(f.titulo).sub ?? f.titulo}` : f.titulo}</span>}
-        segunda={vivo ? <span className="m-operaciones-vivo">{TEXTO_SEGUNDO_RENGLON.vivo}</span> : undefined}
+        segunda={vivo ? <span className="m-operaciones-vivo">{TEXTO_SEGUNDO_RENGLON.vivo}</span> : f.previa ?? undefined}
         riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edadCorta(f.actividad, k.ahora)}</span></span>}
         onClick={() => (f.guru ? abrirGuru(f.guru) : abrir(f.elegido))} />
     );

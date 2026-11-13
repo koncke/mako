@@ -182,6 +182,28 @@ export async function temasDeSesiones(ids: readonly number[]): Promise<Map<numbe
 }
 
 /**
+ * LO ÚLTIMO DE CADA SESIÓN (13/11/2026, la lista del teléfono como WhatsApp): una lectura para todas, de lo más nuevo para atrás, y para las que no
+ * aparecieron (otra charló mucho más), una por sesión, hasta 20. Lo que no se pudo leer queda sin línea: no rompe la lista.
+ */
+export async function ultimosDeSesiones(ids: readonly number[]): Promise<Map<number, { role: string; content: string }>> {
+  const out = new Map<number, { role: string; content: string }>();
+  const lote = [...new Set(ids)].filter((n) => Number.isInteger(n) && n > 0).slice(0, 200);
+  if (!lote.length) return out;
+  const db = await getTenantDb();
+  const { data } = await db.from('chart_chats').select('session_id, role, content').in('session_id', lote)
+    .order('created_at', { ascending: false }).limit(400);
+  for (const r of (data ?? []) as Array<{ session_id: number; role: string; content: string }>) {
+    if (!out.has(r.session_id)) out.set(r.session_id, { role: r.role, content: r.content });
+  }
+  await Promise.all(lote.filter((id) => !out.has(id)).slice(0, 20).map(async (id) => {
+    const { data: uno } = await db.from('chart_chats').select('role, content').eq('session_id', id).order('created_at', { ascending: false }).limit(1);
+    const m = uno?.[0] as { role?: string; content?: string } | undefined;
+    if (m?.role) out.set(id, { role: m.role, content: m.content ?? '' });
+  }));
+  return out;
+}
+
+/**
  * Guarda un mensaje. Devuelve su id y si quedaron sus `bloques` (los adjuntos, mig 0305).
  *
  * ⚠️ SIN LA COLUMNA `bloques` (un deploy antes de la 0305) EL MENSAJE IGUAL SE GUARDA, sin ellos, y vuelve

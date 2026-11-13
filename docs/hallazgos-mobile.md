@@ -42,13 +42,15 @@ total. Lo que falta probar es hoy, con la línea baneada, y en el teléfono.
   (tests/m-chat-pantalla.test.ts, 3, rechaza una regla sin alcance).
 
 **Sin hacer, con su archivo:**
-- La última línea de cada chat de MaKo en la lista (la del grupo ya está): `SesionChat` no la trae (lib/mako-turno-app.ts →
-  `listarSesiones`).
 - El chat con un lead (/chats/[clave], app/m/chats/[clave]/ComposerChatsM.tsx): sin la piel de WhatsApp, sin adjuntar y sin audio.
 - Volver a una pestaña sin esperar (cada vuelta re-pide la página: 0,5–1,4 s medidos) y los 364 KB del polyfill de `node:crypto` en
   cada pantalla (cinco importadores de cliente de lib/auth-session.ts: PanelAgencia, TemaCandidato, pila-modales, LoginForm, bitacora).
 - Verlo en un teléfono de verdad y en producción, y que MaKo conteste HOY en el grupo de la app cuando lo nombran (espera el sí de
   Martín para escribir en su grupo y la sesión del navegador de la app).
+
+**Hecho después, el mismo día:** la última línea de cada chat con MaKo en la lista (`listarSesiones` la lee con `ultimosDeSesiones`, una lectura
+para todas; si falla, la lista sale igual), y la caricatura del Funnel Coach «rota» de las capturas era del arnés, que no servía `public/`
+(en producción /asesores/hormozi.png da 200).
 
 **Vive en:** app/m/_chat/PantallaChatM.tsx · app/m/_chat/pantalla-chat.ts · app/m/_chat/chat-wa.css · app/m/_chat/NuevoChatFlotante.tsx ·
 app/m/second-brain/ChatClienteM.tsx · app/m/second-brain/HojaDelGrupo.tsx · app/m/second-brain/FilasDelGrupoM.tsx ·
