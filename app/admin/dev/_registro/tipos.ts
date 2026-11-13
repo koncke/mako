@@ -99,6 +99,12 @@ export type Hito = {
    *  al cliente le llega el aviso por donde lo levantó (lib/tickets-cierre.ts, 17/10/2026): la bitácora viaja en el
    *  build, así que dice lo DESPLEGADO, no lo commiteado. */
   tickets?: number[];
+  /** LO QUE FALTA PARA EL CLIENTE DESPUÉS DEL DEPLOY (13/11/2026, el #93 de Mauricio: el deploy cerró su ticket y le dijo «Ya
+   *  anda» con su email todavía apagado, porque prenderlo era una escritura en producción que venía después). Con esto, el
+   *  deploy que trae el hito NO cierra ni avisa sus `tickets`: quedan abiertos hasta que alguien marca el paso hecho
+   *  (`scripts/tickets.ts paso-hecho <n> --nota "…"`) y el cron siguiente los cierra. En palabras del equipo: el cliente no lo
+   *  lee. Sin nada que falte, no va: un hito «Hecho» con `tickets` se anota cuando no le falta NADA al cliente. */
+  faltaEnProduccion?: string;
 };
 
 export type Parte ={ titulo: string; detalle: string; estado: 'hecha' | 'sigue' | 'cola' };

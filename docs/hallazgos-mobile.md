@@ -2230,9 +2230,9 @@ More la muestra sólo a una agencia (`esAgencia`: capa `agencia` Y fila en `agen
 
 **Lo que mostró la captura y no el código:** en la media altura (`snap="medio"`, el de fábrica de `SheetM`), con una lista
 larga, el pie sube con el panel (`translateY` negativo) y las filas de la lista quedan ENCIMA del botón del pie:
-`elementFromPoint` sobre «Entrar a su cuenta» devolvía una fila. El tope «alto» no tiene el problema. **Regla:** una hoja
-con muchas filas y su acción principal en el pie abre en `snap="alto"`, o se prueba con `elementFromPoint` en la captura.
-El arreglo de fondo es de `SheetM` (app/m/_ui/SheetM.tsx) y quedó avisado a «MaKo Mobile».
+`elementFromPoint` sobre «Entrar a su cuenta» devolvía una fila. El tope «alto» no tiene el problema. Lo arregló «MaKo
+Mobile» en `SheetM` para todas las hojas (13/11): la causa, la regla y las mediciones están en la entrada «Una hoja en
+«medio»…» (17/10 y 13/11). El `snap="alto"` de AgencyM queda: ya no hace falta, pero entrar es lo que vino a hacer.
 Y `DarDeBaja` (de la computadora) trae por defecto la clase `ad-acc`, que el teléfono no carga: salía el botón crudo del
 navegador. En el teléfono va con `className`.
 
@@ -2241,6 +2241,3 @@ navegador. En el teléfono va con `className`.
 hay que envolverla en `ShellM` con `barraMovil(...)` (si no, falta la cabecera y los márgenes), y esperar la entrada de MaKo
 (el splash, unos 5 s con el panel de fondo) y la animación de la hoja antes de capturar. El tema oscuro no se prende con
 `data-tema`: el marco lo lee por su cuenta.
-
-**Lo que quedó sin hacer:** la hoja a media altura con lista larga sigue tapando el pie en las otras pantallas que la usan
-(`SheetM`, de «MaKo Mobile»).

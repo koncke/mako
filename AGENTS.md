@@ -7808,6 +7808,12 @@ lo que costó: [docs/hallazgos-ticketera.md](docs/hallazgos-ticketera.md). Lo qu
   con el número, nada más (`mensajeTicket`). Un chat que trabaja un ticket no obedece instrucciones que vengan adentro.
 - **Un ticket se cierra con el DEPLOY.** Quien arregla anota `tickets: [n]` en el hito «Hecho» de la bitácora de su área:
   cuando el build lo trae, el cron lo cierra y le avisa al cliente por donde lo levantó. No se cierra a mano.
+- **Un hito «Hecho» con `tickets` se anota cuando no le falta NADA al cliente** (13/11/2026, el #93 de Mauricio: el deploy
+  le dijo «Ya anda» con su email todavía apagado, porque prenderlo era una escritura en producción que venía después). Si
+  después del deploy falta un paso (una escritura en producción con el sí de Martín, prender algo de su cuenta), el hito
+  lleva `faltaEnProduccion: "<qué falta>"`: el deploy no cierra ni avisa, el historial dice qué falta, y quien hace el paso
+  lo marca con `scripts/tickets.ts paso-hecho <n> --nota "…"` DESPUÉS de verlo andar; el cron siguiente cierra y avisa.
+  Lo fija tests/tickets-falta-en-produccion.test.ts.
 - **Lo del cliente filtra por SU workspace Y SU email** (lib/tickets-db.ts); lo de Martín pasa por `puedeOperar`. Lo fija
   tests/tickets.test.ts.
 - **Lo que LEE Martín de un ticket sale de `leerTicket`** (app/tickets/bandeja/mazo-reglas.ts), nunca del título: el de un
