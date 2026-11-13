@@ -146,9 +146,27 @@ entran por su rol (`juzgarAcceso` → tipo `equipo`, letra `c`/`s`) y el «nunca
   ese rol ve en la app, con la MISMA regla de la barra (`puedeVerKey`), más confirmar, cancelar y los tickets; nada `rolMinimo: admin` y
   nada que lea el Google Calendar del dueño (`datosDeGoogle`: `agenda_del_dia` está en la pestaña CRM y le mostraba al closer el «Sleep»
   del dueño). Esa vista la vuelven a mirar la ejecución y la confirmación. Las herramientas de afuera del registro no viajan.
-- **El contexto y la memoria:** el turno corre recortado como el de un invitado (sin perfil, objetivos, tickets, la plataforma ni la charla
-  del dueño), pero su memoria, sus pendientes y lo que le mostró viven en una clave PROPIA (`claveDelMiembro`, `jid#equipo:<email>`): su «sí»
-  no confirma lo que MaKo le propuso al dueño. La cola, el candado y la salida siguen siendo del grupo, y un lote se parte por persona.
+- **El contexto y la memoria:** un closer tampoco administra, así que su turno corre con `hayInvitado`, como el de un invitado (sin
+  perfil, objetivos, tickets, la plataforma ni la charla del dueño). Lo que el ROL le suma va aparte y es sólo suyo: las herramientas de
+  su vista, y su memoria y sus pendientes en una clave PROPIA (`claveDelMiembro`, `jid#equipo:<email>`): su «sí» no confirma lo que MaKo
+  le propuso al dueño. La cola, el candado y la salida siguen siendo del grupo, y un lote se parte por persona.
+- **A quien quien administra INVITÓ, la invitación le sigue mandando** aunque sea del equipo (`juzgarAcceso`, y `miembrosDelGrupo` lo
+  lista como invitado): nada de lo que ya era un invitado se abre por sumar al equipo. En producción, al 13/11, no había ninguno.
+
+**⚠️ El rojo de la primera subida, y el diagnóstico obvio era el equivocado.** La primera versión llamó `recortado` (invitado O equipo)
+a lo que antes decía `hayInvitado`, y GitHub tumbó once guardas del invitado (tests/grupos-ops-guarda, doer-hilo, doer-falla,
+agenda-google-grupo, hilo-del-superadmin…). Parecía que se había aflojado la privacidad del invitado, y no: esas guardas fijan el
+TEXTO de la línea (`const ctxFalla = hayInvitado ? ''`), así que un cambio de NOMBRE las tumba aunque el comportamiento sea el mismo o
+más estricto. Reescribir la guarda «al día» tampoco es la salida: es ablandar lo que protege a un invitado para que entre lo nuevo (el
+Cerebro lo frenó). **La regla:** lo nuevo se expresa DENTRO del nombre que la guarda mira, y lo que difiere se suma aparte, sin tocar
+la guarda: el equipo corre con `hayInvitado`, y su memoria, sus pendientes y sus herramientas van en líneas propias
+(`if (miembroDelEquipo) …`, `else if (miembroDelEquipo) guardarTurno(…, claveDelTurno, …)`, `deSuRol`).
+
+**Lo que el closer NO tiene por eso:** la cita en el contexto (`ctxCita`), lo hablado antes de sus últimos 12 turnos (`ctxYaSeHablo`) y
+«lo que le mostraste» (`ctxMostrado`). Las tres van en la rama que la guarda le prohíbe a quien no administra, y las dos últimas se
+leen del GRUPO. La cita sería segura para él en la app (la ruta ya valida que el mensaje citado sea uno que él ve: `filaParaPersona`
+→ «no existe»), pero no por WhatsApp, donde `textoPorIdDeWhatsApp` lee cualquier id. Si hacen falta, se suman con un nombre propio
+y leyendo SU clave, nunca la del grupo; lo más probable que se extrañe es la cita, cuando responda a un aviso de un lead.
 
 **Lo que esto NO cambia, y hay que saberlo:** el hilo es UNO. Lo que el dueño le pregunta a MaKo y lo que MaKo le contesta (por ejemplo
 cuánto facturó) lo ve el closer en el hilo, igual que en el grupo de WhatsApp. Lo que se le saca son los avisos con plata, no la charla. Si
@@ -286,6 +304,19 @@ con la MISMA condición con la que `conectar` la suelta (`motivoParaVolverAVincu
 ella diría «ya está conectada» al tocarlo. Son dos pasos: el botón y escanear. ⚠️ **Y el aviso mandaba al teléfono equivocado:**
 los pasos del mail y la campanita eran fijos («Conectar por QR», «el teléfono de MaKo (…2605)») con la voz en el …3479; ahora
 salen de la línea (`pasosQrDe`). Lo fija tests/volver-a-vincular.test.ts (V1-V6).
+
+**Falsa alarma con la voz bien: «otra línea vio» contaba los grupos PERSONALES de Martín (13/11 18:20, medido en sólo lectura).**
+A las 17:12 Martín devolvió la voz al …2605 («Dejar de usarlo para MaKo», desde /chats) y el …3479, recién re-vinculado, quedó
+como «la otra línea» del detector. A las 18:20 la marca dijo «otra línea vio 6 mensaje(s) de personas que la voz no tiene», y a las
+18:23 a la voz le entró Martín al instante y MaKo lo clasificó. Los 6 eran de 3 grupos suyos donde MaKo no está; en el grupo de MaKo
+que comparten (el de Mauricio), la voz tenía todos. **La causa:** la regla filtraba «grupo» (`@g.us`) y no «grupo compartido», como
+decía su comentario. No se había visto porque desde el 3/11 la voz estuvo casi siempre en el …3479, y con la voz y la otra en la
+misma línea la regla no corre. ⚠️ **La pista de al lado era la equivocada:** el historial que WhatsApp trae al re-vincular el
+…3479 (mensajes de las 15:59 a las 16:08, antes del QR) no es la causa: un mensaje de un grupo de MaKo que llega así y la voz no
+tiene SÍ es la prueba que la regla busca. **La regla:** la otra línea cuenta sólo los grupos de MaKo (`mako.grupo_jid` de cada
+negocio y `mako.superadmin.grupo_jid`, los mismos que lista `gruposDeMaKoEstricto` de lib/mako-chat.ts); sin esa lista no cuenta
+nada (`ajenosQueLaVozNoVio`, lib/linea-sorda.ts). Lo fija tests/linea-sorda.test.ts 4 y 6 (roturas O1-O5). La marca que quedó en el
+…2605 se cierra sola con el despliegue (hay una persona después de la marca): no hace falta re-vincular el …2605.
 
 ---
 

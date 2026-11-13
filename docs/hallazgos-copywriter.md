@@ -540,6 +540,19 @@ leyendo el resultado al lado del original:
 **La regla:** probar una pieza generada es ponerla al lado del original y medir largo, formato, partes, pruebas y título. Que
 MaKo diga «repliqué la estructura y el ritmo» no es una medición: lo dijo las cuatro veces, y en dos no era cierto.
 
+## El título dos veces en la tarjeta: el gancho era el texto CORTADO (13/11/2026, captura de producción)
+
+**Síntoma:** en 14 de las 34 tarjetas de outliers con texto debajo de la portada, el texto gris volvía a empezar por el mismo título
+en negrita («@janacraig_ is stepping into…» arriba y otra vez abajo). El banco no lo mostraba: sus ganchos son frases cortas.
+
+**Causa:** sin un gancho analizado, el gancho es `primeraLinea(texto)`, que corta el primer renglón a 140 letras y le suma «…».
+`restoDelTexto` sacaba el gancho del principio del texto con `t.startsWith(g)`, y un gancho cortado nunca es el principio del
+texto (el texto no tiene el «…»): devolvía el texto entero. Pasa con los pies largos de un solo renglón, sobre todo en inglés
+y en los anuncios.
+
+**La regla (`textoDeTarjeta` en lib/copywriter/outliers.ts):** si el gancho termina en «…» y el texto empieza con lo mismo sin el
+«…», en negrita va la primera oración y debajo el resto; si la primera oración es más larga que el gancho, sólo el gancho. Un texto
+recortado para mostrar no se compara contra el original sin sacarle el recorte.
 ## Segunda vuelta: las 12 plantillas, el teléfono entero y el negocio sin IA (13/11/2026, chat «probar-copy»)
 
 Tabla con cada paso y su captura: side-session-notes/local_3f1a66d3-…/probar-copy-1311/notas.md (fuera del repo).
@@ -587,7 +600,38 @@ Tabla con cada paso y su captura: side-session-notes/local_3f1a66d3-…/probar-c
 - **Lo que nadie pidió se saca solo:** «un reel de 30 segundos» salía con «Notas de producción» y «Variantes rápidas». Una sección
   nueva de notas o variantes que el pedido no nombra no entra (`sinExtrasNoPedidos`), sin descartada (frenaría el «se acepta sola»).
 
+## La llamada con Leila: lo lento, enlazar con otras funciones y el YouTube sin transcribir (13/11/2026)
+
+- **⚠️ «Tarda mucho en abrir» era la portada, y su caché no funcionaba nunca.** Medido en producción: la portada daba 4,9 s
+  hasta el primer byte en CADA apertura, con 1,18 MB, contra 0,5–1,1 s de abrir una página o de «Nuevo copy». El 11/11 se le
+  había puesto una caché de 5 minutos, pero era un `Map` en memoria y en Vercel casi nunca se cae en la misma instancia: el
+  diagnóstico «ya está cacheada» era el equivocado. Ahora usa `cachedRead` (compartida entre instancias, por negocio).
+  Regla en AGENTS.md («Y en Vercel, esa caché casi nunca acierta»).
+- **«Nuevo copy» no era lento: lo lento era ELEGIR la plantilla** (2 s hasta la pregunta de MaKo). Se reparte así: crear la
+  página 0,76 s, pedir la página nueva al server 0,6 s, el código 0,3 s y 0,4 s de leer un chat que todavía no existe. Lo
+  último se saca: una página recién creada en la pestaña no espera su chat (`marcarRecienCreada`, app/copywriter/pedido-guardado.ts).
+- **Enlazar, no rehacer:** después de replicar, «Hacerlo con tu avatar IA» y «Hacerlo carrusel». Ninguna de las dos funciones
+  recibía un guion. El avatar lo toma de `sessionStorage` (lib/guion-pasado.ts, no por la URL) cuando abre un proyecto, y abre
+  tu último avatar listo. Image arma las láminas con `crearCarruselDesdeGuionAction` (la tabla de un carrusel, o una lámina por
+  sección: lib/copywriter/hacia-otras.ts). **Trampa:** `app/image-editor/ruta.ts` no se importa fuera del editor
+  (tests/image-editor-integracion 4: «carga el motor»), aunque es una función de una línea; la ruta va escrita.
+- **El YouTube que no se transcribía:** la transcripción EXISTE (Competitors Spy, con el Gemini del negocio, 20 por día), pero
+  Copywriting nunca la pedía. Ahora, al replicar un video sin transcribir, la pide y la espera hasta 4 minutos
+  (app/copywriter/transcribir-original.ts). Después queda en «Ver el original». Si no se puede, MaKo lo dice y escribe con el
+  título y la descripción. Un tema que no tiene que ver con el negocio (los «7 ejercicios de bíceps») se escribe sin preguntar,
+  con sólo el gancho y la estructura, y se dice.
+
 ## Qué quedó sin hacer
+
+- (13/11/2026) Si MaKo PREGUNTA cuando el tema del original no tiene que ver con el negocio lo decide Martín; hoy no pregunta
+  (lib/copywriter/outliers.ts, `reglasDeLaReplica`).
+- (13/11/2026) La portada sigue mandando 1,18 MB (300 por formato, en la grilla del chat de los outliers). Y la página nueva todavía
+  se pide al server después de crearla (0,6 s): el `crear` ya devuelve la página y se podría mostrar sin esa vuelta
+  (app/copywriter/Copywriter.tsx).
+- (13/11/2026) «Hacerlo carrusel» arma siempre con el estilo «Lista o tips»; sin un avatar listo, el guion espera en silencio a
+  que haya uno (app/ai-avatar/Estudio.tsx).
+- (13/11/2026) La transcripción pide el acceso de Competitors Spy (`soloAdminDeTab('market-an')`): sin él, la réplica dice
+  «no autorizado» y escribe con la descripción.
 
 - (13/11/2026) Un negocio que declaró un acento que vosea sigue con el aviso de la mezcla: `alTuteo` va hacia el «tú», no hacia
   el «vos». Y la segunda pasada pide hasta 2.000 palabras: una clase de 42 minutos (6.300 dichas) sigue siendo un resumen de sí misma.
