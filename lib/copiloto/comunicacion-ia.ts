@@ -75,7 +75,7 @@ export async function materialOC(ws: number, sesion: number | null): Promise<{ t
 async function leerLlamadas(): Promise<string[]> {
   const db = await getTenantDb();
   const { data, error } = await db.from('closing_analyses').select('title, call_date, objections, strengths')
-    .eq('status', 'analizada').order('call_date', { ascending: false }).limit(25);
+    .eq('status', 'analizada').eq('category', 'venta').order('call_date', { ascending: false }).limit(25);
   if (error) throw new Error(`no pude leer las llamadas: ${error.message}`);
   const out: string[] = [];
   for (const f of (data ?? []) as Array<{ title: string | null; call_date: string | null; objections: unknown; strengths: unknown }>) {

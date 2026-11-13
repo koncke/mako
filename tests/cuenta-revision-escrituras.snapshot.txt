@@ -125,6 +125,8 @@ POST /api/competitor-spy/pagina → cortada
 POST /api/competitor-spy/redes → cortada
 POST /api/competitor-spy/todo → cortada
 POST /api/competitor-spy/transcribir → cortada
+POST /api/copiloto/comunicacion → cortada
+POST /api/copiloto/tareas → cortada
 POST /api/copywriter → cortada
 POST /api/copywriter/ia → cortada
 POST /api/crm-auto → cortada

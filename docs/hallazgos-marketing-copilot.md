@@ -494,6 +494,15 @@ Martín pidió sacarlo del piloto «si Meta todavía deja». Lo medido el 13/11 
 - **El tipo de fuente del Plan es una lista cerrada** (`FuenteTipo`: manual, mako, whatsapp, archivo…): «copiloto» no entra. La tarea va como `mako` y lo que la hace del CoPilot es su link, `/ads-manager/copiloto?tarjeta=…#copiloto:<clave>`, que además es el chip que lleva de vuelta. Sin columna nueva ni migración.
 - **Sincronizar no reabre nunca**: una tarea que la persona cerró en el Plan no vuelve a nacer aunque el CoPilot la siga pidiendo; sólo se crea lo que el Plan no tiene y se cierra lo que el CoPilot dio por resuelto (ya leí tus ángulos, ya conectaste Meta).
 
+## Una ruta o una operación nueva pasa por cinco guardas de la casa, y el filtro local no las corre (13/11/2026)
+
+La punta cayó en rojo (corrida 1265) con cinco a la vez, ninguna en lo que corrió el filtro local («FILTRO A MEDIAS»). Lo que pide cada una, para la próxima pieza del CoPilot:
+- **`cuenta-revision-escrituras`**: toda ruta nueva que escribe se clasifica para la cuenta de revisión de las tiendas. Las del CoPilot quedan «cortadas» (esa cuenta no escribe en el Plan ni en Offer); se regenera con `MAKO_REGENERAR_SNAPSHOT=1`.
+- **`api-mako-rest`**: cada operación de la API de MaKo que sale por HTTP lleva UNA ruta REST en `lib/api-mako/rest.ts` (y la referencia se regenera con `scripts/generar-api-doc.mjs`).
+- **`closing-entrega`**: quien lee `closing_analyses` filtrando «analizada» filtra también la categoría; para las objeciones de venta, `category = venta`.
+- **`integracion-sin-salir`**: para conectar algo JAMÁS se sale de la tab. El test barre `app/` y una tarea con `href: '/integraciones'` escrita en `lib/` se le escapó: la regla vale igual. «Conecta tu…» abre `ConectarViaZernio` ahí mismo.
+- **`ningun-boton-muerto`**: un botón sin `onClick` (el único ítem del menú de la configuración) no puede verse apretable: o hace algo o es un rótulo.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

@@ -299,9 +299,11 @@ function LoQueTeToca({ tareas, enPlan, onHecha, onHacer }: {
               <div><b>{t.titulo}</b></div>
               <span className="cop-tarea__der">
                 {enElPlan && <span className="cop-plan" title="Está en tu Plan: completarla acá la completa allá">En tu Plan</span>}
-                {lista ? null : t.href
-                  ? <Link className="frn-btn frn-btn--ghost frn-btn--chico" href={t.href}>Hacerlo</Link>
-                  : t.abre ? <button type="button" className="frn-btn frn-btn--ghost frn-btn--chico" onClick={() => onHacer(t)}>Hacerlo</button> : null}
+                {lista ? null : t.abre === 'conectar' && t.red
+                  ? <ConectarViaZernio red={t.red} volver={`/ads-manager/copiloto?tarjeta=${t.tarjeta}`} variant="secondary" size="sm">Hacerlo</ConectarViaZernio>
+                  : t.href
+                    ? <Link className="frn-btn frn-btn--ghost frn-btn--chico" href={t.href}>Hacerlo</Link>
+                    : t.abre ? <button type="button" className="frn-btn frn-btn--ghost frn-btn--chico" onClick={() => onHacer(t)}>Hacerlo</button> : null}
               </span>
             </li>
           );

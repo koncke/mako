@@ -6450,10 +6450,11 @@ curl -L \
   "https://hola-mako.com/api/v1/ads/media-buyer/copiloto"
 ```
 
-### `GET /api/v1/ads/ver_comunicacion_copiloto` — Ver Oferta y comunicación
+### `GET /api/v1/ads/media-buyer/copiloto/comunicacion` — Ver Oferta y comunicación
 
 Su oferta, sus ángulos y su voz: cada cosa con su clave, estado y fuente. Antes de preguntar o guardar una.
 
+- **Ruta por operación:** `GET /api/v1/ads/ver_comunicacion_copiloto`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
@@ -6466,13 +6467,18 @@ Su oferta, sus ángulos y su voz: cada cosa con su clave, estado y fuente. Antes
 | `parte` | string (oferta \\| angulos \\| voz) | no | una sola. |
 
 ```bash
-
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/copiloto/comunicacion"
 ```
 
-### `POST /api/v1/ads/guardar_comunicacion_copiloto` — Guardar comunicación
+### `POST /api/v1/ads/media-buyer/copiloto/comunicacion` — Guardar comunicación
 
 PROPONE guardar lo que dijo de UNA cosa de su oferta, ángulos o voz.
 
+- **Ruta por operación:** `POST /api/v1/ads/guardar_comunicacion_copiloto`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -6490,7 +6496,14 @@ PROPONE guardar lo que dijo de UNA cosa de su oferta, ángulos o voz.
 | `valor` | string | sí | en sus palabras. |
 
 ```bash
-
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/copiloto/comunicacion" \
+  -d '{"parte":"oferta","clave":"CLAVE","valor":"VALOR"}'
 ```
 
 ### `GET /api/v1/ads/media-buyer/copiloto/metodo` — Ver el método de campañas de Meta

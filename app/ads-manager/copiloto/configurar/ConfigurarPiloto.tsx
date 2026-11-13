@@ -46,8 +46,8 @@ const CSS = `
 .frn .mq-cfg__cab .frn-btn { min-width: 0; }
 .frn .mq-cfg__cuerpo { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: var(--gap); align-items: start; margin-top: var(--gap); }
 .frn .mq-cfg__nav { display: flex; flex-direction: column; gap: 6px; padding: 10px; border-radius: var(--r-md); background: var(--card); box-shadow: inset 0 0 0 1px var(--hair); }
-.frn .mq-cfg__nav button { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; font-size: 15.5px; font-weight: 600; color: var(--ink); cursor: pointer; }
-.frn .mq-cfg__nav button[aria-current="page"] { background: var(--ink); color: var(--card); }
+.frn .mq-cfg__nav button, .frn .mq-cfg__nav .mq-cfg__item { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; font-size: 15.5px; font-weight: 600; color: var(--ink); cursor: pointer; }
+.frn .mq-cfg__nav [aria-current="page"] { background: var(--ink); color: var(--card); }
 .frn .mq-cfg__hoja { padding: 24px 28px; }
 .frn .mq-cfg__hoja h3 { margin: 22px 0 2px; font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
 .frn .mq-cfg__hoja .frn-card__t + h3 { margin-top: 10px; }
@@ -131,7 +131,8 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido }: { inicial: Inicia
         </div>
         <div className="mq-cfg__cuerpo">
           <nav className="mq-cfg__nav" aria-label="Qué configuras">
-            <button type="button" aria-current="page"><LogoRed red="anuncios" box={26} /><span>Anuncios</span></button>
+            {/* Hoy sólo se configura Anuncios: es un rótulo, no un botón (tests/ningun-boton-muerto.test.ts). Los demás se suman con su piloto. */}
+            <span className="mq-cfg__item" aria-current="page"><LogoRed red="anuncios" box={26} /><span>Anuncios</span></span>
           </nav>
           <section className="frn-card mq-cfg__hoja">
             <h2 className="frn-card__t">Anuncios</h2>

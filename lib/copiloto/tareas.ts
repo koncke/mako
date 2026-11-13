@@ -16,8 +16,13 @@ import type { ParteOC } from './comunicacion';
 export type TarjetaCoPilot = 'oferta' | 'web' | 'anuncios' | 'instagram' | 'youtube';
 export const TARJETAS_COPILOTO: readonly TarjetaCoPilot[] = ['oferta', 'web', 'anuncios', 'instagram', 'youtube'];
 
-/** Lo que hace «Hacerlo»: ir a otra pantalla (`href`), abrir los desplegables de una parte (`oc`) o que MaKo lea (`leer`). */
-export type TareaCoPilot = { clave: string; tarjeta: TarjetaCoPilot; titulo: string; href?: string; abre?: 'oc' | 'leer'; parte?: ParteOC };
+/**
+ * Lo que hace «Hacerlo»: ir a otra pantalla (`href`), abrir los desplegables de una parte (`oc`), que MaKo lea (`leer`) o
+ * conectar una red AHÍ MISMO (`conectar` + `red`): para una integración jamás se sale de la tab (Martín, 14/10/2026,
+ * tests/integracion-sin-salir.test.ts).
+ */
+export type RedParaConectar = 'metaads' | 'instagram' | 'youtube';
+export type TareaCoPilot = { clave: string; tarjeta: TarjetaCoPilot; titulo: string; href?: string; abre?: 'oc' | 'leer' | 'conectar'; parte?: ParteOC; red?: RedParaConectar };
 
 /** Lo mínimo que hace falta saber del negocio para armar las tareas (lo arma ./page.tsx del CoPilot). */
 export type ResumenParaTareas = {
@@ -51,7 +56,7 @@ export function tareasDelCoPilot(r: ResumenParaTareas): { tareas: TareaCoPilot[]
 
   // Anuncios
   const a = r.anuncios;
-  hay(!a.conectada, { clave: 'anuncios:conectar', tarjeta: 'anuncios', titulo: 'Conecta tu cuenta de anuncios de Meta', href: '/integraciones' });
+  hay(!a.conectada, { clave: 'anuncios:conectar', tarjeta: 'anuncios', titulo: 'Conecta tu cuenta de anuncios de Meta', abre: 'conectar', red: 'metaads' });
   hay(!a.funnel, { clave: 'anuncios:funnel', tarjeta: 'anuncios', titulo: 'Elige tu funnel', href: '/ads-manager?estrategia=1' });
   // Audience Network: desde fines de agosto de 2026 Meta no deja sacarlo por campaña, sí en toda la cuenta, y eso no lo hace la API.
   if (a.conectada) tareas.push({ clave: 'anuncios:audience-network', tarjeta: 'anuncios', titulo: 'Bloquea Audience Network en Meta (Configuración publicitaria → Controles de ubicación)' });
@@ -62,8 +67,8 @@ export function tareasDelCoPilot(r: ResumenParaTareas): { tareas: TareaCoPilot[]
   for (const u of r.web.slice(0, 3)) tareas.push({ clave: `web:mejorar-${claveDeTitulo(sinProtocolo(u))}`, tarjeta: 'web', titulo: `Mejora ${sinProtocolo(u)} con su análisis`, href: `/web-generator?analizar=${encodeURIComponent(u)}` });
 
   // Instagram y YouTube
-  hay(!r.redes.instagram.conectada, { clave: 'instagram:conectar', tarjeta: 'instagram', titulo: 'Conecta tu Instagram' });
-  hay(!r.redes.youtube.conectada, { clave: 'youtube:conectar', tarjeta: 'youtube', titulo: 'Conecta tu YouTube' });
+  hay(!r.redes.instagram.conectada, { clave: 'instagram:conectar', tarjeta: 'instagram', titulo: 'Conecta tu Instagram', abre: 'conectar', red: 'instagram' });
+  hay(!r.redes.youtube.conectada, { clave: 'youtube:conectar', tarjeta: 'youtube', titulo: 'Conecta tu YouTube', abre: 'conectar', red: 'youtube' });
   // «Selecciona a tus competidores»: de los que sigues sale con qué número se publica un reel de prueba.
   if (r.seguidos == null || r.seguidos === 0) tareas.push({ clave: 'instagram:competidores', tarjeta: 'instagram', titulo: 'Selecciona a tus competidores en Competitor Spy', href: '/competitor-spy?ver=seguidos' });
   else resueltas.push('instagram:competidores');
