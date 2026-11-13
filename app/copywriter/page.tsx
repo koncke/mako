@@ -24,6 +24,7 @@ import { Copywriter } from './Copywriter';
 import { Pagina } from '@/app/_ui';
 import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { leerOutliersCopy } from '@/lib/copywriter/outliers-servidor';
+import { primeraTandaCopy } from '@/lib/copywriter/outliers';
 import { vistaDeCopy } from './vista';
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +47,8 @@ export default async function CopywriterPage({ searchParams }: { searchParams: P
     // las páginas, y la mudanza corre también acá (la primera vez de un negocio; lib/copywriter/mudanza.ts).
     await mudarLoDeAntes();
     const [portada, r, catalogos, ws, ofertas] = await Promise.all([
-      leerOutliersCopy(), listar(), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null), ofertasDelCopywriter(),
+      // Sólo la primera tanda viaja con la página; el resto lo pide la portada (13/11/2026: eran 924 outliers, 1,19 MB).
+      leerOutliersCopy().then(primeraTandaCopy), listar(), catalogosDelCopywriter(), getWorkspaceActual().catch(() => null), ofertasDelCopywriter(),
     ]);
     return (
       <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>

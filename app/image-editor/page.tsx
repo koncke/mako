@@ -22,6 +22,7 @@ import { nombreDelNegocio } from '@/lib/carruseles/marca';
 import { kitParaUsar } from '@/lib/marca/kits-server';
 import { requireEditorImagen } from './acceso';
 import { baseDelGuiado } from './guiado-base';
+import { primeraTandaExplorador } from './carruseles/tanda';
 import { ImageEditorCliente } from './ImageEditorCliente';
 import { vistaDeImage } from './vista';
 
@@ -46,12 +47,14 @@ export default async function ImageEditorPage({ searchParams }: { searchParams: 
       <ImageEditorCliente vista={ejemplos ? 'carruseles' : 'inicio'} ws={ws} negocio={negocio} kit={kit} guiado={base}
         explorador={explorador && explorador.ok
           ? {
-            datos: {
+            // Sólo lo que se ve primero viaja con la página; el resto lo pide la pantalla al dibujar (./carruseles/tanda.ts, 13/11/2026:
+            // eran 3,4 MB con los 1.301 ejemplos y las miniaturas de YouTube).
+            datos: primeraTandaExplorador({
               carruseles: explorador.carruseles, guardados: explorador.guardados.map((g) => g.id), busquedas: explorador.busquedas,
               paso: explorador.paso, frase: explorador.frase, accion: explorador.accion,
               ejemplos: explorador.ejemplos, avisoBiblioteca: explorador.avisoBiblioteca, anuncios: explorador.anuncios,
               thumbnails: thumbnails && thumbnails.ok ? { ok: true, lista: thumbnails.thumbnails, guardados: thumbnails.guardados, sinTablas: thumbnails.sinTablas } : { ok: false },
-            },
+            }, filtrosDeQuery(q)),
             filtros: filtrosDeQuery(q),
             filtrosThumbnails: filtrosThumbnailDeQuery(q),
           }

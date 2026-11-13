@@ -13,11 +13,15 @@ import { join } from 'node:path';
 import { dichoDelGuion, laminasDelGuion } from '../lib/copywriter/hacia-otras';
 import { docDeEstructura } from '../lib/copywriter/doc';
 import { aplicarTodo, sanearOperaciones } from '../lib/copywriter/operaciones';
-import { reglasDeLaReplica, LARGO_MAXIMO_REPLICA } from '../lib/copywriter/outliers';
+import { reglasDeLaReplica, LARGO_MAXIMO_REPLICA, pedidoDeCorreccion } from '../lib/copywriter/outliers';
+import { palabrasEnIngles } from '../lib/copywriter/ia-reglas';
 import { transcribirSiHaceFalta, TRANSCRITO, LINEA_TRANSCRIBIENDO, type Dependencias } from '../app/copywriter/transcribir-original';
 import { esRecienCreada, marcarRecienCreada } from '../app/copywriter/pedido-guardado';
 import type { JsonNodo } from '../lib/copywriter/tipos';
 import type { OutlierCopy } from '../lib/copywriter/outliers';
+import { bloqueDeOferta, faltaDeLaOferta, ofertaDelPedido } from '../lib/copywriter/oferta-elegida';
+import type { Oferta } from '../lib/oferta-modelo';
+import type { Producto } from '../lib/productos';
 
 const raiz = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(raiz, r), 'utf8').replace(/\r\n/g, '\n');
@@ -110,7 +114,13 @@ test('el YouTube se transcribe ANTES de replicarlo, y si no se puede, se dice', 
   // Lo que no hace falta: la biblioteca, lo que no es YouTube, lo ya transcrito.
   assert.equal(await transcribirSiHaceFalta('biblioteca:7', () => {}, deps([]).d), null);
   assert.equal(await transcribirSiHaceFalta('spy:42', () => {}, deps([], { original: async () => youtube('guion') }).d), null);
-  assert.equal(await transcribirSiHaceFalta('spy:42', () => {}, deps([], { original: async () => ({ ok: true as const, outlier: { formato: 'reel', deDonde: 'pie' } as OutlierCopy }) }).d), null);
+  assert.equal(await transcribirSiHaceFalta('spy:42', () => {}, deps([], { original: async () => ({ ok: true as const, outlier: { formato: 'carrusel', deDonde: 'pie' } as OutlierCopy }) }).d), null);
+  // Un REEL sin guion también se transcribe (13/11/2026, el relevo: 2 de 48 reels traían lo que se dice), y si no se puede, lo dice
+  // con lo que tiene: el texto de su publicación.
+  const reel = deps(['listo'], { original: async () => ({ ok: true as const, outlier: { formato: 'reel', deDonde: 'pie' } as OutlierCopy }) });
+  assert.deepEqual(await transcribirSiHaceFalta('spy:43', () => {}, reel.d), { ok: true, texto: TRANSCRITO });
+  const reelSin = deps(['sin-gemini'], { original: async () => ({ ok: true as const, outlier: { formato: 'reel', deDonde: 'pie' } as OutlierCopy }) });
+  assert.match((await transcribirSiHaceFalta('spy:43', () => {}, reelSin.d))?.texto ?? '', /lo escribo con el texto de su publicación, y tomo sólo el gancho y la estructura\.$/);
 });
 
 test('la réplica de un tema que no tiene que ver: sin preguntar, sólo el gancho y la estructura, y lo dice', () => {
@@ -129,6 +139,42 @@ test('la portada se guarda ENTRE instancias (4,9 s en cada apertura, medido el 1
   assert.ok(s.includes('portada = e instanceof PortadaConCaidas ? e.portada : await armarPortada(fuentes);'));
   // Las fuentes de un test no pasan por ninguna caché.
   assert.ok(s.includes('if (fuentes !== FUENTES_OUTLIERS_COPY) return armarPortada(fuentes);'));
+});
+
+test('la OFERTA ELEGIDA va entera a MaKo, con lo que le falta (13/11/2026, el relevo: con el nombre solo, inventaba)', () => {
+  const vacia = { nombre: 'WhatsApp Ads Funnel', es_principal: false } as Oferta;
+  const acelerador = { nombre: 'MaKo Acelerador', es_principal: false, para_quien: 'Coaches que venden servicios de más de US$1.000', precio_usd: 1500, precio_nota: null, promesa: 'Armar tu embudo y vender', bonos: [] } as unknown as Oferta;
+  // La que va entre «…» en el pedido; si no, la que se nombra; si no, la principal.
+  assert.equal(ofertaDelPedido('Replícalo entero con mi oferta «WhatsApp Ads Funnel»: su estructura', [acelerador, vacia]), vacia);
+  assert.equal(ofertaDelPedido('cambia el gancho para mako acelerador', [vacia, acelerador]), acelerador);
+  assert.equal(ofertaDelPedido('cambia el gancho', [vacia, { ...acelerador, es_principal: true }])?.nombre, 'MaKo Acelerador');
+  assert.equal(ofertaDelPedido('cambia el gancho', [vacia]), null);
+  // Vacía: lo dice, y pide [DATO] en vez de inventar.
+  const bloque = bloqueDeOferta(vacia, { nombre: 'WhatsApp Ads Funnel', monto_usd: null, descripcion: null } as unknown as Producto);
+  assert.match(bloque, /^LA OFERTA ELEGIDA: «WhatsApp Ads Funnel»\. La pieza habla de ESTA oferta[^\n]*ni un dominio, ni un regalo, ni una cifra[^\n]*\[DATO: …\]\./);
+  assert.match(bloque, /\(La oferta no tiene datos cargados: sólo su nombre\.\)/);
+  assert.match(bloque, /Le falta: para quién, qué promete, qué incluye, precio\./);
+  // Con datos: van todos, el precio del producto si la oferta no lo tiene, y sólo lo que falta.
+  const lleno = bloqueDeOferta(acelerador, { nombre: 'MaKo Acelerador', tipo: 'unico', monto_usd: 1500, descripcion: 'Te acompañamos a armar tu embudo.' } as unknown as Producto);
+  assert.match(lleno, /Para quién: Coaches que venden servicios de más de US\$1\.000\nQué promete: Armar tu embudo y vender\nQué es: Te acompañamos a armar tu embudo\.\nPrecio: US\$ 1500/);
+  assert.equal(faltaDeLaOferta(acelerador, { descripcion: 'Te acompañamos' } as Partial<Producto>).join(', '), '');
+  // En `editar`: las ofertas y los productos se leen con lo demás, y la elegida va en el bloque del negocio de los dos pedidos.
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes('const elegida = ofertaDelPedido(`${instruccion}\\n${charla}`, ofertas);'));
+  assert.equal((ia.match(/negocio: conOferta,/g) ?? []).length, 2, 'réplica y plantilla');
+  assert.ok(ia.includes('const fuentes = [negocio, oferta, '), 'las cifras de la oferta no son inventadas');
+});
+
+test('las palabras sueltas en inglés van a la segunda pasada, sin la jerga del rubro ni el nombre de la oferta (13/11/2026)', () => {
+  // Lo que salió en producción: «en more budget» en el anuncio y «Title y CTA» en la respuesta del reel.
+  assert.deepEqual(palabrasEnIngles('Gastan en creativos, en segmentación, en more budget. Title y CTA todo desde WhatsApp Ads Funnel.'), ['more', 'budget', 'title']);
+  // La jerga del rubro (leads, funnel, CTA, click) no cuenta, ni lo que es del negocio o de la oferta.
+  assert.deepEqual(palabrasEnIngles('Tus leads llegan del funnel; haz click en el CTA.'), []);
+  assert.deepEqual(palabrasEnIngles('Escribe a Best Coach Academy hoy.', 'LA OFERTA ELEGIDA: «Best Coach Academy»'), []);
+  assert.match(pedidoDeCorreccion({ largo: null, capitulos: [], ingles: ['more', 'budget'] }), /- EN ESPAÑOL: tu guion tiene palabras en inglés \(«more», «budget»\): dilas en español, también en «respuesta»\./);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes('ingles: x.entera && x.ingles.length > 0,'));
+  assert.ok(ia.includes('ingles: f1.ingles ? m.ingles : [],'));
 });
 
 test('una página recién creada no espera a leer su chat vacío (0,4 s de los 2 antes de la pregunta)', () => {

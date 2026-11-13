@@ -11696,6 +11696,10 @@ Y nada de una tarjeta queda escondido: un control que se saca de la pantalla se 
 Y en una automatización que usa «Contestó», la respuesta del lead la corta EN EL ACTO (`alContestar`) y después no le sale
 ningún mensaje más (la guarda de `procesarEnvios`): un «Contestó» que no corta es scripts/arnes-contesto-corta.mts en rojo.
 Detalle: docs/hallazgos-chatbot.md («No salió ni a mí ni a mi esposa»).
+«Contestó» es de ESA inscripción: no ve lo que el lead le contestó a OTRA automatización, y antes de escribirle nada se decide
+al entrar y no se cumple nunca (Publicar lo frena: `contestoAntesDeEscribir`, lib/flujo-grafo.ts). «Seguir con los que
+contestan» una difusión va EN la difusión (`conSiContesta`, lib/difusion-reglas.ts), sólo por WhatsApp; MaKo lo arma con
+`difundir_a_leads` (`siContesta`) o `seguir_con_los_que_contestan`. Detalle: docs/hallazgos-chatbot.md (13/11, Leila).
 
 ## Hacer cumplir un tope del plan: sólo a quien paga por la pasarela, y sólo al crear (23/10/2026)
 

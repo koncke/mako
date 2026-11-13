@@ -212,9 +212,15 @@ const RELLENO = { orden: 0, delay_horas: 0, asunto: null, template_wa: null } as
 /**
  * EL FLUJO DE LA DIFUSIÓN: la tarjeta de inicio con UN HILO POR CANAL (el primero en `siguiente`, el resto en `paralelos`),
  * y cada hilo una CONDITION «tiene ese canal» → el mensaje. Los mensajes salen solos (`revisar: false`): es una difusión, la
- * persona ya los escribió y los confirmó. El WhatsApp por QR (`proveedor: 'no_oficial'`).
+ * persona ya los escribió y los confirmó. El WhatsApp por QR (`proveedor: 'no_oficial'`). Con `siContesta`, el seguimiento de
+ * los que contestan (`conSiContesta`, abajo).
  */
-export function pasosDeDifusion(canales: readonly CanalDifusion[], m: MensajesDifusion): PasoGrafo[] {
+export function pasosDeDifusion(canales: readonly CanalDifusion[], m: MensajesDifusion, siContesta?: SiContestaDifusion | null): PasoGrafo[] {
+  const pasos = pasosSinSeguimiento(canales, m);
+  return siContesta ? conSiContesta(pasos, siContesta) : pasos;
+}
+
+function pasosSinSeguimiento(canales: readonly CanalDifusion[], m: MensajesDifusion): PasoGrafo[] {
   const elegidos = CANALES_DIFUSION.filter((c) => canales.includes(c));
   const pasos: PasoGrafo[] = [];
   for (const c of elegidos) {
@@ -235,6 +241,74 @@ export function pasosDeDifusion(canales: readonly CanalDifusion[], m: MensajesDi
   const hilos = elegidos.map((c) => `d_c_${c}`);
   pasos.push({ ...RELLENO, id: ID_INICIO, canal: 'whatsapp', cuerpo: '', nodo: 'inicio', siguiente: hilos[0] ?? null, paralelos: hilos.slice(1) } as unknown as PasoGrafo);
   return pasos;
+}
+
+// ── SEGUIR CON LOS QUE CONTESTAN (13/11/2026, Leila, ws11) ─────────────────────────────────────────────────────────────────
+// Leila mandó «Hola corazón, ¿cómo estás?» a 143 alumnas (la #732) y quería que a las que CONTESTARAN les saliera el pedido de
+// testimonio. La difusión no tenía cómo decirlo, así que lo armó aparte (la #730: «Contestó» como primera tarjeta, con la etapa
+// de la columna como CRON). Esa condición se decidió al entrar, cuando nadie había contestado: los 143 flujos se cerraron sin
+// mandar nada y Leila contestó todo a mano. «Contestó» es de ESA automatización: no ve lo que contestaron a otra. Lo que
+// funciona es ponerlo EN la difusión: el mensaje → «Escuchar N días» → «Contestó» → lo que sigue. El motor lo corre en el
+// momento en que contestan (`alContestar`, lib/nutricion.ts: la regla «Contestó corta» del 23/10), sólo a ellas.
+// ⚠️ SÓLO EN UNA DIFUSIÓN POR WHATSAPP (sola): con varios canales la inscripción tiene hilos en paralelo y `alContestar` no la
+// mueve (la guarda de `procesarEnvios` le corta los mensajes igual): el seguimiento no saldría nunca.
+
+/** Lo que les sale, en orden, a los que contestan; y cuántos días se los escucha después del mensaje. */
+export type SiContestaDifusion = { mensajes: string[]; dias: number };
+export const DIAS_ESCUCHA_DIFUSION = 7;
+export const RANGO_DIAS_ESCUCHA: readonly [number, number] = [1, 30];
+export const TOPE_MENSAJES_SI_CONTESTA = 5;
+export const ID_ESCUCHA_DIFUSION = 'd_escucha';
+export const ID_CONTESTO_DIFUSION = 'd_contesto';
+const PREFIJO_SI_CONTESTA = 'd_sc_';
+const esDelSeguimiento = (id: string) => id === ID_ESCUCHA_DIFUSION || id === ID_CONTESTO_DIFUSION || id.startsWith(PREFIJO_SI_CONTESTA);
+
+/** Lo que pidió, saneado: los mensajes no vacíos y los días (sin días, `DIAS_ESCUCHA_DIFUSION`). null = no pidió nada. */
+export function siContestaDe(mensajes: unknown, dias?: unknown): SiContestaDifusion | null {
+  const ms = (Array.isArray(mensajes) ? mensajes : []).filter((m): m is string => typeof m === 'string' && !!m.trim()).map((m) => m.trim());
+  if (!ms.length) return null;
+  return { mensajes: ms, dias: dias == null || dias === '' ? DIAS_ESCUCHA_DIFUSION : Number(dias) };
+}
+
+/** Lo que le falta (o le sobra) al seguimiento, en palabras cortas. null = está. */
+export function problemaDeSiContesta(canales: readonly CanalDifusion[], sc: SiContestaDifusion | null): string | null {
+  if (!sc) return null;
+  if (canales.length !== 1 || canales[0] !== 'whatsapp') return 'Seguir con los que contestan va en una difusión sólo por WhatsApp';
+  if (sc.mensajes.length > TOPE_MENSAJES_SI_CONTESTA) return `A los que contestan les salen hasta ${TOPE_MENSAJES_SI_CONTESTA} mensajes`;
+  const [min, max] = RANGO_DIAS_ESCUCHA;
+  if (!Number.isInteger(sc.dias) || sc.dias < min || sc.dias > max) return `Las respuestas se escuchan de ${min} a ${max} días`;
+  return null;
+}
+
+/**
+ * El flujo de la difusión CON el seguimiento: el WhatsApp → «Escuchar N días» → «Contestó» → los mensajes, en orden. Si ya
+ * tenía uno, lo reemplaza (pedirlo de nuevo cambia los textos, no apila otro). Los mensajes salen solos (`revisar: false`):
+ * la persona los escribió y los confirmó, y le llegan sólo a quien contestó. Sin el WhatsApp de la difusión, no cambia nada.
+ */
+export function conSiContesta(pasos: readonly PasoGrafo[], sc: SiContestaDifusion): PasoGrafo[] {
+  const base = pasos.filter((p) => !esDelSeguimiento(String(p.id ?? '')));
+  const i = base.findIndex((p) => p.id === 'd_whatsapp');
+  if (i < 0) return [...pasos];
+  const ids = sc.mensajes.map((_, k) => `${PREFIJO_SI_CONTESTA}${k + 1}`);
+  const out: PasoGrafo[] = base.map((p, k) => (k === i ? ({ ...p, siguiente: ID_ESCUCHA_DIFUSION } as PasoGrafo) : p));
+  out.push(
+    { ...RELLENO, id: ID_ESCUCHA_DIFUSION, canal: 'whatsapp', cuerpo: '', nodo: 'esperar', espera: { modo: 'tiempo', minutos: sc.dias * 24 * 60 }, siguiente: ID_CONTESTO_DIFUSION } as unknown as PasoGrafo,
+    {
+      ...RELLENO, id: ID_CONTESTO_DIFUSION, canal: 'whatsapp', cuerpo: '', nodo: 'condicion', si_no: null,
+      ramas: [{ id: `${ID_CONTESTO_DIFUSION}_si`, modo: 'todas', filas: [{ campo: 'contesto' }], siguiente: ids[0] }],
+    } as unknown as PasoGrafo,
+    ...sc.mensajes.map((cuerpo, k) => ({ ...RELLENO, id: ids[k], canal: 'whatsapp', proveedor: 'no_oficial', cuerpo, siguiente: ids[k + 1] ?? null, revisar: false } as unknown as PasoGrafo)),
+  );
+  return out;
+}
+
+/** El seguimiento que ya tiene una difusión (para decir qué cambia), o null. */
+export function siContestaDeLosPasos(pasos: readonly PasoGrafo[]): SiContestaDifusion | null {
+  const espera = pasos.find((p) => p.id === ID_ESCUCHA_DIFUSION) as { espera?: { minutos?: number } } | undefined;
+  const n = (p: PasoGrafo) => Number(String(p.id).slice(PREFIJO_SI_CONTESTA.length));
+  const ms = pasos.filter((p) => String(p.id ?? '').startsWith(PREFIJO_SI_CONTESTA)).sort((a, b) => n(a) - n(b)).map((p) => String(p.cuerpo ?? ''));
+  if (!espera || !ms.length) return null;
+  return { mensajes: ms, dias: Math.round(Number(espera.espera?.minutos ?? 0) / 1440) };
 }
 
 /** El nombre de la automatización: «Difusión · Contacto nuevo · 28/10» o «Difusión · 12 leads · 28/10». */
@@ -277,13 +351,14 @@ export const ESPERA_DIFUSION_EN_CURSO_MIN = 5;
 /** El pedido en un texto estable: el mismo pedido da el mismo texto, en cualquier orden de ids o de canales. */
 export function claveDeDifusion(p: {
   seleccion: { leadIds: number[] } | { funnelId: number | null; etapa: string };
-  canales: readonly CanalDifusion[]; mensajes: MensajesDifusion; goteo: GoteoDifusion;
+  canales: readonly CanalDifusion[]; mensajes: MensajesDifusion; goteo: GoteoDifusion; siContesta?: SiContestaDifusion | null;
 }): string {
   const sel = 'leadIds' in p.seleccion
     ? { ids: [...new Set(p.seleccion.leadIds)].sort((x, y) => x - y) }
     : { funnel: p.seleccion.funnelId ?? null, etapa: p.seleccion.etapa.trim() };
   const canales = CANALES_DIFUSION.filter((c) => p.canales.includes(c));
-  return JSON.stringify({ sel, canales, mensajes: canales.map((c) => p.mensajes[c] ?? null), goteo: [p.goteo.minutos, p.goteo.dia, ...(p.goteo.arranque ? [p.goteo.arranque.dia, p.goteo.arranque.sube] : [])] });
+  // El seguimiento entra en la clave SÓLO si lo hay: el mismo pedido sin él da la clave de siempre (las marcas de antes valen).
+  return JSON.stringify({ sel, canales, mensajes: canales.map((c) => p.mensajes[c] ?? null), goteo: [p.goteo.minutos, p.goteo.dia, ...(p.goteo.arranque ? [p.goteo.arranque.dia, p.goteo.arranque.sube] : [])], ...(p.siContesta ? { siContesta: [p.siContesta.dias, ...p.siContesta.mensajes] } : {}) });
 }
 
 /** La marca de un pedido: cuándo se pidió y la automatización que creó (null mientras se crea). */
