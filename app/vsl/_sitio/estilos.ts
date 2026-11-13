@@ -153,6 +153,8 @@ html:has(.s-mv[open]){overflow:hidden}
 /* El botón para empezar, corto en el teléfono angosto; y el sol y la luna, adentro del menú (lo pone TemaSitio). */
 .s-nb-corto{display:none}
 .s-mv-tema{cursor:default}
+/* El botón (36 px) no estira la fila: «Claro u oscuro» mide lo mismo que «Precios» y las demás (61 px), con su raya igual. */
+.s-mv-tema .mk-tema-sitio{margin:-8px -8px -8px 0}
 @media (max-width:400px){.s-nb-lleno .s-nb-largo{display:none}.s-nb-lleno .s-nb-corto{display:inline}}
 
 /* La barra clara (la de su página de comparaciones): blanca, filete #060419 al 12 %, el botón principal del color de marca. */

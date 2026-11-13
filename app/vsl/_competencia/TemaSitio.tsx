@@ -144,7 +144,7 @@ function barraDeArriba(){var mejor=null;[].forEach.call(document.querySelectorAl
 // Dónde va: DESPUÉS del botón para empezar de la barra, a la derecha del todo (Martín, 12/11/2026); si la barra no lo muestra (el teléfono), antes de lo que está más a la
 // derecha (el ☰ del menú, que puede no ser un link); y si a la derecha no hay nada, al final de la barra, empujado a la derecha.
 function enElMenu(){var panel=document.querySelector('.s-mv-panel');if(!panel||panel.querySelector('[data-tema-sitio-boton]'))return;
-  var fila=document.createElement('div');fila.className='s-mv-fila s-mv-tema';var t=document.createElement('span');t.textContent='Claro u oscuro';fila.appendChild(t);fila.appendChild(boton());panel.appendChild(fila);}
+  var fila=document.createElement('div');fila.className='s-mv-fila s-mv-tema';var t=document.createElement('span');t.textContent='Claro u oscuro';fila.appendChild(t);fila.appendChild(boton());panel.insertBefore(fila,panel.querySelector('.s-mv-pie'));}
 function ubicar(){enElMenu();if(document.querySelector('[data-tema-sitio-boton]:not(.s-mv-tema [data-tema-sitio-boton])'))return;
   var barra=barraDeArriba(),b=boton(),ref=null;
   var despues=false;
