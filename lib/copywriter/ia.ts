@@ -29,7 +29,7 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, marcasDeTuteo, propsParaIA, tituloDeRespaldo } from './ia-reglas';
+import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, marcasDeTuteo, propsParaIA, salidaVacia, tituloDeRespaldo } from './ia-reglas';
 import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
@@ -271,14 +271,19 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       negocio: bloqueNegocio(negocio),
       adjuntos: bloqueAdjuntos(p.lecturas ?? []),
     });
-    const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
+    const pedir = async () => objetoConUnaReparacion(String(await chatClaude(sys, [{ role: 'user', content: user }], {
       feature: FEATURE_COPY,
       motivo: pl?.ejemplo ? 'Adaptar una plantilla al negocio (Copywriter)' : 'Escribir en un guion (Copywriter)',
       maxTokens: 6_000,
       thinking: false,
       hastaMs: t0 + PLAZOS.editar,
-    });
-    const raw = await objetoConUnaReparacion(String(salida ?? ''), reparador(t0 + PLAZOS.editar));
+    }) ?? ''), reparador(t0 + PLAZOS.editar));
+    let raw = await pedir();
+    // Una salida VACÍA se pide una vez más si queda tiempo (ia-reglas → salidaVacia); las claves van al log para saber qué fue.
+    if (salidaVacia(raw)) {
+      console.warn('[copywriter] la IA devolvió un objeto vacío', JSON.stringify(raw).slice(0, 300));
+      if (Date.now() < t0 + PLAZOS.editar - 45_000) raw = await pedir();
+    }
     const ne = await conPedidoDeNoExisteDeLaSesion(typeof raw.respuesta === 'string' ? raw.respuesta.trim() : '', { chat: 'copywriter (Editar)', ruta: '/copywriter', pedido: instruccion });
     const catalogo = { angulos: new Set(lite.angulos.map((a) => a.id)), estructuras: new Set(lite.estructuras.map((e) => e.id)) };
     const s = sanearOperaciones(raw.operaciones, g.doc, catalogo);
@@ -327,7 +332,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       const duracion = avisoDeDuracion(palabrasDe(dicho), r.props.duracion ?? g.props.duracion);
       if (duracion) avisos.push(duracion);
     }
-    const respuesta = [ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n') || (s.ops.length ? 'Listo: revisa lo que escribí.' : 'No cambié nada.');
+    const respuesta = [ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n') || (s.ops.length ? 'Listo: revisa lo que escribí.' : salidaVacia(raw) ? SALIDA_VACIA : 'No cambié nada.');
     return { ok: true, respuesta, operaciones: s.ops, descartadas: [...s.descartadas, ...r.descartadas], avisos, noLeidas: refs.noLeidas };
   } catch (err) {
     return { ok: false, error: await falloIA(err, 'escribir'), status: 502 };

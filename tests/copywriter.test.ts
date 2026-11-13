@@ -30,7 +30,7 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion } from '../lib/copywriter/ia-reglas';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion, salidaVacia } from '../lib/copywriter/ia-reglas';
 import { marcasDeVoseo } from '../lib/voseo';
 import { aplicarTodo, bloqueAJson, etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
 import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
@@ -436,6 +436,17 @@ test('sin IA, el chat lleva a conectarla y no a Soporte (12/11/2026, en producci
   assert.ok(panel.includes("<Link href={rutaDeTarjeta('ia')} className=\"nt-mako-pildora\">Conectar mi IA</Link>"));
   // La frase es la de lib/ia-mensajes.ts: si cambia, el botón deja de salir.
   assert.match(leer('lib/ia-mensajes.ts'), /return `No hay ninguna IA conectada, así que MaKo no puede \$\{tema\}\./);
+});
+
+test('una salida VACÍA de la IA se pide otra vez y no se disfraza de «No cambié nada.» (13/11/2026, en producción en el teléfono)', () => {
+  assert.equal(salidaVacia({}), true);
+  assert.equal(salidaVacia({ respuesta: '  ', operaciones: [] }), true);
+  assert.equal(salidaVacia({ op: 'escribir_seccion', seccion: 'GANCHO' }), true);
+  assert.equal(salidaVacia({ respuesta: '¿Para quién es?', operaciones: [] }), false);
+  assert.equal(salidaVacia({ operaciones: [{ op: 'titulo', texto: 'x' }] }), false);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes('if (Date.now() < t0 + PLAZOS.editar - 45_000) raw = await pedir();'));
+  assert.ok(ia.includes("salidaVacia(raw) ? SALIDA_VACIA : 'No cambié nada.'"));
 });
 
 test('en un negocio que vosea, la MEZCLA con el tuteo se avisa (13/11/2026, en producción después del despliegue)', () => {

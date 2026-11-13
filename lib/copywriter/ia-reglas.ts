@@ -175,3 +175,14 @@ export function avisoDeDuracion(palabras: number, segundos: number | null | unde
 export function marcasDeTuteo(texto: string): string[] {
   return [...new Set((texto.toLowerCase().match(/\p{L}+/gu) ?? []).filter((w) => TUTEO.has(w)))];
 }
+
+/**
+ * ¿La IA devolvió un objeto VACÍO? Sin respuesta y sin operaciones no es «no cambié nada»: es una salida que no llegó
+ * (13/11/2026, en producción en el teléfono: «Escribime un reel de 30 segundos» sobre una página en blanco volvió con
+ * «No cambié nada.» y el mismo pedido, otra vez, escribió el reel entero). Se pide una vez más; si vuelve vacía, se dice.
+ */
+export function salidaVacia(raw: Record<string, unknown>): boolean {
+  const respuesta = typeof raw.respuesta === 'string' ? raw.respuesta.trim() : '';
+  return !respuesta && !(Array.isArray(raw.operaciones) && raw.operaciones.length);
+}
+export const SALIDA_VACIA = 'No me salió nada esta vez: pídemelo de nuevo.';
