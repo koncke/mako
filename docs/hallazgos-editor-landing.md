@@ -4608,3 +4608,18 @@ ya tiene hasta 12 páginas con su ruta, un botón lleva a otra con `href: 'pagin
 
 **Sin hacer:** usarla en producción en el editor (crear el paso, cambiar la flecha); métricas por paso (visitas y
 conversiones de cada página, como GHL).
+
+### Tickets #95 y #96: «El archivo no es lo que dice» con una foto buena (13/11/2026)
+
+Martín, cambiando una imagen en /web-generator/119. El registro de Vercel lo dijo todo: «descarté 9/subidas/….png: dice
+image/png y es image/jpeg». Era una foto JPG con nombre .png: el navegador declara el tipo por la EXTENSIÓN, la ruta de subida
+lleva esa extensión, y `registrar` comparaba con los bytes y rechazaba cualquier diferencia.
+- **El chequeo es para que no pase lo que NO es una imagen** (un HTML disfrazado de PNG). Entre dos imágenes raster no hay
+  riesgo: `veredictoDeSubida` deja pasar lo que el archivo ES y `finalConTipo` lo guarda con su extensión (.png → .jpg).
+- **TRAMPA: una foto HEIC (iPhone) o AVIF lleva la caja `ftyp`, la misma de un MP4**, y `sniffMedia` la daba por video. Ahora
+  las marcas heic/mif1/avif… no son video, y `formatoVisto` la nombra en el mensaje (no se convierte: el servidor no decodifica
+  HEIC).
+- **El mensaje dice qué se vio y qué hacer:** «Tiene nombre de PNG pero es un archivo PDF: súbelo como JPG, PNG, WebP o GIF», «Es
+  una foto HEIC (la del iPhone) con nombre de JPG: expórtala como JPG y vuelve a subirla».
+
+**Sin hacer:** el editor de imágenes tiene el mismo chequeo y el mismo mensaje (lib/image-editor/server.ts, `registrar`).
