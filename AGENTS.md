@@ -239,6 +239,7 @@ Copiar una línea en un regex no prueba nada: da rojo con el código bien y verd
 - Un test nuevo corre el código y mira el resultado. Una regla sobre todo el repo va a las guardas.
 - Además de «probado rompiéndolo», un cambio sin efecto (renombrar una variable local) tiene que dejarlo verde.
 - Un rojo falso no se arregla editando la línea para que vuelva a coincidir: se convierte en prueba real. Borrarlo pide un segundo lector. Lo de plata, permisos y aislamiento entre clientes nunca se borra sin reemplazo.
+- **Una guarda de privacidad que fija el NOMBRE de una línea (`const ctxFalla = hayInvitado ? ''`) no se pone «al día» para que entre algo nuevo.** Lo nuevo se expresa dentro del nombre que mira, y lo que difiere va en líneas propias (13/11/2026: renombrar a `recortado` tumbó once guardas del invitado y el Cerebro frenó reescribirlas; docs/hallazgos-comunicacion.md).
 - Tras 2 rojos seguidos de una punta, la tercera no sale sin reproducir el rojo en local.
 - **Una guarda que escanea el REPO se corre DESPUÉS de crear el archivo nuevo, nunca antes.** Las de esa familia
   —la voz (voseo), los tokens `var(--fs-*)`, las rutas de `public/`, el índice de hallazgos— no miran el diff:
