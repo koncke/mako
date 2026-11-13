@@ -24,6 +24,7 @@
 import { MAX_SECCIONES, MAX_TITULO_SECCION, cortarPegado, esquemaConservado } from './ia-reglas';
 import { TOPES, NODO, type JsonNodo } from './doc';
 import type { Esquema, SeccionEsquema } from './api-tipos';
+import { sinEnlacesALaOriginal } from './replicar-partes';
 
 const RE_TITULO = /^(#{1,6})\s+(.+)$/;
 const RE_BOTON = /^\[BOT[ÓO]N\]/i;
@@ -482,4 +483,25 @@ export function huecosParaPublicar(contenido: unknown, config: unknown): string 
   ].filter(Boolean);
   if (!partes.length) return null;
   return `Antes de publicar, completa lo que la réplica dejó para ti: ${partes.join(', ')}. Pon los de tu negocio o pídele a MaKo que los cambie.`;
+}
+
+/**
+ * El cierre de las secciones de una réplica, ya escritas (13/11/2026): en la ADAPTADA, ningún enlace lleva a la original ni a
+ * sus destinos (su agenda, su WhatsApp: `sinEnlacesALaOriginal`), y si la original repite su botón principal (en
+ * `PARTES_BOTON_REPETIDO` partes o más), cada sección cierra con el suyo (`conBotonEnCadaSeccion`). La copia LITERAL conserva
+ * sus enlaces. Puro: el test lo prueba sobre el resultado, no sobre el texto de replicar.ts.
+ */
+export function cerrarSecciones(
+  tarjetas: readonly JsonNodo[],
+  o: { literal: boolean; url: string; destinos: ReadonlySet<string>; botonEnPartes: number },
+): { tarjetas: JsonNodo[]; enlacesAjenos: number; botonesSumados: number } {
+  let enlacesAjenos = 0;
+  const sinAjenos = o.literal ? [...tarjetas] : tarjetas.map((t) => {
+    const r = sinEnlacesALaOriginal(t, o.url, o.destinos);
+    enlacesAjenos += r.cambiados;
+    return r.tarjeta;
+  });
+  if (o.botonEnPartes < PARTES_BOTON_REPETIDO) return { tarjetas: sinAjenos, enlacesAjenos, botonesSumados: 0 };
+  const b = conBotonEnCadaSeccion(sinAjenos);
+  return { tarjetas: b.tarjetas, enlacesAjenos, botonesSumados: b.sumados };
 }

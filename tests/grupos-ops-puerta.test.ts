@@ -31,7 +31,8 @@ function correrElHijo(): Record<string, any> {
 test('la matriz: entra quien tiene una razón; a los demás, 404, siempre el mismo', () => {
   const m = R().matriz;
   assert.equal(m.dueno, 200);
-  assert.equal(m.closerSinInvitar, 404, 'closer y setter entran sólo invitados: el grupo trae plata');
+  // 13/11/2026, el Cerebro: el closer y el setter del negocio están en su grupo (sin el recibo ni los avisos a la agencia: tests/equipo-en-el-grupo.test.ts).
+  assert.equal(m.closerSinInvitar, 200, 'el equipo del negocio está en su grupo');
   assert.equal(m.ajeno, 404);
   assert.equal(m.agenciaAdmin, 200);
   assert.equal(m.agenciaCloser, 404);
@@ -110,7 +111,8 @@ test('a un invitado no le llega ningún email; hasta que abre, nadie sabe su nom
   assert.equal(otraParaElDueno.nombre, 'otra@ocho.test', 'el nombre diría que esa cuenta existe');
   const joan = aDueno.participantes.find((p: { email?: string }) => p.email === 'joan@ocho.test');
   assert.equal(joan.nombre, 'Joan', 'ya abrió');
-  assert.deepEqual(aDueno.sugeridos, [{ nombre: 'Cris Closer', email: 'closer@siete.test' }], 'sólo closer y setter de este negocio');
+  assert.deepEqual(aDueno.sugeridos, [], 'el closer ya está adentro: no se sugiere');
+  assert.ok(aDueno.participantes.some((p: { porQue?: string; email?: string }) => p.email === 'closer@siete.test' && p.porQue === 'Del equipo del negocio'));
   assert.ok(aDueno.participantes.some((p: { porQue?: string }) => p.porQue === 'Administra su agencia'));
   assert.ok(!JSON.stringify(aDueno).includes('martin@mako.test'), 'el super admin no figura');
 });

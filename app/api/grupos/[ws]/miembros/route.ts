@@ -31,7 +31,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     nombre: p.tipo === 'invitado' && !p.abrio ? (administra ? p.email : 'Invitado') : autorDePersona(p.nombre, administra ? p.email : 'Alguien'),
     tipo: p.tipo, propio: p.usuarioId === quien.usuarioId,
     ...(administra ? { email: p.email } : {}),
-    ...(p.tipo === 'invitado' ? {} : { porQue: p.tipo === 'agencia' ? 'Administra su agencia' : 'Administra el negocio' }),
+    ...(p.tipo === 'invitado' ? {} : { porQue: p.tipo === 'agencia' ? 'Administra su agencia' : p.tipo === 'equipo' ? 'Del equipo del negocio' : 'Administra el negocio' }),
     ...(p.fotoUrl && (p.tipo !== 'invitado' || p.abrio) ? { fotoUrl: p.fotoUrl } : {}),
   }));
   const sinCuenta = m.invitadosSinCuenta.map((email) => ({ nombre: administra ? email : 'Invitado', tipo: 'invitado' as const, propio: false, ...(administra ? { email } : {}) }));
