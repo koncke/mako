@@ -8,6 +8,9 @@
 // filtros (Filtros, Cuentas, orden), la misma grilla y el mismo «Editar», con su tarjeta 16:9. Lo puro (de dónde salen, el
 // múltiplo y por qué espera un trámite con YouTube, los filtros): lib/thumbnails/explorar.ts.
 //
+// VERTICALES (13/11/2026): «Horizontales · Verticales» en la fila de filtros (`tformato`); las verticales son las portadas de los
+// reels que Spy ya trajo, con su grilla 9:16 y el mismo «Editar» (./Verticales.tsx).
+//
 // Lo que piden los términos de YouTube y la tarjeta cumple: la imagen es la de YouTube (i.ytimg.com, no una copia), el video se
 // abre EN YouTube («Ver en YouTube»), y un número que no es de YouTube (el múltiplo) lleva su leyenda (LEYENDA_DERIVADA).
 // =============================================================================
@@ -26,6 +29,7 @@ import {
 } from '@/lib/thumbnails/explorar';
 import { Deslizador } from './Deslizador';
 import { EditarCarrusel } from './EditarCarrusel';
+import { ElegirFormato, PanelVerticales } from './Verticales';
 import s from './explorar.module.css';
 
 /** Lo que llega del servidor (lib/thumbnails/servidor.ts, `leerThumbnails`). `ok: false` = no se pudo leer (no es «no hay»). */
@@ -126,7 +130,12 @@ export function PanelThumbnails({ datos, f, cambiar, guardados, alternarGuardado
   const orden = ordenes.some((o) => o.value === f.orden) ? f.orden : ORDEN_INICIAL_THUMBNAIL;
   const activos = filtrosThumbnailActivos(f);
   const cambiarYVolver = (c: Partial<FiltrosThumbnail>) => { cambiar(c); setCuantas(DE_A); };
-  const reiniciar = () => cambiarYVolver({ ...FILTROS_THUMBNAIL, vista: f.vista });
+  const reiniciar = () => cambiarYVolver({ ...FILTROS_THUMBNAIL, vista: f.vista, formato: f.formato });
+  // «Horizontales · Verticales» (13/11/2026): el formato no es un filtro, es qué se mira; va al lado de «Qué ver».
+  const formato = <ElegirFormato formato={f.formato} cambiar={(x) => cambiarYVolver({ formato: x })} />;
+  if (f.formato === 'vertical') {
+    return <PanelVerticales q={f.q} formato={formato} ahora={ahora} telefono={telefono} segmento={segmento} botones={botones} />;
+  }
 
   return (
     <>
@@ -135,6 +144,7 @@ export function PanelThumbnails({ datos, f, cambiar, guardados, alternarGuardado
             pantalla, y al final quedaba fuera de la vista (6/11/2026, autocrítica). Las pastillas, después. */}
         {segmento}
         {telefono ? botones : null}
+        {formato}
         <button type="button" className={s.chip} aria-pressed={activos > 0} onClick={() => setFiltrosAbiertos(true)}>
           <Ajustes /> Filtros{activos ? <span className={s.n}>{activos}</span> : null}
         </button>
@@ -284,7 +294,7 @@ function FiltrosThumbnailModal({ filtros, lista, onAplicar, onCerrar }: {
     <Modal titulo="Filtros" onCerrar={onCerrar} ancho={760} completaEnCelular
       pie={(
         <>
-          <button type="button" className={s.textoIzq} onClick={() => setF({ ...FILTROS_THUMBNAIL, q: f.q, canales: f.canales, vista: f.vista })}>Quitar filtros</button>
+          <button type="button" className={s.textoIzq} onClick={() => setF({ ...FILTROS_THUMBNAIL, q: f.q, canales: f.canales, vista: f.vista, formato: f.formato })}>Quitar filtros</button>
           <button type="button" className={s.secundario} onClick={onCerrar}>Cancelar</button>
           <button type="button" className={s.primario} onClick={() => onAplicar(f)}>Ver {contadorCorto(cuantos)} {cuantos === 1 ? 'miniatura' : 'miniaturas'}</button>
         </>

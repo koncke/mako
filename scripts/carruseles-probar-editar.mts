@@ -12,6 +12,8 @@
 // Uso (desde la raíz del clon):
 //   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --id -123
 //   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --id 45 --que thumbnail
+//   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 9 --id spy:1115 --que vertical
+//     (13/11/2026: una miniatura VERTICAL, la portada de un reel que Spy ya trajo; el id es el del outlier de video)
 //   node --env-file=.env.local --conditions=react-server --import tsx scripts/carruseles-probar-editar.mts --ws 3 --sin-laminas
 //     --sin-laminas: elige solo un carrusel de la biblioteca que tenga portada y NO láminas (el caso del 6/11).
 // =============================================================================
@@ -26,7 +28,7 @@ const tiene = (k: string) => xs.includes(`--${k}`);
 const ws = Number(op('ws'));
 if (!Number.isSafeInteger(ws) || ws <= 0) { console.log('Falta --ws <n> (usa el 3, el Cliente de Prueba).'); process.exit(1); }
 if (ws === 1) { console.log('✖ El ws 1 es de un cliente real (Mauricio): prueba en el ws 3.'); process.exit(1); }
-const que = op('que') === 'thumbnail' ? 'thumbnail' : 'carrusel';
+const que = op('que') === 'thumbnail' ? 'thumbnail' : op('que') === 'vertical' ? 'vertical' : 'carrusel';
 
 const { runWithWorkspace } = await imp('lib/workspace.ts');
 const R = await imp('lib/carruseles/replica-servidor.ts');
@@ -41,11 +43,13 @@ if (tiene('sin-laminas')) {
   id = uno.id;
   console.log(`Elegí el carrusel ${id} (${uno.laminas} láminas, sin las láminas guardadas; portada: ${uno.miniatura?.slice(0, 90)})`);
 }
-if (!Number.isSafeInteger(id) || id === 0) { console.log('Falta --id <n> (el id que da buscar_carruseles; negativo = biblioteca) o --sin-laminas.'); process.exit(1); }
+const idVertical = que === 'vertical' ? op('id') : null;
+if (que === 'vertical' && !/^[a-z][a-z0-9-]{1,20}:[A-Za-z0-9_.-]{1,80}$/.test(idVertical ?? '')) { console.log('Falta --id <fuente:id> (el verticalId que da buscar_thumbnails con formato vertical, como spy:1115).'); process.exit(1); }
+if (que !== 'vertical' && (!Number.isSafeInteger(id) || id === 0)) { console.log('Falta --id <n> (el id que da buscar_carruseles; negativo = biblioteca) o --sin-laminas.'); process.exit(1); }
 
 const t0 = Date.now();
 const seg = () => `${((Date.now() - t0) / 1000).toFixed(1)} s`;
-const r = await runWithWorkspace(ws, () => R.replicarEjemplo(ws, 'script:probar-editar', { que, id }, {
+const r = await runWithWorkspace(ws, () => R.replicarEjemplo(ws, 'script:probar-editar', que === 'vertical' ? { que, id: idVertical } : { que, id }, {
   seco: !tiene('guardar'),
   // --avatar cara|look|ninguno: lo que contestaría el dueño en el guiado (sin esto, la API vieja: sin foto del negocio).
   guiado: op('avatar') ? { ofertaId: null, ofertaLibre: null, avatar: op('avatar') as 'cara' | 'look' | 'ninguno', cambio: 'textos', pedido: null } : null,

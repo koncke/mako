@@ -28,6 +28,41 @@ Tres cosas que esto deja, y la tercera es la que no se ve:
 
 ---
 
+## «El archivo no es lo que dice»: una foto JPG con nombre .png en «Subidos» (13/11/2026)
+
+**El síntoma.** En Image, una foto JPG que se llama `.png` no se podía subir: «El archivo no es lo que dice», sin decir qué ni
+qué hacer. Es el mismo caso de los tickets #95 y #96 del Web Generator (`4d476f373`, docs/hallazgos-editor-landing.md).
+
+**La causa, y el diagnóstico equivocado.** Parecía un archivo roto o disfrazado, y no lo era. El navegador declara el tipo por
+la EXTENSIÓN, y `registrarSubida` (lib/image-editor/server.ts) mira los bytes: rechazaba cualquier diferencia, también entre
+dos imágenes buenas. El chequeo está para que no pase lo que NO es una imagen, como un HTML con nombre de PNG.
+
+**Lo que Image tenía de más, y el Web no.** Image también sube AUDIO, y `sniffArchivo` toma cualquier caja `ftyp` por un
+`audio/mp4`. Una foto HEIC del iPhone (que también lleva `ftyp`, con la marca `heic` o `mif1`) pasaba por un M4A. En el Web
+pasaba por un video MP4.
+
+**Dónde vive el arreglo.** `veredictoDeImage`, en lib/image-editor/reglas.ts:
+- Entre dos imágenes decide `veredictoDeSubida` del Web: la MISMA función, importada, no una copia (el test 5 lo fija).
+- Image le suma el audio. Entre dos audios también vale lo que el archivo es (un M4A que se llama `.mp3`). Un audio con nombre
+  de imagen, o al revés, se rechaza diciendo qué es y dónde subirlo.
+- `sniffArchivo` ya no toma por audio lo que `formatoVisto` reconoce como HEIC o AVIF.
+- El archivo se muda con la extensión de lo que ES (`finalConSuTipo`, la tabla de Image con los audios), y la fila de
+  «Subidos» lleva ese tipo.
+- Una foto declarada HEIC se rechaza antes de subir, con «expórtala como JPG».
+
+Test: tests/image-editor-subida-tipo.test.ts, 5/0. Probado rompiéndolo, de a uno y restaurando: con la regla vieja («lo que
+dice tiene que ser lo que es») da 1/4, con el HEIC tomado por audio da 4/1, y con la ruta sin la extensión real, 4/1.
+
+**La regla:** una subida nueva se juzga con `veredictoDeSubida`, nunca con «el tipo declarado es igual al real» (queda en
+AGENTS.md).
+
+**Lo que quedó SIN hacer:**
+- No se probó subiendo de verdad en producción. Escribir en el bucket de producción pide la frase de Martín.
+- No se midió con qué `Content-Type` sirve el bucket el archivo mudado. El `move` de Supabase podría quedarse con el que
+  declaró el navegador (un `.jpg` servido como `image/png`). Los navegadores miran los bytes de una imagen, pero no se comprobó.
+
+---
+
 ## El chat del editor no editaba en el espacio de MaKo, y el audio escondía «Enviar» (12/11/2026)
 
 **El chat.** En el ws 9, todo pedido al chat de un diseño (por texto o por audio) contestaba «Tu IA está conectada pero no pudo editar

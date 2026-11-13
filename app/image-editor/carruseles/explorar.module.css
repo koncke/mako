@@ -90,6 +90,8 @@
 .grilla { list-style: none; margin: 0; padding: 0; display: grid; gap: 26px 20px; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); }
 /* Las miniaturas de YouTube (Thumbnails, 6/11/2026): 16:9, más anchas (3 columnas en 1440, como en YouTube). */
 .grillaAncha { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+/* Las verticales (9:16, 13/11/2026): más angostas que un carrusel, para que una fila entre sin que cada portada mida media pantalla. */
+.grillaVertical { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
 
 /* UNA CAJA POR OUTLIER (12/11/2026, Martín: «que englobes a la casilla… abajo tenemos texto y un montón de cosas que están volando
    sueltas»): la imagen, el título, la cuenta, los números y las acciones van adentro de la misma tarjeta, con su borde. Es la de
@@ -108,6 +110,7 @@
 .mini { position: relative; flex: none; aspect-ratio: 4 / 5; overflow: hidden; background: var(--surface-2); border-bottom: 1px solid var(--border); }
 .mini[data-anuncio='si'] { aspect-ratio: 1 / 1; }
 .mini169 { aspect-ratio: 16 / 9; cursor: pointer; }
+.mini916 { aspect-ratio: 9 / 16; cursor: pointer; }
 .miniImagen { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
 .duracion { position: absolute; right: 8px; bottom: 8px; height: 20px; padding: 0 6px; border-radius: 5px; background: rgba(18, 21, 27, 0.82); color: #fff; font-size: 11.5px; font-weight: 700; display: inline-flex; align-items: center; font-variant-numeric: tabular-nums; pointer-events: none; }
 .yt { margin-left: auto; color: var(--dim); font-weight: 600; text-decoration: none; white-space: nowrap; }
@@ -115,6 +118,9 @@
 .notaFuente { margin: 0; text-align: center; font-size: 12px; color: var(--faint, var(--dim)); }
 .abiertaThumb { display: flex; flex-direction: column; gap: 12px; }
 .abiertaThumb img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px; background: var(--surface-2); display: block; }
+.abiertaVertical { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.abiertaVertical img { height: min(64vh, 640px); max-width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 12px; background: var(--surface-2); display: block; }
+.abiertaVertical .datos { align-self: stretch; justify-content: center; }
 
 /* Las láminas: una pista con snap, que se desliza con el dedo y con las flechas. */
 .pista { position: absolute; inset: 0; display: flex; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; outline: none; }

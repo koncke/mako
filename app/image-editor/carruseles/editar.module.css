@@ -17,6 +17,8 @@
 .tira li { min-width: 0; border-radius: 8px; box-shadow: 0 1px 2px rgba(18, 21, 27, 0.08); }
 /* Una miniatura de YouTube (16:9) es UNA lámina: grande, al ancho del modal. */
 .tira[data-miniatura='si'] { grid-auto-columns: min(100%, 560px); justify-content: center; }
+/* La vertical (9:16, 13/11/2026): angosta, para que entre entera en el modal sin hacer scroll. */
+.tira[data-miniatura='vertical'] { grid-auto-columns: min(100%, 260px); justify-content: center; }
 .tira li[data-lista='si'] { animation: entra 320ms cubic-bezier(.2, .7, .2, 1) both; }
 @keyframes entra { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
 .esperando { display: block; width: 100%; border-radius: 6px; background: linear-gradient(100deg, var(--surface-2) 30%, var(--surface) 50%, var(--surface-2) 70%); background-size: 300% 100%; animation: brillo 1.4s ease-in-out infinite; }
