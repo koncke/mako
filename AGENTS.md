@@ -4785,6 +4785,14 @@ corré `npm run typecheck` antes de leer nada. Lo caza — pero lo dice al revé
 `Property 'al' does not exist on type '"\n.cono.ahc {…"'`: el nombre de la propiedad es el
 pedazo que quedó afuera de la cadena.
 
+## Y una regex LITERAL no lleva el flag `s`: el repo compila a ES2017 (13/11/2026)
+
+`/…/s` (el punto que también agarra el salto de línea) es de ES2018, y el `tsconfig` del repo
+dice `"target": "ES2017"`: el typecheck de la punta da `TS1501` en esa línea, y los tests con
+`tsx` pasan igual (no miran el target). Pasó en `lib/copywriter/outliers.ts` (los capítulos de un
+video). Se escribe `[\s\S]` en lugar del punto. El flag `u` (con `\p{L}`) sí entra; lo que es de
+ES2018 en el CUERPO (`(?<!…)`) va en `new RegExp('…')`, como `lib/al-tuteo.ts`.
+
 # «No puedo hacer X con este dato» no es «este dato es falso»
 
 Un control que descubre que no puede ACTUAR sobre algo tiene una sola salida honesta:

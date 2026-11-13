@@ -479,6 +479,12 @@ escribí, pedí, recibí) son IGUALES a la primera persona del pasado, y MaKo cu
 imperativos en -á/-é, los que llevan el pronombre pegado sin tilde). Las mayúsculas («SOS») no se tocan. El test 6 fija los pretéritos
 intactos.
 
+**Y dos tandas al mismo diccionario (13/11/2026, corrida 1228 de `punta/probar-copy` en rojo):** el grupo de la app sumó «agendá»,
+«dejá», «mandá» en main y Copywriting sumó las mismas en su punta. Git las mezcló sin conflicto (líneas distintas) y quedó un objeto con
+claves repetidas: «An object literal cannot have multiple properties with the same name». **Los tests con `tsx` pasan igual**; sólo
+lo ve el `tsc` de la punta, 10 minutos después. Ahora un test cuenta las claves (tests/copywriter.test.ts, «una sola voz»). Y
+Copywriting la usa con `citas: true`: en un guion, lo que va entre «…» lo escribió MaKo, no la persona.
+
 ## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
 
 **El síntoma:** Martín, 9/11 ~19:00 ART: «MaKo no está respondiendo… Joan va a enviar el comprobante y nadie responde».
@@ -13751,10 +13757,15 @@ su CRM —elegida (`columnasEmail.rebote`) o por su nombre— aunque quede antes
   (motor, API, pantalla, «por qué no sale») habría dejado a Mauricio en 100 justo al subirlo a 1.600. Ahora lo de una cuenta
   propia leído sin ella baja a 500, nunca a 100. Y la definición de la API (`emailDia`, chatbot.def.ts) tenía su propio
   `maximo: 500`, que valida ANTES del runner: también subió (a 2.000; el rango real lo decide el runner).
+- **El goteo sigue a la cuenta (mismo día).** El tope por día de UNA automatización (`rangosGoteo`, lib/config-automatizacion.ts)
+  llega al de la cuenta: 2.000 o 500. Lo pasa quien GUARDA (`guardarConfigAutomatizacion` → `configParaGuardar(…, cuenta)`: la
+  pantalla, la API, la difusión, las plantillas) y la API antes del «sí». Al LEER se acepta hasta 2.000 sin preguntar la cuenta:
+  lo guardado ya pasó su rango, y descartar un tope por día deja la automatización SIN tope (manda más, no menos; la misma trampa
+  de los límites, al revés). El panel recibe sus rangos de la lectura (`rangosGoteo` de `getConfigAutomatizacionAction`).
 
 **Lo que quedó sin hacer:**
-- **El goteo por automatización sigue con máximo 500 por día** (`RANGOS_GOTEO`, lib/config-automatizacion.ts, toma el
-  `RANGOS_LIMITES.email.dia` de la plataforma): con un tope de 1.600, una sola automatización no se puede limitar a más de 500.
+- **La difusión sigue con el goteo de la plataforma (500 por día):** `goteoValido` (lib/difusion-reglas.ts) y la hoja
+  (app/automations/difusion/HojaDifusion.tsx) usan `RANGOS_GOTEO`. Una difusión de email de más de 500 por día no se puede pedir.
 - **El tope que frena un envío no deja fila** (`nutricion_envios`): sólo la nota en la corrida. Por eso los 34 parecían «sin motivo».
 - **La reserva no es por automatización:** una lista fría de leads NUEVOS (una base importada hoy con `origen_lead`) cuenta como
   caliente. Lo mismo que en el WhatsApp (lib/nutricion-prioridad.ts, la revisión adversarial del 21/10).
