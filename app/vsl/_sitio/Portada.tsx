@@ -235,12 +235,12 @@ function Tableros() {
         ))}
       </div>
       <div className="s-tab-ctrl">
-        <button type="button" className="s-tab-fl" data-paso="-1" aria-label="El tablero anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg></button>
+        <button type="button" className="s-tab-fl" data-paso="-1" data-por-script="" aria-label="El tablero anterior"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg></button>
         <span className="s-tab-nombre" aria-live="polite">{TABLEROS[0].nombre}</span>
-        <button type="button" className="s-tab-fl" data-paso="1" aria-label="El tablero siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
+        <button type="button" className="s-tab-fl" data-paso="1" data-por-script="" aria-label="El tablero siguiente"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
       </div>
       <div className="s-tab-puntos">
-        {TABLEROS.map((t, i) => <button key={t.id} type="button" data-ir={i} aria-label={t.nombre} aria-current={i === 0 ? 'true' : undefined} />)}
+        {TABLEROS.map((t, i) => <button key={t.id} type="button" data-ir={i} data-por-script="" aria-label={t.nombre} aria-current={i === 0 ? 'true' : undefined} />)}
       </div>
       <script dangerouslySetInnerHTML={{ __html: SCRIPT_TABLEROS(TABLEROS.map((t) => t.nombre)) }} />
     </div>
@@ -265,7 +265,7 @@ function AvatarVideos() {
           <span className="s-av-foto"><img src={`/vsl-assets/sitio/avatar/${v.id}-foto.jpg`} alt={`La foto de ${v.nombre}`} width={240} height={300} /><small>Foto original</small></span>
           <span className="s-av-tel">
             <video src={`/vsl-assets/sitio/avatar/${v.id}.webm`} poster={`/vsl-assets/sitio/avatar/${v.id}.jpg`} muted loop playsInline preload="none" aria-label={`El anuncio con IA de ${v.nombre}`} />
-            <button type="button" className="s-av-son" data-sonido="" aria-pressed="false" aria-label={`Escuchar el anuncio de ${v.nombre}`}>
+            <button type="button" className="s-av-son" data-sonido="" data-por-script="" aria-pressed="false" aria-label={`Escuchar el anuncio de ${v.nombre}`}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z" /><path className="s-av-on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" /><path className="s-av-off" d="m23 9-6 6M17 9l6 6" /></svg>
             </button>
           </span>
