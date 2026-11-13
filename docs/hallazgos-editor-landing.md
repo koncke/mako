@@ -4549,3 +4549,36 @@ sale null); la cantidad de pasos (3 en vez de 5) sigue en manos de la IA; medir 
   que nada se rompiera. El cierre de las secciones vive ahora en `cerrarSecciones` y se prueba por el resultado.
 
 **Sin hacer:** medir en producción, en el EDITOR, el titular resaltado y la segunda pasada de cantidad (espera el despliegue).
+
+### Cuarta vuelta: el nombre, el tuteo, los fondos y el tamaño de los títulos (13/11/2026)
+
+Replicada de nuevo en producción (landing 118, d3f6bd9b3): columna angosta, cajas numeradas, botón por sección, testimonios y
+[DATO] andan. Lo que el Cerebro vio en el editor y la vista:
+- **El titular volvió como «1. Imagina sumar…»:** las frases van NUMERADAS a la IA para reescribirlas y una volvió con su
+  número. `sinNumeroDelPedido` lo saca si la frase original no empezaba con uno.
+- **Voseo («cuando sabés exactamente qué vende»):** la IA copia el voseo de una original rioplatense. El texto escrito para el
+  negocio pasa por `alTuteo` (`alTuteoEnTarjeta`), salvo que el negocio DECLARE una voz que vosea (la cuenta de Copywriting:
+  `resolverAcento(...).seguro` y ar/uy/py; la zona horaria sola no cuenta).
+- **El nombre:** «Landing · <su oferta>» (`nombreDeCopia` con `nombreDeOferta`); de qué página salió queda en
+  `config.origen.basadoEnUrl`.
+- **Los fondos:** el lector ya leía el de cada parte (Clara: crema #faf7ee en «Quién es», preguntas y cierre sobre blanco) y no
+  llegaba a la tarjeta. `conFondoDeLaOriginal` lo pone como color de la tarjeta cuando no es el de la página. Con columna
+  angosta queda una tarjeta crema, no una franja a todo el ancho (eso pediría un ancho de cuerpo propio de la tarjeta).
+- **El tamaño de los títulos:** Clara 56 px su h1 y 37 sus h2; el editor 80 (5em) y 30 (1,9em). Ahora el tema tiene
+  `escala.titular` aparte (`--gm-escala-titular`, que sin valor cae en la de títulos: ningún tema de antes cambia). TRAMPA:
+  Clara no tiene NINGÚN `h2{}` suelto, todos van con contenedor («.sec-h h2», «.quien h2»); el índice del lector sólo veía
+  selectores simples, así que mide cada h2 con la regla de su contenedor más cercano (`h2En`) y toma la mediana. De un
+  `clamp(min, vw, max)` toma el máximo (`tamanoPx`): el tamaño de escritorio.
+
+**Sin hacer:** los h3 (títulos de tarjeta) siguen la escala de los h2 (Clara: 17 px; la réplica, ~28); la franja de color a
+todo el ancho con el cuerpo angosto.
+
+### La franja de color y los subtítulos (13/11/2026, quinta vuelta)
+
+- **La franja a todo el ancho con el contenido en la columna:** una tarjeta tenía un solo ancho (el de la tarjeta). Ahora
+  `anchoCuerpo` ('angosto' | 'normal', sólo con `ancho: 'completo'`) sale como `data-cuerpo` y la hoja le da relleno a los
+  costados (`max(0em, calc((100% - 48em) / 2))`): como `.gm-tarjeta-fondo` es absoluto, el color va de borde a borde y el
+  contenido queda en la columna, con cualquier diseño (también con la imagen al costado). La réplica pone así las secciones con
+  el fondo de la original (`conFondoDeLaOriginal`) y la que la IA eligió a todo el ancho (`conAnchoDeColumna`).
+- **Los h3 con su escala:** `escala.subtitulos` (`--gm-escala-subtitulos`, que cae en la de títulos). El lector mide los h3 como
+  los h2, con la regla de su contenedor (Clara: «.paso h3» 17 px → 0,73 sobre los 23,2 del editor).
