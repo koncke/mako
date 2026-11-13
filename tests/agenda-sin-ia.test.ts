@@ -469,6 +469,27 @@ test('el doer de WhatsApp manda lo del código DESPUÉS de la respuesta y no lo 
   assert.match(doer, /bloqueAgendaGoogle\(tools\.map\(\(t\) => t\.name\)\)/);
 });
 
+// 13/11/2026, la prueba del grupo de la app del ws9: «Te mostré arriba lo que tienes en tu agenda» y la agenda llegó en el mensaje de
+// ABAJO (grupo_mensajes 577 y 578). El doer manda lo del código DESPUÉS de la respuesta (el test de arriba lo fija), y al modelo se le
+// decía «el sistema YA le mostró». Lo que se le dice tiene que ser verdad: va debajo. Con lib/agenda-sin-ia.ts de main, rojo.
+test('lo que el sistema le muestra a la persona va DEBAJO de la respuesta, y así se le dice al modelo', async () => {
+  const { ERRORES_MOVER, ERRORES_DEL_DIA } = await import('../lib/agenda-sin-ia');
+  const textos: string[] = [
+    ...Object.values(ESTADOS_AGENDA),
+    ERRORES_MOVER.varias('Ana'), ERRORES_MOVER.ningunaQueCoincida('Ana'),
+    ...Object.values(ERRORES_DEL_DIA),
+  ].filter((t) => /el sistema/i.test(t));
+  assert.ok(textos.length >= 9, `faltan textos: ${textos.length}`);
+  for (const t of textos) {
+    assert.doesNotMatch(t, /ya le mostr|ya se lo dijo/i, `dice que ya se mostró y sale después: ${t}`);
+    assert.match(t, /DEBAJO de tu respuesta/, `no dice dónde queda: ${t}`);
+  }
+  // Los que muestran una lista le prohíben el «arriba».
+  for (const t of [ESTADOS_AGENDA.horarios_mostrados, ESTADOS_AGENDA.reuniones_mostradas, ESTADOS_AGENDA.eventos_mostrados, ERRORES_MOVER.varias('Ana'), ERRORES_DEL_DIA.varias]) {
+    assert.match(t, /nunca «arriba»/);
+  }
+});
+
 test('el chat de la app no ofrece las herramientas que leen la agenda', () => {
   const app = sinComentarios(leer('app/api/mako-doer/route.ts'));
   assert.match(app, /REGISTRO\.filter\(\(d\) => d\.datosDeGoogle\)/);

@@ -21,6 +21,9 @@ import { estiloDeHtml } from '../lib/editor-landing/estilo-original';
 import { acomodoDeSeccion, disposicionPorSeccion } from '../lib/editor-landing/replicar-estructura';
 import { avisoDeCifras, cifrasSinRespaldo, resumenDeEdicion } from '../lib/editor-landing/ia-reglas';
 import { podarCss, usadasDe } from '../lib/editor-landing/css-usado';
+import { armarDocumento } from '../lib/editor-landing/pagina-publica';
+import { CONFIG_DEFAULT } from '../lib/editor-landing/api-tipos';
+import { CSS_CONTENIDO } from '../lib/editor-landing/css';
 import { conVersion } from '../lib/editor-landing/doc';
 import { QUIZ_DE_PLANTILLA } from '../lib/editor-landing/plantillas';
 import { quizListo } from '../lib/editor-landing/quiz';
@@ -105,8 +108,17 @@ test('5. la publicada: sólo el CSS que usa (y lo que prenden sus scripts), cach
     assert.ok(out.includes(queda), `queda ${queda}`);
   }
   for (const va of ['.gm-otro{color:red}', 'data-variante="grilla"', 'data-dispositivo', '@media print', '/* fuera */']) assert.ok(!out.includes(va), `se va ${va}`);
+  // La publicada sale con la hoja podada a lo que usa: por el documento que sale, no por la línea del código (13/11/2026: la
+  // fuente propia cambió esa línea y este test, que la copiaba, se rompió sin que nada se rompiera).
+  const docPub = armarDocumento(
+    { html: '<div class="gm-doc"><section class="gm-tarjeta"><div class="gm-tarjeta-cuerpo"><p>x</p></div></section></div>', config: CONFIG_DEFAULT, workspaceId: 7, modo: 'publico', urlCanonica: 'https://hola-mako.site/x' },
+    { appBaseUrl: 'https://hola-mako.com', prefijoBucket: 'https://p.supabase.co/storage/v1/object/public/landing-imagenes/' },
+  );
+  assert.ok(CSS_CONTENIDO.includes('[data-variante="piramide"]'), 'la hoja entera tiene la pirámide');
+  assert.ok(docPub.includes('.gm-doc .gm-tarjeta{'), 'lo que la página usa queda');
+  assert.ok(!docPub.includes('[data-variante="piramide"]'), 'lo que no usa se va');
+  assert.ok(docPub.length < CSS_CONTENIDO.length / 2, `la publicada entera (${docPub.length}) pesa menos que la mitad de la hoja (${CSS_CONTENIDO.length})`);
   const pub = fuente('lib/editor-landing/pagina-publica.ts');
-  assert.match(pub, /const usadas = usadasDe\(\[e\.html, \.\.\.cola, \.\.\.head\]\.join\('\\n'\)\);\s*head\[lugarHoja\] = `<style>\$\{podarCss\(/);
   assert.match(pub, /export const CACHE_BORDE = 's-maxage=30, stale-while-revalidate=300';/);
   assert.match(pub, /if \(modo === 'publico'\) comunes\['Vercel-CDN-Cache-Control'\] = CACHE_BORDE;/);
   assert.equal(conVersion('https://hola-mako.site/x', 'abc'), 'https://hola-mako.site/x?v=abc');

@@ -12,7 +12,9 @@
 // =============================================================================
 
 import 'server-only';
+import { after } from 'next/server';
 import type { Ctx, Runners, SalidaLectura } from '../tipos';
+import { textoPrioridadEmail } from '@/lib/nutricion-prioridad';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { getSecuenciasConStats, setSecuenciaPasos, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, PasosInvalidosError, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
 import { avisoDuplicada, primerMensajeDe } from '@/lib/automatizacion-duplicada';
@@ -205,7 +207,7 @@ function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Paramete
 }
 
 /** Cómo dice el resumen cada evento de email (4/11/2026, la campaña de email de Mauricio). */
-const DICE_EVENTO: Record<EventoColumna, string> = { enviado: 'al salir el email', abrio: 'al abrirlo', clic: 'al hacer clic' };
+const DICE_EVENTO: Record<EventoColumna, string> = { enviado: 'al salir el email', abrio: 'al abrirlo', clic: 'al hacer clic', rebote: 'al rebotar' };
 
 /** `"enviado=key,abrio=key"` → los pedidos, o el error. `«ninguna»` sola = sacar las tres. */
 function leerColumnasPedidas(texto: string): { todas: null } | { pares: Array<[EventoColumna, string]> } | { error: string } {
@@ -214,7 +216,7 @@ function leerColumnasPedidas(texto: string): { todas: null } | { pares: Array<[E
   const pares: Array<[EventoColumna, string]> = [];
   for (const parte of t.split(',').map((x) => x.trim()).filter(Boolean)) {
     const [ev, key] = parte.split('=').map((x) => (x ?? '').trim());
-    if (!(EVENTOS_COLUMNA as readonly string[]).includes(ev) || key == null) return { error: `No entendí «${parte}»: va evento=columna, con evento enviado, abrio o clic.` };
+    if (!(EVENTOS_COLUMNA as readonly string[]).includes(ev) || key == null) return { error: `No entendí «${parte}»: va evento=columna, con evento enviado, abrio, clic o rebote.` };
     pares.push([ev as EventoColumna, key]);
   }
   return pares.length ? { pares } : { error: 'columnasEmail vino vacío.' };
@@ -245,6 +247,32 @@ async function columnasDelInput(input: Record<string, unknown>, secuenciaId: num
     partes.push(`${DICE_EVENTO[e]} pasa a «${etapa.label}»`);
   }
   return { valor, partes };
+}
+
+/**
+ * Acomodar lo que ya salió al elegir columnas (#93), DESPUÉS de contestar: `after()` corre fuera del AsyncLocalStorage, así
+ * que `acomodarPorEmailsEnviados` re-entra al workspace solo. Fuera de un request (un script, el arnés), `after()` tira: ahí
+ * corre en línea y dice cuántas movió. Nunca tira.
+ */
+async function acomodarEnSegundoPlano(ws: number, secuenciaId: number): Promise<string> {
+  const correr = async (): Promise<string> => {
+    try {
+      const { acomodarPorEmailsEnviados } = await import('@/lib/email-eventos-crm');
+      const r = await acomodarPorEmailsEnviados({ ws, secuenciaId });
+      if (!r.leads) return 'Todavía no salió ningún email: las tarjetas se mueven a medida que salgan.';
+      const donde = Object.entries(r.porColumna).map(([c, n]) => `${n} a «${c}»`).join(', ');
+      return `De los ${r.leads} leads que ya recibieron emails, moví ${r.movidos}${donde ? ` (${donde})` : ''}.${r.quedan ? ` Quedan ${r.quedan}: vuelve a guardar las columnas para seguir.` : ''}`;
+    } catch (e) {
+      console.error(`[api-mako:chatbot] acomodar lo ya enviado de #${secuenciaId}: ${e instanceof Error ? e.message : String(e)}`);
+      return 'No pude acomodar a los que ya recibieron emails: se mueven con el próximo evento.';
+    }
+  };
+  try {
+    after(async () => { await correr(); });
+    return 'Acomodo en sus columnas a los leads que ya recibieron emails de esta automatización.';
+  } catch {
+    return correr();
+  }
 }
 
 /** Lo que tiene el modelo para crear con IA por /api/v1, que corta a 60 s (`crear_automatizacion_con_ia`). */
@@ -539,8 +567,11 @@ export const RUNNERS: Runners = {
         email: {
           por_dia: vigentes.email.dia, tope_de_hoy: emailHoy, en_24h: uso?.emailDia ?? null, envio_prendido: envioEmail,
           rampa: { primer_dia: vigentes.email.arranqueDia, sube_por_dia: vigentes.email.arranqueSube, nota: 'Arranca en primer_dia y sube cada día que llega a su tope, hasta por_dia.' },
+          // Ticket #93 (13/11/2026): una lista fría le deja lugar a los leads nuevos (lib/nutricion-prioridad.ts).
+          prioridad: textoPrioridadEmail(emailHoy),
           freno: {
-            regla: `Mira los últimos ${FRENO_EMAIL.ultimos} emails enviados (desde que se prendió el envío, hasta ${FRENO_EMAIL.dias} días): con ${FRENO_EMAIL.minimoEnviados} o más, rebotes de ${FRENO_EMAIL.rebotes * 100} % o quejas de ${FRENO_EMAIL.quejas * 100} % apagan el envío y te avisan.`,
+            // Desde el ticket #93 (13/11/2026): avisa antes, y apaga sólo con números peligrosos.
+            regla: `Mira los últimos ${FRENO_EMAIL.ultimos} emails enviados (desde que se prendió el envío, hasta ${FRENO_EMAIL.dias} días): con ${FRENO_EMAIL.minimoEnviados} o más, rebotes de ${FRENO_EMAIL.rebotesAviso * 100} % te avisan y el envío sigue; rebotes de ${FRENO_EMAIL.rebotes * 100} % o quejas de ${FRENO_EMAIL.quejas * 100} % apagan el envío y te avisan.`,
             ultimos_envios: conteo ?? 'todavía no se pueden contar los rebotes (falta la migración 0380)',
           },
         },
@@ -1082,7 +1113,7 @@ export const RUNNERS: Runners = {
         goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, arranque: config.goteo?.arranque ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
         // Las columnas del email (4/11/2026): a cuál pasa la tarjeta en su CRM cuando el email sale, se abre o se cliquea.
-        columnas_email: { enviado: config.columnasEmail?.enviado ?? null, abrio: config.columnasEmail?.abrio ?? null, clic: config.columnasEmail?.clic ?? null },
+        columnas_email: { enviado: config.columnasEmail?.enviado ?? null, abrio: config.columnasEmail?.abrio ?? null, clic: config.columnasEmail?.clic ?? null, rebote: config.columnasEmail?.rebote ?? null },
         nota: 'Los topes por día y por hora de la LÍNEA son de todas las automatizaciones; el goteo es un sub-tope adentro de esos, de ésta sola.',
       });
     },
@@ -1099,10 +1130,17 @@ export const RUNNERS: Runners = {
       if ('error' in r) return { error: r.error };
       return { payload: { secuenciaId: id, cambio: r.cambio }, resumen: `«${s.nombre}»: ${r.resumen}` };
     },
-    ejecutar: async (payload) => {
+    ejecutar: async (payload, ctx) => {
       const id = Number(payload.secuenciaId);
       const r = await guardarConfigAutomatizacion(id, payload.cambio);
-      return r.ok ? { ok: true, resumen: `Listo: la configuración de la automatización #${id} quedó guardada.` } : { ok: false, resumen: r.error };
+      if (!r.ok) return { ok: false, resumen: r.error };
+      const listo = `Listo: la configuración de la automatización #${id} quedó guardada.`;
+      // LAS COLUMNAS ELEGIDAS DESPUÉS DE MANDAR (13/11/2026, ticket #93): lo que ya salió se acomoda (lib/email-eventos-crm.ts,
+      // `acomodarPorEmailsEnviados`). Después de contestar: con una lista grande son cientos de tarjetas.
+      const cambio = payload.cambio as { columnasEmail?: unknown } | undefined;
+      if (!cambio?.columnasEmail || typeof cambio.columnasEmail !== 'object') return { ok: true, resumen: listo };
+      const acomodo = await acomodarEnSegundoPlano(ctx.ws, id);
+      return { ok: true, resumen: `${listo} ${acomodo}` };
     },
   },
 

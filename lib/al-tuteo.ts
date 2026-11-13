@@ -27,6 +27,8 @@ const TU: Record<string, string> = {
   // Imperativos en -á / -é (el pretérito de yo es «miré», «puse»: no chocan).
   mirá: 'mira', esperá: 'espera', probá: 'prueba', entrá: 'entra', tocá: 'toca', poné: 'pon', revisá: 'revisa', confirmá: 'confirma',
   avisá: 'avisa', contá: 'cuenta', fijá: 'fija',
+  // 13/11/2026, en el grupo de la app del ws9: «Cargá el gasto de Meta en tu cuenta y agendá a los leads». Ninguna existe fuera del vos.
+  cargá: 'carga', agendá: 'agenda', mandá: 'manda', pasá: 'pasa', agregá: 'agrega', activá: 'activa', pausá: 'pausa', dejá: 'deja', anotá: 'anota',
   // Imperativos con pronombre pegado (sin tilde sólo existen en vos).
   fijate: 'fíjate', decime: 'dime', contame: 'cuéntame', pasame: 'pásame', mandame: 'mándame', avisame: 'avísame', escribime: 'escríbeme',
   hacelo: 'hazlo', decile: 'dile', pasale: 'pásale', mandale: 'mándale', avisale: 'avísale',

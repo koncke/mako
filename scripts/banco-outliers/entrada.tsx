@@ -69,7 +69,8 @@ const TIPOS: TipoLanding[] = ['vsl', 'webinar', 'aplicacion', 'lead-magnet'];
 const landings: OutlierLanding[] = Array.from({ length: 6 }, (_, i) => ({
   id: `relevo:${i}`, fuente: 'relevo', url: `https://ejemplo-${i}.com/`, titulo: ['Cómo conseguir 10 clientes nuevos en 30 días', 'Clase gratis: el sistema de ventas por WhatsApp', 'Agenda tu llamada de diagnóstico', 'Descarga la guía de precios'][i % 4],
   quien: { nombre: ['Ventas Claras', 'Marta Rios Coach', 'Estudio Lumen'][i % 3], nicho: 'Coaching' }, tipo: TIPOS[i % 4],
-  porque: 'Promesa concreta con plazo, prueba social arriba y un solo botón.', imagen: larga(i), alto: 2400, idioma: 'es',
+  // La primera, con una captura que nunca llega: se ve el marco de espera (el color de su tipo y el dominio), no una caja gris.
+  porque: 'Promesa concreta con plazo, prueba social arriba y un solo botón.', imagen: i === 0 ? '/no-existe.png' : larga(i), alto: 2400, idioma: 'es',
 }));
 
 const portada = (q.get('p') ?? 'copy') === 'image'

@@ -111,6 +111,27 @@ firma «Equipo de MaKo», no va a la cola, no acusa insistencias, le suena al cl
 sale por WhatsApp. Test: tests/equipo-en-la-app.test.ts. Si Martín quiere preguntarle algo a MaKo sobre un cliente, va al chat de MaKo
 de ese negocio, no a su grupo.
 
+**Probado en producción (13/11, ws9, sesión de Martín en el navegador de la app), a 1440 y 375:** texto, nota de voz, foto y un
+pedido con «sí» contestan en el hilo de la app con el mismo turno de WhatsApp. Tiempos: la pregunta 2 min (la consulta con
+herramientas), el audio 1 min (lo transcribió bien), la foto 16 s (leyó los números de la imagen), la propuesta 34 s y el «sí» 41 s,
+con la nota guardada de verdad en la ficha. Capturas en las notas del Cerebro, `mako-en-la-app-1311/`. Lo que salió mal en las
+respuestas, sin ser de la app, y quedó arreglado: «te mostré arriba» con la agenda abajo (docs/hallazgos-calendario.md), «Cargá…
+agendá» (lib/al-tuteo.ts) y «la cuenta de este grupo, ws9». Esto último: el modelo copia el número de lo que ve en su contexto, y el
+prompt no alcanza; ahora la salida del turno cambia «wsN» por el nombre del negocio (lib/sin-codigos-de-negocio.ts, en las `partes`
+de lib/mako-doer-in.ts, junto a `alTuteo`). En el grupo de un cliente sólo nombra al suyo: el número de otro negocio queda «este
+negocio», para no decir ahí el nombre de otro cliente.
+
+**Las trampas del entorno al probar el grupo:**
+- **El navegador de la app BLOQUEA el micrófono**: tocar el micrófono muestra «No se pudo acceder al micrófono». La nota de voz se
+  prueba mandando un mp3 al MISMO endpoint con los mismos campos que arma la caja (`voz` como `nota.mp3`, `secs`, `clienteId`),
+  con `fetch` desde la página: va con la sesión. Lo mismo la foto (`archivo`). Grabar de verdad queda para un teléfono.
+- **La página no puede traer un archivo de la PC**: `fetch` a un servidor en 127.0.0.1 da «Failed to fetch» aun con CORS. El archivo
+  va en base64 dentro del JS (un mp3 de 8 s a 8 kbps son 11 KB).
+- **Las capturas del panel quedan como .jpg en `tool-results` de la sesión** (`mcp-Claude_Browser-blob-*.jpg`): se copian con nombre.
+  A 1440 hay que repetir `resize_window` antes de cada captura, o sale un pedazo de 800×600.
+- **En el teléfono el grupo está en la pestaña Ops Center**, sección Chats, fijado primero; NO en la pestaña «Chats» de abajo, que
+  es la de los leads.
+
 **Regla:** algo nuevo que se engancha ANTES del turno en `atenderEntranteDoer` (WhatsApp) no llega solo a la app. Se mira también
 la ruta del grupo de la app y /api/cron/grupo-turno, y se prueba con un mensaje que nace en la app.
 
@@ -13635,3 +13656,56 @@ pedido delegado «Lo que faltó de: Agregar nota…; Nota: 'no contestó mi mens
 
 *2026-11-10 claude4, chat Tickets*
 
+---
+
+### ⚠️ «MaKo cortó mis correos y dejó de clasificar»: eran TRES causas, y ninguna era la clasificación (13/11/2026, ticket #93)
+
+**El síntoma (Mauricio, ws1):** el freno apagó el email de sus dos CRMs («Sprint correos» y «Sprint Ejecución · Nov 2026»),
+«no estás clasificando bien» y «de los 67 nuevos leads, todos están en Nuevos leads».
+
+**El diagnóstico obvio era el equivocado.** Parecía que el webhook de Resend o la regla de columnas (`columnasEmail`) se habían
+roto. Medido en la base, la clasificación anda: en «Sprint correos» hay 776 en «Correo enviado», 187 en «Abrió correo» y 19 en
+«Clic en la landing», y el historial muestra los movimientos de «MaKo · email» hasta las 16 h del 13/11. Lo que pasó:
+1. **El freno, por azar.** A las 15:09:31 UTC del 13/11 vio 5 rebotes en los últimos 100 (5,0 %) y apagó `envio_email_enabled`
+   de TODO el negocio. En los últimos 300 había 11 (3,7 %); en toda la campaña, 1.030 enviados y 28 rebotes (2,7 %), y ninguna
+   ventana de 300 pasó de 3,7 %. Una lista fría rebota 3-4 % y, con 100 de muestra, un 5 % sale solo (los rebotes llegan en
+   racha, ~1 s después de cada envío).
+2. **«Sprint Ejecución»: las columnas llegaron tarde y después las movió su propio Claude.** Los 33 primeros emails salieron
+   el 12/11 a las 17:02 UTC; las columnas de esa automatización (734) se configuraron a las 20:26. Un evento sólo mueve a la
+   columna que existe en ese momento: los 33 quedaron en «Nuevo lead». Después, su token de la API «Conexión total via claude»
+   (creado por él el 11/11, llamadas desde las IP de Anthropic) movió en bloque st0 → Ganado → st1 → st0 entre las 04:40 y las
+   04:45 UTC, y a las **05:44:04 UTC** (21:44 del 12/11 en Tijuana) devolvió 54 leads a «Nuevo lead» (`api_llamadas`,
+   `crm/pasar_en_bloque_otra_columna`, y `lead_audit` con autor «API · token «Conexión total via claude»»).
+3. **34 de los 67 nunca recibieron el email: el tope diario lo gastó la lista fría.** El tope de email del negocio es UNO (500
+   por día, rodante) para todas sus automatizaciones. «Fríos» (727) manda de 7 a 12 de Tijuana y gastó 398 a las 15 h UTC; la
+   de leads calientes (734) sigue el horario de oficina (9 a 21) y a las 17 h quedaban 100. Sus 34 restantes esperan desde el
+   12/11 sin una sola fila de fallo: el tope no deja rastro por envío. Y desde las 15:09 del 13/11, el freno.
+
+**Lo que se arregló:** el freno mira 300 (desde 100 enviados), avisa desde 5 % (`email-rebotes`, amarillo, el envío sigue) y
+apaga desde 10 % de rebotes o 0,3 % de quejas (lib/email-freno.ts). Un rebote lleva la tarjeta a la columna «Rebotado/s» de
+su CRM —elegida (`columnasEmail.rebote`) o por su nombre— aunque quede antes en el tablero (`columnaDeRebote`,
+`decidirMovimiento` con `evento: 'rebote'`); la baja del email ya lo sacaba de la secuencia.
+
+**Reglas:**
+- Antes de decir «dejó de clasificar», contar las columnas y leer `lead_audit` por autor: «MaKo · email» es el motor; «API ·
+  token «…»» es el cliente (o su Claude) moviendo a mano. `api_llamadas` dice qué operación, cuándo y con qué token.
+- Un freno de reputación se mide con una muestra que no se mueva por azar con la tasa NORMAL del cliente: simularlo sobre sus
+  envíos reales (ventana deslizante) antes de fijar el número.
+- El tope diario es del NEGOCIO: una campaña masiva que arranca temprano deja sin cupo a la que trae leads nuevos.
+
+**Hecho el mismo día (a pedido del Cerebro):**
+- **Prioridad del cupo de email.** «Primero lo que entra» existía SÓLO para el WhatsApp (lib/nutricion-prioridad.ts, 21/10): el
+  email era un presupuesto único y ganaba quien llegaba primero. Ordenar no alcanzaba: a las 7 los calientes todavía no podían
+  salir (su horario abría a las 9). Ahora un email a quien NO es caliente usa el presupuesto menos una reserva del 20 % del tope de
+  hoy (`emailSinLugar`); caliente = entró por un canal (`origen_lead`) en los últimos 7 días, o agendó (`esCalienteParaEmail`). Son
+  7 días y no las 24 h del WhatsApp: los emails de una bienvenida siguen varios días. Sin ningún caliente en el negocio, no se
+  reserva nada. La nota de la corrida lo dice: «tope diario de email: lo que queda es para los leads nuevos».
+- **Columnas elegidas después de mandar.** `configurar_automatizacion` acomoda lo que ya salió (`acomodarPorEmailsEnviados`,
+  lib/email-eventos-crm.ts): cada lead va a la columna de lo más lejos que llegó (rebotó > clic > abrió > le salió; si esa columna
+  no se eligió, la de abajo; un rebotado sin columna de rebotados no se mueve). Corre en `after()` (hasta 400 por pasada; guardar
+  otra vez sigue). Lee las posiciones en tandas de 200, no de a un lead.
+
+**Lo que quedó sin hacer:**
+- **El tope que frena un envío no deja fila** (`nutricion_envios`): sólo la nota en la corrida. Por eso los 34 parecían «sin motivo».
+- **La reserva no es por automatización:** una lista fría de leads NUEVOS (una base importada hoy con `origen_lead`) cuenta como
+  caliente. Lo mismo que en el WhatsApp (lib/nutricion-prioridad.ts, la revisión adversarial del 21/10).

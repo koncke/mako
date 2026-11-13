@@ -47,7 +47,7 @@ import {
 } from './replica';
 import { imagenDeVideo, urlDeVideo, type Thumbnail } from '../thumbnails/explorar';
 import { LAMINAS_DE_LA_LECTURA, PROMPT_LECTURA, fotoDelGuiado, leerLectura, type Lectura, type PedidoGuiado } from './guiado';
-import { leerCompletado, medidasDe, promptDeCompletar, type OfertaDelPrompt, type Replica } from './replica';
+import { bloqueDeOferta, cifrasDeLaReplica, leerCompletado, medidasDe, promptDeCompletar, type OfertaDelPrompt, type Replica } from './replica';
 import { marcarLaminas, planchasDeLaReplica } from './plancha-servidor';
 
 /** La función de la IA para el registro del uso y la puerta de «sólo su IA» (lib/model-catalogo.ts). */
@@ -344,10 +344,13 @@ Lo que leí del original: ${replica.lectura}` : notasBase;
   mostrar(doc);
   const titulo = `${miniatura ? 'Miniatura' : anuncio ? 'Anuncio' : 'Carrusel'} · ${replica.titulo}`.slice(0, 120);
   const cuadros = replica.laminas.flatMap((l) => l.cuadros ?? []);
-  const conPersona = cuadros.some((x) => x.persona);
-  const aviso = conPersona
-    ? 'Donde el original tiene una persona dejé su lugar marcado: ahí vas tú, generado con IA en el mismo estilo (necesita Google Flow abierto desde el ícono de MaKo).'
-    : null;
+  const conPersona = pedidoBase.conAvatar && (cuadros.some((x) => x.persona) || replica.laminas.some((l) => l.personas?.length));
+  // Las cifras que no salen del negocio (la regla de Copywriting): se avisan, como allá.
+  const cifras = cifrasDeLaReplica(replica, [negocio, voz ?? '', oferta ? bloqueDeOferta(oferta) : '', pedidoDelDueno ?? ''].join('\n'));
+  const aviso = [
+    conPersona ? 'Donde el original tiene una persona dejé su lugar marcado: ahí vas tú, generado con IA en el mismo estilo (necesita Google Flow abierto desde el ícono de MaKo).' : '',
+    cifras.length ? `Revisa ${cifras.length === 1 ? 'esta cifra' : 'estas cifras'}: no salen de tu negocio (${cifras.join(', ')}). Cámbialas por algo tuyo o sácalas.` : '',
+  ].filter(Boolean).join(' ') || null;
   // En seco viaja también lo que leyó la IA y las láminas que miró: el script lo guarda para probar la plancha sin pagar otra IA.
   if (o.seco) return { ok: true, id: '(seco)', titulo, aviso, doc, vistas: imagenes.length, errores, replica: leidaDeLaIA ?? replica, imagenes, marcadas: conMarcas ? marcas.map((m) => m!.marcada) : [] };
   const r = await crearDiseno(ws, quien, { titulo, doc });

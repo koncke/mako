@@ -50,6 +50,10 @@ test('UNA caja por outlier: la tarjeta de todas las portadas tiene su borde, y e
   assert.match(css, /animation: entra 280ms cubic-bezier\(\.2, \.7, \.2, 1\) backwards;/, 'con `both`, la entrada le ganaba al hover');
   assert.match(css, /\.pie \{ flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 12px 14px 14px; \}/);
   assert.doesNotMatch(css, /\.mini \{[^}]*border-radius: 16px/, 'la imagen ya no es una caja suelta');
+  // Una tarjeta muy angosta achica el relleno del pie, y el panel de Outliers del Video Editor (199 px a 1440) va en una columna
+  // (13/11/2026, en producción: dos de 94 px dejaban 65 px para el texto).
+  assert.match(css, /\.tarjeta \{ container-type: inline-size; \}\r?\n@container \(max-width: 170px\) \{ \.pie \{ padding: 9px 9px 10px; gap: 5px; \} \}/);
+  assert.match(leer('app/video-editor/outliers.module.css'), /\.grillaPanel \{ grid-template-columns: repeat\(auto-fill, minmax\(150px, 1fr\)\);/);
 });
 
 test('Copywriting: el marco con la forma de su red, el texto adentro y el original encima al pasar el cursor', () => {

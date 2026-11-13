@@ -27,7 +27,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { asignarRenglones, bloquesSinDueno, borrarZona, esDeUnaLista, leerLamina, planchar, type Rgba } from '../lib/carruseles/plancha-local';
-import { conAcentos, documentoDeReplica, leerCompletado, PERSONA_A_GENERAR, type Replica } from '../lib/carruseles/replica';
+import { conAcentos, documentoDeReplica, leerCompletado, PERSONA_A_GENERAR, sinArroba, type Replica } from '../lib/carruseles/replica';
 
 const CREMA: [number, number, number] = [251, 243, 234];
 const NEGRO: [number, number, number] = [20, 20, 20];
@@ -170,6 +170,9 @@ test('6. la letra de una lista o de una interfaz no es un texto principal', () =
 test('7. lo que lee la IA: las palabras de acento y el segundo pedido por número de recorte', () => {
   assert.deepEqual(conAcentos('*MaKo* + Claude'), { texto: 'MaKo + Claude', acentos: [[0, 4]] });
   assert.deepEqual(conAcentos('Sin acento*'), { texto: 'Sin acento', acentos: [] }, 'un asterisco suelto no marca nada');
+  // Sin @ del negocio, el del original se va con la palabra que lo presentaba.
+  assert.equal(sinArroba('Síguenos en @usuario para más contenido.', ''), 'Síguenos para más contenido.');
+  assert.equal(sinArroba('Sigue a @usuario', '@mako'), 'Sigue a @mako');
   // La IA contesta salteando el recorte 1: el 2 no se corre al lugar del 1.
   const r = leerCompletado(JSON.stringify({ textos: [{ n: 2, original: '02 / 06', texto: '02 / 06', rol: 'rotulo', color: '#111111' }], personas: [{ n: 3, persona: true }] }), { textos: 2, figuras: 1 });
   assert.equal(r.textos[0], null);

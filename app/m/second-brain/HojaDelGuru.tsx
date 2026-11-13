@@ -13,6 +13,7 @@ import '@/app/admin/operaciones/centro.css';
 import '@/app/m/operaciones/operaciones.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
+import { AvisoDeIA } from '@/app/m/_chat/AvisoDeIA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
@@ -41,6 +42,7 @@ export function HojaDelGuru({ referente: r, onCerrar }: { referente: Asesor; onC
   return (
     <>
       <PantallaChatM abierto onCerrar={onCerrar} id={`guru-${r.id}`}
+        aviso={panel ? undefined : <AvisoDeIA app={k.app} iaConectada={k.iaConectada} onConectar={() => k.setConectando(true)} />}
         titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : panel === 'cerebro' ? rotuloSecondBrain(r, false) : (
           <span className="m-operaciones-titulo">
             <span className="m-operaciones-titulo__muneco"><Muneco titulo={r.nombre} aspecto={aspecto} animo={k.enCurso ? 'trabajando' : 'despierto'} size={34} /></span>
@@ -49,7 +51,7 @@ export function HojaDelGuru({ referente: r, onCerrar }: { referente: Asesor; onC
         )}
         pie={panel ? undefined : (
           <div className="m-operaciones-caja">
-            <CajaDelCliente k={k} campo={caja} seguir={seguirHoja} movil />
+            <CajaDelCliente k={k} campo={caja} seguir={seguirHoja} movil avisosArriba />
             {estado && <div className="m-operaciones-caja__fila m-operaciones-caja__fila--meta"><span className="m-operaciones-caja__estado">{estado}</span></div>}
           </div>
         )}>
