@@ -374,7 +374,8 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-pgrid--ancha{gap:16px;align-items:start}
 .spy-pgrid__celda{min-width:0;display:flex;align-self:start}
 .spy-pgrid__celda > *{flex:1;min-width:0}
-/* En las columnas de GrillaMixta (13/11/2026) cada celda va a lo ancho de su columna: con `align-self:start` se encogía a su contenido. */
+/* En las columnas de GrillaMixta (13/11/2026) cada celda va a lo ancho de su columna: con align-self:start se encogía a su contenido.
+   ⚠️ Sin comillas invertidas en esta hoja: es un template literal, y una sola la corta. */
 .spy-mixta .spy-pgrid__celda{align-self:stretch}
 .spy-paginas{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:20px;flex-wrap:wrap}
 .spy-paginas__cuenta{color:var(--faint);font-size:var(--fs-sm);font-weight:600;font-variant-numeric:tabular-nums}

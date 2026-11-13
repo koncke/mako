@@ -2308,4 +2308,6 @@ moverlos de lugar: es que lleguen.
 
 **Trampa:** en las columnas de `GrillaMixta` (un flex vertical), `.spy-pgrid__celda{align-self:start}` encoge la tarjeta a su contenido. `.spy-mixta .spy-pgrid__celda{align-self:stretch}` la devuelve al ancho de su columna.
 
+**⚠️ Trampa que casi llega a main:** la hoja de `SpyApp.tsx` es un template literal. Un comentario CSS con comillas invertidas (para marcar código) corta el string, y la pantalla entera deja de compilar. Los tests no lo vieron porque leen el archivo como texto; lo frenó el chequeo de hooks del pre-push con un «Parsing error». Ahora el test 5 de `tests/spy-grilla-mixta.test.ts` parsea la pantalla con TypeScript.
+
 **Trampa de la página de prueba:** para copiar las reglas de `SpyApp.tsx` hay que tomar la regla ENTERA, no el renglón. Una regla de varios renglones cortada queda sin cerrar y se traga todo el CSS que viene después: la página sale sin estilos y parece que el componente está roto.

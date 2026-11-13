@@ -8,13 +8,16 @@
 //   1. la tarjeta que sigue a un short va debajo de un video largo, no deja hueco;
 //   2. la página sigue siendo `columnas × FILAS_POR_PAGINA` tarjetas: cambia cómo se apilan, no cuántas;
 //   3. el teléfono (una columna) sigue con su grilla, y la pantalla le pasa a la grilla la proporción de cada pieza;
-//   4. en las columnas, cada celda va a lo ancho de su columna (no se encoge a su contenido).
+//   4. en las columnas, cada celda va a lo ancho de su columna (no se encoge a su contenido);
+//   5. la pantalla se puede leer: su hoja es un template literal y una comilla invertida en un comentario la cortaba (13/11: lo
+//      frenó el chequeo de hooks del pre-push, no un test).
 //
 // Probado rompiéndolo (romper.mjs + roturas-grilla-mixta.mjs):
 //   · GrillaPiezas sin GrillaMixta (siempre la grilla de filas)            → 1
 //   · repartir TODAS las piezas en vez de la página                         → 2
 //   · SpyApp sin pasar `proporcion`                                        → 3
 //   · la celda de la columna con `align-self:start`                         → 4
+//   · una comilla invertida en un comentario de la hoja de SpyApp            → 5
 //
 // Correr: node --import tsx --test tests/spy-grilla-mixta.test.ts
 import { test } from 'node:test';
@@ -75,4 +78,12 @@ test('4. en las columnas, cada celda va a lo ancho de su columna', () => {
   const css = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
   assert.match(css, /\.spy-mixta \.spy-pgrid__celda\{align-self:stretch\}/, 'con `align-self:start` la tarjeta se encoge a su contenido');
   assert.match(leer('app/competitor-spy/GrillaPiezas.tsx'), /className="spy-mixta"/);
+});
+
+test('5. la pantalla se puede leer (una comilla invertida en su hoja la corta)', async () => {
+  const ts = (await import('typescript')).default;
+  for (const f of ['app/competitor-spy/SpyApp.tsx', 'app/competitor-spy/GrillaPiezas.tsx', 'app/competitor-spy/TarjetaPieza.tsx']) {
+    const src = ts.createSourceFile(f, leer(f), ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX) as unknown as { parseDiagnostics: Array<{ messageText: unknown; start?: number }> };
+    assert.deepEqual(src.parseDiagnostics.map((d) => `${d.start}: ${String(d.messageText)}`), [], `${f} tiene errores de sintaxis`);
+  }
 });
