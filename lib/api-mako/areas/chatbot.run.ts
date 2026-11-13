@@ -205,7 +205,7 @@ function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Paramete
 }
 
 /** Cómo dice el resumen cada evento de email (4/11/2026, la campaña de email de Mauricio). */
-const DICE_EVENTO: Record<EventoColumna, string> = { enviado: 'al salir el email', abrio: 'al abrirlo', clic: 'al hacer clic' };
+const DICE_EVENTO: Record<EventoColumna, string> = { enviado: 'al salir el email', abrio: 'al abrirlo', clic: 'al hacer clic', rebote: 'al rebotar' };
 
 /** `"enviado=key,abrio=key"` → los pedidos, o el error. `«ninguna»` sola = sacar las tres. */
 function leerColumnasPedidas(texto: string): { todas: null } | { pares: Array<[EventoColumna, string]> } | { error: string } {
@@ -214,7 +214,7 @@ function leerColumnasPedidas(texto: string): { todas: null } | { pares: Array<[E
   const pares: Array<[EventoColumna, string]> = [];
   for (const parte of t.split(',').map((x) => x.trim()).filter(Boolean)) {
     const [ev, key] = parte.split('=').map((x) => (x ?? '').trim());
-    if (!(EVENTOS_COLUMNA as readonly string[]).includes(ev) || key == null) return { error: `No entendí «${parte}»: va evento=columna, con evento enviado, abrio o clic.` };
+    if (!(EVENTOS_COLUMNA as readonly string[]).includes(ev) || key == null) return { error: `No entendí «${parte}»: va evento=columna, con evento enviado, abrio, clic o rebote.` };
     pares.push([ev as EventoColumna, key]);
   }
   return pares.length ? { pares } : { error: 'columnasEmail vino vacío.' };
@@ -540,7 +540,8 @@ export const RUNNERS: Runners = {
           por_dia: vigentes.email.dia, tope_de_hoy: emailHoy, en_24h: uso?.emailDia ?? null, envio_prendido: envioEmail,
           rampa: { primer_dia: vigentes.email.arranqueDia, sube_por_dia: vigentes.email.arranqueSube, nota: 'Arranca en primer_dia y sube cada día que llega a su tope, hasta por_dia.' },
           freno: {
-            regla: `Mira los últimos ${FRENO_EMAIL.ultimos} emails enviados (desde que se prendió el envío, hasta ${FRENO_EMAIL.dias} días): con ${FRENO_EMAIL.minimoEnviados} o más, rebotes de ${FRENO_EMAIL.rebotes * 100} % o quejas de ${FRENO_EMAIL.quejas * 100} % apagan el envío y te avisan.`,
+            // Desde el ticket #93 (13/11/2026): avisa antes, y apaga sólo con números peligrosos.
+            regla: `Mira los últimos ${FRENO_EMAIL.ultimos} emails enviados (desde que se prendió el envío, hasta ${FRENO_EMAIL.dias} días): con ${FRENO_EMAIL.minimoEnviados} o más, rebotes de ${FRENO_EMAIL.rebotesAviso * 100} % te avisan y el envío sigue; rebotes de ${FRENO_EMAIL.rebotes * 100} % o quejas de ${FRENO_EMAIL.quejas * 100} % apagan el envío y te avisan.`,
             ultimos_envios: conteo ?? 'todavía no se pueden contar los rebotes (falta la migración 0380)',
           },
         },
@@ -1082,7 +1083,7 @@ export const RUNNERS: Runners = {
         goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, arranque: config.goteo?.arranque ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
         // Las columnas del email (4/11/2026): a cuál pasa la tarjeta en su CRM cuando el email sale, se abre o se cliquea.
-        columnas_email: { enviado: config.columnasEmail?.enviado ?? null, abrio: config.columnasEmail?.abrio ?? null, clic: config.columnasEmail?.clic ?? null },
+        columnas_email: { enviado: config.columnasEmail?.enviado ?? null, abrio: config.columnasEmail?.abrio ?? null, clic: config.columnasEmail?.clic ?? null, rebote: config.columnasEmail?.rebote ?? null },
         nota: 'Los topes por día y por hora de la LÍNEA son de todas las automatizaciones; el goteo es un sub-tope adentro de esos, de ésta sola.',
       });
     },

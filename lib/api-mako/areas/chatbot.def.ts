@@ -354,7 +354,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo y el tope por día.' },
       // Las columnas del email (4/11/2026, lib/email-eventos-crm.ts): UN parámetro y corto, a propósito. Con cuatro, la op
       // creció 600 caracteres y dejó a `cambiar_crons_secuencia` fuera del presupuesto del turno (tests/ops-center-bateria).
-      { nombre: 'columnasEmail', tipo: 'string', descripcion: 'opcional: "enviado=key,abrio=key,clic=key", columnas de su CRM que siguen al email («ninguna» saca).' },
+      { nombre: 'columnasEmail', tipo: 'string', descripcion: 'opcional: "enviado=key,abrio=key,clic=key,rebote=key", columnas de su CRM que siguen al email («ninguna» saca).' },
     ],
     reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario, el goteo y las columnas del email de esa automatización)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
