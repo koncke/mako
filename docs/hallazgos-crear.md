@@ -78,9 +78,16 @@ o debajo, nunca encima.**
 caracteres del gancho («Cobrar mejor no»), y en la captura parecía un título cortado de la interfaz. Los datos inventados de un
 banco no llevan texto que se pueda confundir con la interfaz: ahora las portadas son una escena sin letras.
 
+## Una captura que carga no es una caja gris (13/11/2026, en producción)
+
+En la primera captura de producción, las tarjetas de VSL y Lead magnet de Web salieron como cajas grises vacías. **No faltaba nada**:
+la captura larga carga diferida (`loading="lazy"`), y a 1440 la primera foto sale antes de que llegue. Bajando un poco ya se veían.
+Igual se ven vacías el tiempo que tardan, y en una red lenta es mucho. Debajo de la captura hay ahora un marco con el color de su
+tipo y el dominio de la página (`.espera`), y si la captura no carga se saca: no queda el ícono de imagen rota.
+**La regla: toda imagen de una tarjeta tiene debajo algo que la reemplaza mientras llega, nunca el gris de fondo.**
+
 ## Sin hacer
 
 - La portada de Video (`app/video-editor/OutliersVideo.tsx`, hoy sólo en el teléfono y en `?ver=outliers`) conserva su párrafo
   de totales («N reels medidos… los que más superaron a su cuenta primero»): lo fija `tests/video-outliers-criterio.test.ts`, del
   chat de Video. El del panel del editor sí se fue.
-- El total de Web Generator («N páginas que venden · las de tu competencia primero») sigue: lo fija `tests/web-generator-outliers.test.ts`.
