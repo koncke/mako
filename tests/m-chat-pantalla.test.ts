@@ -107,7 +107,7 @@ test('5. la lista como el prototipo: buscador, chips, el grupo primero y «Nuevo
 });
 
 test('6. deslizar desde el borde: cierra pasado el 35 % del ancho, o con un envión', async () => {
-  const { cierraAlSoltar, UMBRAL_CIERRE, BORDE_PX } = await import('../app/m/_chat/pantalla-chat.ts');
+  const { cierraAlSoltar, UMBRAL_CIERRE, BORDE_PX } = await import('../app/m/_chat/pantalla-chat');
   assert.equal(UMBRAL_CIERRE, 0.35);
   assert.equal(BORDE_PX, 24);
   assert.equal(cierraAlSoltar(140, 375, 0), true, '140 de 375 es más del 35 %');
