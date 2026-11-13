@@ -59,13 +59,17 @@ test('Copywriting: el marco con la forma de su red, el texto adentro y el origin
   assert.match(t, /<GrillaMixta items=\{enGrilla\}/, 'formatos mezclados, en columnas');
   assert.match(t, /className=\{s\.nuevo\}><span aria-hidden>＋<\/span> Nuevo copy<\/Link>/);
   const css = leer('app/copywriter/outliers.module.css');
-  // 13/11/2026 (el Cerebro, con el banco: «nunca blanco vacío»): la portada LLENA el marco y el texto va encima; al pasar el cursor
-  // el texto se va y queda el original limpio. Sin imagen, el marco toma el color de su red (nunca blanco).
+  // 13/11/2026 (el Cerebro, con el banco): la portada LIMPIA llena el marco, sin texto encima (las portadas ya traen su título y el
+  // gancho encima quedaba dos veces); el gancho y la transcripción van DEBAJO, en el pie. Sin portada, el marco toma el color de su
+  // red y el gancho va adentro (nunca blanco vacío).
   assert.match(t, /<img src=\{original\} alt="" className=\{oc\.portada\}/);
-  assert.match(css, /\.marco\[data-con-imagen='si'\]:hover \.copy, \.tarjeta\[data-original='si'\] \.marco\[data-con-imagen='si'\] \.copy \{ opacity: 0; \}/);
+  assert.match(t, /\{original \? \(\s*<>[\s\S]*?className=\{oc\.portada\}[\s\S]*?<\/>\s*\) : \(\s*<div className=\{oc\.copy\}>/, 'el texto adentro del marco SÓLO sin portada');
+  assert.match(t, /<button type="button" className=\{oc\.ganchoPie\} onClick=\{onAbrir\}>\{o\.gancho\}<\/button>/, 'con portada, el gancho en el pie');
+  assert.match(t, /pie=\{\(o\) => altoDelPie\(o, telefono\)\}/, 'la grilla cuenta el texto del pie');
+  assert.doesNotMatch(t, /verOriginal/, 'con la portada siempre a la vista, el botón del original sobra');
+  assert.match(css, /\.siguePie \{[^}]*-webkit-line-clamp: 3;/);
   assert.match(css, /\.tarjeta \.marco \{ cursor: pointer; color: #fff; background: linear-gradient\(/, 'sin imagen, un fondo con color, no blanco');
   assert.doesNotMatch(css, /\.tarjeta \.marco \{[^}]*background: var\(--surface\)/);
-  assert.match(css, /@media \(hover: none\) \{\s*\.verOriginal \{ display: inline-flex; \}/, 'sin mouse, el botón del original');
 });
 
 test('la portada de outliers va SIN el chat; «Mis guiones / diseños / landings» abren la lista', () => {
