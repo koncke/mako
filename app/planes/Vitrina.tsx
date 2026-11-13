@@ -154,13 +154,16 @@ export function CompararPlanes({ planes, sufijo = '' }: { planes: readonly Pick<
   const grupos = [...new Set(filas.map((f) => f.grupo))];
   return (
     <section className="planes-compara" aria-labelledby="planes-compara-titulo">
-      {/* Como el «Compare features» de beehiiv: el título y, arriba de cada columna, el plan con su botón. */}
+      {/* Como el «Compare features» de beehiiv: el título y, arriba de cada columna, el plan con su botón. CON MOVIMIENTO (la llamada
+          con Leila, 13/11/2026: «muy plana»): la cabecera queda pegada arriba al bajar, la columna de Pro va resaltada, cada grupo
+          es una tarjeta que se abre suave, las tildes aparecen de a una al abrirlo y las filas entran al verse (estilo.ts). */}
       <div className="planes-compara-cab" style={{ '--n': planes.length + 1 } as CSSProperties}>
         <h2 id="planes-compara-titulo">Compara los planes</h2>
         {planes.map((p) => {
           const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable: p.cobrable, sufijo });
           return (
-            <div key={p.id} className="planes-compara-plan">
+            <div key={p.id} className="planes-compara-plan" data-destacado={p.destacado ? '' : undefined}>
+              {p.destacado ? <span className="planes-compara-reco">Recomendado</span> : null}
               <b><NombreColumna nombre={p.nombre} /></b>
               <a className={`planes-compara-btn${p.destacado ? ' azul' : ''}`} href={boton.href}>{p.destacado && planConPrueba(p.id) ? `${PRUEBA_DIAS} días gratis` : 'Empezar'}</a>
             </div>
@@ -174,14 +177,14 @@ export function CompararPlanes({ planes, sufijo = '' }: { planes: readonly Pick<
       {grupos.map((g, i) => (
         // El primero abierto (lo que entra en cada plan); los demás se abren tocándolos. Sin JavaScript: <details>.
         <details key={g} className="planes-grupo-d" open={i === 0}>
-          <summary>{g}</summary>
+          <summary>{g}<small className="planes-grupo-n">{filas.filter((f) => f.grupo === g).length}</small></summary>
           <table className="planes-tabla">
             <colgroup><col className="planes-col-que" />{planes.map((p) => <col key={p.id} />)}<col /></colgroup>
             <tbody>
-              {filas.filter((f) => f.grupo === g).map((f) => (
-                <tr key={f.que}>
+              {filas.filter((f) => f.grupo === g).map((f, k) => (
+                <tr key={f.que} style={{ '--i': k } as CSSProperties}>
                   <th scope="row">{f.que}</th>
-                  {planes.map((p) => <td key={p.id}><CeldaPlan v={celdaDeCapa(f, p.capa)} /></td>)}
+                  {planes.map((p) => <td key={p.id} data-destacado={p.destacado ? '' : undefined}><CeldaPlan v={celdaDeCapa(f, p.capa)} /></td>)}
                   <td><CeldaPlan v={f.acelerador} /></td>
                 </tr>
               ))}
@@ -203,7 +206,7 @@ function NombreColumna({ nombre }: { nombre: string }) {
 }
 
 function CeldaPlan({ v }: { v: Celda | null }) {
-  if (v === true) return <span className="planes-si" aria-label="Incluido">✓</span>;
+  if (v === true) return <span className="planes-si" role="img" aria-label="Incluido"><svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg></span>;
   if (v === false) return <span className="planes-no" aria-label="No incluido">—</span>;
   return <>{v ?? ''}</>;
 }

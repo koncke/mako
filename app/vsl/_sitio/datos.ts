@@ -22,6 +22,7 @@ import { LANDINGS_COMPETENCIA } from '../_competencia/registro';
 import { CASO } from '../_competencia/marca';
 import type { LandingCompetencia } from '../_competencia/tipos';
 import { AVATARES, type AvatarOrigen } from '@/lib/origen-cuenta';
+import { FUNNELS_SITIO, rutaFunnel } from './funnels';
 import { DEFS, defsVisibles, ordenCategoria, type Def } from '@/lib/integraciones-catalogo';
 import { SIN_USO_TODAVIA, tarjetaDeRed, type RedConTarjeta } from '@/lib/zernio-redes';
 import { CATALOGO_GRABADORES } from '@/lib/grabadores/catalogo';
@@ -125,7 +126,11 @@ const LANDING_DEL_AVATAR: Partial<Record<AvatarOrigen, string>> = {
   agencias: '/agency',
 };
 
-export const INDUSTRIAS: readonly ItemIndustria[] = AVATARES.flatMap((a) => {
+/** El orden del menú (llamada con Leila, 13/11/2026): Agencias, Coaches, Infoproductores, Inmobiliarias. Uno nuevo, al final. */
+const ORDEN_INDUSTRIAS: readonly AvatarOrigen[] = ['agencias', 'coaches', 'infoproductores', 'inmobiliarias'];
+const posIndustria = (a: AvatarOrigen) => { const i = ORDEN_INDUSTRIAS.indexOf(a); return i < 0 ? ORDEN_INDUSTRIAS.length : i; };
+
+export const INDUSTRIAS: readonly ItemIndustria[] = [...AVATARES].sort((x, y) => posIndustria(x) - posIndustria(y)).flatMap((a) => {
   const href = LANDING_DEL_AVATAR[a];
   return href ? [{ avatar: a, nombre: NOMBRE_AVATAR[a], bajada: BAJADA_AVATAR[a], href, icono: ICONO_AVATAR[a] }] : [];
 });
@@ -169,6 +174,7 @@ export function columnasDelPie(): { titulo: string; links: { nombre: string; hre
       links: [...grandes.filter((g) => g.familia === c.rotulo).map((g) => g.item), ...c.items].map((i) => ({ nombre: i.nombre, href: i.href })),
     })),
     { titulo: 'Industrias', links: INDUSTRIAS.map((i) => ({ nombre: i.nombre, href: i.href })) },
+    { titulo: 'Funnels', links: FUNNELS_SITIO.map((f) => ({ nombre: f.nombre, href: rutaFunnel(f.id) })) },
     { titulo: 'Legal', links: [...LEGALES, { nombre: EMAIL_MAKO, href: `mailto:${EMAIL_MAKO}` }] },
   ];
 }
@@ -203,7 +209,17 @@ export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | { video: 
  * `gurus`: las caricaturas; `hero` sólo donde el visual de su landing son fotos reales, AI Avatar) o `falta`: el recuadro que dice
  * qué animación va ahí, con las palabras de Martín. `slug` lleva a su landing; sin landing (Classroom) va sin link.
  */
-export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo: string; texto: string; visual: VisualTarjeta }[] = [
+/**
+ * LOS DOS APARTADOS DE «PRODUCTO» (llamada con Leila, 13/11/2026: «dos apartados, adquisición de clientes y entrega del servicio»):
+ * MaKo es marketing, ventas Y entrega. Una fila sin `apartado` es de adquisición.
+ */
+export type ApartadoPortada = 'adquisicion' | 'entrega';
+export const APARTADOS_PORTADA: Readonly<Record<ApartadoPortada, { rotulo: string; titulo: string; bajada: string }>> = {
+  adquisicion: { rotulo: 'Adquisición de clientes', titulo: 'Atrae, convence y vende.', bajada: 'Del contenido y los anuncios a la llamada de venta: tu competencia, tus piezas, tus leads y tu seguimiento, en la misma app.' },
+  entrega: { rotulo: 'Entrega del servicio', titulo: 'Entrega lo que vendiste.', bajada: 'Quien te compra sigue en MaKo: su etapa de entrega, sus clases, sus cuotas y el seguimiento de cada uno.' },
+};
+
+export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo: string; texto: string; visual: VisualTarjeta; apartado?: ApartadoPortada }[] = [
   { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Pegas el link de un competidor y MaKo trae sus publicaciones, sus reels, sus videos de YouTube y sus anuncios, los ordena por formato y te muestra cuáles le dieron más vistas.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
   { slug: 'web-generator', titulo: 'Replica una landing de tu competencia.', texto: 'Pegas el link de una landing que ya vende y MaKo la replica sección por sección, con tus textos y tu oferta, conectada a tu CRM y a tu agenda.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
   { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: 'Eliges uno de los carruseles que mejor les funcionan a las cuentas que sigues y MaKo arma el tuyo con el mismo diseño, con tus textos y tu marca, listo para editar.', visual: { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' } },
@@ -217,7 +233,10 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo
   { slug: 'seguimiento', titulo: 'Un setter con IA que contesta por ti.', texto: 'Responde tus mensajes de Instagram, WhatsApp, Messenger y email, califica a cada interesado con tus propios criterios y lo lleva a agendar su llamada de venta. Tú solo cierras.', visual: { falta: 'La vista del lienzo con todas las automatizaciones.' } },
   { slug: 'whatsapp', titulo: 'Todos tus chats en una bandeja.', texto: 'WhatsApp, Instagram, Messenger y email, con una conversación por contacto y su ficha del CRM al lado, y MaKo te propone qué contestar.', visual: { falta: 'La bandeja de Chats de MaKo tal cual es.' } },
   { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tus anuncios de Meta, tu landing, tus leads del CRM, tus pagos y tus llamadas en una sola pantalla, con tableros listos para ventas, anuncios y llamadas.', visual: 'tableros' },
-  { rotulo: 'Classroom', titulo: 'Tu escuela, dentro de MaKo.', texto: 'Tu curso por módulos y clases, con el video de cada una, lo que avanza cada alumno y la comunidad, en la misma app que usas para vender.', visual: { video: '/vsl-assets/sitio/classroom.webm', poster: '/vsl-assets/sitio/classroom.jpg' } },
+  // ── Entrega del servicio ──
+  { slug: 'crm', rotulo: 'Entrega del servicio', apartado: 'entrega', titulo: 'Cada cliente, en su etapa de entrega.', texto: 'Quien te compra pasa al tablero de entrega de su producto, con tus propias etapas, y la automatización «Un Cliente Empezó» le da la bienvenida, le pregunta cómo va y le pide un testimonio.', visual: { falta: 'El tablero de entrega de un producto (onboarding, en curso, renovación) con un cliente que avanza y su mensaje de bienvenida.' } },
+  { rotulo: 'Classroom', apartado: 'entrega', titulo: 'Tu escuela, dentro de MaKo.', texto: 'Tu curso por módulos y clases, con el video de cada una, lo que avanza cada alumno y la comunidad, en la misma app que usas para vender.', visual: { video: '/vsl-assets/sitio/classroom.webm', poster: '/vsl-assets/sitio/classroom.jpg' } },
+  { slug: 'cobranza', apartado: 'entrega', titulo: 'Cobra cada cuota sin perseguir a nadie.', texto: 'Cobras con un link de tu propia cuenta de Stripe o Mercado Pago, en cuotas o cada mes. Cada pago entra solo a tu CRM, y cuando una cuota vence, MaKo le escribe a tu cliente y te avisa.', visual: { falta: 'La cobranza: un plan de cuotas en la ficha del cliente, el pago que entra solo y el aviso de la cuota vencida.' } },
 ];
 
 /**

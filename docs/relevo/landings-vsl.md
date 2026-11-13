@@ -186,6 +186,17 @@ horrible». Y después: «tenés que mostrar los outliers verdaderos, no inventa
 | Tableros: flechas y puntos afuera, deslizable | La pista es el recuadro (`scroll-snap`, se desliza con el dedo, el trackpad o arrastrando con el mouse); flechas a los costados, nombre y puntos debajo |
 | CRM moviendo tarjetas | `banco-crm` (scratchpad) → `crm.webm` |
 
+## Novena vuelta (13/11/2026, tarde): las filas que faltaban, desde el código
+
+Martín: «Continúa con todo hasta finalizar». Cada fila es su componente REAL en un banco de esbuild del scratchpad de la sesión
+(`banco-video/`, `banco-grupos/`, `banco-flujo/`, `banco-chats/`, `banco-copilot-hoy/`: build.mjs + entrada.tsx + grabar.mjs; los
+estilos, `app/globals.css` compilado con Tailwind → `app.css`), grabado a 1280 × 800 y pasado a 960 × 600 en bucle fundido.
+
+| Fila | Qué se ve | Dónde |
+|---|---|---|
+| Edita tus videos sin saber editar | El panel REAL de la Edición automática (`enjambre-view.tsx` y su store) sobre tres tomas crudas del personaje de Martín (las de su reel: `C:/dev/reel-mentores/clips-espanol`): sus 7 pausas medidas se marcan y se cortan (19 s → 11 s), los subtítulos de su voz (Whisper), «Palabra gigante», B-roll de MaKo en «una app», un cambio de plano, voz y volumen, la revisión, y «Reproducir el corte final» | `video.webm` |
+| Trae los contactos de tus grupos | `TraerDeGrupoWA` + `ExtraccionModal` reales con un grupo de ejemplo (nombres inventados, teléfonos 555): elegir el grupo, «Extraer 43», el avance con los textos de la extensión, el resultado con su etiqueta | `grupos.webm` |
+
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
 `PRUEBA_GRATIS_PRENDIDA = true` (`lib/planes-mako.ts`): `/planes` dice «7 días gratis» y cobra el día 8 con la tarjeta,

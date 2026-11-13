@@ -7,7 +7,7 @@
 
 import { CAPACIDADES_PASARELA, esPasarela, type Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
-import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
+import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba } from './planes-mako';
 // De TIPO: se borra al compilar, así que no suma nada al bundle del cliente (esto lo importan componentes 'use client').
 import type { MotivoDuplicado } from './leads-duplicados';
 
@@ -303,8 +303,13 @@ export function pasarelasParaOfrecer<T extends { pasarela: Pasarela; moneda: str
 export const TEXTO_SIN_PASARELA = 'Todavía no cobramos en línea. Déjanos tus datos y te escribimos por WhatsApp para darte de alta.';
 
 /** El botón de un plan: comprar si se puede cobrar; si no, pedirlo en su página (nunca «Empezar» sin cobro detrás). */
+/** El botón del plan con la prueba gratis (Martín: «Comienza tu prueba gratuita / Pruébalo gratis ahora»). */
+export const TEXTO_BOTON_PRUEBA = 'Comienza tu prueba gratuita';
+
 export function botonDelPlan(p: { id: string; nombre: string; cobrable: boolean; sufijo: string }): { href: string; texto: string } {
-  return { href: `/planes/${p.id}${p.sufijo}`, texto: p.cobrable ? `Empezar con ${p.nombre}` : `Quiero ${p.nombre}` };
+  // El plan de la prueba (llamada con Leila, 13/11/2026): el botón invita a la prueba, no a «empezar» (y va grande en la tarjeta).
+  const texto = !p.cobrable ? `Quiero ${p.nombre}` : planConPrueba(p.id) ? TEXTO_BOTON_PRUEBA : `Empezar con ${p.nombre}`;
+  return { href: `/planes/${p.id}${p.sufijo}`, texto };
 }
 
 /** El botón del anual: siempre «Quiero» (se pide), con el origen y el partner del sufijo más `periodo=anual`. */
