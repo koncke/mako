@@ -37,6 +37,10 @@
 //   · `listarCola` que la devuelve a la cola si la foto no se pudo bajar       → 8b
 //   · al Runner le llega la foto vieja, o se marca con ella                      → 8b
 //   · el script sin la salida `--sin-persona`                                   → 8c
+// Y la marca por cuenta (12/11/2026):
+//   · `encolarCaricatura` sin mirar la marca de su cuenta                       → 10
+//   · `marcarSinPersona` sin dejar la marca                                     → 10
+//   · que no poder dejar la marca deshaga lo anotado (o no lo diga)             → 10
 //   · `anotarEn` que reescribe el registro entero limpio (lo de antes del 12/11) → 9
 // Correr: node --import tsx --test tests/spy-caricatura-cola.test.ts
 // =============================================================================
@@ -45,7 +49,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { anotarFallo, encolarCaricatura, guardarCaricatura, listarCola, marcarSinPersona, type DepsGuardar } from '../lib/spy-caricatura-cola';
+import { SIN_PERSONA_POR_LA_CUENTA, anotarFallo, encolarCaricatura, guardarCaricatura, listarCola, marcarSinPersona, type DepsGuardar } from '../lib/spy-caricatura-cola';
 import {
   CLAVE_CARICATURAS, ESPERA_TRAS_FALLO_MS, FALLOS_HASTA_RENDIRSE, caraDeTarjeta, caricaturaEnCamino, caricaturasListas, esperaMasVieja,
   leerRegistro, medidasDeImagen, refDeCuenta,
@@ -314,6 +318,35 @@ test('9. escribir una entrada no borra lo que las OTRAS tienen y esta versión n
   const crudo = JSON.parse(b.settings.get(9)?.valor ?? '{}');
   assert.deepEqual(crudo['41'], logo41, 'la entrada que no se tocó queda TAL CUAL');
   assert.equal(crudo['42']?.foto, `${STORAGE}spy/avatar/otra.persona.jpg`);
+  assert.equal(b.registro(9)['41']?.sinPersona, 'es un logo');
+});
+
+test('10. un logo se marca POR CUENTA: el negocio que lo agrega después no lo manda a la cola (12/11)', async () => {
+  // El Cerebro, 12/11: «que una empresa con logo quede marcada en el competidor mismo, así no vuelve a pedir caricatura». Los
+  // «Sugeridos» del negocio de la plataforma los agrega cualquier cliente: sin esto, cada uno volvía a encolar el mismo logo.
+  const b = conHuellas([logo(9, 41)], new Map([[FOTO_LOGO, H1]]));
+  const marca = (r: string) => rutaDeMiniatura('sin-persona', r, 'jpg');
+  const deps = {
+    ...b.deps,
+    guardarMarca: async (refs: string[]) => { for (const r of refs) b.archivos.set(marca(r), `${STORAGE}${marca(r)}`); },
+    sinPersona: async (refs: string[]) => refs.some((r) => b.archivos.has(marca(r))),
+  };
+  assert.equal(await encolarCaricatura(deps, logo(9, 41), T0), 'pendiente');
+  const r = await marcarSinPersona(deps, 9, 41, 'es un logo', T0);
+  assert.ok(r.ok && r.marca === true, 'deja la marca en su cuenta');
+
+  // Días después, OTRO negocio agrega la misma cuenta: entra marcado, sin pasar por la cola.
+  assert.equal(await encolarCaricatura(deps, logo(11, 7), T0 + 86_400_000), 'fuera');
+  assert.equal(b.registro(11)['7']?.sinPersona, SIN_PERSONA_POR_LA_CUENTA);
+  const cola = await listarCola({ ...deps, todos: async () => [logo(9, 41), logo(11, 7)] }, T0 + 2 * 86_400_000);
+  assert.deepEqual(cola.pendientes, [], 'ni el de antes ni el nuevo esperan caricatura');
+  assert.equal(cola.sinPersona.length, 1, 'la misma cuenta sale UNA vez, como una persona en dos negocios');
+  // Una persona en ese mismo negocio sigue su camino: a la cola.
+  assert.equal(await encolarCaricatura(deps, den(11, 8), T0), 'pendiente');
+
+  // Sin poder dejar la marca, lo anotado queda y se dice (el script sale con código 1 para que lo vuelvan a correr).
+  const sinMarca = await marcarSinPersona({ ...deps, guardarMarca: async () => { throw new Error('403'); } }, 9, 41, 'es un logo', T0);
+  assert.ok(sinMarca.ok && sinMarca.marca === false);
   assert.equal(b.registro(9)['41']?.sinPersona, 'es un logo');
 });
 

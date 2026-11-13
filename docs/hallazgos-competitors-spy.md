@@ -2282,3 +2282,15 @@ moverlos de lugar: es que lleguen.
 **Trampa de los tests:** un componente que importa un `.module.css` no carga con `node --import tsx`. Hay que registrar un hook que devuelva el CSS vacío, como `tests/carruseles-pantalla.test.ts`, y recién después importar el componente. Con eso, el test mira el contenido y no las clases.
 
 **Sin hacer:** la grilla de Spy sigue siendo por filas (`GrillaPiezas`). Un short al lado de un video largo deja un hueco debajo del largo. Create usa `GrillaMixta` (`app/_crear/GrillaMixta.tsx`), que reparte en columnas. Pasarla a Spy obliga a rehacer la paginación «por filas enteras», que tiene su test.
+
+## Un logo se marca por CUENTA, no por negocio (13/11/2026)
+
+**Vive en:** `lib/spy-caricatura-cola.ts` (`encolarCaricatura` y `marcarSinPersona`, con `guardarMarca`), `lib/spy-miniaturas.ts` (`sinPersonaGuardada`) y `scripts/spy-caricatura-base.mjs`. Test: el 10 de `tests/spy-caricatura-cola.test.ts`.
+
+**El hueco:** la marca «sin persona» vivía en el registro de UN negocio. Los «Sugeridos» del negocio de la plataforma los agrega cualquier cliente: cada uno que sumaba Mindvalley o MasterClass lo volvía a mandar a la cola, y el Runner tenía que marcarlo otra vez.
+
+**La regla:** un logo se marca como la caricatura, por cuenta. `--sin-persona` deja una copia de su foto en `spy/sin-persona/<cuenta>`. El bucket `spy-miniaturas` sólo acepta jpeg, png y webp, así que la marca no puede ser un JSON. `encolarCaricatura` la busca antes de encolar a uno nuevo, y si está, lo anota ya marcado.
+
+**Para no pedir una migración:** una columna en `spy_competidores` tampoco servía, porque el competidor es por negocio. La caricatura ya resolvía lo mismo por cuenta.
+
+**Sin hacer:** las cinco marcas de antes (26, 35, 39, 40 y 41 del ws 9) no tienen su copia. Las deja volver a correr `--sin-persona` sobre cada una, con este código en main.

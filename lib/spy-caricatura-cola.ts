@@ -74,7 +74,16 @@ function registroCrudo(crudo: string | null): Record<string, unknown> {
 export type DepsEncolar = DepsRegistro & {
   /** La caricatura ya hecha de alguna de estas cuentas, en nuestro Storage (`refDeCuenta`). null = no hay. */
   hecha: (refs: string[]) => Promise<string | null>;
+  /**
+   * ¿Alguna de estas cuentas ya es un logo, marcado por el Runner en CUALQUIER negocio? Es la copia de su foto en
+   * `spy/sin-persona/` que deja `marcarSinPersona` (`guardarMarca`). Sin esto, cada negocio que agrega la misma marca desde
+   * «Sugeridos» la volvía a mandar a la cola (12/11/2026).
+   */
+  sinPersona?: (refs: string[]) => Promise<boolean>;
 };
+
+/** El motivo de una que entra ya marcada porque otro negocio la marcó: el de la cuenta, no el de este negocio. */
+export const SIN_PERSONA_POR_LA_CUENTA = 'Su foto es un logo (ya marcado en su cuenta)';
 
 /**
  * Deja la caricatura de un competidor en la cola, con su foto ya en NUESTRO Storage. Si la misma persona ya tiene
@@ -86,15 +95,22 @@ export async function encolarCaricatura(deps: DepsEncolar, c: CompetidorCola, ah
   const estado = estadoEnCola(antes, c, ahora);
   if (estado === 'fuera' || estado === 'lista') return estado === 'lista' ? 'sin-cambio' : 'fuera';
   // ¿Ya existe su caricatura? Se pregunta también para una que espera: la pudo haber hecho otro negocio.
-  const hecha = await deps.hecha(cuentasDe(c).map(refDeCuenta)).catch(() => null);
+  const refs = cuentasDe(c).map(refDeCuenta);
+  const hecha = await deps.hecha(refs).catch(() => null);
   if (!hecha && antes?.foto) return 'sin-cambio';
+  // ⚠️ UN LOGO SE MARCA POR CUENTA, NO POR NEGOCIO (12/11/2026, el Cerebro: «que quede marcada en el competidor mismo, así no
+  // vuelve a pedir caricatura»). Si el Runner ya dijo que esta cuenta es un logo, entra marcada y no pasa por la cola. Sin la
+  // huella: queda fuera mientras su foto sea la misma, y si cambia de dirección, vuelve (`estadoEnCola`).
+  const logo = !hecha && !antes && refs.length > 0 && deps.sinPersona ? await deps.sinPersona(refs).catch(() => false) : false;
+  const desde = new Date(ahora).toISOString();
   const ok = await anotarEn(deps, c.ws, new Map([[c.id, (e: EntradaCaricatura | undefined) =>
     e?.url ? null
       : hecha ? { url: hecha }
         : e?.foto ? null
-          : { foto: c.avatar as string, desde: new Date(ahora).toISOString() }]]));
+          : logo ? { foto: c.avatar as string, desde, sinPersona: SIN_PERSONA_POR_LA_CUENTA, sinPersonaEn: desde }
+            : { foto: c.avatar as string, desde }]]));
   if (!ok) return 'sin-cambio';
-  return hecha ? 'lista' : 'pendiente';
+  return hecha ? 'lista' : logo ? 'fuera' : 'pendiente';
 }
 
 // ── 2. Listar (el Runner) ────────────────────────────────────────────────────────────────────────────────────────────
@@ -111,6 +127,11 @@ export type DepsTodos = DepsRegistro & {
    * sea la misma.
    */
   huella?: (url: string) => Promise<string | null>;
+  /**
+   * Deja la marca de «sin persona» POR CUENTA: una copia de su foto en `spy/sin-persona/<cuenta>` (el bucket sólo acepta
+   * imágenes). La lee `DepsEncolar.sinPersona` cuando otro negocio agrega la misma cuenta. Tira si no pudo.
+   */
+  guardarMarca?: (refs: string[], foto: string) => Promise<void>;
 };
 
 export async function listarCola(deps: DepsTodos, ahora = Date.now()): Promise<Cola> {
@@ -195,7 +216,7 @@ export async function guardarCaricatura(deps: DepsGuardar, ws: number, id: numbe
  * «rendidas». Se marca también en la misma persona de cualquier otro negocio (la misma cuenta, la misma foto). Vuelve
  * a la cola sólo si cambia su foto: por eso se guarda su huella.
  */
-export async function marcarSinPersona(deps: DepsTodos, ws: number, id: number, motivo: string, ahora = Date.now()): Promise<{ ok: true; marcadas: Array<{ ws: number; id: number }> } | { ok: false; error: string }> {
+export async function marcarSinPersona(deps: DepsTodos, ws: number, id: number, motivo: string, ahora = Date.now()): Promise<{ ok: true; marcadas: Array<{ ws: number; id: number }>; marca: boolean | null } | { ok: false; error: string }> {
   const todos = await deps.todos();
   const c = todos.find((x) => x.ws === ws && x.id === id);
   if (!c) return { ok: false, error: `No existe el competidor ${id} en el negocio ${ws}.` };
@@ -222,7 +243,13 @@ export async function marcarSinPersona(deps: DepsTodos, ws: number, id: number, 
     if (await anotarEn(deps, w, cambios)) otros.forEach((o) => marcadas.push({ ws: w, id: o.id }));
   }
   if (!marcadas.some((m) => m.ws === ws && m.id === id)) return { ok: false, error: 'No pude anotarlo: vuelve a correrlo.' };
-  return { ok: true, marcadas };
+  // La marca por cuenta, para el negocio que lo agregue DESPUÉS. Que falle no deshace lo anotado: `marca: false` lo dice, y
+  // volver a correr `--sin-persona` la deja (también sirve para las que se marcaron antes del 12/11).
+  let marca: boolean | null = null;
+  if (deps.guardarMarca && cuentasDe(c).length) {
+    marca = await deps.guardarMarca(cuentasDe(c).map(refDeCuenta), foto).then(() => true, () => false);
+  }
+  return { ok: true, marcadas, marca };
 }
 
 // ── 5. Un fallo (el Runner, cuando Canva no pudo) ────────────────────────────────────────────────────────────────────
