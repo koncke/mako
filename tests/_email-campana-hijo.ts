@@ -431,10 +431,12 @@ async function conectarRemitente(): Promise<void> {
 const SECRETO_WEBHOOK = `whsec_${Buffer.from('clave-del-webhook-de-prueba').toString('base64')}`;
 process.env.RESEND_WEBHOOK_SECRET = SECRETO_WEBHOOK;
 let eventoN = 0;
-async function eventoDeResend(tipo: 'email.opened' | 'email.clicked', emailId: string): Promise<{ status: number; body: unknown }> {
+async function eventoDeResend(tipo: 'email.opened' | 'email.clicked' | 'email.bounced', emailId: string): Promise<{ status: number; body: unknown }> {
   const { createHmac } = await import('node:crypto');
   const { POST } = await import('../app/api/webhooks/resend/route');
-  const raw = JSON.stringify({ type: tipo, created_at: ahora(), data: { email_id: emailId, created_at: ahora() } });
+  const data: Record<string, unknown> = { email_id: emailId, created_at: ahora() };
+  if (tipo === 'email.bounced') data.bounce = { type: 'Permanent', subType: 'General', message: 'no existe' };
+  const raw = JSON.stringify({ type: tipo, created_at: ahora(), data });
   const id = `msg_${++eventoN}`;
   const ts = String(Math.floor(Date.now() / 1000));
   const firma = createHmac('sha256', Buffer.from(SECRETO_WEBHOOK.slice(6), 'base64')).update(`${id}.${ts}.${raw}`).digest('base64');
@@ -544,6 +546,15 @@ async function escenarioColumnas(): Promise<Record<string, unknown>> {
   const dos = String(db.nutricion_envios.filter((e) => Number(e.lead_id) === 601 && Number(e.secuencia_id) === id && e.estado === 'enviado').at(-1)?.proveedor_id);
   out.abrioEmailDos = await eventoDeResend('email.opened', dos);
   out.tarjeta601TrasAbrirDos = posicion(601);
+
+  // Ticket #93 (13/11/2026): un rebote lleva la tarjeta a la columna «Rebotados» del CRM —sin elegirla en la automatización—
+  // aunque esté ANTES en el tablero (601 ya hizo clic), y le da de baja el email (sale de la secuencia).
+  const crm = db.funnels.find((x) => Number(x.id) === EMAIL)!;
+  crm.data = { ...(crm.data as Fila), pipeline: [PIPELINE_EMAIL[0], etapa('em_rebotado', 'Rebotados', 'paso'), ...PIPELINE_EMAIL.slice(1)] };
+  out.rebote601 = await eventoDeResend('email.bounced', dos);
+  out.tarjeta601TrasRebote = posicion(601);
+  out.baja601 = db.leads.find((l) => Number(l.id) === 601)?.email_opt_out ?? null;
+  out.autorRebote = db.lead_historial.concat(db.lead_audit).filter((h) => Number(h.lead_id) === 601 && String(h.valor_nuevo ?? h.a ?? '').includes('em_rebotado')).map((h) => h.autor ?? h.usuario ?? null);
   return out;
 }
 
@@ -606,19 +617,26 @@ async function escenarioTopes(): Promise<Record<string, unknown>> {
   out.run1 = { enviados: r1.enviados, topeEmail: r1.detalle.filter((d) => d.nota === 'tope diario de email').length };
   out.emails1 = resend.filter((p) => p.path === '/emails').length;
 
-  // Los rebotes llegan por el webhook. Con 50 enviados, el 2.º rebote es el 4 % y el 3.º el 6 %: ahí se apaga.
+  // Los rebotes llegan por el webhook. Desde el ticket #93 (13/11/2026) el freno mira los últimos 300 desde 100 enviados: a los
+  // 50 de hoy se suman 50 de ayer, sin rebotes. Con 100, el 4.º rebote es el 4 % (nada), el 5.º el 5 % (avisa y el envío sigue)
+  // y el 10.º el 10 % (apaga).
   const enviados = db.nutricion_envios.filter((e) => e.estado === 'enviado' && Number(e.secuencia_id) === 91);
+  for (const e of enviados) db.nutricion_envios.push({ ...e, id: siguienteId++, proveedor_id: `ayer-${String(e.proveedor_id)}`, abierto_at: null, clic_at: null, rebotado_at: null, queja_at: null });
   const envio = () => setting(NEGOCIO, 'envio_email_enabled');
   out.temporal = await eventoRebote(String(enviados[0].proveedor_id), 'email.bounced', 'Transient');
   out.trasTemporal = { envio: envio(), baja: db.leads.find((l) => Number(l.id) === Number(enviados[0].lead_id))?.email_opt_out ?? null };
-  await eventoRebote(String(enviados[1].proveedor_id), 'email.bounced');
-  await eventoRebote(String(enviados[2].proveedor_id), 'email.bounced');
-  out.trasDos = envio();
-  out.tercero = await eventoRebote(String(enviados[3].proveedor_id), 'email.bounced');
-  out.trasTres = envio();
+  for (let i = 1; i <= 4; i++) await eventoRebote(String(enviados[i].proveedor_id), 'email.bounced');
+  out.trasCuatro = envio();
+  out.quinto = await eventoRebote(String(enviados[5].proveedor_id), 'email.bounced');
+  out.trasCinco = { envio: envio(), avisosRebotes: db.notificaciones.filter((n) => n.tipo === 'email-rebotes').length };
+  for (let i = 6; i <= 9; i++) await eventoRebote(String(enviados[i].proveedor_id), 'email.bounced');
+  out.trasNueve = envio();
+  out.decimo = await eventoRebote(String(enviados[10].proveedor_id), 'email.bounced');
+  out.trasDiez = envio();
   out.rebotados = db.nutricion_envios.filter((e) => e.rebotado_at != null).length;
   out.bajas = db.leads.filter((l) => l.email_opt_out === true).length;
   out.avisos = db.notificaciones.filter((n) => n.tipo === 'email-frenado').map((n) => ({ titulo: n.titulo, texto: n.texto ?? n.cuerpo ?? null }));
+  out.avisosRebotes = db.notificaciones.filter((n) => n.tipo === 'email-rebotes').map((n) => ({ titulo: n.titulo, texto: n.texto ?? n.cuerpo ?? null }));
   out.verDespues = await leerJson(ver);
 
   // Cambiar los topes por la API: fuera de rango no; adentro, se guarda sólo lo que difiere.
