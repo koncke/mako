@@ -396,7 +396,7 @@ export function EditorGuion(p: PropsEditorGuion) {
           <div className="nt-aviso nt-restos" role="status">
             <span>
               {restos.bloques || restos.datos
-                ? [restos.bloques ? `Quedan ${restos.bloques === 1 ? '1 bloque' : `${restos.bloques} bloques`} del ejemplo` : '', restos.datos ? `${restos.datos === 1 ? '1 dato' : `${restos.datos} datos`} por completar` : ''].filter(Boolean).join(' · ')
+                ? [restos.bloques ? (restos.bloques === 1 ? 'Queda 1 bloque del ejemplo' : `Quedan ${restos.bloques} bloques del ejemplo`) : '', restos.datos ? `${restos.datos === 1 ? '1 dato' : `${restos.datos} datos`} por completar` : ''].filter(Boolean).join(' · ')
                 : `Plantilla: ${plantilla.nombre}`}
             </span>
             <button type="button" className="nt-miga nt-ver-ejemplo" onClick={() => setVerEjemplo(true)}>Ver ejemplo</button>

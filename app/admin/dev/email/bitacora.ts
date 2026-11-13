@@ -150,4 +150,73 @@ export const BITACORA: Hito[] = [
     revisar: '/email',
     tickets: [76],
   },
+  {
+    fecha: '13 nov', hora: '15:40', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El freno del email avisa antes y sólo apaga con números peligrosos; los rebotados van a su columna',
+    puntos: [
+      'Mauricio (#93): el freno le apagó el email de sus dos CRMs con 5 rebotes de los últimos 100. En los últimos 300 había 11 (3,7 %) y en toda la campaña 2,7 %: con 100 de muestra, el 5 % sale por azar.',
+      'Ahora mira los últimos 300 (desde 100 enviados). Desde 5 % de rebotes te avisa y el envío sigue; lo apaga recién con 10 % de rebotes o 0,3 % de quejas.',
+      'Un correo que rebota lleva al lead a la columna «Rebotado» de su CRM (alcanza con crear una columna con ese nombre) y lo saca de la secuencia sin apagarla.',
+      'La clasificación por apertura y clic seguía andando: en «Sprint Ejecución» las columnas se eligieron después de los primeros 33 correos, y el 12/11 a las 21:44 (Tijuana) una conexión por la API devolvió 54 leads a «Nuevo lead».',
+    ],
+    archivos: [
+      'lib/email-freno.ts · lib/email-reputacion.ts — la muestra de 300, el aviso del 5 % y el corte del 10 %',
+      'lib/email-eventos-crm-reglas.ts · lib/email-eventos-crm.ts · app/api/webhooks/resend/route.ts — el rebote a «Rebotado»',
+      'lib/config-automatizacion.ts · lib/api-mako/areas/chatbot.* — `rebote=<columna>` en columnasEmail',
+      'tests/email-freno-93.test.ts · tests/email-campana-topes.test.ts · tests/email-campana-columnas.test.ts',
+      'docs/hallazgos-comunicacion.md — las tres causas, medidas',
+    ],
+    revisar: '/email',
+    tickets: [93],
+  },
+  {
+    fecha: '13 nov', hora: '18:30', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los leads nuevos tienen lugar en el tope de email, y elegir columnas acomoda lo que ya salió',
+    puntos: [
+      'El 12/11 la lista fría de Mauricio se gastó 398 de sus 500 emails del día a las 7, y 34 de sus 67 leads nuevos se quedaron sin el suyo.',
+      'Ahora una lista fría usa como mucho el 80 % del tope del día: el resto queda para los leads que entraron por un formulario, una landing o una agenda en los últimos 7 días.',
+      'Al elegir las columnas del email de una automatización, los leads que ya recibieron emails pasan a la columna de lo que hicieron: les llegó, lo abrieron, hicieron clic o rebotó.',
+    ],
+    archivos: [
+      'lib/nutricion-prioridad.ts · lib/nutricion.ts — la reserva del email para los leads nuevos',
+      'lib/email-eventos-crm.ts · lib/email-eventos-crm-reglas.ts · lib/api-mako/areas/chatbot.run.ts — acomodar lo que ya salió',
+      'tests/email-prioridad-acomodo-93.test.ts — el motor y el runner de verdad, con los dos escenarios',
+      'docs/hallazgos-comunicacion.md',
+    ],
+    revisar: '/automations',
+  },
+  {
+    fecha: '13 nov', hora: '20:10', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Con tu propia cuenta de Resend y tu dominio, el email por día llega a 2.000',
+    puntos: [
+      'Un negocio que manda con su propia cuenta de Resend y su dominio puede subir «Email por día» hasta 2.000. Con la cuenta de la plataforma sigue en 500.',
+      'El primer día y cuánto sube por día siguen de 1 a 500 para todos.',
+      'Si un día no se puede leer con qué cuenta manda, el tope baja a 500, nunca a lo de fábrica.',
+    ],
+    archivos: [
+      'lib/limites-envio.ts — `rangoDeLimite` y el rango de cada cuenta',
+      'lib/limites-envio-cuenta.ts — con qué cuenta manda el negocio',
+      'tests/limites-email-cuenta-propia-93.test.ts · tests/email-campana-topes.test.ts — los dos casos, también por la API',
+    ],
+    revisar: '/automations',
+  },
+  {
+    fecha: '13 nov', hora: '21:10', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El tope por día de una automatización también llega a 2.000 con tu propia cuenta de Resend',
+    puntos: [
+      'Con tu propia cuenta de Resend y tu dominio, a una automatización le puedes poner hasta 2.000 envíos por día. Con la cuenta de la plataforma sigue en 500.',
+      'Vale en Configuraciones de la automatización (las flechas llegan hasta tu máximo) y por la API.',
+      'La difusión sigue en 500 por día.',
+    ],
+    archivos: [
+      'lib/config-automatizacion.ts — `rangosGoteo`',
+      'lib/config-automatizacion-db.ts · lib/api-mako/areas/chatbot.run.ts · app/automations/ConfigAutomatizacionPanel.tsx — con el rango de la cuenta',
+      'tests/goteo-cuenta-propia-93.test.ts · tests/email-campana-columnas.test.ts — las dos cuentas, también por la API',
+    ],
+    revisar: '/automations',
+  },
 ];

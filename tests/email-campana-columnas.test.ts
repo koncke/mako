@@ -21,7 +21,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { decidirMovimiento, dejaDeRecibir } from '../lib/email-eventos-crm-reglas';
+import { columnaDeRebote, decidirMovimiento, dejaDeRecibir } from '../lib/email-eventos-crm-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_email-campana-hijo.ts'), 'columnas'], {
@@ -34,10 +34,10 @@ test('las columnas se eligen del CRM de la automatización, y nunca una de cierr
   assert.match(R.sinCrm.error, /no está atada a un CRM/);
   assert.match(R.columnaQueNoEs.error, /no tiene la columna «no_existe»/);
   assert.match(R.columnaDeCierre.error, /columna de cierre/);
-  assert.match(R.eventoQueNoEs.error, /evento enviado, abrio o clic/);
+  assert.match(R.eventoQueNoEs.error, /evento enviado, abrio, clic o rebote/);
   assert.deepEqual(R.prepColumnas.payload.cambio, { columnasEmail: { enviado: 'em_enviado', abrio: 'em_abrio', clic: 'em_clic' } });
   assert.equal(R.ejecColumnas.ok, true);
-  assert.deepEqual(R.leidas, { enviado: 'em_enviado', abrio: 'em_abrio', clic: 'em_clic' }, 'configuracion_automatizacion las muestra');
+  assert.deepEqual(R.leidas, { enviado: 'em_enviado', abrio: 'em_abrio', clic: 'em_clic', rebote: null }, 'configuracion_automatizacion las muestra');
 });
 
 test('al salir el email, la tarjeta pasa a «Enviado» (agregado o casa), y el email lleva el reply_to', () => {
@@ -99,4 +99,36 @@ test('las demás automatizaciones siguen como siempre', () => {
 
 test('nada salió a la red', () => {
   assert.deepEqual(R.otros, []);
+});
+
+// =============================================================================
+// Ticket #93 (13/11/2026): los rebotados, a su columna. Mauricio: «debemos poner en una columna o fase del CRM los correos
+// rebotados para sacarlos de la secuencia pero no apagarla». La baja del email ya lo sacaba de la secuencia; faltaba verlo.
+// =============================================================================
+test('#93: un rebote lleva la tarjeta a «Rebotados» —sin elegirla, aunque esté antes en el tablero— y le da de baja el email', () => {
+  assert.equal(R.rebote601.status, 200);
+  assert.equal(R.tarjeta601TrasRebote, 'em_rebotado', 'desde «Hizo clic», hacia atrás: un rebote no es avanzar');
+  assert.equal(R.baja601, true, 'sale de la secuencia: el motor no le manda a una baja');
+  assert.ok(R.autorRebote.includes('MaKo · email'), 'el historial dice quién la movió');
+});
+
+test('#93, la regla sola: la columna elegida gana; si no, la que se llama «Rebotado»; un rebote no mueve desde Ganado', () => {
+  const etapas = [{ key: 'lead', label: 'Nuevo lead' }, { key: 'st0', label: 'Correo enviado' }, { key: 'st7', label: 'Correos rebotados' }, { key: 'ganado', label: 'Ganado' }];
+  assert.equal(columnaDeRebote(undefined, etapas), 'st7');
+  assert.equal(columnaDeRebote({ rebote: 'st0' }, etapas), 'st0', 'la elegida gana');
+  assert.equal(columnaDeRebote(undefined, [{ key: 'x', label: 'Rebotó' }]), 'x');
+  assert.equal(columnaDeRebote(undefined, [{ key: 'x', label: 'Sobre todo' }, { key: 'y', label: 'Abrió' }]), null, 'sin columna, ninguna');
+  // Hacia atrás sí (sólo el rebote), desde una terminal no.
+  assert.deepEqual(decidirMovimiento({ etapas, actual: 'st0', destino: 'lead', evento: 'rebote' }), { mover: true });
+  assert.deepEqual(decidirMovimiento({ etapas, actual: 'st0', destino: 'lead', evento: 'abrio' }), { mover: false, motivo: 'atras' });
+  assert.deepEqual(decidirMovimiento({ etapas, actual: 'ganado', destino: 'st7', evento: 'rebote' }), { mover: false, motivo: 'terminal' });
+});
+
+// Ticket #93 (13/11/2026, decisión del Cerebro): el tope por día de UNA automatización sigue a la cuenta del negocio.
+test('#93: el goteo por día llega a 2.000 con su Resend y su dominio, y a 500 con la de la plataforma (por la API)', () => {
+  assert.equal(R.goteoPropia.error, undefined, 'con su cuenta, 1.200 entra antes del «sí»');
+  assert.equal(R.goteoPropiaEjec.ok, true, 'y al guardar (lib/config-automatizacion-db.ts)');
+  assert.equal(R.goteoGuardado?.dia, 1200);
+  assert.match(R.goteoPropiaMal.error, /El tope por día van de 1 a 2000\./);
+  assert.match(R.goteoPlataforma.error, /El tope por día van de 1 a 500\./, 'con la de la plataforma, 500');
 });

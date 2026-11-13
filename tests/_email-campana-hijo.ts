@@ -431,10 +431,12 @@ async function conectarRemitente(): Promise<void> {
 const SECRETO_WEBHOOK = `whsec_${Buffer.from('clave-del-webhook-de-prueba').toString('base64')}`;
 process.env.RESEND_WEBHOOK_SECRET = SECRETO_WEBHOOK;
 let eventoN = 0;
-async function eventoDeResend(tipo: 'email.opened' | 'email.clicked', emailId: string): Promise<{ status: number; body: unknown }> {
+async function eventoDeResend(tipo: 'email.opened' | 'email.clicked' | 'email.bounced', emailId: string): Promise<{ status: number; body: unknown }> {
   const { createHmac } = await import('node:crypto');
   const { POST } = await import('../app/api/webhooks/resend/route');
-  const raw = JSON.stringify({ type: tipo, created_at: ahora(), data: { email_id: emailId, created_at: ahora() } });
+  const data: Record<string, unknown> = { email_id: emailId, created_at: ahora() };
+  if (tipo === 'email.bounced') data.bounce = { type: 'Permanent', subType: 'General', message: 'no existe' };
+  const raw = JSON.stringify({ type: tipo, created_at: ahora(), data });
   const id = `msg_${++eventoN}`;
   const ts = String(Math.floor(Date.now() / 1000));
   const firma = createHmac('sha256', Buffer.from(SECRETO_WEBHOOK.slice(6), 'base64')).update(`${id}.${ts}.${raw}`).digest('base64');
@@ -544,6 +546,24 @@ async function escenarioColumnas(): Promise<Record<string, unknown>> {
   const dos = String(db.nutricion_envios.filter((e) => Number(e.lead_id) === 601 && Number(e.secuencia_id) === id && e.estado === 'enviado').at(-1)?.proveedor_id);
   out.abrioEmailDos = await eventoDeResend('email.opened', dos);
   out.tarjeta601TrasAbrirDos = posicion(601);
+
+  // Ticket #93 (13/11/2026): el tope por día del goteo sigue a la cuenta. Este negocio manda con SU Resend y SU dominio (hasta
+  // 2.000); la plataforma, con la de MaKo (hasta 500). Por la API, antes del «sí» y al guardar.
+  out.goteoPropia = await en(() => configurar.preparar!({ secuenciaId: id, goteoPorDia: 1200 }, ctx(NEGOCIO)));
+  out.goteoPropiaEjec = await en(() => configurar.ejecutar!((out.goteoPropia as { payload: Record<string, unknown> }).payload, ctx(NEGOCIO)));
+  out.goteoGuardado = JSON.parse(String(setting(NEGOCIO, `automatizacion.config:${id}`) ?? '{}')).goteo ?? null;
+  out.goteoPropiaMal = await en(() => configurar.preparar!({ secuenciaId: id, goteoPorDia: 2500 }, ctx(NEGOCIO)));
+  db.nutricion_secuencias.push({ id: 96, workspace_id: PLATAFORMA, clave: 'pl', nombre: 'De la plataforma', activa: false, archivada_at: null, trigger_tipo: 'manual', etapa: 'manual', funnel_id: null, pasos: [] });
+  out.goteoPlataforma = await runWithWorkspace(PLATAFORMA, () => configurar.preparar!({ secuenciaId: 96, goteoPorDia: 900 }, ctx(PLATAFORMA)));
+
+  // Ticket #93 (13/11/2026): un rebote lleva la tarjeta a la columna «Rebotados» del CRM —sin elegirla en la automatización—
+  // aunque esté ANTES en el tablero (601 ya hizo clic), y le da de baja el email (sale de la secuencia).
+  const crm = db.funnels.find((x) => Number(x.id) === EMAIL)!;
+  crm.data = { ...(crm.data as Fila), pipeline: [PIPELINE_EMAIL[0], etapa('em_rebotado', 'Rebotados', 'paso'), ...PIPELINE_EMAIL.slice(1)] };
+  out.rebote601 = await eventoDeResend('email.bounced', dos);
+  out.tarjeta601TrasRebote = posicion(601);
+  out.baja601 = db.leads.find((l) => Number(l.id) === 601)?.email_opt_out ?? null;
+  out.autorRebote = db.lead_historial.concat(db.lead_audit).filter((h) => Number(h.lead_id) === 601 && String(h.valor_nuevo ?? h.a ?? '').includes('em_rebotado')).map((h) => h.autor ?? h.usuario ?? null);
   return out;
 }
 
@@ -606,23 +626,41 @@ async function escenarioTopes(): Promise<Record<string, unknown>> {
   out.run1 = { enviados: r1.enviados, topeEmail: r1.detalle.filter((d) => d.nota === 'tope diario de email').length };
   out.emails1 = resend.filter((p) => p.path === '/emails').length;
 
-  // Los rebotes llegan por el webhook. Con 50 enviados, el 2.º rebote es el 4 % y el 3.º el 6 %: ahí se apaga.
+  // Los rebotes llegan por el webhook. Desde el ticket #93 (13/11/2026) el freno mira los últimos 300 desde 100 enviados: a los
+  // 50 de hoy se suman 50 de ayer, sin rebotes. Con 100, el 4.º rebote es el 4 % (nada), el 5.º el 5 % (avisa y el envío sigue)
+  // y el 10.º el 10 % (apaga).
   const enviados = db.nutricion_envios.filter((e) => e.estado === 'enviado' && Number(e.secuencia_id) === 91);
+  for (const e of enviados) db.nutricion_envios.push({ ...e, id: siguienteId++, proveedor_id: `ayer-${String(e.proveedor_id)}`, abierto_at: null, clic_at: null, rebotado_at: null, queja_at: null });
   const envio = () => setting(NEGOCIO, 'envio_email_enabled');
   out.temporal = await eventoRebote(String(enviados[0].proveedor_id), 'email.bounced', 'Transient');
   out.trasTemporal = { envio: envio(), baja: db.leads.find((l) => Number(l.id) === Number(enviados[0].lead_id))?.email_opt_out ?? null };
-  await eventoRebote(String(enviados[1].proveedor_id), 'email.bounced');
-  await eventoRebote(String(enviados[2].proveedor_id), 'email.bounced');
-  out.trasDos = envio();
-  out.tercero = await eventoRebote(String(enviados[3].proveedor_id), 'email.bounced');
-  out.trasTres = envio();
+  for (let i = 1; i <= 4; i++) await eventoRebote(String(enviados[i].proveedor_id), 'email.bounced');
+  out.trasCuatro = envio();
+  out.quinto = await eventoRebote(String(enviados[5].proveedor_id), 'email.bounced');
+  out.trasCinco = { envio: envio(), avisosRebotes: db.notificaciones.filter((n) => n.tipo === 'email-rebotes').length };
+  for (let i = 6; i <= 9; i++) await eventoRebote(String(enviados[i].proveedor_id), 'email.bounced');
+  out.trasNueve = envio();
+  out.decimo = await eventoRebote(String(enviados[10].proveedor_id), 'email.bounced');
+  out.trasDiez = envio();
   out.rebotados = db.nutricion_envios.filter((e) => e.rebotado_at != null).length;
   out.bajas = db.leads.filter((l) => l.email_opt_out === true).length;
   out.avisos = db.notificaciones.filter((n) => n.tipo === 'email-frenado').map((n) => ({ titulo: n.titulo, texto: n.texto ?? n.cuerpo ?? null }));
+  out.avisosRebotes = db.notificaciones.filter((n) => n.tipo === 'email-rebotes').map((n) => ({ titulo: n.titulo, texto: n.texto ?? n.cuerpo ?? null }));
   out.verDespues = await leerJson(ver);
 
   // Cambiar los topes por la API: fuera de rango no; adentro, se guarda sólo lo que difiere.
-  out.cambiarMal = await en(() => cambiar.preparar!({ emailDia: 900 }, ctx(NEGOCIO)));
+  // Desde el ticket #93 (13/11/2026) el rango de «Email por día» depende de con qué cuenta manda: este negocio manda con SU
+  // clave de Resend y SU dominio (hasta 2.000); la plataforma, con la de MaKo (hasta 500). El arranque sigue de 1 a 500.
+  out.cambiarMal = await en(() => cambiar.preparar!({ emailDia: 2500 }, ctx(NEGOCIO)));
+  out.cambiarPropia = await en(() => cambiar.preparar!({ emailDia: 1600, emailArranqueDia: 500, emailArranqueSube: 300 }, ctx(NEGOCIO)));
+  out.ejecPropia = await en(() => cambiar.ejecutar!((out.cambiarPropia as { payload: Record<string, unknown> }).payload, ctx(NEGOCIO)));
+  out.limitesPropia = setting(NEGOCIO, 'mako.limites_envio');
+  out.verPropia = await leerJson(ver);
+  out.cambiarArranqueMal = await en(() => cambiar.preparar!({ emailArranqueDia: 600 }, ctx(NEGOCIO)));
+  out.cambiarPlataforma = await runWithWorkspace(PLATAFORMA, () => cambiar.preparar!({ emailDia: 900 }, ctx(PLATAFORMA)));
+  // Vuelve a lo de fábrica para lo que sigue (lo de abajo compara contra lo de fábrica).
+  const filaLimites = db.app_settings.find((f) => Number(f.workspace_id) === NEGOCIO && f.key === 'mako.limites_envio');
+  if (filaLimites) filaLimites.value = '{}';
   out.cambiarNada = await en(() => cambiar.preparar!({}, ctx(NEGOCIO)));
   // La rampa del número (5/11/2026, tests/rampa-whatsapp.test.ts): se propone con sus dos parámetros, y fuera de rango no.
   out.cambiarWa = await en(() => cambiar.preparar!({ waArranqueDia: 10, waArranqueSube: 15 }, ctx(NEGOCIO)));
@@ -799,15 +837,103 @@ async function escenarioWs1(caso: 'antes' | 'despues' | 'caida'): Promise<Record
   return out;
 }
 
+// ── Ticket #93 (13/11/2026): la lista fría le deja lugar a los leads nuevos, y las columnas elegidas tarde acomodan ──────
+/** Una automatización de UN email, prendida y atada al CRM de email, con estos leads inscriptos para `cuando`. */
+function campanaDeUnEmail(id: number, nombre: string, leads: Array<{ lead: number; cuando: string }>): void {
+  db.nutricion_secuencias.push({ id, workspace_id: NEGOCIO, clave: `c${id}`, nombre, activa: true, archivada_at: null, trigger_tipo: 'etapa_actual', etapa: 'em_entrada', funnel_id: EMAIL, pasos: [{ id: `p${id}`, orden: 1, canal: 'email', delay_horas: 0, asunto: nombre, cuerpo: 'Hola.', siguiente: null }] });
+  const pasado = new Date(Date.now() - 60_000).toISOString();
+  for (const { lead, cuando } of leads) db.nutricion_inscripciones.push({
+    id: siguienteId++, workspace_id: NEGOCIO, lead_id: lead, secuencia_id: id, estado: 'activa', paso_actual: 0, proximo_envio_at: cuando,
+    inscripto_at: pasado, ultimo_paso_at: null, desenlace: null, desenlace_at: null, hilos: null, hilos_rev: 0, nodo_actual: null,
+    conversacion_ultima_at: null, conversacion_cerrada_at: null, conversacion_cierre: null, reunion_at: null, created_at: pasado, updated_at: pasado,
+  });
+}
+
+/**
+ * #93, la prioridad: el 12/11 la lista fría de Mauricio se gastó el tope del día a las 7 y a las 9 sus leads nuevos no
+ * tenían lugar. Acá: 60 leads de junio (por formulario) vencidos y 5 de HOY que vencen después. El tope del primer día es 50:
+ * la fría usa 40 (deja 10) y los nuevos, cuando les toca, encuentran su lugar.
+ */
+async function escenarioPrioridad(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { procesarEnvios } = await import('../lib/nutricion');
+  const en = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const out: Record<string, unknown> = {};
+  sembrarCrm(NEGOCIO);
+  const frios = Array.from({ length: 60 }, (_, i) => 3000 + i);
+  const nuevos = Array.from({ length: 5 }, (_, i) => 3100 + i);
+  for (const id of frios) db.leads.push({ id, workspace_id: NEGOCIO, nombre: `F ${id}`, email: `f${id}@cliente.test`, telefono: null, estado_lead: 'abierto', funnel_id: EMAIL, pipeline_stage: 'em_entrada', origen_lead: 'instant_form', created_at: '2026-06-01T10:00:00Z' });
+  for (const id of nuevos) db.leads.push({ id, workspace_id: NEGOCIO, nombre: `N ${id}`, email: `n${id}@cliente.test`, telefono: null, estado_lead: 'abierto', funnel_id: EMAIL, pipeline_stage: 'em_entrada', origen_lead: 'instant_form', created_at: ahora() });
+  await conectarRemitente();
+  const pasado = new Date(Date.now() - 60_000).toISOString();
+  const despues = new Date(Date.now() + 3_600_000).toISOString();
+  campanaDeUnEmail(93, 'Fríos', frios.map((lead) => ({ lead, cuando: pasado })));
+  campanaDeUnEmail(94, 'Leads calientes', nuevos.map((lead) => ({ lead, cuando: despues })));
+  const a = (leads: number[]) => resend.filter((p) => p.path === '/emails' && leads.some((l) => String(p.body?.to ?? '').includes(`${l}@`))).length;
+  resend.length = 0;
+  const r1 = await en(() => procesarEnvios({ ignorarVentana: true }));
+  out.run1 = { frios: a(frios), nuevos: a(nuevos), notas: [...new Set(r1.detalle.map((d) => d.nota).filter(Boolean))] };
+  // A las «9»: les toca a los nuevos.
+  for (const i of db.nutricion_inscripciones) if (Number(i.secuencia_id) === 94) i.proximo_envio_at = pasado;
+  resend.length = 0;
+  const r2 = await en(() => procesarEnvios({ ignorarVentana: true }));
+  out.run2 = { frios: a(frios), nuevos: a(nuevos), notas: [...new Set(r2.detalle.map((d) => d.nota).filter(Boolean))] };
+  return out;
+}
+
+/**
+ * #93, las columnas elegidas DESPUÉS de mandar: en «Sprint Ejecución» de Mauricio salieron 33 emails a las 17:02 y las columnas
+ * se eligieron a las 20:26; los 33 quedaron en «Nuevo lead». Acá: sale un email a cinco, uno lo abre, otro hace clic, otro
+ * rebota, y recién después se eligen las columnas (con «Rebotados» en el CRM).
+ */
+async function escenarioAcomodo(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const { procesarEnvios } = await import('../lib/nutricion');
+  const configurar = runnerDe('configurar_automatizacion') as unknown as Runner;
+  const en = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const out: Record<string, unknown> = {};
+  sembrarCrm(NEGOCIO);
+  const agregados = [611, 612, 613, 614];
+  for (const id of agregados) {
+    db.leads.push({ id, workspace_id: NEGOCIO, nombre: `Lead ${id}`, email: `a${id}@cliente.test`, telefono: null, estado_lead: 'abierto', funnel_id: null, pipeline_stage: 'lead', created_at: '2026-06-01T10:00:00Z' });
+    db.lead_funnel.push({ id: siguienteId++, workspace_id: NEGOCIO, lead_id: id, funnel_id: EMAIL, etapa: 'em_entrada', etapa_desde: ahora(), created_at: ahora() });
+  }
+  await conectarRemitente();
+  const pasado = new Date(Date.now() - 60_000).toISOString();
+  campanaDeUnEmail(95, 'Leads calientes · Email', [...agregados, 606].map((lead) => ({ lead, cuando: pasado })));
+  await en(() => procesarEnvios({ ignorarVentana: true }));
+  const envioDe = (lead: number) => String(db.nutricion_envios.find((e) => Number(e.lead_id) === lead && Number(e.secuencia_id) === 95 && e.estado === 'enviado')?.proveedor_id);
+  out.enviados = db.nutricion_envios.filter((e) => Number(e.secuencia_id) === 95 && e.estado === 'enviado').length;
+  await eventoDeResend('email.opened', envioDe(612));
+  await eventoDeResend('email.clicked', envioDe(613));
+  await eventoDeResend('email.bounced', envioDe(614));
+  const posicion = (lead: number) => {
+    const x = db.lead_funnel.find((r) => Number(r.lead_id) === lead && Number(r.funnel_id) === EMAIL);
+    return x ? String(x.etapa) : `casa:${db.leads.find((l) => Number(l.id) === lead)?.pipeline_stage}`;
+  };
+  const todas = () => Object.fromEntries([...agregados, 606].map((l) => [l, posicion(l)]));
+  out.antes = todas();
+  // Después: la columna de los rebotados y las columnas del email.
+  const crm = db.funnels.find((x) => Number(x.id) === EMAIL)!;
+  crm.data = { ...(crm.data as Fila), pipeline: [...PIPELINE_EMAIL, etapa('em_rebotado', 'Rebotados', 'paso')] };
+  const p = await en(() => configurar.preparar!({ secuenciaId: 95, columnasEmail: 'enviado=em_enviado,abrio=em_abrio,clic=em_clic' }, ctx(NEGOCIO)));
+  out.ejec = await en(() => configurar.ejecutar!(p.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  out.despues = todas();
+  // Otra vez: no mueve nada (ya están donde van).
+  out.ejec2 = await en(() => configurar.ejecutar!(p.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  return out;
+}
+
 async function main() {
   const escenarios: Record<string, () => Promise<Record<string, unknown>>> = {
-    dominio: escenarioDominio, claves: escenarioClaves, lote: escenarioLote, secuencia: escenarioSecuencia, columnas: escenarioColumnas, topes: escenarioTopes,
+    dominio: escenarioDominio, claves: escenarioClaves, lote: escenarioLote, secuencia: escenarioSecuencia, columnas: escenarioColumnas, topes: escenarioTopes, prioridad: escenarioPrioridad, acomodo: escenarioAcomodo,
     cuenta: escenarioCuenta, vacia: escenarioVacia, 'ws1-antes': () => escenarioWs1('antes'), 'ws1-despues': () => escenarioWs1('despues'), 'ws1-caida': () => escenarioWs1('caida'),
   };
   const fn = escenarios[ESC];
   if (!fn) throw new Error(`escenario desconocido: ${ESC}`);
   // Desde el 4/11/2026 el email de un negocio sale SÓLO con su cuenta de Resend: la campaña de Mauricio la tiene.
-  if (['dominio', 'lote', 'secuencia', 'columnas', 'topes'].includes(ESC)) await cuentaPropia(NEGOCIO);
+  if (['dominio', 'lote', 'secuencia', 'columnas', 'topes', 'prioridad', 'acomodo'].includes(ESC)) await cuentaPropia(NEGOCIO);
   const out = await fn();
   out.otros = otros;
   out.sinMock = [...pg.sinMock];

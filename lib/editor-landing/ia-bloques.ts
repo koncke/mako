@@ -784,11 +784,29 @@ function nodoBotones(b: Record<string, unknown>, ctx: Ctx): JsonNodo | null {
   return { type: NODO.botones, attrs: { alinea: enLista<Alineacion>(ALINEACIONES, b.alinea, 'izquierda') }, content: botones };
 }
 
+/** Las raíces de un nombre de variante: cada palabra sin acentos y cortada en 5 letras («cajas-numeradas» → «cajas-numer»). */
+const raicesDeVariante = (v: string): string =>
+  v.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').split(/[-_\s]+/).filter(Boolean).map((w) => w.slice(0, 5)).join('-');
+
+/**
+ * La variante que existe con las mismas raíces que la pedida, si hay UNA sola (13/11/2026). Medido en producción: la réplica de
+ * una landing con 5 pasos numerados pidió «cajas-numeradas» (la que existe es «cajas-numeros») y el bloque cayó a «Viñetas
+ * grandes»: los pasos salieron como viñetas y no como tarjetas. Un nombre parecido no es otra cosa.
+ */
+export function varianteCercana(pedida: string): VarianteOptimizado | null {
+  const r = raicesDeVariante(pedida);
+  if (!r) return null;
+  const iguales = VARIANTES_OPTIMIZADO.filter((v) => raicesDeVariante(v) === r);
+  return iguales.length === 1 ? iguales[0] : null;
+}
+
 function nodoOptimizado(b: Record<string, unknown>, ctx: Ctx): JsonNodo | null {
   const pedida = strCrudo(b.variante);
   // La misma variante por default que el normalizador (attrsOptimizado de especificacion.ts).
   let variante: VarianteOptimizado = 'vinetas-grandes';
+  const cercana = varianteCercana(pedida);
   if ((VARIANTES_OPTIMIZADO as readonly string[]).includes(pedida)) variante = pedida as VarianteOptimizado;
+  else if (cercana) { variante = cercana; ctx.d?.push(`optimizado: la variante «${pedida}» no existe; queda «${cercana}», la del mismo nombre`); }
   else ctx.d?.push(`optimizado: la variante «${pedida || '(vacía)'}» no existe; queda «Viñetas grandes»`);
 
   const conImagen = VARIANTES_CON_IMAGEN.has(variante);

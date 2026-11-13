@@ -109,7 +109,8 @@ test('los topes: el diario y el de la corrida son de WhatsApp; el email, con el 
   assert.match(PROC, /topeDeLineaDeHoy\(supabase, 'email', limites\.email,/);
   assert.match(PROC, /const cupoLleno = \(\): boolean => waEnCorrida >= cupo;/);
   assert.match(PROC, /if \(paso\.canal === 'email'\) emailsEnCorrida \+= 1; else waEnCorrida \+= 1;/);
-  assert.match(PROC, /paso\.canal === 'email' && emailLleno\(\)/, 'un email que se pasa de su tope diario sale igual');
+  // Desde el ticket #93 (13/11/2026) el tope pregunta por el lead: la lista fría le deja lugar a los leads nuevos.
+  assert.match(PROC, /paso\.canal === 'email' && emailLlenoPara\(insc\.lead_id\)/, 'un email que se pasa de su tope diario sale igual');
   const tope = cuerpo(NUTRI, 'async function enviosUltimas24h(', '\n}');
   assert.match(tope, /\.eq\('canal', canal\)/);
   // El tope de email de fábrica (100, o el env NUTRICION_MAX_EMAIL_POR_DIA) vive en lib/limites-envio.ts.

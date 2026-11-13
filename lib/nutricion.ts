@@ -19,6 +19,7 @@ import { TRIGGERS_POR_EVENTO, ETAPA_DEL_EVENTO, type EventoNutricion } from '@/l
 import { TRIGGER_RECORDATORIO, toquesDeLaAutomatizacion } from '@/lib/recordatorio-automatizacion';
 import { getTenantDb, getWorkspace, getWorkspaceActual, runWithWorkspace, wsEnContexto } from '@/lib/workspace';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
+import { opcionesDeRango } from '@/lib/limites-envio-cuenta';
 import { idsConAlMenosUnaFila, enTandas } from '@/lib/ids-con-filas';
 import { LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
 import { getVslEngagementMap } from '@/lib/leads';
@@ -45,7 +46,7 @@ import { parseEstrategia, dentroDeAntiguedad, hitoYaHecho, type EscenarioSecuenc
 import type { TurnoSim } from '@/lib/setting-simulador';
 import { conversacionAbierta, atiendeAlResponder, charlaPasaAUnaPersona, escritoParaElAviso, type InscCharla, type AudioDelLead } from '@/lib/setter-conversacion';
 import { ambitoDeSecuencia, filtroDeAmbito, agregadosQueEntran, agregadoEntraPorEvento, conAgregados, type AmbitoFunnel, type FilaAgregado, type LeadDelAgregado } from '@/lib/nutricion-ambito';
-import { corteEntrada, esEntradaFresca, reservaParaEntradas, cupoDeCampana, HORAS_ENTRADA } from '@/lib/nutricion-prioridad';
+import { corteEntrada, esEntradaFresca, reservaParaEntradas, cupoDeCampana, HORAS_ENTRADA, corteCalienteEmail, esCalienteParaEmail, reservaEmailParaCalientes, emailSinLugar, DIAS_CALIENTE_EMAIL } from '@/lib/nutricion-prioridad';
 import {
   frenoDeGoteo, turnoDeGoteo, conEnvio, cuentaParaElGoteo, noGastaTurno, sinLugarDelMensaje, canalDelGoteo, claveDeGoteo, CANALES_DEL_GOTEO,
   ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo,
@@ -3306,7 +3307,8 @@ async function horarioDeEnvioDe(secuenciaId: number): Promise<HorarioEnvio | nul
  * en frío recibiría 40 con la base caída. Se lee ESTRICTO y, si falla, la corrida no manda nada.
  */
 export async function limitesDeEnvio(): Promise<LimitesEnvio | 'ilegible'> {
-  try { return limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), limitesDeFabrica(process.env)); } catch { return 'ilegible'; }
+  // Con el rango de SU cuenta (#93, lib/limites-envio-cuenta.ts): con su clave de Resend y su dominio, el email por día llega a 2.000.
+  try { return limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), limitesDeFabrica(process.env), await opcionesDeRango()); } catch { return 'ilegible'; }
 }
 
 /**
@@ -4320,6 +4322,25 @@ async function entradasFrescas(db: Awaited<ReturnType<typeof getTenantDb>>, solo
   }
 }
 
+/**
+ * LOS LEADS CALIENTES PARA EL EMAIL (13/11/2026, ticket #93, lib/nutricion-prioridad.ts): entraron por un canal en los últimos
+ * `DIAS_CALIENTE_EMAIL` días, o agendaron. Si no se puede leer, ninguno: no se reserva nada y se manda como antes.
+ */
+async function calientesParaEmail(db: Awaited<ReturnType<typeof getTenantDb>>): Promise<Set<number>> {
+  const ahora = Date.now();
+  const c = corteEntrada(ahora);
+  try {
+    const filas = await leerTodo<{ id: number; created_at: string | null; fecha_agenda: string | null; origen_lead: string | null }>(db, 'leads', 'id, created_at, fecha_agenda, origen_lead', {
+      orden: 'id',
+      filtros: (q) => q.or(`and(created_at.gte.${new Date(corteCalienteEmail(ahora)).toISOString()},origen_lead.not.is.null),fecha_agenda.gte.${c.fecha}`) as ConsultaPaginada,
+    });
+    return new Set(filas.filter((l) => esCalienteParaEmail(l, ahora)).map((l) => Number(l.id)));
+  } catch (e) {
+    console.error(`[nutricion] los leads calientes para el email (${DIAS_CALIENTE_EMAIL} días): ${e instanceof Error ? e.message : String(e)}`);
+    return new Set();
+  }
+}
+
 // `durante` (24/10/2026): SÓLO para el arnés del ws3 (scripts/arnes-contesto-corta.mts). Corre antes del reclamo
 // ('antes': contestó entre la lectura del lote y el mensaje), con el mensaje ya mandado y antes de su fila ('partes') o
 // antes del avance ('fila'): es «el lead contesta mientras le sale el mensaje», que en una corrida simulada no dura nada.
@@ -4478,7 +4499,13 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
     : limites.email.dia;
   const presupuestoEmail = conEmail.length ? topeEmailHoy - (await enviosUltimas24h('email')) : 0;
   let emailsEnCorrida = 0;
-  const emailLleno = (): boolean => emailsEnCorrida >= presupuestoEmail;
+  // ⚠️ LA LISTA FRÍA LE DEJA LUGAR A LOS LEADS NUEVOS (13/11/2026, ticket #93, lib/nutricion-prioridad.ts): un email a quien no
+  // es caliente usa el presupuesto menos la reserva; a un caliente, el entero. El 12/11 la lista fría de Mauricio se gastó el
+  // tope a las 7 y 34 de sus 67 leads nuevos se quedaron sin su email.
+  const calientesEmail = conEmail.length && presupuestoEmail > 0 ? await calientesParaEmail(supabase) : new Set<number>();
+  const reservaEmail = reservaEmailParaCalientes({ topeDia: topeEmailHoy, hayCalientes: calientesEmail.size > 0 });
+  const emailLlenoPara = (leadId: number): boolean =>
+    emailSinLugar({ caliente: calientesEmail.has(leadId), enCorrida: emailsEnCorrida, presupuesto: presupuestoEmail, reserva: reservaEmail });
   /**
    * LAS SECUENCIAS CON PASOS «⚡ ACCIÓN». El tope diario y el de la corrida son el
    * presupuesto ANTI-BAN de la línea de WhatsApp: cuentan mensajes. Una acción no es un
@@ -5628,7 +5655,12 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         await aplazarSiTapa(insc, sec);
         continue; // no avanzar; se reintenta en otra corrida
       }
-      if (!carril && !canalApagado && paso.canal === 'email' && emailLleno()) {
+      if (!carril && !canalApagado && paso.canal === 'email' && emailLlenoPara(insc.lead_id)) {
+        // Con lugar en el tope pero sin lugar para una lista fría: lo que queda es de los leads nuevos (#93).
+        if (!emailSinLugar({ caliente: true, enCorrida: emailsEnCorrida, presupuesto: presupuestoEmail, reserva: reservaEmail })) {
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'tope diario de email: lo que queda es para los leads nuevos' });
+          continue;
+        }
         res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'tope diario de email' });
         continue;
       }

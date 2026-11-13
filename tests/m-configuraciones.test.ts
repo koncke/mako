@@ -131,3 +131,10 @@ test('Integraciones en el teléfono sólo LEE: ni reconcilia incidentes ni le pe
   assert.match(src, /getIntegraciones\(\)/);
   assert.doesNotMatch(src, /reconciliarIncidentes|getMetaHealth/);
 });
+
+test('«Conectar mi IA» (`?abrir=ia`) en el teléfono lleva a «Tus cuentas de IA» (13/11/2026, en producción: quedaba la lista sin nada abierto)', () => {
+  const pagina = leer('app/m/configuraciones/integraciones/page.tsx');
+  assert.ok(pagina.includes("if ((await searchParams).abrir?.trim().toLowerCase() === ABRIR_IA) redirect(await rutaConWs('/perfil/ia'));"));
+  // Antes de leer las integraciones: la redirección no espera a la base.
+  assert.ok(pagina.indexOf('ABRIR_IA) redirect') < pagina.indexOf('getIntegraciones(), getIncidentes'));
+});

@@ -459,7 +459,8 @@ test('el doer de WhatsApp manda lo del código DESPUÉS de la respuesta y no lo 
   // (17/10/2026: y los links que escribió el modelo salen con el ?ws= del grupo — tests/links-con-ws.test.ts.)
   assert.match(doer, /const enviar = \[\.\.\.partes, \.\.\.paraLaPersona\]\.map\(\(t\) => linksConWs\(t, wsData, APP_URL\)\);/);
   const tras = doer.slice(doer.indexOf('const enviar = ['));
-  const guardado = /await guardarTurno\(wsData, jid, 'assistant', ([^,]+),/.exec(tras);
+  // `claveDelTurno` (13/11/2026): el grupo, o la clave de un miembro del equipo (lib/grupo-salida.ts, `claveDelMiembro`).
+  const guardado = /await guardarTurno\(wsData, (?:jid|claveDelTurno), 'assistant', ([^,]+),/.exec(tras);
   assert.ok(guardado, 'no encontré el guardado del turno');
   assert.equal(guardado[1].trim(), "partes.join('\\n\\n')", 'el historial tiene que guardar sólo lo que dijo el modelo');
   assert.ok(doer.indexOf('const enviar = [') > doer.indexOf('validarRespuestaDoer(respuesta, { motivoRuta'), 'lo del código va después del validador');
@@ -467,6 +468,27 @@ test('el doer de WhatsApp manda lo del código DESPUÉS de la respuesta y no lo 
   assert.match(doer, /hayAgendaAbierta: !!agendaAbierta/);
   assert.match(doer, /agendaQueSigue\(name, input, out, Date\.now\(\)\)/);
   assert.match(doer, /bloqueAgendaGoogle\(tools\.map\(\(t\) => t\.name\)\)/);
+});
+
+// 13/11/2026, la prueba del grupo de la app del ws9: «Te mostré arriba lo que tienes en tu agenda» y la agenda llegó en el mensaje de
+// ABAJO (grupo_mensajes 577 y 578). El doer manda lo del código DESPUÉS de la respuesta (el test de arriba lo fija), y al modelo se le
+// decía «el sistema YA le mostró». Lo que se le dice tiene que ser verdad: va debajo. Con lib/agenda-sin-ia.ts de main, rojo.
+test('lo que el sistema le muestra a la persona va DEBAJO de la respuesta, y así se le dice al modelo', async () => {
+  const { ERRORES_MOVER, ERRORES_DEL_DIA } = await import('../lib/agenda-sin-ia');
+  const textos: string[] = [
+    ...Object.values(ESTADOS_AGENDA),
+    ERRORES_MOVER.varias('Ana'), ERRORES_MOVER.ningunaQueCoincida('Ana'),
+    ...Object.values(ERRORES_DEL_DIA),
+  ].filter((t) => /el sistema/i.test(t));
+  assert.ok(textos.length >= 9, `faltan textos: ${textos.length}`);
+  for (const t of textos) {
+    assert.doesNotMatch(t, /ya le mostr|ya se lo dijo/i, `dice que ya se mostró y sale después: ${t}`);
+    assert.match(t, /DEBAJO de tu respuesta/, `no dice dónde queda: ${t}`);
+  }
+  // Los que muestran una lista le prohíben el «arriba».
+  for (const t of [ESTADOS_AGENDA.horarios_mostrados, ESTADOS_AGENDA.reuniones_mostradas, ESTADOS_AGENDA.eventos_mostrados, ERRORES_MOVER.varias('Ana'), ERRORES_DEL_DIA.varias]) {
+    assert.match(t, /nunca «arriba»/);
+  }
 });
 
 test('el chat de la app no ofrece las herramientas que leen la agenda', () => {

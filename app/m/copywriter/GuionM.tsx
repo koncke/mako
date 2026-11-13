@@ -13,7 +13,8 @@ import '@/app/copywriter/notion.css';
 import { useCallback, useRef, useState } from 'react';
 import type { DocVivo } from '@/app/copywriter/editor/propuesta';
 import { useRouter } from '@/app/_ui/Link';
-import { CabeceraM, SegmentadoM, useToastM } from '@/app/m/_ui';
+import { CabeceraM, PieFijoM, SegmentadoM, useToastM } from '@/app/m/_ui';
+import { Button } from '@/app/_ui/Button';
 import { cambiarPagina } from '@/lib/copywriter/arbol';
 import type { GuionAbierto, PaginaCopy } from '@/lib/copywriter/tipos';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
@@ -46,8 +47,10 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
   const api = useRef<ApiPagina | null>(null);
   const leerApi = useCallback(() => api.current, []);
   const avisar = useCallback((t: string) => toast(t), [toast]);
-  // Cuando MaKo empieza a escribir, se ve el guion construyéndose; su «Aceptar» queda en MaKo, con el número arriba.
+  // Cuando MaKo empieza a escribir, se ve el guion construyéndose; su «Aceptar» queda en MaKo, con el número arriba,
+  // y TAMBIÉN al pie de la Página (13/11/2026, en producción: con el cambio a la vista, nadie volvía a MaKo a aceptarlo).
   const alPausar = useCallback((p: boolean) => { setPausa(p); if (p) setVista('guion'); }, []);
+  const [decidir, setDecidir] = useState<{ aceptar: () => void; descartar: () => void } | null>(null);
 
   const renombrar = (c: { titulo?: string; emoji?: string | null }) => {
     void pedirRenombrar(pagina.id, c).then((r) => { if (!r.ok) toast(`No se pudo guardar: ${r.error}`); });
@@ -69,9 +72,17 @@ export function GuionM({ ws, guion, catalogos, ofertas, enMako = false }: {
             onAbrir={() => {}} onPapelera={() => void pedirPapelera(pagina.id).then((r) => { if (r.ok) router.push('/m/copywriter'); else toast(r.error); })}
             onEditor={setEditor} onMako={(s) => { setVista('mako'); window.setTimeout(() => { if (citar.current) citar.current(s); else caja.current?.focus(); }, 50); }}
             avisar={avisar} onVivo={(v) => { vivo.current = v; }} onApi={(a) => { api.current = a; }} />
+          {decidir && vista === 'guion' && (
+            <PieFijoM consecuencia="MaKo propone un cambio: está marcado en la página.">
+              <div className="m-copywriter-decidir">
+                <Button variant="secondary" size="lg" onClick={decidir.descartar}>Descartar</Button>
+                <Button variant="primary" size="lg" onClick={decidir.aceptar}>Aceptar</Button>
+              </div>
+            </PieFijoM>
+          )}
         </div>
         <div hidden={vista !== 'mako'} className="m-copywriter-vista">
-          <PanelMaKo ws={ws} guion={guion} paginas={[pagina]} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={caja} onPausa={alPausar} avisar={avisar} citarRef={citar} ofertas={ofertas} />
+          <PanelMaKo ws={ws} guion={guion} paginas={[pagina]} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={caja} onPausa={alPausar} avisar={avisar} citarRef={citar} onPendiente={setDecidir} ofertas={ofertas} />
         </div>
       </div>
     </div>
