@@ -5,6 +5,21 @@
    y la página en vertical (3:4), que es como se lee una landing. */
 .grilla { grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 32px 24px; }
 .mini { aspect-ratio: 3 / 4; display: block; container-type: size; background: var(--surface-2); }
+/* Debajo de la captura (que se dibuja encima al cargar): el color de su tipo y el dominio de la página. Nunca una caja gris vacía
+   (13/11/2026: en producción la VSL y el lead magnet salían grises mientras cargaba su captura larga). */
+.espera {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 48px 24px; text-align: center;
+  color: #fff; background: linear-gradient(165deg, #2c3248 0%, #14161e 100%);
+}
+.espera b { font-size: 22px; line-height: 1.25; font-weight: 750; letter-spacing: -0.01em; overflow-wrap: anywhere; opacity: 0.92; }
+.espera[data-tipo='vsl'] { background: linear-gradient(165deg, #5c1f22 0%, #1a1013 100%); }
+.espera[data-tipo='webinar'] { background: linear-gradient(165deg, #173d6e 0%, #0f1522 100%); }
+.espera[data-tipo='aplicacion'] { background: linear-gradient(165deg, #145c3e 0%, #0e1915 100%); }
+.espera[data-tipo='lead-magnet'] { background: linear-gradient(165deg, #6e4c12 0%, #1c160d 100%); }
+.espera[data-tipo='venta'] { background: linear-gradient(165deg, #4b1f6e 0%, #16101e 100%); }
+.espera[data-tipo='evento'] { background: linear-gradient(165deg, #0f5c5c 0%, #0d1818 100%); }
+.espera[data-tipo='libro'] { background: linear-gradient(165deg, #5c3c1f 0%, #18120d 100%); }
+@container (max-width: 260px) { .espera b { font-size: 16px; } }
 
 /* La captura LARGA (la página entera, 640 de ancho): arriba se ve el titular; al pasar el cursor (o con el foco del teclado) baja
    sola hasta el final en `--dur`, y al salir vuelve rápido. Es un `transform` (lo mueve la placa de video, no se vuelve a dibujar

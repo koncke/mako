@@ -147,9 +147,12 @@ export function HiloDelCliente({ k, apertura = null }: {
  * La caja del chat del cliente: la ÚNICA de la app (Martín, 20/10: «Te pedí que unificaras el chat del Ops Center en todos lados,
  * su diseño y funcionalidades»). `movil`: la del teléfono, como la de ChatsMovil.tsx (Enter baja de renglón, crece el CSS).
  * `angosta`: el panel de la estrella (440 px) y el teléfono; lo que no es el campo va arriba y no le come el ancho.
+ * `avisosArriba`: «Conectar tu IA» y la franja de la app los dibuja la pantalla, en una línea debajo de su cabecera (la
+ * conversación del teléfono, app/m/_chat/AvisoDeIA.tsx); la caja no los repite.
  */
-export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movil }: {
+export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movil, avisosArriba = false }: {
   k: ChatCliente; campo: RefObject<HTMLTextAreaElement | null>; seguir: () => HTMLElement | null; movil?: boolean; angosta?: boolean;
+  avisosArriba?: boolean;
 }) {
   // Antes de cualquier `return`: es un hook (su estado es «ya lo descargó»).
   const bloqueoApp = useBloqueoApp(() => k.setConectando(true));
@@ -168,7 +171,7 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
   // 21/10). En la ANGOSTA, como chip ARRIBA del campo: al final le comía el ancho y «Escribe a Cerebro» salía cortado (Offer, en
   // producción, 22/10/2026). No con una container query: la contención de `.co-caja` volvería ella el marco de lo `fixed` de
   // adentro (el «+», los emojis).
-  const conectar = k.iaConectada === false
+  const conectar = k.iaConectada === false && !avisosArriba
     ? <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)} {...ancla('mk-conectar')}>Conectar tu IA</button> : null;
   // Sin la app de escritorio no hay con qué contestar: LA CAJA MISMA no deja escribir, y en el lugar del micrófono dice «Instalar
   // MaKo» (24/10/2026, Martín: «directamente en el chat donde está el botón de audio se debería reemplazar por "Instalar MaKo"»).
@@ -187,7 +190,7 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
       arriba={<>
         {angosta && conectar && !bloqueada && <div className="co-conectar-ia-arriba">{conectar}</div>}
         {/* En el teléfono, sin la app: el aviso de descargarla en la computadora, y el chat sigue (ahí no se instala). */}
-        {k.app === 'en-la-computadora' && <FranjaApp />}
+        {k.app === 'en-la-computadora' && !avisosArriba && <FranjaApp />}
         {k.cita && <CitaCaja cita={k.cita} onQuitar={() => k.setCita(null)} />}
         {k.pegados.length > 0 && (
           <ul className="ch-elegidos" aria-label="Textos pegados">

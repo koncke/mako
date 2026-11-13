@@ -25,11 +25,11 @@ import { idDelFunnelDefault } from './funnels';
 import { casaReal } from './lead-funnel-reglas';
 import { pipelineStageOf, type StageDerivable } from './pipeline';
 import { setPipelineStage } from './leads';
-import { columnaDelEvento, decidirMovimiento, dejaDeRecibir } from './email-eventos-crm-reglas';
+import { columnaDeRebote, columnaDelEvento, decidirMovimiento, dejaDeRecibir } from './email-eventos-crm-reglas';
 
 /** Quién movió la tarjeta, en el historial del lead. */
 export const AUTOR_EMAIL = 'MaKo · email';
-const OMITIR = 'Movido por un email de la automatización (salió, lo abrió o hizo clic): lo que la etapa pida y falte queda pendiente en la ficha.';
+const OMITIR = 'Movido por un email de la automatización (salió, lo abrió, hizo clic o rebotó): lo que la etapa pida y falte queda pendiente en la ficha.';
 
 const COLS_LEAD = 'id, funnel_id, estado_lead, pipeline_stage, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada';
 
@@ -77,12 +77,16 @@ export async function moverPorEventoEmail(o: { ws: number; leadId: number; secue
   try {
     return await runWithWorkspace(o.ws, async () => {
       const config = o.config ?? await leerConfigAutomatizacion(o.secuenciaId);
-      const destino = columnaDelEvento(config.columnasEmail, o.evento);
-      if (!destino) return { movido: false, motivo: 'sin-columnas' };
+      const rebote = o.evento === 'rebote';
+      // El rebote (#93) puede ir a la columna «Rebotado» del CRM sin estar elegida: su columna sale de las etapas, más abajo.
+      let destino = rebote ? null : columnaDelEvento(config.columnasEmail, o.evento);
+      if (!rebote && !destino) return { movido: false, motivo: 'sin-columnas' };
       const funnelId = await crmDeLaAutomatizacion(o.secuenciaId);
       if (funnelId == null) return { movido: false, motivo: 'sin-crm' };
       const [{ posicion }, etapas] = await Promise.all([posicionEnCrm(o.leadId, funnelId), etapasDeProducto(funnelId)]);
-      const d = decidirMovimiento({ etapas, actual: posicion?.etapa ?? null, destino });
+      if (rebote) destino = columnaDeRebote(config.columnasEmail, etapas);
+      if (!destino) return { movido: false, motivo: 'sin-columnas' };
+      const d = decidirMovimiento({ etapas, actual: posicion?.etapa ?? null, destino, evento: o.evento });
       if (!d.mover) return { movido: false, motivo: d.motivo };
       if (posicion!.tipo === 'agregado') await moverEtapaEnProducto(o.leadId, funnelId, destino, { autor: AUTOR_EMAIL });
       else await setPipelineStage(o.leadId, destino, { autor: AUTOR_EMAIL, requisitos: { omitir: OMITIR } });

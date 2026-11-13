@@ -1051,14 +1051,15 @@ export async function marcarEventoEmail(
 /**
  * LA TARJETA SIGUE AL EMAIL (4/11/2026): la columna que la automatización eligió para «abrió» o «hizo clic»
  * (lib/email-eventos-crm.ts). Sólo un envío de una automatización (un broadcast no tiene columnas). NUNCA TIRA: lo llama el
- * webhook, que contesta 200 igual.
+ * webhook, que contesta 200 igual. `rebote` (13/11/2026, ticket #93): a la columna «Rebotado» de su CRM.
  */
-export async function moverPorEventoDeEmail(fila: FilaEventoEmail | null, tipo: 'abierto' | 'clic'): Promise<void> {
+export async function moverPorEventoDeEmail(fila: FilaEventoEmail | null, tipo: 'abierto' | 'clic' | 'rebote'): Promise<void> {
   if (!fila || fila.tabla !== 'nutricion_envios' || fila.workspace_id == null || fila.lead_id == null || fila.secuencia_id == null) return;
   try {
     // Dinámico: lib/email-eventos-crm.ts trae el CRM entero (leads, lead-funnel) y este módulo lo importa medio repo.
     const { moverPorEventoEmail } = await import('@/lib/email-eventos-crm');
-    await moverPorEventoEmail({ ws: fila.workspace_id, leadId: fila.lead_id, secuenciaId: fila.secuencia_id, evento: tipo === 'abierto' ? 'abrio' : 'clic' });
+    const evento = tipo === 'abierto' ? 'abrio' : tipo;
+    await moverPorEventoEmail({ ws: fila.workspace_id, leadId: fila.lead_id, secuenciaId: fila.secuencia_id, evento });
   } catch (e) {
     console.error(`[email] mover la tarjeta por «${tipo}» (envío ${fila.id}): ${e instanceof Error ? e.message : String(e)}`);
   }

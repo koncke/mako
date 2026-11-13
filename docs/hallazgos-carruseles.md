@@ -48,6 +48,14 @@ sin las palabras naranjas, y el titular cortado en «Tu Acelera/dor».
   captura y dejaba la otra, en dos idiomas.
 - ⚠️ **Un ícono redondo se pegaba al renglón** (el globo de chat y después el regalo, uno más grande que el otro): los renglones se
   comparan por el alto PROMEDIO de sus letras, no por la caja que crece.
+- ⚠️ **Adaptar no es buscar y reemplazar el nombre** (el Cerebro, mirando la versión en seco): «La voz de MaKo, sus 3 libros» (los
+  libros eran de Hormozi), «MaKo + Claude = 100M Business» (una promesa que nadie hizo). La regla va en el prompt (contar lo mismo con
+  lo que el negocio tiene; lo del original se cambia por algo verdadero o se saca) y la capa 2 es la de Copywriting:
+  `cifrasDeLaReplica` (con `cifrasSinFuente`) avisa los montos, los «100M» y los porcentajes que no salen del negocio; las cifras del
+  original NO cuentan como fuente.
+- **Lo que vuelve del segundo pedido se controla por su ancho**: lo que la IA dice haber leído tiene que medir lo que mide el recorte
+  (0,6 a 1,7 veces); una vez le contestó al recorte del @ del pie con la letra de la captura de al lado.
+- Un texto cuyo bloque queda adentro del de otro es el mismo texto dos veces (la IA listó «STEP 2» para el contorno y para su letra).
 - **Las pastillas se conservan** (rellenas o de contorno, redondas y de su color exacto) y sólo se les borra la letra; rehechas como
   resaltado del texto salían cuadradas y de otro naranja.
 - **La letra:** Inter con el espaciado que iguala el ancho medido (los titulares del original son de palo seco apretado, un 3 a 5 %
