@@ -223,6 +223,15 @@ sitio (`BarraGlobal` en `app/vsl/_sitio/Barra.tsx`), fija al bajar, y la copiada
 
 ## Lo pendiente
 
+- **13/11, tarde (punta b02feedec):** hechos Classroom (PortalAlumno real, `banco-clase` del scratchpad), CRM, tableros
+  deslizables, el #418 arreglado (Interactivos.tsx + TemaSitio tras la hidratación). SIGUE, en este orden: el editor de video con
+  sus agentes (app/video-editor/_opencut/enjambre: banco con el editor real), Marketing CoPilot (banco en scripts/banco-copilot),
+  el scrapeo de grupos (TraerDeGrupoWA con la extensión simulada), Automations (FlujoLienzo con una plantilla real) y Chats.
+  Recetas de banco en el scratchpad de la sesión: `banco-crm/` (build.mjs con stubs de next/* y de acciones; grabar.mjs con
+  cursor propio), `banco-clase/` (sirve también public/ del worktree). Probar en producción el carrusel y el sonido cuando se
+  despliegue (consola sin #418). Esperan a otros: la réplica de carruseles (id del chat de Image) y el OK de Martín para Hormozi
+  en Spy (Apify) y para replicar un reel suyo en Copywriting.
+
 - **Para la próxima vuelta (13/11):** el scrapeo de grupos (TraerDeGrupoWA + ExtraccionModal, con la extensión simulada), Automations
   (el lienzo), Classroom, el editor de video con sus agentes, una propuesta para Marketing CoPilot (hay banco en
   `scripts/banco-copilot`), Spy con Hormozi (link → sus piezas por formato → carpetas → el gráfico `GraficoSpy` con su entrada;
