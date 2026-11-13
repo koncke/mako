@@ -26,6 +26,8 @@ export type LecturaReplica = {
    * sobre la de la competencia (medido el 28/10/2026 en el ws9): la pantalla pide «Tu oferta».
    */
   tieneOferta?: boolean;
+  /** El nombre de la oferta principal (`ofertas`), la que usa la réplica si la persona no escribe otra (12/11/2026). */
+  ofertaPrincipal?: string;
 };
 
 /** Lo que contesta POST /api/landing-generator/replicar/leer. */

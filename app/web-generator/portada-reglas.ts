@@ -34,7 +34,8 @@ export function linkEscrito(q: string): string | null {
 /** El Panel: «¿Qué vas a crear hoy?», sus modos (generar, importar, analizar, replicar) y la lista entera («Crear desde cero»). */
 export const RUTA_PANEL = '/web-generator?panel=1';
 /** «Replicar»: Replicar arrancando con esa página (el mismo link que «Copiar su sitio» de Spy). */
-export const rutaReplicarLanding = (url: string): string => `/web-generator?replicar=${encodeURIComponent(url)}`;
+// `&adaptar=1` (12/11/2026, el Cerebro): de un outlier sale la ADAPTADA al negocio, directo; la copia literal, en «Qué replicar».
+export const rutaReplicarLanding = (url: string): string => `/web-generator?replicar=${encodeURIComponent(url)}&adaptar=1`;
 /** «Ver todas»: la galería del Panel (diseños de landing y plantillas de presentación). */
 export const RUTA_PLANTILLAS = '/web-generator?vista=plantillas';
 /** Un diseño elegido en la portada: el Panel con su pregunta del objetivo (Inicio.tsx, `disenoInicial`). */
