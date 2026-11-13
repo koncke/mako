@@ -327,3 +327,33 @@ export function lineaDeFidelidad(f: Fidelidad): string {
   const par = (k: keyof Omit<Fidelidad, 'seccionesParejas'>) => `${f[k].copia}/${f[k].original}`;
   return `secciones ${par('secciones')}, títulos ${par('titulos')}, textos ${par('textos')}, botones ${par('botones')}, palabras ${par('palabras')}, ${f.seccionesParejas} secciones parejas`;
 }
+
+/**
+ * La grilla con foto de la original, con el hueco de cada foto en la réplica (13/11/2026). Medido en producción: la de Clara
+ * tiene 6 testimonios en grilla, cada uno con su foto; la nota de la sección pedía «6 tarjetas en grilla, cada una con el hueco
+ * de su foto» y la IA armó las 6 tarjetas en una variante SIN imagen: no quedaba dónde poner las fotos. Si la sección de la
+ * original tiene tarjetas con foto, el bloque de ítems con la cantidad más parecida pasa a «Imágenes con texto» cuando su
+ * variante no lleva imagen (en el editor cada ítem muestra «Agregar imagen»; la publicada no muestra el hueco vacío).
+ * `conImagen`: las variantes que ya llevan imagen (VARIANTES_CON_IMAGEN de ia-bloques.ts). Puro.
+ */
+export function conHuecoDeFoto(
+  t: JsonNodo, disp: DisposicionDeSeccion | null, conImagen: ReadonlySet<string>,
+): { tarjeta: JsonNodo; cambiada: boolean } {
+  const pedidas = disp?.tarjetas?.conFoto ? disp.tarjetas.cantidad : 0;
+  if (!pedidas) return { tarjeta: t, cambiada: false };
+  // El bloque de ítems con la cantidad más parecida a la de la original (2 o más ítems).
+  let mejor: JsonNodo | null = null;
+  let distancia = Infinity;
+  const buscar = (n: JsonNodo) => {
+    const items = n.type === NODO.optimizado ? (n.content ?? []).filter((c) => c.type === NODO.optimizadoItem).length : 0;
+    if (items >= 2 && Math.abs(items - pedidas) < distancia) { mejor = n; distancia = Math.abs(items - pedidas); }
+    for (const c of n.content ?? []) buscar(c);
+  };
+  buscar(t);
+  const elegido = mejor as JsonNodo | null;
+  if (!elegido || conImagen.has(String(elegido.attrs?.variante ?? ''))) return { tarjeta: t, cambiada: false };
+  const cambiar = (n: JsonNodo): JsonNodo => n === elegido
+    ? { ...n, attrs: { ...n.attrs, variante: 'imagenes-texto', mostrarIconos: false } }
+    : n.content ? { ...n, content: n.content.map(cambiar) } : n;
+  return { tarjeta: cambiar(t), cambiada: true };
+}
