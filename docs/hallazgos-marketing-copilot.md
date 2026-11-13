@@ -488,6 +488,12 @@ Martín vio la quinta, que tenía los puntos de los cursos en filas desplegables
 
 Martín pidió sacarlo del piloto «si Meta todavía deja». Lo medido el 13/11 (fuentes de terceros, ninguna oficial de Meta): desde fines de agosto de 2026 Meta empezó a quitar el control de ubicaciones por conjunto de anuncios (de a poco, no en todas las cuentas a la vez); el bloqueo para TODA la cuenta sigue, en Configuración publicitaria → Controles de ubicación, y es el único que también vale para Advantage+. MaKo no lo cambia por la API (el Media Buyer escribe presupuesto y estado, nada de ubicaciones): por eso en el CoPilot es la tarea «Bloquea Audience Network en tu cuenta», no un «Lo hago solo» que no podría cumplir.
 
+## Las tareas del CoPilot en el Plan: la clave va en el link de la fuente (13/11/2026)
+
+- **El Plan tiene dos tableros** (el del dueño en `plan_tareas`, el de los clientes en `experimento_tareas`) y cada negocio usa uno según su capa (`tableroDeCapa`). Se escribe por las funciones de cada uno, nunca por fuera: crear con `agregarTareasPlanOwner` (con `sinIA`, para que no gaste ni re-puntúe) o `crearTarea`; cerrar con `moverPlanTarea`/`moverTarea`, que respetan el avance, `hecho_at` y la columna.
+- **El tipo de fuente del Plan es una lista cerrada** (`FuenteTipo`: manual, mako, whatsapp, archivo…): «copiloto» no entra. La tarea va como `mako` y lo que la hace del CoPilot es su link, `/ads-manager/copiloto?tarjeta=…#copiloto:<clave>`, que además es el chip que lleva de vuelta. Sin columna nueva ni migración.
+- **Sincronizar no reabre nunca**: una tarea que la persona cerró en el Plan no vuelve a nacer aunque el CoPilot la siga pidiendo; sólo se crea lo que el Plan no tiene y se cierra lo que el CoPilot dio por resuelto (ya leí tus ángulos, ya conectaste Meta).
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

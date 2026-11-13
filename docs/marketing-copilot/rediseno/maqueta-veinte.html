@@ -6251,7 +6251,7 @@ const conNav = (h, paso) => h.replace(/<nav class="frn-tresp"[\s\S]*?<\/nav>/, n
 const IC_PLAN = SVG('<rect x="3.5" y="4.5" width="17" height="16" rx="2.5"></rect><path d="M8 2.5v4M16 2.5v4M3.5 9.5h17"></path><path d="m9 15 2 2 4-4"></path>', 15, 2);
 const filaCheckAnt20 = filaCheck;
 filaCheck = function (x) {
-  return filaCheckAnt20(x).replace('<span class="frn-ta__der">', `<span class="frn-ta__der"><span class="frn-plan" title="Está en tu Plan: completarla acá la completa allá">${IC_PLAN}En tu Plan</span>`);
+  return filaCheckAnt20(x).replace(/<span class="frn-tpl">[^<]*<\/span>/, '').replace('<span class="frn-ta__der">', `<span class="frn-ta__der"><span class="frn-plan" title="Está en tu Plan: completarla acá la completa allá">${IC_PLAN}En tu Plan</span>`);
 };
 
 // ─── 4. Con qué número se publica un reel de prueba: el promedio de tus competidores seguidos ───
@@ -6268,24 +6268,23 @@ for (const k of Object.keys(RESP_WEB).map(Number).sort((a, b) => b - a)) { RESP_
 
 // La lista de qué hace solo, con lo que pidió Martín (punto 7): sin «reordenar historias», con el anuncio cansado, Follow Me ads y YouTube.
 QUE_HAGO.splice(0, QUE_HAGO.length,
-  ['anuncios', 'Apagar lo que gasta sin traer agendas', 'solo', 'Si pasa tu costo por agenda'],
-  ['anuncios', 'Cambiar un anuncio que se cansó por uno nuevo de tu stock', 'solo', 'Y te aviso cuál cambié'],
-  ['anuncios', 'Subir el presupuesto del que gana', 'pregunta', 'Lo que pusiste arriba, en cada campaña'],
-  ['anuncios', 'Lanzar los anuncios nuevos que hagas', 'solo', 'De a 3, con US$ 7 por día cada uno'],
-  ['anuncios', 'Sacar Audience Network', 'solo', 'Trae clics de apps que no agendan'],
-  ['instagram', 'Armar la secuencia de historias de la semana', 'solo', 'Con el guion y qué grabar en cada una'],
-  ['instagram', 'Avisarte cuando un reel de prueba llega al número', 'solo', 'Para que lo publiques para todos'],
-  ['instagram', 'Sugerirte Follow Me ads con los reels que andan', 'pregunta', 'Para que te sigan los que no te conocen'],
-  ['instagram', 'Contestar a quien comenta la palabra', 'solo', 'Con la pregunta y el recurso'],
-  ['youtube', 'Cambiar la miniatura o el título que no rinde', 'pregunta', 'Después de 24 horas de prueba'],
-  ['youtube', 'Sacar los shorts del video largo', 'solo', 'De los minutos que más retienen'],
-  ['youtube', 'Escribir la descripción con su llamado a la acción', 'solo', 'A otro video o a tu página, según tu objetivo'],
-  ['youtube', 'Avisarte de los temas que suben y tienen que ver contigo', 'solo', 'Para que lo grabes esta semana'],
-  ['web', 'Probar dos titulares', 'solo', 'Se queda el que gane, con al menos 1.000 visitas'],
-  ['oferta', 'Juntar las objeciones de tus llamadas y tus chats', 'solo', 'Cada semana'],
+  ['anuncios', 'Apagar el anuncio que pasa tu costo por agenda', 'solo', ''],
+  ['anuncios', 'Cambiar un anuncio cansado por uno de tu stock, y avisarte', 'solo', ''],
+  ['anuncios', 'Subir la campaña que trae agendas baratas', 'pregunta', ''],
+  ['anuncios', 'Lanzar de a 3 los anuncios nuevos que hagas', 'solo', ''],
+  ['instagram', 'Armar las historias de la semana, con guion y qué grabar', 'solo', ''],
+  ['instagram', 'Avisarte cuando un reel de prueba llega al número', 'solo', ''],
+  ['instagram', 'Sugerirte Follow Me ads con los reels que andan', 'pregunta', ''],
+  ['instagram', 'Contestar a quien comenta la palabra, con el recurso', 'solo', ''],
+  ['youtube', 'Cambiar la miniatura o el título que no rinde en 24 horas', 'pregunta', ''],
+  ['youtube', 'Sacar shorts de los minutos que más retienen', 'solo', ''],
+  ['youtube', 'Escribir la descripción con su llamado a la acción', 'solo', ''],
+  ['youtube', 'Avisarte de los temas que suben y tienen que ver contigo', 'solo', ''],
+  ['web', 'Probar dos titulares y quedarme con el que gane', 'solo', ''],
+  ['oferta', 'Juntar cada semana las objeciones de tus llamadas y tus chats', 'solo', ''],
 );
 TRABAJO.instagram.hice = TRABAJO.instagram.hice.filter(([, t]) => !/^Reordené tus historias/.test(t));
-TRABAJO.instagram.ok.unshift({ t: 'Publicar para todos «El caso de Tomás»', antes: 'Reel de prueba', despues: 'Publicado', porque: `Llegó a ${fmtMil(1640)} vistas en 24 horas con gente que no te sigue. Se publica con ${fmtMil(numeroReel())}: el promedio de tus competidores seguidos.`, topes: `Con ${fmtMil(numeroReel())} se publica`, boton: 'Publicarlo' });
+TRABAJO.instagram.ok.unshift({ t: 'Publicar para todos «El caso de Tomás»', antes: 'Reel de prueba', despues: 'Publicado', porque: `Llegó a ${fmtMil(1640)} vistas con gente que no te sigue. Se publica con ${fmtMil(numeroReel())}: el promedio de los que sigues.`, topes: `Con ${fmtMil(numeroReel())} se publica`, boton: 'Publicarlo' });
 
 // ─── 1. La vista simple: el análisis arriba, lo que te toca abajo ───
 const negocioAnt20 = negocio;
@@ -6342,24 +6341,24 @@ const CANALES_CFG = [['anuncios', 'Anuncios'], ['instagram', 'Instagram'], ['you
 function configuraciones() {
   const k = S.config;
   const c = S.cfg || (S.cfg = { ...CFG_INICIAL, costoAgenda: 30, sube: 20 });
-  const paso = (clave, t, x, salto, pre = '', suf = '') => `<div class="mq-aj"><div><b>${t}</b><span>${x}</span></div><div class="mq-paso"><button type="button" data-accion="cfg-paso" data-k="${clave}:-${salto}" aria-label="Menos">−</button><output class="frn-num">${pre}${fmtMil(c[clave])}${suf}</output><button type="button" data-accion="cfg-paso" data-k="${clave}:${salto}" aria-label="Más">+</button></div></div>`;
+  const paso = (clave, t, x, salto, pre = '', suf = '') => `<div class="mq-aj"><div><b>${t}</b></div><div class="mq-paso"><button type="button" data-accion="cfg-paso" data-k="${clave}:-${salto}" aria-label="Menos">−</button><output class="frn-num">${pre}${fmtMil(c[clave])}${suf}</output><button type="button" data-accion="cfg-paso" data-k="${clave}:${salto}" aria-label="Más">+</button></div></div>`;
   const solos = QUE_HAGO.map((r, i) => ({ r, i })).filter(({ r }) => r[0] === k).map(({ r: [, t, modo, x], i }) => {
     const solo = (S.modoPiloto?.[`${k}:${i}`] || modo) === 'solo';
-    return `<div class="mq-aj"><div><b>${esc(t)}</b><span>${esc(x)}</span></div><button type="button" class="mq-interr" role="switch" aria-checked="${solo}" data-accion="modo-piloto" data-k="${k}:${i}:${solo ? 'pregunta' : 'solo'}"><i></i><span>${solo ? 'Lo hago solo' : 'Te pregunto'}</span></button></div>`;
+    return `<div class="mq-aj"><div><b>${esc(t)}</b></div><button type="button" class="mq-interr" role="switch" aria-checked="${solo}" data-accion="modo-piloto" data-k="${k}:${i}:${solo ? 'pregunta' : 'solo'}"><i></i><span>${solo ? 'Lo hago solo' : 'Te pregunto'}</span></button></div>`;
   }).join('');
   const cuanto = {
-    anuncios: paso('mes', '¿Cuánto inviertes por mes en anuncios?', 'Nunca gasto más que esto.', 500, 'US$ ')
-      + `<div class="mq-aj"><div><b>¿Cuánto pagas como mucho por una agenda?</b><span>Si un anuncio pasa esto, lo apago.</span></div><label class="mq-escribe"><span>US$</span><input type="text" inputmode="numeric" value="${c.costoAgenda}" aria-label="Costo por agenda, en dólares"></label></div>`
-      + paso('sube', '¿Cuánto subo el presupuesto por vez, en cada campaña?', 'Cuando una campaña trae agendas por debajo de tu costo.', 5, '+ ', ' %')
-      + paso('dias', '¿Cuántos días dura cada prueba?', 'Después de esto decido qué anuncio sigue.', 1, '', ' días'),
-    instagram: `<div class="mq-aj mq-aj--numero"><div><b>¿Con qué número se publica un reel de prueba?</b><span>Las vistas en 24 horas, con gente que no te sigue. Te propongo el promedio de tus competidores seguidos: ${fmtMil(NUMERO_SUGERIDO)}.</span></div><div class="mq-paso"><button type="button" data-accion="num-reel" data-k="-100" aria-label="Menos">−</button><output class="frn-num">${fmtMil(numeroReel())}</output><button type="button" data-accion="num-reel" data-k="100" aria-label="Más">+</button></div></div>`
+    anuncios: paso('mes', '¿Cuánto puedo gastar por mes, como mucho?', '', 500, 'US$ ')
+      + `<div class="mq-aj"><div><b>¿Desde qué costo por agenda freno un anuncio?</b></div><label class="mq-escribe"><span>US$</span><input type="text" inputmode="numeric" value="${c.costoAgenda}" aria-label="Costo por agenda, en dólares"></label></div>`
+      + paso('sube', 'Si una campaña trae agendas baratas, ¿cuánto la subo por vez?', '', 5, '+ ', ' %')
+      + paso('dias', '¿Cuántos días pruebo un anuncio antes de decidir?', '', 1, '', ' días'),
+    instagram: `<div class="mq-aj mq-aj--numero"><div><b>¿Con cuántas vistas se publica un reel de prueba? Te propongo el promedio de los que sigues</b></div><div class="mq-paso"><button type="button" data-accion="num-reel" data-k="-100" aria-label="Menos">−</button><output class="frn-num">${fmtMil(numeroReel())}</output><button type="button" data-accion="num-reel" data-k="100" aria-label="Más">+</button></div></div>`
       + `<ul class="mq-seguidos">${SEGUIDOS.map(([u, n]) => `<li><span>${u}</span><b>${fmtMil(n)}</b></li>`).join('')}</ul>`
-      + paso('reels', '¿Cuántos reels por semana?', 'Los programo y los publico.', 1)
-      + paso('historias', '¿Cuántas secuencias de historias por semana?', 'Te las armo con guion y qué grabar.', 1),
-    youtube: paso('videos', '¿Cuántos videos largos por mes?', 'Te los pido con el guion listo.', 1)
-      + `<div class="mq-aj"><div><b>¿A dónde lleva la descripción?</b><span>El llamado a la acción de cada video.</span></div><div class="mq-opc" role="radiogroup"><button type="button" role="radio" aria-checked="${(S.ctaYt || 'landing') === 'landing'}" data-accion="cta-yt" data-k="landing">A tu página</button><button type="button" role="radio" aria-checked="${S.ctaYt === 'video'}" data-accion="cta-yt" data-k="video">A otro video</button></div></div>`,
-    web: paso('visitas', '¿Cuántas visitas antes de decidir una prueba?', 'Con menos, el resultado es suerte.', 500),
-    oferta: paso('llamadas', '¿Con cuántas llamadas con la misma objeción te propongo un cambio?', 'Un bono o una garantía.', 1),
+      + paso('reels', '¿Cuántos reels publico por semana?', '', 1)
+      + paso('historias', '¿Cuántas secuencias de historias te armo por semana?', '', 1),
+    youtube: paso('videos', '¿Cuántos videos largos te pido por mes, con el guion listo?', '', 1)
+      + `<div class="mq-aj"><div><b>¿A dónde lleva el llamado a la acción de cada video?</b></div><div class="mq-opc" role="radiogroup"><button type="button" role="radio" aria-checked="${(S.ctaYt || 'landing') === 'landing'}" data-accion="cta-yt" data-k="landing">A tu página</button><button type="button" role="radio" aria-checked="${S.ctaYt === 'video'}" data-accion="cta-yt" data-k="video">A otro video</button></div></div>`,
+    web: paso('visitas', '¿Con cuántas visitas decido una prueba?', '', 500),
+    oferta: paso('llamadas', '¿Con cuántas llamadas con la misma objeción te propongo un bono o una garantía?', '', 1),
   }[k];
   return `<div class="frn frn--mono"><main class="frn-board mq-cfg">
     <div class="frn-head frn-head--fija mq-cfg__cab"><button type="button" class="frn-btn frn-btn--ghost" data-accion="cfg-volver">${SVG('<path d="m15 6-6 6 6 6"></path>', 18, 2)}Volver</button><h1>Configurar el piloto automático</h1><span></span></div>

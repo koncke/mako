@@ -32,11 +32,12 @@ export type InicialPiloto = {
 };
 
 const RESULTADO: Record<KpiMediaBuyer, [string, string]> = { lead: ['un lead', 'leads'], agenda: ['una agenda', 'agendas'], venta: ['una venta', 'ventas'] };
-const QUE_HAGO: ReadonlyArray<readonly [TacticaSola, (r: string) => string, string]> = [
-  ['stop_loss', (r) => `Apagar el anuncio que gasta sin traer ${r}`, 'Cuando gastó dos veces lo que pagas por resultado y no trajo nada.'],
-  ['surf', () => 'Subir el presupuesto de lo que funciona', 'Lo que pusiste arriba, en cada campaña.'],
-  ['sunsetting', () => 'Bajar el presupuesto de lo que se encarece', 'Y apagarlo si no se recupera.'],
-  ['ganador', () => 'Escribir variaciones del anuncio que mejor convierte', 'Y apagar el original cuando una le gana.'],
+// Lo que hay que saber va en la frase misma: sin renglón gris debajo (Martín: «no pongas subtítulos abajo en ningún lugar»).
+const QUE_HAGO: ReadonlyArray<readonly [TacticaSola, (r: string) => string]> = [
+  ['stop_loss', (r) => `Apagar el anuncio que gastó el doble de tu costo sin traer ${r}`],
+  ['surf', (r) => `Subir la campaña que trae ${r} baratas`],
+  ['sunsetting', () => 'Bajar lo que se encarece, y apagarlo si no se recupera'],
+  ['ganador', () => 'Probar variaciones del anuncio que mejor convierte'],
 ];
 
 const CSS = `
@@ -136,23 +137,23 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido }: { inicial: Inicia
             <h2 className="frn-card__t">Anuncios</h2>
             <h3>Cuánto</h3>
             <div className="mq-aj">
-              <div><b>¿Cuánto inviertes por mes en anuncios?</b><span>Nunca gasto más que esto: como mucho {plata(Math.max(1, Math.round(mes / 30)))} por día entre todas tus campañas.</span></div>
+              <div><b>¿Cuánto puedo gastar por mes, como mucho?</b></div>
               <div className="mq-paso"><button type="button" aria-label="Menos" onClick={() => setMes((m) => Math.max(100, m - 100))}>−</button><output className="frn-num">{plata(mes)}</output><button type="button" aria-label="Más" onClick={() => setMes((m) => m + 100)}>+</button></div>
             </div>
             <div className="mq-aj">
-              <div><b>¿Cuánto pagas como mucho por {r1}?</b><span>Si un anuncio pasa esto, lo freno.</span></div>
+              <div><b>¿Desde qué costo por {r1.replace(/^una? /, '')} freno un anuncio?</b></div>
               <label className="mq-escribe"><span>US$</span><input type="text" inputMode="decimal" value={costo} placeholder="30" aria-label={`Lo que pagas como mucho por ${r1}, en dólares`} onChange={(e) => setCosto(e.target.value)} /></label>
             </div>
             <div className="mq-aj">
-              <div><b>¿Cuánto subo el presupuesto por vez, en cada campaña?</b><span>Cuando una campaña trae {rN} por debajo de lo que pagas.</span></div>
+              <div><b>Si una campaña trae {rN} baratas, ¿cuánto la subo por vez?</b></div>
               <div className="mq-paso"><button type="button" aria-label="Menos" onClick={() => setSubida((s) => Math.max(5, s - 5))}>−</button><output className="frn-num">+ {subida} %</output><button type="button" aria-label="Más" onClick={() => setSubida((s) => Math.min(50, s + 5))}>+</button></div>
             </div>
             <h3>Qué hago solo</h3>
-            {QUE_HAGO.map(([t, titulo, x]) => {
+            {QUE_HAGO.map(([t, titulo]) => {
               const s = solo[t] && pilotoPermitido;
               return (
                 <div key={t} className="mq-aj">
-                  <div><b>{titulo(rN)}</b><span>{x}</span></div>
+                  <div><b>{titulo(rN)}</b></div>
                   <button type="button" className="mq-interr" role="switch" aria-checked={s} disabled={!pilotoPermitido} onClick={() => setSolo((v) => ({ ...v, [t]: !v[t] }))}>
                     <i /><span>{s ? 'Lo hago solo' : 'Te pregunto'}</span>
                   </button>

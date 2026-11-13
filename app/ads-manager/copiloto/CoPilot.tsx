@@ -16,7 +16,7 @@
 // El chat: el de MaKo (la estrella de abajo), con lo que se pide completar.
 // =============================================================================
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { CSS_OFFER } from '@/app/offer/estilos';
 import { Toast, useToast } from '@/app/_ui';
@@ -27,6 +27,7 @@ import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import type { EstadoComunicacion } from '@/lib/copiloto/comunicacion-store';
 import type { ParteOC } from '@/lib/copiloto/comunicacion';
+import { tareasDelCoPilot, type ResumenParaTareas, type TareaCoPilot } from '@/lib/copiloto/tareas';
 import type { Decision, KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import type { AnuncioDestacado } from '@/lib/media-buyer/productos';
 import type { Tarea } from '@/lib/media-buyer/copiloto';
@@ -84,6 +85,10 @@ const CSS_EXTRA = `
 .frn .cop-tareas > li[data-hecha="true"] b { text-decoration: line-through; color: var(--muted); }
 .frn .cop-check { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; display: grid; place-items: center; color: var(--card); font: 700 14px/1 var(--font); cursor: pointer; }
 .frn .cop-check[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); }
+.frn .cop-check:disabled { cursor: default; opacity: .5; }
+.frn .cop-tarea__der { display: inline-flex; align-items: center; gap: 12px; }
+.frn .cop-plan { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--hair); font-size: 13.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+@container frn (max-width: 700px) { .frn .cop-plan { display: none; } }
 @container frn (max-width: 700px) { .frn .cop-tareas > li { grid-template-columns: 26px minmax(0, 1fr); } .frn .cop-tareas > li > :last-child { grid-column: 2; justify-self: start; } }
 /* El popup de «Mejorar»: los desplegables adentro de un .frn propio, sin su fondo. */
 .ocm.ocm--todo { width: min(640px, 100%); max-height: calc(100vh - 32px); }
@@ -112,7 +117,8 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
   const [todo, setTodo] = useState(false);
   const [pedido, setPedido] = useState<{ texto: string; vez: number } | null>(null);
   const [decisiones, setDecisiones] = useState<Decision[]>(datos.anuncios.decisiones);
-  const [hechas, setHechas] = useState<Record<string, boolean>>({});
+  // Cómo está cada tarea en el Plan (clave → hecha). null = todavía no se leyó.
+  const [enPlan, setEnPlan] = useState<Record<string, boolean> | null>(null);
   const [menu, setMenu] = useState(false);
   const { toast, show, clear } = useToast();
   const avisar = useCallback((m: string, tono?: 'bad' | 'good') => show(m, undefined, tono), [show]);
@@ -128,8 +134,23 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
   const alChat = useCallback((texto: string) => { setCosa(null); setTodo(false); setPedido({ texto, vez: Date.now() }); }, []);
 
   const abiertas = decisiones.filter((d) => d.estado === 'abierta').length;
-  const tareas = useMemo(() => tareasDeTarjetas(datos, oc.estado), [datos, oc.estado]);
-  const tocan = useMemo(() => Object.fromEntries(TARJETAS.map(([k]) => [k, tareas[k].filter((t) => !hechas[t.id]).length])) as Record<Tarjeta, number>, [tareas, hechas]);
+  const { tareas: hoy, resueltas } = useMemo(() => tareasDelCoPilot(resumenParaTareas(datos, oc.estado)), [datos, oc.estado]);
+  const tareas = useMemo(() => Object.fromEntries(TARJETAS.map(([k]) => [k, hoy.filter((t) => t.tarjeta === k)])) as Record<Tarjeta, TareaCoPilot[]>, [hoy]);
+  const tocan = useMemo(() => Object.fromEntries(TARJETAS.map(([k]) => [k, tareas[k].filter((t) => !enPlan?.[t.clave]).length])) as Record<Tarjeta, number>, [tareas, enPlan]);
+  // Las tareas viven en el Plan (Martín, 13/11): al abrir, y cada vez que cambian, se crean allá las que faltan y se cierran las resueltas.
+  const firma = hoy.map((t) => t.clave).join('|') + '#' + resueltas.join('|');
+  useEffect(() => {
+    let vivo = true;
+    void llamarTareas({ op: 'sincronizar', tareas: hoy, resueltas }).then((r) => {
+      if (vivo && r.ok && r.enPlan) setEnPlan(Object.fromEntries(r.enPlan.map((t) => [t.clave, t.hecha])));
+    });
+    return () => { vivo = false; };
+  }, [firma]); // eslint-disable-line react-hooks/exhaustive-deps
+  const marcarTarea = useCallback(async (clave: string, hecha: boolean) => {
+    setEnPlan((e) => ({ ...(e ?? {}), [clave]: hecha }));
+    const r = await llamarTareas({ op: 'marcar', clave, hecha });
+    if (!r.ok) { setEnPlan((e) => ({ ...(e ?? {}), [clave]: !hecha })); avisar(r.error || 'No pude marcarla en tu Plan.', 'bad'); }
+  }, [avisar]);
   const avisoAccion = Object.values(tocan).reduce((a, b) => a + b, 0);
   const pantalla = `Marketing CoPilot · ${paso === 'piloto' ? 'Piloto automático' : 'Análisis y acción'} · ${TARJETAS.find(([k]) => k === tarjeta)?.[1]}`;
 
@@ -219,7 +240,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
               {tarjeta === 'anuncios' && <AnalisisAnuncios datos={datos} />}
               {tarjeta === 'web' && <TarjetaWeb paso="analisis" web={datos.web} />}
               {(tarjeta === 'instagram' || tarjeta === 'youtube') && <TarjetaRed red={tarjeta} paso="analisis" cuentas={datos.redes[tarjeta]} />}
-              <LoQueTeToca tareas={tareas[tarjeta]} hechas={hechas} onHecha={(id, v) => setHechas((h) => ({ ...h, [id]: v }))}
+              <LoQueTeToca tareas={tareas[tarjeta]} enPlan={enPlan} onHecha={marcarTarea}
                 onHacer={(t) => { if (t.abre === 'oc') { setParte(t.parte ?? 'oferta'); setTodo(true); } else if (t.abre === 'leer') void oc.leer(t.parte ?? 'angulos'); }} />
             </div>
           )}
@@ -240,56 +261,48 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
 }
 
 // ── Lo que te toca, debajo del análisis (vuelta 20) ──────────────────────────
-// Lo arma el código con lo que falta de verdad en cada tarjeta. ⚠️ Todavía NO vive en el Plan (falta la pieza del Plan, que se
-// coordina con quien lo lleva): por eso no dice «En tu Plan», y lo marcado como hecho dura lo que dura la pantalla.
+// Las arma lib/copiloto/tareas.ts con lo que falta de verdad en cada tarjeta, y viven en el Plan (lib/copiloto/tareas-plan.ts):
+// marcar acá las completa allá, y al revés. Sin renglón gris debajo del título (Martín: «no pongas subtítulos abajo en ningún lugar»).
 
-type TareaTarjeta = { id: string; titulo: string; detalle: string; href?: string; abre?: 'oc' | 'leer'; parte?: ParteOC };
-
-function tareasDeTarjetas(datos: DatosCoPilot, oc: EstadoComunicacion): Record<Tarjeta, TareaTarjeta[]> {
-  const faltan = (p: ParteOC) => Object.values(oc.cosas[p]).filter((c) => c.estado !== 'confirmada').length;
-  const comunicacion: TareaTarjeta[] = [];
-  if (oc.sesion == null) comunicacion.push({ id: 'oferta-armar', titulo: 'Arma tu oferta con MaKo', detalle: 'En Offer: con eso analizo tu oferta y armo tus ángulos.', href: '/offer' });
-  else if (!oc.nota.oferta) comunicacion.push({ id: 'oferta-analizar', titulo: 'Analiza tu oferta', detalle: 'En Offer, con la conversación que ya tienes.', href: '/offer' });
-  if (!oc.nota.angulos) comunicacion.push({ id: 'angulos-leer', titulo: 'Que MaKo lea tus ángulos', detalle: 'De tus anuncios, tus llamadas y tu oferta.', abre: 'leer', parte: 'angulos' });
-  if (!oc.nota.voz) comunicacion.push({ id: 'voz-leer', titulo: 'Que MaKo lea tu voz', detalle: 'De tus chats de venta y lo que ya cargaste.', abre: 'leer', parte: 'voz' });
-  for (const [p, t] of [['angulos', 'tus ángulos'], ['voz', 'tu voz'], ['oferta', 'tu oferta']] as const) {
-    const n = faltan(p);
-    if (n) comunicacion.push({ id: `completar-${p}`, titulo: `Completa ${t}`, detalle: `${n} ${n === 1 ? 'cosa' : 'cosas'} por completar o confirmar.`, abre: 'oc', parte: p });
-  }
-  const anuncios: TareaTarjeta[] = datos.funnel
-    ? datos.tareas.map((t, i) => ({ id: `ads-${i}`, titulo: t.titulo, detalle: t.detalle, href: t.href }))
-    : [{ id: 'ads-funnel', titulo: 'Elige tu funnel', detalle: 'Con eso armo lo que te toca cada semana.', href: '/ads-manager?estrategia=1' }];
-  if (!datos.anuncios.conectada) anuncios.unshift({ id: 'ads-conectar', titulo: 'Conecta tu cuenta de anuncios', detalle: 'Para leer qué te trae agendas y prender el piloto.', href: '/integraciones' });
-  // Audience Network (Martín, 13/11: «fíjate si Meta todavía deja sacarlo»): desde fines de agosto de 2026 Meta ya no deja sacarlo
-  // campaña por campaña, pero sí bloquearlo en toda la cuenta, y eso no lo puede hacer MaKo por la API. Es una tarea de una vez.
-  else anuncios.push({ id: 'ads-audience-network', titulo: 'Bloquea Audience Network en tu cuenta', detalle: 'En Meta: Configuración publicitaria → Controles de ubicación. Trae clics de apps que no agendan.' });
-  const web: TareaTarjeta[] = datos.web.length
-    ? datos.web.slice(0, 3).map((u, i) => ({ id: `web-${i}`, titulo: `Mejora ${u.replace(/^https?:\/\//, '')}`, detalle: 'Con los comentarios del análisis, sección por sección.', href: `/web-generator?analizar=${encodeURIComponent(u)}` }))
-    : [{ id: 'web-analizar', titulo: 'Analiza tu web', detalle: 'Te digo qué cambiar para que venda más.', href: '/web-generator' }];
-  const red = (r: 'instagram' | 'youtube'): TareaTarjeta[] => [
-    ...(datos.redes[r].length && !datos.redes[r][0].vencida ? [] : [{ id: `${r}-conectar`, titulo: `Conecta tu ${NOMBRE_RED[r]}`, detalle: 'Desde la tarjeta de arriba.' }]),
-    ...(r === 'instagram' ? [{ id: 'ig-competidores', titulo: 'Selecciona a tus competidores', detalle: 'Los que sigues me dan el número con que se publica un reel de prueba.', href: '/competitor-spy' }] : []),
-  ];
-  return { oferta: comunicacion, web, anuncios, instagram: red('instagram'), youtube: red('youtube') };
+async function llamarTareas(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; enPlan?: Array<{ clave: string; hecha: boolean }> }> {
+  try {
+    return await (await fetch('/api/copiloto/tareas', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })).json();
+  } catch (e) { return { ok: false, error: e instanceof Error ? e.message : 'No pude conectarme.' }; }
 }
 
-function LoQueTeToca({ tareas, hechas, onHecha, onHacer }: {
-  tareas: TareaTarjeta[]; hechas: Record<string, boolean>; onHecha: (id: string, v: boolean) => void; onHacer: (t: TareaTarjeta) => void;
+function resumenParaTareas(datos: DatosCoPilot, oc: EstadoComunicacion): ResumenParaTareas {
+  const faltan = (p: ParteOC) => Object.values(oc.cosas[p]).filter((c) => c.estado !== 'confirmada').length;
+  const conectada = (r: 'instagram' | 'youtube') => datos.redes[r].some((c) => !c.vencida);
+  return {
+    oferta: { sesion: oc.sesion, notaOferta: !!oc.nota.oferta, notaAngulos: !!oc.nota.angulos, notaVoz: !!oc.nota.voz, faltan: { oferta: faltan('oferta'), angulos: faltan('angulos'), voz: faltan('voz') } },
+    anuncios: { conectada: datos.anuncios.conectada, funnel: datos.funnel, semana: datos.tareas.map((t) => ({ titulo: t.titulo, href: t.href })) },
+    web: datos.web,
+    redes: { instagram: { conectada: conectada('instagram') }, youtube: { conectada: conectada('youtube') } },
+    seguidos: null,
+  };
+}
+
+function LoQueTeToca({ tareas, enPlan, onHecha, onHacer }: {
+  tareas: TareaCoPilot[]; enPlan: Record<string, boolean> | null; onHecha: (clave: string, v: boolean) => void; onHacer: (t: TareaCoPilot) => void;
 }) {
   if (!tareas.length) return null;
   return (
     <section className="frn-card mq-tetoca">
-      <div className="frn-card__head"><h2 className="frn-card__t">Lo que te toca</h2></div>
+      <div className="frn-card__head"><h2 className="frn-card__t">Lo que te toca</h2>{enPlan && <Link className="frn-chip" href="/plan">Abrir mi Plan</Link>}</div>
       <ul className="cop-lista cop-tareas">
         {tareas.map((t) => {
-          const lista = !!hechas[t.id];
+          const lista = !!enPlan?.[t.clave];
+          const enElPlan = enPlan != null && t.clave in enPlan;
           return (
-            <li key={t.id} data-hecha={lista}>
-              <button type="button" className="cop-check" aria-pressed={lista} aria-label={lista ? `Desmarcar «${t.titulo}»` : `Marcar «${t.titulo}» como hecha`} onClick={() => onHecha(t.id, !lista)}>{lista ? '✓' : ''}</button>
-              <div><b>{t.titulo}</b><span>{t.detalle}</span></div>
-              {lista ? <span /> : t.href
-                ? <Link className="frn-btn frn-btn--ghost frn-btn--chico" href={t.href}>Hacerlo</Link>
-                : t.abre ? <button type="button" className="frn-btn frn-btn--ghost frn-btn--chico" onClick={() => onHacer(t)}>Hacerlo</button> : <span />}
+            <li key={t.clave} data-hecha={lista}>
+              <button type="button" className="cop-check" aria-pressed={lista} disabled={!enElPlan} aria-label={lista ? `Desmarcar «${t.titulo}»` : `Marcar «${t.titulo}» como hecha`} onClick={() => onHecha(t.clave, !lista)}>{lista ? '✓' : ''}</button>
+              <div><b>{t.titulo}</b></div>
+              <span className="cop-tarea__der">
+                {enElPlan && <span className="cop-plan" title="Está en tu Plan: completarla acá la completa allá">En tu Plan</span>}
+                {lista ? null : t.href
+                  ? <Link className="frn-btn frn-btn--ghost frn-btn--chico" href={t.href}>Hacerlo</Link>
+                  : t.abre ? <button type="button" className="frn-btn frn-btn--ghost frn-btn--chico" onClick={() => onHacer(t)}>Hacerlo</button> : null}
+              </span>
             </li>
           );
         })}
