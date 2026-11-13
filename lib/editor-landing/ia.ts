@@ -57,7 +57,7 @@ import {
   instruccionTexto, accionTextoValida, limpiarTextoDelModelo, limpiarNotas,
   objetoConUnaReparacion, SalidaInvalida, REGLAS_PAGINA,
   seccionesParaDiscutir, focoParaDiscutir, charlaParaDiscutir, focoParaEditar,
-  REGLA_CIFRAS_DEL_NEGOCIO, cifrasSinRespaldo, avisoDeCifras,
+  REGLA_CIFRAS_DEL_NEGOCIO, cifrasSinRespaldo, resumenDeEdicion,
 } from './ia-reglas';
 import { NODO, TOPES, textoDe, type JsonNodo } from './doc';
 import { MUCHO_PARA_EDITAR, type EdicionIA, type Esquema, type ParamsGeneracion, type FuenteImagenes, type AccionTexto } from './api-tipos';
@@ -544,7 +544,7 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<EdicionIA>> {
       ...(lista.quitar.length ? { quitar: lista.quitar } : {}),
       ...(lista.orden ? { orden: lista.orden } : {}),
       ...(Object.keys(copias).length ? { copias } : {}),
-      resumen: [hay ? resumenModelo || 'Listo.' : 'Sin cambios.', ...noSePudo, avisoDeCifras(sinRespaldo)].filter(Boolean).join(' '),
+      resumen: resumenDeEdicion({ hay, resumenModelo, noSePudo, cifras: sinRespaldo }),
     };
   } catch (err) {
     return { ok: false, error: await falloIA(err, 'editar la landing'), status: 502 };

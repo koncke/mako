@@ -4449,6 +4449,10 @@ CSS que usa.
   `@vercel/functions` (para invalidar por etiqueta) no está en el proyecto: sumarlo es tocar el `node_modules` que comparten todos.
 - **La plantilla del quiz publicaba «Empieza aquí» vacía** porque el bloque iba con la estructura sin textos (`QUIZ_NUEVO`) y
   `render.ts` no dibuja un quiz incompleto: ahora va con textos de muestra entre corchetes, como el resto de la plantilla.
+- **La punta se puso roja por un test que copiaba la línea del código, no por un bug.** `replica-editable` 8b buscaba tal cual
+  `resumen: [hay ? … , ...noSePudo].join(' ')`; sumarle el aviso de cifras la cambió y el chat seguía diciendo lo que no se pudo.
+  El armado vive ahora en `resumenDeEdicion` (`ia-reglas.ts`), y los tests miran lo que la persona LEE (probado rompiéndolo).
+  Regla: lo que el chat le dice a la persona se fija con una función pura y su salida, no con una expresión regular sobre el código.
 
 **Sin hacer:** medir en producción la adaptada nueva lado a lado (espera el despliegue); que la IA respete la cantidad exacta de
 tarjetas no está garantizado en código (se pide en la nota; `fidelidadDeEstructura` lo mide en el log); la región de la función

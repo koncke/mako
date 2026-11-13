@@ -19,7 +19,7 @@ import { derechaDeQuery } from '../app/web-generator/panel-reglas';
 import { textoDeOferta } from '../lib/editor-landing/replicar-partes';
 import { estiloDeHtml } from '../lib/editor-landing/estilo-original';
 import { acomodoDeSeccion, disposicionPorSeccion } from '../lib/editor-landing/replicar-estructura';
-import { avisoDeCifras, cifrasSinRespaldo } from '../lib/editor-landing/ia-reglas';
+import { avisoDeCifras, cifrasSinRespaldo, resumenDeEdicion } from '../lib/editor-landing/ia-reglas';
 import { podarCss, usadasDe } from '../lib/editor-landing/css-usado';
 import { conVersion } from '../lib/editor-landing/doc';
 import { QUIZ_DE_PLANTILLA } from '../lib/editor-landing/plantillas';
@@ -82,7 +82,12 @@ test('4. ninguna cifra inventada: la regla en el chat de editar y el aviso, en e
   assert.match(avisoDeCifras(['73%']), /^Tiene cifras que no salen de tu negocio \(73%\)/);
   const ia = fuente('lib/editor-landing/ia.ts');
   assert.match(ia, /\+ `\\n\$\{REGLA_CIFRAS_DEL_NEGOCIO\}`,/);
-  assert.match(ia, /resumen: \[hay \? resumenModelo \|\| 'Listo\.' : 'Sin cambios\.', \.\.\.noSePudo, avisoDeCifras\(sinRespaldo\)\]\.filter\(Boolean\)\.join\(' '\),/);
+  // El chat lo dice después de lo que hizo y de lo que no se pudo (por lo que contesta, no por el texto de la línea).
+  assert.equal(
+    resumenDeEdicion({ hay: true, resumenModelo: 'Reescribí el hero.', noSePudo: ['No encontré una foto de «x»: la imagen quedó como estaba.'], cifras: ['73%'] }),
+    'Reescribí el hero. No encontré una foto de «x»: la imagen quedó como estaba. Tiene cifras que no salen de tu negocio (73%): revísalas o pídele a MaKo que las cambie por [DATO].',
+  );
+  assert.match(ia, /resumen: resumenDeEdicion\(\{[^}]*\bcifras: sinRespaldo\b/);
   assert.match(fuente('lib/editor-landing/replicar.ts'), /avisoDeCifras\(cifrasAjenas\),/);
 });
 

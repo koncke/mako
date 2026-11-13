@@ -1513,3 +1513,9 @@ export function cifrasSinRespaldo(escrito: string, fuentes: string): string[] {
 /** Lo que dice el chat o el aviso de la réplica sobre esas cifras (vacío sin ninguna). */
 export const avisoDeCifras = (cifras: readonly string[]): string =>
   cifras.length ? `Tiene cifras que no salen de tu negocio (${cifras.join(', ')}): revísalas o pídele a MaKo que las cambie por [DATO].` : '';
+
+/** Lo que contesta el chat de editar: lo que hizo (o «Sin cambios.»), lo que la IA dijo que hizo y no se pudo (la foto que no
+ *  apareció, los textos que no se ubicaron) y las cifras que no salen del negocio. Nada de eso se calla. */
+export function resumenDeEdicion(o: { hay: boolean; resumenModelo: string; noSePudo: readonly string[]; cifras: readonly string[] }): string {
+  return [o.hay ? o.resumenModelo || 'Listo.' : 'Sin cambios.', ...o.noSePudo, avisoDeCifras(o.cifras)].filter(Boolean).join(' ');
+}

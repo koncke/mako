@@ -44,7 +44,7 @@ import { conCopiaDeElementoDeDiseno, conEnlaceDeDiseno, conImagenDeDiseno, eleme
 import { aplicarImagenes, bloquesATarjeta, recolectarBusquedas, tarjetaABloques, GRAMATICA_IA, type TarjetaIA } from '../lib/editor-landing/ia-bloques';
 import { tipoDeElemento } from '../lib/editor-landing/diseno-elementos';
 import { NODO, type JsonNodo } from '../lib/editor-landing/doc';
-import { avisosDeEdicion, cambiosDeLista, convertirEdicion, copiaDeSeccion, emparejarEdicion, vistaQueEntra, FORMATO_EDITAR } from '../lib/editor-landing/ia-reglas';
+import { avisosDeEdicion, cambiosDeLista, convertirEdicion, copiaDeSeccion, emparejarEdicion, resumenDeEdicion, vistaQueEntra, FORMATO_EDITAR } from '../lib/editor-landing/ia-reglas';
 import { diffTarjetas, idDe, ordenarPorIds, planDeAplicacion, resumenDeCambios } from '../app/web-generator/editor/diff-tarjetas';
 import { trQuitarYOrdenar } from '../app/web-generator/editor/insertar';
 import { contenidoDeDiseno, ponerTextoDeNodo, type NodoContenido } from '../lib/editor-landing/diseno-contenido';
@@ -616,5 +616,13 @@ test('8b. lo que la IA dijo que hizo y no se pudo, el chat lo dice (la foto que 
     'Una sección quedó con sus textos de antes: no pude ubicar cada cambio.',
   ]);
   assert.deepEqual(avisosDeEdicion([]), []);
-  assert.match(sinComentarios(leer('lib/editor-landing/ia.ts')), /resumen: \[hay \? resumenModelo \|\| 'Listo\.' : 'Sin cambios\.', \.\.\.noSePudo\]\.join\(' '\)/);
+  // Lo que el chat le contesta a la persona (12/11: por lo que dice, no por cómo está escrita la línea).
+  assert.equal(
+    resumenDeEdicion({ hay: true, resumenModelo: 'Cambié el titular.', noSePudo: avisos, cifras: [] }),
+    'Cambié el titular. No encontré una foto de «team working in an office»: la imagen quedó como estaba. Una sección quedó con sus textos de antes: no pude ubicar cada cambio.',
+  );
+  assert.equal(resumenDeEdicion({ hay: false, resumenModelo: '', noSePudo: avisos.slice(1), cifras: [] }), 'Sin cambios. Una sección quedó con sus textos de antes: no pude ubicar cada cambio.');
+  assert.equal(resumenDeEdicion({ hay: true, resumenModelo: '', noSePudo: [], cifras: [] }), 'Listo.');
+  // …y el chat de editar arma su resumen con eso, pasándole lo que no se pudo.
+  assert.match(sinComentarios(leer('lib/editor-landing/ia.ts')), /resumen: resumenDeEdicion\(\{[^}]*\bnoSePudo\b/);
 });
