@@ -289,7 +289,7 @@ export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
 	},
 	{
 		// «La palabra clave gigante» (lib/video-recetas.ts, 12/11/2026): subtítulos chicos en una letra con serifa blanca, y
-		// la palabra que pesa de cada frase en la MISMA letra y color, al tope del editor (160 %). La receta la aplica sola.
+		// la palabra que pesa de cada frase en la MISMA letra y color, 3 veces más grande (el tope). La receta la aplica sola.
 		id: "palabra-gigante",
 		nombre: "Palabra gigante",
 		fuente: "Playfair Display",
@@ -297,7 +297,7 @@ export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
 		color: "#ffffff",
 		escala: 0.85,
 		sombra: true,
-		clavesTamano: 160,
+		clavesTamano: 300,
 		clavesColor: "#ffffff",
 	},
 ];

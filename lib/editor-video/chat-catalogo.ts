@@ -200,7 +200,7 @@ export type OperacionChat =
       modo: 'auto' | 'estas' | 'sumar' | 'quitar' | 'ninguna';
       palabras?: string[];
       color?: string;
-      /** El tamaño de las claves en % (100 = igual; hasta 160): «más grandes», como las de Hormozi. */
+      /** El tamaño de las claves en % (100 = igual; hasta 300): «más grandes», como las de Hormozi; «gigantes», 250 a 300. */
       tamano?: number;
       /** Un subtítulo solo (su ref); sin esto, todos. */
       ref?: string;
@@ -522,7 +522,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'palabras_clave',
     forma: '{"op":"palabras_clave","modo":"auto"}',
-    para: 'Pinta de otro "color" (#RRGGBB, opcional; si no, el de ahora) la palabra que pesa de cada subtítulo, en TODOS: "modo":"auto" la elige sola (números, montos, palabras de venta, nombres propios y las de la marca); "estas" resalta SÓLO las "palabras" que nombra la persona, cada vez que se dicen; "sumar" las agrega a las que ya hay y "quitar" las saca, sin tocar las demás (para marcar o desmarcar una a mano); "ninguna" las saca todas. Con "ref" (un subtítulo) cambia sólo ése. "tamano" (100 a 160, en %) las agranda («más grandes», como las de Hormozi). Las de ahora van en "palabras_clave" de cada subtítulo. No necesita tiempos por palabra.',
+    para: 'Pinta de otro "color" (#RRGGBB, opcional; si no, el de ahora) la palabra que pesa de cada subtítulo, en TODOS: "modo":"auto" la elige sola (números, montos, palabras de venta, nombres propios y las de la marca); "estas" resalta SÓLO las "palabras" que nombra la persona, cada vez que se dicen; "sumar" las agrega a las que ya hay y "quitar" las saca, sin tocar las demás (para marcar o desmarcar una a mano); "ninguna" las saca todas. Con "ref" (un subtítulo) cambia sólo ése. "tamano" (100 a 300, en %) las agranda («más grandes», como las de Hormozi; 300, gigantes). Las de ahora van en "palabras_clave" de cada subtítulo. No necesita tiempos por palabra.',
   },
   {
     op: 'animar_palabras',
@@ -1198,7 +1198,7 @@ export function validarOperacion(crudo: unknown): Validada {
       let tamano: number | undefined;
       if (raw.tamano !== undefined) {
         const t = numero(raw.tamano);
-        if (!enRango(t, 100, 160)) return { ok: false, motivo: 'unas palabras clave con «tamano» fuera de 100 a 160' };
+        if (!enRango(t, 100, 300)) return { ok: false, motivo: 'unas palabras clave con «tamano» fuera de 100 a 300' };
         tamano = Math.round(t);
       }
       let ref: string | undefined;

@@ -467,7 +467,8 @@ export function dibujarTextoCe({
 			indice: i,
 			texto,
 			completa: texto === medido.lines[i],
-			y: i * medido.lineHeightPx - medido.block.visualCenterOffset,
+			// Con una clave gigante, cada renglón en su centro (./measure-element.ts → ysDeRenglon); si no, el de siempre.
+			y: medido.ysDeRenglon?.[i] ?? i * medido.lineHeightPx - medido.block.visualCenterOffset,
 			metrica: medido.lineMetrics[i],
 		});
 	});

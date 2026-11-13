@@ -2782,6 +2782,10 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
   - **También lo que dice que VE** (12/11/2026): el prompt de la réplica de carruseles traía «por ejemplo «pantalla dividida: dos
     cuadros apilados»», y ante un anuncio que era una tarjeta de tuit blanca la IA «leyó» exactamente eso. En un prompt que mira
     imágenes no van ejemplos de composición: se pide describir lo que hay ([docs/hallazgos-carruseles.md](docs/hallazgos-carruseles.md)).
+  - **Y DÓNDE lo ve** (13/11/2026): las coordenadas que da una IA que mira una imagen sirven para ubicar más o menos, nunca para
+    borrar o medir (35 a 290 px corridas en la réplica de @lifeofarjav), y numerar cosas sobre la imagen no la arregla (inventa su
+    propia cuenta). Lo que hay que medir se detecta en los píxeles y a la IA se le pide lo que hace bien: leer, decir el orden y
+    escribir (lib/carruseles/plancha-local.ts).
 - **«No puedo» casi nunca es que no puede: es que el turno llegó sin la herramienta.** Antes de
   culpar a la integración, armá el turno con la frase real (`clasificarIntencion` +
   `herramientasDelTurno`) y mirá qué viajó.

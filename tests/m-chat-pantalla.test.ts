@@ -135,3 +135,20 @@ test('7. cada chat con MaKo muestra lo último que se dijo, lo tuyo con «Tú:»
   assert.match(sinComentarios(leer('lib/mako-turno-app.ts')), /const ultimos = await ultimosDeSesiones\(ss\.map\(\(s\) => s\.id\)\)\.catch\(/, 'la lista lee lo último, y si falla sale igual');
   assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /: f\.previa \?\? undefined\}/, 'la fila del teléfono la muestra');
 });
+
+// El chat con un lead del teléfono, como WhatsApp y con lo que escritorio ya tenía (13/11/2026). Probado rompiéndolo: sin la nota de voz → 7/1 ·
+// sin el clip → 7/1 · sin `.m-wa` → 7/1.
+test('8. el chat con un lead: la caja de WhatsApp, adjuntar por WhatsApp y email, y la nota de voz por WhatsApp', () => {
+  const c = sinComentarios(leer('app/m/chats/[clave]/ComposerChatsM.tsx'));
+  assert.match(c, /<CajaChat\s+sinAdjuntos\b/, 'la caja única; lo adjuntado a un lead viaja como archivo, nunca leído como texto');
+  assert.match(c, /adjuntos=\{adjuntosCaja\}/, 'el clip');
+  assert.match(c, /const puedeAdjuntar = \(esWa \|\| esEmail\) && !motivo && enLinea;/, 'Instagram y Messenger, sólo texto (como escritorio)');
+  assert.match(c, /voz=\{esWa && !motivo \? \{ onAudio: \(blob\) => enviarAudio\(blob\)/, 'la nota de voz, sólo por WhatsApp');
+  assert.match(c, /formArchivoWhatsApp\(i, blob, nombre, \{ leadId, caption, tipo \}\)/, 'el multipart de escritorio, con la línea de la identidad');
+  assert.match(c, /enviarEnOrden\(items, cap,/, 'en orden, el texto como pie del primero');
+  assert.match(c, /<VistaAdjuntosM\s/, 'la vista previa a pantalla completa');
+  assert.match(c, /className="m-chats-composer m-wa"/, 'con la cara de WhatsApp');
+  assert.match(c, /fila="m-operaciones-caja__fila"/);
+  const css = leer('app/m/chats/chats.css');
+  assert.match(css, /\.m-chats-burbuja--mia \{ align-self: flex-end; margin-right: 8px; background: var\(--good-bg\);/, 'lo tuyo, el globo verde');
+});

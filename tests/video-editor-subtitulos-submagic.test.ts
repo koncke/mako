@@ -157,7 +157,7 @@ test('4: un preset guarda la animación y el tamaño de las claves, saneados; la
   assert.match(resumenPreset(ok.valor), /la palabra que se dice salta · palabras clave al 130 %/);
   const malo = (e: Record<string, unknown>) => sanearPreset(preset(e), { id: 'pabc12', ahora: AHORA });
   assert.equal(malo({ animPalabra: 'girar' }).ok, false, 'una animación que no existe se rechaza');
-  assert.equal(malo({ clavesTamano: 300 }).ok, false, 'fuera de 100 a 160 se rechaza, no se recorta');
+  assert.equal(malo({ clavesTamano: 301 }).ok, false, 'fuera de 100 a 300 se rechaza, no se recorta');
   const s = (x: ReturnType<typeof sanearPreset>) => (x.ok ? x.valor : null) as PresetSubtitulos | null;
   assert.equal(s(malo({ animPalabra: 'ninguna' }))!.estilo.animPalabra, undefined, '«ninguna» no se guarda');
   assert.equal(s(malo({ clavesTamano: 100 }))!.estilo.clavesTamano, undefined, '100 es el de siempre: no se guarda');
@@ -303,7 +303,9 @@ test('6: la forma de las operaciones nuevas', () => {
   assert.equal(v({ op: 'palabras_clave', modo: 'quitar', palabras: ['gratis'] }).ok, true);
   assert.equal(v({ op: 'palabras_clave', modo: 'sumar' }).ok, false, '«sumar» sin palabras');
   assert.equal(v({ op: 'palabras_clave', modo: 'auto', tamano: 130 }).ok, true);
-  assert.equal(v({ op: 'palabras_clave', modo: 'auto', tamano: 200 }).ok, false);
+  // El tope pasó de 160 a 300 el 13/11/2026 (la palabra clave gigante: tests/video-editor-clave-gigante.test.ts).
+  assert.equal(v({ op: 'palabras_clave', modo: 'auto', tamano: 300 }).ok, true);
+  assert.equal(v({ op: 'palabras_clave', modo: 'auto', tamano: 301 }).ok, false);
   const cat = catalogoParaPrompt();
   assert.ok(cat.includes('"op":"emojis_subtitulos"') && cat.includes('"op":"animar_palabras"'));
   assert.match(NO_SE_PUEDE_CHAT, /emojis encima de los subtítulos, sí: emojis_subtitulos/);

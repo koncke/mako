@@ -17614,7 +17614,7 @@ curl -L \
 
 ### `POST /api/v1/video/proyectos/{proyecto}/propuestas/palabras-clave` — Resaltar las palabras clave
 
-PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Pinta de otro "color" (#RRGGBB, opcional; si no, el de ahora) la palabra que pesa de cada subtítulo, en TODOS: "modo":"auto" la elige sola (números, montos, palabras de venta, nombres propios y las de la marca); "estas" resalta SÓLO las "palabras" que nombra la persona, cada vez que se dicen; "sumar" las agrega a las que ya hay y "quitar" las saca, sin tocar las demás (para marcar o desmarcar una a mano); "ninguna" las saca todas. Con "ref" (un subtítulo) cambia sólo ése. "tamano" (100 a 160, en %) las agranda («más grandes», como las de Hormozi). Las de ahora van en "palabras_clave" de cada subtítulo. No necesita tiempos por palabra.
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Pinta de otro "color" (#RRGGBB, opcional; si no, el de ahora) la palabra que pesa de cada subtítulo, en TODOS: "modo":"auto" la elige sola (números, montos, palabras de venta, nombres propios y las de la marca); "estas" resalta SÓLO las "palabras" que nombra la persona, cada vez que se dicen; "sumar" las agrega a las que ya hay y "quitar" las saca, sin tocar las demás (para marcar o desmarcar una a mano); "ninguna" las saca todas. Con "ref" (un subtítulo) cambia sólo ése. "tamano" (100 a 300, en %) las agranda («más grandes», como las de Hormozi; 300, gigantes). Las de ahora van en "palabras_clave" de cada subtítulo. No necesita tiempos por palabra.
 
 - **Ruta por operación:** `POST /api/v1/video/resaltar_claves_subtitulos`
 - **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
@@ -17632,7 +17632,7 @@ PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el na
 | `modo` | string (auto \\| estas \\| sumar \\| quitar \\| ninguna) | sí | «auto» las elige solas; «estas», sólo las de «palabras»; «sumar» y «quitar» marcan o desmarcan las de «palabras» sin tocar las demás; «ninguna» las saca. |
 | `palabras` | string[] | no | Con «estas», «sumar» o «quitar»: una palabra por elemento, como se dice en los subtítulos. |
 | `color` | string | no | Un color #RRGGBB. |
-| `tamano` | number | no | Opcional: el tamaño de las palabras clave en % (100 = igual, hasta 160). |
+| `tamano` | number | no | Opcional: el tamaño de las palabras clave en % (100 = igual, hasta 300). |
 | `ref` | string | no | Opcional: la ref de UN subtítulo (de ver_proyecto_video); sin ella, todos. |
 
 ```bash
