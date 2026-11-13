@@ -80,7 +80,8 @@ test('3. el botón «Ticketera» arriba, con su número, y su panel; en el telé
   assert.match(sb, /: !centro && ticketera \? \(\n\s*<TicketeraDelCliente mis=\{misTickets\}/);
   assert.match(sb, /const misTickets = useMisTickets\(!ops\);/, 'sólo para el cliente');
   assert.match(sinComentarios(leer('app/second-brain/TicketeraDelCliente.tsx')), /<ChatSoporte tickets=\{mis\.tickets\} onVolver=\{onVolver\} \/>/, 'el chat de Soporte (el mismo de /tickets)');
-  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<FilaM navegacion titulo="Ticketera" icono="soporte" href="\/m\/tickets"/);
+  // Un chip arriba de los chats desde el 13/11/2026 (el prototipo aprobado), con los que esperan su respuesta.
+  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /<Link className="m-ops-chip" href="\/m\/tickets">Ticketera\{misTickets\.esperanTuRespuesta > 0 && <span className="m-ops-chip__n">/);
 });
 
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 3/0):
