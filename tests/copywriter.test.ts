@@ -478,6 +478,12 @@ test('el nombre de la sección repetido como título adentro, y las negritas en 
   assert.equal(b.ops[0]?.op === 'escribir_seccion' && b.ops[0].seccion, 'TEXTO PRINCIPAL');
   const r = aplicarTodo(doc, b.ops);
   assert.deepEqual((r.doc.content ?? []).filter((x) => x.type === 'heading').map((x) => x.attrs?.seccion ?? null), ['TEXTO PRINCIPAL', 'TITULO', 'BOTON', 'LINK'], 'sin títulos de más');
+  // El email copió el formato con que ve el guion: «SECCIÓN ASUNTO» en lugar del título de ASUNTO.
+  const correo = docDeEstructura(['ASUNTO', 'CUERPO']);
+  const asunto = String((correo.content ?? []).find((x) => x.attrs?.seccion === 'ASUNTO')?.attrs?.bid);
+  const c = sanearOperaciones([{ op: 'reemplazar_bloque', bid: asunto, bloques: [{ tipo: 'titulo2', texto: 'SECCIÓN ASUNTO' }, { tipo: 'texto', texto: 'Cierro el viernes' }] }], correo, cat);
+  assert.equal(c.ops[0]?.op === 'escribir_seccion' && c.ops[0].seccion, 'ASUNTO');
+  assert.equal(c.ops[0]?.op === 'escribir_seccion' && c.ops[0].bloques.length, 1);
   // «**Antes:**» con los asteriscos a la vista: es negrita.
   const p = bloqueAJson({ tipo: 'texto', texto: '**Antes:** Me escribían por WhatsApp.' });
   assert.deepEqual(p.content?.map((n) => [n.text, n.marks?.[0]?.type ?? null]), [['Antes:', 'bold'], [' Me escribían por WhatsApp.', null]]);

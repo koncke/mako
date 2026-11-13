@@ -162,7 +162,7 @@ const sinTildes = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '
 export function etiquetaDeSeccion(o: Record<string, unknown>, doc: JsonNodo): string {
   const crudo = [o.seccion, o.section, o.etiqueta].find((v): v is string => typeof v === 'string' && !!v.trim()) ?? '';
   const delDoc = (doc.content ?? []).filter((b) => b.type === NODOS.titulo && esEtiqueta(b.attrs?.seccion)).map((b) => ({ etiqueta: b.attrs!.seccion as string, bid: b.attrs?.bid }));
-  const limpio = crudo.toUpperCase().replace(/\[[^\]]*\]/g, ' ').replace(/#+/g, ' ').replace(/^\s*SECCI[OÓ]N\b/, ' ').split(/[:(]/)[0].replace(/\s+/g, ' ').trim();
+  const limpio = limpiarEtiqueta(crudo);
   const igual = delDoc.find((d) => sinTildes(d.etiqueta) === sinTildes(limpio));
   if (igual) return igual.etiqueta;
   // Una o dos palabras válidas son una sección (nueva, si el documento no la tiene: «CTA MEDIO» no es «CTA»).
@@ -181,9 +181,17 @@ function etiquetaDelTitulo(doc: JsonNodo, bid: string): string | null {
 }
 const esTituloDeSeccion = (doc: JsonNodo, bid: string): boolean => etiquetaDelTitulo(doc, bid) != null;
 
-/** Los bloques sin los títulos del principio que repiten el nombre de la sección («BOTÓN» en la sección BOTON). */
+/** Un nombre de sección como lo escribe el modelo, sin el «[id]», los «#», el «SECCIÓN» del principio ni lo que sigue a «:» o «(». */
+function limpiarEtiqueta(crudo: string): string {
+  return crudo.toUpperCase().replace(/\[[^\]]*\]/g, ' ').replace(/[#*]+/g, ' ').replace(/^\s*SECCI[OÓ]N\b/, ' ').split(/[:(]/)[0].replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Los bloques sin los títulos del principio que repiten el nombre de la sección («BOTÓN» en la sección BOTON, y «SECCIÓN ASUNTO»
+ * en ASUNTO: 13/11/2026, en producción, el email copió el formato con que ve el guion, «## SECCIÓN ASUNTO: Asunto»).
+ */
 function sinTituloRepetido<T extends BloqueIA>(bloques: readonly T[], etiqueta: string): T[] {
-  const igual = (t: string) => sinTildes(t.replace(/[:#*]/g, '').trim().toUpperCase()) === sinTildes(etiqueta);
+  const igual = (t: string) => sinTildes(limpiarEtiqueta(t)) === sinTildes(etiqueta);
   let i = 0;
   while (i < bloques.length && /^titulo[123]$/.test(bloques[i].tipo) && igual(String((bloques[i] as { texto?: string }).texto ?? ''))) i++;
   return bloques.slice(i);
