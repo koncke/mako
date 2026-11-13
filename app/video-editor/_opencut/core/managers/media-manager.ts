@@ -79,6 +79,41 @@ export class MediaManager {
 		}
 	}
 
+	/**
+	 * Vuelve a enlazar un medio que FALTA en este navegador (media/archivos-faltantes.ts) con el archivo que la persona
+	 * eligió de nuevo: se guarda con el MISMO id, así los clips que lo usan lo vuelven a encontrar tal cual estaban
+	 * (recorte, velocidad, efectos), sin tocar la línea ni el historial. Entrada para la pantalla: media/reenlazar.ts.
+	 * No sube los cuadros por segundo del proyecto: el medio ya era suyo.
+	 */
+	async reenlazarMedio({
+		projectId,
+		id,
+		asset,
+	}: {
+		projectId: string;
+		id: string;
+		asset: Omit<MediaAsset, "id">;
+	}): Promise<MediaAsset | null> {
+		const nuevo: MediaAsset = { ...asset, id };
+		try {
+			await storageService.saveMediaAsset({ projectId, mediaAsset: nuevo });
+		} catch (error) {
+			console.error("[reenlazar] no se pudo guardar el archivo:", error);
+			if (storageService.isQuotaExceededError({ error })) {
+				toast.error("No hay suficiente espacio de almacenamiento");
+			}
+			return null;
+		}
+		const viejo = this.assets.find((a) => a.id === id);
+		if (viejo?.url) URL.revokeObjectURL(viejo.url);
+		this.assets = viejo ? this.assets.map((a) => (a.id === id ? nuevo : a)) : [...this.assets, nuevo];
+		// Por las dudas: que ningún decodificador quede abierto con lo de antes bajo esta clave.
+		for (const clave of clavesDelOriginal(id)) videoCache.clearVideo({ mediaId: clave });
+		this.notify();
+		if (convieneCopia(nuevo)) this.encolarCopia({ projectId, id });
+		return nuevo;
+	}
+
 	removeMediaAsset({ projectId, id }: { projectId: string; id: string }): void {
 		this.removeMediaAssets({ projectId, ids: [id] });
 	}

@@ -31,6 +31,7 @@ import { TEXTO_FASE, usePreferenciasBroll, useTrabajoBroll } from "../estado";
 import { brollDe, brollsDejados, pendientesDe, PARAM_AUTOR, PARAM_BUSQUEDA, PARAM_MOTIVO, type MedioBroll, type Pendiente } from "../pistas";
 import { proponerBroll } from "../proponer";
 import { cambiarBroll } from "../cambiar";
+import { textoSinPexels } from "../resultado";
 
 const OPCIONES_RITMO: Array<{ id: Ritmo; etiqueta: string }> = [
 	{ id: "poco", etiqueta: "Pocas imágenes" },
@@ -124,7 +125,7 @@ function FilaPropuesta({ p, url, ocupado, dejado = false }: { p: Pendiente; url:
 export function BrollView() {
 	const editor = useEditor();
 	const prefs = usePreferenciasBroll();
-	const { fase, progreso, mensaje, error, faltaPexels, cambiando } = useTrabajoBroll();
+	const { fase, progreso, mensaje, error, faltaPexels, propios, cambiando } = useTrabajoBroll();
 	const tracks = useEditor((e) => e.scenes.getActiveSceneOrNull()?.tracks ?? null);
 	const assets = useEditor((e) => e.media.getAssets());
 	const hayLinea = useEditor((e) => e.timeline.getTotalDuration() > 0);
@@ -234,13 +235,17 @@ export function BrollView() {
 						</Button>
 					)}
 					{!trabajando && faltaPexels && (
-						<BotonIntegracion
-							servicio="pexels"
-							className="w-full cursor-pointer rounded-md border border-(--cc-line-2) px-3 py-1.5 text-[12px] text-(--cc-text)"
-							onConectado={proponer}
-						>
-							Conectar Pexels para las imágenes
-						</BotonIntegracion>
+						<>
+							{/* Sin Pexels: qué falta, cómo se consigue la clave y qué hizo MaKo mientras tanto (12/11/2026). */}
+							<p className="text-[12px] text-(--cc-text-2)">{textoSinPexels(propios)}</p>
+							<BotonIntegracion
+								servicio="pexels"
+								className="w-full cursor-pointer rounded-md border border-(--cc-line-2) px-3 py-1.5 text-[12px] text-(--cc-text)"
+								onConectado={proponer}
+							>
+								Conectar Pexels
+							</BotonIntegracion>
+						</>
 					)}
 					{!trabajando && mensaje && !error && (
 						<p className="text-[11px] text-(--cc-text-3)" role="status">

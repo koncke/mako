@@ -28,8 +28,13 @@ interface PageSlotProps {
   registerArtboard: (id: string, el: HTMLDivElement | null) => void
 }
 
-/** El encabezado nunca es más angosto de lo que piden el título y los íconos, por chica que sea la página. */
-const HEADER_MIN_WIDTH = 372
+/**
+ * El encabezado nunca es más angosto de lo que piden el título y los íconos, por chica que sea la página. 260 y no 372 (12/11/2026):
+ * los 372 pagaban también el tamaño («1080 × 1350 px»), que debajo de 440 px ya se esconde (PageSlot.module.css; la regla no ganaba
+ * hasta ese día). En un teléfono la página mide 279 px en 375, y con 372 el encabezado sobresalía 46 px de cada lado: el último
+ * ícono quedaba fuera de la pantalla. Medido en producción: con 260, de 64 a 343 px, todos los íconos adentro.
+ */
+const HEADER_MIN_WIDTH = 260
 /** El título de una página, como el resto de los nombres del editor. */
 const TITLE_MAX = 60
 

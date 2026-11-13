@@ -58,13 +58,16 @@ export function EditorHeader() {
 	const simple = useModoSimple();
 
 	return (
-		<header className="grid h-[43px] shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 bg-(--cc-app) px-[10px]">
+		// La columna de la derecha no baja de lo que mide (`minmax(min-content,1fr)`, todo en una línea): con `1fr` y su
+		// `min-w-0`, la pastilla de la Edición automática la desbordaba hacia la izquierda y tapaba el nombre (12/11/2026,
+		// enjambre/pastilla.ts). Ahora el que cede es el nombre (elipsis) y la izquierda («Guardado automático» se corta).
+		<header className="grid h-[43px] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(min-content,1fr)] items-center gap-3 bg-(--cc-app) px-[10px]">
 			<div className="flex min-w-0 items-center gap-3">
 				<MenuApp onRenombrar={() => setRenombrando(true)} onAtajos={() => setAtajos(true)} />
 				<GuardadoAutomatico />
 			</div>
 			<NombreProyecto editando={renombrando} onEditando={setRenombrando} />
-			<div className="flex min-w-0 items-center justify-end gap-1.5">
+			<div className="flex min-w-0 items-center justify-end gap-1.5 whitespace-nowrap">
 				{/* Mientras trabaja la «Edición automática»: los agentes en vivo (enjambre/components/en-vivo.tsx). */}
 				<EnVivo />
 				<BotonHerramientas />

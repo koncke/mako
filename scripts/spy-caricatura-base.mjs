@@ -12,7 +12,7 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { CLAVE_CARICATURAS } from '../lib/spy-caricatura-reglas.ts';
 import { referenteDeCompetidor } from '../lib/spy-caricatura.ts';
-import { BUCKET_MINIATURAS } from '../lib/spy-miniaturas.ts';
+import { BUCKET_MINIATURAS, rutaDeMiniatura, tipoDeImagen } from '../lib/spy-miniaturas.ts';
 import { leerTodo } from '../lib/supabase-paginado.ts';
 
 export function depsDeLaBase() {
@@ -59,6 +59,15 @@ export function depsDeLaBase() {
         if (!r.ok) return null;
         return createHash('sha256').update(new Uint8Array(await r.arrayBuffer())).digest('hex');
       } catch { return null; }
+    },
+    /** La marca de «sin persona» por cuenta: una copia de su foto en spy/sin-persona/ (el bucket sólo acepta imágenes). */
+    async guardarMarca(refs, foto) {
+      const r = await fetch(foto, { signal: AbortSignal.timeout(15_000) });
+      if (!r.ok) throw new Error(`no pude bajar su foto (${r.status})`);
+      const bytes = new Uint8Array(await r.arrayBuffer());
+      const tipo = tipoDeImagen(bytes);
+      if (!tipo) throw new Error('su foto no es una imagen');
+      for (const ref of refs) await this.subir(rutaDeMiniatura('sin-persona', ref, tipo.ext), bytes, tipo.mime);
     },
     async subir(ruta, bytes, mime) {
       const { error } = await sb.storage.from(BUCKET_MINIATURAS).upload(ruta, bytes, { contentType: mime, upsert: true, cacheControl: '31536000' });

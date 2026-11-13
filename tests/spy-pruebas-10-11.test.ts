@@ -178,11 +178,12 @@ test('10. lo chico de YouTube va con la miniatura chica de YouTube (4,7 KB contr
   }
 });
 
-test('11. el nombre de una tarjeta va en dos renglones, como fitlo («clamp 2»)', () => {
-  const app = leer('app/competitor-spy/SpyApp.tsx');
-  // Desde el 11/11 el nombre además va en su propia fila, de lado a lado (tests/mirada-prod-11-11.test.ts, caso 5).
-  assert.match(app, /\.spy-pcard__texto b\{[^}]*display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;/);
-  assert.doesNotMatch(app, /\.spy-pcard__texto b\{[^}]*white-space:nowrap/, 'en un renglón, «52 Minutes of…»');
+test('11. el nombre de una tarjeta va en dos renglones («clamp 2»), con el gancho de los outliers de Create (12/11)', () => {
+  const t = leer('app/competitor-spy/TarjetaPieza.tsx');
+  assert.match(t, /className=\{s\.gancho\}/, 'el nombre usa el gancho de Create');
+  const gancho = leer('app/image-editor/carruseles/explorar.module.css').match(/\.gancho \{[^}]*\}/)?.[0] ?? '';
+  assert.match(gancho, /-webkit-line-clamp: 2;/);
+  assert.doesNotMatch(gancho, /white-space: nowrap/, 'en un renglón, «52 Minutes of…»');
 });
 
 test('12. el detalle no muestra una cifra sin número («Falta un trámite con YouTube» cortado en 96 px)', () => {

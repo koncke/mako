@@ -14,11 +14,11 @@
 // «Vendé un equipo, no un software»), y dice sólo lo que los tres planes traen. Antes: «Elige cómo quieres crecer con MaKo».
 // =============================================================================
 
-import type { ReactNode } from 'react';
+import type { CSSProperties } from 'react';
 import Link from 'next/link';
-import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
-import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from '@/lib/planes-mako';
-import { celdaDeCapa, filasDeComparacion, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
+import { bajadaDePlanes, botonDelPlan } from '@/lib/compra-plan-reglas';
+import { NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, type PlanMako } from '@/lib/planes-mako';
+import { celdaDeCapa, filasDeComparacion, type Celda } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
 import { CSS_TARJETAS, TEXTO_PAGOS, TarjetasPlanes, type PlanEnTarjeta } from './Tarjetas';
 import { TOPES_PRUEBA } from '@/lib/topes-plan';
@@ -29,9 +29,6 @@ export const CSS_VITRINA = `
 .planes-cabeza h1 { margin: 10px 0 10px; font-size: 40px; line-height: 1.12; letter-spacing: -.03em; font-weight: 800; }
 .planes-cabeza .planes-sub { margin: 0 auto; max-width: 600px; font-size: 17px; }
 .planes-alta { margin: 12px 0 0; color: #5B6472; font-size: 14px; }
-.planes-tabla tr.planes-grupo th { text-align: left; background: #F8F9FB; color: #5B6472; font-size: 12px; font-weight: 700; letter-spacing: .07em;
-  text-transform: uppercase; padding-top: 16px; }
-.planes-tabla thead th.programa { color: #101319; }
 .planes-faq { max-width: 760px; margin: 48px auto 0; display: grid; gap: 10px; }
 .planes-faq h2 { margin: 0 0 8px; font-size: 22px; text-align: center; }
 .planes-faq details { background: #fff; border: 1px solid #EAECF1; border-radius: 14px; padding: 0 18px; }
@@ -40,17 +37,8 @@ export const CSS_VITRINA = `
 .planes-faq summary::after { content: "+"; color: #2F6FED; font-weight: 800; font-size: 20px; line-height: 1; }
 .planes-faq details[open] summary::after { content: "−"; }
 .planes-faq details p { margin: 0 0 16px; color: #4A5260; }
-/* En el teléfono, cada fila con su nombre arriba a todo el ancho y los tres valores abajo (las páginas de precios en móvil):
-   en una columna del 40% el nombre se partía en cinco renglones. */
 @media (max-width: 600px) {
   .planes-cabeza h1 { font-size: 30px; }
-  .planes-tabla, .planes-tabla thead, .planes-tabla tbody { display: block; }
-  .planes-tabla tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .planes-tabla thead th:first-child { display: none; }
-  .planes-tabla tr.planes-grupo { display: block; }
-  .planes-tabla tr.planes-grupo th { display: block; padding: 14px 12px 8px; }
-  .planes-tabla th[scope=row] { grid-column: 1 / -1; width: auto; padding: 12px 12px 2px; border-bottom: 0; font-weight: 600; }
-  .planes-tabla td { padding: 6px 4px 12px; }
 }
 `;
 
@@ -88,7 +76,7 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
         </header>
         <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} />
 
-        <CompararPlanes planes={planes} />
+        <CompararPlanes planes={planes} sufijo={sufijo} />
 
         <section className="planes-faq" aria-labelledby="planes-faq-titulo">
           <h2 id="planes-faq-titulo">Preguntas frecuentes</h2>
@@ -123,9 +111,10 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
           {PRUEBA_GRATIS_PRENDIDA && <details>
             <summary>¿Cómo es la prueba gratis?</summary>
             <p>
-              Tienes {PRUEBA_DIAS} días gratis con el plan que elijas. Pones tu tarjeta al empezar y no se te cobra nada hasta el
-              día {PRUEBA_DIAS + 1}. Si te das de baja antes, desde «Tu plan», no se te cobra nada. Después del primer cobro, lo
-              pagado no se devuelve. <Link href="/reembolsos">Las condiciones</Link>.
+              {NOMBRE_PLAN_CON_PRUEBA} empieza con {PRUEBA_DIAS} días gratis. Pones tu tarjeta al empezar y no se te cobra nada
+              hasta el día {PRUEBA_DIAS + 1}. Si te das de baja antes, desde «Tu plan», no se te cobra nada. Después del primer
+              cobro, lo pagado no se devuelve. MaKo Esencial no tiene prueba: se paga al empezar.{' '}
+              <Link href="/reembolsos">Las condiciones</Link>.
             </p>
             <p>
               En la prueba, lo que se crea con IA tiene tope: hasta {TOPES_PRUEBA['prueba.videos']} videos armados,{' '}
@@ -159,44 +148,48 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
  * /planes y en la landing de venta (29/10/2026, Martín: «en la landing no está la comparativa, la tabla»). En el teléfono,
  * cada fila con su nombre arriba y los tres valores abajo (`CSS_VITRINA`): no se corta ninguna columna.
  */
-export function CompararPlanes({ planes }: { planes: readonly Pick<PlanEnTarjeta, 'id' | 'nombre' | 'capa' | 'destacado'>[] }) {
+export function CompararPlanes({ planes, sufijo = '' }: { planes: readonly Pick<PlanEnTarjeta, 'id' | 'nombre' | 'capa' | 'destacado' | 'cobrable'>[]; sufijo?: string }) {
   const programa = PROGRAMA_ACELERADOR;
   const filas = filasDeComparacion();
-  const columnas = planes.length + 2;
+  const grupos = [...new Set(filas.map((f) => f.grupo))];
   return (
     <section className="planes-compara" aria-labelledby="planes-compara-titulo">
-      <h2 id="planes-compara-titulo">Compara los planes</h2>
-      <div className="planes-tabla-wrap">
-        <table className="planes-tabla">
-          <thead>
-            <tr>
-              <th scope="col"><span className="planes-oculto">Qué incluye</span></th>
-              {planes.map((p) => <th key={p.id} scope="col" className={p.destacado ? 'destacado' : undefined}><NombreColumna nombre={p.nombre} /></th>)}
-              <th scope="col" className="programa"><NombreColumna nombre={programa.nombre} /></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filas.map((f, i) => (
-              <FilaConGrupo key={f.que} f={f} nuevoGrupo={i === 0 || filas[i - 1].grupo !== f.grupo} columnas={columnas}>
-                <th scope="row">{f.que}</th>
-                {planes.map((p) => <td key={p.id}><CeldaPlan v={celdaDeCapa(f, p.capa)} /></td>)}
-                <td><CeldaPlan v={f.acelerador} /></td>
-              </FilaConGrupo>
-            ))}
-          </tbody>
-        </table>
+      {/* Como el «Compare features» de beehiiv: el título y, arriba de cada columna, el plan con su botón. */}
+      <div className="planes-compara-cab" style={{ '--n': planes.length + 1 } as CSSProperties}>
+        <h2 id="planes-compara-titulo">Compara los planes</h2>
+        {planes.map((p) => {
+          const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable: p.cobrable, sufijo });
+          return (
+            <div key={p.id} className="planes-compara-plan">
+              <b><NombreColumna nombre={p.nombre} /></b>
+              <a className={`planes-compara-btn${p.destacado ? ' azul' : ''}`} href={boton.href}>{p.destacado && planConPrueba(p.id) ? `${PRUEBA_DIAS} días gratis` : 'Empezar'}</a>
+            </div>
+          );
+        })}
+        <div className="planes-compara-plan">
+          <b><NombreColumna nombre={programa.nombre} /></b>
+          <a className="planes-compara-btn" href={`/planes/${programa.id}${sufijo}`}>Quiero el Acelerador</a>
+        </div>
       </div>
+      {grupos.map((g, i) => (
+        // El primero abierto (lo que entra en cada plan); los demás se abren tocándolos. Sin JavaScript: <details>.
+        <details key={g} className="planes-grupo-d" open={i === 0}>
+          <summary>{g}</summary>
+          <table className="planes-tabla">
+            <colgroup><col className="planes-col-que" />{planes.map((p) => <col key={p.id} />)}<col /></colgroup>
+            <tbody>
+              {filas.filter((f) => f.grupo === g).map((f) => (
+                <tr key={f.que}>
+                  <th scope="row">{f.que}</th>
+                  {planes.map((p) => <td key={p.id}><CeldaPlan v={celdaDeCapa(f, p.capa)} /></td>)}
+                  <td><CeldaPlan v={f.acelerador} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      ))}
     </section>
-  );
-}
-
-/** Una fila de la tabla, con el rótulo de su grupo arriba cuando empieza uno nuevo (como el «Compare features» de Kajabi). */
-function FilaConGrupo({ f, nuevoGrupo, columnas, children }: { f: FilaComparacion; nuevoGrupo: boolean; columnas: number; children: ReactNode }) {
-  return (
-    <>
-      {nuevoGrupo && <tr className="planes-grupo"><th scope="colgroup" colSpan={columnas}>{f.grupo}</th></tr>}
-      <tr>{children}</tr>
-    </>
   );
 }
 

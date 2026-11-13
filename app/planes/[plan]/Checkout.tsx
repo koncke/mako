@@ -13,6 +13,7 @@ import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { PRUEBA_DIAS } from '@/lib/planes-mako';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { CSS_PLANES } from '../estilo';
+import { BarraGlobal } from '@/app/vsl/_sitio/Barra';
 
 /** Lo que dice el resumen de la izquierda (Stripe Checkout): sólo datos del plan, nada inventado. */
 export type Resumen = {
@@ -51,6 +52,10 @@ export function resumenDelPlan(p: {
   const totales: NonNullable<Resumen['totales']> = [{ concepto: 'Subtotal', monto: mes }];
   if (p.conPromo && primero < una.monto) totales.push({ concepto: 'Descuento del primer mes', monto: `−${formatoMonto(Math.round((una.monto - primero) * 100) / 100, una.moneda)}`, tipo: 'descuento' });
   totales.push({ concepto: 'Total de hoy', monto: formatoMonto(p.conPrueba ? 0 : primero, una.moneda), tipo: 'total' });
+  // CUÁNDO EMPIEZA EL COBRO, CON SU FECHA (12/11/2026, Martín: «eso tiene que estar con que se indique que, como toda
+  // suscripción, recién va a empezar el cobro a los 7 días»): como el «Total after trial» de Stripe Checkout.
+  const fecha = new Date(Date.now() + PRUEBA_DIAS * 86_400_000).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', timeZone: 'America/Argentina/Buenos_Aires' });
+  if (p.conPrueba) totales.push({ concepto: `Desde el ${fecha}`, monto: `${mes} por mes` });
   return {
     etiqueta: p.conPrueba ? `Empezar ${p.nombre} con ${PRUEBA_DIAS} días gratis` : `Suscribirte a ${p.nombre}`,
     nombre: p.nombre,
@@ -61,7 +66,9 @@ export function resumenDelPlan(p: {
     precioRenglon: mes,
     incluye: p.incluye,
     totales,
-    nota: p.conPrueba ? `El primer cobro es el día ${PRUEBA_DIAS + 1}.` : 'Se cobra cada mes hasta que te des de baja.',
+    nota: p.conPrueba
+      ? `Como toda suscripción, el cobro empieza a los ${PRUEBA_DIAS} días: el primero es el ${fecha}. Si te das de baja antes, no pagas nada.`
+      : 'Se cobra hoy y cada mes, hasta que te des de baja.',
   };
 }
 
@@ -92,7 +99,10 @@ function Detalle({ r }: { r: Resumen }) {
  */
 export function Ficha({ resumen: r, pasarelas = [], children }: { resumen: Resumen; pasarelas?: readonly Pasarela[]; children: ReactNode }) {
   const procesa = [...new Set(pasarelas)].map((x) => NOMBRE_PASARELA[x]);
+  // La barra del sitio también aquí (12/11/2026, Martín: «la top bar jamás debe desaparecer en ningún momento»).
   return (
+    <>
+    <BarraGlobal claro />
     <main className="planes-root ck-root">
       <style dangerouslySetInnerHTML={{ __html: CSS_PLANES }} />
       <div className="ck">
@@ -133,5 +143,6 @@ export function Ficha({ resumen: r, pasarelas = [], children }: { resumen: Resum
         </footer>
       </div>
     </main>
+    </>
   );
 }

@@ -2953,3 +2953,25 @@ otra, quedaron en la carpeta de notas del Cerebro (`pasarela/`).
 
 **Sin hacer:** el recorrido como comprador hasta la página de la pasarela (sin pagar), en producción después del deploy; y la
 compra de prueba con 4242, cuando Martín pegue la clave de prueba de Stripe.
+
+## La prueba gratis, sólo en Pro; los bloques copiados de beehiiv (12/11/2026, claude5)
+
+**Vive en:** `lib/planes-mako.ts` (`PLANES_CON_PRUEBA`, `planConPrueba`), `lib/compra-plan.ts` (`conPrueba`), `app/planes/[plan]/page.tsx`,
+`app/planes/Tarjetas.tsx`, `lib/planes-comparacion.ts`.
+
+- Martín: «como oferta para que vayan a la de 97 y no la de 47, ponerlo 7 días gratis ahí, en la de 97… para acceder a la de 47
+  haya que pagar directamente». `PRUEBA_GRATIS_PRENDIDA` sigue siendo el interruptor de la plataforma; `planConPrueba(id)` dice
+  si ESE plan la trae. Todo lo que decide o dice la prueba de un plan pregunta ahí: el cobro, el checkout y las tarjetas. Los
+  textos generales (`/reembolsos`, `/terminos`, la bajada de /planes, el cierre de las landings, los mensajes de Partners) dicen
+  «MaKo Pro empieza con 7 días gratis» y que Esencial se paga al empezar (`NOMBRE_PLAN_CON_PRUEBA`).
+- **Lo que no se tocó a propósito:** a quien ya está en prueba no le cambia nada (`esPruebaDePlan` mira el cobro); y el 50% del
+  primer mes sigue apagado mientras la prueba esté prendida, también en Esencial.
+- **Lo que no se probó:** una compra real con la tarjeta de prueba en Pro (empieza en 0) y en Esencial (cobra hoy). La hace Martín.
+- **La comparación ahora dice TODO lo que trae MaKo** (sólo lo que anda, de `lib/funciones-mako.ts`), en grupos que se abren
+  como los de beehiiv. Casi todo está en los tres planes: Esencial y Pro ven todas las pantallas (`navKeys: null` en
+  `lib/capas.ts`) menos `TABS_SOLO_PRO`. Trampa: el PDF de Partners armaba la lista de Esencial con TODA la tabla, y al crecer
+  la tabla pasó a 3 hojas (lo frenó `tests/partners-recursos.test.ts`): ahora lleva lo que entra en el plan y el asistente.
+- **Sin crema:** el fondo y las superficies de /planes y del checkout son blancos (estaban en #efefed / #fcfcfb, la paleta de la
+  pasarela del 12/11 de mañana). El checkout dice la FECHA del primer cobro («Desde el 19 de noviembre»), como el «Total after
+  trial» de Stripe Checkout, y lleva la barra del sitio arriba.
+

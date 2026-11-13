@@ -140,6 +140,33 @@ export function bloqueAJson(b: BloqueIA): JsonNodo {
   }
 }
 
+/** Sin tildes, para comparar una etiqueta con las del documento («SOLUCION» es «SOLUCIÓN»). */
+const sinTildes = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '');
+
+/**
+ * La etiqueta de la sección que nombró la IA, leída con tolerancia (12/11/2026, en producción: en la plantilla «Carrusel que se
+ * guarda» MaKo dijo «Adapté el carrusel completo» y las TRES secciones se descartaron por «La sección no tiene una etiqueta
+ * válida»; la página quedó con la tabla de láminas, el CTA y el pie vacíos). El GUION se le muestra como
+ * «[bid] ## SECCIÓN SLIDES: Slides», y un modelo chico copia el renglón, la nombra en inglés («section») o en minúscula con tilde.
+ * Se acepta: la clave `seccion` (o `section` / `etiqueta`), sin el «[id]», los «#», el «SECCIÓN» del principio ni lo que va
+ * después de «:» o «(»; si así no es una etiqueta, la sección del documento que el texto nombra; y si trae el `bid` del título
+ * de una sección, esa. Lo que siga sin ser una sección, se descarta como antes, con su motivo.
+ */
+export function etiquetaDeSeccion(o: Record<string, unknown>, doc: JsonNodo): string {
+  const crudo = [o.seccion, o.section, o.etiqueta].find((v): v is string => typeof v === 'string' && !!v.trim()) ?? '';
+  const delDoc = (doc.content ?? []).filter((b) => b.type === NODOS.titulo && esEtiqueta(b.attrs?.seccion)).map((b) => ({ etiqueta: b.attrs!.seccion as string, bid: b.attrs?.bid }));
+  const limpio = crudo.toUpperCase().replace(/\[[^\]]*\]/g, ' ').replace(/#+/g, ' ').replace(/^\s*SECCI[OÓ]N\b/, ' ').split(/[:(]/)[0].replace(/\s+/g, ' ').trim();
+  const igual = delDoc.find((d) => sinTildes(d.etiqueta) === sinTildes(limpio));
+  if (igual) return igual.etiqueta;
+  // Una o dos palabras válidas son una sección (nueva, si el documento no la tiene: «CTA MEDIO» no es «CTA»).
+  if (esEtiqueta(limpio) && limpio.split(' ').length <= 2) return limpio;
+  const nombrada = delDoc.find((d) => new RegExp(`(^|[^A-Z0-9])${sinTildes(d.etiqueta)}([^A-Z0-9]|$)`).test(sinTildes(crudo.toUpperCase())));
+  if (nombrada) return nombrada.etiqueta;
+  if (esEtiqueta(limpio)) return limpio;
+  const bid = typeof o.bid === 'string' ? o.bid.trim() : '';
+  return delDoc.find((d) => !!bid && d.bid === bid)?.etiqueta ?? '';
+}
+
 /** Los ids de los bloques de primer nivel del documento. */
 export const idsDelDoc = (doc: JsonNodo): Set<string> => new Set((doc.content ?? []).map((b) => b.attrs?.bid).filter((x): x is string => typeof x === 'string'));
 
@@ -164,7 +191,7 @@ export function sanearOperaciones(raw: unknown, doc: JsonNodo, catalogo: { angul
     const bid = typeof o.bid === 'string' ? o.bid.trim() : '';
     switch (op) {
       case 'escribir_seccion': {
-        const seccion = typeof o.seccion === 'string' ? o.seccion.trim().toUpperCase() : '';
+        const seccion = etiquetaDeSeccion(o, doc);
         if (!esEtiqueta(seccion)) { descartadas.push({ op, motivo: 'La sección no tiene una etiqueta válida.' }); continue; }
         if (!bloques.length) { descartadas.push({ op, motivo: `La sección ${seccion} vino sin texto.` }); continue; }
         ops.push({ op, seccion, bloques, bidTitulo: bidNuevo() });

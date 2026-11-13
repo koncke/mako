@@ -54,6 +54,7 @@ export async function POST(req: Request) {
       if (negocio.suIA && !(await Promise.all(PROVS_SU_IA.map((p) => provsDe(p as never)))).some((l) => l.length)) return null;
       // La nota de voz de una caja de chat (24/10/2026, app/_chat/nota-que-se-manda.ts) se anota con su motivo.
       const motivo = form.get('para') === 'chat' ? 'Nota de voz de un chat' : 'Dictar una tarea del plan';
+      // Una nota corta escucha con Groq primero (lib/ai-cheap.ts → `NOTA_CORTA_BYTES`): de 11 a ~105 s medidos con Gemini primero.
       return transcribirAudio(base64, file.type || 'audio/webm', { motivo, pii: true });
     });
     if (texto == null) return Response.json({ ok: false, error: SIN_OIDO_SU_IA }, { status: 200 });

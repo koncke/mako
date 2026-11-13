@@ -65,6 +65,10 @@ export type RespuestasGuiado = {
   pausado?: boolean;
   /** Tocó «Generar»: la pantalla arranca. */
   listo?: boolean;
+  /** Cuántas veces se rehízo desde el armado («Para otra oferta», «Sin mi foto»…): cambia la llave del armado y arranca de nuevo. */
+  vuelta?: number;
+  /** Arrancó solo, con lo de por defecto (12/11/2026): el saludo dice qué hizo, no que va a preguntar. */
+  porDefecto?: boolean;
   /** Lo que ya se dijo, en orden: lo que preguntó MaKo y lo que contestó la persona (el hilo lo dibuja). */
   charla?: readonly { mako: string; yo: string }[];
 };
@@ -288,6 +292,58 @@ export function escribir(h: HechosGuiado, r: RespuestasGuiado, texto: string): R
 /** «Seguir» después de «Ahora no». */
 export const seguir = (r: RespuestasGuiado): RespuestasGuiado => ({ ...r, pausado: false });
 
+// ── Sin preguntar: escribe con lo de por defecto, y se cambia DESPUÉS (12/11/2026) ─────────────────────────────────────
+// Martín, 11/11 (memoria `replicar-deja-todo-escrito`): «Replicar» deja la pieza ENTERA hecha, sin preguntas ni «Aceptar» de
+// por medio; usa lo que haya por defecto (la oferta principal) y deja cambiarlo DESPUÉS, con botones al lado del resultado.
+// Copywriting lo hizo así el 11/11 (702d1baa9). Las preguntas de arriba siguen para «Cambiar algo».
+
+/** Lo de por defecto: la oferta principal (o la primera), su cara de marca (o su último look), sólo los textos, y arranca. */
+export function respuestasPorDefecto(base: Pick<HechosGuiado, 'ofertas' | 'fotos'>): RespuestasGuiado {
+  const oferta = base.ofertas?.length ? ofertasEnOrden(base.ofertas)[0] : null;
+  return {
+    ...(oferta ? { oferta: { id: oferta.id, nombre: oferta.nombre } } : {}),
+    avatar: base.fotos.cara ? 'cara' : base.fotos.look ? 'look' : 'ninguno',
+    cambio: 'textos', listo: true, porDefecto: true, vuelta: 0,
+  };
+}
+
+/** Una opción para rehacer lo armado, al lado de «Abrir el diseño». */
+export type Rehacer = { rotulo: string; valor: string };
+
+/**
+ * Lo que se puede cambiar DESPUÉS de armar, como botones: otra oferta (hasta dos), la foto (sacarla o ponerla, sólo si puede
+ * haber una persona) y los colores de la marca (con kit). Cada uno rehace la pieza entera con ese cambio.
+ */
+export function opcionesParaRehacer(h: HechosGuiado, r: RespuestasGuiado): Rehacer[] {
+  const out: Rehacer[] = [];
+  const actual = r.oferta && 'id' in r.oferta ? r.oferta.id : null;
+  const otras = ofertasEnOrden(h.ofertas ?? []).filter((o) => o.id !== actual).slice(0, 2);
+  const rotulos = rotulosDeOfertas(ofertasEnOrden(h.ofertas ?? []));
+  for (const o of otras) out.push({ rotulo: cortarRotulo(`Para «${rotulos.get(o.id) ?? o.nombre}»`), valor: VALOR.oferta(o.id) });
+  if (preguntaAvatar(h)) {
+    if (r.avatar && r.avatar !== 'ninguno') out.push({ rotulo: 'Sin mi foto', valor: VALOR.avatar('ninguno') });
+    else if (h.fotos.cara) out.push({ rotulo: 'Con mi foto', valor: VALOR.avatar('cara') });
+    else if (h.fotos.look) out.push({ rotulo: 'Con mi último look', valor: VALOR.avatar('look') });
+  }
+  if (h.kit && r.cambio !== 'marca') out.push({ rotulo: 'Con mis colores', valor: VALOR.cambio('marca') });
+  if (r.cambio === 'marca') out.push({ rotulo: 'Con sus colores', valor: VALOR.cambio('textos') });
+  return out;
+}
+
+/** Rehacer con una opción: el cambio, y otra vuelta del armado. Una opción que no se ofrecía no cambia nada. */
+export function rehacerCon(h: HechosGuiado, r: RespuestasGuiado, valor: string): RespuestasGuiado {
+  if (!opcionesParaRehacer(h, r).some((o) => o.valor === valor)) return r;
+  const otra = { ...r, listo: true, vuelta: (r.vuelta ?? 0) + 1 };
+  if (valor.startsWith('oferta:')) {
+    const o = h.ofertas?.find((x) => x.id === Number(valor.slice('oferta:'.length)));
+    return o ? { ...otra, oferta: { id: o.id, nombre: o.nombre } } : r;
+  }
+  if (valor.startsWith('avatar:')) return { ...otra, avatar: valor.slice('avatar:'.length) as AvatarRespuesta };
+  if (valor === VALOR.cambio('marca')) return { ...otra, cambio: 'marca' };
+  if (valor === VALOR.cambio('textos')) return { ...otra, cambio: 'textos' };
+  return r;
+}
+
 // ── Lo que sale ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** El pedido de la réplica: lo que viaja a la ruta (y a la API de MaKo). */
@@ -301,18 +357,22 @@ export type PedidoGuiado = {
   pedido: string | null;
 };
 
-/** Lo que viaja a la ruta, o `null` si todavía falta contestar algo (sin oferta no se genera). */
+/**
+ * Lo que viaja a la ruta, o `null` si todavía falta contestar algo. Por las preguntas, sin oferta no se genera; arrancando solo
+ * (`porDefecto`), sin ofertas cargadas se escribe con lo que se sabe del negocio.
+ */
 export function pedidoDelGuiado(h: HechosGuiado, r: RespuestasGuiado): PedidoGuiado | null {
-  if (!r.oferta) return null;
+  if (!r.oferta && !r.porDefecto) return null;
   const libres = [
     r.cambio && typeof r.cambio === 'object' ? r.cambio.libre : null,
     ...(r.extras ?? []),
   ].filter((x): x is string => !!x && !!x.trim());
   return {
-    ofertaId: 'id' in r.oferta ? r.oferta.id : null,
-    ofertaLibre: 'libre' in r.oferta ? r.oferta.libre : null,
-    // Sin persona medida, el avatar no viaja (no hay dónde ponerlo).
-    avatar: preguntaAvatar(h) ? r.avatar ?? null : null,
+    ofertaId: r.oferta && 'id' in r.oferta ? r.oferta.id : null,
+    ofertaLibre: r.oferta && 'libre' in r.oferta ? r.oferta.libre : null,
+    // Sin persona medida, el avatar no viaja (no hay dónde ponerlo). Arrancando solo, viaja igual: el server la pone sólo donde
+    // la IA ve una persona, y así el pedido no cambia cuando termina la lectura (cambiarlo reiniciaba el armado).
+    avatar: r.porDefecto || preguntaAvatar(h) ? r.avatar ?? null : null,
     cambio: !r.cambio || r.cambio === 'textos' ? 'textos' : r.cambio === 'marca' ? 'marca' : 'libre',
     pedido: libres.length ? libres.join(' · ').slice(0, TOPE_PEDIDO) : null,
   };

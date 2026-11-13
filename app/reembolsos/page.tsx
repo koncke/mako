@@ -20,7 +20,7 @@
 // así), y la razón social va en el HTML del servidor (tests/razon-social-sitio.test.ts).
 
 import { EMAIL_MAKO } from '@/lib/app-url';
-import { DESCUENTO_PRIMER_MES_PCT, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, PROGRAMA_ACELERADOR, HORAS_SEMANA_1 } from '@/lib/planes-mako';
+import { DESCUENTO_PRIMER_MES_PCT, NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, PROGRAMA_ACELERADOR, HORAS_SEMANA_1 } from '@/lib/planes-mako';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { H, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
@@ -65,7 +65,8 @@ export default function Page() {
         )}
         {PRUEBA_GRATIS_PRENDIDA && <>
         <li>
-          <strong>{PRUEBA_DIAS} días gratis.</strong> Al empezar pones tu tarjeta, como en cualquier suscripción, y no se te
+          <strong>{NOMBRE_PLAN_CON_PRUEBA}: {PRUEBA_DIAS} días gratis.</strong> MaKo Esencial no tiene prueba: se paga al empezar.
+          Con {NOMBRE_PLAN_CON_PRUEBA}, al empezar pones tu tarjeta, como en cualquier suscripción, y no se te
           cobra nada durante {PRUEBA_DIAS} días. Si te das de baja antes del día {PRUEBA_DIAS + 1}, desde{' '}
           <strong>Configuración del negocio → Tu plan</strong>, no se te cobra nada. Si no, el día {PRUEBA_DIAS + 1} se cobra
           solo el primer período, y te avisamos por email dos días antes.

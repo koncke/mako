@@ -124,7 +124,9 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
           <span className={oc.red} title={`${rotuloDeFormato(o)} · ${ROTULO_TEXTO[o.deDonde]}`}>
             <IconoRed formato={o.formato} />{o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas}` : INFO_FORMATO[o.formato].label}
           </span>
-          {aire ? <span className={s.aire}>{aire}</span> : null}
+          {/* Con el guion transcripto, se nota (12/11/2026, prueba en producción: 46 de los primeros 48 reels traían sólo su pie, y
+              replicar el pie no copia lo que se DICE en la pieza). */}
+          {o.deDonde === 'guion' ? <span className={oc.conGuion}>Guion</span> : null}
         </span>
         <span className={s.sobreImagen}>
           <button type="button" className={s.editar} onClick={onReplicar} disabled={replicando}>{replicando ? 'Armando…' : 'Replicar'}</button>
@@ -157,6 +159,8 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
           {o.formato === 'reel' || o.formato === 'youtube' ? <span title="Vistas">▶ {contadorCorto(o.vistas)}</span> : null}
           {o.formato !== 'anuncio' ? <span title="Me gusta">♥ {contadorCorto(o.megusta)}</span> : null}
           {o.formato !== 'anuncio' ? <span title="Comentarios">💬 {contadorCorto(o.comentarios)}</span> : null}
+          {/* Los días al aire de un anuncio van acá y no en el marco: a 375 su pastilla bajaba de renglón y tapaba el gancho (banco, 12/11). */}
+          {aire ? <span title="Días al aire">⏱ {aire}</span> : null}
         </div>
         {/* En el celular no hay «pasar el mouse»: «Replicar» queda a la vista, liviano. */}
         <button type="button" className={s.editarLiviano} onClick={onReplicar} disabled={replicando}>{replicando ? 'Armando…' : 'Replicar'}</button>
@@ -250,10 +254,10 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
       <div className={s.col}>
         <header className={s.cabeza}>
           <h1>Encuentra tu siguiente <mark>OUTLIER</mark></h1>
-          {/* En el teléfono, debajo del título como en la computadora (en su fila deslizable): 11/11/2026, en producción a 375, al
-              final de la fila de formatos («Todos · Anuncios · Reels · Carruseles · YouTube») quedaban fuera de la pantalla y
-              «Mis guiones» y «Crear desde cero» no se veían. */}
-          {telefono ? <div className={`${s.filtros} ${oc.filaTelefono}`}>{botones}</div> : botones}
+          {/* En el teléfono, debajo del título como en la computadora (11/11/2026: al final de la fila de formatos no se veían). Y
+              en DOS renglones si no entran, no en una fila que se desliza: el 12/11, a 375, «+ Crear desde cero» quedaba cortado a la
+              derecha (prueba de Copywriting en producción) y el botón de crear es el principal. */}
+          {botones}
           {portada.outliers.length > 0 && (
             <label className={s.busca}>
               <Lupa />

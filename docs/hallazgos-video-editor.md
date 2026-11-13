@@ -6,6 +6,132 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## La tab Video probada entera en producción: lo que quedó roto (12/11/2026)
+
+Prueba pedida por Martín («que no lo dejes a la guía de MaKo… quiero que lo pruebes enteramente»), en el ws 9, con el
+deploy de las 11:05 UTC. La tabla con cada captura está en la carpeta de notas del Cerebro (create-video-tabla-claude5-12-11.md).
+Lo arreglado ese día tiene su entrada propia (el chat sin conversación, la tira del teléfono, el título fuera del cuadro, el
+motor triplicado) y, a la tarde, las de abajo (la receta en un pedido, Pexels, Video › Básico, el teléfono sin archivo y
+«Cuatro detalles»). **Lo que quedó SIN hacer, con dónde vive:**
+
+- **El audio del chat tarda ~3 min** en transcribir una nota de 5 s (`/api/plan-dictado` → `transcribirAudio`, lib/ai-cheap, con
+  `pii`: sin la red de la plataforma). Lo mira el chat «Probar Image» (es la misma ruta).
+- **El botón de enviar del audio queda tapado** (41 de sus 44 px, también a 1440): `.cr-tarjeta` con `overflow: hidden`. Lo
+  arregla el chat «Create» en la caja compartida.
+- **La clave de Pexels** la tiene que sacar Martín (ver «Pexels: no hay clave en NINGÚN lado»).
+- **Exportar a Descargas** no se probó: baja ~180 MB a la PC y espera el OK de Martín.
+
+## Cuatro detalles de esa prueba: la portada negra NO era de Publicar (12/11/2026)
+
+- **La portada negra de «Publicar»: el diagnóstico obvio era el equivocado.** Exportar y Publicar son el MISMO cuerpo
+  (`CuerpoExportar`) y la MISMA `portada()` (`export/exportar.ts`); no hay nada distinto que capturar. Medido en el panel del
+  navegador: en un proyecto sano las dos dan el mismo JPEG (72.927 bytes, en 105–220 ms); en el proyecto de la prueba
+  («1112 (1)») las DOS salían todo negro (4.275 bytes, todo 0), porque su carpeta del OPFS estaba VACÍA: la escena salta el
+  clip y queda el fondo. La captura de Exportar se sacó antes. **Regla:** la portada no da por bueno un cuadro vacío —lo
+  vuelve a probar y después más adelante (`export/portada-reglas.ts`)— y si falta un archivo el diálogo lo dice («Falta «x» en
+  este navegador», con `media/archivos-faltantes.ts`). Exportar NO se bloquea: un video sin su toma sale negro igual.
+- ⚠️ **El OPFS del panel del navegador de la app de Claude estaba vacío en los CINCO proyectos** (12/11, 11:45 UTC), con el
+  IndexedDB entero. El proyecto que estaba abierto seguía andando (lo que ya tenía en memoria); el que se abre de nuevo, negro.
+  Sin causa encontrada todavía: no es la cuota (331 MB de 3 GB, `persisted: false`). Antes de dar por roto algo «negro» en ese
+  panel, mirar `navigator.storage.getDirectory()`.
+- **La pastilla de la Edición automática tapaba el nombre.** La cabecera son tres columnas `1fr auto 1fr` con el nombre al
+  centro; la derecha tenía `min-w-0` y lo suyo no se achica, así que se DESBORDABA hacia la izquierda. A 1440 el editor mide
+  ~1.024 px (el chat de MaKo al lado): la pastilla larga tapaba 158 px del nombre. Y sin pastilla, con el panel angosto, ya
+  lo tapaba. **Regla:** la columna derecha es `minmax(min-content,1fr)` y va en una línea (`whitespace-nowrap`): el que cede es
+  el nombre (elipsis) y «Guardado automático». La pastilla va corta (`enjambre/pastilla.ts`); lo largo, en el `title`.
+- **Un mensaje de Clips mágicos vale para la línea sobre la que se dijo** (`mensajeVigente`, `clips/resultado.ts`): «ya dura
+  como un clip» se va cuando cambia la duración o el proyecto. Y va ARRIBA del botón: el pie está pegado abajo y crece hacia
+  arriba, así el botón no se corre.
+- El reel de Outliers (`app/video-editor/VerReel.tsx`) lleva `CargandoMako` hasta el `onLoad` del iframe.
+
+**Vive en:** `export/{exportar,portada-reglas,dialogo-exportar}` · `components/editor/editor-header.tsx` ·
+`enjambre/{pastilla.ts,components/en-vivo.tsx}` · `clips/{resultado,buscar,estado,components/clips-view}` · test
+`tests/video-editor-detalles-12-11.test.ts`.
+
+## Ticket 91: «La pantalla Video se rompió» era el Router de Next, no el editor (12/11/2026)
+
+**El síntoma:** MaKo lo detectó solo (`errores_app`, huella 84301bc4ac03cb14): React #310 («más hooks que en el render
+anterior») en `/video-editor/:token`, ws 9, 17:36 y 17:37 UTC, después del deploy de las 11:05.
+
+- **El diagnóstico obvio («vino de los cambios del lag: un hook en un `if`») no era.** La traza guardada (`errores_app.ejemplo.stack`)
+  apunta al `Router` de Next (`app-router`, el `useMemo` sobre la URL, en el chunk de Next), no a un componente del editor. Para
+  leerla: bajar el chunk de producción con su `?dpl=` y mirar la columna. Y las DOS veces seguidas son la recarga automática del
+  centinela (`CentinelaArranque`) volviendo a la MISMA URL: algo que pasa SOLO al cargar.
+- **La causa:** `/video-editor/nuevo`, un id que no está en ese navegador, `?plantilla=` y `?desde=` crean el proyecto y cambiaban
+  la URL con `router.replace` apenas cargaban. Es vercel/next.js#63121: una navegación que se resuelve por promesa (la página es
+  `force-dynamic`) deja al Router con otra cuenta de hooks. Arreglado en React (react#36911) y en Next después de la 16.2.11 que usa
+  MaKo. **Regla:** lo que navega SOLO al cargar el editor usa `abrirProyectoCreado` (app/video-editor/ruta.ts: una carga entera
+  del proyecto ya guardado), no `router.replace`; lo fija `tests/video-editor-ticket-91.test.ts`.
+- **Sin hacer:** subir Next a ≥ 16.3 (decisión de todo el repo) y volver a `router.replace`. No se pudo reproducir en el navegador
+  de la app: estaba sin sesión.
+
+## La receta de un reel replicado salía en dos pedidos, y la Edición automática no la seguía (12/11/2026, tarde)
+
+**El síntoma** (ws 9, «Replicar» de «La palabra clave gigante»): «hacé la edición de la referencia con mi toma» ponía la toma
+y los subtítulos, y decía «No se aplica: los subtítulos que se generan en este pedido todavía no existen: pide el preset
+después · no hay un video con sonido en la pista principal». Y la Edición automática del mismo proyecto dejaba las claves en
+lima y del MISMO tamaño que el resto.
+
+- **La causa no era la IA** (pedía todo bien): la revisión (`chat/linea.ts`) mira la línea de tiempo de AHORA, y lo que crea
+  el mismo pedido (los subtítulos que se generan, la toma que se pone) recién existe después del lote. Lo descartaba.
+  **Regla:** lo que depende de algo del mismo pedido va en `Revision.encadenadas`, con su fila «Después de …», y «Aceptar»
+  (`chat/aplicar.ts`) da hasta `VUELTAS_ENCADENADAS` vueltas más contra la línea nueva; «Restaurar» las deshace todas juntas.
+  Lo que no tiene quién lo produzca se sigue descartando con su motivo.
+- **Trampa: una plantilla de subtítulos PISA lo que se hizo en el lote.** `paramsDePlantilla` (subtitles/estilos.ts) escribe
+  SIEMPRE el resaltado, la animación de la palabra y el tamaño de las claves, y un preset de la marca vuelve a elegir las claves
+  (`aplicarPreset`). Como la plantilla es larga (corre después del lote), «estilo + palabras clave al 160 %» en el mismo pedido
+  dejaba las claves en 100 %, desde siempre. Ahora lo que toca eso va encadenado DESPUÉS de la plantilla.
+- **Trampa: `agregar_medios` sin `refs` no dejaba rastro** en la revisión: «generar_subtitulos» de ese mismo pedido decía «no hay
+  video ni audio para subtitular». Ahora un video con sonido puesto en el pedido cuenta (`sonidoNuevoPrincipal`).
+- **La receta, para la máquina:** `lib/video-recetas.ts → editor` (estilo de subtítulos, claves, pausa). La Edición automática la
+  lee del chat del proyecto (`recetaDelHilo`: el mensaje de MaKo que empieza «Armé este proyecto para replicar «…»», que se
+  guarda con el hilo; sirve también para los proyectos replicados antes) y `enjambre/plan.ts → decidirPaso` la usa. El chat la
+  recibe escrita al final de la receta («En el editor de MaKo, todo en un pedido: …»). El estilo nuevo «Palabra gigante»
+  (Playfair Display blanca y chica, claves en blanco al 160 %) está en la galería de Subtítulos.
+- **Trampa del catálogo:** el `para` de cada operación es también lo que elige las herramientas de WhatsApp por relevancia y
+  con presupuesto (`toolsDelRegistro`). Escribir «borrarle los silencios» en `agregar_medios` la metía en cada pedido de
+  silencios y dejaba afuera `listar_proyectos_video` (rojo en tests/video-editor-propuestas-api.test.ts, 9). Un `para` nombra
+  lo suyo, no las palabras de otra operación.
+- **Lo que quedó SIN hacer:** la receta pide la palabra «3 o 4 veces más grande» y el editor llega a 1,6×
+  (`TOPES_CLAVES_TAMANO`, params/extra/subtitulos.ts): el renglón se parte midiendo la letra normal (`partirEnLineas`,
+  subtitles/build-subtitle-text-element.ts, no suma la reserva de la clave agrandada que sí suma el dibujo:
+  text/resaltado.ts → `reservasDeRenglones`), y una clave al 300 % se saldría del cuadro. Para subir el tope, primero que el
+  partido mida con la reserva, Y que el renglón reserve ALTO: la clave se agranda desde su centro, y a 3× en un subtítulo
+  de dos renglones tapa al otro (por eso el tope de 160 %, «tapa a las vecinas»); `reservasDeRenglones` sólo reserva ancho.
+  Tampoco: los cortes de plano alternando la escala 100/130 % que pide la receta.
+
+## Pexels: no hay clave en NINGÚN lado, y el B-roll ahora usa lo que la persona subió (12/11/2026)
+
+- **Mirado el 12/11:** la tabla `credenciales` no tiene `PEXELS_API_KEY` en ningún negocio, y los 22 proyectos de Vercel (también
+  `mako`) no tienen variable de Pexels. La clave es de cada negocio a propósito (`lib/pexels.ts`: `credDelClienteEstricta`, sin
+  respaldo de la plataforma) y sólo la puede sacar Martín (pexels.com/api, gratis).
+- **Regla:** sin Pexels, «Proponer» pone de B-roll los videos y fotos de Multimedia que NO están en la línea de tiempo (cada uno
+  una vez, en los huecos de más peso, un video sólo donde alcanza su largo: `broll/pistas.ts → brollPropio`), sin pagar la IA,
+  y la sección dice cómo conseguir la clave (`broll/resultado.ts → textoSinPexels`). Con sólo la toma en Multimedia no hay nada
+  que proponer, y lo dice. «Otra» no cambia un archivo propio (no tiene id de Pexels: `brollDe` → null).
+
+## Video › Básico se redibujaba en cada salto del cabezal: cada grupo escuchaba el TIEMPO (12/11/2026, tarde)
+
+- **El diagnóstico anotado a la mañana estaba incompleto:** no era sólo «Alineación» (`basico.tsx`, que leía el cabezal para
+  medir la caja): CADA grupo del panel (Escala, Posición, Rotación, Mezcla…) pasa por `useParamsConFotogramas` →
+  `useElementPlayhead`, que leía `getCurrentTime()` con `useEditor`. Con un clip elegido, cada salto redibujaba todos los grupos
+  con sus tooltips.
+- **Regla:** sin fotogramas clave en el grupo, el valor no depende del tiempo: `useElementPlayhead({ seguirTiempo: false })`
+  escucha sólo el booleano «el cabezal está sobre el clip», y el primer fotograma se crea con el tiempo leído AL TOCAR
+  (`leerTiempoLocal`). La caja de «Alineación» se mide al tocar. Lo fija `tests/video-editor-fluidez.test.ts` (F3).
+
+## El teléfono mostraba el video negro sin aviso: ni el teléfono ni la computadora sabían volver a enlazar (12/11/2026)
+
+- **La causa del negro:** si el OPFS se vació, `storageService.loadMediaAsset` devuelve null, el medio no entra en la biblioteca y
+  el armado de la escena SALTA el clip, sin aviso. **Una causa probable del vaciado:** el editor del teléfono no pedía
+  `navigator.storage.persist()` (la computadora lo pide con `StoragePersistenceDialog` en editor-page.tsx); ahora lo pide. El
+  panel del navegador de la app de Claude lo vació igual (ver «Cuatro detalles»): no es la única.
+- **Trampa:** volver a importar el archivo NO lo arregla, ni en la computadora: `MediaManager.addMediaAsset` le da un id nuevo y el
+  clip sigue apuntando al viejo. **Regla:** `MediaManager.reenlazarMedio` guarda el archivo elegido con el MISMO mediaId
+  (`media/reenlazar.ts`; qué falta: `media/archivos-faltantes.ts`). El teléfono avisa «Falta «x» en este teléfono» con «Elegir el
+  archivo». La computadora, igual, encima del reproductor (`media/components/aviso-archivos-faltantes.tsx`, con
+  `PreviewPanel avisoArchivos`: el teléfono usa el MISMO `PreviewPanel` y tiene su aviso propio, por eso va con prop).
+
 ## Un título del chat salía del cuadro: «tamaño 48» eran letras de 1.000 px (12/11/2026)
 
 **El síntoma** (producción, ws 9, pedido por audio): «Pone un título que diga oferta de noviembre» → MaKo puso el texto y le

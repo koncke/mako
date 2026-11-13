@@ -21,7 +21,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { BID_RE, bloquesDelDoc, docDeEstructura, docVacio, nombreDeSeccion, sanearContenido, sinTexto, textoDelDoc } from '../lib/copywriter/doc';
-import { agregar, aPapelera, dePapelera, enOrdenDeArbol, escondida, hijasDe, masReciente, mover, restaurar, sanearIndice } from '../lib/copywriter/arbol';
+import { agregar, aPapelera, dePapelera, enOrdenDeArbol, enOrdenReciente, escondida, hijasDe, masReciente, mover, restaurar, sanearIndice } from '../lib/copywriter/arbol';
 import { estructurasDelTipo, tiposDe, catalogosLite } from '../lib/copywriter/catalogos';
 import { propsNuevas, sanearProps, TOPES, type JsonNodo, type PaginaCopy } from '../lib/copywriter/tipos';
 import { parsearSecciones } from '../lib/guion-secciones';
@@ -30,7 +30,8 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras } from '../lib/copywriter/ia-reglas';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo } from '../lib/copywriter/ia-reglas';
+import { etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
 import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
 
 const raiz = join(__dirname, '..');
@@ -161,14 +162,18 @@ test('las cifras y la garantía sin fuente se avisan (12/11/2026, en producción
 
 test('la plantilla sin tocar queda escrita sin «Aceptar», y la caja y la nota de voz entran en la columna (12/11/2026, en producción)', () => {
   const panel = leer('app/copywriter/PanelMaKo.tsx');
-  assert.ok(panel.includes('const nacida = adaptar && !!pl && textoDelDoc(antes as JsonNodo).trim() === textoDelDoc(pl.esqueleto()).trim();'));
-  assert.match(panel, /cambiarMensaje\(mako\.id, \{ estado: 'pendiente' \}\);\n\s+if \(nacida\) aceptar\(\{ \.\.\.mako, estado: 'pendiente' \}\);/);
+  assert.ok(panel.includes('const nacida = !textoAntes || (adaptar && !!pl && textoAntes === textoDelDoc(pl.esqueleto()).trim());'), 'la plantilla sin tocar o la página vacía');
+  assert.ok(panel.includes("if (nacida && !propuesta.descartadas.length) aceptar({ ...mako, estado: 'pendiente' });"), 'sola sólo si entró todo');
+  // Sobre una página vacía, pedidos para escribirla (no «Acortar» ni «Mejorar la escritura»).
+  assert.ok(panel.includes("const sugerencias = intencion === 'editar' && vacia ? SUGERENCIAS_VACIA : SUGERENCIAS[intencion];"));
   // El método: una acción que crea escribe la pieza entera y pregunta DESPUÉS (antes pedía 3 datos y no escribía nada).
   assert.doesNotMatch(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /todavía no escribes/);
   assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /no le preguntas nada antes de escribir/);
   assert.match(PROMPTS_EXPERTO_COPY.experto.tpl, /Nunca contestas con preguntas en lugar de la pieza\./);
   // Grabando, «Terminar» quedaba cortado y, al escuchar, «Enviar audio» no se veía: la caja tomaba el ancho de su contenido.
-  assert.ok(leer('app/copywriter/notion.css').includes('.nt-mako-pie > .co-caja { margin-inline: 0; min-width: 0; }'));
+  // Lo resuelve UNA regla común para todos los chats (centro.css + la barra contenida): acá no va una propia (12/11/2026).
+  assert.ok(!leer('app/copywriter/notion.css').includes('.nt-mako-pie > .co-caja {'), 'sin regla propia sobre la caja');
+  assert.ok(leer('app/admin/operaciones/centro.css').includes('.co-caja { width: 100%; min-width: 0; }'));
   // La nota de voz del hilo, 240 px fijos en un globo de ~160: se metía bajo el avatar.
   assert.ok(leer('app/_chat/HiloMako.tsx').includes("style={{ width: 240, maxWidth: '100%' }}"));
   assert.ok(leer('app/_chat/chat.css').includes('.ch-voz [data-reproductor] input[type="range"] { min-width: 0 !important; }'));
@@ -238,6 +243,18 @@ test('el índice saneado tira ids malos, repetidos y el padre de sí mismo', () 
 test('el orden del árbol del teléfono: cada página seguida de las suyas', () => {
   const base = [p('ga111111', null, 1), p('gb111111', null, 0), p('gc111111', 'ga111111', 0)];
   assert.deepEqual(enOrdenDeArbol(base).map((x) => x.p.id), ['gb111111', 'ga111111', 'gc111111']);
+});
+
+test('«Mis guiones» y la «←»: la última editada arriba, las subpáginas debajo de la suya (12/11/2026, en producción)', () => {
+  const base = [
+    p('ga111111', null, 0, { actualizado: '2026-10-30T00:00:00.000Z' }),
+    p('gb111111', null, 1, { actualizado: '2026-11-12T07:11:00.000Z' }),
+    p('gc111111', 'ga111111', 0, { actualizado: '2026-11-12T09:00:00.000Z' }),
+    p('gd111111', null, 2, { actualizado: '2026-11-01T00:00:00.000Z', papelera: '2026-11-02T00:00:00.000Z' }),
+  ];
+  assert.deepEqual(enOrdenReciente(base).map((x) => x.p.id), ['gb111111', 'ga111111', 'gc111111'], 'la de la Papelera no sale');
+  assert.match(leer('app/m/copywriter/ListaGuionesM.tsx'), /const filas = enOrdenReciente\(paginas\);/);
+  assert.match(leer('app/copywriter/Copywriter.tsx'), /useMemo\(\(\): ProyectoCrear\[\] => enOrdenReciente\(paginas\)/);
 });
 
 // ── Los catálogos ──────────────────────────────────────────────────────────────
@@ -370,4 +387,52 @@ test('la caja trabada se vuelve a medir cuando llega su frase y cada vez que cam
   assert.match(efecto, /const fila = el\.parentElement\?\.parentElement \?\? null;/);
   assert.match(efecto, /mo\?\.observe\(fila, \{ childList: true, subtree: true \}\);/);
   assert.match(efecto, /return \(\) => \{ ro\?\.disconnect\(\); mo\?\.disconnect\(\); \};/);
+});
+
+test('la sección que nombra MaKo se lee con tolerancia (12/11/2026, en producción: el Carrusel perdió sus 3 secciones)', () => {
+  const doc = docDeEstructura(['SLIDES', 'CTA', 'CAPTION', 'SOLUCIÓN']);
+  const titulo = (doc.content ?? []).find((b) => b.attrs?.seccion === 'CTA');
+  const casos: Array<[Record<string, unknown>, string]> = [
+    [{ seccion: 'SLIDES' }, 'SLIDES'],
+    [{ seccion: 'Slides' }, 'SLIDES'],
+    [{ seccion: 'SECCIÓN SLIDES: Slides' }, 'SLIDES'],
+    [{ seccion: `[${String(titulo?.attrs?.bid)}] ## SECCIÓN CTA: CTA` }, 'CTA'],
+    [{ section: 'caption' }, 'CAPTION'],
+    [{ etiqueta: 'Solucion' }, 'SOLUCIÓN'],
+    [{ seccion: 'La sección CAPTION (el pie)' }, 'CAPTION'],
+    [{ bid: String(titulo?.attrs?.bid) }, 'CTA'],
+    // Una sección nueva sigue siendo válida (escribir_seccion la agrega al final).
+    [{ seccion: 'PIE' }, 'PIE'],
+    [{ seccion: '¿¿??' }, ''],
+  ];
+  for (const [o, esperado] of casos) assert.equal(etiquetaDeSeccion(o, doc), esperado, JSON.stringify(o));
+  const cat = { angulos: new Set<string>(), estructuras: new Set<string>() };
+  const s = sanearOperaciones([{ op: 'escribir_seccion', seccion: 'SECCIÓN SLIDES: Slides', bloques: [{ tipo: 'tabla', filas: [['Lámina', 'Texto'], ['1', 'Hola']] }] }], doc, cat);
+  assert.equal(s.descartadas.length, 0);
+  assert.equal(s.ops[0]?.op === 'escribir_seccion' && s.ops[0].seccion, 'SLIDES');
+});
+
+test('la plantilla escrita queda con título y ángulo (12/11/2026, en producción: «Sin título» y «Ángulo: Vacío»)', () => {
+  // Capa 2 del título: lo primero que se DICE (no la indicación de cámara), su primera oración, hasta 70 letras.
+  assert.equal(tituloDeRespaldo('«¿Sabes qué pasa con los mensajes de WhatsApp que nadie contesta? Que cada uno te cuesta.»'), '¿Sabes qué pasa con los mensajes de WhatsApp que nadie contesta?');
+  assert.equal(tituloDeRespaldo('Gastas 500 dólares en anuncios y llegan 20 clics. Pero nadie conversa.'), 'Gastas 500 dólares en anuncios y llegan 20 clics');
+  assert.equal(tituloDeRespaldo('[DATO: el gancho]'), null, 'un dato por completar no es un título');
+  const largo = tituloDeRespaldo('Si tus anuncios traen clics pero ninguna conversación por WhatsApp el problema no es el presupuesto ni Meta');
+  assert.ok(largo && largo.length <= 71 && largo.endsWith('…'), String(largo));
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes("if (entera && sinTituloPropio && !s.ops.some((op) => op.op === 'titulo')) {"));
+  assert.ok(ia.includes('const sinTituloPropio = !g.titulo.trim() || g.titulo === SIN_TITULO || /^Como @/.test(g.titulo);'), 'la réplica también: su título es la frase del competidor');
+  // El ángulo: adaptar recibe la biblioteca (sin ids no podía ponerlo) y el método lo pide.
+  assert.ok(ia.includes('estructura: `${estructuraParaIA(estructura ?? sugerida, !estructura)}${bibliotecaParaIA(lite)}EL EJEMPLO COMPLETO'));
+  assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /en propiedades, el ángulo de LA BIBLIOTECA que más se parezca/);
+});
+
+test('sin IA, el chat lleva a conectarla y no a Soporte (12/11/2026, en producción, el negocio de prueba en el teléfono)', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  // Una invitación (`status`), no un error: un `alert` lleva siempre «Reportar a Soporte» (tests/reportar-a-soporte.test.ts).
+  assert.ok(panel.includes("if (m.error && /^No hay ninguna IA conectada/.test(m.texto)) {"));
+  assert.ok(panel.includes('<div className="nt-mako-error" role="status">{m.texto}<div className="nt-mako-pildoras">'));
+  assert.ok(panel.includes("<Link href={rutaDeTarjeta('ia')} className=\"nt-mako-pildora\">Conectar mi IA</Link>"));
+  // La frase es la de lib/ia-mensajes.ts: si cambia, el botón deja de salir.
+  assert.match(leer('lib/ia-mensajes.ts'), /return `No hay ninguna IA conectada, así que MaKo no puede \$\{tema\}\./);
 });

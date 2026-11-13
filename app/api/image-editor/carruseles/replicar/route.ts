@@ -8,7 +8,8 @@
 // `que: 'thumbnail'` (6/11/2026): una miniatura de YouTube de la biblioteca de Thumbnails, en una lámina de 1280 × 720.
 //
 // `guiado` (9/11/2026): lo que contestó el dueño en la pestaña guiada (la oferta, la foto que va en lugar de la persona y qué
-// cambia; lib/carruseles/guiado.ts → `PedidoGuiado`). Sin oferta no se genera: es lo primero que pregunta MaKo.
+// cambia; lib/carruseles/guiado.ts → `PedidoGuiado`). Desde el 12/11/2026 llega sin preguntar (la oferta principal), y sin ofertas
+// cargadas también se escribe.
 //
 // Lo que corre (las láminas, la IA DEL NEGOCIO con visión, su foto, el diseño): lib/carruseles/replica-servidor.ts. La IA va
 // adentro de `conSuIADelNegocio` (allá), nunca con la de la plataforma.
@@ -46,8 +47,9 @@ export async function POST(req: NextRequest) {
   if (!Number.isSafeInteger(id) || id === 0 || (que === 'thumbnail' && id < 0)) return fallo(que === 'thumbnail' ? 'Falta la miniatura.' : 'Falta el carrusel.', 400);
   const pedido = typeof body?.pedido === 'string' ? body.pedido.slice(0, 400) : null;
   // Lo que contestó el dueño en el guiado (lib/carruseles/guiado.ts): se lee sin creerle; la oferta se vuelve a buscar en SU base.
+  // Sin oferta también se escribe (12/11/2026, «Replicar» sin preguntas): un negocio sin ofertas cargadas recibe su versión con lo
+  // que se sabe de él, y la oferta se elige después. Antes: «Falta elegir la oferta.», 400.
   const guiado = body?.guiado != null ? leerPedidoGuiado(body.guiado) : null;
-  if (guiado && !guiado.ofertaId && !guiado.ofertaLibre) return fallo('Falta elegir la oferta.', 400);
 
   const enc = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({

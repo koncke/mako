@@ -15,12 +15,18 @@ import { frasesDelVideo } from "@/app/video-editor/_opencut/broll/frases-del-vid
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { TOPES_CLIPS, type ClipElegido } from "@/lib/editor-video/clips";
 import { useTrabajoClips } from "./estado";
-import { textoDeClips, type ResultadoClips } from "./resultado";
+import { textoDeClips, type ResultadoClips, type VigenciaMensaje } from "./resultado";
 
 let enCurso = false;
 
 /** Lo que contesta /api/video-editor/clips. */
 type RespuestaClips = { ok?: boolean; clips?: ClipElegido[]; conIA?: boolean; aviso?: string | null; error?: string };
+
+/** La línea de tiempo de ahora, para atarle un mensaje (./resultado.ts › mensajeVigente): si cambia, el mensaje se va. */
+export function vigenciaDe(editor: EditorCore): VigenciaMensaje | null {
+	const proyecto = editor.project.getActiveOrNull();
+	return proyecto ? { proyectoId: proyecto.metadata.id, duracion: editor.timeline.getTotalDuration() } : null;
+}
 
 export async function buscarClips(editor: EditorCore, { cuantos }: { cuantos: number }): Promise<ResultadoClips> {
 	const trabajo = useTrabajoClips.getState();
@@ -30,6 +36,7 @@ export async function buscarClips(editor: EditorCore, { cuantos }: { cuantos: nu
 			progreso: 0,
 			mensaje: r.ok ? r.aviso : textoDeClips(r),
 			error: !r.ok,
+			vigencia: vigenciaDe(editor),
 		});
 		return r;
 	};

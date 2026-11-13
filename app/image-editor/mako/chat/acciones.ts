@@ -164,7 +164,7 @@ const refsDe = (p: Propuesta): RefsDeVista => ({
  * Manda una instrucción y deja en el hilo la respuesta: una PROPUESTA para revisar, o lo que no se pudo. Con `intencion`
  * «discutir», MaKo contesta sin proponer nada. `kit`: la marca elegida (su logo va entre las fotos, sus fuentes primero).
  */
-export async function pedirEdicion(editor: EditorEngine, instruccion: string, alcance: AlcanceChat, archivos: readonly File[] = [], op: { intencion?: IntencionChat; kit?: KitMarca | null } = {}): Promise<void> {
+export async function pedirEdicion(editor: EditorEngine, instruccion: string, alcance: AlcanceChat, archivos: readonly File[] = [], op: { intencion?: IntencionChat; kit?: KitMarca | null; /** Escribir la plantilla con lo del negocio (lib/image-editor/chat/ia.ts → `negocioParaEscribir`). */ conNegocio?: boolean } = {}): Promise<void> {
   const kit = op.kit ?? null;
   const discutir = op.intencion === 'discutir';
   const disenoId = editor.designId;
@@ -234,7 +234,7 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   const instruccionIA = texto || (archivos.length && !paraLeer.length ? 'Pon en el diseño lo que adjunté.' : '');
   const r = await pedirIA({
     instruccion: instruccionIA, diseno: vista.json, alcance: alcanceReal, memoria,
-    ...(kit ? { kit: kit.id } : {}), ...(discutir ? { intencion: 'discutir' } : {}),
+    ...(kit ? { kit: kit.id } : {}), ...(discutir ? { intencion: 'discutir' } : {}), ...(op.conNegocio ? { conNegocio: true } : {}),
   }, corte.signal, paraLeer);
   if (!r.ok) {
     terminar({ de: 'mako', texto: r.error, error: !('cortado' in r) });

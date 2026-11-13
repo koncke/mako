@@ -45,6 +45,8 @@ type Trabajo = {
 	mensaje: string | null;
 	error: boolean;
 	faltaPexels: boolean;
+	/** Sin Pexels: cuántos B-roll salieron de Multimedia en la última propuesta (lo dice la sección). */
+	propios: number;
 	/** El B-roll al que «Cambiar por otra» le está trayendo otro archivo (su id), o null. */
 	cambiando: string | null;
 	fijar: (cambio: Partial<Omit<Trabajo, "fijar">>) => void;
@@ -56,6 +58,7 @@ export const useTrabajoBroll = create<Trabajo>()((set) => ({
 	mensaje: null,
 	error: false,
 	faltaPexels: false,
+	propios: 0,
 	cambiando: null,
 	fijar: (cambio) => set(cambio),
 }));

@@ -1475,6 +1475,10 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
 - **Todo lo que MaKo le manda a una PERSONA por WhatsApp sale por `lib/mako-salida.ts`**, que no deja escribirle a quien no escribió en las últimas 24 horas (3/11/2026, «no va a mandar ni
   mensajes a nadie»). Nunca `instanciaVoz()` ni `enviarAGrupoJid` de lib/mako-grupo.ts para un número: la voz puede ser el WhatsApp personal de Martín. El bot no tiene línea por defecto y `mako_ws<n>` no puede serlo. La cañería
   (Evolution o la API oficial) vive en `lib/mako-salida-drivers.ts` y no decide nada (docs/hallazgos-comunicacion.md, tests/mako-bot.test.ts).
+- **Un cambio de la voz o del canal de MaKo deja rastro** (13/11/2026: el 12/11 la voz pasó al …3479, el WhatsApp personal de
+  Martín, con el botón de /agencia, y no se supo quién). Lo que pasa por `/api/admin/mako-canal` se anota solo: la ruta compara la
+  foto de antes con la de después (lib/registro-lineas.ts) y se ve en Admin › Analytics › Events, tipo «linea». Otro camino que
+  llame a `setInstanciaVoz` o escriba `mako.canal.instancia` anota con `anotarCambioDeLinea` (tests/registro-lineas.test.ts).
 - **En el grupo de WhatsApp no van MAKO_NUCLEO ni la persona de consultor**: el system del grupo es `buildSystemPrompt` con
   `canal: 'grupo'` (NUCLEO_GRUPO, lib/nucleo-grupo.ts, fijo y primero). Todo texto nuevo del turno del grupo va ahí o en
   DOER_WA_VOZ, nunca en MAKO_NUCLEO, que es del dashboard y de la app (28/10/2026, tests/banco-grupo.test.ts).
@@ -2637,6 +2641,15 @@ botones mal». No faltaba nada: no se veía nada.
 
 **Cómo se ve desde afuera, para reconocerlo rápido:** cuando está *todo* lavado —texto,
 bordes y botones a la vez— no es hidratación ni son los datos. **Es una paleta.**
+
+## Y un sondeo montado en el layout pide en CADA pestaña abierta: va por `sondearALaVista`
+
+El contador de WhatsApp de la barra (NotificationsProvider) pedía cada 12 s con un `setInterval` pelado: también con la
+pestaña oculta y sin esperar al pedido anterior. Eran 300 funciones de Vercel por hora por pestaña olvidada (12/11/2026,
+más de 1.300 pedidos vistos en producción). Un sondeo nuevo, en el layout o en una pantalla que queda abierta, va por
+`sondearALaVista` (lib/sondeo-a-la-vista.ts): pide al arrancar y cada `cadaMs`, nada con la pestaña oculta, en el acto al
+volver y nunca dos a la vez. Un `setInterval` con un `fetch` adentro es justo lo que esto evita. Detalle en
+docs/hallazgos-ui.md.
 
 # Si una columna puede REPETIRSE, lo contesta la CONSTRAINT — no un `create index`, y no un `count` de 0
 

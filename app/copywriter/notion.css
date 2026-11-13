@@ -45,10 +45,8 @@
 .nt-mako .co-hilo { padding: 8px 12px 12px; }
 .nt-mako .co-caja-wrap { padding: 0; }
 .nt-mako-pie { display: grid; gap: 8px; padding: 8px 12px 12px; }
-/* La caja, al ancho de la columna (12/11/2026, en producción: grabando, el botón de terminar quedaba cortado y, al escuchar lo
-   grabado, «Enviar audio» no se veía). `.co-caja` trae `margin-inline: auto` (centrada en el Ops Center): en una grilla eso la
-   saca del estirado y toma el ancho de su contenido, y la barra de la grabación medía 46 a 71 px más que la columna. */
-.nt-mako-pie > .co-caja { margin-inline: 0; min-width: 0; }
+/* La caja al ancho de la columna con un audio grabado (12/11/2026): lo resuelve la regla común de `.co-caja` (centro.css) y la
+   barra de grabación contenida (VoiceRecorder.tsx), para todos los chats. Acá no va nada propio. */
 .nt-mako-bienvenida { align-self: flex-start; max-width: 100%; padding: 10px 14px; border-radius: 14px; background: var(--nt-gris); font-size: 13.5px; line-height: 1.5; }
 .nt-mako-pildoras { display: flex; flex-wrap: wrap; gap: 6px; }
 .nt-mako-pildora { padding: 6px 12px; border: 0; border-radius: 999px; background: var(--nt-azul-fondo); color: var(--nt-texto); font: inherit; font-size: 12.5px; font-weight: 500; text-align: left; cursor: pointer; }

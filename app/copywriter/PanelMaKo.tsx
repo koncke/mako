@@ -34,6 +34,8 @@ import { cuerpoConArchivos, useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDe
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import Link from '@/app/_ui/Link';
+import { rutaDeTarjeta } from '@/lib/conexiones-catalogo';
 import { guardarEnHiloDeTab, leerHiloDeTab } from '@/lib/hilo-de-tab-cliente';
 import { claveDeGuion } from '@/lib/hilo-de-tab-reglas';
 import { filasDeAgente, mensajesDeFilas } from '@/app/web-generator/editor/hilo-agente';
@@ -92,6 +94,8 @@ const SUGERENCIAS: Readonly<Record<'discutir' | 'editar', readonly string[]>> = 
   discutir: ['¿Qué le falta para vender más?', '¿El gancho frena el scroll?', 'Resúmelo en 3 líneas'],
   editar: ['Mejorar la escritura', 'Acortar', 'Alargar', 'Cambiar el tono', 'Continuar escribiendo', 'Agregar una sección'],
 };
+/** Sobre una página VACÍA no hay nada que acortar ni mejorar (12/11/2026, en producción): pedidos para escribirla. */
+const SUGERENCIAS_VACIA: readonly string[] = ['Escribe un reel de 30 segundos para mi oferta', 'Escribe un anuncio para mi oferta', 'Dame 10 ganchos para probar'];
 
 /** Un archivo del pedido, en el hilo (no se abre desde ahí: viajó su texto, no se guardó). */
 const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|avif)$/i.test(nombre) ? 'image' as const : 'document' as const, sinAbrir: true });
@@ -296,7 +300,9 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     // escribe MaKo queda en la página sin «Aceptar», como la réplica (12/11/2026, en producción: la plantilla quedaba como
     // propuesta; memoria «replicar-deja-todo-escrito»). Sobre lo ya escrito sigue siendo propuesta.
     const pl = vivo.current.plantilla;
-    const nacida = adaptar && !!pl && textoDelDoc(antes as JsonNodo).trim() === textoDelDoc(pl.esqueleto()).trim();
+    // Y una página VACÍA, pida lo que pida (12/11/2026, en producción: «Página en blanco» + «escribe un reel» pedía «Aceptar»).
+    const textoAntes = textoDelDoc(antes as JsonNodo).trim();
+    const nacida = !textoAntes || (adaptar && !!pl && textoAntes === textoDelDoc(pl.esqueleto()).trim());
     const cat = vivo.current.catalogos;
     const s = sanearOperaciones(r.operaciones, antes, { angulos: new Set(cat.angulos.map((a) => a.id)), estructuras: new Set(cat.estructuras.map((e) => e.id)) });
     const res = aplicarTodo(antes, s.ops);
@@ -332,7 +338,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
       return true;
     }
     cambiarMensaje(mako.id, { estado: 'pendiente' });
-    if (nacida) aceptar({ ...mako, estado: 'pendiente' });
+    // Con algo descartado queda como propuesta: la tarjeta dice qué no se pudo poner (12/11/2026, el Carrusel: 3 de 4 cambios).
+    if (nacida && !propuesta.descartadas.length) aceptar({ ...mako, estado: 'pendiente' });
     return true;
   }, [cambiarMensaje, onPausa, tituloCharla]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -506,6 +513,12 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
     const m = mensajes.find((y) => String(y.id) === x.id);
     if (!m || m.de !== 'mako') return null;
+    // Sin IA no es una falla para Soporte: es algo que se conecta (12/11/2026, en producción, el negocio de prueba replicando desde
+    // el teléfono: «No hay ninguna IA conectada…» con «Reportar a Soporte» y ningún camino). Es una invitación, no un error: va
+    // como `status` (un `alert` lleva siempre «Reportar a Soporte», tests/reportar-a-soporte.test.ts). El link es el de contrato.
+    if (m.error && /^No hay ninguna IA conectada/.test(m.texto)) {
+      return { arriba: <div className="nt-mako-error" role="status">{m.texto}<div className="nt-mako-pildoras"><Link href={rutaDeTarjeta('ia')} className="nt-mako-pildora">Conectar mi IA</Link></div></div> };
+    }
     if (m.error) return { arriba: <div className="nt-mako-error" role="alert">{m.texto}<ReportarASoporte /></div> };
     if (!m.propuesta || !m.estado) return null;
     const p = m.propuesta;
@@ -558,7 +571,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     };
   };
 
-  const sugerencias = SUGERENCIAS[intencion];
+  const vacia = !!editor && !textoDelDoc(editor.leer() as JsonNodo).trim();
+  const sugerencias = intencion === 'editar' && vacia ? SUGERENCIAS_VACIA : SUGERENCIAS[intencion];
 
   return (
     // Un <section> y no un <aside> (la barra de la agencia le fuerza el alto de la ventana a todo <aside>: PanelAgente.tsx).

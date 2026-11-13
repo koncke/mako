@@ -39,6 +39,19 @@ un reel mide 3,2 veces lo que un video de YouTube del mismo ancho, y en una gril
 no mide cada tarjeta (sin `ResizeObserver` por tarjeta ni saltos al cargar las imágenes). Sumar una tanda abajo no mueve las de
 arriba (el reparto es en orden). Si el pie cambia de alto, se ajusta `ALTO_PIE` en OutliersCopy.tsx; un desbalance chico no se ve.
 
+## Mirar ANTES de desplegar: el banco de las portadas (12/11/2026)
+
+Hay un solo despliegue por día, así que un cambio de diseño que se prueba recién en producción tiene que salir bien a la primera.
+`scripts/banco-outliers` compila las portadas REALES (Copywriting, Image, Web) con esbuild y datos inventados, sin base ni chat
+(`?p=copy|image|web`, `&tel=1`, `&mis=1`). Las captura `scripts/banco-carruseles/capturar.mjs` con un Chrome sin ventana, a 1440,
+a 375 y con el mouse encima. El navegador de la app no sirve para 375 con el panel escondido: recorta todo lo que mida menos de ~300 px.
+Las tres fallas que encontró el banco no se veían en los tests ni leyendo el código:
+- **un reel de 9:16 con poco texto era una caja blanca casi vacía**: ahora el texto va centrado en el alto, con
+  `justify-content: safe center`, que vuelve arriba si el texto no entra;
+- **la pastilla «N días al aire» de un anuncio bajaba de renglón a 375 y tapaba el gancho**: ahora va en la fila de números del pie;
+- **la fila de tipos de Web a 375 estaba centrada y era más ancha que la pantalla**: se cortaba por los dos lados y «Todas»
+  quedaba fuera de alcance. Una fila centrada que puede no entrar va en dos renglones, nunca centrada y deslizable.
+
 ## Sin hacer
 
 - La portada de Video (`app/video-editor/OutliersVideo.tsx`, hoy sólo en el teléfono y en `?ver=outliers`) conserva su párrafo

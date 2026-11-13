@@ -12,6 +12,36 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El contador de WhatsApp de la barra pedía cada 12 s, también con la pestaña oculta (12/11/2026)
+
+**Vive en:** `app/_components/NotificationsProvider.tsx` (el efecto del resumen) · `lib/sondeo-a-la-vista.ts` (`sondearALaVista`,
+`RESUMEN_WA_CADA_MS`). Lo fija `tests/sondeo-a-la-vista.test.ts` (roturas S1-S6).
+
+**Síntoma:** el chat «Probar Image» vio en producción más de 1.300 pedidos a `/api/whatsapp/evolution/mensajes?resumen=1` con una
+sola pestaña. Cada uno es una función de Vercel paga.
+
+**Lo obvio era una ráfaga de 1 por segundo, y no:** medido en producción con la sesión de Martín (12/11, 11:20 UTC), en `/create` y
+en `/image-editor`, sale UNO cada 12 s exactos, sin redirecciones y sin montarse dos veces. 1.300 son unas 4 h de una pestaña
+abierta. El costo era el reloj pelado: el provider vive en el layout, así que cada pestaña abierta, oculta u olvidada pedía
+300 veces por hora para un contador que nadie miraba, y sin esperar a que volviera el pedido anterior.
+
+**La regla:** un sondeo que se monta en el layout (o en cualquier pantalla que queda abierta) va por `sondearALaVista`: pide
+al arrancar y cada `cadaMs`, nada con la pestaña oculta (tampoco al arrancar en segundo plano), en el acto al volver a la pestaña
+(salvo que el último tenga menos de 10 s) y nunca dos a la vez. El contador va cada 30 s. Un `setInterval` propio con un
+`fetch` adentro es el error que esto evita.
+
+**Y el de las plantillas de Meta se fue entero (el mismo día):** `/api/whatsapp/templates/status`, cada 30 s con un reloj de 6 s y
+también con la pestaña oculta, para el aviso «Plantilla aprobada/rechazada». No podía salir NUNCA: la ruta lee la cuenta de WhatsApp
+Business con `getWabaConfig` (lib/meta-templates.ts), que tira desde que se borró Chatwoot el 09/10/2026. Con WhatsApp conectado
+contestaba 500; sin él, una lista vacía. Se fueron el pedido, la ruta, el aviso y el interruptor «Plantilla de WhatsApp resuelta» de
+Ajustes (la regla del catálogo: un interruptor de algo que no sale no se ofrece). El provider quedó sin ningún `setInterval`.
+
+**Sin hacer:** con `wa-plantilla` se fue el ÚNICO aviso que sonaba. El interruptor general «Sonido» de Ajustes › Notificaciones › En
+la app ahora sólo maneja el sonido del aviso de prueba («Enviar prueba»): sacarlo o darle algo que suene es una decisión de producto
+(app/perfil/NotificacionesPanel.tsx, `resumenApp` en app/perfil/notificaciones-reglas.ts, `cambiar_notificacion_inapp` en
+lib/api-mako/areas/equipo.run.ts). `AlertaVozMaKo`, `SaldoMaKo`, `AvisoMoraPlan` y `MedidorDeUso` ya se frenan con la pestaña oculta,
+pero cada uno con su código: pasarlos a `sondearALaVista` es otra tanda.
+
 ## Sacar algo de la barra lo saca también del BUSCADOR (Ctrl K) (11/11/2026)
 
 **Vive en:** `lib/buscador-nav.ts` (`ALIAS`) · `app/_components/Sidebar.tsx` (los `destinos` del buscador). Lo fija

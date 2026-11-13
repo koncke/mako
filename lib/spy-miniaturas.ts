@@ -211,6 +211,23 @@ export async function caricaturaGuardada(refs: readonly string[]): Promise<strin
 }
 
 /**
+ * ¿Alguna de estas cuentas está marcada como logo (`spy/sin-persona/<cuenta>.<ext>`)? La marca la deja el Runner con
+ * `--sin-persona` (lib/spy-caricatura-cola.ts, `marcarSinPersona`); la lee `encolarCaricatura` para no volver a encolarla.
+ */
+export async function sinPersonaGuardada(refs: readonly string[]): Promise<boolean> {
+  const db = getSupabaseServer();
+  for (const ref of refs) {
+    // El nombre con el punto y sin la extensión: `ig-ana.` no confunde a `ig-ana.maria`.
+    const nombre = rutaDeMiniatura('sin-persona', ref, 'x').split('/').pop()!.replace(/x$/, '');
+    try {
+      const { data, error } = await db.storage.from(BUCKET_MINIATURAS).list('spy/sin-persona', { search: nombre, limit: 10 });
+      if (!error && (data ?? []).some((o) => o.name.startsWith(nombre))) return true;
+    } catch { /* sin poder mirar: entra a la cola, y el Runner la vuelve a marcar */ }
+  }
+  return false;
+}
+
+/**
  * La foto de una página capturada con la extensión (lib/spy-pagina-capturada-servidor.ts), en `spy/pagina/<ws>/<competidor>/`.
  * Devuelve su URL pública con un sello (la misma página va a la misma ruta, y sin el sello la pantalla mostraría la de antes de su
  * caché), o `null` si no subió.

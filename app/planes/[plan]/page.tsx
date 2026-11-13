@@ -14,7 +14,7 @@ import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { origenLimpio, codigoRefLimpio, paisDelVisitante, TEXTO_SIN_PASARELA, PREGUNTAS_DE_LA_PUERTA } from '@/lib/compra-plan-reglas';
-import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
+import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba } from '@/lib/planes-mako';
 import { entornoPromo, promoVigente } from '@/lib/promo-entrada';
 import { COOKIE_PROMO, PROMO_ENTRADA } from '@/lib/promo-entrada-reglas';
 import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas';
@@ -74,7 +74,7 @@ export default async function PlanPage({ params, searchParams }: {
         etiqueta: `Pedir ${plan.nombre}, anual`, nombre: `${plan.nombre}, anual`, precio: `US$ ${plan.precioAnualUsd.toLocaleString('es-AR')}`,
         periodo: 'por año', otros: [`${MESES_GRATIS_ANUAL} meses gratis frente al pago mensual`], detalle: 'Un pago por año', incluye: plan.incluye,
       }}>
-        <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para darte de alta.{PRUEBA_GRATIS_PRENDIDA ? ` Empiezas con ${PRUEBA_DIAS} días gratis.` : ''}</p>
+        <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para darte de alta.{planConPrueba(plan.id) ? ` Empiezas con ${PRUEBA_DIAS} días gratis.` : ''}</p>
         <QuieroPlan plan={plan.id} nombrePlan={`${plan.nombre} anual`} origen={origen} refCodigo={ref} periodo="anual" />
       </Ficha>
     );
@@ -86,13 +86,14 @@ export default async function PlanPage({ params, searchParams }: {
   const precio = pasarelas.map((x) => (conPromo
     ? `${formatoMonto(conPrimerMes(x.monto), x.moneda)} el primer mes, después ${formatoMonto(x.monto, x.moneda)} por mes`
     : `${formatoMonto(x.monto, x.moneda)} por mes`)).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`;
-  const conPrueba = !(uno('sinPrueba') === '1' || !PRUEBA_GRATIS_PRENDIDA);
+  // La prueba, sólo en los planes que la traen (`planConPrueba`: Pro desde el 12/11/2026). Esencial se cobra hoy.
+  const conPrueba = planConPrueba(plan.id) && uno('sinPrueba') !== '1';
   return (
     <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumenDelPlan({ nombre: plan.nombre, incluye: plan.incluye, precioUsd: plan.precioUsd, pasarelas, conPromo, conPrueba, conPrimerMes, precio })}>
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
           agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
       {pasarelas.length
-        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={uno('sinPrueba') === '1' || !PRUEBA_GRATIS_PRENDIDA} promo={conPromo} ladaInicial={ladaDelPais(pais)} />
+        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={!conPrueba} promo={conPromo} ladaInicial={ladaDelPais(pais)} />
         : (
           <>
             <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>

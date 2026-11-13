@@ -16,6 +16,11 @@
 //   'pasar' {forzar} → deja al número nuevo admin en los grupos y muda MaKo a él.
 //   'personal'       → el QR de tu número, como línea de tu negocio.
 //   'voz-personal' {activar} → MaKo habla por tu número, o deja de hacerlo.
+//
+// ⚠️ CADA CAMBIO DE LA VOZ O DEL CANAL QUEDA ANOTADO (13/11/2026): quién, cuándo, qué botón, desde qué pantalla y de qué línea
+// a cuál (lib/registro-lineas-reglas.ts). El 12/11 la voz pasó al …3479, el WhatsApp personal de Martín, con «Usarlo para MaKo»,
+// y no quedó rastro de quién. Se anota el CAMBIO (la foto de antes contra la de después), no el botón: una acción nueva que
+// mueva la voz entra sola. Lo fija tests/registro-lineas.test.ts.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
@@ -24,6 +29,8 @@ import {
   estadoNumeroNuevo, vincularNumeroNuevo, descartarNumeroNuevo, pasarMaKoANumeroNuevo,
   estadoNumeroPersonal, vincularNumeroPersonal, usarNumeroPersonalComoVoz,
 } from '@/lib/mako-canal';
+import { anotarCambioDeLinea, fotoDeLineas } from '@/lib/registro-lineas';
+import { cambioEntre, pantallaDelPedido } from '@/lib/registro-lineas-reglas';
 
 export const dynamic = 'force-dynamic';
 // Recuperar una línea trabada encadena sondeo + logout + reintentos + crear una nueva: puede
@@ -43,11 +50,29 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, ...canal, nuevo, personal });
 }
 
-export async function POST(req: NextRequest) {
-  if (!(await getSesionAdmin())) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
-  let body: { action?: string; forzar?: boolean; activar?: boolean };
-  try { body = (await req.json()) as typeof body; } catch { body = {}; }
+type Pedido = { action?: string; forzar?: boolean; activar?: boolean };
 
+export async function POST(req: NextRequest) {
+  const sesion = await getSesionAdmin();
+  if (!sesion) return NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
+  let body: Pedido;
+  try { body = (await req.json()) as Pedido; } catch { body = {}; }
+
+  const antes = await fotoDeLineas();
+  try {
+    return await atender(body);
+  } finally {
+    // También si el pedido tiró: lo que alcanzó a cambiar antes de fallar se anota igual.
+    const cambio = cambioEntre(antes, await fotoDeLineas(), {
+      at: new Date().toISOString(), quien: sesion.email, accion: String(body.action ?? ''),
+      pantalla: pantallaDelPedido(req.headers.get('referer')),
+      ...(body.action === 'voz-personal' ? { activar: body.activar === true } : {}),
+    });
+    if (cambio) await anotarCambioDeLinea(cambio);
+  }
+}
+
+async function atender(body: Pedido): Promise<NextResponse> {
   switch (body.action) {
     case 'conectar': {
       const r = await conectarCanalMaKo();

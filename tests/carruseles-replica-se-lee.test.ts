@@ -142,6 +142,62 @@ test('7 · un anuncio de catálogo de Meta no muestra «{{product.name}}» ni lo
   assert.equal(sinVariablesDeCatalogo(null), null);
 });
 
+test('8 · el marco y el tuit: líneas y tarjetas debajo, el avatar redondo, el @ del negocio, y el texto se lee sobre su tarjeta', () => {
+  const crudo = JSON.stringify({
+    proporcion: '4:5', titulo: 'Tuit',
+    laminas: [{
+      fondo: '#1A1A1A',
+      formas: [{ tipo: 'linea', x: 0.05, y: 0.07, ancho: 0.9, alto: 0.001, color: '#E0D0C8' }, { tipo: 'caja', x: 0.08, y: 0.3, ancho: 0.84, alto: 0.5, color: '#FFFFFF', radio: 0.05, sombra: true }, { tipo: 'caja', color: 'rojo' }],
+      cuadros: [{ x: 0.1, y: 0.1, ancho: 0.2, alto: 0.2, tipo: 'retrato', persona: true, forma: 'circulo', descripcion: 'su foto de perfil' }],
+      textos: [
+        { rol: 'firma', texto: '@usuario · 02 / 06', x: 0.35, y: 0.12, ancho: 0.6, tamano: 0.03, color: '#555555' },
+        { rol: 'titulo', texto: 'La gente compra cuando la ayudas primero.', x: 0.12, y: 0.35, ancho: 0.76, tamano: 0.07, color: '#FFFFFF' },
+      ],
+    }],
+  });
+  const conHandle = leerReplica(crudo, { laminas: 1, usuario: 'mako.digital' }) as Replica;
+  assert.equal(conHandle.laminas[0].textos[0].texto, '@mako.digital · 02 / 06', 'el comodín no tomó el @ del negocio');
+  const sinHandle = leerReplica(crudo, { laminas: 1, usuario: null }) as Replica;
+  assert.ok(!sinHandle.laminas[0].textos[0].texto.includes('@'), 'sin @ cargado, el comodín quedó escrito o inventó uno');
+  assert.equal(conHandle.laminas[0].formas?.length, 2, 'una forma con un color que no es #RRGGBB no va');
+  const foto = { id: 'f1', url: 'https://x.supabase.co/storage/v1/object/public/image-editor/9/cara.jpg', ancho: 1080, alto: 1440 };
+  const doc = documentoDeReplica({ replica: conHandle, estilo, marca: { nombre: 'X', usuario: 'mako.digital' }, foto, nuevoId });
+  const objs = objetosDe(doc);
+  const iLinea = objs.findIndex((o) => o.name === 'Marco: línea');
+  const iTarjeta = objs.findIndex((o) => o.name === 'Marco: tarjeta');
+  const iTexto = objs.findIndex((o) => o.type === 'textbox');
+  assert.ok(iLinea >= 0 && iTarjeta >= 0, 'el marco no se dibujó');
+  assert.ok(iLinea < iTexto && iTarjeta < iTexto, 'el marco tiene que ir DEBAJO de los textos');
+  assert.ok((objs[iTarjeta].rx as number) > 0 && objs[iTarjeta].shadow, 'la tarjeta perdió las esquinas curvas o la sombra');
+  const avatar = objs.find((o) => o.type === 'image')!;
+  assert.equal((avatar.slot as { mask?: string }).mask, 'circle', 'el avatar de un tuit va redondo');
+  assert.equal((avatar.slot as { width: number }).width, (avatar.slot as { height: number }).height, 'un círculo es cuadrado');
+  // El titular blanco está sobre la tarjeta BLANCA de una lámina OSCURA: contra el fondo se leería; contra su tarjeta, no.
+  const tit = objs.find((o) => o.name === 'Titular')!;
+  assert.equal(tit.fill, '#111111', 'blanco sobre la tarjeta blanca no se lee');
+});
+
+test('9 · la cara en la portada cuando el original tiene una persona ahí; en una miniatura, grande', () => {
+  const persona = (y: number) => ({ x: 0, y, ancho: 1, alto: 0.5, tipo: 'escena' as const, persona: true, descripcion: 'gente en un salón', busqueda: 'meeting room', forma: 'rect' as const });
+  const foto = { id: 'f1', url: 'https://x.supabase.co/storage/v1/object/public/image-editor/9/cara.jpg', ancho: 1080, alto: 1440 };
+  const r: Replica = { proporcion: '4:5', titulo: 'X', laminas: [{ fondo: '#FFFF00', foto: null, cuadros: [persona(0.3)], textos: [texto({ rol: 'titulo', texto: 'Hola' })] }] };
+  const doc = documentoDeReplica({ replica: r, estilo, marca: { nombre: 'X', usuario: null }, foto, nuevoId, escenas: new Map([['meeting room', salon]]) });
+  const suya = objetosDe(doc).filter((o) => o.type === 'image' && o.src === foto.url);
+  assert.equal(suya.length, 1, 'eligió su cara y la portada tiene gente: la cara no entró');
+  // Sin persona en ningún lado, no va.
+  const paisaje: Replica = { ...r, laminas: [{ ...r.laminas[0], cuadros: [{ ...persona(0.3), persona: false }] }] };
+  assert.equal(objetosDe(documentoDeReplica({ replica: paisaje, estilo, marca: { nombre: 'X', usuario: null }, foto, nuevoId })).filter((o) => o.src === foto.url).length, 0);
+  // Miniatura: un retrato chico en una esquina crece a todo el alto.
+  const mini: Replica = { proporcion: '16:9', titulo: 'M', laminas: [{ fondo: '#F2F2F2', foto: null, textos: [texto({ rol: 'titulo', texto: 'UPGRADE' })],
+    cuadros: [{ x: 0.66, y: 0.55, ancho: 0.34, alto: 0.45, tipo: 'retrato', persona: true, descripcion: 'él', busqueda: '', forma: 'rect' }] }] };
+  const img = objetosDe(documentoDeReplica({ replica: mini, estilo, marca: { nombre: 'X', usuario: null }, foto, nuevoId })).find((o) => o.type === 'image')!;
+  assert.equal(img.top, 0, 'la persona de la miniatura sigue chica');
+  assert.ok(Math.abs((img.height as number) * (img.scaleY as number) - 720) < 1, 'la persona no ocupa todo el alto');
+  const p = promptDeReplica({ laminas: 6, vistas: 6, negocio: '', voz: '', nombreNegocio: 'X', cta: null, conAvatar: true, pedido: null, anuncio: false, pie: null } as never);
+  assert.match(p, /"formas":\[\{"tipo":"linea\|caja"/, 'el prompt no pide el marco');
+  assert.match(p, /escribe exactamente @usuario/, 'el prompt no dice cómo poner el @ del negocio');
+});
+
 // ── Probado rompiéndolo (12/11/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
 //   R1 `colorQueSeLee` sin la pastilla perdida (rótulo blanco sobre crema queda igual)      → falla el 2 y el 5
 //   R2 `acomodarTextos` sin el factor a lo ancho                                             → falla el 3
@@ -149,3 +205,8 @@ test('7 · un anuncio de catálogo de Meta no muestra «{{product.name}}» ni lo
 //   R4 sin `otraEscena` (el cuadro sin su escena queda vacío)                                → falla el 5
 //   R5 `libre` contando los cuadros y no las fotos puestas                                   → falla el 5
 //   R6 el prompt con «por ejemplo «pantalla dividida…»» otra vez                             → falla el 6
+//   M1 sin leer `formas` (el marco)                                                          → falla el 8
+//   M2 sin el recorte del cuadro (el avatar cuadrado)                                        → falla el 8
+//   M3 sin cambiar el comodín @usuario                                                       → falla el 8
+//   M4 el color medido contra el fondo y no contra la tarjeta de atrás                       → falla el 8
+//   M5 sin `conLaCara` (la cara elegida no entra en la portada)                              → falla el 9

@@ -150,10 +150,35 @@ recibir» falso, la marca se borraba y el panel perdía el QR en un paso hasta l
 mensaje de una persona con hora POSTERIOR a la marca (lib/linea-sorda.ts). Lo que llega tarde, en tanda, trae su hora vieja y no cuenta.
 Re-vinculada después de marcarla, la marca es de otro dispositivo: se limpia sin aviso. Lo fijan tests/linea-sorda.test.ts 3 y 4 (la
 noche del 12/11 con el store real; roturas D1-D5).
-**Sin hacer (lo decide Martín):** ver una voz sorda de noche pide una prueba ACTIVA, un mensaje que otra línea manda y la voz tiene que
-recibir. El único emisor posible hoy es la línea de Martín (su WhatsApp personal, que además recibe atrasada) o un número testigo nuevo
-en los grupos. Hasta entonces, una sordera que empieza después de las 20 de Argentina se ve recién a las 9. La causa de fondo (Baileys
-rc.9 en Railway) la llevan el Cerebro y Martín.
+**Decidido (el Cerebro, 12/11 09:45 UTC): NO va una prueba activa de noche.** Verla de noche pedía un mensaje que otra línea manda y la
+voz tiene que recibir; el único emisor posible era la línea de Martín (su WhatsApp personal, que además recibe atrasada) o un número
+testigo nuevo en los grupos, y mandar mensajes entre líneas arriesga un bloqueo de WhatsApp (ver «WhatsApp BANEÓ la línea de MaKo»).
+Queda así: una sordera que empieza después de las 20 de Argentina se ve recién a las 9. No volver a proponerlo sin un dato nuevo. El
+arreglo de fondo es Baileys rc14 en Railway, y lo llevan el Cerebro y Martín.
+
+**Medido en producción (13/11, 00:40 UTC):** marcó a las 12:00 UTC del 12/11 en punto, la primera vuelta del horario, como decía la
+simulación. **Y cambiar la voz de línea no la curó:** a las 17:38 la voz pasó a `mako_ws9` (la línea de Martín), que llevaba casi un
+día sin recibir de una persona (la misma traba de Baileys). El detector la marcó a las 17:40 («hace 23.9 h») y siguió con «hace falta
+el QR» a las 20:50 y a las 00:00. Entre las dos líneas, MaKo no clasificó un solo mensaje del 12/11 00:41 al 13/11 00:40. Antes de
+mover la voz a otra línea, mirar la última ENTRANTE de una persona en la línea nueva (`ultimosMensajesDeLaLinea`): de las 10 líneas,
+5 tenían la misma traba.
+
+**Quién la movió al …3479 (medido el 13/11, sólo lectura): el botón, no el código, y no queda rastro de quién.** A las 17:38:22 cambió
+SÓLO `mako.voz.instancia`; el canal siguió en el …2605 desde el 7/10. Eso es exactamente «Usarlo para MaKo» del panel de /agencia
+(`usarNumeroPersonalComoVoz(true)`, `action: 'voz-personal'`), el botón que Martín pidió el 3/11 con el …2605 baneado. Las otras
+dos escrituras de la voz (`conectar`/`pasar`, lib/mako-canal.ts) mueven también el canal, y la única acción automática del panel
+(`usar`) hace lo contrario: devuelve la voz al canal. ⚠️ **El diagnóstico obvio («un failover del código») era el equivocado**, y
+el de al lado también: un test (`tests/_altas-en-grupos-hijo.ts`) pone justo `mako_ws9`, pero en su base de mentira, y una
+corrida filtrada habría escrito muchas claves, no una. **La trampa:** la ruta pide una sesión de admin y no anota nada
+(`actividad_acciones` y `chat_eventos` vacías en ese minuto; los logs de Vercel de hace horas no se leen por la API: el stream
+no devuelve ni los encabezados). Desde las 17:38, por el …3479 salieron 36 mensajes, todos de la API: 33 al grupo de SuperAdmin
+(los avisos de atraso), 2 al de Código Inmobiliario y 1 al de un cliente (ws24); ninguno a un chat personal.
+**Desde el 13/11 deja rastro** (el botón se queda: lo pidió Martín). La ruta saca una foto de la voz y el canal antes de atender y
+otra en el `finally`, y si cambiaron anota quién (el email de la sesión), qué botón, desde qué pantalla (el Referer) y de qué línea
+a cuál, con el número (lib/registro-lineas.ts, una lista con tope en `app_settings` del dueño, sin migración). Se ve en Admin ›
+Analytics › Events, tipo «linea», y la voz que queda en una línea de negocio (`mako_ws<n>`) va en rojo. Se anota el CAMBIO y no el
+botón: una acción nueva entra sola, y una foto que no se pudo leer no cuenta como «sin cambio». ⚠️ «Usar la línea de MaKo» también
+lo hace el panel SOLO cuando la línea vuelve (`autoVozRef`): con la sesión de quien tenía la pantalla abierta, que no apretó nada.
 
 ---
 

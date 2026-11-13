@@ -1275,3 +1275,25 @@ el script); lo que no se hizo se le contesta en su grupo como equipo y el ticket
 
 *2026-11-10 claude4, chat Tickets*
 
+
+---
+
+## «Pasa a MaKo «…»» no era el nombre del plan roto: era `sinNombres` tapando «Pro» (12/11/2026, ticket #89)
+
+**El síntoma:** el ticket de Código Inmobiliario desde «Sellers» decía «Llegaste al tope de tu plan (1). Pasa a MaKo «…» para
+tener más. Pídele a tu agencia que te pase a «…»», y la ficha decía «plan Completo». Leído así, parecían dos bugs del plan: el
+nombre que no sale y un plan completo con tope 1.
+
+**El diagnóstico obvio era el equivocado.** En pantalla decía «MaKo Pro» y «que te pase a Pro». El «…» lo puso «Reportar a
+Soporte» al sanear el texto: `sinNombres` (lib/soporte-reporte.ts) tapa toda palabra con mayúscula que no empieza la frase y no
+está en `PALABRAS_DE_MAKO`, y «Pro» no estaba. Ahora están los planes (`Pro`, `Esencial`) y `Agency`/`Partners`.
+Y «plan Completo» es la CAPA del workspace (`capaDef(capa).nombre`, lib/tickets-db.ts → `Identidad.plan`), no el plan que se
+vende: **capa `completo` = MaKo Esencial** (1 usuario), capa `agencia` = Pro. El 1 era el de la tabla (lib/topes-plan.ts).
+
+**Regla:** un «…» en un ticket de Reportar a Soporte es el filtro de privacidad, no lo que vio el cliente. Antes de perseguir un
+«nombre que no sale», reconstruir la frase original (el texto del código: `git grep` de la frase sin el «…»). Y el «plan» de la
+ficha del ticket es la capa: para el plan comercial, `agency.plan_cambiado` (cliente de agencia) o el `alta_capa` de su cobro.
+
+**Lo que quedó sin hacer:** la ficha del ticket sigue diciendo «plan Completo» para un Esencial (lib/tickets-db.ts,
+`identidadDe`). Cambiarlo a «Esencial» no es trivial: el ws1 y los acuerdos a mano también tienen capa `completo` y no pagan un
+Esencial; habría que leer el plan como lo hace `esEsencialDe` (lib/plan-esencial.ts).

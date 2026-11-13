@@ -5,7 +5,7 @@
 // importarla desde marca armaba un ciclo marca → registro → ads → marca.
 // =============================================================================
 
-import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
+import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
 
 /**
  * EL ÚNICO LLAMADO A LA ACCIÓN de las landings de /vsl y del sitio estilo beehiiv: empezar con MaKo en /planes, donde se elige
@@ -24,5 +24,5 @@ export const TEXTO_CTA = PRUEBA_GRATIS_PRENDIDA ? 'PRUÉBALO GRATIS AHORA' : 'EM
  * «Prueba MaKo 7 días gratis»: «eso no tiene sentido, ya que eso mismo ya lo dice el propio botón»). Es la regla de /reembolsos.
  */
 export const TEXTO_CIERRE = PRUEBA_GRATIS_PRENDIDA
-  ? `${PRUEBA_DIAS} días gratis. Si te das de baja antes del día ${PRUEBA_DIAS + 1}, no pagas nada.`
+  ? `${PRUEBA_DIAS} días gratis con ${NOMBRE_PLAN_CON_PRUEBA}. Si te das de baja antes del día ${PRUEBA_DIAS + 1}, no pagas nada.`
   : 'Eliges tu plan y entras a MaKo en el acto.';

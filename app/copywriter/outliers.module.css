@@ -17,11 +17,10 @@
   display: block; margin: 0 0 10px; font-size: 11.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--dim);
 }
 
-/* En el teléfono los botones van debajo del título, en una fila que se desliza: alineados a la izquierda (centrados, lo que
-   no entraba quedaba cortado de los DOS lados y el principio no se podía alcanzar). La clase doble gana a `.botones` de Image. */
-.botonesTelefono.botonesTelefono { justify-content: flex-start; }
-/* Y su fila ocupa el ancho de la pantalla: el encabezado centra a sus hijos, y la fila (más ancha que la pantalla) se salía por los dos lados. */
-.filaTelefono.filaTelefono { align-self: stretch; min-width: 0; }
+/* En el teléfono los botones van debajo del título, centrados y en DOS renglones si no entran (12/11/2026: en una fila que se
+   deslizaba, a 375 «+ Crear desde cero» quedaba cortado a la derecha). La clase cuádruple gana a `.raiz[data-telefono='si']
+   .botones` de Image (0,3,0), que los pone en una sola fila. */
+.botonesTelefono.botonesTelefono.botonesTelefono.botonesTelefono { flex-wrap: wrap; justify-content: center; row-gap: 8px; align-self: stretch; min-width: 0; }
 
 /* ── La tarjeta de COPY, en UNA caja (12/11/2026): el MARCO tiene la forma de su red (el `aspect-ratio` lo pone la tarjeta: YouTube
    16:9, reel 9:16, carrusel 4:5, anuncio 1:1) y adentro va el TEXTO (11/11/2026: «tienen que verse como COPY: el texto primero»).
@@ -49,7 +48,11 @@
 /* YouTube es apaisado: el título, más chico y sin la descripción (no entra y no es lo que se replica). */
 .tarjeta[data-formato='youtube'] .copy { padding: 40px 16px 14px; -webkit-mask-image: none; mask-image: none; }
 .tarjeta[data-formato='youtube'] .ganchoGrande { font-size: 16px; -webkit-line-clamp: 3; }
-.tarjeta[data-formato='reel'] .ganchoGrande { font-size: 19px; -webkit-line-clamp: 6; }
+/* Un reel (9:16) es alto: con un texto corto quedaba una caja blanca casi vacía con tres renglones arriba (el banco, 12/11/2026).
+   Letra más grande y el texto al CENTRO del alto mientras entre; `safe` lo vuelve arriba si no entra (no se corta por los dos lados). */
+.tarjeta[data-formato='reel'] .copy { justify-content: safe center; gap: 14px; }
+.tarjeta[data-formato='reel'] .ganchoGrande { font-size: 22px; line-height: 1.25; -webkit-line-clamp: 6; }
+.tarjeta[data-formato='reel'] .sigue { font-size: 15.5px; line-height: 1.6; }
 .tarjeta[data-formato='anuncio'] .ganchoGrande { -webkit-line-clamp: 4; }
 
 /* La marca de la red, arriba a la izquierda, sobre el texto o sobre el original. */
@@ -91,6 +94,11 @@
 
 /* «Ver más» al pie de la grilla (la carga por tandas). */
 .masAbajo { display: flex; justify-content: center; padding: 22px 0 8px; }
+/* «Guion»: el copy es lo que se DICE en la pieza (transcripto), no su pie. */
+.conGuion {
+  display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; white-space: nowrap;
+  background: var(--primary-bg); color: var(--primary-strong, var(--primary)); font-size: 12px; font-weight: 700;
+}
 /* La marca no pisa «Replicar» (arriba a la derecha, al pasar el cursor). */
 .marcas.marcas { max-width: calc(100% - 104px); }
 .red { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
@@ -100,7 +108,8 @@
   .ganchoGrande, .tarjeta[data-formato='reel'] .ganchoGrande { font-size: 14.5px; }
   .tarjeta[data-formato='youtube'] .copy { padding: 36px 11px 10px; }
   .tarjeta[data-formato='youtube'] .ganchoGrande { font-size: 13px; -webkit-line-clamp: 2; }
-  .sigue { font-size: 12.5px; line-height: 1.5; }
+  .sigue, .tarjeta[data-formato='reel'] .sigue { font-size: 12.5px; line-height: 1.5; }
+  .tarjeta[data-formato='reel'] .copy { gap: 6px; }
   .red { height: 22px; font-size: 11.5px; padding: 0 7px 0 6px; }
   .marcas.marcas { max-width: calc(100% - 16px); }
 }

@@ -1795,6 +1795,20 @@ export type SttOpts = { language?: string; prompt?: string; feature?: string; mo
    */
   notaDeVozDelGrupo?: boolean };
 
+/**
+ * UNA NOTA DE VOZ CORTA ESCUCHA CON GROQ PRIMERO (12/11/2026). Medido en producción (ws 9, /api/plan-dictado, una nota de 4,5 s):
+ * con Gemini primero tardaba de 11 s a ~105 s con «Enviando…» en la caja, y la transcripción salía igual de bien. El tiempo se iba
+ * en Gemini: `gemini-flash-latest` se cuelga hasta el plazo de `sttGemini` (60 s) en cada cuenta antes de llegar a Groq (Whisper,
+ * ~1-2 s). Lo mismo que ya se había medido con los grupos (`notaDeVozDelGrupo`), pero acá Gemini no sale: queda de respaldo.
+ * Se decide por el PESO (una nota de chat pesa decenas de KB; 2 MB de opus son varios minutos): así no cambian ni la llamada de las
+ * rutas (que cuidan tests/doer-falla.test.ts y tests/chat-nota-de-voz.test.ts) ni la cadena del grupo. Un audio largo (una clase,
+ * un anuncio) sigue con Gemini primero, que lo escucha entero.
+ */
+export const NOTA_CORTA_BYTES = 2 * 1024 * 1024;
+/** El orden de escucha de un audio: el de siempre, y con una nota corta Groq adelante (lo demás, en el mismo orden). */
+export const ordenDeEscucha = (stt: readonly ProvName[], bytes: number): ProvName[] =>
+  (bytes > 0 && bytes <= NOTA_CORTA_BYTES ? [...stt.filter((x) => x === 'groq'), ...stt.filter((x) => x !== 'groq')] : [...stt]);
+
 // Gemini manda el audio DENTRO del request (inline_data), así que hay un techo de
 // tamaño. Una nota de voz de WhatsApp pesa kilobytes; un audio largo se va a Whisper.
 const MAX_INLINE_GEMINI = 14 * 1024 * 1024;
@@ -2185,7 +2199,9 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   // Proactivo: los que ya quemaron su cuota de hoy van al final (mismo criterio que el chat).
   // La nota de voz de un grupo, sin Gemini (`notaDeVozDelGrupo`).
   const stt = CASCADA_STT.filter((x) => !(o.sinGroq && x === 'groq') && !(o.notaDeVozDelGrupo && x === 'gemini'));
-  const orden = await ordenarPorCuota(stt.map(String)).catch(() => stt.map(String));
+  // Una nota corta, Groq adelante (`ordenDeEscucha`, arriba: Gemini se colgaba hasta 60 s por cuenta antes de llegar a Groq).
+  const enOrden = ordenDeEscucha(stt, buf.length);
+  const orden = await ordenarPorCuota(enOrden.map(String)).catch(() => enOrden.map(String));
 
   const errores: string[] = [];
   let alguienEscuchó = false; // respondió OK pero sin texto → el audio está vacío, no falló nada

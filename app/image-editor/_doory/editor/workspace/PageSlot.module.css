@@ -23,7 +23,10 @@
  * es lo primero que se va: también está en Redimensionar.
  */
 @container (max-width: 440px) {
-  .meta {
+  /* `.header .meta` y no `.meta` sola (12/11/2026): `.meta { display: inline-flex }` está MÁS ABAJO con la misma especificidad y
+     ganaba siempre, así que el tamaño nunca se iba. Por eso el mínimo de 372 px de PageSlot.tsx, que en un teléfono (página de
+     279 px en 375) sacaba el último ícono de la pantalla. Medido en producción. */
+  .header .meta {
     display: none;
   }
 }

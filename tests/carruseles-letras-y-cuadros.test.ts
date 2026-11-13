@@ -81,11 +81,16 @@ test('4 · pantalla dividida: dos cuadros con la escena PARECIDA; la foto del ne
   const escenas = new Map([['rocky beach at sunset', playa]]);
   const doc = documentoDeReplica({ replica: r, estilo, marca: { nombre: 'X', usuario: null }, foto: fotoDelNegocio, nuevoId, escenas });
   const objetos = (doc.pages as Array<Record<string, unknown>>)[0].objects as Array<Record<string, unknown>>;
-  const imagenes = objetos.filter((o) => o.type === 'image');
-  assert.equal(imagenes.length, 2, 'una imagen por cuadro: la pantalla dividida');
-  assert.ok(imagenes.every((i) => i.src === playa.url), 'cada cuadro lleva la escena parecida');
-  assert.ok(!imagenes.some((i) => i.src === fotoDelNegocio.url), 'la foto del negocio NO es ese lugar: no se pega');
-  assert.deepEqual(imagenes.map((i) => i.top), [0, 675], 'arriba y abajo, como el original');
+  const lugares = objetos.filter((o) => o.type === 'image' && o.src !== fotoDelNegocio.url);
+  assert.equal(lugares.length, 2, 'una imagen por cuadro: la pantalla dividida');
+  assert.ok(lugares.every((i) => i.src === playa.url), 'cada cuadro lleva la escena parecida');
+  assert.deepEqual(lugares.map((i) => i.top), [0, 675], 'arriba y abajo, como el original');
+  // 12/11/2026: con su cara elegida y una persona en el original, la cara ENTRA, pero aparte: un retrato redondo sobre la esquina de
+  // la escena, más chico que ella. La foto del negocio sigue sin ser el lugar (tests/carruseles-replica-se-lee.test.ts, 8).
+  const suya = objetos.filter((o) => o.type === 'image' && o.src === fotoDelNegocio.url);
+  assert.equal(suya.length, 1, 'la cara elegida no entró, o se pegó en lugar de una escena');
+  assert.equal((suya[0].slot as { mask?: string } | undefined)?.mask, 'circle', 'la cara va redonda, no como el lugar');
+  assert.ok((suya[0].width as number) * (suya[0].scaleX as number) < 540, 'la cara es más chica que la escena');
   // En un RETRATO (la persona sola, como elemento del diseño) sí va la foto del negocio.
   const retrato: Replica = { ...r, laminas: [{ ...r.laminas[0], cuadros: [{ ...escena(0.2), tipo: 'retrato', ancho: 0.4, alto: 0.4 }] }] };
   const conRetrato = documentoDeReplica({ replica: retrato, estilo, marca: { nombre: 'X', usuario: null }, foto: fotoDelNegocio, nuevoId, escenas });

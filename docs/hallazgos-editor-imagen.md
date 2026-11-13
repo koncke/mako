@@ -49,6 +49,59 @@ Con las dos, «Enviar audio» queda en 354→398. El Video Editor tiene el mismo
 
 ---
 
+## «Quitar fondo» prendido: MODNet desde Hugging Face, y la persona de una miniatura sin fondo (12/11/2026)
+
+**El pedido** (el Cerebro, mirando la miniatura de Dan Martell): «persona recortada, sin fondo y grande». **Lo que había:** el
+servidor no puede recortar (onnxruntime-node excluido del deploy en next.config.ts, por el ENOSPC del 3/11), y el editor traía un
+«Quitar fondo» en el navegador (onnxruntime-web en un worker, el runtime desde jsDelivr) que NADIE prendía: `configureBackgroundRemoval`
+no se llamaba en ningún lado y el motor sólo aceptaba un modelo del mismo origen.
+
+**Cómo quedó** (app/image-editor/mako/quitar-fondo.ts y modelo-modnet.ts; test tests/image-quitar-fondo.test.ts, roto a propósito):
+- el modelo baja de Hugging Face, `Xenova/modnet` (Apache-2.0), con la URL FIJADA al commit `fa2fa546…` y su sha256 (el motor lo
+  verifica antes de usarlo); `model.ts` acepta de afuera SÓLO esa forma (`/resolve/<40 hex>/…onnx`), no una rama;
+- el descriptor (entrada `input`, salida `output`, 512 px, media y desvío 0,5) salió de la API del repo y de su preprocessor_config;
+  medido en producción: CORS deja pasar a hola-mako.com, sha256 igual, entrada y salida como dice el README;
+- ⚠️ **el cuantizado no alcanzó.** Con Dan Martell (de frente, buena luz) recorta bien, pelo incluido; con la foto de Martín (de
+  noche, cuerpo entero, chico en el cuadro) le comió brazos, piernas y la mitad del cuerpo. El grande (25,9 MB) lo recorta entero.
+  Va el grande (docs/pruebas/image-12-11/33);
+- la réplica marca la persona de una miniatura (`FOTO_A_RECORTAR`) y el editor, al abrir, le quita el fondo UNA vez y la ENCUADRA
+  desde la cabeza para su cuadro: `replaceSelectedImage` reinicia el encuadre y centra la foto entera, y la persona quedaba chica.
+  Si el modelo no carga, la foto queda con su fondo (grande, por la réplica) y pierde la marca: no se reintenta ni traba nada.
+
+⚠️ **El recorte NO es la réplica.** Martín vio la miniatura de Dan Martell replicada así (su foto recortada, grande, sobre el fondo
+de color) y la llamó «increíblemente horrible… no se parece en nada». Una miniatura con persona se REGENERA con la IA de imagen:
+misma pose, misma ropa, el mismo auto atrás (o parecido) y la misma tipografía (docs/hallazgos-carruseles.md → la plancha). El
+recorte queda como herramienta del editor y como respaldo si la IA de imagen no está.
+
+⚠️ **Dónde se monta el recorte** (13/11, la punta en rojo): lo puse al lado del chat en el `dentro` del editor
+(app/image-editor/editor/PantallaEditor.tsx) y cayó tests/image-editor-chat.test.ts 24, que lee ESA línea tal cual. El diagnóstico
+obvio («el test cuida la regla vieja: la portada ya va sin chat») era el equivocado: la portada no tiene editor, y al EDITAR el chat
+sigue en la tarjeta. Ahora lo monta el panel de MaKo (`<RecortarAlAbrir />` en PanelMakoIA.tsx), que ya está adentro del editor y
+no se desmonta al plegar la tarjeta ni en el teléfono (`hidden`); sí se desmonta con la lista de proyectos a la vista.
+
+**Sin hacer:** alojar el modelo nosotros (más rápido y sin depender de Hugging Face) espera el sí de Martín: lo pide el Cerebro.
+
+## «Replicar» y «Usar plantilla» sin preguntar, y el editor en el teléfono (12/11/2026, segunda vuelta)
+
+**Sin preguntar** (memoria `replicar-deja-todo-escrito`): «Editar» arranca a escribir con lo de por defecto
+(`respuestasPorDefecto`, lib/carruseles/guiado.ts: la oferta principal, su cara, sólo los textos) y lo demás va DESPUÉS, al lado
+de «Abrir el diseño» («Para «otra oferta»», «Sin mi foto», «Con mis colores»; cada uno es otra vuelta del armado). Las preguntas
+quedan para «Cambiar algo». ⚠️ El pedido se congela por su VALOR: la lectura de «¿tiene persona?» termina mientras se arma, cambia
+`hechos`, y con un pedido recalculado por referencia el armado arrancaba de nuevo a la mitad.
+«Usar plantilla» (una con contenido: un carrusel por tipo o una plantilla real; un formato en blanco no) abre con `?escribir=1` y el
+chat de MaKo escribe cada texto de guía para el negocio (`conNegocio`: el chat de siempre no lleva el negocio, son tokens) con
+[DATO: …] donde falte, y como la plantilla está sin tocar la deja escrita sin «Aceptar». La dirección pierde el `escribir` en el
+acto: recargar no escribe encima.
+
+**El teléfono:** el encabezado de cada página medía 372 px con la página en 279 y la pantalla en 375: el último ícono quedaba
+afuera. ⚠️ **No era el mínimo de 372: era una regla que nunca ganó.** `@container (max-width: 440px) { .meta { display: none } }`
+estaba ARRIBA de `.meta { display: inline-flex }` con la misma especificidad, así que el tamaño («1080 × 1350 px») no se iba nunca,
+y por eso alguien había subido el mínimo a 372. Con `.header .meta` la regla gana, y el mínimo baja a 260. Medido inyectando las
+reglas en producción. La barra de abajo pedía 477 px en 375 («Herramie…»): repartida por contenido y sin el piso de 60 px, entra.
+Una regla de un `@container` ubicada antes que la regla base, con la misma especificidad, no hace nada: se mira el orden.
+
+---
+
 ## El panel «Diseño» estuvo vacío cinco días: el buscador nunca encontraba nada (11/11/2026)
 
 **Síntoma:** en el editor, el panel «Diseño» mostraba un buscador y «Todas las plantillas», y buscar «lista» contestaba «Ninguna

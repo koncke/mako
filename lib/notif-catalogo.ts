@@ -58,12 +58,10 @@ export const NOTIF_IN_APP: NotifInAppDef[] = [
     // arriba — ofrecer «silenciar» algo que ya no suena es un control que no hace nada.
     sonido: false,
   },
-  {
-    id: 'wa-plantilla',
-    titulo: 'Plantilla de WhatsApp resuelta',
-    sub: 'Cuando Meta aprueba o rechaza una plantilla enviada a revisión.',
-    sonido: true,
-  },
+  // ⚠️ ACÁ ESTABA 'wa-plantilla' («Plantilla de WhatsApp resuelta»), y se fue con su pop-up
+  // el 12/11/2026, por la misma regla: no podía salir nunca. Su sondeo leía una cuenta de
+  // WhatsApp Business que se borró el 09/10/2026 (app/_components/NotificationsProvider.tsx
+  // cuenta dónde estaba). Era el único aviso que sonaba: hoy sólo suena el de prueba.
   // ⚠️ ACÁ ESTABA 'ia-uso' («MaKo usó inteligencia artificial»), y se fue con su
   // pop-up el 27/09/2026. Se saca del catálogo por la regla de arriba: un
   // interruptor para algo que ya no se enciende apaga algo que estaba apagado y
