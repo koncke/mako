@@ -186,8 +186,8 @@ test('3. las partes: el texto trae la estructura y los ángulos, nunca quedan la
 
 test('2b. cómo está acomodada cada sección: dónde lleva imágenes y si sus subtítulos son tarjetas', () => {
   const m = moldeDeSeccion({ titulo: 'Beneficios', puntos: ['### Rápido', 'a', '### Barato', 'b', '### Fácil', 'c'] });
-  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: false }), 'una imagen junto al texto, 3 tarjetas o pasos con su subtítulo');
-  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: true }), 'imagen de fondo, 3 tarjetas o pasos con su subtítulo');
+  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: false }), 'una imagen junto al texto, 3 tarjetas o pasos con su subtítulo, ni uno más ni uno menos');
+  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: true }), 'imagen de fondo, 3 tarjetas o pasos con su subtítulo, ni uno más ni uno menos');
   assert.equal(acomodoDeSeccion(moldeDeSeccion({ titulo: 'Logos', puntos: ['x'] }), { cantidad: 6, fondo: false }), '6 imágenes (galería o logos)');
   assert.equal(acomodoDeSeccion(moldeDeSeccion({ titulo: 'Solo', puntos: ['x'] }), null), '');
   // Las imágenes de cada sección de la réplica: las de SUS partes de la original.
