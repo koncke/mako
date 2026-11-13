@@ -83,10 +83,17 @@ test('2. el reel de Outliers: el loader de la app tapa la caja hasta que el repr
   const v = sinComentarios(leer('app/video-editor/VerReel.tsx'));
   assert.match(v, /import \{ CargandoMako \} from '@\/app\/_ui\/CargandoMako';/, 'directo, no desde el índice de app/_ui');
   assert.match(v, /const \[cargado, setCargado\] = useState\(false\);/);
-  assert.match(v, /<iframe\s+src=\{embed\}[\s\S]*?onLoad=\{\(\) => setCargado\(true\)\}\s*\/>/);
+  // 13/11/2026, mirado en producción: el `load` del iframe llega VACÍO y el reel se dibuja ~5 s después. El loader espera el
+  // aviso del reproductor (su `postMessage`) o un tope después del `load`, no el `load` solo.
+  assert.match(v, /<iframe\s+ref=\{marco\}\s+src=\{embed\}[\s\S]*?onLoad=\{\(\) => setDocumento\(true\)\}\s*\/>/);
+  assert.doesNotMatch(v, /onLoad=\{\(\) => setCargado\(true\)\}/, 'el load del iframe no es el reel dibujado');
+  assert.match(v, /if \(marco\.current && e\.source === marco\.current\.contentWindow\) setCargado\(true\);/, 'sólo los avisos de SU reproductor');
+  assert.match(v, /const tope = documento \? setTimeout\(\(\) => setCargado\(true\), TOPE_TRAS_CARGAR_MS\) : null;/);
   assert.match(v, /\{!cargado && <CargandoMako cubre que="el reel"/);
+  // Los ganchos van ANTES del `if (!embed) return`: uno después cambia la cuenta de hooks entre renders (ticket #91).
+  assert.ok(v.indexOf('useEffect(') > 0 && v.indexOf('useEffect(') < v.indexOf('if (!embed)'));
   // Volver a abrir la caja vuelve a mostrar el loader.
-  assert.match(v, /onClick=\{\(\) => \{\s*setCargado\(false\);\s*setAbierto\(true\);\s*\}\}/);
+  assert.match(v, /onClick=\{\(\) => \{\s*setCargado\(false\);\s*setDocumento\(false\);\s*setAbierto\(true\);\s*\}\}/);
   // El loader es absoluto: la caja del video lo contiene.
   assert.match(leer('app/video-editor/outliers.module.css'), /\.verVideo \{ position: relative;/);
 });
@@ -138,4 +145,14 @@ test('4b. la cabecera: la columna derecha no se desborda sobre el nombre; el que
   assert.match(c, /<div className="flex min-w-0 items-center justify-end gap-1\.5 whitespace-nowrap">\s*(?:\{\}\s*)?<EnVivo \/>/);
   // El nombre se achica con elipsis.
   assert.match(c, /className="h-\[26px\] max-w-\[40vw\] cursor-text truncate/);
+});
+
+test('3c. un aviso de Clips mágicos que dice qué hacer no es una falla: sin «Reportar a Soporte» (13/11/2026)', async () => {
+  const { esFallaDeClips } = await import('../app/video-editor/_opencut/clips/resultado');
+  assert.equal(esFallaDeClips({ ok: false, motivo: 'corto' }), false, '«ya dura como un clip» salía con «Reportar a Soporte»');
+  assert.equal(esFallaDeClips({ ok: false, motivo: 'sin-voz' }), false);
+  assert.equal(esFallaDeClips({ ok: false, motivo: 'sin-clips' }), false);
+  assert.equal(esFallaDeClips({ ok: false, motivo: 'red' }), true);
+  assert.equal(esFallaDeClips({ ok: true, clips: 3, aviso: null }), false);
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/clips/buscar.ts')), /error: esFallaDeClips\(r\),/);
 });
