@@ -50,7 +50,11 @@ import {
  * con texto: los testimonios de una masterclass, los pasos numerados), y si cada uno lleva foto. `fotos`: cuántas <img> de verdad
  * tiene, contando las que vienen en base64 (no se copian, pero dicen cómo está acomodada). Las dos, para el acomodo de la réplica.
  */
-export type SeccionOriginal = { titulo: string; fondo: string | null; tarjetas?: { cantidad: number; conFoto: boolean }; fotos?: number; video?: boolean };
+export type SeccionOriginal = {
+  titulo: string; fondo: string | null; tarjetas?: { cantidad: number; conFoto: boolean }; fotos?: number; video?: boolean;
+  /** De qué lado del texto va su primera foto o video (13/11/2026): antes del título en el HTML → izquierda; después → derecha. */
+  lado?: 'izquierda' | 'derecha';
+};
 
 /**
  * Una imagen de la página. `seccion`: el índice (en `secciones`) del título de la parte donde está.
@@ -90,6 +94,13 @@ export type EstiloOriginal = {
    * vio ninguna. Lo arman el lector (lector-script.ts) y `estiloDeHtml`; lo sanea `sanearAnimaciones`.
    */
   animaciones?: AnimacionesOriginal;
+  /**
+   * El ancho de la columna de contenido en px (13/11/2026): el `max-width` del contenedor más cercano de cada título, la
+   * mediana. La de Clara es 760: una columna angosta y centrada; la réplica ocupaba todo el ancho. Sin el campo: no se vio.
+   */
+  anchoContenido?: number;
+  /** En cuántas partes distintas aparece el botón principal (2 o más; sin el campo: una o ninguna). */
+  botonEnPartes?: number;
 };
 
 export const TOPES_ESTILO = {
@@ -513,6 +524,7 @@ export function sanearEstilo(raw: unknown): EstiloOriginal | null {
       ...(cantidad ? { tarjetas: { cantidad, conFoto: t?.conFoto === true } } : {}),
       ...(fotos ? { fotos } : {}),
       ...(o.video === true ? { video: true } : {}),
+      ...(o.lado === 'izquierda' || o.lado === 'derecha' ? { lado: o.lado } : {}),
     };
   });
   const imagenes: ImagenOriginal[] = [];
@@ -549,6 +561,8 @@ export function sanearEstilo(raw: unknown): EstiloOriginal | null {
     secciones,
     imagenes,
     ...(animaciones ? { animaciones } : {}),
+    ...(typeof r.botonEnPartes === 'number' && Number.isInteger(r.botonEnPartes) && r.botonEnPartes >= 2 ? { botonEnPartes: Math.min(r.botonEnPartes, 99) } : {}),
+    ...(typeof r.anchoContenido === 'number' && Number.isFinite(r.anchoContenido) && r.anchoContenido >= 320 && r.anchoContenido <= 2000 ? { anchoContenido: Math.round(r.anchoContenido) } : {}),
   };
   return estiloUtil(e) ? e : null;
 }
@@ -847,8 +861,10 @@ type Marco = {
   firma?: string; seccion?: number; texto?: boolean; foto?: boolean; hijos?: Map<string, { n: number; conFoto: number }>;
   /** El primer título que cerró adentro, y las fotos que todavía no saben de qué parte son (ver `cerrarMarco`). */
   primerTitulo?: number; fotosPend?: { seccion: number; antes: number; video?: boolean }[];
+  /** Sus atributos y su `max-width` en px, leído la primera vez que un título lo pide (`anchoContenido`). */
+  attrs?: string; maxAncho?: number | null;
 };
-type CandidatoBoton = { fondo: string; degradado: string | null; texto: string | null; radio: number | null; veces: number };
+type CandidatoBoton = { fondo: string; degradado: string | null; texto: string | null; radio: number | null; veces: number; partes: Set<number> };
 
 /**
  * El estilo de una página a partir de su HTML (y el CSS de las hojas que ya bajó el server, en `hojas`).
@@ -942,6 +958,8 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
   /** Cada foto, con la parte que le toca: como una imagen de fondo, la del primer título que cierra adentro de su contenedor
    *  (la foto de «Quién es» va ANTES de su h2), o la última si no cierra ninguno. */
   const fotos: { seccion: number; antes: number; video?: boolean }[] = [];
+  /** El `max-width` de la columna de cada título (ver `anchoContenido`). */
+  const anchos: number[] = [];
   /** Al cerrar un contenedor: le pasa lo suyo al de arriba, y si tenía ≥3 hijos con la misma clase y con texto, son tarjetas. */
   const cerrarMarco = (marco: Marco, padre: Marco | undefined) => {
     // Las fotos: un contenedor con títulos adentro decide (antes de su primer título → ese título; si no, el último anterior a
@@ -1027,6 +1045,17 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
     if ((tag === 'h1' || tag === 'h2' || tag === 'h3') && !enNav) {
       if (tag === 'h1') vistoH1 = true;
       titulo = { tag, texto: '', attrs };
+      // El ancho de su columna: el `max-width` del contenedor más cercano que lo tiene (entre 320 y 2000 px).
+      if (anchos.length < 200) {
+        for (let k = pila.length - 1; k >= 0; k--) {
+          const c = pila[k];
+          if (c.maxAncho === undefined) {
+            const px = medidaPx(estiloEl(c.tag, c.attrs ?? '')['max-width']);
+            c.maxAncho = px !== null && px >= 320 && px <= 2000 ? px : null;
+          }
+          if (c.maxAncho) { anchos.push(c.maxAncho); break; }
+        }
+      }
     }
     if ((tag === 'img' || tag === 'source') && enNav) continue;
     // Un VIDEO (el del hero de una masterclass): <video>, o el iframe de un reproductor. Sólo para el acomodo, como las fotos.
@@ -1064,13 +1093,14 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
       const degradado = degradadoCss(d['background-image'] ?? d.background);
       const clave1 = degradado ?? fondo;
       if (clave1 && (!e.fondo || !fondo || distintos(fondo, e.fondo))) {
-        const c = botones.get(clave1) ?? { fondo: fondo ?? (/#[0-9a-f]{6}/.exec(degradado ?? '')?.[0] ?? '#000000'), degradado, texto: colorCss(d.color), radio: medidaPx(d['border-radius']), veces: 0 };
+        const c = botones.get(clave1) ?? { fondo: fondo ?? (/#[0-9a-f]{6}/.exec(degradado ?? '')?.[0] ?? '#000000'), degradado, texto: colorCss(d.color), radio: medidaPx(d['border-radius']), veces: 0, partes: new Set<number>() };
         c.veces++;
+        c.partes.add(ultimo);
         botones.set(clave1, c);
       }
     }
     if (vacio) continue;
-    const marco: Marco = { tag, fondo: null, pendientes: animPendiente ? [animPendiente] : [] };
+    const marco: Marco = { tag, fondo: null, pendientes: animPendiente ? [animPendiente] : [], attrs };
     // La firma para las tarjetas: la etiqueta y sus clases (un hermano sin clase, como un <li> de viñetas, no es una tarjeta).
     const clasesEl = enNav ? '' : (atributo(attrs, 'class') ?? '').split(/\s+/).filter(Boolean).sort().slice(0, 6).join('.');
     if (clasesEl) marco.firma = `${tag}.${clasesEl}`;
@@ -1093,8 +1123,14 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
   for (const f of fotos) {
     const i = f.seccion === -2 ? (f.antes >= 0 ? f.antes : 0) : Math.max(0, f.seccion);
     if (!e.secciones[i]) continue;
+    // El lado de la primera: la que el contenedor le dio a un título POSTERIOR estaba antes del texto (la foto de «Quién es»).
+    if (!e.secciones[i].lado) e.secciones[i].lado = f.seccion >= 0 && f.seccion > f.antes ? 'izquierda' : 'derecha';
     if (f.video) e.secciones[i].video = true;
     else e.secciones[i].fotos = Math.min((e.secciones[i].fotos ?? 0) + 1, 99);
+  }
+  if (anchos.length) {
+    const orden = [...anchos].sort((a, b) => a - b);
+    e.anchoContenido = orden[Math.floor(orden.length / 2)];
   }
   // Una imagen de fondo cuyo contenedor no cerró va con la última parte; una de antes de todo título, con la primera.
   for (const img of e.imagenes) {
@@ -1115,6 +1151,8 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
     e.botonDegradado = cta.degradado;
     e.botonTexto = cta.texto;
     e.radioBoton = cta.radio;
+    // En cuántas partes distintas está (13/11/2026): la de Clara pone su botón dorado después de CADA sección.
+    if (cta.partes.size >= 2) e.botonEnPartes = Math.min(cta.partes.size, 99);
   }
   if (!e.boton) {
     e.boton = colorDeVariables(vars, ROLES_VARIABLE.boton);

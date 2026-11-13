@@ -34,6 +34,7 @@ import { temaPorId, urlFuentes } from './temas';
 import { CSS_CONTENIDO } from './css';
 import { hojaDeDiseno, tieneEditables } from './html-editable';
 import { TEXTO_PIDE_CONTRASENA, fuentesHtmlLibre, pideContrasena } from './html-libre';
+import { huecosParaPublicar } from './replicar-estructura';
 import { productosDePago } from './pago-landing';
 import {
   falla, leerFilaDoc, crearVersion, slugsOcupados, temasPropiosDe, limpiarContenido, limpiarConfig,
@@ -181,6 +182,9 @@ export async function publicar(idRaw: unknown, versionRaw: unknown, slugRaw: unk
     const publicadoAt = new Date().toISOString();
     const foto = armarFoto(f, propios, publicadoAt, urlPublicaLanding(slug), null);
     if (!foto.paginas.length) return falla('No hay nada para publicar');
+    // Una réplica con huecos de lo ajeno sin completar ([DATO], [FECHA], los testimonios) no sale (13/11/2026, replicar-estructura.ts).
+    const huecos = huecosParaPublicar(f.contenido, f.config);
+    if (huecos) return falla(huecos, 422);
     // Un bloque HTML que pide una contraseña no se publica en hola-mako.com (revisión de la tanda 2:
     // html-libre.ts, `pideContrasena`). La ruta tampoco lo sirve; acá se dice antes de publicar.
     if (Object.values(foto.htmlLibre ?? {}).some(pideContrasena)) return falla(`Un bloque «HTML personalizado» pide una contraseña. ${TEXTO_PIDE_CONTRASENA}`, 422);

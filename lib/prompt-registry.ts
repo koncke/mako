@@ -64,6 +64,7 @@ import {
   DISENOS_SYSTEM_TEMPLATE as LANDING_EDITOR_DISENOS_SYSTEM, DISENOS_USER_TEMPLATE as LANDING_EDITOR_DISENOS_USER,
   NOTAS_SYSTEM_TEMPLATE as LANDING_EDITOR_NOTAS_SYSTEM, NOTAS_USER_TEMPLATE as LANDING_EDITOR_NOTAS_USER,
   DISCUTIR_SYSTEM_TEMPLATE as LANDING_EDITOR_DISCUTIR_SYSTEM, DISCUTIR_USER_TEMPLATE as LANDING_EDITOR_DISCUTIR_USER,
+  FRASES_SYSTEM_TEMPLATE as LANDING_EDITOR_FRASES_SYSTEM, FRASES_USER_TEMPLATE as LANDING_EDITOR_FRASES_USER,
 } from './editor-landing/ia-reglas';
 import { DISCUTIR_SYSTEM as COPYWRITER_DISCUTIR_SYSTEM, DISCUTIR_USER as COPYWRITER_DISCUTIR_USER } from './copywriter/ia-reglas';
 import { EDITAR_SYSTEM as COPYWRITER_EDITAR_SYSTEM, EDITAR_USER as COPYWRITER_EDITAR_USER } from './copywriter/ia-editar';
@@ -1110,6 +1111,21 @@ export const REGISTRY: Group[] = [
         ], scope: 'full', sensitive: false,
         default: LANDING_EDITOR_DISCUTIR_USER,
         context: 'Le pasa a MaKo lo que plantea la persona, la página y lo último de la charla. Conserva los slots.',
+      },
+      {
+        key: 'landing_editor.frases.system', source: 'override',
+        label: 'Réplica: frases iguales a la original (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma de las frases')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_FRASES_SYSTEM,
+        context: 'Al replicar una landing adaptada, reescribe las frases que quedaron iguales a la página de la otra. Tiene que contestar el JSON {"frases":[…]} en el mismo orden.',
+      },
+      {
+        key: 'landing_editor.frases.user', source: 'override',
+        label: 'Negocio + frases (user)', kind: 'user', dynamic: true,
+        variables: [v('negocio', 'lo que se sabe del negocio (su oferta y su perfil)'), v('cantidad', 'cuántas frases son'), v('frases', 'las frases, numeradas')],
+        scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_FRASES_USER,
+        context: 'Le pasa a MaKo el negocio y las frases copiadas. Conserva los slots.',
       },
       {
         key: 'landing_editor.angulos.system', source: 'override',

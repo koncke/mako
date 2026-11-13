@@ -170,4 +170,21 @@ export const BITACORA: Hito[] = [
     revisar: '/email',
     tickets: [93],
   },
+  {
+    fecha: '13 nov', hora: '18:30', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los leads nuevos tienen lugar en el tope de email, y elegir columnas acomoda lo que ya salió',
+    puntos: [
+      'El 12/11 la lista fría de Mauricio se gastó 398 de sus 500 emails del día a las 7, y 34 de sus 67 leads nuevos se quedaron sin el suyo.',
+      'Ahora una lista fría usa como mucho el 80 % del tope del día: el resto queda para los leads que entraron por un formulario, una landing o una agenda en los últimos 7 días.',
+      'Al elegir las columnas del email de una automatización, los leads que ya recibieron emails pasan a la columna de lo que hicieron: les llegó, lo abrieron, hicieron clic o rebotó.',
+    ],
+    archivos: [
+      'lib/nutricion-prioridad.ts · lib/nutricion.ts — la reserva del email para los leads nuevos',
+      'lib/email-eventos-crm.ts · lib/email-eventos-crm-reglas.ts · lib/api-mako/areas/chatbot.run.ts — acomodar lo que ya salió',
+      'tests/email-prioridad-acomodo-93.test.ts — el motor y el runner de verdad, con los dos escenarios',
+      'docs/hallazgos-comunicacion.md',
+    ],
+    revisar: '/automations',
+  },
 ];

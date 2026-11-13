@@ -777,4 +777,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '13 nov', hora: '13:20', chat: 'Ticket 73: videos a la línea desde el chat', sesion: 'local_72d0c3fe-1e3d-43ff-bf60-f9362f94676e', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La prueba de Video repasada en producción: tres detalles más arreglados',
+    puntos: [
+      'Se volvieron a probar en producción los pasos que fallaron el 12/11: la receta en un pedido, la Edición automática con la receta y sus cursores, el B-roll sin Pexels, la portada de Publicar, el archivo que falta en la computadora y el teléfono, Clips mágicos y la pantalla nueva. Andan.',
+      'El reel de Outliers seguía unos segundos en blanco: ahora el indicador de carga se queda hasta que el reel se ve.',
+      'El aviso «Este video ya dura como un clip» ya no ofrece «Reportar a Soporte»: no es una falla, dice qué hacer.',
+      'En la Edición automática, la sección B-roll ya no pierde el aviso de cómo conectar Pexels.',
+    ],
+    archivos: [
+      'app/video-editor/VerReel.tsx — el indicador de carga del reel',
+      'app/video-editor/_opencut/clips/resultado.ts · buscar.ts — qué es una falla',
+      'app/video-editor/_opencut/broll/proponer.ts — el aviso de Pexels',
+      'tests/video-editor-detalles-12-11.test.ts · video-editor-broll-propio.test.ts',
+    ],
+    revisar: '/video-editor',
+  },
 ];

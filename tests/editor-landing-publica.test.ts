@@ -587,7 +587,7 @@ function rutasBajo(dir: string): string[] {
   return out;
 }
 
-test('app/l tiene EXACTAMENTE las seis rutas, sólo GET y HEAD, y ninguna lee la sesión', () => {
+test('app/l tiene EXACTAMENTE las siete rutas, sólo GET y HEAD, y ninguna lee la sesión', () => {
   // `/l` entra en PUBLICOS como prefijo porque la carpeta es pública por construcción: un
   // archivo nuevo acá adentro queda abierto sin sesión, así que tiene que decidirse a mano.
   // La cuarta (las otras páginas de un BORRADOR por el link privado) la sumó la integración del
@@ -596,12 +596,15 @@ test('app/l tiene EXACTAMENTE las seis rutas, sólo GET y HEAD, y ninguna lee la
   // página sino un documento para un iframe, y su decisión (`responderHtmlLibre`) la cubre
   // tests/editor-landing-htmllibre.test.ts. La sexta (el paso «nombre y email» del «Botón de pago»,
   // tanda 4, 14/10/2026) arma su propio documento con un formulario que postea a /api/: su decisión
-  // (`responderPasoPago`) la cubre tests/editor-landing-pago.test.ts.
+  // (`responderPasoPago`) la cubre tests/editor-landing-pago.test.ts. La séptima (la FUENTE de la publicada desde su dominio,
+  // 13/11/2026) no lee nada de nadie: trae un .woff2 de fonts.gstatic.com con tres segmentos fijos; su decisión
+  // (`responderFuente`) la cubre tests/web-generator-fuentes-propias.test.ts.
   const RUTAS_L = [
     'app/l/[slug]/[ruta]/route.ts',
     'app/l/[slug]/pagar/[bloque]/route.ts',
     'app/l/[slug]/route.ts',
     'app/l/html/[docId]/[bloque]/route.ts',
+    'app/l/html/fuentes/[...ruta]/route.ts',
     'app/l/vista/[token]/[ruta]/route.ts',
     'app/l/vista/[token]/route.ts',
   ];
@@ -611,6 +614,7 @@ test('app/l tiene EXACTAMENTE las seis rutas, sólo GET y HEAD, y ninguna lee la
     const exportados = [...src.matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(\w+)/g)].map((m) => m[1]).sort();
     assert.deepEqual(exportados, ['GET', 'HEAD', 'dynamic'], `${f}: sólo lectura`);
     assert.doesNotMatch(src, /next\/headers|cookies\(|getTenantDb|getSesion|getWorkspaceActual/, `${f}: no mira la sesión`);
+    if (f.startsWith('app/l/html/fuentes/')) { assert.match(src, /responderFuente\(/, `${f}: la decisión vive en fuentes-propias.ts`); continue; }
     if (f.startsWith('app/l/html/')) { assert.match(src, /responderHtmlLibre\(/, `${f}: la decisión vive en html-libre.ts`); continue; }
     if (f.includes('/pagar/')) { assert.match(src, /responderPasoPago\(/, `${f}: la decisión vive en pago-pagina.ts`); continue; }
     assert.match(src, /responderPublico\(/, `${f}: la decisión vive en pagina-publica.ts`);

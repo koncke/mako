@@ -76,7 +76,7 @@ test('3. una adaptada sin NINGUNA sección escrita por la IA no se crea, y se di
   const rep = fuente('lib/editor-landing/replicar.ts');
   const corte = rep.indexOf('if (adaptacionSinNingunaSeccion(!!receta.adaptar, esq.secciones.length, porIndice.size))');
   assert.ok(corte > rep.indexOf("await correr(faltan, '2ª vuelta')"), 'después de la segunda vuelta');
-  assert.ok(corte < rep.indexOf('const tarjetasCrudas = esq.secciones.map('), 'antes de armar las secciones con el texto de la original');
+  assert.ok(corte < rep.indexOf('const tarjetasArmadas = esq.secciones.map('), 'antes de armar las secciones con el texto de la original');
   assert.ok(rep.indexOf('const creada = await crearLanding(nombreDeCopia(partes', corte) > corte, 'y antes de crear la copia');
   assert.match(rep, /else \{ errorDeIA = r\.error; console\.warn/);
 });
