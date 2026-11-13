@@ -166,7 +166,7 @@ horrible». Y después: «tenés que mostrar los outliers verdaderos, no inventa
 | Carruseles | La grilla REAL de outliers (la biblioteca de producción), baja, vuelve, elige @lifeofarjav, la tarjeta se duplica y el modal real arma «tu versión» (la réplica real de «MaKo Acelerador Blueprint») | `carruseles.webm`; las lecturas (sólo lectura) y el grabador en el scratchpad: `banco-car/leer-biblioteca.mts`, `leer-replicas.mts`, `banco/grabar-carruseles.mjs` |
 | AI Avatar | El personaje de Martín y la misma persona en 3 escenas | `public/vsl-assets/sitio/avatar/` (tomas de `C:/dev/reel-mentores/omni/`) |
 | Tableros | Los 13 tableros de la app, de a uno, con su entrada | `public/vsl-assets/sitio/tableros/` (capturas de `docs/diseno/mockups-dashboard/<id>/captura/`) |
-| Copywriting | Sigue el recuadro | Falta: ver «Lo pendiente» |
+| Copywriting | La portada real con los outliers del espacio de MaKo → «Reels» → @den.borgg (70,9×) y su guion transcripto → «Replicar» → la página que MaKo escribió de verdad, renglón por renglón, y su mensaje real en el chat | `copywriting.webm`; scratchpad `banco-copy/` (entrada, grabador, `leer-hilo.mts`) y `banco-car/leer-copy.mts` |
 
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
@@ -205,9 +205,6 @@ sitio (`BarraGlobal` en `app/vsl/_sitio/Barra.tsx`), fija al bajar, y la copiada
 
 ## Lo pendiente
 
-- **Copywriting**: la animación con un reel REAL de la competencia (Spy del espacio de MaKo, ws 9: 924 outliers, sólo 6 con
-  guion transcripto) y el guion real que escribió «Replicar» («Como @den.borgg: Cobrar mejor no es suerte, es sistema.», que
-  salió del pie, no de una transcripción). Lectura armada: scratchpad `banco-car/leer-copy.mts`.
 - **Carruseles otra vez** cuando se despliegue `punta/probar-image`: la réplica real corta «Tu Acelera/dor».
 - **Las pantallas que piden sesión** (CRM, Chats, Automations, scrapeo de grupos, Classroom): Martín inicia sesión en el
   navegador de la app con el espacio de prueba (ws 3) y se capturan.

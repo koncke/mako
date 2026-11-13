@@ -234,9 +234,16 @@ Cada entrada dice de qué corrida y de qué fecha viene.
     eventos de a uno (`leer`, `escribir`, cada `lamina`, `fin`): con `route.fulfill` llega todo junto y las fases saltan.
   - **AI Avatar decía «tu personaje» y mostraba a otros:** la foto de catálogo como «tu foto» y una persona distinta en cada
     escena. Ahora: el personaje de Martín y la misma persona en tres escenas (las tomas Avatar Hype de su reel del 9/11).
-  - **Lo que quedó SIN hacer**: Copywriting (en ws 9 hay 924 outliers y sólo 6 guiones transcriptos; el reel de @den.borgg que
-    se replicó trae el texto del PIE, no una transcripción), y las pantallas que piden la sesión de Martín (CRM, Chats,
-    Automations, el scrapeo de grupos, Classroom).
+  - **Copywriting, también de verdad:** el `Copywriter` real (que es la portada sin guion y la página con guion) con los 924
+    outliers del espacio de MaKo, el reel de @den.borgg (70,9×, su guion transcripto por Spy), «Replicar» y la página que MaKo
+    escribió el 12/11 («Como @den.borgg: Cobrar mejor no es suerte, es sistema.»), con el hilo real del chat (`chart_chats`).
+  - **⚠️ postgres.js devuelve `bigint` y `numeric` como TEXTO** (supabase-js, como número). Pasando las filas crudas a las
+    funciones puras de la app, el múltiplo salía 0 (la mediana sumaba textos) y las piezas no se juntaban con su cuenta («17»
+    no es 17): todos los reels «sin guion». Se pasan a número las columnas de esos tipos (`information_schema.columns`).
+  - **BlockNote vuelve a dibujar sus nodos y se lleva los estilos puestos a mano:** para que el texto «se escriba», un velo
+    del color de la página por renglón, AFUERA del editor, que se corre; el texto arranca tapado por una clase en `<html>`.
+  - **Lo que quedó SIN hacer**: las pantallas que piden la sesión de Martín (CRM, Chats, Automations, el scrapeo de grupos,
+    Classroom).
 
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
