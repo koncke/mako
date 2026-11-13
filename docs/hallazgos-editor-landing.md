@@ -4506,3 +4506,30 @@ nombre de Clara. Lado a lado a 1440 y 375 (side-session-notes/…/probar-web-131
 **Sin hacer:** las 24 frases que quedaron iguales a la original se cuentan pero no se reescriben (replicar.ts, `copiadas`);
 el titular con degradado dorado de la original salió negro (estilo-aplicar.ts no lleva el degradado del texto); el hero de
 la original tiene un video al costado y la réplica deja un hueco de imagen, no de video.
+
+### La segunda vuelta: lo que el lector veía y no llegaba al armado (13/11/2026, la lista del Cerebro)
+
+Comparando lado a lado a 1440 (Cerebro): la original es una columna angosta y centrada con el botón dorado después de cada
+sección; el hero con el video a la derecha; «Quién es» con la foto a la izquierda; las fotos de los testimonios y de las
+tarjetas de perfil. La réplica: todo el ancho, el botón casi sólo en el hero y texto solo donde había fotos.
+
+- **El lector no medía el ancho ni el lado** (`estiloDeHtml`): ahora `anchoContenido` es la mediana del `max-width` del
+  contenedor más cercano de cada título (Clara: 760 px → tarjetas «angosto», 768 px); `lado` sale de si la primera foto o
+  video está ANTES del título en el HTML (izquierda) o después (derecha); `botonEnPartes` cuenta en cuántas partes está el
+  botón principal (Clara: 8; desde 4, `conBotonEnCadaSeccion` lo pone al final de cada sección sin botón ni formulario).
+- **Un hueco al costado no se ve en la vista previa ni en la publicada, y está bien:** `specTarjeta` dibuja la columna de la
+  imagen sólo si HAY imagen; el editor muestra «Agregar imagen». Para comparar el diseño con la original hay que mirar el
+  editor, no la vista previa.
+- **La prueba social de la otra va como huecos** (`testimoniosParaCompletar`, en la sección que los ángulos marcan
+  `prueba`): la cantidad, la grilla y el hueco de la foto quedan; el texto es «[Resultado de tu cliente]», «[TESTIMONIO: …]»,
+  «[Nombre · qué hace]».
+- **Publicar frena una réplica con huecos de lo ajeno** (`huecosParaPublicar`, publicar.ts, 422): [DATO], [FECHA], [HORA] y
+  los testimonios. Sólo en una landing con `config.origen.basadoEnUrl`: los corchetes de una plantilla son otra cosa. Lo que
+  NO frena: una cifra que no sale del perfil. No se distingue la que la persona escribió (su dato real) de una inventada, y
+  frenarla dejaría sin publicar la landing de MaKo, cuyo perfil está vacío.
+- **Las frases iguales a la original se reescriben en UN pedido** (`frases`, ia.ts, prompt `landing_editor.frases.*` editable
+  en Configuraciones) ANTES de pasar las cifras a [DATO]: después, «Imaginá agregar [DATO] al mes» ya no se reconoce como copia.
+- «Hecho con MaKo» en el teléfono va al pie (`movil()` en css.ts): fijo abajo a la derecha tapaba el texto.
+
+**Sin hacer:** el titular dorado de Clara está en un `<span>` con degradado DENTRO del h1 (`tituloDegradado` sólo mira el h1:
+sale null); la cantidad de pasos (3 en vez de 5) sigue en manos de la IA; medir todo esto en producción, en el EDITOR.

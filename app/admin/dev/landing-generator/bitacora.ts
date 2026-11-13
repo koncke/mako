@@ -1803,4 +1803,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '13 nov', hora: '14:30', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La landing replicada se arma como la original: su ancho, sus fotos y sus botones',
+    puntos: [
+      'La réplica copia el ancho de la página original: si es una columna angosta y centrada, la tuya también.',
+      'Donde la original tiene un video o una foto al costado, la tuya deja el lugar de ese lado para que subas la tuya.',
+      'Si la original pone su botón después de cada sección, la tuya también.',
+      'Los testimonios de la otra quedan como espacios para los de tus clientes, y las frases que quedaban iguales a la original se reescriben para tu negocio.',
+      'Una landing replicada no se publica mientras le queden espacios sin completar: MaKo te dice cuántos.',
+      'En el teléfono, «Hecho con MaKo» va al final de la página y ya no tapa el texto.',
+    ],
+    archivos: [
+      'lib/editor-landing/estilo-original.ts — el ancho de la columna, el lado de la foto y el botón repetido',
+      'lib/editor-landing/replicar-estructura.ts · replicar.ts — la foto al costado, el ancho, los testimonios, el botón por sección y el freno',
+      'lib/editor-landing/ia.ts · ia-reglas.ts · lib/prompt-registry.ts — las frases iguales a la original, reescritas',
+      'lib/editor-landing/publicar.ts — no publica una réplica con huecos',
+      'lib/editor-landing/css.ts — el sello al pie en el teléfono',
+      'tests/web-generator-replicar-1311.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
 ];

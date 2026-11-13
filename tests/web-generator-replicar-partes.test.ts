@@ -487,7 +487,8 @@ test('10d. los enchufes de la revisión: la API no paga ángulos que no usa, Pre
   assert.match(rep, /\.\.\.\(mismasSecciones && !partes\.texto \? \{ adaptar: true as const \} : \{\}\),/);
   // 3. La IA no ve el destino, y los enlaces a la original pasan a «#» en todas las tarjetas, las de respaldo también.
   assert.match(rep, /\.\.\.\(partes\.texto \? \{\} : \{ puntos: s\.puntos\.map\(sinDestinoDeBoton\) \}\),/);
-  assert.match(rep, /const tarjetas = partes\.texto \? tarjetasCrudas : tarjetasCrudas\.map\(\(t\) => \{\n\s*const r = sinEnlacesALaOriginal\(t, url, destinosOriginal\);/);
+  // 13/11/2026: el paso se llama `sinEnlacesAjenos` (después viene el botón por sección); la regla es la misma.
+  assert.match(rep, /const sinEnlacesAjenos = partes\.texto \? tarjetasCrudas : tarjetasCrudas\.map\(\(t\) => \{\r?\n\s*const r = sinEnlacesALaOriginal\(t, url, destinosOriginal\);/);
   assert.match(rep, /const destinosOriginal = mismasSecciones && !partes\.texto \? enlacesDeLaOriginal\(esq\.secciones\.flatMap\(\(s\) => s\.puntos\)\.join\('\\n'\)\) : new Set<string>\(\);/);
   // 6. El texto pegado se corta como la lectura que vio la persona.
   assert.match(rep, /pedirEsquema\(\{ modo: 'pegar', texto: entrada\.texto, params, corte: 'pagina' \}\)/);
