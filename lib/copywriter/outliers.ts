@@ -23,6 +23,7 @@ import { multiplosDe, type Multiplo, type PiezaParaMultiplo } from '../multiplo-
 import { conVariedad } from '../carruseles/variedad';
 import type { Carrusel } from '../carruseles/explorar';
 import type { TipoGuion } from './tipos';
+import type { IdTema, Idioma, Tema } from './tema';
 
 export const FORMATOS_COPY = ['anuncio', 'reel', 'carrusel', 'youtube'] as const;
 export type FormatoCopy = (typeof FORMATOS_COPY)[number];
@@ -99,6 +100,13 @@ export type OutlierCopy = {
   publicada: string | null;
   /** Un carrusel: cuántas láminas tiene (null = no se sabe). */
   laminas?: number | null;
+  /**
+   * De qué habla, en qué idioma está y si es del tema del negocio (./portada-tema.ts, 13/11/2026: la portada abre en «De tu tema»,
+   * con el inglés después y marcado). Sólo en la portada de un negocio; un outlier leído por su id no los trae.
+   */
+  tema?: IdTema | null;
+  idioma?: Idioma | null;
+  deTuTema?: boolean;
 };
 
 export type LecturaFuenteCopy = { ok: true; outliers: readonly OutlierCopy[] } | { ok: false; motivo: string };
@@ -112,6 +120,11 @@ export type PortadaCopy = {
    */
   total?: number;
   porFormato?: Partial<Record<FormatoCopy, number>>;
+  /**
+   * «De tu tema» (./portada-tema.ts): el tema del negocio, cuántos outliers son de él (en total y por formato) y si la portada
+   * abre ahí. null o ausente = no se sabe el tema del negocio: no hay chip y abre en «Todo».
+   */
+  tema?: { negocio: Tema; total: number; porFormato: Partial<Record<FormatoCopy, number>>; abre: boolean } | null;
 };
 
 /**
@@ -368,15 +381,18 @@ export function juntarOutliersCopy(lecturas: readonly { fuente: FuenteOutliersCo
   return { outliers: intercalarFormatos(unicos, (fila) => variedad(fila).slice(0, TOPE_POR_FORMATO)), caidas };
 }
 
-/** Los filtros de la portada: el segmento (todos o un formato) y lo que se busca (en el gancho, el texto y el @). */
-export type FiltrosCopy = { formato: FormatoCopy | null; q: string };
+/**
+ * Los filtros de la portada: el segmento (todos o un formato), lo que se busca (en el gancho, el texto y el @) y `tema`: sólo lo
+ * del tema del negocio («De tu tema», ./portada-tema.ts).
+ */
+export type FiltrosCopy = { formato: FormatoCopy | null; q: string; tema?: boolean };
 export type OrdenCopy = 'outlier' | 'recientes';
 
 const plano = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
 
 export function filtrarOutliersCopy(xs: readonly OutlierCopy[], f: FiltrosCopy, orden: OrdenCopy = 'outlier'): OutlierCopy[] {
   const q = plano(f.q.trim());
-  const filtrados = xs.filter((o) => (!f.formato || o.formato === f.formato)
+  const filtrados = xs.filter((o) => (!f.formato || o.formato === f.formato) && (!f.tema || o.deTuTema === true)
     && (!q || plano(`${o.gancho}\n${o.texto}\n${o.creador.usuario ?? ''}\n${o.creador.nombre}`).includes(q.replace(/^@/, ''))));
   if (orden === 'recientes') return [...filtrados].sort((a, b) => (Date.parse(b.publicada ?? '') || 0) - (Date.parse(a.publicada ?? '') || 0));
   return filtrados;
@@ -406,8 +422,10 @@ export function primeraTandaCopy(p: PortadaCopy): PortadaCopy {
   if (p.total != null) return p;
   const porFormato: Partial<Record<FormatoCopy, number>> = {};
   for (const o of p.outliers) porFormato[o.formato] = (porFormato[o.formato] ?? 0) + 1;
-  const t = tandaDeOutliersCopy(p.outliers, { filtros: { formato: null, q: '' }, orden: 'outlier', desde: 0 });
-  return { outliers: t.outliers, caidas: p.caidas, total: t.total, porFormato };
+  // Abre en «De tu tema» si hay bastante del tema del negocio (./portada-tema.ts): la primera tanda es ésa.
+  const abre = !!p.tema?.abre;
+  const t = tandaDeOutliersCopy(p.outliers, { filtros: { formato: null, q: '', ...(abre ? { tema: true } : {}) }, orden: 'outlier', desde: 0 });
+  return { outliers: t.outliers, caidas: p.caidas, total: p.outliers.length, porFormato, ...(p.tema !== undefined ? { tema: p.tema } : {}) };
 }
 
 /** El pedido de una tanda, saneado (lo manda el navegador). */
@@ -415,11 +433,11 @@ export function consultaDeTanda(b: Record<string, unknown>): ConsultaCopy {
   const formato = (FORMATOS_COPY as readonly unknown[]).includes(b.formato) ? (b.formato as FormatoCopy) : null;
   const q = typeof b.q === 'string' ? b.q.slice(0, 120) : '';
   const desde = typeof b.desde === 'number' && Number.isFinite(b.desde) ? Math.min(100_000, Math.max(0, Math.floor(b.desde))) : 0;
-  return { filtros: { formato, q }, orden: b.orden === 'recientes' ? 'recientes' : 'outlier', desde };
+  return { filtros: { formato, q, ...(b.tema === true ? { tema: true } : {}) }, orden: b.orden === 'recientes' ? 'recientes' : 'outlier', desde };
 }
 
 /** La clave de lo que se está mirando: si cambia, la lista vuelve a pedirse desde la primera tanda. */
-export const claveDeConsulta = (f: FiltrosCopy, orden: OrdenCopy) => `${f.formato ?? 'todos'}|${orden}|${f.q.trim().toLowerCase()}`;
+export const claveDeConsulta = (f: FiltrosCopy, orden: OrdenCopy) => `${f.tema ? 'tema|' : ''}${f.formato ?? 'todos'}|${orden}|${f.q.trim().toLowerCase()}`;
 
 /** Suma una tanda a la lista que se ve, sin repetir (si la portada se volvió a leer entre dos tandas, el orden pudo correrse). */
 export function sumarTanda(ya: readonly OutlierCopy[], t: readonly OutlierCopy[]): OutlierCopy[] {
@@ -575,8 +593,8 @@ export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | '
   return [
     largo,
     // El tema que no tiene que ver (13/11/2026, Martín en la llamada con Leila: los «7 ejercicios de bíceps» en el negocio de MaKo).
-    // Si se pregunta o no lo decide Martín; mientras tanto, se escribe sin preguntar y se dice.
-    'SI SU TEMA NO TIENE QUE VER CON EL NEGOCIO (un video de ejercicios para un negocio de ventas, por ejemplo): no preguntes. Toma sólo su tipo de gancho y su estructura (las partes, su orden y su ritmo), escribe todo sobre la oferta de EL NEGOCIO, y dilo en la respuesta en una frase («El original habla de …: tomé su gancho y su estructura»).',
+    // La pantalla ya PREGUNTÓ cómo usarlo antes de pedir (lib/copywriter/iniciativa.ts, `pasoDeReplica`) y el pedido lo dice.
+    'SI SU TEMA NO TIENE QUE VER CON EL NEGOCIO (un video de ejercicios para un negocio de ventas, por ejemplo): no preguntes, el pedido ya dice cómo usarlo. «Sólo su gancho y su estructura»: las partes, su orden y su ritmo, y todo lo que se dice es de la oferta. «Llevar su idea»: la misma promesa contada con lo que vende EL NEGOCIO, sin hablar del tema del original. Si el pedido no dice nada, sólo su gancho y su estructura. En la respuesta, una frase con lo que tomaste.',
     'LAS PRUEBAS: cifras, porcentajes, casos, clientes, testimonios y garantías salen SÓLO de EL NEGOCIO. Si el original muestra una prueba y el negocio no tiene una, escribe [DATO: la prueba que falta]. Nunca inventes un número ni una garantía.',
     `EL TÍTULO: ponle a la página un título PROPIO con {"op": "titulo"} (el de ahora es la frase del original). Si el original nombra un año, el tuyo es ${hoy.getFullYear()}.`,
     'AL ESCRIBIRLA (la primera vez, o cuando te pidan rehacerla): el guion ENTERO, todas sus partes en su orden y cada sección lista para grabar o publicar; en propiedades, el ángulo y la estructura de la biblioteca que más se parezcan al original. Después, un cambio puntual toca sólo lo pedido.',

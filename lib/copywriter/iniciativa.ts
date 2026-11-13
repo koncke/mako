@@ -84,7 +84,7 @@ export function pedidoDeIniciativa(pasos: readonly PasoIniciativa[], r: Respuest
 // (lib/copywriter/ia.ts, `conElOriginal`). Hasta el 11/11/2026 preguntaba primero para qué oferta, y eso frenaba el cuerpo.
 
 /** La respuesta al pedido de escribir la réplica: la estructura, el gancho y el ritmo del original, con la oferta elegida. */
-export function pedidoDeReplica(r: RespuestasIniciativa, ofertas: readonly OfertaCorta[]): PedidoIniciativa {
+export function pedidoDeReplica(r: RespuestasIniciativa, ofertas: readonly OfertaCorta[], temaOriginal: string | null = null): PedidoIniciativa {
   const oferta = r.oferta ?? AL_NEGOCIO;
   if (oferta === NO_ADAPTAR) return { adaptar: false, texto: 'No, lo escribo yo.' };
   const nombre = nombreDeOferta(oferta, ofertas);
@@ -93,7 +93,97 @@ export function pedidoDeReplica(r: RespuestasIniciativa, ofertas: readonly Ofert
   // cuerpo?», y el Ángulo y la Estructura quedaban «Vacío») los pide el ORIGINAL que manda el server en cada pedido de la página
   // (./outliers.ts → reglasDeLaReplica). Acá va lo que la persona pidió con un toque: al reabrir la página, este renglón es su
   // mensaje en la charla (12/11/2026, en producción: el pedido técnico entero aparecía como si lo hubiera escrito Martín).
-  return { adaptar: true, texto: `Replícalo entero ${con}: su estructura, su tipo de gancho y su ritmo.` };
+  const partes = [`Replícalo entero ${con}: su estructura, su tipo de gancho y su ritmo.`];
+  // Lo que la persona contestó de su oferta (13/11/2026): ya quedó guardado en la oferta, pero va también acá por si guardarlo falló.
+  const datos = LO_MINIMO_REPLICA.map((c) => [c, (r[`${FALTA}${c}`] ?? '').trim()] as const).filter(([, v]) => v && v !== SEGUIR_SIN && v !== EN_OFFER);
+  if (datos.length) partes.push(`De la oferta: ${datos.map(([c, v]) => `${c}: ${v}`).join('; ')}.`);
+  // Cómo usar un original que no tiene que ver con el negocio (la pregunta de `pasoDeReplica`).
+  const de = temaOriginal ? `El original habla de ${temaOriginal}` : 'El original habla de otra cosa';
+  if (r.tema === SOLO_ESTRUCTURA) partes.push(`${de}: toma sólo su tipo de gancho y su estructura; el tema y todo lo que se dice son de mi oferta.`);
+  if (r.tema === LLEVAR_TEMA) partes.push(`${de}: lleva su idea a mi negocio, la misma promesa contada con lo que vendo (sin hablar de su tema).`);
+  return { adaptar: true, texto: partes.join(' ') };
+}
+
+// ── Lo que MaKo pregunta ANTES de escribir la réplica (13/11/2026, la maqueta que aprobó el Cerebro) ─────────────────────────
+// Martín, el relevo: «no me hace las preguntas… tampoco en un momento me pregunta sobre qué oferta, incluso escribe casi que
+// cualquier cosa». Antes de escribir, de a una y con botones: 1) para qué oferta; 2) lo que le FALTA a esa oferta de lo mínimo
+// (para quién, qué promete, qué incluye, precio), que se guarda en la oferta; 3) si el original no tiene que ver con el negocio,
+// cómo usarlo. Con todo contestado, escribe la pieza entera (sin «Aceptar»). Las preguntas no llaman a la IA.
+
+/** El prefijo de la respuesta a un dato que falta (`falta:para quién`). */
+export const FALTA = 'falta:';
+/** «Seguir sin eso»: lo que falta queda como [DATO: …] y no se pregunta más. */
+export const SEGUIR_SIN = 'seguir-sin';
+/** «Completarla en Offer»: la pantalla lleva a Offer (no es una respuesta que se guarde). */
+export const EN_OFFER = 'en-offer';
+/** Las dos maneras de usar un original de otro tema. */
+export const SOLO_ESTRUCTURA = 'solo-estructura';
+export const LLEVAR_TEMA = 'llevar-tema';
+/** Lo mínimo de una oferta, en el orden en que se pregunta (el de lib/copywriter/oferta-elegida.ts, LO_MINIMO). */
+export const LO_MINIMO_REPLICA = ['para quién', 'qué promete', 'qué incluye', 'precio'] as const;
+const PREGUNTA_DATO: Readonly<Record<(typeof LO_MINIMO_REPLICA)[number], string>> = {
+  'para quién': '¿Para quién es? (a quién le vendes)',
+  'qué promete': '¿Qué les promete, en una frase?',
+  'qué incluye': '¿Qué incluye? (lo que se lleva quien la compra)',
+  precio: '¿Cuánto cuesta?',
+};
+
+/** Lo que la pregunta necesita saber (lo trae `prepararReplica`, lib/copywriter/replica-servidor.ts). */
+export type PreparacionCorta = {
+  tema: { original: { nombre: string } | null; negocio: { nombre: string } | null; relacionado: boolean };
+  ofertas: readonly (OfertaCorta & { falta: readonly string[] })[];
+};
+
+/** La oferta elegida en las respuestas (null = el negocio en general, o todavía no eligió). */
+export function ofertaElegida(p: PreparacionCorta, r: RespuestasIniciativa): (OfertaCorta & { falta: readonly string[] }) | null {
+  const v = r.oferta ?? '';
+  const id = v.startsWith('oferta:') ? Number(v.slice('oferta:'.length)) : NaN;
+  return Number.isFinite(id) ? p.ofertas.find((o) => o.id === id) ?? null : null;
+}
+
+/** Lo que falta de la oferta elegida y todavía no se contestó (vacío con «Seguir sin eso»). */
+export function faltaPorPreguntar(p: PreparacionCorta, r: RespuestasIniciativa): (typeof LO_MINIMO_REPLICA)[number][] {
+  const o = ofertaElegida(p, r);
+  if (!o || r.faltas === SEGUIR_SIN) return [];
+  return LO_MINIMO_REPLICA.filter((c) => o.falta.includes(c) && !(`${FALTA}${c}` in r));
+}
+
+/**
+ * La pregunta que sigue antes de escribir la réplica, o null (ya se puede escribir). Sin ofertas no pregunta por la oferta (escribe
+ * para el negocio); una oferta COMPLETA no pregunta datos; un original del tema del negocio (o sin tema claro) no pregunta cómo usarlo.
+ */
+export function pasoDeReplica(p: PreparacionCorta, r: RespuestasIniciativa): PasoIniciativa | null {
+  if (p.ofertas.length && !('oferta' in r)) {
+    return {
+      id: 'oferta', pregunta: '¿Para qué oferta lo escribo?', libre: false,
+      opciones: [...p.ofertas.slice(0, TOPE_OFERTAS).map((o) => ({ valor: `oferta:${o.id}`, texto: o.nombre })), { valor: AL_NEGOCIO, texto: 'Para mi negocio en general' }],
+    };
+  }
+  const falta = faltaPorPreguntar(p, r);
+  if (falta.length) {
+    const o = ofertaElegida(p, r)!;
+    const primera = falta.length === LO_MINIMO_REPLICA.filter((c) => o.falta.includes(c)).length;
+    return {
+      id: `${FALTA}${falta[0]}`, libre: true,
+      pregunta: `${primera ? `A «${o.nombre}» le faltan datos para escribir sin inventar. ` : ''}${PREGUNTA_DATO[falta[0]]}`,
+      opciones: [{ valor: SEGUIR_SIN, texto: 'Seguir sin eso' }, { valor: EN_OFFER, texto: 'Completarla en Offer' }],
+    };
+  }
+  if (!p.tema.relacionado && !('tema' in r)) {
+    const de = p.tema.original ? `El original habla de ${p.tema.original.nombre}` : 'El original habla de otra cosa';
+    return {
+      id: 'tema', libre: false,
+      pregunta: `${de}, que no tiene que ver con lo tuyo${p.tema.negocio ? ` (${p.tema.negocio.nombre})` : ''}. ¿Cómo lo uso?`,
+      opciones: [{ valor: SOLO_ESTRUCTURA, texto: 'Sólo su gancho y su estructura' }, { valor: LLEVAR_TEMA, texto: 'Llevar su idea a mi negocio' }],
+    };
+  }
+  return null;
+}
+
+/** La respuesta a una pregunta de la réplica, ya guardada: «Seguir sin eso» cierra TODAS las de datos. */
+export function responderReplica(paso: PasoIniciativa, valor: string, r: RespuestasIniciativa): RespuestasIniciativa {
+  if (paso.id.startsWith(FALTA) && valor === SEGUIR_SIN) return { ...r, faltas: SEGUIR_SIN };
+  return { ...r, [paso.id]: valor };
 }
 
 /** El nombre de una oferta elegida (`oferta:<id>`), o null (el negocio, o una que ya no está). */

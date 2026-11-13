@@ -19,6 +19,8 @@ import { getUsuarioActual } from '@/lib/auth';
 import { nombreDeVisita } from '@/lib/copywriter/editado';
 import { leerOutliersCopy, outlierCopyPorId, replicarOutlier } from '@/lib/copywriter/outliers-servidor';
 import { consultaDeTanda, tandaDeOutliersCopy } from '@/lib/copywriter/outliers';
+import { completarOferta, prepararReplica } from '@/lib/copywriter/replica-servidor';
+import { esCampoQueFalta } from '@/lib/copywriter/oferta-elegida';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,6 +99,14 @@ export async function POST(req: Request) {
         const o = await outlierCopyPorId(texto(b.outlier));
         const leido = { ok: true as const, outlier: o };
         return o ? responder(leido) : falla(404, 'Ese original ya no está.');
+      }
+      // Antes de escribir una réplica, MaKo pregunta (13/11/2026, la maqueta aprobada): las ofertas con lo que les falta y de qué
+      // habla el original; lo que la persona contesta de su oferta se guarda en la oferta (lib/copywriter/replica-servidor.ts).
+      case 'preparar-replica':
+        return responder(await prepararReplica(texto(b.outlier)));
+      case 'completar-oferta': {
+        if (!Number.isInteger(b.oferta) || !esCampoQueFalta(b.campo)) return falla(400, 'Pedido inválido');
+        return responder(await completarOferta(b.oferta as number, b.campo, texto(b.valor)));
       }
       case 'citables': {
         const archivos = await listFiles().then(

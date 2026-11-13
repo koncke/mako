@@ -4808,6 +4808,14 @@ ES2018 en el CUERPO (`(?<!…)`) va en `new RegExp('…')`, como `lib/al-tuteo.t
 `TS2345` (corrida 1231, un test de Copywriting). `tsx` tampoco lo ve. Se le da el tipo:
 `const xs: string[] = [...(texto.match(re) ?? [])]`.
 
+# A `upsertOferta` se le pasa la oferta ENTERA, nunca un parcial (13/11/2026)
+
+`fila()` (lib/ofertas.ts) dice «lo que no venga, no se toca», pero cada texto se arma con
+`input.promesa?.trim() || null`: lo que no viene sale `null`, no `undefined`, y se escribe. Editar
+una oferta mandando sólo «para quién» borraba su promesa, su precio en nota, lo que incluye, la
+garantía y la urgencia, sin error. Se lee la oferta, se pisa el campo y se manda todo
+(`completarOferta`, lib/copywriter/replica-servidor.ts). docs/hallazgos-offer.md.
+
 # «No puedo hacer X con este dato» no es «este dato es falso»
 
 Un control que descubre que no puede ACTUAR sobre algo tiene una sola salida honesta:
