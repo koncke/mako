@@ -382,8 +382,46 @@ export function textoParaMaKo(o: OutlierCopy, rotuloMultiplo: string | null, hoy
   ].join('\n');
 }
 
+/**
+ * Los capítulos de la descripción de un video («0:00 Intro 0:45 #1 Reel viral paso a paso…»): sus títulos, en orden, sin el
+ * «#N», hasta 60 letras y como mucho 15. Menos de 3 no son capítulos (un «0:45» suelto en el texto).
+ */
+export function capitulosDe(texto: string): string[] {
+  const out: string[] = [];
+  for (const m of texto.matchAll(/(?:^|\s)\d{1,2}:\d{2}(?::\d{2})?\s+(.+?)(?=\s+\d{1,2}:\d{2}(?::\d{2})?\s|$)/gs)) {
+    const t = m[1].split(/_{3,}|\n/)[0].replace(/^#\d+\s*/, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (t.length >= 3) out.push(t);
+    if (out.length === 15) break;
+  }
+  return out.length >= 3 ? out : [];
+}
+
+/**
+ * ¿Las secciones escritas siguen los capítulos? (capa 2 de «una sección por capítulo»). Sí, si al menos la mitad de los capítulos
+ * tiene una sección que comparte una palabra de 4 letras o más con su título, o que se llama «CAPÍTULO N».
+ */
+export function siguenLosCapitulos(secciones: readonly string[], capitulos: readonly string[]): boolean {
+  if (!capitulos.length) return true;
+  const palabras = (t: string) => new Set(plano(t).split(/[^a-z0-9]+/).filter((w) => w.length >= 4));
+  const conCapitulo = secciones.filter((s) => /^cap[ií]tulo\s*\d+/i.test(s)).length;
+  const nombradas = capitulos.filter((c) => { const pc = palabras(c); return secciones.some((s) => [...palabras(s)].some((w) => pc.has(w))); }).length;
+  return Math.max(conCapitulo, nombradas) >= capitulos.length / 2;
+}
+
 /** Las palabras de un texto (para medir el largo del original y el de la réplica). */
 export const palabrasDe = (t: string): number => (t.match(/[\p{L}\p{N}][\p{L}\p{N}'’]*/gu) ?? []).length;
+
+/**
+ * El aviso del LARGO (capa 2 de «EL LARGO», 13/11/2026, en producción después del despliegue: el anuncio de 35 palabras salió de
+ * 83 y MaKo dijo «unas 38 palabras, mismo tempo»). Lee el largo que el original le pidió (`reglasDeLaReplica`) y lo compara con
+ * lo escrito: más de 1,5 veces o menos de 0,6, se dice con los números. null = sin largo pedido (el pie, la descripción) o bien.
+ */
+export function avisoDeLargo(original: string, escritas: number): string | null {
+  const n = Number(original.match(/EL LARGO: el original tiene unas (\d+) palabras/)?.[1] ?? NaN);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (escritas <= n * 1.5 && escritas >= n * 0.6) return null;
+  return `Quedó de ${escritas} palabras y el original tiene ${n}: pídele a MaKo que lo deje de ese largo${escritas > n ? ' (sin secciones de más)' : ''}.`;
+}
 
 /**
  * Lo que la réplica tiene que cumplir además de la estructura (12/11/2026, prueba en producción): el anuncio de 40 palabras salió
@@ -396,7 +434,11 @@ export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | '
   const largo = o.formato === 'carrusel'
     ? `EL FORMATO: un carrusel${o.laminas ? ` de ${o.laminas} láminas` : ''}. Escríbelo lámina por lámina, en una tabla (Lámina | Texto en la imagen | Visual)${o.laminas ? ` con ${o.laminas} filas` : ''}: la primera es el gancho, la última el llamado, y cada una con pocas palabras (se leen en la imagen). Debajo, una sección «Pie» con el texto de la publicación, de ${entre} como su pie.`
     : o.deDonde === 'pie' ? 'EL LARGO: lo de arriba es el PIE de la publicación, no lo que se dice en el reel. Copia su gancho y su idea, y escribe el reel con la forma de un reel (gancho, desarrollo, cierre), de 30 a 60 segundos dichos.'
-      : o.deDonde === 'descripcion' ? 'EL LARGO: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Si trae capítulos (0:00 …), ésos son sus partes y su orden: una sección por capítulo.'
+      : o.deDonde === 'descripcion' ? (capitulosDe(o.texto).length
+        // Los capítulos, uno por uno (13/11/2026, en producción: con «si trae capítulos, una sección por capítulo» el video de 8
+        // capítulos salió con las 9 secciones de la biblioteca, «Bloque uno, Bloque dos…»).
+        ? `LAS PARTES: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Sus capítulos SON sus partes: UNA sección por capítulo, en este orden, con lo que se dice en ese capítulo y no las secciones de la biblioteca: ${capitulosDe(o.texto).map((c, i) => `${i + 1}) ${c}`).join(' · ')}. Cada sección con un nombre corto en mayúscula (hasta 20 letras) que diga de qué trata ese capítulo en tu negocio.`
+        : 'EL LARGO: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Si trae capítulos (0:00 …), ésos son sus partes y su orden: una sección por capítulo.')
         : `EL LARGO: el original tiene unas ${n} palabras; el tuyo, ${entre}, con la misma cantidad de partes. Ni una sección que el original no tenga.`;
   return [
     largo,

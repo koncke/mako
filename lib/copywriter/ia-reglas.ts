@@ -144,3 +144,19 @@ export function tituloDeRespaldo(dicho: string): string | null {
   const corte = oracion.lastIndexOf(' ', 70);
   return `${oracion.slice(0, corte > 30 ? corte : 70).replace(/[\s,;:—-]+$/, '')}…`;
 }
+
+/**
+ * Formas de «tú» que no se confunden con otra cosa (capa 2 de «una sola forma», 13/11/2026, en producción después del
+ * despliegue: en el negocio rioplatense, el reel salió con «pedís… vos» y «tiras… negocias… hablas», y el carrusel con «Tú solo
+ * ejecutas… contigo» y «Vos contestás… Empezá», con la regla en el prompt). Una lista CORTA y a propósito: sin las que también son
+ * sustantivos («pruebas», «cuentas», «ganas», «armas») ni las que el voseo escribe igual («ves», «vas», «estás»).
+ */
+const TUTEO = new Set([
+  'eres', 'tienes', 'quieres', 'puedes', 'haces', 'sabes', 'necesitas', 'vendes', 'hablas', 'cobras', 'mandas', 'pierdes',
+  'buscas', 'piensas', 'sientes', 'entiendes', 'empiezas', 'vuelves', 'inviertes', 'tiras', 'pagas', 'escribes', 'negocias',
+  'llegas', 'cierras', 'vives', 'dices', 'vienes', 'prefieres', 'conviertes', 'consigues', 'sigues', 'pides', 'ejecutas',
+  'copias', 'contigo', 'haz',
+]);
+export function marcasDeTuteo(texto: string): string[] {
+  return [...new Set((texto.toLowerCase().match(/\p{L}+/gu) ?? []).filter((w) => TUTEO.has(w)))];
+}

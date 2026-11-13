@@ -30,7 +30,8 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo } from '../lib/copywriter/ia-reglas';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo } from '../lib/copywriter/ia-reglas';
+import { marcasDeVoseo } from '../lib/voseo';
 import { etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
 import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
 
@@ -435,4 +436,15 @@ test('sin IA, el chat lleva a conectarla y no a Soporte (12/11/2026, en producci
   assert.ok(panel.includes("<Link href={rutaDeTarjeta('ia')} className=\"nt-mako-pildora\">Conectar mi IA</Link>"));
   // La frase es la de lib/ia-mensajes.ts: si cambia, el botón deja de salir.
   assert.match(leer('lib/ia-mensajes.ts'), /return `No hay ninguna IA conectada, así que MaKo no puede \$\{tema\}\./);
+});
+
+test('en un negocio que vosea, la MEZCLA con el tuteo se avisa (13/11/2026, en producción después del despliegue)', () => {
+  // El reel replicado, tal cual salió: «pedís… vos» con «tiras… negocias… hablas».
+  const reel = 'Que tiras dos mil dólares en ads y te llegan clicks. Entonces después pedís mucho, negocias mal. Qué le hablas, cuándo le vendes. Un flujo que respete al lead y a vos.';
+  assert.deepEqual(marcasDeTuteo(reel), ['tiras', 'negocias', 'hablas', 'vendes']);
+  assert.ok(marcasDeVoseo(reel).length > 0);
+  // Las que también son sustantivos o se escriben igual con «vos» no cuentan.
+  assert.deepEqual(marcasDeTuteo('Las pruebas, las cuentas y las ganas: ves, vas, estás.'), []);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes('if (conVoseo.length && conTuteo.length) avisos.push(`Mezcla voseo y tuteo'));
 });

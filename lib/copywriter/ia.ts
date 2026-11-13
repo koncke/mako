@@ -29,7 +29,7 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, TOPES_IA, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, propsParaIA, tituloDeRespaldo } from './ia-reglas';
+import { PROMPTS_COPY, TOPES_IA, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, guionParaIA, marcasDeTuteo, propsParaIA, tituloDeRespaldo } from './ia-reglas';
 import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
@@ -46,7 +46,7 @@ import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../
 import { FORMATO_EDITAR, PROMPTS_EDITAR, bibliotecaParaIA, estructuraParaIA } from './ia-editar';
 import { sanearOperaciones, aplicarTodo, type Descartada, type OperacionIA } from './operaciones';
 import { leerReferencias } from './referencias';
-import { NOMBRE_DEL_ORIGINAL, frasesDelOriginal } from './outliers';
+import { NOMBRE_DEL_ORIGINAL, avisoDeLargo, capitulosDe, frasesDelOriginal, palabrasDe, siguenLosCapitulos } from './outliers';
 import type { Referencia } from './referencias-reglas';
 import { textoDeNodo, textoDelDoc } from './doc';
 import { PROMPTS_EXPERTO, pideParaIA } from './experto';
@@ -296,6 +296,12 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const escrito = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string)).map(textoDeNodo).join('\n');
     const voseo = acento && VOSEAN.has(acento.id) ? [] : marcasDeVoseo(escrito);
     const avisos = voseo.length ? [`Tiene voseo (${voseo.slice(0, 4).join(', ')}): si tu audiencia no habla así, pídele a MaKo que lo cambie.`] : [];
+    // Y en un negocio que vosea, la MEZCLA (13/11/2026, en producción: «pedís… vos» con «tiras… negocias» en el mismo reel).
+    if (acento && VOSEAN.has(acento.id)) {
+      const conVoseo = marcasDeVoseo(escrito);
+      const conTuteo = marcasDeTuteo(escrito);
+      if (conVoseo.length && conTuteo.length) avisos.push(`Mezcla voseo y tuteo (${conVoseo.slice(0, 2).join(', ')} y ${conTuteo.slice(0, 2).join(', ')}): pídele a MaKo una sola forma.`);
+    }
     // La réplica de un outlier (capa 2 de «nunca copies sus frases», lib/copywriter/outliers.ts → frasesDelOriginal).
     const original = g.props.outlier ? refs.textos.find((x) => x.nombre === NOMBRE_DEL_ORIGINAL)?.texto ?? '' : '';
     // También el TÍTULO que propone (11/11/2026, en producción: el cuerpo ya era propio y el título seguía siendo «Cobrar más no es
@@ -305,6 +311,16 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     // Las cifras y la garantía sin fuente (12/11/2026, en producción: la réplica de YouTube inventó porcentajes y una devolución).
     const fuentes = [negocio, refs.textos.map((x) => x.texto).join('\n'), instruccion, charla, guionParaIA(g.doc), ...(p.lecturas ?? []).map((l) => l.texto)].join('\n');
     avisos.push(...avisosDeCifras(cifrasSinFuente(`${r.titulo ?? ''}\n${escrito}`, fuentes)));
+    // El largo de la réplica escrita entera, medido (13/11/2026: 35 palabras pedidas, 83 escritas y «unas 38» en la respuesta).
+    if (original && entera) {
+      const dicho = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string) && b.type !== 'heading').map(textoDeNodo).join('\n');
+      const largo = avisoDeLargo(original, palabrasDe(dicho));
+      if (largo) avisos.push(largo);
+      // Los capítulos del video (13/11/2026: 8 capítulos en el original y las 9 secciones de la biblioteca en la réplica).
+      const capitulos = capitulosDe(original);
+      const secciones = s.ops.flatMap((op) => (op.op === 'escribir_seccion' ? [op.seccion] : []));
+      if (!siguenLosCapitulos(secciones, capitulos)) avisos.push(`El original tiene ${capitulos.length} capítulos y el guion no los sigue: pídele a MaKo una sección por capítulo.`);
+    }
     const respuesta = [ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\n\n') || (s.ops.length ? 'Listo: revisa lo que escribí.' : 'No cambié nada.');
     return { ok: true, respuesta, operaciones: s.ops, descartadas: [...s.descartadas, ...r.descartadas], avisos, noLeidas: refs.noLeidas };
   } catch (err) {
