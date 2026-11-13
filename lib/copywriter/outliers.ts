@@ -475,6 +475,9 @@ export function avisoDeLargo(original: string, escritas: number): string | null 
  * de 200; el carrusel de 7 láminas, en prosa; el video de YouTube, con cifras, casos y una garantía inventados; el reel, con el
  * título del competidor. Va en el ORIGINAL (lo manda el server en cada pedido de la página), no en el pedido que se ve en la charla.
  */
+/** Lo que una réplica puede pedir de largo: lo que entra en un pedido (el mismo tope que la duración de una plantilla). */
+export const LARGO_MAXIMO_REPLICA = 2_000;
+
 export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | 'texto' | 'laminas'>, hoy: Date = new Date()): string[] {
   const n = palabrasDe(o.texto);
   const entre = `entre ${Math.max(5, Math.round(n * 0.75))} y ${Math.max(10, Math.round(n * 1.25))} palabras`;
@@ -485,10 +488,15 @@ export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | '
         // Los capítulos, uno por uno (13/11/2026, en producción: con «si trae capítulos, una sección por capítulo» el video de 8
         // capítulos salió con las 9 secciones de la biblioteca, «Bloque uno, Bloque dos…»).
         ? `LAS PARTES: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Sus capítulos SON sus partes: UNA sección por capítulo, en este orden, con lo que se dice en ese capítulo y no las secciones de la biblioteca: ${capitulosDe(o.texto).map((c, i) => `${i + 1}) ${c}`).join(' · ')}. Cada sección con un nombre corto en mayúscula (hasta 20 letras) que diga de qué trata ese capítulo en tu negocio.`
-        : 'EL LARGO: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Si trae capítulos (0:00 …), ésos son sus partes y su orden: una sección por capítulo.')
+        : 'EL LARGO: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice: sólo tienes su título y su descripción. Toma su gancho y su estructura, escribe un video de 8 a 12 minutos dichos, y dilo en la respuesta en una frase.')
+        // Un video transcrito entero puede pasar lo que entra en un pedido (13/11/2026): se pide el tope, con las mismas partes.
+        : n > LARGO_MAXIMO_REPLICA ? `EL LARGO: el original es largo (unas ${n} palabras dichas); el tuyo, de unas ${LARGO_MAXIMO_REPLICA}, con las mismas partes y en su orden: cada una resumida a lo esencial, ninguna cortada.`
         : `EL LARGO: el original tiene unas ${n} palabras; el tuyo, ${entre}, con la misma cantidad de partes. Ni una sección que el original no tenga.`;
   return [
     largo,
+    // El tema que no tiene que ver (13/11/2026, Martín en la llamada con Leila: los «7 ejercicios de bíceps» en el negocio de MaKo).
+    // Si se pregunta o no lo decide Martín; mientras tanto, se escribe sin preguntar y se dice.
+    'SI SU TEMA NO TIENE QUE VER CON EL NEGOCIO (un video de ejercicios para un negocio de ventas, por ejemplo): no preguntes. Toma sólo su tipo de gancho y su estructura (las partes, su orden y su ritmo), escribe todo sobre la oferta de EL NEGOCIO, y dilo en la respuesta en una frase («El original habla de …: tomé su gancho y su estructura»).',
     'LAS PRUEBAS: cifras, porcentajes, casos, clientes, testimonios y garantías salen SÓLO de EL NEGOCIO. Si el original muestra una prueba y el negocio no tiene una, escribe [DATO: la prueba que falta]. Nunca inventes un número ni una garantía.',
     `EL TÍTULO: ponle a la página un título PROPIO con {"op": "titulo"} (el de ahora es la frase del original). Si el original nombra un año, el tuyo es ${hoy.getFullYear()}.`,
     'AL ESCRIBIRLA (la primera vez, o cuando te pidan rehacerla): el guion ENTERO, todas sus partes en su orden y cada sección lista para grabar o publicar; en propiedades, el ángulo y la estructura de la biblioteca que más se parezcan al original. Después, un cambio puntual toca sólo lo pedido.',

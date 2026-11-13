@@ -34,7 +34,10 @@ import { cuerpoConArchivos, useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDe
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import Link from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
+import { dichoDelGuion, laminasDelGuion } from '@/lib/copywriter/hacia-otras';
+import { pasarGuion } from '@/lib/guion-pasado';
+import { crearCarruselDesdeGuionAction } from '@/app/image-editor/actions';
 import { rutaDeTarjeta } from '@/lib/conexiones-catalogo';
 import { guardarEnHiloDeTab, leerHiloDeTab } from '@/lib/hilo-de-tab-cliente';
 import { claveDeGuion } from '@/lib/hilo-de-tab-reglas';
@@ -50,7 +53,8 @@ import { REF_OFERTA, buscarReferencias, consultaArroba, elegirReferencia, type R
 import { aceptar as aceptarEnDoc, construir, descartar as descartarEnDoc, type DocVivo } from './editor/propuesta';
 import type { ApiPagina } from './editor/EditorGuion';
 import { pedirCitables } from './cliente';
-import { tomarPedido } from './pedido-guardado';
+import { esRecienCreada, tomarPedido } from './pedido-guardado';
+import { transcribirSiHaceFalta } from './transcribir-original';
 import { ChipsReferencias, ListaReferencias } from './Referencias';
 
 /** /api/copywriter/ia corta a los 300 s. */
@@ -196,6 +200,8 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     onPausa(false);
     if (!id) return;
     pedidoInicial.current = tomarPedido(ws, id);
+    // Recién creada en esta pestaña (./cliente → marcarRecienCreada): su chat está vacío y no se espera a leerlo.
+    if (esRecienCreada(id)) { setHiloLeido(true); return; }
     const ac = new AbortController();
     void leerHiloDeTab(claveDeGuion(id), ac.signal).then((filas) => {
       if (ac.signal.aborted) return;
@@ -379,6 +385,31 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   /** Las otras ofertas para rehacer la réplica. */
   const otrasReplica = replicaHecha ? otrasOfertasDeReplica(replicaHecha.oferta, ofertas) : [];
 
+  // La réplica, a otra función de MaKo (13/11/2026): el avatar recibe lo que se DICE (lib/guion-pasado.ts, sin la URL) y abre tu
+  // último avatar; el carrusel se arma en Image con las láminas del guion y se abre.
+  const router = useRouter();
+  const [armandoCarrusel, setArmandoCarrusel] = useState(false);
+  const hacerConAvatar = () => {
+    const ed = vivo.current.editor;
+    const dicho = ed ? dichoDelGuion(ed.leer() as JsonNodo) : '';
+    if (!dicho) { avisar('La página no tiene nada que decir todavía.'); return; }
+    pasarGuion('avatar', ws, dicho);
+    // La ruta de AI Avatar (la de PERSONAJE_CON_IA, app/video-editor/plantillas-crear.ts; el teléfono la lleva a /m solo).
+    router.push('/ai-avatar');
+  };
+  const hacerCarrusel = async () => {
+    const ed = vivo.current.editor;
+    if (!ed || armandoCarrusel) return;
+    setArmandoCarrusel(true);
+    const r = await crearCarruselDesdeGuionAction({ titulo: vivo.current.leerVivo()?.titulo ?? '', laminas: laminasDelGuion(ed.leer() as JsonNodo) })
+      .catch(() => ({ ok: false as const, error: 'No se pudo crear el carrusel.' }));
+    setArmandoCarrusel(false);
+    if (!r.ok) { avisar(r.error); return; }
+    // La ruta del diseño (la de `rutaDiseno`, app/image-editor/ruta.ts, que sólo importa el editor: tests/image-editor-integracion
+    // 4); el `?ws=` lo pega este router.
+    router.push(`/image-editor/${encodeURIComponent(r.id)}`);
+  };
+
   // La pregunta de la iniciativa que sigue (sólo con el chat vacío), y contestarla: con la última, el pedido a la IA.
   // Recién con la charla leída: antes, una página vieja mostraba un instante la primera pregunta (12/11/2026, en producción).
   const pasoIni = hiloLeido && mensajes.length === 0 && id ? pasoPendiente(pasosIni, respIni) : null;
@@ -417,19 +448,37 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
   }, [editor, id, corriendo, appEscritorio.bloqueada]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Escribe la réplica entera con esa oferta. Sobre la página vacía queda escrita sola; sobre lo ya escrito, es una propuesta. */
-  const escribirReplica = (oferta: string, vacia: boolean) => {
+  const escribirReplica = (oferta: string, vacia: boolean, antes = 0) => {
     elegirIntencion('editar');
     aceptarAlTerminar.current = vacia;
-    setReplicaHecha({ oferta, mensaje: null, desde: vivo.current.mensajes.length });
+    // `antes`: los mensajes que se sumaron en este mismo paso (lo de la transcripción) y todavía no están en `vivo`.
+    setReplicaHecha({ oferta, mensaje: null, desde: vivo.current.mensajes.length + antes });
     void pedirEdicion(pedidoDeReplica({ oferta }, ofertas).texto, [], [], false, false);
   };
 
   // La réplica se escribe SOLA al abrirla vacía (11/11/2026, Martín): con la charla ya leída y vacía (si tiene charla, ya se
   // escribió antes), el editor listo y la página sin texto. Sin la app de escritorio no corre, como ningún chat de MaKo.
+  // Un video de YouTube sin transcribir se transcribe ANTES (13/11/2026, Martín: «primero tiene que transcribir y mostrar la
+  // transcripción»; ./transcribir-original.ts). Lo que pasó lo dice MaKo en el chat, y después escribe.
+  const preparando = useRef<string | null>(null);
+  const [lineaTranscripcion, setLineaTranscripcion] = useState<string | null>(null);
   useEffect(() => {
-    if (!replica || !id || !editor || !hiloLeido || corriendo || replicaHecha || appEscritorio.bloqueada) return;
+    if (!replica || !id || !editor || !hiloLeido || corriendo || replicaHecha || appEscritorio.bloqueada || preparando.current === id) return;
     if (mensajes.length || textoDelDoc(editor.leer() as JsonNodo).trim()) return;
-    escribirReplica(ofertaDeReplica(ofertas), true);
+    const outlier = guion?.doc.props.outlier ?? '';
+    preparando.current = id;
+    void (async () => {
+      const t = await transcribirSiHaceFalta(outlier, setLineaTranscripcion).catch(() => null);
+      setLineaTranscripcion(null);
+      preparando.current = null;
+      if (vivo.current.id !== id) return;
+      if (t) {
+        const mako: Mensaje = { id: nuevoId(), de: 'mako', texto: t.texto };
+        setMensajes((xs) => [...xs, mako]);
+        void guardarEnHiloDeTab(claveDeGuion(id), tituloCharla(), filasDeAgente([{ de: 'mako', texto: t.texto }]));
+      }
+      escribirReplica(ofertaDeReplica(ofertas), true, t ? 1 : 0);
+    })();
   }, [replica, id, editor, hiloLeido, corriendo, replicaHecha, appEscritorio.bloqueada, mensajes.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lo que escribió sobre la página vacía queda en la página sin pedir «Aceptar» (no había nada que pisar), y su mensaje lleva
@@ -577,6 +626,14 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
               </div>
             </>
           )}
+          {/* Llevarla a otra función (13/11/2026, Martín en la llamada con Leila: es enlazar, no rehacer; quien prefiere grabarse
+              se queda con el guion): el avatar recibe lo que se DICE, Image arma las LÁMINAS (lib/copywriter/hacia-otras.ts). */}
+          {m.id === replicaHecha?.mensaje && m.estado === 'aceptada' && (
+            <div className="nt-mako-pildoras">
+              <button type="button" className="nt-mako-pildora" onClick={hacerConAvatar}>Hacerlo con tu avatar IA</button>
+              <button type="button" className="nt-mako-pildora" disabled={armandoCarrusel} onClick={() => void hacerCarrusel()}>{armandoCarrusel ? 'Armando el carrusel…' : 'Hacerlo carrusel'}</button>
+            </div>
+          )}
           {m.estado === 'descartada' && <div className="nt-mako-estado">Descartado: la página quedó como estaba.</div>}
         </div>
       ),
@@ -647,6 +704,7 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
         )}
         <HiloAgente items={nota.conNotas(items)} corriendo={corriendo} enMensaje={enMensaje} onCitar={citar}
           onReintentar={nota.reintentar(() => {})} onDescartar={nota.descartar} />
+        {lineaTranscripcion && <div className="nt-mako-estado" aria-live="polite">{lineaTranscripcion}</div>}
         {corriendo && !conPropuestaAbierta && (
           <button type="button" className="nt-mako-pildora" onClick={() => { corte.current?.abort(); avisar('Detenido'); }}>Detener</button>
         )}

@@ -20,7 +20,7 @@ import { crearDiseno, puerta } from '@/lib/image-editor/server';
 import { documentoEnBlanco } from '@/lib/image-editor/reglas';
 import { documentoDeCarrusel } from '@/lib/carruseles/documento';
 import { marcaDelNegocio } from '@/lib/carruseles/marca';
-import { tipoCarrusel } from '@/lib/carruseles/tipos';
+import { tipoCarrusel, type Lamina } from '@/lib/carruseles/tipos';
 import { estiloConKit } from '@/lib/carruseles/marca-kit';
 import { kitParaUsar } from '@/lib/marca/kits-server';
 import { fuenteDelEditorDeImagen } from '@/lib/image-editor/fuente-del-editor';
@@ -47,5 +47,37 @@ export async function crearDisenoNuevoAction(id: string): Promise<Resultado> {
     : documentoEnBlanco(pl.ancho, pl.alto, Array.from({ length: Math.max(1, pl.paginas) }, () => randomUUID()));
   if (!doc) return { ok: false, error: 'Esa plantilla no existe.' };
   const r = await crearDiseno(p.ws, p.quien, { titulo: pl.tituloDiseno ?? pl.nombre, doc });
+  return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
+}
+
+/**
+ * Un carrusel desde un guion de Copywriting (13/11/2026, «Hacerlo carrusel» después de replicar; Martín en la llamada con Leila:
+ * es enlazar, no rehacer). Las láminas llegan ya partidas (lib/copywriter/hacia-otras.ts → laminasDelGuion) y se arman como las de
+ * una plantilla: el estilo del tipo «Lista o tips» con el kit y la marca del negocio, la primera de portada y la última de cierre.
+ */
+export async function crearCarruselDesdeGuionAction(entrada: { titulo?: unknown; laminas?: unknown }): Promise<Resultado> {
+  const p = await puerta();
+  if (p instanceof Response) return { ok: false, error: 'No se pudo crear el diseño.' };
+  const texto = (v: unknown, tope: number) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, tope) : '');
+  const pedidas = entrada?.laminas;
+  const crudas: unknown[] = Array.isArray(pedidas) ? pedidas : [];
+  const laminas = crudas.slice(0, 10).map((l) => {
+    const o = (l && typeof l === 'object' ? l : {}) as Record<string, unknown>;
+    return { titulo: texto(o.titulo, 120), cuerpo: texto(o.cuerpo, 300) };
+  }).filter((l) => l.titulo);
+  if (laminas.length < 2) return { ok: false, error: 'El guion no tiene con qué armar al menos dos láminas.' };
+  const tipo = tipoCarrusel('lista');
+  if (!tipo) return { ok: false, error: 'No se pudo crear el diseño.' };
+  const kit = await kitParaUsar().catch(() => null);
+  const ultima = laminas.length - 1;
+  const doc = documentoDeCarrusel({
+    laminas: laminas.map((l, i): Lamina => ({
+      rol: i === 0 ? 'portada' : i === ultima ? 'cierre' : 'punto',
+      rotulo: i === 0 ? 'Portada' : i === ultima ? 'Cierre' : `Lámina ${i + 1}`,
+      titulo: l.titulo, cuerpo: l.cuerpo,
+    })),
+    estilo: estiloConKit(tipo.estilo, kit, fuenteDelEditorDeImagen), marca: await marcaDelNegocio(p.ws, kit), nuevoId: randomUUID,
+  });
+  const r = await crearDiseno(p.ws, p.quien, { titulo: texto(entrada?.titulo, 120) || 'Carrusel desde Copywriting', doc });
   return r.ok ? { ok: true, id: r.id } : { ok: false, error: r.error };
 }

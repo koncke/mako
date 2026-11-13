@@ -4098,6 +4098,13 @@ sin Meta recibía el perfil que otro cliente había buscado diez minutos antes, 
 token de ese otro: la prospección de un inquilino filtrada a otro. El caso, en
 docs/hallazgos-crm.md → «La segunda revisión del 12/10».
 
+**Y en Vercel, esa caché casi nunca acierta.** Cada pedido puede caer en otra instancia, y una
+que se apaga se lleva su `Map`. La portada de Copywriting guardaba 5 minutos en memoria «para no
+pagarlo otra vez» y el 13/11/2026 seguía dando 4,9 s hasta el primer byte en CADA apertura. Lo
+que se quiere guardar entre pedidos va por `cachedRead` (lib/cache.ts: la caché de datos de Next,
+compartida, con el `ws` en la clave y fijado adentro). El `Map` queda, a lo sumo, como un atajo
+para la misma instancia. Ojo: un ítem de más de 2 MB no se guarda, y no avisa.
+
 # Un control que hidrata un dato guardado no escribe si la persona no tocó nada
 
 Partir un valor guardado en un control estructurado (lada + número, fecha + hora, monto +
