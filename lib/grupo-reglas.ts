@@ -77,13 +77,14 @@ export function juzgarAcceso(e: {
   if (esGlobal) return { tipo: 'soporte', administra: true, desdeId: 0 };
   if (e.negocioPausado) return null;
   if (Number(p.workspace_id) === e.ws && administraActivo(p)) return { tipo: 'admin', administra: true, desdeId: 0 };
+  // La agencia: se calcula en cada pedido, así que revocar la cartera la saca sola. Closer y setter de la agencia, no.
+  if (p.workspace_id != null && administraActivo(p) && (e.agenciasAprobadas ?? []).includes(Number(p.workspace_id))) return { tipo: 'agencia', administra: true, desdeId: 0 };
+  // ⛔ A quien quien administra INVITÓ, como invitado, aunque sea de su equipo: sumar al equipo no afloja nada de lo que ya era un invitado (el rojo del 13/11/2026).
+  if (e.invitacion && Number.isFinite(e.invitacion.desdeId)) return { tipo: 'invitado', administra: false, desdeId: e.invitacion.desdeId };
   // SU EQUIPO (13/11/2026): el closer y el setter del negocio entran a su grupo. Ven el hilo sin lo que es de quien administra (`laVeElEquipo`) y MaKo les contesta
   // con lo que su rol ve en la app (lib/api-mako/vista.ts, `soloTabs`). No administran: no invitan, no acusan insistencias.
   const deSuEquipo = Number(p.workspace_id) === e.ws ? rolDelEquipo(p) : null;
   if (deSuEquipo) return { tipo: 'equipo', administra: false, desdeId: 0, rolWs: deSuEquipo };
-  // La agencia: se calcula en cada pedido, así que revocar la cartera la saca sola. Closer y setter de la agencia, no.
-  if (p.workspace_id != null && administraActivo(p) && (e.agenciasAprobadas ?? []).includes(Number(p.workspace_id))) return { tipo: 'agencia', administra: true, desdeId: 0 };
-  if (e.invitacion && Number.isFinite(e.invitacion.desdeId)) return { tipo: 'invitado', administra: false, desdeId: e.invitacion.desdeId };
   return null;
 }
 

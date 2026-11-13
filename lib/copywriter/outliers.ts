@@ -103,7 +103,16 @@ export type OutlierCopy = {
 
 export type LecturaFuenteCopy = { ok: true; outliers: readonly OutlierCopy[] } | { ok: false; motivo: string };
 export type FuenteOutliersCopy = { id: string; nombre: string; leer: () => Promise<LecturaFuenteCopy> };
-export type PortadaCopy = { outliers: OutlierCopy[]; caidas: { fuente: string; nombre: string; motivo: string }[] };
+export type PortadaCopy = {
+  outliers: OutlierCopy[];
+  caidas: { fuente: string; nombre: string; motivo: string }[];
+  /**
+   * Sólo en la portada que viaja con la página (`primeraTandaCopy`): `outliers` es la primera tanda, y éstos son los de TODA la
+   * portada, para el total y la cuenta de cada formato. Sin ellos, `outliers` es la portada entera (la API de MaKo, el banco).
+   */
+  total?: number;
+  porFormato?: Partial<Record<FormatoCopy, number>>;
+};
 
 /**
  * Cuánto texto viaja a la pantalla por tarjeta (el entero se lee al abrir y al replicar), y cuántos outliers por formato.
@@ -126,13 +135,31 @@ export function primeraLinea(texto: string | null | undefined, tope = 140): stri
   return l.length > tope ? `${l.slice(0, tope - 1).trimEnd()}…` : l;
 }
 
-/** Lo que sigue al gancho en la hoja de la tarjeta (app/copywriter/OutliersCopy.tsx): el texto sin repetir el gancho (un pie
- *  suele arrancar con él); vacío si el texto ES el gancho (el título de un video sin descripción). */
-export function restoDelTexto(o: Pick<OutlierCopy, 'gancho' | 'texto'>): string {
+/**
+ * El gancho y lo que le sigue, como se leen en la tarjeta (app/copywriter/OutliersCopy.tsx): el gancho en negrita y debajo el texto
+ * sin repetirlo (un pie suele arrancar con él); nada debajo si el texto ES el gancho (el título de un video sin descripción).
+ *
+ * Sin un gancho analizado, el gancho es el primer renglón CORTADO con «…» (`primeraLinea`), y el texto no arranca con él (arranca con
+ * lo mismo SIN el «…»): «lo que sigue» volvía a empezar por el título (13/11/2026, en producción: 14 de 34 tarjetas con el título dos
+ * veces). Ahí el gancho es la primera oración y debajo va el resto; si la primera oración es más larga que el gancho, sólo el gancho.
+ */
+export function textoDeTarjeta(o: Pick<OutlierCopy, 'gancho' | 'texto'>): { gancho: string; sigue: string } {
   const g = o.gancho.trim();
   const t = o.texto.trim();
+  const corte = /(?:…|\.\.\.)$/u.exec(g);
+  const sinCorte = corte ? g.slice(0, corte.index).trimEnd() : '';
+  if (sinCorte && t.startsWith(sinCorte)) {
+    const oracion = /^[^\n]{12,}?[.!?](?=\s|$)/u.exec(t)?.[0];
+    if (oracion && oracion.length <= g.length) return { gancho: oracion, sigue: t.slice(oracion.length).trim() };
+    return { gancho: g, sigue: '' };
+  }
   const sin = g && t.startsWith(g) ? t.slice(g.length).replace(/^[\s.,:;!?…—-]+/u, '') : t;
-  return sin === g ? '' : sin;
+  return { gancho: g, sigue: sin === g ? '' : sin };
+}
+
+/** Lo que sigue al gancho en la tarjeta (`textoDeTarjeta`). */
+export function restoDelTexto(o: Pick<OutlierCopy, 'gancho' | 'texto'>): string {
+  return textoDeTarjeta(o).sigue;
 }
 
 // ── Competitors Spy: reels, publicaciones, YouTube y anuncios de las cuentas que sigue el negocio ──────────────────────
@@ -185,7 +212,10 @@ export function outliersCopyDeSpy(
       if (!formato || !p.url || !/^https:\/\//.test(p.url)) continue;
       if (formato !== 'anuncio' && p.dejo_de_verse_en) continue;
       const guion = guiones.get(p.id)?.trim() || '';
-      const texto = guion || (p.texto ?? '').trim();
+      // Un ANUNCIO transcrito lleva lo que se dice Y su texto (13/11/2026: los anuncios en video se transcriben; el copy también se
+      // replica). Lo demás, el guion o su texto.
+      const copy = (p.texto ?? '').trim();
+      const texto = formato === 'anuncio' && guion && copy ? `${guion}\n\nEL TEXTO DEL ANUNCIO: ${copy}` : guion || copy;
       const titulo = (p.titulo ?? '').trim();
       if (!texto && !titulo) continue;
       const deDonde: DeDondeTexto = guion ? 'guion' : formato === 'anuncio' ? 'copy' : formato === 'youtube' ? 'descripcion' : 'pie';
@@ -352,6 +382,51 @@ export function filtrarOutliersCopy(xs: readonly OutlierCopy[], f: FiltrosCopy, 
   return filtrados;
 }
 
+// ── La portada por tandas (13/11/2026) ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * La portada viaja de a TANDA_COPY outliers. La página lleva la primera tanda de «Todos» por outlier, con el total y la cuenta de
+ * cada formato (`primeraTandaCopy`). El resto llega al bajar o con «Ver más» (`accion: 'outliers'` de /api/copywriter), filtrado y
+ * ordenado en el server con la MISMA función (`tandaDeOutliersCopy`). 13/11/2026, el Cerebro: la portada mandaba los 924 de una
+ * (1,19 MB de página) y abrir Copywriting tardaba. Lo leído se guarda 5 minutos (lib/copywriter/outliers-servidor.ts): pedir otra
+ * tanda no vuelve a leer Spy.
+ */
+export const TANDA_COPY = 48;
+export type TandaCopy = { outliers: OutlierCopy[]; total: number };
+export type ConsultaCopy = { filtros: FiltrosCopy; orden: OrdenCopy; desde: number };
+
+export function tandaDeOutliersCopy(xs: readonly OutlierCopy[], c: ConsultaCopy): TandaCopy {
+  const vistos = filtrarOutliersCopy(xs, c.filtros, c.orden);
+  const desde = Math.max(0, Math.floor(c.desde) || 0);
+  return { outliers: vistos.slice(desde, desde + TANDA_COPY), total: vistos.length };
+}
+
+/** Lo que viaja con la página: la primera tanda de «Todos» por outlier, con el total y la cuenta de cada formato. */
+export function primeraTandaCopy(p: PortadaCopy): PortadaCopy {
+  if (p.total != null) return p;
+  const porFormato: Partial<Record<FormatoCopy, number>> = {};
+  for (const o of p.outliers) porFormato[o.formato] = (porFormato[o.formato] ?? 0) + 1;
+  const t = tandaDeOutliersCopy(p.outliers, { filtros: { formato: null, q: '' }, orden: 'outlier', desde: 0 });
+  return { outliers: t.outliers, caidas: p.caidas, total: t.total, porFormato };
+}
+
+/** El pedido de una tanda, saneado (lo manda el navegador). */
+export function consultaDeTanda(b: Record<string, unknown>): ConsultaCopy {
+  const formato = (FORMATOS_COPY as readonly unknown[]).includes(b.formato) ? (b.formato as FormatoCopy) : null;
+  const q = typeof b.q === 'string' ? b.q.slice(0, 120) : '';
+  const desde = typeof b.desde === 'number' && Number.isFinite(b.desde) ? Math.min(100_000, Math.max(0, Math.floor(b.desde))) : 0;
+  return { filtros: { formato, q }, orden: b.orden === 'recientes' ? 'recientes' : 'outlier', desde };
+}
+
+/** La clave de lo que se está mirando: si cambia, la lista vuelve a pedirse desde la primera tanda. */
+export const claveDeConsulta = (f: FiltrosCopy, orden: OrdenCopy) => `${f.formato ?? 'todos'}|${orden}|${f.q.trim().toLowerCase()}`;
+
+/** Suma una tanda a la lista que se ve, sin repetir (si la portada se volvió a leer entre dos tandas, el orden pudo correrse). */
+export function sumarTanda(ya: readonly OutlierCopy[], t: readonly OutlierCopy[]): OutlierCopy[] {
+  const vistos = new Set(ya.map((o) => o.id));
+  return [...ya, ...t.filter((o) => !vistos.has(o.id))];
+}
+
 // ── Lo que le llega a MaKo al replicar ───────────────────────────────────────────────────────────────────────────
 
 /** El tipo de página en que se replica un outlier. */
@@ -431,6 +506,8 @@ export function pedidoDeCorreccion(p: {
   capitulos: readonly string[];
   /** Una PLANTILLA corta para su duración (13/11/2026: la VSL de 10 minutos en 587 palabras): las palabras que pide. */
   duracion?: { segundos: number; objetivo: number; escritas: number } | null;
+  /** Las palabras sueltas en inglés (13/11/2026, el relevo: «more budget»). */
+  ingles?: readonly string[];
 }): string {
   const partes: string[] = ['Corrige tu respuesta antes de que la vea la persona:'];
   if (p.largo) {
@@ -440,6 +517,9 @@ export function pedidoDeCorreccion(p: {
   if (p.duracion) {
     const { segundos, objetivo, escritas } = p.duracion;
     partes.push(`- LA DURACIÓN: la pieza dura ${Math.round(segundos / 60)} minutos y lo que se dice en tu guion tiene ${escritas} palabras (unos ${Math.max(1, Math.round(escritas / 150))} minutos dichos). Complétala ENTERA hasta unas ${objetivo} palabras (entre ${Math.round(objetivo * 0.85)} y ${objetivo}, sin contar los títulos), con las mismas secciones y en el mismo orden: cada sección dice lo que se dice, entero, no un resumen de lo que habría que decir.`);
+  }
+  if (p.ingles?.length) {
+    partes.push(`- EN ESPAÑOL: tu guion tiene palabras en inglés (${p.ingles.map((w) => `«${w}»`).join(', ')}): dilas en español, también en «respuesta».`);
   }
   if (p.capitulos.length) {
     partes.push(`- LOS CAPÍTULOS: el original tiene ${p.capitulos.length} y tu guion no los sigue. Una sección por capítulo, en este orden, con su nombre como título:\n${p.capitulos.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}`);
@@ -475,6 +555,9 @@ export function avisoDeLargo(original: string, escritas: number): string | null 
  * de 200; el carrusel de 7 láminas, en prosa; el video de YouTube, con cifras, casos y una garantía inventados; el reel, con el
  * título del competidor. Va en el ORIGINAL (lo manda el server en cada pedido de la página), no en el pedido que se ve en la charla.
  */
+/** Lo que una réplica puede pedir de largo: lo que entra en un pedido (el mismo tope que la duración de una plantilla). */
+export const LARGO_MAXIMO_REPLICA = 2_000;
+
 export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | 'texto' | 'laminas'>, hoy: Date = new Date()): string[] {
   const n = palabrasDe(o.texto);
   const entre = `entre ${Math.max(5, Math.round(n * 0.75))} y ${Math.max(10, Math.round(n * 1.25))} palabras`;
@@ -485,10 +568,15 @@ export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | '
         // Los capítulos, uno por uno (13/11/2026, en producción: con «si trae capítulos, una sección por capítulo» el video de 8
         // capítulos salió con las 9 secciones de la biblioteca, «Bloque uno, Bloque dos…»).
         ? `LAS PARTES: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Sus capítulos SON sus partes: UNA sección por capítulo, en este orden, con lo que se dice en ese capítulo y no las secciones de la biblioteca: ${capitulosDe(o.texto).map((c, i) => `${i + 1}) ${c}`).join(' · ')}. Cada sección con un nombre corto en mayúscula (hasta 20 letras) que diga de qué trata ese capítulo en tu negocio.`
-        : 'EL LARGO: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice. Si trae capítulos (0:00 …), ésos son sus partes y su orden: una sección por capítulo.')
+        : 'EL LARGO: lo de arriba es la DESCRIPCIÓN del video, no lo que se dice: sólo tienes su título y su descripción. Toma su gancho y su estructura, escribe un video de 8 a 12 minutos dichos, y dilo en la respuesta en una frase.')
+        // Un video transcrito entero puede pasar lo que entra en un pedido (13/11/2026): se pide el tope, con las mismas partes.
+        : n > LARGO_MAXIMO_REPLICA ? `EL LARGO: el original es largo (unas ${n} palabras dichas); el tuyo, de unas ${LARGO_MAXIMO_REPLICA}, con las mismas partes y en su orden: cada una resumida a lo esencial, ninguna cortada.`
         : `EL LARGO: el original tiene unas ${n} palabras; el tuyo, ${entre}, con la misma cantidad de partes. Ni una sección que el original no tenga.`;
   return [
     largo,
+    // El tema que no tiene que ver (13/11/2026, Martín en la llamada con Leila: los «7 ejercicios de bíceps» en el negocio de MaKo).
+    // Si se pregunta o no lo decide Martín; mientras tanto, se escribe sin preguntar y se dice.
+    'SI SU TEMA NO TIENE QUE VER CON EL NEGOCIO (un video de ejercicios para un negocio de ventas, por ejemplo): no preguntes. Toma sólo su tipo de gancho y su estructura (las partes, su orden y su ritmo), escribe todo sobre la oferta de EL NEGOCIO, y dilo en la respuesta en una frase («El original habla de …: tomé su gancho y su estructura»).',
     'LAS PRUEBAS: cifras, porcentajes, casos, clientes, testimonios y garantías salen SÓLO de EL NEGOCIO. Si el original muestra una prueba y el negocio no tiene una, escribe [DATO: la prueba que falta]. Nunca inventes un número ni una garantía.',
     `EL TÍTULO: ponle a la página un título PROPIO con {"op": "titulo"} (el de ahora es la frase del original). Si el original nombra un año, el tuyo es ${hoy.getFullYear()}.`,
     'AL ESCRIBIRLA (la primera vez, o cuando te pidan rehacerla): el guion ENTERO, todas sus partes en su orden y cada sección lista para grabar o publicar; en propiedades, el ángulo y la estructura de la biblioteca que más se parezcan al original. Después, un cambio puntual toca sólo lo pedido.',

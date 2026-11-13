@@ -9,7 +9,8 @@
 
 import { postJson, type FallaPedido } from '@/app/web-generator/cliente';
 import type { EditadoPor, GuionAbierto, JsonNodo, PaginaCopy, PropsGuion, TipoGuion } from '@/lib/copywriter/tipos';
-import type { OutlierCopy } from '@/lib/copywriter/outliers';
+import type { FiltrosCopy, OrdenCopy, OutlierCopy, TandaCopy } from '@/lib/copywriter/outliers';
+import { marcarRecienCreada } from './pedido-guardado';
 
 export const RUTA_COPY = '/api/copywriter';
 /** /api/copywriter no llama a ninguna IA: lo que tarda es la base. */
@@ -25,8 +26,11 @@ export function pedirAbrir(id: string) {
   return postJson<{ ok: true } & GuionAbierto>(RUTA_COPY, { accion: 'abrir', id }, PLAZO_COPY_MS) as Promise<({ ok: true } & GuionAbierto) | FallaCopy>;
 }
 
-export function pedirCrear(p: { tipo: TipoGuion; titulo?: string; padre?: string | null; posicion?: number; props?: Partial<PropsGuion>; contenido?: JsonNodo; emoji?: string | null }) {
-  return postJson<{ ok: true; paginas: PaginaCopy[] } & GuionAbierto>(RUTA_COPY, { accion: 'crear', ...p }, PLAZO_COPY_MS) as Promise<({ ok: true; paginas: PaginaCopy[] } & GuionAbierto) | FallaCopy>;
+export async function pedirCrear(p: { tipo: TipoGuion; titulo?: string; padre?: string | null; posicion?: number; props?: Partial<PropsGuion>; contenido?: JsonNodo; emoji?: string | null }) {
+  const r = await (postJson<{ ok: true; paginas: PaginaCopy[] } & GuionAbierto>(RUTA_COPY, { accion: 'crear', ...p }, PLAZO_COPY_MS) as Promise<({ ok: true; paginas: PaginaCopy[] } & GuionAbierto) | FallaCopy>);
+  // Recién creada: su chat está vacío y el panel no lo espera (./pedido-guardado.ts → marcarRecienCreada).
+  if (r.ok) marcarRecienCreada(r.pagina.id);
+  return r;
 }
 
 /** Lo que contesta un guardado: la versión nueva y la marca de quién guardó (D9). */
@@ -78,8 +82,15 @@ export function pedirTituloCompartido(token: string, nombre: string, titulo: str
 // ── Los outliers de copy (D18) ──────────────────────────────────────────────────────────────────────────────────
 
 /** «Replicar»: la página nueva que replica el outlier (vacía; la escribe MaKo cuando la persona elige la oferta). */
-export function pedirReplicar(outlier: string) {
-  return postJson<{ ok: true; paginas: PaginaCopy[] } & GuionAbierto>(RUTA_COPY, { accion: 'replicar', outlier }, PLAZO_COPY_MS) as Promise<({ ok: true; paginas: PaginaCopy[] } & GuionAbierto) | FallaCopy>;
+export async function pedirReplicar(outlier: string) {
+  const r = await (postJson<{ ok: true; paginas: PaginaCopy[] } & GuionAbierto>(RUTA_COPY, { accion: 'replicar', outlier }, PLAZO_COPY_MS) as Promise<({ ok: true; paginas: PaginaCopy[] } & GuionAbierto) | FallaCopy>);
+  if (r.ok) marcarRecienCreada(r.pagina.id);
+  return r;
+}
+
+/** Una tanda de la portada de outliers (la primera viaja con la página; ésta es la de «Ver más» o la de otro filtro). */
+export function pedirOutliers(c: { filtros: FiltrosCopy; orden: OrdenCopy; desde: number }) {
+  return postJson<{ ok: true } & TandaCopy>(RUTA_COPY, { accion: 'outliers', ...c.filtros, orden: c.orden, desde: c.desde }, PLAZO_COPY_MS) as Promise<({ ok: true } & TandaCopy) | FallaCopy>;
 }
 
 /** El original entero de un outlier («Ver el original» de la página replicada). */

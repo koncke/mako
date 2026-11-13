@@ -30,6 +30,7 @@ import { filtrosDeQuery } from '@/lib/carruseles/explorar';
 import { baseDelGuiado } from '@/app/image-editor/guiado-base';
 import { kitParaUsar } from '@/lib/marca/kits-server';
 import { EjemplosM } from './EjemplosM';
+import { primeraTandaExplorador } from '@/app/image-editor/carruseles/tanda';
 import { nombreDelNegocio } from '@/lib/carruseles/marca';
 
 export const dynamic = 'force-dynamic';
@@ -48,10 +49,11 @@ export default async function ImageEditorPagina({ searchParams }: { searchParams
       <PantallaM>
         {e && e.ok
           ? <EjemplosM base={base} filtrosIniciales={filtrosDeQuery(q)} thumbnailsIniciales={filtrosThumbnailDeQuery(q)} rutaCrear="/m/image-editor?ver=crear"
-            datos={{
+            // Sólo lo que se ve primero; el resto lo pide la pantalla al dibujar (app/image-editor/carruseles/tanda.ts, 13/11/2026).
+            datos={primeraTandaExplorador({
               carruseles: e.carruseles, guardados: e.guardados.map((g) => g.id), busquedas: e.busquedas, paso: e.paso, frase: e.frase, accion: e.accion, ejemplos: e.ejemplos, avisoBiblioteca: e.avisoBiblioteca, anuncios: e.anuncios,
               thumbnails: t && t.ok ? { ok: true, lista: t.thumbnails, guardados: t.guardados, sinTablas: t.sinTablas } : { ok: false },
-            }} />
+            }, filtrosDeQuery(q))} />
           : <ErrorM frase="No pude leer los ejemplos. Es un problema nuestro: vuelve a intentar." />}
       </PantallaM>
     );

@@ -61,7 +61,8 @@ test('la cantidad de apps que MaKo reemplaza no se dice en ningún lado del siti
 test('el ahorro de la portada es el de un stack típico con su precio, y sale a favor de MaKo Pro', () => {
   const pro = PLANES_MAKO_DEFAULT.find((p) => p.id === 'pro');
   assert.ok(pro, 'sin plan Pro');
-  assert.ok(STACK_TIPICO.length >= 3 && STACK_TIPICO.length <= 10, 'un stack realista, no las 54');
+  // 12 como tope: la llamada con Leila (13/11/2026) sumó HeyGen y OpusClip a las 9; sigue siendo un stack, no las 54.
+  assert.ok(STACK_TIPICO.length >= 3 && STACK_TIPICO.length <= 12, 'un stack realista, no las 54');
   for (const x of STACK_TIPICO) {
     assert.ok(x.precioUsd > 0 && /^https:\/\//.test(x.fuente), `${x.app.nombre}: sin precio o sin fuente`);
     assert.ok(existsSync(join(RAIZ, 'public', x.app.logo)), `${x.app.nombre}: falta su logo`);

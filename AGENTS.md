@@ -239,6 +239,7 @@ Copiar una línea en un regex no prueba nada: da rojo con el código bien y verd
 - Un test nuevo corre el código y mira el resultado. Una regla sobre todo el repo va a las guardas.
 - Además de «probado rompiéndolo», un cambio sin efecto (renombrar una variable local) tiene que dejarlo verde.
 - Un rojo falso no se arregla editando la línea para que vuelva a coincidir: se convierte en prueba real. Borrarlo pide un segundo lector. Lo de plata, permisos y aislamiento entre clientes nunca se borra sin reemplazo.
+- **Una guarda de privacidad que fija el NOMBRE de una línea (`const ctxFalla = hayInvitado ? ''`) no se pone «al día» para que entre algo nuevo.** Lo nuevo se expresa dentro del nombre que mira, y lo que difiere va en líneas propias (13/11/2026: renombrar a `recortado` tumbó once guardas del invitado y el Cerebro frenó reescribirlas; docs/hallazgos-comunicacion.md).
 - Tras 2 rojos seguidos de una punta, la tercera no sale sin reproducir el rojo en local.
 - **Una guarda que escanea el REPO se corre DESPUÉS de crear el archivo nuevo, nunca antes.** Las de esa familia
   —la voz (voseo), los tokens `var(--fs-*)`, las rutas de `public/`, el índice de hallazgos— no miran el diff:
@@ -4098,6 +4099,13 @@ sin Meta recibía el perfil que otro cliente había buscado diez minutos antes, 
 token de ese otro: la prospección de un inquilino filtrada a otro. El caso, en
 docs/hallazgos-crm.md → «La segunda revisión del 12/10».
 
+**Y en Vercel, esa caché casi nunca acierta.** Cada pedido puede caer en otra instancia, y una
+que se apaga se lleva su `Map`. La portada de Copywriting guardaba 5 minutos en memoria «para no
+pagarlo otra vez» y el 13/11/2026 seguía dando 4,9 s hasta el primer byte en CADA apertura. Lo
+que se quiere guardar entre pedidos va por `cachedRead` (lib/cache.ts: la caché de datos de Next,
+compartida, con el `ws` en la clave y fijado adentro). El `Map` queda, a lo sumo, como un atajo
+para la misma instancia. Ojo: un ítem de más de 2 MB no se guarda, y no avisa.
+
 # Un control que hidrata un dato guardado no escribe si la persona no tocó nada
 
 Partir un valor guardado en un control estructurado (lada + número, fecha + hora, monto +
@@ -4791,6 +4799,11 @@ dice `"target": "ES2017"`: el typecheck de la punta da `TS1501` en esa línea, y
 `tsx` pasan igual (no miran el target). Pasó en `lib/copywriter/outliers.ts` (los capítulos de un
 video). Se escribe `[\s\S]` en lugar del punto. El flag `u` (con `\p{L}`) sí entra; lo que es de
 ES2018 en el CUERPO (`(?<!…)`) va en `new RegExp('…')`, como `lib/al-tuteo.ts`.
+
+**Y `texto.match(re) ?? []` no es un `string[]`:** es `RegExpMatchArray | never[]`. Con `filter`, `map` o
+`length` anda; con `indexOf(x)` o `includes(x)` el parámetro sale `never` y el typecheck de la punta da
+`TS2345` (corrida 1231, un test de Copywriting). `tsx` tampoco lo ve. Se le da el tipo:
+`const xs: string[] = [...(texto.match(re) ?? [])]`.
 
 # «No puedo hacer X con este dato» no es «este dato es falso»
 
@@ -11689,6 +11702,10 @@ Y nada de una tarjeta queda escondido: un control que se saca de la pantalla se 
 Y en una automatización que usa «Contestó», la respuesta del lead la corta EN EL ACTO (`alContestar`) y después no le sale
 ningún mensaje más (la guarda de `procesarEnvios`): un «Contestó» que no corta es scripts/arnes-contesto-corta.mts en rojo.
 Detalle: docs/hallazgos-chatbot.md («No salió ni a mí ni a mi esposa»).
+«Contestó» es de ESA inscripción: no ve lo que el lead le contestó a OTRA automatización, y antes de escribirle nada se decide
+al entrar y no se cumple nunca (Publicar lo frena: `contestoAntesDeEscribir`, lib/flujo-grafo.ts). «Seguir con los que
+contestan» una difusión va EN la difusión (`conSiContesta`, lib/difusion-reglas.ts), sólo por WhatsApp; MaKo lo arma con
+`difundir_a_leads` (`siContesta`) o `seguir_con_los_que_contestan`. Detalle: docs/hallazgos-chatbot.md (13/11, Leila).
 
 ## Hacer cumplir un tope del plan: sólo a quien paga por la pasarela, y sólo al crear (23/10/2026)
 

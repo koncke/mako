@@ -204,7 +204,7 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     seg('pausa_min', 'Pausa mínima', 'Opcional: la pausa más corta que se saca, en segundos (de 0,2 a 2; sin ella, 0,4).', false, 0.2, 2),
   ] },
   { op: 'palabras_clave', id: 'resaltar_claves_subtitulos', titulo: 'Resaltar las palabras clave', parametros: [
-    elegir('modo', 'Modo', ['auto', 'estas', 'sumar', 'quitar', 'ninguna'], '«auto» las elige solas; «estas», sólo las de «palabras»; «sumar» y «quitar» marcan o desmarcan las de «palabras» sin tocar las demás; «ninguna» las saca.'),
+    elegir('modo', 'Modo', ['auto', 'estas', 'sumar', 'quitar', 'mantener', 'ninguna'], '«auto» las elige solas; «estas», sólo las de «palabras»; «sumar» y «quitar» marcan o desmarcan las de «palabras» sin tocar las demás; «mantener» deja las que hay y cambia sólo su «tamano» o «color»; «ninguna» las saca.'),
     { nombre: 'palabras', rotulo: 'Palabras', tipo: 'string[]', max: 30, descripcion: 'Con «estas», «sumar» o «quitar»: una palabra por elemento, como se dice en los subtítulos.' },
     COLOR('color', 'Color', false),
     seg('tamano', 'Tamaño', 'Opcional: el tamaño de las palabras clave en % (100 = igual, hasta 300).', false, 100, 300),
