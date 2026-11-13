@@ -33,6 +33,7 @@ import { crearAdaptadorNube } from '../mako/adaptadorNube';
 import { mudarLocales } from '../mako/mudanza';
 import { crearDiseno, leerDiseno } from '../mako/nube';
 import { PanelMakoIA } from '../mako/chat/PanelMakoIA';
+import { prenderQuitarFondo } from '../mako/quitar-fondo';
 import { RUTA_CREAR, rutaDiseno } from '../ruta';
 import styles from './pantalla.module.css';
 
@@ -82,6 +83,8 @@ export function PantallaEditor({ disenoId, ws, senales = null, ranuraChat = null
   // El nombre que se le pasa al motor (`meta.title`): cambiarlo lo renombra y el guardado de siempre lo sube.
   const [titulo, setTitulo] = useState('');
   const editorRef = useRef<EditorHandle>(null);
+  // «Quitar fondo» prendido (12/11/2026, ../mako/quitar-fondo.ts): registra el motor; el modelo se baja recién al usarlo.
+  useEffect(() => { prenderQuitarFondo(); }, []);
   const avisos = useRef({ onAbierto, onCarga, onTitulo });
   useEffect(() => { avisos.current = { onAbierto, onCarga, onTitulo }; });
 

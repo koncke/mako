@@ -10,13 +10,14 @@ import 'server-only';
 import { cambiarSettingSi, getSettingEstricto } from './settings';
 import { referenteDeCompetidor } from './spy-caricatura';
 import { CLAVE_CARICATURAS, encolarCaricatura, type DepsEncolar } from './spy-caricatura-cola';
-import { caricaturaGuardada } from './spy-miniaturas';
+import { caricaturaGuardada, sinPersonaGuardada } from './spy-miniaturas';
 
 /** Con el negocio ya resuelto (el contexto del pedido): el registro es el de ESE negocio. */
 const deps: DepsEncolar = {
   leer: async () => { const crudo = await getSettingEstricto(CLAVE_CARICATURAS); return { crudo, version: crudo }; },
   cambiarSi: (_ws, version, nuevo) => cambiarSettingSi(CLAVE_CARICATURAS, version, nuevo),
   hecha: (refs) => caricaturaGuardada(refs),
+  sinPersona: (refs) => sinPersonaGuardada(refs),
 };
 
 /** Nunca tira: una caricatura es una comodidad, y la tarjeta tiene su foto. */

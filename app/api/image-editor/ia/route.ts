@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     if (c.adjuntos.length && !lecturas.length && !escrita) return fallo(`No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}: escribe qué quieres cambiar.`, 422);
     const instruccion = c.adjuntos.length && !escrita ? 'Usa lo que traen estos archivos en el diseño.' : body.instruccion;
     const archivos = lecturas.length ? lecturaDeArchivos(lecturas, TOPE_LECTURA_EDITOR) : undefined;
-    const r = await editarImagen({ instruccion, diseno: body.diseno, alcance: body.alcance, memoria: body.memoria, kit: body.kit, intencion: body.intencion, archivos });
+    const r = await editarImagen({ instruccion, diseno: body.diseno, alcance: body.alcance, memoria: body.memoria, kit: body.kit, intencion: body.intencion, conNegocio: body.conNegocio, archivos });
     if (!r.ok) return fallo(r.error, r.status);
     return Response.json(r, { headers: { 'cache-control': 'no-store' } });
   });

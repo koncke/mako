@@ -40,6 +40,10 @@ import { resumenDeCambios, type CambioImagen } from '@/lib/image-editor/chat/apl
 import { cambiarMensaje, cargarHilo, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from './hilo';
 import { aceptarPropuesta, detener, pedirEdicion, restaurarPropuesta, rotuloSeleccion, type AlcanceChat } from './acciones';
 import styles from './chat.module.css';
+import { ESCRIBIR_PLANTILLA } from '../../ruta';
+
+/** Lo que pide «Usar plantilla» al abrir (queda en la charla como el pedido de la persona). */
+const PEDIDO_ESCRIBIR_PLANTILLA = 'Escribe esta plantilla entera para mi negocio y mi oferta principal: cada texto de guía, con su texto final. Donde falte un dato, pon [DATO: qué va].';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
@@ -47,6 +51,7 @@ import { useKitsDeMarca } from '@/app/_chat/kits-de-marca';
 import { kitElegido } from '@/lib/marca/kits';
 import { Dropdown } from '@/app/components/Dropdown';
 import { rutaSeccion } from '@/lib/secciones-negocio';
+import { RecortarAlAbrir } from '../quitar-fondo';
 
 const HILO_SERVER: Hilo = { mensajes: [], corriendo: false };
 const useHilo = (disenoId: string): Hilo => useSyncExternalStore(suscribir, () => leerHilo(disenoId), () => HILO_SERVER);
@@ -228,6 +233,28 @@ export function PanelMakoIA() {
   // `enviar`, como lo escrito.
   const nota = useNotaEnElActo({ clave: `imagen:${disenoId ?? ''}`, puede: !hilo.corriendo && !!disenoId && !appEscritorio.bloqueada, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
 
+  // «USAR PLANTILLA» ESCRIBE LA PIEZA ENTERA (12/11/2026, memoria `replicar-deja-todo-escrito`; el Cerebro lo marcó en la prueba de
+  // Image): abierta con `?escribir=1` (../../ruta.ts), MaKo escribe cada texto de guía para el negocio y su oferta principal, con
+  // [DATO: …] donde falte, y como la plantilla está sin tocar no hay nada que pisar: queda escrita sin «Aceptar» (se deshace con
+  // «Restaurar»). La dirección pierde el `escribir` en el acto: recargar no vuelve a escribir encima de lo que ya se cambió.
+  const escribirPlantilla = useRef<'no' | 'pedido' | 'hecho'>('no');
+  useEffect(() => {
+    if (escribirPlantilla.current !== 'no' || !disenoId || hilo.corriendo || hilo.mensajes.length || appEscritorio.bloqueada) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get(ESCRIBIR_PLANTILLA) !== '1') return;
+    escribirPlantilla.current = 'pedido';
+    url.searchParams.delete(ESCRIBIR_PLANTILLA);
+    window.history.replaceState(window.history.state, '', url.toString());
+    void pedirEdicion(editorRef.current, PEDIDO_ESCRIBIR_PLANTILLA, 'diseno', [], { kit, conNegocio: true });
+  }, [disenoId, hilo.corriendo, hilo.mensajes.length, appEscritorio.bloqueada, kit]);
+  useEffect(() => {
+    if (escribirPlantilla.current !== 'pedido' || hilo.corriendo) return;
+    const m = hilo.mensajes.find((x): x is MensajeMako => x.de === 'mako' && x.estado === 'pendiente' && !!x.propuesta);
+    if (!hilo.mensajes.some((x) => x.de === 'mako')) return;
+    escribirPlantilla.current = 'hecho';
+    if (m) void aceptarPropuesta(editorRef.current, m);
+  }, [hilo.mensajes, hilo.corriendo]);
+
   // El hilo del Ops Center: cada mensaje con su id y su hora; lo de MaKo que el hilo no sabe dibujar (el error, los links, la
   // propuesta con «Original | Modificado»), en su hueco.
   const items = useMemo((): ItemHilo[] => hilo.mensajes.map((m) => ({
@@ -262,6 +289,10 @@ export function PanelMakoIA() {
 
   return (
     <div className={styles.panel}>
+      {/* La persona de una miniatura replicada se recorta al abrir (../quitar-fondo.ts). Va acá y no suelta en el `dentro` del
+          editor: esa línea es la del chat en la tarjeta, que cuida tests/image-editor-chat.test.ts (24). La tarjeta del chat no
+          se desmonta al plegarla ni en el teléfono (`hidden`), así que corre igual. */}
+      <RecortarAlAbrir />
       {/* Con su propio aire: el del Ops Center (24 px por lado) dejaba el hilo en 206 px en este panel. */}
       <div ref={hiloRef} className={`co-hilo ${styles.hilo}`} style={{ padding: '8px 4px' }} aria-live="polite">
         <div className="co-hilo__col">

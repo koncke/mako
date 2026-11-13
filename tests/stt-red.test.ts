@@ -71,6 +71,19 @@ test('si las keys del negocio no pudieron, escucha la RED DE PLATAFORMA, Groq pr
   assert.match(t, /if \(wsSA != null && wsActual !== wsSA\)/, 'el super admin repetiría sus propias keys');
 });
 
+test('una nota de voz CORTA que alguien espera (los chats, el dictado): Groq primero y Gemini de respaldo (12/11/2026)', () => {
+  // Medido en producción (ws 9, una nota de 4,5 s): con Gemini primero, de 11 s a ~105 s con «Enviando…» en la caja.
+  // Se decide adentro, por el PESO: ni la llamada de la ruta (que cuida que siga con `pii`) ni la línea que saca a Gemini del grupo
+  // cambian (tests/doer-falla.test.ts y tests/chat-nota-de-voz.test.ts, que el Cerebro pidió no tocar).
+  const t = bloque('export async function transcribirAudio(');
+  assert.match(t, /const enOrden = ordenDeEscucha\(stt, buf\.length\);/, 'el orden de la nota corta no se calcula');
+  assert.match(t, /ordenarPorCuota\(enOrden\.map\(String\)\)/, 'el orden de la nota corta se calcula y no se usa');
+  const orden = bloque('export const ordenDeEscucha =');
+  assert.match(orden, /bytes <= NOTA_CORTA_BYTES \? \[\.\.\.stt\.filter\(\(x\) => x === 'groq'\), \.\.\.stt\.filter\(\(x\) => x !== 'groq'\)\]/,
+    'la nota corta no pone a Groq primero, o saca a alguien (Gemini es el respaldo, no se va)');
+  assert.match(AI, /export const NOTA_CORTA_BYTES = 2 \* 1024 \* 1024;/, 'cambió qué es una nota corta');
+});
+
 test('los errores del negocio y los de la red viajan SEPARADOS', () => {
   assert.match(bloque('export async function transcribirAudio('), /throw new SttSinEscucha\(errores, erroresPlataforma\)/);
   const doer = sinComentarios(leer('../lib/mako-doer-in.ts'));
