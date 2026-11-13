@@ -66,7 +66,7 @@ import { getWorkspaceActual } from '../workspace';
 import { conMemoriaDelPedido } from '../ia-saturacion';
 import { crear, guardarTema, temasPropiosDe } from './server';
 import { esquema as pedirEsquema, secciones as pedirSecciones } from './ia';
-import { avisoDeCifras, cifrasSinRespaldo, quitarPruebaDeLaOriginal, tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
+import { avisoDeCifras, avisoDeDatosDeLaOriginal, cifrasSinRespaldo, quitarPruebaDeLaOriginal, sinCifrasDeLaOriginal, tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
 import { TOPES, nuevoId, textoDe, type JsonNodo, type LandingContenido } from './doc';
 import { sanearEnvoltorios, sanearHtmlEditable } from './html-editable-seguro';
 import { textoDeHtmlEditable } from './html-editable';
@@ -90,8 +90,10 @@ import {
   adaptacionSinNingunaSeccion, errorDeAdaptacion, nombresDeLaReferencia, textoDeOferta,
 } from './replicar-partes';
 import {
-  acomodoDeSeccion, disposicionPorSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
+  acomodoDeSeccion, conHuecoDeFoto, disposicionPorSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
+  type DisposicionDeSeccion,
 } from './replicar-estructura';
+import { VARIANTES_CON_IMAGEN } from './ia-bloques';
 import { NOMBRE_TIPO_SECCION, sanearAngulos, textoDeAngulos, type Angulos } from './replicar-angulos';
 import { angulosDePagina, textoDePagina } from './replicar-lectura';
 import { TEMAS } from './temas';
@@ -351,6 +353,8 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const moldes = mismasSecciones ? moldeDeEsquema(esq) : null;
   // Cómo está acomodada cada sección (dónde lleva imágenes, si sus subtítulos son tarjetas): con el estilo leído.
   const estiloLeido = await estiloP;
+  // La disposición de cada sección queda a mano para después de la IA (13/11/2026, `conHuecoDeFoto`).
+  let disposiciones: (DisposicionDeSeccion | null)[] = [];
   const acomodos = moldes
     ? (() => {
       const asigM = estiloLeido ? asignarSecciones(esq.secciones, estiloLeido.secciones) : [];
@@ -358,6 +362,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
       const imgs = estiloLeido ? imagenesPorSeccion(partesM, estiloLeido.imagenes) : [];
       // Las tarjetas, las fotos y el video de cada parte (12/11/2026): la grilla de testimonios salía como una foto por fila.
       const disp = estiloLeido ? disposicionPorSeccion(partesM, estiloLeido.secciones) : [];
+      disposiciones = disp;
       return moldes.map((m, i) => acomodoDeSeccion(m, imgs[i] ?? null, disp[i] ?? null));
     })()
     : [];
@@ -448,17 +453,28 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   let pruebaQuitada = 0;
   let frasesIguales = 0;
   let enlacesAjenos = 0;
+  // Lo que el NEGOCIO dice (su oferta y su perfil): una cifra que está acá es suya aunque la original la tenga también.
+  const negocio = partes.texto ? '' : [entrada.oferta ?? '', await perfilParaCifras()].join('\n');
+  // Las cifras, fechas y horas de la original que la IA escribió igual (13/11/2026, `sinCifrasDeLaOriginal`): pasan a [DATO].
+  const datosAjenos: string[] = [];
   // Los destinos que aparecen en la original (su agenda, su WhatsApp): con las mismas secciones, el esquema ES su texto.
   // La IA no los ve en los botones, pero sí en un renglón como «[CALENDARIO] Calendly (https://…)».
   const destinosOriginal = mismasSecciones && !partes.texto ? enlacesDeLaOriginal(esq.secciones.flatMap((s) => s.puntos).join('\n')) : new Set<string>();
+  let huecosDeFoto = 0;
   const tarjetasCrudas = esq.secciones.map((s, i) => {
-    const t = porIndice.get(i);
-    if (t) {
+    const deLaIA = porIndice.get(i);
+    if (deLaIA) {
+      // La grilla con foto de la original, con el hueco de cada foto aunque la IA la haya armado sin imagen.
+      const h = conHuecoDeFoto(deLaIA, disposiciones[i] ?? null, VARIANTES_CON_IMAGEN);
+      if (h.cambiada) huecosDeFoto++;
+      const t = h.tarjeta;
       if (!original) return t;
       const f = quitarPruebaDeLaOriginal(t, original);
       pruebaQuitada += f.quitados;
       frasesIguales += f.copiadas;
-      return f.tarjeta;
+      const d = sinCifrasDeLaOriginal(f.tarjeta, original, negocio);
+      for (const c of d.cambiadas) if (!datosAjenos.includes(c)) datosAjenos.push(c);
+      return d.tarjeta;
     }
     sinIA++;
     avisar({ fase: 'seccion', indice: i, titulo: s.titulo, respaldo: true });
@@ -477,7 +493,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const nombrados = nombres.map((n) => ({ n, veces: mencionesDe(textoCopia, n) })).filter((x) => x.veces > 0);
   // Las cifras que quedaron y no salen del NEGOCIO (12/11/2026, «ninguna cifra inventada»; la capa 2, como en Copywriting): la
   // fuente es su oferta y su perfil, nunca la página de la otra. Se dicen en el aviso.
-  const cifrasAjenas = partes.texto ? [] : cifrasSinRespaldo(tarjetas.map((t) => textoDe(t, ' ')).join('\n'), [entrada.oferta ?? '', await perfilParaCifras()].join('\n'));
+  const cifrasAjenas = partes.texto ? [] : cifrasSinRespaldo(tarjetas.map((t) => textoDe(t, ' ')).join('\n'), negocio);
   if (!tarjetas.length) return falla('No encontré secciones en esa página.', 422);
 
   // Las imágenes que faltan para los huecos que dejó la IA (una galería, las caras de un equipo), si
@@ -512,7 +528,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const fidelidad = moldes ? `, fidelidad: ${lineaDeFidelidad(fidelidadDeEstructura(moldes, tarjetas))}` : '';
   const noCopiadas = Math.max(0, intentadas.size - subidas.size);
   const resumenAnim = anim ? `${anim.estilo ?? 'sin estilo'} + ${animadas.propias} propias${anim.avisoScroll ? ', con scroll' : ''}` : 'no';
-  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}, enlaces a la original ${enlacesAjenos}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${frasesIguales} frases iguales` : ''}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
+  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}, enlaces a la original ${enlacesAjenos}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${datosAjenos.length} cifras, fechas u horas de la original a [DATO], ${frasesIguales} frases iguales` : ''}, ${huecosDeFoto} grillas con el hueco de la foto${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
   const una = terminoTarjeta(receta.config);
   const varias = terminoTarjeta(receta.config, { plural: true });
   const avisos = [
@@ -526,6 +542,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     frasesIguales ? (frasesIguales === 1 ? 'Una frase quedó igual a la original: revísala.' : `${frasesIguales} frases quedaron iguales a la original: revísalas.`) : '',
     menciones ? `${marca} quedó nombrada ${menciones === 1 ? 'una vez' : `${menciones} veces`}: cámbialo por lo tuyo.` : '',
     nombrados.length ? `De la original quedó: ${nombrados.map((x) => `${x.n} (${x.veces})`).join(', ')}. Cámbialo por lo tuyo.` : '',
+    avisoDeDatosDeLaOriginal(datosAjenos),
     avisoDeCifras(cifrasAjenas),
     enlacesAjenos ? (enlacesAjenos === 1 ? 'Un enlace llevaba a la original: ahora va a «#», pon el tuyo.' : `${enlacesAjenos} enlaces llevaban a la original: ahora van a «#», pon los tuyos.`) : '',
     anim?.avisoScroll ? AVISO_SCROLL : '',

@@ -1786,4 +1786,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '13 nov', hora: '13:40', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Replicar ya no pasa los testimonios ni las cifras de la otra como tuyos',
+    puntos: [
+      'Si la landing que replicas tiene cifras, fechas u horas propias (sus ventas, sus seguidores, el día de su clase), la tuya queda con un espacio para completar con las tuyas, y MaKo te avisa cuántas son.',
+      'Los pasos numerados de la original salen como tarjetas numeradas, no como una lista.',
+      'Los testimonios con foto de la original dejan el lugar de cada foto para que pongas la de tus clientes.',
+    ],
+    archivos: [
+      'lib/editor-landing/ia-reglas.ts — sinCifrasDeLaOriginal: las cifras, fechas y horas de la otra pasan a [DATO], [FECHA] y [HORA]',
+      'lib/editor-landing/ia-bloques.ts — varianteCercana: un nombre parecido es esa variante',
+      'lib/editor-landing/replicar-estructura.ts · replicar.ts — conHuecoDeFoto y el aviso',
+      'tests/web-generator-replicar-1311.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
 ];

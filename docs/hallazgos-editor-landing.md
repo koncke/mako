@@ -4480,3 +4480,29 @@ Lo único que frenaba el pintado era `<link rel="stylesheet">` a Google Fonts (d
 
 **Sin hacer:** medir la publicada en producción con la fuente propia (espera el despliegue).
 
+### La réplica desde la tarjeta, en producción: andaba sola, pero copiaba la prueba de la otra (13/11/2026)
+
+Replicada desde la tarjeta de outliers la landing de Clara (clase.highticketclarity.com) para el negocio de MaKo: un clic,
+lectura en 50 s, réplica sola y editor abierto a los ~65 s, 7 de 7 secciones, escrita para la oferta principal, sin el
+nombre de Clara. Lado a lado a 1440 y 375 (side-session-notes/…/probar-web-1311/lado-a-lado-*.jpg), lo que fallaba:
+
+- **La prueba de la otra pasaba como propia, aunque el prompt lo prohíbe** (`NADA_PROPIO`, replicar-partes.ts): sus
+  testimonios con sus montos («De 0 a 9.000 USD por mes»), sus números («+192.000 seguidores», «más de 400.000»), su
+  trayectoria («más de 10 años») y la fecha y hora de SU masterclass. El registro decía «0 citas o cifras vaciadas»:
+  `quitarPruebaDeLaOriginal` sólo mira citas TEXTUALES y el `valor` de las estadísticas, y la IA las había reescrito en
+  tarjetas comunes. El aviso de cifras las listaba de a cinco y no frenaba nada.
+  **Ahora** (`sinCifrasDeLaOriginal`, ia-reglas.ts): en la adaptada, una cifra cuyo valor con su misma unidad está en la
+  original, o un número de 1.000 o más que está en ella con cualquier unidad, y que el negocio no dice → «[DATO]» (la
+  unidad queda: «[DATO] USD por mes»); su fecha → «[FECHA]»; su hora → «[HORA]». Lo de la estructura («Parte 1», «3 pasos»)
+  no tiene unidad ni llega a 1.000.
+- **Los 5 pasos numerados salieron como 3 viñetas:** la IA pidió la variante «cajas-numeradas», que no existe («cajas-numeros»
+  sí), y `nodoOptimizado` caía a «Viñetas grandes». **Ahora** `varianteCercana` (ia-bloques.ts): las mismas raíces, una sola
+  variante → esa. La cantidad (3 en vez de 5) sigue dependiendo de la IA.
+- **Los 6 testimonios en grilla quedaron sin el hueco de la foto**: la nota pedía «cada una con el hueco de su foto» y la IA
+  eligió una variante sin imagen. **Ahora** `conHuecoDeFoto` (replicar-estructura.ts): si la sección de la original tiene
+  tarjetas con foto, el bloque de ítems con la cantidad más parecida pasa a «Imágenes con texto» (en el editor, «Agregar
+  imagen» en cada una; la publicada no muestra el hueco vacío, así que en la vista previa NO se ve: se compara en el editor).
+
+**Sin hacer:** las 24 frases que quedaron iguales a la original se cuentan pero no se reescriben (replicar.ts, `copiadas`);
+el titular con degradado dorado de la original salió negro (estilo-aplicar.ts no lleva el degradado del texto); el hero de
+la original tiene un video al costado y la réplica deja un hueco de imagen, no de video.

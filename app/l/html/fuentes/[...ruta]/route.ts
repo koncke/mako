@@ -11,7 +11,16 @@ import { responderFuente } from '@/lib/editor-landing/fuentes-propias';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(_req: Request, { params }: { params: Promise<{ ruta: string[] }> }): Promise<Response> {
-  const { ruta } = await params;
+type Params = Promise<{ ruta: string[] }>;
+
+export async function GET(_req: Request, ctx: { params: Params }): Promise<Response> {
+  const { ruta } = await ctx.params;
   return responderFuente(ruta ?? []);
+}
+
+/** Las mismas cabeceras, sin cuerpo (como las otras rutas de /l). */
+export async function HEAD(req: Request, ctx: { params: Params }): Promise<Response> {
+  const r = await GET(req, ctx);
+  await r.body?.cancel();
+  return new Response(null, { status: r.status, headers: r.headers });
 }
