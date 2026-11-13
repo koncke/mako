@@ -207,7 +207,7 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     elegir('modo', 'Modo', ['auto', 'estas', 'sumar', 'quitar', 'ninguna'], '«auto» las elige solas; «estas», sólo las de «palabras»; «sumar» y «quitar» marcan o desmarcan las de «palabras» sin tocar las demás; «ninguna» las saca.'),
     { nombre: 'palabras', rotulo: 'Palabras', tipo: 'string[]', max: 30, descripcion: 'Con «estas», «sumar» o «quitar»: una palabra por elemento, como se dice en los subtítulos.' },
     COLOR('color', 'Color', false),
-    seg('tamano', 'Tamaño', 'Opcional: el tamaño de las palabras clave en % (100 = igual, hasta 160).', false, 100, 160),
+    seg('tamano', 'Tamaño', 'Opcional: el tamaño de las palabras clave en % (100 = igual, hasta 300).', false, 100, 300),
     { nombre: 'ref', rotulo: 'Subtítulo', tipo: 'string', max: 6, descripcion: 'Opcional: la ref de UN subtítulo (de ver_proyecto_video); sin ella, todos.' },
   ] },
   { op: 'animar_palabras', id: 'animar_palabras_video', titulo: 'Animar la palabra que se dice', parametros: [

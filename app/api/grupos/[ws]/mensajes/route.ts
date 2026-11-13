@@ -106,6 +106,15 @@ async function vaALaCola(ws: number, quien: PersonaDelGrupo, f: FilaGrupo, citad
 }
 
 /**
+ * ¿ESCRIBE EL EQUIPO DE MaKo? (13/11/2026) El super admin en el grupo de un CLIENTE (`soporte` que administra; en el grupo de la plataforma `administra` es false). En WhatsApp, lo que el equipo
+ * escribe en el grupo de un cliente sale por la línea de la voz, se ve como MaKo y el turno sólo lo anota (lib/doer-equipo.ts): MaKo no lo contesta. En la app entraba como una PERSONA del negocio,
+ * con todas las herramientas (letra `m`): lo que Martín le escribía a Joan en el grupo de Código, MaKo lo tomaba como un pedido del negocio. Ahora firma «Equipo de MaKo» y no va a la cola.
+ */
+function escribeElEquipo(quien: PersonaDelGrupo): boolean {
+  return quien.tipo === 'soporte' && quien.administra;
+}
+
+/**
  * ¿PUEDE SER UN COMPROBANTE? (13/11/2026) Una foto o un PDF de quien administra, en el grupo de una agencia con la mensualidad prendida: en WhatsApp se lee ANTES de la cola
  * (lib/mako-doer-in.ts, `comprobanteDeLaMensualidad`) y en la app no se leía nunca. Juan Francisco mandó así el de Nico Sellers el 9 y el 11/11. Sin poder leer el libro, no: la foto sigue como
  * siempre. Es una lectura de la plataforma, sin la sesión; el import es tardío para que la ruta no cargue el cobro de las agencias en cada mensaje.
@@ -170,7 +179,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!tapado.texto.trim() && !adjunto) return NextResponse.json({ ok: false, error: 'Escribe algo.' }, { status: 400 });
 
   // Con el mismo `clienteId`, la fila de antes: un reintento del navegador no duplica ni vuelve a llamar a MaKo.
-  const r = await escribirDePersona({ ws, quien, texto: tapado.texto, clienteId: pedido.clienteId, respondeA: citada ? citada.id : null, adjunto });
+  const comoEquipo = escribeElEquipo(quien);
+  const r = await escribirDePersona({ ws, quien, texto: tapado.texto, clienteId: pedido.clienteId, respondeA: citada ? citada.id : null, adjunto, comoEquipo });
   if ('error' in r) {
     if (adjunto?.path) await borrarArchivoDelGrupo(adjunto.path);
     return NextResponse.json({ ok: false, error: 'No pude guardar tu mensaje: vuelve a intentarlo.' }, { status: 503 });
@@ -187,6 +197,20 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (tapado.tapadas > 0) {
     const link = linkApp(`/integraciones${tapado.servicio ? `?abrir=${tapado.servicio}` : ''}`, ws);
     await escribirSistema(ws, cartelParaLaApp(avisoClaveTapadaEnElGrupo(link)));
+  }
+  // EL EQUIPO: queda en el hilo como «Equipo de MaKo», le suena a quien está en el grupo y entra al anillo del equipo (lib/doer-equipo.ts), para que el turno siguiente de MaKo sepa qué
+  // dijo el equipo y el «sí» del cliente a una pregunta del equipo no se tome como un sí a MaKo. No va a la cola, no acusa insistencias y no sale por WhatsApp.
+  if (comoEquipo) {
+    after(async () => {
+      await Promise.all([
+        avisarMiembros(ws, fila),
+        fila.texto.trim()
+          ? import('@/lib/mako-grupo').then(({ anotarLoDelEquipo }) => anotarLoDelEquipo(ws, fila.texto, `app:${fila.id}`))
+            .catch((e: unknown) => console.error(`[grupos] ws${ws}: no pude anotar lo del equipo: ${e instanceof Error ? e.message : String(e)}`))
+          : null,
+      ]);
+    });
+    return NextResponse.json({ ok: true, mensaje });
   }
   // EL ACUSE: un texto de quien administra corta las insistencias y marca las corridas. ⚠️ No el de un invitado: `esAcuse` es tolerante, y su «dale» apagaría el recordatorio de una cuota
   // o cambiaría una automatización del negocio. Una foto o un audio no acusan. No frena el mensaje.

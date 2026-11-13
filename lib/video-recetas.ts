@@ -28,7 +28,7 @@ export type EdicionDeReceta = {
   subtitulos?: string;
   /** La receta va sin subtítulos: la Edición automática no los genera. */
   sinSubtitulos?: true;
-  /** Las palabras clave: su tamaño en % (100–160, el tope del editor) y su color. */
+  /** Las palabras clave: su tamaño en % (100–300, el tope del editor) y su color. */
   claves?: { tamano: number; color: string };
   /** La pausa más corta que se borra, en segundos. */
   pausaMinima?: number;
@@ -116,9 +116,9 @@ export const RECETAS: readonly Receta[] = [
       'Borrar silencios: que ningún hueco sin voz pase de medio segundo.',
       'Sin música, o muy baja: manda la voz.',
     ],
-    // La palabra clave en blanco (la MISMA letra) y al 160 %, el tope del editor: más grande, el renglón no la mide al
-    // partirse (subtitles/build-subtitle-text-element.ts) y se sale del cuadro.
-    editor: { subtitulos: 'palabra-gigante', claves: { tamano: 160, color: '#ffffff' }, pausaMinima: 0.5 },
+    // La palabra clave en blanco (la MISMA letra) y 3 veces más grande, el tope del editor (13/11/2026: el renglón le
+    // reserva ancho y alto; antes topaba en 160 %).
+    editor: { subtitulos: 'palabra-gigante', claves: { tamano: 300, color: '#ffffff' }, pausaMinima: 0.5 },
     grabacion: {
       avatar: [
         'Tu personaje de pie, en un escenario oscuro con una pantalla detrás; primero el fondo solo al 100 %, después la persona.',

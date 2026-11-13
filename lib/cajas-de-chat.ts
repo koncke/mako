@@ -44,6 +44,11 @@ export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
     archivo: 'app/chats/Composer.tsx', chat: 'Chats: lo que se le manda a un lead (los archivos y la nota de voz, según lo que acepte el canal)',
     falta: { puntos: 'no corresponde: del otro lado contesta una persona, por WhatsApp o por email' },
   },
+  // La misma, en el teléfono (13/11/2026, el prototipo aprobado: el chat con un lead como WhatsApp, con adjuntar y la nota de voz).
+  {
+    archivo: 'app/m/chats/[clave]/ComposerChatsM.tsx', chat: 'Chats, teléfono: lo que se le manda a un lead (los archivos y la nota de voz, según lo que acepte el canal)',
+    falta: { puntos: 'no corresponde: del otro lado contesta una persona, por WhatsApp o por email' },
+  },
   { archivo: 'app/web-generator/editor/paneles/ChatAgente.tsx', props: 'app/web-generator/editor/paneles/PanelAgente.tsx', chat: 'Web Generator, el agente' },
   {
     archivo: 'app/tickets/soporte/PiezasSoporte.tsx', chat: 'Soporte (la Ticketera), computadora y teléfono',

@@ -103,6 +103,14 @@ mismo grupo (la ventana de 8 s) se lleva la foto, y MaKo contesta dos veces; en 
 («Nico sellers» + la foto, en el mismo minuto). Lo durable no se pierde: si el autollamado no llega y era para MaKo, la ruta la encola
 igual y la levanta doer-flush. Test: tests/comprobante-en-la-app.test.ts (POST, cron y turno reales).
 
+**El equipo en el grupo de un cliente (mismo día).** En WhatsApp, lo que el equipo le escribe al cliente sale por la línea de la voz,
+se ve como MaKo y el turno sólo lo anota en el anillo del equipo (lib/doer-equipo.ts). En la app, el super admin entraba por soporte
+como una PERSONA del negocio con todas las herramientas (letra `m`): lo que le escribía al cliente iba a la cola de MaKo como un pedido,
+y el cliente veía «Martín Koncke». Ahora `escribeElEquipo` (soporte que administra: en el grupo de la plataforma `administra` es false)
+firma «Equipo de MaKo», no va a la cola, no acusa insistencias, le suena al cliente y entra al anillo del equipo con `app:<fila>`. No
+sale por WhatsApp. Test: tests/equipo-en-la-app.test.ts. Si Martín quiere preguntarle algo a MaKo sobre un cliente, va al chat de MaKo
+de ese negocio, no a su grupo.
+
 **Regla:** algo nuevo que se engancha ANTES del turno en `atenderEntranteDoer` (WhatsApp) no llega solo a la app. Se mira también
 la ruta del grupo de la app y /api/cron/grupo-turno, y se prueba con un mensaje que nace en la app.
 
@@ -110,9 +118,6 @@ la ruta del grupo de la app y /api/cron/grupo-turno, y se prueba con un mensaje 
 - **Quién firma:** Joan y Juan Francisco escriben en WhatsApp como dos personas y en la app comparten UNA cuenta (Código, usuario 10):
   los dos firman «Codigo Inmobiliario» y MaKo no los distingue. Charly (ws15) no tiene cuenta. Se arregla invitándolos desde el grupo
   (`invitarAlGrupo`), no con código.
-- **El equipo no puede contestar como «Equipo de MaKo» desde la app.** El super admin entra al grupo por soporte y lo que escribe sale
-  como persona («Martin Koncke») y entra a la cola de MaKo. Hoy se contesta con `enviarAlGrupoMaKo(ws, texto, 'equipo')`
-  (`node --conditions=react-server --import tsx`). Vive en app/api/grupos/[ws]/mensajes/route.ts y lib/grupo-reglas.ts.
 - **Un archivo que no es foto, PDF ni audio** (un .md, un Excel, un video) que manda MaKo o el equipo queda en el hilo como
   «(un archivo: X)» sin poder bajarlo (`filaDeParte`, lib/grupo-app.ts). Y el cliente no puede mandar uno desde la app
   (`validarAdjuntos`: foto y PDF). En 14 días, 1 caso (a Martín) y 0 de clientes.
@@ -13430,6 +13435,7 @@ Lo que sale solo a un grupo pasa por `copiarAlGrupo` (`lib/grupo-app.ts`), y `te
 **`bufferearYResponder` tiene una segunda puerta (4/11).** Sus `return` tempranos (la respuesta al equipo, el emoji suelto) suponían que el mensaje no había entrado a la cola, y por WhatsApp es cierto. Desde la app la ruta ya encoló: sin `sacarDeLaCola`, el cron corría un turno a los 2 minutos sobre lo que era para el equipo. El detalle, en docs/hallazgos-ops-center.md.
 
 **Lo que no tiene arreglo sin otra decisión:** en los grupos donde la línea no está, Evolution no entrega nada: se ve lo que MaKo manda y lo escrito en la app, no lo que esas personas escriban en WhatsApp. Y un turno de WhatsApp puede citar lo escrito en la app, porque la memoria va por jid: es el costo de que el «sí» de un lado vea lo del otro.
+**La copia que pasaba el tope quedaba suelta (13/11).** `copiarAlGrupo` hace esperar a quien manda 3 s (`TOPE_DE_LA_COPIA_MS`) y la copia sigue sola, pero sin nadie que la espere: en Vercel, una promesa así se congela cuando el cron o el webhook contestan. Ese aviso no quedaba en el hilo ni sonaba (el push sale de la copia), y no había error. Ahora se registra en `after`, con su propio tope de 10 s (`TOPE_DE_LA_COPIA_DESPUES_MS`): sin tope, una base colgada retendría la función hasta el corte. La escena de la base colgada de `tests/grupos-ops-avisos.test.ts` lo mostró sola: con `after(() => trabajo)` el hijo se quedaba esperando y moría a los 240 s. Y el arnés junta FUNCIONES en `after`: pasarle la promesa rompía los 16 casos con `despues.shift(...) is not a function`. **Regla:** un trabajo que sigue después de un tope se registra en `after`, y con su tope. Lo fija `tests/grupo-copia-sin-cortar.test.ts`. **Sin medir:** cuántas copias se perdieron así, porque leer producción le quedó negado a este chat.
 
 ## Mandar un archivo al grupo de un negocio desde un script (5/11/2026)
 

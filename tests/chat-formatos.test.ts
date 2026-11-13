@@ -92,6 +92,8 @@ test('3. EL RECORRIDO: cada caja de chat adjunta todo, salvo Chats (archivos a u
   assert.ok(cajas.length >= 15, `encontré ${cajas.length} cajas: ¿cambió cómo se monta CajaChat?`);
   const SIN_ADJUNTOS: Record<string, string> = {
     'app/chats/Composer.tsx': 'lo que se le manda a un lead viaja como archivo, nunca leído y pegado como texto',
+    // La misma regla en el teléfono (13/11/2026): adjunta con el clip (sus `adjuntos`), pero lo que va a un lead sale como archivo.
+    'app/m/chats/[clave]/ComposerChatsM.tsx': 'lo que se le manda a un lead viaja como archivo, nunca leído y pegado como texto',
     // El guiado de replicar un carrusel (9/11/2026): lo escrito contesta la pregunta de MaKo y no va a ninguna IA; un archivo
     // adjunto no lo leería nadie (lib/cajas-de-chat.ts).
     'app/image-editor/carruseles/ReplicarGuiado.tsx': 'apertura guiada: lo escrito es la respuesta del paso, sin IA',
