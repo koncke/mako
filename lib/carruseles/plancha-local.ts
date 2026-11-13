@@ -16,8 +16,9 @@
 //   1. LEER LA LÁMINA (`leerLamina`): sus renglones de texto y sus figuras (fotos, íconos, personas), detectados en los píxeles.
 //      ⚠️ Las cajas que dice la IA NO sirven para borrar (medido el 13/11/2026 con @lifeofarjav y la IA de ws 9): el encabezado le
 //      salió 35 px más arriba, un titular de dos renglones con la caja de uno, y a la persona de la portada no la marcó (la nombró
-//      en su «lectura» y en «cuadros» puso el logo). Por eso los renglones y las figuras se NUMERAN sobre la lámina que mira la IA
-//      (./plancha-servidor.ts → `marcarLamina`) y la IA sólo dice qué números ocupa cada texto y qué figura es una persona.
+//      en su «lectura» y en «cuadros» puso el logo). Por eso los renglones y las figuras se detectan acá, y a cada texto se le
+//      asignan sus renglones por el ORDEN (`asignarRenglones`); qué figura es una persona lo dice un segundo pedido con la figura
+//      recortada (./plancha-servidor.ts → `completarLoQueFalta`).
 //   2. MEDIR (`bloqueDeRenglones`): con los renglones de cada texto, su caja exacta, cuántos renglones son y a qué distancia van,
 //      y el color de la letra. Con eso el texto nuevo va en el mismo lugar y con el mismo cuerpo que el original.
 //   3. BORRAR (`borrarZona`): la caja se rellena con el fondo que la rodea, interpolado de izquierda a derecha en cada fila (un
@@ -438,10 +439,12 @@ export function bloquesSinDueno(img: Rgba, lectura: LecturaDeLamina, usados: Rea
   // toda captura, y la letra de la captura pasaba por principal.
   const fondoLamina = colorDeLaLamina(img);
   // Lo que queda ADENTRO de un renglón que ya es de alguien (la letra de una etiqueta de contorno: el contorno es un renglón y su
-  // letra otro) tampoco es de nadie más: se escribiría dos veces.
+  // letra otro) tampoco es de nadie más: se escribiría dos veces (13/11/2026: «PASO 2» dos veces, una encima de la otra).
   const cajasUsadas = lectura.renglones.filter((r) => usados.has(r.n)).map((r) => r.caja);
-  const adentroDeUnUsado = (r: Renglon) => cajasUsadas.some((u) => r.caja.x >= u.x && r.caja.y >= u.y && r.caja.x + r.caja.ancho <= u.x + u.ancho && r.caja.y + r.caja.alto <= u.y + u.alto);
-  const libres = enOrdenDeLectura(lectura.renglones.filter((r) => !usados.has(r.n) && !adentroDeUnUsado(r) && r.caja.alto >= 12), (r) => ({ x: r.caja.x, y: r.caja.y, alto: r.caja.alto }));
+  // Y al revés: el contorno que RODEA a un renglón que ya es de alguien (la IA se quedó con la letra; el contorno es otro renglón).
+  const contiene = (a: Caja, b: Caja) => b.x >= a.x && b.y >= a.y && b.x + b.ancho <= a.x + a.ancho && b.y + b.alto <= a.y + a.alto;
+  const deOtro = (r: Renglon) => cajasUsadas.some((u) => contiene(u, r.caja) || contiene(r.caja, u));
+  const libres = enOrdenDeLectura(lectura.renglones.filter((r) => !usados.has(r.n) && !deOtro(r) && r.caja.alto >= 12), (r) => ({ x: r.caja.x, y: r.caja.y, alto: r.caja.alto }));
   const bloques: Renglon[][] = [];
   for (const r of libres) {
     const b = bloques.find((q) => {

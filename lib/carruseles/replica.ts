@@ -127,8 +127,6 @@ export type PedidoReplica = {
   cta: string | null;
   /** ¿Hay foto del cliente (su avatar) para poner donde el original tiene una persona? */
   conAvatar: boolean;
-  /** Las láminas vienen con sus renglones y figuras NUMERADOS (./plancha-servidor.ts → `marcarLaminas`, 13/11/2026). */
-  marcas?: boolean;
   /** Lo que la persona pidió de más («hazlo sobre mi curso de X»), si pidió algo. */
   pedido?: string | null;
   /** Un anuncio (una sola imagen) en vez de un carrusel. */
@@ -220,7 +218,6 @@ export function promptDeReplica(p: PedidoReplica): string {
       ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original; si una lámina tiene dos fotos, son dos cuadros. "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño (también la foto de perfil de un tuit). "forma": "circulo" si la foto es redonda, "redondeado" si tiene las esquinas curvas, "rect" si no. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto PARECIDA de lo que muestra, sin gente. Si la lámina es sólo tipografía, "cuadros": [].'
       : '- Sin las láminas no hay cuadros: "cuadros": [] y la lámina es tipografía y color.',
     vistas > 0 ? '- "formas": el MARCO de la lámina, en su lugar: cada línea divisoria ("tipo": "linea") y cada tarjeta, franja o recuadro de color que va detrás de textos o fotos ("tipo": "caja", con su "color", su "borde" o null, "radio" de 0 a 0.5 si tiene las esquinas curvas y "sombra"). Los textos del marco (el @, el número de lámina como «02 / 06», el pie) van en "textos" con su papel ("firma" o "rotulo"), en cada lámina que los tenga. Sin marco, "formas": [].' : '',
-    p.marcas ? '- Las láminas vienen con MARCAS que puse yo, no son parte del diseño: un recuadro azul con F1, F2… en cada figura (una foto, un ícono, una captura). En la lámina, "personas": las figuras que muestran a una persona (una foto, un dibujo o una caricatura de alguien), o []. Para todo lo demás, mira el diseño como si las marcas no estuvieran.' : '',
     vistas > 0 ? '- "original": cada texto como se lee en la lámina original, con "\\n" donde corta el renglón. Lista TODOS los textos de cada lámina EN ORDEN DE LECTURA (de arriba a abajo y, en una misma franja, de izquierda a derecha): también la etiqueta o pastilla («STEP 1» va como «PASO 1»), los del marco (el ©, el @, el número «01 / 06») y el PIE de abajo, en CADA lámina que los tenga aunque se repitan. De adentro de una captura de pantalla o de una tarjeta con letra chica (una ventana, un formulario, un chat, un documento), sólo su título, adaptado; el resto no va.' : '',
     '- Si en el original unas palabras de un texto van en OTRO color que el resto (un acento), en tu texto pon entre asteriscos las palabras que van en ese color (*así*) y ese color en "acento"; si no, "acento": null.',
     '- "relleno": si el texto va sobre una pastilla, una etiqueta, un botón o una caja de color (por fuera del fondo de la lámina), el color de esa forma; si no, null. El "color" del texto tiene que leerse sobre su relleno, o sobre el fondo si no tiene.',
@@ -240,7 +237,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     COMPACTO,
-    `{"lectura":"lo que leíste de la composición","proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB",${p.marcas ? '"personas":["F1"] o [],' : ''}"cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"forma":"rect|circulo|redondeado","descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"formas":[{"tipo":"linea|caja","x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"color":"#RRGGBB","borde":"#RRGGBB" o null,"radio":0..0.5,"sombra":true|false}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","original":"…","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","acento":"#RRGGBB" o null,"relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"lectura":"lo que leíste de la composición","proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"forma":"rect|circulo|redondeado","descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"formas":[{"tipo":"linea|caja","x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"color":"#RRGGBB","borde":"#RRGGBB" o null,"radio":0..0.5,"sombra":true|false}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","original":"…","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","acento":"#RRGGBB" o null,"relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. Exactamente ${n} elementos en "laminas".`,
   ].filter((l) => l !== '').join('\n');
 }
@@ -367,6 +364,8 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
       // Un texto que quedó vacío (el @ del original, con un negocio sin @ cargado) se queda SI se sabe qué decía: hay que borrarlo
       // de la plancha (./plancha-local.ts), aunque no se escriba nada en su lugar.
       if (!contenido && !original) continue;
+      // Una marca de figura («F1») leída como si fuera un texto del diseño no es un texto.
+      if (/^F\d{1,2}$/.test(contenido) || /^F\d{1,2}$/.test(original)) continue;
       const x = num(t.x, 0, 0.95, 0.08);
       const acento = color(t.acento, '');
       textos.push({

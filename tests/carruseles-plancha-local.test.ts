@@ -124,6 +124,8 @@ test('4. una pastilla se queda en la plancha y sólo se le borra la letra', () =
   assert.ok(cerca(color(c, 78, 66), CREMA), 'la letra de adentro quedó');
   // Y la letra de adentro (un renglón aparte) no queda «sin dueño» para el segundo pedido: se escribiría dos veces.
   assert.equal(bloquesSinDueno(c, lc, new Set([etiqueta.n])).length, 0, 'la letra de la etiqueta quedó sin dueño');
+  const letraDeAdentro = lc.renglones.find((r) => r.n !== etiqueta.n);
+  if (letraDeAdentro) assert.equal(bloquesSinDueno(c, lc, new Set([letraDeAdentro.n])).length, 0, 'el contorno de una letra con dueño quedó sin dueño');
 });
 
 test('5. el acento y la alineación se miden en la lámina', () => {

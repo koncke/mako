@@ -30,8 +30,9 @@ sin las palabras naranjas, y el titular cortado en «Tu Acelera/dor».
 - ⚠️ **Las coordenadas de la IA no sirven para borrar.** Medido: el encabezado 35 px corrido, un subtítulo 290 px, un titular de
   dos renglones con la caja de uno. Los renglones se DETECTAN (`leerLamina`) y a cada texto se le asignan en ORDEN (`asignarRenglones`,
   programación dinámica sobre las dos listas): la IA erra el lugar pero casi nunca el orden ni el tamaño.
-- ⚠️ **Numerar los renglones sobre la imagen no funcionó:** la IA inventó su propia cuenta (1, 2, 3…) y le dio el renglón 1 a cuatro
-  textos. Las FIGURAS numeradas (F1…) sí las lee: así marca a la persona.
+- ⚠️ **Numerar sobre la imagen no funcionó:** los renglones, la IA inventó su propia cuenta (1, 2, 3…) y le dio el renglón 1 a cuatro
+  textos; las figuras («F1», «F2»), las listó como TEXTOS del diseño y corrió todo el contenido una lámina (la 2 quedó con «F2» y su
+  contador, y lo de la 2 en la 3). La IA mira las láminas limpias; qué figura es una persona lo dice el segundo pedido, recortada.
 - ⚠️ **La IA omite textos y no siempre los mismos** (el encabezado de la portada en una corrida sí y en la siguiente no; las
   pastillas «STEP», casi nunca; la persona, a veces). Lo principal que queda sin dueño va RECORTADO en un segundo pedido, uno por
   lámina (todos juntos, la IA corría las respuestas de lámina), con su número de recorte. Y lo del marco que dio en una lámina se

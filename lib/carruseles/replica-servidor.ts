@@ -245,13 +245,15 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     conAvatar: imagenes.length > 0 && fotoDelGuiado(g) !== null, pedido: pedidoDelDueno, anuncio, pie: c ? c.texto || c.gancho || null : null,
     miniatura, tituloOriginal: t?.titulo ?? null, oferta, coloresDeMarca,
   };
-  // Las láminas que mira la IA van con sus renglones y figuras NUMERADOS (./plancha-servidor.ts): la IA dice números, no
-  // coordenadas, y con eso se arma la plancha. Una lámina que no se pudo numerar va como está (y la réplica sale como antes).
+  // Cada lámina leída a píxeles, con sus renglones y figuras detectados (./plancha-servidor.ts): con eso se arma la plancha. Si
+  // una no se pudo leer, la réplica sale como antes.
   const medidas = medidasDe(miniatura ? '16:9' : '4:5');
   const marcas = imagenes.length ? await marcarLaminas(imagenes, medidas.ancho, medidas.alto) : [];
   const conMarcas = marcas.length > 0 && marcas.every(Boolean);
-  const paraLaIA = conMarcas ? marcas.map((m) => m!.marcada) : imagenes;
-  const prompt = promptDeReplica({ ...pedidoBase, marcas: conMarcas });
+  // ⚠️ La IA mira las láminas LIMPIAS (13/11/2026): con las figuras numeradas encima («F1», «F2») las listó como textos y corrió
+  // todo el contenido una lámina. A la persona la reconoce el segundo pedido, que mira cada figura recortada.
+  const paraLaIA = imagenes;
+  const prompt = promptDeReplica(pedidoBase);
   avisar({ fase: 'escribir', con: 'tu IA' });
   const errores: string[] = [];
   let crudo = '';
@@ -347,7 +349,7 @@ Lo que leí del original: ${replica.lectura}` : notasBase;
     ? 'Donde el original tiene una persona dejé su lugar marcado: ahí vas tú, generado con IA en el mismo estilo (necesita Google Flow abierto desde el ícono de MaKo).'
     : null;
   // En seco viaja también lo que leyó la IA y las láminas que miró: el script lo guarda para probar la plancha sin pagar otra IA.
-  if (o.seco) return { ok: true, id: '(seco)', titulo, aviso, doc, vistas: imagenes.length, errores, replica: leidaDeLaIA ?? replica, imagenes, marcadas: conMarcas ? paraLaIA : [] };
+  if (o.seco) return { ok: true, id: '(seco)', titulo, aviso, doc, vistas: imagenes.length, errores, replica: leidaDeLaIA ?? replica, imagenes, marcadas: conMarcas ? marcas.map((m) => m!.marcada) : [] };
   const r = await crearDiseno(ws, quien, { titulo, doc });
   if (!r.ok) return { ok: false, error: r.error, falla: true };
   avisar({ fase: 'fin', ok: true, id: r.id, titulo, aviso });

@@ -2,9 +2,9 @@
 // La plancha de cada lámina de una réplica, en el servidor (13/11/2026)
 // =============================================================================
 // Lo que hace la plancha y por qué: ./plancha-local.ts. Acá lo que necesita el servidor, en dos momentos:
-//   · ANTES de la IA (`marcarLaminas`): cada lámina a píxeles (sharp, al tamaño del diseño), sus renglones y figuras detectados, y
-//     una copia con las FIGURAS numeradas (F1, F2…), que es la que mira la IA: dice qué figura es una persona. Los renglones no se
-//     numeran: la IA no lee esos números (./plancha-local.ts → `asignarRenglones`), y se le asignan a cada texto por su lugar.
+//   · ANTES de la IA (`marcarLaminas`): cada lámina a píxeles (sharp, al tamaño del diseño) y sus renglones y figuras detectados.
+//     La IA mira las láminas LIMPIAS: numerar sobre la imagen no sirvió (los renglones, inventó su propia cuenta; las figuras,
+//     las listó como textos y corrió todo una lámina). La copia numerada queda sólo para mirar en seco (`--salida`).
 //   · DESPUÉS (`planchasDeLaReplica`): cada lámina sin sus letras ni su persona, a JPEG, al bucket del editor (o como data URL en
 //     seco: scripts/carruseles-probar-editar.mts no sube nada).
 //
@@ -33,7 +33,7 @@ async function aPixeles(dataUrl: string, W: number, H: number): Promise<Rgba | n
 
 const escapar = (s: string) => s.replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]!);
 
-/** La lámina con sus figuras marcadas (azul, F1…): la que mira la IA. */
+/** La lámina con sus figuras marcadas (azul, F1…), para mirarla en seco. La IA NO la mira (ver arriba). */
 async function marcada(img: Rgba, l: LecturaDeLamina): Promise<string> {
   const { default: sharp } = await import('sharp');
   const partes: string[] = [];
