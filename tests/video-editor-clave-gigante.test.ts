@@ -16,7 +16,14 @@ import { centrosDeRenglones, escalaDeRenglones, UMBRAL_ALTO_CLAVE, type Resaltad
 import { TOPES_CLAVES_TAMANO } from '../app/video-editor/_opencut/params/extra/subtitulos';
 import { recetaDe } from '../lib/video-recetas';
 import { plantillaPorId } from '../app/video-editor/_opencut/subtitles/estilos';
-import { validarOperacion } from '../lib/editor-video/chat-catalogo';
+import { catalogoParaPrompt, validarOperacion } from '../lib/editor-video/chat-catalogo';
+import { operacionApiPorId, operacionDesdeInput } from '../lib/editor-video/chat-api';
+import { despuesDe } from '../lib/editor-video/propuesta-bloque';
+import { PARAM_CLAVES } from '../lib/editor-video/claves';
+import { PARAM_CLAVES_TAMANO } from '../app/video-editor/_opencut/params/extra/subtitulos';
+import { revisarOperaciones, vistaDeLinea, type OperacionResuelta } from '../app/video-editor/_opencut/chat/linea';
+import { disponiblesDelMotor } from '../app/video-editor/_opencut/chat/disponibles';
+import type { SceneTracks } from '../app/video-editor/_opencut/timeline/types';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -79,4 +86,65 @@ test('G5: el cableado: el partido mide con la reserva, la medida guarda los cent
   assert.match(medida, /height: centros\.alto, visualCenterOffset: -\(centros\.ys\[0\] \?\? 0\)/, 'el recuadro y el fondo crecen con el bloque');
   assert.match(medida, /ysDeRenglon: centros\?\.ys \?\? null,/);
   assert.match(sinComentarios(leer('app/video-editor/_opencut/text/dibujar.ts')), /y: medido\.ysDeRenglon\?\.\[i\] \?\? i \* medido\.lineHeightPx - medido\.block\.visualCenterOffset,/);
+});
+
+// ── «Las palabras clave 3 veces más grandes» por el chat (13/11/2026, mirado en producción) ───────────────────────────
+// MaKo contestó «Cambio las palabras clave al 300 %» y mandó `estilo_texto` con `tamano: 7` en 30 subtítulos: eso agranda el
+// subtítulo ENTERO. `palabras_clave` no tenía cómo cambiar sólo el tamaño («auto» las vuelve a elegir, «sumar» pide
+// palabras). Ahora «mantener» deja las que hay y cambia su tamaño o su color, y el catálogo lo dice en los dos lados.
+
+const TPS = 120_000;
+const tk = (s: number) => Math.round(s * TPS);
+function escena(): SceneTracks {
+  const el = (id: string, ini: number, params: Record<string, unknown>) =>
+    ({ id, type: 'text', name: id, startTime: tk(ini), duration: tk(2), trimStart: 0, trimEnd: 0, params });
+  return {
+    overlay: [
+      { id: 'ps', type: 'text', name: 'Subs', hidden: false, elements: [
+        el('sub1', 0, { content: 'A ver, en una empresa', subtitulo: true, [PARAM_CLAVES]: 'empresa' }),
+        el('sub2', 2, { content: 'y la regla era muy sencilla', subtitulo: true, [PARAM_CLAVES]: 'sencilla' }),
+        el('sub3', 4, { content: 'nada más', subtitulo: true }),
+      ] },
+    ],
+    main: { id: 'pm', type: 'video', name: 'Principal', muted: false, hidden: false, elements: [] },
+    audio: [],
+  } as unknown as SceneTracks;
+}
+const revisar = (operaciones: unknown[]) => revisarOperaciones({
+  operaciones: operaciones as never,
+  vista: vistaDeLinea({ tracks: escena(), tps: TPS, cabezal: 0, elegidos: [], disponibles: disponiblesDelMotor(), lienzo: { ancho: 1080, alto: 1920 } }),
+  alcance: 'video',
+});
+type Params = Extract<OperacionResuelta, { op: 'params' }>;
+
+test('G6: «mantener» cambia sólo el tamaño: las mismas claves, y sólo en los subtítulos que tienen', () => {
+  const r = revisar([{ op: 'palabras_clave', modo: 'mantener', tamano: 300 }]);
+  assert.deepEqual(r.descartes, []);
+  const ps = r.resueltas as Params[];
+  assert.deepEqual(
+    ps.map((p) => [p.el.elementId, p.params[PARAM_CLAVES], p.params[PARAM_CLAVES_TAMANO]]),
+    [['sub1', 'empresa', 300], ['sub2', 'sencilla', 300]],
+    'las de ahora no se vuelven a elegir, y «nada más» (sin claves) no se toca',
+  );
+  assert.match(r.cambios[0].despues, /al 300 %/);
+  // Al tamaño que ya tienen (el predeterminado, 100 %): no hay nada que cambiar, y se dice.
+  const igual = revisar([{ op: 'palabras_clave', modo: 'mantener', tamano: 100 }]);
+  assert.deepEqual(igual.resueltas, []);
+  assert.deepEqual(igual.descartes, ['las palabras clave ya están así']);
+});
+
+test('G7: la forma: «mantener» pide tamaño o color y no lleva palabras; la API y la tarjeta lo conocen', () => {
+  assert.deepEqual(validarOperacion({ op: 'palabras_clave', modo: 'mantener', tamano: 300 }), { ok: true, op: { op: 'palabras_clave', modo: 'mantener', tamano: 300 } });
+  assert.equal(validarOperacion({ op: 'palabras_clave', modo: 'mantener' }).ok, false, 'sin tamaño ni color no cambia nada');
+  assert.equal(validarOperacion({ op: 'palabras_clave', modo: 'mantener', tamano: 300, palabras: ['x'] }).ok, false);
+  const api = operacionApiPorId('resaltar_claves_subtitulos')!;
+  assert.deepEqual(operacionDesdeInput(api, { proyecto: 'p', modo: 'mantener', tamano: 300 }), { ok: true, op: { op: 'palabras_clave', modo: 'mantener', tamano: 300 } });
+  assert.equal(despuesDe({ op: 'palabras_clave', modo: 'mantener', tamano: 300 }), 'Las mismas palabras clave, al 300 %');
+});
+
+test('G8: el catálogo de la IA: agrandar las claves es palabras_clave, nunca estilo_texto', () => {
+  const c = catalogoParaPrompt();
+  assert.match(c, /"mantener" deja las que hay y cambia sólo su "tamano" o "color"/);
+  assert.match(c, /«3 veces más grandes» = 300\): agrandar las claves es esto, nunca estilo_texto/);
+  assert.match(c, /El tamaño o el color de las PALABRAS CLAVE no va acá: palabras_clave con "tamano"\/"color"/);
 });

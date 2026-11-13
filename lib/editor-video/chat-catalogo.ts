@@ -196,8 +196,10 @@ export type OperacionChat =
   /** «Resaltar palabras clave» de TODOS los subtítulos (subtitles/claves.ts): solas, las nombradas, o ninguna. */
   | {
       op: 'palabras_clave';
-      /** «sumar» y «quitar» marcan o desmarcan a mano sin tocar las demás (Submagic, 10/11/2026). */
-      modo: 'auto' | 'estas' | 'sumar' | 'quitar' | 'ninguna';
+      /** «sumar» y «quitar» marcan o desmarcan a mano sin tocar las demás (Submagic, 10/11/2026). «mantener» deja las que
+       *  hay y cambia sólo su `tamano` o su `color` (13/11/2026, mirado en producción: «las palabras clave 3 veces más
+       *  grandes» salía como `estilo_texto` con `tamano: 7` en 30 subtítulos, que agranda el subtítulo ENTERO). */
+      modo: 'auto' | 'estas' | 'sumar' | 'quitar' | 'mantener' | 'ninguna';
       palabras?: string[];
       color?: string;
       /** El tamaño de las claves en % (100 = igual; hasta 300): «más grandes», como las de Hormozi; «gigantes», 250 a 300. */
@@ -455,7 +457,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'estilo_texto',
     forma: '{"op":"estilo_texto","ref":"t1","color":"#FFD400","tamano":24,"negrita":true}',
-    para: `Estilo de un texto (pon sólo lo que cambia): "fuente" (nombre exacto de una Google Font, p. ej. las de DISPONIBLES.fuentes_sugeridas), "tamano" (${TOPES_CHAT.tamanoMin} a ${TOPES_CHAT.tamanoMax}; el predeterminado es 15), "color" (#RRGGBB), "negrita", "cursiva", "subrayado" (true/false), "mayusculas" ("ninguno", "mayusculas", "minusculas", "titulo"), "alineacion" ("izquierda", "centro", "derecha"), "espaciado" (entre letras, ${TOPES_CHAT.espaciadoMin} a ${TOPES_CHAT.espaciadoMax}), "interlineado" (${TOPES_CHAT.interlineadoMin} a ${TOPES_CHAT.interlineadoMax}), "trazo" (#RRGGBB lo prende con ese color, false lo apaga) y "grosor_trazo" (0 a 100), "sombra" (true, #RRGGBB o false), "fondo" (#RRGGBB o false) y "opacidad_fondo" (0 a 100), "resplandor" (#RRGGBB o false). En un subtítulo, la fuente, el tamaño, la negrita, la cursiva, el espaciado y las mayúsculas vuelven a partir sus renglones (como «Aplicar en todos los subtítulos»): para todos los subtítulos, una operación por subtítulo con el MISMO estilo.`,
+    para: `Estilo de un texto (pon sólo lo que cambia): "fuente" (nombre exacto de una Google Font, p. ej. las de DISPONIBLES.fuentes_sugeridas), "tamano" (${TOPES_CHAT.tamanoMin} a ${TOPES_CHAT.tamanoMax}; el predeterminado es 15), "color" (#RRGGBB), "negrita", "cursiva", "subrayado" (true/false), "mayusculas" ("ninguno", "mayusculas", "minusculas", "titulo"), "alineacion" ("izquierda", "centro", "derecha"), "espaciado" (entre letras, ${TOPES_CHAT.espaciadoMin} a ${TOPES_CHAT.espaciadoMax}), "interlineado" (${TOPES_CHAT.interlineadoMin} a ${TOPES_CHAT.interlineadoMax}), "trazo" (#RRGGBB lo prende con ese color, false lo apaga) y "grosor_trazo" (0 a 100), "sombra" (true, #RRGGBB o false), "fondo" (#RRGGBB o false) y "opacidad_fondo" (0 a 100), "resplandor" (#RRGGBB o false). En un subtítulo, la fuente, el tamaño, la negrita, la cursiva, el espaciado y las mayúsculas vuelven a partir sus renglones (como «Aplicar en todos los subtítulos»): para todos los subtítulos, una operación por subtítulo con el MISMO estilo. El tamaño o el color de las PALABRAS CLAVE no va acá: palabras_clave con "tamano"/"color".`,
   },
   {
     op: 'transformar',
@@ -522,7 +524,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   {
     op: 'palabras_clave',
     forma: '{"op":"palabras_clave","modo":"auto"}',
-    para: 'Pinta de otro "color" (#RRGGBB, opcional; si no, el de ahora) la palabra que pesa de cada subtítulo, en TODOS: "modo":"auto" la elige sola (números, montos, palabras de venta, nombres propios y las de la marca); "estas" resalta SÓLO las "palabras" que nombra la persona, cada vez que se dicen; "sumar" las agrega a las que ya hay y "quitar" las saca, sin tocar las demás (para marcar o desmarcar una a mano); "ninguna" las saca todas. Con "ref" (un subtítulo) cambia sólo ése. "tamano" (100 a 300, en %) las agranda («más grandes», como las de Hormozi; 300, gigantes). Las de ahora van en "palabras_clave" de cada subtítulo. No necesita tiempos por palabra.',
+    para: 'Pinta de otro "color" (#RRGGBB, opcional; si no, el de ahora) la palabra que pesa de cada subtítulo, en TODOS: "modo":"auto" la elige sola (números, montos, palabras de venta, nombres propios y las de la marca); "estas" resalta SÓLO las "palabras" que nombra la persona, cada vez que se dicen; "sumar" las agrega a las que ya hay y "quitar" las saca, sin tocar las demás (para marcar o desmarcar una a mano); "mantener" deja las que hay y cambia sólo su "tamano" o "color"; "ninguna" las saca todas. Con "ref" (un subtítulo) cambia sólo ése. "tamano" (100 a 300, en %) las agranda («más grandes», como las de Hormozi; 300, gigantes; «3 veces más grandes» = 300): agrandar las claves es esto, nunca estilo_texto. Las de ahora van en "palabras_clave" de cada subtítulo. No necesita tiempos por palabra.',
   },
   {
     op: 'animar_palabras',
@@ -1193,8 +1195,10 @@ export function validarOperacion(crudo: unknown): Validada {
       const extra = sobrantes(raw, ['modo', 'palabras', 'color', 'tamano', 'ref']);
       if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de las palabras clave` };
       const modo = raw.modo;
-      if (modo !== 'auto' && modo !== 'estas' && modo !== 'sumar' && modo !== 'quitar' && modo !== 'ninguna')
-        return { ok: false, motivo: 'unas palabras clave sin modo («auto», «estas», «sumar», «quitar» o «ninguna»)' };
+      if (modo !== 'auto' && modo !== 'estas' && modo !== 'sumar' && modo !== 'quitar' && modo !== 'mantener' && modo !== 'ninguna')
+        return { ok: false, motivo: 'unas palabras clave sin modo («auto», «estas», «sumar», «quitar», «mantener» o «ninguna»)' };
+      if (modo === 'mantener' && raw.tamano === undefined && raw.color === undefined)
+        return { ok: false, motivo: 'unas palabras clave «mantener» sin «tamano» ni «color»: no cambian nada' };
       let tamano: number | undefined;
       if (raw.tamano !== undefined) {
         const t = numero(raw.tamano);

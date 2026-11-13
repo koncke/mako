@@ -128,6 +128,8 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
         ? 'Sin palabras clave'
         : op.modo === 'auto'
           ? 'Con las palabras clave de color'
+          : op.modo === 'mantener'
+            ? `Las mismas palabras clave${op.tamano !== undefined ? `, al ${op.tamano} %` : ''}${op.color ? `, en ${op.color}` : ''}`
           : op.modo === 'quitar'
             ? `Sin ${(op.palabras ?? []).map((w) => comillas(w)).join(', ')} de color`
             : `Con ${(op.palabras ?? []).map((w) => comillas(w)).join(', ')} de color`;
