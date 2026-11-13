@@ -1007,8 +1007,9 @@ export function sinVaciasSueltas(contenido: string, acentos: ReadonlyArray<reado
     .map(([a, b]) => [a, b]);
 }
 
-/** Las palabras que no dicen nada solas (para no pintarlas de acento). */
-const PALABRAS_VACIAS = new Set(['a', 'al', 'con', 'de', 'del', 'e', 'el', 'en', 'es', 'la', 'las', 'lo', 'los', 'mi', 'mis', 'o', 'para', 'por', 'que', 'se', 'su', 'sus', 'tu', 'tus', 'u', 'un', 'una', 'y']);
+/** Las palabras que no dicen nada solas (para no pintarlas de acento: «cómo asesorarte *como* lo haría…», «para *más* contenido»,
+ *  donde el original tenía el nombre del gurú o su @ en naranja). */
+const PALABRAS_VACIAS = new Set(['a', 'al', 'como', 'con', 'de', 'del', 'e', 'el', 'en', 'es', 'la', 'las', 'lo', 'los', 'mas', 'más', 'mi', 'mis', 'o', 'para', 'por', 'que', 'se', 'su', 'sus', 'tu', 'tus', 'u', 'un', 'una', 'y']);
 
 /** El cuerpo de un texto por su tinta medida: con un renglón, el alto de la letra decide entre «tiene colitas» (0,95 em) y
  *  «sólo mayúsculas» (0,74 em), lo que quede más cerca de lo que dijo la IA. */
