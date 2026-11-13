@@ -120,7 +120,8 @@ function escribeElEquipo(quien: PersonaDelGrupo): boolean {
  * siempre. Es una lectura de la plataforma, sin la sesión; el import es tardío para que la ruta no cargue el cobro de las agencias en cada mensaje.
  */
 async function puedeSerComprobante(ws: number, quien: PersonaDelGrupo, f: FilaGrupo, soloClave: boolean): Promise<boolean> {
-  if (quien.invitado || soloClave || !tieneMediaLaFila(f)) return false;
+  // El EQUIPO (closer, setter) tampoco: la mensualidad la paga quien administra.
+  if (quien.invitado || quien.tipo === 'equipo' || soloClave || !tieneMediaLaFila(f)) return false;
   try {
     const { hayQueLeerComprobante } = await import('@/lib/agencia-mes-comprobante');
     return await hayQueLeerComprobante(ws);
@@ -214,7 +215,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   }
   // EL ACUSE: un texto de quien administra corta las insistencias y marca las corridas. ⚠️ No el de un invitado: `esAcuse` es tolerante, y su «dale» apagaría el recordatorio de una cuota
   // o cambiaría una automatización del negocio. Una foto o un audio no acusan. No frena el mensaje.
-  if (!quien.invitado && tapado.texto.trim() && !soloClave && !tapado.texto.includes(CLAVE_TAPADA)) {
+  // Ni el del EQUIPO (13/11/2026): el «dale» de un closer no apaga el recordatorio de una cuota del dueño.
+  if (!quien.invitado && quien.tipo !== 'equipo' && tapado.texto.trim() && !soloClave && !tapado.texto.includes(CLAVE_TAPADA)) {
     await acusarDesdeElGrupo(ws, [tapado.texto]).catch((e) => console.error(`[grupos] ws${ws} acuse: ${e instanceof Error ? e.message : String(e)}`));
   }
 

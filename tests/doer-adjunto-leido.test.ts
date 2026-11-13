@@ -45,7 +45,7 @@ test('3. el doer lee el adjunto ANTES de armar el turno, y lo deja en la memoria
   assert.match(doer.slice(j, j + 220), /\[textoDirecto \|\| adjunto\.caption, loQueDice\]\.filter\(Boolean\)/);
   // Lo leído va a la MEMORIA, no a `texto`: los detectores del pedido leen el placeholder (la revisión de 92d23e11d).
   assert.match(doer, /texto = placeholderDeAdjunto\(adjunto\.tipo, adjunto\.caption, textoDirecto\);\n\s*leidoDelAdjunto = loQueDice \? loQueDice\.slice\(0, 600\) : '';/);
-  assert.match(doer, /await guardarTurno\(wsData, jid, 'user', \[texto, leidoDelAdjunto\]\.filter\(Boolean\)\.join\('\\n'\), msgId\);/);
+  assert.match(doer, /await guardarTurno\(wsData, claveDelTurno, 'user', \[texto, leidoDelAdjunto\]\.filter\(Boolean\)\.join\('\\n'\), msgId\);/);
 });
 
 test('4. la lista que trae la foto no vuelve el pedido «cargar al plan»: el clasificador lee lo que escribió la persona', () => {

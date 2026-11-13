@@ -135,10 +135,31 @@ negocio», para no decir ahí el nombre de otro cliente.
 **Regla:** algo nuevo que se engancha ANTES del turno en `atenderEntranteDoer` (WhatsApp) no llega solo a la app. Se mira también
 la ruta del grupo de la app y /api/cron/grupo-turno, y se prueba con un mensaje que nace en la app.
 
+**El equipo del negocio en su grupo (mismo día, decisión del Cerebro).** Hasta acá al grupo entraban sólo quienes administran; un closer o un
+setter, únicamente invitado (sin herramientas ni datos), y lo fijaba tests/grupos-ops-puerta.test.ts («el grupo trae plata»). El Cerebro: «un
+closer o un setter que hoy le habla a MaKo por WhatsApp no puede quedarse afuera en la app… nunca más de lo que su rol ve en pantalla». Ahora
+entran por su rol (`juzgarAcceso` → tipo `equipo`, letra `c`/`s`) y el «nunca más» se hace cumplir en TRES lugares, cada uno con su test
+(tests/equipo-en-el-grupo.test.ts):
+- **El hilo:** sin el recibo ni los avisos a la agencia (`laVeElEquipo`, lo mismo que se le saca a un invitado), en la lista, en cada
+  mensaje, en el contador y en el push. Lo anterior de WhatsApp, no: no está filtrado.
+- **Las herramientas:** la vista de la API de MaKo (`vistaDe` con `ctx.rolWs` → `soloTabs`) deja sólo las operaciones con una pestaña que
+  ese rol ve en la app, con la MISMA regla de la barra (`puedeVerKey`), más confirmar, cancelar y los tickets; nada `rolMinimo: admin` y
+  nada que lea el Google Calendar del dueño (`datosDeGoogle`: `agenda_del_dia` está en la pestaña CRM y le mostraba al closer el «Sleep»
+  del dueño). Esa vista la vuelven a mirar la ejecución y la confirmación. Las herramientas de afuera del registro no viajan.
+- **El contexto y la memoria:** el turno corre recortado como el de un invitado (sin perfil, objetivos, tickets, la plataforma ni la charla
+  del dueño), pero su memoria, sus pendientes y lo que le mostró viven en una clave PROPIA (`claveDelMiembro`, `jid#equipo:<email>`): su «sí»
+  no confirma lo que MaKo le propuso al dueño. La cola, el candado y la salida siguen siendo del grupo, y un lote se parte por persona.
+
+**Lo que esto NO cambia, y hay que saberlo:** el hilo es UNO. Lo que el dueño le pregunta a MaKo y lo que MaKo le contesta (por ejemplo
+cuánto facturó) lo ve el closer en el hilo, igual que en el grupo de WhatsApp. Lo que se le saca son los avisos con plata, no la charla. Si
+Martín lo quiere distinto, es una decisión de producto (marcar cada respuesta de MaKo con el rol de quien preguntó), no un arreglo.
+
 **Lo que quedó SIN hacer (y dónde vive):**
+- **El chat de MaKo de la app (Ops Center) de un closer** sigue con TODAS las pestañas de la capa como 'miembro' (lib/mako-turno-app.ts no
+  pasa `rolWs`): ahí sí ve, por ejemplo, el Email. Cerrarlo es sumarle `rolWs` a su contexto; no se tocó porque cambia lo que hoy usan.
 - **Quién firma:** Joan y Juan Francisco escriben en WhatsApp como dos personas y en la app comparten UNA cuenta (Código, usuario 10):
-  los dos firman «Codigo Inmobiliario» y MaKo no los distingue. Charly (ws15) no tiene cuenta. Se arregla invitándolos desde el grupo
-  (`invitarAlGrupo`), no con código.
+  los dos firman «Codigo Inmobiliario» y MaKo no los distingue. Charly (ws15) no tiene cuenta. Se arregla dándole a cada uno su usuario
+  en Equipo, no con código.
 - **Un archivo que no es foto, PDF ni audio** (un .md, un Excel, un video) que manda MaKo o el equipo queda en el hilo como
   «(un archivo: X)» sin poder bajarlo (`filaDeParte`, lib/grupo-app.ts). Y el cliente no puede mandar uno desde la app
   (`validarAdjuntos`: foto y PDF). En 14 días, 1 caso (a Martín) y 0 de clientes.
@@ -265,6 +286,19 @@ con la MISMA condición con la que `conectar` la suelta (`motivoParaVolverAVincu
 ella diría «ya está conectada» al tocarlo. Son dos pasos: el botón y escanear. ⚠️ **Y el aviso mandaba al teléfono equivocado:**
 los pasos del mail y la campanita eran fijos («Conectar por QR», «el teléfono de MaKo (…2605)») con la voz en el …3479; ahora
 salen de la línea (`pasosQrDe`). Lo fija tests/volver-a-vincular.test.ts (V1-V6).
+
+**Falsa alarma con la voz bien: «otra línea vio» contaba los grupos PERSONALES de Martín (13/11 18:20, medido en sólo lectura).**
+A las 17:12 Martín devolvió la voz al …2605 («Dejar de usarlo para MaKo», desde /chats) y el …3479, recién re-vinculado, quedó
+como «la otra línea» del detector. A las 18:20 la marca dijo «otra línea vio 6 mensaje(s) de personas que la voz no tiene», y a las
+18:23 a la voz le entró Martín al instante y MaKo lo clasificó. Los 6 eran de 3 grupos suyos donde MaKo no está; en el grupo de MaKo
+que comparten (el de Mauricio), la voz tenía todos. **La causa:** la regla filtraba «grupo» (`@g.us`) y no «grupo compartido», como
+decía su comentario. No se había visto porque desde el 3/11 la voz estuvo casi siempre en el …3479, y con la voz y la otra en la
+misma línea la regla no corre. ⚠️ **La pista de al lado era la equivocada:** el historial que WhatsApp trae al re-vincular el
+…3479 (mensajes de las 15:59 a las 16:08, antes del QR) no es la causa: un mensaje de un grupo de MaKo que llega así y la voz no
+tiene SÍ es la prueba que la regla busca. **La regla:** la otra línea cuenta sólo los grupos de MaKo (`mako.grupo_jid` de cada
+negocio y `mako.superadmin.grupo_jid`, los mismos que lista `gruposDeMaKoEstricto` de lib/mako-chat.ts); sin esa lista no cuenta
+nada (`ajenosQueLaVozNoVio`, lib/linea-sorda.ts). Lo fija tests/linea-sorda.test.ts 4 y 6 (roturas O1-O5). La marca que quedó en el
+…2605 se cierra sola con el despliegue (hay una persona después de la marca): no hace falta re-vincular el …2605.
 
 ---
 
@@ -13711,7 +13745,22 @@ su CRM —elegida (`columnasEmail.rebote`) o por su nombre— aunque quede antes
   no se eligió, la de abajo; un rebotado sin columna de rebotados no se mueve). Corre en `after()` (hasta 400 por pasada; guardar
   otra vez sigue). Lee las posiciones en tandas de 200, no de a un lead.
 
+- **«Email por día» según la cuenta (decisión del Cerebro).** Con SU clave de Resend Y SU remitente (`opcionesDeRango`,
+  lib/limites-envio-cuenta.ts: `cuentaDeCorreo` «propia» + `remitenteDelNegocioActual` que pasa), hasta 2.000; con la de la
+  plataforma, 500. Arranque y suba, de 1 a 500 para todos. ⚠️ **La trampa que había:** un valor fuera de rango NO da error al
+  leer: `sanearLimites` lo saltea y queda lo de FÁBRICA (100). Subir el máximo sin pasarle la cuenta a todos los que leen
+  (motor, API, pantalla, «por qué no sale») habría dejado a Mauricio en 100 justo al subirlo a 1.600. Ahora lo de una cuenta
+  propia leído sin ella baja a 500, nunca a 100. Y la definición de la API (`emailDia`, chatbot.def.ts) tenía su propio
+  `maximo: 500`, que valida ANTES del runner: también subió (a 2.000; el rango real lo decide el runner).
+- **El goteo sigue a la cuenta (mismo día).** El tope por día de UNA automatización (`rangosGoteo`, lib/config-automatizacion.ts)
+  llega al de la cuenta: 2.000 o 500. Lo pasa quien GUARDA (`guardarConfigAutomatizacion` → `configParaGuardar(…, cuenta)`: la
+  pantalla, la API, la difusión, las plantillas) y la API antes del «sí». Al LEER se acepta hasta 2.000 sin preguntar la cuenta:
+  lo guardado ya pasó su rango, y descartar un tope por día deja la automatización SIN tope (manda más, no menos; la misma trampa
+  de los límites, al revés). El panel recibe sus rangos de la lectura (`rangosGoteo` de `getConfigAutomatizacionAction`).
+
 **Lo que quedó sin hacer:**
+- **La difusión sigue con el goteo de la plataforma (500 por día):** `goteoValido` (lib/difusion-reglas.ts) y la hoja
+  (app/automations/difusion/HojaDifusion.tsx) usan `RANGOS_GOTEO`. Una difusión de email de más de 500 por día no se puede pedir.
 - **El tope que frena un envío no deja fila** (`nutricion_envios`): sólo la nota en la corrida. Por eso los 34 parecían «sin motivo».
 - **La reserva no es por automatización:** una lista fría de leads NUEVOS (una base importada hoy con `origen_lead`) cuenta como
   caliente. Lo mismo que en el WhatsApp (lib/nutricion-prioridad.ts, la revisión adversarial del 21/10).
