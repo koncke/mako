@@ -34,6 +34,8 @@ import { CampoM, ErrorLineaM } from '../_creacion/escritor';
 import { descargarComo } from '@/app/video-generator/descargar';
 import { nombreDeArchivo } from '@/lib/ai-avatar/descarga';
 import { ChipM, ChipsM } from './piezas';
+import { useWs } from '@/app/_ui/Link';
+import { soltarGuionPasado, verGuionPasado } from '@/lib/guion-pasado';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
 type Filtro = Categoria | 'Nuevos' | null;
@@ -73,6 +75,14 @@ export function EstudioM({ inicio, plantillaInicial, avatarInicial, ahora }: {
   const [enviando, setEnviando] = useState(false);
 
   useEffect(() => { escribirQuery(abiertoId, presetId); }, [abiertoId, presetId]);
+  // «Hacerlo con tu avatar IA» desde Copywriting (13/11/2026, lib/guion-pasado.ts): con un guion esperando, se abre el último avatar
+  // listo, que lo toma (sin avatar, queda crear uno: el guion espera).
+  const wsGuion = useWs();
+  useEffect(() => {
+    if (avatarInicial || !verGuionPasado('avatar', wsGuion)) return;
+    const listo = inicio.looks.find((l) => l.estado === 'listo');
+    if (listo) setAbiertoId(listo.id);
+  }, [wsGuion]); // eslint-disable-line react-hooks/exhaustive-deps
   // «No disponible todavía» se va solo: si se queda, tapa lo que FALTA para generar (como en la computadora, 10/11/2026).
   useEffect(() => {
     if (!(Object.values(SIN_MOTOR) as string[]).includes(linea)) return;
@@ -278,6 +288,9 @@ function ProyectoM({ p, inicio, ahora, enLinea, enviando, error, onRecrear, onEl
 }) {
   const preset = plantillaPorId(p.plantillaId);
   const [guion, setGuion] = useState('');
+  // El guion que viene de Copywriting (lib/guion-pasado.ts): se pone si el proyecto no tiene uno escrito; se suelta al animar.
+  const ws = useWs();
+  useEffect(() => { const g = verGuionPasado('avatar', ws); if (g) setGuion((x) => x || g); }, [ws]);
   const [planId, setPlanId] = useState('');
   const [tomas, setTomas] = useState<TomaAvatar[]>([]);
   const [aviso, setAviso] = useState('');
@@ -301,6 +314,7 @@ function ProyectoM({ p, inicio, ahora, enLinea, enviando, error, onRecrear, onEl
     try {
       const r = await crearVideoAction({ avatarId: p.mediaId, guion });
       if (!r.ok) { setAviso(r.error); return; }
+      soltarGuionPasado('avatar', ws);
       setPlanId(r.planId);
       setTomas(r.tomas.map((n) => ({ n, fase: 'esperando' })));
       avisarPuente();
