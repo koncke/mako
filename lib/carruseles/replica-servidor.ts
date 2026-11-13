@@ -268,7 +268,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
       const x = await conSuIADelNegocio(ws, () => chatCheapCascade({
         system: 'Eres diseñador de carruseles de Instagram y miniaturas de YouTube para negocios. Respondes sólo con el JSON pedido.', user: sinVer, json: true,
         maxTokens: TOKENS_DE_SALIDA, temperature: 0.4, feature: FEATURE_REPLICA, motivo, timeoutMs: o.timeoutMs ?? 120_000, erroresOut: errores,
-        validar: (y) => !('error' in leerReplica(y, { laminas: total, miniatura, usuario: marca.usuario })),
+        validar: (y) => !('error' in leerReplica(y, { laminas: total, miniatura, usuario: marca.usuario, nombre: marca.nombre })),
       }));
       if (!x.trim()) throw new Error(errores.length ? errores.join(' · ') : 'sin_keys: no hay ninguna IA del negocio conectada');
       return x;
@@ -298,7 +298,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     console.warn(`[carruseles] «Editar» sin la IA del negocio (ws=${ws}, ${ej.que} ${ej.id}): ${m.slice(0, 600)}`);
     return conGuias(avisoSinIA(m), errores);
   }
-  const replica = leerReplica(crudo, { laminas: total, miniatura, usuario: marca.usuario });
+  const replica = leerReplica(crudo, { laminas: total, miniatura, usuario: marca.usuario, nombre: marca.nombre });
   // Lo que leyó la IA TAL CUAL (la plancha le suma y le saca textos a `replica`): en seco viaja esto, para repetir la plancha.
   const leidaDeLaIA = o.seco && !('error' in replica) ? structuredClone(replica) : null;
   if ('error' in replica) {
@@ -326,7 +326,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
             prompt: promptDeCompletar({ textos: p.textos, figuras: p.figuras, nombreNegocio: marca.nombre, contexto: p.contexto, oferta }),
             feature: FEATURE_REPLICA, motivo: 'Leer lo que faltaba de un carrusel de ejemplo', timeoutMs: 90_000, maxTokens: 4_000,
           }));
-          return leerCompletado(r.text, { textos: p.textos, figuras: p.figuras, usuario: marca.usuario });
+          return leerCompletado(r.text, { textos: p.textos, figuras: p.figuras, usuario: marca.usuario, nombre: marca.nombre });
         } catch (e) {
           console.warn(`[carruseles] el segundo pedido (lo que faltaba) no contestó (ws=${ws}): ${(e instanceof Error ? e.message : String(e)).slice(0, 300)}`);
           return null;

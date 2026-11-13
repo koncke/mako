@@ -15,8 +15,8 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getSupabaseServer } from '../supabase';
 import { BUCKET_IMAGE } from '../image-editor/reglas';
-import { asignarRenglones, bloquesSinDueno, cajaDe, esDeUnaLista, esPrincipal, leerLamina, planchar, type LecturaDeLamina, type Rgba } from './plancha-local';
-import { RECORTES_MAX, anchoEsperadoDe, type PlanchaDeLamina, type Replica, type TextoCompletado, type TextoReplica } from './replica';
+import { asignarRenglones, bloquesSinDueno, cajaDe, esDeUnaLista, esNombreDeLogo, esPrincipal, filasDe, leerLamina, mismoBloque, planchar, sinLetras, type LecturaDeLamina, type Renglon, type Rgba } from './plancha-local';
+import { RECORTES_MAX, anchoEsperadoDe, queVaEnLosRenglones, sinCambio, type PlanchaDeLamina, type Replica, type TextoCompletado, type TextoReplica } from './replica';
 
 
 /** Una lámina leída: sus píxeles al tamaño del diseño y lo que se detectó en ella. */
@@ -122,10 +122,37 @@ function alineacionDe(c: { x: number; ancho: number }, W: number): 'left' | 'cen
   return c.x > 0.5 * W && c.x + c.ancho > 0.85 * W ? 'right' : 'left';
 }
 
+/** Lo más chico que se reescribe (en píxeles de la lámina, el alto del renglón): el marco (©, @, «02 / 06») mide de 15 a 25; la
+ *  letra de una captura o de una lista, de 10 a 14. */
+const RENGLON_MINIMO = 15;
+
+/** Lo del marco que es igual en cualquier negocio: el «© 2026» y el número de lámina. */
+const MARCO_FIJO = /^\s*(©\s*\d{4}|\d{1,2}\s*\/\s*\d{1,2})\s*$/;
+/** Desde este alto, un renglón adentro de una caja es parte del diseño (una llamada a la acción en su recuadro), no de una captura. */
+const RENGLON_DE_CAJA = 20;
+
+/** ¿Estos renglones son de una captura, una lista o la letra chica de una caja? Esos quedan como en el original (ver abajo). */
+function esLetraDeCaptura(le: LaminaLeida, rs: readonly Renglon[]): boolean {
+  const alto = Math.max(...rs.map((r) => r.caja.alto));
+  return esDeUnaLista(le.lectura, rs) || alto < RENGLON_MINIMO || (!esPrincipal(le.img, rs) && alto < RENGLON_DE_CAJA);
+}
+
+/** ¿Lo del marco que no cambia («© 2026», «02 / 06»), igual a su original? */
+const esDelMarcoFijo = (t: Pick<TextoReplica, 'texto' | 'original'>) => MARCO_FIJO.test(t.texto) && !!t.original && sinCambio(t);
+
 /**
- * Lo que la lámina tiene y la IA no dijo (13/11/2026): los bloques de texto principales sin dueño y las figuras grandes que no
- * marcó como persona van RECORTADOS en un segundo pedido; lo que vuelve se suma a la lámina con el lugar del recorte. Modifica
- * `textos`, `asignados` y `personas`.
+ * Lo que la lámina tiene y la IA no dijo, y lo que dijo en el lugar equivocado (13/11/2026). Van RECORTADOS en un segundo pedido:
+ *   · los bloques que la IA principal se llevó y se van a reescribir, para COMPROBAR que dicen lo que ella leyó. En producción, la
+ *     portada de @lifeofarjav salió con «PASO 2» debajo del logo de Claude; en seco, la IA listó los títulos chicos de la tarjeta
+ *     de la lámina 6 («1. Foundation», «3. Lead Generation»…) con lugares y tamaños inventados, el orden los corrió hacia abajo y
+ *     «3. Generación de Leads» se llevó «Comment "GIFT"», la llamada a la acción se llevó el pie y el pie se perdió. Ni el lugar
+ *     ni el orden de la IA lo pueden evitar; lo que lee en un recorte, sí (el de «Claude», tres de tres). Si el recorte no dice
+ *     lo que ella leyó, su texto no es de ahí: se suelta, y va lo que el segundo pedido leyó y adaptó;
+ *   · los bloques de texto principales sin dueño (lo que no listó: un encabezado, una pastilla);
+ *   · las figuras grandes que no marcó como persona.
+ * Lo que vuelve IGUAL a su original (el nombre de una marca con su logo) se deja como está, sin borrar ni reescribir con otra
+ * letra; y si la IA principal lo había cambiado, también (un nombre corto: «Claude» no es «PASO 2»). Modifica `textos`,
+ * `asignados` y `personas`.
  */
 async function completarLoQueFalta(
   leidas: readonly LaminaLeida[], textos: TextoReplica[][], asignados: number[][][], personas: string[][], completar: Completar,
@@ -135,7 +162,26 @@ async function completarLoQueFalta(
   // UN pedido por lámina, todos a la vez (13/11/2026): con los recortes de las seis láminas en un solo pedido, la IA corría las
   // respuestas y los textos de una captura de la lámina 3 terminaban en la portada, y la persona de la portada en la lámina 2.
   await Promise.all(leidas.map(async (le, i) => {
-    const bloques = bloquesSinDueno(le.img, le.lectura, new Set(asignados[i].flat())).slice(0, RECORTES_MAX.textos);
+    const porNumero = new Map(le.lectura.renglones.map((r) => [r.n, r]));
+    const deEsto = (k: number) => asignados[i][k].map((n) => porNumero.get(n)).filter((r): r is Renglon => !!r);
+    // Lo que se deja como en el original no va de recorte: con 15 recortes (las viñetas de la tarjeta de la lámina 6 y un ícono),
+    // la IA contestó el ícono al final y corrió TODAS las respuestas un lugar: «Comment "GIFT"» se llevó la del @ (vacía) y quedó
+    // la caja borrada, sin texto (13/11/2026).
+    const quedaIgual = (rs: readonly Renglon[]) => esLetraDeCaptura(le, rs) || esNombreDeLogo(le, rs, personas[i]);
+    // Un «texto» sin letras de la IA principal es un ícono: sus renglones quedan como están y no van de recorte.
+    const iconos = new Set(textos[i].flatMap((t, k) => (t.texto && sinLetras(t.texto) && sinLetras(t.original ?? '') ? asignados[i][k] : [])));
+    // Por bloque A LA VISTA: dos textos de la IA principal en un mismo bloque (13/11/2026: «3. Lead Generation» se llevó la
+    // fila de «Comment "GIFT"» y «4. Sales Process» la de «and I'll send it over.») van en UN recorte, y va lo leído.
+    const propios: Array<{ ks: number[]; rs: Renglon[] }> = [];
+    textos[i].forEach((t, k) => {
+      const rs = deEsto(k);
+      if (!rs.length || !t.texto || sinLetras(t.texto) || esDelMarcoFijo(t) || quedaIgual(rs)) return;
+      const junto = propios.find((p) => mismoBloque(p.rs, rs));
+      if (junto) { junto.ks.push(k); junto.rs.push(...rs); } else propios.push({ ks: [k], rs: [...rs] });
+    });
+    propios.splice(RECORTES_MAX.textos);
+    const sinDueno = bloquesSinDueno(le.img, le.lectura, new Set([...asignados[i].flat(), ...iconos])).filter((b) => !quedaIgual(b));
+    const bloques = [...propios.map((p) => p.rs), ...sinDueno].slice(0, RECORTES_MAX.textos);
     const figuras = le.lectura.figuras.filter((f) => !personas[i].includes(f.n) && f.caja.ancho * f.caja.alto >= (0.12 * W) ** 2).slice(0, RECORTES_MAX.figuras);
     if (!bloques.length && !figuras.length) return;
     const recortes = await Promise.all([...bloques.map((b) => recorte(le.img, cajaDe(b), 8)), ...figuras.map((f) => recorte(le.img, f.caja, 0))]);
@@ -151,24 +197,30 @@ async function completarLoQueFalta(
         ...t, letra: 'sans', negrita: t.rol === 'titulo' || t.rol === 'cta' || t.rol === 'rotulo',
         x: c.x / W, y: c.y / H, ancho: c.ancho / W, tamano: Math.min(0.16, Math.max(0.016, alto / 0.85 / W)), alinear: alineacionDe(c, W),
       };
-      // Lo que leyó tiene que caber en su recorte: un texto el doble de largo (o la mitad) es la respuesta de OTRO recorte.
-      const razon = anchoEsperadoDe(nuevo, W) / Math.max(1, c.ancho);
+      // Lo que leyó tiene que caber en su recorte: un texto el doble de largo (o la mitad) es la respuesta de OTRO recorte (y con
+      // un bloque de la IA principal, lo suyo queda). Contando las FILAS: un renglón leído no es un bloque de dos («@LIFEOFARJAV»
+      // medía lo mismo que «Comment "GIFT"», pero la caja tiene dos filas, 13/11/2026).
+      const filas = filasDe(b);
+      const leidos = (t.original ?? t.texto).split('\n').filter((x) => x.trim()).length;
+      // Y más renglones leídos que filas tiene el bloque, tampoco (el pie de una fila «leyó» dos de la captura de al lado).
+      if (leidos > filas.length) return;
+      const razon = leidos <= 1 && filas.length >= 2
+        ? anchoEsperadoDe(nuevo, W) / Math.max(1, filas.reduce((a, f) => a + f.ancho, 0))
+        : anchoEsperadoDe(nuevo, W) / Math.max(1, c.ancho);
       if (razon < 0.6 || razon > 1.7) return;
+      const propio = k < propios.length ? propios[k] : null;
+      // Con DOS textos de la IA principal en el bloque, ninguno es el texto del bloque: va lo leído.
+      const va = queVaEnLosRenglones(propio && propio.ks.length === 1 ? textos[i][propio.ks[0]] : null, t);
+      if (va === 'suyo') return;
+      // La IA principal le puso a estos renglones otro texto (o cambió un nombre que va igual): se suelta.
+      for (const kk of propio?.ks ?? []) { textos[i][kk] = { ...textos[i][kk], texto: '' }; asignados[i][kk] = []; }
+      if (va === 'original') return;
       textos[i].push(nuevo);
       asignados[i].push(b.map((x) => x.n));
     });
     figuras.forEach((f, k) => { if (r.personas[k]) personas[i].push(f.n); });
   }));
 }
-
-/** Lo más chico que se reescribe (en píxeles de la lámina, el alto del renglón): el marco (©, @, «02 / 06») mide de 15 a 25; la
- *  letra de una captura o de una lista, de 10 a 14. */
-const RENGLON_MINIMO = 15;
-
-/** Lo del marco que es igual en cualquier negocio: el «© 2026» y el número de lámina. */
-const MARCO_FIJO = /^\s*(©\s*\d{4}|\d{1,2}\s*\/\s*\d{1,2})\s*$/;
-/** Desde este alto, un renglón adentro de una caja es parte del diseño (una llamada a la acción en su recuadro), no de una captura. */
-const RENGLON_DE_CAJA = 20;
 
 /**
  * Lo que se deja como está en el original, sin borrar ni escribir encima (13/11/2026). Modifica `textos` y `asignados`.
@@ -177,8 +229,7 @@ const RENGLON_DE_CAJA = 20;
  *     unos renglones de un párrafo de captura y otros no, y quedaba una mezcla de dos idiomas con letras que se pisaban (la
  *     lámina 4 de @lifeofarjav). Lo grande de una caja (la llamada a la acción en su recuadro) sí se reescribe.
  */
-function quedanComoEnElOriginal(leidas: readonly LaminaLeida[], textos: TextoReplica[][], asignados: number[][][]): void {
-  const limpio = (s: string | undefined) => (s ?? '').replace(/\s+/g, ' ').trim().toLocaleLowerCase('es');
+function quedanComoEnElOriginal(leidas: readonly LaminaLeida[], textos: TextoReplica[][], asignados: number[][][], personas: readonly string[][]): void {
   leidas.forEach((le, i) => {
     const porNumero = new Map(le.lectura.renglones.map((r) => [r.n, r]));
     textos[i].forEach((t, k) => {
@@ -188,12 +239,12 @@ function quedanComoEnElOriginal(leidas: readonly LaminaLeida[], textos: TextoRep
       if (!rs.length) return;
       // Sólo lo que no cambia de un negocio a otro (el «© 2026», el «02 / 06»): a veces la IA escribe en «original» el texto NUEVO
       // (13/11/2026: en una corrida, en todos; «PASO 1» por «STEP 1»), así que un texto igual a su «original» no dice nada.
-      const igual = MARCO_FIJO.test(t.texto) && !!t.original && limpio(t.original).replace(/\s/g, '') === limpio(t.texto).replace(/\s/g, '');
       // Adentro de una caja, la letra GRANDE es del diseño (la llamada a la acción en su recuadro) y se reescribe; la chica de un
-      // párrafo, no.
-      const alto = Math.max(...rs.map((r) => r.caja.alto));
-      const deCaptura = esDeUnaLista(le.lectura, rs) || alto < RENGLON_MINIMO || (!esPrincipal(le.img, rs) && alto < RENGLON_DE_CAJA);
-      if (igual || deCaptura) { textos[i][k] = { ...t, texto: '' }; asignados[i][k] = []; }
+      // párrafo, no (`esLetraDeCaptura`).
+      if (esDelMarcoFijo(t) || esLetraDeCaptura(le, rs) || esNombreDeLogo(le, rs, personas[i]) || (!!t.texto && sinLetras(t.texto) && sinLetras(t.original ?? ''))) {
+        textos[i][k] = { ...t, texto: '' };
+        asignados[i][k] = [];
+      }
     });
   });
 }
@@ -220,7 +271,7 @@ export async function planchasDeLaReplica(
   delMarcoEnTodas(textos, leidas as LaminaLeida[], asignados);
   const personas = replica.laminas.map((l) => [...(l.personas ?? [])]);
   if (o.completar) await completarLoQueFalta(leidas as LaminaLeida[], textos, asignados, personas, o.completar);
-  quedanComoEnElOriginal(leidas as LaminaLeida[], textos, asignados);
+  quedanComoEnElOriginal(leidas as LaminaLeida[], textos, asignados, personas);
   const out: Array<PlanchaDeLamina | null> = [];
   for (const [i, l] of replica.laminas.entries()) {
     const leida = leidas[i]!;

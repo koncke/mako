@@ -98,6 +98,11 @@ export async function traerCarrusel(ws: number, texto: string): Promise<Traido> 
     });
     if (!r || r.status < 200 || r.status >= 300 || !Array.isArray(r.cuerpo)) {
       console.error(`[carruseles-traer] Apify no leyó ${link.url}: HTTP ${r?.status ?? '—'} (ws=${ws})`);
+      // Una clave que Apify no reconoce no se arregla reintentando (13/11/2026: la única clave de Spy daba 401, «token no válido»,
+      // y la pantalla decía «vuelve a intentar en un rato»).
+      if (r && (r.status === 401 || r.status === 403)) {
+        return { ok: false, error: 'La clave de Apify que lee Instagram ya no sirve (Apify dice que no es válida). Pega una nueva en Integraciones → Apify y vuelve a traerlo.' };
+      }
       return { ok: false, error: 'No pude leer ese link ahora. Vuelve a intentar en un rato.', reintentar: true };
     }
     const items = (r.cuerpo as Array<Record<string, unknown>>).filter((it) => it && typeof it === 'object' && !('error' in it && it.error));

@@ -63,10 +63,53 @@ sin las palabras naranjas, y el titular cortado en «Tu Acelera/dor».
 - Para probar sin pagar otra IA: `scripts/carruseles-probar-editar.mts --salida <carpeta>` guarda lo leído (`replica.json`), las
   láminas, las numeradas y las planchas.
 
+**Probada en producción** (13/11/2026, despliegue d3f6bd9b3, ws 9; capturas en docs/pruebas/image-13-11/04-* y 05-*): el carrusel
+de @lifeofarjav y el tuit de @AlexHormozi salieron con la plancha (fondo original, capturas, marco, logo, sin la foto del negocio).
+Lo que se vio recién ahí, y cómo quedó:
+- ⚠️ **La vista previa de «Tu versión está lista» mostraba las láminas EN BLANCO** con los textos sueltos encima, y el editor, bien:
+  `PaginaCarrusel` (app/image-editor/carruseles/MiniaturaCarrusel.tsx) sólo leía `background.color`. Lo PRIMERO que ve Martín era lo
+  peor. Ahora dibuja la imagen de fondo y los acentos (`fondoDePagina`, `conSusColores`). Mirar sólo el editor no lo habría visto.
+- ⚠️ **La IA principal también lista DE MÁS y ubica mal, no sólo omite.** En seco listó los títulos chicos de la tarjeta de la
+  lámina 6 («1. Foundation»… «4. Sales Process») con lugares 250 px corridos y cuerpos tres veces más grandes; el orden los corrió y
+  «3. Generación de Leads» se llevó «Comment "GIFT"», la llamada a la acción se llevó el pie, el pie se perdió. En producción, la
+  portada salió con «PASO 2» debajo del logo de Claude. Ni el lugar ni el orden lo pueden evitar: lo que la IA principal se lleva
+  y se va a reescribir va TAMBIÉN recortado al segundo pedido, y si el recorte no dice lo que ella leyó (`dicenLoMismo`), su texto
+  se suelta y va lo leído (`queVaEnLosRenglones`). Leído solo, el recorte de «Claude» volvió «Claude» tres veces de tres.
+- **Lo que el recorte deja igual se deja como está** (el nombre de una marca con su logo, el «© 2026»): sin borrar ni reescribir
+  con otra letra. Y la regla va en los dos prompts: el nombre de una marca o una herramienta con su logo va igual. No alcanzó:
+  en seco, el segundo pedido cambió «Claude» por «MaKo». El nombre de un logo (un renglón corto justo debajo de una figura casi
+  cuadrada que no es una persona) queda como en el original por geometría (`esNombreDeLogo`).
+- ⚠️ **Con muchos recortes, el segundo pedido CORRE las respuestas.** La lámina 6 mandó 15 (las viñetas de la tarjeta y el ícono
+  del PDF): la IA contestó el ícono al final y numeró todo lo demás un lugar antes; «Comment "GIFT"» recibió la respuesta del @
+  (vacía) y la caja quedó borrada sin texto, y el pie recibió la de una viñeta. Por eso: (1) lo que se deja como en el original
+  (letra de captura, nombre de un logo) no va de recorte; (2) un «texto» sin letras de la IA principal (leyó «📄» en el ícono,
+  «✦» en un logo) es un ícono: no se borra, no se escribe, no va de recorte; (3) el control de ancho cuenta FILAS: una lectura de
+  un renglón no le sirve a un bloque de dos («@LIFEOFARJAV» medía lo mismo que «Comment "GIFT"»); (4) el @ del creador es el @ del
+  negocio o nada (volvió «Koncke»).
+- ⚠️ **La IA principal escribe el texto NUEVO en «original» de nuevo** (otra corrida entera, y además listó los íconos como
+  emojis). Con la comprobación por recorte eso ya no rompe: lo leído no se parece a ese «original» y va lo leído.
+- **Dos textos de la IA principal en un mismo bloque a la vista** («3. Lead Generation» se llevó la fila de «Comment "GIFT"» y «4.
+  Sales Process» la de «and I'll send it over.») van en UN recorte y va lo leído (`mismoBloque`).
+- ⚠️ **Un ícono en la punta de un renglón** («✳ Follow @lifeofarjav…», el logo antes del @ del encabezado) entraba con la primera
+  mayúscula: el renglón medía 34 px en vez de 16, el pie nuevo salía con la letra el doble de grande y el ícono se borraba. Se saca
+  si es casi cuadrado y mide más de 1,8 veces la letra típica (`sinIconoEnLasPuntas`).
+- ⚠️ **El peso de la letra lo decidía el PAPEL**: el cuerpo regular del tuit salía en Inter 800 (la IA lo llamó «titular») y
+  apretado para entrar. Ahora se MIDE: la mediana de los tramos de tinta a lo ancho (`trazoMedido`) sobre el cuerpo; calibrado con
+  Inter a 100 px (400 → 9 px, 600 → 13, 700 → 15, 800 → 17). El tuit da 400; los titulares de @lifeofarjav, 700.
+- **El «=» de «= 100M Business»** son dos barras sueltas a la izquierda del titular: quedaban sin dueño y asomaban detrás del
+  titular nuevo. Un signo chico en la franja de un texto es de ese texto.
+- **«Sigue @usuario para más…»** sin @ cargado quedaba «Sigue para más…», y la IA también lo escribe así sin @ (tres corridas de
+  tres): va el nombre del negocio («Sigue a Martin Koncke para más…»). Y un acento por posición no cae en una palabra vacía sola
+  («Tu estrategia *de* ventas», donde el original tenía «Hormozi» naranja).
+- ⚠️ **«Traer tu outlier» no anda en producción y el mensaje engañaba**: la única clave de Apify de Spy responde 401 («token no
+  válido»), y la pantalla decía «Vuelve a intentar en un rato». Ahora dice que la clave ya no sirve y dónde pegar una nueva
+  (lib/carruseles/traer-servidor.ts). Hasta que Martín pegue una clave válida en Integraciones → Apify, no se puede traer nada.
+
 **Sin hacer:** su caricatura en el lugar de la de Hormozi (necesita Google Flow abierto desde el ícono de MaKo: la plancha de
 ./plancha.ts, sin orquestar); la letra de adentro de las capturas queda la del original (con «Hormozi» en la captura); la itálica
-serif del original («step by step.») sale en palo seco; el elegir la letra por forma (./tipografia-medida.ts) sigue sin conectarse.
-Probado en seco con la IA real de ws 9 y dibujado aparte; falta verlo en el editor de producción.
+serif del original («step by step.») sale en palo seco; el elegir la letra por forma (./tipografia-medida.ts) sigue sin conectarse;
+el titular de la portada salió «Martin Koncke + WhatsApp Ads Funnel» (el nombre del negocio en el lugar de «Claude + Hormozi»: es
+del prompt, que la IA no siempre sigue); «traer tu outlier» sin probar en producción con la réplica fiel.
 
 ## La réplica que no se lee y los huecos: probada lámina por lámina al lado del original (12/11/2026)
 

@@ -9,7 +9,7 @@
 // la ficha. Los pasos del catálogo los marca el acto (lib/spy-actos.ts).
 
 import { SpyApp } from './SpyApp';
-import { piezasAction } from './actions';
+import { piezasAction, seguidosAction } from './actions';
 import { listarCompetidores, resumenDePiezas } from '@/lib/spy';
 import { sugeridosDelNegocio } from '@/lib/spy-sugeridos-server';
 import { requireRolWs } from '@/lib/tab-access';
@@ -27,14 +27,16 @@ export const dynamic = 'force-dynamic';
 // otra vez la cuota de Apify. Mismo criterio que /crm y /copywriter.
 export const maxDuration = 60;
 
-export default async function CompetitorSpyPage({ searchParams }: { searchParams: Promise<{ competidor?: string }> }) {
+export default async function CompetitorSpyPage({ searchParams }: { searchParams: Promise<{ competidor?: string; ver?: string }> }) {
   await requireRolWs([], { nav: 'market-an' });
-  const pedido = Number((await searchParams).competidor);
+  const sp = await searchParams;
+  const pedido = Number(sp.competidor);
   const abierto = Number.isInteger(pedido) && pedido > 0 ? pedido : null;
   // ⚠️ TODO EN PARALELO, Y LAS PIEZAS DEL QUE SE ABRE YA DESDE ACÁ (4/11/2026, Martín: «que cargue más rápido»). Antes eran cuatro
   // lecturas una detrás de otra, y las piezas recién se pedían después de hidratar, por una action (que además hace fila con las
   // demás). Con el `?competidor=` en la URL, la ficha llega con lo suyo y dibuja sin esperar otra vuelta.
-  const [r, resumen, sugeridos, rol, ws, delAbierto, capa] = await Promise.all([
+  const conSeguidos = sp.ver === 'seguidos' && !abierto;
+  const [r, resumen, sugeridos, rol, ws, delAbierto, capa, seguidos] = await Promise.all([
     listarCompetidores().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) })),
     resumenDePiezas().catch(() => ({})),
     sugeridosDelNegocio().catch(() => []),
@@ -42,6 +44,8 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
     getWorkspaceActual(),
     abierto ? piezasAction(abierto).catch(() => null) : Promise.resolve(null),
     getCapaActual(),
+    // `?ver=seguidos`: su número y sus alertas también desde acá, como las piezas del que se abre.
+    conSeguidos ? seguidosAction().catch(() => null) : Promise.resolve(null),
   ]);
   const esAdmin = rol === 'admin';
   return (
@@ -56,6 +60,9 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
       sugeridosIniciales={sugeridos}
       // La vista previa de sus páginas es la ruta del Diagnóstico del Web Generator, con SU puerta: el admin y esa tab en el plan.
       conVistaPrevia={esAdmin && tabEnCapa('landing-writer', capa)}
+      // `?ver=seguidos`: la vista de los seguidos (la tarea «Selecciona a tus competidores» de Marketing CoPilot lleva ahí).
+      vistaInicial={sp.ver === 'seguidos' ? 'seguidos' : 'todos'}
+      seguidosIniciales={seguidos?.ok ? { ids: seguidos.ids, numero: seguidos.numero, alertas: seguidos.alertas } : null}
     />
   );
 }

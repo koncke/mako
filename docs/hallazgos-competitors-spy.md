@@ -2329,6 +2329,29 @@ moverlos de lugar: es que lleguen.
 
 **Trampa del código:** el máximo de carpetas sale del ancho de la escena, que se mide al montar. Antes de medir no hay carpetas y `total` da 0, y el efecto que mide cerraba la película en el acto si llegaba con las piezas puestas. Ahora espera el ancho, y el caso 8 lo cuida.
 
+## Seguidos: a quién sigue el negocio, «con qué número se publica» y sus alertas (13/11/2026)
+
+**Vive en:** `lib/spy-seguidos-reglas.ts` (puro), `lib/spy-seguidos.ts` (servidor), `app/competitor-spy/Seguidos.tsx` (la vista, en la computadora y el teléfono), el área `spy` de la API (`ver_seguidos`, `seguir_competidor`, `alertas_de_seguidos`). Test: `tests/spy-seguidos.test.ts`.
+
+**El pedido (Martín, 13/11, para Marketing CoPilot):** una vista de seguidos («Selecciona a tus competidores» es una tarea de CoPilot), el promedio de los seguidos por red para proponer con qué número se publica un reel de prueba (nunca «graduar»), y alertas de lo nuevo y de los outliers, con su ángulo y «¿Creamos uno parecido?».
+
+**El contrato con CoPilot** (lo que lee, en `lib/spy-seguidos.ts`): `leerSeguidos()`, `seguirCompetidor(id, seguir)`, `promedioDeSeguidos()` y `alertasDeSeguidos({ dias })`. La tarea lleva a `RUTA_SEGUIDOS` (`/competitor-spy?ver=seguidos`, también en el teléfono). «¿Creamos uno parecido?» es el Replicar de Copywriting con `spy:<id>` (`pedirReplicar`).
+
+**Las reglas:**
+- **Se guarda en `app_settings` (`spy.seguidos`), no en una columna:** no hace falta migración. Se escribe con compare-and-set, y un competidor borrado se deja de seguir solo (se cruza al leer).
+- **⚠️ El diagnóstico obvio era el equivocado: el número NO es el promedio de todas las piezas juntas.** Así, una cuenta con 500 reels pesaba por diez y un reel que explotó movía el número de todas. Es el promedio de lo que suele hacer CADA cuenta: la mediana de sus últimas 20 piezas de ese formato, con al menos 7, y las reglas del múltiplo (`numeroParaComparar`): ni lo de menos de una semana, ni lo pago, ni los sorteos.
+- **Outlier** es el múltiplo de toda la app desde 2×, publicado en los últimos 30 días. **Lo nuevo**, lo de los últimos 14, con un tope de 6 por cuenta: medido en el ws 9, Dave Ramsey se llevaba 40 de 50.
+- **Un seguido mira lo nuevo cada día, no cada semana** (`DIAS_ENTRE_CORRIDAS_SEGUIDO`), con el mismo tope de corridas del día. Su YouTube lo relee el cron cada 20 horas (`spy.seguidos.youtube`), y sólo una lectura que anduvo cuenta como hecha. «Vuelvo a intentar mañana» ahora es mañana con cualquier cadencia (`ultimaParaManana`): con el «hace 6 días» fijo de antes, un seguido reintentaba en una hora.
+
+**⚠️ Trampas medidas en el ws 9:**
+- **YouTube no tiene número ni outliers.** `ENMIENDA_III_L` es false: los Developer Policies prohíben calcular sobre sus vistas sin ese trámite. Shorts y Videos de YouTube dicen «Falta un trámite con YouTube». El día que se prenda, sale solo.
+- **Los reels leídos desde el 30/10 llegan SIN vistas.** Meta (Business Discovery) no da el `view_count` de los reels de otros, y la traída de Apify, que sí las trae, está frenada por la clave. El promedio de reels sale de los anteriores, y `hasta` dice de cuándo es la última pieza que entró.
+- **Spy no lee historias de Instagram:** las alertas tienen lo que Spy sí lee (reels, publicaciones, videos de YouTube, anuncios).
+
+**Lo que quedó SIN hacer:**
+- **Ninguna alerta sale por WhatsApp:** viven en la vista, en la API y en CoPilot. Mandarlas sería un evento de MaKo con su plantilla (todo mensaje que sale solo es una automatización).
+- **Historias:** Spy no las lee.
+- **El YouTube de los seguidos sólo se relee en los negocios con la clave de Spy:** el cron de `app/api/cron/spy-todo/route.ts` corre por `correrRonda('apify-instagram')`.
 ## Los anuncios en video también se transcriben, pero NO al abrirlos en Spy (13/11/2026, chat «probar-copy»)
 
 - **Por qué:** Copywriting replicaba anuncios en video de la competencia sin saber qué se dice (Martín: «no está transcribiendo»).
