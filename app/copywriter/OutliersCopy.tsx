@@ -134,7 +134,9 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
         )}
         <span className={`${s.marcas} ${oc.marcas}`}>
           <span className={oc.red} title={`${rotuloDeFormato(o)} · ${ROTULO_TEXTO[o.deDonde]}`}>
-            <IconoRed formato={o.formato} />{o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas}` : INFO_FORMATO[o.formato].label}
+            <IconoRed formato={o.formato} />
+            {/* En el teléfono, sólo el ícono: el nombre tapaba la cara y el nombre de las portadas tipo tuit (13/11/2026, el Cerebro). */}
+            <span className={oc.redNombre}>{o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas}` : INFO_FORMATO[o.formato].label}</span>
           </span>
           {/* Con el guion transcripto, se nota (12/11/2026, prueba en producción: 46 de los primeros 48 reels traían sólo su pie, y
               replicar el pie no copia lo que se DICE en la pieza). */}

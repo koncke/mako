@@ -74,6 +74,13 @@ test('Copywriting: el marco con la forma de su red, el texto adentro y el origin
   assert.match(css, /\.siguePie \{[^}]*-webkit-line-clamp: 3;/);
   assert.match(css, /\.tarjeta \.marco \{ cursor: pointer; color: #fff; background: linear-gradient\(/, 'sin imagen, un fondo con color, no blanco');
   assert.doesNotMatch(css, /\.tarjeta \.marco \{[^}]*background: var\(--surface\)/);
+  // En el teléfono, la marca de la red es sólo su ícono: con el nombre tapaba la cara y el nombre de las portadas tipo tuit
+  // (13/11/2026, el Cerebro con la captura de producción a 375). El nombre sigue ahí para el lector de pantalla.
+  assert.match(t, /<IconoRed formato=\{o\.formato\} \/>[\s\S]{0,200}?<span className=\{oc\.redNombre\}>/);
+  const telefono = css.slice(css.lastIndexOf('@media (max-width: 640px)'));
+  assert.match(telefono, /\.red \{ width: 26px; height: 26px; padding: 0;/);
+  assert.match(telefono, /\.redNombre \{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset\(50%\);/);
+  assert.doesNotMatch(css.slice(0, css.lastIndexOf('@media (max-width: 640px)')), /\.redNombre \{/, 'en la computadora, el nombre se ve');
 });
 
 test('la portada de outliers va SIN el chat; «Mis guiones / diseños / landings» abren la lista', () => {
