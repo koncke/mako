@@ -113,9 +113,10 @@ webhook. El doer, el espejo y el freno de «llegó tarde» (lib/linea-demora.ts)
   «Ya anda» con su `envio_email_enabled` todavía en false. Lo que depende de escribir en producción no se pone en el hito «Hecho» del
   despliegue.
 
-**Lo que quedó sin hacer:** la marca `mako.voz.sorda` de las 18:20 UTC del 13/11 dice que el …2605 no recibe («otra línea vio 8
-mensajes…»), y a las 18:23 recibió al instante. Puede ser una falsa alarma: el historial que trajo el …3479 queda del lado de «la otra
-línea» (`vigilarSorderaDeLaVoz`, lib/canal-vigilante.ts). Sin medir; se lo pasé al chat «MaKo en WhatsApp: no callarse».
+**Una falsa alarma de al lado:** la marca `mako.voz.sorda` de las 18:20 UTC del 13/11 decía que el …2605 no recibía («otra línea vio 8
+mensajes…»), y a las 18:23 recibió al instante. Parecía el historial del …3479, y no era eso: los mensajes venían de grupos
+personales de Martín, donde MaKo no está, y la regla contaba cualquier @g.us de la otra línea. Lo arregló el chat «MaKo en WhatsApp:
+no callarse» en 3bfe00dda (`vigilarSorderaDeLaVoz` cuenta sólo los grupos de MaKo).
 
 Test: tests/rescate-del-store.test.ts (con las filas reales del store del 13/11) y su hijo, que corre el rescate y `doer-flush`.
 
