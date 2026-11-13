@@ -48,6 +48,28 @@ motor triplicado) y, a la tarde, las de abajo (la receta en un pedido, Pexels, V
 `enjambre/{pastilla.ts,components/en-vivo.tsx}` · `clips/{resultado,buscar,estado,components/clips-view}` · test
 `tests/video-editor-detalles-12-11.test.ts`.
 
+## Los cursores de la Edición automática hacían como que trabajaban sobre lo que ya estaba (12/11/2026, noche)
+
+**El síntoma** (Martín, por el chat de landings): «Funciona bastante mal… mira fotograma por fotograma cómo lo hace… no tiene
+sentido esos cursores que están haciendo cosas sobre algo que ya está creado».
+
+- **La causa:** el 11/11 se pidió «que pasen los cursores todos juntos… que estén trabajando, hagan cosas», y se resolvió con que
+  CADA agente, trabajara o no, recorriera por turno sus «objetivos» (los clips, textos y controles que YA existían) cada 420 ms
+  (`tareaDeAgente`, ../enjambre/cursores.ts). Se veía movimiento, pero sobre nada nuevo. En el reel (rama
+  `referencias/reels-0911`, `edicion-mako.mp4`: hojas de contacto con `ffmpeg -vf "fps=1.5,scale=360:-1,tile=6x1"` y recortes de
+  la pantalla a 1080 px) cada cursor está DONDE aparece su cambio: el bloque del subtítulo nuevo en su pista, el clip que se
+  corta, el B-roll que se coloca con su caja, el recuadro del subtítulo que se ajusta en el programa.
+- **Regla:** los cursores van a los CAMBIOS reales. Mientras hay cursores se escucha la línea de tiempo (`enjambre/cambios.ts →
+  cambiosEntre`: lo que aparece, lo que se corta, lo que cambia; lo que sólo se corrió por un borrado en cadena no cuenta) y cada
+  cambio queda con el agente que trabajaba. Él y los de su rol (`FAMILIA`) se reparten su última tanda y van a cosas distintas a
+  la vez (`repartoDeCambios`). El que no tiene nada que hacer espera quieto y apagado en su panel; sólo la revisión (qa-01)
+  recorre lo que ya está, porque revisar es eso. Lo fija `tests/video-editor-enjambre-cambios.test.ts`.
+- **Lo nuevo aparece cuando llega su cursor:** la línea de tiempo esconde (un `<style>` con los `data-ce-id`, `opacity: 0`) los
+  bloques de la tanda que ningún cursor alcanzó (`pendientesDeTanda`), así se llena mientras trabajan. Sólo en la línea de
+  tiempo: el reproductor dibuja todo junto. Con «reducir movimiento», nada se esconde.
+- **Sin hacer:** el cursor de texto escribiendo el subtítulo en el programa y la medida del recuadro («348 × 107») del reel. Y
+  mirarlo en pantalla: se subió sin sesión en el navegador de la app.
+
 ## Ticket 91: «La pantalla Video se rompió» era el Router de Next, no el editor (12/11/2026)
 
 **El síntoma:** MaKo lo detectó solo (`errores_app`, huella 84301bc4ac03cb14): React #310 («más hooks que en el render
