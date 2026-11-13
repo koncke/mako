@@ -125,7 +125,8 @@ function MenuMovil({ m }: { m: MenuProducto }) {
         <a className="s-mv-fila" href={RUTA_PRECIOS}>Precios</a>
         <div className="s-mv-pie">
           <a className="s-nb s-mv-entrar" href={RUTA_ENTRAR}>Iniciar sesión</a>
-          <a className="s-nb s-nb-lleno" href={RUTA_CTA}>{TEXTO_CTA}</a>
+          {/* El mismo botón, corto en el teléfono angosto (como el de la barra). */}
+          <a className="s-nb s-nb-lleno" href={RUTA_CTA}><span className="s-nb-largo">{TEXTO_CTA}</span><span className="s-nb-corto" aria-hidden="true">{TEXTO_CTA.replace(/\s+AHORA$/i, '')}</span></a>
         </div>
       </div>
     </details>
@@ -157,7 +158,8 @@ export function Barra({ claro = false }: { claro?: boolean }) {
         </div>
         <div className="s-barra-der">
           <a className="s-nav-a s-solo-pc" href={RUTA_ENTRAR}>Iniciar sesión</a>
-          <a className="s-nb s-nb-lleno" href={RUTA_CTA}>{TEXTO_CTA}</a>
+          {/* En el teléfono angosto el botón se acorta («PRUÉBALO GRATIS»): con el logo y el menú no entraba a 360 (el Cerebro, 13/11). */}
+          <a className="s-nb s-nb-lleno" href={RUTA_CTA}><span className="s-nb-largo">{TEXTO_CTA}</span><span className="s-nb-corto" aria-hidden="true">{TEXTO_CTA.replace(/\s+AHORA$/i, '')}</span></a>
           <MenuMovil m={m} />
         </div>
       </div>
