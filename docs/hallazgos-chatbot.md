@@ -8485,3 +8485,22 @@ vuelve a levantar — es exactamente cómo estos siete llegaron a la lista del 6
 **Vive en:** los renglones corregidos están en este documento, en
 [hallazgos-comunicacion.md](hallazgos-comunicacion.md), en `docs/relevo/automations.md`, en
 `docs/relevo/pendientes-pc/auditoria-pedidos-5-11.md` y en `docs/relevo/nube-black-november.md`.
+
+---
+
+## «El CRON quedó en esa etapa de todos tus funnels: revisa cuál» no era un problema de sus funnels (12/11/2026, ticket #90)
+
+**El síntoma:** «Sellers» (ws24, cliente de Código Inmobiliario) reportó desde /automations ese texto como error.
+
+**Lo medido:** pegó «Un Lead Entró 2» (id 735, copiada de otro negocio; la misma que Brigitte en #266). Su etapa `lead` está en
+sus DOS funnels, «Sellers» (57) y «Captaciones» (58), así que `cronParaEsteNegocio` (lib/copia-disparador.ts, #882) la dejó con
+`funnel_id: null` — escucha la etapa en los dos. Eso es lo decidido el 17/10 (elegir uno sería adivinar). Sus funnels estaban bien.
+
+**La causa, dos cosas del aviso:** (1) no decía qué etapa, qué funnels ni qué hacer; (2) la pantalla lo ponía en `errCrear`, que se
+dibuja en rojo, `role="alert"` y con «Reportar a Soporte» (app/automations/SimuladorWhatsApp.tsx): una automatización que SÍ se
+creó se presentaba como un fallo. Ahora el aviso los nombra («El CRON escucha «Lead» en tus 2 funnels: «Sellers» y «Captaciones».
+Si es para uno solo, abre el CRON y elige la etapa de ese funnel.») y va por `avisoCrear` → `avisoNueva`, `role="status"`, sin el botón.
+Lo mismo «Elige qué la dispara…» de una plantilla o una copia: también es aviso de algo creado.
+
+**Regla:** lo que el server devuelve como `aviso` junto a un `ok: true` nunca va al lugar del error. Todo `role="alert"` lleva
+«Reportar a Soporte» (tests/reportar-a-soporte.test.ts), así que un aviso pintado como error se convierte en un ticket.

@@ -670,4 +670,24 @@ Y también:
       'tests/agencia-grupos-auto.test.ts · tests/_agencia-grupos-auto-hijo.ts — 15 roturas',
     ],
   },
+  {
+    fecha: '12 nov', hora: '22:10', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Equipo: la agencia adentro de su cliente ya no lee «Pídele a tu agencia», y el ticket dice el nombre del plan',
+    puntos: [
+      'Código Inmobiliario (#89), dentro de «Sellers», quiso invitar a alguien y leyó «Llegaste al tope de tu plan (1)… Pídele a tu agencia que te pase a Pro». Se lo decía a ella misma.',
+      'Medido en la base: Sellers tiene el plan Esencial que la agencia eligió el 11/11, y Esencial es 1 usuario, que ya ocupa su dueño. El tope estaba bien.',
+      'Ahora, a la agencia adentro de su cliente, el cartel le ofrece «Pasar a Pro desde Agency Dashboard»: sale de la vista y abre la ficha de esa cuenta, donde está «Pasar a Pro». El cliente sigue viendo «Pídele a tu agencia».',
+      'El «…» del ticket no lo vio el cliente: «Reportar a Soporte» tapaba «Pro» como si fuera un nombre. Ahora deja los nombres de los planes.',
+    ],
+    archivos: [
+      'lib/plan-esencial-reglas.ts — `ctaDeTope`: link, «Pídele a tu agencia» o el botón a la ficha de la agencia',
+      'app/_components/CtaPasarAPro.tsx · app/_components/useClienteDeAgencia.ts — lee `modoAgencia` y `clienteWs` de /api/auth/me',
+      'lib/soporte-reporte.ts — `PALABRAS_DE_MAKO` con los planes',
+      'tests/tope-agencia-adentro-89.test.ts — la agencia adentro, el cliente y el filtro del reporte',
+      'docs/hallazgos-agencias.md · docs/hallazgos-ticketera.md — el diagnóstico obvio (el plan) y la causa',
+    ],
+    revisar: '/equipo',
+    tickets: [89],
+  },
 ];

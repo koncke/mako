@@ -73,6 +73,33 @@ export const ROTULO_PASAR_A_PRO = 'Pasar a Pro';
 export const TEXTO_PEDIR_PRO_A_LA_AGENCIA = 'Pídele a tu agencia que te pase a Pro.';
 
 /**
+ * LA AGENCIA ADENTRO DE SU CLIENTE NO SE PIDE EL PLAN A SÍ MISMA (12/11/2026, ticket #89). Código Inmobiliario (ws13), operando
+ * dentro de «Sellers» (ws24, Esencial elegido por ella el 11/11), quiso invitar a alguien y el cartel le dijo «Pídele a tu
+ * agencia que te pase a Pro»: la cuenta ES cliente de una agencia (`clienteDeAgencia`), pero quien la mira ES la agencia
+ * (`modoAgencia` de /api/auth/me). A ella le toca la otra puerta: salir de la vista e ir a la ficha de esa cuenta en el Agency
+ * Dashboard (`/agency?cuenta=<ws>`), donde está «Pasar a Pro» (app/agency/AgencyApp.tsx).
+ * El super admin mirando al cliente de una agencia sigue con el texto: no es quien le cambia el plan.
+ */
+export const ROTULO_PRO_DESDE_AGENCY = 'Pasar a Pro desde Agency Dashboard';
+
+export type CtaDeTope =
+  | { tipo: 'link' }
+  | { tipo: 'pedir'; texto: string }
+  | { tipo: 'agencia'; href: string; rotulo: string };
+
+/**
+ * Qué lleva un cartel de tope donde iría «Pasar a Pro». `clienteDeAgencia`: la de /api/auth/me (`null` = todavía no se sabe,
+ * se dibuja el link, como siempre). `agenciaAdentroDe`: el ws del cliente cuando quien mira es SU agencia (`modoAgencia`), si no null.
+ */
+export function ctaDeTope(p: { clienteDeAgencia: boolean | null; agenciaAdentroDe: number | null }): CtaDeTope {
+  if (p.agenciaAdentroDe != null && Number.isInteger(p.agenciaAdentroDe) && p.agenciaAdentroDe > 0) {
+    return { tipo: 'agencia', href: `/agency?cuenta=${p.agenciaAdentroDe}`, rotulo: ROTULO_PRO_DESDE_AGENCY };
+  }
+  if (p.clienteDeAgencia) return { tipo: 'pedir', texto: TEXTO_PEDIR_PRO_A_LA_AGENCIA };
+  return { tipo: 'link' };
+}
+
+/**
  * Lo que tiene que leer QUIEN DA DE ALTA A MANO (24/10/2026, el Cerebro: «dejalo donde lo lea quien da de alta a mano»). El
  * candado de las tabs de Pro (arriba) y los topes del plan (lib/topes-plan.ts) se hacen cumplir SÓLO a quien MaKo le cobra
  * por la pasarela. Sin pasarela, las primeras ventas del lanzamiento son por llamada y se dan de alta a mano: ese negocio

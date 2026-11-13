@@ -293,6 +293,13 @@ function ChatAgentInner() {
    */
   const [errCrear, setErrCrear] = useState<string | null>(null);
   /**
+   * LO QUE EL SERVER AVISA DE UNA QUE SÍ SE CREÓ (12/11/2026, ticket #90): el CRON de una copia que quedó en los funnels de acá
+   * (lib/copia-disparador.ts) o «Elige qué la dispara». Iba en `errCrear` —rojo, `role="alert"` y «Reportar a Soporte»— y
+   * «Sellers» lo reportó como un error. No es un fallo: la automatización está creada. Se dibuja aparte, como aviso.
+   */
+  const [avisoCrear, setAvisoCrear] = useState<string | null>(null);
+  const sinAvisosDeCrear = () => { setErrCrear(null); setAvisoCrear(null); };
+  /**
    * «＋ Nueva» abre la GALERÍA (10/10/2026: «hagamos la galería de las más comunes»): en blanco o desde una plantilla.
    * (Hasta la undécima tanda llevaba una `seccion`: «＋ Nuevo mensaje» la abría en «MaKo en WhatsApp». Se fue con
    * ese botón, punto 9: la lista es una sola y las plantillas de MaKo se encuentran con el filtro de la galería.)
@@ -440,7 +447,7 @@ function ChatAgentInner() {
   const crearNueva = async (pedido?: string) => {
     if (creandoNueva.current) return false;
     creandoNueva.current = true;
-    setErrCrear(null);
+    sinAvisosDeCrear();
     const temporal = -Date.now();
     setCreando({ temporal, id: null });
     setAbrirSec({ id: temporal });
@@ -478,7 +485,7 @@ function ChatAgentInner() {
   const crearDesdeCopia = async (texto: string) => {
     if (creandoNueva.current) return;
     creandoNueva.current = true;
-    setErrCrear(null);
+    sinAvisosDeCrear();
     const temporal = -Date.now();
     setCreando({ temporal, id: null });
     setAbrirSec({ id: temporal });
@@ -487,7 +494,7 @@ function ChatAgentInner() {
       if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo pegar'); return; }
       const id = Number(r.secuenciaId);
       setCreando({ temporal, id });
-      setErrCrear(typeof r.aviso === 'string' ? r.aviso : null);
+      setAvisoCrear(typeof r.aviso === 'string' ? r.aviso : null);
       await load();
       setAbrirSec({ id });
     } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
@@ -501,7 +508,7 @@ function ChatAgentInner() {
     if (creandoNueva.current) return;
     creandoNueva.current = true;
     setGaleria(false);
-    setErrCrear(null);
+    sinAvisosDeCrear();
     const temporal = -Date.now();
     setCreando({ temporal, id: null });
     setAbrirSec({ id: temporal });
@@ -510,7 +517,7 @@ function ChatAgentInner() {
       if (!r?.ok || !(Number(r.secuenciaId) > 0)) { setErrCrear(r?.error ?? 'No se pudo crear'); return; }
       const id = Number(r.secuenciaId);
       setCreando({ temporal, id });
-      setErrCrear(typeof r.aviso === 'string' && r.aviso ? r.aviso : null);
+      setAvisoCrear(typeof r.aviso === 'string' && r.aviso ? r.aviso : null);
       await load();
       setAbrirSec(pl.cron.pide ? { id, cron: true } : { id });
     } catch { setErrCrear('Sin conexión — prueba de nuevo.'); } finally { setCreando(null); creandoNueva.current = false; }
@@ -552,7 +559,8 @@ function ChatAgentInner() {
   /** Una creada desde una plantilla: se trae la lista y se abre su lienzo. El aviso (la etapa no se pudo guardar) va pegado al botón. */
   const alCrearDePlantilla = async (r: CreadaGaleria) => {
     setGaleria(false);
-    setErrCrear(r.aviso);
+    setErrCrear(null);
+    setAvisoCrear(r.aviso);
     await load();
     setAbrirSec({ id: r.secuenciaId });
   };
@@ -740,7 +748,7 @@ function ChatAgentInner() {
         <SimuladorWhatsApp
           secuencias={visibles} objetivos={objetivos} etiquetaEtapa={etiquetaEtapa} productos={productos} disparadores={disparadores}
           negocio={negocio} rolAdmin={rolAdmin} audios={audios} canalCaido={canalCaido} tz={tz} onAudioNuevo={(a) => setAudios((prev) => [a, ...prev.filter((x) => x.id !== a.id)])}
-          onNueva={abrirGaleria} errorNueva={errCrear} onReload={() => void load()}
+          onNueva={abrirGaleria} errorNueva={errCrear} avisoNueva={avisoCrear} onReload={() => void load()}
           abrir={abrirSec} onElegida={escribirSec} onMakoTrabajando={setMakoTrabajando}
           /* Los pedidos sueltos del chat de MaKo (16/10/2026): «créame otra…» entra por la puerta de «Pídeselo a MaKo». */
           onCrearOtra={crearNueva}

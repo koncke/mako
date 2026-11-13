@@ -21,15 +21,37 @@
 
 import { useEffect, useState } from 'react';
 
-let promesa: Promise<boolean | null> | null = null;
+/** Lo que hace falta de /api/auth/me. `agenciaAdentroDe`: el ws del cliente cuando quien lo mira es SU agencia (#89). */
+type QuienMira = { clienteDeAgencia: boolean; agenciaAdentroDe: number | null };
+let promesa: Promise<QuienMira | null> | null = null;
+
+function leerQuienMira(): Promise<QuienMira | null> {
+  promesa ??= fetch('/api/auth/me')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => (j?.ok && j.autenticado
+      ? { clienteDeAgencia: j.clienteDeAgencia === true, agenciaAdentroDe: j.modoAgencia === true && Number(j.clienteWs) > 0 ? Number(j.clienteWs) : null }
+      : null))
+    .catch(() => null);
+  return promesa;
+}
 
 /** La lectura, una vez por pestaña. Si falla, `null`: nunca se asume que SÍ es cliente de una agencia. */
 export function leerClienteDeAgencia(): Promise<boolean | null> {
-  promesa ??= fetch('/api/auth/me')
-    .then((r) => (r.ok ? r.json() : null))
-    .then((j) => (j?.ok && j.autenticado ? j.clienteDeAgencia === true : null))
-    .catch(() => null);
-  return promesa;
+  return leerQuienMira().then((q) => (q ? q.clienteDeAgencia : null));
+}
+
+/**
+ * ¿Quien mira es la AGENCIA, adentro de un cliente suyo? El ws de ese cliente, o null (12/11/2026, ticket #89: el cartel de
+ * tope le decía a la agencia «Pídele a tu agencia…»). La misma lectura que `useClienteDeAgencia`.
+ */
+export function useAgenciaAdentro(): number | null {
+  const [ws, setWs] = useState<number | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void leerQuienMira().then((q) => { if (vivo) setWs(q?.agenciaAdentroDe ?? null); });
+    return () => { vivo = false; };
+  }, []);
+  return ws;
 }
 
 /**
