@@ -195,7 +195,7 @@ export const LEGALES: readonly { nombre: string; href: string }[] = [
  *                   referentes; la pared de caricaturas lleva «Inspirado en» (la regla de lib/asesores/catalogo.ts).
  */
 /** Lo que dibuja una fila: el visual de su landing, uno de app/vsl/_detalle/feature-visuals.ts, una grabación de la app o los referentes. */
-export type VisualTarjeta = 'hero' | 'gurus' | { video: string; poster: string } | { falta: string };
+export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | { video: string; poster: string } | { falta: string };
 
 /**
  * NADA INVENTADO (Martín, 12/11/2026, noche: «identifica la cantidad de cosas que hiciste inventándote cosas. Eso yo no lo quiero…
@@ -206,18 +206,41 @@ export type VisualTarjeta = 'hero' | 'gurus' | { video: string; poster: string }
 export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo: string; texto: string; visual: VisualTarjeta }[] = [
   { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Cada competidor con sus piezas, ordenadas por formato, y tu versión a un toque en Image.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
   { slug: 'web-generator', titulo: 'Copia una landing que ya vende.', texto: 'Pega el link de una landing que ya funciona y MaKo la replica con tu oferta, sección por sección.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
-  { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: 'Eliges un carrusel de los outliers y MaKo arma el tuyo con su diseño y tus textos.', visual: { falta: 'Bajar por los outliers de carruseles, elegir uno y ver cómo se duplica en el tuyo.' } },
+  { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: 'Eliges un carrusel de los outliers y MaKo arma el tuyo con su diseño y tus textos.', visual: { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' } },
   { slug: 'copywriting', titulo: 'Escribe con IA lo que vende.', texto: 'Eliges un reel de tu competencia, MaKo lo transcribe y escribe tu anuncio en segundos.', visual: { falta: 'Elegir un reel de la competencia, ver cómo se transcribe y cómo MaKo escribe el anuncio a toda velocidad, con poco texto en pantalla.' } },
   { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Trabaja con el método de los que más venden.', texto: 'Los referentes del marketing, cada uno con su método destilado de su curso: en el chat de MaKo eliges con quién trabajar.', visual: 'gurus' },
-  { slug: 'ai-avatar', titulo: 'Tu cara, en videos hechos con IA.', texto: 'Tu personaje con tu cara, en la escena que elijas, diciendo tu guion.', visual: 'hero' },
+  { slug: 'ai-avatar', titulo: 'Tu cara, en videos hechos con IA.', texto: 'Tu personaje, con tu cara, en la escena que elijas y diciendo tu guion.', visual: 'avatar' },
   { slug: 'video', titulo: 'Edita tus videos sin saber editar.', texto: 'Un editor como CapCut con un equipo de MaKo editando: cortes, subtítulos y B-roll.', visual: { falta: 'El lienzo de video con los cursores del equipo de MaKo editando sobre la línea de tiempo y el video.' } },
   { slug: 'ads', titulo: 'Tus anuncios, mirados todos los días.', texto: 'Cada día mira tus anuncios de Meta y te propone qué subir, pausar o probar.', visual: { falta: 'Marketing CoPilot: lo que MaKo mira de tus anuncios y lo que te propone, con un diseño a la altura.' } },
   { slug: 'crm', titulo: 'Cada cliente, en su etapa.', texto: 'La ficha se crea cuando entra el lead y se mueve de etapa cuando agenda.', visual: { falta: 'El CRM de MaKo tal cual: una tarjeta que cambia de etapa y el menú «…» para asignar campañas.' } },
   { slug: 'crm', rotulo: 'Grupos de WhatsApp', titulo: 'Trae los contactos de tus grupos.', texto: 'Con MaKo Pro, los contactos de tus grupos de WhatsApp entran a tu CRM.', visual: { falta: 'El scrapeo de un grupo de WhatsApp: la pestaña de WhatsApp, los grupos y los contactos entrando, con el cartel de MaKo.' } },
   { slug: 'seguimiento', titulo: 'Un agente que contesta por ti.', texto: 'Contesta por WhatsApp, Instagram, Messenger y email, califica a cada interesado y lo lleva a agendar.', visual: { falta: 'La vista del lienzo con todas las automatizaciones.' } },
   { slug: 'whatsapp', titulo: 'Todos tus chats en una bandeja.', texto: 'Una conversación por contacto, con su ficha del CRM al lado.', visual: { falta: 'La bandeja de Chats de MaKo tal cual es.' } },
-  { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tableros de ventas y de anuncios listos, con tus datos.', visual: { falta: 'Un carrusel con todos los tableros de MaKo y su animación de entrada.' } },
+  { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tableros de ventas, de anuncios y de llamadas listos para usar, con tus datos.', visual: 'tableros' },
   { rotulo: 'Classroom', titulo: 'Tu escuela, dentro de MaKo.', texto: 'El curso por módulos y lecciones, y la comunidad de tus alumnos.', visual: { falta: 'Cómo se ven las clases del Classroom.' } },
+];
+
+/**
+ * Los tableros de MaKo, para el carrusel de la fila «Tus números, en tableros» (Martín, 12/11/2026, noche: «un carrusel con todos
+ * los dashboards que tenemos y que se vea la animación de entrada»). Son las capturas de la app de cada plantilla, con sus datos de
+ * ejemplo (docs/diseno/mockups-dashboard/<id>/captura/mako-1440.png), recortadas a 16:10 en public/vsl-assets/sitio/tableros/.
+ */
+export const TABLEROS: readonly { id: string; nombre: string }[] = [
+  { id: 'velocidad-tend', nombre: 'Velocidad de llamada' }, { id: 'cobranza', nombre: 'Cobranza' }, { id: 'vsl-pelago', nombre: 'VSL y YouTube' },
+  { id: 'hooks-ondra', nombre: 'Hooks y retención' }, { id: 'inmobiliaria-torque', nombre: 'Inmobiliaria' }, { id: 'closing', nombre: 'Closing' },
+  { id: 'cold-calling-corvane', nombre: 'Cold Calling' }, { id: 'comercial-selvar', nombre: 'Comercial' }, { id: 'marketing-kestrel', nombre: 'Marketing' },
+  { id: 'general-orvel', nombre: 'General' }, { id: 'operacion-moorly', nombre: 'Operación' }, { id: 'focus-pane', nombre: 'Focus' },
+  { id: 'focus-lumora', nombre: 'Mi día' },
+];
+
+/**
+ * AI Avatar en la portada: el personaje de Martín y TRES escenas suyas, la misma persona en todas (las tomas del método Avatar Hype
+ * de su reel, 9/11/2026: C:/dev/reel-mentores/omni/, en public/vsl-assets/sitio/avatar/). Antes había una foto de catálogo como
+ * «tu foto» y una persona distinta en cada escena: decía «tu personaje» y mostraba a otros (Martín, 12/11: «fíjate lo que pones
+ * y critícalo»).
+ */
+export const ESCENAS_AVATAR: readonly { foto: string; nombre: string }[] = [
+  { foto: 'celular', nombre: 'Con tu celular' }, { foto: 'pizarra', nombre: 'En la pizarra' }, { foto: 'crm', nombre: 'Mostrando tu CRM' },
 ];
 
 /** La landing de una función (para sus tarjetas), o undefined si ya no existe. */

@@ -49,8 +49,8 @@ export const REGLA_NO_DESCALIFICAR = [
 const DESCALIFICA = /\b(?:distracci[oó]n(?:es)?|p[eé]rdida de tiempo|perder el tiempo|irrelevante|no (?:te )?importa|no (?:es|son) (?:una )?prioridad|no (?:es|son) (?:importante|relevante)s?|no vale la pena)\b/iu;
 export const descalificaElPedido = (texto: string): boolean => DESCALIFICA.test(String(texto ?? ''));
 
-/** La marca: una o más líneas `[[no-existe: …]]` (con o sin guion, con espacios de más). */
-const MARCA = /\[\[\s*no[\s-]*existe\s*:\s*([^\]\n]{3,300}?)\s*\]\]/giu;
+/** La marca: una o más líneas `[[no-existe: …]]` (con o sin guion, con espacios de más, y larga o en varias líneas: con el tope de 300 sin saltos, la larga le llegaba al cliente; ver lib/no-pude.ts). */
+const MARCA = /\[\[\s*no[\s-]*existe\s*:\s*([^\]]{3,4000}?)\s*\]\]/giu;
 
 /**
  * El texto SIN la marca (nunca le llega a la persona) y lo que pidió (la primera marca), o null si no hay ninguna. Una marca

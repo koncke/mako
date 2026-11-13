@@ -42,7 +42,7 @@ import { Pie } from './Pie';
 import { Boton, Flecha, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
 import {
-  LOGO_INTEGRACION, PREGUNTAS_SITIO, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
+  ESCENAS_AVATAR, LOGO_INTEGRACION, PREGUNTAS_SITIO, TABLEROS, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
 } from './datos';
 import { appsQueReemplaza } from './reemplaza';
 
@@ -144,12 +144,16 @@ function FilaFuncion({ slug, rotulo, titulo, texto, visual, inv }: (typeof TARJE
         <p className="s-zz-p">{texto}</p>
         {l ? <a className="s-zz-a" href={`/vsl/${l.slug}`}>Ver cómo funciona <Flecha /></a> : null}
       </div>
-      <div className={`s-zz-vis${grabacion ? ' s-zz-video' : visual === 'gurus' ? ' s-zz-gurus' : falta ? ' s-zz-falta' : ''}`} aria-hidden={falta ? undefined : true}>
+      <div className={`s-zz-vis${grabacion ? ' s-zz-video' : visual === 'gurus' ? ' s-zz-gurus' : visual === 'tableros' ? ' s-zz-tableros' : visual === 'avatar' ? ' s-zz-avatar' : falta ? ' s-zz-falta' : ''}`} aria-hidden={falta ? undefined : true}>
         {grabacion ? (
           // Sin sonido y en bucle: arranca sola, como un GIF (el navegador sólo deja eso si está muda).
           <video src={grabacion.video} poster={grabacion.poster} autoPlay muted loop playsInline preload="metadata" />
         ) : visual === 'gurus' ? (
           <Gurus />
+        ) : visual === 'tableros' ? (
+          <Tableros />
+        ) : visual === 'avatar' ? (
+          <AvatarEscenas />
         ) : falta ? (
           <FaltaAnimacion que={falta} />
         ) : (
@@ -172,6 +176,37 @@ function Gurus() {
   return (
     <div className="s-gurus">
       <ul className="s-gurus-ul">{una(false)}{una(true)}</ul>
+    </div>
+  );
+}
+
+/** Los tableros de MaKo pasando de a uno, cada uno entrando de arriba hacia abajo (sólo CSS: anda sin JavaScript y en el visor). */
+function Tableros() {
+  const n = TABLEROS.length;
+  return (
+    <div className="s-tab" style={{ ['--n' as string]: n }}>
+      {TABLEROS.map((t, i) => (
+        <img key={t.id} src={`/vsl-assets/sitio/tableros/${t.id}.jpg`} alt={`El tablero «${t.nombre}» de MaKo`} width={960} height={600}
+          decoding="async" style={{ animationDelay: `${i * 2.6}s` }} />
+      ))}
+    </div>
+  );
+}
+
+/** AI Avatar en una mirada: el personaje a la izquierda y, a la derecha, ESE MISMO personaje pasando por sus escenas. */
+function AvatarEscenas() {
+  return (
+    <div className="s-av">
+      <figure className="s-av-foto"><img src="/vsl-assets/sitio/avatar/personaje.jpg" alt="Tu personaje" width={432} height={774} /><figcaption>Tu personaje</figcaption></figure>
+      <span className="s-av-flecha" aria-hidden="true">→</span>
+      <div className="s-av-tel">
+        {ESCENAS_AVATAR.map((e, i) => (
+          <figure key={e.foto} style={{ animationDelay: `${i * 2.8}s` }}>
+            <img src={`/vsl-assets/sitio/avatar/${e.foto}.jpg`} alt={`Tu personaje: ${e.nombre}`} width={432} height={774} />
+            <figcaption>{e.nombre}</figcaption>
+          </figure>
+        ))}
+      </div>
     </div>
   );
 }

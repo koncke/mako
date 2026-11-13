@@ -348,6 +348,25 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-zz-vis{position:relative;border-radius:16px;overflow:hidden;border:1px solid ${LINEA};background:#fff;box-shadow:0 30px 80px -30px rgba(0,0,0,.6)}
 .s-zz-vis > .s-panel{border-radius:0;max-height:460px;overflow:hidden}
 .s-zz-video video{display:block;width:100%;height:auto}
+/* Los tableros: de a uno, 2,6 s cada uno, entrando de arriba hacia abajo (como su animación de entrada en la app). */
+.s-zz-tableros{background:#fff}
+.s-tab{position:relative;aspect-ratio:16/10;overflow:hidden}
+.s-tab img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;opacity:0;animation:s-tab-entra calc(var(--n) * 2.6s) linear infinite}
+/* El que entra va ARRIBA (z 2) y el anterior sigue a la vista debajo hasta que el nuevo terminó de entrar: nunca se ve el fondo vacío. */
+@keyframes s-tab-entra{0%{opacity:0;z-index:2;transform:translateY(14px) scale(.985);clip-path:inset(0 0 100% 0)}2.2%{opacity:1;z-index:2;transform:none;clip-path:inset(0 0 0 0)}7.69%{opacity:1;z-index:1}10%{opacity:1;z-index:1}10.1%{opacity:0}100%{opacity:0;z-index:0}}
+/* AI Avatar: tu foto → tu personaje en escenas que se van cambiando. */
+.s-zz-avatar{background:linear-gradient(135deg,#EEF4FF,#F8F5FF)}
+.s-av{display:flex;align-items:center;justify-content:center;gap:28px;padding:32px 24px}
+.s-av figure{margin:0;position:relative}
+.s-av img{display:block;width:100%;height:100%;object-fit:cover}
+.s-av figcaption{position:absolute;left:8px;bottom:8px;font-size:12px;font-weight:700;color:#fff;background:rgba(18,21,27,.62);border-radius:999px;padding:3px 10px;white-space:nowrap}
+@media (max-width:560px){.s-av{gap:14px;padding:24px 12px}.s-av-foto{width:96px}.s-av-foto figcaption{font-size:10px;padding:2px 7px;left:5px;bottom:5px}.s-av-tel{width:180px}}
+.s-av-foto{width:120px;aspect-ratio:9/16;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(18,21,27,.18)}
+.s-av-flecha{font-size:28px;font-weight:800;color:#2F6FED}
+.s-av-tel{position:relative;width:210px;aspect-ratio:9/16;border-radius:24px;overflow:hidden;box-shadow:0 0 0 6px #12151B,0 24px 50px rgba(18,21,27,.3)}
+.s-av-tel figure{position:absolute;inset:0;opacity:0;animation:s-av-escena 8.4s linear infinite}
+@keyframes s-av-escena{0%{opacity:0;transform:scale(1.06)}5%{opacity:1}33%{opacity:1;transform:scale(1)}38%{opacity:0}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.s-tab img,.s-av-tel figure{animation:none}.s-tab img:first-child,.s-av-tel figure:first-child{opacity:1}}
 /* El recuadro de «Aquí falta la animación» va sin el marco blanco: el suyo es el borde punteado. */
 .s-zz-falta{border:0;background:transparent;box-shadow:none;overflow:visible}
 /* Los referentes: una pared que sube sola, sin texto, y vuelve a empezar sin corte (la lista va dos veces). */
