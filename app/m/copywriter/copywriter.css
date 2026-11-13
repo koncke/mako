@@ -7,3 +7,6 @@
 .m-copywriter-vista[hidden] { display: none; }
 .m-copywriter-vista .nt-doc { min-height: calc(100dvh - 160px); }
 .m-copywriter-vista .nt-scroll { overflow: visible; }
+/* «Aceptar · Descartar» de la propuesta de MaKo, al pie de la Página (GuionM → PieFijoM). */
+.m-copywriter-decidir { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.m-copywriter-decidir > * { min-width: 0; }

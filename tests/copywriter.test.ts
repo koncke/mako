@@ -438,6 +438,15 @@ test('sin IA, el chat lleva a conectarla y no a Soporte (12/11/2026, en producci
   assert.match(leer('lib/ia-mensajes.ts'), /return `No hay ninguna IA conectada, así que MaKo no puede \$\{tema\}\./);
 });
 
+test('en el teléfono, la propuesta de MaKo se acepta desde la Página (13/11/2026, en producción a 375: «Aceptar» quedaba en la pestaña MaKo)', () => {
+  const m = leer('app/m/copywriter/GuionM.tsx');
+  assert.match(m, /\{decidir && vista === 'guion' && \(\s*<PieFijoM/);
+  assert.match(m, /onClick=\{decidir\.aceptar\}>Aceptar<\/Button>/);
+  assert.match(m, /onClick=\{decidir\.descartar\}>Descartar<\/Button>/);
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.ok(panel.includes("onPendiente(m ? { aceptar: () => aceptar(m), descartar: () => descartar(m) } : null);"));
+});
+
 test('una pieza escrita en una «Página» vacía toma el tipo que nombra el pedido (13/11/2026, en producción en el teléfono)', () => {
   assert.equal(tipoDelPedido('Escribime un reel de 30 segundos para WhatsApp Ads Funnel'), 'reel', 'gana el primero, y «Ads» no cuenta');
   assert.equal(tipoDelPedido('Un anuncio para vender mi curso de reels'), 'ad');

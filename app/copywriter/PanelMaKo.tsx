@@ -103,7 +103,7 @@ const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|av
 /** Cuántos bloques escribió MaKo, en palabras. */
 const cuantos = (n: number) => (n === 1 ? '1 bloque' : `${n} bloques`);
 
-export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, volver, ofertas = SIN_OFERTAS }: {
+export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catalogos, campo, onPausa, avisar, citarRef, onPendiente, volver, ofertas = SIN_OFERTAS }: {
   ws: number | null;
   guion: GuionAbierto | null;
   paginas: readonly PaginaCopy[];
@@ -123,6 +123,11 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
    * el selector pasa a «Editar» («mejora este párrafo» habla de ESO). Sin selección, sólo lleva el cursor a la caja.
    */
   citarRef?: MutableRefObject<((seleccion?: string) => void) | null>;
+  /**
+   * La propuesta que espera «Aceptar» (o null): el teléfono la decide desde la Página (13/11/2026, en producción a 375: MaKo
+   * cambiaba el gancho, la vista saltaba a la Página con el cambio marcado y «Aceptar» quedaba escondido en la pestaña MaKo).
+   */
+  onPendiente?: (decidir: { aceptar: () => void; descartar: () => void } | null) => void;
   /** La «←» del shell de Create (app/_crear/PantallaCrear.tsx): da vuelta la tarjeta a la lista de páginas. */
   volver?: ReactNode;
   /**
@@ -439,6 +444,13 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     if (aceptarAlTerminar.current && ultimo.estado === 'pendiente') aceptar(ultimo);
     aceptarAlTerminar.current = false;
   }, [mensajes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // La propuesta pendiente, para quien la decide desde afuera (el teléfono: onPendiente).
+  useEffect(() => {
+    if (!onPendiente) return;
+    const m = [...mensajes].reverse().find((x): x is Extract<Mensaje, { de: 'mako' }> => x.de === 'mako' && x.estado === 'pendiente' && !!x.propuesta);
+    onPendiente(m ? { aceptar: () => aceptar(m), descartar: () => descartar(m) } : null);
+  }, [mensajes, onPendiente]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!citarRef) return;
