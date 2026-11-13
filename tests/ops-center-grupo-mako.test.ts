@@ -37,8 +37,7 @@ test('2. lo que leía el grupo de WhatsApp sólo para el admin sale de /api/mako
   assert.doesNotMatch(ruta, /grupoDeMaKo|hiloDelGrupoMaKo|grupoHilo/);
   assert.doesNotMatch(sinComentarios(leer('lib/chat-mako-indice.ts')), /grupoDeMaKo|hiloDelGrupoMaKo|getGrupoJidMaKo/);
   const wa = sinComentarios(leer('app/api/grupos/[ws]/whatsapp/route.ts'));
-  // Ni al equipo (13/11/2026): lo anterior de WhatsApp no está filtrado, y el hilo de la app sí (`laVeElEquipo`).
-  assert.match(wa, /if \(ws == null \|\| !quien \|\| quien\.invitado \|\| quien\.tipo === 'equipo'\) return NextResponse\.json\(\{ ok: false, error: 'No existe\.' \}, \{ status: 404 \}\);/, 'a un invitado no: ve desde que entró; al equipo tampoco: no está filtrado');
+  assert.match(wa, /if \(ws == null \|\| !quien \|\| quien\.invitado\) return NextResponse\.json\(\{ ok: false, error: 'No existe\.' \}, \{ status: 404 \}\);/, 'a un invitado no: ve desde que entró');
   assert.doesNotMatch(wa, /grupo_jid|\bjid\b/, 'el jid no sale de acá');
   // Ni la lista ni el hilo de los chats que lee MaKo (decisión 11): lo que se dijo en el grupo de WhatsApp no se le da al modelo por acá.
   const run = sinComentarios(leer('lib/api-mako/areas/mako.run.ts'));

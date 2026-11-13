@@ -65,6 +65,11 @@ export const DE_LA_APP = [
   { slug: 'coaches', nombre: 'Industrias · Coaches', ruta: '/vsl/coaches' },
   { slug: 'infoproductores', nombre: 'Industrias · Infoproductores', ruta: '/vsl/infoproductores' },
   { slug: 'inmobiliarias', nombre: 'Industrias · Inmobiliarias', ruta: '/vsl/inmobiliarias' },
+  // Las mini landings por funnel (13/11/2026, la llamada con Leila): app/vsl/funnels/[funnel] con app/vsl/_sitio/funnels-datos.ts.
+  { slug: 'funnel-vsl', nombre: 'Funnels · VSL con llamada', ruta: '/vsl/funnels/vsl' },
+  { slug: 'funnel-whatsapp', nombre: 'Funnels · Anuncios a WhatsApp', ruta: '/vsl/funnels/whatsapp' },
+  { slug: 'funnel-instagram', nombre: 'Funnels · Instagram con lead magnet', ruta: '/vsl/funnels/instagram' },
+  { slug: 'funnel-youtube', nombre: 'Funnels · YouTube orgánico', ruta: '/vsl/funnels/youtube' },
   { slug: 'terminos', nombre: 'Términos', ruta: '/terminos' },
   { slug: 'privacidad', nombre: 'Privacidad', ruta: '/privacidad' },
   { slug: 'aup', nombre: 'Uso aceptable', ruta: '/aup' },

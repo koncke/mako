@@ -219,4 +219,19 @@ export const BITACORA: Hito[] = [
       'tests/mako-responde-siempre.test.ts — 12, catorce roturas, cada una cae',
     ],
   },
+  {
+    fecha: '13 nov', hora: '15:51', chat: 'MaKo en WhatsApp: no callarse cuando le hablan', sesion: 'local_11c0bf11-9013-4748-80fc-b29ff97f77f6', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La voz de MaKo vuelve a recibir, y la alarma de «no recibe» ya no se confunde con tus grupos personales',
+    puntos: [
+      '**La voz recibe:** desde las 14:12 la voz es el …2605 (la volviste a poner desde /chats). A las 15:23 le escribiste en el grupo de SuperAdmin: el mensaje le entró al instante y MaKo lo leyó en el mismo minuto.',
+      '**La alarma de las 15:20 era falsa:** decía que «otra línea vio 6 mensajes que la voz no tiene», y los 6 eran de 3 grupos tuyos donde MaKo no está. Ahora esa regla cuenta sólo los grupos de MaKo. No hace falta volver a vincular el …2605: la marca se cierra sola con el despliegue.',
+      '**Cómo se prueba:** escribirle a MaKo en un grupo de MaKo y ver que conteste. Si llega el aviso «La voz de MaKo no recibe mensajes», el motivo ya no puede ser un grupo tuyo.',
+    ],
+    archivos: [
+      'lib/linea-sorda.ts — `ajenosQueLaVozNoVio`: lo que la otra línea vio, sólo en los grupos de MaKo',
+      'lib/canal-vigilante.ts — lee los grupos de MaKo; si no puede, esa regla no cuenta',
+      'tests/linea-sorda.test.ts — 4 y 6, con lo que pasó a las 15:20; cinco roturas, cada una cae',
+    ],
+  },
 ];

@@ -63,6 +63,9 @@
 import 'server-only';
 import { esDesafioDeBot, paginaConDireccion } from '../landing-fetch';
 import { getWorkspaceActual } from '../workspace';
+import { resolverAcento } from '../acento-workspace';
+import { tzDeWorkspace } from '../timezone';
+import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { conMemoriaDelPedido } from '../ia-saturacion';
 import { crear, guardarTema, temasPropiosDe } from './server';
 import { esquema as pedirEsquema, frases as reescribirFrases, secciones as pedirSecciones } from './ia';
@@ -93,8 +96,8 @@ import {
   adaptacionSinNingunaSeccion, errorDeAdaptacion, nombresDeLaReferencia, textoDeOferta,
 } from './replicar-partes';
 import {
-  acomodoDeSeccion, anchoDeColumna, cerrarSecciones, conAnchoDeColumna, conHuecoDeFoto, conLadoDeFoto, disposicionPorSeccion,
-  testimoniosParaCompletar, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
+  acomodoDeSeccion, alTuteoEnTarjeta, anchoDeColumna, cerrarSecciones, conAnchoDeColumna, conFondoDeLaOriginal, conHuecoDeFoto, conLadoDeFoto, conTituloResaltado, disposicionPorSeccion,
+  itemsDeTarjeta, itemsEsperados, notaDeCantidad, testimoniosParaCompletar, NOTA_TITULO_RESALTA, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
   type DisposicionDeSeccion,
 } from './replicar-estructura';
 import { VARIANTES_CON_IMAGEN } from './ia-bloques';
@@ -302,6 +305,25 @@ async function ofertaPrincipalParaReplica(): Promise<string | undefined> {
   }
 }
 
+/** Los acentos que hablan de «vos» (los de Copywriting, lib/copywriter/ia.ts). */
+const VOSEAN: ReadonlySet<string> = new Set(['ar', 'uy', 'py']);
+
+/**
+ * ¿El negocio DECLARÓ una voz que vosea? La misma cuenta que Copywriting (`acentoConId`): lo declarado en la voz del cliente;
+ * la zona horaria sola no cuenta. Sin declarar, la réplica va de «tú». Nunca tira.
+ */
+async function negocioVosea(): Promise<boolean> {
+  try {
+    const ws = await getWorkspaceActual().catch(() => null);
+    const voz = await getVozCliente().catch((): VozCliente => ({ acento: '', muletillas: [], muestras: [] }));
+    const zona = ws != null ? await tzDeWorkspace(ws).catch(() => null) : null;
+    const a = resolverAcento(voz.acento, zona, voz.muletillas, voz.acentoOrigen);
+    return a.seguro && VOSEAN.has(a.id);
+  } catch {
+    return false;
+  }
+}
+
 /** Lo que llega del pedido para armar la réplica por bloques (lo pegado, la lectura del navegador, lo de las partes). */
 type EntradaBloques = { lectura: unknown; texto: string; angulos?: unknown; tema?: unknown; oferta?: string };
 
@@ -369,7 +391,11 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
       // Las tarjetas, las fotos y el video de cada parte (12/11/2026): la grilla de testimonios salía como una foto por fila.
       const disp = estiloLeido ? disposicionPorSeccion(partesM, estiloLeido.secciones) : [];
       disposiciones = disp;
-      return moldes.map((m, i) => acomodoDeSeccion(m, imgs[i] ?? null, disp[i] ?? null));
+      return moldes.map((m, i) => {
+        const a = acomodoDeSeccion(m, imgs[i] ?? null, disp[i] ?? null);
+        // El hero de una original que resalta su frase clave en otro color (13/11/2026, `conTituloResaltado`).
+        return i === 0 && estiloLeido?.tituloResalta ? [a, NOTA_TITULO_RESALTA].filter(Boolean).join(', ') : a;
+      });
     })()
     : [];
   // El molde, el ángulo y el acomodo de cada sección viajan CON la sección (`nota`, en su tanda): en la instrucción común
@@ -421,14 +447,14 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   let errorDeIA = '';
 
   // Las tandas, de a EN_PARALELO, mientras quede plazo para una entera.
-  const correr = async (lista: readonly number[][], vuelta: string) => {
+  const correr = async (lista: readonly number[][], vuelta: string, esquemaVuelta: Esquema = esqTandas) => {
     let siguiente = 0;
     const trabajador = async () => {
       while (siguiente < lista.length) {
         const indices = lista[siguiente++];
         if (Date.now() - t0 + TANDA_MS > PLAZO_BLOQUES_MS) continue;
         try {
-          const r = await pedirSecciones({ esquema: esqTandas, indices, params: receta.paramsSecciones ?? params });
+          const r = await pedirSecciones({ esquema: esquemaVuelta, indices, params: receta.paramsSecciones ?? params });
           if (r.ok) r.tarjetas.forEach((t, k) => { porIndice.set(indices[k], t); avisar({ fase: 'seccion', indice: indices[k], titulo: esq.secciones[indices[k]]?.titulo ?? '' }); });
           else { errorDeIA = r.error; console.warn(`[editor-landing/replicar] ${vuelta} tanda ${indices.join(',')} de ${url}: ${r.error}`); }
         } catch (err) {
@@ -446,6 +472,35 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   // fallar queda con el texto de la original, como siempre, y lo dice el aviso.
   const faltan = tandas.map((t) => t.filter((i) => !porIndice.has(i))).filter((t) => t.length > 0);
   if (faltan.length) await correr(faltan, '2ª vuelta');
+  // ⚠️ LA CANTIDAD NO LA DECIDE LA IA (13/11/2026, Cerebro): la réplica de Clara trajo 3 pasos de 5. Cada sección con ítems en la
+  // original (sus tarjetas, sus pasos, sus preguntas) que volvió con OTRA cantidad se pide de nuevo con la cantidad exacta y lo
+  // que trajo (`notaDeCantidad`), como Copywriting con el largo. Una vez; queda la que más se acerca.
+  const esperados = moldes ? moldes.map((m, i) => itemsEsperados(m, disposiciones[i] ?? null)) : [];
+  const torcidas = [...porIndice.entries()]
+    .filter(([i, t]) => { const e = esperados[i]; return !!e && itemsDeTarjeta(t, e.que) !== e.cantidad; })
+    .map(([i]) => i);
+  let cantidadArreglada = 0;
+  if (torcidas.length) {
+    const previas = new Map(torcidas.map((i) => [i, porIndice.get(i)!] as const));
+    const esqFirme: Esquema = {
+      ...esqTandas,
+      secciones: esqTandas.secciones.map((s, i) => {
+        const e = esperados[i];
+        if (!e || !previas.has(i)) return s;
+        const nota = notaDeCantidad(e, itemsDeTarjeta(previas.get(i)!, e.que));
+        return { ...s, nota: [nota, s.nota].filter(Boolean).join(' ') };
+      }),
+    };
+    await correr(torcidas.map((i) => [i]), '3ª vuelta: cantidad', esqFirme);
+    for (const i of torcidas) {
+      const e = esperados[i]!;
+      const antes = previas.get(i)!;
+      const ahora = porIndice.get(i) ?? antes;
+      const lejos = (t: JsonNodo) => Math.abs(itemsDeTarjeta(t, e.que) - e.cantidad);
+      if (lejos(ahora) > lejos(antes)) porIndice.set(i, antes);
+      else if (ahora !== antes && lejos(ahora) === 0) cantidadArreglada++;
+    }
+  }
   // ⚠️ ADAPTADA SIN NINGUNA SECCIÓN ESCRITA (12/11/2026, ws3 sin IA): la «Adaptada de clase.highticketclarity.com» salió con el
   // texto de la competencia en las 9 secciones, y lo único que lo decía era un aviso de 3,5 s. Eso no es una réplica adaptada:
   // no se crea, y se dice por qué (lo que contestó la IA) y qué hacer.
@@ -469,6 +524,8 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   let huecosDeFoto = 0;
   let ladosDeFoto = 0;
   let testimoniosVacios = 0;
+  let tituloResaltado = false;
+  let fondosDeLaOriginal = 0;
   const anchoColumna = anchoDeColumna(estiloLeido?.anchoContenido);
   // 1. El diseño de cada sección y lo textual de la original vaciado.
   const deLaIA = new Set<number>();
@@ -482,7 +539,14 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
       // La foto o el video al costado (el hero, «Quién es») y la columna con el ancho de la original (13/11/2026).
       const l = conLadoDeFoto(h.tarjeta, disposiciones[i] ?? null);
       if (l.cambiada) ladosDeFoto++;
-      const t = conAnchoDeColumna(l.tarjeta, anchoColumna);
+      const conAncho = conAnchoDeColumna(l.tarjeta, anchoColumna);
+      // La frase clave del titular en el color de acento, si la original la resalta (13/11/2026).
+      const resaltado = i === 0 && estiloLeido?.tituloResalta ? conTituloResaltado(conAncho) : null;
+      if (resaltado?.cambiada) tituloResaltado = true;
+      // El fondo de su parte de la original, si no es el de la página (13/11/2026: el crema de «Quién es»).
+      const fd = conFondoDeLaOriginal(resaltado?.tarjeta ?? conAncho, disposiciones[i]?.fondo, estiloLeido?.fondo);
+      if (fd.cambiada) fondosDeLaOriginal++;
+      const t = fd.tarjeta;
       if (!original) return t;
       const f = quitarPruebaDeLaOriginal(t, original);
       pruebaQuitada += f.quitados;
@@ -501,10 +565,13 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const frasesReescritas = reemplazos.size;
   // Las que siguen iguales (el conteo es por renglón; las reescritas ya no lo están).
   const frasesQuedan = Math.max(0, frasesIguales - frasesReescritas);
-  // 3. Lo ajeno que quedó: sus cifras, fechas y horas a [DATO], y su prueba social como testimonios para completar.
+  // 3. Lo ajeno que quedó: sus cifras, fechas y horas a [DATO], y su prueba social como testimonios para completar. Y de «tú»
+  //    (13/11/2026: la IA copia el voseo de una original rioplatense), salvo que el negocio haya declarado una voz que vosea.
+  const vosea = original ? await negocioVosea() : true;
   const tarjetasCrudas = tarjetasArmadas.map((armada, i) => {
     if (!original || !deLaIA.has(i)) return armada;
-    const t = reemplazos.size ? conFrasesNuevas(armada, reemplazos) : armada;
+    const conFrases = reemplazos.size ? conFrasesNuevas(armada, reemplazos) : armada;
+    const t = vosea ? conFrases : alTuteoEnTarjeta(conFrases);
     const d = sinCifrasDeLaOriginal(t, original, negocio);
     for (const c of d.cambiadas) if (!datosAjenos.includes(c)) datosAjenos.push(c);
     // La prueba social de la otra no se reescribe como propia: sus testimonios quedan para completar (13/11/2026).
@@ -557,12 +624,12 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
 
   const contenido: LandingContenido = { v: 1, paginas: [{ id: nuevoId('p'), titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: animadas.tarjetas } }] };
   // Sin el texto de la original ya no es la de la original: no lleva su nombre («Adaptada de …», «Basada en …»).
-  const creada = await crearLanding(nombreDeCopia(partes, hostDe(url), esq.titulo), contenido, config);
+  const creada = await crearLanding(nombreDeCopia(partes, hostDe(url), esq.titulo, entrada.oferta), contenido, config);
   if ('ok' in creada) return creada;
   const fidelidad = moldes ? `, fidelidad: ${lineaDeFidelidad(fidelidadDeEstructura(moldes, tarjetas))}` : '';
   const noCopiadas = Math.max(0, intentadas.size - subidas.size);
   const resumenAnim = anim ? `${anim.estilo ?? 'sin estilo'} + ${animadas.propias} propias${anim.avisoScroll ? ', con scroll' : ''}` : 'no';
-  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}, enlaces a la original ${enlacesAjenos}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${datosAjenos.length} cifras, fechas u horas de la original a [DATO], ${frasesIguales} frases iguales y ${frasesReescritas} reescritas` : ''}, ${huecosDeFoto} grillas con el hueco de la foto, ${ladosDeFoto} fotos al costado, ${testimoniosVacios} testimonios para completar, ${cierre.botonesSumados} botones al final de sección, columna ${anchoColumna ?? 'sin medir'}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
+  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}, enlaces a la original ${enlacesAjenos}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${datosAjenos.length} cifras, fechas u horas de la original a [DATO], ${frasesIguales} frases iguales y ${frasesReescritas} reescritas` : ''}, ${huecosDeFoto} grillas con el hueco de la foto, ${ladosDeFoto} fotos al costado, ${testimoniosVacios} testimonios para completar, ${cierre.botonesSumados} botones al final de sección, columna ${anchoColumna ?? 'sin medir'}, cantidad ${torcidas.length} con otra y ${cantidadArreglada} arregladas, titular ${tituloResaltado ? 'resaltado' : 'de un color'}, ${vosea ? 'con voseo' : 'de tú'}, ${fondosDeLaOriginal} fondos de sección${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
   const una = terminoTarjeta(receta.config);
   const varias = terminoTarjeta(receta.config, { plural: true });
   const avisos = [

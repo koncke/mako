@@ -1825,4 +1825,52 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '13 nov', hora: '15:40', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La landing replicada resalta su titular como la original y respeta la cantidad de pasos',
+    puntos: [
+      'Si el titular de la original pinta una parte en otro color, como un dorado, la tuya resalta su frase clave con ese color.',
+      'Los pasos, los testimonios y las preguntas salen en la misma cantidad que en la original: si MaKo trae otra, lo vuelve a intentar solo.',
+    ],
+    archivos: [
+      'lib/editor-landing/estilo-original.ts — las reglas de adentro del titular y la parte que resalta',
+      'lib/editor-landing/replicar-estructura.ts · replicar.ts — el titular resaltado y la segunda pasada de cantidad',
+      'tests/web-generator-replicar-1311.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '13 nov', hora: '16:40', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La landing replicada usa el tamaño de títulos y los fondos de la original, y te habla de «tú»',
+    puntos: [
+      'El titular y los títulos tienen el tamaño de los de la original, cada uno con el suyo.',
+      'Las secciones que en la original tienen otro color de fondo lo tienen también en la tuya.',
+      'El texto va de «tú» aunque la original use «vos», salvo que tu negocio haya elegido hablar de «vos».',
+      'La landing se llama como tu oferta (por ejemplo «Landing · WhatsApp Ads Funnel»), no como la página de la otra.',
+    ],
+    archivos: [
+      'lib/editor-landing/estilo-original.ts · temas.ts · css.ts — el tamaño del titular y de los títulos por separado',
+      'lib/editor-landing/replicar-estructura.ts · replicar.ts · replicar-partes.ts — el fondo, el tuteo y el nombre',
+      'tests/web-generator-replicar-1311.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '13 nov', hora: '17:20', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las secciones de color van de borde a borde, con el texto en su columna',
+    puntos: [
+      'Una sección puede tener su color de fondo de un lado al otro de la pantalla y el texto en una columna centrada, como en la página que replicaste.',
+      'Los títulos de las tarjetas también toman el tamaño de los de la original.',
+    ],
+    archivos: [
+      'lib/editor-landing/doc.ts · especificacion.ts · css.ts — el ancho del contenido de una sección a todo el ancho',
+      'lib/editor-landing/estilo-original.ts · temas.ts — el tamaño de los subtítulos',
+      'lib/editor-landing/replicar-estructura.ts — la franja en la réplica',
+      'tests/web-generator-replicar-1311.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
 ];

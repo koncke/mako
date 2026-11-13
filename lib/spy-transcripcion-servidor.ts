@@ -24,9 +24,9 @@ import { validarDestino } from './landing-fetch';
 import { errorDeCascada, guionDeYoutubeConGemini, SttSinEscucha, transcribirAudio } from './ai-cheap';
 import { salidaDegenerada } from './stt-degenerado';
 import { esSinPermisoIa, TEXTO_SIN_PERMISO_IA } from './ia-permiso-reglas';
-import { reservarDelDia, videoDeUnaPublicacion } from './spy-todo';
+import { reservarDelDia, videoDeUnAnuncio, videoDeUnaPublicacion } from './spy-todo';
 import {
-  CLAVE_DIA_GUIONES_YT, GUIONES_YT_POR_DIA, MAX_BYTES_VIDEO, TRANSCRIBIENDO_YT_VENCE_MS, claveTranscripcion, enlaceDeLaPublicacion, esDeYoutube,
+  CLAVE_DIA_GUIONES_YT, GUIONES_YT_POR_DIA, MAX_BYTES_VIDEO, TRANSCRIBIENDO_YT_VENCE_MS, claveTranscripcion, enlaceDeLaPublicacion, esAnuncioConVideo, esDeLaBibliotecaDeAnuncios, esDeYoutube,
   leerGuion, prefijoTranscripciones, reclamarGuion, tieneGuion, transcribirGuion, transcribirGuionYoutube, vencido, vistaDeGuion,
   type DepsGuion, type DepsGuionYoutube, type ResultadoTramoYt, type VistaGuion,
 } from './spy-transcripcion';
@@ -68,11 +68,13 @@ async function tramoDeYoutube(url: string, tramo: { desdeS: number; hastaS: numb
   return { ...r, error: await errorDeCascada([r.error], 'transcribir este video').catch(() => 'No pude transcribirlo.') };
 }
 
-type Pieza = { id: number; competidor_id: number; canal: string; tipo: string; ref: string; url: string | null; duracion: string | null };
+type Pieza = { id: number; competidor_id: number; canal: string; tipo: string; ref: string; url: string | null; duracion: string | null; medio?: string | null };
 
 async function piezaDe(piezaId: number): Promise<Pieza | null> {
   const db = await getTenantDb();
-  const { data, error } = await db.from('spy_piezas').select('id, competidor_id, canal, tipo, ref, url, duracion').eq('id', piezaId).maybeSingle();
+  // `*` y no una lista: `medio` (mig 0391, si es un anuncio en video) puede no existir, y una columna nombrada que falta rechaza
+  // la consulta (lo mismo que lib/copywriter/outliers-servidor.ts).
+  const { data, error } = await db.from('spy_piezas').select('*').eq('id', piezaId).maybeSingle();
   if (error) throw new Error(`No pude leer la pieza: ${error.message}`);
   return (data as Pieza | null) ?? null;
 }
@@ -82,7 +84,8 @@ function depsDe(ws: number, p: Pieza): DepsGuion & DepsGuionYoutube {
   return {
     leer: async () => { const crudo = await getSettingEstricto(clave); return { crudo, version: crudo }; },
     cambiarSi: (version, nuevo) => cambiarSettingSi(clave, version, nuevo),
-    video: (enlace) => videoDeUnaPublicacion(ws, enlace),
+    // Un anuncio de la biblioteca de Meta, por el actor de anuncios (13/11/2026); una publicación de Instagram, como siempre.
+    video: (enlace) => (esDeLaBibliotecaDeAnuncios(enlace) ? videoDeUnAnuncio(ws, enlace) : videoDeUnaPublicacion(ws, enlace)),
     bajar: bajarVideo,
     escuchar,
     youtube: tramoDeYoutube,
@@ -103,7 +106,8 @@ export async function asegurarGuion(
 ): Promise<{ vista: VistaGuion; trabajo: (() => Promise<void>) | null } | null> {
   const p = await piezaDe(piezaId);
   if (!p) return null;
-  const enlace = tieneGuion(p) ? enlaceDeLaPublicacion(p) : null;
+  // Un anuncio en video también (13/11/2026): lo pide Copywriting al replicarlo; la pantalla de Spy no (ver `esAnuncioConVideo`).
+  const enlace = tieneGuion(p) || esAnuncioConVideo(p) ? enlaceDeLaPublicacion(p) : null;
   if (!enlace) return { vista: { estado: 'no-aplica' }, trabajo: null };
   const deps = depsDe(ws, p);
   if (esDeYoutube(enlace)) {

@@ -112,6 +112,22 @@ export function destinoDelSheet(p: {
   return elegido.snap;
 }
 
+/**
+ * Si un arrastre que EMPIEZA EN EL CUERPO de un sheet mueve el sheet (true) o scrollea la lista (false).
+ * `dy` positivo es hacia abajo.
+ *
+ * Hacia abajo, sólo con la lista arriba de todo (para bajarlo o cerrarlo). Hacia arriba, sólo en «medio» con
+ * «alto» permitido: primero se agranda y después se scrollea, como la hoja de iOS
+ * (`prefersScrollingExpandsWhenScrolledToEdge`). En «medio» el panel está corrido hacia abajo y lo último de
+ * la lista queda FUERA de la pantalla: scrolleando no se llegaba nunca (13/11/2026, a 375 la última fila
+ * quedaba en 1014–1074 con la pantalla en 812).
+ */
+export function cuerpoMueveElSheet(p: { dy: number; scrollTop: number; enMedio: boolean }): boolean {
+  if (p.dy > 0) return p.scrollTop <= 0;
+  if (p.dy < 0) return p.enMedio;
+  return false;
+}
+
 /** Lo que baja el contenido al tirar desde arriba (con resistencia desde el primer px). */
 export function distanciaDePull(dy: number, alto: number): number {
   return dy > 0 ? rubberband(dy, alto) : 0;

@@ -396,8 +396,9 @@ test('replicar.ts: el estilo en paralelo, el tema propio reusado, las imágenes 
   assert.match(rep, /\.find\(\(t\) => t\.id === tema\.id\);\s*if \(ya\) return \{ ok: true, tema: ya \};/, 'el mismo estilo replicado otra vez pisaría el tema que la persona cambió');
   // «Replicar y adaptar» (6da648600, 27/10/2026): la adaptada conserva el estilo de la original (el estilo no mira
   // `adaptar`) y sólo cambia el nombre: ya no es la de la original, no lleva su título. Desde el 28/10 el nombre lo decide
-  // `nombreDeCopia` por las partes («Adaptada de …» con diseño y estructura; «Basada en …»; el título con el texto).
-  assert.match(rep, /const puesto = estilo \? aplicarEstilo\(tarjetas, asig, estilo, subidas, \{ fondoTema \}\)[\s\S]*crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo\), contenido, config\)/);
+  // `nombreDeCopia` por las partes («Adaptada de …» con diseño y estructura; «Basada en …»; el título con el texto). Desde el
+  // 13/11/2026 también con la oferta: escrita para el negocio, «Landing · <oferta>» (tests/web-generator-replicar-1311.test.ts).
+  assert.match(rep, /const puesto = estilo \? aplicarEstilo\(tarjetas, asig, estilo, subidas, \{ fondoTema \}\)[\s\S]*crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo, entrada\.oferta\), contenido, config\)/);
   // (28/10/2026: entre la copia fiel y la de bloques está ahora la copia IDÉNTICA, que trae su propia hoja: no es la fiel)
   const fiel = rep.slice(rep.indexOf('async function replicarFiel'), rep.indexOf('function rotuloDeCopia'));
   assert.doesNotMatch(fiel, /estilo|subirImagenes|temaParaLaCopia/, 'la Página web es la copia fiel: no cambia');

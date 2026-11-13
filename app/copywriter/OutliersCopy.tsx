@@ -18,10 +18,10 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { contadorCorto, nivelDeMultiplo, rotuloOutlier } from '@/lib/carruseles/explorar';
 import {
-  ASPECTO_FORMATO, FORMATOS_COPY, INFO_FORMATO, PROPORCION_FORMATO, ROTULO_TEXTO, filtrarOutliersCopy, imagenDelOriginal, restoDelTexto,
+  ASPECTO_FORMATO, FORMATOS_COPY, INFO_FORMATO, PROPORCION_FORMATO, ROTULO_TEXTO, claveDeConsulta, filtrarOutliersCopy, imagenDelOriginal, sumarTanda, textoDeTarjeta,
   rotuloDeFormato, rotuloDiasAlAire, type FormatoCopy, type OrdenCopy, type OutlierCopy, type PortadaCopy,
 } from '@/lib/copywriter/outliers';
-import { pedirReplicar } from './cliente';
+import { pedirOutliers, pedirReplicar } from './cliente';
 import { OutlierAbierto } from './OutlierAbierto';
 import { RUTA_CREAR_COPY, RUTA_GUIONES_COPY } from './vista';
 import s from '@/app/image-editor/carruseles/explorar.module.css';
@@ -37,6 +37,13 @@ const PLANTILLAS_EN_PORTADA = 8;
 
 /** Cuántas tarjetas se dibujan por vez (la grilla de 4 columnas: 12 filas). */
 const TANDA = 48;
+
+/** El valor `ms` después de que dejó de cambiar: lo que se escribe en el buscador se pide al server al terminar de escribir. */
+function useDiferido<T>(v: T, ms: number): T {
+  const [d, setD] = useState(v);
+  useEffect(() => { const t = setTimeout(() => setD(v), ms); return () => clearTimeout(t); }, [v, ms]);
+  return d;
+}
 
 const ORDENES: { value: OrdenCopy; label: string }[] = [
   { value: 'outlier', label: 'Mayor outlier' },
@@ -110,7 +117,10 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
   const aire = o.formato === 'anuncio' ? rotuloDiasAlAire(o.diasAlAire) : null;
   const quien = o.creador.usuario ? `@${o.creador.usuario}` : o.creador.nombre;
   const cuando = haceCuanto(o.publicada, ahora);
-  const sigue = o.formato === 'youtube' ? '' : restoDelTexto(o);
+  // El gancho y lo que le sigue, sin repetirse (un gancho cortado con «…» no es el principio del texto: lib/copywriter/outliers.ts).
+  const texto = textoDeTarjeta(o);
+  const gancho = texto.gancho;
+  const sigue = o.formato === 'youtube' ? '' : texto.sigue;
   const original = rota ? null : imagenDelOriginal(o);
   const video = o.formato === 'reel' || o.formato === 'youtube';
   return (
@@ -125,13 +135,15 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
           </>
         ) : (
           <div className={oc.copy}>
-            <button type="button" className={oc.ganchoGrande} onClick={onAbrir}>{o.gancho}</button>
+            <button type="button" className={oc.ganchoGrande} onClick={onAbrir}>{gancho}</button>
             {sigue ? <p className={oc.sigue}>{sigue}</p> : null}
           </div>
         )}
         <span className={`${s.marcas} ${oc.marcas}`}>
           <span className={oc.red} title={`${rotuloDeFormato(o)} · ${ROTULO_TEXTO[o.deDonde]}`}>
-            <IconoRed formato={o.formato} />{o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas}` : INFO_FORMATO[o.formato].label}
+            <IconoRed formato={o.formato} />
+            {/* En el teléfono, sólo el ícono: el nombre tapaba la cara y el nombre de las portadas tipo tuit (13/11/2026, el Cerebro). */}
+            <span className={oc.redNombre}>{o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas}` : INFO_FORMATO[o.formato].label}</span>
           </span>
           {/* Con el guion transcripto, se nota (12/11/2026, prueba en producción: 46 de los primeros 48 reels traían sólo su pie, y
               replicar el pie no copia lo que se DICE en la pieza). */}
@@ -145,7 +157,7 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
         {original ? (
           // Con portada, el texto va acá y no encima de la imagen (que ya trae el suyo).
           <div className={oc.textoPie}>
-            <button type="button" className={oc.ganchoPie} onClick={onAbrir}>{o.gancho}</button>
+            <button type="button" className={oc.ganchoPie} onClick={onAbrir}>{gancho}</button>
             {sigue ? <p className={oc.siguePie}>{sigue}</p> : null}
           </div>
         ) : null}
@@ -202,26 +214,72 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
   const [usando, setUsando] = useState<string | null>(null);
   const [activa, setActiva] = useState<string | null>(null);
 
+  // La cuenta de cada formato y el total son los de TODA la portada, aunque la página traiga sólo la primera tanda.
   const cuantos = useMemo(() => {
     const n = new Map<FormatoCopy, number>();
-    for (const o of portada.outliers) n.set(o.formato, (n.get(o.formato) ?? 0) + 1);
+    if (portada.porFormato) for (const f of FORMATOS_COPY) n.set(f, portada.porFormato[f] ?? 0);
+    else for (const o of portada.outliers) n.set(o.formato, (n.get(o.formato) ?? 0) + 1);
     return n;
-  }, [portada.outliers]);
-  const vistos = useMemo(() => filtrarOutliersCopy(portada.outliers, { formato, q }, orden), [portada.outliers, formato, q, orden]);
+  }, [portada.outliers, portada.porFormato]);
+  const totalPortada = portada.total ?? portada.outliers.length;
+
+  // La portada por tandas (13/11/2026, el Cerebro: mandaba los 924 outliers de una, 1,19 MB). Con `portada.total`, la página trajo
+  // la primera tanda y el resto se pide al server (`pedirOutliers`), filtrado y ordenado allá con la misma función; al cambiar el
+  // filtro, la lista vuelve a pedirse desde la primera. Mientras llega, se ve lo que ya está a mano filtrado acá. Sin `total` (el
+  // banco), la portada entera está acá y se filtra acá, como antes.
+  const remota = portada.total != null;
+  const [conocidos, setConocidos] = useState<OutlierCopy[]>(portada.outliers);
+  const aMano = useMemo(() => filtrarOutliersCopy(remota ? conocidos : portada.outliers, { formato, q }, orden),
+    [remota, conocidos, portada.outliers, formato, q, orden]);
+  const qPedida = useDiferido(q, 300);
+  const consulta = useMemo(() => ({ filtros: { formato, q: qPedida }, orden }), [formato, qPedida, orden]);
+  const clave = claveDeConsulta(consulta.filtros, consulta.orden);
+  const [lista, setLista] = useState(() => ({ clave: claveDeConsulta({ formato: null, q: '' }, 'outlier'), items: portada.outliers, total: totalPortada }));
+  const [pidiendo, setPidiendo] = useState(false);
+  // Una tanda que no llegó no se vuelve a pedir sola al bajar (sería un pedido por cada movimiento): queda «Ver más».
+  const [fallo, setFallo] = useState(false);
+  const ultima = useRef(clave);
+  ultima.current = clave;
+  const traer = async (desde: number) => {
+    const c = clave;
+    setPidiendo(true);
+    const r = await pedirOutliers({ ...consulta, desde });
+    if (ultima.current !== c) return; // otro filtro mientras tanto: manda el último
+    setPidiendo(false);
+    setFallo(!r.ok);
+    if (!r.ok) { setAviso(`No pude traer más outliers: ${r.error}`); return; }
+    setConocidos((ya) => sumarTanda(ya, r.outliers));
+    setLista((l) => ({ clave: c, items: desde === 0 || l.clave !== c ? r.outliers : sumarTanda(l.items, r.outliers), total: r.total }));
+  };
+  useEffect(() => {
+    if (!remota) return;
+    if (lista.clave === clave) { setPidiendo(false); return; }
+    void traer(0);
+  }, [clave]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Lo que ya llegó del server para lo que se está mirando (con lo escrito al día, no sólo lo pedido).
+  const alDia = remota && lista.clave === claveDeConsulta({ formato, q }, orden);
+
   // De a TANDA tarjetas (11/11/2026, Martín: «anda increíblemente lento». Medido: se dibujaban las 2.291 de una, 46.030 elementos,
   // y cada cambio de filtro tardaba de 1 a 7 s). Al bajar se suman solas; «Ver más» por si el navegador no avisa (una pestaña de
   // fondo no dispara el IntersectionObserver). Cambiar el filtro vuelve a la primera tanda.
   const [mostrar, setMostrar] = useState(TANDA);
-  const enGrilla = useMemo(() => vistos.slice(0, mostrar), [vistos, mostrar]);
+  const vistos = alDia ? lista.items : aMano;
+  const total = !remota ? aMano.length : alDia ? lista.total : null;
+  const enGrilla = useMemo(() => (alDia ? vistos : vistos.slice(0, mostrar)), [alDia, vistos, mostrar]);
+  const faltan = alDia ? lista.total - lista.items.length : remota ? 0 : vistos.length - mostrar;
+  const cargarMas = () => {
+    if (!remota) setMostrar((n) => n + TANDA);
+    else if (alDia && !pidiendo) void traer(lista.items.length);
+  };
   useEffect(() => { setMostrar(TANDA); }, [formato, q, orden]);
   const fin = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = fin.current;
-    if (!el || mostrar >= vistos.length || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) setMostrar((n) => n + TANDA); }, { rootMargin: '800px' });
+    if (!el || faltan <= 0 || pidiendo || fallo || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) cargarMas(); }, { rootMargin: '800px' });
     io.observe(el);
     return () => io.disconnect();
-  }, [mostrar, vistos.length]);
+  }, [faltan, pidiendo, fallo, enGrilla.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** «Replicar»: la página nueva del tipo del original, y a ella; ahí MaKo pregunta para qué oferta. */
   const replicar = async (o: OutlierCopy) => {
@@ -265,7 +323,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
               en DOS renglones si no entran, no en una fila que se desliza: el 12/11, a 375, «+ Crear desde cero» quedaba cortado a la
               derecha (prueba de Copywriting en producción) y el botón de crear es el principal. */}
           {botones}
-          {portada.outliers.length > 0 && (
+          {totalPortada > 0 && (
             <label className={s.busca}>
               <Lupa />
               <input type="search" value={q} onChange={(e) => setQ(e.target.value)} enterKeyHint="search"
@@ -303,7 +361,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
         ))}
         {aviso && <p role="alert" className={s.aviso}>{aviso}<ReportarASoporte /></p>}
 
-        {portada.outliers.length === 0 ? (
+        {totalPortada === 0 ? (
           <>
             <div className={s.vacio}>
               <p>Sigue en Competitors Spy las cuentas de tu nicho y aquí aparecen sus anuncios, reels, carruseles y videos que mejor funcionan, para replicar el que te sirva.</p>
@@ -315,15 +373,17 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
             <div className={s.filtros}>
               {segmento}
               <span className={s.espacio} />
-              {telefono ? null : (
-                <span className={s.total}>{contadorCorto(vistos.length)} {vistos.length === 1 ? 'outlier' : 'outliers'}</span>
+              {telefono || total == null ? null : (
+                <span className={s.total}>{contadorCorto(total)} {total === 1 ? 'outlier' : 'outliers'}</span>
               )}
               <Dropdown value={orden} search={false} alContenido ariaLabel="Orden" align="right"
                 options={ORDENES.map((x) => ({ value: x.value, label: x.label }))}
                 botonLabel={<span>{ORDENES.find((x) => x.value === orden)?.label}</span>} onChange={(x) => setOrden(x as OrdenCopy)}
                 buttonStyle={chip(false)} />
             </div>
-            {vistos.length === 0 ? (
+            {vistos.length === 0 && remota && !alDia ? (
+              <div className={s.vacio}><p>Buscando…</p></div>
+            ) : vistos.length === 0 ? (
               <div className={s.vacio}><p>Nada con esa búsqueda.</p><button type="button" className={s.texto} onClick={() => { setQ(''); setFormato(null); }}>Quitar filtros</button></div>
             ) : (
               <>
@@ -334,9 +394,9 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
                   render={(o) => (
                     <TarjetaCopy o={o} ahora={ahora} replicando={replicando === o.id} onAbrir={() => setAbierto(o)} onReplicar={() => void replicar(o)} />
                   )} />
-                {mostrar < vistos.length ? (
+                {faltan > 0 ? (
                   <div ref={fin} className={oc.masAbajo}>
-                    <button type="button" className={s.pastilla} onClick={() => setMostrar((n) => n + TANDA)}>Ver más ({vistos.length - mostrar})</button>
+                    <button type="button" className={s.pastilla} onClick={cargarMas} disabled={pidiendo}>{pidiendo ? 'Trayendo…' : `Ver más (${faltan})`}</button>
                   </div>
                 ) : null}
               </>

@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **Lo que una línea trae al re-vincularla NO pasa por el webhook** (13/11/2026, Mauricio). Siete mensajes estaban en el store de las dos
+  líneas y MaKo nunca los vio: entraron como historial, sin `messages.upsert`. La hora de guardado está en el id de la fila (un cuid).
+  Ahora los rescata el cron. Ver «Lo que trae la re-vinculación no pasa por el webhook», abajo.
 - **El grupo de la app está armado y NADIE lo usó** (13/11/2026). En 14 días, 99 mensajes de clientes por WhatsApp y 3 por la app, los
   tres pruebas del 4/11. «Funciona en la app» no se puede leer en `grupo_mensajes`: se prueba escribiendo. Y lo que en WhatsApp corre
   ANTES de la cola (el comprobante de la agencia) en la app no corría nunca. Ver «Lo de WhatsApp que la app no hacía», abajo.
@@ -78,6 +81,44 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
   que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+---
+
+## Lo que trae la re-vinculación no pasa por el webhook: siete mensajes de Mauricio callados con la línea ya sana (13/11/2026, claude5)
+
+**El síntoma:** Mauricio (ws1) escribió en su grupo de MaKo el 12/11 de 19:23 a 20:21 UTC y el 13/11 de 15:58 a 15:59, sobre su envío
+de email apagado. MaKo no le contestó nunca, tampoco después de que las líneas volvieran a recibir. Y no quedó NADA: 0 filas en
+`mako_doer_buffer`, en `grupo_mensajes` (el hilo de la app) y en `anthropic_usage` (`clase-doer`) del ws1, ni un aviso de «llegó tarde».
+
+**Lo obvio era el equivocado: «la línea estaba sorda».** Lo estaba (el …2605 cortado con 403 desde el 12/11 12:13 UTC; la voz en el
+…3479 desde las 17:38, recibiendo con ~24 h de atraso), pero eso explica el silencio de ESE rato, no el de después. Los siete mensajes
+están en el store de Evolution de las dos líneas. **La pista está en el id de la fila:** es un cuid de Prisma, y sus caracteres 2 a 9
+son la hora del guardado en base 36 (comprobado contra el `createdAt` del webhook). Los siete entraron EN LOTE al re-vincular:
+…2605 el 13/11 17:12:27, …3479 17:13:37. Además vienen sin `participant`, con el número del @lid como `pushName` y `source: unknown`:
+es la **sincronización de historial**. Evolution la guarda y no manda `messages.upsert`, que es el único evento de mensajes que lee el
+webhook. El doer, el espejo y el freno de «llegó tarde» (lib/linea-demora.ts) nunca se enteran: MaKo calla con los mensajes a la vista.
+
+**La regla que queda:**
+- **«MaKo no contestó» tiene TRES causas, y se miran en orden:** la línea (la última entrante; ver «La línea sorda», abajo), el
+  clasificador (`anthropic_usage`) y **si el mensaje llegó al webhook**. Un mensaje que está en el store pero no en `grupo_mensajes`
+  nunca pasó por el webhook. La hora del guardado sale del id (`horaDeGuardado`, lib/rescate-del-store.ts).
+- **Lo arregla el rescate del store** (`rescatarDelStore`, lib/mako-doer-in.ts, en el cron alerta-critica cada 10 min). Lee el store de
+  la VOZ en cada grupo oficial y toma lo de una persona que entró al store hace menos de 1 h, tiene más de 3 min y no está en el hilo
+  ni en la cola. Pasa por las MISMAS puertas que la entrada (`atenderEntranteDoer` con `soloEncolar`: más de 6 h va a SuperAdmin, el
+  comprobante, la respuesta al equipo, el 👍), se encola y lo contesta `doer-flush`. «Hace poco» es por la hora de GUARDADO, no la de
+  WhatsApp: el historial trae mensajes de un día antes, y así no se vuelve a barrer lo viejo del store.
+- **No sirve suscribir `MESSAGES_SET` al webhook:** al vincular una línea con `syncFullHistory: true` (todas las de los negocios, y el
+  …3479 personal de Martín) mandaría el historial entero a Vercel.
+- **Un aviso de ticket «Ya anda» sale con el DESPLIEGUE, no con las escrituras.** El #93 se cerró solo a las 18:45 UTC y Mauricio leyó
+  «Ya anda» con su `envio_email_enabled` todavía en false. Lo que depende de escribir en producción no se pone en el hito «Hecho» del
+  despliegue.
+
+**Una falsa alarma de al lado:** la marca `mako.voz.sorda` de las 18:20 UTC del 13/11 decía que el …2605 no recibía («otra línea vio 8
+mensajes…»), y a las 18:23 recibió al instante. Parecía el historial del …3479, y no era eso: los mensajes venían de grupos
+personales de Martín, donde MaKo no está, y la regla contaba cualquier @g.us de la otra línea. Lo arregló el chat «MaKo en WhatsApp:
+no callarse» en 3bfe00dda (`vigilarSorderaDeLaVoz` cuenta sólo los grupos de MaKo).
+
+Test: tests/rescate-del-store.test.ts (con las filas reales del store del 13/11) y su hijo, que corre el rescate y `doer-flush`.
 
 ---
 
@@ -146,9 +187,27 @@ entran por su rol (`juzgarAcceso` → tipo `equipo`, letra `c`/`s`) y el «nunca
   ese rol ve en la app, con la MISMA regla de la barra (`puedeVerKey`), más confirmar, cancelar y los tickets; nada `rolMinimo: admin` y
   nada que lea el Google Calendar del dueño (`datosDeGoogle`: `agenda_del_dia` está en la pestaña CRM y le mostraba al closer el «Sleep»
   del dueño). Esa vista la vuelven a mirar la ejecución y la confirmación. Las herramientas de afuera del registro no viajan.
-- **El contexto y la memoria:** el turno corre recortado como el de un invitado (sin perfil, objetivos, tickets, la plataforma ni la charla
-  del dueño), pero su memoria, sus pendientes y lo que le mostró viven en una clave PROPIA (`claveDelMiembro`, `jid#equipo:<email>`): su «sí»
-  no confirma lo que MaKo le propuso al dueño. La cola, el candado y la salida siguen siendo del grupo, y un lote se parte por persona.
+- **El contexto y la memoria:** un closer tampoco administra, así que su turno corre con `hayInvitado`, como el de un invitado (sin
+  perfil, objetivos, tickets, la plataforma ni la charla del dueño). Lo que el ROL le suma va aparte y es sólo suyo: las herramientas de
+  su vista, y su memoria y sus pendientes en una clave PROPIA (`claveDelMiembro`, `jid#equipo:<email>`): su «sí» no confirma lo que MaKo
+  le propuso al dueño. La cola, el candado y la salida siguen siendo del grupo, y un lote se parte por persona.
+- **A quien quien administra INVITÓ, la invitación le sigue mandando** aunque sea del equipo (`juzgarAcceso`, y `miembrosDelGrupo` lo
+  lista como invitado): nada de lo que ya era un invitado se abre por sumar al equipo. En producción, al 13/11, no había ninguno.
+
+**⚠️ El rojo de la primera subida, y el diagnóstico obvio era el equivocado.** La primera versión llamó `recortado` (invitado O equipo)
+a lo que antes decía `hayInvitado`, y GitHub tumbó once guardas del invitado (tests/grupos-ops-guarda, doer-hilo, doer-falla,
+agenda-google-grupo, hilo-del-superadmin…). Parecía que se había aflojado la privacidad del invitado, y no: esas guardas fijan el
+TEXTO de la línea (`const ctxFalla = hayInvitado ? ''`), así que un cambio de NOMBRE las tumba aunque el comportamiento sea el mismo o
+más estricto. Reescribir la guarda «al día» tampoco es la salida: es ablandar lo que protege a un invitado para que entre lo nuevo (el
+Cerebro lo frenó). **La regla:** lo nuevo se expresa DENTRO del nombre que la guarda mira, y lo que difiere se suma aparte, sin tocar
+la guarda: el equipo corre con `hayInvitado`, y su memoria, sus pendientes y sus herramientas van en líneas propias
+(`if (miembroDelEquipo) …`, `else if (miembroDelEquipo) guardarTurno(…, claveDelTurno, …)`, `deSuRol`).
+
+**Lo que el closer NO tiene por eso:** la cita en el contexto (`ctxCita`), lo hablado antes de sus últimos 12 turnos (`ctxYaSeHablo`) y
+«lo que le mostraste» (`ctxMostrado`). Las tres van en la rama que la guarda le prohíbe a quien no administra, y las dos últimas se
+leen del GRUPO. La cita sería segura para él en la app (la ruta ya valida que el mensaje citado sea uno que él ve: `filaParaPersona`
+→ «no existe»), pero no por WhatsApp, donde `textoPorIdDeWhatsApp` lee cualquier id. Si hacen falta, se suman con un nombre propio
+y leyendo SU clave, nunca la del grupo; lo más probable que se extrañe es la cita, cuando responda a un aviso de un lead.
 
 **Lo que esto NO cambia, y hay que saberlo:** el hilo es UNO. Lo que el dueño le pregunta a MaKo y lo que MaKo le contesta (por ejemplo
 cuánto facturó) lo ve el closer en el hilo, igual que en el grupo de WhatsApp. Lo que se le saca son los avisos con plata, no la charla. Si
@@ -286,6 +345,19 @@ con la MISMA condición con la que `conectar` la suelta (`motivoParaVolverAVincu
 ella diría «ya está conectada» al tocarlo. Son dos pasos: el botón y escanear. ⚠️ **Y el aviso mandaba al teléfono equivocado:**
 los pasos del mail y la campanita eran fijos («Conectar por QR», «el teléfono de MaKo (…2605)») con la voz en el …3479; ahora
 salen de la línea (`pasosQrDe`). Lo fija tests/volver-a-vincular.test.ts (V1-V6).
+
+**Falsa alarma con la voz bien: «otra línea vio» contaba los grupos PERSONALES de Martín (13/11 18:20, medido en sólo lectura).**
+A las 17:12 Martín devolvió la voz al …2605 («Dejar de usarlo para MaKo», desde /chats) y el …3479, recién re-vinculado, quedó
+como «la otra línea» del detector. A las 18:20 la marca dijo «otra línea vio 6 mensaje(s) de personas que la voz no tiene», y a las
+18:23 a la voz le entró Martín al instante y MaKo lo clasificó. Los 6 eran de 3 grupos suyos donde MaKo no está; en el grupo de MaKo
+que comparten (el de Mauricio), la voz tenía todos. **La causa:** la regla filtraba «grupo» (`@g.us`) y no «grupo compartido», como
+decía su comentario. No se había visto porque desde el 3/11 la voz estuvo casi siempre en el …3479, y con la voz y la otra en la
+misma línea la regla no corre. ⚠️ **La pista de al lado era la equivocada:** el historial que WhatsApp trae al re-vincular el
+…3479 (mensajes de las 15:59 a las 16:08, antes del QR) no es la causa: un mensaje de un grupo de MaKo que llega así y la voz no
+tiene SÍ es la prueba que la regla busca. **La regla:** la otra línea cuenta sólo los grupos de MaKo (`mako.grupo_jid` de cada
+negocio y `mako.superadmin.grupo_jid`, los mismos que lista `gruposDeMaKoEstricto` de lib/mako-chat.ts); sin esa lista no cuenta
+nada (`ajenosQueLaVozNoVio`, lib/linea-sorda.ts). Lo fija tests/linea-sorda.test.ts 4 y 6 (roturas O1-O5). La marca que quedó en el
+…2605 se cierra sola con el despliegue (hay una persona después de la marca): no hace falta re-vincular el …2605.
 
 ---
 

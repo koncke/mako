@@ -186,8 +186,8 @@ test('3. las partes: el texto trae la estructura y los ángulos, nunca quedan la
 
 test('2b. cómo está acomodada cada sección: dónde lleva imágenes y si sus subtítulos son tarjetas', () => {
   const m = moldeDeSeccion({ titulo: 'Beneficios', puntos: ['### Rápido', 'a', '### Barato', 'b', '### Fácil', 'c'] });
-  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: false }), 'una imagen junto al texto, 3 tarjetas o pasos con su subtítulo');
-  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: true }), 'imagen de fondo, 3 tarjetas o pasos con su subtítulo');
+  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: false }), 'una imagen junto al texto, 3 tarjetas o pasos con su subtítulo, ni uno más ni uno menos');
+  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: true }), 'imagen de fondo, 3 tarjetas o pasos con su subtítulo, ni uno más ni uno menos');
   assert.equal(acomodoDeSeccion(moldeDeSeccion({ titulo: 'Logos', puntos: ['x'] }), { cantidad: 6, fondo: false }), '6 imágenes (galería o logos)');
   assert.equal(acomodoDeSeccion(moldeDeSeccion({ titulo: 'Solo', puntos: ['x'] }), null), '');
   // Las imágenes de cada sección de la réplica: las de SUS partes de la original.
@@ -201,7 +201,9 @@ test('2b. cómo está acomodada cada sección: dónde lleva imágenes y si sus s
   assert.match(rep, /const estilo = partes\.diseno \? estiloLeido : null;/);
   // La nota de cada sección (su ángulo, su forma y su acomodo) viaja CON la sección a su tanda.
   assert.match(rep, /return notaDeSeccion\(m, acomodos\[i\], /);
-  assert.match(rep, /pedirSecciones\(\{ esquema: esqTandas, indices, params: receta\.paramsSecciones \?\? params \}\)/);
+  // 13/11/2026: cada vuelta puede llevar su esquema (la de la cantidad exacta suma su nota); por defecto, el de las notas.
+  assert.match(rep, /const correr = async \(lista: readonly number\[\]\[\], vuelta: string, esquemaVuelta: Esquema = esqTandas\) => \{/);
+  assert.match(rep, /pedirSecciones\(\{ esquema: esquemaVuelta, indices, params: receta\.paramsSecciones \?\? params \}\)/);
 });
 
 // Medido el 28/10/2026: con el molde y el ángulo de cada sección en la instrucción común (5.000 caracteres, la misma para
@@ -354,7 +356,8 @@ test('6. los enchufes: la ruta, replicar(), la lectura y el esquema importado', 
   assert.match(rep, /!usaEstilo \? Promise\.resolve\(null\)/, 'sin el diseño ni la estructura reescrita no se lee el estilo de la original');
   assert.match(rep, /partes\.diseno \? await temaParaLaCopia\(estilo, url\)/);
   assert.match(rep, /pedirEsquema\(\{ modo: 'generar', prompt: PEDIDO_SIN_ESTRUCTURA, params \}\)/);
-  assert.match(rep, /crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo\), contenido, config\)/);
+  // 13/11/2026: con la oferta, «Landing · <oferta>» (tests/web-generator-replicar-1311.test.ts, el 14).
+  assert.match(rep, /crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo, entrada\.oferta\), contenido, config\)/);
   const ia = fuente('lib/editor-landing/ia.ts');
   assert.match(ia, /p\.modo === 'importar' \|\| p\.corte === 'pagina' \? esquemaDeReplica\(texto, tituloFallback\) : esquemaConservado\(texto, tituloFallback\)/);
 });

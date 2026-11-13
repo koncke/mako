@@ -230,8 +230,7 @@ test('8. el conocimiento del negocio se busca por el tema de la charla, no sólo
 
 test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el tema y los hechos sólo en su system', () => {
   const doer = leer('lib/mako-doer-in.ts');
-  // `claveDelTurno` (13/11/2026): el grupo, o la clave de un miembro del equipo (lib/grupo-salida.ts, `claveDelMiembro`): su memoria es suya.
-  assert.match(doer, /const memoria = hayInvitado \? [^\n]* : await memoriaDelGrupo\(wsData, claveDelTurno, \{ turnos: 12, dias: DIAS_DE_HECHOS \}\);\n/);
+  assert.match(doer, /const memoria = hayInvitado \? [^\n]* : await memoriaDelGrupo\(wsData, jid, \{ turnos: 12, dias: DIAS_DE_HECHOS \}\);\n/);
   // Desde el 11/11/2026 el historial es la memoria FUNDIDA con el chat de verdad de la línea (lib/hilo-real.ts: lo que salió por la línea
   // sin pasar por el turno —un aviso, el equipo, un envío a mano— no estaba en la memoria; tests/hilo-del-superadmin.test.ts). Sin el
   // store, la memoria sola, como antes.
@@ -243,17 +242,14 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   assert.match(doer, /const conHilo = conElHilo\(delMensaje, texto, pedidoDelHilo\(historial\), typeof ultimoDeMako === 'string' \? ultimoDeMako : null\);\n(?:\s*\/\/[^\n]*\n|\s*const loDeAntes = [^\n]*\n)*\s*(?:const correccion = laCorreccion\(conHilo\.veredicto, [^\n]*\n(?:\s*\/\/[^\n]*\n)*\s*const (?:intencion|porReglas) = (?:enElGrupoSinSenal\()?correccion\.veredicto|const intencion = conHilo\.veredicto)[,;)]/);
   assert.match(doer, /veredicto: intencion, texto, contextoDelSi, hilo: conHilo\.hilo,/, 'las herramientas no reciben el hilo');
   assert.match(doer, /query: consultaDelTurno\(texto, conHilo\.hilo\)/);
-  assert.match(doer, /bloqueYaSeHablo\(\s*memoria\.antes,\s*await accionesDelGrupo\(wsData, claveDelTurno, DIAS_DE_HECHOS\)/, 'lo de antes no llega a los hechos');
+  assert.match(doer, /bloqueYaSeHablo\(\s*memoria\.antes,\s*await accionesDelGrupo\(wsData, jid, DIAS_DE_HECHOS\)/, 'lo de antes no llega a los hechos');
   // Los hechos y lo que mostraste van al system del turno y NUNCA al de la red de la plataforma, que corre sin datos de clientes.
-  // (13/11/2026: entre las dos, la rama del EQUIPO, con lo suyo: tests/grupos-ops-guarda.test.ts.)
-  assert.match(doer, /const conMemoria = hayInvitado \? [^\n]*\n\s*(?:: miembroDelEquipo \? [^\n]*\n\s*)?: baseDelSystem === base \? \[(?:bloqueQuienEscribe\(data\.pushName\), )?(?:ctxCita, )?(?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado(?:,\n\s*laPlataforma \? [^\]]*)?\]\.filter\(Boolean\)/);
+  assert.match(doer, /const conMemoria = hayInvitado \? [^\n]*\n\s*: baseDelSystem === base \? \[(?:bloqueQuienEscribe\(data\.pushName\), )?(?:ctxCita, )?(?:ctxParaElEquipo, )?(?:ctxContacto, )?(?:ctxEquipo, ctxPedidos, )?ctxYaSeHablo, ctxMostrado(?:,\n\s*laPlataforma \? [^\]]*)?\]\.filter\(Boolean\)/);
   // (Desde el 12/11/2026 el último del system es el bloque de la plataforma, sólo en el grupo de SuperAdmin: lib/doer-plataforma.ts.)
   // Lo que mostraron las herramientas: se anota cada salida y se guarda al final del turno, si no fue un cartel.
   assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n(?:[^\n]*(?:escribioDelTurno\+\+|leyoDelTurno = true);\n)*\s*\/\/ Los ids que mostró[^\n]*\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
-  assert.match(doer, /if \(!avisoDeSistema && !hayInvitado && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(claveDelTurno\), unirRefs\(refsGuardadas, refsDelTurno, Date\.now\(\)\)\)/);
-  // `claveDelTurno` (13/11/2026): el grupo, o la clave de un miembro del equipo (lib/grupo-salida.ts, `claveDelMiembro`): lo que le mostró es suyo.
-  assert.match(doer, /const claveDelTurno = miembroDelEquipo \? claveDelMiembro\(jid, miembroDelEquipo\.email\) : jid;/);
-  assert.match(doer, /const refsGuardadas = await getSetting\(CLAVE_REFS\(claveDelTurno\)\)\.catch\(\(\) => null\);\n\s*const ctxMostrado = bloqueLoQueMostraste\(refsGuardadas, Date\.now\(\)\);/);
+  assert.match(doer, /if \(!avisoDeSistema && !hayInvitado && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(jid\), unirRefs\(refsGuardadas, refsDelTurno, Date\.now\(\)\)\)/);
+  assert.match(doer, /const refsGuardadas = await getSetting\(CLAVE_REFS\(jid\)\)\.catch\(\(\) => null\);\n\s*const ctxMostrado = bloqueLoQueMostraste\(refsGuardadas, Date\.now\(\)\);/);
   assert.match(doer, /\$\{ctxPuntos \? `\\n\\n\$\{ctxPuntos\}` : ''\}(?:\$\{ctxFalla\})?\$\{conMemoria\}`;/);
   assert.match(doer, /armarSystem\(toolsRed, [^\n]*, baseRed\)/);
   // La marca de contexto le dice que resuelva lo que señala con lo de arriba.
