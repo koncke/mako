@@ -293,6 +293,14 @@ Cada entrada dice de qué corrida y de qué fecha viene.
   - **Grupos de WhatsApp**: `TraerDeGrupoWA` y `ExtraccionModal` reales con el servidor (`grupo-wa-actions`) y la extensión
     (`wa-fichas-cliente`, `usar-extension-fichas`) de mentira y los textos de avance de la extensión (`extension/popup.js` → FASES).
     Un `Modal` nuevo tapa al anterior: al tocar «Extraer» queda sólo el del avance, sobre el CRM.
+  - **⚠️ Dos archivos que sólo cambian en mayúsculas se pisan en Windows**: `_sitio/funnels.ts` (los datos) y `_sitio/Funnels.tsx`
+    (el componente). `import … from './Funnels'` resolvía al `.ts` de datos (en Windows `Funnels.ts` y `funnels.ts` son el mismo
+    nombre, y `.ts` se prueba antes que `.tsx`): `FunnelsSitio` llegaba `undefined` y la portada entera rompía con «Element type is
+    invalid» sin decir cuál; en Linux (Vercel) andaba. **Regla:** nunca dos módulos con el mismo nombre salvo mayúsculas en una
+    carpeta; los datos van `funnels-datos.ts`.
+  - **⚠️ Un banco dentro de la carpeta Temp puede dejar de compilar sin que nada cambie**: esbuild sube por las carpetas buscando
+    `package.json` y `tsconfig`, y con la de Temp tomada por otro proceso falla («Cannot read directory … being used by another
+    process») y no resuelve ni la entrada. `absWorkingDir` no alcanza. Los bancos viven en `C:/dev/bancos-portada/`.
   - **El bucle**: el final se funde 0,5 s con el principio (`xfade` del final con los primeros 0,5 s, y el video arranca en el 0,5):
     no hay salto al volver a empezar aunque el final no se parezca al principio.
 

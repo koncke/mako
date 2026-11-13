@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, restoDelTexto,
+  FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, primeraLinea, restoDelTexto, textoDeTarjeta,
   outliersCopyDeSpy, palabrasDe, reglasDeLaReplica, textoParaMaKo, tipoDeOutlier, tituloDeReplica, avisoDeLargo, capitulosDe, siguenLosCapitulos,
   largoPedido, largoFuera, pedidoDeCorreccion, conElLargoReal,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
@@ -237,8 +237,11 @@ test('Replicar: MaKo escribe el guion ENTERO solo, con la oferta principal, y de
   assert.deepEqual(otrasOfertasDeReplica('oferta:3', ofertas).map((o) => o.texto), ['Taller']);
   const panel = leer('app/copywriter/PanelMaKo.tsx');
   // Se escribe sola al abrir la réplica vacía (charla leída y vacía, editor listo, página sin texto), con la oferta principal.
-  assert.match(panel, /if \(!replica \|\| !id \|\| !editor \|\| !hiloLeido \|\| corriendo \|\| replicaHecha \|\| appEscritorio\.bloqueada\) return;/);
-  assert.match(panel, /if \(mensajes\.length \|\| textoDelDoc\(editor\.leer\(\) as JsonNodo\)\.trim\(\)\) return;\n\s+escribirReplica\(ofertaDeReplica\(ofertas\), true\);/);
+  assert.match(panel, /if \(!replica \|\| !id \|\| !editor \|\| !hiloLeido \|\| corriendo \|\| replicaHecha \|\| appEscritorio\.bloqueada \|\| preparando\.current === id\) return;/);
+  assert.match(panel, /if \(mensajes\.length \|\| textoDelDoc\(editor\.leer\(\) as JsonNodo\)\.trim\(\)\) return;/);
+  // Un video de YouTube se transcribe ANTES (13/11/2026) y después se escribe, con lo que pasó dicho por MaKo.
+  assert.match(panel, /const t = await transcribirSiHaceFalta\(outlier, setLineaTranscripcion\)\.catch\(\(\) => null\);/);
+  assert.match(panel, /escribirReplica\(ofertaDeReplica\(ofertas\), true, t \? 1 : 0\);/);
   // Sobre la página vacía queda escrita SIN «Aceptar»; al rehacerla para otra oferta, es una propuesta.
   assert.match(panel, /if \(aceptarAlTerminar\.current && ultimo\.estado === 'pendiente'\) aceptar\(ultimo\);/);
   assert.match(panel, /onClick=\{\(\) => escribirReplica\(o\.valor, false\)\}/);
@@ -256,7 +259,8 @@ test('la réplica respeta el LARGO, escribe el carrusel por láminas, no inventa
   assert.match(carrusel[0], /una sección «Pie»/);
   // El pie de un reel y la descripción de YouTube no son lo que se dice: su largo no es el de la pieza.
   assert.match(reglasDeLaReplica({ formato: 'reel', deDonde: 'pie', texto: 'x', laminas: null })[0], /es el PIE de la publicación, no lo que se dice en el reel/);
-  assert.match(reglasDeLaReplica({ formato: 'youtube', deDonde: 'descripcion', texto: 'x', laminas: null })[0], /Si trae capítulos \(0:00 …\), ésos son sus partes y su orden/);
+  // Sin capítulos ni transcripción (13/11/2026): sólo el gancho y la estructura, y se dice.
+  assert.match(reglasDeLaReplica({ formato: 'youtube', deDonde: 'descripcion', texto: 'x', laminas: null })[0], /sólo tienes su título y su descripción\. Toma su gancho y su estructura, escribe un video de 8 a 12 minutos dichos, y dilo en la respuesta/);
   // YouTube inventó cifras, casos y una garantía; el reel quedó con el título del competidor y el video, con «2025».
   const todas = reglasDeLaReplica({ formato: 'youtube', deDonde: 'descripcion', texto: 'x', laminas: null }, new Date('2026-11-12T12:00:00Z')).join('\n');
   assert.match(todas, /salen SÓLO de EL NEGOCIO\. Si el original muestra una prueba y el negocio no tiene una, escribe \[DATO: la prueba que falta\]\. Nunca inventes un número ni una garantía\./);
@@ -347,11 +351,21 @@ test('la tarjeta es de COPY: el texto primero y YouTube en 16:9, no la foto vert
   assert.equal(restoDelTexto({ gancho: 'Cobrar mejor no es suerte.', texto: 'Cobrar mejor no es suerte. Es sistema, y te cuento por qué.' }), 'Es sistema, y te cuento por qué.');
   assert.equal(restoDelTexto({ gancho: 'Change My Mind', texto: 'Change My Mind' }), '', 'un video sin descripción: sólo su título');
   assert.equal(restoDelTexto({ gancho: 'Otro gancho', texto: 'El texto entero.' }), 'El texto entero.');
+  // Un gancho que es el primer renglón cortado con «…» (13/11/2026, en producción: 14 de 34 tarjetas con el título dos veces):
+  // en negrita la primera oración y debajo el resto, nunca el mismo texto otra vez.
+  const largo = '@janacraig_ is stepping into the competitive landscape of celebrity-led beauty. The influencer and reality star, who rose to prominence as a fan favorite, is entering the market.';
+  assert.deepEqual(textoDeTarjeta({ gancho: primeraLinea(largo), texto: largo }), {
+    gancho: '@janacraig_ is stepping into the competitive landscape of celebrity-led beauty.',
+    sigue: 'The influencer and reality star, who rose to prominence as a fan favorite, is entering the market.',
+  });
+  const sinPunto = `El costo de la inacción siempre supera al costo del fracaso o del error y hay una razón científica para eso: ${'tu mente no puede sostener la incertidumbre '.repeat(3)}y por eso decide.`;
+  assert.deepEqual(textoDeTarjeta({ gancho: primeraLinea(sinPunto), texto: sinPunto }), { gancho: primeraLinea(sinPunto), sigue: '' },
+    'si la primera oración no entra en el gancho, sólo el gancho: nunca el texto de nuevo');
   const portada = leer('app/copywriter/OutliersCopy.tsx');
   // El marco con la forma de su red (12/11/2026: YouTube 16:9, reel 9:16, carrusel 4:5) y el TEXTO legible encima de la portada
   // (13/11/2026: nunca blanco vacío); al pasar el cursor, el original limpio (tests/create-outliers-tarjeta.test.ts).
   assert.match(portada, /style=\{\{ aspectRatio: ASPECTO_FORMATO\[o\.formato\] \}\}/);
-  assert.match(portada, /<button type="button" className=\{oc\.ganchoGrande\} onClick=\{onAbrir\}>\{o\.gancho\}<\/button>/);
+  assert.match(portada, /<button type="button" className=\{oc\.ganchoGrande\} onClick=\{onAbrir\}>\{gancho\}<\/button>/);
   assert.doesNotMatch(portada, /className=\{s\.miniImagen\}/, 'sin la foto vertical de Image');
   const css = leer('app/copywriter/outliers.module.css');
   assert.match(css, /\.portada \{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;/);

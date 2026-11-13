@@ -1231,6 +1231,35 @@ export function validarParaGuardar(pasos: readonly PasoGrafo[]): string[] {
 }
 
 /**
+ * «CONTESTÓ» ANTES DE ESCRIBIRLE NADA (13/11/2026, Leila, ws11, la #730): las condiciones que preguntan «Contestó» y a las que
+ * se llega desde el CRON sin pasar por un mensaje ni una espera. Se deciden en el instante en que el lead ENTRA, cuando nadie
+ * pudo contestar: la rama «Contestó» no corre nunca y el flujo se cierra sin mandar nada. «Contestó» es de ESTA automatización
+ * (`contestoEnEsta`): no ve lo que el lead le contestó a otra (una difusión). Leila armó «seguir con los que contestan la
+ * difusión» así, aparte, y a las 21:00 del 9/11 se cerraron los 143 sin un aviso. Lo que se quiere va en la difusión misma
+ * (`siContesta`, lib/difusion-reglas.ts) o después de un mensaje y una espera. «No contestó» ahí siempre se cumple: no se marca.
+ */
+export function contestoAntesDeEscribir(pasos: readonly PasoGrafo[]): string[] {
+  const out: string[] = [];
+  const vistos = new Set<string>();
+  const pila = [...raicesSalida(pasos)];
+  while (pila.length) {
+    const id = pila.pop()!;
+    if (vistos.has(id)) continue;
+    vistos.add(id);
+    const i = indicePorId(pasos, id);
+    if (i < 0) continue;
+    const p = pasos[i];
+    const c = claseDe(p);
+    // Un mensaje o una espera: desde ahí el lead ya pudo contestar. «Si responde» escucha por su cuenta.
+    if (c !== 'condicion' && c !== 'accion' && c !== 'ab' && c !== 'ir_a') continue;
+    if (c === 'condicion' && (p.ramas ?? []).some((r) => (r.filas ?? []).some((f) => f.campo === 'contesto' && f.no !== true))) out.push(id);
+    if (c === 'ir_a') { const d = p.destino; if (d && 'nodo' in d && d.nodo) pila.push(d.nodo); continue; }
+    for (const pt of puertosDe(pasos, i)) if (pt.destino) pila.push(pt.destino);
+  }
+  return out;
+}
+
+/**
  * LO QUE IMPIDE PUBLICAR O PROBAR: todo lo de `validarParaGuardar` y además lo INCOMPLETO —
  * tarjetas sueltas, condiciones sin completar, una espera sin cuánto, un caso sin nombre, una
  * automatización sin ningún camino—, los ciclos sin una espera en el medio y los caminos que corren
@@ -1255,6 +1284,11 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
   // es: no tiene nada que correr, y los escritores que la vacían (la API) siguen pudiendo.
   if (publicar && pasos.some((p) => p && claseDe(p) !== 'inicio') && !raicesSalida(pasos).length && !rs.length) {
     err.push('el CRON no lleva a ninguna tarjeta');
+  }
+  // «Contestó» antes de escribirle nada (`contestoAntesDeEscribir`): se decide al entrar y no se cumple nunca. Medido el 13/11/2026
+  // sobre las 87 de producción: sólo la #730 de Leila, que cerró 143 flujos sin mandar nada.
+  if (publicar) for (const id of contestoAntesDeEscribir(pasos)) {
+    err.push(`la condición ${id} pregunta «Contestó» antes de escribirle nada: se decide al entrar y no se cumple nunca. Ponla después de un mensaje y una espera (para seguir con los que contestan una difusión, va en la difusión)`);
   }
   if (pasos.length > TOPE_NODOS) err.push(`una automatización tiene como mucho ${TOPE_NODOS} tarjetas`);
   const dup = ids.filter((id, i) => ids.indexOf(id) !== i);
