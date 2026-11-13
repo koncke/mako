@@ -125,6 +125,8 @@ test('7. cada chat con MaKo muestra lo último que se dijo, lo tuyo con «Tú:»
   assert.equal(previaDeMensaje({ role: 'assistant', content: '## Vas bien\n\n12 ventas en https://www.hola-mako.com/general' }), 'Vas bien 12 ventas en hola-mako.com');
   assert.equal(previaDeMensaje({ role: 'assistant', content: '---\n\n' }), null, 'sin letras, sin línea');
   assert.equal(previaDeMensaje(null), null);
+  // Medido en producción (13/11): la fila decía «Tú: [desde: Dashboard › Marketing] Analiza…».
+  assert.equal(previaDeMensaje({ role: 'user', content: '[desde: Dashboard › Marketing]\nAnaliza el gráfico' }), 'Tú: Analiza el gráfico', 'sin la marca de la tab');
   assert.equal(previaDeMensaje({ role: 'assistant', content: 'a'.repeat(120) })?.length, 91, 'un renglón corto, con «…»');
   const [jefe, otra] = listaDelCliente({
     sesiones: [{ id: 1, titulo: null, pinned: false, updatedAt: '2026-11-13T10:00:00.000Z', ultimo: 'Vas bien' }, { id: 2, titulo: 'Plan', pinned: false, updatedAt: '2026-11-13T09:00:00.000Z', ultimo: 'Tú: anota esto' }],
@@ -151,4 +153,30 @@ test('8. el chat con un lead: la caja de WhatsApp, adjuntar por WhatsApp y email
   assert.match(c, /fila="m-operaciones-caja__fila"/);
   const css = leer('app/m/chats/chats.css');
   assert.match(css, /\.m-chats-burbuja--mia \{ align-self: flex-end; margin-right: 8px; background: var\(--good-bg\);/, 'lo tuyo, el globo verde');
+});
+
+// Lo que le falta a MaKo, en UNA línea debajo de la cabecera y no apilado arriba de la caja (13/11/2026, medido en producción a 375:
+// el chip «Conectar tu IA» y la franja de la app le comían ~90 px a la conversación). Como el prototipo (`.falta-ia`).
+// Probado rompiéndolo (cada una, 8/1): la previa con la marca · sin {aviso} en la pantalla · «Conectar» con la app que bloquea ·
+// la caja repite el chip · el Guru sin la línea · la línea que scrollea.
+test('9. «Conectar tu IA» y la franja de la app: una línea debajo de la cabecera, no arriba de la caja', async () => {
+  const { avisoDeIA } = await import('../app/m/_chat/pantalla-chat');
+  assert.deepEqual(avisoDeIA('en-la-computadora', false), { texto: 'app', conectar: true }, 'las dos cosas, en la misma línea');
+  assert.deepEqual(avisoDeIA('tiene', false), { texto: 'ia', conectar: true });
+  assert.deepEqual(avisoDeIA('en-la-computadora', true), { texto: 'app', conectar: false });
+  assert.equal(avisoDeIA('bloquea', false), null, 'con la app que bloquea, «Conectar» no destraba nada');
+  assert.equal(avisoDeIA('tiene', true), null);
+  assert.equal(avisoDeIA(null, null), null, 'sin saberlo todavía, nada');
+  const p = sinComentarios(leer('app/m/_chat/PantallaChatM.tsx'));
+  assert.match(p, /<\/header>\n\s*\{aviso\}\n\s*<div className="m-chat__cuerpo">/, 'entre la cabecera y lo que scrollea');
+  for (const f of ['app/m/second-brain/ChatClienteM.tsx', 'app/m/second-brain/HojaDelGuru.tsx', 'app/m/second-brain/HojaDelCoach.tsx']) {
+    const s = sinComentarios(leer(f));
+    assert.match(s, /aviso=\{panel \? undefined : <AvisoDeIA app=\{k\.app\} iaConectada=\{k\.iaConectada\} onConectar=\{\(\) => k\.setConectando\(true\)\} \/>\}/, `${f}: la línea`);
+    assert.match(s, /<CajaDelCliente k=\{k\} campo=\{caja\} seguir=\{seguirHoja\} movil avisosArriba \/>/, `${f}: la caja no los repite`);
+  }
+  const c = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
+  assert.match(c, /const conectar = k\.iaConectada === false && !avisosArriba\n/, 'la caja, sin el chip');
+  assert.match(c, /\{k\.app === 'en-la-computadora' && !avisosArriba && <FranjaApp \/>\}/, 'la caja, sin la franja');
+  assert.match(sinComentarios(leer('app/m/_chat/AvisoDeIA.tsx')), /\{\.\.\.ancla\('mk-conectar'\)\}/, 'la guía lo sigue encontrando');
+  assert.match(leer('app/m/_chat/chat-wa.css'), /\.m-chat__aviso \{\n\s*flex: none;/, 'no scrollea con la conversación');
 });

@@ -13,6 +13,7 @@ import '@/app/admin/operaciones/centro.css';
 import '@/app/m/operaciones/operaciones.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
+import { AvisoDeIA } from '@/app/m/_chat/AvisoDeIA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
@@ -55,6 +56,7 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
   return (
     <>
       <PantallaChatM abierto onCerrar={onCerrar} id="funnel-coach"
+        aviso={panel ? undefined : <AvisoDeIA app={k.app} iaConectada={k.iaConectada} onConectar={() => k.setConectando(true)} />}
         titulo={titulo ?? (
           <span className="m-operaciones-titulo">
             <button type="button" className="m-operaciones-titulo__muneco" disabled={!puedeElegir} aria-label="Elegir quién aconseja" onClick={() => setVista('elegir')}>
@@ -65,7 +67,7 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
         )}
         pie={panel ? undefined : (
           <div className="m-operaciones-caja">
-            <CajaDelCliente k={k} campo={caja} seguir={seguirHoja} movil />
+            <CajaDelCliente k={k} campo={caja} seguir={seguirHoja} movil avisosArriba />
             {estado && <div className="m-operaciones-caja__fila m-operaciones-caja__fila--meta"><span className="m-operaciones-caja__estado">{estado}</span></div>}
           </div>
         )}>

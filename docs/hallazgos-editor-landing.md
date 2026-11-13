@@ -4457,3 +4457,52 @@ CSS que usa.
 **Sin hacer:** medir en producción la adaptada nueva lado a lado (espera el despliegue); que la IA respete la cantidad exacta de
 tarjetas no está garantizado en código (se pide en la nota; `fidelidadDeEstructura` lo mide en el log); la región de la función
 no se movió (la base está en us-west-2: con el caché del borde, la mayoría de las visitas no llega a la función).
+
+### La fuente de la publicada, desde su dominio (13/11/2026)
+
+Medido en producción con el caché ya andando (`hola-mako.site/app-o-software`, 375 px, 4G lenta y CPU ×4): primer pintado
+1,22–1,32 s (antes del caché, 3,88 s). El borde contesta HIT en 0,17 s; frío (más de 5 min sin visitas), MISS en 0,85 s.
+Lo único que frenaba el pintado era `<link rel="stylesheet">` a Google Fonts (de 354 a 587 ms, con dos conexiones nuevas).
+
+- **Ahora (`fuentes-propias.ts`):** el servidor lee la hoja de Google (con memoria) y la pone EN LÍNEA; los archivos se piden
+  al dominio de la página (`/l/html/fuentes/<familia>/<v>/<archivo>.woff2`, la ruta los trae de fonts.gstatic.com y el borde
+  los guarda un año); el latino se precarga; y «<Familia> respaldo» (Arial/Roboto o Times con `size-adjust` y los
+  `*-override`, la cuenta de next/font: Inter da 107,12 %) va en la pila, así el cambio de letra casi no mueve nada.
+- **Por qué bajo `/l/html`:** ese prefijo ya pasa por el proxy en hola-mako.site y en el dominio de un cliente, y `html` es
+  slug reservado. Una ruta nueva (`/l/fuentes`) pedía tocar `decidirLandings`, `decidirHost` y reservar otro slug.
+- **El respaldo se mete en la pila al SERVIR** (`conRespaldo`, reemplazo literal de `'<Familia>',` y `&#39;<Familia>&#39;,`):
+  el HTML publicado está congelado en la foto, así que las páginas ya publicadas lo reciben sin volver a publicar.
+- **La trampa de la medición:** medida en un servidor local SIN comprimir (77 KB en vez de 18), la nueva salía MÁS lenta:
+  la página tardaba tanto en bajar que tapaba la hoja de Google, y la precarga le competía. Comprimida como Vercel, la
+  nueva gana: mediana de 7 pares 1,09 s contra 1,25 s de primer pintado y 1,42 contra 1,80 de carga completa (dos corridas
+  sueltas de 2–3 s fueron la PC saturada). Antes de comparar una página en local, comprimirla como la sirve producción.
+- La política va escapada dentro del `<meta>` (`font-src &#39;self&#39;`): un test que la busque con comillas no la ve.
+
+**Sin hacer:** medir la publicada en producción con la fuente propia (espera el despliegue).
+
+### La réplica desde la tarjeta, en producción: andaba sola, pero copiaba la prueba de la otra (13/11/2026)
+
+Replicada desde la tarjeta de outliers la landing de Clara (clase.highticketclarity.com) para el negocio de MaKo: un clic,
+lectura en 50 s, réplica sola y editor abierto a los ~65 s, 7 de 7 secciones, escrita para la oferta principal, sin el
+nombre de Clara. Lado a lado a 1440 y 375 (side-session-notes/…/probar-web-1311/lado-a-lado-*.jpg), lo que fallaba:
+
+- **La prueba de la otra pasaba como propia, aunque el prompt lo prohíbe** (`NADA_PROPIO`, replicar-partes.ts): sus
+  testimonios con sus montos («De 0 a 9.000 USD por mes»), sus números («+192.000 seguidores», «más de 400.000»), su
+  trayectoria («más de 10 años») y la fecha y hora de SU masterclass. El registro decía «0 citas o cifras vaciadas»:
+  `quitarPruebaDeLaOriginal` sólo mira citas TEXTUALES y el `valor` de las estadísticas, y la IA las había reescrito en
+  tarjetas comunes. El aviso de cifras las listaba de a cinco y no frenaba nada.
+  **Ahora** (`sinCifrasDeLaOriginal`, ia-reglas.ts): en la adaptada, una cifra cuyo valor con su misma unidad está en la
+  original, o un número de 1.000 o más que está en ella con cualquier unidad, y que el negocio no dice → «[DATO]» (la
+  unidad queda: «[DATO] USD por mes»); su fecha → «[FECHA]»; su hora → «[HORA]». Lo de la estructura («Parte 1», «3 pasos»)
+  no tiene unidad ni llega a 1.000.
+- **Los 5 pasos numerados salieron como 3 viñetas:** la IA pidió la variante «cajas-numeradas», que no existe («cajas-numeros»
+  sí), y `nodoOptimizado` caía a «Viñetas grandes». **Ahora** `varianteCercana` (ia-bloques.ts): las mismas raíces, una sola
+  variante → esa. La cantidad (3 en vez de 5) sigue dependiendo de la IA.
+- **Los 6 testimonios en grilla quedaron sin el hueco de la foto**: la nota pedía «cada una con el hueco de su foto» y la IA
+  eligió una variante sin imagen. **Ahora** `conHuecoDeFoto` (replicar-estructura.ts): si la sección de la original tiene
+  tarjetas con foto, el bloque de ítems con la cantidad más parecida pasa a «Imágenes con texto» (en el editor, «Agregar
+  imagen» en cada una; la publicada no muestra el hueco vacío, así que en la vista previa NO se ve: se compara en el editor).
+
+**Sin hacer:** las 24 frases que quedaron iguales a la original se cuentan pero no se reescriben (replicar.ts, `copiadas`);
+el titular con degradado dorado de la original salió negro (estilo-aplicar.ts no lleva el degradado del texto); el hero de
+la original tiene un video al costado y la réplica deja un hueco de imagen, no de video.

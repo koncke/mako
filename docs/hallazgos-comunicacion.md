@@ -13654,3 +13654,46 @@ pedido delegado «Lo que faltó de: Agregar nota…; Nota: 'no contestó mi mens
 
 *2026-11-10 claude4, chat Tickets*
 
+---
+
+### ⚠️ «MaKo cortó mis correos y dejó de clasificar»: eran TRES causas, y ninguna era la clasificación (13/11/2026, ticket #93)
+
+**El síntoma (Mauricio, ws1):** el freno apagó el email de sus dos CRMs («Sprint correos» y «Sprint Ejecución · Nov 2026»),
+«no estás clasificando bien» y «de los 67 nuevos leads, todos están en Nuevos leads».
+
+**El diagnóstico obvio era el equivocado.** Parecía que el webhook de Resend o la regla de columnas (`columnasEmail`) se habían
+roto. Medido en la base, la clasificación anda: en «Sprint correos» hay 776 en «Correo enviado», 187 en «Abrió correo» y 19 en
+«Clic en la landing», y el historial muestra los movimientos de «MaKo · email» hasta las 16 h del 13/11. Lo que pasó:
+1. **El freno, por azar.** A las 15:09:31 UTC del 13/11 vio 5 rebotes en los últimos 100 (5,0 %) y apagó `envio_email_enabled`
+   de TODO el negocio. En los últimos 300 había 11 (3,7 %); en toda la campaña, 1.030 enviados y 28 rebotes (2,7 %), y ninguna
+   ventana de 300 pasó de 3,7 %. Una lista fría rebota 3-4 % y, con 100 de muestra, un 5 % sale solo (los rebotes llegan en
+   racha, ~1 s después de cada envío).
+2. **«Sprint Ejecución»: las columnas llegaron tarde y después las movió su propio Claude.** Los 33 primeros emails salieron
+   el 12/11 a las 17:02 UTC; las columnas de esa automatización (734) se configuraron a las 20:26. Un evento sólo mueve a la
+   columna que existe en ese momento: los 33 quedaron en «Nuevo lead». Después, su token de la API «Conexión total via claude»
+   (creado por él el 11/11, llamadas desde las IP de Anthropic) movió en bloque st0 → Ganado → st1 → st0 entre las 04:40 y las
+   04:45 UTC, y a las **05:44:04 UTC** (21:44 del 12/11 en Tijuana) devolvió 54 leads a «Nuevo lead» (`api_llamadas`,
+   `crm/pasar_en_bloque_otra_columna`, y `lead_audit` con autor «API · token «Conexión total via claude»»).
+3. **34 de los 67 nunca recibieron el email: el tope diario lo gastó la lista fría.** El tope de email del negocio es UNO (500
+   por día, rodante) para todas sus automatizaciones. «Fríos» (727) manda de 7 a 12 de Tijuana y gastó 398 a las 15 h UTC; la
+   de leads calientes (734) sigue el horario de oficina (9 a 21) y a las 17 h quedaban 100. Sus 34 restantes esperan desde el
+   12/11 sin una sola fila de fallo: el tope no deja rastro por envío. Y desde las 15:09 del 13/11, el freno.
+
+**Lo que se arregló:** el freno mira 300 (desde 100 enviados), avisa desde 5 % (`email-rebotes`, amarillo, el envío sigue) y
+apaga desde 10 % de rebotes o 0,3 % de quejas (lib/email-freno.ts). Un rebote lleva la tarjeta a la columna «Rebotado/s» de
+su CRM —elegida (`columnasEmail.rebote`) o por su nombre— aunque quede antes en el tablero (`columnaDeRebote`,
+`decidirMovimiento` con `evento: 'rebote'`); la baja del email ya lo sacaba de la secuencia.
+
+**Reglas:**
+- Antes de decir «dejó de clasificar», contar las columnas y leer `lead_audit` por autor: «MaKo · email» es el motor; «API ·
+  token «…»» es el cliente (o su Claude) moviendo a mano. `api_llamadas` dice qué operación, cuándo y con qué token.
+- Un freno de reputación se mide con una muestra que no se mueva por azar con la tasa NORMAL del cliente: simularlo sobre sus
+  envíos reales (ventana deslizante) antes de fijar el número.
+- El tope diario es del NEGOCIO: una campaña masiva que arranca temprano deja sin cupo a la que trae leads nuevos.
+
+**Lo que quedó sin hacer:**
+- **Prioridad del cupo:** el motor no le da prioridad a una automatización de leads nuevos sobre una lista fría; hoy se arregla
+  con el goteo por día de la masiva (`configurar_automatizacion` → `goteoPorDia`). Vive en lib/nutricion.ts (el tope del día).
+- **Columnas elegidas después de mandar:** los envíos de antes no se acomodan solos (lib/email-eventos-crm.ts sólo mueve al llegar
+  el evento). Se reclasifica a mano con `crm/pasar_en_bloque_otra_columna`.
+- **El tope que frena un envío no deja fila** (`nutricion_envios`): sólo la nota en la corrida. Por eso los 34 parecían «sin motivo».

@@ -8503,7 +8503,7 @@ PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minu
 | `sinArranque` | boolean | no | opcional: true lo saca. |
 | `goteoPorDia` | number | no | opcional: tope de mensajes en 24 h por canal. |
 | `sinGoteo` | boolean | no | opcional: true para sacarle el goteo y el tope por día. |
-| `columnasEmail` | string | no | opcional: "enviado=key,abrio=key,clic=key", columnas de su CRM que siguen al email («ninguna» saca). |
+| `columnasEmail` | string | no | opcional: "enviado=key,abrio=key,clic=key,rebote=key", columnas de su CRM que siguen al email («ninguna» saca). |
 
 ```bash
 curl -L \
