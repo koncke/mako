@@ -127,6 +127,26 @@ function manchas(tinta: Uint8Array, W: number, H: number): Mancha[] {
 const solapeVertical = (a: readonly number[], b: readonly number[]) => Math.min(a[3], b[3]) - Math.max(a[1], b[1]);
 
 /**
+ * El renglón [x0, y0, x1, y1, letras, suma de altos] sin el ícono de sus puntas: la primera o la última mancha, si es más del
+ * 1,8 veces más alta que la letra típica del renglón (la mediana de las del medio) y casi cuadrada (no una «l» ni un paréntesis:
+ * una mayúscula mide 1,3 a 1,5 veces una minúscula). Con menos de cuatro manchas, el renglón queda como está.
+ */
+export function sinIconoEnLasPuntas(l: readonly number[], manchas: ReadonlyArray<readonly number[]>): number[] {
+  if (manchas.length < 4) return [...l];
+  const ps = [...manchas].sort((a, b) => a[0] - b[0]);
+  const alto = (g: readonly number[]) => g[3] - g[1] + 1;
+  const altos = ps.slice(1, -1).map(alto).sort((a, b) => a - b);
+  const tipica = altos[Math.floor(altos.length / 2)];
+  const esIcono = (g: readonly number[]) => alto(g) > 1.8 * tipica && g[2] - g[0] + 1 >= 0.6 * alto(g);
+  const quedan = ps.filter((g, i) => !((i === 0 || i === ps.length - 1) && esIcono(g)));
+  if (quedan.length === ps.length) return [...l];
+  return [
+    Math.min(...quedan.map((g) => g[0])), Math.min(...quedan.map((g) => g[1])), Math.max(...quedan.map((g) => g[2])), Math.max(...quedan.map((g) => g[3])),
+    quedan.length, quedan.reduce((s, g) => s + alto(g), 0),
+  ];
+}
+
+/**
  * Los renglones de texto y las figuras de una lámina. Una letra es una mancha de tinta del tamaño de una letra; un renglón, las
  * letras que comparten franja y están a menos de un espacio grande una de otra (las palabras se unen; el «© 2026» y el «01 / 06»
  * de un encabezado, no). Una figura es la tinta que no es de ningún renglón (una foto, un ícono grande, una persona), agrupada.
@@ -149,6 +169,8 @@ export function leerLamina(img: Rgba): LecturaDeLamina {
   // PROMEDIO de sus letras, no por su caja: la caja crece con cada letra que entra y terminaba aceptando un globo de chat y después
   // un ícono redondo, uno más grande que el otro (13/11/2026, la caja «Comment GIFT» de @lifeofarjav: un «renglón» de 114 px).
   const promedio = (L: readonly number[]) => L[5] / L[4];
+  // Las manchas de cada renglón, para sacarle después un ícono de las puntas (`sinIconoEnLasPuntas`).
+  const piezas = new Map<number[], number[][]>();
   let lineas: number[][] = [];
   for (const g of letras) {
     const h = g[3] - g[1] + 1;
@@ -156,8 +178,8 @@ export function leerLamina(img: Rgba): LecturaDeLamina {
       const lh = promedio(L);
       return solapeVertical(L, g) >= 0.4 * Math.min(h, lh) && g[0] - L[2] <= 0.9 * Math.max(lh, h) && Math.max(h, lh) <= 2.2 * Math.min(h, lh) + 4;
     });
-    if (l) { l[0] = Math.min(l[0], g[0]); l[1] = Math.min(l[1], g[1]); l[2] = Math.max(l[2], g[2]); l[3] = Math.max(l[3], g[3]); l[4]++; l[5] += h; }
-    else lineas.push([g[0], g[1], g[2], g[3], 1, h]);
+    if (l) { l[0] = Math.min(l[0], g[0]); l[1] = Math.min(l[1], g[1]); l[2] = Math.max(l[2], g[2]); l[3] = Math.max(l[3], g[3]); l[4]++; l[5] += h; piezas.get(l)!.push(g); }
+    else { const nueva = [g[0], g[1], g[2], g[3], 1, h]; lineas.push(nueva); piezas.set(nueva, [g]); }
   }
   for (let cambio = true; cambio;) {
     cambio = false;
@@ -171,12 +193,18 @@ export function leerLamina(img: Rgba): LecturaDeLamina {
         const hueco = Math.max(a[0], b[0]) - Math.min(a[2], b[2]);
         if (solapeVertical(a, b) >= 0.6 * Math.min(a[3] - a[1], b[3] - b[1]) && hueco <= 1.3 * Math.max(ha, hb) && Math.max(ha, hb) <= 1.6 * Math.min(ha, hb) + 4) {
           lineas[i] = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3]), a[4] + b[4], a[5] + b[5]];
+          piezas.set(lineas[i], [...(piezas.get(a) ?? []), ...(piezas.get(b) ?? [])]);
           lineas.splice(j, 1);
           cambio = true;
         }
       }
     }
   }
+  // Un ÍCONO en la punta de un renglón (el ✳ antes de «Follow @lifeofarjav for more…», el logo antes del @ del encabezado) no es
+  // una letra: entraba con la primera mayúscula, el renglón medía el doble de alto, el texto nuevo salía con la letra el doble de
+  // grande y el ícono se borraba (13/11/2026, el pie de la lámina 6 en producción). Se saca del renglón: queda en la plancha y el
+  // texto nuevo va a su lado, con el tamaño de las letras.
+  lineas = lineas.map((l) => sinIconoEnLasPuntas(l, piezas.get(l) ?? []));
   // Un renglón de una sola mancha es un signo suelto, salvo que sea ANCHO: una pastilla lisa (su letra blanca no es tinta sobre la
   // lámina crema) es una sola mancha.
   lineas = lineas.filter((l) => (l[4] >= 2 || l[2] - l[0] >= 2.5 * (l[3] - l[1])) && l[3] - l[1] + 1 >= 8).sort((a, b) => a[1] - b[1] || a[0] - b[0]);
@@ -254,6 +282,9 @@ export type Bloque = {
   franjas: Caja[];
   /** ¿Sobre el fondo de la lámina (true) o adentro de una caja o una tarjeta (false)? */
   principal?: boolean;
+  /** El grosor del trazo de la letra en píxeles (la mediana de los tramos de tinta a lo ancho, en la mitad del renglón): con el
+   *  cuerpo de la letra, dice si es regular o negrita (`pesoMedido` en ./replica.ts). 0 = no se pudo medir. */
+  trazo?: number;
   alineacion?: 'left' | 'center' | 'right';
   acento?: { color: string; tramos: Array<Array<[number, number]>> };
 };
@@ -415,6 +446,20 @@ export function asignarRenglones(textos: readonly TextoABuscar[], renglones: rea
       if (s) { rs.push(s.n); usados.add(s.n); seguir = true; }
     }
   }
+  // Un signo SUELTO en la franja de un texto, pegado a él, es de ese texto: el «=» de «= 100M Business» son dos barras, dos
+  // «renglones» chicos a la izquierda del titular (13/11/2026), que quedaban sin dueño, iban al segundo pedido como si fueran un
+  // texto y, sin borrar, asomaban detrás del titular nuevo.
+  for (const rs of out) {
+    for (const n of [...rs]) {
+      const u = porNumero.get(n)!.caja;
+      for (const r of L) {
+        if (usados.has(r.n) || r.caja.alto > 0.6 * u.alto) continue;
+        const enSuFranja = r.caja.y >= u.y - 0.1 * u.alto && r.caja.y + r.caja.alto <= u.y + 1.1 * u.alto;
+        const hueco = Math.max(r.caja.x - (u.x + u.ancho), u.x - (r.caja.x + r.caja.ancho));
+        if (enSuFranja && hueco <= 0.8 * u.alto) { rs.push(r.n); usados.add(r.n); }
+      }
+    }
+  }
   return out;
 }
 
@@ -491,6 +536,53 @@ export function bloquesSinDueno(img: Rgba, lectura: LecturaDeLamina, usados: Rea
   });
 }
 
+/**
+ * ¿Es el NOMBRE de un logo? Un renglón solo y corto justo DEBAJO de una figura casi cuadrada que no es una persona, dentro de su
+ * ancho: «Claude» debajo del logo de Claude (13/11/2026: salió «PASO 2» en producción y «MaKo» en seco, aunque el prompt dice
+ * que va igual). El logo queda en la plancha; su nombre, también.
+ */
+export function esNombreDeLogo(le: { img: Rgba; lectura: LecturaDeLamina }, rs: readonly Renglon[], personas: readonly string[]): boolean {
+  const W = le.img.ancho;
+  const H = le.img.alto;
+  const c = cajaDe(rs);
+  if (rs.length !== 1 || c.ancho > 0.3 * W) return false;
+  const centro = c.x + c.ancho / 2;
+  return le.lectura.figuras.some((f) => {
+    const g = f.caja;
+    if (personas.includes(f.n) || g.alto > 0.3 * H || g.ancho / g.alto < 0.6 || g.ancho / g.alto > 1.6) return false;
+    const debajo = c.y >= g.y + g.alto - 0.3 * c.alto && c.y <= g.y + g.alto + 1.2 * c.alto;
+    return debajo && centro >= g.x && centro <= g.x + g.ancho;
+  });
+}
+
+/** ¿Un «texto» sin una letra ni un número? Es un ícono (la IA principal leyó «📄» en el ícono de un PDF y «✦» en un logo): no
+ *  se borra, no se escribe y no va de recorte. */
+export const sinLetras = (s: string) => !/[\p{L}\p{N}]/u.test(s);
+
+/**
+ * ¿Dos grupos de renglones son UN bloque a la vista? (uno debajo del otro, sin un hueco grande, pisándose a lo ancho y de letra
+ * parecida: las dos filas de «Comment "GIFT" / and I'll send it over.»; un titular y su subtítulo, no).
+ */
+export function mismoBloque(a: readonly Renglon[], b: readonly Renglon[]): boolean {
+  const [arriba, abajo] = cajaDe(a).y <= cajaDe(b).y ? [a, b] : [b, a];
+  const u = [...arriba].sort((x, y) => (y.caja.y + y.caja.alto) - (x.caja.y + x.caja.alto))[0].caja;
+  const s = [...abajo].sort((x, y) => x.caja.y - y.caja.y)[0].caja;
+  const hueco = s.y - (u.y + u.alto);
+  const pisa = Math.min(u.x + u.ancho, s.x + s.ancho) - Math.max(u.x, s.x);
+  return hueco >= -0.2 * u.alto && hueco <= 0.8 * u.alto && pisa >= 0.3 * Math.min(u.ancho, s.ancho) && Math.max(u.alto, s.alto) <= 1.45 * Math.min(u.alto, s.alto);
+}
+
+/** Las filas de un bloque (los renglones que comparten franja son una). */
+export function filasDe(b: readonly Renglon[]): Array<{ ancho: number }> {
+  const filas: Array<{ y0: number; y1: number; ancho: number }> = [];
+  for (const r of [...b].sort((x, y) => x.caja.y - y.caja.y)) {
+    const f = filas.find((q) => Math.min(q.y1, r.caja.y + r.caja.alto) - Math.max(q.y0, r.caja.y) > 0.5 * Math.min(q.y1 - q.y0, r.caja.alto));
+    if (f) { f.ancho += r.caja.ancho; f.y0 = Math.min(f.y0, r.caja.y); f.y1 = Math.max(f.y1, r.caja.y + r.caja.alto); }
+    else filas.push({ y0: r.caja.y, y1: r.caja.y + r.caja.alto, ancho: r.caja.ancho });
+  }
+  return filas;
+}
+
 /** Lo que se mide de un texto con sus renglones: la caja de todos, cuántos son, a qué distancia van y sus colores. */
 export function bloqueDeRenglones(img: Rgba, rs0: readonly Renglon[]): Bloque | null {
   if (!rs0.length) return null;
@@ -515,6 +607,7 @@ export function bloqueDeRenglones(img: Rgba, rs0: readonly Renglon[]): Bloque | 
   const franjas = filas.map((f) => cajaDe(rs.filter((r) => solapeVertical([0, f.caja.y, 0, f.caja.y + f.caja.alto], [0, r.caja.y, 0, r.caja.y + r.caja.alto]) > 0.5 * Math.min(f.caja.alto, r.caja.alto))));
   const alineacion = alineacionMedida(franjas, img.ancho);
   const acento = acentoMedido(img, franjas, tinta, fondo);
+  const trazo = trazoMedido(img, franjas, fondo);
   return {
     caja,
     renglones: filas.length,
@@ -524,9 +617,32 @@ export function bloqueDeRenglones(img: Rgba, rs0: readonly Renglon[]): Bloque | 
     fondo: hex(fondo),
     franjas,
     principal: esPrincipal(img, rs0),
+    ...(trazo ? { trazo } : {}),
     ...(alineacion ? { alineacion } : {}),
     ...(acento ? { acento } : {}),
   };
+}
+
+/**
+ * El grosor del trazo, medido (13/11/2026): la mediana de los tramos de tinta a lo ancho, en la mitad de cada franja (los palos de
+ * las letras; las barras horizontales dan tramos largos, pero son menos). El cuerpo de un tuit de @AlexHormozi es regular y la
+ * réplica lo ponía en Inter 800 porque la IA lo llamó «titular». Calibrado con Inter a 100 px: 400 → 9 px, 600 → 13, 700 → 15,
+ * 800 → 17; el tuit mide 11 con un cuerpo de ~115 px (regular) y los titulares de @lifeofarjav 17 con ~114 (700).
+ */
+function trazoMedido(img: Rgba, franjas: readonly Caja[], fondo: Color): number {
+  const tramos: number[] = [];
+  for (const f of franjas) {
+    for (let y = f.y + Math.floor(0.25 * f.alto); y < f.y + Math.ceil(0.75 * f.alto); y++) {
+      let n = 0;
+      for (let x = f.x; x <= f.x + f.ancho; x++) {
+        if (x < f.x + f.ancho && x < img.ancho && distancia(pixel(img, x, y), fondo) > TINTA_DE_LAMINA) n++;
+        else if (n) { tramos.push(n); n = 0; }
+      }
+    }
+  }
+  if (tramos.length < 20) return 0;
+  tramos.sort((a, b) => a - b);
+  return tramos[tramos.length >> 1];
 }
 
 /**

@@ -10,7 +10,15 @@
 //   5. el color de acento y la alineación se MIDEN (`bloqueDeRenglones`);
 //   6. la letra de una lista o de una interfaz no es un texto principal (`esDeUnaLista`);
 //   7. lo que lee la IA: las palabras de acento (`conAcentos`) y el segundo pedido por número de recorte (`leerCompletado`);
-//   8. la lámina fiel: la plancha de fondo, el texto en la caja medida y con el color medido, sin la foto del negocio.
+//   8. la lámina fiel: la plancha de fondo, el texto en la caja medida y con el color medido, sin la foto del negocio;
+//   9. la vista previa del armado la dibuja igual que el editor: la plancha de fondo y los acentos (`PaginaCarrusel`);
+//  10. un ícono en la punta de un renglón no es una letra (`sinIconoEnLasPuntas`): el renglón mide lo que miden sus letras;
+//  11. el peso de la letra se MIDE (el trazo con el cuerpo, `pesoMedido`): un cuerpo regular no sale en negrita;
+//  12. lo que leyó el segundo pedido en el recorte decide qué va en unos renglones (`queVaEnLosRenglones`);
+//  13. un signo suelto en la franja de un texto (el «=» de «= 100M Business») es de ese texto;
+//  14. sin @ del negocio, a quién seguir es el negocio por su nombre; un acento no cae en una palabra vacía sola;
+//  15. el nombre de un logo (debajo de él, corto) queda como en el original; un «texto» sin letras es un ícono;
+//  16. dos textos de la IA en un mismo bloque a la vista se juntan (`mismoBloque`), y las filas se cuentan (`filasDe`).
 // Las láminas se dibujan acá, píxel por píxel: rectángulos de «tinta» con la forma de un renglón.
 //
 // Correr: node --import tsx --test tests/carruseles-plancha-local.test.ts
@@ -22,12 +30,26 @@
 //   P5 `esDeUnaLista` pidiendo seis vecinos en vez de tres                                   → falla el 6
 //   P6 `leerCompletado` por orden y no por «n»                                                → falla el 7
 //   P7 la lámina fiel con el color de la IA en vez del medido                                → falla el 8
+//   P8 el renglón sin sacarle el ícono de la punta                                           → falla el 10
+//   P9 el peso por el papel, sin medir el trazo                                              → falla el 11
+//   P10 la IA principal gana siempre, diga lo que diga el recorte                            → falla el 12
+//   P11 sin el signo suelto en la franja del titular                                         → falla el 13
+//   P15 el nombre de un logo se reescribe (`esNombreDeLogo` siempre falso)                   → falla el 15
+//   P16 dos textos en un mismo bloque no se juntan (`mismoBloque` siempre falso)              → falla el 16
+//   P17 un emoji pasa por texto (`sinLetras` sólo con el vacío)                               → falla el 15
+//   P18 «Sigue para más…» sin el nombre del negocio                                           → falla el 16
+//   P12 «Sigue @usuario» sin el nombre del negocio                                           → falla el 14
+//   P13 la vista previa sin la imagen de fondo                                               → falla el 9
+//   P14 el acento en una palabra vacía sola                                                  → falla el 14
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { asignarRenglones, bloquesSinDueno, borrarZona, esDeUnaLista, leerLamina, planchar, type Rgba } from '../lib/carruseles/plancha-local';
-import { conAcentos, documentoDeReplica, leerCompletado, PERSONA_A_GENERAR, sinArroba, type Replica } from '../lib/carruseles/replica';
+import { asignarRenglones, bloqueDeRenglones, bloquesSinDueno, borrarZona, esDeUnaLista, esNombreDeLogo, filasDe, leerLamina, mismoBloque, planchar, sinLetras, type Renglon, type Rgba } from '../lib/carruseles/plancha-local';
+import { conAcentos, dicenLoMismo, documentoDeReplica, leerCompletado, PERSONA_A_GENERAR, pesoMedido, queVaEnLosRenglones, sinArroba, sinCambio, sinVaciasSueltas, type Replica } from '../lib/carruseles/replica';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { fondoDePagina, PaginaCarrusel } from '../app/image-editor/carruseles/MiniaturaCarrusel';
 
 const CREMA: [number, number, number] = [251, 243, 234];
 const NEGRO: [number, number, number] = [20, 20, 20];
@@ -199,4 +221,147 @@ test('8. la lámina fiel: la plancha de fondo, el texto en su caja con el color 
   assert.ok(Math.abs(Number(t.left) - 100) <= 1, `el texto no fue a su caja: ${t.left}`);
   assert.ok(!p.objects.some((o) => o.type === 'image'), 'apareció una foto');
   assert.ok(p.objects.some((o) => o.name === PERSONA_A_GENERAR), 'el lugar de la persona no quedó marcado');
+});
+
+test('9. la vista previa de «Tu versión está lista» dibuja la plancha de fondo y los acentos, como el editor', () => {
+  // 13/11/2026, en producción: el editor abría la réplica fiel bien y la vista previa la mostraba en blanco, con los textos
+  // sueltos encima (sólo leía `background.color`). Lo primero que se ve tiene que ser lo que se va a abrir.
+  const pagina = {
+    background: { type: 'image', src: 'https://x/plancha.jpg', fit: 'cover' },
+    objects: [{ type: 'textbox', text: 'Crea un\nproyecto', left: 100, top: 200, width: 800, fontSize: 90, fill: '#141414', styles: { 1: { 0: { fill: '#D97757' }, 1: { fill: '#D97757' } } } }],
+  };
+  const html = renderToStaticMarkup(createElement(PaginaCarrusel, { pagina }));
+  assert.match(html, /background-image:url\(&quot;https:\/\/x\/plancha\.jpg&quot;\)/, `sin la plancha de fondo: ${html.slice(0, 300)}`);
+  assert.match(html, /<span style="color:#D97757">pr<\/span>oyecto/, `sin el acento: ${html}`);
+  // Una página sin plancha sigue con su color.
+  assert.deepEqual(fondoDePagina({ type: 'solid', color: '#FBF3EA' }), { background: '#FBF3EA' });
+  // Sólo una imagen https o en línea (el `src` va adentro de un `url()`).
+  assert.deepEqual(fondoDePagina({ type: 'image', src: 'javascript:alert(1)' }), { background: '#fff' });
+});
+
+test('10. un ícono en la punta de un renglón no es una letra: el renglón mide lo que miden sus letras', () => {
+  // 13/11/2026, el pie de la lámina 6 de @lifeofarjav en producción: «✳ Follow @lifeofarjav…». El ✳ entraba al renglón con la
+  // primera mayúscula, el renglón medía 34 px en vez de 16, el texto nuevo salía con la letra el doble de grande y el ícono se borraba.
+  const img = lamina(400, 400);
+  pintar(img, 20, 200, 34, 34, NARANJA);              // el ícono
+  pintar(img, 60, 208, 9, 18, NEGRO);                 // la mayúscula
+  renglon(img, 74, 213, 14, 13);                      // las minúsculas
+  const l = leerLamina(img);
+  const r = l.renglones.find((x) => x.caja.y >= 195 && x.caja.y <= 215);
+  assert.ok(r, `no hay renglón: ${JSON.stringify(l.renglones)}`);
+  assert.ok(r.caja.x >= 55, `el ícono quedó adentro del renglón: ${JSON.stringify(r.caja)}`);
+  assert.ok(r.caja.alto <= 20, `el renglón mide el alto del ícono: ${JSON.stringify(r.caja)}`);
+});
+
+/** Un renglón de letras de dos PALOS de `grosor` (como una «n»): el trazo que se mide es el del palo. */
+function palos(img: Rgba, x: number, y: number, letras: number, alto: number, grosor: number) {
+  let cx = x;
+  for (let k = 0; k < letras; k++) {
+    pintar(img, cx, y, grosor, alto, NEGRO);
+    pintar(img, cx + Math.round(0.35 * alto), y, grosor, alto, NEGRO);
+    pintar(img, cx, y, Math.round(0.35 * alto) + grosor, grosor, NEGRO);
+    cx += Math.round(0.35 * alto) + grosor + Math.round(0.15 * alto);
+  }
+}
+
+test('11. el peso de la letra se mide: un cuerpo regular no sale en negrita aunque la IA lo llame titular', () => {
+  // 13/11/2026: el cuerpo de un tuit de @AlexHormozi (regular) salía en Inter 800, apretado. Medido en producción: 11 px de trazo
+  // con un cuerpo de ~115 px; los titulares de @lifeofarjav, 17 con ~117.
+  assert.equal(pesoMedido(11, 115), 400);
+  assert.equal(pesoMedido(17, 117), 700);
+  assert.equal(pesoMedido(20, 110), 800);
+  assert.equal(pesoMedido(3, 20), 0, 'una letra chica no se mide (el borde suavizado pesa más que el palo)');
+  const img = lamina(600, 600);
+  palos(img, 20, 40, 8, 60, 6);    // fina: 6 px de palo con 60 de alto
+  palos(img, 20, 160, 8, 60, 14);  // gruesa: 14
+  const l = leerLamina(img);
+  const fina = bloqueDeRenglones(img, l.renglones.filter((r) => r.caja.y < 120))!;
+  const gruesa = bloqueDeRenglones(img, l.renglones.filter((r) => r.caja.y >= 120))!;
+  assert.ok(Math.abs((fina.trazo ?? 0) - 6) <= 1, `trazo fino ${fina.trazo}`);
+  assert.ok(Math.abs((gruesa.trazo ?? 0) - 14) <= 1, `trazo grueso ${gruesa.trazo}`);
+  // Con el cuerpo de esas letras (60 px de alto sin colitas: 81 px de cuerpo), una es regular y la otra negrita.
+  assert.equal(pesoMedido(fina.trazo, 60 / 0.74), 400);
+  assert.equal(pesoMedido(gruesa.trazo, 60 / 0.74), 800);
+});
+
+test('12. lo que el segundo pedido leyó en el recorte decide qué va en unos renglones', () => {
+  // La lámina 6 en seco: la IA principal le dio «3. Lead Generation» a los renglones de «Comment "GIFT"…».
+  assert.equal(queVaEnLosRenglones(
+    { original: '3. Lead Generation', texto: '3. Generación de Leads' },
+    { original: 'Comment "GIFT"\nand I\'ll send it over.', texto: 'Comenta "FUNNEL"\ny te lo envío.' },
+  ), 'leido');
+  // La portada en producción: «Claude» debajo de su logo salió «PASO 2». El recorte lo deja igual: queda el original.
+  assert.equal(queVaEnLosRenglones({ original: 'Claude', texto: 'PASO 2' }, { original: 'Claude', texto: 'Claude' }), 'original');
+  // Sin dueño, lo mismo: lo que vuelve igual no se borra ni se reescribe.
+  assert.equal(queVaEnLosRenglones(null, { original: '© 2026', texto: '©2026' }), 'original');
+  assert.equal(queVaEnLosRenglones(null, { original: 'STEP 2', texto: 'PASO 2' }), 'leido');
+  // El recorte dice lo que ella leyó (aunque le falte el «step by step.» del renglón de abajo): queda lo de la IA principal.
+  assert.equal(queVaEnLosRenglones(
+    { original: 'Turn Claude into your Hormozi business coach,\nstep by step.', texto: 'Tu estrategia de ventas, paso a paso.' },
+    { original: 'Turn Claude into your Hormozi business coach,', texto: 'Convierte a Claude en tu asesor,' },
+  ), 'suyo');
+  // La IA principal escribió el texto NUEVO en «original» (pasó en una corrida entera): va lo leído, que dice lo mismo.
+  assert.equal(queVaEnLosRenglones({ original: 'PASO 1', texto: 'PASO 1' }, { original: 'STEP 1', texto: 'PASO 1' }), 'leido');
+  assert.ok(sinCambio({ original: '02 / 06', texto: '02/06' }));
+  assert.ok(!sinCambio({ original: '@LIFEOFARJAV', texto: '' }), 'el @ que se saca no es «sin cambio»: se borra');
+  assert.ok(!dicenLoMismo('Alex Hormozi Set Up Guide', 'Comment "GIFT" and I\'ll send it over.'));
+});
+
+test('13. un signo suelto en la franja de un texto (el «=» de «= 100M Business») es de ese texto', () => {
+  const img = lamina(500, 500);
+  pintar(img, 40, 114, 30, 8, NEGRO);   // las dos barras del «=»
+  pintar(img, 40, 134, 30, 8, NEGRO);
+  renglon(img, 100, 100, 8, 60);        // «100M Business»
+  const l = leerLamina(img);
+  const barras = l.renglones.filter((r) => r.caja.x < 80);
+  assert.equal(barras.length, 2, `las barras: ${JSON.stringify(l.renglones)}`);
+  const [titular] = asignarRenglones([{ x: 100, y: 100, ancho: 380, em: 80, renglones: 1, alinear: 'left' }], l.renglones, 500);
+  for (const b of barras) assert.ok(titular.includes(b.n), `la barra ${b.n} quedó sin dueño: ${JSON.stringify(titular)}`);
+});
+
+test('14. sin @ del negocio, a quién seguir es el negocio por su nombre; un acento no cae en una palabra vacía sola', () => {
+  // 13/11/2026, el pie de la lámina 6 en producción: «Sigue para más estrategia de ventas.»
+  assert.equal(sinArroba('Sigue @usuario para más estrategia de ventas.', '', 'Martin Koncke'), 'Sigue a Martin Koncke para más estrategia de ventas.');
+  assert.equal(sinArroba('Síguenos en @usuario para más.', '', 'Martin Koncke'), 'Síguenos para más.');
+  assert.equal(sinArroba('Sigue @usuario para más.', '@mako'), 'Sigue @mako para más.');
+  // La portada en producción: «Tu estrategia *de* ventas» (en el original, ahí iba «Hormozi» en naranja).
+  const t = 'Tu estrategia de ventas por WhatsApp';
+  const de = t.indexOf('de ');
+  assert.deepEqual(sinVaciasSueltas(t, [[de, de + 2]]), []);
+  const a = 'Acelerador de Ventas';
+  assert.equal(sinVaciasSueltas(a, [[0, 10], [11, 13], [14, 20]]).length, 3, 'entre dos palabras de acento, la vacía queda');
+});
+
+test('15. el nombre de un logo queda como en el original; un «texto» sin letras es un ícono', () => {
+  // 13/11/2026: «Claude» debajo del logo de Claude salió «PASO 2» en producción y «MaKo» en seco.
+  const img = lamina(500, 600);
+  pintar(img, 300, 300, 80, 80, NARANJA);     // el logo (una figura casi cuadrada)
+  renglon(img, 314, 388, 4, 22);              // «Claude», debajo
+  renglon(img, 322, 560, 4, 22);              // otro renglón, lejos del logo
+  const l = leerLamina(img);
+  const le = { img, lectura: l };
+  const nombre = l.renglones.find((r) => r.caja.y >= 380 && r.caja.y < 400)!;
+  const lejos = l.renglones.find((r) => r.caja.y >= 550)!;
+  assert.ok(nombre && lejos, `renglones: ${JSON.stringify(l.renglones)}`);
+  assert.ok(esNombreDeLogo(le, [nombre], []), 'el nombre del logo se reescribiría');
+  assert.ok(!esNombreDeLogo(le, [lejos], []), 'un renglón lejos del logo no es su nombre');
+  const persona = l.figuras[0].n;
+  assert.ok(!esNombreDeLogo(le, [nombre], [persona]), 'debajo de una PERSONA va el nombre del negocio, no queda el original');
+  assert.ok(sinLetras('📄') && sinLetras('✦ ') && !sinLetras('PASO 2') && !sinLetras('02 / 06'));
+});
+
+test('16. dos textos de la IA en un mismo bloque a la vista se juntan, y las filas se cuentan', () => {
+  const r = (n: number, x: number, y: number, ancho: number, alto: number): Renglon => ({ n, caja: { x, y, ancho, alto } });
+  // La caja de la lámina 6: «Comment "GIFT"» y «and I'll send it over.» (medidas en el original).
+  assert.ok(mismoBloque([r(23, 401, 1098, 352, 34)], [r(24, 401, 1150, 300, 26)]), 'las dos filas de la llamada a la acción no son un bloque');
+  // La portada: el titular y el subtítulo no son un bloque (otra letra).
+  assert.ok(!mismoBloque([r(5, 204, 493, 779, 86)], [r(8, 147, 626, 805, 38)]));
+  // Ni dos textos lejos uno de otro.
+  assert.ok(!mismoBloque([r(1, 100, 100, 300, 30)], [r(2, 100, 300, 300, 30)]));
+  // Dos pedazos de la misma franja son UNA fila (y su ancho, la suma); dos franjas, dos.
+  assert.deepEqual(filasDe([r(1, 100, 100, 120, 30), r(2, 240, 102, 80, 28)]).map((f) => f.ancho), [200]);
+  assert.equal(filasDe([r(23, 401, 1098, 352, 34), r(24, 401, 1150, 300, 26)]).length, 2);
+  // Y «Sigue para más…» (sin @, como lo escribe la IA): a quién, por su nombre.
+  assert.equal(sinArroba('Sigue para más contenido de alto impacto.', '', 'Martin Koncke'), 'Sigue a Martin Koncke para más contenido de alto impacto.');
+  assert.equal(sinArroba('Síguenos para más contenido.', '', 'Martin Koncke'), 'Síguenos para más contenido.');
 });

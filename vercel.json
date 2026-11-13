@@ -141,6 +141,10 @@
       "schedule": "20 14 * * 1"
     },
     {
+      "path": "/api/cron/retargeting-semanal",
+      "schedule": "0 11 * * 1"
+    },
+    {
       "path": "/api/cron/doer-flush",
       "schedule": "* * * * *"
     },
