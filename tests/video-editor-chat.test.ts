@@ -616,7 +616,11 @@ test('35: cortar por frase, por tramo y las muletillas: al final, con la transcr
   assert.match(motivos(r), /no se dice «adiós»/);
   // Sin tiempos por palabra lo dice, y si se subtitula en el mismo pedido, también.
   assert.match(revisar([{ op: 'eliminar_muletillas' }]).descartes[0], /genera primero los subtítulos/);
-  assert.match(revisar([{ op: 'generar_subtitulos' }, { op: 'cortar_frase', frase: 'hola' }]).descartes[0], /todavía no existen/);
+  // Con los subtítulos generándose en el mismo pedido, el corte va en la vuelta siguiente (12/11/2026: antes, «pídelo después»).
+  const encadenado = revisar([{ op: 'generar_subtitulos' }, { op: 'cortar_frase', frase: 'hola' }]);
+  assert.deepEqual(encadenado.encadenadas, [{ op: 'cortar_frase', frase: 'hola' }]);
+  assert.deepEqual(encadenado.descartes, []);
+  assert.ok(encadenado.cambios.some((c) => c.titulo === 'Después de generar los subtítulos' && c.despues === 'cortar «hola»'));
   // Un tramo: con video debajo, y nunca junto con algo que mueva la principal.
   assert.equal(revisar([{ op: 'cortar_tramo', inicio: 2, fin: 3 }]).resueltas.length, 1);
   const conBorrar = revisar([{ op: 'borrar', refs: ['v2'] }, { op: 'cortar_tramo', inicio: 2, fin: 3 }]);
@@ -986,7 +990,10 @@ test('51: «Borrar silencios» desde el chat (Leila, 27/10): el MISMO trabajo qu
   const sel = revisarOperaciones({ operaciones: [{ op: 'borrar_silencios' }], vista: vistaRica({ elegidos: [{ trackId: 'pa', elementId: 'aud1' }] }), alcance: 'seleccion' });
   assert.deepEqual((sel.resueltas[0] as Extract<OperacionResuelta, { op: 'borrar_silencios' }>).els.map((e) => e.ref), ['a1']);
   // Parte los clips: con otros cortes va aparte, y lo que tarda sobre el clip de la principal también.
-  assert.match(motivos(revisar([{ op: 'cortar_tramo', inicio: 2, fin: 3 }, { op: 'borrar_silencios' }])), /borrar los silencios va en un pedido aparte/);
+  // Con otros cortes, va DESPUÉS de ellos en el mismo pedido (12/11/2026: antes, «va en un pedido aparte»).
+  const trasCortes = revisar([{ op: 'cortar_tramo', inicio: 2, fin: 3 }, { op: 'borrar_silencios' }]);
+  assert.deepEqual(trasCortes.encadenadas, [{ op: 'borrar_silencios' }]);
+  assert.ok(trasCortes.cambios.some((c) => c.titulo === 'Después de los cortes'));
   assert.match(motivos(revisar([{ op: 'normalizar', ref: 'v1', activo: true }, { op: 'borrar_silencios' }])), /normalizar vid1\.mp4 va en un pedido aparte/);
   // El cableado: larga, por la pieza compartida con el botón y sin caer en el clip del cabezal.
   // comandos.ts carga el motor (wasm) y no se puede importar: se lee su lista de largas, no su última línea

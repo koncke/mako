@@ -10,6 +10,7 @@
 
 import { useAssetsPanelStore } from "@/app/video-editor/_opencut/components/editor/panels/assets/assets-panel-store";
 import { AGENTES, LIMA, textoPastilla } from "../plan";
+import { textoPastillaCorta } from "../pastilla";
 import { SECCION_ENJAMBRE, useEnjambre } from "../estado";
 
 export function EnVivo() {
@@ -22,7 +23,8 @@ export function EnVivo() {
 		<button
 			type="button"
 			onClick={() => useAssetsPanelStore.getState().irA({ categoria: "multimedia", seccion: SECCION_ENJAMBRE })}
-			title="Editando en vivo · guardado automático"
+			// Lo largo, al pasar el mouse; a la vista, lo justo (../pastilla.ts): la larga tapaba el nombre del proyecto (12/11/2026).
+			title={`${textoPastilla(paso)} · guardado automático`}
 			className="flex h-[26px] shrink-0 cursor-pointer items-center gap-2 rounded-[4px] px-1.5 hover:bg-(--cc-raised)"
 		>
 			<span className="flex items-center -space-x-1" aria-hidden>
@@ -35,11 +37,11 @@ export function EnVivo() {
 				))}
 			</span>
 			<span
-				className="flex items-center gap-1 rounded-full px-2 py-[2px] font-mono text-[11px]"
+				className="flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-[2px] font-mono text-[11px]"
 				style={{ color: LIMA, backgroundColor: `${LIMA}1f` }}
 			>
 				<span className="size-1.5 animate-pulse rounded-full" style={{ backgroundColor: LIMA }} aria-hidden />
-				{textoPastilla(paso)}
+				{textoPastillaCorta(paso)}
 			</span>
 		</button>
 	);

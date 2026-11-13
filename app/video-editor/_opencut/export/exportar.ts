@@ -43,6 +43,7 @@ import { exportarGif } from "./gif";
 import { guardarArchivo, nombreArchivo } from "./destino";
 import { EXPORT_MIME_TYPES } from "./mime-types";
 import { tramoVigente } from "@/app/video-editor/_opencut/rango/acciones";
+import { cuadroVacio, ESPERA_ENTRE_INTENTOS_MS, intentosDePortada, LADO_MUESTRA } from "./portada-reglas";
 import {
 	muestrasDelTramo,
 	segundosAExportar,
@@ -299,9 +300,11 @@ function recortarAudio(mezcla: AudioBuffer, tramo: Tramo): AudioBuffer | null {
 
 /**
  * La portada: el primer cuadro (el de la entrada, si hay un rango), chico, como
- * dataURL (columna izquierda del diálogo).
+ * dataURL (columna izquierda del diálogo). Un cuadro VACÍO (todo negro o
+ * transparente) no se da por bueno: se prueba otra vez y más adelante, hasta
+ * `hasta` (./portada-reglas.ts). Pasó (12/11/2026): Publicar mostraba la portada negra.
  */
-export async function portada(editor: EditorCore, ancho = 480, tiempo = 0): Promise<string | null> {
+export async function portada(editor: EditorCore, ancho = 480, tiempo = 0, hasta?: number): Promise<string | null> {
 	try {
 		const proyecto = editor.project.getActive();
 		const duracion = editor.timeline.getTotalDuration();
@@ -320,7 +323,25 @@ export async function portada(editor: EditorCore, ancho = 480, tiempo = 0): Prom
 		const canvas = document.createElement("canvas");
 		canvas.width = ancho;
 		canvas.height = Math.max(2, Math.round((ancho * lienzo.height) / lienzo.width));
-		await renderer.renderToCanvas({ node: escena, time: Math.max(0, Math.min(tiempo, duracion)), targetCanvas: canvas });
+		// La muestra chica con la que se mira si el cuadro salió vacío.
+		const muestra = document.createElement("canvas");
+		muestra.width = LADO_MUESTRA;
+		muestra.height = LADO_MUESTRA;
+		const mirar = muestra.getContext("2d", { willReadFrequently: true });
+		const intentos = intentosDePortada({
+			desde: Math.min(tiempo, duracion),
+			hasta: Math.min(hasta ?? duracion, duracion),
+			tps: TICKS_PER_SECOND,
+		});
+		for (const [i, momento] of intentos.entries()) {
+			if (i > 0) await new Promise((r) => setTimeout(r, ESPERA_ENTRE_INTENTOS_MS));
+			canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height);
+			await renderer.renderToCanvas({ node: escena, time: momento, targetCanvas: canvas });
+			if (!mirar) break;
+			mirar.clearRect(0, 0, LADO_MUESTRA, LADO_MUESTRA);
+			mirar.drawImage(canvas, 0, 0, LADO_MUESTRA, LADO_MUESTRA);
+			if (!cuadroVacio(mirar.getImageData(0, 0, LADO_MUESTRA, LADO_MUESTRA).data)) break;
+		}
 		return canvas.toDataURL("image/jpeg", 0.85);
 	} catch (error) {
 		console.warn("[exportar] no se pudo dibujar la portada", error);

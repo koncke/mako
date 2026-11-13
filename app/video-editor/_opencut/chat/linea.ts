@@ -698,6 +698,7 @@ export function resumenPlantillaSubtitulo(p: PlantillaSubtitulo): string {
 		p.fondo ? "con fondo" : "",
 		p.resaltado ? `karaoke ${p.resaltado.modo === "palabra" ? "por palabra" : "por frase"} ${p.resaltado.color}` : "",
 		p.animPalabra === "pop" ? "la palabra salta" : p.animPalabra === "crecer" ? "la palabra crece" : "",
+		p.clavesTamano && p.clavesTamano !== 100 ? `palabras clave al ${p.clavesTamano} %${p.clavesColor ? ` en ${p.clavesColor}` : ""}` : "",
 	].filter(Boolean);
 	return `${p.nombre}: ${partes.join(", ")}`;
 }
@@ -986,7 +987,17 @@ export type OperacionResuelta =
 	 */
 	| { op: "agregar_medios"; medios: Array<{ mediaId: string; ref?: string }> };
 
-export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[] };
+/**
+ * `encadenadas` (12/11/2026): lo que depende de algo que crea ESTE pedido y por eso todavía no se puede revisar —el estilo
+ * o las palabras clave de los subtítulos que se generan ahora, los silencios de la toma que se pone ahora, las palabras
+ * clave que pisaría una plantilla de subtítulos que se aplica al final—. Va a la revisión de la vuelta siguiente, contra
+ * la línea de tiempo que dejó ésta (chat/aplicar.ts → `aceptarPropuesta`), y tiene su fila en `cambios`. Antes se descartaba
+ * («todavía no existen: pide el preset después»): la receta de un reel replicado salía en dos pedidos (Martín, 12/11).
+ */
+export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[]; encadenadas?: OperacionChat[] };
+
+/** Las vueltas que da «Aceptar» con lo encadenado (subtítulos → su estilo → las palabras clave que pisaría el estilo). */
+export const VUELTAS_ENCADENADAS = 3;
 
 /** La transcripción del momento (transcripcion/modelo.ts) y el idioma de las muletillas. */
 export type TranscripcionChat = { parrafos: readonly ParrafoTx[]; idioma: string };
@@ -1348,6 +1359,12 @@ export function revisarOperaciones({
 	// Lo que se aplica AL FINAL (ver la cabecera): se revisa después del resto.
 	const cortes: OperacionChat[] = [];
 	const diferidas: OperacionChat[] = [];
+	// Lo que va en la vuelta siguiente (ver `Revision`), con su fila: «después de …».
+	const encadenadas: OperacionChat[] = [];
+	const encadenar = (op: OperacionChat, despuesDe: string, que: string) => {
+		encadenadas.push(op);
+		cambios.push({ tipo: "cambia", titulo: `Después de ${despuesDe}`, antes: "", despues: que });
+	};
 	const enPrincipal = (ref: string) => refs.get(ref)?.principal === true;
 	const mueveLaPrincipal = operaciones.some(
 		(o) =>
@@ -1369,11 +1386,20 @@ export function revisarOperaciones({
 			((o.op === "recortar" || o.op === "velocidad" || o.op === "duracion" || o.op === "mover") && enPrincipal(o.ref)),
 	);
 	const subtitulaAhora = operaciones.some((o) => o.op === "generar_subtitulos");
+	// Una plantilla o un preset de subtítulos se aplica DESPUÉS del lote (es larga) y reescribe el resaltado, la animación
+	// de la palabra y el tamaño de las claves (subtitles/estilos.ts → paramsDePlantilla): lo que los toca va después de ella.
+	const estilaSubtitulosAhora = operaciones.some((o) => o.op === "usar_preset_subtitulos");
+	/** ¿Esta operación de los subtítulos va en la vuelta siguiente? Sin subtítulos todavía y generándose, o con una plantilla. */
+	const subtitulosDespues = (hay: boolean, conPlantilla: boolean): string | null =>
+		!hay && subtitulaAhora ? "generar los subtítulos" : conPlantilla && estilaSubtitulosAhora ? "aplicar el estilo de los subtítulos" : null;
 	// Los estilos de subtítulo que vuelven a partir los renglones: UNO por estilo (la IA manda uno por subtítulo), con
 	// todos los que lo piden. Van al final (`estilo_subtitulos`).
 	const estilosDeSubtitulos = new Map<string, { els: RefElemento[]; params: ParamValues; fila: CambioChat }>();
 	// Hasta dónde llega lo que agregar_medios ya puso al final de la principal en este pedido (con o sin ref nueva).
 	let finAgregadosPrincipal = 0;
+	// Un video con sonido que pone ESTE pedido (con o sin ref nueva): subtitularlo o buscarle B-roll va después del lote, y
+	// lo encuentra; borrarle los silencios, en la vuelta siguiente (necesita su id).
+	let sonidoNuevoPrincipal = false;
 
 	for (const op of operaciones) {
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
@@ -1400,8 +1426,10 @@ export function revisarOperaciones({
 		if (op.op === "resaltar_palabras") {
 			// Como el panel («Animaciones de subtítulos»): a TODOS los subtítulos, en el mismo paso.
 			const subs = [...refs.values()].filter((r) => r.subtitulo && !estado.get(r.ref)?.borrado);
+			const tras = subtitulosDespues(subs.length > 0, true);
+			if (tras) { encadenar(op, tras, op.modo === "ninguno" ? "sin resaltar la palabra que se dice" : `resaltar ${op.modo === "frase" ? "lo que se va diciendo" : "la palabra que se dice"}`); continue; }
 			if (!subs.length) {
-				descartes.push(subtitulaAhora ? "los subtítulos que se generan en este pedido todavía no existen: pide el resaltado después" : "no hay subtítulos para resaltar");
+				descartes.push("no hay subtítulos para resaltar");
 				continue;
 			}
 			if (op.modo !== "ninguno" && !(transcripcion?.parrafos ?? []).some((p) => p.palabras.length > 0)) {
@@ -1430,8 +1458,10 @@ export function revisarOperaciones({
 		if (op.op === "animar_palabras") {
 			// Como el panel («Animaciones de subtítulos» › «Palabra que se dice»): a TODOS los subtítulos, en el mismo paso.
 			const subs = [...refs.values()].filter((r) => r.subtitulo && !estado.get(r.ref)?.borrado);
+			const tras = subtitulosDespues(subs.length > 0, true);
+			if (tras) { encadenar(op, tras, op.animacion === "ninguna" ? "sin animar la palabra" : op.animacion === "pop" ? "la palabra que se dice salta" : "la palabra que se dice crece"); continue; }
 			if (!subs.length) {
-				descartes.push(subtitulaAhora ? "los subtítulos que se generan en este pedido todavía no existen: pide la animación después" : "no hay subtítulos para animar");
+				descartes.push("no hay subtítulos para animar");
 				continue;
 			}
 			if (op.animacion !== "ninguna" && !(transcripcion?.parrafos ?? []).some((p) => p.palabras.length > 0)) {
@@ -1459,8 +1489,13 @@ export function revisarOperaciones({
 			const todos = [...refs.values()].filter((r) => r.subtitulo && !estado.get(r.ref)?.borrado).sort((a, b) => a.inicio - b.inicio);
 			if (op.ref && !todos.some((r) => r.ref === op.ref)) { descartes.push(`${op.ref} no es un subtítulo`); continue; }
 			const subs = op.ref ? todos.filter((r) => r.ref === op.ref) : todos;
+			const tras = op.ref ? null : subtitulosDespues(subs.length > 0, true);
+			if (tras) {
+				encadenar(op, tras, op.modo === "ninguna" ? "sin palabras clave" : `palabras clave${op.color ? ` en ${op.color}` : ""}${op.tamano !== undefined ? ` al ${op.tamano} %` : ""}`);
+				continue;
+			}
 			if (!subs.length) {
-				descartes.push(subtitulaAhora ? "los subtítulos que se generan en este pedido todavía no existen: pide las palabras clave después" : "no hay subtítulos");
+				descartes.push("no hay subtítulos");
 				continue;
 			}
 			const libres = subs.filter((r) => !r.bloqueada);
@@ -1518,8 +1553,13 @@ export function revisarOperaciones({
 		}
 		if (op.op === "usar_preset_subtitulos") {
 			const subs = [...refs.values()].filter((r) => r.subtitulo && !estado.get(r.ref)?.borrado);
+			if (!subs.length && subtitulaAhora) {
+				const nombre = plantillaSubtituloDelChat(op.preset)?.nombre;
+				encadenar(op, "generar los subtítulos", nombre ? `el estilo «${nombre}»` : `el preset «${corto(op.preset, 30)}»`);
+				continue;
+			}
 			if (!subs.length) {
-				descartes.push(subtitulaAhora ? "los subtítulos que se generan en este pedido todavía no existen: pide el preset después" : "no hay subtítulos");
+				descartes.push("no hay subtítulos");
 				continue;
 			}
 			const p = presetDelChat(d.presets ?? [], op.preset);
@@ -1628,6 +1668,7 @@ export function revisarOperaciones({
 					despues: `de ${textoSegundos(inicio)} a ${textoSegundos(fin)}, al final de la pista principal${m.tipo === "video" && m.sinAudio ? " (sin sonido)" : ""}`,
 				});
 				puestos.push({ mediaId: m.mediaId, ...(nueva ? { ref: nueva } : {}) });
+				if (m.tipo === "video" && !m.sinAudio) sonidoNuevoPrincipal = true;
 				cursor = fin;
 			}
 			finAgregadosPrincipal = cursor;
@@ -2278,6 +2319,10 @@ export function revisarOperaciones({
 			cambios.push({ tipo: "quita", titulo: "Tramo de la línea de tiempo", antes: `${tramo} (lo de después se corre)`, despues: "" });
 			continue;
 		}
+		if (!conPalabras && subtitulaAhora) {
+			encadenar(op, "generar los subtítulos", op.op === "cortar_frase" ? `cortar «${corto(op.frase, 40)}»` : "sacar las muletillas");
+			continue;
+		}
 		if (!conPalabras) { sinPalabras(); continue; }
 		if (cambiaTiemposPrincipal) {
 			const que = op.op === "cortar_frase" ? `el corte de «${corto(op.frase, 40)}»` : "sacar las muletillas";
@@ -2317,7 +2362,13 @@ export function revisarOperaciones({
 	diferidas.sort((a, b) => ultimo(a) - ultimo(b));
 	for (const op of diferidas) {
 		if (op.op === "borrar_silencios") {
-			if (hayCortes) { descartes.push("borrar los silencios va en un pedido aparte: los otros cortes parten el clip"); continue; }
+			const queSilencios = `borrar los silencios (las pausas de ${segundosDeAviso(op.pausa_min ?? PAUSA_MIN_S)} o más)`;
+			if (hayCortes) { encadenar(op, "los cortes", queSilencios); continue; }
+			// La toma que pone ESTE pedido (agregar_medios) todavía no tiene id: sus silencios, cuando ya esté.
+			if (op.ref === undefined && alcance !== "seleccion" && (sonidoNuevoPrincipal || [...refs.values()].some((r) => r.nuevo && r.principal && SONOROS.has(r.tipo) && !estado.get(r.ref)?.borrado))) {
+				encadenar(op, "poner el video", queSilencios);
+				continue;
+			}
 			// Sin ref: cada clip con sonido de la pista principal; con el alcance de la selección, los elegidos.
 			const pedidos = op.ref !== undefined
 				? [op.ref]
@@ -2344,14 +2395,14 @@ export function revisarOperaciones({
 			continue;
 		}
 		if (op.op === "generar_subtitulos") {
-			const conSonido = [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !estado.get(r.ref)?.borrado);
+			const conSonido = sonidoNuevoPrincipal || [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !estado.get(r.ref)?.borrado);
 			if (!conSonido) { descartes.push("no hay video ni audio para subtitular"); continue; }
 			resueltas.push({ op: "generar_subtitulos" });
 			cambios.push({ tipo: "agrega", titulo: "Subtítulos automáticos", antes: "", despues: "de todo el video, transcritos en tu navegador" });
 			continue;
 		}
 		if (op.op === "broll") {
-			const conSonido = [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !estado.get(r.ref)?.borrado);
+			const conSonido = sonidoNuevoPrincipal || [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !estado.get(r.ref)?.borrado);
 			if (!conSonido) { descartes.push("no hay video con voz para proponer B-roll"); continue; }
 			const planos = op.planos !== false;
 			const videos = op.videos === true;
@@ -2451,7 +2502,7 @@ export function revisarOperaciones({
 		resueltas.push({ op: "estilo_subtitulos", els: g.els, params: g.params });
 		cambios.push({ ...g.fila, titulo: g.els.length === 1 ? g.els[0].titulo : `${g.els.length} subtítulos`, despues: `${g.fila.despues} (vuelve a partir los renglones)` });
 	}
-	return { resueltas, cambios, descartes };
+	return { resueltas, cambios, descartes, ...(encadenadas.length ? { encadenadas } : {}) };
 }
 
 /** Un preset de la marca por su id o por su nombre (sin tildes ni mayúsculas); dos con el mismo nombre no se eligen. */

@@ -22,6 +22,22 @@ export function textoDeClips(r: Extract<ResultadoClips, { ok: false }>): string 
 	return r.detalle?.trim() || TEXTO_MOTIVO_CLIPS[r.motivo];
 }
 
+/** La línea de tiempo sobre la que se dijo un mensaje: el proyecto y su duración (en ticks) de ESE momento. */
+export type VigenciaMensaje = { proyectoId: string; duracion: number };
+
+/**
+ * ¿El mensaje sigue valiendo? Uno dicho sobre una línea de tiempo deja de valer cuando la línea cambia: pasó (12/11/2026,
+ * producción) que con un video corto quedó «Este video ya dura como un clip…», y después de sumarle video (ya duraba 2:28)
+ * seguía ahí. Sin vigencia (el aviso de «Abrir», que se lee en el proyecto NUEVO), vale siempre.
+ */
+export function mensajeVigente(
+	vigencia: VigenciaMensaje | null,
+	ahora: { proyectoId: string | null; duracion: number },
+): boolean {
+	if (!vigencia) return true;
+	return vigencia.proyectoId === ahora.proyectoId && vigencia.duracion === ahora.duracion;
+}
+
 export type MotivoAbrir = "sin-proyecto" | "ocupado" | "no-se-copio" | "no-se-armo";
 
 export type ResultadoAbrir = { ok: true; id: string; aviso: string | null } | { ok: false; motivo: MotivoAbrir };

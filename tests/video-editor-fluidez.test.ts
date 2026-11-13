@@ -49,3 +49,19 @@ test('F2: la raíz del editor no se redibuja con el tiempo del cabezal (sólo co
   // Y ningún otro lugar de la raíz lee el cabezal.
   assert.equal((src.match(/getCurrentTime\(\)/g) ?? []).length, 1);
 });
+
+test('F3: con un clip elegido, el panel Video › Básico no se redibuja en cada salto del cabezal (sin fotogramas clave)', () => {
+  // Medido el 12/11 después del deploy: 167–477 componentes por salto con un clip elegido. Cada grupo del panel (Escala,
+  // Posición, Mezcla…) escuchaba el TIEMPO por useElementPlayhead, y «Alineación» lo leía para medir la caja.
+  const gancho = sinComentarios(leer('app/video-editor/_opencut/components/editor/panels/properties/hooks/use-element-playhead.ts'));
+  assert.match(gancho, /seguirTiempo \? editor\.playback\.getCurrentTime\(\) : null/, 'sin seguir el tiempo, el selector devuelve un valor fijo');
+  assert.match(gancho, /seguirTiempo \? null : cabezalDentro\(editor\.playback\.getCurrentTime\(\), startTime, duration\)/, 'y escucha sólo si está sobre el clip (un booleano)');
+  const grupo = sinComentarios(leer('app/video-editor/_opencut/components/editor/panels/properties/hooks/use-params-con-fotogramas.ts'));
+  assert.match(grupo, /seguirTiempo: conFotogramas/, 'el grupo sigue el tiempo SÓLO con fotogramas clave');
+  assert.ok(grupo.indexOf('const conFotogramas') < grupo.indexOf('useElementPlayhead('), 'conFotogramas se calcula antes');
+  // El primer fotograma clave se crea en el tiempo de AHORA, no en el del último redibujo.
+  assert.match(grupo, /const ahora = leerTiempoLocal\(\);[\s\S]*?time: ahora,/);
+  const basico = sinComentarios(leer('app/video-editor/_opencut/components/editor/panels/properties/video/basico.tsx'));
+  assert.doesNotMatch(basico, /useEditor\(\(e\) => e\.playback\.getCurrentTime\(\)\)/, 'Alineación vuelve a escuchar el cabezal');
+  assert.match(basico, /const caja = medir\(editor\.playback\.getCurrentTime\(\)\);/, 'la caja se mide al tocar');
+});
