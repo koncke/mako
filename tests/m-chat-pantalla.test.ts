@@ -180,3 +180,17 @@ test('9. «Conectar tu IA» y la franja de la app: una línea debajo de la cabec
   assert.match(sinComentarios(leer('app/m/_chat/AvisoDeIA.tsx')), /\{\.\.\.ancla\('mk-conectar'\)\}/, 'la guía lo sigue encontrando');
   assert.match(leer('app/m/_chat/chat-wa.css'), /\.m-chat__aviso \{\n\s*flex: none;/, 'no scrollea con la conversación');
 });
+
+// «↳ null» en la lista del super admin del teléfono (13/11/2026, lo vio el chat «MaKo dentro de la app» en producción a 375): desde
+// «un chat por tab» (10/11) un chat de TAREA va debajo de la cabeza de su tab aunque su título no tenga «›», y `partesDelNombre` le
+// da `sub: null`. La computadora y la lista del cliente caían al título entero; ChatsMovil.tsx no. Probado rompiéndolo: sin el `??` → 9/1.
+test('10. un sub-chat sin «›» se llama con su título entero, nunca «↳ null»', async () => {
+  const { partesDelNombre } = await import('../lib/centro-chats');
+  assert.equal(partesDelNombre('Borrar la co-edición del editor de imágenes').sub, null, 'por eso hace falta el respaldo');
+  assert.equal(partesDelNombre('Image › Portadas').sub, 'Portadas');
+  for (const a of ['app/m/operaciones/ChatsMovil.tsx', 'app/m/second-brain/ChatClienteM.tsx', 'app/admin/operaciones/PiezasCentro.tsx', 'app/second-brain/ChatSecondBrain.tsx']) {
+    const usos = sinComentarios(leer(a)).match(/partesDelNombre\([^)]*\)\.sub\b[^\n]{0,4}/g) ?? [];
+    assert.ok(usos.length > 0, `${a}: lo usa`);
+    for (const u of usos) assert.match(u, /\.sub \?\? /, `${a}: «${u}» sin respaldo dibuja «null»`);
+  }
+});

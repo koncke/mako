@@ -160,9 +160,10 @@ const FilaChatM = memo(function FilaChatM({ c, sub, espera, aspecto, ahora, onAb
   const animo = animoDe(c, avisosDe(espera, nuevo));
   return (
     <FilaM
-      // Un sub-chat va corrido a la derecha, con su muñeco más chico y sólo lo que va después de «›».
+      // Un sub-chat va corrido a la derecha, con su muñeco más chico y sólo lo que va después de «›». Uno de tarea, sin «›» (desde
+      // «un chat por tab», 10/11/2026), con su título entero: sin el `??` decía «↳ null» (13/11/2026, producción a 375).
       leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={c.titulo} aspecto={aspecto} animo={animo} size={sub ? 32 : 40} espera={avisosDe(espera, nuevo)} /></span>}
-      titulo={<span className={`m-operaciones-texto1${animo === 'dormido' ? ' m-operaciones-texto1--dormido' : ''}`}>{sub ? `↳ ${partesDelNombre(c.titulo).sub}` : c.titulo}{c.nube && <> <span className="co-chip-cuenta">Nube</span></>}</span>}
+      titulo={<span className={`m-operaciones-texto1${animo === 'dormido' ? ' m-operaciones-texto1--dormido' : ''}`}>{sub ? `↳ ${partesDelNombre(c.titulo).sub ?? c.titulo}` : c.titulo}{c.nube && <> <span className="co-chip-cuenta">Nube</span></>}</span>}
       // «Trabajando…», «Espera tu respuesta» o nada (20/10/2026): lo decide `segundoRenglon`, el mismo de la computadora.
       segunda={renglon ? <span className={renglon === 'espera' ? 'm-operaciones-espera' : 'm-operaciones-vivo'}>{TEXTO_SEGUNDO_RENGLON[renglon]}</span> : undefined}
       riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edad(c.actividad, ahora)}</span></span>}

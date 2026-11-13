@@ -15,7 +15,7 @@ import { frasesDelVideo } from "@/app/video-editor/_opencut/broll/frases-del-vid
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { TOPES_CLIPS, type ClipElegido } from "@/lib/editor-video/clips";
 import { useTrabajoClips } from "./estado";
-import { textoDeClips, type ResultadoClips, type VigenciaMensaje } from "./resultado";
+import { esFallaDeClips, textoDeClips, type ResultadoClips, type VigenciaMensaje } from "./resultado";
 
 let enCurso = false;
 
@@ -35,7 +35,7 @@ export async function buscarClips(editor: EditorCore, { cuantos }: { cuantos: nu
 			fase: "inactivo",
 			progreso: 0,
 			mensaje: r.ok ? r.aviso : textoDeClips(r),
-			error: !r.ok,
+			error: esFallaDeClips(r),
 			vigencia: vigenciaDe(editor),
 		});
 		return r;

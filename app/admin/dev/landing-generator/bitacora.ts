@@ -1768,4 +1768,39 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '13 nov', hora: '13:30', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La página publicada muestra el texto sin esperar la letra',
+    puntos: [
+      'La letra de tu página ahora se sirve desde tu propio dominio, y la página ya no espera a Google para mostrarse.',
+      'Mientras llega la letra se ve una del sistema del mismo tamaño, así el cambio casi no se nota.',
+      'En un teléfono con 4G lenta, el texto aparece en 1,1 segundos en vez de 1,25, y la página termina de cargar en 1,4 en vez de 1,8.',
+    ],
+    archivos: [
+      'lib/editor-landing/fuentes-propias.ts — la hoja de Google leída en el servidor, las caras en línea y la letra de respaldo',
+      'app/l/html/fuentes/[...ruta]/route.ts — los archivos de la fuente desde el dominio de la página',
+      'lib/editor-landing/metricas-fuentes.ts · scripts/generar-metricas-fuentes.mts — las medidas de cada fuente del catálogo',
+      'lib/editor-landing/pagina-publica.ts — el documento con la fuente propia',
+      'tests/web-generator-fuentes-propias.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '13 nov', hora: '13:40', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Replicar ya no pasa los testimonios ni las cifras de la otra como tuyos',
+    puntos: [
+      'Si la landing que replicas tiene cifras, fechas u horas propias (sus ventas, sus seguidores, el día de su clase), la tuya queda con un espacio para completar con las tuyas, y MaKo te avisa cuántas son.',
+      'Los pasos numerados de la original salen como tarjetas numeradas, no como una lista.',
+      'Los testimonios con foto de la original dejan el lugar de cada foto para que pongas la de tus clientes.',
+    ],
+    archivos: [
+      'lib/editor-landing/ia-reglas.ts — sinCifrasDeLaOriginal: las cifras, fechas y horas de la otra pasan a [DATO], [FECHA] y [HORA]',
+      'lib/editor-landing/ia-bloques.ts — varianteCercana: un nombre parecido es esa variante',
+      'lib/editor-landing/replicar-estructura.ts · replicar.ts — conHuecoDeFoto y el aviso',
+      'tests/web-generator-replicar-1311.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
 ];

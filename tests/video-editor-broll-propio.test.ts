@@ -74,3 +74,9 @@ test('P5: «Proponer» usa los propios SÓLO sin Pexels, sin pagar la IA, y la s
   // La Edición automática no se saltea si hubo propios.
   assert.match(sinComentarios(leer('app/video-editor/_opencut/enjambre/correr.ts')), /if \(esBroll && r\.faltaPexels && !r\.propios\) \{/);
 });
+
+test('P6: sólo los cambios de plano (la Edición automática los corre aparte) no borran el aviso de Pexels de la sección', () => {
+  const proponer = sinComentarios(leer('app/video-editor/_opencut/broll/proponer.ts'));
+  assert.match(proponer, /const pexelsAntes = \{ faltaPexels: trabajo\.faltaPexels, propios: trabajo\.propios \};/);
+  assert.match(proponer, /\.\.\.\(conBroll \|\| !r\.ok\s*\? \{ faltaPexels: r\.ok \? r\.faltaPexels : false, propios: r\.ok \? \(r\.propios \?\? 0\) : 0 \}\s*: pexelsAntes\),/);
+});
