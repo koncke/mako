@@ -148,15 +148,17 @@ test('4. el cableado: el componente dibuja los sueltos y pasea, el chat los pren
   assert.match(comp, /const subtitulando = useTrabajoSubtitulos\(\(s\) => s\.fase !== "inactivo"\);/);
   assert.match(comp, /const brolleando = useTrabajoBroll\(\(s\) => s\.fase !== "inactivo" \|\| s\.cambiando !== null\);/);
   assert.match(comp, /const recortando = useTrabajoClips\(\(s\) => s\.fase !== "inactivo"\);/);
-  assert.match(comp, /setInterval\(\(\) => \{ setVuelta\(\(v\) => v \+ 1\); setPaso\(\(v\) => v \+ 1\); \}, PASEO_MS\)/, 'sin la vuelta, el cursor queda clavado');
-  // Cada uno trabaja SUS objetivos (Martín, 11/11/2026: «que estén trabajando, hagan cosas, no moverse random»).
-  assert.match(comp, /const t = tareaDeAgente\(\{ agente: a\.id, en, vuelta: trabajando \? vuelta : paso, \.\.\.medida \}\);/, 'el de la edición automática no trabaja sus objetivos');
+  assert.match(comp, /setInterval\(\(\) => setVuelta\(\(v\) => v \+ 1\), PASEO_MS\)/, 'sin la vuelta, el cursor queda clavado');
+  // Cada uno DONDE aparece su cambio (Martín, 12/11/2026: «no tiene sentido esos cursores que están haciendo cosas sobre algo
+  // que ya está creado»; tests/video-editor-enjambre-cambios.test.ts): el reparto de los cambios de su tanda.
+  assert.match(comp, /repartoDeCambios\(\{ trabajando: w, cambios, ahora, ocupados \}\)/, 'el de la edición automática no va a sus cambios');
   assert.match(comp, /border: `1\.5px solid \$\{color\}`/, 'sin la caja de selección no se ve QUÉ agarró');
   assert.match(comp, /\[data-ce-linea\] \[data-ce-clip\]\[data-ce-tipo=/, 'los clips de la línea de tiempo, medidos');
   assert.match(leer(`${OC}/timeline/components/timeline-element.tsx`), /data-ce-clip=""\s*data-ce-tipo=\{element\.type\}/, 'los clips sin su marca: los cursores no los encuentran');
-  // Todos juntos (Martín, 11/11/2026): los que no trabajan también recorren su panel, con una vuelta que no se reinicia.
+  // Los que no tienen nada que hacer, quietos en su panel (12/11/2026: antes recorrían lo que ya estaba, «haciendo cosas sobre
+  // algo que ya está creado»).
   assert.match(comp, /transform \$\{TRANSICION_CURSOR_MS\}ms/);
-  assert.match(comp, /: tareaDeAgente\(\{ agente: id, en: null, vuelta, \.\.\.medida \}\);/, 'los sueltos no trabajan sus objetivos');
+  assert.match(comp, /const p = t\?\.punto \?\? enSuLugar\(id\);/, 'el suelto sin pedido ni cambios no espera en su panel');
   assert.match(comp, /dibujo = ultimos\.current\.map\(\(d\) => \(\{ \.\.\.d, opacidad: 0 \}\)\);/, 'al terminar se desvanecen');
 
   const chat = leer(`${OC}/chat/PanelChat.tsx`);
