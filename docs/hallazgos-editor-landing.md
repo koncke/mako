@@ -4598,10 +4598,13 @@ ya tiene hasta 12 páginas con su ruta, un botón lleva a otra con `href: 'pagin
 - **La página ABIERTA vive en el editor:** `setPaginas` conserva su documento vivo e ignora el que trae la lista, así que un
   cambio en ella va por `editor.commands.setContent` antes de `setPaginas`.
 
+- **TRAMPA: un `.module.css` en un componente del editor rompe los tests.** Los tests importan los componentes desde Node
+  (`PanelPaginas`, en editor-landing-armazon y api-mako-landing-contenido) y Node no carga un .css: «SyntaxError: Unexpected
+  token '.'». Por eso el editor no usa módulos CSS: los estilos del funnel van como string (`funnel-estilos.ts`, clases `gfn-`)
+  en un `<style>` del propio componente.
 - **Cómo se miró sin servidor (la PC sin RAM):** `VistaFunnel` es la parte que dibuja, con props y sin estado; se renderiza
-  con `renderToStaticMarkup` desde Node (el `.module.css` por `require`: `Module._extensions['.css']` con un Proxy que devuelve
-  el nombre de cada clase, porque tsx carga el .tsx como CommonJS y un hook de módulos ES no lo ve) y se captura con Chrome sin
-  ventana a 1440 y 375 (side-session-notes/…/funnel/vista-funnel-*.jpg).
+  con `renderToStaticMarkup` desde Node (trae su `<style>`) y se captura con Chrome sin ventana a 1440 y 375
+  (side-session-notes/…/funnel/vista-funnel-*.jpg).
 
 **Sin hacer:** usarla en producción en el editor (crear el paso, cambiar la flecha); métricas por paso (visitas y
 conversiones de cada página, como GHL).

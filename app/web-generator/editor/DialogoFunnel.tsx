@@ -22,7 +22,7 @@ import {
   conectar, paginaDePaso, recorridoDe, OBJETIVO_PASO, OBJETIVOS_PASO, type Conexion, type ObjetivoPaso, type PasoDelFunnel,
 } from '@/lib/editor-landing/funnel';
 import { useEditorLanding } from './contexto';
-import s from './DialogoFunnel.module.css';
+import { CSS_FUNNEL, s } from './funnel-estilos';
 
 const COLOR: Record<ObjetivoPaso, string> = { formulario: '#0e9f6e', vsl: '#7c3aed', agenda: '#d97706', venta: '#dc2626', gracias: '#0891b2' };
 
@@ -50,6 +50,7 @@ export type PropsVistaFunnel = {
 export function VistaFunnel({ paginas, paginaActual, pasos, docDe, menu, setMenu, onCerrar, onEditar, onConectar, onAgregar }: PropsVistaFunnel) {
   return (
     <>
+      <style>{CSS_FUNNEL}</style>
       <div className={s.barra}>
         <button type="button" className="gma-izq-volver" aria-label="Volver al editor" onClick={onCerrar}>←</button>
         <b>Funnel</b>
