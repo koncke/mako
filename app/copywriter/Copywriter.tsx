@@ -27,7 +27,7 @@ import { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { PantallaCrear, type PlantillaCrear, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
-import { aPapelera, cambiarPagina, dePapelera, enOrdenDeArbol, escondida, restaurar as restaurarEnArbol } from '@/lib/copywriter/arbol';
+import { aPapelera, cambiarPagina, dePapelera, enOrdenReciente, escondida, restaurar as restaurarEnArbol } from '@/lib/copywriter/arbol';
 import { INFO_TIPO, propsNuevas, SIN_TITULO, type GuionAbierto, type PaginaCopy, type TipoGuion } from '@/lib/copywriter/tipos';
 import { type CatalogosCopy } from '@/lib/copywriter/catalogos';
 import { chipsDe, extractoDe, plantillasDe, plantillasVisibles, type Plantilla } from '@/lib/copywriter/plantillas';
@@ -188,8 +188,9 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
     }));
   }, [todas, tipoInicial]);
 
-  // La lista de páginas en el orden del árbol: las subpáginas debajo de la suya, con «↳».
-  const proyectos = useMemo((): ProyectoCrear[] => enOrdenDeArbol(paginas).filter(({ p }) => !escondida(paginas, p.id)).map(({ p, nivel }) => ({
+  // La lista de páginas: la última editada arriba (12/11/2026, en producción iba de la más vieja a la más nueva), y las
+  // subpáginas debajo de la suya, con «↳».
+  const proyectos = useMemo((): ProyectoCrear[] => enOrdenReciente(paginas).filter(({ p }) => !escondida(paginas, p.id)).map(({ p, nivel }) => ({
     id: p.id,
     nombre: `${nivel ? '↳ ' : ''}${p.emoji ?? INFO_TIPO[p.tipo].emoji} ${p.titulo || SIN_TITULO}`,
     href: rutaDe(p.id),

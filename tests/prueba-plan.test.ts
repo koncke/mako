@@ -126,7 +126,9 @@ test('el CHECKOUT: sólo con la pasarela que arma la prueba, una por email/cuent
   const freno = comprar.indexOf('const puede = await puedeEmpezarPrueba(p.email, ws);');
   assert.ok(freno > 0 && freno < comprar.indexOf('crearCobro('), 'la segunda prueba se frena antes de abrir el pago');
   // Con el interruptor (30/10/2026): el camino de la prueba sigue entero, y sólo se toma con `PRUEBA_GRATIS_PRENDIDA`.
-  assert.match(comprar, /const conPrueba = PRUEBA_GRATIS_PRENDIDA && !p\.sinPrueba;/);
+  // Y desde el 12/11/2026, sólo en el plan que la trae (`planConPrueba`: Pro; Martín: «para acceder a la de 47 hay que pagar
+  // directamente»). `planConPrueba` mira el interruptor adentro.
+  assert.match(comprar, /const conPrueba = planConPrueba\(plan\.id\) && !p\.sinPrueba;/);
   assert.match(comprar, /creadoPor: conPrueba \? creadoPorPrueba\(plan\.id\) : conDescuento \? creadoPorPrimerMes\(plan\.id\) : `planes:\$\{plan\.id\}`,/);
   assert.match(comprar, /inicioAt: conPrueba \? finDeLaPrueba\(Date\.now\(\)\) : null,/, 'el primer cobro, el día 8 (el start_date de MP)');
   assert.match(comprar, /: \{ ok: false, status: 409, error: TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true \};/, 'quien ya la usó puede empezar sin ella');
@@ -185,7 +187,8 @@ test('la PÁGINA DE VUELTA: «Tu prueba gratis empezó» con el día del cobro; 
   // Se dice por qué, y «esa tarjeta» sólo si la pasarela de verdad la reconoce (Creem no: va por email).
   assert.match(p, /huellaDeTarjeta \? TEXTO_PRUEBA_USADA_TARJETA : TEXTO_PRUEBA_USADA_EMAIL/);
   assert.match(p, /href=\{`\/planes\/\$\{plan\}\?sinPrueba=1`\}>Empezar sin prueba<\/a>/);
-  assert.match(fuente('app/planes/[plan]/page.tsx'), /sinPrueba=\{uno\('sinPrueba'\) === '1' \|\| !PRUEBA_GRATIS_PRENDIDA\}/);
+  assert.match(fuente('app/planes/[plan]/page.tsx'), /const conPrueba = planConPrueba\(plan\.id\) && uno\('sinPrueba'\) !== '1';/);
+  assert.match(fuente('app/planes/[plan]/page.tsx'), /sinPrueba=\{!conPrueba\}/);
 });
 
 test('el AVISO por email: un cron diario con su auth primero, sólo pruebas autorizadas, y la marca de la mig 0334', () => {

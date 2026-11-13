@@ -61,22 +61,17 @@ export const CSS_BASE = `
 .s-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .s-sitio a:focus-visible,.s-sitio summary:focus-visible,.s-sitio [tabindex]:focus-visible{outline:2px solid ${AZUL};outline-offset:2px}
 
-/* Su botón: la cara de color, radio 6, y debajo dos capas (dorado claro y dorado, filete #0B0D2A) que se separan al pasar el mouse. */
-.s-btn{position:relative;display:inline-flex;transition:transform .125s ease-out}
-.s-btn:hover{transform:scale(1.02)}
-.s-btn-t{position:relative;z-index:10;display:inline-flex;align-items:center;justify-content:center;gap:10px;background:${AZUL};border:1px solid ${AZUL};border-radius:6px;padding:8px 24px;font-size:18px;line-height:28px;font-weight:700;color:#fff;white-space:nowrap;transition:transform .125s ease-out}
-.s-btn-c1,.s-btn-c2{position:absolute;inset:1px;border:1px solid #0B0D2A;border-radius:6px;transition:transform .125s ease-out}
-.s-btn-c1{background:${DORADO_CAPA}}
-.s-btn-c2{background:${DORADO}}
-.s-btn:hover .s-btn-t{transform:translate(-18px,-18px)}
-.s-btn:hover .s-btn-c1{transform:translate(-12px,-12px)}
-.s-btn:hover .s-btn-c2{transform:translate(-6px,-6px)}
+/* Su botón: la cara de color, radio 6. SIN las dos capas que se separaban al pasar el mouse (Martín, 12/11/2026: «hace una
+   animación rarísima… no quiero que ese hover exista. De última un pequeño hover, pero muy sutil»): al pasar, se aclara apenas. */
+.s-btn{position:relative;display:inline-flex}
+.s-btn-t{position:relative;z-index:10;display:inline-flex;align-items:center;justify-content:center;gap:10px;background:${AZUL};border:1px solid ${AZUL};border-radius:6px;padding:8px 24px;font-size:18px;line-height:28px;font-weight:700;color:#fff;white-space:nowrap;transition:filter .15s ease}
+.s-btn-c1,.s-btn-c2{display:none}
+.s-btn:hover .s-btn-t{filter:brightness(1.08)}
 /* El de borde (su «Sign up with email»): fondo #131125 y filete casi blanco. */
 .s-btn-borde .s-btn-t{background:#131125;border-color:#FCFCFD}
 .s-btn-alto .s-btn-t{padding:10px 24px}
 @media (prefers-reduced-motion:reduce){
-  .s-btn,.s-btn-t,.s-btn-c1,.s-btn-c2{transition:none}
-  .s-btn:hover,.s-btn:hover .s-btn-t,.s-btn:hover .s-btn-c1,.s-btn:hover .s-btn-c2{transform:none}
+  .s-btn-t{transition:none}
 }
 `;
 
@@ -205,10 +200,10 @@ export const CSS_PIE = `
 /* Su pie: filete arriba, 64 de aire; a la izquierda el texto (16/24 700), a la derecha las columnas (títulos 14/20 700, links
    14/20 500 #9393A9 cada 32 px, 40 entre columnas); filete con 48 de aire; los links legales, la estrella y el ©. */
 .s-pie{background:${FONDO};border-top:1px solid ${LINEA};padding:64px 0}
-.s-pie-in{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:48px;padding-bottom:48px;border-bottom:1px solid ${LINEA}}
+.s-pie-in{display:grid;grid-template-columns:minmax(0,1fr);gap:40px;padding-bottom:48px;border-bottom:1px solid ${LINEA}}
 .s-pie-lema{font-size:16px;line-height:24px;font-weight:700;color:#fff;max-width:300px}
 .s-pie-sub{margin-top:12px;font-size:14px;line-height:20px;font-weight:500;color:${GRIS3};max-width:300px}
-.s-pie-cols{display:flex;gap:40px}
+.s-pie-cols{display:flex;gap:32px;justify-content:space-between}
 .s-pie-h{font-size:14px;line-height:20px;font-weight:700;color:#fff;margin-bottom:16px;white-space:nowrap}
 .s-pie-col li{font-size:14px;line-height:20px;font-weight:500;padding-bottom:12px}
 .s-pie-col a{color:${GRIS3};white-space:nowrap;transition:color .15s}
@@ -251,7 +246,7 @@ export const CSS_PORTADA = `
 /* El hero: 96 arriba y abajo; dos columnas de 576 con 32 de separación; el titular 60/60 en mayúsculas con el último renglón en
    degradado, la bajada 20/28 en 512 px, los dos botones de 50 separados 12, la nota 14/20 #B8B8C8 y el visual de 634 × 475. */
 .s-hero{position:relative;padding:96px 0}
-.s-hero-in{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:center}
+.s-hero-in{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:32px;align-items:center}
 /* El VSL de Martín en el lugar de la composición de beehiiv (12/11/2026): 16:9, con el halo azul de su composición. */
 .s-hero-vsl{position:relative}
 .s-hero-vsl::before{content:'';position:absolute;inset:-8% -8% -4%;background:radial-gradient(closest-side,rgba(47,111,237,.32),rgba(47,111,237,0));filter:blur(24px);pointer-events:none}
@@ -259,7 +254,10 @@ export const CSS_PORTADA = `
 .s-hero-vsl .mk-vsl{position:absolute;inset:0;border-radius:14px;overflow:hidden;background:#0B0D12;border:1px solid rgba(255,255,255,.14);box-shadow:0 30px 70px -32px rgba(0,0,0,.7)}
 .s-hero-vsl .mk-vsl iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
 .s-hero-vsl .mk-cor,.s-hero-vsl .mk-vsl-x{display:none}
-.s-h1{${TITULAR};font-size:60px;line-height:60px;color:#fff}
+.s-hero-tx{container-type:inline-size;min-width:0}
+/* En el modo claro (el sol y la luna pone data-sitio-modo en <html>), el dorado del título más oscuro: el claro no se lee sobre blanco. */
+html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A06,#DE9410);-webkit-background-clip:text;background-clip:text}
+.s-h1{${TITULAR};font-size:min(60px,9.2cqi);line-height:1;color:#fff}
 .s-h1 em{font-style:normal;background:linear-gradient(to right,${DORADO_CLARO},${DORADO});-webkit-background-clip:text;background-clip:text;color:transparent}
 .s-hero-p{margin-top:16px;max-width:512px;font-size:20px;line-height:28px;font-weight:500;color:${TEXTO}}
 .s-hero-p strong{font-weight:700;color:#fff}
@@ -335,15 +333,27 @@ export const CSS_PORTADA = `
 .s-card-a:hover svg{transform:translateX(3px)}
 .s-card-vis{position:absolute;left:85px;top:204px;width:640px}
 .s-card-chica .s-card-vis{left:40px;top:248px;width:520px}
-/* Las grabaciones de la app y la pared de gurús (Martín, 12/11/2026: «imágenes o videos de las cosas que tenemos dentro»). */
-.s-card-video{display:block;width:100%;height:auto;background:#fff}
-.s-gurus{padding:18px 18px 14px;background:#fff}
-.s-gurus-ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:8px}
-
-.s-gurus-ul img{display:block;width:100%;height:auto;aspect-ratio:1;border-radius:10px;object-fit:cover;background:#F1F4F9}
-.s-gurus-pie{margin:0 0 12px;font-size:12px;line-height:16px;color:#5B6372}
-.s-card-vis.s-card-vis-gurus{left:24px;right:24px;width:auto}
-.s-card-chica .s-card-vis-gurus .s-gurus-ul{grid-template-columns:repeat(5,minmax(0,1fr))}
+/* «Todo lo que necesitas», en filas (12/11/2026): texto de un lado, la grabación del otro, intercalando. */
+.s-zz{margin-top:80px;display:flex;flex-direction:column;gap:112px}
+.s-zz-fila{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:72px;align-items:center}
+.s-zz-inv{grid-template-columns:minmax(0,7fr) minmax(0,5fr)}
+.s-zz-inv .s-zz-tx{order:2}
+.s-zz-r{font-size:14px;line-height:20px;font-weight:600;color:${DORADO}}
+.s-zz-t{margin-top:8px;font-size:36px;line-height:42px;font-weight:700;letter-spacing:-.01em;color:#fff}
+.s-zz-p{margin-top:16px;font-size:18px;line-height:28px;font-weight:500;color:${TEXTO}}
+.s-zz-a{margin-top:20px;display:inline-flex;align-items:center;gap:6px;font-size:18px;line-height:28px;font-weight:500;color:${DORADO}}
+.s-zz-a svg{transition:transform .15s}
+.s-zz-a:hover svg{transform:translateX(3px)}
+.s-zz-vis{position:relative;border-radius:16px;overflow:hidden;border:1px solid ${LINEA};background:#fff;box-shadow:0 30px 80px -30px rgba(0,0,0,.6)}
+.s-zz-vis > .s-panel{border-radius:0;max-height:460px;overflow:hidden}
+.s-zz-video video{display:block;width:100%;height:auto}
+/* Los referentes: una pared que sube sola, sin texto, y vuelve a empezar sin corte (la lista va dos veces). */
+.s-zz-gurus{height:440px}
+.s-gurus{height:100%;overflow:hidden;padding:0 16px;background:#fff}
+.s-gurus-ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;animation:s-gurus-sube 60s linear infinite}
+.s-gurus-ul img{display:block;width:100%;height:auto;aspect-ratio:1;border-radius:12px;object-fit:cover;background:#F1F4F9}
+@keyframes s-gurus-sube{from{transform:translateY(0)}to{transform:translateY(calc(-50% - 6px))}}
+@media (prefers-reduced-motion:reduce){.s-gurus-ul{animation:none}}
 
 /* El caso, con el tratamiento de sus tarjetas de clientes: la de la persona (foto a todo el alto, el nombre abajo) y las de cifra
    (#0D0B28, radio 12, el número 64/68 abajo y su renglón). */
@@ -448,20 +458,24 @@ export const CSS_PORTADA = `
   .s-hero-vsl{margin-top:32px}
   .s-hero-vis{width:576px;max-width:none;margin:40px auto 0}
   .s-fila{flex-direction:column}
+  .s-zz{gap:72px;margin-top:48px}
+  .s-zz-fila,.s-zz-inv{grid-template-columns:minmax(0,1fr);gap:28px}
+  .s-zz-inv .s-zz-tx{order:0}
+  .s-zz-t{font-size:28px;line-height:34px}
+  .s-zz-gurus{height:340px}
   .s-bento .s-fila > :nth-child(n){flex:none}
 }
 /* A 390: 40 de aire en cada sección, 20 a los lados, titulares 42/44 y 36/40, todo en una columna. */
 @media (max-width:767px){
   .s-cont{padding:0 20px}
   .s-hero{padding:40px 0}
-  .s-h1{font-size:42px;line-height:44px}
+  .s-h1{font-size:min(42px,9.2cqi);line-height:1.04}
   .s-hero-p{margin-top:8px;max-width:none}
   .s-hero-btns{margin-top:24px;flex-direction:column;gap:16px}
   .s-hero-btns .s-btn,.s-hero-btns .s-btn-t{width:100%}
   .s-hero-vis{margin-top:32px;zoom:.6}
   .s-btn-t{font-size:16px;line-height:24px}
   .s-btn-alto .s-btn-t{padding:10px 24px}
-  .s-btn:hover,.s-btn:hover .s-btn-t,.s-btn:hover .s-btn-c1,.s-btn:hover .s-btn-c2{transform:none}
   .s-tira-r{font-size:12px;line-height:16px}
   .s-tira-i{font-size:20px;line-height:24px;height:40px}
   .s-sec{padding:40px 0}
@@ -478,8 +492,6 @@ export const CSS_PORTADA = `
   .s-card-mas{display:none}
   .s-card-vis,.s-card-chica .s-card-vis{position:relative;left:auto;top:auto;width:auto;margin:32px -24px 0 0}
   .s-card-vis .s-panel{border-radius:12px 0 0 0}
-  .s-card-vis.s-card-vis-gurus{right:auto;margin-right:0}
-  .s-card-vis-gurus .s-panel{border-radius:12px 12px 0 0}
   /* A 390 sus tarjetas de clientes son una fila de 220 × 300 que se corta en el borde: aquí se corre con el dedo. */
   .s-casos{margin:40px -20px 0;padding:0 20px;display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory}
   .s-caso{flex:none;width:220px;height:300px;scroll-snap-align:start}

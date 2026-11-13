@@ -7,7 +7,7 @@
 
 import { CAPACIDADES_PASARELA, esPasarela, type Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
-import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
+import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
 // De TIPO: se borra al compilar, así que no suma nada al bundle del cliente (esto lo importan componentes 'use client').
 import type { MotivoDuplicado } from './leads-duplicados';
 
@@ -320,9 +320,10 @@ export function bajadaDePlanes(algunoCobrable: boolean, prueba: boolean = PRUEBA
       ? 'Pagas al empezar y entras en el acto. Te das de baja cuando quieras.'
       : 'Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp. Te das de baja cuando quieras.';
   }
+  // La prueba es sólo de Pro desde el 12/11/2026 (`planConPrueba`): la bajada lo dice.
   return algunoCobrable
-    ? `Empiezas con ${PRUEBA_DIAS} días gratis y entras en el acto. Te das de baja cuando quieras.`
-    : `Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp, con ${PRUEBA_DIAS} días gratis. Te das de baja cuando quieras.`;
+    ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis, y entras en el acto. Te das de baja cuando quieras.`
+    : `Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp (${NOMBRE_PLAN_CON_PRUEBA}, con ${PRUEBA_DIAS} días gratis). Te das de baja cuando quieras.`;
 }
 
 /**

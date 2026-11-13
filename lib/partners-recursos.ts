@@ -12,8 +12,8 @@
 // Puro: lo dibuja app/partners/RecursosPartner.tsx y lo fija tests/partners-recursos.test.ts.
 // =============================================================================
 
-import { PLANES_MAKO_DEFAULT, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
-import { filasDeComparacion, type Celda, type FilaComparacion } from './planes-comparacion';
+import { NOMBRE_PLAN_CON_PRUEBA, PLANES_MAKO_DEFAULT, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
+import { filasDeComparacion, GRUPOS_COMPARACION, type Celda, type FilaComparacion } from './planes-comparacion';
 
 export type MensajeParaCopiar = { id: string; titulo: string; texto: string };
 
@@ -28,8 +28,9 @@ export function mensajesParaCopiar(p: { link: string; codigo: string; planes?: r
   const planes = p.planes ?? PLANES_MAKO_DEFAULT;
   const esencial = planDe(planes, 'esencial');
   const pro = planDe(planes, 'pro');
-  const gratis = `${PRUEBA_DIAS} días gratis`;
-  const entrada = PRUEBA_GRATIS_PRENDIDA ? `Empiezas con ${gratis} y te das de baja cuando quieras.` : 'Te das de baja cuando quieras.';
+  // La prueba es sólo de Pro desde el 12/11/2026 (`planConPrueba`, lib/planes-mako.ts): los mensajes lo dicen.
+  const gratis = `${PRUEBA_DIAS} días gratis con ${NOMBRE_PLAN_CON_PRUEBA}`;
+  const entrada = PRUEBA_GRATIS_PRENDIDA ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis y te das de baja cuando quieras.` : 'Te das de baja cuando quieras.';
   const precio = [esencial && `MaKo Esencial cuesta ${usd(esencial.precioUsd)} por mes`, pro && `MaKo Pro, ${usd(pro.precioUsd)}`].filter(Boolean).join(' y ');
   return [
     {
@@ -80,7 +81,9 @@ export function pdfDeVenta(p: { link: string; codigo: string; deParte?: string |
   if (esencial) {
     out.push({
       nombre: esencial.nombre, precio: `${usd(esencial.precioUsd)} por mes`, resumen: esencial.resumen,
-      incluye: filas.filter((f) => f.esencial !== false).map((f) => renglon(f, f.esencial)),
+      // Lo que entra en el plan y el asistente (12/11/2026): desde que la tabla dice TODO lo que trae MaKo, función por función, la
+      // lista entera no entra en una hoja; lo que es de todos los planes ya lo dice «Qué hace MaKo».
+      incluye: filas.filter((f) => f.esencial !== false && (f.grupo === GRUPOS_COMPARACION[0] || f.grupo === GRUPOS_COMPARACION[1])).map((f) => renglon(f, f.esencial)),
     });
   }
   if (pro) {
@@ -102,7 +105,7 @@ export function pdfDeVenta(p: { link: string; codigo: string; deParte?: string |
       'Mira tus anuncios de Facebook e Instagram y te dice qué mejorar.',
     ],
     planes: out,
-    prueba: PRUEBA_GRATIS_PRENDIDA ? `Empiezas con ${PRUEBA_DIAS} días gratis y te das de baja cuando quieras.` : 'Pagas al empezar y te das de baja cuando quieras.',
+    prueba: PRUEBA_GRATIS_PRENDIDA ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis; Esencial se paga al empezar. Te das de baja cuando quieras.` : 'Pagas al empezar y te das de baja cuando quieras.',
     deParte: p.deParte?.trim() ? p.deParte.trim().slice(0, 80) : null,
     link: p.link, codigo: p.codigo,
   };

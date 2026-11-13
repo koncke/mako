@@ -10,9 +10,10 @@
 //     de scripts/visor-landings/) no tiene React; un script en línea anda en las dos.
 //   · El barrido es el de la app (app/_components/barrido-tema.ts): 450 ms, cubic-bezier(.65, 0, .35, 1), desde el botón
 //     hasta la esquina más lejana. Las reglas `::view-transition-old/new(root)` ya están en app/globals.css.
-//   · Las 19 landings copian 19 diseños, cada uno nacido claro u oscuro: el otro modo se arma invirtiendo sus colores (los
-//     neutros cambian de luz, los pálidos pasan a su versión oscura y los muy oscuros a la clara; el color de marca, las
-//     fotos y los videos quedan). Es la misma cuenta del visor, que Martín ya vio.
+//   · Las 19 landings copian 19 diseños, cada uno nacido claro u oscuro, y algunos con franjas del otro (el sitio). Cada modo
+//     se arma LLEVANDO cada color al modo (no invirtiendo): en el claro, todo fondo neutro oscuro pasa a claro y toda tinta
+//     clara a oscura; en el oscuro, al revés; los pálidos y los muy oscuros con color, a su versión del modo. El color de
+//     marca, las fotos y los videos quedan. Así la página entera queda de un solo modo (Martín, 12/11/2026).
 //   · El modo elegido se guarda en `localStorage['mako.sitio.modo']` y cada página lo aplica al abrir: «que se mantenga lo
 //     último que hice». Sin elección, cada página queda como nació.
 //   · El botón lo pone el script en la barra de arriba de cada página, antes del ÚLTIMO link visible a /planes (el botón
@@ -45,16 +46,29 @@ const SCRIPT = `(function(){
 if (window.__mkTemaSitio) return; window.__mkTemaSitio = 1;
 var BASE_FIJA = document.currentScript && document.currentScript.getAttribute('data-base');
 var LS =${JSON.stringify(LS_MODO_SITIO)}, LUNA = ${JSON.stringify(LUNA)}, SOL = ${JSON.stringify(SOL)};
+// SIN EL SEGUNDO EN NEGRO (Martín, 12/11/2026: «cuando le doy clic al logo… se pone por un segundo en negro y después en white
+// mode»): con un modo elegido, la página no se muestra hasta tenerlo puesto (el fondo ya es el del modo). Un tope de 1,5 s por
+// si algo falla: nunca queda en blanco.
+var ELEGIDO=null;try{ELEGIDO=localStorage.getItem(LS);}catch(e){}
+function quitarEspera(){var e=document.getElementById('mk-tema-espera');if(e)e.parentNode.removeChild(e);}
+if(ELEGIDO==='claro'||ELEGIDO==='oscuro'){var st=document.createElement('style');st.id='mk-tema-espera';st.textContent='html{background:'+(ELEGIDO==='oscuro'?'#0e1219':'#ffffff')+'!important}body{visibility:hidden!important}';(document.head||document.documentElement).appendChild(st);setTimeout(quitarEspera,1500);}
 var RGB = /rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?\\)/g;
 function hsl(r,g,b){r/=255;g/=255;b/=255;var mx=Math.max(r,g,b),mn=Math.min(r,g,b),h=0,s=0,l=(mx+mn)/2;if(mx!==mn){var d=mx-mn;s=l>.5?d/(2-mx-mn):d/(mx+mn);h=mx===r?(g-b)/d+(g<b?6:0):mx===g?(b-r)/d+2:(r-g)/d+4;h*=60;}return [h,s,l];}
 function rgb(h,s,l){function k(n){return (n+h/30)%12;}var a=s*Math.min(l,1-l);function f(n){return l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));}return [f(0),f(8),f(4)].map(function(v){return Math.round(v*255);});}
 function cad(c,a){return a!==undefined?'rgba('+c.join(', ')+', '+a+')':'rgb('+c.join(', ')+')';}
-function inv(r,g,b,a){var x=hsl(r,g,b),h=x[0],s=x[1],l=x[2],cr=(Math.max(r,g,b)-Math.min(r,g,b))/255;
-  if(cr<.14){var nl=Math.max(.045,Math.min(.975,1-l));return cad(nl<.3?rgb(222,.22,nl):rgb(h,Math.min(s,.25),nl),a);}
-  if(l>.82)return cad(rgb(h,s*.55,Math.max(.12,1.06-l)),a);
-  if(l<.2)return cad(rgb(h,s*.6,Math.min(.92,.95-l)),a);
+// LLEVAR AL MODO, no invertir (Martín, 12/11/2026: «si estoy en white mode, todo debería ser white mode, no partes en negro y
+// partes en blanco»). Invertir daba vuelta también lo que ya estaba en el modo pedido: la franja clara de los precios quedaba
+// negra en el modo claro. Ahora cada color se lleva al modo: en el claro, los fondos oscuros pasan a claros y los claros
+// quedan; la tinta (texto y bordes) clara pasa a oscura. En el oscuro, al revés. El color de marca (tonos medios) queda.
+function aModo(r,g,b,a,tinta){var x=hsl(r,g,b),h=x[0],s=x[1],l=x[2],cr=(Math.max(r,g,b)-Math.min(r,g,b))/255,os=actual==='oscuro';
+  var cambia=tinta?(os?l<.5:l>.5):(os?l>.5:l<.5);
+  // Un fondo neutro que cambia queda CASI blanco en el claro y casi negro en el oscuro, conservando el orden entre ellos (un gris
+  // oscuro pasaba a un gris medio sucio, 12/11/2026). La tinta se espeja entera, para que se lea.
+  if(cr<.14){if(!cambia)return null;var nl=tinta?Math.max(.045,Math.min(.975,1-l)):(os?Math.max(.045,(1-l)*.35+.04):Math.min(.985,1-l*.35));return cad(nl<.3?rgb(222,.22,nl):rgb(h,Math.min(s,.25),nl),a);}
+  if(l>.82&&cambia)return cad(rgb(h,s*.55,Math.max(.12,1.06-l)),a);
+  if(l<.2&&cambia)return cad(rgb(h,s*.6,Math.min(.92,.95-l)),a);
   return null;}
-function mapear(t){return t.replace(RGB,function(m,r,g,b,a){return inv(+r,+g,+b,a)||m;});}
+function mapear(t,tinta){return t.replace(RGB,function(m,r,g,b,a){return aModo(+r,+g,+b,a,tinta)||m;});}
 function transp(c){return !c||c==='transparent'||/rgba\\([^)]*,\\s*0\\)$/.test(c);}
 var base = null, actual = null, hechos = [];
 // La luz del fondo que tiene detrás un elemento: el primer fondo casi opaco hacia arriba (un blanco al 6 % sobre negro no
@@ -70,33 +84,51 @@ function medirBase(){var y=Math.min(260,innerHeight/2)-scrollY;var el=y>0?docume
   return luzDe(el)<.5?'oscuro':'claro';}
 function poner(n,p,v){hechos.push([n,p,n.style.getPropertyValue(p),n.style.getPropertyPriority(p)]);n.style.setProperty(p,v,'important');}
 function deshacer(){for(var i=hechos.length-1;i>=0;i--){var x=hechos[i];if(x[2])x[0].style.setProperty(x[1],x[2],x[3]);else x[0].style.removeProperty(x[1]);}hechos=[];}
-function invertir(){
+// LO CARO SE HACE UNA VEZ (Martín, 12/11/2026: «cuando le cambio de white mode a dark mode, los carruseles se detienen por un
+// segundo»). Leer el color calculado de cada elemento traba la página: se lee UNA vez, en el estado de nacimiento, y cada modo
+// arma una sola vez su lista de cambios. Cambiar de modo es sólo aplicar esa lista (dentro del barrido, que congela la pantalla
+// mientras corre).
+var leidosBase=null,planDe={};
+var BOR=['border-top-color','border-bottom-color','border-left-color','border-right-color','outline-color'],TXT=['color','fill','stroke','text-decoration-color'];
+function leer(){
   var todos=[].slice.call(document.querySelectorAll('body, body *'));
-  // Los logos no se invierten: ni las fotos ni los SVG de marca (sus <symbol>, que dibujan la «f» blanca de Facebook: invertida
+  // Los logos no se tocan: ni las fotos ni los SVG de marca (sus <symbol>, que dibujan la «f» blanca de Facebook: invertida
   // quedaba negra, Martín 12/11/2026).
-  // Y el recuadro de color de un logo (el negro de TikTok, el blanco de Cal.com): invertido, el logo quedaba del mismo color.
-  // Sólo si no tiene texto: el renglón de la tira («logo + nombre») sí se invierte, o el nombre queda blanco sobre blanco.
+  // Y el recuadro de color de un logo (el negro de TikTok, el blanco de Cal.com): cambiado, el logo quedaba del mismo color.
+  // Sólo si no tiene texto: el renglón de la tira («logo + nombre») sí cambia, o el nombre queda blanco sobre blanco.
   var esRecuadro=function(n){return n.children.length===1&&!n.textContent.trim()&&n.firstElementChild.matches('svg:has(use), img');};
   var fuera=function(n){return esRecuadro(n)||n.closest('[aria-label^="MaKo"], img, video, picture, canvas, iframe, symbol, defs, svg:has(use), .mk-tema-sitio, script, style');};
-  var BOR=['border-top-color','border-bottom-color','border-left-color','border-right-color','outline-color'],TXT=['color','fill','stroke','text-decoration-color'];
-  var leidos=todos.filter(function(n){return !fuera(n);}).map(function(n){var cs=getComputedStyle(n),o={n:n,bg:cs.backgroundColor,bi:cs.backgroundImage};BOR.concat(TXT).forEach(function(p){o[p]=cs.getPropertyValue(p);});return o;});
-  var fondo=new Map(),quieto=new Set();
-  leidos.forEach(function(o){if(!transp(o.bg)){var nb=mapear(o.bg);if(nb!==o.bg)fondo.set(o.n,nb);else quieto.add(o.n);}
-    // Un botón con degradado de color de marca (tonos medios, que no se invierten) conserva el color de su texto.
-    if(o.bi&&o.bi.indexOf('gradient')>=0){var cs2=o.bi.match(RGB)||[],r2=o.n.getBoundingClientRect();if(r2.width<480&&r2.height<140&&cs2.some(function(c){return mapear(c)===c;}))quieto.add(o.n);}});
-  leidos.forEach(function(o){var n=o.n;
-    if(fondo.has(n))poner(n,'background-color',fondo.get(n));
-    if(o.bi&&o.bi!=='none'&&o.bi.indexOf('gradient')>=0){var v=mapear(o.bi);if(v!==o.bi)poner(n,'background-image',v);}
-    BOR.forEach(function(p){var v=o[p];if(v){var nv=mapear(v);if(nv!==v)poner(n,p,nv);}});
+  return todos.filter(function(n){return !fuera(n);}).map(function(n){var cs=getComputedStyle(n),o={n:n,bg:cs.backgroundColor,bi:cs.backgroundImage};BOR.concat(TXT).forEach(function(p){o[p]=cs.getPropertyValue(p);});
+    if(o.bi&&o.bi.indexOf('gradient')>=0){var r2=n.getBoundingClientRect();o.chico=r2.width<480&&r2.height<140;}
+    // En un SVG, el relleno de un rectángulo o un círculo es FONDO (las columnas del tablero), no letra: se lleva al modo como fondo.
+    o.area=n instanceof SVGRectElement||n instanceof SVGCircleElement||n instanceof SVGEllipseElement||n instanceof SVGPolygonElement;
+    // Un botón (un link o un <button> con fondo) conserva sus colores en los dos modos: el negro del Acelerador es a propósito.
+    o.boton=n.matches('a, button, [role="button"]');return o;});}
+function planDelModo(){
+  if(planDe[actual])return planDe[actual];
+  if(!leidosBase)leidosBase=leer();
+  var lista=[],fondo=new Map(),quieto=new Set();
+  leidosBase.forEach(function(o){if(!transp(o.bg)){var nb=o.boton?o.bg:mapear(o.bg,false);if(nb!==o.bg)fondo.set(o.n,nb);else quieto.add(o.n);}
+    // Un botón con degradado de color de marca (tonos medios, que no cambian) conserva el color de su texto.
+    if(o.chico&&(o.bi.match(RGB)||[]).some(function(c){return mapear(c,false)===c;}))quieto.add(o.n);});
+  leidosBase.forEach(function(o){var n=o.n;
+    if(fondo.has(n))lista.push([n,'background-color',fondo.get(n)]);
+    if(o.bi&&o.bi!=='none'&&o.bi.indexOf('gradient')>=0){var v=mapear(o.bi,false);if(v!==o.bi)lista.push([n,'background-image',v]);}
+    BOR.forEach(function(p){var v=o[p];if(v){var nv=mapear(v,true);if(nv!==v)lista.push([n,p,nv]);}});
     var a=n,q=false;while(a){if(quieto.has(a)){q=true;break;}if(fondo.has(a))break;a=a.parentElement;}
     if(q)return;
-    TXT.forEach(function(p){var v=o[p];if(!v||v==='none')return;var nv=mapear(v);if(nv!==v)poner(n,p,nv);});});
+    TXT.forEach(function(p){var v=o[p];if(!v||v==='none')return;var nv=mapear(v,!(p==='fill'&&o.area));if(nv!==v)lista.push([n,p,nv]);});});
+  return planDe[actual]=lista;}
+function llevarAlModo(){
+  planDelModo().forEach(function(x){poner(x[0],x[1],x[2]);});
   var os=actual==='oscuro';
   [].forEach.call(document.querySelectorAll('[aria-label^="MaKo"]'),function(a){poner(a,'color',os?'#ffffff':'#12151B');var cu=a.querySelector('span');if(cu)poner(cu,'background',os?'rgba(255,255,255,.12)':'#1A1712');[].forEach.call(a.querySelectorAll('span'),function(t){if(t!==cu)poner(t,'color',os?'#ffffff':'#12151B');});});
   poner(document.documentElement,'color-scheme',os?'dark':'light');
   if(!document.documentElement.style.backgroundColor)poner(document.documentElement,'background-color',os?'#0e1219':'#ffffff');}
 function botones(){[].forEach.call(document.querySelectorAll('[data-tema-sitio-boton]'),function(b){b.setAttribute('data-modo',actual);if(!b.classList.contains('mk-tema-sitio-flota'))b.style.color=luzDe(b.parentElement)<.5?'#ffffff':'#12151B';b.setAttribute('aria-pressed',String(actual==='oscuro'));var t=actual==='oscuro'?'Pasar a modo claro':'Pasar a modo oscuro';b.setAttribute('aria-label',t);b.title=t;});}
-function aplicar(m){deshacer();actual=m;if(m!==base)invertir();botones();document.documentElement.setAttribute('data-sitio-modo',m);try{window.dispatchEvent(new Event('mako-sitio-modo'));}catch(e){}}
+// Siempre se lleva al modo, también el de nacimiento: una página oscura con una franja clara (el sitio, con su caso y sus
+// precios) queda entera oscura, y en el claro entera clara.
+function aplicar(m){deshacer();actual=m;llevarAlModo();botones();document.documentElement.setAttribute('data-sitio-modo',m);try{window.dispatchEvent(new Event('mako-sitio-modo'));}catch(e){}}
 function barrido(b,cambiar){var d=document;if(!d.startViewTransition||matchMedia('(prefers-reduced-motion: reduce)').matches){cambiar();return;}
   var r=b.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2,ra=Math.hypot(Math.max(x,innerWidth-x),Math.max(y,innerHeight-y));
   d.startViewTransition(cambiar).ready.then(function(){d.documentElement.animate({clipPath:['circle(0px at '+x+'px '+y+'px)','circle('+ra+'px at '+x+'px '+y+'px)']},{duration:450,easing:'cubic-bezier(.65, 0, .35, 1)',pseudoElement:'::view-transition-new(root)'});}).catch(function(){});}
@@ -125,7 +157,7 @@ function ubicar(){if(document.querySelector('[data-tema-sitio-boton]'))return;
     fila.appendChild(b);if(getComputedStyle(fila).display.indexOf('flex')>=0)b.style.marginLeft='auto';}
   else{b.classList.add('mk-tema-sitio-flota');document.body.appendChild(b);}}
 function iniciar(){base=BASE_FIJA==='oscuro'||BASE_FIJA==='claro'?BASE_FIJA:medirBase();document.documentElement.setAttribute('data-sitio-base',base);ubicar();var p=null;try{p=localStorage.getItem(LS);}catch(e){}
-  aplicar(p==='oscuro'||p==='claro'?p:base);
+  aplicar(p==='oscuro'||p==='claro'?p:base);quitarEspera();
   document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-tema-sitio-boton]');if(!b)return;e.preventDefault();var n=actual==='oscuro'?'claro':'oscuro';try{localStorage.setItem(LS,n);}catch(err){}barrido(b,function(){aplicar(n);});});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();
 })();`;

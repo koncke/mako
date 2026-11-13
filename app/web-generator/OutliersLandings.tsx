@@ -111,7 +111,7 @@ export function OutliersLandings({ portada, telefono = false, rutaCrear = RUTA_P
             </label>
           )}
           {tipos.length > 1 && (
-            <div className={s.filtros} role="group" aria-label="Tipo de página">
+            <div className={`${s.filtros} ${l.filtros}`} role="group" aria-label="Tipo de página">
               <button type="button" className={s.chip} aria-pressed={tipo === null} onClick={() => setTipo(null)}>Todas</button>
               {tipos.map((t) => (
                 <button key={t} type="button" className={s.chip} aria-pressed={tipo === t} onClick={() => setTipo(tipo === t ? null : t)}>{NOMBRE_TIPO[t]}</button>

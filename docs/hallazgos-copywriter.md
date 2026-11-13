@@ -523,6 +523,20 @@ leyendo el resultado al lado del original:
   anuncios de competencia (no hay filtro Anuncios). La escritura se midió en el negocio de MaKo, que corre primero con el
   crédito de Claude (Haiku). Los errores de redacción («estás improviso», «sin handle qué responde») son del modelo.
 
+- **⚠️ «Adapté el carrusel completo» con la página vacía:** en la plantilla Carrusel, las tres secciones (láminas, CTA y pie) se
+  descartaron por «La sección no tiene una etiqueta válida» y sólo entró el destacado. La respuesta del servidor no trae lo que
+  escribió el modelo (sólo el motivo), así que no se pudo ver qué nombre puso; el GUION se le muestra como
+  «[bid] ## SECCIÓN SLIDES: Slides» y un modelo chico copia el renglón. Ahora `etiquetaDeSeccion` (lib/copywriter/operaciones.ts)
+  lo lee con tolerancia, y con algo descartado la plantilla no se acepta sola: queda la propuesta con el motivo a la vista.
+  **Regla:** lo que dice MaKo («hice todo») se contrasta con lo que entró en la página, no con su mensaje.
+- **El título y el ángulo de la plantilla:** quedaba «Sin título» y «Ángulo: Vacío». Adaptar no recibía la biblioteca (sin ids no
+  puede poner un ángulo); ahora la recibe y el método lo pide. Capa 2 del título: una pieza escrita entera sobre una página sin
+  título propio (o con el «Como @…» de la réplica) sale con lo primero que se dice (`tituloDeRespaldo` + `extractoDelDoc`).
+- **La página vacía:** escribir por chat sobre «Página en blanco» pedía «Aceptar» (no había nada que pisar), y las sugerencias
+  eran «Acortar» y «Mejorar la escritura». Ahora se acepta sola y sugiere pedidos para escribirla.
+- **El orden de «Mis guiones»** (teléfono y la «←»): de la más vieja a la más nueva, porque es el orden del árbol y el arrastre se
+  perdió en el shell de Create. Ahora la última editada arriba (`enOrdenReciente`, lib/copywriter/arbol.ts).
+
 **La regla:** probar una pieza generada es ponerla al lado del original y medir largo, formato, partes, pruebas y título. Que
 MaKo diga «repliqué la estructura y el ritmo» no es una medición: lo dijo las cuatro veces, y en dos no era cierto.
 
@@ -531,8 +545,10 @@ MaKo diga «repliqué la estructura y el ritmo» no es una medición: lo dijo la
 - (12/11/2026) La mezcla de «vos» y «tú» no tiene capa 2 (sólo el voseo en un negocio que no vosea): lib/copywriter/ia.ts.
 - (12/11/2026) Los reels con «su pie» (46 de cada 48 en la portada del negocio de MaKo), todos los carruseles y todos los
   YouTube se replican sin lo que se DICE en la pieza: la estructura real no está. Transcribir al replicar sigue pendiente.
-- (12/11/2026) Las listas de guiones (la «←» y el teléfono) van de la más vieja a la más nueva.
 - (12/11/2026) Un pedido puntual («usa el testimonio en la Solución») a veces toca otra sección que no se pidió.
+- (12/11/2026) En el teléfono, después de que MaKo escribe la vista salta a «Página» y «Aceptar» queda en la pestaña «MaKo».
+- (12/11/2026) La respuesta de «Editar» no guarda lo que escribió el modelo antes del saneo: cuando algo se descarta, no hay cómo
+  ver qué mandó (lib/copywriter/ia.ts).
 
 - La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
 - Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).

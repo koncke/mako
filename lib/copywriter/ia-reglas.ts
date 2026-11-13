@@ -130,3 +130,17 @@ export function avisosDeCifras(c: { cifras: string[]; garantia: boolean }): stri
     ...(c.garantia ? ['Promete una garantía o una devolución que tu negocio no dice: revísala antes de publicar.'] : []),
   ];
 }
+
+/**
+ * El título de respaldo de una pieza escrita entera sin título propio (capa 2 de «ponle un título», 12/11/2026, en producción:
+ * la plantilla quedaba «Sin título» y la réplica con el gancho del competidor). Recibe lo primero que se dice (`extractoDelDoc`,
+ * lib/copywriter/plantillas.ts): su primera oración, sin [DATO] ni signos del final, hasta 70 letras cortando en una palabra.
+ */
+export function tituloDeRespaldo(dicho: string): string | null {
+  const limpio = dicho.replace(/\[[^\]]*\]/g, ' ').replace(/[«»"“”]/g, '').replace(/\s+/g, ' ').trim();
+  const oracion = (limpio.match(/^[^.!?…]+[?!]?/)?.[0] ?? limpio).trim().replace(/[\s,;:—-]+$/, '');
+  if (oracion.split(' ').length < 3) return null;
+  if (oracion.length <= 70) return oracion;
+  const corte = oracion.lastIndexOf(' ', 70);
+  return `${oracion.slice(0, corte > 30 ? corte : 70).replace(/[\s,;:—-]+$/, '')}…`;
+}

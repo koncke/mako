@@ -5,15 +5,18 @@
 // referencia la eligió el Cerebro y NO se inventa: el checkout de un plan copia la ESTRUCTURA de Stripe Checkout (a la izquierda
 // el resumen: el plan, el precio grande, qué incluye, el período y el total; a la derecha el formulario: tus datos y las formas
 // de pago como filas; en el teléfono el resumen arriba y plegable, «Ver detalle»), y /planes la de la Pricing Table de Stripe.
-// Lo que es de MaKo son los colores y la letra (app/globals.css): el fondo #efefed, la superficie #fcfcfb, la tinta #121212, el
-// botón negro, el dorado #F2B01E de la marca y Urbanist (declarada como «Geist»). Las capturas de la referencia y del resultado,
+// Lo que es de MaKo son los colores y la letra (app/globals.css): la tinta #121212, el botón negro, el dorado #F2B01E de la marca
+// y Urbanist (declarada como «Geist»). SIN CREMA (12/11/2026, Martín: «unificar el color del fondo en todos lados, porque en
+// precios está como un color cremita», y después «sigue estando el fondo en color cremita, eso ya te lo había dicho»): el fondo
+// y las superficies son blancos, como el sitio, y lo elegido se marca en azul claro. Las tarjetas de /planes son las de
+// app/planes/Tarjetas.tsx tal cual (ya no se repintan aquí con los colores de la Pricing Table de Stripe). Las capturas de la referencia y del resultado,
 // en docs/hallazgos-planes-y-cobro.md → «El diseño de la pasarela».
 //
 // ⚠️ Las tarjetas de /planes (CSS_TARJETAS, app/planes/Tarjetas.tsx) las comparte la landing de /vsl: acá se pintan SÓLO dentro
 // de `.planes-root`, para no tocar la landing.
 export const CSS_PLANES = `
 body:has(.planes-root) aside { display: none !important; }
-body:has(.planes-root) { background: #efefed; }
+body:has(.planes-root) { background: #FFFFFF; }
 .planes-root { min-height: 100vh; padding: 40px 16px 56px; color: #121212;
   font: 400 16px/1.55 'Geist', ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 .planes-root a { color: inherit; }
@@ -22,7 +25,7 @@ body:has(.planes-root) { background: #efefed; }
 .planes-root h1 { margin: 8px 0 6px; font-size: 34px; line-height: 1.15; font-weight: 800; letter-spacing: -.02em; }
 .planes-sub { margin: 0 0 28px; color: #4f4f4c; }
 .planes-grilla { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-.planes-card { background: #fcfcfb; border: 1px solid rgba(17,17,17,.09); border-radius: 16px; padding: 24px 22px; display: flex; flex-direction: column;
+.planes-card { background: #FFFFFF; border: 1px solid rgba(17,17,17,.09); border-radius: 16px; padding: 24px 22px; display: flex; flex-direction: column;
   box-shadow: 0 1px 2px rgba(17,17,17,.04), 0 8px 24px rgba(17,17,17,.06); }
 .planes-card.destacado { border-color: #F2B01E; }
 .planes-card h2 { margin: 0; font-size: 20px; }
@@ -38,7 +41,7 @@ body:has(.planes-root) { background: #efefed; }
 .planes-btn:active { transform: translateY(1px); }
 .planes-btn:focus-visible { outline: 2px solid #F2B01E; outline-offset: 2px; }
 .planes-btn[disabled] { opacity: .6; cursor: default; }
-.planes-form { max-width: 460px; margin: 0 auto; background: #fcfcfb; border: 1px solid rgba(17,17,17,.09); border-radius: 16px; padding: 28px 24px;
+.planes-form { max-width: 460px; margin: 0 auto; background: #FFFFFF; border: 1px solid rgba(17,17,17,.09); border-radius: 16px; padding: 28px 24px;
   box-shadow: 0 1px 2px rgba(17,17,17,.04), 0 8px 24px rgba(17,17,17,.06); }
 .planes-form label, .ck-formulario label { display: block; font-size: 14px; font-weight: 600; margin: 14px 0 6px; color: #2b2b29; }
 .planes-form input[type=text], .planes-form input[type=email], .planes-form input[type=tel],
@@ -51,21 +54,21 @@ body:has(.planes-root) { background: #efefed; }
 .planes-opcion input { margin: 0; }
 /* El diagnóstico del Acelerador (QuieroPlan con preguntas): una pregunta por pantalla, respuestas grandes que avanzan solas. */
 .planes-pasos { display: flex; gap: 6px; margin: 0 0 18px; }
-.planes-pasos span { flex: 1; height: 4px; border-radius: 2px; background: #e4e4e1; }
+.planes-pasos span { flex: 1; height: 4px; border-radius: 2px; background: #E6EAF0; }
 .planes-pasos span.hecho { background: #121212; }
 .planes-pregunta { margin: 0 0 16px; font-size: 20px; font-weight: 700; line-height: 1.3; outline: none; }
 .planes-respuestas { display: grid; gap: 10px; }
 .planes-respuesta { text-align: left; font: inherit; font-size: 15.5px; line-height: 1.4; padding: 14px 16px; border: 1px solid rgba(17,17,17,.17);
   border-radius: 12px; background: #fff; color: #121212; cursor: pointer; }
-.planes-respuesta:hover, .planes-respuesta:focus-visible { border-color: #121212; background: #FDF4DE; }
-.planes-respuesta[aria-pressed=true] { border-color: #121212; box-shadow: inset 0 0 0 1px #121212; background: #FDF4DE; }
+.planes-respuesta:hover, .planes-respuesta:focus-visible { border-color: #121212; background: #EEF4FF; }
+.planes-respuesta[aria-pressed=true] { border-color: #121212; box-shadow: inset 0 0 0 1px #121212; background: #EEF4FF; }
 .planes-atras { display: block; margin: 16px auto 0; background: none; border: 0; padding: 4px 8px; color: #121212; font: inherit;
   font-size: 14px; cursor: pointer; text-decoration: underline; }
 .planes-error { margin-top: 14px; color: #b1412a; font-size: 14px; }
 /* El código de referido del carrito (25/10/2026): un renglón chico que abre el campo, como el «Add promo code» de Stripe. */
-.planes-codigo-abrir { display: inline-block; margin: 18px 0 0; padding: 7px 12px; background: #f0f0ef; border: 0; border-radius: 8px; color: #121212; font: inherit;
+.planes-codigo-abrir { display: inline-block; margin: 18px 0 0; padding: 7px 12px; background: #F1F3F7; border: 0; border-radius: 8px; color: #121212; font: inherit;
   font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
-.planes-codigo-abrir:hover { background: #e4e4e1; }
+.planes-codigo-abrir:hover { background: #E6EAF0; }
 .planes-opcional { font-weight: 400; color: #636360; }
 .planes-form .planes-codigo-error, .ck-formulario .planes-codigo-error { margin-top: 6px; }
 .planes-form input[aria-invalid=true], .ck-formulario input[aria-invalid=true] { border-color: #b1412a; }
@@ -81,67 +84,60 @@ body:has(.planes-root) { background: #efefed; }
   letter-spacing: .03em; padding: 4px 11px; border-radius: 999px; }
 .planes-cuotas { margin: -2px 0 12px; color: #4f4f4c; font-size: 14px; }
 .planes-card p.planes-despues { margin: -4px 0 18px; font-size: 13px; }
-.planes-btn.planes-btn-borde { background: #fcfcfb; color: #121212 !important; box-shadow: inset 0 0 0 1px #121212; }
-.planes-btn.planes-btn-borde:hover { background: #f0f0ef; }
-.planes-compara { margin-top: 44px; }
-.planes-compara h2 { margin: 0 0 14px; font-size: 22px; font-weight: 800; }
-.planes-tabla-wrap { overflow-x: auto; background: #fcfcfb; border: 1px solid rgba(17,17,17,.09); border-radius: 16px;
-  box-shadow: 0 1px 2px rgba(17,17,17,.04), 0 8px 24px rgba(17,17,17,.06); }
-.planes-tabla { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 14px; }
-.planes-tabla th, .planes-tabla td { padding: 12px 16px; text-align: center; border-bottom: 1px solid rgba(17,17,17,.08); }
-.planes-tabla th[scope=row] { text-align: left; font-weight: 500; color: #121212; }
-.planes-tabla thead th { background: #f0f0ef; font-weight: 700; }
-.planes-tabla thead th.destacado { color: #8F6709; }
-.planes-tabla tbody tr:last-child th, .planes-tabla tbody tr:last-child td { border-bottom: 0; }
-.planes-si { color: #22735c; font-weight: 700; }
-.planes-no { color: #a3a39e; }
+.planes-btn.planes-btn-borde { background: #FFFFFF; color: #121212 !important; box-shadow: inset 0 0 0 1px #121212; }
+.planes-btn.planes-btn-borde:hover { background: #F1F3F7; }
+.planes-compara { margin-top: 64px; }
+.planes-compara-cab { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(var(--n, 3), minmax(0, 1fr)); gap: 16px; align-items: end;
+  padding-bottom: 16px; border-bottom: 1px solid #E3E7EF; }
+.planes-compara-cab h2 { margin: 0; font-size: 32px; line-height: 1.1; font-weight: 800; letter-spacing: -.02em; }
+.planes-compara-plan { display: grid; gap: 8px; }
+.planes-compara-plan b { font-size: 18px; line-height: 24px; font-weight: 600; }
+.planes-compara-btn { display: block; text-align: center; padding: 8px 12px; border-radius: 6px; font-size: 14px; font-weight: 600; text-decoration: none;
+  background: #12151B; color: #fff !important; }
+.planes-compara-btn.azul { background: #2F6FED; }
+.planes-grupo-d { border-bottom: 1px solid #E3E7EF; }
+.planes-grupo-d summary { cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; padding: 20px 4px;
+  font-size: 18px; line-height: 24px; font-weight: 600; }
+.planes-grupo-d summary::-webkit-details-marker { display: none; }
+.planes-grupo-d summary::after { content: ""; width: 9px; height: 9px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg); margin: -4px 8px 0 0; transition: transform .15s ease; }
+.planes-grupo-d[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
+.planes-tabla { width: 100%; border-collapse: collapse; font-size: 14px; table-layout: fixed; margin-bottom: 8px; }
+.planes-tabla col.planes-col-que { width: 38.5%; }
+.planes-tabla th, .planes-tabla td { padding: 12px 4px; text-align: left; border-top: 1px solid #EEF1F5; vertical-align: top; }
+.planes-tabla th[scope=row] { font-weight: 500; color: #12151B; padding-right: 16px; }
+.planes-tabla td { color: #12151B; }
+.planes-si { color: #12151B; font-weight: 700; }
+.planes-no { color: #9AA1AD; }
 .planes-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .planes-corto { display: none; }
-/* En el teléfono las CUATRO columnas entran a la vez: una comparación que esconde dos planes detrás de un deslizar no compara. */
+/* En el teléfono: los nombres cortos arriba, y cada fila con su nombre a todo el ancho y los tres valores abajo. */
 @media (max-width: 600px) {
   .planes-largo { display: none; }
   .planes-corto { display: inline; }
-  .planes-tabla { min-width: 0; font-size: 12.5px; table-layout: fixed; }
-  .planes-tabla th, .planes-tabla td { padding: 10px 6px; }
-  .planes-tabla th[scope=row] { width: 40%; padding-left: 12px; }
+  .planes-compara-cab { grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); }
+  .planes-compara-cab h2 { grid-column: 1 / -1; font-size: 26px; }
+  .planes-compara-btn { display: none; }
+  .planes-tabla, .planes-tabla tbody { display: block; }
+  .planes-tabla colgroup { display: none; }
+  .planes-tabla tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid #EEF1F5; }
+  .planes-tabla th, .planes-tabla td { border-top: 0; }
+  .planes-tabla th[scope=row] { grid-column: 1 / -1; padding: 12px 4px 2px; }
+  .planes-tabla td { padding: 4px 4px 12px; font-size: 13px; }
   .planes-root h1 { font-size: 28px; }
 }
 .planes-pie { margin: 30px 0 0; text-align: center; color: #4f4f4c; font-size: 14px; }
 .planes-pie a { color: #121212; font-weight: 700; text-decoration: underline; }
 
-/* ── /planes con la estructura de la Pricing Table de Stripe, en los colores de MaKo (sólo acá: la landing usa las mismas
-   tarjetas con los suyos) ─────────────────────────────────────────────────────────────────────────────────────────── */
-.planes-root .mkpl-card { background: #fcfcfb; border-color: rgba(17,17,17,.09); box-shadow: 0 1px 2px rgba(17,17,17,.04), 0 8px 24px rgba(17,17,17,.06); }
-.planes-root .mkpl-card.destacado { border-color: #F2B01E; box-shadow: 0 0 0 1px #F2B01E, 0 16px 40px rgba(17,17,17,.10); }
-.planes-root .mkpl-insignia { background: #F2B01E; color: #1A1813; }
-.planes-root .mkpl-ceja, .planes-root .mkpl-precio small, .planes-root .mkpl-cuotas { color: #4f4f4c; }
-.planes-root .mkpl-resumen, .planes-root .mkpl-garantia, .planes-root .mkpl-pagos { color: #4f4f4c; }
-.planes-root .mkpl-garantia b { color: #121212; }
-.planes-root .mkpl-btn { background: #121212; color: #fff !important; box-shadow: none; font-family: inherit; }
-.planes-root .mkpl-btn:hover { background: #202020; }
-.planes-root .mkpl-btn.borde { background: #fcfcfb; color: #121212 !important; box-shadow: inset 0 0 0 1.5px #121212; }
-.planes-root .mkpl-btn.borde:hover { background: #f0f0ef; }
-.planes-root .mkpl-lista li::before { background: #FDF4DE; color: #8F6709; }
-.planes-root .mkpl-periodo-caja { background: #e4e4e1; }
-.planes-root .mkpl-periodo label { color: #4f4f4c; }
-.planes-root .mkpl-periodo input:checked + label { background: #fcfcfb; color: #121212; box-shadow: 0 1px 3px rgba(17,17,17,.14); }
-.planes-root .mkpl-periodo input:focus-visible + label { outline-color: #F2B01E; }
-.planes-root .mkpl-periodo label b { background: #d5eee4; color: #22735c; }
-.planes-root .mkpl-primer-mes { background: #FDF4DE; color: #4f4f4c; }
-.planes-root .mkpl-primer-mes b { color: #121212; }
-.planes-root .mkpl-programa { background: #121212; border-color: #121212; }
-.planes-root .mkpl-programa .mkpl-insignia, .planes-root .mkpl-programa .mkpl-btn, .planes-root .mkpl-programa .mkpl-lista li::before { background: #F2B01E; color: #1A1813 !important; }
-.planes-root .mkpl-programa .mkpl-ceja, .planes-root .mkpl-programa .mkpl-promesa b { color: #F2B01E; }
-
 /* ── El checkout de un plan: la estructura de Stripe Checkout ─────────────────────────────────────────────────────────
    Computadora: dos mitades, el resumen a la izquierda (columna pegada al centro) y el formulario a la derecha, separados
    por una sombra. Teléfono: la marca, el resumen plegado («Ver detalle»), el formulario y el pie. */
-body:has(.ck-root) { background: #fcfcfb; }
+body:has(.ck-root) { background: #FFFFFF; }
 .planes-root.ck-root { padding: 0; }
 .ck { display: grid; min-height: 100vh; grid-template-columns: 1fr 1fr; grid-template-areas: "res form" "pie form"; grid-template-rows: 1fr auto; }
-.ck-resumen { grid-area: res; background: #efefed; display: flex; justify-content: flex-end; padding: 56px 64px 24px 24px; }
-.ck-pie { grid-area: pie; background: #efefed; display: flex; justify-content: flex-end; padding: 0 64px 32px 24px; }
-.ck-form { grid-area: form; background: #fcfcfb; padding: 56px 24px 48px 64px; box-shadow: -1px 0 0 rgba(17,17,17,.08), -18px 0 36px -26px rgba(17,17,17,.22); }
+.ck-resumen { grid-area: res; background: #FFFFFF; display: flex; justify-content: flex-end; padding: 56px 64px 24px 24px; }
+.ck-pie { grid-area: pie; background: #FFFFFF; display: flex; justify-content: flex-end; padding: 0 64px 32px 24px; }
+.ck-form { grid-area: form; background: #FFFFFF; padding: 56px 24px 48px 64px; box-shadow: -1px 0 0 rgba(17,17,17,.08), -18px 0 36px -26px rgba(17,17,17,.22); }
 .ck-col { width: 100%; max-width: 400px; }
 .ck-form .ck-col { max-width: 420px; }
 .ck-marca { display: flex; align-items: center; gap: 10px; margin: 0 0 32px; font-weight: 800; font-size: 16px; letter-spacing: -.01em; }
@@ -160,7 +156,7 @@ body:has(.ck-root) { background: #fcfcfb; }
 .ck-item-precio { font-weight: 700; font-size: 15px; white-space: nowrap; }
 .ck-incluye { list-style: none; margin: 14px 0 0 58px; padding: 0; display: grid; gap: 7px; }
 .ck-incluye li { position: relative; padding-left: 22px; font-size: 13.5px; line-height: 1.45; color: #2b2b29; }
-.ck-incluye li::before { content: "✓"; position: absolute; left: 0; top: 0; width: 16px; height: 16px; border-radius: 999px; background: #FDF4DE;
+.ck-incluye li::before { content: "✓"; position: absolute; left: 0; top: 0; width: 16px; height: 16px; border-radius: 999px; background: #EEF4FF;
   color: #8F6709; font-size: 10px; font-weight: 800; display: grid; place-items: center; margin-top: 2px; }
 .ck-totales { margin: 22px 0 0 58px; padding: 0; }
 .ck-totales div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid rgba(17,17,17,.09); font-size: 14.5px; }
@@ -186,19 +182,19 @@ body:has(.ck-root) { background: #fcfcfb; }
 .ck-formulario label.ck-medio:first-child { border-top: 0; }
 .ck-formulario label.ck-medio:hover { background: #f7f7f6; }
 .ck-medio input { margin: 0; width: 16px; height: 16px; accent-color: #121212; }
-.ck-medio-icono { width: 28px; height: 20px; border-radius: 4px; display: grid; place-items: center; background: #f0f0ef; color: #4f4f4c; font-size: 13px; }
+.ck-medio-icono { width: 28px; height: 20px; border-radius: 4px; display: grid; place-items: center; background: #F1F3F7; color: #4f4f4c; font-size: 13px; }
 .ck-medio-texto b { display: block; font-size: 15px; font-weight: 600; color: #121212; }
 .ck-medio-texto small { display: block; font-size: 12.5px; color: #636360; margin-top: 1px; }
 .ck-marcas { display: flex; gap: 4px; }
-.ck-marcas span { font-size: 9.5px; font-weight: 800; letter-spacing: .02em; padding: 3px 5px; border-radius: 4px; background: #f0f0ef; color: #4f4f4c; }
-.ck-medio:has(input:checked) { background: #FDF4DE !important; box-shadow: inset 3px 0 0 #F2B01E; }
+.ck-marcas span { font-size: 9.5px; font-weight: 800; letter-spacing: .02em; padding: 3px 5px; border-radius: 4px; background: #F1F3F7; color: #4f4f4c; }
+.ck-medio:has(input:checked) { background: #EEF4FF !important; box-shadow: inset 3px 0 0 #F2B01E; }
 .ck-legal { margin: 16px 0 0; color: #636360; font-size: 12.5px; line-height: 1.5; text-align: center; }
 /* Teléfono (como Stripe debajo de ~900px): una columna; el resumen arriba y plegado. */
 @media (max-width: 899px) {
   .ck { grid-template-columns: 1fr; grid-template-areas: "res" "form" "pie"; grid-template-rows: auto; min-height: 0; }
   .ck-resumen { justify-content: center; padding: 20px 16px 18px; }
   .ck-form { padding: 22px 16px 28px; box-shadow: 0 -1px 0 rgba(17,17,17,.08); border-radius: 18px 18px 0 0; margin-top: -10px; }
-  .ck-pie { justify-content: center; background: #fcfcfb; padding: 4px 16px 32px; }
+  .ck-pie { justify-content: center; background: #FFFFFF; padding: 4px 16px 32px; }
   .ck-col, .ck-form .ck-col { max-width: 480px; }
   .ck-marca { margin-bottom: 18px; }
   .ck-abierto { display: none; }

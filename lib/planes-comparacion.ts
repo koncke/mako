@@ -15,9 +15,18 @@
 // entiende…», sobre «Piloto automático: tu media buyer aplica los cambios solo, dentro de tus topes»): sin «media buyer», ni
 // «embudo», ni «topes», ni «piloto automático». Y con TODO lo que trae MaKo (faltaban el scraper de WhatsApp, los videos, el
 // dominio, cobrar y MaKo Partners). Cada fila corta: una línea en el teléfono.
+//
+// EL RELEVAMIENTO DEL 12/11/2026 (Martín: «hagas nuevamente la parte de compara los planes… relevamiento de qué se incluye en
+// cada cosa»). La tabla dice TODO lo que trae MaKo, función por función, de lib/funciones-mako.ts (sólo lo que anda) y de quién
+// ve cada pantalla: las capas `completo` (Esencial) y `agencia` (Pro) ven todas las pantallas (lib/capas.ts, `navKeys: null`)
+// menos las de `TABS_SOLO_PRO`, que en Esencial van con candado. Así que casi todo está en los tres planes, y lo que cambia son
+// los topes y lo de Pro. Los grupos se abren y se cierran, como el «Compare features» de beehiiv (beehiiv.com/pricing): el
+// primero, lo que entra en cada plan, abierto.
 // =============================================================================
 
 import { TOPES, TABS_SOLO_PRO, type FuncionSoloPro, type Tope } from './topes-plan';
+import { ASESORES } from './asesores/catalogo';
+import { planConPrueba, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
 
 /** true = incluido, false = no incluido, texto = el tope. */
 export type Celda = boolean | string;
@@ -70,33 +79,54 @@ export const NOMBRE_FUNCION_PRO: Readonly<Record<FuncionSoloPro, string>> = {
 };
 
 export const GRUPOS_COMPARACION = [
-  'Tu asistente', 'Conseguir clientes', 'Vender y cobrar', 'Atender', 'Anuncios y contenido', 'Equipo', 'Recomendar MaKo', 'Acompañamiento',
+  'Lo que entra en tu plan', 'Tu asistente con IA', 'Conseguir clientes', 'Anuncios', 'Contenido', 'Vender y cobrar', 'Atender',
+  'Equipo', 'Recomendar MaKo', 'Acompañamiento',
 ] as const;
 
+/** Los días gratis de cada plan (`planConPrueba`, lib/planes-mako.ts): desde el 12/11/2026, sólo Pro. */
+const diasGratis = (id: string): Celda => (planConPrueba(id) ? `${PRUEBA_DIAS} días` : false);
+
 export function filasDeComparacion(): FilaComparacion[] {
-  const [asistente, conseguir, vender, atender, anuncios, equipo, recomendar, acompanamiento] = GRUPOS_COMPARACION;
+  const [entra, asistente, conseguir, anuncios, contenido, vender, atender, equipo, recomendar, acompanamiento] = GRUPOS_COMPARACION;
   return [
+    filaDeTope(entra, 'Contactos guardados (interesados y clientes)', 'crm.leads', 'Hasta '),
+    filaDeTope(entra, 'Tableros de ventas, para ver en qué paso está cada cliente', 'crm.funnels'),
+    filaDeTope(entra, 'Números de WhatsApp conectados, más tu Instagram', 'chats.lineas_whatsapp'),
+    filaDeTope(entra, 'Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'),
+    filaDeTope(entra, 'Seguimientos automáticos activos a la vez', 'automations.activas'),
+    filaDeTope(entra, 'Páginas web para vender, publicadas', 'web.landings_publicadas'),
+    filaDeTope(entra, 'Dominios propios para tus páginas (tunegocio.com)', 'web.dominios'),
+    filaDeTope(entra, 'Cuentas para cobrar con Mercado Pago o Stripe', 'cobros.cuentas'),
+    ...(PRUEBA_GRATIS_PRENDIDA ? [{ grupo: entra, que: 'Días gratis al empezar', esencial: diasGratis('esencial'), pro: diasGratis('pro'), acelerador: false }] : []),
     enTodos(asistente, 'MaKo, un asistente con IA que conoce tu negocio'),
-    filaDeTope(conseguir, 'Páginas web para vender, publicadas', 'web.landings_publicadas'),
-    filaDeTope(conseguir, 'Dominios propios para tus páginas (tunegocio.com)', 'web.dominios'),
+    // Los referentes del chat de MaKo (lib/asesores/catalogo.ts), contados.
+    enTodos(asistente, `Chat con ${ASESORES.length} referentes del marketing, con su método`),
+    enTodos(asistente, 'Tus tareas, puntuadas y ordenadas por prioridad'),
+    enTodos(asistente, 'Informes de tus ventas y de tus anuncios'),
+    enTodos(conseguir, 'Páginas de venta y presentaciones armadas con IA'),
+    enTodos(conseguir, 'Copiar una página que ya funciona, con tu oferta'),
+    enTodos(conseguir, 'Tu oferta trabajada con IA, pieza por pieza'),
+    enTodos(conseguir, 'Lo que publica tu competencia, en un solo lugar'),
+    enTodos(conseguir, 'Regalos que piden el contacto: guías, checklists y quiz'),
     soloPro(conseguir, NOMBRE_FUNCION_PRO['scraper-whatsapp']),
-    filaDeTope(vender, 'Contactos guardados (interesados y clientes)', 'crm.leads', 'Hasta '),
-    filaDeTope(vender, 'Tableros de ventas, para ver en qué paso está cada cliente', 'crm.funnels'),
-    filaDeTope(vender, 'Seguimientos automáticos activos a la vez', 'automations.activas'),
-    filaDeTope(vender, 'Cuentas para cobrar con Mercado Pago o Stripe', 'cobros.cuentas'),
-    soloPro(vender, NOMBRE_TAB_PRO['closing-analyst']),
-    filaDeTope(atender, 'Números de WhatsApp conectados, más tu Instagram', 'chats.lineas_whatsapp'),
-    // 29/10/2026: «Videos para tus anuncios, armados con IA» (el Video Generator) salió de la tabla: está a medias (depende de
-    // la extensión y de los créditos de Flow del cliente, y al motor nunca se lo midió en vivo). Vuelve cuando un cliente lo use.
     // Lo que en Esencial propone y no aplica solo (25/10/2026); cuántas ideas, del tope del plan.
     filaDeTope(anuncios, 'Ideas por día para mejorar tus anuncios', 'ads.recomendaciones_dia'),
-    // AI Avatar está abierta en los tres planes desde el 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»), pero
-    // la tabla no la vende hasta que ande de punta a punta (`AI_AVATAR_SE_VENDE`).
-    ...(AI_AVATAR_SE_VENDE ? [enTodos(anuncios, NOMBRE_AI_AVATAR)] : []),
     soloPro(anuncios, 'MaKo aplica las mejoras solo, sin pasarse de tu presupuesto'),
-    soloPro(anuncios, NOMBRE_TAB_PRO['image-editor']),
-    soloPro(anuncios, NOMBRE_TAB_PRO['video-editor']),
-    filaDeTope(equipo, 'Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'),
+    enTodos(anuncios, 'Tus campañas de Meta, cruzadas con tus ventas'),
+    enTodos(anuncios, 'Guiones de anuncios desde lo que compra tu cliente'),
+    // AI Avatar está abierta en los tres planes desde el 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»), pero
+    // la tabla no la vende hasta que ande de punta a punta (`AI_AVATAR_SE_VENDE`). Y el Video Generator, tampoco (29/10/2026).
+    ...(AI_AVATAR_SE_VENDE ? [enTodos(contenido, NOMBRE_AI_AVATAR)] : []),
+    enTodos(contenido, 'Textos con IA: guiones, emails y posteos'),
+    enTodos(contenido, 'Un día de stories, con su guion cuadro por cuadro'),
+    soloPro(contenido, NOMBRE_TAB_PRO['image-editor']),
+    soloPro(contenido, NOMBRE_TAB_PRO['video-editor']),
+    enTodos(vender, 'Cada contacto con su historia y su etapa de venta'),
+    enTodos(vender, 'Tu agenda, con las reuniones de cada cliente'),
+    enTodos(vender, 'Planes de pago en cuotas, con contrato y comprobantes'),
+    soloPro(vender, NOMBRE_TAB_PRO['closing-analyst']),
+    enTodos(atender, 'Todos tus chats en una sola bandeja'),
+    enTodos(atender, 'Un agente con IA que contesta por WhatsApp e Instagram'),
     soloPro(equipo, 'Si eres agencia: los negocios de tus clientes'),
     // MaKo Partners, en todos los planes desde el 29/10/2026 (como lo dicen las landings).
     enTodos(recomendar, 'Ganar el primer mes de cada negocio que traes a MaKo'),

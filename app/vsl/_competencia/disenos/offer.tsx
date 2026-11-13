@@ -111,7 +111,8 @@ const CSS = `
 
 /* La sección blanca de su garantía, con el caso de Mauricio. */
 .d-offer-caso { background: #fff; padding: 40px 0 20px; }
-.d-offer-caso-video { display: block; width: 200px; aspect-ratio: 9 / 16; margin: 0 auto; object-fit: cover; background: #000; }
+/* El video de Mauricio, donde la referencia tiene su sello: más grande que el sello (Martín, 12/11/2026: el de 200 px no se veía). */
+.d-offer-caso-video { display: block; width: 320px; max-width: calc(100% - 20px); aspect-ratio: 9 / 16; margin: 0 auto; object-fit: cover; background: #000; border-radius: 12px; }
 .d-offer-caso-h { max-width: 749px; margin: 50px auto 0; text-align: center; font-family: var(--d-offer-roboto); font-size: 36px; line-height: 36px; font-weight: 900;
   letter-spacing: -1px; color: #000; }
 .d-offer-caso-col { max-width: 749px; margin: 36px auto 0; box-shadow: rgba(0, 0, 0, .05) 0 1px 3px 0; }

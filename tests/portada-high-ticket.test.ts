@@ -60,7 +60,9 @@ test('lo que un plan NO trae sale de la misma tabla de la comparación', () => {
   assert.deepEqual(noIncluyeDe('pm'), [], 'una capa sin columna no inventa nada');
 });
 
-test('la portada dibuja cada tarjeta con lo que NO incluye y la tabla comparativa', async () => {
+// 12/11/2026 (Martín: «tienen muchos ítems»): lo que un plan NO trae sale de la tarjeta y queda en la tabla, con «—», como en
+// beehiiv. Lo que se cuida: la tabla está y dice cada fila, y la tarjeta ya no repite la lista de ✗.
+test('la portada dibuja las tarjetas y la tabla comparativa, que dice lo que NO incluye cada plan', async () => {
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { PreciosLanding } = await import('../app/vsl/PreciosLanding');
@@ -70,18 +72,19 @@ test('la portada dibuja cada tarjeta con lo que NO incluye y la tabla comparativ
   for (const f of filasDeComparacion()) assert.ok(html.includes(f.que), `la tabla no dice «${f.que}»`);
   const esencial = planes.find((p) => p.capa === 'completo')!;
   const tarjeta = html.slice(html.indexOf(`<h3>${esencial.nombre}</h3>`), html.indexOf('</section>', html.indexOf(`<h3>${esencial.nombre}</h3>`)));
-  assert.match(tarjeta, /<ul class="mkpl-lista mkpl-no" aria-label="No incluye">/, 'la tarjeta de Esencial no dice lo que NO incluye');
-  for (const x of noIncluyeDe('completo')) assert.ok(tarjeta.includes(`<li>${x}</li>`), `Esencial: falta el ✗ de «${x}»`);
+  assert.doesNotMatch(tarjeta, /class="mkpl-lista mkpl-no"/, 'la tarjeta de Esencial volvió a la lista de ✗');
+  for (const x of noIncluyeDe('completo')) assert.ok(html.includes(`<th scope="row">${x}</th>`), `la tabla no dice «${x}»`);
+  assert.ok(html.includes('aria-label="No incluido"'), 'la tabla marca lo que no incluye');
 });
 
 // ── Sin fondo azul también en el Acelerador (29/10/2026, el Cerebro con la regla de Martín: «fondo claro, el azul sólo de
 // acento»): su bloque sigue oscuro para destacarse, pero en el grafito de la app. Verificado rompiéndolo: volver al azul
 // marino → rojo.
-test('el bloque del Acelerador es grafito, no azul', () => {
+// 12/11/2026: el Acelerador dejó de ser un bloque oscuro (el sol y la luna llevan la página entera a un solo modo); lo que queda
+// de esta regla es que no vuelva el fondo azul marino.
+test('el bloque del Acelerador no vuelve al fondo azul', () => {
   const t = leer('app/planes/Tarjetas.tsx');
-  const regla = /\.mkpl-programa \{ background: ([^;]+);/.exec(t)?.[1] ?? '';
-  assert.match(regla, /#101319/, 'el Acelerador no tiene el fondo grafito de la app');
-  assert.doesNotMatch(regla, /#142B66|#0B1735|122,162,255/, 'el Acelerador volvió al fondo azul');
+  assert.doesNotMatch(t, /#142B66|#0B1735|122,162,255/, 'el Acelerador volvió al fondo azul');
 });
 
 // ── Que toda la venta diga lo mismo (29/10/2026, el Cerebro): las páginas de cada funcionalidad (/vsl/<slug>) también apuntan a

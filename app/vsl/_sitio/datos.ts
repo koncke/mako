@@ -25,6 +25,7 @@ import { AVATARES, type AvatarOrigen } from '@/lib/origen-cuenta';
 import { DEFS, defsVisibles, ordenCategoria, type Def } from '@/lib/integraciones-catalogo';
 import { SIN_USO_TODAVIA, tarjetaDeRed, type RedConTarjeta } from '@/lib/zernio-redes';
 import { CATALOGO_GRABADORES } from '@/lib/grabadores/catalogo';
+import { EMAIL_MAKO } from '@/lib/app-url';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las funciones (las landings de /vsl/<slug>)
@@ -144,18 +145,24 @@ export const RUTA_PRECIOS = '/planes';
 export const RUTA_COMPARACIONES = '/vsl/comparaciones';
 export const RUTA_ENTRAR = '/login';
 
-/** Las columnas del pie (las de beehiiv: Company, Product, Solutions, Resources, Connect): MaKo, sus familias e Industrias. */
+/**
+ * Las columnas del pie (las de beehiiv: Company, Product, Solutions, Resources, Connect): Empezar, las familias, Industrias y
+ * Legal. Martín (12/11/2026): «no tiene sentido que pongas dos secciones que se llamen MaKo» (la primera es «Empezar»; «MaKo»
+ * queda como la familia del menú) y «términos, privacidad, uso aceptable, soporte y el email deberían estar en una sección
+ * como la de Industrias».
+ */
 export function columnasDelPie(): { titulo: string; links: { nombre: string; href: string }[] }[] {
   const m = menuProducto();
   const grandes = GRANDES.flatMap((g) => { const l = landingDe(g.slug); return l ? [{ familia: g.familia, item: itemDe(l) }] : []; });
   const ops = grandes.find((g) => g.familia == null)?.item;
   return [
-    { titulo: 'MaKo', links: [...(ops ? [{ nombre: ops.nombre, href: ops.href }] : []), { nombre: 'Precios', href: RUTA_PRECIOS }, { nombre: 'Comparaciones', href: RUTA_COMPARACIONES }, { nombre: 'Iniciar sesión', href: RUTA_ENTRAR }] },
+    { titulo: 'Empezar', links: [...(ops ? [{ nombre: ops.nombre, href: ops.href }] : []), { nombre: 'Precios', href: RUTA_PRECIOS }, { nombre: 'Comparaciones', href: RUTA_COMPARACIONES }, { nombre: 'Iniciar sesión', href: RUTA_ENTRAR }] },
     ...m.columnas.map((c) => ({
       titulo: c.rotulo,
       links: [...grandes.filter((g) => g.familia === c.rotulo).map((g) => g.item), ...c.items].map((i) => ({ nombre: i.nombre, href: i.href })),
     })),
     { titulo: 'Industrias', links: INDUSTRIAS.map((i) => ({ nombre: i.nombre, href: i.href })) },
+    { titulo: 'Legal', links: [...LEGALES, { nombre: EMAIL_MAKO, href: `mailto:${EMAIL_MAKO}` }] },
   ];
 }
 
@@ -180,21 +187,27 @@ export const LEGALES: readonly { nombre: string; href: string }[] = [
  *   · competitor-spy → su «Después de MaKo». · web-generator → la bajada de su hero (replicar). · copywriting → su FAQ de los
  *                   referentes; la pared de caricaturas lleva «Inspirado en» (la regla de lib/asesores/catalogo.ts).
  */
-/** Lo que dibuja una tarjeta: el visual de su landing, uno de app/vsl/_detalle/feature-visuals.ts, una grabación de la app o los gurús. */
+/** Lo que dibuja una fila: el visual de su landing, uno de app/vsl/_detalle/feature-visuals.ts, una grabación de la app o los referentes. */
 export type VisualTarjeta = 'hero' | 'gurus' | { grupo: string; tipo: string } | { video: string; poster: string };
 
-export const TARJETAS_PORTADA: readonly { slug: string; texto: string; visual: VisualTarjeta }[] = [
-  { slug: 'crm', texto: 'La ficha se crea cuando entra el lead y se mueve de etapa cuando agenda.', visual: { grupo: 'pipeline', tipo: 'kanban' } },
-  { slug: 'seguimiento', texto: 'Un agente que contesta por WhatsApp, Instagram, Messenger y email.', visual: 'hero' },
-  // Las grabaciones de la app (Martín, 12/11/2026: «la animación… posteos que se van acomodando… cursores»): el componente de
-  // verdad (app/competitor-spy/OrdenSpy.tsx → PeliculaDeOrden, app/web-generator/crear/EscenarioReplica.tsx) armado aparte con
-  // esbuild y grabado con Playwright; cómo, en docs/hallazgos-landing.md («Grabar la app sin Next»).
-  { slug: 'ads', texto: 'Cada día mira tus anuncios de Meta y te propone qué subir, pausar o probar.', visual: 'hero' },
-  { slug: 'competitor-spy', texto: 'Cada competidor con sus piezas, ordenadas por formato, y tu versión a un toque en Image.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
-  { slug: 'web-generator', texto: 'Pega el link de una landing que ya funciona y MaKo la replica con tu oferta.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
-  { slug: 'copywriting', texto: 'Habla con los referentes del marketing: cada uno te contesta con su método.', visual: 'gurus' },
-  { slug: 'video', texto: 'Un editor como CapCut con MaKo al lado: quita las pausas y subtitula.', visual: 'hero' },
-  { slug: 'whatsapp', texto: 'Una conversación por contacto, con su ficha del CRM al lado.', visual: 'hero' },
+/**
+ * «Todo lo que necesitas para vender High Ticket», en FILAS: el texto de un lado y lo que se ve del otro, intercalando los lados.
+ * Martín (12/11/2026): «no me gusta para nada los bloques esos gigantescos sueltos… sigue el diseño que ya teníamos antes, en
+ * donde era en un costado texto, en el otro costado la imagen, en este caso el video… y viceversa, van intercalándose». Y: «en
+ * copywriting no debería estar el tema de los gurús»: los referentes van en su fila, que se desliza sola, sin texto encima.
+ * El texto sale de cada landing (su hero, su «Después de MaKo» o su metaDesc); el `titulo`, corto, dice lo que se consigue.
+ * Las grabaciones (`video`) son la app de verdad armada aparte y grabada (docs/hallazgos-landing.md, «Grabar la app sin Next»).
+ */
+export const TARJETAS_PORTADA: readonly { slug: string; rotulo?: string; titulo: string; texto: string; visual: VisualTarjeta }[] = [
+  { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Cada competidor con sus piezas, ordenadas por formato, y tu versión a un toque en Image.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
+  { slug: 'web-generator', titulo: 'Copia una landing que ya vende.', texto: 'Pega el link de una landing que ya funciona y MaKo la replica con tu oferta, sección por sección.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
+  { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Trabaja con el método de los que más venden.', texto: 'Los referentes del marketing, cada uno con su método destilado de su curso: en el chat de MaKo eliges con quién trabajar.', visual: 'gurus' },
+  { slug: 'copywriting', titulo: 'Escribe con IA lo que vende.', texto: 'Guiones, emails y posteos con tu oferta, cada texto en su página, como en Notion.', visual: 'hero' },
+  { slug: 'video', titulo: 'Edita tus videos sin saber editar.', texto: 'Un editor como CapCut con MaKo al lado: quita las pausas y subtitula.', visual: 'hero' },
+  { slug: 'ads', titulo: 'Tus anuncios, mirados todos los días.', texto: 'Cada día mira tus anuncios de Meta y te propone qué subir, pausar o probar.', visual: 'hero' },
+  { slug: 'crm', titulo: 'Cada cliente, en su etapa.', texto: 'La ficha se crea cuando entra el lead y se mueve de etapa cuando agenda.', visual: { grupo: 'pipeline', tipo: 'kanban' } },
+  { slug: 'seguimiento', titulo: 'Un agente que contesta por ti.', texto: 'Un agente que contesta por WhatsApp, Instagram, Messenger y email.', visual: 'hero' },
+  { slug: 'whatsapp', titulo: 'Todos tus chats en una bandeja.', texto: 'Una conversación por contacto, con su ficha del CRM al lado.', visual: 'hero' },
 ];
 
 /** La landing de una función (para sus tarjetas), o undefined si ya no existe. */

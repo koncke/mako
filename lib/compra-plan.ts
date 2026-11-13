@@ -38,7 +38,7 @@ import { leerCuentaMp } from './mercadopago-api';
 import { modoDeClaveStripe } from './stripe-api';
 import { modoDeClaveCreem } from './creem-api';
 import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tipos';
-import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
+import { CLAVE_PLANES, conceptoDelPlan, planConPrueba, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
 import { diagnosticoEnTexto, leadDeLaCompra, pasarelaDeLaCompra, pasarelasDelPais, pasarelasParaOfrecer, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
@@ -374,7 +374,8 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
   // usó). Una segunda prueba se rechaza con un texto claro ANTES de abrir el pago.
   // Con el interruptor apagado (30/10/2026, lib/planes-mako.ts), ninguna compra nueva empieza con prueba: se paga y recién ahí se
   // entra (el alta sale de `aplicarPagoAprobado`). A quien ya está en prueba no lo mira nadie acá: no pasa por este camino.
-  const conPrueba = PRUEBA_GRATIS_PRENDIDA && !p.sinPrueba;
+  // Desde el 12/11/2026 la prueba es SÓLO de Pro (`planConPrueba`): Esencial se cobra al empezar.
+  const conPrueba = planConPrueba(plan.id) && !p.sinPrueba;
   if (conPrueba) {
     const puede = await puedeEmpezarPrueba(p.email, ws);
     if (!puede.ok) {
