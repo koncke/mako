@@ -62,7 +62,8 @@ test('3. «Uso» abajo de la barra, como el del super admin, y en el teléfono; 
   const pieza = sinComentarios(leer('app/second-brain/PiezasCliente.tsx'));
   assert.match(pieza, /<div className="co-barra__abajo">\n\s*<div className="co-uso">\n\s*<button type="button" className="co-acceso" onClick=\{onAbrir\}/, 'la pieza del super admin (PieCentro)');
   const m = sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx'));
-  assert.match(m, /<FilaM navegacion titulo="Uso" icono="config" onClick=\{\(\) => setVerUso\(true\)\}/);
+  // En el teléfono, un chip arriba de los chats desde el 13/11/2026 (el prototipo aprobado); sin IA conectada, lo dice.
+  assert.match(m, /<button type="button" className="m-ops-chip" onClick=\{\(\) => setVerUso\(true\)\}>\{k\.iaConectada === false \? 'Conecta tu IA' : 'Uso'\}<\/button>/);
   assert.match(m, /<SheetM abierto=\{verUso\}[\s\S]{0,160}?titulo="Tus cuentas de IA">\n\s*<TusCuentasIA sinCabecera \/>/);
 });
 
