@@ -181,7 +181,9 @@ horrible». Y después: «tenés que mostrar los outliers verdaderos, no inventa
 | Tableros: carrusel con la entrada de cada uno | `Tableros()` + `SCRIPT_TABLEROS` (`Portada.tsx`); los videos, del banco `banco-tab` (scratchpad) |
 | Sin «Producto»; prueba gratis en cada función | `ProductoSitio` / `FilaFuncion` (`.s-zz-acc`) |
 | Apps arriba; «MaKo reemplaza apps» sin el 54 y con el ahorro | `TiraSitio` debajo del hero; `TiraReemplaza` + `Ahorro` con `STACK_TIPICO` (`reemplaza.ts`) |
-| El caso de Mauricio rediseñado («MaKo le ayudó») | `CasoSitio` (`.s-exito`): la franja que corre, el video, sus meses, antes / con MaKo, las fotos |
+| El caso de Mauricio rediseñado («MaKo le ayudó») | `CasoSitio` (`.s-exito`): la franja que corre, el video, sus meses, antes / con MaKo. Desde el 13/11: «más de US$100k vendidos» (a la fecha, dice Martín), sin las fotos, sin el cierre y sin el botón |
+| El ahorro con más apps | `STACK_TIPICO`: GoHighLevel, ManyChat, Canva, CapCut, Higgsfield (en lugar de Foreplay, pedido de Martín), Notion, Gamma, Skool y Mailchimp; sin la nota de los precios |
+| Tableros: flechas y puntos afuera, deslizable | La pista es el recuadro (`scroll-snap`, se desliza con el dedo, el trackpad o arrastrando con el mouse); flechas a los costados, nombre y puntos debajo |
 | CRM moviendo tarjetas | `banco-crm` (scratchpad) → `crm.webm` |
 
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
@@ -220,6 +222,20 @@ sitio (`BarraGlobal` en `app/vsl/_sitio/Barra.tsx`), fija al bajar, y la copiada
   producción en el mismo orden y al mismo ancho. Los scripts de esa receta quedaron en el scratchpad de la sesión: la receta es ésta.
 
 ## Lo pendiente
+
+- **13/11, tarde (punta b02feedec):** hechos Classroom (PortalAlumno real, `banco-clase` del scratchpad), CRM, tableros
+  deslizables, el #418 arreglado (Interactivos.tsx + TemaSitio tras la hidratación). SIGUE, en este orden: el editor de video con
+  sus agentes (app/video-editor/_opencut/enjambre: banco con el editor real), Marketing CoPilot (banco en scripts/banco-copilot),
+  el scrapeo de grupos (TraerDeGrupoWA con la extensión simulada), Automations (FlujoLienzo con una plantilla real) y Chats.
+  Recetas de banco en el scratchpad de la sesión: `banco-crm/` (build.mjs con stubs de next/* y de acciones; grabar.mjs con
+  cursor propio), `banco-clase/` (sirve también public/ del worktree). Probar en producción el carrusel y el sonido cuando se
+  despliegue (consola sin #418). Esperan a otros: la réplica de carruseles (id del chat de Image) y el OK de Martín para Hormozi
+  en Spy (Apify) y para replicar un reel suyo en Copywriting.
+- **El editor de video, avisado por su chat (13/11):** el enjambre de agentes ya está en producción. Para grabarlo: un proyecto con
+  una toma con voz (la de prueba es `/formatos/plano-secuencia-full.mp4`) → Multimedia › Edición automática › «Editar con MaKo».
+  Cada cursor va donde aparece su cambio (corte-01 en el clip que corta, subs-01/02/03 colocando subtítulos, broll-01 con los
+  archivos). Del reel de referencia todavía falta el cursor escribiendo el texto y la medida del recuadro. Capturas del chat:
+  carpeta de notas del Cerebro, `prueba-video-13-11/07-` y `08-`. Desde el código: banco del editor real (app/video-editor/_opencut).
 
 - **Para la próxima vuelta (13/11):** el scrapeo de grupos (TraerDeGrupoWA + ExtraccionModal, con la extensión simulada), Automations
   (el lienzo), Classroom, el editor de video con sus agentes, una propuesta para Marketing CoPilot (hay banco en

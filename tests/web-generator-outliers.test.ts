@@ -58,7 +58,10 @@ test('2. una landing de Spy entra sólo con su captura larga, y la portada no pi
   }
   assert.equal(capturaDe('https://no-existe.test/x'), null);
   const p = sinComentarios(leer('app/web-generator/OutliersLandings.tsx'));
-  assert.match(p, /de tu competencia esperan su captura/, 'la portada dice cuántas esperan su captura');
+  // 13/11/2026: sin la frase de totales («N páginas que venden · … esperan su captura»): texto que explica la pantalla (Martín, 12/11).
+  assert.doesNotMatch(p, /esperan su captura|páginas que venden|de tu competencia primero/, 'sin la frase que explica');
+  // Y la tarjeta nunca gris vacía: el color de su tipo y el dominio, debajo de la captura mientras carga.
+  assert.match(p, /<span className=\{l\.espera\} data-tipo=\{x\.tipo\} aria-hidden><b>\{hostDeLanding\(x\.url\)\}<\/b><\/span>/);
 });
 
 test('3. las capturas largas: cada una en public/, con id único, https, titular, por qué en neutro y tipo conocido', () => {
@@ -106,7 +109,7 @@ test('4. la portada copia la de Video: encabezado, botones, tarjeta y lo que dic
 
 test('5. la tarjeta grande que se scrollea al pasar el cursor, sin romper la eficiencia', async () => {
   const p = sinComentarios(leer('app/web-generator/OutliersLandings.tsx'));
-  assert.match(p, /<img src=\{x\.imagen\} alt="" className=\{l\.larga\} width=\{640\} height=\{x\.alto \?\? undefined\} loading="lazy" decoding="async" \/>/,
+  assert.match(p, /<img src=\{x\.imagen\} alt="" className=\{l\.larga\} width=\{640\} height=\{x\.alto \?\? undefined\} loading="lazy" decoding="async" onError=\{\(\) => setRota\(true\)\} \/>/,
     'la captura larga carga recién cuando la tarjeta se acerca a la pantalla');
   const css = leer('app/web-generator/outliers-landings.module.css');
   assert.match(css, /\.grilla \{ grid-template-columns: repeat\(auto-fill, minmax\(420px, 1fr\)\);/, 'mucho más grande: 420px como mínimo');

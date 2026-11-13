@@ -8,6 +8,66 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## La réplica FIEL: la lámina original sin sus letras de fondo, y los textos encima en su lugar exacto (13/11/2026)
+
+**El síntoma** (Martín, sobre la réplica de @lifeofarjav «Claude + Hormozi = 100M Business», diseño 16badd73 de ws 9): «no son
+igual a los de la referencia… se está replicando terriblemente mal», y su foto de noche en la portada: «quiero que la elimines de
+todos lados… no que de pronto me ponga mi imagen». Las láminas 2 a 6 sin las capturas de pantalla, sin el marco (© · @ · 01 / 06),
+sin las palabras naranjas, y el titular cortado en «Tu Acelera/dor».
+
+**La causa no era el prompt: era el molde.** `documentoDeReplica` re-dibujaba cada lámina con lo que la IA sabe decir en un JSON
+(un color, cajas, líneas, textos). Una captura, un logo o un ícono no entran en ese JSON: se perdían siempre. Y la foto salía de
+`fotoDelCliente(ws, 'cara')` (su cara de marca), que `conLaCara` pegaba en la portada.
+
+**Cómo quedó** (lib/carruseles/plancha-local.ts, plancha-servidor.ts y `laminaFiel` en replica.ts; tests/carruseles-plancha-local.test.ts):
+- la réplica NUNCA pega la foto del negocio; la persona del original se borra y su lugar queda marcado (`PERSONA_A_GENERAR`) para
+  generarla con la IA de imagen (la plancha de ./plancha.ts, por Flow; sin Flow, el lugar marcado y el aviso lo dice);
+- de fondo va LA PLANCHA: la lámina original con sus letras borradas (rellenas con el fondo que las rodea, interpolado por fila);
+  encima, cada texto nuevo en la caja medida, con su cuerpo, interlineado, espaciado, color y alineación MEDIDOS en el original;
+- todo o nada: si una lámina no se puede planchar (texto sobre una foto), la réplica entera se arma como antes.
+
+**Lo que costó, y es lo que hay que saber antes de tocarlo:**
+- ⚠️ **Las coordenadas de la IA no sirven para borrar.** Medido: el encabezado 35 px corrido, un subtítulo 290 px, un titular de
+  dos renglones con la caja de uno. Los renglones se DETECTAN (`leerLamina`) y a cada texto se le asignan en ORDEN (`asignarRenglones`,
+  programación dinámica sobre las dos listas): la IA erra el lugar pero casi nunca el orden ni el tamaño.
+- ⚠️ **Numerar sobre la imagen no funcionó:** los renglones, la IA inventó su propia cuenta (1, 2, 3…) y le dio el renglón 1 a cuatro
+  textos; las figuras («F1», «F2»), las listó como TEXTOS del diseño y corrió todo el contenido una lámina (la 2 quedó con «F2» y su
+  contador, y lo de la 2 en la 3). La IA mira las láminas limpias; qué figura es una persona lo dice el segundo pedido, recortada.
+- ⚠️ **La IA omite textos y no siempre los mismos** (el encabezado de la portada en una corrida sí y en la siguiente no; las
+  pastillas «STEP», casi nunca; la persona, a veces). Lo principal que queda sin dueño va RECORTADO en un segundo pedido, uno por
+  lámina (todos juntos, la IA corría las respuestas de lámina), con su número de recorte. Y lo del marco que dio en una lámina se
+  copia a las otras en el mismo lugar (`delMarcoEnTodas`).
+- ⚠️ **La IA escribe el texto NUEVO en «original»** (una corrida entera). Nada que dependa de «original» puede romper la réplica: el
+  acento se ubica por el color medido sobre los renglones nuevos, y «igual al original» sólo vale para el © y el contador.
+- ⚠️ **El fondo por baldosa de 48 px fallaba con un titular grueso**: la letra cubría la baldosa y pasaba a ser «el fondo». Va por
+  ventana de 3 × 3 baldosas.
+- ⚠️ **El borde suavizado de una letra negra es gris** y se contaba como acento: el acento exige un color VIVO, y sólo cuenta lo
+  cercano a su color puro.
+- ⚠️ **Una tarjeta blanca sobre una lámina casi blanca** se aparta 17 del fondo (250,245,239 contra 254,254,253): el umbral de «texto
+  principal» es 10. Y una lista (tres renglones de su tamaño cerca) nunca se reescribe: la IA adaptaba la mitad de un párrafo de
+  captura y dejaba la otra, en dos idiomas.
+- ⚠️ **Un ícono redondo se pegaba al renglón** (el globo de chat y después el regalo, uno más grande que el otro): los renglones se
+  comparan por el alto PROMEDIO de sus letras, no por la caja que crece.
+- ⚠️ **Adaptar no es buscar y reemplazar el nombre** (el Cerebro, mirando la versión en seco): «La voz de MaKo, sus 3 libros» (los
+  libros eran de Hormozi), «MaKo + Claude = 100M Business» (una promesa que nadie hizo). La regla va en el prompt (contar lo mismo con
+  lo que el negocio tiene; lo del original se cambia por algo verdadero o se saca) y la capa 2 es la de Copywriting:
+  `cifrasDeLaReplica` (con `cifrasSinFuente`) avisa los montos, los «100M» y los porcentajes que no salen del negocio; las cifras del
+  original NO cuentan como fuente.
+- **Lo que vuelve del segundo pedido se controla por su ancho**: lo que la IA dice haber leído tiene que medir lo que mide el recorte
+  (0,6 a 1,7 veces); una vez le contestó al recorte del @ del pie con la letra de la captura de al lado.
+- Un texto cuyo bloque queda adentro del de otro es el mismo texto dos veces (la IA listó «STEP 2» para el contorno y para su letra).
+- **Las pastillas se conservan** (rellenas o de contorno, redondas y de su color exacto) y sólo se les borra la letra; rehechas como
+  resaltado del texto salían cuadradas y de otro naranja.
+- **La letra:** Inter con el espaciado que iguala el ancho medido (los titulares del original son de palo seco apretado, un 3 a 5 %
+  más angostos); «gruesa» = Archivo Black era un 20 % más ancha y cortaba el titular.
+- Para probar sin pagar otra IA: `scripts/carruseles-probar-editar.mts --salida <carpeta>` guarda lo leído (`replica.json`), las
+  láminas, las numeradas y las planchas.
+
+**Sin hacer:** su caricatura en el lugar de la de Hormozi (necesita Google Flow abierto desde el ícono de MaKo: la plancha de
+./plancha.ts, sin orquestar); la letra de adentro de las capturas queda la del original (con «Hormozi» en la captura); la itálica
+serif del original («step by step.») sale en palo seco; el elegir la letra por forma (./tipografia-medida.ts) sigue sin conectarse.
+Probado en seco con la IA real de ws 9 y dibujado aparte; falta verlo en el editor de producción.
+
 ## La réplica que no se lee y los huecos: probada lámina por lámina al lado del original (12/11/2026)
 
 Prueba de Image en producción (docs/pruebas/image-12-11.md), con la IA real del ws 9. El recorrido andaba entero; lo que fallaba se

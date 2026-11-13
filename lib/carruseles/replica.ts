@@ -20,8 +20,10 @@
 // =============================================================================
 
 import { parseJsonObject } from '../json-del-modelo';
+import { cifrasSinFuente } from '../copywriter/ia-reglas';
 import { altoEnElEditor, comoSeDibuja, medidorReal } from './medir-letra';
-import { partirEnRenglones, sinSuperponer, type FuenteTexto } from './tipografia-medida';
+import { partirEnRenglones, sinSuperponer, type Caja, type FuenteTexto } from './tipografia-medida';
+import type { Bloque } from './plancha-local';
 import { esSaturacion, esTimeout, esTopeDeTamano } from '../fallo-ia-texto';
 import { ANCHO_CARRUSEL, ALTO_CARRUSEL, altoEstimado, esOscuro, familia, rect, texto, type Marca } from './documento';
 import type { EstiloCarrusel } from './tipos';
@@ -54,6 +56,14 @@ export type TextoReplica = {
    * `background` del editor): sigue al texto cuando se edita, nunca una forma suelta detrás.
    */
   relleno?: string | null;
+  /** El texto del ORIGINAL tal cual se lee (13/11/2026): cuántos renglones tiene dice dónde buscar su tinta (./plancha-local.ts). */
+  original?: string;
+  /**
+   * Las palabras que van en OTRO color dentro del mismo texto (13/11/2026, @lifeofarjav: «Claude» y «Hormozi» en naranja dentro de
+   * un titular negro), como tramos [desde, hasta) de `texto`, y ese color. La IA las marca con *asteriscos* (`conAcentos`).
+   */
+  acentos?: ReadonlyArray<readonly [number, number]>;
+  acento?: string | null;
 };
 export type FotoReplica = { x: number; y: number; ancho: number; alto: number; persona: boolean; descripcion: string };
 /**
@@ -77,7 +87,11 @@ export type FormaDelCuadro = (typeof FORMAS_DEL_CUADRO)[number];
  * textos, con su papel.
  */
 export type FormaReplica = { tipo: 'linea' | 'caja'; x: number; y: number; ancho: number; alto: number; color: string; borde: string | null; radio: number; sombra: boolean };
-export type LaminaReplica = { fondo: string; textos: TextoReplica[]; foto: FotoReplica | null; cuadros: CuadroReplica[]; formas?: FormaReplica[] };
+export type LaminaReplica = {
+  fondo: string; textos: TextoReplica[]; foto: FotoReplica | null; cuadros: CuadroReplica[]; formas?: FormaReplica[];
+  /** Las figuras marcadas (F1, F2…) que son una persona: se borran de la plancha y su lugar queda para la del negocio. */
+  personas?: string[];
+};
 export type Proporcion = '4:5' | '1:1' | '16:9';
 /** `lectura`: lo que la IA LEYÓ de la composición del original antes de escribir (queda en las notas del diseño). */
 export type Replica = { proporcion: Proporcion; titulo: string; laminas: LaminaReplica[]; lectura?: string };
@@ -93,7 +107,9 @@ export const medidasDe = (p: Proporcion): { ancho: number; alto: number } =>
 export const LAMINAS_MAX = 12;
 /** Cuántas imágenes se le mandan a la IA como mucho (cada una es visión: tokens y tiempo). */
 export const IMAGENES_MAX = 10;
-const TEXTOS_POR_LAMINA = 8;
+// 12 y no 8 (13/11/2026): la última lámina de @lifeofarjav tiene título, tarjeta, llamada a la acción, pie y marco, y con 8 la IA
+// cortaba justo la llamada a la acción y el pie (que quedaban quemados en la plancha con el @ del original).
+const TEXTOS_POR_LAMINA = 12;
 const LARGO_TEXTO = 400;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -189,6 +205,10 @@ export function promptDeReplica(p: PedidoReplica): string {
     'Reglas:',
     '- Copia el patrón (cómo abre, cuántas ideas por lámina, cómo cierra), NUNCA sus frases: cada texto lo escribes tú para este negocio, con un largo parecido al original para que entre en el mismo lugar.',
     '- Y tampoco sus HECHOS. Si el original cuenta algo que le pasó a su autor (una anécdota, un premio, un familiar, una fecha, un lugar, una cifra), eso no le pasó a este negocio: usa la misma estructura con lo que sabes del negocio de abajo, y si no sabes nada que contar ahí, escribe la idea sin la anécdota. Nunca cuentes como propio del negocio algo que le pasó a otra persona.',
+    // 13/11/2026, el Cerebro mirando @lifeofarjav: «La voz de MaKo, sus 3 libros» (los libros eran de Hormozi) y «MaKo + Claude =
+    // 100M Business». Adaptar no es buscar y reemplazar el nombre del gurú por el del negocio: es contar lo mismo con lo que el negocio
+    // tiene de verdad. Capa 2: `cifrasDeLaReplica` (abajo) avisa las cifras que se escapan igual.
+    '- Adaptar es contar LO MISMO con la oferta del negocio, NO cambiar el nombre del creador, de su gurú o de su marca por el del negocio. Lo que es del original (sus libros, sus herramientas, sus cifras, sus resultados, su promesa) se cambia por algo VERDADERO del negocio de abajo, o se saca. Ninguna cifra, monto, resultado ni garantía que no esté en lo que se sabe del negocio: ni las del original ni inventadas. Tampoco le atribuyas al negocio algo que no está en lo que se sabe de él (un método, un framework, un libro, una herramienta propia): si hace falta, di «tu método» o «tu forma de trabajar».',
     '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su nombre o su firma va el NOMBRE del negocio, tal como está escrito abajo. Donde el original muestra su @ (un encabezado, un tuit, un pie), escribe exactamente @usuario: el sistema pone el del negocio. Nunca otro @, un usuario inventado ni un sitio web.',
     '- Español neutro, de «tú», como se habla en México.',
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra que tenga sentido para este negocio (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
@@ -203,6 +223,8 @@ export function promptDeReplica(p: PedidoReplica): string {
       ? '- "cuadros": cada imagen de la lámina, en el MISMO lugar y del MISMO tamaño que en el original; si una lámina tiene dos fotos, son dos cuadros. "tipo": "escena" si es una foto de un lugar (con o sin alguien adentro), "retrato" si es la persona sola, recortada o en primer plano, como parte del diseño (también la foto de perfil de un tuit). "forma": "circulo" si la foto es redonda, "redondeado" si tiene las esquinas curvas, "rect" si no. "busqueda": de 3 a 6 palabras EN INGLÉS para buscar una foto PARECIDA de lo que muestra, sin gente. Si la lámina es sólo tipografía, "cuadros": [].'
       : '- Sin las láminas no hay cuadros: "cuadros": [] y la lámina es tipografía y color.',
     vistas > 0 ? '- "formas": el MARCO de la lámina, en su lugar: cada línea divisoria ("tipo": "linea") y cada tarjeta, franja o recuadro de color que va detrás de textos o fotos ("tipo": "caja", con su "color", su "borde" o null, "radio" de 0 a 0.5 si tiene las esquinas curvas y "sombra"). Los textos del marco (el @, el número de lámina como «02 / 06», el pie) van en "textos" con su papel ("firma" o "rotulo"), en cada lámina que los tenga. Sin marco, "formas": [].' : '',
+    vistas > 0 ? '- "original": cada texto como se lee en la lámina original, con "\\n" donde corta el renglón. Lista TODOS los textos de cada lámina EN ORDEN DE LECTURA (de arriba a abajo y, en una misma franja, de izquierda a derecha): también la etiqueta o pastilla («STEP 1» va como «PASO 1»), los del marco (el ©, el @, el número «01 / 06») y el PIE de abajo, en CADA lámina que los tenga aunque se repitan. De adentro de una captura de pantalla o de una tarjeta con letra chica (una ventana, un formulario, un chat, un documento), sólo su título, adaptado; el resto no va.' : '',
+    '- Si en el original unas palabras de un texto van en OTRO color que el resto (un acento), en tu texto pon entre asteriscos las palabras que van en ese color (*así*) y ese color en "acento"; si no, "acento": null.',
     '- "relleno": si el texto va sobre una pastilla, una etiqueta, un botón o una caja de color (por fuera del fondo de la lámina), el color de esa forma; si no, null. El "color" del texto tiene que leerse sobre su relleno, o sobre el fondo si no tiene.',
     p.conAvatar ? '- Donde el original tiene a una persona, marca "persona": true: el dueño del negocio va en su lugar.' : '- No pongas personas: "persona": false en todos los cuadros (la escena va sin gente).',
     '- Cada texto va en el MISMO lugar, con el MISMO tamaño y el MISMO estilo que en el original: si el original usa subtítulos chicos (tamano de 0.035 a 0.045) abajo de cada cuadro, aquí también; nunca un título grande al centro si el original no lo tiene. Una frase que en el original ocupa dos renglones es UN texto (con "\\n" donde corta), no dos. Sólo si el original es tipografía sin fotos, el texto LLENA la lámina (titulares de 0.08 a 0.14, cuerpo de 0.045 a 0.06). Pocas palabras, las justas para leerse de un vistazo.',
@@ -220,7 +242,7 @@ export function promptDeReplica(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     COMPACTO,
-    `{"lectura":"lo que leíste de la composición","proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"forma":"rect|circulo|redondeado","descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"formas":[{"tipo":"linea|caja","x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"color":"#RRGGBB","borde":"#RRGGBB" o null,"radio":0..0.5,"sombra":true|false}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"lectura":"lo que leíste de la composición","proporcion":"4:5" o "1:1","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","cuadros":[{"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"tipo":"escena|retrato","persona":true|false,"forma":"rect|circulo|redondeado","descripcion":"qué muestra","busqueda":"3 a 6 palabras en inglés"}],"formas":[{"tipo":"linea|caja","x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"color":"#RRGGBB","borde":"#RRGGBB" o null,"radio":0..0.5,"sombra":true|false}],"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","original":"…","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","acento":"#RRGGBB" o null,"relleno":"#RRGGBB" o null,"negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     `x, y, ancho y alto son FRACCIONES de la lámina (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho. Exactamente ${n} elementos en "laminas".`,
   ].filter((l) => l !== '').join('\n');
 }
@@ -305,6 +327,36 @@ export function conElArrobaDelNegocio(texto: string, usuario: string | null | un
  * láminas. Si faltan láminas, se completan con lo que hay (nunca con más de las que pidió). Un JSON roto se repara una vez
  * (lib/json-del-modelo.ts); sin ninguna lámina con texto, `{ error }`.
  */
+/**
+ * El `@usuario` de la IA cambiado por el del negocio; sin uno cargado, se va CON la palabra que lo presentaba («Síguenos en
+ * @usuario para más» quedaba «Síguenos en para más», 13/11/2026).
+ */
+export function sinArroba(texto: string, handle: string): string {
+  if (handle) return texto.replace(/@usuario\b/gi, handle);
+  return texto.replace(/\s+(?:en|a|de|on|at|in)\s+@usuario\b/gi, '').replace(/@usuario\b/gi, '').replace(/[ \t]{2,}/g, ' ').trim();
+}
+
+/**
+ * Las palabras de acento de un texto de la IA: lo que va entre *asteriscos* sale sin ellos y queda como un tramo [desde, hasta).
+ * Un asterisco suelto (sin pareja) no marca nada y se va: en una lámina no se ve un «*» que nadie escribió.
+ */
+export function conAcentos(marcado: string): { texto: string; acentos: Array<[number, number]> } {
+  const n = (marcado.match(/\*/g) ?? []).length;
+  if (n < 2 || n % 2 !== 0) return { texto: marcado.replace(/\*/g, '').replace(/[ \t]{2,}/g, ' ').trim(), acentos: [] };
+  const acentos: Array<[number, number]> = [];
+  let texto = '';
+  let desde = -1;
+  for (const ch of marcado) {
+    if (ch !== '*') { texto += ch; continue; }
+    if (desde < 0) desde = texto.length;
+    else { if (texto.length > desde) acentos.push([desde, texto.length]); desde = -1; }
+  }
+  // Recortar las puntas corre los tramos: se recalculan sobre el texto recortado.
+  const ini = texto.length - texto.trimStart().length;
+  const recortado = texto.trim();
+  return { texto: recortado, acentos: acentos.map(([a, b]) => [Math.max(0, a - ini), Math.min(recortado.length, b - ini)] as [number, number]).filter(([a, b]) => b > a) };
+}
+
 export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; usuario?: string | null }): Replica | { error: string } {
   let j: Record<string, unknown>;
   try { j = parseJsonObject(crudo); } catch { return { error: 'La IA no devolvió el diseño en un formato que pueda leer.' }; }
@@ -320,18 +372,29 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
       const t = crudoT && typeof crudoT === 'object' ? (crudoT as Record<string, unknown>) : {};
       // `@usuario` es el comodín del prompt para el @ del original (12/11/2026): el del negocio, si está cargado; si no, se va.
       const handle = o.usuario?.trim() ? `@${o.usuario.trim().replace(/^@+/, '')}` : '';
-      const contenido = conElArrobaDelNegocio(limpio(t.texto, LARGO_TEXTO).replace(/@usuario\b/gi, handle), o.usuario);
-      if (!contenido) continue;
+      const marcado = conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle), o.usuario);
+      const { texto: contenido, acentos } = conAcentos(marcado);
+      const original = limpio(t.original, LARGO_TEXTO).replace(/\*/g, '');
+      // Un texto que quedó vacío (el @ del original, con un negocio sin @ cargado) se queda SI se sabe qué decía: hay que borrarlo
+      // de la plancha (./plancha-local.ts), aunque no se escriba nada en su lugar.
+      if (!contenido && !original) continue;
+      // Una marca de figura («F1») leída como si fuera un texto del diseño no es un texto.
+      if (/^F\d{1,2}$/.test(contenido) || /^F\d{1,2}$/.test(original)) continue;
       const x = num(t.x, 0, 0.95, 0.08);
+      const acento = color(t.acento, '');
       textos.push({
         rol: (ROLES_TEXTO as readonly string[]).includes(String(t.rol)) ? (t.rol as RolTexto) : 'cuerpo',
         texto: contenido,
+        ...(original ? { original } : {}),
+        ...(acentos.length ? { acentos, acento: acento || null } : {}),
         x, y: num(t.y, 0, 0.97, 0.1), ancho: num(t.ancho, 0.1, 1 - x, Math.min(0.84, 1 - x)),
         tamano: num(t.tamano, 0.016, 0.16, 0.05),
         color: color(t.color, tintaDef),
         negrita: t.negrita === true || t.negrita === 'true',
         alinear: t.alinear === 'center' || t.alinear === 'right' ? t.alinear : 'left',
-        mayus: t.mayus === true || t.mayus === 'true',
+        // En mayúsculas sólo si el ORIGINAL lo está (13/11/2026: la IA marcó «mayus» en «Claude + Hormozi», y el titular salía
+        // «MARTIN + KONCKE», más ancho y con otra cara).
+        mayus: (t.mayus === true || t.mayus === 'true') && !(typeof t.original === 'string' && /\p{Ll}/u.test(t.original)),
         letra: (LETRAS as readonly string[]).includes(String(t.letra)) ? (t.letra as Letra) : 'sans',
         // Una «pastilla» del mismo color que el fondo no es una pastilla.
         relleno: (() => { const r = color(t.relleno, ''); return r && r.toUpperCase() !== fondo.toUpperCase() ? r : null; })(),
@@ -343,13 +406,105 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
     const foto: FotoReplica | null = f
       ? { x: fx, y: fy, ancho: num(f.ancho, 0.05, 1 - fx, 1 - fx), alto: num(f.alto, 0.05, 1 - fy, 1 - fy), persona: f.persona === true || f.persona === 'true', descripcion: limpio(f.descripcion, 200) }
       : null;
-    laminas.push({ fondo, textos, foto, cuadros: cuadrosDe(l.cuadros, foto), formas: formasDe(l.formas) });
+    const personas = (Array.isArray(l.personas) ? l.personas : []).map((x) => String(x).trim().toUpperCase()).filter((x) => /^F\d{1,3}$/.test(x)).slice(0, 8);
+    laminas.push({ fondo, textos, foto, cuadros: cuadrosDe(l.cuadros, foto), formas: formasDe(l.formas), ...(personas.length ? { personas } : {}) });
   }
-  if (!laminas.some((l) => l.textos.length)) return { error: 'La IA no encontró textos en las láminas: vuelve a intentar o elige otro ejemplo.' };
+  if (!laminas.some((l) => l.textos.some((t) => t.texto))) return { error: 'La IA no encontró textos en las láminas: vuelve a intentar o elige otro ejemplo.' };
   // Una miniatura es UNA lámina 16:9, diga lo que diga el modelo.
   const lectura = limpio(j.lectura, 1200) || undefined;
   if (o.miniatura) return { proporcion: '16:9', titulo: limpio(j.titulo, 80) || 'Mi miniatura', laminas: laminas.slice(0, 1), lectura };
   return { proporcion: j.proporcion === '1:1' ? '1:1' : '4:5', titulo: limpio(j.titulo, 80) || 'Mi carrusel', laminas, lectura };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lo que la IA no listó: un segundo pedido con los RECORTES (13/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+// La IA lista los textos de cada lámina con su propio criterio, y no siempre el mismo: en una corrida dio el encabezado de la
+// portada y en la siguiente no; las pastillas («STEP 1») casi nunca; a la persona de la portada, una vez sí y otra no. Lo que
+// quedaba sin listar quedaba QUEMADO en la plancha, con el @ y el idioma del original. Así que lo que la lámina tiene y la IA no
+// dijo (./plancha-local.ts → `bloquesSinDueno`, y las figuras grandes) se le manda recortado, y sólo tiene que leerlo y adaptarlo.
+
+/** Cuántos recortes van en el segundo pedido, como mucho (los textos primero; las figuras, después). */
+export const RECORTES_MAX = { textos: 24, figuras: 8 } as const;
+
+export function promptDeCompletar(p: { textos: number; figuras: number; nombreNegocio: string; contexto: string; oferta?: OfertaDelPrompt | null }): string {
+  return [
+    `Estás adaptando un carrusel de Instagram para el negocio «${p.nombreNegocio.slice(0, 80)}». Te muestro ${p.textos + p.figuras} recortes de sus láminas originales, en orden: el recorte 1 es la primera imagen, el 2 la segunda, y así.`,
+    p.textos ? `Los primeros ${p.textos} son TEXTOS. De cada uno: "original", lo que dice tal cual (con "\\n" donde corta); "texto", su versión para el negocio, de un largo parecido (un número de lámina como «02 / 06» queda igual; una etiqueta como «STEP 1» va «PASO 1»; el @ o el nombre del creador original va como @usuario); "rol"; "color" de la letra; "relleno", el color de la pastilla o caja que tiene detrás si la tiene (si no, null); "mayus" si está en mayúsculas; y si unas palabras van en OTRO color que el resto, en "texto" entre asteriscos (*así*) y ese color en "acento" (si no, null).` : '',
+    p.figuras ? `Los ${p.figuras} siguientes son FIGURAS: en "personas", por cada una, true si muestra a una persona (una foto, un dibujo o una caricatura de alguien) y false si no (un logo, un ícono, una captura, un objeto).` : '',
+    '- Español neutro, de «tú», como se habla en México. No copies frases ni hechos del original: escribe lo del negocio.',
+    '- Adaptar no es cambiar el nombre del creador o de su gurú por el del negocio: lo que es del original (sus libros, sus cifras, sus resultados) se cambia por algo verdadero del negocio o se saca. Ninguna cifra que no esté en lo que se sabe del negocio.',
+    p.oferta ? bloqueDeOferta(p.oferta) : '',
+    p.contexto ? `Lo que ya dicen las láminas nuevas (para que lo tuyo siga igual):\n<<<LAMINAS\n${p.contexto.slice(0, 3_000)}\nLAMINAS>>>` : '',
+    COMPACTO,
+    `{"textos":[{"n":1,"original":"…","texto":"…","rol":"titulo|cuerpo|rotulo|dato|cta|firma","color":"#RRGGBB","relleno":"#RRGGBB" o null,"mayus":true|false,"acento":"#RRGGBB" o null}],"personas":[{"n":${p.textos + 1},"persona":true|false}]}`,
+    `"n" es el número de recorte. Exactamente ${p.textos} elementos en "textos" (recortes 1 a ${p.textos}) y ${p.figuras} en "personas" (recortes ${p.textos + 1} a ${p.textos + p.figuras}).`,
+  ].filter((l) => l !== '').join('\n');
+}
+
+/** Un texto completado por el segundo pedido (sin lugar: el lugar es el del recorte). */
+export type TextoCompletado = Pick<TextoReplica, 'rol' | 'texto' | 'color' | 'mayus' | 'relleno' | 'original' | 'acentos' | 'acento'>;
+
+/** Lo que contestó el segundo pedido, acotado. Un texto que no se entiende queda null (se deja como en el original). */
+export function leerCompletado(crudo: string, o: { textos: number; figuras: number; usuario?: string | null }): { textos: Array<TextoCompletado | null>; personas: boolean[] } {
+  let j: Record<string, unknown>;
+  try { j = parseJsonObject(crudo); } catch { return { textos: new Array(o.textos).fill(null), personas: new Array(o.figuras).fill(false) }; }
+  // Por su número de recorte («n»): una respuesta que saltea uno no corre a todos los que siguen (13/11/2026: los textos de una
+  // captura de la lámina 2 terminaron en la portada). Sin «n», por el orden.
+  const crudos = Array.isArray(j.textos) ? j.textos : [];
+  const lista: unknown[] = new Array(o.textos).fill(null);
+  crudos.forEach((x, k) => {
+    const n = x && typeof x === 'object' ? Number((x as Record<string, unknown>).n) : NaN;
+    const i = Number.isSafeInteger(n) && n >= 1 && n <= o.textos ? n - 1 : k;
+    if (i < o.textos && lista[i] == null) lista[i] = x;
+  });
+  const handle = o.usuario?.trim() ? `@${o.usuario.trim().replace(/^@+/, '')}` : '';
+  const textos = Array.from({ length: o.textos }, (_, k): TextoCompletado | null => {
+    const t = lista[k] && typeof lista[k] === 'object' ? (lista[k] as Record<string, unknown>) : null;
+    if (!t) return null;
+    const original = limpio(t.original, LARGO_TEXTO).replace(/\*/g, '');
+    const { texto, acentos } = conAcentos(conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle), o.usuario));
+    if (!original && !texto) return null;
+    const acento = color(t.acento, '');
+    const relleno = color(t.relleno, '');
+    return {
+      rol: (ROLES_TEXTO as readonly string[]).includes(String(t.rol)) ? (t.rol as RolTexto) : 'cuerpo',
+      texto, color: color(t.color, '#111111'), relleno: relleno || null,
+      mayus: (t.mayus === true || t.mayus === 'true') && !/\p{Ll}/u.test(original),
+      ...(original ? { original } : {}),
+      ...(acentos.length ? { acentos, acento: acento || null } : {}),
+    };
+  });
+  const personas: boolean[] = new Array(o.figuras).fill(false);
+  (Array.isArray(j.personas) ? j.personas : []).forEach((x, k) => {
+    const r = x && typeof x === 'object' ? (x as Record<string, unknown>) : null;
+    const n = r ? Number(r.n) : NaN;
+    const i = Number.isSafeInteger(n) && n > o.textos && n <= o.textos + o.figuras ? n - o.textos - 1 : k;
+    const si = r ? r.persona === true || r.persona === 'true' : x === true || x === 'true';
+    if (i < o.figuras) personas[i] = si;
+  });
+  return { textos, personas };
+}
+
+/**
+ * Las cifras de la réplica que no salen del negocio (13/11/2026): la capa 2 de la regla del prompt, la MISMA de Copywriting
+ * (`cifrasSinFuente`, lib/copywriter/ia-reglas.ts: porcentajes, «N veces», una garantía) más lo que un carrusel promete con un
+ * número: un monto («$1500») o un resultado redondo («100M», «10K»). La fuente es lo que se sabe DEL NEGOCIO (su Second Brain, su
+ * oferta, lo que pidió el dueño); el original NO cuenta: sus cifras son de otro. Para avisarlas, no para cambiarlas.
+ */
+export function cifrasDeLaReplica(replica: Replica, fuentes: string): string[] {
+  const escrito = replica.laminas.flatMap((l) => l.textos.map((t) => t.texto)).join('\n');
+  const { cifras, garantia } = cifrasSinFuente(escrito, fuentes);
+  const digitos = (t: string) => t.replace(/[.,\s$€£]/g, '');
+  const conFuente = new Set((fuentes.match(/\d+(?:[.,]\d+)*/g) ?? []).map(digitos));
+  const out = [...cifras];
+  for (const m of escrito.matchAll(/[$€£]\s?\d[\d.,]*(?:\s?(?:k|m|mil|millones?)\b)?|\b\d[\d.,]*\s?(?:k|m|mil|millones?)\b/gi)) {
+    const tal = m[0].replace(/\s+/g, ' ').trim();
+    const numero = digitos(tal.replace(/(?:k|m|mil|millones?)$/i, ''));
+    if (numero && !conFuente.has(numero) && !out.includes(tal)) out.push(tal);
+  }
+  if (garantia) out.push('una garantía');
+  return out.slice(0, 4);
 }
 
 /** Cuántos cuadros de imagen se leen por lámina (una pantalla dividida son 2; un collage, 3 o 4). */
@@ -690,14 +845,204 @@ export function acomodarTextos(
   return salida;
 }
 
+/** El ancho que tendría el renglón más largo del texto ORIGINAL con el cuerpo que dijo la IA (para reconocer sus renglones en la
+ *  lámina: ./plancha-local.ts → `asignarRenglones`). Con la letra del editor para su estilo: no es la del original, pero de un
+ *  «STEP 3» a un «Tell it How to Act» hay tres veces de ancho, y eso es lo que importa. */
+export function anchoEsperadoDe(t: TextoReplica, W: number): number {
+  const titular = ES_TITULAR.has(t.rol);
+  const letra = LETRA_DEL_EDITOR[t.letra] ?? LETRA_DEL_EDITOR.sans;
+  const base = titular ? letra.titular : letra.texto;
+  const fuente: FuenteTexto = { familia: familia(base), peso: titular ? base.peso : t.negrita ? letra.texto.negrita : letra.texto.peso, italica: false, tam: t.tamano * W };
+  return Math.max(1, ...comoSeDibuja(t.original ?? t.texto, t.mayus).split('\n').map((r) => medidorReal(r, fuente)));
+}
+
+/** La lámina original sin sus letras (./plancha-local.ts) y lo que se midió en ella, en el mismo orden que los textos de la IA. */
+export type PlanchaDeLamina = { src: string; textos: ReadonlyArray<Bloque | null>; personas: readonly Caja[] };
+
+/** El nombre del lugar de la persona en una réplica fiel: ahí va la del negocio GENERADA con la IA de imagen (./plancha.ts). */
+export const PERSONA_A_GENERAR = 'Persona: va la tuya, generada con IA';
+
+/** Los estilos de letra de los acentos (fabric: `styles[renglón][letra]`, contando los renglones del texto, no los del ajuste). */
+export function estilosDeAcento(texto: string, acentos: ReadonlyArray<readonly [number, number]>, color: string): Record<number, Record<number, { fill: string }>> {
+  const out: Record<number, Record<number, { fill: string }>> = {};
+  let renglon = 0;
+  let col = 0;
+  Array.from(texto).forEach((ch, i) => {
+    if (ch === '\n') { renglon++; col = 0; return; }
+    if (acentos.some(([a, b]) => i >= a && i < b)) (out[renglon] ??= {})[col] = { fill: color };
+    col++;
+  });
+  return out;
+}
+
+/** El espaciado (milésimas de em, el `charSpacing` del editor) que se acepta para igualar el ancho, por papel: lo que pase de
+ *  esto se recorta al tope (un titular va apretado; un cuerpo, casi nada). */
+const ESPACIADO_MINIMO = { titular: -60, texto: -20 } as const;
+const ESPACIADO_MAXIMO = { titular: 30, texto: 20 } as const;
+
+/**
+ * El espaciado que hace que el texto ORIGINAL, con la letra y el cuerpo elegidos, mida lo mismo que su renglón en la lámina
+ * (13/11/2026). Los titulares de @lifeofarjav son de palo seco apretados (un 3 a 5 % más angostos que Inter): con la letra «gruesa»
+ * iba Archivo Black, un 20 % más ancha, y el titular se cortaba en «Tu Acelera/dor»; con Inter sin apretar, un 10 % de más. Se
+ * mide con lo que DICE el original (la IA lo transcribe en `original`): si no lo dijo, 0.
+ */
+function espaciadoMedido(t: TextoReplica, b: Bloque, fuente: FuenteTexto, titular: boolean): number {
+  if (!t.original) return 0;
+  const renglones = comoSeDibuja(t.original, t.mayus).split('\n');
+  const largo = renglones.reduce((a, r) => (medidorReal(r, fuente) > medidorReal(a, fuente) ? r : a), '');
+  const letras = Array.from(largo).length;
+  if (letras < 3) return 0;
+  const sobra = b.caja.ancho - medidorReal(largo, { ...fuente, espaciado: 0 });
+  const espaciado = Math.round((sobra / (letras * fuente.tam)) * 1000);
+  // Un texto de cuerpo apretado más de un 2 % se ve aplastado (13/11/2026: con el texto NUEVO en «original», el subtítulo salía
+  // comprimido para entrar en el ancho del viejo); un titular de palo seco sí va apretado.
+  const tope = titular ? 'titular' : 'texto';
+  return Math.max(ESPACIADO_MINIMO[tope], Math.min(ESPACIADO_MAXIMO[tope], espaciado));
+}
+
+/**
+ * Las palabras de acento del texto NUEVO por la posición del color en el original (13/11/2026: la IA no siempre las marca; el
+ * «Claude» naranja del titular, el «Setup» de «Setup Guide?»). Sobre los renglones del texto nuevo tal como quedan armados, una
+ * palabra va con el acento si más de la mitad de ella cae sobre un tramo de color del MISMO renglón del original (medido como
+ * fracción de su ancho: ./plancha-local.ts → `acentoMedido`). No depende de lo que la IA dijo que decía el original: a veces
+ * escribe ahí el texto nuevo.
+ */
+function acentosPorPosicion(contenido: string, renglones: readonly string[], b: Bloque, fuente: FuenteTexto): Array<[number, number]> {
+  if (!b.acento) return [];
+  const out: Array<[number, number]> = [];
+  const espacio = medidorReal(' ', fuente);
+  let cursor = 0;
+  renglones.forEach((renglon, r) => {
+    const inicio = contenido.indexOf(renglon, cursor);
+    if (inicio < 0) return;
+    cursor = inicio + renglon.length;
+    const tramos = b.acento!.tramos[r];
+    if (!tramos?.length) return;
+    const total = medidorReal(renglon, fuente) || 1;
+    let x = 0;
+    let pos = inicio;
+    for (const p of renglon.split(' ')) {
+      const ancho = medidorReal(p, fuente) / total;
+      const sobre = tramos.reduce((a, [i, f]) => a + Math.max(0, Math.min(f, x + ancho) - Math.max(i, x)), 0);
+      if (p && sobre > 0.5 * ancho) out.push([pos, pos + p.length]);
+      x += ancho + espacio / total;
+      pos += p.length + 1;
+    }
+  });
+  return out;
+}
+
+/** El cuerpo de un texto por su tinta medida: con un renglón, el alto de la letra decide entre «tiene colitas» (0,95 em) y
+ *  «sólo mayúsculas» (0,74 em), lo que quede más cerca de lo que dijo la IA. */
+function cuerpoMedido(b: Bloque, emIA: number, original?: string): number {
+  const conColitas = b.altoRenglon / 0.95;
+  const sinColitas = b.altoRenglon / 0.74;
+  // Con el texto original se sabe: una letra con colita (g, j, p, q, y, una coma) baja el renglón hasta 0,95 em.
+  if (original) return /[gjpqy,;]/.test(original) ? conColitas : sinColitas;
+  return Math.abs(conColitas - emIA) <= Math.abs(sinColitas - emIA) ? conColitas : sinColitas;
+}
+
+/**
+ * Una lámina FIEL (13/11/2026): de fondo, la original sin sus letras; encima, cada texto nuevo en la caja exacta donde estaba el
+ * suyo, con su cuerpo y su interlineado medidos, su color (el medido, si se parece al que dijo la IA) y sus palabras de acento.
+ * Un texto más largo que el original se achica hasta entrar en el MISMO alto (debajo puede haber una captura que no se ve en el
+ * JSON). La persona del original no está: su lugar queda marcado para la del negocio, generada con la IA de imagen.
+ */
+function laminaFiel(l: LaminaReplica, plancha: PlanchaDeLamina, o: { W: number; nuevoId: () => string; estilo: EstiloCarrusel; conFuentesDeMarca?: boolean }): Obj[] {
+  const { W } = o;
+  const objetos: Obj[] = [];
+  for (const c of plancha.personas) {
+    objetos.push({
+      ...rect(o.nuevoId(), PERSONA_A_GENERAR, { left: c.x, top: c.y, width: c.ancho, height: c.alto, fill: 'rgba(0,0,0,0.035)', radio: 28 }),
+      stroke: '#9AA0A6', strokeWidth: 3, strokeDashArray: [16, 12],
+    });
+  }
+  const margen = Math.round(0.04 * W);
+  const porRenglon = altoEnElEditor(2, 1, 1) - altoEnElEditor(1, 1, 1);
+  const acentoDeLamina = acentoDeLaLamina(l);
+  l.textos.forEach((t, k) => {
+    const b = plancha.textos[k];
+    if (!b || !t.texto) return;
+    const titular = ES_TITULAR.has(t.rol);
+    const letra = LETRA_DEL_EDITOR[t.letra] ?? LETRA_DEL_EDITOR.sans;
+    const base = o.conFuentesDeMarca ? (titular ? o.estilo.titular : o.estilo.texto) : titular ? letra.titular : letra.texto;
+    const pesoBase = o.conFuentesDeMarca ? (t.negrita && !titular ? 700 : base.peso) : titular ? letra.titular.peso : t.negrita ? letra.texto.negrita : letra.texto.peso;
+    const emIA = t.tamano * W;
+    // Sobre una PASTILLA (la plancha la conserva, redonda y de su color, y le borró sólo la letra: ./plancha-local.ts): el texto
+    // va centrado en ella, con el cuerpo de la letra que tenía (una etiqueta «STEP 1» es de mayúsculas: 0,74 em de alto). Lo que
+    // la IA diga de «relleno» no cuenta: un «02 / 06» suelto no es una pastilla aunque lo diga.
+    const pastilla = b.pastilla ?? null;
+    let tam = pastilla ? pastilla.letra.alto / 0.74 : cuerpoMedido(b, emIA, t.original);
+    // La letra: la de su estilo (o la del kit de marca), con un palo seco grueso como Inter fuerte (Archivo Black es mucho más
+    // ancha que cualquier titular medido); y el espaciado que iguala el ancho del original.
+    const deInter = !o.conFuentesDeMarca && (t.letra === 'sans' || t.letra === 'gruesa');
+    const fam = deInter ? familia({ familia: 'Inter', respaldo: 'sans-serif' }) : familia(base);
+    const peso = deInter ? (titular ? (t.letra === 'gruesa' ? 800 : 700) : t.negrita ? 700 : 400) : pesoBase;
+    const espaciado = pastilla ? 0 : espaciadoMedido(t, b, { familia: fam, peso, italica: false, tam }, titular);
+    tam = Math.max(12, Math.min(0.2 * W, tam));
+    const interlineado = !pastilla && b.renglones > 1 ? Math.max(0.8, Math.min(1.8, b.paso / (tam * porRenglon))) : interlineadoDe(t.rol);
+    const centro = b.caja.x + b.caja.ancho / 2;
+    // La alineación MEDIDA en la lámina manda sobre la que dijo la IA.
+    const alinear = b.alineacion ?? t.alinear;
+    // Adentro de una caja (no sobre la lámina), un poco MÁS angosto que el original: al lado suele haber un ícono (el globito de
+    // «Comment GIFT» tapaba «guía.» y, al mismo ancho, rozaba las comillas de «ACELERA»).
+    const tope = b.principal === false ? 0.95 * b.caja.ancho : Math.max(b.caja.ancho * 1.15, b.caja.ancho + 0.02 * W);
+    let left: number;
+    let width: number;
+    if (pastilla) { const aire = Math.max(6, 0.6 * (pastilla.letra.x - b.caja.x)); left = b.caja.x + aire; width = b.caja.ancho - 2 * aire; }
+    // Como mucho un 15 % más ancho que el original: más, y el texto pasa por encima de lo que el original tiene al lado (un ícono,
+    // una captura); un texto más largo se parte o se achica, como el original habría hecho.
+    else if (alinear === 'center') { const medio = Math.min(Math.max(b.caja.ancho / 2, Math.min(centro, W - centro) - margen), tope / 2); left = centro - medio; width = 2 * medio; }
+    else if (alinear === 'right') { const fin = b.caja.x + b.caja.ancho; left = Math.max(fin - tope, margen); width = fin - left; }
+    else { left = b.caja.x; width = Math.min(Math.max(b.caja.ancho, W - margen - b.caja.x), tope); }
+    // Que entre en el ancho y en el alto del original (los mismos renglones; un 6 % de aire).
+    const permitido = altoEnElEditor(Math.max(1, b.renglones), tam, interlineado) * 1.06;
+    // Los cortes de renglón de la IA no pueden dar MÁS renglones que el original (el titular «Tell it How to Act», de uno, salía
+    // «Dale tus / Instrucciones» encima del subtítulo): con más, se juntan y el ancho decide dónde cortar.
+    const contenido = t.texto.split('\n').length > Math.max(1, b.renglones) ? t.texto.replace(/\n/g, ' ') : t.texto;
+    let renglones: string[] = [];
+    for (let i = 0; i < 16; i++) {
+      const fuente: FuenteTexto = { familia: fam, peso, italica: false, tam, espaciado };
+      renglones = partirEnRenglones(comoSeDibuja(contenido, t.mayus), width, fuente, medidorReal);
+      const masAncho = Math.max(0, ...renglones.map((r) => medidorReal(r, fuente)));
+      // Un 3 % de aire a lo ancho: la tabla de anchos y lo que dibuja el editor difieren en un 1 a 2 % (medido contra Inter).
+      if ((altoEnElEditor(renglones.length, tam, interlineado) <= permitido && masAncho <= 0.97 * width) || tam <= 12) break;
+      tam = Math.max(12, tam * 0.94);
+    }
+    const alto = Math.ceil(altoEnElEditor(renglones.length, tam, interlineado));
+    // La tinta empieza un poco más abajo que la caja del texto (el aire de arriba del renglón); en una pastilla, va centrado.
+    const top = pastilla ? b.caja.y + (b.caja.alto - alto) / 2 : b.caja.y - 0.2 * tam;
+    // El color MEDIDO en el original (la IA dice otro: «#D97757» para un titular negro con una palabra naranja, y salía todo naranja); sobre una pastilla, el de la IA si se lee sobre ella.
+    const color = pastilla?.contorno ? pastilla.color
+      : pastilla ? (contraste(t.color, pastilla.color) >= 2.5 ? t.color : esOscuro(pastilla.color) ? '#FFFFFF' : '#111111') : b.tinta;
+    // Las palabras de acento: las que marcó la IA o, si no marcó ninguna, las del mismo lugar que en el original (medidas).
+    const acentos = t.acentos?.length ? t.acentos : acentosPorPosicion(comoSeDibuja(contenido, t.mayus), renglones, b, { familia: fam, peso, italica: false, tam, espaciado });
+    const acento = t.acentos?.length ? t.acento ?? acentoDeLamina : b.acento?.color ?? null;
+    objetos.push({
+      ...texto(o.nuevoId(), NOMBRE_DE_ROL[t.rol], contenido, {
+        left: Math.round(left), top: Math.round(top), width: Math.round(width), alto,
+        tam: Math.round(tam), peso, fam, color, alin: pastilla ? 'center' : alinear, interlineado, mayus: t.mayus, espaciado,
+      }),
+      ...(acentos.length && acento ? { styles: estilosDeAcento(t.mayus ? comoSeDibuja(contenido, true) : contenido, acentos, acento) } : {}),
+      // Una pastilla que la plancha no pudo conservar (se borró entera): su color vuelve como resaltado del texto, para que una letra
+      // blanca no quede sobre la lámina crema.
+      ...(!pastilla && t.relleno && contraste(color, b.fondo) < 2 ? { textBackgroundColor: b.tinta, effects: { background: { color: b.tinta } } } : {}),
+    });
+  });
+  return objetos;
+}
+
 /**
  * El diseño editable de la réplica: una página por lámina, con su fondo, la foto del cliente SÓLO donde el original tiene una
  * persona y el cliente tiene foto, y cada texto como una capa de texto. Sin foto del cliente no hay recuadro ni «Tu foto»: la
  * lámina es tipografía y color. Las letras son del editor (ver arriba); con el kit de marca del negocio, las de su marca
  * (`conFuentesDeMarca`, con las del `estilo`). En las notas de la primera página, de dónde salió (no salen en la imagen).
+ * Con `planchas` (13/11/2026), cada lámina es FIEL: la original sin sus letras de fondo y los textos encima (`laminaFiel`).
  */
 export function documentoDeReplica(o: {
   replica: Replica; estilo: EstiloCarrusel; marca: Marca; foto: FotoDelCliente | null; nuevoId: () => string; notas?: string; conFuentesDeMarca?: boolean;
+  /** La lámina original sin letras, por lámina (null = se arma como antes). Ver ./plancha-local.ts. */
+  planchas?: ReadonlyArray<PlanchaDeLamina | null>;
   /** La escena PARECIDA de cada cuadro de tipo «escena», por su `busqueda` (el banco de fotos, ya en nuestro bucket). */
   escenas?: ReadonlyMap<string, FotoDelCliente>;
 }): Record<string, unknown> {
@@ -710,6 +1055,15 @@ export function documentoDeReplica(o: {
   // La cara de marca entra si se eligió, aunque la IA no haya marcado ningún retrato (12/11/2026: @vilmanunez salió sin él).
   const laminas = o.foto ? conLaCara(o.replica.laminas, o.replica.proporcion === '16:9') : o.replica.laminas;
   const pages = laminas.map((l, i) => {
+    const nombre = o.replica.proporcion === '16:9' ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`;
+    const plancha = o.planchas?.[i];
+    if (plancha) {
+      return {
+        id: o.nuevoId(), name: nombre, background: { type: 'image', src: plancha.src, fit: 'cover' },
+        objects: laminaFiel(o.replica.laminas[i], plancha, { W, nuevoId: o.nuevoId, estilo: o.estilo, conFuentesDeMarca: o.conFuentesDeMarca }),
+        ...(i === 0 && o.notas ? { notes: o.notas } : {}),
+      };
+    }
     const objetos: Obj[] = [];
     // El MARCO primero (debajo de todo): las líneas divisorias y las tarjetas del original.
     const cajas: Array<{ x: number; y: number; ancho: number; alto: number; color: string }> = [];
@@ -744,7 +1098,7 @@ export function documentoDeReplica(o: {
     }
     // Con fotos, cada texto se queda en su lugar (es la composición del original); sin ninguna, llena la lámina. Cuentan las fotos
     // PUESTAS, no los cuadros que leyó la IA (12/11/2026): un cuadro sin foto dejaba los textos arriba y abajo de un hueco vacío.
-    const ajustados = ajustarTextos(l.textos, { ancho: W, alto: H, libre: reacomodar && !fotos.length });
+    const ajustados = ajustarTextos(l.textos.filter((t) => t.texto), { ancho: W, alto: H, libre: reacomodar && !fotos.length });
     const conLetra = ajustados.map((t) => {
       const titular = ES_TITULAR.has(t.rol);
       const letra = LETRA_DEL_EDITOR[t.letra] ?? LETRA_DEL_EDITOR.sans;

@@ -52,25 +52,42 @@ Las tres fallas que encontró el banco no se veían en los tests ni leyendo el c
 - **la fila de tipos de Web a 375 estaba centrada y era más ancha que la pantalla**: se cortaba por los dos lados y «Todas»
   quedaba fuera de alcance. Una fila centrada que puede no entrar va en dos renglones, nunca centrada y deslizable.
 
-## Nunca blanco vacío: la portada llena el marco y el texto va encima (13/11/2026)
+## Nunca blanco vacío, y nunca el título dos veces: la portada limpia arriba y el texto en el pie (13/11/2026)
 
-El Cerebro, mirando el banco: el reel y el YouTube reservaban su alto pero mostraban sólo texto, y quedaba una caja blanca alta
-con el título flotando. La tarjeta de copy cambió de concepto:
-- **con imagen**, la portada del original llena el marco, y el gancho y la transcripción van abajo, en blanco, sobre un panel
-  oscuro que mide lo que ocupa el texto, con un degradé corto arriba;
-- **sin imagen**, el marco toma un fondo oscuro con el color de su red y la transcripción lo llena;
-- **al pasar el cursor**, el texto se va y queda el original limpio.
+La tarjeta de copy se rehízo dos veces el mismo día, y las dos veces lo encontró el Cerebro mirando el banco:
+1. **Una caja blanca alta con el título flotando** (el texto solo, adentro del marco 9:16 o 16:9): «nunca blanco vacío».
+2. **El primer arreglo duplicó el texto.** La portada llenaba el marco y el gancho iba ENCIMA, en un panel oscuro, pero las
+   portadas de carruseles y anuncios ya traen su título escrito: «Los 5 errores… primer mensaje» quedaba dos veces, uno tapando al
+   otro, y a 375 peor. **El diagnóstico obvio («el degradé es muy alto») era el equivocado**: achicar el panel al alto del texto no
+   alcanzó, porque el problema era poner texto sobre una imagen que ya tiene texto.
 
-⚠️ El primer intento usaba un degradé de todo el alto. En un carrusel, el título propio de la lámina se mezclaba con el gancho y
-quedaban dos títulos encimados: el panel tiene que medir lo que mide el texto.
+Lo que quedó, como Instagram o YouTube:
+- **con portada**, la portada limpia arriba, con la forma de su red y sólo la marca de la red encima;
+- **debajo, en el blanco de la tarjeta**, el gancho en negrita y unos renglones de la transcripción con «…» (3 en la computadora, 2
+  en el teléfono; YouTube, sólo su título), y después la cuenta y los números;
+- **sin portada**, el marco toma el color de su red y lleva el gancho grande adentro;
+- **al pasar el cursor**, ▶ (si es un video) y «Replicar».
+
+El botón «Ver el original» del teléfono se fue: con la portada siempre a la vista ya no tiene sentido. El pie ahora mide distinto con
+y sin portada, así que la grilla mixta recibe su alto por tarjeta (`pie={(o) => altoDelPie(o, telefono)}`).
+
+**La regla: no se escribe encima de una imagen que puede traer su propio texto (portadas, láminas, miniaturas). El texto va al lado
+o debajo, nunca encima.**
 
 ⚠️ **Lo que «se veía cortado» al pasar el cursor no era la tarjeta.** El banco dibujaba portadas inventadas con los primeros 18
 caracteres del gancho («Cobrar mejor no»), y en la captura parecía un título cortado de la interfaz. Los datos inventados de un
 banco no llevan texto que se pueda confundir con la interfaz: ahora las portadas son una escena sin letras.
+
+## Una captura que carga no es una caja gris (13/11/2026, en producción)
+
+En la primera captura de producción, las tarjetas de VSL y Lead magnet de Web salieron como cajas grises vacías. **No faltaba nada**:
+la captura larga carga diferida (`loading="lazy"`), y a 1440 la primera foto sale antes de que llegue. Bajando un poco ya se veían.
+Igual se ven vacías el tiempo que tardan, y en una red lenta es mucho. Debajo de la captura hay ahora un marco con el color de su
+tipo y el dominio de la página (`.espera`), y si la captura no carga se saca: no queda el ícono de imagen rota.
+**La regla: toda imagen de una tarjeta tiene debajo algo que la reemplaza mientras llega, nunca el gris de fondo.**
 
 ## Sin hacer
 
 - La portada de Video (`app/video-editor/OutliersVideo.tsx`, hoy sólo en el teléfono y en `?ver=outliers`) conserva su párrafo
   de totales («N reels medidos… los que más superaron a su cuenta primero»): lo fija `tests/video-outliers-criterio.test.ts`, del
   chat de Video. El del panel del editor sí se fue.
-- El total de Web Generator («N páginas que venden · las de tu competencia primero») sigue: lo fija `tests/web-generator-outliers.test.ts`.

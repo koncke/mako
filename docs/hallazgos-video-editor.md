@@ -114,13 +114,13 @@ lima y del MISMO tamaño que el resto.
   con presupuesto (`toolsDelRegistro`). Escribir «borrarle los silencios» en `agregar_medios` la metía en cada pedido de
   silencios y dejaba afuera `listar_proyectos_video` (rojo en tests/video-editor-propuestas-api.test.ts, 9). Un `para` nombra
   lo suyo, no las palabras de otra operación.
-- **Lo que quedó SIN hacer:** la receta pide la palabra «3 o 4 veces más grande» y el editor llega a 1,6×
-  (`TOPES_CLAVES_TAMANO`, params/extra/subtitulos.ts): el renglón se parte midiendo la letra normal (`partirEnLineas`,
-  subtitles/build-subtitle-text-element.ts, no suma la reserva de la clave agrandada que sí suma el dibujo:
-  text/resaltado.ts → `reservasDeRenglones`), y una clave al 300 % se saldría del cuadro. Para subir el tope, primero que el
-  partido mida con la reserva, Y que el renglón reserve ALTO: la clave se agranda desde su centro, y a 3× en un subtítulo
-  de dos renglones tapa al otro (por eso el tope de 160 %, «tapa a las vecinas»); `reservasDeRenglones` sólo reserva ancho.
-  Tampoco: los cortes de plano alternando la escala 100/130 % que pide la receta.
+- **La palabra 3× (13/11):** el tope de las claves pasó de 160 % a 300 % (`TOPES_CLAVES_TAMANO`; el chat, la API y los presets
+  dicen lo mismo) porque el renglón ahora le reserva a la clave su ANCHO al partirse (`subtitles/partir.ts → extra`, que salió de
+  build-subtitle-text-element.ts para probarse en node) y su ALTO al dibujarse (`text/resaltado.ts → centrosDeRenglones`: el
+  bloque crece y los renglones se separan). **Trampa:** la reserva de alto se aplica SÓLO por encima de 160 %
+  (`UMBRAL_ALTO_CLAVE`): así lo que ya estaba (Hormozi al 120 %, la animación «pop») no se mueve ni un píxel. Una palabra sola
+  más ancha que el cuadro a 300 % no se puede partir: por eso el tope no es 400. Sin mirar en pantalla todavía.
+- Tampoco: los cortes de plano alternando la escala 100/130 % que pide la receta.
 
 ## Pexels: no hay clave en NINGÚN lado, y el B-roll ahora usa lo que la persona subió (12/11/2026)
 

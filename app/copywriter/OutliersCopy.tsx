@@ -81,21 +81,29 @@ function IconoRed({ formato }: { formato: FormatoCopy }) {
   return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" /></svg>;
 }
 
-/** Lo que suma el pie de la tarjeta al alto (la grilla mixta lo usa para repartir las columnas). */
-const ALTO_PIE = 92;
-const ALTO_PIE_TELEFONO = 118;
+/**
+ * Lo que suma el pie de la tarjeta al alto (la grilla mixta lo usa para repartir las columnas): la cuenta y los números, y con portada
+ * también el gancho y unos renglones de la transcripción. YouTube no lleva transcripción (sólo su título).
+ */
+function altoDelPie(o: OutlierCopy, telefono: boolean): number {
+  const base = telefono ? 118 : 92;
+  if (!imagenDelOriginal(o)) return base;
+  if (o.formato === 'youtube') return base + (telefono ? 40 : 46);
+  return base + (telefono ? 96 : 112);
+}
 
 /**
- * La tarjeta de un outlier de COPY, en UNA caja (12/11/2026): arriba el MARCO con la forma de su plataforma (YouTube 16:9, reel 9:16,
- * carrusel 4:5, anuncio 1:1) y, adentro, el texto: el gancho grande y el arranque del guion (11/11/2026, Martín: «tienen que verse
- * como COPY: el texto primero»). Al pasar el cursor, el ORIGINAL (su portada, su primera lámina, la miniatura de YouTube) tapa el
- * texto; sin mouse (el teléfono), lo muestra el botón de la esquina. Abajo, en la misma caja: el «×», la cuenta, hace cuánto y los
- * números. Tocar el marco abre el original entero; «Replicar» lo replica.
+ * La tarjeta de un outlier de COPY, en UNA caja. Arriba, el MARCO con la forma de su plataforma (YouTube 16:9, reel 9:16, carrusel
+ * 4:5, anuncio 1:1):
+ *   · con portada (la del reel, la primera lámina, la miniatura de YouTube), la portada LIMPIA, sin nada encima salvo la marca de la
+ *     red. 13/11/2026, el Cerebro con el banco: las portadas ya traen su título escrito, y el gancho encima quedaba DOS veces, uno
+ *     tapando al otro. El texto va debajo, en la parte blanca: el gancho en negrita y unos renglones de la transcripción con «…»;
+ *   · sin portada, el marco con el color de su red y el gancho grande adentro, con la transcripción (nunca una caja blanca vacía).
+ * Al pasar el cursor, el ▶ si es un video y «Replicar». Abajo, la cuenta y los números. Tocar el marco abre el original entero.
  */
 function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
   o: OutlierCopy; ahora: number; replicando: boolean; onAbrir: () => void; onReplicar: () => void;
 }) {
-  const [verOriginal, setVerOriginal] = useState(false);
   const [rota, setRota] = useState(false);
   const veces = o.multiplo?.veces ?? null;
   const nivel = nivelDeMultiplo(veces);
@@ -106,23 +114,21 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
   const original = rota ? null : imagenDelOriginal(o);
   const video = o.formato === 'reel' || o.formato === 'youtube';
   return (
-    <li className={`${s.tarjeta} ${oc.tarjeta}`} data-formato={o.formato} data-original={verOriginal ? 'si' : undefined}>
-      {/* La portada del original LLENA el marco y el texto va encima (13/11/2026, el Cerebro al revisar el banco: «el reel y el YouTube
-          reservan su alto pero muestran sólo texto… nunca blanco vacío»). Sin imagen, el marco toma el color de su red y la
-          transcripción lo llena. Al pasar el cursor el texto se va y queda el original limpio. */}
+    <li className={`${s.tarjeta} ${oc.tarjeta}`} data-formato={o.formato}>
       <div className={`${s.mini} ${oc.marco}`} data-con-imagen={original ? 'si' : undefined} style={{ aspectRatio: ASPECTO_FORMATO[o.formato] }}
         onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a')) onAbrir(); }}>
         {original ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={original} alt="" className={oc.portada} loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setRota(true)} />
-        ) : null}
-        {original && video ? <span className={oc.play} aria-hidden>▶</span> : null}
-        <div className={oc.copy}>
-          <div className={oc.texto}>
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={original} alt="" className={oc.portada} loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setRota(true)} />
+            {video ? <span className={oc.play} aria-hidden>▶</span> : null}
+          </>
+        ) : (
+          <div className={oc.copy}>
             <button type="button" className={oc.ganchoGrande} onClick={onAbrir}>{o.gancho}</button>
             {sigue ? <p className={oc.sigue}>{sigue}</p> : null}
           </div>
-        </div>
+        )}
         <span className={`${s.marcas} ${oc.marcas}`}>
           <span className={oc.red} title={`${rotuloDeFormato(o)} · ${ROTULO_TEXTO[o.deDonde]}`}>
             <IconoRed formato={o.formato} />{o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas}` : INFO_FORMATO[o.formato].label}
@@ -134,17 +140,15 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
         <span className={s.sobreImagen}>
           <button type="button" className={s.editar} onClick={onReplicar} disabled={replicando}>{replicando ? 'Armando…' : 'Replicar'}</button>
         </span>
-        {original ? (
-          // Sin mouse no hay «pasar el cursor»: el original se ve con este botón.
-          <button type="button" className={oc.verOriginal} aria-pressed={verOriginal} onClick={() => setVerOriginal((x) => !x)}
-            aria-label={verOriginal ? 'Ver el texto' : 'Ver el original'} title={verOriginal ? 'Ver el texto' : 'Ver el original'}>
-            {verOriginal
-              ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M5 7h14M5 12h14M5 17h9" /></svg>
-              : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden><rect x="3" y="4" width="18" height="16" rx="3" /><path d="m3 16 5-5 4 4 3-3 6 6" /></svg>}
-          </button>
-        ) : null}
       </div>
       <div className={s.pie}>
+        {original ? (
+          // Con portada, el texto va acá y no encima de la imagen (que ya trae el suyo).
+          <div className={oc.textoPie}>
+            <button type="button" className={oc.ganchoPie} onClick={onAbrir}>{o.gancho}</button>
+            {sigue ? <p className={oc.siguePie}>{sigue}</p> : null}
+          </div>
+        ) : null}
         <div className={s.creador}>
           {veces != null && nivel ? (
             <span className={s.mult} data-nivel={nivel} title={explicarMultiplo(o.multiplo)}>{rotuloOutlier(veces)}</span>
@@ -325,7 +329,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
               <>
                 {/* Cada una con la forma de su red: en columnas, sin los huecos que dejaba un reel al lado de los de YouTube. */}
                 <GrillaMixta items={enGrilla} clave={(o) => o.id} proporcion={proporcionDe} etiqueta="Outliers de copy"
-                  pie={telefono ? ALTO_PIE_TELEFONO : ALTO_PIE} minimo={telefono ? 150 : 250} hueco={telefono ? 10 : 20} fila={telefono ? 14 : 22}
+                  pie={(o) => altoDelPie(o, telefono)} minimo={telefono ? 150 : 250} hueco={telefono ? 10 : 20} fila={telefono ? 14 : 22}
                   porDefecto={telefono ? 2 : 4}
                   render={(o) => (
                     <TarjetaCopy o={o} ahora={ahora} replicando={replicando === o.id} onAbrir={() => setAbierto(o)} onReplicar={() => void replicar(o)} />

@@ -217,7 +217,7 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo
   { slug: 'seguimiento', titulo: 'Un setter con IA que contesta por ti.', texto: 'Responde tus mensajes de Instagram, WhatsApp, Messenger y email, califica a cada interesado con tus propios criterios y lo lleva a agendar su llamada de venta. Tú solo cierras.', visual: { falta: 'La vista del lienzo con todas las automatizaciones.' } },
   { slug: 'whatsapp', titulo: 'Todos tus chats en una bandeja.', texto: 'WhatsApp, Instagram, Messenger y email, con una conversación por contacto y su ficha del CRM al lado, y MaKo te propone qué contestar.', visual: { falta: 'La bandeja de Chats de MaKo tal cual es.' } },
   { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tus anuncios de Meta, tu landing, tus leads del CRM, tus pagos y tus llamadas en una sola pantalla, con tableros listos para ventas, anuncios y llamadas.', visual: 'tableros' },
-  { rotulo: 'Classroom', titulo: 'Tu escuela, dentro de MaKo.', texto: 'El curso por módulos y lecciones, y la comunidad de tus alumnos.', visual: { falta: 'Cómo se ven las clases del Classroom.' } },
+  { rotulo: 'Classroom', titulo: 'Tu escuela, dentro de MaKo.', texto: 'Tu curso por módulos y clases, con el video de cada una, lo que avanza cada alumno y la comunidad, en la misma app que usas para vender.', visual: { video: '/vsl-assets/sitio/classroom.webm', poster: '/vsl-assets/sitio/classroom.jpg' } },
 ];
 
 /**

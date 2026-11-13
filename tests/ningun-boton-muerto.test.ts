@@ -20,11 +20,6 @@
 //      le sacan las llaves al tag antes de mirar.
 //   4. **El primitivo que esparce las props del padre** (`{...rest}`): el `onClick` llega por ahí.
 //
-//   5. **El botón de una página SIN React** (el sitio, app/vsl/_sitio: se dibuja en el servidor y no se hidrata). Ahí un
-//      `onClick` no correría nunca: lo maneja un script de la página por delegación (las flechas del carrusel de tableros, el
-//      sonido de AI Avatar). Pasa si el botón lleva `data-por-script` Y el mismo archivo registra el clic
-//      (`addEventListener('click'`): un `data-por-script` sin script que escuche sigue siendo un botón muerto.
-//
 // Y una cosa que NO es un botón muerto: uno apagado A PROPÓSITO que dice por qué (un `title` o un
 // `aria-label`). Ése no está muerto, está esperando algo, y el usuario lo sabe.
 
@@ -112,7 +107,7 @@ const HANDLER_NOOP = /onClick=\{\s*(noop|nada|vacio|undefined)\s*\}/;
 const APAGADO = /(?:^|\s)disabled(?=[\s/>])/;
 const APAGADO_TRUE = /(?:^|\s)disabled\s*=\s*\{\s*true\s*\}/;
 
-function porQueEstaMuerto(tag: string, antes: string, conScript = false): string | null {
+function porQueEstaMuerto(tag: string, antes: string): string | null {
   if (HANDLER_VACIO.test(tag) || HANDLER_NOOP.test(tag)) return 'su onClick no hace nada';
   const pelado = sinLlaves(tag);
   const apagado = APAGADO.test(pelado) || APAGADO_TRUE.test(tag);
@@ -122,9 +117,7 @@ function porQueEstaMuerto(tag: string, antes: string, conScript = false): string
     || tag.includes('onPointerDown') || tag.includes('onMouseDown') || tag.includes('onKeyDown')
     // `onFocus` solo también alcanza: en el celular el tap da foco, así que el botón responde.
     || tag.includes('onFocus') || tag.includes('{...')
-    || ENVOLTORIO.test(antes)
-    // Regla 5: lo maneja el script de la página (y el archivo lo tiene).
-    || (tag.includes('data-por-script') && conScript);
+    || ENVOLTORIO.test(antes);
   if (!tiene) return 'no tiene onClick, ni es submit, ni lo envuelve un disparador';
   if (apagado) return 'está apagado a mano y no dice por qué (sin title ni aria-label)';
   return null;
@@ -152,10 +145,9 @@ test('ningún botón de la app está muerto', () => {
   for (const ruta of todos) {
     const rel = ruta.slice(RAIZ.length).replace(/\\/g, '/');
     const src = sinComentarios(readFileSync(ruta, 'utf8').replace(/\r\n/g, '\n'));
-    const conScript = src.includes("addEventListener('click'");
     for (const { linea, inicio, tag } of etiquetas(src, 'button')) {
       mirados += 1;
-      const motivo = porQueEstaMuerto(tag, src.slice(Math.max(0, inicio - 320), inicio), conScript);
+      const motivo = porQueEstaMuerto(tag, src.slice(Math.max(0, inicio - 320), inicio));
       if (!motivo) continue;
       // El texto del botón para reconocerlo: lo que sigue al tag hasta el cierre.
       const cuerpo = src.slice(inicio + tag.length, inicio + tag.length + 160);

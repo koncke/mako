@@ -259,8 +259,16 @@ Cada entrada dice de qué corrida y de qué fecha viene.
     tarjeta flota, la columna marca dónde cae y sale el aviso real («Valeria Campos → Agenda R1 · Deshacer»).
   - **El visor no copia lo que se pide por `data-src`** (los videos de los tableros se cargan recién al mostrarse): después de
     `armar-v2.sh` hay que copiar `public/vsl-assets/sitio/tableros/*.webm` a mano, o el publish dice «not found».
-  - **Un script dentro de una página sin React** (el carrusel de tableros, el sonido de AI Avatar): `<script dangerouslySetInnerHTML>`
-    con `document.currentScript.parentNode` para encontrar su bloque; anda en el sitio y en el visor estático.
+  - **⚠️ El diagnóstico obvio era el equivocado: «el sitio no se hidrata» era FALSO.** Los botones del carrusel de tableros y del
+    sonido de AI Avatar estaban hechos con scripts sueltos en la página, y en producción no respondían. React SÍ toma la página
+    (Next la hidrata entera), y además lo hacía con error: el **#418** salía en TODAS las páginas del sitio (/vsl/sitio, /vsl/crm,
+    /planes, /vsl/comparaciones). La causa era `TemaSitio`: metía el botón del sol y la luna ADENTRO de la barra antes de la
+    hidratación; React encontraba un elemento que el servidor no mandó y volvía a dibujar todo, y los scripts quedaban colgados de
+    nodos viejos. Lo que quedó: `TemaSitio` pone su botón recién cuando React terminó (`trasHidratar`: espera la fibra de React en
+    el body; sin Next, en el visor, en el acto), y lo que se toca en la portada son componentes de cliente con su `onClick`
+    (`app/vsl/_sitio/Interactivos.tsx`). La «regla 5» que había sumado al guard de botones muertos para esos scripts se sacó: el
+    guard queda estricto. **Regla:** en el sitio, un script nunca agrega ni cambia elementos o textos que dibujó React antes de la
+    hidratación (los estilos en línea sí se toleran); y lo que se toca es React, no un script.
   - **Replicar: un fondo se pinta ANTES que lo de adentro.** Con la captura entera por sección, el fondo traía todo lo de adentro y
     por eso iba al final (Martín: «todo el fondo está negro y después se va poniendo blanco»): ahora el lienzo es el blanco de la
     página, cada sección y cada tarjeta pinta su COLOR medido primero, y la captura exacta se asienta al final sin que se note.
