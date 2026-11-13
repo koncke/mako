@@ -47,7 +47,8 @@ import {
 } from './replica';
 import { imagenDeVideo, urlDeVideo, type Thumbnail } from '../thumbnails/explorar';
 import { LAMINAS_DE_LA_LECTURA, PROMPT_LECTURA, fotoDelGuiado, leerLectura, type Lectura, type PedidoGuiado } from './guiado';
-import type { OfertaDelPrompt, Replica } from './replica';
+import { leerCompletado, medidasDe, promptDeCompletar, type OfertaDelPrompt, type Replica } from './replica';
+import { marcarLaminas, planchasDeLaReplica } from './plancha-servidor';
 
 /** La función de la IA para el registro del uso y la puerta de «sólo su IA» (lib/model-catalogo.ts). */
 export const FEATURE_REPLICA = 'carrusel-replica';
@@ -58,7 +59,7 @@ const PESO_MAXIMO = 4 * 1024 * 1024;
 const TOKENS_DE_SALIDA = 8_000;
 
 export type ResultadoReplica =
-  | { ok: true; id: string; titulo: string; sinIA?: boolean; aviso?: string | null; conectar?: string | null; doc?: Record<string, unknown>; vistas?: number; errores?: string[] }
+  | { ok: true; id: string; titulo: string; sinIA?: boolean; aviso?: string | null; conectar?: string | null; doc?: Record<string, unknown>; vistas?: number; errores?: string[]; replica?: Replica; imagenes?: string[]; marcadas?: string[] }
   | { ok: false; error: string; falla?: boolean; conectar?: string | null };
 
 /** De dónde se puede bajar una imagen para la IA: NUESTRO bucket y los CDN de las fuentes (./replica.ts, `esCdnPermitido`). */
@@ -231,16 +232,26 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   const [negocio, voz, foto] = await Promise.all([
     contextoDelNegocio(`${tema} ${oferta?.nombre ?? ''} ${pedidoDelDueno ?? ''}`.trim()).catch(() => ''),
     vozDelNegocio().catch(() => null),
-    // «Sin persona» en el guiado: no se pone ninguna foto (donde el original tenía una persona queda tipografía y color).
-    o.seco || !fotoDelGuiado(g) ? Promise.resolve(null) : fotoDelCliente(ws, fotoDelGuiado(g) ?? 'cara'),
+    // ⛔ La foto del negocio NO se pega en una réplica (Martín, 13/11/2026, sobre su foto de noche en la portada de @lifeofarjav:
+    // «quiero que la elimines de todos lados… no que de pronto me ponga mi imagen. Queda muy, muy feo»). Donde el original tiene
+    // una persona va la del negocio GENERADA con la IA de imagen (./plancha.ts), y mientras tanto su lugar queda marcado.
+    Promise.resolve(null),
   ]);
   const coloresDeMarca = g?.cambio === 'marca' && kit?.colores.length ? kit.colores.map((x) => x.hex).filter((x) => /^#[0-9a-f]{6}$/i.test(x)) : null;
   const pedidoBase = {
     laminas: total, vistas: imagenes.length, negocio, voz: voz ?? '', nombreNegocio: marca.nombre, cta: c?.cta?.palabra ?? null,
-    conAvatar: !!foto, pedido: pedidoDelDueno, anuncio, pie: c ? c.texto || c.gancho || null : null,
+    // Donde el original tiene una persona va la del negocio (generada con IA, nunca su foto), salvo que el dueño haya dicho «Sin
+    // persona» en el guiado. La del original se borra de la plancha igual: el segundo pedido mira cada figura (./plancha-servidor.ts).
+    conAvatar: imagenes.length > 0 && fotoDelGuiado(g) !== null, pedido: pedidoDelDueno, anuncio, pie: c ? c.texto || c.gancho || null : null,
     miniatura, tituloOriginal: t?.titulo ?? null, oferta, coloresDeMarca,
   };
-  const prompt = promptDeReplica(pedidoBase);
+  // Las láminas que mira la IA van con sus renglones y figuras NUMERADOS (./plancha-servidor.ts): la IA dice números, no
+  // coordenadas, y con eso se arma la plancha. Una lámina que no se pudo numerar va como está (y la réplica sale como antes).
+  const medidas = medidasDe(miniatura ? '16:9' : '4:5');
+  const marcas = imagenes.length ? await marcarLaminas(imagenes, medidas.ancho, medidas.alto) : [];
+  const conMarcas = marcas.length > 0 && marcas.every(Boolean);
+  const paraLaIA = conMarcas ? marcas.map((m) => m!.marcada) : imagenes;
+  const prompt = promptDeReplica({ ...pedidoBase, marcas: conMarcas });
   avisar({ fase: 'escribir', con: 'tu IA' });
   const errores: string[] = [];
   let crudo = '';
@@ -265,7 +276,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     } else {
       try {
         const r = await conSuIADelNegocio(ws, () => leerDocumentoIA({
-          dataUrl: imagenes[0], dataUrls: imagenes, isPdf: false, nombreArchivo: miniatura ? 'miniatura' : anuncio ? 'anuncio' : 'carrusel', prompt, json: true,
+          dataUrl: paraLaIA[0], dataUrls: paraLaIA, isPdf: false, nombreArchivo: miniatura ? 'miniatura' : anuncio ? 'anuncio' : 'carrusel', prompt, json: true,
           feature: FEATURE_REPLICA, motivo, timeoutMs: o.timeoutMs ?? 120_000, maxTokens: TOKENS_DE_SALIDA,
         }));
         crudo = r.text;
@@ -286,6 +297,8 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     return conGuias(avisoSinIA(m), errores);
   }
   const replica = leerReplica(crudo, { laminas: total, miniatura, usuario: marca.usuario });
+  // Lo que leyó la IA TAL CUAL (la plancha le suma y le saca textos a `replica`): en seco viaja esto, para repetir la plancha.
+  const leidaDeLaIA = o.seco && !('error' in replica) ? structuredClone(replica) : null;
   if ('error' in replica) {
     console.warn(`[carruseles] «Editar»: la IA contestó algo que no se pudo leer (ws=${ws}): ${crudo.slice(0, 300)}`);
     return conGuias({ aviso: `${replica.error} Por ahora, cada lámina trae una guía.`, conectar: null }, [...errores, replica.error]);
@@ -293,23 +306,48 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
 
   const estilo = estiloSinSerif(estiloConKit((tipoCarrusel((c ? estructuraDe(c).tipo : null) ?? 'lista') ?? tipoCarrusel('lista'))!.estilo, kit, fuenteDelEditorDeImagen), kit);
   // La escena PARECIDA de cada cuadro de tipo «escena» (11/11/2026): nunca la foto del negocio pegada como si fuera el lugar.
-  const escenas = await escenasParecidas(ws, replica, !!o.seco);
+  // La réplica FIEL (13/11/2026): cada lámina original sin sus letras, de fondo, con los textos nuevos encima en su lugar exacto
+  // (./plancha-local.ts). Así quedan las capturas, el marco y los íconos del original, que el JSON de la IA no sabe decir. Una
+  // lámina que no se puede planchar (texto sobre una foto) vuelve todo al armado de antes, que busca escenas parecidas.
+  const planchas = conMarcas && replica.proporcion === (miniatura ? '16:9' : '4:5')
+    ? await planchasDeLaReplica(ws, replica, marcas.map((m) => m!.leida), {
+      seco: !!o.seco,
+      lugarDePersona: pedidoBase.conAvatar,
+      // Lo que la IA no listó (un encabezado, una pastilla, una persona) va recortado en un segundo pedido, con la misma IA del
+      // negocio: sólo tiene que leer y adaptar (./plancha-servidor.ts → `completarLoQueFalta`).
+      completar: async (p) => {
+        try {
+          const { leerDocumentoIA } = await import('../ai-cheap');
+          const { conSuIADelNegocio } = await import('../ia-del-negocio');
+          const r = await conSuIADelNegocio(ws, () => leerDocumentoIA({
+            dataUrl: p.recortes[0], dataUrls: p.recortes, isPdf: false, nombreArchivo: 'recortes', json: true,
+            prompt: promptDeCompletar({ textos: p.textos, figuras: p.figuras, nombreNegocio: marca.nombre, contexto: p.contexto, oferta }),
+            feature: FEATURE_REPLICA, motivo: 'Leer lo que faltaba de un carrusel de ejemplo', timeoutMs: 90_000, maxTokens: 4_000,
+          }));
+          return leerCompletado(r.text, { textos: p.textos, figuras: p.figuras, usuario: marca.usuario });
+        } catch (e) {
+          console.warn(`[carruseles] el segundo pedido (lo que faltaba) no contestó (ws=${ws}): ${(e instanceof Error ? e.message : String(e)).slice(0, 300)}`);
+          return null;
+        }
+      },
+    })
+    : replica.laminas.map(() => null);
+  const fiel = planchas.every(Boolean);
+  const escenas = fiel ? new Map<string, FotoDelCliente>() : await escenasParecidas(ws, replica, !!o.seco);
   const notasBase = t ? notasDeMiniatura(t) : notasDeReplica(c as Carrusel);
   const notas = replica.lectura ? `${notasBase}
 
 Lo que leí del original: ${replica.lectura}` : notasBase;
-  const doc = documentoDeReplica({ replica, estilo, marca, foto, nuevoId: randomUUID, notas, conFuentesDeMarca: !!kit?.fuentes.titulos, escenas });
+  const doc = documentoDeReplica({ replica, estilo, marca, foto, nuevoId: randomUUID, notas, conFuentesDeMarca: !!kit?.fuentes.titulos, escenas, ...(fiel ? { planchas } : {}) });
   mostrar(doc);
   const titulo = `${miniatura ? 'Miniatura' : anuncio ? 'Anuncio' : 'Carrusel'} · ${replica.titulo}`.slice(0, 120);
   const cuadros = replica.laminas.flatMap((l) => l.cuadros ?? []);
-  const retratoSinFoto = !foto && cuadros.some((x) => x.tipo === 'retrato' && x.persona);
-  const personaEnEscena = !!foto && cuadros.some((x) => x.tipo === 'escena' && x.persona);
-  const aviso = retratoSinFoto
-    ? 'Sube tu foto en AI Avatar o en tu cara de marca y va donde el ejemplo tiene una persona.'
-    : personaEnEscena
-      ? 'Puse un lugar parecido al del original, sin gente. Ponerte a ti dentro de esa escena todavía no está.'
-      : null;
-  if (o.seco) return { ok: true, id: '(seco)', titulo, aviso, doc, vistas: imagenes.length, errores };
+  const conPersona = cuadros.some((x) => x.persona);
+  const aviso = conPersona
+    ? 'Donde el original tiene una persona dejé su lugar marcado: ahí vas tú, generado con IA en el mismo estilo (necesita Google Flow abierto desde el ícono de MaKo).'
+    : null;
+  // En seco viaja también lo que leyó la IA y las láminas que miró: el script lo guarda para probar la plancha sin pagar otra IA.
+  if (o.seco) return { ok: true, id: '(seco)', titulo, aviso, doc, vistas: imagenes.length, errores, replica: leidaDeLaIA ?? replica, imagenes, marcadas: conMarcas ? paraLaIA : [] };
   const r = await crearDiseno(ws, quien, { titulo, doc });
   if (!r.ok) return { ok: false, error: r.error, falla: true };
   avisar({ fase: 'fin', ok: true, id: r.id, titulo, aviso });
