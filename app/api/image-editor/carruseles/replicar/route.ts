@@ -23,7 +23,7 @@ import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
 import { puerta } from '@/lib/image-editor/server';
 import { rateLimit } from '@/lib/rate-limit';
-import { replicarEjemplo } from '@/lib/carruseles/replica-servidor';
+import { replicarEjemplo, type EjemploAReplicar } from '@/lib/carruseles/replica-servidor';
 import { lineaDeEvento } from '@/lib/carruseles/replica';
 import { leerPedidoGuiado } from '@/lib/carruseles/guiado';
 import { esIdDeVertical } from '@/lib/thumbnails/verticales';
@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   if (vertical && !esIdDeVertical(body?.id)) return fallo('Falta la miniatura.', 400);
   const que = body?.que === 'thumbnail' ? 'thumbnail' : 'carrusel';
   if (!vertical && (!Number.isSafeInteger(id) || id === 0 || (que === 'thumbnail' && id < 0))) return fallo(que === 'thumbnail' ? 'Falta la miniatura.' : 'Falta el carrusel.', 400);
-  const ejemplo = vertical ? { que: 'vertical' as const, id: String(body?.id) } : { que, id };
+  const ejemplo: EjemploAReplicar = vertical ? { que: 'vertical', id: String(body?.id) } : { que, id };
   const pedido = typeof body?.pedido === 'string' ? body.pedido.slice(0, 400) : null;
   // Lo que contestó el dueño en el guiado (lib/carruseles/guiado.ts): se lee sin creerle; la oferta se vuelve a buscar en SU base.
   // Sin oferta también se escribe (12/11/2026, «Replicar» sin preguntas): un negocio sin ofertas cargadas recibe su versión con lo
