@@ -214,6 +214,30 @@ Cada entrada dice de qué corrida y de qué fecha viene.
     llamaba a `nAppsQueReemplaza`, declarada más abajo con `const`: en el navegador sería un error de inicialización. Se usa la
     función importada (`appsQueReemplaza`), que ya existe al cargar.
 
+- **Novena vuelta (12/11/2026, noche, claude5): los outliers VERDADEROS.**
+  - **⚠️ El diagnóstico obvio era el equivocado: «la pantalla real» no alcanza si los datos son dibujos.** Para Carruseles grabé
+    el `ExplorarCarruseles` real del banco del repo (`scripts/banco-outliers`), pero sus láminas son SVG dibujados (texto sobre
+    un color) y Martín lo rechazó: «tenés que mostrar los outliers verdaderos, no inventarte imágenes… tenés prohibido hacerlo».
+    Lo que va al sitio: la biblioteca de la plataforma leída de producción, SÓLO LECTURA (`carruseles_biblioteca_*` con
+    `carruselesDeBiblioteca` + `recortarBiblioteca`, sin lo traído por un negocio: 800 carruseles, las imágenes en el bucket
+    público `spy-miniaturas`), y «tu versión» es una réplica que armó «Editar» de verdad (`image_disenos` del espacio de MaKo,
+    la nota «Diseño tomado de un ejemplo de @…»): @lifeofarjav → «MaKo Acelerador Blueprint». El banco de datos de ejemplo
+    sirve para probar la pantalla, nunca para mostrarla.
+  - **La réplica real tiene sus defectos y se ven:** la portada corta «Tu Acelera/dor» (la palabra que no entra a lo ancho; lo
+    arregló probar-image en `punta/probar-image`, todavía sin desplegar). Cuando esté desplegado, se vuelve a tocar «Editar» en
+    ese ejemplo y se graba de nuevo.
+  - **Trampas de la grabación** (Playwright `recordVideo`): no dibuja el cursor (va uno propio que sigue a `mousemove`); para
+    acercar la cámara al modal se escala el `body` con `transform` y el cursor va FUERA del body (`documentElement.append`), si
+    no se agranda con todo; esperar a que carguen las portadas es mirar sólo la PRIMERA imagen de cada tarjeta (las otras
+    láminas son `loading="lazy"` fuera de la vista y nunca terminan); `ffmpeg -ss` ANTES de `-i` en un webm da cuadros rotos
+    al mirar (se pone después); y el pedido de la réplica se contesta reemplazando `fetch` con un `ReadableStream` que larga los
+    eventos de a uno (`leer`, `escribir`, cada `lamina`, `fin`): con `route.fulfill` llega todo junto y las fases saltan.
+  - **AI Avatar decía «tu personaje» y mostraba a otros:** la foto de catálogo como «tu foto» y una persona distinta en cada
+    escena. Ahora: el personaje de Martín y la misma persona en tres escenas (las tomas Avatar Hype de su reel del 9/11).
+  - **Lo que quedó SIN hacer**: Copywriting (en ws 9 hay 924 outliers y sólo 6 guiones transcriptos; el reel de @den.borgg que
+    se replicó trae el texto del PIE, no una transcripción), y las pantallas que piden la sesión de Martín (CRM, Chats,
+    Automations, el scrapeo de grupos, Classroom).
+
 ## Los valores de las plantillas sobre la landing: la portada NO está en el código (31/10/2026)
 
 **Vive en:** `scripts/landing-valores-tilvo.mjs` (con su test), `scripts/banco-editor-web/landing.tsx`, `app/vsl/CartelPromo.tsx`.

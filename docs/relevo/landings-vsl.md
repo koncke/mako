@@ -153,6 +153,21 @@ graban con la app de verdad: con datos de prueba (el ws 3), nunca con los de un 
 | Portada de hoy (`/`, documento de Web Generator) | 100ads.ai |
 | **Industrias** (`/vsl/coaches`, `/vsl/infoproductores`, `/vsl/inmobiliarias`, documentos del 23/10) | **Sin referencia escrita en el código**: hay que rehacerlas copiando una (y publicarlas es con el permiso de Martín) |
 
+## Séptima vuelta (12/11/2026, noche): outliers verdaderos, nada dibujado
+
+Martín: «No necesitas grabar las pantallas… basta con una screenshot o una pequeña animación… Haz tú la animación de hacer un
+pequeño scroll por los outliers de carruseles, selecciona uno y haz que se duplique… Lo mismo con copywriting… AI Avatar… está
+horrible». Y después: «tenés que mostrar los outliers verdaderos, no inventarte imágenes… tenés prohibido hacerlo».
+
+| Fila | Qué muestra ahora | De dónde sale |
+|---|---|---|
+| Spy | La película con 6 carpetas por formato, centrada | `PeliculaDeOrden` real, `public/vsl-assets/sitio/spy.webm` |
+| Replicar | La landing de Hormozi construyéndose elemento por elemento, como el reel | `public/vsl-assets/sitio/replicar.webm` |
+| Carruseles | La grilla REAL de outliers (la biblioteca de producción), baja, vuelve, elige @lifeofarjav, la tarjeta se duplica y el modal real arma «tu versión» (la réplica real de «MaKo Acelerador Blueprint») | `carruseles.webm`; las lecturas (sólo lectura) y el grabador en el scratchpad: `banco-car/leer-biblioteca.mts`, `leer-replicas.mts`, `banco/grabar-carruseles.mjs` |
+| AI Avatar | El personaje de Martín y la misma persona en 3 escenas | `public/vsl-assets/sitio/avatar/` (tomas de `C:/dev/reel-mentores/omni/`) |
+| Tableros | Los 13 tableros de la app, de a uno, con su entrada | `public/vsl-assets/sitio/tableros/` (capturas de `docs/diseno/mockups-dashboard/<id>/captura/`) |
+| Copywriting | Sigue el recuadro | Falta: ver «Lo pendiente» |
+
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
 `PRUEBA_GRATIS_PRENDIDA = true` (`lib/planes-mako.ts`): `/planes` dice «7 días gratis» y cobra el día 8 con la tarjeta,
@@ -189,6 +204,13 @@ sitio (`BarraGlobal` en `app/vsl/_sitio/Barra.tsx`), fija al bajar, y la copiada
   producción en el mismo orden y al mismo ancho. Los scripts de esa receta quedaron en el scratchpad de la sesión: la receta es ésta.
 
 ## Lo pendiente
+
+- **Copywriting**: la animación con un reel REAL de la competencia (Spy del espacio de MaKo, ws 9: 924 outliers, sólo 6 con
+  guion transcripto) y el guion real que escribió «Replicar» («Como @den.borgg: Cobrar mejor no es suerte, es sistema.», que
+  salió del pie, no de una transcripción). Lectura armada: scratchpad `banco-car/leer-copy.mts`.
+- **Carruseles otra vez** cuando se despliegue `punta/probar-image`: la réplica real corta «Tu Acelera/dor».
+- **Las pantallas que piden sesión** (CRM, Chats, Automations, scrapeo de grupos, Classroom): Martín inicia sesión en el
+  navegador de la app con el espacio de prueba (ws 3) y se capturan.
 
 - Desplegar main (textos del 12/11, sitio estilo beehiiv, fotos de AI Avatar, el CTA, el sol y la luna, el VSL).
 - **Las páginas que NO son código y siguen ofreciendo la llamada:** la portada de hoy (`/`, un documento de Web Generator con
