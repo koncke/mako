@@ -303,7 +303,9 @@ test('6: la forma de las operaciones nuevas', () => {
   assert.equal(v({ op: 'palabras_clave', modo: 'quitar', palabras: ['gratis'] }).ok, true);
   assert.equal(v({ op: 'palabras_clave', modo: 'sumar' }).ok, false, '«sumar» sin palabras');
   assert.equal(v({ op: 'palabras_clave', modo: 'auto', tamano: 130 }).ok, true);
-  assert.equal(v({ op: 'palabras_clave', modo: 'auto', tamano: 200 }).ok, false);
+  // El tope pasó de 160 a 300 el 13/11/2026 (la palabra clave gigante: tests/video-editor-clave-gigante.test.ts).
+  assert.equal(v({ op: 'palabras_clave', modo: 'auto', tamano: 300 }).ok, true);
+  assert.equal(v({ op: 'palabras_clave', modo: 'auto', tamano: 301 }).ok, false);
   const cat = catalogoParaPrompt();
   assert.ok(cat.includes('"op":"emojis_subtitulos"') && cat.includes('"op":"animar_palabras"'));
   assert.match(NO_SE_PUEDE_CHAT, /emojis encima de los subtítulos, sí: emojis_subtitulos/);
