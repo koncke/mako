@@ -29,11 +29,20 @@
 
 import { useState, type ReactNode } from 'react';
 import { ctaDeTope } from '@/lib/plan-esencial-reglas';
-import { useAgenciaAdentro, useClienteDeAgencia } from './useClienteDeAgencia';
+import { WS_PARAM } from '@/lib/ws-tab';
+import { useAgenciaAdentro, useClienteDeAgencia, useSuperAdminMira } from './useClienteDeAgencia';
 
-/** Salir de la vista de la agencia (la misma puerta que «Salir» de su barra: borra `mako_agencia`) e ir a la ficha. */
-async function irALaFicha(href: string): Promise<void> {
-  try { await fetch('/api/agencia/entrar', { method: 'DELETE' }); } catch { /* sin red: igual se intenta */ }
+/**
+ * Salir de la vista e ir a la ficha, por la MISMA puerta que «Salir» de la barra (app/_components/ImpersonationBanner.tsx):
+ * la agencia borra `mako_agencia`; el super admin, si entró con la cookie (sin `?ws=` en la URL), borra su impersonación, y si
+ * entró por la URL no toca nada global (las otras pestañas miran a otros clientes).
+ */
+async function irALaFicha(href: string, puerta: 'agencia' | 'admin'): Promise<void> {
+  const porUrl = new URLSearchParams(window.location.search).has(WS_PARAM);
+  try {
+    if (puerta === 'agencia') await fetch('/api/agencia/entrar', { method: 'DELETE' });
+    else if (!porUrl) await fetch('/api/admin/impersonate', { method: 'DELETE' });
+  } catch { /* sin red: igual se intenta */ }
   window.location.href = href;
 }
 
@@ -45,11 +54,11 @@ export function CtaPasarAPro({ children }: { children: ReactNode }) {
   //    llega resuelto como `true` desde la ruta (`cuentaActualEsDeAgencia` compara `!== false`, lib/vista-de-otro.ts), así
   //    que el lado seguro está cubierto antes de llegar acá. Y tratar el `null` del primer dibujo como «sí» le esconderíamos
   //    el link a TODOS por un instante: estos carteles aparecen después de un error, cuando la lectura ya contestó.
-  const cta = ctaDeTope({ clienteDeAgencia: useClienteDeAgencia(), agenciaAdentroDe: useAgenciaAdentro() });
+  const cta = ctaDeTope({ clienteDeAgencia: useClienteDeAgencia(), agenciaAdentroDe: useAgenciaAdentro(), superAdminMira: useSuperAdminMira() });
   if (cta.tipo === 'link') return <>{children}</>;
   if (cta.tipo === 'agencia') {
     return (
-      <button type="button" disabled={yendo} onClick={() => { setYendo(true); void irALaFicha(cta.href); }}
+      <button type="button" disabled={yendo} onClick={() => { setYendo(true); void irALaFicha(cta.href, cta.puerta); }}
         style={{ background: 'none', border: 0, padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--primary)', cursor: yendo ? 'default' : 'pointer', textDecoration: 'underline' }}>
         {yendo ? 'Abriendo…' : cta.rotulo}
       </button>

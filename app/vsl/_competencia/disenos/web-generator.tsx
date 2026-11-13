@@ -22,8 +22,7 @@ import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
 import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
-import { DISENOS_LANDING } from '@/lib/editor-landing/disenos-landing';
-import { FUENTES, temaPorId } from '@/lib/editor-landing/temas';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 
 type Tarjetas = Extract<Bloque, { tipo: 'tarjetas' }>;
 type Hero = Extract<Bloque, { tipo: 'hero' }>;
@@ -41,10 +40,6 @@ function Boton() {
   return <a href={RUTA_CTA} className="d-wg-cta">{TEXTO_CTA}</a>;
 }
 
-function Puntos() {
-  return <span className="d-wg-puntos" aria-hidden="true"><i /><i /><i /></span>;
-}
-
 function HeroWg({ b }: { b: Hero }) {
   return (
     <section className="d-wg-hero">
@@ -60,54 +55,14 @@ function HeroWg({ b }: { b: Hero }) {
   );
 }
 
-/** Un diseño de landing dibujado con los colores de su tema (lib/editor-landing/temas.ts) y el lugar de su video. */
-function MiniDiseno({ nombre }: { nombre: string }) {
-  const d = DISENOS_LANDING.find((x) => x.nombre === nombre);
-  if (!d) return null;
-  const t = temaPorId(d.tema);
-  const tipo = FUENTES[t.fuentes.titulo.familia]?.tipo ?? 'sans';
-  const fuente = tipo === 'serif' ? "Georgia, 'Times New Roman', serif" : tipo === 'mono' ? 'ui-monospace, Menlo, Consolas, monospace' : "'Poppins', Arial, sans-serif";
-  const video = <span className="d-wg-mini-video"><span className="d-wg-mini-play" /></span>;
-  return (
-    <span className="d-wg-mini" style={{ background: t.fondo }}>
-      <span className={`d-wg-mini-tarjeta${d.video === 'costado' ? ' d-wg-mini-costado' : ''}`} style={{ background: t.tarjeta.fondo, fontFamily: fuente }}>
-        <span className="d-wg-mini-txt">
-          <span className="d-wg-mini-h" style={{ background: t.colores.titulo }} />
-          <span className="d-wg-mini-h d-wg-mini-h2" style={{ background: t.colores.titulo }} />
-          <span className="d-wg-mini-x" style={{ background: t.colores.texto }} />
-          {d.video !== 'centro' ? <span className="d-wg-mini-btn" style={{ background: t.colores.boton }} /> : null}
-        </span>
-        {d.video ? video : null}
-        {d.video === 'centro' ? <span className="d-wg-mini-btn" style={{ background: t.colores.boton }} /> : null}
-      </span>
-    </span>
-  );
-}
-
-const GIROS = [-4, 3, -2, 4, -3, 2, -4, 3, -2];
-
+/** «Escribes una frase. Sale con uno de estos diseños.»: van las capturas reales de cada diseño. Hasta tenerlas, el recuadro
+ *  de lo que falta (12/11/2026: las miniaturas dibujadas a mano se sacaron). */
 function Galeria({ b }: { b: Tarjetas }) {
-  const mitad = Math.ceil(b.items.length / 2);
-  const filas = [b.items.slice(0, mitad), b.items.slice(mitad)];
   return (
     <section className="d-wg-sec d-wg-galeria" id="disenos">
       <h2 className="d-wg-h2-gal" dangerouslySetInnerHTML={html(b.titulo)} />
-      <div className="d-wg-filas">
-        {filas.map((fila, f) => (
-          <div key={f} className="d-wg-fila">
-            <div className={`d-wg-pista d-wg-pista-${f}`}>
-              {[0, 1].map((copia) => fila.map((it, i) => (
-                <article key={`${copia}-${it.titulo}`} className="d-wg-post" style={{ transform: `rotate(${GIROS[(f * mitad + i) % GIROS.length]}deg)` }} aria-hidden={copia === 1 ? true : undefined}>
-                  <MiniDiseno nombre={it.titulo} />
-                  <span className="d-wg-post-pie">
-                    <span className="d-wg-post-t" dangerouslySetInnerHTML={html(it.titulo)} />
-                    <span className="d-wg-post-x" dangerouslySetInnerHTML={html(it.texto)} />
-                  </span>
-                </article>
-              )))}
-            </div>
-          </div>
-        ))}
+      <div className="d-wg-galeria-falta">
+        <FaltaAnimacion que="Capturas reales de cada diseño de landing." />
       </div>
       <div className="d-wg-galeria-pie">
         {b.bajada ? <p className="d-wg-galeria-p" dangerouslySetInnerHTML={html(b.bajada)} /> : null}
@@ -160,18 +115,7 @@ function QueEs({ b, visual }: { b: Tarjetas; visual: Hero['visual'] | null }) {
   );
 }
 
-/** El dibujo de una página dentro de su vista previa: sin un solo texto, como el de la referencia. */
-function Esquema() {
-  return (
-    <span className="d-wg-esq" aria-hidden="true">
-      <span className="d-wg-esq-barra"><i className="d-wg-esq-logo" /><span className="d-wg-esq-links"><i /><i /><i /></span><i className="d-wg-esq-pill" /></span>
-      <span className="d-wg-esq-hero"><i className="d-wg-esq-cej" /><i className="d-wg-esq-l1" /><i className="d-wg-esq-l2" /><i className="d-wg-esq-l3" /><i className="d-wg-esq-btn" /></span>
-      <span className="d-wg-esq-cards"><i /><i /><i /></span>
-    </span>
-  );
-}
-
-function QuePuedes({ b, nombre }: { b: Tarjetas; nombre: string }) {
+function QuePuedes({ b }: { b: Tarjetas }) {
   return (
     <section className="d-wg-sec d-wg-puedes">
       <div className="d-wg-cont-1300">
@@ -190,7 +134,6 @@ function QuePuedes({ b, nombre }: { b: Tarjetas; nombre: string }) {
             ))}
           </div>
           <div className="d-wg-prev">
-            <div className="d-wg-prev-barra"><Puntos /><span>{nombre}</span></div>
             <div className="d-wg-prev-cuerpo">
               {b.items.map((it, i) => (
                 <div key={it.titulo} className={`d-wg-prev-pan d-wg-prev-pan-${i}`}>
@@ -198,7 +141,7 @@ function QuePuedes({ b, nombre }: { b: Tarjetas; nombre: string }) {
                   <p dangerouslySetInnerHTML={html(it.texto)} />
                 </div>
               ))}
-              <Esquema />
+              <div className="d-wg-prev-falta"><FaltaAnimacion que="El editor de Web Generator, tal cual es." /></div>
             </div>
           </div>
         </div>
@@ -267,16 +210,15 @@ function ParaQuien({ b }: { b: Tarjetas }) {
             {b.items.map((it, i) => <label key={it.titulo} htmlFor={`d-wg-p${i}`} className={`d-wg-pill d-wg-pill-${i}`} dangerouslySetInnerHTML={html(it.titulo)} />)}
           </div>
           <div className="d-wg-ventana">
-            <div className="d-wg-ventana-barra"><Puntos /><span className="d-wg-ventana-url">hola-mako.site</span>
-              {b.items.map((it, i) => it.meta ? <span key={it.titulo} className={`d-wg-ventana-chip d-wg-para-pan d-wg-para-pan-${i}`}>{it.meta}</span> : null)}
-            </div>
             <div className="d-wg-ventana-cuerpo">
+              {b.items.map((it, i) => it.meta ? <span key={it.titulo} className={`d-wg-ventana-chip d-wg-para-pan d-wg-para-pan-${i}`}>{it.meta}</span> : null)}
               {b.items.map((it, i) => (
                 <div key={it.titulo} className={`d-wg-para-pan d-wg-para-pan-${i}`}>
                   <p className="d-wg-ventana-t" dangerouslySetInnerHTML={html(it.titulo)} />
                   <p className="d-wg-ventana-x" dangerouslySetInnerHTML={html(it.texto)} />
                 </div>
               ))}
+              <div className="d-wg-ventana-falta"><FaltaAnimacion que="Una landing real publicada con Web Generator." /></div>
             </div>
           </div>
         </div>
@@ -363,7 +305,7 @@ export default function DisenoWebGenerator({ landing }: PropsDiseno) {
             // lado) y para quién.
             if (n === 0) return <Galeria key={i} b={b} />;
             if (n === 1) return <QueEs key={i} b={b} visual={hero?.visual ?? null} />;
-            if (n === 2) return <QuePuedes key={i} b={b} nombre={landing.nombre} />;
+            if (n === 2) return <QuePuedes key={i} b={b} />;
             if (n === 3) return <PorQue key={i} b={b} conCaso={bloques[i + 1]?.tipo === 'caso'} />;
             return <ParaQuien key={i} b={b} />;
           }
@@ -457,6 +399,7 @@ const CSS = `
 .d-wg-post-pie { display: flex; flex-direction: column; gap: 2px; padding: 14px 18px 16px; border-top: 1px solid #EDF1F6; }
 .d-wg-post-t { font-size: 15px; font-weight: 600; color: #101828; }
 .d-wg-post-x { font-size: 13px; line-height: 19px; color: #667085; }
+.d-wg-galeria-falta { max-width: 1110px; margin: 61px auto 0; padding: 0 20px; }
 .d-wg-galeria-pie { display: flex; align-items: center; justify-content: center; gap: 22px; margin: 60px 20px 0; flex-wrap: wrap; }
 .d-wg-galeria-p { margin: 0; max-width: 520px; font-size: 17px; font-weight: 500; letter-spacing: -0.255px; color: #475467; }
 
@@ -505,6 +448,7 @@ const CSS = `
 .d-wg-prev-pan h4 { margin: 0; font-size: 27px; line-height: 32.4px; font-weight: 600; letter-spacing: -0.702px; color: #101828; }
 .d-wg-prev-pan p { margin: 8px 0 0; font-size: 14.5px; line-height: 23.2px; color: #475467; }
 .d-wg-prev-pan strong { color: #101828; font-weight: 600; }
+.d-wg-prev-falta { margin-top: 40px; width: 100%; max-width: 780px; }
 .d-wg-esq { margin-top: 40px; width: 100%; max-width: 780px; border-radius: 13px; background: #fff; border: 1px solid #E7EBF1; box-shadow: rgba(16,24,40,.5) 0 10px 30px -18px; overflow: hidden; display: flex; flex-direction: column; }
 .d-wg-esq i { display: block; }
 .d-wg-esq-barra { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #F2F4F8; }
@@ -569,6 +513,8 @@ ${[0, 1, 2, 3, 4, 5, 6, 7].map((i) => `#d-wg-t${i}:checked ~ .d-wg-tabs-fila .d-
 .d-wg-ventana-url { font-size: 11.5px; color: #7A8697; margin-right: auto; }
 .d-wg-ventana-chip { display: none; padding: 4px 11px; border-radius: 9999px; background: #E8F6EF; color: #0F7A45; font-size: 10px; font-weight: 700; letter-spacing: .4px; }
 .d-wg-ventana-cuerpo { padding: 26px 26px 30px; min-height: 200px; }
+.d-wg-ventana-cuerpo .d-wg-ventana-chip { margin-bottom: 12px; }
+.d-wg-ventana-falta { margin-top: 20px; }
 .d-wg-para-pan { display: none; }
 .d-wg-ventana-t { margin: 0 0 10px; font-size: 17px; font-weight: 600; letter-spacing: -0.34px; color: #101828; }
 .d-wg-ventana-x { margin: 0; font-size: 14px; line-height: 22px; color: #475467; }

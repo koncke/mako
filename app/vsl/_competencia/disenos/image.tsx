@@ -40,6 +40,7 @@ import { Icon } from '../../_detalle/FeatureDetail';
 import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import type { Bloque } from '../tipos';
 import { VisualDeLanding } from '../Visuales';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 
 type Hero = Extract<Bloque, { tipo: 'hero' }>;
 type Tarjetas = Extract<Bloque, { tipo: 'tarjetas' }>;
@@ -133,15 +134,8 @@ function DibujarBloque({ b, hero, icono, n, nombre }: { b: Bloque; hero: Hero | 
             <Cejilla texto={b.etiqueta} />
             <h2 className="d-image-h2c" dangerouslySetInnerHTML={html(b.titulo)} />
             {b.bajada ? <p className="d-image-p" dangerouslySetInnerHTML={html(b.bajada)} /> : null}
-            <ul className="d-image-plantillas">
-              {b.items.map((t, i) => (
-                <li key={t.titulo} className={`d-image-plant d-image-plant-${i % 4}`}>
-                  <span className="d-image-plant-top"><span>{t.meta}</span><Icon paths={t.icono ?? icono} size={18} /></span>
-                  <b dangerouslySetInnerHTML={html(t.titulo)} />
-                  <span className="d-image-plant-x" dangerouslySetInnerHTML={html(t.texto)} />
-                </li>
-              ))}
-            </ul>
+            {/* Van las plantillas reales de Image (12/11/2026: las miniaturas 4:5 dibujadas a mano se sacaron). */}
+            <div className="d-image-plantillas-falta"><FaltaAnimacion que="Las plantillas de carruseles de Image, tal cual son." /></div>
           </section>
         );
       }
@@ -403,6 +397,7 @@ const CSS = `
 .d-image-cab > * { max-width: 768px; }
 
 /* Plantillas: miniaturas 4:5 con sombra, en grilla */
+.d-image-plantillas-falta { max-width: 940px; margin: 40px auto 0 !important; text-align: left; }
 .d-image-plantillas { margin-top: 40px !important; display: grid; grid-template-columns: repeat(4, 220px); justify-content: center; gap: 18px; text-align: left; }
 .d-image-plant { aspect-ratio: 4 / 5; display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 18px; border-radius: 6px; box-shadow: 0 18px 30px -18px rgba(7,18,15,.45), 0 2px 6px rgba(7,18,15,.08); transition: transform .3s ease, box-shadow .3s ease; }
 .d-image-plant:hover { transform: translateY(-4px) rotate(-0.6deg); box-shadow: 0 26px 40px -20px rgba(7,18,15,.5), 0 2px 6px rgba(7,18,15,.08); }

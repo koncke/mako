@@ -243,4 +243,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/tickets',
   },
+  {
+    fecha: '12 nov', hora: '22:55', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La ficha de cada ticket dice el plan que paga el negocio (Esencial o Pro), no la capa',
+    puntos: [
+      'El #89 llegó con «plan Completo» y se leyó como un plan completo con tope de 1 usuario. Completo es la capa, y esa capa es MaKo Esencial.',
+      'Ahora dice «Esencial» o «Pro» cuando el negocio paga su plan (por la pasarela o por su agencia), y «sin cobro de MaKo, sin topes» cuando no paga ninguno, como el ws1.',
+      'Vale para los tickets nuevos: el plan se guarda al levantarlo.',
+    ],
+    archivos: [
+      'lib/tickets-reglas.ts — `planDeLaFicha`',
+      'lib/tickets-db.ts — `planDelNegocio`, en la app y por WhatsApp',
+      'tests/ficha-ticket-plan.test.ts',
+      'docs/hallazgos-ticketera.md',
+    ],
+    revisar: '/tickets/bandeja',
+  },
 ];
