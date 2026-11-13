@@ -44,7 +44,7 @@ const HUECO_ANGOSTO = 12;
 /** Lo que suma el pie de la tarjeta (TarjetaPieza: el nombre en dos renglones y los números) para ESTIMAR su alto al repartirlas. */
 const PIE_TARJETA = 92;
 
-export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarjeta, cabecera, vacio, columnas: pedidas, proporcion }: {
+export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarjeta, cabecera, vacio, columnas: pedidas, proporcion, pie = PIE_TARJETA }: {
   piezas: readonly T[];
   /** Cuando cambia (la búsqueda, el tipo, el orden, el competidor), vuelve a la página 1. */
   reinicio: string;
@@ -64,6 +64,8 @@ export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarje
    * (`GrillaMixta`) y no quedan huecos entre formatos distintos. Sin esto, la grilla de filas.
    */
   proporcion?: (p: T) => number;
+  /** El alto del pie de cada tarjeta en la grilla mixta: más que el de siempre si la tarjeta lleva `extra` (las alertas). */
+  pie?: number;
 }) {
   const caja = useRef<HTMLDivElement>(null);
   const arriba = useRef<HTMLDivElement>(null);
@@ -109,7 +111,7 @@ export function GrillaPiezas<T extends { id: number }>({ piezas, reinicio, tarje
         {proporcion && columnas > 1 ? (
           // Los mismos `minimo` y `hueco` con que se midió: la que reparte cuenta las mismas columnas que la paginación.
           <GrillaMixta
-            items={estas} clave={(p) => String(p.id)} proporcion={proporcion} pie={PIE_TARJETA}
+            items={estas} clave={(p) => String(p.id)} proporcion={proporcion} pie={pie}
             minimo={angosto ? MINIMO_ANGOSTO : MINIMO} hueco={angosto ? HUECO_ANGOSTO : HUECO} fila={angosto ? HUECO_ANGOSTO : HUECO}
             porDefecto={columnas} etiqueta="Sus piezas" className="spy-mixta"
             render={(p) => <li className="spy-pgrid__celda">{tarjeta(p)}</li>}

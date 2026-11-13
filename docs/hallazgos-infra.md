@@ -12447,3 +12447,5 @@ estirarla», es la base). Lo que apareció al sacar 65 landings y mirarlas una p
 Los dos scripts de Spy quedaron como modelo: `armar.mjs` y `capturar.mjs`. Están en el scratchpad del chat de Spy; la página que arman está en las notas compartidas, `spy-sueltos-1211/tarjeta-pieza-prueba.html`.
 
 **⚠️ Trampa:** `chrome --headless --window-size=375,…` NO da 375. Una ventana no baja de unos 500 px, así que la página sale más ancha y la captura la recorta: parece que la tarjeta se desborda, y no es así. El ancho se emula con el protocolo de depuración. Y hay que esperar la animación de entrada antes de capturar (la de las tarjetas dura 280 ms y arranca en opacidad 0): una captura inmediata sale lavada.
+
+**⚠️ Segunda trampa (13/11/2026): las imágenes con `loading="lazy"` debajo de la vista no cargan** en la captura larga (`captureBeyondViewport`): la tarjeta sale sin miniatura y con su texto, y parece un fallo del componente. No lo es: se mira arriba, o se arma la página sin `lazy`. Y sin JavaScript tampoco corre el `onError` que cae a la foto de perfil: una caricatura rota se ve vacía en el arnés, no en la app.
