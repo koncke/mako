@@ -198,7 +198,8 @@ export function numeroDeSeguidos(
   const grupos = new Map<string, Array<{ v: number; t: number }>>();
   for (const p of piezas) {
     if (!ids.has(p.competidor_id)) continue;
-    const r = numeroParaComparar(p, ahora, { conYouTube });
+    // `o` tal cual: la app nunca prende YouTube a mano (tests/multiplo-rendimiento.test.ts, caso 12); sin él, manda la enmienda.
+    const r = numeroParaComparar(p, ahora, o);
     if (!('valor' in r)) continue;
     const red = REDES_DEL_NUMERO.find((x) => x.canal === p.canal && x.formato === r.formato);
     if (!red) continue;
@@ -273,7 +274,7 @@ export function alertasDe<T extends PiezaSeguida>(
   o: { dias?: number; tope?: number; conYouTube?: boolean } = {},
 ): AlertaDeSeguido<T>[] {
   const dias = o.dias ?? DIAS_NOVEDADES;
-  const multiplos = multiplosDe(piezas, ahora, { conYouTube: o.conYouTube ?? ENMIENDA_III_L });
+  const multiplos = multiplosDe(piezas, ahora, o);
   const outliers: AlertaDeSeguido<T>[] = [];
   const nuevas: AlertaDeSeguido<T>[] = [];
   for (const p of piezas) {
