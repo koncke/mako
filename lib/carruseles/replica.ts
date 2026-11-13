@@ -282,7 +282,7 @@ function promptDeMiniatura(p: PedidoReplica): string {
     '- Español neutro, de «tú», como se habla en México.',
     p.conAvatar ? '- Donde el original tiene la cara de una persona, marca `persona: true` y su lugar: ahí va la foto del dueño del negocio. Deja el texto del lado contrario.' : '- No pongas fotos ni personas: la miniatura es tipografía y color. Deja `foto: null`.',
     p.vertical
-      ? '- Cada texto del MISMO tamaño, en el MISMO lugar y con la MISMA letra que en el original: si allá es una frase chica sobre la imagen, acá también. Nunca encima de la cara de la persona.'
+      ? '- Cada texto del MISMO tamaño, en el MISMO lugar y con la MISMA letra que en el original: si en el original es una frase chica sobre la imagen, en la tuya también. Nunca encima de la cara de la persona.'
       : '- El texto ENORME: tamano entre 0.08 y 0.15 (fracción del ancho). Contraste fuerte con el fondo.',
     '- `letra` es el estilo de la letra del original: sans, gruesa, condensada, serif, manuscrita o mono. Si dudas, gruesa.',
     '- Si no sabes un dato del negocio (un número, un precio), no lo inventes.',
