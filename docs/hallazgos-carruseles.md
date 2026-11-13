@@ -8,6 +8,59 @@ El feedback de producción del 6/11/2026 (tarde): `lib/carruseles/variedad.ts`, 
 Image (`app/image-editor/ruta.ts`). Capturas: `docs/carruseles/capturas-2026-11-06/`.
 
 
+## Las miniaturas VERTICALES: la portada de un Reel o un Short, en 9:16 (13/11/2026)
+
+Martín, por el Cerebro: «miniaturas verticales en Image, para shorts y reels, además de las horizontales de YouTube. Con
+plantillas y réplica de outliers verticales, y que el piloto de YouTube de CoPilot las pueda pedir».
+
+Es «Horizontales · Verticales» en Thumbnails (`tformato=vertical`), con estas piezas:
+- la grilla 9:16: app/image-editor/carruseles/Verticales.tsx;
+- de dónde salen las verticales: lib/thumbnails/verticales.ts y verticales-servidor.ts;
+- la réplica en 1080 × 1920: `que: 'vertical'`;
+- dos plantillas en el grupo «Miniaturas verticales»;
+- la API de MaKo: `formato` en buscar_thumbnails y `verticalId` en editar_ejemplo_thumbnail;
+- una tarea en la tarjeta de YouTube del CoPilot.
+
+**Lo que no era obvio:**
+
+- ⚠️ **El lector obvio era el equivocado.** La portada de Video (`leerOutliersVideo`) ya lee los reels de Spy, pero
+  `FUENTE_SPY` deja sólo los que enseñan un patrón de EDICIÓN y superaron a su cuenta (`conCriterio`). Para una portada importa
+  la imagen, no el montaje, y con ese filtro quedaban unos pocos. Ahora sale `leerReelsDeSpy` (lib/video-outliers-servidor.ts),
+  la misma lectura sin el criterio. tests/video-outliers-criterio.test.ts exige, palabra por palabra, la línea `conCriterio(…)`
+  de `FUENTE_SPY`: el código se reacomodó para dejarla igual, y el test no se tocó.
+- **La biblioteca de Thumbnails deja afuera los Shorts a propósito** (lib/thumbnails/carga.ts: «un Short no es una miniatura que
+  se diseñe»). Lo vertical es otra FUENTE, no un filtro de la misma.
+- **El formato no es un filtro.** `sinFiltrosThumbnail` lo ignora: «Quitar filtros» no aparece por mirar las verticales, y no te
+  devuelve a las horizontales. Y `tformato` va en `CLAVES_FILTRO` (ExplorarCarruseles.tsx): si falta, volver a las horizontales
+  deja «Verticales» pegado en el link.
+- **El link del CoPilot va escrito** (`RUTA_VERTICALES` en verticales.ts), no armado con `queryDeThumbnails`: así el CoPilot,
+  que corre en el navegador, no carga el explorador entero. El test lo compara con el que arma la pantalla.
+- **En la API, lo nuevo va en PARÁMETROS, no en la descripción** (AGENTS.md: los parámetros no puntúan en el clasificador). Por
+  eso `generar-api-doc` dijo «ya estaba al día», y no es un error: las dos operaciones son `SIN_HTTP`, y la referencia no lista
+  sus parámetros.
+- **La zona segura del 9:16:** la app tapa el 15 % de arriba (288 px) y el 25 % de abajo (480 px), y el perfil de Instagram
+  recorta la portada a 3:4. Lo usan las dos plantillas (el test 5 mira cada capa), la guía sin IA y el prompt.
+- **La persona, igual que en las otras réplicas.** Se borra de la plancha y su lugar queda marcado para generarla con IA en el
+  mismo estilo. Nunca se pega la foto del negocio: el test 4 fija el `Promise.resolve(null)` de `fotoDelCliente`.
+
+Test: tests/thumbnails-verticales.test.ts, 6/0. Probado rompiéndolo, de a una y restaurando (cada rotura da 5/1):
+- la lectura de la réplica en 16:9;
+- sin `tformato` en `CLAVES_FILTRO`;
+- la tarea del CoPilot con la condición al revés;
+- el gancho de la plantilla con cara 300 px más abajo;
+- la plancha esperando 16:9.
+
+El conteo de tests/image-plantillas-reales.test.ts pasó de 9 a 11 por las dos verticales.
+
+**Lo que quedó SIN hacer:**
+- Ninguna captura todavía: con 2,8 GB libres no se levanta `next dev` local, y producción no tiene esto hasta el deploy.
+- No se corrió una réplica vertical con la IA real. scripts/carruseles-probar-editar.mts sólo toma `--id` de un carrusel.
+- Las verticales no se guardan con el marcador: los guardados de Thumbnails son ids numéricos de otra tabla.
+- La tarea del CoPilot sale sólo con YouTube conectado. La de Instagram («la portada de tu próximo reel») no se sumó: no se pidió.
+- Una sola fuente, Spy (los reels de Instagram). Los Shorts de YouTube de la biblioteca no entran, porque `carga.ts` no los guarda.
+
+---
+
 ## La réplica FIEL: la lámina original sin sus letras de fondo, y los textos encima en su lugar exacto (13/11/2026)
 
 **El síntoma** (Martín, sobre la réplica de @lifeofarjav «Claude + Hormozi = 100M Business», diseño 16badd73 de ws 9): «no son

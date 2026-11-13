@@ -27,6 +27,7 @@ import type { Bloque } from './plancha-local';
 import { esSaturacion, esTimeout, esTopeDeTamano } from '../fallo-ia-texto';
 import { ANCHO_CARRUSEL, ALTO_CARRUSEL, altoEstimado, esOscuro, familia, rect, texto, type Marca } from './documento';
 import type { EstiloCarrusel } from './tipos';
+import { ALTO_VERTICAL, ANCHO_VERTICAL } from '../thumbnails/verticales';
 
 /** El papel de un texto en la lámina: lo usa el nombre de la capa («Titular», «Texto»…), que es como el chat la encuentra. */
 export const ROLES_TEXTO = ['titulo', 'cuerpo', 'rotulo', 'dato', 'cta', 'firma'] as const;
@@ -92,7 +93,8 @@ export type LaminaReplica = {
   /** Las figuras marcadas (F1, F2…) que son una persona: se borran de la plancha y su lugar queda para la del negocio. */
   personas?: string[];
 };
-export type Proporcion = '4:5' | '1:1' | '16:9';
+/** `9:16`: la miniatura VERTICAL, la portada de un Reel o un Short (13/11/2026, lib/thumbnails/verticales.ts). */
+export type Proporcion = '4:5' | '1:1' | '16:9' | '9:16';
 /** `lectura`: lo que la IA LEYÓ de la composición del original antes de escribir (queda en las notas del diseño). */
 export type Replica = { proporcion: Proporcion; titulo: string; laminas: LaminaReplica[]; lectura?: string };
 
@@ -101,7 +103,11 @@ export const ANCHO_MINIATURA = 1280;
 export const ALTO_MINIATURA = 720;
 /** El ancho y el alto de cada proporción, en píxeles del editor. */
 export const medidasDe = (p: Proporcion): { ancho: number; alto: number } =>
-  (p === '16:9' ? { ancho: ANCHO_MINIATURA, alto: ALTO_MINIATURA } : { ancho: ANCHO_CARRUSEL, alto: p === '1:1' ? ANCHO_CARRUSEL : ALTO_CARRUSEL });
+  (p === '16:9' ? { ancho: ANCHO_MINIATURA, alto: ALTO_MINIATURA }
+    : p === '9:16' ? { ancho: ANCHO_VERTICAL, alto: ALTO_VERTICAL }
+      : { ancho: ANCHO_CARRUSEL, alto: p === '1:1' ? ANCHO_CARRUSEL : ALTO_CARRUSEL });
+/** Una miniatura (la de YouTube o la vertical): UNA lámina cuyo diseño es dónde va el texto grande y dónde la cara. */
+export const esMiniatura = (p: Proporcion): boolean => p === '16:9' || p === '9:16';
 
 /** Cuántas láminas como mucho (Instagram deja 20; más de 12 en un ejemplo no ayuda a nadie y pesa en la IA). */
 export const LAMINAS_MAX = 12;
@@ -134,6 +140,8 @@ export type PedidoReplica = {
   anuncio?: boolean;
   /** La miniatura de un video de YouTube (16:9, una sola lámina): «Thumbnails» (6/11/2026). */
   miniatura?: boolean;
+  /** Con `miniatura`: la VERTICAL, la portada de un Reel o un Short (9:16, 1080 × 1920; 13/11/2026). */
+  vertical?: boolean;
   /** El título del video original: sólo para entender el tema (no se copia). */
   tituloOriginal?: string | null;
   /** El pie del original: sólo para entender el tema y la estructura (no se copia). Útil cuando se ve nada más que la portada. */
@@ -254,13 +262,17 @@ export function promptDeReplica(p: PedidoReplica): string {
  */
 function promptDeMiniatura(p: PedidoReplica): string {
   const vio = p.vistas > 0;
+  // La vertical (13/11/2026): la portada de un Reel o un Short. Lo mismo que la de YouTube, en 9:16 y con la zona que tapa la app.
+  const cual = p.vertical ? 'la PORTADA de un Reel de Instagram (o un Short de YouTube)' : 'la MINIATURA de un video de YouTube';
   return [
     vio
-      ? 'Te muestro la MINIATURA de un video de YouTube que funcionó muy bien. Vas a REPLICAR su DISEÑO para el negocio de abajo: el mismo lugar, tamaño, color y peso de cada texto, el mismo color de fondo y el mismo lugar de la persona o del objeto, con el TEXTO escrito para este negocio.'
-      : 'No tienes la imagen: sólo el título de un video de YouTube que funcionó muy bien (abajo). Vas a ARMAR la miniatura para el negocio de abajo, con un diseño de miniatura que funcione (texto enorme y contraste fuerte).',
+      ? `Te muestro ${cual} que funcionó muy bien. Vas a REPLICAR su DISEÑO para el negocio de abajo: el mismo lugar, tamaño, color y peso de cada texto, el mismo color de fondo y el mismo lugar de la persona o del objeto, con el TEXTO escrito para este negocio.`
+      : `No tienes la imagen: sólo el título de ${p.vertical ? 'un Reel' : 'un video de YouTube'} que funcionó muy bien (abajo). Vas a ARMAR la ${p.vertical ? 'portada' : 'miniatura'} para el negocio de abajo, con un diseño que funcione (texto enorme y contraste fuerte).`,
     '',
     'Reglas:',
-    '- Es UNA sola lámina, apaisada (16:9, 1280 × 720). Exactamente 1 elemento en "laminas".',
+    p.vertical
+      ? '- Es UNA sola lámina, VERTICAL (9:16, 1080 × 1920). Exactamente 1 elemento en "laminas". Lo importante va en el centro: el 15 % de arriba y el 25 % de abajo los tapa la app (el título y los botones), y el perfil de Instagram la recorta a 3:4.'
+      : '- Es UNA sola lámina, apaisada (16:9, 1280 × 720). Exactamente 1 elemento en "laminas".',
     '- El texto grande tiene de 2 a 6 palabras, en mayúsculas si el original las usa. Es un gancho que da curiosidad, nunca el título entero del video. Como mucho un texto chico más.',
     '- Copia el patrón (qué promete, cómo lo dice), NUNCA sus palabras ni los hechos que cuenta de su autor. No pongas el nombre, el @ ni la marca del canal original, y nunca un @ ni un usuario del negocio: no los sabes.',
     '- Español neutro, de «tú», como se habla en México.',
@@ -279,7 +291,7 @@ function promptDeMiniatura(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     COMPACTO,
-    `{"proporcion":"16:9","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"proporcion":"${p.vertical ? '9:16' : '16:9'}","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     'x, y, ancho y alto son FRACCIONES de la imagen (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho.',
   ].filter((l) => l !== '').join('\n');
 }
@@ -407,7 +419,7 @@ export function conAcentos(marcado: string): { texto: string; acentos: Array<[nu
   return { texto: recortado, acentos: acentos.map(([a, b]) => [Math.max(0, a - ini), Math.min(recortado.length, b - ini)] as [number, number]).filter(([a, b]) => b > a) };
 }
 
-export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; usuario?: string | null; nombre?: string }): Replica | { error: string } {
+export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; vertical?: boolean; usuario?: string | null; nombre?: string }): Replica | { error: string } {
   let j: Record<string, unknown>;
   try { j = parseJsonObject(crudo); } catch { return { error: 'La IA no devolvió el diseño en un formato que pueda leer.' }; }
   const lista = Array.isArray(j.laminas) ? j.laminas : [];
@@ -460,9 +472,9 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
     laminas.push({ fondo, textos, foto, cuadros: cuadrosDe(l.cuadros, foto), formas: formasDe(l.formas), ...(personas.length ? { personas } : {}) });
   }
   if (!laminas.some((l) => l.textos.some((t) => t.texto))) return { error: 'La IA no encontró textos en las láminas: vuelve a intentar o elige otro ejemplo.' };
-  // Una miniatura es UNA lámina 16:9, diga lo que diga el modelo.
+  // Una miniatura es UNA lámina 16:9 (o 9:16 la vertical), diga lo que diga el modelo.
   const lectura = limpio(j.lectura, 1200) || undefined;
-  if (o.miniatura) return { proporcion: '16:9', titulo: limpio(j.titulo, 80) || 'Mi miniatura', laminas: laminas.slice(0, 1), lectura };
+  if (o.miniatura) return { proporcion: o.vertical ? '9:16' : '16:9', titulo: limpio(j.titulo, 80) || 'Mi miniatura', laminas: laminas.slice(0, 1), lectura };
   return { proporcion: j.proporcion === '1:1' ? '1:1' : '4:5', titulo: limpio(j.titulo, 80) || 'Mi carrusel', laminas, lectura };
 }
 
@@ -1129,14 +1141,14 @@ export function documentoDeReplica(o: {
 }): Record<string, unknown> {
   const { ancho: W, alto: H } = medidasDe(o.replica.proporcion);
   // Una miniatura NO se reacomoda para «llenar»: su diseño es justamente dónde va el texto grande y dónde la cara.
-  const reacomodar = o.replica.proporcion !== '16:9';
+  const reacomodar = !esMiniatura(o.replica.proporcion);
   // Una escena que la búsqueda no trajo lleva otra de la misma réplica (12/11/2026): un hueco del color de fondo del tamaño de la
   // foto se ve roto; una foto parecida de otra lámina, no.
   const otraEscena = o.escenas ? [...o.escenas.values()][0] : undefined;
   // La cara de marca entra si se eligió, aunque la IA no haya marcado ningún retrato (12/11/2026: @vilmanunez salió sin él).
   const laminas = o.foto ? conLaCara(o.replica.laminas, o.replica.proporcion === '16:9') : o.replica.laminas;
   const pages = laminas.map((l, i) => {
-    const nombre = o.replica.proporcion === '16:9' ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`;
+    const nombre = esMiniatura(o.replica.proporcion) ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`;
     const plancha = o.planchas?.[i];
     if (plancha) {
       return {
@@ -1217,7 +1229,7 @@ export function documentoDeReplica(o: {
       });
     });
     return {
-      id: o.nuevoId(), name: o.replica.proporcion === '16:9' ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`,
+      id: o.nuevoId(), name: esMiniatura(o.replica.proporcion) ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`,
       background: { type: 'solid', color: l.fondo }, objects: objetos, ...(i === 0 && o.notas ? { notes: o.notas } : {}),
     };
   });
@@ -1353,12 +1365,17 @@ export function proveedorDelError(error: string): 'Claude' | 'GPT' | 'Gemini' | 
  * Sin la IA, la miniatura de YouTube igual sale EDITABLE: el fondo, un titular grande con la guía de qué escribir y el nombre
  * del negocio chico. Nunca un recuadro de «Tu foto».
  */
-export function documentoGuiaMiniatura(o: { marca: Marca; nuevoId: () => string; notas?: string; fondo?: string; tinta?: string }): Record<string, unknown> {
-  const W = ANCHO_MINIATURA;
-  const H = ALTO_MINIATURA;
+export function documentoGuiaMiniatura(o: { marca: Marca; nuevoId: () => string; notas?: string; fondo?: string; tinta?: string; vertical?: boolean }): Record<string, unknown> {
+  const W = o.vertical ? ANCHO_VERTICAL : ANCHO_MINIATURA;
+  const H = o.vertical ? ALTO_VERTICAL : ALTO_MINIATURA;
   const fondo = o.fondo ?? '#111111';
   const tinta = o.tinta ?? (esOscuro(fondo) ? '#FFFFFF' : '#111111');
-  const objetos = [
+  // La vertical (13/11/2026): el titular en el centro, fuera de lo que tapa la app arriba (el 15 %) y abajo (el 25 %).
+  const objetos = o.vertical ? [
+    texto(o.nuevoId(), 'Titular', 'TU GANCHO EN 3 A 5 PALABRAS', { left: 90, top: 560, width: 900, tam: 120, peso: 400, fam: familia({ familia: 'Archivo Black', respaldo: 'sans-serif' }), color: tinta, alin: 'center', interlineado: 1.02, mayus: true }),
+    texto(o.nuevoId(), 'Texto', 'Lo que promete el reel, como el del ejemplo', { left: 90, top: 1060, width: 900, tam: 48, peso: 500, fam: familia({ familia: 'Inter', respaldo: 'sans-serif' }), color: tinta, alin: 'center', interlineado: 1.2, mayus: false }),
+    texto(o.nuevoId(), 'Firma', o.marca.nombre.slice(0, 60), { left: 90, top: 1300, width: 900, tam: 34, peso: 700, fam: familia({ familia: 'Inter', respaldo: 'sans-serif' }), color: tinta, alin: 'center', interlineado: 1.2, mayus: false }),
+  ] : [
     texto(o.nuevoId(), 'Titular', 'TU GANCHO EN 3 A 5 PALABRAS', { left: 80, top: 210, width: 760, tam: 104, peso: 400, fam: familia({ familia: 'Archivo Black', respaldo: 'sans-serif' }), color: tinta, alin: 'left', interlineado: 1.02, mayus: true }),
     texto(o.nuevoId(), 'Texto', 'Lo que promete el video, como el del ejemplo', { left: 80, top: 520, width: 760, tam: 40, peso: 500, fam: familia({ familia: 'Inter', respaldo: 'sans-serif' }), color: tinta, alin: 'left', interlineado: 1.2, mayus: false }),
     texto(o.nuevoId(), 'Firma', o.marca.nombre.slice(0, 60), { left: 80, top: 640, width: 760, tam: 28, peso: 700, fam: familia({ familia: 'Inter', respaldo: 'sans-serif' }), color: tinta, alin: 'left', interlineado: 1.2, mayus: false }),

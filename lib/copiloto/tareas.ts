@@ -12,6 +12,7 @@
 // =============================================================================
 
 import type { ParteOC } from './comunicacion';
+import { RUTA_VERTICALES } from '../thumbnails/verticales';
 
 export type TarjetaCoPilot = 'oferta' | 'web' | 'anuncios' | 'instagram' | 'youtube';
 export const TARJETAS_COPILOTO: readonly TarjetaCoPilot[] = ['oferta', 'web', 'anuncios', 'instagram', 'youtube'];
@@ -69,6 +70,9 @@ export function tareasDelCoPilot(r: ResumenParaTareas): { tareas: TareaCoPilot[]
   // Instagram y YouTube
   hay(!r.redes.instagram.conectada, { clave: 'instagram:conectar', tarjeta: 'instagram', titulo: 'Conecta tu Instagram', abre: 'conectar', red: 'instagram' });
   hay(!r.redes.youtube.conectada, { clave: 'youtube:conectar', tarjeta: 'youtube', titulo: 'Conecta tu YouTube', abre: 'conectar', red: 'youtube' });
+  // La miniatura vertical de los Shorts (13/11/2026, Martín por el Cerebro: «que el piloto de YouTube de CoPilot las pueda pedir»):
+  // con el canal conectado, la portada 9:16 del próximo Short, replicando la de un reel que funcionó (Image → Thumbnails → Verticales).
+  if (r.redes.youtube.conectada) tareas.push({ clave: 'youtube:miniatura-vertical', tarjeta: 'youtube', titulo: 'Haz la miniatura vertical de tu próximo Short', href: RUTA_VERTICALES });
   // «Selecciona a tus competidores»: de los que sigues sale con qué número se publica un reel de prueba.
   if (r.seguidos == null || r.seguidos === 0) tareas.push({ clave: 'instagram:competidores', tarjeta: 'instagram', titulo: 'Selecciona a tus competidores en Competitor Spy', href: '/competitor-spy?ver=seguidos' });
   else resueltas.push('instagram:competidores');
