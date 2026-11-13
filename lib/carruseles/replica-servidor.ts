@@ -348,7 +348,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
   const notas = replica.lectura ? `${notasBase}
 
 Lo que leí del original: ${replica.lectura}` : notasBase;
-  const doc = documentoDeReplica({ replica, estilo, marca, foto, nuevoId: randomUUID, notas, conFuentesDeMarca: !!kit?.fuentes.titulos, escenas, ...(fiel ? { planchas } : {}) });
+  const doc = documentoDeReplica({ replica, estilo, marca, foto, nuevoId: randomUUID, notas, conFuentesDeMarca: !!kit?.fuentes.titulos, escenas, lugarDePersona: pedidoBase.conAvatar, ...(fiel ? { planchas } : {}) });
   mostrar(doc);
   const titulo = `${vertical ? 'Miniatura vertical' : miniatura ? 'Miniatura' : anuncio ? 'Anuncio' : 'Carrusel'} · ${replica.titulo}`.slice(0, 120);
   const cuadros = replica.laminas.flatMap((l) => l.cuadros ?? []);

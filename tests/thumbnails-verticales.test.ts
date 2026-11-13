@@ -18,7 +18,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { RUTA_VERTICALES, coincideVertical, esIdDeVertical, verticalesDe, notasDeVertical } from '../lib/thumbnails/verticales';
 import { FILTROS_THUMBNAIL, filtrosThumbnailDeQuery, queryDeThumbnails, sinFiltrosThumbnail } from '../lib/thumbnails/explorar';
-import { documentoGuiaMiniatura, leerReplica, medidasDe, promptDeReplica } from '../lib/carruseles/replica';
+import { PERSONA_A_GENERAR, documentoDeReplica, documentoGuiaMiniatura, leerReplica, medidasDe, promptDeReplica, type Replica } from '../lib/carruseles/replica';
+import { tipoCarrusel } from '../lib/carruseles/tipos';
 import { PLANTILLAS_IMAGEN } from '../lib/image-editor/plantillas-reales';
 import { tareasDelCoPilot, type ResumenParaTareas } from '../lib/copiloto/tareas';
 import type { OutlierVideo } from '../lib/video-outliers';
@@ -80,6 +81,10 @@ test('4. la réplica de una vertical: UNA lámina de 1080 × 1920, y la persona 
   assert.match(prompt, /VERTICAL \(9:16, 1080 × 1920\)/);
   assert.match(prompt, /"proporcion":"9:16"/);
   assert.doesNotMatch(promptDeReplica({ ...pedido, vertical: false }), /9:16/, 'la de YouTube sigue apaisada');
+  // La portada de un reel no es una de YouTube: muchas son un cuadro del video con una frase chica (la de @herasmedia en seco).
+  assert.match(prompt, /Cada texto del MISMO tamaño, en el MISMO lugar y con la MISMA letra que en el original/);
+  assert.doesNotMatch(prompt, /El texto ENORME/, 'con «ENORME» ponía un titular gigante encima del lugar de la persona');
+  assert.match(promptDeReplica({ ...pedido, vertical: false }), /El texto ENORME/, 'la de YouTube sigue con su texto enorme');
   const crudo = JSON.stringify({ proporcion: '16:9', titulo: 'Mi portada', laminas: [
     { fondo: '#111111', textos: [{ rol: 'titulo', texto: 'CERRÉ 15 SIN LLAMAR', x: 0.1, y: 0.4, ancho: 0.8, tamano: 0.1 }] },
     { fondo: '#222222', textos: [{ rol: 'titulo', texto: 'otra', x: 0.1, y: 0.4, ancho: 0.8, tamano: 0.1 }] },
@@ -91,7 +96,19 @@ test('4. la réplica de una vertical: UNA lámina de 1080 × 1920, y la persona 
   const guia = documentoGuiaMiniatura({ marca: { nombre: 'Mi Negocio' } as never, nuevoId: () => 'x', vertical: true }) as { width: number; height: number; pages: Array<{ objects: Array<{ top: number }> }> };
   assert.deepEqual([guia.width, guia.height], [1080, 1920]);
   assert.ok(guia.pages[0].objects.every((o) => o.top >= 288 && o.top < 1440), 'sin IA, la guía también va en la zona que no tapa la app');
+  // Sin plancha (la persona sobre una foto: «el fondo no es parejo», lo común en un reel) el lugar de la persona queda MARCADO si
+  // el dueño la quiere; antes no quedaba nada y el aviso decía «dejé su lugar marcado» (la portada de @den.borgg en seco).
+  const conRetrato: Replica = { proporcion: '9:16', titulo: 'x', laminas: [{ fondo: '#111111', foto: null, formas: [],
+    textos: [{ rol: 'titulo', texto: 'Tu frase', x: 0.1, y: 0.2, ancho: 0.8, tamano: 0.07, color: '#FFFFFF', negrita: true, alinear: 'left', mayus: false, letra: 'serif', relleno: null }],
+    cuadros: [{ x: 0.3, y: 0.3, ancho: 0.5, alto: 0.7, tipo: 'retrato', persona: true, descripcion: 'la persona', busqueda: '', forma: 'rect' }] }] } as unknown as Replica;
+  const armar = (lugarDePersona: boolean) => (documentoDeReplica({ replica: conRetrato, estilo: tipoCarrusel('lista')!.estilo, marca: { nombre: 'Mi Negocio', usuario: null } as never,
+    foto: null, nuevoId: () => 'x', lugarDePersona }) as { pages: Array<{ objects: Array<Record<string, unknown>> }> }).pages[0].objects;
+  const marcado = armar(true).find((o) => o.name === PERSONA_A_GENERAR);
+  assert.ok(marcado && marcado.type === 'rect' && Array.isArray(marcado.strokeDashArray), 'el lugar de la persona, marcado con la línea de puntos');
+  assert.deepEqual([marcado!.left, marcado!.top, marcado!.width, marcado!.height], [324, 576, 540, 1344], 'en el lugar del retrato del original');
+  assert.ok(!armar(false).some((o) => o.name === PERSONA_A_GENERAR), 'sin persona pedida, ningún recuadro');
   const servidor = leer('lib/carruseles/replica-servidor.ts');
+  assert.match(servidor, /lugarDePersona: pedidoBase\.conAvatar, \.\.\.\(fiel \? \{ planchas \} : \{\}\)/, 'la réplica le dice al armado si el dueño quiere persona');
   assert.match(servidor, /else if \(ej\.que === 'vertical'\) \{ const \{ verticalPorId \} = await import\('\.\.\/thumbnails\/verticales-servidor'\); v = await verticalPorId\(ej\.id\); \}/);
   assert.match(servidor, /const proporcion = vertical \? '9:16' : miniatura \? '16:9' : '4:5';/);
   assert.match(servidor, /planchas = conMarcas && replica\.proporcion === proporcion/, 'la plancha (el original sin su texto) también en la vertical');

@@ -273,11 +273,17 @@ function promptDeMiniatura(p: PedidoReplica): string {
     p.vertical
       ? '- Es UNA sola lámina, VERTICAL (9:16, 1080 × 1920). Exactamente 1 elemento en "laminas". Lo importante va en el centro: el 15 % de arriba y el 25 % de abajo los tapa la app (el título y los botones), y el perfil de Instagram la recorta a 3:4.'
       : '- Es UNA sola lámina, apaisada (16:9, 1280 × 720). Exactamente 1 elemento en "laminas".',
-    '- El texto grande tiene de 2 a 6 palabras, en mayúsculas si el original las usa. Es un gancho que da curiosidad, nunca el título entero del video. Como mucho un texto chico más.',
+    // La portada de un reel NO es una miniatura de YouTube (13/11/2026, la de @herasmedia en seco): muchas son un cuadro del video
+    // con una frase chica. Con «ENORME» la réplica ponía un titular gigante encima del lugar de la persona.
+    p.vertical
+      ? '- El texto dice lo mismo de largo que el del original (de 2 a 8 palabras), en mayúsculas sólo si el original las usa. Es un gancho que da curiosidad, nunca el título entero.'
+      : '- El texto grande tiene de 2 a 6 palabras, en mayúsculas si el original las usa. Es un gancho que da curiosidad, nunca el título entero del video. Como mucho un texto chico más.',
     '- Copia el patrón (qué promete, cómo lo dice), NUNCA sus palabras ni los hechos que cuenta de su autor. No pongas el nombre, el @ ni la marca del canal original, y nunca un @ ni un usuario del negocio: no los sabes.',
     '- Español neutro, de «tú», como se habla en México.',
     p.conAvatar ? '- Donde el original tiene la cara de una persona, marca `persona: true` y su lugar: ahí va la foto del dueño del negocio. Deja el texto del lado contrario.' : '- No pongas fotos ni personas: la miniatura es tipografía y color. Deja `foto: null`.',
-    '- El texto ENORME: tamano entre 0.08 y 0.15 (fracción del ancho). Contraste fuerte con el fondo.',
+    p.vertical
+      ? '- Cada texto del MISMO tamaño, en el MISMO lugar y con la MISMA letra que en el original: si allá es una frase chica sobre la imagen, acá también. Nunca encima de la cara de la persona.'
+      : '- El texto ENORME: tamano entre 0.08 y 0.15 (fracción del ancho). Contraste fuerte con el fondo.',
     '- `letra` es el estilo de la letra del original: sans, gruesa, condensada, serif, manuscrita o mono. Si dudas, gruesa.',
     '- Si no sabes un dato del negocio (un número, un precio), no lo inventes.',
     p.pedido?.trim() ? `- Lo que pidió el dueño: ${p.pedido.trim().slice(0, 300)}` : '',
@@ -1138,6 +1144,11 @@ export function documentoDeReplica(o: {
   planchas?: ReadonlyArray<PlanchaDeLamina | null>;
   /** La escena PARECIDA de cada cuadro de tipo «escena», por su `busqueda` (el banco de fotos, ya en nuestro bucket). */
   escenas?: ReadonlyMap<string, FotoDelCliente>;
+  /**
+   * ¿El dueño quiere una persona donde el original tiene una? (el `conAvatar` del pedido, como `lugarDePersona` de la plancha).
+   * Sin la foto del negocio (que ya no se pega), el lugar del retrato queda MARCADO para generarla con IA. Sin esto, nada.
+   */
+  lugarDePersona?: boolean;
 }): Record<string, unknown> {
   const { ancho: W, alto: H } = medidasDe(o.replica.proporcion);
   // Una miniatura NO se reacomoda para «llenar»: su diseño es justamente dónde va el texto grande y dónde la cara.
@@ -1184,7 +1195,13 @@ export function documentoDeReplica(o: {
       const recorte = conRecorte(caja, c.forma);
       // En una miniatura la persona va SIN fondo: se marca y el editor la recorta al abrir (app/image-editor/mako/quitar-fondo.ts).
       if (c.tipo === 'retrato' && c.persona && o.foto) { objetos.push({ ...fotoQueCubre(o.nuevoId(), o.foto, caja), ...recorte, ...(reacomodar ? {} : { name: FOTO_A_RECORTAR }) }); puesta(); }
-      else {
+      else if (c.tipo === 'retrato' && c.persona && o.lugarDePersona) {
+        // ⚠️ Sin plancha (la persona sobre una foto: «el fondo no es parejo») y sin la foto del negocio, que ya no se pega: el lugar
+        // de la persona queda MARCADO como en la lámina fiel (13/11/2026). Antes no quedaba nada, y el aviso decía «dejé su lugar
+        // marcado»: lo encontró la primera réplica vertical en seco (la portada de @den.borgg, ws 9).
+        objetos.push({ ...rect(o.nuevoId(), PERSONA_A_GENERAR, { ...caja, fill: 'rgba(0,0,0,0.035)', radio: 28 }), stroke: '#9AA0A6', strokeWidth: 3, strokeDashArray: [16, 12] });
+        puesta();
+      } else {
         const escena = (c.busqueda ? o.escenas?.get(c.busqueda) : undefined) ?? (c.tipo === 'escena' ? otraEscena : undefined);
         if (escena) { objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), ...recorte, name: 'Foto: escena parecida' }); puesta(); }
       }
