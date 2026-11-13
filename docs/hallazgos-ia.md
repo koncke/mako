@@ -4,6 +4,27 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## Una nota de voz de 4 s tardaba de 11 a ~105 s: Gemini escuchaba primero (12/11/2026, medido en producción)
+
+**Síntoma:** en el chat de Image, grabar una nota y mandarla dejaba «Enviando…» hasta 105 s; la misma nota, medida tres veces
+contra `/api/plan-dictado` (ws 9): 16 s, 11 s y más de 29 s. La transcripción salía bien: el problema era sólo el tiempo.
+
+**Causa:** el orden de escucha es `CASCADA_STT = ['gemini', 'groq', 'openai']`, y `gemini-flash-latest` se cuelga hasta su plazo de
+60 s por cuenta (`sttGemini`, `AbortSignal.timeout(60000)`), cuenta por cuenta, antes de llegar a Groq (Whisper, ~1-2 s). Lo mismo
+que se había medido el 28/10 con los grupos de WhatsApp (`notaDeVozDelGrupo`), que ya iban con Groq primero; las notas de los chats y
+el dictado no.
+
+**La regla:** una nota CORTA (hasta `NOTA_CORTA_BYTES`, 2 MB: varios minutos de opus) escucha con Groq primero y Gemini queda de
+respaldo (no se saca, como en los grupos). Lo decide `transcribirAudio` adentro, por el PESO (`ordenDeEscucha`, lib/ai-cheap.ts),
+así que vale para toda nota que alguien espera sin que la ruta pida nada. El audio de un anuncio o de una clase (más pesado) sigue
+con la cascada de siempre. Test: tests/stt-red.test.ts (roto a propósito: sin usar el orden, cae).
+⚠️ **El arreglo obvio era el equivocado.** El primero sumó un `notaDeVozCorta` a la llamada de /api/plan-dictado y renombró la
+cascada: dos tests que leen ESAS líneas con una expresión exacta cayeron en la punta (tests/chat-nota-de-voz.test.ts 6, que la nota
+siga con `pii`; tests/doer-falla.test.ts 15, que la nota de un GRUPO nunca pase por Gemini). Aflojarles la expresión fue el
+segundo error: el Cerebro lo frenó, «NO cambies los tests: cuidan reglas a propósito». **Un test de guardia no se acomoda al
+cambio: el cambio se acomoda a él.** Antes de tocar una línea de `transcribirAudio` o de una ruta de audio, `grep` de esa línea en
+tests/, y si está, el cambio va en otra línea.
+
 ## No hay caché de prompt: cada llamada del turno de WhatsApp paga sus ~9.900 tokens de entrada enteros (11/11/2026, medido)
 
 **Lo medido** (`anthropic_usage`, 7 días): `mako-doer-in` hizo 101 llamadas en Haiku 4.5, con 9.916 tokens de entrada y 108 de salida

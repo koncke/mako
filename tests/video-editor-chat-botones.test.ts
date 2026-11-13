@@ -285,7 +285,8 @@ test('B10: cada una va por el comando de su BOTÓN, y el fondo cuenta como un pa
   assert.match(sinComentarios(leer('app/video-editor/_opencut/core/managers/timeline-manager.ts')), /new DuplicateElementsCommand\(\{ elements \}\)/);
   const apl = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));
   // Del FONDO, no de los ajustes enteros (chat/fondo-proyecto.ts, que corre R3 de tests/video-editor-revision-chat-broll.test.ts).
-  assert.match(apl, /if \(actuales\(\) !== antes \|\| !mismoFondo\(ajustesDe\(\), ajustesAntes\)\) pasos\+\+/, 'un cambio sólo de fondo es un paso');
+  // Por vuelta (12/11/2026: lo encadenado da otra vuelta con su lote): lo de antes de ESE lote.
+  assert.match(apl, /if \(actuales\(\) !== previoLote \|\| !mismoFondo\(ajustesDe\(\), ajustesPrevios\)\) pasos\+\+/, 'un cambio sólo de fondo es un paso');
   assert.match(apl, /despues === antes && !cambiaronAjustes/, 'y no se cuenta como «no se aplicó»');
   assert.match(apl, /a\.ajustes && !mismoFondo\(ajustes\(\), a\.ajustes\.despues\)/, '«Restaurar» no deshace un fondo que cambió otro');
   // Las cinco miradas del editor (pedir, aceptar, el espejo, las propuestas y los agentes) le pasan el fondo a la vista.

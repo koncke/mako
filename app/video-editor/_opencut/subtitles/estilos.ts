@@ -35,6 +35,7 @@ import {
 	DEFAULTS_CLAVES,
 	DEFAULTS_RESALTADO,
 	PARAM_ANIM_PALABRA,
+	PARAM_CLAVES_COLOR,
 	PARAM_CLAVES_TAMANO,
 	PARAM_NO_DICHAS_OPACIDAD,
 	PARAM_RESALTAR,
@@ -78,6 +79,8 @@ export type PlantillaSubtitulo = {
 	animPalabra?: "pop" | "crecer";
 	/** El tamaño de las palabras clave, en % (100 = igual). */
 	clavesTamano?: number;
+	/** El color de las palabras clave (sin esto, el que ya tienen). */
+	clavesColor?: string;
 };
 
 export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
@@ -284,6 +287,19 @@ export const PLANTILLAS_SUBTITULO: PlantillaSubtitulo[] = [
 		mayusculas: true,
 		sombra: true,
 	},
+	{
+		// «La palabra clave gigante» (lib/video-recetas.ts, 12/11/2026): subtítulos chicos en una letra con serifa blanca, y
+		// la palabra que pesa de cada frase en la MISMA letra y color, al tope del editor (160 %). La receta la aplica sola.
+		id: "palabra-gigante",
+		nombre: "Palabra gigante",
+		fuente: "Playfair Display",
+		negrita: true,
+		color: "#ffffff",
+		escala: 0.85,
+		sombra: true,
+		clavesTamano: 160,
+		clavesColor: "#ffffff",
+	},
 ];
 
 export const PLANTILLA_POR_DEFECTO = PLANTILLAS_SUBTITULO[0];
@@ -347,6 +363,7 @@ export function paramsDePlantilla(
 		[PARAM_CLAVES_TAMANO]: plantilla.clavesTamano ?? DEFAULTS_CLAVES.tamano,
 	};
 	if (plantilla.resaltado) params[PARAM_RESALTAR_COLOR] = plantilla.resaltado.color;
+	if (plantilla.clavesColor) params[PARAM_CLAVES_COLOR] = plantilla.clavesColor;
 	if (plantilla.trazo) {
 		params[TEXTO.trazoColor] = plantilla.trazo.color;
 		params[TEXTO.trazoGrosor] = plantilla.trazo.grosor;

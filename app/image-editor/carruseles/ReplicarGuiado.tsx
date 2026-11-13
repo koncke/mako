@@ -30,8 +30,8 @@ import { ancla } from '@/app/_ui/guia/ancla';
 import { cerrarGuia, registrarGuia, senalar, soltarGuia } from '@/app/_ui/guia/store';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import {
-  escribir as escribirEnElGuiado, pasoDe, pedidoDelGuiado, preguntaDe, responder, seguir as seguirGuiado,
-  type HechosGuiado, type OfertaElegible, type PedidoGuiado, type RespuestasGuiado,
+  escribir as escribirEnElGuiado, opcionesParaRehacer, pasoDe, pedidoDelGuiado, preguntaDe, rehacerCon, resumenDe, respuestasPorDefecto,
+  responder, seguir as seguirGuiado, type HechosGuiado, type OfertaElegible, type PedidoGuiado, type Rehacer, type RespuestasGuiado,
 } from '@/lib/carruseles/guiado';
 import { imagenesDe, type Carrusel } from '@/lib/carruseles/explorar';
 import type { Boton } from '@/lib/aperturas/reglas';
@@ -57,6 +57,9 @@ export type Guiado = {
   pedido: PedidoGuiado | null;
   /** Se volvió del armado: las preguntas quedan como estaban, sin el «listo». */
   volverDelArmado: () => void;
+  /** Lo que se puede cambiar DESPUÉS de armar (otra oferta, la foto, los colores): cada una rehace la pieza. */
+  opciones?: readonly Rehacer[];
+  rehacer?: (valor: string) => void;
 };
 
 /** Cuántas láminas tiene el ejemplo, para preguntar y para el resumen: un anuncio es una. */
@@ -83,16 +86,24 @@ export function useGuiado(c: Carrusel | null, base: BaseGuiado): Guiado | null {
     laminas: laminasDe(c), creador: c.creador.usuario ? `@${c.creador.usuario}` : c.creador.nombre,
     ofertas: base.ofertas, persona: lectura.persona, leyendo: lectura.leyendo, fotos: base.fotos, kit: base.kit,
   } : null), [c, base, lectura]);
-  const [r, setR] = useState<RespuestasGuiado>({});
+  // SIN PREGUNTAR (12/11/2026, memoria `replicar-deja-todo-escrito`): «Editar» arranca a escribir con lo de por defecto (la oferta
+  // principal, su cara de marca, sólo los textos) y lo demás se cambia DESPUÉS, al lado del resultado. Las preguntas quedan para
+  // «Cambiar algo».
+  const [r, setR] = useState<RespuestasGuiado>(() => respuestasPorDefecto(base));
   // Otro carrusel es otro guiado: lo contestado no viaja de uno al otro.
-  useEffect(() => { setR({}); }, [id]);
+  useEffect(() => { setR(respuestasPorDefecto(base)); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps -- `base` llega con la página
   const elegir = useCallback((b: Boton<never>) => setR((x) => (hechos ? responder(hechos, x, b) : x)), [hechos]);
   const escribir = useCallback((t: string) => setR((x) => (hechos ? escribirEnElGuiado(hechos, x, t) : x)), [hechos]);
   const seguir = useCallback(() => setR(seguirGuiado), []);
   const volverDelArmado = useCallback(() => setR((x) => ({ ...x, listo: false })), []);
-  const pedido = useMemo(() => (hechos ? pedidoDelGuiado(hechos, r) : null), [hechos, r]);
-  return useMemo(() => (c && hechos ? { c, hechos, r, elegir, escribir, seguir, pedido, volverDelArmado } : null),
-    [c, hechos, r, elegir, escribir, seguir, pedido, volverDelArmado]);
+  const rehacer = useCallback((valor: string) => setR((x) => (hechos ? rehacerCon(hechos, x, valor) : x)), [hechos]);
+  const opciones = useMemo(() => (hechos ? opcionesParaRehacer(hechos, r) : []), [hechos, r]);
+  // El pedido se congela por su VALOR: que termine la lectura (cambia `hechos`) no puede reiniciar un armado que ya corre.
+  const crudo = useMemo(() => (hechos ? pedidoDelGuiado(hechos, r) : null), [hechos, r]);
+  const clave = JSON.stringify(crudo);
+  const pedido = useMemo(() => crudo, [clave]); // eslint-disable-line react-hooks/exhaustive-deps -- la clave ES el valor
+  return useMemo(() => (c && hechos ? { c, hechos, r, elegir, escribir, seguir, pedido, volverDelArmado, opciones, rehacer } : null),
+    [c, hechos, r, elegir, escribir, seguir, pedido, volverDelArmado, opciones, rehacer]);
 }
 
 const QUIEN = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
@@ -126,10 +137,14 @@ export function ChatReplica({ g, volver }: { g: Guiado; volver: ReactNode }) {
   // Con lo nuevo, el hilo baja (como cualquier chat).
   useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [g.r.charla?.length, paso]);
   // El saludo: qué se va a hacer y con cuántas láminas, antes de la primera pregunta (no se guarda: nada de esto se guarda).
+  // Arrancando solo (12/11/2026), el saludo dice qué está haciendo y con qué, y que se cambia al lado del resultado.
+  const hecho = g.r.porDefecto ? resumenDe(g.hechos, g.r) : null;
   const saludo = useMemo<ItemHilo[]>(() => [{
     k: 'msg', id: 'replica-saludo', role: 'assistant', at: null,
-    texto: `Vamos a hacer tu versión del carrusel de ${g.hechos.creador} (${g.hechos.laminas === 1 ? 'una lámina' : `${g.hechos.laminas} láminas`}). Antes, unas preguntas cortas.`,
-  }], [g.hechos.creador, g.hechos.laminas]);
+    texto: hecho
+      ? `Hago tu versión del carrusel de ${g.hechos.creador}: ${hecho.replace(/^./, (x) => x.toLowerCase())} Si quieres otra oferta, otra foto o tus colores, lo cambias al lado del resultado.`
+      : `Vamos a hacer tu versión del carrusel de ${g.hechos.creador} (${g.hechos.laminas === 1 ? 'una lámina' : `${g.hechos.laminas} láminas`}). Antes, unas preguntas cortas.`,
+  }], [g.hechos.creador, g.hechos.laminas, hecho]);
   const mandar = () => { const t = texto.trim(); if (!t) return; g.escribir(t); setTexto(''); };
   const linea = paso === 'leyendo' ? 'Miro sus láminas para ver si tiene una persona…'
     : g.r.escribiendo ? 'Lo que escribas es tu respuesta.'
@@ -187,7 +202,11 @@ export function ReplicarGuiado({ g, onSalir }: { g: Guiado; onSalir: () => void 
         {imagenes.length === 1 && (g.c.laminas ?? 0) > 1 ? <p className={s.aviso}>Tiene {g.c.laminas} láminas; todavía sólo está guardada la portada.</p> : null}
       </div>
       {/* Todas, también las rotas: el armado pone cada original AL LADO de su lámina, y sacar una del medio correría el par. */}
-      {armando ? <EditarCarrusel key={`${g.c.id}:armado`} carrusel={g.c} guiado={g.pedido} originales={todas} onCerrar={g.volverDelArmado} /> : null}
+      {/* Cada «rehacer» es otra vuelta: otra llave, otro armado entero con el cambio. */}
+      {armando ? (
+        <EditarCarrusel key={`${g.c.id}:armado:${g.r.vuelta ?? 0}`} carrusel={g.c} guiado={g.pedido} originales={todas} onCerrar={g.volverDelArmado}
+          resumen={resumenDe(g.hechos, g.r)} rehacer={(g.opciones ?? []).map((o) => ({ rotulo: o.rotulo, alElegir: () => g.rehacer?.(o.valor) }))} />
+      ) : null}
     </div>
   );
 }

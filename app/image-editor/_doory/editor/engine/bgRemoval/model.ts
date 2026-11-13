@@ -53,8 +53,17 @@ function triple(value: unknown, ok: (n: number) => boolean): [number, number, nu
   return [numbers[0] as number, numbers[1] as number, numbers[2] as number]
 }
 
+/**
+ * MaKo (12/11/2026): el ÚNICO origen ajeno que se acepta es un archivo de Hugging Face FIJADO A UN COMMIT
+ * (`https://huggingface.co/<org>/<repo>/resolve/<40 hex>/…`). El Cerebro pidió prender «Quitar fondo» sin alojar el modelo
+ * nosotros (subir a Storage de producción necesita el sí de Martín): el navegador lo baja de ahí, y el sha256 del descriptor lo
+ * verifica igual (./modelStore.ts → `verified`) antes de que llegue al runtime. Una rama (`main`) no: puede cambiar debajo.
+ */
+const HUGGING_FACE_FIJADO = /^https:\/\/huggingface\.co\/[\w.-]+\/[\w.-]+\/resolve\/[0-9a-f]{40}\/[\w./-]+\.onnx$/
+
 function sameOriginUrl(raw: unknown, origin: string): string | null {
   if (typeof raw !== 'string' || raw.length === 0 || raw.length > 2048) return null
+  if (HUGGING_FACE_FIJADO.test(raw) && !raw.includes('..')) return raw
   try {
     const url = new URL(raw, origin)
     if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.origin !== new URL(origin).origin) return null

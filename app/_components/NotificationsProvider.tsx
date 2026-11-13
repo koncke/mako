@@ -65,9 +65,9 @@ export function useNotifications(): NotifCtx {
 // un fetch y un decode de audio en cada carga de la app para algo que ya no se
 // reproduce. El .mp3 sigue en `public/` y no lo pide nadie.
 //
-// Lo que SÍ suena es la plantilla de WhatsApp resuelta (aprobada o rechazada), con
-// los acordes de `playChord`: es un evento puntual que se espera, no uno que se
-// repite con cada mensaje que entra.
+// ⚠️ Y el 12/11/2026 se fue el aviso de la plantilla de WhatsApp resuelta (aprobada o
+// rechazada), con su sondeo cada 30 s: no podía salir nunca (ver más abajo, donde estaba).
+// Lo único que suena hoy es el aviso de PRUEBA de Configuraciones › Notificaciones.
 let _audioCtx: AudioContext | null = null;
 
 function ctxOf(): AudioContext | null {
@@ -106,9 +106,8 @@ function playChord(notas: Array<[number, number]>, tipo: OscillatorType = 'trian
     }
   } catch { /* sin audio */ }
 }
-// Aprobada: chime ascendente alegre (do-mi-sol). Rechazada: dos notas descendentes.
+// Chime ascendente (do-mi-sol): el del aviso de prueba.
 function playApproval() { playChord([[660, 0], [880, 0.12], [1175, 0.24]]); }
-function playRejected() { playChord([[440, 0], [311, 0.18]], 'sine'); }
 
 const initials = (name: string): string => iniciales(name, 2, '·');
 
@@ -135,7 +134,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname() || '';
   const [toast, setToast] = useState<{ gid: string; nombre: string; prueba?: boolean } | null>(null);
-  const [tplToast, setTplToast] = useState<{ tipo: 'ok' | 'rej'; name: string; motivo?: string } | null>(null);
   const [noOficialUnread, setNoOficialUnread] = useState(0);
   const [inApp, setInApp] = useState<NotifInApp | null>(null);
   // Los pollings se montan una sola vez (deps []); leen las preferencias por ref
@@ -144,7 +142,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   inAppRef.current = inApp;
   const prefsPedidasRef = useRef(false);
   const dejaVer = (id: string) => inAppActivo(inAppRef.current, id, 'popup');
-  const dejaSonar = (id: string) => inAppActivo(inAppRef.current, id, 'sonido');
   const noOfSnapRef = useRef<Map<string, number>>(new Map());   // chatJid → última actividad (ms) vista
   const noOfLeidoRef = useRef<Map<string, number>>(new Map());  // chatJid → leído hasta (ms)
   const noOfConvsRef = useRef<ConvNoOf[]>([]);                  // última lista (para recomputar unread)
@@ -152,12 +149,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const noOfBaselineRef = useRef(false);
 
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tickRef = useRef(0);
-  // Estado de plantillas en Meta: para avisar cuando una se aprueba/rechaza.
-  const approvedSnapRef = useRef<Set<string>>(new Set());
-  const rejectedSnapRef = useRef<Set<string>>(new Set());
-  const tplBaselineRef = useRef(false);
-  const tplToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathRef = useRef(pathname);
   pathRef.current = pathname;
   // En el TELÉFONO no corre nada de esto: con LAS MISMAS RUTAS (13/10/2026) el teléfono ve /m en la
@@ -207,11 +198,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     // en esa línea, y si no está todavía NO abre otro (la trampa del ?lead= de la bandeja vieja).
     const linea = noOfConvsRef.current.find((c) => c.chatJid === chatJid)?.linea ?? null;
     router.push(rutaChatsDeWhatsapp(linea, chatJid, Date.now()));
-  };
-
-  const goToPlantilla = (name: string) => {
-    setTplToast(null);
-    router.push(`/automations?stab=plantillas&tpl=${encodeURIComponent(name)}&n=${Date.now()}`);
   };
 
   // Preferencias de pop-up/sonido de esta persona. Se recargan cuando las guarda
@@ -266,62 +252,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('pointerdown', unlock);
   }, []);
 
-  // Plantillas: detecta aprobaciones/rechazos en Meta y avisa (sonido + pop-up).
-  const checkTemplates = async () => {
-    try {
-      const r = await fetch('/api/whatsapp/templates/status');
-      const j = await r.json();
-      if (!j.ok) return;
-      const tpls = j.templates as Array<{ name: string; status: string; motivo?: string | null }>;
-      const aprobadas = new Set(tpls.filter((t) => t.status === 'approved').map((t) => t.name));
-      const rechazadas = new Set(tpls.filter((t) => t.status === 'rejected').map((t) => t.name));
-      if (!tplBaselineRef.current) {
-        approvedSnapRef.current = aprobadas;
-        rejectedSnapRef.current = rechazadas;
-        tplBaselineRef.current = true;
-        return; // primera vez: sólo sembramos baseline, no notificamos
-      }
-      let nuevaOk: string | null = null;
-      for (const n of aprobadas) if (!approvedSnapRef.current.has(n)) nuevaOk = n;
-      let nuevaRej: string | null = null;
-      for (const n of rechazadas) if (!rejectedSnapRef.current.has(n)) nuevaRej = n;
-      approvedSnapRef.current = aprobadas;
-      rejectedSnapRef.current = rechazadas;
-      const mostrar = (tipo: 'ok' | 'rej', name: string, motivo?: string) => {
-        setTplToast({ tipo, name, motivo });
-        if (tplToastTimerRef.current) clearTimeout(tplToastTimerRef.current);
-        // el rechazo se queda 9s (hay que leer el motivo); la aprobación 6s.
-        tplToastTimerRef.current = setTimeout(esperarPausa(() => setTplToast(null)), tipo === 'rej' ? 9000 : 6000);
-      };
-      const suena = dejaSonar('wa-plantilla');
-      const seVe = dejaVer('wa-plantilla');
-      if (nuevaOk) { if (suena) playApproval(); if (seVe) mostrar('ok', nuevaOk); }
-      else if (nuevaRej) {
-        if (suena) playRejected();
-        if (seVe) mostrar('rej', nuevaRej, tpls.find((t) => t.name === nuevaRej)?.motivo ?? undefined);
-      }
-    } catch { /* ignore */ }
-  };
-
-  // Status de las plantillas de Meta: siembra al montar y después ~cada 30s.
-  // ⚠️ Pendiente de la segunda tanda del retiro de Chatwoot: las plantillas leen la cuenta de
-  // WhatsApp Business del inbox de Chatwoot (lib/meta-templates.ts → getWabaConfig), así que
-  // con Chatwoot fuera esta ruta contesta vacío. Se va con las plantillas.
-  useEffect(() => {
-    const tick = () => {
-      if (pathRef.current.startsWith('/login') || isPublicLandingPath(pathRef.current)) return; // sin sesión / landing pública: no polleamos
-      // ⚠️ En MaKo Mobile (/m) tampoco: el teléfono no tiene a dónde llevar el aviso
-      // (las plantillas viven en Automations, que es de escritorio), y un poll cada 6 s
-      // es batería y datos móviles para nada. Lo que importa allá llega por el Inbox y
-      // por push. Por `esRutaMovil`, nunca `startsWith('/m')` (atrapa /mako y /marketing).
-      if (enMovil(pathRef.current)) return;
-      tickRef.current += 1;
-      if (tickRef.current === 1 || tickRef.current % 5 === 0) void checkTemplates();
-    };
-    const iv = setInterval(tick, 6000);
-    return () => clearInterval(iv);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ⛔ ACÁ ESTABA EL SONDEO DE LAS PLANTILLAS DE META (`/api/whatsapp/templates/status`, cada 30 s
+  // con un reloj de 6 s, también con la pestaña oculta) y su aviso «Plantilla aprobada/rechazada».
+  // Se fueron el 12/11/2026: no podían salir NUNCA. La ruta leía la cuenta de WhatsApp Business del
+  // inbox de Chatwoot (lib/meta-templates.ts → getWabaConfig), que tira desde que Chatwoot se borró
+  // el 09/10/2026: con WhatsApp conectado contestaba 500, sin él una lista vacía. Eran 120 funciones
+  // de Vercel por hora por pestaña para nada. Si las plantillas vuelven con una cuenta propia de
+  // Meta, el aviso vuelve por `sondearALaVista`. docs/hallazgos-ui.md.
 
   // Polling del número de WhatsApp (Evolution): toast + badge para mensajes nuevos entrantes.
   // ⚠️ Cada 30 s y SÓLO con la pestaña a la vista (lib/sondeo-a-la-vista.ts). Era un
@@ -405,33 +342,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           </span>
         </AvisoArriba>
       )}
-      {!isPublicLandingPath(pathname) && !enMovil(pathname) && tplToast && (
-        <AvisoArriba onAbrir={() => goToPlantilla(tplToast.name)} onCerrar={() => setTplToast(null)}
-          estilo={{
-            position: 'fixed', top: toast ? 92 : 18, right: 18, zIndex: 2000, maxWidth: 340,
-            display: 'flex', alignItems: 'center', gap: 11, padding: '12px 14px', borderRadius: 14,
-            border: `1px solid ${tplToast.tipo === 'ok' ? 'var(--good)' : 'var(--bad)'}`, background: 'var(--surface)',
-            boxShadow: '0 16px 44px rgba(23,21,17,.28)', cursor: 'pointer', textAlign: 'left',
-            fontFamily: "'Geist', sans-serif", animation: 'mako-toast-in .22s ease-out',
-          }}
-        >
-          <style>{'@keyframes mako-toast-in{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}'}</style>
-          <span style={{ width: 38, height: 38, flex: 'none', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 18, background: tplToast.tipo === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: tplToast.tipo === 'ok' ? 'var(--good)' : 'var(--bad)' }}>
-            {tplToast.tipo === 'ok' ? '✓' : '✕'}
-          </span>
-          <span style={{ minWidth: 0 }}>
-            <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{tplToast.tipo === 'ok' ? 'Plantilla aprobada' : 'Plantilla rechazada'}</span>
-            <span style={{ display: 'block', fontSize: 12, color: 'var(--ink)', fontFamily: "'Geist Mono', monospace", whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 270 }}>{tplToast.name}</span>
-            <span style={{ display: 'block', fontSize: 12, color: 'var(--dim)', marginTop: 2, lineHeight: 1.35, maxWidth: 270 }}>{tplToast.tipo === 'rej' && tplToast.motivo ? tplToast.motivo : 'ver →'}</span>
-          </span>
-        </AvisoArriba>
-      )}
     </Ctx.Provider>
   );
 }
 
 /**
- * Un aviso de arriba a la derecha (un mensaje de WhatsApp, una plantilla), 24/10/2026: tocarlo abre lo suyo; la ✕ lo cierra;
+ * Un aviso de arriba a la derecha (un mensaje de WhatsApp, o el de prueba), 24/10/2026: tocarlo abre lo suyo; la ✕ lo cierra;
  * deslizarlo de costado lo descarta; con el mouse encima no se va solo (app/_ui/descartar.tsx). Martín: «tengo que esperar a que se
  * vayan para apretar el botón de atrás». Es un `div` con rol de botón: adentro va la ✕, y un botón no puede tener otro adentro.
  */

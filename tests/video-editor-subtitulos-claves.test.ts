@@ -346,7 +346,7 @@ test('6d2: una plantilla de la galería de fábrica («estilo Hormozi») por cha
   assert.deepEqual(revisar([{ op: 'usar_preset_subtitulos', preset: 'hormozi-clasico' }]).resueltas, [{ op: 'usar_plantilla_subtitulos', plantilla: 'hormozi-clasico' }]);
   // La IA ve la galería, siempre, con lo que hace cada una.
   const json = vistaDeLinea({ tracks: escena(), tps: TPS, cabezal: 0, elegidos: [], disponibles: disponiblesDelMotor() }).json;
-  assert.match(json, /"plantillas_subtitulos":\{[^}]*"hormozi":"Hormozi: Anton, mayúsculas, contorno #ffe14d, la palabra salta"/);
+  assert.match(json, /"plantillas_subtitulos":\{[^}]*"hormozi":"Hormozi: Anton, mayúsculas, contorno #ffe14d, la palabra salta, palabras clave al 120 %"/);
   assert.match(catalogoParaPrompt(), /«estilo Hormozi» es "hormozi"/);
   // Se aplica con lo MISMO que la tarjeta del panel.
   const aplicar = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));

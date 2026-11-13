@@ -17,23 +17,21 @@ test('sin preferencias cargadas todo se ve y suena', () => {
 });
 
 test('el interruptor general apaga todo sin borrar el ajuste de cada uno', () => {
-  // ⚠️ El ejemplo es `wa-plantilla` y no `wa-mensaje`: el mensaje de WhatsApp DEJÓ
-  // DE SONAR el 27/09/2026 (tanda 3 de la fricción del CRM), así que su `sonido`
-  // queda forzado en false por el catálogo y ya no sirve para probar que el
-  // interruptor general no pisa el ajuste individual. La plantilla resuelta sí suena:
-  // es un evento puntual que se espera, no uno con cada mensaje que entra.
-  const p = normalizarInApp({ sonido: false });
-  assert.equal(inAppActivo(p, 'wa-plantilla', 'sonido'), false);
-  assert.equal(inAppActivo(p, 'wa-plantilla', 'popup'), true, 'el pop-up es independiente del sonido');
+  // ⚠️ Con el POP-UP, no con el sonido: hasta el 12/11/2026 el ejemplo era el sonido de
+  // `wa-plantilla`, el único aviso que sonaba, y se fue del catálogo (no podía salir nunca).
+  // El de `wa-mensaje` está forzado en false desde el 27/09/2026. La regla es la misma.
+  const p = normalizarInApp({ popup: false });
+  assert.equal(inAppActivo(p, 'wa-mensaje', 'popup'), false);
   // El ajuste individual sigue en true: al volver a prender el general, vuelve.
-  assert.equal(p.items['wa-plantilla'].sonido, true);
+  assert.equal(p.items['wa-mensaje'].popup, true);
+  assert.equal(inAppActivo({ ...p, popup: true }, 'wa-mensaje', 'popup'), true);
 });
 
-test('se puede apagar el sonido de UNA notificación y dejar su pop-up', () => {
-  const p = normalizarInApp({ items: { 'wa-mensaje': { sonido: false } } });
-  assert.equal(inAppActivo(p, 'wa-mensaje', 'sonido'), false);
-  assert.equal(inAppActivo(p, 'wa-mensaje', 'popup'), true);
-  assert.equal(inAppActivo(p, 'wa-plantilla', 'sonido'), true, 'no toca a las demás');
+test('se puede apagar el pop-up de UNA notificación sin tocar a las demás', () => {
+  const p = normalizarInApp({ items: { 'wa-mensaje': { popup: false } } });
+  assert.equal(inAppActivo(p, 'wa-mensaje', 'popup'), false);
+  // Un id sin ajuste propio queda prendido: el apagado es por notificación, no general.
+  assert.equal(inAppActivo(p, 'otro-aviso', 'popup'), true, 'no toca a las demás');
 });
 
 test('lo que nunca suena queda en false aunque venga true de la base', () => {

@@ -62,7 +62,7 @@ import { NO_ENCONTRE, textoSinSilencios } from "@/app/video-editor/_opencut/audi
 import { NORMALIZAR_OBJETIVO } from "@/app/video-editor/_opencut/audio/claves";
 import type { ClipConAudio } from "@/app/video-editor/_opencut/audio/decodificar";
 import { loadFonts } from "@/app/video-editor/_opencut/fonts/google-fonts";
-import { revisarOperaciones, vistaDeLinea, type OperacionResuelta } from "./linea";
+import { revisarOperaciones, VUELTAS_ENCADENADAS, vistaDeLinea, type OperacionResuelta } from "./linea";
 import { armarLote, esLarga, type OperacionLarga } from "./comandos";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import type { ProgresoChat } from "./armado";
@@ -182,7 +182,7 @@ async function correrLarga(
 		// El MISMO de la sección «B-roll de MaKo»: propone, y la persona deja o saca cada uno en la línea de tiempo.
 		const hecho = await proponerBroll(editor, { ritmo: r.ritmo, planos: r.planos, medio: r.videos ? "videos" : "fotos" });
 		if (!hecho.ok) return [textoDeBroll(hecho)];
-		const avisos = [hecho.aviso, hecho.faltaPexels ? avisoFaltaPexels(r.videos ? "videos" : "fotos") : null].filter((x): x is string => !!x);
+		const avisos = [hecho.aviso, hecho.faltaPexels ? avisoFaltaPexels(r.videos ? "videos" : "fotos", hecho.propios ?? 0) : null].filter((x): x is string => !!x);
 		return avisos;
 	}
 	if (r.op === "cambiar_broll") {
@@ -319,65 +319,108 @@ export async function aceptarPropuesta(
 		medios: datos.medios,
 		fondo: datos.fondo,
 	});
-	const { resueltas, descartes } = revisarOperaciones({ operaciones: p.operaciones, vista, alcance: p.alcance, transcripcion: datos.transcripcion });
+	const { resueltas, descartes, encadenadas } = revisarOperaciones({ operaciones: p.operaciones, vista, alcance: p.alcance, transcripcion: datos.transcripcion });
 	if (!resueltas.length) return { ok: false, error: noSeAplica(descartes[0], "Ya no hay nada que cambiar") };
 
-	// 3. Un paso de deshacer para lo que se arma en el momento.
-	const lote = armarLote(resueltas, { idioma: datos.transcripcion.idioma });
-	const largas = resueltas.filter(esLarga);
 	const actuales = () => editor.scenes.getActiveSceneOrNull()?.tracks;
 	// El fondo del lienzo vive en los ajustes del proyecto, no en las pistas: cambiarlo también es un paso. Sólo el FONDO
 	// (./fondo-proyecto.ts): los fps que sube un archivo nuevo no son del chat ni están en el historial.
 	const ajustesDe = () => editor.project.getActiveOrNull()?.settings;
 	const ajustesAntes = ajustesDe();
 	let pasos = 0;
-	if (lote.comandos.length) {
-		const comandos = lote.comandos;
-		editor.command.execute({ command: comandos.length === 1 ? comandos[0] : new BatchCommand(comandos) });
-		if (actuales() !== antes || !mismoFondo(ajustesDe(), ajustesAntes)) pasos++;
-		for (const { que, comando } of lote.cortes) {
-			const hecho = comando.resumen();
-			if (!hecho) descartes.push(`no se cortó ${que}`);
-			else if (hecho.sinClip) descartes.push(`${hecho.sinClip === 1 ? "un tramo" : `${hecho.sinClip} tramos`} de ${que} sin video debajo`);
-		}
-		// Un reemplazo que al ejecutarse no entró (el video no alcanzaba, el medio ya no estaba)
-		// no cambia nada y no avisa: se mira si el clip quedó con el medio pedido (el último, si hubo varios).
-		const reemplazos = new Map<string, Extract<OperacionResuelta, { op: "reemplazar_clip" }>>();
-		for (const r of resueltas) if (r.op === "reemplazar_clip") reemplazos.set(r.el.elementId, r);
-		const ahora = actuales();
-		for (const r of reemplazos.values()) {
-			const clip = ahora ? buscarClip(ahora, { trackId: r.el.trackId, elementId: r.el.elementId }) : null;
-			if (clip?.element.mediaId !== r.mediaId) descartes.push(`no se pudo reemplazar ${r.el.titulo}`);
-		}
-	}
 
-	// 4. Lo que tarda, después y aparte: cada uno con su paso.
-	for (const r of largas) {
-		const previo = actuales();
-		if (r.op === "edicion_automatica") {
-			// Los agentes (enjambre/correr.ts) dejan su propio registro a la vista y cuentan cuántos pasos del historial
-			// dejaron: «Restaurar» los deshace todos. Se carga al usarse: la edición automática usa este mismo «Aceptar».
-			try {
-				const { correrEnjambre } = await import("@/app/video-editor/_opencut/enjambre/correr");
-				const hecho = await correrEnjambre(editor, { desdeElChat: true });
-				if (!hecho.ok) descartes.push(hecho.texto.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase()));
-				else {
-					if (hecho.pasos) pasos += hecho.pasos;
-					else descartes.push(hecho.detenido ? "se detuvo antes de cambiar algo" : "los agentes no encontraron nada que cambiar");
-					// Lo que la persona hizo mientras trabajaban queda mezclado en esos pasos: «Restaurar» también lo desharía.
-					if (hecho.pasos && hecho.tocado) descartes.push("tocaste el editor mientras trabajaban: «Restaurar» desharía también lo tuyo; mejor Ctrl+Z");
-				}
-			} catch (error) {
-				console.error("[edición automática]", error);
-				descartes.push("la edición automática se cortó por un error");
+	// 3 y 4, en una vuelta: el lote y lo que tarda. Se repite con lo ENCADENADO (5).
+	const aplicarVuelta = async (resueltas: OperacionResuelta[], idioma: string) => {
+		// 3. Un paso de deshacer para lo que se arma en el momento.
+		const lote = armarLote(resueltas, { idioma });
+		const largas = resueltas.filter(esLarga);
+		if (lote.comandos.length) {
+			const comandos = lote.comandos;
+			const previoLote = actuales();
+			const ajustesPrevios = ajustesDe();
+			editor.command.execute({ command: comandos.length === 1 ? comandos[0] : new BatchCommand(comandos) });
+			if (actuales() !== previoLote || !mismoFondo(ajustesDe(), ajustesPrevios)) pasos++;
+			for (const { que, comando } of lote.cortes) {
+				const hecho = comando.resumen();
+				if (!hecho) descartes.push(`no se cortó ${que}`);
+				else if (hecho.sinClip) descartes.push(`${hecho.sinClip === 1 ? "un tramo" : `${hecho.sinClip} tramos`} de ${que} sin video debajo`);
 			}
-			continue;
+			// Un reemplazo que al ejecutarse no entró (el video no alcanzaba, el medio ya no estaba)
+			// no cambia nada y no avisa: se mira si el clip quedó con el medio pedido (el último, si hubo varios).
+			const reemplazos = new Map<string, Extract<OperacionResuelta, { op: "reemplazar_clip" }>>();
+			for (const r of resueltas) if (r.op === "reemplazar_clip") reemplazos.set(r.el.elementId, r);
+			const ahora = actuales();
+			for (const r of reemplazos.values()) {
+				const clip = ahora ? buscarClip(ahora, { trackId: r.el.trackId, elementId: r.el.elementId }) : null;
+				if (clip?.element.mediaId !== r.mediaId) descartes.push(`no se pudo reemplazar ${r.el.titulo}`);
+			}
 		}
-		const avisos = await correrLarga(editor, r, op.alProgreso);
-		descartes.push(...avisos);
-		if (actuales() !== previo) pasos++;
-		else if (!avisos.length) descartes.push(`no se pudo ${QUE_NO_SE_PUDO[r.op]}${"el" in r ? ` ${r.el.titulo}` : ""}`);
+
+		// 4. Lo que tarda, después y aparte: cada uno con su paso.
+		for (const r of largas) {
+			const previo = actuales();
+			if (r.op === "edicion_automatica") {
+				// Los agentes (enjambre/correr.ts) dejan su propio registro a la vista y cuentan cuántos pasos del historial
+				// dejaron: «Restaurar» los deshace todos. Se carga al usarse: la edición automática usa este mismo «Aceptar».
+				try {
+					const { correrEnjambre } = await import("@/app/video-editor/_opencut/enjambre/correr");
+					const hecho = await correrEnjambre(editor, { desdeElChat: true });
+					if (!hecho.ok) descartes.push(hecho.texto.replace(/\.$/, "").replace(/^./, (c) => c.toLowerCase()));
+					else {
+						if (hecho.pasos) pasos += hecho.pasos;
+						else descartes.push(hecho.detenido ? "se detuvo antes de cambiar algo" : "los agentes no encontraron nada que cambiar");
+						// Lo que la persona hizo mientras trabajaban queda mezclado en esos pasos: «Restaurar» también lo desharía.
+						if (hecho.pasos && hecho.tocado) descartes.push("tocaste el editor mientras trabajaban: «Restaurar» desharía también lo tuyo; mejor Ctrl+Z");
+					}
+				} catch (error) {
+					console.error("[edición automática]", error);
+					descartes.push("la edición automática se cortó por un error");
+				}
+				continue;
+			}
+			const avisos = await correrLarga(editor, r, op.alProgreso);
+			descartes.push(...avisos);
+			if (actuales() !== previo) pasos++;
+			else if (!avisos.length) descartes.push(`no se pudo ${QUE_NO_SE_PUDO[r.op]}${"el" in r ? ` ${r.el.titulo}` : ""}`);
+		}
+	};
+	await aplicarVuelta(resueltas, datos.transcripcion.idioma);
+
+	// 5. Lo ENCADENADO (linea.ts → `Revision.encadenadas`): lo que dependía de lo que creó esta vuelta —el estilo y las
+	// palabras clave de los subtítulos recién generados, los silencios de la toma recién puesta— se revisa contra la línea
+	// de AHORA y se aplica, con sus pasos (así «Restaurar» lo deshace todo junto). Una receta replicada sale en UN pedido.
+	let pendientes = encadenadas ?? [];
+	for (let vuelta = 0; pendientes.length && vuelta < VUELTAS_ENCADENADAS; vuelta++) {
+		const enLaLinea = enSuLugar();
+		if ("error" in enLaLinea) {
+			descartes.push("cambiaste de proyecto o de escena antes de terminar: lo que seguía no se aplicó");
+			pendientes = [];
+			break;
+		}
+		const datosAhora = datosDeLinea(editor, enLaLinea.escena.tracks);
+		const otra = revisarOperaciones({
+			operaciones: pendientes,
+			vista: vistaDeLinea({
+				tracks: enLaLinea.escena.tracks,
+				tps: TICKS_PER_SECOND,
+				cabezal: 0,
+				elegidos: p.elegidos,
+				refsPrevias: p.refsPorId,
+				disponibles,
+				lienzo: datosAhora.lienzo,
+				mediosSinAudio: datosAhora.mediosSinAudio,
+				conPalabras: datosAhora.conPalabras,
+				medios: datosAhora.medios,
+				fondo: datosAhora.fondo,
+			}),
+			alcance: p.alcance,
+			transcripcion: datosAhora.transcripcion,
+		});
+		descartes.push(...otra.descartes);
+		if (otra.resueltas.length) await aplicarVuelta(otra.resueltas, datosAhora.transcripcion.idioma);
+		pendientes = otra.encadenadas ?? [];
 	}
+	if (pendientes.length) descartes.push("quedó algo para un pedido aparte: dependía de otro paso que no terminó");
 	const despues = actuales();
 	const ajustesDespues = ajustesDe();
 	const cambiaronAjustes = !!ajustesAntes && !!ajustesDespues && !mismoFondo(ajustesAntes, ajustesDespues);

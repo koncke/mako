@@ -64,13 +64,20 @@ const FASES_MINIATURA = [
   { id: 'armar', texto: 'Armo el diseño editable' },
 ] as const;
 
-export function EditarCarrusel({ carrusel = null, thumbnail = null, guiado = null, originales = null, onCerrar }: {
+export function EditarCarrusel({ carrusel = null, thumbnail = null, guiado = null, originales = null, onCerrar, resumen = null, rehacer = [] }: {
   carrusel?: Carrusel | null; thumbnail?: Thumbnail | null;
   /** Lo que contestó el dueño en el guiado: viaja a la ruta, y con él no se abre el editor solo. */
   guiado?: PedidoGuiado | null;
   /** Las láminas del original, para mostrar cada una al lado de la suya (sólo con el guiado). */
   originales?: readonly string[] | null;
   onCerrar: () => void;
+  /** Con qué se hizo («6 láminas para «Mentoría», con tu cara de marca…»): va en el encabezado. */
+  resumen?: string | null;
+  /**
+   * Lo que se cambia DESPUÉS (12/11/2026, «Replicar» sin preguntas): otra oferta, la foto, los colores. Al lado de «Abrir el
+   * diseño»; cada una rehace la pieza entera.
+   */
+  rehacer?: ReadonlyArray<{ rotulo: string; alElegir: () => void }>;
 }) {
   const router = useRouter();
   const ej = ejemploDe(carrusel, thumbnail);
@@ -154,11 +161,13 @@ export function EditarCarrusel({ carrusel = null, thumbnail = null, guiado = nul
   const conTira = !(error && !paginas.length);
 
   return (
-    <Modal titulo={fin ? 'Tu versión está lista' : error ? 'No se pudo armar' : 'Armando tu versión'} encabezado={`Del ejemplo de ${quien}`}
+    <Modal titulo={fin ? 'Tu versión está lista' : error ? 'No se pudo armar' : 'Armando tu versión'}
+      encabezado={resumen ? `Del ejemplo de ${quien} · ${resumen}` : `Del ejemplo de ${quien}`}
       onCerrar={() => { corto.current?.abort(); onCerrar(); }} ancho={760}
       pie={fin ? (
         <>
           {fin.conectar ? <LinkIntegracion href={fin.conectar} className={s.secundario}>Conectar mi IA</LinkIntegracion> : null}
+          {rehacer.map((o) => <button key={o.rotulo} type="button" className={s.secundario} onClick={o.alElegir}>{o.rotulo}</button>)}
           <button type="button" className={s.primario} onClick={() => abrir(fin.id)}>Abrir el diseño</button>
         </>
       ) : error ? (

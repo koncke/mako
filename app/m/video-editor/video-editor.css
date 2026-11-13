@@ -66,6 +66,23 @@
 .m-video-editor-escenario [class~="bg-[var(--cc-panel-head)]"],
 .m-video-editor-escenario [data-barra-reproductor] { display: none; }
 
+/* El aviso de los archivos que faltan en este teléfono (ArchivosFaltantes): ENCIMA del reproductor, abajo, que sin
+   ellos queda negro. Los botones son los de Exportar (el grande y el de la barra), con alto para el dedo. */
+.m-video-editor-falta {
+  position: absolute; z-index: 20; left: 12px; right: 12px; bottom: 12px; max-height: calc(100% - 24px); overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px; padding: 14px;
+  border: 1px solid var(--border-strong); border-left: 4px solid var(--warn); border-radius: 12px;
+  background: var(--surface); color: var(--ink); box-shadow: 0 8px 24px rgba(0, 0, 0, .28);
+}
+.m-video-editor-falta__t { margin: 0; font-size: 15px; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
+.m-video-editor-falta__lista { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.m-video-editor-falta__lista li { display: flex; align-items: center; gap: 10px; }
+.m-video-editor-falta__nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.m-video-editor-falta .m-video-editor-exportar { flex: none; min-height: 44px; }
+.m-video-editor-falta button { display: grid; place-items: center; }
+.m-video-editor-falta button:disabled { opacity: .6; cursor: progress; }
+.m-video-editor-falta .mk-spin { border-color: color-mix(in srgb, var(--on-primary) 40%, transparent); border-top-color: var(--on-primary); }
+
 /* El cabezal: el tiempo, la barra para arrastrar y el total. */
 .m-video-editor-cabezal { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 14px 2px 6px; }
 .m-video-editor-play {
@@ -88,6 +105,9 @@
   -webkit-tap-highlight-color: transparent;
 }
 .m-video-editor-clip[aria-pressed="true"] { border-color: var(--primary); }
+/* El clip de la tira cuyo archivo falta: borde punteado en el color de aviso. */
+.m-video-editor-clip[data-falta] { border-style: dashed; border-color: var(--warn); color: var(--warn); }
+.m-video-editor-clip[data-falta][aria-pressed="true"] { border-color: var(--primary); }
 .m-video-editor-clip img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .m-video-editor-clip__seg {
   position: absolute; right: 4px; bottom: 3px; padding: 0 4px; border-radius: 4px;
