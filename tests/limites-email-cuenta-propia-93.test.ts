@@ -59,7 +59,8 @@ test('3. el rango, y quién lo pregunta: el motor, la API, la pantalla y el «po
   assert.match(run, /const prueba = limitesParaGuardar\(nuevo, fabrica, rangoCuenta\);/);
   assert.match(run, /const r = limitesParaGuardar\(payload\.limites, limitesDeFabrica\(process\.env\), await opcionesDeRango\(\)\);/);
   assert.match(fuente('lib/por-que-no-sale-db.ts'), /limitesVigentes\(limitesCrudos, limitesDeFabrica\(process\.env\), await opcionesDeRango\(\)\)/);
-  assert.match(fuente('app/automations/config-automatizacion-actions.ts'), /limitesVigentes\(rawLimites, limitesDeFabrica\(process\.env\), await opcionesDeRango\(\)\)/);
+  const acciones = fuente('app/automations/config-automatizacion-actions.ts');
+  assert.match(acciones, /const cuenta = await opcionesDeRango\(\);\n\s*const limites = limitesVigentes\(rawLimites, limitesDeFabrica\(process\.env\), cuenta\);/);
   // La API deja pasar hasta 2.000: el rango de verdad lo decide el runner.
   assert.match(fuente('lib/api-mako/areas/chatbot.def.ts'), /\{ nombre: 'emailDia', tipo: 'number', entero: true, minimo: 1, maximo: 2000,/);
 });
