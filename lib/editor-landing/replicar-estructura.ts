@@ -192,8 +192,10 @@ export function acomodoDeSeccion(m: MoldeSeccion, img: ImagenesDeSeccion | null,
   else if (!enTarjetas && fotos === 1 && !disp?.video) partes.push('una imagen junto al texto');
   // Las TARJETAS que se ven en la página (los testimonios, los pasos numerados): la grilla, con su cantidad EXACTA.
   if (disp?.tarjetas) partes.push(`${disp.tarjetas.cantidad} tarjetas en grilla, ni una más ni una menos${disp.tarjetas.conFoto ? ', cada una con el hueco de su foto' : ''}`);
-  else if (m.subtitulos >= 2) partes.push(`${m.subtitulos} tarjetas o pasos con su subtítulo`);
-  if (m.desplegables >= 2) partes.push('preguntas desplegables');
+  // 13/11/2026: la cantidad la pone la original, no la IA (la réplica de Clara trajo 3 pasos de 5); si vuelve con otra, segunda
+  // pasada con `notaDeCantidad` (replicar.ts).
+  else if (m.subtitulos >= 2) partes.push(`${m.subtitulos} tarjetas o pasos con su subtítulo, ni uno más ni uno menos`);
+  if (m.desplegables >= 2) partes.push(`${m.desplegables} preguntas desplegables, ni una más ni una menos`);
   return partes.join(', ');
 }
 
@@ -504,4 +506,62 @@ export function cerrarSecciones(
   if (o.botonEnPartes < PARTES_BOTON_REPETIDO) return { tarjetas: sinAjenos, enlacesAjenos, botonesSumados: 0 };
   const b = conBotonEnCadaSeccion(sinAjenos);
   return { tarjetas: b.tarjetas, enlacesAjenos, botonesSumados: b.sumados };
+}
+
+/** Lo que se le pide a la IA en el hero cuando la original resalta una parte de su titular (`EstiloOriginal.tituloResalta`). */
+export const NOTA_TITULO_RESALTA = 'el titular resalta su frase clave en otro color: escribe esa frase entre **';
+
+/**
+ * La frase clave del titular en el color de acento, como la original (13/11/2026: el «10K AL MES» dorado de Clara dentro de un
+ * h1 negro). La IA la marca en negrita (`NOTA_TITULO_RESALTA`); acá esa negrita del PRIMER título de la sección pasa a llevar
+ * además el color de acento del tema (que el lector tomó de esa parte). Sin negrita en el título, queda como está. Puro.
+ */
+export function conTituloResaltado(t: JsonNodo): { tarjeta: JsonNodo; cambiada: boolean } {
+  let hecho = false;
+  let cambiada = false;
+  const marcar = (n: JsonNodo): JsonNodo => {
+    if (n.type !== 'text' || !(n.marks ?? []).some((m) => m.type === 'bold')) return n;
+    if ((n.marks ?? []).some((m) => m.type === 'textStyle' && m.attrs?.color)) return n;
+    cambiada = true;
+    return { ...n, marks: [...(n.marks ?? []).filter((m) => m.type !== 'textStyle'), { type: 'textStyle', attrs: { color: 'acento', tam: null } }] };
+  };
+  const caminar = (n: JsonNodo): JsonNodo => {
+    if (hecho) return n;
+    if (n.type === 'heading') { hecho = true; return n.content ? { ...n, content: n.content.map(marcar) } : n; }
+    return n.content ? { ...n, content: n.content.map(caminar) } : n;
+  };
+  const tarjeta = caminar(t);
+  return { tarjeta: cambiada ? tarjeta : t, cambiada };
+}
+
+/** Cuántos ítems tiene que tener una sección de la réplica: los de la original (13/11/2026, «la cantidad no la decide la IA»). */
+export type ItemsEsperados = { cantidad: number; que: 'tarjetas' | 'preguntas' };
+
+/** Las preguntas desplegables de la original, o sus tarjetas en grilla, o sus subtítulos (3 o más). null si no hay ítems. */
+export function itemsEsperados(m: MoldeSeccion, disp: DisposicionDeSeccion | null): ItemsEsperados | null {
+  if (m.desplegables >= 2) return { cantidad: m.desplegables, que: 'preguntas' };
+  if (disp?.tarjetas) return { cantidad: disp.tarjetas.cantidad, que: 'tarjetas' };
+  if (m.subtitulos >= 3) return { cantidad: m.subtitulos, que: 'tarjetas' };
+  return null;
+}
+
+/** Los ítems que trajo una sección: sus desplegables, o el bloque de ítems (o de columnas) más grande. */
+export function itemsDeTarjeta(t: JsonNodo, que: ItemsEsperados['que']): number {
+  let preguntas = 0;
+  let mayor = 0;
+  const caminar = (n: JsonNodo) => {
+    if (n.type === NODO.desplegable) preguntas++;
+    if (n.type === NODO.optimizado) mayor = Math.max(mayor, (n.content ?? []).filter((c) => c.type === NODO.optimizadoItem).length);
+    if (n.type === NODO.columnas) mayor = Math.max(mayor, (n.content ?? []).length);
+    for (const c of n.content ?? []) caminar(c);
+  };
+  caminar(t);
+  return que === 'preguntas' ? preguntas : mayor;
+}
+
+/** La nota firme de la segunda pasada: la cantidad exacta y lo que trajo la vuelta anterior. */
+export function notaDeCantidad(e: ItemsEsperados, vino: number): string {
+  const que = e.que === 'preguntas' ? 'preguntas desplegables' : 'ítems (tarjetas o pasos) en un solo bloque';
+  const dif = vino < e.cantidad ? `faltaron ${e.cantidad - vino}` : `sobraron ${vino - e.cantidad}`;
+  return `CANTIDAD EXACTA: ${e.cantidad} ${que}, ni uno más ni uno menos (la vuelta anterior trajo ${vino}: ${dif}).`;
 }

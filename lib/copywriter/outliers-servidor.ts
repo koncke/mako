@@ -12,6 +12,7 @@
 
 import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '../workspace';
+import { cachedRead } from '../cache';
 import { leerPorPaginas } from '../supabase-paginado';
 import { podarVencido } from '../spy-reglas';
 import { guionesGuardados } from '../spy-transcripcion-servidor';
@@ -83,10 +84,8 @@ export const FUENTES_OUTLIERS_COPY: readonly FuenteOutliersCopy[] = [FUENTE_SPY_
 const PORTADAS = new Map<number, { hasta: number; portada: PortadaCopy }>();
 export const VIVE_LA_PORTADA_MS = 5 * 60_000;
 
-export async function leerOutliersCopy(fuentes: readonly FuenteOutliersCopy[] = FUENTES_OUTLIERS_COPY): Promise<PortadaCopy> {
-  const ws = fuentes === FUENTES_OUTLIERS_COPY ? await getWorkspaceActual().catch(() => null) : null;
-  const guardada = ws != null ? PORTADAS.get(ws) : undefined;
-  if (guardada && guardada.hasta > Date.now()) return guardada.portada;
+/** Lee las fuentes y arma la portada (sin guardar nada). */
+async function armarPortada(fuentes: readonly FuenteOutliersCopy[]): Promise<PortadaCopy> {
   const lecturas = await Promise.all(fuentes.map(async (fuente) => {
     let lectura: LecturaFuenteCopy;
     try { lectura = await fuente.leer(); } catch (e) {
@@ -94,7 +93,37 @@ export async function leerOutliersCopy(fuentes: readonly FuenteOutliersCopy[] = 
     }
     return { fuente, lectura };
   }));
-  const portada = juntarOutliersCopy(lecturas);
+  return juntarOutliersCopy(lecturas);
+}
+
+/** Una portada con una fuente caída: sale de la caché compartida como error, así no se guarda (y se muestra igual). */
+class PortadaConCaidas extends Error {
+  constructor(readonly portada: PortadaCopy) { super('Una fuente de la portada no respondió.'); }
+}
+
+/**
+ * ⚠️ La memoria de arriba es de UNA instancia del server, y en Vercel casi nunca se reusa: el 13/11/2026 la portada seguía dando
+ * 4,9 s hasta el primer byte en cada apertura (contra 0,5–1 s del resto de la tab), el «tarda mucho en abrir» de la llamada con
+ * Leila. La caché de datos de Next (`cachedRead`, lib/cache.ts: por negocio, con el workspace fijado adentro) la comparten todas.
+ */
+const portadaCompartida = cachedRead('copywriter-portada', async (): Promise<PortadaCopy> => {
+  const portada = await armarPortada(FUENTES_OUTLIERS_COPY);
+  if (portada.caidas.length) throw new PortadaConCaidas(portada);
+  return portada;
+}, { tags: ['copywriter-portada'], revalidate: VIVE_LA_PORTADA_MS / 1000 });
+
+export async function leerOutliersCopy(fuentes: readonly FuenteOutliersCopy[] = FUENTES_OUTLIERS_COPY): Promise<PortadaCopy> {
+  if (fuentes !== FUENTES_OUTLIERS_COPY) return armarPortada(fuentes);
+  const ws = await getWorkspaceActual().catch(() => null);
+  const guardada = ws != null ? PORTADAS.get(ws) : undefined;
+  if (guardada && guardada.hasta > Date.now()) return guardada.portada;
+  let portada: PortadaCopy;
+  try {
+    portada = await portadaCompartida();
+  } catch (e) {
+    // Una fuente caída (no se guarda), o la caché que no contestó: se arma acá.
+    portada = e instanceof PortadaConCaidas ? e.portada : await armarPortada(fuentes);
+  }
   if (ws != null && !portada.caidas.length) PORTADAS.set(ws, { hasta: Date.now() + VIVE_LA_PORTADA_MS, portada });
   return portada;
 }

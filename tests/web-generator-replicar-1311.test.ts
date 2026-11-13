@@ -17,11 +17,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { avisoDeDatosDeLaOriginal, conFrasesNuevas, frasesCopiadas, sinCifrasDeLaOriginal, TOPE_FRASES } from '../lib/editor-landing/ia-reglas';
+import { avisoDeDatosDeLaOriginal, conFrasesNuevas, frasesCopiadas, sinCifrasDeLaOriginal, sinNumeroDelPedido, TOPE_FRASES } from '../lib/editor-landing/ia-reglas';
 import { VARIANTES_CON_IMAGEN, varianteCercana } from '../lib/editor-landing/ia-bloques';
 import {
-  anchoDeColumna, conAnchoDeColumna, conBotonEnCadaSeccion, conHuecoDeFoto, conLadoDeFoto, huecosParaPublicar, testimoniosParaCompletar,
-  PARTES_BOTON_REPETIDO, TESTIMONIO_PARA_COMPLETAR,
+  acomodoDeSeccion, anchoDeColumna, conAnchoDeColumna, conBotonEnCadaSeccion, conHuecoDeFoto, conLadoDeFoto, conTituloResaltado, huecosParaPublicar,
+  itemsDeTarjeta, itemsEsperados, notaDeCantidad, testimoniosParaCompletar, NOTA_TITULO_RESALTA, PARTES_BOTON_REPETIDO, TESTIMONIO_PARA_COMPLETAR,
+  type MoldeSeccion,
 } from '../lib/editor-landing/replicar-estructura';
 import { estiloDeHtml, sanearEstilo } from '../lib/editor-landing/estilo-original';
 import { CSS_CONTENIDO } from '../lib/editor-landing/css';
@@ -204,7 +205,64 @@ test('10. las frases iguales a la original se reconocen y se reemplazan; el sell
   assert.equal(textoDe(nueva.content![0], ' ').trim(), 'Suma ventas por WhatsApp sin perseguir a nadie');
   assert.equal(textoDe(nueva.content![1], ' ').trim(), 'Una frase nueva escrita para este negocio de punta a punta');
   assert.ok(TOPE_FRASES >= 24, 'entran las 24 de Clara');
+  // Producción, landing 118: el titular volvió como «1. Imagina sumar…» (las frases van numeradas en el pedido).
+  assert.equal(sinNumeroDelPedido('1. Imagina sumar [DATO] al mes', 'Imaginá agregar 10K al mes'), 'Imagina sumar [DATO] al mes');
+  assert.equal(sinNumeroDelPedido('12) Otra frase', 'Una frase'), 'Otra frase');
+  assert.equal(sinNumeroDelPedido('3 pasos para vender', '3 pasos para crecer'), '3 pasos para vender', 'si la original empezaba con un número, queda');
+  assert.equal(sinNumeroDelPedido('2026 es tu año', 'Este es tu año'), '2026 es tu año', 'un número que no es de la lista, queda');
+  assert.match(readFileSync(join(process.cwd(), 'lib/editor-landing/ia.ts'), 'utf8'), /sinNumeroDelPedido\(limpiarTextoDelModelo\(nuevas\[i\] as string\), f\)/);
   // El sello «Hecho con MaKo»: en la publicada flota; en el teléfono, al pie (no tapa el texto).
   const movil = CSS_CONTENIDO.slice(CSS_CONTENIDO.indexOf('@media (max-width: 768px) {'));
   assert.match(movil, /\.gm-doc \.gm-marca ?\{ ?position: static;/);
+});
+
+// ── La tercera vuelta del 13/11 (Cerebro): el titular dorado y la cantidad exacta de ítems ──
+
+test('11. el lector ve la parte del titular que resalta, aunque su regla sea «h1 em»', () => {
+  // El h1 de Clara, tal cual: el dorado viene de `h1 em{color:var(--gold-deep)}`, una regla con descendiente.
+  const html = `<html><head><style>:root{--gold-deep:#8A6E27}h1{color:#111}h1 em{font-style:normal;color:var(--gold-deep)}h1 em.gigante{font-size:1.5em}</style></head>
+    <body><section><h1>Imaginá agregar<br> <em class="gigante">10K AL MES</em><br> a tu facturación</h1></section></body></html>`;
+  const e = estiloDeHtml(html, 'https://x.com/');
+  assert.equal(e.titulo, '#111111');
+  assert.deepEqual(e.tituloResalta, { color: '#8a6e27' });
+  assert.equal(e.acento, '#8a6e27', 'la parte que resalta es el acento del tema');
+  const conDegradado = estiloDeHtml('<html><head><style>h1{color:#111}.dorado{background-image:linear-gradient(90deg,#c9a227,#f5d76e);-webkit-background-clip:text;color:transparent}</style></head><body><h1>Sumá <span class="dorado">más ventas</span></h1></body></html>', 'https://x.com/');
+  assert.equal(conDegradado.tituloResalta?.color, '#c9a227');
+  assert.match(conDegradado.tituloResalta?.degradado ?? '', /linear-gradient/);
+  assert.equal(estiloDeHtml('<html><head><style>h1{color:#111}</style></head><body><h1>Todo <b>de un color</b></h1></body></html>', 'https://x.com/').tituloResalta, undefined, 'una negrita del mismo color no resalta');
+  assert.deepEqual(sanearEstilo(JSON.parse(JSON.stringify(e)))!.tituloResalta, { color: '#8a6e27' });
+});
+
+test('12. la réplica pone su frase clave en el color de acento (la IA la marca en negrita)', () => {
+  const titulo: JsonNodo = { type: 'heading', attrs: { level: 1 }, content: [
+    { type: 'text', text: 'Suma ' }, { type: 'text', text: 'más clientes', marks: [{ type: 'bold' }] }, { type: 'text', text: ' por WhatsApp' },
+  ] };
+  const r = conTituloResaltado(tarjetaCon({}, titulo, { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'otro', marks: [{ type: 'bold' }] }] }));
+  assert.equal(r.cambiada, true);
+  const marcas = r.tarjeta.content?.[0]?.content?.[1]?.marks ?? [];
+  assert.deepEqual(marcas, [{ type: 'bold' }, { type: 'textStyle', attrs: { color: 'acento', tam: null } }]);
+  assert.deepEqual(r.tarjeta.content?.[1]?.content?.[0]?.marks, [{ type: 'bold' }], 'sólo el primer título');
+  assert.equal(conTituloResaltado(tarjetaCon({}, p('sin título'))).cambiada, false);
+  assert.match(NOTA_TITULO_RESALTA, /\*\*/);
+  const src = readFileSync(join(process.cwd(), 'lib/editor-landing/replicar.ts'), 'utf8');
+  assert.match(src, /i === 0 && estiloLeido\?\.tituloResalta \? \[a, NOTA_TITULO_RESALTA\]/, 'la nota del hero lo pide');
+  assert.match(src, /i === 0 && estiloLeido\?\.tituloResalta \? conTituloResaltado\(conAncho\)/, 'y el hero lo recibe');
+});
+
+test('13. la cantidad de ítems la pone la original: lo esperado, lo que vino y la nota de la segunda pasada', () => {
+  const molde = (o: Partial<MoldeSeccion>): MoldeSeccion => ({ titulo: 'x', subtitulos: 0, parrafos: 0, vinetas: 0, botones: 0, desplegables: 0, palabras: 1, ...o });
+  assert.deepEqual(itemsEsperados(molde({ desplegables: 6 }), null), { cantidad: 6, que: 'preguntas' });
+  assert.deepEqual(itemsEsperados(molde({ subtitulos: 5 }), { tarjetas: { cantidad: 5, conFoto: false }, fotos: 0, video: false }), { cantidad: 5, que: 'tarjetas' });
+  assert.deepEqual(itemsEsperados(molde({ subtitulos: 4 }), null), { cantidad: 4, que: 'tarjetas' });
+  assert.equal(itemsEsperados(molde({ subtitulos: 2 }), null), null, 'dos subtítulos no son una grilla');
+  const pasos = (n: number): JsonNodo => tarjetaCon({}, { type: NODO.optimizado, attrs: { variante: 'cajas-numeros' }, content: Array.from({ length: n }, (_, i) => ({ type: NODO.optimizadoItem, attrs: {}, content: [p(`paso ${i + 1}`)] })) });
+  assert.equal(itemsDeTarjeta(pasos(3), 'tarjetas'), 3);
+  const faq = tarjetaCon({}, ...Array.from({ length: 4 }, () => ({ type: NODO.desplegable, content: [] } as JsonNodo)));
+  assert.equal(itemsDeTarjeta(faq, 'preguntas'), 4);
+  assert.equal(notaDeCantidad({ cantidad: 5, que: 'tarjetas' }, 3), 'CANTIDAD EXACTA: 5 ítems (tarjetas o pasos) en un solo bloque, ni uno más ni uno menos (la vuelta anterior trajo 3: faltaron 2).');
+  assert.match(notaDeCantidad({ cantidad: 6, que: 'preguntas' }, 8), /6 preguntas desplegables.*sobraron 2/);
+  assert.equal(acomodoDeSeccion(molde({ desplegables: 6 }), null), '6 preguntas desplegables, ni una más ni una menos');
+  const src = readFileSync(join(process.cwd(), 'lib/editor-landing/replicar.ts'), 'utf8');
+  assert.match(src, /await correr\(torcidas\.map\(\(i\) => \[i\]\), '3ª vuelta: cantidad', esqFirme\);/, 'la segunda pasada corre sola');
+  assert.match(src, /if \(lejos\(ahora\) > lejos\(antes\)\) porIndice\.set\(i, antes\);/, 'y queda la que más se acerca');
 });

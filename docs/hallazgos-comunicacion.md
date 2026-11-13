@@ -146,9 +146,27 @@ entran por su rol (`juzgarAcceso` → tipo `equipo`, letra `c`/`s`) y el «nunca
   ese rol ve en la app, con la MISMA regla de la barra (`puedeVerKey`), más confirmar, cancelar y los tickets; nada `rolMinimo: admin` y
   nada que lea el Google Calendar del dueño (`datosDeGoogle`: `agenda_del_dia` está en la pestaña CRM y le mostraba al closer el «Sleep»
   del dueño). Esa vista la vuelven a mirar la ejecución y la confirmación. Las herramientas de afuera del registro no viajan.
-- **El contexto y la memoria:** el turno corre recortado como el de un invitado (sin perfil, objetivos, tickets, la plataforma ni la charla
-  del dueño), pero su memoria, sus pendientes y lo que le mostró viven en una clave PROPIA (`claveDelMiembro`, `jid#equipo:<email>`): su «sí»
-  no confirma lo que MaKo le propuso al dueño. La cola, el candado y la salida siguen siendo del grupo, y un lote se parte por persona.
+- **El contexto y la memoria:** un closer tampoco administra, así que su turno corre con `hayInvitado`, como el de un invitado (sin
+  perfil, objetivos, tickets, la plataforma ni la charla del dueño). Lo que el ROL le suma va aparte y es sólo suyo: las herramientas de
+  su vista, y su memoria y sus pendientes en una clave PROPIA (`claveDelMiembro`, `jid#equipo:<email>`): su «sí» no confirma lo que MaKo
+  le propuso al dueño. La cola, el candado y la salida siguen siendo del grupo, y un lote se parte por persona.
+- **A quien quien administra INVITÓ, la invitación le sigue mandando** aunque sea del equipo (`juzgarAcceso`, y `miembrosDelGrupo` lo
+  lista como invitado): nada de lo que ya era un invitado se abre por sumar al equipo. En producción, al 13/11, no había ninguno.
+
+**⚠️ El rojo de la primera subida, y el diagnóstico obvio era el equivocado.** La primera versión llamó `recortado` (invitado O equipo)
+a lo que antes decía `hayInvitado`, y GitHub tumbó once guardas del invitado (tests/grupos-ops-guarda, doer-hilo, doer-falla,
+agenda-google-grupo, hilo-del-superadmin…). Parecía que se había aflojado la privacidad del invitado, y no: esas guardas fijan el
+TEXTO de la línea (`const ctxFalla = hayInvitado ? ''`), así que un cambio de NOMBRE las tumba aunque el comportamiento sea el mismo o
+más estricto. Reescribir la guarda «al día» tampoco es la salida: es ablandar lo que protege a un invitado para que entre lo nuevo (el
+Cerebro lo frenó). **La regla:** lo nuevo se expresa DENTRO del nombre que la guarda mira, y lo que difiere se suma aparte, sin tocar
+la guarda: el equipo corre con `hayInvitado`, y su memoria, sus pendientes y sus herramientas van en líneas propias
+(`if (miembroDelEquipo) …`, `else if (miembroDelEquipo) guardarTurno(…, claveDelTurno, …)`, `deSuRol`).
+
+**Lo que el closer NO tiene por eso:** la cita en el contexto (`ctxCita`), lo hablado antes de sus últimos 12 turnos (`ctxYaSeHablo`) y
+«lo que le mostraste» (`ctxMostrado`). Las tres van en la rama que la guarda le prohíbe a quien no administra, y las dos últimas se
+leen del GRUPO. La cita sería segura para él en la app (la ruta ya valida que el mensaje citado sea uno que él ve: `filaParaPersona`
+→ «no existe»), pero no por WhatsApp, donde `textoPorIdDeWhatsApp` lee cualquier id. Si hacen falta, se suman con un nombre propio
+y leyendo SU clave, nunca la del grupo; lo más probable que se extrañe es la cita, cuando responda a un aviso de un lead.
 
 **Lo que esto NO cambia, y hay que saberlo:** el hilo es UNO. Lo que el dueño le pregunta a MaKo y lo que MaKo le contesta (por ejemplo
 cuánto facturó) lo ve el closer en el hilo, igual que en el grupo de WhatsApp. Lo que se le saca son los avisos con plata, no la charla. Si
