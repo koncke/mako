@@ -30,8 +30,11 @@ import { consultaValida } from '../app/web-generator/editor/extensiones/barra';
 import { ESTRUCTURAS_GUION_DEFAULT } from '../lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
-import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo } from '../lib/copywriter/ia-reglas';
-import { etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
+import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo, avisoDeDuracion, salidaVacia, tipoDelPedido, dichoQueNoQuedo, operacionesAlTuteo, sinExtrasNoPedidos, objetivoDeDuracion, cortaParaSuDuracion } from '../lib/copywriter/ia-reglas';
+import { pedidoDeCorreccion } from '../lib/copywriter/outliers';
+import { alTuteo } from '../lib/al-tuteo';
+import { marcasDeVoseo } from '../lib/voseo';
+import { aplicarTodo, bloqueAJson, etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
 import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
 
 const raiz = join(__dirname, '..');
@@ -435,4 +438,183 @@ test('sin IA, el chat lleva a conectarla y no a Soporte (12/11/2026, en producci
   assert.ok(panel.includes("<Link href={rutaDeTarjeta('ia')} className=\"nt-mako-pildora\">Conectar mi IA</Link>"));
   // La frase es la de lib/ia-mensajes.ts: si cambia, el botón deja de salir.
   assert.match(leer('lib/ia-mensajes.ts'), /return `No hay ninguna IA conectada, así que MaKo no puede \$\{tema\}\./);
+});
+
+test('lo que la respuesta dice que puso y no quedó en la página se avisa (13/11/2026, en producción en el teléfono)', () => {
+  const respuesta = 'Completé los datos del archivo en el anuncio: precio (US$ 497), garantía (14 días), caso concreto (Lucía, de 9 a 31 consultas por semana) y cantidad de clientes acompañados (42).';
+  const pagina = 'Lucía, que hace estética en Rosario, pasó de 9 a 31 consultas por semana en un mes. Ya son 42 clientes.';
+  assert.equal(dichoQueNoQuedo(respuesta, pagina), 'Dice que puso «US$ 497», «14 días» y no está en la página: pídele a MaKo que lo agregue.');
+  assert.equal(dichoQueNoQuedo(respuesta, `${pagina} Cuesta US$ 497 con 14 días de garantía.`), null);
+  // Lo que describe la pieza no cuenta.
+  assert.equal(dichoQueNoQuedo('Te escribo un reel de 30 segundos en 3 partes.', 'Gancho…'), null);
+});
+
+test('una plantilla corta para su duración se completa sola; el aviso, sólo si ni así (13/11/2026, el Cerebro)', () => {
+  assert.equal(objetivoDeDuracion(600), 1_500);
+  assert.equal(objetivoDeDuracion(2_520), 2_000, 'la clase de 42 minutos topa en lo que entra en un pedido');
+  assert.equal(objetivoDeDuracion(45), null, 'un anuncio de 45 s: manda el ejemplo');
+  // La VSL de 10 minutos en 587 palabras: segunda pasada (< 75 %); con 1.200, no (80 %).
+  assert.equal(cortaParaSuDuracion(587, 600), true);
+  assert.equal(cortaParaSuDuracion(1_200, 600), false);
+  assert.equal(cortaParaSuDuracion(80, 45), false);
+  const pedido = pedidoDeCorreccion({ largo: null, capitulos: [], duracion: { segundos: 600, objetivo: 1_500, escritas: 587 } });
+  assert.match(pedido, /la pieza dura 10 minutos y lo que se dice en tu guion tiene 587 palabras \(unos 4 minutos dichos\)\. Complétala ENTERA hasta unas 1500 palabras \(entre 1275 y 1500/);
+  assert.match(pedido, /con las mismas secciones y en el mismo orden/);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes('corta: !original && x.entera && cortaParaSuDuracion(x.escritas, segundosDe(x)),'));
+  assert.ok(ia.includes('duracion: f1.corta ? { segundos, objetivo: objetivoDeDuracion(segundos) ?? 0, escritas: m.escritas } : null,'));
+});
+
+test('una sola voz: lo que escribe Copywriting y su chat van en «tú» solos, también lo citado (13/11/2026, el Cerebro)', () => {
+  // Lo que salió en producción, tal cual: el reel de la plantilla y el del teléfono.
+  assert.equal(alTuteo('«Primero: respondés tarde. El lead te escribió con calor, vos contestas al otro día. Respondé en menos de una hora.»', { citas: true }),
+    '«Primero: respondes tarde. El lead te escribió con calor, tú contestas al otro día. Responde en menos de una hora.»');
+  assert.equal(alTuteo('Mientras vos estás en las redes, tu WhatsApp trabaja. Un flujo que respete al lead y a vos. Comentá FUNNEL.'),
+    'Mientras tú estás en las redes, tu WhatsApp trabaja. Un flujo que respete al lead y a ti. Comenta FUNNEL.');
+  assert.equal(alTuteo('Con vos, siempre. Para vos.'), 'Contigo, siempre. Para ti.');
+  // Ninguna forma dos veces en el diccionario (13/11/2026, corrida 1228 en rojo: «agendá», «dejá» y «mandá» venían de dos tandas,
+  // y `tsx` no lo ve; sólo el chequeo de tipos de la punta).
+  const tu = leer('lib/al-tuteo.ts');
+  const claves: string[] = [...(tu.slice(tu.indexOf('const TU'), tu.indexOf('};', tu.indexOf('const TU'))).split('\n').filter((l) => !l.trim().startsWith('//')).join('\n').match(/[^\s,{]+(?=: ')/g) ?? [])];
+  const repetidas: string[] = claves.filter((k, i) => claves.indexOf(k) !== i);
+  assert.deepEqual(repetidas, [], 'una forma repetida en el diccionario de lib/al-tuteo.ts');
+  // Sin `citas`, lo de la persona queda (WhatsApp); «VOS» es una sigla; el pretérito de yo no se toca.
+  assert.equal(alTuteo('Me pediste «mandale el borrador, que vos sabés»'), 'Me pediste «mandale el borrador, que vos sabés»');
+  assert.equal(alTuteo('El VOS del contrato. Ayer escribí el guion.'), 'El VOS del contrato. Ayer escribí el guion.');
+  // Las operaciones: textos, listas, tablas y el título.
+  const ops = operacionesAlTuteo([
+    { op: 'escribir_seccion', seccion: 'GANCHO', bloques: [{ tipo: 'texto', texto: '¿Querés vender más?' }, { tipo: 'tabla', filas: [['Dice'], ['«Creés que WhatsApp es para atender»']] }, { tipo: 'vinetas', items: ['Guardá esto'] }] },
+    { op: 'titulo', texto: 'Si tenés un negocio' },
+  ]);
+  assert.deepEqual(ops, [
+    { op: 'escribir_seccion', seccion: 'GANCHO', bloques: [{ tipo: 'texto', texto: '¿Quieres vender más?' }, { tipo: 'tabla', filas: [['Dice'], ['«Crees que WhatsApp es para atender»']] }, { tipo: 'vinetas', items: ['Guarda esto'] }] },
+    { op: 'titulo', texto: 'Si tienes un negocio' },
+  ]);
+  // En `editar` y `discutir`: la variedad sólo si el negocio la DECLARÓ; si no, se pasa sola y la respuesta siempre va en «tú».
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.equal((ia.match(/const declarado = acento\?\.seguro \? acento : null;/g) ?? []).length, 2);
+  assert.ok(ia.includes('if (!vosea) s.ops = operacionesAlTuteo(s.ops);'));
+  assert.ok(ia.includes("let respuesta = alTuteo([ne.texto.slice(0, 1_200), ne.linea].filter(Boolean).join('\\n\\n'), { citas: !vosea })"));
+  assert.ok(ia.includes("const respuesta = alTuteo([ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\\n\\n'), { citas: !vosea });"));
+});
+
+test('un pedido corto sale sin lo que nadie pidió: notas de producción, variantes (13/11/2026, en producción en el teléfono)', () => {
+  const ops = sinExtrasNoPedidos([
+    { op: 'escribir_seccion', seccion: 'GANCHO', bloques: [{ tipo: 'texto', texto: 'El gancho' }, { tipo: 'titulo2', texto: 'Variantes rápidas' }, { tipo: 'texto', texto: 'Variante 2…' }] },
+    { op: 'escribir_seccion', seccion: 'NOTAS DE PRODUCCION', bloques: [{ tipo: 'texto', texto: 'Ritmo acelerado' }] },
+    { op: 'escribir_seccion', seccion: 'CIERRE', bloques: [{ tipo: 'texto', texto: 'Comenta FUNNEL' }] },
+  ], [], 'Escribime un reel de 30 segundos para WhatsApp Ads Funnel');
+  assert.deepEqual(ops.map((o) => (o.op === 'escribir_seccion' ? `${o.seccion}:${o.bloques.length}` : o.op)), ['GANCHO:1', 'CIERRE:1']);
+  // Si el pedido las nombra, o la página ya trae esa sección (una plantilla), quedan.
+  const conVariantes = sinExtrasNoPedidos([{ op: 'escribir_seccion', seccion: 'VARIANTES', bloques: [{ tipo: 'texto', texto: 'x' }] }], [], 'Dame tres variantes del gancho');
+  assert.equal(conVariantes.length, 1);
+  const dePlantilla = sinExtrasNoPedidos([{ op: 'escribir_seccion', seccion: 'NOTAS', bloques: [{ tipo: 'texto', texto: 'x' }] }], ['NOTAS'], 'Adáptala');
+  assert.equal(dePlantilla.length, 1);
+  assert.ok(leer('lib/copywriter/ia.ts').includes('s.ops = sinExtrasNoPedidos(s.ops, seccionesDeLaPagina, instruccion);'));
+});
+
+test('sin la app de escritorio, las ofertas apagadas de la plantilla dicen por qué (13/11/2026, en producción, ws de prueba)', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.match(panel, /\{appEscritorio\.bloqueada && pasoIni\.opciones\.some\(\(o\) => llamaALaIA\(o\.valor\)\) && \(\s*<div className="nt-mako-estado">Para que MaKo lo escriba, instala su app: el botón está abajo\.<\/div>/);
+});
+
+test('las sugerencias genéricas no parpadean antes de la pregunta de una plantilla (13/11/2026, en producción)', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.ok(panel.includes(') : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && hiloLeido && !pasosIni.length && ('));
+});
+
+test('en el teléfono, la propuesta de MaKo se acepta desde la Página (13/11/2026, en producción a 375: «Aceptar» quedaba en la pestaña MaKo)', () => {
+  const m = leer('app/m/copywriter/GuionM.tsx');
+  assert.match(m, /\{decidir && vista === 'guion' && \(\s*<PieFijoM/);
+  assert.match(m, /onClick=\{decidir\.aceptar\}>Aceptar<\/Button>/);
+  assert.match(m, /onClick=\{decidir\.descartar\}>Descartar<\/Button>/);
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.ok(panel.includes("onPendiente(m ? { aceptar: () => aceptar(m), descartar: () => descartar(m) } : null);"));
+});
+
+test('una pieza escrita en una «Página» vacía toma el tipo que nombra el pedido (13/11/2026, en producción en el teléfono)', () => {
+  assert.equal(tipoDelPedido('Escribime un reel de 30 segundos para WhatsApp Ads Funnel'), 'reel', 'gana el primero, y «Ads» no cuenta');
+  assert.equal(tipoDelPedido('Un anuncio para vender mi curso de reels'), 'ad');
+  assert.equal(tipoDelPedido('Armame 5 stories para el lanzamiento'), 'story');
+  assert.equal(tipoDelPedido('Un email de cierre'), 'email');
+  assert.equal(tipoDelPedido('Un carrusel de 7 láminas'), 'post');
+  assert.equal(tipoDelPedido('Escribe un guion para WhatsApp Ads Funnel'), null);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes("if (g.props.tipo === 'pagina' && r.nuevos.length && !textoDelDoc(g.doc).trim()"));
+  assert.ok(leer('lib/copywriter/ia-editar.ts').includes('"op": "propiedades", "tipo": "reel"'));
+});
+
+test('una salida VACÍA de la IA se pide otra vez y no se disfraza de «No cambié nada.» (13/11/2026, en producción en el teléfono)', () => {
+  assert.equal(salidaVacia({}), true);
+  assert.equal(salidaVacia({ respuesta: '  ', operaciones: [] }), true);
+  assert.equal(salidaVacia({ op: 'escribir_seccion', seccion: 'GANCHO' }), true);
+  assert.equal(salidaVacia({ respuesta: '¿Para quién es?', operaciones: [] }), false);
+  assert.equal(salidaVacia({ operaciones: [{ op: 'titulo', texto: 'x' }] }), false);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes('if (Date.now() < t0 + PLAZOS.editar - 45_000) raw = await pedir(primero, t0 + PLAZOS.editar);'));
+  assert.ok(ia.includes("salidaVacia(raw) ? SALIDA_VACIA : 'No cambié nada.'"));
+});
+
+test('en un negocio que vosea, la MEZCLA con el tuteo se avisa (13/11/2026, en producción después del despliegue)', () => {
+  // El reel replicado, tal cual salió: «pedís… vos» con «tiras… negocias… hablas».
+  const reel = 'Que tiras dos mil dólares en ads y te llegan clicks. Entonces después pedís mucho, negocias mal. Qué le hablas, cuándo le vendes. Un flujo que respete al lead y a vos.';
+  assert.deepEqual(marcasDeTuteo(reel), ['tiras', 'negocias', 'hablas', 'vendes']);
+  assert.ok(marcasDeVoseo(reel).length > 0);
+  // Las que también son sustantivos o se escriben igual con «vos» no cuentan.
+  assert.deepEqual(marcasDeTuteo('Las pruebas, las cuentas y las ganas: ves, vas, estás.'), []);
+  // La «Clase gratuita» del 13/11: el «tú» con tilde y los verbos que se le escaparon a la lista.
+  assert.deepEqual(marcasDeTuteo('Cuando abres con una pregunta, tú controlas la charla. Hoy llevas tres.'), ['abres', 'tú', 'controlas', 'llevas']);
+  assert.deepEqual(marcasDeTuteo('Es tu oferta y tu precio.'), []);
+  assert.deepEqual(marcasDeTuteo('WhatsApp vende. Sólo que sin ti.'), ['ti']);
+  const ia = leer('lib/copywriter/ia.ts');
+  assert.ok(ia.includes('if (conVoseo.length && conTuteo.length) avisos.push(`Mezcla voseo y tuteo'));
+});
+
+test('el título de una sección no se reemplaza ni se borra (13/11/2026, en producción: la plantilla PAS perdió su GANCHO)', () => {
+  const doc = docDeEstructura(['GANCHO', 'PROBLEMA', 'CTA']);
+  const gancho = String((doc.content ?? []).find((b) => b.attrs?.seccion === 'GANCHO')?.attrs?.bid);
+  const cat = { angulos: new Set<string>(), estructuras: new Set<string>() };
+  // MaKo puso el destacado «🧪 Para:…» REEMPLAZANDO el título del Gancho: ahora va antes y el título queda.
+  const s = sanearOperaciones([{ op: 'reemplazar_bloque', bid: gancho, bloques: [{ tipo: 'destacado', emoji: '📊', texto: 'Para: coaches. Se mide en: agendas.' }] }], doc, cat);
+  assert.equal(s.ops[0]?.op, 'insertar_despues');
+  assert.equal(s.ops[0]?.op === 'insertar_despues' && s.ops[0].bid, null, 'al principio: el Gancho era el primer bloque');
+  const r = aplicarTodo(doc, s.ops);
+  assert.deepEqual((r.doc.content ?? []).filter((b) => b.attrs?.seccion).map((b) => b.attrs?.seccion), ['GANCHO', 'PROBLEMA', 'CTA'], 'las secciones, todas y en su orden');
+  // Y borrarlo no se puede.
+  const b = sanearOperaciones([{ op: 'borrar_bloque', bid: gancho }], doc, cat);
+  assert.equal(b.ops.length, 0);
+  assert.match(b.descartadas[0]?.motivo ?? '', /Es el título de una sección/);
+});
+
+test('el nombre de la sección repetido como título adentro, y las negritas en markdown (13/11/2026, en producción: «Copy de anuncio: 3 ángulos»)', () => {
+  const doc = docDeEstructura(['TEXTO PRINCIPAL', 'TITULO', 'BOTON', 'LINK']);
+  const cat = { angulos: new Set<string>(), estructuras: new Set<string>() };
+  // «Botón» y abajo «BOTÓN»: el título repetido al principio del cuerpo se va.
+  const a = sanearOperaciones([{ op: 'escribir_seccion', seccion: 'BOTÓN', bloques: [{ tipo: 'titulo2', texto: 'BOTÓN' }, { tipo: 'texto', texto: 'A y C: Más información' }] }], doc, cat);
+  assert.equal(a.ops[0]?.op === 'escribir_seccion' && a.ops[0].bloques.length, 1);
+  // «TEXTO PRINCIPAL» + el texto, reemplazando el título de la sección: es reescribir esa sección (no un título común de más).
+  const tp = String((doc.content ?? []).find((b) => b.attrs?.seccion === 'TEXTO PRINCIPAL')?.attrs?.bid);
+  const b = sanearOperaciones([{ op: 'reemplazar_bloque', bid: tp, bloques: [{ tipo: 'titulo2', texto: 'TEXTO PRINCIPAL' }, { tipo: 'texto', texto: 'A · Dolor: …' }] }], doc, cat);
+  assert.equal(b.ops[0]?.op, 'escribir_seccion');
+  assert.equal(b.ops[0]?.op === 'escribir_seccion' && b.ops[0].seccion, 'TEXTO PRINCIPAL');
+  const r = aplicarTodo(doc, b.ops);
+  assert.deepEqual((r.doc.content ?? []).filter((x) => x.type === 'heading').map((x) => x.attrs?.seccion ?? null), ['TEXTO PRINCIPAL', 'TITULO', 'BOTON', 'LINK'], 'sin títulos de más');
+  // El email copió el formato con que ve el guion: «SECCIÓN ASUNTO» en lugar del título de ASUNTO.
+  const correo = docDeEstructura(['ASUNTO', 'CUERPO']);
+  const asunto = String((correo.content ?? []).find((x) => x.attrs?.seccion === 'ASUNTO')?.attrs?.bid);
+  const c = sanearOperaciones([{ op: 'reemplazar_bloque', bid: asunto, bloques: [{ tipo: 'titulo2', texto: 'SECCIÓN ASUNTO' }, { tipo: 'texto', texto: 'Cierro el viernes' }] }], correo, cat);
+  assert.equal(c.ops[0]?.op === 'escribir_seccion' && c.ops[0].seccion, 'ASUNTO');
+  assert.equal(c.ops[0]?.op === 'escribir_seccion' && c.ops[0].bloques.length, 1);
+  // «**Antes:**» con los asteriscos a la vista: es negrita.
+  const p = bloqueAJson({ tipo: 'texto', texto: '**Antes:** Me escribían por WhatsApp.' });
+  assert.deepEqual(p.content?.map((n) => [n.text, n.marks?.[0]?.type ?? null]), [['Antes:', 'bold'], [' Me escribían por WhatsApp.', null]]);
+});
+
+test('las plantillas largas: el largo lo da la duración, no el ejemplo resumido (13/11/2026, en producción: VSL de 10 minutos en 587 palabras)', () => {
+  assert.match(avisoDeDuracion(587, 600) ?? '', /^Dura unos 4 minutos dichos y la pieza es de 10: pídele a MaKo que la complete \(unas 1500 palabras\)\.$/);
+  assert.equal(avisoDeDuracion(1_300, 600), null);
+  assert.match(avisoDeDuracion(600, 2_520) ?? '', /unas 2000 palabras/, 'la clase de 42 minutos topa en lo que entra en un pedido');
+  assert.equal(avisoDeDuracion(80, 45), null, 'un anuncio de 45 s: manda el ejemplo');
+  assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /EL LARGO lo da la DURACIÓN de la pieza, no el ejemplo \(que puede estar resumido\): unas 150 palabras dichas por minuto, hasta 2\.000 palabras/);
+  assert.ok(leer('lib/copywriter/ia.ts').includes('const duracion = avisoDeDuracion(m.escritas, r.props.duracion ?? g.props.duracion);'));
 });

@@ -651,6 +651,9 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
   color: var(--ink);
 }
 .co-caja textarea::placeholder { color: var(--faint); }
+/* Con algo adjuntado y nada escrito van el micrófono Y la flecha (ticket #51): a 375 el campo queda en ~115 px y «Escribe a
+   MaKo» se partía en dos renglones cortados (13/11/2026, Copywriting en el teléfono). En ese estado, un renglón con «…». */
+.co-caja__fila:has(.co-enviar--mic + .co-enviar) textarea::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .co-caja__barra { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 /* Los selectores de la caja (cuenta, modelo, esfuerzo; 17/10/2026): chips que se despliegan, como el selector de modelo
    de Claude. Envuelven en una ventana angosta en vez de empujar el botón de mandar afuera. */

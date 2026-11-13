@@ -123,3 +123,12 @@ test('#93, la regla sola: la columna elegida gana; si no, la que se llama «Rebo
   assert.deepEqual(decidirMovimiento({ etapas, actual: 'st0', destino: 'lead', evento: 'abrio' }), { mover: false, motivo: 'atras' });
   assert.deepEqual(decidirMovimiento({ etapas, actual: 'ganado', destino: 'st7', evento: 'rebote' }), { mover: false, motivo: 'terminal' });
 });
+
+// Ticket #93 (13/11/2026, decisión del Cerebro): el tope por día de UNA automatización sigue a la cuenta del negocio.
+test('#93: el goteo por día llega a 2.000 con su Resend y su dominio, y a 500 con la de la plataforma (por la API)', () => {
+  assert.equal(R.goteoPropia.error, undefined, 'con su cuenta, 1.200 entra antes del «sí»');
+  assert.equal(R.goteoPropiaEjec.ok, true, 'y al guardar (lib/config-automatizacion-db.ts)');
+  assert.equal(R.goteoGuardado?.dia, 1200);
+  assert.match(R.goteoPropiaMal.error, /El tope por día van de 1 a 2000\./);
+  assert.match(R.goteoPlataforma.error, /El tope por día van de 1 a 500\./, 'con la de la plataforma, 500');
+});

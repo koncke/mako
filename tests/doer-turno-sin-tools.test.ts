@@ -83,7 +83,7 @@ test('⚠️ EL PROTOCOLO DE HERRAMIENTAS SÓLO VIAJA SI HAY HERRAMIENTAS', () =
   // 27/10/2026 `tools` es lo de la selección más el ticket y la agenda (lib/doer-falla.ts), y desde el 28/10 más los tickets de
   // la persona si pide una función (`pideFuncion`), y desde el 29/10 recortada por la clase de la IA (`leidas`: una pregunta sólo
   // lee, una acción sólo con las escrituras simples): la lista final es la de esa línea.
-  const iTools = src.indexOf('const tools = leidas;');
+  const iTools = src.indexOf('const tools = miembroDelEquipo ? leidas.filter(');
   const iSystem = src.indexOf('const system = armarSystem(tools);');
   assert.ok(iTools > 0 && iSystem > iTools,
     'el system volvió a armarse antes de saber cuántas herramientas tiene el turno');

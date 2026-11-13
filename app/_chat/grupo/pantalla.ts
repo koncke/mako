@@ -17,6 +17,8 @@ import type { MensajeDelHilo } from '@/lib/grupo-reglas';
 /** Una fila de GET /api/grupos. */
 export type GrupoDeLaLista = {
   ws: number; administra: boolean; invitado: boolean; titulo: string;
+  /** Entra por ser del equipo del negocio (closer, setter: 13/11/2026). No ve lo anterior de WhatsApp, que no está filtrado. */
+  equipo?: boolean;
   ultimo: MensajeDelHilo | null; noLeidos: number; hastaId: number;
 };
 /** Una página de GET /api/grupos/[ws]/mensajes. */
@@ -30,8 +32,8 @@ export type QuePuede = { invitar: boolean; sacar: boolean; salir: boolean; verWh
  * Invitar y sacar: quien administra. Salir: sólo quien entró invitado (quien entra por su rol no tiene de dónde salir). Lo anterior de WhatsApp: todos
  * menos un invitado, que ve desde que entró. Sin saber quién es, lo mínimo.
  */
-export const quePuede = (g: Pick<GrupoDeLaLista, 'administra' | 'invitado'> | null | undefined): QuePuede => ({
-  invitar: g?.administra === true, sacar: g?.administra === true, salir: g?.invitado === true, verWhatsApp: g != null && !g.invitado,
+export const quePuede = (g: Pick<GrupoDeLaLista, 'administra' | 'invitado' | 'equipo'> | null | undefined): QuePuede => ({
+  invitar: g?.administra === true, sacar: g?.administra === true, salir: g?.invitado === true, verWhatsApp: g != null && !g.invitado && !g.equipo,
 });
 
 /** Cuántos grupos se ven antes de «Ver N grupos más»: una agencia puede tener decenas. */

@@ -160,6 +160,8 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
    * resto de cosas no es muy intuitivo»): el nombre con su interruptor en la fila, y el número en un renglón de abajo SÓLO
    * con la opción prendida («Uno cada [5] min»). Apagada no hay número que mirar.
    */
+  // Los rangos del goteo de ESTE negocio (#93): con su Resend y su dominio, el tope por día llega a 2.000. Sin leer, los de la plataforma.
+  const rangos = d?.rangosGoteo ?? RANGOS_GOTEO;
   const filaGoteo = (campo: 'minutos' | 'dia', nombre: string, objeto: string, antes: string, unidad: string, info: string, sugerido: number) => {
     const v = leido(campo);
     const on = v !== undefined;
@@ -169,7 +171,7 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
         debajo={on ? (
           <>
             <Unidad>{antes}</Unidad>
-            <Numero valor={v} min={RANGOS_GOTEO[campo][0]} max={RANGOS_GOTEO[campo][1]} disabled={off} etiqueta={`${nombre} · ${unidad}`}
+            <Numero valor={v} min={rangos[campo][0]} max={rangos[campo][1]} disabled={off} etiqueta={`${nombre} · ${unidad}`}
               onCambio={(n) => guardar({ [campo]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [campo]: e ?? '' }))} />
             <Unidad>{unidad}</Unidad>
           </>
@@ -186,15 +188,17 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
       filaGoteo('minutos', 'Goteo', 'el goteo', 'Uno cada', 'min', 'Los mensajes salen de a uno, con esta espera entre dos.', 5),
       filaGoteo('dia', 'Tope por día', 'el tope por día', 'Hasta', 'por día', 'Cuántos mensajes de esta automatización salen como mucho por día.', Math.min(50, d.lineaWa.dia)),
       <FilaArranque key="arranque" tope={leido('dia')} arranque={('arranque' in local ? local.arranque as { dia: number; sube: number } | null : d.config.goteo?.arranque) ?? undefined}
-        off={off} error={invalido.arranque} guardar={guardar} onInvalido={(e) => setInvalido((p) => ({ ...p, arranque: e ?? '' }))} />,
+        off={off} error={invalido.arranque} guardar={guardar} onInvalido={(e) => setInvalido((p) => ({ ...p, arranque: e ?? '' }))} rangoDia={rangos.dia} />,
     ] : [],
   };
 }
 
 /** EL ARRANQUE GRADUAL (lib/goteo.ts): sólo con tope por día, que es hasta dónde sube, y al apagar el tope se va con él (`configParaGuardar`). */
-function FilaArranque({ tope, arranque, off, error, guardar, onInvalido }: {
+function FilaArranque({ tope, arranque, off, error, guardar, onInvalido, rangoDia }: {
   tope: number | undefined; arranque: { dia: number; sube: number } | undefined; off: boolean; error?: string;
   guardar: (c: CambioGoteo) => void; onInvalido: (e: string | null | undefined) => void;
+  /** El rango del tope por día de este negocio (`rangosGoteo`, #93). */
+  rangoDia: readonly [number, number];
 }) {
   if (tope === undefined) return null;
   const on = !!arranque;
@@ -204,10 +208,10 @@ function FilaArranque({ tope, arranque, off, error, guardar, onInvalido }: {
       debajo={arranque ? (
         <>
           <Unidad>Empieza con</Unidad>
-          <Numero valor={arranque.dia} min={RANGOS_GOTEO.dia[0]} max={RANGOS_GOTEO.dia[1]} disabled={off} etiqueta="Arranque gradual · el primer día"
+          <Numero valor={arranque.dia} min={rangoDia[0]} max={rangoDia[1]} disabled={off} etiqueta="Arranque gradual · el primer día"
             onCambio={(n) => guardar({ arranque: { ...arranque, dia: n } })} onInvalido={onInvalido} />
           <Unidad>y sube</Unidad>
-          <Numero valor={arranque.sube} min={RANGOS_GOTEO.dia[0]} max={RANGOS_GOTEO.dia[1]} disabled={off} etiqueta="Arranque gradual · cuánto sube por día"
+          <Numero valor={arranque.sube} min={rangoDia[0]} max={rangoDia[1]} disabled={off} etiqueta="Arranque gradual · cuánto sube por día"
             onCambio={(n) => guardar({ arranque: { ...arranque, sube: n } })} onInvalido={onInvalido} />
           <Unidad>por día</Unidad>
         </>
