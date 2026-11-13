@@ -212,7 +212,10 @@ export function outliersCopyDeSpy(
       if (!formato || !p.url || !/^https:\/\//.test(p.url)) continue;
       if (formato !== 'anuncio' && p.dejo_de_verse_en) continue;
       const guion = guiones.get(p.id)?.trim() || '';
-      const texto = guion || (p.texto ?? '').trim();
+      // Un ANUNCIO transcrito lleva lo que se dice Y su texto (13/11/2026: los anuncios en video se transcriben; el copy también se
+      // replica). Lo demás, el guion o su texto.
+      const copy = (p.texto ?? '').trim();
+      const texto = formato === 'anuncio' && guion && copy ? `${guion}\n\nEL TEXTO DEL ANUNCIO: ${copy}` : guion || copy;
       const titulo = (p.titulo ?? '').trim();
       if (!texto && !titulo) continue;
       const deDonde: DeDondeTexto = guion ? 'guion' : formato === 'anuncio' ? 'copy' : formato === 'youtube' ? 'descripcion' : 'pie';
@@ -503,6 +506,8 @@ export function pedidoDeCorreccion(p: {
   capitulos: readonly string[];
   /** Una PLANTILLA corta para su duración (13/11/2026: la VSL de 10 minutos en 587 palabras): las palabras que pide. */
   duracion?: { segundos: number; objetivo: number; escritas: number } | null;
+  /** Las palabras sueltas en inglés (13/11/2026, el relevo: «more budget»). */
+  ingles?: readonly string[];
 }): string {
   const partes: string[] = ['Corrige tu respuesta antes de que la vea la persona:'];
   if (p.largo) {
@@ -512,6 +517,9 @@ export function pedidoDeCorreccion(p: {
   if (p.duracion) {
     const { segundos, objetivo, escritas } = p.duracion;
     partes.push(`- LA DURACIÓN: la pieza dura ${Math.round(segundos / 60)} minutos y lo que se dice en tu guion tiene ${escritas} palabras (unos ${Math.max(1, Math.round(escritas / 150))} minutos dichos). Complétala ENTERA hasta unas ${objetivo} palabras (entre ${Math.round(objetivo * 0.85)} y ${objetivo}, sin contar los títulos), con las mismas secciones y en el mismo orden: cada sección dice lo que se dice, entero, no un resumen de lo que habría que decir.`);
+  }
+  if (p.ingles?.length) {
+    partes.push(`- EN ESPAÑOL: tu guion tiene palabras en inglés (${p.ingles.map((w) => `«${w}»`).join(', ')}): dilas en español, también en «respuesta».`);
   }
   if (p.capitulos.length) {
     partes.push(`- LOS CAPÍTULOS: el original tiene ${p.capitulos.length} y tu guion no los sigue. Una sección por capítulo, en este orden, con su nombre como título:\n${p.capitulos.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}`);
