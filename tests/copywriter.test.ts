@@ -426,3 +426,13 @@ test('la plantilla escrita queda con título y ángulo (12/11/2026, en producci�
   assert.ok(ia.includes('estructura: `${estructuraParaIA(estructura ?? sugerida, !estructura)}${bibliotecaParaIA(lite)}EL EJEMPLO COMPLETO'));
   assert.match(PROMPTS_EXPERTO_COPY.adaptarUser.tpl, /en propiedades, el ángulo de LA BIBLIOTECA que más se parezca/);
 });
+
+test('sin IA, el chat lleva a conectarla y no a Soporte (12/11/2026, en producción, el negocio de prueba en el teléfono)', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  // Una invitación (`status`), no un error: un `alert` lleva siempre «Reportar a Soporte» (tests/reportar-a-soporte.test.ts).
+  assert.ok(panel.includes("if (m.error && /^No hay ninguna IA conectada/.test(m.texto)) {"));
+  assert.ok(panel.includes('<div className="nt-mako-error" role="status">{m.texto}<div className="nt-mako-pildoras">'));
+  assert.ok(panel.includes("<Link href={rutaDeTarjeta('ia')} className=\"nt-mako-pildora\">Conectar mi IA</Link>"));
+  // La frase es la de lib/ia-mensajes.ts: si cambia, el botón deja de salir.
+  assert.match(leer('lib/ia-mensajes.ts'), /return `No hay ninguna IA conectada, así que MaKo no puede \$\{tema\}\./);
+});
