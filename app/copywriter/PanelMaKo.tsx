@@ -629,6 +629,10 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
                   disabled={llamaALaIA(o.valor) && !puede} onClick={() => responderIni(o.valor)}>{o.texto}</button>
               ))}
             </div>
+            {/* Los botones grises dicen por qué (13/11/2026, en producción, un negocio sin la app: las ofertas apagadas y nada al lado). */}
+            {appEscritorio.bloqueada && pasoIni.opciones.some((o) => llamaALaIA(o.valor)) && (
+              <div className="nt-mako-estado">Para que MaKo lo escriba, instala su app: el botón está abajo.</div>
+            )}
           </>
         ) : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && hiloLeido && !pasosIni.length && (
           // Sin el texto que explicaba cómo usar el chat (12/11/2026, Martín: «arriba en MaKo dice un texto que es innecesario… eso es

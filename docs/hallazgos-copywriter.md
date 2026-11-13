@@ -540,13 +540,54 @@ leyendo el resultado al lado del original:
 **La regla:** probar una pieza generada es ponerla al lado del original y medir largo, formato, partes, pruebas y título. Que
 MaKo diga «repliqué la estructura y el ritmo» no es una medición: lo dijo las cuatro veces, y en dos no era cierto.
 
+## Segunda vuelta: las 12 plantillas, el teléfono entero y el negocio sin IA (13/11/2026, chat «probar-copy»)
+
+Tabla con cada paso y su captura: side-session-notes/local_3f1a66d3-…/probar-copy-1311/notas.md (fuera del repo).
+
+- **⚠️ Las plantillas largas salían cortas, y no por el modelo:** la VSL de 10 minutos salió de 587 palabras, el YouTube de 12
+  de 793 y la Clase de 42 de 617. El diagnóstico obvio (un modelo chico que se cansa, el tope de tokens) era el equivocado:
+  seguían el largo del EJEMPLO, que es un resumen. **Regla:** el largo lo da la duración (unas 150 palabras por minuto, hasta
+  2.000), y si queda debajo de 0,6 de eso se avisa con los números (`avisoDeDuracion`, lib/copywriter/ia-reglas.ts).
+- **⚠️ El título de una sección se perdía:** el método pedía «un destacado arriba» y el modelo lo hacía con `reemplazar_bloque`
+  sobre el título GANCHO (o LEAD): el texto quedaba sin su sección y `escribir_seccion` la volvía a crear al final. **Regla:**
+  un título de sección no se reemplaza ni se borra; el saneo lo convierte (lib/copywriter/operaciones.ts). Además «SECCIÓN
+  ASUNTO» y los títulos repetidos adentro de su sección se sacan, y `**negrita**` se vuelve negrita.
+- **⚠️ «No cambié nada.» no era MaKo negándose:** la IA devolvió un objeto sin respuesta ni operaciones, y el texto de respaldo
+  lo disfrazaba. El mismo pedido, otra vez, escribió el reel entero. **Trampa:** una salida vacía que parsea bien no tira error.
+  **Regla:** se pide una vez más si queda plazo, sus claves van al log y, si vuelve vacía, se dice (`salidaVacia`).
+- **El tipo no viajaba:** un reel escrito en una «Página en blanco» quedaba «Página» (también en la lista), porque
+  `propiedades` no aceptaba el tipo. Ahora lo acepta y, si la IA no lo pone, se toma del pedido (`tipoDelPedido`: gana el que
+  aparece primero, y «Ads» no cuenta porque es parte de nombres de ofertas como «WhatsApp Ads Funnel»).
+- **Lo que MaKo dice que hizo, contra la página:** con un archivo adjunto contestó «Completé… precio (US$ 497), garantía (14
+  días)…» y en la página no estaban. **Regla (la de ayer, con capa 2):** la plata, los porcentajes y los plazos que nombra la
+  respuesta se buscan en la página; lo que falta se avisa (`dichoQueNoQuedo`).
+- **La mezcla de voseo y tuteo sale en casi todas las piezas** de un negocio rioplatense, con la regla en el prompt. La lista
+  corta del tuteo (`marcasDeTuteo`) se queda corta: sumó «tú», «ti», «abres», «llevas», «controlas» y «trabajas» en un día.
+- **⚠️ Teléfono: «Aceptar» escondido a propósito.** El comentario de GuionM decía «su Aceptar queda en MaKo, con el número
+  arriba»; usado, la vista salta a la Página con el cambio marcado y nadie vuelve a MaKo a aceptarlo. **Regla:** la decisión va
+  donde se ve el cambio (pie fijo «Descartar · Aceptar» en la Página, `onPendiente` de PanelMaKo).
+- **Teléfono: la caja con un adjunto** lleva micrófono y flecha (ticket #51): a 375 el campo queda en 115 px y «Escribe a MaKo»
+  se partía en dos renglones cortados. En ese estado, un renglón con «…» (centro.css).
+- **Teléfono: `?abrir=ia` no abre nada** (sólo lo entiende la computadora). En el teléfono la casa de la IA es /perfil/ia, que dice
+  «Todavía no conectaste ninguna cuenta · en la computadora»: ahí redirige ahora.
+- **El negocio sin IA:** en el teléfono se entiende («No hay ninguna IA conectada… Conectar mi IA»). En la computadora, sin la
+  app (la regla del 23/10), las ofertas de la plantilla salían grises sin decir por qué: ahora una línea lo dice bajo los botones.
+- **Las sugerencias genéricas parpadeaban** («Mejorar la escritura · Acortar…», de uno a cinco segundos) antes de la pregunta de
+  una plantilla: salían antes de leer el hilo.
+
 ## Qué quedó sin hacer
 
-- (12/11/2026) La mezcla de «vos» y «tú» no tiene capa 2 (sólo el voseo en un negocio que no vosea): lib/copywriter/ia.ts.
+- (13/11/2026) Los avisos miran la PÁGINA; la respuesta en el chat también mezcla voseo y tuteo («llevas… tenés») y nadie la mira.
+- (13/11/2026) Un reel corto pedido por chat sale con extras («Notas de producción», «Variantes rápidas»): 417 palabras para 30 s,
+  y el aviso de la duración no mira piezas de menos de 2 minutos (`avisoDeDuracion`).
+- (13/11/2026) Una vez, en el teléfono, la Página quedó corrida a la derecha justo después de escribir la plantilla; no se repitió
+  y la medición después daba `scrollX = 0` (captura 28b de la segunda vuelta).
+- (13/11/2026) La Clase escribió «un funnel que vende sin anuncios pagos» para una oferta llamada «WhatsApp Ads Funnel»: lo que
+  la oferta del negocio dice no alcanza para que no se contradiga.
+- (12/11/2026) ~~La mezcla de «vos» y «tú» no tiene capa 2~~: la tiene desde el 13/11 (9e5a80238), con la lista corta de arriba.
 - (12/11/2026) Los reels con «su pie» (46 de cada 48 en la portada del negocio de MaKo), todos los carruseles y todos los
   YouTube se replican sin lo que se DICE en la pieza: la estructura real no está. Transcribir al replicar sigue pendiente.
 - (12/11/2026) Un pedido puntual («usa el testimonio en la Solución») a veces toca otra sección que no se pidió.
-- (12/11/2026) En el teléfono, después de que MaKo escribe la vista salta a «Página» y «Aceptar» queda en la pestaña «MaKo».
 - (12/11/2026) La respuesta de «Editar» no guarda lo que escribió el modelo antes del saneo: cuando algo se descarta, no hay cómo
   ver qué mandó (lib/copywriter/ia.ts).
 

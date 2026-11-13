@@ -447,6 +447,11 @@ test('lo que la respuesta dice que puso y no quedó en la página se avisa (13/1
   assert.equal(dichoQueNoQuedo('Te escribo un reel de 30 segundos en 3 partes.', 'Gancho…'), null);
 });
 
+test('sin la app de escritorio, las ofertas apagadas de la plantilla dicen por qué (13/11/2026, en producción, ws de prueba)', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.match(panel, /\{appEscritorio\.bloqueada && pasoIni\.opciones\.some\(\(o\) => llamaALaIA\(o\.valor\)\) && \(\s*<div className="nt-mako-estado">Para que MaKo lo escriba, instala su app: el botón está abajo\.<\/div>/);
+});
+
 test('las sugerencias genéricas no parpadean antes de la pregunta de una plantilla (13/11/2026, en producción)', () => {
   const panel = leer('app/copywriter/PanelMaKo.tsx');
   assert.ok(panel.includes(') : mensajes.length === 0 && Object.keys(respIni).length === 0 && id && hiloLeido && !pasosIni.length && ('));
