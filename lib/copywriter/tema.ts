@@ -30,7 +30,7 @@ export const TEMAS: readonly (Tema & { palabras: readonly string[] })[] = [
   ] },
   { id: 'tecnologia', nombre: 'tecnología e IA', palabras: [
     'inteligencia artificial', 'ia', 'ai', 'chatgpt', 'gpt', 'claude', 'automatiz*', 'automation*', 'software', 'app', 'apps', 'programar',
-    'programacion', 'codigo', 'coding', 'code', 'saas', 'herramienta*', 'tool', 'tools', 'agente*', 'agent', 'agents', 'prompt*', 'n8n', 'zapier',
+    'programacion', 'codigo', 'coding', 'code', 'saas', 'herramienta*', 'tool', 'tools', 'agente*', 'agent', 'agents', 'prompt*', 'n8n',
   ] },
   { id: 'fitness', nombre: 'fitness y deporte', palabras: [
     'ejercicio*', 'entren*', 'gym', 'gimnasio', 'musculo*', 'muscular', 'biceps', 'triceps', 'abdominal*', 'abs', 'cardio', 'correr', 'corredor*',
