@@ -55,7 +55,7 @@ export type EstiloPresetSubtitulos = {
   resaltado?: { modo: 'palabra' | 'frase'; color: string; noDichasOpacidad?: number };
   /** «Animación de la palabra» (Submagic, estilo Hormozi): la que se dice salta («pop») o crece. */
   animPalabra?: 'pop' | 'crecer';
-  /** El tamaño de las palabras clave en % (100 = igual; hasta 160). */
+  /** El tamaño de las palabras clave en % (100 = igual; hasta 300). */
   clavesTamano?: number;
 };
 export type ClavesPreset = {
@@ -151,8 +151,8 @@ export function sanearEstilo(raw: unknown): Resultado<EstiloPresetSubtitulos> {
     estilo.animPalabra = r.animPalabra;
   }
   if (r.clavesTamano !== undefined && r.clavesTamano !== null) {
-    const t = numero(r.clavesTamano, 100, 160);
-    if (t === null) return { ok: false, motivo: 'el tamaño de las palabras clave va de 100 a 160' };
+    const t = numero(r.clavesTamano, 100, 300);
+    if (t === null) return { ok: false, motivo: 'el tamaño de las palabras clave va de 100 a 300' };
     if (Math.round(t) !== 100) estilo.clavesTamano = Math.round(t);
   }
   return { ok: true, valor: estilo };

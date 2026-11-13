@@ -71,8 +71,12 @@ export const DEFAULTS_CLAVES = { color: "#4ade80", tamano: 100 };
 
 export const DEFAULTS_ANIM_PALABRA: AnimPalabra = "ninguna";
 
-/** Topes del tamaño de las claves: más de 160 % tapa a las vecinas en un renglón de cuatro palabras. */
-export const TOPES_CLAVES_TAMANO = { min: 100, max: 160 };
+/**
+ * Topes del tamaño de las claves. Hasta el 13/11/2026 era 160 % («más tapa a las vecinas»): desde entonces el renglón le
+ * reserva a la clave su ancho al partirse (subtitles/build-subtitle-text-element.ts) y su alto al dibujarse
+ * (text/resaltado.ts → centrosDeRenglones), y «La palabra clave gigante» la pide 3 veces más grande.
+ */
+export const TOPES_CLAVES_TAMANO = { min: 100, max: 300 };
 
 const sinFotograma = { keyframable: false } as const;
 
