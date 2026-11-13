@@ -40,8 +40,9 @@ const TU: Record<string, string> = {
   subís: 'subes', atendés: 'atiendes', escuchás: 'escuchas', aprendés: 'aprendes', lográs: 'logras', facturás: 'facturas', volvés: 'vuelves',
   decidís: 'decides', contás: 'cuentas', mostrás: 'muestras', explicás: 'explicas', ofrecés: 'ofreces', terminás: 'terminas',
   arrancás: 'arrancas', agendás: 'agendas', escalás: 'escalas', medís: 'mides', salís: 'sales',
-  empezá: 'empieza', preguntá: 'pregunta', guardá: 'guarda', comentá: 'comenta', agendá: 'agenda', dejá: 'deja', cerrá: 'cierra',
-  sumá: 'suma', pensá: 'piensa', llamá: 'llama', hablá: 'habla', usá: 'usa', mandá: 'manda', contestá: 'contesta', tomá: 'toma',
+  // («agendá», «dejá», «mandá» ya los trae la tanda del grupo de la app, arriba: una clave repetida es un error de tipos.)
+  empezá: 'empieza', preguntá: 'pregunta', guardá: 'guarda', comentá: 'comenta', cerrá: 'cierra',
+  sumá: 'suma', pensá: 'piensa', llamá: 'llama', hablá: 'habla', usá: 'usa', contestá: 'contesta', tomá: 'toma',
   arrancá: 'arranca', aprovechá: 'aprovecha', reservá: 'reserva', descargá: 'descarga',
   respondé: 'responde', hacé: 'haz', tené: 'ten', vendé: 'vende', aprendé: 'aprende', mové: 'mueve', atendé: 'atiende',
   probalo: 'pruébalo', guardalo: 'guárdalo', escribilo: 'escríbelo', mandalo: 'mándalo', dejalo: 'déjalo', miralo: 'míralo',
