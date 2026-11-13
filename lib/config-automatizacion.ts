@@ -90,8 +90,12 @@ export type ConfigAutomatizacion = {
   columnasEmail?: ColumnasEmail;
 };
 
-/** Los tres momentos de un email que mueven la tarjeta. */
-export const EVENTOS_COLUMNA = ['enviado', 'abrio', 'clic'] as const;
+/**
+ * Los momentos de un email que mueven la tarjeta. `rebote` (13/11/2026, ticket #93: Mauricio pidió «una columna o fase del CRM
+ * para los correos rebotados»): la dirección no existe. Sin columna elegida, va a la del CRM que se llame «Rebotado»
+ * (`columnaDeRebote`, lib/email-eventos-crm-reglas.ts). El lead ya sale de la secuencia por la baja del email.
+ */
+export const EVENTOS_COLUMNA = ['enviado', 'abrio', 'clic', 'rebote'] as const;
 export type EventoColumna = (typeof EVENTOS_COLUMNA)[number];
 export type ColumnasEmail = Partial<Record<EventoColumna, string>>;
 

@@ -111,6 +111,11 @@ test('6. lo que MaKo escribe sale en tú; lo que va entre «…» no se toca', a
   assert.equal(alTuteo('Además, Tomás habló en francés.'), 'Además, Tomás habló en francés.', 'tocó una palabra que no es voseo');
   assert.equal(alTuteo('Anoté tu pedido: «mandale el borrador a Juan, que vos sabés»'), 'Anoté tu pedido: «mandale el borrador a Juan, que vos sabés»', 'cambió las palabras de la persona');
   assert.equal(alTuteo('Las quieres hoy. Puedes verlas en el CRM.'), 'Las quieres hoy. Puedes verlas en el CRM.', 'tocó lo que ya estaba en tú');
+  // 13/11/2026, la prueba del grupo de la app en el ws9: «Cargá el gasto de Meta en tu cuenta y agendá a los leads de esa campaña» salió así.
+  assert.equal(alTuteo('Cargá el gasto de Meta en tu cuenta y agendá a los leads de esa campaña.'), 'Carga el gasto de Meta en tu cuenta y agenda a los leads de esa campaña.');
+  assert.equal(alTuteo('Mandá el link, pasá la lista, agregá la nota, activá o pausá la campaña, dejá el resto y anotá la hora.'),
+    'Manda el link, pasa la lista, agrega la nota, activa o pausa la campaña, deja el resto y anota la hora.');
+  assert.equal(alTuteo('La agenda está cargada y la campaña quedó activa.'), 'La agenda está cargada y la campaña quedó activa.', 'tocó una palabra que no es voseo');
   assert.equal(alTuteo('Acacia y mirador quedan igual'), 'Acacia y mirador quedan igual', 'cortó una palabra por la mitad');
   assert.equal(alTuteo(''), '');
 });

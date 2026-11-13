@@ -977,6 +977,9 @@ function movil(p: string): string[] {
   return [
     // Los bloques de venta (16b): el reloj, más chico; el pop, a lo ancho y arriba del sello «Hecho con MaKo» (abajo a la derecha).
     r(p + ' .gm-cuenta-unidad', 'min-width: 3.4em; padding: 0.45em 0.3em;'),
+    // «Hecho con MaKo» en el teléfono va AL PIE, no flotando (13/11/2026, la réplica de Clara a 375: tapaba el texto de una
+    // tarjeta). En la pantalla angosta no hay costado libre para un sello fijo.
+    r(p + ' .gm-marca', 'position: static; display: flex; width: max-content; margin: 1.5em auto;'),
     // El quiz (16c): la tarjeta respira menos y los botones ocupan el ancho (SurveyJS en el teléfono: 2 y 4 unidades).
     r(p + ' .gm-quiz', 'padding: 1.5em 1em;'),
     r(p + ' .gm-quiz-nav', 'flex-direction: column-reverse; align-items: stretch;'),

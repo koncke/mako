@@ -36,6 +36,8 @@ const Lupa = () => (
 );
 
 function Tarjeta({ x, telefono }: { x: OutlierLanding; telefono: boolean }) {
+  // Una captura que no carga se saca: queda el marco de espera, no el ícono de imagen rota (13/11/2026, en el banco).
+  const [rota, setRota] = useState(false);
   return (
     <li className={s.tarjeta}>
       {/* La landing ENTERA (su captura larga) en una tarjeta grande: al pasar el cursor baja sola de arriba a abajo (11/11/2026,
@@ -44,9 +46,13 @@ function Tarjeta({ x, telefono }: { x: OutlierLanding; telefono: boolean }) {
           `transform`, que no vuelve a dibujar la página. */}
       <a href={x.url} target="_blank" rel="noopener noreferrer" className={`${s.mini} ${l.mini}`} aria-label={`Ver la página de ${x.quien.nombre}`}
         style={{ ['--dur' as string]: `${duracionDelScroll(x.alto)}s` }}>
-        {x.imagen && (
+        {/* Mientras llega la captura larga (o si no carga), el marco con el color de su tipo y el dominio de la página: nunca una caja
+            gris vacía (13/11/2026, el Cerebro con la captura de producción, donde la VSL y el lead magnet salían grises mientras
+            cargaban). La captura se dibuja encima. */}
+        <span className={l.espera} data-tipo={x.tipo} aria-hidden><b>{hostDeLanding(x.url)}</b></span>
+        {x.imagen && !rota && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={x.imagen} alt="" className={l.larga} width={640} height={x.alto ?? undefined} loading="lazy" decoding="async" />
+          <img src={x.imagen} alt="" className={l.larga} width={640} height={x.alto ?? undefined} loading="lazy" decoding="async" onError={() => setRota(true)} />
         )}
         <span className={o.marca}>{NOMBRE_TIPO[x.tipo]}</span>
       </a>
@@ -83,9 +89,7 @@ export function OutliersLandings({ portada, telefono = false, rutaCrear = RUTA_P
   const pantalla = usePortadaCrear();
   const [q, setQ] = useState('');
   const [tipo, setTipo] = useState<TipoLanding | null>(null);
-  const deSpy = portada.outliers.filter((x) => x.fuente === 'spy').length;
   const total = portada.outliers.length;
-  const esperan = portada.sinCaptura ?? 0;
   // Los tipos que hay, en el orden de la grilla: un filtro que da cero no se ofrece.
   const tipos = useMemo(() => [...new Set(portada.outliers.map((x) => x.tipo))], [portada.outliers]);
   const vistas = useMemo(() => filtrarOutliers(portada.outliers, q, tipo), [portada.outliers, q, tipo]);
@@ -132,15 +136,8 @@ export function OutliersLandings({ portada, telefono = false, rutaCrear = RUTA_P
           </div>
         )}
         {!q && !tipo && plantillas}
-        {total > 0 && (
-          <p className={o.total}>
-            {vistas.length === total
-              ? `${total} ${total === 1 ? 'página' : 'páginas'} que venden`
-              : `${vistas.length} de ${total} páginas`}
-            {deSpy > 0 && vistas.length === total ? ` · ${deSpy === 1 ? 'la de tu competencia primero' : `las ${deSpy} de tu competencia primero`}` : ''}
-            {esperan > 0 && vistas.length === total ? ` · ${esperan === 1 ? '1 de tu competencia espera su captura' : `${esperan} de tu competencia esperan su captura`}` : ''}
-          </p>
-        )}
+        {/* Sin la frase de totales («52 páginas que venden · las 2 de tu competencia primero · 2 esperan su captura»): era texto que
+            explica la pantalla (13/11/2026, el Cerebro con la captura de producción; Martín, 12/11: fuera los textos que explican). */}
         {vistas.length > 0 ? (
           // En el teléfono, de a una: una página apaisada en dos columnas medía 180px y no se leía (11/11/2026). Es la grilla
           // ancha de Image (la de las miniaturas de YouTube), que en el teléfono va de a una.

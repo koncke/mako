@@ -28,6 +28,7 @@ import { NuevoChatFlotante } from '@/app/m/_chat/NuevoChatFlotante';
 import Link from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
+import { AvisoDeIA } from '@/app/m/_chat/AvisoDeIA';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
@@ -185,6 +186,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
       </SheetM>
 
       <PantallaChatM abierto={abierta && elegido != null} onCerrar={cerrar} id="chat-cliente"
+        aviso={panel ? undefined : <AvisoDeIA app={k.app} iaConectada={k.iaConectada} onConectar={() => k.setConectando(true)} />}
         titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : (
           // El título es el chat, como la cabecera de WhatsApp: la criatura a la izquierda del nombre (ChatsMovil.tsx).
           <span className="m-operaciones-titulo">
@@ -195,7 +197,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
         pie={panel ? undefined : (
           <div className="m-operaciones-caja">
             {/* La caja ÚNICA, la del teléfono del super admin: Enter baja de renglón y se manda con el botón. */}
-            <CajaDelCliente k={k} campo={caja} seguir={seguirHoja} movil />
+            <CajaDelCliente k={k} campo={caja} seguir={seguirHoja} movil avisosArriba />
             {estado && <div className="m-operaciones-caja__fila m-operaciones-caja__fila--meta"><span className="m-operaciones-caja__estado">{estado}</span></div>}
           </div>
         )}>

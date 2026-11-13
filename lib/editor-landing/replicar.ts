@@ -65,8 +65,11 @@ import { esDesafioDeBot, paginaConDireccion } from '../landing-fetch';
 import { getWorkspaceActual } from '../workspace';
 import { conMemoriaDelPedido } from '../ia-saturacion';
 import { crear, guardarTema, temasPropiosDe } from './server';
-import { esquema as pedirEsquema, secciones as pedirSecciones } from './ia';
-import { avisoDeCifras, cifrasSinRespaldo, quitarPruebaDeLaOriginal, tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
+import { esquema as pedirEsquema, frases as reescribirFrases, secciones as pedirSecciones } from './ia';
+import {
+  avisoDeCifras, avisoDeDatosDeLaOriginal, cifrasSinRespaldo, conFrasesNuevas, frasesCopiadas, quitarPruebaDeLaOriginal, sinCifrasDeLaOriginal, tandasDe,
+  tarjetaDesdeEsquema, TOPE_FRASES,
+} from './ia-reglas';
 import { TOPES, nuevoId, textoDe, type JsonNodo, type LandingContenido } from './doc';
 import { sanearEnvoltorios, sanearHtmlEditable } from './html-editable-seguro';
 import { textoDeHtmlEditable } from './html-editable';
@@ -90,8 +93,11 @@ import {
   adaptacionSinNingunaSeccion, errorDeAdaptacion, nombresDeLaReferencia, textoDeOferta,
 } from './replicar-partes';
 import {
-  acomodoDeSeccion, disposicionPorSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
+  acomodoDeSeccion, anchoDeColumna, conAnchoDeColumna, conBotonEnCadaSeccion, conHuecoDeFoto, conLadoDeFoto, disposicionPorSeccion,
+  testimoniosParaCompletar, PARTES_BOTON_REPETIDO, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
+  type DisposicionDeSeccion,
 } from './replicar-estructura';
+import { VARIANTES_CON_IMAGEN } from './ia-bloques';
 import { NOMBRE_TIPO_SECCION, sanearAngulos, textoDeAngulos, type Angulos } from './replicar-angulos';
 import { angulosDePagina, textoDePagina } from './replicar-lectura';
 import { TEMAS } from './temas';
@@ -114,6 +120,8 @@ const MAX_TEXTO = 60_000;
  * y crear antes del `maxDuration` de la ruta (300 s). `subirImagenes` no empieza una que no termina.
  */
 const PLAZO_IMAGENES_MS = 265_000;
+/** Lo que espera la reescritura de las frases iguales a la original (un pedido; si no llega, quedan y el aviso las cuenta). */
+const PLAZO_FRASES_MS = 30_000;
 
 /** `probar`: el formato que sí puede andar, cuando el error lo propone (la pantalla lo ofrece como botón). */
 const falla = (error: string, status = 400, probar?: FormatoReplicar): ResultadoReplicar => ({ ok: false, error, status, ...(probar ? { probar } : {}) });
@@ -351,6 +359,8 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const moldes = mismasSecciones ? moldeDeEsquema(esq) : null;
   // Cómo está acomodada cada sección (dónde lleva imágenes, si sus subtítulos son tarjetas): con el estilo leído.
   const estiloLeido = await estiloP;
+  // La disposición de cada sección queda a mano para después de la IA (13/11/2026, `conHuecoDeFoto`).
+  let disposiciones: (DisposicionDeSeccion | null)[] = [];
   const acomodos = moldes
     ? (() => {
       const asigM = estiloLeido ? asignarSecciones(esq.secciones, estiloLeido.secciones) : [];
@@ -358,6 +368,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
       const imgs = estiloLeido ? imagenesPorSeccion(partesM, estiloLeido.imagenes) : [];
       // Las tarjetas, las fotos y el video de cada parte (12/11/2026): la grilla de testimonios salía como una foto por fila.
       const disp = estiloLeido ? disposicionPorSeccion(partesM, estiloLeido.secciones) : [];
+      disposiciones = disp;
       return moldes.map((m, i) => acomodoDeSeccion(m, imgs[i] ?? null, disp[i] ?? null));
     })()
     : [];
@@ -448,12 +459,30 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   let pruebaQuitada = 0;
   let frasesIguales = 0;
   let enlacesAjenos = 0;
+  // Lo que el NEGOCIO dice (su oferta y su perfil): una cifra que está acá es suya aunque la original la tenga también.
+  const negocio = partes.texto ? '' : [entrada.oferta ?? '', await perfilParaCifras()].join('\n');
+  // Las cifras, fechas y horas de la original que la IA escribió igual (13/11/2026, `sinCifrasDeLaOriginal`): pasan a [DATO].
+  const datosAjenos: string[] = [];
   // Los destinos que aparecen en la original (su agenda, su WhatsApp): con las mismas secciones, el esquema ES su texto.
   // La IA no los ve en los botones, pero sí en un renglón como «[CALENDARIO] Calendly (https://…)».
   const destinosOriginal = mismasSecciones && !partes.texto ? enlacesDeLaOriginal(esq.secciones.flatMap((s) => s.puntos).join('\n')) : new Set<string>();
-  const tarjetasCrudas = esq.secciones.map((s, i) => {
-    const t = porIndice.get(i);
-    if (t) {
+  let huecosDeFoto = 0;
+  let ladosDeFoto = 0;
+  let testimoniosVacios = 0;
+  const anchoColumna = anchoDeColumna(estiloLeido?.anchoContenido);
+  // 1. El diseño de cada sección y lo textual de la original vaciado.
+  const deLaIA = new Set<number>();
+  const tarjetasArmadas = esq.secciones.map((s, i) => {
+    const t0IA = porIndice.get(i);
+    if (t0IA) {
+      deLaIA.add(i);
+      // La grilla con foto de la original, con el hueco de cada foto aunque la IA la haya armado sin imagen.
+      const h = conHuecoDeFoto(t0IA, disposiciones[i] ?? null, VARIANTES_CON_IMAGEN);
+      if (h.cambiada) huecosDeFoto++;
+      // La foto o el video al costado (el hero, «Quién es») y la columna con el ancho de la original (13/11/2026).
+      const l = conLadoDeFoto(h.tarjeta, disposiciones[i] ?? null);
+      if (l.cambiada) ladosDeFoto++;
+      const t = conAnchoDeColumna(l.tarjeta, anchoColumna);
       if (!original) return t;
       const f = quitarPruebaDeLaOriginal(t, original);
       pruebaQuitada += f.quitados;
@@ -462,13 +491,38 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     }
     sinIA++;
     avisar({ fase: 'seccion', indice: i, titulo: s.titulo, respaldo: true });
-    return tarjetaDesdeEsquema(s, i === 0);
+    return conAnchoDeColumna(tarjetaDesdeEsquema(s, i === 0), anchoColumna);
   });
-  const tarjetas = partes.texto ? tarjetasCrudas : tarjetasCrudas.map((t) => {
+  // 2. Las frases que la IA dejó IGUALES a la original, reescritas para el negocio en un pedido (13/11/2026: la de Clara salió
+  //    con 24, su titular entre ellas). Antes de las cifras: con [DATO] puesto, la frase ya no se reconoce como copiada.
+  const copiadas = original ? [...new Set([...deLaIA].flatMap((i) => frasesCopiadas(tarjetasArmadas[i], original)))].slice(0, TOPE_FRASES) : [];
+  const nuevas = copiadas.length ? await reescribirFrases({ frases: copiadas, negocio, hastaMs: Date.now() + PLAZO_FRASES_MS }) : [];
+  const reemplazos = new Map(copiadas.map((f, i) => [f, nuevas[i] ?? f] as const).filter(([a, b]) => a !== b));
+  const frasesReescritas = reemplazos.size;
+  // Las que siguen iguales (el conteo es por renglón; las reescritas ya no lo están).
+  const frasesQuedan = Math.max(0, frasesIguales - frasesReescritas);
+  // 3. Lo ajeno que quedó: sus cifras, fechas y horas a [DATO], y su prueba social como testimonios para completar.
+  const tarjetasCrudas = tarjetasArmadas.map((armada, i) => {
+    if (!original || !deLaIA.has(i)) return armada;
+    const t = reemplazos.size ? conFrasesNuevas(armada, reemplazos) : armada;
+    const d = sinCifrasDeLaOriginal(t, original, negocio);
+    for (const c of d.cambiadas) if (!datosAjenos.includes(c)) datosAjenos.push(c);
+    // La prueba social de la otra no se reescribe como propia: sus testimonios quedan para completar (13/11/2026).
+    if (angulos?.secciones.find((x) => x.n === i + 1)?.tipo === 'prueba') {
+      const tp = testimoniosParaCompletar(d.tarjeta);
+      testimoniosVacios += tp.items;
+      return tp.tarjeta;
+    }
+    return d.tarjeta;
+  });
+  const sinEnlacesAjenos = partes.texto ? tarjetasCrudas : tarjetasCrudas.map((t) => {
     const r = sinEnlacesALaOriginal(t, url, destinosOriginal);
     enlacesAjenos += r.cambiados;
     return r.tarjeta;
   });
+  // Si la original repite su botón principal (en 4 partes o más), cada sección de la réplica cierra con el suyo (13/11/2026).
+  const conBotones = (estiloLeido?.botonEnPartes ?? 0) >= PARTES_BOTON_REPETIDO ? conBotonEnCadaSeccion(sinEnlacesAjenos) : null;
+  const tarjetas = conBotones ? conBotones.tarjetas : sinEnlacesAjenos;
   avisar({ fase: 'diseno' });
   // La marca de la original que quedó nombrada en una copia escrita de nuevo: se cuenta y se dice (no se adivina el reemplazo).
   const menciones = partes.texto ? 0 : mencionesDe(tarjetas.map((t) => textoDe(t, ' ')).join(' '), marca);
@@ -477,7 +531,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const nombrados = nombres.map((n) => ({ n, veces: mencionesDe(textoCopia, n) })).filter((x) => x.veces > 0);
   // Las cifras que quedaron y no salen del NEGOCIO (12/11/2026, «ninguna cifra inventada»; la capa 2, como en Copywriting): la
   // fuente es su oferta y su perfil, nunca la página de la otra. Se dicen en el aviso.
-  const cifrasAjenas = partes.texto ? [] : cifrasSinRespaldo(tarjetas.map((t) => textoDe(t, ' ')).join('\n'), [entrada.oferta ?? '', await perfilParaCifras()].join('\n'));
+  const cifrasAjenas = partes.texto ? [] : cifrasSinRespaldo(tarjetas.map((t) => textoDe(t, ' ')).join('\n'), negocio);
   if (!tarjetas.length) return falla('No encontré secciones en esa página.', 422);
 
   // Las imágenes que faltan para los huecos que dejó la IA (una galería, las caras de un equipo), si
@@ -512,7 +566,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const fidelidad = moldes ? `, fidelidad: ${lineaDeFidelidad(fidelidadDeEstructura(moldes, tarjetas))}` : '';
   const noCopiadas = Math.max(0, intentadas.size - subidas.size);
   const resumenAnim = anim ? `${anim.estilo ?? 'sin estilo'} + ${animadas.propias} propias${anim.avisoScroll ? ', con scroll' : ''}` : 'no';
-  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}, enlaces a la original ${enlacesAjenos}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${frasesIguales} frases iguales` : ''}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
+  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}, enlaces a la original ${enlacesAjenos}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${datosAjenos.length} cifras, fechas u horas de la original a [DATO], ${frasesIguales} frases iguales y ${frasesReescritas} reescritas` : ''}, ${huecosDeFoto} grillas con el hueco de la foto, ${ladosDeFoto} fotos al costado, ${testimoniosVacios} testimonios para completar, ${conBotones?.sumados ?? 0} botones al final de sección, columna ${anchoColumna ?? 'sin medir'}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
   const una = terminoTarjeta(receta.config);
   const varias = terminoTarjeta(receta.config, { plural: true });
   const avisos = [
@@ -523,9 +577,11 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     partes.diseno && !estilo ? 'Sin el estilo de la original.' : !tema.ok && 'tope' in tema && tema.tope ? 'Llegaste al tope de temas.' : '',
     noCopiadas ? (noCopiadas === 1 ? 'Una imagen no se copió.' : `${noCopiadas} imágenes no se copiaron.`) : '',
     pruebaQuitada ? (pruebaQuitada === 1 ? 'Una cita o cifra de la original quedó vacía: pon la tuya.' : `${pruebaQuitada} citas o cifras de la original quedaron vacías: pon las tuyas.`) : '',
-    frasesIguales ? (frasesIguales === 1 ? 'Una frase quedó igual a la original: revísala.' : `${frasesIguales} frases quedaron iguales a la original: revísalas.`) : '',
+    frasesQuedan ? (frasesQuedan === 1 ? 'Una frase quedó igual a la original: revísala.' : `${frasesQuedan} frases quedaron iguales a la original: revísalas.`) : '',
     menciones ? `${marca} quedó nombrada ${menciones === 1 ? 'una vez' : `${menciones} veces`}: cámbialo por lo tuyo.` : '',
     nombrados.length ? `De la original quedó: ${nombrados.map((x) => `${x.n} (${x.veces})`).join(', ')}. Cámbialo por lo tuyo.` : '',
+    testimoniosVacios ? (testimoniosVacios === 1 ? 'Un testimonio quedó para completar con el de un cliente tuyo.' : `${testimoniosVacios} testimonios quedaron para completar con los de tus clientes.`) : '',
+    avisoDeDatosDeLaOriginal(datosAjenos),
     avisoDeCifras(cifrasAjenas),
     enlacesAjenos ? (enlacesAjenos === 1 ? 'Un enlace llevaba a la original: ahora va a «#», pon el tuyo.' : `${enlacesAjenos} enlaces llevaban a la original: ahora van a «#», pon los tuyos.`) : '',
     anim?.avisoScroll ? AVISO_SCROLL : '',
