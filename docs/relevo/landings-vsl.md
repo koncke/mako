@@ -92,11 +92,66 @@ outliers…). Las páginas de Industrias (documentos de Web Generator) siguen of
 publicar esos documentos, con el permiso de Martín. La compra de prueba con la tarjeta (Pro empieza en 0, Esencial cobra hoy):
 la hace Martín. «Inspirado en» de los referentes quedó sólo en el nombre de cada imagen de la portada (Martín pidió sin texto).
 
-**Qué referencia copió cada landing** (`referencia` de cada `app/vsl/_competencia/<slug>.ts`): sitio y comparaciones → beehiiv;
-Video → Cherry Studio; Competitor Spy → Foreplay; Marketing CoPilot → Master Ads; AI Avatar → HeyGen; Image → PostNitro;
-Copywriting → The Copy Machine; Web Generator → HighLevel AI Studio; Offer → Atlas AI; Chats → Leadsales; CRM → GoHighLevel;
-Automations → SetSmart; Agenda → iClosed; Cobranza → Rebill; Email → beehiiv; Dashboard → Reportei; Ads Analyst → Gethookd;
-Funnel → Hyros; Ops Center → Holo; Plan → Motion.
+## Sexta vuelta (12/11/2026, noche): nada inventado
+
+Martín, con dos reels de referencia (https://www.instagram.com/reel/DfZFAfzs3Ng/ para Replicar y
+https://www.instagram.com/reel/DffGz6yu565/ para la edición de video): «mira fotograma por fotograma cómo lo hace… se los
+releves a los chats correspondientes… no tiene sentido esos cursores que están haciendo cosas sobre algo que ya está creado».
+Y: «identifica la cantidad de cosas que hiciste inventándote cosas. Eso yo no lo quiero… elimina absolutamente todo… pon un
+placeholder con que aquí falta una animación… o si ya la tenemos, reemplázala»; Precios con menos texto, los botones alineados
+y los colores de antes; Mauricio exactamente como antes; preguntas con las objeciones reales; el pie con el logo; sin la
+columna «MaKo» sola; Agencias en Industrias; MaKo Partners en algún lado; AI Avatar en la portada; y la tabla de referencias.
+
+| Pedido | Dónde quedó |
+|---|---|
+| Los reels, a sus chats | Replicar → «Probar Web Generator» (local_10fb3135…), el enjambre del editor → «Video Editor» (local_72d0c3fe…), la película de Spy (más carpetas, centrada) → «Spy: funnel del competidor» (local_25016f6c…). Cada uno avisa al chat de landings cuando esté, para volver a grabar |
+| Nada inventado | `FaltaAnimacion` (`app/vsl/_competencia/FaltaAnimacion.tsx`). `VisualDeLanding` y `Visual` ya no dibujan maquetas: grabación real (Spy, Replicar), video de Panda, fotos reales, o el recuadro. Los 27 dibujos metidos en 11 diseños, también al recuadro |
+| Las filas de la portada | `TARJETAS_PORTADA` (`datos.ts`): Spy y Replicar (grabados), los referentes (sus caricaturas), AI Avatar (sus fotos); el resto, el recuadro con lo que falta (carruseles, copywriting, video, CoPilot, CRM, grupos de WhatsApp, Automations, Chats, tableros, Classroom) |
+| Replicar sobre Hormozi | El banco del scratchpad (`banco/replicar3.tsx`): cada caja muestra su pedazo de la landing (`hormozi-libros.webp`) recién cuando la arman, revelado como si se escribiera |
+| Precios | `app/planes/Tarjetas.tsx`: `listaCorta` (renglones cortos, con los topes del código), filas comunes con subgrid (los botones a la misma altura), sin notas ni la línea de pagos, los colores de antes (el Acelerador grafito, `data-tema-fijo`) |
+| Mauricio, exactamente como antes | `CasoSitio` con la franja clara de la landing (su `::before`) y `data-tema-fijo` |
+| Preguntas | `PREGUNTAS_SITIO` (`datos.ts`): 9 objeciones de quien vende High Ticket, con lo que MaKo hace (el setter lleva a agendar, no reserva) |
+| Pie y menú | El logo arriba del texto (`Pie.tsx`); Ops Center pasó a «Today» (sin columna «MaKo»); Industrias suma Agencias (`/agency`, pide iniciar sesión); «Empezar» suma MaKo Partners (`/mako-partners`) |
+
+**Qué falta grabar** (cada recuadro dice qué): Spy y Replicar otra vez cuando sus chats cambien la animación; el lienzo de video
+con el enjambre como el reel; carruseles (bajar por los outliers, elegir uno y duplicarlo); copywriting (elegir un reel de la
+competencia, transcribirlo y escribir el anuncio a toda velocidad, con poco texto); Marketing CoPilot (buscar un diseño que esté
+a la altura); el CRM real (una tarjeta que cambia de etapa y el menú «…»: asignar campañas, scrapear un grupo); el scrapeo de un
+grupo de WhatsApp (la pestaña, los grupos, los contactos y el cartel de MaKo); el lienzo de Automations; la bandeja de Chats; un
+carrusel con todos los tableros y su animación de entrada; las clases del Classroom; y cada recuadro de las 19 landings. Se
+graban con la app de verdad: con datos de prueba (el ws 3), nunca con los de un cliente.
+
+### Las referencias de cada página
+
+| Página | Copiada de |
+|---|---|
+| Portada nueva (`/vsl/sitio`) | beehiiv (beehiiv.com) |
+| Comparaciones (`/vsl/comparaciones`) | beehiiv (beehiiv.com/comparisons) |
+| Precios (`/planes`) | beehiiv (beehiiv.com/pricing) |
+| Checkout (`/planes/<plan>`) | Stripe Checkout |
+| Ops Center (`/vsl/mako`) | Holo (tryholo.ai) |
+| Dashboard | Reportei (reportei.com/es) |
+| Chats | Leadsales (leadsales.io) |
+| Plan (`/vsl/prioridades`) | Motion (usemotion.com) |
+| Email | beehiiv (beehiiv.com) |
+| CRM | GoHighLevel (gohighlevel.com) |
+| Automations (`/vsl/seguimiento`) | SetSmart (setsmart.io/es) |
+| Agenda | iClosed (iclosed.io) |
+| Cobranza | Rebill (rebill.com/es) |
+| Marketing CoPilot (`/vsl/ads`) | Master Ads (masterads.ai) |
+| Offer | Atlas AI de Done For You (go.doneforyou.com/offer-formula) |
+| Competitor Spy | Foreplay (foreplay.co) |
+| Ads Analyst (`/vsl/script`) | Gethookd (gethookd.ai) |
+| Funnels | Hyros (hyros.com) |
+| Video | Cherry Studio (cherrysweet.app) |
+| AI Avatar | HeyGen, anuncios UGC (heygen.com/es-mx) |
+| Image | PostNitro (postnitro.ai/es) |
+| Copywriting | The Copy Machine (theoperatorstack.io/copy-machine) |
+| Web Generator | HighLevel AI Studio (gohighlevel.com/ai-studio) |
+| MaKo Partners (`/mako-partners`) | LLM Pulse, Tolt y systeme.io |
+| Agency Dashboard (`/agency`) | Las páginas de agencias de GoHighLevel y Vendasta |
+| Portada de hoy (`/`, documento de Web Generator) | 100ads.ai |
+| **Industrias** (`/vsl/coaches`, `/vsl/infoproductores`, `/vsl/inmobiliarias`, documentos del 23/10) | **Sin referencia escrita en el código**: hay que rehacerlas copiando una (y publicarlas es con el permiso de Martín) |
 
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 

@@ -40,6 +40,7 @@ import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
 import { RUTA_CTA, CASO, LogoMaKo, MAKO, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { ASESORES, inspiradoEn } from '@/lib/asesores/catalogo';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 
 const F = '/vsl-assets/fuentes';
 const AZUL = MAKO.azul;
@@ -140,6 +141,7 @@ const CSS = `
 .d-copywriting-pestana strong { display: block; font-size: 16px; font-weight: 700; }
 .d-copywriting-pestana small { display: block; margin-top: 5px; font-size: 14px; }
 .d-copywriting-panel { display: none; margin-top: 22px; background: #fff; border: 1px solid #8FA6C9; border-radius: 10px; overflow: hidden; box-shadow: rgba(50,40,25,.024) 0 8px 24px 0; }
+.d-copywriting-panel-falta { border: 0; border-radius: 0; background: none; box-shadow: none; }
 .d-copywriting-panel-cab { height: 51px; padding: 0 16px; display: flex; align-items: center; gap: 8px; background: #E9EEF6; font-size: 14px; font-weight: 600; }
 .d-copywriting-panel-cab::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: ${PETROLEO}; }
 .d-copywriting-lienzo { padding: 40px 30px 44px; background: #F6F2E9; text-align: center; }
@@ -543,13 +545,10 @@ function secciones(bloques: Bloque[]): ReactNode[] {
                       ))}
                     </div>
                     {b.items.map((it, j) => (
-                      <article key={j} className={`d-copywriting-panel d-copywriting-p${j}`}>
-                        <header className="d-copywriting-panel-cab">Ejemplo</header>
-                        <div className="d-copywriting-lienzo">
-                          <p className="d-copywriting-lienzo-n" dangerouslySetInnerHTML={html(it.titulo)} />
-                          <p className="d-copywriting-lienzo-e" dangerouslySetInnerHTML={html(it.meta ?? '')} />
-                          <p className="d-copywriting-lienzo-h" dangerouslySetInnerHTML={html(it.texto)} />
-                        </div>
+                      // El ejemplo de cada plantilla va grabado de la app: hasta tenerlo, el recuadro de lo que falta
+                      // (12/11/2026: el ejemplo tipeado a mano en un lienzo se sacó).
+                      <article key={j} className={`d-copywriting-panel d-copywriting-panel-falta d-copywriting-p${j}`}>
+                        <FaltaAnimacion que={`Un ejemplo real escrito con Copywriting: la plantilla «${it.titulo.replace(/<[^>]+>/g, '')}».`} />
                       </article>
                     ))}
                   </div>

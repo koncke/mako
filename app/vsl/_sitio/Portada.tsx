@@ -28,9 +28,8 @@
 
 import { TEXTO_CTA } from '../_competencia/marca';
 import { VisualDeLanding } from '../_competencia/Visuales';
+import { FaltaAnimacion } from '../_competencia/FaltaAnimacion';
 import type { Bloque } from '../_competencia/tipos';
-import { FEATURE_VISUALS } from '../_detalle/feature-visuals';
-import { Visual } from '../_detalle/Visual';
 import PandaPlayer from '../_detalle/PandaPlayer';
 import { CSS_CASO, CasoMauricio } from '../_detalle/FeatureDetail';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
@@ -130,30 +129,31 @@ function TiraSitio() {
   );
 }
 
-/** Una fila: el texto de un lado y lo que se ve del otro (`inv`: al revés). */
+/** Una fila: el texto de un lado y lo que se ve del otro (`inv`: al revés). Sin landing (Classroom), sin link. */
 function FilaFuncion({ slug, rotulo, titulo, texto, visual, inv }: (typeof TARJETAS_PORTADA)[number] & { inv: boolean }) {
-  const l = landingDeSlug(slug);
-  if (!l) return null;
-  const hero = visual === 'hero' ? heroDe(slug) : undefined;
-  const pedido = typeof visual === 'object' && 'grupo' in visual ? visual : null;
+  const l = slug ? landingDeSlug(slug) : undefined;
+  if (slug && !l) return null;
+  const hero = visual === 'hero' && slug ? heroDe(slug) : undefined;
   const grabacion = typeof visual === 'object' && 'video' in visual ? visual : null;
-  const spec = pedido ? FEATURE_VISUALS[pedido.grupo]?.groups.find((g) => g.type === pedido.tipo) : undefined;
+  const falta = typeof visual === 'object' && 'falta' in visual ? visual.falta : null;
   return (
     <div className={`s-zz-fila${inv ? ' s-zz-inv' : ''}`}>
       <div className="s-zz-tx">
-        <p className="s-zz-r">{rotulo ?? nombreCorto(l)}</p>
+        <p className="s-zz-r">{rotulo ?? (l ? nombreCorto(l) : '')}</p>
         <h3 className="s-zz-t">{titulo}</h3>
         <p className="s-zz-p">{texto}</p>
-        <a className="s-zz-a" href={`/vsl/${l.slug}`}>Ver cómo funciona <Flecha /></a>
+        {l ? <a className="s-zz-a" href={`/vsl/${l.slug}`}>Ver cómo funciona <Flecha /></a> : null}
       </div>
-      <div className={`s-zz-vis${grabacion ? ' s-zz-video' : visual === 'gurus' ? ' s-zz-gurus' : ''}`} aria-hidden="true">
+      <div className={`s-zz-vis${grabacion ? ' s-zz-video' : visual === 'gurus' ? ' s-zz-gurus' : falta ? ' s-zz-falta' : ''}`} aria-hidden={falta ? undefined : true}>
         {grabacion ? (
           // Sin sonido y en bucle: arranca sola, como un GIF (el navegador sólo deja eso si está muda).
           <video src={grabacion.video} poster={grabacion.poster} autoPlay muted loop playsInline preload="metadata" />
         ) : visual === 'gurus' ? (
           <Gurus />
+        ) : falta ? (
+          <FaltaAnimacion que={falta} />
         ) : (
-          <div className="s-panel">{spec ? <Visual spec={spec} /> : hero ? <VisualDeLanding visual={hero.visual} /> : null}</div>
+          <div className="s-panel">{hero ? <VisualDeLanding visual={hero.visual} /> : null}</div>
         )}
       </div>
     </div>
@@ -191,7 +191,7 @@ function ProductoSitio() {
           </div>
         </div>
         <div className="s-zz">
-          {TARJETAS_PORTADA.map((t, i) => <FilaFuncion key={`${t.slug}-${i}`} {...t} inv={i % 2 === 1} />)}
+          {TARJETAS_PORTADA.map((t, i) => <FilaFuncion key={`${t.slug ?? t.rotulo}-${i}`} {...t} inv={i % 2 === 1} />)}
         </div>
       </div>
     </section>
@@ -205,8 +205,10 @@ function ProductoSitio() {
  */
 function CasoSitio() {
   return (
-    <section className="s-caso-orig" id="caso">
-      <style dangerouslySetInnerHTML={{ __html: CSS_CASO + '.s-caso-orig{color:#12151B;background:#F6F8FC}.s-caso-orig .mk-hist{margin:0}.s-caso-orig .mk-hist::before{display:none}' }} />
+    <section className="s-caso-orig" id="caso" data-tema-fijo="">
+      {/* EXACTAMENTE como estaba (Martín, 12/11/2026, noche: «vuelvas a como estaba exactamente antes… no me gusta cómo quedó»): la
+          franja clara de la landing (su ::before) y de color fijo (`data-tema-fijo`): el sol y la luna no la toca. */}
+      <style dangerouslySetInnerHTML={{ __html: CSS_CASO + '.s-caso-orig{color:#12151B}.s-caso-orig .mk-hist{margin:0}.s-caso-orig .mk-hist::before{background:#F6F8FC}' }} />
       <div className="s-cont"><CasoMauricio /></div>
     </section>
   );
