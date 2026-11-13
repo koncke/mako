@@ -121,7 +121,7 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       tipo: 'cifras',
       titulo: 'Lo que trae Copywriting, de un vistazo',
       items: [
-        { valor: String(N_REFERENTES), label: 'referentes del marketing, cada uno con su método destilado de su curso' },
+        { valor: String(N_REFERENTES), label: 'referentes del marketing, cada uno con su método' },
         { valor: String(N_PLANTILLAS), label: 'plantillas, cada una con su ejemplo completo' },
         { valor: String(N_ESTRUCTURAS), label: 'estructuras de guion: PAS, AIDA, reel, stories, VSL y YouTube' },
         { valor: String(N_ANGULOS), label: 'ángulos para el gancho: dolor, testimonio, comparación y más' },
@@ -171,7 +171,7 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
         { icono: I.ojo, titulo: 'Ves el borrador antes de que quede.', texto: 'Lo que MaKo escribe queda marcado en la página hasta que eliges <strong>Aceptar, Descartar o Reintentar</strong>. Descartar la deja exactamente como estaba.' },
         { icono: I.estructura, titulo: 'Saca cada línea que podría firmar un competidor.', texto: 'A cada parte le hace tres preguntas: ¿se puede imaginar?, ¿se puede comprobar?, <strong>¿la podría firmar un competidor?</strong> Si la podría firmar, la cambia por un dato de tu negocio.' },
         { icono: I.negocio, titulo: 'Aprende tu negocio.', texto: 'Lee lo que MaKo ya sabe de ti y te pregunta, de a una, lo que falta: qué vendes y a cuánto, a quién le hablas, qué prueba tienes.' },
-        { icono: I.ia, titulo: `${N_REFERENTES} referentes del marketing, en tu chat.`, texto: `Cada uno con su método destilado de su curso, de ${ASESORES[0].completo} a ${ASESORES[N_REFERENTES - 1].completo}: en el chat de MaKo eliges con cuál hablar y te contesta con su método. Es «Inspirado en»: ninguno participa en MaKo ni la respalda.` },
+        { icono: I.ia, titulo: `${N_REFERENTES} referentes del marketing, en tu chat.`, texto: `Cada uno con su método, de ${ASESORES[0].completo} a ${ASESORES[N_REFERENTES - 1].completo}: en el chat de MaKo eliges con cuál hablar y te contesta con su método. Es «Inspirado en»: ninguno participa en MaKo ni la respalda.` },
         { icono: I.dato, titulo: 'No inventa tus números.', texto: 'Una cifra, un testimonio, una fecha o un cupo que tu negocio no tiene queda como <strong>[DATO: …]</strong>, y la página te dice cuántos quedan por completar.' },
       ],
     },

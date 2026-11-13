@@ -204,19 +204,19 @@ export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | { video: 
  * qué animación va ahí, con las palabras de Martín. `slug` lleva a su landing; sin landing (Classroom) va sin link.
  */
 export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo: string; texto: string; visual: VisualTarjeta }[] = [
-  { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Cada competidor con sus piezas, ordenadas por formato, y tu versión a un toque en Image.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
-  { slug: 'web-generator', titulo: 'Copia una landing que ya vende.', texto: 'Pega el link de una landing que ya funciona y MaKo la replica con tu oferta, sección por sección.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
-  { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: 'Eliges un carrusel de los outliers y MaKo arma el tuyo con su diseño y tus textos.', visual: { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' } },
-  { slug: 'copywriting', titulo: 'Escribe con IA lo que vende.', texto: 'Eliges un reel de tu competencia, MaKo lee su guion y escribe el tuyo con tu oferta, en segundos.', visual: { video: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' } },
-  { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Trabaja con el método de los que más venden.', texto: 'Los referentes del marketing, cada uno con su método destilado de su curso: en el chat de MaKo eliges con quién trabajar.', visual: 'gurus' },
-  { slug: 'ai-avatar', titulo: 'Tu cara, en videos hechos con IA.', texto: 'Tu personaje, con tu cara, en la escena que elijas y diciendo tu guion.', visual: 'avatar' },
-  { slug: 'video', titulo: 'Edita tus videos sin saber editar.', texto: 'Un editor como CapCut con un equipo de MaKo editando: cortes, subtítulos y B-roll.', visual: { falta: 'El lienzo de video con los cursores del equipo de MaKo editando sobre la línea de tiempo y el video.' } },
-  { slug: 'ads', titulo: 'Tus anuncios, mirados todos los días.', texto: 'Cada día mira tus anuncios de Meta y te propone qué subir, pausar o probar.', visual: { falta: 'Marketing CoPilot: lo que MaKo mira de tus anuncios y lo que te propone, con un diseño a la altura.' } },
-  { slug: 'crm', titulo: 'Cada cliente, en su etapa.', texto: 'La ficha se crea cuando entra el lead y se mueve de etapa cuando agenda.', visual: { falta: 'El CRM de MaKo tal cual: una tarjeta que cambia de etapa y el menú «…» para asignar campañas.' } },
-  { slug: 'crm', rotulo: 'Grupos de WhatsApp', titulo: 'Trae los contactos de tus grupos.', texto: 'Con MaKo Pro, los contactos de tus grupos de WhatsApp entran a tu CRM.', visual: { falta: 'El scrapeo de un grupo de WhatsApp: la pestaña de WhatsApp, los grupos y los contactos entrando, con el cartel de MaKo.' } },
-  { slug: 'seguimiento', titulo: 'Un agente que contesta por ti.', texto: 'Contesta por WhatsApp, Instagram, Messenger y email, califica a cada interesado y lo lleva a agendar.', visual: { falta: 'La vista del lienzo con todas las automatizaciones.' } },
-  { slug: 'whatsapp', titulo: 'Todos tus chats en una bandeja.', texto: 'Una conversación por contacto, con su ficha del CRM al lado.', visual: { falta: 'La bandeja de Chats de MaKo tal cual es.' } },
-  { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tableros de ventas, de anuncios y de llamadas listos para usar, con tus datos.', visual: 'tableros' },
+  { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Pegas el link de un competidor y MaKo trae sus publicaciones, sus reels, sus videos de YouTube y sus anuncios, los ordena por formato y te muestra cuáles le dieron más vistas.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
+  { slug: 'web-generator', titulo: 'Replica una landing de tu competencia.', texto: 'Pegas el link de una landing que ya vende y MaKo la replica sección por sección, con tus textos y tu oferta, conectada a tu CRM y a tu agenda.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
+  { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: 'Eliges uno de los carruseles que mejor les funcionan a las cuentas que sigues y MaKo arma el tuyo con el mismo diseño, con tus textos y tu marca, listo para editar.', visual: { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' } },
+  { slug: 'copywriting', titulo: 'Replica y adapta un guion de la competencia con IA.', texto: 'Eliges un reel o un video que le funcionó a tu competencia: MaKo lee su guion y escribe el tuyo con la misma estructura, adaptado a tu oferta, en segundos.', visual: { video: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' } },
+  { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Chatea con los referentes del mercado.', texto: 'Alex Hormozi, Iman Gadzhi, Vilma Núñez y muchos referentes más del marketing y las ventas: eliges con quién hablar en el chat de MaKo y te contesta con su método, llevado a tu negocio.', visual: { video: '/vsl-assets/sitio/referentes.webm', poster: '/vsl-assets/sitio/referentes.jpg' } },
+  { slug: 'ai-avatar', titulo: 'Anuncios de video estilo UGC con tu cara.', texto: 'Tu avatar de IA dice tu guion en videos que se ven grabados con el celular: más anuncios para Instagram, TikTok y Meta, sin coordinar creadores ni esperar entregas.', visual: 'avatar' },
+  { slug: 'video', titulo: 'Edita tus videos sin saber editar.', texto: 'Subes el clip tal cual sale del celular y un equipo de agentes de MaKo lo edita a la vista: corta las pausas, lo subtitula, propone B-roll y deja el volumen listo.', visual: { falta: 'El lienzo de video con los cursores del equipo de MaKo editando sobre la línea de tiempo y el video.' } },
+  { slug: 'ads', titulo: 'Tus anuncios, mirados todos los días.', texto: 'Marketing CoPilot mira cada día tus anuncios de Meta contra lo que vendiste y te propone qué subir, qué pausar y qué probar. Lo que cambia algo, lo confirmas con un toque.', visual: { falta: 'Marketing CoPilot: lo que MaKo mira de tus anuncios y lo que te propone, con un diseño a la altura.' } },
+  { slug: 'crm', titulo: 'Cada cliente, en su etapa.', texto: 'Cada lead que entra por tu anuncio, tu landing o tu WhatsApp llega con su ficha creada, y su tarjeta avanza de etapa cuando agenda su llamada.', visual: { falta: 'El CRM de MaKo tal cual: una tarjeta que cambia de etapa y el menú «…» para asignar campañas.' } },
+  { slug: 'crm', rotulo: 'Grupos de WhatsApp', titulo: 'Trae los contactos de tus grupos.', texto: 'Con MaKo Pro eliges un grupo de WhatsApp y sus contactos entran a tu CRM con su nombre y su teléfono, listos para escribirles o sumarlos a una campaña.', visual: { falta: 'El scrapeo de un grupo de WhatsApp: la pestaña de WhatsApp, los grupos y los contactos entrando, con el cartel de MaKo.' } },
+  { slug: 'seguimiento', titulo: 'Un setter con IA que contesta por ti.', texto: 'Responde tus mensajes de Instagram, WhatsApp, Messenger y email, califica a cada interesado con tus propios criterios y lo lleva a agendar su llamada de venta. Tú solo cierras.', visual: { falta: 'La vista del lienzo con todas las automatizaciones.' } },
+  { slug: 'whatsapp', titulo: 'Todos tus chats en una bandeja.', texto: 'WhatsApp, Instagram, Messenger y email, con una conversación por contacto y su ficha del CRM al lado, y MaKo te propone qué contestar.', visual: { falta: 'La bandeja de Chats de MaKo tal cual es.' } },
+  { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tus anuncios de Meta, tu landing, tus leads del CRM, tus pagos y tus llamadas en una sola pantalla, con tableros listos para ventas, anuncios y llamadas.', visual: 'tableros' },
   { rotulo: 'Classroom', titulo: 'Tu escuela, dentro de MaKo.', texto: 'El curso por módulos y lecciones, y la comunidad de tus alumnos.', visual: { falta: 'Cómo se ven las clases del Classroom.' } },
 ];
 
@@ -234,13 +234,14 @@ export const TABLEROS: readonly { id: string; nombre: string }[] = [
 ];
 
 /**
- * AI Avatar en la portada: el personaje de Martín y TRES escenas suyas, la misma persona en todas (las tomas del método Avatar Hype
- * de su reel, 9/11/2026: C:/dev/reel-mentores/omni/, en public/vsl-assets/sitio/avatar/). Antes había una foto de catálogo como
- * «tu foto» y una persona distinta en cada escena: decía «tu personaje» y mostraba a otros (Martín, 12/11: «fíjate lo que pones
- * y critícalo»).
+ * AI Avatar en la portada: DOS videos de verdad, cada uno con la foto de la que salió (Martín, 13/11/2026: «poner mi personaje, el
+ * de la noche, que es todo feo, y que se transformó en eso… que se vea literalmente el video que hicimos, que se reproduzca ahí. Y
+ * lo mismo con el de Mauricio»). Martín: su foto de noche → el clip de su personaje con su voz (C:/dev/reel-mentores/clips-final/
+ * CLIP1-CON-TU-VOZ.mp4). Mauricio: su foto → los primeros 12 s de su anuncio con IA (OneDrive/Escritorio/Mauricio/QUINTO VIDEO DE
+ * IA). En public/vsl-assets/sitio/avatar/.
  */
-export const ESCENAS_AVATAR: readonly { foto: string; nombre: string }[] = [
-  { foto: 'celular', nombre: 'Con tu celular' }, { foto: 'pizarra', nombre: 'En la pizarra' }, { foto: 'crm', nombre: 'Mostrando tu CRM' },
+export const VIDEOS_AVATAR: readonly { id: string; nombre: string }[] = [
+  { id: 'martin', nombre: 'Martín' }, { id: 'mauricio', nombre: 'Mauricio' },
 ];
 
 /** La landing de una función (para sus tarjetas), o undefined si ya no existe. */

@@ -42,7 +42,7 @@ import { Pie } from './Pie';
 import { Boton, Flecha, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
 import {
-  ESCENAS_AVATAR, LOGO_INTEGRACION, PREGUNTAS_SITIO, TABLEROS, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
+  VIDEOS_AVATAR, LOGO_INTEGRACION, PREGUNTAS_SITIO, TABLEROS, RUTA_COMPARACIONES, RUTA_PRECIOS, TARJETAS_PORTADA, integracionesDeLaTira, integracionesVivas, landingDeSlug, nombreCorto,
 } from './datos';
 import { appsQueReemplaza } from './reemplaza';
 
@@ -153,7 +153,7 @@ function FilaFuncion({ slug, rotulo, titulo, texto, visual, inv }: (typeof TARJE
         ) : visual === 'tableros' ? (
           <Tableros />
         ) : visual === 'avatar' ? (
-          <AvatarEscenas />
+          <AvatarVideos />
         ) : falta ? (
           <FaltaAnimacion que={falta} />
         ) : (
@@ -193,23 +193,31 @@ function Tableros() {
   );
 }
 
-/** AI Avatar en una mirada: el personaje a la izquierda y, a la derecha, ESE MISMO personaje pasando por sus escenas. */
-function AvatarEscenas() {
+/**
+ * AI Avatar: dos anuncios de verdad, cada uno con la foto de la que salió. Arrancan mudos (el navegador no deja otra cosa) y el botón
+ * de cada uno lo hace sonar (y calla al otro): lo hace SCRIPT_SONIDO, un script de la página, porque el sitio no carga React.
+ */
+function AvatarVideos() {
   return (
     <div className="s-av">
-      <figure className="s-av-foto"><img src="/vsl-assets/sitio/avatar/personaje.jpg" alt="Tu personaje" width={432} height={774} /><figcaption>Tu personaje</figcaption></figure>
-      <span className="s-av-flecha" aria-hidden="true">→</span>
-      <div className="s-av-tel">
-        {ESCENAS_AVATAR.map((e, i) => (
-          <figure key={e.foto} style={{ animationDelay: `${i * 2.8}s` }}>
-            <img src={`/vsl-assets/sitio/avatar/${e.foto}.jpg`} alt={`Tu personaje: ${e.nombre}`} width={432} height={774} />
-            <figcaption>{e.nombre}</figcaption>
-          </figure>
-        ))}
-      </div>
+      {VIDEOS_AVATAR.map((v) => (
+        <figure key={v.id} className="s-av-par">
+          <span className="s-av-foto"><img src={`/vsl-assets/sitio/avatar/${v.id}-foto.jpg`} alt={`La foto de ${v.nombre}`} width={240} height={300} /><small>Foto</small></span>
+          <span className="s-av-tel">
+            <video src={`/vsl-assets/sitio/avatar/${v.id}.webm`} poster={`/vsl-assets/sitio/avatar/${v.id}.jpg`} autoPlay muted loop playsInline preload="metadata" aria-label={`El anuncio con IA de ${v.nombre}`} />
+            <button type="button" className="s-av-son" data-sonido="" aria-pressed="false" aria-label={`Escuchar el anuncio de ${v.nombre}`}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z" /><path className="s-av-on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" /><path className="s-av-off" d="m23 9-6 6M17 9l6 6" /></svg>
+            </button>
+          </span>
+          <figcaption>{v.nombre}</figcaption>
+        </figure>
+      ))}
+      <script dangerouslySetInnerHTML={{ __html: SCRIPT_SONIDO }} />
     </div>
   );
 }
+
+const SCRIPT_SONIDO = `(function(){var bs=document.querySelectorAll('.s-av [data-sonido]');bs.forEach(function(b){b.addEventListener('click',function(){var v=b.parentNode.querySelector('video');var on=v.muted;document.querySelectorAll('.s-av video').forEach(function(o){o.muted=true;});bs.forEach(function(o){o.setAttribute('aria-pressed','false');});if(on){v.muted=false;v.currentTime=0;v.play();b.setAttribute('aria-pressed','true');}});});})();`;
 
 function ProductoSitio() {
   return (

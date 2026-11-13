@@ -361,7 +361,6 @@ function Referentes() {
   return (
     <div className="d-copywriting-refs">
       <p className="d-copywriting-refs-h">Los {ASESORES.length} referentes del marketing que MaKo estudió. Ahora <em>tu IA</em> puede trabajar con su método.</p>
-      <p className="d-copywriting-refs-sub">Lo que enseñan, destilado de sus cursos.</p>
       <ul className="d-copywriting-refs-pared">
         {ASESORES.map((a) => (
           // eslint-disable-next-line @next/next/no-img-element
@@ -413,7 +412,7 @@ function secciones(bloques: Bloque[]): ReactNode[] {
               )}
               {/* Su «You're not getting a prompt. You're getting the thinking behind the best ads and sales pages ever written,
                   working inside your own AI.», traducido con lo que MaKo tiene: los referentes (la tarjeta de la derecha). */}
-              <p className="d-copywriting-noprompt"><strong>No te llevas un prompt.</strong> Te llevas el método de {ASESORES.length} referentes del marketing, destilado de sus cursos, trabajando dentro de tu propia IA.</p>
+              <p className="d-copywriting-noprompt"><strong>No te llevas un prompt.</strong> Te llevas el método de {ASESORES.length} referentes del marketing, trabajando dentro de tu propia IA.</p>
             </div>
             <aside className="d-copywriting-tarjeta">
               <div className="d-copywriting-cuadro"><Referentes /></div>

@@ -342,7 +342,9 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-zz-r{font-size:14px;line-height:20px;font-weight:600;color:${DORADO}}
 .s-zz-t{margin-top:8px;font-size:36px;line-height:42px;font-weight:700;letter-spacing:-.01em;color:#fff}
 .s-zz-p{margin-top:16px;font-size:18px;line-height:28px;font-weight:500;color:${TEXTO}}
-.s-zz-a{margin-top:20px;display:inline-flex;align-items:center;gap:6px;font-size:18px;line-height:28px;font-weight:500;color:${DORADO}}
+/* «Ver cómo funciona»: un link, en azul (Martín, 13/11/2026: «no me gusta que esté en amarillo… en azul, como si fuera un link»). */
+.s-zz-a{margin-top:20px;display:inline-flex;align-items:center;gap:6px;font-size:18px;line-height:28px;font-weight:500;color:#6EA8FF;text-decoration:none}
+.s-zz-a:hover{text-decoration:underline;text-underline-offset:4px}
 .s-zz-a svg{transition:transform .15s}
 .s-zz-a:hover svg{transform:translateX(3px)}
 .s-zz-vis{position:relative;border-radius:16px;overflow:hidden;border:1px solid ${LINEA};background:#fff;box-shadow:0 30px 80px -30px rgba(0,0,0,.6)}
@@ -354,19 +356,21 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-tab img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;opacity:0;animation:s-tab-entra calc(var(--n) * 2.6s) linear infinite}
 /* El que entra va ARRIBA (z 2) y el anterior sigue a la vista debajo hasta que el nuevo terminó de entrar: nunca se ve el fondo vacío. */
 @keyframes s-tab-entra{0%{opacity:0;z-index:2;transform:translateY(14px) scale(.985);clip-path:inset(0 0 100% 0)}2.2%{opacity:1;z-index:2;transform:none;clip-path:inset(0 0 0 0)}7.69%{opacity:1;z-index:1}10%{opacity:1;z-index:1}10.1%{opacity:0}100%{opacity:0;z-index:0}}
-/* AI Avatar: tu foto → tu personaje en escenas que se van cambiando. */
+/* AI Avatar: dos anuncios de verdad, cada uno con la foto de la que salió (la foto chica, montada sobre la esquina del teléfono). */
 .s-zz-avatar{background:linear-gradient(135deg,#EEF4FF,#F8F5FF)}
-.s-av{display:flex;align-items:center;justify-content:center;gap:28px;padding:32px 24px}
-.s-av figure{margin:0;position:relative}
-.s-av img{display:block;width:100%;height:100%;object-fit:cover}
-.s-av figcaption{position:absolute;left:8px;bottom:8px;font-size:12px;font-weight:700;color:#fff;background:rgba(18,21,27,.62);border-radius:999px;padding:3px 10px;white-space:nowrap}
-@media (max-width:560px){.s-av{gap:14px;padding:24px 12px}.s-av-foto{width:96px}.s-av-foto figcaption{font-size:10px;padding:2px 7px;left:5px;bottom:5px}.s-av-tel{width:180px}}
-.s-av-foto{width:120px;aspect-ratio:9/16;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(18,21,27,.18)}
-.s-av-flecha{font-size:28px;font-weight:800;color:#2F6FED}
-.s-av-tel{position:relative;width:210px;aspect-ratio:9/16;border-radius:24px;overflow:hidden;box-shadow:0 0 0 6px #12151B,0 24px 50px rgba(18,21,27,.3)}
-.s-av-tel figure{position:absolute;inset:0;opacity:0;animation:s-av-escena 8.4s linear infinite}
-@keyframes s-av-escena{0%{opacity:0;transform:scale(1.06)}5%{opacity:1}33%{opacity:1;transform:scale(1)}38%{opacity:0}100%{opacity:0}}
-@media (prefers-reduced-motion:reduce){.s-tab img,.s-av-tel figure{animation:none}.s-tab img:first-child,.s-av-tel figure:first-child{opacity:1}}
+.s-av{display:flex;align-items:flex-start;justify-content:center;gap:40px;padding:34px 24px 26px}
+.s-av-par{margin:0;position:relative;display:flex;flex-direction:column;align-items:center;gap:12px}
+.s-av-tel{position:relative;display:block;width:190px;aspect-ratio:9/16;border-radius:24px;overflow:hidden;background:#12151B;box-shadow:0 0 0 6px #12151B,0 24px 50px rgba(18,21,27,.3)}
+.s-av-tel video{display:block;width:100%;height:100%;object-fit:cover}
+.s-av-foto{position:absolute;left:-34px;top:26px;z-index:2;width:78px;aspect-ratio:4/5;border-radius:12px;overflow:hidden;border:3px solid #fff;box-shadow:0 10px 24px rgba(18,21,27,.28);transform:rotate(-6deg)}
+.s-av-foto img{display:block;width:100%;height:100%;object-fit:cover}
+.s-av-foto small{position:absolute;left:0;right:0;bottom:0;padding:3px 0;text-align:center;font-size:10px;font-weight:700;color:#fff;background:rgba(18,21,27,.6)}
+.s-av-par figcaption{font-size:14px;font-weight:700;color:inherit;opacity:.85}
+.s-av-son{position:absolute;right:10px;bottom:10px;width:36px;height:36px;border-radius:50%;border:0;display:grid;place-items:center;color:#fff;background:rgba(18,21,27,.62);cursor:pointer}
+.s-av-son:hover{background:rgba(18,21,27,.8)}
+.s-av-son .s-av-on{display:none}.s-av-son[aria-pressed="true"] .s-av-on{display:inline}.s-av-son[aria-pressed="true"] .s-av-off{display:none}
+@media (max-width:560px){.s-av{gap:26px;padding:26px 14px 20px 30px}.s-av-tel{width:132px;border-radius:18px}.s-av-foto{width:56px;left:-24px;top:18px}.s-av-son{width:30px;height:30px;right:7px;bottom:7px}}
+@media (prefers-reduced-motion:reduce){.s-tab img{animation:none}.s-tab img:first-child{opacity:1}}
 /* El recuadro de «Aquí falta la animación» va sin el marco blanco: el suyo es el borde punteado. */
 .s-zz-falta{border:0;background:transparent;box-shadow:none;overflow:visible}
 /* Los referentes: una pared que sube sola, sin texto, y vuelve a empezar sin corte (la lista va dos veces). */
