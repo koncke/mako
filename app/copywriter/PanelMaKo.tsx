@@ -514,11 +514,12 @@ export function PanelMaKo({ ws, guion, paginas, editor, leerVivo, leerApi, catal
     const m = mensajes.find((y) => String(y.id) === x.id);
     if (!m || m.de !== 'mako') return null;
     // Sin IA no es una falla para Soporte: es algo que se conecta (12/11/2026, en producción, el negocio de prueba replicando desde
-    // el teléfono: «No hay ninguna IA conectada…» con «Reportar a Soporte» y ningún camino). El link es el de contrato (AGENTS.md).
-    if (m.error) {
-      const sinIA = /^No hay ninguna IA conectada/.test(m.texto);
-      return { arriba: <div className="nt-mako-error" role="alert">{m.texto}{sinIA ? <div className="nt-mako-pildoras"><Link href={rutaDeTarjeta('ia')} className="nt-mako-pildora">Conectar mi IA</Link></div> : <ReportarASoporte />}</div> };
+    // el teléfono: «No hay ninguna IA conectada…» con «Reportar a Soporte» y ningún camino). Es una invitación, no un error: va
+    // como `status` (un `alert` lleva siempre «Reportar a Soporte», tests/reportar-a-soporte.test.ts). El link es el de contrato.
+    if (m.error && /^No hay ninguna IA conectada/.test(m.texto)) {
+      return { arriba: <div className="nt-mako-error" role="status">{m.texto}<div className="nt-mako-pildoras"><Link href={rutaDeTarjeta('ia')} className="nt-mako-pildora">Conectar mi IA</Link></div></div> };
     }
+    if (m.error) return { arriba: <div className="nt-mako-error" role="alert">{m.texto}<ReportarASoporte /></div> };
     if (!m.propuesta || !m.estado) return null;
     const p = m.propuesta;
     return {
