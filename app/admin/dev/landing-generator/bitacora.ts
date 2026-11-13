@@ -1840,4 +1840,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '13 nov', hora: '16:40', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La landing replicada usa el tamaño de títulos y los fondos de la original, y te habla de «tú»',
+    puntos: [
+      'El titular y los títulos tienen el tamaño de los de la original, cada uno con el suyo.',
+      'Las secciones que en la original tienen otro color de fondo lo tienen también en la tuya.',
+      'El texto va de «tú» aunque la original use «vos», salvo que tu negocio haya elegido hablar de «vos».',
+      'La landing se llama como tu oferta (por ejemplo «Landing · WhatsApp Ads Funnel»), no como la página de la otra.',
+    ],
+    archivos: [
+      'lib/editor-landing/estilo-original.ts · temas.ts · css.ts — el tamaño del titular y de los títulos por separado',
+      'lib/editor-landing/replicar-estructura.ts · replicar.ts · replicar-partes.ts — el fondo, el tuteo y el nombre',
+      'tests/web-generator-replicar-1311.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
 ];
