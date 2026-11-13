@@ -17,8 +17,8 @@ export function GrillaMixta<T>({ items, clave, proporcion, pie, render, minimo =
   clave: (x: T) => string;
   /** Ancho / alto del marco de la tarjeta. */
   proporcion: (x: T) => number;
-  /** El alto que suma el pie de la tarjeta (px). */
-  pie: number;
+  /** El alto que suma el pie de la tarjeta (px): uno para todas, o por tarjeta (Copywriting: con portada, el texto va en el pie). */
+  pie: number | ((x: T) => number);
   /** La tarjeta: un `<li>`. */
   render: (x: T) => ReactNode;
   minimo?: number;
@@ -43,7 +43,7 @@ export function GrillaMixta<T>({ items, clave, proporcion, pie, render, minimo =
   const n = columnasPara(ancho, minimo, hueco, porDefecto);
   const columnas = useMemo(() => {
     const anchoCol = ancho > 0 ? (ancho - hueco * (n - 1)) / n : minimo;
-    return repartirEnColumnas(items, n, (x) => anchoCol / Math.max(0.1, proporcion(x)) + pie + fila);
+    return repartirEnColumnas(items, n, (x) => anchoCol / Math.max(0.1, proporcion(x)) + (typeof pie === 'function' ? pie(x) : pie) + fila);
   }, [items, n, ancho, hueco, minimo, proporcion, pie, fila]);
   return (
     <div ref={setCaja} role="group" aria-label={etiqueta} className={className}

@@ -760,4 +760,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '13 nov', hora: '09:30', chat: 'Ticket 73: videos a la línea desde el chat', sesion: 'local_72d0c3fe-1e3d-43ff-bf60-f9362f94676e', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La palabra clave puede ir 3 veces más grande sin salirse ni tapar al otro renglón',
+    puntos: [
+      'La receta «La palabra clave gigante» pide la palabra fuerte 3 o 4 veces más grande, y el editor llegaba a 1,6 veces.',
+      'Ahora las palabras clave llegan a 300 % (en Subtítulos, en el chat y en los presets). El subtítulo se parte en renglones contando lo que ocupa la palabra grande, y el renglón le hace lugar arriba y abajo.',
+      'La receta y el estilo «Palabra gigante» la ponen 3 veces más grande. Lo que ya estaba hasta 160 % queda igual que antes.',
+      'No se miró en un navegador antes de subir.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/subtitles/partir.ts — el subtítulo en renglones, contando la palabra grande',
+      'app/video-editor/_opencut/text/resaltado.ts · measure-element.ts · dibujar.ts — el alto de cada renglón',
+      'params/extra/subtitulos.ts · lib/editor-video/chat-catalogo.ts · chat-api.ts · presets-subtitulos.ts — el tope de 300 %',
+      'tests/video-editor-clave-gigante.test.ts — 5 casos',
+    ],
+    revisar: '/video-editor',
+  },
 ];

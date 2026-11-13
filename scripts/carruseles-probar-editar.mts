@@ -65,4 +65,21 @@ const paginas = (r.doc?.pages as Array<{ objects?: Array<{ type?: string; text?:
 const notas = (r.doc?.pages as Array<{ notes?: string }> | undefined)?.[0]?.notes;
 if (notas) console.log(`  Notas: ${notas.replace(/\s+/g, ' ').slice(0, 500)}`);
 paginas.forEach((p, i) => console.log(`  Lámina ${i + 1}: ${(p.objects ?? []).filter((o) => o.type === 'image').map((o) => `[${o.name}]`).join(' ')} ${(p.objects ?? []).filter((o) => o.type === 'textbox').map((o) => `«${String(o.text).slice(0, 60)}»`).join(' · ') || '(sin textos)'}`));
+// --salida <carpeta>: el diseño (doc.json), lo que leyó la IA (replica.json), las láminas que miró (original-N.jpg) y la plancha de
+// cada lámina (plancha-N.jpg), para mirarlas y para probar la plancha sin pagar otra IA (13/11/2026).
+if (op('salida') && r.doc) {
+  const { mkdirSync, writeFileSync } = await import('node:fs');
+  const dir = op('salida')!;
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(`${dir}/doc.json`, JSON.stringify(r.doc, null, 1));
+  if (r.replica) writeFileSync(`${dir}/replica.json`, JSON.stringify(r.replica, null, 1));
+  const jpg = (src: string) => Buffer.from(src.slice(src.indexOf(',') + 1), 'base64');
+  (r.imagenes ?? []).forEach((src: string, i: number) => writeFileSync(`${dir}/original-${i + 1}.jpg`, jpg(src)));
+  (r.marcadas ?? []).forEach((src: string, i: number) => writeFileSync(`${dir}/marcada-${i + 1}.jpg`, jpg(src)));
+  (r.doc.pages as Array<{ background?: { type?: string; src?: string } }>).forEach((p, i) => {
+    const src = p.background?.type === 'image' ? p.background.src ?? '' : '';
+    if (src.startsWith('data:image/')) writeFileSync(`${dir}/plancha-${i + 1}.jpg`, jpg(src));
+  });
+  console.log(`  Guardé el diseño, lo leído y las planchas en ${dir}`);
+}
 if (!tiene('guardar')) console.log('\nEn seco: no se guardó nada. Con --guardar queda en los diseños de Image de ese negocio.');

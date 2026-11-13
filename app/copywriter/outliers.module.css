@@ -23,65 +23,78 @@
 .botonesTelefono.botonesTelefono.botonesTelefono.botonesTelefono { flex-wrap: wrap; justify-content: center; row-gap: 8px; align-self: stretch; min-width: 0; }
 
 /* ── La tarjeta de COPY, en UNA caja (12/11/2026): el MARCO tiene la forma de su red (el `aspect-ratio` lo pone la tarjeta: YouTube
-   16:9, reel 9:16, carrusel 4:5, anuncio 1:1) y adentro va el TEXTO (11/11/2026: «tienen que verse como COPY: el texto primero»).
-   Al pasar el cursor, el ORIGINAL tapa el texto. Una franja arriba con el color de la red y la marca con su ícono dicen de dónde es
-   antes de leer. El pie (la cuenta, los números) es el de todas las portadas, adentro de la misma caja. ── */
-.marco { cursor: pointer; background: var(--surface); }
+   16:9, reel 9:16, carrusel 4:5, anuncio 1:1).
+   · Con portada, la portada LIMPIA llena el marco: nada encima salvo la marca de la red. El texto va DEBAJO, en la parte blanca: el
+     gancho en negrita y unos renglones de la transcripción con «…» (13/11/2026, el Cerebro con el banco: las portadas ya traen su
+     título escrito, y el gancho encima quedaba DOS veces, uno tapando al otro; antes, el 12/11, una caja blanca alta con el título
+     flotando: «nunca blanco vacío»).
+   · Sin portada, el marco toma un fondo oscuro con el color de su red y el gancho grande y la transcripción lo llenan desde arriba.
+   La franja de arriba y la marca con su ícono dicen de qué red es antes de leer. ── */
+.tarjeta .marco { cursor: pointer; color: #fff; background: linear-gradient(165deg, #3a1f4d 0%, #1b1626 55%, #12121a 100%); }
+.tarjeta[data-formato='youtube'] .marco { background: linear-gradient(165deg, #4a1717 0%, #23141a 55%, #121216 100%); }
+.tarjeta[data-formato='anuncio'] .marco { background: linear-gradient(165deg, #12305e 0%, #141d33 55%, #11131a 100%); }
+.tarjeta[data-formato='carrusel'] .marco { background: linear-gradient(165deg, #4a2a14 0%, #241a14 55%, #14120f 100%); }
 .marco::before {
-  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; z-index: 1; pointer-events: none;
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 3px; z-index: 2; pointer-events: none;
   background: linear-gradient(90deg, #f58529, #dd2a7b 50%, #8134af);
 }
 .tarjeta[data-formato='youtube'] .marco::before { background: #ff0033; }
 .tarjeta[data-formato='anuncio'] .marco::before { background: #1877f2; }
+.portada { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
+
+/* Sin portada: el texto adentro del marco de color, desde arriba; lo que no entra se apaga abajo en vez de cortarse a media línea. */
 .copy {
-  position: absolute; inset: 0; display: flex; flex-direction: column; gap: 10px; padding: 44px 18px 18px; overflow: hidden;
-  /* Lo que no entra se apaga abajo, en vez de cortarse a media línea (el alto cambia con el ancho de la columna). */
+  position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; gap: 10px; padding: 46px 18px 18px; overflow: hidden;
   -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 34px), transparent);
 }
 .ganchoGrande {
-  all: unset; flex: none; cursor: pointer; font-size: 18px; line-height: 1.3; font-weight: 700; color: var(--ink);
+  all: unset; flex: none; cursor: pointer; font-size: 18px; line-height: 1.28; font-weight: 750; color: #fff;
   display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
 }
 .ganchoGrande:focus-visible { box-shadow: var(--focus-ring); border-radius: 6px; }
-.sigue { margin: 0; font-size: 14px; line-height: 1.55; color: var(--dim); white-space: pre-line; overflow-wrap: anywhere; }
-/* YouTube es apaisado: el título, más chico y sin la descripción (no entra y no es lo que se replica). */
-.tarjeta[data-formato='youtube'] .copy { padding: 40px 16px 14px; -webkit-mask-image: none; mask-image: none; }
-.tarjeta[data-formato='youtube'] .ganchoGrande { font-size: 16px; -webkit-line-clamp: 3; }
-/* Un reel (9:16) es alto: con un texto corto quedaba una caja blanca casi vacía con tres renglones arriba (el banco, 12/11/2026).
-   Letra más grande y el texto al CENTRO del alto mientras entre; `safe` lo vuelve arriba si no entra (no se corta por los dos lados). */
-.tarjeta[data-formato='reel'] .copy { justify-content: safe center; gap: 14px; }
-.tarjeta[data-formato='reel'] .ganchoGrande { font-size: 22px; line-height: 1.25; -webkit-line-clamp: 6; }
-.tarjeta[data-formato='reel'] .sigue { font-size: 15.5px; line-height: 1.6; }
+.sigue { flex: none; margin: 0; font-size: 14px; line-height: 1.55; color: rgba(255, 255, 255, 0.82); white-space: pre-line; overflow-wrap: anywhere; }
+/* El reel es el más alto: el gancho más grande. */
+.tarjeta[data-formato='reel'] .ganchoGrande { font-size: 21px; line-height: 1.25; -webkit-line-clamp: 6; }
+.tarjeta[data-formato='reel'] .sigue { font-size: 15px; }
 .tarjeta[data-formato='anuncio'] .ganchoGrande { -webkit-line-clamp: 4; }
+/* YouTube es apaisado: sólo el título (la descripción no entra y no es lo que se replica). */
+.tarjeta[data-formato='youtube'] .copy { padding: 40px 14px 12px; -webkit-mask-image: none; mask-image: none; }
+.tarjeta[data-formato='youtube'] .ganchoGrande { font-size: 16px; -webkit-line-clamp: 2; }
 
-/* La marca de la red, arriba a la izquierda, sobre el texto o sobre el original. */
+/* Con portada: el texto en el pie, sobre el blanco de la tarjeta. El gancho en negrita y la transcripción con «…». */
+.textoPie { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ganchoPie {
+  all: unset; cursor: pointer; font-size: 15px; line-height: 1.35; font-weight: 700; color: var(--ink);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+}
+.ganchoPie:hover { text-decoration: underline; }
+.ganchoPie:focus-visible { box-shadow: var(--focus-ring); border-radius: 4px; }
+.siguePie {
+  margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--dim); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* La marca de la red, arriba a la izquierda: clara sobre la portada o sobre el fondo de color. */
 .red {
   display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px 0 7px; border-radius: 999px; white-space: nowrap;
-  background: var(--surface-2); color: var(--ink); font-size: 12px; font-weight: 650; border: 1px solid var(--border);
+  background: #fff; color: #12151b; font-size: 12px; font-weight: 650;
+  /* Fondo sólido y sombra (13/11/2026, el Cerebro): si la portada trae el título bien arriba, la pastilla tapa su primera palabra, y
+     tiene que leerse igual. */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22), 0 3px 10px rgba(0, 0, 0, 0.22);
 }
+.marcas.marcas { z-index: 2; }
 
-/* EL ORIGINAL (12/11/2026, Martín: «si yo le paso el cursor, que veo el carrusel original o el reel original o el video o la miniatura
-   de YouTube original»): encima del texto, invisible hasta pasar el cursor (o el botón, sin mouse). */
-.original { position: absolute; inset: 0; background: #0d0f13; opacity: 0; transition: opacity 180ms ease; pointer-events: none; }
-.original img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.tarjeta:hover .original, .tarjeta[data-original='si'] .original { opacity: 1; }
-.tarjeta:hover .red, .tarjeta[data-original='si'] .red { background: rgba(255, 255, 255, 0.92); color: #12151b; border-color: transparent; }
+/* Al pasar el cursor por un video, el ▶ sobre su portada (y «Replicar», que pone la tarjeta común). */
 .play {
-  position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
+  position: absolute; left: 50%; top: 50%; z-index: 1; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center; padding-left: 3px; box-sizing: border-box;
-  background: rgba(12, 12, 20, 0.6); color: #fff; font-size: 16px;
+  background: rgba(12, 12, 20, 0.6); color: #fff; font-size: 16px; pointer-events: none; opacity: 0; transition: opacity 180ms ease;
 }
-@media (prefers-reduced-motion: reduce) { .original { transition: none; } }
-/* El botón del original: sólo sin mouse (el teléfono, una tablet), abajo a la derecha. */
-.verOriginal {
-  position: absolute; right: 8px; bottom: 8px; z-index: 2; width: 32px; height: 32px; border-radius: 10px; border: 0; cursor: pointer;
-  display: none; align-items: center; justify-content: center; background: rgba(255, 255, 255, 0.94); color: #12151b;
-  box-shadow: 0 2px 8px rgba(18, 21, 27, 0.25);
-}
-.verOriginal[aria-pressed='true'] { background: #12151b; color: #fff; }
-.verOriginal:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-@media (hover: none) { .verOriginal { display: inline-flex; } .tarjeta:hover .original { opacity: 0; } .tarjeta[data-original='si'] .original { opacity: 1; } }
+.marco:hover .play { opacity: 1; }
+/* Sin mouse (el teléfono), el ▶ se ve siempre: dice que es un video. */
+@media (hover: none) { .play { opacity: 0.9; width: 38px; height: 38px; margin: -19px 0 0 -19px; font-size: 13px; } }
+@media (prefers-reduced-motion: reduce) { .play { transition: none; } }
 /* Las plantillas con estructura, AL LADO de los outliers (11/11/2026): una fila que se desliza, con la tarjeta común de Create. */
 .plantillas { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .plantillasCabeza { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
@@ -97,7 +110,7 @@
 /* «Guion»: el copy es lo que se DICE en la pieza (transcripto), no su pie. */
 .conGuion {
   display: inline-flex; align-items: center; height: 24px; padding: 0 9px; border-radius: 999px; white-space: nowrap;
-  background: var(--primary-bg); color: var(--primary-strong, var(--primary)); font-size: 12px; font-weight: 700;
+  background: var(--primary); color: var(--on-primary, #fff); font-size: 12px; font-weight: 700; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22), 0 3px 10px rgba(0, 0, 0, 0.22);
 }
 /* La marca no pisa «Replicar» (arriba a la derecha, al pasar el cursor). */
 .marcas.marcas { max-width: calc(100% - 104px); }
@@ -109,7 +122,8 @@
   .tarjeta[data-formato='youtube'] .copy { padding: 36px 11px 10px; }
   .tarjeta[data-formato='youtube'] .ganchoGrande { font-size: 13px; -webkit-line-clamp: 2; }
   .sigue, .tarjeta[data-formato='reel'] .sigue { font-size: 12.5px; line-height: 1.5; }
-  .tarjeta[data-formato='reel'] .copy { gap: 6px; }
+  .ganchoPie { font-size: 13.5px; -webkit-line-clamp: 3; }
+  .siguePie { font-size: 12.5px; -webkit-line-clamp: 2; }
   .red { height: 22px; font-size: 11.5px; padding: 0 7px 0 6px; }
   .marcas.marcas { max-width: calc(100% - 16px); }
 }

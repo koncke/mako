@@ -159,7 +159,11 @@ function ubicar(){if(document.querySelector('[data-tema-sitio-boton]'))return;
   else if(barra){var fila=barra;while(fila.children.length===1&&getComputedStyle(fila).display.indexOf('flex')<0)fila=fila.children[0];
     fila.appendChild(b);if(getComputedStyle(fila).display.indexOf('flex')>=0)b.style.marginLeft='auto';}
   else{b.classList.add('mk-tema-sitio-flota');document.body.appendChild(b);}}
-function iniciar(){base=BASE_FIJA==='oscuro'||BASE_FIJA==='claro'?BASE_FIJA:medirBase();document.documentElement.setAttribute('data-sitio-base',base);ubicar();var p=null;try{p=localStorage.getItem(LS);}catch(e){}
+// EL BOTÓN ENTRA DESPUÉS DE QUE REACT TOMA LA PÁGINA (13/11/2026). Metido antes, adentro de la barra, React encontraba un elemento que
+// el servidor no mandó: error #418 en TODAS las páginas del sitio, la página se volvía a dibujar entera y los scripts de la portada
+// (el carrusel de tableros, el sonido de AI Avatar) quedaban colgados de nodos viejos. Sin Next (el visor estático), entra ya.
+function trasHidratar(fn){if(!document.querySelector('script[src*="/_next/"]'))return fn();var t0=Date.now();(function mira(){var h=Object.keys(document.body).some(function(k){return k.indexOf('__reactFiber')===0||k.indexOf('__reactProps')===0;});if(h||Date.now()-t0>6000)fn();else setTimeout(mira,60);})();}
+function iniciar(){base=BASE_FIJA==='oscuro'||BASE_FIJA==='claro'?BASE_FIJA:medirBase();document.documentElement.setAttribute('data-sitio-base',base);trasHidratar(function(){ubicar();botones();});var p=null;try{p=localStorage.getItem(LS);}catch(e){}
   aplicar(p==='oscuro'||p==='claro'?p:base);quitarEspera();
   document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-tema-sitio-boton]');if(!b)return;e.preventDefault();var n=actual==='oscuro'?'claro':'oscuro';try{localStorage.setItem(LS,n);}catch(err){}barrido(b,function(){aplicar(n);});});}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',iniciar);else iniciar();

@@ -381,3 +381,40 @@ export function palabraDeCadaLetra(letras: readonly string[], primera: number): 
 		return k;
 	});
 }
+
+// ── La palabra clave GIGANTE: el renglón reserva alto (13/11/2026) ────────────────────────────────────────────────────
+// «La palabra clave gigante» (lib/video-recetas.ts) pide la palabra fuerte 3 o 4 veces más grande. La clave se agranda
+// desde su centro (./dibujar.ts → recorrerPiezas), y cada renglón iba a una altura FIJA (`i × lineHeightPx`): a 3× en un
+// subtítulo de dos renglones tapaba al otro (por eso el tope era 160 %). Ahora, por encima de `UMBRAL_ALTO_CLAVE`, el renglón
+// con una clave grande reserva su alto: el bloque crece y los renglones se separan. Hasta 160 % no cambia nada de lo de antes.
+
+/** Hasta esta escala la clave entra en el interlineado de siempre (lo que ya estaba no se mueve). */
+export const UMBRAL_ALTO_CLAVE = 1.6;
+
+/** La escala de la clave más grande de cada renglón (1 si no tiene). Sólo las claves: la animación de la palabra es corta. */
+export function escalaDeRenglones(r: ResaltadoTexto, renglones: readonly string[]): number[] {
+	const primeras = primerasPalabras(renglones);
+	return renglones.map((renglon, i) => {
+		let max = 1;
+		for (const p of palabrasDeRenglon(renglon, primeras[i] ?? 0)) if (r.claves.includes(p.palabra)) max = Math.max(max, r.clavesEscala);
+		return max;
+	});
+}
+
+/**
+ * Dónde va el centro de cada renglón (desde el centro del bloque) y el alto del bloque, si algún renglón tiene una clave más
+ * grande que `UMBRAL_ALTO_CLAVE`; null si no (todo queda como siempre: `i × lineHeightPx − offset`). Cada renglón mide su
+ * interlineado más lo que crece su clave (`(escala − 1) × fontPx`), repartido arriba y abajo.
+ */
+export function centrosDeRenglones(escalas: readonly number[], lineHeightPx: number, fontPx: number): { ys: number[]; alto: number } | null {
+	if (!escalas.some((e) => e > UMBRAL_ALTO_CLAVE)) return null;
+	const altos = escalas.map((e) => lineHeightPx + Math.max(0, e - 1) * fontPx);
+	const alto = altos.reduce((a, b) => a + b, 0);
+	const ys: number[] = [];
+	let arriba = -alto / 2;
+	for (const h of altos) {
+		ys.push(arriba + h / 2);
+		arriba += h;
+	}
+	return { ys, alto };
+}

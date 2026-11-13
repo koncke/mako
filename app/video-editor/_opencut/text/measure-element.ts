@@ -15,7 +15,7 @@ import {
 } from "./layout";
 import { letrasEnArco, recuadroArco, type LetraEnArco } from "./curva";
 import { cuantizarRevelado } from "./revelado";
-import { resaltadoDe, reservasDeRenglones, type ResaltadoTexto } from "./resaltado";
+import { centrosDeRenglones, escalaDeRenglones, resaltadoDe, reservasDeRenglones, type ResaltadoTexto } from "./resaltado";
 import {
 	aplicarMayusculas,
 	leerEstiloTexto,
@@ -61,6 +61,11 @@ export interface MeasuredTextElement extends MeasuredTextLayout {
 	 * selección lo incluyen; el renglón empieza en `inicioDeLinea(ancho + reserva)`.
 	 */
 	reservas: number[] | null;
+	/**
+	 * El centro de cada renglón desde el centro del bloque, si una palabra clave pasa de 160 % (./resaltado.ts →
+	 * `centrosDeRenglones`): ese renglón reserva el alto de su clave. `null` = el de siempre, `i × lineHeightPx − offset`.
+	 */
+	ysDeRenglon?: number[] | null;
 }
 
 let textMeasurementContext:
@@ -135,6 +140,14 @@ export function measureTextElement({
 			maxWidth: Math.max(...measuredLayout.lineMetrics.map((m, i) => m.width + (reservas[i] ?? 0))),
 		};
 	}
+	// La clave gigante también reserva ALTO (por encima de 160 %): el bloque crece y sus renglones se separan.
+	const centros =
+		resaltado && !curvado
+			? centrosDeRenglones(escalaDeRenglones(resaltado, measuredLayout.lines), measuredLayout.lineHeightPx, measuredLayout.scaledFontSize)
+			: null;
+	if (centros) {
+		measuredLayout.block = { ...measuredLayout.block, height: centros.alto, visualCenterOffset: -(centros.ys[0] ?? 0) };
+	}
 
 	const bg = buildTextBackgroundFromElement({ element });
 	const resolvedBackground: ResolvedTextBackground = {
@@ -207,6 +220,7 @@ export function measureTextElement({
 		arco,
 		resaltado,
 		reservas,
+		ysDeRenglon: centros?.ys ?? null,
 	};
 }
 

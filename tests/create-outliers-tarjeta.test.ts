@@ -50,17 +50,30 @@ test('UNA caja por outlier: la tarjeta de todas las portadas tiene su borde, y e
   assert.match(css, /animation: entra 280ms cubic-bezier\(\.2, \.7, \.2, 1\) backwards;/, 'con `both`, la entrada le ganaba al hover');
   assert.match(css, /\.pie \{ flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; padding: 12px 14px 14px; \}/);
   assert.doesNotMatch(css, /\.mini \{[^}]*border-radius: 16px/, 'la imagen ya no es una caja suelta');
+  // Una tarjeta muy angosta achica el relleno del pie, y el panel de Outliers del Video Editor (199 px a 1440) va en una columna
+  // (13/11/2026, en producción: dos de 94 px dejaban 65 px para el texto).
+  assert.match(css, /\.tarjeta \{ container-type: inline-size; \}\r?\n@container \(max-width: 170px\) \{ \.pie \{ padding: 9px 9px 10px; gap: 5px; \} \}/);
+  assert.match(leer('app/video-editor/outliers.module.css'), /\.grillaPanel \{ grid-template-columns: repeat\(auto-fill, minmax\(150px, 1fr\)\);/);
 });
 
 test('Copywriting: el marco con la forma de su red, el texto adentro y el original encima al pasar el cursor', () => {
   const t = leer('app/copywriter/OutliersCopy.tsx');
-  assert.match(t, /<div className=\{`\$\{s\.mini\} \$\{oc\.marco\}`\} style=\{\{ aspectRatio: ASPECTO_FORMATO\[o\.formato\] \}\}/);
+  assert.match(t, /<div className=\{`\$\{s\.mini\} \$\{oc\.marco\}`\} data-con-imagen=\{original \? 'si' : undefined\} style=\{\{ aspectRatio: ASPECTO_FORMATO\[o\.formato\] \}\}/);
   assert.match(t, /const original = rota \? null : imagenDelOriginal\(o\);/);
   assert.match(t, /<GrillaMixta items=\{enGrilla\}/, 'formatos mezclados, en columnas');
   assert.match(t, /className=\{s\.nuevo\}><span aria-hidden>＋<\/span> Nuevo copy<\/Link>/);
   const css = leer('app/copywriter/outliers.module.css');
-  assert.match(css, /\.tarjeta:hover \.original, \.tarjeta\[data-original='si'\] \.original \{ opacity: 1; \}/);
-  assert.match(css, /@media \(hover: none\) \{ \.verOriginal \{ display: inline-flex; \}/, 'sin mouse, el botón del original');
+  // 13/11/2026 (el Cerebro, con el banco): la portada LIMPIA llena el marco, sin texto encima (las portadas ya traen su título y el
+  // gancho encima quedaba dos veces); el gancho y la transcripción van DEBAJO, en el pie. Sin portada, el marco toma el color de su
+  // red y el gancho va adentro (nunca blanco vacío).
+  assert.match(t, /<img src=\{original\} alt="" className=\{oc\.portada\}/);
+  assert.match(t, /\{original \? \(\s*<>[\s\S]*?className=\{oc\.portada\}[\s\S]*?<\/>\s*\) : \(\s*<div className=\{oc\.copy\}>/, 'el texto adentro del marco SÓLO sin portada');
+  assert.match(t, /<button type="button" className=\{oc\.ganchoPie\} onClick=\{onAbrir\}>\{o\.gancho\}<\/button>/, 'con portada, el gancho en el pie');
+  assert.match(t, /pie=\{\(o\) => altoDelPie\(o, telefono\)\}/, 'la grilla cuenta el texto del pie');
+  assert.doesNotMatch(t, /verOriginal/, 'con la portada siempre a la vista, el botón del original sobra');
+  assert.match(css, /\.siguePie \{[^}]*-webkit-line-clamp: 3;/);
+  assert.match(css, /\.tarjeta \.marco \{ cursor: pointer; color: #fff; background: linear-gradient\(/, 'sin imagen, un fondo con color, no blanco');
+  assert.doesNotMatch(css, /\.tarjeta \.marco \{[^}]*background: var\(--surface\)/);
 });
 
 test('la portada de outliers va SIN el chat; «Mis guiones / diseños / landings» abren la lista', () => {

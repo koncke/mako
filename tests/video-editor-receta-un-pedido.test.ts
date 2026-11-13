@@ -53,7 +53,7 @@ test('R1: la receta entera, en UN pedido: lo que depende de lo que crea el pedid
     { op: 'agregar_medios', medios: [ref] },
     { op: 'generar_subtitulos' },
     { op: 'usar_preset_subtitulos', preset: 'palabra-gigante' },
-    { op: 'palabras_clave', modo: 'auto', color: '#ffffff', tamano: 160 },
+    { op: 'palabras_clave', modo: 'auto', color: '#ffffff', tamano: 300 },
     { op: 'borrar_silencios', pausa_min: 0.5 },
   ]);
   // Vuelta 1: la toma y los subtítulos. El estilo y las claves esperan a los subtítulos; los silencios, a la toma.
@@ -64,7 +64,7 @@ test('R1: la receta entera, en UN pedido: lo que depende de lo que crea el pedid
   const filas = v1.cambios.filter((c) => c.titulo.startsWith('Después de')).map((c) => `${c.titulo}: ${c.despues}`);
   assert.deepEqual(filas, [
     'Después de generar los subtítulos: el estilo «Palabra gigante»',
-    'Después de generar los subtítulos: palabras clave en #ffffff al 160 %',
+    'Después de generar los subtítulos: palabras clave en #ffffff al 300 %',
     'Después de poner el video: borrar los silencios (las pausas de 0,5 s o más)',
   ]);
   // Vuelta 2, con la toma y los subtítulos ya puestos: el estilo y los silencios van; las claves, después del estilo
@@ -74,11 +74,11 @@ test('R1: la receta entera, en UN pedido: lo que depende de lo que crea el pedid
   assert.deepEqual(v2.resueltas.map((r) => r.op), ['usar_plantilla_subtitulos', 'borrar_silencios']);
   assert.deepEqual((v2.encadenadas ?? []).map((o) => o.op), ['palabras_clave']);
   assert.ok(v2.cambios.some((c) => c.titulo === 'Después de aplicar el estilo de los subtítulos'));
-  // Vuelta 3: las claves, al 160 % y en blanco.
+  // Vuelta 3: las claves, al 300 % y en blanco.
   const v3 = revisar(v2.encadenadas!, vista({ toma: true, subs: true }));
   assert.deepEqual(v3.descartes, []);
   assert.equal(v3.encadenadas, undefined);
-  assert.ok(v3.resueltas.length > 0 && v3.resueltas.every((r) => r.op === 'params' && r.params[PARAM_CLAVES_TAMANO] === 160 && r.params[PARAM_CLAVES_COLOR] === '#ffffff'));
+  assert.ok(v3.resueltas.length > 0 && v3.resueltas.every((r) => r.op === 'params' && r.params[PARAM_CLAVES_TAMANO] === 300 && r.params[PARAM_CLAVES_COLOR] === '#ffffff'));
   assert.ok(VUELTAS_ENCADENADAS >= 2, 'alcanzan las vueltas para la receta (estilo → claves)');
 });
 
@@ -105,9 +105,9 @@ test('R3: «Aceptar» da otra vuelta con lo encadenado, contra la línea de AHOR
 
 test('R4: la receta dice lo que el editor aplica, y un proyecto replicado se reconoce por su chat', () => {
   const r = recetaDe('palabra-gigante')!;
-  assert.deepEqual(r.editor, { subtitulos: 'palabra-gigante', claves: { tamano: 160, color: '#ffffff' }, pausaMinima: 0.5 });
+  assert.deepEqual(r.editor, { subtitulos: 'palabra-gigante', claves: { tamano: 300, color: '#ffffff' }, pausaMinima: 0.5 });
   const texto = textoDeReceta(r);
-  assert.match(texto, /En el editor de MaKo, todo en un pedido: subtítulos con el estilo «palabra-gigante» de la galería de Subtítulos, palabras clave en #ffffff al 160 %, borrar los silencios de 0,5 s o más\.$/);
+  assert.match(texto, /En el editor de MaKo, todo en un pedido: subtítulos con el estilo «palabra-gigante» de la galería de Subtítulos, palabras clave en #ffffff al 300 %, borrar los silencios de 0,5 s o más\.$/);
   assert.equal(recetaDelHilo([{ de: 'yo', texto: 'hola' }, { de: 'mako', texto }])?.id, 'palabra-gigante');
   assert.equal(recetaDelHilo([{ de: 'yo', texto }]), null, 'lo que escribe la persona no cuenta');
   assert.equal(recetaDelHilo([{ de: 'mako', texto: 'Armé este proyecto para replicar «Otra cosa»' }]), null);
@@ -136,7 +136,7 @@ test('R6: la Edición automática sigue la receta: la pausa, sin subtítulos si 
     ({ conVoz: [{ ref: 'v1', ruido: false, normalizado: null }], subtitulos: Array.from({ length: subs }, (_, i) => ({ ref: `s${i}`, texto: 'x', inicio: i, claves: claves ? ['x'] : [] })), conPalabras: true, estiloLibre: true }) as unknown as EstadoLinea;
   const receta = recetaDe('palabra-gigante')!.editor!;
   assert.deepEqual(decidirPaso('pausas', estado(0), receta), { hace: true, operaciones: [{ op: 'borrar_silencios', pausa_min: 0.5 }] });
-  assert.deepEqual(decidirPaso('claves', estado(2), receta), { hace: true, operaciones: [{ op: 'palabras_clave', modo: 'auto', color: '#ffffff', tamano: 160 }] });
+  assert.deepEqual(decidirPaso('claves', estado(2), receta), { hace: true, operaciones: [{ op: 'palabras_clave', modo: 'auto', color: '#ffffff', tamano: 300 }] });
   // Sin receta, lo de siempre.
   assert.deepEqual(decidirPaso('claves', estado(2)), { hace: true, operaciones: [{ op: 'palabras_clave', modo: 'auto', color: LIMA }] });
   assert.deepEqual(decidirPaso('pausas', estado(0)), { hace: true, operaciones: [{ op: 'borrar_silencios' }] });

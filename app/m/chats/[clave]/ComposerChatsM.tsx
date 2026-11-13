@@ -1,17 +1,24 @@
 'use client';
 
 // =============================================================================
-// El composer de un chat del teléfono: escribe por el canal elegido (17/10/2026)
+// El composer de un chat del teléfono: escribe por el canal elegido (17/10/2026), con la caja de WhatsApp (13/11/2026)
 // =============================================================================
-// El de escritorio (app/chats/Composer.tsx), destilado a texto: arranca en el canal de la última actividad
-// que puede escribir (`identidadInicial`), y si el contacto tiene más de uno se elige arriba del campo
-// (WhatsApp de cada línea, Instagram, Messenger, Email). Sale por las MISMAS rutas que escritorio:
+// Arranca en el canal de la última actividad que puede escribir (`identidadInicial`), y si el contacto tiene más de uno se elige
+// arriba del campo (WhatsApp de cada línea, Instagram, Messenger, Email). Sale por las MISMAS rutas que escritorio (app/chats/Composer.tsx):
 //   · WhatsApp → POST /api/whatsapp/evolution/mensajes con la LÍNEA de la identidad (`cuerpoTextoWhatsApp`):
 //     sin ella el servidor elige la de por defecto y sale por otro número; un grupo de MaKo (el super admin), por el
 //     canal de MaKo (/api/admin/mako-chats, `esCanalMaKo`);
-//   · Instagram / Messenger → POST /api/chats/social con UNA clave de idempotencia por mensaje;
+//   · Instagram / Messenger → POST /api/chats/social con UNA clave de idempotencia por mensaje (sólo texto, como escritorio);
 //   · Email → POST /api/chats/email (el asunto vacío lo pone el servidor: «Re: …»).
 // Si no se puede escribir por ahí, el campo lo dice (`motivoNoEnvio`, el de escritorio).
+//
+// LA CAJA DE WHATSAPP (13/11/2026, el prototipo que aprobó Martín: docs/prototipos/mako-mobile-chat.html): la caja ÚNICA de la app
+// (CajaChat), en `.m-wa` (app/m/_chat/chat-wa.css). Lo que antes faltaba en el teléfono y escritorio ya tenía:
+//   · ADJUNTAR (el clip: Documento, Fotos, Cámara, Pegar) por WhatsApp y por email: lo elegido se ve en la vista previa a pantalla
+//     completa (VistaAdjuntosM, la de la casa) y sale EN ORDEN, el texto como pie del primero (`enviarEnOrden`), con el MISMO
+//     multipart de escritorio (`formArchivoWhatsApp`, con la línea); un email sale UNO con todos los archivos;
+//   · la NOTA DE VOZ, sólo por WhatsApp: se graba, se escucha y recién ahí sale como audio (`blobToMp3`).
+//   ⚠️ A un LEAD lo adjuntado viaja como ARCHIVO, nunca leído y pegado como texto (`sinAdjuntos`, ticket #16, app/_chat/CajaChat.tsx).
 //
 // ⚠️ UN ENVÍO INCIERTO NO VUELVE AL CAMPO (regla de la casa, docs/hallazgos-chats.md): si la red se cortó
 // o el servidor dio 504, el mensaje pudo salir; devolverlo invita a mandarlo dos veces.
@@ -27,21 +34,42 @@
 // tapa lo que queda debajo (`tecladoDelComposer`, app/m/mako/chat-ui.ts; lo mismo que ComposerOfferM). Y el hilo deja ese lugar al final.
 // =============================================================================
 
+import '@/app/admin/operaciones/centro.css';
+import '@/app/m/operaciones/operaciones.css';
+import '@/app/m/_chat/chat-wa.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from '@/app/_ui/Link';
-import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { CajaChat } from '@/app/_chat/CajaChat';
+import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
+import { useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
+import { enviarEnOrden, MAX_ADJUNTOS } from '@/app/whatsapp/_shared/adjuntos-vista';
+import { VistaAdjuntosM } from '@/app/m/mako/VistaAdjuntosM';
 import { postJson } from '@/app/chats/ventana-piezas';
-import { claveIdentidad, cuerpoTextoWhatsApp, esCanalMaKo, identidadInicial, motivoNoEnvio, rotuloIdentidad } from '@/app/chats/ventana-reglas';
+import {
+  TOPE_ARCHIVO, claveIdentidad, cuerpoTextoWhatsApp, esCanalMaKo, formArchivoWhatsApp, identidadInicial, motivoNoEnvio, rotuloIdentidad, rutaArchivoWhatsApp,
+} from '@/app/chats/ventana-reglas';
 import { useConexion, useToastM } from '@/app/m/_ui';
 import type { IdentidadCanal } from '@/lib/chats-tipos';
 import { haptico } from '@/lib/haptico';
 import { tecladoDelComposer } from '@/app/m/mako/chat-ui';
 import { CADA_MS_HILO } from '../modelo';
 
+/** Lo que el clip deja elegir: el mismo `accept` de escritorio (app/chats/Composer.tsx). */
+export const ACCEPT_LEAD = 'image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx';
+
 const alFinal = () => window.scrollTo({ top: document.documentElement.scrollHeight });
 
 type Respuesta = { ok: boolean; error?: string; incierto?: boolean };
+
+/** Un archivo o una nota de voz por WhatsApp: el multipart de escritorio, con la línea de la identidad. Tira con el porqué. */
+async function mandarArchivo(i: IdentidadCanal, blob: Blob, nombre: string, tipo: '' | 'audio', leadId: number | null, caption?: string): Promise<boolean> {
+  const fd = formArchivoWhatsApp(i, blob, nombre, { leadId, caption, tipo });
+  const r = await fetch(rutaArchivoWhatsApp(i), { method: 'POST', body: fd, signal: AbortSignal.timeout(90_000) });
+  const j = (await r.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+  if (r.ok && j?.ok) return true;
+  throw new Error(j?.error || `Error ${r.status}`);
+}
 
 export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
   clave: string;
@@ -54,10 +82,17 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
   const { enLinea } = useConexion();
   const [elegida, setElegida] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
+  const textoVivo = useRef('');
+  const ponerTexto = (v: string | ((p: string) => string)) => {
+    const next = typeof v === 'function' ? v(textoVivo.current) : v;
+    textoVivo.current = next;
+    setTexto(next);
+  };
   const [enviando, setEnviando] = useState(false);
+  const [fase, setFase] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pie, setPie] = useState<HTMLElement | null>(null);
-  const area = useRef<HTMLTextAreaElement>(null);
+  const campo = useRef<HTMLTextAreaElement | null>(null);
   const escribiendo = useRef(false);
   const [enfocado, setEnfocado] = useState(false);
   const [teclado, setTeclado] = useState({ corrimiento: 0, abierto: false, reserva: 0 });
@@ -68,8 +103,21 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
     [canales, elegida],
   );
   const motivo = motivoNoEnvio(ident, bloqueado);
+  const esWa = ident?.canal === 'whatsapp';
+  const esEmail = ident?.canal === 'email';
 
   useEffect(() => { setPie(document.getElementById('m-pie')); alFinal(); }, []);
+  // El campo de la caja: enfocado o no (para medir el teclado de iOS sólo mientras se escribe).
+  useEffect(() => {
+    const el = campo.current;
+    if (!el) return;
+    const entra = () => { escribiendo.current = true; setEnfocado(true); };
+    // Tocar Enviar no cuenta como salir del campo (ComposerOfferM): la franja no se mueve bajo el dedo.
+    const sale = () => { escribiendo.current = enviando; window.setTimeout(() => { if (document.activeElement !== campo.current) setEnfocado(false); }, 0); };
+    el.addEventListener('focus', entra);
+    el.addEventListener('blur', sale);
+    return () => { el.removeEventListener('focus', entra); el.removeEventListener('blur', sale); };
+  }, [pie, enviando]);
   // El teclado de iOS, con el campo enfocado (mirar siempre se confundiría con el zoom de dos dedos).
   useEffect(() => {
     const vv = window.visualViewport;
@@ -100,8 +148,16 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
     return () => window.clearInterval(t);
   }, [router]);
 
+  /** Salió algo: el hilo se relee y se ve lo último. */
+  const salio = (aviso = 'Enviado') => {
+    haptico('success');
+    toast(aviso);
+    router.refresh();
+    window.setTimeout(alFinal, 400);
+  };
+
   const enviar = async () => {
-    const t = texto.trim();
+    const t = textoVivo.current.trim();
     if (!t || enviando || !ident || motivo) return;
     setEnviando(true); escribiendo.current = true; setError(null);
     let j: Respuesta;
@@ -121,19 +177,88 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
       setError(j.error ? `No salió: ${j.error.slice(0, 100)}` : 'No salió el mensaje.');
       return;
     }
-    setTexto('');
-    if (area.current) area.current.style.height = '';
+    ponerTexto('');
     if (j.incierto) { setError('No sé si salió. Mira el chat antes de volver a mandarlo.'); router.refresh(); return; }
-    haptico('success');
-    toast('Enviado');
-    router.refresh();
-    window.setTimeout(alFinal, 400);
+    salio();
   };
 
+  // ── Los adjuntos: varios, con su vista previa a pantalla completa (la de la casa) ──
+  const lista = useListaAdjuntos({ maxBytes: TOPE_ARCHIVO, maxArchivos: MAX_ADJUNTOS, accept: ACCEPT_LEAD });
+  const puedeAdjuntar = (esWa || esEmail) && !motivo && enLinea;
+  function agregarArchivos(fs: File[]) {
+    if (!fs.length || !puedeAdjuntar) return;
+    const errores = lista.agregar(fs);
+    setError(errores.length ? errores.join(' ') : null);
+  }
+  /** El clip de la caja: todo entra a la vista previa, que se abre por encima. La caja no dibuja miniaturas propias. */
+  const adjuntosCaja: AdjuntosDeCaja | undefined = puedeAdjuntar ? {
+    items: [], puede: !enviando, accept: ACCEPT_LEAD, onSumar: agregarArchivos, onQuitar: () => {},
+    onNoPuede: () => setError('Espera a que salga lo anterior.'),
+    onSinImagen: (puedeLeer) => setError(puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar.'),
+  } : undefined;
+
+  /** WhatsApp: EN ORDEN, el texto como pie del primero. Email: UNO con todos. Lo que no salió vuelve a la vista con su porqué. */
+  async function enviarAdjuntos() {
+    const items = lista.ref.current;
+    if (!items.length || enviando || !ident || motivo) return;
+    const i = ident;
+    const cap = textoVivo.current.trim();
+    setEnviando(true); escribiendo.current = true; setError(null);
+    lista.vaciar(); ponerTexto('');
+    try {
+      if (i.canal === 'email') {
+        setFase(items.length === 1 ? 'Enviando email con su archivo…' : `Enviando email con ${items.length} archivos…`);
+        const fd = new FormData();
+        fd.set('para', i.ref);
+        fd.set('texto', cap);
+        if (leadId != null) fd.set('leadId', String(leadId));
+        for (const it of items) fd.append('archivos', it.file, it.file.name);
+        const r = await fetch('/api/chats/email', { method: 'POST', body: fd, signal: AbortSignal.timeout(90_000) });
+        const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!r.ok || !j.ok) { lista.poner(items); ponerTexto((d) => d || cap); setError(j.error || 'No se pudo enviar.'); return; }
+        salio();
+        return;
+      }
+      setFase(items.length === 1 ? 'Enviando archivo…' : `Enviando ${items.length} archivos…`);
+      const r = await enviarEnOrden(items, cap, (it, caption) => mandarArchivo(i, it.file, it.file.name, '', leadId, caption));
+      if (r.enviados.length) salio(r.enviados.length === 1 ? 'Enviado' : `${r.enviados.length} enviados`);
+      if (r.faltan.length) {
+        lista.poner(r.faltan);
+        if (!r.textoSalio && cap) ponerTexto((d) => d || cap);
+        setError(r.error);
+      }
+    } catch (e) {
+      setError(e instanceof Error && e.message ? e.message : 'No se pudo enviar.');
+    } finally { setEnviando(false); escribiendo.current = false; setFase(null); }
+  }
+
+  // ── La nota de voz (sólo WhatsApp): se termina, se escucha, y recién la ➤ la entrega acá ──
+  async function enviarAudio(blob: Blob) {
+    if (!ident || ident.canal !== 'whatsapp' || motivo) { setError(motivo ?? 'La voz sale sólo por WhatsApp.'); return; }
+    const i = ident;
+    setEnviando(true); escribiendo.current = true; setError(null); setFase('Procesando audio…');
+    try {
+      let mp3: Blob;
+      try {
+        const { blobToMp3 } = await import('@/app/whatsapp/audio');
+        mp3 = await blobToMp3(blob);
+      } catch (e) {
+        setError(`No se pudo procesar el audio${e instanceof Error && e.message ? ` (${e.message})` : ''}.`);
+        return;
+      }
+      setFase('Enviando audio…');
+      await mandarArchivo(i, mp3, 'nota-de-voz.mp3', 'audio', leadId);
+      salio();
+    } catch (e) {
+      setError(`No se pudo enviar el audio${e instanceof Error && e.message ? ` (${e.message})` : ''}.`);
+    } finally { setEnviando(false); escribiendo.current = false; setFase(null); }
+  }
+
   const cuerpo = (
-    <div className="m-chats-composer" data-m-sin-barra data-teclado={teclado.abierto ? '' : undefined}
+    <div className="m-chats-composer m-wa" data-m-sin-barra data-teclado={teclado.abierto ? '' : undefined}
       style={teclado.corrimiento ? { transform: `translateY(${-teclado.corrimiento}px)` } : undefined}>
       {error && <p className="m-chats-error">{error}</p>}
+      {fase && <p className="m-chats-fase" aria-live="polite">{fase}</p>}
       {canales.length > 1 && (
         <label className="m-chats-canal">
           <span className="m-chats-canal__k">Por</span>
@@ -142,36 +267,42 @@ export function ComposerChatsM({ clave, leadId, canales, bloqueado }: {
           </select>
         </label>
       )}
-      <div className="m-chats-composer__fila">
-        <textarea
-          ref={area}
-          rows={1}
-          aria-label={ident ? `Responder por ${ident.rotulo}` : 'Responder'}
-          placeholder={!enLinea ? 'Sin conexión' : motivo ?? 'Responder'}
-          value={texto}
-          disabled={!enLinea || enviando || !!motivo}
-          onFocus={() => { escribiendo.current = true; setEnfocado(true); }}
-          onBlur={() => {
-            escribiendo.current = enviando;
-            // Tocar Enviar no cuenta como salir del campo (ComposerOfferM): la franja no se mueve bajo el dedo.
-            window.setTimeout(() => { if (document.activeElement !== area.current) setEnfocado(false); }, 0);
-          }}
-          onChange={(e) => {
-            setTexto(e.target.value);
-            const el = e.target; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
-          }}
+      <div className="m-operaciones-caja">
+        {/* La caja ÚNICA de la app con la cara de WhatsApp: Enter baja de renglón y se manda con el botón. */}
+        <CajaChat
+          sinAdjuntos
+          texto={texto}
+          onTexto={(v) => { setError(null); ponerTexto(v); }}
+          onMandar={() => { void enviar(); }}
+          enviando={enviando}
+          apagado={!enLinea || !!motivo}
+          placeholder={!enLinea ? 'Sin conexión' : motivo ?? (esEmail ? 'Escribe un email' : 'Mensaje')}
+          tituloMandar="Enviar"
+          campo={campo}
+          altoMax={null}
+          fila="m-operaciones-caja__fila"
+          adjuntos={adjuntosCaja}
+          voz={esWa && !motivo ? { onAudio: (blob) => enviarAudio(blob), onError: (m) => setError(m), rotuloEnviar: 'Enviar audio' } : undefined}
+          onErrorMic={(m) => setError(m)}
         />
-        <button
-          type="button"
-          className="m-chats-enviar"
-          aria-label="Enviar"
-          aria-busy={enviando || undefined}
-          disabled={!texto.trim() || !enLinea || enviando || !!motivo}
-          onClick={() => { void enviar(); }}
-        >
-          {enviando ? <span className="mk-spin m-chats-spin" aria-hidden /> : <IconoMenu nombre="enviar" size={20} />}
-        </button>
       </div>
+      {lista.items.length > 0 && (
+        <VistaAdjuntosM
+          items={lista.items}
+          onAgregar={agregarArchivos}
+          onQuitar={(id) => { lista.quitar(id); if (!lista.ref.current.length) setError(null); }}
+          onCerrar={() => { lista.vaciar(); setError(null); }}
+          texto={texto}
+          onTexto={ponerTexto}
+          onEnviar={() => void enviarAdjuntos()}
+          accept={ACCEPT_LEAD}
+          maxArchivos={MAX_ADJUNTOS}
+          enviando={enviando}
+          error={error}
+          acento="var(--good)"
+          placeholder="Añade un comentario"
+        />
+      )}
     </div>
   );
   // Antes de montar (el HTML del server) va en su lugar; después, en #m-pie.
