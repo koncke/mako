@@ -32,7 +32,7 @@ test('2. More la muestra SÓLO a una agencia (`esAgencia`); a cualquier otro neg
   const fila = (key: string) => ({ tipo: 'pantalla' as const, key, label: key, icon: 'x', href: `/m/${key}`, seccion: null });
   const grupos: GrupoMasCompleto[] = [
     { id: 'menu', titulo: null, filas: [fila('agency'), fila('crm')] },
-    { id: 'x', titulo: 'X', filas: [{ tipo: 'grupo', key: 'g', label: 'G', icon: 'x', filas: [fila('agency')] }] },
+    { id: 'marketing', titulo: 'Marketing', filas: [{ tipo: 'grupo', key: 'g', label: 'G', icon: 'x', filas: [fila('agency')] }] },
   ];
   assert.deepEqual(keysDe(sinFilas(grupos, (k) => k === 'agency')), ['crm'], 'también adentro de un desplegable, y el vacío se va');
   assert.deepEqual(keysDe(sinLoQueVende(grupos)), keysDe(grupos), 'sinLoQueVende ya no la saca');
