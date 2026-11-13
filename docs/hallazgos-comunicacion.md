@@ -156,6 +156,24 @@ testigo nuevo en los grupos, y mandar mensajes entre líneas arriesga un bloqueo
 Queda así: una sordera que empieza después de las 20 de Argentina se ve recién a las 9. No volver a proponerlo sin un dato nuevo. El
 arreglo de fondo es Baileys rc14 en Railway, y lo llevan el Cerebro y Martín.
 
+**Medido en producción (13/11, 00:40 UTC):** marcó a las 12:00 UTC del 12/11 en punto, la primera vuelta del horario, como decía la
+simulación. **Y cambiar la voz de línea no la curó:** a las 17:38 la voz pasó a `mako_ws9` (la línea de Martín), que llevaba casi un
+día sin recibir de una persona (la misma traba de Baileys). El detector la marcó a las 17:40 («hace 23.9 h») y siguió con «hace falta
+el QR» a las 20:50 y a las 00:00. Entre las dos líneas, MaKo no clasificó un solo mensaje del 12/11 00:41 al 13/11 00:40. Antes de
+mover la voz a otra línea, mirar la última ENTRANTE de una persona en la línea nueva (`ultimosMensajesDeLaLinea`): de las 10 líneas,
+5 tenían la misma traba.
+
+**Quién la movió al …3479 (medido el 13/11, sólo lectura): el botón, no el código, y no queda rastro de quién.** A las 17:38:22 cambió
+SÓLO `mako.voz.instancia`; el canal siguió en el …2605 desde el 7/10. Eso es exactamente «Usarlo para MaKo» del panel de /agencia
+(`usarNumeroPersonalComoVoz(true)`, `action: 'voz-personal'`), el botón que Martín pidió el 3/11 con el …2605 baneado. Las otras
+dos escrituras de la voz (`conectar`/`pasar`, lib/mako-canal.ts) mueven también el canal, y la única acción automática del panel
+(`usar`) hace lo contrario: devuelve la voz al canal. ⚠️ **El diagnóstico obvio («un failover del código») era el equivocado**, y
+el de al lado también: un test (`tests/_altas-en-grupos-hijo.ts`) pone justo `mako_ws9`, pero en su base de mentira, y una
+corrida filtrada habría escrito muchas claves, no una. **La trampa:** la ruta pide una sesión de admin y no anota nada
+(`actividad_acciones` y `chat_eventos` vacías en ese minuto; los logs de Vercel de hace horas no se leen por la API: el stream
+no devuelve ni los encabezados). Desde las 17:38, por el …3479 salieron 36 mensajes, todos de la API: 33 al grupo de SuperAdmin
+(los avisos de atraso), 2 al de Código Inmobiliario y 1 al de un cliente (ws24); ninguno a un chat personal.
+
 ---
 
 ## MaKo se callaba con la línea frenada, y lo que no llegaba se guardaba como dicho (11/11/2026, nube)
