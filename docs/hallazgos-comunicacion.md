@@ -440,6 +440,12 @@ escribí, pedí, recibí) son IGUALES a la primera persona del pasado, y MaKo cu
 imperativos en -á/-é, los que llevan el pronombre pegado sin tilde). Las mayúsculas («SOS») no se tocan. El test 6 fija los pretéritos
 intactos.
 
+**Y dos tandas al mismo diccionario (13/11/2026, corrida 1228 de `punta/probar-copy` en rojo):** el grupo de la app sumó «agendá»,
+«dejá», «mandá» en main y Copywriting sumó las mismas en su punta. Git las mezcló sin conflicto (líneas distintas) y quedó un objeto con
+claves repetidas: «An object literal cannot have multiple properties with the same name». **Los tests con `tsx` pasan igual**; sólo
+lo ve el `tsc` de la punta, 10 minutos después. Ahora un test cuenta las claves (tests/copywriter.test.ts, «una sola voz»). Y
+Copywriting la usa con `citas: true`: en un guion, lo que va entre «…» lo escribió MaKo, no la persona.
+
 ## La línea sorda: manda, contesta la sonda y no recibe nada (9/11/2026)
 
 **El síntoma:** Martín, 9/11 ~19:00 ART: «MaKo no está respondiendo… Joan va a enviar el comprobante y nadie responde».
