@@ -34,6 +34,10 @@ total. Lo que falta probar es hoy, con la línea baneada, y en el teléfono.
   `absWorkingDir`: escribió la salida ADENTRO del worktree.
 - **La guardia de RAM toma `tsc` en cualquier lugar del comando**, también un `ls node_modules/.bin/tsc`: el `git switch` que lo llevaba
   quedó frenado tres veces.
+- **Una caja de chat nueva nace en TRES listas, o la corrida de GitHub da rojo** (corrida 1185, el chat con un lead): `lib/cajas-de-chat.ts`
+  (qué ofrece), `EXENTAS` de tests/app-de-escritorio-todos-los-chats.test.ts (si no se bloquea sin la app de escritorio, por qué) y
+  `SIN_ADJUNTOS` de tests/chat-formatos.test.ts (si usa `sinAdjuntos`, por qué). Los tests de la pantalla pasan igual: los guards barren
+  el repo entero y en la PC no se corren solos.
 
 **Reglas:**
 - Toda conversación del teléfono va en PantallaChatM (app/m/_chat): a pantalla completa, con el historial de las hojas. Lo que sigue
