@@ -27,7 +27,7 @@ async function main() {
     // Un aviso que insiste.
     { workspace_id: WS, key: 'mako.plantillas.store', value: JSON.stringify({ 'aviso-que-insiste': { flujo: { version: 1, activo: true, disparador: { tipo: 'evento' }, pasos: [{ tipo: 'insistir', cadaMin: 30, veces: 3 }] } } }) },
   );
-  db.usuarios.push(usuario(101, 'dueno@fiesta.test', 'Ana', WS, 'admin'), usuario(102, 'closer@fiesta.test', 'Cris', SIN_GRUPO, 'closer'), usuario(103, 'agencia@x.test', 'Agencia', OTRO, 'admin'), usuario(901, 'martin@mako.test', 'Martín', PLATAFORMA, null, { rol: 'admin' }));
+  db.usuarios.push(usuario(101, 'dueno@fiesta.test', 'Ana', WS, 'admin'), usuario(102, 'closer@fiesta.test', 'Cris', WS, 'closer'), usuario(103, 'agencia@x.test', 'Agencia', OTRO, 'admin'), usuario(901, 'martin@mako.test', 'Martín', PLATAFORMA, null, { rol: 'admin' }));
   db.push_suscripciones.push(
     { id: 1, usuario_id: 101, endpoint: 'https://fcm.googleapis.com/fcm/send/ana', p256dh: 'p', auth: 'a', fallos: 0 },
     { id: 2, usuario_id: 102, endpoint: 'https://fcm.googleapis.com/fcm/send/cris', p256dh: 'p', auth: 'a', fallos: 0 },

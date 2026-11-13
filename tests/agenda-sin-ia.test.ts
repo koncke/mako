@@ -459,8 +459,7 @@ test('el doer de WhatsApp manda lo del código DESPUÉS de la respuesta y no lo 
   // (17/10/2026: y los links que escribió el modelo salen con el ?ws= del grupo — tests/links-con-ws.test.ts.)
   assert.match(doer, /const enviar = \[\.\.\.partes, \.\.\.paraLaPersona\]\.map\(\(t\) => linksConWs\(t, wsData, APP_URL\)\);/);
   const tras = doer.slice(doer.indexOf('const enviar = ['));
-  // `claveDelTurno` (13/11/2026): el grupo, o la clave de un miembro del equipo (lib/grupo-salida.ts, `claveDelMiembro`).
-  const guardado = /await guardarTurno\(wsData, (?:jid|claveDelTurno), 'assistant', ([^,]+),/.exec(tras);
+  const guardado = /await guardarTurno\(wsData, jid, 'assistant', ([^,]+),/.exec(tras);
   assert.ok(guardado, 'no encontré el guardado del turno');
   assert.equal(guardado[1].trim(), "partes.join('\\n\\n')", 'el historial tiene que guardar sólo lo que dijo el modelo');
   assert.ok(doer.indexOf('const enviar = [') > doer.indexOf('validarRespuestaDoer(respuesta, { motivoRuta'), 'lo del código va después del validador');

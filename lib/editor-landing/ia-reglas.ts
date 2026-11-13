@@ -796,6 +796,14 @@ export function frasesCopiadas(t: JsonNodo, original: string): string[] {
   return out;
 }
 
+/**
+ * La frase que devolvió la IA, sin el número con el que se la pidió (13/11/2026: las frases van numeradas «1. …» y el titular de
+ * la réplica de Clara volvió como «1. Imagina sumar…»). El número queda sólo si la frase original también empezaba con uno. Puro.
+ */
+export function sinNumeroDelPedido(nueva: string, original: string): string {
+  return /^\s*\d/.test(original) ? nueva.trim() : nueva.replace(/^\s*\d{1,3}\s*[.)\-:]\s+/, '').trim();
+}
+
 /** Cada párrafo o título cuyo texto es una clave de `nuevas` pasa a decir el valor (sin sus marcas: es otra frase). Puro. */
 export function conFrasesNuevas(t: JsonNodo, nuevas: ReadonlyMap<string, string>): JsonNodo {
   const caminar = (n: JsonNodo): JsonNodo => {

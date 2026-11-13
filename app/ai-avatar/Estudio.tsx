@@ -55,6 +55,8 @@ import { useExtensionInstalada } from '@/app/video-generator/extension-instalada
 import { requisitosAvatar, resumenDeRequisitos, avisoDeCosto, type PasoRequisito, type Motor } from '@/lib/ai-avatar/requisitos';
 import { descargarComo } from '@/app/video-generator/descargar';
 import { nombreDeArchivo } from '@/lib/ai-avatar/descarga';
+import { useWs } from '@/app/_ui/Link';
+import { soltarGuionPasado, verGuionPasado } from '@/lib/guion-pasado';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
 type Vista = { tipo: 'nueva' } | { tipo: 'proyecto'; id: string } | { tipo: 'todos' };
@@ -108,6 +110,14 @@ export function EstudioAvatar({ inicio, plantillaInicial, avatarInicial, ahora }
 
   useEffect(() => { escribirQuery(vista, presetId); }, [vista, presetId]);
   useEffect(() => { const t = setInterval(() => setReloj(Date.now()), 60_000); return () => clearInterval(t); }, []);
+  // «Hacerlo con tu avatar IA» desde Copywriting (13/11/2026, lib/guion-pasado.ts): con un guion esperando, se abre el último avatar
+  // listo, que lo toma (sin avatar, queda «Nuevo avatar»: el guion espera a que haya uno).
+  const ws = useWs();
+  useEffect(() => {
+    if (avatarInicial || !verGuionPasado('avatar', ws)) return;
+    const listo = inicio.looks.find((l) => l.estado === 'listo');
+    if (listo) setVista({ tipo: 'proyecto', id: listo.id });
+  }, [ws]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Los looks que Flow todavía está haciendo: se pregunta cada SONDEO_MS, un paso por llamada (como antes en Avatars).
   const generando = looks.filter((l) => l.estado === 'generando').map((l) => l.id).join(',');
@@ -676,6 +686,9 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
 }) {
   const preset = plantillaPorId(p.plantillaId);
   const [guion, setGuion] = useState('');
+  // El guion que viene de Copywriting (lib/guion-pasado.ts): se pone si el proyecto no tiene uno escrito.
+  const ws = useWs();
+  useEffect(() => { const g = verGuionPasado('avatar', ws); if (g) setGuion((x) => x || g); }, [ws]);
   const [planId, setPlanId] = useState<string | null>(null);
   const [tomas, setTomas] = useState<TomaAvatar[]>([]);
   const [pidiendo, setPidiendo] = useState(false);
@@ -695,6 +708,7 @@ function Proyecto({ p, inicio, reloj, onRecrear, onNueva, onEliminar, enviando, 
     const r = await crearVideoAction({ avatarId: p.mediaId, guion });
     setPidiendo(false);
     if (!r.ok) { setErrorVideo(r.error); return; }
+    soltarGuionPasado('avatar', ws);
     setPlanId(r.planId);
     setTomas(r.tomas.map((n) => ({ n, fase: 'esperando' })));
     void filmar(r.planId, r.tomas);

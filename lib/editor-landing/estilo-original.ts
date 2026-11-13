@@ -101,6 +101,11 @@ export type EstiloOriginal = {
   anchoContenido?: number;
   /** En cuántas partes distintas aparece el botón principal (2 o más; sin el campo: una o ninguna). */
   botonEnPartes?: number;
+  /**
+   * La parte del titular que resalta en otro color o con degradado (13/11/2026: el «10K AL MES» de Clara). Sin el campo: el
+   * titular va de un color. La réplica marca su frase clave con el acento (`conTituloResaltado`, replicar-estructura.ts).
+   */
+  tituloResalta?: { color: string; degradado?: string; peso?: number };
 };
 
 export const TOPES_ESTILO = {
@@ -561,6 +566,14 @@ export function sanearEstilo(raw: unknown): EstiloOriginal | null {
     secciones,
     imagenes,
     ...(animaciones ? { animaciones } : {}),
+    ...(() => {
+      const t = r.tituloResalta && typeof r.tituloResalta === 'object' ? (r.tituloResalta as Record<string, unknown>) : null;
+      const color = t ? colorCss(t.color) : null;
+      if (!t || !color) return {};
+      const deg = degradadoCss(t.degradado);
+      const peso = pesoCss(t.peso);
+      return { tituloResalta: { color, ...(deg ? { degradado: deg } : {}), ...(peso ? { peso } : {}) } };
+    })(),
     ...(typeof r.botonEnPartes === 'number' && Number.isInteger(r.botonEnPartes) && r.botonEnPartes >= 2 ? { botonEnPartes: Math.min(r.botonEnPartes, 99) } : {}),
     ...(typeof r.anchoContenido === 'number' && Number.isFinite(r.anchoContenido) && r.anchoContenido >= 320 && r.anchoContenido <= 2000 ? { anchoContenido: Math.round(r.anchoContenido) } : {}),
   };
@@ -684,7 +697,8 @@ function variablesDe(reglas: Regla[]): Map<string, string> {
 export type Compuesto = { tag: string | null; clases: string[]; id: string | null; decl: Decl };
 
 /** Las reglas de UNA clase, UN id o UNA etiqueta (sin estados: un :hover no es el estilo de la página), y las compuestas. */
-type Indices = { clases: Map<string, Decl>; ids: Map<string, Decl>; etiquetas: Map<string, Decl>; compuestos: Compuesto[] };
+/** `enTitulo`: las reglas de lo de ADENTRO de un título («h1 em», «h1 .x», «h1 em.x»; 13/11/2026, el span que resalta). */
+type Indices = { clases: Map<string, Decl>; ids: Map<string, Decl>; etiquetas: Map<string, Decl>; compuestos: Compuesto[]; enTitulo: Map<string, Decl> };
 
 /** «section.tint» → { tag: 'section', clases: ['tint'] }; null si no es un compuesto de un elemento (hay espacio, `>`, `:`, `[`…). */
 export function compuestoDe(sel: string): Omit<Compuesto, 'decl'> | null {
@@ -707,7 +721,7 @@ export function aplicaCompuesto(c: Omit<Compuesto, 'decl'>, tag: string, clases:
 }
 
 function indicesDe(reglas: Regla[]): Indices {
-  const ix: Indices = { clases: new Map(), ids: new Map(), etiquetas: new Map(), compuestos: [] };
+  const ix: Indices = { clases: new Map(), ids: new Map(), etiquetas: new Map(), compuestos: [], enTitulo: new Map() };
   const sumar = (m: Map<string, Decl>, k: string, d: Decl) => m.set(k, { ...(m.get(k) ?? {}), ...d });
   for (const r of reglas) {
     if (r.oscuro) continue;
@@ -717,6 +731,8 @@ function indicesDe(reglas: Regla[]): Indices {
       if (m) { sumar(ix.clases, m[1].replace(/\\(.)/g, '$1'), r.decl); continue; }
       m = /^#([\w-]+)$/.exec(s);
       if (m) { sumar(ix.ids, m[1], r.decl); continue; }
+      m = /^(h1|h2)\s+(?:>\s*)?([a-z]+)?(?:\.([\w-]+))?$/i.exec(s);
+      if (m && (m[2] || m[3])) { sumar(ix.enTitulo, `${m[1].toLowerCase()} ${(m[2] ?? '').toLowerCase()}${m[3] ? '.' + m[3] : ''}`, r.decl); continue; }
       m = /^(html|body|h1|h2|h3|a|button|p)$/i.exec(s);
       if (m) { sumar(ix.etiquetas, m[1].toLowerCase(), r.decl); continue; }
       const c = ix.compuestos.length < 2_000 ? compuestoDe(s) : null;
@@ -902,6 +918,16 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
     for (const [k, v] of Object.entries(d)) if (!k.startsWith('--')) out[k] = resolverVar(v, vars, d);
     return out;
   };
+  /** El estilo de algo de ADENTRO de un título: el suyo más las reglas «h1 em», «h1 .x» y «h1 em.x» (con las variables resueltas). */
+  const estiloEnTitulo = (tituloTag: string, tag: string, attrs: string): Decl => {
+    const d: Decl = { ...estiloEl(tag, attrs) };
+    const clases = (atributo(attrs, 'class') ?? '').split(/\s+/).filter(Boolean).slice(0, 10);
+    const claves = [`${tituloTag} ${tag}`, ...clases.map((c) => `${tituloTag} .${c}`), ...clases.map((c) => `${tituloTag} ${tag}.${c}`)];
+    const crudo: Decl = {};
+    for (const k of claves) Object.assign(crudo, ix.enTitulo.get(k) ?? {});
+    for (const [k, v] of Object.entries(crudo)) if (!k.startsWith('--')) d[k] = resolverVar(v, vars, crudo);
+    return d;
+  };
   const fondoDe = (d: Decl): string | null =>
     colorDeFondoCss(d['background-color']) ?? colorDeFondoCss(d.background) ?? colorDeFondoCss(d['background-image']);
   const urlDeFondo = (d: Decl, attrs: string): string | null => {
@@ -946,7 +972,8 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
   const framer = appearDeFramer(doc);
   const senales: { seccion: number; senal: SenalCruda }[] = [];
   let ultimo = -1;
-  let titulo: { tag: string; texto: string; attrs: string } | null = null;
+  /** El título abierto; `partes`: el estilo de sus span/strong/em/mark/b (la palabra que resalta, ver `tituloResalta`). */
+  let titulo: { tag: string; texto: string; attrs: string; partes?: Decl[] } | null = null;
   let vistoH1 = false;
   let tituloLeido = false;
   let n = 0;
@@ -1024,6 +1051,17 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
             e.titulo = colorCss(d.color);
             e.fuenteTitulo = familiaCss(d['font-family']);
             e.pesoTitulo = pesoCss(d['font-weight']);
+            // La parte que resalta (13/11/2026: «10K AL MES» de Clara es un <span> con degradado dorado DENTRO del h1, y el
+            // h1 es negro): con degradado recortado al texto, o en otro color que el título, es el acento y la réplica la marca.
+            for (const s of titulo.partes ?? []) {
+              const recortaS = /text/.test(s['-webkit-background-clip'] ?? s['background-clip'] ?? '') || /transparent/.test(s['-webkit-text-fill-color'] ?? '');
+              const deg = recortaS ? degradadoCss(s['background-image'] ?? s.background) : null;
+              const color = deg ? (/#[0-9a-f]{6}/i.exec(deg)?.[0] ?? null) : colorCss(s.color);
+              if (!color || (!deg && e.titulo && !distintos(color, e.titulo))) continue;
+              e.acento = color;
+              e.tituloResalta = { color, ...(deg ? { degradado: deg } : {}), ...(pesoCss(s['font-weight']) ? { peso: pesoCss(s['font-weight'])! } : {}) };
+              break;
+            }
           }
         }
         titulo = null;
@@ -1039,6 +1077,8 @@ export function estiloDeHtml(html: string, base: string, hojas: readonly string[
     // Lo de adentro de un <nav> no es la página (un megamenú trae decenas de títulos): como el extractor.
     const enNav = pila.some((x) => x.tag === 'nav');
     const vacio = VACIOS.has(tag) || /\/\s*$/.test(attrs);
+    // Adentro del título que se lee (el h1, o el primer h2 sin h1): el estilo de cada parte marcada, para la que resalta.
+    if (titulo && !tituloLeido && /^(span|strong|em|mark|b|i)$/.test(tag) && (titulo.partes ??= []).length < 12) titulo.partes.push(estiloEnTitulo(titulo.tag, tag, attrs));
     const senal = enNav || senales.length >= 4_000 ? null : senalDeEtiqueta((k) => atributo(attrs, k), framer);
     const animPendiente = senal ? { seccion: vacio ? ultimo : -2, senal } : null;
     if (animPendiente) senales.push(animPendiente);

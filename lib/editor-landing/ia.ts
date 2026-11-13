@@ -57,7 +57,7 @@ import {
   instruccionTexto, accionTextoValida, limpiarTextoDelModelo, limpiarNotas,
   objetoConUnaReparacion, SalidaInvalida, REGLAS_PAGINA,
   seccionesParaDiscutir, focoParaDiscutir, charlaParaDiscutir, focoParaEditar,
-  REGLA_CIFRAS_DEL_NEGOCIO, cifrasSinRespaldo, resumenDeEdicion, TOPE_FRASES,
+  REGLA_CIFRAS_DEL_NEGOCIO, cifrasSinRespaldo, resumenDeEdicion, sinNumeroDelPedido, TOPE_FRASES,
 } from './ia-reglas';
 import { NODO, TOPES, textoDe, type JsonNodo } from './doc';
 import { MUCHO_PARA_EDITAR, type EdicionIA, type Esquema, type ParamsGeneracion, type FuenteImagenes, type AccionTexto } from './api-tipos';
@@ -716,7 +716,7 @@ export async function frases(p: { frases: readonly string[]; negocio: string; ha
     const raw = await objetoConUnaReparacion(salida, reparador(FEATURE_GENERAR, 'frases', hasta));
     const nuevas = Array.isArray(raw.frases) ? raw.frases : [];
     return lista.map((f, i) => {
-      const n = typeof nuevas[i] === 'string' ? limpiarTextoDelModelo(nuevas[i] as string).trim() : '';
+      const n = typeof nuevas[i] === 'string' ? sinNumeroDelPedido(limpiarTextoDelModelo(nuevas[i] as string), f) : '';
       return n && n !== f ? n.slice(0, 600) : f;
     });
   } catch (err) {

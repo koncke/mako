@@ -4533,3 +4533,19 @@ tarjetas de perfil. La réplica: todo el ancho, el botón casi sólo en el hero 
 
 **Sin hacer:** el titular dorado de Clara está en un `<span>` con degradado DENTRO del h1 (`tituloDegradado` sólo mira el h1:
 sale null); la cantidad de pasos (3 en vez de 5) sigue en manos de la IA; medir todo esto en producción, en el EDITOR.
+
+### El titular dorado y la cantidad de ítems (13/11/2026, tercera vuelta)
+
+- **El dorado de Clara no estaba en el h1** sino en `<em class="gigante">` adentro, pintado por `h1 em{color:var(--gold-deep)}`:
+  una regla con DESCENDIENTE, y el índice del lector sólo guardaba selectores simples (clase, id, etiqueta, compuesto). Ahora
+  `indicesDe` guarda también «h1 em», «h1 .x», «h1 em.x» (`enTitulo`), y el lector mira las partes marcadas del titular:
+  la que va en otro color o con degradado recortado al texto es `tituloResalta` y el acento del tema (Clara: #8a6e27).
+  La réplica la pide en **negrita** en el hero (`NOTA_TITULO_RESALTA`) y `conTituloResaltado` le suma el color de acento:
+  la IA no tiene marca de color en su gramática (sólo negrita, cursiva y enlace).
+- **La cantidad de ítems no la decide la IA:** `itemsEsperados` (las preguntas desplegables de la original, o sus tarjetas, o
+  sus subtítulos si son 3 o más) va como «N …, ni uno más ni uno menos» en la nota, y la sección que vuelve con otra cantidad
+  se pide de nuevo UNA vez con `notaDeCantidad` («la vuelta anterior trajo 3: faltaron 2»); queda la que más se acerca.
+- **Los tests que copian una línea de replicar.ts se rompieron tres veces en un día** (8b, el nº 5 de la noche, el 10d) sin
+  que nada se rompiera. El cierre de las secciones vive ahora en `cerrarSecciones` y se prueba por el resultado.
+
+**Sin hacer:** medir en producción, en el EDITOR, el titular resaltado y la segunda pasada de cantidad (espera el despliegue).

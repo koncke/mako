@@ -123,7 +123,8 @@ export async function miembrosDelGrupo(ws: number): Promise<Miembros> {
   if (ids.length) {
     const { data: filas } = await db().from('usuarios').select(COLS_PERSONA).in('id', ids);
     for (const u of (filas ?? []) as unknown as FilaPersona[]) {
-      if (u.estado === 'suspendido' || out.has(Number(u.id))) continue;
+      // Alguien del equipo a quien quien administra invitó queda INVITADO, como en la puerta (`juzgarAcceso`): no figura dos veces ni con más de lo que ya tenía.
+      if (u.estado === 'suspendido' || (out.has(Number(u.id)) && out.get(Number(u.id))?.tipo !== 'equipo')) continue;
       const inv = invitados.find((i) => Number(i.usuario_id) === Number(u.id));
       out.set(Number(u.id), fila(u, 'invitado', !!inv?.abrio_at));
     }
