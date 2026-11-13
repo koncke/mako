@@ -15,6 +15,7 @@ import 'server-only';
 import { after } from 'next/server';
 import type { Ctx, Runners, SalidaLectura } from '../tipos';
 import { textoPrioridadEmail } from '@/lib/nutricion-prioridad';
+import { opcionesDeRango } from '@/lib/limites-envio-cuenta';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { getSecuenciasConStats, setSecuenciaPasos, publicarPasos, duplicadaDeLaActivacion, DuplicadaError, planificarInscripciones, planificarEnvios, inscribirEnSecuencia, PasosInvalidosError, type PasoSecuencia, type InscripcionManual } from '@/lib/nutricion';
 import { avisoDuplicada, primerMensajeDe } from '@/lib/automatizacion-duplicada';
@@ -65,7 +66,7 @@ import { listarEtiquetas } from '@/lib/etiquetas';
 import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@/lib/flujo-ia-crear';
 import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
-import { KEY_LIMITES_ENVIO, conLimite, limitesDeFabrica, limitesParaGuardar, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
+import { KEY_LIMITES_ENVIO, conLimite, limitesDeFabrica, limitesParaGuardar, limitesVigentes, rangoDeLimite, type LimitesEnvio } from '@/lib/limites-envio';
 import { horarioDeLaAutomatizacion, origenDelHorario, textoDeHorario, configParaGuardar, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
 import { crmDeLaAutomatizacion } from '@/lib/email-eventos-crm';
 import { etapasDeProducto } from '@/lib/lead-funnel';
@@ -550,7 +551,8 @@ export const RUNNERS: Runners = {
   ver_limites_envio: {
     leer: async () => {
       const fabrica = limitesDeFabrica(process.env);
-      const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica);
+      const rangoCuenta = await opcionesDeRango();
+      const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica, rangoCuenta);
       const [{ usoDelCupo, topeDeHoyDelNegocio }, { envioEmailHabilitado }, { conteoEmailDelFreno }, { FRENO_EMAIL }] = await Promise.all([
         import('@/lib/nutricion'), import('@/lib/envio-flags'), import('@/lib/email-reputacion'), import('@/lib/email-freno'),
       ]);
@@ -569,6 +571,8 @@ export const RUNNERS: Runners = {
           rampa: { primer_dia: vigentes.email.arranqueDia, sube_por_dia: vigentes.email.arranqueSube, nota: 'Arranca en primer_dia y sube cada día que llega a su tope, hasta por_dia.' },
           // Ticket #93 (13/11/2026): una lista fría le deja lugar a los leads nuevos (lib/nutricion-prioridad.ts).
           prioridad: textoPrioridadEmail(emailHoy),
+          // Hasta cuánto puede subir «Email por día» (#93): 2.000 con su clave de Resend y su dominio, 500 con la de la plataforma.
+          por_dia_maximo: rangoDeLimite('email', 'dia', rangoCuenta)[1],
           freno: {
             // Desde el ticket #93 (13/11/2026): avisa antes, y apaga sólo con números peligrosos.
             regla: `Mira los últimos ${FRENO_EMAIL.ultimos} emails enviados (desde que se prendió el envío, hasta ${FRENO_EMAIL.dias} días): con ${FRENO_EMAIL.minimoEnviados} o más, rebotes de ${FRENO_EMAIL.rebotesAviso * 100} % te avisan y el envío sigue; rebotes de ${FRENO_EMAIL.rebotes * 100} % o quejas de ${FRENO_EMAIL.quejas * 100} % apagan el envío y te avisan.`,
@@ -587,7 +591,8 @@ export const RUNNERS: Runners = {
   cambiar_limites_envio: {
     preparar: async (input) => {
       const fabrica = limitesDeFabrica(process.env);
-      const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica);
+      const rangoCuenta = await opcionesDeRango();
+      const vigentes = limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), fabrica, rangoCuenta);
       if (input.restaurar === true) return { payload: { limites: fabrica }, resumen: 'Volver los topes de envío a los de fábrica' };
       const CAMBIOS: Array<[string, keyof LimitesEnvio, string, string]> = [
         ['waDia', 'wa', 'dia', 'WhatsApp por día'], ['waHora', 'wa', 'hora', 'WhatsApp por hora'],
@@ -604,12 +609,13 @@ export const RUNNERS: Runners = {
         partes.push(`${dice}: ${num(input, param)}`);
       }
       if (!partes.length) return { error: 'No dice qué cambiar: waDia, waHora, waArranqueDia, waArranqueSube, emailDia, emailArranqueDia, emailArranqueSube, makoSolasPor24h, o restaurar.' };
-      const prueba = limitesParaGuardar(nuevo, fabrica);
+      // El rango de «Email por día» depende de con qué cuenta manda (#93): 2.000 con la suya, 500 con la de la plataforma.
+      const prueba = limitesParaGuardar(nuevo, fabrica, rangoCuenta);
       if (!prueba.ok) return { error: prueba.error };
       return { payload: { limites: nuevo }, resumen: `Topes de envío: ${partes.join(' · ')}` };
     },
     ejecutar: async (payload) => {
-      const r = limitesParaGuardar(payload.limites, limitesDeFabrica(process.env));
+      const r = limitesParaGuardar(payload.limites, limitesDeFabrica(process.env), await opcionesDeRango());
       if (!r.ok) return { ok: false, resumen: r.error };
       await setSetting(KEY_LIMITES_ENVIO, r.valor);
       return { ok: true, resumen: 'Listo: los topes de envío quedaron guardados.' };
@@ -1104,7 +1110,7 @@ export const RUNNERS: Runners = {
       if (!s) return errorLectura(noExiste(id));
       const [config, horario, limites] = await Promise.all([leerConfigAutomatizacion(id), getSettingEstricto(KEY_HORARIO_ENVIO), getSettingEstricto(KEY_LIMITES_ENVIO)]);
       const delNegocio = horarioVigente(horario);
-      const lim = limitesVigentes(limites, limitesDeFabrica(process.env));
+      const lim = limitesVigentes(limites, limitesDeFabrica(process.env), await opcionesDeRango());
       const vale = horarioDeLaAutomatizacion(config, delNegocio);
       return json({
         secuencia: { id, nombre: s.nombre },

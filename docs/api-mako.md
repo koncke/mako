@@ -9207,7 +9207,7 @@ PROPONE cambiar los topes del negocio (valen para todas): por día y por hora de
 | `waHora` | number | no | opcional: WhatsApp por hora de reloj. |
 | `waArranqueDia` | number | no | opcional: la rampa del número: WhatsApp el primer día. |
 | `waArranqueSube` | number | no | opcional: y cuánto sube cada día que llega a su tope. |
-| `emailDia` | number | no | opcional: emails por día (en 24 h). |
+| `emailDia` | number | no | opcional: emails por día (en 24 h; hasta 2.000 con tu cuenta de Resend y tu dominio, si no 500). |
 | `emailArranqueDia` | number | no | opcional: la rampa del dominio: emails el primer día. |
 | `emailArranqueSube` | number | no | opcional: y cuánto sube cada día que llega a su tope. |
 | `makoSolasPor24h` | number | no | opcional: respuestas que MaKo manda sola a una persona en 24 h (0 = siempre borrador). |

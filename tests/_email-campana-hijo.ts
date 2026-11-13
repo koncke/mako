@@ -640,7 +640,18 @@ async function escenarioTopes(): Promise<Record<string, unknown>> {
   out.verDespues = await leerJson(ver);
 
   // Cambiar los topes por la API: fuera de rango no; adentro, se guarda sólo lo que difiere.
-  out.cambiarMal = await en(() => cambiar.preparar!({ emailDia: 900 }, ctx(NEGOCIO)));
+  // Desde el ticket #93 (13/11/2026) el rango de «Email por día» depende de con qué cuenta manda: este negocio manda con SU
+  // clave de Resend y SU dominio (hasta 2.000); la plataforma, con la de MaKo (hasta 500). El arranque sigue de 1 a 500.
+  out.cambiarMal = await en(() => cambiar.preparar!({ emailDia: 2500 }, ctx(NEGOCIO)));
+  out.cambiarPropia = await en(() => cambiar.preparar!({ emailDia: 1600, emailArranqueDia: 500, emailArranqueSube: 300 }, ctx(NEGOCIO)));
+  out.ejecPropia = await en(() => cambiar.ejecutar!((out.cambiarPropia as { payload: Record<string, unknown> }).payload, ctx(NEGOCIO)));
+  out.limitesPropia = setting(NEGOCIO, 'mako.limites_envio');
+  out.verPropia = await leerJson(ver);
+  out.cambiarArranqueMal = await en(() => cambiar.preparar!({ emailArranqueDia: 600 }, ctx(NEGOCIO)));
+  out.cambiarPlataforma = await runWithWorkspace(PLATAFORMA, () => cambiar.preparar!({ emailDia: 900 }, ctx(PLATAFORMA)));
+  // Vuelve a lo de fábrica para lo que sigue (lo de abajo compara contra lo de fábrica).
+  const filaLimites = db.app_settings.find((f) => Number(f.workspace_id) === NEGOCIO && f.key === 'mako.limites_envio');
+  if (filaLimites) filaLimites.value = '{}';
   out.cambiarNada = await en(() => cambiar.preparar!({}, ctx(NEGOCIO)));
   // La rampa del número (5/11/2026, tests/rampa-whatsapp.test.ts): se propone con sus dos parámetros, y fuera de rango no.
   out.cambiarWa = await en(() => cambiar.preparar!({ waArranqueDia: 10, waArranqueSube: 15 }, ctx(NEGOCIO)));

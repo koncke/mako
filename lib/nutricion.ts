@@ -19,6 +19,7 @@ import { TRIGGERS_POR_EVENTO, ETAPA_DEL_EVENTO, type EventoNutricion } from '@/l
 import { TRIGGER_RECORDATORIO, toquesDeLaAutomatizacion } from '@/lib/recordatorio-automatizacion';
 import { getTenantDb, getWorkspace, getWorkspaceActual, runWithWorkspace, wsEnContexto } from '@/lib/workspace';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
+import { opcionesDeRango } from '@/lib/limites-envio-cuenta';
 import { idsConAlMenosUnaFila, enTandas } from '@/lib/ids-con-filas';
 import { LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
 import { getVslEngagementMap } from '@/lib/leads';
@@ -3306,7 +3307,8 @@ async function horarioDeEnvioDe(secuenciaId: number): Promise<HorarioEnvio | nul
  * en frío recibiría 40 con la base caída. Se lee ESTRICTO y, si falla, la corrida no manda nada.
  */
 export async function limitesDeEnvio(): Promise<LimitesEnvio | 'ilegible'> {
-  try { return limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), limitesDeFabrica(process.env)); } catch { return 'ilegible'; }
+  // Con el rango de SU cuenta (#93, lib/limites-envio-cuenta.ts): con su clave de Resend y su dominio, el email por día llega a 2.000.
+  try { return limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), limitesDeFabrica(process.env), await opcionesDeRango()); } catch { return 'ilegible'; }
 }
 
 /**
