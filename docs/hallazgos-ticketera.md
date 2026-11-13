@@ -1294,6 +1294,7 @@ vende: **capa `completo` = MaKo Esencial** (1 usuario), capa `agencia` = Pro. El
 «nombre que no sale», reconstruir la frase original (el texto del código: `git grep` de la frase sin el «…»). Y el «plan» de la
 ficha del ticket es la capa: para el plan comercial, `agency.plan_cambiado` (cliente de agencia) o el `alta_capa` de su cobro.
 
-**Lo que quedó sin hacer:** la ficha del ticket sigue diciendo «plan Completo» para un Esencial (lib/tickets-db.ts,
-`identidadDe`). Cambiarlo a «Esencial» no es trivial: el ws1 y los acuerdos a mano también tienen capa `completo` y no pagan un
-Esencial; habría que leer el plan como lo hace `esEsencialDe` (lib/plan-esencial.ts).
+**Hecho el mismo día:** la ficha dice el plan que se vende (`planDeLaFicha`, lib/tickets-reglas.ts). No alcanza con traducir la
+capa: el ws1 y los acuerdos a mano también tienen `completo` y no pagan un Esencial. Lo que separa es `aplicanTopes`
+(lib/topes-plan-server.ts): con topes, «Esencial» o «Pro»; sin topes, «sin cobro de MaKo, sin topes (capa Completo)»; sin poder
+leerlo, «? (capa Completo)». Vale para los tickets NUEVOS: el plan se guarda al levantarlo, y los viejos siguen con la capa.
