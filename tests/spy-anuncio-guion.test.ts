@@ -46,6 +46,11 @@ test('un anuncio en video tiene guion para el SERVER, pero la pantalla de Spy no
   assert.ok(todo.includes('if (!(await reservarCorrida(CLAVE_DIA_TRANSCRIPCIONES, TRANSCRIPCIONES_POR_DIA))) return { ok: false, motivo: \'limite\' };'));
 });
 
+test('un anuncio transcrito llega a MaKo con lo que se dice Y su texto', () => {
+  const src = leer('lib/copywriter/outliers.ts');
+  assert.ok(src.includes("const texto = formato === 'anuncio' && guion && copy ? `${guion}\\n\\nEL TEXTO DEL ANUNCIO: ${copy}` : guion || copy;"));
+});
+
 test('Copywriting pide el guion de un anuncio al replicarlo; uno de imagen no dice nada', async () => {
   const anuncio = { ok: true as const, outlier: { formato: 'anuncio', deDonde: 'copy' } as OutlierCopy };
   const deps = (estado: 'listo' | 'no-aplica' | 'sin-clave'): Dependencias => ({

@@ -203,7 +203,10 @@ export function outliersCopyDeSpy(
       if (!formato || !p.url || !/^https:\/\//.test(p.url)) continue;
       if (formato !== 'anuncio' && p.dejo_de_verse_en) continue;
       const guion = guiones.get(p.id)?.trim() || '';
-      const texto = guion || (p.texto ?? '').trim();
+      // Un ANUNCIO transcrito lleva lo que se dice Y su texto (13/11/2026: los anuncios en video se transcriben; el copy también se
+      // replica). Lo demás, el guion o su texto.
+      const copy = (p.texto ?? '').trim();
+      const texto = formato === 'anuncio' && guion && copy ? `${guion}\n\nEL TEXTO DEL ANUNCIO: ${copy}` : guion || copy;
       const titulo = (p.titulo ?? '').trim();
       if (!texto && !titulo) continue;
       const deDonde: DeDondeTexto = guion ? 'guion' : formato === 'anuncio' ? 'copy' : formato === 'youtube' ? 'descripcion' : 'pie';
