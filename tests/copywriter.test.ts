@@ -32,7 +32,7 @@ import { ANGULOS_GUION_DEFAULT } from '../lib/guion-angulos';
 import { claveDeGuion, claveDeTab } from '../lib/hilo-de-tab-reglas';
 import { guionParaIA, charlaParaIA, bloqueIdiomaCopy, cifrasSinFuente, avisosDeCifras, tituloDeRespaldo, marcasDeTuteo } from '../lib/copywriter/ia-reglas';
 import { marcasDeVoseo } from '../lib/voseo';
-import { etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
+import { aplicarTodo, bloqueAJson, etiquetaDeSeccion, sanearOperaciones } from '../lib/copywriter/operaciones';
 import { PROMPTS_EXPERTO as PROMPTS_EXPERTO_COPY } from '../lib/copywriter/experto';
 
 const raiz = join(__dirname, '..');
@@ -447,4 +447,38 @@ test('en un negocio que vosea, la MEZCLA con el tuteo se avisa (13/11/2026, en p
   assert.deepEqual(marcasDeTuteo('Las pruebas, las cuentas y las ganas: ves, vas, estás.'), []);
   const ia = leer('lib/copywriter/ia.ts');
   assert.ok(ia.includes('if (conVoseo.length && conTuteo.length) avisos.push(`Mezcla voseo y tuteo'));
+});
+
+test('el título de una sección no se reemplaza ni se borra (13/11/2026, en producción: la plantilla PAS perdió su GANCHO)', () => {
+  const doc = docDeEstructura(['GANCHO', 'PROBLEMA', 'CTA']);
+  const gancho = String((doc.content ?? []).find((b) => b.attrs?.seccion === 'GANCHO')?.attrs?.bid);
+  const cat = { angulos: new Set<string>(), estructuras: new Set<string>() };
+  // MaKo puso el destacado «🧪 Para:…» REEMPLAZANDO el título del Gancho: ahora va antes y el título queda.
+  const s = sanearOperaciones([{ op: 'reemplazar_bloque', bid: gancho, bloques: [{ tipo: 'destacado', emoji: '📊', texto: 'Para: coaches. Se mide en: agendas.' }] }], doc, cat);
+  assert.equal(s.ops[0]?.op, 'insertar_despues');
+  assert.equal(s.ops[0]?.op === 'insertar_despues' && s.ops[0].bid, null, 'al principio: el Gancho era el primer bloque');
+  const r = aplicarTodo(doc, s.ops);
+  assert.deepEqual((r.doc.content ?? []).filter((b) => b.attrs?.seccion).map((b) => b.attrs?.seccion), ['GANCHO', 'PROBLEMA', 'CTA'], 'las secciones, todas y en su orden');
+  // Y borrarlo no se puede.
+  const b = sanearOperaciones([{ op: 'borrar_bloque', bid: gancho }], doc, cat);
+  assert.equal(b.ops.length, 0);
+  assert.match(b.descartadas[0]?.motivo ?? '', /Es el título de una sección/);
+});
+
+test('el nombre de la sección repetido como título adentro, y las negritas en markdown (13/11/2026, en producción: «Copy de anuncio: 3 ángulos»)', () => {
+  const doc = docDeEstructura(['TEXTO PRINCIPAL', 'TITULO', 'BOTON', 'LINK']);
+  const cat = { angulos: new Set<string>(), estructuras: new Set<string>() };
+  // «Botón» y abajo «BOTÓN»: el título repetido al principio del cuerpo se va.
+  const a = sanearOperaciones([{ op: 'escribir_seccion', seccion: 'BOTÓN', bloques: [{ tipo: 'titulo2', texto: 'BOTÓN' }, { tipo: 'texto', texto: 'A y C: Más información' }] }], doc, cat);
+  assert.equal(a.ops[0]?.op === 'escribir_seccion' && a.ops[0].bloques.length, 1);
+  // «TEXTO PRINCIPAL» + el texto, reemplazando el título de la sección: es reescribir esa sección (no un título común de más).
+  const tp = String((doc.content ?? []).find((b) => b.attrs?.seccion === 'TEXTO PRINCIPAL')?.attrs?.bid);
+  const b = sanearOperaciones([{ op: 'reemplazar_bloque', bid: tp, bloques: [{ tipo: 'titulo2', texto: 'TEXTO PRINCIPAL' }, { tipo: 'texto', texto: 'A · Dolor: …' }] }], doc, cat);
+  assert.equal(b.ops[0]?.op, 'escribir_seccion');
+  assert.equal(b.ops[0]?.op === 'escribir_seccion' && b.ops[0].seccion, 'TEXTO PRINCIPAL');
+  const r = aplicarTodo(doc, b.ops);
+  assert.deepEqual((r.doc.content ?? []).filter((x) => x.type === 'heading').map((x) => x.attrs?.seccion ?? null), ['TEXTO PRINCIPAL', 'TITULO', 'BOTON', 'LINK'], 'sin títulos de más');
+  // «**Antes:**» con los asteriscos a la vista: es negrita.
+  const p = bloqueAJson({ tipo: 'texto', texto: '**Antes:** Me escribían por WhatsApp.' });
+  assert.deepEqual(p.content?.map((n) => [n.text, n.marks?.[0]?.type ?? null]), [['Antes:', 'bold'], [' Me escribían por WhatsApp.', null]]);
 });
