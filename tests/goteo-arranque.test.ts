@@ -216,6 +216,7 @@ test('el cableado: el motor, aprobar, la hoja, Configuraciones, el editor y MaKo
   assert.match(run, /canales\.includes\('whatsapp'\) && input\.sinArranque !== true \? \{ arranque:/, 'MaKo arranca igual que la hoja');
   // Lo que cuida: el cambio se prueba contra lo GUARDADO (`leerConfigAutomatizacion(id)` es el previo). Desde el 4/11/2026 la
   // llamada lleva además las columnas del email.
-  assert.match(run, /cambioDeConfigDelInput\(input, await leerConfigAutomatizacion\(id\)(, columnas)?\)/, 'el arranque se prueba contra lo que tiene: no dice «quedó» y lo tira');
+  // Desde el ticket #93 (13/11/2026) también con el rango de la cuenta (`opcionesDeRango`).
+  assert.match(run, /cambioDeConfigDelInput\(input, await leerConfigAutomatizacion\(id\)(, columnas)?(, await opcionesDeRango\(\))?\)/, 'el arranque se prueba contra lo que tiene: no dice «quedó» y lo tira');
   assert.match(run, /las otras: \$\{pedido\.mensajes\.whatsapp\.variantes\.map\(/, 'lo que se confirma se lee: la difusión no se deshace');
 });

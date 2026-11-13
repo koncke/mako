@@ -18,7 +18,10 @@
 // =============================================================================
 
 import '../configuraciones.css';
+import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
+import { rutaConWs } from '@/lib/workspace';
+import { ABRIR_IA } from '@/lib/ia-pc-reglas';
 import { getIntegraciones, getIntegracion, type Integracion } from '@/lib/integraciones';
 import { getIncidentes } from '@/lib/meta-health-history';
 import { SIN_MODAL_SUELTO } from '@/lib/integracion-en-tab';
@@ -33,6 +36,9 @@ export const dynamic = 'force-dynamic';
 
 export default async function IntegracionesMovil({ searchParams }: { searchParams: Promise<{ abrir?: string; servicio?: string }> }) {
   await requireMovil({ navKey: 'integraciones' });
+  // `?abrir=ia` («Conectar mi IA» de Copywriting y del Ops Center): en el teléfono la casa de la IA es /perfil/ia, que dice
+  // qué hay y que se conecta en la computadora (13/11/2026, en producción: el link dejaba la lista sin nada abierto).
+  if ((await searchParams).abrir?.trim().toLowerCase() === ABRIR_IA) redirect(await rutaConWs('/perfil/ia'));
   const [lista, incidentes, sp] = await Promise.all([getIntegraciones(), getIncidentes(30).catch(() => []), searchParams]);
   // Los incidentes abiertos de cada servicio: el problema de una conectada se lee en SU fila (como en la computadora).
   const abiertos = new Map(incidentes.filter((x) => x.resolvedAt == null).map((x) => [x.service, x]));

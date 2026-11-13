@@ -21,7 +21,7 @@
 // =============================================================================
 
 import { BID_RE, BLOQUES_DE_PRIMER_NIVEL, EMOJI_DESTACADO, NODOS, bidNuevo, esEtiqueta, parrafo, tituloDeSeccion } from './doc';
-import type { JsonNodo, PropsGuion } from './tipos';
+import { esTipoGuion, type JsonNodo, type PropsGuion, type TipoGuion } from './tipos';
 
 export const OPERACIONES_IA = ['escribir_seccion', 'reemplazar_bloque', 'insertar_despues', 'borrar_bloque', 'titulo', 'propiedades'] as const;
 export type NombreOperacion = (typeof OPERACIONES_IA)[number];
@@ -49,7 +49,7 @@ export type OperacionIA =
   | { op: 'insertar_despues'; bid: string | null; bloques: BloqueIA[] }
   | { op: 'borrar_bloque'; bid: string }
   | { op: 'titulo'; texto: string }
-  | { op: 'propiedades'; angulo?: string | null; estructura?: string | null; duracion?: number | null };
+  | { op: 'propiedades'; tipo?: TipoGuion; angulo?: string | null; estructura?: string | null; duracion?: number | null };
 
 export type Descartada = { op: string; motivo: string };
 
@@ -94,12 +94,19 @@ export function sanearBloqueIA(raw: unknown): BloqueIA | null {
   return { tipo: tipo as 'texto' | 'titulo1' | 'titulo2' | 'titulo3' | 'cita', texto: t };
 }
 
+/**
+ * Una línea con `**negrita**` en nodos de texto con su marca (13/11/2026, en producción: las plantillas salían con «**Antes:**»,
+ * «**Texto principal:**» con los asteriscos a la vista; el modelo escribe markdown aunque los bloques sean texto).
+ */
+const conNegritas = (linea: string): JsonNodo[] => linea.split(/(\*\*[^*\n]+?\*\*)/).filter(Boolean)
+  .map((p) => (/^\*\*[^*\n]+\*\*$/.test(p) ? { type: NODOS.texto, text: p.slice(2, -2), marks: [{ type: 'bold' }] } : { type: NODOS.texto, text: p }));
+
 /** Un texto con saltos de línea: párrafos con salto (hardBreak) adentro. */
 const contenido = (t: string): JsonNodo[] => {
   const out: JsonNodo[] = [];
   t.split('\n').forEach((linea, i) => {
     if (i > 0) out.push({ type: NODOS.salto });
-    if (linea) out.push({ type: NODOS.texto, text: linea });
+    if (linea) out.push(...conNegritas(linea));
   });
   return out;
 };
@@ -141,7 +148,7 @@ export function bloqueAJson(b: BloqueIA): JsonNodo {
 }
 
 /** Sin tildes, para comparar una etiqueta con las del documento («SOLUCION» es «SOLUCIÓN»). */
-const sinTildes = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '');
+const sinTildes = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '');
 
 /**
  * La etiqueta de la sección que nombró la IA, leída con tolerancia (12/11/2026, en producción: en la plantilla «Carrusel que se
@@ -155,7 +162,7 @@ const sinTildes = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '');
 export function etiquetaDeSeccion(o: Record<string, unknown>, doc: JsonNodo): string {
   const crudo = [o.seccion, o.section, o.etiqueta].find((v): v is string => typeof v === 'string' && !!v.trim()) ?? '';
   const delDoc = (doc.content ?? []).filter((b) => b.type === NODOS.titulo && esEtiqueta(b.attrs?.seccion)).map((b) => ({ etiqueta: b.attrs!.seccion as string, bid: b.attrs?.bid }));
-  const limpio = crudo.toUpperCase().replace(/\[[^\]]*\]/g, ' ').replace(/#+/g, ' ').replace(/^\s*SECCI[OÓ]N\b/, ' ').split(/[:(]/)[0].replace(/\s+/g, ' ').trim();
+  const limpio = limpiarEtiqueta(crudo);
   const igual = delDoc.find((d) => sinTildes(d.etiqueta) === sinTildes(limpio));
   if (igual) return igual.etiqueta;
   // Una o dos palabras válidas son una sección (nueva, si el documento no la tiene: «CTA MEDIO» no es «CTA»).
@@ -165,6 +172,36 @@ export function etiquetaDeSeccion(o: Record<string, unknown>, doc: JsonNodo): st
   if (esEtiqueta(limpio)) return limpio;
   const bid = typeof o.bid === 'string' ? o.bid.trim() : '';
   return delDoc.find((d) => !!bid && d.bid === bid)?.etiqueta ?? '';
+}
+
+/** La etiqueta de la sección si ese bloque de primer nivel es su TÍTULO (un título 2 con su etiqueta), o null. */
+function etiquetaDelTitulo(doc: JsonNodo, bid: string): string | null {
+  const b = (doc.content ?? []).find((x) => x.attrs?.bid === bid);
+  return b && b.type === NODOS.titulo && esEtiqueta(b.attrs?.seccion) ? (b.attrs!.seccion as string) : null;
+}
+const esTituloDeSeccion = (doc: JsonNodo, bid: string): boolean => etiquetaDelTitulo(doc, bid) != null;
+
+/** Un nombre de sección como lo escribe el modelo, sin el «[id]», los «#», el «SECCIÓN» del principio ni lo que sigue a «:» o «(». */
+function limpiarEtiqueta(crudo: string): string {
+  return crudo.toUpperCase().replace(/\[[^\]]*\]/g, ' ').replace(/[#*]+/g, ' ').replace(/^\s*SECCI[OÓ]N\b/, ' ').split(/[:(]/)[0].replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Los bloques sin los títulos del principio que repiten el nombre de la sección («BOTÓN» en la sección BOTON, y «SECCIÓN ASUNTO»
+ * en ASUNTO: 13/11/2026, en producción, el email copió el formato con que ve el guion, «## SECCIÓN ASUNTO: Asunto»).
+ */
+function sinTituloRepetido<T extends BloqueIA>(bloques: readonly T[], etiqueta: string): T[] {
+  const igual = (t: string) => sinTildes(limpiarEtiqueta(t)) === sinTildes(etiqueta);
+  let i = 0;
+  while (i < bloques.length && /^titulo[123]$/.test(bloques[i].tipo) && igual(String((bloques[i] as { texto?: string }).texto ?? ''))) i++;
+  return bloques.slice(i);
+}
+/** El id del bloque de primer nivel anterior a ése (null = es el primero). */
+function bloqueAnterior(doc: JsonNodo, bid: string): string | null {
+  const c = doc.content ?? [];
+  const i = c.findIndex((x) => x.attrs?.bid === bid);
+  const prev = i > 0 ? c[i - 1].attrs?.bid : null;
+  return typeof prev === 'string' ? prev : null;
 }
 
 /** Los ids de los bloques de primer nivel del documento. */
@@ -193,8 +230,10 @@ export function sanearOperaciones(raw: unknown, doc: JsonNodo, catalogo: { angul
       case 'escribir_seccion': {
         const seccion = etiquetaDeSeccion(o, doc);
         if (!esEtiqueta(seccion)) { descartadas.push({ op, motivo: 'La sección no tiene una etiqueta válida.' }); continue; }
-        if (!bloques.length) { descartadas.push({ op, motivo: `La sección ${seccion} vino sin texto.` }); continue; }
-        ops.push({ op, seccion, bloques, bidTitulo: bidNuevo() });
+        // Sin un título que repita su nombre al principio del cuerpo (13/11/2026, en producción: «Botón» y abajo «BOTÓN»).
+        const cuerpo = sinTituloRepetido(bloques, seccion);
+        if (!cuerpo.length) { descartadas.push({ op, motivo: `La sección ${seccion} vino sin texto.` }); continue; }
+        ops.push({ op, seccion, bloques: cuerpo, bidTitulo: bidNuevo() });
         continue;
       }
       case 'reemplazar_bloque':
@@ -202,11 +241,27 @@ export function sanearOperaciones(raw: unknown, doc: JsonNodo, catalogo: { angul
         const alPrincipio = op === 'insertar_despues' && (o.bid === null || bid === '');
         if (!alPrincipio && (!BID_RE.test(bid) || !ids.has(bid))) { descartadas.push({ op, motivo: 'Apunta a un bloque que no está en el guion.' }); continue; }
         if (!bloques.length) { descartadas.push({ op, motivo: 'Vino sin texto.' }); continue; }
+        // El TÍTULO de una sección no se reemplaza (13/11/2026, en producción, la plantilla PAS: MaKo puso el destacado «🧪 Para:…»
+        // reemplazando el título GANCHO; la sección desapareció, su guía quedó huérfana arriba y el Gancho se agregó al final). Lo
+        // que trae va ANTES del título, que queda; la sección se escribe con escribir_seccion.
+        // Y si lo que trae EMPIEZA con ese mismo título (en producción, «Copy de anuncio: 3 ángulos»: «TEXTO PRINCIPAL» y el texto
+        // debajo, en lugar del título de la sección), es reescribir esa sección.
+        const etiqueta = op === 'reemplazar_bloque' ? etiquetaDelTitulo(doc, bid) : null;
+        if (etiqueta) {
+          const cuerpo = sinTituloRepetido(bloques, etiqueta);
+          if (cuerpo.length < bloques.length) {
+            if (cuerpo.length) ops.push({ op: 'escribir_seccion', seccion: etiqueta, bloques: cuerpo, bidTitulo: bidNuevo() });
+            continue;
+          }
+          ops.push({ op: 'insertar_despues', bid: bloqueAnterior(doc, bid), bloques });
+          continue;
+        }
         ops.push(op === 'reemplazar_bloque' ? { op, bid, bloques } : { op, bid: alPrincipio ? null : bid, bloques });
         continue;
       }
       case 'borrar_bloque':
         if (!BID_RE.test(bid) || !ids.has(bid)) { descartadas.push({ op, motivo: 'Apunta a un bloque que no está en el guion.' }); continue; }
+        if (esTituloDeSeccion(doc, bid)) { descartadas.push({ op, motivo: 'Es el título de una sección: no se borra (la sección se reescribe entera).' }); continue; }
         ops.push({ op, bid });
         continue;
       case 'titulo': {
@@ -217,6 +272,8 @@ export function sanearOperaciones(raw: unknown, doc: JsonNodo, catalogo: { angul
       }
       case 'propiedades': {
         const p: Extract<OperacionIA, { op: 'propiedades' }> = { op: 'propiedades' };
+        // El TIPO (13/11/2026, en producción en el teléfono: un reel escrito en una «Página en blanco» quedaba «Página»).
+        if (esTipoGuion(o.tipo)) p.tipo = o.tipo;
         if (typeof o.angulo === 'string' && catalogo.angulos.has(o.angulo)) p.angulo = o.angulo;
         if (typeof o.estructura === 'string' && catalogo.estructuras.has(o.estructura)) p.estructura = o.estructura;
         const d = typeof o.duracion === 'number' && Number.isFinite(o.duracion) ? Math.round(o.duracion) : null;
@@ -291,7 +348,7 @@ export type ResultadoOps = {
   /** Los ids de todo lo que escribió MaKo, en orden (lo que la pantalla marca como propuesta). */
   nuevos: string[];
   titulo: string | null;
-  props: Partial<Pick<PropsGuion, 'angulo' | 'estructura' | 'duracion'>>;
+  props: Partial<Pick<PropsGuion, 'tipo' | 'angulo' | 'estructura' | 'duracion'>>;
   descartadas: Descartada[];
 };
 
@@ -305,6 +362,7 @@ export function aplicarTodo(doc: JsonNodo, ops: readonly OperacionIA[]): Resulta
   for (const op of ops) {
     if (op.op === 'titulo') { titulo = op.texto; continue; }
     if (op.op === 'propiedades') {
+      if (op.tipo !== undefined) props.tipo = op.tipo;
       if (op.angulo !== undefined) props.angulo = op.angulo;
       if (op.estructura !== undefined) props.estructura = op.estructura;
       if (op.duracion !== undefined) props.duracion = op.duracion;
