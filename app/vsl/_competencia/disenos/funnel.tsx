@@ -29,6 +29,7 @@ import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
 import { RUTA_CTA, CASO, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
 import { VisualDeLanding } from '../Visuales';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 import { FEATURE_VISUALS } from '../../_detalle/feature-visuals';
 import { Visual } from '../../_detalle/Visual';
 
@@ -83,7 +84,7 @@ function HeroD({ b, nombre, pasos }: { b: Hero; nombre: string; pasos?: Pasos })
           </div>
         </div>
         <div className="d-funnel-ventana d-funnel-hero-win">
-          <div className="d-funnel-win-barra"><Puntos /><span>{nombre}</span></div>
+          {/* Sin la barra de ventana inventada (12/11/2026, noche): el visual es la app real o el recuadro de lo que falta. */}
           <div className="d-funnel-win-cuerpo"><VisualDeLanding visual={b.visual} /></div>
           {p1 ? <p className="d-funnel-win-pie" dangerouslySetInnerHTML={html(`${p1}.${p2 ? ` <b>${p2}.</b>` : ''}`)} /> : null}
         </div>
@@ -132,7 +133,7 @@ function PasosD({ b }: { b: Pasos }) {
   );
 }
 
-/** Su «Brands that add Hyros see»: el ícono, el título, la bajada y la ventana con cuatro columnas. */
+/** Su «Brands that add Hyros see»: el ícono, el título, la bajada y, donde va su ventana, la pantalla real de MaKo. */
 function Cifras({ b, icono }: { b: Tarjetas; icono: string[] }) {
   return (
     <section className="d-funnel-cifras">
@@ -140,18 +141,8 @@ function Cifras({ b, icono }: { b: Tarjetas; icono: string[] }) {
         <span className="d-funnel-cifras-ic"><Ico paths={icono} size={64} grueso={1.1} /><i aria-hidden="true" /></span>
         <h2 className="d-funnel-h2" dangerouslySetInnerHTML={html(b.titulo)} />
         {b.bajada ? <p className="d-funnel-lede" dangerouslySetInnerHTML={html(b.bajada)} /> : null}
-        <div className="d-funnel-ventana d-funnel-cifras-win">
-          <div className="d-funnel-win-barra"><Puntos /><span>{b.etiqueta}</span></div>
-          <div className="d-funnel-cifras-g">
-            {b.items.map((t, i) => (
-              <div key={t.titulo} className="d-funnel-cifra">
-                <p className="d-funnel-cifra-k">{t.meta}</p>
-                <p className={`d-funnel-cifra-v${i === b.items.length - 1 ? ' d-funnel-marca' : ''}`} dangerouslySetInnerHTML={html(t.titulo)} />
-                <p className="d-funnel-cifra-l" dangerouslySetInnerHTML={html(t.texto)} />
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Va la pantalla real de los eventos (12/11/2026: la ventana dibujada a mano se sacó). */}
+        <div className="d-funnel-cifras-falta"><FaltaAnimacion que="La pantalla real de los eventos que Funnel manda a Meta." /></div>
       </div>
     </section>
   );
@@ -369,6 +360,7 @@ const CSS = `
 .d-funnel-cifras-ic i{position:absolute;right:18px;top:12px;width:8px;height:8px;border-radius:50%;background:${AZUL}}
 .d-funnel-h2{margin-top:22px;font-size:56px;line-height:61.6px;font-weight:500;letter-spacing:-.672px;color:${TINTA}}
 .d-funnel-cifras .d-funnel-lede{font-size:17px;line-height:27.2px}
+.d-funnel-cifras-falta{max-width:980px;margin:40px auto 0;text-align:left}
 .d-funnel-cifras-win{max-width:980px;margin:40px auto 0;box-shadow:rgba(31,30,29,.05) 0 10px 30px 0;border-radius:12px;text-align:left}
 .d-funnel-cifras-win .d-funnel-win-barra{height:35px;background:#FCFBF8;color:#7A7873}
 .d-funnel-cifras-g{display:grid;grid-template-columns:repeat(4,1fr)}

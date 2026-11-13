@@ -96,8 +96,9 @@ test('4. la portada copia la de Video: encabezado, botones, tarjeta y lo que dic
   assert.match(p, /<Link href="\/competitor-spy" className=\{s\.pastilla\}>\+ Seguir cuentas<\/Link>/);
   const r = leer('app/web-generator/portada-reglas.ts');
   assert.match(r, /export const RUTA_PANEL = '\/web-generator\?panel=1';/);
-  assert.match(r, /export const rutaReplicarLanding = \(url: string\): string => `\/web-generator\?replicar=\$\{encodeURIComponent\(url\)\}`;/,
-    'el mismo link que «Copiar su sitio» de Spy: Replicar arrancando con esa página');
+  // 12/11/2026 (el Cerebro): de un outlier sale la ADAPTADA, directo (`&adaptar=1`); «Copiar su sitio» de Spy sigue sin él.
+  assert.match(r, /export const rutaReplicarLanding = \(url: string\): string => `\/web-generator\?replicar=\$\{encodeURIComponent\(url\)\}&adaptar=1`;/,
+    'Replicar arrancando con esa página, adaptada al negocio');
   assert.match(p, /\{!telefono && <Link href=\{rutaReplicarLanding\(x\.url\)\} className=\{o\.replicar\}>Replicar<\/Link>\}/);
   assert.match(p, /<a href=\{x\.url\} target="_blank" rel="noopener noreferrer" className=\{s\.pastilla\}>Ver el original<\/a>/);
   assert.match(p, /<span>No pude leer \{c\.nombre\}: \{c\.motivo\}<\/span>\s*<ReportarASoporte \/>/, '«no pude leer» no es «no hay»');

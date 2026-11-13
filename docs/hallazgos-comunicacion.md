@@ -222,6 +222,23 @@ a cuál, con el número (lib/registro-lineas.ts, una lista con tope en `app_sett
 Analytics › Events, tipo «linea», y la voz que queda en una línea de negocio (`mako_ws<n>`) va en rojo. Se anota el CAMBIO y no el
 botón: una acción nueva entra sola, y una foto que no se pudo leer no cuenta como «sin cambio». ⚠️ «Usar la línea de MaKo» también
 lo hace el panel SOLO cuando la línea vuelve (`autoVozRef`): con la sesión de quien tenía la pantalla abierta, que no apretó nada.
+**Y Martín decidió dejarla ahí (13/11: «Dejarla en mi personal»)**: la voz en su personal NO va en rojo (`vozEnLineaAjena`: rojo
+sólo en la línea de OTRO negocio; cada renglón guarda cuál era su personal al anotarse).
+
+**Re-vincular la voz por «Tu número» la dejaba SORDA EN LOS GRUPOS (13/11, al armarle los pasos del QR a Martín).** El QR de «Tu
+número» (/agencia) pasa por `conectar` (lib/evolution.ts), el de las líneas de negocio, y su `setSettings` les pone
+`groupsIgnore: true` —la regla anti-bloqueo de un negocio— también a la línea que es la voz. El …3479 habría vuelto a recibir los
+chats y MaKo habría seguido sin oír a nadie en los grupos, con el panel en «conectado». Ahora `setSettings` lee la voz y no le
+cierra los grupos (`ignoraGrupos`, lib/evolution-sonda.ts). Hasta que eso se despliega, el remedio es «Dejar de usarlo para MaKo» y
+enseguida «Usarlo para MaKo» (`permitirGruposEnInstancia`). **Y el botón del QR no aparece con la línea sorda:** «Vincular por QR»
+de «Tu número» sólo se dibuja si la línea NO figura conectada, y una sorda figura conectada. Hay que cerrar el dispositivo desde el
+teléfono (WhatsApp → Dispositivos vinculados → Cerrar sesión) y recién ahí sale el botón. `conectar` ya sabe soltar una línea
+marcada sorda y dar el QR en un paso (`marcaDeLineaEnferma` + `puedeSoltarseSorda`); faltaba el botón. **Desde el 13/11 está:**
+con la línea conectada y marcada sorda, «Tu número» dice «No recibe mensajes» (en vez del ✓) y ofrece «Volver a vincular por QR»,
+con la MISMA condición con la que `conectar` la suelta (`motivoParaVolverAVincular`, lib/linea-sorda.ts): un botón que aparece sin
+ella diría «ya está conectada» al tocarlo. Son dos pasos: el botón y escanear. ⚠️ **Y el aviso mandaba al teléfono equivocado:**
+los pasos del mail y la campanita eran fijos («Conectar por QR», «el teléfono de MaKo (…2605)») con la voz en el …3479; ahora
+salen de la línea (`pasosQrDe`). Lo fija tests/volver-a-vincular.test.ts (V1-V6).
 
 ---
 
@@ -800,11 +817,13 @@ de no escribir primero, no invitar a desconocidos y frenar ante una restricción
 
 Martín, después del ban: *«conservar el chat de MaKo en WhatsApp con un bot ahí que responde automáticamente, pero no va a crear ni grupos de WhatsApp y no va a mandar ni mensajes a nadie»*, y los avisos por la app.
 
-**Vive en:** `lib/mako-salida.ts` (la puerta: todo lo que MaKo le manda a una persona) · `lib/mako-salida-drivers.ts` (las dos cañerías) · `lib/mako-bot.ts` y `lib/mako-bot-reglas.ts` (el bot) · `lib/avisos-telefono.ts` y `app/onboarding/TarjetaAvisos.tsx` (el paso del onboarding) · `lib/app-tiendas.ts` y `app/app/` (el link único `/app`, el del QR). El corte de los grupos está en la rama `avisos-bot-corte-0311`, sin integrar: espera al grupo de avisos del Ops Center (rama `grupos-ops-0311`, del Cerebro), que es a donde va a parar lo que hoy sale por WhatsApp.
+**Vive en:** `lib/mako-salida.ts` (la puerta: todo lo que MaKo le manda a una persona) · `lib/mako-salida-drivers.ts` (las dos cañerías) · `lib/mako-bot.ts` y `lib/mako-bot-reglas.ts` (el bot) · `lib/avisos-telefono.ts` y `app/onboarding/TarjetaAvisos.tsx` (el paso del onboarding) · `app/_components/PedirAvisos.tsx` y `lib/pedir-avisos-reglas.ts` (el pedido al entrar, 13/11) · `lib/app-tiendas.ts` y `app/app/` (el link único `/app`, el del QR). El corte de los grupos está en la rama `avisos-bot-corte-0311`, sin integrar: espera al grupo de avisos del Ops Center (rama `grupos-ops-0311`, del Cerebro), que es a donde va a parar lo que hoy sale por WhatsApp.
 
 ### ⚠️ Lo que parecía y no era
 
 - **«Nadie recibe avisos» no era un bug del push.** `push_suscripciones` tenía 0 filas porque nadie los había activado: el único camino era una hoja adentro de Notificaciones en el teléfono, y nada llevaba ahí. Las claves, `/sw.js` y las rutas ya estaban. Se arregla pidiéndolo, no tocando el envío.
+- **Pedirlo en el onboarding tampoco alcanzó: el 13/11 seguía en 0.** El paso obligatorio llega sólo a quien hace el onboarding después del 4/11, y el recordatorio de `/general` pedía escanear un QR y volver a entrar desde el teléfono: nadie lo hacía. Con el número de MaKo baneado otra vez y los grupos en pausa (Martín, 13/11), se pide **al entrar**, en cualquier pantalla y cualquier dispositivo, hasta que ese navegador los tenga: `app/_components/PedirAvisos.tsx`, con las reglas en `lib/pedir-avisos-reglas.ts`. Es una tarjeta que no bloquea (Martín no quiere modales que se abran solos): en la computadora va en la esquina de avisos, y en el teléfono sobre la barra de abajo. «Ahora no» la calla un día. Con el permiso bloqueado no se pide, porque no hay botón que pueda hacer algo. Un navegador ya suscripto vuelve a atar su fila a quien entró (`asegurarRegistro`), cosa que hasta ahora hacía sólo el shell de `/m`. **Regla:** un permiso que hace falta para que el producto funcione se pide donde la persona ya está, no en un paso por el que ya pasó. **Sin medir:** si las filas suben después del despliegue; hay que mirar `push_suscripciones` al día siguiente.
+- **«Que cada aviso del grupo caiga en la app con su push» ya estaba hecho; el hueco era otro (13/11).** Todo lo que sale a un grupo se copia antes al hilo de la app, y `tests/grupos-ops-guarda.test.ts` vuelve rojo un envío nuevo que lo saltee (la única excepción es la demo suelta de `/api/admin/avisos-demo`, que no tiene negocio). El push sale a los admin por `enviarPushAviso` y al resto del grupo por `avisarMiembros`. No llegan, a propósito: lo que el negocio apagó (los dos canales), lo espaciado, lo que espera al resumen de la mañana (llega con él) y la tarjeta que va sólo por mail. Los reportes no van al grupo, pero suenan desde el 3/11 (`despacharReporte`). Lo que fallaba era que el push no tenía a quién mandar.
 - **Los reportes no pasaban por `emitirAviso`:** salían por `despacharReporte`, sin push. Lo que se suma en `emitirAviso` no los alcanza.
 - **Un paso que se hace en otro dispositivo es una carrera.** El teléfono activa los avisos y la computadora lo ve a los 4 segundos: los dos llegan al cierre del onboarding juntos, y `cerrarArranque` no es atómico (oferta y producto repetidos). Por eso el cierre se reclama (`onboarding.cerrando`) y el que pierde sólo relee.
 
@@ -927,7 +946,7 @@ switching phones»*. **Desde el servidor no se distingue un ban de un cambio de 
 - ⚠️ **No medir la línea de MaKo con `mako_doer_conv`:** dio ~US$11 porque deja afuera casi la mitad de lo que sale y cuenta cada grupo como una persona. La medida buena es la base de Evolution: hasta ~US$60/mes.
 - ⚠️ **El dato que circula ya venció:** las respuestas dentro de las 24 h fueron gratis hasta el 30/09/2026.
 - **Si MaKo sólo contesta** (la idea de Martín del 03/11: la app como canal principal, WhatsApp 1 a 1, sin grupos y sin escribir primero), no hace falta plantilla ni cuenta oficial. Con ~270 consultas por mes y 2 a 3 mensajes por consulta: US$0 hoy, ~US$80-135 con 100 negocios, ~US$300-460 con 300.
-- ⚠️ **Hoy `push_suscripciones` tiene 0 filas:** nadie tiene avisos de la app. Sin grupos no llegaría ningún aviso hasta resolver eso (ver «Los avisos en el teléfono y el bot 1 a 1», arriba).
+- ⚠️ **Hoy `push_suscripciones` tiene 0 filas:** nadie tiene avisos de la app. Sin grupos no llegaría ningún aviso hasta resolver eso (ver «Los avisos en el teléfono y el bot 1 a 1», arriba). El 13/11 seguía en 0: desde entonces se pide al entrar (`PedirAvisos`).
 - **Se pierde del todo por la vía oficial:** leer los grupos del cliente, sumar gente directo, escribirle a quien no dio permiso y el historial de más de 6 meses (documentado por Meta). Etiquetas del WhatsApp, foto de perfil del contacto y preguntar si un número tiene WhatsApp: no aparecen en lo que expone la API, pero no se encontró un documento de Meta que lo diga. Coexistencia sólo para WhatsApp Business app, no para una cuenta personal.
 
 **Sin hacer, o sin medir:**

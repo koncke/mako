@@ -705,6 +705,18 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
       ...(tuOferta ? { oferta: tuOferta } : {}),
     });
   };
+  // DESDE UN OUTLIER, LA ADAPTADA DIRECTO (12/11/2026, el Cerebro: «Replicar da directamente la ADAPTADA… La copia literal
+  // queda como opción»; memoria «Replicar deja todo escrito»): con `adaptar` y `auto` (la tarjeta, `&adaptar=1`), leída la
+  // página se replica SOLA, una vez, como Landing. Un borrador retomado no: ahí la persona ya había elegido y espera ver la
+  // pantalla. La literal sigue en «Qué replicar» (prender «Texto literal» y Replicar).
+  const replicarLeidaViva = useRef(replicarLeida);
+  replicarLeidaViva.current = replicarLeida;
+  const replicadaSola = useRef(false);
+  useEffect(() => {
+    if (!auto || !adaptarInicial || replicadaSola.current || retomado || replicando || lectura.fase !== 'leida') return;
+    replicadaSola.current = true;
+    replicarLeidaViva.current('landing');
+  }, [auto, adaptarInicial, retomado, replicando, lectura.fase]);
   /** ¿«Página web» ya tiene su foto (la de la extensión)? Entonces el clic de Replicar no abre ninguna ventana. */
   const conFotoExt = lectura.fase === 'leida' && !!fotoExt && fotoExt.url === lectura.url;
   /** ¿Hay algo de la extensión que dibujar? Con la tienda en una versión que no sabe replicar y nada en curso, no: sin esto,
@@ -819,7 +831,10 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
                   maxLength={TOPE_OFERTA_PANTALLA}
                   value={oferta}
                   disabled={replicando}
-                  placeholder="Qué vendes, a quién y por cuánto. Ej.: mentoría de 8 semanas para dueños de agencias que quieren cerrar más clientes; US$997."
+                  placeholder={lectura.lectura.ofertaPrincipal
+                    // Vacío, la réplica usa la principal (replicar.ts, 12/11/2026): se dice cuál, para que nadie crea que hay que escribirla.
+                    ? `Vacío: se escribe para «${lectura.lectura.ofertaPrincipal}», tu oferta principal. Escribe otra si quieres.`
+                    : 'Qué vendes, a quién y por cuánto. Ej.: mentoría de 8 semanas para dueños de agencias que quieren cerrar más clientes; US$997.'}
                   onChange={(e) => setOferta(e.target.value)}
                 />
                 {lectura.lectura.tieneOferta === false && !oferta.trim() && (

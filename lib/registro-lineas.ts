@@ -7,9 +7,9 @@
 
 import 'server-only';
 import { cambiarSettingSi, getSettingEstricto } from './settings';
-import { runWithWorkspace, OWNER_WS } from './workspace';
+import { runWithWorkspace, OWNER_WS, wsSuperAdmin } from './workspace';
 import { KEY_CANAL_INSTANCIA, KEY_VOZ_INSTANCIA } from './linea-plataforma';
-import { numeroDeInstancia } from './evolution';
+import { getInstanciaRow, numeroDeInstancia } from './evolution';
 import {
   KEY_REGISTRO_LINEAS, NO_SE_LEYO, conElCambio, instanciasDe, leerRegistroLineas,
   type CambioDeLinea, type FotoLineas,
@@ -24,12 +24,24 @@ export async function fotoDeLineas(): Promise<FotoLineas> {
   return { voz, canal };
 }
 
-/** El número de cada instancia que nombra el cambio (best-effort, con tope corto: sin número se muestra la instancia sola). */
-async function conNumeros(c: CambioDeLinea): Promise<CambioDeLinea> {
-  const pares = await Promise.all(instanciasDe(c).map(async (i) => [i, await numeroDeInstancia(i, 2500).catch(() => null)] as const));
+/** La línea personal de Martín: la de por defecto del negocio del super admin (el …3479). null si no se pudo leer. */
+async function lineaPersonalDeMartin(): Promise<string | null> {
+  try {
+    return (await runWithWorkspace(await wsSuperAdmin(), () => getInstanciaRow()))?.instance_name ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** El número de cada instancia que nombra el cambio y la línea personal de Martín (best-effort, con tope corto). */
+async function conDatos(c: CambioDeLinea): Promise<CambioDeLinea> {
+  const [pares, personal] = await Promise.all([
+    Promise.all(instanciasDe(c).map(async (i) => [i, await numeroDeInstancia(i, 2500).catch(() => null)] as const)),
+    lineaPersonalDeMartin(),
+  ]);
   const numeros: Record<string, string> = { ...c.numeros };
   for (const [i, n] of pares) if (n) numeros[i] = n;
-  return { ...c, numeros };
+  return { ...c, numeros, personal };
 }
 
 /**
@@ -38,7 +50,7 @@ async function conNumeros(c: CambioDeLinea): Promise<CambioDeLinea> {
  */
 export async function anotarCambioDeLinea(cambio: CambioDeLinea): Promise<boolean> {
   try {
-    const c = await conNumeros(cambio);
+    const c = await conDatos(cambio);
     return await runWithWorkspace(OWNER_WS, async () => {
       for (let intento = 0; intento < 3; intento++) {
         const raw = await getSettingEstricto(KEY_REGISTRO_LINEAS);

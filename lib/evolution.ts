@@ -18,9 +18,9 @@
 import 'server-only';
 import { getCapaActual, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { APP_BASE_URL } from '@/lib/app-url';
-import { hayQueRecrear, mensajeEvolution, motivoDeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
+import { hayQueRecrear, ignoraGrupos, mensajeEvolution, motivoDeEvolution, veredictoSondeo, type Sondeo } from './evolution-sonda';
 import { elegirLinea, esLineaDelWorkspace, instanceNameDeWs, nombreLineaNueva, lineaPorDefault } from './lineas-whatsapp';
-import { lineaDeMaKoPara, ETIQUETA_LINEA_MAKO } from './linea-plataforma';
+import { lineaDeMaKoPara, ETIQUETA_LINEA_MAKO, vozDeMaKoEstricta } from './linea-plataforma';
 import { queryDeWebhook } from './evolution-firma';
 import { numeroParaWhatsApp, motivoConPista } from './numero-whatsapp';
 import { bloqueoDeEnvioEnRevision } from './revision-guarda';
@@ -152,11 +152,15 @@ export async function registrarWebhookInstancia(instance: string): Promise<{ ok:
 
 // Ajustes anti-baneo / de comportamiento humano (PDF): no leer recibos de forma
 // automática, ignorar grupos, no forzar "en línea" siempre.
+// ⚠️ SALVO LOS GRUPOS DE LA VOZ DE MaKo (13/11/2026, `ignoraGrupos` en lib/evolution-sonda.ts): re-vincular por QR la línea
+// que es la voz (el …3479 de Martín, desde «Tu número») la dejaba ignorando los grupos, y MaKo no oía a nadie en ellos.
 async function setSettings(instance: string): Promise<void> {
+  const voz = await vozDeMaKoEstricta().catch(() => undefined);
+  if (voz === undefined) console.warn(`[evolution] no pude leer la voz de MaKo: ${instance} queda ignorando los grupos`);
   await evFetch(`/settings/set/${encodeURIComponent(instance)}`, {
     method: 'POST',
     body: JSON.stringify({
-      rejectCall: false, msgCall: '', groupsIgnore: true,
+      rejectCall: false, msgCall: '', groupsIgnore: ignoraGrupos(instance, voz),
       alwaysOnline: false, readMessages: false, readStatus: false,
       // El producto entero se apoya en leer el historial: aprender la forma de
       // escribir del dueño, reconocer a los contactos por su nombre, y no

@@ -6,6 +6,7 @@
 // hardcodeados que se filtren a otra feature: si un campo no viene, no se pinta.
 // Dispatcher <Visual spec={{type,...params}} />. Specs en ./feature-visuals.ts.
 
+import { FaltaAnimacion } from '../_competencia/FaltaAnimacion';
 import { VisualChart } from './VisualCharts';
 import { VisualCanvas } from './VisualCanvas';
 
@@ -699,7 +700,17 @@ const REGISTRY: Record<string, (s: VisualSpec) => React.ReactElement> = {
 
 export const VISUAL_TYPES = Object.keys(REGISTRY);
 
-export function Visual({ spec }: { spec: VisualSpec | undefined }) {
+/**
+ * NADA INVENTADO (Martín, 12/11/2026, noche): estos dibujos (tableros, chats y gráficos con datos de mentira) ya no se muestran en
+ * el sitio. Cada lugar que los usaba muestra el recuadro de lo que falta (app/vsl/_competencia/FaltaAnimacion.tsx) hasta tener la
+ * grabación de la app de verdad. El dibujo queda en `VisualDibujado`, por si se lo necesita para otra cosa que no sea vender.
+ */
+export function Visual({ spec, que }: { spec: VisualSpec | undefined; que?: string }) {
+  const titulo = typeof spec?.title === 'string' ? spec.title : null;
+  return <FaltaAnimacion que={que ?? (titulo ? `«${titulo}», tal cual se ve en MaKo.` : 'Esta pantalla de MaKo, tal cual es.')} />;
+}
+
+export function VisualDibujado({ spec }: { spec: VisualSpec | undefined }) {
   if (spec && spec.type.startsWith('rc')) return <VisualChart spec={spec} />;
   if (spec && spec.type.startsWith('cx')) return <VisualCanvas type={spec.type} />;
   const render = spec && REGISTRY[spec.type];
