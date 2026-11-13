@@ -48,7 +48,18 @@ export const rutaDiseno = (id: string): string => `${RUTA_PLANTILLAS}&diseno=${e
 export const duracionDelScroll = (alto: number | null | undefined): number => Math.min(16, Math.max(4, Math.round((alto ?? 2800) / 700)));
 
 /** Tus landings para la lista de la tarjeta del chat: sin las de la papelera, la última tocada primero, cada una a su editor. */
-export function proyectosDeLandings(docs: readonly Pick<LandingResumen, 'id' | 'titulo' | 'actualizado' | 'papelera'>[]): ProyectoCrear[] {
+/** Lo que la lista de «Mis landings» usa de cada landing (`proyectosDeLandings`). */
+export type LandingEnLista = Pick<LandingResumen, 'id' | 'titulo' | 'actualizado' | 'papelera'>;
+
+/**
+ * Lo que viaja con la portada de cada landing: sólo lo de la lista. 13/11/2026, medido en producción: `listar()` trae también la
+ * primera sección de cada una (para la miniatura del Panel), y en una importada esa sección es el HTML de la página original;
+ * 56 landings eran ~230 KB de la página para una lista que ni se ve hasta tocar «Mis landings».
+ */
+export const paraLaLista = (docs: readonly LandingResumen[]): LandingEnLista[] =>
+  docs.map(({ id, titulo, actualizado, papelera }) => ({ id, titulo, actualizado, papelera }));
+
+export function proyectosDeLandings(docs: readonly LandingEnLista[]): ProyectoCrear[] {
   return docs
     .filter((d) => !d.papelera)
     .map((d) => ({ d, t: Date.parse(d.actualizado) || 0 }))

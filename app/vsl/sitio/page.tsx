@@ -15,7 +15,7 @@ import { PortadaSitio } from '../_sitio/Portada';
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: 'MaKo · El mejor software para negocios High Ticket',
+  title: 'MaKo · El mejor software para vender High Ticket',
   description: 'Marketing, ventas y entrega del servicio en una sola app, con una IA que conoce tu negocio.',
   robots: { index: false, follow: false },
 };

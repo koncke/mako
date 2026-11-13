@@ -29,9 +29,13 @@ import { tzDeWorkspace } from '../timezone';
 import { getWorkspaceActual } from '../workspace';
 import { getVozCliente, type VozCliente } from '@/app/video-generator/voz-cliente';
 import { contextoDelNegocio } from './contexto';
-import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, cortaParaSuDuracion, dichoQueNoQuedo, objetivoDeDuracion, guionParaIA, marcasDeTuteo, operacionesAlTuteo, propsParaIA, salidaVacia, sinExtrasNoPedidos, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
+import { PROMPTS_COPY, SALIDA_VACIA, TOPES_IA, avisoDeDuracion, avisosDeCifras, bloqueIdiomaCopy, charlaParaIA, cifrasSinFuente, cortaParaSuDuracion, dichoQueNoQuedo, objetivoDeDuracion, palabrasEnIngles, guionParaIA, marcasDeTuteo, operacionesAlTuteo, propsParaIA, salidaVacia, sinExtrasNoPedidos, tipoDelPedido, tituloDeRespaldo } from './ia-reglas';
 import { alTuteo } from '../al-tuteo';
 import type { ClaudeMsg } from '../anthropic';
+import { listarOfertas } from '../ofertas';
+import { listProductos, type Producto } from '../productos';
+import type { Oferta } from '../oferta-modelo';
+import { bloqueDeOferta, ofertaDelPedido } from './oferta-elegida';
 import { sanearContenido } from './doc';
 import { sanearProps, SIN_TITULO, type JsonNodo } from './tipos';
 import { catalogosDelCopywriter } from './catalogos-server';
@@ -228,10 +232,12 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
   if (!instruccion) return invalido('Escribe qué quieres que escriba o cambie.');
   const g = guionDe(p.guion);
   try {
-    const [acento, negocio, angulos, estructuras, refs] = await Promise.all([
+    const [acento, negocio, angulos, estructuras, refs, ofertas, productos] = await Promise.all([
       acentoConId(), contextoDelNegocio(instruccion),
       getAngulosGuion().catch(() => ANGULOS_GUION_DEFAULT), getEstructurasTodas().catch(() => ESTRUCTURAS_GUION_DEFAULT).then(conVsl),
       leerReferencias(conElOriginal(p.referencias, g.props)),
+      // Las ofertas y los productos, para pasar la elegida ENTERA (una lectura que falla deja escribir con el negocio).
+      listarOfertas(true).catch((): Oferta[] => []), listProductos(true).catch((): Producto[] => []),
     ]);
     const lite = catalogosLite(angulos, estructuras);
     const angulo = g.props.angulo ? angulos.find((a) => a.id === g.props.angulo && a.activo) ?? null : null;
@@ -254,6 +260,12 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const vosea = !!declarado && VOSEAN.has(declarado.id);
     const sys = await brandSystem(`${await renderPrompt(PROMPTS_EDITAR.editarSystem.key, PROMPTS_EDITAR.editarSystem.tpl, { idioma: bloqueIdiomaCopy(declarado?.prompt ?? null, vosea), formato: FORMATO_EDITAR })}\n\n${await metodo()}\n\n${REGLA_NO_EXISTE}`);
     const charla = charlaParaIA(p.charla);
+    // LA OFERTA ENTERA, nunca sólo su nombre (13/11/2026, el relevo: con el nombre solo, MaKo inventaba; ./oferta-elegida.ts). La que
+    // nombra el pedido o la charla, o la principal; con sus datos y lo que le falta.
+    const elegida = ofertaDelPedido(`${instruccion}\n${charla}`, ofertas);
+    const producto = elegida ? productos.find((x) => x.nombre.trim().toLowerCase() === elegida.nombre.trim().toLowerCase()) ?? null : null;
+    const oferta = bloqueDeOferta(elegida, producto);
+    const conOferta = `${bloqueNegocio(negocio)}${oferta ? `\n\n${oferta}` : ''}`;
     const pl = p.adaptar ? plantillaPorId(lite, g.props.plantilla) : null;
     const user = pl?.ejemplo ? await renderPrompt(PROMPTS_EXPERTO.adaptarUser.key, PROMPTS_EXPERTO.adaptarUser.tpl, {
       plantilla: pl.nombre,
@@ -264,7 +276,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       // para que MaKo vea la forma (sin un slot nuevo: el override guardado no lo tendría).
       // Y la biblioteca, para que ponga el ÁNGULO (12/11/2026, en producción la plantilla quedaba «Ángulo: Vacío»: sin ids no podía).
       estructura: `${estructuraParaIA(estructura ?? sugerida, !estructura)}${bibliotecaParaIA(lite)}EL EJEMPLO COMPLETO (de ${pl.ejemplo.negocio}, un negocio FICTICIO: sólo la forma, ningún dato):\n${textoDelDoc(pl.contenido())}\n\n`,
-      negocio: bloqueNegocio(negocio),
+      negocio: conOferta,
       charla: `\n\nLA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable([charla, `LA PERSONA, AHORA: ${instruccion}`].filter(Boolean).join('\n'), 'charla')}`,
     }) : await renderPrompt(PROMPTS_EDITAR.editarUser.key, PROMPTS_EDITAR.editarUser.tpl, {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
@@ -277,7 +289,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       biblioteca: bibliotecaParaIA(lite),
       charla: charla ? `LA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable(charla, 'charla')}\n\n` : '',
       referencias: bloqueReferencias(refs.textos),
-      negocio: bloqueNegocio(negocio),
+      negocio: conOferta,
       adjuntos: bloqueAdjuntos(p.lecturas ?? []),
     });
     const motivo = pl?.ejemplo ? 'Adaptar una plantilla al negocio (Copywriter)' : 'Escribir en un guion (Copywriter)';
@@ -303,7 +315,9 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       const nuevos = new Set(r.nuevos);
       const dicho = (r.doc.content ?? []).filter((b) => nuevos.has(b.attrs?.bid as string) && b.type !== 'heading').map(textoDeNodo).join('\n');
       const secciones = s.ops.flatMap((op) => (op.op === 'escribir_seccion' ? [op.seccion] : []));
-      return { s, r, nuevos, entera: secciones.length >= 2, escritas: palabrasDe(dicho), secciones };
+      // Las palabras sueltas en inglés, en lo escrito y en la respuesta (sin las del negocio y la oferta: «WhatsApp Ads Funnel»).
+      const ingles = palabrasEnIngles(`${dicho}\n${typeof x.respuesta === 'string' ? x.respuesta : ''}`, `${negocio}\n${oferta}\n${instruccion}`);
+      return { s, r, nuevos, entera: secciones.length >= 2, escritas: palabrasDe(dicho), secciones, ingles };
     };
     let m = medir(raw);
     // LA RÉPLICA SE CORRIGE SOLA (13/11/2026, el Cerebro: «Martín quiere que la réplica SALGA bien, no que le avisen que salió mal»;
@@ -320,19 +334,22 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       largo: largo != null && x.entera && largoFuera(largo, x.escritas),
       capitulos: x.entera && !siguenLosCapitulos(x.secciones, capitulos),
       corta: !original && x.entera && cortaParaSuDuracion(x.escritas, segundosDe(x)),
+      // Las palabras en inglés (13/11/2026, el relevo: «more budget»), como el largo: a la segunda pasada.
+      ingles: x.entera && x.ingles.length > 0,
     });
     const puntos = (x: typeof m) => {
       const f = fallas(x);
       const objetivo = original ? null : objetivoDeDuracion(segundosDe(x));
-      return Number(f.largo) + Number(f.capitulos) + Number(f.corta) + (largo ? Math.abs(x.escritas - largo) / largo / 10 : 0) + (objetivo ? Math.abs(x.escritas - objetivo) / objetivo / 10 : 0);
+      return Number(f.largo) + Number(f.capitulos) + Number(f.corta) + Number(f.ingles) + (largo ? Math.abs(x.escritas - largo) / largo / 10 : 0) + (objetivo ? Math.abs(x.escritas - objetivo) / objetivo / 10 : 0);
     };
     const f1 = fallas(m);
-    if (m.entera && (f1.largo || f1.capitulos || f1.corta) && Date.now() < t0 + 170_000) {
+    if (m.entera && (f1.largo || f1.capitulos || f1.corta || f1.ingles) && Date.now() < t0 + 170_000) {
       const segundos = segundosDe(m) ?? 0;
       const correccion = pedidoDeCorreccion({
         largo: f1.largo && largo ? { n: largo, escritas: m.escritas } : null,
         capitulos: f1.capitulos ? capitulos : [],
         duracion: f1.corta ? { segundos, objetivo: objetivoDeDuracion(segundos) ?? 0, escritas: m.escritas } : null,
+        ingles: f1.ingles ? m.ingles : [],
       });
       const raw2 = await pedir([...primero, { role: 'assistant', content: JSON.stringify(raw) }, { role: 'user', content: correccion }], Math.min(Date.now() + 90_000, t0 + 270_000))
         .catch((e) => { console.warn('[copywriter] la segunda pasada no salió', e instanceof Error ? e.message : e); return null; });
@@ -371,7 +388,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
     const copiadas = original ? [...new Set([...frasesDelOriginal(original, r.titulo ?? ''), ...frasesDelOriginal(original, escrito)])] : [];
     if (copiadas.length) avisos.push(`Repite frases del original («${copiadas.slice(0, 2).join('», «')}»): pídele a MaKo que lo diga con tus palabras.`);
     // Las cifras y la garantía sin fuente (12/11/2026, en producción: la réplica de YouTube inventó porcentajes y una devolución).
-    const fuentes = [negocio, refs.textos.map((x) => x.texto).join('\n'), instruccion, charla, guionParaIA(g.doc), ...(p.lecturas ?? []).map((l) => l.texto)].join('\n');
+    const fuentes = [negocio, oferta, refs.textos.map((x) => x.texto).join('\n'), instruccion, charla, guionParaIA(g.doc), ...(p.lecturas ?? []).map((l) => l.texto)].join('\n');
     avisos.push(...avisosDeCifras(cifrasSinFuente(`${r.titulo ?? ''}\n${escrito}`, fuentes)));
     // Y lo que la respuesta dice que puso y no quedó (ia-reglas → dichoQueNoQuedo).
     const noQuedo = dichoQueNoQuedo(typeof raw.respuesta === 'string' ? raw.respuesta : '', `${r.titulo ?? g.titulo}\n${textoDelDoc(r.doc)}`);

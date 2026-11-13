@@ -6,7 +6,8 @@
 //   · no hay botón de Google: Google prohíbe su OAuth dentro de un WebView (riesgo R3, T6);
 //   · no se ve lo que Apple lee como relleno: «Coming soon» y «En la computadora» (guía 2.1, riesgo R6);
 //   · no se abre nada de lo que vende (guía 3.1.1(a), T5, riesgo R2).
-// Y en CUALQUIER teléfono (4/11/2026): ni MaKo Partners ni Agency Dashboard (`TABS_QUE_VENDEN`).
+// Y en CUALQUIER teléfono (4/11/2026): ni MaKo Partners (`TABS_QUE_VENDEN`). El Agency Dashboard volvió el 13/11/2026 (#94),
+// sin lo que se le debe a MaKo: ver y entrar a cada cliente (app/m/agency).
 //
 // ⚠️ ANDROID NO TIENE MODO, y no es un olvido: la TWA es Chrome y comparte el user agent, las cookies y el storage. Una marca
 //    ahí se filtraría al navegador. Por eso el teléfono no vende en NINGÚN teléfono, sin preguntar cuál es.
@@ -57,15 +58,22 @@ export function rutaDeLinkDeLaApp(url: string | null | undefined, host = 'hola-m
  * More (app/m/partners, app/m/agency). Lo de abajo de esas páginas queda para el día que una vuelva: sacarla de esta lista
  * la devuelve a los teléfonos. En la computadora no cambia nada.
  */
-export const TABS_QUE_VENDEN: readonly string[] = ['agency', 'partners'];
+// ⚠️ 'agency' SALIÓ el 13/11/2026 (ticket #94; Martín: «Soluciona esto»): la cartera de una agencia no vende nada si no dice
+//    lo que se le debe a MaKo, y eso lo sacó app/m/agency. More la muestra sólo a una agencia (app/m/mas/page.tsx).
+export const TABS_QUE_VENDEN: readonly string[] = ['partners'];
 
 /** ¿Esta tab (key de nav.ts) existe para vender MaKo a otros? Entonces no va en el teléfono. */
 export const esTabQueVende = (key: string): boolean => TABS_QUE_VENDEN.includes(key);
 
 /** More sin las tabs que venden MaKo a otros, en cualquier teléfono: ni su fila ni la de adentro de un desplegable. */
 export function sinLoQueVende(grupos: GrupoMasCompleto[]): GrupoMasCompleto[] {
+  return sinFilas(grupos, esTabQueVende);
+}
+
+/** More sin las filas de estas keys (ni la de adentro de un desplegable), y sin los grupos que quedan vacíos. */
+export function sinFilas(grupos: GrupoMasCompleto[], quitar: (key: string) => boolean): GrupoMasCompleto[] {
   const limpiar = (filas: FilaMas[]): FilaMas[] => filas
-    .filter((f) => !esTabQueVende(f.key))
+    .filter((f) => !quitar(f.key))
     .map((f) => (f.tipo === 'grupo' ? { ...f, filas: limpiar(f.filas) } : f))
     .filter((f) => f.tipo !== 'grupo' || f.filas.length > 0);
   return grupos

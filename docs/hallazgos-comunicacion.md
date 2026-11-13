@@ -13816,6 +13816,9 @@ su CRM —elegida (`columnasEmail.rebote`) o por su nombre— aunque quede antes
   pantalla, la API, la difusión, las plantillas) y la API antes del «sí». Al LEER se acepta hasta 2.000 sin preguntar la cuenta:
   lo guardado ya pasó su rango, y descartar un tope por día deja la automatización SIN tope (manda más, no menos; la misma trampa
   de los límites, al revés). El panel recibe sus rangos de la lectura (`rangosGoteo` de `getConfigAutomatizacionAction`).
+  ⚠️ Dio ROJO en GitHub (7360d439b): tres tests fijaban el texto de las líneas cambiadas, y la búsqueda de antes de subir no los
+  vio porque buscaba la línea tal cual y el test la tiene ESCAPADA como regex (`cambioDeConfigDelInput\(input`). **Regla:**
+  antes de subir, buscar cada línea cambiada con `grep -F` en sus dos formas (tal cual y con `\(` `\.`) en tests/.
 
 **Lo que quedó sin hacer:**
 - **La difusión sigue con el goteo de la plataforma (500 por día):** `goteoValido` (lib/difusion-reglas.ts) y la hoja

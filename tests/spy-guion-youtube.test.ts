@@ -293,7 +293,10 @@ test('7. el servidor, la ruta y la pantalla pasan por acá', () => {
   assert.match(srv, /guionDeYoutubeConGemini\(url, tramo, \{ feature: 'spy'/);
   assert.match(srv, /reservarDelDia\(CLAVE_DIA_GUIONES_YT, GUIONES_YT_POR_DIA\)/, 'el tope del día, contado en la base');
   assert.match(srv, /reclamarGuion\(deps, Date\.now\(\), TRANSCRIBIENDO_YT_VENCE_MS\)/);
-  assert.match(srv, /select\('id, competidor_id, canal, tipo, ref, url, duracion'\)/);
+  // La pieza entera (`*`, 13/11/2026): la duración del video y, para un anuncio, su `medio` (mig 0391), que puede no existir y una
+  // columna nombrada que falta rechaza la consulta. El tipo de la pieza sigue nombrando la duración.
+  assert.match(srv, /from\('spy_piezas'\)\.select\('\*'\)\.eq\('id', piezaId\)/);
+  assert.match(srv, /type Pieza = \{[^}]*duracion: string \| null/);
   assert.doesNotMatch(srv, /GEMINI_API_KEY|provsGratisDePlataforma/, 'nunca la clave de Gemini de la plataforma');
   const ruta = sinComentarios(leer('app/api/competitor-spy/transcribir/route.ts'));
   assert.match(ruta, /conSuIADelNegocio\(ws, async \(\) => \(await provsDe\('gemini'\)\)\.length > 0\)/, 'D6b también para la pregunta');
