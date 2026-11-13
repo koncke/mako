@@ -20,9 +20,10 @@ import { DialogoGamma, MenuFlotante } from '../app/web-generator/MiniaturaLandin
 
 test('1. el diálogo y el menú de Gamma se dibujan en el servidor sin tirar (y sin nada en el HTML)', () => {
   assert.equal(typeof (globalThis as { document?: unknown }).document, 'undefined', 'esto corre como el servidor: sin document');
-  const dialogo = renderToString(createElement(DialogoGamma, { titulo: '¿De qué quieres crearla?', onCerrar: () => {} }, 'Agenda una llamada'));
+  // `children` en las props (no como tercer argumento): así lo pide el tipo de los dos (el tsc de la punta lo marcó).
+  const dialogo = renderToString(createElement(DialogoGamma, { titulo: '¿De qué quieres crearla?', onCerrar: () => {}, children: 'Agenda una llamada' }));
   assert.equal(dialogo, '', 'el diálogo aparece en el render siguiente, en el navegador');
-  const menu = renderToString(createElement(MenuFlotante, { ancla: null, onCerrar: () => {} }, 'Renombrar'));
+  const menu = renderToString(createElement(MenuFlotante, { ancla: null, onCerrar: () => {}, children: 'Renombrar' }));
   assert.equal(menu, '');
 });
 

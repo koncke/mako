@@ -53,7 +53,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
-import { slugDe, slugValido, textoDe, tituloDeTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
+import { conVersion, slugDe, slugValido, textoDe, tituloDeTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
 import { slugDeUrlLanding, urlLandingEn } from '@/lib/editor-landing/origen-landings';
 import { avisoDeVideo, hrefPermitido } from '@/lib/editor-landing/especificacion';
 import { metaDePagina } from '@/lib/editor-landing/seo-pagina';
@@ -570,9 +570,10 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
       {url && (
         <div className="gmp-url-pub">
           <Icono nombre="enlace" tam={15} />
-          <a href={url} target="_blank" rel="noopener noreferrer">{url.replace(/^https?:\/\//, '')}</a>
+          {/* Con `?v=` (12/11/2026): la publicada se cachea en el borde y, recién publicada, se vería la anterior. Copiar va sin él. */}
+          <a href={conVersion(url, info?.publicadoAt)} target="_blank" rel="noopener noreferrer">{url.replace(/^https?:\/\//, '')}</a>
           <button type="button" className="gmp-x" onClick={() => void copiar()} aria-label="Copiar enlace" title="Copiar enlace"><Icono nombre="copiar" tam={15} /></button>
-          <button type="button" className="gmp-x" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')} aria-label="Abrir en nueva pestaña" title="Abrir en nueva pestaña">
+          <button type="button" className="gmp-x" onClick={() => window.open(conVersion(url, Date.now().toString(36)), '_blank', 'noopener,noreferrer')} aria-label="Abrir en nueva pestaña" title="Abrir en nueva pestaña">
             <Icono nombre="abrir" tam={15} />
           </button>
         </div>

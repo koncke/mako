@@ -57,6 +57,7 @@ import {
   instruccionTexto, accionTextoValida, limpiarTextoDelModelo, limpiarNotas,
   objetoConUnaReparacion, SalidaInvalida, REGLAS_PAGINA,
   seccionesParaDiscutir, focoParaDiscutir, charlaParaDiscutir, focoParaEditar,
+  REGLA_CIFRAS_DEL_NEGOCIO, cifrasSinRespaldo, avisoDeCifras,
 } from './ia-reglas';
 import { NODO, TOPES, textoDe, type JsonNodo } from './doc';
 import { MUCHO_PARA_EDITAR, type EdicionIA, type Esquema, type ParamsGeneracion, type FuenteImagenes, type AccionTexto } from './api-tipos';
@@ -495,7 +496,9 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<EdicionIA>> {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
       alcance: (p.alcance === 'seccion' ? 'una sección: cambia solo esa' : 'toda la landing: cambia solo las secciones que la instrucción toca')
         + focoParaEditar(foco)
-        + `\n${esDiapositivas(p.params) ? REGLAS_DIAPOSITIVAS_EDITAR : REGLAS_PAGINA}`,
+        + `\n${esDiapositivas(p.params) ? REGLAS_DIAPOSITIVAS_EDITAR : REGLAS_PAGINA}`
+        // Las cifras sólo del negocio (12/11/2026): «saca a Clara Pérez» le pasó a Martín las de ella.
+        + `\n${REGLA_CIFRAS_DEL_NEGOCIO}`,
       secciones: contenidoNoConfiable(json, 'secciones'),
       contexto,
     });
@@ -533,12 +536,15 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<EdicionIA>> {
     const hay = tarjetas.length > 0 || lista.quitar.length > 0 || !!lista.orden;
     // Lo que la IA dijo que hizo y no se pudo (una foto que no apareció, un texto que no se ubicó): el chat lo DICE.
     const noSePudo = avisosDeEdicion(descartes);
+    // La capa 2 de las cifras: las que quedaron en lo cambiado y no salen del negocio ni del pedido (la página NO cuenta: en una
+    // réplica es el texto de otro). Se dicen; no se borran (una cifra en un párrafo no se vacía sin romper la frase).
+    const sinRespaldo = cifrasSinRespaldo(tarjetas.map((t) => textoDe(t, ' ')).join('\n'), [instruccion, contexto].join('\n'));
     return {
       ok: true, tarjetas,
       ...(lista.quitar.length ? { quitar: lista.quitar } : {}),
       ...(lista.orden ? { orden: lista.orden } : {}),
       ...(Object.keys(copias).length ? { copias } : {}),
-      resumen: [hay ? resumenModelo || 'Listo.' : 'Sin cambios.', ...noSePudo].join(' '),
+      resumen: [hay ? resumenModelo || 'Listo.' : 'Sin cambios.', ...noSePudo, avisoDeCifras(sinRespaldo)].filter(Boolean).join(' '),
     };
   } catch (err) {
     return { ok: false, error: await falloIA(err, 'editar la landing'), status: 502 };

@@ -1748,4 +1748,24 @@ export const BITACORA: Hito[] = [
     revisar: '/web-generator?vista=plantillas',
     tickets: [88],
   },
+  {
+    fecha: '12 nov', hora: '22:40', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Replicar una landing de la competencia ya da la tuya, con su diseño',
+    puntos: [
+      'Al tocar «Replicar» en una landing de la competencia, MaKo la arma sola para tu oferta principal: la misma estructura y el mismo diseño, con tu contenido. La copia tal cual sigue en «Qué replicar».',
+      'MaKo ahora ve cómo está armada la original: los fondos de cada parte, las tarjetas en grilla, la foto al costado y el video del principio. Pone las fotos de la otra como espacios para las tuyas.',
+      'Ni la réplica ni el chat pasan cifras de la otra a tu negocio. Si queda alguna que tu negocio no dice, MaKo te avisa cuál.',
+      'La página publicada pesa la tercera parte y se sirve desde cerca de quien la abre.',
+      'El quiz de la plantilla «Quiz con diagnóstico» ya se ve en la página.',
+    ],
+    archivos: [
+      'lib/editor-landing/estilo-original.ts — los compuestos, las tarjetas, las fotos en base64 y el video',
+      'lib/editor-landing/replicar.ts · replicar-estructura.ts · replicar-partes.ts — la oferta principal, el acomodo, sin fotos ajenas',
+      'lib/editor-landing/css-usado.ts · pagina-publica.ts — la hoja podada y el caché del borde',
+      'app/web-generator/crear/Replicar.tsx · panel-reglas.ts · portada-reglas.ts — de un outlier, la adaptada directo',
+      'tests/web-generator-replicar-1211-noche.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
 ];

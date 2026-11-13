@@ -421,9 +421,29 @@ const leadMagnet = (): LandingContenido => doc(
 /**
  * El quiz con diagnóstico (6/11/2026, Lead Magnet Generator: lib/editor-landing/quiz.ts). La portada con la promesa, el bloque
  * `quiz` con su ESTRUCTURA (tres preguntas de tres opciones, tres resultados por rango) y quién lo armó. El quiz no tiene forma
- * en la gramática de las plantillas: se suma a su sección después de armarla. Hasta que sus preguntas y resultados tienen
- * texto, la página publicada no lo muestra (render.ts), y el editor dice qué le falta.
+ * en la gramática de las plantillas: se suma a su sección después de armarla.
+ *
+ * ⚠️ 12/11/2026 (prueba en producción): con la estructura VACÍA (`QUIZ_NUEVO`), la publicada no lo dibuja (render.ts, `quizListo`)
+ * y «Empieza aquí» quedaba como una sección vacía. Va con textos de muestra entre corchetes, como el resto de la plantilla: se ve
+ * entero en la vista previa y la persona sabe qué reemplazar.
  */
+export const QUIZ_DE_PLANTILLA = {
+  ...QUIZ_NUEVO,
+  titulo: '[Nombre del quiz]',
+  intro: '[En una frase: qué va a saber quien lo conteste.]',
+  empezar: 'Empezar el quiz',
+  enviar: 'Ver mi resultado',
+  preguntas: [1, 2, 3].map((n) => ({
+    texto: `[Pregunta ${n}]`,
+    opciones: [0, 1, 2].map((puntos) => ({ texto: `[Respuesta que suma ${puntos}]`, puntos })),
+  })),
+  resultados: [
+    { desde: 0, titulo: '[Resultado con puntaje bajo]', texto: '[Qué significa y qué le recomiendas]', boton: '', href: '' },
+    { desde: 3, titulo: '[Resultado con puntaje medio]', texto: '[Qué significa y qué le recomiendas]', boton: '', href: '' },
+    { desde: 5, titulo: '[Resultado con puntaje alto]', texto: '[Qué significa y qué le recomiendas]', boton: '', href: '' },
+  ],
+};
+
 const quizDiagnostico = (): LandingContenido => {
   const c = doc(pagina('Inicio', '', [
     {
@@ -479,7 +499,7 @@ const quizDiagnostico = (): LandingContenido => {
     },
   ], { titulo: '[Nombre del quiz]', descripcion: '[Qué va a saber quien lo conteste], en 2 minutos.' }));
   const seccion = (c.paginas[0].doc.content ?? [])[2];
-  if (seccion) seccion.content = [...(seccion.content ?? []), { type: NODO.quiz, attrs: { ...QUIZ_NUEVO, titulo: '[Nombre del quiz]' } }];
+  if (seccion) seccion.content = [...(seccion.content ?? []), { type: NODO.quiz, attrs: QUIZ_DE_PLANTILLA }];
   return c;
 };
 

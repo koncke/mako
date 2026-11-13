@@ -322,11 +322,17 @@ export type ConsultaDerecha = {
    * la extensión). Con `?extension=<entrega>`, la foto ya está en la extensión de MaKo y no se lee nada: se toma.
    */
   replicar?: string | null;
+  /**
+   * 12/11/2026 (el Cerebro: «desde un outlier, Replicar da directamente la ADAPTADA»): `&adaptar=1` arranca con diseño +
+   * estructura + ángulos y el texto para la oferta del negocio, y replica sola al terminar de leer (Replicar.tsx). La copia
+   * literal queda en «Qué replicar». Sin él (Spy, la extensión), lo de siempre.
+   */
+  adaptar?: string | null;
   extension?: string | null;
 };
 
 /** Las claves de la query que la derecha escribe o consume (`queryDeDerecha` las reescribe todas). */
-const CLAVES_DERECHA = ['vista', 'diagnostico', 'analizar', 'paso', 'tipo', 'desde', 'modo', 'prompt', 'url', 'objetivo', 'replicar', 'extension'] as const;
+const CLAVES_DERECHA = ['vista', 'diagnostico', 'analizar', 'paso', 'tipo', 'desde', 'modo', 'prompt', 'url', 'objetivo', 'replicar', 'extension', 'adaptar'] as const;
 
 /** La consulta de la derecha desde los `searchParams` de la página. */
 export function consultaDerecha(sp: Query): ConsultaDerecha {
@@ -395,7 +401,7 @@ export function derechaDeQuery(q: ConsultaDerecha, docs: readonly LandingResumen
     const url = urlParaAnalizar(q.replicar);
     if (!url) return { tipo: 'replicar' };
     const entrega = typeof q.extension === 'string' && /^[0-9a-f]{24}$/.test(q.extension) ? q.extension : null;
-    return { tipo: 'replicar', url, auto: true, ...(entrega ? { entrega } : {}) };
+    return { tipo: 'replicar', url, auto: true, ...(entrega ? { entrega } : {}), ...(q.adaptar === '1' && !entrega ? { adaptar: true } : {}) };
   }
   const doc = tipoValido(q.tipo);
   const objetivo = q.objetivo?.trim() ? { objetivo: q.objetivo.trim() } : {};

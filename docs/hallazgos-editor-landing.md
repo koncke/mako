@@ -4413,3 +4413,43 @@ Réplica: la masterclass de clase.highticketclarity.com desde su tarjeta de outl
 - **Regla:** un portal a `document.body` va detrás de `useEnElNavegador()` (`useSyncExternalStore` con `() => false` para el
   servidor: el servidor y la hidratación dan lo mismo y no hay desajuste), y los efectos que miden o enfocan lo portaleado
   dependen de ese valor. Antes de abrir algo desde la URL, se pregunta si sus piezas se pueden dibujar en el servidor.
+
+### «La réplica no se parece al original»: lo que el lector del servidor no veía, y la publicada liviana (12/11/2026, noche)
+
+El Cerebro miró `orig/htc-1440.jpg` contra la réplica y decidió: de un outlier sale la ADAPTADA directo (la literal queda en
+«Qué replicar»), sin «Tu oferta» va la oferta principal, ninguna cifra inventada, y la publicada con caché en el borde y sólo el
+CSS que usa.
+
+- **⚠️ El diagnóstico obvio era el equivocado: «la IA no respeta el diseño».** La IA arma cada sección con el «acomodo» que le
+  pasa el lector, y el lector del SERVIDOR (sin la ventana del navegador) no veía casi nada de esta página:
+  - `section.tint{background:var(--panel-soft)}` es un selector COMPUESTO, y `indicesDe` sólo juntaba `.clase`, `#id` y
+    `etiqueta` sueltos: todas las secciones salían del blanco del body. Ahora los compuestos cuentan (`compuestoDe`), con su
+    especificidad entre la clase y el id;
+  - las fotos venían en base64 y se descartan (no se copian): con ellas se perdía también que la sección TENÍA foto. Ahora
+    `fotos` las cuenta para el acomodo, aunque no se suban;
+  - la foto de «Quién es» va ANTES de su h2, en un contenedor que cierra antes: caía en la parte anterior. Las fotos suben de
+    contenedor en contenedor hasta uno con títulos (antes de su primer título → ese; si no, el último anterior);
+  - los testimonios eran seis `<article class="caso">` sin títulos: el molde decía «22 párrafos». Ahora un contenedor con ≥3
+    hijos con la misma clase y con texto es una grilla de `tarjetas` (con foto o no), y el acomodo pide «N tarjetas en grilla, ni
+    una más ni una menos»; tres `<li>` sin clase NO son tarjetas;
+  - el video del hero (`<video>` o el iframe de un reproductor) va como «un video junto al texto».
+  Con la ventana del navegador (Chrome con ventanas emergentes) la lectura sale de los estilos computados y ya veía casi todo:
+  la prueba en el navegador de la app de Claude midió el PEOR caso.
+- **En la adaptada no se sube ninguna foto de la otra** (`conFotosAjenas`): quedan los colores, los fondos y el hueco.
+- **Las cifras: la fuente NO es la página.** El chat de editar respaldaba las cifras con el texto de la página, y en una réplica
+  ese texto es de la competencia: por eso «saca a Clara Pérez» le pasó a Martín sus «más de 10 años». Ahora `cifrasSinRespaldo`
+  (montos, %, «+N», «más de N», seguidores, clientes, años; no las cantidades de la estructura) mira sólo el negocio y el pedido,
+  y lo que no tiene respaldo se DICE (no se borra: una cifra en un párrafo no se vacía sin romper la frase).
+- **La hoja de la publicada: 186 KB → 39 KB, idéntica al píxel** (comparada a 1440 y 375 con Chrome sin ventana: 0 píxeles
+  distintos). Lo pesado no eran las clases sino los atributos: `[data-anim="…"]` 61 KB, `[data-variante="…"]` 41 KB y
+  `[data-dispositivo="…"]` (del EDITOR) 10 KB. `css-usado.ts` saca la regla sólo si TODOS sus selectores piden algo que la página
+  no tiene; lo que un script prende (`gm-visto`, `data-pausado`) se lee en el texto del script.
+- **Caché en el borde:** `Vercel-CDN-Cache-Control: s-maxage=30, stale-while-revalidate=300`; el navegador sigue con su ETag. Lo
+  que se paga: recién publicada, un visitante puede ver la anterior un rato; «Abrir» del editor lleva `?v=` y la ve nueva.
+  `@vercel/functions` (para invalidar por etiqueta) no está en el proyecto: sumarlo es tocar el `node_modules` que comparten todos.
+- **La plantilla del quiz publicaba «Empieza aquí» vacía** porque el bloque iba con la estructura sin textos (`QUIZ_NUEVO`) y
+  `render.ts` no dibuja un quiz incompleto: ahora va con textos de muestra entre corchetes, como el resto de la plantilla.
+
+**Sin hacer:** medir en producción la adaptada nueva lado a lado (espera el despliegue); que la IA respete la cantidad exacta de
+tarjetas no está garantizado en código (se pide en la nota; `fidelidadDeEstructura` lo mide en el log); la región de la función
+no se movió (la base está en us-west-2: con el caché del borde, la mayoría de las visitas no llega a la función).

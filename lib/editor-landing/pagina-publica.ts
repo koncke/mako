@@ -80,6 +80,7 @@
 import { createHash } from 'node:crypto';
 import { CONFIG_DEFAULT, type ConfigLanding } from './api-tipos';
 import { CSS_CONTENIDO } from './css';
+import { podarCss, usadasDe } from './css-usado';
 import { SCRIPT_DISENO, hayMediosAjenos, origenesDeMedios, usaCalendly, type OrigenesDeMedios } from './html-editable';
 // `origenesDeMedios` vive en html-editable.ts (lo usa también el iframe del editor, que es del navegador).
 export { TOPE_ORIGENES_MEDIOS, origenesDeMedios, type OrigenesDeMedios } from './html-editable';
@@ -774,7 +775,10 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
   }
   // La hoja no viene de nadie de afuera, pero un `</style>` adentro cortaría el documento.
   const hoja = typeof e.css === 'string' && e.css.trim() ? e.css : CSS_CONTENIDO;
-  head.push(`<style>${`${CSS_DOCUMENTO}\n${hoja}`.replace(/<\/style/gi, '<\\/style')}</style>`);
+  // La hoja va PODADA a lo que la página usa (12/11/2026, css-usado.ts): se llena al final, cuando ya están el HTML y los
+  // scripts (que prenden clases como `gm-anim` o `gm-visto`).
+  const lugarHoja = head.length;
+  head.push('');
   if (cssDiseno) head.push(`<style>${cssDiseno.replace(/<\/style/gi, '<\\/style')}</style>`);
 
   const animar = cfg?.pagina?.animaciones !== false;
@@ -782,6 +786,8 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
   if (cssDiseno) cola.push(`<script>${SCRIPT_DISENO}</script>`);
   if (meta) cola.push(`<script>${meta.script}</script>`, meta.noscript);
   if (token) cola.push(lineaCargador(token, entorno.appBaseUrl));
+  const usadas = usadasDe([e.html, ...cola, ...head].join('\n'));
+  head[lugarHoja] = `<style>${podarCss(`${CSS_DOCUMENTO}\n${hoja}`, usadas).replace(/<\/style/gi, '<\\/style')}</style>`;
 
   return [
     '<!doctype html>',
@@ -869,6 +875,16 @@ export const paginaNoDisponible = (): string => paginaSimple(TEXTO_FALLO, TEXTO_
 
 /** Ver la cabecera, punto 5: guarda y pregunta cada vez; con el ETag igual es un 304. */
 export const CACHE_PUBLICO = 'public, no-cache';
+/**
+ * EL CACHÉ DEL BORDE de Vercel para la publicada (12/11/2026, el Cerebro: «caché en el borde, s-maxage con
+ * stale-while-revalidate»). Medido ese día: cada visita era un MISS (`public, no-cache`), la función corre en pdx1 y el pedido
+ * entraba por gru1 (São Paulo): 400-650 ms de servidor por visita, y en 4G lenta el primer byte llegaba a los 2,6 s. Con esto el
+ * borde sirve la copia hasta 30 s y, vencida, la sirve igual mientras trae la nueva (hasta 5 min): una tanda de visitas de un
+ * anuncio no toca la función. Sólo para Vercel (`Vercel-CDN-Cache-Control`): el navegador sigue con `CACHE_PUBLICO` y su ETag.
+ * Lo que se paga: después de «Publicar», el primer visitante puede ver la versión anterior un rato (≤ 30 s con visitas seguidas;
+ * en una página quieta, una visita). Por eso «Abrir» del editor lleva `?v=` (lib/editor-landing/doc.ts, `conVersion`).
+ */
+export const CACHE_BORDE = 's-maxage=30, stale-while-revalidate=300';
 /** El borrador por el link privado: ni en el disco ni en un caché compartido. */
 export const CACHE_VISTA = 'private, no-store';
 /** Un 404 o un 503 no se guardan: el slug puede publicarse en un minuto, la base volver en otro. */
@@ -985,6 +1001,7 @@ export async function responderPublico(req: Request, pedido: PedidoPublico, dep:
 
   const etag = etagDe(doc);
   const comunes: Record<string, string> = { 'Cache-Control': modo === 'publico' ? CACHE_PUBLICO : CACHE_VISTA, ETag: etag };
+  if (modo === 'publico') comunes['Vercel-CDN-Cache-Control'] = CACHE_BORDE;
   if (!esIndexable(modo, config)) comunes['X-Robots-Tag'] = modo === 'vista' ? 'noindex, nofollow, noarchive' : 'noindex, nofollow';
 
   // Un 304 no lleva cuerpo ni tipo: el navegador usa el que ya tiene.

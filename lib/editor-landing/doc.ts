@@ -544,3 +544,17 @@ export const PREFIJO_PUBLICO = '/l';
 export function rutaInternaL(slug: string, ruta = ''): string {
   return `${PREFIJO_PUBLICO}/${slug}${ruta ? `/${ruta}` : ''}`;
 }
+
+/**
+ * La dirección publicada con `?v=<marca>` (12/11/2026): la publicada se cachea en el borde de Vercel (pagina-publica.ts,
+ * `CACHE_BORDE`), y quien la abre desde el editor justo después de «Publicar» podía ver la versión anterior. Otra consulta es
+ * otra entrada del caché: el dueño ve la nueva. La dirección que se COMPARTE va sin esto. Sin marca, la dirección tal cual.
+ */
+export function conVersion(url: string, marca: string | number | null | undefined): string {
+  const v = String(marca ?? '').trim();
+  if (!url || !v) return url;
+  const limpia = encodeURIComponent(v.replace(/[^\w.-]/g, '').slice(0, 40));
+  if (!limpia) return url;
+  const [base, ancla] = url.split('#');
+  return `${base}${base.includes('?') ? '&' : '?'}v=${limpia}${ancla !== undefined ? `#${ancla}` : ''}`;
+}

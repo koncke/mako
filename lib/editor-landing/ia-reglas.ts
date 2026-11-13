@@ -1467,3 +1467,49 @@ export const PROMPTS_EDITOR = {
 export function slotsDe(tpl: string): string[] {
   return [...new Set([...tpl.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]))];
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ninguna cifra inventada (12/11/2026): las dos capas, como en Copywriting
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * La capa 1 (el prompt), para el chat de editar y la réplica escrita de nuevo. 12/11/2026, en producción: «saca a Clara Pérez»
+ * en una réplica le pasó a Martín las cifras de ella («más de 10 años», «más de 50 negocios high ticket»), y la réplica
+ * adaptada dejó sus «+192.000 seguidores». Las cifras de una página de OTRO no son del negocio aunque estén en la página.
+ */
+export const REGLA_CIFRAS_DEL_NEGOCIO = 'LAS CIFRAS (IMPORTANTE): años, clientes, alumnos, seguidores, ventas, montos, porcentajes y resultados salen SÓLO de lo que dice el NEGOCIO (su contexto, su oferta) o de lo que pide la persona. Las de una página de referencia o de otra persona NO son del negocio aunque estén en la página: nunca las pases al negocio. Si falta el dato, escribe [DATO: lo que falta].';
+
+/**
+ * La capa 2 (código; AGENTS.md: «una regla en un prompt no es una regla»): las cifras de PRUEBA de `escrito` cuyo número no está
+ * en `fuentes` (lo del negocio y lo que pidió la persona; NUNCA la página de referencia). Una cifra de prueba es un porcentaje,
+ * un «N veces / Nx», un monto (US$, USD, $, €, «pesos», «dólares», «K», «millones»), un «+N», un «más de N …» y un número de
+ * seguidores, clientes, alumnos, negocios, ventas o años. Las cantidades de la estructura («3 pasos», «en 30 días», «1 hora»)
+ * no: como en Copywriting (`cifrasSinFuente`). Sin repetidos, hasta 5. Puro.
+ */
+export function cifrasSinRespaldo(escrito: string, fuentes: string): string[] {
+  const digitos = (t: string) => t.replace(/[.,\s]/g, '');
+  const conFuente = new Set((String(fuentes ?? '').match(/\d+(?:[.,]\d+)*/g) ?? []).map(digitos));
+  const N = String.raw`\d+(?:[.,]\d+)*`;
+  const patrones = [
+    String.raw`(${N})\s*(?:%|por ciento|veces\b|x\b)`,
+    String.raw`(?:US\$|USD|U\$S|\$|€)\s*(${N})(?:\s*(?:k|mil|millones?|m)\b)?`,
+    String.raw`(${N})\s*(?:k\b|mil\b|millones?\b)?\s*(?:USD|US\$|dólares|pesos|euros)`,
+    String.raw`\+\s*(${N})`,
+    String.raw`más de\s+(${N})`,
+    String.raw`(${N})\s*(?:mil\s+)?(?:seguidores|clientes|clientas|alumnos|alumnas|negocios|empresas|ventas|años|estudiantes|suscriptores)`,
+  ];
+  const out: string[] = [];
+  for (const pat of patrones) {
+    for (const m of String(escrito ?? '').matchAll(new RegExp(pat, 'gi'))) {
+      const num = digitos(m[1] ?? '');
+      if (!num || conFuente.has(num)) continue;
+      const tal = m[0].replace(/\s+/g, ' ').trim();
+      if (!out.some((x) => x.includes(tal) || tal.includes(x))) out.push(tal);
+    }
+  }
+  return out.slice(0, 5);
+}
+
+/** Lo que dice el chat o el aviso de la réplica sobre esas cifras (vacío sin ninguna). */
+export const avisoDeCifras = (cifras: readonly string[]): string =>
+  cifras.length ? `Tiene cifras que no salen de tu negocio (${cifras.join(', ')}): revísalas o pídele a MaKo que las cambie por [DATO].` : '';
