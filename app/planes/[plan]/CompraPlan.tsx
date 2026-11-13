@@ -20,9 +20,10 @@ import { PRUEBA_DIAS } from '@/lib/planes-mako';
 import { DIAS_AVISO_FIN_DE_PRUEBA } from '@/lib/prueba-plan-reglas';
 import { CodigoReferido, codigoParaMandar } from './CodigoReferido';
 
-// Se ven juntas sólo cuando no se sabe el país (local, o una IP que Vercel no ubica) o cuando la que le tocaba no está
-// conectada: lib/compra-plan-reglas.ts, `pasarelasDelPais`. Mercado Pago dice que es para Argentina, así nadie de afuera la
-// elige y se encuentra con «La cuenta del vendedor es de otro país».
+// Se ven juntas cuando no se sabe el país (local, o una IP que Vercel no ubica), cuando la que le tocaba no está conectada,
+// y en Argentina: Mercado Pago en pesos y la tarjeta (13/11/2026, lib/compra-plan-reglas.ts, `pasarelasParaOfrecer`).
+// Mercado Pago dice que es para Argentina, así nadie de afuera la elige y se encuentra con «La cuenta del vendedor es de
+// otro país».
 // ⚠️ A ESTE RÓTULO LE FALTABA CREEM (31/10/2026) y en el checkout salía un radio EN BLANCO: el comprador no sabía qué estaba
 // eligiendo, y el que no se leía era justo el de LatAm. El `Record<Pasarela, …>` es total, así que TypeScript lo veía
 // (TS2741) — pero `next.config.ts` tiene `typescript: { ignoreBuildErrors: true }`, así que el build lo dejó pasar.
