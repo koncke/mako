@@ -292,7 +292,7 @@ export async function editar(p: { instruccion: unknown; guion: GuionDelPedido; c
       if (Date.now() < t0 + PLAZOS.editar - 45_000) raw = await pedir(primero, t0 + PLAZOS.editar);
     }
     const catalogo = { angulos: new Set(lite.angulos.map((a) => a.id)), estructuras: new Set(lite.estructuras.map((e) => e.id)) };
-    const seccionesDeLaPagina = (g.doc.content ?? []).flatMap((b) => (b.type === 'heading' && typeof b.attrs?.seccion === 'string' ? [b.attrs.seccion] : []));
+    const seccionesDeLaPagina: string[] = (g.doc.content ?? []).flatMap((b): string[] => { const sec = b.attrs?.seccion; return b.type === 'heading' && typeof sec === 'string' ? [sec] : []; });
     // Lo que escribió, ya saneado, en la voz del negocio y sin lo que nadie pidió, aplicado y medido.
     const medir = (x: Record<string, unknown>) => {
       const s = sanearOperaciones(x.operaciones, g.doc, catalogo);

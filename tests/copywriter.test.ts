@@ -475,8 +475,9 @@ test('una sola voz: lo que escribe Copywriting y su chat van en «tú» solos, t
   // Ninguna forma dos veces en el diccionario (13/11/2026, corrida 1228 en rojo: «agendá», «dejá» y «mandá» venían de dos tandas,
   // y `tsx` no lo ve; sólo el chequeo de tipos de la punta).
   const tu = leer('lib/al-tuteo.ts');
-  const claves = (tu.slice(tu.indexOf('const TU'), tu.indexOf('};', tu.indexOf('const TU'))).split('\n').filter((l) => !l.trim().startsWith('//')).join('\n').match(/[^\s,{]+(?=: ')/g) ?? []);
-  assert.deepEqual(claves.filter((k, i) => claves.indexOf(k) !== i), [], 'una forma repetida en el diccionario de lib/al-tuteo.ts');
+  const claves: string[] = [...(tu.slice(tu.indexOf('const TU'), tu.indexOf('};', tu.indexOf('const TU'))).split('\n').filter((l) => !l.trim().startsWith('//')).join('\n').match(/[^\s,{]+(?=: ')/g) ?? [])];
+  const repetidas: string[] = claves.filter((k, i) => claves.indexOf(k) !== i);
+  assert.deepEqual(repetidas, [], 'una forma repetida en el diccionario de lib/al-tuteo.ts');
   // Sin `citas`, lo de la persona queda (WhatsApp); «VOS» es una sigla; el pretérito de yo no se toca.
   assert.equal(alTuteo('Me pediste «mandale el borrador, que vos sabés»'), 'Me pediste «mandale el borrador, que vos sabés»');
   assert.equal(alTuteo('El VOS del contrato. Ayer escribí el guion.'), 'El VOS del contrato. Ayer escribí el guion.');
