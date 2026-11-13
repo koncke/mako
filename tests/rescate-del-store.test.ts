@@ -158,6 +158,7 @@ test('4. el cableado: corre en alerta-critica, y `soloEncolar` corta antes del c
 // ── Probado rompiéndolo (13/11/2026, una rotura por vez, restaurada) ──────────────────────────────────────────────────────────
 // · Sin `rescatarDelStore` en el cron ni en el doer (el código de antes): el hijo no arranca (no existe) y el 4 cae.
 // · `queRescatar` con la hora de WhatsApp en vez de la de guardado: el 2 cae («una hora después» vuelve a dar los seis).
-// · Sin `vistos` (el hilo y la cola): el 3b cae (la segunda vuelta vuelve a encolar y a avisar).
-// · `soloEncolar` sin cortar (sigue al candado): el 3a cae (el cron corre el turno y contesta: modelo 1).
+// · Sin `vistos` (el hilo y la cola): caen el 3a (la segunda fila del de las 05:44 se avisa como atrasada) y el 3b (la segunda
+//   vuelta vuelve a avisar).
+// · `soloEncolar` sin cortar (sigue al candado): caen el 3a, el 3b, el 3c y el 4 (el cron corre el turno y contesta él).
 // · El espejo ANTES de la cola: sin cambio en el verde (orden, comentado en el código), por eso no se fija acá.
