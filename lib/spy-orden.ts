@@ -81,7 +81,7 @@ export function carpetasDe(piezas: readonly PiezaParaOrdenar[], maximo = MAXIMO_
     const grupo = p.canal === 'anuncios' ? 'anuncios' : tipoDeContenido({ canal: p.canal as never, tipo: p.tipo, duracion: p.duracion ?? null });
     if (!grupo) continue;
     const clave = `${p.canal}|${grupo}`;
-    const b = porClave.get(clave) ?? { clave, canal: p.canal, tipo: p.tipo, rotulo: ROTULO_GRUPO[grupo] ?? grupo, n: 0, ids: [], grupo, porFormato: new Map() };
+    const b: Base = porClave.get(clave) ?? { clave, canal: p.canal, tipo: p.tipo, rotulo: ROTULO_GRUPO[grupo] ?? grupo, n: 0, ids: [], grupo, porFormato: new Map<string, number[]>() };
     porClave.set(clave, b);
     b.n += 1;
     b.ids.push(p.id);
