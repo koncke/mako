@@ -62,7 +62,8 @@ hasta renovarla.
   cada operación (el id y el título valen doble) y corta en 12.000 caracteres. Cuatro descripciones largas que decían
   «leads», «anuncio» y «semanal» dejaron afuera a `ver_rendimiento_anuncios` en «¿qué anuncio tiene el mejor costo por lead
   esta semana?» (tests/ops-center-bateria.test.ts). Van cortas y sin esas palabras, y antes de `armar_tab_ficha`, que es la
-  última del CRM a propósito (tests/ficha-tabs.test.ts).
+  última del CRM a propósito (tests/ficha-tabs.test.ts). Y una operación nueva del CRM se ANOTA en la lista de las declaradas
+  después del cobro de etapa (tests/crm-vincular-22-10.test.ts), con su fecha: así se decide a propósito que va al final.
 - **El tope del plan vive sólo en las altas A MANO** (tests/crm-topes-plan-23-10.test.ts): un `frenarAltaPorTope` en un archivo
   nuevo se decide a propósito. La página del CoPilot reusa el alta de /chats (`crearLeadDesdeWhatsappAction`), y la operación
   de la API hace la suya en su runner (crm.run.ts), como `agregar_contacto_al_crm`.
