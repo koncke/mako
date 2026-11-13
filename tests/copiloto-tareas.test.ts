@@ -84,6 +84,16 @@ test('sincronizar: crea lo que falta, cierra lo resuelto abierto, y nunca reabre
   assert.deepEqual(cerrar, ['web:analizar']);
 });
 
+test('la web analizada: cada arreglo grave es una tarea; sin análisis, «Mejora tu página»', () => {
+  const con = tareasDelCoPilot({ ...base(), webArreglos: [{ url: 'https://cascara.studio/founders', titulo: 'El botón no dice qué pasa al tocarlo' }] }).tareas.filter((t) => t.tarjeta === 'web');
+  assert.equal(con.length, 1);
+  assert.equal(con[0].titulo, 'Arregla en cascara.studio/founders: El botón no dice qué pasa al tocarlo');
+  assert.ok(esClaveCoPilot(con[0].clave), con[0].clave);
+  assert.match(con[0].href ?? '', /^\/web-generator\?analizar=/);
+  const sin = tareasDelCoPilot(base()).tareas.filter((t) => t.tarjeta === 'web');
+  assert.deepEqual(sin.map((t) => t.titulo), ['Mejora cascara.studio/founders con su análisis']);
+});
+
 // Probado rompiéndolo (13/11/2026):
 //   · `planDeSincronizacion` creando por «no está abierta» en vez de «no está» → «oferta:completar-voz» volvía a nacer: rojo.
 //   · `claveDeFuente` sin validar la clave → «../../borrar» pasaba: rojo.
