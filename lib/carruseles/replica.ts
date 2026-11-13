@@ -20,6 +20,7 @@
 // =============================================================================
 
 import { parseJsonObject } from '../json-del-modelo';
+import { cifrasSinFuente } from '../copywriter/ia-reglas';
 import { altoEnElEditor, comoSeDibuja, medidorReal } from './medir-letra';
 import { partirEnRenglones, sinSuperponer, type Caja, type FuenteTexto } from './tipografia-medida';
 import type { Bloque } from './plancha-local';
@@ -204,6 +205,10 @@ export function promptDeReplica(p: PedidoReplica): string {
     'Reglas:',
     '- Copia el patrón (cómo abre, cuántas ideas por lámina, cómo cierra), NUNCA sus frases: cada texto lo escribes tú para este negocio, con un largo parecido al original para que entre en el mismo lugar.',
     '- Y tampoco sus HECHOS. Si el original cuenta algo que le pasó a su autor (una anécdota, un premio, un familiar, una fecha, un lugar, una cifra), eso no le pasó a este negocio: usa la misma estructura con lo que sabes del negocio de abajo, y si no sabes nada que contar ahí, escribe la idea sin la anécdota. Nunca cuentes como propio del negocio algo que le pasó a otra persona.',
+    // 13/11/2026, el Cerebro mirando @lifeofarjav: «La voz de MaKo, sus 3 libros» (los libros eran de Hormozi) y «MaKo + Claude =
+    // 100M Business». Adaptar no es buscar y reemplazar el nombre del gurú por el del negocio: es contar lo mismo con lo que el negocio
+    // tiene de verdad. Capa 2: `cifrasDeLaReplica` (abajo) avisa las cifras que se escapan igual.
+    '- Adaptar es contar LO MISMO con la oferta del negocio, NO cambiar el nombre del creador, de su gurú o de su marca por el del negocio. Lo que es del original (sus libros, sus herramientas, sus cifras, sus resultados, su promesa) se cambia por algo VERDADERO del negocio de abajo, o se saca. Ninguna cifra, monto, resultado ni garantía que no esté en lo que se sabe del negocio: ni las del original ni inventadas.',
     '- No pongas el nombre, el @ ni la marca del creador original. Donde iba su nombre o su firma va el NOMBRE del negocio, tal como está escrito abajo. Donde el original muestra su @ (un encabezado, un tuit, un pie), escribe exactamente @usuario: el sistema pone el del negocio. Nunca otro @, un usuario inventado ni un sitio web.',
     '- Español neutro, de «tú», como se habla en México.',
     p.cta ? `- El original pide comentar «${p.cta}». La última lámina pide comentar UNA palabra que tenga sentido para este negocio (en mayúsculas), y qué recibe quien la comenta.` : '- La última lámina pide UNA acción (comentar una palabra, guardar o escribir por mensaje), como el original.',
@@ -323,6 +328,15 @@ export function conElArrobaDelNegocio(texto: string, usuario: string | null | un
  * (lib/json-del-modelo.ts); sin ninguna lámina con texto, `{ error }`.
  */
 /**
+ * El `@usuario` de la IA cambiado por el del negocio; sin uno cargado, se va CON la palabra que lo presentaba («Síguenos en
+ * @usuario para más» quedaba «Síguenos en para más», 13/11/2026).
+ */
+export function sinArroba(texto: string, handle: string): string {
+  if (handle) return texto.replace(/@usuario\b/gi, handle);
+  return texto.replace(/\s+(?:en|a|de|on|at|in)\s+@usuario\b/gi, '').replace(/@usuario\b/gi, '').replace(/[ \t]{2,}/g, ' ').trim();
+}
+
+/**
  * Las palabras de acento de un texto de la IA: lo que va entre *asteriscos* sale sin ellos y queda como un tramo [desde, hasta).
  * Un asterisco suelto (sin pareja) no marca nada y se va: en una lámina no se ve un «*» que nadie escribió.
  */
@@ -358,7 +372,7 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
       const t = crudoT && typeof crudoT === 'object' ? (crudoT as Record<string, unknown>) : {};
       // `@usuario` es el comodín del prompt para el @ del original (12/11/2026): el del negocio, si está cargado; si no, se va.
       const handle = o.usuario?.trim() ? `@${o.usuario.trim().replace(/^@+/, '')}` : '';
-      const marcado = conElArrobaDelNegocio(limpio(t.texto, LARGO_TEXTO).replace(/@usuario\b/gi, handle), o.usuario);
+      const marcado = conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle), o.usuario);
       const { texto: contenido, acentos } = conAcentos(marcado);
       const original = limpio(t.original, LARGO_TEXTO).replace(/\*/g, '');
       // Un texto que quedó vacío (el @ del original, con un negocio sin @ cargado) se queda SI se sabe qué decía: hay que borrarlo
@@ -419,6 +433,7 @@ export function promptDeCompletar(p: { textos: number; figuras: number; nombreNe
     p.textos ? `Los primeros ${p.textos} son TEXTOS. De cada uno: "original", lo que dice tal cual (con "\\n" donde corta); "texto", su versión para el negocio, de un largo parecido (un número de lámina como «02 / 06» queda igual; una etiqueta como «STEP 1» va «PASO 1»; el @ o el nombre del creador original va como @usuario); "rol"; "color" de la letra; "relleno", el color de la pastilla o caja que tiene detrás si la tiene (si no, null); "mayus" si está en mayúsculas; y si unas palabras van en OTRO color que el resto, en "texto" entre asteriscos (*así*) y ese color en "acento" (si no, null).` : '',
     p.figuras ? `Los ${p.figuras} siguientes son FIGURAS: en "personas", por cada una, true si muestra a una persona (una foto, un dibujo o una caricatura de alguien) y false si no (un logo, un ícono, una captura, un objeto).` : '',
     '- Español neutro, de «tú», como se habla en México. No copies frases ni hechos del original: escribe lo del negocio.',
+    '- Adaptar no es cambiar el nombre del creador o de su gurú por el del negocio: lo que es del original (sus libros, sus cifras, sus resultados) se cambia por algo verdadero del negocio o se saca. Ninguna cifra que no esté en lo que se sabe del negocio.',
     p.oferta ? bloqueDeOferta(p.oferta) : '',
     p.contexto ? `Lo que ya dicen las láminas nuevas (para que lo tuyo siga igual):\n<<<LAMINAS\n${p.contexto.slice(0, 3_000)}\nLAMINAS>>>` : '',
     COMPACTO,
@@ -448,7 +463,7 @@ export function leerCompletado(crudo: string, o: { textos: number; figuras: numb
     const t = lista[k] && typeof lista[k] === 'object' ? (lista[k] as Record<string, unknown>) : null;
     if (!t) return null;
     const original = limpio(t.original, LARGO_TEXTO).replace(/\*/g, '');
-    const { texto, acentos } = conAcentos(conElArrobaDelNegocio(limpio(t.texto, LARGO_TEXTO).replace(/@usuario\b/gi, handle), o.usuario));
+    const { texto, acentos } = conAcentos(conElArrobaDelNegocio(sinArroba(limpio(t.texto, LARGO_TEXTO), handle), o.usuario));
     if (!original && !texto) return null;
     const acento = color(t.acento, '');
     const relleno = color(t.relleno, '');
@@ -469,6 +484,27 @@ export function leerCompletado(crudo: string, o: { textos: number; figuras: numb
     if (i < o.figuras) personas[i] = si;
   });
   return { textos, personas };
+}
+
+/**
+ * Las cifras de la réplica que no salen del negocio (13/11/2026): la capa 2 de la regla del prompt, la MISMA de Copywriting
+ * (`cifrasSinFuente`, lib/copywriter/ia-reglas.ts: porcentajes, «N veces», una garantía) más lo que un carrusel promete con un
+ * número: un monto («$1500») o un resultado redondo («100M», «10K»). La fuente es lo que se sabe DEL NEGOCIO (su Second Brain, su
+ * oferta, lo que pidió el dueño); el original NO cuenta: sus cifras son de otro. Para avisarlas, no para cambiarlas.
+ */
+export function cifrasDeLaReplica(replica: Replica, fuentes: string): string[] {
+  const escrito = replica.laminas.flatMap((l) => l.textos.map((t) => t.texto)).join('\n');
+  const { cifras, garantia } = cifrasSinFuente(escrito, fuentes);
+  const digitos = (t: string) => t.replace(/[.,\s$€£]/g, '');
+  const conFuente = new Set((fuentes.match(/\d+(?:[.,]\d+)*/g) ?? []).map(digitos));
+  const out = [...cifras];
+  for (const m of escrito.matchAll(/[$€£]\s?\d[\d.,]*(?:\s?(?:k|m|mil|millones?)\b)?|\b\d[\d.,]*\s?(?:k|m|mil|millones?)\b/gi)) {
+    const tal = m[0].replace(/\s+/g, ' ').trim();
+    const numero = digitos(tal.replace(/(?:k|m|mil|millones?)$/i, ''));
+    if (numero && !conFuente.has(numero) && !out.includes(tal)) out.push(tal);
+  }
+  if (garantia) out.push('una garantía');
+  return out.slice(0, 4);
 }
 
 /** Cuántos cuadros de imagen se leen por lámina (una pantalla dividida son 2; un collage, 3 o 4). */
@@ -839,10 +875,10 @@ export function estilosDeAcento(texto: string, acentos: ReadonlyArray<readonly [
   return out;
 }
 
-/** El espaciado (milésimas de em, el `charSpacing` del editor) que se acepta para igualar el ancho: más apretado o más suelto
- *  que esto ya no es la misma letra con otro aire, es otra letra (o la IA leyó mal el original) y va sin ajustar. */
-const ESPACIADO_MINIMO = -70;
-const ESPACIADO_MAXIMO = 40;
+/** El espaciado (milésimas de em, el `charSpacing` del editor) que se acepta para igualar el ancho, por papel: lo que pase de
+ *  esto se recorta al tope (un titular va apretado; un cuerpo, casi nada). */
+const ESPACIADO_MINIMO = { titular: -60, texto: -20 } as const;
+const ESPACIADO_MAXIMO = { titular: 30, texto: 20 } as const;
 
 /**
  * El espaciado que hace que el texto ORIGINAL, con la letra y el cuerpo elegidos, mida lo mismo que su renglón en la lámina
@@ -850,7 +886,7 @@ const ESPACIADO_MAXIMO = 40;
  * iba Archivo Black, un 20 % más ancha, y el titular se cortaba en «Tu Acelera/dor»; con Inter sin apretar, un 10 % de más. Se
  * mide con lo que DICE el original (la IA lo transcribe en `original`): si no lo dijo, 0.
  */
-function espaciadoMedido(t: TextoReplica, b: Bloque, fuente: FuenteTexto): number {
+function espaciadoMedido(t: TextoReplica, b: Bloque, fuente: FuenteTexto, titular: boolean): number {
   if (!t.original) return 0;
   const renglones = comoSeDibuja(t.original, t.mayus).split('\n');
   const largo = renglones.reduce((a, r) => (medidorReal(r, fuente) > medidorReal(a, fuente) ? r : a), '');
@@ -858,7 +894,10 @@ function espaciadoMedido(t: TextoReplica, b: Bloque, fuente: FuenteTexto): numbe
   if (letras < 3) return 0;
   const sobra = b.caja.ancho - medidorReal(largo, { ...fuente, espaciado: 0 });
   const espaciado = Math.round((sobra / (letras * fuente.tam)) * 1000);
-  return espaciado >= ESPACIADO_MINIMO && espaciado <= ESPACIADO_MAXIMO ? espaciado : 0;
+  // Un texto de cuerpo apretado más de un 2 % se ve aplastado (13/11/2026: con el texto NUEVO en «original», el subtítulo salía
+  // comprimido para entrar en el ancho del viejo); un titular de palo seco sí va apretado.
+  const tope = titular ? 'titular' : 'texto';
+  return Math.max(ESPACIADO_MINIMO[tope], Math.min(ESPACIADO_MAXIMO[tope], espaciado));
 }
 
 /**
@@ -939,13 +978,15 @@ function laminaFiel(l: LaminaReplica, plancha: PlanchaDeLamina, o: { W: number; 
     const deInter = !o.conFuentesDeMarca && (t.letra === 'sans' || t.letra === 'gruesa');
     const fam = deInter ? familia({ familia: 'Inter', respaldo: 'sans-serif' }) : familia(base);
     const peso = deInter ? (titular ? (t.letra === 'gruesa' ? 800 : 700) : t.negrita ? 700 : 400) : pesoBase;
-    const espaciado = pastilla ? 0 : espaciadoMedido(t, b, { familia: fam, peso, italica: false, tam });
+    const espaciado = pastilla ? 0 : espaciadoMedido(t, b, { familia: fam, peso, italica: false, tam }, titular);
     tam = Math.max(12, Math.min(0.2 * W, tam));
     const interlineado = !pastilla && b.renglones > 1 ? Math.max(0.8, Math.min(1.8, b.paso / (tam * porRenglon))) : interlineadoDe(t.rol);
     const centro = b.caja.x + b.caja.ancho / 2;
     // La alineación MEDIDA en la lámina manda sobre la que dijo la IA.
     const alinear = b.alineacion ?? t.alinear;
-    const tope = Math.max(b.caja.ancho * 1.15, b.caja.ancho + 0.02 * W);
+    // Adentro de una caja (no sobre la lámina), ni un poco más ancho que el original: al lado suele haber un ícono (el globito de
+    // «Comment GIFT» tapaba «guía.»).
+    const tope = b.principal === false ? b.caja.ancho : Math.max(b.caja.ancho * 1.15, b.caja.ancho + 0.02 * W);
     let left: number;
     let width: number;
     if (pastilla) { const aire = Math.max(6, 0.6 * (pastilla.letra.x - b.caja.x)); left = b.caja.x + aire; width = b.caja.ancho - 2 * aire; }
