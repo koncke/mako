@@ -74,8 +74,8 @@ async function main() {
   };
   const turnos = () => alModelo().map((m) => ({ tools: m.tools, todo: m.system + m.mensajes }));
   const out: Record<string, unknown> = {};
-  const def = (id: string) => (REGISTRO as Array<{ id: string; gating?: { tab?: string; rolMinimo?: string }; datosDeGoogle?: true }>).find((d) => d.id === id);
-  out.defs = Object.fromEntries((REGISTRO as Array<{ id: string; gating?: { tab?: string; rolMinimo?: string }; datosDeGoogle?: true }>).map((d) => [d.id, { tab: d.gating?.tab ?? null, admin: d.gating?.rolMinimo === 'admin', google: !!d.datosDeGoogle }]));
+  const def = (id: string) => (REGISTRO as unknown as Array<{ id: string; gating?: { tab?: string; rolMinimo?: string }; datosDeGoogle?: true }>).find((d) => d.id === id);
+  out.defs = Object.fromEntries((REGISTRO as unknown as Array<{ id: string; gating?: { tab?: string; rolMinimo?: string }; datosDeGoogle?: true }>).map((d) => [d.id, { tab: d.gating?.tab ?? null, admin: d.gating?.rolMinimo === 'admin', google: !!d.datosDeGoogle }]));
   void def;
 
   // 1. Quién entra y qué ve del hilo.
