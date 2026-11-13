@@ -197,7 +197,11 @@ export function acomodoDeSeccion(m: MoldeSeccion, img: ImagenesDeSeccion | null,
 }
 
 /** Cómo está armada una sección de la original, más allá de sus imágenes (lo de `SeccionOriginal`, estilo-original.ts). */
-export type DisposicionDeSeccion = { tarjetas: { cantidad: number; conFoto: boolean } | null; fotos: number; video: boolean };
+export type DisposicionDeSeccion = {
+  tarjetas: { cantidad: number; conFoto: boolean } | null; fotos: number; video: boolean;
+  /** De qué lado del texto va su foto o su video (13/11/2026, `SeccionOriginal.lado`). */
+  lado?: 'izquierda' | 'derecha';
+};
 
 /**
  * La disposición de cada sección de la réplica: la de las partes de la original que le tocan (`partesDeCadaSeccion`). Las
@@ -205,20 +209,22 @@ export type DisposicionDeSeccion = { tarjetas: { cantidad: number; conFoto: bool
  */
 export function disposicionPorSeccion(
   partes: readonly (readonly number[])[],
-  secciones: readonly { tarjetas?: { cantidad: number; conFoto: boolean }; fotos?: number; video?: boolean }[],
+  secciones: readonly { tarjetas?: { cantidad: number; conFoto: boolean }; fotos?: number; video?: boolean; lado?: 'izquierda' | 'derecha' }[],
 ): (DisposicionDeSeccion | null)[] {
   return partes.map((ps) => {
     let tarjetas: DisposicionDeSeccion['tarjetas'] = null;
     let fotos = 0;
     let video = false;
+    let lado: DisposicionDeSeccion['lado'];
     for (const p of ps) {
       const s = secciones[p];
       if (!s) continue;
+      lado ??= s.lado;
       if (s.tarjetas && (!tarjetas || s.tarjetas.cantidad > tarjetas.cantidad)) tarjetas = s.tarjetas;
       fotos += s.fotos ?? 0;
       video ||= s.video === true;
     }
-    return tarjetas || fotos || video ? { tarjetas, fotos, video } : null;
+    return tarjetas || fotos || video ? { tarjetas, fotos, video, ...(lado ? { lado } : {}) } : null;
   });
 }
 
@@ -356,4 +362,124 @@ export function conHuecoDeFoto(
     ? { ...n, attrs: { ...n.attrs, variante: 'imagenes-texto', mostrarIconos: false } }
     : n.content ? { ...n, content: n.content.map(cambiar) } : n;
   return { tarjeta: cambiar(t), cambiada: true };
+}
+
+/** El ancho de la tarjeta para la columna de la original (13/11/2026): «angosto» es 48em (768 px), «normal» 64,5em (1032 px). */
+export function anchoDeColumna(px: number | null | undefined): 'angosto' | 'normal' | 'amplio' | null {
+  if (!px || !Number.isFinite(px)) return null;
+  return px <= 840 ? 'angosto' : px <= 1180 ? 'normal' : 'amplio';
+}
+
+/**
+ * La foto o el video al COSTADO del texto, como en la original (13/11/2026). Medido en producción: el hero de Clara lleva su
+ * video a la derecha y «Quién es» su foto a la izquierda; la réplica los dejaba como texto solo (o con un hueco de imagen
+ * abajo de todo). Si la sección de la original tiene un video, o fotos que no son de una grilla de tarjetas, y la tarjeta
+ * salió sin imagen de acento, pasa a tener la imagen del lado de la original: en el editor es el hueco «Agregar imagen» con
+ * su forma (37,5 % del ancho, alto de la sección); publicada sin foto, la columna no se dibuja (specTarjeta). La imagen
+ * vacía que la IA haya dejado en el cuerpo se va: el hueco es el del costado. Puro.
+ */
+export function conLadoDeFoto(t: JsonNodo, disp: DisposicionDeSeccion | null): { tarjeta: JsonNodo; cambiada: boolean } {
+  if (!disp || t.type !== NODO.tarjeta) return { tarjeta: t, cambiada: false };
+  const suelta = disp.video || (disp.fotos > 0 && !disp.tarjetas?.conFoto);
+  const diseno = String(t.attrs?.diseno ?? 'sin');
+  if (!suelta || diseno !== 'sin') return { tarjeta: t, cambiada: false };
+  const sinImagenVacia = (n: JsonNodo): JsonNodo | null => {
+    if (n.type === NODO.imagen && !String(n.attrs?.src ?? '').trim()) return null;
+    return n.content ? { ...n, content: n.content.map(sinImagenVacia).filter((c): c is JsonNodo => c !== null) } : n;
+  };
+  const limpia = sinImagenVacia(t) ?? t;
+  return { tarjeta: { ...limpia, attrs: { ...limpia.attrs, diseno: disp.lado ?? 'derecha' } }, cambiada: true };
+}
+
+/** Todas las tarjetas al ancho de la columna de la original (la que eligió «completo» queda: es un fondo a todo el ancho). Puro. */
+export function conAnchoDeColumna(t: JsonNodo, ancho: ReturnType<typeof anchoDeColumna>): JsonNodo {
+  if (!ancho || t.type !== NODO.tarjeta || t.attrs?.ancho === 'completo') return t;
+  return { ...t, attrs: { ...t.attrs, ancho } };
+}
+
+/** Lo que queda en cada testimonio de la réplica adaptada: huecos para completar, nunca la historia de un cliente de la otra. */
+export const TESTIMONIO_PARA_COMPLETAR = ['[Resultado de tu cliente]', '[TESTIMONIO: lo que cuenta, con sus palabras]', '[Nombre · qué hace]'] as const;
+
+/**
+ * Los testimonios de la original, como huecos para completar en la réplica ADAPTADA (13/11/2026). Medido en producción: la
+ * IA reescribió los 6 casos de las alumnas de Clara («Arrancó de cero… De 0 a 9.000 USD por mes») como si fueran clientes
+ * del negocio, aunque el prompt lo prohíbe. En la sección de prueba social, cada ítem de un bloque de 2 o más queda con
+ * `TESTIMONIO_PARA_COMPLETAR` (la cantidad, la grilla y el hueco de su foto quedan), y cada cita, «[Testimonio real de un
+ * cliente]». El título y la bajada de la sección quedan. Puro.
+ */
+export function testimoniosParaCompletar(t: JsonNodo): { tarjeta: JsonNodo; items: number } {
+  let items = 0;
+  const parrafo = (texto: string): JsonNodo => ({ type: 'paragraph', content: [{ type: 'text', text: texto }] });
+  const caminar = (n: JsonNodo): JsonNodo => {
+    if (n.type === NODO.optimizado && (n.content ?? []).filter((c) => c.type === NODO.optimizadoItem).length >= 2) {
+      return {
+        ...n,
+        content: (n.content ?? []).map((c) => {
+          if (c.type !== NODO.optimizadoItem) return c;
+          items++;
+          const [resultado, cuenta, quien] = TESTIMONIO_PARA_COMPLETAR;
+          return {
+            ...c,
+            attrs: { ...c.attrs, valor: '' },
+            content: [{ type: 'heading', attrs: { level: 3 }, content: [{ type: 'text', text: resultado }] }, parrafo(cuenta), parrafo(quien)],
+          };
+        }),
+      };
+    }
+    if (n.type === 'blockquote') { items++; return { ...n, content: [parrafo('[Testimonio real de un cliente]')] }; }
+    return n.content ? { ...n, content: n.content.map(caminar) } : n;
+  };
+  return { tarjeta: caminar(t), items };
+}
+
+/** Desde cuántas partes con el botón principal la original lo REPITE (13/11/2026: la de Clara lo pone en 8). */
+export const PARTES_BOTON_REPETIDO = 4;
+
+/**
+ * El botón principal después de CADA sección, cuando la original lo repite (13/11/2026). Medido en producción: la de Clara
+ * cierra cada sección con su botón dorado; la réplica lo tenía en el hero y casi en ningún otro lado. Cada tarjeta sin
+ * botón ni formulario termina con el primer botón de la réplica (el del hero), centrado. Puro.
+ */
+export function conBotonEnCadaSeccion(tarjetas: readonly JsonNodo[]): { tarjetas: JsonNodo[]; sumados: number } {
+  const tiene = (n: JsonNodo, tipo: string): boolean => n.type === tipo || (n.content ?? []).some((c) => tiene(c, tipo));
+  let primero: JsonNodo | null = null;
+  const buscar = (n: JsonNodo) => {
+    if (primero) return;
+    if (n.type === NODO.botones) { const b = (n.content ?? []).find((c) => c.type === NODO.boton); if (b) { primero = b; return; } }
+    for (const c of n.content ?? []) buscar(c);
+  };
+  for (const t of tarjetas) buscar(t);
+  const boton = primero as JsonNodo | null;
+  if (!boton) return { tarjetas: [...tarjetas], sumados: 0 };
+  let sumados = 0;
+  const out = tarjetas.map((t, i) => {
+    if (i === 0 || t.type !== NODO.tarjeta || tiene(t, NODO.botones) || tiene(t, NODO.formulario)) return t;
+    sumados++;
+    return { ...t, content: [...(t.content ?? []), { type: NODO.botones, attrs: { alinea: 'centro' }, content: [{ ...boton, attrs: { ...boton.attrs, variante: 'primario' } }] }] };
+  });
+  return { tarjetas: out, sumados };
+}
+
+/**
+ * Lo que una RÉPLICA no puede publicar todavía (13/11/2026, decisión del Cerebro: «el aviso de cifras tiene que frenar al
+ * publicar, no sólo avisar»): los huecos que dejó la réplica adaptada en lugar de lo ajeno — [DATO], [FECHA], [HORA] y los
+ * testimonios para completar. El mensaje para la persona, o null si no queda ninguno. Sólo para una landing replicada
+ * (`config.origen.basadoEnUrl`): los corchetes de una plantilla son otra cosa. Una cifra que la persona escribe no se puede
+ * distinguir de una inventada, así que lo que frena son los huecos, no los números. Puro.
+ */
+export function huecosParaPublicar(contenido: unknown, config: unknown): string | null {
+  const origen = (config as { origen?: { basadoEnUrl?: unknown } } | null)?.origen;
+  if (!origen || typeof origen.basadoEnUrl !== 'string' || !origen.basadoEnUrl) return null;
+  const texto = JSON.stringify(contenido ?? '');
+  const veces = (marca: string) => texto.split(marca).length - 1;
+  const datos = veces('[DATO]');
+  const fechas = veces('[FECHA]') + veces('[HORA]');
+  const testimonios = veces('[TESTIMONIO:') + veces('[Testimonio real de un cliente]');
+  const partes = [
+    datos ? (datos === 1 ? 'una cifra [DATO]' : `${datos} cifras [DATO]`) : '',
+    fechas ? (fechas === 1 ? 'una fecha u hora' : `${fechas} fechas u horas`) : '',
+    testimonios ? (testimonios === 1 ? 'un testimonio' : `${testimonios} testimonios`) : '',
+  ].filter(Boolean);
+  if (!partes.length) return null;
+  return `Antes de publicar, completa lo que la réplica dejó para ti: ${partes.join(', ')}. Pon los de tu negocio o pídele a MaKo que los cambie.`;
 }

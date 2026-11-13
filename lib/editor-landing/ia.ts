@@ -57,7 +57,7 @@ import {
   instruccionTexto, accionTextoValida, limpiarTextoDelModelo, limpiarNotas,
   objetoConUnaReparacion, SalidaInvalida, REGLAS_PAGINA,
   seccionesParaDiscutir, focoParaDiscutir, charlaParaDiscutir, focoParaEditar,
-  REGLA_CIFRAS_DEL_NEGOCIO, cifrasSinRespaldo, resumenDeEdicion,
+  REGLA_CIFRAS_DEL_NEGOCIO, cifrasSinRespaldo, resumenDeEdicion, TOPE_FRASES,
 } from './ia-reglas';
 import { NODO, TOPES, textoDe, type JsonNodo } from './doc';
 import { MUCHO_PARA_EDITAR, type EdicionIA, type Esquema, type ParamsGeneracion, type FuenteImagenes, type AccionTexto } from './api-tipos';
@@ -682,6 +682,46 @@ export async function notas(p: { tarjeta: unknown }): Promise<ResultadoIA<{ nota
     return { ok: true, notas: n };
   } catch (err) {
     return { ok: false, error: await falloIA(err, 'escribir las notas'), status: 502 };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// frases (la réplica adaptada, 13/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Las frases que la réplica ADAPTADA dejó iguales a la original, reescritas para el negocio en UN pedido (medido en producción:
+ * la de Clara salió con 24, su titular entre ellas). Devuelve el mismo largo, en el mismo orden; la que no vuelve, o vuelve
+ * igual, queda como estaba. Nunca tira: sin IA, las frases de antes (y el aviso las sigue contando).
+ */
+export async function frases(p: { frases: readonly string[]; negocio: string; hastaMs?: number }): Promise<string[]> {
+  const t0 = Date.now();
+  const lista = p.frases.slice(0, TOPE_FRASES).map((f) => String(f ?? '').slice(0, 400));
+  if (!lista.length) return [];
+  const hasta = p.hastaMs ?? t0 + 30_000;
+  try {
+    const sys = await system(PROMPTS_EDITOR.frasesSystem, { idioma: bloqueIdiomaDelTexto() });
+    const user = await renderPrompt(PROMPTS_EDITOR.frasesUser.key, PROMPTS_EDITOR.frasesUser.tpl, {
+      negocio: contenidoNoConfiable(String(p.negocio ?? '').trim().slice(0, 3_000) || '(sin datos del negocio)', 'negocio'),
+      cantidad: String(lista.length),
+      frases: contenidoNoConfiable(lista.map((f, i) => `${i + 1}. ${f}`).join('\n'), 'frases'),
+    });
+    const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
+      feature: FEATURE_GENERAR,
+      motivo: 'Réplica: frases iguales a la original',
+      maxTokens: 3_000,
+      thinking: false,
+      hastaMs: hasta,
+    });
+    const raw = await objetoConUnaReparacion(salida, reparador(FEATURE_GENERAR, 'frases', hasta));
+    const nuevas = Array.isArray(raw.frases) ? raw.frases : [];
+    return lista.map((f, i) => {
+      const n = typeof nuevas[i] === 'string' ? limpiarTextoDelModelo(nuevas[i] as string).trim() : '';
+      return n && n !== f ? n.slice(0, 600) : f;
+    });
+  } catch (err) {
+    console.warn(`[landing-editor:frases] ${err instanceof Error ? err.message : String(err)}`);
+    return lista;
   }
 }
 
