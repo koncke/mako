@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { avisoDeSordera, estaSorda, horarioActivo, lecturaDeLaVoz, queHacerConLaSordera, RAFAGA_MS, REPETIR_QR_MS, SORDA_MS, type MarcaDeSordera } from '../lib/linea-sorda';
+import { ajenosQueLaVozNoVio, avisoDeSordera, estaSorda, horarioActivo, lecturaDeLaVoz, queHacerConLaSordera, RAFAGA_MS, REPETIR_QR_MS, SORDA_MS, type MarcaDeSordera } from '../lib/linea-sorda';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -133,6 +133,12 @@ test('4. la función real: mail y campanita (nunca WhatsApp), la marca para el p
   assert.deepEqual([n.volvio.r.accion, n.volvio.mails, n.volvio.marca], ['volvio', ['La voz de MaKo volvió a recibir'], '']);
   assert.deepEqual([n.reVinculadaConMarca.r.accion, n.reVinculadaConMarca.mails, n.reVinculadaConMarca.marca], ['nada', [], ''], 'la marca de un dispositivo viejo quedó (o avisó un «volvió» sin prueba)');
   for (const k of ['antesDeLas9', 'alas9', 'alas2330', 'tanda', 'volvio', 'reVinculadaConMarca']) assert.equal(n[k].whatsapp + n[k].reinicios, 0, k);
+  // 13/11 18:20: lo que la línea de Martín ve en sus grupos personales no marca la voz; lo de un grupo de MaKo que la voz no tiene, sí.
+  const ol = o.otraLinea;
+  assert.deepEqual([ol.personales.r.accion, ol.personales.r.sorda, ol.personales.mails, ol.personales.marca], ['nada', false, [], ''],
+    `los grupos personales de Martín marcaron sorda la voz: ${JSON.stringify(ol.personales.r)}`);
+  assert.deepEqual([ol.deMaKo.r.accion, ol.deMaKo.r.motivo], ['avisar', 'otra línea vio 1 mensaje(s) de personas que la voz no tiene']);
+  for (const k of ['personales', 'deMaKo']) assert.equal(ol[k].whatsapp + ol[k].reinicios, 0, k);
   for (const k of ['antes', 'sorda', 'diezMin', 'tresHoras', 'volvio', 'reVinculada']) {
     assert.equal(o[k].whatsapp, 0, `${k}: la alarma de la voz salió por la voz`);
     assert.equal(o[k].reinicios, 0, `${k}: reinició la voz (un restart no la cura)`);
@@ -150,6 +156,38 @@ test('5. el cableado: corre en el cron alerta-critica; ningún `restart` en el c
   assert.deepEqual(conRestart, [], 'volvió un POST /instance/restart: no cura una línea sorda (informe del 11/11)');
 });
 
+test('6. la otra línea sólo cuenta los grupos de MaKo (13/11/2026 18:20: falsa alarma con los grupos personales de Martín)', () => {
+  // La voz volvió al …2605 a las 17:12 y el …3479 (el personal de Martín) quedó como «la otra». A las 18:20 la marca dijo «otra línea vio 6
+  // mensaje(s)…»: los 6 eran de 3 grupos personales suyos donde la voz no está; en el grupo de MaKo que comparten, la voz los tenía todos.
+  const ahoraMs = T('2026-11-13T18:20:30Z');
+  const PERSONAL_1 = '120363000000000001@g.us', PERSONAL_2 = '120363000000000002@g.us', PERSONAL_3 = '120363000000000003@g.us';
+  const MAURICIO = '120363421096661065@g.us';
+  const deOtra = [
+    persona('A1', '2026-11-13T17:13:18Z', PERSONAL_1), persona('A2', '2026-11-13T16:08:51Z', PERSONAL_2), persona('A3', '2026-11-13T16:01:11Z', PERSONAL_1),
+    persona('A4', '2026-11-13T15:59:48Z', PERSONAL_3), persona('A5', '2026-11-13T15:59:38Z', PERSONAL_3), persona('A6', '2026-11-13T15:59:31Z', PERSONAL_3),
+    persona('M1', '2026-11-13T15:59:48Z', MAURICIO), persona('M2', '2026-11-13T15:58:01Z', MAURICIO),
+  ];
+  const base = { vistos: new Set(['M1', 'M2']), gruposDeMaKo: new Set([MAURICIO, CODIGO]), vinculadaDesdeMs: T('2026-11-12T12:13:07Z'), ahoraMs, esDeMaKo: () => false };
+  assert.equal(ajenosQueLaVozNoVio(deOtra, base), 0, 'contó los grupos personales de Martín: la voz estaba bien');
+  assert.equal(estaSorda({ ultimaPersonaMs: T('2026-11-13T15:59:48Z'), ultimoPropioMs: T('2026-11-13T16:00:30Z'), ajenosQueNoVio: ajenosQueLaVozNoVio(deOtra, base) }, ahoraMs).sorda, false);
+  // La prueba directa sigue: un mensaje en un grupo de MaKo que la voz no tiene, sí cuenta (una vez, aunque el store lo traiga dos veces).
+  const perdido = persona('C1', '2026-11-13T17:40:00Z', CODIGO);
+  assert.equal(ajenosQueLaVozNoVio([...deOtra, perdido, perdido], base), 1, 'un mensaje de un grupo de MaKo que la voz no vio ya no cuenta');
+  // Lo que ya filtraba: lo propio, lo de MaKo, las reacciones, lo de antes de vincularse, lo de hace más de 3 h y lo de hace menos de 10 min.
+  const C = (id: string, iso: string) => persona(id, iso, CODIGO);
+  assert.equal(ajenosQueLaVozNoVio([propio('P1', '2026-11-13T17:40:00Z'), { ...C('R1', '2026-11-13T17:40:00Z'), messageType: 'reactionMessage' },
+    C('V1', '2026-11-12T12:00:00Z'), C('H1', '2026-11-13T15:10:00Z'), C('N1', '2026-11-13T18:15:00Z')], base), 0);
+  assert.equal(ajenosQueLaVozNoVio([C('K1', '2026-11-13T17:40:00Z')], { ...base, esDeMaKo: () => true }), 0, 'lo que escribió MaKo, visto desde la otra');
+  // Sin la lista de grupos (no se pudo leer) no cuenta nada: un error no es una sordera.
+  assert.equal(ajenosQueLaVozNoVio([perdido], { ...base, gruposDeMaKo: new Set<string>() }), 0);
+  // El cableado: el detector le pasa los grupos de MaKo leídos estricto, y sin ellos no cuenta.
+  const vig = sinComentarios(leer('lib/canal-vigilante.ts'));
+  assert.match(vig, /const gruposDeMaKo = otra && otra !== voz \? await gruposDeMaKoEstricto\(\)\.catch\(\(\) => null\) : null;/);
+  assert.match(vig, /if \(otra && otra !== voz && gruposDeMaKo\?\.size\) \{/);
+  assert.match(vig, /ajenosQueNoVio = ajenosQueLaVozNoVio\(deOtra, \{ vistos, gruposDeMaKo,/);
+  assert.match(vig, /\.in\('key', \[KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN\]\)/);
+});
+
 // ── Probado rompiéndolo (11/11/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
 //   S1 sin mirar si MaKo mandó después del último mensaje de una persona          → falla el 1
 //   S2 sin el horario activo                                                       → fallan el 1 y el 2
@@ -164,3 +202,9 @@ test('5. el cableado: corre en el cron alerta-critica; ningún `restart` en el c
 //   D3 la marca vieja no se borra (sólo se escribe si hay una nueva)                 → falla el 4
 //   D4 la tanda atrasada (con su hora vieja) cuenta como prueba                      → fallan el 3 y el 4
 //   D5 sin limpiar la marca de un dispositivo viejo                                  → fallan el 3 y el 4
+// ── Probado rompiéndolo (13/11/2026, la otra línea y los grupos personales de Martín; base 6/0) ─────────────────────────────
+//   O1 la otra línea cuenta cualquier grupo (la versión de antes)                    → fallan el 4 y el 6
+//   O2 el detector no le pasa los grupos de MaKo (cuenta todos)                      → fallan el 4 y el 6
+//   O3 sin sacar los duplicados del store de la otra                                 → falla el 6
+//   O4 los grupos de MaKo sin el «MaKo <> cliente» (sólo el del super admin)         → fallan el 4 y el 6
+//   O5 sin la lista de grupos, cuenta todo                                           → falla el 6
