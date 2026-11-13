@@ -11,7 +11,7 @@
 //   · no mueve etapas: pone etiquetas sin etapa vinculada, con el lote que no dispara automatizaciones (`ponerEtiquetaLote`).
 // =============================================================================
 
-import { getTenantDb } from './workspace';
+import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSetting, setSetting } from './settings';
 import { MAKO_SETTER } from './pipeline';
 import { revisarCon, vistaDe, type ConfigRT, type EstadoRT, type PuertosRT, type ResultadoRT, type ViaMeta, type VistaRT } from './retargeting-motor';
@@ -232,20 +232,27 @@ export async function puertosDelNegocio(ws: number): Promise<PuertosRT> {
   };
 }
 
-/** La revisión de UN negocio. Adentro de `runWithWorkspace(ws, …)`. */
+// ── LO QUE SE LLAMA DE AFUERA (el cron, la API de MaKo y la página del CoPilot) ───────────────────────────────────────
+// ⚠️ Cada una corre en el negocio que RECIBE, no en el del pedido: el CoPilot las llama con la ws de `wsDeAdsManager()`, que
+// puede ser el super admin mirando a un cliente. La base, los ajustes y la IA se resuelven por el contexto (`getTenantDb`,
+// `getSetting`), así que sin `runWithWorkspace(ws, …)` adentro leerían y escribirían en el negocio de quien mira.
+
+/** La revisión de UN negocio. */
 export async function revisarRetargeting(ws: number, opts: { enSeco: boolean }): Promise<ResultadoRT> {
-  return revisarCon(await puertosDelNegocio(ws), opts);
+  return runWithWorkspace(ws, async () => revisarCon(await puertosDelNegocio(ws), opts));
 }
 
 /** Lo que ve el CoPilot, sin revisar nada. */
 export async function verRetargeting(ws: number): Promise<VistaRT> {
-  const [estado, config, via] = await Promise.all([leerEstado(), leerConfig(), metaPuertos(ws).via().catch(() => 'ninguna' as ViaMeta)]);
-  return vistaDe(estado, config, via);
+  return runWithWorkspace(ws, async () => {
+    const [estado, config, via] = await Promise.all([leerEstado(), leerConfig(), metaPuertos(ws).via().catch(() => 'ninguna' as ViaMeta)]);
+    return vistaDe(estado, config, via);
+  });
 }
 
 /** El interruptor del piloto: con los públicos de Meta prendidos, la próxima revisión los crea y los mantiene. */
 export async function configurarRetargeting(ws: number, publicosMeta: boolean): Promise<VistaRT> {
-  await setSetting(CLAVE_CONFIG, JSON.stringify({ publicosMeta }));
+  await runWithWorkspace(ws, () => setSetting(CLAVE_CONFIG, JSON.stringify({ publicosMeta })));
   return verRetargeting(ws);
 }
 
@@ -253,7 +260,11 @@ export async function configurarRetargeting(ws: number, publicosMeta: boolean): 
  * «Pasarlas al CRM» (el botón del CoPilot): crea el lead de cada charla sin lead, con la MISMA alta de una charla de /chats
  * (`crearLeadDesdeWhatsappAction`: el nombre de la agenda, el funnel de destino y el tope del plan). Lo pide el dueño; nunca solo.
  */
-export async function pasarChatsAlCrm(ws: number, funnelId: number | null): Promise<{ creados: number; yaEstaban: number; elegir?: Array<{ id: number; nombre: string }>; error?: string }> {
+export async function pasarChatsAlCrm(ws: number, funnelId: number | null = null): Promise<{ creados: number; yaEstaban: number; elegir?: Array<{ id: number; nombre: string }>; error?: string }> {
+  return runWithWorkspace(ws, () => pasarChatsAlCrmEnElNegocio(ws, funnelId));
+}
+
+async function pasarChatsAlCrmEnElNegocio(ws: number, funnelId: number | null): Promise<{ creados: number; yaEstaban: number; elegir?: Array<{ id: number; nombre: string }>; error?: string }> {
   const [{ destinoDelAlta }, { leerFunnels }, { frenarAltaPorTope, TopeDelPlanError }, { createLead }, { LeadDuplicadoError }, { ORIGEN_LEAD }, { getNombreContacto }, { nombreParaAlta }] = await Promise.all([
     import('./lead-funnel-reglas'), import('./funnels'), import('./topes-crm'), import('./leads'), import('./leads-duplicados'), import('@/app/crm/origen-lead'), import('./evolution-contactos'), import('./contacto-lead'),
   ]);
