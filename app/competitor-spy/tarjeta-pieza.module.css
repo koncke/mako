@@ -28,3 +28,7 @@
 }
 
 .destino { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Lo de más de una alerta de los seguidos (./Seguidos.tsx): de quién es, con qué ángulo le funciona y «¿Creamos uno parecido?».
+   Alto FIJO (ALTO_EXTRA en Seguidos.tsx): la grilla mixta estima el alto de cada tarjeta con él. */
+.extra { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }

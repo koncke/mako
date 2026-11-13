@@ -23,7 +23,8 @@ import 'server-only';
 import { piezasDeApify } from './instagram-perfil';
 import { clavesApifyDeSpy } from './instagram-perfil-server';
 import { claveDeHuella, conLaPrimeraConCredito, type ClaveApify } from './spy-claves';
-import { cambiarSettingSi, getSettingEstricto } from './settings';
+import { cambiarSettingSi, getSetting, getSettingEstricto } from './settings';
+import { CLAVE_SEGUIDOS, DIAS_ENTRE_CORRIDAS_SEGUIDO, idsSeguidos, leerRegistroSeguidos } from './spy-seguidos-reglas';
 import { guardarVistas, leerCompetidor, vistaDeInstagram } from './spy';
 import { rellenarMiniaturas } from './spy-miniaturas-relleno';
 import { anunciosDeQuien, piezaDeAnuncio } from './spy-captura';
@@ -32,7 +33,7 @@ import {
   ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, ajustarAlCredito, creditoDeApify, creditoTotal, esFaltaDeCredito, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_DIA_TRANSCRIPCIONES,
   CLAVE_TAREAS, CORRIDAS_LARGAS_POR_DIA, TRANSCRIPCIONES_POR_DIA, USD_POR_ANUNCIO, USD_POR_PUBLICACION, anuncioDeApify,
   entradaDeAnuncios, entradaDePublicaciones, entradaDeUnaPublicacion, estadoDeCorrida, leerTareas, paginaDeSusAnuncios, pedidoDePublicaciones,
-  siguienteDeAnuncios, tocaPedir, usadasHoy, videoDelItem, type CreditoApify, type TareaLarga, type TareasDeCompetidor,
+  siguienteDeAnuncios, tocaPedir, ultimaParaManana, usadasHoy, videoDelItem, DIAS_ENTRE_CORRIDAS, type CreditoApify, type TareaLarga, type TareasDeCompetidor,
 } from './spy-todo-reglas';
 import { getTenantDb } from './workspace';
 
@@ -159,7 +160,7 @@ type CompetidorLeido = NonNullable<Awaited<ReturnType<typeof leerCompetidor>>>;
  * Si no hay ninguno suyo, se prueba su otra búsqueda (su @, su web: `busquedasDeSusAnuncios`); probadas todas, no pauta, y eso
  * se dice en su lugar. Una corrida vacía cuesta US$0.
  */
-async function pasoDeAnuncios(claves: readonly ClaveApify[], c: CompetidorLeido, t: TareaLarga | undefined): Promise<EstadoTodo> {
+async function pasoDeAnuncios(claves: readonly ClaveApify[], c: CompetidorLeido, t: TareaLarga | undefined, dias: number): Promise<EstadoTodo> {
   const busquedas = busquedasDeSusAnuncios(c);
   const suPagina = /^\d{5,25}$/.test(c.pagina_anuncios ?? '') ? (c.pagina_anuncios as string) : null;
   const ahora = () => new Date().toISOString();
@@ -168,7 +169,7 @@ async function pasoDeAnuncios(claves: readonly ClaveApify[], c: CompetidorLeido,
     // La lee la clave que la empezó (varias claves, 5/11/2026). Si la quitaron, se olvida y se vuelve a pedir mañana.
     const token = claveDeHuella(claves, t.clave)?.token;
     if (!token) {
-      await anotar(c.id, 'anuncios', { ...(t.sinAnuncios ? { sinAnuncios: t.sinAnuncios } : {}), ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
+      await anotar(c.id, 'anuncios', { ...(t.sinAnuncios ? { sinAnuncios: t.sinAnuncios } : {}), ultima: ultimaParaManana(Date.now(), dias) });
       return { enMarcha: false, nuevas: 0, porque: SIN_SU_CLAVE, ...noPauta(t.sinAnuncios) };
     }
     const r = await apify(token, `/actor-runs/${t.run}`).catch(() => null);
@@ -200,7 +201,7 @@ async function pasoDeAnuncios(claves: readonly ClaveApify[], c: CompetidorLeido,
     await anotar(c.id, 'anuncios', { ultima: hoyMirado, sinAnuncios: hoyMirado });
     return { enMarcha: false, nuevas: 0, ...noPauta(hoyMirado) };
   }
-  if (!tocaPedir(t, Date.now())) return { enMarcha: false, nuevas: 0, ...noPauta(t?.sinAnuncios) };
+  if (!tocaPedir(t, Date.now(), dias)) return { enMarcha: false, nuevas: 0, ...noPauta(t?.sinAnuncios) };
   if (!suPagina && !busquedas.length) return { enMarcha: false, nuevas: 0 };
   // ⚠️ EL CRÉDITO DEL MES MANDA (plan FREE: US$5): la corrida se achica a lo que deja libre, o espera. Con varias claves, la reserva
   // va sobre el crédito de TODAS y la corrida corre en UNA: la primera que alcanza.
@@ -219,7 +220,7 @@ async function pasoDeAnuncios(claves: readonly ClaveApify[], c: CompetidorLeido,
   }));
   if (corrida === 'sin-credito') return { enMarcha: false, nuevas: 0, porque: 'sin-credito', ...noPauta(t?.sinAnuncios) };
   if (!corrida) {
-    await anotar(c.id, 'anuncios', { ...(t ?? {}), ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
+    await anotar(c.id, 'anuncios', { ...(t ?? {}), ultima: ultimaParaManana(Date.now(), dias) });
     return { enMarcha: false, nuevas: 0, ...noPauta(t?.sinAnuncios) };
   }
   await anotar(c.id, 'anuncios', {
@@ -232,13 +233,13 @@ async function pasoDeAnuncios(claves: readonly ClaveApify[], c: CompetidorLeido,
 }
 
 /** Un paso de un canal: mirar la corrida en marcha, o empezar una si toca. */
-async function pasoDeCanal(claves: readonly ClaveApify[], c: CompetidorLeido, canal: Canal, t: TareaLarga | undefined): Promise<EstadoTodo> {
-  if (canal === 'anuncios') return pasoDeAnuncios(claves, c, t);
+async function pasoDeCanal(claves: readonly ClaveApify[], c: CompetidorLeido, canal: Canal, t: TareaLarga | undefined, dias: number): Promise<EstadoTodo> {
+  if (canal === 'anuncios') return pasoDeAnuncios(claves, c, t, dias);
   if (t?.run && t.dataset) {
     // La lee la clave que la empezó (varias claves, 5/11/2026). Si la quitaron, se olvida y se vuelve a pedir mañana.
     const token = claveDeHuella(claves, t.clave)?.token;
     if (!token) {
-      await anotar(c.id, canal, { ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
+      await anotar(c.id, canal, { ultima: ultimaParaManana(Date.now(), dias) });
       return { enMarcha: false, nuevas: 0, porque: SIN_SU_CLAVE };
     }
     const r = await apify(token, `/actor-runs/${t.run}`).catch(() => null);
@@ -258,13 +259,13 @@ async function pasoDeCanal(claves: readonly ClaveApify[], c: CompetidorLeido, ca
     if (!trajo) {
       const primero = items[0] as { error?: unknown; errorDescription?: unknown } | undefined;
       console.error(`[spy-todo] competidor=${c.id} ${canal}: la corrida ${t.run} terminó (${status}) sin nada: ${String(primero?.errorDescription ?? primero?.error ?? 'vacía')}`);
-      await anotar(c.id, canal, { ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
+      await anotar(c.id, canal, { ultima: ultimaParaManana(Date.now(), dias) });
       return { enMarcha: false, nuevas: 0, porque: 'Apify no trajo sus publicaciones: vuelvo a intentar mañana' };
     }
     await anotar(c.id, canal, { ultima: new Date().toISOString() });
     return { enMarcha: false, nuevas };
   }
-  if (!tocaPedir(t, Date.now())) return { enMarcha: false, nuevas: 0 };
+  if (!tocaPedir(t, Date.now(), dias)) return { enMarcha: false, nuevas: 0 };
   // ⚠️ EL CRÉDITO DEL MES MANDA (4/11/2026): la traída larga se achica a lo que deja libre, o espera. Antes de gastar la
   // corrida del día: sin crédito no se reserva nada. Con varias claves (5/11/2026), la reserva sobre el crédito de TODAS.
   const creditos = await creditosDelMes(claves);
@@ -280,7 +281,7 @@ async function pasoDeCanal(claves: readonly ClaveApify[], c: CompetidorLeido, ca
   if (corrida === 'sin-credito') return { enMarcha: false, nuevas: 0, porque: 'sin-credito' };
   if (!corrida) {
     // Sin poder empezar (sin saldo, sin permiso): no se insiste hasta mañana.
-    await anotar(c.id, canal, { ...(t ?? {}), ultima: new Date(Date.now() - 6 * 86_400_000).toISOString() });
+    await anotar(c.id, canal, { ...(t ?? {}), ultima: ultimaParaManana(Date.now(), dias) });
     return { enMarcha: false, nuevas: 0, porque: 'No pude pedírselo a Apify' };
   }
   await anotar(c.id, canal, { ...corrida, pedidaEn: new Date().toISOString(), ...(t?.ultima ? { ultima: t.ultima } : {}) });
@@ -349,13 +350,17 @@ export async function avanzarTodo(ws: number, id: number): Promise<EstadoTodo> {
     const claves = await clavesApifyDeSpy(ws);
     if (!claves.length) return { enMarcha: false, nuevas: 0, porque: 'sin-clave' };
     const tareas = leerTareas(await getSettingEstricto(CLAVE_TAREAS))[String(id)] ?? {};
+    // Un competidor SEGUIDO mira lo nuevo cada día, no cada semana (13/11/2026: sus alertas, lib/spy-seguidos-reglas.ts). El tope
+    // de corridas del día (`CORRIDAS_LARGAS_POR_DIA`) es el mismo: lo que cambia es a quién le toca primero.
+    const seguido = idsSeguidos(leerRegistroSeguidos(await getSetting(CLAVE_SEGUIDOS).catch(() => null))).includes(id);
+    const dias = seguido ? DIAS_ENTRE_CORRIDAS_SEGUIDO : DIAS_ENTRE_CORRIDAS;
     const canales: Canal[] = [...(c.instagram ? ['instagram' as const] : []), ...(ANUNCIOS_POR_APIFY ? ['anuncios' as const] : [])];
     let enMarcha = false;
     let nuevas = 0;
     let porque: string | undefined;
     let anuncios: Pick<EstadoTodo, 'anuncios' | 'anunciosMirados'> = {};
     for (const canal of canales) {
-      const r = await pasoDeCanal(claves, c, canal, tareas[canal]);
+      const r = await pasoDeCanal(claves, c, canal, tareas[canal], dias);
       enMarcha ||= r.enMarcha;
       nuevas += r.nuevas;
       porque ??= r.porque;

@@ -358,7 +358,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Classroom)
   comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Classroom › Community; `?post=N` abre ESE post)
   ads: ['estrategia'], // app/ads-manager/page.tsx y app/m/ads/page.tsx (`?estrategia=1`: «Cambiar mi estrategia» reabre la charla del Marketing CoPilot)
-  'competitor-spy': ['competidor'], // app/competitor-spy/page.tsx y app/m/competitor-spy/page.tsx (la ficha de un competidor es una URL: se comparte y se vuelve)
+  'competitor-spy': ['competidor', 'ver'], // app/competitor-spy/page.tsx y app/m/competitor-spy/page.tsx (la ficha de un competidor es una URL: se comparte y se vuelve)
 };
 
 export type RolMovil = 'admin' | 'closer' | 'setter' | null;

@@ -24,7 +24,7 @@ import { requireMovil } from '@/lib/movil-guard';
 import { PantallaM, VacioM } from '@/app/m/_ui';
 import { listarCompetidores, resumenDePiezas } from '@/lib/spy';
 import { sugeridosDelNegocio } from '@/lib/spy-sugeridos-server';
-import { piezasAction } from '@/app/competitor-spy/actions';
+import { piezasAction, seguidosAction } from '@/app/competitor-spy/actions';
 import { SpyM } from './SpyM';
 
 export const dynamic = 'force-dynamic';
@@ -34,16 +34,18 @@ export const dynamic = 'force-dynamic';
 // cortaría DESPUÉS de haber leído — o sea, un error sobre algo que en realidad salió bien.
 export const maxDuration = 60;
 
-export default async function CompetitorSpyMovil({ searchParams }: { searchParams: Promise<{ competidor?: string | string[] }> }) {
+export default async function CompetitorSpyMovil({ searchParams }: { searchParams: Promise<{ competidor?: string | string[]; ver?: string | string[] }> }) {
   await requireMovil({ navKey: 'market-an' });
   const sp = await searchParams;
   const pedido = Number(Array.isArray(sp.competidor) ? sp.competidor[0] : sp.competidor);
   const abierto = Number.isInteger(pedido) && pedido > 0 ? pedido : null;
-  const [r, resumen, sugeridos, delAbierto] = await Promise.all([
+  const ver = (Array.isArray(sp.ver) ? sp.ver[0] : sp.ver) === 'seguidos' ? 'seguidos' : 'todos';
+  const [r, resumen, sugeridos, delAbierto, seguidos] = await Promise.all([
     listarCompetidores().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) })),
     resumenDePiezas().catch(() => ({})),
     sugeridosDelNegocio().catch(() => []),
     abierto ? piezasAction(abierto).catch(() => null) : Promise.resolve(null),
+    ver === 'seguidos' && !abierto ? seguidosAction().catch(() => null) : Promise.resolve(null),
   ]);
   // El vacío y el error también van adentro de PantallaM, con el refresco prendido (AGENTS.md).
   if (!r.ok) {
@@ -57,6 +59,8 @@ export default async function CompetitorSpyMovil({ searchParams }: { searchParam
         sugeridos={sugeridos}
         abierto={abierto}
         piezas={abierto && delAbierto?.ok ? delAbierto.piezas : []}
+        ver={ver}
+        seguidos={seguidos?.ok ? { ids: seguidos.ids, numero: seguidos.numero, alertas: seguidos.alertas } : null}
       />
     </PantallaM>
   );

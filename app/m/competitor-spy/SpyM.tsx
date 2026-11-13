@@ -45,7 +45,8 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
-import { CabeceraM, ComputadoraM, FilaDatoM, FilaM, ListaM, SeccionM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
+import { CabeceraM, ComputadoraM, FilaDatoM, FilaM, ListaM, SeccionM, SegmentadoM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
+import { Seguidos } from '@/app/competitor-spy/Seguidos';
 import { BuscadorAlta } from '@/app/competitor-spy/BuscadorAlta';
 import { DetallePieza, type MarcoDetalle } from '@/app/competitor-spy/DetallePieza';
 import { GraficoSpy } from '@/app/competitor-spy/GraficoSpy';
@@ -53,7 +54,7 @@ import { GrillaPiezas } from '@/app/competitor-spy/GrillaPiezas';
 import { MejoresPiezas } from '@/app/competitor-spy/MejoresPiezas';
 import { TarjetaPieza } from '@/app/competitor-spy/TarjetaPieza';
 import { BrandDefs } from '@/app/_components/ServicioVisual';
-import { sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista } from '@/app/competitor-spy/actions';
+import { sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista, type SeguidosLeidos } from '@/app/competitor-spy/actions';
 import { multiplosDe } from '@/lib/multiplo-rendimiento';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
@@ -118,7 +119,7 @@ function Opcion({ rotulo, segunda, elegida, onElegir }: { rotulo: string; segund
   );
 }
 
-export function SpyM({ competidores, resumen, sugeridos, abierto, piezas }: {
+export function SpyM({ competidores, resumen, sugeridos, abierto, piezas, ver = 'todos', seguidos = null }: {
   competidores: Competidor[];
   resumen: Record<number, ResumenPiezas>;
   /** Los de la plataforma que este negocio todavía no mira (lib/spy-sugeridos.ts). */
@@ -127,6 +128,10 @@ export function SpyM({ competidores, resumen, sugeridos, abierto, piezas }: {
   abierto: number | null;
   /** Las piezas del que se abre, leídas en el server. */
   piezas: readonly PiezaVista[];
+  /** `?ver=seguidos`: la vista de los seguidos, la misma de la computadora (app/competitor-spy/Seguidos.tsx). */
+  ver?: 'todos' | 'seguidos';
+  /** Lo de los seguidos, leído en el server. */
+  seguidos?: SeguidosLeidos | null;
 }) {
   const router = useRouter();
   const toast = useToastM();
@@ -257,7 +262,15 @@ export function SpyM({ competidores, resumen, sugeridos, abierto, piezas }: {
           <Icon name="plus" size={17} />
         </button>
 
-        {competidores.length === 0 ? (
+        {/* Todos o Seguidos (13/11/2026): como en la computadora, la vista va en la URL. */}
+        {competidores.length > 0 && (
+          <SegmentadoM etiqueta="Qué competidores ver" valor={ver}
+            opciones={[{ id: 'todos', label: 'Todos', href: RUTA }, { id: 'seguidos', label: 'Seguidos', href: `${RUTA}?ver=seguidos` }]} />
+        )}
+
+        {competidores.length > 0 && ver === 'seguidos' ? (
+          <Seguidos competidores={competidores} telefono onAbrir={(id) => irA(id)} rutaGuion={(id) => `/m/copywriter/${id}?mako=1`} inicial={seguidos} />
+        ) : competidores.length === 0 ? (
           <VacioM
             frase="Todavía no estás mirando a nadie. Busca a alguien de tu nicho por su nombre, su @, su canal o su sitio: lo leemos ahora."
             accion={{ rotulo: 'Buscar a alguien', onClick: () => abrirAlta() }}
@@ -287,11 +300,11 @@ export function SpyM({ competidores, resumen, sugeridos, abierto, piezas }: {
         )}
 
         {/* La línea de la computadora es la de la lista: cuántos hay y desde cuándo (sin un título-frase). */}
-        {competidores.length > 0 && desdes[0] && (
+        {ver === 'todos' && competidores.length > 0 && desdes[0] && (
           <p className="m-competitor-spy__frescura">{competidores.length} {competidores.length === 1 ? 'competidor' : 'competidores'} · el más viejo desde el {fechaCorta(desdes[0])}</p>
         )}
 
-        {sugeridos.length > 0 && (
+        {ver === 'todos' && sugeridos.length > 0 && (
           <SeccionM titulo="Sugeridos">
             <ListaM etiqueta="Sugeridos">
               {sugeridos.map((s) => (
