@@ -25,7 +25,8 @@ import { idDelFunnelDefault } from './funnels';
 import { casaReal } from './lead-funnel-reglas';
 import { pipelineStageOf, type StageDerivable } from './pipeline';
 import { setPipelineStage } from './leads';
-import { columnaDeRebote, columnaDelEvento, decidirMovimiento, dejaDeRecibir } from './email-eventos-crm-reglas';
+import { columnaDeRebote, columnaDelEvento, columnaParaAcomodar, decidirMovimiento, dejaDeRecibir, eventoMasLejano, type EmailYaEnviado } from './email-eventos-crm-reglas';
+import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 
 /** Quién movió la tarjeta, en el historial del lead. */
 export const AUTOR_EMAIL = 'MaKo · email';
@@ -117,4 +118,80 @@ export async function cortaPorCompra(o: { ws: number; leadId: number; secuenciaI
     console.error(`[email-eventos-crm] corte de la automatización ${o.secuenciaId}, lead ${o.leadId}: ${e instanceof Error ? e.message : String(e)}`);
     return 'ilegible';
   }
+}
+
+// =============================================================================
+// ACOMODAR LO QUE YA SALIÓ al elegir las columnas (13/11/2026, ticket #93; la regla en lib/email-eventos-crm-reglas.ts)
+// =============================================================================
+
+/** Cuántas tarjetas mueve una sola pasada. Con más, dice cuántas quedan: se vuelve a pedir (no mueve dos veces lo mismo). */
+export const TOPE_ACOMODO = 400;
+
+export type Acomodo = { leads: number; movidos: number; porColumna: Record<string, number>; quedan: number };
+
+/**
+ * Las posiciones de muchos leads en el CRM `funnelId`, en tandas (la misma regla que `posicionEnCrm`: su fila de agregado,
+ * o su casa). Tira si no puede leer.
+ */
+async function posicionesEnCrm(leadIds: readonly number[], funnelId: number): Promise<Map<number, PosicionEnCrm>> {
+  const db = await getTenantDb();
+  const out = new Map<number, PosicionEnCrm>();
+  const def = await idDelFunnelDefault();
+  for (let i = 0; i < leadIds.length; i += 200) {
+    const ids = leadIds.slice(i, i + 200);
+    const [{ data: filas, error: eF }, { data: leads, error: eL }] = await Promise.all([
+      db.from('lead_funnel').select('lead_id, etapa').eq('funnel_id', funnelId).in('lead_id', ids),
+      db.from('leads').select(COLS_LEAD).in('id', ids),
+    ]);
+    if (eF) throw new Error(`posicionesEnCrm (filas): ${eF.message}`);
+    if (eL) throw new Error(`posicionesEnCrm (leads): ${eL.message}`);
+    const agregado = new Map(((filas ?? []) as Array<{ lead_id: number | string; etapa: string | null }>).filter((r) => r.etapa).map((r) => [Number(r.lead_id), String(r.etapa)]));
+    for (const l of (leads ?? []) as Array<StageDerivable & { id: number | string; funnel_id: number | string | null }>) {
+      const id = Number(l.id);
+      const etapa = agregado.get(id);
+      if (etapa) { out.set(id, { tipo: 'agregado', etapa }); continue; }
+      out.set(id, casaReal(l.funnel_id == null ? null : Number(l.funnel_id), def) === funnelId ? { tipo: 'casa', etapa: pipelineStageOf(l) } : null);
+    }
+  }
+  return out;
+}
+
+/**
+ * AL ELEGIR LAS COLUMNAS, LO QUE YA SALIÓ SE ACOMODA (#93). Cada lead que ya recibió un email de la automatización `secuenciaId`
+ * va a la columna de lo más lejos que llegó (rebotó, hizo clic, abrió, le salió), con las reglas de siempre: nunca hacia
+ * atrás (salvo el rebote) ni desde una terminal, y sólo a una columna que el CRM tiene. Lo llama `configurar_automatizacion`
+ * después de guardar columnas. TIRA si no puede leer: quien llama lo dice.
+ */
+export async function acomodarPorEmailsEnviados(o: { ws: number; secuenciaId: number; tope?: number }): Promise<Acomodo> {
+  return runWithWorkspace(o.ws, async () => {
+    const tope = o.tope ?? TOPE_ACOMODO;
+    const vacio: Acomodo = { leads: 0, movidos: 0, porColumna: {}, quedan: 0 };
+    const config = await leerConfigAutomatizacion(o.secuenciaId);
+    const funnelId = await crmDeLaAutomatizacion(o.secuenciaId);
+    if (funnelId == null || !config.columnasEmail) return vacio;
+    const db = await getTenantDb();
+    const envios = await leerTodo<EmailYaEnviado & { id: number; lead_id: number | null }>(db, 'nutricion_envios', 'id, lead_id, abierto_at, clic_at, rebotado_at', {
+      orden: 'id',
+      filtros: (q) => q.eq('secuencia_id', o.secuenciaId).eq('canal', 'email').eq('estado', 'enviado') as ConsultaPaginada,
+    });
+    const porLead = new Map<number, EmailYaEnviado[]>();
+    for (const e of envios) if (e.lead_id != null) porLead.set(Number(e.lead_id), [...(porLead.get(Number(e.lead_id)) ?? []), e]);
+    if (!porLead.size) return vacio;
+    const [etapas, posiciones] = await Promise.all([etapasDeProducto(funnelId), posicionesEnCrm([...porLead.keys()], funnelId)]);
+    const res: Acomodo = { leads: porLead.size, movidos: 0, porColumna: {}, quedan: 0 };
+    for (const [leadId, suyos] of porLead) {
+      const lejano: EventoColumna | null = eventoMasLejano(suyos);
+      const destino: { evento: EventoColumna; columna: string } | null = lejano ? columnaParaAcomodar(config.columnasEmail, etapas, lejano) : null;
+      const posicion: PosicionEnCrm = posiciones.get(leadId) ?? null;
+      if (!destino || !posicion) continue;
+      if (!decidirMovimiento({ etapas, actual: posicion.etapa, destino: destino.columna, evento: destino.evento }).mover) continue;
+      if (res.movidos >= tope) { res.quedan += 1; continue; }
+      if (posicion.tipo === 'agregado') await moverEtapaEnProducto(leadId, funnelId, destino.columna, { autor: AUTOR_EMAIL });
+      else await setPipelineStage(leadId, destino.columna, { autor: AUTOR_EMAIL, requisitos: { omitir: OMITIR } });
+      res.movidos += 1;
+      const nombre = etapas.find((e) => e.key === destino.columna)?.label ?? destino.columna;
+      res.porColumna[nombre] = (res.porColumna[nombre] ?? 0) + 1;
+    }
+    return res;
+  });
 }

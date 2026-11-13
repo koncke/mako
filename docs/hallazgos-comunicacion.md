@@ -13693,9 +13693,29 @@ su CRM —elegida (`columnasEmail.rebote`) o por su nombre— aunque quede antes
   envíos reales (ventana deslizante) antes de fijar el número.
 - El tope diario es del NEGOCIO: una campaña masiva que arranca temprano deja sin cupo a la que trae leads nuevos.
 
+**Hecho el mismo día (a pedido del Cerebro):**
+- **Prioridad del cupo de email.** «Primero lo que entra» existía SÓLO para el WhatsApp (lib/nutricion-prioridad.ts, 21/10): el
+  email era un presupuesto único y ganaba quien llegaba primero. Ordenar no alcanzaba: a las 7 los calientes todavía no podían
+  salir (su horario abría a las 9). Ahora un email a quien NO es caliente usa el presupuesto menos una reserva del 20 % del tope de
+  hoy (`emailSinLugar`); caliente = entró por un canal (`origen_lead`) en los últimos 7 días, o agendó (`esCalienteParaEmail`). Son
+  7 días y no las 24 h del WhatsApp: los emails de una bienvenida siguen varios días. Sin ningún caliente en el negocio, no se
+  reserva nada. La nota de la corrida lo dice: «tope diario de email: lo que queda es para los leads nuevos».
+- **Columnas elegidas después de mandar.** `configurar_automatizacion` acomoda lo que ya salió (`acomodarPorEmailsEnviados`,
+  lib/email-eventos-crm.ts): cada lead va a la columna de lo más lejos que llegó (rebotó > clic > abrió > le salió; si esa columna
+  no se eligió, la de abajo; un rebotado sin columna de rebotados no se mueve). Corre en `after()` (hasta 400 por pasada; guardar
+  otra vez sigue). Lee las posiciones en tandas de 200, no de a un lead.
+
+- **«Email por día» según la cuenta (decisión del Cerebro).** Con SU clave de Resend Y SU remitente (`opcionesDeRango`,
+  lib/limites-envio-cuenta.ts: `cuentaDeCorreo` «propia» + `remitenteDelNegocioActual` que pasa), hasta 2.000; con la de la
+  plataforma, 500. Arranque y suba, de 1 a 500 para todos. ⚠️ **La trampa que había:** un valor fuera de rango NO da error al
+  leer: `sanearLimites` lo saltea y queda lo de FÁBRICA (100). Subir el máximo sin pasarle la cuenta a todos los que leen
+  (motor, API, pantalla, «por qué no sale») habría dejado a Mauricio en 100 justo al subirlo a 1.600. Ahora lo de una cuenta
+  propia leído sin ella baja a 500, nunca a 100. Y la definición de la API (`emailDia`, chatbot.def.ts) tenía su propio
+  `maximo: 500`, que valida ANTES del runner: también subió (a 2.000; el rango real lo decide el runner).
+
 **Lo que quedó sin hacer:**
-- **Prioridad del cupo:** el motor no le da prioridad a una automatización de leads nuevos sobre una lista fría; hoy se arregla
-  con el goteo por día de la masiva (`configurar_automatizacion` → `goteoPorDia`). Vive en lib/nutricion.ts (el tope del día).
-- **Columnas elegidas después de mandar:** los envíos de antes no se acomodan solos (lib/email-eventos-crm.ts sólo mueve al llegar
-  el evento). Se reclasifica a mano con `crm/pasar_en_bloque_otra_columna`.
+- **El goteo por automatización sigue con máximo 500 por día** (`RANGOS_GOTEO`, lib/config-automatizacion.ts, toma el
+  `RANGOS_LIMITES.email.dia` de la plataforma): con un tope de 1.600, una sola automatización no se puede limitar a más de 500.
 - **El tope que frena un envío no deja fila** (`nutricion_envios`): sólo la nota en la corrida. Por eso los 34 parecían «sin motivo».
+- **La reserva no es por automatización:** una lista fría de leads NUEVOS (una base importada hoy con `origen_lead`) cuenta como
+  caliente. Lo mismo que en el WhatsApp (lib/nutricion-prioridad.ts, la revisión adversarial del 21/10).

@@ -170,4 +170,37 @@ export const BITACORA: Hito[] = [
     revisar: '/email',
     tickets: [93],
   },
+  {
+    fecha: '13 nov', hora: '18:30', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los leads nuevos tienen lugar en el tope de email, y elegir columnas acomoda lo que ya salió',
+    puntos: [
+      'El 12/11 la lista fría de Mauricio se gastó 398 de sus 500 emails del día a las 7, y 34 de sus 67 leads nuevos se quedaron sin el suyo.',
+      'Ahora una lista fría usa como mucho el 80 % del tope del día: el resto queda para los leads que entraron por un formulario, una landing o una agenda en los últimos 7 días.',
+      'Al elegir las columnas del email de una automatización, los leads que ya recibieron emails pasan a la columna de lo que hicieron: les llegó, lo abrieron, hicieron clic o rebotó.',
+    ],
+    archivos: [
+      'lib/nutricion-prioridad.ts · lib/nutricion.ts — la reserva del email para los leads nuevos',
+      'lib/email-eventos-crm.ts · lib/email-eventos-crm-reglas.ts · lib/api-mako/areas/chatbot.run.ts — acomodar lo que ya salió',
+      'tests/email-prioridad-acomodo-93.test.ts — el motor y el runner de verdad, con los dos escenarios',
+      'docs/hallazgos-comunicacion.md',
+    ],
+    revisar: '/automations',
+  },
+  {
+    fecha: '13 nov', hora: '20:10', chat: 'Tickets Sellers', sesion: 'local_6215cd34-1e87-41f1-83cd-3a8627b1f683', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Con tu propia cuenta de Resend y tu dominio, el email por día llega a 2.000',
+    puntos: [
+      'Un negocio que manda con su propia cuenta de Resend y su dominio puede subir «Email por día» hasta 2.000. Con la cuenta de la plataforma sigue en 500.',
+      'El primer día y cuánto sube por día siguen de 1 a 500 para todos.',
+      'Si un día no se puede leer con qué cuenta manda, el tope baja a 500, nunca a lo de fábrica.',
+    ],
+    archivos: [
+      'lib/limites-envio.ts — `rangoDeLimite` y el rango de cada cuenta',
+      'lib/limites-envio-cuenta.ts — con qué cuenta manda el negocio',
+      'tests/limites-email-cuenta-propia-93.test.ts · tests/email-campana-topes.test.ts — los dos casos, también por la API',
+    ],
+    revisar: '/automations',
+  },
 ];
