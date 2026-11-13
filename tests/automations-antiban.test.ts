@@ -74,7 +74,8 @@ test('el anti-ban de la automatización: goteo y tope por día UNA vez, para tod
   assert.match(g, /const on = v !== undefined;/);
   assert.match(g, /onCambio=\{\(x\) => guardar\(\{ \[campo\]: x \? sugerido : null \}\)\}/);
   assert.match(g, /debajo=\{on \? \(/);
-  assert.match(g, /<Numero valor=\{v\} min=\{RANGOS_GOTEO\[campo\]\[0\]\} max=\{RANGOS_GOTEO\[campo\]\[1\]\}/);
+  // Desde el ticket #93 (13/11/2026) con los rangos de la cuenta del negocio (`rangosGoteo`), que trae la lectura.
+  assert.match(g, /<Numero valor=\{v\} min=\{rangos\[campo\]\[0\]\} max=\{rangos\[campo\]\[1\]\}/);
   assert.match(g, /\) : undefined\} \/>/, 'apagada tiene que quedar sin número debajo');
   assert.doesNotMatch(g, /apagado=\{!on\}|apagada=\{!on\}/, 'el número apagado ya no se dibuja gris: no se dibuja');
   // Con el interruptor de la casa (el de «Horario de oficina» y «Activar»), uno solo: lo comparten las dos filas.

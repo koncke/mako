@@ -547,6 +547,15 @@ async function escenarioColumnas(): Promise<Record<string, unknown>> {
   out.abrioEmailDos = await eventoDeResend('email.opened', dos);
   out.tarjeta601TrasAbrirDos = posicion(601);
 
+  // Ticket #93 (13/11/2026): el tope por día del goteo sigue a la cuenta. Este negocio manda con SU Resend y SU dominio (hasta
+  // 2.000); la plataforma, con la de MaKo (hasta 500). Por la API, antes del «sí» y al guardar.
+  out.goteoPropia = await en(() => configurar.preparar!({ secuenciaId: id, goteoPorDia: 1200 }, ctx(NEGOCIO)));
+  out.goteoPropiaEjec = await en(() => configurar.ejecutar!((out.goteoPropia as { payload: Record<string, unknown> }).payload, ctx(NEGOCIO)));
+  out.goteoGuardado = JSON.parse(String(setting(NEGOCIO, `automatizacion.config:${id}`) ?? '{}')).goteo ?? null;
+  out.goteoPropiaMal = await en(() => configurar.preparar!({ secuenciaId: id, goteoPorDia: 2500 }, ctx(NEGOCIO)));
+  db.nutricion_secuencias.push({ id: 96, workspace_id: PLATAFORMA, clave: 'pl', nombre: 'De la plataforma', activa: false, archivada_at: null, trigger_tipo: 'manual', etapa: 'manual', funnel_id: null, pasos: [] });
+  out.goteoPlataforma = await runWithWorkspace(PLATAFORMA, () => configurar.preparar!({ secuenciaId: 96, goteoPorDia: 900 }, ctx(PLATAFORMA)));
+
   // Ticket #93 (13/11/2026): un rebote lleva la tarjeta a la columna «Rebotados» del CRM —sin elegirla en la automatización—
   // aunque esté ANTES en el tablero (601 ya hizo clic), y le da de baja el email (sale de la secuencia).
   const crm = db.funnels.find((x) => Number(x.id) === EMAIL)!;
