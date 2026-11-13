@@ -10,7 +10,7 @@ trabajo" para crear guiones o lo que necesite el usuario... Se puede combinar co
 "OBJETIVOS", el Q, el PLAN... que sea simple de usar, que sirva para todos los casos, que tenga IA que te ayude o
 "templates" y que no sea restrictivo».
 
-## MaKo dice «te mostré arriba tu agenda» y la agenda llega ABAJO (13/11/2026, claude5, SIN ARREGLAR)
+## MaKo dice «te mostré arriba tu agenda» y la agenda llega ABAJO (13/11/2026, claude5)
 
 **El síntoma:** probando el grupo de la app del ws9, a «¿qué reuniones tengo mañana?» MaKo contestó «Te mostré arriba lo que tienes
 en tu agenda de Google para mañana…» y la lista «🗓️ Tu agenda del sábado…» quedó en el mensaje SIGUIENTE (filas 577 y 578 de
@@ -21,10 +21,14 @@ AL FINAL a propósito (lib/mako-doer-in.ts, `[...partes, ...paraLaPersona]`, «l
 se le dice al modelo es pasado: `ESTADOS_AGENDA.eventos_mostrados` = «El sistema YA le mostró a la persona lo que tiene ese día», y
 de ahí sale el «arriba». Lo mismo `reuniones_mostradas`, `horarios_mostrados` y `ERRORES_MOVER`.
 
-**Cómo se arregla (decidir uno):** o el texto al modelo dice que la lista va en un mensaje aparte DESPUÉS del suyo («no digas arriba
-ni abajo»), o el doer manda primero lo del código de lectura (la agenda) y después el texto del modelo, dejando al final lo que sí va
-después (la oferta de ayuda, los links para conectar). Lo primero toca el prompt y pide su arnés de casos; lo segundo cambia el orden
-de todas las respuestas con agenda en los dos canales.
+**Lo arreglado (mismo día):** se le dice al modelo la verdad. Todos los textos de lib/agenda-sin-ia.ts que avisan que el sistema le
+muestra algo a la persona (`ESTADOS_AGENDA`, `ERRORES_MOVER`, `ERRORES_DEL_DIA`) dicen ahora «en un mensaje aparte, justo DEBAJO de tu
+respuesta», y los que muestran una lista le prohíben «arriba» y «ya te la mostré». Se descartó la otra salida (mandar la agenda
+primero): el orden «lo del código después» lo fija tests/agenda-sin-ia.test.ts y vale para la propuesta, los links para conectar y la
+oferta de ayuda, que sí van después. Test: tests/agenda-sin-ia.test.ts, «lo que el sistema le muestra… va DEBAJO».
+
+**Regla:** lo que se le dice al modelo sobre un mensaje que manda el CÓDIGO tiene que decir DÓNDE queda ese mensaje, en el orden en
+que de verdad sale. «Ya le mostró» en pasado es una mentira si el código lo manda después, y el modelo la repite.
 
 ## Las reuniones del equipo y el email enlazado (6/11/2026, nube, la promesa a la agencia de Thiago)
 
