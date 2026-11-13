@@ -1511,7 +1511,9 @@ export function revisarOperaciones({
 							? textos.map((t, i) => sumarClaves(actuales[i], t, op.palabras ?? []))
 							: op.modo === "quitar"
 								? actuales.map((a) => quitarClaves(a, op.palabras ?? []))
-								: textos.map(() => []);
+								: op.modo === "mantener"
+									? libres.map((r) => r.claves ?? [])
+									: textos.map(() => []);
 			if ((op.modo === "estas" || op.modo === "sumar") && clavesNombradas(textos, op.palabras ?? []).every((e) => e.length === 0)) {
 				descartes.push(`${(op.palabras ?? []).map((w) => `«${corto(w, 20)}»`).join(", ")} no aparece en ${op.ref ? "ese subtítulo" : "ningún subtítulo"}`);
 				continue;
@@ -1520,6 +1522,8 @@ export function revisarOperaciones({
 			let cuantos = 0;
 			const ejemplos: string[] = [];
 			libres.forEach((r, i) => {
+				// «mantener» toca sólo los subtítulos que tienen claves: en los otros no hay nada que agrandar ni pintar.
+				if (op.modo === "mantener" && !r.claves?.length) return;
 				const nuevas = codificarClaves(elegidas[i] ?? []);
 				const tamanoIgual = !conTamano || (estado.get(r.ref)?.e.estilo?.tamano_claves ?? DEFAULTS_CLAVES.tamano) === op.tamano;
 				if (nuevas === actuales[i] && !op.color && tamanoIgual) return;
@@ -1537,6 +1541,7 @@ export function revisarOperaciones({
 				const nombradas = (op.palabras ?? []).map((w) => `«${corto(w, 20)}»`).join(", ");
 				if (op.modo === "sumar") descartes.push(`${nombradas} ya ${(op.palabras ?? []).length === 1 ? "era palabra clave" : "eran palabras clave"}`);
 				else if (op.modo === "quitar") descartes.push(`${nombradas} no ${(op.palabras ?? []).length === 1 ? "era palabra clave" : "eran palabras clave"}`);
+				else if (op.modo === "mantener") descartes.push(libres.some((r) => r.claves?.length) ? "las palabras clave ya están así" : "no hay palabras clave marcadas");
 				continue;
 			}
 			const conAlguna = elegidas.filter((e) => e.length > 0).length;
