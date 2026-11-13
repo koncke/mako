@@ -3442,4 +3442,55 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async () => ({ ok: false, resumen: 'Esta propuesta se confirma en su pantalla de revisión, no por aquí.' }),
   },
+  // EL RETARGETING (13/11/2026, lib/retargeting.ts). La revisión es la misma del cron de los lunes; Meta, sólo con el interruptor.
+  ver_retargeting: {
+    leer: async (_input, ctx) => {
+      const { verRetargeting } = await import('@/lib/retargeting');
+      return json(await verRetargeting(ctx.ws));
+    },
+  },
+  revisar_retargeting: {
+    preparar: async (input) => {
+      const enSeco = b(input.enSeco) === true;
+      return { payload: { enSeco }, resumen: enSeco ? 'Revisar las charlas con leads y ponerles su etiqueta de retargeting, sin tocar Meta.' : 'Revisar las charlas con leads, ponerles su etiqueta de retargeting y, si los públicos de Meta están prendidos, actualizarlos.' };
+    },
+    ejecutar: (payload, ctx) => seguro('revisar el retargeting', async () => {
+      const { revisarRetargeting } = await import('@/lib/retargeting');
+      const r = await revisarRetargeting(ctx.ws, { enSeco: payload.enSeco === true });
+      invalidar('leads');
+      const s = r.segmentos;
+      return {
+        ok: true,
+        resumen: `Listo: ${s.no_respondio} no respondieron, ${s.no_siguio} no siguieron, ${s.no_compro} no compraron, ${s.compro} compraron (${r.cambios.etiquetasPuestas} etiquetas puestas, ${r.cambios.etiquetasSacadas} sacadas).${r.sinRevisar ? ` ${r.sinRevisar} quedaron sin revisar.` : ''}${r.publicosMeta.aviso ? ` ${r.publicosMeta.aviso}` : ''}`,
+        datos: r as unknown as Record<string, unknown>,
+      };
+    }),
+  },
+  configurar_retargeting: {
+    preparar: async (input) => {
+      const v = b(input.publicosMeta);
+      if (v === undefined) return { error: 'Falta decir si se prenden (true) o se apagan (false).' };
+      return { payload: { publicosMeta: v }, resumen: v ? 'Prender los públicos de Meta del retargeting («MaKo · No avanzaron» y «MaKo · Compraron»): la próxima revisión los crea en tu cuenta de Meta.' : 'Apagar los públicos de Meta del retargeting: MaKo deja de tocarlos.' };
+    },
+    ejecutar: (payload, ctx) => seguro('cambiar los públicos del retargeting', async () => {
+      const { configurarRetargeting } = await import('@/lib/retargeting');
+      const v = await configurarRetargeting(ctx.ws, payload.publicosMeta === true);
+      return { ok: true, resumen: v.publicosMeta.prendido ? 'Listo: los públicos de Meta quedan prendidos desde la próxima revisión.' : 'Listo: los públicos de Meta quedan apagados.', datos: v as unknown as Record<string, unknown> };
+    }),
+  },
+  pasar_chats_al_crm: {
+    preparar: async (input, ctx) => {
+      const { verRetargeting } = await import('@/lib/retargeting');
+      const v = await verRetargeting(ctx.ws).catch(() => null);
+      const funnelId = n(input.funnelId) ?? null;
+      return { payload: { funnelId }, resumen: `Crear un lead por cada charla de WhatsApp sin lead${v ? ` (${v.chatsSinLead} en la última revisión)` : ''}.` };
+    },
+    ejecutar: (payload, ctx) => seguro('pasar las charlas al CRM', async () => {
+      const { pasarChatsAlCrm } = await import('@/lib/retargeting');
+      const r = await pasarChatsAlCrm(ctx.ws, n(payload.funnelId) ?? null);
+      if (r.creados) invalidar('leads');
+      if (r.error) return { ok: r.creados > 0, resumen: `${r.creados ? `Se crearon ${r.creados}. ` : ''}${r.error}`, datos: r as unknown as Record<string, unknown> };
+      return { ok: true, resumen: `Listo: ${r.creados} leads nuevos${r.yaEstaban ? ` (${r.yaEstaban} ya estaban)` : ''}.`, datos: r as unknown as Record<string, unknown> };
+    }),
+  },
 };
