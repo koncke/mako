@@ -85,7 +85,7 @@ test('2. el reel de Outliers: el loader de la app tapa la caja hasta que el repr
   assert.match(v, /const \[cargado, setCargado\] = useState\(false\);/);
   // 13/11/2026, mirado en producción: el `load` del iframe llega VACÍO y el reel se dibuja ~5 s después. El loader espera el
   // aviso del reproductor (su `postMessage`) o un tope después del `load`, no el `load` solo.
-  assert.match(v, /<iframe\s+ref=\{marco\}\s+src=\{embed\}[\s\S]*?onLoad=\{\(\) => setDocumento\(true\)\}\s*\/>/);
+  assert.match(v, /<iframe\s+src=\{embed\}\s+ref=\{marco\}[\s\S]*?onLoad=\{\(\) => setDocumento\(true\)\}\s*\/>/);
   assert.doesNotMatch(v, /onLoad=\{\(\) => setCargado\(true\)\}/, 'el load del iframe no es el reel dibujado');
   assert.match(v, /if \(marco\.current && e\.source === marco\.current\.contentWindow\) setCargado\(true\);/, 'sólo los avisos de SU reproductor');
   assert.match(v, /const tope = documento \? setTimeout\(\(\) => setCargado\(true\), TOPE_TRAS_CARGAR_MS\) : null;/);

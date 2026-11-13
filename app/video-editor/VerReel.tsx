@@ -102,8 +102,8 @@ export function VerReel({
           <div className={o.ver}>
             <div className={o.verVideo}>
               <iframe
-                ref={marco}
                 src={embed}
+                ref={marco}
                 title={titulo}
                 allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                 allowFullScreen
