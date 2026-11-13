@@ -260,6 +260,9 @@ function tareasDeTarjetas(datos: DatosCoPilot, oc: EstadoComunicacion): Record<T
     ? datos.tareas.map((t, i) => ({ id: `ads-${i}`, titulo: t.titulo, detalle: t.detalle, href: t.href }))
     : [{ id: 'ads-funnel', titulo: 'Elige tu funnel', detalle: 'Con eso armo lo que te toca cada semana.', href: '/ads-manager?estrategia=1' }];
   if (!datos.anuncios.conectada) anuncios.unshift({ id: 'ads-conectar', titulo: 'Conecta tu cuenta de anuncios', detalle: 'Para leer qué te trae agendas y prender el piloto.', href: '/integraciones' });
+  // Audience Network (Martín, 13/11: «fíjate si Meta todavía deja sacarlo»): desde fines de agosto de 2026 Meta ya no deja sacarlo
+  // campaña por campaña, pero sí bloquearlo en toda la cuenta, y eso no lo puede hacer MaKo por la API. Es una tarea de una vez.
+  else anuncios.push({ id: 'ads-audience-network', titulo: 'Bloquea Audience Network en tu cuenta', detalle: 'En Meta: Configuración publicitaria → Controles de ubicación. Trae clics de apps que no agendan.' });
   const web: TareaTarjeta[] = datos.web.length
     ? datos.web.slice(0, 3).map((u, i) => ({ id: `web-${i}`, titulo: `Mejora ${u.replace(/^https?:\/\//, '')}`, detalle: 'Con los comentarios del análisis, sección por sección.', href: `/web-generator?analizar=${encodeURIComponent(u)}` }))
     : [{ id: 'web-analizar', titulo: 'Analiza tu web', detalle: 'Te digo qué cambiar para que venda más.', href: '/web-generator' }];
