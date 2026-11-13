@@ -621,6 +621,24 @@ Tabla con cada paso y su captura: side-session-notes/local_3f1a66d3-…/probar-c
   título y la descripción. Un tema que no tiene que ver con el negocio (los «7 ejercicios de bíceps») se escribe sin preguntar,
   con sólo el gancho y la estructura, y se dice.
 
+## El relevo: «escribe casi cualquier cosa» era la OFERTA VACÍA (13/11/2026, relevamiento en producción antes de tocar código)
+
+Martín: «no me hace las preguntas… no está transcribiendo… al hacer la transformación del copy a la oferta, tampoco me pregunta
+sobre qué oferta, incluso escribe casi que cualquier cosa». Recorrido como alguien nuevo, con capturas (side-session-notes/…/
+probar-copy-relevo/relevamiento.md y la maqueta del flujo nuevo, que Martín revisa antes de programar).
+
+- **⚠️ El diagnóstico obvio (el modelo, el prompt) era el equivocado.** Las dos ofertas del negocio de Martín tienen sólo el NOMBRE
+  (sin promesa, qué incluye, para quién, precio ni pruebas), ninguna es principal y el negocio no tiene contexto cargado. Y aunque
+  lo tuvieran, a MaKo le llega el nombre de la oferta en el pedido; lo demás sale de una BÚSQUEDA en el Second Brain
+  (lib/negocio-para-crear.ts), no de la oferta elegida. Con un nombre solo inventa: un dominio, «Soy MaKo, el copywriter de MaKo»,
+  «un checklist gratis». **Regla:** la oferta elegida va ENTERA al pedido; si está vacía, se pregunta antes de escribir.
+- **Replicar no preguntaba nada** (decisión del 11/11, «sin preguntas»), y con un tema ajeno copiaba el canto: la «Maratón 2026»
+  salió «¡Dale! ¡Dale! ¡Dale!». Martín lo corrigió el 13/11: antes de escribir, la oferta y, si el tema no tiene que ver, cómo
+  adaptarlo (memoria `replicar-deja-todo-escrito`).
+- **La transcripción casi no existe donde se replica:** 2 de 48 reels, 0 de 48 YouTube, ningún anuncio en video. MaKo replicó un
+  video de 8 capítulos leyendo su descripción y dijo «Repliqué la estructura entera».
+- **La portada no es del negocio:** para uno de marketing, fitness y autoayuda arriba, y 35 de 48 carruseles en inglés.
+
 ## Qué quedó sin hacer
 
 - (13/11/2026) Si MaKo PREGUNTA cuando el tema del original no tiene que ver con el negocio lo decide Martín; hoy no pregunta
