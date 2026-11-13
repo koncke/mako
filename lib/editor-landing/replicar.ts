@@ -66,7 +66,7 @@ import { getWorkspaceActual } from '../workspace';
 import { conMemoriaDelPedido } from '../ia-saturacion';
 import { crear, guardarTema, temasPropiosDe } from './server';
 import { esquema as pedirEsquema, secciones as pedirSecciones } from './ia';
-import { quitarPruebaDeLaOriginal, tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
+import { avisoDeCifras, cifrasSinRespaldo, quitarPruebaDeLaOriginal, tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
 import { TOPES, nuevoId, textoDe, type JsonNodo, type LandingContenido } from './doc';
 import { sanearEnvoltorios, sanearHtmlEditable } from './html-editable-seguro';
 import { textoDeHtmlEditable } from './html-editable';
@@ -87,10 +87,10 @@ import { AVISO_SCROLL, animacionesDeReplica, conAnimaciones, scrollEnCss, scroll
 import {
   ERROR_WEB_PARCIAL, PEDIDO_SIN_ESTRUCTURA, TOPE_OFERTA, formatoConPartes, instruccionDePartes, listaDePartes, marcaDeUrl, mencionesDe,
   nombreDeCopia, partesDePedido, recetaDePartes, enlacesDeLaOriginal, sinDestinoDeBoton, sinEnlacesALaOriginal, type PartesReplica,
-  adaptacionSinNingunaSeccion, errorDeAdaptacion, nombresDeLaReferencia,
+  adaptacionSinNingunaSeccion, errorDeAdaptacion, nombresDeLaReferencia, textoDeOferta,
 } from './replicar-partes';
 import {
-  acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
+  acomodoDeSeccion, disposicionPorSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
 } from './replicar-estructura';
 import { NOMBRE_TIPO_SECCION, sanearAngulos, textoDeAngulos, type Angulos } from './replicar-angulos';
 import { angulosDePagina, textoDePagina } from './replicar-lectura';
@@ -278,12 +278,34 @@ async function replicarIdentica(url: string, fotoCruda: unknown, receta: ConfigR
 // Presentación y Landing (por bloques)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** El perfil del negocio (lo que cargó en el onboarding), para respaldar sus cifras. '' si no se pudo leer. */
+async function perfilParaCifras(): Promise<string> {
+  try { return await (await import('../onboarding')).perfilNegocioTexto(); } catch { return ''; }
+}
+
+/** La oferta principal del negocio en texto (`textoDeOferta`), o undefined. Nunca tira: sin ofertas, la réplica sigue con el brief. */
+async function ofertaPrincipalParaReplica(): Promise<string | undefined> {
+  try {
+    const { listarOfertas } = await import('../ofertas');
+    return textoDeOferta((await listarOfertas(true))[0]) || undefined;
+  } catch (e) {
+    console.warn(`[editor-landing/replicar] sin la oferta principal: ${e instanceof Error ? e.message : String(e)}`);
+    return undefined;
+  }
+}
+
 /** Lo que llega del pedido para armar la réplica por bloques (lo pegado, la lectura del navegador, lo de las partes). */
 type EntradaBloques = { lectura: unknown; texto: string; angulos?: unknown; tema?: unknown; oferta?: string };
 
 async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, partes: PartesReplica, entrada: EntradaBloques, avisar: (e: EventoReplica) => void = () => {}): Promise<ResultadoReplicar> {
   const t0 = Date.now();
   avisar({ fase: 'leer' });
+  // Sin «Tu oferta», la PRINCIPAL del negocio (12/11/2026, el Cerebro: «como hacen Copywriting e Image»; `listarOfertas` la pone
+  // primera). Medido en el ws9: con el perfil vacío y sin oferta, la réplica adaptada seguía con la competencia.
+  if (!partes.texto && !entrada.oferta?.trim()) {
+    const principal = await ofertaPrincipalParaReplica();
+    if (principal) entrada = { ...entrada, oferta: principal };
+  }
   const base = recetaFormato.params ?? {};
   // El estilo de la original, EN PARALELO con el esquema: el de la lectura del navegador si vino (los estilos computados
   // de la página armada), o el del HTML y sus hojas. `estiloDeLaPagina` nunca tira. Se lee con el diseño (el tema, las
@@ -332,8 +354,11 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const acomodos = moldes
     ? (() => {
       const asigM = estiloLeido ? asignarSecciones(esq.secciones, estiloLeido.secciones) : [];
-      const imgs = estiloLeido ? imagenesPorSeccion(partesDeCadaSeccion(asigM, estiloLeido.secciones.length), estiloLeido.imagenes) : [];
-      return moldes.map((m, i) => acomodoDeSeccion(m, imgs[i] ?? null));
+      const partesM = estiloLeido ? partesDeCadaSeccion(asigM, estiloLeido.secciones.length) : [];
+      const imgs = estiloLeido ? imagenesPorSeccion(partesM, estiloLeido.imagenes) : [];
+      // Las tarjetas, las fotos y el video de cada parte (12/11/2026): la grilla de testimonios salía como una foto por fila.
+      const disp = estiloLeido ? disposicionPorSeccion(partesM, estiloLeido.secciones) : [];
+      return moldes.map((m, i) => acomodoDeSeccion(m, imgs[i] ?? null, disp[i] ?? null));
     })()
     : [];
   // El molde, el ángulo y el acomodo de cada sección viajan CON la sección (`nota`, en su tanda): en la instrucción común
@@ -371,7 +396,11 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   // Qué sección de la réplica es cuál de la original (por el título), y la primera imagen de cada una
   // a NUESTRO bucket mientras la IA arma las secciones.
   const asig = estilo ? asignarSecciones(esq.secciones, estilo.secciones) : [];
-  const ws = estilo?.imagenes.length ? await getWorkspaceActual().catch(() => null) : null;
+  // ⚠️ ADAPTADA, SIN LAS FOTOS DE LA OTRA (12/11/2026, el Cerebro: «sin nombres, cifras ni fotos del competidor; en su lugar,
+  // las del negocio o un espacio para la foto»). La réplica de la masterclass ponía las CARAS de sus alumnas, una por fila. Con el
+  // texto escrito de nuevo no se sube ninguna: quedan los colores, los fondos y el HUECO de cada foto (lo pide el acomodo).
+  const conFotosAjenas = partes.texto;
+  const ws = conFotosAjenas && estilo?.imagenes.length ? await getWorkspaceActual().catch(() => null) : null;
   const primeras = estilo && ws != null ? imagenesParaSubir(asig, estilo).primeras : [];
   const subidasP = ws != null && primeras.length ? subirImagenes(primeras, ws, t0 + PLAZO_IMAGENES_MS) : Promise.resolve(new Map<string, string>());
   const tandas = tandasDe(esq.secciones.length);
@@ -446,6 +475,9 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   // Y los nombres propios de la referencia que quedaron igual (su autor, sus @cuentas).
   const textoCopia = nombres.length ? tarjetas.map((t) => textoDe(t, ' ')).join(' ') : '';
   const nombrados = nombres.map((n) => ({ n, veces: mencionesDe(textoCopia, n) })).filter((x) => x.veces > 0);
+  // Las cifras que quedaron y no salen del NEGOCIO (12/11/2026, «ninguna cifra inventada»; la capa 2, como en Copywriting): la
+  // fuente es su oferta y su perfil, nunca la página de la otra. Se dicen en el aviso.
+  const cifrasAjenas = partes.texto ? [] : cifrasSinRespaldo(tarjetas.map((t) => textoDe(t, ' ')).join('\n'), [entrada.oferta ?? '', await perfilParaCifras()].join('\n'));
   if (!tarjetas.length) return falla('No encontré secciones en esa página.', 422);
 
   // Las imágenes que faltan para los huecos que dejó la IA (una galería, las caras de un equipo), si
@@ -494,6 +526,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     frasesIguales ? (frasesIguales === 1 ? 'Una frase quedó igual a la original: revísala.' : `${frasesIguales} frases quedaron iguales a la original: revísalas.`) : '',
     menciones ? `${marca} quedó nombrada ${menciones === 1 ? 'una vez' : `${menciones} veces`}: cámbialo por lo tuyo.` : '',
     nombrados.length ? `De la original quedó: ${nombrados.map((x) => `${x.n} (${x.veces})`).join(', ')}. Cámbialo por lo tuyo.` : '',
+    avisoDeCifras(cifrasAjenas),
     enlacesAjenos ? (enlacesAjenos === 1 ? 'Un enlace llevaba a la original: ahora va a «#», pon el tuyo.' : `${enlacesAjenos} enlaces llevaban a la original: ahora van a «#», pon los tuyos.`) : '',
     anim?.avisoScroll ? AVISO_SCROLL : '',
   ].filter(Boolean);

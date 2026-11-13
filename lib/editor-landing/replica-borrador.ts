@@ -119,6 +119,7 @@ export function sanearLecturaReplica(raw: unknown): LecturaReplica | null {
     ...(!angulos && typeof o.errorAngulos === 'string' ? { errorAngulos: o.errorAngulos.slice(0, 300) } : {}),
     diseno: sanearDiseno(o.diseno),
     ...(typeof o.tieneOferta === 'boolean' ? { tieneOferta: o.tieneOferta } : {}),
+    ...(typeof o.ofertaPrincipal === 'string' && o.ofertaPrincipal.trim() ? { ofertaPrincipal: o.ofertaPrincipal.trim().slice(0, 120) } : {}),
   };
 }
 
