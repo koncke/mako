@@ -119,7 +119,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   // El coach es del admin del negocio (sus herramientas lo son): su fila, como en la computadora. Con ella, las conversaciones de oferta
   // cuelgan de él; sin ella (no la ve), siguen en la lista, para que nada se pierda.
   const verCoach = hrefMapa != null || puedeElegir;
-  const filasOffer = verCoach ? todasLasFilas.filter((f) => f.origen === 'offer') : [];
+  const filasOffer = verCoach ? todasLasFilas.filter((f) => f.origen === 'offer' && coincide(f.titulo, busca)) : [];
   const resto = verCoach ? todasLasFilas.filter((f) => f.origen !== 'offer') : todasLasFilas;
   const buscando = !!busca.trim();
   const corte = buscando ? resto.filter((f) => coincide(f.titulo, busca)) : todas ? resto : resto.filter((f, i) => i < VISIBLES || esFilaDe(f, elegido));
@@ -166,7 +166,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
               segunda={delCoach ? inspiradoEn(delCoach) : previaDelCoach(oferta)}
               onClick={abrirCoach} />
           )}
-          {(buscando ? filasOffer.filter((f) => coincide(f.titulo, busca)) : filasOffer).map((f) => fila(f, true))}
+          {filasOffer.map((f) => fila(f, true))}
           {/* Agrupados por su origen (22/10/2026), con el agrupado del super admin: cada grupo con su fila JEFE (la suya, o la de
               `jefeDelGrupo` si no tiene chat propio: «Offer», «Dashboard») y los suyos debajo, sin títulos de sección. */}
           {porJefe(corte).flatMap((g) => {
