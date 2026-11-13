@@ -116,3 +116,22 @@ test('6. deslizar desde el borde: cierra pasado el 35 % del ancho, o con un envi
   assert.equal(cierraAlSoltar(60, 375, -1.2), false, 'volviendo hacia la izquierda no');
   assert.equal(cierraAlSoltar(400, 0, 0), false, 'sin ancho medido no se cierra sola');
 });
+
+// La última línea de cada chat con MaKo en la lista, como WhatsApp (13/11/2026). Probado rompiéndolo: sin «Tú: » para lo de la persona → 6/1 ·
+// listarSesiones sin leer lo último → 6/1 · la fila sin `f.previa` → 6/1.
+test('7. cada chat con MaKo muestra lo último que se dijo, lo tuyo con «Tú:»', async () => {
+  const { previaDeMensaje, listaDelCliente } = await import('../lib/chat-mako-reglas');
+  assert.equal(previaDeMensaje({ role: 'user', content: '¿Cómo viene el **mes**?' }), 'Tú: ¿Cómo viene el mes?');
+  assert.equal(previaDeMensaje({ role: 'assistant', content: '## Vas bien\n\n12 ventas en https://www.hola-mako.com/general' }), 'Vas bien 12 ventas en hola-mako.com');
+  assert.equal(previaDeMensaje({ role: 'assistant', content: '---\n\n' }), null, 'sin letras, sin línea');
+  assert.equal(previaDeMensaje(null), null);
+  assert.equal(previaDeMensaje({ role: 'assistant', content: 'a'.repeat(120) })?.length, 91, 'un renglón corto, con «…»');
+  const [jefe, otra] = listaDelCliente({
+    sesiones: [{ id: 1, titulo: null, pinned: false, updatedAt: '2026-11-13T10:00:00.000Z', ultimo: 'Vas bien' }, { id: 2, titulo: 'Plan', pinned: false, updatedAt: '2026-11-13T09:00:00.000Z', ultimo: 'Tú: anota esto' }],
+    offer: [], antes: [], busca: '',
+  });
+  assert.equal(jefe.previa, 'Vas bien', 'el Cerebro, con su última línea');
+  assert.equal(otra?.previa, 'Tú: anota esto');
+  assert.match(sinComentarios(leer('lib/mako-turno-app.ts')), /const ultimos = await ultimosDeSesiones\(ss\.map\(\(s\) => s\.id\)\)\.catch\(/, 'la lista lee lo último, y si falla sale igual');
+  assert.match(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), /: f\.previa \?\? undefined\}/, 'la fila del teléfono la muestra');
+});

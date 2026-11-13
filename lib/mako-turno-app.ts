@@ -63,9 +63,9 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
-import { esTabConChatPropio } from '@/lib/chat-mako-reglas';
+import { esTabConChatPropio, previaDeMensaje } from '@/lib/chat-mako-reglas';
 import {
-  createSession, getSession, listSessions, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
+  createSession, getSession, listSessions, ultimosDeSesiones, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
   renameSession, tituloDesde, type ChartSession, type ChartMsg, type ChartMsgConBloques,
 } from '@/lib/chart-chats';
 import { adjuntosVisibles, audioDeBloques, leerRef, rutaDeVozDelChat, sanearBloques, vozDeBloques } from '@/lib/chat-mako-bloques';
@@ -164,7 +164,12 @@ async function sesionDe(persona: PersonaChat, sessionId: number): Promise<ChartS
 }
 
 export async function listarSesiones(persona: PersonaChat): Promise<SesionChat[]> {
-  return runWithWorkspace(persona.ws, async () => (await listSessions(persona.chartKey)).map(aSesion));
+  return runWithWorkspace(persona.ws, async () => {
+    const ss = await listSessions(persona.chartKey);
+    // La última línea de cada una, para la lista del teléfono (13/11/2026). Si no se pudo leer, la lista sale igual, sin ella.
+    const ultimos = await ultimosDeSesiones(ss.map((s) => s.id)).catch(() => new Map<number, { role: string; content: string }>());
+    return ss.map((s) => ({ ...aSesion(s), ultimo: previaDeMensaje(ultimos.get(s.id)) }));
+  });
 }
 
 /** Una sesión vacía. Sin saludo del modelo: cada «Nuevo chat» costaba dos llamadas (el
