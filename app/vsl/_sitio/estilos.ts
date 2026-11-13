@@ -408,19 +408,22 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-zz-video video{display:block;width:100%;height:auto}
 /* Los tableros: de a uno, 2,6 s cada uno, entrando de arriba hacia abajo (como su animación de entrada en la app). */
 .s-zz-tableros{background:#fff}
-/* El carrusel de tableros: uno a la vista (su entrada en video), flechas con el nombre abajo y los puntos. */
-.s-tab{position:relative;display:flex;flex-direction:column}
-.s-tab-pista{position:relative;aspect-ratio:16/10;overflow:hidden;background:#F4F3EF}
-.s-tab-uno{position:absolute;inset:0;margin:0;opacity:0;transition:opacity .35s ease;pointer-events:none}
-.s-tab-uno[data-activo]{opacity:1;pointer-events:auto}
-.s-tab-uno video{display:block;width:100%;height:100%;object-fit:cover;object-position:top}
-.s-tab-ctrl{display:flex;align-items:center;justify-content:center;gap:14px;padding:12px 12px 4px}
-.s-tab-fl{width:36px;height:36px;border-radius:50%;border:1px solid rgba(18,21,27,.14);background:#fff;color:#12151B;display:grid;place-items:center;cursor:pointer}
-.s-tab-fl:hover{background:#F2F4F7}
-.s-tab-nombre{min-width:170px;text-align:center;font-size:15px;font-weight:700;color:#12151B}
-.s-tab-puntos{display:flex;justify-content:center;flex-wrap:wrap;gap:6px;padding:6px 12px 14px}
-.s-tab-puntos button{width:7px;height:7px;padding:0;border:0;border-radius:50%;background:rgba(18,21,27,.22);cursor:pointer}
+/* Los tableros: el recuadro es SÓLO el tablero (la pista, que se desliza); las flechas a los costados y el nombre y los puntos debajo,
+   por fuera (Martín, 13/11/2026). La fila no lleva el marco de las demás visuales. */
+.s-zz-vis.s-zz-tableros{background:transparent;border:0;box-shadow:none;border-radius:0;overflow:visible}
+.s-tab{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;align-items:center;gap:12px}
+.s-tab-pista{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:16px;border:1px solid rgba(18,21,27,.12);background:#F4F3EF;box-shadow:0 30px 80px -30px rgba(0,0,0,.6);cursor:grab;outline:none;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
+.s-tab-pista::-webkit-scrollbar{display:none}
+.s-tab-pista[data-arrastra]{cursor:grabbing;scroll-snap-type:none;user-select:none}
+.s-tab-uno{flex:0 0 100%;margin:0;aspect-ratio:16/10;scroll-snap-align:start}
+.s-tab-uno video{display:block;width:100%;height:100%;object-fit:cover;object-position:top;pointer-events:none}
+.s-tab-fl{width:40px;height:40px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:transparent;color:#fff;display:grid;place-items:center;cursor:pointer}
+.s-tab-fl:hover{background:rgba(255,255,255,.08)}
+.s-tab-nombre{grid-column:1/-1;margin:6px 0 0;text-align:center;font-size:15px;font-weight:700}
+.s-tab-puntos{grid-column:1/-1;display:flex;justify-content:center;flex-wrap:wrap;gap:6px}
+.s-tab-puntos button{width:7px;height:7px;padding:0;border:0;border-radius:50%;background:rgba(255,255,255,.3);cursor:pointer}
 .s-tab-puntos button[aria-current]{width:20px;border-radius:99px;background:#2F6FED}
+@media (max-width:560px){.s-tab{grid-template-columns:30px minmax(0,1fr) 30px;gap:6px}.s-tab-fl{width:30px;height:30px}}
 /* AI Avatar: dos anuncios de verdad, cada uno con la foto de la que salió (la foto chica, montada sobre la esquina del teléfono). */
 .s-zz-avatar{background:linear-gradient(135deg,#EEF4FF,#F8F5FF)}
 .s-av{display:flex;align-items:flex-start;justify-content:center;gap:40px;padding:34px 24px 26px}
