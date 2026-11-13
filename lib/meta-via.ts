@@ -228,6 +228,12 @@ export async function zernioGet(c: Extract<CanalMeta, { via: 'zernio' }>, ruta: 
   return zFetch<unknown>(c.clave, ruta, undefined, 30_000);
 }
 
+/** Un pedido que ESCRIBE en Zernio (POST o DELETE con su cuerpo JSON), con la clave del negocio. Tira `ZernioError`. Lo usan los públicos del
+ *  retargeting (lib/retargeting.ts), que arman la ruta y el cuerpo en lib/retargeting-meta-pedidos.ts: Zernio se habla sólo por el canal. */
+export async function zernioPedir(c: Extract<CanalMeta, { via: 'zernio' }>, ruta: string, init: { method: 'POST' | 'DELETE'; body: string }): Promise<unknown> {
+  return zFetch<unknown>(c.clave, ruta, init, 60_000);
+}
+
 /** Los formularios de leads de la página de la conexión (`GET /ads/lead-forms`, todas las páginas). Tira si Zernio falla o no trae lista. */
 export async function formulariosPorZernio(c: Extract<CanalMeta, { via: 'zernio' }>): Promise<FormularioZernio[]> {
   const out: FormularioZernio[] = [];

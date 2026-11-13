@@ -3442,4 +3442,73 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async () => ({ ok: false, resumen: 'Esta propuesta se confirma en su pantalla de revisión, no por aquí.' }),
   },
+  // EL RETARGETING (13/11/2026, lib/retargeting.ts). La revisión es la misma del cron de los lunes; Meta, sólo con el interruptor.
+  ver_retargeting: {
+    leer: async (_input, ctx) => {
+      const { verRetargeting } = await import('@/lib/retargeting');
+      return json(await verRetargeting(ctx.ws));
+    },
+  },
+  revisar_retargeting: {
+    preparar: async (input) => {
+      const enSeco = b(input.enSeco) === true;
+      return { payload: { enSeco }, resumen: enSeco ? 'Revisar las charlas con leads y ponerles su etiqueta de retargeting, sin tocar Meta.' : 'Revisar las charlas con leads, ponerles su etiqueta de retargeting y, si los públicos de Meta están prendidos, actualizarlos.' };
+    },
+    ejecutar: (payload, ctx) => seguro('revisar el retargeting', async () => {
+      const { revisarRetargeting } = await import('@/lib/retargeting');
+      const r = await revisarRetargeting(ctx.ws, { enSeco: payload.enSeco === true });
+      invalidar('leads');
+      const s = r.segmentos;
+      return {
+        ok: true,
+        resumen: `Listo: ${s.no_respondio} no respondieron, ${s.no_siguio} no siguieron, ${s.no_compro} no compraron, ${s.compro} compraron (${r.cambios.etiquetasPuestas} etiquetas puestas, ${r.cambios.etiquetasSacadas} sacadas).${r.sinRevisar ? ` ${r.sinRevisar} quedaron sin revisar.` : ''}${r.publicosMeta.aviso ? ` ${r.publicosMeta.aviso}` : ''}`,
+        datos: r as unknown as Record<string, unknown>,
+      };
+    }),
+  },
+  configurar_retargeting: {
+    preparar: async (input) => {
+      const v = b(input.publicosMeta);
+      if (v === undefined) return { error: 'Falta decir si se prenden (true) o se apagan (false).' };
+      return { payload: { publicosMeta: v }, resumen: v ? 'Prender los públicos de Meta del retargeting («MaKo · No avanzaron» y «MaKo · Compraron»): la próxima revisión los crea en tu cuenta de Meta.' : 'Apagar los públicos de Meta del retargeting: MaKo deja de tocarlos.' };
+    },
+    ejecutar: (payload, ctx) => seguro('cambiar los públicos del retargeting', async () => {
+      const { configurarRetargeting } = await import('@/lib/retargeting');
+      const v = await configurarRetargeting(ctx.ws, payload.publicosMeta === true);
+      return { ok: true, resumen: v.publicosMeta.prendido ? 'Listo: los públicos de Meta quedan prendidos desde la próxima revisión.' : 'Listo: los públicos de Meta quedan apagados.', datos: v as unknown as Record<string, unknown> };
+    }),
+  },
+  pasar_chats_al_crm: {
+    preparar: async (input, ctx) => {
+      const { verRetargeting } = await import('@/lib/retargeting');
+      const v = await verRetargeting(ctx.ws).catch(() => null);
+      const funnelId = n(input.funnelId) ?? null;
+      return { payload: { funnelId }, resumen: `Crear un lead por cada charla de WhatsApp sin lead${v ? ` (${v.chatsSinLead} en la última revisión)` : ''}.` };
+    },
+    // El alta es la de una charla de Chats (chats.run.ts, `agregar_contacto_al_crm`), una por charla: con el TOPE DEL PLAN acá, porque es un
+    // alta a mano por la API (tests/crm-topes-plan-23-10.test.ts). La página del CoPilot usa `pasarChatsAlCrm`, que va por la de /chats.
+    ejecutar: (payload, ctx) => seguro('pasar las charlas al CRM', async () => {
+      const [{ charlasSinLeadDe }, { destinoDelAlta }, { leerFunnels }, { createLead }, { LeadDuplicadoError }, { ORIGEN_LEAD }, { getNombreContacto }, { nombreParaAlta }] = await Promise.all([
+        import('@/lib/retargeting'), import('@/lib/lead-funnel-reglas'), import('@/lib/funnels'), import('@/lib/leads'), import('@/lib/leads-duplicados'), import('@/app/crm/origen-lead'), import('@/lib/evolution-contactos'), import('@/lib/contacto-lead'),
+      ]);
+      const destino = destinoDelAlta(await leerFunnels(), n(payload.funnelId) ?? null);
+      if ('error' in destino) return { ok: false, resumen: destino.elegir?.length ? `${destino.error} Pásame el funnelId: ${destino.elegir.map((p) => `${p.nombre} (${p.id})`).join(', ')}.` : destino.error };
+      let creados = 0, yaEstaban = 0;
+      for (const c of await charlasSinLeadDe(ctx.ws)) {
+        try {
+          await frenarAltaPorTope(ctx.ws, 'crm.leads');
+          const agenda = await getNombreContacto(c.telefono).catch(() => null);
+          await createLead({ nombre: nombreParaAlta({ agenda, pantalla: c.nombre, telefono: c.telefono }), telefono: c.telefono, origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa, nombreOpcional: true });
+          creados++;
+        } catch (e) {
+          if (e instanceof LeadDuplicadoError) { yaEstaban++; continue; }
+          if (creados) invalidar('leads');
+          const motivo = e instanceof TopeDelPlanError ? `${e.message} Planes: /planes.` : e instanceof Error ? e.message : String(e);
+          return { ok: creados > 0, resumen: `${creados ? `Se sumaron ${creados}. ` : ''}${motivo}`, datos: { creados, yaEstaban } };
+        }
+      }
+      if (creados) invalidar('leads');
+      return { ok: true, resumen: `Listo: ${creados} leads nuevos${yaEstaban ? ` (${yaEstaban} ya estaban)` : ''}.`, datos: { creados, yaEstaban } };
+    }),
+  },
 };

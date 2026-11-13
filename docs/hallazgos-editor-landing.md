@@ -4582,3 +4582,29 @@ todo el ancho con el cuerpo angosto.
   el fondo de la original (`conFondoDeLaOriginal`) y la que la IA eligió a todo el ancho (`conAnchoDeColumna`).
 - **Los h3 con su escala:** `escala.subtitulos` (`--gm-escala-subtitulos`, que cae en la de títulos). El lector mide los h3 como
   los h2, con la regla de su contenedor (Clara: «.paso h3» 17 px → 0,73 sobre los 23,2 del editor).
+
+### La vista de funnel (13/11/2026, pedido de Martín vía Cerebro)
+
+«Como en GoHighLevel: las páginas encadenadas en el orden en que las recorre un lead». No hizo falta modelo nuevo: una landing
+ya tiene hasta 12 páginas con su ruta, un botón lleva a otra con `href: 'pagina:<id>'` y el formulario tiene `redirigir`.
+- **El orden es el del panel de páginas** (que ya se reordena arrastrando), como los pasos de GHL; NO el que dibujan los
+  enlaces. Así una flecha puede estar ROTA (la página no lleva a la siguiente) y se ve en rojo, que es justo lo que hay que
+  mostrar. `recorridoDe` busca la conexión al paso siguiente POR DESTINO, no la primera que encuentra: un video con «Ya
+  agendé → gracias» antes que «Quiero agendar → agenda» marcaba mal la flecha (el test lo prueba rompiéndolo).
+- **El objetivo de cada página se deduce** de lo que tiene (agenda > formulario > pago > video; si no, el nombre: gracias,
+  oferta). No se guarda: la persona lo cambia cambiando la página.
+- **Conectar** (`conectar`): la flecha que se cambia; si no, el formulario que no manda a ninguna página; si no, el primer
+  botón libre (nunca uno de pago); si no, un botón nuevo al final.
+- **La página ABIERTA vive en el editor:** `setPaginas` conserva su documento vivo e ignora el que trae la lista, así que un
+  cambio en ella va por `editor.commands.setContent` antes de `setPaginas`.
+
+- **TRAMPA: un `.module.css` en un componente del editor rompe los tests.** Los tests importan los componentes desde Node
+  (`PanelPaginas`, en editor-landing-armazon y api-mako-landing-contenido) y Node no carga un .css: «SyntaxError: Unexpected
+  token '.'». Por eso el editor no usa módulos CSS: los estilos del funnel van como string (`funnel-estilos.ts`, clases `gfn-`)
+  en un `<style>` del propio componente.
+- **Cómo se miró sin servidor (la PC sin RAM):** `VistaFunnel` es la parte que dibuja, con props y sin estado; se renderiza
+  con `renderToStaticMarkup` desde Node (trae su `<style>`) y se captura con Chrome sin ventana a 1440 y 375
+  (side-session-notes/…/funnel/vista-funnel-*.jpg).
+
+**Sin hacer:** usarla en producción en el editor (crear el paso, cambiar la flecha); métricas por paso (visitas y
+conversiones de cada página, como GHL).
