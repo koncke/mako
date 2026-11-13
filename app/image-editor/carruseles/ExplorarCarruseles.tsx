@@ -77,7 +77,25 @@ export type DatosExplorador = {
   anuncios?: number;
   /** Las miniaturas de YouTube de la biblioteca (Thumbnails, 6/11/2026). Ausente = no se leyeron (se dice al elegirlas). */
   thumbnails?: DatosThumbnails | null;
+  /**
+   * La página trajo sólo lo que se ve primero (./tanda.ts, 13/11/2026): cuántos carruseles hay en total, cuántos se ven con los
+   * filtros de entrada, cuántos son de las cuentas que sigue y cuántas miniaturas esperan. El resto se pide al dibujar. Ausente =
+   * está todo.
+   */
+  pendiente?: { carruseles: number; vistos: number; propios: number; thumbnails: number };
 };
+
+/** El resto de la portada (13/11/2026, ./tanda.ts): los carruseles apenas se dibuja, las miniaturas al abrir «Thumbnails». */
+async function pedirResto<T>(que: 'carruseles' | 'thumbnails'): Promise<({ ok: true } & T) | { ok: false; error: string }> {
+  try {
+    const res = await fetch('/api/image-editor/explorador', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ que }) });
+    const r = (await res.json().catch(() => null)) as ({ ok: true } & T) | { ok: false; error?: string } | null;
+    if (r?.ok) return r as { ok: true } & T;
+    return { ok: false, error: (r && !r.ok && r.error) || 'No pude traer el resto de los ejemplos.' };
+  } catch {
+    return { ok: false, error: 'No pude traer el resto de los ejemplos. Revisa la conexión.' };
+  }
+}
 
 /** El perfil público de un creador en Instagram (los de la biblioteca no tienen ficha en Spy del negocio). */
 const perfilDeInstagram = (usuario: string) => `https://www.instagram.com/${encodeURIComponent(usuario)}/`;
@@ -166,14 +184,39 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
   // Lo traído por su link en esta visita («Traer tu outlier», 11/11/2026) se suma ya a la lista, primero: no espera a que el
   // server la vuelva a leer (`router.refresh()` no sirve acá: la pantalla también se dibuja fuera del router, en los tests).
   const [traidos, setTraidos] = useState<Carrusel[]>([]);
+  // La portada por tandas (13/11/2026, ./tanda.ts): con `pendiente`, la página trajo lo que se ve primero; el resto de los carruseles
+  // se pide apenas se dibuja y las miniaturas al abrir «Thumbnails». Hasta que llegan, los totales son los que mandó el server.
+  const [completos, setCompletos] = useState<Carrusel[] | null>(null);
+  const [miniaturas, setMiniaturas] = useState<Thumbnail[] | null>(null);
+  const servidor = useMemo<DatosExplorador>(() => {
+    let d = datosDelServer;
+    if (completos) d = { ...d, carruseles: completos, pendiente: undefined };
+    if (miniaturas && d.thumbnails && d.thumbnails.ok) d = { ...d, thumbnails: { ...d.thumbnails, lista: miniaturas } };
+    return d;
+  }, [datosDelServer, completos, miniaturas]);
   const datos = useMemo<DatosExplorador>(() => (traidos.length
-    ? { ...datosDelServer, carruseles: [...traidos, ...datosDelServer.carruseles.filter((c) => !traidos.some((t) => t.id === c.id))] }
-    : datosDelServer), [datosDelServer, traidos]);
+    ? { ...servidor, carruseles: [...traidos, ...servidor.carruseles.filter((c) => !traidos.some((t) => t.id === c.id))] }
+    : servidor), [servidor, traidos]);
+  const pendiente = datos.pendiente;
+  const faltanMiniaturas = !!datosDelServer.pendiente?.thumbnails && !miniaturas;
+  const [falloResto, setFalloResto] = useState<string | null>(null);
   const [f, setF] = useState<FiltrosCarrusel>(filtrosIniciales ?? FILTROS_INICIALES);
   const [ft, setFt] = useState<FiltrosThumbnail>(thumbnailsIniciales ?? FILTROS_THUMBNAIL);
   const [guardados, setGuardados] = useState<Set<number>>(() => new Set(datos.guardados));
   const [guardadosT, setGuardadosT] = useState<Set<number>>(() => new Set(datos.thumbnails && datos.thumbnails.ok ? datos.thumbnails.guardados : []));
   const enThumbs = f.que === 'thumbnails';
+  useEffect(() => {
+    if (!datosDelServer.pendiente || completos) return;
+    let vivo = true;
+    void pedirResto<{ carruseles: Carrusel[] }>('carruseles').then((r) => { if (vivo) { if (r.ok) setCompletos(r.carruseles); else setFalloResto(r.error); } });
+    return () => { vivo = false; };
+  }, [datosDelServer]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!enThumbs || !faltanMiniaturas) return;
+    let vivo = true;
+    void pedirResto<{ lista: Thumbnail[] }>('thumbnails').then((r) => { if (vivo) { if (r.ok) setMiniaturas(r.lista); else setFalloResto(r.error); } });
+    return () => { vivo = false; };
+  }, [enThumbs, faltanMiniaturas]);
   const [busquedas, setBusquedas] = useState<BusquedaGuardada[]>(datos.busquedas);
   const [cuantas, setCuantas] = useState(DE_A);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -247,7 +290,7 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
   // Lo de cada lado (carruseles o anuncios): las cuentas y los tipos del filtro salen de lo que se está mirando.
   const delLado = useMemo(() => datos.carruseles.filter((c) => (c.clase === 'anuncio') === (f.que === 'anuncios')), [datos.carruseles, f.que]);
   const creadores = useMemo(() => creadoresDe(delLado), [delLado]);
-  const propios = useMemo(() => datos.carruseles.filter((c) => c.origen === 'cuentas' && c.clase !== 'anuncio').length, [datos.carruseles]);
+  const propios = useMemo(() => pendiente?.propios ?? datos.carruseles.filter((c) => c.origen === 'cuentas' && c.clase !== 'anuncio').length, [pendiente, datos.carruseles]);
   const dosOrigenes = f.que === 'carruseles' && propios > 0 && datos.ejemplos > 0;
   const formatos = useMemo(() => formatosDe(delLado), [delLado]);
   const vistos = useMemo(() => filtrarCarruseles(datos.carruseles, f, guardados, ahora ?? Date.now()), [datos.carruseles, f, guardados, ahora]);
@@ -311,13 +354,17 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
   const ordenes = ORDENES_CARRUSEL.filter((o) => (f.que === 'anuncios' ? o.value !== 'outlier' && o.value !== 'interaccion' : o.value !== 'aire'));
   const orden = f.que === 'anuncios' && (f.orden === 'outlier' || f.orden === 'interaccion') ? 'aire' : f.orden;
 
-  const hayAlgo = datos.carruseles.length > 0;
+  const hayAlgo = datos.carruseles.length > 0 || !!pendiente?.carruseles;
+  // Con la primera tanda, el total de lo que se ve es el que contó el server con los filtros de entrada; si se tocó un filtro antes
+  // de que llegue el resto, todavía no se sabe.
+  const queryDeEntrada = useMemo(() => queryDeFiltros(filtrosIniciales ?? FILTROS_INICIALES), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const cuantosSeVen = !pendiente ? vistos.length : !parecidosDe && queryDeFiltros(f) === queryDeEntrada ? pendiente.vistos : null;
   const listas = parecidosDe ? parecidosA(parecidosDe, delLado) : vistos;
   const listos = listas.slice(0, cuantas);
   const guardadosVista = enThumbs ? ft.vista === 'guardados' : f.vista === 'guardados';
   const nGuardados = enThumbs ? guardadosT.size : guardados.size;
   const abrirParecidos = (c: Carrusel) => { setAbierto(null); setParecidosDe(c); setCuantas(DE_A); };
-  const hayThumbs = !!datos.thumbnails && datos.thumbnails.ok && datos.thumbnails.lista.length > 0;
+  const hayThumbs = !!datos.thumbnails && datos.thumbnails.ok && (datos.thumbnails.lista.length > 0 || faltanMiniaturas);
 
   // Las pastillas (Guardados, Búsquedas, Seguir cuentas, Crear desde cero): en la computadora van bajo el título; en el teléfono,
   // en la MISMA fila que los filtros, que se desliza (así el primer ejemplo no arranca a la mitad de la pantalla).
@@ -382,8 +429,14 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
         {enThumbs ? (
           <>
             {aviso && <p role="alert" className={s.aviso}>{aviso}<ReportarASoporte /></p>}
-            <PanelThumbnails datos={datos.thumbnails} f={ft} cambiar={cambiarT} guardados={guardadosT} alternarGuardado={alternarThumbnail}
-              ahora={ahora} telefono={telefono} segmento={segmento} botones={botones} />
+            {faltanMiniaturas ? (
+              falloResto
+                ? <p role="alert" className={s.aviso}>{falloResto}<ReportarASoporte /></p>
+                : <div className={s.vacio}><p>Trayendo las miniaturas…</p></div>
+            ) : (
+              <PanelThumbnails datos={datos.thumbnails} f={ft} cambiar={cambiarT} guardados={guardadosT} alternarGuardado={alternarThumbnail}
+                ahora={ahora} telefono={telefono} segmento={segmento} botones={botones} />
+            )}
           </>
         ) : !hayAlgo ? (
           <>
@@ -426,9 +479,9 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
               {!sinFiltrosDe(f) && <button type="button" className={s.texto} onClick={reiniciar}>Quitar filtros</button>}
               {/* Un link pegado no es una búsqueda para guardar: es «Traer tu outlier» (11/11/2026, la prueba en producción). */}
               {!sinFiltrosDe(f) && !linkPegado && <button type="button" className={s.texto} onClick={guardarBusqueda}>Guardar búsqueda</button>}
-              {telefono ? null : (
+              {telefono || cuantosSeVen == null ? null : (
                 <span className={s.total}>
-                  {contadorCorto(vistos.length)} {f.que === 'anuncios' ? (vistos.length === 1 ? 'anuncio' : 'anuncios') : (vistos.length === 1 ? 'carrusel' : 'carruseles')}
+                  {contadorCorto(cuantosSeVen)} {f.que === 'anuncios' ? (cuantosSeVen === 1 ? 'anuncio' : 'anuncios') : (cuantosSeVen === 1 ? 'carrusel' : 'carruseles')}
                   {sinSaber > 0 ? <span className={s.dudosos} title="Lo guardado antes del 6/11 no dice su formato. Un recorrido nuevo de la Biblioteca de Anuncios con la extensión lo completa."> · {sinSaber} sin saber si {sinSaber === 1 ? 'es' : 'son'} video</span> : null}
                 </span>
               )}
@@ -457,8 +510,11 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
             ) : null}
 
             {aviso && <p role="alert" className={s.aviso}>{aviso}<ReportarASoporte /></p>}
+            {pendiente && falloResto ? <p role="alert" className={s.aviso}>{falloResto}<ReportarASoporte /></p> : null}
 
-            {listas.length === 0 ? (
+            {listas.length === 0 && pendiente && !falloResto ? (
+              <div className={s.vacio}><p>Trayendo los ejemplos…</p></div>
+            ) : listas.length === 0 ? (
               <div className={s.vacio}>
                 <p>{parecidosDe ? 'No hay otros ejemplos parecidos a este.' : reelPegado
                   ? 'Ese link es de un reel: aquí se traen carruseles y publicaciones con imagen.'
@@ -487,9 +543,11 @@ export function ExplorarCarruseles({ datos: datosDelServer, filtrosIniciales, th
                       onAbrir={() => setAbierto(c)} onGuardar={() => alternarGuardado(c)} onEditar={() => editar(c)} onParecidos={() => abrirParecidos(c)} />
                   ))}
                 </ul>
-                {listas.length > cuantas && (
+                {listas.length > cuantas ? (
                   <button type="button" className={s.mas} onClick={() => setCuantas((n) => n + DE_A)}>Ver más</button>
-                )}
+                ) : pendiente && !falloResto && (cuantosSeVen ?? 0) > listos.length ? (
+                  <button type="button" className={s.mas} disabled>Trayendo más…</button>
+                ) : null}
               </>
             )}
           </>
