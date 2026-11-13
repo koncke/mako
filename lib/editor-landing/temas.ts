@@ -87,7 +87,7 @@ export type Tema = {
   /** fontSize y headingFontSize de Gamma: multiplican el cuerpo y los títulos. */
   /** `titular`: la del h1 grande (`h1.gm-titulo`), aparte de los demás títulos (13/11/2026, la réplica de Clara: 56 px su h1
    *  y 37 su h2; con una sola escala no salían los dos). Sin ella, la de los títulos. */
-  escala: { cuerpo: number; titulos: number; titular?: number };
+  escala: { cuerpo: number; titulos: number; titular?: number; subtitulos?: number };
   interlineado: { cuerpo: number; titulos: number };
   /** letter-spacing en em. */
   tracking: { cuerpo: number; titulos: number };
@@ -988,7 +988,10 @@ export function sanearCambiosTema(cambios: unknown): Record<string, unknown> {
   };
   const escala = par(c.escala, { cuerpo: [0.8, 1.25], titulos: [0.8, 1.4] });
   const titular = numeroEn(obj(c.escala).titular, 0.5, 1.4);
-  if (escala || titular !== null) out.escala = { ...(escala ?? {}), ...(titular !== null ? { titular } : {}) };
+  const subtitulos = numeroEn(obj(c.escala).subtitulos, 0.5, 1.4);
+  if (escala || titular !== null || subtitulos !== null) {
+    out.escala = { ...(escala ?? {}), ...(titular !== null ? { titular } : {}), ...(subtitulos !== null ? { subtitulos } : {}) };
+  }
   const interlineado = par(c.interlineado, { cuerpo: [1.1, 2], titulos: [0.9, 1.6] });
   if (interlineado) out.interlineado = interlineado;
   const tracking = par(c.tracking, { cuerpo: [-0.05, 0.1], titulos: [-0.12, 0.1] });
@@ -1152,6 +1155,7 @@ export function varsDeTema(t: Tema): Record<string, string> {
     '--gm-escala-cuerpo': String(t.escala.cuerpo),
     '--gm-escala-titulos': String(t.escala.titulos),
     '--gm-escala-titular': String(t.escala.titular ?? t.escala.titulos),
+    '--gm-escala-subtitulos': String(t.escala.subtitulos ?? t.escala.titulos),
     '--gm-interlineado-cuerpo': String(t.interlineado.cuerpo),
     '--gm-interlineado-titulos': String(t.interlineado.titulos),
     '--gm-tracking-cuerpo': t.tracking.cuerpo + 'em',

@@ -25,6 +25,8 @@ import {
   NOTA_TITULO_RESALTA, PARTES_BOTON_REPETIDO, TESTIMONIO_PARA_COMPLETAR, type MoldeSeccion,
 } from '../lib/editor-landing/replicar-estructura';
 import { estiloDeHtml, sanearEstilo, tamanoPx, temaDeEstilo } from '../lib/editor-landing/estilo-original';
+import { attrsTarjeta, specTarjeta } from '../lib/editor-landing/especificacion';
+import { htmlDeArbol } from '../lib/editor-landing/grafico-svg';
 import { nombreDeCopia, nombreDeOferta, PARTES_ADAPTAR } from '../lib/editor-landing/replicar-partes';
 import { sanearTemaPropio, temaPorId, varsDeTema } from '../lib/editor-landing/temas';
 import { CSS_CONTENIDO } from '../lib/editor-landing/css';
@@ -152,7 +154,8 @@ test('6. la foto o el video al costado, y la columna con el ancho de la original
   assert.equal(anchoDeColumna(1400), 'amplio');
   assert.equal(anchoDeColumna(undefined), null);
   assert.equal(conAnchoDeColumna(hero, 'angosto').attrs?.ancho, 'angosto');
-  assert.equal(conAnchoDeColumna(tarjetaCon({ ancho: 'completo' }), 'angosto').attrs?.ancho, 'completo', 'un fondo a todo el ancho queda');
+  const ancha = conAnchoDeColumna(tarjetaCon({ ancho: 'completo' }), 'angosto');
+  assert.deepEqual([ancha.attrs?.ancho, ancha.attrs?.anchoCuerpo], ['completo', 'angosto'], 'a todo el ancho, con el contenido en la columna');
 });
 
 test('7. los testimonios de la otra quedan para completar; la grilla y su cantidad, no', () => {
@@ -294,6 +297,15 @@ test('15. el fondo de cada sección como el de su parte de la original', () => {
   const quien = conFondoDeLaOriginal(tarjetaCon({ fondo: 'tema' }), disp[1]?.fondo, '#ffffff');
   assert.equal(quien.cambiada, true);
   assert.deepEqual([quien.tarjeta.attrs?.fondo, quien.tarjeta.attrs?.fondoColor], ['color', '#faf7ee']);
+  assert.deepEqual([quien.tarjeta.attrs?.ancho, quien.tarjeta.attrs?.anchoCuerpo], ['completo', 'normal'], 'una FRANJA: de borde a borde, el contenido en su columna');
+  const angosta = conFondoDeLaOriginal(tarjetaCon({ fondo: 'tema', ancho: 'angosto' }), '#faf7ee', '#ffffff').tarjeta;
+  assert.equal(angosta.attrs?.anchoCuerpo, 'angosto');
+  // El render: la franja lleva data-cuerpo, y la hoja deja el contenido en la columna con el fondo a sangre.
+  const html = htmlDeArbol(specTarjeta(angosta.attrs) as never);
+  assert.match(html, /data-ancho="completo" data-cuerpo="angosto"/);
+  assert.match(CSS_CONTENIDO, /\.gm-tarjeta\[data-ancho="completo"\]\[data-cuerpo="angosto"\] ?\{ ?padding-inline: max\(0em, calc\(\(100% - 48em\) \/ 2\)\);/);
+  assert.equal(attrsTarjeta({ ancho: 'angosto', anchoCuerpo: 'raro' }).anchoCuerpo, null, 'el saneo sólo deja angosto o normal');
+  assert.ok(!htmlDeArbol(specTarjeta(attrsTarjeta({ ancho: 'angosto', anchoCuerpo: 'angosto' })) as never).includes('data-cuerpo'), 'sin todo el ancho, no hay franja');
   assert.equal(conFondoDeLaOriginal(tarjetaCon({ fondo: 'tema' }), '#FFFFFF', '#ffffff').cambiada, false, 'el de la página no se repite');
   assert.equal(conFondoDeLaOriginal(tarjetaCon({ fondo: 'acento' }), '#faf7ee', '#ffffff').cambiada, false, 'la que ya trae su fondo queda');
   assert.equal(conFondoDeLaOriginal(tarjetaCon({}), 'linear-gradient(red, blue)', '#ffffff').cambiada, false, 'sólo un color');
@@ -304,17 +316,21 @@ test('16. el titular y los títulos con su tamaño, cada uno con su escala', () 
   assert.equal(tamanoPx('48px'), 48);
   assert.equal(tamanoPx('5vw'), null);
   // Como Clara: el h1 suelto y los h2 adentro de un contenedor («.sec-h h2»), ninguno suelto.
-  const html = `<html><head><style>body{background:#ffffff;color:#222222}h1{font-size:clamp(1.9rem,7.2vw,3.5rem)}.sec-h h2{font-size:clamp(1.55rem,5.4vw,2.3rem)}.quien h2{font-size:2.3rem}</style></head><body>
-    <section><h1>Titular</h1></section><section><div class="sec-h"><h2>Uno</h2></div></section><section class="quien"><h2>Dos</h2></section><section class="sec-h"><h2>Tres</h2></section></body></html>`;
+  const html = `<html><head><style>body{background:#ffffff;color:#222222}h1{font-size:clamp(1.9rem,7.2vw,3.5rem)}.sec-h h2{font-size:clamp(1.55rem,5.4vw,2.3rem)}.quien h2{font-size:2.3rem}.paso h3{font-size:1.05rem}</style></head><body>
+    <section><h1>Titular</h1></section><section><div class="sec-h"><h2>Uno</h2><div class="paso"><h3>Paso</h3></div></div></section><section class="quien"><h2>Dos</h2></section><section class="sec-h"><h2>Tres</h2></section></body></html>`;
   const e = estiloDeHtml(html, 'https://x.com/');
   assert.equal(e.tamTitular, 56);
   assert.equal(e.tamTitulos, 37);
+  assert.equal(e.tamSubtitulos, 17);
   const tema = temaDeEstilo(e, 'https://x.com/')!;
-  assert.deepEqual(tema.cambios.escala, { titulos: 1.22, titular: 0.7 });
+  assert.deepEqual(tema.cambios.escala, { titulos: 1.22, titular: 0.7, subtitulos: 0.73 });
   const resuelto = sanearTemaPropio(tema)!;
   assert.equal(resuelto.cambios.escala?.titular, 0.7, 'el saneo del tema la conserva');
   // El CSS: el h1 grande usa SU escala; sin ella, la de los títulos (ningún tema de antes cambia).
   assert.match(CSS_CONTENIDO, /\.gm-doc h1\.gm-titulo ?\{ font-size: calc\(5em \* var\(--gm-escala-titular, var\(--gm-escala-titulos, 1\)\)/);
   const vars = varsDeTema(temaPorId('pewter'));
   assert.equal(vars['--gm-escala-titular'], vars['--gm-escala-titulos'], 'un tema sin titular: la de los títulos');
+  assert.equal(vars['--gm-escala-subtitulos'], vars['--gm-escala-titulos'], 'ni subtítulos: la de los títulos');
+  assert.match(CSS_CONTENIDO, /\.gm-doc h3 ?\{ font-size: calc\(1\.45em \* var\(--gm-escala-subtitulos, var\(--gm-escala-titulos, 1\)\)/);
+  assert.equal(sanearTemaPropio(tema)!.cambios.escala?.subtitulos, 0.73);
 });

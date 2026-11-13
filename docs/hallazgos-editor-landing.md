@@ -4572,3 +4572,13 @@ Replicada de nuevo en producción (landing 118, d3f6bd9b3): columna angosta, caj
 
 **Sin hacer:** los h3 (títulos de tarjeta) siguen la escala de los h2 (Clara: 17 px; la réplica, ~28); la franja de color a
 todo el ancho con el cuerpo angosto.
+
+### La franja de color y los subtítulos (13/11/2026, quinta vuelta)
+
+- **La franja a todo el ancho con el contenido en la columna:** una tarjeta tenía un solo ancho (el de la tarjeta). Ahora
+  `anchoCuerpo` ('angosto' | 'normal', sólo con `ancho: 'completo'`) sale como `data-cuerpo` y la hoja le da relleno a los
+  costados (`max(0em, calc((100% - 48em) / 2))`): como `.gm-tarjeta-fondo` es absoluto, el color va de borde a borde y el
+  contenido queda en la columna, con cualquier diseño (también con la imagen al costado). La réplica pone así las secciones con
+  el fondo de la original (`conFondoDeLaOriginal`) y la que la IA eligió a todo el ancho (`conAnchoDeColumna`).
+- **Los h3 con su escala:** `escala.subtitulos` (`--gm-escala-subtitulos`, que cae en la de títulos). El lector mide los h3 como
+  los h2, con la regla de su contenedor (Clara: «.paso h3» 17 px → 0,73 sobre los 23,2 del editor).

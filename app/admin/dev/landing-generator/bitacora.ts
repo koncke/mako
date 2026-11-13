@@ -1857,4 +1857,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '13 nov', hora: '17:20', chat: 'Probar Web Generator', sesion: 'local_10fb3135-f232-406c-885b-802f9fc97e8e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las secciones de color van de borde a borde, con el texto en su columna',
+    puntos: [
+      'Una sección puede tener su color de fondo de un lado al otro de la pantalla y el texto en una columna centrada, como en la página que replicaste.',
+      'Los títulos de las tarjetas también toman el tamaño de los de la original.',
+    ],
+    archivos: [
+      'lib/editor-landing/doc.ts · especificacion.ts · css.ts — el ancho del contenido de una sección a todo el ancho',
+      'lib/editor-landing/estilo-original.ts · temas.ts — el tamaño de los subtítulos',
+      'lib/editor-landing/replicar-estructura.ts — la franja en la réplica',
+      'tests/web-generator-replicar-1311.test.ts',
+    ],
+    revisar: '/web-generator',
+  },
 ];

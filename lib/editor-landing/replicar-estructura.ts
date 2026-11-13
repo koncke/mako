@@ -399,9 +399,13 @@ export function conLadoDeFoto(t: JsonNodo, disp: DisposicionDeSeccion | null): {
   return { tarjeta: { ...limpia, attrs: { ...limpia.attrs, diseno: disp.lado ?? 'derecha' } }, cambiada: true };
 }
 
-/** Todas las tarjetas al ancho de la columna de la original (la que eligió «completo» queda: es un fondo a todo el ancho). Puro. */
+/**
+ * Todas las tarjetas al ancho de la columna de la original. La que eligió «completo» queda a todo el ancho (es un fondo de borde
+ * a borde) con su CONTENIDO en la columna (`anchoCuerpo`, 13/11/2026: el hero de Clara va en la misma columna de 760). Puro.
+ */
 export function conAnchoDeColumna(t: JsonNodo, ancho: ReturnType<typeof anchoDeColumna>): JsonNodo {
-  if (!ancho || t.type !== NODO.tarjeta || t.attrs?.ancho === 'completo') return t;
+  if (!ancho || t.type !== NODO.tarjeta) return t;
+  if (t.attrs?.ancho === 'completo') return ancho === 'amplio' ? t : { ...t, attrs: { ...t.attrs, anchoCuerpo: ancho } };
   return { ...t, attrs: { ...t.attrs, ancho } };
 }
 
@@ -591,11 +595,13 @@ export function alTuteoEnTarjeta(t: JsonNodo): JsonNodo {
 /**
  * El fondo de la sección como el de su parte de la original, cuando no es el de la página (13/11/2026: Clara alterna crema
  * #faf7ee en «Quién es», las preguntas y el cierre sobre una página blanca; la réplica iba toda en blanco). La tarjeta que la IA
- * dejó con el fondo del tema pasa a ese color; la que ya trae uno propio queda. Puro.
+ * dejó con el fondo del tema pasa a ese color, como FRANJA: a todo el ancho y con el contenido en la columna que tenía
+ * (`anchoCuerpo`). La que ya trae un fondo propio queda. Puro.
  */
 export function conFondoDeLaOriginal(t: JsonNodo, fondo: string | null | undefined, fondoPagina: string | null | undefined): { tarjeta: JsonNodo; cambiada: boolean } {
   const hex = (c: string | null | undefined) => (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c.trim()) ? c.trim().toLowerCase() : null);
   const f = hex(fondo);
   if (!f || t.type !== NODO.tarjeta || f === hex(fondoPagina) || (t.attrs?.fondo && t.attrs.fondo !== 'tema')) return { tarjeta: t, cambiada: false };
-  return { tarjeta: { ...t, attrs: { ...t.attrs, fondo: 'color', fondoColor: f } }, cambiada: true };
+  const columna = t.attrs?.ancho === 'completo' ? (t.attrs?.anchoCuerpo ?? null) : t.attrs?.ancho === 'angosto' || t.attrs?.ancho === 'normal' ? t.attrs.ancho : null;
+  return { tarjeta: { ...t, attrs: { ...t.attrs, fondo: 'color', fondoColor: f, ancho: 'completo', anchoCuerpo: columna } }, cambiada: true };
 }
