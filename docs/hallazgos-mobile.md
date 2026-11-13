@@ -75,6 +75,19 @@ app/m/operaciones/ChatsMovil.tsx · tests/m-chat-pantalla.test.ts
 *13/11/2026, chat «MaKo Mobile: diseño» (claude5).*
 
 
+## «↳ null» en la lista del super admin del teléfono (13/11/2026)
+
+**Síntoma (producción a 375, lo vio el chat «MaKo dentro de la app»):** debajo de «Image», una fila «↳ null» con «Trabajando…».
+**Causa:** desde «un chat por tab» (10/11, lib/centro-chats.ts → `porJefe`) un chat de TAREA va debajo de la cabeza de su tab aunque
+su título no tenga «›», y `partesDelNombre` le da `sub: null`. La computadora (PiezasCentro.tsx) y la lista del cliente caían al
+título entero con `?? titulo`; ChatsMovil.tsx lo metía en un template literal, donde `null` se escribe.
+**Regla:** todo `partesDelNombre(…).sub` que se dibuja lleva `?? titulo` (tests/m-chat-pantalla.test.ts, 10, barre los cuatro usos).
+**Trampa al probarlo en Windows:** tests/reportar-en-el-menu.test.ts, 5, da rojo en la PC porque compara rutas con «/» y Windows
+las da con «\»; en GitHub (Linux) pasa. No es un rojo de lo tocado.
+
+*13/11/2026, chat «MaKo Mobile: diseño» (claude5).*
+
+
 ## Un título vacío y una palabra larga: lo que el teléfono dibujaba de más y de menos (11/11/2026)
 
 **Vive en:** `app/m/_ui/SeccionM.tsx` · `app/m/m.css` (`.m-fila__t`). Lo fija `tests/mirada-prod-11-11.test.ts` (casos 3 y 7).
