@@ -4792,6 +4792,11 @@ dice `"target": "ES2017"`: el typecheck de la punta da `TS1501` en esa línea, y
 video). Se escribe `[\s\S]` en lugar del punto. El flag `u` (con `\p{L}`) sí entra; lo que es de
 ES2018 en el CUERPO (`(?<!…)`) va en `new RegExp('…')`, como `lib/al-tuteo.ts`.
 
+**Y `texto.match(re) ?? []` no es un `string[]`:** es `RegExpMatchArray | never[]`. Con `filter`, `map` o
+`length` anda; con `indexOf(x)` o `includes(x)` el parámetro sale `never` y el typecheck de la punta da
+`TS2345` (corrida 1231, un test de Copywriting). `tsx` tampoco lo ve. Se le da el tipo:
+`const xs: string[] = [...(texto.match(re) ?? [])]`.
+
 # «No puedo hacer X con este dato» no es «este dato es falso»
 
 Un control que descubre que no puede ACTUAR sobre algo tiene una sola salida honesta:
