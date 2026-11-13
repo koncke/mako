@@ -190,8 +190,12 @@ cierra los grupos (`ignoraGrupos`, lib/evolution-sonda.ts). Hasta que eso se des
 enseguida «Usarlo para MaKo» (`permitirGruposEnInstancia`). **Y el botón del QR no aparece con la línea sorda:** «Vincular por QR»
 de «Tu número» sólo se dibuja si la línea NO figura conectada, y una sorda figura conectada. Hay que cerrar el dispositivo desde el
 teléfono (WhatsApp → Dispositivos vinculados → Cerrar sesión) y recién ahí sale el botón. `conectar` ya sabe soltar una línea
-marcada sorda y dar el QR en un paso (`marcaDeLineaEnferma` + `puedeSoltarseSorda`): falta un botón que lo ofrezca con la línea
-conectada (propuesto al Cerebro el 13/11, sin hacer).
+marcada sorda y dar el QR en un paso (`marcaDeLineaEnferma` + `puedeSoltarseSorda`); faltaba el botón. **Desde el 13/11 está:**
+con la línea conectada y marcada sorda, «Tu número» dice «No recibe mensajes» (en vez del ✓) y ofrece «Volver a vincular por QR»,
+con la MISMA condición con la que `conectar` la suelta (`motivoParaVolverAVincular`, lib/linea-sorda.ts): un botón que aparece sin
+ella diría «ya está conectada» al tocarlo. Son dos pasos: el botón y escanear. ⚠️ **Y el aviso mandaba al teléfono equivocado:**
+los pasos del mail y la campanita eran fijos («Conectar por QR», «el teléfono de MaKo (…2605)») con la voz en el …3479; ahora
+salen de la línea (`pasosQrDe`). Lo fija tests/volver-a-vincular.test.ts (V1-V6).
 
 ---
 

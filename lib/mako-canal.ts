@@ -19,7 +19,7 @@ import {
   sondearSocket, motivoCaida, registrarWebhookInstancia, permitirGruposEnInstancia,
   getInstanciaRow, conectar, estadoEnVivo, vinculadaDesdeDeLinea,
 } from './evolution';
-import { puedeSoltarseSorda } from './linea-sorda';
+import { motivoParaVolverAVincular, puedeSoltarseSorda } from './linea-sorda';
 import { marcaDeLineaEnferma } from './lineas-enfermas';
 import { mensajeEvolution } from './evolution-sonda';
 import { instanciaVoz, setInstanciaVoz } from './mako-grupo';
@@ -605,17 +605,23 @@ export async function pasarMaKoANumeroNuevo(opts: { forzar?: boolean } = {}): Pr
 // se esté mirando. Con el de la pestaña, vincular «tu número» lo dejaba en el negocio de un
 // cliente.
 
-export type NumeroPersonal = { estado: string; numero: string | null; perfil: string | null; linea: string | null; esVoz: boolean };
+/** `sorda`: por qué no recibe aunque figure conectada, si la marca da para volver a vincularla (`motivoParaVolverAVincular`). */
+export type NumeroPersonal = { estado: string; numero: string | null; perfil: string | null; linea: string | null; esVoz: boolean; sorda: string | null };
 
 export async function estadoNumeroPersonal(): Promise<NumeroPersonal> {
   return runWithWorkspace(await wsSuperAdmin(), async () => {
     const row = await getInstanciaRow();
-    if (!row) return { estado: 'desconectado', numero: null, perfil: null, linea: null, esVoz: false };
-    const [e, voz] = await Promise.all([
+    if (!row) return { estado: 'desconectado', numero: null, perfil: null, linea: null, esVoz: false, sorda: null };
+    const [e, voz, marca, vinculadaAhora] = await Promise.all([
       estadoEnVivo(row.instance_name).catch(() => ({ estado: 'error' as const, numero: null, perfil: null })),
       instanciaVoz({ estricto: true }).catch(() => null),
+      marcaDeLineaEnferma(row.instance_name),
+      vinculadaDesdeDeLinea(row.instance_name).catch(() => null),
     ]);
-    return { estado: e.estado, numero: e.numero ?? row.numero ?? null, perfil: e.perfil ?? row.perfil_nombre ?? null, linea: row.instance_name, esVoz: voz === row.instance_name };
+    return {
+      estado: e.estado, numero: e.numero ?? row.numero ?? null, perfil: e.perfil ?? row.perfil_nombre ?? null, linea: row.instance_name,
+      esVoz: voz === row.instance_name, sorda: motivoParaVolverAVincular(marca, vinculadaAhora),
+    };
   });
 }
 
