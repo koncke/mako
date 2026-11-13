@@ -31,6 +31,7 @@ import { tareasDelCoPilot, type ResumenParaTareas, type TareaCoPilot } from '@/l
 import type { Decision, KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import type { AnuncioDestacado } from '@/lib/media-buyer/productos';
 import type { Tarea } from '@/lib/media-buyer/copiloto';
+import type { NumeroDelReel } from '@/lib/copiloto/piloto';
 import { CSS_COPILOTO } from './copiloto-css';
 import { Flecha, Grafico, Tuerca } from './iconos';
 import { AnalisisOC, ModalCosa, ModalTodoOC, SegPartes, SelectorOferta, useComunicacion, useNotaOC } from './OfertaComunicacion';
@@ -47,6 +48,8 @@ export type DatosCoPilot = {
   };
   tareas: Tarea[];
   funnel: string | null;
+  /** Con cuántas vistas se publica un reel de prueba (lib/copiloto/piloto.ts); null si no se pudo leer. */
+  reel: NumeroDelReel | null;
   web: string[];
   redes: Record<'instagram' | 'youtube', Array<{ usuario: string; vencida: boolean }>>;
 };
@@ -74,6 +77,11 @@ const CSS_EXTRA = `
 .frn .frn-stat { cursor: pointer; }
 .frn .frn-stat .mq-logo { display: inline-grid; place-items: center; flex: none; color: #fff; }
 @container frn (max-width: 700px) { .frn .cop-lista > li { grid-template-columns: 44px minmax(0, 1fr); } .frn .cop-mini { width: 44px; height: 44px; } .frn .cop-num { grid-column: 2; text-align: left; } }
+/* Con cuántas vistas se publica un reel de prueba: el número grande y de dónde sale. */
+.frn .cop-reel { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.frn .cop-reel__n { margin: 6px 0 4px; font-size: 44px; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
+.frn .cop-reel__n span { margin-left: 8px; font-size: 18px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+.frn .cop-reel__x { margin: 0; font-size: 15.5px; line-height: 1.5; color: var(--muted); max-width: 60ch; }
 /* El piloto sin configurar: una tarjeta que lleva a la configuración. */
 .frn .cop-primera { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 22px; padding: 28px 30px; }
 .frn .cop-primera h2 { margin: 0 0 6px; font-size: 22px; font-weight: 700; letter-spacing: -.02em; color: var(--ink); }
@@ -240,6 +248,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
               {tarjeta === 'anuncios' && <AnalisisAnuncios datos={datos} />}
               {tarjeta === 'web' && <TarjetaWeb paso="analisis" web={datos.web} />}
               {(tarjeta === 'instagram' || tarjeta === 'youtube') && <TarjetaRed red={tarjeta} paso="analisis" cuentas={datos.redes[tarjeta]} />}
+              {tarjeta === 'instagram' && <NumeroDelReelCard reel={datos.reel} />}
               <LoQueTeToca tareas={tareas[tarjeta]} enPlan={enPlan} onHecha={marcarTarea}
                 onHacer={(t) => { if (t.abre === 'oc') { setParte(t.parte ?? 'oferta'); setTodo(true); } else if (t.abre === 'leer') void oc.leer(t.parte ?? 'angulos'); }} />
             </div>
@@ -278,7 +287,7 @@ function resumenParaTareas(datos: DatosCoPilot, oc: EstadoComunicacion): Resumen
     anuncios: { conectada: datos.anuncios.conectada, funnel: datos.funnel, semana: datos.tareas.map((t) => ({ titulo: t.titulo, href: t.href })) },
     web: datos.web,
     redes: { instagram: { conectada: conectada('instagram') }, youtube: { conectada: conectada('youtube') } },
-    seguidos: null,
+    seguidos: datos.reel ? datos.reel.seguidos : null,
   };
 }
 
@@ -309,6 +318,27 @@ function LoQueTeToca({ tareas, enPlan, onHecha, onHacer }: {
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+/**
+ * Con cuántas vistas se publica un reel de prueba (Martín, 13/11: nunca «graduar el reel de prueba»). MaKo propone el promedio de
+ * las cuentas que sigues en Competitor Spy y la persona lo cambia en la configuración del piloto.
+ */
+function NumeroDelReelCard({ reel }: { reel: NumeroDelReel | null }) {
+  if (!reel) return null;
+  return (
+    <section className="frn-card cop-reel">
+      <div className="cop-reel__txt">
+        <h2 className="frn-card__t">Un reel de prueba se publica con</h2>
+        <p className="cop-reel__n frn-num">{reel.numero != null ? reel.numero.toLocaleString('es') : '—'}<span>vistas</span></p>
+        <p className="cop-reel__x">{reel.elegido ? 'Lo elegiste tú.' : reel.explicacion}</p>
+      </div>
+      <div className="cop-acciones">
+        {reel.seguidos > 0 && <Link className="frn-btn frn-btn--ghost" href="/ads-manager/copiloto/configurar?red=instagram">Cambiarlo</Link>}
+        <Link className="frn-btn frn-btn--ghost" href="/competitor-spy?ver=seguidos">{reel.seguidos ? 'Ver los que sigues' : 'Elegir a quién sigues'}</Link>
+      </div>
     </section>
   );
 }

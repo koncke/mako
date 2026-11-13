@@ -14,19 +14,21 @@ import { Pagina } from '@/app/_ui/Pagina';
 import { EmptyState, PermissionState } from '@/app/_ui/Estados';
 import { leerConfig, cupoDe } from '@/lib/media-buyer/store';
 import { resolverTacticas } from '@/lib/media-buyer/tacticas';
+import { numeroDelReel } from '@/lib/copiloto/piloto';
 import { ConfigurarPiloto, type InicialPiloto } from './ConfigurarPiloto';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function ConfigurarPilotoPage() {
+export default async function ConfigurarPilotoPage({ searchParams }: { searchParams: Promise<{ red?: string }> }) {
   await requireRolWs([], { nav: 'ads-manager' });
   if (await adsSinNegocio()) {
     return <Pagina><EmptyState titulo="Elige un negocio" detalle="El piloto trabaja sobre un negocio. Entra a uno desde el panel y vuelve aquí." accion={{ label: 'Ir al panel', href: '/admin' }} /></Pagina>;
   }
   const ws = await wsDeAdsManager();
   if (ws instanceof Response) return <Pagina><PermissionState motivo="rol" /></Pagina>;
-  const [config, cupo] = await Promise.all([leerConfig(ws), cupoDe(ws)]);
+  const [config, cupo, reel] = await Promise.all([leerConfig(ws), cupoDe(ws), numeroDelReel(ws).catch(() => null)]);
+  const red = (await searchParams).red === 'instagram' ? 'instagram' : 'anuncios';
   // Lo que vale hoy de cada táctica (el motor no viaja al navegador: se resuelve acá).
   const t = resolverTacticas(config.tacticas, { piloto: config.modo === 'piloto', pilotoPermitido: cupo.piloto });
   const inicial: InicialPiloto = {
@@ -36,7 +38,7 @@ export default async function ConfigurarPilotoPage() {
   };
   return (
     <Pagina ancho="completo" style={{ padding: 0 }}>
-      <ConfigurarPiloto inicial={inicial} pilotoPermitido={cupo.piloto} />
+      <ConfigurarPiloto inicial={inicial} pilotoPermitido={cupo.piloto} reel={reel} canalInicial={red} />
     </Pagina>
   );
 }

@@ -21,6 +21,7 @@ import { Toast, useToast } from '@/app/_ui';
 import { LogoRed } from '@/app/competitor-spy/LogoRed';
 import type { KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import type { ConfigTacticas } from '@/lib/media-buyer/tacticas';
+import type { NumeroDelReel } from '@/lib/copiloto/piloto';
 import { CSS_COPILOTO } from '../copiloto-css';
 
 type TacticaSola = 'stop_loss' | 'surf' | 'sunsetting' | 'ganador';
@@ -68,6 +69,9 @@ const CSS = `
 .frn .mq-interr[aria-checked="true"] i::after { transform: translateX(18px); }
 .frn .mq-interr[disabled] { cursor: default; opacity: .6; }
 .frn .mq-interr > span { font-size: 15px; color: var(--muted); min-width: 92px; }
+.frn .mq-seguidos { list-style: none; margin: 12px 0; padding: 12px 14px; border-radius: 14px; background: var(--panel); display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 18px; }
+.frn .mq-seguidos li { display: flex; justify-content: space-between; gap: 10px; font-size: 15px; color: var(--muted); }
+.frn .mq-seguidos b { color: var(--ink); }
 .frn .mq-cfg__nota { margin: 14px 0 0; padding: 12px 14px; border-radius: 12px; background: var(--panel); font-size: 15px; line-height: 1.5; color: var(--muted); }
 .frn .mq-cfg__pie { display: flex; justify-content: flex-end; margin-top: var(--gap); }
 @container frn (max-width: 900px) {
@@ -83,8 +87,12 @@ const CSS = `
 
 const plata = (n: number) => `US$ ${n.toLocaleString('es')}`;
 
-export function ConfigurarPiloto({ inicial, pilotoPermitido }: { inicial: InicialPiloto; pilotoPermitido: boolean }) {
+export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial }: {
+  inicial: InicialPiloto; pilotoPermitido: boolean; reel: NumeroDelReel | null; canalInicial: 'anuncios' | 'instagram';
+}) {
   const router = useRouter();
+  const [canal, setCanal] = useState<'anuncios' | 'instagram'>(canalInicial);
+  const [numero, setNumero] = useState(reel?.numero ?? 1000);
   const { toast, show, clear } = useToast();
   const [mes, setMes] = useState(inicial.metaGastoMes ?? 1000);
   const [costo, setCosto] = useState(inicial.objetivo != null ? String(inicial.objetivo) : '');
@@ -118,6 +126,18 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido }: { inicial: Inicia
     } finally { setGuardando(false); }
   };
 
+  const guardarReel = async () => {
+    setGuardando(true);
+    try {
+      const r = await (await fetch('/api/copiloto/piloto', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'reel', numero }) })).json() as { ok: boolean; error?: string };
+      if (!r.ok) { show(r.error || 'No se pudo guardar.', undefined, 'bad'); return; }
+      show('Listo: guardé con cuántas vistas se publica.', undefined, 'good');
+      router.push('/ads-manager/copiloto?tarjeta=instagram');
+    } catch (e) {
+      show(e instanceof Error ? e.message : 'No pude conectarme.', undefined, 'bad');
+    } finally { setGuardando(false); }
+  };
+
   return (
     <div className="frn frn--mono cop">
       <style>{CSS_COPILOTO}</style>
@@ -131,9 +151,25 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido }: { inicial: Inicia
         </div>
         <div className="mq-cfg__cuerpo">
           <nav className="mq-cfg__nav" aria-label="Qué configuras">
-            {/* Hoy sólo se configura Anuncios: es un rótulo, no un botón (tests/ningun-boton-muerto.test.ts). Los demás se suman con su piloto. */}
-            <span className="mq-cfg__item" aria-current="page"><LogoRed red="anuncios" box={26} /><span>Anuncios</span></span>
+            <button type="button" aria-current={canal === 'anuncios' ? 'page' : undefined} onClick={() => setCanal('anuncios')}><LogoRed red="anuncios" box={26} /><span>Anuncios</span></button>
+            <button type="button" aria-current={canal === 'instagram' ? 'page' : undefined} onClick={() => setCanal('instagram')}><LogoRed red="instagram" box={26} /><span>Instagram</span></button>
           </nav>
+          {canal === 'instagram' ? (
+            <section className="frn-card mq-cfg__hoja">
+              <h2 className="frn-card__t">Instagram</h2>
+              <h3>Cuánto</h3>
+              <div className="mq-aj">
+                <div><b>¿Con cuántas vistas se publica un reel de prueba?</b></div>
+                <div className="mq-paso"><button type="button" aria-label="Menos" onClick={() => setNumero((n) => Math.max(100, n - 100))}>−</button><output className="frn-num">{numero.toLocaleString('es')}</output><button type="button" aria-label="Más" onClick={() => setNumero((n) => n + 100)}>+</button></div>
+              </div>
+              {/* De dónde sale lo que propongo: las cuentas que sigues en Competitor Spy y lo que suele hacer cada una. */}
+              <p className="mq-cfg__nota">{reel?.propuesto != null ? `Te propongo ${reel.propuesto.toLocaleString('es')}: el promedio de las cuentas que sigues.` : reel?.explicacion ?? 'Elige a tus competidores en Competitor Spy y te propongo el número.'}</p>
+              {reel && reel.competidores.length > 0 && (
+                <ul className="mq-seguidos">{reel.competidores.map((c) => <li key={c.nombre}><span>{c.nombre}</span><b>{c.mediana != null ? c.mediana.toLocaleString('es') : '—'}</b></li>)}</ul>
+              )}
+              {reel?.propuesto != null && numero !== reel.propuesto && <button type="button" className="frn-btn frn-btn--ghost" onClick={() => setNumero(reel.propuesto!)}>Volver a lo que propongo</button>}
+            </section>
+          ) : (
           <section className="frn-card mq-cfg__hoja">
             <h2 className="frn-card__t">Anuncios</h2>
             <h3>Cuánto</h3>
@@ -163,9 +199,12 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido }: { inicial: Inicia
             })}
             {!pilotoPermitido && <p className="mq-cfg__nota">Con tu plan te propongo cada cambio y tú lo apruebas en el piloto.</p>}
           </section>
+          )}
         </div>
         <div className="mq-cfg__pie">
-          <button type="button" className="frn-btn frn-btn--primary" disabled={guardando} onClick={guardar}>{guardando ? 'Guardando…' : inicial.encendido ? 'Guardar' : 'Guardar y prender el piloto'}</button>
+          {canal === 'instagram'
+            ? <button type="button" className="frn-btn frn-btn--primary" disabled={guardando} onClick={guardarReel}>{guardando ? 'Guardando…' : 'Guardar'}</button>
+            : <button type="button" className="frn-btn frn-btn--primary" disabled={guardando} onClick={guardar}>{guardando ? 'Guardando…' : inicial.encendido ? 'Guardar' : 'Guardar y prender el piloto'}</button>}
         </div>
       </main>
       <Toast state={toast} onClose={clear} />
