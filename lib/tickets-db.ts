@@ -161,14 +161,16 @@ async function administraUnaAgencia(u: { rol: string; rol_ws: string | null; wor
 }
 
 /**
- * El plan del negocio para la ficha: el que se VENDE (Esencial o Pro), no la capa (`planDeLaFicha`, 12/11/2026, #89). Los topes
- * se leen con import diferido, como `administraUnaAgencia`: lib/topes-plan-server arrastra lib/cobros. «No pude leer» → `null`.
+ * El plan del negocio para la ficha: el que se VENDE (Esencial o Pro), no la capa (`planDeLaFicha`, 12/11/2026, #89). Con
+ * import diferido, como `administraUnaAgencia`. «No pude leer» → `null`.
+ * ⚠️ NO `aplicanTopes` (lib/topes-plan-server.ts): importa lib/cobros, que alcanza una IA, y la Ticketera la llama el Ops Center:
+ *    tests/d6b-rutas.test.ts (caso 4) dio ROJO en la punta. `pagaUnPlanDe` lee lo mismo sin lib/cobros (lib/plan-esencial.ts).
  */
 async function planDelNegocio(ws: number, w: { capa?: string | null } | null): Promise<string | null> {
   if (!w) return null;
   const capa = w.capa ?? null;
   const rige = capa === 'completo' || capa === 'agencia'
-    ? await import('./topes-plan-server').then((m) => m.aplicanTopes(ws)).catch(() => null)
+    ? await import('./plan-esencial').then((m) => m.pagaUnPlanDe(ws, capa)).catch(() => null)
     : null;
   return planDeLaFicha({ capa, nombreCapa: capaDef(capa).nombre, rige });
 }

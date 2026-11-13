@@ -34,7 +34,14 @@ test('2. sin topes (ws1, un acuerdo a mano) no es Esencial aunque tenga la capa;
 
 test('3. la ficha lo lee así en los dos caminos (la app y WhatsApp), con los topes en import diferido', () => {
   const db = fuente('lib/tickets-db.ts');
-  assert.match(db, /await import\('\.\/topes-plan-server'\)\.then\(\(m\) => m\.aplicanTopes\(ws\)\)\.catch\(\(\) => null\)/);
+  assert.match(db, /await import\('\.\/plan-esencial'\)\.then\(\(m\) => m\.pagaUnPlanDe\(ws, capa\)\)\.catch\(\(\) => null\)/);
+  // ⚠️ La primera versión usó `aplicanTopes` y dio ROJO en GitHub (tests/d6b-rutas.test.ts, caso 4): lib/topes-plan-server
+  //    importa lib/cobros, que alcanza una IA, y la Ticketera la llama el Ops Center.
+  assert.doesNotMatch(db, /import\('\.\/topes-plan-server'\)|from '\.\/topes-plan-server'|from '\.\/cobros'|import\('\.\/cobros'\)/);
+  const pe = fuente('lib/plan-esencial.ts');
+  assert.doesNotMatch(pe, /from '\.\/cobros'|import\('\.\/cobros'\)|topes-plan-server'\)/);
+  assert.match(pe, /export async function pagaUnPlanDe\(ws: number, capa: string \| null\): Promise<boolean> \{\n\s*const plataforma = await wsSuperAdmin\(\);\n\s*if \(ws === plataforma \|\| WS_SIN_PLAN_DE_PASARELA\.has\(ws\)\) return false;/,
+    'el ws1 y la plataforma nunca «pagan un plan», como en `esEsencialDe`');
   assert.match(db, /return planDeLaFicha\(\{ capa, nombreCapa: capaDef\(capa\)\.nombre, rige \}\);/);
   assert.match(db, /const \[agencia, plan\] = await Promise\.all\(\[administraUnaAgencia\(u\), planDelNegocio\(ws, /);
   assert.match(db, /const plan = async \(\) => planDelNegocio\(ws, /);
