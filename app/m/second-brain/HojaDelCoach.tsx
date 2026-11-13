@@ -12,7 +12,7 @@
 import '@/app/admin/operaciones/centro.css';
 import '@/app/m/operaciones/operaciones.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SheetM } from '@/app/m/_ui';
+import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
@@ -40,7 +40,7 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
   const { k, r, aspecto, quien, vacio, saludo, plan } = useChatDelCoach({ referente, oferta, caja });
   const [vista, setVista] = useState<'plan' | 'cerebro' | 'elegir' | null>(null);
   // La hoja mide su cuerpo después del primer pintado: se baja en el cuadro siguiente (el mismo cuidado que HojaDelGuru.tsx).
-  const seguirHoja = useCallback(() => hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null, []);
+  const seguirHoja = useCallback(() => hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null, []);
   useEffect(() => {
     const t = setTimeout(() => { const el = seguirHoja(); if (el) el.scrollTop = el.scrollHeight; }, 80);
     return () => clearTimeout(t);
@@ -54,7 +54,7 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
 
   return (
     <>
-      <SheetM abierto onCerrar={onCerrar} snap="alto" id="funnel-coach"
+      <PantallaChatM abierto onCerrar={onCerrar} id="funnel-coach"
         titulo={titulo ?? (
           <span className="m-operaciones-titulo">
             <button type="button" className="m-operaciones-titulo__muneco" disabled={!puedeElegir} aria-label="Elegir quién aconseja" onClick={() => setVista('elegir')}>
@@ -119,7 +119,7 @@ export function HojaDelCoach({ referente, oferta, puedeElegir, onReferente, onCe
             ) : <HiloDelCliente k={k} />}
           </div>
         )}
-      </SheetM>
+      </PantallaChatM>
       <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} reportable={esRespuestaDeMaKo} />
     </>
   );

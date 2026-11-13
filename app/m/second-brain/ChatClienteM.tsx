@@ -7,12 +7,15 @@
 // MISMA estructura que su Ops Center del teléfono (app/m/operaciones/ChatsMovil.tsx), con los chats del cliente:
 //   · la pantalla es la lista, como WhatsApp: «Nuevo chat» arriba, el Cerebro (la estrella de MaKo) y todos los demás en UNA
 //     lista, por actividad (lib/chat-mako-reglas.ts → listaDelCliente): sin «Offer» ni «Antes» aparte;
-//   · tocar uno abre su conversación en una hoja alta (SheetM), con la criatura y el nombre de título, el hilo de la
-//     computadora (HiloMako, con lo de WhatsApp) y la caja ÚNICA pegada abajo (app/_chat/CajaChat.tsx, como la de ChatsMovil);
+//   · tocar uno abre su conversación A PANTALLA COMPLETA, como WhatsApp (PantallaChatM, 13/11/2026: el prototipo que aprobó Martín,
+//     docs/prototipos/mako-mobile-chat.html), con la criatura y el nombre de título, el hilo de la computadora (HiloMako, con lo de
+//     WhatsApp) y la caja ÚNICA pegada abajo (app/_chat/CajaChat.tsx, como la de ChatsMovil);
 //   · una conversación de Offer o un chat de antes se SIGUE ahí, con su motor. El motor es el de la computadora
 //     (app/second-brain/useChatCliente.ts): una sola vez.
-// ⚠️ UNA SOLA HOJA (SheetM → «Una hoja sobre otra REEMPLAZA»): la Info de un mensaje y «Tus cuentas de IA» se abren ADENTRO de
-//    la de la conversación, con su «‹» para volver, como el selector de la criatura en ChatsMovil.tsx.
+// ⚠️ UNA SOLA CAPA (PantallaChatM usa el historial de SheetM → «Una hoja sobre otra REEMPLAZA»): la Info de un mensaje y «Tus cuentas
+//    de IA» se abren ADENTRO de la conversación, con su «‹» para volver, como el selector de la criatura en ChatsMovil.tsx.
+// LA LISTA, COMO EL PROTOTIPO (13/11/2026): arriba el buscador y en chips el Second Brain, la Ticketera y el Uso; los chats en UNA
+// lista de borde a borde (el grupo del negocio fijado primero); y «Nuevo chat» es el «+» flotante de WhatsApp.
 // ⚠️ Los chats de Claude Code del super admin que mira un cliente van debajo (`masChats`, app/m/second-brain/SecondBrainCentroM.tsx).
 // EL FUNNEL COACH (4/11/2026, Martín: «Junta a "Offer coach" con "Funnel Coach"... en computadora y en teléfono»): su fila va debajo del
 // Ops Center, como en la computadora, con las conversaciones de oferta colgando de ella; abre su hoja (HojaDelCoach.tsx).
@@ -20,8 +23,11 @@
 import '@/app/admin/operaciones/centro.css';
 import '@/app/m/operaciones/operaciones.css';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { FilaM, ListaM, SeccionM, SheetM } from '@/app/m/_ui';
-import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
+import { FilaM, ListaM, SheetM } from '@/app/m/_ui';
+import { NuevoChatFlotante } from '@/app/m/_chat/NuevoChatFlotante';
+import Link from '@/app/_ui/Link';
+import { Icon } from '@/app/_components/icons';
+import { CUERPO_CHAT, PantallaChatM } from '@/app/m/_chat/PantallaChatM';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { BarraFijados, InfoMensaje, MenuMensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { esRespuestaDeMaKo } from '@/app/_chat/HiloMako';
@@ -46,6 +52,9 @@ import { previaDelCoach } from '@/lib/funnel-plan';
 
 /** Cuántos chats se ven antes de «Ver todos» (los de ChatsMovil.tsx). */
 const VISIBLES = 10;
+/** ¿Esta fila es la que se busca? Por el nombre, sin acentos ni mayúsculas. */
+const plano = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+export const coincide = (titulo: string, busca: string): boolean => !busca.trim() || plano(titulo).includes(plano(busca.trim()));
 
 export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar = '', chatInicial = null, offerInicial = null, grupoInicial = null, masChats }: {
   sesionesIniciales: SesionChat[];
@@ -64,6 +73,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   const [elegido, setElegido] = useState<ElegidoChat | null>(() => (offerInicial != null ? { offer: offerInicial } : chatInicial != null ? { id: chatInicial } : null));
   const [abierta, setAbierta] = useState(elegido != null);
   const [todas, setTodas] = useState(false);
+  const [busca, setBusca] = useState('');
   const caja = useRef<HTMLTextAreaElement>(null);
   const hilo = useRef<HTMLDivElement>(null);
   // El coach (uno desde el 4/11/2026): quién aconseja, si hay oferta y si esta persona lo puede cambiar. Su referente es también la cara
@@ -79,7 +89,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
 
   // Como un chat: abre en lo último. La hoja monta su cuerpo en un portal y lo mide después del primer pintado, así que se baja
   // en el cuadro siguiente (el mismo cuidado que ChatsMovil.tsx).
-  const seguirHoja = useCallback(() => hilo.current?.closest('.m-sheet__cuerpo') as HTMLElement | null, []);
+  const seguirHoja = useCallback(() => hilo.current?.closest(CUERPO_CHAT) as HTMLElement | null, []);
   const enChatNuevo = elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo';
   // El chat nuevo se queda arriba: abajo de la portada están los gurús, y bajando se perdía lo que dice.
   const quedaArriba = enChatNuevo && !k.items.length;
@@ -109,16 +119,17 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
   // El coach es del admin del negocio (sus herramientas lo son): su fila, como en la computadora. Con ella, las conversaciones de oferta
   // cuelgan de él; sin ella (no la ve), siguen en la lista, para que nada se pierda.
   const verCoach = hrefMapa != null || puedeElegir;
-  const filasOffer = verCoach ? todasLasFilas.filter((f) => f.origen === 'offer') : [];
+  const filasOffer = verCoach ? todasLasFilas.filter((f) => f.origen === 'offer' && coincide(f.titulo, busca)) : [];
   const resto = verCoach ? todasLasFilas.filter((f) => f.origen !== 'offer') : todasLasFilas;
-  const corte = todas ? resto : resto.filter((f, i) => i < VISIBLES || esFilaDe(f, elegido));
+  const buscando = !!busca.trim();
+  const corte = buscando ? resto.filter((f) => coincide(f.titulo, busca)) : todas ? resto : resto.filter((f, i) => i < VISIBLES || esFilaDe(f, elegido));
   /** Una fila: la criatura (la SUYA), el nombre, la edad a la derecha y, si trabaja, «Trabajando…» (las de ChatsMovil.tsx). En su
    *  grupo (`sub`, debajo de su jefe), corrida a la derecha y con «↳» y lo de después de «›», como un sub-chat del super admin. */
   const fila = (f: (typeof k.lista)[number], sub = false) => {
     const vivo = !f.jefeDeGrupo && esFilaDe(f, elegido) && k.enCurso;
     return (
       <FilaM key={f.clave} chevron={false}
-        leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} size={sub ? 32 : 40} /></span>}
+        leading={<span className={sub ? 'm-operaciones-sub' : undefined}><Muneco titulo={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} size={sub ? 36 : 48} /></span>}
         titulo={<span className="m-operaciones-texto1">{sub ? `↳ ${partesDelNombre(f.titulo).sub ?? f.titulo}` : f.titulo}</span>}
         segunda={vivo ? <span className="m-operaciones-vivo">{TEXTO_SEGUNDO_RENGLON.vivo}</span> : undefined}
         riel={<span className="m-operaciones-riel"><span className="m-operaciones-hace">{edadCorta(f.actividad, k.ahora)}</span></span>}
@@ -129,22 +140,28 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
 
   return (
     <>
-      {/* El grafo del negocio, arriba de los chats (como «Second Brain» en el Ops Center del super admin). */}
-      {hrefMapa && <ListaM etiqueta="Second Brain"><FilaM navegacion titulo="Second Brain" icono="cerebro" href={hrefMapa} /></ListaM>}
-      {/* Su Ticketera (22/10/2026), como la del Ops Center del super admin en el teléfono: levantar uno y ver los suyos. */}
-      {!masChats && !misTickets.fueraDelPlan && <ListaM etiqueta="Ticketera">
-        <FilaM navegacion titulo="Ticketera" icono="soporte" href="/m/tickets"
-          segunda={misTickets.esperanTuRespuesta > 0 ? `${misTickets.esperanTuRespuesta} esperan tu respuesta` : 'Tus tickets'} />
-      </ListaM>}
-      <SeccionM titulo="Chats">
+      {/* Arriba, como el prototipo: el buscador y en chips lo que no es un chat (el grafo, su Ticketera y su Uso). */}
+      <label className="m-ops-buscar">
+        <Icon name="search" size={18} />
+        <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label="Buscar en tus chats" />
+      </label>
+      <div className="m-ops-chips">
+        {hrefMapa && <Link className="m-ops-chip" href={hrefMapa}>Second Brain</Link>}
+        {/* Su Ticketera (22/10/2026): levantar uno y ver los suyos, con los que esperan su respuesta. */}
+        {!masChats && !misTickets.fueraDelPlan && (
+          <Link className="m-ops-chip" href="/m/tickets">Ticketera{misTickets.esperanTuRespuesta > 0 && <span className="m-ops-chip__n">{misTickets.esperanTuRespuesta}</span>}</Link>
+        )}
+        {/* Su «Uso» (D3): sus cuentas de IA. Sin IA conectada, el chip lo dice. */}
+        {!masChats && <button type="button" className="m-ops-chip" onClick={() => setVerUso(true)}>{k.iaConectada === false ? 'Conecta tu IA' : 'Uso'}</button>}
+      </div>
+      <div className="m-ops-wa">
         <ListaM etiqueta="Chats">
-          <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat" onClick={() => abrir({ virtual: 'nuevo' })} navegacion />
           {/* Fijado, el primero de los chats (Martín: «que esté posicionado arriba»). */}
-          <FilasDelGrupoM g={grupos} abierto={grupo} onAbrir={abrirGrupo} />
-          {cerebro && fila(cerebro)}
-          {verCoach && (
+          {(!buscando || coincide(grupos.grupos?.map((g) => g.titulo).join(' ') ?? '', busca)) && <FilasDelGrupoM g={grupos} abierto={grupo} onAbrir={abrirGrupo} />}
+          {cerebro && coincide(cerebro.titulo, busca) && fila(cerebro)}
+          {verCoach && coincide(ORIGEN_FUNNEL_COACH, busca) && (
             <FilaM chevron={false}
-              leading={<Muneco titulo={delCoach?.nombre ?? 'MaKo'} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" size={40} />}
+              leading={<Muneco titulo={delCoach?.nombre ?? 'MaKo'} aspecto={delCoach ? aspectoDeReferente(delCoach.id) : ASPECTO_MAKO} animo="despierto" size={48} />}
               titulo={<span className="m-operaciones-texto1">{ORIGEN_FUNNEL_COACH}</span>}
               segunda={delCoach ? inspiradoEn(delCoach) : previaDelCoach(oferta)}
               onClick={abrirCoach} />
@@ -156,21 +173,18 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
             const j = g.chat ?? (() => { const v = jefeDelGrupo(g); return v ? { ...v, aspecto: aspectoDeChat(v.clave) } : null; })();
             return j ? [fila(j), ...g.subs.map((f) => fila(f, true))] : g.subs.map((f) => fila(f));
           })}
-          {!todas && resto.length > corte.length && <FilaM titulo={`Ver los ${resto.length} chats`} onClick={() => setTodas(true)} navegacion />}
+          {!buscando && !todas && resto.length > corte.length && <FilaM titulo={`Ver los ${resto.length} chats`} onClick={() => setTodas(true)} navegacion />}
         </ListaM>
-      </SeccionM>
+      </div>
       {k.errorLista && <p className="m-operaciones-hilo__meta" role="alert">{k.errorLista}<ReportarASoporte /></p>}
       {masChats?.()}
-      {/* Su «Uso», abajo como en el Ops Center del super admin («Uso y Runners»): sus cuentas de IA, conectar y desconectar. */}
-      {!masChats && <ListaM etiqueta="Uso">
-        <FilaM navegacion titulo="Uso" icono="config" onClick={() => setVerUso(true)}
-          segunda={k.iaConectada == null ? 'Tus cuentas de IA' : k.iaConectada ? 'Tu IA conectada' : 'Conecta tu IA'} />
-      </ListaM>}
+      {/* «Nuevo chat», el «+» de WhatsApp: abajo a la derecha, con su lugar al final de la lista. */}
+      <NuevoChatFlotante onClick={() => abrir({ virtual: 'nuevo' })} />
       <SheetM abierto={verUso} onCerrar={() => { setVerUso(false); k.mirarSuIA(); }} snap="alto" id="uso-cliente" titulo="Tus cuentas de IA">
         <TusCuentasIA sinCabecera />
       </SheetM>
 
-      <SheetM abierto={abierta && elegido != null} onCerrar={cerrar} snap="alto" id="chat-cliente"
+      <PantallaChatM abierto={abierta && elegido != null} onCerrar={cerrar} id="chat-cliente"
         titulo={panel === 'conectar' ? 'Tus cuentas de IA' : panel === 'info' ? 'Info del mensaje' : (
           // El título es el chat, como la cabecera de WhatsApp: la criatura a la izquierda del nombre (ChatsMovil.tsx).
           <span className="m-operaciones-titulo">
@@ -204,7 +218,7 @@ export function ChatClienteM({ sesionesIniciales, hrefMapa = null, opcionArmar =
             {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} />}
           </div>
         )}
-      </SheetM>
+      </PantallaChatM>
       {delGuru && <HojaDelGuru key={delGuru.id} referente={delGuru} onCerrar={() => setGuru(null)} />}
       {conCoach && <HojaDelCoach referente={referente} oferta={oferta} puedeElegir={puedeElegir} onReferente={elegirReferente} onCerrar={() => setConCoach(false)} />}
       {grupo != null && (

@@ -88,7 +88,9 @@ test('4. el grupo es el primer chat, debajo de «Nuevo chat», en las cuatro lis
   // Afuera de `k.sesiones != null`: no espera a la lista de chats ni cae con su error.
   const rama = sb.slice(sb.indexOf('{listaSB && (<>'));
   assert.ok(rama.indexOf('<FilasDelGrupo') < rama.indexOf('k.sesiones != null'), 'el grupo no espera a la lista');
-  entre(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), 'titulo="Nuevo chat"', '<FilasDelGrupoM g={grupos}', '{cerebro && fila(cerebro)}');
+  // El teléfono del cliente desde el 13/11/2026 (el prototipo aprobado, tests/m-chat-pantalla.test.ts): el buscador arriba, el grupo el primero de los chats
+  // y «Nuevo chat» es el «+» flotante de WhatsApp.
+  entre(sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx')), 'aria-label="Buscar en tus chats"', '<FilasDelGrupoM g={grupos}', '{cerebro && coincide(cerebro.titulo, busca) && fila(cerebro)}', '<NuevoChatFlotante');
   const ops = sinComentarios(leer('app/m/operaciones/ChatsMovil.tsx'));
   const lista = ops.slice(ops.indexOf('{conLista && ('));
   entre(lista, '{!parte && <FilaM leading={<CirculoNuevo size={40} />} titulo="Nuevo chat"', '{!parte && <FilasDelGrupoM g={grupos}', 'gurusConCharla.map', 'filas.map');
@@ -167,20 +169,20 @@ test('5. dibujado de verdad, en el teléfono y en la computadora: «Nuevo chat»
   const { html, m, react } = await dibujo();
   conGrupos([fila(7, { titulo: 'MaKo &lt;&gt; Inmobiliaria', ultimo: msg(9, 'persona', 'Joan', false, 'Yo entro'), noLeidos: 3 })]);
   const tel = html(react.createElement(m.ChatClienteM, { sesionesIniciales: [{ id: 1, titulo: 'Plan de la semana', pinned: false, updatedAt: '2026-11-03T10:00:00Z' }], opcionArmar: '' }));
-  enOrden(tel, 'Nuevo chat', 'Inmobiliaria', 'Joan: Yo entro', 'aria-label="3 sin leer"', 'Ops Center');
+  enOrden(tel, 'Buscar en tus chats', 'Inmobiliaria', 'Joan: Yo entro', 'aria-label="3 sin leer"', 'Ops Center', 'm-ops-hueco');
   const pc = html(react.createElement(m.ChatSecondBrain, { veMapa: true, mapa: null, chatInicial: null, opcionArmar: '', centro: null, centroInicial: null, inicio: 'second-brain' }));
   enOrden(pc, 'Nuevo chat', 'Inmobiliaria', 'Joan: Yo entro', 'aria-label="3 sin leer"');
   // Un closer sin invitar no recibe ninguno: no hay fila, y el resto sigue.
   conGrupos([]);
   const sinGrupo = html(react.createElement(m.ChatClienteM, { sesionesIniciales: [], opcionArmar: '' }));
-  assert.ok(!sinGrupo.includes('sin leer') && sinGrupo.includes('Nuevo chat') && !sinGrupo.includes('Inmobiliaria'), 'sin grupo, no hay fila');
+  assert.ok(!sinGrupo.includes('sin leer') && sinGrupo.includes('Buscar en tus chats') && !sinGrupo.includes('Inmobiliaria'), 'sin grupo, no hay fila');
 });
 
 test('6. un invitado de otro negocio también lo tiene primero, con el título de invitado', async () => {
   const { html, m, react } = await dibujo();
   conGrupos([fila(7, { titulo: 'Invitación de Inmobiliaria', administra: false, invitado: true })]);
   const tel = html(react.createElement(m.ChatClienteM, { sesionesIniciales: [], opcionArmar: '' }));
-  enOrden(tel, 'Nuevo chat', 'Invitación de Inmobiliaria', 'Te invitaron a este grupo', 'Ops Center');
+  enOrden(tel, 'Buscar en tus chats', 'Invitación de Inmobiliaria', 'Te invitaron a este grupo', 'Ops Center');
   const pc = html(react.createElement(m.FilasDelGrupo, { g: (globalThis as unknown as { __grupos: unknown }).__grupos, abierto: null, onElegir() {} }));
   enOrden(pc, 'Invitación de Inmobiliaria', 'Te invitaron a este grupo');
 });
@@ -522,8 +524,9 @@ test('19. queda montado como un gurú, y nadie más pide por este motor', () => 
   assert.match(leer('app/_chat/grupo/grupo.css'), /\.co-otro \.ch-plegable, \.co-otro \.co-burbuja \{ max-width: 100%; min-width: 0; \}/);
   assert.doesNotMatch(sb, /fetch\(/, 'la pantalla no hace pedidos propios');
   const m = sinComentarios(leer('app/m/second-brain/HojaDelGrupo.tsx'));
-  assert.match(m, /<SheetM abierto onCerrar=\{onCerrar\} snap="alto" id=\{`grupo-\$\{ws\}`\}/, 'el «atrás» de Android la cierra');
-  assert.doesNotMatch(m, /<SheetM[\s\S]*<SheetM/, 'una sola hoja: Participantes va adentro');
+  // A pantalla completa desde el 13/11/2026 (PantallaChatM, con el historial de las hojas: tests/m-chat-pantalla.test.ts).
+  assert.match(m, /<PantallaChatM abierto onCerrar=\{onCerrar\} id=\{`grupo-\$\{ws\}`\} grupo/, 'el «atrás» de Android la cierra');
+  assert.doesNotMatch(m, /<SheetM|<PantallaChatM[\s\S]*<PantallaChatM/, 'una sola capa: Participantes va adentro');
   // ⚠️ El motor no lleva `?ws=`: el ws va en la URL y un invitado sigue parado en su negocio.
   for (const f of ['app/_chat/grupo/useHiloDelGrupo.ts', 'app/_chat/grupo/pantalla.ts', 'app/_chat/grupo/Participantes.tsx']) assert.doesNotMatch(sinComentarios(leer(f)), /conWs\(|[?&]ws=/, f);
 });

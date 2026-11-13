@@ -132,3 +132,6 @@
 .gr-miembro__tu { font-weight: 400; color: var(--dim); }
 .gr-miembro__rotulo { font-size: var(--fs-meta); color: var(--faint); }
 .gr-salir { flex: none; display: flex; flex-direction: column; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+/* La foto del grupo en el teléfono (FilasDelGrupoM.tsx → FotoDelGrupo): el ícono de personas en su círculo, como un grupo de WhatsApp sin foto. */
+.gr-foto { flex: none; display: inline-grid; place-items: center; border-radius: 50%; background: var(--good-bg); color: var(--good); }

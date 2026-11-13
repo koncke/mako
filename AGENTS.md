@@ -11324,6 +11324,11 @@ técnicas están en [docs/diseno-mako-mobile.md](docs/diseno-mako-mobile.md), lo
 [docs/diseno-mako-mobile-v2.md](docs/diseno-mako-mobile-v2.md) con su prototipo, y lo que costó en
 [docs/hallazgos-mobile.md](docs/hallazgos-mobile.md).
 
+- **UNA CONVERSACIÓN DEL TELÉFONO VA A PANTALLA COMPLETA, COMO WHATSAPP (13/11/2026, el prototipo que aprobó Martín):** con
+  `PantallaChatM` (app/m/_chat), nunca en una SheetM. Lo que sigue la conversación la busca con `closest(CUERPO_CHAT)`, y el aspecto de
+  WhatsApp vive SÓLO adentro de `.m-wa` (app/m/_chat/chat-wa.css): el hilo y la caja son los de toda la app. Lo fija
+  tests/m-chat-pantalla.test.ts.
+
 - **EL TELÉFONO DESTILA EL ESCRITORIO, NO LO REDISEÑA (14/10/2026, Martín, al rechazar el prototipo v1).** Textual:
   «en el celular todo se ve SIMILAR al escritorio, pero con menos texto y menos cosas». Una pantalla de app/m tiene las
   MISMAS vistas, en el MISMO orden y con los MISMOS rótulos que su tab de escritorio (el Plan es Prioridades · Tareas ·
