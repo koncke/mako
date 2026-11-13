@@ -68,7 +68,7 @@ test('Copywriting: el marco con la forma de su red, el texto adentro y el origin
   // red y el gancho va adentro (nunca blanco vacío).
   assert.match(t, /<img src=\{original\} alt="" className=\{oc\.portada\}/);
   assert.match(t, /\{original \? \(\s*<>[\s\S]*?className=\{oc\.portada\}[\s\S]*?<\/>\s*\) : \(\s*<div className=\{oc\.copy\}>/, 'el texto adentro del marco SÓLO sin portada');
-  assert.match(t, /<button type="button" className=\{oc\.ganchoPie\} onClick=\{onAbrir\}>\{o\.gancho\}<\/button>/, 'con portada, el gancho en el pie');
+  assert.match(t, /<button type="button" className=\{oc\.ganchoPie\} onClick=\{onAbrir\}>\{gancho\}<\/button>/, 'con portada, el gancho en el pie');
   assert.match(t, /pie=\{\(o\) => altoDelPie\(o, telefono\)\}/, 'la grilla cuenta el texto del pie');
   assert.doesNotMatch(t, /verOriginal/, 'con la portada siempre a la vista, el botón del original sobra');
   assert.match(css, /\.siguePie \{[^}]*-webkit-line-clamp: 3;/);

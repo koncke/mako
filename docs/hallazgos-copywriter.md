@@ -540,6 +540,20 @@ leyendo el resultado al lado del original:
 **La regla:** probar una pieza generada es ponerla al lado del original y medir largo, formato, partes, pruebas y título. Que
 MaKo diga «repliqué la estructura y el ritmo» no es una medición: lo dijo las cuatro veces, y en dos no era cierto.
 
+## El título dos veces en la tarjeta: el gancho era el texto CORTADO (13/11/2026, captura de producción)
+
+**Síntoma:** en 14 de las 34 tarjetas de outliers con texto debajo de la portada, el texto gris volvía a empezar por el mismo título
+en negrita («@janacraig_ is stepping into…» arriba y otra vez abajo). El banco no lo mostraba: sus ganchos son frases cortas.
+
+**Causa:** sin un gancho analizado, el gancho es `primeraLinea(texto)`, que corta el primer renglón a 140 letras y le suma «…».
+`restoDelTexto` sacaba el gancho del principio del texto con `t.startsWith(g)`, y un gancho cortado nunca es el principio del
+texto (el texto no tiene el «…»): devolvía el texto entero. Pasa con los pies largos de un solo renglón, sobre todo en inglés
+y en los anuncios.
+
+**La regla (`textoDeTarjeta` en lib/copywriter/outliers.ts):** si el gancho termina en «…» y el texto empieza con lo mismo sin el
+«…», en negrita va la primera oración y debajo el resto; si la primera oración es más larga que el gancho, sólo el gancho. Un texto
+recortado para mostrar no se compara contra el original sin sacarle el recorte.
+
 ## Qué quedó sin hacer
 
 - (12/11/2026) La mezcla de «vos» y «tú» no tiene capa 2 (sólo el voseo en un negocio que no vosea): lib/copywriter/ia.ts.

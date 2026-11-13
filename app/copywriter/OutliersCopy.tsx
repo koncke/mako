@@ -18,7 +18,7 @@ import { Dropdown } from '@/app/components/Dropdown';
 import { explicarMultiplo } from '@/lib/multiplo-rendimiento';
 import { contadorCorto, nivelDeMultiplo, rotuloOutlier } from '@/lib/carruseles/explorar';
 import {
-  ASPECTO_FORMATO, FORMATOS_COPY, INFO_FORMATO, PROPORCION_FORMATO, ROTULO_TEXTO, filtrarOutliersCopy, imagenDelOriginal, restoDelTexto,
+  ASPECTO_FORMATO, FORMATOS_COPY, INFO_FORMATO, PROPORCION_FORMATO, ROTULO_TEXTO, filtrarOutliersCopy, imagenDelOriginal, textoDeTarjeta,
   rotuloDeFormato, rotuloDiasAlAire, type FormatoCopy, type OrdenCopy, type OutlierCopy, type PortadaCopy,
 } from '@/lib/copywriter/outliers';
 import { pedirReplicar } from './cliente';
@@ -110,7 +110,10 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
   const aire = o.formato === 'anuncio' ? rotuloDiasAlAire(o.diasAlAire) : null;
   const quien = o.creador.usuario ? `@${o.creador.usuario}` : o.creador.nombre;
   const cuando = haceCuanto(o.publicada, ahora);
-  const sigue = o.formato === 'youtube' ? '' : restoDelTexto(o);
+  // El gancho y lo que le sigue, sin repetirse (un gancho cortado con «…» no es el principio del texto: lib/copywriter/outliers.ts).
+  const texto = textoDeTarjeta(o);
+  const gancho = texto.gancho;
+  const sigue = o.formato === 'youtube' ? '' : texto.sigue;
   const original = rota ? null : imagenDelOriginal(o);
   const video = o.formato === 'reel' || o.formato === 'youtube';
   return (
@@ -125,7 +128,7 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
           </>
         ) : (
           <div className={oc.copy}>
-            <button type="button" className={oc.ganchoGrande} onClick={onAbrir}>{o.gancho}</button>
+            <button type="button" className={oc.ganchoGrande} onClick={onAbrir}>{gancho}</button>
             {sigue ? <p className={oc.sigue}>{sigue}</p> : null}
           </div>
         )}
@@ -145,7 +148,7 @@ function TarjetaCopy({ o, ahora, replicando, onAbrir, onReplicar }: {
         {original ? (
           // Con portada, el texto va acá y no encima de la imagen (que ya trae el suyo).
           <div className={oc.textoPie}>
-            <button type="button" className={oc.ganchoPie} onClick={onAbrir}>{o.gancho}</button>
+            <button type="button" className={oc.ganchoPie} onClick={onAbrir}>{gancho}</button>
             {sigue ? <p className={oc.siguePie}>{sigue}</p> : null}
           </div>
         ) : null}

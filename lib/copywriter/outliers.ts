@@ -126,13 +126,31 @@ export function primeraLinea(texto: string | null | undefined, tope = 140): stri
   return l.length > tope ? `${l.slice(0, tope - 1).trimEnd()}…` : l;
 }
 
-/** Lo que sigue al gancho en la hoja de la tarjeta (app/copywriter/OutliersCopy.tsx): el texto sin repetir el gancho (un pie
- *  suele arrancar con él); vacío si el texto ES el gancho (el título de un video sin descripción). */
-export function restoDelTexto(o: Pick<OutlierCopy, 'gancho' | 'texto'>): string {
+/**
+ * El gancho y lo que le sigue, como se leen en la tarjeta (app/copywriter/OutliersCopy.tsx): el gancho en negrita y debajo el texto
+ * sin repetirlo (un pie suele arrancar con él); nada debajo si el texto ES el gancho (el título de un video sin descripción).
+ *
+ * Sin un gancho analizado, el gancho es el primer renglón CORTADO con «…» (`primeraLinea`), y el texto no arranca con él (arranca con
+ * lo mismo SIN el «…»): «lo que sigue» volvía a empezar por el título (13/11/2026, en producción: 14 de 34 tarjetas con el título dos
+ * veces). Ahí el gancho es la primera oración y debajo va el resto; si la primera oración es más larga que el gancho, sólo el gancho.
+ */
+export function textoDeTarjeta(o: Pick<OutlierCopy, 'gancho' | 'texto'>): { gancho: string; sigue: string } {
   const g = o.gancho.trim();
   const t = o.texto.trim();
+  const corte = /(?:…|\.\.\.)$/u.exec(g);
+  const sinCorte = corte ? g.slice(0, corte.index).trimEnd() : '';
+  if (sinCorte && t.startsWith(sinCorte)) {
+    const oracion = /^[^\n]{12,}?[.!?](?=\s|$)/u.exec(t)?.[0];
+    if (oracion && oracion.length <= g.length) return { gancho: oracion, sigue: t.slice(oracion.length).trim() };
+    return { gancho: g, sigue: '' };
+  }
   const sin = g && t.startsWith(g) ? t.slice(g.length).replace(/^[\s.,:;!?…—-]+/u, '') : t;
-  return sin === g ? '' : sin;
+  return { gancho: g, sigue: sin === g ? '' : sin };
+}
+
+/** Lo que sigue al gancho en la tarjeta (`textoDeTarjeta`). */
+export function restoDelTexto(o: Pick<OutlierCopy, 'gancho' | 'texto'>): string {
+  return textoDeTarjeta(o).sigue;
 }
 
 // ── Competitors Spy: reels, publicaciones, YouTube y anuncios de las cuentas que sigue el negocio ──────────────────────
