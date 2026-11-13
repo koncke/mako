@@ -96,7 +96,8 @@ test('«Editar» le pasa al modelo las herramientas (el {{formato}}) y el catál
   const ia = leer('lib/copywriter/ia.ts');
   assert.match(ia, /formato: FORMATO_EDITAR/);
   assert.match(ia, /REGLA_NO_EXISTE/);
-  assert.match(ia, /const s = sanearOperaciones\(raw\.operaciones, g\.doc, catalogo\)/, 'el server sanea contra el guion que mandó la pantalla');
+  // Cada respuesta (la primera y la de la segunda pasada) se sanea con `medir`, contra el guion que mandó la pantalla.
+  assert.match(ia, /const s = sanearOperaciones\(x\.operaciones, g\.doc, catalogo\)/, 'el server sanea contra el guion que mandó la pantalla');
   assert.match(ia, /marcasDeVoseo\(escrito\)/, 'la segunda capa de la voz del negocio');
 });
 

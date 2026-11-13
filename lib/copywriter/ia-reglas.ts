@@ -14,7 +14,9 @@
 // =============================================================================
 
 import { bloquesDelDoc } from './doc';
-import { INFO_TIPO, type JsonNodo, type PropsGuion } from './tipos';
+import { INFO_TIPO, type JsonNodo, type PropsGuion, type TipoGuion } from './tipos';
+import type { BloqueIA, OperacionIA } from './operaciones';
+import { alTuteo } from '../al-tuteo';
 
 /** Los topes de lo que se le pasa al modelo (el texto, no el JSON: en «Discutir» no edita). */
 export const TOPES_IA = { porBloque: 1_500, guion: 24_000, mensajes: 8, porMensaje: 600, pregunta: 4_000 } as const;
@@ -132,6 +134,25 @@ export function avisosDeCifras(c: { cifras: string[]; garantia: boolean }): stri
 }
 
 /**
+ * Lo que la RESPUESTA dice que escribió y no quedó en la página (13/11/2026, en producción en el teléfono: «Completé los datos
+ * del archivo: precio (US$ 497), garantía (14 días), caso concreto…» y en la página estaban el caso y los clientes, pero ni el
+ * precio ni la garantía). Mira sólo lo que no se nombra de pasada: plata, porcentajes y plazos en días, semanas o meses (no
+ * «30 segundos» ni «3 partes», que describen la pieza). null = todo lo que nombra está escrito.
+ */
+export function dichoQueNoQuedo(respuesta: string, pagina: string): string | null {
+  const digitos = (t: string) => t.replace(/[.,\s]/g, '');
+  const enLaPagina = new Set((pagina.match(/\d+(?:[.,]\d+)*/g) ?? []).map(digitos));
+  const faltan: string[] = [];
+  const CIFRA = /(?:(?:US\$|USD|U\$S|\$|€|ARS)\s?(\d+(?:[.,]\d+)*))|(?:(\d+(?:[.,]\d+)*)\s*(?:%|por ciento|d[ií]as\b|semanas?\b|meses\b|mes\b))/gi;
+  for (const m of respuesta.matchAll(CIFRA)) {
+    const n = m[1] ?? m[2];
+    const tal = m[0].replace(/\s+/g, ' ').trim();
+    if (!enLaPagina.has(digitos(n)) && !faltan.includes(tal)) faltan.push(tal);
+  }
+  return faltan.length ? `Dice que puso ${faltan.slice(0, 3).map((f) => `«${f}»`).join(', ')} y no está en la página: pídele a MaKo que lo agregue.` : null;
+}
+
+/**
  * El título de respaldo de una pieza escrita entera sin título propio (capa 2 de «ponle un título», 12/11/2026, en producción:
  * la plantilla quedaba «Sin título» y la réplica con el gancho del competidor). Recibe lo primero que se dice (`extractoDelDoc`,
  * lib/copywriter/plantillas.ts): su primera oración, sin [DATO] ni signos del final, hasta 70 letras cortando en una palabra.
@@ -143,4 +164,114 @@ export function tituloDeRespaldo(dicho: string): string | null {
   if (oracion.length <= 70) return oracion;
   const corte = oracion.lastIndexOf(' ', 70);
   return `${oracion.slice(0, corte > 30 ? corte : 70).replace(/[\s,;:—-]+$/, '')}…`;
+}
+
+/**
+ * Formas de «tú» que no se confunden con otra cosa (capa 2 de «una sola forma», 13/11/2026, en producción después del
+ * despliegue: en el negocio rioplatense, el reel salió con «pedís… vos» y «tiras… negocias… hablas», y el carrusel con «Tú solo
+ * ejecutas… contigo» y «Vos contestás… Empezá», con la regla en el prompt). Una lista CORTA y a propósito: sin las que también son
+ * sustantivos («pruebas», «cuentas», «ganas», «armas») ni las que el voseo escribe igual («ves», «vas», «estás»).
+ */
+const TUTEO = new Set([
+  'eres', 'tienes', 'quieres', 'puedes', 'haces', 'sabes', 'necesitas', 'vendes', 'hablas', 'cobras', 'mandas', 'pierdes',
+  'buscas', 'piensas', 'sientes', 'entiendes', 'empiezas', 'vuelves', 'inviertes', 'tiras', 'pagas', 'escribes', 'negocias',
+  'llegas', 'cierras', 'vives', 'dices', 'vienes', 'prefieres', 'conviertes', 'consigues', 'sigues', 'pides', 'ejecutas',
+  'copias', 'contigo', 'haz',
+  // 13/11/2026, la «Clase gratuita» en producción: «cuando abres… tú controlas… los entendés».
+  'tú', 'abres', 'llevas', 'controlas', 'trabajas',
+  // Y el reel del teléfono: «WhatsApp vende. Sólo que sin ti.» junto a «Mientras vos estás…».
+  'ti',
+]);
+/** Las palabras que pide una duración (150 por minuto, con el tope de 2.000 que entra en un pedido); null = sin duración o menos de 2 minutos. */
+export function objetivoDeDuracion(segundos: number | null | undefined): number | null {
+  return segundos && segundos >= 120 ? Math.min(2_000, Math.round(segundos * 2.5)) : null;
+}
+/** ¿Corta para su duración? (la SEGUNDA PASADA de una plantilla: por debajo del 75 % de lo que pide; el aviso, del 60 %). */
+export const cortaParaSuDuracion = (palabras: number, segundos: number | null | undefined): boolean => {
+  const objetivo = objetivoDeDuracion(segundos);
+  return objetivo != null && palabras < objetivo * 0.75;
+};
+
+/**
+ * El aviso de la DURACIÓN (capa 2 de «el largo lo da la duración», 13/11/2026, en producción: la «VSL para agendar» de 10 minutos
+ * salió de 587 palabras y el «YouTube de 12 minutos» de un largo parecido, porque seguían el largo del ejemplo, que es un resumen).
+ * Unas 150 palabras dichas por minuto, con el tope de 2.000 que entra en un pedido; menos de 0,6 de eso se dice con los números.
+ * null = sin duración (o menos de 2 minutos: ahí manda el ejemplo) o bien.
+ */
+export function avisoDeDuracion(palabras: number, segundos: number | null | undefined): string | null {
+  const objetivo = objetivoDeDuracion(segundos);
+  if (objetivo == null || !segundos) return null;
+  if (palabras >= objetivo * 0.6) return null;
+  return `Dura unos ${Math.max(1, Math.round(palabras / 150))} minutos dichos y la pieza es de ${Math.round(segundos / 60)}: pídele a MaKo que la complete (unas ${objetivo} palabras).`;
+}
+
+export function marcasDeTuteo(texto: string): string[] {
+  return [...new Set((texto.toLowerCase().match(/\p{L}+/gu) ?? []).filter((w) => TUTEO.has(w)))];
+}
+
+/**
+ * ¿La IA devolvió un objeto VACÍO? Sin respuesta y sin operaciones no es «no cambié nada»: es una salida que no llegó
+ * (13/11/2026, en producción en el teléfono: «Escribime un reel de 30 segundos» sobre una página en blanco volvió con
+ * «No cambié nada.» y el mismo pedido, otra vez, escribió el reel entero). Se pide una vez más; si vuelve vacía, se dice.
+ */
+export function salidaVacia(raw: Record<string, unknown>): boolean {
+  const respuesta = typeof raw.respuesta === 'string' ? raw.respuesta.trim() : '';
+  return !respuesta && !(Array.isArray(raw.operaciones) && raw.operaciones.length);
+}
+export const SALIDA_VACIA = 'No me salió nada esta vez: pídemelo de nuevo.';
+
+/**
+ * Las operaciones con su texto en «tú» (13/11/2026, el Cerebro: «una sola voz, "tú" en español neutro, salvo que el negocio tenga
+ * otra voz configurada; si quedan formas de voseo, se corrigen solas, sin aviso»). La misma `alTuteo` de lo que MaKo escribe en
+ * WhatsApp, pero CON lo citado: en un guion, «…» es lo que se dice en cámara y lo escribió MaKo, no la persona.
+ */
+export function operacionesAlTuteo(ops: OperacionIA[]): OperacionIA[] {
+  const t = (s: string) => alTuteo(s, { citas: true });
+  const bloque = (b: BloqueIA): BloqueIA => ('texto' in b ? { ...b, texto: t(b.texto) } : 'items' in b ? { ...b, items: b.items.map(t) } : 'filas' in b ? { ...b, filas: b.filas.map((f) => f.map(t)) } : b);
+  return ops.map((op): OperacionIA => (op.op === 'titulo' ? { ...op, texto: t(op.texto) } : 'bloques' in op ? { ...op, bloques: op.bloques.map(bloque) } : op));
+}
+
+/**
+ * Lo que nadie pidió (13/11/2026, en producción en el teléfono: «Escribime un reel de 30 segundos» sobre una página en blanco salió
+ * con «Notas de producción» y «Variantes rápidas», 417 palabras para 30 segundos). Una sección NUEVA de notas, variantes o
+ * alternativas, si el pedido no las nombra, no entra; tampoco un título con ese nombre adentro de una sección y lo que le sigue.
+ * Las secciones que ya están en la página (las de una plantilla) no se tocan. Sin descartadas a propósito: una descartada frena el
+ * «se acepta sola» de la página vacía, y esto no es un error de la IA que la persona tenga que decidir.
+ */
+const EXTRA = /^(?:notas?(?: de (?:produccion|grabacion|edicion|direccion))?|tips de (?:produccion|grabacion)|variantes?(?: rapidas)?|variaciones|alternativas|versiones alternativas|ideas extra|otras ideas|bonus)$/;
+const sinTildesMin = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+export function sinExtrasNoPedidos(ops: OperacionIA[], seccionesDeLaPagina: readonly string[], pedido: string): OperacionIA[] {
+  if (/variante|variacion|alternativ|nota|produccion|version|bonus|idea/.test(sinTildesMin(pedido))) return ops;
+  const yaEstan = new Set(seccionesDeLaPagina.map(sinTildesMin));
+  const esExtra = (t: string) => EXTRA.test(sinTildesMin(t));
+  return ops.flatMap((op): OperacionIA[] => {
+    if (op.op === 'escribir_seccion' && esExtra(op.seccion) && !yaEstan.has(sinTildesMin(op.seccion))) return [];
+    if (!('bloques' in op)) return [op];
+    const corte = op.bloques.findIndex((b) => (b.tipo === 'titulo1' || b.tipo === 'titulo2' || b.tipo === 'titulo3') && esExtra(b.texto));
+    if (corte < 0) return [op];
+    return corte === 0 ? [] : [{ ...op, bloques: op.bloques.slice(0, corte) }];
+  });
+}
+
+/**
+ * El TIPO que nombra el pedido (capa 2 de «el tipo va en propiedades», 13/11/2026, en producción en el teléfono: «Escribime un
+ * reel de 30 segundos» en una «Página en blanco» dejó la página como «Página»). Gana el que aparece PRIMERO: «un reel para
+ * WhatsApp Ads Funnel» es un reel (por eso «ads» no cuenta: es parte de nombres de ofertas). null = el pedido no nombra ninguno.
+ */
+const TIPO_DEL_PEDIDO: readonly (readonly [RegExp, TipoGuion])[] = [
+  [/\breels?\b/i, 'reel'],
+  [/\b(?:stor(?:y|ies)|historias)\b/i, 'story'],
+  [/\byoutube\b/i, 'youtube'],
+  [/\bvsl\b/i, 'vsl'],
+  [/\b(?:e-?mails?|correos?|newsletter)\b/i, 'email'],
+  [/\b(?:carrusel(?:es)?|posts?|publicaci[oó]n)\b/i, 'post'],
+  [/\banuncios?\b/i, 'ad'],
+];
+export function tipoDelPedido(pedido: string): TipoGuion | null {
+  let mejor: { en: number; tipo: TipoGuion } | null = null;
+  for (const [re, tipo] of TIPO_DEL_PEDIDO) {
+    const m = re.exec(pedido);
+    if (m && (!mejor || m.index < mejor.en)) mejor = { en: m.index, tipo };
+  }
+  return mejor?.tipo ?? null;
 }

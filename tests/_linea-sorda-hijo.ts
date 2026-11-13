@@ -33,8 +33,9 @@ const storeVoz: unknown[] = [persona('P-1214', '2026-11-11T12:14:14Z', PATRICIA,
   propio('M-1403', '2026-11-11T14:03:34Z', CODIGO), propio('M-1403', '2026-11-11T14:03:34Z', CODIGO),
   propio('M-1407', '2026-11-11T14:07:52Z', CODIGO), propio('M-1407', '2026-11-11T14:07:52Z', CODIGO),
   propio('M-2039', '2026-11-11T20:39:01Z', CODIGO), propio('M-2039', '2026-11-11T20:39:01Z', CODIGO)];
+const storeOtra: unknown[] = [];
 let ahoraDeLaPrueba = 0;
-const vinculo = { createdAt: '2026-11-11T02:51:07.000Z', disconnectionAt: '2026-11-11T02:40:30.000Z' };
+const vinculo ={ createdAt: '2026-11-11T02:51:07.000Z', disconnectionAt: '2026-11-11T02:40:30.000Z' };
 const red: Array<{ host: string; camino: string; cuerpo: string }> = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
@@ -44,7 +45,8 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.host === 'evolution.test' && u.pathname.includes('/instance/fetchInstances')) return r(200, [{ name: VOZ, ownerJid: `${NUM_VOZ}@s.whatsapp.net`, connectionStatus: 'open', ...vinculo }]);
   // El store guarda lo que ya pasó: lo de después de «ahora» todavía no existe.
   if (u.host === 'evolution.test' && u.pathname.includes(`/chat/findMessages/${VOZ}`)) return r(200, { messages: { records: storeVoz.filter((m) => (m as { messageTimestamp: number }).messageTimestamp * 1000 <= ahoraDeLaPrueba) } });
-  if (u.host === 'evolution.test' && u.pathname.includes('/chat/findMessages/')) return r(200, { messages: { records: [] } }); // la línea de Martín, sorda también
+  // La línea de Martín (`mako_ws9`): vacía (sorda también) salvo en la escena del 13/11, la de sus grupos personales.
+  if (u.host === 'evolution.test' && u.pathname.includes('/chat/findMessages/')) return r(200, { messages: { records: storeOtra.filter((m) => (m as { messageTimestamp: number }).messageTimestamp * 1000 <= ahoraDeLaPrueba) } });
   if (u.host === 'evolution.test') return r(200, { instance: { state: 'open' } });
   if (u.host === 'api.resend.com') return r(200, { id: `mail-${red.length}` });
   return r(500, { error: 'red de mentira' });
@@ -101,6 +103,19 @@ async function main() {
   vinculo.disconnectionAt = '2026-11-13T20:00:00.000Z';
   await enLaNoche('reVinculadaConMarca', '2026-11-13T23:00:00Z');
   out.nocheDel12 = noche;
+  // ── 13/11 18:20 (lo que pasó de verdad): la línea de Martín ve mensajes de sus grupos PERSONALES, donde la voz no está. No es
+  // sordera. Un mensaje en un grupo de MaKo que la voz no tiene, sí. Sobre la vinculación de las 20:00 del 13, sin envíos de MaKo. ──
+  const otraLinea: Record<string, unknown> = {};
+  pg.db.app_settings.push({ workspace_id: 1, key: 'mako.grupo_jid', value: CODIGO }, { workspace_id: 9, key: 'mako.superadmin.grupo_jid', value: PATRICIA });
+  const PERSONAL = '120363000000000001@g.us';
+  storeOtra.push(persona('A1', '2026-11-13T22:10:00Z', PERSONAL, 'Amigo'), persona('A2', '2026-11-13T22:20:00Z', PERSONAL, 'Amigo'),
+    persona('A3', '2026-11-13T23:00:00Z', PERSONAL, 'Amiga'));
+  await corrida('otra:personales', '2026-11-13T23:30:00Z');
+  otraLinea.personales = out['otra:personales']; delete out['otra:personales'];
+  storeOtra.push(persona('C9', '2026-11-13T23:10:00Z', CODIGO, 'Joan Dowd'));
+  await corrida('otra:deMaKo', '2026-11-13T23:30:00Z');
+  otraLinea.deMaKo = out['otra:deMaKo']; delete out['otra:deMaKo'];
+  out.otraLinea = otraLinea;
   process.stdout.write(`@@SORDA@@${JSON.stringify(out)}\n`);
 }
 

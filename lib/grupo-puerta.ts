@@ -16,7 +16,7 @@ import { getSupabaseServer } from './supabase';
 import { negocioPausado, wsSuperAdmin } from './workspace';
 import { agenciasAprobadasDe, carteraDeAgencia } from './agencia';
 import { administraActivo } from './agencia-equipo-grupo';
-import { juzgarAcceso, letraDeAcceso, type AccesoJuzgado, type LetraGrupo, type PersonaLeida, type TipoDeAcceso } from './grupo-reglas';
+import { juzgarAcceso, letraDeAcceso, rolDelEquipo, type AccesoJuzgado, type LetraGrupo, type PersonaLeida, type TipoDeAcceso } from './grupo-reglas';
 
 const COLS_PERSONA = 'id, email, nombre, rol, rol_ws, estado, workspace_id, foto_url';
 type FilaPersona = PersonaLeida & { email: string; nombre: string | null; foto_url: string | null };
@@ -105,7 +105,12 @@ export async function miembrosDelGrupo(ws: number): Promise<Miembros> {
   }
   const out = new Map<number, MiembroDelGrupo>();
   const { data: propios } = await db().from('usuarios').select(COLS_PERSONA).eq('workspace_id', ws);
-  for (const u of (propios ?? []) as unknown as FilaPersona[]) if (u.rol !== 'admin' && administraActivo(u)) out.set(Number(u.id), fila(u, 'admin'));
+  for (const u of (propios ?? []) as unknown as FilaPersona[]) {
+    if (u.rol === 'admin') continue;
+    if (administraActivo(u)) out.set(Number(u.id), fila(u, 'admin'));
+    // Su EQUIPO (13/11/2026): el closer y el setter también están en el grupo (`juzgarAcceso`).
+    else if (rolDelEquipo(u)) out.set(Number(u.id), fila(u, 'equipo'));
+  }
   const agencias = await agenciasAprobadasDe(ws).catch(() => [] as number[]);
   if (agencias.length) {
     const { data: deAgencia } = await db().from('usuarios').select(COLS_PERSONA).in('workspace_id', agencias);

@@ -66,7 +66,7 @@ import { listarEtiquetas } from '@/lib/etiquetas';
 import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@/lib/flujo-ia-crear';
 import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
-import { KEY_LIMITES_ENVIO, conLimite, limitesDeFabrica, limitesParaGuardar, limitesVigentes, rangoDeLimite, type LimitesEnvio } from '@/lib/limites-envio';
+import { KEY_LIMITES_ENVIO, conLimite, limitesDeFabrica, limitesParaGuardar, limitesVigentes, rangoDeLimite, type LimitesEnvio, type OpcionesRango } from '@/lib/limites-envio';
 import { horarioDeLaAutomatizacion, origenDelHorario, textoDeHorario, configParaGuardar, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
 import { crmDeLaAutomatizacion } from '@/lib/email-eventos-crm';
 import { etapasDeProducto } from '@/lib/lead-funnel';
@@ -170,7 +170,7 @@ async function secuenciaVigente(id: number) {
  */
 
 type ColumnasPedidas = { valor: unknown; partes: string[] } | null;
-function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Parameters<typeof configParaGuardar>[0], columnas: ColumnasPedidas = null): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
+function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Parameters<typeof configParaGuardar>[0], columnas: ColumnasPedidas = null, cuenta?: OpcionesRango): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
   const cambio: Record<string, unknown> = {};
   const partes: string[] = [];
   if (columnas) { cambio.columnasEmail = columnas.valor; partes.push(...columnas.partes); }
@@ -202,7 +202,7 @@ function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Paramete
   }
   if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), el goteo (goteoMinutos, goteoPorDia) o las columnas del email (columnasEmail).' };
   // Contra lo que tiene: el arranque sube hasta su tope, que puede estar puesto de antes (`configParaGuardar`).
-  const prueba = configParaGuardar(previo, cambio);
+  const prueba = configParaGuardar(previo, cambio, cuenta);
   if (!prueba.ok) return { error: prueba.error };
   return { cambio, resumen: partes.join(' · ') };
 }
@@ -1132,7 +1132,8 @@ export const RUNNERS: Runners = {
       if (!s) return { error: noExiste(id) };
       const columnas = await columnasDelInput(input, id);
       if (columnas && 'error' in columnas) return { error: columnas.error };
-      const r = cambioDeConfigDelInput(input, await leerConfigAutomatizacion(id), columnas);
+      // Con el rango de la cuenta (#93): el tope por día del goteo llega al de su email.
+      const r = cambioDeConfigDelInput(input, await leerConfigAutomatizacion(id), columnas, await opcionesDeRango());
       if ('error' in r) return { error: r.error };
       return { payload: { secuenciaId: id, cambio: r.cambio }, resumen: `«${s.nombre}»: ${r.resumen}` };
     },

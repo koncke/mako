@@ -35,7 +35,7 @@ test('⚠️ EL CARTEL DE FALLO NO SE GUARDA COMO TURNO DE MaKo', () => {
   // Verificado rompiéndolo: con `await guardarTurno(...)` incondicional, 1 fallo.
   // El guardado de lo que contestó el MODELO (`partes`). Desde el 29/10/2026 el TICKET y el DEBUG del grupo guardan antes su texto
   // FIJO (lib/despacho-grupo.ts), que escribe el código y nunca es un cartel.
-  const i = LINEAS.findIndex((l) => l.includes("guardarTurno(wsData, jid, 'assistant', partes"));
+  const i = LINEAS.findIndex((l) => l.includes("guardarTurno(wsData, claveDelTurno, 'assistant', partes"));
   assert.ok(i > 0, 'se fue el guardado del turno de MaKo');
   const alrededor = LINEAS.slice(Math.max(0, i - 3), i + 1).join('\n');
   assert.match(alrededor, /avisoDeSistema/,

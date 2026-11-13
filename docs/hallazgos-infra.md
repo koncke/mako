@@ -264,6 +264,16 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
   forzar la subida; el merge resuelve los mismos conflictos y sube como avance (lo mismo que hacen los «Merge origin/main en
   punta/…»).
 
+## Dos `git push` a la vez a la misma punta: uno rechazado y la tarea dice «exit 0» (13/11/2026, chat «probar-copy»)
+
+- **Síntoma:** dos commits seguidos, cada uno con su `git push … | tail -2` en segundo plano (el pre-push tarda ~60 s). El segundo
+  terminó con `! [remote rejected] HEAD -> punta/… (cannot lock ref …: is at <A> but expected <B>)` y la tarea avisó «exit code 0».
+- **Por qué:** el pre-push de los dos corría a la vez; el que llegó segundo esperaba la punta vieja. Y el `| tail` se come el
+  código de salida de `git push`: en una tubería manda el del último comando.
+- **Esta vez no se perdió nada** (el primero ya había subido el commit de arriba), pero el aviso decía que todo estaba bien.
+- **Regla:** un push por punta a la vez (el siguiente, cuando avise el anterior), y lo subido se mira con
+  `git ls-remote origin refs/heads/<punta>`, no con el «exit 0» ni con `origin/<punta>` local, que no se actualiza si el push falló.
+
 ## Los errores de tipos de una corrida roja se leen con la credencial del vigía, sin `gh` (8/11/2026)
 
 **El síntoma.** El aviso del hook dice el paso y cuántos errores («paso «Tipos» — 6 errores de tipos») y nada

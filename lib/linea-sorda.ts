@@ -14,7 +14,8 @@
 //     desvincular y escanear el QR.
 // LO QUE SE DECIDE ACÁ (puro, con test: tests/linea-sorda.test.ts):
 //   1. ESTÁ SORDA, con lo que pasó DESDE QUE SE VINCULÓ (lo de antes es de otro dispositivo), si:
-//      · OTRA línea vio mensajes de personas en un grupo compartido que la voz no tiene (la prueba directa, a cualquier hora); o
+//      · OTRA línea vio mensajes de personas en un grupo DE MaKo que la voz no tiene (la prueba directa, a cualquier hora;
+//        `ajenosQueLaVozNoVio`: los grupos personales de Martín no cuentan, 13/11); o
 //      · en horario activo, MaKo mandó 2 o más mensajes a grupos en 30 min y no entró NADA de una persona desde media hora antes del
 //        primero (la regla del informe: una respuesta siempre tiene su pedido justo antes); o
 //      · en horario activo, MaKo mandó algo después del último mensaje de una persona y ese último tiene más de `SORDA_MS`.
@@ -93,6 +94,28 @@ export function lecturaDeLaVoz(mensajes: readonly MensajeDeLaLinea[], ahoraMs: n
     entroEnRafaga: primero == null ? undefined : personas.some((m) => ts(m) >= primero - RAFAGA_MS),
     vinculadaDesdeMs: o.vinculadaDesdeMs ?? null,
   };
+}
+
+/**
+ * Lo que OTRA línea vio y la voz no: mensajes de personas en un GRUPO DE MaKo (`mako.grupo_jid` de cada negocio y el del super admin),
+ * de después de que la voz se vinculó, de las últimas `SORDA_MS` y con más de 10 min (lo que recién entra puede estar en camino).
+ * ⛔ Sólo los grupos de MaKo: la otra línea es la de Martín, que está en muchos grupos personales donde la voz no está. El 13/11/2026 a
+ * las 18:20 la voz volvió al …2605, el …3479 quedó como «la otra», y 6 mensajes de 3 grupos suyos marcaron sorda una voz que recibía
+ * (a las 18:23 le entró Martín al instante). Sin la lista de grupos (no se pudo leer), no cuenta nada: un error no es una sordera.
+ */
+export function ajenosQueLaVozNoVio(deOtra: readonly MensajeDeLaLinea[], o: {
+  vistos: ReadonlySet<string>; gruposDeMaKo: ReadonlySet<string>; vinculadaDesdeMs: number | null; ahoraMs: number; esDeMaKo: (alt: unknown) => boolean;
+}): number {
+  const ts = (m: MensajeDeLaLinea) => Number(m.messageTimestamp) * 1000;
+  const ids = new Set<string>();
+  return deOtra.filter((m) => {
+    const id = m.key?.id;
+    if (!id || ids.has(id) || o.vistos.has(id)) return false;
+    ids.add(id);
+    return o.gruposDeMaKo.has(String(m.key?.remoteJid ?? '')) && !m.key?.fromMe && m.messageType !== 'reactionMessage'
+      && !o.esDeMaKo(m.key?.participantAlt) && ts(m) > (o.vinculadaDesdeMs ?? 0)
+      && o.ahoraMs - ts(m) < SORDA_MS && o.ahoraMs - ts(m) > 10 * 60_000;
+  }).length;
 }
 
 /** Lo que se guarda entre corridas (app_settings de la plataforma). ISO, salvo `vinculadaDesde` (ms, de Evolution). `linea` y
