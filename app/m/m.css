@@ -593,12 +593,16 @@
 .m-sheet__cerrar:disabled { opacity: .45; cursor: not-allowed; }
 .m-sheet__cerrar:active:not(:disabled) { opacity: .6; }
 .m-sheet__cerrar:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--primary); }
+/* En «medio» el pie se corre hacia ARRIBA, ENCIMA del cuerpo (SheetM.aplicar). Sin capas, una .m-fila (z-index 1) o una
+   .m-casilla (2) pintaban por encima del pie y se comían el toque del botón (13/11/2026, ticket #94: «Entrar a su cuenta»
+   del Agency Dashboard no respondía). El cuerpo es una capa propia y el pie va encima de ella. */
 .m-sheet__cuerpo {
-  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; isolation: isolate;
   padding: 12px var(--m-gutter) calc(16px + env(safe-area-inset-bottom, 0px));
 }
 .m-sheet:has(.m-sheet__pie) .m-sheet__cuerpo { padding-bottom: 16px; }
 .m-sheet__pie {
+  position: relative; z-index: 1;
   flex: none; display: flex; flex-direction: column; gap: 6px;
   padding: 12px var(--m-gutter) calc(10px + env(safe-area-inset-bottom, 0px));
   background: var(--bg); box-shadow: 0 -1px 0 var(--border);

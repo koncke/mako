@@ -16,7 +16,7 @@ export async function GET() {
   const pestana = await getWorkspaceActual().catch(() => null);
   const grupos = await gruposDeLaPersona(pestana);
   const filas = await Promise.all(grupos.map(async ({ ws, acceso }) => ({
-    ws, administra: acceso.administra, invitado: acceso.invitado,
+    ws, administra: acceso.administra, invitado: acceso.invitado, ...(acceso.tipo === 'equipo' ? { equipo: true } : {}),
     ...(await resumenParaLaLista(ws, acceso)),
   })));
   filas.sort((a, b) => (Number(b.ws === pestana) - Number(a.ws === pestana)) || String(b.ultimo?.creadoEn ?? '').localeCompare(String(a.ultimo?.creadoEn ?? '')));

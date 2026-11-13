@@ -48,7 +48,8 @@ test('sin goteo no frena nada, y se dice', () => {
 
 test('lo que se guarda: rangos, null saca, y vacío borra la clave', () => {
   assert.deepEqual(sanearConfigAutomatizacion({ goteo: { minutos: 5, dia: 50 } }).goteo, { minutos: 5, dia: 50 });
-  assert.equal(sanearConfigAutomatizacion({ goteo: { minutos: 0, dia: 999 } }).goteo, undefined, 'fuera de rango no cuenta');
+  // Desde el ticket #93 (13/11/2026) se LEE hasta 2.000 por día (lo guardado con una cuenta propia): fuera de rango es más.
+  assert.equal(sanearConfigAutomatizacion({ goteo: { minutos: 0, dia: 2500 } }).goteo, undefined, 'fuera de rango no cuenta');
   const r = configParaGuardar({}, { goteo: { minutos: 5, dia: 50 } });
   assert.ok(r.ok && r.config.goteo?.minutos === 5 && r.config.goteo?.dia === 50 && !r.vacia);
   assert.ok(tieneConfigPropia({ goteo: { minutos: 5 } }));

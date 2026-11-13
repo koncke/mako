@@ -138,7 +138,22 @@ export type Vista = {
   /** los permisos POR ÁREA de un token detallado (lib/api-mako/permisos.ts). Ausente =
    *  sin restricción por área: los demás canales y el token clásico. */
   permisos?: Permisos;
+  /** Un miembro del EQUIPO (closer, setter) en el grupo de la app (13/11/2026): las pestañas que su rol ve en pantalla. Con esto, sólo existe lo
+   *  que tiene una de ellas (más `SIN_PESTANA_PARA_EL_EQUIPO`), y nada que lea el Google Calendar del negocio. Ausente = sin esta restricción. */
+  soloTabs?: readonly string[];
 };
+
+/**
+ * Lo que NO tiene pestaña y un closer o un setter sí puede usar en el grupo: confirmar o cancelar SU propuesta (la clave de sus pendientes es suya:
+ * lib/mako-doer-in.ts), reportar un problema y ver sus tickets, y lo que MaKo sabe hacer. Nada que liste lo del negocio entero (las bandejas, los pendientes de
+ * todos, el grupo completo).
+ */
+export const SIN_PESTANA_PARA_EL_EQUIPO: ReadonlySet<string> = new Set(['confirmar_accion', 'cancelar_accion', 'levantar_ticket', 'mis_tickets', 'quien_soy', 'listar_capacidades_mako', 'buscar_tutorial']);
+
+/** Las pestañas que nombra alguna operación del registro (su `gating.tab`), sin repetir. */
+export function tabsDelRegistro(): string[] {
+  return [...new Set(REGISTRO.map((d) => d.gating?.tab).filter((t): t is string => !!t))];
+}
 
 /** El workspace principal (Fase 1 de Meta). Vive acá y no importado de
  *  lib/workspace.ts para que este módulo siga sin server-only. */
@@ -150,7 +165,7 @@ export const WS_PRINCIPAL = 1;
  * CONFIRMAR: ahí el canal es el de quien confirma (la bandeja, un grupo) y no el de
  * quien propuso, y el alcance ya lo decidió `puedeConfirmar`.
  */
-export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs' | 'plataforma'> & { permisos?: Permisos }): boolean {
+export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs' | 'plataforma'> & { permisos?: Permisos; soloTabs?: readonly string[] }): boolean {
   const g = def.gating;
   // Lead Magnet ARCHIVADO (11/11/2026, pedido de Martín; lib/lead-magnets/archivado.ts): sus operaciones siguen en el catálogo
   // (la referencia y su instantánea no cambian), pero no las ve nadie —MaKo no las ofrece— y lo que estuviera propuesto no se
@@ -161,6 +176,12 @@ export function gatingOk(def: OperacionDef, v: Pick<Vista, 'ws' | 'rol' | 'tabs'
   if (g?.soloPlataforma && v.plataforma !== true) return false;
   if (g?.rolMinimo === 'admin' && v.rol !== 'admin') return false;
   if (g?.tab && v.tabs && !v.tabs.includes(g.tab)) return false;
+  // EL EQUIPO EN EL GRUPO DE LA APP (13/11/2026): en positivo. Una pestaña de su rol, o lo poco sin pestaña que es suyo; y la agenda de Google del negocio
+  // nunca (es la del dueño: sus «Sleep» y «Lunch» no los ve un closer en su pantalla). Esta misma pregunta se repite al CONFIRMAR (acciones.ts).
+  if (v.soloTabs) {
+    if (def.datosDeGoogle) return false;
+    if (g?.tab ? !v.soloTabs.includes(g.tab) : !SIN_PESTANA_PARA_EL_EQUIPO.has(def.id)) return false;
+  }
   // Un token detallado: el nivel de SU área (08/10/2026, copiando GitHub). Va acá y no en
   // `visible()` porque esta misma pregunta se repite al CONFIRMAR (acciones.ts): sin eso,
   // un token con escritura sólo en «mako» confirmaba pendientes de cualquier área.

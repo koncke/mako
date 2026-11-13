@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, restoDelTexto,
+  FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, primeraLinea, restoDelTexto, textoDeTarjeta,
   outliersCopyDeSpy, palabrasDe, reglasDeLaReplica, textoParaMaKo, tipoDeOutlier, tituloDeReplica, avisoDeLargo, capitulosDe, siguenLosCapitulos,
   largoPedido, largoFuera, pedidoDeCorreccion, conElLargoReal,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
@@ -351,11 +351,21 @@ test('la tarjeta es de COPY: el texto primero y YouTube en 16:9, no la foto vert
   assert.equal(restoDelTexto({ gancho: 'Cobrar mejor no es suerte.', texto: 'Cobrar mejor no es suerte. Es sistema, y te cuento por qué.' }), 'Es sistema, y te cuento por qué.');
   assert.equal(restoDelTexto({ gancho: 'Change My Mind', texto: 'Change My Mind' }), '', 'un video sin descripción: sólo su título');
   assert.equal(restoDelTexto({ gancho: 'Otro gancho', texto: 'El texto entero.' }), 'El texto entero.');
+  // Un gancho que es el primer renglón cortado con «…» (13/11/2026, en producción: 14 de 34 tarjetas con el título dos veces):
+  // en negrita la primera oración y debajo el resto, nunca el mismo texto otra vez.
+  const largo = '@janacraig_ is stepping into the competitive landscape of celebrity-led beauty. The influencer and reality star, who rose to prominence as a fan favorite, is entering the market.';
+  assert.deepEqual(textoDeTarjeta({ gancho: primeraLinea(largo), texto: largo }), {
+    gancho: '@janacraig_ is stepping into the competitive landscape of celebrity-led beauty.',
+    sigue: 'The influencer and reality star, who rose to prominence as a fan favorite, is entering the market.',
+  });
+  const sinPunto = `El costo de la inacción siempre supera al costo del fracaso o del error y hay una razón científica para eso: ${'tu mente no puede sostener la incertidumbre '.repeat(3)}y por eso decide.`;
+  assert.deepEqual(textoDeTarjeta({ gancho: primeraLinea(sinPunto), texto: sinPunto }), { gancho: primeraLinea(sinPunto), sigue: '' },
+    'si la primera oración no entra en el gancho, sólo el gancho: nunca el texto de nuevo');
   const portada = leer('app/copywriter/OutliersCopy.tsx');
   // El marco con la forma de su red (12/11/2026: YouTube 16:9, reel 9:16, carrusel 4:5) y el TEXTO legible encima de la portada
   // (13/11/2026: nunca blanco vacío); al pasar el cursor, el original limpio (tests/create-outliers-tarjeta.test.ts).
   assert.match(portada, /style=\{\{ aspectRatio: ASPECTO_FORMATO\[o\.formato\] \}\}/);
-  assert.match(portada, /<button type="button" className=\{oc\.ganchoGrande\} onClick=\{onAbrir\}>\{o\.gancho\}<\/button>/);
+  assert.match(portada, /<button type="button" className=\{oc\.ganchoGrande\} onClick=\{onAbrir\}>\{gancho\}<\/button>/);
   assert.doesNotMatch(portada, /className=\{s\.miniImagen\}/, 'sin la foto vertical de Image');
   const css = leer('app/copywriter/outliers.module.css');
   assert.match(css, /\.portada \{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;/);

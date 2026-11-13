@@ -124,6 +124,9 @@
   .sigue, .tarjeta[data-formato='reel'] .sigue { font-size: 12.5px; line-height: 1.5; }
   .ganchoPie { font-size: 13.5px; -webkit-line-clamp: 3; }
   .siguePie { font-size: 12.5px; -webkit-line-clamp: 2; }
-  .red { height: 22px; font-size: 11.5px; padding: 0 7px 0 6px; }
   .marcas.marcas { max-width: calc(100% - 16px); }
+  /* Sólo el ícono de la red, en un círculo: con el nombre, la pastilla tapaba la cara y el nombre de las portadas tipo tuit («Alex
+     Hormozi», 13/11/2026, el Cerebro con la captura de producción a 375). El nombre queda para el lector de pantalla. */
+  .red { width: 26px; height: 26px; padding: 0; justify-content: center; }
+  .redNombre { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }

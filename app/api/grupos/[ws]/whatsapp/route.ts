@@ -19,6 +19,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ ws: 
   const ws = /^\d{1,15}$/.test(crudo) ? Number(crudo) : null;
   const quien = ws == null ? null : await accesoAlGrupo(ws);
   if (ws == null || !quien || quien.invitado) return NextResponse.json({ ok: false, error: 'No existe.' }, { status: 404 });
+  // Ni el EQUIPO (closer, setter: 13/11/2026): lo anterior de WhatsApp no está filtrado (recibos, cobros, avisos a la agencia), y el hilo de la app sí (`laVeElEquipo`).
+  if (quien.tipo === 'equipo') return NextResponse.json({ ok: false, error: 'No existe.' }, { status: 404 });
   const antes = req.nextUrl.searchParams.get('antes');
   try {
     const clave = await claveDeConversacion(ws);

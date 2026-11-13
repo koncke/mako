@@ -34,8 +34,11 @@ test('la condición: en positivo; sin una razón, null', () => {
   assert.equal(juzgarAcceso({ ...base, persona: p({ estado: 'suspendido' }) }), null);
   assert.deepEqual(juzgarAcceso({ ...base, persona: p({}) }), { tipo: 'admin', administra: true, desdeId: 0 });
   assert.deepEqual(juzgarAcceso({ ...base, persona: p({ rol_ws: null }) }), { tipo: 'admin', administra: true, desdeId: 0 }, 'rol_ws null es admin');
-  assert.equal(juzgarAcceso({ ...base, persona: p({ rol_ws: 'closer' }) }), null, 'closer y setter, sólo invitados');
-  assert.equal(juzgarAcceso({ ...base, persona: p({ rol_ws: 'setter' }) }), null);
+  // 13/11/2026, el Cerebro: con los grupos de WhatsApp dejados, el closer y el setter del negocio están en su grupo, con lo que su rol ve (`equipo`).
+  assert.deepEqual(juzgarAcceso({ ...base, persona: p({ rol_ws: 'closer' }) }), { tipo: 'equipo', administra: false, desdeId: 0, rolWs: 'closer' }, 'closer y setter del negocio, del equipo');
+  assert.deepEqual(juzgarAcceso({ ...base, persona: p({ rol_ws: 'setter' }) }), { tipo: 'equipo', administra: false, desdeId: 0, rolWs: 'setter' });
+  assert.equal(juzgarAcceso({ ...base, persona: p({ rol_ws: 'closer', estado: 'invitado' }) }), null, 'un closer que nunca entró, no');
+  assert.equal(juzgarAcceso({ ...base, persona: p({ rol_ws: 'closer', workspace_id: 8 }) }), null, 'el closer de OTRO negocio, no');
   assert.equal(juzgarAcceso({ ...base, persona: p({ estado: 'invitado' }) }), null, 'un invitado a MaKo que nunca entró no administra');
   assert.equal(juzgarAcceso({ ...base, persona: p({ workspace_id: 8 }) }), null);
 });
@@ -50,6 +53,7 @@ test('la agencia: administra, activa y con la cartera aprobada; si no se pudo le
 
 test('invitado: de otro negocio, no administra y lee desde su `desde_id`', () => {
   assert.deepEqual(juzgarAcceso({ ...base, persona: p({ workspace_id: 8 }), invitacion: { desdeId: 42 } }), { tipo: 'invitado', administra: false, desdeId: 42 });
+  // 13/11/2026 (el rojo del Cerebro): sumar al equipo no afloja nada del invitado. Al que quien administra invitó, la invitación le sigue mandando.
   assert.deepEqual(juzgarAcceso({ ...base, persona: p({ rol_ws: 'closer' }), invitacion: { desdeId: 3 } }), { tipo: 'invitado', administra: false, desdeId: 3 }, 'un closer del negocio entra invitado');
   assert.deepEqual(juzgarAcceso({ ...base, persona: p({}), invitacion: { desdeId: 3 } }), { tipo: 'admin', administra: true, desdeId: 0 }, 'quien administra no queda recortado por una invitación vieja');
 });

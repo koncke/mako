@@ -74,6 +74,9 @@ y sin portada, así que la grilla mixta recibe su alto por tarjeta (`pie={(o) =>
 **La regla: no se escribe encima de una imagen que puede traer su propio texto (portadas, láminas, miniaturas). El texto va al lado
 o debajo, nunca encima.**
 
+Lo mismo vale para lo poco que sí va encima: la marca de la red. A 375, la pastilla «Anuncio» tapaba la cara y el nombre de las
+portadas tipo tuit («Alex Hormozi»); en el teléfono es sólo el ícono, en un círculo, y el nombre queda para el lector de pantalla.
+
 ⚠️ **Lo que «se veía cortado» al pasar el cursor no era la tarjeta.** El banco dibujaba portadas inventadas con los primeros 18
 caracteres del gancho («Cobrar mejor no»), y en la captura parecía un título cortado de la interfaz. Los datos inventados de un
 banco no llevan texto que se pueda confundir con la interfaz: ahora las portadas son una escena sin letras.

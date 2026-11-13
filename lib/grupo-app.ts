@@ -29,7 +29,7 @@ import { claveDeLaApp, filaDelId } from './grupo-salida';
 import { avisosParaAgencia } from './avisos-catalogo';
 import { letraVigente, miembrosDelGrupo, type PersonaDelGrupo } from './grupo-puerta';
 import {
-  AVISO_DE_INVITACION_CADA_MS, AVISOS_QUE_NO_VE_UN_INVITADO, POR_PAGINA, TOPE_INVITACIONES_POR_HORA, TOPE_INVITADOS, autorDePersona, esPathDelGrupo, filaAlHilo, laVeUnInvitado, sinLinksParaInvitado,
+  AVISO_DE_INVITACION_CADA_MS, AVISOS_QUE_NO_VE_UN_INVITADO, POR_PAGINA, TOPE_INVITACIONES_POR_HORA, TOPE_INVITADOS, autorDePersona, esPathDelGrupo, filaAlHilo, laVeElEquipo, laVeUnInvitado, veElHiloRecortado, sinLinksParaInvitado,
   msgDeFila, textoInvitacionSinCuenta, textoParaComparar, tituloDelGrupo, tituloParaInvitado, type AdjuntoGrupo, type FilaGrupo, type MensajeDelHilo, type TipoAdjuntoGrupo,
 } from './grupo-reglas';
 import type { PartePreparada } from './mako-tarjeta';
@@ -276,12 +276,12 @@ export async function escribirDePersona(n: NuevoDePersona): Promise<{ fila: Fila
  * UNA FILA DEL GRUPO, POR ID. ⚠️ Los ids son globales y correlativos: siempre con el ws, y para un invitado también desde que entró. null = para esta
  * persona no existe (404). Lo usan el adjunto y la cita: recorrer ids no tiene que dar archivos de otro negocio ni de antes de entrar.
  */
-export async function filaParaPersona(ws: number, id: number, quien: Pick<PersonaDelGrupo, 'invitado' | 'desdeId'>): Promise<FilaGrupo | null> {
+export async function filaParaPersona(ws: number, id: number, quien: Pick<PersonaDelGrupo, 'invitado' | 'desdeId'> & { tipo?: PersonaDelGrupo['tipo'] }): Promise<FilaGrupo | null> {
   if (!Number.isSafeInteger(id) || id <= 0) return null;
   const { data, error } = await db().from(T).select(COLS).eq('workspace_id', ws).eq('id', id).maybeSingle();
   if (error || !data) return null;
   const f = data as unknown as FilaGrupo;
-  return !quien.invitado || laVeUnInvitado(f, quien.desdeId) ? f : null;
+  return !veElHiloRecortado(quien) || laVeUnInvitado(f, quien.desdeId) ? f : null;
 }
 
 /** La fila por su id en el mensaje (`app:<fila>` o el de WhatsApp), siempre del negocio del turno. */
@@ -339,7 +339,7 @@ export async function leerHilo(ws: number, quien: PersonaDelGrupo, o: { despues?
   const hayMas = crudas.length > POR_PAGINA;
   const pagina = crudas.slice(0, POR_PAGINA);
   const enOrden = asc ? pagina : [...pagina].reverse();
-  const filas = quien.invitado ? enOrden.filter((f) => laVeUnInvitado(f, quien.desdeId)) : enOrden;
+  const filas = veElHiloRecortado(quien) ? enOrden.filter((f) => laVeUnInvitado(f, quien.desdeId)) : enOrden;
   const cursor = enOrden.length ? Number(enOrden[enOrden.length - 1].id) : Number(o.despues ?? 0);
   const hosts = hostsDeMaKo();
   return { mensajes: filas.map((f) => filaAlHilo(f, { usuarioId: quien.usuarioId, invitado: quien.invitado, hosts })), hayMas, cursor, makoPensando: await makoPensando(ws) };
@@ -376,7 +376,7 @@ export async function resumenParaLaLista(ws: number, quien: PersonaDelGrupo): Pr
   let qUlt = db().from(T).select(COLS).eq('workspace_id', ws);
   if (quien.invitado) qUlt = qUlt.gt('id', quien.desdeId);
   const { data: ult } = await qUlt.order('id', { ascending: false }).limit(5);
-  const visibles = ((ult ?? []) as unknown as FilaGrupo[]).filter((f) => !quien.invitado || laVeUnInvitado(f, quien.desdeId));
+  const visibles = ((ult ?? []) as unknown as FilaGrupo[]).filter((f) => !veElHiloRecortado(quien) || laVeUnInvitado(f, quien.desdeId));
   const { data: l } = await db().from('grupo_leidos').select('hasta_id').eq('workspace_id', ws).eq('usuario_id', quien.usuarioId).maybeSingle();
   const hastaId = Math.max(Number((l as { hasta_id?: unknown } | null)?.hasta_id ?? 0), quien.invitado ? quien.desdeId : 0);
   // ⚠️ `usuario_id.neq.X` SOLO da 0 con los avisos: SQL descarta los NULL, y todo lo de MaKo y lo espejado va con `usuario_id` null.
@@ -386,7 +386,7 @@ export async function resumenParaLaLista(ws: number, quien: PersonaDelGrupo): Pr
   // ⚠️ Un invitado no ve los avisos a la agencia (`laVeUnInvitado`): tampoco le cuentan. Si no, el número quedaba hasta el próximo mensaje que sí ve. Se restan con
   // los MISMOS filtros del conteo; sin poder leerlos, se restan cero (un número de más, nunca un aviso que no ve).
   const deAgencia = [...avisosParaAgencia(), ...AVISOS_QUE_NO_VE_UN_INVITADO];
-  if (quien.invitado && noLeidos > 0 && deAgencia.length) {
+  if (veElHiloRecortado(quien) && noLeidos > 0 && deAgencia.length) {
     const { count: noLosVe } = await db().from(T).select('id', { count: 'exact', head: true }).eq('workspace_id', ws).gt('id', hastaId)
       .neq('autor_tipo', 'sistema').in('aviso_tipo', deAgencia);
     noLeidos = Math.max(0, noLeidos - (noLosVe ?? 0));
@@ -443,7 +443,8 @@ export async function avisarMiembros(ws: number, f: FilaGrupo, o: { pushYaSalio?
     const m = await miembrosDelGrupo(ws);
     const sinAutor = m.conCuenta.filter((p) => p.usuarioId !== Number(f.usuario_id));
     const nombre = (await getWorkspace(ws).catch(() => null))?.nombre ?? '';
-    const miembros = sinAutor.filter((p) => p.tipo !== 'invitado' && !(o.pushYaSalio && p.tipo === 'admin'));
+    // El EQUIPO (closer, setter), sólo con lo que ve en el hilo (`laVeElEquipo`): el recibo no le suena.
+    const miembros = sinAutor.filter((p) => p.tipo !== 'invitado' && (p.tipo !== 'equipo' || laVeElEquipo(f)) && !(o.pushYaSalio && p.tipo === 'admin'));
     const invitados = laVeUnInvitado(f, 0) ? sinAutor.filter((p) => p.tipo === 'invitado') : [];
     const { enviarPushAMiembros } = await import('./push');
     const base = { tipo: 'mako-grupo', ruta: `/second-brain?grupo=${ws}`, tag: `grupo:${ws}`, ttl: 6 * 3600, urgencia: 'normal' as const };

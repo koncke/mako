@@ -88,6 +88,26 @@ export const RANGOS_LIMITES = {
   mako: { solasPor24h: [0, 10], diasCharla: [1, 30] },
 } as const satisfies { [G in keyof LimitesEnvio]: { [K in keyof LimitesEnvio[G]]: readonly [number, number] } };
 
+/**
+ * EL EMAIL POR DÍA DE QUIEN MANDA CON SU PROPIA CUENTA (13/11/2026, ticket #93; decisión del Cerebro). Un negocio que manda con
+ * SU clave de Resend y SU dominio verificado (Mauricio, elevate.com.mx desde el 9/11) puede subir «Email por día» hasta
+ * 2.000: es su cuenta y su riesgo (Resend Pro da 50.000 por mes). Quien manda con la clave de la PLATAFORMA sigue con el
+ * máximo de 500: ahí se cuida el dominio de MaKo. El arranque y la suba de la rampa siguen de 1 a 500 para todos.
+ * La pregunta «¿con qué cuenta manda?» es de la base (`opcionesDeRango`, lib/limites-envio-cuenta.ts); acá, la regla.
+ */
+export const EMAIL_DIA_MAX_CUENTA_PROPIA = 2000;
+const RANGO_EMAIL_DIA_CUENTA_PROPIA: readonly [number, number] = [RANGOS_LIMITES.email.dia[0], EMAIL_DIA_MAX_CUENTA_PROPIA];
+
+/** Con qué cuenta manda el negocio. `cuentaPropia`: su clave de Resend Y su dominio. Sin decirlo, la de la plataforma. */
+export type OpcionesRango = { cuentaPropia?: boolean };
+
+/** El rango de un campo para ESTE negocio (el de «Email por día» cambia con la cuenta). */
+export function rangoDeLimite(grupo: keyof LimitesEnvio, campo: string, o?: OpcionesRango): readonly [number, number] {
+  return grupo === 'email' && campo === 'dia' && o?.cuentaPropia
+    ? RANGO_EMAIL_DIA_CUENTA_PROPIA
+    : (RANGOS_LIMITES[grupo] as Record<string, readonly [number, number]>)[campo];
+}
+
 type Grupo = keyof LimitesEnvio;
 type Campo<G extends Grupo> = keyof LimitesEnvio[G] & string;
 
@@ -109,10 +129,11 @@ const NOMBRE: Record<string, string> = {
   'mako.solasPor24h': 'Respuestas solas por persona', 'mako.diasCharla': 'Días de charla abierta',
 };
 
-const rango = (g: Grupo, c: string): readonly [number, number] => (RANGOS_LIMITES[g] as Record<string, readonly [number, number]>)[c];
+const rango = (g: Grupo, c: string, o?: OpcionesRango): readonly [number, number] =>
+  rangoDeLimite(g, c, o);
 const valor = (l: LimitesEnvio, g: Grupo, c: string): number => (l[g] as Record<string, number>)[c];
-const enRango = (n: unknown, g: Grupo, c: string): n is number => {
-  const [min, max] = rango(g, c);
+const enRango = (n: unknown, g: Grupo, c: string, o?: OpcionesRango): n is number => {
+  const [min, max] = rango(g, c, o);
   return typeof n === 'number' && Number.isInteger(n) && n >= min && n <= max;
 };
 
@@ -149,7 +170,7 @@ export type LimitesGuardados = { [G in Grupo]?: Partial<LimitesEnvio[G]> };
  * comportamiento de antes de esta pantalla. Lo que no se puede LEER (la base caída) no llega acá: el motor
  * no manda (`saltado: 'limites-ilegibles'`, lib/nutricion.ts).
  */
-export function sanearLimites(raw: unknown): LimitesGuardados {
+export function sanearLimites(raw: unknown, cuenta?: OpcionesRango): LimitesGuardados {
   let v: unknown = raw;
   if (typeof v === 'string') {
     if (!v.trim()) return {};
@@ -162,16 +183,25 @@ export function sanearLimites(raw: unknown): LimitesGuardados {
     const g = o[grupo];
     if (!g || typeof g !== 'object' || Array.isArray(g)) continue;
     const n = (g as Record<string, unknown>)[campo];
-    if (!enRango(n, grupo, campo)) continue;
+    // El email por día de una cuenta propia (hasta 2.000) leído SIN ella (#93): el máximo de la plataforma, no lo de
+    // fábrica. «No pude leer la cuenta» no le baja el tope a 100 a quien manda 1.600: manda 500, menos y nunca más.
+    if (grupo === 'email' && campo === 'dia' && !enRango(n, grupo, campo, cuenta) && enRango(n, grupo, campo, { cuentaPropia: true })) {
+      (out.email ??= {}).dia = rango('email', 'dia')[1];
+      continue;
+    }
+    if (!enRango(n, grupo, campo, cuenta)) continue;
     (out[grupo] ??= {} as never);
     (out[grupo] as Record<string, number>)[campo] = n;
   }
   return out;
 }
 
-/** Los límites que mandan: lo guardado encima de lo de fábrica, campo por campo. */
-export function limitesVigentes(raw: unknown, fabrica: LimitesEnvio = LIMITES_CONSTANTES): LimitesEnvio {
-  const g = sanearLimites(raw);
+/**
+ * Los límites que mandan: lo guardado encima de lo de fábrica, campo por campo. `o`: con qué cuenta manda el negocio
+ * (`opcionesDeRango`, lib/limites-envio-cuenta.ts); sin decirlo, la de la plataforma.
+ */
+export function limitesVigentes(raw: unknown, fabrica: LimitesEnvio = LIMITES_CONSTANTES, o?: OpcionesRango): LimitesEnvio {
+  const g = sanearLimites(raw, o);
   return {
     wa: { ...fabrica.wa, ...(g.wa ?? {}) },
     email: { ...fabrica.email, ...(g.email ?? {}) },
@@ -185,7 +215,7 @@ export function limitesVigentes(raw: unknown, fabrica: LimitesEnvio = LIMITES_CO
  *
  * Fuera de rango, no entero o ausente → error con el nombre del campo y su rango. Nunca se recorta.
  */
-export function limitesParaGuardar(input: unknown, fabrica: LimitesEnvio): { ok: true; valor: string } | { ok: false; error: string } {
+export function limitesParaGuardar(input: unknown, fabrica: LimitesEnvio, cuenta?: OpcionesRango): { ok: true; valor: string } | { ok: false; error: string } {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return { ok: false, error: 'No entendí los límites.' };
   const o = input as Record<string, unknown>;
   const out: LimitesGuardados = {};
@@ -196,8 +226,8 @@ export function limitesParaGuardar(input: unknown, fabrica: LimitesEnvio): { ok:
     // lo respeta a propósito) y la pantalla lo muestra tal cual. Validarlo trababa CUALQUIER guardado con
     // «entre 1 y 150» sobre un número que la persona no tocó (revisión de la décima tanda, 11/10/2026).
     if (n === valor(fabrica, grupo, campo)) continue;
-    if (!enRango(n, grupo, campo)) {
-      const [min, max] = rango(grupo, campo);
+    if (!enRango(n, grupo, campo, cuenta)) {
+      const [min, max] = rango(grupo, campo, cuenta);
       return { ok: false, error: `${NOMBRE[`${grupo}.${campo}`]}: entre ${min} y ${max}.` };
     }
     (out[grupo] ??= {} as never);
