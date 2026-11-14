@@ -20,6 +20,7 @@
 // =============================================================================
 
 import { createContext, useContext, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { entradaDeTarjetas } from './entrada-tarjetas';
 import Link from '@/app/_ui/Link';
 import { plata, plataCorta } from '@/lib/cobranza-diseno';
 import { escalaGeneral, type MesGeneral, type Necesita, type VistaGeneral } from '@/lib/general-diseno';
@@ -154,6 +155,10 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
   /** La miniatura de «Nueva hoja». */
   quieta?: boolean;
 }) {
+  // La entrada (Martín, 14/11/2026: «algunos todavía no tienen animación»): las tarjetas suben escalonadas, como en Cobranza
+  // y Marketing (./entrada-tarjetas.ts). Antes de cualquier otra cosa, para que no la salte un return temprano.
+  const raizEntrada = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => { if (!quieta) entradaDeTarjetas(raizEntrada.current, '.gv-card'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [doce, setDoce] = useState(true);
   const { frase, mes, meta, flujo, meses, necesita, vence, deben, funnel, llamadas, salud } = vista;
   const mesesVistos = meses ? (doce ? meses : meses.slice(-6)) : null;
@@ -164,7 +169,7 @@ export function HojaGeneral({ vista, titulo, fecha, onGrilla, compartido = false
 
   return (
     <Compartido.Provider value={compartido}>
-    <div className="gv" data-quieta={quieta ? '' : undefined}>
+    <div ref={raizEntrada} className="gv" data-quieta={quieta ? '' : undefined}>
       <style href="dash-hoja-general" precedence="medium">{CSS_GENERAL}</style>
       {/* La letra de Orvel (Manrope, y Geist Mono para las cifras chicas), sólo para esta hoja. */}
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400..800&family=Geist+Mono:wght@400..600&display=swap" precedence="default" />

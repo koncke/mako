@@ -175,6 +175,8 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   // El «volvió» de la caída de arriba (09/10/2026, lib/lineas-vigilante.ts).
   { id: 'wa-reconectado', titulo: 'Volvió tu WhatsApp', sub: 'La línea que se había caído vuelve a mandar y recibir.' },
   { id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo un anuncio', sub: 'Un anuncio publicado necesita aprobación manual para salir.' },
+  // Cableado el 14/11/2026 (cron copiloto-nevera, lib/copiloto/nevera-aviso.ts): por WhatsApp y por email.
+  { id: 'copiloto-nevera', titulo: 'Se te acaba el contenido', sub: 'Lo listo para publicar no llega a la semana que viene. Una vez por formato y por semana.' },
   { id: 'tracking-apagado', titulo: 'La landing dejó de mandar datos', sub: 'Se cortó el seguimiento y las métricas quedan ciegas.' },
 ];
 

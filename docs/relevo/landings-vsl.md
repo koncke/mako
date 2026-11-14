@@ -392,6 +392,22 @@ Se graban después del despliegue, con el banco de cada uno (C:/dev/bancos-porta
 | Plan (16) | El tablero con las tareas puntuadas, el score, el objetivo principal, el borrador de una reunión, subir archivos, la hoja Productividad |
 | Ads Analyst (6) | El chat respondiendo, la retención del VSL por bloque, «corregiste el ángulo», la caja para pedirle a MaKo |
 
+## Decimocuarta vuelta (14/11/2026, madrugada): el pedido largo de Martín
+
+Hecho: el ahorro suma Zapier (US$29,99, más caro que Make) y Metricool (US$25); la tira mezclada por categoría, con todas las del
+ahorro y sin Descript ni Pipedrive (test: toda app del ahorro está en la tira); «Tu CRM trackea tus leads de forma automática»;
+«Gestiona tus anuncios, tu Instagram y tu YouTube con IA»; la promesa del Acelerador atada a llamadas y ventas, a la medida de la
+oferta (y su test); las preguntas frecuentes, generales; los tableros: cuatro hojas con entrada nueva en la app y el póster en el
+primer cuadro; Chats en 14 s (los cuatro logos → la pregunta de Tomás → la respuesta); Automations en 12 s (se arma «Te escribieron por
+Instagram» → «Probar» acoplado → el lead escribe y le contestan); el CRM muestra SÓLO el tracking, con los eventos llegando de a uno;
+el editor de video con la línea de tiempo en todos los encuadres. Los bancos: `C:/dev/bancos-portada/` (`codificar-bucle.sh` deja
+cualquier toma en bucle).
+
+**Falta, en manos de otros chats** (pedidos con las palabras de Martín): el CoPilot nuevo (anuncios, Instagram y YouTube, decisiones
+grandes) — copilot-maqueta; la réplica REAL de un reel de Hormozi para Copywriting (no hay reels de Alex en Spy y ninguno de Leila
+está transcripto) — probar-copywriting; los competidores de Spy sin logos y con caricatura — el chat de Spy (puede necesitar el sí de
+Martín para escribir en producción). Después del despliegue: regrabar Spy y Copywriting.
+
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
 `PRUEBA_GRATIS_PRENDIDA = true` (`lib/planes-mako.ts`): `/planes` dice «7 días gratis» y cobra el día 8 con la tarjeta,

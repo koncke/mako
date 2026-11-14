@@ -11458,6 +11458,15 @@ Web Generator en producción.
 - **Un `GET /web-generator` 200, de a dos por segundo y junto con `/crm`, `/plan`, `/offer`…, es el PREFETCH del menú**, no
   alguien entrando. Una entrada de verdad es un 307 (la carga directa) seguido de `/web-generator/<id>`, o un
   `/web-generator/<id>` suelto. Sin sesión, el prefetch da 307 a `/login` en todas las tabs a la vez.
+- **14/11/2026: la CLI contesta `permission_denied` (403, «You don't have access to runtime logs») con el login de esta PC**, y
+  dice `retryable: false`. La API anda: `GET https://api.vercel.com/logs/request-logs` con `VERCEL_API_TOKEN` de `.env.local`, y
+  cada fila trae `logs[]` con lo que escribió la función. Ahí, **`requestPath` exacto devolvió 0 filas para
+  `/api/image-editor/carruseles/replicar` en una ventana donde ese pedido existía**, sin error; `search=carruseles` lo encontró.
+  Si el filtro exacto da vacío, se busca por substring antes de concluir «no hubo pedido».
+- **Todo lo de la casa de Martín sale por la misma conexión** (Telecentro, AR): el navegador de la demo, el cartero, el puente de
+  Flow, la PC de IA. Para aislar lo que hizo en pantalla, se descartan esas rutas de fondo y se mira el `requestReferer`. La ruta
+  no anota de qué negocio era el pedido: eso sale de `anthropic_usage.workspace_id` por ventana de tiempo
+  (hallazgos-carruseles, «No es tu embudo, es el de Mauricio»).
 
 ## tests-afectados cuenta como rojos los `todo` cuando el reintento aislado tiene un rojo de verdad (29/10/2026, claude3)
 
