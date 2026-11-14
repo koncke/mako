@@ -25,12 +25,21 @@ export type AvisoAlSetter = {
   setter: { id: number; nombre: string } | null;
   push: { enviados: number; motivo?: string } | null;
   whatsapp: { ok: boolean; error?: string } | null;
+  /** Con `freno`: ya se le había avisado de esto dentro del plazo, y no se repite. */
+  frenado?: true;
 };
 
 const NADIE: AvisoAlSetter = { setter: null, push: null, whatsapp: null };
 
-/** Le avisa al setter del lead `leadId` del negocio `ws`. `que` es lo que pasó, en texto (lo mismo que fue al grupo). */
-export async function avisarAlSetterDelLead(ws: number, leadId: number, que: string): Promise<AvisoAlSetter> {
+/** El tipo del freno del aviso al setter (`reclamarEspaciado`, lib/espaciado.ts): propio, no el del aviso al grupo. */
+export const TIPO_FRENO_SETTER = 'aviso-setter';
+
+/**
+ * Le avisa al setter del lead `leadId` del negocio `ws`. `que` es lo que pasó, en texto (lo mismo que va al grupo).
+ * `freno`: una vez por `clave` cada `minutos` (el «Contéstale tú» de la charla cerrada, como el del grupo: 12 h por lead). Se
+ * reclama recién con el setter resuelto (sin setter no se escribe nada) y es atómico: dos mensajes juntos no avisan dos veces.
+ */
+export async function avisarAlSetterDelLead(ws: number, leadId: number, que: string, o: { freno?: { clave: string; minutos: number } } = {}): Promise<AvisoAlSetter> {
   try {
     const db = getSupabaseServer();
     const { data: l, error: eL } = await db.from('leads').select('id, nombre, setter').eq('workspace_id', ws).eq('id', leadId).maybeSingle();
@@ -41,6 +50,12 @@ export async function avisarAlSetterDelLead(ws: number, leadId: number, que: str
     if (eU) { console.error(`[aviso-al-setter] ws${ws}: no pude leer el equipo: ${eU.message}`); return NADIE; }
     const p: PersonaDelNegocio | null = setterDelNegocio(lead.setter, (filas ?? []) as PersonaDelNegocio[]);
     if (!p) return NADIE;
+    if (o.freno) {
+      const { reclamarEspaciado } = await import('./espaciado');
+      if (!(await reclamarEspaciado(ws, TIPO_FRENO_SETTER, o.freno.minutos, o.freno.clave))) {
+        return { setter: { id: Number(p.id), nombre: String(p.nombre ?? '').trim() }, push: null, whatsapp: null, frenado: true };
+      }
+    }
     const quien = lead.nombre?.trim() || `El lead #${leadId}`;
     const ruta = `/crm/${leadId}`;
     const { enviarPushAMiembros } = await import('./push');

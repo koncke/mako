@@ -31,7 +31,7 @@ WhatsApp». No era así: el aviso iba al grupo del negocio (y a los push de los 
 (mismo nombre sin tildes ni mayúsculas, de ese negocio, sin suspender; con dos que se llaman igual o con MaKo de setter, a nadie).
 Le llega un push dirigido (`enviarPushAMiembros`, abre la ficha del lead) y un WhatsApp a su número del perfil. Sale en: la acción
 `avisar_al_equipo` desde un flujo con lead («Sólo te avisa» y «Otra cosa» del AI Step pasan por ahí), el aviso de respaldo del AI
-Step cuando la charla pasa a una persona, «Contéstale tú» de la charla cerrada (con el mismo freno de 12 h) y el hand-off clásico
+Step cuando la charla pasa a una persona, «Contéstale tú» de la charla cerrada (con SU freno de 12 h por lead, `reclamarEspaciado` tipo `aviso-setter`, y ANTES del aviso al grupo: la charla termina en el aviso y devuelve `false`, lo fija tests/instagram-primer-dm.test.ts) y el hand-off clásico
 (`registrarHandoff`). El aviso al grupo no cambia.
 
 **Trampas:**

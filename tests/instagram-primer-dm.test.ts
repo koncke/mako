@@ -86,9 +86,7 @@ test('el freno mira si ESE mensaje ya tuvo respuesta, no cuántas automatizacion
   assert.match(charla, /\): Promise<boolean> \{/);
   assert.match(charla, /if \(v\.abierta\) \{\s*return asistirRespuesta\(leadId, \[v\.insc\.secuencia_id\], texto, linea,/);
   assert.doesNotMatch(charla, /return;/, 'ningún camino devuelve «no sé»');
-  // (14/11/2026, a propósito: entre el aviso y el `return false` va el aviso al SETTER del lead, con el mismo freno de 12 h
-  // que el del grupo: tests/aviso-al-setter.test.ts. Avisar sigue sin ser contestar.)
-  assert.match(charla.slice(charla.indexOf("emitirDelCatalogo('wa-mensaje-entrante'")), /\}\);\s*(?:if \(wsAviso != null && !aviso\.deduped\) \{[\s\S]*?\n {2}\}\s*)?return false;\s*$/);
+  assert.match(charla.slice(charla.indexOf("emitirDelCatalogo('wa-mensaje-entrante'")), /\}\);\s*return false;\s*$/);
 });
 
 test('sólo un mensaje privado que la persona escribió: un comentario no (es público, su respuesta es la privada)', () => {

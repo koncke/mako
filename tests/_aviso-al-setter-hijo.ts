@@ -66,6 +66,13 @@ async function main() {
   escenaNueva();
   out.chat = await runWithWorkspace(13, () => accion.ejecutar({ leadId: 501, mensaje: 'Revisa a Ana.' }, ctx('app:sesion-1')));
   out.chatSono = sonoA();
+
+  // 5 · «Contéstale tú» con el freno de 12 h: el segundo mensaje del mismo lead no le vuelve a sonar; otro lead sí.
+  escenaNueva();
+  const freno = (id: number) => ({ freno: { clave: `lead:${id}:charla-cerrada`, minutos: 720 } });
+  out.frenoPrimero = await avisarAlSetterDelLead(13, 501, 'Ana te escribió.', freno(501));
+  out.frenoSegundo = await avisarAlSetterDelLead(13, 501, 'Ana te volvió a escribir.', freno(501));
+  out.frenoSono = sonoA();
   await decirYSalir(decirResultado(out));
 }
 

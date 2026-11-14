@@ -47,6 +47,12 @@ test('el WhatsApp sale SÓLO por la puerta de MaKo, a su número personal, y dic
   assert.doesNotMatch(src, /evolution|sendText|enviarTexto/i, 'nada le escribe a una persona por fuera de lib/mako-salida.ts');
 });
 
+test('con el freno de «Contéstale tú», el segundo mensaje del mismo lead no le vuelve a sonar', () => {
+  assert.equal(R().frenoPrimero.push.enviados, 1);
+  assert.deepEqual(R().frenoSegundo, { setter: { id: 701, nombre: 'Juan Pérez' }, push: null, whatsapp: null, frenado: true });
+  assert.deepEqual(R().frenoSono, ['juan'], 'una vez, no dos');
+});
+
 test('sin adivinar: con dos que se llaman igual, o con MaKo de setter, no le avisa a nadie', () => {
   assert.deepEqual(R().repetido, { setter: null, push: null, whatsapp: null });
   assert.deepEqual(R().mako, { setter: null, push: null, whatsapp: null });
@@ -70,8 +76,11 @@ test('los tres hand-off del motor también le avisan: «Otra cosa» sin tarjeta,
   // El de respaldo del AI Step: sólo cuando la charla pasó a una persona (con la tarjeta de avisar, ya avisó ésa).
   assert.ok(n.includes('if (charlaPasaAUnaPersona({ contesto, siguio, noPudoDecidir })) {\n    aUnaPersona = true;'));
   assert.ok(tramo(n, 'if (!redacto && !avisoDelFlujo) {', 'return true;').includes('if (aUnaPersona && wsAviso != null) {\n      const { avisarAlSetterDelLead }'));
-  // «Contéstale tú» de la charla cerrada: con el mismo freno de 12 h que el del grupo.
-  assert.ok(tramo(n, 'dedupKey: `lead:${leadId}:charla-cerrada`', 'return false;').includes('if (wsAviso != null && !aviso.deduped) {\n    const { avisarAlSetterDelLead }'));
+  // «Contéstale tú» de la charla cerrada: con SU freno de 12 h por lead, ANTES del aviso al grupo (el aviso es lo último y la
+  // charla devuelve `false`: tests/instagram-primer-dm.test.ts).
+  const charla = tramo(n, 'async function seguirCharla(', '\n}\n');
+  const iSetter = charla.indexOf('{ freno: { clave: `lead:${leadId}:charla-cerrada`, minutos: 60 * 12 } });');
+  assert.ok(iSetter > 0 && iSetter < charla.indexOf("await emitirDelCatalogo('wa-mensaje-entrante'"), 'el aviso al setter de «Contéstale tú», antes del aviso al grupo');
   // El clásico (chat-agent-handoff): después del aviso al grupo.
   const h = sinComentarios('lib/chat-agent-handoff.ts');
   assert.ok(tramo(h, "await emitirDelCatalogo('wa-mensaje-entrante'", '/* el aviso es best-effort').includes('await avisarAlSetterDelLead(ws, input.leadId,'));

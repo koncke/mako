@@ -6772,7 +6772,14 @@ async function seguirCharla(
   const quien = charla.nombre?.trim() || `lead ${leadId}`;
   const wsAviso = (await getWorkspaceActual()) ?? undefined;
   const textoAviso = `💬 *${quien} te escribió${social ? ` por ${NOMBRE_CANAL[social]}` : ''}.*${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\nNo le preparé respuesta: ${v.motivo}. Contéstale tú.\n\n— MaKo`;
-  const aviso = await emitirDelCatalogo('wa-mensaje-entrante', {
+  // «CONTÉSTALE TÚ» ES PARA SU SETTER (14/11/2026, la llamada con Julio): además del grupo, un push a su teléfono y un
+  // WhatsApp por la puerta de MaKo (lib/aviso-al-setter.ts), con SU freno de 12 h por lead (el mismo plazo que el del grupo).
+  // Antes del aviso al grupo: el aviso es lo último y la charla devuelve `false` (avisar no es contestar). No tira.
+  if (wsAviso != null) {
+    const { avisarAlSetterDelLead } = await import('@/lib/aviso-al-setter');
+    await avisarAlSetterDelLead(wsAviso, leadId, textoAviso.replace(/\n\n— MaKo$/, ''), { freno: { clave: `lead:${leadId}:charla-cerrada`, minutos: 60 * 12 } });
+  }
+  await emitirDelCatalogo('wa-mensaje-entrante', {
     ws: wsAviso,
     // El lead (11/10/2026): lo nombran las automatizaciones del evento de MaKo y lo mira su CONDITION.
     lead: { id: leadId, nombre: charla.nombre },
@@ -6782,12 +6789,6 @@ async function seguirCharla(
     dedupTtlMin: 60 * 12,
     texto: textoAviso,
   });
-  // «CONTÉSTALE TÚ» ES PARA SU SETTER (14/11/2026, la llamada con Julio): además del grupo, un push a su teléfono y un
-  // WhatsApp por la puerta de MaKo (lib/aviso-al-setter.ts). Con el mismo freno de 12 h que el del grupo. No tira.
-  if (wsAviso != null && !aviso.deduped) {
-    const { avisarAlSetterDelLead } = await import('@/lib/aviso-al-setter');
-    await avisarAlSetterDelLead(wsAviso, leadId, textoAviso.replace(/\n\n— MaKo$/, ''));
-  }
   return false;
 }
 
