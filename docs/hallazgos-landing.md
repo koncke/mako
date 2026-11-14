@@ -5913,3 +5913,46 @@ El relevo con capturas: carpeta de notas, `referencias-landings/crm/relevo.md`.
 SIN HACER: la pestaña «Cerrar» va con el recuadro de lo que falta (la tarjeta que pasa sola a «Agenda R1» cuando agenda y la grabación
 enganchada en su ficha: hay que ver qué escribe en el historial el camino de Calendly); su robot, su comunidad, su app, sus precios, sus
 premios, su globo del chat y el formulario de su popup de salida (MaKo no los tiene; el popup va sin formulario, con el botón a /planes).
+
+## Agenda como iClosed: sus demos son líneas de tiempo que sólo se ven PARANDO en cada sección, y dos cámaras en la misma toma (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/agenda.tsx` (diseño, `VISTAS_HERO`, `PANTALLA_DE_PESTANA`, `FOTO_DE_TARJETA` y el
+`<script data-visor>`), `app/vsl/_competencia/agenda.ts`, `public/vsl-assets/agenda/`, valores en `docs/diseno/landings-competencia/agenda.md`.
+Banco: `C:/dev/bancos-portada/banco-agenda-landing/` (`entrada.tsx` con escenas `crm`, `vincular`, `llamadas`, `whatsapp`, `tarjeta`,
+`lienzo`; `grabar.mjs`, `fotos.mjs`, `cortar.sh`). El relevo con capturas: notas de la sesión, `referencias-landings/agenda/`.
+
+- **⚠️ El documento del 11/11 ya no servía: iClosed cambió entero.** El hero era una captura y ahora es una DEMO en HTML de dos vistas
+  («Scheduler» → «Unified Inbox») con su pastilla; hay secciones nuevas y el título es otro. Cada sección es un componente de código de
+  Framer con su `<style>` DENTRO del HTML (prefijo por sección: `icnhap`, `icpt`, `icft`, `icpb`…): partido por `<style>`, da las
+  medidas, los `@keyframes` y los cortes (por contenedor, a 1279 y 809) sin abrir un navegador. Lo que esos estilos no dicen —cuándo
+  pasa cada cosa— vive en el JavaScript de Framer.
+- **⚠️ Lo obvio era lo equivocado: el scroll lento no ve las demos.** Bajando 90 px cada 110 ms una sección pasa en menos de un segundo y
+  `getAnimations()` sólo ve el principio de su línea de tiempo. Con una PARADA de 7 s al principio de cada sección aparecieron: la
+  barra de cada pestaña que se llena sola (`transition: width 12000ms linear`, escrita en línea por su script), la lista que se marca de
+  a un renglón, el contador de la banda oscura, la ventana que sube en cada tarjeta del producto. Y cero `<video>`: todo lo que «parece
+  video» es HTML animado. **Regla:** en una referencia con demos armadas, el relevo para en cada sección (`scripts/relevar.mjs`).
+- **Las transiciones de la demo del hero se copiaron tal cual** (la vista que sale: `scale(.97)` con origen 32 % 42 %, 500/550 ms; la
+  que entra: 450 ms; la pestaña de ,5 a 1 en 420 ms; la pastilla 360 ms) y lo de adentro es la app grabada: la reserva de Calendly que
+  cae sola en «Agenda R1» y la confirmación por WhatsApp de la toma de Automations. Las pestañas de «Mantén los mismos funnels» avanzan
+  con la duración de SU grabación (no los 12 s de iClosed: una grabación de 5,6 s no llena 12).
+- **Dos cámaras en la misma toma.** El menú «⋯» de una etapa se abre bien con la cámara en `#camara` (un contenedor), pero el modal de
+  «Vincular evento» va en un portal fuera de él: la cámara del contenedor no lo acerca. Se graba la primera parte con `#camara` y, ya
+  abierto el modal, se pone `#camara` a 1 y se acerca con la del `body` (`g.camara` de `grabador.mjs`), con transición para que no salte.
+- **La tarjeta de la reunión no tiene estilo sola:** `TarjetaReunion` no trae su CSS; lo pone `ReunionesParaPreparar`, que además pide
+  `contextoDeReunionesAction` (en el banco devuelve `porLead: {}`). Y «cuánto falta» sale de `Date.now()`: para que diga «R1 · 15:00 ·
+  Empieza en 5 min» la foto se toma con `page.clock.install` y `timezoneId` de Buenos Aires.
+- **Un reemplazo del build que no se aplica no avisa.** En el plugin de esbuild de un banco, `a.path` trae barras invertidas en Windows:
+  la regex `crm[\/]archivo` (la barra invertida se perdió dos veces pasando por Python) no coincidía y el banco usó el reemplazo genérico
+  de las acciones del servidor (`{ ok: true }`), que rompió la tarjeta sin un error del build. Se escribe `[\\/]` con el editor y se
+  comprueba con `grep`.
+- **«La etapa y la reunión van juntas», mirado en el código antes de prometerlo:** la reserva del evento vinculado cae en esa etapa de
+  ese funnel (`lib/agenda-evento-etapa.ts`), la R2 se suma al lead que ya existe y nunca crea otro (webhooks), mover a mano a una etapa
+  de reunión pide la fecha (`pideWizardAlElegir`, `app/crm/mover-etapa.ts`) y la tarjeta del tablero muestra «Agenda · jue 15:00».
+  El tablero NO anima una tarjeta nueva (aparece con la lectura siguiente): el destello de la grabación es sólo del banco.
+- **«Drops into the stack you already have», sólo con lo que toca la agenda:** Calendly y Cal.com (los webhooks), Meta (el webhook de
+  Calendly le manda el «Schedule»: `lib/meta-schedule-pagina.ts`) y los grabadores de reuniones (`lib/grabadores`). La marquesina lleva
+  los logos de `public/vsl-assets/logos/integraciones/` (sin TikTok: su archivo es de 32 px).
+
+SIN HACER: lo que iClosed muestra y MaKo no tiene (la barra del anuncio, las caras con su globo y el G2, las citas, la pared de logos,
+la pestaña «AI Agent», «You already follow them», el contador en dólares, «Coaches, agencies, creators», «Build on iClosed», «Book a
+5-min demo»); la marquesina de reseñas y el carrusel de casos (hay un solo caso y sus párrafos no son citas: van quietos).

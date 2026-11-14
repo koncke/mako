@@ -289,3 +289,26 @@ test('CRM: el hero lleva la grabación real que abre el mini-VSL, y cada pestañ
   const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
   assert.ok(scripts.some((x) => x.includes("'d-crm'") && x.includes('data-fin') && x.includes('-fija') && x.includes('-salida')), 'sin su script');
 });
+
+test('Agenda: el hero turna dos pantallas reales, cada pestaña y cada tarjeta trae la suya, y el script va con data-visor', async () => {
+  const { VISTAS_HERO, PANTALLA_DE_PESTANA, FOTO_DE_TARJETA, VIDEO_RESERVAS, VIDEO_EQUIPO } = await import('../app/vsl/_competencia/disenos/agenda');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'agenda');
+  assert.ok(l, 'falta la landing de Agenda');
+  const html = dibujar(l);
+  const tarjetas = l.bloques.filter((b): b is Extract<Bloque, { tipo: 'tarjetas' }> => b.tipo === 'tarjetas');
+  assert.equal(VISTAS_HERO.length, 2, 'el hero turna dos vistas');
+  assert.equal(PANTALLA_DE_PESTANA.length, tarjetas[0].items.length, 'una pestaña sin su pantalla');
+  assert.equal(FOTO_DE_TARJETA.length, tarjetas[1].items.length, 'una tarjeta sin su foto');
+  for (const v of [...VISTAS_HERO, ...PANTALLA_DE_PESTANA, VIDEO_RESERVAS, VIDEO_EQUIPO]) {
+    for (const f of [v.video, v.poster]) assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+    assert.ok(html.includes(`src="${v.video}"`), `no se dibuja ${v.video}`);
+  }
+  for (const f of FOTO_DE_TARJETA) {
+    assert.ok(existsSync(join(RAIZ, 'public', f.src)), `falta public${f.src}`);
+    assert.ok(html.includes(`src="${f.src}"`), `no se dibuja ${f.src}`);
+  }
+  for (const it of tarjetas[0].items) assert.ok((it.puntos?.length ?? 0) >= 2, `«${it.titulo}» sin su lista`);
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
+  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
+  assert.ok(scripts.some((x) => x.includes("'d-agenda-'") && x.includes('pastilla') && x.includes('prog')), 'sin su script');
+});
