@@ -42,6 +42,26 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## Comparaciones contra la competencia: lo que se afirma de otra app es público (14/11/2026)
+
+La tabla de /vsl/comparaciones dice, app por app, qué tiene y qué no (21 apps × 26 filas). Lo que se aprendió armándola:
+- **Cada celda sale de la web oficial de la app, con su fuente** (app/vsl/_sitio/competencia-datos.ts, GENERADO por
+  scripts/visor-landings/matriz-competencia.py desde el JSON de la carpeta de notas). Lo que no se pudo confirmar es «sin dato», nunca un
+  «no», y la página dice de dónde sale. **Ojo:** muchos «no» se basan en que la función no aparece en su web, no en que la nieguen.
+- **El diagnóstico obvio estaba mal en varias:** GoHighLevel copia una página desde su URL, puntúa llamadas (beta) y está en español (su
+  «espía» es de reseñas, no de anuncios); ClickFunnels tiene WhatsApp e Instagram; ManyChat sale US$39 desde el 2/3/2026 (su ayuda todavía
+  dice 15); Hotmart no tiene CRM propio; Canva publica anuncios en Meta (Canva Grow); Metricool espía competidores.
+- **Trampas del relevamiento:** canva.com/pricing y gamma.app/pricing dan 403 al bajarlas; la tabla de ClickFunnels pierde los tildes al
+  leerla; varias ayudas oficiales están viejas.
+- **Una página de visor que no va en la lista** (cada «MaKo vs X») se abre por `alias-extra.json`, que deja quien dibuja las páginas y
+  lee scripts/visor-landings/armar.mjs.
+
+## Un banco con server actions: el stub genérico rompe lo que espera otra forma (14/11/2026)
+
+El historial del lead en el banco del CRM tiró «Invalid time zone specified: #<Object>»: el stub de toda server action devolvía
+`{ ok: true, … }` y `tzWorkspaceAction` tiene que devolver un string. En banco-crm/build.mjs, las que dibuja la toma tienen su respuesta
+propia (`getLeadAuditAction` lee `window.__auditoria`; `tzWorkspaceAction`, una zona).
+
 ## Landings por función copiadas de la competencia: lo que hay que saber antes de hacer la próxima (11/11/2026)
 
 **Vive en:** `app/vsl/_competencia/` (tipos, `LandingCompetencia.tsx`, una `<slug>.ts` por landing y `registro.ts`),
@@ -5415,3 +5435,20 @@ recortado y no se puede enfocar (por eso «nada de cámara mientras se baja»). 
 (el traslado suma el `scrollY`); para soltar vuelve a escala 1 en el mismo lugar. Y para que una parte que ocupa todo el ancho se lea,
 se enfoca un TRAMO de ella (`desde`/`hasta`, en fracción del ancho). El banco de Spy lee ahora las 134 piezas de Hormozi, también los
 anuncios que terminaron (`leer-hormozi-todo.mts`; la lista de antes, con 64, en `hormozi-viejo.json`).
+
+## Dónde cae t = 0 de una animación en el crudo se MIDE en el video, no con relojes (14/11/2026)
+
+**Síntoma.** El bucle de Copywriting arrancaba con el guion ya a medio escribir, aunque el corte era «el segundo ciclo» calculado
+con el desfase entre `newPage()` y el `performance.now()` de la página (1,85 s). **Causa.** El video de Playwright (`recordVideo`)
+empieza con el PRIMER cuadro pintado, no con `newPage`: el desfase real era ~0 s. **La regla.** Para cortar una animación
+periódica, buscar en el crudo un color que aparece en un momento conocido (el botón que se pone naranja al tocarlo, con numpy sobre
+una franja) y cortar desde ahí (`banco-carruseles-replica/grabar-replica-html.mjs`, el comentario de arriba).
+
+## En un banco, buscar dentro de un webm sin índice salta al principio: el cuadro quieto va como FOTO (14/11/2026)
+
+**Síntoma.** Martín: en el editor de video, la pausa caía en un cuadro «donde estaba por decir algo» y con «una cara medio rara».
+Primero se cambió el corte para parar en 9,2 s, y seguía con la boca abierta: la pausa por `requestAnimationFrame` cae un cuadro
+tarde. Después `el.currentTime = 9.2` al pausar mostró OTRA toma (la del principio): los webm de ffmpeg sin índice (cues) no
+saben buscar. **Lo que quedó** (`C:/dev/bancos-portada/banco-video/entrada.tsx`): las dos pausas son fotos extraídas con ffmpeg
+del cuadro elegido. `salida/quieto.jpg` sale de 3,9 s de la toma y `salida/quieto-fin.jpg` de 9,2 s del corte; la de fin se pone
+encima del video al terminar. Para elegir el cuadro, se arma una hoja con la cara recortada cada 0,25 s y se busca la boca cerrada.

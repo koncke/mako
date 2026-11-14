@@ -13,6 +13,25 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## El tope del plan (Esencial suma UN competidor) va DESPUÉS de `yaEsta`, no arriba de todo (14/11/2026)
+
+- **Pedido:** Martín, «Tu competencia solamente debería poder scrapear a una persona de la competencia, el de 97 ilimitado»
+  (`'spy.competidores'` en `lib/topes-plan.ts`; regla pura `lib/spy-tope-reglas.ts`, lectura `lib/spy-tope.ts`, test
+  `tests/spy-tope-competidores.test.ts`).
+- **El lugar obvio era el equivocado:** arriba de todo en `agregarCompetidor`. Por esa función pasan también los que le SUMAN UN
+  CANAL al que ya está: «Agregar su YouTube» (`sumarCanalAction`), la búsqueda sola de sus otras redes
+  (`/api/competitor-spy/redes`) y la extensión. Con el freno arriba, un Esencial con su único competidor no podía completarle
+  las redes, y en `/redes` ni se veía: el error se traga y el canal seguro vuelve como «candidato» (`else candidatos.unshift(k)`).
+  Por eso el freno va donde ya estaba el técnico de 60: después de `if (yaEsta)` y antes del `upsert`.
+- **Lo que cuenta:** sólo las filas del negocio (`existentes`, por el proxy del inquilino). Los «Sugeridos» son filas del ws de
+  la plataforma (capa `superadmin`, sin tope) y cuentan recién cuando el negocio suma uno. Lo que el `upsert` junta por su MISMO
+  nombre (un nombre que `nombreComparable` deja vacío) tampoco es nuevo (`nuevo: false`).
+- **Lo que quedó SIN hacer:** el freno llega DESPUÉS de la vista previa: un Esencial con 1 busca, confirma (y paga la lectura del
+  perfil en Apify) y recién ahí lee el cartel. Avisarlo al abrir el «+» es `app/competitor-spy/SpyApp.tsx` (con el estado del
+  tope en `competidoresAction`, `app/competitor-spy/actions.ts`). Igual en la API de MaKo: `sumar_al_radar` lo dice en
+  `ejecutar`, no en `preparar` (`lib/api-mako/areas/spy.run.ts`). En `/m` sale el texto sin botón, a propósito (el teléfono no
+  vende: `app/crm/PasarAPro.tsx`).
+
 ## `postgres` devuelve `vistas` como texto, y la mediana las PEGA: «35.736.643.029 vistas» (14/11/2026)
 
 - **Síntoma:** el número del reel de prueba (`numeroDeSeguidos`, `lib/spy-seguidos-reglas.ts`) calculado en un script con las piezas

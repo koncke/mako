@@ -20,6 +20,12 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Hueco del tope de tableros: Classroom crea CRMs sin preguntar (14/11/2026, visto cerrando Classroom)
+
+«Nuevo producto» de Classroom y Clients (`crearServicioAction`, app/customer-success/actions.ts) y «Duplicar» (`duplicarPrograma`,
+lib/curso-duplicar.ts) crean un embudo con `crearProductoConFunnel` SIN preguntar el tope `crm.funnels`: un Esencial puede crear CRMs sin
+límite desde Classroom. No se arregló (es del área CRM). Es el mismo hueco que el relevo del 14/11 vio en `lib/producto-con-funnel.ts`.
+
 ## El retargeting de los funnels sin VSL: lo que había antes de escribirlo (13/11/2026, claude5)
 
 **El pedido:** Martín, 13/11, después de la llamada con Leila. Cada lunes MaKo revisa las charlas de WhatsApp de los leads

@@ -6,6 +6,21 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## Cerrar «Replicar» para Esencial: se busca por lo que hace, no por el nombre (14/11/2026)
+
+Al hacer de Pro copiar la landing de otro negocio (Martín, 14/11), apareció una CUARTA puerta del servidor que no estaba en la lista:
+`/api/landing-generator/ia` con `{ accion: 'esquema', modo: 'importar' }` baja una página de afuera y arma su esquema (`esquemaDeReplica`).
+La pantalla ya no la usa, pero la ruta la atiende. **La regla:** para cerrar una función se busca lo que HACE (bajar una página ajena y
+convertirla en landing), no la palabra «replicar». El candado quedó en `replicar()` y `leerParaReplicar()` (lib/editor-landing/
+replicar-candado.ts) además de cada ruta, y tests/replicar-solo-pro.test.ts recorre app/ y lib/: otro llamador sin candado, rojo.
+- **En pantalla son más de tres entradas** (la caja, «Copiar su sitio» de Spy, la tarjeta de los outliers, el Diagnóstico, `?extension=`):
+  casi todas terminan en `ReplicarUnaPagina` o `FallaReplicar`, y el candado va ahí, no en cada botón.
+- **Replicar con `auto` lee al montarse, y eso ya paga IA:** la pantalla espera a saber el plan (`usePlanEsencial() === false`) antes de
+  montar; un candado «abierto mientras no se sabe» dispararía la lectura.
+- **El arnés de rutas reales no prueba el candado:** su base de mentira no tiene `cobros`, y `esEsencialDe` cae en «ante la duda, pasa».
+- **Sin hacer:** la tarjeta «Replicar» de los outliers (`OutliersLandings.tsx`) y los botones del Diagnóstico muestran el candado recién
+  cuando el servidor contesta, no antes del clic.
+
 ## Replicar fallaba por la BAJADA DEL SERVIDOR, no por Replicar: la foto sale en la pestaña real (9/11/2026, nube)
 
 **Vive en:** `app/web-generator/crear/ConLaExtension.tsx` (el botón y el estado), `app/web-generator/crear/Replicar.tsx`

@@ -34,6 +34,21 @@ que quedaron en `lib/api-mako/areas/cs.def.ts`.
 
 ---
 
+## Esencial: 1 curso y la comunidad sólo en Pro (14/11/2026)
+
+- **«Un curso» NO es un producto, y contarlos así era el diagnóstico obvio y equivocado.** No hay tabla `cursos`: Classroom, `listar_cursos`
+  y el kanban muestran como programa todo producto ofrecido (`productosDeLaEntrega`), aunque esté vacío. Contar productos frenaba «Nuevo
+  producto» de Clients (un servicio, no un curso). **La regla:** un curso es un programa con al menos una clase viva (lib/tope-cursos-reglas.ts).
+  Las únicas inserciones en `curso_clases` son `crearClase`/`guardarClase` (lib/curso-admin.ts) y lib/curso-duplicar.ts: el test 6 de
+  tests/classroom-topes-esencial.test.ts da rojo si aparece otra.
+- **Cerrar la comunidad entera rompía los comentarios de las clases:** viven en `comunidad_posts` (un hilo con `clase_id`) y usan las mismas
+  acciones. El candado va sólo en lo que hace NACER algo: `publicarPost` y `guardarEvento` sin id. Al alumno lo decide el plan del NEGOCIO
+  dueño del token (`esEsencialDe(ws)`), nunca su sesión, y se le dice «La comunidad de este programa no está abierta.», sin venderle nada.
+- **`esEsencialDe` y no `aplicanTopes`:** `aplicanTopes` importa lib/cobros, que alcanza una IA en su grafo (tests/d6b-rutas.test.ts).
+- **Sin hacer:** restaurar un programa de la papelera no pasa por el tope (vaciar A, armar B y restaurar A deja 2); el editor de tareas le
+  sigue ofreciendo al Esencial «Publicar/Comentar en la comunidad» (app/customer-success/curso/reglas.ts, EditorCampos.tsx); la ruta del
+  alumno `/api/compartido/comunidad` sigue dejando LEER.
+
 ## MaKo toma la iniciativa en Clients: «¿Ya tienes clientes en tu programa?» (5/11/2026)
 
 - **Qué hace:** con el servicio armado (`cs_servicio`) y la cartera vacía (`cs_clientes` pendiente), la estrella pregunta un

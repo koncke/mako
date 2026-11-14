@@ -28,6 +28,12 @@ Tres cosas que esto deja, y la tercera es la que no se ve:
 
 ---
 
+## Qué operaciones de Image usan IA de verdad (14/11/2026, al cerrar la IA para Esencial)
+
+`crear_carrusel_desde_referencia` NO usa IA (lib/carruseles/crear-servidor.ts arma la estructura con guías) y `cambiar_textos_diseno_imagen`
+sólo llama a `cambiarTextos`, que es puro: ninguna lleva el candado de Pro. Sí lo llevan `editar_ejemplo_carrusel`, `editar_ejemplo_thumbnail`,
+el chat «MaKo IA» y `/api/image-editor/carruseles/leer` (usa IA y sólo sirve para replicar). tests/editores-ia-solo-pro.test.ts lo fija.
+
 ## «El archivo no es lo que dice»: una foto JPG con nombre .png en «Subidos» (13/11/2026)
 
 **El síntoma.** En Image, una foto JPG que se llama `.png` no se podía subir: «El archivo no es lo que dice», sin decir qué ni
