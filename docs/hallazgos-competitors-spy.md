@@ -2398,3 +2398,26 @@ moverlos de lugar: es que lleguen.
 - **Sarah Tran (37):** no tiene canal. El único que coincide con su nombre es de otra persona.
 - **Andrea Cano (48):** Canva la dibujó aniñada. La cola lo vuelve a intentar sola al día siguiente.
 - **Los 17 gurús sin canal:** se les puede sumar el suyo desde «Agregar un canal», verificando primero el @.
+
+## La clave de Apify rechazada se dice, con su botón (14/11/2026, la llamada con Julio)
+
+**Vive en:** `lib/spy-todo-reglas.ts` (`rechazoLaClave`, `videoDeLaRespuesta`), `lib/spy-transcripcion.ts` (`hayQueTranscribir`, `vistaDeGuion`, `ESPERA_CLAVE_RECHAZADA_MS`), `lib/spy-cadena.ts` y `lib/spy-otras-redes.ts` (`CLAVE_RECHAZADA`, de `lib/spy-google-corrida.ts`), `app/competitor-spy/DetallePieza.tsx` (`BloqueGuion`) y `app/competitor-spy/OtrasRedes.tsx`. Test: `tests/spy-clave-rechazada.test.ts`.
+
+**El síntoma:** en la demo, el guion de un reel decía «No pude traer el video de Instagram». Parecía un problema de Instagram o del reel, pero era la clave de Apify de Spy, que daba 401 desde el 13/11. Cualquier respuesta que no fuera 2xx terminaba en el mismo motivo, `'fallo'`. Al buscar las otras redes pasaba lo mismo: `googlear` devolvía null y la ficha no decía nada (es lo que Martín pidió el 4/11). El Instagram de Andrea Cano no apareció, y nada decía por qué.
+
+**⚠️ La trampa que dejaba el botón sin efecto:** un fallo bloquea el reintento un día (`ESPERA_TRAS_FALLO_MS`), y una semana después de 3 seguidos. Con sólo cambiar el texto, arreglar la clave con el botón no alcanzaba: `onConectado` volvía a pedir el guion, se encontraba con la espera, y el reel seguía con «rechazó tu clave» hasta el día siguiente. Por eso la clave rechazada no suma a `fallos`:
+- se guarda la HUELLA de la clave rechazada (`claveRechazada`);
+- el guion se vuelve a pedir en cuanto esa huella ya no está entre las del negocio (la ruta pasa `huellasDeSpy`);
+- con la misma clave, se espera una hora. La espera hace falta porque cada pedido gasta uno del tope del día (`TRANSCRIPCIONES_POR_DIA`), aunque Apify conteste 401.
+
+**⚠️ `reintentarEn` ya no quiere decir sólo «pendiente».** La clave rechazada también lo usa. En `vistaDeGuion`, la rama de la clave va ANTES que la de `NOTA_PENDIENTE`. Al revés, la pantalla dice «Lo transcribo más tarde».
+
+**Sus otras redes:** con un 401 o un 403, `googlear` devuelve `CLAVE_RECHAZADA`, tanto al empezar la corrida como al retomarla. Los perfiles también, cuando alguno vuelve con `sin-permiso`: en `leerPerfilesEnLote` ese motivo sale sólo del 401/403 de Apify. La cadena lo lleva hasta el final:
+- si no encontró nada, devuelve `{ ok: false, error, clave: 'rechazada' }`;
+- si encontró algo, devuelve lo encontrado y además `clave: 'rechazada'`.
+
+La ficha muestra UNA línea con «Revisar la clave». Es la única excepción al «sin texto» del 4/11: cualquier otro «no pude» sigue sin decir nada. El botón llega como prop (`botonClave`), así `OtrasRedes` se puede dibujar en el test sin el router de Next.
+
+**Sin hacer** (del relevo de la llamada, docs/relevo/llamada-julio-13-11.md):
+- el «no pudo» del guion no tiene «Volver a intentar» ni «Reportar a Soporte»;
+- la clave de Apify de producción sigue rechazada: hay que cargar una válida, y eso es un dato, no código.

@@ -483,6 +483,11 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-redes-texto small{flex:0 100 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--faint);font-size:12px}
 .spy-redes-fila[data-red='youtube']{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--yt) 28%,var(--border))}
 .spy-redes-fila[data-red='instagram']{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ig) 28%,var(--border))}
+/* La clave de Spy rechazada (14/11/2026): una sola línea, con el alto de las pastillas, y su botón a Integraciones. */
+.spy-redes-clave{display:inline-flex;align-items:center;gap:10px;min-height:40px;max-width:100%;min-width:0;margin:0;padding:0 4px 0 14px;
+  border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);color:var(--dim);font-size:var(--fs-sm);font-weight:600}
+.spy-redes-clave>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spy-redes-clave .spy-boton{flex:0 0 auto}
 .spy-redes-trae{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 4px;color:var(--dim);font-size:var(--fs-sm);
   font-weight:600;white-space:nowrap;flex:0 0 auto}
 .spy-redes-trae i{width:12px;height:12px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--ink);
@@ -493,7 +498,7 @@ button.spy-campo:hover{color:var(--dim)}
 /* La fila de la miga NO se parte en la computadora (Martín, con Federico Cristofari: la segunda pastilla bajaba de renglón y empujaba
    el «?» y las pestañas): las pastillas se achican (su nombre con «…») y el «?» queda al final. En el teléfono, cada una en su renglón. */
 @media (min-width:561px){.spy-volver{flex-wrap:nowrap}.spy-volver__grupo{flex:0 0 auto}}
-@media (max-width:560px){.spy-redes{flex-wrap:wrap;width:100%}.spy-redes-fila{width:100%}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
+@media (max-width:560px){.spy-redes{flex-wrap:wrap;width:100%}.spy-redes-fila{width:100%}.spy-redes-clave{width:100%;border-radius:14px;padding:6px 6px 6px 12px}.spy-redes-clave>span{flex:1 1 auto;white-space:normal}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
 .spy-aviso--suave{background:none;padding:0;color:var(--dim)}
 .spy-vermas{display:flex;justify-content:center;margin:18px 0 6px}
 .spy-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
@@ -1234,7 +1239,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       marcarRedesBuscadas(ws, id);
       setRedes((v) => ({ ...v, [id]: { buscando: true, sumadas: [], candidatos: [] } }));
     }
-    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web?: string | null; pendiente?: boolean } | { ok: false; error: string };
+    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web?: string | null; pendiente?: boolean; clave?: 'rechazada' } | { ok: false; error: string; clave?: 'rechazada' };
     const r: Resp = await fetch('/api/competitor-spy/redes', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(125_000),
     }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false as const, error: '' }));
@@ -1249,8 +1254,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           // Sin repetidos y sin preguntar por una red que ya se sumó (Martín, con Federico Cristofari: «2 veces saltó el cartel de
           // YouTube. Eso no debe pasar»).
           candidatos: sinCanalesRepetidos(r.candidatos).filter((k) => ![...r.sumadas, ...(v[id]?.sumadas ?? [])].some((x) => x.red === k.red)),
+          claveRechazada: r.clave === 'rechazada',
         }
-        : { buscando: false, sumadas: v[id]?.sumadas ?? [], candidatos: [] },
+        : { buscando: false, sumadas: v[id]?.sumadas ?? [], candidatos: [], claveRechazada: r.clave === 'rechazada' },
     }));
     if (sigue) setTimeout(() => { if (actual.current === id) void buscarRedes(id, vuelta + 1); }, ESPERA_REDES_MS);
     // Lo que se sumó solo se lee ya: sus piezas tienen que aparecer sin que nadie apriete nada. Su web encontrada también se lee
@@ -1906,6 +1912,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
               {/* Sus otras redes, en la MISMA fila: una pastilla por canal, sin empujar el contenido (ver `.spy-redes`). */}
               <OtrasRedes
                 b={redes[c.id]} ocupado={ocupado} trayendo={trayendoRedes[c.id] ?? null}
+                botonClave={<BotonIntegracion servicio="apify-instagram" className="spy-boton" style={CON_SU_CLASE} onConectado={() => void buscarRedes(c.id)}>Revisar la clave</BotonIntegracion>}
                 onSi={(k) => void confirmarRed(k)}
                 onNo={(k) => quitarDeLasRedes(c.id, (x) => x.red === k.red && x.ref === k.ref)}
                 onDeshacer={(k) => void deshacerRed(k)}

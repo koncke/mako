@@ -75,3 +75,18 @@ export function avisosDeLaNevera(filas: readonly FilaNevera[], horas: number | n
     titulo: `Graba ${f.faltan} ${nombreFormato(f.formato, f.faltan)}: ${f.hasta ? `te alcanzan hasta ${diaCorto(f.hasta)}` : f.formato === 'story' ? 'no tienes ninguna lista' : 'no tienes ninguno listo'}${horas ? ` (tienes ${horas} horas por semana)` : ''}`,
   }));
 }
+
+/**
+ * El aviso por WhatsApp y email cuando la nevera se queda corta (cron copiloto-nevera, 14/11/2026). Martín a Julio (13/11): «te va
+ * mandando mensajes por WhatsApp y por email». Un renglón por formato, con el mismo texto que la tarea del Plan; null si no falta nada.
+ */
+export function textoAvisoNevera(avisos: ReadonlyArray<{ titulo: string }>): { titulo: string; texto: string } | null {
+  if (!avisos.length) return null;
+  const renglones = avisos.map((a) => `• ${a.titulo}.`).join('\n');
+  return { titulo: 'Necesito más contenido', texto: `🎬 *Necesito más contenido*\n\n${renglones}\n\nYa quedó en tu Plan. — MaKo` };
+}
+
+/** La huella del aviso: la semana y los formatos que faltan. Con la misma huella no se repite en la semana; si falta otro formato, sale. */
+export function huellaAvisoNevera(lunes: string, avisos: ReadonlyArray<{ formato: FormatoNevera }>): string {
+  return `${lunes}:${[...new Set(avisos.map((a) => a.formato))].sort().join(',')}`;
+}

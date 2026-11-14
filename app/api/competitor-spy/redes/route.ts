@@ -4,7 +4,8 @@
 // Martín, 4/11: «Lo de "Buscar sus otras redes" debe ser automático, no un botón, de última que te muestre opciones y te
 // pregunte si es ese o no».
 //
-//   POST { id } → { ok, sumadas[], candidatos[] }   o   { ok: false, error }
+//   POST { id } → { ok, sumadas[], candidatos[], clave? }   o   { ok: false, error, clave? }
+//   `clave: 'rechazada'` (14/11/2026): Apify rechazó la clave de Spy, y la ficha lo dice con el botón para revisarla.
 //
 // Lo SEGURO (se enlazan entre ellos, o misma foto y mismo nombre: `veredictoDe`, lib/spy-otras-redes-reglas.ts) se agrega
 // acá, por el mismo camino que pegarlo a mano (`agregarCompetidor`), y la pantalla ofrece deshacerlo. Lo dudoso vuelve
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     // Su web de verdad (sacada de su bio o de su página de enlaces): se pone sola, y la pantalla la lee con su funnel.
     const web = r.web && (await ponerWebEncontrada(id, r.web)) ? r.web : null;
     // Un canal, una pastilla: el mismo canal por dos caminos se manda una vez (`sinCanalesRepetidos`).
-    return Response.json({ ok: true, sumadas, candidatos: sinCanalesRepetidos(candidatos), web, ...(r.pendiente ? { pendiente: true } : {}) });
+    return Response.json({ ok: true, sumadas, candidatos: sinCanalesRepetidos(candidatos), web, ...(r.pendiente ? { pendiente: true } : {}), ...(r.clave ? { clave: r.clave } : {}) });
   } catch (e) {
     return Response.json({ ok: false, error: e instanceof Error ? e.message : String(e) });
   }

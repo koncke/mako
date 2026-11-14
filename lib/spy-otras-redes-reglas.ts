@@ -35,6 +35,8 @@ export const TECHO_USD_POR_CORRIDA_REDES = 0.5;
 export const TOPE_BUSQUEDAS_REDES_POR_DIA = 20;
 /** Cuántos candidatos por red se ofrecen: más de tres es pedirle a la persona que investigue. */
 export const CANDIDATOS_POR_RED = 3;
+/** La línea de la ficha cuando Apify rechazó la clave de Spy al buscar sus otras redes (14/11/2026), al lado del botón para revisarla. */
+export const REDES_CLAVE_RECHAZADA = 'Apify rechazó tu clave de Spy: no pude buscar sus otras redes.';
 
 export type RedOtra = 'youtube' | 'tiktok' | 'instagram';
 export type CandidatoRed = { red: RedOtra; ref: string; url: string; titulo: string };

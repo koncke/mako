@@ -33,7 +33,7 @@ import {
   ANUNCIOS_POR_APIFY, ANUNCIOS_POR_CORRIDA, APIFY_ACTOR_ANUNCIOS, ajustarAlCredito, creditoDeApify, creditoTotal, esFaltaDeCredito, APIFY_ACTOR_PUBLICACIONES, CLAVE_DIA, CLAVE_DIA_TRANSCRIPCIONES,
   CLAVE_TAREAS, CORRIDAS_LARGAS_POR_DIA, TRANSCRIPCIONES_POR_DIA, USD_POR_ANUNCIO, USD_POR_PUBLICACION, anuncioDeApify,
   entradaDeAnuncios, entradaDePublicaciones, entradaDeUnAnuncio, entradaDeUnaPublicacion, estadoDeCorrida, leerTareas, paginaDeSusAnuncios, pedidoDePublicaciones,
-  siguienteDeAnuncios, tocaPedir, ultimaParaManana, usadasHoy, videoDelAnuncio, videoDelItem, DIAS_ENTRE_CORRIDAS, type CreditoApify, type TareaLarga, type TareasDeCompetidor,
+  siguienteDeAnuncios, tocaPedir, ultimaParaManana, usadasHoy, videoDeLaRespuesta, videoDelAnuncio, videoDelItem, DIAS_ENTRE_CORRIDAS, type CreditoApify, type ResultadoVideo, type TareaLarga, type TareasDeCompetidor,
 } from './spy-todo-reglas';
 import { getTenantDb } from './workspace';
 
@@ -295,11 +295,20 @@ export async function tieneClaveDeSpy(ws: number): Promise<boolean> {
 }
 
 /**
+ * Las HUELLAS de las claves de Spy del negocio (nunca la clave). El guion de un reel con la clave rechazada se vuelve a pedir apenas
+ * la del rechazo ya no está (lib/spy-transcripcion.ts → `hayQueTranscribir`). null = no se pudo leer; [] = no tiene ninguna.
+ */
+export async function huellasDeSpy(ws: number): Promise<string[] | null> {
+  const claves = await clavesApifyDeSpy(ws).catch(() => null);
+  return claves ? claves.map((k) => k.huella) : null;
+}
+
+/**
  * El video FRESCO de UNA publicación, para transcribir su guion (4/11/2026, lib/spy-transcripcion.ts). El enlace del CDN de
  * Instagram vence en días, así que no se guarda al leer: se pide al abrir el detalle. Con la clave de Spy del negocio, su
  * tope del día (`TRANSCRIPCIONES_POR_DIA`, contado en la base) y el techo de una publicación. Nunca tira.
  */
-export async function videoDeUnaPublicacion(ws: number, enlace: string): Promise<{ ok: true; url: string } | { ok: false; motivo: 'sin-clave' | 'limite' | 'no-esta' | 'fallo' }> {
+export async function videoDeUnaPublicacion(ws: number, enlace: string): Promise<ResultadoVideo> {
   try {
     const claves = await clavesApifyDeSpy(ws);
     if (!claves.length) return { ok: false, motivo: 'sin-clave' };
@@ -314,12 +323,10 @@ export async function videoDeUnaPublicacion(ws: number, enlace: string): Promise
       });
       return { status: res.status, cuerpo: await res.json().catch(() => null) };
     });
-    if (!r || r.status < 200 || r.status >= 300) {
-      console.error(`[spy-todo] no pude traer el video de ${enlace}: HTTP ${r?.status ?? '—'} (clave ${r?.clave.slot ?? '—'})`);
-      return { ok: false, motivo: 'fallo' };
-    }
-    const url = videoDelItem(r.cuerpo);
-    return url ? { ok: true, url } : { ok: false, motivo: 'no-esta' };
+    // Un 401/403 es la clave rechazada, no «no pude» (14/11/2026, `videoDeLaRespuesta`): la pantalla lo dice con el botón.
+    const v = videoDeLaRespuesta(r, videoDelItem);
+    if (!v.ok && v.motivo !== 'no-esta') console.error(`[spy-todo] no pude traer el video de ${enlace}: HTTP ${r?.status ?? '—'} (clave ${r?.clave.slot ?? '—'})`);
+    return v;
   } catch (e) {
     console.error(`[spy-todo] no pude traer el video de ${enlace}: ${msg(e)}`);
     return { ok: false, motivo: 'fallo' };
@@ -331,7 +338,7 @@ export async function videoDeUnaPublicacion(ws: number, enlace: string): Promise
  * Cerebro: los anuncios en video de la competencia también). El mismo molde que el de una publicación: el actor de anuncios de
  * Spy con la clave del negocio y el MISMO tope del día de las transcripciones (`TRANSCRIPCIONES_POR_DIA`).
  */
-export async function videoDeUnAnuncio(ws: number, enlace: string): Promise<{ ok: true; url: string } | { ok: false; motivo: 'sin-clave' | 'limite' | 'no-esta' | 'fallo' }> {
+export async function videoDeUnAnuncio(ws: number, enlace: string): Promise<ResultadoVideo> {
   try {
     const claves = await clavesApifyDeSpy(ws);
     if (!claves.length) return { ok: false, motivo: 'sin-clave' };
@@ -345,12 +352,9 @@ export async function videoDeUnAnuncio(ws: number, enlace: string): Promise<{ ok
       });
       return { status: res.status, cuerpo: await res.json().catch(() => null) };
     });
-    if (!r || r.status < 200 || r.status >= 300) {
-      console.error(`[spy-todo] no pude traer el video del anuncio ${enlace}: HTTP ${r?.status ?? '—'} (clave ${r?.clave.slot ?? '—'})`);
-      return { ok: false, motivo: 'fallo' };
-    }
-    const url = videoDelAnuncio(r.cuerpo);
-    return url ? { ok: true, url } : { ok: false, motivo: 'no-esta' };
+    const v = videoDeLaRespuesta(r, videoDelAnuncio);
+    if (!v.ok && v.motivo !== 'no-esta') console.error(`[spy-todo] no pude traer el video del anuncio ${enlace}: HTTP ${r?.status ?? '—'} (clave ${r?.clave.slot ?? '—'})`);
+    return v;
   } catch (e) {
     console.error(`[spy-todo] no pude traer el video del anuncio ${enlace}: ${msg(e)}`);
     return { ok: false, motivo: 'fallo' };
