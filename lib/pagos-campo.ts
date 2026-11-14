@@ -587,6 +587,49 @@ export function lineasDeCuotas(plan: PlanDeCuotas): Array<{ campo: string; valor
   ];
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Corregir una cuota COBRADA a mano (14/11/2026, Mauricio, ws1: «por error digo que un cobro de diciembre o próximo
+// futuro se cobró, no hay forma de deshacer o editar»)
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚠️ LA FICHA YA SABÍA HACERLO Y NO SE ENCONTRABA. La cobrada a mano tenía un botón «Deshacer» y su fecha se editaba en el
+// lugar, pero esa fecha es el DÍA DEL PAGO, no el vencimiento. Mauricio había marcado cobrada por error la Cuota 2 de
+// Raúl Landeros (vencía el 30/11) y, para devolverla, le cambió la fecha al 30/11: quedó «cobrada el 30/11», un pago en el
+// futuro. El historial lo anotó como «vence 06/11 → vence 30/11», que mentía igual. Las tres cosas, acá:
+//   · el botón dice lo que hace: «Volver a pendiente» (`BOTON_VOLVER_A_PENDIENTE`, lo pone `renglonDeCuota`);
+//   · el día del pago no puede ser futuro, y el error dice cómo se hace lo que se quería (`diaDePagoFuturo`);
+//   · el historial de una cobrada dice «cobrada el …», y el de la vuelta a pendiente, qué cuota y de cuándo era el pago.
+
+/** El botón de una cobrada a mano: la vuelve a pendiente (con Deshacer en el aviso, que la cobra de nuevo como estaba). */
+export const BOTON_VOLVER_A_PENDIENTE = 'Volver a pendiente';
+
+const fechaDMA = (fecha: string): string => `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}/${fecha.slice(0, 4)}`;
+
+/**
+ * Un día de pago DESPUÉS de hoy (en la zona del negocio) no es un pago: es una cuota que todavía no se cobró. Devuelve qué
+ * decir, o null si la fecha sirve. Hoy sí vale. Lo usan la corrección de una cobrada y el cobro a mano (lib/pagos.ts).
+ */
+export function diaDePagoFuturo(fecha: string | null | undefined, hoy: string): string | null {
+  if (!fecha || !esFecha(fecha.slice(0, 10)) || !esFecha(hoy.slice(0, 10))) return null;
+  if (fecha.slice(0, 10) <= hoy.slice(0, 10)) return null;
+  return `¿La cobraste de verdad? El día del pago no puede ser después de hoy (pusiste el ${fechaDMA(fecha)}). Si todavía no la pagó, vuélvela a pendiente con «${BOTON_VOLVER_A_PENDIENTE}».`;
+}
+
+/** La línea del historial cuando se corrige una COBRADA: «USD 2500 · cobrada el 06/11/2026» (no «vence»). */
+export function lineaDeCobradaEditada(
+  numero: number,
+  antes: { monto_usd: number; fecha_pago: string | null },
+  despues: { monto_usd: number; fecha_pago: string | null },
+): { campo: string; valor_anterior: string; valor_nuevo: string } {
+  const texto = (m: number, f: string | null) => `USD ${centavos(m)} · ${f ? `cobrada el ${fechaDMA(f)}` : 'cobrada, sin fecha'}`;
+  return { campo: nombreCuota(numero), valor_anterior: texto(antes.monto_usd, antes.fecha_pago), valor_nuevo: texto(despues.monto_usd, despues.fecha_pago) };
+}
+
+/** Lo que dice el historial al volver una cuota a pendiente: cuál y de cuándo era el pago que se deshizo. */
+export function textoDeVueltaAPendiente(numero: number | null | undefined, fechaPago?: string | null): string {
+  const cual = numero == null ? 'La cuota' : nombreCuota(numero);
+  return `${cual} volvió a pendiente${fechaPago ? ` (estaba cobrada el ${fechaDMA(String(fechaPago).slice(0, 10))})` : ''}`;
+}
+
 const MOTIVO_CONSERVADA: Readonly<Record<MotivoConservada, string>> = {
   link: 'tiene un link sin pagar',
   recordatorio: 'tiene un recordatorio en curso',

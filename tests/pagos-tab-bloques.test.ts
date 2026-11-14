@@ -155,10 +155,11 @@ test('cada función de plata del relevamiento sigue en un bloque, con la MISMA a
   // Un pago que no es una cuota, y la mensualidad de una suscripción manual: el mismo camino (marcarPago).
   assert.match(PIEZAS, /await registrarPagoSueltoAction\(leadId, \{ monto: p\.monto as number, fecha,/);
   assert.match(COBRAR, /registrarMes: \(\) => setAbierto\(\{ que: 'registrar', modo: 'mensualidad'/);
-  // El renglón de la cuota: Marcar pagada en las impagas, Deshacer sólo en la cobrada A MANO (la de la pasarela se
-  // revierte con «Devolver», en su cobro).
-  assert.match(COBRO, /\{r\.accion === 'marcar' && <Button[^\n]*onClick=\{\(\) => cobrar\.marcar\(q\)\}>Marcar pagada<\/Button>\}/);
-  assert.match(COBRO, /\{r\.accion === 'deshacer' && <Button[^\n]*onClick=\{\(\) => cobrar\.desmarcar\(q\)\}>Deshacer<\/Button>\}/);
+  // El renglón de la cuota: Marcar pagada en las impagas, «Volver a pendiente» sólo en la cobrada A MANO (la de la pasarela
+  // se revierte con «Devolver», en su cobro). El texto de cada botón lo pone `renglonDeCuota` (`boton`, 14/11/2026), y lo
+  // fija tests/pagos-volver-a-pendiente.test.ts.
+  assert.match(COBRO, /\{r\.accion === 'marcar' && <Button[^\n]*onClick=\{\(\) => cobrar\.marcar\(q\)\}>\{r\.boton\}<\/Button>\}/);
+  assert.match(COBRO, /\{r\.accion === 'deshacer' && <Button[^\n]*onClick=\{\(\) => cobrar\.desmarcar\(q\)\}>\{r\.boton\}<\/Button>\}/);
   assert.match(COBRO, /\{q\.pagado && q\.comprobante_path && <Button[^\n]*cobrar\.verComprobante\(q\)/);
   // Editar una cuota POR ID, armar el plan sin ganar el lead, y quitar o agregar UNA sin tocar las otras.
   assert.match(COBRO, /editarCuotaAction\(lead\.id, q\.id, \{ \.\.\.cambio, espera \}\)/);

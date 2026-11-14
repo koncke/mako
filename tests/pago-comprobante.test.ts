@@ -84,7 +84,8 @@ test('la cuota que cobró una pasarela no se «deshace» a mano en la ficha', ()
   // regla vive en lo que dice cada cuota (lib/pagos-vistazo.ts) y la cuota sólo ofrece «Deshacer» con `accion`.
   // Verificado rompiéndolo: con `accion: 'deshacer'` también para la pasarela → cae éste.
   assert.match(codigo('lib/pagos-vistazo.ts'), /accion: pasarela \? 'ninguna' : 'deshacer'/);
-  assert.match(codigo('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /\{r\.accion === 'deshacer' && <Button[^>]*onClick=\{\(\) => cobrar\.desmarcar\(q\)\}>Deshacer<\/Button>\}/);
+  // Desde el 14/11/2026 el botón dice «Volver a pendiente» (`r.boton`, tests/pagos-volver-a-pendiente.test.ts).
+  assert.match(codigo('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx'), /\{r\.accion === 'deshacer' && <Button[^>]*onClick=\{\(\) => cobrar\.desmarcar\(q\)\}>\{r\.boton\}<\/Button>\}/);
 });
 
 test('el módulo es puro: lo importan server, cliente y tests', () => {

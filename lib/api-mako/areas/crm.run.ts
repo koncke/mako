@@ -65,8 +65,8 @@ import { etapaVigenteDe } from '@/lib/funnel-etapas';
 // El candado de «calificado»: el mismo que aplica updateLead y que dibuja la ficha.
 import { calificadoSeDescarta } from '@/lib/calificado-reunion';
 import { getJuntasProximas } from '@/lib/queries';
-import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, cobrarCuota, registrarPagoSuelto, monedaDelNegocio, tratosDelLead } from '@/lib/pagos';
-import { avisoDeConservadas, avisoMonedaPorOmision, avisoPlanUniforme, cobroManualDeEntrada, textoDelCobro } from '@/lib/pagos-campo';
+import { getLeadPlan, getPagosByLead, savePlanPagos, saveLeadPlanManual, marcarPago, numeroDeCuota, cobrarCuota, registrarPagoSuelto, monedaDelNegocio, tratosDelLead } from '@/lib/pagos';
+import { avisoDeConservadas, avisoMonedaPorOmision, avisoPlanUniforme, cobroManualDeEntrada, textoDeVueltaAPendiente, textoDelCobro } from '@/lib/pagos-campo';
 // Sólo para la lectura cobranza_lead (14/10/2026): lo cobrado con la misma cuenta que la ficha.
 import { cobradoDelLead, noEsDeuda } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead } from '@/lib/pagos-vistazo';
@@ -2711,7 +2711,7 @@ export const RUNNERS: Runners = {
       if (porLink) { invalidar('pagos', 'leads'); return { ok: true, resumen: yaCobradaPorLink(porLink) }; }
       // Cambió entre la propuesta y el «sí» (alguien la marcó o la desmarcó en la ficha): no se tocó nada.
       if (yaEstaba) return { ok: true, resumen: pagado ? YA_ESTABA_COBRADA : 'Esa cuota ya estaba sin cobrar: no cambié nada.' };
-      await logLeadEvent(Number(payload.leadId), pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado', pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada', autorDe(ctx));
+      await logLeadEvent(Number(payload.leadId), pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado', pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : textoDeVueltaAPendiente(await numeroDeCuota(Number(payload.pagoId))), autorDe(ctx));
       invalidar('pagos', 'leads');
       // Un pago que nació cobrado (suelto o mensualidad a mano) no vuelve como deuda: se quita (mig 0295).
       return { ok: true, resumen: pagado ? `Listo: cuota marcada como cobrada el ${fechaPago}.` : quitada ? 'Listo: se quitó el pago (era uno registrado a mano, no una cuota del plan).' : 'Listo: la cuota volvió a figurar sin cobrar.' };

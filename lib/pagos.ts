@@ -22,7 +22,7 @@ import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, restoEnLaMoneda
 import {
   aplicarObligacion, avisoPlanUniforme, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
   diferenciaDePlan, planCambiadoAfuera, reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
-  avisoDeConservadas, cuotaExistenteDe, lineasDeCuotas, planCambioDesde, planComoEstaba, planPorTramosDelServer,
+  avisoDeConservadas, cuotaExistenteDe, diaDePagoFuturo, lineasDeCuotas, planCambioDesde, planComoEstaba, planPorTramosDelServer,
   type AnticipoPlan, type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type CuotaVista, type FilaVenta,
   type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal, type TramoPlan,
 } from './pagos-campo';
@@ -782,6 +782,13 @@ async function editarCuotaCobrada(
   }
   if (cambio.fecha !== undefined) {
     if (cambio.fecha == null || !/^\d{4}-\d{2}-\d{2}$/.test(cambio.fecha)) throw new Error('El día del pago tiene que ser AAAA-MM-DD.');
+    // ⚠️ UN PAGO NO SE CORRIGE AL FUTURO (14/11/2026, Mauricio): «cobrada el 30/11» era su manera de devolver a pendiente
+    // una cuota que no había pagado. Se dice cómo se hace (pagos-campo.ts → `diaDePagoFuturo`). Sólo si la fecha cambia:
+    // una que ya quedó en el futuro igual deja corregir su monto.
+    if (cambio.fecha !== antes.fecha_esperada) {
+      const futuro = diaDePagoFuturo(cambio.fecha, await hoyEnWorkspace());
+      if (futuro) throw new Error(futuro);
+    }
     despues.fecha_esperada = cambio.fecha;
   }
   const cambiaMonto = Math.abs(despues.monto_usd - antes.monto_usd) >= 0.005;
@@ -981,6 +988,18 @@ export async function marcarPago(
   // Sólo al marcar PAGADO: desmarcar un pago (un error de carga) no reabre la secuencia (`trasCobrar`).
   if (pagado) await trasCobrar(pagoId, pago.cobro_id ?? null);
   return { quitada, porLink: null, yaEstaba: false };
+}
+
+/**
+ * El número de una cuota, para el historial de quien la desmarca (`textoDeVueltaAPendiente`, 14/11/2026: «Cuota desmarcada» no
+ * decía cuál). Se lee DESPUÉS de desmarcar, a propósito: `marcarPago` devuelve lo mismo de siempre (los tests lo comparan
+ * entero) y la guarda de la action va pegada a la escritura (tests/datos-comercial.test.ts). null: no se pudo leer.
+ */
+export async function numeroDeCuota(pagoId: number): Promise<number | null> {
+  const { data, error } = await (await getTenantDb()).from('pagos').select('numero').eq('id', pagoId).maybeSingle();
+  if (error || !data) return null;
+  const n = Number((data as { numero: unknown }).numero);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**

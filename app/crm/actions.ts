@@ -180,9 +180,9 @@ async function autorActual(): Promise<string> {
 }
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
-import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, tratosDelLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
+import { savePlanPagos, saveLeadPlanManual, marcarPago, numeroDeCuota, getPagosByLead, tratosDelLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
 import { cobradoDeLaVentaSiHay, faltaDeLaVenta, type TratoCrm } from '@/lib/pagos-crm';
-import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente } from '@/lib/pagos-campo';
+import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente, textoDeVueltaAPendiente } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { urlGravatar } from '@/lib/gravatar';
@@ -1348,7 +1348,8 @@ export async function marcarPagoAction(
   if (!porLink) await logLeadEvent(
     leadId,
     pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado',
-    pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada',
+    // Al desmarcar, cuál cuota (14/11/2026): «Cuota desmarcada» no decía cuál.
+    pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : textoDeVueltaAPendiente(await numeroDeCuota(pagoId)),
     await autorActual(),
   );
   bust(TAG.pagos, TAG.leads);

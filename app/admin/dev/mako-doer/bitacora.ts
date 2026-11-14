@@ -884,4 +884,21 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/mako-intencion-ia.ts — `RX_DATO_DE_LA_ANTERIOR` en `partesDe`', 'tests/despacho-grupo.test.ts — 16/16; probado rompiéndolo (sin juntar → 15/1)'],
   },
+  {
+    fecha: '14 nov', hora: '03:40', chat: 'Mauricio: que MaKo le conteste y quede resuelto', sesion: 'local_d73b692a-8916-47ef-b586-9704b6237569', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo contesta los mensajes que le llegan todos juntos cuando su WhatsApp se vuelve a conectar',
+    puntos: [
+      '**Mauricio (#92):** sus mensajes del 12 y el 13/11 no tuvieron respuesta. Entraron en lote al re-vincular la línea, como historial, y ese camino nunca pasa por el webhook.',
+      '**Ahora:** cada 10 minutos (alerta-critica) MaKo lee del store lo que la línea guardó en la última hora y el webhook no vio, y lo atiende como cualquier mensaje. Lo escrito hace más de 6 horas va al equipo y no se contesta tarde.',
+      '**Comprobado en producción el 14/11:** la voz guardó a las 05:51 UTC el mensaje de Mauricio de las 04:22, el rescate lo tomó en el tick de las 06:30 y a las 06:34 MaKo le contestó (abrió el #98). Los 6 mensajes viejos que volvieron con el QR pasaron a la app sin respuesta repetida.',
+    ],
+    archivos: [
+      'lib/rescate-del-store.ts — `horaDeGuardado` y `queRescatar` (puro)',
+      'lib/mako-doer-in.ts — `rescatarDelStore` · app/api/cron/alerta-critica/route.ts',
+      'tests/rescate-del-store.test.ts — con las filas reales del store',
+      'docs/hallazgos-comunicacion.md',
+    ],
+    tickets: [92],
+  },
 ];

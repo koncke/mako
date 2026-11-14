@@ -324,12 +324,13 @@ export function Cuotas(props: PropsBloque) {
               {saliendo && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--dim)' }}>Quitando…</span>}
               {!editando && !saliendo && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  {r.accion === 'marcar' && <Button variant={r.estado === 'vencida' ? 'primary' : 'secondary'} size="sm" onClick={() => cobrar.marcar(q)}>Marcar pagada</Button>}
+                  {r.accion === 'marcar' && <Button variant={r.estado === 'vencida' ? 'primary' : 'secondary'} size="sm" onClick={() => cobrar.marcar(q)}>{r.boton}</Button>}
                   {r.accion === 'marcar' && cobrar.hayPasarela && !becado && <Button variant="tertiary" size="sm" onClick={() => cobrar.mandarLink(q)}>Mandar link</Button>}
                   {r.accion === 'marcar' && prot.includes('recordatorio') && <Button variant="tertiary" size="sm" onClick={() => cortar(q)}>Cortar el recordatorio</Button>}
                   {r.accion === 'marcar' && <Button variant="tertiary" size="sm" onClick={() => setAQuitar(q)}>Quitar</Button>}
                   {q.pagado && q.comprobante_path && <Button variant="tertiary" size="sm" onClick={() => cobrar.verComprobante(q)}>Ver comprobante</Button>}
-                  {r.accion === 'deshacer' && <Button variant="tertiary" size="sm" onClick={() => cobrar.desmarcar(q)}>Deshacer</Button>}
+                  {/* «Volver a pendiente», no «Deshacer» (14/11/2026, Mauricio no lo encontró): lib/pagos-vistazo.ts → `boton`. */}
+                  {r.accion === 'deshacer' && <Button variant="tertiary" size="sm" onClick={() => cobrar.desmarcar(q)}>{r.boton}</Button>}
                 </div>
               )}
             </div>
