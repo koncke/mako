@@ -21,6 +21,7 @@ import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas'
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { ladaDelPais } from '@/lib/paises';
 import { CompraPlan } from './CompraPlan';
+import { INCLUYE_EN_EL_CHECKOUT } from '@/lib/planes-mako';
 import { Ficha, resumenDelPlan } from './Checkout';
 import { QuieroPlan } from './QuieroPlan';
 
@@ -86,10 +87,10 @@ export default async function PlanPage({ params, searchParams }: {
   const precio = pasarelas.map((x) => (conPromo
     ? `${formatoMonto(conPrimerMes(x.monto), x.moneda)} el primer mes, después ${formatoMonto(x.monto, x.moneda)} por mes`
     : `${formatoMonto(x.monto, x.moneda)} por mes`)).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`;
-  // La prueba, sólo en los planes que la traen (`planConPrueba`: Pro desde el 12/11/2026). Esencial se cobra hoy.
+  // La prueba, en los planes que la traen (`planConPrueba`: Esencial y Pro desde el 14/11/2026).
   const conPrueba = planConPrueba(plan.id) && uno('sinPrueba') !== '1';
   return (
-    <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumenDelPlan({ nombre: plan.nombre, incluye: plan.incluye, precioUsd: plan.precioUsd, pasarelas, conPromo, conPrueba, conPrimerMes, precio })}>
+    <Ficha pasarelas={pasarelas.map((x) => x.pasarela)} resumen={resumenDelPlan({ nombre: plan.nombre, incluye: INCLUYE_EN_EL_CHECKOUT[plan.id] ?? plan.incluye, precioUsd: plan.precioUsd, pasarelas, conPromo, conPrueba, conPrimerMes, precio })}>
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
           agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
       {pasarelas.length

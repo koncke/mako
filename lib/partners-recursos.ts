@@ -105,7 +105,7 @@ export function pdfDeVenta(p: { link: string; codigo: string; deParte?: string |
       'Mira tus anuncios de Facebook e Instagram y te dice qué mejorar.',
     ],
     planes: out,
-    prueba: PRUEBA_GRATIS_PRENDIDA ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis; Esencial se paga al empezar. Te das de baja cuando quieras.` : 'Pagas al empezar y te das de baja cuando quieras.',
+    prueba: PRUEBA_GRATIS_PRENDIDA ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis. Te das de baja cuando quieras.` : 'Pagas al empezar y te das de baja cuando quieras.',
     deParte: p.deParte?.trim() ? p.deParte.trim().slice(0, 80) : null,
     link: p.link, codigo: p.codigo,
   };
