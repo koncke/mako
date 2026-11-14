@@ -26,7 +26,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { limitePorIp } from '@/lib/limite-publico';
-import { respuestasDelOptin } from '@/lib/optin-respuestas';
+import { respuestasDelOptin, respuestasGuardadas, type RespuestaOptin } from '@/lib/optin-respuestas';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import { crearPropuesta } from '@/lib/propuestas';
@@ -39,7 +39,6 @@ import { porMotivo } from '@/lib/leads-duplicados';
 import { crmsDelOptin } from '@/lib/piezas-web';
 import { anotarEnvio } from '@/lib/lead-formularios';
 import { claveDeFormulario, claveDeLanding, idDeFormularioPixel, paginaDePixel } from '@/lib/editor-landing/piezas';
-import { respuestasGuardadas, type RespuestaOptin } from '@/lib/optin-respuestas';
 import { conAtribucion, hayAtribucion } from '@/lib/atribucion-url';
 import { getFunnelDefault, idDelFunnelDefault } from '@/lib/funnels';
 import { agregarAProducto } from '@/lib/lead-funnel';

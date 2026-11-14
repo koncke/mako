@@ -23,28 +23,36 @@ import {
 
 export type LandingConPiezas = { docId: number; titulo: string; url: string | null; piezas: PiezaWeb[] };
 
-type Fila = { id: number; titulo: string | null; slug: string | null; dominio: string | null; publicado: unknown; contenido: unknown; config: unknown; papelera_at: string | null };
+type Fila = { id: number; titulo: string | null; slug: string | null; dominio: string | null; piezas: unknown; plantilla: unknown; papelera_at: string | null };
 
-/** Las landings publicadas del negocio actual (sin las de la papelera), con sus piezas. Las que no traen ninguna, también. */
+/**
+ * Las landings publicadas del negocio actual (sin las de la papelera), con sus piezas. Las que no traen ninguna, también.
+ * ⚠️ SÓLO `publicado->piezas`, no la foto: la foto lleva el HTML de TODAS las páginas, y esto se lee cada vez que se abre
+ * «Asignar fuentes» o el CRON «Formulario». El contenido se pide aparte y sólo de las publicadas antes del 14/11 (sin piezas).
+ */
 export async function landingsConPiezas(): Promise<LandingConPiezas[]> {
   const ws = await getWorkspaceActual();
   if (ws == null) return [];
-  const filas = await leerTodo<Fila>(await getTenantDb(), 'landing_docs', 'id, titulo, slug, dominio, publicado, contenido, config, papelera_at', {
+  const db = await getTenantDb();
+  const filas = (await leerTodo<Fila>(db, 'landing_docs', 'id, titulo, slug, dominio, piezas:publicado->piezas, plantilla:config->origen->>plantilla, papelera_at', {
     eq: { workspace_id: ws }, orden: 'id', filtros: (q) => q.not('publicado_at', 'is', null) as unknown as ConsultaPaginada,
+  })).filter((f) => !f.papelera_at);
+  const sinPiezas = filas.filter((f) => !Array.isArray(f.piezas)).map((f) => f.id);
+  const contenidos = new Map<number, unknown>();
+  for (let i = 0; i < sinPiezas.length; i += 50) {
+    const tanda = sinPiezas.slice(i, i + 50);
+    const { data, error } = await db.from('landing_docs').select('id, contenido').in('id', tanda);
+    if (error) throw new Error(`No pude leer el contenido de las landings: ${error.message}`);
+    for (const r of (data ?? []) as Array<{ id: number; contenido: unknown }>) contenidos.set(Number(r.id), r.contenido);
+  }
+  return filas.map((f) => {
+    const titulo = (f.titulo ?? '').trim() || 'Landing';
+    const piezas = Array.isArray(f.piezas)
+      ? piezasGuardadas(f.piezas)
+      : piezasDeContenido(f.id, titulo, sanearContenido(contenidos.get(f.id)).contenido, typeof f.plantilla === 'string' ? f.plantilla : null);
+    const url = f.dominio ? `https://${f.dominio}` : f.slug ? urlPublicaLanding(f.slug) : null;
+    return { docId: f.id, titulo, url, piezas };
   });
-  return filas
-    .filter((f) => !f.papelera_at)
-    .map((f) => {
-      const titulo = (f.titulo ?? '').trim() || 'Landing';
-      const foto = f.publicado && typeof f.publicado === 'object' ? f.publicado as Record<string, unknown> : null;
-      let piezas = piezasGuardadas(foto?.piezas);
-      if (!foto || !Array.isArray(foto.piezas)) {
-        const plantilla = (f.config as { origen?: { plantilla?: unknown } } | null)?.origen?.plantilla;
-        piezas = piezasDeContenido(f.id, titulo, sanearContenido(f.contenido).contenido, typeof plantilla === 'string' ? plantilla : null);
-      }
-      const url = f.dominio ? `https://${f.dominio}` : f.slug ? urlPublicaLanding(f.slug) : null;
-      return { docId: f.id, titulo, url, piezas };
-    });
 }
 
 /** Lo asignado por el negocio actual. Ilegible = nada asignado (el opt-in sigue con la URL, como antes). */
@@ -93,10 +101,10 @@ export async function crmsDelOptin(e: Parameters<typeof crmsDePieza>[1]): Promis
 export async function crmDePago(docId: number, productoId?: number): Promise<number | null | undefined> {
   try {
     const db = await getTenantDb();
-    const { data, error } = await db.from('landing_docs').select('publicado').eq('id', docId).maybeSingle();
+    // Sólo las piezas de la foto, no la foto (lleva el HTML de todas las páginas).
+    const { data, error } = await db.from('landing_docs').select('piezas:publicado->piezas').eq('id', docId).maybeSingle();
     if (error || !data) return undefined;
-    const foto = (data as { publicado?: unknown }).publicado;
-    const piezas = piezasGuardadas(foto && typeof foto === 'object' ? (foto as Record<string, unknown>).piezas : null)
+    const piezas = piezasGuardadas((data as { piezas?: unknown }).piezas)
       // Con el producto, la página del botón que lo cobra; sin él, cualquier página de pago de la landing (casi siempre hay una).
       .filter((p) => p.tipo === 'pago' && (productoId == null || p.productoId === productoId));
     if (!piezas.length) return undefined;
