@@ -5641,3 +5641,37 @@ SIN HACER: las imágenes de las tarjetas «Sin / Con» (un esquema con días y u
 diga eso); las fotos de UI de sus pasos (van las piezas del visual de AI Avatar; no hay banco grabado del estudio `/ai-avatar`); el
 carrusel de testimonios con flechas (hay un solo caso); G2 y «Explora más soluciones» (son suyos). Para decidir con Martín: la cara
 de los presets.
+
+## Image como PostNitro: su CSS da las medidas, nada se anima al bajar, y las preguntas viejas seguían en producción (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/image.tsx` (diseño y `<script data-visor>`), `app/vsl/_competencia/image.ts`,
+`app/vsl/_competencia/LandingCompetencia.tsx`, `public/vsl-assets/image/` (bancos `C:/dev/bancos-portada/banco-image-landing` y su
+`editor/`). El relevo de PostNitro con capturas, estilos, hovers y videos: carpeta de notas, `referencias-landings/image/`.
+
+- **⚠️ Las landings de /vsl NO mostraban en producción las preguntas de la portada.** El registro (`conLasPreguntasDeLaPortada`) las
+  pone, y el test y el visor leen el registro; pero cada `app/vsl/<slug>/page.tsx` dibuja su `LANDING_*` directo. El visor decía
+  «bien» y hola-mako.com/vsl/<slug> mostraba las viejas. Arreglado en `LandingCompetencia` (las reemplaza para todas). **Regla:** lo
+  que se arregla en el registro se mira también en la ruta, no sólo en el visor.
+- **PostNitro no anima NADA con el scroll ni al cargar** (su JavaScript es Mantine y el editor embebido): lo fiel son los hovers y el
+  acordeón (una abierta a la vez, 200 ms de alto y opacidad). Sus botones llenos NO suben: oscurecen un escalón (`#087A68` →
+  `#076C5C`, no al `--pn-accent-hover`) y bajan 1 px al apretar. Medido con `getComputedStyle` antes y durante el hover.
+- **Sus medidas salen de su CSS, no de la captura:** los módulos `/_next/static/immutable/chunks/*.css` se bajan con `curl` (sin
+  navegador) y traen las fórmulas fluidas (`clamp(…, 5vw, …)`): copiadas tal cual, la página calza en TODOS los anchos y no sólo en
+  los dos que se midieron. El HTML servido (sin scripts) dice además qué secciones hay y si alguna está `hidden`.
+- **Los tipos de carrusel de MaKo encima el titular con la bajada con letras anchas** (DM Serif, Montserrat, Poppins: «Tu primera
+  valoración de 20 minutos» pisa «En 4 pasos…»; «valoraciones» se sale del ancho). `altoEstimado` (lib/carruseles/documento.ts) cuenta
+  0,58 del cuerpo por letra para cualquier fuente. Se ve en «Nuevo diseño» con el estilo del tipo, sin kit. **SIN ARREGLAR** (no es de
+  la landing): la landing usa kits de letra angosta (Anton, Oswald, Bebas Neue), con las que entra.
+- **El editor real se monta en un banco:** `EditorApp` + `dev/memoryAdapter` del propio editor + `serviciosCatalogo()` (las fuentes y
+  plantillas de MaKo) + las variables `:root` de `app/globals.css` (los tokens `--cv-*` apuntan a ellas). Así se grabó «Lienzo» sin
+  base ni sesión. El chat de MaKo no (necesita la IA del negocio): sigue con «Aquí falta la animación».
+- **El póster de `sitio/carruseles.webm` (la portada) es un cuadro del MEDIO**, no el primero: al arrancar salta. La landing de Image
+  usa su propio póster (`image/editar-poster.jpg`, el primer cuadro); el de la portada quedó como estaba.
+- **El pie copiado está oculto en producción** (`PieGlobal`: `footer:not(.s-pie){display:none}`): un recorrido de hovers que lo
+  toque se queda esperando «not visible».
+- **La RAM libre bajó de 4 a 1–2 GB en minutos** (otros chats): el chequeo de 3 GB va antes de CADA navegador, no una vez por tanda.
+
+SIN HACER: el marco «Chat de MaKo» (necesita grabar `PanelMakoIA` con una respuesta de verdad); el `tsc` acotado de los tres archivos
+no se pudo correr (código 134 sin heap: 4 GB libres no alcanzan); el póster de la portada (`sitio/carruseles.jpg`); el cronograma de PostNitro no va
+(Image no publica: el Calendario publica una imagen o un video sueltos, no un carrusel); su editor en vivo «Pruébalo, no es un video»
+es la grabación de «Editar».

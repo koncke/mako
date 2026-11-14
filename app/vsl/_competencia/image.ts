@@ -1,48 +1,41 @@
 // =============================================================================
 // /vsl/image — Image, el editor de diseño de MaKo (copiado de Canva), con la ESTRUCTURA de la portada de PostNitro
 // =============================================================================
-// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling, el DISEÑO y, desde el 12/11/2026, SUS TEXTOS):
-//   https://postnitro.ai/es  (leída el 11/11/2026 y otra vez el 12/11/2026 con Chromium)
-// El diseño copiado vive en ./disenos/image.tsx; los valores medidos, en docs/diseno/landings-competencia/image.md.
-// Su orden, que se respeta acá: hero «El creador de carruseles con IA que diseña y programa tus publicaciones» → «Publica
-// en» (6 redes) → «Dale acceso a PostNitro a tu agente» → prueba social (5.0, creadores, plataformas) → «Pruébalo, no es
-// un video» → «Más de 100 plantillas, todas editables» → «De la idea a la publicación programada en tres pasos» → «Cada
-// parte de la publicación es tuya» (formatos, Nitro Chat, kit de marca, lienzo) → cronograma → «El mismo motor, como sea
-// que lo conduzcas» → testimonios → «Lo que realmente hace PostNitro» (preguntas). Por qué ganó:
-// docs/competencia/landings-por-funcion.md → «Image (carruseles y creativos)».
+// REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling, el DISEÑO, las animaciones y, desde el 12/11, SUS TEXTOS):
+//   https://postnitro.ai/es  (leída el 11/11 y el 12/11; RELEÍDA el 14/11/2026 con Chromium a 1440 y 390, sección por sección:
+//   side-session-notes/…/referencias-landings/image/relevo.md). El diseño vive en ./disenos/image.tsx; los valores medidos, en
+//   docs/diseno/landings-competencia/image.md.
+// Su orden (14/11), que se respeta acá bloque por bloque: hero (cejilla, titular, bajada, botón, nota, «Publica en», el marco
+// «Plantillas · 4:5» con cuatro láminas y su kit de marca, y la tarjeta negra «Dale acceso a tu agente» a lo ancho) → la franja
+// de prueba social → «Pruébalo, no es un video» (el editor en un marco) → «Más de 100 plantillas, todas editables» (seis en fila)
+// → «De la idea a la publicación programada en tres pasos» → «01 Diseño» (cuatro filas con su marco y una grilla de seis) →
+// «02 Cronograma» → «03 Automatizar» (cuatro tarjetas negras y una grilla) → testimonios → «Lo que realmente hace…» → pie.
 //
-// TEXTOS COPIADOS TAL CUAL de PostNitro, traducidos (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal
-// cual, porque coinciden con MaKo»): la cejilla «El motor de diseño para publicaciones en redes sociales»; el titular, con
-// «diseña y programa tus publicaciones» cambiado (Image no programa) por lo más vistoso que tiene: «replica lo que funciona»
-// (los carruseles que funcionan y su «Editar», que abre el guiado de app/image-editor/carruseles/ReplicarGuiado.tsx); la
-// bajada del hero
-// sin «vídeos animados» ni «programados para…»; «…todas editables» (su sección de plantillas, ahora con los carruseles que
-// funcionan); «De la idea a… en tres pasos» con «Trae la idea», «Hazlo tuyo» y su «…y publicarla tú mismo»; «Cada parte de
-// la publicación es tuya para que la moldees a tu gusto» y «Pídelo por chat o abre el lienzo y configúralo tú mismo»; su
-// «…para esos días en que un carrusel es más de lo que la idea requiere»; «Nitro Chat lo diseña contigo» (MaKo), «Un agente
-// de IA junto al lienzo», «Empieza por cualquier cosa», «Primero, aprueba…», «Edita preguntando», «Rediseña preguntando»;
-// «Tu kit de marca hace el trabajo de diseño»; «Luego abre el lienzo y colócalo exactamente donde quieras», «Cualquier tamaño
-// de lienzo» y «Guárdalo como plantilla»; «El mismo motor, como sea que lo conduzcas»; «Lo que realmente hace…».
+// TEXTOS COPIADOS TAL CUAL de PostNitro (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual, porque
+// coinciden con MaKo»): la cejilla, el titular (con «diseña y programa» cambiado por «replica lo que funciona»: Image no
+// programa), la bajada sin «vídeos animados» ni «programados», «…todas editables», «De la idea a… en tres pasos», «Trae la
+// idea», «Hazlo tuyo», «Cada parte de la publicación es tuya…», «Pídelo por chat o abre el lienzo…», «…para esos días en que un
+// carrusel es más de lo que la idea requiere», «… lo diseña contigo», «Empieza por cualquier cosa», «Primero, aprueba…», «Edita
+// preguntando», «Rediseña preguntando», «Tu kit de marca hace el trabajo de diseño», «Luego abre el lienzo…», «Cualquier tamaño
+// de lienzo», «Guárdalo como plantilla», «El mismo motor, como sea que lo conduzcas», «Lo que realmente hace…».
 //
 // Lo que se cambió de la referencia, y por qué:
-//   · Su aviso de Black Friday y su «Comienza gratis, sin tarjeta» no van: MaKo no tiene ni promo ni precio escrito acá.
-//   · «Publica en» (6 redes) pasa a un renglón del hero: Image NO publica ni programa; lo diseñado se descarga en PNG, JPG,
-//     PDF o SVG y lo subes tú. Por lo mismo, su CRONOGRAMA (el planificador del mes) no va.
-//   · Su «Más de 100 plantillas, todas editables» es, en MaKo, «Carruseles que funcionan» (12/11/2026, Martín: «podés traer
-//     los montón de carruseles de la competencia y podés ver super outliers»): la portada de Image
-//     (app/image-editor/carruseles/ExplorarCarruseles.tsx, lib/carruseles/explorar.ts), con lo que hace de verdad. Los 8
-//     tipos de carrusel de antes pasaron a la fila «Formatos». La captura de esa pantalla NO va todavía: el 12/11/2026 el
-//     `next dev` de la sesión no tenía AUTH_SECRET ni la base (no se pudo entrar a /image-editor), y no se arma a mano.
-//   · «Dale acceso a tu agente» (su adelanto) no se repite arriba: va completo en su lugar, el de «El mismo motor», con lo
-//     que MaKo tiene de verdad (WhatsApp y la API de MaKo, lib/api-mako/areas/imagen.def.ts).
-//   · Su prueba social (5.0, 86.000 creadores, 200 plataformas) es de uso: van los números de lo que Image TRAE, contados
-//     del código (los tipos de carrusel, las plantillas con su ejemplo, los tamaños).
-//   · «Pruébalo, no es un video» es un editor en vivo sin cuenta: /vsl no tiene uno (la página es sin JavaScript). No va.
+//   · Su aviso de Black Friday no va: MaKo no tiene promo. Su «Comienza gratis · sin tarjeta» es la regla de la prueba (../cta.ts).
+//   · Image NO publica ni programa (lo diseñado se descarga en PNG, JPG, PDF o SVG y lo subes tú): su «Publica en» pasa a
+//     «Diseña para» (los tamaños de cada red, lib/image-editor/tamanos.ts) y su CRONOGRAMA (02, el planificador del mes) no va.
+//     El Calendario de MaKo publica una imagen o un video sueltos (lib/calendario-publicar-reglas.ts), no un carrusel.
+//   · Su tarjeta negra «Dale acceso a tu agente» (Claude, ChatGPT, la terminal) es, en MaKo, «Pídeselo a MaKo por WhatsApp» con
+//     la API de MaKo (lib/api-mako/areas/imagen.def.ts): lo que existe de verdad.
+//   · Su prueba social (5.0, 86.000 creadores, 200 plataformas) es de uso: van los números de lo que Image TRAE, contados del
+//     código, y los formatos de descarga en lugar de sus socios.
+//   · «Pruébalo, no es un video» es su editor en vivo sin cuenta: /vsl no tiene uno. En su lugar va la grabación REAL de
+//     «Editar» (los carruseles que funcionan de la biblioteca y la réplica que armó Image, public/vsl-assets/sitio/carruseles.webm).
+//   · Su «Más de 100 plantillas» es, en MaKo, «Carruseles que funcionan» (12/11/2026, Martín: «podés traer los montón de
+//     carruseles de la competencia y podés ver super outliers»): seis outliers VERDADEROS de la biblioteca, con su @ y el link al
+//     original (la regla de la memoria «carruseles-ejemplos-sin-top-carousels»), no plantillas dibujadas.
 //   · De su grilla de extras quedan afuera las imágenes de IA por diapositiva y elegir el modelo: el chat de Image no genera
-//     imágenes (lib/image-editor/chat/catalogo.ts → NO_SE_PUEDE_CHAT_IMAGEN). «Aprende tu voz» es, en MaKo, «Editar un
-//     ejemplo» (el texto lo escribe tu IA para tu negocio), y va en el chat.
-//   · Sus testimonios son suyos: la prueba de MaKo es el caso de todas las landings. Sus preguntas de precio, soporte y
-//     cancelación no van.
+//     imágenes (lib/image-editor/chat/catalogo.ts → NO_SE_PUEDE_CHAT_IMAGEN). Va lo que trae la portada de Image.
+//   · Sus testimonios son suyos: la prueba de MaKo es el caso de todas las landings. Las preguntas son las de la portada.
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['image-editor']), del explorador (app/image-editor/carruseles/), del
 // chat (app/image-editor/mako/chat/: «Original | Modificado», «Aceptar», «Restaurar», «Discutir»), de las plantillas del
 // negocio (app/creaciones/usePlantillasPropias.ts) y de los kits de marca (lib/marca/kits.ts, app/second-brain/MarcaView.tsx).
@@ -55,6 +48,7 @@ import { PLANTILLAS_IMAGEN } from '@/lib/image-editor/plantillas-reales';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
 import { PLANTILLAS_NUEVO_DISENO } from '@/app/image-editor/plantillas-crear';
 import type { LandingCompetencia } from './tipos';
+import { PREGUNTAS_SITIO } from '../_sitio/preguntas';
 
 const I = {
   imagen: ['M15 8h.01', 'M3 6a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v12a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3v-12z', 'M3 16l5 -5c.928 -.893 2.072 -.893 3 0l5 5', 'M14 14l1 -1c.928 -.893 2.072 -.893 3 0l3 3'],
@@ -103,73 +97,74 @@ const N_REALES = PLANTILLAS_IMAGEN.length;
 /** Los tamaños en blanco de «Nuevo diseño»: lo que no es un carrusel por tipo ni una plantilla real. */
 const N_TAMANOS = PLANTILLAS_NUEVO_DISENO.filter((p) => !p.carrusel && !p.real).length;
 
-/** «miniaturas de YouTube, publicaciones, historias, anuncios y presentaciones»: los grupos de las plantillas reales. */
-const minuscula = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
-const GRUPOS_REALES = [...new Set(PLANTILLAS_IMAGEN.map((p) => p.grupo))].map(minuscula);
-const GRUPOS_REALES_TXT = GRUPOS_REALES.length > 1 ? `${GRUPOS_REALES.slice(0, -1).join(', ')} y ${GRUPOS_REALES[GRUPOS_REALES.length - 1]}` : GRUPOS_REALES.join('');
-
 const medida = (k: keyof typeof TAMANOS_API) => `${TAMANOS_API[k].ancho} × ${TAMANOS_API[k].alto}`;
 
 export const LANDING_IMAGE: LandingCompetencia = {
   slug: 'image',
   nombre: 'Image',
   icono: I.imagen,
-  referencia: { nombre: 'PostNitro — creador de carruseles con IA (es)', url: 'https://postnitro.ai/es', leida: '2026-11-12' },
+  referencia: { nombre: 'PostNitro — creador de carruseles con IA (es)', url: 'https://postnitro.ai/es', leida: '2026-11-14' },
   metaTitle: 'Image de MaKo: los carruseles que funcionan, en tu versión editable',
   metaDesc: `Los carruseles de las cuentas que sigues, con su outlier, y tu versión editable con un clic. Un editor como Canva con el chat de MaKo al lado, tu kit de marca y descarga en ${DESCARGAS_TXT}.`,
   bloques: [
     {
+      // Su hero. El marco «Plantillas · 4:5», la franja del kit, «Diseña para» y la tarjeta negra los dibuja ./disenos/image.tsx.
       tipo: 'hero',
       etiqueta: 'El motor de diseño para publicaciones en redes sociales',
       titulo: 'El creador de carruseles con IA que replica lo que funciona.',
-      bajada: 'Carruseles, publicaciones, historias, anuncios y miniaturas: diseñados con IA o a mano en un editor de arrastrar y soltar de formato libre, en tu kit de marca, a partir de <strong>los carruseles que mejor les funcionan a las cuentas que sigues</strong>.',
-      puntos: [`Lo descargas en ${DESCARGAS_TXT} y lo publicas tú`],
+      bajada: 'Carruseles, publicaciones, historias, anuncios y miniaturas: diseñados con IA o a mano en un editor de arrastrar y soltar de formato libre, en tu kit de marca, a partir de los carruseles que mejor les funcionan a las cuentas que sigues.',
       visual: { tipo: 'propio', slug: 'image' },
     },
     {
+      // Su franja de prueba social: lo que Image trae, contado del código.
       tipo: 'cifras',
       titulo: 'Lo que trae Image hoy',
       items: [
-        { valor: String(N_TIPOS), label: 'tipos de carrusel con su estructura, lámina por lámina' },
-        { valor: String(N_REALES), label: 'plantillas con su ejemplo lleno' },
-        { valor: String(N_TAMANOS), label: 'tamaños listos para empezar en blanco' },
+        { valor: String(N_TIPOS), label: 'tipos de carrusel' },
+        { valor: String(N_REALES), label: 'plantillas con su ejemplo' },
+        { valor: String(N_TAMANOS), label: 'tamaños en blanco' },
         { valor: String(DESCARGAS.length), label: `formatos de descarga: ${DESCARGAS.join(', ')}` },
       ],
     },
     {
-      // Su «PLANTILLAS — Más de 100 plantillas, todas editables»: en MaKo, la portada de Image, «Encuentra tu siguiente
-      // OUTLIER» (app/image-editor/carruseles/ExplorarCarruseles.tsx). Lo que dice cada tarjeta es lo que hace esa pantalla.
+      // Su «Pruébalo, no es un video»: la grabación REAL de «Editar» (public/vsl-assets/sitio/carruseles.webm).
+      tipo: 'tarjetas',
+      etiqueta: 'Editar',
+      titulo: 'Eliges uno que funciona y MaKo arma el tuyo.',
+      bajada: 'Con «Editar» tienes tu versión del carrusel: su mismo diseño y el texto escrito para tu negocio, lámina por lámina, lista para cambiar en el editor.',
+      items: [],
+    },
+    {
+      // Su «PLANTILLAS — Más de 100 plantillas, todas editables»: en MaKo, la portada de Image, «Carruseles que funcionan»
+      // (app/image-editor/carruseles/ExplorarCarruseles.tsx), con seis outliers de verdad de la biblioteca.
       tipo: 'tarjetas',
       etiqueta: 'Carruseles que funcionan',
       titulo: 'Los carruseles que funcionan, todos editables.',
-      bajada: 'Los de las cuentas que sigues en Competitor Spy, cada uno con su <strong>outlier</strong>: cuántas veces la mediana de su cuenta. Con «Editar» tienes tu versión, con su mismo diseño y el texto escrito para tu negocio.',
-      items: [
-        { icono: I.outlier, titulo: 'Su outlier', texto: 'Cuántas veces la mediana de su cuenta. Ordenas por «Mayor outlier» y lo que mejor le funcionó a cada cuenta sale primero.', meta: 'Outlier' },
-        { icono: I.lupa, titulo: 'Busca', texto: 'Por tema o por @cuenta, y guardas la búsqueda para volver.', meta: 'Buscar' },
-        { icono: I.filtro, titulo: 'Filtra', texto: 'Por fecha, cantidad de láminas, tipo de carrusel y cuentas.', meta: 'Filtros' },
-        { icono: I.guardar, titulo: 'Guarda', texto: 'Los carruseles que te sirven quedan en «Guardados». Y las láminas se pasan dentro de la tarjeta.', meta: 'Guardados' },
-        { icono: I.cta, titulo: 'El CTA, a la vista', texto: 'Si el carrusel pide comentar una palabra («Comenta GUÍA»), la tarjeta lo dice.', meta: 'CTA' },
-        { icono: I.anuncio, titulo: 'Anuncios de la competencia', texto: 'Los que trajo Competitor Spy de las cuentas que sigues, ordenados por cuántos días llevan al aire.', meta: 'Anuncios' },
-        { icono: I.biblioteca, titulo: 'Una biblioteca de ejemplos', texto: 'Carruseles públicos de Instagram, con su @creador y el link al original. Se ve aunque no sigas a nadie.', meta: 'Ejemplos' },
-        { icono: I.lapiz, titulo: 'Editar', texto: 'Tu versión editable: su mismo diseño, el texto escrito para tu negocio por tu IA y tu foto donde el ejemplo tiene una persona.', meta: 'Editar' },
-      ],
+      bajada: 'Los de las cuentas que sigues en Competitor Spy y los de una biblioteca de ejemplos, cada uno con su <strong>outlier</strong>: cuántas veces la mediana de su cuenta.',
+      items: [],
     },
     {
       tipo: 'pasos',
-      fondo: true,
       titulo: 'De la idea al carrusel listo en tres pasos',
       pasos: [
-        { titulo: 'Trae la idea', texto: 'Un carrusel que funciona de una cuenta que sigues, un tema, un texto que ya hayas escrito o un ejemplo de la biblioteca. Eliges un tipo de carrusel y nace con sus láminas; el texto se lo pides a MaKo.' },
-        { titulo: 'Hazlo tuyo', texto: 'Tu kit de marca ya está aplicado. Edita cualquier lámina, modifica un titular o una foto, o déjalo como está y continúa.' },
+        { titulo: 'Trae la idea', texto: 'Un carrusel que funciona, un tema, un texto que ya hayas escrito o un ejemplo de la biblioteca. Eliges un tipo de carrusel y nace con sus láminas.' },
+        { titulo: 'Hazlo tuyo', texto: 'Tu kit de marca ya está aplicado. Edita cualquier lámina, modifica un titular o déjalo como está y continúa.' },
         { titulo: 'Descárgalo', texto: 'En PNG o JPG, una imagen por lámina, o el carrusel entero en PDF, y publícalo tú mismo.' },
       ],
     },
     {
+      // «01 DISEÑO»: la cabecera del grupo. Sus cuatro filas son los cuatro bloques que siguen.
       tipo: 'tarjetas',
       etiqueta: 'Diseño',
       titulo: 'Cada parte de la publicación es tuya para que la moldees a tu gusto.',
       bajada: 'Pídelo por chat o abre el lienzo y configúralo tú mismo. Los carruseles de MaKo salen con tus fuentes, tus colores y tu logo.',
-      columnas: 2,
+      items: [],
+    },
+    {
+      tipo: 'tarjetas',
+      etiqueta: 'Formatos',
+      titulo: 'Carruseles, publicaciones, historias y miniaturas',
+      bajada: 'Todos los formatos desde una misma plataforma: eliges el tamaño que pide cada red.',
       items: [
         { icono: I.capas, titulo: 'Carruseles', texto: `De varias láminas, con ${N_TIPOS} tipos para empezar (${TIPOS_TXT}…). Se descargan lámina por lámina en PNG o como un solo PDF.`, meta: `${ANCHO_CARRUSEL} × ${ALTO_CARRUSEL}` },
         { icono: I.vertical, titulo: 'Publicaciones e historias', texto: 'La cuadrada, la vertical y la historia de Instagram, para esos días en que un carrusel es más de lo que la idea requiere.', meta: `${medida('publicacion_instagram')} · ${medida('publicacion_vertical')} · ${medida('historia')}` },
@@ -179,14 +174,12 @@ export const LANDING_IMAGE: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      fondo: true,
       etiqueta: 'Chat de MaKo',
       titulo: 'MaKo lo diseña contigo',
       bajada: 'Un agente de IA junto al lienzo, siempre abierto. Describe la publicación o pega el texto que ya escribiste; luego, sigue hablando para cambiar cualquier lámina, cualquier color o cualquier diseño.',
-      columnas: 2,
       items: [
-        { icono: I.ia, titulo: 'Empieza por cualquier cosa', texto: 'Un tema, tu texto, una foto o un PDF. O un ejemplo que te gustó: con «Editar» tienes tu versión, con su mismo diseño y <strong>el texto escrito para tu negocio</strong>.' },
-        { icono: I.ojo, titulo: 'Primero, aprueba el cambio.', texto: 'Cada pedido vuelve como «Original | Modificado». El diseño no se toca hasta que eliges <strong>Aceptar</strong>, y «Restaurar» lo vuelve atrás.' },
+        { icono: I.ia, titulo: 'Empieza por cualquier cosa', texto: 'Un tema, tu texto, una foto o un PDF. O un ejemplo que te gustó: con «Editar», su mismo diseño con el texto escrito para tu negocio.' },
+        { icono: I.ojo, titulo: 'Primero, aprueba el cambio.', texto: 'Cada pedido vuelve como «Original | Modificado». El diseño no se toca hasta que eliges Aceptar, y «Restaurar» lo vuelve atrás.' },
         { icono: I.lapiz, titulo: 'Edita preguntando', texto: 'Cambia un texto, mueve o borra un elemento, suma o saca una lámina. En todo el diseño o sólo en lo que elegiste.' },
         { icono: I.paleta, titulo: 'Rediseña preguntando', texto: 'Colores, fondos, fuentes y tamaños. Y en «Discutir», MaKo te contesta sobre tu diseño sin tocar nada.' },
       ],
@@ -196,7 +189,6 @@ export const LANDING_IMAGE: LandingCompetencia = {
       etiqueta: 'Kit de marca',
       titulo: 'Tu kit de marca hace el trabajo de diseño.',
       bajada: 'Subes tu manual de marca una sola vez: MaKo saca tus colores, tus fuentes y tu logo, y tú lo confirmas antes de guardarlo. Cada carrusel de MaKo sale con tu identidad visual.',
-      columnas: 2,
       items: [
         { icono: I.paleta, titulo: 'Colores que guardaste', texto: 'Con su rol: el principal, el secundario, el de acento, el del fondo y el del texto.' },
         { icono: I.letra, titulo: 'Tus fuentes', texto: 'Una para los títulos y otra para el texto.' },
@@ -206,44 +198,64 @@ export const LANDING_IMAGE: LandingCompetencia = {
     },
     {
       tipo: 'tarjetas',
-      fondo: true,
       etiqueta: 'Lienzo',
       titulo: 'Luego abre el lienzo y colócalo exactamente donde quieras.',
       bajada: 'El chat te ayuda casi por completo. En el lienzo, el diseño libre toma el control, como en Canva.',
-      columnas: 2,
       items: [
-        { icono: I.tamano, titulo: 'Cualquier tamaño de lienzo', texto: 'Los más pedidos de Canva, o a medida.' },
+        { icono: I.tamano, titulo: 'Cualquier tamaño de lienzo', texto: 'Los más pedidos de cada red, o a medida.' },
         { icono: I.formas, titulo: 'Texto, formas, imágenes y marcos', texto: 'Y códigos QR, cada uno en su capa, con recortes, filtros y animaciones.' },
         { icono: I.paginas, titulo: 'Varias páginas en un diseño', texto: 'Un carrusel o una presentación entera, lámina por lámina.' },
         { icono: I.carpeta, titulo: 'Guárdalo como plantilla', texto: 'Convierte tu mejor diseño en una plantilla del negocio: queda en «Crear desde cero».' },
       ],
     },
     {
+      // Su grilla de seis debajo de las filas de «01 Diseño»: lo que trae la portada de Image (ExplorarCarruseles).
+      tipo: 'tarjetas',
+      titulo: 'Lo que trae la portada de Image',
+      columnas: 3,
+      items: [
+        { icono: I.outlier, titulo: 'Su outlier', texto: 'Cuántas veces la mediana de su cuenta. Ordenas por «Mayor outlier» y lo que mejor le funcionó a cada cuenta sale primero.' },
+        { icono: I.lupa, titulo: 'Busca y vuelve', texto: 'Por tema o por @cuenta, y guardas la búsqueda para volver.' },
+        { icono: I.filtro, titulo: 'Filtra', texto: 'Por fecha, cantidad de láminas, tipo de carrusel y cuentas.' },
+        { icono: I.cta, titulo: 'El CTA, a la vista', texto: 'Si el carrusel pide comentar una palabra («Comenta GUÍA»), la tarjeta lo dice.' },
+        { icono: I.anuncio, titulo: 'Anuncios de la competencia', texto: 'Los que trajo Competitor Spy de las cuentas que sigues, ordenados por cuántos días llevan al aire.' },
+        { icono: I.guardar, titulo: 'Guardados', texto: 'Los carruseles que te sirven quedan guardados, y las láminas se pasan dentro de la tarjeta.' },
+      ],
+    },
+    {
+      // «02 AUTOMATIZAR» (su 03: su 02 es el cronograma, que Image no tiene): sus cuatro tarjetas negras.
       tipo: 'tarjetas',
       etiqueta: 'Automatizar',
       titulo: 'El mismo motor, como sea que lo conduzcas.',
       bajada: 'Diseña a mano en el editor o deja que el chat, WhatsApp o tu propio código lo hagan por ti. Las mismas plantillas y los mismos diseños para todos ellos.',
       items: [
-        { icono: I.ia, titulo: 'En el chat del editor', texto: 'Al lado del lienzo, con el diseño abierto.' },
-        { icono: I.wa, titulo: 'Por WhatsApp', texto: 'Le pides a MaKo un diseño desde una plantilla o que le cambie los textos, y te devuelve el link para abrirlo.' },
-        { icono: I.api, titulo: 'Con la API de MaKo', texto: 'Tu sistema ve tus diseños, crea uno desde una plantilla y le cambia los textos, con tu token. El diseño final y la descarga se hacen en el editor.' },
+        { icono: I.formas, titulo: 'A mano', meta: 'Arrastrar y soltar', texto: 'En el lienzo, como en Canva: texto, formas, imágenes, marcos y capas.' },
+        { icono: I.ia, titulo: 'En el chat del editor', meta: 'Original | Modificado', texto: 'Al lado del lienzo, con el diseño abierto. Nada cambia hasta que eliges Aceptar.' },
+        { icono: I.wa, titulo: 'Por WhatsApp', meta: 'Te devuelve el link', texto: 'Le pides a MaKo un diseño desde una plantilla o que le cambie los textos, y te devuelve el link para abrirlo.' },
+        { icono: I.api, titulo: 'Con la API de MaKo', meta: 'crear_diseno_imagen', texto: 'Tu sistema ve tus diseños, crea uno desde una plantilla y le cambia los textos, con tu token.' },
+      ],
+    },
+    {
+      // Su grilla de nueve debajo de las tarjetas negras: lo que la API de MaKo hace con Image (lib/api-mako/areas/imagen.def.ts).
+      tipo: 'tarjetas',
+      titulo: 'Lo que la API de MaKo hace con tus diseños',
+      columnas: 3,
+      items: [
+        { icono: I.paginas, titulo: 'Ver tus diseños', texto: 'Del más nuevo al más viejo, con su tamaño, sus páginas y el link para abrirlo.' },
+        { icono: I.lista, titulo: 'Leer sus textos', texto: 'Los textos de cada página, en orden, para cambiarlos tal como están.' },
+        { icono: I.capas, titulo: 'Crear uno desde una plantilla', texto: 'En blanco, de un tamaño con nombre o a medida, o desde una plantilla con su ejemplo.' },
+        { icono: I.lapiz, titulo: 'Cambiar los textos', texto: 'Cada texto pasa a ser el nuevo, en todas las páginas, con su mismo estilo.' },
+        { icono: I.carpeta, titulo: 'Hacer una copia', texto: 'Con «(copia)» en el título, y te devuelve su link.' },
+        { icono: I.outlier, titulo: 'Buscar carruseles que funcionan', texto: 'Por tema o por @cuenta, con su creador, el link al original y su outlier.' },
       ],
     },
     { tipo: 'caso' },
     {
+      // Las preguntas son las de la portada (../_sitio/preguntas.ts; Martín, 14/11/2026: «tienen que ser siempre las mismas»):
+      // las ponen el registro y LandingCompetencia; van acá también para quien lea LANDING_IMAGE suelto.
       tipo: 'preguntas',
       titulo: 'Lo que realmente hace Image',
-      items: [
-        { p: '¿Qué es Image?', r: 'El editor de diseño de MaKo, tan simple como Canva: diseños de varias páginas con texto, formas, imágenes, marcos, QR y capas, con el chat de MaKo al lado. Abre con los carruseles que funcionan de las cuentas que sigues.' },
-        { p: '¿De dónde salen los carruseles que funcionan?', r: 'De las cuentas que sigues en Competitor Spy, y de una biblioteca de ejemplos de Instagram que es la misma para todos. Cada uno trae su outlier: cuántas veces la mediana de su cuenta.' },
-        { p: '¿Copia las palabras de los carruseles?', r: 'No. Con «Editar» copia el diseño, y el texto lo escribe tu IA para tu negocio. Sin tu IA, cada lámina trae una guía de qué va.' },
-        { p: '¿Para qué plataformas puedo diseñar? ¿MaKo lo publica?', r: 'Diseñas carruseles, publicaciones e historias de Instagram, anuncios, miniaturas de YouTube y presentaciones. MaKo no publica ni programa: descargas el diseño y lo subes tú.' },
-        { p: '¿Qué puedo exportar?', r: `Cada diseño en ${DESCARGAS_TXT}.` },
-        { p: '¿MaKo crea las imágenes con IA?', r: 'No. MaKo escribe y acomoda los textos, cambia colores y letras y usa las fotos que subes. Pedirle fotos a un banco de imágenes, todavía no.' },
-        { p: '¿Puedo usar mi propia marca?', r: 'Sí. Subes tu manual de marca y los carruseles de MaKo salen con tus colores, tus fuentes y tu logo. Con varios kits, eliges cuál.' },
-        { p: '¿Se puede usar por WhatsApp o por la API?', r: 'Sí: le pides a MaKo un diseño desde una plantilla, que le cambie los textos o que haga una copia, y te devuelve el link. El diseño final y la descarga se hacen en el editor.' },
-        { p: '¿Cuántas plantillas hay?', r: `${N_TIPOS} carruseles por tipo, ${N_REALES} plantillas con su ejemplo (${GRUPOS_REALES_TXT}) y ${N_TAMANOS} tamaños en blanco. Y las que guardes tú.` },
-      ],
+      items: PREGUNTAS_SITIO.map((q) => ({ p: q.p, r: q.r })),
     },
   ],
 };
