@@ -30,10 +30,10 @@ import { RESERVA_DEL_ALTA } from './spy-alta-reglas';
 import { hashDeImagen } from './spy-foto-hash';
 import { APIFY_ACTOR_REDES, TECHO_USD_POR_CORRIDA_REDES, TOPE_BUSQUEDAS_REDES_POR_DIA } from './spy-otras-redes-reglas';
 import {
-  GOOGLE_PENDIENTE, GOOGLE_SIN_CUPO, PREGUNTAR_CADA_MS, SEGUIR_CORRIDA_MS, TIMEOUT_CORRIDA_S, claveCorridaGoogle, leerCorrida,
+  CLAVE_RECHAZADA, GOOGLE_PENDIENTE, GOOGLE_SIN_CUPO, PREGUNTAR_CADA_MS, SEGUIR_CORRIDA_MS, TIMEOUT_CORRIDA_S, claveCorridaGoogle, leerCorrida,
   queHacerConLaCorrida, type RespuestaGoogle,
 } from './spy-google-corrida';
-import { estadoDeCorrida } from './spy-todo-reglas';
+import { estadoDeCorrida, rechazoLaClave } from './spy-todo-reglas';
 import { cambiarSettingSi, getSettingEstricto } from './settings';
 import { apuntaDeRef, leerCanalCorto, leerCanalesDeVideos } from './spy-youtube';
 import { claveDeYoutube } from './youtube';
@@ -95,7 +95,7 @@ const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * Una búsqueda en Google por Apify, SIN CORTARSE (lib/spy-google-corrida.ts tiene el porqué): se empieza la corrida y se sigue
  * `SEGUIR_CORRIDA_MS`; si no terminó, queda anotada y el próximo pedido la retoma sin pagar otra. Devuelve el cuerpo,
- * `GOOGLE_PENDIENTE`, `GOOGLE_SIN_CUPO` (no quedan búsquedas hoy: sólo se gasta una al EMPEZAR) o null (no se pudo).
+ * `GOOGLE_PENDIENTE`, `GOOGLE_SIN_CUPO` (no quedan búsquedas hoy: sólo se gasta una al EMPEZAR), `CLAVE_RECHAZADA` (401/403) o null (no se pudo).
  */
 async function googlear(claves: readonly ClaveApify[], consulta: string, gastar: () => boolean): Promise<RespuestaGoogle | null> {
   const clave = claveCorridaGoogle(consulta);
@@ -114,6 +114,10 @@ async function googlear(claves: readonly ClaveApify[], consulta: string, gastar:
     // Varias claves de Spy (5/11/2026): la primera con crédito; un «sin crédito» pasa a la siguiente (lib/spy-claves.ts).
     const r = await conLaPrimeraConCredito(claves, async (k) => (await apify(k.token, `/acts/${APIFY_ACTOR_REDES}/runs?${q}`, { queries: consulta, resultsPerPage: 10, maxPagesPerQuery: 1, mobileResults: false, saveHtml: false })) ?? { status: 0, cuerpo: null });
     const d = (r?.cuerpo as { data?: { id?: unknown; defaultDatasetId?: unknown } } | null)?.data;
+    if (r && rechazoLaClave(r.status)) {
+      console.error(`[spy-otras-redes] Apify rechazó la clave ${r.clave.slot}: HTTP ${r.status}`);
+      return CLAVE_RECHAZADA;
+    }
     if (!r || r.status < 200 || r.status >= 300 || typeof d?.id !== 'string' || typeof d?.defaultDatasetId !== 'string') {
       console.error(`[spy-otras-redes] no pude empezar la búsqueda: HTTP ${r?.status ?? '—'} (clave ${r?.clave.slot ?? '—'})`);
       return null;
@@ -127,6 +131,8 @@ async function googlear(claves: readonly ClaveApify[], consulta: string, gastar:
   const hasta = Date.now() + SEGUIR_CORRIDA_MS;
   for (;;) {
     const r = await apify(token, `/actor-runs/${corrida.run}`);
+    // La clave con la que empezó ya no entra (la cambiaron con la corrida a medias): es la clave, no «no terminó».
+    if (r && rechazoLaClave(r.status)) return CLAVE_RECHAZADA;
     const status = String((r?.cuerpo as { data?: { status?: unknown } } | null)?.data?.status ?? '');
     // No poder preguntar no es «terminó»: se vuelve a preguntar hasta el tope.
     if (r && r.status === 200 && status && estadoDeCorrida(status) !== 'corre') {
@@ -166,9 +172,11 @@ async function leerCanales(refs: string[]): Promise<Map<string, LeidoRed>> {
 }
 
 /** Perfiles de Instagram en UNA corrida (con la reserva del alta). */
-async function leerPerfiles(ws: number, usuarios: string[]): Promise<Map<string, LeidoRed>> {
+async function leerPerfiles(ws: number, usuarios: string[]): Promise<Map<string, LeidoRed> | typeof CLAVE_RECHAZADA> {
   const out = new Map<string, LeidoRed>();
   const perfiles = await leerPerfilesEnLote(usuarios, { ws, reserva: RESERVA_DEL_ALTA });
+  // `sin-permiso` es el 401/403 de Apify (lib/instagram-perfil-server.ts): la clave, no «ese perfil no existe» (14/11/2026).
+  if ([...(perfiles?.values() ?? [])].some((l) => !l.ok && l.motivo === 'sin-permiso')) return CLAVE_RECHAZADA;
   for (const [u, l] of perfiles ?? []) {
     if (l.ok) out.set(u, { nombre: l.perfil.nombre, texto: [l.perfil.bio, l.perfil.web].filter(Boolean).join(' '), foto: l.perfil.foto, id: u.toLowerCase(), seguidores: l.perfil.seguidores ?? null });
   }
