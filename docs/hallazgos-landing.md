@@ -5508,7 +5508,7 @@ teléfono (`vistas-chat.tsx`; `ChatHilo` y `SimuladorSocial` se ven como MaKo, n
   0,15–0,5 de ruido dentro de una misma pausa. Lo obvio era que algo se había corrido, y la cuadrícula no tenía diferencia. La
   causa probable: antes de la primera vez que se usa la cámara de `grabador.mjs`, el `body` no tiene `transform`; después queda
   con `translate(0,0) scale(1)` y Chrome pinta el texto distinto. **Regla:** `g.camara(null, 0)` al principio de toda toma con
-  cámara. SIN CONFIRMAR hasta la toma D (`grabar-combo3.mjs`); si no alcanza, queda el encuadre guardado (abajo).
+  cámara. CONFIRMADO con la toma D (`grabar-combo3.mjs`): la diferencia del empalme bajó de 1,85 a 0,07.
 - **La capa del lienzo que mueve las tarjetas mide 0 × 0** (lo de adentro es absoluto). Subiendo desde un texto para hallar la
   tarjeta hay que frenar en el primer ancestro sin tamaño: si no, el «centro» da (0, 237) y la cámara se va a otra tarjeta.
 - **Achicar el lienzo con CSS deja ver dónde termina la cuadrícula** (el borde raro del póster anterior). La salida: la misma
@@ -5526,3 +5526,50 @@ teléfono (`vistas-chat.tsx`; `ChatHilo` y `SimuladorSocial` se ven como MaKo, n
 
 SIN HACER: con el zoom, la tarjeta del disparador de Instagram queda cortada a la izquierda; la foto del Reel es un fondo con el
 cartel encima, sin persona (a propósito).
+
+## Competitor Spy como Foreplay: lo que sólo se supo MIRÁNDOLA, y las trampas de grabar la ficha (14/11/2026, noche)
+
+Martín: «que la copia salga muy fiel a todas las animaciones… no funcionan los botones de cada cosa… el antes de Foreplay son iconos
+cayendo y la animación del After no es muy similar». Foreplay se miró con Chromium a 1440 y 390 (capturas, video, estilos calculados
+antes y después de cada hover; notas: `foreplay-relevo/visto-1411/`). Código: `app/vsl/_competencia/disenos/competitor-spy.tsx`.
+
+- **El «después» NO es un video de la app (el diagnóstico obvio era el equivocado).** El relevo decía «video en loop, qué muestra no se
+  ve sin reproducirlo», y el pedido fue «grabar el flujo de Spy de punta a punta». Mirado cuadro a cuadro es una ÓRBITA: un anillo de
+  280 px con sus cuatro etapas (las secciones de su página) que da un cuarto de vuelta horario cada 2 s (quieta 1,25 s, se mueve
+  0,75 s) con las etiquetas siempre derechas, y una esfera de baldosas con su logo que destella en cada paso. Se hizo eso en CSS.
+  **Regla:** un video de la referencia se mira cuadro a cuadro (`fps=4`) antes de decidir qué se pone en su lugar.
+- **La lluvia del «antes» es Matter.js y en un celular NO corre:** el script sale si el user agent es de teléfono y se ve una imagen
+  fija; su «8 en celular» sólo vale para una ventana angosta de computadora. Su configuración, leída del script: gravedad 0,7 (≈700
+  px/s²), uno cada 300 ms desde 60 px arriba, rebote 0,1, roce 0,3, giro ±30° y ±0,6 rad/s, 16/12/8 piezas, 1,2× desde 400 px de
+  caja. Aquí es el Box2D-lite (choque de cajas por recorte de caras + impulsos secuenciales) en un `<script data-visor>`, sin
+  librería. Sin «calentar» los impulsos entre cuadros la pila tiembla: **una pieza quieta 0,4 s se duerme y pasa a ser piso**, y
+  cuando todas duermen el cuadro deja de calcularse.
+- **El hero:** lo que se achica es SÓLO su bloque pegado (`position: sticky` a 132 px: titular, bajada, botón y logos), LINEAL en el
+  primer alto de pantalla, escala 1 → ,75, sube el 33 % de su alto (origen al centro) y se apaga; la captura de la app no se toca y
+  le pasa por encima. El de antes achicaba también la captura.
+- **El sol y la luna oscurecen el bloque blanco** («se lleva al modo, también el de nacimiento»), y en el oscuro las píldoras que caen
+  se volvían oscuras mientras los recuadros de los logos (blancos a propósito) quedaban blancos. Lo que debe quedar igual en los dos
+  modos va con `data-tema-fijo` (las piezas de la lluvia y la tarjeta negra del «después», como en Foreplay).
+- **Los hovers ya eran los suyos** (links ,52 → ,84 en ,5 s; botón blanco a #DDDEE5 o al 84 %; oscuro al 6 % de blanco; pestañas ,44 →
+  blanco en ,4 s; sin fondo en la activa). Lo que faltaba eran las PANTALLAS: «los botones no funcionan» era el recuadro de «falta».
+- **Grabar la ficha (banco `C:/dev/bancos-portada/banco-spy-escenas`):**
+  - Los bigint del JSON de postgres.js llegan como TEXTO; la app los recibe como número (PostgREST). Sin convertir, la ficha dijo
+    «VISTAS Infinity M».
+  - La cámara de `grabar-anuncios.mjs` volvía a escala 1 y movía el scroll antes de cada encuadre: entre dos tomas se veía un salto.
+    Medir SIN la cámara y volver a ponerla en la misma tarea (no se pinta en el medio), y no mover el scroll: el `body` entero se corre.
+  - El detalle de una pieza es un modal en la capa de arriba: la cámara del `body` no lo mueve. Se acerca el panel del modal.
+  - El menú «⋯» se ubica por la caja del botón: abierto con la cámara puesta no aparece. Se abre sin cámara.
+  - acquisition.com no se deja mostrar en el marco aislado (su JavaScript se rompe, `lib/pagina-real.ts`) y la app ofrece «Capturar»;
+    cargarla en el banco sólo gastaba la PC. Por eso «Sus páginas» no tiene pantalla con Hormozi y la pestaña pasó a «Copia su sitio».
+  - Hormozi no tiene reels en Spy (sólo YouTube y anuncios): «El guion de sus reels» no se puede mostrar con él; pasó a «Su gancho y su
+    ángulo» (90 de sus videos tienen gancho, ángulo y formato leídos).
+  - Las fotos de una hoja de contactos son de 320 × 200: tres filas de cuadros se leen como «cuadros rotos por la mitad». No lo eran.
+- **«Desde Chrome, con un clic» (banco `banco-spy-extension`):** la Biblioteca de Anuncios de Meta se ve sin sesión en un Chromium sin
+  ventana (es-AR). Corriendo ahí `extension/spy-leer.js` (el mismo archivo) y las funciones de `lib/spy-captura.ts` sale la respuesta
+  REAL («29 anuncios en la ficha de @AlexHormozi · 29 nuevos»). El desplegable real se monta con un `chrome` de mentira. Los
+  `addInitScript` de Playwright corren también en los iframes: el cursor dibujado aparecía dos veces; adentro se saca y el de arriba lo sigue.
+
+SIN HACER: los íconos animados por sprite de su menú y de su pie (la barra y el pie de esta landing son los del sitio); el segundo botón
+de cada fila («Learn More»: no hay a dónde llevarlo); «Su guion, con tu oferta» usa la grabación de Copywriting («Replicar»), no el
+«Hacer uno así» del detalle de Spy; lib/funciones-mako.ts dice «Todavía no: revisar solo todos los días» y foreplay-relevo/plan-spy.md
+dice que los Seguidos se leen todos los días desde el 13/11: hay que decidir cuál vale antes de prometerlo en la landing.
