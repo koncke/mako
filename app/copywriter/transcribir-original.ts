@@ -40,6 +40,7 @@ export function motivoSinTranscripcion(g: VistaGuion): string {
     case 'sin-gemini': return 'hace falta tu Gemini conectado';
     case 'sin-ia': return 'no hay ninguna IA conectada';
     case 'sin-clave': return 'falta la clave de Competitors Spy';
+    case 'clave-rechazada': return 'la clave de Competitors Spy fue rechazada por Apify';
     case 'no-aplica': return 'ese video no se puede transcribir';
     case 'listo': return g.texto ? '' : (g.motivo ?? 'el video no tiene voz');
     default: return g.motivo ?? 'falló la transcripción';

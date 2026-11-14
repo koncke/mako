@@ -11,11 +11,15 @@
 import { useState, type ReactNode } from 'react';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { dibujarContador } from '@/lib/spy-reglas';
-import { preguntaDeAhora, type RedOtra } from '@/lib/spy-otras-redes-reglas';
+import { preguntaDeAhora, REDES_CLAVE_RECHAZADA, type RedOtra } from '@/lib/spy-otras-redes-reglas';
 import { LogoRed } from './LogoRed';
 
 export const NOMBRE_RED: Record<RedOtra, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram' };
-export type BusquedaDeRedes = { buscando: boolean; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[] };
+export type BusquedaDeRedes = {
+  buscando: boolean; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[];
+  /** Apify rechazó la clave de Spy al buscar (14/11/2026): UNA línea con el botón para revisarla, nunca «no encontré nada». */
+  claveRechazada?: boolean;
+};
 
 /** Lo que se trae de cada red recién sumada, para «Trayendo sus videos…». */
 const LO_QUE_TRAE: Record<RedOtra, string> = { youtube: 'sus videos', instagram: 'sus publicaciones', tiktok: '' };
@@ -42,8 +46,10 @@ function CaraDeRed({ k }: { k: CandidatoVerificado }) {
  * pregunte si es ese o no»). Lo seguro ya se sumó y se puede deshacer; lo dudoso se pregunta, con su foto y el porqué.
  * Si no encontró nada, no dice nada: no hay nada que hacer.
  */
-export function OtrasRedes({ b, ocupado, trayendo, onSi, onNo, onDeshacer }: {
+export function OtrasRedes({ b, ocupado, trayendo, onSi, onNo, onDeshacer, botonClave }: {
   b: BusquedaDeRedes | undefined; ocupado: boolean;
+  /** El botón que abre la clave de Spy en Integraciones. Lo arma la pantalla, así esto se dibuja en un test sin el router de Next. */
+  botonClave?: ReactNode;
   /** Los canales recién sumados que se están leyendo (`traerLoNuevo`). */
   trayendo: readonly string[] | null;
   onSi: (k: CandidatoVerificado) => void; onNo: (k: CandidatoVerificado) => void; onDeshacer: (k: CandidatoVerificado) => void;
@@ -54,7 +60,12 @@ export function OtrasRedes({ b, ocupado, trayendo, onSi, onNo, onDeshacer }: {
   // otras redes ahora. Prueba en un rato."»). Se busca en segundo plano; lo que aparece, aparece. Lo que no terminó se vuelve a
   // pedir solo (`pendiente`, lib/spy-google-corrida.ts).
   if (!b || b.buscando) return null;
-  if (!b.sumadas.length && !b.candidatos.length) return null;
+  // ⚠️ LA ÚNICA EXCEPCIÓN AL «SIN TEXTO» DE ARRIBA (14/11/2026, la llamada con Julio: el Instagram de Andrea Cano no apareció y nada
+  // dijo por qué). Una clave rechazada no es «no encontré nada» ni «prueba en un rato»: no se arregla sola, y se arregla acá.
+  const aviso = b.claveRechazada
+    ? <p className="spy-redes-clave" role="status"><span>{REDES_CLAVE_RECHAZADA}</span>{botonClave}</p>
+    : null;
+  if (!b.sumadas.length && !b.candidatos.length) return aviso ? <section className="spy-redes" aria-label="Sus otras redes">{aviso}</section> : null;
   // ⚠️ CON EL LOGO DE SU RED (4/11/2026; Martín: «"Encontré a Leila en YouTube" eso debería aparecer con el diseño de YouTube o
   // con el logo, para que se entienda»). Una pastilla por canal: el logo, «Su YouTube» o «¿Es su YouTube?», su nombre como link
   // (abre el canal en otra pestaña, nada más) y sus botones. Mientras se traen sus piezas lo dice, y «Deshacer» espera: deshacer
@@ -81,6 +92,7 @@ export function OtrasRedes({ b, ocupado, trayendo, onSi, onNo, onDeshacer }: {
   const trae = (k: CandidatoVerificado) => !!trayendo?.includes(k.red) && !!LO_QUE_TRAE[k.red];
   return (
     <section className="spy-redes" aria-label="Sus otras redes">
+      {aviso}
       {b.sumadas.map((k) => fila(k, false, null, trae(k)
         ? <span className="spy-redes-trae" role="status"><i aria-hidden />Trayendo {LO_QUE_TRAE[k.red]}…</span>
         : <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onDeshacer(k)}>Deshacer</button>))}

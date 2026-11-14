@@ -34,7 +34,7 @@ import { FORMATOS, formatoPorTexto, proporcionDe, puestoDe } from '@/lib/spy-det
 import { explicarMultiplo, multiplosDe, rotuloCortoDeMultiplo } from '@/lib/multiplo-rendimiento';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { fechaCorta, linksLegibles, miniaturaDePieza } from '@/lib/spy-vista';
-import { tieneGuion, type VistaGuion } from '@/lib/spy-transcripcion';
+import { CLAVE_SPY_RECHAZADA, tieneGuion, type VistaGuion } from '@/lib/spy-transcripcion';
 import type { PiezaVista } from './actions';
 import { Desarmar, avisarDesarme } from '@/app/video-editor/Desarmar';
 import { DesarmarImagen } from './DesarmarImagen';
@@ -152,6 +152,15 @@ function BloqueGuion({ guion, onConectado }: { guion: VistaGuion | null; onConec
       <p className="spyd-nota">
         Para transcribirlo hace falta tu clave de Apify.
         <BotonIntegracion servicio="apify-instagram" className="spy-boton" style={CON_SU_CLASE} onConectado={onConectado}>Conectar</BotonIntegracion>
+      </p>
+    );
+  } else if (guion.estado === 'clave-rechazada') {
+    // 14/11/2026, la llamada con Julio: con la clave dando 401 decía «No pude traer el video de Instagram», y nada más. Es la clave, y
+    // se arregla acá mismo: al guardarla, `onConectado` lo vuelve a pedir y la huella nueva lo destraba (`hayQueTranscribir`).
+    cuerpo = (
+      <p className="spyd-nota">
+        {CLAVE_SPY_RECHAZADA}
+        <BotonIntegracion servicio="apify-instagram" className="spy-boton" style={CON_SU_CLASE} onConectado={onConectado}>Revisar la clave</BotonIntegracion>
       </p>
     );
   } else if (guion.estado === 'listo' && guion.texto) {

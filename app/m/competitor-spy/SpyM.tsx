@@ -50,6 +50,7 @@ import { Seguidos } from '@/app/competitor-spy/Seguidos';
 import { BuscadorAlta } from '@/app/competitor-spy/BuscadorAlta';
 import { DetallePieza, type MarcoDetalle } from '@/app/competitor-spy/DetallePieza';
 import { GraficoSpy } from '@/app/competitor-spy/GraficoSpy';
+import { AnunciosSpy } from '@/app/competitor-spy/AnunciosSpy';
 import { GrillaPiezas } from '@/app/competitor-spy/GrillaPiezas';
 import { MejoresPiezas } from '@/app/competitor-spy/MejoresPiezas';
 import { TarjetaPieza } from '@/app/competitor-spy/TarjetaPieza';
@@ -408,6 +409,13 @@ export function SpyM({ competidores, resumen, sugeridos, abierto, piezas, ver = 
             // «Su web» es, en la computadora, la pestaña Funnel; acá se DICE dónde se mira.
             onWeb={() => toast('Su web se mira en la computadora')}
           />
+        </Bloque>
+      )}
+
+      {/* Lo mismo que la pestaña «Anuncios» de la computadora (14/11/2026): sus activos, sus tests creativos y su línea de tiempo. */}
+      {anuncios.length > 0 && (
+        <Bloque titulo="Sus anuncios">
+          <AnunciosSpy anuncios={anuncios} onAbrir={abrirPieza} />
         </Bloque>
       )}
 
