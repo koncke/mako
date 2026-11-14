@@ -25,6 +25,8 @@ import { esAdminDeTab } from '@/lib/puerta-admin-tab';
 import { leerPieza } from '@/lib/spy';
 import { textoParaCopiar, tipoParaCopiar, tituloDeCopia } from '@/lib/spy-detalle';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { claveDeDesarme, fuenteDePiezaSpy, textoDeEdicionParaCopiar } from '@/lib/video-desarmar';
+import { desarmeGuardado, estiloDeGaleria } from '@/lib/video-desarmar-servidor';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,13 +44,20 @@ export async function POST(req: NextRequest) {
   if (!leida) return no(404, 'No encontré esa pieza.');
   const { pieza, competidor } = leida;
   if (pieza.canal === 'landing') return no(400, 'Una web se copia en el Web Generator.');
-  const texto = textoParaCopiar(competidor, pieza);
+  // Un VIDEO desarmado (ticket 97; 13/11/2026, Martín en la llamada con Julio: «la edición también la copia, saca fotograma por
+  // fotograma»): su edición plano a plano viaja con la pieza. Se lee lo GUARDADO, sin IA (lo desarma antes la caja de Spy,
+  // app/competitor-spy/DetallePieza.tsx → `hacerUnoAsi`). La página guarda la clave y muestra al lado la edición con «Abrir en el
+  // editor» (la plantilla «toca para reemplazar»).
+  const fuente = fuenteDePiezaSpy(pieza, competidor.nombre);
+  const desarme = fuente ? claveDeDesarme(fuente.red, fuente.id) : null;
+  const g = desarme ? await desarmeGuardado(desarme).catch(() => null) : null;
+  const texto = textoParaCopiar(competidor, pieza, g ? textoDeEdicionParaCopiar(g, estiloDeGaleria(g)?.nombre ?? null) : null);
 
   // Sin el Copywriter, el texto vuelve y la pantalla lo copia: el botón sirve igual.
   if (!(await esAdminDeTab('copywriter')) || !(await veCopywriter())) return Response.json({ ok: true, texto }, { headers: { 'Cache-Control': 'no-store' } });
 
   const titulo = tituloDeCopia(competidor.nombre, pieza.analisis?.gancho || pieza.titulo || pieza.texto || '');
-  const r = await crear({ tipo: tipoParaCopiar(pieza), titulo, contenido: docDeTexto(texto) });
+  const r = await crear({ tipo: tipoParaCopiar(pieza), titulo, contenido: docDeTexto(texto), ...(desarme ? { props: { desarme } } : {}) });
   if (!r.ok) return Response.json({ ok: true, texto, error: r.error }, { headers: { 'Cache-Control': 'no-store' } });
   return Response.json({ ok: true, href: `/copywriter/${r.pagina.id}`, texto }, { headers: { 'Cache-Control': 'no-store' } });
 }

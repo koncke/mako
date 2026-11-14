@@ -48,6 +48,8 @@ import { llevarAlCalendario } from '@/app/calendario/publicar-desde-crear';
 import { rutaUsarEnAnuncio } from '@/lib/anuncio-desde-pieza';
 import type { DocVivo } from './propuesta';
 import { OriginalAlLado } from '../OriginalAlLado';
+import { Desarmar } from '@/app/video-editor/Desarmar';
+import { leerClaveDesarme } from '@/lib/video-desarmar';
 
 // BlockNote es sólo del navegador (usa el DOM al crearse): en Next se carga sin SSR, como pide su documentación. El
 // renglón de espera ocupa el alto de un párrafo para que la página no salte al llegar.
@@ -113,6 +115,11 @@ export function EditorGuion(p: PropsEditorGuion) {
   const id = guion.pagina.id;
   const [editado, setEditado] = useState(guion.doc.editado ?? null);
   const [props, setProps] = useState<PropsGuion>(guion.doc.props);
+  // El video desarmado del que salió la página (ticket 97, `props.desarme`), como fuente para la caja de al lado.
+  const desarmeDeLaPagina = useMemo(() => {
+    const c = leerClaveDesarme(props.desarme);
+    return c ? { red: c.red, id: c.id, url: null, cuenta: null, titulo: null } : null;
+  }, [props.desarme]);
   const [titulo, setTitulo] = useState(guion.pagina.titulo === SIN_TITULO ? '' : guion.pagina.titulo);
   const [estado, setEstado] = useState<EstadoGuardado>('guardado');
   const [emojis, setEmojis] = useState(false);
@@ -540,6 +547,13 @@ export function EditorGuion(p: PropsEditorGuion) {
         </div>
       </div>
       {!compartido && !movil && !plantilla && props.outlier ? <OriginalAlLado outlier={props.outlier} /> : null}
+      {/* «Hacer uno así» de un video de Spy (ticket 97): su edición plano a plano, al lado, con «Abrir en el editor» (la plantilla
+          «toca para reemplazar»). La caja es la de Outliers y Spy (app/video-editor/Desarmar.tsx); la ruta dice si hay editor. */}
+      {!compartido && !movil && !plantilla && !props.outlier && desarmeDeLaPagina ? (
+        <aside className="nt-original-lado" aria-label="Su edición">
+          <Desarmar fuente={desarmeDeLaPagina} duracionS={null} editor />
+        </aside>
+      ) : null}
       </div>
     </div>
   );

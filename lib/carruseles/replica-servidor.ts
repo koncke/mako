@@ -69,7 +69,7 @@ export type ResultadoReplica =
 export const esImagenPermitida = (url: string): boolean => esNuestra(url) || esCdnPermitido(url);
 
 /** Una imagen (de NUESTRO bucket o de un CDN permitido) como data URL: lo que mira la IA. null si no se pudo. */
-async function comoDataUrl(url: string): Promise<string | null> {
+export async function comoDataUrl(url: string): Promise<string | null> {
   if (!esImagenPermitida(url)) return null;
   try {
     let r: Response;

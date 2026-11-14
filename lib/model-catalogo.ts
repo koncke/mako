@@ -274,6 +274,8 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // 6/11/2026: «Editar» un carrusel de ejemplo (lib/carruseles/replica-servidor.ts). Es VISIÓN (`leerDocumentoIA`): mira las láminas
   // con la IA del negocio (su Claude, su GPT o su Gemini, adentro de `conSuIADelNegocio`) y devuelve el diseño con sus textos.
   { feature: 'carrusel-replica', label: 'Editar un carrusel de ejemplo', grupo: 'Copywriting', def: GEMINI(), nota: 'Mira las láminas de un carrusel (o un anuncio) de ejemplo y devuelve su diseño con los textos escritos para el negocio. Corre con la IA del negocio. Sin PII.' },
+  { feature: 'video-desarmar', label: 'Desarmar un video de la competencia', grupo: 'Copywriting', def: GEMINI(), nota: 'Ticket 97: el Gemini del negocio mira un reel, un anuncio o un video de YouTube entero (2 a 5 cuadros por segundo) y devuelve sus planos, textos, subtítulos y cómo se hizo cada uno (lib/video-desarmar.ts). Sólo Gemini mira un video entero. Una vez por video y negocio. Sin PII.' },
+  { feature: 'imagen-desarmar', label: 'Desarmar un carrusel o una imagen de anuncio', grupo: 'Copywriting', def: GEMINI(), nota: 'Ticket 97: la IA del negocio con visión saca la estructura, los textos exactos, la tipografía y la paleta de una pieza de Spy (lib/imagen-desarmar.ts). Una vez por pieza y negocio. Sin PII.' },
   { feature: 'stories-writer', label: 'Escribir arco de Stories (Instagram)', grupo: 'Copywriting', def: GEMINI(), nota: 'El día entero de stories (una idea, gancho → contexto → CTA) con la metodología de los cursos. Sin PII.' },
   // El plan de clips de un anuncio con avatar (lib/video-planner.ts). Escribe el
   // guion Y los prompts de video, así que carga más estructura que un writer de

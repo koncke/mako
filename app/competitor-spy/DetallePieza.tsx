@@ -36,6 +36,9 @@ import { dibujarContador } from '@/lib/spy-reglas';
 import { fechaCorta, linksLegibles, miniaturaDePieza } from '@/lib/spy-vista';
 import { CLAVE_SPY_RECHAZADA, tieneGuion, type VistaGuion } from '@/lib/spy-transcripcion';
 import type { PiezaVista } from './actions';
+import { Desarmar, avisarDesarme } from '@/app/video-editor/Desarmar';
+import { DesarmarImagen } from './DesarmarImagen';
+import { claveDeDesarme, fuenteDePiezaSpy, segundosIso, type FuenteDesarme } from '@/lib/video-desarmar';
 
 const CSS = `
 .spyd{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:24px;align-items:start}
@@ -207,6 +210,35 @@ const MARCO_MODAL: MarcoDetalle = ({ titulo, encabezado, pie, onCerrar, children
   </Modal>
 );
 
+/**
+ * Desarma el video antes de copiarlo (ticket 97): la ruta devuelve lo guardado si ya está. Si otra pestaña lo está mirando, espera
+ * a que termine (hasta 3 minutos). Nunca tira: si no se pudo, «Hacer uno así» copia sin la edición.
+ */
+async function desarmarAntes(fuente: FuenteDesarme, duracionS: number | null): Promise<void> {
+  const pedir = (cuerpo: Record<string, unknown>) => fetch('/api/desarmar', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo),
+  }).then((r) => r.json() as Promise<{ ok?: boolean; motivo?: string; vista?: { estado?: string } }>).catch(() => null);
+  const clave = claveDeDesarme(fuente.red, fuente.id);
+  if (!clave) return;
+  // La caja «Desarmar» de al lado lo muestra mientras tanto (en vez de ofrecer el botón).
+  avisarDesarme(clave, false);
+  try {
+    const r = await pedir({ accion: 'desarmar', fuente, duracionS });
+    if (r?.ok || r?.motivo !== 'ocupado') return;
+    for (let i = 0; i < 36; i++) {
+      await new Promise((listo) => setTimeout(listo, 5_000));
+      const v = await pedir({ accion: 'ver', clave });
+      if (v?.vista?.estado !== 'mirando') return;
+    }
+  } finally {
+    avisarDesarme(clave, true);
+  }
+}
+
+/** Una publicación de Instagram que no es video, o un anuncio de imagen: lo que la réplica de Image sabe leer. */
+const esImagenDeSpy = (p: Pick<PiezaVista, 'canal' | 'tipo' | 'medio'>): boolean =>
+  (p.canal === 'instagram' && p.tipo === 'publicacion' && p.medio !== 'video') || (p.canal === 'anuncios' && p.tipo === 'anuncio' && p.medio !== 'video');
+
 export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas, analizando, onCerrar, marco = MARCO_MODAL }: {
   p: PiezaVista;
   /** El nombre del competidor. */
@@ -224,9 +256,12 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
 }) {
   const router = useRouter();
   const [copiando, setCopiando] = useState(false);
+  // «Hacer uno así» de un video lo DESARMA primero (ticket 97): mientras, el botón lo dice.
+  const [desarmando, setDesarmando] = useState(false);
   const [copiada, setCopiada] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { guion, pedir } = useGuion(p);
+  const fuenteVideo = useMemo(() => fuenteDePiezaSpy(p, nombre), [p, nombre]);
 
   const red = redDePieza(p.canal);
   const puesto = puestoDe(p.id, todas);
@@ -266,6 +301,13 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
   const hacerUnoAsi = async () => {
     setCopiando(true); setError(null); setCopiada(false);
     try {
+      // Un video: la edición también se copia (13/11/2026, Martín en la llamada con Julio: «la edición también la copia, saca
+      // fotograma por fotograma»). Se desarma con el Gemini del negocio (o se toma lo guardado: no se paga dos veces) y la ruta de
+      // copiar lo escribe en la página. Si no se puede (sin Gemini, sin el video), se copia igual, como antes.
+      if (fuenteVideo) {
+        setDesarmando(true);
+        await desarmarAntes(fuenteVideo, segundosIso(p.duracion)).finally(() => setDesarmando(false));
+      }
       const r = await fetch('/api/competitor-spy/copiar', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ piezaId: p.id }),
       });
@@ -300,7 +342,7 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
         <>
           <span className="spyd-pie-nota" aria-live="polite">{copiada ? 'Copié su estructura: pégala donde quieras.' : 'MaKo arma el tuyo con su estructura y tu oferta.'}</span>
           <button type="button" className="mk-btn mk-btn--primary mk-btn--lg spyd-hacer" disabled={copiando} onClick={() => void hacerUnoAsi()}>
-            <MakoStar size={18} color="currentColor" animate={copiando} /> {copiando ? 'Armándolo…' : 'Hacer uno así'}
+            <MakoStar size={18} color="currentColor" animate={copiando} /> {desarmando ? 'Desarmando el video…' : copiando ? 'Armándolo…' : 'Hacer uno así'}
           </button>
         </>
       )}
@@ -360,6 +402,11 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
           {error && <p className="spy-aviso spy-error" role="alert">{error}<ReportarASoporte error={error} accion="Hacer uno así en Competitors Spy" /></p>}
 
           <BloqueGuion guion={guion} onConectado={pedir} />
+
+          {/* Ticket 97: un video (reel, YouTube, anuncio en video) se desarma plano a plano con el Gemini del negocio. */}
+          {fuenteVideo ? <Desarmar fuente={fuenteVideo} duracionS={segundosIso(p.duracion)} editor={marco === MARCO_MODAL} /> : null}
+          {/* Un carrusel o una imagen de anuncio: estructura, textos exactos, tipografía y paleta, y «Replicar en Image». */}
+          {!fuenteVideo && esImagenDeSpy(p) ? <DesarmarImagen piezaId={p.id} /> : null}
 
           {textoPropio && (
             <section>

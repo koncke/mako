@@ -22,7 +22,8 @@ import { ESTILO_PAGINA_CREAR } from '@/app/_crear/reglas';
 import { VideoEditorCliente } from './VideoEditorCliente';
 import { leerOutliersVideo } from '@/lib/video-outliers-servidor';
 import { OutliersVideo } from './OutliersVideo';
-import { abreElEditor, familiaDe, recetaPedida, replicarDe, vistaDeVideo } from './vista';
+import { abreElEditor, desarmePedido, familiaDe, recetaPedida, replicarDe, vistaDeVideo } from './vista';
+import { desarmadoParaElEditor } from '@/lib/video-desarmar-servidor';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -40,9 +41,13 @@ export default async function VideoEditorPage({ searchParams }: { searchParams: 
   // El workspace de la pestaña, validado por el proxy: separa el almacenamiento
   // local del motor por cliente (ver espacio.ts).
   const [ws, senales] = await Promise.all([getWorkspaceActual(), senalesDelNegocio().catch(() => null)]);
+  // «Abrir en el editor» de un video desarmado (ticket 97, `?desarme=`): la plantilla y la receta se arman ACÁ con lo que guardó
+  // este negocio; al cliente no baja la clave, y un video que no está desarmado baja `null`.
+  const desarme = desarmePedido(q);
+  const desarmado = desarme ? await desarmadoParaElEditor(desarme) : undefined;
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-      <VideoEditorCliente vista="inicio" ws={ws} senales={senales} replicar={replicarDe(q)} receta={recetaPedida(q)} alEntrar={abreElEditor(q) ? 'editor' : 'crear'} />
+      <VideoEditorCliente vista="inicio" ws={ws} senales={senales} desarmado={desarmado} replicar={replicarDe(q)} receta={recetaPedida(q)} alEntrar={abreElEditor(q) ? 'editor' : 'crear'} />
     </Pagina>
   );
 }
