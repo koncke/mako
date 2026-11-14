@@ -12113,3 +12113,10 @@ por OTRA página, sin `visitor_id`, tenía el bloque de visitas callado (`sinCom
 - La ventana es 30 días, o desde una semana antes de que entrara si es más viejo (el Pixel pudo estar y sacarse después).
 
 **Sin hacer:** la lista de páginas del negocio con su estado de Pixel en /integraciones (el 4 opcional del relevo de la llamada).
+
+## La misma plata se escribe de tres formas en la ficha: «$1000», «$1,000» y «US$ 1.000» (14/11/2026, SIN ARREGLAR)
+
+Lo vio la tarea de la landing de Cobranza al grabar la ficha en Pagos (docs/hallazgos-landing.md → «Cobranza como Rebill»): en la
+misma pantalla conviven tres formatos para un monto. Viven en `app/crm/lead-view/ficha/pagos/bloques-cobro.tsx` y
+`app/crm/[id]/CobrarConLink.tsx`, cada uno con su propio formateo. **Lo que queda por hacer:** un solo formateador de montos (moneda +
+separador de miles del idioma) para toda la ficha, y un test que mire que la ficha no mezcle formatos.

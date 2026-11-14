@@ -5956,3 +5956,42 @@ Banco: `C:/dev/bancos-portada/banco-agenda-landing/` (`entrada.tsx` con escenas 
 SIN HACER: lo que iClosed muestra y MaKo no tiene (la barra del anuncio, las caras con su globo y el G2, las citas, la pared de logos,
 la pestaña «AI Agent», «You already follow them», el contador en dólares, «Coaches, agencies, creators», «Build on iClosed», «Book a
 5-min demo»); la marquesina de reseñas y el carrusel de casos (hay un solo caso y sus párrafos no son citas: van quietos).
+
+## Cobranza como Rebill: sus scripts vienen en el HTML, el sol y la luna oscurecía la sección clara en el modo de NACIMIENTO, y lo que la plantilla de cobranza NO manda sola (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/cobranza.tsx` (diseño, `HERO_GRUPOS`, `PANTALLAS_PIEZAS`, `SDK_*` y el `<script data-visor>`),
+`app/vsl/_competencia/cobranza.ts` (`DETALLE_CIFRAS`, `DISPAROS_COBRANZA`), `public/vsl-assets/cobranza/`, valores en
+`docs/diseno/landings-competencia/cobranza.md`, test «Cobranza: …» en `tests/vsl-landings-competencia.test.ts`. Bancos:
+`C:/dev/bancos-portada/banco-cobranza-landing/` (la ficha REAL con `LeadEditModal` en Pagos: Paula con cuotas, `?sus=1` Tomás con una
+suscripción; `grabar.mjs`, `fotos.mjs`) y `banco-cobranza-flujo/` (el lienzo de Automations con «Una Cuota Venció»). El relevo: carpeta de
+notas, `referencias-landings/cobranza/relevo.md`.
+
+- **⚠️ Rebill ya no es Webflow (el documento del 11/11 decía Webflow y cuatro preguntas): es un clon en Astro** con las clases de Webflow y
+  el `<script>` de CADA sección en el HTML (`curl` lo trae; Cloudflare no frena). Ahí estaban los números exactos de lo que se mueve: el hero
+  que rota cada 4 s, las dos secciones pegadas de 600 alturas (sus cortes 0,16 / 0,22 / 0,4; 0,3 / 0,4 / 0,8 / 1,5 / 2,5 pantallas), el
+  giro de Make cada 1,5 s y las preguntas que crecen a 1,35 contra 0,825. **Regla (la de HighLevel, otra vez):** antes de mirar, leer los
+  `<script>` del HTML servido; el navegador confirma (`getAnimations` + las clases que cambian en cada paso del scroll).
+- **⚠️ El sol y la luna aplica el modo de NACIMIENTO al cargar, aunque nadie haya elegido** (`aplicar(p || base)` en `TemaSitio.tsx`): en
+  una landing que nace oscura, la sección CLARA de la referencia («Historias de clientes», `#FAFAFA`) salía negra en la vista por defecto.
+  No es sólo el modo elegido (lo de Ads y Offer): es lo que ve todo el mundo. Va con `data-tema-fijo`; y la respuesta blanca de las
+  preguntas, también.
+- **Un `<image>` de SVG no lo reescribe el visor** (sí el `src` de un `<img>`): los logos de la órbita salían rotos en la foto y bien en
+  producción. Los logos van como `<img>` encima del SVG, en % de su caja.
+- **⚠️ «Notificaciones… permitiendo que el cliente actualice su método de pago» NO se puede prometer como algo que sale solo:** la plantilla
+  «Le Rechazaron el Pago» le prepara el WhatsApp al cliente con `revisar: true` («la plata y lo sensible, para aprobar»,
+  `lib/plantillas-automatizaciones.ts`), y «Una Cuota Venció» avisa al GRUPO del negocio, nunca al cliente. La pieza dice eso y la
+  grabación es la de la cuota vencida (2 días, 3 días: como lo muestra el lienzo).
+- **El banco de la ficha:** `LeadEditModal` con `focus="plan-pagos"` abre la ficha REAL en Pagos sin pasar por el tablero; `crearCobroAction`
+  y `monedasCobroAction` contestados en el build (el link es el de MaKo, `/pagar/<token>`, inventado); `marcarPagoManualAction` prende
+  `window.__pagada` y la ficha que se relee ya trae la cuota cobrada («Pagó todo»). Con la cámara en la caja de un texto, **subir hasta el
+  alto del modal entero**: con la caja de «Monto (USD)» el botón «Guardar el pago» quedaba fuera de la ventana y el clic no pasaba, sin
+  error (la toma se colgaba esperando «Pagó todo»).
+- **Un panel se busca por el ÚLTIMO texto que coincide:** «Paula Romero» está en la tarjeta del tablero (detrás) y en la ficha; con el
+  primero, la foto salía de 4412 px de ancho.
+- **Del CRM (no de la landing; vive en `app/crm/lead-view/ficha/pagos/bloques-cobro.tsx` y `app/crm/[id]/CobrarConLink.tsx`): tres formatos
+  de plata en la misma pantalla.** La cuota pendiente se dibuja editable (`EnLinea` con `String(Number(q.monto_usd))`) y dice «$1000»; las
+  cobradas y el estado de cuenta, «$1,000»; el asistente del link, «US$ 1.000» (`formatoMonto`). No se tocó.
+
+SIN HACER: la franja de logos de clientes con «Leer historia» y «Respaldado por» (MaKo no tiene ese contenido); los otros cinco casos del
+carrusel y sus puntos (hay uno); la «captura del comprobante» leída por la IA (necesita la IA del negocio: el banco no la dispara); el
+`tsc` acotado no se corrió (el diseño arrastra el registro entero, ver «/vsl/ads contra Master Ads»).

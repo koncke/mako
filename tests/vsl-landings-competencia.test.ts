@@ -312,3 +312,29 @@ test('Agenda: el hero turna dos pantallas reales, cada pestaña y cada tarjeta t
   const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
   assert.ok(scripts.some((x) => x.includes("'d-agenda-'") && x.includes('pastilla') && x.includes('prog')), 'sin su script');
 });
+
+test('Cobranza: el hero turna cuatro pantallas reales, cada pieza trae su grabación y el script mueve las secciones pegadas', async () => {
+  const { HERO_GRUPOS, PANTALLAS_PIEZAS, SDK_STRIPE, SDK_MP } = await import('../app/vsl/_competencia/disenos/cobranza');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'cobranza');
+  assert.ok(l, 'falta la landing de Cobranza');
+  const html = dibujar(l);
+  const piezas = l.bloques.find((b) => b.tipo === 'filas');
+  assert.ok(piezas && piezas.tipo === 'filas', 'Cobranza sin sus piezas');
+  assert.equal(PANTALLAS_PIEZAS.length, piezas.items.length, 'una grabación por pieza, en el orden de las piezas');
+  assert.equal(HERO_GRUPOS.length, 4, 'el hero de Rebill turna cuatro grupos');
+  const archivos = [...HERO_GRUPOS.flatMap((g) => [g.caja.src, g.chico.src]), ...PANTALLAS_PIEZAS.flatMap((g) => [g.video, g.poster]),
+    SDK_STRIPE.forma.src, SDK_STRIPE.codigo.src, SDK_MP.base.src, SDK_MP.tarjeta.src];
+  for (const f of archivos) {
+    assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+    assert.ok(html.includes(`"${f}"`), `${f} no se dibuja`);
+  }
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
+  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
+  assert.ok(scripts.some((x) => x.includes("'d-cobranza'") && x.includes('-int-slides') && x.includes('-sdk-centro') && x.includes('ck-g') && x.includes('faq-card')), 'sin su script');
+});
+
+// Agenda como iClosed (14/11/2026, noche): el hero son dos vistas grabadas que se turnan como su demo («CRM» y «WhatsApp»), cada pestaña
+// de «Mantén los mismos funnels» trae su grabación y su lista que se marca, cada tarjeta de «Todo lo que tu agenda…» su foto real, y el
+// script que mueve las líneas de tiempo va con data-visor (el visor borra los demás).
+// PROBADO ROMPIÉNDOLO (14/11/2026): `vincular.webm` → `vincularx.webm` en PANTALLA_DE_PESTANA → falla «falta public/…»; sin `puntos` en la
+// segunda pestaña → falla «sin su lista»; `data-visor` sacado del <script> → falla «sin su script».
