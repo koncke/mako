@@ -25,7 +25,7 @@
 // =============================================================================
 
 import type { OperacionDef, Gating, Parametro } from '../tipos';
-import { TOPES, DEGRADADOS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, FONDOS_TARJETA, VARIANTES_BOTON, TIPOS_CAMPO, TAMANOS_TEXTO } from '@/lib/editor-landing/doc';
+import { TOPES, DEGRADADOS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, FONDOS_TARJETA, VARIANTES_BOTON, TIPOS_CAMPO_API, TAMANOS_TEXTO } from '@/lib/editor-landing/doc';
 import { PROPORCIONES } from '@/lib/editor-landing/api-tipos';
 import { AL_VENCER, TOPES_VENTA } from '@/lib/editor-landing/bloques-venta';
 import { TOPES_QUIZ } from '@/lib/editor-landing/quiz';
@@ -356,7 +356,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
       {
         nombre: 'campos', rotulo: 'Campos', tipo: 'object[]', max: TOPES.camposFormulario, descripcion: 'En orden (reemplazan a los de hoy).',
         campos: [
-          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: TIPOS_CAMPO, descripcion: 'nombre, email y telefono, una vez cada uno.' },
+          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: TIPOS_CAMPO_API, descripcion: 'nombre, email y telefono, una vez cada uno.' },
           { nombre: 'etiqueta', tipo: 'string', max: 120, descripcion: 'Sin ella, la de su tipo.' },
           { nombre: 'requerido', tipo: 'boolean', descripcion: 'Obligatorio.' },
           { nombre: 'opciones', tipo: 'string[]', max: 12, descripcion: 'Sólo opciones: entre 2 y 12.' },

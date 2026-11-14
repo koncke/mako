@@ -99,7 +99,7 @@ test('3. qué hace: avisa con el QR en un paso, repite cada 3 h, cierra al volve
   const aviso = avisoDeSordera('avisar', 'mandó 2 mensajes a grupos en 30 min y no entró ninguno', 'mako_superadmin_muylqv8r');
   assert.doesNotMatch(aviso.cuerpo, /reinici[eé]/i, 'el aviso dice que la reinició');
   assert.match(aviso.cuerpo, /Un reinicio no la cura/);
-  assert.match(aviso.cuerpo, /«Conectar por QR»: como está marcada sorda, la desvincula sola y muestra el QR/);
+  assert.match(aviso.cuerpo, /«MaKo» → «Volver a vincular por QR»: como está marcada sorda, la desvincula sola y muestra el QR/);
   assert.match(aviso.cuerpo, /Baileys 7\.0\.0-rc\.9/);
 });
 

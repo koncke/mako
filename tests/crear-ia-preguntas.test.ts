@@ -333,7 +333,9 @@ test('la ruta: con la fila, el turno se anota al EMPEZAR y la pregunta, el resum
   assert.ok(turno > 0 && turno < RUTA.indexOf("if (modo === 'crear') {", turno), 'el turno no va al empezar');
   assert.match(RUTA, /if \(secuenciaId == null \|\| !lista\.length\) return;/);
   assert.match(RUTA, /const mensaje = mensajeDePregunta\(pregunta, 'app'\);\n\s*await anotar\(\[mensaje\]\);\n\s*send\(\{ t: 'pregunta', pregunta, mensaje \}\);/);
-  assert.match(RUTA, /crearFlujoConIA\(\{ ws, pedido: conAdjuntos\(pedido\), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/11/2026: con la fila, crear es un trabajo del servidor y lo corta la marca de «Cancelar»
+  // (`corte`), no la pestaña que se cierra (tests/flujo-ia-trabajo.test.ts). Sin la fila, `req.signal` como antes.
+  assert.match(RUTA, /crearFlujoConIA\(\{ ws, pedido: conAdjuntos\(pedido\), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: corte\?\.signal \?\? req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
   assert.match(RUTA, /const send = \(o: EventoIA \| EventoPreguntaIA\) =>/);
 });
 

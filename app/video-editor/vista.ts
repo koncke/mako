@@ -10,6 +10,7 @@
 import { plantillaGuiada } from '@/lib/video-plantillas';
 import { esFamiliaEdicion, type FamiliaEdicion } from '@/lib/video-outliers';
 import { recetaDe } from '@/lib/video-recetas';
+import { leerClaveDesarme } from '@/lib/video-desarmar';
 
 type Query = Record<string, string | string[] | undefined>;
 const primero = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -27,8 +28,22 @@ export function vistaDeVideo(q: Query): 'outliers' | 'crear' {
 
 /** ¿Se entra a la tab sin pedir nada? Entonces abre el EDITOR (el último proyecto o uno nuevo): ./VideoEditorCliente.tsx. */
 export function abreElEditor(q: Query): boolean {
-  return primero(q.ver) == null && primero(q.replicar) == null && primero(q.receta) == null;
+  return primero(q.ver) == null && primero(q.replicar) == null && primero(q.receta) == null && primero(q.desarme) == null;
 }
+
+/**
+ * El video DESARMADO que pidió «Abrir en el editor» (`?desarme=<red>.<id>`, ticket 97, ./Desarmar.tsx), validado con la forma de
+ * `claveDeDesarme`; null si no vino o no es una. Va por la entrada de la tab, como `?receta=`: la página de un proyecto lee SÓLO
+ * `desde`, `plantilla` y `propuesta` (tests/video-editor-integracion.test.ts, 2b). La plantilla la arma el server con lo que
+ * guardó el negocio (lib/video-desarmar-servidor.ts → `desarmadoParaElEditor`).
+ */
+export function desarmePedido(q: Query): string | null {
+  const c = leerClaveDesarme(primero(q.desarme));
+  return c ? `${c.red}.${c.id}` : null;
+}
+
+/** «Abrir en el editor» de un video desarmado: la plantilla «toca para reemplazar» en un proyecto nuevo. */
+export const rutaAbrirDesarme = (clave: string): string => `/video-editor?ver=crear&desarme=${encodeURIComponent(clave)}`;
 
 /** La receta que pidió «Replicar» de un reel (`?receta=`), validada contra lib/video-recetas.ts; null si no vino o no existe. */
 export function recetaPedida(q: Query): string | null {

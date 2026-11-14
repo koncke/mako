@@ -12,7 +12,7 @@
 
 import { useEffect, useState } from 'react';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { rotuloDeFormato, type OutlierCopy } from '@/lib/copywriter/outliers';
+import { idDeYouTube, rotuloDeFormato, type OutlierCopy } from '@/lib/copywriter/outliers';
 import { pedirOriginal } from './cliente';
 
 /** El aviso de «el original cambió» (lo transcribió MaKo): la columna lo vuelve a leer. */
@@ -22,10 +22,12 @@ export function avisarOriginalNuevo(outlier: string) {
 }
 
 /** Qué es el texto que se ve, en una línea. */
-export function queEsElTexto(o: Pick<OutlierCopy, 'deDonde' | 'formato'>): { transcrito: boolean; texto: string } {
-  if (o.deDonde === 'guion') return { transcrito: true, texto: 'Transcrito: lo que se dice' };
+export function queEsElTexto(o: Pick<OutlierCopy, 'deDonde' | 'formato'> & Partial<Pick<OutlierCopy, 'fuente' | 'url'>>): { transcrito: boolean; texto: string } {
+  // Lo que TRAJO la persona (lib/copywriter/pegado.ts): transcrito sólo si es su video de YouTube; si no, es lo que pegó o subió.
+  const traido = o.fuente === 'pegado';
+  if (o.deDonde === 'guion') return traido && !idDeYouTube(o.url) ? { transcrito: false, texto: 'Lo que trajiste' } : { transcrito: true, texto: 'Transcrito: lo que se dice' };
   const video = o.formato === 'reel' || o.formato === 'youtube';
-  const que = o.deDonde === 'pie' ? 'su pie' : o.deDonde === 'descripcion' ? 'su descripción' : 'su copy';
+  const que = o.deDonde === 'pie' ? 'su pie' : o.deDonde === 'descripcion' ? 'su descripción' : traido ? 'el texto de su página' : 'su copy';
   return { transcrito: false, texto: video ? `Sin transcripción: es ${que}, no lo que se dice` : `Es ${que}` };
 }
 
@@ -58,8 +60,10 @@ export function OriginalAlLado({ outlier, telefono = false }: { outlier: string;
           : (
             <>
               {o.gancho && o.deDonde !== 'guion' && !o.texto.startsWith(o.gancho.replace(/…$/, '')) ? <p className="nt-original-gancho">{o.gancho}</p> : null}
+              {o.nota ? <p className="nt-ejemplo-nota">{o.nota}</p> : null}
               <div className="nt-original">{o.texto}</div>
-              <a className="nt-miga" href={o.url} target={telefono ? undefined : '_blank'} rel="noopener noreferrer">{o.formato === 'anuncio' ? 'Ver el anuncio' : 'Ver el original'} ↗</a>
+              {/* Lo pegado o subido no tiene link (lib/copywriter/pegado.ts). */}
+              {o.url ? <a className="nt-miga" href={o.url} target={telefono ? undefined : '_blank'} rel="noopener noreferrer">{o.formato === 'anuncio' ? 'Ver el anuncio' : 'Ver el original'} ↗</a> : null}
             </>
           )}
     </aside>

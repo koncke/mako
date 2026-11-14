@@ -65,7 +65,7 @@ export const LANDING_CRM: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Potencia tu negocio con IA',
-      titulo: 'Tu CRM trackea tus leads de forma automática',
+      titulo: 'El CRM trackea tus leads de forma automática',
       bajada: 'Todas las herramientas que necesitas para captar, nutrir y cerrar leads nuevos y convertirlos en reuniones, ventas y cuotas cobradas, <strong>con tu CRM en el centro</strong>.',
       visual: { tipo: 'detalle', slug: 'crm' },
     },

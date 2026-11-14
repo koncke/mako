@@ -26,7 +26,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { limitePorIp } from '@/lib/limite-publico';
-import { respuestasDelOptin } from '@/lib/optin-respuestas';
+import { respuestasDelOptin, respuestasGuardadas, type RespuestaOptin } from '@/lib/optin-respuestas';
 import { emitirDelCatalogo } from '@/lib/avisos';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import { crearPropuesta } from '@/lib/propuestas';
@@ -34,7 +34,11 @@ import { LANDING_SERVICIO } from '@/lib/landing-token';
 import { wsPorIdentificadorEstricto } from '@/lib/webhook-routing';
 import { anotarFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { conReintentoTransitorio } from '@/lib/webhook-ruteo-huella';
-import { createLead, duplicadosDeLead } from '@/lib/leads';
+import { createLead, duplicadosDeLead, logLeadEvent } from '@/lib/leads';
+import { porMotivo } from '@/lib/leads-duplicados';
+import { crmsDelOptin } from '@/lib/piezas-web';
+import { anotarEnvio } from '@/lib/lead-formularios';
+import { claveDeFormulario, claveDeLanding, idDeFormularioPixel, paginaDePixel } from '@/lib/editor-landing/piezas';
 import { conAtribucion, hayAtribucion } from '@/lib/atribucion-url';
 import { getFunnelDefault, idDelFunnelDefault } from '@/lib/funnels';
 import { agregarAProducto } from '@/lib/lead-funnel';
@@ -92,6 +96,61 @@ const urlTxt = (v: unknown): string | null => {
 };
 
 const ok = (extra: Record<string, unknown>) => NextResponse.json({ ok: true, ...extra }, { headers: CORS });
+
+/** Qué formulario se llenó (Pixel v29, lib/editor-landing/piezas.ts): su id, su nombre y la página de MaKo. Todo puede faltar. */
+type EnvioDelPixel = {
+  formularioId: string | null;
+  formularioNombre: string | null;
+  pagina: { docId: number; paginaId: string } | null;
+  origen: 'formulario' | 'agenda' | 'quiz';
+};
+
+/** Las dos respuestas juntas: las nuevas pisan las de la misma pregunta, y las demás quedan (hasta 20). */
+function respuestasJuntas(antes: RespuestaOptin[], nuevas: RespuestaOptin[]): RespuestaOptin[] {
+  const out = antes.filter((a) => !nuevas.some((n) => n.pregunta === a.pregunta));
+  return [...out, ...nuevas].slice(-20);
+}
+
+/**
+ * LO QUE PASA DESPUÉS DE QUE UN LEAD LLENA UN FORMULARIO, sea nuevo o ya estuviera (14/11/2026, llamada con Julio, puntos 5,
+ * 5b y 6): el renglón del envío (`lead_formularios`, mig 0415; sin la tabla se anota y sigue), la línea de su historial
+ * («Envió el formulario «Regalo»», `lead_audit`) y el evento «Envió el formulario» de Automations, EN EL ACTO. Nunca tira: el
+ * lead ya está, y lo que falte acá queda en el log.
+ */
+async function trasElEnvio(ws: number, leadId: number, e: EnvioDelPixel, respuestas: RespuestaOptin[], pagina: string | null, funnels: Array<number | null> | null): Promise<void> {
+  const nombre = e.formularioNombre ?? (e.origen === 'agenda' ? 'la agenda' : null);
+  await runWithWorkspace(ws, async () => {
+    await anotarEnvio(leadId, {
+      formularioId: e.formularioId, formularioNombre: e.formularioNombre, landingDocId: e.pagina?.docId ?? null,
+      paginaId: e.pagina?.paginaId ?? null, pagina, origen: e.origen, respuestas, funnels,
+    });
+    if (nombre) await logLeadEvent(leadId, 'Formulario', e.origen === 'agenda' ? `Agendó en ${nombre}` : `Envió el formulario «${nombre}»`, AUTOR_SISTEMA);
+    if (e.formularioId) {
+      try {
+        const { enrolarPorEvento } = await import('@/lib/nutricion');
+        await enrolarPorEvento(leadId, 'formulario', {
+          formulario: claveDeFormulario(e.formularioId),
+          landing: e.pagina ? claveDeLanding(e.pagina.docId) : null,
+        });
+      } catch (err) {
+        console.error(`[track:optin] ws=${ws} lead=${leadId} el evento «Envió el formulario» falló:`, err instanceof Error ? err.message : err);
+      }
+    }
+  }).catch((err) => console.error(`[track:optin] ws=${ws} lead=${leadId} después del envío:`, err instanceof Error ? err.message : err));
+}
+
+/** Las automatizaciones de la etapa en la que entró a cada CRM agregado, en el acto (no en el barrido de la hora). */
+async function enrolarEnAgregados(ws: number, leadId: number, agregados: Array<{ funnelId: number; etapa: string | null }>): Promise<void> {
+  if (!agregados.length) return;
+  await runWithWorkspace(ws, async () => {
+    const { enrolarPorEvento } = await import('@/lib/nutricion');
+    for (const a of agregados) {
+      if (!a.etapa) continue;
+      await enrolarPorEvento(leadId, 'etapa', { etapa: a.etapa, funnelId: a.funnelId, agregado: true })
+        .catch((err) => console.error(`[track:optin] ws=${ws} lead=${leadId} no entró a las automatizaciones del CRM ${a.funnelId}:`, err instanceof Error ? err.message : err));
+    }
+  }).catch(() => {});
+}
 
 export async function POST(req: NextRequest) {
   // El tope por IP (lib/limite-publico.ts): un flood desde una IP le llenaba el CRM de basura a un
@@ -280,6 +339,15 @@ export async function POST(req: NextRequest) {
   // Y las MISMAS respuestas quedan en el lead (mig 0274, 14/10/2026), por los DOS caminos:
   // el alta directa y la propuesta. El Resumen de la ficha las muestra.
   const respuestasOptin = respuestasDelOptin(body.respuestas);
+  // QUÉ formulario (Pixel v29): el id y el nombre del <form> del Web Generator, y su página de MaKo. Una página de afuera no los
+  // trae y todo sigue como antes (la URL).
+  const origenCaptura = txt(body.origen_captura);
+  const envio: EnvioDelPixel = {
+    formularioId: idDeFormularioPixel(body.formulario_id),
+    formularioNombre: txt(body.formulario_nombre)?.slice(0, 120) ?? null,
+    pagina: paginaDePixel(body.pagina_id),
+    origen: origenCaptura === 'agenda' ? 'agenda' : 'formulario',
+  };
   const filasForm = ((): Array<readonly [string, string]> => {
     const r = body.respuestas;
     if (!r || typeof r !== 'object' || Array.isArray(r)) return [];
@@ -307,6 +375,11 @@ export async function POST(req: NextRequest) {
   // token que asignar, y colgarlo de ahi seria decir «todas mis landings venden
   // lo mismo». La pagina si distingue, y esa tabla ya existe POR PAGINA desde que
   // `clarityProjectId` necesito lo mismo (lib/landing-config.ts).
+  // ⚠️ EL FORMULARIO ASIGNADO GANA (14/11/2026, «Asignar fuentes» del CRM, lib/editor-landing/piezas.ts): es lo más preciso
+  // que hay —QUÉ formulario se llenó—, más que la campaña que trajo a la persona y más que la URL. Después, como siempre: la
+  // campaña de Meta asignada, y la URL declarada en /integraciones.
+  const porPieza = await runWithWorkspace(ws, () => crmsDelOptin({ formularioId: envio.formularioId, pagina: envio.pagina, origen: envio.origen }))
+    .catch(() => null);
   const funnelesDeLaLanding = await funnelsDeLanding(ws, paginaOptin);
   // ── Y LA CAMPAÑA, que MANDA cuando está asignada (05/10/2026) ──────────────
   // Pedido de Martín: «si asigno a un producto una campaña que va a Landing 1… eso
@@ -331,9 +404,49 @@ export async function POST(req: NextRequest) {
   // ⚠️ CUANDO MANDA LA CAMPAÑA, MANDA ENTERA: su casa primero y sus otros funnels (#893,
   // `otros`, con el id real que el bucle de abajo agrega tal cual). La landing con tres
   // productos no la amplía: decir a qué funnels van sus leads es lo que hace la campaña.
-  const funnelesDelLead: Array<number | null> = porCampana.asignada ? [porCampana.funnelId, ...porCampana.otros] : funnelesDeLaLanding;
+  const funnelesDelLead: Array<number | null> = porPieza ? porPieza.funnels : porCampana.asignada ? [porCampana.funnelId, ...porCampana.otros] : funnelesDeLaLanding;
+  const paginaGuardable = txt(typeof body.pagina === 'string' ? urlDeEntradaGuardable(body.pagina) : null);
 
   const dup = await runWithWorkspace(ws, () => duplicadosDeLead({ nombre, email, telefono })).catch(() => []);
+
+  // ⚠️ EL MISMO CONTACTO QUE LLENA OTRO FORMULARIO (14/11/2026, llamada con Julio, punto 5b: «landing regalo y después landing
+  // agenda»). Con el email o el teléfono IGUALES a los de UN solo lead, es esa persona: se suma a los CRM de este formulario
+  // (en su etapa de entrada, como el camino de los extras), se guardan las respuestas nuevas, queda en su historial y dispara
+  // «Envió el formulario». Hasta acá quedaba como propuesta a revisar y no entraba al segundo CRM ni a su secuencia hasta que
+  // alguien la confirmara. Un parecido por nombre, o dos leads distintos con ese dato, siguen como propuesta.
+  const exactos = [...new Set([...porMotivo(dup, 'email'), ...porMotivo(dup, 'telefono')].map((c) => c.lead.id))];
+  if (exactos.length === 1) {
+    const leadId = Number(exactos[0]);
+    try {
+      const defaultId = await runWithWorkspace(ws, () => idDelFunnelDefault()).catch(() => null);
+      const agregados: Array<{ funnelId: number; etapa: string | null }> = [];
+      for (const f of funnelesDelLead) {
+        const real = casaReal(f, defaultId);
+        if (real == null) continue;
+        try {
+          const r = await runWithWorkspace(ws, () => agregarAProducto(leadId, real, { autor: AUTOR_SISTEMA }));
+          if (r.agregado) agregados.push({ funnelId: real, etapa: r.etapa });
+        } catch (e) {
+          console.error(`[track:optin] ws=${ws} lead=${leadId} (ya existía) no pudo entrar al CRM ${real}:`, e instanceof Error ? e.message : e);
+        }
+      }
+      if (respuestasOptin.length) {
+        await runWithWorkspace(ws, async () => {
+          const db = await getTenantDb();
+          const { data } = await db.from('leads').select('optin_respuestas').eq('id', leadId).maybeSingle();
+          const juntas = respuestasJuntas(respuestasGuardadas((data as { optin_respuestas?: unknown } | null)?.optin_respuestas), respuestasOptin);
+          const { error } = await db.from('leads').update({ optin_respuestas: juntas }).eq('id', leadId);
+          if (error) console.error(`[track:optin] ws=${ws} lead=${leadId} no se guardaron las respuestas nuevas: ${error.message}`);
+        }).catch(() => {});
+      }
+      await trasElEnvio(ws, leadId, envio, respuestasOptin, paginaGuardable, funnelesDelLead);
+      await enrolarEnAgregados(ws, leadId, agregados);
+      console.log(`[track:optin] ws=${ws} lead=${leadId} ya existía: ${agregados.length ? `agregado a los CRM ${agregados.map((a) => a.funnelId).join(',')}` : 'ya estaba en sus CRM'}`);
+      return ok({ lead: leadId, creado: false, existente: true, ...(agregados.length ? { productos: agregados.map((a) => a.funnelId) } : {}) });
+    } catch (e) {
+      console.error('[track:optin] el contacto ya existía y no se pudo sumar, queda como propuesta:', e instanceof Error ? e.message : e);
+    }
+  }
 
   if (!dup.length) {
     try {
@@ -414,12 +527,14 @@ export async function POST(req: NextRequest) {
       // `tambien` junta IDS DE PRODUCTO (ya no de fichas): los que se agregaron de
       // verdad. Si ya estaba (`agregado: false`), no cuenta para el aviso.
       const tambien: number[] = [];
+      const agregados: Array<{ funnelId: number; etapa: string | null }> = [];
       for (const f of funnelesDelLead.slice(1)) {
         const real = casaReal(f, defaultId);
         try {
           if (real == null) throw new Error('no se pudo leer el id del producto del negocio');
           const r = await runWithWorkspace(ws, () => agregarAProducto(lead.id, real, { autor: AUTOR_SISTEMA }));
           if (r.agregado) tambien.push(real);
+          if (r.agregado) agregados.push({ funnelId: real, etapa: r.etapa });
         } catch (e) {
           console.error(`[track:optin] ws=${ws} lead=${lead.id} no pudo entrar al producto ${f ?? 'del negocio'}:`, e instanceof Error ? e.message : e);
         }
@@ -446,7 +561,15 @@ export async function POST(req: NextRequest) {
           }),
         }),
       ).catch((e) => console.error('[track:optin] el lead entró pero el aviso falló:', e instanceof Error ? e.message : e));
-      console.log(`[track:optin] ws=${ws} lead=${lead.id} creado directo${tambien.length ? ` (+ agregado a los productos ${tambien.join(',')})` : ''}`);
+      // El envío, el historial, «Envió el formulario» y las automatizaciones de la etapa en la que nace, EN EL ACTO (14/11/2026):
+      // hasta acá entraba a su secuencia recién con el barrido de la hora (relevo de la llamada con Julio, punto 5).
+      await trasElEnvio(ws, lead.id, envio, respuestasOptin, paginaGuardable, funnelesDelLead);
+      await runWithWorkspace(ws, async () => {
+        const { enrolarPorEvento } = await import('@/lib/nutricion');
+        await enrolarPorEvento(lead.id, 'lead_nuevo');
+      }).catch((err) => console.error(`[track:optin] ws=${ws} lead=${lead.id} no entró en el acto a sus automatizaciones:`, err instanceof Error ? err.message : err));
+      await enrolarEnAgregados(ws, lead.id, agregados);
+      console.log(`[track:optin] ws=${ws} lead=${lead.id} creado directo${tambien.length ? ` (+ agregado a los productos ${tambien.join(',')})` : ''}${porPieza ? ` por la pieza ${porPieza.clave}` : ''}`);
       // `productos` son ids de PRODUCTO, no de fichas: la persona es UNA (`lead`).
       return ok({ lead: lead.id, creado: true, ...(tambien.length ? { productos: tambien } : {}) });
     } catch (e) {

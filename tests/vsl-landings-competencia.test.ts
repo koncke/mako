@@ -114,8 +114,21 @@ test('AI Avatar cuenta sus escenas, estilos y plantillas del código', () => {
   assert.ok(cifras && cifras.tipo === 'cifras', 'AI Avatar sin sus cifras');
   assert.deepEqual(cifras.items.slice(0, 3).map((c) => c.valor), [String(PLANTILLAS_AVATAR.length), String(CATEGORIAS.length), String(PLANTILLAS_VENTA_AVATAR.length)]);
   for (const p of PLANTILLAS_VENTA_AVATAR) assert.ok(html.includes(p.nombre), `falta la plantilla «${p.nombre}»`);
-  // Lo que todavía no hace se dice como tal (lib/funciones-mako.ts → noHace).
-  assert.match(textoVisible(html), /Todavía no\. El video habla con una voz generada/);
+});
+
+// Martín, 14/11/2026: «si vas a poner en otros lugares preguntas frecuentes, tienen que ser siempre las mismas que están en la landing
+// principal». Toda landing con preguntas muestra las de la portada (app/vsl/_sitio/preguntas.ts, puestas por el registro).
+test('las preguntas de cada landing son las de la portada', async () => {
+  const { PREGUNTAS_SITIO } = await import('../app/vsl/_sitio/preguntas');
+  let con = 0;
+  for (const l of LANDINGS_COMPETENCIA) {
+    for (const b of l.bloques) {
+      if (b.tipo !== 'preguntas') continue;
+      con++;
+      assert.deepEqual(b.items.map((q) => q.p), PREGUNTAS_SITIO.map((q) => q.p), `${l.slug}: otras preguntas`);
+    }
+  }
+  assert.ok(con >= 10, `sólo ${con} landings con preguntas: el barrido no está mirando`);
 });
 
 test('el hero de AI Avatar muestra las imágenes reales de sus presets, no una silueta', () => {

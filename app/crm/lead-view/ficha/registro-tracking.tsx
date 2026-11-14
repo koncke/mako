@@ -20,7 +20,7 @@ function parte(partes: (p: PropsBloque) => PartesComportamiento) {
     const { visitas, vslEng } = data;
     return (
       <ComportamientoCard visitas={visitas.total_visitas} dias={visitas.dias_distintos} plays={vslEng.plays} maxPct={vslEng.sin_datos ? null : vslEng.max_pct}
-        tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={data.videos} eventos={data.tracking} pixelPuesto={data.pixelPuesto} replay={data.replay}
+        tieneVisitor={!!lead.visitor_id} porVideo={vslEng.porVideo} videos={data.videos} eventos={data.tracking} pixelPuesto={data.pixelPuesto} sinTracking={data.sinTracking} replay={data.replay}
         partes={partes(p)} rotulo={p.def.id === 'visitas' ? 'Comportamiento' : p.titulo} />
     );
   };

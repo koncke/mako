@@ -168,6 +168,18 @@ const MONTADOS = new Map<string, Map<object, (f: FinIA) => void>>();
 export const hayTrabajo = (clave: string): boolean => TRABAJOS.has(clave);
 
 /**
+ * «CANCELAR» EN EL SERVIDOR (14/11/2026, la llamada con Julio): crear sobre la fila es un trabajo del servidor que la
+ * pestaña que se cierra ya no corta (app/api/chat-agent/secuencias/ia/route.ts). Cancelar corta el pedido Y deja la marca
+ * que el trabajo mira (`modo: 'cancelar'`). Vive acá, con el único POST del stream: el chat no hace POST propios.
+ */
+export function cancelarEnElServidor(secuenciaId: number): void {
+  void fetch(RUTA_IA, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+    body: JSON.stringify({ modo: 'cancelar', secuenciaId }),
+  }).catch(() => { /* sin la marca, el trabajo termina y lo dice el chat */ });
+}
+
+/**
  * A QUIÉN LE TOCA EL FIN de un turno: al que lo largó si sigue montado; si no, a OTRA instancia de la misma clave (la
  * persona volvió a la automatización); si no, a nadie (se fue: guarda y avisa quien lo largó, con `siNadieMira`). Pura.
  */

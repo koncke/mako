@@ -42,7 +42,7 @@ export type IdBloque =
   // Herramientas de MaKo
   | 'agenda' | 'vsl' | 'pago' | 'cuenta-regresiva' | 'prueba-social' | 'escasez' | 'quiz'
   // Formularios y botones
-  | 'boton' | 'botones-2' | 'formulario' | 'etiqueta'
+  | 'boton' | 'botones-2' | 'formulario' | 'encuesta' | 'etiqueta'
   // Imágenes
   | 'imagen' | 'imagen-buscar' | 'imagen-url'
   // Videos y multimedia
@@ -132,6 +132,9 @@ export const BLOQUES: readonly DefBloque[] = [
   { id: 'boton', nombre: 'Botón', categoria: 'Formularios y botones', ayuda: 'Lleva a un link, a una sección o a tu agenda', buscar: ['button', 'cta', 'boton'], icono: 'boton' },
   { id: 'botones-2', nombre: '2 botones', categoria: 'Formularios y botones', ayuda: 'Un botón principal y uno secundario', buscar: ['buttons', 'cta'], icono: 'botones' },
   { id: 'formulario', nombre: 'Formulario', categoria: 'Formularios y botones', ayuda: 'Los datos entran a tu CRM', buscar: ['form', 'captura', 'lead', 'registro', 'datos'], icono: 'formulario' },
+  // La encuesta (14/11/2026, llamada con Julio: «necesito formularios, encuestas y quiz»): un formulario armado como preguntas
+  // (opción única, varias, escala del 1 al 10 y texto), sin puntaje. Pide el contacto como el quiz y entra al CRM con las respuestas.
+  { id: 'encuesta', nombre: 'Encuesta', categoria: 'Formularios y botones', ayuda: 'Preguntas sin puntaje; las respuestas entran a tu CRM', buscar: ['encuesta', 'survey', 'preguntas', 'opinion', 'satisfaccion', 'nps', 'escala', 'feedback'], icono: 'portapapeles' },
   { id: 'etiqueta', nombre: 'Etiqueta', categoria: 'Formularios y botones', ayuda: 'Una píldora: «Más vendido», «Oferta»', buscar: ['label', 'pill', 'badge', 'tag'], icono: 'etiqueta' },
 
   // ── Imágenes ────────────────────────────────────────────────────────────────

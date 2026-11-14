@@ -84,7 +84,9 @@ test('un pedido cancelado no escribe nada: se mira la señal ANTES de crear etiq
   const c = CORE.indexOf('await deps.insertar(');
   const d = CORE.indexOf('await deps.guardarPasos(');
   assert.ok(a > 0 && b > a && c > b && d > c, `crear: señal ${a} · etiquetas ${b} · fila ${c} · guardar ${d}`);
-  assert.match(RUTA_SOLA, /crearFlujoConIA\(\{ ws, pedido: conAdjuntos\(pedido\), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
+  // ⚠️ CAMBIADO A PROPÓSITO EL 14/11/2026: la señal de crear con la fila es la de la marca de «Cancelar» (`corte`), no la de
+  // la pestaña: cerrarla ya no corta el trabajo (tests/flujo-ia-trabajo.test.ts). Sigue siendo una señal, y antes de escribir.
+  assert.match(RUTA_SOLA, /crearFlujoConIA\(\{ ws, pedido: conAdjuntos\(pedido\), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: corte\?\.signal \?\? req\.signal, alFase: send, respuestas, historial, via: 'app' \}\)/);
 });
 
 // rotura 4 (crear sin exigir la vacía): 1 fallo.

@@ -41,7 +41,7 @@ import { valoresVariablesLead } from '@/lib/template-vars';
 import { valoresDeVariables } from '@/lib/variables-resolver';
 import { textoConDatosParaEquipo } from '@/lib/variables-del-lead';
 import { prepararDisparadores, guardarDisparadores, publicarCrons } from '@/lib/disparadores-guardar';
-import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, conPalabras, conPublicacion, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, conPalabras, conPublicacion, TRIGGER_SOLO_GRUPO, TRIGGER_FORMULARIO, textoDeFormulario, type Disparador } from '@/lib/disparadores';
 import { textoDePalabras } from '@/lib/palabras-clave';
 import { buscarPublicacion, esLinkDePublicacion, textoDePublicacion } from '@/lib/publicacion-cron';
 import { textoCron } from '@/lib/cron-aviso';
@@ -62,6 +62,8 @@ import {
   plantillasPara, plantillaPorId, canalesDe, eleccionEnPalabras, CANALES_PLANTILLA, OBJETIVOS_PLANTILLA, type PlantillaAutomatizacion,
 } from '@/lib/plantillas-automatizaciones';
 import { crearDesdePlantilla, motivoDePlantillaVieja, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
+import { landingsConPiezas } from '@/lib/piezas-web';
+import { piezaPorTexto } from '@/lib/editor-landing/piezas';
 import { esWsPlataforma } from './integraciones.helpers';
 import { listarEtiquetas } from '@/lib/etiquetas';
 import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@/lib/flujo-ia-crear';
@@ -933,6 +935,44 @@ export const RUNNERS: Runners = {
   },
 
   // Crear desde la galería (undécima tanda; la def explica el porqué de cada decisión).
+  arrancar_con_formulario: {
+    preparar: async (input, ctx) => {
+      if (desdeUnFlujo(ctx)) return { error: 'Una automatización no puede crear automatizaciones: pídeselo a MaKo por el grupo o en Automations.' };
+      const id = str(input, 'plantilla');
+      const p = plantillaPorId(id);
+      if (!p) return { error: `${motivoDePlantillaVieja(id) ?? 'Esa plantilla no existe.'} Pide el id con listar_plantillas_automatizaciones.` };
+      if (p.soloPlataforma && !(await esWsPlataforma(ctx.ws))) return { error: 'Esa plantilla es de SuperAdmin.' };
+      const pieza = piezaPorTexto(await landingsConPiezas(), str(input, 'formulario'), { conLanding: true, tipos: ['formulario', 'encuesta', 'quiz'] });
+      if (!pieza.ok) return { error: pieza.opciones.length ? `${pieza.motivo} Puede ser: ${pieza.opciones.join(' · ')}.` : pieza.motivo };
+      const cron = { clave: pieza.clave, nombre: pieza.nombre };
+      return { payload: { plantilla: p.id, pieza: cron }, resumen: `Crear «${p.nombre}» desde la galería, pausada, que arranca cuando ${textoDeFormulario(cron).replace(/^Envió/, 'alguien envía')}` };
+    },
+    ejecutar: async (payload, ctx) => {
+      try {
+        const r = await crearDesdePlantilla(payload.plantilla, {
+          db: (await getTenantDb()) as unknown as DbPlantilla,
+          setPasos: setSecuenciaPasos,
+          setDisparadores: guardarDisparadores,
+          motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
+          setConfig: guardarConfigAutomatizacion,
+          plataforma: await esWsPlataforma(ctx.ws),
+        }, {});
+        // El CRON del formulario, en el lugar del de la plantilla (el primero, el principal). Por `publicarCrons`, como toda
+        // persona (tests/automations-activar-todos-los-caminos.test.ts): nace pausada, así que no hay duplicada que preguntar.
+        await publicarCrons(r.id, [{ id: 'd1', trigger_tipo: TRIGGER_FORMULARIO, pieza: payload.pieza }]);
+        const link = linkApp(`/automations?sec=${r.id}`, ctx.ws);
+        return {
+          ok: true,
+          resumen: `Automatización «${r.nombre}» creada (#${r.id}), pausada, que arranca con ${textoDeFormulario(payload.pieza as { clave: string; nombre: string }).replace(/^Envió /, '')}.`,
+          datos: { secuenciaId: r.id, link },
+          paraLaPersona: `🧩 «${r.nombre}» quedó pausada y arranca cuando alguien envía ${String((payload.pieza as { nombre?: string }).nombre ?? 'el formulario')}. Ábrela y actívala 👉 ${link}`,
+        };
+      } catch (e) {
+        if (e instanceof PlantillaInvalidaError || e instanceof PasosInvalidosError || e instanceof TriggerInvalidoError) return { ok: false, resumen: e.message };
+        throw e;
+      }
+    },
+  },
   crear_automatizacion_desde_plantilla: {
     preparar: async (input, ctx) => {
       if (desdeUnFlujo(ctx)) return { error: 'Una automatización no puede crear automatizaciones: pídeselo a MaKo por el grupo o en Automations.' };
@@ -1507,6 +1547,14 @@ export const RUNNERS: Runners = {
         partes,
       });
       const r = await emitirAviso({ ws: ctx.ws, ...aviso });
+      // Y AL SETTER DE ESE LEAD (14/11/2026, la llamada con Julio): el aviso de una automatización sobre un lead —«Sólo te
+      // avisa» y el hand-off de «Otra cosa» del AI Step salen por acá— le llega también a la persona que lo sigue, con un
+      // push a su teléfono y un WhatsApp por la puerta de MaKo (lib/aviso-al-setter.ts). El del grupo no cambia. No tira.
+      if (lead && desdeUnFlujo(ctx)) {
+        const { avisarAlSetterDelLead } = await import('@/lib/aviso-al-setter');
+        const que = partes ? textoDePreparadas(partes) : mensaje;
+        await avisarAlSetterDelLead(ctx.ws, lead.id, respuesta ? `${que}\n\n«${respuesta.slice(0, 400)}»` : que);
+      }
       // Si salió por email lo dice el aviso armado (`asuntoEmail`), no una copia de su condición.
       return resultadoDelAviso(r, lead, aviso.asuntoEmail !== undefined);
     },

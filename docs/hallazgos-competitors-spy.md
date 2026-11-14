@@ -24,6 +24,17 @@ de más, y manda a arreglar algo que estaba bien.**
   puras convierte antes `vistas`, `megusta`, `comentarios` (y los ids) con `Number(…)`.
 - Con los números bien, seguir sólo a Federico Cristofari da **11.209** vistas (la mediana de sus últimos 20 reels); sumar a Víctor
   Heras lo sube a 81.257. Es el número de la animación del CoPilot en la portada.
+## De un carrusel, Spy guarda sólo la PORTADA: lo que lo lee mira una lámina (14/11/2026, ticket 97)
+
+- **Síntoma:** al desarmar un carrusel de 6 láminas de @den.borgg (pieza 943, ws 9), la IA vio una sola imagen.
+- **Causa:** `spy_piezas` no tiene las láminas. `laminas_imagenes` es una columna de `carruseles_biblioteca_piezas` (mig 0404,
+  la biblioteca de ejemplos). Medido en producción: `spy_piezas` sólo tiene `laminas` (cuántas). `imagenesDe`
+  (lib/carruseles/explorar.ts) cae a la miniatura sin avisar. La réplica de Image («Editar» un carrusel de Spy) tiene el mismo
+  límite.
+- **Regla:** lo que mira un carrusel de Spy dice cuántas láminas vio de cuántas tiene. El desarme lo hace en
+  `lib/imagen-desarmar-servidor.ts`: «Sólo vi la portada de 6: Competitors Spy no guarda las demás».
+- **Sin hacer:** guardar las láminas al leer la publicación. Apify las trae en `childPosts`/`images` (`imagenesDeLaminas`,
+  lib/instagram-perfil.ts), pero las URLs del CDN vencen: habría que copiarlas al bucket, como la miniatura.
 
 ## Después de `irA(null)` no sale NINGÚN pedido: lo que tiene que llegar al server, va antes (11/11/2026)
 
@@ -2398,3 +2409,73 @@ moverlos de lugar: es que lleguen.
 - **Sarah Tran (37):** no tiene canal. El único que coincide con su nombre es de otra persona.
 - **Andrea Cano (48):** Canva la dibujó aniñada. La cola lo vuelve a intentar sola al día siguiente.
 - **Los 17 gurús sin canal:** se les puede sumar el suyo desde «Agregar un canal», verificando primero el @.
+
+## La clave de Apify rechazada se dice, con su botón (14/11/2026, la llamada con Julio)
+
+**Vive en:** `lib/spy-todo-reglas.ts` (`rechazoLaClave`, `videoDeLaRespuesta`), `lib/spy-transcripcion.ts` (`hayQueTranscribir`, `vistaDeGuion`, `ESPERA_CLAVE_RECHAZADA_MS`), `lib/spy-cadena.ts` y `lib/spy-otras-redes.ts` (`CLAVE_RECHAZADA`, de `lib/spy-google-corrida.ts`), `app/competitor-spy/DetallePieza.tsx` (`BloqueGuion`) y `app/competitor-spy/OtrasRedes.tsx`. Test: `tests/spy-clave-rechazada.test.ts`.
+
+**El síntoma:** en la demo, el guion de un reel decía «No pude traer el video de Instagram». Parecía un problema de Instagram o del reel, pero era la clave de Apify de Spy, que daba 401 desde el 13/11. Cualquier respuesta que no fuera 2xx terminaba en el mismo motivo, `'fallo'`. Al buscar las otras redes pasaba lo mismo: `googlear` devolvía null y la ficha no decía nada (es lo que Martín pidió el 4/11). El Instagram de Andrea Cano no apareció, y nada decía por qué.
+
+**⚠️ La trampa que dejaba el botón sin efecto:** un fallo bloquea el reintento un día (`ESPERA_TRAS_FALLO_MS`), y una semana después de 3 seguidos. Con sólo cambiar el texto, arreglar la clave con el botón no alcanzaba: `onConectado` volvía a pedir el guion, se encontraba con la espera, y el reel seguía con «rechazó tu clave» hasta el día siguiente. Por eso la clave rechazada no suma a `fallos`:
+- se guarda la HUELLA de la clave rechazada (`claveRechazada`);
+- el guion se vuelve a pedir en cuanto esa huella ya no está entre las del negocio (la ruta pasa `huellasDeSpy`);
+- con la misma clave, se espera una hora. La espera hace falta porque cada pedido gasta uno del tope del día (`TRANSCRIPCIONES_POR_DIA`), aunque Apify conteste 401.
+
+**⚠️ `reintentarEn` ya no quiere decir sólo «pendiente».** La clave rechazada también lo usa. En `vistaDeGuion`, la rama de la clave va ANTES que la de `NOTA_PENDIENTE`. Al revés, la pantalla dice «Lo transcribo más tarde».
+
+**Sus otras redes:** con un 401 o un 403, `googlear` devuelve `CLAVE_RECHAZADA`, tanto al empezar la corrida como al retomarla. Los perfiles también, cuando alguno vuelve con `sin-permiso`: en `leerPerfilesEnLote` ese motivo sale sólo del 401/403 de Apify. La cadena lo lleva hasta el final:
+- si no encontró nada, devuelve `{ ok: false, error, clave: 'rechazada' }`;
+- si encontró algo, devuelve lo encontrado y además `clave: 'rechazada'`.
+
+La ficha muestra UNA línea con «Revisar la clave». Es la única excepción al «sin texto» del 4/11: cualquier otro «no pude» sigue sin decir nada. El botón llega como prop (`botonClave`), así `OtrasRedes` se puede dibujar en el test sin el router de Next.
+
+**Sin hacer** (del relevo de la llamada, docs/relevo/llamada-julio-13-11.md):
+- el «no pudo» del guion no tiene «Volver a intentar» ni «Reportar a Soporte»;
+- la clave de Apify de producción sigue rechazada: hay que cargar una válida, y eso es un dato, no código.
+
+## La pestaña «Anuncios», como Spyder de Foreplay (14/11/2026, pedido de Martín por el chat de landings)
+
+**Vive en:** `lib/spy-anuncios-ficha.ts` (las cuentas, puras), `app/competitor-spy/AnunciosSpy.tsx` (la pestaña, que se usa igual en la computadora y en el bloque «Sus anuncios» del teléfono). Test: `tests/spy-anuncios-ficha.test.ts`. El plan entero de Foreplay para Spy (6 fases, anuncios primero) está en las notas del Cerebro: `foreplay-relevo/plan-spy.md`. El relevamiento de Foreplay, en `foreplay-relevo/funciones.md`.
+
+**El pedido:** «darle mucha prioridad al tema de anuncios, que nosotros no le estamos dando casi nada». Ésta es la fase 1 del plan: lo que Spyder muestra de una marca, armado con lo que Spy YA guardó de cada anuncio. No usa Apify ni IA:
+- cuántos siguen activos y en qué formato;
+- a dónde mandan;
+- «Tests creativos»: los lanzados el mismo día, con «Ganador» cuando de la tanda queda uno solo activo;
+- la línea de tiempo.
+
+**⚠️ Choca con una decisión del 4/11, y así se resolvió:** Martín había juntado seis pestañas en dos porque «partían lo mismo en seis lugares», y los anuncios quedaron en «Contenido». «Anuncios» vuelve como pestaña pero NO repite la grilla: muestra lo que la grilla no dice (cuánto corrió cada uno, qué se lanzó junto, qué quedó vivo). Cada miniatura abre el mismo detalle de siempre.
+
+**Medido en producción el 14/11 (sólo lectura):**
+- Spy tiene 318 anuncios: ws 9 262, ws 11 56.
+- Todos tienen su fecha de inicio y 236 tienen su destino.
+- Sólo **17 tienen formato**: `medio` es del 13/11 y los anteriores lo reciben en la próxima lectura.
+- No entra nada nuevo desde el 13/11, porque la clave de Apify está rechazada.
+
+**⚠️ «Activo» quiere decir activo LA ÚLTIMA VEZ QUE SE MIRÓ.** Los días al aire son los de la tarjeta (`tiempoDePieza`): uno activo cuenta hasta hoy. Con la última lectura del 4/11, un anuncio que se apagó el 6/11 sigue sumando días. Por eso la pestaña abre con «Actualizado hace X» (la última `visto_ultima_vez`), igual que el «Updated 16h Ago» de Spyder. No se cuenta hasta la última lectura: la tarjeta y la pestaña dirían dos números distintos del mismo anuncio.
+
+**Las reglas que quedaron:**
+- **El % del formato es sobre los que TIENEN formato.** Un anuncio sin formato no cuenta como ninguno; con sólo 3 de 21 conocidos, el % sobre 21 inventaba un reparto.
+- **«A dónde mandan» junta la página sin la consulta.** Cada utm y cada `fbclid` hacen distinta la URL: sin sacarlos, una sola landing salía partida en diez filas de 1.
+- **El día de una tanda sale tal cual de `publicada_en`.** La Biblioteca da el día sin la hora, y se guarda a la medianoche del Pacífico (07:00 u 08:00 UTC), que en UTC sigue siendo ese día. Si otra fuente guardara la hora local, la tanda se partiría en dos.
+- **«Ganador» sólo cuando de la tanda queda UNO activo**, como en Foreplay. Si quedan varios, el test sigue; si no queda ninguno, no se sabe cuál ganó.
+
+**Sin hacer** (las fases 2 a 6 de `foreplay-relevo/plan-spy.md`):
+- la caja «Hooks» de Spyder: necesita transcribir los anuncios en video, y hoy eso lo pide sólo Copywriting al replicar;
+- «Winning Ads» (el ranking breakout/evergreen) y el «Ad Changelog»;
+- el buscador de la Biblioteca, que necesita la clave;
+- los guardados en tableros;
+- los avisos y el guardado por WhatsApp;
+- la transcripción con sub-pestañas;
+- las historias de Instagram, que primero necesitan una decisión de Martín.
+
+## La ficha de una pieza trae el estilo de lo que dibuja: el teléfono no carga la hoja de SpyApp (14/11/2026)
+
+**Síntoma (visto en producción, en las capturas para el Cerebro):** en el teléfono, el guion de un reel con la clave de Apify rechazada decía bien el aviso, pero «Revisar la clave» salía como TEXTO SUELTO, sin forma de botón. En la computadora se veía bien. Les pasaba igual, desde antes, a «Conectar» y «Conectar GPT» del mismo bloque, y al aviso rojo de «Hacer uno así».
+
+**Causa:** la ficha (`app/competitor-spy/DetallePieza.tsx`) es la misma en los dos, y sus botones usaban `.spy-boton` y el error `.spy-aviso.spy-error`. Esas reglas viven en la hoja de `SpyApp.tsx`. En la computadora la ficha se abre dentro de SpyApp y las hereda; en el teléfono va en una `SheetM` de `app/m/competitor-spy/SpyM.tsx`, que NO carga esa hoja. Medido en la página: ninguna regla `.spy-boton` cargada, y el botón con fondo transparente, sin borde y sin relleno.
+
+**⚠️ El diagnóstico obvio era el equivocado:** «falta el botón en el teléfono» o «el estado no llega». El botón estaba y funcionaba (`data-conectar-integracion="apify-instagram"`); lo que faltaba era la hoja.
+
+**La regla que queda:** lo que la ficha pone en pantalla con una clase `spy-…` lleva su regla en la hoja de la ficha (`const CSS` de DetallePieza), con los mismos valores que SpyApp, para que en la computadora se vea igual. Los botones van acotados a `.spyd-nota .spy-boton`, no a `.spyd .spy-boton`: con una regla más ancha, un `spy-boton spy-boton-primario` dentro de la ficha perdería su fondo. Test: `tests/spy-ficha-estilos.test.ts`, que mira que cada clase `spy-…` de la ficha tenga su regla ahí.
+
+**Sin hacer:** `SuOferta` también usa `.spy-boton`, pero hoy no se monta en el teléfono (ver el comentario en `SpyM.tsx`). Si un día se monta, le pasa lo mismo.

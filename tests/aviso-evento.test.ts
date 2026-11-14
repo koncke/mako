@@ -150,8 +150,9 @@ test('el CRON: clase «mako», su texto es el label, no es un botón de la prime
   assert.equal(eventosDe('mako'), EVENTOS_MAKO);
   const t = textoDeDisparador(ev('reunion_pronto'), { deSiempre: () => 'NO' });
   assert.equal(t, 'Falta media hora para una reunión');
-  // Siete desde el 11/10/2026 («Pagos», botón propio por decisión de Martín); `mako` sigue sin ser un botón.
-  assert.deepEqual(CLASES_DISPARADOR.map((c) => c.clase), ['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email', 'pagos'], 'mako no es un botón de la primera pantalla');
+  // Siete desde el 11/10/2026 («Pagos», botón propio por decisión de Martín) y ocho desde el 14/11/2026 («Formulario», la llamada
+  // con Julio); `mako` sigue sin ser un botón.
+  assert.deepEqual(CLASES_DISPARADOR.map((c) => c.clase), ['producto', 'recurrente', 'etiqueta', 'instagram', 'messenger', 'email', 'pagos', 'formulario'], 'mako no es un botón de la primera pantalla');
   assert.equal(barreElDisparador(ev('lead_contesta')), false, 'el barrido horario le mandaría un aviso por cada lead');
   // El evento vive en la lista guardada; el primero de las columnas lo hereda (mismo trigger_tipo).
   assert.equal(disparadoresDe({ trigger_tipo: TRIGGER_AVISO_MAKO, etapa: 'manual', disparadores: [ev('lead_contesta')] })[0].subtipo, 'lead_contesta');

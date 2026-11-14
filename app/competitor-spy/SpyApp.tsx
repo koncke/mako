@@ -70,6 +70,7 @@ import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { LogoRed } from './LogoRed';
 import { OtrasRedes, type BusquedaDeRedes } from './OtrasRedes';
+import { AnunciosSpy } from './AnunciosSpy';
 import { sinCanalesRepetidos } from '@/lib/spy-otras-redes-reglas';
 import { BotonRecorrido, Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { PASOS_SPY, RECORRIDO_SPY } from './recorrido-spy';
@@ -483,6 +484,11 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-redes-texto small{flex:0 100 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--faint);font-size:12px}
 .spy-redes-fila[data-red='youtube']{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--yt) 28%,var(--border))}
 .spy-redes-fila[data-red='instagram']{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ig) 28%,var(--border))}
+/* La clave de Spy rechazada (14/11/2026): una sola línea, con el alto de las pastillas, y su botón a Integraciones. */
+.spy-redes-clave{display:inline-flex;align-items:center;gap:10px;min-height:40px;max-width:100%;min-width:0;margin:0;padding:0 4px 0 14px;
+  border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);color:var(--dim);font-size:var(--fs-sm);font-weight:600}
+.spy-redes-clave>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spy-redes-clave .spy-boton{flex:0 0 auto}
 .spy-redes-trae{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 4px;color:var(--dim);font-size:var(--fs-sm);
   font-weight:600;white-space:nowrap;flex:0 0 auto}
 .spy-redes-trae i{width:12px;height:12px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--ink);
@@ -493,7 +499,7 @@ button.spy-campo:hover{color:var(--dim)}
 /* La fila de la miga NO se parte en la computadora (Martín, con Federico Cristofari: la segunda pastilla bajaba de renglón y empujaba
    el «?» y las pestañas): las pastillas se achican (su nombre con «…») y el «?» queda al final. En el teléfono, cada una en su renglón. */
 @media (min-width:561px){.spy-volver{flex-wrap:nowrap}.spy-volver__grupo{flex:0 0 auto}}
-@media (max-width:560px){.spy-redes{flex-wrap:wrap;width:100%}.spy-redes-fila{width:100%}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
+@media (max-width:560px){.spy-redes{flex-wrap:wrap;width:100%}.spy-redes-fila{width:100%}.spy-redes-clave{width:100%;border-radius:14px;padding:6px 6px 6px 12px}.spy-redes-clave>span{flex:1 1 auto;white-space:normal}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
 .spy-aviso--suave{background:none;padding:0;color:var(--dim)}
 .spy-vermas{display:flex;justify-content:center;margin:18px 0 6px}
 .spy-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
@@ -566,7 +572,7 @@ button.spy-campo:hover{color:var(--dim)}
 `;
 
 /** Dos pestañas y nada más (Martín, 4/11): «Contenido» (el gráfico y sus piezas) y «Funnel» (su web y su oferta). */
-type Pestana = 'contenido' | 'funnel';
+type Pestana = 'contenido' | 'anuncios' | 'funnel';
 
 // ⚠️ LAS FRANJAS DE UNA LÍNEA SE FUERON (4/11/2026). Martín: «elimina textos innecesarios, como "Lo que publica Los días
 // los declara el canal; la etapa la calcula MaKo."». Explicaban un criterio nuestro que la pantalla ya no muestra.
@@ -1234,7 +1240,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       marcarRedesBuscadas(ws, id);
       setRedes((v) => ({ ...v, [id]: { buscando: true, sumadas: [], candidatos: [] } }));
     }
-    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web?: string | null; pendiente?: boolean } | { ok: false; error: string };
+    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web?: string | null; pendiente?: boolean; clave?: 'rechazada' } | { ok: false; error: string; clave?: 'rechazada' };
     const r: Resp = await fetch('/api/competitor-spy/redes', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(125_000),
     }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false as const, error: '' }));
@@ -1249,8 +1255,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
           // Sin repetidos y sin preguntar por una red que ya se sumó (Martín, con Federico Cristofari: «2 veces saltó el cartel de
           // YouTube. Eso no debe pasar»).
           candidatos: sinCanalesRepetidos(r.candidatos).filter((k) => ![...r.sumadas, ...(v[id]?.sumadas ?? [])].some((x) => x.red === k.red)),
+          claveRechazada: r.clave === 'rechazada',
         }
-        : { buscando: false, sumadas: v[id]?.sumadas ?? [], candidatos: [] },
+        : { buscando: false, sumadas: v[id]?.sumadas ?? [], candidatos: [], claveRechazada: r.clave === 'rechazada' },
     }));
     if (sigue) setTimeout(() => { if (actual.current === id) void buscarRedes(id, vuelta + 1); }, ESPERA_REDES_MS);
     // Lo que se sumó solo se lee ya: sus piezas tienen que aparecer sin que nadie apriete nada. Su web encontrada también se lee
@@ -1616,10 +1623,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     const p = piezas.find((x) => x.id === id);
     if (p) setAbierta({ p, todas: p.canal === 'anuncios' ? anuncios : piezas.filter((x) => grupoDe(x) === grupoDe(p)) });
   };
-  // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece. Y son DOS (Martín, 4/11): las de antes
+  // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece. Eran DOS (Martín, 4/11): las de antes
   // (Gráfico, Lo que publica, Miniaturas, Su oferta, Su web, Anuncios) partían lo mismo en seis lugares.
+  // «Anuncios» volvió el 14/11 (Martín, por Landings: «darle mucha prioridad al tema de anuncios», como Spyder de Foreplay), pero
+  // NO como otra grilla: los anuncios siguen en «Contenido». Es lo que la grilla no dice (./AnunciosSpy.tsx).
   const pestanas: Array<{ key: Pestana; rotulo: string; n?: number }> = c ? [
     ...(flujo.length || anuncios.length || c.instagram || c.youtube_id || !c.landing_url ? [{ key: 'contenido' as const, rotulo: 'Contenido', n: (flujo.length + anuncios.length) || undefined }] : []),
+    ...(anuncios.length ? [{ key: 'anuncios' as const, rotulo: 'Anuncios', n: anuncios.length }] : []),
     ...(c.landing_url || c.oferta?.promete || ofertaConDiagnostico || lecturaFunnel.principal ? [{ key: 'funnel' as const, rotulo: 'Funnel' }] : []),
   ] : [];
   const activa: Pestana = pestanas.some((p) => p.key === pestana) ? pestana : (pestanas[0]?.key ?? 'contenido');
@@ -1906,6 +1916,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
               {/* Sus otras redes, en la MISMA fila: una pastilla por canal, sin empujar el contenido (ver `.spy-redes`). */}
               <OtrasRedes
                 b={redes[c.id]} ocupado={ocupado} trayendo={trayendoRedes[c.id] ?? null}
+                botonClave={<BotonIntegracion servicio="apify-instagram" className="spy-boton" style={CON_SU_CLASE} onConectado={() => void buscarRedes(c.id)}>Revisar la clave</BotonIntegracion>}
                 onSi={(k) => void confirmarRed(k)}
                 onNo={(k) => quitarDeLasRedes(c.id, (x) => x.red === k.red && x.ref === k.ref)}
                 onDeshacer={(k) => void deshacerRed(k)}
@@ -2074,6 +2085,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                 )}
               </>
             )}
+
+            {activa === 'anuncios' && <AnunciosSpy anuncios={anuncios} onAbrir={(p) => setAbierta({ p, todas: anuncios })} />}
 
             {/* ⚠️ EL ORDEN ES EL PEDIDO (Martín, 4/11): «la oferta debería ir arriba... Y no pongas nada abajo de las web, porque abajo
                 no se verá más nada». Arriba su funnel y su oferta; las notas; y AL FINAL sus páginas, sin nada debajo. */}

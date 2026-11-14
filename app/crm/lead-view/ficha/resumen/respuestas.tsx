@@ -52,8 +52,8 @@ export function LoQueContesto({ ctx, puesto, titulo, diseno, epico }: PropsBloqu
     return (
       <Bloque titulo={titulo} epico={false}>
         {fuentes.map((f, i) => (
-          <details key={f.fuente} className="fr-plegado" open={i === 0}>
-            <summary>{NOMBRE_FUENTE[f.fuente]} · {f.respuestas.length}</summary>
+          <details key={f.titulo ?? f.fuente} className="fr-plegado" open={i === 0}>
+            <summary>{f.titulo ?? NOMBRE_FUENTE[f.fuente]} · {f.respuestas.length}</summary>
             <Lista rs={f.respuestas} />
           </details>
         ))}
@@ -64,8 +64,8 @@ export function LoQueContesto({ ctx, puesto, titulo, diseno, epico }: PropsBloqu
   return (
     <Bloque titulo={titulo} epico={epico}>
       {fuentes.map((f) => (
-        <div key={f.fuente} className="fr-grupo">
-          {varias && <span className="fr-fuente">{NOMBRE_FUENTE[f.fuente]}</span>}
+        <div key={f.titulo ?? f.fuente} className="fr-grupo">
+          {(varias || f.titulo) && <span className="fr-fuente">{f.titulo ?? NOMBRE_FUENTE[f.fuente]}</span>}
           <Cuerpo rs={f.respuestas} />
         </div>
       ))}

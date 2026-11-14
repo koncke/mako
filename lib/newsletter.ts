@@ -67,7 +67,7 @@ export async function crmDelNewsletter(cfg?: ConfigNewsletter): Promise<CrmNewsl
  * —un CRM propio del negocio con otras etapas—, no se adopta, se crea «Newsletter 2». Adoptarlo le pondría la lectura
  * de «Dormido» a etapas que no son éstas.
  */
-export async function asegurarCrmNewsletter(): Promise<CrmNewsletter> {
+export async function asegurarCrmNewsletter(nombrePedido?: string): Promise<CrmNewsletter> {
   const cfg = await leerConfigNewsletter();
   const ya = await crmDelNewsletter(cfg);
   if (ya) return ya;
@@ -82,8 +82,10 @@ export async function asegurarCrmNewsletter(): Promise<CrmNewsletter> {
     return { id: Number(propio.id), nombre: propio.nombre ?? NOMBRE_CRM_NEWSLETTER };
   }
   const usados = new Set(filas.map((f) => (f.nombre ?? '').trim().toLowerCase()));
-  let nombre = NOMBRE_CRM_NEWSLETTER;
-  for (let i = 2; usados.has(nombre.toLowerCase()) && i < 50; i++) nombre = `${NOMBRE_CRM_NEWSLETTER} ${i}`;
+  // El nombre que se pidió en «Nuevo CRM» (14/11/2026), o «Newsletter»; con uno igual ya usado, «… 2».
+  const base = (nombrePedido ?? '').trim().slice(0, 80) || NOMBRE_CRM_NEWSLETTER;
+  let nombre = base;
+  for (let i = 2; usados.has(nombre.toLowerCase()) && i < 50; i++) nombre = `${base} ${i}`;
   const id = await crearFunnel({
     nombre,
     pipeline: ETAPAS_NEWSLETTER,

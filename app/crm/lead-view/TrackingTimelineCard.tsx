@@ -18,6 +18,7 @@ import type { TrackingEvent } from '@/lib/leads';
 import { useTzWorkspace } from './useTzWorkspace';
 import Link from '@/app/_ui/Link';
 import { textoDeClic } from './clic-detalle';
+import { textoSinTracking, type SinTracking } from '@/lib/pixel-por-pagina-reglas';
 
 const MONO = "'Geist Mono', monospace";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px' };
@@ -40,6 +41,9 @@ function descripcion(e: TrackingEvent): { texto: string; detalle: string | null;
       const c = textoDeClic(e.detalle);
       return { texto: c.que, detalle: c.adonde, color: 'var(--warn)' };
     }
+    case 'formulario':
+      // «Envió el formulario «Regalo»» (14/11/2026, `lead_formularios`): QUÉ formulario de la landing, con la página.
+      return { texto: e.vsl_titulo ? `Envió el formulario «${e.vsl_titulo}»` : 'Envió un formulario', detalle: e.detalle ?? e.landing_url, color: 'var(--good)' };
     case 'scroll':
       // La otra mitad de la visita: cuánto LEYÓ, no sólo qué apretó. El % es de la
       // PÁGINA, así que la frase lo dice — con «Llegó al 50%» a secas se lee como
@@ -53,6 +57,34 @@ function descripcion(e: TrackingEvent): { texto: string; detalle: string | null;
     default:
       return { texto: e.porcentaje != null ? `Llegó al ${e.porcentaje}% del VSL` : 'Siguió mirando el VSL', detalle: e.vsl_titulo, color: 'var(--good)' };
   }
+}
+
+/** El botón que entrega el código del Pixel (`?servicio=landing` abre esa tarjeta, no la grilla de /integraciones). */
+function ConectarPixel() {
+  return (
+    <Link
+      href="/integraciones?servicio=landing"
+      style={{ display: 'inline-block', fontSize: 13.5, fontWeight: 600, padding: '9px 16px', borderRadius: 10, background: 'var(--primary)', color: 'var(--on-primary)', textDecoration: 'none' }}
+    >
+      Conectar el Pixel
+    </Link>
+  );
+}
+
+/**
+ * Por qué no hay nada, cuando se sabe (14/11/2026, lib/pixel-por-pagina-reglas.ts): la página por la que entró (o la de
+ * su funnel) no tiene el Pixel, con el botón para ponerlo; o no entró por una página. Va EN LUGAR del vacío genérico.
+ */
+export function AvisoSinTracking({ sin, rotulo = 'Actividad registrada' }: { sin: SinTracking; rotulo?: string }) {
+  return (
+    <section style={card}>
+      <div style={{ ...sectLabel, marginBottom: 10 }}>{rotulo}</div>
+      <p style={{ fontSize: 14, color: 'var(--dim)', lineHeight: 1.5, margin: sin.como === 'sin-pixel' ? '0 0 14px' : 0, overflowWrap: 'anywhere' }}>
+        {textoSinTracking(sin)}
+      </p>
+      {sin.como === 'sin-pixel' && <ConectarPixel />}
+    </section>
+  );
 }
 
 /**
@@ -98,12 +130,7 @@ export function TrackingTimelineCard({ eventos, pixelPuesto = true }: { eventos:
           <p style={{ fontSize: 14, color: 'var(--faint)', margin: '0 0 14px' }}>
             Nada registrado: el Pixel de MaKo no está midiendo tu página. Con el código puesto, cada visita, clic y scroll aparece aquí.
           </p>
-          <Link
-            href="/integraciones?servicio=landing"
-            style={{ display: 'inline-block', fontSize: 13.5, fontWeight: 600, padding: '9px 16px', borderRadius: 10, background: 'var(--primary)', color: 'var(--on-primary)', textDecoration: 'none' }}
-          >
-            Conectar el Pixel
-          </Link>
+          <ConectarPixel />
         </section>
       );
     }
