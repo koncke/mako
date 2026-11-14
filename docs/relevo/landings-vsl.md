@@ -434,8 +434,15 @@ Hecho (commits de punta/landings-vsl del 14/11):
   Martín en su chat) y se despliegue. El relevo de Foreplay para implementar, en la carpeta de notas `foreplay-relevo/`.
 - **Comparaciones como beehiiv:** una tabla general (MaKo fijo y los competidores que rotan) con ✓ / vacío / valor, y las tarjetas de
   abajo «MaKo vs X» (notas: `referencias-comparar/beehiiv-comparisons.md`). No se empezó.
-- **Marketing CoPilot:** `C:/dev/bancos-portada/copilot-nuevo/copilot-2.webm` (12 s) espera el aviso del chat copilot-maqueta.
-- **Copywriting con un reel de Hormozi:** espera la réplica real del chat probar-copywriting (carpeta de notas `copy-reel-hormozi/`).
+- **Marketing CoPilot: HECHO** (copilot-2: anuncios con sus decisiones, Instagram y YouTube con lo que propone). En Instagram y YouTube el
+  CoPilot NO decide (no tienen piloto): el texto de la fila lo dice así. El título («Gestiona tus anuncios, tu Instagram y tu YouTube con
+  IA») es de Martín. Muestra el porqué a lo ancho de la rama del CoPilot (c88731616): desplegar juntos.
+- **Copywriting: HECHO** con un short REAL de Alex Hormozi (spy:6) replicado por MaKo, del chat probar-copywriting (`copy-reel-hormozi/`,
+  la página animada en `C:/dev/bancos-portada/banco-carruseles-replica/salida/copy-reel.html`). Las respuestas «para quién» y «qué
+  promete» las escribió ese chat con lo que MaKo dice de sí: Martín las tiene que confirmar. El flujo con preguntas está en
+  punta/probar-copy: desplegar juntos.
+- **Spy:** el plan del chat de Spy (`foreplay-relevo/plan-spy.md`): primero la pestaña «Anuncios» de la ficha; Apify da 401 desde el
+  13/11 (hace falta una clave válida en Integraciones → Apify). La landing no promete lo que Spy todavía no hace.
 
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
