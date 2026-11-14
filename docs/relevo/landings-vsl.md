@@ -408,6 +408,35 @@ grandes) — copilot-maqueta; la réplica REAL de un reel de Hormozi para Copywr
 está transcripto) — probar-copywriting; los competidores de Spy sin logos y con caricatura — el chat de Spy (puede necesitar el sí de
 Martín para escribir en producción). Después del despliegue: regrabar Spy y Copywriting.
 
+## Decimoquinta vuelta (14/11/2026): checkout, precios, preguntas, tableros, Automations y Spy
+
+Hecho (commits de punta/landings-vsl del 14/11):
+- **Checkout:** sin la barra de arriba y sin scroll en la computadora (la página mide la pantalla); Mercado Pago con su logo y su azul
+  (la fila y el botón); Visa, Mastercard y Amex con sus logos; sin «Pagas en la página segura de Stripe», sin la nota del primer cobro y
+  sin texto debajo del botón; «Suscripción recurrente»; lo que incluye cada plan escrito para el checkout (`INCLUYE_EN_EL_CHECKOUT`);
+  WhatsApp obligatorio y el botón apagado hasta completar todo; el pie en una línea.
+- **La prueba gratis también en Esencial**, sin ningún texto que aclare cuál sí y cuál no (test).
+- **La promesa del Acelerador**, con las palabras de Martín: Martín Koncke instala el sistema de adquisición de clientes a la medida de
+  la oferta y, como mínimo, se recupera la inversión, garantizado por contrato.
+- **/planes:** el título y el subtítulo de la portada; las preguntas de la portada; comparar planes como Attio (cabecera fija con
+  precio y botón, Pro resaltado, filas cortas con su (i), acordeón en el teléfono). **Todas las landings** muestran las preguntas de
+  la portada (`app/vsl/_sitio/preguntas.ts`).
+- **Tableros:** las cinco hojas sin entrada (Cold Calling, Comercial, General, Operación, Velocidad) la tienen en la app
+  (`entradaDeTarjetas`); los 13 recortados desde su primer cuadro con contenido; el carrusel carga todos al verse.
+- **Automations:** WhatsApp (se arma «Un Lead Entró» entero y le llega el mensaje al lead) y después Instagram (el lead escribe y le
+  contestan), 15 s. **«El CRM trackea tus leads de forma automática.»**
+- **Competitor Spy (landing):** el hero acompaña al scroll (se achica, sube y se desvanece); una pantalla por pestaña, que cambia al
+  tocar y al pasar el mouse; la grilla de Competidores y la réplica de un carrusel donde corresponden.
+
+**Falta:**
+- **Spy:** grabar la pantalla de cada pestaña (la ficha de un competidor, los sugeridos, el análisis, la transcripción, la extensión,
+  pegar un anuncio, sus páginas), DESPUÉS de que el chat de Spy borre los competidores con logo y sume los gurús (espera el sí de
+  Martín en su chat) y se despliegue. El relevo de Foreplay para implementar, en la carpeta de notas `foreplay-relevo/`.
+- **Comparaciones como beehiiv:** una tabla general (MaKo fijo y los competidores que rotan) con ✓ / vacío / valor, y las tarjetas de
+  abajo «MaKo vs X» (notas: `referencias-comparar/beehiiv-comparisons.md`). No se empezó.
+- **Marketing CoPilot:** `C:/dev/bancos-portada/copilot-nuevo/copilot-2.webm` (12 s) espera el aviso del chat copilot-maqueta.
+- **Copywriting con un reel de Hormozi:** espera la réplica real del chat probar-copywriting (carpeta de notas `copy-reel-hormozi/`).
+
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 
 `PRUEBA_GRATIS_PRENDIDA = true` (`lib/planes-mako.ts`): `/planes` dice «7 días gratis» y cobra el día 8 con la tarjeta,

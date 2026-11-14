@@ -99,7 +99,7 @@ function fotoDelDom() {
   });
   const doc = document.documentElement.cloneNode(true);
   [...doc.querySelectorAll('style')].forEach((s, i) => { if (estilos[i]) s.textContent = estilos[i]; });
-  doc.querySelectorAll('script:not([data-tema-sitio]), noscript, link[rel="preload"], link[rel="modulepreload"], link[rel="prefetch"], link[rel="preconnect"], link[rel="dns-prefetch"], next-route-announcer, nextjs-portal').forEach((n) => n.remove());
+  doc.querySelectorAll('script:not([data-tema-sitio]):not([data-visor]), noscript, link[rel="preload"], link[rel="modulepreload"], link[rel="prefetch"], link[rel="preconnect"], link[rel="dns-prefetch"], next-route-announcer, nextjs-portal').forEach((n) => n.remove());
   doc.querySelectorAll('link[rel="stylesheet"]').forEach((l) => l.setAttribute('href', abs(l.getAttribute('href'))));
   // next/image: la imagen original, sin el srcset del optimizador.
   doc.querySelectorAll('img').forEach((im) => {
