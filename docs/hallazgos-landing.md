@@ -5607,3 +5607,37 @@ SIN HACER: los íconos animados por sprite de su menú y de su pie (la barra y e
 de cada fila («Learn More»: no hay a dónde llevarlo); «Su guion, con tu oferta» usa la grabación de Copywriting («Replicar»), no el
 «Hacer uno así» del detalle de Spy; lib/funciones-mako.ts dice «Todavía no: revisar solo todos los días» y foreplay-relevo/plan-spy.md
 dice que los Seguidos se leen todos los días desde el 13/11: hay que decidir cuál vale antes de prometerlo en la landing.
+
+## AI Avatar como HeyGen: el video arranca solo, los bordes al 10 % desaparecen y la cara de los presets (14/11/2026, noche)
+
+Martín: «que la copia salga muy fiel a todas las animaciones… los videos, los hover, todo». HeyGen se miró con Chromium a 1440 y a
+390 (capturas, videos, hovers con su tiempo, `MutationObserver` e `IntersectionObserver`; notas: `referencias-landings/ai-avatar/`;
+valores: `docs/diseno/landings-competencia/ai-avatar.md`). Código: `app/vsl/_competencia/disenos/ai-avatar.tsx`.
+
+- **El video del hero NO es un reproductor quieto (el diagnóstico obvio era el equivocado).** El HTML trae `<video muted
+  preload="auto">` sin `autoplay` y un botón «Play» grande, y parecía «un video que se toca para ver». En el navegador arranca SOLO
+  y sin sonido (lo arranca su script), la barra de controles sólo aparece con el mouse encima y el play grande sólo existe pausado.
+  Peor para medir: mientras corre, el botón se llama «Pause» y `getByRole('button', { name: 'Play' })` deja el script colgado 30 s.
+  **Regla:** antes de copiar un video, leer `paused`/`currentTime` dos veces con un segundo de diferencia.
+- **El sol y la luna borra los bordes finos.** En el modo claro (que se aplica también al de nacimiento) todo borde oscuro se
+  lleva a un gris del modo: el `1px solid rgba(0,0,0,.1)` de las tarjetas «Sin / Con» quedaba invisible. **Regla:** en un diseño
+  copiado, los bordes van con un color OPACO claro (`#E6E6E6`, `#CCCCCC`), que el claro no toca y el oscuro oscurece; lo que tiene
+  que quedar negro en los dos modos (las tarjetas de números, la caja del video) lleva `data-tema-fijo`.
+- **El orden del CSS volvió a mostrar fotos que estaban escondidas.** Al reordenar el archivo, el bloque del visual compartido
+  (`.d-ai-avatar .mk-c-av-escenas { display: flex }`) quedó DESPUÉS de `.d-ai-avatar-paso-img-1 .mk-c-av-escenas { display: none }`:
+  misma especificidad, gana el último, y el paso 1 mostró tres teléfonos con fotos que no iban ahí. **Regla:** las reglas que
+  esconden partes de un visual compartido van después de las del visual; y mirar la captura, porque el test pasa igual.
+- **Un margen arriba que se escapa.** El `margin-top` del contenido del hero salía por la sección y el `main` y dejaba una franja
+  gris (el fondo del `body`) entre la barra y el hero. El aire de arriba de una sección va como `padding`.
+- **La cara de los presets NO es la de Martín.** Las 31 imágenes de `public/formatos/presets/` (usadas en los pasos 2 y 3 de esta
+  landing y en el estudio de AI Avatar) muestran a un hombre de unos 55 años con anteojos, parecido a Mauricio (CLIENTE), hechas
+  con «1-headshot-saco.jpg»; `lib/ai-avatar/plantillas.ts`, `app/vsl/_competencia/ai-avatar.ts` y el test «el hero de AI Avatar
+  muestra las imágenes reales de sus presets» dicen «cara de Martín». Lo vio también la tarea de Video. Hasta que Martín confirme,
+  no se suman en ningún lugar nuevo (en el hero ya no están: ahí va el reproductor, como en HeyGen).
+- **Su escala de Tailwind es en píxeles** (`p-3` = 3 px, `gap-30` = 30 px): se lee del marcado sin medir. Y en el teléfono sus
+  filas tienen 240 px entre una y otra (a propósito, `not-last:mb-240`).
+
+SIN HACER: las imágenes de las tarjetas «Sin / Con» (un esquema con días y una captura de su app: MaKo no tiene una pieza real que
+diga eso); las fotos de UI de sus pasos (van las piezas del visual de AI Avatar; no hay banco grabado del estudio `/ai-avatar`); el
+carrusel de testimonios con flechas (hay un solo caso); G2 y «Explora más soluciones» (son suyos). Para decidir con Martín: la cara
+de los presets.
