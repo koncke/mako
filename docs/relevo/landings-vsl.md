@@ -379,7 +379,7 @@ Se graban después del despliegue, con el banco de cada uno (C:/dev/bancos-porta
 | Image (5) | Las plantillas; Formatos; el chat de MaKo en Image; el kit de marca; el lienzo |
 | Copywriting (3) | Un ejemplo real de cada plantilla: anuncio a cámara (PAS), reel que trae mensajes, email de cierre |
 | Video (2) | La línea de tiempo antes y después de editar (el banco del editor ya la tiene: dos cuadros) |
-| CRM (1) | La pantalla de cada pestaña del ciclo (Captar, Nutrir, Cerrar, Cobrar, Reactivar) |
+| CRM (1) | Sólo «Cerrar» (14/11, noche: Captar = Chats, Nutrir = Automations, Cobrar = Cobranza, Reactivar = la difusión grabada en `banco-crm-difusion`): la tarjeta que pasa sola a «Agenda R1» cuando agenda y la grabación enganchada en su ficha |
 | Automations (3) | «No agendaste aún»; «Dónde se traba»; una sesión de la API de MaKo con Claude |
 | Chats (7) | Las pantallas de sus filas (hilo del lead, etiquetas, asignar…) |
 | Dashboard (2) | El informe; «Salud del funnel» |

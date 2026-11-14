@@ -5869,3 +5869,47 @@ acciones del servidor reemplazadas en el build). El relevo con capturas y videos
 SIN HACER: la pared de logos de clientes, los planes, la prensa y «Ver en YouTube» (MaKo no tiene ese contenido); la tercera columna de
 los testimonios (hay un solo caso); la tarjeta de la primera pestaña describe la bandeja de ejemplo de la grabación (4 canales, 9
 contactos, 3 sin leer), no un resultado: si Martín prefiere otra cosa, es el `TARJETA` del diseño.
+
+## CRM como GoHighLevel: el popup que tapó los hovers, el payload que dice cómo se mueve todo y el hero que el sol y la luna dejaba blanco sobre gris (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/crm.tsx` (diseño y `<script data-visor>`), `app/vsl/_competencia/crm.ts` (las listas de cada
+pestaña, `puntos`, nuevo en `tipos.ts`), `public/vsl-assets/crm/` (bancos `C:/dev/bancos-portada/banco-crm/grabar-landing.mjs` y
+`banco-crm-difusion/`), valores en `docs/diseno/landings-competencia/crm.md`, test «CRM: …» en `tests/vsl-landings-competencia.test.ts`.
+El relevo con capturas: carpeta de notas, `referencias-landings/crm/relevo.md`.
+
+- **⚠️ El primer relevo midió los hovers con el popup del video ABIERTO (el diagnóstico obvio era el equivocado): «no tiene hovers».**
+  Para ver qué hacía la imagen del hero, el relevo la tocó; su popup (`#overlay.show`, `position: fixed` sobre todo) no se cierra con
+  Escape, y los 70 hovers que vinieron después dieron «sin cambio» (sólo cambió el «Enable sound» del popup). Medidos en una página
+  limpia, 24 cambian: los botones de la barra suben 2 px, el del hero SÓLO brilla blanco, los oscuros cruzan su brillo en 0,6 s, las
+  tarjetas de testimonios suben 2 px. **Regla:** los hovers se miden en una página recién cargada, antes de abrir nada; un recorrido que
+  abre ventanas va al final o en otra página.
+- **Lo que se mueve está escrito en su payload de Nuxt, no en el CSS.** El HTML de `curl` trae `[["ShallowReactive",1],…]` (devalue):
+  desarmado (`crm-payload.mjs` del scratchpad) da cada elemento con su configuración: los contadores (`duration: 2000`, `startValue`,
+  `counterShowAnimationOnce`), el carrusel de testimonios (`interval: 3`, `pauseOnHover`, puntos `#9CA3AF`/`#E5E7EB`), la cinta (`ticker`)
+  y los popups con lo que tienen adentro (la imagen del hero abre un `c-video`; el de salida es un formulario de pago de dos pasos que
+  aparece con `showPopupOnMouseOut: exit`). La curva de los contadores se midió leyéndolos cada 40 ms: ease-out CUÁRTICO.
+- **La referencia cambió en tres días** (11 → 14/11): el hero ya no es un video sino una imagen de 660 × 530 que abre uno, los contadores
+  son otros y suben, cada pestaña trae una lista y un video, «What's included» es una tabla. El documento del 11/11 ya no alcanzaba.
+- **⚠️ El sol y la luna SÍ lleva al modo un degradado de fondo (`linear-gradient`) y deja la letra blanca: en el claro, el hero de /vsl/crm
+  quedaba gris claro con el titular blanco encima** (el diseño anterior tenía el mismo degradado sin `data-tema-fijo`: en producción,
+  probablemente igual). El tilde de Offer «no se toca» porque es un `url()`; un degradado CSS sí se toca. **Regla:** una sección con fondo de degradado y letra encima lleva `data-tema-fijo`; también la
+  caja negra de una ventana de video (en el claro pasaba a blanca).
+- **`pulir.mjs` reemplaza TODO iframe por el recuadro «▶ Video (se reproduce en la página real)»**, también el de una ventana escondida
+  sin `src`: en el visor la ventana del video muestra ese recuadro; en producción, el iframe de Panda recibe su `src` recién al abrirla.
+- **Una toma aprobada se puede volver a grabar con OTRO cuadro sin cambiar lo aprobado**: la de la portada es 16:10 y la imagen de su
+  hero 660 × 530; `object-fit: cover` cortaba la primera columna del tablero y el borde de la ficha. La misma toma con la ventana a
+  1200 × 964 (`grabar-landing.mjs`, sólo cambia `H`) y `TAM=960:770 codificar-bucle.sh` llena el cuadro sin cortar nada.
+- **El tablero del CRM ordena las columnas a su manera, no en el orden de `stages`**: en un banco, la columna que la toma necesita a la
+  vista va entre las primeras del embudo (pasada en tercer lugar, la de «No Show» quedaba cuarta, con su «⋯» fuera del cuadro de 1200).
+- **La hoja REAL de la difusión se graba sin base**: `HojaDifusion` pide a quién le llega con `prepararDifusionAction` (una acción del
+  servidor); el build del banco (`banco-crm-difusion/build.mjs`) la cambia por `window.__prepararDifusion` de la entrada, que arma la
+  vista con `alcanceDeMotivos` (puro, `lib/difusion-reglas.ts`). El «⋯» de la columna ofrece «Mandar mensaje de difusión» sólo con
+  `puedeCrearCrm` y leads en la columna (`difusionDeColumna`). El mensaje de WhatsApp de la hoja es un composer: Enter lo suma como
+  burbuja; sin Enter queda «Falta el mensaje de WhatsApp». Y la hoja es un modal casi de pantalla entera: acercarla «al centro» no
+  acerca nada; la cámara va a un PUNTO (la columna de a quién le llega, después el mensaje) con `translate` + `scale` desde su esquina.
+- **Los pósters de `sitio/chats.jpg` y `sitio/cobranza.jpg` son cuadros del MEDIO**, no el primero (como el de carruseles): la landing
+  usa los suyos (`crm/*-poster.jpg`); los de la portada quedaron como estaban.
+
+SIN HACER: la pestaña «Cerrar» va con el recuadro de lo que falta (la tarjeta que pasa sola a «Agenda R1» cuando agenda y la grabación
+enganchada en su ficha: hay que ver qué escribe en el historial el camino de Calendly); su robot, su comunidad, su app, sus precios, sus
+premios, su globo del chat y el formulario de su popup de salida (MaKo no los tiene; el popup va sin formulario, con el botón a /planes).

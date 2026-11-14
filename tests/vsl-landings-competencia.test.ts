@@ -236,6 +236,11 @@ test('Offer: el hero lleva la grabación real y flota al bajar, y cada pieza su 
   assert.ok(scripts.some((x) => x.includes("'d-offer'") && x.includes('-flota') && x.includes('IntersectionObserver')), 'el video sin su ventanita flotante');
 });
 
+// Martín, 14/11/2026, noche: «que la copia salga muy fiel… los videos que tienen, las animaciones». Como Leadsales, la galería del hero
+// de Chats cambia de pantalla por pestaña: donde ella pone capturas de su app van grabaciones de Chats REAL (bancos de
+// C:/dev/bancos-portada), cada pieza lleva recortes de pantallas reales y el testimonio pone el video en el lugar.
+// PROBADO ROMPIÉNDOLO (14/11/2026): sacar «Contacto» de PANTALLA_DE_PESTANA → falla «sin su pantalla»; renombrar pieza-difusion.jpg
+// → falla «falta public/…»; sacar `-stage` del script → falla «la galería sin su script».
 test('Chats: cada pestaña de la galería tiene su pantalla grabada, y cada pieza sus recortes reales', async () => {
   const { PANTALLA_DE_PESTANA, RECORTES_DE_PIEZA, POSTER_CASO } = await import('../app/vsl/_competencia/disenos/whatsapp');
   const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'whatsapp');
@@ -266,3 +271,21 @@ test('Chats: cada pestaña de la galería tiene su pantalla grabada, y cada piez
 // de lo que falta grabar), y el script sube los contadores, prende la franja fija y abre el popup de salida.
 // PROBADO ROMPIÉNDOLO (14/11/2026): renombrar ficha-hero.webm en VIDEO_HERO_CRM → falla «falta public/…»; sacar un video de VIDEOS_CICLO
 // → falla «un video por pestaña»; sacar `-fija` del script → falla «sin su script».
+test('CRM: el hero lleva la grabación real que abre el mini-VSL, y cada pestaña su lista y su video', async () => {
+  const { VIDEO_HERO_CRM, VIDEOS_CICLO } = await import('../app/vsl/_competencia/disenos/crm');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'crm');
+  assert.ok(l, 'falta la landing de CRM');
+  const html = dibujar(l);
+  const ciclo = l.bloques.find((b) => b.tipo === 'tarjetas' && b.items.some((it) => it.meta));
+  assert.ok(ciclo && ciclo.tipo === 'tarjetas', 'CRM sin las pestañas de su ciclo');
+  assert.equal(VIDEOS_CICLO.length, ciclo.items.length, 'un video por pestaña, en el orden de las pestañas');
+  for (const it of ciclo.items) assert.ok(it.puntos && it.puntos.length >= 3, `«${it.meta}»: sin su lista`);
+  const videos = VIDEOS_CICLO.flatMap((v) => ('video' in v ? [v.video, v.poster] : []));
+  for (const f of [VIDEO_HERO_CRM.video, VIDEO_HERO_CRM.poster, ...videos]) {
+    assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+    assert.ok(html.includes(`"${f}"`), `${f} no se dibuja`);
+  }
+  assert.match(html, /data-src="https:\/\/player-vz-[^"]+pandavideo\.com/, 'la ventana del hero sin el mini-VSL de Panda');
+  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
+  assert.ok(scripts.some((x) => x.includes("'d-crm'") && x.includes('data-fin') && x.includes('-fija') && x.includes('-salida')), 'sin su script');
+});
