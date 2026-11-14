@@ -57,7 +57,7 @@ export default async function VideoEditorProyectoPage({ params, searchParams }: 
   // editor llena lo que queda al lado de la tarjeta del chat.
   return (
     <Pagina ancho="completo" densidad="compacta" style={ESTILO_PAGINA_CREAR}>
-      <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} plantilla={idPlantilla} propuesta={idPropuesta} senales={senales} desarmado={desarmado} />
+      <VideoEditorCliente vista="editor" proyectoId={proyecto} ws={ws} desde={origen} plantilla={idPlantilla} propuesta={idPropuesta} desarmado={desarmado} senales={senales} />
     </Pagina>
   );
 }

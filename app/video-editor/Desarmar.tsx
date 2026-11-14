@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { subirConProgreso } from '@/app/customer-success/curso/subir-video';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import {
   NOMBRE_ORIGEN, claveDeDesarme, duracionCorta, mezclaDeOrigen, ritmoDe, seDiceEn,
   type DesarmeGuardado, type FuenteDesarme, type OrigenPlano,
@@ -56,7 +57,8 @@ export function Desarmar({ fuente, duracionS, editor }: {
   const [vista, setVista] = useState<Vista | null>(null);
   const [estilo, setEstilo] = useState<{ id: string; nombre: string } | null>(null);
   const [trabajando, setTrabajando] = useState(false);
-  const [error, setError] = useState<{ texto: string; subir: boolean; sinGemini: boolean } | null>(null);
+  // `falla`: algo se rompió (va con «Reportar a Soporte»). Sin la clave o sin el video NO es una falla: se dice qué hacer.
+  const [error, setError] = useState<{ texto: string; subir: boolean; sinGemini: boolean; falla: boolean } | null>(null);
   const [subida, setSubida] = useState<number | null>(null);
   // Lo dice la ruta: quien mira desde Spy sin el Video Editor no tiene a dónde abrirlo.
   const [tieneEditor, setTieneEditor] = useState(false);
@@ -95,9 +97,9 @@ export function Desarmar({ fuente, duracionS, editor }: {
       if (!montado.current) return;
       if (j.ok) { tomar(j); return; }
       if (j.motivo === 'ocupado') { setVista({ estado: 'mirando', desde: new Date().toISOString() }); return; }
-      setError({ texto: j.error ?? 'No pude desarmarlo.', subir: !!j.subir, sinGemini: j.motivo === 'sin-gemini' });
+      setError({ texto: j.error ?? 'No pude desarmarlo.', subir: !!j.subir, sinGemini: j.motivo === 'sin-gemini', falla: j.motivo !== 'sin-gemini' && j.motivo !== 'sin-video' && j.motivo !== 'saturado' });
     } catch {
-      if (montado.current) setError({ texto: 'Se cortó la conexión. Si cierras la caja, sigo mirándolo: vuelve en un par de minutos.', subir: false, sinGemini: false });
+      if (montado.current) setError({ texto: 'Se cortó la conexión. Si cierras la caja, sigo mirándolo: vuelve en un par de minutos.', subir: false, sinGemini: false, falla: false });
     } finally {
       if (montado.current) setTrabajando(false);
     }
@@ -107,13 +109,13 @@ export function Desarmar({ fuente, duracionS, editor }: {
     setError(null);
     const tipo = archivo.type || (/\.mov$/i.test(archivo.name) ? 'video/quicktime' : 'video/mp4');
     const f = await pedir({ accion: 'subir-url', tamano: archivo.size, mime: tipo }) as Respuesta & { path?: string; signedUrl?: string; apikey?: string | null };
-    if (!f.ok || !f.path || !f.signedUrl) { setError({ texto: f.error ?? 'No pude preparar la subida.', subir: true, sinGemini: false }); return; }
+    if (!f.ok || !f.path || !f.signedUrl) { setError({ texto: f.error ?? 'No pude preparar la subida.', subir: true, sinGemini: false, falla: true }); return; }
     setSubida(0);
     try {
       await subirConProgreso(f.signedUrl, new File([archivo], archivo.name, { type: tipo }), f.apikey ?? null, (p) => setSubida(p), 'MP4, MOV o WEBM', { trabadaMs: 60_000 }).promesa;
     } catch (e) {
       setSubida(null);
-      setError({ texto: e instanceof Error ? e.message : 'No pude subirlo.', subir: true, sinGemini: false });
+      setError({ texto: e instanceof Error ? e.message : 'No pude subirlo.', subir: true, sinGemini: false, falla: false });
       return;
     }
     setSubida(null);
@@ -138,21 +140,27 @@ export function Desarmar({ fuente, duracionS, editor }: {
       ) : subida != null ? (
         <p className={d.vivo} role="status" aria-live="polite"><i aria-hidden />Subiendo el video… {subida} %</p>
       ) : null}
-      {error ? (
-        <div className={d.error} role="alert">
-          <p>{error.texto}</p>
-          <div className={d.acciones}>
-            {error.sinGemini ? <Link href="/integraciones?abrir=gemini" className={d.secundario}>Pegar la clave de Gemini</Link> : null}
-            {error.subir ? (
-              <label className={d.boton}>
-                Subir el video
-                <input type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void subir(f); }} />
-              </label>
-            ) : null}
-            {!error.sinGemini ? <button type="button" className={d.secundario} onClick={() => void desarmar()}>Intentar de nuevo</button> : null}
-          </div>
-        </div>
-      ) : null}
+      {error ? (() => {
+        const contenido = (
+          <>
+            <p>{error.texto}</p>
+            <div className={d.acciones}>
+              {error.sinGemini ? <Link href="/integraciones?abrir=gemini" className={d.secundario}>Pegar la clave de Gemini</Link> : null}
+              {error.subir ? (
+                <label className={d.boton}>
+                  Subir el video
+                  <input type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void subir(f); }} />
+                </label>
+              ) : null}
+              {!error.sinGemini ? <button type="button" className={d.secundario} onClick={() => void desarmar()}>Intentar de nuevo</button> : null}
+            </div>
+          </>
+        );
+        // Una falla va con «Reportar a Soporte»; sin la clave o sin el video no es una falla: se dice qué hacer (`status`).
+        return error.falla
+          ? <div className={d.error} role="alert">{contenido}<ReportarASoporte /></div>
+          : <div className={d.error} role="status">{contenido}</div>;
+      })() : null}
       {vista?.estado === 'fallo' && !error && !mirando ? <p className={d.nota}>La última vez no pude: {vista.motivo}</p> : null}
       {g ? <Resultado g={g} clave={clave} estilo={estilo} editor={editor && tieneEditor} /> : null}
     </section>

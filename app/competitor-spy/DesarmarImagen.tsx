@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { pedidoDeDesarmeImagen, type DesarmeImagenGuardado } from '@/lib/imagen-desarmar';
 import d from '@/app/video-editor/desarmar.module.css';
 
@@ -110,7 +111,7 @@ export function DesarmarImagen({ piezaId }: { piezaId: number }) {
       </div>
       {!x && !trabajando && !error ? <p>Tu IA mira cada lámina: estructura, textos exactos, tipografía y paleta.</p> : null}
       {trabajando ? <p className={d.vivo} role="status" aria-live="polite"><i aria-hidden />Mirando cada lámina…</p> : null}
-      {error ? <div className={d.error} role="alert"><p>{error}</p></div> : null}
+      {error ? <div className={d.error} role="alert"><p>{error}</p><ReportarASoporte /></div> : null}
       {x ? (
         <>
           {/* Lo que se hace con esto, arriba (como en el video): la lista de láminas puede ser larga. */}
