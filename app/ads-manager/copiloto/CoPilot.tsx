@@ -17,7 +17,7 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link'; // la de la casa: conserva el ?ws= del super admin mirando un negocio
 import { CSS_OFFER } from '@/app/offer/estilos';
 import { Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';

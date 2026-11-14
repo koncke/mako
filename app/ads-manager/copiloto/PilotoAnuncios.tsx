@@ -11,7 +11,7 @@
 // =============================================================================
 
 import { useState } from 'react';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link'; // la de la casa: conserva el ?ws= del super admin mirando un negocio
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import type { Decision, EstadoEntidad } from '@/lib/media-buyer/tipos';

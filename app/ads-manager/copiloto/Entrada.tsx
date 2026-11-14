@@ -11,7 +11,7 @@
 // =============================================================================
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link'; // el de la casa: push y replace conservan el ?ws= del super admin
 import { LogoRed } from '@/app/competitor-spy/LogoRed';
 import { BrandDefs } from '@/app/_components/ServicioVisual';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';

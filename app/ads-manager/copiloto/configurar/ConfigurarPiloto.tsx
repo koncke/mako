@@ -17,8 +17,8 @@
 // =============================================================================
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import Link from '@/app/_ui/Link'; // la de la casa: conserva el ?ws= del super admin mirando un negocio
+import { useRouter } from '@/app/_ui/Link'; // el de la casa: push y replace conservan el ?ws= del super admin
 import { Toast, useToast } from '@/app/_ui';
 import { LogoRed } from '@/app/competitor-spy/LogoRed';
 import { BrandDefs } from '@/app/_components/ServicioVisual';
