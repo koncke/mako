@@ -31,6 +31,8 @@ import { botonesDe } from '@/lib/botones-social';
 import { respondeEnComentario } from '@/lib/canal-social';
 import { botonesParaGuardar, textoParaGuardar, type BotonPedido } from '@/lib/botones-api';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
+import { TEXTO_SETTER_SOLO_PRO } from '@/lib/setter-ia-reglas';
+import { esEsencialDe } from '@/lib/plan-esencial';
 import { libertadDeLoDemas } from '@/lib/ai-step-armar';
 import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo } from '@/lib/nutricion-grafo-motor';
 import { getAdjunto } from '@/lib/setting-adjuntos';
@@ -1884,7 +1886,7 @@ export const RUNNERS: Runners = {
   },
 
   agregar_escenario_secuencia: {
-    preparar: async (input) => {
+    preparar: async (input, ctx) => {
       const id = num(input, 'secuenciaId');
       const s = await secuenciaVigente(id);
       if (!s) return { error: noExiste(id) };
@@ -1893,6 +1895,9 @@ export const RUNNERS: Runners = {
         titulo: str(input, 'titulo'), cuando: str(input, 'cuando'), comoResponder: str(input, 'comoResponder'),
         ...(input.contestaSolo === true ? { contestaSolo: true } : {}),
       };
+      // `contestaSolo` ES EL SETTER CON IA (14/11/2026: de MaKo Pro, lib/setter-ia-reglas.ts). A un Esencial se le dice ANTES de
+      // proponer, no después del «sí». La puerta lo frena igual (`setSecuenciaPasos` en el grafo; Activar en la forma de antes).
+      if (escenario.contestaSolo && (await esEsencialDe(ctx.ws))) return { error: TEXTO_SETTER_SOLO_PRO };
       // ⚠️ CON «SI RESPONDE», EL CASO ES UNA RAMA DE LA TARJETA: en `estrategia.escenarios` ya no lo
       // lee nadie (el clasificador de esa secuencia lee los casos de la tarjeta).
       // ⚠️ CON UN AI STEP (undécima tanda), UN ESCENARIO MÁS ADENTRO DEL AI STEP, sobre lo JUNTO (`juntarPasosIA`):

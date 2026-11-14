@@ -25,6 +25,8 @@ import { conQueAnalizaElClosing, CONECTA_TU_CLAUDE_CLOSING } from '@/lib/closing
 import { avisoDeLaHojaClosing, esHojaClosing } from '@/app/dashboard/aviso-closing';
 import { iaCaidaParaLaHoja } from '@/lib/closing-ia-caida';
 import { avisoDeIaCaida } from '@/lib/closing-ia-caida-reglas';
+import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
+import { TEXTO_CLOSING_SOLO_PRO_TELEFONO } from '@/lib/closing-solo-pro';
 import '../dashboard.css';
 
 export const dynamic = 'force-dynamic';
@@ -48,6 +50,17 @@ export default async function HojaPropiaPagina({ params, searchParams }: {
   try { id = decodeURIComponent(crudo); } catch { /* un % suelto: se busca tal cual */ }
   const h = hojaPropiaDe(lectura.tablero, id);
   if (!h) redirect(await rutaConWs(VOLVER_AL_DASHBOARD));
+
+  // La hoja Closing es SÓLO de MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): al Esencial, de qué plan es (el teléfono no
+  // vende) EN LUGAR de sus datos, que no se leen. Ante la duda, se ve.
+  if (esHojaClosing(h) && (await esEsencialDeLaSesion())) {
+    return (
+      <PantallaM>
+        <CabeceraM titulo={h.nombre} />
+        <p className="m-dash-aviso" role="status">{TEXTO_CLOSING_SOLO_PRO_TELEFONO}</p>
+      </PantallaM>
+    );
+  }
 
   const def = periodoPropio(h);
   const periodos = def ? periodosParaHoja(def) : [];

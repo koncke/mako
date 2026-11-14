@@ -65,6 +65,8 @@ import { textoProbar } from '@/lib/experimentos-catalogo';
 import { pedidosDeHoja } from './exportar';
 import { conQueAnalizaElClosing, CONECTA_TU_CLAUDE_CLOSING } from '@/lib/closing';
 import { accionDeLaHojaClosing, avisoDeLaHojaClosing, esHojaClosing } from './aviso-closing';
+import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
+import { TEXTO_CLOSING_SOLO_PRO } from '@/lib/closing-solo-pro';
 import { iaCaidaParaLaHoja } from '@/lib/closing-ia-caida';
 import { avisoDeIaCaida } from '@/lib/closing-ia-caida-reglas';
 import { agendaParaElClosing, primerContactoParaElClosing } from '@/lib/closing-diseno-server';
@@ -167,13 +169,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
     }
   }
   const pedidos0 = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
-  // En blanco no se dibuja ningún gráfico: no se lee nada.
-  const graficos = sinPaginas ? [] : pedidos0.graficos;
+  // ⚠️ LA HOJA «CLOSING» ES SÓLO DE MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): al Esencial, el candado EN LUGAR de sus
+  //    gráficos (EditorInforme, `candadoClosing`), y sus datos no se leen ni viajan en el HTML. Ante la duda, se ve.
+  const esencial = await esEsencialDeLaSesion();
+  // En blanco no se dibuja ningún gráfico: no se lee nada. Tampoco en la hoja Closing con candado.
+  const graficos = sinPaginas || (esencial && esHojaClosing(hoja)) ? [] : pedidos0.graficos;
   // El período va TAL CUAL: el corte en hoy (y la fecha que mira hacia adelante) lo decide `datosDeGraficos`
   // (contrato v5, «el corte en hoy en UN lugar»). La firma sale del período que pidió el gráfico.
   // La hoja «Closing» sin con qué analizar las llamadas (IA12, ./aviso-closing.ts): se pregunta sólo si el informe tiene
-  // una, en paralelo con los datos. Sin poder saberlo, 'no-se': no se avisa.
-  const hayHojaClosing = !sinPaginas && (tablero.hojas.some((h) => esHojaClosing(h)) || esHojaClosing(agregar));
+  // una, en paralelo con los datos. Sin poder saberlo, 'no-se': no se avisa. Con el candado de Pro, no hay qué avisar.
+  const hayHojaClosing = !sinPaginas && !esencial && (tablero.hojas.some((h) => esHojaClosing(h)) || esHojaClosing(agregar));
   const conClosing = hayHojaClosing
     ? conQueAnalizaElClosing().catch(() => 'no-se' as const)
     : Promise.resolve(null);
@@ -250,6 +255,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         plantillasInicial={plantillas && !unica}
         avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
         accionClosing={accionDeLaHojaClosing(closing)}
+        candadoClosing={esencial ? TEXTO_CLOSING_SOLO_PRO : null}
         disenos={hayDisenoClosing || hayDisenoCobranza || hayDisenoComercial || hayDisenoMarketing || hayDisenoLanding || hayDisenoChat || hayDisenoAutomatizaciones || hayDisenoCs || hayDisenoProductividad || hayDisenoContenido || hayDisenoVelocidad ? {
           closing: hayDisenoClosing ? { agenda, quien, contacto } : null,
           cobranza: hayDisenoCobranza ? { quien } : null,

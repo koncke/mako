@@ -33,6 +33,7 @@ import { canalesDeInvitacion } from '@/lib/curso-invitar-canales';
 import { frenarAltaPorTope, TopeDelPlanError } from '@/lib/topes-crm';
 import { nombresDeCursos } from '@/lib/curso-nombre-datos';
 import { duplicarPrograma } from '@/lib/curso-duplicar';
+import { frenoAlCrearClase, frenoAlDuplicar } from '@/lib/tope-cursos';
 import { guardarAjusteEstilo } from '@/lib/curso-estilo-datos';
 import { eliminarPrograma, restaurarProgramaEliminado } from '@/app/customer-success/programa-datos';
 import { avisoDeCopia } from '@/app/customer-success/eliminar-programa';
@@ -309,10 +310,13 @@ export const RUNNERS: Runners = {
   // ── Módulos ─────────────────────────────────────────────────────────────────
   // ── El programa entero (25/10/2026, ver curso.def.ts) ───────────────────────
   duplicar_curso: {
-    preparar: revisando(async (input) => {
+    preparar: revisando(async (input, ctx) => {
       const productoId = num(input, 'productoId');
       const c = await cursoDe(productoId);
       if ('error' in c) return c;
+      // La copia de un programa con clases es un CURSO más: MaKo Esencial tiene uno (14/11/2026, lib/tope-cursos.ts).
+      const tope = await frenoAlDuplicar(ctx.ws, productoId!);
+      if (tope) return { error: tope.texto };
       const nombre = (await nombresDeCursos([productoId!], { conTitulo: true })).get(productoId!) ?? SIN_NOMBRE_EQUIPO;
       return {
         payload: { productoId },
@@ -320,6 +324,9 @@ export const RUNNERS: Runners = {
       };
     }),
     ejecutar: sinLanzar('duplicar el curso', async (p, ctx) => {
+      // Otra vez al confirmar: entre la propuesta y el «sí» pudo nacer otro curso.
+      const tope = await frenoAlDuplicar(ctx.ws, Number(p.productoId));
+      if (tope) return { ok: false, resumen: tope.texto };
       const r = await duplicarPrograma(ctx.ws, Number(p.productoId), autorDe(ctx));
       if (!r.ok) return { ok: false, resumen: `No se pudo duplicar: ${r.error}` };
       return { ok: true, resumen: `Listo: ${avisoDeCopia(r.copia)} (producto #${r.copia.productoId}).`, datos: { ...r.copia } };
@@ -458,7 +465,7 @@ export const RUNNERS: Runners = {
 
   // ── Clases ──────────────────────────────────────────────────────────────────
   crear_clase_curso: {
-    preparar: revisando(async (input) => {
+    preparar: revisando(async (input, ctx) => {
       const productoId = num(input, 'productoId');
       if (productoId == null) return { error: 'Falta el productoId.' };
       const prod = await productoConModulos(productoId);
@@ -467,6 +474,9 @@ export const RUNNERS: Runners = {
       if (!prod.claves.includes(moduloClave)) {
         return { error: `El módulo «${moduloClave}» no existe en este curso.`, disponibles: prod.modulos.map((m) => ({ clave: m.clave, nombre: m.nombre })) };
       }
+      // La PRIMERA clase de un programa crea un curso: MaKo Esencial tiene uno (14/11/2026, lib/tope-cursos.ts).
+      const tope = await frenoAlCrearClase(ctx.ws, productoId);
+      if (tope) return { error: tope.texto };
       const v = await camposDe(input, true);
       if ('error' in v) return v;
       const modulo = prod.modulos.find((m) => m.clave === moduloClave)!;
@@ -475,9 +485,12 @@ export const RUNNERS: Runners = {
         resumen: `Crear la clase «${v.campos.titulo}» al final del módulo «${modulo.nombre}»${v.campos.video ? ', con video' : ''}${v.campos.html ? ', con descripción' : ''}${v.campos.camposTarea !== undefined ? ', con su tarea' : ''}.`,
       };
     }),
-    ejecutar: sinLanzar('crear la clase', async (p) => {
+    ejecutar: sinLanzar('crear la clase', async (p, ctx) => {
       const productoId = Number(p.productoId);
       const moduloClave = String(p.moduloClave);
+      // Otra vez al confirmar: entre la propuesta y el «sí» pudo nacer otro curso.
+      const tope = await frenoAlCrearClase(ctx.ws, productoId);
+      if (tope) return { ok: false, resumen: tope.texto };
       const r = await crearClase(productoId, moduloClave);
       if (!r.ok) return { ok: false, resumen: `No se pudo crear la clase: ${r.error}` };
       const id = r.clase.id;

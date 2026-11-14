@@ -13,7 +13,7 @@
 // =============================================================================
 
 import { NOMBRE_PLAN_CON_PRUEBA, PLANES_MAKO_DEFAULT, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
-import { filasDeComparacion, GRUPOS_COMPARACION, type Celda, type FilaComparacion } from './planes-comparacion';
+import { filasDeComparacion, type Celda, type FilaComparacion } from './planes-comparacion';
 
 export type MensajeParaCopiar = { id: string; titulo: string; texto: string };
 
@@ -57,7 +57,7 @@ export function mensajesParaCopiar(p: { link: string; codigo: string; planes?: r
 }
 
 /** Un renglón de lo que trae un plan, como lo dice la tabla de /planes: «Páginas web para vender, publicadas: 3». */
-const renglon = (f: FilaComparacion, c: Celda): string => (typeof c === 'string' ? `${f.que}: ${c.charAt(0).toLowerCase()}${c.slice(1)}` : f.que);
+const renglon = (f: FilaComparacion, c: Celda): string => (typeof c === 'string' ? `${f.que}: ${c === 'Sin tope' ? 'sin límite' : c.charAt(0).toLowerCase() + c.slice(1)}` : f.que);
 
 export type PlanDelPdf = { nombre: string; precio: string; resumen: string; incluye: string[] };
 export type PdfDeVenta = {
@@ -81,9 +81,10 @@ export function pdfDeVenta(p: { link: string; codigo: string; deParte?: string |
   if (esencial) {
     out.push({
       nombre: esencial.nombre, precio: `${usd(esencial.precioUsd)} por mes`, resumen: esencial.resumen,
-      // Lo que entra en el plan y el asistente (12/11/2026): desde que la tabla dice TODO lo que trae MaKo, función por función, la
-      // lista entera no entra en una hoja; lo que es de todos los planes ya lo dice «Qué hace MaKo».
-      incluye: filas.filter((f) => f.esencial !== false && (f.grupo === GRUPOS_COMPARACION[0] || f.grupo === GRUPOS_COMPARACION[1])).map((f) => renglon(f, f.esencial)),
+      // Lo que entra en el plan (12/11/2026): desde que la tabla dice TODO lo que trae MaKo, función por función, la lista entera
+      // no entra en una hoja; lo que es de todos los planes ya lo dice «Qué hace MaKo». Desde el 14/11/2026 cada tope va en su área
+      // de la tabla (ya no hay un grupo «lo que entra»): acá van las filas con un número, que son los topes.
+      incluye: filas.filter((f) => typeof f.esencial === 'string').map((f) => renglon(f, f.esencial)),
     });
   }
   if (pro) {

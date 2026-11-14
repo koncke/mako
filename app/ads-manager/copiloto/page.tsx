@@ -27,7 +27,7 @@ import { funnelElegido, tareasDeLaSemana } from '@/lib/media-buyer/copiloto';
 import { leerComunicacion } from '@/lib/copiloto/comunicacion-store';
 import { landingsDelWorkspace } from '@/lib/landing-config-leer';
 import { conexionesViaZernio } from '@/lib/zernio-conectar';
-import { numeroDelReel } from '@/lib/copiloto/piloto';
+import { numeroDelReel, pilotoRedesPermitido } from '@/lib/copiloto/piloto';
 import { verRetargeting } from '@/lib/retargeting';
 import { paginasAnalizadas } from '@/lib/copiloto/web';
 import { leerNevera } from '@/lib/copiloto/nevera';
@@ -48,7 +48,7 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const sesion = typeof sp.sesion === 'string' && /^\d{1,12}$/.test(sp.sesion) ? Number(sp.sesion) : null;
 
-  const [comunicacion, config, dec, cupo, perfil, meta, landings, ig, yt, reel, retargeting, paginas] = await Promise.all([
+  const [comunicacion, config, dec, cupo, perfil, meta, landings, ig, yt, reel, retargeting, paginas, pilotoRedes] = await Promise.all([
     leerComunicacion(ws, sesion),
     callar(leerConfig(ws), null),
     callar(leerDecisiones(ws, 30), { decisiones: [], existeTabla: false }),
@@ -64,6 +64,8 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
     callar(verRetargeting(ws), null),
     // La web, como análisis: lo último que analizó el Landing Analyst (sólo se lee, no se vuelve a pagar la IA).
     callar(paginasAnalizadas(ws), []),
+    // El piloto de Instagram y el de YouTube son de MaKo Pro (14/11/2026). Ante la duda, abierto: el servidor decide al guardar.
+    callar(pilotoRedesPermitido(ws), true),
   ]);
   const vista = config ? await callar(vistaMediaBuyer(ws, config.kpi, config.objetivo), null) : null;
   // La nevera de contenido: lo listo y lo publicado del Calendario, con el ritmo que respondió en el CoPilot (sólo se lee).
@@ -90,6 +92,7 @@ export default async function CoPilotPage({ searchParams }: { searchParams: Prom
       instagram: ig.map((c) => ({ usuario: c.usuario, vencida: !!c.vencida })),
       youtube: yt.map((c) => ({ usuario: c.usuario, vencida: !!c.vencida })),
     },
+    pilotoRedes,
   };
   const paso = sp.paso === 'accion' || sp.paso === 'piloto' ? sp.paso : 'analisis';
   const tarjeta = ['oferta', 'web', 'anuncios', 'instagram', 'youtube'].includes(sp.tarjeta ?? '') ? sp.tarjeta as never : 'oferta';

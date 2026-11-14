@@ -8,7 +8,7 @@
 // `pegable`, `enNavegador` y `motivo` (422), y la pantalla la lee en la ventana del clic y vuelve con la `lectura`.
 //
 // La puerta, la de /replicar: admin del workspace y la tab `landing-writer` en su capa (los ángulos usan la IA del
-// negocio).
+// negocio), y MaKo Pro desde el 14/11/2026 (403 con `pasarAPro`, lib/editor-landing/replicar-candado.ts).
 //
 // ⚠️ DESDE EL 4/11/2026 (ticket #54) ESCRIBE: lo leído queda como BORRADOR del negocio, con lo elegido (`eleccion`), por
 // la dirección pedida (lib/editor-landing/replica-borrador.ts). Hasta ahí «la lectura vivía en la pantalla», y volver al
@@ -20,6 +20,7 @@
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { leerParaReplicar, type ResultadoLectura } from '@/lib/editor-landing/replicar-lectura';
+import { candadoDeReplicarEnPantalla } from '@/lib/editor-landing/replicar-candado';
 import { guardarBorradorReplica } from '@/lib/editor-landing/replica-borrador-server';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +34,9 @@ export async function POST(req: Request) {
   if (rol == null) return falla(401, 'no autenticado');
   if (rol !== 'admin') return falla(403, 'Sólo el admin de la cuenta');
   if (!tabEnCapa('landing-writer', await getCapaActual())) return falla(404, 'No existe');
+  // SÓLO MaKo Pro (14/11/2026, lib/editor-landing/replicar-candado.ts): leer ya baja la página y paga los ángulos.
+  const pro = await candadoDeReplicarEnPantalla();
+  if (pro) return falla(403, pro.error, { pasarAPro: pro.pasarAPro });
 
   let body: { url?: unknown; lectura?: unknown; texto?: unknown; angulos?: unknown; eleccion?: unknown };
   try { body = await req.json(); } catch { return falla(400, 'body inválido'); }

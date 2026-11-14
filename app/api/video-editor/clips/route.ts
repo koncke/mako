@@ -9,8 +9,12 @@
 // ruta no escribe nada: el proyecto vive en el navegador, y cada clip lo abre la persona en un proyecto nuevo.
 //
 // La puerta es la de /api/video-editor/ia (la prueba 1d de tests/video-editor-integracion.test.ts lo exige).
+//
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): «Clips mágicos» es editar con IA. Un Esencial recibe el 403 con
+// `pasarAPro` (también sin el respaldo por las reglas: la pantalla le muestra el candado antes de transcribir).
 
 import type { NextRequest } from 'next/server';
+import { candadoIaDeEditores } from '@/lib/editores-ia-pro';
 import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { veEditorVideo } from '@/app/video-editor/acceso';
@@ -47,6 +51,8 @@ const fallo = (error: string, status: number) => responder({ ok: false, error },
 export async function POST(req: NextRequest) {
   const p = await puerta();
   if ('error' in p) return fallo(p.error, p.status);
+  const pro = await candadoIaDeEditores();
+  if (pro) return pro;
   if (!rateLimit(`video-editor:clips:${p.ws}`, 10, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);
   const crudo = await req.text().catch(() => '');
   if (!crudo || crudo.length > TOPE_CUERPO) return fallo('El video es muy largo para buscarle clips de una vez.', 413);

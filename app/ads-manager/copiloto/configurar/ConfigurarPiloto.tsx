@@ -12,6 +12,9 @@
 //     queda en «Te pregunto» (lib/media-buyer/plan.ts → modoEfectivo).
 // «Guardar y prender el piloto» manda UN cambio a /api/media-buyer (`op: 'config'`), el mismo que usan sus Ajustes.
 // Instagram, YouTube, la web y la oferta todavía no tienen piloto: se suman acá cuando lo tengan (docs/relevo/marketing-copilot-rediseno.md).
+// El piloto de INSTAGRAM y el de YOUTUBE son de MaKo Pro (14/11/2026, 'piloto-redes'): a un Esencial, la hoja de Instagram es el
+// candado (`CandadoSoloPro`) y no hay «Guardar». `pilotoRedes` lo decide el server (./page.tsx); si el plan cambió después de
+// cargar, el 403 de /api/copiloto/piloto lo prende igual (`marcarSoloPro`).
 // =============================================================================
 
 import { useState } from 'react';
@@ -19,6 +22,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Toast, useToast } from '@/app/_ui';
 import { LogoRed } from '@/app/competitor-spy/LogoRed';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
+import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
 import type { KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import type { ConfigTacticas } from '@/lib/media-buyer/tacticas';
 import type { NumeroDelReel } from '@/lib/copiloto/piloto';
@@ -87,11 +92,15 @@ const CSS = `
 
 const plata = (n: number) => `US$ ${n.toLocaleString('es')}`;
 
-export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial, publicosMeta }: {
+export function ConfigurarPiloto({ inicial, pilotoPermitido, pilotoRedes, reel, canalInicial, publicosMeta }: {
   inicial: InicialPiloto; pilotoPermitido: boolean; reel: NumeroDelReel | null; canalInicial: 'anuncios' | 'instagram';
+  /** ¿El plan trae el piloto de Instagram y el de YouTube? (lib/copiloto/piloto.ts → `pilotoRedesPermitido`; Esencial no). */
+  pilotoRedes: boolean;
   /** Los dos públicos de Meta del retargeting (lib/retargeting.ts), o null si no se pudo leer (no se muestra el interruptor). */
   publicosMeta: boolean | null;
 }) {
+  // El candado de Instagram: lo que dijo el server al cargar, o un 403 de ahora (`marcarSoloPro`).
+  const redesSoloPro = useSoloPro('piloto-redes') || !pilotoRedes;
   const [publicos, setPublicos] = useState(publicosMeta ?? false);
   const router = useRouter();
   const [canal, setCanal] = useState<'anuncios' | 'instagram'>(canalInicial);
@@ -138,6 +147,8 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial,
     setGuardando(true);
     try {
       const r = await (await fetch('/api/copiloto/piloto', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'reel', numero }) })).json() as { ok: boolean; error?: string };
+      // El piloto de Instagram es de Pro: la hoja pasa a mostrar el candado, sin un toast de error.
+      if (!r.ok && esRespuestaSoloPro(r)) { marcarSoloPro('piloto-redes'); return; }
       if (!r.ok) { show(r.error || 'No se pudo guardar.', undefined, 'bad'); return; }
       show('Listo: guardé con cuántas vistas se publica.', undefined, 'good');
       router.push('/ads-manager/copiloto?tarjeta=instagram');
@@ -162,7 +173,13 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial,
             <button type="button" aria-current={canal === 'anuncios' ? 'page' : undefined} onClick={() => setCanal('anuncios')}><LogoRed red="anuncios" box={26} /><span>Anuncios</span></button>
             <button type="button" aria-current={canal === 'instagram' ? 'page' : undefined} onClick={() => setCanal('instagram')}><LogoRed red="instagram" box={26} /><span>Instagram</span></button>
           </nav>
-          {canal === 'instagram' ? (
+          {canal === 'instagram' && redesSoloPro ? (
+            // MaKo Esencial: el piloto de Instagram y el de YouTube son de Pro (14/11/2026). Nada que configurar: el candado.
+            <section className="frn-card mq-cfg__hoja">
+              <h2 className="frn-card__t">Instagram</h2>
+              <CandadoSoloPro funcion="piloto-redes" style={{ marginTop: 14 }} />
+            </section>
+          ) : canal === 'instagram' ? (
             <section className="frn-card mq-cfg__hoja">
               <h2 className="frn-card__t">Instagram</h2>
               <h3>Cuánto</h3>
@@ -219,7 +236,7 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial,
         </div>
         <div className="mq-cfg__pie">
           {canal === 'instagram'
-            ? <button type="button" className="frn-btn frn-btn--primary" disabled={guardando} onClick={guardarReel}>{guardando ? 'Guardando…' : 'Guardar'}</button>
+            ? !redesSoloPro && <button type="button" className="frn-btn frn-btn--primary" disabled={guardando} onClick={guardarReel}>{guardando ? 'Guardando…' : 'Guardar'}</button>
             : <button type="button" className="frn-btn frn-btn--primary" disabled={guardando} onClick={guardar}>{guardando ? 'Guardando…' : inicial.encendido ? 'Guardar' : 'Guardar y prender el piloto'}</button>}
         </div>
       </main>

@@ -23,6 +23,7 @@ import { resumenDeCorrida } from '@/lib/closing-job-estado';
 import { hayGrabadorConectado } from '@/lib/grabadores';
 import { getLead } from '@/lib/leads';
 import { getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
+import { candadoDeProClosing } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 // El trabajo de `after()` vive dentro de esta invocación: el techo es de la ruta,
@@ -30,6 +31,9 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
+  // El análisis de las llamadas es SÓLO de MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): antes de gastar nada.
+  const pro = await candadoDeProClosing();
+  if (pro) return pro;
   if (!(await hayGrabadorConectado())) {
     return Response.json({ ok: false, error: 'No hay un grabador de reuniones conectado en este workspace (Fathom, tl;dv, Fireflies, Zoom, Read AI).' }, { status: 403 });
   }

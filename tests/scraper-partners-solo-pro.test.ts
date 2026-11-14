@@ -37,7 +37,8 @@ function cuerpo(rel: string, nombre: string): string {
 }
 
 test('la regla: el scraper es de Pro (Partners ya no), y el candado dice qué es y cómo tenerlo', () => {
-  assert.deepEqual([...FUNCIONES_SOLO_PRO], ['scraper-whatsapp']);
+  // 14/11/2026: se sumaron copiar landings, la IA de los editores y la comunidad (Martín: «seas más limitado en el de 47»).
+  assert.deepEqual([...FUNCIONES_SOLO_PRO], ['scraper-whatsapp', 'replicar-landing', 'ia-editores', 'comunidad', 'setter-ia', 'piloto-redes']);
   assert.equal(textoSoloPro('scraper-whatsapp'), 'Traer los contactos de un grupo de WhatsApp es de MaKo Pro. Pasa a Pro para usarlo.');
   for (const f of FUNCIONES_SOLO_PRO) {
     const fila = filasDeComparacion().find((x) => x.que === NOMBRE_FUNCION_PRO[f]);
@@ -82,8 +83,8 @@ test('PARTNERS en todos los planes (29/10/2026): sin candado en hacermePartner, 
   const neg = fuente('lib/api-mako/areas/negocio.run.ts');
   assert.doesNotMatch(neg.slice(neg.indexOf('  hacerme_partner: {'), neg.indexOf('  cambiar_cobro_partners: {')), /esEsencialDe\(/);
   for (const rel of ['app/partners/page.tsx', 'app/m/partners/page.tsx']) assert.doesNotMatch(fuente(rel), /esEsencialDeLaSesion\(/, rel);
-  const fila = filasDeComparacion().find((x) => x.que === 'Ganar el primer mes de cada negocio que traes a MaKo');
-  assert.deepEqual([fila?.esencial, fila?.pro], [true, true]);
+  // 14/11/2026 (Martín): MaKo Partners ya no es una fila de la tabla de /planes; nada en ella lo pone como de Pro.
+  assert.ok(!filasDeComparacion().some((x) => /Partners|primer mes/.test(x.que) && x.esencial === false), 'la tabla vende Partners como de Pro');
 });
 
 // Probado rompiéndolo (27/10/2026), una rotura por vez sobre la base en verde (5 pases, 0 fallos), restaurando el texto con un

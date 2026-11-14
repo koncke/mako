@@ -27,7 +27,8 @@ import { useEffect, useState } from 'react';
  * /api/auth/me, que sólo viene para él: lib/vista-de-otro.ts).
  */
 type SuperAdminMira = { agenciaWs: number; clienteWs: number };
-type QuienMira = { clienteDeAgencia: boolean; agenciaAdentroDe: number | null; superAdminMira: SuperAdminMira | null };
+/** `planEsencial`: el negocio paga MaKo Esencial por la pasarela (lib/plan-esencial.ts, el mismo dato que lee el Sidebar). */
+type QuienMira = { clienteDeAgencia: boolean; agenciaAdentroDe: number | null; superAdminMira: SuperAdminMira | null; planEsencial: boolean };
 let promesa: Promise<QuienMira | null> | null = null;
 
 function leerQuienMira(): Promise<QuienMira | null> {
@@ -35,6 +36,7 @@ function leerQuienMira(): Promise<QuienMira | null> {
     .then((r) => (r.ok ? r.json() : null))
     .then((j) => (j?.ok && j.autenticado
       ? {
+        planEsencial: j.planEsencial === true,
         clienteDeAgencia: j.clienteDeAgencia === true,
         agenciaAdentroDe: j.modoAgencia === true && Number(j.clienteWs) > 0 ? Number(j.clienteWs) : null,
         superAdminMira: j.rol === 'admin' && Number(j.agencia?.ws) > 0 && Number(j.clienteWs) > 0
@@ -86,6 +88,27 @@ export function useClienteDeAgencia(): boolean | null {
   useEffect(() => {
     let vivo = true;
     void leerClienteDeAgencia().then((v) => { if (vivo) setEs(v); });
+    return () => { vivo = false; };
+  }, []);
+  return es;
+}
+
+/**
+ * ¿El negocio paga MaKo ESENCIAL por la pasarela? (14/11/2026, la IA de los editores: app/_components/solo-pro.ts). La misma
+ * lectura de /api/auth/me. ⚠️ AL REVÉS QUE `leerClienteDeAgencia`, un fallo es `false` («ante la duda, no hay candado», como
+ * en el servidor, lib/plan-esencial.ts): sacarle la IA a quien paga Pro es peor que mostrársela a un Esencial, que igual
+ * rebota en el servidor.
+ */
+export function leerPlanEsencial(): Promise<boolean> {
+  return leerQuienMira().then((q) => q?.planEsencial === true);
+}
+
+/** `planEsencial` como hook: `null` mientras no se sabe, después `true` o `false`. */
+export function usePlanEsencial(): boolean | null {
+  const [es, setEs] = useState<boolean | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    void leerPlanEsencial().then((v) => { if (vivo) setEs(v); });
     return () => { vivo = false; };
   }, []);
   return es;

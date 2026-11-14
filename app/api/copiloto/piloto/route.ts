@@ -6,12 +6,16 @@
 // POST {op:'pasar-chats', funnelId?}     → crea los leads de las charlas sin lead, con el alta de /chats (lib/retargeting.ts).
 // Las dos del retargeting ESCRIBEN y las dispara SIEMPRE un botón de quien administra (lo pidió su chat, «MaKo en la app»): nunca
 // una carga de la página ni un cron. La puerta es la del Media Buyer (`wsDeAdsManager`): el admin del negocio o el super admin.
+// El reel es el piloto de INSTAGRAM, que es de MaKo Pro (14/11/2026): a un Esencial, 403 con el texto del candado y `pasarAPro`
+// (lo reconoce app/_components/solo-pro.ts → `esRespuestaSoloPro`). El retargeting es de los anuncios: no lleva ese candado.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { wsDeAdsManager } from '@/lib/ads-guard';
-import { guardarNumeroReel, numeroDelReel, numeroDeReelOk } from '@/lib/copiloto/piloto';
+import { guardarNumeroReel, numeroDelReel, numeroDeReelOk, PlanSinPilotoRedes } from '@/lib/copiloto/piloto';
 import { configurarRetargeting, pasarChatsAlCrm } from '@/lib/retargeting';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -44,6 +48,7 @@ export async function POST(req: NextRequest) {
         return J({ ok: false, error: `No conozco «${String(body.op)}».` }, 400);
     }
   } catch (e) {
+    if (e instanceof PlanSinPilotoRedes) return J({ ok: false, error: e.message, tope: true, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) }, 403);
     return J({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500);
   }
 }

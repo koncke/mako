@@ -71,9 +71,14 @@ import {
 
 const URL_PROGRESO = '/api/compartido/curso/progreso';
 
-export default function PortalAlumno({ token, vista, vistaPrevia = false, urlsAdjuntos }: {
+export default function PortalAlumno({ token, vista, vistaPrevia = false, urlsAdjuntos, comunidad = true }: {
   token: string;
   vista: VistaAlumno;
+  /**
+   * ¿El plan del NEGOCIO dueño incluye la comunidad? (14/11/2026: es de MaKo Pro, lib/comunidad-solo-pro.ts). Lo calcula
+   * la página con `esEsencialDe(firma.ws)`; sin decirlo, sí. `false` saca la entrada «Comunidad» (`ofreceComunidad`).
+   */
+  comunidad?: boolean;
   /**
    * La vista previa del EQUIPO (app/customer-success/curso/vista): sin alumno detrás, nada se
    * escribe (./vista-previa.ts), y el curso va EMBEBIDO debajo de su barra. Las puertas de un
@@ -112,6 +117,7 @@ export default function PortalAlumno({ token, vista, vistaPrevia = false, urlsAd
           producto={producto}
           vistaPrevia={vistaPrevia}
           urlsAdjuntos={urlsAdjuntos}
+          comunidad={comunidad}
           onProducto={(id) => {
             // La posición es de OTRO curso: las etapas de dos productos pueden llamarse igual.
             navegar({}, 'reemplazar');
@@ -130,18 +136,20 @@ export default function PortalAlumno({ token, vista, vistaPrevia = false, urlsAd
 /** La clave de una tarea en lo que cambió en la pantalla: la clase, y su área si es por área. */
 const claveTarea = (claseId: number, area?: string) => (area ? `${claseId}:${area}` : String(claseId));
 
-function Producto({ token, vista, producto, vistaPrevia, urlsAdjuntos, onProducto, onAvance }: {
+function Producto({ token, vista, producto, vistaPrevia, urlsAdjuntos, comunidad, onProducto, onAvance }: {
   token: string;
   vista: VistaAlumno;
   producto: ProductoVista;
   vistaPrevia: boolean;
   urlsAdjuntos?: Record<string, string>;
+  /** ¿El plan del negocio incluye la comunidad? (es de MaKo Pro; ver `PortalAlumno`). */
+  comunidad: boolean;
   onProducto: (id: number) => void;
   onAvance: () => void;
 }) {
   const lider = vista.area != null;
-  // La comunidad del producto (D8): una entrada más de la barra, sólo para el cliente.
-  const conComunidad = ofreceComunidad({ vistaPrevia, area: vista.area });
+  // La comunidad del producto (D8): una entrada más de la barra, sólo para el cliente, y sólo si el plan del negocio la trae.
+  const conComunidad = ofreceComunidad({ vistaPrevia, area: vista.area, delPlan: comunidad });
   const { pos } = usePosicion();
 
   // ── Lo que cambió EN ESTA PANTALLA sobre lo que trajo el server ──

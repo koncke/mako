@@ -28,6 +28,7 @@ import { Icon } from '../_components/icons';
 import { BrandDefs, SvcIcon } from '../_components/ServicioVisual';
 import { LogoRed } from './LogoRed';
 import { useConectarIntegracion } from '../_components/ConectarIntegracion';
+import { PasarAPro } from '../crm/PasarAPro';
 import { fotoPorNosotros } from '@/lib/foto-instagram-reglas';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { iniciales } from '@/lib/unicode-seguro';
@@ -165,7 +166,7 @@ const PREGUNTA: Record<VistaPrevia['campo'], string> = {
 const vistaDePerfil = (p: PerfilHallado): VistaPrevia => ({ campo: 'instagram', valor: p.usuario, nombre: p.nombre, foto: p.foto, seguidores: p.seguidores, bio: p.bio ?? null, web: p.web ?? null });
 const vistaDeCanal = (c: CanalHallado): VistaPrevia => ({ campo: 'youtube_id', valor: c.ref, nombre: c.nombre, foto: c.foto, seguidores: c.suscriptores });
 
-export function BuscadorAlta({ textoInicial = '', para = null, competidores, ocupado, error, onClose, onAgregar, onAbrir }: {
+export function BuscadorAlta({ textoInicial = '', para = null, competidores, ocupado, error, pasarAPro = false, onClose, onAgregar, onAbrir }: {
   textoInicial?: string;
   /**
    * Sumarle un canal a alguien que ya se mira («Agregar su YouTube»): el MISMO buscador, arrancado con su nombre y con sólo sus
@@ -175,6 +176,8 @@ export function BuscadorAlta({ textoInicial = '', para = null, competidores, ocu
   competidores: Competidor[];
   ocupado: boolean;
   error: string | null;
+  /** El `error` es el tope del plan (lib/spy-tope-reglas.ts: Esencial suma un competidor): al lado va «Pasar a Pro». */
+  pasarAPro?: boolean;
   onClose: () => void;
   /** `nombre` y `web` los leyó la confirmación: no se vuelven a pagar al guardar. */
   onAgregar: (pegado: string, nombre?: string, deLaBio?: string | null) => void;
@@ -466,7 +469,7 @@ export function BuscadorAlta({ textoInicial = '', para = null, competidores, ocu
           )}
           {errorVista && <p className="spy-finder__nota spy-finder__nota--mal" style={{ marginTop: 16 }}>{errorVista}</p>}
           {vista?.aviso && <p className="spy-finder__nota">{vista.aviso}</p>}
-          {error && <p className="spy-finder__nota spy-finder__nota--mal">{error}</p>}
+          {error && <p className="spy-finder__nota spy-finder__nota--mal">{error}{pasarAPro && <> <PasarAPro /></>}</p>}
           <div className="spy-finder__botones">
             <button type="button" className="spy-boton" disabled={ocupado} onClick={volver}>No, volver</button>
             <button type="button" className="spy-boton spy-boton-primario" disabled={!vista || ocupado} onClick={agregar}>

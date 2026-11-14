@@ -32,10 +32,10 @@ test('2. el cupo: Esencial propone 2 por día, Pro sin tope', () => {
 test('3. la comparación de planes: el cupo, y el piloto automático sólo en Pro', () => {
   // Dichos sin «media buyer» ni «piloto automático» desde el 27/10/2026 (Leila: «Una persona que no sabe no entiende…»).
   const filas = filasDeComparacion();
-  const cupo = filas.find((f) => /^Ideas por día para mejorar tus anuncios$/.test(f.que));
+  const cupo = filas.find((f) => /^Recomendaciones por día para tus campañas de Meta$/.test(f.que));
   assert.ok(cupo, 'falta la fila del cupo del media buyer');
   assert.deepEqual([cupo!.esencial, cupo!.pro], ['2', 'Sin tope']);
-  const piloto = filas.find((f) => /MaKo aplica las mejoras solo/.test(f.que));
+  const piloto = filas.find((f) => /^Piloto automático de tus anuncios de Meta$/.test(f.que));
   assert.ok(piloto, 'falta la fila del piloto automático');
   assert.deepEqual([piloto!.esencial, piloto!.pro, piloto!.acelerador], [false, true, true]);
 });

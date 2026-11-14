@@ -171,7 +171,7 @@ export type DepsAgregar = DepsSugeridos & {
   /** Las piezas de un competidor de UN negocio. */
   piezasDe: (ws: number, id: number) => Promise<FilaPieza[]>;
   /** El alta de siempre (`agregarCompetidor`), en el negocio que pregunta. */
-  agregar: (pegado: string, nombre: string) => Promise<{ ok: true; id: number } | { ok: false; error: string }>;
+  agregar: (pegado: string, nombre: string) => Promise<{ ok: true; id: number } | { ok: false; error: string; pasarAPro?: string }>;
   /** Le completa lo que le falte (sólo las columnas vacías) y lo marca como mirado ahora. */
   completar: (id: number, desde: FilaCompetidor) => Promise<void>;
   /** `guardarVistas` del negocio que pregunta. */
@@ -184,7 +184,7 @@ export type DepsAgregar = DepsSugeridos & {
  * Suma un sugerido al negocio que pregunta, copiando lo que la plataforma ya leyó. Si ya lo mira, lo abre (no se crea
  * otro). Nunca acepta un id que no sea de la plataforma.
  */
-export async function agregarSugerido(deps: DepsAgregar, idSugerido: number): Promise<{ ok: true; id: number; piezas: number } | { ok: false; error: string }> {
+export async function agregarSugerido(deps: DepsAgregar, idSugerido: number): Promise<{ ok: true; id: number; piezas: number } | { ok: false; error: string; pasarAPro?: string }> {
   const [plataforma, actual] = await Promise.all([deps.plataforma(), deps.actual()]);
   if (plataforma == null || actual == null) return { ok: false, error: 'No pude saber de qué negocio son los sugeridos.' };
   if (plataforma === actual) return { ok: false, error: 'Los sugeridos son los de este negocio: ya los miras.' };

@@ -29,6 +29,7 @@ import { cuerpoConArchivos, originalDe } from '@/app/_chat/useAdjuntosDelChat';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
 import type { KitMarca } from '@/lib/marca/kits';
 import type { IntencionChat } from '@/app/_chat/SelectorIntencion';
+import { esRespuestaSoloPro, marcarSoloPro } from '@/app/_components/solo-pro';
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -90,6 +91,8 @@ async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, arch
     const json = (await res.json().catch(() => null)) as Respuesta | null;
     // El 413 de Vercel (archivos de más) llega en texto: no es JSON.
     if (!json) return { ok: false, error: res.status === 413 ? ERROR_ADJUNTO.pesado : 'MaKo no respondió. Vuelve a intentar.' };
+    // Editar con IA es de MaKo Pro (lib/editores-ia-pro.ts): el panel pasa a mostrar el candado (app/_components/solo-pro.ts).
+    if (res.status === 403 && esRespuestaSoloPro(json)) marcarSoloPro('ia-editores');
     return json;
   } catch {
     if (senal.aborted) return { ok: false, error: 'Detenido.', cortado: true };

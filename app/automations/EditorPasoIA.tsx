@@ -40,6 +40,10 @@
 // ⚠️ IG Y MESSENGER SE OFRECEN DESDE QUE EL MOTOR CONTESTA POR AHÍ (TikTok fase 0, 14/10/2026; §6: «la pantalla
 // ofrece lo que el emisor hace»): `asistirRespuesta` con el medio, la respuesta por Zernio. Un medio que ya tiene
 // su AI Step no se puede elegir (`puedeSumarAIStep`, la misma regla que Publicar: uno por medio).
+// ⚠️ «SOLA» ES EL SETTER CON IA, Y ES DE MaKo PRO (14/11/2026, Martín; lib/setter-ia-reglas.ts). Con MaKo Esencial
+// (`useSoloPro('setter-ia')`): el candado arriba de los escenarios, «Sola» deshabilitada en cada desplegable y lo NUEVO
+// (el catálogo, «✦ Armar», «✦ Otro con MaKo») nace en «Para aprobar». Lo que ya estaba no se toca. «Para aprobar» y «Sólo
+// te avisa» siguen abiertos: MaKo no le contesta solo a nadie. El freno de verdad es el server (`setSecuenciaPasos` y Activar).
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
@@ -58,7 +62,10 @@ import {
   type CasoRespuesta, type PasoGrafo, type MedioAIStep, type EjemploCaso,
 } from '@/lib/flujo-grafo';
 import { resumenPasoIA, FILA_OBJETIVO_IA, FILA_ESCENARIOS_IA, FILA_CHIPS_IA, ICONOS_MAS } from '@/lib/flujo-conversacion';
-import { libertadDeCaso, avisoDeLibertad, LIBERTADES, ROTULO_LIBERTAD, type Libertad } from '@/lib/ai-step-libertad';
+import { libertadDeCaso, avisoDeLibertad, conLibertad, LIBERTADES, ROTULO_LIBERTAD, type Libertad } from '@/lib/ai-step-libertad';
+import { escenarioContestaSolo } from '@/lib/setter-ia-reglas';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
+import { useSoloPro } from '@/app/_components/solo-pro';
 import { escenarioTipico } from '@/lib/ai-step-escenarios';
 import {
   casoDeArmado, casosDelArmado, conEscenario, sinEscenario, conLibertadDe, conLoDemas, libertadDeLoDemas,
@@ -156,9 +163,13 @@ const ultimoPaso = new Map<string, number>();
 /** El valor de «＋ Escenario» que pide uno a MaKo (los del catálogo van como `t:<id>`). */
 const OTRO_CON_MAKO = 'mako';
 
+type OpcionDeLibertad = { value: Libertad; label: string; disabled: boolean };
 /** Las opciones de un desplegable de libertad, con su ícono. */
-const conIconos = (ops: ReadonlyArray<{ value: Libertad; label: string; disabled: boolean }>): DropdownOption[] =>
+const opcionesConIconos = (ops: ReadonlyArray<OpcionDeLibertad>): DropdownOption[] =>
   ops.map((o) => ({ value: o.value, label: o.label, icono: ICONO_LIBERTAD[o.value], disabled: o.disabled }));
+/** Con MaKo Esencial, «Sola» va deshabilitada: el setter con IA es de Pro (14/11/2026, lib/setter-ia-reglas.ts). */
+const sinSolaConEsencial = (ops: ReadonlyArray<OpcionDeLibertad>, esencial: boolean): ReadonlyArray<OpcionDeLibertad> =>
+  (esencial ? ops.map((o) => (o.value === 'sola' ? { ...o, disabled: true } : o)) : ops);
 
 /**
  * EL PANEL DEL AI STEP. `id`: la tarjeta (recuerda el último paso tocado). `pasos`: el flujo entero (los ids nuevos no
@@ -183,6 +194,15 @@ export function EditorPasoIA({ id, paso, pasos, busy, cambiar, secuenciaId, onEr
 
   /** Los casos nuevos de la tarjeta (un cambio que apila). */
   const setCasos = (cs: CasoRespuesta[]) => cambiar({ casos: cs }, true);
+  // EL SETTER CON IA ES DE MaKo PRO (14/11/2026): con Esencial, «Sola» va deshabilitada y lo NUEVO nace «Para aprobar».
+  const setterSoloPro = useSoloPro('setter-ia');
+  const conIconos = (ops: ReadonlyArray<OpcionDeLibertad>) => opcionesConIconos(sinSolaConEsencial(ops, setterSoloPro));
+  const sinSola = (c: CasoRespuesta): CasoRespuesta => (setterSoloPro && escenarioContestaSolo(c) ? conLibertad(c, 'aprueba') : c);
+  /** Lo que arma MaKo («✦ Armar», «✦ Otro con MaKo»), con Esencial sin «Sola»: los escenarios y «Lo demás» en «Para aprobar». */
+  const armadoDelPlan = (a: ArmadoAIStep): ArmadoAIStep => (!setterSoloPro ? a : {
+    escenarios: a.escenarios.map((e) => (e.libertad === 'sola' ? { ...e, libertad: 'aprueba' as const } : e)),
+    lo_demas: a.lo_demas === 'sola' ? 'aprueba' : a.lo_demas,
+  });
   /** Ids de caso que no chocan con ninguna tarjeta, rama ni caso del flujo, ni con los de ESTA tarjeta. */
   const ids = () => generadorDeIds([...pasos, { casos } as PasoGrafo]);
 
@@ -207,7 +227,7 @@ export function EditorPasoIA({ id, paso, pasos, busy, cambiar, secuenciaId, onEr
       });
       const j = await r.json().catch(() => null);
       if (!j?.ok) { setErrArmar(j?.error ?? 'MaKo no pudo armarlo.'); return; }
-      const a = j.armado as ArmadoAIStep;
+      const a = armadoDelPlan(j.armado as ArmadoAIStep);
       if (modo === 'uno') { if (a.escenarios[0]) setCasos(conEscenario(casos, casoDeArmado(a.escenarios[0], ids()()))); return; }
       // Con escenarios puestos no se pisan sin preguntar («¿Reemplazo?»).
       if (escenarios.length) setPropuesta(a); else aplicar(a);
@@ -226,7 +246,7 @@ export function EditorPasoIA({ id, paso, pasos, busy, cambiar, secuenciaId, onEr
   const sumar = (v: string) => {
     if (lleno) return;
     if (v === OTRO_CON_MAKO) { void armar('uno'); return; }
-    if (v.startsWith('t:')) setCasos(conEscenario(casos, escenarioTipico(v.slice(2), ids()())));
+    if (v.startsWith('t:')) setCasos(conEscenario(casos, sinSola(escenarioTipico(v.slice(2), ids()()))));
   };
 
   // ── Paso 3: «Tu forma de escribir» (la guía de voz: su primer bloque es «TU TONO») ──
@@ -303,6 +323,8 @@ export function EditorPasoIA({ id, paso, pasos, busy, cambiar, secuenciaId, onEr
       </PasoAIStep>
 
       <PasoAIStep n={2} titulo="Escenarios" abierto={abierto === 2} onAbrir={() => abrir(2)} resumen={resumenes[2]} rojo={rojo(2)}>
+        {/* MaKo Esencial: que MaKo conteste SOLA es el setter con IA, de Pro (14/11/2026). */}
+        {setterSoloPro && <CandadoSoloPro funcion="setter-ia" />}
         {escenarios.map((c) => {
           // «SOLA» CON SU AVISO (14/10/2026): con plata ya se puede, y se dice al lado (`avisoDeLibertad`).
           const aviso = avisoDeLibertad(c, libertadDeCaso(c));

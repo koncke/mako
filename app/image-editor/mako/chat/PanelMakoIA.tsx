@@ -52,6 +52,9 @@ import { kitElegido } from '@/lib/marca/kits';
 import { Dropdown } from '@/app/components/Dropdown';
 import { rutaSeccion } from '@/lib/secciones-negocio';
 import { RecortarAlAbrir } from '../quitar-fondo';
+import { useSoloPro } from '@/app/_components/solo-pro';
+import { usePlanEsencial } from '@/app/_components/useClienteDeAgencia';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
 
 const HILO_SERVER: Hilo = { mensajes: [], corriendo: false };
 const useHilo = (disenoId: string): Hilo => useSyncExternalStore(suscribir, () => leerHilo(disenoId), () => HILO_SERVER);
@@ -159,6 +162,10 @@ export function PanelMakoIA() {
   /** En blanco: una sola página y sin nada adentro (lib/aperturas/image.ts). */
   const enBlanco = useEditorState((s) => s.doc.pages.length === 1 && s.doc.pages[0].objects.length === 0);
   const hilo = useHilo(disenoId);
+  // EDITAR CON IA ES SÓLO DE MaKo PRO (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes; a un Esencial, en vez
+  // del chat, el candado con «Pasar a Pro» (abajo). `plan`: `null` mientras no se sabe (lo espera «Usar plantilla», que escribe solo).
+  const soloPro = useSoloPro('ia-editores');
+  const plan = usePlanEsencial();
   // MAKO TOMA LA INICIATIVA (5/11/2026, docs/mako-iniciativa/plan.md T12): con el diseño en blanco y la charla vacía pregunta
   // «¿Dónde lo vas a publicar?» y la respuesta pone el lienzo a esa medida, sin IA (el mismo resize del panel de tamaño, y anda
   // sin la app de escritorio). Mientras habla, el saludo y las píldoras se esconden: un paso por pantalla.
@@ -240,13 +247,15 @@ export function PanelMakoIA() {
   const escribirPlantilla = useRef<'no' | 'pedido' | 'hecho'>('no');
   useEffect(() => {
     if (escribirPlantilla.current !== 'no' || !disenoId || hilo.corriendo || hilo.mensajes.length || appEscritorio.bloqueada) return;
+    // Escribirla es editar con IA: un Esencial no (y mientras no se sabe el plan, se espera).
+    if (plan !== false || soloPro) return;
     const url = new URL(window.location.href);
     if (url.searchParams.get(ESCRIBIR_PLANTILLA) !== '1') return;
     escribirPlantilla.current = 'pedido';
     url.searchParams.delete(ESCRIBIR_PLANTILLA);
     window.history.replaceState(window.history.state, '', url.toString());
     void pedirEdicion(editorRef.current, PEDIDO_ESCRIBIR_PLANTILLA, 'diseno', [], { kit, conNegocio: true });
-  }, [disenoId, hilo.corriendo, hilo.mensajes.length, appEscritorio.bloqueada, kit]);
+  }, [disenoId, hilo.corriendo, hilo.mensajes.length, appEscritorio.bloqueada, kit, plan, soloPro]);
   useEffect(() => {
     if (escribirPlantilla.current !== 'pedido' || hilo.corriendo) return;
     const m = hilo.mensajes.find((x): x is MensajeMako => x.de === 'mako' && x.estado === 'pendiente' && !!x.propuesta);
@@ -286,6 +295,23 @@ export function PanelMakoIA() {
       </>,
     };
   };
+
+  // Un Esencial: la apertura sin IA (la medida de la publicación, el mismo resize del panel de tamaño) y, después, el candado en
+  // vez del chat. El recorte de la persona sigue montado (no es la IA del chat: corre en el navegador).
+  if (soloPro) {
+    return (
+      <div className={styles.panel}>
+        <RecortarAlAbrir />
+        <div className={`co-hilo ${styles.hilo}`} style={{ padding: '8px 4px' }}>
+          <div className="co-hilo__col">
+            {estadoApertura.apertura
+              ? <AperturaMako estado={estadoApertura} quien={QUIEN} acciones={{ historia: aLaMedida('historia'), carrusel: aLaMedida('carrusel'), anuncio: aLaMedida('anuncio') }} />
+              : <CandadoSoloPro funcion="ia-editores" style={{ padding: '12px 8px' }} />}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.panel}>

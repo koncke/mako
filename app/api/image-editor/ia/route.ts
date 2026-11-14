@@ -13,10 +13,14 @@
 // sin workspace cae al ws 1, que es un cliente.
 //
 // Va detrás de la sesión (NO está en lib/rutas-publicas.ts) y el proxy le exige Origin propio al POST.
+//
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes, editarlo con IA no. Un Esencial recibe
+// el 403 con `pasarAPro`, antes del rate limit y de leer los archivos (no gasta nada).
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
 import { puerta } from '@/lib/image-editor/server';
+import { candadoIaDeEditores } from '@/lib/editores-ia-pro';
 import { rateLimit } from '@/lib/rate-limit';
 import { editarImagen } from '@/lib/image-editor/chat/ia';
 import { cuerpoYArchivos, leerLosArchivos } from '@/lib/adjuntos-del-chat';
@@ -35,6 +39,8 @@ const fallo = (error: string, status: number) =>
 export async function POST(req: NextRequest) {
   const p = await puerta();
   if (p instanceof Response) return p;
+  const pro = await candadoIaDeEditores();
+  if (pro) return pro;
   if (!rateLimit(`image-editor:ia:${p.ws}`, 30, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);
 
   // Con fotos o PDF (28/10/2026, las cajas unificadas): vienen en multipart (lib/adjuntos-del-chat.ts).

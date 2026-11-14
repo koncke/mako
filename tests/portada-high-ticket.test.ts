@@ -115,6 +115,7 @@ test('la tabla y lo que trae cada plan no prometen videos ni imágenes hechos co
   const A_MEDIAS = /videos?.*armad[oa]s? con IA|im[aá]genes con IA|crear y retocar/i; // «Tu oferta armada con IA» sí anda
   for (const f of filasDeComparacion()) assert.doesNotMatch(f.que, A_MEDIAS, `la tabla promete «${f.que}»`);
   for (const p of PLANES_MAKO_DEFAULT) for (const l of p.incluye) assert.doesNotMatch(l, A_MEDIAS, `${p.id} promete «${l}»`);
-  assert.equal(NOMBRE_TAB_PRO['image-editor'], 'Diseñar tus imágenes sin salir de MaKo');
-  assert.ok(filasDeComparacion().some((f) => f.que === NOMBRE_TAB_PRO['video-editor']), 'la edición de video, que sí anda, sigue');
+  // 14/11/2026: los editores son de los dos planes (Martín) y lo de Pro es editar con IA (subtítulos, cortes, B-roll y diseños).
+  assert.ok(filasDeComparacion().some((f) => f.que === 'Editor de imágenes y carruseles, como Canva' && f.esencial === true), 'el editor de imágenes, en los dos');
+  assert.ok(filasDeComparacion().some((f) => f.que === 'Editor de video, como CapCut' && f.esencial === true), 'la edición de video, que sí anda, sigue');
 });

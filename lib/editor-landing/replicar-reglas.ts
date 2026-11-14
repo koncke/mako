@@ -171,7 +171,8 @@ export type RespuestaReplicar =
     /** Lo que se replicó (28/10/2026). La copia idéntica no lo lleva: es todo. */
     partes?: ParteReplica[];
   }
-  | ({ ok: false; error: string; probar?: FormatoReplicar } & Partial<SeLeeEnNavegador>);
+  /** `pasarAPro` (14/11/2026): el candado de Pro (./replicar-candado.ts), con a dónde lleva «Pasar a Pro». */
+  | ({ ok: false; error: string; probar?: FormatoReplicar; pasarAPro?: string } & Partial<SeLeeEnNavegador>);
 
 /** Partes de la página como máximo (las de más se juntan). Una landing larga ronda las 12-15. */
 export const MAX_SECCIONES_FIEL = 24;

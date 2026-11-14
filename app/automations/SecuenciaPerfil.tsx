@@ -76,6 +76,12 @@ import { medioDelError, medioIADeLosCron, medioQueFrena, mediosQueUsa, type Medi
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { MetricasAutomatizacion } from './MetricasAutomatizacion';
 import { RUTA_LINEAS } from './SalidaWhatsApp';
+// El candado del setter con IA (14/11/2026): Publicar o Activar con MaKo Esencial contesta su texto (lib/setter-ia-reglas.ts).
+import { TEXTO_SETTER_SOLO_PRO } from '@/lib/setter-ia-reglas';
+import { marcarSoloPro } from '@/app/_components/solo-pro';
+import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';
+import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
 // se tilda la IA): no tiene por qué viajar en el bundle de cada apertura del lienzo.
@@ -567,6 +573,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // El setter con IA es de MaKo Pro (14/11/2026): si Publicar o Activar lo frenó, el AI Step pasa a mostrar su candado.
+  useEffect(() => { if (err === TEXTO_SETTER_SOLO_PRO) marcarSoloPro('setter-ia'); }, [err]);
   /**
    * EL MEDIO QUE FRENÓ PUBLICAR O ACTIVAR (décima tanda, GENERAL 6: «no dejar publicarlo hasta que no lo
    * configure. Y esas configuraciones siempre allí mismo»). El server contesta 409 con el `medio` al publicar,
@@ -1483,7 +1491,12 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
             {/* El error va ACÁ, pegado al botón que lo produce: abajo del lienzo y a la
                 izquierda nacía debajo de la lista de secuencias, que flota encima. */}
             {rolAdmin && (err ? (
-              <span role="alert" title={avisosIA && avisosIA.texto === err ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>{err}<ReportarASoporte /></span>
+              <span role="alert" title={avisosIA && avisosIA.texto === err ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>
+                {/* El candado del setter con IA no es un error para Soporte: lleva «Pasar a Pro» (14/11/2026). */}
+                {err === TEXTO_SETTER_SOLO_PRO
+                  ? <>{err} <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} style={{ fontWeight: 650, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{ROTULO_PASAR_A_PRO}</Link></CtaPasarAPro></>
+                  : <>{err}<ReportarASoporte /></>}
+              </span>
             ) : flash ? (
               <span style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>
             ) : null)}

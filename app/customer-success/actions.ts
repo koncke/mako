@@ -40,7 +40,7 @@
 // ⚠️ Y LOS MOVIMIENTOS DE ENTREGA FIRMAN CON QUIEN LOS HIZO (`autorActual`), igual que
 // renombrar: el choke point firmaba «CRM» si nadie le decía otra cosa.
 
-import { getTenantDb, adminDeWorkspaceActual, getWorkspaceActual } from '@/lib/workspace';
+import { getTenantDb, adminDeWorkspaceActual, getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { puedeUsarCs } from './puerta';
 import { saneaPortada, saneaIcono, urlDeImagenOk, yPortada } from '@/lib/portadas';
 import { getLead, logLeadChanges, type Lead } from '@/lib/leads';
@@ -61,6 +61,8 @@ import { renombrarProducto, getPipelineStagesDeLead } from '@/lib/funnels';
 import type { DeshacerEliminar } from './eliminar-programa';
 import { eliminarPrograma, restaurarPrograma } from './programa-datos';
 import { duplicarPrograma, type ProgramaDuplicado } from '@/lib/curso-duplicar';
+import { frenoAlDuplicar } from '@/lib/tope-cursos';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
 import { anotarFichaAbierta } from './onboarding-clientes-sync';
 
@@ -723,12 +725,15 @@ export async function restaurarServicioAction(productoId: number, deshacer: Desh
  * archiva la copia (`eliminarServicioAction` sobre el producto nuevo), como cualquier programa.
  */
 export async function duplicarServicioAction(productoId: number): Promise<
-  { ok: true; copia: ProgramaDuplicado } | { ok: false; error: string }
+  { ok: true; copia: ProgramaDuplicado } | { ok: false; error: string; pasarAPro?: string }
 > {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     const ws = await adminDeWorkspaceActual();
     if (!ws) return { ok: false, error: 'Sólo un administrador puede duplicar un producto.' };
+    // La copia de un programa con clases es un CURSO más, y MaKo Esencial tiene uno (14/11/2026, lib/tope-cursos.ts).
+    const tope = await frenoAlDuplicar(ws, Number(productoId));
+    if (tope) return { ok: false, error: tope.texto, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) };
     const sesion = await getUsuarioActual();
     const r = await duplicarPrograma(ws, productoId, sesion?.nombre || sesion?.email || null);
     if (!r.ok) return r;

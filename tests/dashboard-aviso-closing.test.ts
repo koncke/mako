@@ -37,7 +37,8 @@ test('escritorio: la página pregunta con la MISMA función que el cron y el lie
   // (27/10/2026: y con SU clave caída, la causa — tests/closing-hoja-ia-caida.test.ts.)
   assert.match(pag, /avisoClosing=\{avisoDeLaHojaClosing\(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida\(caida\)\)\}/);
   const ed = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
-  assert.match(ed, /\{avisoClosing && !closingConectado && esHojaClosing\(hoja\) && !dueno && !enBlanco && !compartido && \(/);
+  // 14/11/2026: y no sobre el candado de Pro (la hoja de un Esencial: tests/closing-solo-pro.test.ts).
+  assert.match(ed, /\{avisoClosing && !closingConectado && esHojaClosing\(hoja\) && !cerradaPorPlan && !dueno && !enBlanco && !compartido && \(/);
   // Se conecta con EL modal de /integraciones, sin salir de la hoja (tests/integracion-sin-salir.test.ts barre los links).
   assert.match(ed, /\{!soloLectura && <BotonIntegracion servicio=\{SERVICIO_CLAUDE\} [^>]*onConectado=\{\(\) => setClosingConectado\(true\)\}>\{accionClosing\}<\/BotonIntegracion>\}/, 'el closer no conecta: sin botón');
   assert.match(ed, /accionClosing = 'Conectar Claude'/, 'sin decir otra cosa, el botón conecta Claude');

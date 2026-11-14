@@ -60,8 +60,12 @@
 // su borrador (la ruta de replicar). «Leer de nuevo» sobre lo que ya está a la vista lee de verdad.
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useWs } from '@/app/_ui/Link';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
+import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
+import { usePlanEsencial } from '@/app/_components/useClienteDeAgencia';
+import { textoSoloPro } from '@/lib/topes-plan';
 import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
 import type { TemaPropio } from '@/lib/editor-landing/api-tipos';
 import { TEMAS } from '@/lib/editor-landing/temas';
@@ -77,7 +81,7 @@ import { ArmadoEnVivo, useRevelado } from '@/app/_ui/ArmadoEnVivo';
 import { ESPERA_FINAL_MS } from '@/lib/editor-landing/replicar-escena';
 import { EscenarioReplica } from './EscenarioReplica';
 import {
-  abrirEnElClic, cerrarVentana, leerEnNavegador, mensajeSinFoto, pedirConVentana, tomarVentanaReservada,
+  abrirEnElClic, cerrarVentana, leerEnNavegador, mensajeSinFoto, pedirConVentana, soltarVentanaReservada, tomarVentanaReservada,
   type SalidaSinLectura, type VentanaDelClic,
 } from '@/lib/editor-landing/lector-navegador';
 import {
@@ -193,6 +197,7 @@ export function useReplicar(): {
       irDuro(`/web-generator/${r.id}`, ws);
       return;
     }
+    siEsElCandado(r);
     const f = r as { error: string; enNavegador?: boolean; pegable?: boolean; probar?: unknown };
     const probar = formatoReplicar(f.probar);
     setEstado({
@@ -277,6 +282,7 @@ export function useReplicarEnVivo(): {
       avisarBorradores();
       return;
     }
+    siEsElCandado(r);
     const f = r as { error: string; enNavegador?: boolean; pegable?: boolean; probar?: unknown };
     const probar = formatoReplicar(f.probar);
     setEstado({ fase: 'falla', formato, error: f.error, enNavegador: f.enNavegador === true, pegable: f.pegable === true, probar: probar && probar !== formato ? probar : null, salida: null });
@@ -284,10 +290,29 @@ export function useReplicarEnVivo(): {
   return { estado, eventos, lista, replicar };
 }
 
+/** El texto del candado de Pro: el MISMO que contesta el servidor (lib/editor-landing/replicar-candado.ts). */
+export const TEXTO_CANDADO_REPLICAR = textoSoloPro('replicar-landing');
+
+/**
+ * EL CANDADO DE PRO (14/11/2026, Martín: «Copiar páginas de la competencia… Eso no lo puede hacer el de 47, sí lo puede hacer el
+ * de 97»): el de todas las funciones de Pro (app/_components/CandadoSoloPro.tsx: el texto de `textoSoloPro` y «Pasar a Pro» a
+ * «Tu plan», envuelto en `CtaPasarAPro` como el del scraper; en el teléfono, sin el botón). Lo muestran Replicar, la caja de
+ * crear (../CajaCrear.tsx) y la falla de una réplica que el servidor frenó. Es cosmético: el candado de verdad es el del
+ * servidor (lib/editor-landing/replicar-candado.ts).
+ */
+export function CandadoReplicar({ style }: { style?: CSSProperties }) {
+  return <CandadoSoloPro funcion="replicar-landing" style={style} />;
+}
+
+/** El servidor frenó por el plan (su 403 trae `pasarAPro`): todas las entradas de Replicar pasan a mostrar el candado. */
+const siEsElCandado = (r: unknown): void => { if (esRespuestaSoloPro(r)) marcarSoloPro('replicar-landing'); };
+
 /**
  * La falla de Replicar: el error y, si el server propone otro formato (`probar`), el botón que replica así.
  * Verificación de la tanda 6: una app de Vite o Lovable en «Página web» terminaba en «La página no trae nada
  * para copiar.», sin salida; «Landing» sí la lee (en el navegador de la persona, si hace falta).
+ * 14/11/2026: si el servidor la frenó por el plan (su texto es el del candado), el candado con «Pasar a Pro» y no el error
+ * pelado: el «Replicar en el editor» y el «Aplicar» del Diagnóstico pasan por acá.
  */
 export function FallaReplicar({ error, probar, onProbar, deshabilitado, clase = 'gp-error' }: {
   error: string;
@@ -296,6 +321,7 @@ export function FallaReplicar({ error, probar, onProbar, deshabilitado, clase = 
   deshabilitado?: boolean;
   clase?: string;
 }) {
+  if (error === TEXTO_CANDADO_REPLICAR) return <CandadoReplicar style={{ marginTop: 10 }} />;
   return (
     <>
       <p className={clase} role="alert">{error}<ReportarASoporte /></p>
@@ -495,6 +521,8 @@ export function useLeerParaReplicar(): {
       avisarBorradores();
       return;
     }
+    // Frenada por el plan: el candado reemplaza la pantalla (`ReplicarUnaPagina`).
+    siEsElCandado(r);
     const f = r as { error: string; enNavegador?: boolean; pegable?: boolean };
     setEstado({ fase: 'falla', url, error: f.error, enNavegador: f.enNavegador === true, pegable: f.pegable === true, salida: sinLectura });
   }, []);
@@ -522,12 +550,8 @@ export function temaInicialDeReplica(propios: readonly TemaPropio[], guardado: s
   return mio ? `ws:${mio.id}` : temaSugerido('vender');
 }
 
-/**
- * «Replicar landing», a la derecha del Panel: la dirección y «Leer»; después lo que tiene la página, qué replicar, el
- * tema (sin el diseño de la original), el formato y «Replicar». Con `auto` (el link pegado en la caja con «Replica esta
- * landing») LEE sola, UNA vez: el clic ya fue el ↑ de la caja. Replicar sigue siendo un clic: es lo que se paga.
- */
-export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, adaptar: adaptarInicial = false, auto = false, propios = [], entrega }: {
+/** Lo que recibe «Replicar landing» (la derecha del Panel, Inicio.tsx). */
+export type PropsReplicarUnaPagina = {
   url?: string;
   /** La foto que ya está en la extensión de MaKo (Replicar abierto por ella, `?extension=`): se toma en vez de leer. */
   entrega?: string;
@@ -537,7 +561,38 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   auto?: boolean;
   /** Los temas propios del negocio (para «Tu diseño»). */
   propios?: readonly TemaPropio[];
-}) {
+};
+
+/**
+ * «Replicar landing», a la derecha del Panel. SÓLO MaKo Pro (14/11/2026, `CandadoReplicar`): un Esencial ve el candado y
+ * nada arranca. Hasta saber el plan (`usePlanEsencial`, /api/auth/me) tampoco: con `auto` (el ↑ de la caja, «Copiar su sitio»,
+ * la tarjeta de un outlier) leería sola, y eso ya paga IA. Ante la duda (no se pudo leer), es Pro: lo frena el servidor, y su
+ * 403 prende el candado (`useSoloPro`, app/_components/solo-pro.ts).
+ */
+export function ReplicarUnaPagina(props: PropsReplicarUnaPagina) {
+  const plan = usePlanEsencial();
+  const candado = useSoloPro('replicar-landing');
+  if (!candado && plan === false) return <ReplicarAbierto {...props} />;
+  return <ReplicarConCandado url={props.url} candado={candado} />;
+}
+
+/** El candado de Replicar (o, mientras se lee el plan, el título solo). La ventana que reservó el clic no se va a usar. */
+function ReplicarConCandado({ url, candado }: { url?: string; candado: boolean }) {
+  useEffect(() => { if (candado && url) soltarVentanaReservada(url); }, [candado, url]);
+  return (
+    <section className="gp-analizar gp-replicar" aria-label="Replicar landing" aria-busy={candado ? undefined : true}>
+      <h1 className="gp-cabeza-titulo">Replicar landing</h1>
+      {candado && <CandadoReplicar style={{ marginTop: 14 }} />}
+    </section>
+  );
+}
+
+/**
+ * «Replicar landing» abierto (Pro): la dirección y «Leer»; después lo que tiene la página, qué replicar, el tema (sin el
+ * diseño de la original), el formato y «Replicar». Con `auto` (el link pegado en la caja con «Replica esta landing») LEE sola,
+ * UNA vez: el clic ya fue el ↑ de la caja. Replicar sigue siendo un clic: es lo que se paga.
+ */
+function ReplicarAbierto({ url: urlInicial, formato: formatoInicial, adaptar: adaptarInicial = false, auto = false, propios = [], entrega }: PropsReplicarUnaPagina) {
   const [texto, setTexto] = useState(urlInicial ?? '');
   // Martín, 28/10/2026 (~09:40): «Enfocate primero en replicar tal cual, tanto en diseño como copy y luego vemos de
   // personalizarlo». Replicar arranca SIEMPRE en la copia idéntica (las cuatro partes, «Página web»); personalizar es

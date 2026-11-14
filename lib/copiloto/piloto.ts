@@ -5,16 +5,33 @@
 // promedio de los competidores SEGUIDOS y la persona lo sube o lo baja). El número que propone MaKo sale de Competitor Spy
 // (lib/spy-seguidos.ts → promedioDeSeguidos, la mediana de los últimos 20 reels de cada seguido y el promedio entre cuentas); lo que
 // elige la persona se guarda acá, por negocio, en app_settings. Sin migración.
+//
+// ⚠️ EL PILOTO DE INSTAGRAM Y EL DE YOUTUBE SON DE MaKo PRO (14/11/2026, Martín): `FUNCIONES_SOLO_PRO`, 'piloto-redes'
+//    (lib/topes-plan.ts). El de anuncios ya lo era (lib/media-buyer/store.ts, `PlanSinPiloto`); éste es su par. El candado del
+//    servidor está ACÁ, donde se guarda la configuración (`guardarNumeroReel` tira `PlanSinPilotoRedes`; la ruta contesta 403
+//    con `pasarAPro`), y la pantalla lo dibuja (`pilotoRedesPermitido`). Leer el número (el análisis) sigue abierto.
+//    YouTube todavía no tiene nada que configurar: lo que se le sume va detrás de `pilotoRedesPermitido`, como el reel.
+//    Ante la duda (no se pudo leer el plan), se deja pasar: `esEsencialDe` ya devuelve false.
 // =============================================================================
 
 import 'server-only';
 import { runWithWorkspace } from '@/lib/workspace';
 import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { leerSeguidos, promedioDeSeguidos } from '@/lib/spy-seguidos';
+import { esEsencialDe } from '@/lib/plan-esencial';
+import { textoSoloPro } from '@/lib/topes-plan';
 import type { NumeroDeRed } from '@/lib/spy-seguidos-reglas';
 
 export const CLAVE_PILOTO_COPILOTO = 'marketing-copilot.piloto';
 export type PilotoCoPilot = { reel: number | null };
+
+/** El plan no trae el piloto de Instagram ni el de YouTube (MaKo Esencial). El par de `PlanSinPiloto` (lib/media-buyer/store.ts). */
+export class PlanSinPilotoRedes extends Error {
+  constructor() { super(textoSoloPro('piloto-redes')); this.name = 'PlanSinPilotoRedes'; }
+}
+
+/** ¿Puede prender o configurar el piloto de Instagram y el de YouTube? Esencial no; ante la duda, sí (`esEsencialDe`). */
+export const pilotoRedesPermitido = async (ws: number): Promise<boolean> => !(await esEsencialDe(ws));
 
 /** Lo que se acepta como número de un reel de prueba: vistas, entero, entre 50 y 10 millones. */
 export const numeroDeReelOk = (n: unknown): number | null => {
@@ -32,6 +49,8 @@ export async function leerPilotoCoPilot(ws: number): Promise<PilotoCoPilot> {
 
 /** Guarda el número que eligió la persona (leer estricto: un cambio sobre una lectura caída borraría lo demás). */
 export async function guardarNumeroReel(ws: number, numero: number): Promise<PilotoCoPilot> {
+  // El candado de Pro, antes que nada (14/11/2026): configurar el piloto de Instagram es lo nuevo que se frena.
+  if (!(await pilotoRedesPermitido(ws))) throw new PlanSinPilotoRedes();
   const n = numeroDeReelOk(numero);
   if (n == null) throw new Error('El número tiene que ser de 50 vistas para arriba.');
   return runWithWorkspace(ws, async () => {

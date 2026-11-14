@@ -17,11 +17,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { archivoDelPdf, mensajesParaCopiar, pdfDeVenta } from '../lib/partners-recursos';
 import { PLANES_MAKO_DEFAULT, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from '../lib/planes-mako';
+import { TOPES } from '../lib/topes-plan';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const LINK = 'https://hola-mako.com/r/leila';
-const JERGA = /media buyer|piloto autom|\btopes?\b|\bembudos?\b|\bCRM\b|scraper|\bfunnels?\b|\bleads?\b|\blandings?\b/i;
+// 14/11/2026: el PDF dice los planes con las palabras de /planes, que ya usan el lenguaje de marketing (Martín: «landing», «leads»,
+// «CRM», «scrapear»). Lo que no va es lo de nuestra cocina.
+const JERGA = /\btopes?\b|scraper\b|\bcapa\b|workspace/i;
 const PROMESA = /descuento|% off|gratis para siempre|garantiza|vas a (vender|facturar|ganar)/i;
 
 test('los MENSAJES: uno por situación, cada uno con su link; el del precio, con los precios de hoy y el código', () => {
@@ -54,11 +57,11 @@ test('el PDF: qué hace MaKo, los dos planes con lo que trae cada uno (como /pla
   assert.deepEqual(d.planes.map((p) => p.nombre), ['MaKo Esencial', 'MaKo Pro'], 'el Acelerador no: se vende por llamada');
   assert.equal(d.planes[0].precio, 'US$ 47 por mes');
   assert.equal(d.planes[1].precio, 'US$ 97 por mes');
-  assert.ok(d.planes[0].incluye.includes('Páginas web para vender, publicadas: 3'), 'los topes de verdad');
-  assert.ok(d.planes[0].incluye.includes('Contactos guardados (interesados y clientes): hasta 2.000'), d.planes[0].incluye.join(' | '));
+  assert.ok(d.planes[0].incluye.includes(`Landings y presentaciones armadas con IA, publicadas: ${TOPES.completo['web.landings_publicadas']}`), 'los topes de verdad');
+  assert.ok(d.planes[0].incluye.includes('Leads y clientes guardados en tu CRM: hasta 2.000'), d.planes[0].incluye.join(' | '));
   assert.ok(!d.planes[0].incluye.some((x) => /grupos de WhatsApp/.test(x)), 'Esencial no trae el scraper');
   assert.equal(d.planes[1].incluye[0], 'Todo lo de MaKo Esencial, con más lugar');
-  assert.ok(d.planes[1].incluye.includes('Sumar a tu lista los contactos de tus grupos de WhatsApp'), 'Pro sí');
+  assert.ok(d.planes[1].incluye.includes('Scrapear los contactos de tus grupos de WhatsApp'), 'Pro sí');
   assert.ok(!d.planes[1].incluye.some((x) => /asesoría grupal/.test(x)), 'lo del Acelerador no va en Pro');
   if (PRUEBA_GRATIS_PRENDIDA) assert.match(d.prueba, /d[ií]as gratis/i, 'el PDF dice la prueba');
   else assert.doesNotMatch(d.prueba, /d[ií]as gratis/i, 'el PDF no promete una prueba que ya no existe');

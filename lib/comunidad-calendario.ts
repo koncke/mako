@@ -33,7 +33,7 @@ import {
 } from './comunidad-eventos';
 import { claveDeAvisoDeEvento, AVISO_EVENTO_MS } from './comunidad-notificaciones';
 import { moduloPermitido } from './curso-alcance';
-import { de, msg, leadDe, contarPuntos, type Actor, type Fila } from './comunidad-datos';
+import { de, msg, leadDe, contarPuntos, candadoDeComunidad, type Actor, type Fila } from './comunidad-datos';
 import type { CalendarioVista, EventoVista, OcurrenciaVista, OpcionesEvento, Resultado } from './comunidad-tipos';
 
 // ── Las filas ─────────────────────────────────────────────────────────────────────
@@ -238,6 +238,12 @@ export async function guardarEvento(a: Actor, raw: unknown): Promise<Resultado<{
     const b = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     const id = b.id != null ? idValido(b.id) : null;
     if (b.id != null && !id) return { ok: false, error: 'Ese evento ya no está.' };
+    // Un evento NUEVO es de la comunidad, que es SÓLO de MaKo Pro (14/11/2026, `candadoDeComunidad`). Editar uno que ya
+    // existe no se frena: el tope frena lo nuevo y nunca le saca a nadie lo que ya tiene.
+    if (!id) {
+      const candado = await candadoDeComunidad(a);
+      if (candado) return { ok: false, error: candado };
+    }
 
     // El módulo de un acceso «con un módulo» tiene que ser de ESTE producto. Se valida con la lectura
     // ESTRICTA: sin poder leer las etapas no se decide nada (ver `modulosDelProducto`).

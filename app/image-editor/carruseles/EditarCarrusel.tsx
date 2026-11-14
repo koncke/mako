@@ -14,6 +14,9 @@
 // Integraciones AHÍ, sin salir de la tab) y «Abrir el diseño» con las guías. Las láminas guía también se ven armándose, y si no
 // se pudo armar nada, la tira de cuadros vacíos se va (6/11/2026: Martín vio el modal con las miniaturas en blanco).
 //
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. A un Esencial la ruta le contesta 403 con `pasarAPro` y
+// acá se dibuja el candado con «Pasar a Pro» (app/_components/CandadoSoloPro.tsx), no «No se pudo armar».
+//
 // Sirve también para una miniatura de YouTube (Thumbnails, 6/11/2026): una lámina de 1280 × 720. Y para una VERTICAL (13/11/2026,
 // la portada de un reel: lib/thumbnails/verticales.ts): una lámina de 1080 × 1920.
 //
@@ -30,6 +33,8 @@ import { useRouter } from '@/app/_ui/Link';
 import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import { fasesDesde } from '@/app/_ui/armado-en-vivo';
 import { useRevelado } from '@/app/_ui/ArmadoEnVivo';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
+import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
 import { eventosDe, fasesSegunLaIA, type EventoReplica } from '@/lib/carruseles/replica';
 import type { Carrusel } from '@/lib/carruseles/explorar';
 import type { Thumbnail } from '@/lib/thumbnails/explorar';
@@ -95,6 +100,8 @@ export function EditarCarrusel({ carrusel = null, thumbnail = null, vertical = n
   const [error, setError] = useState<string | null>(null);
   const corto = useRef<AbortController | null>(null);
   const { visibles, saltear } = useRevelado(paginas.length);
+  // Editar con IA es de MaKo Pro (lib/editores-ia-pro.ts): el plan de /api/auth/me, o el 403 de la ruta.
+  const soloPro = useSoloPro('ia-editores');
 
   const arrancar = useCallback(async () => {
     setError(null); setFin(null); setPaginas([]); setFase('leer');
@@ -107,6 +114,8 @@ export function EditarCarrusel({ carrusel = null, thumbnail = null, vertical = n
       });
       if (!r.ok || !r.body) {
         const j = (await r.json().catch(() => null)) as { error?: string } | null;
+        // El candado de Pro no es un error: se dibuja el candado (abajo), sin «Volver a intentar».
+        if (r.status === 403 && esRespuestaSoloPro(j)) { marcarSoloPro('ia-editores'); return; }
         setError(j?.error ?? 'No pude armar tu versión. Vuelve a intentar.');
         return;
       }
@@ -158,6 +167,16 @@ export function EditarCarrusel({ carrusel = null, thumbnail = null, vertical = n
       return () => clearTimeout(t);
     }
   }, [guiado, fin, visibles, paginas.length, abrir]);
+
+  // Un Esencial (y nada armado): el candado con «Pasar a Pro», en vez de las fases o de «No se pudo armar».
+  if (soloPro && !fin && !paginas.length) {
+    return (
+      <Modal titulo="Editar con IA" encabezado={`Del ejemplo de ${ej.quien}`} onCerrar={() => { corto.current?.abort(); onCerrar(); }} ancho={480}
+        pie={<button type="button" className={s.secundario} onClick={() => { corto.current?.abort(); onCerrar(); }}>Cerrar</button>}>
+        <CandadoSoloPro funcion="ia-editores" />
+      </Modal>
+    );
+  }
 
   // ⚠️ `fin.sinIA` CAMBIA EL TEXTO DE UNA FASE, y no es cosmético: sin esto, «Escribo tu versión con tu IA»
   // quedaba en verde justo encima del aviso que dice que no hay IA conectada (medido en producción el 7/11).

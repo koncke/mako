@@ -14,7 +14,7 @@ import { Pagina } from '@/app/_ui/Pagina';
 import { EmptyState, PermissionState } from '@/app/_ui/Estados';
 import { leerConfig, cupoDe } from '@/lib/media-buyer/store';
 import { resolverTacticas } from '@/lib/media-buyer/tacticas';
-import { numeroDelReel } from '@/lib/copiloto/piloto';
+import { numeroDelReel, pilotoRedesPermitido } from '@/lib/copiloto/piloto';
 import { verRetargeting } from '@/lib/retargeting';
 import { ConfigurarPiloto, type InicialPiloto } from './ConfigurarPiloto';
 
@@ -28,7 +28,11 @@ export default async function ConfigurarPilotoPage({ searchParams }: { searchPar
   }
   const ws = await wsDeAdsManager();
   if (ws instanceof Response) return <Pagina><PermissionState motivo="rol" /></Pagina>;
-  const [config, cupo, reel, rt] = await Promise.all([leerConfig(ws), cupoDe(ws), numeroDelReel(ws).catch(() => null), verRetargeting(ws).catch(() => null)]);
+  // `pilotoRedes`: el piloto de Instagram y el de YouTube son de MaKo Pro (14/11/2026); a un Esencial, la hoja de Instagram es el
+  // candado. Ante la duda, abierto (el servidor decide igual: lib/copiloto/piloto.ts → `guardarNumeroReel`).
+  const [config, cupo, reel, rt, pilotoRedes] = await Promise.all([
+    leerConfig(ws), cupoDe(ws), numeroDelReel(ws).catch(() => null), verRetargeting(ws).catch(() => null), pilotoRedesPermitido(ws).catch(() => true),
+  ]);
   const red = (await searchParams).red === 'instagram' ? 'instagram' : 'anuncios';
   // Lo que vale hoy de cada táctica (el motor no viaja al navegador: se resuelve acá).
   const t = resolverTacticas(config.tacticas, { piloto: config.modo === 'piloto', pilotoPermitido: cupo.piloto });
@@ -39,7 +43,7 @@ export default async function ConfigurarPilotoPage({ searchParams }: { searchPar
   };
   return (
     <Pagina ancho="completo" style={{ padding: 0 }}>
-      <ConfigurarPiloto inicial={inicial} pilotoPermitido={cupo.piloto} reel={reel} canalInicial={red} publicosMeta={rt ? rt.publicosMeta.prendido : null} />
+      <ConfigurarPiloto inicial={inicial} pilotoPermitido={cupo.piloto} pilotoRedes={pilotoRedes} reel={reel} canalInicial={red} publicosMeta={rt ? rt.publicosMeta.prendido : null} />
     </Pagina>
   );
 }

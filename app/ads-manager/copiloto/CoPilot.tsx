@@ -25,6 +25,7 @@ import { LogoRed } from '@/app/competitor-spy/LogoRed';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
 import type { EstadoComunicacion } from '@/lib/copiloto/comunicacion-store';
 import type { ParteOC } from '@/lib/copiloto/comunicacion';
 import { tareasDelCoPilot, type ResumenParaTareas, type TareaCoPilot } from '@/lib/copiloto/tareas';
@@ -63,6 +64,11 @@ export type DatosCoPilot = {
   /** La nevera de contenido (lib/copiloto/nevera.ts): lo listo, lo publicado y hasta cuándo alcanza; null si no se pudo leer. */
   nevera: Nevera | null;
   redes: Record<'instagram' | 'youtube', Array<{ usuario: string; vencida: boolean }>>;
+  /**
+   * ¿El plan trae el piloto de Instagram y el de YouTube? (lib/copiloto/piloto.ts → `pilotoRedesPermitido`). MaKo Esencial no
+   * (14/11/2026, 'piloto-redes'): en el paso «Piloto automático» esas dos tarjetas muestran el candado con «Pasar a Pro».
+   */
+  pilotoRedes: boolean;
 };
 
 const PASOS: ReadonlyArray<readonly [Paso, string]> = [['analisis', 'Análisis y acción'], ['piloto', 'Piloto automático']];
@@ -210,6 +216,8 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
 
   const numeroDe = (t: Tarjeta): { n: string; de?: string; s: string } => {
     if (paso === 'piloto') {
+      // El de Instagram y el de YouTube son de MaKo Pro (14/11/2026): a un Esencial, la tarjeta lo dice.
+      if ((t === 'instagram' || t === 'youtube') && !datos.pilotoRedes) return { n: '—', s: 'De MaKo Pro' };
       if (t !== 'anuncios') return { n: '—', s: 'Sin piloto todavía' };
       // Sin configurar no hay nada esperando (medido en la maqueta 20: decía «1 espera tu OK» arriba de «configúralo»).
       if (!datos.anuncios.piloto?.encendido) return { n: '—', s: 'Sin configurar' };
@@ -311,7 +319,8 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
               decisiones={decisiones} onDecisiones={setDecisiones} avisar={avisar} />
           )}
           {paso === 'piloto' && tarjeta === 'anuncios' && <Retargeting vista={datos.retargeting} avisar={avisar} />}
-          {paso === 'piloto' && tarjeta !== 'anuncios' && <SinPiloto que={tarjeta === 'oferta' ? 'tu oferta' : tarjeta === 'web' ? 'tu web' : `tu ${NOMBRE_RED[tarjeta]}`} />}
+          {paso === 'piloto' && (tarjeta === 'instagram' || tarjeta === 'youtube') && !datos.pilotoRedes && <PilotoRedesSoloPro red={tarjeta} />}
+          {paso === 'piloto' && tarjeta !== 'anuncios' && !((tarjeta === 'instagram' || tarjeta === 'youtube') && !datos.pilotoRedes) && <SinPiloto que={tarjeta === 'oferta' ? 'tu oferta' : tarjeta === 'web' ? 'tu web' : `tu ${NOMBRE_RED[tarjeta]}`} />}
         </div>
       </main>
       {todo && <ModalTodoOC estado={oc.estado} parte={parte} onParte={setParte} onCerrar={() => setTodo(false)} onMarcar={oc.marcar} onAbrir={(p, k) => setCosa({ p, k })} onChat={alChat} />}
@@ -562,6 +571,16 @@ function SinPiloto({ que }: { que: string }) {
     <section className="frn-card frn-rem frn-rem--ancho">
       <p className="frn-rem__h">Todavía no hago nada solo con {que}.</p>
       <Link className="frn-btn" href="/dashboard?hoja=marketing"><Grafico />Ver las métricas</Link>
+    </section>
+  );
+}
+
+/** El piloto de Instagram o de YouTube con MaKo Esencial (14/11/2026, 'piloto-redes'): el candado y «Pasar a Pro». */
+function PilotoRedesSoloPro({ red }: { red: 'instagram' | 'youtube' }) {
+  return (
+    <section className="frn-card">
+      <h2 className="frn-card__t">Piloto automático de {NOMBRE_RED[red]}</h2>
+      <CandadoSoloPro funcion="piloto-redes" />
     </section>
   );
 }
