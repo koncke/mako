@@ -669,6 +669,22 @@ original al lado (una columna en la computadora, la pestaña «Original» en el 
   de Instagram, así que no sé lo que se dice: lo escribo con el texto de su publicación…». El motivo de Spy ya es una frase con
   «No pude…»: meterlo en «No pude transcribir el video (no pude…)» lo decía dos veces.
 
+## «more budget» y el [DATO] sin llenar: el inglés se pasa solo y los datos se preguntan (13/11/2026, el anuncio de Hormozi replicado)
+
+- **El inglés suelto se pasa solo, como el voseo** (lib/copywriter/al-espanol.ts, `alEspanol` y `operacionesAlEspanol`): sólo
+  palabras de CONTENIDO con una traducción sin vueltas (budget, tips, free, hook) y unas frases (step by step). Las chicas (the,
+  and, with) no: sólo aparecen en una frase entera en inglés, y traducirla palabra por palabra es peor; esa la sigue viendo
+  `palabrasEnIngles` y va a la segunda pasada. Sólo en frases en español; nunca una marca o nombre propio (mayúscula pegada a otra
+  mayúscula: «Meta Business Suite»), lo de un @, # o link, ni el nombre de una oferta del negocio.
+- **⚠️ Palabras que también son español:** «sales» (de salir) y «has» (de haber) estaban en la lista de la detección y mandaban a
+  la segunda pasada un guion bien escrito («si sales hoy», «has visto»). Salieron de las dos listas; el test lo fija.
+- **Los [DATO] se preguntan después de escribir, en el mismo paso** (lib/copywriter/datos-que-faltan.ts): de a uno, con «No lo
+  sé», y lo contestado va a la página EN LUGAR del hueco, todo junto. Lo que nadie sabe queda marcado y MaKo lo dice.
+- **⚠️ Lo que MaKo pone en la página sólo se guarda con la PAUSA:** EditorGuion guarda lo que escribe la persona; lo de MaKo se
+  guarda al soltar la pausa si la página quedó distinta de la FOTO que sacó al empezarla. La foto se saca en un efecto (al
+  dibujarse): cambiar la página en el mismo instante que se pide la pausa deja la foto con el cambio adentro y no se guarda nada.
+  Primero la pausa, un respiro, después el cambio. Y todo junto: en el teléfono, cada pausa salta a la Página.
+
 ## Qué quedó sin hacer
 
 - (13/11/2026) ~~Si MaKo PREGUNTA cuando el tema del original no tiene que ver con el negocio lo decide Martín~~: pregunta desde el

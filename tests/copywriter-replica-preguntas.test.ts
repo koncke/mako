@@ -19,6 +19,7 @@ import {
 } from '../lib/copywriter/iniciativa';
 import { datoDeOferta, esCampoQueFalta } from '../lib/copywriter/oferta-elegida';
 import { sinTranscripcion, TRANSCRITO } from '../app/copywriter/transcribir-original';
+import { NO_LO_SE, TOPE_DATOS, conDatos, datoDelPaso, datosQueFaltan, dichoDeDatos, pasoDeDato, queFalta } from '../lib/copywriter/datos-que-faltan';
 
 const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
 
@@ -159,4 +160,48 @@ test('el original va AL LADO: una columna en la computadora y la pestaña «Orig
   assert.ok(m.includes('<OriginalAlLado outlier={guion.doc.props.outlier} telefono />'));
   // Cuando MaKo lo transcribe, la columna lo vuelve a leer.
   assert.ok(leer('app/copywriter/PanelMaKo.tsx').includes('if (t.ok) avisarOriginalNuevo(outlier);'));
+});
+
+test('los [DATO] que quedaron en la pieza: MaKo los pregunta de a uno y los pone EN LUGAR del hueco; «No lo sé» queda marcado', () => {
+  const texto = 'Caso: [DATO: un cliente con su resultado]. Cuesta [DATO: el precio]. Otra vez [DATO: el precio].';
+  const lista = datosQueFaltan(texto);
+  assert.deepEqual(lista, ['[DATO: un cliente con su resultado]', '[DATO: el precio]'], 'sin repetir y en orden');
+  assert.equal(queFalta(lista[0]), 'un cliente con su resultado');
+  const p1 = pasoDeDato(lista, {})!;
+  assert.equal(p1.pregunta, 'Para no inventarlo, dejé 2 datos sin completar. un cliente con su resultado: ¿me lo dices?');
+  assert.equal(p1.libre, true);
+  assert.deepEqual(p1.opciones, [{ valor: NO_LO_SE, texto: 'No lo sé: déjalo marcado' }]);
+  const r1 = { [datoDelPaso(p1)]: 'Ana pasó de 0 a 12 clientes en 60 días' };
+  const p2 = pasoDeDato(lista, r1)!;
+  assert.equal(p2.pregunta, 'El precio: ¿me lo dices?');
+  const r2 = { ...r1, [datoDelPaso(p2)]: NO_LO_SE };
+  assert.equal(pasoDeDato(lista, r2), null);
+  // En el documento: el contestado en su lugar (también en una tabla), el de «No lo sé» queda.
+  const doc = { type: 'doc', content: [
+    { type: 'paragraph', content: [{ type: 'text', text: 'Caso: [DATO: un cliente con su resultado].' }] },
+    { type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableCell', content: [{ type: 'text', text: 'Cuesta [DATO: el precio]' }] }] }] },
+  ] };
+  const r = conDatos(doc, r2);
+  assert.equal(r.puestos, 1);
+  assert.equal(r.doc.content?.[0].content?.[0].text, 'Caso: Ana pasó de 0 a 12 clientes en 60 días.');
+  assert.equal(r.doc.content?.[1].content?.[0].content?.[0].content?.[0].text, 'Cuesta [DATO: el precio]');
+  assert.equal(conDatos(doc, { [lista[0]]: NO_LO_SE }).doc, doc, 'sin nada que poner, el mismo documento');
+  // Lo que MaKo dice al terminar.
+  assert.equal(dichoDeDatos(1, ['[DATO: el precio]']), 'Listo: puse el dato en la página. Queda 1 dato marcado [DATO: …] en la página, para completar cuando lo tengas: el precio.');
+  assert.equal(dichoDeDatos(2, []), 'Listo: puse los 2 datos en la página.');
+  // Más de TOPE_DATOS: pregunta los primeros; los demás quedan marcados y se dicen.
+  const muchos = Array.from({ length: TOPE_DATOS + 2 }, (_, i) => `[DATO: dato ${i}]`);
+  const todas = Object.fromEntries(muchos.slice(0, TOPE_DATOS).map((d) => [d, NO_LO_SE]));
+  assert.equal(pasoDeDato(muchos, todas), null);
+});
+
+test('en la pantalla: los datos se preguntan después de escribir, van juntos a la página con la pausa, y el teléfono lo avisa', () => {
+  const panel = leer('app/copywriter/PanelMaKo.tsx');
+  assert.ok(panel.includes('setDatosRep({ lista: datosQueFaltan(textoDelDoc(editor.leer() as JsonNodo)), resp: {} });'));
+  assert.ok(panel.includes('const pasoActual = pasoRep ?? pasoDato;'));
+  // La pausa primero (saca la foto), después la página: si no, lo que pone MaKo no se guarda.
+  assert.match(panel, /onPausa\(true\);\n[^\n]*\n\s+await new Promise\(\(ok\) => setTimeout\(ok, 150\)\);\n\s+if \(vivo\.current\.editor === ed\) ponerDoc\(ed, r\.doc, \{ historial: true \}\);\n\s+onPausa\(false\);/);
+  const m = leer('app/m/copywriter/GuionM.tsx');
+  assert.ok(m.includes('onPregunta={setPregunta}'));
+  assert.ok(m.includes('<Button variant="primary" size="lg" onClick={() => setVista(\'mako\')}>Contestar</Button>'));
 });
