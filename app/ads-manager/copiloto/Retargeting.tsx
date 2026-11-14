@@ -12,7 +12,7 @@
 // =============================================================================
 
 import { useState } from 'react';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link'; // la de la casa: conserva el ?ws= del super admin mirando un negocio
 import type { VistaRT } from '@/lib/retargeting-motor';
 
 const GRUPOS: ReadonlyArray<readonly [keyof VistaRT['segmentos'], string]> = [

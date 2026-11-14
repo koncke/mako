@@ -226,7 +226,7 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     'api-mako': ['tab'],
     curso: ['producto'],
     comunidad: ['producto', 'post'],
-    ads: ['estrategia'], // Marketing CoPilot: «Cambiar mi estrategia» reabre la charla en los dos lados (6/11/2026)
+    ads: ['estrategia', 'paso', 'tarjeta', 'entrada', 'configurar', 'red', 'mb', 'sesion'], // Marketing CoPilot: «Cambiar mi estrategia» reabre la charla en los dos lados (6/11/2026); desde el 14/11 el teléfono abre el CoPilot NUEVO (app/m/ads/page.tsx) con su paso, tarjeta, entrada, «Configurar» y su red, la sesión de Offer, y `mb=1` para el Media Buyer de siempre
     // Competitor Spy (6/11/2026): la ficha de un competidor es `?competidor=<id>` en los dos lados; y desde el 13/11 la vista
     // de los seguidos, `?ver=seguidos` (la tarea de Marketing CoPilot lleva ahí, también desde el teléfono).
     'competitor-spy': ['competidor', 'ver'],
