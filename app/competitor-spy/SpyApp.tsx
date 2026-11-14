@@ -70,6 +70,7 @@ import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { LogoRed } from './LogoRed';
 import { OtrasRedes, type BusquedaDeRedes } from './OtrasRedes';
+import { AnunciosSpy } from './AnunciosSpy';
 import { sinCanalesRepetidos } from '@/lib/spy-otras-redes-reglas';
 import { BotonRecorrido, Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { PASOS_SPY, RECORRIDO_SPY } from './recorrido-spy';
@@ -571,7 +572,7 @@ button.spy-campo:hover{color:var(--dim)}
 `;
 
 /** Dos pestañas y nada más (Martín, 4/11): «Contenido» (el gráfico y sus piezas) y «Funnel» (su web y su oferta). */
-type Pestana = 'contenido' | 'funnel';
+type Pestana = 'contenido' | 'anuncios' | 'funnel';
 
 // ⚠️ LAS FRANJAS DE UNA LÍNEA SE FUERON (4/11/2026). Martín: «elimina textos innecesarios, como "Lo que publica Los días
 // los declara el canal; la etapa la calcula MaKo."». Explicaban un criterio nuestro que la pantalla ya no muestra.
@@ -1622,10 +1623,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     const p = piezas.find((x) => x.id === id);
     if (p) setAbierta({ p, todas: p.canal === 'anuncios' ? anuncios : piezas.filter((x) => grupoDe(x) === grupoDe(p)) });
   };
-  // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece. Y son DOS (Martín, 4/11): las de antes
+  // ⚠️ UNA PESTAÑA SIN NADA QUE DECIR NO EXISTE: no aparece vacía, no aparece. Eran DOS (Martín, 4/11): las de antes
   // (Gráfico, Lo que publica, Miniaturas, Su oferta, Su web, Anuncios) partían lo mismo en seis lugares.
+  // «Anuncios» volvió el 14/11 (Martín, por Landings: «darle mucha prioridad al tema de anuncios», como Spyder de Foreplay), pero
+  // NO como otra grilla: los anuncios siguen en «Contenido». Es lo que la grilla no dice (./AnunciosSpy.tsx).
   const pestanas: Array<{ key: Pestana; rotulo: string; n?: number }> = c ? [
     ...(flujo.length || anuncios.length || c.instagram || c.youtube_id || !c.landing_url ? [{ key: 'contenido' as const, rotulo: 'Contenido', n: (flujo.length + anuncios.length) || undefined }] : []),
+    ...(anuncios.length ? [{ key: 'anuncios' as const, rotulo: 'Anuncios', n: anuncios.length }] : []),
     ...(c.landing_url || c.oferta?.promete || ofertaConDiagnostico || lecturaFunnel.principal ? [{ key: 'funnel' as const, rotulo: 'Funnel' }] : []),
   ] : [];
   const activa: Pestana = pestanas.some((p) => p.key === pestana) ? pestana : (pestanas[0]?.key ?? 'contenido');
@@ -2081,6 +2085,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                 )}
               </>
             )}
+
+            {activa === 'anuncios' && <AnunciosSpy anuncios={anuncios} onAbrir={(p) => setAbierta({ p, todas: anuncios })} />}
 
             {/* ⚠️ EL ORDEN ES EL PEDIDO (Martín, 4/11): «la oferta debería ir arriba... Y no pongas nada abajo de las web, porque abajo
                 no se verá más nada». Arriba su funnel y su oferta; las notas; y AL FINAL sus páginas, sin nada debajo. */}

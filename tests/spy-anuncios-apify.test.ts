@@ -94,5 +94,7 @@ test('5. la pantalla dice que no pauta en su lugar, con la Biblioteca, sin carte
   // nunca se pudo mirar (tests/spy-pais.test.ts, caso 5). Lo que no cambia es que con cobertura —o sin saber su país— se
   // sigue diciendo esto, en el lugar de sus anuncios y sin cartel.
   assert.match(app, /Sin anuncios activos en Meta · lo miré el \$\{fechaCorta\(sinAnuncios\[c\.id\]\)\}/);
-  assert.doesNotMatch(app, /spy-error[^>]*>[^<]*anuncios/i, 'no pautar no es un error');
+  // ⚠️ UN ELEMENTO con la clase, no la palabra suelta (14/11/2026): `spy-error[^>]*>` arrancaba en la regla CSS `.spy-error{…}`, cruzaba
+  // la hoja entera (no tiene ningún «<») y daba con el `type Pestana = … 'anuncios'` de debajo. Rojo sin ningún error en pantalla.
+  assert.doesNotMatch(app, /className="[^"]*spy-error[^"]*"[^>]*>[^<]*anuncios/i, 'no pautar no es un error');
 });

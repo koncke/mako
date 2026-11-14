@@ -2421,3 +2421,38 @@ La ficha muestra UNA línea con «Revisar la clave». Es la única excepción al
 **Sin hacer** (del relevo de la llamada, docs/relevo/llamada-julio-13-11.md):
 - el «no pudo» del guion no tiene «Volver a intentar» ni «Reportar a Soporte»;
 - la clave de Apify de producción sigue rechazada: hay que cargar una válida, y eso es un dato, no código.
+
+## La pestaña «Anuncios», como Spyder de Foreplay (14/11/2026, pedido de Martín por el chat de landings)
+
+**Vive en:** `lib/spy-anuncios-ficha.ts` (las cuentas, puras), `app/competitor-spy/AnunciosSpy.tsx` (la pestaña, que se usa igual en la computadora y en el bloque «Sus anuncios» del teléfono). Test: `tests/spy-anuncios-ficha.test.ts`. El plan entero de Foreplay para Spy (6 fases, anuncios primero) está en las notas del Cerebro: `foreplay-relevo/plan-spy.md`. El relevamiento de Foreplay, en `foreplay-relevo/funciones.md`.
+
+**El pedido:** «darle mucha prioridad al tema de anuncios, que nosotros no le estamos dando casi nada». Ésta es la fase 1 del plan: lo que Spyder muestra de una marca, armado con lo que Spy YA guardó de cada anuncio. No usa Apify ni IA:
+- cuántos siguen activos y en qué formato;
+- a dónde mandan;
+- «Tests creativos»: los lanzados el mismo día, con «Ganador» cuando de la tanda queda uno solo activo;
+- la línea de tiempo.
+
+**⚠️ Choca con una decisión del 4/11, y así se resolvió:** Martín había juntado seis pestañas en dos porque «partían lo mismo en seis lugares», y los anuncios quedaron en «Contenido». «Anuncios» vuelve como pestaña pero NO repite la grilla: muestra lo que la grilla no dice (cuánto corrió cada uno, qué se lanzó junto, qué quedó vivo). Cada miniatura abre el mismo detalle de siempre.
+
+**Medido en producción el 14/11 (sólo lectura):**
+- Spy tiene 318 anuncios: ws 9 262, ws 11 56.
+- Todos tienen su fecha de inicio y 236 tienen su destino.
+- Sólo **17 tienen formato**: `medio` es del 13/11 y los anteriores lo reciben en la próxima lectura.
+- No entra nada nuevo desde el 13/11, porque la clave de Apify está rechazada.
+
+**⚠️ «Activo» quiere decir activo LA ÚLTIMA VEZ QUE SE MIRÓ.** Los días al aire son los de la tarjeta (`tiempoDePieza`): uno activo cuenta hasta hoy. Con la última lectura del 4/11, un anuncio que se apagó el 6/11 sigue sumando días. Por eso la pestaña abre con «Actualizado hace X» (la última `visto_ultima_vez`), igual que el «Updated 16h Ago» de Spyder. No se cuenta hasta la última lectura: la tarjeta y la pestaña dirían dos números distintos del mismo anuncio.
+
+**Las reglas que quedaron:**
+- **El % del formato es sobre los que TIENEN formato.** Un anuncio sin formato no cuenta como ninguno; con sólo 3 de 21 conocidos, el % sobre 21 inventaba un reparto.
+- **«A dónde mandan» junta la página sin la consulta.** Cada utm y cada `fbclid` hacen distinta la URL: sin sacarlos, una sola landing salía partida en diez filas de 1.
+- **El día de una tanda sale tal cual de `publicada_en`.** La Biblioteca da el día sin la hora, y se guarda a la medianoche del Pacífico (07:00 u 08:00 UTC), que en UTC sigue siendo ese día. Si otra fuente guardara la hora local, la tanda se partiría en dos.
+- **«Ganador» sólo cuando de la tanda queda UNO activo**, como en Foreplay. Si quedan varios, el test sigue; si no queda ninguno, no se sabe cuál ganó.
+
+**Sin hacer** (las fases 2 a 6 de `foreplay-relevo/plan-spy.md`):
+- la caja «Hooks» de Spyder: necesita transcribir los anuncios en video, y hoy eso lo pide sólo Copywriting al replicar;
+- «Winning Ads» (el ranking breakout/evergreen) y el «Ad Changelog»;
+- el buscador de la Biblioteca, que necesita la clave;
+- los guardados en tableros;
+- los avisos y el guardado por WhatsApp;
+- la transcripción con sub-pestañas;
+- las historias de Instagram, que primero necesitan una decisión de Martín.
