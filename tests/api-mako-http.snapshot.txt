@@ -618,6 +618,7 @@ renombrar_etapa
 renombrar_landing
 renombrar_modulo_curso
 renombrar_negocio
+replicar_link_o_texto_copywriter
 replicar_outlier_copywriter
 requisitos_para_mover
 resaltar_claves_subtitulos

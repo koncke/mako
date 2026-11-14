@@ -22,7 +22,8 @@ const CSS = `
 /** `que`: lo que va ahí, dicho como lo pidió Martín («la vista del lienzo de las automatizaciones»). */
 export function FaltaAnimacion({ que }: { que: string }) {
   return (
-    <div className="mk-falta" role="img" aria-label={`Aquí falta la animación: ${que}`}>
+    // `data-tema-fijo`: el sol y la luna no lo tocan (14/11/2026: en una landing oscura le oscurecía el fondo y no el texto, y no se leía).
+    <div className="mk-falta" role="img" aria-label={`Aquí falta la animación: ${que}`} data-tema-fijo="">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <span className="mk-falta-r">Aquí falta la animación</span>
       <p className="mk-falta-t">{que}</p>

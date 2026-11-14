@@ -77,7 +77,17 @@ export type PerfilCopiloto = {
   lista?: number;
   /** Horas por semana para hacer contenido. */
   horas?: number;
+  // ── La entrada del CoPilot nuevo (14/11/2026, lib/copiloto/entrada.ts): la maqueta que Martín le mostró a Julio el 13/11 ──
+  /** Por dónde vende (o quiere empezar): uno o varios. Con esto respondido, la entrada no vuelve a aparecer. */
+  canales?: CanalEntrada[];
+  /** Las campañas de anuncios que hace o quiere hacer (sólo con anuncios). La primera es el `funnel` si no había uno. */
+  campanas?: IdFunnel[];
+  /** «¿Cuánto tiempo tienes para crear contenido?» (estrategia.md §0.1): define el ritmo de la nevera por canal. */
+  tiempo?: TiempoEntrada;
 };
+
+export type CanalEntrada = 'anuncios' | 'instagram' | 'youtube';
+export type TiempoEntrada = 'a' | 'b' | 'c' | 'd';
 
 export type TipoDeNegocio = 'servicio' | 'curso' | 'tienda' | 'local';
 export const TIPOS_DE_NEGOCIO: Readonly<Record<TipoDeNegocio, string>> = {
@@ -1035,6 +1045,12 @@ export function sanearPerfil(x: unknown): PerfilCopiloto {
   const mg = n(o.margen, 1, 95); if (mg !== undefined) out.margen = Math.round(mg);
   const li = n(o.lista, 0, 1e8); if (li !== undefined) out.lista = Math.round(li);
   const hs = n(o.horas, 0, 80); if (hs !== undefined) out.horas = hs;
+  const lista = (v: unknown, ok: (x: unknown) => boolean) => (Array.isArray(v) ? [...new Set(v.filter(ok))] : []);
+  const cs = lista(o.canales, (x) => x === 'anuncios' || x === 'instagram' || x === 'youtube') as CanalEntrada[];
+  if (cs.length) out.canales = cs;
+  const cps = lista(o.campanas, (x) => !!funnelPorId(x)) as IdFunnel[];
+  if (cps.length) out.campanas = cps.slice(0, 4);
+  if (o.tiempo === 'a' || o.tiempo === 'b' || o.tiempo === 'c' || o.tiempo === 'd') out.tiempo = o.tiempo;
   return out;
 }
 

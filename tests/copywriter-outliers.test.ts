@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import {
   FORMATOS_COPY, TEXTO_EN_TARJETA, TOPE_POR_FORMATO, claveDeLink, esCopy, esIdOutlierCopy, filtrarOutliersCopy, formatoDePiezaSpy, frasesDelOriginal, juntarOutliersCopy, outliersCopyDeBiblioteca, primeraLinea, restoDelTexto, textoDeTarjeta,
   outliersCopyDeSpy, palabrasDe, reglasDeLaReplica, textoParaMaKo, tipoDeOutlier, tituloDeReplica, avisoDeLargo, capitulosDe, siguenLosCapitulos,
-  largoPedido, largoFuera, pedidoDeCorreccion, conElLargoReal, imagenDelOriginal,
+  largoPedido, largoFuera, pedidoDeCorreccion, conElLargoReal, imagenDelOriginal, rotuloDeFormato,
   type CuentaSpyCopy, type FuenteOutliersCopy, type OutlierCopy, type PiezaSpyCopy,
 } from '../lib/copywriter/outliers';
 import { sanearProps } from '../lib/copywriter/tipos';
@@ -55,6 +55,16 @@ test('de Spy: el formato de cada pieza, y sin texto (o una landing) no hay outli
   assert.equal(short?.deDonde, 'descripcion', 'lo de un short es su descripción, no un pie');
   assert.equal(imagenDelOriginal({ miniatura: null, url: 'https://www.youtube.com/shorts/abcdefghijk', formato: 'reel' }), 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg');
   assert.match(reglasDeLaReplica({ formato: 'reel', deDonde: 'descripcion', texto: 'Cómo cerrar más ventas.', laminas: null })[0], /la DESCRIPCIÓN del short, no lo que se dice en el reel.*de 30 a 60 segundos dichos/);
+  // Y es de YouTube, no de Instagram: ni para MaKo ni en el rótulo del original (14/11/2026, el de Hormozi decía «en Instagram»).
+  assert.match(textoParaMaKo(short!, null), /^EL ORIGINAL QUE REPLICAS: short de [^\n]+ en YouTube \(vertical, se replica como un reel\)\./);
+  assert.doesNotMatch(textoParaMaKo(short!, null), /Instagram/);
+  assert.equal(rotuloDeFormato(short!), 'Short de YouTube');
+  assert.equal(rotuloDeFormato({ formato: 'reel', url: 'https://www.instagram.com/reel/abc/' }), 'Reel');
+  // Una escena del original se replica sin cifras inventadas ni contada como propia, y el llamado no promete lo que la oferta no
+  // tiene (14/11/2026: «un coach… cobrando USD 5000 por sesión» y «te mando la guía» en la réplica de Hormozi).
+  const reglas = reglasDeLaReplica({ formato: 'reel', deDonde: 'guion', texto: 'Le di 30% de descuento a una clienta.', laminas: null }).join('\n');
+  assert.match(reglas, /UNA ESCENA del original[^\n]*sin cifras ni hechos que EL NEGOCIO no dio, y nunca contada como algo que te pasó\./);
+  assert.match(reglas, /EL LLAMADO pide lo que la oferta ofrece: ni una guía, ni un regalo/);
   assert.equal(formatoDePiezaSpy({ canal: 'anuncios', tipo: 'anuncio' }), 'anuncio');
   assert.equal(formatoDePiezaSpy({ canal: 'landing', tipo: 'landing' }), null);
   const xs = outliersCopyDeSpy([

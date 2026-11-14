@@ -5377,3 +5377,41 @@ cuadro y el lienzo quedaba cortado a la mitad. **Causa.** El simulador hace `scr
 Martín: «cuando se hace zoom siempre aparezca la barra de abajo… la línea de tiempo. Incluso cuando se hace zoom al video, así se nota
 de que sigue editando». El video es vertical y está arriba; la línea de tiempo, abajo de todo: un encuadre del video solo la deja
 afuera. Todo encuadre del editor incluye las pistas (`conLinea` en el banco de video): se acerca menos, pero se ve que edita.
+
+## El visor borra los scripts: lo que tiene que andar en la foto lleva `data-visor` (14/11/2026)
+
+**Síntoma.** En la landing de Competitor Spy, pasar el mouse por una pestaña no cambiaba la pantalla en el visor, aunque en el sitio
+andaba. **Causa.** El visor es una FOTO del DOM: `scripts/visor-landings/armar.mjs` (y el pulido del scratchpad) borra todo `<script>`
+menos el del sol y la luna (`data-tema-sitio`). **La regla.** Un script chico que la página necesita aun sin React (el cambio de pestaña
+al pasar el mouse) va con `data-visor=""`, y los dos borradores lo respetan. Tampoco cargan en el visor las banderas del selector de
+país (`flagcdn.com`, externo: el visor no sale a internet) ni se abre su desplegable (no hay React): eso NO es una falla del sitio.
+
+## Recortar una entrada desde su PRIMER cuadro con contenido, no desde el primer cambio fuerte (14/11/2026)
+
+**Síntoma.** Martín: tableros «sin animación» y «demasiado tiempo con la pantalla en blanco». **Causa.** El recorte buscaba el primer
+cambio fuerte de escena (`scene > 0.015`): en las entradas rápidas eso ya era el final, y el video empezaba con el tablero armado; en
+las lentas dejaba medio segundo en blanco. **Lo que quedó.** `banco-tab/recortar2.py` (scratchpad): mide el desvío de cada cuadro
+(PIL) y arranca en el primero que se aparta del vacío; el póster es ESE cuadro, y el carrusel carga los 13 videos apenas se ve.
+Para medir si un tablero «se mueve»: la diferencia media entre su primer y su último cuadro (abajo de 5, no se nota).
+
+## Una lista que usan dos módulos que se importan entre sí va en su propio archivo (14/11/2026)
+
+Las preguntas frecuentes tenían que salir iguales en la portada, en /planes y en las 19 landings. `datos.ts` (donde vivían) importa el
+registro de las landings, y el registro necesitaba las preguntas: un círculo. Viven en `app/vsl/_sitio/preguntas.ts`, que no importa
+ninguno de los dos; el registro le pone esas preguntas a todo bloque `preguntas` (test: «las preguntas de cada landing son las de la
+portada»).
+
+## El WhatsApp obligatorio va en la PANTALLA del checkout, no en la ruta (14/11/2026)
+
+Martín pidió el WhatsApp obligatorio y el botón apagado hasta completar todo. Exigirlo también en `leerPedidoCompra` rompió
+`tests/_whatsapp-checkout-hijo.ts`, que arma compras REALES sin WhatsApp a propósito (los pedidos de otras puertas, la API). Quedó
+en el formulario (`CompraPlan.tsx`, `completo`): el botón no se puede tocar sin un WhatsApp de al menos 10 dígitos.
+
+## La cámara del grabador no llega debajo de los 800 px de la página (14/11/2026)
+
+`grabador.mjs` → `camara` fija el `body` en 1280 × 800 con `overflow: hidden` para poder trasladarlo: lo que está más abajo queda
+recortado y no se puede enfocar (por eso «nada de cámara mientras se baja»). Para una pantalla larga (la pestaña «Anuncios» de Spy)
+`banco-spy-gurus/grabar-anuncios.mjs` trae su propia cámara: sin transformar, BAJA hasta la parte, la mide y recién ahí se acerca
+(el traslado suma el `scrollY`); para soltar vuelve a escala 1 en el mismo lugar. Y para que una parte que ocupa todo el ancho se lea,
+se enfoca un TRAMO de ella (`desde`/`hasta`, en fracción del ancho). El banco de Spy lee ahora las 134 piezas de Hormozi, también los
+anuncios que terminaron (`leer-hormozi-todo.mts`; la lista de antes, con 64, en `hormozi-viejo.json`).

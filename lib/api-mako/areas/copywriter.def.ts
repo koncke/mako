@@ -25,6 +25,7 @@
 
 import type { OperacionDef, Parametro } from '../tipos';
 import { TIPOS_GUION } from '@/lib/copywriter/tipos';
+import { TIPOS_PEGADO, TOPE_PEGADO } from '@/lib/copywriter/pegado';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const TIPOS = TIPOS_GUION.join(', ');
@@ -181,5 +182,18 @@ export const DEFS: readonly OperacionDef[] = [
     confirmacion: 'chat', reversible: true,
     escribe: 'agrega un documento al Copywriter (app_settings mako.copywriter.indice y mako.copywriter.doc.<id>)',
     canales: TODOS, costo: 'gratis', gating: G,
+  },
+  // ── Replicar lo que TRAE la persona: un link o un texto (14/11/2026, lib/copywriter/pegado.ts) ──
+  {
+    id: 'replicar_link_o_texto_copywriter', area: 'contenido', tipo: 'accion',
+    titulo: 'Replicar un link o texto',
+    descripcion: 'Como replicar_outlier_copywriter, pero con lo que trae la persona: un link de YouTube (se transcribe con el Gemini del negocio), el link de una landing (su texto y, si su VSL está en YouTube, lo que se dice en él; si está en Panda, Vimeo o Wistia, se replica con el texto de la página y se dice) o el texto pegado (un guion, una secuencia de historias). De Instagram no se trae el video desde el link: hay que pasar su texto. Crea la página vacía del tipo elegido, atada a ese original; al abrirla MaKo pregunta para qué oferta y la escribe entera. Devuelve el documentoId y su link. Queda pendiente hasta que la persona confirme.',
+    parametros: [
+      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: TIPOS_PEGADO, descripcion: 'Qué es: reel, story (una secuencia de historias), youtube, vsl, ad (anuncio) o post (carrusel). Es la página en que se replica.' },
+      { nombre: 'texto', tipo: 'string', obligatorio: true, max: TOPE_PEGADO, descripcion: 'Un link SOLO (YouTube o la landing de un VSL) o el texto a replicar.', ejemplo: 'https://www.youtube.com/watch?v=t7-__IAeEu8' },
+    ],
+    confirmacion: 'chat', reversible: true,
+    escribe: 'guarda el original (app_settings mako.copywriter.original.<n>) y agrega un documento al Copywriter (mako.copywriter.indice y mako.copywriter.doc.<id>)',
+    canales: TODOS, costo: 'gratis', gating: G, lenta: true,
   },
 ];

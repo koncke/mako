@@ -35,7 +35,7 @@
 // ⚠️ NADA DE ACÁ PUBLICA: `onChange` es un cambio LOCAL; lo único que escribe en el server es la biblioteca de
 // archivos (un archivo nuevo), igual que el de WhatsApp. (La key de Zernio la guarda el modal, no este editor.)
 
-import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import type { PasoSecuenciaDto } from './ChatAgentApp';
 import { useWs } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
@@ -45,7 +45,7 @@ import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { ArbolDeDatos } from '@/app/_components/SelectorDatos';
 import { CampoConDatos, type CampoConDatosHandle } from '@/app/_components/CampoConDatos';
 import { subirConProgreso } from '../customer-success/curso/subir-video';
-import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead, propuestaALista, claveDeTarjeta, alternarPanelMako, usePanelMako, BotonMakoWhatsApp, OtrasFormasDeDecirlo, chip as chipVariantes } from './EditorMensajeWhatsApp';
+import { partesDeLaBarra, enviarALista, mismoPaso, datosDelLead, propuestaALista, claveDeTarjeta, AutomatizacionDeLaTarjeta, alternarPanelMako, usePanelMako, BotonMakoWhatsApp, OtrasFormasDeDecirlo, chip as chipVariantes } from './EditorMensajeWhatsApp';
 import { MakoRedacta, type HistorialRedacta, type PropuestaRedacta } from './MakoRedacta';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { aplicarVariables } from '@/lib/template-vars';
@@ -222,7 +222,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
   // ── EL ✦ DE MaKo (punto 8): el panel en lugar del chat, y la propuesta arriba de la barra ──
   // DECIMOCUARTA: el ✦ vive en la CABECERA del panel (`CabeceraSocialPanel`), como en WhatsApp; el estado es por tarjeta
   // (`usePanelMako`, EditorMensajeWhatsApp.tsx) y lo comparten la cabecera y este editor.
-  const claveMako = claveDeTarjeta(ws, paso);
+  const claveMako = claveDeTarjeta(ws, paso, useContext(AutomatizacionDeLaTarjeta));
   const panelMako = usePanelMako(claveMako) && !!mako;
   const setPanelMako = (v: boolean) => alternarPanelMako(claveMako, v);
   const [sugerencia, setSugerencia] = useState<{ mensajes: string[]; nota: string | null } | null>(null);
@@ -551,6 +551,7 @@ export function CabeceraSocialPanel({ paso, canal, onCuenta, deshabilitado, conM
   conMako?: boolean;
 }) {
   const ws = useWs();
+  const secuenciaId = useContext(AutomatizacionDeLaTarjeta);
   const estado = useCuentasSociales(canal);
   const [conectando, setConectando] = useState(false);
   const actual = cuentaDelPaso(paso);
@@ -578,7 +579,7 @@ export function CabeceraSocialPanel({ paso, canal, onCuenta, deshabilitado, conM
           buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
         />
       </div>
-      {conMako && <BotonMakoWhatsApp clave={claveDeTarjeta(ws, paso)} deshabilitado={deshabilitado} />}
+      {conMako && <BotonMakoWhatsApp clave={claveDeTarjeta(ws, paso, secuenciaId)} deshabilitado={deshabilitado} />}
       {conectando && (
         <ConectarMedio medio={canal} zernio={estado} onCerrar={() => setConectando(false)} onConectado={() => setConectando(false)}
           onCuenta={(c) => onCuenta(c.id)} />
