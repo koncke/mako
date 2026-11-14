@@ -628,7 +628,7 @@ export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | '
     // 14/11/2026, la réplica en seco del short de Hormozi: el original abre con la pregunta de un seguidor («le hice 30 % de descuento
     // a una clienta…») y MaKo escribió «un coach… cobrando USD 5000 por sesión» como algo que le pasó, y cerró con «te mando la
     // guía», que la oferta no tiene. La regla de arriba ya lo prohibía; faltaba decir qué es una ESCENA y qué pide el llamado.
-    'UNA ESCENA del original (lo que le pasó a alguien, la pregunta de un seguidor) también es una prueba: la tuya es la de TU cliente («Te piden descuento porque…»), sin cifras ni hechos que EL NEGOCIO no dio, y nunca contada como algo que te pasó. EL LLAMADO pide lo que la oferta ofrece: ni una guía, ni un regalo, ni un recurso que no estén en ella. Y sin lunfardo («boludo», «chabón»): español neutro.',
+    'UNA ESCENA del original (lo que le pasó a alguien, la pregunta de un seguidor) también es una prueba: la tuya es la de TU cliente («Te piden descuento porque…»), sin cifras ni hechos que EL NEGOCIO no dio, y nunca contada como algo que te pasó. EL LLAMADO pide lo que la oferta ofrece: ni una guía, ni un regalo, ni un recurso que no estén en ella. Y sin lunfardo ni groserías: español neutro.',
     `EL TÍTULO: ponle a la página un título PROPIO con {"op": "titulo"} (el de ahora es la frase del original). Si el original nombra un año, el tuyo es ${hoy.getFullYear()}.`,
     'AL ESCRIBIRLA (la primera vez, o cuando te pidan rehacerla): el guion ENTERO, todas sus partes en su orden y cada sección lista para grabar o publicar; en propiedades, el ángulo y la estructura de la biblioteca que más se parezcan al original. Después, un cambio puntual toca sólo lo pedido.',
   ];

@@ -719,7 +719,8 @@ script (tsx) que llama a las MISMAS funciones del server, adentro de `runWithWor
   a quien habla), prometió «la guía» que la oferta no tiene y dijo «boludo». La regla de LAS PRUEBAS ya lo prohibía y no
   alcanzó: el original abre con la pregunta de un seguidor y el modelo la tomó como escena para copiar, no como prueba. Se dijo
   qué es una escena y qué pide el llamado (`reglasDeLaReplica`); la tercera corrida ya no inventó nada. ⚠️ Una regla que el
-  modelo rompe no se arregla repitiéndola: se nombra el CASO que la rompió.
+  modelo rompe no se arregla repitiéndola: se nombra el CASO que la rompió. ⚠️ Pero la palabra prohibida NO se escribe como
+  ejemplo en la regla: la guarda de voseo (tests/puente-panel-copy.test.ts) lee también los textos para el modelo y dio rojo.
 - **El negocio de MaKo (ws 9) no tiene respuestas de onboarding** y sus ofertas no tienen «para quién» ni «qué promete»: por eso
   MaKo pregunta las dos (el flujo nuevo funciona como se pensó; los datos son del negocio, no del código).
 
