@@ -40,7 +40,8 @@ def main(ruta):
             if v.get('fuente'):
                 celda['fuente'] = v['fuente']
             celdas[k] = celda
-        slug_url = slug.replace('.', '')
+        # Zapier va como «zap» (como su logo): tests/puente-leads-retirado.test.ts prohíbe esa key entre comillas (el puente que se retiró).
+        slug_url = 'zap' if slug == 'zapier' else slug.replace('.', '')
         out.append(
             '  {\n'
             f'    nombre: {ts(c["nombre"])}, slug: {ts(slug_url)}, web: {ts(c.get("web", ""))}, logo: {ts("/vsl-assets/logos/apps/" + archivo + ".png")},\n'

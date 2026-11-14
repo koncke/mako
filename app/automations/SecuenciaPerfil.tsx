@@ -1243,6 +1243,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   // LA QUE YA ESTÁ PRENDIDA SIN GOTEO O SIN HORARIO (30/10/2026, lib/ritmo-al-activar.ts): se dice, no se la frena ni se la cambia. Lo ve
   // quien ve la automatización, como en el teléfono (un setter no lo arregla, pero puede avisar). Ponerlo, sólo el admin. Va afuera
   // del pie para no levantar otro tope de tamaño de los tests (docs/hallazgos-chatbot.md).
+  // El candado del setter con IA (14/11/2026) no es un error para Soporte: un aviso con «Pasar a Pro», al lado de «Publicar».
+  // El error del pie es otro: el del candado no va con «Reportar a soporte».
+  const errPie = err !== TEXTO_SETTER_SOLO_PRO ? err : null;
+  const avisoSetter = rolAdmin && err === TEXTO_SETTER_SOLO_PRO && (
+    <span role="status" style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.4 }}>
+      {err} <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} style={{ fontWeight: 650, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{ROTULO_PASAR_A_PRO}</Link></CtaPasarAPro>
+    </span>
+  );
   const avisoRitmoPrendida = activa && secuencia.aviso_ritmo && (
       <button type="button" data-sin-goteo="" disabled={!rolAdmin || !Configuraciones} onClick={() => setConfigAbierta(true)} title={rolAdmin ? 'Abrir Configuraciones' : undefined}
         style={{ ...tarjetaChrome, flex: 'none', maxWidth: 320, textAlign: 'left', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35, cursor: rolAdmin && Configuraciones ? 'pointer' : 'default' }}>
@@ -1490,13 +1498,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
             {/* El error va ACÁ, pegado al botón que lo produce: abajo del lienzo y a la
                 izquierda nacía debajo de la lista de secuencias, que flota encima. */}
-            {rolAdmin && (err ? (
-              <span role="alert" title={avisosIA && avisosIA.texto === err ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>
-                {/* El candado del setter con IA no es un error para Soporte: lleva «Pasar a Pro» (14/11/2026). */}
-                {err === TEXTO_SETTER_SOLO_PRO
-                  ? <>{err} <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} style={{ fontWeight: 650, color: 'var(--ink)', whiteSpace: 'nowrap' }}>{ROTULO_PASAR_A_PRO}</Link></CtaPasarAPro></>
-                  : <>{err}<ReportarASoporte /></>}
-              </span>
+            {rolAdmin && (errPie ? (
+              <span role="alert" title={avisosIA && avisosIA.texto === errPie ? avisosIA.todos.join('\n') : undefined} style={{ ...tarjetaChrome, maxWidth: 380, fontSize: 12.5, color: 'var(--bad)', borderColor: 'var(--bad)', lineHeight: 1.4 }}>{errPie}<ReportarASoporte /></span>
             ) : flash ? (
               <span style={{ ...tarjetaChrome, fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>{flash}</span>
             ) : null)}
@@ -1512,6 +1515,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
               </span>
             )}
             {avisoRitmoPrendida}
+            {avisoSetter}
             {porAprobar && (
               <Link href={RUTA_APROBAR} title={`${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.`}
                 style={{ ...tarjetaChrome, flex: 'none', minHeight: ALTO_ACCION, boxSizing: 'border-box', display: 'inline-flex', flexDirection: 'column', justifyContent: 'center', gap: 1, textDecoration: 'none' }}>

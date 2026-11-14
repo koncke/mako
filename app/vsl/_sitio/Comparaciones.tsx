@@ -62,7 +62,7 @@ export function TablaCompetencia({ competidores }: { competidores: readonly Comp
                 {varias ? (
                   <span className="s-mx-flechas">
                     <button type="button" data-mx-ir="-1" aria-label="Ver las apps anteriores" disabled>‹</button>
-                    <button type="button" data-mx-ir="1" aria-label="Ver las apps siguientes">›</button>
+                    <button type="button" data-mx-ir="1" aria-label="Ver las apps siguientes" disabled>›</button>
                   </span>
                 ) : null}
               </th>

@@ -121,7 +121,7 @@ export const COMPETIDORES_RELEVADOS: readonly Competidor[] = [
     comentario: "Notion no habla con tus leads: sin WhatsApp ni email marketing, el seguimiento es manual.",
   },
   {
-    nombre: "Zapier", slug: "zapier", web: "https://zapier.com", logo: "/vsl-assets/logos/apps/zap.png",
+    nombre: "Zapier", slug: "zap", web: "https://zapier.com", logo: "/vsl-assets/logos/apps/zap.png",
     celdas: {"precio": {"v": "Gratis + US$ 29,99", "fuente": "https://zapier.com/pricing"}, "landings": {"v": "Básico (Interfaces)"}, "landings_ia": {"v": "?"}, "copiar_landing": {"v": "no"}, "spy": {"v": "no"}, "dominio": {"v": "?"}, "crm": {"v": "no"}, "tracking": {"v": "no"}, "agenda": {"v": "no"}, "cuotas": {"v": "no"}, "llamadas_ia": {"v": "no"}, "whatsapp": {"v": "no"}, "instagram_dm": {"v": "no"}, "setter_ia": {"v": "?"}, "automatizaciones": {"v": "si"}, "email": {"v": "no"}, "copy_ia": {"v": "Solo dentro de Zaps"}, "editor_imagen": {"v": "no"}, "editor_video": {"v": "no"}, "video_ia": {"v": "no"}, "ads_ia": {"v": "no"}, "calendario": {"v": "no"}, "cursos": {"v": "no"}, "comunidad": {"v": "no"}, "asistente_ia": {"v": "Solo arma Zaps", "fuente": "https://zapier.com/pricing"}, "espanol": {"v": "no", "fuente": "https://help.zapier.com/hc/en-us/articles/35201074788877-Can-I-change-Zapier-s-interface-language"}},
     eligeSi: ["Conectas muchas apps distintas que no se hablan entre sí", "Quieres automatizar tareas sin escribir código", "Necesitas la mayor cantidad de integraciones disponibles"],
     comentario: "Zapier conecta apps, pero no las reemplaza: CRM, chats y landings se pagan aparte.",

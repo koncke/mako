@@ -166,10 +166,12 @@ test('A7 · los candados del servidor: Activar (`topeAlActivar`) y guardar los p
   // La puerta de TODOS los escritores de pasos: antes de escribir, después de validar, y no en la validación de Activar.
   const nutri = codigo('lib/nutricion.ts');
   const pasos = cuerpo(nutri, 'export async function setSecuenciaPasos(', '\nasync function filasCohorte<T>(');
-  const iCandado = pasos.indexOf('await setterNuevoSoloPro(antes, grafo)');
+  // 14/11/2026 (el rojo de nutricion-canal, que mide el bloque): el candado vive en `frenarSetterNuevo` y el bloque lo llama.
+  const iCandado = pasos.indexOf('await frenarSetterNuevo(antes, grafo, o?.soloValidar);');
   assert.ok(iCandado > pasos.indexOf('const errores = validarGrafo(grafo);'), 'después de validar el grafo');
   assert.ok(iCandado < pasos.indexOf('.update({ pasos: grafo'), 'antes de escribir');
-  assert.match(pasos, /if \(!o\?\.soloValidar\) \{\n\s+const \{ setterNuevoSoloPro \} = await import\('\.\/tope-automations'\);\n\s+const soloPro = await setterNuevoSoloPro\(antes, grafo\);\n\s+if \(soloPro\) throw new TopeDelPlanError\(soloPro\);/);
+  const frena = cuerpo(nutri, 'async function frenarSetterNuevo(');
+  assert.match(frena, /if \(!soloValidar\) \{\n\s+const \{ setterNuevoSoloPro \} = await import\('\.\/tope-automations'\);\n\s+const soloPro = await setterNuevoSoloPro\(antes, grafo\);\n\s+if \(soloPro\) throw new TopeDelPlanError\(soloPro\);/);
   // La ruta del lienzo ya contesta `TopeDelPlanError` con 403 y `tope: true` (Publicar y Activar).
   assert.match(codigo('app/api/whatsapp/secuencias/route.ts'), /instanceof TopeDelPlanError\) return Response\.json\(\{ ok: false, error: msg, tope: true \}, \{ status: 403 \}\);/);
   // Lo que crea MaKo nace sin el setter: la plantilla y «Crear con IA».
@@ -193,7 +195,10 @@ test('A8 · la pantalla: el AI Step con el candado y «Sola» deshabilitada; Pub
   assert.match(ed, /const a = armadoDelPlan\(j\.armado as ArmadoAIStep\);/);
   const perfil = codigo('app/automations/SecuenciaPerfil.tsx');
   assert.match(perfil, /useEffect\(\(\) => \{ if \(err === TEXTO_SETTER_SOLO_PRO\) marcarSoloPro\('setter-ia'\); \}, \[err\]\);/);
-  assert.match(perfil, /err === TEXTO_SETTER_SOLO_PRO\s*\? <>\{err\} <CtaPasarAPro><Link href=\{RUTA_CAMBIAR_PLAN\}[^>]*>\{ROTULO_PASAR_A_PRO\}<\/Link><\/CtaPasarAPro><\/>/);
+  // 14/11/2026 (los rojos de lienzo-sexta-tanda y reportar-a-soporte): el candado es un aviso aparte, role="status" y fuera del pie,
+  // y el error del pie (`errPie`) es cualquier otro, con su «Reportar a soporte».
+  assert.match(perfil, /const errPie = err !== TEXTO_SETTER_SOLO_PRO \? err : null;/);
+  assert.match(perfil, /const avisoSetter = rolAdmin && err === TEXTO_SETTER_SOLO_PRO && \(\s*<span role="status"[^>]*>\s*\{err\} <CtaPasarAPro><Link href=\{RUTA_CAMBIAR_PLAN\}[^>]*>\{ROTULO_PASAR_A_PRO\}<\/Link><\/CtaPasarAPro>/);
   // MaKo en WhatsApp para el DUEÑO (el bot 1 a 1 y los grupos) no es el setter: no mira este candado.
   for (const f of ['lib/mako-bot.ts', 'lib/mako-bot-reglas.ts']) assert.doesNotMatch(codigo(f), /setter-ia|TEXTO_SETTER_SOLO_PRO|tieneSetterIA/, f);
 });
