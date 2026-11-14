@@ -43,12 +43,13 @@ import { sinVistaPrevia, primerLink } from '@/lib/mensaje-partes';
 import { Toast, useToast } from '@/app/_ui';
 import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, partirConEspera, type Edicion } from '@/lib/flujo-edicion';
 import { insertarDesdeLienzo, agregarRamaAB, quitarRamaAB } from '@/lib/flujo-conversacion';
+import { adjuntosDePartes, textoAdjuntos } from '@/lib/adjuntos-que-salen';
 import { EditorPruebaAB } from './EditorPruebaAB';
 import { usePruebaAB, type EstadoPruebaAB } from './usePruebaAB';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import {
-  EditorMensajeWhatsApp, CabeceraWhatsApp, CabeceraMakoEnWhatsApp, horaDeAhora,
+  EditorMensajeWhatsApp, CabeceraWhatsApp, CabeceraMakoEnWhatsApp, horaDeAhora, AutomatizacionDeLaTarjeta,
   type EditorMensajeWhatsAppProps,
 } from './EditorMensajeWhatsApp';
 // La tarjeta «MaKo en WhatsApp» POR PARTES (undécima tanda): su editor es el de WhatsApp sobre ESTE DTO.
@@ -658,7 +659,9 @@ export function FlujoLienzo({
   const talla = editorDeTarjeta(muelles, sel != null ? grafo.nodos.find((n) => n.id === sel)?.tipo : null);
 
   return (
-    <>
+    // La automatización de estas tarjetas (14/11/2026): la clave del borrador de la barra la lleva, así lo que quedó en una
+    // no vuelve en otra hecha con la misma plantilla (`AutomatizacionDeLaTarjeta`, EditorMensajeWhatsApp.tsx).
+    <AutomatizacionDeLaTarjeta.Provider value={secuenciaId ?? null}>
     <Lienzo
       grafo={grafo} seleccion={sel} onSeleccion={setSel}
       onMover={onPosiciones ? (id, x, y) => onPosiciones(moverRelativo(derivado, posiciones, id, x, y, ID_ENTRADA)) : undefined}
@@ -787,7 +790,7 @@ export function FlujoLienzo({
       <ConectarMedio medio={conectarMedio.medio} linea={conectarMedio.linea}
         onCerrar={() => setConectarMedio(null)} onConectado={() => setConectarMedio(null)} />
     )}
-    </>
+    </AutomatizacionDeLaTarjeta.Provider>
   );
 }
 
@@ -940,6 +943,11 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
   const pie = { hora, pie: <Ticks status="read" /> };
   if (partes && partes.length > 1) {
     const resto = partes.length - PARTES_EN_TARJETA;
+    // ⚠️ UN ARCHIVO ESCONDIDO DETRÁS DE «+N mensajes…» NO SE VE (14/11/2026, la llamada con Julio: al probar salió un archivo
+    // que Martín no reconocía). El recuadro dice el nombre de cada adjunto que no se dibuja, en la MISMA línea (el alto no cambia).
+    const escondidos = resto > 0 ? textoAdjuntos(adjuntosDePartes(partes.slice(PARTES_EN_TARJETA),
+      biblioteca?.estado === 'ok' ? biblioteca.lista.map((x) => ({ id: x.id, nombre: x.nombre_archivo?.trim() || x.titulo?.trim() || null })) : [],
+      audios)) : '';
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: SEP_BURBUJAS_TARJETA }}>
         {partes.slice(0, PARTES_EN_TARJETA).map((pt, k) => {
@@ -955,8 +963,8 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
           return <BurbujaHilo key={k} compacta saliente autor={negocio} {...pie} lineas={RENGLONES_CON_DOS} contenido={{ texto: aplicarVariables(pt.cuerpo, n ? { negocio: n } : {}) }} />;
         })}
         {resto > 0 && (
-          <div style={{ alignSelf: 'flex-end', height: ALTO_MAS_PARTES, boxSizing: 'border-box', padding: '0 9px', display: 'inline-flex', alignItems: 'center', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 11, color: 'var(--faint)' }}>
-            {textoMasPartes(resto)}
+          <div data-mas-partes="" title={escondidos || undefined} style={{ alignSelf: 'flex-end', maxWidth: '100%', height: ALTO_MAS_PARTES, boxSizing: 'border-box', padding: '0 9px', display: 'inline-flex', alignItems: 'center', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 11, color: 'var(--faint)' }}>
+            <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{textoMasPartes(resto)}{escondidos ? ` · ${escondidos}` : ''}</span>
           </div>
         )}
       </div>
