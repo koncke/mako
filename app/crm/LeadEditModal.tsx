@@ -1,27 +1,33 @@
 'use client';
 
 // =============================================================================
-// LeadEditModal — carga la ficha completa on-demand y la muestra como modal
+// LeadEditModal — carga la ficha completa on-demand y la muestra en el PANEL de la derecha
 // =============================================================================
 // Wrapper fino: trae getLeadFullAction y monta LeadSheet (preview con tabs).
 // Para que abrir se sienta instantáneo: (1) cache en memoria por lead (reabrir
 // no vuelve a esperar; se refresca en segundo plano), (2) skeleton con los datos
 // que el caller ya tiene (seed) mientras llega el resto.
+//
+// ⚠️ DESDE EL 14/11/2026 NO ES UN MODAL: es el panel que entra por la derecha (lead-view/PanelFicha.tsx), pedido de
+// Martín mirando la grabación del CRM de la portada. El nombre se quedó porque lo montan siete pantallas (el tablero,
+// Chats, WhatsApp, el Dashboard, los desgloses, la confirmación de MaKo): todas abren el panel sin tocarlas.
+// ⚠️ LA CARCASA ES UNA SOLA para el esqueleto, el «no se pudo» y la ficha: cambia lo de adentro, no el panel. Así abrir
+// otra tarjeta con el panel abierto cambia la ficha sin que el panel vuelva a entrar desde afuera.
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { LeadSheet } from './LeadSheet';
 import { getLeadFullAction, type LeadFullData } from './actions';
 import { esPaginaVieja, recargarUnaVez, urlParaAbrirLead } from '@/lib/pagina-vieja';
-// El ancho del esqueleto es EL MISMO de la ficha (punto 14 del 12/10/2026: la ficha pasó de
-// 760 a más ancha). Con un número propio acá, la caja abría a 760 y medio segundo después
-// saltaba al ancho de la ficha — y el lead recién creado (punto 27) abre justo por este esqueleto.
-import { ANCHO_FICHA_LEAD, ALTO_FICHA_LEAD, MARGEN_FICHA_LEAD } from './lead-view/ficha-medidas';
+import { PanelFicha } from './lead-view/PanelFicha';
+import { Marca } from '@/app/_components/Marca';
+import { colorDe } from '@/app/_components/TarjetaEntidad';
+import { CSS_CABECERA_LEAD } from './lead-view/CabeceraLead';
+import { TAM_CARA_PANEL } from './lead-view/cabecera-panel';
 
 import type { StepId } from '@/lib/stage-requirements';
 
 const SANS = "'Geist', sans-serif";
-const overlay: CSSProperties = { position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(18,21,27,.52)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: `${MARGEN_FICHA_LEAD}px 20px` };
 
 /** Datos mínimos que el caller puede pasar para pintar el skeleton al instante. */
 export type LeadSeed = { nombre: string; empresa?: string | null };
@@ -88,38 +94,6 @@ export function LeadEditModal({
     return () => { alive = false; };
   }, [leadId]);
 
-  if (notFound) {
-    return (
-      <div onClick={onClose} style={overlay}>
-        <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px', fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
-          {vieja ? 'MaKo se actualizó mientras tenías esta página abierta.' : 'No se pudo cargar el lead.'}
-          {vieja && <button onClick={() => window.location.assign(urlParaAbrirLead(window.location.href, leadId))} style={{ marginLeft: 10, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Recargar</button>}
-          <button onClick={onClose} style={{ marginLeft: 10, background: 'none', border: 'none', color: vieja ? 'var(--dim)' : 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Cerrar</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (!data) {
-    // Skeleton instantáneo con lo que el caller ya sabe del lead.
-    return (
-      <div onClick={onClose} style={overlay}>
-        <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: ANCHO_FICHA_LEAD, height: ALTO_FICHA_LEAD, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: 'clamp(18px,4vw,24px) clamp(16px,4vw,28px)', fontFamily: SANS }}>
-          <div style={{ fontSize: 'clamp(20px,5vw,27px)', fontWeight: 600, color: 'var(--ink)', letterSpacing: '-0.02em' }}>{seed?.nombre ?? 'Cargando…'}</div>
-          {seed?.empresa && <div style={{ fontSize: 14, color: 'var(--dim)', marginTop: 3 }}>{seed.empresa}</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
-            {[70, 120, 90].map((h, i) => (
-              <div key={i} style={{ height: h, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)', animation: 'leadsheet-shimmer 1.2s infinite' }} />
-              </div>
-            ))}
-          </div>
-          <style>{'@keyframes leadsheet-shimmer { from { transform: translateX(-100%);} to { transform: translateX(100%);} }'}</style>
-        </div>
-      </div>
-    );
-  }
-
   // router.refresh al cerrar: sincroniza la vista de atrás con lo que haya
   // pasado en la ficha (borrado, ediciones desde la ruta).
   const close = () => { router.refresh(); onClose(); };
@@ -128,5 +102,65 @@ export function LeadEditModal({
   // «Ver detalle» de una reunión cercana (CrmBoard, 22/10/2026) abre en «Reuniones».
   const initialTab = focus === 'plan-pagos' ? 'cobranza' : focus === 'reuniones' ? 'reuniones' : 'resumen';
 
-  return <LeadSheet data={data} onClose={close} initialTab={initialTab} solucionarAlAbrir={solucionar} verDatosAlAbrir={verDatos} avisosAlAbrir={avisos} />;
+  const nombre = data?.lead.nombre?.trim() || seed?.nombre?.trim() || '';
+  return (
+    <PanelFicha etiqueta={nombre ? `Ficha de ${nombre}` : 'Ficha del lead'} onCerrar={data ? close : onClose}>
+      {(cerrar) => notFound ? (
+        <>
+          <CabeceraEsqueleto nombre={seed?.nombre ?? ''} bajada={seed?.empresa ?? null} onCerrar={cerrar} />
+          <div style={{ padding: '8px 24px', fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
+            {vieja ? 'MaKo se actualizó mientras tenías esta página abierta.' : 'No se pudo cargar el lead.'}
+            {vieja && <button onClick={() => window.location.assign(urlParaAbrirLead(window.location.href, leadId))} style={{ marginLeft: 10, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Recargar</button>}
+            <button onClick={cerrar} style={{ marginLeft: 10, background: 'none', border: 'none', color: vieja ? 'var(--dim)' : 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Cerrar</button>
+          </div>
+        </>
+      ) : !data ? (
+        // Skeleton instantáneo con lo que el caller ya sabe del lead: la MISMA cabecera que la ficha (la cara, el nombre),
+        // así cuando llega la ficha no salta nada.
+        <>
+          <CabeceraEsqueleto nombre={seed?.nombre ?? ''} bajada={seed?.empresa ?? null} onCerrar={cerrar} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 24px 0' }}>
+            {[44, 120, 160, 90].map((h, i) => (
+              <div key={i} style={{ height: h, borderRadius: 14, background: 'var(--surface-2)', border: '1px solid var(--border)', position: 'relative', overflow: 'hidden' }}>
+                <div className="ls-brillo" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)', animation: 'leadsheet-shimmer 1.2s infinite' }} />
+              </div>
+            ))}
+          </div>
+          <style>{'@keyframes leadsheet-shimmer { from { transform: translateX(-100%);} to { transform: translateX(100%);} } @media (prefers-reduced-motion: reduce){ .ls-brillo{ animation:none !important; } }'}</style>
+        </>
+      ) : (
+        // `key`: otro lead es otra ficha (su pestaña, su scroll, sus diálogos), en el MISMO panel.
+        <LeadSheet key={data.lead.id} data={data} onClose={cerrar} initialTab={initialTab} solucionarAlAbrir={solucionar} verDatosAlAbrir={verDatos} avisosAlAbrir={avisos} />
+      )}
+    </PanelFicha>
+  );
+}
+
+/**
+ * La cabecera mientras la ficha carga (o si no cargó): la misma fila que la del panel (lead-view/CabeceraLead.tsx, `panel`),
+ * con la cara de las iniciales, el nombre y la empresa que ya sabe quien la abrió, y la cruz (o «Volver» en el teléfono).
+ */
+function CabeceraEsqueleto({ nombre, bajada, onCerrar }: { nombre: string; bajada: string | null; onCerrar: () => void }) {
+  return (
+    <div className="cl-cab cl-cab--panel" style={{ flex: 'none', position: 'relative' }}>
+      <div className="clp-fila">
+        <button type="button" className="clp-volver" aria-label="Volver" title="Volver" onClick={onCerrar}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
+            strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m15 18-6-6 6-6" /></svg>
+        </button>
+        <span className="clp-cara" aria-hidden style={{ cursor: 'default' }}>
+          <Marca nombre={nombre} tam={TAM_CARA_PANEL} color={colorDe(nombre || '·')} />
+        </span>
+        <span className="clp-txt">
+          <span className="cl-nom clp-nom">{nombre || 'Cargando…'}</span>
+          {bajada && <span className="clp-bajada">{bajada}</span>}
+        </span>
+        <button type="button" className="clp-icono clp-x" aria-label="Cerrar" title="Cerrar (Esc)" onClick={onCerrar}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
+            strokeLinecap="round" aria-hidden><path d="M6 6 18 18M18 6 6 18" /></svg>
+        </button>
+      </div>
+      <style dangerouslySetInnerHTML={{ __html: CSS_CABECERA_LEAD }} />
+    </div>
+  );
 }
