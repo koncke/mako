@@ -420,7 +420,9 @@ tarjetas limpias; el ahorro en dos columnas y sin HeyGen; el checkout sin el sub
 
 **En curso, con agentes** (uno por landing, como mucho tres a la vez por la RAM; el candado de navegador es C:/dev/bancos-portada/.grabando):
 **CORTE POR CUOTA (14/11, 11:50, cuenta al 95 %). Lo que quedó A MEDIAS, sin commitear en la punta y guardado tal cual en la rama
-`punta/landings-vsl-wip` (un commit aparte, encima de la punta; se retoma con `git checkout punta/landings-vsl-wip -- <archivos>`):**
+`wip/landings-vsl` (un commit aparte, encima de la punta; se retoma con `git checkout origin/wip/landings-vsl -- <archivos>`). NUNCA bajo
+`punta/…`: `.github/workflows/punta.yml` corre la integración a main con toda rama `punta/**` (la primera copia, `punta/landings-vsl-wip`,
+disparó la corrida 1413 y dio rojo por `iniciales-con-emoji` en `disenos/funnel.tsx`; se borró):**
 - Dashboard contra Reportei: `app/vsl/_competencia/dashboard.ts`, `disenos/dashboard.tsx`, `docs/diseno/landings-competencia/dashboard.md`,
   `public/vsl-assets/dashboard/`. Su test «Dashboard: …» en `tests/vsl-landings-competencia.test.ts`.
 - Ads Analyst contra Gethookd: `script.ts`, `disenos/script.tsx`, `docs/diseno/landings-competencia/script.md`, `public/vsl-assets/script/`.

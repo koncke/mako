@@ -12493,3 +12493,11 @@ Los dos scripts de Spy quedaron como modelo: `armar.mjs` y `capturar.mjs`. Está
 **⚠️ Trampa:** `chrome --headless --window-size=375,…` NO da 375. Una ventana no baja de unos 500 px, así que la página sale más ancha y la captura la recorta: parece que la tarjeta se desborda, y no es así. El ancho se emula con el protocolo de depuración. Y hay que esperar la animación de entrada antes de capturar (la de las tarjetas dura 280 ms y arranca en opacidad 0): una captura inmediata sale lavada.
 
 **⚠️ Segunda trampa (13/11/2026): las imágenes con `loading="lazy"` debajo de la vista no cargan** en la captura larga (`captureBeyondViewport`): la tarjeta sale sin miniatura y con su texto, y parece un fallo del componente. No lo es: se mira arriba, o se arma la página sin `lazy`. Y sin JavaScript tampoco corre el `onError` que cae a la foto de perfil: una caricatura rota se ve vacía en el arnés, no en la app.
+
+## Una rama de respaldo bajo `punta/` no es un respaldo: dispara la integración a main (14/11/2026)
+
+Al corte por cuota se guardó el trabajo a medias de las landings en `punta/landings-vsl-wip`. `.github/workflows/punta.yml` corre
+«punta → main» con TODA rama `punta/**`: la corrida 1413 probó trabajo a medias y dio rojo (`iniciales-con-emoji` en un diseño sin
+terminar). Si hubiera dado verde, lo a medias se integraba a main. **La regla:** un respaldo o un trabajo a medias va bajo `wip/…`
+(o cualquier prefijo que ningún workflow mire), nunca bajo `punta/`. Para guardarlo sin tocar la rama ni el índice: un índice
+temporal (`GIT_INDEX_FILE=… git read-tree HEAD; git add …; git write-tree; git commit-tree`) y `git push origin <sha>:refs/heads/wip/…`.
