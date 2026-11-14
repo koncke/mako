@@ -49,6 +49,7 @@ test('1. la cobrada a mano lleva «Volver a pendiente»; la de la pasarela, ning
 test('2. el día del pago no puede ser después de hoy, y el error dice cómo volverla a pendiente', () => {
   const error = diaDePagoFuturo('2026-11-30', HOY);
   assert.ok(error, 'el 30/11 con hoy 14/11 es un pago en el futuro');
+  assert.match(error, /^¿La cobraste de verdad\?/, 'pregunta antes de explicar');
   assert.match(error, /30\/11\/2026/);
   assert.match(error, /«Volver a pendiente»/, 'dice cómo se hace lo que se quería');
   assert.equal(diaDePagoFuturo(HOY, HOY), null, 'hoy vale');

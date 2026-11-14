@@ -611,7 +611,7 @@ const fechaDMA = (fecha: string): string => `${fecha.slice(8, 10)}/${fecha.slice
 export function diaDePagoFuturo(fecha: string | null | undefined, hoy: string): string | null {
   if (!fecha || !esFecha(fecha.slice(0, 10)) || !esFecha(hoy.slice(0, 10))) return null;
   if (fecha.slice(0, 10) <= hoy.slice(0, 10)) return null;
-  return `El día del pago no puede ser después de hoy (pusiste el ${fechaDMA(fecha)}). Si todavía no pagó, usa «${BOTON_VOLVER_A_PENDIENTE}» en esa cuota.`;
+  return `¿La cobraste de verdad? El día del pago no puede ser después de hoy (pusiste el ${fechaDMA(fecha)}). Si todavía no la pagó, vuélvela a pendiente con «${BOTON_VOLVER_A_PENDIENTE}».`;
 }
 
 /** La línea del historial cuando se corrige una COBRADA: «USD 2500 · cobrada el 06/11/2026» (no «vence»). */
