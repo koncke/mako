@@ -114,8 +114,10 @@ export function piezasDeContenido(docId: number, landing: string, contenido: Pic
         pago = productoDeHref((n.attrs as Record<string, unknown> | undefined)?.href);
       }
     });
-    if (agenda) out.push({ clave: claveDePagina('agenda', docId, p.id), tipo: 'agenda', nombre: `Agenda · ${nombreDeFormulario('', landing, p.titulo)}`, rotulo: ROTULO.agenda, ...base });
-    if (pago != null) out.push({ clave: claveDePagina('pago', docId, p.id), tipo: 'pago', nombre: `Pago · ${nombreDeFormulario('', landing, p.titulo)}`, rotulo: ROTULO.pago, ...base, productoId: pago });
+    // «Agenda de Clase en vivo», «Pago de Diagnóstico»: la página se suma sólo si dice algo más (una página «Agenda» no).
+    const dePagina = (que: string) => `${que} de ${landing.trim() || 'la landing'}${p.titulo && !new RegExp(que, 'i').test(p.titulo) ? ` · ${p.titulo}` : ''}`;
+    if (agenda) out.push({ clave: claveDePagina('agenda', docId, p.id), tipo: 'agenda', nombre: dePagina('Agenda'), rotulo: ROTULO.agenda, ...base });
+    if (pago != null) out.push({ clave: claveDePagina('pago', docId, p.id), tipo: 'pago', nombre: dePagina('Pago'), rotulo: ROTULO.pago, ...base, productoId: pago });
   }
   // Nombres repetidos dentro de la landing (dos formularios sin nombre propio en la misma página): « · 2», « · 3».
   const vistos = new Map<string, number>();

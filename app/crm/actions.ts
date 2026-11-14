@@ -416,7 +416,9 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
-  const [ficha, rolWs, partners, envios] = await Promise.all([fichaP, rolP, ofrecePartners(), enviosDelLead(id)]);
+  const enviosP = enviosDelLead(id);
+  const [ficha, rolWs, partners] = await Promise.all([fichaP, rolP, ofrecePartners()]);
+  const envios = await enviosP;
   // CADA FORMULARIO QUE LLENÓ (14/11/2026, mig 0415): en «Lo que contestó» por formulario y en Tracking con su nombre. Sin la
   // tabla (la 0415 sin aplicar) `enviosDelLead` da [] y la ficha queda como siempre.
   const enviosLanding = envios.filter((e) => e.formularioNombre).map((e) => ({ nombre: e.formularioNombre as string, respuestas: e.respuestas }));

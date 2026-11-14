@@ -1198,7 +1198,9 @@ export function textoQuien(d: Disparador, n: NombresDeDisparo): string {
 /** «Envió el formulario «Regalo»», «Envió cualquier formulario de «Lanzamiento»», o lo que falta. */
 export function textoDeFormulario(p: PiezaDelCron | null | undefined): string {
   if (!p) return 'Elige el formulario';
-  return p.clave.startsWith('landing:') ? `Envió cualquier formulario de «${p.nombre}»` : `Envió el formulario «${p.nombre}»`;
+  if (p.clave.startsWith('landing:')) return `Envió cualquier formulario de «${p.nombre}»`;
+  // «Envió «Formulario Regalo»», no «Envió el formulario «Formulario Regalo»»: el nombre ya dice qué es.
+  return /^(formulario|encuesta|quiz)\b/i.test(p.nombre) ? `Envió «${p.nombre}»` : `Envió el formulario «${p.nombre}»`;
 }
 
 /** LO QUE DICE CADA FILA DE LA TARJETA CRON (una por disparador, la dibuja el lienzo). */

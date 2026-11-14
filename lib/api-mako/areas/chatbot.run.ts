@@ -957,8 +957,9 @@ export const RUNNERS: Runners = {
           setConfig: guardarConfigAutomatizacion,
           plataforma: await esWsPlataforma(ctx.ws),
         }, {});
-        // El CRON del formulario, en el lugar del de la plantilla (el primero, el principal).
-        await guardarDisparadores(r.id, [{ id: 'd1', trigger_tipo: TRIGGER_FORMULARIO, pieza: payload.pieza }]);
+        // El CRON del formulario, en el lugar del de la plantilla (el primero, el principal). Por `publicarCrons`, como toda
+        // persona (tests/automations-activar-todos-los-caminos.test.ts): nace pausada, así que no hay duplicada que preguntar.
+        await publicarCrons(r.id, [{ id: 'd1', trigger_tipo: TRIGGER_FORMULARIO, pieza: payload.pieza }]);
         const link = linkApp(`/automations?sec=${r.id}`, ctx.ws);
         return {
           ok: true,

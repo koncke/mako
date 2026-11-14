@@ -13,7 +13,6 @@
 import { useEffect, useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { Dropdown, type DropdownGroup } from '@/app/components/Dropdown';
-import { piezasWebAction } from '@/app/crm/piezas-web-actions';
 import { claveDeLanding } from '@/lib/editor-landing/piezas';
 import type { LandingConPiezas } from '@/lib/piezas-web';
 import type { Disparador, PiezaDelCron } from '@/lib/disparadores';
@@ -40,7 +39,11 @@ export function FormularioDelCron({ d, onElegir, disabled }: { d: Disparador; on
   const [landings, setLandings] = useState<LandingConPiezas[] | null | undefined>(undefined);
   useEffect(() => {
     let vivo = true;
-    piezasWebAction().then((r) => { if (vivo) setLandings(r ? r.landings : null); }).catch(() => { if (vivo) setLandings(null); });
+    // Import dinámico: la acción del servidor trae `server-only`, y los tests que importan el editor del CRON corren en Node.
+    import('@/app/crm/piezas-web-actions')
+      .then((m) => m.piezasWebAction())
+      .then((r) => { if (vivo) setLandings(r ? r.landings : null); })
+      .catch(() => { if (vivo) setLandings(null); });
     return () => { vivo = false; };
   }, []);
   const secciones = landings ? seccionesDeFormularios(landings) : [];

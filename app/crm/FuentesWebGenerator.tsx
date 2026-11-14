@@ -19,7 +19,6 @@
 import { useEffect, useState, type CSSProperties } from 'react';
 import Link from '@/app/_ui/Link';
 import { Spinner, SANS, MONO } from '@/app/_ui';
-import { piezasWebAction, asignarPiezaAction } from './piezas-web-actions';
 import type { AsignacionesPiezas, PiezaWeb, TipoPieza } from '@/lib/editor-landing/piezas';
 import type { LandingConPiezas } from '@/lib/piezas-web';
 
@@ -58,7 +57,8 @@ export function FuentesWebGenerator({ funnelId, nombreProducto }: { funnelId: nu
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let vivo = true;
-    piezasWebAction().then((r) => { if (vivo) setDatos(r); }).catch(() => { if (vivo) setDatos(null); });
+    // Import dinámico: la acción del servidor trae `server-only`, y los tests que importan el modal corren en Node.
+    import('./piezas-web-actions').then((m) => m.piezasWebAction()).then((r) => { if (vivo) setDatos(r); }).catch(() => { if (vivo) setDatos(null); });
     return () => { vivo = false; };
   }, []);
 
@@ -66,19 +66,25 @@ export function FuentesWebGenerator({ funnelId, nombreProducto }: { funnelId: nu
   if (datos === null) return <p role="status" style={{ margin: 0, padding: '12px 0', fontFamily: SANS, fontSize: 13, color: 'var(--warn)' }}>No pude leer tus landings. Vuelve a abrir esta ventana.</p>;
 
   const real = funnelId ?? datos.principal;
-  const nombreDe = (id: number) => datos.crms.find((c) => c.id === id)?.nombre ?? 'otro funnel';
-  const conPiezas = datos.landings.filter((l) => l.piezas.length > 0);
-
   const cambiar = async (p: PiezaWeb, prendido: boolean) => {
     if (real == null) { setError('No pude saber cuál es este funnel. Recarga la página.'); return; }
     setGuardando(p.clave);
     setError(null);
-    const r = await asignarPiezaAction(p.clave, real, prendido).catch(() => ({ ok: false as const, error: 'No se pudo guardar' }));
+    const r = await import('./piezas-web-actions').then((m) => m.asignarPiezaAction(p.clave, real, prendido)).catch(() => ({ ok: false as const, error: 'No se pudo guardar' }));
     setGuardando(null);
     if (r.ok) setDatos({ ...datos, asignadas: r.asignadas });
     else setError(r.error);
   };
+  return <VistaFuentes datos={datos} real={real} guardando={guardando} error={error} nombreProducto={nombreProducto} onCambiar={(p, v) => void cambiar(p, v)} />;
+}
 
+/** Lo que se ve, sin estado propio (con props: se dibuja sola para las capturas). `real` = el id del funnel que se mira. */
+export function VistaFuentes({ datos, real, guardando, error, nombreProducto, onCambiar }: {
+  datos: Datos; real: number | null; guardando: string | null; error: string | null; nombreProducto: string;
+  onCambiar: (p: PiezaWeb, prendido: boolean) => void;
+}) {
+  const nombreDe = (id: number) => datos.crms.find((c) => c.id === id)?.nombre ?? 'otro funnel';
+  const conPiezas = datos.landings.filter((l) => l.piezas.length > 0);
   if (!conPiezas.length) {
     return (
       <p style={{ margin: 0, padding: '12px 0', fontFamily: SANS, fontSize: 13, color: 'var(--dim)' }}>
@@ -90,7 +96,7 @@ export function FuentesWebGenerator({ funnelId, nombreProducto }: { funnelId: nu
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontFamily: SANS }}>
-      {error && <p role="alert" style={{ margin: 0, fontSize: 12.5, color: 'var(--bad)' }}>{error}</p>}
+      {error && <p role="status" style={{ margin: 0, fontSize: 12.5, color: 'var(--bad)' }}>{error}</p>}
       {conPiezas.map((l) => (
         <div key={l.docId} style={{ border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', background: 'var(--surface)' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, padding: '10px 12px', minWidth: 0, flexWrap: 'wrap' }}>
@@ -109,11 +115,11 @@ export function FuentesWebGenerator({ funnelId, nombreProducto }: { funnelId: nu
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</span>
                   <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {p.rotulo} · {p.pagina}{otros.length ? ` · También entra a ${otros.join(', ')}` : ''}
+                    {[p.rotulo, p.pagina !== p.rotulo && !p.nombre.endsWith(p.pagina) ? p.pagina : '', otros.length ? `También entra a ${otros.join(', ')}` : ''].filter(Boolean).join(' · ')}
                   </span>
                 </span>
                 {guardando === p.clave && <Spinner size={14} />}
-                <Interruptor prendido={prendido} disabled={guardando != null} onCambiar={(v) => void cambiar(p, v)}
+                <Interruptor prendido={prendido} disabled={guardando != null} onCambiar={(v) => onCambiar(p, v)}
                   etiqueta={`${p.nombre}: ${prendido ? 'entra' : 'no entra'} a ${nombreProducto}`} />
               </div>
             );
