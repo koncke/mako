@@ -6193,3 +6193,19 @@ con el kanban»). Rama `cal-classroom-2910`.
 **Vive en:** lib/clients-rutas.ts · next.config.ts · app/customer-success/{ClientesApp,BarraClientes,MiembrosClientes}.tsx ·
 app/customer-success/pantalla.tsx · app/_comunidad/{Comunidad,Miembros}.tsx · lib/movil-rutas.ts · tests/clients-rutas.test.ts
 (sección 7, probada rompiéndola: cinco roturas, cinco rojos). *29/10/2026, claude3.*
+
+## El link de YouTube de Mauricio dice «desde el minuto 24:10» y el portal lo arranca en 0:00 (14/11/2026, SIN HACER)
+
+Lo encontró la tarea de la portada que buscaba el video que Mauricio dejó en su Classroom (producción leída en sólo lectura).
+
+- **El dato.** De las 106 clases del ws 1, UNA tiene video: «Las reglas y la práctica de integridad» (curso «Negocio que Escala»,
+  `curso_clases` 2, editada el 12/10/2026): `video_tipo = 'youtube'`, `video_url = https://www.youtube.com/watch?v=qrUxN-5IN50&t=1450s`,
+  su «Podcast crear cultura por medio del liderazgo». La nota del 07/10 («las 107 clases del ws1 no tienen video») ya no vale.
+- **El síntoma, leído en el código (ningún alumno lo reportó).** El `&t=1450s` es a propósito: que el alumno empiece en el 24:10.
+  `videoDeLink` (lib/curso.ts) se queda con el id y `VideoYouTube` (app/compartido/curso/[token]/Reproductor.tsx) arma el
+  `YT.Player` sólo con `videoId`: el alumno lo ve desde 0:00, y nada se lo dice a Mauricio. `lib/embeds.ts` no lee `t` ni `start`.
+- **SIN HACER:** leer `t`/`start` del link (segundos o `1h2m3s`) y pasarlo como `playerVars.start`; y decidir qué es «visto» si
+  arranca en el medio (`pctVisto` mide lo más lejos que llegó sobre la duración ENTERA: con 24 min salteados, nunca llega al 90 %).
+
+**Vive en:** lib/curso.ts (`videoDeLink`, `reproductorDeClase`) · lib/embeds.ts (`reconocerUrl`) ·
+app/compartido/curso/[token]/Reproductor.tsx (`VideoYouTube`).

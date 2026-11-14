@@ -419,8 +419,24 @@ de tiempo); curso y comunidad sin textos de más; Comparaciones con la tabla ent
 tarjetas limpias; el ahorro en dos columnas y sin HeyGen; el checkout sin el subtítulo de Mercado Pago, sin el renglón repetido ni subtotal.
 
 **En curso, con agentes** (uno por landing, como mucho tres a la vez por la RAM; el candado de navegador es C:/dev/bancos-portada/.grabando):
-Dashboard contra Reportei (desde las 10:55); Ads Analyst contra Gethookd (desde las 11:25); Funnels contra Hyros (desde las 11:45).
-**SIN SUBIR** Agenda, Cobranza y Email: el filtro de la punta corre los tests sobre el DISCO y el test a medio hacer de otra landing lo deja
+**CORTE POR CUOTA (14/11, 11:50, cuenta al 95 %). Lo que quedó A MEDIAS, sin commitear en la punta y guardado tal cual en la rama
+`punta/landings-vsl-wip` (un commit aparte, encima de la punta; se retoma con `git checkout punta/landings-vsl-wip -- <archivos>`):**
+- Dashboard contra Reportei: `app/vsl/_competencia/dashboard.ts`, `disenos/dashboard.tsx`, `docs/diseno/landings-competencia/dashboard.md`,
+  `public/vsl-assets/dashboard/`. Su test «Dashboard: …» en `tests/vsl-landings-competencia.test.ts`.
+- Ads Analyst contra Gethookd: `script.ts`, `disenos/script.tsx`, `docs/diseno/landings-competencia/script.md`, `public/vsl-assets/script/`.
+  Su test «Ads Analyst: …». Su cosecha ya está en `docs/hallazgos-landing.md` («## Ads Analyst como Gethookd»).
+- Funnels contra Hyros: `funnel.ts`, `disenos/funnel.tsx`, `docs/diseno/landings-competencia/funnel.md`, `public/vsl-assets/funnel/`.
+- Comparaciones y lo que pagas (feedback de Martín, 14/11 10:25): `app/vsl/_sitio/LoQuePagas.tsx` (nuevo), `Comparaciones.tsx`,
+  `Portada.tsx`, `estilos.ts`, `reemplaza.ts`, 9 logos de `public/vsl-assets/logos/apps/` sin fondo blanco y los tests
+  `vsl-comparaciones-competencia` y `vsl-sitio-reemplaza`. El pedido entero: la tabla de «lo que pagas hoy», una fila por app con su precio;
+  la misma sección al principio de Comparaciones; las flechas que deslizan; sin «Lo de cada app sale de su web oficial»; la tarjeta «MaKo
+  vs X» que abre un panel en el lugar; el ícono de MaKo al revés según el modo (negro en claro, blanco en oscuro); logos sin fondo blanco.
+- El Reel de Hormozi en Automations y el video del curso (feedback de Martín, 14/11 10:25): el banco `C:/dev/bancos-portada/banco-flujo/`
+  (Reel de Hormozi en `vistas-chat.tsx`; los 4 pasos para grabar están en la entrada «El bucle de Automations no calzaba») y
+  `banco-clase/` (el curso tiene que mostrar el video que Mauricio dejó linkeado en su workspace, en vez del vertical de la charla).
+- Faltan empezar: Ops Center (Holo), Plan (Motion) y la LANDING de Automations (SetSmart; sólo se rehízo su animación de la portada).
+  Brief común de cada agente: `docs/relevo/brief-landings.md` (copia del scratchpad `brief-landing-v2.txt`).
+Subidas: Agenda, Cobranza y Email subieron a las 10:50 (9ef651f1c). El filtro de la punta corre los tests sobre el DISCO y el test a medio hacer de otra landing lo deja
 rojo (MAKO_SIN_FILTRO no está permitido). Se sube en una ventana en que el disco esté verde; desde las 11:45 el brief pide escribir el test
 al final. Visor: v37 (11:45), con un tope de 512 archivos por versión (ver TEL_IGUAL en `scripts/visor-landings/armar.mjs`); se publica en
 dos tandas (videos y páginas) con lo cambiado desde la versión anterior. ENTREGADOS: Email (d3480484b; para decidir: las cintas de clientes
