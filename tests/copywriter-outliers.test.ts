@@ -60,6 +60,11 @@ test('de Spy: el formato de cada pieza, y sin texto (o una landing) no hay outli
   assert.doesNotMatch(textoParaMaKo(short!, null), /Instagram/);
   assert.equal(rotuloDeFormato(short!), 'Short de YouTube');
   assert.equal(rotuloDeFormato({ formato: 'reel', url: 'https://www.instagram.com/reel/abc/' }), 'Reel');
+  // Una escena del original se replica sin cifras inventadas ni contada como propia, y el llamado no promete lo que la oferta no
+  // tiene (14/11/2026: «un coach… cobrando USD 5000 por sesión» y «te mando la guía» en la réplica de Hormozi).
+  const reglas = reglasDeLaReplica({ formato: 'reel', deDonde: 'guion', texto: 'Le di 30% de descuento a una clienta.', laminas: null }).join('\n');
+  assert.match(reglas, /UNA ESCENA del original[^\n]*sin cifras ni hechos que EL NEGOCIO no dio, y nunca contada como algo que te pasó\./);
+  assert.match(reglas, /EL LLAMADO pide lo que la oferta ofrece: ni una guía, ni un regalo/);
   assert.equal(formatoDePiezaSpy({ canal: 'anuncios', tipo: 'anuncio' }), 'anuncio');
   assert.equal(formatoDePiezaSpy({ canal: 'landing', tipo: 'landing' }), null);
   const xs = outliersCopyDeSpy([

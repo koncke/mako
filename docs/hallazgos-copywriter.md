@@ -715,6 +715,11 @@ script (tsx) que llama a las MISMAS funciones del server, adentro de `runWithWor
   español; los dos se pasan solos desde ese día (`alEspanol`). Y el pedido oculto llevaba «high ticket.;» y «herramienta..»
   (lo contestado con su punto): `pedidoDeReplica` lo saca. Un error de gramática («yo no le faltaba herramienta») no tiene arreglo
   determinístico.
+- **La segunda corrida inventó una ESCENA con cifras** («un coach… cobrando USD 5000 por sesión», contada como algo que le pasó
+  a quien habla), prometió «la guía» que la oferta no tiene y dijo «boludo». La regla de LAS PRUEBAS ya lo prohibía y no
+  alcanzó: el original abre con la pregunta de un seguidor y el modelo la tomó como escena para copiar, no como prueba. Se dijo
+  qué es una escena y qué pide el llamado (`reglasDeLaReplica`); la tercera corrida ya no inventó nada. ⚠️ Una regla que el
+  modelo rompe no se arregla repitiéndola: se nombra el CASO que la rompió.
 - **El negocio de MaKo (ws 9) no tiene respuestas de onboarding** y sus ofertas no tienen «para quién» ni «qué promete»: por eso
   MaKo pregunta las dos (el flujo nuevo funciona como se pensó; los datos son del negocio, no del código).
 
