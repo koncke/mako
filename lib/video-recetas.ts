@@ -186,8 +186,31 @@ export function recetaDelHilo(mensajes: readonly { de: string; texto?: string }[
     const nombre = m.texto.slice(INICIO_RECETA.length).split('»')[0];
     const r = RECETAS.find((x) => x.nombre === nombre);
     if (r) return r;
+    // La receta de un video DESARMADO (lib/video-desarmar.ts, ticket 97) no está en RECETAS: lo que aplica el editor se lee de
+    // la línea «En el editor de MaKo…» del mismo mensaje, que escribe `textoDeEdicionEnEditor`.
+    const editor = edicionDelTexto(m.texto);
+    if (editor) {
+      return { id: 'hilo', familia: 'subtitulos-con-estilo', nombre, porque: '', referencia: { codigo: '', cuenta: '' }, duracionS: 0, estructura: [], edicion: [], editor, grabacion: { avatar: [], persona: [] } };
+    }
   }
   return null;
+}
+
+const INICIO_EDICION = 'En el editor de MaKo, todo en un pedido: ';
+
+/** Lo inverso de `textoDeEdicionEnEditor`: la `EdicionDeReceta` escrita en un mensaje, o null si no la tiene. */
+export function edicionDelTexto(texto: string): EdicionDeReceta | null {
+  const linea = texto.split('\n').find((l) => l.startsWith(INICIO_EDICION));
+  if (!linea) return null;
+  const e: EdicionDeReceta = {};
+  if (/(^|, )sin subtítulos/.test(linea.slice(INICIO_EDICION.length))) e.sinSubtitulos = true;
+  const estilo = /subtítulos con el estilo «([a-z0-9-]{1,40})»/.exec(linea);
+  if (estilo) e.subtitulos = estilo[1];
+  const claves = /palabras clave en (#[0-9a-fA-F]{6}) al (\d{2,3}) %/.exec(linea);
+  if (claves) e.claves = { tamano: Number(claves[2]), color: claves[1] };
+  const pausa = /borrar los silencios de (\d+(?:,\d+)?) s o más/.exec(linea);
+  if (pausa) e.pausaMinima = Number(pausa[1].replace(',', '.'));
+  return Object.keys(e).length ? e : null;
 }
 
 /** Lo que el editor aplica, dicho para el chat (la IA lo lee en la conversación y lo pide con sus operaciones). */
@@ -197,7 +220,9 @@ export function textoDeEdicionEnEditor(e: EdicionDeReceta): string | null {
   if (e.subtitulos) partes.push(`subtítulos con el estilo «${e.subtitulos}» de la galería de Subtítulos`);
   if (e.claves) partes.push(`palabras clave en ${e.claves.color} al ${e.claves.tamano} %`);
   if (e.pausaMinima) partes.push(`borrar los silencios de ${String(e.pausaMinima).replace('.', ',')} s o más`);
-  return partes.length ? `En el editor de MaKo, todo en un pedido: ${partes.join(', ')}.` : null;
+  // `edicionDelTexto` lee esta línea de vuelta (la receta de un video desarmado no está en RECETAS): cambiar una frase acá es
+  // cambiarla allá.
+  return partes.length ? `${INICIO_EDICION}${partes.join(', ')}.` : null;
 }
 
 /**

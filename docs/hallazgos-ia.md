@@ -7985,6 +7985,21 @@ habilitarla es decisión de Martín: habilitarla es volver a prestarle IA a un c
   error que ve el usuario no puede ser el texto técnico ni pedirle a la plataforma que «pegue una nueva».
 - **Sin hacer:** que la cascada salte y recuerde una cuenta muerta (`lib/ai-cheap.ts`), y el mensaje de `errorDeCascada`
   (`lib/ia-mensajes.ts`).
+- **14/11/2026: siguen muertas.** El desarme de videos (ticket 97, `lib/video-desarmar-gemini.ts`) vio la cuenta 1 y la 4 del
+  ws 9 con 401 en cada pedido. Nadie las reemplazó en tres días.
+
+## La cuota gratis de Gemini es POR MODELO: un 429 no es «otra cuenta» (14/11/2026, ticket 97)
+
+- **Síntoma:** el desarme de un reel en el ws 9 falló a los 23 s con «Quota exceeded… limit: 20, model: gemini-3.8-flash».
+  Quedaban dos cuentas vivas, y `gemini-flash-lite-latest` no se probó en ninguna.
+- **Causa:** el plan gratis de AI Studio topea los pedidos por día por PROYECTO y por MODELO
+  (`GenerateRequestsPerDayPerProjectPerModel-FreeTier`). Un 429 del modelo principal no dice nada del de respaldo, que tiene
+  su propia cuota. El código lo trataba como un error duro («otra cuenta») y saltaba de cuenta, donde volvía a pedir el modelo
+  principal sin cuota.
+- **Regla:** ante un 429, el modelo de respaldo en la MISMA cuenta antes que la cuenta siguiente. Lo hace
+  `lib/video-desarmar-gemini.ts`; con eso, el mismo reel salió con la cuenta 3 y flash-lite.
+- **Sin hacer:** `guionDeYoutubeConGemini` (`lib/ai-cheap.ts`, el guion de YouTube de Spy) hace lo de antes. Su comentario
+  dice que un error que no es saturación «no cambia con otro modelo: otra cuenta»; un 429 de cuota sí cambia con otro modelo.
 
 ## El crédito de Claude PRIMERO en el espacio de MaKo y en WhatsApp, Gemini de respaldo (11/11/2026)
 

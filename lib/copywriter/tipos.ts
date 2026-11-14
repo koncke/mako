@@ -59,6 +59,12 @@ export type PropsGuion = {
    * recibe como referencia en cada pedido y la barra ofrece «Ver el original». No se muestra en las propiedades.
    */
   outlier?: string | null;
+  /**
+   * El video DESARMADO del que salió la página (ticket 97, `<red>.<id>`, lib/video-desarmar.ts → `claveDeDesarme`): «Hacer uno así»
+   * de un video de Competitors Spy lo pone, y la página muestra al lado su edición plano a plano con «Abrir en el editor».
+   * No se muestra en las propiedades.
+   */
+  desarme?: string | null;
 };
 
 /** Un nodo de ProseMirror como JSON (lo que guarda TipTap con `getJSON()`). */
@@ -148,5 +154,7 @@ export function sanearProps(v: unknown, tipoPorDefecto: TipoGuion = 'ad'): Props
   // El outlier sólo con su forma (`<fuente>:<id>`, lib/copywriter/outliers.ts): una página sin él no lo guarda (ni `null`). `pegado`:
   // lo que trajo la persona (lib/copywriter/pegado.ts, 14/11/2026).
   const outlier = typeof o.outlier === 'string' && /^(spy|biblioteca|pegado):-?\d{1,12}$/.test(o.outlier) ? o.outlier : null;
-  return { tipo, angulo: id(o.angulo), estructura: id(o.estructura), duracion: d != null && d > 0 && d <= 7_200 ? d : null, plantilla: id(o.plantilla), ...(outlier ? { outlier } : {}) };
+  // El video desarmado (ticket 97): sólo con la forma de `claveDeDesarme` (lib/video-desarmar.ts). Sin él, no se guarda.
+  const desarme = typeof o.desarme === 'string' && /^(instagram|youtube|tiktok|meta-ads|subido)\.[A-Za-z0-9_-]{3,64}$/.test(o.desarme) ? o.desarme : null;
+  return { tipo, angulo: id(o.angulo), estructura: id(o.estructura), duracion: d != null && d > 0 && d <= 7_200 ? d : null, plantilla: id(o.plantilla), ...(outlier ? { outlier } : {}), ...(desarme ? { desarme } : {}) };
 }

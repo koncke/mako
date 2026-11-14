@@ -119,6 +119,7 @@ POST /api/compartido/guion → pública (no usa la sesión)
 POST /api/compartir → cortada
 POST /api/competitor-spy/analizar → cortada
 POST /api/competitor-spy/copiar → cortada
+POST /api/competitor-spy/desarmar-imagen → cortada
 POST /api/competitor-spy/extension → pública (no usa la sesión)
 POST /api/competitor-spy/oferta → cortada
 POST /api/competitor-spy/pagina → cortada
@@ -143,6 +144,7 @@ POST /api/crm/mako → cortada
 POST /api/cron/grupo-turno → pública (no usa la sesión)
 POST /api/cuenta/eliminar → PERMITIDA
 POST /api/datos-mau → cortada
+POST /api/desarmar → cortada
 POST /api/dev/group-photo → cortada
 POST /api/email/broadcasts → cortada
 POST /api/email/dominio → cortada
