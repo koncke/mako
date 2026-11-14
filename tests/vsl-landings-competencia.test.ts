@@ -235,3 +235,34 @@ test('Offer: el hero lleva la grabación real y flota al bajar, y cada pieza su 
   const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
   assert.ok(scripts.some((x) => x.includes("'d-offer'") && x.includes('-flota') && x.includes('IntersectionObserver')), 'el video sin su ventanita flotante');
 });
+
+test('Chats: cada pestaña de la galería tiene su pantalla grabada, y cada pieza sus recortes reales', async () => {
+  const { PANTALLA_DE_PESTANA, RECORTES_DE_PIEZA, POSTER_CASO } = await import('../app/vsl/_competencia/disenos/whatsapp');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'whatsapp');
+  assert.ok(l, 'falta la landing de Chats');
+  const html = dibujar(l);
+  const filas = l.bloques.find((b) => b.tipo === 'filas');
+  assert.ok(filas && filas.tipo === 'filas' && filas.items.length >= 4, 'Chats sin las pestañas de su galería');
+  for (const it of filas.items) {
+    const g = PANTALLA_DE_PESTANA[it.titulo];
+    assert.ok(g, `«${it.titulo}»: sin su pantalla`);
+    for (const f of [g.video, g.poster]) assert.ok(existsSync(join(RAIZ, 'public', f)), `«${it.titulo}»: falta public${f}`);
+    assert.ok(html.includes(`src="${g.video}"`), `«${it.titulo}»: su video no se dibuja`);
+  }
+  const piezas = l.bloques.find((b) => b.tipo === 'tarjetas' && b.columnas === 2);
+  assert.ok(piezas && piezas.tipo === 'tarjetas', 'Chats sin sus cuatro piezas');
+  assert.equal(RECORTES_DE_PIEZA.length, piezas.items.length, 'una composición por pieza');
+  for (const f of [...RECORTES_DE_PIEZA.flatMap((r) => r.ventanas.map((v) => v.src)), POSTER_CASO]) {
+    assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+    assert.ok(html.includes(`src="${f}"`), `${f} no se dibuja`);
+  }
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
+  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
+  assert.ok(scripts.some((x) => x.includes("'d-whatsapp'") && x.includes('-stage') && x.includes('IntersectionObserver')), 'la galería sin su script');
+});
+
+// Martín, 14/11/2026, noche: «que la copia salga muy fiel… los videos que tienen, las animaciones». Como GoHighLevel, la imagen del hero
+// de CRM es la grabación REAL del CRM que abre el mini-VSL en una ventana, cada pestaña del ciclo trae su lista y su video (o el recuadro
+// de lo que falta grabar), y el script sube los contadores, prende la franja fija y abre el popup de salida.
+// PROBADO ROMPIÉNDOLO (14/11/2026): renombrar ficha-hero.webm en VIDEO_HERO_CRM → falla «falta public/…»; sacar un video de VIDEOS_CICLO
+// → falla «un video por pestaña»; sacar `-fija` del script → falla «sin su script».

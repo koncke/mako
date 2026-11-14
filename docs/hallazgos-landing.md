@@ -5822,3 +5822,39 @@ El relevo de AI Studio con capturas, videos y su código por sección: carpeta d
 
 SIN HACER: su video de producto debajo del hero (va «Aquí falta la animación»: no hay un video del Web Generator); su mascota; una landing
 que haya escrito la IA de MaKo desde una frase (para que el hero muestre la frase → la página, como el suyo); la agenda con un Calendly real.
+
+## Chats como Leadsales: el pie que «no cambiaba» sí cambia, y el sol y la luna no ve los `::before` ni la letra de una caja chica (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/whatsapp.tsx` (diseño, `PANTALLA_DE_PESTANA`, `RECORTES_DE_PIEZA` y el `<script data-visor>`),
+`app/vsl/_competencia/whatsapp.ts`, `public/vsl-assets/whatsapp/`, valores en `docs/diseno/landings-competencia/whatsapp.md` («Segunda
+mirada»), test «Chats: …» en `tests/vsl-landings-competencia.test.ts`. Bancos: `C:/dev/bancos-portada/banco-chats-landing/` (Chats real con
+`?ancho=`, `/api/chats/contacto`, `/etapa` y `/estado` contestados) y `banco-difusion-landing/` (la hoja «Mandar mensaje» real con sus
+acciones del servidor reemplazadas en el build). El relevo con capturas y videos: notas de la sesión, `referencias-landings/whatsapp/`.
+
+- **⚠️ El diagnóstico obvio era el equivocado: el documento del 11/11 decía «el pie de la figura no cambia».** Cambia por pestaña (cada panel
+  trae su `figcaption`), la tarjeta que flota va SÓLO en la primera y la pestaña elegida es la única con ícono (las otras van con rayitas).
+  La copia del 11/11 tenía una tarjeta en cada pestaña, íconos en todas y un pie fijo. **Regla:** el relevo de una galería mira cada
+  pestaña por separado, no la primera.
+- **Lo que el HTML trae y nunca se ve:** la tarjeta de la primera pestaña tiene una conversación debajo de sus cifras que un
+  `@container (max-width: 960px)` esconde siempre (su contenedor mide 601). Se mide con el navegador, no se lee del HTML.
+- **Lo que se mueve en Leadsales es poco** (`getAnimations()` en cada paso de la rueda): el brillo que recorre UNA vez el borde de la
+  insignia (4,5 s), la pared de logos (JavaScript, `scrollLeft` +28 px/s; no va: son sus clientes) y la órbita, que **se frena con el
+  mouse encima** (eso faltaba). La galería no avanza sola y nada aparece al bajar. Sus capturas son quietas: aquí corren grabaciones de
+  la app sólo mientras la galería se ve (como la Spy).
+- **⚠️ El sol y la luna no lee los pseudo-elementos** (`TemaSitio.tsx` → `leer()` recorre elementos): la columna resaltada de la tabla es
+  un `::before` y en oscuro quedaba CLARA mientras su texto pasaba a claro, ilegible. Lo pintado con `::before`/`::after` lleva su oscuro
+  escrito con `html[data-sitio-modo="oscuro"]`.
+- **⚠️ Una caja chica (menos de 480 × 140) con un degradado de tono medio es «un botón» para el sol y la luna** (`o.chico` en
+  `planDelModo`): su fondo se oscurece pero su letra NO cambia. La insignia del hero quedó con letra oscura sobre oscuro; un color
+  opaco no lo arregla (sigue «quieta»): su oscuro va escrito.
+- **Las rayas finas en `rgba(…,.1)` desaparecen en el claro** (lo de AI Avatar, otra vez): las de la tabla van opacas (`#DFE1E8`).
+- **Chats en un banco a 832 px no entra con el panel del contacto abierto**: el hilo queda de una palabra por renglón. El banco dibuja
+  la app más ancha con `?ancho=1100` (la cámara se ajusta sola). Y un mensaje que llega hasta el medio del hilo queda debajo de la
+  pastilla «Hoy» (pegada arriba): el primer mensaje del ejemplo va corto.
+- **Una acción del servidor en un banco**: el plugin de los bancos cambia todo `'use server'` por `async () => ({ ok: true })`; para la
+  hoja de difusión el build carga en su lugar `acciones-ejemplo.ts` (una columna de ejemplo de 24 leads) y la hoja se dibuja entera. Su
+  aviso del QR («puede hacer que WhatsApp bloquee el número») queda FUERA del recorte que va a la landing.
+
+SIN HACER: la pared de logos de clientes, los planes, la prensa y «Ver en YouTube» (MaKo no tiene ese contenido); la tercera columna de
+los testimonios (hay un solo caso); la tarjeta de la primera pestaña describe la bandeja de ejemplo de la grabación (4 canales, 9
+contactos, 3 sin leer), no un resultado: si Martín prefiere otra cosa, es el `TARJETA` del diseño.
