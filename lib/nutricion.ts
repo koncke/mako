@@ -172,6 +172,7 @@ import { ORIGEN_MIGRACION, quitarMigrados } from '@/lib/migracion-leads';
 // Lo que no se arregla reintentando: el teléfono que falta o no tiene dígitos, y los leads de prueba de Meta (23/10/2026).
 import { esLeadDePruebaDeMeta, MOTIVO_PRUEBA_META, telefonoSinArreglo } from '@/lib/lead-sin-arreglo';
 import { pasoConRelleno } from '@/lib/flujo-relleno';
+import { respuestasGuardadas } from '@/lib/optin-respuestas';
 
 export type CanalNutricion = 'email' | 'whatsapp' | CanalSocial;
 
@@ -3562,7 +3563,7 @@ async function hechosDeLeads(
     nutricion_realizada: boolean | null; funnel_id: number | string | null;
     respuesta_facturacion?: string | null; respuesta_colaboradores?: string | null; respuesta_objetivo?: string | null;
     respuesta_cuando_empezar?: string | null; respuesta_inversion?: string | null; respuesta_decisor?: string | null;
-    meta_field_data?: unknown;
+    meta_field_data?: unknown; optin_respuestas?: unknown;
   };
   const filasLead: FilaLeadHechos[] = [];
   const productos = new Map<number, Map<number, string>>();
@@ -3587,7 +3588,9 @@ async function hechosDeLeads(
   // si alguna fila las pide — más las respuestas viejas del formulario si se busca en ellas.
   const COLS_BASE = 'id, created_at, telefono, email, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_primer_pago, cerro, estado_lead, pipeline_stage, fecha_agenda, asistio_j1, asistio_j2, nutricion_realizada, funnel_id';
   const COLS_CATALOGO = 'origen_lead, calificado, meta_lead_id, visitor_id, meta_campaign_name, email_opt_out, venta_tipo, fecha_cierre, fecha_confirmacion';
-  const COLS_RESPUESTAS = 'respuesta_facturacion, respuesta_colaboradores, respuesta_objetivo, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor, meta_field_data';
+  // `optin_respuestas` (14/11/2026): lo que contestó en el formulario o el quiz de una LANDING (mig 0274). Sin esto, «Respuesta
+  // del formulario contiene» no veía nada de lo que entra por el Web Generator (relevo de la llamada con Julio, punto 5).
+  const COLS_RESPUESTAS = 'respuesta_facturacion, respuesta_colaboradores, respuesta_objetivo, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor, meta_field_data, optin_respuestas';
   const catalogoLead = filas != null;
   const cols = [COLS_BASE, catalogoLead ? COLS_CATALOGO : '', pide('respuestas') ? COLS_RESPUESTAS : ''].filter(Boolean).join(', ');
   for (const tanda of enTandas(ids, 200)) {
@@ -3722,6 +3725,30 @@ async function hechosDelCatalogo(
     }
     return m;
   };
+  // «Envió el formulario» (14/11/2026): las claves de lo que envió cada lead (`lead_formularios`, mig 0415). Sin la tabla (la
+  // migración sin aplicar) no se sabe: null, y la condición dice «no sé» (nunca «no envió»). Otra falla TIRA, como el resto.
+  const leerFormularios = async (): Promise<Map<number, Set<string>> | null> => {
+    if (!pide('formularios')) return null;
+    const m = new Map<number, Set<string>>();
+    try {
+      for (const tanda of enTandas(ids, 200)) {
+        for (const r of await leerTodo<{ id: number; lead_id: number; formulario_id: string | null; landing_doc_id: number | null }>(db, 'lead_formularios', 'id, lead_id, formulario_id, landing_doc_id', {
+          orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+        })) {
+          const s = m.get(Number(r.lead_id)) ?? new Set<string>();
+          if (r.formulario_id) s.add(`form:${r.formulario_id}`);
+          if (r.landing_doc_id != null) s.add(`landing:${r.landing_doc_id}`);
+          m.set(Number(r.lead_id), s);
+        }
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!esTablaInexistente({ message: msg })) throw e;
+      console.warn(`[nutricion] condición «Envió el formulario»: la tabla lead_formularios todavía no existe (mig 0415), se evalúa como «no sé» (${msg})`);
+      return null;
+    }
+    return m;
+  };
   // El ORDEN de las reuniones de los embudos que nombran las filas (cuarta tanda, punto 5): UNA lectura
   // por embudo nombrado, no por lead. Es la config, la misma para todo el lote. Un embudo borrado no
   // tiene orden (sus etapas dan «no sé»); una lectura que falla TIRA, como todo lo de acá: con el
@@ -3827,9 +3854,9 @@ async function hechosDelCatalogo(
     return siguenEnInstagram(ws, s, { fresco: o.fresco === true });
   };
 
-  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones, [social, sigue], comprobante] = await Promise.all([
+  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones, [social, sigue], comprobante, formularios] = await Promise.all([
     leerVsl(), leerClics(), leerRespuestas(), leerPagos(), leerCurso(), leerAcceso(), leerComunidad(), leerEntrega(), leerCs(), leerHoy(),
-    leerReuniones(), leerSocial().then(async (s) => [s, await leerSigue(s)] as const), leerComprobante(),
+    leerReuniones(), leerSocial().then(async (s) => [s, await leerSigue(s)] as const), leerComprobante(), leerFormularios(),
   ]);
 
   return (f, ahoraMs) => {
@@ -3856,7 +3883,9 @@ async function hechosDelCatalogo(
           .flatMap((x) => (Array.isArray(x?.values) ? x.values : []))
           .filter((x): x is string => typeof x === 'string')
         : [];
-      c.respuestas = normalizarTexto([...(respuestas.get(f.id) ?? []), ...viejas, ...meta].join(' · '));
+      // Y lo de la landing (14/11/2026): las respuestas, sin la pregunta, como las demás fuentes.
+      const deLanding = respuestasGuardadas(f.optin_respuestas).map((r) => r.respuesta);
+      c.respuestas = normalizarTexto([...(respuestas.get(f.id) ?? []), ...viejas, ...meta, ...deLanding].join(' · '));
     }
     if (pagos) {
       const suyas = pagos.get(f.id) ?? [];
@@ -3874,6 +3903,8 @@ async function hechosDelCatalogo(
     if (entrega) c.entrega = new Set([...entrega].filter(([, leads]) => leads.has(f.id)).map(([k]) => k));
     if (cs) c.estadoCliente = cs.get(f.id) ?? 'activo';
     if (comprobante) c.comprobante = comprobante.get(f.id) ?? 'no_llego';
+    // Leída la tabla, quien no envió nada tiene el conjunto vacío («no envió» es un dato); sin la tabla, ausente («no sé»).
+    if (formularios) c.formularios = formularios.get(f.id) ?? new Set<string>();
     if (social) {
       const s = social.get(f.id);
       c.social = { instagram: s?.instagram ? conversacionDeFila(s.instagram) : null, messenger: s?.messenger ? conversacionDeFila(s.messenger) : null };

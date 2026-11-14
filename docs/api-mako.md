@@ -9341,7 +9341,7 @@ PROPONE crear, desde una plantilla de la galería, una que arranca cuando alguie
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla y el CRON «Envió el formulario»
+- **Escribe:** inserta una fila pausada en nutricion_secuencias con las tarjetas de la plantilla, y que la dispara «Envió el formulario»
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**

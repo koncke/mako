@@ -123,7 +123,10 @@ function leerCatalogos(): Promise<CatalogosRemotos | null> {
       if (!r.ok || !j?.ok) throw new Error('catálogos');
       // Las reuniones van aparte del resto (la ruta las lee con su propio catch): sin el campo, o en
       // null, «no se pudo leer», nunca «este negocio no tiene reuniones».
-      return { cursos: j.cursos ?? [], posts: j.posts ?? [], campanas: j.campanas ?? [], reuniones: Array.isArray(j.reuniones) ? j.reuniones : null };
+      return {
+        cursos: j.cursos ?? [], posts: j.posts ?? [], campanas: j.campanas ?? [], reuniones: Array.isArray(j.reuniones) ? j.reuniones : null,
+        formularios: Array.isArray(j.formularios) ? j.formularios : null,
+      };
     })
     .catch(() => { enVuelo = null; return null; });
   return enVuelo;

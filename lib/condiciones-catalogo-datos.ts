@@ -31,7 +31,7 @@ import { listProductos } from '@/lib/productos';
 import { COLUMNAS_CLASE, aClase } from '@/lib/curso-datos';
 import { modulosDelCurso } from '@/lib/curso-modulos-datos';
 import { tieneTarea } from '@/lib/curso';
-import { armarCursos, reunionesParaEditor, type ReunionesDeEmbudo } from '@/lib/condiciones-catalogo';
+import { armarCursos, reunionesParaEditor, type FormulariosDeLanding, type ReunionesDeEmbudo } from '@/lib/condiciones-catalogo';
 import { leerFunnels, getFunnelDe, getFunnelDefault } from '@/lib/funnels';
 import { nombreVisible } from '@/lib/lead-funnel-reglas';
 import type { CatalogosRemotos } from '@/lib/condiciones-catalogos';
@@ -73,6 +73,9 @@ export async function catalogosRemotos(): Promise<CatalogosRemotos> {
     }),
     reunionesPorEmbudo().catch((e: unknown) => { console.error(`[condiciones-catalogo-datos] reuniones: ${msg(e)}`); return null; }),
   ]);
+  // Los formularios de las landings publicadas («Envió el formulario», 14/11/2026). Aparte y con su catch, como las reuniones:
+  // sin poder leerlos, null («no se pudo leer»), nunca «este negocio no tiene formularios».
+  const formularios = await formulariosParaCondicion().catch((e: unknown) => { console.error(`[condiciones-catalogo-datos] formularios: ${msg(e)}`); return null; });
   if (postsRes.error) throw new Error(`comunidad_posts: ${postsRes.error.message}`);
   const clases = filasClase.map(aClase);
   const conClases = [...new Set(clases.map((c) => c.productoId))];
@@ -91,5 +94,13 @@ export async function catalogosRemotos(): Promise<CatalogosRemotos> {
     titulo: (p.titulo?.trim() || p.cuerpo?.trim().slice(0, 60) || `Post ${p.id}`),
   }));
   const campanas = [...new Set(campanasFilas.map((f) => f.meta_campaign_name?.trim() ?? '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
-  return { cursos, posts, campanas, reuniones };
+  return { cursos, posts, campanas, reuniones, formularios };
+}
+
+/** Las landings publicadas con lo que se llena (formularios, encuestas y quizzes), en la forma del catálogo de condiciones. */
+async function formulariosParaCondicion(): Promise<FormulariosDeLanding[]> {
+  const { landingsConPiezas } = await import('./piezas-web');
+  return (await landingsConPiezas())
+    .map((l) => ({ docId: l.docId, titulo: l.titulo, piezas: l.piezas.filter((p) => p.tipo === 'formulario' || p.tipo === 'encuesta' || p.tipo === 'quiz').map((p) => ({ clave: p.clave, nombre: p.nombre })) }))
+    .filter((l) => l.piezas.length);
 }

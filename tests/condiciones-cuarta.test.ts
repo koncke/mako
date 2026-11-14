@@ -387,10 +387,12 @@ test('la ruta del catálogo suma las reuniones APARTE: si fallan, null y lo dem�
   assert.match(datos, /reunionesPorEmbudo\(\)\.catch\(\(e: unknown\) => \{[\s\S]{0,200}?return null; \}\)/);
   assert.match(datos, /if \(cfg\.origen === 'error'\) return null;/);
   assert.match(datos, /return reunionesParaEditor\(embudos\);/);
-  assert.match(datos, /return \{ cursos, posts, campanas, reuniones \};/);
+  // Y los formularios del Web Generator (14/11/2026, «Envió el formulario»), también aparte y con su catch.
+  assert.match(datos, /formulariosParaCondicion\(\)\.catch\(\(e: unknown\) => \{[\s\S]{0,200}?return null; \}\)/);
+  assert.match(datos, /return \{ cursos, posts, campanas, reuniones, formularios \};/);
   const ruta = sinComentarios(leer('../app/api/chat-agent/condiciones/route.ts'));
-  assert.match(ruta, /const \{ cursos, posts, campanas, reuniones \} = await catalogosRemotos\(\);/);
-  assert.match(ruta, /Response\.json\(\{ ok: true, cursos, posts, campanas, reuniones \}\)/);
+  assert.match(ruta, /const \{ cursos, posts, campanas, reuniones, formularios \} = await catalogosRemotos\(\);/);
+  assert.match(ruta, /Response\.json\(\{ ok: true, cursos, posts, campanas, reuniones, formularios \}\)/);
 });
 
 test('el editor: el selector de reuniones (varios, vacío = cualquiera) y la cuota opcional', () => {
