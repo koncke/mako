@@ -16,11 +16,12 @@
 
 import type { CSSProperties } from 'react';
 import Link from 'next/link';
-import { bajadaDePlanes, botonDelPlan } from '@/lib/compra-plan-reglas';
-import { NOMBRE_PLAN_CON_PRUEBA, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, planConPrueba, type PlanMako } from '@/lib/planes-mako';
+import { PREGUNTAS_SITIO } from '@/app/vsl/_sitio/datos';
+import { botonDelPlan } from '@/lib/compra-plan-reglas';
+import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, planConPrueba, type PlanMako } from '@/lib/planes-mako';
 import { celdaDeCapa, filasDeComparacion, type Celda } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
-import { CSS_TARJETAS, TEXTO_PAGOS, TarjetasPlanes, type PlanEnTarjeta } from './Tarjetas';
+import { CSS_TARJETAS, TarjetasPlanes, type PlanEnTarjeta } from './Tarjetas';
 import { TOPES_PRUEBA } from '@/lib/topes-plan';
 
 /** La hoja de la vitrina. La usa también la landing de venta, que dibuja la misma comparación (`CompararPlanes`). */
@@ -54,8 +55,6 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
   // ventas» de cualquier SaaS (lib/planes-mako.ts, `PROGRAMA_ACELERADOR`). El ANUAL se muestra desde el 25/10 (el Cerebro) y
   // se PIDE, como el programa: el checkout cobra por mes, así que su botón deja el pedido (./Tarjetas.tsx).
   const programa = PROGRAMA_ACELERADOR;
-  const desde = Math.min(...ofertas.map((o) => o.plan.precioUsd));
-  const barato = ofertas.find((o) => o.plan.precioUsd === desde)?.plan;
   const recomendado = ofertas.find((o) => o.plan.destacado)?.plan;
   const planes = ofertas.map(({ plan: p, cobrable }) => ({
     id: p.id, nombre: p.nombre, capa: p.capa, precioUsd: p.precioUsd, resumen: p.resumen, incluye: p.incluye, destacado: p.destacado,
@@ -67,74 +66,25 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
       <div className="planes-wrap planes-ancho">
         <header className="planes-cabeza">
           <div className="planes-marca">MaKo</div>
-          <h1>Tu equipo de ventas con IA{Number.isFinite(desde) ? `, desde US$\u00A0${desde.toLocaleString('es-AR')} por mes` : ''}</h1>
-          <p className="planes-sub">
-            Tus anuncios, tus mensajes, tus páginas de venta y tus cobros en un solo lugar, con una IA que conoce tu negocio. Lo usas
-            por tu cuenta, o lo armamos contigo.
-          </p>
-          <p className="planes-alta">{bajadaDePlanes(ofertas.some((o) => o.cobrable))}</p>
+          {/* El título y el subtítulo de la portada, tal cual (Martín, 14/11/2026: «en precios, el título tiene que ser el mismo título que
+              la landing principal y el mismo subtítulo también. Y elimina el subtítulo de subtítulo, eso no tiene sentido»). */}
+          <h1>El mejor software para vender <em>High Ticket.</em></h1>
+          <p className="planes-sub"><strong>Marketing, ventas y entrega del servicio en una sola app.</strong> Con una IA que conoce tu negocio, desde que alguien te descubre hasta que es tu cliente y le entregas lo que compró.</p>
         </header>
         <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} />
 
         <CompararPlanes planes={planes} sufijo={sufijo} />
 
+        {/* LAS MISMAS PREGUNTAS DE LA PORTADA (Martín, 14/11/2026: «si vas a poner en otros lugares preguntas frecuentes, tienen que ser
+            siempre las mismas que están en la landing principal»): PREGUNTAS_SITIO, app/vsl/_sitio/datos.ts. */}
         <section className="planes-faq" aria-labelledby="planes-faq-titulo">
           <h2 id="planes-faq-titulo">Preguntas frecuentes</h2>
-          <details open>
-            <summary>¿Qué plan me conviene?</summary>
-            <p>
-              Si recién empiezas a vender por internet, {barato?.nombre ?? 'el de entrada'}. Si ya vendes y quieres anuncios,
-              contenido y equipo, {recomendado?.nombre ?? 'el recomendado'}. Si quieres que te acompañemos a armarlo y a venderlo,
-              el {programa.nombre.replace(/^MaKo\s+/, '')}.
-            </p>
-          </details>
-          <details>
-            <summary>¿La inteligencia artificial está incluida?</summary>
-            <p>
-              MaKo trabaja con tu propia cuenta de IA (ChatGPT, Claude o Gemini). Lo que consumes ahí lo pagas directo a ese
-              proveedor, aparte del plan.
-            </p>
-          </details>
-          <details>
-            <summary>¿Puedo cambiar de plan o darme de baja?</summary>
-            <p>Sí. Pasas a otro plan o te das de baja cuando quieras, desde «Tu plan», adentro de MaKo.</p>
-          </details>
-          {!PRUEBA_GRATIS_PRENDIDA && (
-            <details>
-              <summary>¿Cuándo pago y cuándo entro?</summary>
-              <p>
-                Pagas al empezar y entras en el acto. Tu plan se renueva cada mes y te das de baja cuando quieras, desde «Tu plan». Lo
-                ya pagado no se devuelve. <Link href="/reembolsos">Las condiciones</Link>.
-              </p>
+          {PREGUNTAS_SITIO.map((q, i) => (
+            <details key={q.p} open={i === 0}>
+              <summary>{q.p}</summary>
+              <p>{q.r}</p>
             </details>
-          )}
-          {PRUEBA_GRATIS_PRENDIDA && <details>
-            <summary>¿Cómo es la prueba gratis?</summary>
-            <p>
-              {NOMBRE_PLAN_CON_PRUEBA} empieza con {PRUEBA_DIAS} días gratis. Pones tu tarjeta al empezar y no se te cobra nada
-              hasta el día {PRUEBA_DIAS + 1}. Si te das de baja antes, desde «Tu plan», no se te cobra nada. Después del primer
-              cobro, lo pagado no se devuelve.{' '}
-              <Link href="/reembolsos">Las condiciones</Link>.
-            </p>
-            <p>
-              En la prueba, lo que se crea con IA tiene tope: hasta {TOPES_PRUEBA['prueba.videos']} videos armados,{' '}
-              {TOPES_PRUEBA['prueba.avatares']} video con avatar de IA, {TOPES_PRUEBA['prueba.imagenes']} imágenes y{' '}
-              {TOPES_PRUEBA['web.landings_publicadas']} página publicada; exportar en masa se habilita con el primer cobro. El resto
-              de MaKo (tus contactos, tus mensajes, tus seguimientos y tus tareas) anda entero. Si quieres todo antes, empiezas tu plan
-              cuando quieras.
-            </p>
-          </details>}
-          <details>
-            <summary>¿Puedo pagar en pesos?</summary>
-            <p>{TEXTO_PAGOS} Desde otro país, en dólares.</p>
-          </details>
-          <details>
-            <summary>¿Cómo se paga el {programa.nombre.replace(/^MaKo\s+/, '')}?</summary>
-            <p>
-              En {programa.cuotas} cuotas de US$ {Math.round(programa.precioUsd / programa.cuotas).toLocaleString('es-AR')}. Nos dejas tus datos,
-              te escribimos por WhatsApp y lo hablamos en una llamada antes de empezar.
-            </p>
-          </details>
+          ))}
         </section>
 
         <p className="planes-pie">¿Ya tienes MaKo? Recomiéndalo y llévate el primer mes entero de cada negocio que traigas: <Link href="/mako-partners">MaKo Partners</Link></p>

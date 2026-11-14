@@ -200,7 +200,8 @@ body:has(.ck-root) { background: #FFFFFF; }
 .ck-totales div.ck-total dt, .ck-totales div.ck-total dd { font-weight: 800; color: #121212; }
 .ck-totales div.ck-descuento dd { color: #22735c; }
 .ck-nota-res { margin: 10px 0 0 58px; color: #636360; font-size: 13px; line-height: 1.45; }
-.ck-pie .ck-col { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; color: #636360; font-size: 12.5px; }
+/* En una sola línea (Martín, 14/11/2026: «privacidad y reembolsos en el checkout no deberían saltarse de línea»). */
+.ck-pie .ck-col { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px 12px; color: #636360; font-size: 12.5px; white-space: nowrap; }
 .ck-pie a { color: #636360; text-decoration: none; }
 .ck-pie a:hover { color: #121212; text-decoration: underline; }
 .ck-pie .ck-procesa { padding-right: 14px; border-right: 1px solid rgba(17,17,17,.15); }
@@ -222,9 +223,13 @@ body:has(.ck-root) { background: #FFFFFF; }
 .ck-marcas { display: flex; gap: 4px; align-items: center; }
 .ck-marcas svg { display: block; width: 34px; height: auto; }
 /* Mercado Pago, bien distinto (14/11/2026): su celeste y su logo en la fila, y el botón en su azul cuando se elige. */
-.ck-formulario label.ck-medio.ck-medio-mp { background: #F1FAFE; }
-.ck-formulario label.ck-medio.ck-medio-mp .ck-medio-icono { width: 34px; height: 34px; border-radius: 999px; background: #E6F6FD; }
-.ck-medio-mp:has(input:checked) { background: #E3F4FC !important; box-shadow: inset 3px 0 0 #009EE3 !important; }
+.ck-formulario label.ck-medio.ck-medio-mp { background: #009EE3; }
+.ck-formulario label.ck-medio.ck-medio-mp:hover { background: #0090CF; }
+.ck-formulario label.ck-medio.ck-medio-mp .ck-medio-icono { width: 36px; height: 36px; border-radius: 999px; background: #FFFFFF; }
+.ck-medio-mp .ck-medio-texto b { color: #FFFFFF; font-size: 16px; }
+.ck-medio-mp .ck-medio-texto small { color: rgba(255,255,255,.88); }
+.ck-medio-mp input { accent-color: #FFFFFF; }
+.ck-medio-mp:has(input:checked) { background: #0084C2 !important; box-shadow: inset 0 0 0 2px #FFFFFF, inset 4px 0 0 #FFE600 !important; }
 .planes-btn.ck-btn-mp { display: inline-flex; align-items: center; justify-content: center; gap: 10px; }
 .planes-btn.ck-btn-mp:hover { filter: brightness(.95); }
 .ck-btn-mp-logo { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 999px; background: #fff; }
