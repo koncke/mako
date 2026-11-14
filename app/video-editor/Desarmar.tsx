@@ -44,6 +44,15 @@ async function pedir(cuerpo: Record<string, unknown>): Promise<Respuesta> {
   return ((await r.json().catch(() => null)) as Respuesta | null) ?? { ok: false, error: `No pude desarmarlo (HTTP ${r.status}).` };
 }
 
+/**
+ * El aviso de que otro lado de la pantalla está desarmando ESTE video (`detail`: `{ clave, fin }`): «Hacer uno así» de Spy lo
+ * desarma antes de copiar (app/competitor-spy/DetallePieza.tsx), y la caja de al lado lo muestra en vez de ofrecer «Desarmar».
+ */
+export const EVENTO_DESARME = 'mako:desarme';
+export function avisarDesarme(clave: string, fin: boolean) {
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EVENTO_DESARME, { detail: { clave, fin } }));
+}
+
 /** La ruta del editor que arma la plantilla del video desarmado. */
 export const rutaAbrirDesarme = (clave: string): string => `/video-editor/nuevo?desarme=${encodeURIComponent(clave)}`;
 
@@ -80,6 +89,19 @@ export function Desarmar({ fuente, duracionS, editor }: {
     let vivo = true;
     void pedir({ accion: 'ver', clave }).then((j) => { if (!vivo) return; if (j.ok) tomar(j); else setOculto(true); }).catch(() => { if (vivo) setVista({ estado: 'nada' }); });
     return () => { vivo = false; };
+  }, [clave, tomar]);
+
+  // Lo desarma «Hacer uno así» (el aviso de arriba): mientras, «Mirándolo…»; al terminar, lo que quedó.
+  useEffect(() => {
+    if (!clave) return;
+    const alAviso = (e: Event) => {
+      const d = (e as CustomEvent<{ clave?: string; fin?: boolean }>).detail;
+      if (d?.clave !== clave) return;
+      if (!d.fin) setVista((v) => (v?.estado === 'listo' ? v : { estado: 'mirando', desde: new Date().toISOString() }));
+      else void pedir({ accion: 'ver', clave }).then(tomar).catch(() => null);
+    };
+    window.addEventListener(EVENTO_DESARME, alAviso);
+    return () => window.removeEventListener(EVENTO_DESARME, alAviso);
   }, [clave, tomar]);
 
   // Mirándolo desde otra pestaña (o desde antes de cerrar la caja): se vuelve a mirar cada pocos segundos.
@@ -136,7 +158,7 @@ export function Desarmar({ fuente, duracionS, editor }: {
       </div>
       {!g && !mirando && !error ? <p>Tu Gemini lo mira entero: cortes, lo que se dice, textos, subtítulos y cómo se hizo cada plano.</p> : null}
       {mirando ? (
-        <p className={d.vivo} role="status" aria-live="polite"><i aria-hidden />{subida != null ? `Subiendo el video… ${subida} %` : 'Mirándolo plano a plano. Un reel tarda uno o dos minutos.'}</p>
+        <p className={d.vivo} role="status" aria-live="polite"><i aria-hidden />{subida != null ? `Subiendo el video… ${subida} %` : 'Mirándolo plano a plano: tarda uno o dos minutos.'}</p>
       ) : subida != null ? (
         <p className={d.vivo} role="status" aria-live="polite"><i aria-hidden />Subiendo el video… {subida} %</p>
       ) : null}

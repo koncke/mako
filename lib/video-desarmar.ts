@@ -732,3 +732,48 @@ export function duracionCorta(s: number): string {
   const r = Math.round(s - m * 60);
   return `${m}:${String(r).padStart(2, '0')}`;
 }
+
+// ── La edición, escrita para el Copywriter («Hacer uno así» de Spy) ─────────────────────────────────────────────────
+
+/** Los planos que se escriben como mucho en la página: un video largo tiene cientos, y el resto está en el VIDEO.md. */
+export const PLANOS_PARA_COPIAR = 40;
+
+/**
+ * La receta de EDICIÓN de un video desarmado, para la página que arma «Hacer uno así» en el Copywriter (13/11/2026, Martín en la
+ * llamada con Julio: «la edición también la copia, saca fotograma por fotograma»). La arma el código con lo guardado, sin IA:
+ * lo MEDIDO primero (planos, un corte cada cuánto, el más corto), después los subtítulos, la música, los zooms, el B-roll, los
+ * textos en pantalla y cada plano. Los textos del competidor van entre «», dentro de un renglón de lista: una línea suya en
+ * MAYÚSCULA no puede abrir una sección del guion (lib/copywriter/texto.ts). `estilo`: el nombre del estilo del editor.
+ */
+export function textoDeEdicionParaCopiar(g: DesarmeGuardado, estilo: string | null = null): string {
+  const d = g.desarme;
+  const r = ritmoDe(d);
+  const mezcla = mezclaDeOrigen(d);
+  const de = (Object.keys(mezcla) as OrigenPlano[]).filter((o) => mezcla[o].planos).map((o) => `${NOMBRE_ORIGEN[o].toLowerCase()} ${mezcla[o].planos}`).join(', ');
+  const numeros = (ps: readonly PlanoDesarme[]) => ps.map((p) => p.n).join(', ');
+  const zooms = d.planos.filter((p) => p.zoom !== 'ninguno');
+  const broll = d.planos.filter((p) => p.broll);
+  const linea = (x: string) => x.replace(/\s+/g, ' ').trim();
+  const planos = d.planos.slice(0, PLANOS_PARA_COPIAR).map((p) => {
+    const textos = d.textos.filter((t) => t.desde < p.hasta && t.hasta > p.desde).map((t) => `«${linea(t.texto)}»`).join(' ');
+    const como = [NOMBRE_ORIGEN[p.origen], p.encuadre ? p.encuadre[0].toLocaleLowerCase('es') + p.encuadre.slice(1) : '', p.zoom !== 'ninguno' ? `zoom ${p.zoom}` : '', p.broll ? 'B-roll' : ''].filter(Boolean).join(', ');
+    const visto = linea(p.seVe);
+    const conPunto = visto && !/[.!?…»]$/.test(visto) ? `${visto}.` : visto;
+    return `- ${p.n} · ${coma(p.desde)}–${coma(p.hasta)} s · ${como}: ${conPunto}${textos ? ` Texto en pantalla: ${textos}.` : ''}`;
+  });
+  return [
+    '## Su edición, plano a plano',
+    `- ${r.planos} ${r.planos === 1 ? 'plano' : 'planos'} en ${coma(d.duracionS)} s: un corte cada ${coma(r.planoMedioS)} s de media; el más corto, ${coma(r.masCortoS)} s${r.menosDeUnSegundo ? ` (${r.menosDeUnSegundo} de menos de 1 s)` : ''}. ${mayusculaInicial(de)}.`,
+    `- Subtítulos: ${d.subtitulos.hay ? `${linea(d.subtitulos.descripcion) || 'sí'}${estilo ? ` En el editor de MaKo: el estilo «${estilo}».` : ''}` : 'no lleva.'}`,
+    `- Música: ${d.musica.hay ? linea(d.musica.descripcion) || 'sí' : 'sin música.'}${d.ritmo.pausasRecortadas ? ' Sin pausas en la voz: los silencios están recortados.' : ''}`,
+    `- Zooms: ${zooms.length ? `${zooms.length} (planos ${numeros(zooms)})` : 'ninguno'}. B-roll: ${broll.length ? `${broll.length} (planos ${numeros(broll)})` : 'ninguno'}.`,
+    ...(d.textos.length ? [`- Textos en pantalla: ${d.textos.slice(0, 20).map((t) => `«${linea(t.texto)}» (${coma(t.desde)} s, ${t.posicion})`).join(' · ')}.`] : []),
+    '',
+    '## Sus planos',
+    ...planos,
+    ...(d.planos.length > PLANOS_PARA_COPIAR ? [`- Y ${d.planos.length - PLANOS_PARA_COPIAR} planos más: están en el VIDEO.md.`] : []),
+    ...(d.edicion.length ? ['', '## Su edición, paso a paso', ...d.edicion.map((x) => `- ${linea(x)}`)] : []),
+  ].join('\n');
+}
+
+const mayusculaInicial = (x: string) => (x ? x[0].toLocaleUpperCase('es') + x.slice(1) : x);

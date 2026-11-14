@@ -396,6 +396,8 @@ export function tipoParaCopiar(p: Pick<Pieza, 'canal' | 'tipo' | 'duracion'>): T
 export function textoParaCopiar(
   c: { nombre: string },
   p: Pick<Pieza, 'canal' | 'tipo' | 'url' | 'titulo' | 'texto' | 'vistas' | 'megusta'> & { analisis?: { gancho?: string; angulo?: string; formato?: string } | null },
+  /** La edición de un video desarmado (ticket 97, lib/video-desarmar.ts → `textoDeEdicionParaCopiar`): va antes de «Tu versión». */
+  edicion: string | null = null,
 ): string {
   const red = p.canal === 'youtube' ? 'YouTube' : p.canal === 'anuncios' ? 'su anuncio' : 'Instagram';
   // Los números como los dice la ficha («14 mil me gusta»), no crudos (10/11/2026: la página decía «13588 me gusta» al lado
@@ -415,6 +417,7 @@ export function textoParaCopiar(
     '',
     ...(p.titulo ? ['## Su título', citar(p.titulo), ''] : []),
     ...(p.texto ? ['## Su texto', citar(cortarSinPartir(p.texto, 3000)), ''] : []),
+    ...(edicion ? [edicion, ''] : []),
     '## Tu versión',
     'Pídele a MaKo que la escriba con tu oferta y tu voz.',
   ].filter((l, i, arr) => l !== '' || arr[i - 1] !== '').join('\n').trim();

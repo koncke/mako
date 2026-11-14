@@ -278,3 +278,43 @@ test('10. otros formatos: un carrusel o una imagen de anuncio, desarmado', async
   assert.match(leer('app/api/competitor-spy/desarmar-imagen/route.ts'), /conSuIADelNegocio\(ws, \(\) => desarmarImagenDeSpy\(piezaId\)\)/);
   assert.match(leer('lib/imagen-desarmar-servidor.ts'), /Competitors Spy no guarda las demás/, 'lo que no se miró se dice');
 });
+
+test('11. «Hacer uno así» de un video: la edición viaja con la pieza al Copywriter y al Video Editor', async () => {
+  const { textoDeEdicionParaCopiar, PLANOS_PARA_COPIAR } = await import('../lib/video-desarmar');
+  const { textoParaCopiar } = await import('../lib/spy-detalle');
+  const { docDeTexto } = await import('../lib/copywriter/texto');
+  const { sanearProps } = await import('../lib/copywriter/tipos');
+  const c = crudo();
+  c.textos = [{ texto: 'FLOJOS', desde: 3, hasta: 3.6, posicion: 'arriba', tamano: 'grande', letra: 'sin-serifa', mayusculas: true, color: '#ff0000', fondo: 'ninguno', colorFondo: null }];
+  const g = guardado(desarmeDe(c));
+  const edicion = textoDeEdicionParaCopiar(g, 'Palabra gigante');
+  const lineas = edicion.split('\n');
+  assert.equal(lineas[0], '## Su edición, plano a plano');
+  assert.match(lineas[1], /^- 3 planos en 55 s: un corte cada 18,3 s de media; el más corto, 7 s\. Grabado 3\.$/, 'lo MEDIDO primero');
+  assert.match(edicion, /- Subtítulos: Serif blanca, la clave gigante\. En el editor de MaKo: el estilo «Palabra gigante»\./);
+  assert.match(edicion, /- Zooms: 1 \(planos 1\)\. B-roll: 1 \(planos 3\)\./);
+  assert.match(edicion, /- 1 · 0–7 s · Grabado, primer plano, zoom entra: Primer plano\. Texto en pantalla: «FLOJOS»\./);
+  assert.match(edicion, /## Su edición, paso a paso\n- Subtítulos chicos con serifa\./);
+  // Lo que dice el competidor en MAYÚSCULA va adentro de un renglón: no abre una sección del guion.
+  const doc = docDeTexto(textoParaCopiar({ nombre: 'Den' }, { canal: 'instagram', tipo: 'reel', url: null, titulo: null, texto: 'Hola', vistas: null, megusta: null, analisis: { gancho: 'g' } }, edicion));
+  const titulos = JSON.stringify(doc).match(/"type":"heading"[^}]*\}[^\]]*?"text":"([^"]+)"/g) ?? [];
+  assert.ok(!titulos.some((t) => t.includes('FLOJOS')), 'un texto del competidor no es un título');
+  const conEdicion = textoParaCopiar({ nombre: 'Den' }, { canal: 'instagram', tipo: 'reel', url: null, titulo: null, texto: 'Hola', vistas: null, megusta: null, analisis: null }, edicion);
+  assert.ok(conEdicion.indexOf('## Su edición, plano a plano') < conEdicion.indexOf('## Tu versión'), 'la edición va antes de «Tu versión»');
+  assert.doesNotMatch(textoParaCopiar({ nombre: 'Den' }, { canal: 'instagram', tipo: 'reel', url: null, titulo: null, texto: 'Hola', vistas: null, megusta: null, analisis: null }), /Su edición/, 'sin desarme, como antes');
+  // Un video largo: los primeros planos y «y N más».
+  const largo = guardado(desarmeDe({ ...crudo(), planos: Array.from({ length: 60 }, (_, i) => ({ desde: i, hasta: i + 1, seVe: `p${i}` })) }, 60));
+  assert.equal(textoDeEdicionParaCopiar(largo).split('\n').filter((l) => /^- \d+ · /.test(l)).length, PLANOS_PARA_COPIAR);
+  assert.match(textoDeEdicionParaCopiar(largo), /- Y 20 planos más: están en el VIDEO\.md\./);
+  // La página guarda la clave del desarme (y nada que no tenga su forma).
+  assert.equal(sanearProps({ tipo: 'reel', desarme: 'instagram.DdTdIIPDzHU' }).desarme, 'instagram.DdTdIIPDzHU');
+  assert.equal(sanearProps({ tipo: 'reel', desarme: '../otra' }).desarme, undefined);
+  assert.equal(sanearProps({ tipo: 'reel' }).desarme, undefined, 'una página sin él no lo guarda');
+  // El cableado: la caja desarma ANTES de copiar; la ruta lee lo guardado y lo escribe; la página muestra la caja al lado.
+  const spy = leer('app/competitor-spy/DetallePieza.tsx');
+  assert.ok(spy.indexOf('await desarmarAntes(fuenteVideo') > 0 && spy.indexOf('await desarmarAntes(fuenteVideo') < spy.indexOf("fetch('/api/competitor-spy/copiar'"), 'se desarma antes de copiar');
+  const copiar = leer('app/api/competitor-spy/copiar/route.ts');
+  assert.match(copiar, /desarmeGuardado\(desarme\)/, 'lo guardado, sin IA');
+  assert.match(copiar, /props: \{ desarme \}/);
+  assert.match(leer('app/copywriter/editor/EditorGuion.tsx'), /<Desarmar fuente=\{desarmeDeLaPagina\} duracionS=\{null\} editor \/>/);
+});

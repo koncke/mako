@@ -132,6 +132,16 @@ Los 5 textos rojos del reel de los pistachos salieron exactos: «FLOJOS», «JOS
 - **La plantilla «toca para reemplazar» ya existía**: la de «Utilizar plantilla» (`lib/editor-video/plantillas.ts` +
   `_opencut/plantillas/instanciar.ts`). El desarme se vuelve una `Plantilla`: un hueco por plano y los textos del original
   editables. El estilo de subtítulos es el más parecido de la galería (`estiloMasParecido`). No hizo falta tocar el motor.
+- **«Hacer uno así» de Spy copiaba sólo el guion.** En la llamada con Julio (13/11), Martín dijo que, sobre un reel, «la edición
+  también la copia, saca fotograma por fotograma». No lo hacía: `textoParaCopiar` escribía el gancho, el ángulo y el texto.
+  - Ahora, sobre un video, la caja lo DESARMA antes de copiar (`desarmarAntes` en DetallePieza; si ya está guardado, no se
+    paga).
+  - La ruta de copiar escribe la edición, armada por código desde lo guardado y sin IA (`textoDeEdicionParaCopiar`), antes de
+    «Tu versión».
+  - La página guarda la clave en `props.desarme` y muestra al lado la caja del desarme con «Abrir en el editor».
+  - Regla: lo que va a otra herramienta se escribe desde lo GUARDADO, no se vuelve a pedir a la IA. Los textos del competidor
+    van entre «», dentro de un renglón de lista: una línea suya en MAYÚSCULA no puede abrir una sección del guion.
+  - Si no se pudo desarmar (sin Gemini, sin el video), se copia como antes.
 - **La receta vuelve del chat.** La de un video desarmado no está en `RECETAS`. `recetaDelHilo` la reconoce por la línea «En el
   editor de MaKo, todo en un pedido: …», que escribe `textoDeEdicionEnEditor` (`edicionDelTexto` es su inversa). Así la Edición
   automática la sigue sin tocar `enjambre/correr.ts`.
