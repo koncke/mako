@@ -558,6 +558,9 @@ const CSS = `
 .ad-est[data-tono="warn"] i{ background:var(--warn); }
 .ad-est[data-tono="bad"] i{ background:var(--bad); }
 .ad-est--mes{ font-weight:550; font-size:13px; white-space:nowrap; }
+/* En la ficha y en la fila angosta corta línea: «Paga para entrar · US$ 32,90 hoy» pisaba «Desde» y ensanchaba la fila a 375 (14/11/2026). */
+.ad-datos .ad-est--mes{ white-space:normal; }
+.ad-fila > .ad-est{ white-space:nowrap; }
 /* Con la mensualidad, su columna necesita lugar para «Sin costo hasta el 11/11» en un renglón; cede el equipo. Cabe en 1024. */
 .ad-tabla--mes .ad-th, .ad-tabla--mes .ad-fila{ grid-template-columns:minmax(180px, 2fr) minmax(130px, 1fr) minmax(165px, 1.2fr) 80px 100px minmax(120px, auto); }
 .ad-chip{ display:inline-block; font-size:12px; font-weight:650; padding:3px 10px; border-radius:999px; white-space:nowrap;
@@ -595,6 +598,7 @@ const CSS = `
   .ad-fila, .ad-fila--ag, .ad-tabla--mes .ad-fila{ grid-template-columns:1fr auto; row-gap:4px; padding:8px 12px 12px 8px; }
   .ad-abrir{ grid-column:1 / -1; }
   .ad-est, .ad-num{ padding-left:6px; }
+  .ad-est--mes{ white-space:normal; }
   .ad-equipo, .ad-desde{ display:none; }
   .ad-fila-acc{ grid-column:1 / -1; justify-content:flex-start; padding-left:6px; }
   .ad-buscar{ max-width:none; }
