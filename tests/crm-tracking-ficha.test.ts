@@ -135,8 +135,9 @@ test('los DOS montajes le pasan exactamente las mismas props', () => {
   const tag = f.slice(i, f.indexOf('/>', i));
   const props = [...tag.matchAll(/\s([a-zA-Z]+)=\{/g)].map((m) => m[1]).sort();
   // `partes` y `rotulo` desde el 20/10/2026: Tracking partido en bloques (docs/pedidos-crm.md D2), cada bloque dibuja su
-  // parte con el título del bloque (tests/crm-ficha-bloques-partidos.test.ts).
-  assert.deepEqual(props, ['dias', 'eventos', 'maxPct', 'partes', 'pixelPuesto', 'plays', 'porVideo', 'replay', 'rotulo', 'tieneVisitor', 'videos', 'visitas']);
+  // parte con el título del bloque (tests/crm-ficha-bloques-partidos.test.ts). `sinTracking` desde el 14/11/2026: el porqué
+  // de una tab vacía, la página por la que entró sin el Pixel (tests/pixel-por-pagina.test.ts).
+  assert.deepEqual(props, ['dias', 'eventos', 'maxPct', 'partes', 'pixelPuesto', 'plays', 'porVideo', 'replay', 'rotulo', 'sinTracking', 'tieneVisitor', 'videos', 'visitas']);
 });
 
 // ── 1b · El orden que pidió Martín: Origen → Comportamiento → Actividad ──────

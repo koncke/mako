@@ -6770,15 +6770,24 @@ async function seguirCharla(
   if (origen === 'oficial') return false;
   const { emitirDelCatalogo } = await import('@/lib/avisos');
   const quien = charla.nombre?.trim() || `lead ${leadId}`;
+  const wsAviso = (await getWorkspaceActual()) ?? undefined;
+  const textoAviso = `💬 *${quien} te escribió${social ? ` por ${NOMBRE_CANAL[social]}` : ''}.*${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\nNo le preparé respuesta: ${v.motivo}. Contéstale tú.\n\n— MaKo`;
+  // «CONTÉSTALE TÚ» ES PARA SU SETTER (14/11/2026, la llamada con Julio): además del grupo, un push a su teléfono y un
+  // WhatsApp por la puerta de MaKo (lib/aviso-al-setter.ts), con SU freno de 12 h por lead (el mismo plazo que el del grupo).
+  // Antes del aviso al grupo: el aviso es lo último y la charla devuelve `false` (avisar no es contestar). No tira.
+  if (wsAviso != null) {
+    const { avisarAlSetterDelLead } = await import('@/lib/aviso-al-setter');
+    await avisarAlSetterDelLead(wsAviso, leadId, textoAviso.replace(/\n\n— MaKo$/, ''), { freno: { clave: `lead:${leadId}:charla-cerrada`, minutos: 60 * 12 } });
+  }
   await emitirDelCatalogo('wa-mensaje-entrante', {
-    ws: (await getWorkspaceActual()) ?? undefined,
+    ws: wsAviso,
     // El lead (11/10/2026): lo nombran las automatizaciones del evento de MaKo y lo mira su CONDITION.
     lead: { id: leadId, nombre: charla.nombre },
     // LO QUE ESCRIBIÓ, como dato que se cita (`{{lead_escribio}}`, undécima tanda: `{{mensaje_mako}}` «NO existe»).
     datos: valoresDeLoEscrito(texto),
     dedupKey: `lead:${leadId}:charla-cerrada`,
     dedupTtlMin: 60 * 12,
-    texto: `💬 *${quien} te escribió${social ? ` por ${NOMBRE_CANAL[social]}` : ''}.*${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\nNo le preparé respuesta: ${v.motivo}. Contéstale tú.\n\n— MaKo`,
+    texto: textoAviso,
   });
   return false;
 }
@@ -7435,7 +7444,9 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
   // mensaje que encajara en un caso «sale solo» lo contestaba MaKo encima de la persona.
   // No toca el estado: congelarla en 'handoff' la dejaba sin salida (no hay pantalla que la
   // resuelva) y fuera del reuso cuando el lead reagenda.
+  let aUnaPersona = false;
   if (charlaPasaAUnaPersona({ contesto, siguio, noPudoDecidir })) {
+    aUnaPersona = true;
     const { error: eCierre } = await supabase.from('nutricion_inscripciones')
       .update({ conversacion_cerrada_at: ahoraISO(), conversacion_cierre: null })
       .eq('lead_id', leadId).eq('secuencia_id', secuencia.id);
@@ -7455,13 +7466,22 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
   if (!redacto && !avisoDelFlujo) {
     const { emitirDelCatalogo } = await import('@/lib/avisos');
     const quien = lead?.nombre?.trim() || `lead ${leadId}`;
+    const wsAviso = (await getWorkspaceActual()) ?? undefined;
+    const textoAviso = `💬 *${quien} respondió* a «${secuencia.nombre}».${citaDelLead(c)}\n\n${caso ? `Caso «${caso.titulo}».` : 'No encajó en ningún caso.'}${hecho.length ? `\n${hecho.join('\n')}` : ' No hice nada más.'}\n\n— MaKo`;
     await emitirDelCatalogo('wa-mensaje-entrante', {
-      ws: (await getWorkspaceActual()) ?? undefined,
+      ws: wsAviso,
       lead: { id: leadId, nombre: lead?.nombre ?? null },
       // LO QUE ESCRIBIÓ, como dato que se cita (`{{lead_escribio}}`, undécima tanda), o lo que DIJO (16/10/2026).
       datos: valoresDeLoEscrito(escritoParaElAviso(texto, c.voz)),
-      texto: `💬 *${quien} respondió* a «${secuencia.nombre}».${citaDelLead(c)}\n\n${caso ? `Caso «${caso.titulo}».` : 'No encajó en ningún caso.'}${hecho.length ? `\n${hecho.join('\n')}` : ' No hice nada más.'}\n\n— MaKo`,
+      texto: textoAviso,
     });
+    // EL HAND-OFF TAMBIÉN LE LLEGA AL SETTER DE ESE LEAD (14/11/2026, la llamada con Julio): la charla pasó a una persona y
+    // nadie lo avisó con una tarjeta, así que además del grupo, un push a su teléfono y un WhatsApp por la puerta de MaKo
+    // (lib/aviso-al-setter.ts). Con la tarjeta de avisar en la rama ya le avisó ésa (`avisar_al_equipo`). No tira.
+    if (aUnaPersona && wsAviso != null) {
+      const { avisarAlSetterDelLead } = await import('@/lib/aviso-al-setter');
+      await avisarAlSetterDelLead(wsAviso, leadId, textoAviso.replace(/\n\n— MaKo$/, ''));
+    }
   }
   return true;
 }

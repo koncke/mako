@@ -43,10 +43,16 @@
 // escrito. Después de la fase 'revision' la señal ya no se mira y el server termina de guardar
 // (revisión, 09/10/2026): por eso la caja no dibuja «Cancelar» en esa fase, y el 409 de crear trae
 // lo guardado (`GuardadoIA`) para que una pantalla que quedó vieja no se quede sin salida.
+//
+// ⚠️ CREAR SOBRE LA FILA YA NO MIRA `req.signal` (14/11/2026, la llamada con Julio): es un trabajo del servidor (`after`)
+// que termina aunque se cierre la pestaña, y lo corta sólo la marca de «Cancelar» (`modo: 'cancelar'`,
+// lib/flujo-ia-trabajo-reglas.ts). Editar sigue mirando `req.signal`.
 // =============================================================================
 
-import type { NextRequest } from 'next/server';
-import { getRolWsEfectivo, getWorkspaceActual, getTenantDb } from '@/lib/workspace';
+import { after, type NextRequest } from 'next/server';
+import { getRolWsEfectivo, getWorkspaceActual, getTenantDb, runWithWorkspace } from '@/lib/workspace';
+import { getSetting, setSetting } from '@/lib/settings';
+import { canceladaDesde, claveCancelada, MIRAR_CANCELADA_MS, pushDeTrabajo } from '@/lib/flujo-ia-trabajo-reglas';
 import { getPromptText } from '@/lib/prompt-render';
 import { valorDisparo } from '@/lib/flujo-conversacion';
 import { ordenarAvisos } from '@/lib/flujo-ia-cliente';
@@ -117,6 +123,20 @@ export async function GET(req: NextRequest) {
   }
 }
 
+/**
+ * LA SEÑAL DEL TRABAJO DE CREAR (14/11/2026): la corta sólo la marca de «Cancelar» (`modo: 'cancelar'`), nunca la pestaña
+ * que se cierra. Se mira cada `MIRAR_CANCELADA_MS`; el core la lee después del modelo, antes de escribir nada.
+ */
+function senalDeCancelar(ws: number, secuenciaId: number, inicio: number): { signal: AbortSignal; parar: () => void } {
+  const ctrl = new AbortController();
+  const t = setInterval(() => {
+    void runWithWorkspace(ws, () => getSetting(claveCancelada(secuenciaId)))
+      .then((v) => { if (canceladaDesde(v, inicio)) ctrl.abort(); })
+      .catch(() => { /* sin poder leerla, sigue: cancelar es lo raro */ });
+  }, MIRAR_CANCELADA_MS);
+  return { signal: ctrl.signal, parar: () => clearInterval(t) };
+}
+
 // ── POST: crear o editar ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -127,6 +147,19 @@ export async function POST(req: NextRequest) {
   }
   let body: Body = {};
   try { body = ((await req.json()) ?? {}) as Body; } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
+  // «CANCELAR» DE VERDAD (14/11/2026): crear ya no se corta con la pestaña (es un trabajo del servidor), así que la caja
+  // lo dice con una marca. El trabajo la mira mientras el modelo escribe y, si la ve, no escribe nada.
+  if (body.modo === 'cancelar') {
+    const id = Number(body.secuenciaId);
+    if (!Number.isInteger(id) || id <= 0) return Response.json({ ok: false, error: 'secuenciaId inválido' }, { status: 400 });
+    try {
+      await setSetting(claveCancelada(id), String(Date.now()));
+      return Response.json({ ok: true });
+    } catch (e) {
+      console.error(`[api:secuencias/ia] cancelar #${id}: ${msg(e)}`);
+      return Response.json({ ok: false, error: 'No pude cancelar.' }, { status: 500 });
+    }
+  }
 
   // ⚠️ UN PEDIDO LARGO NO SE CORTA EN SILENCIO (22/10/2026, la prueba de los chats del Cerebro, 3 de 3): con 8.304 caracteres
   // (los mensajes y el CRON al final) se cortaba a 2.000 y MaKo armaba OTRA cosa, con mensajes, condiciones y un AI Step
@@ -248,20 +281,48 @@ export async function POST(req: NextRequest) {
         await anotar([yo && adjuntos.length ? { ...yo, adjuntos: adjuntos.map((a) => a.nombre) } : yo]);
 
         if (modo === 'crear') {
-          // UNA función para las dos puertas (lib/flujo-ia-crear.ts): sus fases son el stream. Cancelado mientras el
-          // modelo escribía (`req.signal`): no escribió nada y no hay a quién contestarle.
-          const r = await crearFlujoConIA({ ws, pedido: conAdjuntos(pedido), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: req.signal, alFase: send, respuestas, historial, via: 'app' });
-          if (!r.ok && 'pregunta' in r) { await preguntar(r.pregunta); return; }
-          if (!r.ok) {
-            if (!r.cancelado) await fallar(r.error, r.link);
-            return;
-          }
-          // Sin id el chat lo volcó `crearConIA` al nacer la fila; con id, lo cierra la ruta.
-          // Lo que dice MaKo lo armó el core con lo guardado (20/10/2026: cuándo sale, a quién y qué manda).
-          // Y QUÉ IA LO ESCRIBIÓ (27/10/2026, lib/quien-contesto.ts): el chat lo dice («Con tu Claude»).
-          const ia = textoDeQuienContesto(r.quien);
-          await anotar([mensajeChat('mako', r.texto, 'app', { avisos: r.avisos, ...(ia ? { ia } : {}) })]);
-          send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador, texto: r.texto, ...(r.cron ? { cron: r.cron } : {}), ...(ia ? { ia } : {}) });
+          // ⚠️ CREAR SOBRE UNA FILA ES UN TRABAJO DEL SERVIDOR (14/11/2026, la llamada con Julio: si se cerraba o se recargaba
+          // la pestaña mientras el modelo escribía, `req.signal` cortaba y no quedaba nada). Con `secuenciaId` (la fila nace
+          // en el modal) el trabajo corre con `after` y la pestaña que se va NO lo corta: lo corta sólo «Cancelar», que deja
+          // una marca (`modo: 'cancelar'`, `senalDeCancelar`). Al terminar, el chat de la fila lo dice (la pantalla que vuelve
+          // lo lee) y, si nadie miraba, un push a quien lo pidió. Sin `secuenciaId` (la API de MaKo) sigue atado al pedido.
+          const deServidor = secuenciaId != null;
+          const corte = deServidor ? senalDeCancelar(ws, secuenciaId, inicio) : null;
+          const quienPidio = deServidor ? await getUsuarioActual().catch(() => null) : null;
+          /** Nadie estaba mirando cuando terminó: un push a quien lo pidió (lib/flujo-ia-trabajo-reglas.ts). */
+          const siSeFue = async (fin: Parameters<typeof pushDeTrabajo>[0]) => {
+            if (!deServidor || !req.signal.aborted || !quienPidio?.sub) return;
+            try {
+              const { enviarPushAMiembros } = await import('@/lib/push');
+              await enviarPushAMiembros([Number(quienPidio.sub)], { tipo: 'mako-trabajo', ...pushDeTrabajo(fin), ruta: `/automations?sec=${secuenciaId}`, tag: `automatizacion-ia:${secuenciaId}` });
+            } catch (e) { console.error(`[api:secuencias/ia] el push de #${secuenciaId}: ${msg(e)}`); }
+          };
+          const trabajo = (async () => {
+            try {
+              // UNA función para las dos puertas (lib/flujo-ia-crear.ts): sus fases son el stream (si alguien mira).
+              const r = await crearFlujoConIA({ ws, pedido: conAdjuntos(pedido), secuenciaId, inicio, plazoMs: PLAZO_MODELO_MS, signal: corte?.signal ?? req.signal, alFase: send, respuestas, historial, via: 'app' });
+              if (!r.ok && 'pregunta' in r) { await preguntar(r.pregunta); await siSeFue({ t: 'pregunta', nombre: nombreSec, pregunta: r.pregunta.texto }); return; }
+              if (!r.ok) {
+                if (!r.cancelado) { await fallar(r.error, r.link); await siSeFue({ t: 'error', nombre: nombreSec, error: r.error }); }
+                return;
+              }
+              // Sin id el chat lo volcó `crearConIA` al nacer la fila; con id, lo cierra la ruta.
+              // Lo que dice MaKo lo armó el core con lo guardado (20/10/2026: cuándo sale, a quién y qué manda).
+              // Y QUÉ IA LO ESCRIBIÓ (27/10/2026, lib/quien-contesto.ts): el chat lo dice («Con tu Claude»).
+              const ia = textoDeQuienContesto(r.quien);
+              await anotar([mensajeChat('mako', r.texto, 'app', { avisos: r.avisos, ...(ia ? { ia } : {}) })]);
+              send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador, texto: r.texto, ...(r.cron ? { cron: r.cron } : {}), ...(ia ? { ia } : {}) });
+              await siSeFue({ t: 'listo', nombre: r.nombre });
+            } catch (err) {
+              console.error(`[api:secuencias/ia] ${msg(err)}`);
+              await fallar(msg(err));
+              await siSeFue({ t: 'error', nombre: nombreSec, error: msg(err) });
+            } finally {
+              corte?.parar();
+            }
+          })();
+          if (deServidor) after(() => trabajo);
+          await trabajo;
           return;
         }
 

@@ -8,6 +8,8 @@
 // =============================================================================
 
 import { getVideosLanding, landingRecibioEventos } from '@/lib/landing-token';
+import { sinTrackingDelLead } from '@/lib/pixel-por-pagina';
+import type { SinTracking } from '@/lib/pixel-por-pagina-reglas';
 import { replayDeLead } from '@/lib/replay-leer';
 import type { ReplayEnLaFicha } from '@/lib/replay-ficha';
 import type { VideoLanding } from '@/lib/landing-videos';
@@ -257,6 +259,9 @@ export type LeadFullData = {
   tracking: TrackingEvent[];
   /** El Pixel de MaKo está midiendo. Gobierna el vacío de la tarjeta de tracking. */
   pixelPuesto: boolean;
+  /** Por qué no hay nada en su tab Tracking, cuando se sabe (lib/pixel-por-pagina-reglas.ts): la página por la que entró
+   *  no tiene el Pixel, o no entró por una página. Sólo se calcula sin eventos. null = no se sabe. */
+  sinTracking?: SinTracking | null;
   respuestas: { R1: RespuestaQA[]; R2: RespuestaQA[] };
   /**
    * Lo que contestó en el formulario de Meta (sólo las preguntas propias, ya legibles).
@@ -355,6 +360,10 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // Los cambios de su suscripción (mig 0401): sólo si es una, y en paralelo con lo demás. `cambiosDeSuscripcion` no tira.
   const suscripcionP = lead.venta_tipo === 'suscripcion' ? cambiosDeSuscripcion(id) : Promise.resolve(undefined);
   const resumenP = temprano(resumenDelNegocio());
+  // Sin un solo evento, POR QUÉ (14/11/2026, la llamada con Julio: el tracking vacío de un lead de Mauricio que entró por
+  // una página sin el Pixel). Detrás de sus eventos y en paralelo con lo demás: con eventos no se lee nada. No tira.
+  const trackingP = getTrackingEvents(lead.visitor_id);
+  const sinTrackingP = trackingP.then((t) => (t.length ? null : sinTrackingDelLead(lead))).catch(() => null);
   // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro
   // se graba) salen de `leerInsumosDatosLead` (lib/datos-del-lead.ts), la MISMA lectura que la ficha del
   // teléfono: con insumos propios, el número volvía a dar distinto en cada pantalla.
@@ -365,7 +374,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     getAdNameMap().catch(() => ({}) as Record<string, string>),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map() as VisitasMap),
     getLeadInsights(id),
-    getTrackingEvents(lead.visitor_id),
+    trackingP,
     getVideosLanding(),
   // ¿El Pixel de MaKo está midiendo? Es para el VACÍO de la tarjeta de tracking:
   // sin código pegado, «sin eventos» no es un lead que no interactuó, es un negocio
@@ -406,7 +415,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
   const [ficha, rolWs, partners] = await Promise.all([fichaP, rolP, ofrecePartners()]);
   const rol = rolDeFicha(rolWs);
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, sinTracking: await sinTrackingP, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
     ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP, suscripcion: await suscripcionP };
 }
 
