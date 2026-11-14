@@ -103,6 +103,7 @@ import {
 import { VARIANTES_CON_IMAGEN } from './ia-bloques';
 import { NOMBRE_TIPO_SECCION, sanearAngulos, textoDeAngulos, type Angulos } from './replicar-angulos';
 import { angulosDePagina, textoDePagina } from './replicar-lectura';
+import { candadoDeReplicar } from './replicar-candado';
 import { TEMAS } from './temas';
 import type { AlProgreso, EventoReplica } from './replicar-progreso';
 
@@ -152,6 +153,10 @@ export type EntradaReplicar = {
  * avisar nunca corta la réplica.
  */
 export async function replicar(p: EntradaReplicar, alProgreso?: AlProgreso): Promise<ResultadoReplicar> {
+  // SÓLO MaKo Pro (14/11/2026, ./replicar-candado.ts): lo primero, antes de bajar nada ni llamar a la IA. Lo mira ACÁ y no
+  // sólo la ruta: quien llame a `replicar` (la API de MaKo, la que se sume) queda con el candado.
+  const pro = await candadoDeReplicar();
+  if (pro) return falla(pro, 403);
   const avisar = (e: EventoReplica) => { try { alProgreso?.(e); } catch { /* mostrar no frena el trabajo */ } };
   const url = urlParaReplicar(p.url);
   if (!url) return falla('Pega un enlace válido.');

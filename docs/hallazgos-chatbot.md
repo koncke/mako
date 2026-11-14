@@ -27,6 +27,16 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## El setter con IA NO es el AI Step entero: es lo que contesta SOLO (14/11/2026, al cerrarlo para Esencial)
+
+El diagnóstico obvio («el AI Step es el setter») era el equivocado: un AI Step en «Sólo te avisa» no le escribe a nadie y en «Para aprobar»
+deja un borrador. Lo que contesta solo a un lead es «Sola», y vive en dos formas del motor (`redactarRespuesta`, lib/nutricion.ts) más el
+modo asistido de antes, que está en `estrategia` y no en `pasos`. La regla quedó en lib/setter-ia-reglas.ts (`escenarioContestaSolo`):
+si Martín decide que «Para aprobar» también es setter, se cambia ahí. **Trampa:** las plantillas de la galería («Un Lead Agendó Llamada»)
+traen escenarios «Sola» del catálogo (lib/ai-step-escenarios.ts): con el candado puro, un Esencial no podía ni crearlas. Lo que crea MaKo
+pasa por `guardarSinSetterSiFrena` y baja «Sola» a «Para aprobar». **Sin hacer:** duplicar o pegar un flujo con setter falla con el texto
+del candado (no baja a «Para aprobar»); el «⋯ › Activar» de la lista lo muestra sin el botón (SimuladorWhatsApp.tsx); por WhatsApp el
+candado se cobra después del «sí» (lib/mako-doer-acciones.ts).
 ## «Envió el formulario X»: un disparador por formulario, no por etapa (14/11/2026, claude5, llamada con Julio)
 
 Martín tuvo que crear un funnel «Formulario prueba Julio» con una etapa «Rellenó el formulario» para disparar una secuencia. Ahora

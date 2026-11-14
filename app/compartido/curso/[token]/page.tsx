@@ -31,6 +31,7 @@ import { Pagina } from '@/app/_ui/Pagina';
 import { conCorrectasCerradas } from '@/app/mi-curso/portal-comun';
 import PortalAlumno from './PortalAlumno';
 import { SIN_ACCESO_PORTAL } from '@/lib/curso-portal-aviso';
+import { esEsencialDe } from '@/lib/plan-esencial';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -54,6 +55,9 @@ export default async function PortalCursoPage({ params }: { params: Promise<{ to
   const { token } = await params;
   const firma = leerTokenPortal(token);
   if (!firma) return <Aviso titulo={SIN_ACCESO_PORTAL} />;
+  // La comunidad es de MaKo Pro (14/11/2026, lib/comunidad-solo-pro.ts): lo decide el plan del NEGOCIO que firmó el token,
+  // nunca el alumno. En paralelo con la vista; no tira (ante la duda, false: se ofrece).
+  const esencial = esEsencialDe(firma.ws);
 
   const r = await runWithWorkspace(firma.ws, async (): Promise<{ vista: VistaAlumno } | 'inactivo' | 'fallo'> => {
     const acceso = await resolverAccesoPortal(token);
@@ -83,7 +87,7 @@ export default async function PortalCursoPage({ params }: { params: Promise<{ to
 
   if (r === 'inactivo') return <Aviso titulo={SIN_ACCESO_PORTAL} />;
   if (r === 'fallo') return <Aviso titulo="No pudimos cargar tus clases." detalle="Intenta de nuevo en un rato." />;
-  return <PortalAlumno token={token} vista={r.vista} />;
+  return <PortalAlumno token={token} vista={r.vista} comunidad={!(await esencial)} />;
 }
 
 /** La pantalla de un link que no abre (o de una lectura caída): una frase, sin el porqué. */

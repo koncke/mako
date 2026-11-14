@@ -24,6 +24,7 @@ import { FEATURE_GENERAR } from './ia';
 import { fallaEnNavegador, motivoDeError, motivoDePagina, sanearLectura } from './lectura-reglas';
 import type { SeLeeEnNavegador } from './lectura-tipos';
 import { urlParaReplicar } from './replicar-reglas';
+import { candadoDeReplicar } from './replicar-candado';
 import { esquemaDeReplica, moldeDeEsquema } from './replicar-estructura';
 import type { DisenoLeido, LecturaReplica } from './replicar-lectura-tipos';
 import {
@@ -125,6 +126,9 @@ export type ResultadoLectura = ({ ok: true; lectura: LecturaReplica } | ({ ok: f
 
 /** La lectura entera: el texto, y en paralelo los ángulos (IA) y el diseño (la página o la lectura del navegador). */
 export async function leerParaReplicar(p: PedidoLectura): Promise<ResultadoLectura> {
+  // SÓLO MaKo Pro (14/11/2026, ./replicar-candado.ts): la lectura ya baja la página y paga los ángulos (IA).
+  const pro = await candadoDeReplicar();
+  if (pro) return { ok: false, error: pro, status: 403 };
   const t0 = Date.now();
   const t = await textoDePagina(p);
   if (!t.ok) return t;

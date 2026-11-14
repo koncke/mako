@@ -18,10 +18,14 @@
 //
 // La puerta es la del Image Editor (`puerta`: sesión, admin con la tab en su capa y un workspace). Va detrás de la sesión (NO
 // está en lib/rutas-publicas.ts) y el proxy le exige Origin propio al POST. El id se vuelve a leer de la base del negocio.
+//
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. Un Esencial recibe el 403 en JSON (no el stream), con
+// `pasarAPro`: la pantalla (app/image-editor/carruseles/EditarCarrusel.tsx) lo lee antes de abrir el stream y dibuja el candado.
 
 import type { NextRequest } from 'next/server';
 import { runWithWorkspace } from '@/lib/workspace';
 import { puerta } from '@/lib/image-editor/server';
+import { candadoIaDeEditores } from '@/lib/editores-ia-pro';
 import { rateLimit } from '@/lib/rate-limit';
 import { replicarEjemplo, type EjemploAReplicar } from '@/lib/carruseles/replica-servidor';
 import { lineaDeEvento } from '@/lib/carruseles/replica';
@@ -44,6 +48,8 @@ const fallo = (error: string, status: number) =>
 export async function POST(req: NextRequest) {
   const p = await puerta();
   if (p instanceof Response) return p;
+  const pro = await candadoIaDeEditores();
+  if (pro) return pro;
   if (!rateLimit(`image-editor:replicar:${p.ws}`, 12, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);
   const body = (await req.json().catch(() => null)) as { id?: unknown; pedido?: unknown; que?: unknown; guiado?: unknown } | null;
   const id = Number(body?.id);

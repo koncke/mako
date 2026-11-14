@@ -19,6 +19,9 @@
 //    del feed. Cambiar de producto es otra URL (`?producto=`), no un estado de carga.
 
 import { requireCapa } from '@/lib/tab-access';
+import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
+import { textoSoloPro } from '@/lib/topes-plan';
+import { CartelSoloPro } from '@/app/_components/CartelSoloPro';
 import { inicioComunidad, feedComunidad, productoDelPost } from '@/lib/comunidad-datos';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { productosDeLaEntrega } from '../entrega';
@@ -33,6 +36,10 @@ const mensaje = (e: unknown, def: string) => (e instanceof Error && e.message ? 
 
 export async function PantallaComunidad({ searchParams }: { searchParams: Promise<{ producto?: string; post?: string }> }) {
   await requireCapa('customer-success');
+  // ⚠️ LA COMUNIDAD ES SÓLO DE MaKo Pro (14/11/2026, lib/comunidad-solo-pro.ts): al Esencial, el candado EN LUGAR de la
+  //    comunidad, antes de leer nada. No se borra nada: con Pro vuelve tal cual estaba. Ante la duda (no se pudo leer el
+  //    plan), `esEsencialDeLaSesion` dice que no y se ve la comunidad. Crear posts y eventos también lo pregunta el server.
+  if (await esEsencialDeLaSesion()) return <CartelSoloPro texto={textoSoloPro('comunidad')} />;
   const sp = await searchParams;
   // `?post=N` abre ESE post (el link de la ficha a lo que un alumno publicó o comentó desde una tarea,
   // item 17 del 08/10/2026). Sin `?producto=`, el producto sale del post: el link no sabe de cuál es.

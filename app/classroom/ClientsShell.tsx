@@ -56,6 +56,7 @@ import {
   duplicarServicioAction, eliminarServicioAction, previaEliminarServicioAction, restaurarServicioAction,
 } from '@/app/customer-success/actions';
 import { avisoDeCopia, preguntaAlEliminar, type DeshacerEliminar } from '@/app/customer-success/eliminar-programa';
+import { TextoConPasarAPro } from '@/app/_components/CartelSoloPro';
 import { esOpcionPrograma, itemsPrograma, opcionesPrograma } from './menu-contextual-clients';
 import {
   esSeccionComunidad, esVistaPrevia, hrefConPrograma, hrefSeccion, seccionDeRuta, seccionesDe, type SeccionClients,
@@ -247,6 +248,8 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, plat
   const duplicar = async (p: ProgramaClients) => {
     show(`Duplicando «${p.nombre}»…`);
     const r = await duplicarServicioAction(p.id).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
+    // El tope de cursos del plan (lib/tope-cursos.ts): no es un error, es el plan. El aviso con «Pasar a Pro», sin rojo.
+    if (!r.ok && 'pasarAPro' in r && r.pasarAPro) { show(<TextoConPasarAPro texto={r.error} />, undefined, 'warn'); return; }
     if (!r.ok) { show(r.error, undefined, 'bad'); return; }
     anotarDeshacer(avisoDeCopia(r.copia), { tipo: 'quitarCopia', id: r.copia.productoId, volverA: p.id });
     window.location.href = conWs(hrefConPrograma(pathname, search, r.copia.productoId), ws);

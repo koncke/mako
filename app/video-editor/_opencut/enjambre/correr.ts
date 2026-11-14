@@ -70,15 +70,20 @@ import {
 import { anotar, empezarCorrida, fijarAgente, SECCION_ENJAMBRE, useEnjambre } from "./estado";
 import { leerHilo } from "@/app/video-editor/_opencut/chat/hilo";
 import { recetaDelHilo, type EdicionDeReceta } from "@/lib/video-recetas";
+import { esSoloPro } from "@/app/_components/solo-pro";
+import { textoSoloPro } from "@/lib/topes-plan";
 
 export type ResultadoEnjambre =
 	| { ok: true; pasos: number; hechos: number; saltados: number; fallas: number; detenido: boolean; tocado: boolean; resumen: string }
-	| { ok: false; motivo: "ocupado" | "sin-proyecto" | "vacio"; texto: string };
+	| { ok: false; motivo: "ocupado" | "sin-proyecto" | "vacio" | "solo-pro"; texto: string };
 
 const NO_ARRANCA: Record<Extract<ResultadoEnjambre, { ok: false }>["motivo"], string> = {
 	ocupado: "Ya hay una edición automática en curso.",
 	"sin-proyecto": "No hay un proyecto abierto.",
 	vacio: "La línea de tiempo está vacía: agrega tu video primero.",
+	// Editar con IA es SÓLO de MaKo Pro (14/11/2026, lib/editores-ia-pro.ts). Corre en el navegador: el candado es éste, y lo
+	// cruzan las tres entradas (el botón del panel, el de la barra y una propuesta del chat o de la API con `edicion_automatica`).
+	"solo-pro": textoSoloPro("ia-editores"),
 };
 
 /** La pausa entre un paso y el siguiente, para que el cambio se vea en la línea de tiempo. */
@@ -507,6 +512,8 @@ export async function correrEnjambre(
 	editor: EditorCore,
 	opciones: { pasos?: readonly PasoId[]; desdeElChat?: boolean } = {},
 ): Promise<ResultadoEnjambre> {
+	// PRIMERO, y es lo único que espera: lo de abajo, hasta `empezarCorrida`, es sincrónico (dos clics no arrancan dos corridas).
+	if (await esSoloPro("ia-editores")) return { ok: false, motivo: "solo-pro", texto: NO_ARRANCA["solo-pro"] };
 	if (useEnjambre.getState().fase === "corriendo") return { ok: false, motivo: "ocupado", texto: NO_ARRANCA.ocupado };
 	const proyecto = editor.project.getActiveOrNull();
 	const escena = editor.scenes.getActiveSceneOrNull();

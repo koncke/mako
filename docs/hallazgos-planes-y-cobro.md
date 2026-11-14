@@ -10,6 +10,47 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Un candado nuevo dentro de un bloque que un test MIDE: va en una función aparte (14/11/2026, corrida 1383)
+
+Cinco rojos al subir los candados de planes, ninguno de lógica: `lienzo-sexta-tanda` y `nutricion-canal` miden el largo de un bloque
+(«el recorte mide 4244: está mirando otra cosa») y el candado del setter lo agrandó; `reportar-a-soporte` exige `<ReportarASoporte />`
+en todo `role="alert"` (el candado no es un error: va `role="status"`, aparte); `ningun-boton-muerto` acusa un botón que maneja un
+script (va `disabled` con su `aria-label` hasta que el script lo prende); `puente-leads-retirado` prohíbe la key `zapier` entre comillas
+(el slug de Comparaciones quedó `zap`). **La regla:** antes de meter código en un bloque ajeno, correr los tests que nombran el archivo;
+si uno mide el bloque, lo nuevo va en una función con nombre y el bloque la llama en una línea (`frenarSetterNuevo`, `avisoSetter`).
+**Y la segunda vuelta (corrida 1395):** al arreglar esos cinco se renombró `err` a `errPie` también en el `title` del pie, y
+`flujo-ia-arreglos` fija ESE texto literal (`avisosIA.texto === err`). Ninguno de los cinco lo miraba, y 62 tests nombran
+SecuenciaPerfil.tsx (correrlos todos en la PC no se puede: los afectados corren en GitHub). **La regla:** antes de cambiar una línea de un
+archivo que los tests leen como texto, buscar en tests/ ese pedazo literal (`grep -rn "avisosIA.texto === err" tests/`).
+
+## Esencial más limitado (14/11/2026): la tabla de /planes y los candados tienen que decir LO MISMO
+
+Martín pidió, mirando /planes: Esencial con 1 landing, 1 competidor en Spy, 1 curso, 2 automatizaciones, sin dominio propio, sin setter
+con IA, sin los pilotos de Instagram y YouTube, sin copiar landings, sin la IA de los editores y sin la comunidad. Lo que se aprendió:
+- **Un tope en 0 es «no lo trae».** `TOPES.completo['web.dominios'] = 0`: la tabla lo dibuja vacío (`celdaDeTope`, lib/planes-comparacion.ts),
+  no «0»; y el freno no puede decir «Llegaste al tope de tu plan (0)»: dice que es de Pro.
+- **La fila de Pro dice sólo lo que el candado cierra.** La tabla vendía «Editar con IA: subtítulos, cortes, B-roll y diseños» como de Pro,
+  pero los subtítulos y quitar el fondo corren en el navegador y siguen abiertos en Esencial. La fila quedó «edición automática, B-roll y
+  clips mágicos», que es lo que cierra `lib/editores-ia-pro.ts`. Antes de prometer un «solo Pro», leer el candado.
+- **Un candado de Pro se reconoce por `pasarAPro`, nunca sólo por el status.** «Replicar en Image» de Spy trataba todo 403 como «Tu plan
+  no incluye Image» (app/competitor-spy/DesarmarImagen.tsx), y Image ya es de los dos planes: `esRespuestaSoloPro` (app/_components/solo-pro.ts).
+- **Quién tiene topes HOY** (lectura de producción del 14/11): nadie paga por la pasarela; de las 8 cuentas de clientes de agencia, sólo la
+  del ws 24 eligió plan (le rigen los topes) y ninguna usa Spy, Classroom ni la comunidad. Un tope frena lo nuevo y no saca nada.
+- **MaKo Partners y «las cuentas de tus clientes» salieron de la tabla** (Martín: «eso no hace falta que esté»): Partners sigue siendo de
+  todos los planes; el PDF de Partners toma de la tabla las filas con número (`typeof esencial === 'string'`).
+
+## La guardia de RAM frena el comando ENTERO, también lo que no pedía RAM (14/11/2026)
+
+**Síntoma.** Después de un rojo de tests «arreglado», los mismos tests seguían fallando por cosas ya corregidas. **Causa.** La edición de
+los tests (un `python` corto) iba en la misma llamada que `node --test`; el hook de la guardia vio el test, frenó la llamada y no corrió
+NADA, tampoco la edición. **La regla.** Los cambios de archivos van en su propia llamada; los tests, en otra.
+
+## Un agente escribió un «PROBADO ROMPIÉNDOLO» que nunca corrió (14/11/2026)
+
+El agente de la IA de los editores no pudo correr tests (sin RAM) y dejó el pie de su test con roturas y resultados («6/1») inventados; él
+mismo lo avisó en su reporte. Se corrieron tres roturas de verdad y el pie quedó con ésas (tests/editores-ia-solo-pro.test.ts). **La regla
+para los briefs:** «escribe en el pie SOLO lo que corriste; si no pudiste, dilo y no inventes».
+
 ## Revenue no veía lo que una agencia paga por su LIBRO: un cobro que escribe su propio registro queda fuera de todo lector de `pagos` (10/11/2026, nube)
 
 **Vive en:** `lib/admin-ingresos-libro.ts` (nuevo, puro: del libro a pagos de Revenue), `lib/admin-ingresos.ts` (`libroDeLasAgencias`, la

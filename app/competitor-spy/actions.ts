@@ -110,7 +110,8 @@ export type VistaPrevia = {
   aviso?: string;
 };
 
-export async function sumarCompetidorAction(pegado: string, nombre?: string, deLaBio?: string | null): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
+/** `pasarAPro`: llegó al tope de su plan (lib/spy-tope-reglas.ts); la pantalla pone «Pasar a Pro» al lado del error. */
+export async function sumarCompetidorAction(pegado: string, nombre?: string, deLaBio?: string | null): Promise<{ ok: true; id: number } | { ok: false; error: string; pasarAPro?: string }> {
   const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   try {
@@ -136,7 +137,7 @@ export async function sugeridosAction(): Promise<{ ok: true; sugeridos: Sugerido
 }
 
 /** Suma un sugerido copiando lo que la plataforma ya leyó de él: no gasta la clave del negocio. */
-export async function sumarSugeridoAction(id: number): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
+export async function sumarSugeridoAction(id: number): Promise<{ ok: true; id: number } | { ok: false; error: string; pasarAPro?: string }> {
   const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'Falta cuál.' };

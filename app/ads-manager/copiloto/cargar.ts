@@ -18,7 +18,7 @@ import { funnelElegido, tareasDeLaSemana } from '@/lib/media-buyer/copiloto';
 import { leerComunicacion } from '@/lib/copiloto/comunicacion-store';
 import { landingsDelWorkspace } from '@/lib/landing-config-leer';
 import { conexionesViaZernio } from '@/lib/zernio-conectar';
-import { leerPilotoRedes, numeroDelReel } from '@/lib/copiloto/piloto';
+import { leerPilotoRedes, numeroDelReel, pilotoRedesPermitido } from '@/lib/copiloto/piloto';
 import { propuestasDelPiloto, ritmoConElPiloto } from '@/lib/copiloto/piloto-redes';
 import { lunesDe } from '@/lib/copiloto/nevera-reglas';
 import { getPlantilla } from '@/lib/plantillas';
@@ -44,7 +44,7 @@ const conTope = <T,>(p: Promise<T>, ms: number): Promise<T | null> => Promise.ra
 
 export async function cargarCoPilot(ws: number, sp: PedidoCoPilot): Promise<CargaCoPilot> {
   const sesion = typeof sp.sesion === 'string' && /^\d{1,12}$/.test(sp.sesion) ? Number(sp.sesion) : null;
-  const [comunicacion, config, dec, cupo, perfil, meta, landings, ig, yt, reel, retargeting, paginas] = await Promise.all([
+  const [comunicacion, config, dec, cupo, perfil, meta, landings, ig, yt, reel, retargeting, paginas, redesPermitidas] = await Promise.all([
     leerComunicacion(ws, sesion),
     callar(leerConfig(ws), null),
     callar(leerDecisiones(ws, 30), { decisiones: [], existeTabla: false }),
@@ -60,6 +60,8 @@ export async function cargarCoPilot(ws: number, sp: PedidoCoPilot): Promise<Carg
     callar(verRetargeting(ws), null),
     // La web, como análisis: lo último que analizó el Landing Analyst (sólo se lee, no se vuelve a pagar la IA).
     callar(paginasAnalizadas(ws), []),
+    // El piloto de Instagram y el de YouTube son de MaKo Pro (14/11/2026). Ante la duda, abierto: el servidor decide al guardar.
+    callar(pilotoRedesPermitido(ws), true),
   ]);
   // La entrada (14/11, la maqueta que vio Julio): mientras el perfil no diga por dónde vende, o con ?entrada=1 para cambiarlo.
   if (faltaLaEntrada(perfil) || sp.entrada === '1') {
@@ -126,6 +128,7 @@ export async function cargarCoPilot(ws: number, sp: PedidoCoPilot): Promise<Carg
     propuestas,
     ...(vsl ? { vsl } : {}),
     pilotoRedes: pilotoRedes ? { instagram: pilotoRedes.instagram, youtube: pilotoRedes.youtube, avisoNevera: plantillaNevera?.enabled ?? true } : null,
+    redesPermitidas,
     redes: {
       instagram: ig.map((c) => ({ usuario: c.usuario, vencida: !!c.vencida })),
       youtube: yt.map((c) => ({ usuario: c.usuario, vencida: !!c.vencida })),

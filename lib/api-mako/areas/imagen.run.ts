@@ -18,6 +18,7 @@ import { PLANTILLAS_IMAGEN, plantillaImagen } from '@/lib/image-editor/plantilla
 import { guardarCarrusel, leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { crearCarruselDesdeReferencia, referenciaDelNegocio } from '@/lib/carruseles/crear-servidor';
 import { replicarCarrusel, replicarEjemplo } from '@/lib/carruseles/replica-servidor';
+import { candadoIaDeEditoresDe } from '@/lib/editores-ia-pro';
 import { FILTROS_THUMBNAIL, filtrarThumbnails, filtrosThumbnailDeQuery, imagenDeVideo, queryDeThumbnails, urlDeVideo, videoDeYoutube, type Thumbnail } from '@/lib/thumbnails/explorar';
 import { guardarThumbnail, leerThumbnails, thumbnailPorId } from '@/lib/thumbnails/servidor';
 import { leerVerticales, verticalPorId } from '@/lib/thumbnails/verticales-servidor';
@@ -385,8 +386,11 @@ export const RUNNERS: Runners = {
 
   // «Editar» un ejemplo (6/11/2026): la MISMA función que el botón de la pantalla (lib/carruseles/replica-servidor.ts), sin el
   // armado en vivo. Con la IA del negocio (su Claude, su GPT o su Gemini); sin ella, sale con guías y lo dice.
+  // SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. El candado, al proponer y otra vez al ejecutar.
   editar_ejemplo_carrusel: {
-    preparar: async (input): Promise<Preparado> => {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const pro = await candadoIaDeEditoresDe(ctx.ws);
+      if (pro) return { error: pro };
       const id = typeof input.carruselId === 'number' ? input.carruselId : NaN;
       if (!Number.isSafeInteger(id) || id === 0) return { error: 'Falta el id del ejemplo (de buscar_carruseles).', faltan: ['carruselId'] };
       let c;
@@ -416,6 +420,8 @@ export const RUNNERS: Runners = {
       };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const pro = await candadoIaDeEditoresDe(ctx.ws);
+      if (pro) return { ok: false, resumen: pro };
       const { leerPedidoGuiado } = await import('@/lib/carruseles/guiado');
       const g = payload.guiado && typeof payload.guiado === 'object' ? payload.guiado as Record<string, unknown> : null;
       const guiado = g ? leerPedidoGuiado({ ...g, pedido: typeof payload.pedido === 'string' ? payload.pedido : null }) : null;
@@ -492,8 +498,11 @@ export const RUNNERS: Runners = {
 
   // «Editar» una miniatura: la MISMA función que el botón (lib/carruseles/replica-servidor.ts, `replicarEjemplo`), sin el armado en
   // vivo, en 1280 × 720. Con la IA del negocio; sin ella, sale con una guía y lo dice.
+  // SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. El candado, al proponer y otra vez al ejecutar.
   editar_ejemplo_thumbnail: {
-    preparar: async (input): Promise<Preparado> => {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const pro = await candadoIaDeEditoresDe(ctx.ws);
+      if (pro) return { error: pro };
       // La VERTICAL (13/11/2026): la portada de un reel de buscar_thumbnails con formato vertical, en 1080 × 1920.
       const verticalId = str(input, 'verticalId');
       if (verticalId) {
@@ -520,6 +529,8 @@ export const RUNNERS: Runners = {
       };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const pro = await candadoIaDeEditoresDe(ctx.ws);
+      if (pro) return { ok: false, resumen: pro };
       const vertical = typeof payload.verticalId === 'string' && esIdDeVertical(payload.verticalId) ? payload.verticalId : null;
       const ejemplo = vertical ? { que: 'vertical' as const, id: vertical } : { que: 'thumbnail' as const, id: Number(payload.thumbnailId) };
       const r = await replicarEjemplo(ctx.ws, QUIEN, ejemplo, { pedido: typeof payload.pedido === 'string' ? payload.pedido : null });

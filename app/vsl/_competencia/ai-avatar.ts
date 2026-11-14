@@ -62,6 +62,9 @@ const I = {
 // la cara de Martín; él lo aprobó el 12/11/2026: «Sí, con imágenes»). HeyGen pone ahí el video de un creador; MaKo, tu
 // cara en tres escenas. La primera es la principal: lleva la primera frase de su gancho como subtítulo. Se eligieron por
 // la imagen (una selfie, la calle con micrófono, el podcast): las tres se leen al primer vistazo como un anuncio UGC.
+// 14/11/2026 (la copia fiel de HeyGen): en el hero va ahora el REPRODUCTOR con el anuncio de Martín (como el video de HeyGen); estas
+// tres escenas se dibujan en los pasos 2 y 3 (disenos/ai-avatar.tsx). ⚠️ PENDIENTE de Martín: las imágenes de los presets NO
+// muestran su cara sino la de un hombre que se parece a Mauricio (CLIENTE); hasta que lo confirme no se suman en ningún lugar nuevo.
 const ESCENAS_DEL_HERO = ['respondo-comentario', 'entrevista-calle', 'episodio-podcast'] as const;
 const PRESETS = [...PLANTILLAS_AVATAR, ...PRESETS_NUEVOS_VENTA];
 
@@ -100,10 +103,13 @@ export const LANDING_AI_AVATAR: LandingCompetencia = {
     },
     {
       tipo: 'cifras',
-      titulo: 'Lo que trae AI Avatar hoy',
+      // El renglón de debajo de la cinta (HeyGen: «Millones de personas… confían en nosotros», debajo de sus logos de clientes).
+      // La cinta de MaKo pasa los lugares donde va el video vertical: el renglón dice eso.
+      titulo: 'En vertical, listo para Instagram, TikTok, Facebook y tus anuncios de Meta.',
       items: [
         { valor: String(N_ESCENAS), label: 'escenas listas para usar' },
-        { valor: String(N_ESTILOS), label: 'estilos: UGC, Instagram, cámara, negocio, producto y clima' },
+        // Un renglón, como «Videos generados» en las tarjetas de HeyGen (cuáles son, lo dice el paso «Elige tu escena»).
+        { valor: String(N_ESTILOS), label: 'estilos de escena' },
         { valor: String(N_PLANTILLAS), label: 'plantillas de venta con su guion' },
       ],
     },

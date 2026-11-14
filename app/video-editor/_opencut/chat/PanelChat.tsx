@@ -78,6 +78,8 @@ import { useAppDeEscritorio } from "@/app/_chat/useAppDeEscritorio";
 import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 import { separarCita } from '@/lib/centro-mensajes';
 import { SelectorIntencion, useIntencion, type IntencionChat } from '@/app/_chat/SelectorIntencion';
+import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -133,6 +135,8 @@ async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, arch
 		const json = (await res.json().catch(() => null)) as Respuesta | null;
 		// El 413 de Vercel (archivos de más) llega en texto: no es JSON.
 		if (!json) return { ok: false, error: res.status === 413 ? ERROR_ADJUNTO.pesado : "MaKo no respondió. Vuelve a intentar." };
+		// Editar con IA es de MaKo Pro (lib/editores-ia-pro.ts): la caja pasa a mostrar el candado (app/_components/solo-pro.ts).
+		if (res.status === 403 && esRespuestaSoloPro(json)) marcarSoloPro("ia-editores");
 		return json;
 	} catch {
 		if (senal.aborted) return { ok: false, error: "Detenido.", cortado: true };
@@ -465,6 +469,10 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	const [alcance, setAlcance] = useState<"video" | "seleccion">("video");
 	// «Discutir | Editar», con la misma preferencia que los otros chats de MaKo (app/_chat/SelectorIntencion.tsx).
 	const [intencion, elegirIntencion] = useIntencion();
+	// EDITAR CON IA ES SÓLO DE MaKo PRO (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes. Un Esencial ve el
+	// hilo, la pregunta de los subtítulos (corren en el navegador, sin IA) y la guía de una plantilla; en lugar de la caja y de
+	// las píldoras, el candado con «Pasar a Pro».
+	const soloPro = useSoloPro("ia-editores");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const hiloRef = useRef<HTMLDivElement>(null);
 	const editorRef = useRef(editor);
@@ -695,7 +703,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 					{hilo.mensajes.length === 0 && estadoApertura.apertura && (subtitulando
 						? <SubtitulandoEnElChat />
 						: <AperturaMako estado={estadoApertura} quien={QUIEN} acciones={{ subtitulos: ponerSubtitulos }} />)}
-					{hilo.mensajes.length === 0 && !estadoApertura.apertura && !guiaHablando && (
+					{hilo.mensajes.length === 0 && !estadoApertura.apertura && !guiaHablando && !soloPro && (
 						<>
 							{/* Sin el texto que explicaba el chat («Pídeme que edite…», 12/11/2026, Martín: «un texto que es innecesario»). */}
 							<div className="flex flex-wrap gap-1.5">
@@ -713,7 +721,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 						</button>
 					)}
 					{proyectoId && <GuiaEnElChat proyectoId={proyectoId} ocupado={hilo.corriendo} quien={QUIEN} onHablando={setGuiaHablando} />}
-					{hilo.mensajes.length > 0 && !hilo.corriendo && !guiaHablando && (
+					{hilo.mensajes.length > 0 && !hilo.corriendo && !guiaHablando && !soloPro && (
 						<div className="flex flex-wrap gap-1.5">
 							{visibles.slice(0, 4).map((s) => (
 								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={atajoApagado} title={porQueApagado}>{s.rotulo}</button>
@@ -724,7 +732,12 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 			</div>
 
 			{/* El audio grabado entra en este pie por la regla común de `.co-caja` (centro.css) y la barra contenida (VoiceRecorder.tsx). */}
-			<footer className="grid shrink-0 gap-2 px-3 pt-2 pb-3">
+			{/* Un Esencial: el candado de Pro en el lugar de la caja (app/_components/CandadoSoloPro.tsx). */}
+			{soloPro ? (
+				<footer className="shrink-0 px-3 pt-2 pb-3">
+					<CandadoSoloPro funcion="ia-editores" />
+				</footer>
+			) : <footer className="grid shrink-0 gap-2 px-3 pt-2 pb-3">
 				<div className="flex min-w-0 gap-1.5" role="group" aria-label="Alcance">
 					<button
 						type="button"
@@ -752,7 +765,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 						apagado={!proyectoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
 						arriba={cita.arriba} adjuntos={adj.caja} topeTexto={TOPES_CHAT.instruccion - cita.reserva} />
 				</div>
-			</footer>
+			</footer>}
 		</section>
 	);
 }

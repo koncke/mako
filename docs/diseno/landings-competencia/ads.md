@@ -83,15 +83,34 @@ bandas oscuras siguen oscuras y los fondos claros siguen claros.
   marco del video queda vertical, 240 × 380); las cinco tarjetas en una columna; el reporte sin la columna de íconos, cifras en
   2 columnas y los gráficos en una; el teléfono abajo de las preguntas.
 
-## Lo que quedó distinto, y por qué
+## Lo que se mueve (relevado el 14/11/2026: video del recorrido, `getAnimations()`, hovers)
 
-- Los botones y la burbuja van en el azul de MaKo (en la referencia son del verde bosque oscuro): es su color de marca.
-- Las cuatro opciones del hero llevan una línea chica con lo que hace cada una (en la referencia son sólo un rótulo): el
-  contenido de MaKo las trae y la página tiene que decirlo.
-- La sección de «atención humana» suma, entre el texto y el botón, las tres cosas que MaKo deja en tus manos (qué cambia y por
-  qué, tus topes, el deshacer).
-- El tablero no lleva las cifras de ejemplo: lleva los dos gráficos del reporte de MaKo con su explicación, y las pestañas son
-  las piezas del CoPilot (Hoy, Plan, Campañas, Biblioteca, Ajustes).
-- El teléfono crece con los tres pares de pregunta y respuesta (la referencia corta a los 440 px).
-- Tres logos quietos en vez del carrusel de veinte; el cierre de «Pensado para…» lleva el botón en vez del precio; el pie
-  lleva los links a las otras funciones y a lo legal en vez de los íconos de redes.
+La referencia es QUIETA: cero videos, cero apariciones al bajar (ningún elemento oculto al cargar, ningún cambio de estilo por JS,
+ningún `IntersectionObserver`). Se mueven tres animaciones CSS, desde la carga:
+
+- `ma-breathe` (2,8 s, `cubic-bezier(.4,0,.2,1)`): la burbuja y los TRES «Probar gratis». Escala 1 → 1,1 al 45 % con un anillo de 0 a
+  12 px que se apaga. `transform-origin: 0 center`: crecen hacia la derecha, también los botones centrados. No hay anillo fijo: el que
+  se ve en una captura es la animación a mitad.
+- `ma-option-light` (8 s, `ease-in-out`, retrasos 0/2/4/6 s): una opción encendida a la vez (5 %–20 % del ciclo). Su
+  `hover:bg-accent` no se ve: la animación pisa el fondo en todos sus cuadros.
+- `ma-integrations-scroll` (75 s, lineal, −50 % sobre dos copias): se frena al pasar el mouse y con su botón de pausa (36 × 36, radio 8;
+  «Pausar integraciones» ↔ «Reanudar integraciones», ícono pausa ↔ play). Con «menos movimiento»: fila con scroll, sin la copia.
+
+Hovers: los botones bajan al 90 % su fondo (`hover:bg-ma-forest/90`); «Iniciar Sesión» pasa a `--ma-fog`; el botón de pausa toma la
+menta. Las tarjetas, las preguntas, el tablero y el teléfono no tienen hover. Cortes de Tailwind: 640 / 768 / 1024. Space Grotesk
+también en los h3 de las tarjetas. El relevo completo, con capturas y videos: las notas de la sesión,
+`referencias-landings/ads/relevo.md`.
+
+## Lo que quedó distinto, y por qué (14/11/2026)
+
+- Los botones y la burbuja van en el azul de MaKo (en la referencia son del verde bosque oscuro): es su color de marca. Con el sol y la
+  luna en modo claro, las bandas oscuras y los marcos pasan a celeste (`TemaSitio`, regla de Martín del 12/11: «si estoy en white mode,
+  todo debería ser white mode»); en la referencia son verde profundo.
+- Donde la referencia pone imágenes y dibujos, van pantallas grabadas de MaKo: las decisiones del CoPilot en el marco (y su versión
+  vertical debajo de 1024, como la imagen vertical de la referencia), la vista Campañas del CoPilot donde dibuja su tablero (y la misma
+  pantalla grabada a 390 debajo de 640, donde la referencia rearma su tablero en una columna), y lo que MaKo
+  contesta por WhatsApp en la pantalla del teléfono (el teléfono, su marco y la insignia son los de la referencia).
+- «Se conecta con»: la misma tira (que corre, se frena con el mouse y con su botón) con las 8 integraciones del catálogo que usa el
+  CoPilot, con su nombre (son íconos, no logotipos con la palabra). El botón de pausa es una casilla con su rótulo, sin JavaScript.
+- El cierre de «Pensado para…» lleva la frase de los días de la prueba en lugar del precio, con el mismo resaltado.
+- La barra y el pie son los del sitio (BarraGlobal, PieGlobal).

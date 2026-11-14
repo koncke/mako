@@ -1,96 +1,100 @@
 # /vsl/email — los valores medidos de su referencia
 
 **Referencia:** la portada de beehiiv — https://www.beehiiv.com/
-**Medido:** 11/11/2026, con Chromium (Playwright) a 1440 × 900 y a 390 × 900, `getComputedStyle` y `getBoundingClientRect`
-sobre los elementos reales, más las reglas de sus hojas de estilo (`document.styleSheets`) para el botón y las tarjetas.
-**Diseño copiado en:** `app/vsl/_competencia/disenos/email.tsx`. **Contenido:** `app/vsl/_competencia/email.ts`.
+**Medido:** 11/11/2026 y otra vez el 14/11/2026, con Chromium (Playwright) a 1440 × 900 y a 390 × 844 (ventana chica, sin `isMobile`):
+scroll lento con la rueda grabado en video, `getAnimations()` en cada paso, `MutationObserver` e `IntersectionObserver` espiados desde
+el arranque, los hovers (estilo calculado antes y después), el «+» de cada tarjeta leído cada 60 ms y `getComputedStyle` de cada
+texto y caja; su CSS bajado con `curl` (los `@keyframes` y las transiciones, tal cual). Relevo con capturas y scripts: carpeta de
+notas de la sesión, `referencias-landings/email/` (`relevo.md`).
+**Diseño copiado en:** `app/vsl/_competencia/disenos/email.tsx`. **Contenido:** `app/vsl/_competencia/email.ts`. **Pantallas:** banco
+`C:/dev/bancos-portada/banco-email-landing` (`build.mjs`, `fotos.mjs`, `recortar.py` + `imagenes.json`) → `public/vsl-assets/email/`.
 
-⚠️ beehiiv sirve **dos portadas distintas** según la visita (una prueba A/B): una con «Stand out in the inbox», «No code. No
-limits.» y paneles de producto de color; la otra con «Everything you need to turn attention into growth» y tarjetas por
-producto. Se copió la segunda, que es la del orden de `email.ts`. La herramienta de comparación puede fotografiar
-cualquiera de las dos: las tiras finales de esta landing se armaron contra una foto de la segunda.
-⚠️ Sus imágenes (media.beehiiv.com) no se pueden bajar desde aquí: el proxy las rechaza. Por eso sus fotos, capturas y fondos
-de tarjeta salen vacíos en las fotos de la referencia, y sus colores no se midieron.
+⚠️ **beehiiv sirve dos portadas** (una prueba A/B por la cookie `eid44_homepage_variant`): `control` («Stand out in the inbox», «No
+code. No limits.», paneles de color) y `variant_1` («Everything you need to turn attention into growth», tarjetas por producto). Un
+`curl` sin cookie recibió `variant_1`; el Chromium del relevo, `control`. Se copia **`variant_1`** (la del orden de `email.ts`); para
+medirla, la cookie `eid44_homepage_variant=variant_1` (y `eid44_homepage_variant_amp_eval_cache=1`) antes de abrir la página.
+
+## Lo que se mueve (medido el 14/11)
+
+| Qué | Cómo | En MaKo |
+|---|---|---|
+| Las dos imágenes del hero | `hero-fade-blur-newsletter` / `-products`: 9,05 s, `cubic-bezier(.33,1,.68,1)`, 3,4 s de espera, infinito. La que se va: opacidad 0, `blur(14px)`, baja 48 px; la que llega: desde `blur(6px)` y 24 px. Cada una se ve ~3,4 s y el cruce dura ~0,75 s | igual, cuadros clave copiados; dos collages de pantallas REALES de Email (modo oscuro de la app) |
+| Cinta «Trusted by the world's top publishers…» | 85 s por vuelta, logos de sus clientes | no va (sus clientes) |
+| Tarjetas por producto | el «+» (o tocar la tarjeta): cara ↔ cara de atrás con opacidad en ,35 s `cubic-bezier(.65,0,.35,1)`. Si la tocada es la angosta, las dos de la fila se cambian el ancho (`data-flex` 1 ↔ 2, `flex-grow` en ,35 s). La × lo deshace igual. En el teléfono NO se dan vuelta (el «+» está `invisible`) | igual, con radios por fila y `:has()`, sin JavaScript |
+| Cintas de «Trusted by names you know» | dos filas (100 s por vuelta, sentidos opuestos) de tarjetas de 308 × 425 (foto o logo + cifra), se FRENAN con el mouse encima; fondo de cada tarjeta en ,15 s | no van (sus clientes y sus cifras) |
+| Carrusel de citas | 25 citas con flechas (borde blanco al 20 % → 40 % al pasar el mouse), `fadeIn` ,3 s; NO avanza solo | una sola cita (el caso de Mauricio), sin flechas |
+| Cifras («The numbers tell the story») | quietas (no cuentan) | no van |
+| Preguntas | la respuesta aparece DE GOLPE (el alto salta en el primer cuadro: su `transition-[max-height]` no se usa); la flecha gira 180° en ,3 s `cubic-bezier(.4,0,.2,1)`; pueden quedar varias abiertas | igual, `<details>` sin script |
+| Botón flotante «Trial Premium Features» | `fixed` abajo, de su producto | no va |
+| Nada más | ninguna aparición al bajar | — |
+
+## Hovers (estilo calculado antes / después)
+
+- **El botón de capas** (todos): `scale(1.02)`; la cara `translate(-18px,-18px)`, la capa clara `(-12px,-12px)`, la otra `(-6px,-6px)`;
+  `transform .125s ease-out`. En el teléfono, sin efecto.
+- **El «+»**: `scale(1.05)` en ,3 s. **«Get started free →»**: la flecha `translateX(4px)` en ,3 s.
+- Links de su barra: fondo blanco al 10 %; «Sign up for free» se invierte (fondo `#060419`, letra blanca). (La barra copiada la tapa la
+  del sitio en producción.)
+- «See all customer stories» y las flechas del carrusel: de su contenido, no van.
 
 ## Fuentes
 
 | Uso | Su fuente | En MaKo |
 |---|---|---|
-| Titulares (mayúsculas) | Clash Grotesk Bold (Fontshare, no está en Google Fonts) | **Archivo** variable (OFL) en 900 y al 88 % de ancho: `public/vsl-assets/fuentes/archivo/archivo-latin-wdth-wght.woff2` (con los ejes de peso y de ancho) |
-| Texto, botones, pie | Satoshi (Fontshare) 400–700 | **Figtree** variable (OFL): `public/vsl-assets/fuentes/figtree/figtree-latin.woff2` |
+| Titulares (mayúsculas) | Clash Grotesk Bold (Fontshare) | **Archivo** variable en 900 y al 88 % de ancho (`public/vsl-assets/fuentes/archivo/`) |
+| Texto, botones, pie | Satoshi (Fontshare) | **Figtree** variable (`public/vsl-assets/fuentes/figtree/`) |
 
 ## Colores
 
 | Qué | beehiiv | En MaKo |
 |---|---|---|
-| Fondo de toda la página, barra y pie | `#060419` | igual |
-| Tarjetas, caja de la cita y del cierre | `#0D0B28`; filete `rgba(255,255,255,.06)` | igual |
-| Recuadros chicos dentro de una tarjeta | `#1C1940` | igual |
-| Texto | `#FFFFFF`; párrafos `#F7F5FF`; secundarios `#DDDCE8`, `#C4C2D6`; links del pie `#9393A9`; nota del hero `#B8B8C8` | igual |
-| Botones (su color de marca) | índigo `#2F39BA` | azul `#2F6FED` |
-| Capas del botón | `#FFC8EB` y `#F092DD`, filete `#0B0D2A` | dorado claro `#FBE3A6` y dorado `#F2B01E`, el mismo filete |
-| Rótulos, renglón en degradado del titular, brillo de la cita (su rosa) | `#FF5EC4`; degradado `#FFDCFF → #FF5EC4` | dorado `#F2B01E`; degradado `#FDF0CC → #F2B01E` |
-| Filete de la barra | `rgba(255,255,255,.12)` | igual |
-| Filete de las preguntas | 2 px `#4E4E6C` | igual |
-| Borde de la cita | 1 px `#4E4E6C`; fondo `#0D0B28` + `linear-gradient(-11.046deg, rgba(78,78,108,0) 66.952%, rgba(152,152,210,.04) 99.472%)` | igual |
-| Borde de la caja del cierre | `rgba(47,57,186,.5)` | `rgba(47,111,237,.5)` |
+| Fondo, barra y pie | `#060419` | igual |
+| Tarjetas, cita | `#0D0B28`; filete `rgba(255,255,255,.06)` | igual |
+| Cara de atrás / recuadros / «+» y × | `#141230` / `#1C1940` | igual |
+| Texto | blanco; párrafos `#F7F5FF`; frase de atrás y recuadros `#DDDCE8`; cargos `#C4C2D6`; nota `#B8B8C8` | igual |
+| Botones | índigo `#2F39BA` | azul `#2F6FED` |
+| Capas del botón | `#FFC8EB` (arriba) y `#F092DD`, filete `#0B0D2A` | `#FBE3A6` y `#F6CB63`, el mismo filete |
+| Acento (rótulos, renglón en degradado, «+», links de las tarjetas) | `#FF5EC4`; degradado `#FFDCFF → #FF5EC4` | dorado `#F2B01E`; degradado `#FDF0CC → #F2B01E` |
+| Íconos de los recuadros | lavanda | celeste `#9DB8FF` |
+| Fondo de cada tarjeta | imagen «mesh»: navy arriba (`#0B0A1F`), azul pizarra abajo a la izquierda (`#444C94`), malva en una esquina | degradados CSS con el mismo navy, el azul de MaKo y un toque de dorado |
+| Caja del cierre | imagen de luz índigo (`#1B0D6E` al centro, casi negro en los bordes); borde `rgba(47,57,186,.5)` | degradado radial con el azul de MaKo (`#123084` → `#070A22`); borde opaco `#1E3D8A` |
 
-## Contenedor, espacios y escala (1440)
+## Medidas (1440)
 
 | Qué | Valor |
 |---|---|
-| Contenedor | 1184 px desde x = 128 (128 a los lados; 32 por debajo de 1280; 20 en el teléfono) |
-| Barra | 77 px (`padding 20px 128px`), pegada arriba; links 14/20 600 `#DDDCE8`; «Get a demo» 14/20 600 con borde 1 px `rgba(255,255,255,.2)`, radio 6, `padding 8px 12px`; «Sign up for free» blanco con texto `#060419`; 12 px entre los dos |
-| Hero | `padding 96px 0`; dos columnas de 576 con 32 de separación; la imagen de 634 × 475 centrada en la derecha (se sale 29 px por lado), centrada en alto con el texto |
-| H1 | 60/60 700 mayúsculas; el último renglón con el degradado recortado al texto |
-| Bajada | 20/28 500 `#F7F5FF` en 512 px, a 16 del título |
-| Estrellas y «4.9/5 from 28,479 customers» | 16/24, a 18 de la bajada (no va) |
-| Botones del hero | 18/28 700, alto 50, radio 6, separados 16; nota 14/20 `#B8B8C8` a 16 |
-| El botón (todos) | cara `padding 8px 24px`, radio 6, borde 1 px; dos capas detrás (`inset: 1px`, radio 6, borde `#0B0D2A`); al pasar el mouse: el botón `scale(1.02)`, la cara `translate(-18px,-18px)`, la capa clara `(-12px,-12px)`, la otra `(-6px,-6px)`, todo en `transform .125s ease-out` |
-| Secciones | `padding 96px 0` |
-| Cabecera de sección | rótulo 14/20 500 de color; a 8 px el H2 48/48 700 mayúsculas (569 px); a la derecha (557 px, desde x = 755) el texto 20/28 500 y a 24 px el botón, alineados abajo |
-| Tarjetas por producto | a 64 px de la cabecera; filas de 2 a 1 (773 + 387) y de 1 a 2, con 24 de separación en los dos sentidos; 608 de alto; radio 12, filete 1 px, `overflow: hidden`; `padding 24px`; título 24/32 700; texto 18/28 500 `#F7F5FF` a 8 px; «Get started free →» 18/28 500 de color; un «+» de 44 × 44 `#1C1940` radio 8 arriba a la derecha; la captura desde x + 85 / y + 155 (740 × 574), cortada por la tarjeta |
-| Recuadros de la cara de atrás | 228 × 194, `#1C1940`, radio 12, `padding 20px 16px`, 12 de separación; título 14/20 500 blanco, texto 14/20 500 `#DDDCE8` |
-| «Trusted by names you know» | todo centrado: rótulo; H2 48/48 a 8 px; texto 20/28 en 770 px a 12; botón a 24 |
-| La cita | caja de 1184 × 520, `padding 80px 64px`, radio 8, contenido centrado; cita 30/36 500 en 755 px; a 32 px la foto redonda de 48 (borde 1 px `rgba(255,255,255,.12)`); a 12 el nombre 16/24 700 y el cargo 18/28 500 `#C4C2D6`; «Read the story» 18/28 700 con borde blanco y radio 9999 a 24; el brillo: una elipse de su rosa al 30 %, `feGaussianBlur` de 125, en un SVG de 1206 × 711 que empieza 223 px abajo del borde de la caja |
-| «Powerful integrations» | H2 48/48 en 576 px (dos renglones); texto 20/28 a 16; botón a la derecha; imagen de 1184 × 237 a 64 px |
-| «Have a question?» | H2 48/48 en 352 px a la izquierda; las preguntas en 768 px desde x = 544; cada una con filete de 2 px arriba, `padding 24px 16px`, pregunta 20/28 600 y la flecha de 20 px que gira 180° (`transform .3s cubic-bezier(.4,0,.2,1)`); respuesta 20/28 500 `#F7F5FF` con `padding 0 16px 24px` |
-| Caja del cierre | sección `padding 64px 0`; caja de 1184 × 312, radio 12; H2 48/48 centrado a 97 px del borde; botón a 24 |
-| Pie | filete arriba, `padding 64px 0`; columna izquierda de 384 (16/24 700 + el formulario); cinco columnas de links desde x = 624 con 40 de separación: títulos 14/20 700 blancos, links 14/20 500 `#9393A9` cada 32 px; filete abajo con 48 de aire; renglón de links legales a 32 y el isotipo de 32 px a la derecha; © 14/20 500 `#C4C2D6` a 16 |
+| Contenedor | 1184 px desde x = 128 (32 por debajo de 1280; 20 en el teléfono) |
+| Hero | `padding 96px 0`; columnas de 576 con 32; H1 60/60 (458 px de ancho con su letra); bajada 20/28 500 en 512, a 16; botones 50 de alto a 24; nota 14/20 `#B8B8C8` a 16; imagen de 634 × 447 centrada en la columna (se sale 29 px por lado) sobre su mancha de 634 × 475 desenfocada (`blur-3xl`, escala 1,1–1,25) y su cuadrícula de fondo |
+| Cabecera de sección | rótulo 14/20 500; a 8 px el H2 48/48 (569 px); a la derecha (557 px) el texto 20/28 500 y a 24 el botón (18/28 700, 46 de alto) |
+| Tarjetas | a 64 px; filas de 608 (`--pcs-row-max-h: 38rem`) con 24 de separación: 2 + 1, 1 + 2, 2 + 1 (773 y 387); radio 12; cara: 24 de aire, título 24/32 700, texto 18/28 500 a 8, link 18/28 500 a 8, «+» de 44 radio 8 arriba a la derecha; la captura empieza ~180 px abajo, corrida (en la de 773, ~70 px a la derecha) y cortada por la tarjeta |
+| Cara de atrás | `#141230`; × de 44 a 20 px de la esquina; `padding 48px 32px 32px`, 40 entre partes; título 24/28 700 y frase 18/26 500 en 420 px; el botón a la derecha, abajo; seis recuadros en 3 × 2 (`auto-rows-fr`), 12 de separación, `#1C1940` radio 12, `20px 16px`, ícono 24 y a 16 el título 14/20 700 y el texto 14/20 500 |
+| «Trusted by names you know» | centrado: rótulo; H2 a 8; texto 20/28 en 770 a 12; botón a 24 |
+| La cita | caja de 1184 × 520, `padding 80px 64px`, borde `#4E4E6C`, radio 8; cita 30/36 500 en 755; foto redonda de 48 a 32; nombre 16/24 700; cargo 18/28 500 `#C4C2D6`; su brillo de 1206 × 711 abajo |
+| Integraciones | H2 48/48 en 576 y su texto 20/28; botón a la derecha; imagen de 1184 × 237 a 64 (dos filas de logos de 64) |
+| Preguntas | H2 en 352 (4 de 12 columnas); preguntas en 768 desde x = 544; filete de 2 px `#4E4E6C`, `24px 16px`, pregunta 20/28 600, flecha de 20 (trazo `#B8B8C8`, 2 px); respuesta 20/28 500 con 24 abajo |
+| Caja del cierre | sección `64px 0`; 1184 × 312, radio 12; H2 48/48 centrado; botón a 24 |
 
 ## A 390 px
 
 | Qué | Valor |
 |---|---|
-| Barra | 57 px, `padding 10px 16px`; el logo, «Sign up» blanco (14/14 600, `padding 8px 12px`) y la hamburguesa |
-| Hero | 40 px arriba; H1 42/44; bajada 20/28 a 8 px; botones a todo el ancho (46 de alto), separados 16; nota a 16; la imagen (350 × 263) a 32 debajo |
-| Secciones | `padding 40px 0`, 20 px a los lados |
-| Cabeceras | rótulo 14/20; H2 36/40; texto 18/28 a 24; botón 16/24 700 de 42 de alto |
-| Tarjetas por producto | una columna (348 + filete), 16–18 de separación; título 20/28; texto 16/24; la captura de 324 px pegada al borde derecho |
-| Cita | caja de 350 × 480, `padding 40px 20px`; cita 18/28; nombre y cargo 16/24 |
-| Integraciones | H2 36/40; botón a todo el ancho; imagen de 350 × 70 |
-| Preguntas | H2 36/40 arriba; las preguntas a todo el ancho, igual que a 1440 |
-| Caja del cierre | 350 × 276, `padding 64px 24px`; H2 36/40; botón a todo el ancho |
-| Pie | los links en dos columnas a 16 px del borde; después los legales, el © y, al final, el bloque del newsletter |
+| Hero | 40 arriba; H1 42/44; bajada 20/28 a 8; botones a todo el ancho de 46 (16/24), separados 16; nota a 16; la imagen (350 × 247) a 32 |
+| Secciones | `padding 40px 0`, 20 a los lados; H2 36/40; texto 18/28 a 24; botón de 42 (16/24) |
+| Tarjetas | una por renglón, 16 de separación; título 20/28, texto y link 16/24; el «+» invisible; la captura a 40 del texto, `padding-left: 24px` y 24 abajo, pegada al borde derecho (324 de ancho) |
+| Preguntas | igual que a 1440 (20/28, `24px 16px`) |
+| Caja del cierre | 350 × 276; H2 36/40; botón a todo el ancho (300 × 42) |
 
 ## Lo que en MaKo es distinto, y por qué
 
-- **La barra**: sin sus menús; «Todas las funcionalidades» (a /vsl) con la forma de su «Get a demo» y el botón de la llamada
-  con la de su «Sign up for free».
-- **El hero**: sin las estrellas y «4.9/5 from 28,479 customers» (contador suyo) ni el segundo botón (MaKo tiene una sola
-  llamada a la acción). La nota de abajo lleva los dos renglones del hero. Su imagen (pantallas de su producto) es el gráfico de
-  la landing, en una tarjeta blanca de 634 de ancho (el mismo recuadro). El titular dice «Con tu CRM.» en el renglón en
-  degradado para quedar, como el suyo, en cuatro renglones a 1440 y a 390.
-- **Sin** la franja de logos de sus clientes, sus planes con precio, las tarjetas con fotos y cifras de sus clientes ni «The
-  numbers tell the story».
-- **Las tarjetas por producto**: la primera fila son las secuencias (la tarjeta grande lleva el gráfico donde va su captura,
-  con su mismo corrimiento; la chica, los disparadores en los recuadros de su cara de atrás); las dos filas siguientes, las
-  cuatro piezas de Email, sin captura, por eso son más bajas. Sin el «+», sin «Get started free →» y sin sus fondos de imagen
-  (no se pudieron leer).
-- **La cita** es la de Mauricio (su historia), con su video en la foto redonda; sin «Read the story» ni las flechas del
-  carrusel. El brillo de abajo va en dorado.
-- **Integraciones**: su imagen de logos son las fichas de lo que dispara una secuencia (cinco tarjetas con el logo en un
-  recuadro blanco). El bloque no tiene texto debajo del título.
-- **La caja del cierre** lleva sólo el botón de la llamada (su «What are you waiting for?» es texto suyo).
-- **El pie**: el lema de /vsl en el lugar de «Get beehiiv updates…», sin el formulario, los links legales ni los de redes; una
-  columna «Funciones de MaKo» con el resto de las landings en cuatro columnas, y la estrella de MaKo donde va su isotipo.
+- **El titular del hero** no es el suyo traducido desde la revisión del 14/11 («Títulos que cumplen lo que promete el sitio»).
+- **Las dos imágenes del hero** son collages de paneles REALES de Email en el modo oscuro de la app (como las suyas, tres paneles
+  superpuestos): la secuencia «Vio tu VSL y no agendó» con la lista y las tasas; y los envíos con los segmentos y «¿Enviar a 312 leads
+  ahora?». Negocio inventado: «Cierre Consultivo».
+- **Las seis tarjetas** son las partes de Email (Secuencias, Envíos, Escribe con MaKo, Tu dominio, Mide, Cuida tu envío), con la
+  pantalla real en el modo claro (como las suyas) y, atrás, seis recuadros cada una. Los disparadores y los segmentos se llaman como en
+  la app (`TRIGGERS`, `SEGMENTOS`; el test los busca en `lib/email-marketing.ts`). El link de cada tarjeta es el botón de MaKo.
+- **Sin** la cinta de logos, las estrellas, las cintas de clientes, los planes, las flechas y el «Read the story» de las citas, las
+  cifras, el botón flotante ni el segundo botón del hero: son sus clientes, sus contadores, sus precios y su producto.
+- **Integraciones**: en vez de su imagen de logos, cinco fichas de lo que dispara una secuencia (sin texto debajo del título).
+- **Con el sol y la luna en claro**, las tarjetas, la cita y la caja del cierre quedan oscuras (`data-tema-fijo`: fondos de degradado
+  con letra encima, que el script lleva al modo y deja la letra blanca); el resto pasa a claro.

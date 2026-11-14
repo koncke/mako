@@ -21,6 +21,7 @@ import { DISENOS } from './disenos';
 import { RUTA_CTA, TEXTO_CTA } from './marca';
 import { BARRA_PROPIA, LANDINGS_OSCURAS } from './TemaSitio';
 import { BarraGlobal, PieGlobal } from '../_sitio/Barra';
+import { PREGUNTAS_SITIO } from '../_sitio/preguntas';
 
 export function metadataDeLanding(l: Landing): Metadata {
   return {
@@ -187,7 +188,10 @@ function DibujarBloque({ b, icono }: { b: Bloque; icono: string[] }) {
   }
 }
 
-export default function LandingCompetencia({ landing }: { landing: Landing }) {
+export default function LandingCompetencia({ landing: cruda }: { landing: Landing }) {
+  // Las preguntas son SIEMPRE las de la portada (Martín, 14/11/2026). El registro ya las pone, pero cada app/vsl/<slug>/page.tsx
+  // dibuja su LANDING_* directo, sin pasar por él: sin esto, en producción cada landing mostraba sus preguntas viejas.
+  const landing: Landing = { ...cruda, bloques: cruda.bloques.map((b) => (b.tipo === 'preguntas' ? { ...b, items: PREGUNTAS_SITIO.map((q) => ({ p: q.p, r: q.r })) } : b)) };
   // Con su diseño copiado de la referencia (./disenos/<slug>.tsx), la página entera es ésa: la cara común de abajo es la de
   // las landings que todavía no lo tienen.
   const Diseno = DISENOS[landing.slug];

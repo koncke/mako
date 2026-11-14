@@ -42,6 +42,75 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## Video como Cherry, segunda vuelta: lo que no se ve en la captura (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/video.tsx` (diseño y `<script data-visor>`), `app/vsl/_competencia/video.ts`,
+`app/vsl/_competencia/TemaSitio.tsx`, `public/vsl-assets/video/` (las tomas 4:5 salen de `C:/dev/bancos-portada/banco-video/cortar-4x5.sh`).
+El relevo de Cherry con capturas y videos: carpeta de notas, `referencias-landings/video-cherry/`.
+
+- **⚠️ El diagnóstico obvio era el equivocado: «la copia está mal» era «la referencia cambió».** Cherry sirve tres versiones en el
+  mismo enlace (`?ver=a|b|c`, su script) y del 11/11 al 14/11 pasó de la A a la B: otro titular (84 px, no 60), otro orden, y el
+  comparador quedó en el HTML con `hidden`. **Regla:** el relevo dice la fecha y la versión, se mira el DOM (lo escondido también
+  cuenta) y, para comparar dos días, se fija la versión con `?ver=`.
+- **Síntoma: las calcomanías negras, los números de los pasos, el disco y los rótulos salían BLANCOS en el visor (y en producción).**
+  Causa: el sol y la luna «lleva al modo» también el modo de nacimiento (`planDelModo`): en el claro, todo fondo neutro oscuro pasa a
+  casi blanco y todo BORDE oscuro a gris claro, salvo los `a`/`button` y lo que está bajo `[data-tema-fijo]`. Los puntos de fondo
+  (un degradado chico) también desaparecían. **Regla:** en un diseño claro, lo oscuro a propósito (calcomanías, números, discos,
+  comparadores, tramas de puntos, el abanico) lleva `data-tema-fijo=""`; un botón de línea lleva su borde como `box-shadow: inset`
+  (los bordes se aclaran, las sombras no).
+- **`pulir.mjs` guarda el DOM DESPUÉS de correr los `<script data-visor>`**: lo que el script cambia (clases de entrada `-espera`,
+  variables `--abre`, `--x`, el meneo, el botón fijo visible) queda congelado en la página del visor, y al abrirla el script vuelve
+  a correr encima. **Regla:** el script empieza limpiando su propio estado (saca `-espera`, `-menea`, `-ver`, pone las variables
+  en cero) y es idempotente (`R.__listo`).
+- **Un `clip-path: inset(0 0 0 50%)` es el 50 % de la caja de ESE elemento.** En el comparador la imagen es más ancha que la caja
+  (acercada a la línea de tiempo) y el corte no caía en la línea: se recorta un envoltorio del tamaño de la caja, no la imagen.
+- **Un `<button>` sin `onClick` en un server component lo marca `tests/ningun-boton-muerto`.** Los pasos que se tocan son radios
+  con su `<label>`; qué escena, qué calcomanía y qué paso late lo decide `:has(.d-video-rN:checked)` en CSS, y el script sólo
+  marca el siguiente radio cuando termina la barra (`animationend`). Sin JavaScript, igual cambian al tocarlos.
+- **Cherry NO mueve los botones al pasar el mouse** (sólo `scale(.98)` al apretar): la primera copia los subía 2 px. Lo que sí se
+  agranda con el mouse son las calcomanías (`scale 1.07`, sin transición en el hero y con rebote en la hoja) y las tarjetas del mosaico.
+- **En producción la barra y el pie copiados no se ven**: los tapan `BARRA_PROPIA` y la hoja de `PieGlobal`
+  (`footer:not(.s-pie){display:none!important}`). Se dibujan igual porque el test busca el logo y los links de las otras funciones.
+- **Lo que quedó SIN hacer:** las escenas 3 y 4 de «Lo que hace» («Te muestra qué grabar» = la portada de outliers de Video,
+  `app/video-editor/OutliersVideo.tsx`, que se podría grabar en un banco con los reels de Hormozi de `banco-spy-gurus/hormozi.json`;
+  y «Lo cambias con MaKo» = el chat del editor con original y modificado) siguen con «Aquí falta la animación». El mosaico «Tu IA
+  puede hacer videos así» no va: ver hallazgos-ai-avatar, las imágenes de las escenas.
+
+## Las marcas de un grabador van ~1 s adelantadas al video: se corta midiendo el video (14/11/2026, noche)
+
+**Síntoma.** Al unir las dos tomas de «curso y comunidad» con las marcas del grabador (`MARCA inicio 4946`…), la unión salió de 12 s
+en vez de 23: `xfade` con un `offset` más largo que la primera toma corta todo en silencio. **Causa.** Las marcas cuentan desde que
+arranca el script; el video de Playwright, desde el primer cuadro pintado (~1 s después): `fin 16357` en un video de 15,32 s.
+**La regla.** Restarle al tiempo de la marca la diferencia entre la marca `fin` y la duración del video (ffprobe), o medir en el
+video (un color en un momento conocido); y antes de un `xfade`, comprobar que el `offset` sea menor que la duración de la primera toma.
+
+## Una toma de la portada sin los textos de la app: CSS sólo en el banco (14/11/2026, noche)
+
+Martín pidió la toma de Spy «sin todos los textos de arriba» y la comunidad «sin textos innecesarios». La app no cambia: el banco le
+pone una hoja (`addStyleTag` o un `<style>` en la entrada) que esconde las clases de esos textos (`.spy-barra`, `.spy-phead`,
+`.spyo-numeros`, `.spyg-nums`, `.cmu-tabs`, `.cmu-post-ext`…). Para encontrarlas, un sondeo que recorre las hojas del DOM con texto y
+dice su cadena de clases (banco-spy-gurus/sondear-textos.mjs). Ojo con el filtro de «sólo referentes»: la caricatura de un referente sale
+de lib/spy-caricatura.ts (`caricaturaDeCompetidor`), no del registro, y filtrar sólo por el registro dejaba afuera a Hormozi.
+
+## Comparaciones contra la competencia: lo que se afirma de otra app es público (14/11/2026)
+
+La tabla de /vsl/comparaciones dice, app por app, qué tiene y qué no (21 apps × 26 filas). Lo que se aprendió armándola:
+- **Cada celda sale de la web oficial de la app, con su fuente** (app/vsl/_sitio/competencia-datos.ts, GENERADO por
+  scripts/visor-landings/matriz-competencia.py desde el JSON de la carpeta de notas). Lo que no se pudo confirmar es «sin dato», nunca un
+  «no», y la página dice de dónde sale. **Ojo:** muchos «no» se basan en que la función no aparece en su web, no en que la nieguen.
+- **El diagnóstico obvio estaba mal en varias:** GoHighLevel copia una página desde su URL, puntúa llamadas (beta) y está en español (su
+  «espía» es de reseñas, no de anuncios); ClickFunnels tiene WhatsApp e Instagram; ManyChat sale US$39 desde el 2/3/2026 (su ayuda todavía
+  dice 15); Hotmart no tiene CRM propio; Canva publica anuncios en Meta (Canva Grow); Metricool espía competidores.
+- **Trampas del relevamiento:** canva.com/pricing y gamma.app/pricing dan 403 al bajarlas; la tabla de ClickFunnels pierde los tildes al
+  leerla; varias ayudas oficiales están viejas.
+- **Una página de visor que no va en la lista** (cada «MaKo vs X») se abre por `alias-extra.json`, que deja quien dibuja las páginas y
+  lee scripts/visor-landings/armar.mjs.
+
+## Un banco con server actions: el stub genérico rompe lo que espera otra forma (14/11/2026)
+
+El historial del lead en el banco del CRM tiró «Invalid time zone specified: #<Object>»: el stub de toda server action devolvía
+`{ ok: true, … }` y `tzWorkspaceAction` tiene que devolver un string. En banco-crm/build.mjs, las que dibuja la toma tienen su respuesta
+propia (`getLeadAuditAction` lee `window.__auditoria`; `tzWorkspaceAction`, una zona).
 ## El formulario como fuente del lead: el Pixel perdía respuestas sin avisar y el ruteo sólo miraba la URL (14/11/2026, claude5)
 
 La llamada con Julio Mazariegos (docs/relevo/llamada-julio-13-11.md): «creo tres landings, ¿cómo distingo qué formulario dispara el
@@ -5446,3 +5515,522 @@ recortado y no se puede enfocar (por eso «nada de cámara mientras se baja»). 
 (el traslado suma el `scrollY`); para soltar vuelve a escala 1 en el mismo lugar. Y para que una parte que ocupa todo el ancho se lea,
 se enfoca un TRAMO de ella (`desde`/`hasta`, en fracción del ancho). El banco de Spy lee ahora las 134 piezas de Hormozi, también los
 anuncios que terminaron (`leer-hormozi-todo.mts`; la lista de antes, con 64, en `hormozi-viejo.json`).
+
+## Dónde cae t = 0 de una animación en el crudo se MIDE en el video, no con relojes (14/11/2026)
+
+**Síntoma.** El bucle de Copywriting arrancaba con el guion ya a medio escribir, aunque el corte era «el segundo ciclo» calculado
+con el desfase entre `newPage()` y el `performance.now()` de la página (1,85 s). **Causa.** El video de Playwright (`recordVideo`)
+empieza con el PRIMER cuadro pintado, no con `newPage`: el desfase real era ~0 s. **La regla.** Para cortar una animación
+periódica, buscar en el crudo un color que aparece en un momento conocido (el botón que se pone naranja al tocarlo, con numpy sobre
+una franja) y cortar desde ahí (`banco-carruseles-replica/grabar-replica-html.mjs`, el comentario de arriba).
+
+## En un banco, buscar dentro de un webm sin índice salta al principio: el cuadro quieto va como FOTO (14/11/2026)
+
+**Síntoma.** Martín: en el editor de video, la pausa caía en un cuadro «donde estaba por decir algo» y con «una cara medio rara».
+Primero se cambió el corte para parar en 9,2 s, y seguía con la boca abierta: la pausa por `requestAnimationFrame` cae un cuadro
+tarde. Después `el.currentTime = 9.2` al pausar mostró OTRA toma (la del principio): los webm de ffmpeg sin índice (cues) no
+saben buscar. **Lo que quedó** (`C:/dev/bancos-portada/banco-video/entrada.tsx`): las dos pausas son fotos extraídas con ffmpeg
+del cuadro elegido. `salida/quieto.jpg` sale de 3,9 s de la toma y `salida/quieto-fin.jpg` de 9,2 s del corte; la de fin se pone
+encima del video al terminar. Para elegir el cuadro, se arma una hoja con la cara recortada cada 0,25 s y se busca la boca cerrada.
+
+## El bucle de Automations no calzaba y no era una posición: el body sin `transform` pinta el texto distinto (14/11/2026, noche)
+
+Lo vio el banco `C:/dev/bancos-portada/banco-flujo/` al regrabar Automations con WhatsApp e Instagram dibujados como en el
+teléfono (`vistas-chat.tsx`; `ChatHilo` y `SimuladorSocial` se ven como MaKo, no como las apps).
+
+- **El empalme.** El principio y el final del bucle no calzaban: diferencia media 1,85 entre los dos cuadros quietos, contra
+  0,15–0,5 de ruido dentro de una misma pausa. Lo obvio era que algo se había corrido, y la cuadrícula no tenía diferencia. La
+  causa probable: antes de la primera vez que se usa la cámara de `grabador.mjs`, el `body` no tiene `transform`; después queda
+  con `translate(0,0) scale(1)` y Chrome pinta el texto distinto. **Regla:** `g.camara(null, 0)` al principio de toda toma con
+  cámara. CONFIRMADO con la toma D (`grabar-combo3.mjs`): la diferencia del empalme bajó de 1,85 a 0,07.
+- **La capa del lienzo que mueve las tarjetas mide 0 × 0** (lo de adentro es absoluto). Subiendo desde un texto para hallar la
+  tarjeta hay que frenar en el primer ancestro sin tamaño: si no, el «centro» da (0, 237) y la cámara se va a otra tarjeta.
+- **Achicar el lienzo con CSS deja ver dónde termina la cuadrícula** (el borde raro del póster anterior). La salida: la misma
+  cuadrícula en el contenedor de atrás, escala 1 y corrimientos múltiplos de 22 px (la celda).
+- **Un encuadre medido mientras las tarjetas aparecen varía de una vez a otra** (las que suben corren la caja). Si el bucle
+  empieza y termina en ese encuadre, se guarda y se reusa (`__encuadrar(…, recordar)`).
+- **La tarjeta de mensaje del lienzo pone la hora real (`new Date()`).** Grabando de madrugada decía «04:55» contra «18:04» del
+  chat; el banco fija el reloj. En la app está bien así: la trampa es sólo de las grabaciones.
+- **Cortar un chat en el crudo.** Un globito nuevo cambia muy poco el cuadro (~0,3 de diferencia media) y el codificador de
+  Playwright mete saltos sueltos de hasta 0,8: un arranque cuenta sólo si viene después de una pausa de 0,4 s o más y en los 0,6 s
+  siguientes los cambios suman más de 15. El color solo confunde el beige de WhatsApp con la tarjeta rosa de Instagram: se mira el
+  centro del panel 1,2 s después y se toman el primer y el último arranque de WhatsApp (`medir-combo3.py`).
+- Lo de Instagram (una sola respuesta privada por comentario, en 7 días) ya estaba en `docs/hallazgos-chatbot.md`; el DM va con el
+  link directo, como lo pidió Martín, aunque ManyChat suele mandar primero un botón.
+
+SIN HACER: con el zoom, la tarjeta del disparador de Instagram queda cortada a la izquierda; la foto del Reel es un fondo con el
+cartel encima, sin persona (a propósito).
+
+## Competitor Spy como Foreplay: lo que sólo se supo MIRÁNDOLA, y las trampas de grabar la ficha (14/11/2026, noche)
+
+Martín: «que la copia salga muy fiel a todas las animaciones… no funcionan los botones de cada cosa… el antes de Foreplay son iconos
+cayendo y la animación del After no es muy similar». Foreplay se miró con Chromium a 1440 y 390 (capturas, video, estilos calculados
+antes y después de cada hover; notas: `foreplay-relevo/visto-1411/`). Código: `app/vsl/_competencia/disenos/competitor-spy.tsx`.
+
+- **El «después» NO es un video de la app (el diagnóstico obvio era el equivocado).** El relevo decía «video en loop, qué muestra no se
+  ve sin reproducirlo», y el pedido fue «grabar el flujo de Spy de punta a punta». Mirado cuadro a cuadro es una ÓRBITA: un anillo de
+  280 px con sus cuatro etapas (las secciones de su página) que da un cuarto de vuelta horario cada 2 s (quieta 1,25 s, se mueve
+  0,75 s) con las etiquetas siempre derechas, y una esfera de baldosas con su logo que destella en cada paso. Se hizo eso en CSS.
+  **Regla:** un video de la referencia se mira cuadro a cuadro (`fps=4`) antes de decidir qué se pone en su lugar.
+- **La lluvia del «antes» es Matter.js y en un celular NO corre:** el script sale si el user agent es de teléfono y se ve una imagen
+  fija; su «8 en celular» sólo vale para una ventana angosta de computadora. Su configuración, leída del script: gravedad 0,7 (≈700
+  px/s²), uno cada 300 ms desde 60 px arriba, rebote 0,1, roce 0,3, giro ±30° y ±0,6 rad/s, 16/12/8 piezas, 1,2× desde 400 px de
+  caja. Aquí es el Box2D-lite (choque de cajas por recorte de caras + impulsos secuenciales) en un `<script data-visor>`, sin
+  librería. Sin «calentar» los impulsos entre cuadros la pila tiembla: **una pieza quieta 0,4 s se duerme y pasa a ser piso**, y
+  cuando todas duermen el cuadro deja de calcularse.
+- **El hero:** lo que se achica es SÓLO su bloque pegado (`position: sticky` a 132 px: titular, bajada, botón y logos), LINEAL en el
+  primer alto de pantalla, escala 1 → ,75, sube el 33 % de su alto (origen al centro) y se apaga; la captura de la app no se toca y
+  le pasa por encima. El de antes achicaba también la captura.
+- **El sol y la luna oscurecen el bloque blanco** («se lleva al modo, también el de nacimiento»), y en el oscuro las píldoras que caen
+  se volvían oscuras mientras los recuadros de los logos (blancos a propósito) quedaban blancos. Lo que debe quedar igual en los dos
+  modos va con `data-tema-fijo` (las piezas de la lluvia y la tarjeta negra del «después», como en Foreplay).
+- **Los hovers ya eran los suyos** (links ,52 → ,84 en ,5 s; botón blanco a #DDDEE5 o al 84 %; oscuro al 6 % de blanco; pestañas ,44 →
+  blanco en ,4 s; sin fondo en la activa). Lo que faltaba eran las PANTALLAS: «los botones no funcionan» era el recuadro de «falta».
+- **Grabar la ficha (banco `C:/dev/bancos-portada/banco-spy-escenas`):**
+  - Los bigint del JSON de postgres.js llegan como TEXTO; la app los recibe como número (PostgREST). Sin convertir, la ficha dijo
+    «VISTAS Infinity M».
+  - La cámara de `grabar-anuncios.mjs` volvía a escala 1 y movía el scroll antes de cada encuadre: entre dos tomas se veía un salto.
+    Medir SIN la cámara y volver a ponerla en la misma tarea (no se pinta en el medio), y no mover el scroll: el `body` entero se corre.
+  - El detalle de una pieza es un modal en la capa de arriba: la cámara del `body` no lo mueve. Se acerca el panel del modal.
+  - El menú «⋯» se ubica por la caja del botón: abierto con la cámara puesta no aparece. Se abre sin cámara.
+  - acquisition.com no se deja mostrar en el marco aislado (su JavaScript se rompe, `lib/pagina-real.ts`) y la app ofrece «Capturar»;
+    cargarla en el banco sólo gastaba la PC. Por eso «Sus páginas» no tiene pantalla con Hormozi y la pestaña pasó a «Copia su sitio».
+  - Hormozi no tiene reels en Spy (sólo YouTube y anuncios): «El guion de sus reels» no se puede mostrar con él; pasó a «Su gancho y su
+    ángulo» (90 de sus videos tienen gancho, ángulo y formato leídos).
+  - Las fotos de una hoja de contactos son de 320 × 200: tres filas de cuadros se leen como «cuadros rotos por la mitad». No lo eran.
+- **«Desde Chrome, con un clic» (banco `banco-spy-extension`):** la Biblioteca de Anuncios de Meta se ve sin sesión en un Chromium sin
+  ventana (es-AR). Corriendo ahí `extension/spy-leer.js` (el mismo archivo) y las funciones de `lib/spy-captura.ts` sale la respuesta
+  REAL («29 anuncios en la ficha de @AlexHormozi · 29 nuevos»). El desplegable real se monta con un `chrome` de mentira. Los
+  `addInitScript` de Playwright corren también en los iframes: el cursor dibujado aparecía dos veces; adentro se saca y el de arriba lo sigue.
+
+SIN HACER: los íconos animados por sprite de su menú y de su pie (la barra y el pie de esta landing son los del sitio); el segundo botón
+de cada fila («Learn More»: no hay a dónde llevarlo); «Su guion, con tu oferta» usa la grabación de Copywriting («Replicar»), no el
+«Hacer uno así» del detalle de Spy; lib/funciones-mako.ts dice «Todavía no: revisar solo todos los días» y foreplay-relevo/plan-spy.md
+dice que los Seguidos se leen todos los días desde el 13/11: hay que decidir cuál vale antes de prometerlo en la landing.
+
+## /vsl/ads contra Master Ads: lo que se ve quieto, lo que crece de costado y el candado que se borra solo (14/11/2026, noche)
+
+La copia fiel de Marketing CoPilot (`app/vsl/_competencia/disenos/ads.tsx`); el relevo con capturas y videos está en las notas de
+la sesión, `referencias-landings/ads/relevo.md`, y el resumen de medidas en `docs/diseno/landings-competencia/ads.md`.
+
+- **La referencia que parece animada era QUIETA.** Antes de copiar «las animaciones», medir qué se mueve: `document.getAnimations()`
+  en cada paso de un scroll con la rueda, un `MutationObserver` sobre `style`/`class` y un `IntersectionObserver` espiado desde
+  `addInitScript` (`referencias-landings/ads/scripts/relevar.mjs` en las notas de la sesión). Master Ads dio cero videos, cero apariciones al bajar y tres animaciones CSS.
+  Lo que no se ve en una captura y sí en el video: **`transform-origin: 0 center`** en los botones que respiran (el centrado crece
+  hacia la derecha), y el «anillo» alrededor de cada botón es la animación a mitad, no un borde: la copia tenía un anillo FIJO de
+  9 px y el origen al centro. Regla: un efecto se confirma con cuadros del video (el borde que no se mueve), no con una captura.
+- **Un hover que existe en el CSS y no se ve**: las opciones del hero tienen `hover:bg-accent`, pero `ma-option-light` anima el fondo
+  en todos sus cuadros y la animación le gana. Copiar «el hover» sin la animación lo haría aparecer donde el original no lo muestra.
+- **`curl` no ve la página**: masterads.ai devuelve el desafío de Cloudflare («Just a moment…»); Chromium headless lo pasa solo, sin
+  tocar nada. Se lee con el navegador; el HTML de `curl` es el del desafío.
+- **Un nombre de la app copiado a la landing se queda viejo**: el texto decía «Funcionan, En prueba y Para revisar» y las columnas de
+  Campañas son Funcionan / **Por decidir** / Para revisar (`COLUMNAS` en `lib/media-buyer/campanas-grupos.ts`, desde el 6/11). Regla:
+  un nombre de pantalla en una landing se lee del código que la dibuja, el día que se escribe.
+- **Otra pantalla como si fuera ésta**: la sección «Agente desde WhatsApp» mostraba `chats.webm` (la bandeja de Chats con leads), que
+  no es MaKo contestando tus preguntas. Va `copilot-whatsapp.webm` (`C:/dev/bancos-portada/banco-copilot-whatsapp/chat.html`): el
+  teléfono de la referencia con lo que contestan `ver_estado_meta` y `ver_media_buyer` (lib/api-mako/areas/ads.def.ts).
+- **Un botón sin JavaScript para el visor y sin `onClick` para el test**: la pausa de la tira de integraciones es una casilla con su
+  rótulo (`:checked ~ … { animation-play-state: paused }`): un `<button>` sin `onClick` lo marca `tests/ningun-boton-muerto.test.ts`,
+  y un script lo borra el visor. La casilla es la que se enfoca y se lee; el rótulo sólo dibuja pausa ↔ play.
+- **`recordVideo` con `deviceScaleFactor: 2` NO graba al doble**: pidiendo un video de 780 × 1440 para una ventana de 390 × 720, el
+  cuadro sale a 1× en la esquina de arriba a la izquierda y el resto gris (`banco-copilot-reporte/grabar-tel.mjs`). Se recorta con
+  `crop=390:720:0:0`. Para un video nítido al doble, la página se arma al doble (`html { zoom: 2 }` con la ventana al doble, como
+  `banco-copilot-whatsapp/chat.html`), cuidando que una app con cortes de ancho no cambie de diseño. Y en Campañas del CoPilot, el
+  botón flotante de MaKo (abajo a la izquierda) tapa una tarjeta: se esconde SÓLO en el banco.
+- **`tsc-acotado` sobre un diseño de landing no termina**: `disenos/ads.tsx` arrastra el registro entero de las 19 landings; con 2,5 GB
+  de heap sale 134 (sin memoria) y con 4 GB lo corta el vigía (código 1, 0 bytes). Queda «no se pudo chequear»; el test de las landings
+  (que dibuja cada página con React) es lo que sí corre.
+- **El candado `.grabando` se borró solo mientras era mío**: lo tomé a las 05:25 y a las 05:31 ya no estaba (otra tarea lo borró al
+  terminar sin mirar de quién era). Regla: borrarlo sólo si lleva tu nombre (`grep -q mi-nombre .grabando && rm .grabando`), y
+  tomarlo con `set -o noclobber` para que dos no lo tomen a la vez.
+
+**SIN HACER / para decidir.** Con el sol y la luna en modo claro, las bandas oscuras de la referencia («lo de siempre», «Pensado
+para…») y los marcos del video y del teléfono pasan a celeste (`TemaSitio`, regla de Martín del 12/11: todo de un solo modo). En
+Master Ads son verde profundo. Si Martín prefiere la copia fiel, es poner `data-tema-fijo` en esas secciones de `disenos/ads.tsx`.
+
+## AI Avatar como HeyGen: el video arranca solo, los bordes al 10 % desaparecen y la cara de los presets (14/11/2026, noche)
+
+Martín: «que la copia salga muy fiel a todas las animaciones… los videos, los hover, todo». HeyGen se miró con Chromium a 1440 y a
+390 (capturas, videos, hovers con su tiempo, `MutationObserver` e `IntersectionObserver`; notas: `referencias-landings/ai-avatar/`;
+valores: `docs/diseno/landings-competencia/ai-avatar.md`). Código: `app/vsl/_competencia/disenos/ai-avatar.tsx`.
+
+- **El video del hero NO es un reproductor quieto (el diagnóstico obvio era el equivocado).** El HTML trae `<video muted
+  preload="auto">` sin `autoplay` y un botón «Play» grande, y parecía «un video que se toca para ver». En el navegador arranca SOLO
+  y sin sonido (lo arranca su script), la barra de controles sólo aparece con el mouse encima y el play grande sólo existe pausado.
+  Peor para medir: mientras corre, el botón se llama «Pause» y `getByRole('button', { name: 'Play' })` deja el script colgado 30 s.
+  **Regla:** antes de copiar un video, leer `paused`/`currentTime` dos veces con un segundo de diferencia.
+- **El sol y la luna borra los bordes finos.** En el modo claro (que se aplica también al de nacimiento) todo borde oscuro se
+  lleva a un gris del modo: el `1px solid rgba(0,0,0,.1)` de las tarjetas «Sin / Con» quedaba invisible. **Regla:** en un diseño
+  copiado, los bordes van con un color OPACO claro (`#E6E6E6`, `#CCCCCC`), que el claro no toca y el oscuro oscurece; lo que tiene
+  que quedar negro en los dos modos (las tarjetas de números, la caja del video) lleva `data-tema-fijo`.
+- **El orden del CSS volvió a mostrar fotos que estaban escondidas.** Al reordenar el archivo, el bloque del visual compartido
+  (`.d-ai-avatar .mk-c-av-escenas { display: flex }`) quedó DESPUÉS de `.d-ai-avatar-paso-img-1 .mk-c-av-escenas { display: none }`:
+  misma especificidad, gana el último, y el paso 1 mostró tres teléfonos con fotos que no iban ahí. **Regla:** las reglas que
+  esconden partes de un visual compartido van después de las del visual; y mirar la captura, porque el test pasa igual.
+- **Un margen arriba que se escapa.** El `margin-top` del contenido del hero salía por la sección y el `main` y dejaba una franja
+  gris (el fondo del `body`) entre la barra y el hero. El aire de arriba de una sección va como `padding`.
+- **La cara de los presets NO es la de Martín.** Las 31 imágenes de `public/formatos/presets/` (usadas en los pasos 2 y 3 de esta
+  landing y en el estudio de AI Avatar) muestran a un hombre de unos 55 años con anteojos, parecido a Mauricio (CLIENTE), hechas
+  con «1-headshot-saco.jpg»; `lib/ai-avatar/plantillas.ts`, `app/vsl/_competencia/ai-avatar.ts` y el test «el hero de AI Avatar
+  muestra las imágenes reales de sus presets» dicen «cara de Martín». Lo vio también la tarea de Video. Hasta que Martín confirme,
+  no se suman en ningún lugar nuevo (en el hero ya no están: ahí va el reproductor, como en HeyGen).
+- **Su escala de Tailwind es en píxeles** (`p-3` = 3 px, `gap-30` = 30 px): se lee del marcado sin medir. Y en el teléfono sus
+  filas tienen 240 px entre una y otra (a propósito, `not-last:mb-240`).
+
+SIN HACER: las imágenes de las tarjetas «Sin / Con» (un esquema con días y una captura de su app: MaKo no tiene una pieza real que
+diga eso); las fotos de UI de sus pasos (van las piezas del visual de AI Avatar; no hay banco grabado del estudio `/ai-avatar`); el
+carrusel de testimonios con flechas (hay un solo caso); G2 y «Explora más soluciones» (son suyos). Para decidir con Martín: la cara
+de los presets.
+
+## Image como PostNitro: su CSS da las medidas, nada se anima al bajar, y las preguntas viejas seguían en producción (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/image.tsx` (diseño y `<script data-visor>`), `app/vsl/_competencia/image.ts`,
+`app/vsl/_competencia/LandingCompetencia.tsx`, `public/vsl-assets/image/` (bancos `C:/dev/bancos-portada/banco-image-landing` y su
+`editor/`). El relevo de PostNitro con capturas, estilos, hovers y videos: carpeta de notas, `referencias-landings/image/`.
+
+- **⚠️ Las landings de /vsl NO mostraban en producción las preguntas de la portada.** El registro (`conLasPreguntasDeLaPortada`) las
+  pone, y el test y el visor leen el registro; pero cada `app/vsl/<slug>/page.tsx` dibuja su `LANDING_*` directo. El visor decía
+  «bien» y hola-mako.com/vsl/<slug> mostraba las viejas. Arreglado en `LandingCompetencia` (las reemplaza para todas). **Regla:** lo
+  que se arregla en el registro se mira también en la ruta, no sólo en el visor.
+- **PostNitro no anima NADA con el scroll ni al cargar** (su JavaScript es Mantine y el editor embebido): lo fiel son los hovers y el
+  acordeón (una abierta a la vez, 200 ms de alto y opacidad). Sus botones llenos NO suben: oscurecen un escalón (`#087A68` →
+  `#076C5C`, no al `--pn-accent-hover`) y bajan 1 px al apretar. Medido con `getComputedStyle` antes y durante el hover.
+- **Sus medidas salen de su CSS, no de la captura:** los módulos `/_next/static/immutable/chunks/*.css` se bajan con `curl` (sin
+  navegador) y traen las fórmulas fluidas (`clamp(…, 5vw, …)`): copiadas tal cual, la página calza en TODOS los anchos y no sólo en
+  los dos que se midieron. El HTML servido (sin scripts) dice además qué secciones hay y si alguna está `hidden`.
+- **Los tipos de carrusel de MaKo encima el titular con la bajada con letras anchas** (DM Serif, Montserrat, Poppins: «Tu primera
+  valoración de 20 minutos» pisa «En 4 pasos…»; «valoraciones» se sale del ancho). `altoEstimado` (lib/carruseles/documento.ts) cuenta
+  0,58 del cuerpo por letra para cualquier fuente. Se ve en «Nuevo diseño» con el estilo del tipo, sin kit. **SIN ARREGLAR** (no es de
+  la landing): la landing usa kits de letra angosta (Anton, Oswald, Bebas Neue), con las que entra.
+- **El editor real se monta en un banco:** `EditorApp` + `dev/memoryAdapter` del propio editor + `serviciosCatalogo()` (las fuentes y
+  plantillas de MaKo) + las variables `:root` de `app/globals.css` (los tokens `--cv-*` apuntan a ellas). Así se grabó «Lienzo» sin
+  base ni sesión. El chat de MaKo no (necesita la IA del negocio): sigue con «Aquí falta la animación».
+- **El póster de `sitio/carruseles.webm` (la portada) es un cuadro del MEDIO**, no el primero: al arrancar salta. La landing de Image
+  usa su propio póster (`image/editar-poster.jpg`, el primer cuadro); el de la portada quedó como estaba.
+- **El pie copiado está oculto en producción** (`PieGlobal`: `footer:not(.s-pie){display:none}`): un recorrido de hovers que lo
+  toque se queda esperando «not visible».
+- **La RAM libre bajó de 4 a 1–2 GB en minutos** (otros chats): el chequeo de 3 GB va antes de CADA navegador, no una vez por tanda.
+
+SIN HACER: el marco «Chat de MaKo» (necesita grabar `PanelMakoIA` con una respuesta de verdad); el `tsc` acotado de los tres archivos
+no se pudo correr (código 134 sin heap: 4 GB libres no alcanzan); el póster de la portada (`sitio/carruseles.jpg`); el cronograma de PostNitro no va
+(Image no publica: el Calendario publica una imagen o un video sueltos, no un carrusel); su editor en vivo «Pruébalo, no es un video»
+es la grabación de «Editar».
+
+## Copywriting como The Copy Machine: la referencia no se mueve, el sol y la luna congela la pestaña elegida (14/11/2026, noche)
+
+Martín: «que la copia salga muy fiel a todas las animaciones… los videos, los hover, todo». The Copy Machine se miró con Chromium a
+1440 y 390 (capturas, video de la sesión, `getAnimations()`, espías de `MutationObserver`/`IntersectionObserver`, estilos antes y
+después de cada hover; notas: `referencias-landings/copywriting/`; valores: `docs/diseno/landings-competencia/copywriting.md`).
+Código: `app/vsl/_competencia/disenos/copywriting.tsx` y `app/vsl/_competencia/copywriting.ts` (`REPLICAS`).
+
+- **No tiene videos ni apariciones al bajar.** Lo único que corre solo es el botón de la banda de ejemplos (y su precio). Lo fiel
+  es lo que se toca: la banda que se abre (la franja se va, filas 0fr → 1fr en ,55 s), el riel de reseñas SIN FIN (una copia del
+  juego a cada lado, salto en silencio al quedarse quieto) y el acordeón de una pregunta a la vez (`<details name>` lo hace sin JS).
+- **⚠️ Su CSS tiene un `:hover` que no se ve.** `.case-tabs button:hover` existe, pero la regla de la página abierta pone el fondo
+  con más especificidad: la pestaña NO cambia al pasar el mouse, y la elegida no lleva sombra. Leído del CSS se habría copiado mal;
+  se mide el estilo calculado después del hover (`relevar.mjs` del scratchpad lo hace con 60 y 700 ms).
+- **⚠️ El sol y la luna lee los colores UNA vez al cargar: lo que cambia con `:checked` queda congelado.** La pestaña elegida
+  al cargar (tinta) recibe en línea el fondo claro del modo claro y queda clara para siempre; la que se elige después sí se ve
+  de tinta. Lo mismo la tarjeta de tinta del caso. **Regla:** un estado que se elige (pestañas, radios) va con `data-tema-fijo` y
+  su modo oscuro escrito a mano con `html[data-sitio-modo="oscuro"] …` (el script pone ese atributo).
+- **Un contenedor variante con `padding:` abreviado le gana al `padding-block` del hijo que comparte el elemento.**
+  `.d-copywriting-cont.d-copywriting-excont { padding: 0 24px }` (dos clases) borró el `padding-block: 24px` de la franja (una
+  clase) y la banda medía 63 px en vez de 108. Las variantes de contenedor tocan sólo `padding-inline`.
+- **Su contenedor no es uno:** la banda, las reseñas y «Start with…» usan 1132 px con 24 de margen; el resto, 1116 con 32.
+- **Desde esta tarea no se puede leer la base** (el permiso lo negó al buscar la conexión). Los textos reales de las réplicas
+  salieron de las notas (`probar-copy-1311/replicas-lado-a-lado.html`, `copy-reel-hormozi/`): por eso el anuncio va como texto y no
+  como grabación de la pantalla.
+- **El candado `.grabando` estuvo tomado 30 minutos por otras dos tareas**: lo que no necesita navegador (leer su CSS con `curl`,
+  escribir el código) se adelanta mientras tanto, y se toma con `noclobber`.
+
+SIN HACER: la tercera pestaña (no hay otra réplica de Hormozi limpia: las demás de probar-copy-1311 son de otros creadores o mezclan
+el voseo); grabar la pantalla real de Copywriting con la réplica del anuncio (página g49hpdqrw69 del ws 9; el banco del 12/11 que
+arma el Copywriter con esbuild está en el scratchpad, `banco-copy/`); la charla de su «Chief» en el renglón 3 (sería un chat de MaKo
+dibujado; las preguntas reales de la réplica del short tienen dos respuestas escritas por un agente y una oferta de prueba con
+errata); las comillas de sus tarjetas de reseñas (el caso no es una cita).
+
+## Offer como Atlas AI: su VSL flota al bajar, la referencia cambió en tres días y el banco del teléfono era escritorio achicado (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/offer.tsx` (diseño y `<script data-visor>`), `app/vsl/_competencia/offer.ts`,
+`public/vsl-assets/offer/` (banco `C:/dev/bancos-portada/banco-offer/`: `entrada.tsx`, `grabar.mjs`, `fotos.mjs`), valores en
+`docs/diseno/landings-competencia/offer.md`, test «Offer: …» en `tests/vsl-landings-competencia.test.ts`. El relevo con capturas:
+carpeta de notas, `referencias-landings/offer/relevo.md`.
+
+- **⚠️ El diagnóstico obvio era el equivocado: «la referencia no se mueve» (el relevo del 11/11 decía «Animaciones: ninguna»).** Su
+  VSL arranca solo y sin sonido y, cuando sale por ARRIBA de la pantalla, sigue en una ventanita `fixed` de 280 × 158 a 3 px de la
+  esquina, que entra con `fadeInUp` en 1 s y trae su × 160 px más arriba (el `pip-scroll` de GoHighLevel: `.videoTag .is-sticky`).
+  En una captura de sección no aparece; aparece en `getAnimations()` del paso del scroll en que el video sale y en el
+  `MutationObserver` (la clase `is-sticky`). **Regla:** el relevo de una página con video incluye bajar con el video corriendo y
+  mirar qué pasa con él; una página de constructor (GoHighLevel, ClickFunnels) suele traer el video flotante de serie.
+- **La referencia cambió en tres días** (11/11 → 14/11): se llama «Atlas: The Offer Architect», la tarjeta de precio trae una imagen
+  del producto, la «imagen del paquete» de la banda oscura pasó a ser una CAPTURA DE SU APP con notas a mano, la barra mide 92 px y
+  el titular de la banda va en 500. El documento de medidas del 11/11 ya no alcanzaba: se mide de nuevo cada vez.
+- **El HTML de `curl` muestra texto que no se ve**: la sección «Wait! Before You Go…» (su libro en Amazon) está en el HTML y mide 0
+  en los dos anchos; y a 390 la cejilla dice OTRA cosa («Are You Ready To Get Daily, High Ticket Clients…», un renglón de plantilla
+  sólo del teléfono). Lo que va se decide con el navegador, no con el texto del HTML.
+- **Fotos «de teléfono» que eran el escritorio achicado**: `newPage({ isMobile: true })` sobre una página SIN `<meta name="viewport">`
+  (la del banco) arma la página a 980 px de ancho y la achica. Para fotos del diseño del teléfono, la ventana chica SIN `isMobile`;
+  y en el teléfono la pantalla de Create muestra una columna por vez: hay que tocar el interruptor «MaKo | Offer» para ver el chat.
+- **El banco de Offer**: `OfferApp` real con esbuild (copia de `banco-spy-escenas/build.mjs`), `/api/offer` contestado por el `fetch`
+  de la entrada (turno, armar, abrir y el PDF con `paginasDeOferta` en el navegador: es puro) y el releer del armado de 4 s pasado a
+  1,6 s con un `setInterval` envuelto. Lo que escribe el código sale del código (`primerMensajeFunnel`, `opcionesConCierre`,
+  `TEXTO_LISTA_PARA_ARMAR`, `mensajePdf`, `calcularDiagnostico`); lo de la IA, a mano con las reglas del turno, sobre «Cierre
+  Consultivo», el negocio ficticio de las plantillas. Nada de un cliente.
+- **Las marcas del grabador no tienen un desfase fijo**: en dos tomas iguales, seguidas, iban 1,86 s y 0,79 s adelantadas al video
+  (y «marca fin − duración» decía 1,1). El corte se ancla en algo que se VE: el salto de la cámara a 0 ms del principio
+  (`camara(r, 0)`, un cambio de cuadro de 12–14 sobre 255) y el último movimiento de la cámara al final (`grabar.mjs` del banco).
+- `codificar-bucle.sh` acepta `TAM=960:540` para un cuadro 16:9 (sin la variable, 960 × 600 como siempre).
+- El tilde verde de su lista va como `background-image` con un SVG en `data:` (el sol y la luna no toca los fondos con imagen) y la
+  × de la ventanita es una casilla con su rótulo (sin `onClick`, un `<button>` lo marca `ningun-boton-muerto`).
+
+SIN HACER: su barra de controles con el mouse y el «Enable sound» (la grabación no tiene sonido); el precio, las estrellas, el sello,
+la garantía, el pago seguro, el cupón y el «INSTANT ACCESS | INCLUDED» (MaKo no los tiene); con el sol y la luna en claro, el hero
+negro y las bandas #4B4B4B pasan a claro (regla del 12/11, igual que en /vsl/ads: si Martín prefiere la copia fiel, `data-tema-fijo`
+en esas secciones de `disenos/offer.tsx`).
+
+## Web Generator como HighLevel: su CSS y sus scripts vienen DENTRO del HTML, la lista que el CSS pisa y qué va en cada marco (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/web-generator.tsx` (diseño y `<script data-visor>`), `app/vsl/_competencia/web-generator.ts`,
+`public/vsl-assets/web-generator/` (banco `C:/dev/bancos-portada/banco-web-generator-landing`: generar.mts → capturar.mjs → recortar.py).
+El relevo de AI Studio con capturas, videos y su código por sección: carpeta de notas, `referencias-landings/web-generator/`.
+
+- **Los tiempos salen de su HTML, no de mirarla.** HighLevel arma la página con bloques de «código propio»: el HTML de `curl` (1 MB) trae
+  el `<style>` y el `<script>` de CADA sección (el pedido que se escribe a 34 ms por letra, la ventana que termina a los 5650 ms, la galería
+  con su objeto `MOTION`, el borde rasgado con semilla 7, las pestañas cada 5,4 s, el formulario cada 9 s). **Regla:** antes de grabar,
+  buscar `<script>`/`<style>` dentro de cada sección del HTML servido; el navegador confirma qué se ve.
+- **⚠️ Lo obvio era lo equivocado: la lista de la izquierda no existe.** El CSS de «What can AI Studio build?» arma una lista vertical de
+  350 px (con subtítulo y número por opción) y AL FINAL del mismo bloque la pisa con una FILA de pestañas centradas. Leído de arriba abajo
+  se copió la lista; la captura decía fila. **Regla:** un CSS leído se confirma con la captura antes de copiarlo.
+- **Dos secciones están en el DOM y no se ven** («Built with AI Studio», «Meet your 24/7 AI Team»: `desktop-only mobile-only
+  tablet-hide`). El relevo del 11/11 decía que «ya no estaban»: están, escondidas en los tres anchos. Se mide el `display` de cada una.
+- **De su animate.css sólo quedan vivas dos entradas** (el título y la línea de la galería): las secciones del constructor llevan
+  `animation: none !important`. La galería atada al scroll se copió con su script entero; es progresiva (sin JavaScript la sección tiene
+  su alto normal: el alto de 3,2 × escenario lo pone la clase `is-vivo`) y el script borra los clones `[data-clone]` antes de armar,
+  porque `pulir.mjs` guarda el DOM con ellos.
+- **Qué va en cada marco, sin inventar:** las landings son las que arma Web Generator al elegir diseño + objetivo (`landingDesde`),
+  dibujadas con el render público y el documento de «Exportar → HTML» (`htmlDePagina` + `documentoExportable`) y fotografiadas: sin base,
+  sin IA, sin sesión. **Sin llenar, sus corchetes («[resultado concreto]») se leen como una página rota** (el coordinador, al verlas): van
+  llenadas con los textos de un negocio INVENTADO por objetivo, escritos a mano (`banco-web-generator-landing/rellenos.mts`). La
+  trampa: `landingDesde` suma bloques del diseño y de las herramientas de MaKo con SUS corchetes, y algunos viven en atributos (el
+  formulario, las opciones del quiz): un inventario de la plantilla sola no los ve. `generar.mts` recorre el árbol entero, texto y
+  atributos, y frena si queda uno en lo dibujado.
+- **El video del hero es el Panel REAL** (`Inicio`, `app/web-generator/Inicio.tsx`) compilado con esbuild en `banco-web-generator-landing/panel`:
+  la galería de diseños, «¿De qué quieres crearla?» y la landing que aparece. Tres trampas: `Inicio` arrastra `app/crm/actions.ts` y el
+  stub del banco del editor de Image buscaba su `ficha-datos.ts` (se apaga); la muestra de la galería (`plantillasDe`) también tenía
+  corchetes y se llena con un `onLoad` de esbuild que envuelve `landingDesde` (el Panel es el mismo, cambian los textos); y **una cámara
+  que corta la lista deja el clic afuera de la ventana sin ningún error**: el diálogo seguía abierto y la landing «no aparecía». El
+  cuadro de la cámara tiene que contener lo que se va a tocar, y `g.caja` ya descuenta la cámara puesta (sacarla para medir se ve como un
+  salto). La capa de la landing va por encima del portal del diálogo (la app navegaría al editor; el banco no).
+- **Una plantilla con agenda EXPORTADA no dibuja la agenda**: el bloque de Calendly/Cal.com entra vacío a propósito y en modo `exportar`
+  no sale nada (en el editor dice «Pega el enlace de tu agenda», `app/web-generator/editor/nodos/InsertadoVista.tsx`). La foto de «Agenda»
+  es esa sección y el formulario que sigue. Y quiz, venta directa, curso y gracias no tienen bloque `formulario`: «¿Para quién?» dibuja
+  sólo las plantillas que lo tienen, con SUS campos y su botón (`PLANTILLAS[].contenido()`).
+- **Una cabecera que miente (vive en el CRM, no en la landing):** `app/api/track/optin/route.ts` arranca diciendo «NO CREA EL LEAD:
+  DEJA UNA PROPUESTA», y más abajo el mismo archivo tiene el alta directa (pegar el Pixel ya declara la entrada, 04/10) y la propuesta
+  sólo como caída. Antes de afirmar en una landing qué pasa con el formulario, se lee el código, no la cabecera: «entra a tu CRM como
+  lead» es cierto.
+
+SIN HACER: su mascota; una landing que haya escrito la IA de MaKo desde una frase (el hero escribe un link y pasa la réplica); la agenda
+con un Calendly real; el editor de landings en el banco (después de crear, la app abre el editor: el banco muestra la landing con el render
+público).
+
+## Chats como Leadsales: el pie que «no cambiaba» sí cambia, y el sol y la luna no ve los `::before` ni la letra de una caja chica (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/whatsapp.tsx` (diseño, `PANTALLA_DE_PESTANA`, `RECORTES_DE_PIEZA` y el `<script data-visor>`),
+`app/vsl/_competencia/whatsapp.ts`, `public/vsl-assets/whatsapp/`, valores en `docs/diseno/landings-competencia/whatsapp.md` («Segunda
+mirada»), test «Chats: …» en `tests/vsl-landings-competencia.test.ts`. Bancos: `C:/dev/bancos-portada/banco-chats-landing/` (Chats real con
+`?ancho=`, `/api/chats/contacto`, `/etapa` y `/estado` contestados) y `banco-difusion-landing/` (la hoja «Mandar mensaje» real con sus
+acciones del servidor reemplazadas en el build). El relevo con capturas y videos: notas de la sesión, `referencias-landings/whatsapp/`.
+
+- **⚠️ El diagnóstico obvio era el equivocado: el documento del 11/11 decía «el pie de la figura no cambia».** Cambia por pestaña (cada panel
+  trae su `figcaption`), la tarjeta que flota va SÓLO en la primera y la pestaña elegida es la única con ícono (las otras van con rayitas).
+  La copia del 11/11 tenía una tarjeta en cada pestaña, íconos en todas y un pie fijo. **Regla:** el relevo de una galería mira cada
+  pestaña por separado, no la primera.
+- **Lo que el HTML trae y nunca se ve:** la tarjeta de la primera pestaña tiene una conversación debajo de sus cifras que un
+  `@container (max-width: 960px)` esconde siempre (su contenedor mide 601). Se mide con el navegador, no se lee del HTML.
+- **Lo que se mueve en Leadsales es poco** (`getAnimations()` en cada paso de la rueda): el brillo que recorre UNA vez el borde de la
+  insignia (4,5 s), la pared de logos (JavaScript, `scrollLeft` +28 px/s; no va: son sus clientes) y la órbita, que **se frena con el
+  mouse encima** (eso faltaba). La galería no avanza sola y nada aparece al bajar. Sus capturas son quietas: aquí corren grabaciones de
+  la app sólo mientras la galería se ve (como la Spy).
+- **⚠️ El sol y la luna no lee los pseudo-elementos** (`TemaSitio.tsx` → `leer()` recorre elementos): la columna resaltada de la tabla es
+  un `::before` y en oscuro quedaba CLARA mientras su texto pasaba a claro, ilegible. Lo pintado con `::before`/`::after` lleva su oscuro
+  escrito con `html[data-sitio-modo="oscuro"]`.
+- **⚠️ Una caja chica (menos de 480 × 140) con un degradado de tono medio es «un botón» para el sol y la luna** (`o.chico` en
+  `planDelModo`): su fondo se oscurece pero su letra NO cambia. La insignia del hero quedó con letra oscura sobre oscuro; un color
+  opaco no lo arregla (sigue «quieta»): su oscuro va escrito.
+- **Las rayas finas en `rgba(…,.1)` desaparecen en el claro** (lo de AI Avatar, otra vez): las de la tabla van opacas (`#DFE1E8`).
+- **Chats en un banco a 832 px no entra con el panel del contacto abierto**: el hilo queda de una palabra por renglón. El banco dibuja
+  la app más ancha con `?ancho=1100` (la cámara se ajusta sola). Y un mensaje que llega hasta el medio del hilo queda debajo de la
+  pastilla «Hoy» (pegada arriba): el primer mensaje del ejemplo va corto.
+- **Una acción del servidor en un banco**: el plugin de los bancos cambia todo `'use server'` por `async () => ({ ok: true })`; para la
+  hoja de difusión el build carga en su lugar `acciones-ejemplo.ts` (una columna de ejemplo de 24 leads) y la hoja se dibuja entera. Su
+  aviso del QR («puede hacer que WhatsApp bloquee el número») queda FUERA del recorte que va a la landing.
+
+SIN HACER: la pared de logos de clientes, los planes, la prensa y «Ver en YouTube» (MaKo no tiene ese contenido); la tercera columna de
+los testimonios (hay un solo caso); la tarjeta de la primera pestaña describe la bandeja de ejemplo de la grabación (4 canales, 9
+contactos, 3 sin leer), no un resultado: si Martín prefiere otra cosa, es el `TARJETA` del diseño.
+
+## CRM como GoHighLevel: el popup que tapó los hovers, el payload que dice cómo se mueve todo y el hero que el sol y la luna dejaba blanco sobre gris (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/crm.tsx` (diseño y `<script data-visor>`), `app/vsl/_competencia/crm.ts` (las listas de cada
+pestaña, `puntos`, nuevo en `tipos.ts`), `public/vsl-assets/crm/` (bancos `C:/dev/bancos-portada/banco-crm/grabar-landing.mjs` y
+`banco-crm-difusion/`), valores en `docs/diseno/landings-competencia/crm.md`, test «CRM: …» en `tests/vsl-landings-competencia.test.ts`.
+El relevo con capturas: carpeta de notas, `referencias-landings/crm/relevo.md`.
+
+- **⚠️ El primer relevo midió los hovers con el popup del video ABIERTO (el diagnóstico obvio era el equivocado): «no tiene hovers».**
+  Para ver qué hacía la imagen del hero, el relevo la tocó; su popup (`#overlay.show`, `position: fixed` sobre todo) no se cierra con
+  Escape, y los 70 hovers que vinieron después dieron «sin cambio» (sólo cambió el «Enable sound» del popup). Medidos en una página
+  limpia, 24 cambian: los botones de la barra suben 2 px, el del hero SÓLO brilla blanco, los oscuros cruzan su brillo en 0,6 s, las
+  tarjetas de testimonios suben 2 px. **Regla:** los hovers se miden en una página recién cargada, antes de abrir nada; un recorrido que
+  abre ventanas va al final o en otra página.
+- **Lo que se mueve está escrito en su payload de Nuxt, no en el CSS.** El HTML de `curl` trae `[["ShallowReactive",1],…]` (devalue):
+  desarmado (`crm-payload.mjs` del scratchpad) da cada elemento con su configuración: los contadores (`duration: 2000`, `startValue`,
+  `counterShowAnimationOnce`), el carrusel de testimonios (`interval: 3`, `pauseOnHover`, puntos `#9CA3AF`/`#E5E7EB`), la cinta (`ticker`)
+  y los popups con lo que tienen adentro (la imagen del hero abre un `c-video`; el de salida es un formulario de pago de dos pasos que
+  aparece con `showPopupOnMouseOut: exit`). La curva de los contadores se midió leyéndolos cada 40 ms: ease-out CUÁRTICO.
+- **La referencia cambió en tres días** (11 → 14/11): el hero ya no es un video sino una imagen de 660 × 530 que abre uno, los contadores
+  son otros y suben, cada pestaña trae una lista y un video, «What's included» es una tabla. El documento del 11/11 ya no alcanzaba.
+- **⚠️ El sol y la luna SÍ lleva al modo un degradado de fondo (`linear-gradient`) y deja la letra blanca: en el claro, el hero de /vsl/crm
+  quedaba gris claro con el titular blanco encima** (el diseño anterior tenía el mismo degradado sin `data-tema-fijo`: en producción,
+  probablemente igual). El tilde de Offer «no se toca» porque es un `url()`; un degradado CSS sí se toca. **Regla:** una sección con fondo de degradado y letra encima lleva `data-tema-fijo`; también la
+  caja negra de una ventana de video (en el claro pasaba a blanca).
+- **`pulir.mjs` reemplaza TODO iframe por el recuadro «▶ Video (se reproduce en la página real)»**, también el de una ventana escondida
+  sin `src`: en el visor la ventana del video muestra ese recuadro; en producción, el iframe de Panda recibe su `src` recién al abrirla.
+- **Una toma aprobada se puede volver a grabar con OTRO cuadro sin cambiar lo aprobado**: la de la portada es 16:10 y la imagen de su
+  hero 660 × 530; `object-fit: cover` cortaba la primera columna del tablero y el borde de la ficha. La misma toma con la ventana a
+  1200 × 964 (`grabar-landing.mjs`, sólo cambia `H`) y `TAM=960:770 codificar-bucle.sh` llena el cuadro sin cortar nada.
+- **El tablero del CRM ordena las columnas a su manera, no en el orden de `stages`**: en un banco, la columna que la toma necesita a la
+  vista va entre las primeras del embudo (pasada en tercer lugar, la de «No Show» quedaba cuarta, con su «⋯» fuera del cuadro de 1200).
+- **La hoja REAL de la difusión se graba sin base**: `HojaDifusion` pide a quién le llega con `prepararDifusionAction` (una acción del
+  servidor); el build del banco (`banco-crm-difusion/build.mjs`) la cambia por `window.__prepararDifusion` de la entrada, que arma la
+  vista con `alcanceDeMotivos` (puro, `lib/difusion-reglas.ts`). El «⋯» de la columna ofrece «Mandar mensaje de difusión» sólo con
+  `puedeCrearCrm` y leads en la columna (`difusionDeColumna`). El mensaje de WhatsApp de la hoja es un composer: Enter lo suma como
+  burbuja; sin Enter queda «Falta el mensaje de WhatsApp». Y la hoja es un modal casi de pantalla entera: acercarla «al centro» no
+  acerca nada; la cámara va a un PUNTO (la columna de a quién le llega, después el mensaje) con `translate` + `scale` desde su esquina.
+- **Los pósters de `sitio/chats.jpg` y `sitio/cobranza.jpg` son cuadros del MEDIO**, no el primero (como el de carruseles): la landing
+  usa los suyos (`crm/*-poster.jpg`); los de la portada quedaron como estaban.
+
+SIN HACER: la pestaña «Cerrar» va con el recuadro de lo que falta (la tarjeta que pasa sola a «Agenda R1» cuando agenda y la grabación
+enganchada en su ficha: hay que ver qué escribe en el historial el camino de Calendly); su robot, su comunidad, su app, sus precios, sus
+premios, su globo del chat y el formulario de su popup de salida (MaKo no los tiene; el popup va sin formulario, con el botón a /planes).
+
+## Agenda como iClosed: sus demos son líneas de tiempo que sólo se ven PARANDO en cada sección, y dos cámaras en la misma toma (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/agenda.tsx` (diseño, `VISTAS_HERO`, `PANTALLA_DE_PESTANA`, `FOTO_DE_TARJETA` y el
+`<script data-visor>`), `app/vsl/_competencia/agenda.ts`, `public/vsl-assets/agenda/`, valores en `docs/diseno/landings-competencia/agenda.md`.
+Banco: `C:/dev/bancos-portada/banco-agenda-landing/` (`entrada.tsx` con escenas `crm`, `vincular`, `llamadas`, `whatsapp`, `tarjeta`,
+`lienzo`; `grabar.mjs`, `fotos.mjs`, `cortar.sh`). El relevo con capturas: notas de la sesión, `referencias-landings/agenda/`.
+
+- **⚠️ El documento del 11/11 ya no servía: iClosed cambió entero.** El hero era una captura y ahora es una DEMO en HTML de dos vistas
+  («Scheduler» → «Unified Inbox») con su pastilla; hay secciones nuevas y el título es otro. Cada sección es un componente de código de
+  Framer con su `<style>` DENTRO del HTML (prefijo por sección: `icnhap`, `icpt`, `icft`, `icpb`…): partido por `<style>`, da las
+  medidas, los `@keyframes` y los cortes (por contenedor, a 1279 y 809) sin abrir un navegador. Lo que esos estilos no dicen —cuándo
+  pasa cada cosa— vive en el JavaScript de Framer.
+- **⚠️ Lo obvio era lo equivocado: el scroll lento no ve las demos.** Bajando 90 px cada 110 ms una sección pasa en menos de un segundo y
+  `getAnimations()` sólo ve el principio de su línea de tiempo. Con una PARADA de 7 s al principio de cada sección aparecieron: la
+  barra de cada pestaña que se llena sola (`transition: width 12000ms linear`, escrita en línea por su script), la lista que se marca de
+  a un renglón, el contador de la banda oscura, la ventana que sube en cada tarjeta del producto. Y cero `<video>`: todo lo que «parece
+  video» es HTML animado. **Regla:** en una referencia con demos armadas, el relevo para en cada sección (`scripts/relevar.mjs`).
+- **Las transiciones de la demo del hero se copiaron tal cual** (la vista que sale: `scale(.97)` con origen 32 % 42 %, 500/550 ms; la
+  que entra: 450 ms; la pestaña de ,5 a 1 en 420 ms; la pastilla 360 ms) y lo de adentro es la app grabada: la reserva de Calendly que
+  cae sola en «Agenda R1» y la confirmación por WhatsApp de la toma de Automations. Las pestañas de «Mantén los mismos funnels» avanzan
+  con la duración de SU grabación (no los 12 s de iClosed: una grabación de 5,6 s no llena 12).
+- **Dos cámaras en la misma toma.** El menú «⋯» de una etapa se abre bien con la cámara en `#camara` (un contenedor), pero el modal de
+  «Vincular evento» va en un portal fuera de él: la cámara del contenedor no lo acerca. Se graba la primera parte con `#camara` y, ya
+  abierto el modal, se pone `#camara` a 1 y se acerca con la del `body` (`g.camara` de `grabador.mjs`), con transición para que no salte.
+- **La tarjeta de la reunión no tiene estilo sola:** `TarjetaReunion` no trae su CSS; lo pone `ReunionesParaPreparar`, que además pide
+  `contextoDeReunionesAction` (en el banco devuelve `porLead: {}`). Y «cuánto falta» sale de `Date.now()`: para que diga «R1 · 15:00 ·
+  Empieza en 5 min» la foto se toma con `page.clock.install` y `timezoneId` de Buenos Aires.
+- **Un reemplazo del build que no se aplica no avisa.** En el plugin de esbuild de un banco, `a.path` trae barras invertidas en Windows:
+  la regex `crm[\/]archivo` (la barra invertida se perdió dos veces pasando por Python) no coincidía y el banco usó el reemplazo genérico
+  de las acciones del servidor (`{ ok: true }`), que rompió la tarjeta sin un error del build. Se escribe `[\\/]` con el editor y se
+  comprueba con `grep`.
+- **«La etapa y la reunión van juntas», mirado en el código antes de prometerlo:** la reserva del evento vinculado cae en esa etapa de
+  ese funnel (`lib/agenda-evento-etapa.ts`), la R2 se suma al lead que ya existe y nunca crea otro (webhooks), mover a mano a una etapa
+  de reunión pide la fecha (`pideWizardAlElegir`, `app/crm/mover-etapa.ts`) y la tarjeta del tablero muestra «Agenda · jue 15:00».
+  El tablero NO anima una tarjeta nueva (aparece con la lectura siguiente): el destello de la grabación es sólo del banco.
+- **«Drops into the stack you already have», sólo con lo que toca la agenda:** Calendly y Cal.com (los webhooks), Meta (el webhook de
+  Calendly le manda el «Schedule»: `lib/meta-schedule-pagina.ts`) y los grabadores de reuniones (`lib/grabadores`). La marquesina lleva
+  los logos de `public/vsl-assets/logos/integraciones/` (sin TikTok: su archivo es de 32 px).
+
+SIN HACER: lo que iClosed muestra y MaKo no tiene (la barra del anuncio, las caras con su globo y el G2, las citas, la pared de logos,
+la pestaña «AI Agent», «You already follow them», el contador en dólares, «Coaches, agencies, creators», «Build on iClosed», «Book a
+5-min demo»); la marquesina de reseñas y el carrusel de casos (hay un solo caso y sus párrafos no son citas: van quietos).
+
+## Cobranza como Rebill: sus scripts vienen en el HTML, el sol y la luna oscurecía la sección clara en el modo de NACIMIENTO, y lo que la plantilla de cobranza NO manda sola (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/cobranza.tsx` (diseño, `HERO_GRUPOS`, `PANTALLAS_PIEZAS`, `SDK_*` y el `<script data-visor>`),
+`app/vsl/_competencia/cobranza.ts` (`DETALLE_CIFRAS`, `DISPAROS_COBRANZA`), `public/vsl-assets/cobranza/`, valores en
+`docs/diseno/landings-competencia/cobranza.md`, test «Cobranza: …» en `tests/vsl-landings-competencia.test.ts`. Bancos:
+`C:/dev/bancos-portada/banco-cobranza-landing/` (la ficha REAL con `LeadEditModal` en Pagos: Paula con cuotas, `?sus=1` Tomás con una
+suscripción; `grabar.mjs`, `fotos.mjs`) y `banco-cobranza-flujo/` (el lienzo de Automations con «Una Cuota Venció»). El relevo: carpeta de
+notas, `referencias-landings/cobranza/relevo.md`.
+
+- **⚠️ Rebill ya no es Webflow (el documento del 11/11 decía Webflow y cuatro preguntas): es un clon en Astro** con las clases de Webflow y
+  el `<script>` de CADA sección en el HTML (`curl` lo trae; Cloudflare no frena). Ahí estaban los números exactos de lo que se mueve: el hero
+  que rota cada 4 s, las dos secciones pegadas de 600 alturas (sus cortes 0,16 / 0,22 / 0,4; 0,3 / 0,4 / 0,8 / 1,5 / 2,5 pantallas), el
+  giro de Make cada 1,5 s y las preguntas que crecen a 1,35 contra 0,825. **Regla (la de HighLevel, otra vez):** antes de mirar, leer los
+  `<script>` del HTML servido; el navegador confirma (`getAnimations` + las clases que cambian en cada paso del scroll).
+- **⚠️ El sol y la luna aplica el modo de NACIMIENTO al cargar, aunque nadie haya elegido** (`aplicar(p || base)` en `TemaSitio.tsx`): en
+  una landing que nace oscura, la sección CLARA de la referencia («Historias de clientes», `#FAFAFA`) salía negra en la vista por defecto.
+  No es sólo el modo elegido (lo de Ads y Offer): es lo que ve todo el mundo. Va con `data-tema-fijo`; y la respuesta blanca de las
+  preguntas, también.
+- **Un `<image>` de SVG no lo reescribe el visor** (sí el `src` de un `<img>`): los logos de la órbita salían rotos en la foto y bien en
+  producción. Los logos van como `<img>` encima del SVG, en % de su caja.
+- **⚠️ «Notificaciones… permitiendo que el cliente actualice su método de pago» NO se puede prometer como algo que sale solo:** la plantilla
+  «Le Rechazaron el Pago» le prepara el WhatsApp al cliente con `revisar: true` («la plata y lo sensible, para aprobar»,
+  `lib/plantillas-automatizaciones.ts`), y «Una Cuota Venció» avisa al GRUPO del negocio, nunca al cliente. La pieza dice eso y la
+  grabación es la de la cuota vencida (2 días, 3 días: como lo muestra el lienzo).
+- **El banco de la ficha:** `LeadEditModal` con `focus="plan-pagos"` abre la ficha REAL en Pagos sin pasar por el tablero; `crearCobroAction`
+  y `monedasCobroAction` contestados en el build (el link es el de MaKo, `/pagar/<token>`, inventado); `marcarPagoManualAction` prende
+  `window.__pagada` y la ficha que se relee ya trae la cuota cobrada («Pagó todo»). Con la cámara en la caja de un texto, **subir hasta el
+  alto del modal entero**: con la caja de «Monto (USD)» el botón «Guardar el pago» quedaba fuera de la ventana y el clic no pasaba, sin
+  error (la toma se colgaba esperando «Pagó todo»).
+- **Un panel se busca por el ÚLTIMO texto que coincide:** «Paula Romero» está en la tarjeta del tablero (detrás) y en la ficha; con el
+  primero, la foto salía de 4412 px de ancho.
+- **Del CRM (no de la landing; vive en `app/crm/lead-view/ficha/pagos/bloques-cobro.tsx` y `app/crm/[id]/CobrarConLink.tsx`): tres formatos
+  de plata en la misma pantalla.** La cuota pendiente se dibuja editable (`EnLinea` con `String(Number(q.monto_usd))`) y dice «$1000»; las
+  cobradas y el estado de cuenta, «$1,000»; el asistente del link, «US$ 1.000» (`formatoMonto`). No se tocó.
+
+SIN HACER: la franja de logos de clientes con «Leer historia» y «Respaldado por» (MaKo no tiene ese contenido); los otros cinco casos del
+carrusel y sus puntos (hay uno); la «captura del comprobante» leída por la IA (necesita la IA del negocio: el banco no la dispara); el
+`tsc` acotado no se corrió (el diseño arrastra el registro entero, ver «/vsl/ads contra Master Ads»).
+
+## Email como beehiiv: su portada es una prueba A/B por cookie, la × invisible se comía el «+» y las preguntas que «animaban» abren de golpe (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/email.tsx` (diseño, `HERO_EMAIL`, `PANTALLA_DE_TARJETA`; todo CSS, sin script),
+`app/vsl/_competencia/email.ts` (las seis tarjetas con su cara de atrás: `meta` y `puntos`), `public/vsl-assets/email/` (banco
+`C:/dev/bancos-portada/banco-email-landing`: `build.mjs`, `fotos.mjs [oscuro]`, `recortar.py` + `imagenes.json`), valores en
+`docs/diseno/landings-competencia/email.md`, test «Email: …» en `tests/vsl-landings-competencia.test.ts`. El relevo con capturas: carpeta
+de notas, `referencias-landings/email/relevo.md`.
+
+- **⚠️ El diagnóstico obvio era el equivocado: «la referencia cambió».** El primer recorrido con Chromium dio otra página entera («Stand
+  out in the inbox», «No code. No limits.») y un `curl` del mismo minuto, la de siempre («Everything you need…»). No cambió: beehiiv sirve
+  DOS portadas por la cookie `eid44_homepage_variant` (`control` y `variant_1`, la que copia /vsl/email). Se mide con la cookie puesta
+  (`ctx.addCookies` antes del `goto`, más `…_amp_eval_cache=1`). **Regla:** si el navegador y `curl` ven páginas distintas, buscar en el
+  HTML la palabra `Variant`/`experiment` y en las `Set-Cookie` la que la elige antes de concluir que la referencia cambió.
+- **Su CSS anima las preguntas y no se ven animar.** Cada respuesta tiene `transition-[max-height] duration-300`, y medido cada 40 ms el
+  alto salta en el primer cuadro (sólo gira la flecha, ,3 s). La primera versión de la copia agregaba un script para animar el alto: se
+  sacó. Pueden quedar varias abiertas. Lo que se mueve en esta landing es todo CSS: el fundido del hero (sus `@keyframes` tal cual),
+  las tarjetas que se dan vuelta y los hovers.
+- **⚠️ Una × invisible encima del «+» se comía el toque.** La cara de atrás (con `pointer-events: none` mientras está apagada) tenía su ×
+  con `pointer-events: auto` propio, en el mismo lugar que el «+»: tocar el «+» tocaba la × invisible, que «cerraba» una tarjeta cerrada.
+  Un `auto` escrito en el hijo le gana al `none` de la capa. **Regla:** en una capa apagada con `pointer-events: none`, los hijos heredan;
+  el `auto` va sólo en lo que está a la vista. Lo encontró la prueba de tocar cada «+» (`modos-nuestra.mjs`), no la captura.
+- **`:has()` suma la especificidad de lo que tiene adentro.** `.fila:has(> .tile > .radio:checked) > .tile { flex-grow: 1 }` (5 clases)
+  le ganaba a `.fila > .tile:has(> .radio:checked) { flex-grow: 2 }` (4): dada vuelta, las dos tarjetas quedaban del mismo ancho. La
+  regla de la tocada repite el `:has` de la fila.
+- **El visor reescribe `src` y no `srcset`** (como el `data-src` de los tableros): un `<picture>` con `<source>` del teléfono quedaba
+  roto en el visor. Van dos `<img>` y el CSS muestra una por ancho.
+- **El campo de fecha de un banco sale en inglés aunque el contexto diga `es-MX`**: el `datetime-local` de Chromium headless sigue el
+  idioma del NAVEGADOR (`--lang=es-MX` al lanzar), no el `locale` de la página («mm/dd/yyyy» en una pantalla en español).
+- **Un módulo del servidor en un banco**: `lib/email-marketing.ts` arrastra Supabase y Resend; el build del banco compila SÓLO sus listas
+  (`ETAPAS`, `TRIGGERS`, `SEGMENTOS`) recortándolas del archivo real, así los nombres de la pantalla salen del código. El test busca en
+  ese archivo cada disparador y cada segmento que nombra la landing.
+
+SIN HACER / para decidir: las dos cintas de clientes de «Trusted by names you know» (fotos y cifras de sus clientes, que se frenan con el
+mouse), sus planes, las flechas y el «Read the story» de sus 25 citas, «The numbers tell the story», su cinta de logos y su botón flotante
+(MaKo tiene un solo caso y ningún precio a mano; si Martín quiere las cintas con el caso de Mauricio —14k, 20k, +40k—, es sumar el caso
+en un lugar nuevo y lo decide él). Con el sol y la luna en claro, las tarjetas, la cita y la caja del cierre quedan oscuras
+(`data-tema-fijo`). En las tarjetas angostas «Escribe con MaKo» y «Cuida tu envío» queda aire abajo de la pantalla (para que entre el
+botón «Generar con MaKo» y la confirmación sin cortarse).

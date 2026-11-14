@@ -2,6 +2,14 @@
 
 Área: `app/ads-manager/` y `lib/media-buyer/`. Pedido de Martín, 6/11/2026. Relevo: `docs/relevo/nube-marketing-copilot.md`.
 
+## Dos ramas, el mismo nombre para dos cosas: `pilotoRedes` (14/11/2026, al unir los candados de planes con main)
+
+La rama de landings le pasaba a CoPilot `pilotoRedes: boolean` (¿el plan trae el piloto de Instagram y YouTube?) y main, con el piloto
+nuevo de copilot-maqueta, `pilotoRedes` como la CONFIGURACIÓN de ese piloto. El merge chocó en cinco archivos y, tomando cualquiera de
+los dos lados, el otro quedaba roto en silencio (un booleano donde se espera un objeto). Quedó: `redesPermitidas` para el plan y
+`pilotoRedes` para la configuración; el candado cubre también `guardarPilotoRedes`, que trajo main sin él. **La regla:** al unir un
+candado con una función que creció en otra rama, buscar las puertas NUEVAS de esa función (acá, guardar la configuración de las redes).
+
 ## Renombrar una tab: el rótulo se cambia, la key no
 
 - **Síntoma:** al llamarla «Marketing CoPilot» el primer intento rompía `guia-catalogo` («Entra a Ads Manager» en `lib/mako-capacidades.ts`), `sidebar-nueva` y las listas de More.

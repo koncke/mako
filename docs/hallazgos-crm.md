@@ -20,6 +20,11 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Hueco del tope de tableros: Classroom crea CRMs sin preguntar (14/11/2026, visto cerrando Classroom)
+
+«Nuevo producto» de Classroom y Clients (`crearServicioAction`, app/customer-success/actions.ts) y «Duplicar» (`duplicarPrograma`,
+lib/curso-duplicar.ts) crean un embudo con `crearProductoConFunnel` SIN preguntar el tope `crm.funnels`: un Esencial puede crear CRMs sin
+límite desde Classroom. No se arregló (es del área CRM). Es el mismo hueco que el relevo del 14/11 vio en `lib/producto-con-funnel.ts`.
 ## «Asignar fuentes»: los formularios de Web Generator entran a un funnel desde el CRM (14/11/2026, claude5)
 
 Martín le dijo a Julio que en «Asignar campañas» aparecían los formularios activos, y no aparecía nada: sólo Meta. Ahora el ⋯ de la
@@ -12108,3 +12113,10 @@ por OTRA página, sin `visitor_id`, tenía el bloque de visitas callado (`sinCom
 - La ventana es 30 días, o desde una semana antes de que entrara si es más viejo (el Pixel pudo estar y sacarse después).
 
 **Sin hacer:** la lista de páginas del negocio con su estado de Pixel en /integraciones (el 4 opcional del relevo de la llamada).
+
+## La misma plata se escribe de tres formas en la ficha: «$1000», «$1,000» y «US$ 1.000» (14/11/2026, SIN ARREGLAR)
+
+Lo vio la tarea de la landing de Cobranza al grabar la ficha en Pagos (docs/hallazgos-landing.md → «Cobranza como Rebill»): en la
+misma pantalla conviven tres formatos para un monto. Viven en `app/crm/lead-view/ficha/pagos/bloques-cobro.tsx` y
+`app/crm/[id]/CobrarConLink.tsx`, cada uno con su propio formateo. **Lo que queda por hacer:** un solo formateador de montos (moneda +
+separador de miles del idioma) para toda la ficha, y un test que mire que la ficha no mezcle formatos.

@@ -23,8 +23,13 @@ Para el que arranca solo y quiere vender con un embudo.
 - **Ops Center con MaKo**, con su IA (Claude, GPT o Gemini), su Ticketera y una computadora conectada.
 - **CRM:** 1 funnel, hasta 2.000 leads, con «Traer de un grupo de WhatsApp» y «Traer de otro funnel».
 - **Chats:** 1 línea de WhatsApp más Instagram, en una sola bandeja.
-- **Automations:** hasta 3 automatizaciones activas, con Anti-ban y horario de oficina.
-- **Web Generator:** hasta 3 landings publicadas en su dominio, con el Píxel de Meta.
+- **Automations:** hasta 2 automatizaciones activas, con Anti-ban y horario de oficina. **Sin setter con IA** (lo que le contesta
+  solo a un lead: es de Pro desde el 14/11/2026; «Para aprobar» y «Sólo te avisa» siguen abiertos).
+- **Web Generator:** 1 landing publicada, con el Píxel de Meta. **Sin dominio propio** y sin copiar landings de otro negocio (Pro).
+- **Competitor Spy:** 1 competidor. **Classroom:** 1 curso; la comunidad es de Pro.
+- **Image y Video:** los editores, sin la IA (edición automática, B-roll con IA, clips mágicos y los chats con IA son de Pro).
+- **Marketing CoPilot:** 2 recomendaciones por día; los tres pilotos automáticos (anuncios, Instagram y YouTube) son de Pro.
+- (14/11/2026, Martín: «seas más limitado en el de 47». Los números viven en lib/topes-plan.ts, y la tabla de /planes los lee.)
 - **Calendar y Plan**, con las reuniones de Fathom pasadas a tareas.
 - **Cobros:** 1 cuenta de Stripe o Mercado Pago, con «Vincular cobro».
 - **Offer:** arma su oferta con MaKo.

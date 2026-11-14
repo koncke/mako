@@ -14,7 +14,7 @@
 //   7. el velo de la pregunta: sólo con la marca ADENTRO de un chat, y con el aro en ella;
 //   8. el modo simple es EN POSITIVO, la barra y la fila de pestañas lo leen, y la pestaña abierta no se esconde;
 //   9. el cableado: el chat del editor lleva el hueco del velo y monta la guía; lo de siempre calla sólo MIENTRAS MaKo pregunta;
-//      AI Avatar sigue como fila de Create mientras Video sea sólo de Pro (Esencial no tiene otra puerta al personaje);
+//      AI Avatar sigue como fila de Create (fuera de la barra); Video es de los dos planes desde el 14/11/2026 (su IA, de Pro);
 //  10. «el inicio» del editor es la lista de proyectos (`?ver=crear`), no los outliers, y «Replicar» no arma dos proyectos.
 //
 // Correr: node --import tsx --test tests/video-tab.test.ts
@@ -374,15 +374,17 @@ test('9. el cableado: el chat del editor lleva el hueco del velo y monta la guí
   assert.match(guia, /for \(const (\w+) of \w+\.warnings \?\? \[\]\) toast\.error\(\1\)/);
   // AI Avatar FUERA DE LA BARRA desde el 11/11/2026: Martín, «[AI Avatar] no debería estar, eso ya lo hablamos muchas veces». El
   // ítem queda (`fueraDeLaBarra`, su key es contrato) y la RUTA SIGUE: la abren «Tu personaje con IA» de Video y los botones de la
-  // biblioteca de anuncios, la guía de video, los carruseles y el CoPilot. Mientras Video sea sólo de Pro, ésas son las puertas de
-  // un Esencial a su personaje: si la ruta redirigiera a Video, un Esencial se quedaba sin ninguna.
+  // biblioteca de anuncios, la guía de video, los carruseles y el CoPilot.
+  // VIDEO ES DE LOS DOS PLANES desde el 14/11/2026 (Martín: «el editor de imágenes y editor de videos sí deberían estar disponibles
+  // para la versión de 47»): un Esencial entra a Video, y lo de Pro es su IA (lib/editores-ia-pro.ts,
+  // tests/editores-ia-solo-pro.test.ts). Hasta ese día esto exigía que /ai-avatar no mandara a Video «mientras Video sea sólo de Pro».
   const create = FAMILIAS.find((f) => f.key === 'create');
   const items = (create?.bloques ?? []).flat();
   assert.ok(items.some((it) => it.key === 'video-editor'));
   const avatar = items.find((it) => it.key === 'ai-avatar');
   assert.ok(avatar, 'el ítem de AI Avatar sigue: su key es contrato');
   assert.equal(avatar?.fueraDeLaBarra, true, 'y no se dibuja');
-  if (NAV_SOLO_PRO.has('video-editor')) assert.doesNotMatch(leer('app/ai-avatar/page.tsx'), /redirect\([^)]*video-editor/,'Video es sólo de Pro: /ai-avatar no puede mandar a Video');
+  assert.equal(NAV_SOLO_PRO.has('video-editor'), false, 'Video volvió a ser sólo de Pro: un Esencial rebota de la tab entera');
 });
 
 test('10. «el inicio» del editor es la lista de proyectos, y «Replicar» no arma dos', () => {

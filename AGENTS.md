@@ -12400,3 +12400,14 @@ deformó un ojo y la foto de la mano.
 
 Se combina con la regla de no encadenar generaciones: cada pieza se perfecciona en su propia cadena
 corta, y la unión es **una sola** edición.
+
+## Lo que /planes vende como de Pro tiene su candado EN EL CÓDIGO y un test que lo encuentra (14/11/2026)
+
+Closing se vendió como de Pro desde el 23/10 y nada lo frenaba; la tabla prometía «subtítulos» de Pro y seguían abiertos. Por eso:
+- Toda fila `soloPro` o tope de lib/planes-comparacion.ts sale de lib/topes-plan.ts (`TOPES`, `TABS_SOLO_PRO`, `FUNCIONES_SOLO_PRO`), y
+  su candado vive en el SERVIDOR (cada ruta y operación de la API de MaKo que haga la cosa) y en la pantalla, con `textoSoloPro`.
+- El candado se busca por lo que la función HACE, no por su nombre (Replicar tenía una cuarta puerta en `/api/landing-generator/ia`).
+- En el navegador, un 403 de Pro se reconoce por `pasarAPro` (`esRespuestaSoloPro`, app/_components/solo-pro.ts), nunca sólo por el status.
+- Lo que le contesta SOLO a un lead con IA (el setter) se pregunta con `tieneSetterIA` / `sumaSetterIA` (lib/setter-ia-reglas.ts), nunca
+  mirando `paso_ia` a mano; lo que crea MaKo pasa por `guardarSinSetterSiFrena`.
+- Un tope en 0 es «no lo trae»: la tabla lo dibuja vacío y el freno dice que es de Pro (`pidePasarAPro`, lib/editor-landing/tope-landings.ts).

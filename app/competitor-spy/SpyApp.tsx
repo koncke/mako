@@ -105,6 +105,7 @@ import { EntradaFicha, cajaDelCentro, centroDe, type Caja, type FaseEntrada } fr
 import { quieto } from './precarga';
 import { canalesALeer, sumarPasos, type PasoLectura } from '@/lib/spy-lectura-pasos';
 import { BuscadorAlta } from './BuscadorAlta';
+import { PasarAPro } from '../crm/PasarAPro';
 import { Flecha, GrillaPiezas } from './GrillaPiezas';
 import { MejoresPiezas } from './MejoresPiezas';
 import { Seguidos } from './Seguidos';
@@ -988,6 +989,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [aBorrar, setABorrar] = useState<Competidor | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [errorModal, setErrorModal] = useState<string | null>(null);
+  /**
+   * El error de sumar uno que es el TOPE DEL PLAN (14/11/2026: Esencial suma un competidor, lib/spy-tope-reglas.ts). Se guarda
+   * el TEXTO y no un sí/no: «Pasar a Pro» sale sólo mientras el error que se ve sea ese, y no queda pegado a otro error después.
+   */
+  const [errorConPro, setErrorConPro] = useState<string | null>(null);
   /** Lo que trajo la búsqueda de sus otras redes, por competidor. Lo dudoso vive en la sesión: nunca se guarda sin el «Es». */
   const [redes, setRedes] = useState<Record<number, BusquedaDeRedes>>({});
   /** Los canales recién sumados que se están trayendo: su pastilla dice «Trayendo…» hasta que lleguen sus piezas. */
@@ -1438,7 +1444,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     setOcupado(true); setError(null); setErrorModal(null);
     try {
       const r = await sumarCompetidorAction(valor, nombre, deLaBio);
-      if (!r.ok) { setError(r.error); setErrorModal(r.error); return null; }
+      if (!r.ok) { setError(r.error); setErrorModal(r.error); setErrorConPro(r.pasarAPro ? r.error : null); return null; }
       return r.id;
     } finally {
       setOcupado(false);
@@ -1458,7 +1464,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     setOcupado(true); setError(null);
     try {
       const r = await sumarSugeridoAction(sug.id);
-      if (!r.ok) { setError(r.error); return; }
+      if (!r.ok) { setError(r.error); setErrorConPro(r.pasarAPro ? r.error : null); return; }
       setSugeridos((v) => v.filter((x) => x.id !== sug.id));
       await recargarLista();
       irA(r.id);
@@ -1814,7 +1820,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
             destino={destinoDeEntrada} onFin={() => setEntrada(null)}
           />
         )}
-        {!c && error && <p className="spy-aviso spy-error">{error}</p>}
+        {!c && error && <p className="spy-aviso spy-error">{error}{error === errorConPro && <> <PasarAPro /></>}</p>}
 
         {/* ⚠️ SIN AVISO DE LA COLA DE CARICATURAS (12/11/2026). Hubo un renglón para el super admin, «Las caricaturas no se
             están haciendo: la que más espera lleva 2 d en la cola. Las hace el Runner con Canva». Martín: «hay un texto
@@ -1926,7 +1932,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
             </nav>
 
             {/* Lo que falló al apretar algo se dice acá. El vacío «no pude» ya lo trae entre sus motivos. */}
-            {error && !(activa === 'contenido' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}
+            {error && !(activa === 'contenido' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}{error === errorConPro && <> <PasarAPro /></>}</p>}
 
             {/* ── Pestañas de la referencia: 42 px, subrayado del acento y el conteo en una badge.
                  Vuelven a tener fila propia —la vuelta anterior las había metido entre los chips de
@@ -2130,6 +2136,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       {modal === 'alta' && (
         <BuscadorAlta
           textoInicial={textoAlta} competidores={competidores} ocupado={ocupado} error={errorModal}
+          pasarAPro={errorModal != null && errorModal === errorConPro}
           onClose={() => setModal(null)}
           onAgregar={(v, n, bio) => void alta(v, n, bio)}
           onAbrir={(id) => { setModal(null); irA(id); }}

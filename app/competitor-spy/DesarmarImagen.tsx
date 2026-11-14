@@ -8,11 +8,16 @@
 // réplica de Image (/api/image-editor/carruseles/replicar) con eso como pedido y abre el diseño: el texto queda editable y la
 // imagen se regenera con IA (la regla de los carruseles; nunca se entrega por partes ni recortada). «Hacer uno así», al lado en
 // el pie de la caja, lo lleva a Copywriting.
+//
+// «Replicar en Image» es editar con IA: SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts). Un Esencial ve el candado con «Pasar
+// a Pro» en el lugar del botón. Desarmar (mirar la pieza) es de Competitor Spy y queda abierto.
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
+import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
 import { pedidoDeDesarmeImagen, type DesarmeImagenGuardado } from '@/lib/imagen-desarmar';
 import d from '@/app/video-editor/desarmar.module.css';
 
@@ -33,6 +38,7 @@ export function DesarmarImagen({ piezaId }: { piezaId: number }) {
   const [trabajando, setTrabajando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [replica, setReplica] = useState<string | null>(null);
+  const soloPro = useSoloPro('ia-editores');
   const montado = useRef(true);
   useEffect(() => () => { montado.current = false; }, []);
 
@@ -70,8 +76,10 @@ export function DesarmarImagen({ piezaId }: { piezaId: number }) {
       });
       if (!r.ok || !r.body) {
         const j = (await r.json().catch(() => null)) as { error?: string } | null;
-        setError(r.status === 403 || r.status === 404 ? 'Tu plan no incluye Image.' : j?.error ?? 'No pude armarlo en Image.');
         setReplica(null);
+        // El candado de Pro (la IA de Image) no es «tu plan no incluye Image»: Image es de los dos planes. Se dibuja el candado.
+        if (r.status === 403 && esRespuestaSoloPro(j)) { marcarSoloPro('ia-editores'); return; }
+        setError(r.status === 403 || r.status === 404 ? 'Tu plan no incluye Image.' : j?.error ?? 'No pude armarlo en Image.');
         return;
       }
       const lector = r.body.getReader();
@@ -118,7 +126,9 @@ export function DesarmarImagen({ piezaId }: { piezaId: number }) {
           <div className={d.acciones}>
             {replica
               ? <p className={d.vivo} role="status" aria-live="polite"><i aria-hidden />{replica}</p>
-              : <button type="button" className={d.boton} onClick={() => void replicar()}>Replicar en Image</button>}
+              : soloPro
+                ? <CandadoSoloPro funcion="ia-editores" />
+                : <button type="button" className={d.boton} onClick={() => void replicar()}>Replicar en Image</button>}
           </div>
           {x.paleta.length ? (
             <div className={d.bloque}>

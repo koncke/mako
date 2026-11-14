@@ -68,19 +68,24 @@ export function listaCorta(capa: string): { titulo: string; items: string[] } {
   const c = TOPES.completo, a = TOPES.agencia;
   if (capa === 'agencia') {
     return { titulo: 'Todo lo de Esencial, más:', items: [
-      'Contactos, páginas y seguimientos sin tope',
-      'MaKo aplica las mejoras de tus anuncios',
-      'Qué mejorar en cada llamada de venta',
-      'Editor de video y de imágenes',
+      'Leads, landings y automatizaciones sin tope',
+      'Setter con IA',
+      'Piloto automático de ads, Instagram y YouTube',
+      'Competidores sin tope y copiar sus landings',
+      'Edición con IA',
+      'Análisis de llamadas con IA',
+      'Comunidad y dominio propio',
       `${n(a['chats.lineas_whatsapp'])} WhatsApp y ${n(a['equipo.usuarios'])} personas de tu equipo`,
     ] };
   }
   return { titulo: 'Incluye:', items: [
     'Tu asistente con IA',
-    `Hasta ${n(c['crm.leads'])} contactos`,
+    `Hasta ${n(c['crm.leads'])} leads en tu CRM`,
     `${n(c['chats.lineas_whatsapp'])} WhatsApp e Instagram`,
-    `${n(c['automations.activas'])} seguimientos automáticos`,
-    `${n(c['web.landings_publicadas'])} páginas de venta`,
+    `${n(c['automations.activas'])} automatizaciones activas`,
+    `${n(c['web.landings_publicadas'])} ${c['web.landings_publicadas'] === 1 ? 'landing' : 'landings'}`,
+    `${n(c['spy.competidores'])} ${c['spy.competidores'] === 1 ? 'competidor' : 'competidores'} en tu radar`,
+    'Editor de imágenes y de video',
   ] };
 }
 

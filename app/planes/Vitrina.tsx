@@ -22,7 +22,7 @@ import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, planConPrueba, type PlanMako } from '
 import { GRUPOS_DE_LA_TABLA, celdaDeCapa, filasDeComparacion, nombreCorto, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
 import { CSS_TARJETAS, TarjetasPlanes, type PlanEnTarjeta } from './Tarjetas';
-import { TOPES_PRUEBA } from '@/lib/topes-plan';
+import { CSS_TOKENS, CalculadoraTokens } from './CalculadoraTokens';
 
 /** La hoja de la vitrina. La usa también la landing de venta, que dibuja la misma comparación (`CompararPlanes`). */
 export const CSS_VITRINA = `
@@ -106,7 +106,7 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
   }));
   return (
     <main className="planes-root">
-      <style dangerouslySetInnerHTML={{ __html: CSS_PLANES + CSS_TARJETAS + CSS_VITRINA }} />
+      <style dangerouslySetInnerHTML={{ __html: CSS_PLANES + CSS_TARJETAS + CSS_VITRINA + CSS_TOKENS }} />
       <div className="planes-wrap planes-ancho">
         <header className="planes-cabeza">
           <div className="planes-marca">MaKo</div>
@@ -118,6 +118,8 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
         <TarjetasPlanes planes={planes} sufijo={sufijo} promoVigente={promoVigente} />
 
         <CompararPlanes planes={planes} sufijo={sufijo} />
+
+        <CalculadoraTokens />
 
         {/* LAS MISMAS PREGUNTAS DE LA PORTADA (Martín, 14/11/2026: «si vas a poner en otros lugares preguntas frecuentes, tienen que ser
             siempre las mismas que están en la landing principal»): PREGUNTAS_SITIO, app/vsl/_sitio/datos.ts. */}

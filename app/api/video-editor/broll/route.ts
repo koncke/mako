@@ -21,8 +21,12 @@
 // Esta ruta no escribe nada: el proyecto vive en el navegador, y lo que se propone lo acepta la persona en el editor.
 //
 // La puerta es la de /api/video-editor/ia (la prueba 1d de tests/video-editor-integracion.test.ts lo exige).
+//
+// SÓLO MaKo Pro, `elegir` (14/11/2026, lib/editores-ia-pro.ts): que la IA elija las imágenes es editar con IA; un Esencial
+// recibe el 403 con `pasarAPro`. `pexels`, `buscar` y bajar la foto o el video no usan IA: quedan abiertos.
 
 import type { NextRequest } from 'next/server';
+import { candadoIaDeEditores } from '@/lib/editores-ia-pro';
 import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { veEditorVideo } from '@/app/video-editor/acceso';
@@ -77,6 +81,8 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.accion === 'elegir') {
+    const pro = await candadoIaDeEditores();
+    if (pro) return pro;
     if (!rateLimit(`video-editor:broll-ia:${p.ws}`, 20, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);
     const huecos = huecosDelPedido(body.huecos);
     if (!huecos.length) return fallo('No hay dónde poner imágenes: el video no dice nada que se pueda mostrar.', 422);

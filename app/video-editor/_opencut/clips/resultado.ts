@@ -4,7 +4,9 @@
 // Como el B-roll (../broll/resultado.ts): nada lanza, cada salida es un resultado, y el botón y el chat leen el MISMO
 // texto por motivo.
 
-export type MotivoClips = "sin-proyecto" | "ocupado" | "sin-voz" | "corto" | "sin-clips" | "otro-proyecto" | "red";
+import { textoSoloPro } from "@/lib/topes-plan";
+
+export type MotivoClips = "sin-proyecto" | "ocupado" | "sin-voz" | "corto" | "sin-clips" | "otro-proyecto" | "red" | "solo-pro";
 
 export type ResultadoClips = { ok: true; clips: number; aviso: string | null } | { ok: false; motivo: MotivoClips; detalle?: string };
 
@@ -16,6 +18,8 @@ export const TEXTO_MOTIVO_CLIPS: Readonly<Record<MotivoClips, string>> = {
 	"sin-clips": "No encontré momentos de 15 a 60 segundos que se entiendan solos.",
 	"otro-proyecto": "Cambiaste de proyecto mientras se buscaban los clips: vuelve a buscarlos en ése.",
 	red: "No pude hablar con MaKo. Revisa tu conexión y vuelve a intentar.",
+	// Editar con IA es SÓLO de MaKo Pro (14/11/2026, lib/editores-ia-pro.ts). No es una falla: el panel muestra el candado.
+	"solo-pro": textoSoloPro("ia-editores"),
 };
 
 /**

@@ -14,7 +14,12 @@
 // Lo que se cambió de la referencia, y por qué:
 //   · «Atención humana»: Master Ads pone especialistas; MaKo no los tiene en esta tab. Lo que sostiene el mismo relato (la IA
 //     no hace nada a tus espaldas) es que MaKo PROPONE con su porqué y tú apruebas, con tus topes y su deshacer.
-//   · Su precio en el cierre: ninguna landing de /vsl escribe un precio a mano (el cierre es la llamada).
+//   · Su precio en el cierre: ninguna landing de /vsl escribe un precio a mano; en su lugar, con su letra y su resaltado, la
+//     frase del cierre de MaKo (los días de la prueba, TEXTO_CIERRE).
+//   · 14/11/2026, la copia fiel (Martín: «absolutamente todo»): como en la referencia, las opciones del hero son sólo un rótulo,
+//     «atención humana» es un párrafo (sin lista), las tarjetas de «Pensado para…» no llevan ícono, las preguntas de WhatsApp van
+//     sin comillas, y «Se conecta con» es la tira que corre con las integraciones que usa el CoPilot. Los textos de las tarjetas,
+//     cortos como los suyos. Las columnas de Campañas se llaman Funcionan / Por decidir / Para revisar (lib/media-buyer/campanas-grupos.ts).
 // Lo que hace hoy: la tab se llama Marketing CoPilot desde el 6/11/2026 (app/_components/nav.ts, key 'ads-manager'); la
 // charla de la primera entrada, los funnels y los referentes salen de lib/media-buyer/copiloto.ts y lib/asesores/catalogo.ts;
 // las secciones, de `seccionesDe` (mismo archivo); las columnas de Campañas, de lib/media-buyer/campanas-grupos.ts; lo que se
@@ -42,7 +47,6 @@
 
 import { ASESORES } from '@/lib/asesores/catalogo';
 import { FUNNELS } from '@/lib/media-buyer/copiloto';
-import { TEXTO_CIERRE } from './cta';
 import type { LandingCompetencia } from './tipos';
 
 const I = {
@@ -62,12 +66,6 @@ const I = {
   carrito: ['M6 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0', 'M17 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0', 'M17 17h-11v-14h-2', 'M6 5l14 1l-1 7h-13'],
   organico: ['M4 4m0 4a4 4 0 0 1 4 -4h8a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-8a4 4 0 0 1 -4 -4z', 'M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0', 'M16.5 7.5l0 .01'],
 };
-
-/** Los nombres de los funnels que cumplen `si`, en una frase: «Anuncios a mensajes, webinar y email a tu lista». */
-function nombres(si: (f: (typeof FUNNELS)[number]) => boolean): string {
-  const n = FUNNELS.filter(si).map((f, i) => (i === 0 ? f.nombre : f.nombre.replace(/^[A-ZÁÉÍÓÚ](?=[a-záéíóúñ]+(?:\s|$))/, (c) => c.toLowerCase())));
-  return n.length > 1 ? `${n.slice(0, -1).join(', ')} y ${n[n.length - 1]}` : n.join('');
-}
 
 export const LANDING_ADS: LandingCompetencia = {
   slug: 'ads',
@@ -95,7 +93,7 @@ export const LANDING_ADS: LandingCompetencia = {
         // Cortos: en la referencia son los botones de una caja de chat.
         { icono: I.embudo, titulo: 'Elige tu funnel', texto: `Uno de ${FUNNELS.length}, con o sin anuncios, según tu ticket, tu presupuesto y tu equipo.` },
         { icono: I.persona, titulo: 'Sigue a un referente', texto: `El método de uno de ${ASESORES.length} referentes del marketing. Ninguno participa en MaKo.` },
-        { icono: I.columnas, titulo: 'Mira tus campañas', texto: 'En tres columnas: <strong>Funcionan, En prueba y Para revisar</strong>.' },
+        { icono: I.columnas, titulo: 'Mira tus campañas', texto: 'En tres columnas: <strong>Funcionan, Por decidir y Para revisar</strong>.' },
         { icono: I.chat, titulo: 'Pídeselo a MaKo', texto: 'Le escribes lo que quieres y te contesta con tu estrategia en la mano.' },
       ],
     },
@@ -104,28 +102,29 @@ export const LANDING_ADS: LandingCompetencia = {
       fondo: true,
       titulo: 'Inteligencia artificial, atención humana.',
       // Antes: «Agenda tu llamada: te mostramos…». Martín (12/11/2026): ningún lado ofrece agendar una llamada; se empieza con la prueba.
-      bajada: 'Empiezas por tu cuenta, con la IA de MaKo, y detrás hay personas que la mantienen funcionando.',
-      items: [
-        { icono: I.copiloto, titulo: 'Entras hoy.', texto: TEXTO_CIERRE },
-        { icono: I.chat, titulo: 'Personas detrás de MaKo.', texto: 'Si algo falla, lo reportas desde la app y el equipo de MaKo lo arregla y <strong>te avisa en tu grupo de WhatsApp</strong>.' },
-      ],
+      // Como la referencia, sólo el párrafo y el botón (14/11/2026): lo que era una lista de dos («Entras hoy.», «Personas detrás
+      // de MaKo.») va en el párrafo, y los días de la prueba (TEXTO_CIERRE) en la frase del cierre, donde Master Ads pone su precio.
+      bajada: 'Empiezas hoy por tu cuenta, con la IA de MaKo. Si algo falla, lo reportas desde la app y el equipo de MaKo lo arregla y te avisa en tu grupo de WhatsApp.',
+      items: [],
     },
     {
       tipo: 'tarjetas',
       titulo: '“MaKo, lo de siempre”.',
       bajada: '5 piezas clave para manejar tu marketing digital sin depender de terceros.',
       items: [
-        { icono: I.sol, titulo: 'Hoy', texto: 'Optimiza con MaKo: las decisiones del día sobre tus anuncios de Meta, cada una con qué cambia, por qué y los números que la dispararon.' },
-        { icono: I.plan, titulo: 'Plan', texto: 'Tu funnel paso a paso, con lo que hay que hacer esta semana y dónde se hace en MaKo.' },
-        { icono: I.columnas, titulo: 'Campañas', texto: 'Lo que funciona, lo que está en prueba y lo que hay que mirar hoy.' },
-        { icono: I.biblioteca, titulo: 'Biblioteca', texto: 'Tus mejores anuncios, para pedirle variaciones a MaKo o subir creativos nuevos.' },
-        { icono: I.ajustes, titulo: 'Ajustes', texto: 'Tu estrategia, tu objetivo y tus metas del mes, y tus topes: cuánto puede subir un presupuesto y un interruptor que lo frena todo.' },
+        { icono: I.sol, titulo: 'Hoy', texto: 'Optimiza con MaKo: las decisiones del día sobre tus anuncios, cada una con su porqué y sus números.' },
+        { icono: I.plan, titulo: 'Plan', texto: 'Tu funnel paso a paso y lo que toca esta semana.' },
+        { icono: I.columnas, titulo: 'Campañas', texto: 'Lo que funciona, lo que falta decidir y lo que hay que revisar.' },
+        { icono: I.biblioteca, titulo: 'Biblioteca', texto: 'Tus mejores anuncios, para pedirle variaciones a MaKo.' },
+        { icono: I.ajustes, titulo: 'Ajustes', texto: 'Tu estrategia, tus metas del mes y tus topes de presupuesto.' },
       ],
     },
     {
       tipo: 'filas',
       titulo: '“Te pido un cafecito y un reporte, por favor”.',
-      bajada: 'Reportes profesionales: lo que vendió cada anuncio, al lado de lo que gastaste.',
+      // Donde la referencia dibuja su tablero va la pantalla de Campañas del CoPilot, grabada (disenos/ads.tsx): cada campaña con
+      // lo que gastó y lo que vendió, contra tu objetivo.
+      bajada: 'Reportes profesionales: lo que vendió cada campaña, al lado de lo que gastaste.',
       slug: 'ads',
       items: [
         { grafico: 0, titulo: 'Tus anuncios, con lo que cerraron', texto: 'Los leads de cada anuncio que <strong>agendaron y cerraron</strong> en tu CRM, al lado de lo que gastaste en Meta.' },
@@ -139,27 +138,36 @@ export const LANDING_ADS: LandingCompetencia = {
       titulo: 'Pregúntale a tu negocio como le preguntarías a un especialista.',
       bajada: 'Escribe tu pregunta como si le hablaras a una persona. MaKo responde con tus propios datos, en tu grupo de WhatsApp.',
       items: [
-        { icono: I.chat, titulo: '«¿Qué campañas tengo activas?»', texto: 'El estado en vivo de tu cuenta de Meta: cada campaña con su estado y su presupuesto del día.' },
-        { icono: I.lista, titulo: '«¿Cuánto gasté este mes?»', texto: 'Lo gastado en cada campaña en los últimos 30 días, en la moneda de tu cuenta.' },
-        { icono: I.sol, titulo: '«¿Qué me recomiendas cambiar?»', texto: 'Las decisiones abiertas con su porqué. Para lanzar una, la confirmas en una pantalla de MaKo.' },
+        { icono: I.chat, titulo: '¿Qué campañas tengo activas?', texto: 'El estado en vivo de tu cuenta de Meta: cada campaña con su estado y su presupuesto del día.' },
+        { icono: I.lista, titulo: '¿Cuánto gasté este mes?', texto: 'Lo gastado en cada campaña en los últimos 30 días, en la moneda de tu cuenta.' },
+        { icono: I.sol, titulo: '¿Qué me recomiendas cambiar?', texto: 'Las decisiones abiertas con su porqué. Para lanzar una, la confirmas en una pantalla de MaKo.' },
       ],
     },
     {
       tipo: 'logos',
       titulo: 'Se conecta con',
+      // Lo que lee el CoPilot (lib/media-buyer/datos.ts: Meta, y del CRM los leads que agendaron y lo que pagaron; los canales
+      // de lib/media-buyer/copiloto.ts → CanalEntrada) y dónde contesta MaKo, del catálogo de integraciones que un negocio conecta
+      // hoy (los logos de la tira de la portada). En la referencia, una tira de 25 que corre sola.
       items: [
-        { logo: 'meta.png', nombre: 'Meta Ads' },
-        { logo: 'whatsapp.png', nombre: 'WhatsApp' },
-        { logo: 'calendly.png', nombre: 'Tu agenda' },
+        { logo: 'integraciones/meta.svg', nombre: 'Meta Ads' },
+        { logo: 'integraciones/instagram.png', nombre: 'Instagram' },
+        { logo: 'integraciones/youtube.png', nombre: 'YouTube' },
+        { logo: 'integraciones/whatsapp.svg', nombre: 'WhatsApp' },
+        { logo: 'integraciones/calendly.png', nombre: 'Calendly' },
+        { logo: 'integraciones/calcom.png', nombre: 'Cal.com' },
+        { logo: 'integraciones/stripe.png', nombre: 'Stripe' },
+        { logo: 'integraciones/mercadopago.svg', nombre: 'Mercado Pago' },
       ],
     },
     {
       tipo: 'tarjetas',
       titulo: 'Pensado para el día a día de tu negocio.',
       items: [
-        { icono: I.chat, titulo: 'Sin curva de aprendizaje', texto: 'Si sabes usar WhatsApp, sabes usar MaKo: le escribes como a una persona.' },
-        { icono: I.columnas, titulo: 'Resultados a la vista', texto: 'Un solo panel te dice qué está funcionando y qué no: Funcionan, En prueba y Para revisar.' },
-        { icono: I.llamada, titulo: 'Con o sin anuncios', texto: `Si vendes con llamada (${nombres((f) => f.conLlamada)}), sin llamada o sin anuncios, tu funnel tiene su plan.` },
+        // Sin ícono, como las de la referencia; la frase de abajo (los días de la prueba) la pone el diseño.
+        { titulo: 'Sin curva de aprendizaje', texto: 'Si sabes usar WhatsApp, sabes usar MaKo.' },
+        { titulo: 'Resultados a la vista', texto: 'Un solo panel te dice qué está funcionando y qué no.' },
+        { titulo: 'Con o sin anuncios', texto: 'Con llamada, sin llamada o sin anuncios: tu funnel tiene su plan.' },
       ],
     },
   ],

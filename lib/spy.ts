@@ -73,6 +73,7 @@ import { prefijoTranscripciones } from './spy-transcripcion';
 import { ANALISIS_SIN_DATOS, ofertaQueQueda, pendientesDeAnalisis, refsSinRespuesta } from './spy-analisis-reglas';
 import { queEs } from './spy-que-es';
 import { claveLectura, leeCanal, type PasoLectura } from './spy-lectura-pasos';
+import { topeDeCompetidores } from './spy-tope';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { claveDeYoutube } from './youtube';
 
@@ -238,7 +239,7 @@ export async function leerCompetidor(id: number): Promise<Competidor | null> {
  * a su canal entra como `youtube_id` —que es justo «traer otra de sus redes»— y el tope de 500
  * caracteres ya está puesto. Un normalizador propio acá habría dejado pasar los dos primeros casos.
  */
-export async function agregarCompetidor(pegado: string, nombrePedido?: string, deLaBio?: string | null): Promise<{ ok: true; competidor: Competidor } | { ok: false; error: string }> {
+export async function agregarCompetidor(pegado: string, nombrePedido?: string, deLaBio?: string | null): Promise<{ ok: true; competidor: Competidor } | { ok: false; error: string; pasarAPro?: string }> {
   const leido = queEs(pegado);
   if (!leido) return { ok: false, error: 'No reconocí eso. Pega el @ de Instagram, el enlace de su canal de YouTube o el de su sitio.' };
   // Del link de la bio sólo sirven los dos canales que no son el que ya estamos agregando. Un
@@ -311,6 +312,13 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string, d
   if (existentes.length >= TOPES.competidores) {
     return { ok: false, error: `Ya tienes ${TOPES.competidores} competidores. Quita uno antes de agregar otro.` };
   }
+
+  // ⚠️ EL TOPE DEL PLAN (14/11/2026, Martín: «Tu competencia solamente debería poder scrapear a una persona de la
+  // competencia, el de 97 ilimitado»): Esencial suma UNO, Pro los que quiera (lib/spy-tope-reglas.ts). Va acá por lo mismo
+  // que el de arriba: lo que ya estaba salió por `yaEsta` y no es nuevo. Y `nuevo` cubre lo que el upsert de abajo junta
+  // por su MISMO nombre (un nombre que `nombreComparable` deja vacío): eso tampoco suma una fila.
+  const plan = await topeDeCompetidores(existentes.length, !existentes.some((x) => x.nombre === nombre));
+  if (!plan.ok) return { ok: false, error: plan.error, pasarAPro: plan.pasarAPro };
 
   const fila: Record<string, unknown> = { nombre, updated_at: new Date().toISOString() };
   if (leido.campo !== 'nombre') fila[leido.campo] = leido.valor;

@@ -70,10 +70,11 @@ test('3. la puerta de la página manda al cartel con «Pasar a Pro», y la barra
 });
 
 // ⚠️ 23/10/2026: el tope se pregunta ADENTRO de `setSecuenciaActiva` (la única puerta que prende), no en cada ruta.
-test('4. el tope de automatizaciones: 3 en el Esencial, preguntado en la puerta del motor ANTES de prender', () => {
-  assert.equal(topeDe('completo', 'automations.activas'), 3);
-  assert.equal(cabeOtra('completo', 'automations.activas', 2), true);
-  assert.equal(cabeOtra('completo', 'automations.activas', 3), false);
+// 14/11/2026 (Martín): de 3 a 2 en el Esencial.
+test('4. el tope de automatizaciones: 2 en el Esencial, preguntado en la puerta del motor ANTES de prender', () => {
+  assert.equal(topeDe('completo', 'automations.activas'), 2);
+  assert.equal(cabeOtra('completo', 'automations.activas', 1), true);
+  assert.equal(cabeOtra('completo', 'automations.activas', 2), false);
   assert.equal(topeDe('agencia', 'automations.activas'), null, 'el Pro, sin tope');
   const motor = sinComentarios(leer('lib/nutricion.ts'));
   const puerta = motor.slice(motor.indexOf('export async function setSecuenciaActiva('), motor.indexOf('.update({ activa, updated_at: ahoraISO() })'));

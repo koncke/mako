@@ -21,6 +21,8 @@ import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { mediaTimeFromSeconds } from "@/app/video-editor/_opencut/wasm";
 import { useRevelado } from "@/app/_ui/ArmadoEnVivo";
 import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
+import { useSoloPro } from "@/app/_components/solo-pro";
+import { CandadoSoloPro } from "@/app/_components/CandadoSoloPro";
 import { AGENTES, LIMA, agentePorId, opsPorAgente, opsPorSegundo, relojLinea, type LineaActividad } from "../plan";
 import { useEnjambre, type EstadoAgente } from "../estado";
 import { correrEnjambre, deshacerEnjambre, detenerEnjambre, reproducirCorteFinal, rotuloDePaso } from "../correr";
@@ -175,10 +177,13 @@ export function EnjambreView() {
 	const fallas = useEnjambre((s) => s.lineas.filter((l) => l.tipo === "falla").map((l) => `${l.agente}: ${l.texto}`).join(" · "));
 	const hayLinea = useEditor((e) => e.timeline.getTotalDuration() > 0);
 	const corriendo = fase === "corriendo";
+	// Editar con IA es SÓLO de MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): a un Esencial, el candado en lugar del botón.
+	const soloPro = useSoloPro("ia-editores");
 
 	const editar = async () => {
 		const r = await correrEnjambre(editor);
-		if (!r.ok) toast.error(r.texto);
+		// «solo-pro»: el candado ya se dibuja en lugar del botón (la misma lectura del plan); no hace falta otro aviso.
+		if (!r.ok && r.motivo !== "solo-pro") toast.error(r.texto);
 	};
 	const deshacerTodo = () => {
 		if (!deshacerEnjambre(editor)) toast.error("Cambiaste la línea de tiempo después: usa Ctrl+Z para volver atrás.");
@@ -214,6 +219,8 @@ export function EnjambreView() {
 								Detener
 							</button>
 						</div>
+					) : soloPro ? (
+						<CandadoSoloPro funcion="ia-editores" />
 					) : (
 						<Button type="button" className="w-full" disabled={!hayLinea} onClick={() => void editar()}>
 							{fase === "terminado" ? "Editar de nuevo con MaKo" : "Editar con MaKo"}

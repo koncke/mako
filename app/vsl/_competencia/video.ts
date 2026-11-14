@@ -2,19 +2,26 @@
 // /vsl/video — Video, el editor de video de MaKo, con la ESTRUCTURA de la portada de Cherry Studio (11/11/2026)
 // =============================================================================
 // REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, el DISEÑO):
-//   https://cherrysweet.app/  (leída el 11/11/2026 con Chromium)
+//   https://cherrysweet.app/  (leída el 11/11/2026 y otra vez el 14/11/2026 con Chromium)
 // El diseño copiado vive en ./disenos/video.tsx; los valores medidos, en docs/diseno/landings-competencia/video.md.
-// Su orden, que se respeta acá: hero con cuatro chips («Corta las pausas», «Subtítulos al ritmo»…) → «Lo que Cherry hace
-// por ti» → (su video en acción y su simulador) → «Arrastra y mira lo que le quita a tu video» (antes / después) → «Y todo lo
-// que rodea al video también lo tiene» → (publicar sola, conectar Instagram) → «Tres pasos y tienes tu primer reel» →
-// (con qué trabaja, sus precios) → «Lo que más nos preguntan» → el cierre. Por qué ganó: docs/competencia/landings-por-funcion.md
-// → «Video (editor)». No tiene testimonios, así que esta landing tampoco lleva el caso.
+// Su orden, RELEÍDO el 14/11/2026 (Cherry cambió su portada: la versión B, sin video de ventas): hero con su vitrina de cuatro
+// tarjetas y calcomanías → (su calendario: «Tu semana de contenido se publica sola») → la fila de dos tarjetas («Conecta tu
+// Instagram» + «Tres pasos») → «Lo que Cherry hace por ti» → (virales, plantillas, conector, simulador) → «Arrastra y mira lo que
+// le quita a tu video» (sigue en su página, escondida) → la banda «Y todo lo que rodea al video también lo tiene» → (con qué
+// trabaja, precios) → «Lo que más nos preguntan» → la banda final. Acá: el comparador ocupa la tarjeta izquierda de su fila de
+// dos (la de Instagram, que MaKo no tiene) y los tres pasos la derecha, como en Cherry. El relevo sección por sección, con las
+// capturas y los videos de sus animaciones: side-session-notes/…/referencias-landings/video-cherry/relevo.md.
+// Por qué ganó: docs/competencia/landings-por-funcion.md → «Video (editor)». No tiene testimonios, así que esta landing tampoco.
 //
 // Lo que se cambió de la referencia, y por qué:
-//   · Su video de demo y su simulador para probar sin cuenta: MaKo no tiene ninguno de los dos para mostrar. No van.
-//   · «Publica sola», «Tu semana de contenido se publica sola» y «Conecta tu Instagram»: Video no publica ni se conecta a
-//     Instagram (exporta el video). No van; la pregunta «¿Lo publica en Instagram?» lo dice.
-//   · Sus precios: ninguna landing de /vsl escribe un precio a mano (el cierre es la llamada).
+//   · Su simulador para probar sin cuenta, su conector con Claude y ChatGPT y «Marcas que se hicieron virales» (los números
+//     de sus clientes): MaKo no tiene nada de eso para mostrar. No van.
+//   · «Tu semana de contenido se publica sola» (su calendario) y «Conecta tu Instagram»: Video no publica ni se conecta a
+//     Instagram (exporta el video). No van; su lugar en la fila de dos tarjetas lo toma el comparador.
+//   · «Tu IA puede hacer videos así» (el mosaico de sus plantillas que corre con el scroll): las imágenes de las escenas de
+//     AI Avatar (public/formatos/presets/) muestran a un hombre que se parece a Mauricio, que es cliente, y no hay otras tomas
+//     de MaKo para llenarlo. No va hasta tener videos hechos con MaKo por Martín.
+//   · «Cherry Studio trabaja con» (la cinta de logos) y sus precios: ninguna landing de /vsl escribe un precio a mano.
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['video-editor', 'ai-avatar']) y del editor (la «Edición automática» de
 // app/video-editor/_opencut/enjambre/, los lienzos y las plantillas de app/video-editor/plantillas-crear.ts). Lo que todavía no
 // (guardar en la nube, filmar sola los clips) va en las preguntas con «Todavía no».
@@ -60,7 +67,7 @@ export const LANDING_VIDEO: LandingCompetencia = {
   slug: 'video',
   nombre: 'Video',
   icono: I.video,
-  referencia: { nombre: 'Cherry Studio — editor de reels con IA', url: 'https://cherrysweet.app/', leida: '2026-11-11' },
+  referencia: { nombre: 'Cherry Studio — editor de reels con IA', url: 'https://cherrysweet.app/', leida: '2026-11-14' },
   metaTitle: 'Video de MaKo: tu contenido, de la idea al video listo',
   metaDesc: 'Súbelo tal cual salió y míralo volver cortado y con subtítulos. Un editor como CapCut con MaKo al lado, los videos que funcionan para replicarlos y tu personaje con IA.',
   bloques: [
@@ -74,20 +81,11 @@ export const LANDING_VIDEO: LandingCompetencia = {
       visual: { tipo: 'propio', slug: 'video' },
     },
     {
-      tipo: 'tarjetas',
-      etiqueta: 'Lo que hace',
-      titulo: 'Lo que MaKo <em>hace por ti</em>',
-      items: [
-        { icono: I.varita, titulo: 'Edita tu reel solo', texto: 'Subes el clip tal cual sale del celular y MaKo corta las pausas, que es donde la gente desliza, y deja el volumen listo. Un equipo de agentes lo hace <strong>a la vista</strong>, paso por paso en el editor.' },
-        { icono: I.texto, titulo: 'Pone los subtítulos y el B-roll', texto: 'Los subtítulos caen justo cuando dices cada palabra, con estilos para elegir, y en los momentos que lo piden te propone tomas de apoyo.' },
-        { icono: I.rayo, titulo: 'Te muestra qué grabar', texto: 'Abre con «Encuentra tu siguiente outlier»: videos que funcionan, para <strong>replicarlos con tu mensaje</strong> con un toque.' },
-        { icono: I.chat, titulo: 'Lo cambias con MaKo', texto: 'Le escribes el cambio y te lo muestra: <strong>original y modificado</strong>, y lo aceptas tú. Y si quieres, lo haces a mano en la línea de tiempo.' },
-      ],
-    },
-    {
       tipo: 'contraste',
-      etiqueta: 'Antes y después',
-      titulo: 'Mira lo que le quita <em>a tu video</em>',
+      // El comparador de Cherry («Pruébalo tú», escondido en su portada desde el 12/11) con la línea de tiempo REAL del editor antes
+      // y después de la Edición automática; ocupa la tarjeta izquierda de su fila de dos.
+      etiqueta: 'Pruébalo tú',
+      titulo: 'Arrastra y mira lo que le quita <em>a tu video</em>',
       sin: {
         titulo: 'Tal cual salió',
         texto: 'Silencios al principio, pausas para pensar, nada escrito en pantalla y el volumen que sube y baja. <strong>Así, la gente pasa al siguiente.</strong>',
@@ -96,6 +94,28 @@ export const LANDING_VIDEO: LandingCompetencia = {
         titulo: 'Con MaKo',
         texto: 'Sin pausas, con subtítulos que siguen tu voz, B-roll donde hace falta y el audio parejo. Y si algo no te gusta, lo cambias a mano en la línea de tiempo.',
       },
+    },
+    {
+      tipo: 'pasos',
+      etiqueta: 'Cómo empiezas',
+      titulo: 'Tres pasos y tienes tu primer reel',
+      pasos: [
+        { titulo: 'Elige de dónde arrancas', texto: 'Un video que funciona para replicar, una plantilla o un formato vacío.' },
+        { titulo: 'Sube tu video tal cual salió', texto: 'Con las pausas, los errores y todo. O crea las tomas con tu personaje o con IA.' },
+        { titulo: 'Revísalo y descárgalo', texto: 'MaKo hace el trabajo pesado. Tú decides qué queda y lo exportas.' },
+      ],
+    },
+    {
+      tipo: 'tarjetas',
+      etiqueta: 'Lo que hace',
+      titulo: 'Lo que MaKo hace <em>por ti</em>',
+      // `meta`: la calcomanía que Cherry pega sobre el marco del paso abierto (su data-pega).
+      items: [
+        { icono: I.varita, meta: 'Corta las pausas', titulo: 'Edita tu reel solo', texto: 'Subes el clip tal cual sale del celular y MaKo corta las pausas, que es donde la gente desliza, y deja el volumen listo. Un equipo de agentes lo hace <strong>a la vista</strong>, paso por paso en el editor.' },
+        { icono: I.texto, meta: 'Subtítulos al ritmo', titulo: 'Pone los subtítulos y el B-roll', texto: 'Los subtítulos caen justo cuando dices cada palabra, con estilos para elegir, y en los momentos que lo piden te propone tomas de apoyo.' },
+        { icono: I.rayo, meta: 'Replica lo que funciona', titulo: 'Te muestra qué grabar', texto: 'Abre con «Encuentra tu siguiente outlier»: videos que funcionan, para <strong>replicarlos con tu mensaje</strong> con un toque.' },
+        { icono: I.chat, meta: 'Original y modificado', titulo: 'Lo cambias con MaKo', texto: 'Le escribes el cambio y te lo muestra: <strong>original y modificado</strong>, y lo aceptas tú. Y si quieres, lo haces a mano en la línea de tiempo.' },
+      ],
     },
     {
       tipo: 'tarjetas',
@@ -109,16 +129,6 @@ export const LANDING_VIDEO: LandingCompetencia = {
         { icono: I.avatar, titulo: 'Tu personaje con IA', texto: `Tu avatar con tu cara, en una de ${PLANTILLAS_AVATAR.length} escenas, diciendo tu guion.` },
         { icono: I.video, titulo: 'Generar con IA', texto: 'Tus guiones pasan a tomas y montaje, generados con Google Flow, y de ahí al editor.' },
         { icono: I.formato, titulo: 'El formato de cada red', texto: 'Arrancas en Reel o TikTok, YouTube, cuadrado o post, o desde una plantilla de anuncio.' },
-      ],
-    },
-    {
-      tipo: 'pasos',
-      etiqueta: 'Cómo empiezas',
-      titulo: 'Tres pasos y tienes tu primer reel',
-      pasos: [
-        { titulo: 'Elige de dónde arrancas', texto: 'Un video que funciona para replicar, una plantilla o un formato vacío.' },
-        { titulo: 'Sube tu video tal cual salió', texto: 'Con las pausas, los errores y todo. O crea las tomas con tu personaje o con IA.' },
-        { titulo: 'Revísalo y descárgalo', texto: 'MaKo hace el trabajo pesado. Tú decides qué queda y lo exportas.' },
       ],
     },
     {

@@ -38,7 +38,7 @@ import {
   fijarPost, seguirPost, votar, cambiarLike, comentar, editarComentario, borrarComentario, hiloDeClase, comentarEnClase,
   guardarCategoria, borrarCategoria, ordenarCategorias, guardarNombresNivel, guardarAbout, guardarAjustesComunidad,
   rankingComunidad, miembrosComunidad, miembrosDeLaComunidad, perfilDe, guardarPerfil, infoDeMiembros, leadDe,
-  hechosDeLaComunidad, type Actor, type FilaPost,
+  hechosDeLaComunidad, candadoDeComunidad, type Actor, type FilaPost,
 } from '@/lib/comunidad-datos';
 import { cerrarComentarios, sacarAlumno, admitirAlumno, sacadosDeLaComunidad } from '@/lib/comunidad-moderacion';
 import { calendarioComunidad, opcionesDeEvento, guardarEvento, borrarEvento, icsComunidad, eventoParaEditar } from '@/lib/comunidad-calendario';
@@ -354,6 +354,9 @@ export const RUNNERS: Runners = {
     preparar: revisando(async (input, ctx) => {
       const p = await productoDe(ctx, input);
       if ('error' in p) return p;
+      // La comunidad es SÓLO de MaKo Pro (14/11/2026): se dice antes de proponer; `publicarPost` lo vuelve a preguntar.
+      const candado = await candadoDeComunidad({ ws: ctx.ws, equipo: true });
+      if (candado) return { error: candado };
       const f = await firmaAlProponer(ctx);
       if ('error' in f) return f;
       const cats = await categoriasDeLaComunidad(ctx.ws, p.id);
@@ -1082,6 +1085,9 @@ export const RUNNERS: Runners = {
     preparar: revisando(async (input, ctx) => {
       const p = await productoDe(ctx, input);
       if ('error' in p) return p;
+      // La comunidad es SÓLO de MaKo Pro (14/11/2026): se dice antes de proponer; `guardarEvento` lo vuelve a preguntar.
+      const candado = await candadoDeComunidad({ ws: ctx.ws, equipo: true });
+      if (candado) return { error: candado };
       const op = await opcionesDeEvento(lector(ctx, p.id));
       if (!op.ok) return { error: op.error };
       const crudo: In = {

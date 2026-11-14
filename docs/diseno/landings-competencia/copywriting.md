@@ -85,3 +85,37 @@ Las fuentes viven en `public/vsl-assets/fuentes/{dm-serif-display,libre-franklin
 - Link de texto: el color pasa de petróleo a naranja (.14 s).
 - El botón redondo de «Show the rewrites»: latido de 3,2 s y la flecha que baja.
 - Sin animaciones de entrada.
+
+## Segunda mirada (14/11/2026): lo que se mueve y lo que no
+
+Mirada con Chromium a 1440 × 900 y 390 × 844 (capturas, video del recorrido, `getAnimations()`, `MutationObserver`,
+`IntersectionObserver` y los estilos antes y después de cada hover). El relevo con las capturas está en las notas de la sesión,
+`referencias-landings/copywriting/relevo.md`. Su versión de hoy es `cm-hero-control` (la prueba del hero terminó el 17/10).
+
+- **Contenedor de tres secciones:** la banda de ejemplos, «What buyers wrote back» y «Start with…» usan su `.ex-container`:
+  24 px de margen, 1132 de contenido (x = 154). El resto, el de 1180 con 32 (1116, x = 162). En MaKo: `.d-copywriting-excont`.
+- **Nada aparece al bajar.** Lo único que corre solo es el botón redondo de la banda de ejemplos (`examples-icon-pulse` y
+  `examples-cta-arrow`, 3,2 s, ease-in-out en cada tramo). Lo demás que se mueve es su precio (la barra fija, el agregado que late).
+- **La banda de ejemplos:** cerrada, 108 px (`padding: 24px 0`, caras de 44 px con borde de 3 px `#E8ECDF`, titular 29/34,8 px
+  `#153F39`, bajada 12 px `#526355`, «Show the rewrites» 11 px 600 y el botón de 40 px). Al pasar el mouse sólo se oscurece el
+  botón, sin transición. Al tocarla, la franja se esconde (`hidden`) y se abre lo de adentro: filas de 0fr a 1fr en ,55 s
+  `cubic-bezier(.22,1,.36,1)` y opacidad en ,35 s; el fondo pasa a `#FFFDF7`, el foco va al titular.
+  Abierta: titular 46/51,52 px −1,2 px (la segunda línea en itálica de color), intro 16/26,4 px de 730; pestañas de 372 × 85
+  (`padding: 18px`, radio 8, cara de 44), la elegida en tinta SIN sombra y **sin cambio al pasar el mouse** (su regla de página le
+  gana al `:hover`); comparación en dos paneles de 557 (separación 18), cabecera de 51 px `#FFFCF6` (la de la reescritura
+  `#E8EEE4`, borde `#819E91`), lienzo de 570 con su propio scroll, pie Courier 10 px `#696053`; «What changed» con raya de 3 px,
+  fondo al 5 % y rótulo Courier 11 px; nota final 12/19,2 px `#7A7062`.
+  A 390: la franja pone las caras y el botón arriba y el titular (25/28,75 px) abajo; titular abierto 36/41,4 px con la itálica en
+  su renglón; pestañas en tres columnas de 115 (centradas, 120 de alto); un selector «Original | My rewrite» de 48 px con la raya
+  abajo; se ve un panel a la vez.
+- **El riel de reseñas:** sin fin (una copia del juego a cada lado, `inert`), `margin: 0 -32px; padding: 4px 32px 10px`, tarjetas
+  de 372 × 452 con 16 de separación, máscara que funde los 32 px de cada borde, `scroll-snap-type: x proximity`. La flecha corre
+  una tarjeta con scroll suave (~400 ms) y nunca se apaga; al pasar el mouse se pinta de tinta (,15 s). A 390: sin flechas,
+  tarjetas de `min(84vw, 340px)`, 12 de separación.
+- **Hovers medidos:** botón naranja → `#A03D16` (,14 s); link de texto petróleo → naranja (,14 s); el «+» de «What's inside» se
+  pinta de tinta al pasar (sin transición) y abierto gira 45° (,14 s); los links del pie → naranja oscuro (,14 s). Tarjetas,
+  renglones, columnas y preguntas: sin hover.
+- **Preguntas:** una abierta a la vez; cerrada, círculo de 22 px con borde `#DBCDB0` y «+» gris; abierta, círculo naranja y «−».
+  La respuesta aparece sin animación.
+- **El renglón 6 de «What you get»:** su imagen del estante es de 147 × 147, centrada en una columna de 210.
+- **«Who it's for»:** el último punto va en un recuadro `#DDE7E4` (radio 10, `padding: 13px 15px`, 13,5/21,6 px).

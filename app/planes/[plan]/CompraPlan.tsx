@@ -42,7 +42,8 @@ const NOMBRE: Readonly<Record<Pasarela, string>> = {
 // La nota de Mercado Pago (el email de su cuenta) va en su fila: debajo del botón ya no hay texto.
 const DETALLE: Readonly<Record<Pasarela, { sub: string | null }>> = {
   stripe: { sub: null },
-  mercadopago: { sub: 'En pesos. Usa el email de tu cuenta de Mercado Pago.' },
+  // Sin subtítulo (14/11/2026, noche, Martín: «en la parte de mercado pago, no pongas ningún subtítulo»).
+  mercadopago: { sub: null },
   creem: { sub: null },
 };
 const EMAIL_OK = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

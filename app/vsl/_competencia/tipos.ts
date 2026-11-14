@@ -30,8 +30,9 @@ export type Bloque =
   | { tipo: 'cifras'; titulo?: string; items: { valor: string; label: string }[] }
   /** «Sin X / Con X»: el problema y la solución, lado a lado. */
   | { tipo: 'contraste'; etiqueta?: string; titulo: string; sin: Item; con: Item; cta?: boolean }
-  /** Una grilla de tarjetas con su ícono (beneficios, casos de uso, piezas). */
-  | { tipo: 'tarjetas'; etiqueta?: string; titulo: string; bajada?: string; items: (Item & { icono?: string[]; meta?: string })[]; columnas?: 2 | 3; fondo?: boolean; cta?: boolean }
+  /** Una grilla de tarjetas con su ícono (beneficios, casos de uso, piezas). `puntos`: la lista corta de una tarjeta (la de cada
+   *  pestaña del ciclo de /vsl/crm, como la lista de herramientas de cada pestaña de GoHighLevel). */
+  | { tipo: 'tarjetas'; etiqueta?: string; titulo: string; bajada?: string; items: (Item & { icono?: string[]; meta?: string; puntos?: string[] })[]; columnas?: 2 | 3; fondo?: boolean; cta?: boolean }
   /** Los pasos numerados («De la idea al video en 3 pasos»). */
   | { tipo: 'pasos'; etiqueta?: string; titulo: string; bajada?: string; pasos: Item[]; fondo?: boolean }
   /** La prueba: el caso de Mauricio, el mismo de todas las landings de MaKo (no se inventa uno por función). */

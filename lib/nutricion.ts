@@ -1027,6 +1027,21 @@ function grafoAGuardar(limpio: PasoSecuencia[]): PasoSecuencia[] {
   return normalizar(junto.cambio ? junto.pasos.map((p, i) => ({ ...p, orden: i + 1 })) : junto.pasos);
 }
 
+/**
+ * EL SETTER CON IA ES DE MaKo PRO (14/11/2026, Martín): un Esencial no guarda uno NUEVO, lo que le contesta SOLO a un lead con IA (la
+ * regla: lib/setter-ia-reglas.ts; el plan: `setterNuevoSoloPro`, lib/tope-automations.ts). Lo llama `setSecuenciaPasos`, la puerta de
+ * todos: el lienzo, el teléfono, la API («agregar caso» con `contestaSolo`) y el hand-off. Lo que ya tenía queda (frena lo nuevo) y, sin
+ * poder leer el plan, pasa. Activar (`soloValidar`) no lo pregunta acá: lo hace `topeAlActivar`. Import dinámico, como el tope: el
+ * motor no carga los planes si no hace falta.
+ */
+async function frenarSetterNuevo(antes: unknown, grafo: unknown, soloValidar: boolean | undefined): Promise<void> {
+  if (!soloValidar) {
+    const { setterNuevoSoloPro } = await import('./tope-automations');
+    const soloPro = await setterNuevoSoloPro(antes, grafo);
+    if (soloPro) throw new TopeDelPlanError(soloPro);
+  }
+}
+
 export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: { soloValidar?: boolean }): Promise<void> {
   const supabase = (await getTenantDb());
 
@@ -1239,6 +1254,8 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   const triggerDeLaFila = String((previo as { trigger_tipo?: unknown } | null)?.trigger_tipo ?? '');
   const [datoMalo] = problemasDeTokens(grafo, triggerDeLaFila, await subtipoDeFilaEvento(supabase, id, previo));
   if (datoMalo) throw new PasosInvalidosError(`No se guardó: ${datoMalo.motivo}`, datoMalo.tarjeta);
+  // El candado del setter con IA (Pro): `frenarSetterNuevo`, arriba. Fuera de este bloque (tests/nutricion-canal.test.ts lo mide).
+  await frenarSetterNuevo(antes, grafo, o?.soloValidar);
   // Activar valida lo mismo que Publicar, sin escribir (`setSecuenciaActiva`).
   if (o?.soloValidar) return;
   const { error } = await supabase

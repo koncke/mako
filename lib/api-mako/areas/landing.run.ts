@@ -73,6 +73,7 @@ import { motivoNoCobra, type MotivoNoCobra, type ProductoDePago } from '@/lib/ed
 import type { LandingContenido } from '@/lib/editor-landing/doc';
 // «Replicar» (tanda 6): el MISMO server que la ruta de la pantalla (app/api/landing-generator/replicar).
 import { replicar as replicarEnEditor } from '@/lib/editor-landing/replicar';
+import { candadoDeReplicar } from '@/lib/editor-landing/replicar-candado';
 import { ERROR_ADAPTAR_WEB, NOMBRE_FORMATO_REPLICAR, formatoReplicar, urlParaReplicar } from '@/lib/editor-landing/replicar-reglas';
 import { ERROR_WEB_PARCIAL, NOMBRE_PARTE, formatoConPartes, listaDePartes, partesDePedido } from '@/lib/editor-landing/replicar-partes';
 // El nombre del estilo de animación copiado (tanda 8), el del catálogo.
@@ -960,9 +961,13 @@ export const RUNNERS: Runners = {
 
   // Tanda 6: «Replicar» con formato. Corre por el MISMO `replicar` que la pantalla (lib/editor-landing/
   // replicar.ts): la bajada con su guarda anti-SSRF, la IA en tandas, `crear` con el saneo y el autor.
+  // 14/11/2026: SÓLO MaKo Pro (lib/editor-landing/replicar-candado.ts). Al proponer (MaKo no propone lo que se va a frenar) y
+  // al ejecutar (entre proponer y confirmar el plan puede cambiar).
   replicar_landing: {
     preparar: async (input, ctx): Promise<Preparado> => {
       if (enFlujo(ctx)) return { error: 'Replicar una landing no corre en una automatización: un flujo corre una vez por cada lead y crearía una copia por cada uno. Replícala desde el Web Generator o pídesela a MaKo en el chat.' };
+      const pro = await candadoDeReplicar(ctx.ws);
+      if (pro) return { error: pro };
       const crudo = str(input, 'url');
       if (!crudo) return { error: 'Falta la dirección de la página a replicar.', faltan: ['url'] };
       const url = urlParaReplicar(crudo);
@@ -989,6 +994,8 @@ export const RUNNERS: Runners = {
       };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const pro = await candadoDeReplicar(ctx.ws);
+      if (pro) return { ok: false, resumen: pro };
       const url = String(payload.url ?? '');
       const formato = formatoReplicar(payload.formato);
       if (!formato) return { ok: false, resumen: 'Ese formato no existe.' };

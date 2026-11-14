@@ -31,6 +31,17 @@ import { hrefReplicar } from '@/lib/editor-landing/replica-extension-cliente';
 import { marcoVerificado, type AvisoDelMarco } from '@/lib/pagina-real';
 import { Dropdown } from '../components/Dropdown';
 import { Icon } from '../_components/icons';
+import { CandadoSoloPro } from '../_components/CandadoSoloPro';
+import { useSoloPro } from '../_components/solo-pro';
+
+/** El candado de la barra (app/_components/Sidebar.tsx → `Candado`), en «Copiar su sitio» a un Esencial. */
+function IconoCandado() {
+  return (
+    <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ flex: 'none', opacity: 0.7 }}>
+      <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
 
 const CSS = `
 .spy-paginas-web{display:flex;flex-direction:column;gap:12px;scroll-margin-top:80px}
@@ -117,6 +128,9 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
   conVistaPrevia: boolean;
 }) {
   const ws = useWs();
+  // «Copiar su sitio» es de MaKo Pro (14/11/2026): a un Esencial, con el candado (app/_components/solo-pro.ts).
+  const soloPro = useSoloPro('replicar-landing');
+  const [verCandado, setVerCandado] = useState(false);
   // ⚠️ LO CAPTURADO CON LA EXTENSIÓN (4/11/2026, Martín: «Pero podemos hacerlo con la extension de mako... Yo no quiero vulnerar
   // a nadie, solo quiero capturar el diseño»). Cuando el servidor no puede mostrar la página (una barrera, como el «comprobar que
   // es una persona» de Beacons), «Capturar» la abre en una pestaña a la vista; la persona pasa la barrera si aparece y toca el ícono
@@ -274,10 +288,20 @@ export function SusPaginas({ competidorId, enlaces, titulos, elegida, onElegir, 
             {/* ⚠️ `?replicar=` (9/11/2026): «Copiar su sitio» abre REPLICAR con esta página (`derechaDeQuery`, app/web-generator/
                 panel-reglas.ts). Con `?analizar=` abría el Diagnóstico, que vuelve a bajar la página por el servidor y no replica: una
                 página bloqueada fallaba otra vez. En Replicar, si el servidor no la baja, se copia con la extensión. */}
-            <a href={conWs(hrefReplicar(destino), ws)} className="spy-boton">Copiar su sitio</a>
+            {/* SÓLO MaKo Pro (14/11/2026, lib/editor-landing/replicar-candado.ts): a un Esencial, el botón con el candado, que
+                abre el candado (el texto y «Pasar a Pro») acá mismo en vez de llevarlo a una pantalla que no puede usar. */}
+            {soloPro ? (
+              <button type="button" className="spy-boton" title="Copiar su sitio · De MaKo Pro" aria-expanded={verCandado} data-pro=""
+                onClick={() => setVerCandado((v) => !v)}>
+                Copiar su sitio<IconoCandado />
+              </button>
+            ) : <a href={conWs(hrefReplicar(destino), ws)} className="spy-boton">Copiar su sitio</a>}
             {(!conAbrirGrande || conFoto) && <a href={destino} target="_blank" rel="noreferrer noopener" className="spy-boton">Abrir</a>}
           </span>
         </div>
+        {soloPro && verCandado && (
+          <CandadoSoloPro funcion="replicar-landing" style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }} />
+        )}
         {conFoto && capturada?.foto ? (
           <div className="spy-navegador__captura" data-pagina="capturada">
             <div className="spy-navegador__foto">
