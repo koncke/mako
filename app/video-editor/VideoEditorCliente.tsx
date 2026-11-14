@@ -39,6 +39,7 @@ import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import { SenalesNegocioProvider } from './sugeridas';
 import { cambiarHilo, conId } from './_opencut/chat/hilo';
 import { recetaDe, textoDeReceta } from '@/lib/video-recetas';
+import type { Plantilla } from '@/lib/editor-video/plantillas';
 import { EJEMPLOS_NUEVO_VIDEO, GENERAR_CON_IA, LIENZO_GUIADO, PERSONAJE_CON_IA, destinoDe, plantillasNuevoVideo, rutaDePlantilla, type LienzoNuevo } from './plantillas-crear';
 import { empezarGuia } from './guia/estado';
 import { RUTA_CREAR_VIDEO } from './vista';
@@ -79,6 +80,11 @@ type Props = {
   alEntrar?: 'editor' | 'crear';
   /** El «Replicar» de una receta (`?receta=`, validado en ./vista.ts): arma su proyecto y MaKo la dice en el chat. */
   receta?: string | null;
+  /**
+   * «Abrir en el editor» de un video DESARMADO (`?desarme=`, ticket 97): la plantilla «toca para reemplazar» y la receta para el
+   * chat, armadas en el server con lo que guardó este negocio (./[proyecto]/page.tsx). `null` = ese video no está desarmado.
+   */
+  desarmado?: { plantilla: Plantilla; mensaje: string } | null;
 };
 
 export function VideoEditorCliente(props: Props) {
@@ -127,7 +133,7 @@ async function duplicar(id: string, nombre: string, nombres: readonly string[]):
   await editor.project.renameProject({ id: nuevo, name: nombreLibre(nombre.replace(/\s\(\d+\)$/, ''), nombres) });
 }
 
-function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, senales = null, replicar = null, alEntrar = 'crear', receta = null }: Props) {
+function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, senales = null, replicar = null, alEntrar = 'crear', receta = null, desarmado }: Props) {
   const router = useRouter();
   const editor = vista === 'editor' && !!proyectoId;
   // El proyecto abierto de verdad: mientras se importa o se arma uno (`?desde=`, `?plantilla=`), la URL dice «nuevo».
@@ -258,7 +264,8 @@ function CrearVideo({ vista, proyectoId, desde, plantilla, propuesta = null, sen
   const pieza = !editor ? null
     : desde ? <ImportarDesde desde={desde} />
       : plantilla !== undefined ? <ArmarPlantilla id={plantilla} />
-        : <EditorPage projectId={proyectoId} propuesta={propuesta} />;
+        : desarmado !== undefined ? <ArmarPlantilla plantilla={desarmado?.plantilla ?? null} mensaje={desarmado?.mensaje} />
+          : <EditorPage projectId={proyectoId} propuesta={propuesta} />;
 
   return (
     <>

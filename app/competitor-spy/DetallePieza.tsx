@@ -36,6 +36,8 @@ import { dibujarContador } from '@/lib/spy-reglas';
 import { fechaCorta, linksLegibles, miniaturaDePieza } from '@/lib/spy-vista';
 import { tieneGuion, type VistaGuion } from '@/lib/spy-transcripcion';
 import type { PiezaVista } from './actions';
+import { Desarmar } from '@/app/video-editor/Desarmar';
+import { fuenteDePiezaSpy, segundosIso } from '@/lib/video-desarmar';
 
 const CSS = `
 .spyd{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:24px;align-items:start}
@@ -218,6 +220,7 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
   const [copiada, setCopiada] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { guion, pedir } = useGuion(p);
+  const fuenteVideo = useMemo(() => fuenteDePiezaSpy(p, nombre), [p, nombre]);
 
   const red = redDePieza(p.canal);
   const puesto = puestoDe(p.id, todas);
@@ -351,6 +354,9 @@ export function DetallePieza({ p, nombre, cara = null, seguidores = null, todas,
           {error && <p className="spy-aviso spy-error" role="alert">{error}<ReportarASoporte error={error} accion="Hacer uno así en Competitors Spy" /></p>}
 
           <BloqueGuion guion={guion} onConectado={pedir} />
+
+          {/* Ticket 97: un video (reel, YouTube, anuncio en video) se desarma plano a plano con el Gemini del negocio. */}
+          {fuenteVideo ? <Desarmar fuente={fuenteVideo} duracionS={segundosIso(p.duracion)} editor={marco === MARCO_MODAL} /> : null}
 
           {textoPropio && (
             <section>

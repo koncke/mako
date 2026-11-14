@@ -1,0 +1,76 @@
+/* «Desarmar» (./Desarmar.tsx, ticket 97): va en la columna de la caja de un reel (Video Editor › Outliers) y en la de Spy.
+   Colores del tema (app/globals.css): grabado = --good, IA = --primary, código = --warn. El naranja es «MaKo intervino»: aquí no. */
+
+.caja { display: flex; flex-direction: column; gap: 12px; padding: 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font-size: 14px; line-height: 1.5; min-width: 0; }
+.caja p { margin: 0; }
+.cabeza { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.cabeza h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--ink); letter-spacing: 0; text-transform: none; }
+
+.boton {
+  display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 18px; border-radius: 999px; border: 0;
+  background: var(--primary); color: var(--on-primary, #fff); font: inherit; font-size: 13.5px; font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.boton:hover { filter: brightness(1.06); }
+.boton:focus-visible, .secundario:focus-visible, .mas:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.secundario {
+  display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--ink); font: inherit; font-size: 13.5px; font-weight: 600; text-decoration: none; cursor: pointer;
+}
+.secundario:hover { background: var(--velo-hover); }
+.acciones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.vivo { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
+.vivo i { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--primary); animation: late 1.1s ease-in-out infinite; }
+@keyframes late { 50% { opacity: 0.25; transform: scale(0.7); } }
+@media (prefers-reduced-motion: reduce) { .vivo i { animation: none; } }
+
+.error { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; background: var(--warn-bg); color: var(--ink); }
+.nota { color: var(--dim); }
+
+/* Los números medidos: tres casillas. */
+.numeros { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.numeros > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); min-width: 0; }
+.numeros b { font-size: 22px; line-height: 1.1; font-weight: 750; font-variant-numeric: tabular-nums; color: var(--ink); }
+.numeros span { font-size: 13px; color: var(--dim); }
+
+/* De qué está hecho: una barra por origen, del ancho de sus segundos. */
+.mezcla { display: flex; gap: 3px; min-height: 30px; }
+.mezcla span {
+  min-width: 0; display: flex; align-items: center; padding: 0 10px; border-radius: 8px; font-size: 12.5px; font-weight: 650;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-origen='grabado'] { background: var(--good-bg); color: var(--good); }
+[data-origen='ia'] { background: var(--primary-bg); color: var(--primary-strong, var(--primary)); }
+[data-origen='codigo'] { background: var(--warn-bg); color: var(--warn); }
+
+.bloque { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.bloque h4 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--dim); }
+.cita { font-weight: 600; }
+
+/* La estructura en bandas, del ancho de su tiempo. */
+.estructura { display: flex; gap: 3px; min-height: 46px; container-type: inline-size; }
+.estructura span {
+  min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 4px 8px; border-radius: 8px;
+  background: var(--primary-bg); color: var(--primary-strong, var(--primary)); overflow: hidden;
+}
+.estructura b { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.estructura small { font-size: 11.5px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.planos { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.planos li { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); }
+.planoCabeza { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.planoCabeza > b { min-width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--surface-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+.tiempo { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--dim); }
+.origen, .marca { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 650; }
+.marca { background: var(--surface-2); color: var(--ink); }
+.dice { font-style: italic; }
+.textoPantalla { align-self: flex-start; max-width: 100%; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); font-weight: 650; overflow-wrap: anywhere; }
+.mas { align-self: flex-start; height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.pasos { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+
+@media (max-width: 420px) {
+  .numeros { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .numeros > div { padding: 8px; }
+  .numeros b { font-size: 18px; }
+  .numeros span { font-size: 12px; }
+}
