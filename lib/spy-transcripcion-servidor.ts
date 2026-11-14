@@ -55,8 +55,11 @@ async function escuchar(bytes: Uint8Array, mime: string): Promise<{ ok: true; te
   }
 }
 
-/** UN tramo de un video de YouTube, con el Gemini del negocio. Un error que no es «high demand» vuelve en palabras de la persona. */
-async function tramoDeYoutube(url: string, tramo: { desdeS: number; hastaS: number } | null, duracionS?: number | null): Promise<ResultadoTramoYt> {
+/**
+ * UN tramo de un video de YouTube, con el Gemini del negocio. Un error que no es «high demand» vuelve en palabras de la persona.
+ * Exportado: el video que trae la persona a Copywriting se transcribe igual (lib/copywriter/pegado-servidor.ts, 14/11/2026).
+ */
+export async function tramoDeYoutube(url: string, tramo: { desdeS: number; hastaS: number } | null, duracionS?: number | null): Promise<ResultadoTramoYt> {
   let r: ResultadoTramoYt;
   try {
     r = await guionDeYoutubeConGemini(url, tramo, { feature: 'spy', motivo: 'Competitors Spy: el guion de un video de YouTube', duracionS });

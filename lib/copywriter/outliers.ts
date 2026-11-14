@@ -38,8 +38,12 @@ export const INFO_FORMATO: Readonly<Record<FormatoCopy, { label: string; plural:
   youtube: { label: 'YouTube', plural: 'YouTube', tipo: 'youtube', red: 'YouTube' },
 };
 
-/** Lo que dice la tarjeta del formato: «Reel», «Carrusel · 7 láminas», «YouTube», «Anuncio». */
-export function rotuloDeFormato(o: { formato: FormatoCopy; laminas?: number | null }): string {
+/** Lo que dice la tarjeta del formato: «Reel», «Carrusel · 7 láminas», «YouTube», «Anuncio», «Short de YouTube». */
+export function rotuloDeFormato(o: { formato: FormatoCopy; laminas?: number | null; url?: string | null; rotulo?: string }): string {
+  // Lo traído por la persona dice qué es («Secuencia de historias», «VSL»: ./pegado.ts).
+  if (o.rotulo) return o.rotulo;
+  // Un short de YouTube entra como reel (`formatoDePiezaSpy`), pero no es de Instagram (14/11/2026, el de Hormozi).
+  if (o.formato === 'reel' && idDeYouTube(o.url)) return 'Short de YouTube';
   return o.formato === 'carrusel' && (o.laminas ?? 0) > 1 ? `Carrusel · ${o.laminas} láminas` : INFO_FORMATO[o.formato].label;
 }
 
@@ -80,11 +84,20 @@ export const ROTULO_TEXTO: Readonly<Record<DeDondeTexto, string>> = { guion: 'Su
 export type OutlierCopy = {
   /** `<fuente>:<id de la fuente>`: único entre fuentes y estable (la página replicada lo guarda en `props.outlier`). */
   id: string;
-  fuente: 'spy' | 'biblioteca';
+  /** `pegado`: lo que la persona trajo (un link, un texto o un archivo; ./pegado.ts, 14/11/2026). */
+  fuente: 'spy' | 'biblioteca' | 'pegado';
   formato: FormatoCopy;
+  /**
+   * Lo traído (./pegado.ts) dice qué es: la página en que se replica («Historias» y «VSL» no son un formato de la portada) y cómo se
+   * nombra («Secuencia de historias»). Sin esto, los del formato.
+   */
+  tipo?: TipoGuion;
+  rotulo?: string;
+  /** Lo que no se pudo traer de lo traído («su video está en Panda: no lo puedo transcribir»): lo lee MaKo y se ve al lado. */
+  nota?: string;
   /** `competidorId`: su ficha en Competitors Spy (null = no es de Spy). */
   creador: { nombre: string; usuario: string | null; foto: string | null; competidorId: number | null };
-  /** El link al original: siempre (una tarjeta sin él no se puede verificar). */
+  /** El link al original: siempre en la portada (una tarjeta sin él no se puede verificar). '' = lo pegó o lo subió la persona. */
   url: string;
   /** Una imagen que guardamos NOSOTROS (Spy o la biblioteca, en nuestro bucket). null = no hay. */
   miniatura: string | null;
@@ -140,7 +153,7 @@ export const TOPE_POR_FORMATO = 300;
 /** Cuánto del original le llega a MaKo: un guion de YouTube entero no entra en un pedido. */
 export const TEXTO_PARA_MAKO = 6000;
 
-const ID_OUTLIER = /^(spy|biblioteca):-?\d{1,12}$/;
+const ID_OUTLIER = /^(spy|biblioteca|pegado):-?\d{1,12}$/;
 /** ¿Es un id de outlier de copy? (la página replicada lo guarda; la API y la pantalla lo mandan). */
 export const esIdOutlierCopy = (v: unknown): v is string => typeof v === 'string' && ID_OUTLIER.test(v);
 
@@ -453,8 +466,8 @@ export function sumarTanda(ya: readonly OutlierCopy[], t: readonly OutlierCopy[]
 
 // ── Lo que le llega a MaKo al replicar ───────────────────────────────────────────────────────────────────────────
 
-/** El tipo de página en que se replica un outlier. */
-export const tipoDeOutlier = (o: Pick<OutlierCopy, 'formato'>): TipoGuion => INFO_FORMATO[o.formato].tipo;
+/** El tipo de página en que se replica un outlier (lo traído por la persona dice el suyo: «Historias», «VSL»). */
+export const tipoDeOutlier = (o: Pick<OutlierCopy, 'formato'> & { tipo?: TipoGuion }): TipoGuion => o.tipo ?? INFO_FORMATO[o.formato].tipo;
 
 /** El título de la página replicada: de quién y con qué abre. */
 export function tituloDeReplica(o: Pick<OutlierCopy, 'gancho' | 'creador'>): string {
@@ -471,8 +484,15 @@ export function textoParaMaKo(o: OutlierCopy, rotuloMultiplo: string | null, hoy
   const cuanto = rotuloMultiplo ? `; le fue ${rotuloMultiplo} lo que suele rendir su cuenta`
     : o.diasAlAire != null ? `; lleva ${o.diasAlAire} días al aire` : '';
   const texto = o.texto.length > TEXTO_PARA_MAKO ? `${o.texto.slice(0, TEXTO_PARA_MAKO)}…` : o.texto;
+  // Un short de YouTube se replica como reel, pero es de YouTube: «reel de @AlexHormozi en Instagram» era falso (14/11/2026).
+  const short = o.formato === 'reel' && !!idDeYouTube(o.url);
+  // Lo que TRAJO la persona (./pegado.ts): qué es, de dónde, y lo que no se pudo traer.
+  const que = o.fuente === 'pegado'
+    ? `${(o.rotulo ?? INFO_FORMATO[o.formato].label).toLowerCase()} que trajo la persona (${o.url ? `de ${o.creador.nombre}: ${o.url}` : o.creador.nombre})`
+    : `${short ? 'short' : INFO_FORMATO[o.formato].label.toLowerCase()} de ${quien} en ${short ? 'YouTube (vertical, se replica como un reel)' : INFO_FORMATO[o.formato].red}${cuanto}`;
   return [
-    `EL ORIGINAL QUE REPLICAS: ${INFO_FORMATO[o.formato].label.toLowerCase()} de ${quien} en ${INFO_FORMATO[o.formato].red}${cuanto}.`,
+    `EL ORIGINAL QUE REPLICAS: ${que}.`,
+    ...(o.nota ? [`LO QUE NO SE PUDO TRAER: ${o.nota}`] : []),
     `CON QUÉ ABRE: ${o.gancho}`,
     `${ROTULO_TEXTO[o.deDonde].toUpperCase()}:`,
     texto,
@@ -582,10 +602,13 @@ export function avisoDeLargo(original: string, escritas: number): string | null 
 /** Lo que una réplica puede pedir de largo: lo que entra en un pedido (el mismo tope que la duración de una plantilla). */
 export const LARGO_MAXIMO_REPLICA = 2_000;
 
-export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | 'texto' | 'laminas'>, hoy: Date = new Date()): string[] {
+export function reglasDeLaReplica(o: Pick<OutlierCopy, 'formato' | 'deDonde' | 'texto' | 'laminas'> & { tipo?: TipoGuion }, hoy: Date = new Date()): string[] {
   const n = palabrasDe(o.texto);
   const entre = `entre ${Math.max(5, Math.round(n * 0.75))} y ${Math.max(10, Math.round(n * 1.25))} palabras`;
-  const largo = o.formato === 'carrusel'
+  // Un VSL traído sin lo que se DICE (su video no se pudo transcribir: ./pegado.ts): el texto de su página no es el largo de un VSL.
+  const largo = o.tipo === 'vsl' && o.deDonde !== 'guion'
+    ? `EL LARGO: lo de arriba es ${o.deDonde === 'copy' ? 'el TEXTO de su página' : 'lo que se sabe de su video'}, no lo que se dice en su VSL. Toma su promesa, su mecanismo, sus pruebas y su oferta en el orden en que los presenta, y escribe un VSL entero (gancho, problema, mecanismo, prueba, oferta, llamado), de 8 a 15 minutos dichos. Dilo en la respuesta en una frase.`
+    : o.formato === 'carrusel'
     ? `EL FORMATO: un carrusel${o.laminas ? ` de ${o.laminas} láminas` : ''}. Escríbelo lámina por lámina, en una tabla (Lámina | Texto en la imagen | Visual)${o.laminas ? ` con ${o.laminas} filas` : ''}: la primera es el gancho, la última el llamado, y cada una con pocas palabras (se leen en la imagen). Debajo, una sección «Pie» con el texto de la publicación, de ${entre} como su pie.`
     : o.deDonde === 'pie' || (o.deDonde === 'descripcion' && o.formato === 'reel') ? `EL LARGO: lo de arriba es ${o.deDonde === 'pie' ? 'el PIE de la publicación' : 'la DESCRIPCIÓN del short'}, no lo que se dice en el reel. Copia su gancho y su idea, y escribe el reel con la forma de un reel (gancho, desarrollo, cierre), de 30 a 60 segundos dichos.`
       : o.deDonde === 'descripcion' ? (capitulosDe(o.texto).length

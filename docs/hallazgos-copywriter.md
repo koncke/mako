@@ -693,8 +693,52 @@ original al lado (una columna en la computadora, la pestaña «Original» en el 
   su «Copiar estructura» los manda a «reel»; Copywriting no lo usaba.
 - Ahora un short es un reel (vertical, página «Reel», de 30 a 60 segundos), con el ícono de YouTube y el rótulo «Short». Se
   transcribe igual que un YouTube (el Gemini del negocio, por la URL: no depende de la clave de Apify que da 401).
+- **⚠️ Y a MaKo se le decía «reel de @AlexHormozi en Instagram»** (`textoParaMaKo` sacaba la red del formato): ahora «short de … en
+  YouTube», y el rótulo del original dice «Short de YouTube» (`rotuloDeFormato`). Lo vio la réplica en seco de abajo.
+
+## Una réplica REAL sin desplegar y sin escribir en producción: la réplica «en seco» (14/11/2026, el short de Hormozi)
+
+Landings necesitaba una réplica real de un reel de Hormozi antes del deploy, y sin escribir en producción. Se corrió con un
+script (tsx) que llama a las MISMAS funciones del server, adentro de `runWithWorkspace(9, …)`: `outlierCopyPorId`,
+`prepararReplica`, los pasos de `pasoDeReplica`, `pedidoDeReplica`, `editar` (el Gemini del negocio), `sanearOperaciones` +
+`aplicarTodo` y los [DATO] de `datosQueFaltan`. Lo que sirve para la próxima:
+- **La guardia es un `fetch` envuelto** antes de importar nada: todo lo que va a Supabase que no es GET/HEAD se corta y se anota
+  (supabase-js toma el `fetch` global al crear el cliente; no hay Postgres directo en ese camino). Lo único que intentó escribir
+  fue `POST /rest/v1/anthropic_usage` (el registro del gasto de la IA, dos veces por réplica).
+- **Lo que «se habría guardado» se inyecta en las LECTURAS:** la transcripción, como fila de `app_settings` (la lee
+  `guionesGuardados` con `like.<prefijo>%`), y lo contestado de la oferta, como parche de las filas de `ofertas`. ⚠️ `URL.searchParams`
+  ya decodifica: decodificar otra vez el `%` del like tira «URI malformed», y `guionesDe` se lo traga (`.catch(() => new Map())`):
+  MaKo escribía con la descripción sin ningún error a la vista.
+- Se corre con `npx tsx --conditions=react-server --env-file=C:/dev/mako-api/.env.local` desde el worktree, importando con
+  `file:///C:/dev/<worktree>/lib/...`. `editar` anda fuera de Next (sin `headers()`, `exigirPermisoIa` deja pasar).
+- **Lo que encontró la primera corrida** (Gemini, 35 s): «capac0idad» (un dígito colado en la palabra) y «dashboard» en un guion en
+  español; los dos se pasan solos desde ese día (`alEspanol`). Y el pedido oculto llevaba «high ticket.;» y «herramienta..»
+  (lo contestado con su punto): `pedidoDeReplica` lo saca. Un error de gramática («yo no le faltaba herramienta») no tiene arreglo
+  determinístico.
+- **El negocio de MaKo (ws 9) no tiene respuestas de onboarding** y sus ofertas no tienen «para quién» ni «qué promete»: por eso
+  MaKo pregunta las dos (el flujo nuevo funciona como se pensó; los datos son del negocio, no del código).
+
+## Replicar lo que TRAE la persona: un link, un texto o un archivo (14/11/2026, el Cerebro, de la llamada con Julio)
+
+- **Lo traído es un original MÁS, no un flujo nuevo** (lib/copywriter/pegado.ts y pegado-servidor.ts): se guarda en
+  `mako.copywriter.original.<n>` y la página nace con `props.outlier = pegado:<n>`. Desde ahí todo es lo de siempre: la
+  transcripción, las preguntas de la oferta, el original al lado, la pieza entera. Lo único que cambió en el camino es que
+  `outlierCopyPorId` sabe leerlo y que el original dice QUÉ es (`tipo`, `rotulo`): «Historias» y «VSL» no son formatos de la portada.
+- ⚠️ **El id del outlier está validado en DOS lugares** (`ID_OUTLIER` de outliers.ts y `sanearProps` de tipos.ts): con sólo uno,
+  la página nacía con el original y lo perdía al primer guardado (sin error).
+- **Una landing se baja con las barandas de siempre** (`paginaConDireccion`, IP clavada y tope) y su VSL se busca con el detector
+  del Pixel (`videosDeHtml`). Sólo YouTube se transcribe (Gemini por la URL); Panda, Vimeo y Wistia no tienen de dónde bajarse:
+  MaKo lo dice («Su video está en Panda…») y replica con el texto de la página, con la regla de un VSL entero.
+- De Instagram no se trae nada desde el link (Apify da 401): se pide su texto o una captura (las capturas las lee el lector de
+  los chats, lib/adjuntos-del-chat.ts).
+- La API de MaKo lo tiene: `replicar_link_o_texto_copywriter`.
 
 ## Qué quedó sin hacer
+
+- (14/11/2026) Lo traído: sin la clave de YouTube no se sabe la duración y se transcriben los primeros 10 minutos (un VSL de 30
+  queda cortado y lo dice). Y a MaKo le llegan 6.000 letras del original (`TEXTO_PARA_MAKO`): de un VSL largo, el principio.
+- (14/11/2026) En la réplica de Hormozi MaKo no puso el ÁNGULO ni la ESTRUCTURA (la regla de `textoParaMaKo` lo pide y la
+  biblioteca viaja en el pedido): la página queda «Ángulo: Vacío». No hay una segunda pasada que lo pida (lib/copywriter/ia.ts).
 
 - (13/11/2026) ~~Si MaKo PREGUNTA cuando el tema del original no tiene que ver con el negocio lo decide Martín~~: pregunta desde el
   flujo nuevo (lib/copywriter/iniciativa.ts, `pasoDeReplica`).

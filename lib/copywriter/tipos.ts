@@ -145,7 +145,8 @@ export function sanearProps(v: unknown, tipoPorDefecto: TipoGuion = 'ad'): Props
   const tipo = esTipoGuion(o.tipo) ? o.tipo : tipoPorDefecto;
   const id = (x: unknown) => (typeof x === 'string' && /^[a-z0-9-]{1,60}$/.test(x) ? x : null);
   const d = typeof o.duracion === 'number' && Number.isFinite(o.duracion) ? Math.round(o.duracion) : null;
-  // El outlier sólo con su forma (`<fuente>:<id>`, lib/copywriter/outliers.ts): una página sin él no lo guarda (ni `null`).
-  const outlier = typeof o.outlier === 'string' && /^(spy|biblioteca):-?\d{1,12}$/.test(o.outlier) ? o.outlier : null;
+  // El outlier sólo con su forma (`<fuente>:<id>`, lib/copywriter/outliers.ts): una página sin él no lo guarda (ni `null`). `pegado`:
+  // lo que trajo la persona (lib/copywriter/pegado.ts, 14/11/2026).
+  const outlier = typeof o.outlier === 'string' && /^(spy|biblioteca|pegado):-?\d{1,12}$/.test(o.outlier) ? o.outlier : null;
   return { tipo, angulo: id(o.angulo), estructura: id(o.estructura), duracion: d != null && d > 0 && d <= 7_200 ? d : null, plantilla: id(o.plantilla), ...(outlier ? { outlier } : {}) };
 }

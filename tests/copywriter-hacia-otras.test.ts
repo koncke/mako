@@ -190,6 +190,7 @@ test('una página recién creada no espera a leer su chat vacío (0,4 s de los 2
   assert.equal(esRecienCreada('gabc1234'), true);
   assert.equal(esRecienCreada('gabc1234'), false, 'se toma una vez');
   const cliente = leer('app/copywriter/cliente.ts');
-  assert.equal((cliente.match(/if \(r\.ok\) marcarRecienCreada\(r\.pagina\.id\);/g) ?? []).length, 2, 'crear y replicar');
+  // Y replicar lo que trae la persona (14/11/2026, `pedirReplicarPegado`).
+  assert.equal((cliente.match(/if \(r\.ok\) marcarRecienCreada\(r\.pagina\.id\);/g) ?? []).length, 3, 'crear, replicar un outlier y replicar lo traído');
   assert.ok(leer('app/copywriter/PanelMaKo.tsx').includes('if (esRecienCreada(id)) { setHiloLeido(true); return; }'));
 });

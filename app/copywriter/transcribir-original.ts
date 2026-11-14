@@ -25,8 +25,9 @@ export const TRANSCRITO = 'Transcribí el video: lo ves en «Original», al lado
  * no se puede transcribir lo tiene que decir en la pantalla, no inventar lo que se dice. Un motivo que ya es una frase («No pude
  * traer el video de Instagram.») va tal cual, sin «No pude transcribir el video (no pude…)».
  */
-export function sinTranscripcion(motivo: string, formato: 'youtube' | 'reel' | 'anuncio' = 'youtube'): string {
-  const con = formato === 'reel' ? 'el texto de su publicación' : formato === 'anuncio' ? 'el texto del anuncio' : 'su título y su descripción';
+export function sinTranscripcion(motivo: string, formato: 'youtube' | 'reel' | 'anuncio' | 'pagina' = 'youtube'): string {
+  // 'pagina': el VSL de una landing que trajo la persona (lib/copywriter/pegado.ts): se escribe con el texto de su página.
+  const con = formato === 'reel' ? 'el texto de su publicación' : formato === 'anuncio' ? 'el texto del anuncio' : formato === 'pagina' ? 'el texto de su página' : 'su título y su descripción';
   const m = motivo.trim().replace(/\.$/, '');
   // Dentro del paréntesis, en minúscula («(no autorizado)», no «(No autorizado)»).
   const primera = /^no pude /i.test(m) ? `${m.charAt(0).toUpperCase()}${m.slice(1)}` : `No pude transcribir el video (${m.charAt(0).toLowerCase()}${m.slice(1)})`;
@@ -46,15 +47,19 @@ export function motivoSinTranscripcion(g: VistaGuion): string {
   }
 }
 
+type Transcripcion = Promise<{ ok: true; guion: VistaGuion } | { ok: false; error: string }>;
 export type Dependencias = {
   original: typeof pedirOriginal;
-  transcribir: (piezaId: number) => Promise<{ ok: true; guion: VistaGuion } | { ok: false; error: string }>;
+  transcribir: (piezaId: number) => Transcripcion;
+  /** Lo que TRAJO la persona (`pegado:<n>`, lib/copywriter/pegado.ts): su video de YouTube lo transcribe /api/copywriter/pegado. */
+  transcribirPegado?: (outlier: string) => Transcripcion;
   espera: (ms: number) => Promise<void>;
   ahora: () => number;
 };
 const DEPENDENCIAS: Dependencias = {
   original: pedirOriginal,
   transcribir: (piezaId) => postJson<{ ok: true; guion: VistaGuion }>('/api/competitor-spy/transcribir', { piezaId }, 60_000),
+  transcribirPegado: (outlier) => postJson<{ ok: true; guion: VistaGuion }>('/api/copywriter/pegado', { accion: 'transcribir', outlier }, 60_000),
   espera: (ms) => new Promise((r) => setTimeout(r, ms)),
   ahora: () => Date.now(),
 };
@@ -64,22 +69,29 @@ const DEPENDENCIAS: Dependencias = {
  * estaba transcrito o es de la biblioteca); si no, lo que MaKo le dice a la persona antes de escribir.
  */
 export async function transcribirSiHaceFalta(outlier: string, onLinea: (t: string) => void, d: Dependencias = DEPENDENCIAS): Promise<{ ok: boolean; texto: string } | null> {
-  if (!outlier.startsWith('spy:')) return null;
+  // Lo de Spy y lo que trajo la persona (14/11/2026: el link de un YouTube o la landing de un VSL, lib/copywriter/pegado.ts).
+  const pegado = outlier.startsWith('pegado:');
+  if (!outlier.startsWith('spy:') && !pegado) return null;
   const o = await d.original(outlier);
   // Un YouTube, un REEL (13/11/2026, el relevo: 2 de 48 reels de la portada traían lo que se dice) y un ANUNCIO en video (el
   // Cerebro, el mismo día): los tres los transcribe Spy. Un anuncio de imagen vuelve «no-aplica» y no se dice nada.
   const f = o.ok ? o.outlier.formato : null;
   if (!o.ok || (f !== 'youtube' && f !== 'reel' && f !== 'anuncio') || o.outlier.deDonde === 'guion') return null;
-  const formato: 'youtube' | 'reel' | 'anuncio' = f === 'reel' ? 'reel' : f === 'anuncio' ? 'anuncio' : 'youtube';
+  // Lo traído de una página se escribe con el texto de la PÁGINA si su video no se puede transcribir.
+  const formato: 'youtube' | 'reel' | 'anuncio' | 'pagina' = pegado && o.outlier.deDonde === 'copy' ? 'pagina' : f === 'reel' ? 'reel' : f === 'anuncio' ? 'anuncio' : 'youtube';
   const piezaId = Number(outlier.split(':')[1]);
   if (!Number.isInteger(piezaId) || piezaId <= 0) return null;
+  const nota = o.outlier.nota ?? null;
+  const pedir = pegado ? () => (d.transcribirPegado ?? DEPENDENCIAS.transcribirPegado!)(outlier) : () => d.transcribir(piezaId);
   onLinea(LINEA_TRANSCRIBIENDO);
   const hasta = d.ahora() + ESPERA_TRANSCRIPCION_MS;
   while (d.ahora() < hasta) {
-    const r = await d.transcribir(piezaId);
+    const r = await pedir();
     if (!r.ok) return { ok: false, texto: sinTranscripcion(r.error, formato) };
     const g = r.guion;
     if (formato === 'anuncio' && g.estado === 'no-aplica') return null;
+    // Lo traído sin un video que se pueda transcribir (el VSL de la página está en Panda): MaKo dice lo que no pudo traer, o nada.
+    if (pegado && g.estado === 'no-aplica') return nota ? { ok: false, texto: nota } : null;
     if (g.estado === 'listo' && g.texto) return { ok: true, texto: TRANSCRITO };
     if (g.estado !== 'transcribiendo') return { ok: false, texto: sinTranscripcion(motivoSinTranscripcion(g), formato) };
     await d.espera(CADA_MS);
