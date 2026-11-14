@@ -1,56 +1,51 @@
 // =============================================================================
-// /vsl/script — Ads Analyst (el guion de tus anuncios con su retención y tus ventas), con la ESTRUCTURA de Gethookd
+// /vsl/script — Ads Analyst (qué anuncio te funciona a ti y cuál a tu competencia), con la ESTRUCTURA de Gethookd
 // =============================================================================
 // REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y, desde el 11/11/2026, también el DISEÑO):
-//   https://www.gethookd.ai/  (leída el 11/11/2026 con Chromium, de arriba a abajo)
+//   https://www.gethookd.ai/  (leída el 11/11/2026 y otra vez el 14/11/2026 con Chromium, de arriba a abajo)
 // El diseño copiado vive en ./disenos/script.tsx; los valores medidos de la referencia (Inter con eje óptico, la escala,
-// los colores, las cajas), en docs/diseno/landings-competencia/script.md.
+// los colores, las cajas, lo que se mueve y cuándo), en docs/diseno/landings-competencia/script.md.
 // Su orden, que se respeta acá: hero «Your AI cannot see Meta's ad library. Now it can. / Give Your AI 22 Million Live
-// Meta Ads» con sus tres chips → «Trusted by teams at» (logos) → «Ask your AI» → «Two ways to run it: Do it yourself, or
-// hand it to your AI» (las dos tarjetas) → la columna «In the app» (Explore, Brand Spy, Shops, Boards, Clone Ads) → la
-// columna «With your AI agent» (1 Connect, 2 Ask, 3 Your ads are ready) → «Find the store before you find the product» →
-// (precios) → «Frequently asked questions» → «Your competitors already found the winning ad» (el cierre) → pie.
+// Meta Ads» con sus tres chips → «Trusted by teams at» (logos) → «Ask your AI» (la demo que escribe una pregunta y trae
+// tarjetas, cuatro escenas) → «Two ways to run it: Do it yourself, or hand it to your AI» (las dos cabezas) → la columna
+// «In the app» (Explore, Brand Spy, Shops, Boards, Clone Ads: cinco videos de su app) → la columna «With your AI agent»
+// (1 Connect, 2 Ask, 3 Your ads are ready) → «Find the store before you find the product» → (precios) → «Frequently asked
+// questions» → «Your competitors already found the winning ad» (el cierre) → pie.
 // Por qué ganó: docs/competencia/landings-por-funcion.md → «Ads Analyst».
 //
+// 14/11/2026, noche (la copia fiel): Ads Analyst es el analista de anuncios de MaKo, el que lee los anuncios PROPIOS (las hojas
+// «Anuncio ganador» y «Hooks y retención» del Dashboard, con su gancho, su ángulo, su formato y su retención) y, con Competitor
+// Spy, los de la COMPETENCIA (el mismo vocabulario de ganchos: lib/ads-analyst.ts, cabecera), y propone qué grabar. Los ejemplos
+// son los anuncios y los videos REALES de Alex Hormozi que ya lee Spy (C:/dev/bancos-portada/banco-spy-gurus/hormozi-funnel.json,
+// leído el 14/11; las cuentas con lib/spy-detalle.ts), nunca datos de un cliente.
+//
 // Lo que se cambió de la referencia, y por qué:
-//   · Gethookd mira los anuncios del MERCADO; Ads Analyst mira los TUYOS. Donde dice «la biblioteca», acá van tus anuncios,
-//     y no se promete ninguna biblioteca de la competencia (eso es Competitor Spy, y lo dice una pregunta).
-//   · «Your AI» es, en MaKo, MaKo: se le pregunta desde el chat de la app o por WhatsApp (las lecturas de Ads Analyst de
-//     lib/api-mako/areas/ads.def.ts). Su conexión con Claude, ChatGPT o Cursor por MCP no va: MaKo no tiene MCP.
+//   · «Your AI» es, en MaKo, MaKo: se le pregunta desde el chat de la app o por WhatsApp. Lo de Competitor Spy NO sale por la
+//     API (canales app y whatsapp, lib/api-mako/areas/spy.def.ts): por eso «tu Claude» no se nombra donde se habla de la
+//     competencia. La conexión de Gethookd con Claude, ChatGPT o Cursor por MCP no va: MaKo no tiene MCP.
+//   · Su biblioteca pública de 22 millones de anuncios y la descarga de anuncios ajenos no existen en MaKo: no se dibujan.
+//     Spy lee los anuncios de los referentes que TÚ sigues.
 //   · Sus logos de clientes («Trusted by teams at») son suyos: en ese lugar va la prueba de MaKo, el caso de Mauricio.
-//   · Sus chips («22M+ active ads»…) son de su biblioteca: los puntos del hero dicen lo que MaKo hace (se actualiza cada día,
-//     con los cierres del CRM).
-//   · De la columna «In the app»: Explore → cuál de tus anuncios gana (la hoja «Anuncio ganador» y «Hooks y retención»);
-//     Boards → tus ángulos y avatares; Brand Spy y Shops miran competidores y tiendas, y no van. Clone Ads («convierte un
-//     ganador en tu próximo anuncio») es, en MaKo, valorar tu próximo guion contra lo que ya te rinde: va en el paso 3 de la
-//     otra columna, que es donde la referencia dice que terminan los dos caminos.
+//   · Sus chips («22M+ active ads»…) son de su biblioteca: los de acá dicen lo que MaKo hace.
+//   · Sus cinco videos de la app (Explore, Brand Spy, Shops, Boards, Clone Ads) → cinco pantallas de MaKo grabadas: la hoja
+//     «Anuncio ganador», la hoja «Hooks y retención», los anuncios de Hormozi en Spy, su gancho, su ángulo y su formato, y su
+//     reel replicado con una oferta (Copywriting, «Replicar»). Los rótulos y los videos van en el diseño (FILAS_DE_LA_APP).
 //   · «Find the store before you find the product» (tiendas de e-commerce) y los precios no tienen equivalente: no van.
-//   · De sus 14 preguntas van las que tienen respuesta en MaKo; las de planes, créditos y cancelación, no (ninguna landing de
-//     /vsl escribe un precio a mano). Su cierre es la banda de la llamada, la misma de todas las landings.
+//   · Las preguntas son las de la portada (LandingCompetencia las pone). Su cierre es la banda de todas las landings.
 // De dónde sale lo que se afirma: lib/ads-analyst.ts (transcribir, partir en bloques, cruzar con Meta y con los cierres del
-// CRM, valorar un guion nuevo), lib/ads-analyst-patrones.ts (los veredictos y la muestra: alta desde 25.000 impresiones, media
-// desde 8.000), lib/graficos-plantillas-analysts.ts (las hojas «Anuncio ganador» y «Hooks y retención»), vercel.json (los
-// crons diarios transcribe-ads y ads-analyst-sync) y las lecturas de Ads Analyst de lib/api-mako/areas/ads.def.ts. Los
-// gráficos, de la landing anterior de esta ruta (app/vsl/_detalle/feature-visuals.ts): el 2 y el 3 traen voseo, y el 1 pone
-// plata y ROAS por guion, que Ads Analyst no calcula (cuenta agendas y cierres): no van.
+// CRM), lib/ads-analyst-patrones.ts (los veredictos y la muestra: alta desde 25.000 impresiones, media desde 8.000),
+// lib/graficos-plantillas-analysts.ts (las hojas «Anuncio ganador» y «Hooks y retención»), vercel.json (los crons diarios
+// transcribe-ads y ads-analyst-sync), lib/api-mako/areas/spy.def.ts y copywriter.def.ts (replicar_outlier_copywriter: «replica
+// su reel» se le pide a MaKo en el chat).
 //
 // LOS TEXTOS DE GETHOOKD, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»):
-//   · «Your AI cannot see Meta's ad library. Now it can.» → «Tu IA no puede ver tus anuncios de Meta. Ahora puede.»
-//     (Ads Analyst lee los TUYOS, no la biblioteca); «Give Your AI 22 Million Live Meta Ads» → «Dale a tu IA tus anuncios
-//     de Meta, leídos palabra por palabra»;
-//   · «Connect GetHookd to Claude… Ask what your market is running. Get back live ads, hooks, angles…» → «Conecta tu Meta
-//     a MaKo, o MaKo a tu Claude. Pregúntale qué está corriendo tu cuenta…»: las lecturas de Ads Analyst
-//     (listar_guiones_analizados, ver_ficha_guion, ver_cuadrante_retencion… en lib/api-mako/areas/ads.def.ts) salen por
-//     HTTP, así que tu Claude las lee con un token de la API de MaKo (la nota de abajo que decía «MaKo no tiene MCP» sigue
-//     siendo cierta: no es MCP, es la API);
+//   · «Your AI cannot see Meta's ad library. Now it can.» → «Tu IA no puede ver tus anuncios de Meta. Ahora puede.»;
+//     «Give Your AI 22 Million Live Meta Ads» → «Dale a tu IA tus anuncios de Meta, leídos palabra por palabra»;
 //   · «[ AI agent access ]» / «Ask your AI», «Two ways to run it» / «Do it yourself, or hand it to your AI.» / «Same live
 //     ad data either way.», «Click through it yourself.» (→ «Revísalo tú mismo»), «A full interface, built for people who
 //     like to look at the ads themselves», «Ask, and skip the clicking.» / «Same data, reached from the chat you already have
 //     open», «Type it the way you would say it out loud» / «…does the searching, the filtering and the reading, and hands
-//     the answer back inside the same chat»;
-//   · sus preguntas «Do I need to be technical to connect my AI agent?», «How do I know the numbers are real?», «How
-//     current is the data?», «Can I use it without an AI agent?», «I am just starting out. Is this useful for me?».
-//     Su cierre «Your competitors already found the winning ad» no va: Ads Analyst no mira a la competencia.
+//     the answer back inside the same chat», «Both routes end in the same place».
 // =============================================================================
 
 import { IMPR_ALTA, IMPR_MEDIA, VEREDICTO_ROTULO } from '@/lib/ads-analyst-patrones';
@@ -58,9 +53,6 @@ import type { LandingCompetencia } from './tipos';
 
 const I = {
   guion: ['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z', 'M9 9l1 0', 'M9 13l6 0', 'M9 17l6 0'],
-  trofeo: ['M8 21l8 0', 'M12 17l0 4', 'M7 4l10 0', 'M17 4v8a5 5 0 0 1 -10 0v-8', 'M5 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0', 'M19 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0'],
-  caida: ['M4 19l16 0', 'M4 6l5 5l4 -3l7 7'],
-  nuevo: ['M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3l5.8 1.9l-5.8 1.9a2 2 0 0 0 -1.3 1.3l-1.9 5.8l-1.9 -5.8a2 2 0 0 0 -1.3 -1.3l-5.8 -1.9l5.8 -1.9a2 2 0 0 0 1.3 -1.3z'],
   hojas: ['M4 4h6v8h-6z', 'M4 16h6v4h-6z', 'M14 12h6v8h-6z', 'M14 4h6v4h-6z'],
   chat: ['M8 9h8', 'M8 13h6', 'M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-5l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3h12z'],
 };
@@ -77,16 +69,17 @@ export const LANDING_SCRIPT: LandingCompetencia = {
   slug: 'script',
   nombre: 'Ads Analyst',
   icono: I.guion,
-  referencia: { nombre: 'Gethookd — la biblioteca de anuncios de Meta para tu IA', url: 'https://www.gethookd.ai/', leida: '2026-11-11' },
-  metaTitle: 'Ads Analyst de MaKo: dale a tu IA tus anuncios de Meta, leídos palabra por palabra',
-  metaDesc: 'MaKo transcribe tus anuncios de Meta, los parte en bloques y los cruza con su retención, tus agendas y los cierres de tu CRM. Le preguntas cuál escalar o le pegas un guion nuevo para valorarlo.',
+  referencia: { nombre: 'Gethookd — la biblioteca de anuncios de Meta para tu IA', url: 'https://www.gethookd.ai/', leida: '2026-11-14' },
+  metaTitle: 'Ads Analyst de MaKo: qué anuncio te funciona a ti y cuál a tu competencia',
+  metaDesc: 'MaKo transcribe tus anuncios de Meta y los cruza con su retención y los cierres de tu CRM, lee los de tu competencia con su gancho, su ángulo y su formato, y te propone qué grabar.',
   bloques: [
     {
       tipo: 'hero',
       etiqueta: 'Tu IA no puede ver tus anuncios de Meta. Ahora puede.',
       titulo: 'Dale a tu IA tus anuncios de Meta, leídos <strong>palabra por palabra</strong>',
-      bajada: 'Conecta tu Meta a MaKo, o MaKo a tu Claude. Pregúntale qué anuncios tienes activos y te devuelve tus anuncios, sus ganchos, sus ángulos y <strong>los cierres de tu CRM</strong>.',
-      puntos: ['Se actualiza solo, cada día', 'Con las agendas de Meta y los cierres de tu CRM'],
+      bajada: 'Conecta tu Meta a MaKo y pregúntale qué anuncios te funcionan a ti y cuáles a tu competencia: te devuelve sus ganchos, sus ángulos y <strong>los cierres de tu CRM</strong>.',
+      // Como sus tres chips: lo que importa, en negrita.
+      puntos: ['Se actualiza solo, cada <b>día</b>', 'Con los <b>cierres</b> de tu CRM', 'Lo que publica tu <b>competencia</b>, con su gancho'],
       visual: { tipo: 'detalle', slug: 'script' },
     },
     { tipo: 'caso' },
@@ -94,11 +87,14 @@ export const LANDING_SCRIPT: LandingCompetencia = {
       tipo: 'tarjetas',
       etiqueta: 'Acceso para tu IA',
       titulo: 'Pregúntale a tu IA',
-      bajada: 'Desde el chat de MaKo, tu WhatsApp o tu Claude, por la API de MaKo: le preguntas por tus anuncios y te contesta con tus números.',
+      bajada: 'Desde el chat de MaKo o tu WhatsApp: le preguntas por tus anuncios y por los de tu competencia, y te contesta con sus números.',
+      // Las cuatro escenas de la demo (como las cuatro de Gethookd): la pregunta que se escribe y lo que vuelve. Lo que dibuja
+      // cada tarjeta (los anuncios de Hormozi, sus destinos, sus formatos y el guion replicado) va en el diseño (ESCENAS).
       items: [
-        { icono: I.trofeo, titulo: '«¿Qué guion rinde mejor?»', texto: 'Te los ordena por agendas y gasto, con sus cierres del CRM y el gancho que conviene probar.' },
-        { icono: I.caida, titulo: '«¿Dónde se me cae la gente?»', texto: 'Te muestra el guion del anuncio por bloques, con la retención que llegó a cada uno.' },
-        { icono: I.nuevo, titulo: '«¿Lo publico?»', texto: 'Le pegas un guion que todavía no corrió y lo compara con <strong>lo que ya te rinde</strong>.' },
+        { titulo: '¿Qué anuncios tiene activos Alex Hormozi?', texto: 'Sus anuncios de Meta, con los días que llevan corriendo.' },
+        { titulo: '¿A dónde manda sus anuncios?', texto: 'Las páginas a las que llevan, con cuántos de sus anuncios.' },
+        { titulo: '¿Qué le funciona en sus videos cortos?', texto: 'El formato, el gancho y lo que no le rinde, contra la mediana de su cuenta.' },
+        { titulo: 'Replica su reel con mi oferta', texto: 'Tu guion con la estructura del suyo: gancho, historia y llamado.' },
       ],
     },
     {
@@ -108,10 +104,31 @@ export const LANDING_SCRIPT: LandingCompetencia = {
       titulo: 'Hazlo tú, o pásaselo a tu IA.',
       bajada: 'Los mismos datos de tus anuncios, en las dos.',
       columnas: 2,
-      // Las dos tarjetas son las cabezas de las dos columnas que siguen (como en Gethookd): se llaman como ellas.
+      // Las dos tarjetas son las cabezas de las dos columnas que siguen (como en Gethookd): se llaman como ellas, y su lista
+      // dice lo que trae cada columna.
       items: [
-        { icono: I.hojas, titulo: EN_LA_APP, texto: 'Una interfaz completa, hecha para quien quiere ver sus anuncios uno por uno: las hojas «Anuncio ganador» y «Hooks y retención» del Dashboard.', meta: 'En la app' },
-        { icono: I.chat, titulo: CON_MAKO, texto: 'Los mismos datos, desde el chat que ya tienes abierto: le escribes como lo dirías en voz alta, sin armar un filtro.', meta: 'Con tu IA' },
+        {
+          icono: I.hojas, titulo: EN_LA_APP, meta: 'En la app',
+          texto: 'Una interfaz completa, hecha para quien quiere ver sus anuncios uno por uno.',
+          puntos: [
+            'Cuál de tus anuncios gana, con su veredicto y su muestra',
+            'En qué segundo se va la gente de cada video',
+            'Los anuncios de tu competencia, con los días que llevan',
+            'El gancho, el ángulo y el formato que le funcionan',
+            'Su reel, replicado con tu oferta',
+          ],
+        },
+        {
+          icono: I.chat, titulo: CON_MAKO, meta: 'Con tu IA',
+          texto: 'Los mismos datos, desde el chat que ya tienes abierto.',
+          puntos: [
+            'Le escribes desde el chat de MaKo o desde tu WhatsApp',
+            'Le preguntas como lo dirías en voz alta, sin armar un filtro',
+            'Te contesta con tus anuncios y con los de tu competencia',
+            'Te avisa cuando la muestra es chica para decidir',
+            'Le pides que replique un reel y lo escribe con tu oferta',
+          ],
+        },
       ],
     },
     {
@@ -119,23 +136,13 @@ export const LANDING_SCRIPT: LandingCompetencia = {
       etiqueta: 'En la app',
       titulo: EN_LA_APP,
       slug: 'script',
+      // Una tarjeta por pantalla de la app, como las cinco de Gethookd (su video y su rótulo, en el diseño: FILAS_DE_LA_APP).
       items: [
-        {
-          grafico: 0,
-          titulo: 'Cuál de tus anuncios gana, y dónde se va la gente',
-          texto: 'Cada guion con su veredicto y con cuánta muestra lo dice, y su <strong>retención bloque por bloque</strong>.',
-          puntos: [
-            `Qué hacer con cada uno: ${VEREDICTOS}`,
-            `La muestra: alta desde ${miles(IMPR_ALTA)} impresiones, media desde ${miles(IMPR_MEDIA)}`,
-            'El guion partido en bloques (gancho, problema, prueba, llamado) con la retención encima',
-          ],
-        },
-        {
-          grafico: 4,
-          titulo: 'Tus ángulos y tus avatares',
-          texto: 'Corriges el ángulo o el avatar de un anuncio y MaKo <strong>lo respeta</strong> cuando lo vuelve a analizar.',
-          puntos: ['Los ángulos y los avatares son los de tu negocio, y los editas tú'],
-        },
+        { titulo: 'Cuál de tus anuncios gana, y con cuánta muestra.', texto: `Cada guion con su veredicto (${VEREDICTOS}). La muestra es alta desde ${miles(IMPR_ALTA)} impresiones y media desde ${miles(IMPR_MEDIA)}.` },
+        { titulo: 'En qué segundo se va la gente.', texto: 'Cuánto ven tus anuncios, qué tipo de gancho retiene más y en qué parte de cada video se van.' },
+        { titulo: 'Los anuncios de tu competencia, y cuánto llevan.', texto: 'Cuántos tiene activos, a dónde mandan y qué está probando. En la grabación, los de Alex Hormozi.' },
+        { titulo: 'Qué gancho, ángulo y formato le funcionan.', texto: 'Cada pieza con su gancho, su ángulo y su formato, y qué formatos le rinden más que la mediana de su cuenta.' },
+        { titulo: 'Su reel, con tu oferta.', texto: 'Tocas «Replicar» y MaKo escribe tu guion con la estructura del suyo: gancho, historia y llamado.' },
       ],
     },
     {
@@ -143,28 +150,19 @@ export const LANDING_SCRIPT: LandingCompetencia = {
       fondo: true,
       etiqueta: 'Con MaKo',
       titulo: CON_MAKO,
-      bajada: 'Los dos caminos terminan en lo mismo: tu próximo guion, valorado antes de grabarlo.',
+      bajada: 'Los dos caminos terminan en lo mismo: tu próximo guion, con la estructura de lo que ya funciona, listo para grabar.',
       pasos: [
         { titulo: 'Conectas tu Meta', texto: 'Una sola vez. Cada día MaKo transcribe tus anuncios nuevos y los analiza.' },
-        { titulo: 'Escríbelo como lo dirías en voz alta', texto: '«¿Qué guion escalo?» o «¿qué ganchos me funcionan?». MaKo busca, filtra y lee, y te devuelve la respuesta en el mismo chat: la app, tu WhatsApp o tu Claude.' },
-        { titulo: 'Tu próximo guion, valorado', texto: 'Le pegas un guion nuevo y te dice si se parece a lo que ya te rinde, con cuánto probarlo y contra cuál medirlo.' },
+        { titulo: 'Escríbelo como lo dirías en voz alta', texto: '«¿Qué guion escalo?» o «¿qué le funciona a Hormozi?». MaKo busca, filtra y lee, y te contesta en el mismo chat.' },
+        { titulo: 'Tu próximo guion, escrito', texto: 'Le pides que replique el reel que le funcionó y te devuelve tu guion con tu oferta: gancho, historia y llamado.' },
       ],
     },
     {
       tipo: 'preguntas',
       titulo: 'Preguntas frecuentes',
+      // LandingCompetencia y el registro ponen las de la portada (app/vsl/_sitio/preguntas.ts): ésta no se dibuja.
       items: [
-        { p: '¿Tengo que saber de tecnología para conectar mi IA?', r: 'No. Conectas tu Meta una vez y MaKo transcribe y analiza tus anuncios solo. Para preguntarle, le escribes como a una persona.' },
-        { p: '¿Qué anuncios analiza?', r: 'Los tuyos: los de tu cuenta de Meta. De un video lee el guion; de una imagen, su texto.' },
-        { p: '¿Y los anuncios de mi competencia?', r: 'Esos no: Ads Analyst lee los tuyos. Los de tu competencia los guarda <strong>Competitor Spy</strong>.' },
-        { p: '¿Qué le puedo preguntar?', r: 'Qué guion rinde mejor, cuál escalar o pausar, dónde se te cae la gente, qué ángulos y ganchos te funcionan, y si publicas un guion nuevo.' },
-        { p: '¿Cómo sé que los números son reales?', r: 'El gasto, el hook rate, la retención y las agendas, de Meta; los cierres, de tu CRM. La retención por bloque es una <strong>estimación</strong> sobre los cuartiles de Meta, y MaKo lo dice.' },
-        { p: '¿Qué tan actuales son los datos?', r: 'Cada día MaKo transcribe y analiza tus anuncios nuevos. Los números se vuelven a calcular cada vez que abres la hoja.' },
-        { p: '¿Es sólo para Meta?', r: 'Sí: lee tus anuncios de Facebook e Instagram.' },
-        { p: '¿Por qué no alcanza con lo que me muestra Meta?', r: 'Meta te da el hook rate y los cuartiles, pero no lee tu guion ni lo cruza con tus ventas. MaKo junta las dos cosas en cada anuncio.' },
-        { p: '¿En qué se distingue de una biblioteca de anuncios?', r: 'Una biblioteca te muestra anuncios de otros. Ads Analyst lee los tuyos y te dice cuál te trae agendas y cierres.' },
-        { p: '¿Lo puedo usar sin una IA?', r: 'Sí: las hojas «Anuncio ganador» y «Hooks y retención» del Dashboard te muestran lo mismo.' },
-        { p: 'Estoy empezando. ¿Me sirve?', r: 'Con pocos anuncios, MaKo te marca los de <strong>muestra chica</strong> en vez de darte un ganador que no lo es. Para valorar un guion nuevo necesita anuncios tuyos ya analizados.' },
+        { p: '¿Qué anuncios analiza?', r: 'Los tuyos, de tu cuenta de Meta; los de tu competencia, con Competitor Spy.' },
       ],
     },
   ],

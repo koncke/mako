@@ -411,3 +411,28 @@ test('Dashboard: el hero, la caja y cada pestaña llevan su grabación real, cad
 // 3) va con data-visor.
 // PROBADO ROMPIÉNDOLO (14/11/2026): `hooks.webm` → `hooksx.webm` en FILAS_DE_LA_APP → falla «falta public/…»; una fila menos en
 // FILAS_DE_LA_APP → falla «una tarjeta sin su grabación»; sacar `data-bar` del script → falla «sin su script».
+
+test('Ads Analyst: la demo trae sus cuatro preguntas con datos de Spy, cada tarjeta de la app su grabación y el script va con data-visor', async () => {
+  const { FILAS_DE_LA_APP, ANUNCIOS_ACTIVOS, CINTAS_CIERRE, PASO_PREGUNTA } = await import('../app/vsl/_competencia/disenos/script');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'script');
+  assert.ok(l, 'falta la landing de Ads Analyst');
+  const html = dibujar(l);
+  const filas = l.bloques.find((b) => b.tipo === 'filas');
+  assert.ok(filas && filas.tipo === 'filas', 'Ads Analyst sin su columna de la app');
+  assert.equal(FILAS_DE_LA_APP.length, filas.items.length, 'una tarjeta sin su grabación');
+  for (const v of [...FILAS_DE_LA_APP, PASO_PREGUNTA]) {
+    for (const f of [v.video, v.poster]) assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+    assert.ok(html.includes(`src="${v.video}"`), `no se dibuja ${v.video}`);
+  }
+  for (const id of [...ANUNCIOS_ACTIVOS.map((a) => a.id), ...CINTAS_CIERRE.flat()]) {
+    const f = `/vsl-assets/script/anuncio-${id}.jpg`;
+    assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+    assert.ok(html.includes(`src="${f}"`), `no se dibuja ${f}`);
+  }
+  const pregunta = l.bloques.find((b) => b.tipo === 'tarjetas' && b.columnas !== 2);
+  assert.ok(pregunta && pregunta.tipo === 'tarjetas', 'sin «Pregúntale a tu IA»');
+  assert.equal((html.match(/data-fila="/g) ?? []).length, pregunta.items.length, 'una pregunta sin sus tarjetas');
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
+  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
+  assert.ok(scripts.some((x) => x.includes("'d-script'") && x.includes('data-fila') && x.includes('data-bar') && x.includes('-rv-on') && x.includes('IntersectionObserver')), 'sin su script');
+});

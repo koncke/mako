@@ -6154,3 +6154,43 @@ SIN HACER: el portal arranca el video de Mauricio en 0:00 aunque su link diga 24
 `docs/hallazgos-customer-success.md`). La animación muestra el 24:10 que eligió él, no lo que hoy ve un alumno. Los subtítulos
 automáticos («[Aplausos]») siguen: `unloadModule('captions')` no los apaga en este reproductor. El avatar de @hormozi es el de sus
 réplicas del sitio (`public/asesores/hormozi.png`), no su foto de Instagram.
+
+## Ads Analyst como Gethookd: su demo y sus columnas se leen en el HTML, la copia vieja tenía hovers que la suya no tiene, y lo que el chat de Spy NO contesta (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/script.tsx` (diseño, `ANUNCIOS_ACTIVOS`, `DESTINOS`, `FORMATOS`, `GUION_REPLICADO`,
+`FILAS_DE_LA_APP`, `PASO_PREGUNTA`, `CINTAS_CIERRE` y el `<script data-visor>`), `app/vsl/_competencia/script.ts`,
+`public/vsl-assets/script/`, valores en `docs/diseno/landings-competencia/script.md` («Segunda mirada»), test «Ads Analyst: …» en
+`tests/vsl-landings-competencia.test.ts`. Bancos: scratchpad `script-banco-hojas/` (las hojas «Anuncio ganador» y «Hooks y retención»
+con los datos de ejemplo de su plantilla; `entrada-chat.tsx`, la caja REAL de `MakoChat`). Datos: `C:/dev/bancos-portada/banco-spy-gurus/
+hormozi-funnel.json` con `lib/spy-detalle.ts`. El relevo con capturas: notas de la sesión, `referencias-landings/script/relevo.md`.
+
+- **Su página es la variante D de una prueba A/B** (`<html data-ab-arm="variant_d">`; su barra y su pie sólo existen con ese atributo).
+  Otro día puede tocar otra variante: el relevo anota la de ese día, y se mira el atributo antes de comparar con uno viejo.
+- **Su CSS y sus scripts vienen DENTRO del HTML (otra vez, como HighLevel y Rebill):** la demo «Ask your AI» escribe a 18 ms por letra
+  y deja caer cada tarjeta 115 ms después de la otra; las `.rv` entran al 18 %; cada columna corre UN video (el que más se ve, ≥ 35 %;
+  en el teléfono, uno solo) y lo calienta 600 px antes; el paso 2 queda pegado; las barras de cada columna aparecen cuando las cabezas
+  salen por arriba; el paso 3 es un ciclo de 9 s en CSS. Todo eso estaba en su `<script>`, y el navegador lo confirmó paso a paso.
+- **⚠️ La copia del 11/11 tenía lo que la suya NO tiene (el diagnóstico obvio era «faltan animaciones»; también sobraban):** las
+  tarjetas de las columnas subían 2 px con el mouse (las suyas no tienen hover: medido a 120 y 900 ms) y las bandas aparecían al
+  CARGAR (las suyas, al bajar). El chevrón de una pregunta queda gris con el mouse y se pone azul sólo abierta. **Regla:** el relevo
+  de hovers mide también lo que NO cambia, y lo que la copia tiene de más se saca.
+- **⚠️ Lo que el chat de MaKo contesta de un competidor no es lo que muestra la pantalla de Spy (vive en Spy, no en la landing:
+  `lib/api-mako/areas/spy.run.ts` → `que_esta_haciendo`, y `lib/multiplo-rendimiento.ts`).** La pantalla dice de Hormozi «Storytime y
+  Caso de éxito rinden 14,6x y 13x la mediana» (`formatosDe`, por formato); el chat arma «Lo que mejor le fue» con el múltiplo por
+  pieza, y sus 500 videos de YouTube dan `falta-enmienda`: contesta «Falta un trámite con YouTube para poder calcular esto». Y sus 64
+  anuncios no tienen gancho ni ángulo (`analisis` vacío: sólo 90 videos están leídos). Por eso la landing dice «lo que publica tu
+  competencia, con su gancho», no «sus anuncios con su gancho», y la demo muestra lo que guarda Spy, no una respuesta del chat.
+- **Spy no sale por la API** (`CANALES = ['app', 'whatsapp']` en `spy.def.ts`) y las lecturas de Ads Analyst sí (`TODOS`): «pregúntale
+  a tu Claude» vale para tus anuncios, no para los de tu competencia. El hero dejó de nombrar a Claude.
+- **⚠️ El sol y la luna pinta como el LOGO todo lo que tenga un `aria-label` que empiece con «MaKo»** (`TemaSitio.tsx`, `llevarAlModo`:
+  `[aria-label^="MaKo"]` → su primer `<span>` va con el fondo `#1A1712` de la estrella y los demás con la letra del modo). El chip
+  «MaKo» de la caja de la demo (`aria-label="MaKo"`) salía como una barra negra donde iba la palabra, y la tarjeta del paso 3
+  (`aria-label="MaKo escribiendo…"`) perdía el azul de su chip. Se ve en la foto, no en el test. **Regla:** un `aria-label` de una
+  landing no empieza con «MaKo» salvo el del logo («Conectado a MaKo», «Tu guion, escrito por MaKo»).
+- **`pulir.mjs` guarda el DOM con lo que puso el script** (la clase que esconde las tarjetas, las que ya entraron, los botones de play
+  creados): el script los saca antes de empezar; si no, con «menos movimiento» la demo quedaba vacía para siempre.
+
+SIN HACER: «Find the store before you find the product» (tiendas), sus precios, la píldora de prueba social, sus logos y «Works with your
+AI» (MaKo no los tiene); la cinta de la tira (el caso de Mauricio son tres meses: no llenan una cinta); el paso 1 es la conexión
+dibujada (Meta → MaKo), no la pantalla real de conectar Meta; la escena «¿Qué le funciona en sus videos cortos?» muestra lo que dice
+la pantalla de Spy, y el chat de hoy no lo contesta así (ver arriba); el `tsc` acotado no se corrió (ver «/vsl/ads contra Master Ads»).
