@@ -120,10 +120,11 @@ test('/planes: tres bloques, el programa se pide, la comparación, y el link a M
   assert.match(t, /<a className="mkpl-btn" href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador<\/a>/, 'el programa se pide en su página, con el origen y el partner');
   assert.match(t, /\{p\.destacado && <span className="mkpl-insignia">Recomendado<\/span>\}/);
   assert.match(p, /^\s*const filas = filasDeComparacion\(\);/m);
-  assert.match(p, /<h2 id="planes-compara-titulo">Compara los planes<\/h2>/);
+  // La tabla como Attio (14/11/2026): ver app/planes/Vitrina.tsx, `CompararPlanes`.
+  assert.match(p, /<h2 id="cp-titulo" className="cp-titulo">Compara los planes<\/h2>/);
   // La columna de cada plan sale de su CAPA (los topes son de la capa): un plan del setting con otro id no queda vacío.
   // (29/10/2026: la celda por capa pasó a lib/planes-comparacion.ts, `celdaDeCapa`: la usan también los ✗ de cada tarjeta.)
-  assert.match(p, /<CeldaPlan v=\{celdaDeCapa\(f, p\.capa\)\} \/>/);
+  assert.match(p, /celda: \(f: FilaComparacion\) => celdaDeCapa\(f, p\.capa\)/);
   assert.match(fuente('lib/planes-comparacion.ts'), /return capa === 'completo' \? f\.esencial : capa === 'agencia' \? f\.pro : null;/);
   assert.match(p, /<Link href="\/mako-partners">MaKo Partners<\/Link>/, 'desde /planes se llega a MaKo Partners');
   // Los planes cobrables siguen saliendo de la regla de siempre (tests/planes-sin-pasarela.test.ts).
@@ -220,10 +221,11 @@ test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón
   const { promesa } = PROGRAMA_ACELERADOR;
   assert.ok(promesa, 'el personalizado lleva promesa (Martín, 24/10)');
   assert.match(promesa!, /^En \d+ días,/, 'con plazo');
-  assert.doesNotMatch(promesa!, /devolv|reembols|garant/i, 'una promesa no es una garantía: lo que se devuelve va en `garantia`');
-  // Martín, 14/11/2026: atada a un resultado de plata o del funnel, no a la instalación, y que se note que es a la medida.
-  assert.match(promesa!, /ventas|llamadas|factur/i, 'la promesa es un resultado (ventas, llamadas), no la instalación');
-  assert.doesNotMatch(promesa!, /andando|instal|conectad|lista/i, 'la promesa no es dejar cosas instaladas');
+  // Martín, 14/11/2026: atada a un resultado de plata («como mínimo, rentabilizar la inversión… garantizado por contrato»), con
+  // quién la cumple (él) y a la medida de la oferta. Lo que se DEVUELVE sigue en `garantia`, no acá.
+  assert.doesNotMatch(promesa!, /devolv|reembols/i, 'lo que se devuelve va en `garantia`');
+  assert.match(promesa!, /recuper\w* la inversión|ventas|llamadas|factur/i, 'la promesa es un resultado de plata o del funnel');
+  assert.match(promesa!, /Martín Koncke/, 'con quién la cumple');
   assert.match(promesa!, /tu (oferta|negocio)/i, 'se nota que es a la medida');
   const t = await vitrina();
   assert.ok(t.indexOf(`Nuestra promesa: ${promesa}`) > 0 && t.indexOf('Nuestra promesa') < t.indexOf('Quiero el Acelerador'));
@@ -293,13 +295,16 @@ test('el ANUAL: 2 meses gratis, se elige arriba, y SIEMPRE se pide (el checkout 
 test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mismo que el cobro', async () => {
   assert.equal(PRUEBA_DIAS, 7, 'no se borró');
   assert.equal(textoDespuesDeLaPrueba(97, 'mes', true), 'Después US$ 97/mes. Cancela cuando quieras antes del día 8.');
-  // LA PRUEBA, SÓLO EN PRO (12/11/2026, Martín: «7 días gratis en la de 97… para acceder a la de 47 haya que pagar directamente»).
+  // LA PRUEBA EN LOS DOS PLANES (14/11/2026, Martín: «habilita nuevamente la prueba gratuita en el del 47»; del 12/11 al 14/11 fue
+  // sólo de Pro).
   assert.equal(planConPrueba('pro'), PRUEBA_GRATIS_PRENDIDA, 'Pro trae la prueba');
-  assert.equal(planConPrueba('esencial'), false, 'Esencial se paga al empezar');
-  // Debajo del precio, una sola cosa (12/11 noche, menos texto): los días gratis en Pro, «Se paga al empezar» en Esencial.
+  assert.equal(planConPrueba('esencial'), PRUEBA_GRATIS_PRENDIDA, 'Esencial también');
+  // Debajo del precio, una sola cosa (12/11 noche, menos texto): los días gratis.
   const { bajoElPrecio } = await import('../app/planes/Tarjetas');
-  if (PRUEBA_GRATIS_PRENDIDA) assert.equal(bajoElPrecio({ id: 'pro' }), `${PRUEBA_DIAS} días gratis`);
-  assert.equal(bajoElPrecio({ id: 'esencial' }), 'Se paga al empezar');
+  if (PRUEBA_GRATIS_PRENDIDA) for (const id of ['pro', 'esencial']) assert.equal(bajoElPrecio({ id }), `${PRUEBA_DIAS} días gratis`);
+  // «Y evidentemente no la aclares por otro lado»: ningún texto dice cuál plan no la trae.
+  for (const f of ['app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/terminos/page.tsx', 'app/reembolsos/page.tsx', 'lib/partners-recursos.ts'])
+    assert.doesNotMatch(fuente(f), /Esencial (no tiene prueba|se paga al empezar)/, f);
   assert.match(fuente('lib/compra-plan.ts'), /const conPrueba = planConPrueba\(plan\.id\) && !p\.sinPrueba;/, 'el cobro abre la prueba sólo en el plan que la trae');
   assert.match(fuente('app/planes/[plan]/page.tsx'), /const conPrueba = planConPrueba\(plan\.id\) && uno\('sinPrueba'\) !== '1';/, 'y el checkout la dice sólo ahí');
   const t = await vitrina();
@@ -332,7 +337,8 @@ test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mism
   for (const rel of ['lib/planes-mako.ts', 'app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/reembolsos/page.tsx', 'app/planes/[plan]/page.tsx']) {
     assert.doesNotMatch(fuente(rel), /GARANTIA_DIAS/, rel);
   }
-  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{NOMBRE_PLAN_CON_PRUEBA\}: \{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'prendida vuelve, con los días de la constante y su plan');
+  // Desde el 14/11/2026 los dos planes traen la prueba: /reembolsos ya no nombra un plan, dice los días de la constante.
+  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'prendida vuelve, con los días de la constante');
 });
 
 test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo tiene (nunca con una tasa)', async () => {

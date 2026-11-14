@@ -49,6 +49,7 @@ import type { Bloque, VisualHero } from '../tipos';
 import { RUTA_CTA, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones, TEXTO_CIERRE } from '../marca';
 import { LANDINGS_COMPETENCIA } from '../registro';
 import { VisualDeLanding } from '../Visuales';
+import { FaltaAnimacion } from '../FaltaAnimacion';
 
 const P = 'd-competitor-spy';
 const SLUG = 'competitor-spy';
@@ -263,9 +264,20 @@ const PARTE_DE_FILA = ['anuncios', 'ficha', 'todo', 'anuncios'] as const;
 /** El color del halo y del objeto de cada fila (en la referencia, el color de cada producto). */
 const TONO_DE_FILA = ['azul', 'dorado', 'plata', 'azul'] as const;
 
-/** Las filas cuya pantalla ES la grabación de Spy (la grilla de Competidores: el Cerebro, 14/11). Las demás muestran su recuadro de
- *  «falta» hasta que se grabe la suya (la extensión, el análisis, Replicar). */
-const FILA_CON_SU_GRABACION = new Set(['Sigue a tus competidores']);
+/**
+ * UNA PANTALLA POR PESTAÑA (14/11/2026, Martín: «lo que tiene esa landing es… muchos videos que hacen que tenga sentido la landing. También
+ * cuando se pasa el hover, botones que uno puede ir intercambiando para ir viendo»). Como Foreplay: cada pestaña cambia lo que se ve a
+ * la derecha. La grabación sólo donde ES esa pantalla (la regla del Cerebro, 14/11): la grilla de Competidores en «Sumas a tus
+ * competidores» y la réplica de un carrusel en Image en «Tu versión, en Image». Las demás, su recuadro de «falta» con lo que va ahí
+ * (la lista de qué grabar, en docs/relevo/landings-vsl.md).
+ */
+const GRABACION_DE_PESTANA: Readonly<Record<string, { video: string; poster: string }>> = {
+  'Sumas a tus competidores': { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' },
+  'Tu versión, en Image': { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' },
+  // La pestaña «Anuncios» de la ficha (fase 1 del plan de Foreplay, 79b3439f7): los 64 anuncios reales de @AlexHormozi, con sus días
+  // activos, a dónde mandan, los tests creativos con su «Ganador» y la línea de tiempo (banco-spy-gurus/grabar-anuncios.mjs).
+  'Desde cuándo está a la vista': { video: '/vsl-assets/sitio/spy-anuncios.webm', poster: '/vsl-assets/sitio/spy-anuncios.jpg' },
+};
 
 function Fila({ b, n, visual }: { b: De<'tarjetas'>; n: number; visual?: VisualHero }) {
   const nombre = `${P}-t${n}`;
@@ -300,7 +312,16 @@ function Fila({ b, n, visual }: { b: De<'tarjetas'>; n: number; visual?: VisualH
         <div className={`${P}-figura-halo`} aria-hidden="true" />
         {visual ? (
           <div className={`${P}-ventana ${P}-ventana-${parte}`} aria-hidden="true">
-            <div className={`${P}-pantalla ${P}-pantalla-${parte}`}><VisualDeLanding visual={visual} falta={FILA_CON_SU_GRABACION.has(b.titulo) ? undefined : `La pantalla de «${b.titulo.replace(/<[^>]+>/g, '')}» en Competitor Spy, tal cual es.`} /></div>
+            {b.items.map((it, k) => {
+              const g = GRABACION_DE_PESTANA[it.titulo.replace(/<[^>]+>/g, '')];
+              return (
+                <div key={it.titulo} className={`${P}-pantalla ${P}-pantalla-tab ${P}-pantalla-tab-${k}`}>
+                  {g
+                    ? <video className={`${P}-pantalla-video`} src={g.video} poster={g.poster} muted autoPlay loop playsInline preload="metadata" />
+                    : <FaltaAnimacion que={`«${it.titulo.replace(/<[^>]+>/g, '')}» en Competitor Spy, tal cual se ve.`} />}
+                </div>
+              );
+            })}
           </div>
         ) : null}
         <div className={`${P}-leyendas`}>
@@ -453,6 +474,9 @@ export default function DisenoCompetitorSpy({ landing }: PropsDiseno) {
   return (
     <div className={P}>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      {/* Al pasar el mouse por una pestaña, se ve su pantalla (Martín, 14/11/2026: «cuando se pasa el hover, botones que uno puede ir
+          intercambiando para ir viendo»). Sin JavaScript igual cambian al tocarlas (los radios). */}
+      <script data-visor="" dangerouslySetInnerHTML={{ __html: SCRIPT_PESTANAS }} />
       <Barra />
       <main>
         {cabeza}
@@ -477,13 +501,32 @@ export default function DisenoCompetitorSpy({ landing }: PropsDiseno) {
 // productos (el azul de Swipe File, el rojo de Spyder, el verde de Briefs, el violeta de la barra lateral de su app) van
 // como el azul y el dorado de MaKo; lo demás (el negro #020308, los blancos en transparencia, los grises de los filetes)
 // es de la referencia.
+const SCRIPT_PESTANAS = `document.addEventListener('mouseover',function(e){var l=e.target.closest&&e.target.closest('.${P}-tab');if(!l)return;var i=document.getElementById(l.htmlFor);if(i&&!i.checked)i.checked=true;});`;
 const PESTANAS = [0, 1, 2, 3];
 const CSS_PESTANAS = PESTANAS.map((k) => `
 .${P}-radio:nth-of-type(${k + 1}):checked ~ .${P}-fcard .${P}-tab-${k} { color: #fff; }
 .${P}-radio:nth-of-type(${k + 1}):checked ~ .${P}-figura .${P}-leyenda-${k} { display: flex; }
+.${P}-radio:nth-of-type(${k + 1}):checked ~ .${P}-figura .${P}-pantalla-tab-${k} { display: block; }
 .${P}-radio:nth-of-type(${k + 1}):focus-visible ~ .${P}-fcard .${P}-tab-${k} { outline: 2px solid rgba(255,255,255,.6); outline-offset: 2px; }`).join('');
 
 const CSS = `
+/* Pantallas por pestaña: una a la vez (la del radio marcado). */
+/* El recuadro de «falta» con su fondo claro y su letra oscura también acá (la hoja oscura de la landing le pisaba los dos). */
+.${P} .mk-falta { background-color: #F5F8FD; color: #12151B; min-height: 0; height: 100%; aspect-ratio: 16 / 10; }
+.${P} .mk-falta-t { color: #12151B; }
+.${P}-pantalla-tab { display: none; }
+.${P}-pantalla-video { display: block; width: 100%; height: auto; }
+/* EL HERO ACOMPAÑA AL SCROLL (14/11/2026, Martín: «al principio, al hacer scroll, tiene una animación que acompaña al scroll»). Como el
+   «Home / Hero Parallax» de Foreplay (notas: foreplay-relevo/landing.md): en el primer alto de pantalla se achica de 1 a ,75, sube y se
+   desvanece; lo de abajo pasa por encima. Sólo computadora y tablet, sin JavaScript (animation-timeline), y nada si se pidió menos
+   movimiento. */
+@supports (animation-timeline: scroll()) {
+  @media (min-width: 768px) and (prefers-reduced-motion: no-preference) {
+    .${P}-hero-in { transform-origin: 50% 0; animation: ${P}-hero-sale linear both; animation-timeline: scroll(root); animation-range: 0 100vh; }
+    @keyframes ${P}-hero-sale { to { transform: translateY(-14%) scale(.75); opacity: 0; } }
+    .${P}-sec-blanca { position: relative; z-index: 2; }
+  }
+}
 @font-face { font-family: 'd-competitor-spy-inter'; src: url('/vsl-assets/fuentes/inter/inter-latin-opsz-var.woff2') format('woff2'); font-weight: 100 900; font-style: normal; font-display: swap; }
 .${P} { --az: #2F6FED; --az-o: #1F57C8; --oro: #F2B01E; --negro: #020308; --negro2: #090A0E; --filete: #24262E; --ease: cubic-bezier(.19,1,.22,1);
   background: var(--negro); color: rgba(255,255,255,.36); font-family: 'd-competitor-spy-inter', Inter, Arial, sans-serif; font-size: 16px; line-height: 24px; letter-spacing: -0.18px;

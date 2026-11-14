@@ -87,6 +87,8 @@ const ETIQUETAS = new Set([
   'section', 'div', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'ul', 'ol', 'li', 'blockquote', 'hr', 'br',
   'table', 'tbody', 'tr', 'th', 'td', 'a', 'img', 'figure', 'figcaption', 'video', 'iframe', 'form',
   'label', 'input', 'textarea', 'button', 'fieldset', 'legend', 'strong', 'em', 'u', 's', 'mark',
+  // El desplegable del formulario (14/11/2026, los tipos de campo de la llamada con Julio).
+  'select', 'option',
   'details', 'summary', 'aside', 'nav', 'footer', 'main', 'header',
   // SVG de los gráficos (el `tspan` marca los «[ ]» de un texto en la miniatura de trabajo: especificacion.ts)
   'svg', 'g', 'path', 'rect', 'circle', 'line', 'polyline', 'polygon', 'text', 'tspan', 'title',

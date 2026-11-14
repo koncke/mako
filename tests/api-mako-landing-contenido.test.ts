@@ -335,7 +335,8 @@ test('agregar un bloque: el MISMO que inserta el menú «/», el enlace de su cl
   const form = ok(planAgregarBloque(c, { seccion: 'tGracias', bloque: 'formulario' }));
   const nodo = ubicarSeccion(form.contenido, 'tGracias')!.tarjeta.content!.at(-1)!;
   const esperado = bloqueJson('formulario') as JsonNodo;
-  const sinIds = (n: JsonNodo) => JSON.stringify(n).replace(/"id":"c[a-z0-9]+"/g, '"id":"?"');
+  // Los ids de los campos y, desde el 14/11/2026, el del formulario (el CRM rutea por él): al azar en cada inserción.
+  const sinIds = (n: JsonNodo) => JSON.stringify(n).replace(/"id":"[cf][a-z0-9]+"/g, '"id":"?"');
   assert.equal(sinIds(nodo), sinIds(esperado), 'el formulario no es el del menú «/»');
   // La agenda con un enlace de Calendly queda con su proveedor; un video en «agenda» se rechaza.
   const agenda = ok(planAgregarBloque(c, { seccion: 'tGracias', bloque: 'agenda', enlace: 'https://calendly.com/mi-negocio/llamada' }));

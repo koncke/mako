@@ -24,6 +24,7 @@
 // =============================================================================
 
 import { createContext, useContext, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { entradaDeTarjetas } from './entrada-tarjetas';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import Link from '@/app/_ui/Link';
@@ -248,6 +249,10 @@ export function HojaVelocidad({ hoja, vista, saludo, negocio, hoy, ahora = null,
   /** La miniatura de «Nueva hoja»: sin nada que se toque ni se mueva. */
   quieta?: boolean;
 }) {
+  // La entrada de las tarjetas (Martín, 14/11/2026: «siguen habiendo otros que no presentan animación»): la cabecera ya entraba,
+  // las tarjetas no. Las de Cobranza y Marketing (./entrada-tarjetas.ts), arriba de todo para que no la salte un return temprano.
+  const raizEntrada = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => { if (!quieta) entradaDeTarjetas(raizEntrada.current, '.vt-card'); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const v = vista;
   const p = hoja.diseno?.piezas ?? {};
   const pieza = (id: string | undefined) => hoja.componentes.find((c): c is Grafico => c.id === id && c.clase === 'grafico');
@@ -266,7 +271,7 @@ export function HojaVelocidad({ hoja, vista, saludo, negocio, hoy, ahora = null,
 
   return (
     <Compartido.Provider value={compartido}>
-    <div className="vt" data-quieta={quieta ? '' : undefined}>
+    <div ref={raizEntrada} className="vt" data-quieta={quieta ? '' : undefined}>
       <style href="dash-hoja-velocidad" precedence="medium">{CSS_VELOCIDAD}</style>
       <div className="vt-cuerpo">
       <Parte id="cabecera">

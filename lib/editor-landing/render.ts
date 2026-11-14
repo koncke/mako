@@ -90,6 +90,12 @@ export type OpRender = {
   cssDiseno?: string;
   /** La copia de una página (`config.diseno.sinBase`): la sección suelta va sin la base de Tailwind. */
   sinBaseDiseno?: boolean;
+  /**
+   * La landing que se publica, por su título (14/11/2026, fuentes.ts): con esto, cada formulario y quiz sale con su id y su
+   * nombre (`data-mako-form`, `data-mako-form-nombre`) y la raíz con `data-mako-pagina` («<docId>:<paginaId>», el docId de
+   * `htmlLibre`), que el Pixel manda con el opt-in. Sólo lo pide publicar.ts.
+   */
+  fuente?: { landing: string };
 };
 
 /** La dirección de MaKo del sello «Hecho con MaKo». */
@@ -382,7 +388,9 @@ function htmlDeColumnas(n: Record<string, unknown>, arbol: NodoArbol, ctx: Ctx, 
 function raiz(interior: string, tema: Tema, ctx: Ctx, extra: AttrsArbol = {}): string {
   let estilo = '';
   try { estilo = String(estiloDeTema(tema) ?? ''); } catch { estilo = ''; }
-  return htmlDeArbol(['div', { class: 'gm-doc', style: estilo || undefined, 'data-modo': ctx.modo, 'data-marcadores': ctx.spec.marcadores ? 'si' : undefined, ...extra }, 0], interior);
+  const f = ctx.spec.fuente;
+  const deFuente = f && f.docId != null ? `${f.docId}:${f.paginaId}` : undefined;
+  return htmlDeArbol(['div', { class: 'gm-doc', style: estilo || undefined, 'data-modo': ctx.modo, 'data-marcadores': ctx.spec.marcadores ? 'si' : undefined, 'data-mako-pagina': deFuente, ...extra }, 0], interior);
 }
 
 const tarjetasDePagina = (p: unknown): Record<string, unknown>[] => {
@@ -455,6 +463,9 @@ export function htmlDePagina(pagina: Pagina, config: ConfigLanding, tema: Tema, 
   const tarjetas = tarjetasDePagina(pagina);
   const ctx = ctxDe(op, tema, idConFormulario(tarjetas));
   const cfg = sanearConfig(config).config;
+  if (op?.fuente && esObj(pagina) && typeof pagina.id === 'string') {
+    ctx.spec.fuente = { landing: String(op.fuente.landing ?? ''), pagina: String(pagina.titulo ?? ''), docId: op.htmlLibre?.docId ?? null, paginaId: pagina.id };
+  }
   ctx.spec.cssDiseno = cfg.diseno?.css ?? '';
   ctx.spec.sinBaseDiseno = cfg.diseno?.sinBase === true;
   // Una página con diseño editable se publica «libre» (html-editable.ts): sin el marco de Gamma.

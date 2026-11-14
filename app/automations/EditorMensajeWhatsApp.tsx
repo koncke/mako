@@ -86,7 +86,7 @@
 //     que propone se genera con la voz de MaKo («Generar con la voz de MaKo»), no se graba.
 //   · Sin «↻ variantes» ni «adaptarlo a cada persona»: el aviso no los honra.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import type { AudioSetting, PasoSecuenciaDto } from './ChatAgentApp';
 import { BurbujaHilo } from '../whatsapp/_shared/BurbujaHilo';
 import { Ticks } from '../whatsapp/_shared/Ticks';
@@ -298,9 +298,25 @@ const oyentesPanel = new Set<() => void>();
 const avisarPanel = () => { for (const f of oyentesPanel) f(); };
 const suscribirPanel = (f: () => void) => { oyentesPanel.add(f); return () => { oyentesPanel.delete(f); }; };
 
-/** La clave de una tarjeta en una pestaña: la del borrador de la barra. */
-export const claveDeTarjeta = (ws: number | string | null | undefined, paso: Pick<PasoSecuenciaDto, 'id' | 'orden'>): string =>
-  `${ws ?? ''}|${paso.id ?? ''}|${paso.orden}`;
+/**
+ * LA AUTOMATIZACIÓN DE LA TARJETA (14/11/2026, la llamada con Julio: al probar salió un archivo que Martín no reconocía).
+ * La clave era «negocio | id | orden», y una plantilla crea SIEMPRE las mismas tarjetas con los mismos ids
+ * (lib/plantilla-crear.ts, `pasosDePlantilla`): lo que quedó en la barra de una automatización —el archivo en la copia
+ * del navegador, el texto, el guion o la sugerencia de MaKo en memoria— volvía en la barra de OTRA hecha con la misma
+ * plantilla, y al salir del editor entraba al mensaje como una burbuja más. Lo pone el lienzo (FlujoLienzo).
+ */
+export const AutomatizacionDeLaTarjeta = createContext<number | null>(null);
+
+/** La clave de una tarjeta en una pestaña: la del borrador de la barra. Con la automatización: nunca se cruza a otra. */
+export const claveDeTarjeta = (ws: number | string | null | undefined, paso: Pick<PasoSecuenciaDto, 'id' | 'orden'>, secuenciaId?: number | null): string =>
+  `${ws ?? ''}|${secuenciaId ?? ''}|${paso.id ?? ''}|${paso.orden}`;
+
+/** La clave de esta tarjeta, con el negocio y la automatización de donde se monta. */
+export function useClaveDeTarjeta(paso: Pick<PasoSecuenciaDto, 'id' | 'orden'>): string {
+  const ws = useWs();
+  const secuenciaId = useContext(AutomatizacionDeLaTarjeta);
+  return claveDeTarjeta(ws, paso, secuenciaId);
+}
 
 export function alternarPanelMako(clave: string, abierto?: boolean): void {
   const sig = abierto ?? !panelesAbiertos.has(clave);
@@ -348,7 +364,7 @@ export function CabeceraWhatsApp({ paso, lineaAutomatizacion, onLinea, deshabili
   /** El ✦ de MaKo (lo decide la misma regla que el editor: `permiteIA`). */
   conMako?: boolean;
 }) {
-  const ws = useWs();
+  const clave = useClaveDeTarjeta(paso);
   const actual = lineaDelPaso(paso) ?? lineaAutomatizacion;
   return (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -356,7 +372,7 @@ export function CabeceraWhatsApp({ paso, lineaAutomatizacion, onLinea, deshabili
       <div style={{ flex: '0 1 auto', minWidth: 0 }}>
         <SalidaWhatsApp actual={actual} explicita onElegir={(l) => { if (l) onLinea(l); }} deshabilitado={deshabilitado} ancho={210} />
       </div>
-      {conMako && <BotonMakoWhatsApp clave={claveDeTarjeta(ws, paso)} adaptando={paso.tipo === 'ia'} deshabilitado={deshabilitado} />}
+      {conMako && <BotonMakoWhatsApp clave={clave} adaptando={paso.tipo === 'ia'} deshabilitado={deshabilitado} />}
     </div>
   );
 }
@@ -368,11 +384,13 @@ export function CabeceraWhatsApp({ paso, lineaAutomatizacion, onLinea, deshabili
  */
 export function CabeceraMakoEnWhatsApp({ paso, deshabilitado }: { paso?: Pick<PasoSecuenciaDto, 'id' | 'orden'>; deshabilitado?: boolean } = {}) {
   const ws = useWs();
+  const secuenciaId = useContext(AutomatizacionDeLaTarjeta);
+  const clave = paso ? claveDeTarjeta(ws, paso, secuenciaId) : null;
   return (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
       <MakoLogo size={22} animate={false} />
       <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MaKo en WhatsApp</div>
-      {paso && <BotonMakoWhatsApp clave={claveDeTarjeta(ws, paso)} deshabilitado={deshabilitado} />}
+      {paso && clave && <BotonMakoWhatsApp clave={clave} deshabilitado={deshabilitado} />}
     </div>
   );
 }
@@ -638,7 +656,7 @@ export function EditorMensajeWhatsApp({
   // al grupo mandan uno.
   const varias = permiteAudio || permiteAdjuntos;
   const clavePaso = `${paso.id ?? ''}|${paso.orden}`;
-  const claveBorrador = claveDeTarjeta(ws, paso);
+  const claveBorrador = claveDeTarjeta(ws, paso, useContext(AutomatizacionDeLaTarjeta));
   /**
    * ⚠️ LA BARRA DE UN SOLO MENSAJE NO SE RECUERDA POR TARJETA (restos de versiones anteriores,
    * 10/10/2026). Desde que el editor de un texto también es «enviar» (ver `enviarUnico`), su barra es

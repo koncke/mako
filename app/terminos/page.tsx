@@ -200,8 +200,7 @@ export default function Page() {
         {PRUEBA_GRATIS_PRENDIDA && (
           <li>
             <strong>{NOMBRE_PLAN_CON_PRUEBA} empieza con {PRUEBA_DIAS} días gratis</strong>, con tu tarjeta cargada: si te das de
-            baja antes del día {PRUEBA_DIAS + 1}, no se te cobra nada; si no, ese día se cobra solo el primer período. MaKo
-            Esencial no tiene prueba: se paga al empezar.
+            baja antes del día {PRUEBA_DIAS + 1}, no se te cobra nada; si no, ese día se cobra solo el primer período.
           </li>
         )}
         {!PRUEBA_GRATIS_PRENDIDA && (

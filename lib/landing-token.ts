@@ -181,7 +181,7 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       ya traía enablejsapi=1 en una página sin la API de YouTube no medía nada (nadie le pedía): a los 6 s se le pide.
  *       Le sirve a la página que tiene uno de esos videos (HOSTS_DE_LA_V27); al resto no le cambia nada.
  */
-export const SNIPPET_VERSION = 28;
+export const SNIPPET_VERSION = 29;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -234,6 +234,7 @@ const NOVEDADES: Record<number, string> = {
   // lee la pantalla de cualquier negocio y el aviso de WhatsApp: «llega apagada»
   // era falso para los cuatro negocios con la grabación prendida (06/10/2026). Si
   // un mensaje necesita decir el estado, lo agrega quien lo arma, leyendo el dato.
+  29: 'que cada formulario y cada quiz de las páginas que haces con el Web Generator de MaKo llegue a tu CRM con su nombre —así cada uno puede caer en su propio CRM y disparar su propia automatización—, y que lleguen hasta 10 respuestas por formulario (antes se perdían las que pasaban de 8)',
   28: 'que tu página de gracias le avise la compra a tu píxel de Meta cuando vendes con un link de pago de Stripe: con el valor y la moneda de la venta, y sin contarla dos veces con la que MaKo ya le avisa desde el servidor',
   27: 'la medición de los videos de Bunny Stream y de Cloudflare Stream —cuándo le dan play, hasta dónde lo ven y dónde lo pausan—, y la de un video de YouTube que hasta ahora no registraba nada cuando su código traía «enablejsapi=1»',
   26: 'cuánta gente ve cada sección de las páginas que haces con el Web Generator de MaKo: en qué sección deja de leer, una por una',
@@ -3643,11 +3644,28 @@ export function landingSnippet(token: string): string {
           utm_campaign: ORIGEN.utm_campaign, utm_content: ORIGEN.utm_content,
           fbclid: ORIGEN.fbclid,
           // Lo que la persona escribio ademas del contacto.
-          respuestas: d.respuestas || null
+          respuestas: d.respuestas || null,
+          // QUE formulario se lleno (v29, 14/11/2026): el id y el nombre que el
+          // Web Generator pone en el <form> (data-mako-form), y la pagina de MaKo
+          // («<landing>:<pagina>», data-mako-pagina). Con eso el CRM rutea por
+          // formulario y no solo por la URL. Una pagina de afuera no los trae: null.
+          formulario_id: d.formulario || null,
+          formulario_nombre: d.formularioNombre || null,
+          pagina_id: d.paginaId || paginaMako()
         }),
         keepalive: true
       }).catch(function () {});
     } catch (e) {}
+  }
+
+  // La pagina del Web Generator donde esta la persona (v29): la raiz del
+  // documento lleva data-mako-pagina. Sirve para la agenda embebida, que no
+  // tiene un <form> propio. Una pagina de afuera no lo trae: null.
+  function paginaMako() {
+    try {
+      var r = document.querySelector('[data-mako-pagina]');
+      return r ? String(r.getAttribute('data-mako-pagina') || '').slice(0, 80) || null : null;
+    } catch (e) { return null; }
   }
 
   // Qué campo es cuál. Se mira el type, el name, el id, el autocomplete y el
@@ -3672,19 +3690,36 @@ export function landingSnippet(token: string): string {
   // Se mandan con el ROTULO que ve la persona, no con el name del input: un
   // formulario de Lovable manda field_3, y «field_3: Tijuana» no le dice nada a
   // nadie. Se busca la etiqueta y se cae al placeholder y al name, en ese orden.
+  //
+  // ⚠️ EL TOPE ES EL DEL FORMULARIO DEL WEB GENERATOR (v29, 14/11/2026): 10, el
+  // TOPES.camposFormulario de lib/editor-landing/doc.ts. Era 8, y un formulario
+  // con email y 9 preguntas perdia la ultima respuesta sin avisar (docs/relevo/
+  // llamada-julio-13-11.md, punto 1a). tests/web-generator-formularios-julio.test.ts
+  // corre esta funcion con un formulario de 10 respuestas.
+  //
+  // Las casillas de una SELECCION MULTIPLE llegan con la misma pregunta (su
+  // <label hidden> es el enunciado) y se juntan en UNA respuesta: «Intereses: Ads,
+  // Email». Un campo OCULTO del Web Generator (data-mako-campo) si se lee: es un
+  // valor fijo que el negocio quiere en el lead, con su rotulo en data-rotulo.
   function otrosCampos(form) {
     var fuera = 'email correo mail tel phone whats celular movil nombre name first apellido empresa company negocio';
     var out = {}, n = 0;
     try {
       var els = form.querySelectorAll('input, textarea, select');
-      for (var i = 0; i < els.length && n < 8; i++) {
+      for (var i = 0; i < els.length; i++) {
         var el = els[i];
         var t = (el.type || '').toLowerCase();
+        var oculto = t === 'hidden' && el.hasAttribute && el.hasAttribute('data-mako-campo');
         // Nada de contrasenas ni de botones, y los no marcados no son respuestas.
-        if (t === 'password' || t === 'hidden' || t === 'submit' || t === 'button' || t === 'file') continue;
+        if (t === 'password' || (t === 'hidden' && !oculto) || t === 'submit' || t === 'button' || t === 'file') continue;
         if ((t === 'checkbox' || t === 'radio') && !el.checked) continue;
         var val = String(el.value == null ? '' : el.value).trim();
         if (!val) continue;
+        if (oculto) {
+          var ro = String(el.getAttribute('data-rotulo') || '').trim().slice(0, 40);
+          if (ro && !(ro in out) && n < 10) { out[ro] = val.slice(0, 120); n++; }
+          continue;
+        }
         var pistas = [el.name, el.id, el.getAttribute('autocomplete'), el.placeholder, el.getAttribute('aria-label')].join(' ').toLowerCase();
         var esContacto = false;
         var claves = fuera.split(' ');
@@ -3696,7 +3731,13 @@ export function landingSnippet(token: string): string {
         } catch (e) {}
         rot = rot || el.placeholder || el.getAttribute('aria-label') || el.name || el.id;
         if (!rot) continue;
-        out[String(rot).trim().slice(0, 40)] = val.slice(0, 120);
+        var clave = String(rot).trim().slice(0, 40);
+        if (t === 'checkbox' && clave in out) {
+          out[clave] = (out[clave] + ', ' + val).slice(0, 120);
+          continue;
+        }
+        if (n >= 10) continue;
+        out[clave] = val.slice(0, 120);
         n++;
       }
     } catch (e) {}
@@ -3719,7 +3760,10 @@ export function landingSnippet(token: string): string {
         telefono: telefono,
         empresa: campo(form, ['empresa', 'company', 'negocio']),
         respuestas: otrosCampos(form),
-        origen: 'formulario'
+        origen: 'formulario',
+        formulario: String(form.getAttribute('data-mako-form') || '').slice(0, 40) || null,
+        formularioNombre: String(form.getAttribute('data-mako-form-nombre') || '').slice(0, 120) || null,
+        paginaId: String(form.getAttribute('data-mako-pagina') || '').slice(0, 80) || null
       });
     } catch (e) { /* nunca romper el formulario del cliente */ }
   }, true);

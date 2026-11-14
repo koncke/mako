@@ -42,6 +42,38 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## El formulario como fuente del lead: el Pixel perdía respuestas sin avisar y el ruteo sólo miraba la URL (14/11/2026, claude5)
+
+La llamada con Julio Mazariegos (docs/relevo/llamada-julio-13-11.md): «creo tres landings, ¿cómo distingo qué formulario dispara el
+flujo?». Lo que había y lo que queda:
+
+- **El Pixel leía 8 respuestas y el formulario del Web Generator admite 10** (`otrosCampos`, `n < 8`, contra `TOPES.camposFormulario`).
+  Con email y 9 preguntas, la última no llegaba y nada lo decía. Ahora el tope es 10 y lo fija
+  `tests/web-generator-formularios-julio.test.ts`, que corre la función EMITIDA sobre un formulario de mentira (sin jsdom): el
+  recorte va por marcas del código, como `landing-agenda-embebida`. **Regla: un tope que vive en dos lados (el editor y el
+  snippet) tiene un test que los compara; el snippet no puede importar la constante (es un string que se sirve).**
+- **Las casillas de una selección múltiple pisaban la respuesta**: cada una llega con la misma etiqueta oculta (la pregunta), así que
+  `out[rot] = val` dejaba la última. Se juntan («Ads, Email») y cuentan UNA vez para el tope.
+- **Un `type="hidden"` se saltaba siempre** (bien: un csrf no es una respuesta). El campo oculto del Web Generator lleva
+  `data-mako-campo` y su rótulo en `data-rotulo`, y sólo ése se lee.
+- **Qué formulario se llenó viaja desde la v29**: `formulario_id`, `formulario_nombre` (del `<form data-mako-form>`) y `pagina_id`
+  («<docId>:<paginaId>», de `data-mako-pagina`, también para la agenda embebida, que no tiene `<form>`). La ruta del opt-in rutea
+  **pieza asignada → campaña → URL**: lo más preciso gana. Sin asignar, todo sigue como antes. Las piezas y su ajuste:
+  `lib/editor-landing/piezas.ts` (puro) y `lib/piezas-web.ts`.
+- **El mismo contacto que llena un segundo formulario quedaba como PROPUESTA** y no entraba al segundo CRM ni a su secuencia hasta
+  que alguien la confirmara. Con email o teléfono IGUAL a UN solo lead (`porMotivo`, nunca `c.motivo === …`: lo prohíbe
+  `duplicados-instagram`), se suma a los CRM del formulario en su etapa de entrada, se juntan las respuestas y dispara «Envió el
+  formulario». Un parecido por nombre, o dos leads con ese dato, siguen como propuesta.
+- **El opt-in no inscribía en el acto**: el lead entraba a su secuencia con el barrido de la hora. Ahora `enrolarPorEvento(…,
+  'lead_nuevo')` al crear, y `'etapa'` con `agregado: true` en cada CRM sumado, como Meta.
+- ⚠️ **La foto publicada es HTML congelado**: una landing publicada antes del 14/11 no tiene `data-mako-form` hasta que se vuelve a
+  publicar. Su id sale igual en «Asignar fuentes» (derivado, ver hallazgos-editor-landing), pero el opt-in de esa página no lo
+  manda: hasta republicar, rutea por URL.
+
+**Sin hacer**: la condición «Envió el formulario / se registró en la página X» del catálogo de condiciones, y sumar
+`optin_respuestas` a `COLS_RESPUESTAS` (lib/nutricion.ts) para que «Respuesta del formulario contiene» vea las de la landing
+(relevo, punto 5, partes 3 y 4).
+
 ## Landings por función copiadas de la competencia: lo que hay que saber antes de hacer la próxima (11/11/2026)
 
 **Vive en:** `app/vsl/_competencia/` (tipos, `LandingCompetencia.tsx`, una `<slug>.ts` por landing y `registro.ts`),
@@ -5377,3 +5409,41 @@ cuadro y el lienzo quedaba cortado a la mitad. **Causa.** El simulador hace `scr
 Martín: «cuando se hace zoom siempre aparezca la barra de abajo… la línea de tiempo. Incluso cuando se hace zoom al video, así se nota
 de que sigue editando». El video es vertical y está arriba; la línea de tiempo, abajo de todo: un encuadre del video solo la deja
 afuera. Todo encuadre del editor incluye las pistas (`conLinea` en el banco de video): se acerca menos, pero se ve que edita.
+
+## El visor borra los scripts: lo que tiene que andar en la foto lleva `data-visor` (14/11/2026)
+
+**Síntoma.** En la landing de Competitor Spy, pasar el mouse por una pestaña no cambiaba la pantalla en el visor, aunque en el sitio
+andaba. **Causa.** El visor es una FOTO del DOM: `scripts/visor-landings/armar.mjs` (y el pulido del scratchpad) borra todo `<script>`
+menos el del sol y la luna (`data-tema-sitio`). **La regla.** Un script chico que la página necesita aun sin React (el cambio de pestaña
+al pasar el mouse) va con `data-visor=""`, y los dos borradores lo respetan. Tampoco cargan en el visor las banderas del selector de
+país (`flagcdn.com`, externo: el visor no sale a internet) ni se abre su desplegable (no hay React): eso NO es una falla del sitio.
+
+## Recortar una entrada desde su PRIMER cuadro con contenido, no desde el primer cambio fuerte (14/11/2026)
+
+**Síntoma.** Martín: tableros «sin animación» y «demasiado tiempo con la pantalla en blanco». **Causa.** El recorte buscaba el primer
+cambio fuerte de escena (`scene > 0.015`): en las entradas rápidas eso ya era el final, y el video empezaba con el tablero armado; en
+las lentas dejaba medio segundo en blanco. **Lo que quedó.** `banco-tab/recortar2.py` (scratchpad): mide el desvío de cada cuadro
+(PIL) y arranca en el primero que se aparta del vacío; el póster es ESE cuadro, y el carrusel carga los 13 videos apenas se ve.
+Para medir si un tablero «se mueve»: la diferencia media entre su primer y su último cuadro (abajo de 5, no se nota).
+
+## Una lista que usan dos módulos que se importan entre sí va en su propio archivo (14/11/2026)
+
+Las preguntas frecuentes tenían que salir iguales en la portada, en /planes y en las 19 landings. `datos.ts` (donde vivían) importa el
+registro de las landings, y el registro necesitaba las preguntas: un círculo. Viven en `app/vsl/_sitio/preguntas.ts`, que no importa
+ninguno de los dos; el registro le pone esas preguntas a todo bloque `preguntas` (test: «las preguntas de cada landing son las de la
+portada»).
+
+## El WhatsApp obligatorio va en la PANTALLA del checkout, no en la ruta (14/11/2026)
+
+Martín pidió el WhatsApp obligatorio y el botón apagado hasta completar todo. Exigirlo también en `leerPedidoCompra` rompió
+`tests/_whatsapp-checkout-hijo.ts`, que arma compras REALES sin WhatsApp a propósito (los pedidos de otras puertas, la API). Quedó
+en el formulario (`CompraPlan.tsx`, `completo`): el botón no se puede tocar sin un WhatsApp de al menos 10 dígitos.
+
+## La cámara del grabador no llega debajo de los 800 px de la página (14/11/2026)
+
+`grabador.mjs` → `camara` fija el `body` en 1280 × 800 con `overflow: hidden` para poder trasladarlo: lo que está más abajo queda
+recortado y no se puede enfocar (por eso «nada de cámara mientras se baja»). Para una pantalla larga (la pestaña «Anuncios» de Spy)
+`banco-spy-gurus/grabar-anuncios.mjs` trae su propia cámara: sin transformar, BAJA hasta la parte, la mide y recién ahí se acerca
+(el traslado suma el `scrollY`); para soltar vuelve a escala 1 en el mismo lugar. Y para que una parte que ocupa todo el ancho se lea,
+se enfoca un TRAMO de ella (`desde`/`hasta`, en fracción del ancho). El banco de Spy lee ahora las 134 piezas de Hormozi, también los
+anuncios que terminaron (`leer-hormozi-todo.mts`; la lista de antes, con 64, en `hormozi-viejo.json`).

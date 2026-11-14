@@ -82,8 +82,9 @@ test('el Recurrente al grupo de MaKo: con horario y el grupo marcado, en cualqui
 test('los que sólo se eligen en el CRON: los que piden el evento o el horario, y ninguno más', () => {
   // (11/10/2026: y los dos del EMISOR —el recordatorio y el evento de MaKo—, que nacen de la galería con su
   // CRON fijo: tests/aviso-evento.test.ts.)
-  // `pago` (11/10/2026): los eventos de la pasarela también piden CUÁL (`subtipo`).
-  assert.deepEqual([...SOLO_DESDE_EL_CRON].sort(), ['aviso_mako', 'email_recibido', 'grupo_mako', 'instagram', 'messenger', 'pago', 'reunion_recordatorio']);
+  // `pago` (11/10/2026): los eventos de la pasarela también piden CUÁL (`subtipo`). `formulario_enviado` (14/11/2026): pide CUÁL
+  // formulario (`pieza`), que /email no tiene.
+  assert.deepEqual([...SOLO_DESDE_EL_CRON].sort(), ['aviso_mako', 'email_recibido', 'formulario_enviado', 'grupo_mako', 'instagram', 'messenger', 'pago', 'reunion_recordatorio']);
   for (const t of SOLO_DESDE_EL_CRON) assert.ok(TRIGGERS_NUEVOS.includes(t) || TRIGGERS_DEL_EMISOR.has(t), t);
 });
 

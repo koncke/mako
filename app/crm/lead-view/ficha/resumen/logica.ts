@@ -224,7 +224,8 @@ export const ETAPAS_SIN_RELOJ: readonly string[] = ['ganado', 'perdido', 'descal
 // ── Lo que contestó ─────────────────────────────────────────────────────────
 
 export type Respuesta = { pregunta: string; respuesta: string };
-export type RespuestasDeFuente = { fuente: FuenteRespuesta; respuestas: Respuesta[] };
+/** `titulo`: el de un grupo con nombre propio («En tu landing · Formulario Regalo», 14/11/2026); sin él, el de la fuente. */
+export type RespuestasDeFuente = { fuente: FuenteRespuesta; respuestas: Respuesta[]; titulo?: string };
 
 /** Cómo se dibuja cada fuente, corto: el rótulo de su grupo. */
 export const NOMBRE_FUENTE: Readonly<Record<FuenteRespuesta, string>> = {
@@ -234,6 +235,12 @@ export const NOMBRE_FUENTE: Readonly<Record<FuenteRespuesta, string>> = {
 export type DatosRespuestas = {
   respuestasForm?: ReadonlyArray<Respuesta> | null;
   respuestasLanding?: ReadonlyArray<Respuesta> | null;
+  /**
+   * CADA FORMULARIO de la landing que llenó, con su nombre (14/11/2026, `lead_formularios`, mig 0415): «Envió el formulario
+   * Regalo» y lo que contestó AHÍ. Con esto el grupo «En tu landing» se parte por formulario; sin esto (la tabla sin aplicar,
+   * o un lead de antes), queda la foto de siempre (`respuestasLanding`).
+   */
+  enviosLanding?: ReadonlyArray<{ nombre: string; respuestas: ReadonlyArray<Respuesta> }> | null;
   /** Las de la agenda (Calendly, Cal.com), como las guarda el lead: pregunta y respuesta cortas. */
   respuestas?: { R1?: ReadonlyArray<{ q: string; a: string }> | null } | null;
 };
@@ -248,6 +255,13 @@ const limpias = (xs: ReadonlyArray<Respuesta>): Respuesta[] =>
 export function respuestasPorFuente(d: DatosRespuestas, fuentes: readonly FuenteRespuesta[] = FUENTES_RESPUESTA): RespuestasDeFuente[] {
   const out: RespuestasDeFuente[] = [];
   for (const f of fuentes) {
+    if (f === 'landing') {
+      const envios = (d.enviosLanding ?? []).map((e) => ({ nombre: e.nombre.trim(), respuestas: limpias(e.respuestas) })).filter((e) => e.nombre && e.respuestas.length);
+      if (envios.length) {
+        for (const e of envios) out.push({ fuente: f, titulo: `${NOMBRE_FUENTE.landing} · ${e.nombre}`, respuestas: e.respuestas });
+        continue;
+      }
+    }
     const xs = f === 'meta' ? limpias(d.respuestasForm ?? [])
       : f === 'landing' ? limpias(d.respuestasLanding ?? [])
         : limpias((d.respuestas?.R1 ?? []).map((x) => ({ pregunta: x.q, respuesta: x.a })));

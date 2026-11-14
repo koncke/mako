@@ -499,7 +499,8 @@ const quizDiagnostico = (): LandingContenido => {
     },
   ], { titulo: '[Nombre del quiz]', descripcion: '[Qué va a saber quien lo conteste], en 2 minutos.' }));
   const seccion = (c.paginas[0].doc.content ?? [])[2];
-  if (seccion) seccion.content = [...(seccion.content ?? []), { type: NODO.quiz, attrs: QUIZ_DE_PLANTILLA }];
+  // Con su id, nuevo en cada landing (14/11/2026): el CRM rutea por él, y dos landings de la misma plantilla no pueden compartirlo.
+  if (seccion) seccion.content = [...(seccion.content ?? []), { type: NODO.quiz, attrs: { ...QUIZ_DE_PLANTILLA, id: nuevoId('f') } }];
   return c;
 };
 

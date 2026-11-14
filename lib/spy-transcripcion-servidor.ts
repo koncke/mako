@@ -55,8 +55,11 @@ async function escuchar(bytes: Uint8Array, mime: string): Promise<{ ok: true; te
   }
 }
 
-/** UN tramo de un video de YouTube, con el Gemini del negocio. Un error que no es «high demand» vuelve en palabras de la persona. */
-async function tramoDeYoutube(url: string, tramo: { desdeS: number; hastaS: number } | null, duracionS?: number | null): Promise<ResultadoTramoYt> {
+/**
+ * UN tramo de un video de YouTube, con el Gemini del negocio. Un error que no es «high demand» vuelve en palabras de la persona.
+ * Exportado: el video que trae la persona a Copywriting se transcribe igual (lib/copywriter/pegado-servidor.ts, 14/11/2026).
+ */
+export async function tramoDeYoutube(url: string, tramo: { desdeS: number; hastaS: number } | null, duracionS?: number | null): Promise<ResultadoTramoYt> {
   let r: ResultadoTramoYt;
   try {
     r = await guionDeYoutubeConGemini(url, tramo, { feature: 'spy', motivo: 'Competitors Spy: el guion de un video de YouTube', duracionS });
@@ -102,7 +105,7 @@ function depsDe(ws: number, p: Pieza): DepsGuion & DepsGuionYoutube {
 export async function asegurarGuion(
   ws: number,
   piezaId: number,
-  opts: { hayIA: boolean; hayClave: boolean; hayGemini: () => Promise<boolean> },
+  opts: { hayIA: boolean; hayClave: boolean; hayGemini: () => Promise<boolean>; huellas?: readonly string[] | null },
 ): Promise<{ vista: VistaGuion; trabajo: (() => Promise<void>) | null } | null> {
   const p = await piezaDe(piezaId);
   if (!p) return null;
@@ -131,7 +134,7 @@ export async function asegurarGuion(
     const g = leerGuion((await deps.leer()).crudo);
     return { vista: vistaDeGuion(g, { aplica: true, sinIA: !opts.hayIA, sinClave: !opts.hayClave }), trabajo: null };
   }
-  const r = await reclamarGuion(deps);
+  const r = await reclamarGuion(deps, Date.now(), undefined, opts.huellas);
   if (!r.corre) return { vista: vistaDeGuion(r.actual, { aplica: true }), trabajo: null };
   const trabajo = async () => {
     try {

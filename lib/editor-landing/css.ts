@@ -407,9 +407,17 @@ const BLOQUES: string[] = [
   r(D + ' .gm-campo', 'display: grid; gap: 0.4em; min-width: 0; margin: 0; padding: 0; border: 0;'),
   r(D + ' .gm-campo-etiqueta', 'padding: 0; font-size: 0.9em; font-weight: 600; color: var(--gm-texto, inherit);'),
   r(D + ' .gm-campo-etiqueta[data-requerido="si"]::after', 'content: " *"; color: var(--gm-acento-texto, currentColor);'),
-  r([D + ' .gm-formulario input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])', D + ' .gm-formulario textarea'], 'width: 100%; min-width: 0; padding: 0.7em 0.9em; border: 0.0625em solid var(--gm-borde-neutro, rgba(0,0,0,0.2)); border-radius: var(--gm-radio-caja, 0.35em); background: var(--gm-superficie, #ffffff); color: var(--gm-texto, inherit); font: inherit; font-size: 1em; line-height: 1.4; outline: none; transition: border-color 0.15s ease, box-shadow 0.15s ease;'),
-  r([D + ' .gm-formulario input:focus', D + ' .gm-formulario textarea:focus'], 'border-color: var(--gm-acento-texto, currentColor); box-shadow: 0 0 0 0.2em var(--gm-acento-suave, rgba(127,127,127,0.2));'),
+  r([D + ' .gm-formulario input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])', D + ' .gm-formulario textarea', D + ' .gm-formulario select'], 'width: 100%; min-width: 0; padding: 0.7em 0.9em; border: 0.0625em solid var(--gm-borde-neutro, rgba(0,0,0,0.2)); border-radius: var(--gm-radio-caja, 0.35em); background: var(--gm-superficie, #ffffff); color: var(--gm-texto, inherit); font: inherit; font-size: 1em; line-height: 1.4; outline: none; transition: border-color 0.15s ease, box-shadow 0.15s ease;'),
+  r([D + ' .gm-formulario input:focus', D + ' .gm-formulario textarea:focus', D + ' .gm-formulario select:focus'], 'border-color: var(--gm-acento-texto, currentColor); box-shadow: 0 0 0 0.2em var(--gm-acento-suave, rgba(127,127,127,0.2));'),
   r(D + ' .gm-formulario textarea', 'min-height: 7em; resize: vertical;'),
+  // La escala del 1 al 10 (14/11/2026): diez casillas en fila, el número adentro, la elegida con el acento. En el teléfono
+  // bajan a dos filas de cinco.
+  r(D + ' .gm-escala', 'display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 0.35em;'),
+  r(D + ' .gm-escala .gm-opcion', 'position: relative; justify-content: center; padding: 0.55em 0; border: 0.0625em solid var(--gm-borde-neutro, rgba(0,0,0,0.2)); border-radius: var(--gm-radio-caja, 0.35em); background: var(--gm-superficie, #ffffff); font-weight: 600;'),
+  r(D + ' .gm-escala input[type="radio"]', 'position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer;'),
+  r(D + ' .gm-escala .gm-opcion:has(input:checked)', 'background: var(--gm-acento, currentColor); border-color: var(--gm-acento, currentColor); color: var(--gm-acento-contraste, #ffffff);'),
+  r(D + ' .gm-escala .gm-opcion:has(input:focus-visible)', 'box-shadow: 0 0 0 0.2em var(--gm-acento-suave, rgba(127,127,127,0.2));'),
+  r(D + ' .gm-campo[data-tipo="consentimiento"] .gm-opcion', 'align-items: flex-start; font-size: 0.85em; color: var(--gm-tenue, inherit);'),
   r(D + ' .gm-opcion', 'display: flex; align-items: center; gap: 0.55em; font-size: 0.95em; cursor: pointer;'),
   r([D + ' .gm-formulario input[type="radio"]', D + ' .gm-formulario input[type="checkbox"]'], 'width: 1.05em; height: 1.05em; margin: 0; accent-color: var(--gm-acento, currentColor);'),
   r(D + ' .gm-formulario > .gm-boton', 'justify-self: start; margin-top: 0.25em;'),
@@ -985,6 +993,8 @@ function movil(p: string): string[] {
   return [
     // Los bloques de venta (16b): el reloj, más chico; el pop, a lo ancho y arriba del sello «Hecho con MaKo» (abajo a la derecha).
     r(p + ' .gm-cuenta-unidad', 'min-width: 3.4em; padding: 0.45em 0.3em;'),
+    // La escala del 1 al 10, en dos filas de cinco (diez en fila no entran a 375).
+    r(p + ' .gm-escala', 'grid-template-columns: repeat(5, minmax(0, 1fr));'),
     // «Hecho con MaKo» en el teléfono va AL PIE, no flotando (13/11/2026, la réplica de Clara a 375: tapaba el texto de una
     // tarjeta). En la pantalla angosta no hay costado libre para un sello fijo.
     r(p + ' .gm-marca', 'position: static; display: flex; width: max-content; margin: 1.5em auto;'),

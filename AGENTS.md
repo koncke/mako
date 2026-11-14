@@ -2720,6 +2720,10 @@ por el camino que lo escribe. Dos reglas:
 - **Un `disabled` que se alimenta de un estado restaurado se prueba con la clave BORRADA.** Es
   el único modo de ver lo que ve un cliente nuevo. Y si el control que arregla la condición no
   está en esa pantalla, no es un botón deshabilitado: es una pantalla sin salida.
+- **La clave de lo guardado por TARJETA lleva la automatización, no sólo el id de la tarjeta.** Una
+  plantilla crea siempre los mismos ids: el archivo que quedó en la barra de una automatización
+  volvía en otra hecha con la misma plantilla y salía en su prueba (14/11/2026, `claveDeTarjeta`;
+  docs/hallazgos-chatbot.md).
 
 El caso, del 24/08/2026: el botón «Probar» del Pixel nacía apagado para **todo cliente nuevo** —
 detalle completo en [docs/hallazgos-landing.md](docs/hallazgos-landing.md).

@@ -23,6 +23,7 @@ import {
 } from '@/lib/copywriter/outliers';
 import { pedirOutliers, pedirReplicar } from './cliente';
 import { OutlierAbierto } from './OutlierAbierto';
+import { ReplicarPegado } from './ReplicarPegado';
 import { RUTA_CREAR_COPY, RUTA_GUIONES_COPY } from './vista';
 import s from '@/app/image-editor/carruseles/explorar.module.css';
 import v from '@/app/video-editor/outliers.module.css';
@@ -314,12 +315,15 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
     if (!r.ok) { setReplicando(null); setAviso(`No se pudo replicar: ${r.error}`); return; }
     router.push(rutaGuion.replace('{id}', r.pagina.id));
   };
+  /** «Pegar link o texto» (14/11/2026, el Cerebro: replicar también lo que trae la persona; ./ReplicarPegado.tsx). */
+  const [pegando, setPegando] = useState(false);
 
   // Sin chat en la portada (12/11/2026): «Mis guiones» abre la lista a la izquierda (`usePortadaCrear`); en el teléfono, su ruta.
   const pantalla = usePortadaCrear();
   const botones = (
     <div className={telefono ? `${s.botones} ${oc.botonesTelefono}` : s.botones}>
       <Link href="/competitor-spy" className={s.pastilla}>+ Seguir cuentas</Link>
+      <button type="button" className={s.pastilla} onClick={() => setPegando(true)}>Pegar link o texto</button>
       {pantalla
         ? <button type="button" className={s.pastilla} onClick={pantalla.verProyectos}>Mis guiones</button>
         : <Link href={rutaGuiones} className={s.pastilla}>Mis guiones</Link>}
@@ -439,6 +443,7 @@ export function OutliersCopy({ portada, telefono = false, rutaGuion = '/copywrit
         <OutlierAbierto o={abierto} telefono={telefono} replicando={replicando === abierto.id}
           onCerrar={() => setAbierto(null)} onReplicar={() => void replicar(abierto)} />
       ) : null}
+      {pegando ? <ReplicarPegado onCerrar={() => setPegando(false)} onListo={(id) => router.push(rutaGuion.replace('{id}', id))} /> : null}
     </div>
   );
 }

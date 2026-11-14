@@ -134,3 +134,20 @@
 /* Lo que se sabe de lo que se dice (13/11/2026, el flujo nuevo): «✓ Transcrito» en verde; «Se transcribe al replicar», suave. */
 .sello { align-self: flex-start; display: inline-flex; margin-top: 2px; padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; line-height: 18px; background: var(--warn-bg); color: var(--warn); }
 .sello[data-transcrito] { background: var(--good-bg); color: var(--good); }
+
+/* «Replicar un link o un texto» (./ReplicarPegado.tsx, 14/11/2026): qué es (pastillas que bajan de renglón a 375), lo pegado y los
+   archivos. Sólo tokens de la casa. */
+.pegado { display: flex; flex-direction: column; gap: 14px; }
+.pegadoTipos { display: flex; flex-wrap: wrap; gap: 8px; }
+.pegadoTexto {
+  width: 100%; box-sizing: border-box; min-height: 140px; resize: vertical; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 14.5px; line-height: 1.5;
+}
+.pegadoTexto:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.pegadoArchivos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
+.pegadoArchivo {
+  display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 4px 4px 4px 10px; border-radius: 999px;
+  background: var(--surface-2); color: var(--ink); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pegadoArchivo button { border: 0; background: transparent; color: var(--dim); cursor: pointer; font: inherit; font-size: 15px; padding: 0 6px; border-radius: 999px; }
+.pegadoArchivo button:hover { color: var(--ink); background: var(--velo-hover); }

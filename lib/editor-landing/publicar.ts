@@ -29,6 +29,7 @@ import { getSupabaseServer } from '../supabase';
 import { getUsuarioActual } from '../auth';
 import { urlPublicaLanding, urlVistaLanding } from '../app-url';
 import { slugValido, rutaValida } from './doc';
+import { piezasDeContenido } from './piezas';
 import { htmlDePagina } from './render';
 import { temaPorId, urlFuentes } from './temas';
 import { CSS_CONTENIDO } from './css';
@@ -123,7 +124,7 @@ export function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'conf
   const rutas = publicables.map((p) => ({ id: p.id, ruta: p.ruta }));
   const paginas = publicables.map((p) => {
     const meta = metaDePagina(p, config.sitio, f.titulo);
-    const html = htmlDePagina(p, config, tema, { modo: 'publico', paginas: rutas, ...(urlBase ? { urlBase } : {}), htmlLibre: { docId: f.id, vista }, pagos: publicadoAt !== null });
+    const html = htmlDePagina(p, config, tema, { modo: 'publico', paginas: rutas, ...(urlBase ? { urlBase } : {}), htmlLibre: { docId: f.id, vista }, pagos: publicadoAt !== null, fuente: { landing: f.titulo } });
     return { ruta: p.ruta, titulo: meta.titulo, descripcion: meta.descripcion, html };
   });
   return {
@@ -131,6 +132,8 @@ export function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'conf
     // «Diseño editable» (html-editable.ts): la base y la hoja del documento, congeladas con el HTML que las usa.
     ...(tieneEditables(publicables) ? { cssDiseno: hojaDeDiseno(config.diseno?.css ?? '', { sinBase: config.diseno?.sinBase === true }) } : {}),
     ...(publicadoAt !== null ? { pagos: productosDePago(publicables) } : {}),
+    // Lo que trae al CRM (piezas.ts): «Asignar fuentes» lo lista por nombre apenas se publica.
+    ...(publicadoAt !== null ? { piezas: piezasDeContenido(f.id, f.titulo, { paginas: publicables }, (config as { origen?: { plantilla?: string } }).origen?.plantilla ?? null) } : {}),
   };
 }
 

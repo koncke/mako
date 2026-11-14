@@ -18,6 +18,12 @@
 import type { Stage } from './pipeline';
 
 export const NOMBRE_CRM_NEWSLETTER = 'Newsletter';
+/**
+ * El valor de «Newsletter» en «Nuevo CRM» (14/11/2026, la llamada con Julio Mazariegos: Martín armó un CRM «Newsletter» a mano
+ * y no había el tipo). No va en `TIPOS_CRM` (lib/pipeline.ts): sus etapas propias (Lee, Dormido, Dado de baja) sólo se alcanzan
+ * moviendo, y el CRM lo arma `asegurarCrmNewsletter` (lib/newsletter.ts) con la config de la tab Newsletters.
+ */
+export const TIPO_CRM_NEWSLETTER = 'newsletter' as const;
 /** `funnels.plantilla` del CRM que crea la tab: sólo informa de dónde salió. */
 export const PLANTILLA_NEWSLETTER = 'newsletter';
 

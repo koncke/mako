@@ -19,6 +19,7 @@ import {
   type ConfigLanding, type TemaPropio,
 } from './api-tipos';
 import { sanearTemaPropio } from './temas';
+import type { PiezaWeb } from './piezas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Versiones automáticas
@@ -216,6 +217,11 @@ export type FotoPublicada = {
    * con secciones de diseño; la página publicada la pone después de `css` junto con su script.
    */
   cssDiseno?: string;
+  /**
+   * Lo que trae esta landing al CRM, por nombre (14/11/2026, piezas.ts): sus formularios, encuestas, quizzes, agendas y pagos.
+   * De acá lo lee «Asignar fuentes» del CRM y la API de MaKo. Opcional: una foto anterior no lo trae (se calcula del contenido).
+   */
+  piezas?: PiezaWeb[];
 };
 
 /**

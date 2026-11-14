@@ -27,6 +27,20 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## «Envió el formulario X»: un disparador por formulario, no por etapa (14/11/2026, claude5, llamada con Julio)
+
+Martín tuvo que crear un funnel «Formulario prueba Julio» con una etapa «Rellenó el formulario» para disparar una secuencia. Ahora
+hay una clase de CRON «Formulario» (`TRIGGER_FORMULARIO = 'formulario_enviado'`): un formulario, encuesta o quiz del Web Generator
+por su clave, o «cualquier formulario de la landing X». Lo emite el opt-in en el acto (`enrolarPorEvento(…, 'formulario', {
+formulario, landing })`), también cuando el contacto ya existía.
+
+- La pieza va en un campo propio, `pieza: { clave, nombre }`, y no en `subtipo`: `subtipo` se sanea con `/^[a-z_]{1,30}$/` y una
+  clave `form:fAb3` no entraba (se caía callada). El nombre es el de cuando se eligió: la tarjeta no lee la landing.
+- Con ocho clases la grilla es 4+4 (nunca 3+3+1). Dos tests fijaban la lista exacta (`disparadores`, `disparadores-motor`) y se
+  actualizaron con el renglón nuevo.
+- Por la API: `arrancar_con_formulario` (plantilla + formulario, nace pausada). `cambiar_crons_secuencia` **no** acepta
+  todavía `pieza`: si hace falta, va su campo con descripción corta (el presupuesto de herramientas del turno).
+
 ## Una línea caída no pierde los mensajes: los guarda sin vencimiento, y al reconectar salen viejos (14/11/2026, Mauricio, ws1, claude5)
 
 **El síntoma.** El número propio de Mauricio (`mako_ws1`) se desvinculó el 29/10 y siguió así dos semanas. Lo medido el
@@ -8570,3 +8584,45 @@ Lo mismo «Elige qué la dispara…» de una plantilla o una copia: también es 
 
 **Regla:** lo que el server devuelve como `aviso` junto a un `ok: true` nunca va al lugar del error. Todo `role="alert"` lleva
 «Reportar a Soporte» (tests/reportar-a-soporte.test.ts), así que un aviso pintado como error se convierte en un ticket.
+
+## Crear con MaKo termina aunque se cierre la pestaña (14/11/2026, `punta/mako-en-la-app`)
+
+**Síntoma (la llamada con Julio, 13/11, min 00:34):** «¿existe y termina sola?». Si se cerraba o se recargaba la pestaña mientras el
+modelo escribía, no quedaba nada. Cambiar de tab DENTRO de la app sí sobrevivía (stream-ia.ts vive fuera del componente).
+
+**La causa:** la ruta le pasaba `req.signal` a `crearFlujoConIA`, y el core la mira después del modelo y antes de escribir: cerrar la
+pestaña era, para el server, lo mismo que tocar «Cancelar».
+
+**Ahora:** con la fila (nace en el modal), crear corre con `after` y lo corta SÓLO la marca de «Cancelar» (`modo: 'cancelar'`,
+`automatizacion.ia.cancelada.<id>` en `app_settings`, mirada cada 2 s; lib/flujo-ia-trabajo-reglas.ts). Al terminar, el chat de la
+fila tiene la respuesta de MaKo, y si nadie miraba le llega un push a quien lo pidió. La pantalla que vuelve ve el último mensaje
+del chat (el pedido, reciente y sin respuesta: `trabajoEnElServidor`), dice «MaKo la sigue armando», no larga otro pedido encima y
+recarga cuando MaKo contesta. Sigue naciendo pausada.
+
+**Trampas:**
+- El GET del chat tiene el contrato fijado por un test (`{ ok, mensajes }`): la pantalla decide recargar con el chat, no con un
+  campo nuevo.
+- El push abre /automations sin `?sec=`: las rutas del teléfono (lib/movil-rutas.ts) no tienen el lienzo.
+- Pasados 330 s (el tope de la función más margen) un pedido sin respuesta deja de contarse como trabajo en curso: se cortó.
+
+**Sin hacer:** sin `secuenciaId` (la API de MaKo por WhatsApp) sigue atado al pedido; la IA sigue sin poder poner
+`asignar_closer_setter` ni el AI Step de Instagram o Messenger (lib/flujo-ia.ts).
+
+## El archivo que nadie puso venía de la barra de OTRA automatización hecha con la misma plantilla (14/11/2026, `punta/mako-en-la-app`)
+
+**Síntoma (la llamada con Julio, 13/11, min 00:43):** al probar el envío de WhatsApp salió un archivo que Martín no reconocía
+(«¿qué te estoy mandando? Debe ser un guion de algo»).
+
+**La causa, reproducida en tests/adjuntos-que-salen.test.ts:** el borrador de la barra del editor (lib/borrador-barra.ts) guarda lo
+que quedó sin enviar —el archivo incluido— en el navegador con la clave «negocio | id | orden», y una plantilla crea SIEMPRE las
+mismas tarjetas con los mismos ids (`pasosDePlantilla`). La «firma» del mensaje tampoco las distingue (mismo texto). El archivo de
+la barra de una volvía en la otra, y al salir del editor entraba al mensaje como una burbuja más. Lo mismo el texto, el guion y la
+sugerencia de MaKo en memoria. Y nadie lo veía: la tarjeta dibuja dos burbujas y lo demás queda detrás de «+N mensajes…», y
+«Probar» no decía qué iba adjunto.
+
+**Ahora:** la clave lleva la automatización (`claveDeTarjeta(ws, paso, secuenciaId)`; la pone el lienzo con
+`AutomatizacionDeLaTarjeta`). La tarjeta nombra lo escondido («+2 mensajes… · 📎 guion.pdf») y el menú de «Probar en WhatsApp» dice
+qué va adjunto antes de elegir a quién (lib/adjuntos-que-salen.ts).
+
+**Trampas:** las copias de la barra guardadas con la clave vieja quedan huérfanas: no se restauran en ninguna (es lo que se buscaba).
+No se confirmó en el navegador de la demo cuál era el archivo: el `localStorage` de esa sesión no se puede leer desde acá.
