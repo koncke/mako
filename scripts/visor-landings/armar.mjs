@@ -133,7 +133,16 @@ function escribirIndice() {
   writeFileSync(join(salida, 'index.html'), plantilla
     .replace('/*PAGINAS*/[]', JSON.stringify(PAGINAS.map((p) => ({ ...p, nueva: nuevas.includes(p.slug) }))))
     .replace('/*DE_LA_APP*/[]', JSON.stringify(DE_LA_APP))
-    .replace('/*ALIAS*/{}', JSON.stringify(ALIAS)));
+    .replace('/*ALIAS*/{}', JSON.stringify({ ...ALIAS, ...aliasExtra() })));
+}
+
+/**
+ * Las páginas que no van en la lista del visor pero se abren desde un link, como cada «MaKo vs X» de /vsl/comparaciones/<app>
+ * (14/11/2026): quien dibuja las páginas deja `alias-extra.json` ({ ruta: slug }) en la carpeta del visor.
+ */
+function aliasExtra() {
+  const f = join(salida, 'alias-extra.json');
+  return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : {};
 }
 
 async function main() {
