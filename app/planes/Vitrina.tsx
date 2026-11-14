@@ -113,7 +113,7 @@ export function VitrinaPlanes({ ofertas, sufijo, promoVigente = false }: {
             <p>
               {NOMBRE_PLAN_CON_PRUEBA} empieza con {PRUEBA_DIAS} días gratis. Pones tu tarjeta al empezar y no se te cobra nada
               hasta el día {PRUEBA_DIAS + 1}. Si te das de baja antes, desde «Tu plan», no se te cobra nada. Después del primer
-              cobro, lo pagado no se devuelve. MaKo Esencial no tiene prueba: se paga al empezar.{' '}
+              cobro, lo pagado no se devuelve.{' '}
               <Link href="/reembolsos">Las condiciones</Link>.
             </p>
             <p>

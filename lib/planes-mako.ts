@@ -93,10 +93,12 @@ export const PRUEBA_GRATIS_PRENDIDA: boolean = true;
  * empezar. Todo lo que dice o decide la prueba de UN plan pregunta aquí: las tarjetas (app/planes/Tarjetas.tsx), el checkout
  * (app/planes/[plan]/page.tsx) y el cobro (lib/compra-plan.ts, `comprarPlan`). El interruptor de arriba la apaga en todos.
  */
-export const PLANES_CON_PRUEBA: readonly string[] = ['pro'];
+// Martín, 14/11/2026: «habilita nuevamente la prueba gratuita en el del 47… y evidentemente no la aclares por otro lado»: los
+// dos planes empiezan con la prueba, y ningún texto aparte dice cuál sí y cuál no.
+export const PLANES_CON_PRUEBA: readonly string[] = ['esencial', 'pro'];
 export const planConPrueba = (id: string): boolean => PRUEBA_GRATIS_PRENDIDA && PLANES_CON_PRUEBA.includes(id);
 /** El plan de la prueba, como lo nombran los textos generales («MaKo Pro empieza con 7 días gratis»). */
-export const NOMBRE_PLAN_CON_PRUEBA = 'MaKo Pro';
+export const NOMBRE_PLAN_CON_PRUEBA = 'MaKo';
 
 /** El descuento del primer mes, sobre los dos planes (§3). Con la prueba prendida no se ofrece: son una cosa o la otra. */
 export const DESCUENTO_PRIMER_MES_PCT = PROMO_ENTRADA.pct;
@@ -213,6 +215,32 @@ export const HORAS_SEMANA_1 = 10;
 /** Cuántas asesorías grupales en vivo trae el programa: una por semana, los 3 meses (docs/ofertas-mako.md §3). */
 export const ASESORIAS_DEL_PROGRAMA = 12;
 
+/**
+ * LO QUE TE LLEVAS, EN EL CHECKOUT (14/11/2026, Martín: «en los bullet point… de qué incluye MaKo Pro, creo que eso está bastante viejo,
+ * está mal. Piensa muy a profundidad qué poner ahí»). En el checkout se ve UN plan: «Todo lo de Esencial, más:» no dice nada ahí. Seis
+ * renglones, en el orden de la portada (conseguir clientes → crear → anuncios → vender → el equipo), y sólo lo que ese plan trae de
+ * verdad (la comparación de /planes, lib/planes-comparacion.ts: los editores de video e imagen, que MaKo aplique las mejoras de los
+ * anuncios y los grupos de WhatsApp son de Pro). Sin jerga (ni «CRM» ni «embudo»): lo lee alguien que todavía no entró.
+ */
+export const INCLUYE_EN_EL_CHECKOUT: Readonly<Record<string, readonly string[]>> = {
+  esencial: [
+    'Lo que le funciona a tu competencia, en un solo lugar',
+    'Páginas de venta, textos y guiones con tu oferta, escritos por IA',
+    'Tus contactos ordenados solos, con todo lo que hace cada uno',
+    'WhatsApp, Instagram y email en una sola bandeja',
+    'Un agente con IA que contesta y lleva a agendar',
+    'Hasta 2.000 contactos, 1 WhatsApp y 3 páginas de venta',
+  ],
+  pro: [
+    'Lo que le funciona a tu competencia, replicado con tu oferta',
+    'Tus videos editados y tus imágenes, sin salir de MaKo',
+    'Tus anuncios revisados cada día, con las mejoras aplicadas',
+    'Tus contactos ordenados solos, y WhatsApp, Instagram y email en una bandeja',
+    'Un agente con IA que contesta y lleva a agendar',
+    'Sin tope de contactos, con 3 WhatsApp y 5 personas de tu equipo',
+  ],
+};
+
 export const PROGRAMA_ACELERADOR: ProgramaMako = {
   id: 'acelerador',
   nombre: 'MaKo Acelerador',
@@ -232,11 +260,11 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
     'Un grupo de WhatsApp con respuestas de Martín',
   ],
   despues: { nombre: 'Continuidad', precioUsd: 297 },
-  // Martín, 14/11/2026: «la promesa tiene que estar atada a un resultado monetario o a un resultado del funnel. No puede ser "en 90
-  // días tus anuncios andando" si justamente tenemos muchos funnels. Y tampoco quiero que la promesa sea de la instalación de
-  // cosas… un resultado bien contundente. Y se tiene que notar la personalización». Reemplaza a la del 25/10 («tus anuncios
-  // andando, tu IA contestándole…, tu agenda lista»). Sigue siendo una PROMESA y no una garantía: lo que se devuelve es `garantia`.
-  promesa: 'En 90 días, el sistema de ventas que armamos a la medida de tu oferta te trae llamadas de venta calificadas todas las semanas y las ventas que pagan el Acelerador.',
+  // Martín, 14/11/2026 (la segunda vez, sus palabras): «en 90 días, Martín Koncke, el creador de MaKo, te instalará el sistema de
+  // adquisición de clientes a la medida de tu oferta. Y podrás, como mínimo, rentabilizar la inversión que hiciste, garantizado por
+  // contrato». Reemplaza a la de esa mañana («el sistema de ventas que armamos… las ventas que pagan el Acelerador») y a la del 25/10
+  // («tus anuncios andando…»). El resultado (recuperar la inversión) lo garantiza el CONTRATO; `garantia` sigue siendo la de la entrega.
+  promesa: 'En 90 días, Martín Koncke, el creador de MaKo, te instala el sistema de adquisición de clientes a la medida de tu oferta, y como mínimo recuperas la inversión que hiciste, garantizado por contrato.',
   garantia: 'Si al terminar la primera semana tu sistema de ventas no está armado, te devolvemos la cuota y no pagas las que siguen.',
 };
 

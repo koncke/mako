@@ -391,7 +391,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
   // usó). Una segunda prueba se rechaza con un texto claro ANTES de abrir el pago.
   // Con el interruptor apagado (30/10/2026, lib/planes-mako.ts), ninguna compra nueva empieza con prueba: se paga y recién ahí se
   // entra (el alta sale de `aplicarPagoAprobado`). A quien ya está en prueba no lo mira nadie acá: no pasa por este camino.
-  // Desde el 12/11/2026 la prueba es SÓLO de Pro (`planConPrueba`): Esencial se cobra al empezar.
+  // La prueba la deciden los planes que la traen (`planConPrueba`: Esencial y Pro desde el 14/11/2026).
   const conPrueba = planConPrueba(plan.id) && !p.sinPrueba;
   if (conPrueba) {
     const puede = await puedeEmpezarPrueba(p.email, ws);
