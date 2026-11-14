@@ -16,8 +16,9 @@ import { EVENTO_VOZ_CAMBIO } from '../_components/AlertaVozMaKo';
 const MONO = "'Geist Mono', monospace";
 type Estado = 'desconectado' | 'conectando' | 'conectado' | 'sin_confirmar' | 'error';
 type Linea = { estado: Estado; numero: string | null; perfil: string | null };
-/** `esVozActiva: null` = no se pudo leer cuál es la voz. No es «no». */
-type Info = Linea & { esVozActiva: boolean | null };
+/** `esVozActiva: null` = no se pudo leer cuál es la voz. No es «no». `sorda`: figura conectada y no recibe (lib/mako-canal.ts). */
+type Info = Linea & { esVozActiva: boolean | null; sorda?: string | null };
+const infoDe = (j: Info): Info => ({ estado: j.estado, numero: j.numero, perfil: j.perfil, esVozActiva: j.esVozActiva, sorda: j.sorda ?? null });
 /** `sorda`: figura conectada y no recibe (lib/linea-sorda.ts, `motivoParaVolverAVincular`). */
 type Personal = { estado: string; numero: string | null; perfil: string | null; linea: string | null; esVoz: boolean; sorda?: string | null };
 type Paso = { jid: string; nombre: string; listo: boolean; motivo?: string };
@@ -91,7 +92,7 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
     try {
       const j = await (await fetch('/api/admin/mako-canal')).json();
       if (j.ok) {
-        setInfo({ estado: j.estado, numero: j.numero, perfil: j.perfil, esVozActiva: j.esVozActiva });
+        setInfo(infoDe(j));
         setNuevo(j.nuevo ?? null);
         setPersonal(j.personal ?? null);
       }
@@ -102,7 +103,7 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
     try {
       const j = await (await fetch(`/api/admin/mako-canal?parte=${parte}`)).json();
       if (!j.ok) return;
-      if (parte === 'canal') setInfo({ estado: j.estado, numero: j.numero, perfil: j.perfil, esVozActiva: j.esVozActiva });
+      if (parte === 'canal') setInfo(infoDe(j));
       if (parte === 'nuevo') setNuevo(j.nuevo ?? null);
       if (parte === 'personal') setPersonal(j.personal ?? null);
     } catch { /* noop */ }
@@ -175,7 +176,7 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
       const j = await (await fetch('/api/admin/mako-canal?parte=canal')).json();
       if (!j.ok) setFlash({ txt: 'No pude consultar el servidor.', error: true });
       else {
-        setInfo({ estado: j.estado, numero: j.numero, perfil: j.perfil, esVozActiva: j.esVozActiva });
+        setInfo(infoDe(j));
         if (j.estado === antes) setFlash({ txt: `Sigue sin confirmar · ${new Date().toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`, error: true });
       }
     } catch {
@@ -267,6 +268,8 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
   const personalConectado = personal?.estado === 'conectado';
   // Con la marca de sordera medida sobre ESTA vinculación: el mismo corte con el que `conectar` la suelta y da el QR.
   const personalSorda = personalConectado && !!personal?.sorda;
+  // Lo mismo para la línea de MaKo (14/11/2026): sin esto, «Conectar por QR» —el botón que nombra el aviso— no estaba.
+  const canalSorda = estado === 'conectado' && !!info.sorda;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -274,6 +277,7 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <span style={rotulo}>MaKo</span>
         <Fila estado={qr && estado === 'sin_confirmar' ? 'conectando' : estado} numero={info.numero} perfil={info.perfil} />
+        {canalSorda && <div title={info.sorda ?? undefined} style={{ fontSize: 13, fontWeight: 600, color: 'var(--bad)' }}>No recibe mensajes: vuelve a vincularlo.</div>}
 
         {/* «No pude comprobarlo» no es una caída, pero tampoco una garantía: no se afirma que la
             línea esté bien ni se ofrece reconectarla a ciegas, porque re-escanear la tumba. */}
@@ -287,7 +291,7 @@ export function CanalMaKoPanel({ onCambio }: { onCambio?: () => void } = {}) {
 
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {sinConfirmar && <button style={{ ...btnGhost, opacity: comprobando ? 0.5 : 1 }} disabled={comprobando} onClick={comprobar}>{comprobando ? 'Comprobando…' : 'Volver a comprobar'}</button>}
-          {estado !== 'conectado' && !sinConfirmar && <button style={{ ...btn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={conectar}>{busy ? 'Generando…' : qr ? 'Regenerar QR' : 'Conectar por QR'}</button>}
+          {(estado !== 'conectado' || canalSorda) && !sinConfirmar && <button style={{ ...btn, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={conectar}>{busy ? 'Generando…' : qr ? 'Regenerar QR' : canalSorda ? 'Volver a vincular por QR' : 'Conectar por QR'}</button>}
           {estado === 'conectado' && !cambiando && <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={vincularNuevo}>Cambiar número</button>}
           {estado === 'conectado' && !cambiando && <button style={{ ...btnGhost, opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={desconectar}>Desconectar</button>}
           {flash && <span style={{ fontSize: 13, fontWeight: 600, color: flash.error ? 'var(--bad)' : 'var(--good)' }}>{flash.txt}</span>}

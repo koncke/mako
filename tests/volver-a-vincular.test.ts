@@ -12,6 +12,15 @@
 //   V4 el botón con la línea desconectada (sin `personalConectado`)  → falla «el panel lo ofrece»
 //   V5 `conectar` sin soltar la línea marcada                         → falla «el clic da el QR en un paso»
 //   V6 el aviso con los pasos fijos del canal (…2605)                 → falla «el aviso de voz sorda»
+//
+// Y LO MISMO EN LA LÍNEA DE MaKo (el …2605, 14/11/2026). La voz volvió al …2605 y quedó sorda otra vez. El aviso decía «Conectar por
+// QR», pero ese botón sólo se dibujaba con la línea CAÍDA. `conectarCanalMaKo` ya la soltaba; faltaba, otra vez, el botón.
+// PROBADO ROMPIÉNDOLO (14/11/2026), cada rotura por separado y vuelta atrás:
+//   C1 `estadoCanalMaKo` sin `sorda`                                  → falla «la línea de MaKo: el estado lo trae»
+//   C2 `sorda` también con la línea caída (sin el corte de `conectado`) → falla «la línea de MaKo: el estado lo trae»
+//   C3 el panel sin `canalSorda` en el botón                          → falla «la línea de MaKo: el panel lo ofrece»
+//   C4 `conectarCanalMaKo` sin soltar la línea marcada                → falla «la línea de MaKo: el clic la suelta»
+//   C5 el aviso con «Conectar por QR» (el botón que no estaba)        → falla «el aviso de voz sorda»
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { avisoDeSordera, motivoParaVolverAVincular } from '../lib/linea-sorda';
@@ -58,8 +67,31 @@ test('el aviso de voz sorda manda al botón y al teléfono de ESA línea', () =>
   assert.match(tuNumero, /tu teléfono personal/);
   assert.doesNotMatch(tuNumero, /…2605|«Conectar por QR»/, 'con la voz en el …3479 manda al teléfono de MaKo');
   const canal = avisoDeSordera('pedir-qr', 'sigue sin recibir', 'mako_superadmin_muylqv8r').cuerpo;
-  assert.match(canal, /«Conectar por QR»/);
-  assert.doesNotMatch(canal, /Volver a vincular/);
+  assert.match(canal, /«MaKo» → «Volver a vincular por QR»/, 'el aviso nombra el botón que el panel dibuja con la línea sorda');
+  assert.match(canal, /teléfono de MaKo \(…2605\)/);
+  assert.doesNotMatch(canal, /«Tu número»|teléfono personal/, 'con la voz en el …2605 manda al teléfono de Martín');
+});
+
+test('la línea de MaKo: el estado lo trae, sólo con la línea conectada y con la misma marca', () => {
+  const src = fuenteSinComentarios('lib/mako-canal.ts');
+  const estado = bloque(src, 'export async function estadoCanalMaKo(', 'async function estadoDeLinea(');
+  assert.match(estado, /const sorda = linea\.estado === 'conectado'\s*\?\s*motivoParaVolverAVincular\(await marcaDeLineaEnferma\(inst\), await vinculadaDesdeDeLinea\(inst\)/);
+  assert.match(estado, /return \{ \.\.\.linea, esVozActiva: [^}]*, sorda \};/);
+});
+
+test('la línea de MaKo: el panel lo ofrece con la línea conectada y sorda', () => {
+  const panel = fuenteSinComentarios('app/agencia/CanalMaKoPanel.tsx');
+  assert.match(panel, /const canalSorda = estado === 'conectado' && !!info\.sorda;/);
+  assert.match(panel, /\{\(estado !== 'conectado' \|\| canalSorda\) && !sinConfirmar && <button[^>]*onClick=\{conectar\}>\{busy \? 'Generando…' : qr \? 'Regenerar QR' : canalSorda \? 'Volver a vincular por QR' : 'Conectar por QR'\}<\/button>\}/);
+  assert.match(panel, /\{canalSorda && <div[^>]*>No recibe mensajes: vuelve a vincularlo\.<\/div>\}/);
+  assert.match(panel, /sorda: j\.sorda \?\? null/, 'el panel tira el `sorda` que manda la ruta');
+});
+
+test('la línea de MaKo: el clic la suelta con la misma condición (logout, sin borrarla)', () => {
+  const src = fuenteSinComentarios('lib/mako-canal.ts');
+  const c = bloque(src, "if (sondeo === 'vivo') {", "if (sondeo === 'sin_respuesta') {");
+  assert.match(c, /const marca = await marcaDeLineaEnferma\(inst\);/);
+  assert.match(c, /if \(!marca \|\| !puedeSoltarseSorda\(marca, await vinculadaDesdeDeLinea\(inst\)/);
 });
 
 test('el clic da el QR en un paso: conectar suelta la línea abierta y marcada sorda, sin borrarla', () => {
