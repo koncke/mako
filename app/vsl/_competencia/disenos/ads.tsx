@@ -30,8 +30,7 @@ import type { ReactNode } from 'react';
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
 import { RUTA_CTA, EstrellaMaKo, LogoMaKo, TEXTO_CTA, html, otrasFunciones } from '../marca';
-import { VisualDeLanding } from '../Visuales';
-import { FaltaAnimacion } from '../FaltaAnimacion';
+import { GrabacionDe, VisualDeLanding } from '../Visuales';
 
 const P = 'd-ads';
 type De<T extends Bloque['tipo']> = Extract<Bloque, { tipo: T }>;
@@ -172,7 +171,7 @@ function Reporte({ b }: { b: De<'filas'> }) {
           {b.bajada ? <p className={`${P}-lede`} dangerouslySetInnerHTML={html(b.bajada)} /> : null}
         </div>
         <div className={`${P}-tablero-falta`}>
-          <FaltaAnimacion que="El Marketing CoPilot real, con tus anuncios." />
+          <GrabacionDe n="copilot" />
         </div>
         <div className={`${P}-cta-fila`}><Cta clase={`${P}-respira`} /></div>
       </div>
@@ -197,7 +196,7 @@ function Whatsapp({ b }: { b: De<'tarjetas'> }) {
         </div>
         <div className={`${P}-tel-wrap`}>
           <span className={`${P}-tel-wa`} aria-hidden="true"><img src="/vsl-assets/logos/whatsapp.png" alt="" width={22} height={22} /></span>
-          <FaltaAnimacion que="El agente de MaKo respondiendo por WhatsApp, tal cual es." />
+          <GrabacionDe n="chats" />
         </div>
       </div>
     </section>
@@ -311,7 +310,7 @@ const CSS = `
 .d-ads-burbuja-fila { display: flex; align-items: center; gap: 12px; }
 .d-ads-rayo { flex: none; width: 36px; height: 36px; border-radius: 999px; background: #1A1712; display: flex; align-items: center; justify-content: center; }
 .d-ads-burbuja { display: inline-flex; align-items: center; padding: 10px 20px; border-radius: 999px; background: var(--action); color: #fff; font-size: 14px; font-weight: 500; line-height: 20px; transform-origin: 0 center; animation: d-ads-respira 2.8s cubic-bezier(.4,0,.2,1) infinite; }
-.d-ads-opciones { margin-top: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; background: #fff; border: 1px solid var(--borde); border-radius: 18px; }
+.d-ads-opciones { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 16px; background: #fff; border: 1px solid var(--borde); border-radius: 18px; }
 .d-ads-opcion { display: flex; flex-direction: column; gap: 4px; padding: 12px 16px; border-radius: 10px; background: var(--bgc); border: 1px solid var(--borde); color: var(--tinta); animation: d-ads-luz 8s ease-in-out infinite; }
 .d-ads-opcion:nth-child(2) { animation-delay: 2s; }
 .d-ads-opcion:nth-child(3) { animation-delay: 4s; }
@@ -381,7 +380,7 @@ const CSS = `
 .d-ads-tab-pest { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 20px; border-bottom: 1px solid var(--borde); font-size: 14px; line-height: 20px; color: var(--gris); }
 .d-ads-tab-pest span { padding-bottom: 12px; }
 .d-ads-tab-pest .d-ads-tab-act { margin-bottom: -1px; border-bottom: 2px solid var(--action); color: var(--tinta); font-weight: 600; }
-.d-ads-tab-graficos { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.d-ads-tab-graficos { margin-top: 20px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 .d-ads-tab-g { padding: 20px; border: 1px solid var(--borde); border-radius: 10px; }
 .d-ads-tab-g h4 { font-size: 14px; font-weight: 600; line-height: 20px; }
 .d-ads-tab-svg { margin-top: 20px; }
@@ -389,7 +388,7 @@ const CSS = `
 .d-ads-tab-g p { margin-top: 12px; font-size: 12px; line-height: 16px; color: var(--gris); }
 .d-ads-tab-g p strong { color: var(--tinta); font-weight: 600; }
 /* el agente de WhatsApp */
-.d-ads-wa { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+.d-ads-wa { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: center; }
 .d-ads-eyebrow { display: block; font-size: 12px; font-weight: 600; line-height: 16px; letter-spacing: .1em; text-transform: uppercase; color: var(--brand); }
 .d-ads-wa-h2 { margin-top: 12px; }
 .d-ads-wa-lede { max-width: 448px; }
@@ -441,21 +440,21 @@ const CSS = `
   .d-ads-h1 { font-size: 36px; line-height: 40px; letter-spacing: -0.025em; }
   .d-ads-hero-p { margin-top: 20px; font-size: 16px; line-height: 24px; }
   .d-ads-arranca { margin-top: 48px; }
-  .d-ads-opciones { grid-template-columns: 1fr; }
+  .d-ads-opciones { grid-template-columns: minmax(0, 1fr); }
   .d-ads-sec { padding: 64px 0; }
   .d-ads-h2 { font-size: 30px; line-height: 36px; letter-spacing: -0.025em; }
   .d-ads-lede { font-size: 16px; line-height: 24px; }
-  .d-ads-dos { grid-template-columns: 1fr; gap: 48px; text-align: center; }
+  .d-ads-dos { grid-template-columns: minmax(0, 1fr); gap: 48px; text-align: center; }
   .d-ads-dos-txt .d-ads-lede, .d-ads-lista { margin-left: auto; margin-right: auto; }
   .d-ads-lista { text-align: left; }
   .d-ads-marco-in { padding: 20px 16px; min-height: 0; }
-  .d-ads-cards-5, .d-ads-cards-3 { grid-template-columns: 1fr; }
+  .d-ads-cards-5, .d-ads-cards-3 { grid-template-columns: minmax(0, 1fr); }
   .d-ads-h2c { font-size: 30px; line-height: 36px; }
   .d-ads-tab-lado { display: none; }
   .d-ads-tab-main { padding: 16px; }
   .d-ads-tab-pest { gap: 14px; }
-  .d-ads-tab-graficos { grid-template-columns: 1fr; }
-  .d-ads-wa { grid-template-columns: 1fr; gap: 48px; }
+  .d-ads-tab-graficos { grid-template-columns: minmax(0, 1fr); }
+  .d-ads-wa { grid-template-columns: minmax(0, 1fr); gap: 48px; }
   .d-ads-foot-bottom { flex-direction: column; align-items: flex-start; }
   .d-ads-logos-fila { flex-wrap: nowrap; gap: 10px; }
   .d-ads-logos-fila li { width: calc((100% - 20px) / 3); max-width: 176px; height: 96px; }

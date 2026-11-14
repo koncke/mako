@@ -209,6 +209,9 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'orden', tipo: 'string', enum: ORDENES_THUMBNAIL.map((x) => x.value), descripcion: 'vistas (por defecto), nuevos, viejos; outlier sólo cuando YouTube habilite el múltiplo.' },
       { nombre: 'vista', tipo: 'string', enum: ['todos', 'guardados'], descripcion: 'todos o guardados.' },
       { nombre: 'tope', tipo: 'number', entero: true, minimo: 1, maximo: 30, descripcion: 'Cuántas devolver (10 por defecto).' },
+      // 13/11/2026: las VERTICALES (9:16), las portadas de los Shorts y los Reels. Salen de los reels que Spy ya trajo de las cuentas
+      // que el negocio sigue (lib/thumbnails/verticales.ts); con su `verticalId`, editar_ejemplo_thumbnail arma la suya en 1080 × 1920.
+      { nombre: 'formato', tipo: 'string', enum: ['horizontal', 'vertical'], descripcion: 'horizontal (por defecto: las de YouTube, 16:9) o vertical (las portadas de Shorts y Reels, 9:16, de las cuentas que el negocio sigue en Competitors Spy; cada una con su verticalId).' },
     ],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: GATING,
   },
@@ -229,8 +232,9 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Tu versión editable de una miniatura',
     descripcion: 'Arma un diseño EDITABLE de 1280 × 720 copiando el diseño de una miniatura de buscar_thumbnails (dónde va el texto grande, colores, dónde la cara) con el texto escrito para el negocio por su propia IA, y su foto donde había una persona. Sus palabras no se copian. Tarda hasta 2 minutos.',
     parametros: [
-      { nombre: 'thumbnailId', tipo: 'number', entero: true, obligatorio: true, minimo: 1, descripcion: 'El id que dio buscar_thumbnails.' },
+      { nombre: 'thumbnailId', tipo: 'number', entero: true, minimo: 1, descripcion: 'El id que dio buscar_thumbnails (una horizontal). Este o verticalId.' },
       { nombre: 'pedido', tipo: 'string', max: 400, descripcion: 'Lo que el dueño quiere en especial («sobre mi video de X»), si lo dijo.' },
+      { nombre: 'verticalId', tipo: 'string', max: 120, descripcion: 'El verticalId que dio buscar_thumbnails con formato vertical: arma la portada de un Short o un Reel en 1080 × 1920 (la persona del original, generada con IA en el mismo estilo; nunca la foto del negocio pegada).' },
     ],
     canales: SIN_HTTP, costo: 'ia', gating: GATING,
     reversible: true,

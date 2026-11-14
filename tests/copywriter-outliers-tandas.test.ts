@@ -90,3 +90,31 @@ test('las páginas mandan la primera tanda; la ruta da las demás; la pantalla l
   assert.match(p, /if \(!el \|\| faltan <= 0 \|\| pidiendo \|\| fallo \|\|/, 'una tanda que falló no se vuelve a pedir sola en cada movimiento');
   assert.doesNotMatch(p, /portada\.outliers\.length === 0 \?/, 'el vacío mira el total, no la tanda');
 });
+
+test('«De tu tema»: la primera tanda de la página es la del tema, y la que sigue la continúa sin repetir (13/11/2026, el flujo nuevo)', () => {
+  // El chat de los outliers: si el segmento abre en «De tu tema» y la página trae la de «Todos», la grilla arranca pidiendo de nuevo.
+  const entera = portadaGrande();
+  const outliers = entera.outliers.map((o, i) => ({ ...o, deTuTema: i % 3 === 0 }));
+  const delTema = outliers.filter((o) => o.deTuTema);
+  const porFormatoTema: Partial<Record<FormatoCopy, number>> = {};
+  for (const o of delTema) porFormatoTema[o.formato] = (porFormatoTema[o.formato] ?? 0) + 1;
+  const p: PortadaCopy = { outliers, caidas: [], tema: { negocio: { id: 'negocios', nombre: 'negocios' }, total: delTema.length, porFormato: porFormatoTema, abre: true } };
+  const t = primeraTandaCopy(p);
+  assert.equal(t.outliers.length, TANDA_COPY);
+  assert.ok(t.outliers.every((o) => o.deTuTema), 'la primera tanda es la del tema');
+  assert.equal(t.total, outliers.length, 'el total es el de TODA la portada («Todo»)');
+  assert.equal(t.tema?.total, delTema.length, 'y el del tema viaja aparte');
+  assert.deepEqual(t.tema?.porFormato, porFormatoTema);
+  // La segunda tanda, pedida como la pide la pantalla (`tema: true` en los filtros), sigue donde terminó la primera.
+  const segunda = tandaDeOutliersCopy(outliers, consultaDeTanda({ tema: true, desde: TANDA_COPY }));
+  assert.equal(segunda.total, delTema.length);
+  assert.equal(sumarTanda(t.outliers, segunda.outliers).length, TANDA_COPY * 2, 'sin repetidos');
+  // La clave cambia con el tema: cambiar de segmento vuelve a pedir desde la primera.
+  assert.notEqual(claveDeConsulta({ formato: null, q: '', tema: true }, 'outlier'), claveDeConsulta({ formato: null, q: '' }, 'outlier'));
+  // La pantalla arranca con la clave del tema si la portada abre ahí (si no, pediría de nuevo la primera tanda).
+  const pantalla = leer('app/copywriter/OutliersCopy.tsx');
+  assert.ok(pantalla.includes("clave: claveDeConsulta({ formato: null, q: '', tema: !!portada.tema?.abre }, 'outlier'), items: portada.outliers,"));
+  assert.ok(pantalla.includes('const [tema, setTema] = useState(!!portada.tema?.abre);'));
+  // Sin `tema` (una portada que no lo calculó), la primera tanda es la de «Todos», como antes.
+  assert.ok(!('tema' in primeraTandaCopy(entera)));
+});

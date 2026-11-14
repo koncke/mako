@@ -204,7 +204,7 @@ export default function DisenoVideo({ landing }: PropsDiseno) {
 
         <section className="d-video-banda d-video-final" style={{ clipPath: RASGADO }}>
           <span className="d-video-lunares" aria-hidden="true" />
-          <h2 className="d-video-final-h">¿Lo quieres andando en tu negocio?</h2>
+          <h2 className="d-video-final-h">¿Lo quieres funcionando en tu negocio?</h2>
           <p className="d-video-final-p">{TEXTO_CIERRE}</p>
           <Boton />
           {/* Las tarjetas inclinadas que Cherry asoma al pie de la banda: acá, el visual de Video, cortado por el borde. */}
@@ -217,7 +217,7 @@ export default function DisenoVideo({ landing }: PropsDiseno) {
         <nav className="d-video-pie-nav" aria-label="Otras funcionalidades">
           {otrasFunciones(landing.slug).map((f) => <a key={f.href} href={f.href}>{f.nombre}</a>)}
         </nav>
-        <p className="d-video-pie-p">El mejor SaaS para ventas High Ticket, de punta a punta.</p>
+        <p className="d-video-pie-p">El mejor software para vender High Ticket.</p>
         <p className="d-video-pie-p">© MaKo — Todos los derechos reservados.</p>
       </footer>
     </div>
@@ -310,7 +310,7 @@ const CSS = `
 
 /* Comparador: panel con padding 40 / 44 y la caja oscura de 1070 × 240, radio 22 */
 .d-video-compara { padding: 40px 44px; display: grid; gap: 12px; }
-.d-video-cmp { margin-top: 6px; display: grid; grid-template-columns: 1fr 1fr; border-radius: 22px; overflow: hidden; border: 1px solid rgba(255,255,255,.09); background: #140D12; }
+.d-video-cmp { margin-top: 6px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border-radius: 22px; overflow: hidden; border: 1px solid rgba(255,255,255,.09); background: #140D12; }
 .d-video-cmp-lado { position: relative; padding: 14px 14px 20px; display: flex; flex-direction: column; gap: 16px; min-height: 240px; }
 .d-video-cmp-despues { background: linear-gradient(#172019, #0F1511); border-left: 2px solid rgba(255,255,255,.85); }
 .d-video-cmp-chip { align-self: flex-start; padding: 7px 9px; border-radius: 8px; font-family: var(--d-vid-mono); font-size: 10.5px; line-height: 10.5px; font-weight: 500; letter-spacing: 1.26px; text-transform: uppercase; }
@@ -358,7 +358,7 @@ const CSS = `
 /* Preguntas: la cabecera suelta y el panel con dos columnas de <details> */
 .d-video-faq-cab { padding: 28px 6px 2px; display: grid; gap: 8px; }
 .d-video-faq-cab .d-video-h2 { font-size: 62px; line-height: 55.8px; letter-spacing: -2.79px; }
-.d-video-faq { padding: 8px 32px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 40px; align-items: start; }
+.d-video-faq { padding: 8px 32px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 40px; align-items: start; }
 .d-video-faq-i { border-bottom: 1px solid rgba(20,12,17,.09); }
 .d-video-faq-i summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 17px 0; font-size: 15.5px; line-height: 20.93px; font-weight: 700; color: var(--d-vid-tinta); }
 .d-video-faq-i summary::-webkit-details-marker { display: none; }
@@ -395,7 +395,7 @@ const CSS = `
 }
 
 @media (max-width: 1100px) {
-  .d-video-hace { grid-template-columns: 1fr; }
+  .d-video-hace { grid-template-columns: minmax(0, 1fr); }
   .d-video-marco { margin-top: 30px; }
   .d-video-puntos { display: none; }
 }
@@ -418,7 +418,7 @@ const CSS = `
   .d-video-marco { width: 100%; height: 400px; }
   .d-video-marco-tel { transform: scale(1.3); }
   .d-video-compara { padding: 26px 18px; }
-  .d-video-cmp { grid-template-columns: 1fr; }
+  .d-video-cmp { grid-template-columns: minmax(0, 1fr); }
   .d-video-cmp-despues { border-left: 0; border-top: 2px solid rgba(255,255,255,.85); }
   .d-video-onda { height: 70px; overflow: hidden; }
   .d-video-onda-pausa { width: 44px; margin: 0 5px; font-size: 9.5px; }
@@ -426,14 +426,14 @@ const CSS = `
   .d-video-onda-tramo i { width: 3px; }
   .d-video-banda { padding: 40px 20px 34px; }
   .d-video-banda-h { font-size: 39px; line-height: 35.1px; letter-spacing: -1.76px; }
-  .d-video-pliego { grid-template-columns: 1fr 1fr; padding: 24px 12px 22px; gap: 24px 8px; }
+  .d-video-pliego { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 24px 12px 22px; gap: 24px 8px; }
   .d-video-calca-img { width: 96px; height: 96px; }
   .d-video-calca-img svg { width: 44px; height: 44px; }
   .d-video-calca-t { font-size: 16px; line-height: 18px; }
   .d-video-calca-x { font-size: 12.5px; line-height: 16.5px; }
   .d-video-h2c { font-size: 31.2px; line-height: 29.33px; letter-spacing: -1.4px; }
   .d-video-faq-cab .d-video-h2 { font-size: 37.05px; line-height: 33.35px; letter-spacing: -1.67px; }
-  .d-video-faq { grid-template-columns: 1fr; padding: 8px 22px; }
+  .d-video-faq { grid-template-columns: minmax(0, 1fr); padding: 8px 22px; }
   .d-video-final { padding: 66px 22px 0; }
   .d-video-final-vis { height: 190px; }
   .d-video-final-h { font-size: 46.8px; line-height: 41.18px; letter-spacing: -2.34px; }

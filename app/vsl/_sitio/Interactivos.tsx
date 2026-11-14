@@ -64,7 +64,8 @@ export function TablerosCarrusel({ tableros }: { tableros: readonly Tablero[] })
   // Pasa solo.
   useEffect(() => {
     if (!visto) return;
-    const t = setInterval(() => { if (Date.now() > frena.current) ir(i + 1, false); }, 6000);
+    // 4,8 s: los 3,8 de la entrada del tablero y un segundo quieto (el audio de feedback del 14/11: «que aparezca la animación de los dashboards»).
+    const t = setInterval(() => { if (Date.now() > frena.current) ir(i + 1, false); }, 4800);
     return () => clearInterval(t);
   }, [i, visto, ir]);
 
@@ -109,6 +110,9 @@ export function TablerosCarrusel({ tableros }: { tableros: readonly Tablero[] })
           ir(Math.round(a.s / pista.current.clientWidth) + (d > 60 ? 1 : d < -60 ? -1 : 0), true);
         }}>
         {tableros.map((t, k) => (
+          // El póster es el PRIMER cuadro de su entrada, no el último (Martín, 14/11/2026: «cuando scrollea el carrusel para el costado…
+          // aparece, sin animación, por medio segundo, y después recién comienza»): con el último, se veía el tablero armado mientras
+          // se deslizaba y al arrancar volvía a vacío. Así, el video empalma con lo que ya se ve.
           <figure key={t.id} className="s-tab-uno" data-activo={k === i ? 'si' : undefined}>
             <video ref={(v) => { videos.current[k] = v; }} data-src={`/vsl-assets/sitio/tableros/${t.id}.webm`} poster={`/vsl-assets/sitio/tableros/${t.id}.jpg`}
               muted playsInline preload="none" aria-label={`El tablero «${t.nombre}» de MaKo`} />

@@ -22,7 +22,15 @@ import { LogoMaKo, TEXTO_CTA, RUTA_CTA } from '../_competencia/marca';
 import { TemaSitio } from '../_competencia/TemaSitio';
 import { HISTORIA, INDUSTRIAS, RUTA_COMPARACIONES, RUTA_ENTRAR, RUTA_PRECIOS, menuProducto, type MenuProducto } from './datos';
 import { Chevron, Icono } from './Piezas';
-import { CSS_BARRA, CSS_BASE } from './estilos';
+import { CSS_BARRA, CSS_BASE, CSS_PIE } from './estilos';
+import { Pie } from './Pie';
+import { FUNNELS_SITIO, rutaFunnel } from './funnels-datos';
+
+/** Los funnels, dentro de Industrias (Martín, 14/11/2026: «dentro del desplegable de industria, una sección funnels… y que sea una
+ *  landing cada uno»). */
+function ItemsFunnels() {
+  return <>{FUNNELS_SITIO.map((f) => <Grande key={f.id} href={rutaFunnel(f.id)} icono={f.icono} nombre={f.nombre} bajada={f.corta} />)}</>;
+}
 
 /** Uno de los cuatro grandes (o una industria): el cuadro con el ícono, el nombre y su bajada. */
 function Grande({ href, icono, nombre, bajada }: { href: string; icono: readonly string[]; nombre: string; bajada: string }) {
@@ -80,7 +88,10 @@ function MenuIndustriasPc() {
           <p className="s-mega-r">Por industria</p>
           {INDUSTRIAS.map((i) => <Grande key={i.avatar} href={i.href} icono={i.icono} nombre={i.nombre} bajada={i.bajada} />)}
         </div>
-        <div aria-hidden="true" />
+        <div>
+          <p className="s-mega-r">Funnels</p>
+          <ItemsFunnels />
+        </div>
         <div className="s-mega-hist">
           <p className="s-mega-r">Casos</p>
           <Historia />
@@ -115,6 +126,10 @@ function MenuMovil({ m }: { m: MenuProducto }) {
           <summary className="s-mv-fila">Industrias <Chevron /></summary>
           <div className="s-mv-cuerpo">
             {INDUSTRIAS.map((i) => <Grande key={i.avatar} href={i.href} icono={i.icono} nombre={i.nombre} bajada={i.bajada} />)}
+            <div className="s-mv-grupo">
+              <p className="s-mega-r">Funnels</p>
+              <ItemsFunnels />
+            </div>
             <div className="s-mv-grupo">
               <p className="s-mega-r">Casos</p>
               <Historia />
@@ -181,6 +196,20 @@ export function BarraGlobal({ claro = false, barraPropia }: { claro?: boolean; b
     <div className={`s-sitio s-solo-barra${claro ? ' s-claro' : ''}`}>
       <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_BARRA + CSS_SOLO_BARRA + ocultar }} />
       <Barra claro={claro} />
+    </div>
+  );
+}
+
+/**
+ * EL PIE DEL SITIO EN CADA LANDING (14/11/2026, la revisión de las 28 páginas: «cada landing parece de una marca distinta… unos 8 pies
+ * distintos… usar un solo pie, el del sitio»; y el Cerebro: Ads no decía «El mejor software para vender High Ticket»). Como la barra:
+ * uno para todo el sitio. El pie copiado de la referencia (cada diseño tiene UN <footer>, el suyo) se oculta.
+ */
+export function PieGlobal({ claro = false }: { claro?: boolean }) {
+  return (
+    <div className={`s-sitio s-solo-pie${claro ? ' s-claro' : ''}`}>
+      <style dangerouslySetInnerHTML={{ __html: CSS_BASE + CSS_PIE + '.s-sitio.s-solo-pie{min-height:0}footer:not(.s-pie){display:none!important}' }} />
+      <Pie />
     </div>
   );
 }

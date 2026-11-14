@@ -27,6 +27,36 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Una línea caída no pierde los mensajes: los guarda sin vencimiento, y al reconectar salen viejos (14/11/2026, Mauricio, ws1, claude5)
+
+**El síntoma.** El número propio de Mauricio (`mako_ws1`) se desvinculó el 29/10 y siguió así dos semanas. Lo medido el
+14/11, sólo leyendo:
+- 475 `fallo` con «WhatsApp de empresa desconectado (la sesión no contesta…)», que son 48 leads;
+- 33 de ellos, de «Sprint · apertura», esperan desde el 29/10;
+- 15, de «Un Lead Entró», esperan desde el 11/11.
+
+**El diagnóstico obvio era el equivocado: «fallaron, se perdieron».** Con la línea caída, `fallo` NO es terminal. La
+inscripción se queda en su paso con `proximo_envio_at` a +24 h y lo reintenta todos los días, sin vencimiento. Vive en
+lib/nutricion.ts, rama `!evoConectado`: `backoffHoras = canalEvo.reintentarHoras ?? 24`, y el veredicto sale de
+`canalNoOficial` en lib/nutricion-canal.ts. El día que el dueño escanea el QR, todo lo que esperaba sale solo, con el
+texto de hace dos semanas («Ya me llegó tu pago…»), de a `limites_envio.wa.hora` por hora.
+- **Los que cayeron en la misma corrida quedan en el mismo minuto.** Los 33 de la 289 tenían todos el próximo intento a
+  las 17:11 UTC: al reconectar, la primera hora se lleva el tope entero.
+- **Cada reintento es una fila más:** 431 `fallo` para 29 leads. Para saber cuántas personas esperan, contar las
+  inscripciones vivas cuyo ÚLTIMO `nutricion_envios` es el fallo de línea, no las filas.
+- **El tope de antigüedad (`antiguedad_max_horas` / `antiguedadDeEntrada`) es para INSCRIBIR, no para mandar.** No frena
+  el paso viejo de alguien que ya estaba adentro.
+
+**La regla.** Antes de decirle a un negocio «escanea el QR», mirar qué espera en su cola y decidir qué hacer con lo
+viejo. Lo reversible es pausar la automatización: `setSecuenciaActiva(id, false)` la congela, y al reactivarla lo
+vencido sale de una. `sacar_lead_de_secuencia` cancela la inscripción y no se deshace.
+
+**Sin hacer.**
+- **Un vencimiento para lo que esperó por la línea:** «si esperó más de N días, no lo mandes y avísale al dueño». Va en
+  lib/nutricion.ts, rama `!evoConectado`. Hasta que exista, la revisión es a mano, como arriba.
+- **Sin investigar:** el aviso «Se desconectó tu WhatsApp» (`aviso_tipo = 'wa-desvinculado'` en `grupo_mensajes`)
+  empezó el 5/11, siete días después de la caída.
+
 ## «Seguir con los que contestan» la difusión no corría nunca: «Contestó» se decidía al entrar (13/11/2026, Leila, ws11, claude5)
 
 **Síntoma (la llamada del 13/11 con Martín):** la difusión de Leila a sus alumnas sale bien (de 20 a 30 por día), pero la

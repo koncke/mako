@@ -17,6 +17,7 @@ import { bloquesDelDoc } from './doc';
 import { INFO_TIPO, type JsonNodo, type PropsGuion, type TipoGuion } from './tipos';
 import type { BloqueIA, OperacionIA } from './operaciones';
 import { alTuteo } from '../al-tuteo';
+import { alEspanol } from './al-espanol';
 
 /** Los topes de lo que se le pasa al modelo (el texto, no el JSON: en «Discutir» no edita). */
 export const TOPES_IA = { porBloque: 1_500, guion: 24_000, mensajes: 8, porMensaje: 600, pregunta: 4_000 } as const;
@@ -224,12 +225,13 @@ export const SALIDA_VACIA = 'No me salió nada esta vez: pídemelo de nuevo.';
  * Las palabras sueltas en INGLÉS de un guion en español (13/11/2026, el relevo: «Gastan en creativos, en segmentación, en more
  * budget», y «Title y CTA» en la respuesta). Una lista corta a propósito: palabras que en un guion en español no son jerga del rubro.
  * «leads», «funnel», «CTA», «click», «coach» o «marketing» sí lo son y no cuentan; tampoco lo que está en `permitido` (el nombre del
- * negocio o de la oferta, «WhatsApp Ads Funnel»). Van a la SEGUNDA pasada (lib/copywriter/ia.ts), como el largo.
+ * negocio o de la oferta, «WhatsApp Ads Funnel»). Van a la SEGUNDA pasada (lib/copywriter/ia.ts), como el largo. Ni «sales» ni «has»:
+ * también son español («si sales hoy», «has visto»). Las que tienen un equivalente claro ya se pasan solas antes (./al-espanol.ts).
  */
 const INGLES = new Set([
   'the', 'and', 'with', 'your', 'you', 'more', 'budget', 'title', 'here', 'this', 'that', 'what', 'how', 'why', 'get', 'free', 'best',
-  'just', 'about', 'from', 'will', 'our', 'they', 'are', 'was', 'were', 'been', 'have', 'has', 'for', 'into', 'than', 'when', 'where',
-  'which', 'who', 'would', 'should', 'could', 'people', 'business', 'money', 'sales', 'growth', 'scale', 'workshop', 'learn', 'join',
+  'just', 'about', 'from', 'will', 'our', 'they', 'are', 'was', 'were', 'been', 'have', 'for', 'into', 'than', 'when', 'where',
+  'which', 'who', 'would', 'should', 'could', 'people', 'business', 'money', 'growth', 'scale', 'workshop', 'learn', 'join',
   'now', 'today', 'every', 'make', 'want', 'need', 'know', 'think', 'like', 'big', 'fast', 'easy', 'step', 'steps', 'results', 'tips',
 ]);
 export function palabrasEnIngles(texto: string, permitido = ''): string[] {
@@ -243,7 +245,20 @@ export function palabrasEnIngles(texto: string, permitido = ''): string[] {
  * WhatsApp, pero CON lo citado: en un guion, «…» es lo que se dice en cámara y lo escribió MaKo, no la persona.
  */
 export function operacionesAlTuteo(ops: OperacionIA[]): OperacionIA[] {
-  const t = (s: string) => alTuteo(s, { citas: true });
+  return sobreLosTextos(ops, (s) => alTuteo(s, { citas: true }));
+}
+
+/**
+ * Las operaciones con las palabras sueltas en inglés pasadas al español (13/11/2026, el Cerebro con el anuncio de Hormozi replicado:
+ * «en more budget»). Como `operacionesAlTuteo`, también lo citado; sin tocar lo que el negocio llama así (`permitido`). Lo que queda
+ * (una frase entera en inglés) lo sigue viendo `palabrasEnIngles` y va a la segunda pasada.
+ */
+export function operacionesAlEspanol(ops: OperacionIA[], permitido = ''): OperacionIA[] {
+  return sobreLosTextos(ops, (s) => alEspanol(s, permitido, { citas: true }));
+}
+
+/** El mismo cambio en cada texto de las operaciones: el título, los párrafos, las listas y las celdas de las tablas. */
+function sobreLosTextos(ops: OperacionIA[], t: (s: string) => string): OperacionIA[] {
   const bloque = (b: BloqueIA): BloqueIA => ('texto' in b ? { ...b, texto: t(b.texto) } : 'items' in b ? { ...b, items: b.items.map(t) } : 'filas' in b ? { ...b, filas: b.filas.map((f) => f.map(t)) } : b);
   return ops.map((op): OperacionIA => (op.op === 'titulo' ? { ...op, texto: t(op.texto) } : 'bloques' in op ? { ...op, bloques: op.bloques.map(bloque) } : op));
 }

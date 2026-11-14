@@ -37,9 +37,9 @@ const NOMBRE: Readonly<Record<Pasarela, string>> = {
  * es y las marcas que acepta. Se ve aunque haya una sola: quien compra sabe con qué va a pagar antes de salir de MaKo.
  */
 const DETALLE: Readonly<Record<Pasarela, { icono: string; sub: string; marcas?: readonly string[] }>> = {
-  stripe: { icono: '▭', sub: 'Pagas en la página segura de Stripe', marcas: ['VISA', 'MC', 'AMEX'] },
+  stripe: { icono: 'tarjeta', sub: 'Pagas en la página segura de Stripe', marcas: ['VISA', 'MC', 'AMEX'] },
   mercadopago: { icono: 'MP', sub: 'En pesos, desde Argentina: tarjeta, débito o dinero en tu cuenta' },
-  creem: { icono: '▭', sub: 'Pagas en la página segura de Creem', marcas: ['VISA', 'MC'] },
+  creem: { icono: 'tarjeta', sub: 'Pagas en la página segura de Creem', marcas: ['VISA', 'MC'] },
 };
 // Los colores fijos de las páginas de planes (app/planes/estilo.ts): el selector de país es de la app y viene con los del tema.
 const CAMPO_TEL: React.CSSProperties = { width: '100%', boxSizing: 'border-box', font: 'inherit', padding: '11px 12px', border: '1px solid rgba(17,17,17,.17)', borderRadius: 10, background: '#fff', color: '#121212' };
@@ -133,7 +133,10 @@ export function CompraPlan(p: {
         {p.pasarelas.map((x) => (
           <label key={x.pasarela} className="ck-medio">
             <input type="radio" name="pasarela" checked={pasarela === x.pasarela} onChange={() => setPasarela(x.pasarela)} />
-            <span className="ck-medio-icono" aria-hidden="true">{DETALLE[x.pasarela].icono}</span>
+            {/* La tarjeta, dibujada: el «▭» de antes se veía como un rectángulo vacío (el Cerebro, 14/11/2026). */}
+            <span className="ck-medio-icono" aria-hidden="true">{DETALLE[x.pasarela].icono === 'tarjeta'
+              ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M3 8a3 3 0 0 1 3 -3h12a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-12a3 3 0 0 1 -3 -3z" /><path d="M3 10h18" /><path d="M7 15h.01" /><path d="M11 15h2" /></svg>
+              : DETALLE[x.pasarela].icono}</span>
             <span className="ck-medio-texto"><b>{NOMBRE[x.pasarela]}</b><small>{DETALLE[x.pasarela].sub}</small></span>
             {DETALLE[x.pasarela].marcas && <span className="ck-marcas" aria-hidden="true">{DETALLE[x.pasarela].marcas!.map((m) => <span key={m}>{m}</span>)}</span>}
           </label>

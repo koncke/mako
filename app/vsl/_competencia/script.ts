@@ -85,7 +85,7 @@ export const LANDING_SCRIPT: LandingCompetencia = {
       tipo: 'hero',
       etiqueta: 'Tu IA no puede ver tus anuncios de Meta. Ahora puede.',
       titulo: 'Dale a tu IA tus anuncios de Meta, leídos <strong>palabra por palabra</strong>',
-      bajada: 'Conecta tu Meta a MaKo, o MaKo a tu Claude. Pregúntale qué está corriendo tu cuenta y te devuelve tus anuncios, sus ganchos, sus ángulos y <strong>los cierres de tu CRM</strong>.',
+      bajada: 'Conecta tu Meta a MaKo, o MaKo a tu Claude. Pregúntale qué anuncios tienes activos y te devuelve tus anuncios, sus ganchos, sus ángulos y <strong>los cierres de tu CRM</strong>.',
       puntos: ['Se actualiza solo, cada día', 'Con las agendas de Meta y los cierres de tu CRM'],
       visual: { tipo: 'detalle', slug: 'script' },
     },

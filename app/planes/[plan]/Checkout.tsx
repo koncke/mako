@@ -67,8 +67,9 @@ export function resumenDelPlan(p: {
     incluye: p.incluye,
     totales,
     nota: p.conPrueba
-      ? `Como toda suscripción, el cobro empieza a los ${PRUEBA_DIAS} días: el primero es el ${fecha}. Si te das de baja antes, no pagas nada.`
-      : 'Se cobra hoy y cada mes, hasta que te des de baja.',
+      // El Cerebro (14/11/2026): «Como toda suscripción…» era falso (Esencial se cobra al empezar). Cada plan dice el suyo.
+      ? `El primer cobro es el día ${PRUEBA_DIAS + 1}, el ${fecha}; si te das de baja antes, no pagas nada.`
+      : 'Se cobra al empezar, y después cada mes hasta que te des de baja.',
   };
 }
 

@@ -1580,3 +1580,15 @@ Y en el teléfono también: topeado en 340 dentro de 390.
   queda corto. Dos funnels del mismo nombre se distinguen con «(2)» (`titulosUnicos`).
 
 **Vive en:** app/offer/arbol.ts (`plantillasDeOffer`), tests/offer-v2-pantalla.test.ts
+
+## `upsertOferta` dice «lo que no venga, no se toca» y borra los textos que no vienen (13/11/2026, Copywriting, chat «probar-copy»)
+
+- `fila()` (lib/ofertas.ts) arma la fila con `set('promesa', input.promesa?.trim() || null)`: si `promesa` no viene, el valor es
+  `null` (no `undefined`) y SE ESCRIBE. Lo mismo `precio_nota`, `incluye`, `garantia`, `para_quien`, `objeciones`, `prueba`, las
+  de urgencia y `urgencia_tipo`. Editar una oferta mandando un solo campo deja vacíos los demás, sin error.
+- Lo encontró el flujo nuevo de Copywriting, que guarda en la oferta lo que la persona contesta («¿para quién es?»): ahí se manda
+  la oferta ENTERA con el campo nuevo encima (`completarOferta`, lib/copywriter/replica-servidor.ts, y su test).
+- **Regla, mientras `fila` no cambie:** a `upsertOferta(input, id)` se le pasa la oferta leída entera, nunca un parcial.
+
+**Vive en:** lib/ofertas.ts (`fila`, `upsertOferta`). Sin arreglar: lo usan Offer, el onboarding y la API (`guardar_oferta`), que hoy
+mandan la oferta entera; cambiarlo es de Offer.

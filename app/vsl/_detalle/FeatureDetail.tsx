@@ -52,7 +52,7 @@ export function CalIcon() {
 export function CtaBand() {
   return (
     <div className="mk-cta">
-      <div className="mk-cta-h">¿Lo quieres andando en tu negocio?</div>
+      <div className="mk-cta-h">¿Lo quieres funcionando en tu negocio?</div>
       <p className="mk-cta-p">Agenda una llamada y te mostramos MaKo con tus propios números.</p>
       <a href={CALENDLY} className="mk-btn-lg"><CalIcon />Agenda tu llamada</a>
     </div>
@@ -157,7 +157,7 @@ export function Pie() {
             <span className="mk-logo-mark"><svg width="20" height="20" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg></span>
             <span className="mk-logo-txt">MaKo</span>
           </a>
-          <p className="mk-foot-tag">El mejor SaaS para ventas High Ticket, de punta a punta.</p>
+          <p className="mk-foot-tag">El mejor software para vender High Ticket.</p>
           <div className="mk-foot-links">
             <a href="/">Funcionalidades</a>
             <a href={CALENDLY}>Agenda tu llamada</a>
