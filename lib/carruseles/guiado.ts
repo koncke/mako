@@ -69,6 +69,11 @@ export type RespuestasGuiado = {
   vuelta?: number;
   /** Arrancó solo, con lo de por defecto (12/11/2026): el saludo dice qué hizo, no que va a preguntar. */
   porDefecto?: boolean;
+  /**
+   * Lo de por defecto MENOS la oferta (14/11/2026): con dos o más ofertas y ninguna marcada principal, elegir «la primera» es
+   * adivinar. Se pregunta SÓLO cuál, y al contestar arranca (`hayQuePreguntarOferta`).
+   */
+  soloOferta?: boolean;
   /** Lo que ya se dijo, en orden: lo que preguntó MaKo y lo que contestó la persona (el hilo lo dibuja). */
   charla?: readonly { mako: string; yo: string }[];
 };
@@ -258,7 +263,7 @@ export function responder(h: HechosGuiado, r: RespuestasGuiado, b: Boton<never>)
   if (v.startsWith('oferta:')) {
     const id = Number(v.slice('oferta:'.length));
     const o = h.ofertas?.find((x) => x.id === id);
-    return o ? dijo({ ...r, oferta: { id: o.id, nombre: o.nombre }, escribiendo: null }) : r;
+    return o ? dijo({ ...r, oferta: { id: o.id, nombre: o.nombre }, escribiendo: null, ...arrancaSiEraLoUnico(r) }) : r;
   }
   if (v.startsWith('avatar:')) {
     const a = v.slice('avatar:'.length);
@@ -282,7 +287,7 @@ export function escribir(h: HechosGuiado, r: RespuestasGuiado, texto: string): R
   if (!t) return r;
   const pregunta = preguntaDe(h, r);
   const charla = pregunta ? conCharla(r, pregunta.texto, t) : [...(r.charla ?? []), { mako: '', yo: t }];
-  if (r.escribiendo === 'oferta') return { ...r, oferta: { libre: t }, escribiendo: null, charla };
+  if (r.escribiendo === 'oferta') return { ...r, oferta: { libre: t }, escribiendo: null, charla, ...arrancaSiEraLoUnico(r) };
   if (r.escribiendo === 'cambio') return { ...r, cambio: { libre: t }, escribiendo: null, charla };
   // Sin ofertas que elegir, lo escrito en la pregunta de la oferta ES la oferta.
   if (pasoDe(h, r) === 'oferta' && (h.ofertas == null || !h.ofertas.length)) return { ...r, oferta: { libre: t }, charla };
@@ -297,13 +302,33 @@ export const seguir = (r: RespuestasGuiado): RespuestasGuiado => ({ ...r, pausad
 // por medio; usa lo que haya por defecto (la oferta principal) y deja cambiarlo DESPUÉS, con botones al lado del resultado.
 // Copywriting lo hizo así el 11/11 (702d1baa9). Las preguntas de arriba siguen para «Cambiar algo».
 
-/** Lo de por defecto: la oferta principal (o la primera), su cara de marca (o su último look), sólo los textos, y arranca. */
+/**
+ * ¿Hay que preguntar la oferta antes de arrancar? Sí con DOS o más ofertas y ninguna marcada principal: «la primera» es adivinar.
+ *
+ * ⚠️ La demo del 13/11/2026 con Julio (min 42): el negocio de Martín tiene «WhatsApp Ads Funnel», «MaKo Acelerador» y una
+ * newsletter, ninguna principal, y «Editar» arrancó solo para «WhatsApp Ads Funnel» (la de `orden` 0), que es un embudo que
+ * armó para Mauricio. Martín, en vivo: «no sé por qué no dice MaKo… te dice que no es tu embudo, es el de Mauricio». No estaba
+ * inspeccionando a nadie: era SU negocio con una oferta elegida a ciegas (docs/hallazgos-carruseles.md). Con una sola oferta, o con
+ * una principal, no hay nada que adivinar: arranca.
+ */
+export const hayQuePreguntarOferta = (ofertas: readonly OfertaElegible[] | null | undefined): boolean =>
+  (ofertas?.length ?? 0) > 1 && !(ofertas ?? []).some((o) => o.principal);
+
+/** Contestada la oferta que faltaba (`soloOferta`), arranca: lo demás ya estaba por defecto (13/11: después de preguntar, la pieza entera). */
+const arrancaSiEraLoUnico = (r: RespuestasGuiado): Partial<RespuestasGuiado> => (r.soloOferta ? { listo: true, soloOferta: false } : {});
+
+/**
+ * Lo de por defecto: la oferta principal (o la única), su cara de marca (o su último look), sólo los textos, y arranca. Con varias
+ * ofertas y ninguna principal, todo eso MENOS la oferta: pregunta cuál (`hayQuePreguntarOferta`).
+ */
 export function respuestasPorDefecto(base: Pick<HechosGuiado, 'ofertas' | 'fotos'>): RespuestasGuiado {
-  const oferta = base.ofertas?.length ? ofertasEnOrden(base.ofertas)[0] : null;
+  const preguntar = hayQuePreguntarOferta(base.ofertas);
+  const oferta = !preguntar && base.ofertas?.length ? ofertasEnOrden(base.ofertas)[0] : null;
   return {
     ...(oferta ? { oferta: { id: oferta.id, nombre: oferta.nombre } } : {}),
     avatar: base.fotos.cara ? 'cara' : base.fotos.look ? 'look' : 'ninguno',
-    cambio: 'textos', listo: true, porDefecto: true, vuelta: 0,
+    cambio: 'textos', listo: !preguntar, porDefecto: true, vuelta: 0,
+    ...(preguntar ? { soloOferta: true } : {}),
   };
 }
 
@@ -362,7 +387,7 @@ export type PedidoGuiado = {
  * (`porDefecto`), sin ofertas cargadas se escribe con lo que se sabe del negocio.
  */
 export function pedidoDelGuiado(h: HechosGuiado, r: RespuestasGuiado): PedidoGuiado | null {
-  if (!r.oferta && !r.porDefecto) return null;
+  if (!r.oferta && (!r.porDefecto || r.soloOferta)) return null;
   const libres = [
     r.cambio && typeof r.cambio === 'object' ? r.cambio.libre : null,
     ...(r.extras ?? []),
