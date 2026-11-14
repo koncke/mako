@@ -6194,3 +6194,15 @@ SIN HACER: «Find the store before you find the product» (tiendas), sus precios
 AI» (MaKo no los tiene); la cinta de la tira (el caso de Mauricio son tres meses: no llenan una cinta); el paso 1 es la conexión
 dibujada (Meta → MaKo), no la pantalla real de conectar Meta; la escena «¿Qué le funciona en sus videos cortos?» muestra lo que dice
 la pantalla de Spy, y el chat de hoy no lo contesta así (ver arriba); el `tsc` acotado no se corrió (ver «/vsl/ads contra Master Ads»).
+
+## El segundo cerebro en la portada (14/11/2026)
+
+- **Una tarjeta sin landing va sin `slug`.** `FilaFuncion` (Portada.tsx) devuelve `null` si el `slug` no tiene landing: con
+  `slug: 'brain'` la tarjeta no se dibujaba y no daba error. Brain va con `rotulo` y un `ancla`, y el menú «Producto» la suma
+  desde `SIN_LANDING` (datos.ts) con `/#brain`. **SIN HACER:** el ancla sólo funciona cuando Portada.tsx ponga `id={ancla}` en
+  `.s-zz-fila`; y el video (la tarjeta muestra `falta` hasta que exista `public/vsl-assets/sitio/cerebro.webm`).
+- **El grafo del banco no se dibuja a mano:** `banco-cerebro/armar-cerebro.mts` arma Acquisition.com (Hormozi, datos REALES de Spy: `hormozi.json` y `spy.oferta.5`; el Brain del espacio de MaKo es pobre: sin promesa, avatares ni razones) con la forma de
+  lib/cerebro-grafo.ts (`raiz`, datos, `area:`, `n1:` colgados de sus hijos) y corre `layoutCerebro` (d3-force) en node; el
+  banco recibe `cerebro.json` con las posiciones. Sin las aristas laterales sale un diente de león (lib/bienvenida-cerebro.ts).
+- **Grafo.tsx es una grilla de tres columnas** (mapa, tirador, columna de 400 px): para el grafo a lo ancho, en el banco
+  `grid-template-columns: 1fr 0 0` y el detalle del punto absoluto encima; cada nodo se toma por `g.cbg-nodo[data-nodo]`.

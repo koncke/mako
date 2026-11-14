@@ -114,14 +114,14 @@ function TiraSitio() {
 }
 
 /** Una fila: el texto de un lado y lo que se ve del otro (`inv`: al revés). Sin landing (Classroom), sin link. */
-function FilaFuncion({ slug, rotulo, titulo, texto, visual, inv }: (typeof TARJETAS_PORTADA)[number] & { inv: boolean }) {
+function FilaFuncion({ slug, rotulo, ancla, titulo, texto, visual, inv }: (typeof TARJETAS_PORTADA)[number] & { inv: boolean }) {
   const l = slug ? landingDeSlug(slug) : undefined;
   if (slug && !l) return null;
   const hero = visual === 'hero' && slug ? heroDe(slug) : undefined;
   const grabacion = typeof visual === 'object' && 'video' in visual ? visual : null;
   const falta = typeof visual === 'object' && 'falta' in visual ? visual.falta : null;
   return (
-    <div className={`s-zz-fila${inv ? ' s-zz-inv' : ''}`}>
+    <div id={ancla} className={`s-zz-fila${inv ? ' s-zz-inv' : ''}`}>
       <div className="s-zz-tx">
         <p className="s-zz-r">{rotulo ?? (l ? nombreCorto(l) : '')}</p>
         <h3 className="s-zz-t">{titulo}</h3>

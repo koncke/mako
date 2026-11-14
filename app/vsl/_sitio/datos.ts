@@ -73,10 +73,28 @@ export type MenuProducto = {
   columnas: { rotulo: string; items: ItemFuncion[] }[];
 };
 
-/** El menú «Producto»: las 19 landings, cada una una sola vez. Una landing nueva sin lugar va a la última columna. */
+/**
+ * Lo que va en el menú sin landing propia: lleva a SU tarjeta de la portada (el `ancla` de TARJETAS_PORTADA). Martín, 14/11/2026:
+ * «en el menú Producto también va uno que sea Second Brain»; va en Today, después de Ops Center, que es donde vive en la app.
+ * Ícono «brain» de Tabler (MIT), como los de las landings.
+ */
+const SIN_LANDING: readonly { columna: string; despuesDe: string; item: ItemFuncion }[] = [
+  { columna: 'Today', despuesDe: 'mako', item: { slug: 'brain', nombre: 'Second Brain', href: '/#brain', icono: [
+    'M15.5 13a3.5 3.5 0 0 0 -3.5 3.5v1a3.5 3.5 0 0 0 7 0v-1.8', 'M8.5 13a3.5 3.5 0 0 1 3.5 3.5v1a3.5 3.5 0 0 1 -7 0v-1.8',
+    'M17.5 16a3.5 3.5 0 0 0 0 -7h-.5', 'M19 9.3v-2.8a3.5 3.5 0 0 0 -7 0', 'M6.5 16a3.5 3.5 0 0 1 0 -7h.5', 'M5 9.3v-2.8a3.5 3.5 0 0 1 7 0v10',
+  ] } },
+];
+
+/** El menú «Producto»: las 19 landings, cada una una sola vez, y lo de SIN_LANDING. Una landing nueva sin lugar va a la última columna. */
 export function menuProducto(): MenuProducto {
   const grandes = GRANDES.flatMap((g) => { const l = landingDe(g.slug); return l ? [{ ...itemDe(l), bajada: g.bajada }] : []; });
   const columnas = COLUMNAS.map((c) => ({ rotulo: c.rotulo, items: c.slugs.flatMap((s) => { const l = landingDe(s); return l ? [itemDe(l)] : []; }) }));
+  for (const x of SIN_LANDING) {
+    const col = columnas.find((c) => c.rotulo === x.columna);
+    if (!col) continue;
+    const i = col.items.findIndex((it) => it.slug === x.despuesDe);
+    col.items.splice(i + 1, 0, x.item);
+  }
   const usados = new Set([...GRANDES.map((g) => g.slug), ...COLUMNAS.flatMap((c) => c.slugs)]);
   const sueltas = LANDINGS_COMPETENCIA.filter((l) => !usados.has(l.slug)).map(itemDe);
   if (sueltas.length) columnas[columnas.length - 1].items.push(...sueltas);
@@ -205,19 +223,34 @@ export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | { video: 
  * NADA INVENTADO (Martín, 12/11/2026, noche: «identifica la cantidad de cosas que hiciste inventándote cosas. Eso yo no lo quiero…
  * pon un placeholder con que aquí falta una animación»). Cada fila muestra la app de verdad (`video`: el componente real grabado;
  * `gurus`: las caricaturas; `hero` sólo donde el visual de su landing son fotos reales, AI Avatar) o `falta`: el recuadro que dice
- * qué animación va ahí, con las palabras de Martín. `slug` lleva a su landing; sin landing (Classroom) va sin link.
+ * qué animación va ahí, con las palabras de Martín. `slug` lleva a su landing; sin landing (Classroom, Brain) va sin link.
+ * `ancla`: el id de la fila, para lo que el menú «Producto» manda a la portada en vez de a una landing (SIN_LANDING).
+ *
+ * EL ORDEN cuenta una venta High Ticket de punta a punta (Martín, 14/11/2026: «acomódalo como te parezca el orden»):
+ *   1. Brain: MaKo conoce tu negocio (oferta, cliente, mensaje, funnel). Va primero porque todo lo de abajo lo usa.
+ *   2. Referentes: la estrategia, con el método de los que ya lo hicieron, llevado a tu negocio.
+ *   3-7. El contenido que atrae: mirar qué le funciona a la competencia (Spy) y replicarlo (guion, carruseles); editar el video;
+ *        los anuncios UGC con tu cara (AI Avatar).
+ *   8-9. Pautar (Ads) y la landing que recibe ese tráfico (Web Generator).
+ *   10-12. El lead adentro: el CRM lo trackea, las automatizaciones lo siguen y tú le contestas desde la misma app.
+ *   13. Los números de todo eso, en tableros.
+ *   14. Y cuando compra, la entrega: su curso y su comunidad en MaKo.
  */
-export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo: string; texto: string; visual: VisualTarjeta }[] = [
-  { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Pegas el link de un competidor y MaKo trae sus publicaciones, sus reels, sus videos de YouTube y sus anuncios, los ordena por formato y te muestra cuáles le dieron más vistas.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
-  { slug: 'web-generator', titulo: 'Replica una landing de tu competencia.', texto: 'Pegas el link de una landing que ya vende y MaKo la replica sección por sección, con tus textos y tu oferta, conectada a tu CRM y a tu agenda.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
-  { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: 'Eliges uno de los carruseles que mejor les funcionan a las cuentas que sigues y MaKo arma el tuyo con el mismo diseño, con tus textos y tu marca, listo para editar.', visual: { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' } },
-  { slug: 'copywriting', titulo: 'Replica y adapta un guion de la competencia con IA.', texto: 'Eliges un reel o un video que le funcionó a tu competencia, tocas «Replicar» y MaKo escribe tu guion con su misma estructura, adaptado a tu oferta.', visual: { video: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' } },
+export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; ancla?: string; titulo: string; texto: string; visual: VisualTarjeta }[] = [
+  // Martín (14/11/2026): «me falta una súper importante que sea el segundo cerebro… se tiene que ver el grafo»; se llama Brain.
+  // El grafo REAL (app/second-brain/Grafo.tsx) con el negocio REAL de Alex Hormozi, como lo tiene Competitor Spy (C:/dev/bancos-portada/banco-cerebro).
+  // Sin landing propia: va sin `slug` (FilaFuncion no dibuja una tarjeta cuyo slug no tiene landing) y el menú «Producto» lleva a `ancla`.
+  { rotulo: 'Brain', ancla: 'brain', titulo: 'Brain: todo tu negocio, en un solo mapa.', texto: 'Tu oferta, tu cliente ideal, tus avatares, tu mensaje y tu funnel, conectados en un grafo. MaKo lo arma con los documentos que le subes y con lo que va aprendiendo, y sus chats lo leen para contestarte sobre tu negocio.', visual: { video: '/vsl-assets/sitio/cerebro.webm', poster: '/vsl-assets/sitio/cerebro.jpg' } },
   { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Chatea con los referentes del mercado.', texto: 'Alex Hormozi, Iman Gadzhi, Vilma Núñez y muchos referentes más del marketing y las ventas: eliges con quién hablar en el chat de MaKo y te contesta con su método, llevado a tu negocio.', visual: { video: '/vsl-assets/sitio/referentes.webm', poster: '/vsl-assets/sitio/referentes.jpg' } },
-  { slug: 'ai-avatar', titulo: 'Anuncios de video estilo UGC con tu cara.', texto: 'Tu avatar de IA dice tu guion en videos que se ven grabados con el celular: más anuncios para Instagram, TikTok y Meta, sin coordinar creadores ni esperar entregas.', visual: 'avatar' },
+  { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Pegas el link de un competidor y MaKo trae sus publicaciones, sus reels, sus videos de YouTube y sus anuncios, los ordena por formato y te muestra cuáles le dieron más vistas.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
+  { slug: 'copywriting', titulo: 'Replica y adapta un guion de la competencia con IA.', texto: 'Eliges un reel o un video que le funcionó a tu competencia, tocas «Replicar» y MaKo escribe tu guion con su misma estructura, adaptado a tu oferta.', visual: { video: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' } },
+  { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: 'Eliges uno de los carruseles que mejor les funcionan a las cuentas que sigues y MaKo arma el tuyo con el mismo diseño, con tus textos y tu marca, listo para editar.', visual: { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' } },
   { slug: 'video', titulo: 'Edita tus videos con inteligencia artificial.', texto: 'Subes el clip tal cual sale del celular y un equipo de agentes de MaKo lo edita a la vista: corta las pausas, lo subtitula, propone B-roll y deja el volumen listo.', visual: { video: '/vsl-assets/sitio/video.webm', poster: '/vsl-assets/sitio/video.jpg' } },
+  { slug: 'ai-avatar', titulo: 'Anuncios de video estilo UGC con tu cara.', texto: 'Tu avatar de IA dice tu guion en videos que se ven grabados con el celular: más anuncios para Instagram, TikTok y Meta, sin coordinar creadores ni esperar entregas.', visual: 'avatar' },
   // 14/11/2026 (el audio de feedback que pasó Martín): «anuncios realmente requiere su sección aparte… no lo juntaría ni con YouTube ni con
   // Instagram». Esta fila habla SÓLO de los anuncios de Meta.
   { slug: 'ads', titulo: 'Gestiona tus anuncios, tu Instagram y tu YouTube con IA.', texto: 'Sube el presupuesto de lo que vende, publica tus videos en Trial Reels y cambia tus miniaturas por las que funcionan mejor. Lo apruebas con un toque o lo dejas en piloto automático.', visual: { video: '/vsl-assets/sitio/copilot.webm', poster: '/vsl-assets/sitio/copilot.jpg' } },
+  { slug: 'web-generator', titulo: 'Replica una landing de tu competencia.', texto: 'Pegas el link de una landing que ya vende y MaKo la replica sección por sección, con tus textos y tu oferta, conectada a tu CRM y a tu agenda.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
   // La llamada con Leila (13/11/2026): «hoy es básica; que entre al detalle de un lead y se vea todo: de dónde vino, qué hizo en la
   // página y qué % del VSL vio». El tablero, la ficha REAL (LeadSheet) de un lead de ejemplo, su Origen y la pestaña Tracking.
   // «Todo lo que hizo cada lead» no decía qué resuelve (el mismo audio): «gestiona tus leads de forma automática».
