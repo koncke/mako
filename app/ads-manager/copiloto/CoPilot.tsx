@@ -123,14 +123,17 @@ const CSS_EXTRA = `
 @container frn (max-width: 700px) { .frn .cop-primera { grid-template-columns: 1fr; justify-items: start; padding: 22px 18px; } }
 /* Lo que te toca, debajo del análisis (vuelta 20): el check como el de las tareas de Web. */
 .frn .mq-tetoca { margin-top: 0; }
+/* «Lo que hice»: el renglón a lo ancho del tablero medía 1100 px (más de 140 letras): se corta a un largo que se lee. */
+.frn .frn-ev p { max-width: 60ch; }
 .frn .cop-tareas > li { grid-template-columns: 26px minmax(0, 1fr) auto; }
 .frn .cop-tareas > li[data-hecha="true"] b { text-decoration: line-through; color: var(--muted); }
 .frn .cop-check { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; display: grid; place-items: center; color: var(--card); font: 700 14px/1 var(--font); cursor: pointer; }
 .frn .cop-check[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); }
 .frn .cop-check:disabled { cursor: default; opacity: .5; }
-.frn .cop-tarea__der { display: inline-flex; align-items: center; gap: 12px; }
-.frn .cop-plan { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--hair); font-size: 13.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
-@container frn (max-width: 700px) { .frn .cop-plan { display: none; } }
+/* Con .cop-lista adelante: «.frn .cop-lista span» (display: block) les ganaba y apilaba el chip encima de «Hacerlo» (banco de la portada, 14/11). */
+.frn .cop-lista .cop-tarea__der { display: inline-flex; align-items: center; gap: 12px; }
+.frn .cop-lista .cop-plan { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--hair); font-size: 13.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+@container frn (max-width: 700px) { .frn .cop-lista .cop-plan { display: none; } }
 @container frn (max-width: 700px) { .frn .cop-tareas > li { grid-template-columns: 26px minmax(0, 1fr); } .frn .cop-tareas > li > :last-child { grid-column: 2; justify-self: start; } }
 /* El popup de «Mejorar»: los desplegables adentro de un .frn propio, sin su fondo. */
 .ocm.ocm--todo { width: min(640px, 100%); max-height: calc(100vh - 32px); }
