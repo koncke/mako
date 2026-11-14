@@ -138,13 +138,15 @@ export function ChatReplica({ g, volver }: { g: Guiado; volver: ReactNode }) {
   useEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [g.r.charla?.length, paso]);
   // El saludo: qué se va a hacer y con cuántas láminas, antes de la primera pregunta (no se guarda: nada de esto se guarda).
   // Arrancando solo (12/11/2026), el saludo dice qué está haciendo y con qué, y que se cambia al lado del resultado.
-  const hecho = g.r.porDefecto ? resumenDe(g.hechos, g.r) : null;
+  // Con varias ofertas y ninguna principal (14/11/2026, `soloOferta`), pregunta SÓLO cuál y dice por qué: nunca «para «X»» a ciegas.
+  const hecho = g.r.porDefecto && !g.r.soloOferta ? resumenDe(g.hechos, g.r) : null;
+  const soloOferta = !!g.r.soloOferta;
   const saludo = useMemo<ItemHilo[]>(() => [{
     k: 'msg', id: 'replica-saludo', role: 'assistant', at: null,
     texto: hecho
       ? `Hago tu versión del carrusel de ${g.hechos.creador}: ${hecho.replace(/^./, (x) => x.toLowerCase())} Si quieres otra oferta, otra foto o tus colores, lo cambias al lado del resultado.`
-      : `Vamos a hacer tu versión del carrusel de ${g.hechos.creador} (${g.hechos.laminas === 1 ? 'una lámina' : `${g.hechos.laminas} láminas`}). Antes, unas preguntas cortas.`,
-  }], [g.hechos.creador, g.hechos.laminas, hecho]);
+      : `Vamos a hacer tu versión del carrusel de ${g.hechos.creador} (${g.hechos.laminas === 1 ? 'una lámina' : `${g.hechos.laminas} láminas`}). ${soloOferta ? 'Ninguna de tus ofertas está marcada como principal: dime para cuál es y lo armo entero.' : 'Antes, unas preguntas cortas.'}`,
+  }], [g.hechos.creador, g.hechos.laminas, hecho, soloOferta]);
   const mandar = () => { const t = texto.trim(); if (!t) return; g.escribir(t); setTexto(''); };
   const linea = paso === 'leyendo' ? 'Miro sus láminas para ver si tiene una persona…'
     : g.r.escribiendo ? 'Lo que escribas es tu respuesta.'
