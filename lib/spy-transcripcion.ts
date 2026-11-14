@@ -21,6 +21,9 @@
 // trabajo. Un fallo deja su motivo y no se reintenta en cadena (un día; una semana a los 3 seguidos).
 // =============================================================================
 
+import type { ResultadoVideo } from './spy-todo-reglas';
+export type { ResultadoVideo } from './spy-todo-reglas';
+
 /** Una clave por pieza, con el competidor adelante: «Dejar de mirarlo» las borra todas con un prefijo. */
 export const prefijoTranscripciones = (competidorId: number): string => `spy.transcripcion.${competidorId}.`;
 export const claveTranscripcion = (competidorId: number, piezaId: number): string => `${prefijoTranscripciones(competidorId)}${piezaId}`;
@@ -32,6 +35,13 @@ export const TRANSCRIBIENDO_VENCE_MS = 6 * 60_000;
 export const ESPERA_TRAS_FALLO_MS = 24 * 60 * 60_000;
 export const FALLOS_HASTA_ESPERAR = 3;
 export const ESPERA_LARGA_MS = 7 * 24 * 60 * 60_000;
+/**
+ * La clave de Spy RECHAZADA (401/403, 14/11/2026): no es un fallo del reel, así que no suma a `fallos` ni espera el día. Se vuelve a
+ * pedir apenas el negocio cambia la clave (la huella del rechazo ya no está entre las suyas) o, con la misma, pasada esta hora.
+ */
+export const ESPERA_CLAVE_RECHAZADA_MS = 60 * 60_000;
+/** Lo que dice el guion con la clave rechazada, al lado del botón para revisarla. */
+export const CLAVE_SPY_RECHAZADA = 'Apify rechazó tu clave de Spy: revísala en Integraciones.';
 /** Lo que escucha Whisper; Gemini topea antes (14 MB inline). Un reel pesa de 2 a 15 MB. */
 export const MAX_BYTES_VIDEO = 25 * 1024 * 1024;
 /** Lo que se guarda del guion: el mismo techo que el texto de una pieza en la tabla, con margen. */
@@ -50,6 +60,8 @@ export type Guion = {
   fallos: number;
   /** PENDIENTE (YouTube): un «high demand» o el tope del día. Se vuelve a intentar desde acá, sin cartel y sin ser un fallo. */
   reintentarEn?: string | null;
+  /** La huella de la clave de Spy que Apify rechazó (`ESPERA_CLAVE_RECHAZADA_MS`). Nunca la clave. */
+  claveRechazada?: string | null;
 };
 
 /** Un video de YouTube va por tramos de 10 minutos, hasta los primeros 30: cada tramo es un pedido y el guion cabe guardado. */
@@ -72,6 +84,8 @@ export type VistaGuion =
   | { estado: 'no-aplica' }
   | { estado: 'sin-ia' }
   | { estado: 'sin-clave' }
+  /** Apify rechazó la clave de Spy: el bloque lo dice con el botón para revisarla. */
+  | { estado: 'clave-rechazada' }
   /** Un video de YouTube lo transcribe Gemini: sin el Gemini del negocio, se pide conectarlo. */
   | { estado: 'sin-gemini' }
   | { estado: EstadoGuion; texto: string | null; motivo: string | null };
@@ -144,6 +158,7 @@ export function leerGuion(crudo: string | null | undefined): Guion | null {
     motivo: esTexto(o.motivo) ? o.motivo : null,
     fallos: typeof o.fallos === 'number' && o.fallos > 0 ? Math.floor(o.fallos) : 0,
     ...(esTexto(o.reintentarEn) ? { reintentarEn: o.reintentarEn } : {}),
+    ...(esTexto(o.claveRechazada) ? { claveRechazada: o.claveRechazada } : {}),
   };
 }
 
@@ -152,11 +167,16 @@ const ms = (iso: string | null): number => (iso ? Date.parse(iso) || 0 : 0);
 /** ¿Venció? Un guion listo de hace más de 30 días ya no se muestra ni se guarda. */
 export const vencido = (g: Guion | null, ahora: number): boolean => !!g && g.estado === 'listo' && ahora - ms(g.hecho ?? g.desde) > RETENCION_MS;
 
-/** ¿Hay que transcribirla ahora? `venceMs`: cuándo un «transcribiendo» se da por cortado (el de YouTube tarda más). */
-export function hayQueTranscribir(g: Guion | null, ahora: number, venceMs = TRANSCRIBIENDO_VENCE_MS): boolean {
+/**
+ * ¿Hay que transcribirla ahora? `venceMs`: cuándo un «transcribiendo» se da por cortado (el de YouTube tarda más). `huellas`: las de
+ * las claves de Spy que el negocio tiene HOY (null = no se sabe), para no esperar con una clave rechazada que ya cambió.
+ */
+export function hayQueTranscribir(g: Guion | null, ahora: number, venceMs = TRANSCRIBIENDO_VENCE_MS, huellas?: readonly string[] | null): boolean {
   if (!g || vencido(g, ahora)) return true;
   if (g.estado === 'listo') return false;
   if (g.estado === 'transcribiendo') return ahora - ms(g.desde) > venceMs;
+  // La clave rechazada: apenas la cambian, o pasada la hora con la misma. Nunca el reloj de los fallos (es la clave, no el reel).
+  if (g.claveRechazada) return (!!huellas && !huellas.includes(g.claveRechazada)) || ahora >= ms(g.reintentarEn ?? g.desde);
   // Pendiente (un «high demand», el tope del día): desde su hora, no por el reloj de los fallos.
   if (g.reintentarEn) return ahora >= ms(g.reintentarEn);
   return ahora - ms(g.desde) >= (g.fallos >= FALLOS_HASTA_ESPERAR ? ESPERA_LARGA_MS : ESPERA_TRAS_FALLO_MS);
@@ -172,7 +192,6 @@ export function guionLegible(t: string, tope = TOPE_GUION): string {
   return parrafos.filter(Boolean).join('\n\n').slice(0, tope);
 }
 
-export type ResultadoVideo = { ok: true; url: string } | { ok: false; motivo: 'sin-clave' | 'limite' | 'no-esta' | 'fallo' };
 export type ResultadoEscucha = { ok: true; texto: string } | { ok: false; error: string };
 
 export type DepsGuion = {
@@ -209,10 +228,11 @@ export async function reclamarGuion(
   deps: Pick<DepsGuion, 'leer' | 'cambiarSi' | 'nuevoIntento'>,
   ahora = Date.now(),
   venceMs = TRANSCRIBIENDO_VENCE_MS,
+  huellas?: readonly string[] | null,
 ): Promise<ReclamoGuion> {
   const l = await deps.leer();
   const previo = leerGuion(l.crudo);
-  if (!hayQueTranscribir(previo, ahora, venceMs)) return { corre: false, actual: previo };
+  if (!hayQueTranscribir(previo, ahora, venceMs, huellas)) return { corre: false, actual: previo };
   const actual: Guion = {
     estado: 'transcribiendo', intento: deps.nuevoIntento(), desde: new Date(ahora).toISOString(),
     hecho: null, texto: null, motivo: null, fallos: previo && !vencido(previo, ahora) ? previo.fallos : 0,
@@ -227,6 +247,7 @@ const MOTIVO_VIDEO: Record<Exclude<ResultadoVideo, { ok: true }>['motivo'], stri
   limite: 'Llegaste al tope de transcripciones de hoy. Mañana sigue.',
   'no-esta': 'Instagram no devolvió el video de este reel.',
   fallo: 'No pude traer el video de Instagram.',
+  'clave-rechazada': CLAVE_SPY_RECHAZADA,
 };
 
 /** El trabajo: el video fresco, bajarlo, escucharlo y guardar el guion. Escribe sólo si la clave sigue siendo suya. */
@@ -243,6 +264,13 @@ export async function transcribirGuion(
   const fallo = (motivo: string) => escribir({ ...r.actual, estado: 'no-pudo', motivo, fallos: r.actual.fallos + 1 });
 
   const v = await deps.video(enlace);
+  // La clave rechazada no es un fallo de ESTE reel: sin sumar a `fallos` y con su propia espera (`hayQueTranscribir`).
+  if (!v.ok && v.motivo === 'clave-rechazada') {
+    return escribir({
+      ...r.actual, estado: 'no-pudo', motivo: MOTIVO_VIDEO['clave-rechazada'], claveRechazada: v.huella,
+      reintentarEn: new Date(ahora() + ESPERA_CLAVE_RECHAZADA_MS).toISOString(),
+    });
+  }
   if (!v.ok) return fallo(MOTIVO_VIDEO[v.motivo]);
   let bajado: Awaited<ReturnType<DepsGuion['bajar']>>;
   try {
@@ -312,6 +340,8 @@ export function vistaDeGuion(g: Guion | null, opts: { aplica: boolean; sinIA?: b
   if (!opts.aplica) return { estado: 'no-aplica' };
   const vivo = g && !vencido(g, opts.ahora ?? Date.now()) ? g : null;
   if (vivo?.estado === 'listo') return { estado: 'listo', texto: vivo.texto, motivo: vivo.motivo };
+  // Antes que «pendiente»: la clave rechazada también lleva `reintentarEn`. Si ya no queda ninguna clave, es «sin clave».
+  if (vivo?.estado === 'no-pudo' && vivo.claveRechazada) return opts.sinClave ? { estado: 'sin-clave' } : { estado: 'clave-rechazada' };
   if (vivo?.estado === 'no-pudo' && vivo.reintentarEn) return { estado: 'no-pudo', texto: null, motivo: NOTA_PENDIENTE };
   if (!vivo && opts.sinGemini) return { estado: 'sin-gemini' };
   if (!vivo && opts.sinClave) return { estado: 'sin-clave' };

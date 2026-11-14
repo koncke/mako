@@ -152,10 +152,12 @@ function posicionesDe(e: EntradaStore | undefined): Record<string, { x: number; 
   return out;
 }
 
-function canalesDe(e: EntradaStore | undefined): CanalesAviso {
+/** Lo elegido por el negocio; si no eligió, lo del catálogo (`AvisoCatalogo.canales`) y, sin eso, `CANALES_DEFAULT`. */
+function canalesDe(e: EntradaStore | undefined, id?: string): CanalesAviso {
+  const cat = id ? CATALOGO_AVISOS.find((c) => c.id === id)?.canales : undefined;
   return {
-    wa: typeof e?.canales?.wa === 'boolean' ? e.canales.wa : CANALES_DEFAULT.wa,
-    email: typeof e?.canales?.email === 'boolean' ? e.canales.email : CANALES_DEFAULT.email,
+    wa: typeof e?.canales?.wa === 'boolean' ? e.canales.wa : cat?.wa ?? CANALES_DEFAULT.wa,
+    email: typeof e?.canales?.email === 'boolean' ? e.canales.email : cat?.email ?? CANALES_DEFAULT.email,
   };
 }
 
@@ -294,7 +296,7 @@ function aVista(cat: AvisoCatalogo, e: EntradaStore | undefined, esCustom: boole
     // Viaja a la vista para que la pantalla lo pinte sin una segunda lectura. Si se
     // resolviera aparte, `aVista` lo descartaría y el detalle mostraría el default
     // mientras el motor manda por otro canal.
-    canales: canalesDe(e),
+    canales: canalesDe(e, cat.id),
     // Idem: la pantalla lo necesita para pintar el desplegable del disparador, y
     // resolverlo aparte dejaría el detalle mostrando «cada vez» sobre un mensaje
     // que el negocio ya espació.
@@ -593,7 +595,7 @@ export async function restaurarPlantilla(id: string): Promise<boolean> {
  * flujo, y el motor lo trata igual que apagado (ver `estadoAviso` en lib/perfil.ts).
  */
 export async function setCanalesPlantilla(id: string, canales: Partial<CanalesAviso>): Promise<void> {
-  await mutar(id, (e) => ({ ...e, canales: { ...canalesDe(e), ...canales } }));
+  await mutar(id, (e) => ({ ...e, canales: { ...canalesDe(e, id), ...canales } }));
 }
 
 /**
