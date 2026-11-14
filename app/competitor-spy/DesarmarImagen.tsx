@@ -37,7 +37,8 @@ export function DesarmarImagen({ piezaId }: { piezaId: number }) {
 
   useEffect(() => {
     let vivo = true;
-    void pedir({ accion: 'ver', piezaId }).then((j) => { if (vivo) { setG(j.guardado ?? null); setVisto(true); } }).catch(() => { if (vivo) setVisto(true); });
+    // Si la ruta no lo deja (quien mira no es administrador de Spy), el bloque no se dibuja (`visto` queda en false).
+    void pedir({ accion: 'ver', piezaId }).then((j) => { if (vivo && j.ok) { setG(j.guardado ?? null); setVisto(true); } }).catch(() => { if (vivo) setVisto(true); });
     return () => { vivo = false; };
   }, [piezaId]);
 

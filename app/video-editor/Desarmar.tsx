@@ -70,11 +70,13 @@ export function Desarmar({ fuente, duracionS, editor }: {
     if (j.estilo !== undefined) setEstilo(j.estilo ?? null);
   }, []);
 
-  // Lo que ya hay (sin pedir nada) al abrir la caja.
+  // Lo que ya hay (sin pedir nada) al abrir la caja. Si la ruta no lo deja (quien mira no es administrador de Spy ni del
+  // editor), el bloque no se dibuja: un título sin botón no dice nada.
+  const [oculto, setOculto] = useState(false);
   useEffect(() => {
     if (!clave) return;
     let vivo = true;
-    void pedir({ accion: 'ver', clave }).then((j) => { if (vivo) tomar(j); }).catch(() => { if (vivo) setVista({ estado: 'nada' }); });
+    void pedir({ accion: 'ver', clave }).then((j) => { if (!vivo) return; if (j.ok) tomar(j); else setOculto(true); }).catch(() => { if (vivo) setVista({ estado: 'nada' }); });
     return () => { vivo = false; };
   }, [clave, tomar]);
 
@@ -118,7 +120,7 @@ export function Desarmar({ fuente, duracionS, editor }: {
     await desarmar(f.path);
   }, [desarmar]);
 
-  if (!clave) return null;
+  if (!clave || oculto) return null;
   const g = vista?.estado === 'listo' ? vista.guardado : null;
   const mirando = trabajando || vista?.estado === 'mirando';
 
