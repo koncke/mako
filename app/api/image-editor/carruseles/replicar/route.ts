@@ -27,6 +27,7 @@ import { replicarEjemplo, type EjemploAReplicar } from '@/lib/carruseles/replica
 import { lineaDeEvento } from '@/lib/carruseles/replica';
 import { leerPedidoGuiado } from '@/lib/carruseles/guiado';
 import { esIdDeVertical } from '@/lib/thumbnails/verticales';
+import { vistaDeOtro } from '@/lib/vista-de-otro';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -56,13 +57,18 @@ export async function POST(req: NextRequest) {
   // Sin oferta también se escribe (12/11/2026, «Replicar» sin preguntas): un negocio sin ofertas cargadas recibe su versión con lo
   // que se sabe de él, y la oferta se elige después. Antes: «Falta elegir la oferta.», 400.
   const guiado = body?.guiado != null ? leerPedidoGuiado(body.guiado) : null;
+  // INSPECCIONANDO (14/11/2026): la IA que escribe es la del negocio que se mira (p.ws), y si falla, el aviso dice DE QUIÉN es
+  // («El Gemini de Mauricio Bustos rechazó la clave…»), no «Tu Gemini». Sólo si la vista es de ESTE mismo negocio: el cartel y
+  // los datos no pueden nombrar a dos clientes distintos.
+  const vista = await vistaDeOtro().catch(() => null);
+  const negocioAjeno = vista && vista.clienteWs === p.ws ? vista.clienteNombre : null;
 
   const enc = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(ctrl) {
       const mandar = (linea: string) => { try { ctrl.enqueue(enc.encode(linea)); } catch { /* se cerró */ } };
       try {
-        const r = await runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, ejemplo, { pedido, guiado, alEvento: (e) => mandar(lineaDeEvento(e)) }));
+        const r = await runWithWorkspace(p.ws, () => replicarEjemplo(p.ws, p.quien, ejemplo, { pedido, guiado, negocioAjeno, alEvento: (e) => mandar(lineaDeEvento(e)) }));
         if (!r.ok) mandar(lineaDeEvento({ fase: 'fin', ok: false, error: r.error, conectar: r.conectar ?? null }));
       } catch (e) {
         console.error('[carruseles] replicar:', e instanceof Error ? e.message : e);
