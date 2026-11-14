@@ -67,6 +67,16 @@ en docs/relevo/nube-thiago-anuncios.md.
 - **No medido**: nada de esto se publicó en Meta desde la nube (no ve producción ni claves). Los tests corren el motor, la
   validación de la API y la ruta con dobles.
 
+## El motor escribe «no trajo ningún agenda»: los textos no conocen el género del resultado (14/11/2026, SIN HACER)
+
+- **Vive en** `lib/media-buyer/motor.ts` (Stop Loss, Sunsetting, Surf y el original contra su variación): `ningún ${nom.uno}`,
+  `un ${nom.uno}`, `sin un solo ${nom.uno}` y `… cada uno.`. Con el KPI en agendas o ventas sale «no trajo ningún agenda», «lo que
+  te cuesta un agenda en promedio», «trajo 9 agendas a US$ 31 cada uno». Con leads está bien, y por eso no saltó. Es lo que se lee en
+  «Espera tu OK» y «Lo que hice» del Marketing CoPilot y en las tarjetas del Media Buyer.
+- **La regla que falta:** `NOMBRE_RESULTADO` lleva el género (o el artículo) y los textos lo usan. El test: armar la propuesta de cada
+  táctica con los tres KPIs y buscar «ningún agenda», «un venta» y «cada uno» después de un plural femenino.
+- **Visto** armando la animación de la portada: el banco escribe esas frases a mano, ya en femenino. No es lo que sale hoy.
+
 ## Lecturas y métricas de Meta
 
 ### ⚠️ Los leads de Instant Form no llegan: la página no está suscrita, y el lead NUNCA SALE de Meta
