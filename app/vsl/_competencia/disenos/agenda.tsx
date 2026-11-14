@@ -13,7 +13,7 @@
 // resaltadas), el celeste de sus títulos sobre oscuro queda, el botón de la llamada donde iClosed pone «Start for free»,
 // el caso de Mauricio en «Proof, in their own words» y «The lift, measured in cold dollars» (su video de fondo en la
 // tarjeta oscura), y el resto de las funciones en las columnas del pie. La banda final lleva el texto de la banda de la
-// llamada de todas las landings de /vsl («¿Lo quieres andando en tu negocio?»).
+// llamada de todas las landings de /vsl («¿Lo quieres funcionando en tu negocio?»).
 // Lo que se sacó (no tiene contenido real de MaKo): la barra negra del anuncio, sus tres citas con foto y su fila de logos
 // de clientes, «You already follow them» (sus creadores), «Coaches, agencies, creators», «Drops into the stack you already
 // have», «Build on iClosed», «Book a 5-min demo», las estrellas, el G2, el «7-day free trial», el lema «Same traffic. More
@@ -249,7 +249,7 @@ function Caso() {
 function Cierre() {
   return (
     <section className={c('cierre')}>
-      <h2 className={`${c('h2')} ${c('cierre-h2')}`}>¿Lo quieres andando <em>en tu negocio?</em></h2>
+      <h2 className={`${c('h2')} ${c('cierre-h2')}`}>¿Lo quieres funcionando <em>en tu negocio?</em></h2>
       <p className={c('cierre-p')}>{TEXTO_CIERRE}</p>
       <a href={RUTA_CTA} className={`${c('btn-bl')} ${c('btn-bl-glow')}`}>{TEXTO_CTA} <span aria-hidden="true">→</span></a>
     </section>

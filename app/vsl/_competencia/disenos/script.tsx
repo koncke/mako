@@ -291,7 +291,7 @@ function Cierre() {
   return (
     <section className={`${P}-closer`}>
       <div className={`${P}-wrap ${P}-closer-in`}>
-        <h2>¿Lo quieres andando <span className={`${P}-q`}>en tu negocio?</span></h2>
+        <h2>¿Lo quieres funcionando <span className={`${P}-q`}>en tu negocio?</span></h2>
         <p>{TEXTO_CIERRE}</p>
         <a href={RUTA_CTA} className={`${P}-cta ${P}-cta-big`}>{TEXTO_CTA}<Flecha size={16} /></a>
       </div>
@@ -307,7 +307,7 @@ function PieDePagina() {
         <div className={`${P}-foot-top`}>
           <div>
             <LogoMaKo className={`${P}-brand`} tamano={36} />
-            <p className={`${P}-foot-tag`}>El mejor SaaS para ventas High Ticket, de punta a punta.</p>
+            <p className={`${P}-foot-tag`}>El mejor software para vender High Ticket.</p>
           </div>
           <div className={`${P}-foot-col`}>
             <p className={`${P}-foot-h`}>Mapa del sitio</p>

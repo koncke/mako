@@ -209,36 +209,24 @@ export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | { video: 
  * `gurus`: las caricaturas; `hero` sólo donde el visual de su landing son fotos reales, AI Avatar) o `falta`: el recuadro que dice
  * qué animación va ahí, con las palabras de Martín. `slug` lleva a su landing; sin landing (Classroom) va sin link.
  */
-/**
- * LOS DOS APARTADOS DE «PRODUCTO» (llamada con Leila, 13/11/2026: «dos apartados, adquisición de clientes y entrega del servicio»):
- * MaKo es marketing, ventas Y entrega. Una fila sin `apartado` es de adquisición.
- */
-export type ApartadoPortada = 'adquisicion' | 'entrega';
-export const APARTADOS_PORTADA: Readonly<Record<ApartadoPortada, { rotulo: string; titulo: string; bajada: string }>> = {
-  adquisicion: { rotulo: 'Adquisición de clientes', titulo: 'Atrae, convence y vende.', bajada: 'Del contenido y los anuncios a la llamada de venta: tu competencia, tus piezas, tus leads y tu seguimiento, en la misma app.' },
-  entrega: { rotulo: 'Entrega del servicio', titulo: 'Entrega lo que vendiste.', bajada: 'Quien te compra sigue en MaKo: su etapa de entrega, sus clases, sus cuotas y el seguimiento de cada uno.' },
-};
-
-export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo: string; texto: string; visual: VisualTarjeta; apartado?: ApartadoPortada }[] = [
+export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo: string; texto: string; visual: VisualTarjeta }[] = [
   { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Pegas el link de un competidor y MaKo trae sus publicaciones, sus reels, sus videos de YouTube y sus anuncios, los ordena por formato y te muestra cuáles le dieron más vistas.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
   { slug: 'web-generator', titulo: 'Replica una landing de tu competencia.', texto: 'Pegas el link de una landing que ya vende y MaKo la replica sección por sección, con tus textos y tu oferta, conectada a tu CRM y a tu agenda.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
   { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: 'Eliges uno de los carruseles que mejor les funcionan a las cuentas que sigues y MaKo arma el tuyo con el mismo diseño, con tus textos y tu marca, listo para editar.', visual: { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' } },
-  { slug: 'copywriting', titulo: 'Replica y adapta un guion de la competencia con IA.', texto: 'Eliges un reel o un video que le funcionó a tu competencia: MaKo lee su guion y escribe el tuyo con la misma estructura, adaptado a tu oferta, en segundos.', visual: { falta: 'Un reel de Alex Hormozi: su guion transcripto y MaKo escribiendo el tuyo con tu oferta, simple, sin la barra ni el chat de MaKo.' } },
+  { slug: 'copywriting', titulo: 'Replica y adapta un guion de la competencia con IA.', texto: 'Eliges un reel o un video que le funcionó a tu competencia: MaKo lee su guion y escribe el tuyo con la misma estructura, adaptado a tu oferta, en segundos.', visual: { video: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' } },
   { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Chatea con los referentes del mercado.', texto: 'Alex Hormozi, Iman Gadzhi, Vilma Núñez y muchos referentes más del marketing y las ventas: eliges con quién hablar en el chat de MaKo y te contesta con su método, llevado a tu negocio.', visual: { video: '/vsl-assets/sitio/referentes.webm', poster: '/vsl-assets/sitio/referentes.jpg' } },
   { slug: 'ai-avatar', titulo: 'Anuncios de video estilo UGC con tu cara.', texto: 'Tu avatar de IA dice tu guion en videos que se ven grabados con el celular: más anuncios para Instagram, TikTok y Meta, sin coordinar creadores ni esperar entregas.', visual: 'avatar' },
   { slug: 'video', titulo: 'Edita tus videos sin saber editar.', texto: 'Subes el clip tal cual sale del celular y un equipo de agentes de MaKo lo edita a la vista: corta las pausas, lo subtitula, propone B-roll y deja el volumen listo.', visual: { video: '/vsl-assets/sitio/video.webm', poster: '/vsl-assets/sitio/video.jpg' } },
   { slug: 'ads', titulo: 'Tus anuncios, mirados todos los días.', texto: 'Marketing CoPilot mira cada día tus anuncios de Meta contra lo que vendiste y te propone qué subir, qué pausar y qué probar. Lo que cambia algo, lo confirmas con un toque.', visual: { video: '/vsl-assets/sitio/copilot.webm', poster: '/vsl-assets/sitio/copilot.jpg' } },
   // La llamada con Leila (13/11/2026): «hoy es básica; que entre al detalle de un lead y se vea todo: de dónde vino, qué hizo en la
   // página y qué % del VSL vio». El tablero, la ficha REAL (LeadSheet) de un lead de ejemplo, su Origen y la pestaña Tracking.
-  { slug: 'crm', titulo: 'Todo lo que hizo cada lead, en su ficha.', texto: 'Cada lead que entra por tu anuncio, tu landing o tu WhatsApp llega con su ficha creada: de qué anuncio vino, qué contestó, cuántas veces visitó tu página y hasta dónde vio tu VSL.', visual: { video: '/vsl-assets/sitio/crm-ficha.webm', poster: '/vsl-assets/sitio/crm-ficha.jpg' } },
-  { slug: 'crm', rotulo: 'Grupos de WhatsApp', titulo: 'Trae los contactos de tus grupos.', texto: 'Con MaKo Pro eliges un grupo de WhatsApp y sus contactos entran a tu CRM con su nombre y su teléfono, listos para escribirles o sumarlos a una campaña.', visual: { video: '/vsl-assets/sitio/grupos.webm', poster: '/vsl-assets/sitio/grupos.jpg' } },
-  { slug: 'seguimiento', titulo: 'Un setter con IA que contesta por ti.', texto: 'Responde tus mensajes de Instagram, WhatsApp, Messenger y email, califica a cada interesado con tus propios criterios y lo lleva a agendar su llamada de venta. Tú solo cierras.', visual: { video: '/vsl-assets/sitio/automations.webm', poster: '/vsl-assets/sitio/automations.jpg' } },
-  { slug: 'whatsapp', titulo: 'Todos tus chats en una bandeja.', texto: 'WhatsApp, Instagram, Messenger y email, con una conversación por contacto y su ficha del CRM al lado, y MaKo te propone qué contestar.', visual: { video: '/vsl-assets/sitio/chats.webm', poster: '/vsl-assets/sitio/chats.jpg' } },
+  { slug: 'crm', titulo: 'Todo lo que hizo cada lead, en su ficha.', texto: 'De dónde vino, qué contestó, cuántas veces visitó tu página y cuánto vio de tu VSL: lo ves de un vistazo en su ficha.', visual: { video: '/vsl-assets/sitio/crm-ficha.webm', poster: '/vsl-assets/sitio/crm-ficha.jpg' } },
+  { slug: 'seguimiento', titulo: 'Automatizaciones por WhatsApp, Instagram y email.', texto: 'Cada lead recibe su mensaje por el canal donde te escribió, en el momento justo. Y el setter con IA contesta, califica con tus criterios y lo lleva a agendar. Tú solo cierras.', visual: { video: '/vsl-assets/sitio/automations.webm', poster: '/vsl-assets/sitio/automations.jpg' } },
+  { slug: 'whatsapp', titulo: 'WhatsApp, Instagram, Messenger y email, desde MaKo.', texto: 'Contestas y mandas mensajes por los cuatro desde la misma app, con la ficha del CRM de cada contacto al lado y MaKo proponiéndote qué contestar.', visual: { video: '/vsl-assets/sitio/chats.webm', poster: '/vsl-assets/sitio/chats.jpg' } },
   { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tus anuncios de Meta, tu landing, tus leads del CRM, tus pagos y tus llamadas en una sola pantalla, con tableros listos para ventas, anuncios y llamadas.', visual: 'tableros' },
-  // ── Entrega del servicio ──
-  { slug: 'crm', rotulo: 'Entrega del servicio', apartado: 'entrega', titulo: 'Cada cliente, en su etapa de entrega.', texto: 'Quien te compra pasa al tablero de entrega de su producto, con tus propias etapas, y la automatización «Un Cliente Empezó» le da la bienvenida, le pregunta cómo va y le pide un testimonio.', visual: { video: '/vsl-assets/sitio/entrega.webm', poster: '/vsl-assets/sitio/entrega.jpg' } },
-  { rotulo: 'Classroom', apartado: 'entrega', titulo: 'Tu escuela, dentro de MaKo.', texto: 'Tu curso por módulos y clases, con el video de cada una, lo que avanza cada alumno y la comunidad, en la misma app que usas para vender.', visual: { video: '/vsl-assets/sitio/classroom.webm', poster: '/vsl-assets/sitio/classroom.jpg' } },
-  { slug: 'cobranza', apartado: 'entrega', titulo: 'Cobra cada cuota sin perseguir a nadie.', texto: 'Cobras con un link de tu propia cuenta de Stripe o Mercado Pago, en cuotas o cada mes. Cada pago entra solo a tu CRM, y cuando una cuota vence, MaKo le escribe a tu cliente y te avisa.', visual: { video: '/vsl-assets/sitio/cobranza.webm', poster: '/vsl-assets/sitio/cobranza.jpg' } },
+  // Martín (14/11/2026): «elimina toda la sección de lo que entrega lo que vendiste, que quede directamente la parte de tu comunidad
+  // dentro de MaKo, no tu escuela, y que se vea». Sin apartados: la entrega quedó en esta fila sola, al final.
+  { rotulo: 'Comunidad', titulo: 'Tu comunidad, dentro de MaKo.', texto: 'Tus alumnos entran a tu curso y a tu comunidad en la misma app con la que vendes: sus clases por módulos, lo que avanza cada uno y un lugar para preguntar y compartir.', visual: { video: '/vsl-assets/sitio/comunidad.webm', poster: '/vsl-assets/sitio/comunidad.jpg' } },
 ];
 
 /**
@@ -248,11 +236,12 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo
  * desplazando, pero que el usuario también pueda ir cliqueando… cada dashboard tiene su propia animación de entrada».
  */
 export const TABLEROS: readonly { id: string; nombre: string }[] = [
-  { id: 'velocidad-tend', nombre: 'Velocidad de llamada' }, { id: 'cobranza', nombre: 'Cobranza' }, { id: 'vsl-pelago', nombre: 'VSL y YouTube' },
+  // Martín (14/11/2026): «no pondría para nada que el primero sea velocidad de llamada, lo pondría de última».
+  { id: 'cobranza', nombre: 'Cobranza' }, { id: 'vsl-pelago', nombre: 'VSL y YouTube' },
   { id: 'hooks-ondra', nombre: 'Hooks y retención' }, { id: 'inmobiliaria-torque', nombre: 'Inmobiliaria' }, { id: 'closing', nombre: 'Closing' },
   { id: 'cold-calling-corvane', nombre: 'Cold Calling' }, { id: 'comercial-selvar', nombre: 'Comercial' }, { id: 'marketing-kestrel', nombre: 'Marketing' },
   { id: 'general-orvel', nombre: 'General' }, { id: 'operacion-moorly', nombre: 'Operación' }, { id: 'focus-pane', nombre: 'Focus' },
-  { id: 'focus-lumora', nombre: 'Mi día' },
+  { id: 'focus-lumora', nombre: 'Mi día' }, { id: 'velocidad-tend', nombre: 'Velocidad de llamada' },
 ];
 
 /**

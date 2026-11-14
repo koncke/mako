@@ -6719,6 +6719,11 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
   vacíos): el `fetch` resuelve el `..` y la firma sale para otra carpeta u otro bucket. Molde: `rutaDeEsteLead`
   (app/api/doc). Y antes de endurecer un formato, se cuenta en la base qué formatos hay: hay contratos viejos sin el ws.
 - **Un proxy de archivos no repite el Content-Type de quien los mandó**: lista de tipos, `attachment` y `nosniff`.
+- **Una subida se juzga con `veredictoDeSubida` (lib/editor-landing/server-reglas.ts), nunca con «el tipo declarado es igual al
+  real»**. El navegador declara el tipo por la extensión: entre dos imágenes vale lo que el archivo ES, y se guarda con esa
+  extensión. Lo que no sirve dice qué se vio y qué hacer. Una foto HEIC o AVIF lleva `ftyp` como un MP4 o un M4A, y
+  `formatoVisto` la reconoce. Image le suma el audio (`veredictoDeImage`); no se copia la función. Tickets #95 y #96 y
+  docs/hallazgos-editor-imagen.md, 13/11/2026.
 - **Todo handler de `app/api/cron` empieza con `checkCronAuth(req)`** (tiempo constante, fail-closed), y ninguna ruta
   lee `CRON_SECRET` por su cuenta.
 - ⚠️ **Y un cron de SESIÓN no es infraestructura: lo que tiene que correr SIEMPRE va acá, nunca

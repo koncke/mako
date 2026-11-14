@@ -21,9 +21,10 @@ import { getTenantDb, getWorkspaceActual, runWithWorkspace } from '@/lib/workspa
 import { veEditorImagen } from './acceso';
 import {
   BUCKET_IMAGE, CARPETA_SUBIDAS, TOPE_DOC_BYTES, esTipoAudio, medida, pathDeMiniatura, pathDeSubida,
-  resumirDoc, sanearNombre, sanearTitulo, sniffArchivo, srcsLocales, subidaDelWs, topeDeTipo, uuidValido,
-  validarSubida, versionValida,
+  finalConSuTipo, resumirDoc, sanearNombre, sanearTitulo, sniffArchivo, srcsLocales, subidaDelWs, topeDeTipo, uuidValido,
+  validarSubida, veredictoDeImage, versionValida,
 } from './reglas';
+import { formatoVisto } from '@/lib/editor-landing/server-reglas';
 import type {
   DisenoCompleto, PedidoCrear, PedidoGuardar, PedidoSubidos, RespCrear, RespDiseno, RespFirmar, RespGuardar,
   RespLista, RespMiniatura, RespOk, RespRegistrar, RespSubidos, ResumenDiseno, Subido,
@@ -259,8 +260,8 @@ async function primerosBytes(url: string, n = 32): Promise<{ buf: Uint8Array; to
 }
 
 /**
- * Verifica la subida (que exista, que sus MAGIC BYTES sean lo que dice su extensión y que no pase
- * su tope), la muda a `<ws>/<uuid>.<ext>` y la anota en «Subidos». Si no da, la BORRA.
+ * Verifica la subida (que exista, que sus MAGIC BYTES sean algo que Image usa y que no pase su tope), la muda a
+ * `<ws>/<uuid>.<ext>` con la extensión de lo que el archivo ES y la anota en «Subidos». Si no da, la BORRA.
  */
 export async function registrarSubida(ws: number, p: Extract<PedidoSubidos, { accion: 'registrar' }>): Promise<RespRegistrar & { status?: number }> {
   const sub = subidaDelWs(p.path, ws);
@@ -277,23 +278,30 @@ export async function registrarSubida(ws: number, p: Extract<PedidoSubidos, { ac
   const cabeza = await primerosBytes(bucket.getPublicUrl(path).data.publicUrl);
   if (!cabeza) return { ok: false, error: 'No pude leer el archivo', status: 502 };
   const real = sniffArchivo(cabeza.buf);
-  // El tipo REAL tiene que ser el de la extensión (que salió del tipo declarado al firmar). Un MP4
-  // y un M4A comparten firma: los dos se aceptan como audio/mp4.
-  if (real !== sub.tipo) {
-    await descartar(`dice ${sub.tipo} y es ${real ?? 'otra cosa'}`);
-    return { ok: false, error: 'El archivo no es lo que dice', status: 400 };
+  // El tipo REAL contra el de la extensión (que salió del tipo declarado al firmar): un HTML subido como «image/png» pasa el
+  // filtro del bucket, y acá se va. Pero una foto JPG con nombre .png es una imagen buena (13/11/2026: salía «El archivo no es
+  // lo que dice»): vale lo que ES y se guarda con su extensión (`veredictoDeImage` → `veredictoDeSubida` del Web). Un MP4 y un
+  // M4A comparten firma: los dos son audio/mp4.
+  const visto = real ? null : formatoVisto(cabeza.buf);
+  const veredicto = veredictoDeImage(sub.tipo, real, visto);
+  if (!veredicto.ok) {
+    await descartar(`dice ${sub.tipo} y es ${real ?? visto ?? 'otra cosa'}`);
+    return { ok: false, error: veredicto.error, status: 400 };
   }
-  if (cabeza.total != null && cabeza.total > topeDeTipo(sub.tipo)) {
+  const tipo = veredicto.tipo;
+  const final = tipo === sub.tipo ? sub.final : finalConSuTipo(sub.final, tipo);
+  if (tipo !== sub.tipo) console.warn(`[image-editor] ${path}: dice ${sub.tipo} y es ${tipo}; queda como ${final}`);
+  if (cabeza.total != null && cabeza.total > topeDeTipo(tipo)) {
     await descartar(`pesa ${cabeza.total}`);
-    return { ok: false, error: esTipoAudio(sub.tipo) ? 'El audio pasa de 25 MB.' : 'La imagen pasa de 15 MB.', status: 413 };
+    return { ok: false, error: esTipoAudio(tipo) ? 'El audio pasa de 25 MB.' : 'La imagen pasa de 15 MB.', status: 413 };
   }
-  const { error: e1 } = await bucket.move(path, sub.final);
+  const { error: e1 } = await bucket.move(path, final);
   if (e1) return { ok: false, error: e1.message, status: 500 };
-  const url = bucket.getPublicUrl(sub.final).data.publicUrl;
+  const url = bucket.getPublicUrl(final).data.publicUrl;
   const db = await getTenantDb();
   const { data, error } = await db.from('image_subidos').insert({
-    id: sub.uuid, workspace_id: ws, nombre: sanearNombre(p.nombre, esTipoAudio(sub.tipo) ? 'Audio' : 'Imagen'), tipo: sub.tipo,
-    ancho: medida(p.ancho), alto: medida(p.alto), bytes: cabeza.total ?? 0, ruta: sub.final, url,
+    id: sub.uuid, workspace_id: ws, nombre: sanearNombre(p.nombre, esTipoAudio(tipo) ? 'Audio' : 'Imagen'), tipo,
+    ancho: medida(p.ancho), alto: medida(p.alto), bytes: cabeza.total ?? 0, ruta: final, url,
   }).select('id, nombre, tipo, ancho, alto, bytes, url, created_at').single();
   if (error) return { ok: false, error: error.message, status: 500 };
   return { ok: true, subido: aSubido(data as FilaSubido) };

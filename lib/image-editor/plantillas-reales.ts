@@ -37,7 +37,7 @@ import { altoDeTexto } from '@/lib/carruseles/documento';
 
 export type DocumentoDoory = DoryDocument;
 
-export type GrupoImagen = 'Miniaturas de YouTube' | 'Publicaciones' | 'Historias' | 'Anuncios' | 'Presentaciones';
+export type GrupoImagen = 'Miniaturas de YouTube' | 'Miniaturas verticales' | 'Publicaciones' | 'Historias' | 'Anuncios' | 'Presentaciones';
 
 /** Los hechos que pide cada plantilla, en orden (image.md, 3.4: la tabla de preguntas). */
 export type PideImagen =
@@ -776,6 +776,69 @@ function armar12(c: Ctx, t: T12): DocumentoDoory {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 13 y 14. Miniaturas VERTICALES (13/11/2026): la portada de un Reel o un Short, 1080 × 1920
+// ─────────────────────────────────────────────────────────────────────────────
+// Martín, 13/11/2026 (por el Cerebro): «miniaturas verticales en Image, para shorts y reels… con plantillas». Las dos de YouTube
+// en vertical: con tu cara (la 13) y con un número (la 14). Zonas seguras, como las historias (la 8): la app tapa el 15 % de arriba
+// (288 px) y el 25 % de abajo (480 px), y el perfil de Instagram recorta la portada a 3:4 (las 1440 del centro). Todo vive entre
+// y 288 e y 1440.
+
+type T13 = { rotulo: string; gancho: string; notas: string };
+
+const NOTA_VERTICAL = 'Lo importante va en el centro: arriba y abajo lo tapa la app, y tu perfil de Instagram la recorta a 3:4.';
+
+const T13_GUIA: T13 = {
+  rotulo: 'Tu tema',
+  gancho: 'Tu gancho en 3 palabras',
+  notas: `El título del reel o del Short: escríbelo aquí. La portada no lo repite: le agrega curiosidad. · ${NOTA_VERTICAL}`,
+};
+
+const T13_EJEMPLO: T13 = {
+  rotulo: 'Ventas por WhatsApp',
+  gancho: 'Cerré 15 sin llamar',
+  notas: `Reel: «Cómo cerré 15 clientes sin una sola llamada» · ${NOTA_VERTICAL}`,
+};
+
+function armar13(c: Ctx, t: T13): DocumentoDoory {
+  const fondo: PageBackground = { type: 'gradient', kind: 'linear', angle: 180, stops: [{ offset: 0, color: '#1F2937' }, { offset: 1, color: '#0B1220' }] };
+  return documento(1080, 1920, [pagina(c, 'Miniatura', fondo, [
+    // Tu foto a todo el cuadro (la persona ES la portada); el texto va encima, con contorno, a la altura del pecho.
+    foto(c, 'Tu foto', { cx: 540, cy: 960, w: 1080, h: 1920 }),
+    texto(c, 'Rótulo', t.rotulo, { x: 90, y: 1000, w: 900, tam: 46, fam: F.archivo, color: '#111111', alin: 'center', mayus: true, inter: 1.1, resaltado: '#FACC15' }),
+    texto(c, 'Gancho', t.gancho, { x: 60, y: 1080, w: 960, tam: 150, fam: F.anton, color: '#FFFFFF', alin: 'center', mayus: true, inter: 1, contorno: { color: '#000000', width: 8 } }),
+  ], t.notas)]);
+}
+
+type T14 = { rotulo: string; numero: string; titular: string; linea: string; notas: string };
+
+const T14_GUIA: T14 = {
+  rotulo: 'Tu rubro',
+  numero: '0',
+  titular: 'Qué cuentas',
+  linea: 'Lo que promete el video, en una línea',
+  notas: `El título del reel o del Short: escríbelo aquí. El número sale de algo que mediste de verdad. · ${NOTA_VERTICAL}`,
+};
+
+const T14_EJEMPLO: T14 = {
+  rotulo: 'Clínicas dentales',
+  numero: '43',
+  titular: 'de 50 anuncios no traen pacientes',
+  linea: 'Revisé 50 anuncios de clínicas: esto es lo que falla',
+  notas: `Reel: «Revisé 50 anuncios de clínicas dentales: por qué 43 no traen pacientes» · ${NOTA_VERTICAL}`,
+};
+
+function armar14(c: Ctx, t: T14): DocumentoDoory {
+  const oro = '#FACC15';
+  return documento(1080, 1920, [pagina(c, 'Miniatura', solido('#0B1220'), [
+    texto(c, 'Rótulo', t.rotulo, { x: 90, y: 320, w: 900, tam: 40, peso: 600, fam: F.inter, color: '#94A3B8', alin: 'center', mayus: true, esp: 80, inter: 1.1 }),
+    texto(c, 'Número', t.numero, { x: 60, y: 390, w: 960, tam: 420, fam: F.anton, color: oro, alin: 'center', inter: 1 }),
+    texto(c, 'Titular', t.titular, { x: 60, y: 900, w: 960, tam: 96, fam: F.archivo, color: '#FFFFFF', alin: 'center', mayus: true, inter: 1 }),
+    rect(c, 'Acento', { x: 470, y: 1180, w: 140, h: 10, fill: oro, radio: 5 }),
+    texto(c, 'Línea', t.linea, { x: 90, y: 1220, w: 900, tam: 44, peso: 500, fam: F.inter, color: '#CBD5E1', alin: 'center', inter: 1.2 }),
+  ], t.notas)]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // El catálogo
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -802,6 +865,22 @@ export const PLANTILLAS_IMAGEN: readonly PlantillaImagen[] = [
     pide: ['titulo_video', 'resultado'],
     ...con(armar2, T2_GUIA, T2_EJEMPLO),
     extracto: T2_EJEMPLO.gancho.toLocaleUpperCase('es'), chips: ['Cuadrícula de anuncios', 'Gancho', 'Tu foto'],
+  },
+  {
+    id: 'vertical-gancho-cara', nombre: 'Miniatura vertical · Gancho con tu cara · Coach', grupo: 'Miniaturas verticales',
+    cuando: 'Tu reel o tu Short cuenta un resultado tuyo y sales a cámara.',
+    negocio: 'Cierre Consultivo', ancho: 1080, alto: 1920, paginas: 1, insignia: '1080 × 1920 · Reels y Shorts',
+    pide: ['titulo_video', 'foto'],
+    ...con(armar13, T13_GUIA, T13_EJEMPLO),
+    extracto: T13_EJEMPLO.gancho.toLocaleUpperCase('es'), chips: ['Tu foto', 'Gancho', 'Rótulo'],
+  },
+  {
+    id: 'vertical-numero', nombre: 'Miniatura vertical · Número grande · Agencia', grupo: 'Miniaturas verticales',
+    cuando: 'Tu reel o tu Short revela un número que sorprende, sin que tengas que salir.',
+    negocio: 'Pulso Dental', ancho: 1080, alto: 1920, paginas: 1, insignia: '1080 × 1920 · Reels y Shorts',
+    pide: ['titulo_video', 'resultado'],
+    ...con(armar14, T14_GUIA, T14_EJEMPLO),
+    extracto: `${T14_EJEMPLO.numero} ${T14_EJEMPLO.titular.toLocaleUpperCase('es')}`, chips: ['Número', 'Titular', 'Línea'],
   },
   {
     id: 'ficha-propiedad', nombre: 'Publicación · Ficha de propiedad · Inmobiliaria', grupo: 'Publicaciones',

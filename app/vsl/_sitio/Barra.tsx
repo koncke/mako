@@ -23,6 +23,13 @@ import { TemaSitio } from '../_competencia/TemaSitio';
 import { HISTORIA, INDUSTRIAS, RUTA_COMPARACIONES, RUTA_ENTRAR, RUTA_PRECIOS, menuProducto, type MenuProducto } from './datos';
 import { Chevron, Icono } from './Piezas';
 import { CSS_BARRA, CSS_BASE } from './estilos';
+import { FUNNELS_SITIO, rutaFunnel } from './funnels-datos';
+
+/** Los funnels, dentro de Industrias (Martín, 14/11/2026: «dentro del desplegable de industria, una sección funnels… y que sea una
+ *  landing cada uno»). */
+function ItemsFunnels() {
+  return <>{FUNNELS_SITIO.map((f) => <Grande key={f.id} href={rutaFunnel(f.id)} icono={f.icono} nombre={f.nombre} bajada={f.corta} />)}</>;
+}
 
 /** Uno de los cuatro grandes (o una industria): el cuadro con el ícono, el nombre y su bajada. */
 function Grande({ href, icono, nombre, bajada }: { href: string; icono: readonly string[]; nombre: string; bajada: string }) {
@@ -80,7 +87,10 @@ function MenuIndustriasPc() {
           <p className="s-mega-r">Por industria</p>
           {INDUSTRIAS.map((i) => <Grande key={i.avatar} href={i.href} icono={i.icono} nombre={i.nombre} bajada={i.bajada} />)}
         </div>
-        <div aria-hidden="true" />
+        <div>
+          <p className="s-mega-r">Funnels</p>
+          <ItemsFunnels />
+        </div>
         <div className="s-mega-hist">
           <p className="s-mega-r">Casos</p>
           <Historia />
@@ -115,6 +125,10 @@ function MenuMovil({ m }: { m: MenuProducto }) {
           <summary className="s-mv-fila">Industrias <Chevron /></summary>
           <div className="s-mv-cuerpo">
             {INDUSTRIAS.map((i) => <Grande key={i.avatar} href={i.href} icono={i.icono} nombre={i.nombre} bajada={i.bajada} />)}
+            <div className="s-mv-grupo">
+              <p className="s-mega-r">Funnels</p>
+              <ItemsFunnels />
+            </div>
             <div className="s-mv-grupo">
               <p className="s-mega-r">Casos</p>
               <Historia />

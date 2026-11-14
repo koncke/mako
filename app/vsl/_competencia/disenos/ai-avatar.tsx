@@ -251,7 +251,7 @@ export default function DisenoAiAvatar({ landing }: PropsDiseno) {
 
         <section className="d-ai-avatar-final">
           <div className="d-ai-avatar-final-c">
-            <h2 className="d-ai-avatar-final-h">¿Lo quieres andando en tu negocio?</h2>
+            <h2 className="d-ai-avatar-final-h">¿Lo quieres funcionando en tu negocio?</h2>
             <p className="d-ai-avatar-final-p">{TEXTO_CIERRE}</p>
             <Boton />
             {hero?.puntos?.length ? (
