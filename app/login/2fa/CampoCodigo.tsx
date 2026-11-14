@@ -28,12 +28,19 @@ type Props = {
   ocupado: boolean;
   /** El error del último intento: al cambiar, se selecciona lo tipeado. */
   error: string | null;
-  estilo: CSSProperties;
+  estilo?: CSSProperties;
+  /**
+   * Las clases del campo. Existe para que /login pueda pasarle el `mk-input` de la casa —un
+   * `style={{}}` no tiene `:focus-visible`, y el campo donde se escribe el código era justo el
+   * control en el que no se veía dónde estaba parado el teclado. Sin esto, cada pantalla
+   * reescribía el borde, el radio y el relleno a mano. /perfil/seguridad sigue con su `estilo`.
+   */
+  clase?: string;
   /** 6 = código de la app o mandado; 11 = código de recuperación (xxxxx-xxxxx). */
   largo?: 6 | 11;
 };
 
-export function CampoCodigo({ valor, onCambio, onCompleto, ocupado, error, estilo, largo = 6 }: Props) {
+export function CampoCodigo({ valor, onCambio, onCompleto, ocupado, error, estilo, clase, largo = 6 }: Props) {
   const ref = useRef<HTMLInputElement>(null);
   const enviado = useRef<string | null>(null);
   const leidoDelPortapapeles = useRef<string | null>(null);
@@ -92,12 +99,13 @@ export function CampoCodigo({ valor, onCambio, onCompleto, ocupado, error, estil
           if (c) { e.preventDefault(); onCambio(c); }
         }}
         onKeyDown={(e) => { if (e.key === 'Enter' && valor && !ocupado) { enviado.current = valor; onCompleto(); } }}
+        className={clase}
         style={estilo}
       />
       {corto && puedePegar && (
         <div style={{ textAlign: 'right', marginTop: '6px' }}>
           <button type="button" onClick={() => void pegar()} disabled={ocupado}
-            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: '13px', cursor: 'pointer' }}>
+            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: 'var(--fs-sm)', cursor: 'pointer' }}>
             Pegar
           </button>
         </div>

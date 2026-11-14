@@ -1,10 +1,13 @@
 // =============================================================================
-// Login — Google SSO, y nada más
+// Login — cuatro caminos de entrada, una sola tarjeta
 // =============================================================================
-// Overlay full-screen (cubre el layout/sidebar). El botón vive en LoginForm
-// (client, lee ?next= y ?error= con useSearchParams) y va envuelto en Suspense:
-// sin el boundary el build falla.
-// El fallback es la misma tarjeta sin el botón, así no parpadea el layout.
+// El envoltorio (velo + marca + tarjeta) vive en ./_ui/TarjetaLogin.tsx y lo
+// comparten las tres pantallas de entrada: acá, /login/2fa y /login/restablecer.
+// Antes estaba copiado a mano en las tres, con sus propios hexes.
+//
+// El botón de Google vive en LoginForm (client, lee ?next= y ?error= con
+// useSearchParams) y va envuelto en Suspense: el fallback es un hueco del alto
+// del botón, así no salta la tarjeta.
 //
 // Con la sesión YA abierta no se muestra el formulario: eso le decía "Entrá al
 // dashboard" a alguien que estaba adentro, y parecía que se había deslogueado.
@@ -12,6 +15,13 @@
 //
 // Por eso la página dejó de ser estática: leer la cookie de sesión exige render
 // dinámico. Es una pantalla de baja frecuencia, así que el costo es despreciable.
+//
+// ⚠️ LA JERARQUÍA ES LA DEL CAMINO REAL (14/11/2026). Google era un botón BLANCO
+// secundario y «entrar con contraseña» el negro primario: la pantalla destacaba
+// el camino de excepción —el que existe «para el día que Google no esté»— y
+// escondía el de siempre detrás de un link gris de 13 px. Ahora Google es el
+// primario y el correo el secundario; en la app de iPhone, donde Google no
+// existe, el correo pasa a primario solo (ver ConCorreo en LoginForm.tsx).
 // =============================================================================
 
 import type { Metadata } from 'next';
@@ -19,6 +29,8 @@ import { Suspense } from 'react';
 import { LoginForm } from './LoginForm';
 import { YaLogueado } from './YaLogueado';
 import { PedirLinkAlumno, BotonEntrarAlumno } from './EntrarAlumno';
+import { TarjetaLogin, EncabezadoLogin } from './_ui/TarjetaLogin';
+import { Alert } from '@/app/_ui/Estados';
 import { getUsuarioActual } from '@/lib/auth';
 import { hayAlumnoVigente } from '@/lib/alumno-acceso';
 import { leerLinkAlumno, PARAM_LINK_ALUMNO } from '@/lib/alumno-sesion';
@@ -98,50 +110,58 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   // La app de iPhone entra con correo, contraseña y 2FA: Google prohíbe su OAuth en un WebView (T6, lib/tienda.ts).
   const sinGoogle = await esAppIosDelPedido();
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#14161B', padding: '20px' }}>
-      <div style={{ width: '100%', maxWidth: '380px', background: '#F5F7FA', borderRadius: '18px', border: '1px solid rgba(0,0,0,.08)', padding: '34px 30px', boxShadow: '0 12px 40px rgba(0,0,0,.35)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-          <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#facc15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#14161B', fontSize: '18px' }}>✦</div>
-          <div style={{ fontWeight: 700, fontSize: '22px', color: '#14161B', letterSpacing: '-0.02em' }}>MaKo</div>
-        </div>
-        {/* ⚠️ EL LINK DEL MAIL GANA SOBRE TODO LO DEMÁS: es una acción explícita que la persona
-            acaba de pedir, y con la sesión de MaKo (o una cookie de alumno vieja) puesta no tendría
-            dónde apretar. Entrar como alumno no toca la sesión de MaKo. */}
-        {linkValido ? (
-          <>
-            <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '6px' }}>Tu programa te espera.</div>
+    <TarjetaLogin>
+      {/* ⚠️ EL LINK DEL MAIL GANA SOBRE TODO LO DEMÁS: es una acción explícita que la persona
+          acaba de pedir, y con la sesión de MaKo (o una cookie de alumno vieja) puesta no tendría
+          dónde apretar. Entrar como alumno no toca la sesión de MaKo. */}
+      {linkValido ? (
+        <>
+          <EncabezadoLogin titulo="Tu programa te espera" />
+          <div className="lg-cuerpo">
             <BotonEntrarAlumno token={tokenAlumno} />
-          </>
-        ) : sesion && !deLaApp ? (
-          <YaLogueado nombre={sesion.nombre} email={sesion.email} />
-        ) : alumno ? (
-          <>
-            <a
-              href={RUTA_ALUMNO}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '14px', padding: '12px', borderRadius: '11px', background: 'var(--primary)', color: 'var(--on-primary)', fontSize: '15px', fontWeight: 600, textDecoration: 'none', boxSizing: 'border-box' }}
-            >
+          </div>
+        </>
+      ) : sesion && !deLaApp ? (
+        <YaLogueado nombre={sesion.nombre} email={sesion.email} />
+      ) : alumno ? (
+        <>
+          <EncabezadoLogin titulo="Vuelve a tu programa" sub="Tienes el acceso guardado en este navegador." />
+          <div className="lg-cuerpo">
+            <a href={RUTA_ALUMNO} className="mk-btn mk-btn--primary mk-btn--lg mk-btn--full">
               Ir a tu programa
             </a>
             {!sinGoogle && (
-              <a href="/api/auth/google?next=%2Finicio" style={{ display: 'block', marginTop: '14px', textAlign: 'center', fontSize: '13px', color: '#5B6472' }}>
+              <a href="/api/auth/google?next=%2Finicio" className="lg-link">
                 Entrar con otra cuenta
               </a>
             )}
-          </>
-        ) : (
-          <>
-            <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '22px' }}>{deLaApp ? 'Entra con tu cuenta.' : 'Entra al dashboard.'}</div>
-            {/* La vuelta del link del alumno (venció, intentos, fallo): arriba de todo, en una frase. */}
-            {motivoAlumno && <div style={{ marginBottom: '16px', fontSize: '13px', color: '#b91c1c', background: '#fdecec', border: '1px solid #f5c2c2', borderRadius: '10px', padding: '10px 12px' }}>{motivoAlumno}</div>}
-            <Suspense fallback={<div style={{ height: '46px', borderRadius: '11px', background: 'rgba(0,0,0,.05)' }} />}>
+          </div>
+        </>
+      ) : (
+        <>
+          <EncabezadoLogin
+            titulo="Entra a tu cuenta"
+            sub={deLaApp ? 'La app pide tu cuenta cada vez que se abre.' : undefined}
+          />
+          <div className="lg-cuerpo">
+            {/* La vuelta del link del alumno (venció, intentos, fallo): arriba de todo. Es un
+                <Alert>, que YA trae el role="alert" y «Reportar a Soporte» — el <div> de antes no
+                tenía rol, así que un lector de pantalla nunca anunciaba que el link no servía. */}
+            {motivoAlumno && <Alert tono="bad">{motivoAlumno}</Alert>}
+            <Suspense fallback={<div style={{ height: 'calc(var(--touch) + 8px)', borderRadius: 'var(--r-md)', background: 'var(--surface-2)' }} />}>
               <LoginForm sinGoogle={sinGoogle} />
             </Suspense>
             {/* «Soy alumno: entrar con mi email» (item 9): plegado, para no competir con el botón de
                 Google de quien sí es usuario; abierto si se vuelve de un link que no abrió. */}
             <PedirLinkAlumno abierto={motivoAlumno != null} />
-          </>
-        )}
-      </div>
-    </div>
+            {/* NO HAY REGISTRO, y conviene decirlo: sin esta línea la pantalla parece que le falta
+                el «Crear cuenta» de cualquier login. Quien entra con una cuenta sin acceso recibe
+                TEXTO_PEDIDO_REGISTRADO (lib/pedidos-ingreso-reglas.ts), que es lo mismo contado
+                después del intento. */}
+            <p className="lg-pie">El acceso a MaKo es por invitación.</p>
+          </div>
+        </>
+      )}
+    </TarjetaLogin>
   );
 }

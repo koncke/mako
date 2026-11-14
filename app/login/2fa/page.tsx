@@ -8,11 +8,17 @@
 //
 // Es pública por prefijo (`/login` en lib/rutas-publicas.ts) y sólo se LEE: la página
 // no escribe nada, todo lo que escribe es la ruta de la API.
+//
+// El envoltorio es el MISMO que /login y /login/restablecer (./../_ui/TarjetaLogin):
+// las tres eran la misma tarjeta copiada a mano y ya se habían ido corriendo entre
+// ellas (380 px acá, 400 allá; el mismo logo dibujado de dos formas). El título de
+// cada sub-pantalla lo pone SegundoPaso, que es quien sabe en cuál está.
 
 import type { Metadata } from 'next';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { PREAUTH_COOKIE, verificarPreauth } from '@/lib/auth-session';
+import { TarjetaLogin } from '../_ui/TarjetaLogin';
 import { SegundoPaso } from './SegundoPaso';
 
 export const dynamic = 'force-dynamic';
@@ -22,15 +28,10 @@ export default async function SegundoPasoPage() {
   const pre = verificarPreauth((await cookies()).get(PREAUTH_COOKIE)?.value);
   if (!pre) redirect('/login?error=mfa-vencido');
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#14161B', padding: '20px', overflowY: 'auto' }}>
-      <div style={{ width: '100%', maxWidth: '400px', background: '#F5F7FA', borderRadius: '18px', border: '1px solid rgba(0,0,0,.08)', padding: '30px 28px', boxShadow: '0 12px 40px rgba(0,0,0,.35)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-          <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#facc15', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#14161B', fontSize: '18px' }}>✦</div>
-          <div style={{ fontWeight: 700, fontSize: '22px', color: '#14161B', letterSpacing: '-0.02em' }}>MaKo</div>
-        </div>
-        <div style={{ fontSize: '13px', color: '#5B6472', marginBottom: '18px' }}>{pre.email}</div>
-        <SegundoPaso cuenta={pre.email} />
-      </div>
-    </div>
+    // De quién es la sesión que se está abriendo va DEBAJO de la tarjeta: es contexto,
+    // no el título. Arriba competía con «App de autenticación», que es lo que hay que hacer.
+    <TarjetaLogin pie={<>Entrando como <strong>{pre.email}</strong></>}>
+      <SegundoPaso cuenta={pre.email} />
+    </TarjetaLogin>
   );
 }

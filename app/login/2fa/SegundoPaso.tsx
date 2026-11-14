@@ -12,9 +12,23 @@
 //
 // El código por WhatsApp o correo se manda con un botón y no al abrir: recargar la
 // pantalla no puede mandar un mensaje.
+//
+// ⚠️ LA PRESENTACIÓN SALIÓ DE ACÁ (14/11/2026): este archivo tenía siete constantes
+// de `CSSProperties` (btn, btnSec, link, campo, campoTexto, titulo, sub, errorBox)
+// con los hexes de /login escritos otra vez a mano. Ahora son los primitives de
+// app/_ui y las clases de app/login/_ui/login.css, los mismos que la tarjeta de
+// /login: así las dos pantallas no se van corriendo cada vez que se toca una.
+// La LÓGICA no se tocó — es la que sostienen tests/login-2fa-entrando.test.ts y
+// tests/mfa.test.ts, y los literales que esos dos fijan siguen letra por letra.
 
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
+import { Button } from '@/app/_ui/Button';
+import { Input } from '@/app/_ui/Field';
+import { Checkbox } from '@/app/_ui/Toggle';
+import { Alert } from '@/app/_ui/Estados';
+import { Spinner } from '@/app/_ui/Feedback';
+import { EncabezadoLogin } from '../_ui/TarjetaLogin';
 import { descargarCodigos } from './descargar-codigos';
 import { CampoCodigo } from './CampoCodigo';
 import { textoDelFallo, type Respuesta } from './respuesta-2fa';
@@ -40,15 +54,6 @@ const TITULO: Record<Metodo, string> = {
   email: 'Código por correo',
   recuperacion: 'Código de recuperación',
 };
-
-const btn: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '12px', borderRadius: '11px', border: 'none', background: 'var(--primary)', color: 'var(--on-primary)', fontSize: '15px', fontWeight: 600, cursor: 'pointer', boxSizing: 'border-box' };
-const btnSec: CSSProperties = { ...btn, background: '#fff', color: '#14161B', border: '1px solid rgba(0,0,0,.18)' };
-const link: CSSProperties = { background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: '13px', cursor: 'pointer' };
-const campo: CSSProperties = { width: '100%', padding: '12px', borderRadius: '11px', border: '1px solid rgba(0,0,0,.18)', background: '#fff', color: '#14161B', fontSize: '18px', letterSpacing: '4px', textAlign: 'center', boxSizing: 'border-box', outline: 'none' };
-const campoTexto: CSSProperties = { ...campo, fontSize: '15px', letterSpacing: 'normal', textAlign: 'left' };
-const titulo: CSSProperties = { fontWeight: 700, fontSize: '17px', color: '#14161B', marginBottom: '4px' };
-const sub: CSSProperties = { fontSize: '13px', color: '#5B6472', marginBottom: '14px' };
-const errorBox: CSSProperties = { marginBottom: '12px', fontSize: '13px', color: '#b91c1c', background: '#fdecec', border: '1px solid #f5c2c2', borderRadius: '10px', padding: '10px 12px' };
 
 async function pedir(body: Record<string, unknown>): Promise<Respuesta> {
   const r = await fetch('/api/auth/2fa', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -196,23 +201,24 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
   // ── Pantallas ──────────────────────────────────────────────────────────────
   if (codigos) {
     return (
-      <div>
-        <div style={titulo}>Guarda estos códigos</div>
-        <div style={sub}>Cada uno sirve una vez si pierdes tu método.</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontFamily: "'Geist Mono', monospace", fontSize: '14px', background: '#fff', border: '1px solid rgba(0,0,0,.12)', borderRadius: '11px', padding: '12px', marginBottom: '12px' }}>
-          {codigos.lista.map((c) => <div key={c}>{c}</div>)}
+      <>
+        <EncabezadoLogin titulo="Guarda estos códigos" sub="Cada uno sirve una vez si pierdes tu método. No se vuelven a mostrar." />
+        <div className="lg-cuerpo">
+          <div className="lg-codigos">
+            {codigos.lista.map((c) => <div key={c}>{c}</div>)}
+          </div>
+          <div className="lg-dos">
+            <Button variant="secondary" onClick={() => descargarCodigos(codigos.lista, cuenta)}>Descargar</Button>
+            <Button variant="secondary" onClick={() => { void navigator.clipboard?.writeText(codigos.lista.join('\n')); setCopiado(true); }}>
+              {copiado ? 'Copiados' : 'Copiar'}
+            </Button>
+          </div>
+          <Button variant="primary" size="lg" full onClick={() => {
+            if (codigos.luegoContrasena) { setCodigos(null); setPidiendoContrasena(true); return; }
+            terminar(codigos.next);
+          }}>Ya los guardé</Button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-          <button type="button" style={btnSec} onClick={() => descargarCodigos(codigos.lista, cuenta)}>Descargar</button>
-          <button type="button" style={btnSec} onClick={() => { void navigator.clipboard?.writeText(codigos.lista.join('\n')); setCopiado(true); }}>
-            {copiado ? 'Copiados' : 'Copiar'}
-          </button>
-        </div>
-        <button type="button" style={btn} onClick={() => {
-          if (codigos.luegoContrasena) { setCodigos(null); setPidiendoContrasena(true); return; }
-          terminar(codigos.next);
-        }}>Ya los guardé</button>
-      </div>
+      </>
     );
   }
 
@@ -226,51 +232,48 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
       });
     };
     return (
-      <form onSubmit={crear}>
-        <div style={titulo}>Crea tu contraseña</div>
-        <div style={sub}>Para entrar el día que Google no esté. 12 caracteres o más.</div>
-        {error && <div style={errorBox}>{error}</div>}
-        {/* El correo, oculto: el gestor de contraseñas la guarda con la cuenta correcta. */}
-        <input type="email" autoComplete="username" value={cuenta} readOnly hidden />
-        <input type={verNueva ? 'text' : 'password'} autoComplete="new-password" value={nueva} onChange={(e) => setNueva(e.target.value)} style={campoTexto} autoFocus aria-label="Contraseña nueva" />
-        <div style={{ margin: '8px 0 12px' }}>
-          <button type="button" style={link} onClick={() => setVerNueva((v) => !v)}>{verNueva ? 'Ocultar' : 'Mostrar'}</button>
-        </div>
-        <button type="submit" style={btn} disabled={trabado || !nueva}>Guardar y entrar</button>
-      </form>
+      <>
+        <EncabezadoLogin titulo="Crea tu contraseña" sub="Para entrar el día que Google no esté. 12 caracteres o más." />
+        <form onSubmit={crear} className="lg-cuerpo">
+          {error && <Alert tono="bad">{error}</Alert>}
+          {/* El correo, oculto: el gestor de contraseñas la guarda con la cuenta correcta. */}
+          <input type="email" autoComplete="username" value={cuenta} readOnly hidden />
+          <Input type={verNueva ? 'text' : 'password'} autoComplete="new-password" value={nueva} onChange={(e) => setNueva(e.target.value)} autoFocus aria-label="Contraseña nueva" />
+          <button type="button" className="lg-link" onClick={() => setVerNueva((v) => !v)}>{verNueva ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}</button>
+          <Button type="submit" variant="primary" size="lg" full disabled={trabado || !nueva}>Guardar y entrar</Button>
+        </form>
+      </>
     );
   }
 
   if (ofertaHuella) {
     const despues = ofertaHuella;
     return (
-      <div>
-        <div style={titulo}>Entra más rápido</div>
-        <div style={sub}>La próxima vez, con tu huella o Face ID.</div>
-        {error && <div style={errorBox}>{error}</div>}
-        <button type="button" style={{ ...btn, marginBottom: '8px' }} disabled={trabado} onClick={() => activarHuella(despues)}>Activar</button>
-        <button type="button" style={btnSec} disabled={trabado} onClick={() => {
-          try { localStorage.setItem('mako.huella.ahora-no', '1'); } catch { /* sin storage: se vuelve a ofrecer */ }
-          irA(despues);
-        }}>Ahora no</button>
-      </div>
+      <>
+        <EncabezadoLogin titulo="Entra más rápido" sub="La próxima vez, con tu huella o Face ID." />
+        <div className="lg-cuerpo">
+          {error && <Alert tono="bad">{error}</Alert>}
+          <Button variant="primary" size="lg" full disabled={trabado} onClick={() => activarHuella(despues)}>Activar</Button>
+          <Button variant="secondary" size="lg" full disabled={trabado} onClick={() => {
+            try { localStorage.setItem('mako.huella.ahora-no', '1'); } catch { /* sin storage: se vuelve a ofrecer */ }
+            irA(despues);
+          }}>Ahora no</Button>
+        </div>
+      </>
     );
   }
 
-  if (!estado) return error ? <div style={errorBox}>{error}</div> : <div style={{ height: '120px' }} aria-busy="true" />;
+  if (!estado) return error ? <Alert tono="bad">{error}</Alert> : <div className="lg-espera" aria-busy="true"><Spinner size={20} /></div>;
 
   const recordarCasilla = (
-    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#5B6472', margin: '12px 0 4px', cursor: 'pointer' }}>
-      <input type="checkbox" checked={recordar} onChange={(e) => setRecordar(e.target.checked)} />
-      Recordar este dispositivo 30 días
-    </label>
+    <Checkbox checked={recordar} onChange={setRecordar} label="Recordar este dispositivo 30 días" />
   );
   // El campo detecta el código copiado y, con 6 dígitos, avanza solo (CampoCodigo, pedido de Martín
   // del 14/10/2026). Los botones de abajo quedan igual, por si alguien prefiere apretar.
   const campoCodigo = (onEnter: () => void, largo: 6 | 11 = 6) => (
     <CampoCodigo
       valor={codigo} onCambio={setCodigo} onCompleto={onEnter} ocupado={trabado} error={error} largo={largo}
-      estilo={largo === 6 ? campo : { ...campo, fontSize: '16px', letterSpacing: '2px' }}
+      clase={largo === 6 ? 'mk-input lg-codigo' : 'mk-input lg-codigo lg-codigo--largo'}
     />
   );
 
@@ -286,70 +289,75 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
     const elegido = enrolando ?? (opciones.length === 1 ? opciones[0].m : null);
     if (!elegido) {
       return (
-        <div>
-          <div style={titulo}>Activa un segundo paso</div>
-          <div style={sub}>Tu cuenta lo pide para entrar.</div>
-          {error && <div style={errorBox}>{error}</div>}
-          <div style={{ display: 'grid', gap: '8px' }}>
-            {opciones.map((o) => (
-              <button key={o.m} type="button" style={btnSec} onClick={() => cambiar(o.m, true)}>{o.txt}</button>
-            ))}
+        <>
+          <EncabezadoLogin titulo="Activa un segundo paso" sub="Tu cuenta lo pide para entrar." />
+          <div className="lg-cuerpo">
+            {error && <Alert tono="bad">{error}</Alert>}
+            <div className="lg-pila">
+              {opciones.map((o) => (
+                <Button key={o.m} variant="secondary" size="lg" full onClick={() => cambiar(o.m, true)}>{o.txt}</Button>
+              ))}
+            </div>
           </div>
-        </div>
+        </>
       );
     }
     const volver = opciones.length > 1
-      ? <div style={{ marginTop: '14px', textAlign: 'center' }}><button type="button" style={link} onClick={() => cambiar(null, true)}>Otro método</button></div>
+      ? <button type="button" className="lg-link" onClick={() => cambiar(null, true)}>Otro método</button>
       : null;
     if (elegido === 'totp') {
       return (
-        <div>
-          <div style={titulo}>App de autenticación</div>
-          <div style={sub}>{qr ? 'Escanea el código y escribe el número que muestra.' : 'Google Authenticator, Authy o la que uses.'}</div>
-          {error && <div style={errorBox}>{error}</div>}
-          {!qr ? (
-            <button type="button" style={btn} disabled={trabado} onClick={iniciarTotp}>Mostrar el código QR</button>
-          ) : (
-            <>
-              {/* eslint-disable-next-line @next/next/no-img-element -- data URL generado en el server */}
-              <img src={qr.qr} alt="Código QR" width={180} height={180} style={{ display: 'block', margin: '0 auto 8px', borderRadius: '8px' }} />
-              <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: '11px', color: '#5B6472', textAlign: 'center', wordBreak: 'break-all', marginBottom: '12px' }}>{qr.secreto}</div>
-              {/* En el celular no hay QR que escanear: el link otpauth abre la app con la cuenta cargada. */}
-              {estado.esTelefono && qr.uri && <a href={qr.uri} style={{ ...btnSec, display: 'block', textAlign: 'center', textDecoration: 'none', marginBottom: '12px' }}>Abrir en la app</a>}
-              {campoCodigo(confirmarTotp)}
-              {recordarCasilla}
-              <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={trabado || codigo.length !== 6} onClick={confirmarTotp}>Activar</button>
-            </>
-          )}
-          {volver}
-        </div>
+        <>
+          <EncabezadoLogin titulo="App de autenticación"
+            sub={qr ? 'Escanea el código y escribe el número que muestra.' : 'Google Authenticator, Authy o la que uses.'} />
+          <div className="lg-cuerpo">
+            {error && <Alert tono="bad">{error}</Alert>}
+            {!qr ? (
+              <Button variant="primary" size="lg" full disabled={trabado} onClick={iniciarTotp}>Mostrar el código QR</Button>
+            ) : (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element -- data URL generado en el server */}
+                <img src={qr.qr} alt="Código QR" width={180} height={180} className="lg-qr" />
+                <p className="lg-secreto">{qr.secreto}</p>
+                {/* En el celular no hay QR que escanear: el link otpauth abre la app con la cuenta cargada. */}
+                {estado.esTelefono && qr.uri && <a href={qr.uri} className="mk-btn mk-btn--secondary mk-btn--lg mk-btn--full">Abrir en la app</a>}
+                {campoCodigo(confirmarTotp)}
+                {recordarCasilla}
+                <Button variant="primary" size="lg" full disabled={trabado || codigo.length !== 6} onClick={confirmarTotp}>Activar</Button>
+              </>
+            )}
+            {volver}
+          </div>
+        </>
       );
     }
     const canal = elegido === 'whatsapp' ? 'whatsapp' : 'email';
     return (
-      <div>
-        <div style={titulo}>{canal === 'whatsapp' ? 'WhatsApp' : 'Otro correo'}</div>
-        <div style={sub}>{enviadoA ? `Te mandamos un código a ${enviadoA}.` : canal === 'whatsapp' ? 'Tu número con código de país.' : 'Uno distinto del de Google.'}</div>
-        {error && <div style={errorBox}>{error}</div>}
-        {!enviadoA ? (
-          <>
-            <input
-              value={destino} autoFocus onChange={(e) => setDestino(e.target.value)}
-              inputMode={canal === 'whatsapp' ? 'tel' : 'email'} placeholder={canal === 'whatsapp' ? '+54 9 11 2345 6789' : 'nombre@correo.com'}
-              onKeyDown={(e) => { if (e.key === 'Enter' && destino) enviarEnrolar(canal); }}
-              style={campoTexto}
-            />
-            <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={trabado || !destino.trim()} onClick={() => enviarEnrolar(canal)}>Mandar código</button>
-          </>
-        ) : (
-          <>
-            {campoCodigo(() => confirmarEnrolar(canal))}
-            {recordarCasilla}
-            <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={trabado || codigo.length !== 6} onClick={() => confirmarEnrolar(canal)}>Activar</button>
-          </>
-        )}
-        {volver}
-      </div>
+      <>
+        <EncabezadoLogin titulo={canal === 'whatsapp' ? 'WhatsApp' : 'Otro correo'}
+          sub={enviadoA ? `Te mandamos un código a ${enviadoA}.` : canal === 'whatsapp' ? 'Tu número con código de país.' : 'Uno distinto del de Google.'} />
+        <div className="lg-cuerpo">
+          {error && <Alert tono="bad">{error}</Alert>}
+          {!enviadoA ? (
+            <>
+              <Input
+                value={destino} autoFocus onChange={(e) => setDestino(e.target.value)}
+                inputMode={canal === 'whatsapp' ? 'tel' : 'email'} placeholder={canal === 'whatsapp' ? '+54 9 11 2345 6789' : 'nombre@correo.com'}
+                onKeyDown={(e) => { if (e.key === 'Enter' && destino) enviarEnrolar(canal); }}
+                aria-label={canal === 'whatsapp' ? 'Tu número de WhatsApp' : 'Tu otro correo'}
+              />
+              <Button variant="primary" size="lg" full disabled={trabado || !destino.trim()} onClick={() => enviarEnrolar(canal)}>Mandar código</Button>
+            </>
+          ) : (
+            <>
+              {campoCodigo(() => confirmarEnrolar(canal))}
+              {recordarCasilla}
+              <Button variant="primary" size="lg" full disabled={trabado || codigo.length !== 6} onClick={() => confirmarEnrolar(canal)}>Activar</Button>
+            </>
+          )}
+          {volver}
+        </div>
+      </>
     );
   }
 
@@ -360,52 +368,52 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
   ];
 
   if (!metodo) {
-    return <div style={errorBox}>No hay un método que se pueda usar aquí. Entra desde hola-mako.com.</div>;
+    return <Alert tono="bad">No hay un método que se pueda usar aquí. Entra desde hola-mako.com.</Alert>;
   }
 
   return (
-    <div>
-      <div style={titulo}>{TITULO[metodo]}</div>
-      <div style={sub}>
-        {metodo === 'passkey' ? 'Usa la huella, Face ID o el PIN de este dispositivo.'
+    <>
+      <EncabezadoLogin
+        titulo={TITULO[metodo]}
+        sub={metodo === 'passkey' ? 'Usa la huella, Face ID o el PIN de este dispositivo.'
           : metodo === 'totp' ? 'Escribe el número que muestra tu app.'
           : metodo === 'recuperacion' ? 'Uno de los que guardaste al activar.'
           : enviadoA ? `Te mandamos un código a ${enviadoA}.`
           : `Lo mandamos a ${metodo === 'whatsapp' ? estado.factores.whatsapp : estado.factores.email}.`}
+      />
+      <div className="lg-cuerpo">
+        {error && <Alert tono="bad">{error}</Alert>}
+
+        {metodo === 'passkey' ? (
+          <>
+            {recordarCasilla}
+            <Button variant="primary" size="lg" full disabled={trabado} onClick={usarPasskey}>Usar llave de acceso</Button>
+          </>
+        ) : (metodo === 'whatsapp' || metodo === 'email') && !enviadoA ? (
+          <Button variant="primary" size="lg" full disabled={trabado} onClick={() => enviar(metodo)}>Mandar código</Button>
+        ) : (
+          <>
+            {campoCodigo(() => verificar(metodo), metodo === 'recuperacion' ? 11 : 6)}
+            {recordarCasilla}
+            <Button
+              variant="primary" size="lg" full loading={yendo}
+              disabled={trabado || (metodo === 'recuperacion' ? codigo.trim().length < 10 : codigo.length !== 6)}
+              onClick={() => verificar(metodo)}
+            >
+              {yendo ? 'Entrando…' : 'Entrar'}
+            </Button>
+            {(metodo === 'whatsapp' || metodo === 'email') && (
+              <button type="button" className="lg-link" disabled={trabado} onClick={() => enviar(metodo)}>Reenviar el código</button>
+            )}
+          </>
+        )}
+
+        {otros.length > 0 && (
+          <div className="lg-otros">
+            {otros.map((m) => <button key={m} type="button" className="lg-link" onClick={() => cambiar(m)}>{TITULO[m]}</button>)}
+          </div>
+        )}
       </div>
-      {error && <div style={errorBox}>{error}</div>}
-
-      {metodo === 'passkey' ? (
-        <>
-          {recordarCasilla}
-          <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={trabado} onClick={usarPasskey}>Usar llave de acceso</button>
-        </>
-      ) : (metodo === 'whatsapp' || metodo === 'email') && !enviadoA ? (
-        <button type="button" style={btn} disabled={trabado} onClick={() => enviar(metodo)}>Mandar código</button>
-      ) : (
-        <>
-          {campoCodigo(() => verificar(metodo), metodo === 'recuperacion' ? 11 : 6)}
-          {recordarCasilla}
-          <button
-            type="button" style={{ ...btn, marginTop: '10px' }}
-            disabled={trabado || (metodo === 'recuperacion' ? codigo.trim().length < 10 : codigo.length !== 6)}
-            onClick={() => verificar(metodo)}
-          >
-            {yendo ? 'Entrando…' : 'Entrar'}
-          </button>
-          {(metodo === 'whatsapp' || metodo === 'email') && (
-            <div style={{ marginTop: '10px', textAlign: 'center' }}>
-              <button type="button" style={link} disabled={trabado} onClick={() => enviar(metodo)}>Reenviar</button>
-            </div>
-          )}
-        </>
-      )}
-
-      {otros.length > 0 && (
-        <div style={{ marginTop: '18px', paddingTop: '12px', borderTop: '1px solid rgba(0,0,0,.08)', display: 'flex', flexWrap: 'wrap', gap: '6px 14px', justifyContent: 'center' }}>
-          {otros.map((m) => <button key={m} type="button" style={link} onClick={() => cambiar(m)}>{TITULO[m]}</button>)}
-        </div>
-      )}
-    </div>
+    </>
   );
 }

@@ -16,8 +16,11 @@
 //     hace POST: abrir el link no lo gasta (un escáner de correo lo abriría antes que la persona),
 //     apretar el botón sí (app/api/alumno/entrar/route.ts).
 //
-// ⚠️ ESTILOS EN LÍNEA, los de la tarjeta de /login (page.tsx y LoginForm.tsx): esa pantalla es un
-// overlay fijo con su propia paleta, y no monta la hoja de la app.
+// ⚠️ ACÁ DECÍA «ESTILOS EN LÍNEA: esa pantalla es un overlay fijo con su propia paleta, y no monta
+// la hoja de la app». Lo segundo nunca fue cierto —app/layout.tsx importa globals.css para TODA la
+// app, /login incluido— y lo primero era la consecuencia: una paleta propia escrita a mano
+// (`#F5F7FA`, `#5B6472`, `#b91c1c`) que no se daba vuelta con el tema y no tenía hover ni foco.
+// Hoy usa los tokens y los primitives, igual que el resto. Ver app/login/_ui/login.css.
 //
 // ⚠️ LO LEE UN CLIENTE DE OTRO NEGOCIO: neutro con TÚ, corto, y sin jerga de MaKo.
 //
@@ -25,26 +28,14 @@
 // en un componente de cliente lo arrastraría al navegador. El token ya llega verificado por la
 // página (server) como un string.
 
-import { useState, type CSSProperties, type FormEvent } from 'react';
-
-const enlaceSuave: CSSProperties = {
-  display: 'block', width: '100%', marginTop: '14px', padding: 0, background: 'none', border: 0,
-  textAlign: 'center', fontSize: '13px', color: '#5B6472', cursor: 'pointer', font: 'inherit',
-};
-const campo: CSSProperties = {
-  width: '100%', padding: '11px 12px', borderRadius: '11px', border: '1px solid rgba(0,0,0,.18)',
-  background: '#fff', color: '#14161B', fontSize: '15px', boxSizing: 'border-box',
-};
-const primario: CSSProperties = {
-  display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '10px', padding: '12px',
-  borderRadius: '11px', border: 0, background: 'var(--primary)', color: 'var(--on-primary)', fontSize: '15px', fontWeight: 600,
-  cursor: 'pointer', boxSizing: 'border-box',
-};
-const nota: CSSProperties = { marginTop: '12px', fontSize: '13px', color: '#5B6472', textAlign: 'center' };
-const mal: CSSProperties = { marginTop: '12px', fontSize: '13px', color: '#b91c1c', textAlign: 'center' };
+import { useId, useState, type FormEvent } from 'react';
+import { Button } from '@/app/_ui/Button';
+import { Input } from '@/app/_ui/Field';
+import { Alert } from '@/app/_ui/Estados';
 
 /** El renglón plegado y, al abrirlo, el pedido del link. `abierto`: arranca abierto (link vencido). */
 export function PedirLinkAlumno({ abierto: abiertoInicial = false }: { abierto?: boolean }) {
+  const idEmail = useId();
   const [abierto, setAbierto] = useState(abiertoInicial);
   const [email, setEmail] = useState('');
   const [mandando, setMandando] = useState(false);
@@ -52,7 +43,7 @@ export function PedirLinkAlumno({ abierto: abiertoInicial = false }: { abierto?:
   const [error, setError] = useState('');
 
   if (!abierto) {
-    return <button type="button" style={enlaceSuave} onClick={() => setAbierto(true)}>Soy alumno: entrar con mi email</button>;
+    return <button type="button" className="lg-link" onClick={() => setAbierto(true)}>Soy alumno: entrar con mi email</button>;
   }
 
   async function pedir(e: FormEvent) {
@@ -74,18 +65,19 @@ export function PedirLinkAlumno({ abierto: abiertoInicial = false }: { abierto?:
     }
   }
 
-  if (listo) return <p style={nota}>{listo}</p>;
+  if (listo) return <p role="status" className="lg-nota lg-centro">{listo}</p>;
   return (
-    <form onSubmit={(e) => void pedir(e)} style={{ marginTop: '16px' }}>
-      <label htmlFor="alumno-email" style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: '#14161B' }}>
-        Tu email
-      </label>
-      <input id="alumno-email" type="email" autoComplete="email" required value={email} placeholder="persona@empresa.com"
-        onChange={(e) => setEmail(e.target.value)} style={campo} />
-      <button type="submit" disabled={mandando} style={{ ...primario, opacity: mandando ? 0.7 : 1 }}>
+    <form onSubmit={(e) => void pedir(e)} className="lg-pila">
+      {error && <Alert tono="bad">{error}</Alert>}
+      <div className="lg-campo">
+        <label className="mk-label" htmlFor={idEmail}>Tu email</label>
+        <Input id={idEmail} type="email" autoComplete="email" required value={email}
+          placeholder="persona@empresa.com" onChange={(e) => setEmail(e.target.value)} />
+        <span className="mk-hint">Te mandamos un link para entrar a tu programa.</span>
+      </div>
+      <Button type="submit" variant="secondary" size="lg" full loading={mandando} disabled={!email.trim()}>
         {mandando ? 'Mandando…' : 'Mandarme el link'}
-      </button>
-      {error && <p style={mal}>{error}</p>}
+      </Button>
     </form>
   );
 }
@@ -96,12 +88,17 @@ export function PedirLinkAlumno({ abierto: abiertoInicial = false }: { abierto?:
  * el motivo en una palabra.
  */
 export function BotonEntrarAlumno({ token }: { token: string }) {
+  // ⚠️ EL `<form>` VA PELADO, sin `className`: tests/curso-invitar.test.ts exige el tag textual
+  // `<form method="post" action="/api/alumno/entrar">` — es la garantía de que abrir el link no lo
+  // gasta (lo gastaría un escáner de correo) y que sólo lo gasta el POST del botón. El aire va
+  // adentro.
   return (
     <form method="post" action="/api/alumno/entrar">
       <input type="hidden" name="t" value={token} />
-      <button type="submit" style={primario}>Entrar a tu programa</button>
-      <p style={nota}>El link sirve una sola vez.</p>
+      <div className="lg-pila">
+        <Button type="submit" variant="primary" size="lg" full>Entrar a tu programa</Button>
+        <p className="lg-pie">El link sirve una sola vez.</p>
+      </div>
     </form>
   );
 }
-

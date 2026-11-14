@@ -10,9 +10,21 @@
 // El destino es /inicio, el repartidor (onboarding pendiente → /onboarding; en la
 // computadora, el resto al Ops Center desde el 21/10/2026: lib/ops-center-ruta.ts).
 // No se duplica esa lógica acá: si mañana cambia, cambia en un solo lugar.
+//
+// ⚠️ EL BOTÓN ERA ILEGIBLE EN OSCURO, y es el bug que justifica usar el primitive.
+// Tenía `background: var(--primary)` (un token, que se da vuelta) con
+// `color: '#fff'` CLAVADO: en oscuro `--primary` vale #ededeb, o sea blanco sobre
+// casi-blanco — ratio 1,06:1, el texto desaparecía. Y se ve justo acá: el tema
+// oscuro sólo se aplica CON sesión (`{sesion && <ModoArranque/>}` en app/layout.tsx),
+// y esta es la única pantalla de /login que se dibuja con sesión. `Button` ya
+// resuelve la tinta por tema (`[data-tema="oscuro"] .mk-btn--primary` en
+// app/_ui/ui.css): un color que EXISTE PARA un fondo se declara al lado de ese
+// fondo, no en la pantalla que lo usa.
 
 import { useEffect, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
+import { Button } from '@/app/_ui/Button';
+import { EncabezadoLogin } from './_ui/TarjetaLogin';
 
 const DESTINO = '/inicio';
 const ESPERA_MS = 1200; // suficiente para leer el aviso, poco para no estorbar
@@ -33,44 +45,33 @@ export function YaLogueado({ nombre, email }: { nombre: string; email: string })
 
   return (
     <>
-      <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '6px' }}>
-        Ya tienes la sesión abierta como <strong style={{ color: '#14161B' }}>{quien}</strong>.
+      <EncabezadoLogin
+        titulo="Ya tienes la sesión abierta"
+        sub={<>Entraste como <strong>{quien}</strong>. <span role="status">{yendo ? 'Entrando…' : 'Te llevamos a tu tablero.'}</span></>}
+      />
+      <div className="lg-cuerpo">
+        <Button variant="primary" size="lg" full onClick={() => { setYendo(true); router.replace(DESTINO); }}>
+          Ir a mi tablero
+        </Button>
+        {/* Salida para el caso real de "quiero entrar con otra cuenta". Sin esto, alguien
+            con la sesión abierta no tendría forma de llegar al botón de Google.
+            Ojo: /api/auth/logout devuelve JSON, no redirige — si esto fuera un <form>
+            nativo el usuario terminaría mirando {"ok":true}. Se navega a mano, igual
+            que el botón de cerrar sesión del sidebar. */}
+        <Button
+          variant="tertiary"
+          full
+          loading={saliendo}
+          onClick={async () => {
+            setSaliendo(true);
+            try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* igual salimos */ }
+            // location, no router: hay que releer la cookie borrada desde el server.
+            window.location.href = '/login';
+          }}
+        >
+          {saliendo ? 'Cerrando sesión…' : 'Entrar con otra cuenta'}
+        </Button>
       </div>
-      <div style={{ fontSize: '13px', color: '#8A93A1', marginBottom: '20px' }}>
-        {yendo ? 'Entrando…' : 'Te llevamos a tu tablero.'}
-      </div>
-      <button
-        onClick={() => { setYendo(true); router.replace(DESTINO); }}
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%',
-          padding: '12px', borderRadius: '11px', border: 'none', background: 'var(--primary)',
-          color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', boxSizing: 'border-box',
-        }}
-      >
-        Ir a mi tablero
-      </button>
-      {/* Salida para el caso real de "quiero entrar con otra cuenta". Sin esto, alguien
-          con la sesión abierta no tendría forma de llegar al botón de Google.
-          Ojo: /api/auth/logout devuelve JSON, no redirige — si esto fuera un <form>
-          nativo el usuario terminaría mirando {"ok":true}. Se navega a mano, igual
-          que el botón de cerrar sesión del sidebar. */}
-      <button
-        onClick={async () => {
-          setSaliendo(true);
-          try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* igual salimos */ }
-          // location, no router: hay que releer la cookie borrada desde el server.
-          window.location.href = '/login';
-        }}
-        disabled={saliendo}
-        style={{
-          marginTop: '12px', width: '100%', padding: '10px', borderRadius: '11px',
-          border: '1px solid rgba(0,0,0,.14)', background: 'transparent', color: '#5B6472',
-          fontSize: '13.5px', fontWeight: 600, cursor: saliendo ? 'default' : 'pointer',
-          boxSizing: 'border-box', opacity: saliendo ? 0.6 : 1,
-        }}
-      >
-        {saliendo ? 'Cerrando sesión…' : 'Entrar con otra cuenta'}
-      </button>
     </>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// LoginForm — el botón de Google, y nada más
+// LoginForm — el camino a la cuenta: Google primero, el correo detrás
 // =============================================================================
 // Vive aparte de page.tsx porque usa useSearchParams (lee ?next= y ?error=). Nació
 // con un boundary de Suspense porque /login se prerenderizaba; hoy es dinámica
@@ -13,19 +13,40 @@
 // dejaba tenía como valor el mismo secreto que firmaba las sesiones — o sea que
 // quien la tuviera podía fabricarse un token de admin a mano. Quién entra ahora
 // lo decide la tabla usuarios, y nada más.
+//
+// ⚠️ LA JERARQUÍA (14/11/2026). Google era un `<a>` BLANCO con borde y el botón
+// NEGRO era el de la contraseña: la pantalla gritaba el camino de excepción y
+// susurraba el de siempre. Hoy Google es `mk-btn--primary` y el correo
+// `mk-btn--secondary`. Sigue siendo un `<a>` y no un fetch a propósito: el OAuth
+// es una navegación de verdad (GET), y un `<a>` se puede abrir en otra pestaña.
+//
+// ⚠️ NADA DE `style={{}}` CON HEXES: todo sale de los tokens (app/globals.css) y
+// de los primitives de app/_ui. En esta pantalla había 23 colores escritos a
+// mano, así que el claro/oscuro no la tocaba y el foco del teclado no se veía.
 // =============================================================================
 
 import { TEXTO_PEDIDO_REGISTRADO } from '@/lib/pedidos-ingreso-reglas';
-import { useState, type CSSProperties, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { Button } from '@/app/_ui/Button';
+import { Input } from '@/app/_ui/Field';
+import { Alert } from '@/app/_ui/Estados';
 
-const campo: CSSProperties = { width: '100%', padding: '11px 12px', borderRadius: '10px', border: '1px solid rgba(0,0,0,.18)', background: '#fff', color: '#14161B', fontSize: '15px', boxSizing: 'border-box', marginBottom: '8px' };
+/** El logo de Google, tal cual lo pide su guía de marca (los cuatro colores son suyos, no de la app). */
+function IcoGoogle() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 3-2.2 5.5-4.7 7.2l7.3 5.7C43.8 38 46.5 31.8 46.5 24.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.7-2.9-.7-4.7s.3-3.3.7-4.7l-7.9-6.1C1 16.5 0 20.1 0 24s1 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.3 0 11.6-2.1 15.5-5.6l-7.3-5.7c-2 1.4-4.7 2.3-8.2 2.3-6.3 0-11.6-3.7-13.5-9.3l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+  );
+}
 
 /**
  * Entrar con correo y contraseña (15/10/2026): el camino ALTERNATIVO a Google, para el día que Google
- * no esté. Plegado detrás de un link para no competir con el botón de Google, que es el de siempre.
+ * no esté. Plegado detrás de un botón secundario para no competir con el de Google, que es el de siempre.
  * Después de la contraseña viene el MISMO segundo paso que después de Google (/login/2fa).
+ *
+ * `abiertoDeEntrada` es `sinGoogle` (la app de iPhone): cuando llega en `true` no hay Google en la
+ * pantalla, así que este deja de ser el camino alternativo y SU botón pasa a ser el primario. Es el
+ * único dato que hace falta para no tener dos `primary` compitiendo (app/_ui/LEEME.md).
  */
 function ConCorreo({ next, abiertoDeEntrada = false }: { next: string; abiertoDeEntrada?: boolean }) {
   const [abierto, setAbierto] = useState(abiertoDeEntrada);
@@ -36,11 +57,20 @@ function ConCorreo({ next, abiertoDeEntrada = false }: { next: string; abiertoDe
   // «Olvidé mi contraseña» (15/10/2026): el link llega por mail. La respuesta es SIEMPRE la misma.
   const [olvido, setOlvido] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  const soloCamino = abiertoDeEntrada;
+  // Los campos se arman con <Field>+<Input> y no con <TextField>: `required` en TextField sólo
+  // dibuja el asterisco (no llega al <input>), y acá los dos campos son obligatorios, así que un
+  // asterisco en cada rótulo no informa nada y el `required` de verdad sí hace falta.
+  const idCorreo = useId();
+  const idClave = useId();
   if (!abierto) {
     return (
-      <button type="button" onClick={() => setAbierto(true)} style={{ display: 'block', width: '100%', marginTop: '14px', background: 'none', border: 'none', fontSize: '13px', color: '#5B6472', cursor: 'pointer', textDecoration: 'underline' }}>
-        o entra con tu correo
-      </button>
+      <>
+        <div className="lg-o">o</div>
+        <Button variant="secondary" size="lg" full onClick={() => setAbierto(true)}>
+          Entrar con tu correo
+        </Button>
+      </>
     );
   }
   if (olvido) {
@@ -59,18 +89,21 @@ function ConCorreo({ next, abiertoDeEntrada = false }: { next: string; abiertoDe
       }
     };
     return (
-      <form onSubmit={mandar} style={{ marginTop: '16px' }}>
-        <div style={{ fontSize: '14px', fontWeight: 600, color: '#14161B', marginBottom: '8px' }}>Restablecer tu contraseña</div>
-        {aviso ? <div role="status" style={{ marginBottom: '10px', fontSize: '13px', color: '#14161B' }}>{aviso}</div> : (
+      <form onSubmit={mandar} className="lg-pila">
+        <p className="lg-nota"><strong>Restablecer tu contraseña.</strong> Te mandamos un link al correo de tu cuenta.</p>
+        {aviso ? <p role="status" className="lg-nota">{aviso}</p> : (
           <>
-            {error && <div role="alert" style={{ marginBottom: '10px', fontSize: '13px', color: '#b91c1c' }}>{error}<ReportarASoporte /></div>}
-            <input type="email" autoComplete="username" placeholder="Tu correo" value={email} onChange={(e) => setEmail(e.target.value)} required style={campo} />
-            <button type="submit" disabled={ocupado || !email} style={{ width: '100%', padding: '12px', borderRadius: '11px', border: 'none', background: '#14161B', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', opacity: ocupado ? 0.6 : 1 }}>
+            {error && <Alert tono="bad">{error}</Alert>}
+            <div className="lg-campo">
+              <label className="mk-label" htmlFor={idCorreo}>Tu correo</label>
+              <Input id={idCorreo} type="email" autoComplete="username" placeholder="nombre@empresa.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <Button type="submit" variant="primary" size="lg" full loading={ocupado} disabled={!email}>
               {ocupado ? 'Mandando…' : 'Mandarme el link'}
-            </button>
+            </Button>
           </>
         )}
-        <button type="button" onClick={() => { setOlvido(false); setAviso(null); setError(null); }} style={{ display: 'block', width: '100%', marginTop: '10px', background: 'none', border: 'none', fontSize: '13px', color: '#5B6472', cursor: 'pointer', textDecoration: 'underline' }}>
+        <button type="button" className="lg-link" onClick={() => { setOlvido(false); setAviso(null); setError(null); }}>
           Volver
         </button>
       </form>
@@ -91,17 +124,31 @@ function ConCorreo({ next, abiertoDeEntrada = false }: { next: string; abiertoDe
     }
   };
   return (
-    <form onSubmit={entrar} style={{ marginTop: '16px' }}>
-      {error && <div role="alert" style={{ marginBottom: '10px', fontSize: '13px', color: '#b91c1c' }}>{error}<ReportarASoporte /></div>}
-      <input type="email" autoComplete="username" placeholder="Tu correo" value={email} onChange={(e) => setEmail(e.target.value)} required style={campo} />
-      <input type="password" autoComplete="current-password" placeholder="Tu contraseña" value={contrasena} onChange={(e) => setContrasena(e.target.value)} required style={campo} />
-      <button type="submit" disabled={ocupado || !email || !contrasena} style={{ width: '100%', padding: '12px', borderRadius: '11px', border: 'none', background: '#14161B', color: '#fff', fontSize: '15px', fontWeight: 600, cursor: 'pointer', opacity: ocupado ? 0.6 : 1 }}>
-        {ocupado ? 'Entrando…' : 'Entrar'}
-      </button>
-      <button type="button" onClick={() => { setOlvido(true); setError(null); }} style={{ display: 'block', width: '100%', marginTop: '10px', background: 'none', border: 'none', fontSize: '13px', color: '#5B6472', cursor: 'pointer', textDecoration: 'underline' }}>
-        ¿Olvidaste tu contraseña?
-      </button>
-    </form>
+    <>
+      {!soloCamino && <div className="lg-o">o</div>}
+      <form onSubmit={entrar} className="lg-pila">
+        {error && <Alert tono="bad">{error}</Alert>}
+        <div className="lg-campo">
+          <label className="mk-label" htmlFor={idCorreo}>Tu correo</label>
+          <Input id={idCorreo} type="email" autoComplete="username" placeholder="nombre@empresa.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </div>
+        <div className="lg-campo">
+          {/* «¿Olvidaste tu contraseña?» va PEGADO a la contraseña, no al pie: abajo quedaba
+              apilado con «Soy alumno…» y con la nota de la invitación, tres renglones grises
+              iguales que no se sabía de qué colgaba cada uno. */}
+          <div className="lg-campo__cab">
+            <label className="mk-label" htmlFor={idClave}>Tu contraseña</label>
+            <button type="button" className="lg-link lg-link--chico" onClick={() => { setOlvido(true); setError(null); }}>
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+          <Input id={idClave} type="password" autoComplete="current-password" value={contrasena} onChange={(e) => setContrasena(e.target.value)} required />
+        </div>
+        <Button type="submit" variant={soloCamino ? 'primary' : 'secondary'} size="lg" full loading={ocupado} disabled={!email || !contrasena}>
+          {ocupado ? 'Entrando…' : 'Entrar'}
+        </Button>
+      </form>
+    </>
   );
 }
 
@@ -141,17 +188,19 @@ export function LoginForm({ sinGoogle = false }: { sinGoogle?: boolean }) {
 
   return (
     <>
-      {/* «Quedó registrado» no es un error (30/10/2026): en rojo, desde su lado seguiría siendo una pared. */}
+      {/* «Quedó registrado» no es un error (30/10/2026): en rojo, desde su lado seguiría siendo una
+          pared. Va con el tono `info`, que es el de «esto es información y vos actuás» — y con el
+          tono `bad` el <Alert> además suma el role="alert" y «Reportar a Soporte», que es justo lo
+          que NO corresponde cuando el pedido salió bien. */}
       {oauthError && (
-        <div style={{ marginBottom: '16px', fontSize: '13px', borderRadius: '10px', padding: '10px 12px',
-          ...(err === 'pedido-registrado' ? { color: '#1d4ed8', background: '#eff4ff', border: '1px solid #c7d7fe' } : { color: '#b91c1c', background: '#fdecec', border: '1px solid #f5c2c2' }) }}>{oauthError}</div>
+        <Alert tono={err === 'pedido-registrado' ? 'info' : 'bad'}>{oauthError}</Alert>
       )}
 
       {!sinGoogle && <a
         href={`/api/auth/google?next=${encodeURIComponent(next)}`}
-        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', width: '100%', padding: '12px', borderRadius: '11px', border: '1px solid rgba(0,0,0,.18)', background: '#fff', color: '#14161B', fontSize: '15px', fontWeight: 600, textDecoration: 'none', boxSizing: 'border-box' }}
+        className="mk-btn mk-btn--primary mk-btn--lg mk-btn--full"
       >
-        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.2 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.5 3-2.2 5.5-4.7 7.2l7.3 5.7C43.8 38 46.5 31.8 46.5 24.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.7-2.9-.7-4.7s.3-3.3.7-4.7l-7.9-6.1C1 16.5 0 20.1 0 24s1 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.3 0 11.6-2.1 15.5-5.6l-7.3-5.7c-2 1.4-4.7 2.3-8.2 2.3-6.3 0-11.6-3.7-13.5-9.3l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+        <IcoGoogle />
         Continuar con Google
       </a>}
       <ConCorreo next={next} abiertoDeEntrada={sinGoogle} />

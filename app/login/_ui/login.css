@@ -1,0 +1,274 @@
+/* =============================================================================
+   app/login — la pantalla de entrada: el velo, la tarjeta y lo que va adentro
+   =============================================================================
+   Antes esto eran 3 copias a mano de un overlay con `style={{}}` y hexes
+   clavados (`#14161B`, `#F5F7FA`, `#facc15`, `#5B6472`, `#b91c1c`…): 0 clases y
+   0 tokens en toda la pantalla, así que el claro/oscuro no llegaba y cada
+   hermana (/login, /login/2fa, /login/restablecer) se iba corriendo de la otra.
+
+   Dos reglas de la casa que esta hoja hace cumplir:
+     · UN COLOR, UN SIGNIFICADO: acá no hay un solo hex. Todo sale de los tokens
+       de app/globals.css, que son los que se dan vuelta con `data-tema`.
+     · :hover, :focus-visible y :disabled NO EXISTEN en un `style={{}}`. Por eso
+       lo que los necesita (los links de texto) vive acá y no en el JSX.
+
+   ⚠️ EL z-index DEL VELO (9999) ES LA EXCEPCIÓN LEGÍTIMA de
+   tests/confirm-encima-de-modales.test.ts: es la pantalla entera antes de que
+   exista sesión, y ningún «¿seguro?» de la app puede aparecer sobre ella.
+   Si baja o sube, se mira ese test.
+
+   Los botones y los campos NO se definen acá: son `mk-btn`/`mk-input` de
+   app/_ui (`Button`, `ButtonLink`, `Field`, `Input`). Lo único propio de esta
+   pantalla es el envoltorio.
+   ============================================================================= */
+
+/* El velo: tapa el layout entero (sidebar incluido). `flex` + `margin:auto` en
+   el marco y no `place-items:center`: con la tarjeta más alta que la ventana
+   —el alta del segundo paso con el QR— un grid centrado le come la cabeza y no
+   se puede scrollear hasta ella. */
+.lg-velo {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* El fondo es el de la app, con un lavado cálido de marca arriba para que la
+     tarjeta se despegue. `--mako-bg` es la superficie «esto es de MaKo» y se da
+     vuelta sola en oscuro: no hace falta inventar un rgba del dorado. */
+  background:
+    radial-gradient(135% 100% at 50% -25%, var(--mako-bg) 0%, transparent 58%),
+    var(--bg);
+}
+
+.lg-marco {
+  margin: auto;
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* La marca, ARRIBA de la tarjeta y centrada (Linear, Vercel, Stripe): adentro y
+   pegada a la izquierda competía con el título por el mismo renglón. */
+.lg-marca {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.lg-marca__texto {
+  font-size: var(--fs-sect);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  line-height: 1;
+  color: var(--ink);
+}
+
+/* La tarjeta es una columna con `gap`: el encabezado y el cuerpo no se separan
+   con márgenes sueltos, así una pantalla SIN encabezado (el segundo paso, que
+   pone su propio título por sub-pantalla) no arrastra un hueco de más arriba. */
+.lg-tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 30px 28px;
+  box-shadow: var(--sombra-modal);
+}
+@media (max-width: 430px) {
+  .lg-tarjeta { padding: 24px 20px; }
+  .lg-velo { padding: 20px 16px; }
+}
+
+.lg-titulo {
+  margin: 0;
+  font-size: var(--fs-sect);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.lg-sub {
+  margin: 7px 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--dim);
+}
+.lg-sub strong { color: var(--ink); font-weight: 600; }
+/* El cuerpo de la tarjeta. Un `gap` y no márgenes sueltos: lo que se pliega y
+   se despliega no deja huecos al desaparecer. */
+.lg-cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lg-pila {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lg-nota {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--dim);
+}
+.lg-pie {
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+  color: var(--faint);
+}
+.lg-pie strong { color: var(--dim); font-weight: 600; }
+.lg-centro { text-align: center; }
+
+/* «o» con dos rayas: el corte entre el camino principal (Google) y el alternativo. */
+/* ⚠️ MINÚSCULA Y SIN `letter-spacing`: con `text-transform: uppercase` una «o» sola
+   queda como un círculo entre dos rayas y se lee como un símbolo, no como la palabra.
+   Medido en la captura de 375 px. */
+.lg-o {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 2px 0;
+  font-size: var(--fs-sm);
+  color: var(--faint);
+}
+.lg-o::before,
+.lg-o::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+/* El link de texto: lo que estaba como `<button style={{ textDecoration:
+   'underline', color: '#5B6472' }}>` sin hover ni foco en seis lugares.
+
+   ⚠️ EL SUBRAYADO SE QUEDA, no aparece en el hover. En un teléfono NO HAY hover: sin
+   él, «Soy alumno: entrar con mi email» se lee como una frase gris más y nadie sabe
+   que se toca. Se vio en la captura de 375 px. Lo que cambia al pasar por encima es
+   el color de la tinta y el de la raya, no si existe. */
+.lg-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  align-self: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  background: none;
+  border: 0;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--dim);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color .14s ease, background .14s ease, text-decoration-color .14s ease;
+}
+.lg-link:hover:not(:disabled) { color: var(--ink); background: var(--surface-2); text-decoration-color: var(--ink); }
+.lg-link:focus-visible { outline: none; color: var(--ink); box-shadow: var(--focus-ring); }
+.lg-link:disabled { opacity: .5; cursor: default; }
+
+/* El mismo link, pero al lado del rótulo de un campo («¿Olvidaste tu contraseña?»):
+   chico y sin caja, para que no pelee con el rótulo. */
+.lg-link--chico {
+  align-self: auto;
+  min-height: 0;
+  padding: 0;
+  font-size: var(--fs-meta);
+}
+.lg-link--chico:hover:not(:disabled) { background: none; }
+
+/* Un campo con su rótulo. La acción que pertenece AL CAMPO va en la misma línea que el
+   rótulo, a la derecha: abajo, apilada con los otros links grises, era el tercer renglón
+   plegado de la pantalla y no se entendía de qué colgaba. */
+.lg-campo { display: grid; gap: 6px; }
+.lg-campo > .mk-label { margin-bottom: 0; }
+.lg-campo__cab {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.lg-campo__cab > .mk-label { margin-bottom: 0; }
+
+/* Separador de los «otros métodos» del segundo paso. */
+.lg-otros {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px 8px;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+/* El campo del código (6 dígitos o xxxxx-xxxxx): el mismo `mk-input`, con la
+   letra grande y espaciada que se lee de un vistazo. */
+.lg-codigo {
+  font-size: var(--fs-sect);
+  letter-spacing: .3em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.lg-codigo--largo {
+  font-size: var(--fs-card);
+  letter-spacing: .12em;
+}
+
+/* Los códigos de recuperación, en dos columnas y en mono: se copian a mano. */
+.lg-codigos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  padding: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+.lg-dos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* El QR del alta de la app de autenticación, y el secreto para escribirlo a mano. */
+.lg-qr {
+  display: block;
+  margin: 0 auto;
+  border-radius: var(--r-md);
+  background: #fff; /* el QR SÓLO se lee en blanco: no es un color de la interfaz */
+  padding: 8px;
+}
+.lg-secreto {
+  margin: 0;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-meta);
+  color: var(--dim);
+  text-align: center;
+  word-break: break-all;
+}
+.lg-espera {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  color: var(--dim);
+}

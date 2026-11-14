@@ -8,19 +8,20 @@
 // pide también (la app o un código de recuperación): con el link solo, quien roba el correo cambia la
 // contraseña con un clic. Al terminar NO entra solo: vuelve al login, que pide la contraseña nueva y el
 // segundo paso como siempre.
+//
+// ⚠️ La presentación es la de las otras dos pantallas de entrada (app/login/_ui/login.css y los
+// primitives de app/_ui). Acá había una cuarta copia de los mismos `CSSProperties` con los mismos
+// hexes a mano; la lógica —el fragmento, el replaceState, el POST— no se tocó.
 
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Button } from '@/app/_ui/Button';
+import { Input } from '@/app/_ui/Field';
+import { Alert } from '@/app/_ui/Estados';
+import { Spinner } from '@/app/_ui/Feedback';
+import { EncabezadoLogin } from '../_ui/TarjetaLogin';
 import { CampoCodigo } from '../2fa/CampoCodigo';
 
 type Abierto = { cuenta: string; pideFactor: boolean; metodos: { totp: boolean; recuperacion: boolean } };
-
-const btn: CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', padding: '12px', borderRadius: '11px', border: 'none', background: 'var(--primary)', color: 'var(--on-primary)', fontSize: '15px', fontWeight: 600, cursor: 'pointer', boxSizing: 'border-box' };
-const link: CSSProperties = { background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: '13px', cursor: 'pointer' };
-const campo: CSSProperties = { width: '100%', padding: '12px', borderRadius: '11px', border: '1px solid rgba(0,0,0,.18)', background: '#fff', color: '#14161B', fontSize: '15px', boxSizing: 'border-box', outline: 'none', marginBottom: '8px' };
-const campoCodigo: CSSProperties = { ...campo, fontSize: '18px', letterSpacing: '4px', textAlign: 'center' };
-const titulo: CSSProperties = { fontWeight: 700, fontSize: '17px', color: '#14161B', marginBottom: '4px' };
-const sub: CSSProperties = { fontSize: '13px', color: '#5B6472', marginBottom: '14px' };
-const errorBox: CSSProperties = { marginBottom: '12px', fontSize: '13px', color: '#b91c1c', background: '#fdecec', border: '1px solid #f5c2c2', borderRadius: '10px', padding: '10px 12px' };
 
 async function pedir(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; [k: string]: unknown }> {
   const r = await fetch('/api/auth/restablecer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -70,51 +71,53 @@ export function Restablecer() {
 
   if (listo) {
     return (
-      <div>
-        <div style={titulo}>Listo, cambiaste tu contraseña</div>
-        <div style={sub}>Entra con tu correo y la contraseña nueva.</div>
-        <a href="/login" style={{ ...btn, textDecoration: 'none' }}>Ir a entrar</a>
-      </div>
+      <>
+        <EncabezadoLogin titulo="Listo, cambiaste tu contraseña" sub="Entra con tu correo y la contraseña nueva." />
+        <div className="lg-cuerpo">
+          <a href="/login" className="mk-btn mk-btn--primary mk-btn--lg mk-btn--full">Ir a entrar</a>
+        </div>
+      </>
     );
   }
   if (muerto) {
     return (
-      <div>
-        <div style={titulo}>El link no sirve</div>
-        <div style={sub}>{muerto}</div>
-        <a href="/login" style={{ ...btn, textDecoration: 'none' }}>Volver al login</a>
-      </div>
+      <>
+        <EncabezadoLogin titulo="El link no sirve" sub={muerto} />
+        <div className="lg-cuerpo">
+          <a href="/login" className="mk-btn mk-btn--secondary mk-btn--lg mk-btn--full">Volver al login</a>
+        </div>
+      </>
     );
   }
-  if (!estado) return <div style={sub}>Cargando…</div>;
+  if (!estado) return <div className="lg-espera" aria-busy="true"><Spinner size={20} /></div>;
 
   const largo = metodo === 'recuperacion' ? 11 : 6;
   return (
-    <form onSubmit={guardar}>
-      <div style={titulo}>Crea tu contraseña nueva</div>
-      <div style={sub}>{estado.cuenta} · 12 caracteres o más.</div>
-      {error && <div style={errorBox}>{error}</div>}
-      {/* El correo, oculto: el gestor de contraseñas la guarda con la cuenta correcta. */}
-      <input type="email" autoComplete="username" value={estado.cuenta} readOnly hidden />
-      <input type={ver ? 'text' : 'password'} autoComplete="new-password" value={nueva} onChange={(e) => setNueva(e.target.value)} style={campo} autoFocus aria-label="Contraseña nueva" placeholder="Contraseña nueva" />
-      <div style={{ marginBottom: '12px' }}>
-        <button type="button" style={link} onClick={() => setVer((v) => !v)}>{ver ? 'Ocultar' : 'Mostrar'}</button>
-      </div>
-      {estado.pideFactor && (
-        <>
-          <div style={{ ...sub, marginBottom: '6px' }}>{metodo === 'recuperacion' ? 'Un código de recuperación' : 'El código de tu app de autenticación'}</div>
-          <CampoCodigo valor={codigo} onCambio={setCodigo} ocupado={ocupado} error={error} estilo={campoCodigo} largo={largo}
-            onCompleto={() => { if (nueva) guardar(); }} />
-          {estado.metodos.totp && estado.metodos.recuperacion && (
-            <div style={{ marginBottom: '12px' }}>
-              <button type="button" style={link} onClick={() => { setMetodo((m) => (m === 'totp' ? 'recuperacion' : 'totp')); setCodigo(''); }}>
+    <>
+      <EncabezadoLogin titulo="Crea tu contraseña nueva" sub={`${estado.cuenta} · 12 caracteres o más.`} />
+      <form onSubmit={guardar} className="lg-cuerpo">
+        {error && <Alert tono="bad">{error}</Alert>}
+        {/* El correo, oculto: el gestor de contraseñas la guarda con la cuenta correcta. */}
+        <input type="email" autoComplete="username" value={estado.cuenta} readOnly hidden />
+        <Input type={ver ? 'text' : 'password'} autoComplete="new-password" value={nueva} onChange={(e) => setNueva(e.target.value)} autoFocus aria-label="Contraseña nueva" placeholder="Contraseña nueva" />
+        <button type="button" className="lg-link" onClick={() => setVer((v) => !v)}>{ver ? 'Ocultar la contraseña' : 'Mostrar la contraseña'}</button>
+        {estado.pideFactor && (
+          <>
+            <p className="lg-nota">{metodo === 'recuperacion' ? 'Un código de recuperación' : 'El código de tu app de autenticación'}</p>
+            <CampoCodigo valor={codigo} onCambio={setCodigo} ocupado={ocupado} error={error} largo={largo}
+              clase={largo === 6 ? 'mk-input lg-codigo' : 'mk-input lg-codigo lg-codigo--largo'}
+              onCompleto={() => { if (nueva) guardar(); }} />
+            {estado.metodos.totp && estado.metodos.recuperacion && (
+              <button type="button" className="lg-link" onClick={() => { setMetodo((m) => (m === 'totp' ? 'recuperacion' : 'totp')); setCodigo(''); }}>
                 {metodo === 'totp' ? 'Usar un código de recuperación' : 'Usar la app de autenticación'}
               </button>
-            </div>
-          )}
-        </>
-      )}
-      <button type="submit" style={btn} disabled={ocupado || !nueva || (estado.pideFactor && codigo.length < largo)}>Guardar contraseña</button>
-    </form>
+            )}
+          </>
+        )}
+        <Button type="submit" variant="primary" size="lg" full loading={ocupado} disabled={!nueva || (estado.pideFactor && codigo.length < largo)}>
+          Guardar contraseña
+        </Button>
+      </form>
+    </>
   );
 }

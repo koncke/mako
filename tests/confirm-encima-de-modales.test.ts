@@ -67,7 +67,14 @@ test('el confirm se dibuja por encima de todos los overlays de la app', () => {
   // que se pueda tocar, así que ningún «¿seguro?» de ahí abajo tiene que verse.
   // El segundo paso del login (14/10/2026) es la misma tarjeta que /login, tapando el layout:
   // ahí no se abre ningún «¿seguro?». Y el link de «Olvidé mi contraseña» (15/10/2026), también la misma tarjeta.
-  const EXCEPCIONES = ['app/login/page.tsx', 'app/login/2fa/page.tsx', 'app/login/restablecer/page.tsx', 'app/_ui/Confirm.tsx', 'app/_components/DesvioMovil.tsx'];
+  //
+  // ⚠️ EL VELO DEL LOGIN YA NO ESTÁ EN NINGUNO DE ESOS TRES (14/11/2026): las tres pantallas
+  // comparten `app/login/_ui/TarjetaLogin.tsx`, y su `position/inset/z-index` vive en
+  // `app/login/_ui/login.css` (`.lg-velo`, z-index 9999). O sea que `overlays()`, que sólo mira
+  // estilos EN LÍNEA, no lo ve: los tres page.tsx quedan en la lista por si vuelven a tener uno, y
+  // el archivo nuevo se suma por lo mismo. ESTE BARRIDO TIENE ESE AGUJERO: un overlay declarado en
+  // una clase de CSS se le escapa, acá y en cualquier otra pantalla.
+  const EXCEPCIONES = ['app/login/page.tsx', 'app/login/2fa/page.tsx', 'app/login/restablecer/page.tsx', 'app/login/_ui/TarjetaLogin.tsx', 'app/_ui/Confirm.tsx', 'app/_components/DesvioMovil.tsx'];
   const tapan: string[] = [];
   for (const p of tsx(RAIZ)) {
     const rel = p.replace(/\\/g, '/').replace(/^.*?\/(app\/)/, '$1');

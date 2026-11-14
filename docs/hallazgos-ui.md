@@ -12,6 +12,39 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Cuatro trampas que destapó rediseñar el login (14/11/2026)
+
+**Vive en:** `app/login/_ui/TarjetaLogin.tsx` y `app/login/_ui/login.css` (el velo y la tarjeta, que antes estaban copiados a
+mano en los tres `page.tsx` de `/login`, `/login/2fa` y `/login/restablecer`) · `app/_ui/Field.tsx` · `app/_ui/ui.css`
+(`.mk-btn--primary`) · `tests/confirm-encima-de-modales.test.ts`.
+
+**1. `required` en `<TextField>` dibuja el asterisco y NO llega al `<input>`.** `TextField` desestructura `required` y se lo
+pasa sólo a `<Field>`, que pinta el `*`; nunca entra en el `...rest` que va al control. O sea que un campo con `required`
+*parece* obligatorio, el navegador no lo valida, y el que lo escribió no tiene cómo enterarse: el asterisco está. Si hace
+falta el `required` de verdad, el campo se arma con `<Field>`/`<label class="mk-label">` + `<Input required>`. De paso: en un
+formulario donde TODO es obligatorio, el asterisco en cada rótulo no informa nada.
+
+**2. Un fondo con token y una tinta con hex = invisible el día que el tema se da vuelta.** `YaLogueado.tsx` tenía
+`background: var(--primary)` con `color: '#fff'` clavado. En oscuro `--primary` vale `#ededeb`: blanco sobre casi-blanco,
+**1,06:1**. Y el diagnóstico obvio («nadie ve /login en oscuro, es pública») era el equivocado: el tema oscuro se aplica
+SÓLO con sesión (`{sesion && <ModoArranque />}` en `app/layout.tsx`), así que la única pantalla de `/login` que puede
+dibujarse oscura es justamente «Ya tienes la sesión abierta», la que tenía el botón roto. **Regla:** si el fondo es un
+token, la tinta es un token. `Button` ya lo resuelve (`[data-tema="oscuro"] .mk-btn--primary` cambia la tinta): el primitive
+existe para eso.
+
+**3. Un afford que depende de `:hover` no existe en un teléfono.** Los links de texto quedaron sin subrayado, con el color
+apareciendo en el hover. En la captura de 375 px «Soy alumno: entrar con mi email» se lee como un renglón gris más, igual
+que la nota de al lado que NO se toca. **Regla:** el subrayado (o lo que marque que algo se toca) se queda puesto; lo que
+cambia en el hover es la intensidad, no si existe. Mismo capítulo: `text-transform: uppercase` sobre una «o» sola —el corte
+entre Google y el correo— la convierte en un círculo que se lee como un símbolo, no como la palabra.
+
+**4. El guardián de overlays tiene un agujero: sólo ve los estilos EN LÍNEA.** `overlays()` de
+`tests/confirm-encima-de-modales.test.ts` busca con una regex `position: 'fixed'` + `inset: 0` + `zIndex:` dentro del mismo
+objeto de estilo. Al mudar el velo del login a una clase (`.lg-velo` en `app/login/_ui/login.css`), el guardián dejó de
+verlo por completo y el test pasa sin saber que ese `z-index: 9999` existe. No es del login: **cualquier** pantalla que
+declare su overlay en CSS se le escapa, y el «¿seguro?» quedaría tapado sin que nadie se entere. Mientras la app siga
+mezclando estilos en línea y clases, ese barrido mide la mitad.
+
 ## El contador de WhatsApp de la barra pedía cada 12 s, también con la pestaña oculta (12/11/2026)
 
 **Vive en:** `app/_components/NotificationsProvider.tsx` (el efecto del resumen) · `lib/sondeo-a-la-vista.ts` (`sondearALaVista`,
