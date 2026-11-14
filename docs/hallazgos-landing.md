@@ -6034,3 +6034,45 @@ mouse), sus planes, las flechas y el «Read the story» de sus 25 citas, «The n
 en un lugar nuevo y lo decide él). Con el sol y la luna en claro, las tarjetas, la cita y la caja del cierre quedan oscuras
 (`data-tema-fijo`). En las tarjetas angostas «Escribe con MaKo» y «Cuida tu envío» queda aire abajo de la pantalla (para que entre el
 botón «Generar con MaKo» y la confirmación sin cortarse).
+
+## Dashboard como Reportei: las tarjetas no suben, el botón se ACLARA, y los números de cada hoja de ejemplo no cuadraban entre sí (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/dashboard.tsx` (diseño, `PANTALLA_DE_PESTANA`, `FOTOS_TARJETAS` y el `<script data-visor>`),
+`app/vsl/_competencia/dashboard.ts`, `public/vsl-assets/dashboard/`, valores en `docs/diseno/landings-competencia/dashboard.md`, test
+«Dashboard: …» en `tests/vsl-landings-competencia.test.ts`. Banco: `C:/dev/bancos-portada/banco-dashboard-landing/` (`ejemplo.ts`,
+`entrada.tsx`, `build.mjs`, `grabar.mjs`, `fotos.mjs`, `recortar.py`, `cortes.py`, `publicar.py`). El relevo con capturas: notas de la
+sesión, `referencias-landings/dashboard/`.
+
+- **⚠️ Lo obvio era lo equivocado: la copia del 11/11 «levantaba» las tarjetas al pasar el mouse** (`translateY(-4px)` y sombra) y
+  oscurecía el botón. Medido antes y 700 ms después: las tarjetas pastel sólo bajan su fondo UN escalón (`#EEFBF2` → `#DFF7E6`…) y NO
+  suben — su `transform` está en la transición (`transform .4s`) pero nunca cambia —, y los botones verdes se ACLARAN (`#13BD49` →
+  `#41D771`). Leer «transition: transform» en su CSS no dice que algo se mueva.
+- **La referencia cambió desde el 11/11:** la caja «Más de 10.000 empresas…» trae un muro de logos que corre (dos filas, 48 s y 55 s al
+  revés, máscara en los bordes, «Pausar» con una casilla) y un video de YouTube que arranca solo; las siete tarjetas son LINKS enteros con
+  captura; hay «Conoce la herramienta» (pestañas que cambian la captura al TOCARLAS), precios en un iframe, Flux y Sync. Y su primera
+  tarjeta («Informe») se dibuja ROTA en su sitio (557 × 58): se copió como su gemela «Overview».
+- **«Conoce la herramienta» está escondida a 1024 px o menos** (`elementor-hidden-tablet/mobile`) y la abre un link a `#rpt-demo-…`
+  (su script le pone `rpt-demo-revealed` y las pestañas pasan a una fila que se desliza). Aquí igual: el «Quiero saber más» de cada
+  tarjeta elige su pestaña, abre la sección y baja.
+- **⚠️ Los números de ejemplo de la app no cuadran ENTRE hojas** (cada muestra se hizo para su miniatura): Marketing gasta US$2,460 y
+  General dice US$2,140; Comercial vende US$96,000 con 6 cierres (ticket de US$16,000) y Closing cierra el 38 % contra el 28,6 % de
+  Comercial. Para una landing que muestra varias hojas, el banco arma TODAS desde UNA tabla (`ejemplo.ts`: US$2,460 → 167 leads → 27
+  agendas → 21 vinieron → 6 cierres → US$24,000 vendidos, US$12,480 cobrados) y le cambia a `DisenoEnMiniatura` sus muestras en la
+  build (las miniaturas de «Nueva hoja» que se ven en el video decían otra cosa). La build frena si el reemplazo no se aplicó.
+- **Las Tendencias de Marketing son un serrucho con menos de 21 días** (vive en `lib/marketing-diseno.ts` → `tendenciasDe`, área
+  Dashboard): la ventana de 7 días sólo se aplica con 21 filas diarias o más; con 20, las agendas de a 1 o 2 por día dibujaban −50 % / 0 %
+  todo el período. En el banco, «Este mes» va hasta el 23. En la app pasa igual los primeros 20 días de cada mes con «Este mes».
+- **La «Próxima llamada» de Closing cuenta desde `Date.now()`**: en el banco decía «En 142 h 56 min». El banco corre un reloj fijo
+  (hoy 11:10, avanzando) reemplazando `Date` en la entrada.
+- **En «Nueva hoja», una plantilla se toca por `[data-plantilla="…"]`**, no por su nombre: `getByText('Comercial')` caía en un texto de
+  la miniatura de otra tarjeta y el cursor se iba a «VSL y YouTube».
+- **Acercar la cámara a una tira de 936 px no acerca** (k = 1,37): en el hero de ~560 px la letra quedaba ilegible. Se encuadra la MITAD
+  de la tira (k ≈ 2,6). Y `cortes.py` busca el corte del bucle en el video (el primer y el último movimiento de la cámara), no en las marcas. Y el video de Playwright de una ventana de 1320 × 825 sale de 1320 × 824 con las DOS últimas columnas grises (#808080): en la ventana del
+  navegador de «Conoce la herramienta» se veía un filete oscuro a la derecha; se recorta a 1316 × 822 antes de escalar (`recortar.py`).
+
+SIN HACER: lo que Reportei tiene y MaKo no (informes programados por email y WhatsApp, línea de tiempo de hitos, premios, precios con
+promoción, Flux, Sync, su texto de SEO, su mensaje de WhatsApp flotando en el hero); el recuadro «Qué decide tus cierres» de Closing
+sale vacío en la grabación («MaKo todavía no escribió sus conclusiones»: es la caja de IA y el banco no la llena). Y quedaron SIN MIRAR
+(la PC estuvo más de una hora con menos de 3 GB libres): el oscuro escrito a mano de las tarjetas pastel (son links y el sol y la luna
+deja un link con fondo como está), los íconos de la franja a 375 y la pausa del video de la caja escondido a 390; y la foto de «Control»
+repite la meta (la meta + «Salud del negocio» apiladas está en `publicar.py` → `control()` del banco; falta la foto `node fotos.mjs fotos salud`).

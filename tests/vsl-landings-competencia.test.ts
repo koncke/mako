@@ -377,3 +377,37 @@ test('Email: el hero funde dos pantallas reales y cada tarjeta trae la suya, con
 // pegada trae su grabación de la app y el script mueve las dos secciones pegadas, el giro de la tercera forma y las preguntas.
 // PROBADO ROMPIÉNDOLO (14/11/2026): renombrar hero-2.webp en HERO_GRUPOS → falla «falta public/…»; sacar una grabación de
 // PANTALLAS_PIEZAS → falla «una grabación por pieza»; sacar `-int-slides` del script → falla «sin su script».
+
+test('Dashboard: el hero, la caja y cada pestaña llevan su grabación real, cada tarjeta su pieza, y los tableros salen del código', async () => {
+  const { VIDEO_HERO, VIDEO_NUEVA_HOJA, FOTO_FLOTA, FOTOS_TARJETAS, PANTALLA_DE_PESTANA } = await import('../app/vsl/_competencia/disenos/dashboard');
+  const { PLANTILLAS_OFRECIDAS, PLANTILLAS_GENERAL_OFRECIDAS } = await import('../lib/graficos-plantillas');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'dashboard');
+  assert.ok(l, 'falta la landing de Dashboard');
+  const html = dibujar(l);
+  const pasos = l.bloques.find((b): b is Extract<Bloque, { tipo: 'pasos' }> => b.tipo === 'pasos');
+  assert.ok(pasos, 'sin «Conoce la herramienta»');
+  assert.equal(PANTALLA_DE_PESTANA.length, pasos.pasos.length, 'una pestaña sin su pantalla');
+  const pastel = l.bloques.find((b): b is Extract<Bloque, { tipo: 'tarjetas' }> => b.tipo === 'tarjetas' && !!b.fondo);
+  assert.ok(pastel && FOTOS_TARJETAS.length === 7 && pastel.items.length >= 7, 'las siete tarjetas pastel, cada una con su pieza');
+  for (const v of [VIDEO_HERO, VIDEO_NUEVA_HOJA, ...PANTALLA_DE_PESTANA]) {
+    for (const f of [v.video, v.poster]) assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+    assert.ok(html.includes(`src="${v.video}"`), `no se dibuja ${v.video}`);
+  }
+  for (const f of [FOTO_FLOTA, ...FOTOS_TARJETAS]) {
+    assert.ok(existsSync(join(RAIZ, 'public', f.src)), `falta public${f.src}`);
+    assert.ok(html.includes(`src="${f.src}"`), `no se dibuja ${f.src}`);
+  }
+  const tableros = [...PLANTILLAS_GENERAL_OFRECIDAS, ...PLANTILLAS_OFRECIDAS];
+  assert.ok(html.includes(`${tableros.length} tableros listos`), 'el número de tableros listos no es el del código');
+  for (const p of tableros) assert.ok(html.includes(p.nombre), `falta el tablero «${p.nombre}» en el muro`);
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
+  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
+  assert.ok(scripts.some((x) => x.includes("'d-dashboard'") && x.includes('herr-radio') && x.includes('revelada')), 'sin su script');
+});
+
+// Ads Analyst como Gethookd (14/11/2026, noche): su demo escribe cuatro preguntas y deja caer las tarjetas (acá con los anuncios, los
+// destinos, los formatos y el guion replicado de Alex Hormozi, los REALES que lee Spy), cada tarjeta de la columna de la app trae su
+// grabación de MaKo, el cierre corre con anuncios de Hormozi, y el script (la demo, las apariciones, las barras, los videos y el paso
+// 3) va con data-visor.
+// PROBADO ROMPIÉNDOLO (14/11/2026): `hooks.webm` → `hooksx.webm` en FILAS_DE_LA_APP → falla «falta public/…»; una fila menos en
+// FILAS_DE_LA_APP → falla «una tarjeta sin su grabación»; sacar `data-bar` del script → falla «sin su script».
