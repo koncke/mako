@@ -61,6 +61,13 @@ function LoQuePagas() {
             <span className="s-ah-guia" aria-hidden="true" />
             <span className="s-ah-p">{usd(hoy)}</span>
           </p>
+          {/* Martín (14/11): debajo del total tachado, lo que pagas con MaKo. */}
+          <p className="s-ah-f s-ah-mk">
+            <span className="s-mk-ico s-ah-ico" aria-hidden="true"><EstrellaMaKo size={19} /></span>
+            <span className="s-ah-n">MaKo Pro</span>
+            <span className="s-ah-guia" aria-hidden="true" />
+            <span className="s-ah-p">{usd(pro.precioUsd)}</span>
+          </p>
         </div>
         <div className="s-ah-gana" data-tema-fijo="">
           <p className="s-ah-gana-t">Con MaKo te ahorras más de {usd(redondo)} por mes</p>

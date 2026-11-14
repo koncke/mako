@@ -301,6 +301,9 @@ export const CSS_REEMPLAZA = `
 /* El total: la raya gruesa de un ticket arriba y el número tachado. */
 .s-ah-tot{margin-top:18px;padding-top:6px;box-shadow:inset 0 2px 0 currentColor;font-size:19px}
 .s-ah-tot .s-ah-n{font-weight:800}
+.s-ah-mk{margin-top:10px;padding:6px 12px;border-radius:12px;background:color-mix(in srgb,#2F6FED 12%,transparent);font-size:19px}
+.s-ah-mk .s-ah-n{font-weight:800}
+.s-ah-mk .s-ah-p{font-size:24px;font-weight:800;color:#2F6FED}
 .s-ah-tot .s-ah-p{font-size:24px;font-weight:800;text-decoration:line-through;text-decoration-thickness:2px;text-decoration-color:#E11D48}
 /* El ahorro: un bloque aparte, azul (fijo en los dos modos), al costado del ticket. */
 .s-ah-ico{width:32px;height:32px;flex:none;border-radius:9px;display:inline-flex;align-items:center;justify-content:center}
