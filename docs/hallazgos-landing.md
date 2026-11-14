@@ -5338,3 +5338,12 @@ Cada diseño copiado trae UN `<footer>`, el de su referencia: ocho pies distinto
 fue tocar los 19: `PieGlobal` (`app/vsl/_sitio/Barra.tsx`) pone el pie del sitio debajo de cada diseño y oculta `footer:not(.s-pie)`,
 como `BarraGlobal` ya hacía con la barra. Si un diseño nuevo usa `<footer>` para otra cosa (una cita, una tarjeta), se le cambia la
 etiqueta: esa regla lo escondería.
+
+## El «hueco» del carrusel de integraciones no era un ícono que no cargaba (14/11/2026)
+
+**Síntoma.** A 375, en la segunda fila de «Tus apps, conectadas», un hueco del ancho de un ícono después de YouTube. Lo obvio era
+un logo roto; no lo era. **Causa.** Una regla de cuando las dos filas eran fijas (`.s-int-f:nth-child(2){transform:translateX(34px)}`,
+la segunda fila corrida) quedó viva al pasar a carrusel: ahora los `ul` son las dos copias de UNA pista y `nth-child(2)` es la copia,
+que se corría 34 px y dejaba el hueco en la unión. **La regla.** Al cambiar la estructura de un bloque, buscar en `estilos.ts` los
+selectores posicionales (`nth-child`, `+`, `>`) del bloque viejo. Para medir: `mirar/hueco.mjs` del scratchpad (para la animación y
+mide la distancia entre fichas).

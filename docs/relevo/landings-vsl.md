@@ -360,6 +360,14 @@ cierre de Ads Analyst tenía «en tu negocio?» celeste sobre gris (contraste 2 
 texto del recuadro de «falta» con la pastilla, y el recuadro no entraba en su ventana (ahora la llena). Plan y Web Generator, sin
 nada nuevo: sólo sus recuadros de «falta», que están en la lista de abajo.
 
+**Lo último del Cerebro (14/11, noche), hecho:** Spy vuelve a mostrar la grilla de Competidores en «Sigue a tus competidores»
+(`FILA_CON_SU_GRABACION`; el recuadro de «falta» queda en las otras filas: la extensión, el análisis, Replicar); el «te avisamos 2 días
+antes» del checkout de Pro EXISTE (`/api/cron/aviso-fin-de-prueba`, un correo nuestro cada día a las 10 de Argentina, `lib/prueba-plan.ts`):
+queda; Offer a 375 con el mismo aire de los dos lados; el hueco del carrusel de integraciones (ver hallazgos); AI Avatar con seis anuncios
+reales distintos (dos de Martín y cuatro de Mauricio, `ANUNCIOS_AVATAR`). Y el video nuevo de Marketing CoPilot (la maqueta, vuelta 17:
+tomas quietas con tarjetas enteras, 920 px). Muestra el porqué a lo ancho entre 700 y 1000 px, el arreglo de la rama del CoPilot
+(c88731616): tiene que desplegarse junto con esto.
+
 ### Lo que falta grabar para los recuadros de «falta» (71, contando repetidos), por las páginas que enlaza la portada
 
 Se graban después del despliegue, con el banco de cada uno (C:/dev/bancos-portada/) o en ws 9 / ws 3.

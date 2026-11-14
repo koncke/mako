@@ -620,7 +620,7 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
   .s-int-cab .s-btn,.s-int-cab .s-btn-t{width:100%}
   .s-int-filas{margin-top:40px;gap:12px}
   .s-int-f{gap:12px}
-  .s-int-f:nth-child(2){transform:translateX(34px)}
+  /* (Acá iba la segunda fila corrida 34 px, de cuando las filas eran fijas: en el carrusel empujaba la copia y dejaba un hueco en la unión. 14/11) */
   .s-int-t{width:56px;height:56px;border-radius:12px}
   .s-faq-in{grid-template-columns:minmax(0,1fr);gap:48px}
   .s-cierre{padding:40px 0}

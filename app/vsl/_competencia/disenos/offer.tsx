@@ -152,7 +152,11 @@ const CSS = `
   .d-offer-video-in { zoom: .74; }
   .d-offer-amano { display: none; }
   .d-offer-tarjeta { padding: 16px 0 10px; }
-  .d-offer-carta { width: 370px; padding: 25px 10px; }
+  /* A 375 la lista llegaba al borde derecho: 44 px de sangría a la izquierda y 10 a la derecha (el Cerebro, 14/11). El mismo aire de
+     los dos lados, como el resto de la página. */
+  .d-offer-carta { width: 370px; padding: 25px 20px; }
+  .d-offer-lista { padding-left: 4px; }
+  .d-offer-lista li { padding-left: 0; font-size: 20px; }
   .d-offer-carta-h { font-size: 32px; line-height: 32px; }
   .d-offer-oscura-h { font-size: 32px; line-height: 38.4px; }
   .d-offer-pieza { padding: 10px 0 21px; }

@@ -150,8 +150,8 @@ function DibujarBloque({ b, hero, icono, n }: { b: Bloque; hero: Hero | undefine
                     ícono se veía sin terminar (el Cerebro, 14/11/2026: «en AI Avatar hay videos reales de avatar: úsalos»). */}
                 <div className={`d-ai-avatar-panel d-ai-avatar-panel-${i % 3}`}>
                   <span className="d-ai-avatar-panel-tel">
-                    <video src={`/vsl-assets/sitio/avatar/${i % 2 ? 'mauricio' : 'martin'}.webm`} poster={`/vsl-assets/sitio/avatar/${i % 2 ? 'mauricio' : 'martin'}.jpg`}
-                      muted autoPlay loop playsInline preload="none" aria-label={`Un anuncio hecho con AI Avatar: ${i % 2 ? 'Mauricio' : 'Martín'}`} />
+                    <video src={`/vsl-assets/sitio/avatar/${ANUNCIOS_AVATAR[i % ANUNCIOS_AVATAR.length].id}.webm`} poster={`/vsl-assets/sitio/avatar/${ANUNCIOS_AVATAR[i % ANUNCIOS_AVATAR.length].id}.jpg`}
+                      muted autoPlay loop playsInline preload="none" aria-label={`Un anuncio hecho con AI Avatar: ${ANUNCIOS_AVATAR[i % ANUNCIOS_AVATAR.length].nombre}`} />
                   </span>
                 </div>
                 <div className="d-ai-avatar-fila-txt">
@@ -288,6 +288,18 @@ export default function DisenoAiAvatar({ landing }: PropsDiseno) {
     </div>
   );
 }
+
+/** Un anuncio REAL de avatar distinto en cada tarjeta (el Cerebro, 14/11/2026: «si hay más anuncios reales de avatar, usa uno distinto
+ *  en cada tarjeta»). Los de Martín: los dos clips de su personaje con su voz (C:/dev/reel-mentores/clips-final/). Los de Mauricio:
+ *  los primeros 12 s de sus anuncios con IA (OneDrive/Escritorio/Mauricio: el quinto, el primero, el sexto y el cuarto), sin sonido. */
+const ANUNCIOS_AVATAR: readonly { id: string; nombre: string }[] = [
+  { id: 'martin', nombre: 'Martín' },
+  { id: 'mauricio', nombre: 'Mauricio' },
+  { id: 'martin-2', nombre: 'Martín' },
+  { id: 'mauricio-2', nombre: 'Mauricio' },
+  { id: 'mauricio-4', nombre: 'Mauricio' },
+  { id: 'mauricio-3', nombre: 'Mauricio' },
+];
 
 const CSS = `
 @font-face { font-family: 'DAvGabarito'; src: url('/vsl-assets/fuentes/gabarito/gabarito-latin-var.woff2') format('woff2'); font-weight: 400 900; font-style: normal; font-display: swap; }
