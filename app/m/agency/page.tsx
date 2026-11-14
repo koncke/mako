@@ -23,6 +23,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { esClienteDeAgencia } from '@/lib/agencia';
 import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
 import { estadoAgency } from '@/lib/agency';
+import { mensualidadDeAgencia, mensualidadPrendida } from '@/lib/agencia-mes';
 import { CabeceraM, ComputadoraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import { AgencyM, AgenciasM } from './AgencyM';
@@ -65,7 +66,13 @@ export default async function AgencyPagina({ searchParams }: { searchParams: Pro
     );
   }
 
+  // Los clientes en pausa por la mensualidad de esta agencia (14/11/2026): «En pausa» antes de tocar y el aviso al tocar «Entrar»,
+  // como «Falta pagar» en la computadora. Corre a la par de la cartera; si no se puede leer, ninguno (la ruta de entrar igual avisa).
+  const enPausaP = mensualidadPrendida(ws)
+    .then((ver) => (ver !== false ? mensualidadDeAgencia(ws) : null))
+    .then((m) => (m?.ok ? m.clientes.filter((c) => c.enPausa).map((c) => c.ws) : []), () => [] as number[]);
   const cartera = await cuentasDePartner(ws);
+  const enPausa = await enPausaP;
   if (!cartera.ok) {
     return (
       <PantallaM>
@@ -77,7 +84,7 @@ export default async function AgencyPagina({ searchParams }: { searchParams: Pro
   const cuenta = /^[1-9]\d{0,11}$/.test(sp.cuenta ?? '') ? Number(sp.cuenta) : null;
   return (
     <PantallaM>
-      <AgencyM cuentas={cartera.cuentas} puedeAbrir={admin} superAdmin={esSuper} cuentaInicial={cuenta} />
+      <AgencyM cuentas={cartera.cuentas} puedeAbrir={admin} superAdmin={esSuper} cuentaInicial={cuenta} enPausa={enPausa} />
       <ComputadoraM que="Sumar un cliente, cambiar su plan y sumar personas a su equipo" />
     </PantallaM>
   );

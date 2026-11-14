@@ -25,7 +25,7 @@ import { Marca } from '@/app/_components/Marca';
 import { colorDe } from '@/app/_components/TarjetaEntidad';
 import { ROTULO_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 import type { CarteraPartner, CuentaPartner } from '@/lib/partners';
-import { ROTULO_QUIEN_PAGA, quienPagaSugerido, type PerfilAgency } from '@/lib/agency-reglas';
+import { ESTADO_FALTA_PAGAR, ROTULO_QUIEN_PAGA, avisoFaltaPagar, quienPagaSugerido, type PerfilAgency } from '@/lib/agency-reglas';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { EquipoDeCuenta } from '@/app/partners/EquipoDeCuenta';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
@@ -43,8 +43,12 @@ import { textoDeSituacion, usd as usdMes } from '@/lib/agencia-mes-reglas';
 type Segmento = 'todas' | 'activas' | 'por-pagar' | 'revocadas';
 type Tono = 'warn' | 'good' | 'neutral' | 'bad';
 
-/** Lo que espera algo de la agencia (o de su cliente), en una palabra (el estado de la fila). */
-function estadoDe(c: CuentaPartner): { texto: string; tono: Tono } {
+/**
+ * Lo que espera algo de la agencia (o de su cliente), en una palabra (el estado de la fila). `faltaPagar`: en pausa por la
+ * mensualidad de la agencia (14/11/2026): se dice ANTES de tocar «Inspeccionar», no después.
+ */
+function estadoDe(c: CuentaPartner, faltaPagar = false): { texto: string; tono: Tono } {
+  if (faltaPagar) return { texto: ESTADO_FALTA_PAGAR, tono: 'bad' };
   if (c.cobro?.pagar) return { texto: c.paga === 'cliente' ? 'Esperando su pago' : 'Falta pagar su mes', tono: 'warn' };
   if (c.cobro?.renovacion && !c.cobro.renovacion.activada) return { texto: c.paga === 'cliente' ? 'Esperando su renovación' : 'Activar renovación', tono: 'warn' };
   // ⚠️ Una cuenta habilitada SIN NADIE ADENTRO (el ws15 del 28/09: nació antes de que abrir una cuenta pidiera el email).
@@ -58,8 +62,9 @@ function estadoDe(c: CuentaPartner): { texto: string; tono: Tono } {
 /** ¿Espera un pago? (de la agencia o de su cliente) */
 const porPagar = (c: CuentaPartner) => !!c.cobro?.pagar || (!!c.cobro?.renovacion && !c.cobro.renovacion.activada);
 
-const enSegmento = (c: CuentaPartner, s: Segmento): boolean =>
-  s === 'todas' ? true : s === 'activas' ? c.estado === 'aprobado' : s === 'por-pagar' ? porPagar(c) : c.estado === 'revocado';
+/** `pp`: ¿espera un pago?, con la mensualidad (la que está en pausa por ella también va en «Por pagar»). */
+const enSegmento = (c: CuentaPartner, s: Segmento, pp: (c: CuentaPartner) => boolean): boolean =>
+  s === 'todas' ? true : s === 'activas' ? c.estado === 'aprobado' : s === 'por-pagar' ? pp(c) : c.estado === 'revocado';
 
 const fecha = (iso: string) => {
   const d = new Date(iso);
@@ -94,25 +99,40 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
   const cuentas = useMemo(() => (cartera.ok ? cartera.cuentas : []), [cartera]);
   const usd = cartera.ok ? cartera.precio.usd : null;
   const abierta = cuentas.find((c) => c.ws === abiertaWs) ?? null;
-  const conteo = useMemo(() => {
-    const n = (s: Segmento) => cuentas.filter((c) => enSegmento(c, s)).length;
-    return { todas: cuentas.length, activas: n('activas'), 'por-pagar': n('por-pagar'), revocadas: n('revocadas') } as Record<Segmento, number>;
-  }, [cuentas]);
   const mesPrendido = mensualidad?.ok && mensualidad.config ? mensualidad.actual : null;
   // Con la mensualidad prendida, cada cuenta dice desde cuándo cuenta (en vez de quién paga: lo paga todo la agencia). El super
   // admin lo ve también con la mensualidad apagada: así corrige una fecha antes de prenderla.
   const delMes = useMemo(() => new Map(mensualidad?.ok && (mensualidad.config || superAdmin) ? mensualidad.clientes.map((c) => [c.ws, c]) : []), [mensualidad, superAdmin]);
   const enMes = (c: CuentaPartner) => delMes.get(c.ws) ?? null;
+  // En pausa por la mensualidad de esta agencia (`enPausa`, lib/agencia-mes.ts): «Falta pagar», y al tocar «Inspeccionar», el aviso.
+  const faltaPagar = useCallback((c: CuentaPartner) => !!delMes.get(c.ws)?.enPausa, [delMes]);
+  const esPorPagar = useCallback((c: CuentaPartner) => porPagar(c) || faltaPagar(c), [faltaPagar]);
+  const conteo = useMemo(() => {
+    const n = (s: Segmento) => cuentas.filter((c) => enSegmento(c, s, esPorPagar)).length;
+    return { todas: cuentas.length, activas: n('activas'), 'por-pagar': n('por-pagar'), revocadas: n('revocadas') } as Record<Segmento, number>;
+  }, [cuentas, esPorPagar]);
   const kpis = useMemo(() => {
     const activas = cuentas.filter((c) => c.estado === 'aprobado');
     const pagasTu = activas.filter((c) => c.paga === 'agencia').length;
-    return { activas: activas.length, porPagar: cuentas.filter(porPagar).length, pagasTu, paganEllos: activas.length - pagasTu };
-  }, [cuentas]);
+    return { activas: activas.length, porPagar: cuentas.filter(esPorPagar).length, pagasTu, paganEllos: activas.length - pagasTu };
+  }, [cuentas, esPorPagar]);
   const visibles = useMemo(() => {
     const t = q.trim().toLowerCase();
-    return cuentas.filter((c) => enSegmento(c, segmento)
+    return cuentas.filter((c) => enSegmento(c, segmento, esPorPagar)
       && (!t || c.nombre.toLowerCase().includes(t) || (c.lead?.nombre ?? '').toLowerCase().includes(t)));
-  }, [cuentas, q, segmento]);
+  }, [cuentas, q, segmento, esPorPagar]);
+  // «No puedes entrar: falta pagar el mes de …» (14/11/2026): la cuenta que tocó «Inspeccionar» y no puede. Una a la vez.
+  const [aviso, setAviso] = useState<number | null>(null);
+  // «Pagar su mes» del aviso: baja hasta su renglón de la mensualidad y lo marca (`n` cambia en cada toque: vuelve a bajar).
+  const [resaltar, setResaltar] = useState<{ ws: number; n: number } | null>(null);
+  const hayMensualidad = !!mensualidad && (!mensualidad.ok || !!mensualidad.config || superAdmin);
+  const irAPagar = (ws: number) => {
+    setAviso(null);
+    setAbiertaWs(null);
+    // Sin la mensualidad en la pantalla (se prendió después de abrirla), la página la trae y baja hasta ella.
+    if (!hayMensualidad) { window.location.href = '/agency?vista=mensualidad'; return; }
+    setResaltar((r) => ({ ws, n: (r?.n ?? 0) + 1 }));
+  };
 
   // La cuenta abierta en la URL (replace: el Atrás saca de la tab, no recorre fichas).
   useEffect(() => {
@@ -168,6 +188,8 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
       const j = await (await fetch('/api/agencia/entrar', {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ws }),
       })).json();
+      // En pausa por su mensualidad (la ruta lo dice ANTES de dar la cookie): el aviso, ahí mismo. Aunque la pantalla no lo supiera.
+      if (j?.pausa === 'falta-pagar') { setAviso(ws); return; }
       if (!j?.ok) { show(j?.error ?? 'No se pudo entrar.', undefined, 'bad'); return; }
       // Recarga dura: el contexto lo resuelve el server desde la cookie que acaba de quedar (CuentaDeMaKo, 27/09).
       window.location.href = '/inicio';
@@ -183,8 +205,11 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
     const a = accionDeCuenta(c, superAdmin);
     if (a === 'pagar' && c.cobro?.pagar) setPago({ url: c.cobro.pagar, renovacion: false, desde: null });
     else if (a === 'renovacion' && c.cobro?.renovacion) setPago({ url: c.cobro.renovacion.link, renovacion: true, desde: c.cobro.renovacion.desde });
+    // Falta pagar su mes: el aviso al instante, sin ir al server (el super admin entra igual: él no está en pausa).
+    else if (a === 'inspeccionar' && !superAdmin && faltaPagar(c)) setAviso(c.ws);
     else if (a === 'inspeccionar') void entrar(c.ws);
   };
+  const avisoDe = (c: CuentaPartner): ReactNode => (aviso === c.ws ? <AvisoFaltaPagar nombre={c.nombre} onPagar={() => irAPagar(c.ws)} /> : null);
   const accionDe = (c: CuentaPartner): ReactNode => {
     const a = accionDeCuenta(c, superAdmin);
     if (!a) return null;
@@ -231,7 +256,7 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
           </div>
 
           {mensualidad && (
-            <Mensualidad m={mensualidad} superAdmin={superAdmin} ver={verMensualidad}
+            <Mensualidad m={mensualidad} superAdmin={superAdmin} ver={verMensualidad} resaltar={resaltar}
               onAviso={(t, tono, deshacer) => show(t, deshacer, tono)} />
           )}
 
@@ -261,7 +286,7 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
                   <span role="columnheader">Equipo</span><span role="columnheader">Desde</span><span role="columnheader" />
                 </div>
                 {visibles.map((c) => {
-                  const e = estadoDe(c);
+                  const e = estadoDe(c, faltaPagar(c));
                   return (
                     <div key={c.ws} className="ad-fila" role="row" {...menu.propsDe(c.ws)}>
                       <button type="button" className="ad-abrir" onClick={() => setAbiertaWs(c.ws)} aria-label={`Abrir la cuenta de ${c.nombre}`}>
@@ -277,6 +302,7 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
                       <span className="ad-equipo" role="cell"><Caras equipo={c.equipo} /></span>
                       <span className="ad-desde" role="cell">{fecha(c.desde)}</span>
                       <span className="ad-fila-acc" role="cell">{accionDe(c)}</span>
+                      {abiertaWs !== c.ws && avisoDe(c)}
                     </div>
                   );
                 })}
@@ -305,9 +331,9 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
 
       {abierta && (
         <Modal titulo={abierta.nombre} encabezado="Cuenta de MaKo" ancho={620} onCerrar={cerrarFicha}
-          pie={<span className="ad-fila-acc">{accionDe(abierta)}</span>}>
+          pie={<span className="ad-fila-acc">{avisoDe(abierta) ?? accionDe(abierta)}</span>}>
           <dl className="ad-datos">
-            <div><dt>Estado</dt><dd>{estadoDe(abierta).texto}</dd></div>
+            <div><dt>Estado</dt><dd>{estadoDe(abierta, faltaPagar(abierta)).texto}</dd></div>
             {enMes(abierta) ? (
               <div><dt>Mensualidad</dt><dd><SituacionMes fila={enMes(abierta)} />
                 {superAdmin && abierta.estado !== 'revocado' && mensualidad?.ok && (
@@ -394,6 +420,16 @@ function SituacionMes({ fila }: { fila: FilaMensualidad | null }) {
   if (!fila) return <span className="ad-gris">—</span>;
   const t = textoDeSituacion(fila.situacion);
   return <span className="ad-est ad-est--mes" data-tono={t.tono ?? undefined} title={fila.corregido ? `Sus 14 días corren desde el ${fila.corregido.slice(8, 10)}/${fila.corregido.slice(5, 7)} (fecha corregida)` : undefined}><i />{t.texto}</span>;
+}
+
+/** «No puedes entrar: falta pagar el mes de …» y su «Pagar su mes» (14/11/2026). Donde se tocó «Inspeccionar»: la fila o la ficha. */
+function AvisoFaltaPagar({ nombre, onPagar }: { nombre: string; onPagar: () => void }) {
+  return (
+    <div className="ad-aviso" role="alert">
+      <span>{avisoFaltaPagar(nombre)}</span>
+      <button type="button" className="ad-acc ad-acc--fuerte" onClick={onPagar}>{ROTULO_ACCION_CUENTA.pagar}</button>
+    </div>
+  );
 }
 
 function Kpi({ valor, rotulo, tono }: { valor: ReactNode; rotulo: string; tono?: 'warn' }) {
@@ -546,6 +582,13 @@ const CSS = `
 .ad-sub{ margin:10px 0 4px; font-size:14px; font-weight:700; color:var(--ink); }
 .ad-reenviar{ margin:4px 0 8px; }
 .ad-nota{ margin:10px 0 0; font-size:13px; color:var(--dim); }
+/* El aviso de «Inspeccionar» a un cliente en pausa: una línea con su botón, debajo de la fila (toda la fila de ancho) o en la ficha. */
+.ad-aviso{ display:flex; align-items:center; justify-content:space-between; gap:8px 12px; flex-wrap:wrap; padding:7px 7px 7px 12px;
+  border-radius:10px; background:var(--bad-bg); border:1px solid color-mix(in srgb, var(--bad) 28%, transparent); color:var(--ink);
+  font-size:13.5px; font-weight:600; text-align:left; animation:ad-aviso-in .16s ease-out; }
+.ad-fila > .ad-aviso{ grid-column:1 / -1; margin:0 0 8px 6px; }
+@keyframes ad-aviso-in{ from{ opacity:0; transform:translateY(-3px); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ .ad-aviso{ animation:none; } }
 @media (max-width: 980px){
   .ad-kpis{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   .ad-th{ display:none; }

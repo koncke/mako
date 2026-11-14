@@ -28,8 +28,12 @@ import type { CuentaPartner } from '@/lib/partners';
 import { aplicarPlantillaAction } from '@/app/agency/actions';
 import { MODELOS_CLIENTE, PLANTILLAS_MODELO, type ModeloCliente } from '@/lib/plantillas-modelo-reglas';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
+import { avisoEnPausa } from '@/lib/agency-reglas';
 
-function estadoDe(c: CuentaPartner): { texto: string; tono: TonoPildora } {
+function estadoDe(c: CuentaPartner, enPausa = false): { texto: string; tono: TonoPildora } {
+  // En pausa por la mensualidad de la agencia (14/11/2026): se dice ANTES de tocar. Sin «Falta pagar»: el teléfono no dice lo
+  // que se le debe a MaKo (#94). La computadora dice «Falta pagar» y tiene el botón.
+  if (enPausa) return { texto: 'En pausa', tono: 'bad' };
   // Habilitada y sin nadie adentro (`[]` = leí y no hay nadie; `null` = no pude leer). Igual que la computadora.
   if (c.estado === 'aprobado' && c.equipo?.length === 0) return { texto: 'Nadie puede entrar', tono: 'warn' };
   if (c.estado === 'aprobado') return { texto: 'Activa', tono: 'good' };
@@ -43,14 +47,19 @@ const fecha = (iso: string) => {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
 };
 
-export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
+export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial, enPausa = [] }: {
   cuentas: CuentaPartner[];
   puedeAbrir: boolean;
   superAdmin: boolean;
   cuentaInicial: number | null;
+  /** Los clientes en pausa por la mensualidad de esta agencia (lib/agencia-mes.ts, `enPausa`). */
+  enPausa?: number[];
 }) {
   const router = useRouter();
   const toast = useToastM();
+  const pausada = (clienteWs: number) => enPausa.includes(clienteWs);
+  // «No puedes entrar: … está en pausa» (14/11/2026): el cliente cuyo «Entrar a su cuenta» se tocó y no puede.
+  const [aviso, setAviso] = useState<number | null>(null);
   // La hoja de una cuenta: la ÚLTIMA abierta (su contenido se queda mientras la hoja baja).
   const [ws, setWs] = useState<number | null>(cuentaInicial);
   const [abierta, setAbierta] = useState(cuentaInicial != null);
@@ -90,10 +99,14 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
 
   const entrar = async (clienteWs: number) => {
     if (superAdmin) { window.location.href = `/inicio?ws=${clienteWs}`; return; }
+    // En pausa: el aviso al instante, sin ir al server.
+    if (pausada(clienteWs)) { setAviso(clienteWs); return; }
     try {
       const j = await (await fetch('/api/agencia/entrar', {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ws: clienteWs }),
       })).json();
+      // La ruta lo dice ANTES de dar la cookie, aunque la pantalla no lo supiera (se pausó después de abrirla).
+      if (j?.pausa === 'falta-pagar') { setAviso(clienteWs); return; }
       if (!j?.ok) { toast(j?.error ?? 'No se pudo entrar'); return; }
       window.location.href = '/inicio';
     } catch { toast('No se pudo entrar'); }
@@ -112,7 +125,7 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
         <SeccionM titulo="Tus clientes">
           <ListaM>
             {cuentas.map((x) => {
-              const e = estadoDe(x);
+              const e = estadoDe(x, pausada(x.ws));
               return (
                 <FilaM key={x.ws} avatar={x.nombre} titulo={x.nombre} segunda={`Desde ${fecha(x.desde)}`}
                   pill={<PildoraM tono={e.tono}>{e.texto}</PildoraM>} onClick={() => { setWs(x.ws); setAbierta(true); }} />
@@ -127,6 +140,7 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
       <SheetM snap="alto" abierto={abierta && c != null} onCerrar={() => setAbierta(false)} titulo={c?.nombre ?? 'Cuenta'}
         pie={c ? (
           <PieM>
+            {aviso === c.ws && <p className="m-agency-aviso" role="alert">{avisoEnPausa(c.nombre)}</p>}
             {c.estado === 'aprobado' || superAdmin ? (
               <Button variant="primary" size="lg" full onClick={() => void entrar(c.ws)}>Entrar a su cuenta</Button>
             ) : null}
@@ -134,7 +148,7 @@ export function AgencyM({ cuentas, puedeAbrir, superAdmin, cuentaInicial }: {
         ) : undefined}>
         {c && (
           <ListaM>
-            <FilaDatoM k="Estado" v={estadoDe(c).texto} />
+            <FilaDatoM k="Estado" v={estadoDe(c, pausada(c.ws)).texto} />
             <FilaDatoM k="Desde" v={fecha(c.desde)} />
             {c.plan && <FilaDatoM k="Plan" v={c.plan} />}
             <FilaDatoM k="Equipo" v={c.equipo ? `${c.equipo.length} ${c.equipo.length === 1 ? 'persona' : 'personas'}` : '—'} />
