@@ -217,9 +217,10 @@ test('B1 · el candado donde se guarda la config del piloto de Instagram, como `
 // «¿el plan lo trae?» de acá pasó a llamarse `redesPermitidas`. El candado cubre las dos pestañas (Instagram y YouTube) y también
 // `guardarPilotoRedes`, que guarda la configuración que trajo main.
 test('B2 · la pantalla: «Configurar piloto» › Instagram y YouTube son el candado, y el paso «Piloto automático» lo dice en las dos', () => {
-  const pagina = codigo('app/ads-manager/copiloto/configurar/page.tsx');
+  // Desde el 14/11/2026 (main) la carga vive en ./cargar.ts, compartida con el teléfono (app/m/ads/page.tsx).
+  const pagina = codigo('app/ads-manager/copiloto/configurar/cargar.ts');
   assert.match(pagina, /pilotoRedesPermitido\(ws\)\.catch\(\(\) => true\)/, 'ante la duda, abierto');
-  assert.match(pagina, /redesPermitidas=\{redesPermitidas\}/);
+  assert.match(pagina, /redes, redesPermitidas \};/);
   const cfg = codigo('app/ads-manager/copiloto/configurar/ConfigurarPiloto.tsx');
   assert.match(cfg, /const redesSoloPro = useSoloPro\('piloto-redes'\) \|\| !redesPermitidas;/);
   assert.match(cfg, /\{canal !== 'anuncios' && redesSoloPro \? \([\s\S]*?<CandadoSoloPro funcion="piloto-redes"/);
@@ -229,7 +230,7 @@ test('B2 · la pantalla: «Configurar piloto» › Instagram y YouTube son el ca
   assert.match(copiloto, /\{paso === 'piloto' && \(tarjeta === 'instagram' \|\| tarjeta === 'youtube'\) && !datos\.redesPermitidas && <PilotoRedesSoloPro red=\{tarjeta\} \/>\}/);
   assert.match(copiloto, /<CandadoSoloPro funcion="piloto-redes" \/>/);
   assert.match(copiloto, /if \(\(t === 'instagram' \|\| t === 'youtube'\) && !datos\.redesPermitidas\) return \{ n: '—', s: 'De MaKo Pro' \};/);
-  assert.match(codigo('app/ads-manager/copiloto/page.tsx'), /callar\(pilotoRedesPermitido\(ws\), true\)/);
+  assert.match(codigo('app/ads-manager/copiloto/cargar.ts'), /callar\(pilotoRedesPermitido\(ws\), true\)/);
   // Lo que guarda la configuración de las redes (main) también frena primero.
   const redes = cuerpo(codigo('lib/copiloto/piloto.ts'), 'export async function guardarPilotoRedes(');
   assert.match(redes, /^export async function guardarPilotoRedes\([^)]*\)[^{]*\{\n\s+if \(!\(await pilotoRedesPermitido\(ws\)\)\) throw new PlanSinPilotoRedes\(\);/, 'guardarPilotoRedes sin el candado');

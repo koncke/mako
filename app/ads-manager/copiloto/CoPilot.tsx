@@ -17,11 +17,12 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link'; // la de la casa: conserva el ?ws= del super admin mirando un negocio
 import { CSS_OFFER } from '@/app/offer/estilos';
 import { Toast, useToast } from '@/app/_ui';
 import { Icon } from '@/app/_components/icons';
 import { LogoRed } from '@/app/competitor-spy/LogoRed';
+import { BrandDefs } from '@/app/_components/ServicioVisual';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { BotonIntegracion, CON_SU_CLASE } from '@/app/_components/ConectarIntegracion';
 import { CriaturaMako } from '@/app/onboarding/CriaturaMako';
@@ -191,7 +192,8 @@ function LogoTarjeta({ t }: { t: Tarjeta }) {
   return <LogoRed red={t === 'web' ? 'sitio' : t} box={22} />;
 }
 
-export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCoPilot; pasoInicial: Paso; tarjetaInicial: Tarjeta }) {
+/** `enTelefono`: dentro de /m (app/m/ads/page.tsx) no va la estrella de la computadora: tapaba el «CRM» de la barra de abajo (10/11). */
+export function CoPilot({ datos, pasoInicial, tarjetaInicial, enTelefono = false }: { datos: DatosCoPilot; pasoInicial: Paso; tarjetaInicial: Tarjeta; enTelefono?: boolean }) {
   // Dos pasos desde la vuelta 20 (Martín, 13/11: «el análisis arriba y las tareas con el calendario debajo»): un link viejo con
   // `?paso=accion` abre el primero.
   const [paso, setPaso] = useState<Paso>(pasoInicial === 'accion' ? 'analisis' : pasoInicial);
@@ -274,6 +276,8 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
       <style>{CSS_OFFER}</style>
       <style>{CSS_EXTRA}</style>
       <style>{CSS_RETARGETING}</style>
+      {/* El logo de Meta de «Anuncios» es un <symbol> de BrandDefs: sin montarlo, la tarjeta llevaba un cuadrado azul vacío (14/11). */}
+      <BrandDefs />
       <main className="frn-board">
         <div className="frn-head frn-head--fija frn-head2">
           <span className="frn-marca frn-marca--sola" aria-label="Marketing CoPilot"><CriaturaMako size={34} /></span>
@@ -356,7 +360,7 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
       </main>
       {todo && <ModalTodoOC estado={oc.estado} parte={parte} onParte={setParte} onCerrar={() => setTodo(false)} onMarcar={oc.marcar} onAbrir={(p, k) => setCosa({ p, k })} onChat={alChat} />}
       {cosa && <ModalCosa estado={oc.estado} p={cosa.p} k={cosa.k} onCerrar={() => setCosa(null)} onMarcar={oc.marcar} onChat={alChat} />}
-      <MakoEnLaTab tab="Marketing CoPilot" pedido={pedido} pantalla={pantalla} encimaDeModales />
+      {!enTelefono && <MakoEnLaTab tab="Marketing CoPilot" pedido={pedido} pantalla={pantalla} encimaDeModales />}
       <Toast state={toast} onClose={clear} />
     </div>
   );

@@ -17,12 +17,13 @@
 // =============================================================================
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import Link from '@/app/_ui/Link'; // la de la casa: conserva el ?ws= del super admin mirando un negocio
+import { useRouter } from '@/app/_ui/Link'; // el de la casa: push y replace conservan el ?ws= del super admin
 import { Toast, useToast } from '@/app/_ui';
 import { LogoRed } from '@/app/competitor-spy/LogoRed';
 import { CandadoSoloPro } from '@/app/_components/CandadoSoloPro';
 import { esRespuestaSoloPro, marcarSoloPro, useSoloPro } from '@/app/_components/solo-pro';
+import { BrandDefs } from '@/app/_components/ServicioVisual';
 import type { KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import type { ConfigTacticas } from '@/lib/media-buyer/tacticas';
 import type { NumeroDelReel } from '@/lib/copiloto/piloto';
@@ -205,6 +206,7 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial,
     <div className="frn frn--mono cop">
       <style>{CSS_COPILOTO}</style>
       <style>{CSS}</style>
+      <BrandDefs />
       <main className="frn-board mq-cfg">
         <div className="frn-head mq-cfg__cab">
           <Link className="frn-btn frn-btn--ghost" href="/ads-manager/copiloto?paso=piloto&tarjeta=anuncios">
