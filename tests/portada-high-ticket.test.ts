@@ -69,12 +69,13 @@ test('la portada dibuja las tarjetas y la tabla comparativa, que dice lo que NO 
   const { PreciosLanding } = await import('../app/vsl/PreciosLanding');
   const planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => ({ id: x.id, nombre: x.nombre, capa: x.capa, precioUsd: x.precioUsd, resumen: x.resumen, incluye: x.incluye, destacado: !!x.destacado, precioAnualUsd: x.precioAnualUsd ?? null, preciosLocales: x.preciosLocales, cobrable: true }));
   const html = renderToStaticMarkup(React.createElement(PreciosLanding, { planes, sufijo: '' }));
-  assert.match(html, /<table class="planes-tabla">/, 'la portada no tiene la tabla comparativa');
+  assert.match(html, /class="cp-tabla"/, 'la portada no tiene la tabla comparativa');
   for (const f of filasDeComparacion()) assert.ok(html.includes(f.que), `la tabla no dice «${f.que}»`);
   const esencial = planes.find((p) => p.capa === 'completo')!;
   const tarjeta = html.slice(html.indexOf(`<h3>${esencial.nombre}</h3>`), html.indexOf('</section>', html.indexOf(`<h3>${esencial.nombre}</h3>`)));
   assert.doesNotMatch(tarjeta, /class="mkpl-lista mkpl-no"/, 'la tarjeta de Esencial volvió a la lista de ✗');
-  for (const x of noIncluyeDe('completo')) assert.ok(html.includes(`<th scope="row">${x}</th>`), `la tabla no dice «${x}»`);
+  // La tabla como Attio (14/11/2026): cada fila con su nombre corto y la frase entera en el (i).
+  for (const x of noIncluyeDe('completo')) assert.ok(html.includes(`data-info="${x}"`) || html.includes(`role="rowheader">${x}<`), `la tabla no dice «${x}»`);
   assert.ok(html.includes('aria-label="No incluido"'), 'la tabla marca lo que no incluye');
 });
 

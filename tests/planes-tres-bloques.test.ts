@@ -120,10 +120,11 @@ test('/planes: tres bloques, el programa se pide, la comparación, y el link a M
   assert.match(t, /<a className="mkpl-btn" href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador<\/a>/, 'el programa se pide en su página, con el origen y el partner');
   assert.match(t, /\{p\.destacado && <span className="mkpl-insignia">Recomendado<\/span>\}/);
   assert.match(p, /^\s*const filas = filasDeComparacion\(\);/m);
-  assert.match(p, /<h2 id="planes-compara-titulo">Compara los planes<\/h2>/);
+  // La tabla como Attio (14/11/2026): ver app/planes/Vitrina.tsx, `CompararPlanes`.
+  assert.match(p, /<h2 id="cp-titulo" className="cp-titulo">Compara los planes<\/h2>/);
   // La columna de cada plan sale de su CAPA (los topes son de la capa): un plan del setting con otro id no queda vacío.
   // (29/10/2026: la celda por capa pasó a lib/planes-comparacion.ts, `celdaDeCapa`: la usan también los ✗ de cada tarjeta.)
-  assert.match(p, /<CeldaPlan v=\{celdaDeCapa\(f, p\.capa\)\} \/>/);
+  assert.match(p, /celda: \(f: FilaComparacion\) => celdaDeCapa\(f, p\.capa\)/);
   assert.match(fuente('lib/planes-comparacion.ts'), /return capa === 'completo' \? f\.esencial : capa === 'agencia' \? f\.pro : null;/);
   assert.match(p, /<Link href="\/mako-partners">MaKo Partners<\/Link>/, 'desde /planes se llega a MaKo Partners');
   // Los planes cobrables siguen saliendo de la regla de siempre (tests/planes-sin-pasarela.test.ts).

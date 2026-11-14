@@ -139,6 +139,74 @@ export function filasDeComparacion(): FilaComparacion[] {
 }
 
 /**
+ * EL NOMBRE CORTO DE CADA FILA, para la tabla de /planes (14/11/2026, Martín: «no me gusta para nada el diseño de comparar los planes…
+ * tampoco se entiende bien los copies… se tiene que entender muy simple a qué hace referencia»). El molde es Attio
+ * (notas: referencias-comparar/tablas-de-planes.md): el nombre de la cosa, de una a tres palabras; la frase entera (`que`) queda en el
+ * (i) de la fila. `que` no cambia: lo leen las tarjetas («no incluye»), MaKo Partners y los tests.
+ */
+export function nombreCorto(que: string): string {
+  const k: Record<string, string> = {
+    'Contactos guardados (interesados y clientes)': 'Contactos',
+    'Tableros de ventas, para ver en qué paso está cada cliente': 'Tableros de venta',
+    'Números de WhatsApp conectados, más tu Instagram': 'WhatsApp conectados',
+    'Personas de tu equipo, cada una con su acceso': 'Personas del equipo',
+    'Seguimientos automáticos activos a la vez': 'Seguimientos automáticos',
+    'Páginas web para vender, publicadas': 'Páginas publicadas',
+    'Dominios propios para tus páginas (tunegocio.com)': 'Dominios propios',
+    'Cuentas para cobrar con Mercado Pago o Stripe': 'Cuentas para cobrar',
+    'Días gratis al empezar': 'Prueba gratis',
+    'MaKo, un asistente con IA que conoce tu negocio': 'Asistente con IA',
+    [`Chat con ${ASESORES.length} referentes del marketing, con su método`]: `Chat con ${ASESORES.length} referentes`,
+    'Tus tareas, puntuadas y ordenadas por prioridad': 'Tareas por prioridad',
+    'Informes de tus ventas y de tus anuncios': 'Informes',
+    'Páginas de venta y presentaciones armadas con IA': 'Páginas de venta con IA',
+    'Copiar una página que ya funciona, con tu oferta': 'Copiar páginas que venden',
+    'Tu oferta trabajada con IA, pieza por pieza': 'Tu oferta, con IA',
+    'Lo que publica tu competencia, en un solo lugar': 'Tu competencia',
+    'Regalos que piden el contacto: guías, checklists y quiz': 'Regalos que captan contactos',
+    [NOMBRE_FUNCION_PRO['scraper-whatsapp']]: 'Contactos de tus grupos',
+    'Ideas por día para mejorar tus anuncios': 'Ideas por día',
+    'MaKo aplica las mejoras solo, sin pasarse de tu presupuesto': 'Mejoras aplicadas solas',
+    'Tus campañas de Meta, cruzadas con tus ventas': 'Campañas cruzadas con ventas',
+    'Guiones de anuncios desde lo que compra tu cliente': 'Guiones de anuncios',
+    [NOMBRE_AI_AVATAR]: 'Videos con tu avatar',
+    'Textos con IA: guiones, emails y posteos': 'Textos con IA',
+    'Un día de stories, con su guion cuadro por cuadro': 'Stories con guion',
+    [NOMBRE_TAB_PRO['image-editor']]: 'Editor de imágenes',
+    [NOMBRE_TAB_PRO['video-editor']]: 'Editor de video',
+    'Cada contacto con su historia y su etapa de venta': 'Ficha de cada contacto',
+    'Tu agenda, con las reuniones de cada cliente': 'Agenda',
+    'Planes de pago en cuotas, con contrato y comprobantes': 'Planes de pago',
+    [NOMBRE_TAB_PRO['closing-analyst']]: 'Análisis de llamadas',
+    'Todos tus chats en una sola bandeja': 'Bandeja de chats',
+    'Un agente con IA que contesta por WhatsApp e Instagram': 'Agente con IA',
+    'Si eres agencia: los negocios de tus clientes': 'Negocios de tus clientes',
+    'Ganar el primer mes de cada negocio que traes a MaKo': 'MaKo Partners',
+    'Tu página, mensajes y seguimientos armados la primera semana': 'Todo armado la semana 1',
+    'La asesoría grupal en vivo con Martín, cada semana': 'Asesoría semanal con Martín',
+    'Plantillas probadas de páginas, mensajes y guiones': 'Plantillas probadas',
+    'Un grupo de WhatsApp con respuestas de Martín': 'Grupo con Martín',
+  };
+  return k[que] ?? que;
+}
+
+/**
+ * EL ORDEN Y EL NOMBRE DE LOS GRUPOS EN LA TABLA (14/11/2026): primero lo que vende (conseguir clientes, anuncios, contenido), después
+ * vender y atender, la IA, los límites del plan, el equipo y el acompañamiento. Los grupos chicos van juntos («Atender» con «Vender y
+ * cobrar»; «Recomendar MaKo» con «Equipo»). Los grupos de los datos (`GRUPOS_COMPARACION`) no cambian: los usa MaKo Partners.
+ */
+export const GRUPOS_DE_LA_TABLA: ReadonlyArray<{ titulo: string; de: readonly string[] }> = [
+  { titulo: 'Conseguir clientes', de: ['Conseguir clientes'] },
+  { titulo: 'Anuncios', de: ['Anuncios'] },
+  { titulo: 'Contenido', de: ['Contenido'] },
+  { titulo: 'Vender y atender', de: ['Vender y cobrar', 'Atender'] },
+  { titulo: 'Tu IA', de: ['Tu asistente con IA'] },
+  { titulo: 'Límites del plan', de: ['Lo que entra en tu plan'] },
+  { titulo: 'Equipo y agencia', de: ['Equipo', 'Recomendar MaKo'] },
+  { titulo: 'Acompañamiento', de: ['Acompañamiento'] },
+];
+
+/**
  * La celda de un plan por su CAPA y no por su id: los números salen de los topes de la capa, así que un plan del setting
  * `planes.mako` con otro id dice lo que su capa le da. Una capa sin columna (pm), null: no se inventa.
  */
