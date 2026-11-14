@@ -408,6 +408,26 @@ grandes) — copilot-maqueta; la réplica REAL de un reel de Hormozi para Copywr
 está transcripto) — probar-copywriting; los competidores de Spy sin logos y con caricatura — el chat de Spy (puede necesitar el sí de
 Martín para escribir en producción). Después del despliegue: regrabar Spy y Copywriting.
 
+## La noche del 14/11/2026: copiar cada referencia al 100% (Martín: «trabaja toda la noche»)
+
+Martín, textual: «quiero que te concentres en que la copia salga muy fiel a todas las animaciones y cosas que tiene la landing original…
+lo hagas con todas las landings… los videos que tienen, las animaciones, los hover, todo, absolutamente todo».
+
+**Hecho y subido esa noche** (punta/landings-vsl): la portada de Spy sólo con referentes y sin textos; CoPilot con logos, «la campaña» y
+zoom por decisión; CRM con el lead en su etapa, el arrastre y la ficha con todo el tracking (VSL, mapa de calor, video de la visita, línea
+de tiempo); curso y comunidad sin textos de más; Comparaciones con la tabla entera, la cabecera fija y las flechas de a apps enteras, y
+tarjetas limpias; el ahorro en dos columnas y sin HeyGen; el checkout sin el subtítulo de Mercado Pago, sin el renglón repetido ni subtotal.
+
+**En curso, con agentes** (uno por landing, como mucho tres a la vez por la RAM; el candado de navegador es C:/dev/bancos-portada/.grabando):
+Competitor Spy contra Foreplay; Automations (WhatsApp e Instagram como los reales); Video contra Cherry Studio. **Lo que sigue, en este
+orden:** Marketing CoPilot (Master Ads), AI Avatar (HeyGen), Image (PostNitro), Copywriting (The Copy Machine), Web Generator (HighLevel AI
+Studio), Offer, Chats (Leadsales), CRM (GoHighLevel), Agenda (iClosed), Cobranza (Rebill), Email (beehiiv), Dashboard (Reportei), Ads Analyst
+(Gethookd), Funnels (Hyros), Ops Center (Holo), Plan (Motion). El brief de cada agente: scratchpad `brief-landing.txt` (si se perdió: el de
+Video en el transcript del 14/11). La lista de referencias: scripts/visor-landings/armar.mjs, `PAGINAS`.
+
+**Pendiente de Martín:** las banderas del checkout salen de flagcdn.com y el visor (artefacto) no carga imágenes de afuera; para que se vean
+en todos lados hay que bajarlas y servirlas nosotros (pide permiso: bajar archivos). En producción se ven.
+
 ## Decimoquinta vuelta (14/11/2026): checkout, precios, preguntas, tableros, Automations y Spy
 
 Hecho (commits de punta/landings-vsl del 14/11):

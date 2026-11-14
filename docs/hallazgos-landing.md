@@ -42,6 +42,22 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## Las marcas de un grabador van ~1 s adelantadas al video: se corta midiendo el video (14/11/2026, noche)
+
+**Síntoma.** Al unir las dos tomas de «curso y comunidad» con las marcas del grabador (`MARCA inicio 4946`…), la unión salió de 12 s
+en vez de 23: `xfade` con un `offset` más largo que la primera toma corta todo en silencio. **Causa.** Las marcas cuentan desde que
+arranca el script; el video de Playwright, desde el primer cuadro pintado (~1 s después): `fin 16357` en un video de 15,32 s.
+**La regla.** Restarle al tiempo de la marca la diferencia entre la marca `fin` y la duración del video (ffprobe), o medir en el
+video (un color en un momento conocido); y antes de un `xfade`, comprobar que el `offset` sea menor que la duración de la primera toma.
+
+## Una toma de la portada sin los textos de la app: CSS sólo en el banco (14/11/2026, noche)
+
+Martín pidió la toma de Spy «sin todos los textos de arriba» y la comunidad «sin textos innecesarios». La app no cambia: el banco le
+pone una hoja (`addStyleTag` o un `<style>` en la entrada) que esconde las clases de esos textos (`.spy-barra`, `.spy-phead`,
+`.spyo-numeros`, `.spyg-nums`, `.cmu-tabs`, `.cmu-post-ext`…). Para encontrarlas, un sondeo que recorre las hojas del DOM con texto y
+dice su cadena de clases (banco-spy-gurus/sondear-textos.mjs). Ojo con el filtro de «sólo referentes»: la caricatura de un referente sale
+de lib/spy-caricatura.ts (`caricaturaDeCompetidor`), no del registro, y filtrar sólo por el registro dejaba afuera a Hormozi.
+
 ## Comparaciones contra la competencia: lo que se afirma de otra app es público (14/11/2026)
 
 La tabla de /vsl/comparaciones dice, app por app, qué tiene y qué no (21 apps × 26 filas). Lo que se aprendió armándola:
