@@ -419,8 +419,8 @@ de tiempo); curso y comunidad sin textos de más; Comparaciones con la tabla ent
 tarjetas limpias; el ahorro en dos columnas y sin HeyGen; el checkout sin el subtítulo de Mercado Pago, sin el renglón repetido ni subtotal.
 
 **En curso, con agentes** (uno por landing, como mucho tres a la vez por la RAM; el candado de navegador es C:/dev/bancos-portada/.grabando):
-Web Generator contra HighLevel AI Studio (desde las 07:35); Offer contra Atlas AI (desde las 08:05); Chats contra Leadsales (desde las
-08:40). ENTREGADOS: Copywriting (bb6a9be89; faltan la tercera pestaña de ejemplos y la charla del «Chief»). Marketing CoPilot (bc770ddf3; **para decidir con Martín:** en modo claro las bandas oscuras pasan a
+Web Generator contra HighLevel AI Studio (desde las 07:35); Chats contra Leadsales (desde las 08:40); CRM contra GoHighLevel (desde las
+09:00). ENTREGADOS: Offer (75cd787d0; el video flota al bajar; mismo «para decidir» de claro/oscuro que /vsl/ads). Copywriting (bb6a9be89; faltan la tercera pestaña de ejemplos y la charla del «Chief»). Marketing CoPilot (bc770ddf3; **para decidir con Martín:** en modo claro las bandas oscuras pasan a
 celeste por la regla del 12/11, y en Master Ads son verde profundo: si quiere la copia fiel, `data-tema-fijo` en esas secciones). Image
 (4949ad5d5; falta el marco «Chat de MaKo»; con ella, las preguntas de la portada en TODAS las landings en producción, `LandingCompetencia.tsx`).
 AI Avatar (77f345a01: el reproductor, la cinta, las filas, el testimonio). Video (c7a37be50, la versión B de Cherry; faltan grabar dos escenas de «Lo que hace»: los outliers,
@@ -430,10 +430,11 @@ Automations (a9d476b7d, la toma final; el banco: `C:/dev/bancos-portada/banco-fl
 `codificar-bucle.sh`) y Competitor Spy (a319a85f4: las 12 pestañas con su grabación real, la lluvia y la órbita; sin hacer: los íconos animados
 del menú y el pie de Foreplay, el segundo botón de cada fila). **Para decidir (Spy):** `lib/funciones-mako.ts` dice que Spy todavía no lee
 solo todos los días y `plan-spy.md` dice que los Seguidos se leen a diario desde el 13/11; la landing dice «al sumarlo y cada vez que abres
-su ficha» hasta que se aclare. **Lo que sigue, en este orden:** CRM (GoHighLevel), Agenda (iClosed), Cobranza (Rebill), Email (beehiiv), Dashboard (Reportei), Ads Analyst
+su ficha» hasta que se aclare. **Lo que sigue, en este orden:** Agenda (iClosed), Cobranza (Rebill), Email (beehiiv), Dashboard (Reportei), Ads Analyst
 (Gethookd), Funnels (Hyros), Ops Center (Holo), Plan (Motion). Con varios agentes escribiendo `docs/hallazgos-landing.md` y `docs/hallazgos.md`, cada commit lleva SÓLO la entrada de su landing: se
 arma el archivo de HEAD más esa sección y se stagea sin tocar la copia de trabajo (`git hash-object -w --stdin` + `git update-index
---cacheinfo`; el script: scratchpad `stage-parcial.py`). El brief de cada agente: scratchpad `brief-landing.txt` (si se perdió: el de
+--cacheinfo`; el script: scratchpad `stage-parcial.py`). El brief de cada agente: scratchpad `brief-landing-v2.txt` (el común, con todas las trampas de la noche; cada pedido sólo da NOMBRE,
+SLUG, ARCHIVO, REF, URL y lo propio de la landing). El de antes: `brief-landing.txt` (si se perdió: el de
 Video en el transcript del 14/11). La lista de referencias: scripts/visor-landings/armar.mjs, `PAGINAS`.
 
 **Pendiente de Martín:** las banderas del checkout salen de flagcdn.com y el visor (artefacto) no carga imágenes de afuera; para que se vean
