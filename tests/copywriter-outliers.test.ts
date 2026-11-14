@@ -301,7 +301,8 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   // cómo volver a los outliers»): la portada va en `nueva`, y «Nueva página» desde un guion o las plantillas vuelve a ella.
   assert.match(page, /portada=\{portada\} \/>/);
   const cw = leer('app/copywriter/Copywriter.tsx');
-  assert.match(cw, /nueva=\{portada \? <OutliersCopy portada=\{portada\} plantillas=\{conPropias\} onPlantilla=\{usarPlantilla\} \/> : undefined\}/);
+  // Con la capa del clic encima (14/11/2026, tests/copywriter-abre-al-instante.test.ts).
+  assert.match(cw, /nueva=\{portada \? <><OutliersCopy portada=\{portada\} plantillas=\{conPropias\} onPlantilla=\{usarPlantilla\} alInstante=\{alInstante\} \/>\{capa\}<\/> : conCapa \? capa : undefined\}/);
   // Y las plantillas AL LADO de los outliers (11/11/2026, Martín: «también deberían estar los templates»), con la tarjeta común.
   const portadaTsx = leer('app/copywriter/OutliersCopy.tsx');
   assert.match(portadaTsx, /\{plantillas\?\.length && onPlantilla \? \(/);
@@ -313,7 +314,7 @@ test('/copywriter es la portada de outliers; «Mis guiones» y «Crear desde cer
   assert.match(portadaTsx, /useEffect\(\(\) => \{ setMostrar\(TANDA\); \}, \[formato, q, orden, tema\]\);/);
   // Y el original abierto pide el texto ENTERO (la tarjeta trae 280 letras).
   assert.match(leer('app/copywriter/OutlierAbierto.tsx'), /void pedirOriginal\(o\.id\)\.then\(\(r\) => \{ if \(vivo && r\.ok\) setCompleto\(r\.outlier\.texto\); \}\);/);
-  assert.match(cw, /alNuevo=\{portada \? undefined : \(\) => router\.push\(base\)\}/);
+  assert.match(cw, /alNuevo=\{portada \? undefined : \(\) => \{ empezar\('Copywriting'\); router\.push\(base\); \}\}/);
   const ruta = leer('app/api/copywriter/route.ts');
   assert.match(ruta, /case 'replicar':\n\s+return responder\(await replicarOutlier\(texto\(b\.outlier\)\)\);/);
   const m = leer('app/m/copywriter/page.tsx');

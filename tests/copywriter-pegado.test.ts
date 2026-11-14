@@ -124,7 +124,7 @@ test('su video se transcribe antes de escribir (como el de Spy); el VSL en Panda
 test('la pantalla: el botón en la portada, la ventana, la ruta con su puerta, la API y el original sin link', () => {
   const portada = leer('app/copywriter/OutliersCopy.tsx');
   assert.match(portada, /onClick=\{\(\) => setPegando\(true\)\}>Pegar link o texto<\/button>/);
-  assert.match(portada, /\{pegando \? <ReplicarPegado onCerrar=\{\(\) => setPegando\(false\)\} onListo=\{\(id\) => router\.push\(rutaGuion\.replace\('\{id\}', id\)\)\} \/> : null\}/);
+  assert.match(portada, /\{pegando \? <ReplicarPegado onCerrar=\{\(\) => setPegando\(false\)\} onListo=\{\(id\) => \{ capa\.empezar\('la página nueva'\); setPegando\(false\); router\.push\(rutaGuion\.replace\('\{id\}', id\)\); \}\} \/> : null\}/);
   const ventana = leer('app/copywriter/ReplicarPegado.tsx');
   assert.match(ventana, /const r = await pedirReplicarPegado\(tipo, texto, archivos\);/);
   assert.match(ventana, /TIPOS_PEGADO\.map/);
