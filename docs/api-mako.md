@@ -16169,10 +16169,11 @@ curl -L \
   "https://hola-mako.com/api/v1/contenido/outliers/OUTLIER_ID/replica"
 ```
 
-### `POST /api/v1/contenido/replicar_link_o_texto_copywriter` — Replicar un link o texto
+### `POST /api/v1/contenido/outliers/pegado` — Replicar un link o texto
 
 Como replicar_outlier_copywriter, pero con lo que trae la persona: un link de YouTube (se transcribe con el Gemini del negocio), el link de una landing (su texto y, si su VSL está en YouTube, lo que se dice en él; si está en Panda, Vimeo o Wistia, se replica con el texto de la página y se dice) o el texto pegado (un guion, una secuencia de historias). De Instagram no se trae el video desde el link: hay que pasar su texto. Crea la página vacía del tipo elegido, atada a ese original; al abrirla MaKo pregunta para qué oferta y la escribe entera. Devuelve el documentoId y su link. Queda pendiente hasta que la persona confirme.
 
+- **Ruta por operación:** `POST /api/v1/contenido/replicar_link_o_texto_copywriter`
 - **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -16189,7 +16190,14 @@ Como replicar_outlier_copywriter, pero con lo que trae la persona: un link de Yo
 | `texto` | string | sí | Un link SOLO (YouTube o la landing de un VSL) o el texto a replicar. |
 
 ```bash
-
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/outliers/pegado" \
+  -d '{"tipo":"reel","texto":"https://www.youtube.com/watch?v=t7-__IAeEu8"}'
 ```
 
 ## Video Generator — `video`

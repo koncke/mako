@@ -130,6 +130,7 @@ POST /api/copiloto/piloto → cortada
 POST /api/copiloto/tareas → cortada
 POST /api/copywriter → cortada
 POST /api/copywriter/ia → cortada
+POST /api/copywriter/pegado → cortada
 POST /api/crm-auto → cortada
 POST /api/crm/analyst → cortada
 POST /api/crm/comprobante-pago → cortada
