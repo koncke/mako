@@ -143,9 +143,12 @@ test('al COBRARSE «empezar ya»: la prueba se cancela en la pasarela y se anula
 });
 
 test('la VITRINA cuenta los topes de la prueba con los números de la tabla', () => {
-  const v = fuente('app/planes/Vitrina.tsx');
-  for (const t of ['prueba.videos', 'prueba.avatares', 'prueba.imagenes', 'web.landings_publicadas']) assert.ok(v.includes(`{TOPES_PRUEBA['${t}']}`), t);
-  assert.match(v, /exportar en masa se habilita con el primer cobro/);
+  // Desde el 14/11/2026 /planes muestra las preguntas de la portada (Martín: «tienen que ser siempre las mismas»): los topes de la
+  // prueba van en su respuesta, en app/vsl/_sitio/preguntas.ts, con los números de la tabla; y la vitrina dibuja ESAS preguntas.
+  const q = fuente('app/vsl/_sitio/preguntas.ts');
+  for (const t of ['prueba.videos', 'prueba.avatares', 'prueba.imagenes', 'web.landings_publicadas']) assert.ok(q.includes(`\${TOPES_PRUEBA['${t}']}`), t);
+  assert.match(q, /exportar en masa se habilita con el primer cobro/);
+  assert.match(fuente('app/planes/Vitrina.tsx'), /PREGUNTAS_SITIO\.map/, 'la vitrina dibuja las preguntas de la portada');
 });
 
 // Roturas (25/10/2026; base 19 / 0 con topes-plan y mi-plan), cada una restaurada (pasan / fallan):

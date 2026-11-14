@@ -9,7 +9,7 @@
 
 import { STACK_TIPICO } from './reemplaza';
 import { NOMBRE_PLAN_CON_PRUEBA, PRUEBA_DIAS } from '@/lib/planes-mako';
-import { TOPES } from '@/lib/topes-plan';
+import { TOPES, TOPES_PRUEBA } from '@/lib/topes-plan';
 
 const precioDe = (nombre: string): string => { const x = STACK_TIPICO.find((y) => y.app.nombre === nombre); return x ? x.precioUsd.toLocaleString('es-AR', { minimumFractionDigits: Number.isInteger(x.precioUsd) ? 0 : 2, maximumFractionDigits: 2 }) : '?'; };
 // Martín, 14/11/2026: «me gusta que sean algunas objeciones, pero piensa en cosas más generales… como "¿y si la IA contesta mal un
@@ -24,7 +24,9 @@ export const PREGUNTAS_SITIO: readonly { p: string; r: string }[] = [
   // principales»). Los precios, de STACK_TIPICO (./reemplaza.ts, con su fuente).
   { p: 'Ya pago GoHighLevel, ManyChat y un editor de video. ¿Para qué cambiar?', r: `Porque con lo que hoy pagas sólo por GoHighLevel (US$${precioDe('GoHighLevel')} por mes, su plan Starter) tienes MaKo Pro, y además dejas de pagar ManyChat (US$${precioDe('ManyChat')}) y tu editor de video (CapCut, US$${precioDe('CapCut')}). GoHighLevel ordena tus contactos y tus páginas de venta; MaKo hace eso y además te muestra lo que le funciona a tu competencia, replica sus páginas de venta, sus carruseles y sus guiones con tu oferta, edita tus videos y hace tus anuncios con tu avatar, con una IA que conoce tu negocio. En «Comparaciones» ves, trabajo por trabajo, qué app reemplaza.` },
   { p: '¿Cuánto me va a salir en total?', r: 'El plan, más lo que consuma tu propia IA (Claude, ChatGPT o Gemini), que pagas directo a tu proveedor: MaKo no le pone recargo. Con Gemini puedes empezar gratis, con un tope por día.' },
-  { p: '¿Cómo es la prueba gratis?', r: `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: pones tu tarjeta y no se te cobra nada hasta el día ${PRUEBA_DIAS + 1}. Si te das de baja antes, no pagas nada. Y no hay permanencia: te das de baja cuando quieras.` },
+  // Los topes de la prueba, de la MISMA tabla que los hace cumplir (lib/topes-plan.ts, `TOPES_PRUEBA`; tests/prueba-topes.test.ts): /planes
+  // los decía en su propia pregunta y, desde que usa éstas (14/11/2026), los dice acá, en todas las páginas.
+  { p: '¿Cómo es la prueba gratis?', r: `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: pones tu tarjeta y no se te cobra nada hasta el día ${PRUEBA_DIAS + 1}. Si te das de baja antes, no pagas nada. En la prueba, lo que se crea con IA tiene tope: hasta ${TOPES_PRUEBA['prueba.videos']} videos armados, ${TOPES_PRUEBA['prueba.avatares']} video con avatar de IA, ${TOPES_PRUEBA['prueba.imagenes']} imágenes y ${TOPES_PRUEBA['web.landings_publicadas']} página publicada; exportar en masa se habilita con el primer cobro. Y no hay permanencia: te das de baja cuando quieras.` },
   { p: '¿Puedo pagar en pesos?', r: 'Desde Argentina pagas en pesos, con Mercado Pago. Desde otro país, en dólares, con tu tarjeta.' },
   { p: 'Ya tengo mis contactos y mi equipo. ¿Empiezo de cero?', r: `No. Subes la lista de contactos que ya tienes (un CSV o hasta un PDF) y MaKo te muestra cada uno antes de sumarlo. Tu equipo entra con su propio acceso: en MaKo Pro, hasta ${TOPES.agencia['equipo.usuarios']} personas.` },
   { p: '¿Quién me ayuda si algo falla?', r: 'Personas de verdad. Lo reportas desde la app, el equipo de MaKo lo arregla y te avisa por WhatsApp.' },
