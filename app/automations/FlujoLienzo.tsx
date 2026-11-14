@@ -922,6 +922,15 @@ function permiteIADe(paso: PasoSecuenciaDto, hayModoIA: boolean): boolean {
  * se le pasa el negocio: los datos del lead no se conocen acá, y quedan crudos, que es
  * como se ve que son variables.
  */
+/**
+ * LOS ADJUNTOS ESCONDIDOS DETRÁS DE «+N mensajes…», con su nombre (14/11/2026, la llamada con Julio: al probar salió un archivo
+ * que Martín no reconocía). El recuadro los dice en la MISMA línea: el alto de la tarjeta no cambia.
+ */
+function adjuntosEscondidos(partes: NonNullable<ReturnType<typeof burbujasDeTarjeta>>, biblioteca: Biblioteca, audios: AudioSetting[]): string {
+  const archivos = biblioteca?.estado === 'ok' ? biblioteca.lista.map((x) => ({ id: x.id, nombre: x.nombre_archivo?.trim() || x.titulo?.trim() || null })) : [];
+  return textoAdjuntos(adjuntosDePartes(partes.slice(PARTES_EN_TARJETA), archivos, audios));
+}
+
 function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenciaDto; audios: AudioSetting[]; negocio: string; biblioteca: Biblioteca }) {
   const n = negocio.trim();
   const texto = aplicarVariables(paso.cuerpo || '', n ? { negocio: n } : {});
@@ -943,11 +952,7 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
   const pie = { hora, pie: <Ticks status="read" /> };
   if (partes && partes.length > 1) {
     const resto = partes.length - PARTES_EN_TARJETA;
-    // ⚠️ UN ARCHIVO ESCONDIDO DETRÁS DE «+N mensajes…» NO SE VE (14/11/2026, la llamada con Julio: al probar salió un archivo
-    // que Martín no reconocía). El recuadro dice el nombre de cada adjunto que no se dibuja, en la MISMA línea (el alto no cambia).
-    const escondidos = resto > 0 ? textoAdjuntos(adjuntosDePartes(partes.slice(PARTES_EN_TARJETA),
-      biblioteca?.estado === 'ok' ? biblioteca.lista.map((x) => ({ id: x.id, nombre: x.nombre_archivo?.trim() || x.titulo?.trim() || null })) : [],
-      audios)) : '';
+    const escondidos = resto > 0 ? adjuntosEscondidos(partes, biblioteca, audios) : '';
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: SEP_BURBUJAS_TARJETA }}>
         {partes.slice(0, PARTES_EN_TARJETA).map((pt, k) => {
@@ -963,8 +968,7 @@ function VistaMensaje({ paso, audios, negocio, biblioteca }: { paso: PasoSecuenc
           return <BurbujaHilo key={k} compacta saliente autor={negocio} {...pie} lineas={RENGLONES_CON_DOS} contenido={{ texto: aplicarVariables(pt.cuerpo, n ? { negocio: n } : {}) }} />;
         })}
         {resto > 0 && (
-          // Una FILA que la empuja a la derecha: así encoge al ancho de la tarjeta (sin un ancho máximo propio, AGENTS.md) y el
-          // nombre largo de un archivo termina en «…».
+          // En una FILA que la empuja a la derecha: encoge al ancho de la tarjeta y un nombre largo termina en «…».
           <div style={{ display: 'flex', justifyContent: 'flex-end', minWidth: 0 }}>
             <div data-mas-partes="" title={escondidos || undefined} style={{ minWidth: 0, overflow: 'hidden', height: ALTO_MAS_PARTES, boxSizing: 'border-box', padding: '0 9px', display: 'inline-flex', alignItems: 'center', borderRadius: 7, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 11, color: 'var(--faint)' }}>
               <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{textoMasPartes(resto)}{escondidos ? ` · ${escondidos}` : ''}</span>

@@ -80,7 +80,8 @@ test('cada adjunto con su nombre: el de la biblioteca, o «Archivo #id» si no s
 
 test('la tarjeta nombra lo escondido detrás de «+N mensajes…», y «Probar» lo dice antes de mandar', () => {
   const lienzo = sinComentarios('app/automations/FlujoLienzo.tsx');
-  assert.match(lienzo, /const escondidos = resto > 0 \? textoAdjuntos\(adjuntosDePartes\(partes\.slice\(PARTES_EN_TARJETA\),/);
+  assert.match(lienzo, /const escondidos = resto > 0 \? adjuntosEscondidos\(partes, biblioteca, audios\) : '';/);
+  assert.match(lienzo, /return textoAdjuntos\(adjuntosDePartes\(partes\.slice\(PARTES_EN_TARJETA\), archivos, audios\)\);/, 'sólo los que NO se dibujan');
   assert.match(lienzo, /\{textoMasPartes\(resto\)\}\{escondidos \? ` · \$\{escondidos\}` : ''\}/);
   const probar = sinComentarios('app/automations/PanelProbar.tsx');
   assert.match(probar, /<PopoverWA ancla=\{btnProbar\} etiqueta=\{def\.probarEn\} onCerrar=\{cerrarMenu\}>\n\s*\{avisoAdjuntos && \(/);
