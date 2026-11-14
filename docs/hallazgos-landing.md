@@ -5406,3 +5406,12 @@ portada»).
 Martín pidió el WhatsApp obligatorio y el botón apagado hasta completar todo. Exigirlo también en `leerPedidoCompra` rompió
 `tests/_whatsapp-checkout-hijo.ts`, que arma compras REALES sin WhatsApp a propósito (los pedidos de otras puertas, la API). Quedó
 en el formulario (`CompraPlan.tsx`, `completo`): el botón no se puede tocar sin un WhatsApp de al menos 10 dígitos.
+
+## La cámara del grabador no llega debajo de los 800 px de la página (14/11/2026)
+
+`grabador.mjs` → `camara` fija el `body` en 1280 × 800 con `overflow: hidden` para poder trasladarlo: lo que está más abajo queda
+recortado y no se puede enfocar (por eso «nada de cámara mientras se baja»). Para una pantalla larga (la pestaña «Anuncios» de Spy)
+`banco-spy-gurus/grabar-anuncios.mjs` trae su propia cámara: sin transformar, BAJA hasta la parte, la mide y recién ahí se acerca
+(el traslado suma el `scrollY`); para soltar vuelve a escala 1 en el mismo lugar. Y para que una parte que ocupa todo el ancho se lea,
+se enfoca un TRAMO de ella (`desde`/`hasta`, en fracción del ancho). El banco de Spy lee ahora las 134 piezas de Hormozi, también los
+anuncios que terminaron (`leer-hormozi-todo.mts`; la lista de antes, con 64, en `hormozi-viejo.json`).
