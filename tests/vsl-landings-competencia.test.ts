@@ -290,55 +290,11 @@ test('CRM: el hero lleva la grabación real que abre el mini-VSL, y cada pestañ
   assert.ok(scripts.some((x) => x.includes("'d-crm'") && x.includes('data-fin') && x.includes('-fija') && x.includes('-salida')), 'sin su script');
 });
 
-test('Agenda: el hero turna dos pantallas reales, cada pestaña y cada tarjeta trae la suya, y el script va con data-visor', async () => {
-  const { VISTAS_HERO, PANTALLA_DE_PESTANA, FOTO_DE_TARJETA, VIDEO_RESERVAS, VIDEO_EQUIPO } = await import('../app/vsl/_competencia/disenos/agenda');
-  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'agenda');
-  assert.ok(l, 'falta la landing de Agenda');
-  const html = dibujar(l);
-  const tarjetas = l.bloques.filter((b): b is Extract<Bloque, { tipo: 'tarjetas' }> => b.tipo === 'tarjetas');
-  assert.equal(VISTAS_HERO.length, 2, 'el hero turna dos vistas');
-  assert.equal(PANTALLA_DE_PESTANA.length, tarjetas[0].items.length, 'una pestaña sin su pantalla');
-  assert.equal(FOTO_DE_TARJETA.length, tarjetas[1].items.length, 'una tarjeta sin su foto');
-  for (const v of [...VISTAS_HERO, ...PANTALLA_DE_PESTANA, VIDEO_RESERVAS, VIDEO_EQUIPO]) {
-    for (const f of [v.video, v.poster]) assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
-    assert.ok(html.includes(`src="${v.video}"`), `no se dibuja ${v.video}`);
-  }
-  for (const f of FOTO_DE_TARJETA) {
-    assert.ok(existsSync(join(RAIZ, 'public', f.src)), `falta public${f.src}`);
-    assert.ok(html.includes(`src="${f.src}"`), `no se dibuja ${f.src}`);
-  }
-  for (const it of tarjetas[0].items) assert.ok((it.puntos?.length ?? 0) >= 2, `«${it.titulo}» sin su lista`);
-  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
-  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
-  assert.ok(scripts.some((x) => x.includes("'d-agenda-'") && x.includes('pastilla') && x.includes('prog')), 'sin su script');
-});
-
-test('Cobranza: el hero turna cuatro pantallas reales, cada pieza trae su grabación y el script mueve las secciones pegadas', async () => {
-  const { HERO_GRUPOS, PANTALLAS_PIEZAS, SDK_STRIPE, SDK_MP } = await import('../app/vsl/_competencia/disenos/cobranza');
-  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'cobranza');
-  assert.ok(l, 'falta la landing de Cobranza');
-  const html = dibujar(l);
-  const piezas = l.bloques.find((b) => b.tipo === 'filas');
-  assert.ok(piezas && piezas.tipo === 'filas', 'Cobranza sin sus piezas');
-  assert.equal(PANTALLAS_PIEZAS.length, piezas.items.length, 'una grabación por pieza, en el orden de las piezas');
-  assert.equal(HERO_GRUPOS.length, 4, 'el hero de Rebill turna cuatro grupos');
-  const archivos = [...HERO_GRUPOS.flatMap((g) => [g.caja.src, g.chico.src]), ...PANTALLAS_PIEZAS.flatMap((g) => [g.video, g.poster]),
-    SDK_STRIPE.forma.src, SDK_STRIPE.codigo.src, SDK_MP.base.src, SDK_MP.tarjeta.src];
-  for (const f of archivos) {
-    assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
-    assert.ok(html.includes(`"${f}"`), `${f} no se dibuja`);
-  }
-  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
-  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
-  assert.ok(scripts.some((x) => x.includes("'d-cobranza'") && x.includes('-int-slides') && x.includes('-sdk-centro') && x.includes('ck-g') && x.includes('faq-card')), 'sin su script');
-});
-
-// Agenda como iClosed (14/11/2026, noche): el hero son dos vistas grabadas que se turnan como su demo («CRM» y «WhatsApp»), cada pestaña
-// de «Mantén los mismos funnels» trae su grabación y su lista que se marca, cada tarjeta de «Todo lo que tu agenda…» su foto real, y el
-// script que mueve las líneas de tiempo va con data-visor (el visor borra los demás).
-// PROBADO ROMPIÉNDOLO (14/11/2026): `vincular.webm` → `vincularx.webm` en PANTALLA_DE_PESTANA → falla «falta public/…»; sin `puntos` en la
-// segunda pestaña → falla «sin su lista»; `data-visor` sacado del <script> → falla «sin su script».
-
+// Martín, 14/11/2026, noche: «que la copia salga muy fiel… los videos que tienen, las animaciones». Como beehiiv, el hero de Email funde
+// dos imágenes (aquí, dos pantallas REALES de Email, banco C:/dev/bancos-portada/banco-email-landing) y cada una de las seis tarjetas por
+// producto lleva su pantalla y, atrás, sus seis recuadros; los nombres de los disparadores y de los segmentos son los de la app.
+// PROBADO ROMPIÉNDOLO (14/11/2026): renombrar dominio.webp en PANTALLA_DE_TARJETA → falla «falta public/…»; «No asistió a su llamada» en
+// vez de «No asistió a R1» → falla «no es un disparador de la app»; sacar los cuadros clave del fundido → falla «sin su fundido».
 test('Email: el hero funde dos pantallas reales y cada tarjeta trae la suya, con los disparadores y segmentos de la app', async () => {
   const { HERO_EMAIL, PANTALLA_DE_TARJETA } = await import('../app/vsl/_competencia/disenos/email');
   const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'email');
@@ -377,7 +333,58 @@ test('Email: el hero funde dos pantallas reales y cada tarjeta trae la suya, con
 // pegada trae su grabación de la app y el script mueve las dos secciones pegadas, el giro de la tercera forma y las preguntas.
 // PROBADO ROMPIÉNDOLO (14/11/2026): renombrar hero-2.webp en HERO_GRUPOS → falla «falta public/…»; sacar una grabación de
 // PANTALLAS_PIEZAS → falla «una grabación por pieza»; sacar `-int-slides` del script → falla «sin su script».
+test('Cobranza: el hero turna cuatro pantallas reales, cada pieza trae su grabación y el script mueve las secciones pegadas', async () => {
+  const { HERO_GRUPOS, PANTALLAS_PIEZAS, SDK_STRIPE, SDK_MP } = await import('../app/vsl/_competencia/disenos/cobranza');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'cobranza');
+  assert.ok(l, 'falta la landing de Cobranza');
+  const html = dibujar(l);
+  const piezas = l.bloques.find((b) => b.tipo === 'filas');
+  assert.ok(piezas && piezas.tipo === 'filas', 'Cobranza sin sus piezas');
+  assert.equal(PANTALLAS_PIEZAS.length, piezas.items.length, 'una grabación por pieza, en el orden de las piezas');
+  assert.equal(HERO_GRUPOS.length, 4, 'el hero de Rebill turna cuatro grupos');
+  const archivos = [...HERO_GRUPOS.flatMap((g) => [g.caja.src, g.chico.src]), ...PANTALLAS_PIEZAS.flatMap((g) => [g.video, g.poster]),
+    SDK_STRIPE.forma.src, SDK_STRIPE.codigo.src, SDK_MP.base.src, SDK_MP.tarjeta.src];
+  for (const f of archivos) {
+    assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+    assert.ok(html.includes(`"${f}"`), `${f} no se dibuja`);
+  }
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
+  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
+  assert.ok(scripts.some((x) => x.includes("'d-cobranza'") && x.includes('-int-slides') && x.includes('-sdk-centro') && x.includes('ck-g') && x.includes('faq-card')), 'sin su script');
+});
 
+// Agenda como iClosed (14/11/2026, noche): el hero son dos vistas grabadas que se turnan como su demo («CRM» y «WhatsApp»), cada pestaña
+// de «Mantén los mismos funnels» trae su grabación y su lista que se marca, cada tarjeta de «Todo lo que tu agenda…» su foto real, y el
+// script que mueve las líneas de tiempo va con data-visor (el visor borra los demás).
+// PROBADO ROMPIÉNDOLO (14/11/2026): `vincular.webm` → `vincularx.webm` en PANTALLA_DE_PESTANA → falla «falta public/…»; sin `puntos` en la
+// segunda pestaña → falla «sin su lista»; `data-visor` sacado del <script> → falla «sin su script».
+test('Agenda: el hero turna dos pantallas reales, cada pestaña y cada tarjeta trae la suya, y el script va con data-visor', async () => {
+  const { VISTAS_HERO, PANTALLA_DE_PESTANA, FOTO_DE_TARJETA, VIDEO_RESERVAS, VIDEO_EQUIPO } = await import('../app/vsl/_competencia/disenos/agenda');
+  const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'agenda');
+  assert.ok(l, 'falta la landing de Agenda');
+  const html = dibujar(l);
+  const tarjetas = l.bloques.filter((b): b is Extract<Bloque, { tipo: 'tarjetas' }> => b.tipo === 'tarjetas');
+  assert.equal(VISTAS_HERO.length, 2, 'el hero turna dos vistas');
+  assert.equal(PANTALLA_DE_PESTANA.length, tarjetas[0].items.length, 'una pestaña sin su pantalla');
+  assert.equal(FOTO_DE_TARJETA.length, tarjetas[1].items.length, 'una tarjeta sin su foto');
+  for (const v of [...VISTAS_HERO, ...PANTALLA_DE_PESTANA, VIDEO_RESERVAS, VIDEO_EQUIPO]) {
+    for (const f of [v.video, v.poster]) assert.ok(existsSync(join(RAIZ, 'public', f)), `falta public${f}`);
+    assert.ok(html.includes(`src="${v.video}"`), `no se dibuja ${v.video}`);
+  }
+  for (const f of FOTO_DE_TARJETA) {
+    assert.ok(existsSync(join(RAIZ, 'public', f.src)), `falta public${f.src}`);
+    assert.ok(html.includes(`src="${f.src}"`), `no se dibuja ${f.src}`);
+  }
+  for (const it of tarjetas[0].items) assert.ok((it.puntos?.length ?? 0) >= 2, `«${it.titulo}» sin su lista`);
+  assert.doesNotMatch(html, /mk-falta/, 'vuelve un recuadro de «falta»');
+  const scripts = html.split('<script data-visor="">').slice(1).map((x) => x.slice(0, x.indexOf('</script>')));
+  assert.ok(scripts.some((x) => x.includes("'d-agenda-'") && x.includes('pastilla') && x.includes('prog')), 'sin su script');
+});
+
+
+// Martín, 14/11/2026, noche: la copia fiel de Reportei con las pantallas REALES del Dashboard. Su hero (una imagen) es la hoja Marketing
+// grabada con la cámara; su video de la caja, «Nueva hoja»; cada tarjeta pastel, la foto de la pieza que nombra; cada pestaña de «Conoce
+// la herramienta», la entrada de su hoja. Los tableros que corren donde iban sus logos de clientes se cuentan del código.
 test('Dashboard: el hero, la caja y cada pestaña llevan su grabación real, cada tarjeta su pieza, y los tableros salen del código', async () => {
   const { VIDEO_HERO, VIDEO_NUEVA_HOJA, FOTO_FLOTA, FOTOS_TARJETAS, PANTALLA_DE_PESTANA } = await import('../app/vsl/_competencia/disenos/dashboard');
   const { PLANTILLAS_OFRECIDAS, PLANTILLAS_GENERAL_OFRECIDAS } = await import('../lib/graficos-plantillas');
@@ -411,7 +418,6 @@ test('Dashboard: el hero, la caja y cada pestaña llevan su grabación real, cad
 // 3) va con data-visor.
 // PROBADO ROMPIÉNDOLO (14/11/2026): `hooks.webm` → `hooksx.webm` en FILAS_DE_LA_APP → falla «falta public/…»; una fila menos en
 // FILAS_DE_LA_APP → falla «una tarjeta sin su grabación»; sacar `data-bar` del script → falla «sin su script».
-
 test('Ads Analyst: la demo trae sus cuatro preguntas con datos de Spy, cada tarjeta de la app su grabación y el script va con data-visor', async () => {
   const { FILAS_DE_LA_APP, ANUNCIOS_ACTIVOS, CINTAS_CIERRE, PASO_PREGUNTA } = await import('../app/vsl/_competencia/disenos/script');
   const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'script');
@@ -437,6 +443,13 @@ test('Ads Analyst: la demo trae sus cuatro preguntas con datos de Spy, cada tarj
   assert.ok(scripts.some((x) => x.includes("'d-script'") && x.includes('data-fila') && x.includes('data-bar') && x.includes('-rv-on') && x.includes('IntersectionObserver')), 'sin su script');
 });
 
+// Funnels como Hyros (14/11/2026, noche): Hyros publicó una portada nueva ese día y la copia del 11/11 ya no se parecía. Como su panel
+// de escenas, el hero turna cuatro grabaciones de la app REAL (la ficha del lead y la hoja Marketing del Dashboard) y la lámina lleva
+// la de «Editar con MaKo»: cada archivo y su póster en public/, el script de las escenas con data-visor, y nada de lo que Hyros tiene y
+// MaKo no (su App Store, su MCP, sus cifras). Lo que se le pide a «Editar con MaKo» son sugerencias de la app y un gráfico del catálogo,
+// y los eventos de las tarjetas son los que MaKo le manda a Meta.
+// PROBADO ROMPIÉNDOLO (14/11/2026): `pauta` → `pautas` en ESCENAS_HERO → falla «falta public/…»; sacar data-visor del <script> → falla
+// «sin su script»; «Agrega los leads por mes» en PEDIDOS_EDITAR → falla «no es una sugerencia de la app».
 test('Funnels: el hero turna cuatro pantallas reales, la lámina lleva «Editar con MaKo» y el script va con data-visor', async () => {
   const { ESCENAS_HERO, PEDIDOS_EDITAR } = await import('../app/vsl/_competencia/funnel');
   const l = LANDINGS_COMPETENCIA.find((x) => x.slug === 'funnel');
