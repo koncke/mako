@@ -27,6 +27,7 @@ import type { Bloque } from './plancha-local';
 import { esSaturacion, esTimeout, esTopeDeTamano } from '../fallo-ia-texto';
 import { ANCHO_CARRUSEL, ALTO_CARRUSEL, altoEstimado, esOscuro, familia, rect, texto, type Marca } from './documento';
 import type { EstiloCarrusel } from './tipos';
+import { ALTO_VERTICAL, ANCHO_VERTICAL } from '../thumbnails/verticales';
 
 /** El papel de un texto en la lámina: lo usa el nombre de la capa («Titular», «Texto»…), que es como el chat la encuentra. */
 export const ROLES_TEXTO = ['titulo', 'cuerpo', 'rotulo', 'dato', 'cta', 'firma'] as const;
@@ -92,7 +93,8 @@ export type LaminaReplica = {
   /** Las figuras marcadas (F1, F2…) que son una persona: se borran de la plancha y su lugar queda para la del negocio. */
   personas?: string[];
 };
-export type Proporcion = '4:5' | '1:1' | '16:9';
+/** `9:16`: la miniatura VERTICAL, la portada de un Reel o un Short (13/11/2026, lib/thumbnails/verticales.ts). */
+export type Proporcion = '4:5' | '1:1' | '16:9' | '9:16';
 /** `lectura`: lo que la IA LEYÓ de la composición del original antes de escribir (queda en las notas del diseño). */
 export type Replica = { proporcion: Proporcion; titulo: string; laminas: LaminaReplica[]; lectura?: string };
 
@@ -101,7 +103,11 @@ export const ANCHO_MINIATURA = 1280;
 export const ALTO_MINIATURA = 720;
 /** El ancho y el alto de cada proporción, en píxeles del editor. */
 export const medidasDe = (p: Proporcion): { ancho: number; alto: number } =>
-  (p === '16:9' ? { ancho: ANCHO_MINIATURA, alto: ALTO_MINIATURA } : { ancho: ANCHO_CARRUSEL, alto: p === '1:1' ? ANCHO_CARRUSEL : ALTO_CARRUSEL });
+  (p === '16:9' ? { ancho: ANCHO_MINIATURA, alto: ALTO_MINIATURA }
+    : p === '9:16' ? { ancho: ANCHO_VERTICAL, alto: ALTO_VERTICAL }
+      : { ancho: ANCHO_CARRUSEL, alto: p === '1:1' ? ANCHO_CARRUSEL : ALTO_CARRUSEL });
+/** Una miniatura (la de YouTube o la vertical): UNA lámina cuyo diseño es dónde va el texto grande y dónde la cara. */
+export const esMiniatura = (p: Proporcion): boolean => p === '16:9' || p === '9:16';
 
 /** Cuántas láminas como mucho (Instagram deja 20; más de 12 en un ejemplo no ayuda a nadie y pesa en la IA). */
 export const LAMINAS_MAX = 12;
@@ -134,6 +140,8 @@ export type PedidoReplica = {
   anuncio?: boolean;
   /** La miniatura de un video de YouTube (16:9, una sola lámina): «Thumbnails» (6/11/2026). */
   miniatura?: boolean;
+  /** Con `miniatura`: la VERTICAL, la portada de un Reel o un Short (9:16, 1080 × 1920; 13/11/2026). */
+  vertical?: boolean;
   /** El título del video original: sólo para entender el tema (no se copia). */
   tituloOriginal?: string | null;
   /** El pie del original: sólo para entender el tema y la estructura (no se copia). Útil cuando se ve nada más que la portada. */
@@ -254,18 +262,28 @@ export function promptDeReplica(p: PedidoReplica): string {
  */
 function promptDeMiniatura(p: PedidoReplica): string {
   const vio = p.vistas > 0;
+  // La vertical (13/11/2026): la portada de un Reel o un Short. Lo mismo que la de YouTube, en 9:16 y con la zona que tapa la app.
+  const cual = p.vertical ? 'la PORTADA de un Reel de Instagram (o un Short de YouTube)' : 'la MINIATURA de un video de YouTube';
   return [
     vio
-      ? 'Te muestro la MINIATURA de un video de YouTube que funcionó muy bien. Vas a REPLICAR su DISEÑO para el negocio de abajo: el mismo lugar, tamaño, color y peso de cada texto, el mismo color de fondo y el mismo lugar de la persona o del objeto, con el TEXTO escrito para este negocio.'
-      : 'No tienes la imagen: sólo el título de un video de YouTube que funcionó muy bien (abajo). Vas a ARMAR la miniatura para el negocio de abajo, con un diseño de miniatura que funcione (texto enorme y contraste fuerte).',
+      ? `Te muestro ${cual} que funcionó muy bien. Vas a REPLICAR su DISEÑO para el negocio de abajo: el mismo lugar, tamaño, color y peso de cada texto, el mismo color de fondo y el mismo lugar de la persona o del objeto, con el TEXTO escrito para este negocio.`
+      : `No tienes la imagen: sólo el título de ${p.vertical ? 'un Reel' : 'un video de YouTube'} que funcionó muy bien (abajo). Vas a ARMAR la ${p.vertical ? 'portada' : 'miniatura'} para el negocio de abajo, con un diseño que funcione (texto enorme y contraste fuerte).`,
     '',
     'Reglas:',
-    '- Es UNA sola lámina, apaisada (16:9, 1280 × 720). Exactamente 1 elemento en "laminas".',
-    '- El texto grande tiene de 2 a 6 palabras, en mayúsculas si el original las usa. Es un gancho que da curiosidad, nunca el título entero del video. Como mucho un texto chico más.',
+    p.vertical
+      ? '- Es UNA sola lámina, VERTICAL (9:16, 1080 × 1920). Exactamente 1 elemento en "laminas". Lo importante va en el centro: el 15 % de arriba y el 25 % de abajo los tapa la app (el título y los botones), y el perfil de Instagram la recorta a 3:4.'
+      : '- Es UNA sola lámina, apaisada (16:9, 1280 × 720). Exactamente 1 elemento en "laminas".',
+    // La portada de un reel NO es una miniatura de YouTube (13/11/2026, la de @herasmedia en seco): muchas son un cuadro del video
+    // con una frase chica. Con «ENORME» la réplica ponía un titular gigante encima del lugar de la persona.
+    p.vertical
+      ? '- El texto dice lo mismo de largo que el del original (de 2 a 8 palabras), en mayúsculas sólo si el original las usa. Es un gancho que da curiosidad, nunca el título entero.'
+      : '- El texto grande tiene de 2 a 6 palabras, en mayúsculas si el original las usa. Es un gancho que da curiosidad, nunca el título entero del video. Como mucho un texto chico más.',
     '- Copia el patrón (qué promete, cómo lo dice), NUNCA sus palabras ni los hechos que cuenta de su autor. No pongas el nombre, el @ ni la marca del canal original, y nunca un @ ni un usuario del negocio: no los sabes.',
     '- Español neutro, de «tú», como se habla en México.',
     p.conAvatar ? '- Donde el original tiene la cara de una persona, marca `persona: true` y su lugar: ahí va la foto del dueño del negocio. Deja el texto del lado contrario.' : '- No pongas fotos ni personas: la miniatura es tipografía y color. Deja `foto: null`.',
-    '- El texto ENORME: tamano entre 0.08 y 0.15 (fracción del ancho). Contraste fuerte con el fondo.',
+    p.vertical
+      ? '- Cada texto del MISMO tamaño, en el MISMO lugar y con la MISMA letra que en el original: si en el original es una frase chica sobre la imagen, en la tuya también. Nunca encima de la cara de la persona.'
+      : '- El texto ENORME: tamano entre 0.08 y 0.15 (fracción del ancho). Contraste fuerte con el fondo.',
     '- `letra` es el estilo de la letra del original: sans, gruesa, condensada, serif, manuscrita o mono. Si dudas, gruesa.',
     '- Si no sabes un dato del negocio (un número, un precio), no lo inventes.',
     p.pedido?.trim() ? `- Lo que pidió el dueño: ${p.pedido.trim().slice(0, 300)}` : '',
@@ -279,7 +297,7 @@ function promptDeMiniatura(p: PedidoReplica): string {
     p.voz ? `Cómo habla (DATOS):\n<<<VOZ\n${p.voz.slice(0, 1_500)}\nVOZ>>>` : '',
     '',
     COMPACTO,
-    `{"proporcion":"16:9","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
+    `{"proporcion":"${p.vertical ? '9:16' : '16:9'}","titulo":"el nombre del diseño, corto","laminas":[{"fondo":"#RRGGBB","foto":null o {"x":0..1,"y":0..1,"ancho":0..1,"alto":0..1,"persona":true|false,"descripcion":"qué muestra"},"textos":[{"rol":"titulo|cuerpo|rotulo|dato|cta|firma","letra":"sans|gruesa|condensada|serif|manuscrita|mono","texto":"…","x":0..1,"y":0..1,"ancho":0..1,"tamano":0.02..0.16,"color":"#RRGGBB","negrita":true|false,"alinear":"left|center|right","mayus":true|false}]}]}`,
     'x, y, ancho y alto son FRACCIONES de la imagen (0 = izquierda o arriba, 1 = derecha o abajo); "tamano" es el alto de la letra como fracción del ancho.',
   ].filter((l) => l !== '').join('\n');
 }
@@ -407,7 +425,7 @@ export function conAcentos(marcado: string): { texto: string; acentos: Array<[nu
   return { texto: recortado, acentos: acentos.map(([a, b]) => [Math.max(0, a - ini), Math.min(recortado.length, b - ini)] as [number, number]).filter(([a, b]) => b > a) };
 }
 
-export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; usuario?: string | null; nombre?: string }): Replica | { error: string } {
+export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boolean; vertical?: boolean; usuario?: string | null; nombre?: string }): Replica | { error: string } {
   let j: Record<string, unknown>;
   try { j = parseJsonObject(crudo); } catch { return { error: 'La IA no devolvió el diseño en un formato que pueda leer.' }; }
   const lista = Array.isArray(j.laminas) ? j.laminas : [];
@@ -460,9 +478,9 @@ export function leerReplica(crudo: string, o: { laminas: number; miniatura?: boo
     laminas.push({ fondo, textos, foto, cuadros: cuadrosDe(l.cuadros, foto), formas: formasDe(l.formas), ...(personas.length ? { personas } : {}) });
   }
   if (!laminas.some((l) => l.textos.some((t) => t.texto))) return { error: 'La IA no encontró textos en las láminas: vuelve a intentar o elige otro ejemplo.' };
-  // Una miniatura es UNA lámina 16:9, diga lo que diga el modelo.
+  // Una miniatura es UNA lámina 16:9 (o 9:16 la vertical), diga lo que diga el modelo.
   const lectura = limpio(j.lectura, 1200) || undefined;
-  if (o.miniatura) return { proporcion: '16:9', titulo: limpio(j.titulo, 80) || 'Mi miniatura', laminas: laminas.slice(0, 1), lectura };
+  if (o.miniatura) return { proporcion: o.vertical ? '9:16' : '16:9', titulo: limpio(j.titulo, 80) || 'Mi miniatura', laminas: laminas.slice(0, 1), lectura };
   return { proporcion: j.proporcion === '1:1' ? '1:1' : '4:5', titulo: limpio(j.titulo, 80) || 'Mi carrusel', laminas, lectura };
 }
 
@@ -1126,17 +1144,22 @@ export function documentoDeReplica(o: {
   planchas?: ReadonlyArray<PlanchaDeLamina | null>;
   /** La escena PARECIDA de cada cuadro de tipo «escena», por su `busqueda` (el banco de fotos, ya en nuestro bucket). */
   escenas?: ReadonlyMap<string, FotoDelCliente>;
+  /**
+   * ¿El dueño quiere una persona donde el original tiene una? (el `conAvatar` del pedido, como `lugarDePersona` de la plancha).
+   * Sin la foto del negocio (que ya no se pega), el lugar del retrato queda MARCADO para generarla con IA. Sin esto, nada.
+   */
+  lugarDePersona?: boolean;
 }): Record<string, unknown> {
   const { ancho: W, alto: H } = medidasDe(o.replica.proporcion);
   // Una miniatura NO se reacomoda para «llenar»: su diseño es justamente dónde va el texto grande y dónde la cara.
-  const reacomodar = o.replica.proporcion !== '16:9';
+  const reacomodar = !esMiniatura(o.replica.proporcion);
   // Una escena que la búsqueda no trajo lleva otra de la misma réplica (12/11/2026): un hueco del color de fondo del tamaño de la
   // foto se ve roto; una foto parecida de otra lámina, no.
   const otraEscena = o.escenas ? [...o.escenas.values()][0] : undefined;
   // La cara de marca entra si se eligió, aunque la IA no haya marcado ningún retrato (12/11/2026: @vilmanunez salió sin él).
   const laminas = o.foto ? conLaCara(o.replica.laminas, o.replica.proporcion === '16:9') : o.replica.laminas;
   const pages = laminas.map((l, i) => {
-    const nombre = o.replica.proporcion === '16:9' ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`;
+    const nombre = esMiniatura(o.replica.proporcion) ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`;
     const plancha = o.planchas?.[i];
     if (plancha) {
       return {
@@ -1172,7 +1195,13 @@ export function documentoDeReplica(o: {
       const recorte = conRecorte(caja, c.forma);
       // En una miniatura la persona va SIN fondo: se marca y el editor la recorta al abrir (app/image-editor/mako/quitar-fondo.ts).
       if (c.tipo === 'retrato' && c.persona && o.foto) { objetos.push({ ...fotoQueCubre(o.nuevoId(), o.foto, caja), ...recorte, ...(reacomodar ? {} : { name: FOTO_A_RECORTAR }) }); puesta(); }
-      else {
+      else if (c.tipo === 'retrato' && c.persona && o.lugarDePersona) {
+        // ⚠️ Sin plancha (la persona sobre una foto: «el fondo no es parejo») y sin la foto del negocio, que ya no se pega: el lugar
+        // de la persona queda MARCADO como en la lámina fiel (13/11/2026). Antes no quedaba nada, y el aviso decía «dejé su lugar
+        // marcado»: lo encontró la primera réplica vertical en seco (la portada de @den.borgg, ws 9).
+        objetos.push({ ...rect(o.nuevoId(), PERSONA_A_GENERAR, { ...caja, fill: 'rgba(0,0,0,0.035)', radio: 28 }), stroke: '#9AA0A6', strokeWidth: 3, strokeDashArray: [16, 12] });
+        puesta();
+      } else {
         const escena = (c.busqueda ? o.escenas?.get(c.busqueda) : undefined) ?? (c.tipo === 'escena' ? otraEscena : undefined);
         if (escena) { objetos.push({ ...fotoQueCubre(o.nuevoId(), escena, caja), ...recorte, name: 'Foto: escena parecida' }); puesta(); }
       }
@@ -1217,7 +1246,7 @@ export function documentoDeReplica(o: {
       });
     });
     return {
-      id: o.nuevoId(), name: o.replica.proporcion === '16:9' ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`,
+      id: o.nuevoId(), name: esMiniatura(o.replica.proporcion) ? 'Miniatura' : i === 0 ? 'Portada' : i === o.replica.laminas.length - 1 ? 'Cierre' : `Lámina ${i + 1}`,
       background: { type: 'solid', color: l.fondo }, objects: objetos, ...(i === 0 && o.notas ? { notes: o.notas } : {}),
     };
   });
@@ -1309,24 +1338,35 @@ export function esCdnPermitido(url: string): boolean {
  *   · las láminas no le entran → nuestro;
  *   · cualquier otra cosa → contestó con un error, nombrando a quién.
  * No culpa a MaKo si no es de MaKo, ni al negocio si no es del negocio (AGENTS.md, «Un mensaje de error dice DE QUIÉN fue»).
+ *
+ * `negocio` (14/11/2026): el nombre del negocio cuando quien mira está INSPECCIONANDO otra cuenta (lib/vista-de-otro.ts). La IA es
+ * la de ese negocio, así que el aviso la nombra («El Gemini de Mauricio Bustos rechazó la clave…») y dice dónde se arregla (sus
+ * Integraciones, abiertas desde la misma inspección). Con «Tu Gemini», quien inspecciona lee que la falla es de SU IA.
  */
-export function avisoSinIA(error: string): { aviso: string; conectar: string | null } {
+export function avisoSinIA(error: string, negocio: string | null = null): { aviso: string; conectar: string | null } {
   const guia = 'Por ahora, cada lámina trae una guía.';
   const quien = proveedorDelError(error);
-  const tu = quien ? `Tu ${quien}` : 'Tu IA';
+  const ajeno = negocio?.trim() || null;
+  const tu = ajeno ? (quien ? `El ${quien} de ${ajeno}` : `La IA de ${ajeno}`) : quien ? `Tu ${quien}` : 'Tu IA';
+  const su = ajeno ? 'su' : 'tu';
   if (/ninguna IA que pueda mirar|no hay ninguna|con_su_ia_sin_vision|conecta tu (?:claude|gpt|gemini)|sin_keys|sin proveedor de ia/i.test(error) || /las fotos y los PDF escaneados los leo/i.test(error)) {
-    return { aviso: `Conecta tu Claude, tu GPT o tu Gemini y MaKo escribe los textos con lo de tu negocio. ${guia}`, conectar: CONECTAR_IA };
+    return {
+      aviso: ajeno
+        ? `${ajeno} no tiene conectada una IA que mire imágenes (su Claude, su GPT o su Gemini): conéctala en sus Integraciones, desde esta misma vista, y MaKo escribe los textos con lo de su negocio. ${guia}`
+        : `Conecta tu Claude, tu GPT o tu Gemini y MaKo escribe los textos con lo de tu negocio. ${guia}`,
+      conectar: CONECTAR_IA,
+    };
   }
   if (/\b(401|403)\b|invalid[_ ]?api[_ ]?key|api key not valid|incorrect api key|authentication|permission[_ ]?denied|unauthorized/i.test(error)) {
-    return { aviso: `${tu} rechazó la clave: revísala en Integraciones. ${guia}`, conectar: CONECTAR_IA };
+    return { aviso: `${tu} rechazó la clave: revísala en ${ajeno ? 'sus Integraciones' : 'Integraciones'}. ${guia}`, conectar: CONECTAR_IA };
   }
   if (/\b429\b|quota|rate.?limit|resource[_ ]?exhausted|insufficient|billing|credit balance|prepayment/i.test(error)) {
-    return { aviso: `${tu} no tiene cuota o crédito ahora (es de tu cuenta, no de MaKo). ${guia}`, conectar: CONECTAR_IA };
+    return { aviso: `${tu} no tiene cuota o crédito ahora (es de ${su} cuenta, no de MaKo). ${guia}`, conectar: CONECTAR_IA };
   }
-  if (esTopeDeTamano(error)) return { aviso: `Las láminas pesan demasiado para ${tu.replace(/^Tu /, 'tu ')}: es nuestro, ya quedó anotado. ${guia}`, conectar: null };
-  if (esTimeout(error)) return { aviso: `${tu} tardó más de 2 minutos en contestar: no es de tu configuración. ${guia} Vuelve a intentar en un rato.`, conectar: null };
-  if (esSaturacion(error)) return { aviso: `${tu} tiene demasiada demanda ahora mismo: es del proveedor, no de tu configuración. ${guia} Vuelve a intentar en un rato.`, conectar: null };
-  return { aviso: `${tu} contestó con un error y no pudo escribir tu versión. ${guia} Vuelve a intentar en un rato.`, conectar: null };
+  if (esTopeDeTamano(error)) return { aviso: `Las láminas pesan demasiado para ${tu.replace(/^(Tu|El|La) /, (x) => x.toLowerCase())}: es nuestro, ya quedó anotado. ${guia}`, conectar: null };
+  if (esTimeout(error)) return { aviso: `${tu} tardó más de 2 minutos en contestar: no es de ${su} configuración. ${guia} Vuelve a intentar en un rato.`, conectar: null };
+  if (esSaturacion(error)) return { aviso: `${tu} tiene demasiada demanda ahora mismo: es del proveedor, no de ${su} configuración. ${guia} Vuelve a intentar en un rato.`, conectar: null };
+  return { aviso: `${tu} contestó con un error y no pudo escribir ${su} versión. ${guia} Vuelve a intentar en un rato.`, conectar: null };
 }
 
 /**
@@ -1353,12 +1393,17 @@ export function proveedorDelError(error: string): 'Claude' | 'GPT' | 'Gemini' | 
  * Sin la IA, la miniatura de YouTube igual sale EDITABLE: el fondo, un titular grande con la guía de qué escribir y el nombre
  * del negocio chico. Nunca un recuadro de «Tu foto».
  */
-export function documentoGuiaMiniatura(o: { marca: Marca; nuevoId: () => string; notas?: string; fondo?: string; tinta?: string }): Record<string, unknown> {
-  const W = ANCHO_MINIATURA;
-  const H = ALTO_MINIATURA;
+export function documentoGuiaMiniatura(o: { marca: Marca; nuevoId: () => string; notas?: string; fondo?: string; tinta?: string; vertical?: boolean }): Record<string, unknown> {
+  const W = o.vertical ? ANCHO_VERTICAL : ANCHO_MINIATURA;
+  const H = o.vertical ? ALTO_VERTICAL : ALTO_MINIATURA;
   const fondo = o.fondo ?? '#111111';
   const tinta = o.tinta ?? (esOscuro(fondo) ? '#FFFFFF' : '#111111');
-  const objetos = [
+  // La vertical (13/11/2026): el titular en el centro, fuera de lo que tapa la app arriba (el 15 %) y abajo (el 25 %).
+  const objetos = o.vertical ? [
+    texto(o.nuevoId(), 'Titular', 'TU GANCHO EN 3 A 5 PALABRAS', { left: 90, top: 560, width: 900, tam: 120, peso: 400, fam: familia({ familia: 'Archivo Black', respaldo: 'sans-serif' }), color: tinta, alin: 'center', interlineado: 1.02, mayus: true }),
+    texto(o.nuevoId(), 'Texto', 'Lo que promete el reel, como el del ejemplo', { left: 90, top: 1060, width: 900, tam: 48, peso: 500, fam: familia({ familia: 'Inter', respaldo: 'sans-serif' }), color: tinta, alin: 'center', interlineado: 1.2, mayus: false }),
+    texto(o.nuevoId(), 'Firma', o.marca.nombre.slice(0, 60), { left: 90, top: 1300, width: 900, tam: 34, peso: 700, fam: familia({ familia: 'Inter', respaldo: 'sans-serif' }), color: tinta, alin: 'center', interlineado: 1.2, mayus: false }),
+  ] : [
     texto(o.nuevoId(), 'Titular', 'TU GANCHO EN 3 A 5 PALABRAS', { left: 80, top: 210, width: 760, tam: 104, peso: 400, fam: familia({ familia: 'Archivo Black', respaldo: 'sans-serif' }), color: tinta, alin: 'left', interlineado: 1.02, mayus: true }),
     texto(o.nuevoId(), 'Texto', 'Lo que promete el video, como el del ejemplo', { left: 80, top: 520, width: 760, tam: 40, peso: 500, fam: familia({ familia: 'Inter', respaldo: 'sans-serif' }), color: tinta, alin: 'left', interlineado: 1.2, mayus: false }),
     texto(o.nuevoId(), 'Firma', o.marca.nombre.slice(0, 60), { left: 80, top: 640, width: 760, tam: 28, peso: 700, fam: familia({ familia: 'Inter', respaldo: 'sans-serif' }), color: tinta, alin: 'left', interlineado: 1.2, mayus: false }),

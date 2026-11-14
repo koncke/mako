@@ -5,6 +5,8 @@
 // app, tests/cuenta-revision-escrituras.snapshot.txt). La página trae sólo lo que se ve primero
 // (app/image-editor/carruseles/tanda.ts) y la pantalla pide acá el resto apenas se dibuja; las miniaturas de YouTube, al abrir
 // «Thumbnails». Lee lo MISMO que la página (`leerExplorador`, `leerThumbnails`), en el negocio de la pestaña.
+// `?que=verticales` (13/11/2026): las miniaturas VERTICALES, las portadas de los reels que Spy ya trajo
+// (lib/thumbnails/verticales-servidor.ts), al elegir «Verticales» en Thumbnails. Sólo lee: no llama a Apify.
 // La puerta es la del Image Editor (`puerta`), como «traer» y «replicar». Un fetch y no una server action: las acciones se encolan
 // de a una (AGENTS.md) y esto corre mientras la persona ya mira la portada.
 
@@ -13,6 +15,7 @@ import { runWithWorkspace } from '@/lib/workspace';
 import { puerta } from '@/lib/image-editor/server';
 import { leerExplorador } from '@/lib/carruseles/explorar-servidor';
 import { leerThumbnails } from '@/lib/thumbnails/servidor';
+import { leerVerticales } from '@/lib/thumbnails/verticales-servidor';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -23,6 +26,12 @@ const sinCache = { 'cache-control': 'no-store' };
 export async function GET(req: NextRequest) {
   const p = await puerta();
   if (p instanceof Response) return p;
+  if (req.nextUrl.searchParams.get('que') === 'verticales') {
+    const v = await runWithWorkspace(p.ws, () => leerVerticales());
+    return v.ok
+      ? Response.json({ ok: true, verticales: v.verticales }, { headers: sinCache })
+      : Response.json({ ok: false, error: v.error }, { status: 500, headers: sinCache });
+  }
   if (req.nextUrl.searchParams.get('que') === 'thumbnails') {
     const t = await runWithWorkspace(p.ws, () => leerThumbnails());
     return t.ok

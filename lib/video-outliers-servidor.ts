@@ -19,33 +19,51 @@ import { rendimientoInstagram } from './zernio-organico';
 import { criterioDeReel } from './video-outliers-criterio';
 import {
   FUENTE_MAKO, conCriterio, juntarOutliers, outliersDeSpy, outliersPropios,
-  type CuentaSpy, type FuenteOutliersVideo, type LecturaFuente, type PiezaReel, type PortadaOutliers,
+  type CuentaSpy, type FuenteOutliersVideo, type LecturaFuente, type OutlierVideo, type PiezaReel, type PortadaOutliers,
 } from './video-outliers';
 
 /** Cuántos reels se leen como mucho (todas las cuentas juntas), como los carruseles de Image (25 cuentas × 240). */
 export const REELS_A_LEER = 6000;
+
+/** Las cuentas con Instagram que el negocio sigue en Spy y TODAS sus piezas de Instagram (el múltiplo se calcula sobre su cuenta). */
+async function piezasDeSpy(): Promise<{ ok: true; piezas: PiezaReel[]; cuentas: CuentaSpy[] } | { ok: false; motivo: string }> {
+  const db = await getTenantDb();
+  const comp = await db.from('spy_competidores').select('id, nombre, instagram, avatar').limit(100);
+  if (comp.error) {
+    // Spy sin tablas no es un error del negocio: no sigue a nadie todavía.
+    if (comp.error.code === '42P01') return { ok: true, piezas: [], cuentas: [] };
+    return { ok: false, motivo: comp.error.message };
+  }
+  const cuentas = ((comp.data ?? []) as CuentaSpy[]).filter((c) => !!c.instagram);
+  if (!cuentas.length) return { ok: true, piezas: [], cuentas };
+  const piezas: PiezaReel[] = [];
+  // TODAS las de Instagram de esas cuentas (no sólo los reels): el múltiplo se calcula sobre su cuenta, como en Spy. `*` y no
+  // una lista de columnas: `medio` (mig 0391) puede no existir todavía, y una columna nombrada que falta rechaza la consulta.
+  await leerPorPaginas<Record<string, unknown>>(db, 'spy_piezas', '*', (pagina) => {
+    for (const f of pagina) piezas.push(podarVencido(f) as unknown as PiezaReel);
+    return piezas.length < REELS_A_LEER;
+  }, { orden: 'id', filtros: (q) => q.eq('canal', 'instagram').in('competidor_id', cuentas.map((c) => c.id)) });
+  return { ok: true, piezas, cuentas };
+}
+
+/**
+ * TODOS los reels que Spy ya trajo, con su múltiplo, SIN el criterio de edición: las miniaturas VERTICALES de Image
+ * (lib/thumbnails/verticales-servidor.ts, 13/11/2026). Ahí importa la PORTADA, no el montaje.
+ */
+export async function leerReelsDeSpy(): Promise<{ ok: true; outliers: OutlierVideo[] } | { ok: false; motivo: string }> {
+  const r = await piezasDeSpy();
+  return r.ok ? { ok: true, outliers: outliersDeSpy(r.piezas, r.cuentas) } : r;
+}
 
 /** Los reels de las cuentas que el negocio sigue en Competitors Spy. Sin cuentas (o sin las tablas de Spy), ninguno. */
 export const FUENTE_SPY: FuenteOutliersVideo = {
   id: 'spy',
   nombre: 'las cuentas que sigues en Competitors Spy',
   leer: async (): Promise<LecturaFuente> => {
-    const db = await getTenantDb();
-    const comp = await db.from('spy_competidores').select('id, nombre, instagram, avatar').limit(100);
-    if (comp.error) {
-      // Spy sin tablas no es un error del negocio: no sigue a nadie todavía.
-      if (comp.error.code === '42P01') return { ok: true, outliers: [] };
-      return { ok: false, motivo: comp.error.message };
-    }
-    const cuentas = ((comp.data ?? []) as CuentaSpy[]).filter((c) => !!c.instagram);
+    const r = await piezasDeSpy();
+    if (!r.ok) return r;
+    const { piezas, cuentas } = r;
     if (!cuentas.length) return { ok: true, outliers: [] };
-    const piezas: PiezaReel[] = [];
-    // TODAS las de Instagram de esas cuentas (no sólo los reels): el múltiplo se calcula sobre su cuenta, como en Spy. `*` y no
-    // una lista de columnas: `medio` (mig 0391) puede no existir todavía, y una columna nombrada que falta rechaza la consulta.
-    await leerPorPaginas<Record<string, unknown>>(db, 'spy_piezas', '*', (pagina) => {
-      for (const f of pagina) piezas.push(podarVencido(f) as unknown as PiezaReel);
-      return piezas.length < REELS_A_LEER;
-    }, { orden: 'id', filtros: (q) => q.eq('canal', 'instagram').in('competidor_id', cuentas.map((c) => c.id)) });
     // Sólo los que enseñan un patrón de edición (11/11/2026, Martín: «no reels random al azar»); los demás se cuentan.
     const { outliers, resumen } = conCriterio(outliersDeSpy(piezas, cuentas), criterioDeReel);
     return { ok: true, outliers, resumen };

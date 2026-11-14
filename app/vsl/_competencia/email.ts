@@ -75,7 +75,7 @@ export const LANDING_EMAIL: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Email marketing conectado a tu CRM',
-      titulo: 'Secuencias.<br>Envíos.<br>Tu CRM.<br><em>Una sola plataforma.</em>',
+      titulo: 'Tus emails,<br>escritos y enviados<br><em>desde tu CRM.</em>',
       bajada: 'La plataforma todo en uno que te ayuda a escribir, enviar y medir tus emails: <strong>secuencias que salen solas</strong> por lo que hizo cada lead en tu embudo y envíos a un segmento de tu CRM, firmados con tu dominio.',
       puntos: ['MaKo escribe cada email en la voz de tu negocio', 'Sale desde tu dominio, nunca desde el de MaKo'],
       visual: { tipo: 'detalle', slug: 'email' },
@@ -111,7 +111,7 @@ export const LANDING_EMAIL: LandingCompetencia = {
     { tipo: 'caso' },
     {
       tipo: 'logos',
-      titulo: 'Integraciones potentes',
+      titulo: 'Se conecta con tus apps',
       items: [
         { logo: 'meta.png', nombre: 'Tus formularios de Meta' },
         { logo: 'vsl.png', nombre: 'Tu VSL' },

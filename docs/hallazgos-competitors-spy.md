@@ -13,6 +13,18 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## `postgres` devuelve `vistas` como texto, y la mediana las PEGA: «35.736.643.029 vistas» (14/11/2026)
+
+- **Síntoma:** el número del reel de prueba (`numeroDeSeguidos`, `lib/spy-seguidos-reglas.ts`) calculado en un script con las piezas
+  reales de `spy_piezas` daba 35 mil millones de vistas.
+- **Causa:** `postgres` (el cliente de los scripts que leen la base directo) devuelve las columnas `bigint` como TEXTO. `valorDe`
+  (`lib/multiplo-rendimiento.ts`) acepta `"70919" >= 0` y `mediana` hace `(s[m - 1] + s[m]) / 2`: con dos textos los pega
+  («70919» + «580385») y después divide. No da error.
+- **La app no lo sufre:** lee por Supabase, que devuelve números. **Regla:** un script que le pasa filas de `sql` a las funciones
+  puras convierte antes `vistas`, `megusta`, `comentarios` (y los ids) con `Number(…)`.
+- Con los números bien, seguir sólo a Federico Cristofari da **11.209** vistas (la mediana de sus últimos 20 reels); sumar a Víctor
+  Heras lo sube a 81.257. Es el número de la animación del CoPilot en la portada.
+
 ## Después de `irA(null)` no sale NINGÚN pedido: lo que tiene que llegar al server, va antes (11/11/2026)
 
 **Vive en:** `app/competitor-spy/SpyApp.tsx` (`quitar`, `irA`). Lo fija `tests/mirada-prod-11-11.test.ts` (caso 9).
@@ -2364,3 +2376,25 @@ moverlos de lugar: es que lleguen.
   habría gastado Apify e IA por cada anuncio que alguien abre. Por eso va aparte, y sólo lo pide Copywriting al replicar.
 - **Sin probar en producción:** que el actor `apify~facebook-ads-scraper` acepte el enlace `ads/library/?id=` de UN anuncio y traiga
   `snapshot.videos`. La importación de siempre lo trae con las búsquedas por página; con un solo id, se mide al desplegar.
+
+## Los gurús en Spy, y afuera los logos (14/11/2026, pedido de Martín por el chat de landings)
+
+**Vive en:** `lib/spy-reglas.ts` (`TOPES.competidores`), `lib/spy.ts` (`listarCompetidores`, `agregarCompetidor`, `quitarCompetidor`) y `lib/spy-caricatura.ts`. Test: `tests/spy-caricatura-referente.test.ts` («todos los gurús entran…»).
+
+**El pedido:** «elimine todos los competidores que tengan logos… que les ponga el rostro… todos los gurús que tenemos y… todas las personas que estamos scrapeando sus carruseles y sus reels, los ponga ahí en Competitor Spy… Con su respectiva caricatura».
+
+**⚠️ El tope de 25 no sólo frenaba el alta: es también el `.limit` de la lista.** `listarCompetidores` ordena por `mirado_en`, con los que nunca se leyeron al final, y corta en `TOPES.competidores`. Si se dan de alta filas por SQL por encima del tope, las nuevas no aparecen en la pantalla y no hay ningún aviso, así que parece que el alta falló. Ahora el tope es 60: los 32 gurús más las cuentas de antes.
+
+**Los gurús no necesitan foto ni Canva.** Su cara es la aprobada (`/asesores/grandes/<id>.png`), y la pone `caricaturaDeCompetidor` a partir del nombre completo. Se dan de alta con `completo` y, como canal, sólo con los @ verificados: los 12 de YouTube de docs/hallazgos-ops-center.md («De dónde salen las fotos») y el Instagram de Vilma, que ya figura en la biblioteca de carruseles. Los otros 17 quedan sin canal, porque un @ puesto de memoria trae a otra persona.
+
+**Por SQL y no por el alta de la app:** `agregarCompetidor` tiene un tope diario y además dispara «Buscar sus otras redes» con Apify. El script primero saltea a los que ya emparejan con un referente: el 5 («@AlexHormozi»), el 8 y el 18. Después inserta con `on conflict (workspace_id, nombre) do nothing`. Ese salteo hace falta porque el índice único compara el texto, no a la persona.
+
+**Borrar un competidor arrastra sus piezas** (`on delete cascade`), y «Dejar de mirarlo» borra además `spy.oferta.<id>`, `spy.lectura.<id>` y `spy.transcripcion.<id>.*`. Martín dijo «por ahora no los quiero», así que antes de borrar se guarda un respaldo con las filas, las piezas y los ajustes, porque volver a leer 1594 piezas cuesta. Está en las notas compartidas del Cerebro: `spy-gurus-1411/respaldo-logos-ws9.json`.
+
+**⚠️ Dave Ramsey es una persona, pero salía con un logo.** Su foto venía del canal de YouTube de The Ramsey Show. En su Instagram sí está su cara, pero hoy Instagram no se lee: la clave de Apify da 401 y Meta no tiene un Instagram conectado. Por eso sale junto con los logos, y vuelve cuando haya una foto suya.
+
+**Sin hacer:**
+- **Las cuentas de la biblioteca de carruseles y la de la plantilla de reels.** Son 196 de la lista (ninguna tiene foto guardada) y @soyjosepcasas. Todas son sólo de Instagram, así que no hay foto ni caricatura hasta que Instagram se pueda leer. Además, muchas son marcas (time, canva, a16z, entrepreneur…): cuando tengan foto, el Runner las va a marcar «sin persona», y ésas no entran. Con todas adentro, el tope tiene que volver a subir.
+- **Sarah Tran (37):** no tiene canal. El único que coincide con su nombre es de otra persona.
+- **Andrea Cano (48):** Canva la dibujó aniñada. La cola lo vuelve a intentar sola al día siguiente.
+- **Los 17 gurús sin canal:** se les puede sumar el suyo desde «Agregar un canal», verificando primero el @.

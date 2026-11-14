@@ -471,7 +471,7 @@ function secciones(bloques: Bloque[]): ReactNode[] {
         break;
       case 'contraste':
         out.push(
-          <section key={k} className="d-copywriting-tinta">
+          <section key={k} className="d-copywriting-tinta" data-tema-fijo="">
             <div className="d-copywriting-cont d-copywriting-tinta-grid">
               <div>
                 {b.etiqueta && <p className="d-copywriting-tinta-l" dangerouslySetInnerHTML={html(b.etiqueta)} />}

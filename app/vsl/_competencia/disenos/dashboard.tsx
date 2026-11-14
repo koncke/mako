@@ -396,7 +396,7 @@ const CSS = `
   .d-dashboard-cards{margin-top:48px;gap:24px}
   .d-dashboard-ancha{display:flex;flex-direction:column-reverse;align-items:stretch;padding:24px 24px 0;min-height:0}
   .d-dashboard-ancha .d-dashboard-card-txt{padding:0 0 24px;max-width:none}
-  .d-dashboard-ancha-img{padding-top:0}
+  .d-dashboard-ancha-img{padding-top:0;align-self:stretch;min-width:0}
   .d-dashboard-ancha-img .d-dashboard-panel{width:100%;margin-left:0}
   .d-dashboard-altas{grid-template-columns:minmax(0,1fr);gap:24px}
   .d-dashboard-alta{padding:24px}

@@ -14,7 +14,8 @@
 // Integraciones AHÍ, sin salir de la tab) y «Abrir el diseño» con las guías. Las láminas guía también se ven armándose, y si no
 // se pudo armar nada, la tira de cuadros vacíos se va (6/11/2026: Martín vio el modal con las miniaturas en blanco).
 //
-// Sirve también para una miniatura de YouTube (Thumbnails, 6/11/2026): una lámina de 1280 × 720.
+// Sirve también para una miniatura de YouTube (Thumbnails, 6/11/2026): una lámina de 1280 × 720. Y para una VERTICAL (13/11/2026,
+// la portada de un reel: lib/thumbnails/verticales.ts): una lámina de 1080 × 1920.
 //
 // DESDE EL GUIADO (9/11/2026, ./ReplicarGuiado.tsx): con `guiado` viaja lo que contestó el dueño (la oferta, la foto, qué
 // cambia) y la pantalla NO abre el editor sola: cada lámina se ve AL LADO de su original (`originales`) y el dueño decide con
@@ -32,6 +33,7 @@ import { useRevelado } from '@/app/_ui/ArmadoEnVivo';
 import { eventosDe, fasesSegunLaIA, type EventoReplica } from '@/lib/carruseles/replica';
 import type { Carrusel } from '@/lib/carruseles/explorar';
 import type { Thumbnail } from '@/lib/thumbnails/explorar';
+import type { Vertical } from '@/lib/thumbnails/verticales';
 import type { PedidoGuiado } from '@/lib/carruseles/guiado';
 import { rutaDiseno } from '../ruta';
 import { PaginaCarrusel } from './MiniaturaCarrusel';
@@ -47,7 +49,10 @@ type Pagina = { pagina: Record<string, unknown>; ancho: number; alto: number };
 type Fin = Extract<EventoReplica, { fase: 'fin'; ok: true }>;
 
 /** Lo que hace falta del ejemplo para pedirlo y dibujar la espera. */
-function ejemploDe(carrusel?: Carrusel | null, thumbnail?: Thumbnail | null) {
+function ejemploDe(carrusel?: Carrusel | null, thumbnail?: Thumbnail | null, vertical?: Vertical | null) {
+  if (vertical) {
+    return { que: 'vertical' as const, id: vertical.id, quien: vertical.creador.usuario ? `@${vertical.creador.usuario}` : vertical.creador.nombre, total: 1, proporcion: '9 / 16', fases: FASES_MINIATURA };
+  }
   if (thumbnail) {
     return { que: 'thumbnail' as const, id: thumbnail.id, quien: thumbnail.canal.handle || thumbnail.canal.nombre, total: 1, proporcion: '16 / 9', fases: FASES_MINIATURA };
   }
@@ -64,8 +69,10 @@ const FASES_MINIATURA = [
   { id: 'armar', texto: 'Armo el diseño editable' },
 ] as const;
 
-export function EditarCarrusel({ carrusel = null, thumbnail = null, guiado = null, originales = null, onCerrar, resumen = null, rehacer = [] }: {
+export function EditarCarrusel({ carrusel = null, thumbnail = null, vertical = null, guiado = null, originales = null, onCerrar, resumen = null, rehacer = [] }: {
   carrusel?: Carrusel | null; thumbnail?: Thumbnail | null;
+  /** Una miniatura vertical (la portada de un reel, 9:16). */
+  vertical?: Vertical | null;
   /** Lo que contestó el dueño en el guiado: viaja a la ruta, y con él no se abre el editor solo. */
   guiado?: PedidoGuiado | null;
   /** Las láminas del original, para mostrar cada una al lado de la suya (sólo con el guiado). */
@@ -80,7 +87,7 @@ export function EditarCarrusel({ carrusel = null, thumbnail = null, guiado = nul
   rehacer?: ReadonlyArray<{ rotulo: string; alElegir: () => void }>;
 }) {
   const router = useRouter();
-  const ej = ejemploDe(carrusel, thumbnail);
+  const ej = ejemploDe(carrusel, thumbnail, vertical);
   const [fase, setFase] = useState<'leer' | 'escribir' | 'armar'>('leer');
   const [total, setTotal] = useState<number>(ej.total);
   const [paginas, setPaginas] = useState<Pagina[]>([]);
@@ -188,12 +195,12 @@ export function EditarCarrusel({ carrusel = null, thumbnail = null, guiado = nul
           ))}
         </ol>
         {conTira ? (
-          <ol className={s.tira} data-miniatura={ej.que === 'thumbnail' ? 'si' : undefined} aria-label={ej.que === 'thumbnail' ? 'Tu miniatura' : 'Láminas de tu versión'}>
+          <ol className={s.tira} data-miniatura={ej.que === 'thumbnail' ? 'si' : ej.que === 'vertical' ? 'vertical' : undefined} aria-label={ej.que !== 'carrusel' ? 'Tu miniatura' : 'Láminas de tu versión'}>
             {Array.from({ length: Math.max(total, paginas.length) }, (_, i) => {
               const p = vistas[i];
               const original = originales?.[i] ?? null;
               const tuya = p
-                ? <PaginaCarrusel pagina={p.pagina} ancho={p.ancho} alto={p.alto} etiqueta={ej.que === 'thumbnail' ? 'Tu miniatura' : `Lámina ${i + 1}`} style={{ width: '100%' }} />
+                ? <PaginaCarrusel pagina={p.pagina} ancho={p.ancho} alto={p.alto} etiqueta={ej.que !== 'carrusel' ? 'Tu miniatura' : `Lámina ${i + 1}`} style={{ width: '100%' }} />
                 : <span className={s.esperando} style={{ aspectRatio: ej.proporcion }} aria-hidden />;
               return (
                 <li key={i} data-lista={p ? 'si' : undefined}>

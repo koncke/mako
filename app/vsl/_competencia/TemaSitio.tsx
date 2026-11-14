@@ -102,7 +102,10 @@ function leer(){
   var esRecuadro=function(n){return n.children.length===1&&!n.textContent.trim()&&n.firstElementChild.matches('svg:has(use), img');};
   var fuera=function(n){return esRecuadro(n)||n.closest('[aria-label^="MaKo"], img, video, picture, canvas, iframe, symbol, defs, svg:has(use), .mk-tema-sitio, script, style, [data-tema-fijo]');};
   return todos.filter(function(n){return !fuera(n);}).map(function(n){var cs=getComputedStyle(n),o={n:n,bg:cs.backgroundColor,bi:cs.backgroundImage};BOR.concat(TXT).forEach(function(p){o[p]=cs.getPropertyValue(p);});
-    if(o.bi&&o.bi.indexOf('gradient')>=0){var r2=n.getBoundingClientRect();o.chico=r2.width<480&&r2.height<140;}
+    if(o.bi&&o.bi.indexOf('gradient')>=0){var r2=n.getBoundingClientRect();o.chico=r2.width<480&&r2.height<140;
+      // Un degradado recortado al TEXTO (background-clip: text) es la letra, no un fondo: se lleva al modo como tinta. Como fondo, el
+      // título oscuro de una referencia clara quedaba oscuro sobre el negro (la revisión del 14/11: CRM, Spy, Ops Center, Web Generator).
+      o.clip=(cs.webkitBackgroundClip||cs.backgroundClip||'').indexOf('text')>=0;}
     // En un SVG, el relleno de un rectángulo o un círculo es FONDO (las columnas del tablero), no letra: se lleva al modo como fondo.
     o.area=n instanceof SVGRectElement||n instanceof SVGCircleElement||n instanceof SVGEllipseElement||n instanceof SVGPolygonElement;
     // Un botón (un link o un <button> con fondo) conserva sus colores en los dos modos: el negro del Acelerador es a propósito.
@@ -111,12 +114,15 @@ function planDelModo(){
   if(planDe[actual])return planDe[actual];
   if(!leidosBase)leidosBase=leer();
   var lista=[],fondo=new Map(),quieto=new Set();
-  leidosBase.forEach(function(o){if(!transp(o.bg)){var nb=o.boton?o.bg:mapear(o.bg,false);if(nb!==o.bg)fondo.set(o.n,nb);else quieto.add(o.n);}
+  // Un fondo casi transparente (menos de la mitad: la tarjeta blanca al 6 % de una banda oscura) no decide nada: no es «quieto»; si
+  // no, su texto quedaba blanco cuando la banda pasaba a clara (la revisión del 14/11, «MaKo, lo de siempre» en /vsl/ads).
+  var tenue=function(c){var v=(c.match(/[\\d.]+/g)||[]).map(Number);return v.length>3&&v[3]<.5;};
+  leidosBase.forEach(function(o){if(!transp(o.bg)&&!tenue(o.bg)){var nb=o.boton?o.bg:mapear(o.bg,false);if(nb!==o.bg)fondo.set(o.n,nb);else quieto.add(o.n);}
     // Un botón con degradado de color de marca (tonos medios, que no cambian) conserva el color de su texto.
     if(o.chico&&(o.bi.match(RGB)||[]).some(function(c){return mapear(c,false)===c;}))quieto.add(o.n);});
   leidosBase.forEach(function(o){var n=o.n;
     if(fondo.has(n))lista.push([n,'background-color',fondo.get(n)]);
-    if(o.bi&&o.bi!=='none'&&o.bi.indexOf('gradient')>=0){var v=mapear(o.bi,false);if(v!==o.bi)lista.push([n,'background-image',v]);}
+    if(o.bi&&o.bi!=='none'&&o.bi.indexOf('gradient')>=0){var v=mapear(o.bi,!!o.clip);if(v!==o.bi)lista.push([n,'background-image',v]);}
     BOR.forEach(function(p){var v=o[p];if(v){var nv=mapear(v,2);if(nv!==v)lista.push([n,p,nv]);}});
     var a=n,q=false;while(a){if(quieto.has(a)){q=true;break;}if(fondo.has(a))break;a=a.parentElement;}
     if(q)return;

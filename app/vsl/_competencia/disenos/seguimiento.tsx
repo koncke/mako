@@ -531,8 +531,8 @@ const CSS = `
 .s-demo-in{max-width:1280px;margin:0 auto;padding:0 24px}
 .s-demo-marco{position:relative;padding:8px;animation:s-sube 1.6s cubic-bezier(.16,1,.3,1) .3s both}
 .s-demo-caja{background:#fff;border-radius:4px;border:1px solid var(--n2);overflow:hidden}
-.s-demo-sup{height:700px;display:flex;align-items:center;justify-content:center;padding:24px;background-color:var(--n0);background-image:repeating-linear-gradient(45deg,transparent,transparent 50px,#00000006 50px,#00000006 51px),repeating-linear-gradient(-45deg,transparent,transparent 50px,#00000006 50px,#00000006 51px)}
-.s-demo-vis{width:100%;max-width:680px;background:#fff;border:1px solid var(--n2);border-radius:4px;overflow:hidden}
+.s-demo-sup{height:auto;display:flex;align-items:center;justify-content:center;padding:40px;background-color:var(--n0);background-image:repeating-linear-gradient(45deg,transparent,transparent 50px,#00000006 50px,#00000006 51px),repeating-linear-gradient(-45deg,transparent,transparent 50px,#00000006 50px,#00000006 51px)}
+.s-demo-vis{width:100%;max-width:1040px;background:#fff;border:1px solid var(--n2);border-radius:4px;overflow:hidden}
 .s-integra{max-width:1200px;margin:0 auto;padding:0 32px 64px;display:flex;flex-direction:column;align-items:center;gap:10px}
 .s-integra-t{font-size:11px;line-height:16.5px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--n4)}
 .s-integra-fila{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:20px}
@@ -606,11 +606,13 @@ const CSS = `
 .s-bento-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;text-align:left}
 .s-bcard{background:#fff;border:1px solid var(--n2);border-radius:4px;overflow:hidden;display:flex;flex-direction:column}
 .s-bcard-2{grid-column:span 2}
-.s-bsup{flex:1;min-height:180px;padding:24px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--n1);background-color:var(--n0);background-image:repeating-linear-gradient(45deg,transparent,transparent 50px,#00000006 50px,#00000006 51px),repeating-linear-gradient(-45deg,transparent,transparent 50px,#00000006 50px,#00000006 51px)}
-.s-bwid{background:#fff;border:1px solid var(--n2);border-radius:4px;padding:14px;transition:transform .3s var(--ease),box-shadow .3s}
-.s-bcard:hover .s-bwid{transform:translateY(-3px);box-shadow:0 10px 24px -16px rgba(0,0,0,.35)}
+/* La parte de arriba era un recuadro de 180 de alto con UN ícono (el Cerebro, 14/11: «cajas vacías con un solo ícono»): el ícono va
+   arriba del texto y la tarjeta mide lo que su texto. */
+.s-bsup{padding:24px 24px 0;display:flex}
+.s-bwid{transition:transform .3s var(--ease)}
+.s-bcard:hover .s-bwid{transform:translateY(-3px)}
 .s-bwid-ic{width:40px;height:40px;border-radius:4px;display:flex;align-items:center;justify-content:center;background:var(--n9);color:#fff}
-.s-btxt{padding:24px}
+.s-btxt{padding:16px 24px 24px}
 
 /* Línea */
 .s-lin{background:#fff;padding:96px 0}

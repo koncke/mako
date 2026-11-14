@@ -16,6 +16,10 @@ export type FunnelSitio = {
   /** El título de su página: «Un funnel de VSL, armado en MaKo». */
   titulo: string;
   bajada: string;
+  /** Lo que dice debajo de su nombre en el menú Industrias: un renglón. */
+  corta: string;
+  /** El título del cierre de su landing, arriba del botón. */
+  cierre: string;
   queEs: string;
   cuando: string;
   recorrido: readonly string[];
@@ -43,10 +47,12 @@ export const FUNNELS_SITIO: readonly FunnelSitio[] = [
   {
     id: 'vsl',
     nombre: 'VSL con llamada',
-    titulo: 'Un funnel de VSL, armado en MaKo.',
+    titulo: 'Tu funnel de VSL con llamada, completo en MaKo.',
+    cierre: 'Arma hoy tu funnel de VSL con llamada.',
     bajada: 'El anuncio lleva a una página con un video que explica tu servicio; quien se convence agenda y compra en la llamada.',
+    corta: 'Anuncio, video, agenda y llamada de venta.',
     queEs: 'El anuncio lleva a una página con un video que explica el servicio. Quien se convence contesta unas preguntas, agenda y compra en la llamada.',
-    cuando: 'Precio alto (desde unos US$3.000), alguien que sepa cerrar por llamada y presupuesto para juntar llamadas.',
+    cuando: 'Precio alto (desde unos US$3.000), alguien que sepa cerrar por llamada y presupuesto para conseguir llamadas.',
     recorrido: ['Anuncio', 'Video', 'Agenda', 'Llamada'],
     pasos: [
       { paso: 'El anuncio', texto: 'Escribes el guion con la estructura de uno que ya funcionó, lo grabas con tu avatar y MaKo mira cada día qué subir, qué pausar y qué probar.', enMako: [F.copy, F.avatar, F.copiloto] },
@@ -59,8 +65,10 @@ export const FUNNELS_SITIO: readonly FunnelSitio[] = [
   {
     id: 'whatsapp',
     nombre: 'Anuncios a WhatsApp',
-    titulo: 'Un funnel de WhatsApp, armado en MaKo.',
+    titulo: 'Tu funnel de anuncios a WhatsApp, completo en MaKo.',
+    cierre: 'Arma hoy tu funnel de WhatsApp.',
     bajada: 'El anuncio abre un chat y se vende o se agenda conversando, con un setter con IA que contesta por ti.',
+    corta: 'El anuncio abre un chat y se vende conversando.',
     queEs: 'El anuncio abre un chat de WhatsApp, Instagram o Messenger, y se vende o se agenda conversando.',
     cuando: 'Precio medio, decenas de dólares por día y alguien que conteste rápido. Es el más directo para servicios locales y para quien ya vende por chat.',
     recorrido: ['Anuncio', 'Te escriben', 'Charla', 'Pago o llamada'],
@@ -75,8 +83,10 @@ export const FUNNELS_SITIO: readonly FunnelSitio[] = [
   {
     id: 'instagram',
     nombre: 'Instagram con lead magnet',
-    titulo: 'Instagram con lead magnet, armado en MaKo.',
+    titulo: 'Tu Instagram con lead magnet, completo en MaKo.',
+    cierre: 'Arma hoy tu funnel de Instagram.',
     bajada: 'Publicas sin pagar; quien comenta una palabra recibe tu regalo por mensaje, y la charla sigue hasta la venta.',
+    corta: 'Quien comenta recibe tu regalo y la charla sigue.',
     queEs: 'Publicas reels, carruseles e historias sin pagar. Quien te sigue comenta una palabra o te escribe, y se vende por mensaje o en una llamada. El lead magnet (una guía, una plantilla, una clase corta) es el regalo que abre la charla.',
     cuando: 'Sin presupuesto para anuncios y con tiempo para publicar seguido. El precio decide cuánto hay que conversar antes de vender.',
     recorrido: ['Contenido', 'Te siguen', 'Palabra clave', 'Regalo', 'Venta'],
@@ -91,8 +101,10 @@ export const FUNNELS_SITIO: readonly FunnelSitio[] = [
   {
     id: 'youtube',
     nombre: 'YouTube orgánico',
-    titulo: 'Un funnel de YouTube, armado en MaKo.',
+    titulo: 'Tu funnel de YouTube, completo en MaKo.',
+    cierre: 'Arma hoy tu funnel de YouTube.',
     bajada: 'Videos que responden lo que tu cliente busca antes de comprar; quien te conoce da el siguiente paso.',
+    corta: 'Videos que educan y llevan a agendar.',
     queEs: 'Videos que responden lo que tu cliente busca antes de comprar. Quien los mira te conoce y da un paso: anotarse, agendar o comprar.',
     cuando: 'Cuando tu cliente busca el tema en YouTube o en Google y puedes grabar todos los meses. Sirve sobre todo para precios altos: llega gente ya educada.',
     recorrido: ['Video', 'Te conoce', 'Siguiente paso', 'Venta'],

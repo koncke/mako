@@ -79,13 +79,13 @@ export const LANDING_FUNNEL: LandingCompetencia = {
   nombre: 'Funnels',
   icono: I.funnel,
   referencia: { nombre: 'Hyros — tracking y atribución de anuncios', url: 'https://hyros.com/', leida: '2026-11-11' },
-  metaTitle: 'Funnels de MaKo: un seguimiento que entrena a tus anuncios, hecho a tu medida',
+  metaTitle: 'Funnels de MaKo: tus ventas reales le enseñan a Meta a quién mostrar tus anuncios',
   metaDesc: 'Del anuncio al pago en un solo recorrido, lead por lead. MaKo le avisa a Meta quién agendó, quién calificó y quién pagó, y te dice cuánto te costó un cliente de verdad.',
   bloques: [
     {
       tipo: 'hero',
       etiqueta: 'El embudo con tu venta real',
-      titulo: 'Un seguimiento que entrena a tus anuncios. <em>Hecho a tu medida.</em>',
+      titulo: 'Tus ventas reales le enseñan a Meta <em>a quién mostrar tus anuncios.</em>',
       bajada: 'MaKo junta las ventas de tu CRM y las usa para entrenar a la IA de anuncios de Meta: le avisa quién agendó, quién calificó y quién pagó. Tu anuncio, tu landing, tu VSL, tu agenda y tu CRM, en <strong>un solo recorrido</strong>. Y el gráfico que te falte, se lo pides en unas palabras.',
       puntos: ['Del anuncio al pago, lead por lead', 'Cuánto te costó un cliente de verdad, no un lead'],
       visual: { tipo: 'detalle', slug: 'funnel' },

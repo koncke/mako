@@ -6,6 +6,8 @@
 //   · ws3 con su clave y Sonnet elegido → su clave, Sonnet, su marca en el gasto;
 //   · ws11 con su clave rota → «Tu clave de Claude no pudo…», y la clave de MaKo NO se toca;
 //   · ws13 sin clave, con el permiso de la plataforma VENCIDO (el reloj del hijo está el 20/11/2026) → «Conecta tu Claude».
+// El reloj del hijo está FIJO: el 10/11/2026 (con el permiso de closing vigente) salvo en el tramo «después del 13/11». Con el reloj
+// real, el 14/11/2026 los casos que necesitan el permiso vigente cayeron todos en «venció» y la punta de Spy dio rojo (corrida 1306).
 // =============================================================================
 
 import { crearPostgrest } from './_postgrest-de-mentira';
@@ -45,7 +47,19 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   return new Response(JSON.stringify({ error: { message: 'red de mentira' } }), { status: 500 });
 }) as typeof fetch;
 
+const Real = Date;
+/** Antes de que venza el permiso de closing de la plataforma (`hasta` en lib/veto-claude.ts). */
+const ANTES_DEL_13 = '2026-11-10T12:00:00Z';
+function fijarReloj(iso: string) {
+  const fijo = Real.parse(iso);
+  globalThis.Date = class extends Real {
+    constructor(...a: ConstructorParameters<typeof Date>) { if (a.length) super(...a); else super(fijo); }
+    static now() { return fijo; }
+  } as DateConstructor;
+}
+
 async function main() {
+  fijarReloj(ANTES_DEL_13);
   const { cifrarSecreto } = await import('../lib/credenciales');
   const { runWithWorkspace } = await import('../lib/workspace');
   const { analyzeMeeting } = await import('../lib/closing');
@@ -70,17 +84,12 @@ async function main() {
     out[`ws${ws}`] = { r, pedidos: [...pedidos] };
   }
   // ws13: el reloj después del 13/11, cuando vence el permiso de closing de la plataforma.
-  const Real = Date;
-  const fijo = Real.parse('2026-11-20T12:00:00Z');
-  globalThis.Date = class extends Real {
-    constructor(...a: ConstructorParameters<typeof Date>) { if (a.length) super(...a); else super(fijo); }
-    static now() { return fijo; }
-  } as DateConstructor;
+  fijarReloj('2026-11-20T12:00:00Z');
   pedidos.length = 0;
   const r13 = await runWithWorkspace(13, () => analyzeMeeting(reunion, null));
   const { conQueAnalizaElClosing } = await import('../lib/closing');
   const despuesDel13 = { ws1: await runWithWorkspace(1, conQueAnalizaElClosing), ws3: await runWithWorkspace(3, conQueAnalizaElClosing) };
-  globalThis.Date = Real;
+  fijarReloj(ANTES_DEL_13);
   out.ws13 = { r: r13, pedidos: [...pedidos] };
 
   // ── Lo que encontró la revisión adversarial de IA5/IA12 (22/10/2026) ────────────────────────────────────────────────

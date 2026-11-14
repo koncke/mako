@@ -17,7 +17,7 @@
 // Puro y sin `server-only`: lo leen las páginas y la foto de comparación.
 // =============================================================================
 
-import { STACK_QUE_REEMPLAZA, appsQueReemplaza, type AppQueReemplaza } from './reemplaza';
+import { STACK_QUE_REEMPLAZA, STACK_TIPICO, appsQueReemplaza, type AppQueReemplaza } from './reemplaza';
 import { LANDINGS_COMPETENCIA } from '../_competencia/registro';
 import { CASO } from '../_competencia/marca';
 import type { LandingCompetencia } from '../_competencia/tipos';
@@ -209,36 +209,27 @@ export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | { video: 
  * `gurus`: las caricaturas; `hero` sólo donde el visual de su landing son fotos reales, AI Avatar) o `falta`: el recuadro que dice
  * qué animación va ahí, con las palabras de Martín. `slug` lleva a su landing; sin landing (Classroom) va sin link.
  */
-/**
- * LOS DOS APARTADOS DE «PRODUCTO» (llamada con Leila, 13/11/2026: «dos apartados, adquisición de clientes y entrega del servicio»):
- * MaKo es marketing, ventas Y entrega. Una fila sin `apartado` es de adquisición.
- */
-export type ApartadoPortada = 'adquisicion' | 'entrega';
-export const APARTADOS_PORTADA: Readonly<Record<ApartadoPortada, { rotulo: string; titulo: string; bajada: string }>> = {
-  adquisicion: { rotulo: 'Adquisición de clientes', titulo: 'Atrae, convence y vende.', bajada: 'Del contenido y los anuncios a la llamada de venta: tu competencia, tus piezas, tus leads y tu seguimiento, en la misma app.' },
-  entrega: { rotulo: 'Entrega del servicio', titulo: 'Entrega lo que vendiste.', bajada: 'Quien te compra sigue en MaKo: su etapa de entrega, sus clases, sus cuotas y el seguimiento de cada uno.' },
-};
-
-export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo: string; texto: string; visual: VisualTarjeta; apartado?: ApartadoPortada }[] = [
+export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo: string; texto: string; visual: VisualTarjeta }[] = [
   { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Pegas el link de un competidor y MaKo trae sus publicaciones, sus reels, sus videos de YouTube y sus anuncios, los ordena por formato y te muestra cuáles le dieron más vistas.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
   { slug: 'web-generator', titulo: 'Replica una landing de tu competencia.', texto: 'Pegas el link de una landing que ya vende y MaKo la replica sección por sección, con tus textos y tu oferta, conectada a tu CRM y a tu agenda.', visual: { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' } },
   { slug: 'image', rotulo: 'Carruseles', titulo: 'Replica los carruseles que funcionan.', texto: 'Eliges uno de los carruseles que mejor les funcionan a las cuentas que sigues y MaKo arma el tuyo con el mismo diseño, con tus textos y tu marca, listo para editar.', visual: { video: '/vsl-assets/sitio/carruseles.webm', poster: '/vsl-assets/sitio/carruseles.jpg' } },
-  { slug: 'copywriting', titulo: 'Replica y adapta un guion de la competencia con IA.', texto: 'Eliges un reel o un video que le funcionó a tu competencia: MaKo lee su guion y escribe el tuyo con la misma estructura, adaptado a tu oferta, en segundos.', visual: { falta: 'Un reel de Alex Hormozi: su guion transcripto y MaKo escribiendo el tuyo con tu oferta, simple, sin la barra ni el chat de MaKo.' } },
+  { slug: 'copywriting', titulo: 'Replica y adapta un guion de la competencia con IA.', texto: 'Eliges un reel o un video que le funcionó a tu competencia: MaKo lee su guion y escribe el tuyo con la misma estructura, adaptado a tu oferta, en segundos.', visual: { video: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' } },
   { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Chatea con los referentes del mercado.', texto: 'Alex Hormozi, Iman Gadzhi, Vilma Núñez y muchos referentes más del marketing y las ventas: eliges con quién hablar en el chat de MaKo y te contesta con su método, llevado a tu negocio.', visual: { video: '/vsl-assets/sitio/referentes.webm', poster: '/vsl-assets/sitio/referentes.jpg' } },
   { slug: 'ai-avatar', titulo: 'Anuncios de video estilo UGC con tu cara.', texto: 'Tu avatar de IA dice tu guion en videos que se ven grabados con el celular: más anuncios para Instagram, TikTok y Meta, sin coordinar creadores ni esperar entregas.', visual: 'avatar' },
   { slug: 'video', titulo: 'Edita tus videos sin saber editar.', texto: 'Subes el clip tal cual sale del celular y un equipo de agentes de MaKo lo edita a la vista: corta las pausas, lo subtitula, propone B-roll y deja el volumen listo.', visual: { video: '/vsl-assets/sitio/video.webm', poster: '/vsl-assets/sitio/video.jpg' } },
-  { slug: 'ads', titulo: 'Tus anuncios, mirados todos los días.', texto: 'Marketing CoPilot mira cada día tus anuncios de Meta contra lo que vendiste y te propone qué subir, qué pausar y qué probar. Lo que cambia algo, lo confirmas con un toque.', visual: { video: '/vsl-assets/sitio/copilot.webm', poster: '/vsl-assets/sitio/copilot.jpg' } },
+  // 14/11/2026 (el audio de feedback que pasó Martín): «anuncios realmente requiere su sección aparte… no lo juntaría ni con YouTube ni con
+  // Instagram». Esta fila habla SÓLO de los anuncios de Meta.
+  { slug: 'ads', titulo: 'Gestiona tus anuncios, tu Instagram y tu YouTube con IA.', texto: 'Marketing CoPilot revisa cada día tus anuncios, tu Instagram y tu YouTube contra lo que vendiste, y decide: qué subir, qué bajar y qué apagar. Lo apruebas con un toque, o lo deja en piloto automático.', visual: { video: '/vsl-assets/sitio/copilot.webm', poster: '/vsl-assets/sitio/copilot.jpg' } },
   // La llamada con Leila (13/11/2026): «hoy es básica; que entre al detalle de un lead y se vea todo: de dónde vino, qué hizo en la
   // página y qué % del VSL vio». El tablero, la ficha REAL (LeadSheet) de un lead de ejemplo, su Origen y la pestaña Tracking.
-  { slug: 'crm', titulo: 'Todo lo que hizo cada lead, en su ficha.', texto: 'Cada lead que entra por tu anuncio, tu landing o tu WhatsApp llega con su ficha creada: de qué anuncio vino, qué contestó, cuántas veces visitó tu página y hasta dónde vio tu VSL.', visual: { video: '/vsl-assets/sitio/crm-ficha.webm', poster: '/vsl-assets/sitio/crm-ficha.jpg' } },
-  { slug: 'crm', rotulo: 'Grupos de WhatsApp', titulo: 'Trae los contactos de tus grupos.', texto: 'Con MaKo Pro eliges un grupo de WhatsApp y sus contactos entran a tu CRM con su nombre y su teléfono, listos para escribirles o sumarlos a una campaña.', visual: { video: '/vsl-assets/sitio/grupos.webm', poster: '/vsl-assets/sitio/grupos.jpg' } },
-  { slug: 'seguimiento', titulo: 'Un setter con IA que contesta por ti.', texto: 'Responde tus mensajes de Instagram, WhatsApp, Messenger y email, califica a cada interesado con tus propios criterios y lo lleva a agendar su llamada de venta. Tú solo cierras.', visual: { video: '/vsl-assets/sitio/automations.webm', poster: '/vsl-assets/sitio/automations.jpg' } },
-  { slug: 'whatsapp', titulo: 'Todos tus chats en una bandeja.', texto: 'WhatsApp, Instagram, Messenger y email, con una conversación por contacto y su ficha del CRM al lado, y MaKo te propone qué contestar.', visual: { video: '/vsl-assets/sitio/chats.webm', poster: '/vsl-assets/sitio/chats.jpg' } },
+  // «Todo lo que hizo cada lead» no decía qué resuelve (el mismo audio): «gestiona tus leads de forma automática».
+  { slug: 'crm', titulo: 'Tu CRM trackea tus leads de forma automática.', texto: 'Cada lead entra solo a tu CRM, y MaKo anota todo lo que hace: cuántas veces visitó tu página, cuánto vio de tu VSL y en qué hizo clic, cada cosa con su hora.', visual: { video: '/vsl-assets/sitio/crm-ficha.webm', poster: '/vsl-assets/sitio/crm-ficha.jpg' } },
+  { slug: 'seguimiento', titulo: 'Automatiza tu WhatsApp, Instagram y email.', texto: 'Cada lead recibe su mensaje por el canal donde te escribió, en el momento justo. Y el setter con IA contesta, califica con tus criterios y lo lleva a agendar. Tú solo cierras.', visual: { video: '/vsl-assets/sitio/automations.webm', poster: '/vsl-assets/sitio/automations.jpg' } },
+  { slug: 'whatsapp', titulo: 'WhatsApp, Instagram, Messenger y email, desde MaKo.', texto: 'Contestas y mandas mensajes por los cuatro desde la misma app, con la ficha del CRM de cada contacto al lado y MaKo proponiéndote qué contestar.', visual: { video: '/vsl-assets/sitio/chats.webm', poster: '/vsl-assets/sitio/chats.jpg' } },
   { slug: 'dashboard', titulo: 'Tus números, en tableros.', texto: 'Tus anuncios de Meta, tu landing, tus leads del CRM, tus pagos y tus llamadas en una sola pantalla, con tableros listos para ventas, anuncios y llamadas.', visual: 'tableros' },
-  // ── Entrega del servicio ──
-  { slug: 'crm', rotulo: 'Entrega del servicio', apartado: 'entrega', titulo: 'Cada cliente, en su etapa de entrega.', texto: 'Quien te compra pasa al tablero de entrega de su producto, con tus propias etapas, y la automatización «Un Cliente Empezó» le da la bienvenida, le pregunta cómo va y le pide un testimonio.', visual: { video: '/vsl-assets/sitio/entrega.webm', poster: '/vsl-assets/sitio/entrega.jpg' } },
-  { rotulo: 'Classroom', apartado: 'entrega', titulo: 'Tu escuela, dentro de MaKo.', texto: 'Tu curso por módulos y clases, con el video de cada una, lo que avanza cada alumno y la comunidad, en la misma app que usas para vender.', visual: { video: '/vsl-assets/sitio/classroom.webm', poster: '/vsl-assets/sitio/classroom.jpg' } },
-  { slug: 'cobranza', apartado: 'entrega', titulo: 'Cobra cada cuota sin perseguir a nadie.', texto: 'Cobras con un link de tu propia cuenta de Stripe o Mercado Pago, en cuotas o cada mes. Cada pago entra solo a tu CRM, y cuando una cuota vence, MaKo le escribe a tu cliente y te avisa.', visual: { video: '/vsl-assets/sitio/cobranza.webm', poster: '/vsl-assets/sitio/cobranza.jpg' } },
+  // Martín (14/11/2026): «elimina toda la sección de lo que entrega lo que vendiste, que quede directamente la parte de tu comunidad
+  // dentro de MaKo, no tu escuela, y que se vea». Sin apartados: la entrega quedó en esta fila sola, al final.
+  { rotulo: 'Curso y comunidad', titulo: 'Tu curso y tu comunidad, alojados en MaKo.', texto: 'Tus alumnos entran a tu curso y a tu comunidad en la misma app con la que vendes: sus clases por módulos, lo que avanza cada uno y un lugar para preguntar y compartir.', visual: { video: '/vsl-assets/sitio/comunidad.webm', poster: '/vsl-assets/sitio/comunidad.jpg' } },
 ];
 
 /**
@@ -248,11 +239,12 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; titulo
  * desplazando, pero que el usuario también pueda ir cliqueando… cada dashboard tiene su propia animación de entrada».
  */
 export const TABLEROS: readonly { id: string; nombre: string }[] = [
-  { id: 'velocidad-tend', nombre: 'Velocidad de llamada' }, { id: 'cobranza', nombre: 'Cobranza' }, { id: 'vsl-pelago', nombre: 'VSL y YouTube' },
+  // Martín (14/11/2026): «no pondría para nada que el primero sea velocidad de llamada, lo pondría de última».
+  { id: 'cobranza', nombre: 'Cobranza' }, { id: 'vsl-pelago', nombre: 'VSL y YouTube' },
   { id: 'hooks-ondra', nombre: 'Hooks y retención' }, { id: 'inmobiliaria-torque', nombre: 'Inmobiliaria' }, { id: 'closing', nombre: 'Closing' },
   { id: 'cold-calling-corvane', nombre: 'Cold Calling' }, { id: 'comercial-selvar', nombre: 'Comercial' }, { id: 'marketing-kestrel', nombre: 'Marketing' },
   { id: 'general-orvel', nombre: 'General' }, { id: 'operacion-moorly', nombre: 'Operación' }, { id: 'focus-pane', nombre: 'Focus' },
-  { id: 'focus-lumora', nombre: 'Mi día' },
+  { id: 'focus-lumora', nombre: 'Mi día' }, { id: 'velocidad-tend', nombre: 'Velocidad de llamada' },
 ];
 
 /**
@@ -331,16 +323,24 @@ export function numerosDelSitio(): { valor: string; texto: string }[] {
  * prueba del código): el setter LLEVA a agendar, no reserva (app/vsl/_competencia/seguimiento.ts); el análisis de llamadas y los
  * grupos de WhatsApp son de Pro (lib/topes-plan.ts); la IA es la del cliente.
  */
+const precioDe = (nombre: string): string => { const x = STACK_TIPICO.find((y) => y.app.nombre === nombre); return x ? x.precioUsd.toLocaleString('es-AR', { minimumFractionDigits: Number.isInteger(x.precioUsd) ? 0 : 2, maximumFractionDigits: 2 }) : '?'; };
+// Martín, 14/11/2026: «me gusta que sean algunas objeciones, pero piensa en cosas más generales… como "¿y si la IA contesta mal un
+// cliente y lo pierdo?" son objeciones demasiado específicas… también puedes poner preguntas realmente frecuentes». Lo que se
+// pregunta cualquiera antes de entrar: para quién es, si hace falta saber, qué reemplaza, cuánto sale, cómo se prueba, cómo se
+// paga, cómo se empieza con lo que ya tiene, quién ayuda y qué pasa con los datos. Se fueron la IA que contesta mal, la venta
+// por llamada, los setters y closers, y «vendo por WhatsApp».
 export const PREGUNTAS_SITIO: readonly { p: string; r: string }[] = [
-  { p: 'Ya pago GoHighLevel, ManyChat y un editor de video. ¿Para qué cambiar?', r: `Porque MaKo hace ese trabajo en una sola app, con una IA que conoce tu negocio de punta a punta. En «Comparaciones» ves, trabajo por trabajo, las apps que reemplaza.` },
-  { p: 'No tengo tiempo de aprender otra herramienta.', r: 'Le cuentas a MaKo qué vendes y a quién, y arma tu oferta, tus páginas y tus mensajes: tú revisas y apruebas. Si prefieres que lo armemos nosotros, el Acelerador lo deja listo en la primera semana.' },
-  { p: '¿Y si la IA le contesta mal a un cliente y lo pierdo?', r: 'Cada conversación queda en tu bandeja y la tomas cuando quieras. El setter contesta con tu oferta, califica con tus propios criterios y lleva al interesado a agendar: no cierra ventas por ti.' },
-  { p: 'Mi venta se cierra en una llamada. ¿En qué me ayuda?', r: 'La llamada la haces tú. MaKo te llena la agenda con interesados calificados y, con MaKo Pro, te dice qué mejorar en cada llamada de venta.' },
-  { p: 'Ya tengo setters y closers.', r: `Entran con su propio acceso: en MaKo Pro, hasta ${TOPES.agencia['equipo.usuarios']} personas de tu equipo, y todas ven la misma historia de cada cliente.` },
-  { p: 'Vendo por WhatsApp, no con anuncios.', r: 'Te sirve igual: conectas tu número escaneando un código QR, como WhatsApp Web, y los seguimientos salen por ahí. Con MaKo Pro, además, traes a tu CRM los contactos de tus grupos.' },
+  { p: '¿Para quién es MaKo?', r: 'Para quien vende servicios, programas o mentorías de ticket alto: coaches, infoproductores, agencias e inmobiliarias. Vendas por anuncios, por Instagram, por WhatsApp o en una llamada, MaKo ordena el camino entero: desde que alguien te descubre hasta que te paga.' },
+  { p: '¿Necesito saber de marketing o de tecnología?', r: 'No. Le cuentas a MaKo qué vendes y a quién, y te arma la oferta, las páginas y los mensajes: tú revisas y apruebas. Si prefieres que lo armemos contigo, está el Acelerador.' },
+  // La objeción de GoHighLevel, «muy bien presentada» (el audio de feedback que pasó Martín, 14/11/2026: «es uno de los competidores
+  // principales»). Los precios, de STACK_TIPICO (./reemplaza.ts, con su fuente).
+  { p: 'Ya pago GoHighLevel, ManyChat y un editor de video. ¿Para qué cambiar?', r: `Porque con lo que hoy pagas sólo por GoHighLevel (US$${precioDe('GoHighLevel')} por mes, su plan Starter) tienes MaKo Pro, y además dejas de pagar ManyChat (US$${precioDe('ManyChat')}) y tu editor de video (CapCut, US$${precioDe('CapCut')}). GoHighLevel es tu CRM y tus embudos; MaKo es eso y además te muestra lo que le funciona a tu competencia, replica sus landings, sus carruseles y sus guiones con tu oferta, edita tus videos y hace tus anuncios con tu avatar, con una IA que conoce tu negocio. En «Comparaciones» ves, trabajo por trabajo, qué app reemplaza.` },
   { p: '¿Cuánto me va a salir en total?', r: 'El plan, más lo que consuma tu propia IA (Claude, ChatGPT o Gemini), que pagas directo a tu proveedor: MaKo no le pone recargo. Con Gemini puedes empezar gratis, con un tope por día.' },
-  { p: '¿Y si no me sirve?', r: `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: si te das de baja antes del día ${PRUEBA_DIAS + 1}, no pagas nada. Y no hay permanencia: te das de baja cuando quieras.` },
-  { p: '¿Qué pasa con los datos de mis clientes?', r: 'MaKo no entrena modelos con tus datos: lo que la IA necesita pasa por tu propia cuenta de Claude, ChatGPT o Gemini.' },
+  { p: '¿Cómo es la prueba gratis?', r: `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: pones tu tarjeta y no se te cobra nada hasta el día ${PRUEBA_DIAS + 1}. Si te das de baja antes, no pagas nada. Y no hay permanencia: te das de baja cuando quieras.` },
+  { p: '¿Puedo pagar en pesos?', r: 'Desde Argentina pagas en pesos, con Mercado Pago. Desde otro país, en dólares, con tu tarjeta.' },
+  { p: 'Ya tengo mis contactos y mi equipo. ¿Empiezo de cero?', r: `No. Subes la lista de contactos que ya tienes (un CSV o hasta un PDF) y MaKo te muestra cada uno antes de sumarlo. Tu equipo entra con su propio acceso: en MaKo Pro, hasta ${TOPES.agencia['equipo.usuarios']} personas.` },
+  { p: '¿Quién me ayuda si algo falla?', r: 'Personas de verdad. Lo reportas desde la app, el equipo de MaKo lo arregla y te avisa por WhatsApp.' },
+  { p: '¿Qué pasa con los datos de mis clientes?', r: 'Son tuyos. MaKo no entrena modelos con tus datos: lo que la IA necesita pasa por tu propia cuenta de Claude, ChatGPT o Gemini.' },
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -33,6 +33,9 @@ import type { AnuncioDestacado } from '@/lib/media-buyer/productos';
 import type { Tarea } from '@/lib/media-buyer/copiloto';
 import type { NumeroDelReel } from '@/lib/copiloto/piloto';
 import type { VistaRT } from '@/lib/retargeting-motor';
+import type { PaginaAnalizada } from '@/lib/copiloto/web';
+import type { Nevera } from '@/lib/copiloto/nevera';
+import { diaCorto, lunesDe, nombreFormato, type FormatoNevera } from '@/lib/copiloto/nevera-reglas';
 import { CSS_RETARGETING, Retargeting } from './Retargeting';
 import { CSS_COPILOTO } from './copiloto-css';
 import { Flecha, Grafico, Tuerca } from './iconos';
@@ -55,6 +58,10 @@ export type DatosCoPilot = {
   /** El retargeting sin VSL (lib/retargeting.ts): lo que marcó MaKo; null si no se pudo leer. */
   retargeting: VistaRT | null;
   web: string[];
+  /** Lo último que analizó el Landing Analyst de cada página (lib/copiloto/web.ts). */
+  paginas: PaginaAnalizada[];
+  /** La nevera de contenido (lib/copiloto/nevera.ts): lo listo, lo publicado y hasta cuándo alcanza; null si no se pudo leer. */
+  nevera: Nevera | null;
   redes: Record<'instagram' | 'youtube', Array<{ usuario: string; vencida: boolean }>>;
 };
 
@@ -81,6 +88,29 @@ const CSS_EXTRA = `
 .frn .frn-stat { cursor: pointer; }
 .frn .frn-stat .mq-logo { display: inline-grid; place-items: center; flex: none; color: #fff; }
 @container frn (max-width: 700px) { .frn .cop-lista > li { grid-template-columns: 44px minmax(0, 1fr); } .frn .cop-mini { width: 44px; height: 44px; } .frn .cop-num { grid-column: 2; text-align: left; } }
+/* La web, como análisis: la nota, el veredicto y lo más grave con su arreglo. */
+.frn .cop-web__cab { display: flex; align-items: center; gap: 18px; margin: 10px 0 6px; }
+.frn .cop-web__n { margin: 0; font-size: 40px; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
+.frn .cop-web__n span { font-size: 18px; color: var(--muted); }
+.frn .cop-web__v { margin: 0; font-size: 16px; line-height: 1.5; color: var(--ink); max-width: 70ch; }
+.frn .cop-web__lista { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+.frn .cop-web__lista li { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: start; padding: 14px 2px; }
+.frn .cop-web__lista li + li { border-top: 1px solid var(--hair); }
+.frn .cop-web__lista b { display: block; font-size: 15.5px; font-weight: 600; color: var(--ink); }
+.frn .cop-web__lista p { margin: 4px 0 0; font-size: 15px; line-height: 1.5; color: var(--ink); }
+.frn .cop-web__sev { justify-self: start; display: inline-flex; align-items: center; height: 26px; padding: 0 11px; border-radius: 999px; font-size: 13.5px; font-weight: 700; }
+.frn .cop-web__lista li[data-sev="alta"] .cop-web__sev { color: var(--bad); background: var(--bad-bg); }
+.frn .cop-web__lista li[data-sev="media"] .cop-web__sev { color: var(--warn); background: var(--warn-bg); }
+.frn .cop-web__lista li[data-sev="baja"] .cop-web__sev { color: var(--muted); background: var(--panel); }
+@container frn (max-width: 700px) { .frn .cop-web__lista li { grid-template-columns: 1fr; gap: 6px; } }
+/* La nevera de contenido: un bloque por formato, en rojo el que se queda corto. */
+.frn .cop-nevera__lista { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.frn .cop-nevera__lista li { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border-radius: 16px; background: var(--panel); }
+.frn .cop-nevera__lista li[data-falta="true"] { background: color-mix(in srgb, var(--bad) 7%, var(--card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 30%, transparent); }
+.frn .cop-nevera__lista b { font-size: 34px; font-weight: 700; color: var(--ink); line-height: 1.1; }
+.frn .cop-nevera__que { font-size: 16px; font-weight: 600; color: var(--ink); }
+.frn .cop-nevera__hasta, .frn .cop-nevera__pub { font-size: 15px; color: var(--ink); }
+.frn .cop-nevera__lista li[data-falta="true"] .cop-nevera__hasta { color: var(--bad); font-weight: 600; }
 /* Con cuántas vistas se publica un reel de prueba: el número grande y de dónde sale. */
 .frn .cop-reel { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
 .frn .cop-reel__n { margin: 6px 0 4px; font-size: 44px; font-weight: 700; letter-spacing: -.03em; color: var(--ink); }
@@ -93,14 +123,26 @@ const CSS_EXTRA = `
 @container frn (max-width: 700px) { .frn .cop-primera { grid-template-columns: 1fr; justify-items: start; padding: 22px 18px; } }
 /* Lo que te toca, debajo del análisis (vuelta 20): el check como el de las tareas de Web. */
 .frn .mq-tetoca { margin-top: 0; }
+/* «Lo que hice»: el renglón a lo ancho del tablero medía 1100 px (más de 140 letras): se corta a un largo que se lee. */
+.frn .frn-ev p { max-width: 60ch; }
+/* «Espera tu OK» entre 700 y 1000 px (una notebook con la barra de la app): el antes → después (250 px) y Aprobar/No (350 px) dejaban
+   al porqué una columna de 190 px, en diez renglones. Ahí el porqué va arriba a lo ancho y lo demás debajo (banco de la portada, 14/11). */
+@container frn (min-width: 701px) and (max-width: 1000px) {
+  .frn .frn-dec2 { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 12px; }
+  .frn .frn-dec2__img { grid-row: 1 / span 2; align-self: start; }
+  .frn .frn-dec2__txt { grid-column: 2 / -1; }
+  .frn .frn-dec2:not(:has(.frn-dec2__img)) { grid-template-columns: minmax(0, 1fr) auto; }
+  .frn .frn-dec2:not(:has(.frn-dec2__img)) .frn-dec2__txt { grid-column: 1 / -1; }
+}
 .frn .cop-tareas > li { grid-template-columns: 26px minmax(0, 1fr) auto; }
 .frn .cop-tareas > li[data-hecha="true"] b { text-decoration: line-through; color: var(--muted); }
 .frn .cop-check { width: 26px; height: 26px; padding: 0; border-radius: 50%; border: 1.5px solid var(--muted); background: transparent; display: grid; place-items: center; color: var(--card); font: 700 14px/1 var(--font); cursor: pointer; }
 .frn .cop-check[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); }
 .frn .cop-check:disabled { cursor: default; opacity: .5; }
-.frn .cop-tarea__der { display: inline-flex; align-items: center; gap: 12px; }
-.frn .cop-plan { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--hair); font-size: 13.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
-@container frn (max-width: 700px) { .frn .cop-plan { display: none; } }
+/* Con .cop-lista adelante: «.frn .cop-lista span» (display: block) les ganaba y apilaba el chip encima de «Hacerlo» (banco de la portada, 14/11). */
+.frn .cop-lista .cop-tarea__der { display: inline-flex; align-items: center; gap: 12px; }
+.frn .cop-lista .cop-plan { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--hair); font-size: 13.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+@container frn (max-width: 700px) { .frn .cop-lista .cop-plan { display: none; } }
 @container frn (max-width: 700px) { .frn .cop-tareas > li { grid-template-columns: 26px minmax(0, 1fr); } .frn .cop-tareas > li > :last-child { grid-column: 2; justify-self: start; } }
 /* El popup de «Mejorar»: los desplegables adentro de un .frn propio, sin su fondo. */
 .ocm.ocm--todo { width: min(640px, 100%); max-height: calc(100vh - 32px); }
@@ -179,7 +221,11 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
   const analisisDe = (t: Tarjeta): { n: string; de?: string; s: string } => {
     switch (t) {
       case 'oferta': return notaOC != null ? { n: String(notaOC), de: '/100', s: 'Tu nota' } : { n: '—', s: 'Sin analizar' };
-      case 'web': return datos.web.length ? { n: String(datos.web.length), s: datos.web.length === 1 ? 'página' : 'páginas' } : { n: '—', s: 'Sin tu web' };
+      case 'web': {
+        const p = datos.paginas[0];
+        if (p?.score != null) return { n: p.score.toLocaleString('es', { maximumFractionDigits: 1 }), de: '/10', s: 'Tu página' };
+        return datos.web.length ? { n: String(datos.web.length), s: datos.web.length === 1 ? 'página' : 'páginas' } : { n: '—', s: 'Sin tu web' };
+      }
       case 'anuncios': return datos.anuncios.conectada ? { n: String(datos.anuncios.mejores.length), s: `con ${KPI[datos.anuncios.kpi]} este mes` } : { n: '—', s: 'Sin conectar' };
       default: { const r = datos.redes[t]; return r.length ? { n: '1', s: `@${r[0].usuario.replace(/^@/, '')}` } : { n: '—', s: 'Sin conectar' }; }
     }
@@ -251,9 +297,10 @@ export function CoPilot({ datos, pasoInicial, tarjetaInicial }: { datos: DatosCo
                 </>
               )}
               {tarjeta === 'anuncios' && <AnalisisAnuncios datos={datos} />}
-              {tarjeta === 'web' && <TarjetaWeb paso="analisis" web={datos.web} />}
+              {tarjeta === 'web' && (datos.paginas.length ? <AnalisisWeb paginas={datos.paginas} /> : <TarjetaWeb paso="analisis" web={datos.web} />)}
               {(tarjeta === 'instagram' || tarjeta === 'youtube') && <TarjetaRed red={tarjeta} paso="analisis" cuentas={datos.redes[tarjeta]} />}
               {tarjeta === 'instagram' && <NumeroDelReelCard reel={datos.reel} />}
+              {(tarjeta === 'instagram' || tarjeta === 'youtube') && <NeveraCard nevera={datos.nevera} formatos={tarjeta === 'youtube' ? ['video'] : ['reel', 'story', 'post']} />}
               <LoQueTeToca tareas={tareas[tarjeta]} enPlan={enPlan} onHecha={marcarTarea}
                 onHacer={(t) => { if (t.abre === 'oc') { setParte(t.parte ?? 'oferta'); setTodo(true); } else if (t.abre === 'leer') void oc.leer(t.parte ?? 'angulos'); }} />
             </div>
@@ -292,8 +339,10 @@ function resumenParaTareas(datos: DatosCoPilot, oc: EstadoComunicacion): Resumen
     oferta: { sesion: oc.sesion, notaOferta: !!oc.nota.oferta, notaAngulos: !!oc.nota.angulos, notaVoz: !!oc.nota.voz, faltan: { oferta: faltan('oferta'), angulos: faltan('angulos'), voz: faltan('voz') } },
     anuncios: { conectada: datos.anuncios.conectada, funnel: datos.funnel, semana: datos.tareas.map((t) => ({ titulo: t.titulo, href: t.href })) },
     web: datos.web,
+    webArreglos: datos.paginas.flatMap((p) => p.hallazgos.filter((h) => h.severidad === 'alta').map((h) => ({ url: p.url, titulo: h.titulo }))),
     redes: { instagram: { conectada: conectada('instagram') }, youtube: { conectada: conectada('youtube') } },
     seguidos: datos.reel ? datos.reel.seguidos : null,
+    nevera: datos.nevera ? { lunes: lunesDe(datos.nevera.hoy), avisos: datos.nevera.avisos } : undefined,
   };
 }
 
@@ -349,6 +398,30 @@ function NumeroDelReelCard({ reel }: { reel: NumeroDelReel | null }) {
   );
 }
 
+/**
+ * La nevera de contenido (Martín, 13/11): cuánto hay listo para publicar, cuánto salió en 30 días y hasta cuándo alcanza. Lo listo es
+ * lo que está en el Calendario con su archivo; lo que se grabó y no se programó no se ve.
+ */
+function NeveraCard({ nevera, formatos }: { nevera: Nevera | null; formatos: readonly FormatoNevera[] }) {
+  if (!nevera) return null;
+  const filas = nevera.filas.filter((f) => formatos.includes(f.formato));
+  return (
+    <section className="frn-card cop-nevera">
+      <div className="frn-card__head"><h2 className="frn-card__t">Tu nevera de contenido</h2><Link className="frn-chip" href="/calendario">Abrir el Calendario</Link></div>
+      <ul className="cop-nevera__lista">
+        {filas.map((f) => (
+          <li key={f.formato} data-falta={f.faltan > 0}>
+            <b className="frn-num">{f.listas}</b>
+            <span className="cop-nevera__que">{nombreFormato(f.formato, f.listas)} {f.formato === 'story' ? (f.listas === 1 ? 'lista' : 'listas') : (f.listas === 1 ? 'listo' : 'listos')}</span>
+            <span className="cop-nevera__hasta">{f.hasta ? `Te alcanzan hasta ${diaCorto(f.hasta)}` : 'Nada listo para publicar'}</span>
+            <span className="cop-nevera__pub">{f.publicadas30} {f.formato === 'story' ? 'publicadas' : 'publicados'} en 30 días</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** El piloto sin configurar (vuelta 20): nada espera tu OK todavía; una tarjeta lleva a la configuración, que es una vez. */
 function PrimeraVezPiloto() {
   return (
@@ -390,6 +463,41 @@ function AnalisisAnuncios({ datos }: { datos: DatosCoPilot }) {
         </ul>
       ) : <p className="frn-rem__h">Este mes ningún anuncio trajo {KPI[a.kpi]} todavía.</p>}
     </section>
+  );
+}
+
+// ── La Web, como análisis (Martín, 13/11: «Oferta y Web se quedan en CoPilot como análisis») ───────────
+// Lo último que analizó el Landing Analyst de cada página: la nota, el veredicto y lo más grave, con su arreglo. Se trabaja en
+// Web Generator, con la página y sus comentarios (`?analizar=`).
+
+const ETIQUETA_SEVERIDAD: Record<PaginaAnalizada['hallazgos'][number]['severidad'], string> = { alta: 'Arreglar', media: 'Mejorar', baja: 'Detalle' };
+
+function AnalisisWeb({ paginas }: { paginas: PaginaAnalizada[] }) {
+  return (
+    <>
+      {paginas.map((p) => (
+        <section key={p.url} className="frn-card cop-web">
+          <div className="frn-card__head">
+            <h2 className="frn-card__t">{p.titulo || p.url.replace(/^https?:\/\//, '')}</h2>
+            <Link className="frn-chip" href={`/web-generator?analizar=${encodeURIComponent(p.url)}`}>Ver la página con sus comentarios</Link>
+          </div>
+          <div className="cop-web__cab">
+            {p.score != null && <p className="cop-web__n frn-num">{p.score.toLocaleString('es', { maximumFractionDigits: 1 })}<span>/10</span></p>}
+            {p.veredicto && <p className="cop-web__v">{p.veredicto}</p>}
+          </div>
+          {p.hallazgos.length > 0 && (
+            <ul className="cop-web__lista">
+              {p.hallazgos.map((h, i) => (
+                <li key={i} data-sev={h.severidad}>
+                  <span className="cop-web__sev">{ETIQUETA_SEVERIDAD[h.severidad]}</span>
+                  <div><b>{h.titulo}</b>{h.arreglo && <p>{h.arreglo}</p>}</div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ))}
+    </>
   );
 }
 

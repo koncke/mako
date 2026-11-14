@@ -503,6 +503,53 @@ La punta cayó en rojo (corrida 1265) con cinco a la vez, ninguna en lo que corr
 - **`integracion-sin-salir`**: para conectar algo JAMÁS se sale de la tab. El test barre `app/` y una tarea con `href: '/integraciones'` escrita en `lib/` se le escapó: la regla vale igual. «Conecta tu…» abre `ConectarViaZernio` ahí mismo.
 - **`ningun-boton-muerto`**: un botón sin `onClick` (el único ítem del menú de la configuración) no puede verse apretable: o hace algo o es un rótulo.
 
+## La nevera de contenido sólo ve lo que está en el Calendario (13/11/2026)
+
+- **El único lugar donde una pieza tiene formato, archivo, red y si salió es `calendario_eventos`** (con su publicación, lib/calendario-publicar.ts → `leerPublicaciones`). Los proyectos del editor de video viven en el navegador (el servidor sólo tiene un espejo sin formato ni exportación), los diseños de Image no dicen si son carrusel ni si se publicaron, y los guiones son texto. Así que «guardado» = programado en el Calendario con su archivo: lo grabado y no programado no se ve, y la pantalla lo dice.
+- **El enum de formatos no tiene carrusel ni short**: un carrusel es un `post` y un short es un `video` fuera de YouTube; un video EN YouTube es un video largo.
+- **Una tarea que vuelve cada semana necesita la semana en su clave**: sincronizar nunca reabre lo que la persona cerró, así que «Graba 3 reels» cerrado el lunes no volvería nunca. La clave lleva el lunes de la semana (`instagram:nevera-reel-20261109`): la semana siguiente, si sigue faltando, es otra tarea.
+- **Sin ritmo respondido no se avisa**: inventar cuánto publica alguien que no lo dijo es el error del «$0 al mes» de la batería (el dato no dicho no es un dato).
+
+## El banco de la portada mostró dos fallas que ni los tests ni la maqueta veían (14/11/2026)
+
+- **`.frn .cop-lista span { display: block }` le gana a una clase sola** (`.frn .cop-tarea__der` y `.frn .cop-plan`: 0,2,1 contra
+  0,2,0): en «Lo que te toca» el chip «En tu Plan» quedaba ENCIMA de «Hacerlo», aplastado. La maqueta no tenía ese `span` genérico, y
+  los tests no miran cajas. **Regla:** en `CSS_EXTRA` (CoPilot.tsx), lo que vive dentro de `.cop-lista` se escribe con `.cop-lista` adelante.
+- **Una decisión sobre un conjunto o una campaña no tiene miniatura** (sólo un anuncio tiene `anuncioBase`): el cuadro vacío de 60 px
+  dejaba un hueco a la izquierda de «Espera tu OK». Sin miniatura no va nada; el CSS ya tenía la grilla de tres columnas para ese caso.
+- **«Lo que hice» a lo ancho del tablero medía 1100 px por renglón** (más de 140 letras): va cortado a 60ch.
+- **«Espera tu OK» entre 700 y 1000 px** (una notebook de 1280 con la barra de la app) dejaba al porqué una columna de 190 px, en
+  diez renglones: el antes → después (250 px) y Aprobar/No (350 px) no se achican. Ahí el porqué va arriba a lo ancho y lo demás debajo
+  (`@container frn (min-width: 701px) and (max-width: 1000px)` en `CSS_EXTRA`); arriba de 1000 y abajo de 700 queda como estaba.
+- **El espacio de MaKo (ws 9) no tiene nada que el piloto haya hecho de verdad**: sus decisiones son las pruebas del 25/10
+  («[PRUEBA MaKo] … no activar», la campaña con 0 activas) y sus páginas analizadas son de terceros. Una animación del piloto con datos
+  del ws 9 no existe: la de la portada usa un negocio de ejemplo con nombres ficticios y el texto del motor.
+- **Cómo se vio:** el componente real montado con esbuild en un banco (`C:/dev/bancos-portada/banco-copilot-nuevo/`, fuera del repo:
+  `build.mjs`, `ver.mjs` saca las dos pantallas). Sirve para MIRAR la pantalla nueva sin desplegar ni levantar Next.
+
+## La segunda animación de la portada (anuncios, Instagram y YouTube, 14/11/2026)
+
+Martín cambió la fila a «gestiona tus anuncios, tu Instagram y tu YouTube con IA» y pidió «las decisiones más importantes que toma
+MaKo» en cada canal.
+
+- **Instagram y YouTube NO tienen piloto**: en «Piloto automático» sus tarjetas dicen «Sin piloto todavía». Lo que el CoPilot hace
+  ahí, en «Análisis y acción»: en Instagram **propone** con cuántas vistas se publica un reel de prueba (la mediana de las cuentas que
+  sigues en Spy) y avisa cuando la nevera no llega a la semana; en YouTube, sólo la nevera de videos largos y su aviso («Graba 1 video
+  largo», que va al Plan). La animación muestra eso y nada más; el título promete más de lo que hay hoy. **SIN HACER:** el piloto de
+  Instagram y YouTube (ya en el relevo).
+- **Pasar de un paso al otro con la cámara lejos muestra «Sin piloto todavía»** debajo de un título que promete Instagram y YouTube.
+  Por eso son dos grabaciones (anuncios en el piloto; redes en el análisis) unidas con un fundido.
+- **A 780 px, aprobar mueve TODO ~300 px**: se va el «1» de «Piloto automático», el encabezado pasa de dos filas a una y «Lo que
+  hice» sube a donde estaba «Espera tu OK». Con la cámara quieta, un cuadro quedaba con «Lo que hice» sin título y medio vacío; con
+  la cámara corrigiendo después, se veían las tarjetas del piloto. Lo que anduvo: un `MutationObserver` (corre después de que React
+  cambia el DOM y ANTES de pintar) mueve la cámara a la toma nueva en el mismo cuadro, y el corte se funde 0,3 s.
+- **La sombra de la tarjeta elegida baja hasta «Métricas»**: un borde de toma entre las tarjetas y «Métricas» muestra una mancha gris.
+  El borde va entre «Métricas» y la sección de abajo.
+- **Con la máquina cargada, Chrome deja baldosas en blanco hasta un segundo** al acercar la cámara (el body escalado ×1,7): en una
+  toma, «0 videos largos listos» salió como un bloque rosa vacío. No se ve en las marcas del script: hay que mirar los cuadros y
+  regrabar.
+- **El banco:** `C:/dev/bancos-portada/banco-copilot-redes/` (fuera del repo): `grabar.mjs a|b` y `terminar.mjs`.
+
 ## Sin hacer (9/11/2026)
 
 - **El CoPilot no guarda solo lo que descubre charlando.** En una pregunta, las herramientas que escriben no viajan (lib/doer-herramientas.ts, decisión de Martín del 8/10: «la ofrece»): MaKo ofrece guardarlo y, con el «sí», propone la tarjeta. El panel guarda directo con sus pastillas. Si Martín quiere que un dato dicho en el chat aparezca solo en el panel, hay que decidir una excepción para `copiloto_media_buyer` (no mueve plata ni toca a nadie).

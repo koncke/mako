@@ -20,7 +20,8 @@ import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
-const FRASE = 'El mejor SaaS para ventas High Ticket, de punta a punta';
+// 13/11/2026, Martín: «el mejor software para vender high ticket… cámbialo en todos lados, ese sería nuestro principal».
+const FRASE = 'El mejor software para vender High Ticket';
 
 test('el <title> y la tarjeta para compartir dicen la frase de High Ticket', () => {
   assert.equal(metadata.title, `MaKo — ${FRASE}`);
@@ -93,7 +94,7 @@ test('las páginas de cada funcionalidad tampoco dicen «VSL Funnel»', () => {
   for (const rel of ['app/vsl/_detalle/features.ts', 'app/vsl/_detalle/FeatureDetail.tsx', 'app/vsl/showcase.ts']) {
     assert.doesNotMatch(leer(rel), /VSL Funnel/i, rel);
   }
-  assert.match(leer('app/vsl/_detalle/FeatureDetail.tsx'), /<p className="mk-foot-tag">El mejor SaaS para ventas High Ticket, de punta a punta\.<\/p>/);
+  assert.match(leer('app/vsl/_detalle/FeatureDetail.tsx'), /<p className="mk-foot-tag">El mejor software para vender High Ticket\.<\/p>/);
 });
 
 // ── /vsl/ads vende lo que hay (29/10/2026, el Cerebro): el Media Buyer que propone y aplica, no crear campañas desde MaKo (la

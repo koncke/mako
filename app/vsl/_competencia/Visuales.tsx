@@ -18,9 +18,22 @@ import { FaltaAnimacion } from './FaltaAnimacion';
  * landing (visuales-propios/) y los SVG de feature-visuals ya no se muestran: va la app de verdad grabada, si la hay, o el
  * recuadro que dice qué falta. Las grabaciones viven en public/vsl-assets/sitio/ (cómo se graban: docs/hallazgos-landing.md).
  */
+// 14/11/2026 (la revisión de todas las landings: 65 recuadros de «falta la animación» en 16 páginas): donde la portada ya tiene la
+// grabación de esa función, va la grabación («o si ya la tenemos, reemplázala», Martín 12/11). Dashboard: la entrada de cuatro
+// tableros seguidos (tableros.webm, de public/vsl-assets/sitio/tableros/).
+const g = (n: string) => ({ video: `/vsl-assets/sitio/${n}.webm`, poster: `/vsl-assets/sitio/${n}.jpg` });
 const GRABACION: Readonly<Record<string, { video: string; poster: string }>> = {
-  'competitor-spy': { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' },
-  'web-generator': { video: '/vsl-assets/sitio/replicar.webm', poster: '/vsl-assets/sitio/replicar.jpg' },
+  'competitor-spy': g('spy'),
+  'web-generator': g('replicar'),
+  ads: g('copilot'),
+  copywriting: g('copywriting'),
+  image: g('carruseles'),
+  video: g('video'),
+  crm: g('crm-ficha'),
+  seguimiento: g('automations'),
+  whatsapp: g('chats'),
+  cobranza: g('cobranza'),
+  dashboard: g('tableros'),
 };
 
 /** Qué animación falta en el hero de cada landing (con las palabras de Martín donde las dijo). */
@@ -46,6 +59,11 @@ export const FALTA_EN_EL_HERO: Readonly<Record<string, string>> = {
 /** Lo que falta, para un hero o un visual del que se sabe la landing. */
 export const faltaDe = (slug: string, nombre?: string): string =>
   FALTA_EN_EL_HERO[slug] ?? `La pantalla de ${nombre ?? 'esta función'} tal cual es en MaKo.`;
+
+/** La grabación de una función por su nombre de archivo (public/vsl-assets/sitio/<n>.webm), para los diseños que la ponen sueltos. */
+export function GrabacionDe({ n }: { n: string }) {
+  return <Grabacion {...g(n)} />;
+}
 
 function Grabacion({ video, poster }: { video: string; poster: string }) {
   return <video src={video} poster={poster} autoPlay muted loop playsInline preload="metadata" style={{ display: 'block', width: '100%', height: 'auto', borderRadius: 12 }} />;
@@ -100,7 +118,13 @@ function Avatar({ escenas }: Extract<VisualHero, { tipo: 'avatar' }>) {
   );
 }
 
-export function VisualDeLanding({ visual }: { visual: VisualHero }) {
+/**
+ * `falta`: el visual se usa en una sección que NO es la función de la grabación (el Cerebro, 14/11/2026: «mostrar otra pantalla como si
+ * fuera esa función también es inventar»: en Image, «Kit de marca» o «Lienzo» mostraban la grilla de carruseles; en Spy, «Desde Chrome»
+ * mostraba la grilla de competidores). Ahí va el recuadro con lo que falta, con su texto.
+ */
+export function VisualDeLanding({ visual, falta }: { visual: VisualHero; falta?: string }) {
+  if (falta && visual.tipo !== 'avatar') return <FaltaAnimacion que={falta} />;
   switch (visual.tipo) {
     // Las fotos reales del personaje (public/formatos/presets/): no se inventa nada.
     case 'avatar': return <Avatar {...visual} />;

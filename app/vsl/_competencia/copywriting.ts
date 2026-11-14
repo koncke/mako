@@ -111,7 +111,7 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       titulo: `${N_REFERENTES} referentes del marketing, <em>instalados en <strong>tu</strong> IA.</em>`,
       bajada: 'Tu IA escribe como la de todos porque no sabe nada de ti. MaKo lee tu negocio, te pregunta lo que falta y escribe <strong>en tu página</strong>. Y en el chat de MaKo eliges a qué referente seguir: <strong>te contesta con su método</strong>.',
       puntos: [
-        '<strong>Copy que firmarías con tu nombre.</strong> Cada línea que podría firmar un competidor la cambia por un dato tuyo antes de que veas el borrador.',
+        '<strong>Copy que firmarías con tu nombre.</strong> Cada línea que podría firmar un competidor la cambia por un dato tuyo antes de entregarte la pieza.',
         '<strong>Funciona con tu propio Claude, ChatGPT o Gemini.</strong> El que conectas a tu negocio en Integraciones.',
         '<strong>No inventa lo que no sabe.</strong> Lo que tu negocio no dice queda marcado para que lo completes.',
       ],
@@ -152,7 +152,7 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       // Como su banda oscura «Copy only you can run»: la pregunta del titular y un párrafo que sigue de corrido.
       tipo: 'contraste',
       etiqueta: 'Copy que solo tú puedes firmar',
-      titulo: '¿Un competidor podría pegar tu titular en su página sin que nadie lo note? Si la respuesta es sí, no tienes copy. <em>Tienes papel tapiz.</em>',
+      titulo: '¿Un competidor podría pegar tu titular en su página sin que nadie lo note? Si la respuesta es sí, no tienes copy. <em>Tienes relleno.</em>',
       sin: {
         titulo: 'El copy de la IA suena bien y podría ser de cualquiera,',
         texto: 'porque nada de lo que escribe sabe algo de ti. Un prompt mejor no lo arregla, y tampoco un modelo más grande.',
@@ -168,7 +168,7 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       items: [
         { icono: I.copy, titulo: 'Escribe tus anuncios, tus reels, tus emails y tus VSL.', texto: 'Guiones a cámara, textos de anuncio, 10 ganchos, reels, stories, carruseles, emails, secuencias, VSL y videos de YouTube, cada uno con su estructura y sus secciones.' },
         { icono: I.cita, titulo: 'Tus clientes te dan los ganchos.', texto: 'Si tu negocio no lo dice, te pregunta a quién le hablas y con qué frase te cuenta su problema. El gancho sale de ahí, no de una frase hecha.' },
-        { icono: I.ojo, titulo: 'Ves el borrador antes de que quede.', texto: 'Lo que MaKo escribe queda marcado en la página hasta que eliges <strong>Aceptar, Descartar o Reintentar</strong>. Descartar la deja exactamente como estaba.' },
+        { icono: I.ojo, titulo: 'Primero pregunta, después escribe.', texto: 'Al replicar, MaKo te pregunta <strong>para qué oferta</strong> es y cómo adaptarlo, y escribe la pieza entera, con el original al lado. Si quieres otra versión, se la pides en el chat.' },
         { icono: I.estructura, titulo: 'Saca cada línea que podría firmar un competidor.', texto: 'A cada parte le hace tres preguntas: ¿se puede imaginar?, ¿se puede comprobar?, <strong>¿la podría firmar un competidor?</strong> Si la podría firmar, la cambia por un dato de tu negocio.' },
         { icono: I.negocio, titulo: 'Aprende tu negocio.', texto: 'Lee lo que MaKo ya sabe de ti y te pregunta, de a una, lo que falta: qué vendes y a cuánto, a quién le hablas, qué prueba tienes.' },
         { icono: I.ia, titulo: `${N_REFERENTES} referentes del marketing, en tu chat.`, texto: `Cada uno con su método, de ${ASESORES[0].completo} a ${ASESORES[N_REFERENTES - 1].completo}: en el chat de MaKo eliges con cuál hablar y te contesta con su método. Es «Inspirado en»: ninguno participa en MaKo ni la respalda.` },
@@ -194,8 +194,8 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       items: [
         { icono: I.si, titulo: 'Llevas el negocio y el marketing lo haces tú.', texto: 'Los anuncios, los reels, los emails y la VSL caen en ti.' },
         { icono: I.si, titulo: 'Necesitas que te encuentre más gente de la correcta,', texto: 'así que cada anuncio y cada página tiene que hacer que un desconocido se detenga y te elija.' },
-        { icono: I.si, titulo: 'No tienes horas para sentarte a escribir.', texto: 'Le pasas el trabajo a MaKo, revisas el borrador y sigues con el negocio.' },
-        { icono: I.si, titulo: 'Escribes para clientes o para un equipo,', texto: 'y cada borrador tiene que pasar su revisión: le compartes la página y la edita ahí.' },
+        { icono: I.si, titulo: 'No tienes horas para sentarte a escribir.', texto: 'Le pasas el trabajo a MaKo, revisas la pieza y sigues con el negocio.' },
+        { icono: I.si, titulo: 'Escribes para clientes o para un equipo,', texto: 'y cada pieza tiene que pasar su revisión: le compartes la página y la edita ahí.' },
         { icono: I.si, titulo: 'Te llevas lo más fuerte que puedes decir con honestidad,', texto: 'con una marca en lo que todavía tienes que respaldar.' },
       ],
     },
@@ -206,7 +206,7 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       items: [
         { icono: I.no, titulo: 'Ya te gusta lo que escribe tu IA.', texto: 'Si un chat cualquiera ya te entrega páginas que venden, sigue usándolo.' },
         { icono: I.no, titulo: 'Quieres un curso.', texto: 'MaKo escribe la página contigo, y si te preguntas por qué una sección va así, te lo explica.' },
-        { icono: I.no, titulo: 'No le vas a contar de tu negocio.', texto: 'Escribe desde tu oferta y tu cliente: sin eso sale el mismo borrador genérico de siempre.' },
+        { icono: I.no, titulo: 'No le vas a contar de tu negocio.', texto: 'Escribe desde tu oferta y tu cliente: sin eso sale el mismo texto genérico de siempre.' },
       ],
     },
     {
