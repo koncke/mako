@@ -43,6 +43,8 @@ import { ZernioError } from './zernio';
 import { MENSAJES_DE_MOTIVO } from './zernio-redes';
 import { esFormato, sumarDias, type FormatoPublicacion } from './calendario-modelo';
 import { instanteDe } from './cron-aviso';
+import { leerPilotoCoPilot } from './copiloto/piloto';
+import { GRADUACION_DE_PRUEBA } from './copiloto/piloto-redes';
 import {
   anotarIntento, BUCKET_PUBLICAR, cuerpoDelPost, esFallaDudosa, esRedPublicar, estaProgramada, estadoDeZernio, huellaParaConfirmar, leerIntento,
   motivoParaNoProgramar, REDES_PUBLICAR, repiteElMismoPedido, rutaDelArchivo, rutaValida, segundosDeFirma, textoDeBloqueo, tipoDeArchivo, TOPE_TEXTO,
@@ -326,6 +328,13 @@ export async function revisarParaProgramar(ids: readonly string[], ahora = Date.
  */
 export async function programarPublicaciones(ids: readonly string[], ahora = Date.now(), opts: { huellas?: Record<string, string> } = {}): Promise<ResultadoProgramar | { error: string }> {
   const ws = await getWorkspaceActual();
+  // El reel de prueba del piloto de Instagram (lib/copiloto/piloto-redes.ts): se lee una vez por tanda, sólo si hay un reel que
+  // programar. Si la lectura falla, sale como reel normal (como hasta hoy): no se frena una publicación por una preferencia.
+  let prueba: Promise<'SS_PERFORMANCE' | 'MANUAL' | null> | null = null;
+  const pruebaDelNegocio = () => (prueba ??= (ws == null ? Promise.resolve(null) : leerPilotoCoPilot(ws).then((p) => {
+    const m = (p.redes?.instagram as { reelDePrueba?: unknown } | undefined)?.reelDePrueba;
+    return m === 'solo' || m === 'pregunta' ? GRADUACION_DE_PRUEBA[m] : null;
+  })).catch(() => null));
   if (ws == null) return { error: 'No hay un negocio elegido.' };
   const unicos = [...new Set(ids.map(String))];
   if (!unicos.length) return { error: 'No hay nada para programar.' };
@@ -375,7 +384,7 @@ export async function programarPublicaciones(ids: readonly string[], ahora = Dat
       const firma = await getSupabaseServer().storage.from(BUCKET_PUBLICAR).createSignedUrl(ev.archivo as string, segundosDeFirma(ev.inicio, ahora));
       if (firma.error || !firma.data?.signedUrl) throw new Error('No encontré el archivo: súbelo de nuevo.');
       pidioAZernio = true;
-      const post = await crearPostZernio(ws, cuerpoDelPost(ev, firma.data.signedUrl), requestId);
+      const post = await crearPostZernio(ws, cuerpoDelPost(ev, firma.data.signedUrl, { prueba: await pruebaDelNegocio() }), requestId);
       // ⚠️ EL 409 DE ZERNIO ES «EL MISMO CONTENIDO»: si ese post ya es de OTRA publicación (las veces iguales de una serie que se
       //    programan juntas, revisión de privacidad, 29/10, M6), no es el de ésta. Compartirlo dejaba una sola en la red, y cancelar
       //    una cancelaba la de las otras. No se creó nada nuevo en Zernio: es un `fallo` con su motivo.

@@ -34,8 +34,11 @@ export function promptVariaciones(b: BaseVariaciones): { system: string; user: s
     'Eres el redactor de anuncios de Meta de un negocio. Escribes VARIACIONES de su anuncio ganador para probar contra él.',
     'Reglas:',
     '- Español neutro profesional, con «tú». NUNCA voseo ni modismos rioplatenses.',
-    '- Conserva la oferta, el público y la promesa del original: lo que cambia es el ÁNGULO de entrada.',
-    '- Cada variación prueba un ángulo distinto (un dolor, un resultado, una objeción, una prueba social, una pregunta).',
+    // Martín a Julio (13/11, min 00:51:25): las variaciones del ganador van «con el mismo copy, ángulo, dolor y avatar». Antes pedía
+    // un ÁNGULO distinto por variación: lo contrario (docs/relevo/llamada-julio-13-11.md, «Meta Ads», punto 3).
+    '- Conserva el ÁNGULO, el DOLOR, el AVATAR (a quién le habla), la oferta y la promesa del original: son los que ganaron.',
+    '- Lo que cambia es sólo el GANCHO y la forma: otra primera frase, otro orden, otro largo, otro formato de la misma idea.',
+    '- Cada variación prueba un gancho distinto para el MISMO mensaje; si cambias el dolor o a quién le habla, ya no es una variación del ganador.',
     '- No inventes datos, precios, testimonios ni cifras que no estén en el original o en el perfil del negocio.',
     '- Cumple las políticas de Meta: sin atributos personales («¿Estás endeudado?»), sin promesas de resultados garantizados.',
     b.tipo === 'hook'

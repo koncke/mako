@@ -167,11 +167,17 @@ export type CuerpoPost = {
   metadata: { calendarioEventoId: string };
 };
 
-export function cuerpoDelPost(ev: EventoParaPublicar, urlArchivo: string): CuerpoPost {
+/**
+ * `prueba`: el reel de prueba del piloto de Instagram (lib/copiloto/piloto-redes.ts, 14/11): sale primero sólo a quien no te sigue.
+ * Zernio lo recibe en `trialParams` (docs.zernio.com/platforms/instagram/fields) y Meta sólo lo acepta en un REEL: en otro formato
+ * u otra red no se manda.
+ */
+export function cuerpoDelPost(ev: EventoParaPublicar, urlArchivo: string, opc: { prueba?: 'SS_PERFORMANCE' | 'MANUAL' | null } = {}): CuerpoPost {
   const red = ev.red as RedPublicar;
   const formato = ev.formato ?? 'post';
   // Instagram y Facebook distinguen el reel y la historia del post del feed; TikTok y YouTube publican un video.
-  const especifico = (red === 'instagram' || red === 'facebook') && (formato === 'reel' || formato === 'story') ? { contentType: formato } : undefined;
+  const base = (red === 'instagram' || red === 'facebook') && (formato === 'reel' || formato === 'story') ? { contentType: formato } : undefined;
+  const especifico = red === 'instagram' && formato === 'reel' && opc.prueba ? { ...base, trialParams: { graduationStrategy: opc.prueba } } : base;
   const texto = (ev.texto ?? '').trim();
   return {
     ...(texto ? { content: texto } : {}),

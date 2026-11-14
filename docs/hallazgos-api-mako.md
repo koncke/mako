@@ -3285,3 +3285,16 @@ docs/relevo/leandro-0911.md, punto 8).
 
 **Vive en:** lib/api-mako/ejecutar.ts (`registrarAccionMako`) · lib/api-mako/flujo.ts (`aplicarEnElActo`) ·
 lib/api-mako/acciones.ts (`aplicarPropuestaGenerica`, `marcarResultado`)
+
+## Una operación nueva con `http` pide su ruta REST, y su ruta de la app pide su veredicto de revisión (14/11/2026, probar-copy)
+
+Al declarar `replicar_link_o_texto_copywriter` (Copywriting: replicar un link o un texto) el filtro de la punta dio verde
+(36 tests) y GitHub dio rojo en dos que el filtro no considera afectados por `copywriter.def.ts`:
+- **`tests/api-mako-rest.test.ts`**: toda operación que sale por HTTP necesita su fila en `RUTAS_REST` (lib/api-mako/rest.ts),
+  y su recurso (el 2.º tramo de la ruta) un título en lib/api-mako/recursos.ts. Colgarla de un recurso que ya existe
+  (`/contenido/outliers/pegado`) evita el título nuevo.
+- **`tests/cuenta-revision-escrituras.test.ts`**: una ruta NUEVA de la app que escribe (`POST /api/copywriter/pegado`) entra al
+  snapshot con su veredicto para la cuenta de revisión de las tiendas («cortada» por defecto; permitirla es sumarla a
+  `PERMITIDO_EN_REVISION` con su porqué). Se regenera con `MAKO_REGENERAR_SNAPSHOT=1`.
+
+**La regla:** con una operación o una ruta nueva, correr esos dos a mano antes de subir; el filtro de la punta no los ve.

@@ -702,6 +702,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // Los outliers de copy (11/11/2026): verlos y replicar uno en una página nueva.
   ['GET', '/contenido/outliers', 'outliers_copywriter'],
   ['POST', '/contenido/outliers/{outlierId}/replica', 'replicar_outlier_copywriter'],
+  // Y lo que trae la persona (14/11/2026, lib/copywriter/pegado.ts): un link o un texto, replicado como un outlier más.
+  ['POST', '/contenido/outliers/pegado', 'replicar_link_o_texto_copywriter'],
   // ── video ─────────────────────────────────────────────────────────────────
   ['GET', '/video/anuncios', 'listar_anuncios_video'],
   ['GET', '/video/anuncios/{planId}', 'ver_anuncio_video'],
