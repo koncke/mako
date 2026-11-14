@@ -420,8 +420,7 @@ tarjetas limpias; el ahorro en dos columnas y sin HeyGen; el checkout sin el sub
 
 **En curso, con agentes** (uno por landing, como mucho tres a la vez por la RAM; el candado de navegador es C:/dev/bancos-portada/.grabando):
 Competitor Spy contra Foreplay; Video contra Cherry Studio; Marketing CoPilot contra Master Ads (desde las 05:30). Automations ENTREGADO
-(commit bb8065e60, toma C; falta la toma D con el empalme del bucle: los 4 pasos en `C:/dev/bancos-portada/banco-flujo/`, `grabar-combo3.mjs`
-→ `medir-combo3.py` → `codificar-bucle.sh`). **Lo que sigue, en este orden:** AI Avatar (HeyGen), Image (PostNitro), Copywriting (The Copy Machine), Web Generator (HighLevel AI
+(a9d476b7d, la toma final; el banco: `C:/dev/bancos-portada/banco-flujo/`, `grabar-combo3.mjs` → `medir-combo3.py` → `codificar-bucle.sh`). **Lo que sigue, en este orden:** AI Avatar (HeyGen), Image (PostNitro), Copywriting (The Copy Machine), Web Generator (HighLevel AI
 Studio), Offer, Chats (Leadsales), CRM (GoHighLevel), Agenda (iClosed), Cobranza (Rebill), Email (beehiiv), Dashboard (Reportei), Ads Analyst
 (Gethookd), Funnels (Hyros), Ops Center (Holo), Plan (Motion). El brief de cada agente: scratchpad `brief-landing.txt` (si se perdió: el de
 Video en el transcript del 14/11). La lista de referencias: scripts/visor-landings/armar.mjs, `PAGINAS`.
