@@ -18,7 +18,8 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 ### Lo que más muerde acá
 
 - **Subir Baileys NO cura la línea sorda** (14/11/2026). La causa es un paquete `<status>` de WhatsApp que NINGUNA versión de Baileys
-  contesta (ni la rc.9, ni la rc14, ni master): a los 50 min WhatsApp corta y la línea queda «open» sin recibir. El arreglo son 3 líneas
+  contesta (ni la rc.9, ni la rc14, ni master): a los 50 min WhatsApp corta y la línea queda «open» sin recibir. Aplicado en Railway el
+  14/11 (las líneas reconectaron sin QR y entró lo retenido). El arreglo son 3 líneas
   (Evolution PR #2788, sin publicar), no una versión. Ver «La línea sorda NO se cura subiendo Baileys», abajo.
 - **Lo que una línea trae al re-vincularla NO pasa por el webhook** (13/11/2026, Mauricio). Siete mensajes estaban en el store de las dos
   líneas y MaKo nunca los vio: entraron como historial, sin `messages.upsert`. La hora de guardado está en el id de la fila (un cuid).
@@ -117,20 +118,32 @@ respondió». La voz (`mako_superadmin_muylqv8r`, el …2605) estaba `open`, y l
   - `atendai/evolution-api` ya no existe; la imagen vigente es `evoapicloud/evolution-api`.
   - `:latest` y `:v2.3.7` dicen las dos «2.3.7», con digests distintos.
 
-**El arreglo propuesto (lo decide Martín; necesita su sesión de Railway, que es OAuth):** la MISMA imagen 2.3.7, con el parche del PR
-aplicado al arrancar.
+**El arreglo, APLICADO el 14/11 a las 06:22 UTC** (Martín inició sesión en Railway y pidió «manéjalo y soluciona todo»): la MISMA
+imagen, con el parche del PR aplicado al arrancar.
 - Se agrega una variable con un script de 30 líneas en base64 y un Custom Start Command que lo corre antes del arranque original:
   `. ./Docker/scripts/deploy_database.sh && npm run start:prod`, el ENTRYPOINT de la imagen.
 - El script:
   - sólo toca Baileys 7.0.0-rc.9;
   - no hace nada si el parche ya está;
   - valida la sintaxis y restaura el original si falla.
-- Probado contra el `messages-recv.js` publicado de la rc.9; NO en Railway.
-- Para volver atrás, se borra el start command.
-- El plan paso a paso, el script y la frase para Martín están en la nota `voz-sorda-14-11-claude5.md` de la carpeta compartida del
-  Cerebro.
-- **Antes de aplicarlo**, en los logs de Railway tiene que aparecer `class="status"`: eso confirma la causa en NUESTRO servidor.
-- **Medido:** un reinicio no borra las sesiones (ws13, vinculada el 18/08, nunca re-escaneada, sobrevivió al reinicio del 19/10).
+- Se probó contra el `messages-recv.js` publicado de la rc.9 antes de subirlo.
+- **Para volver atrás:** Railway → evolution-api → Settings → borrar el Custom Start Command → Deploy. La variable
+  `STATUS_ACK_PATCH_B64` sola no hace nada.
+- El script y el plan están en la nota `voz-sorda-14-11-claude5.md` de la carpeta compartida del Cerebro.
+- **Lo que corre en Railway (leído el 14/11):**
+  - la imagen es `evoapicloud/evolution-api:latest` (desplegada el 9/07; dice 2.3.7), con Postgres y SIN Redis;
+  - el volumen está montado en `/evolution/instances`, donde Evolution guarda las claves de sesión: por eso un redespliegue no
+    obliga a escanear.
+- **Antes, en los logs:** `stream errored out` con `reasonNode.attrs.class: status` y `unexpected error in 'processing offline nodes':
+  Unknown message type`. La causa, en NUESTRO servidor.
+- **Medido después:**
+  - en los logs, `[status-ack-patch] APPLIED`;
+  - las 10 líneas volvieron `open` solas en 1 min, sin QR;
+  - en 2 min entró lo retenido: 179 mensajes a ws22 (hasta 40 h tarde) y 157 a ws21 (hasta 31 h);
+  - en los 60 min siguientes, un solo `stream errored out` en los logs (ws11, abajo): el corte de los 50 min de las demás desapareció;
+  - 0 `Unknown message type` y 0 cortes `class="status"`.
+- **Queda un corte distinto, en ws11 (Leila):** `ack class="message"` cada 50 min, siempre con el MISMO id de mensaje (ya estaba antes
+  del parche). Es una entrega trabada en esa línea, no la sordera: ws11 recibe en el momento (atraso 0 min).
 - **Riesgo:** entra de golpe lo que WhatsApp retuvo. En la voz, lo de más de 6 h no lo contesta MaKo sola (`llegoTarde`, ticket #80).
 
 **El detector SÍ avisó, y nadie lo vio** (`vigilarSorderaDeLaVoz`, medido en sólo lectura):
@@ -153,9 +166,14 @@ en un paso; faltaba el botón. Es el mismo caso que «Tu número» el 13/11, que
   caída no es la misma pantalla que con la línea sorda.
 
 **Sin hacer:**
-- **el parche en Railway:** espera el sí de Martín y su sesión. Hasta entonces, cada sordera se cura con un QR, por horas;
+- **la prueba de verdad del parche:** 24 h sin ningún QR y sin alarmas de atraso. El tramo sano más largo antes fue de 2,6 días;
+- **el corte de ws11** (`ack class="message"`, un id fijo cada 50 min): no deja la línea sorda. Si empieza a atrasarse, es otro
+  manejador que falta, y el caso iría a Baileys #2858/#2866;
 - **sacar el parche** cuando Evolution publique 2.3.8 con el #2788. El script no hace nada sobre otra versión, pero el start command
-  queda;
+  queda. ⚠️ La imagen es `:latest`: si Evolution sube otra a ese tag, el próximo redespliegue la trae sin aviso. Conviene fijarla por
+  digest;
+- **Railway tiene una factura impaga del 8/11 (US$41,99):** la tarjeta fue rechazada y avisa que puede desconectar el servicio. Si corta
+  Evolution, se caen TODAS las líneas. La paga Martín;
 - **la regla de las 3 h sigue gritando con el silencio:** el 13/11 alternó «no recibe»/«volvió» en una hora. La prueba directa (otra
   línea) no sirve mientras ws9 esté atrasada. Con el parche, ws9 debería curarse y la prueba volvería a servir;
 - **los mails de atraso de las líneas de clientes tapan el de la voz:** 10 de 12 esa noche. Con el parche deberían bajar a 0; si no,

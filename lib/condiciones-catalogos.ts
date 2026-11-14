@@ -13,7 +13,7 @@
 // MISMA función que contesta GET /api/chat-agent/condiciones al editor.
 // =============================================================================
 
-import type { CatalogosCondicion, CursoCondicion, ProductoCondicion, ReunionesDeEmbudo } from './condiciones-catalogo';
+import type { CatalogosCondicion, CursoCondicion, FormulariosDeLanding, ProductoCondicion, ReunionesDeEmbudo } from './condiciones-catalogo';
 
 /** Las etapas de venta de UN producto (la forma de `SeccionEtapas` de FlujoLienzo). */
 export type EtapasDeProducto = { title: string; funnelId: number; options: Array<{ value: string; label: string }> };
@@ -22,6 +22,8 @@ export type EtapasDeProducto = { title: string; funnelId: number; options: Array
 export type CatalogosRemotos = {
   cursos: CursoCondicion[]; posts: Array<{ id: number; titulo: string }>; campanas: string[];
   reuniones?: ReunionesDeEmbudo[] | null;
+  /** Los formularios de las landings publicadas («Envió el formulario»). null = no se pudo leer. */
+  formularios?: FormulariosDeLanding[] | null;
 };
 
 /** Los catálogos juntos, en la forma que piden las funciones del catálogo. */
@@ -30,6 +32,7 @@ export function catalogosDe(p: { etapas: readonly EtapasDeProducto[]; productos:
     etapas: p.etapas, productos: p.productos, cursos: p.remotos?.cursos, posts: p.remotos?.posts, campanas: p.remotos?.campanas,
     // undefined = todavía no llegó; null = no se pudo leer. Las dos dejan el selector apagado.
     reuniones: p.remotos ? p.remotos.reuniones ?? null : undefined,
+    formularios: p.remotos?.formularios ?? undefined,
   };
 }
 

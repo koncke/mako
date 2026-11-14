@@ -67,7 +67,7 @@ en docs/relevo/nube-thiago-anuncios.md.
 - **No medido**: nada de esto se publicó en Meta desde la nube (no ve producción ni claves). Los tests corren el motor, la
   validación de la API y la ruta con dobles.
 
-## El motor escribe «no trajo ningún agenda» y «de el conjunto»: los textos no conocen el género ni contraen (14/11/2026, SIN HACER)
+## El motor escribía «no trajo ningún agenda» y «de el conjunto»: los textos no conocían el género ni contraían (14/11/2026, ARREGLADO)
 
 - **Vive en** `lib/media-buyer/motor.ts` (Stop Loss, Sunsetting, Surf y el original contra su variación): `ningún ${nom.uno}`,
   `un ${nom.uno}`, `sin un solo ${nom.uno}` y `… cada uno.`. Con el KPI en agendas o ventas sale «no trajo ningún agenda», «lo que
@@ -76,7 +76,10 @@ en docs/relevo/nube-thiago-anuncios.md.
 - **Y «de el»:** Surf y Sunsetting arman el título con `de ${que}` (`Subir el presupuesto de`, `Bajar el presupuesto de`) y `que = 'el conjunto'`
   (`motor.ts`, ~563 y ~590): sale «Subir el presupuesto de el conjunto «Frío · Testimonio»». Es el TÍTULO de la decisión, lo
   primero que se lee en «Espera tu OK». Con una campaña («de la campaña») está bien.
-- **La regla que falta:** `NOMBRE_RESULTADO` lleva el género (o el artículo) y los textos lo usan. El test: armar la propuesta de cada
+- **Arreglado el 14/11:** `NOMBRE_RESULTADO` lleva las formas con su género (`un`, `ningun`, `ninguno`, `unSolo`, `cadaUno`) y `deLo(que)`
+  arma «del conjunto» / «de la campaña». Lo fija tests/media-buyer-textos-genero.test.ts, que corre el motor de verdad con los tres
+  KPIs. **Regla:** un texto del motor nunca escribe un artículo o un «cada uno» fijo al lado de `nom.uno`: usa la forma de `nom`.
+- **(Lo de antes)** La regla que faltaba: `NOMBRE_RESULTADO` lleva el género (o el artículo) y los textos lo usan. El test: armar la propuesta de cada
   táctica con los tres KPIs y los dos niveles, y buscar «ningún agenda», «un venta», «de el» y «cada uno» después de un plural femenino.
 - **Visto** armando la animación de la portada: el banco escribe esas frases a mano, ya en femenino. No es lo que sale hoy.
 

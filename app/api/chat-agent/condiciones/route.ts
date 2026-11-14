@@ -27,8 +27,8 @@ export async function GET() {
     return Response.json({ ok: false, error: 'Solo el admin del workspace arma las automatizaciones.' }, { status: 403 });
   }
   try {
-    const { cursos, posts, campanas, reuniones } = await catalogosRemotos();
-    return Response.json({ ok: true, cursos, posts, campanas, reuniones });
+    const { cursos, posts, campanas, reuniones, formularios } = await catalogosRemotos();
+    return Response.json({ ok: true, cursos, posts, campanas, reuniones, formularios });
   } catch (e) {
     console.error(`[api:chat-agent/condiciones GET] ${msg(e)}`);
     return Response.json({ ok: false, error: msg(e) }, { status: 500 });

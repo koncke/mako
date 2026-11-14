@@ -285,3 +285,25 @@ test('10. /email: el segmento de cualquier CRM o etapa', () => {
   const src = leer('../lib/email-marketing.ts');
   assert.match(src, /const crm = segmentoCrm\(segmento\);\n  if \(crm\) return leadsDeCrm\(supabase, crm\.funnelId, crm\.etapa\);/);
 });
+
+test('5b. la condición «Envió el formulario» (uno o varios, o cualquiera de la landing) y sin la tabla «no sé»', async () => {
+  const { CONDICIONES, opcionesDe } = await import('../lib/condiciones-catalogo');
+  const def = CONDICIONES.find((c) => c.id === 'envio_formulario')!;
+  assert.ok(def && def.negable && def.fuentes.includes('formularios'));
+  const fila = (valores: string[]) => ({ tipo: 'envio_formulario', valor: valores[0], valores }) as never;
+  const envio = (claves: string[]) => ({ catalogo: { formularios: new Set(claves) } }) as never;
+  assert.equal(def.evaluar!(fila(['form:fRegalo']), envio(['form:fRegalo', 'landing:118'])), true);
+  assert.equal(def.evaluar!(fila(['form:fAgenda', 'form:fRegalo']), envio(['form:fRegalo'])), true, 'con cualquiera de los elegidos');
+  assert.equal(def.evaluar!(fila(['landing:118']), envio(['form:fRegalo', 'landing:118'])), true, 'cualquiera de la landing');
+  assert.equal(def.evaluar!(fila(['form:fAgenda']), envio([])), false, 'leída la tabla, no envió');
+  assert.equal(def.evaluar!(fila(['form:fAgenda']), { catalogo: {} } as never), null, 'sin la tabla (0415 sin aplicar): no sé');
+  const ops = opcionesDe('formulario', { formularios: [{ docId: 118, titulo: 'Regalo', piezas: [{ clave: 'form:fRegalo', nombre: 'Formulario Regalo' }, { clave: 'form:qD', nombre: 'Quiz' }] }] });
+  assert.deepEqual(ops[0].options.map((o) => o.value), ['landing:118', 'form:fRegalo', 'form:qD']);
+});
+
+test('5c. «Respuesta del formulario contiene» lee también lo que contestó en la landing', () => {
+  const src = leer('../lib/nutricion.ts');
+  assert.match(src, /const COLS_RESPUESTAS = '[^']*optin_respuestas';/);
+  assert.match(src, /const deLanding = respuestasGuardadas\(f\.optin_respuestas\)\.map\(\(r\) => r\.respuesta\);/);
+  assert.match(src, /\.\.\.meta, \.\.\.deLanding\]\.join\(' · '\)/);
+});
