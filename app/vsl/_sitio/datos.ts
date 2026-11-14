@@ -323,7 +323,7 @@ export function numerosDelSitio(): { valor: string; texto: string }[] {
  * prueba del código): el setter LLEVA a agendar, no reserva (app/vsl/_competencia/seguimiento.ts); el análisis de llamadas y los
  * grupos de WhatsApp son de Pro (lib/topes-plan.ts); la IA es la del cliente.
  */
-const precioDe = (nombre: string): string => { const x = STACK_TIPICO.find((y) => y.app.nombre === nombre); return x ? String(x.precioUsd) : '?'; };
+const precioDe = (nombre: string): string => { const x = STACK_TIPICO.find((y) => y.app.nombre === nombre); return x ? x.precioUsd.toLocaleString('es-AR', { minimumFractionDigits: Number.isInteger(x.precioUsd) ? 0 : 2, maximumFractionDigits: 2 }) : '?'; };
 export const PREGUNTAS_SITIO: readonly { p: string; r: string }[] = [
   // La objeción de GoHighLevel, «muy bien presentada» (el audio de feedback que pasó Martín, 14/11/2026: «es uno de los competidores
   // principales»). Los precios, de STACK_TIPICO (./reemplaza.ts, con su fuente).

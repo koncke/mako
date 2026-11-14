@@ -333,6 +333,8 @@ const CSS = `
 .d-crm-contador-v { font-size: 30px; line-height: 36px; font-weight: 700; }
 /* Las cifras, fijas: oscuras en el claro y blancas en el oscuro (con el degradado de la referencia, en oscuro casi no se leían). */
 html[data-sitio-modo="oscuro"] .d-crm-contador-v { background-image: linear-gradient(90deg, #FFFFFF 0%, #AFC6F7 110%); color: #fff; }
+/* En oscuro la tarjeta blanca al 31 % cae sobre el brillo azul del hero: letra blanca sobre celeste. Vidrio oscuro (14/11). */
+html[data-sitio-modo="oscuro"] .d-crm-contador { background: rgba(6,12,30,.62); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
 .d-crm-contador-l { margin-top: 8px; font-size: 14px; line-height: 1.2; color: #03101C; text-transform: uppercase; }
 
 /* Secciones */
@@ -456,6 +458,7 @@ ${[0, 1, 2, 3, 4, 5].map((i) => `#d-crm-t${i}:checked ~ .d-crm-pills .d-crm-pill
   .d-crm-contadores { margin-top: -300px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; padding: 0 10px; }
   .d-crm-contador { padding: 6px; min-height: 68px; border-radius: 4px; }
   .d-crm-contador-l { font-size: 11px; margin-top: 2px; }
+  .d-crm-contador:last-child:nth-child(odd) { grid-column: 1 / -1; }
   .d-crm-sec-cifras { padding: 80px 20px 60px; }
   .d-crm-sec-cifras .d-crm-h2-30 { font-size: 28px; line-height: 36.4px; }
   .d-crm-h2-40 { font-size: 30px; line-height: 39px; }
