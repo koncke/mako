@@ -379,7 +379,7 @@ Se graban después del despliegue, con el banco de cada uno (C:/dev/bancos-porta
 | Image (5) | Las plantillas; Formatos; el chat de MaKo en Image; el kit de marca; el lienzo |
 | Copywriting (3) | Un ejemplo real de cada plantilla: anuncio a cámara (PAS), reel que trae mensajes, email de cierre |
 | Video (2) | La línea de tiempo antes y después de editar (el banco del editor ya la tiene: dos cuadros) |
-| CRM (1) | La pantalla de cada pestaña del ciclo (Captar, Nutrir, Cerrar, Cobrar, Reactivar) |
+| CRM (1) | Sólo «Cerrar» (14/11, noche: Captar = Chats, Nutrir = Automations, Cobrar = Cobranza, Reactivar = la difusión grabada en `banco-crm-difusion`): la tarjeta que pasa sola a «Agenda R1» cuando agenda y la grabación enganchada en su ficha |
 | Automations (3) | «No agendaste aún»; «Dónde se traba»; una sesión de la API de MaKo con Claude |
 | Chats (7) | Las pantallas de sus filas (hilo del lead, etiquetas, asignar…) |
 | Dashboard (2) | El informe; «Salud del funnel» |
@@ -407,6 +407,80 @@ cualquier toma en bucle).
 grandes) — copilot-maqueta; la réplica REAL de un reel de Hormozi para Copywriting (no hay reels de Alex en Spy y ninguno de Leila
 está transcripto) — probar-copywriting; los competidores de Spy sin logos y con caricatura — el chat de Spy (puede necesitar el sí de
 Martín para escribir en producción). Después del despliegue: regrabar Spy y Copywriting.
+
+## La noche del 14/11/2026: copiar cada referencia al 100% (Martín: «trabaja toda la noche»)
+
+Martín, textual: «quiero que te concentres en que la copia salga muy fiel a todas las animaciones y cosas que tiene la landing original…
+lo hagas con todas las landings… los videos que tienen, las animaciones, los hover, todo, absolutamente todo».
+
+**Hecho y subido esa noche** (punta/landings-vsl): la portada de Spy sólo con referentes y sin textos; CoPilot con logos, «la campaña» y
+zoom por decisión; CRM con el lead en su etapa, el arrastre y la ficha con todo el tracking (VSL, mapa de calor, video de la visita, línea
+de tiempo); curso y comunidad sin textos de más; Comparaciones con la tabla entera, la cabecera fija y las flechas de a apps enteras, y
+tarjetas limpias; el ahorro en dos columnas y sin HeyGen; el checkout sin el subtítulo de Mercado Pago, sin el renglón repetido ni subtotal.
+
+**En curso, con agentes** (uno por landing, como mucho tres a la vez por la RAM; el candado de navegador es C:/dev/bancos-portada/.grabando):
+Dashboard contra Reportei (desde las 10:55); Ads Analyst contra Gethookd (desde las 11:25); Funnels contra Hyros (desde las 11:45).
+**SIN SUBIR** Agenda, Cobranza y Email: el filtro de la punta corre los tests sobre el DISCO y el test a medio hacer de otra landing lo deja
+rojo (MAKO_SIN_FILTRO no está permitido). Se sube en una ventana en que el disco esté verde; desde las 11:45 el brief pide escribir el test
+al final. Visor: v37 (11:45), con un tope de 512 archivos por versión (ver TEL_IGUAL en `scripts/visor-landings/armar.mjs`); se publica en
+dos tandas (videos y páginas) con lo cambiado desde la versión anterior. ENTREGADOS: Email (d3480484b; para decidir: las cintas de clientes
+de «Trusted by» no van; la cita no tiene «Read the story»). Cobranza (930ecd00e; para decidir: Historias queda clara en los dos modos, fiel a Rebill;
+«Ver cómo cobras» en lugar de su «Hablar con un experto»). Agenda (0c0ead0f7; sin «AI Agent»; para decidir: una 4.ª pestaña con el AI Step «Que llegue a la reunión», y si la marquesina
+de logos se queda sólo con lo de la agenda). CRM (0b38e0323; falta el video de «Cerrar»; **para decidir con Martín:** el popup de salida, sin formulario, a /planes, ¿se
+queda?; el mini-VSL de Panda de la ventana del hero, ¿sigue vigente?; el hero queda oscuro también en modo claro). Web Generator (f6a10202a + 2c1f0167d: sin corchetes de plantilla, el Panel real en el hero). Chats (90845e9c5). Offer (75cd787d0; el video flota al bajar; mismo «para decidir» de claro/oscuro que /vsl/ads). Copywriting (bb6a9be89; faltan la tercera pestaña de ejemplos y la charla del «Chief»). Marketing CoPilot (bc770ddf3; **para decidir con Martín:** en modo claro las bandas oscuras pasan a
+celeste por la regla del 12/11, y en Master Ads son verde profundo: si quiere la copia fiel, `data-tema-fijo` en esas secciones). Image
+(4949ad5d5; falta el marco «Chat de MaKo»; con ella, las preguntas de la portada en TODAS las landings en producción, `LandingCompetencia.tsx`).
+AI Avatar (77f345a01: el reproductor, la cinta, las filas, el testimonio). Video (c7a37be50, la versión B de Cherry; faltan grabar dos escenas de «Lo que hace»: los outliers,
+`app/video-editor/OutliersVideo.tsx` en un banco con `hormozi.json`, y el chat del editor). **A verificar con Martín:** las 31 imágenes de
+`public/formatos/presets/` parecen de Mauricio (cliente), no de él (docs/hallazgos-ai-avatar.md); no se usan en nada nuevo.
+Automations (a9d476b7d, la toma final; el banco: `C:/dev/bancos-portada/banco-flujo/`, `grabar-combo3.mjs` → `medir-combo3.py` →
+`codificar-bucle.sh`) y Competitor Spy (a319a85f4: las 12 pestañas con su grabación real, la lluvia y la órbita; sin hacer: los íconos animados
+del menú y el pie de Foreplay, el segundo botón de cada fila). **Para decidir (Spy):** `lib/funciones-mako.ts` dice que Spy todavía no lee
+solo todos los días y `plan-spy.md` dice que los Seguidos se leen a diario desde el 13/11; la landing dice «al sumarlo y cada vez que abres
+su ficha» hasta que se aclare. **Lo que sigue, en este orden:** Ops Center (Holo), Plan (Motion). Con varios agentes escribiendo `docs/hallazgos-landing.md` y `docs/hallazgos.md`, cada commit lleva SÓLO la entrada de su landing: se
+arma el archivo de HEAD más esa sección y se stagea sin tocar la copia de trabajo (`git hash-object -w --stdin` + `git update-index
+--cacheinfo`; el script: scratchpad `stage-parcial.py`). El brief de cada agente: scratchpad `brief-landing-v2.txt` (el común, con todas las trampas de la noche; cada pedido sólo da NOMBRE,
+SLUG, ARCHIVO, REF, URL y lo propio de la landing). El de antes: `brief-landing.txt` (si se perdió: el de
+Video en el transcript del 14/11). La lista de referencias: scripts/visor-landings/armar.mjs, `PAGINAS`.
+
+**Pendiente de Martín:** las banderas del checkout salen de flagcdn.com y el visor (artefacto) no carga imágenes de afuera; para que se vean
+en todos lados hay que bajarlas y servirlas nosotros (pide permiso: bajar archivos). En producción se ven.
+
+## Decimoquinta vuelta (14/11/2026): checkout, precios, preguntas, tableros, Automations y Spy
+
+Hecho (commits de punta/landings-vsl del 14/11):
+- **Checkout:** sin la barra de arriba y sin scroll en la computadora (la página mide la pantalla); Mercado Pago con su logo y su azul
+  (la fila y el botón); Visa, Mastercard y Amex con sus logos; sin «Pagas en la página segura de Stripe», sin la nota del primer cobro y
+  sin texto debajo del botón; «Suscripción recurrente»; lo que incluye cada plan escrito para el checkout (`INCLUYE_EN_EL_CHECKOUT`);
+  WhatsApp obligatorio y el botón apagado hasta completar todo; el pie en una línea.
+- **La prueba gratis también en Esencial**, sin ningún texto que aclare cuál sí y cuál no (test).
+- **La promesa del Acelerador**, con las palabras de Martín: Martín Koncke instala el sistema de adquisición de clientes a la medida de
+  la oferta y, como mínimo, se recupera la inversión, garantizado por contrato.
+- **/planes:** el título y el subtítulo de la portada; las preguntas de la portada; comparar planes como Attio (cabecera fija con
+  precio y botón, Pro resaltado, filas cortas con su (i), acordeón en el teléfono). **Todas las landings** muestran las preguntas de
+  la portada (`app/vsl/_sitio/preguntas.ts`).
+- **Tableros:** las cinco hojas sin entrada (Cold Calling, Comercial, General, Operación, Velocidad) la tienen en la app
+  (`entradaDeTarjetas`); los 13 recortados desde su primer cuadro con contenido; el carrusel carga todos al verse.
+- **Automations:** WhatsApp (se arma «Un Lead Entró» entero y le llega el mensaje al lead) y después Instagram (el lead escribe y le
+  contestan), 15 s. **«El CRM trackea tus leads de forma automática.»**
+- **Competitor Spy (landing):** el hero acompaña al scroll (se achica, sube y se desvanece); una pantalla por pestaña, que cambia al
+  tocar y al pasar el mouse; la grilla de Competidores y la réplica de un carrusel donde corresponden.
+
+**Falta:**
+- **Spy:** grabar la pantalla de cada pestaña (la ficha de un competidor, los sugeridos, el análisis, la transcripción, la extensión,
+  pegar un anuncio, sus páginas), DESPUÉS de que el chat de Spy borre los competidores con logo y sume los gurús (espera el sí de
+  Martín en su chat) y se despliegue. El relevo de Foreplay para implementar, en la carpeta de notas `foreplay-relevo/`.
+- **Comparaciones como beehiiv:** una tabla general (MaKo fijo y los competidores que rotan) con ✓ / vacío / valor, y las tarjetas de
+  abajo «MaKo vs X» (notas: `referencias-comparar/beehiiv-comparisons.md`). No se empezó.
+- **Marketing CoPilot: HECHO** (copilot-2: anuncios con sus decisiones, Instagram y YouTube con lo que propone). En Instagram y YouTube el
+  CoPilot NO decide (no tienen piloto): el texto de la fila lo dice así. El título («Gestiona tus anuncios, tu Instagram y tu YouTube con
+  IA») es de Martín. Muestra el porqué a lo ancho de la rama del CoPilot (c88731616): desplegar juntos.
+- **Copywriting: HECHO** con un short REAL de Alex Hormozi (spy:6) replicado por MaKo, del chat probar-copywriting (`copy-reel-hormozi/`,
+  la página animada en `C:/dev/bancos-portada/banco-carruseles-replica/salida/copy-reel.html`). Las respuestas «para quién» y «qué
+  promete» las escribió ese chat con lo que MaKo dice de sí: Martín las tiene que confirmar. El flujo con preguntas está en
+  punta/probar-copy: desplegar juntos.
+- **Spy:** el plan del chat de Spy (`foreplay-relevo/plan-spy.md`): primero la pestaña «Anuncios» de la ficha; Apify da 401 desde el
+  13/11 (hace falta una clave válida en Integraciones → Apify). La landing no promete lo que Spy todavía no hace.
 
 ## La prueba gratis, PRENDIDA (12/11/2026, Martín: «Sí, préndela»)
 

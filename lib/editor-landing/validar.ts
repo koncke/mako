@@ -148,7 +148,34 @@ type Ctx = {
   d: string[]; omitidos: number; idsTarjeta: Set<string>; idsCampo: Set<string>; nodos: number; cortado: boolean;
   /** Ids de «HTML personalizado» ya usados, la sección que se está saneando y cuántos lleva adentro. */
   idsHtml: Set<string>; tarjeta: string; htmlEnTarjeta: number;
+  /** Ids de formularios y quizzes ya usados en la landing, y cuántos lleva la sección que se sanea (14/11/2026). */
+  idsForm: Set<string>; formEnTarjeta: number;
 };
+
+/**
+ * El id de un formulario o un quiz que no lo trae (o lo trae repetido): DETERMINISTA, como el del «HTML personalizado» y por
+ * la misma razón (14/11/2026). La publicada lo lleva en `data-mako-form` y el CRM rutea por él (fuentes del lead,
+ * lib/editor-landing/piezas.ts): una landing publicada ANTES de que existiera el id se sanea al publicar de nuevo y al
+ * guardar, y las dos veces tiene que dar el mismo. Sale de la sección y de su orden adentro. El editor pone uno al azar al
+ * insertar (insertar.ts), así que esto sólo corre para lo viejo y para un copiar y pegar.
+ */
+function idFormDerivado(ctx: Ctx): string {
+  const base = `f${hashCorto(`${ctx.tarjeta}:form:${ctx.formEnTarjeta}`)}`;
+  let id = base;
+  for (let i = 2; ctx.idsForm.has(id); i++) id = `${base}-${i}`;
+  return id;
+}
+
+/** El id del formulario o quiz: el que trae si es válido y no se repite; si no, uno derivado (con motivo sólo si vino uno). */
+function idDeForm(pedido: unknown, ctx: Ctx, donde: string): string {
+  ctx.formEnTarjeta++;
+  const id = idValido(pedido);
+  if (id && !ctx.idsForm.has(id)) { ctx.idsForm.add(id); return id; }
+  if (pedido != null && pedido !== '') descartar(ctx, `id de formulario ${id ? `repetido «${id}»` : 'inválido'} en ${donde}: se regenera`);
+  const nuevo = idFormDerivado(ctx);
+  ctx.idsForm.add(nuevo);
+  return nuevo;
+}
 
 /** Hash corto y DETERMINISTA (FNV-1a de 32 bits, en base 36). */
 function hashCorto(s: string): string {
@@ -390,6 +417,9 @@ function sanearNodo(h: Record<string, unknown>, ctx: Ctx, prof: number, donde: s
   } else if (tipo === NODO.boton) {
     attrs = attrsConMotivo(tipo, crudo, ctx, donde, ['href']);
     if (crudo.href !== undefined && crudo.href !== '' && !attrs.href) descartar(ctx, `destino de botón no permitido «${recorte(crudo.href)}» en ${donde}: queda sin destino`);
+  } else if (tipo === NODO.quiz) {
+    attrs = attrsConMotivo(tipo, crudo, ctx, donde, ['id']);
+    attrs = { ...attrs, id: idDeForm(crudo.id, ctx, donde) };
   } else {
     attrs = attrsConMotivo(tipo, crudo, ctx, donde);
   }
@@ -468,7 +498,8 @@ function sanearNodo(h: Record<string, unknown>, ctx: Ctx, prof: number, donde: s
 
 /** El formulario: campos válidos, ids únicos en toda la landing y al menos el correo. */
 function sanearFormulario(crudo: Record<string, unknown>, ctx: Ctx, donde: string): Record<string, unknown> {
-  const a = attrsConMotivo(NODO.formulario, crudo, ctx, donde, ['campos']) as ReturnType<typeof attrsFormulario>;
+  const a = attrsConMotivo(NODO.formulario, crudo, ctx, donde, ['campos', 'id']) as ReturnType<typeof attrsFormulario>;
+  const id = idDeForm(crudo.id, ctx, donde);
   const crudos = arr(crudo.campos);
   const esperados = Math.min(crudos.length, TOPES.camposFormulario);
   if (crudos.length > TOPES.camposFormulario) descartar(ctx, `${crudos.length} campos en un formulario (${donde}): quedan ${TOPES.camposFormulario}`);
@@ -485,7 +516,7 @@ function sanearFormulario(crudo: Record<string, unknown>, ctx: Ctx, donde: strin
     descartar(ctx, `formulario sin campos en ${donde}: queda el correo`);
     campos.push({ id: idUnico(ctx.idsCampo, 'c'), tipo: 'email', etiqueta: 'Correo electrónico', requerido: true, opciones: [] });
   }
-  return { ...a, campos };
+  return { ...a, id, campos };
 }
 
 /** Una sección: atributos de la lista, id único en toda la landing y al menos un bloque. */
@@ -514,6 +545,7 @@ function sanearTarjeta(h: Record<string, unknown>, ctx: Ctx, donde: string): Jso
   } else ctx.idsTarjeta.add(id);
   ctx.tarjeta = id;
   ctx.htmlEnTarjeta = 0;
+  ctx.formEnTarjeta = 0;
   const content = sanearBloques(h.content, BLOQUES_TARJETA, ctx, 1, donde, 'una sección');
   return { type: NODO.tarjeta, attrs: { ...a, id }, content: content.length ? content : [parrafo()] };
 }
@@ -584,7 +616,7 @@ const bytesDe = (v: unknown): number => {
  * sola página). Nunca tira: lo que no se puede leer termina en una página vacía, con su motivo.
  */
 export function sanearContenido(raw: unknown): ResultadoSaneo {
-  const ctx: Ctx = { d: [], omitidos: 0, idsTarjeta: new Set(), idsCampo: new Set(), nodos: 0, cortado: false, idsHtml: new Set(), tarjeta: '', htmlEnTarjeta: 0 };
+  const ctx: Ctx = { d: [], omitidos: 0, idsTarjeta: new Set(), idsCampo: new Set(), nodos: 0, cortado: false, idsHtml: new Set(), tarjeta: '', htmlEnTarjeta: 0, idsForm: new Set(), formEnTarjeta: 0 };
   let r: unknown = raw;
   if (typeof r === 'string') {
     try { r = JSON.parse(r); } catch { r = null; descartar(ctx, 'el contenido no es un JSON válido: queda una página vacía'); }

@@ -112,7 +112,8 @@ test('2. cada una corta también lo que no pasa por la caja (una sugerencia, un 
     'app/dashboard/PanelEditarMako.tsx': /if \(\(!mensaje && !conArchivos\) \|\| pensando \|\| adj\.preparando \|\| appEscritorio\.bloqueada\) return;/,
     'app/image-editor/mako/chat/PanelMakoIA.tsx': /if \(hilo\.corriendo \|\| \(!instruccion\.trim\(\) && !archivos\.length\) \|\| !disenoId \|\| appEscritorio\.bloqueada\) return;/,
     'app/video-editor/_opencut/chat/PanelChat.tsx': /if \(hilo\.corriendo \|\| \(!instruccion\.trim\(\) && !op\.archivos\?\.length\) \|\| !proyectoId \|\| appEscritorio\.bloqueada\) return;/,
-    'app/web-generator/CajaCrear.tsx': /const enviar = \(\) => \{\n\s*if \(appEscritorio\.bloqueada\) return;/,
+    // 14/11/2026: además frena el candado de Pro de «Replicar» (copiar la landing de otro negocio es de MaKo Pro).
+    'app/web-generator/CajaCrear.tsx': /const enviar = \(\) => \{\n\s*if \(appEscritorio\.bloqueada(?: \|\| candado)?\) return;/,
     'app/whatsapp/WhatsAppAdvisor.tsx': /if \(\(!txt && !conArchivos\) \|\| pensando \|\| adj\.preparando \|\| appEscritorio\.bloqueada\) return;/,
     'app/offer/OfferApp.tsx': /if \(id == null \|\| !s \|\| enviando\.current \|\| sinApp\) return 'volver';/,
     'app/web-generator/editor/paneles/PanelAgente.tsx': /if \(hilo\.corriendo \|\| !instruccion\.trim\(\) \|\| appEscritorio\.bloqueada\) return;/,

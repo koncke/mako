@@ -9,6 +9,7 @@ import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import { processMediaAssets } from "@/app/video-editor/_opencut/media/processing";
 import type { OrientacionBroll } from "@/lib/editor-video/broll-pexels";
+import { esRespuestaSoloPro, marcarSoloPro } from "@/app/_components/solo-pro";
 import type { MedioBroll } from "./pistas";
 
 export const RUTA_BROLL = "/api/video-editor/broll";
@@ -26,6 +27,8 @@ export async function pedirJson<T>(cuerpo: object, plazoMs: number): Promise<{ o
 		});
 		const j = (await r.json().catch(() => null)) as ({ ok?: boolean; error?: string; falta?: { servicio?: string } } & T) | null;
 		if (!r.ok || !j || j.ok === false) {
+			// Que la IA elija (`elegir`) es SÓLO de MaKo Pro (lib/editores-ia-pro.ts): el panel pasa a mostrar el candado.
+			if (r.status === 403 && esRespuestaSoloPro(j)) marcarSoloPro("ia-editores");
 			return { ok: false, falla: { error: j?.error ?? `El servidor contestó ${r.status}.`, faltaPexels: j?.falta?.servicio === "pexels", status: r.status } };
 		}
 		return { ok: true, datos: j };

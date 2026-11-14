@@ -12,7 +12,8 @@
 // (su calificación y su garantía de 30 días) → el botón final. Por qué ganó: docs/competencia/landings-por-funcion.md → «Offer».
 //
 // Lo que se cambió de la referencia, y por qué:
-//   · Su VSL no va: Offer no tiene uno. En su lugar, el visual de la pantalla (./visuales-propios/offer.tsx).
+//   · Su VSL no va: Offer no tiene uno. En su lugar (14/11/2026), la grabación REAL de la pestaña: el chat pregunta, se contesta y la
+//     oferta se arma al costado hasta el PDF con su nota (banco C:/dev/bancos-portada/banco-offer, un negocio ficticio de las plantillas).
 //   · Su precio (7 días gratis, después US$97), su cupón y su garantía de devolución de 30 días NO van: ninguna landing de
 //     /vsl escribe un precio a mano y MaKo no tiene una garantía. El cierre es la llamada.
 //   · Su «4.7 / 5 de 398 alumnos» es suyo: en ese lugar va la prueba de MaKo, el caso de Mauricio (el mismo de todas).
@@ -74,7 +75,7 @@ export const LANDING_OFFER: LandingCompetencia = {
   slug: 'offer',
   nombre: 'Offer',
   icono: I.oferta,
-  referencia: { nombre: 'Atlas AI de Done For You — The Offer Creation Formula', url: 'https://go.doneforyou.com/offer-formula', leida: '2026-11-11' },
+  referencia: { nombre: 'Atlas AI de Done For You — The Offer Creation Formula', url: 'https://go.doneforyou.com/offer-formula', leida: '2026-11-14' },
   metaTitle: 'Offer de MaKo: cómo armar tu OFERTA en una conversación, no en meses',
   metaDesc: `MaKo te pregunta por cada pieza de tu oferta, la diagnostica con una rúbrica de ${N_DIMENSIONES} partes y te escribe la oferta nueva, descargable en PDF, aunque nunca hayas vendido en línea, no tengas un nicho u odies escribir textos de venta.`,
   bloques: [
@@ -83,7 +84,13 @@ export const LANDING_OFFER: LandingCompetencia = {
       etiqueta: 'Para quien ya se cansó de adivinar qué vender',
       titulo: 'Cómo armar tu OFERTA en una conversación, no en meses',
       bajada: `MaKo te pregunta por cada pieza, la diagnostica con una rúbrica y te escribe la oferta nueva en un PDF, <strong>aunque nunca hayas vendido en línea, no tengas un nicho u odies escribir textos de venta</strong>.`,
-      puntos: [`${N_PIEZAS} piezas de una oferta, de tu cliente a tu precio`, `Una rúbrica de ${N_DIMENSIONES} partes, cada una con su nota de 0 a 10`],
+      // Los dos primeros, en su tarjeta (donde la referencia pone su precio); el tercero, debajo del video (su «The Offer Creation
+      // Formula combines…»). El diseño los ubica así: ./disenos/offer.tsx.
+      puntos: [
+        `${N_PIEZAS} piezas de una oferta, de tu cliente a tu precio`,
+        `Una rúbrica de ${N_DIMENSIONES} partes, cada una con su nota de 0 a 10`,
+        `Offer junta un chat que te pregunta por cada pieza, una rúbrica de ${N_DIMENSIONES} partes que la puntúa y la oferta nueva en un PDF. Tú contestas y tu oferta se arma al costado, aunque nunca hayas armado un funnel ni escrito un texto de venta.`,
+      ],
       visual: { tipo: 'propio', slug: 'offer' },
     },
     {
@@ -102,6 +109,8 @@ export const LANDING_OFFER: LandingCompetencia = {
       // Como su lista «Without…»: una línea por renglón, dentro de la misma tarjeta que el «sin / con».
       tipo: 'tarjetas',
       titulo: 'Para tener claridad en tu oferta:',
+      // Su párrafo de cierre, debajo de la lista («People using The Offer Creation Formula are creating profitable offers…»).
+      bajada: 'Con Offer armas tu oferta, la pruebas como experimento y la guardas en el funnel donde la vendes, en vez de seguir acumulando contenido.',
       columnas: 2,
       items: [
         { icono: I.cliente, titulo: 'Sin pasar meses tratando de «encontrar tu nicho»', texto: 'la rúbrica mide qué tan específico es tu cliente ideal.' },
@@ -113,7 +122,9 @@ export const LANDING_OFFER: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       fondo: true,
-      titulo: 'Esto es todo lo que tienes en Offer',
+      titulo: 'Esto es todo lo que tienes',
+      // Su subtítulo de 42 px («Inside The Offer Creation Formula + Atlas AI Tool»).
+      etiqueta: 'Dentro de Offer, en MaKo',
       bajada: 'El sistema completo que ayuda a emprendedores, coaches y creadores a dejar de adivinar qué vender.',
       cta: true,
       items: [

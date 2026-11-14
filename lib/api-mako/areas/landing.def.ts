@@ -664,4 +664,20 @@ export const DEFS: readonly OperacionDef[] = [
   },
   // Tanda 7: al final, para que en un empate de relevancia ganen las de siempre (registro.ts, `ordenarPorRelevancia`).
   ...DEFS_EDITOR,
+  // «Asignar fuentes» del CRM por la API (14/11/2026, la llamada con Julio Mazariegos: «a MaKo le podés decir: conectámelo con el
+  // formulario»). `chat`: es gratis, reversible (quitar) y la pantalla del CRM muestra el resultado. ⚠️ AL FINAL DEL ÁREA y sin
+  // «landing», «página» ni «formulario» en el título y la descripción: a igual puntaje gana la declarada antes, y con esas palabras
+  // le sacaba el lugar a configurar_formulario_landing en «cambia el formulario de la landing» (tests/ops-center-clasificador-app).
+  {
+    id: 'asignar_formulario_a_funnel', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Elegir el funnel de una fuente',
+    descripcion: 'Elige a qué funnel del CRM entran los leads de una pieza del Web Generator (de listar_landings → webGenerator), como «Asignar fuentes» del CRM: caen en su etapa de entrada, antes que por la URL o la campaña. Con quitar, deja de entrar ahí.',
+    parametros: [
+      { nombre: 'formulario', tipo: 'string', obligatorio: true, max: 160, descripcion: 'La clave o el nombre (de listar_landings → webGenerator).' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'El funnel (de listar_landings → productosDisponibles).' },
+      { nombre: 'quitar', tipo: 'boolean', descripcion: 'true = deja de entrar a ese funnel.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_INTEG,
+    escribe: 'la asignación de formularios y páginas del Web Generator a los funnels (app_settings landing.piezas)',
+  },
 ];

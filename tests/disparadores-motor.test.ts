@@ -53,10 +53,11 @@ test('el EVENTO conoce los cuatro nuevos (el contrato con «canales» y «probar
   // La tabla vive en un módulo puro desde el 21/10/2026: la usa también el aviso de duplicada (lib/nutricion-eventos.ts).
   const EVENTOS = readFileSync(new URL('../lib/nutricion-eventos.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
   const tabla = EVENTOS.slice(EVENTOS.indexOf('export const TRIGGERS_POR_EVENTO'), EVENTOS.indexOf('\n};', EVENTOS.indexOf('export const TRIGGERS_POR_EVENTO')));
-  for (const [ev, trig] of [['etiqueta_quitada', 'TRIGGER_ETIQUETA_QUITADA'], ['instagram', 'TRIGGER_INSTAGRAM'], ['messenger', 'TRIGGER_MESSENGER'], ['email_recibido', 'TRIGGER_EMAIL_RECIBIDO']]) {
+  // Y «Envió el formulario» (14/11/2026): lo emite el opt-in de una landing.
+  for (const [ev, trig] of [['etiqueta_quitada', 'TRIGGER_ETIQUETA_QUITADA'], ['instagram', 'TRIGGER_INSTAGRAM'], ['messenger', 'TRIGGER_MESSENGER'], ['email_recibido', 'TRIGGER_EMAIL_RECIBIDO'], ['formulario', 'TRIGGER_FORMULARIO']]) {
     assert.match(tabla, new RegExp(`\\n {2}${ev}: \\[${trig}\\],`), `el evento ${ev} no inscribe a nadie`);
   }
-  assert.match(EVENTOS, /\| 'etiqueta_quitada' \| 'instagram' \| 'messenger' \| 'email_recibido';/);
+  assert.match(EVENTOS, /\| 'etiqueta_quitada' \| 'instagram' \| 'messenger' \| 'email_recibido' \| 'formulario';/);
   assert.match(NUTRI, /import \{ TRIGGERS_POR_EVENTO, ETAPA_DEL_EVENTO, type EventoNutricion \} from '@\/lib\/nutricion-eventos';/);
   assert.match(NUTRI, /subtipo\?: string;/);
 });

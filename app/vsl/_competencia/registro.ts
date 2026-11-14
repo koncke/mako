@@ -20,7 +20,15 @@ import { LANDING_EMAIL } from './email';
 import { LANDING_COBRANZA } from './cobranza';
 import { LANDING_AGENDA } from './agenda';
 import type { LandingCompetencia } from './tipos';
+import { PREGUNTAS_SITIO } from '../_sitio/preguntas';
 
-export const LANDINGS_COMPETENCIA: readonly LandingCompetencia[] = [LANDING_AI_AVATAR, LANDING_SEGUIMIENTO, LANDING_WHATSAPP, LANDING_CRM, LANDING_DASHBOARD, LANDING_VIDEO, LANDING_COMPETITOR_SPY, LANDING_ADS,
+/** Las preguntas de cada landing son las de la portada (Martín, 14/11/2026: «tienen que ser siempre las mismas que están en la landing
+ *  principal»): el título del bloque queda el de su diseño; las preguntas, las de ../_sitio/preguntas.ts. */
+const conLasPreguntasDeLaPortada = (l: LandingCompetencia): LandingCompetencia => ({
+  ...l,
+  bloques: l.bloques.map((b) => (b.tipo === 'preguntas' ? { ...b, items: PREGUNTAS_SITIO.map((q) => ({ p: q.p, r: q.r })) } : b)),
+});
+
+export const LANDINGS_COMPETENCIA: readonly LandingCompetencia[] = ([LANDING_AI_AVATAR, LANDING_SEGUIMIENTO, LANDING_WHATSAPP, LANDING_CRM, LANDING_DASHBOARD, LANDING_VIDEO, LANDING_COMPETITOR_SPY, LANDING_ADS,
   LANDING_IMAGE, LANDING_COPYWRITING, LANDING_WEB_GENERATOR, LANDING_OFFER, LANDING_MAKO, LANDING_PRIORIDADES, LANDING_SCRIPT, LANDING_FUNNEL, LANDING_EMAIL, LANDING_COBRANZA, LANDING_AGENDA,
-];
+] as const).map(conLasPreguntasDeLaPortada);

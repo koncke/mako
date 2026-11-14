@@ -6,6 +6,14 @@ OpenCut classic portado (MIT). El plano —decisiones, arquitectura, ranuras, re
 [editor-video/](editor-video/). Lo que se hizo está en el commit; acá va lo que hay que saber **antes**
 de tocarlo: el síntoma, la causa, dónde vive y la regla que queda.
 
+## La «Edición automática» se arranca desde TRES lugares: el candado va en `correrEnjambre` (14/11/2026)
+
+Al cerrar la IA de los editores para Esencial, el botón «obvio» (`editor-header.tsx`) no era: ahí sólo vive `EnVivo`, mientras corre. La
+arrancan el botón de la barra de la línea de tiempo (`enjambre/registro.ts`), el del panel (`enjambre-view.tsx`) y una propuesta del chat o
+de la API (`chat/aplicar.ts`, `edicion_automatica`). Lo que corre en el navegador lleva el candado en `correrEnjambre`, el único punto por
+donde pasan los tres (motivo «solo-pro», lo primero antes de `empezarCorrida`). Clips mágicos tenía un respaldo sin IA, por reglas: el
+candado de la ruta también lo corta.
+
 ## El registro de la Edición automática no muestra lo último mientras trabajan (13/11/2026, visto armando la portada)
 
 **El síntoma:** con el panel de «Edición automática» a la altura de siempre (el reproductor y la línea de tiempo abajo), mientras

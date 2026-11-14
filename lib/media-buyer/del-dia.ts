@@ -78,9 +78,9 @@ export function stopLossDelDia(e: EntradaDelDia): Propuesta[] {
       clave: claveDelDia(ad.id, e.hoy), tipo: 'pausar', tactica: 'stop_loss', nivel: 'ad',
       entidadId: ad.id, entidadNombre: ad.nombre, campanaNombre: camp?.nombre ?? null,
       titulo: `Pausar «${ad.nombre}»: hoy gastó sin traer ${nom.varios}`,
-      titular: `Hoy lleva ${e.fmt(hoy.gasto)} sin un solo ${nom.uno}`,
+      titular: `Hoy lleva ${e.fmt(hoy.gasto)} sin ${nom.unSolo} ${nom.uno}`,
       porque: [
-        `En lo que va del día gastó ${e.fmt(hoy.gasto)}: ${Math.round((hoy.gasto / obj) * 10) / 10} veces lo que te cuesta un ${nom.uno}, y no trajo ninguno.`,
+        `En lo que va del día gastó ${e.fmt(hoy.gasto)}: ${Math.round((hoy.gasto / obj) * 10) / 10} veces lo que te cuesta ${nom.un} ${nom.uno}, y no trajo ${nom.ninguno}.`,
         r7 > 0 ? `En la semana anterior cada ${nom.uno} salió más caro que tu objetivo.` : `En la semana anterior tampoco trajo ${nom.varios}.`,
         'MaKo lo mira cada dos horas para que un anuncio que se dispara no queme el día entero. Si después llegan resultados, Revive lo vuelve a prender.',
       ],

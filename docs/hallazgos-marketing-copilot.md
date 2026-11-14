@@ -2,6 +2,14 @@
 
 Área: `app/ads-manager/` y `lib/media-buyer/`. Pedido de Martín, 6/11/2026. Relevo: `docs/relevo/nube-marketing-copilot.md`.
 
+## Dos ramas, el mismo nombre para dos cosas: `pilotoRedes` (14/11/2026, al unir los candados de planes con main)
+
+La rama de landings le pasaba a CoPilot `pilotoRedes: boolean` (¿el plan trae el piloto de Instagram y YouTube?) y main, con el piloto
+nuevo de copilot-maqueta, `pilotoRedes` como la CONFIGURACIÓN de ese piloto. El merge chocó en cinco archivos y, tomando cualquiera de
+los dos lados, el otro quedaba roto en silencio (un booleano donde se espera un objeto). Quedó: `redesPermitidas` para el plan y
+`pilotoRedes` para la configuración; el candado cubre también `guardarPilotoRedes`, que trajo main sin él. **La regla:** al unir un
+candado con una función que creció en otra rama, buscar las puertas NUEVAS de esa función (acá, guardar la configuración de las redes).
+
 ## Renombrar una tab: el rótulo se cambia, la key no
 
 - **Síntoma:** al llamarla «Marketing CoPilot» el primer intento rompía `guia-catalogo` («Entra a Ads Manager» en `lib/mako-capacidades.ts`), `sidebar-nueva` y las listas de More.
@@ -549,6 +557,43 @@ MaKo» en cada canal.
   toma, «0 videos largos listos» salió como un bloque rosa vacío. No se ve en las marcas del script: hay que mirar los cuadros y
   regrabar.
 - **El banco:** `C:/dev/bancos-portada/banco-copilot-redes/` (fuera del repo): `grabar.mjs a|b` y `terminar.mjs`.
+
+## Lo prometido a Julio (14/11/2026): cuatro trampas que costaron una vuelta cada una
+
+- **En modo oscuro el CoPilot salía CLARO, y no era el oscuro lo que fallaba.** `.frn:where([data-tema="oscuro"] *)` (una clase) define
+  bien las variables, pero `.frn.frn--mono` (dos clases, la paleta de la casa) las vuelve a definir en claro y gana. **Regla:** una
+  paleta con dos clases necesita su oscuro con las MISMAS dos clases (`copiloto-css.ts`), y lo que la paleta pinta fijo
+  (`rgb(200, 200, 195)` en la tarjeta elegida) también. Se vio recién al mirar el banco en oscuro: los tests no miran colores.
+- **`(cond && x) ?? y` no cae a `y` cuando `cond` es falso**: `false` no es `null`. En `perfilConLaEntrada` dejaba sin funnel a quien
+  vende sólo por Instagram. **Regla:** ternario (`cond ? x : undefined`) delante de un `??`.
+- **Una grilla `1fr` en el teléfono se estira por lo ancho de adentro** (la pantalla de configurar medía 377 px en una de 375). Con
+  `minmax(0, 1fr)` no. Y `LogoRed` trae su `display` EN LÍNEA: para esconderlo desde CSS hace falta `!important`.
+- **Un aviso nuevo nace sólo por WhatsApp** (`CANALES_DEFAULT`, lib/plantillas.ts). El que se prometió por WhatsApp y email lleva
+  `canales` en su entrada del catálogo; lo que el negocio elija en la pantalla gana igual. Y para salir necesita `porDefecto: 'on'` y
+  estar en `AVISOS_WA_EN_VIVO` (tests/notificaciones-solo-lo-que-sale.test.ts).
+- **El banco de cada pantalla** (fuera del repo, `C:/dev/bancos-portada/`): `banco-copilot-entrada`, `banco-copilot-config` y
+  `banco-copilot-redes` (`?propias=1`, `?tema=oscuro`), con su `ver*.mjs` a 1440 y 375.
+
+## El rojo de la punta (run 1356): cinco guardias de la casa que una pantalla nueva tiene que pasar (14/11/2026)
+
+- **Una ruta nueva que escribe se clasifica para la cuenta de revisión de las tiendas** (`tests/cuenta-revision-escrituras.test.ts`):
+  `/api/copiloto/entrada` quedó «cortada», como las otras del CoPilot (el CoPilot no está en el teléfono). Se decide y se regenera.
+- **Nada linkea a `/integraciones`**: el Pixel y Wistia se conectan con `BotonIntegracion` (`app/_components/ConectarIntegracion.tsx`),
+  el modal ahí mismo, con `style={CON_SU_CLASE}` para que mande la clase del botón.
+- **El detector de voseo lee también las regex**: «comentá» escrito para RECONOCER un pedido en un texto del usuario cuenta como copy.
+  `coment[aá]` lo reconoce igual sin escribirlo.
+- **Un `role="alert"` lleva `<ReportarASoporte />` como último hijo**; si no es un error, va `role="status"`.
+- **`getWorkspaceActual()` puede ser null**: lo que lee por negocio desde un camino compartido (el publicador del Calendario) lo
+  contempla y sigue como siempre.
+- Los cinco los corre GitHub y NO el filtro local (que no alcanza a correrlos con poca RAM): antes de subir una pantalla nueva,
+  correr estos cinco a mano.
+
+## El super admin mirando un negocio volvía al suyo (14/11/2026, visto en producción con el ws 3)
+
+- **Síntoma:** completando la entrada del ws 3 como super admin, «Ver mi análisis» mostraba la entrada del ws 9 (el negocio propio).
+- **Causa:** la entrada, Configurar y los links del CoPilot usaban `next/link` y el `useRouter` de `next/navigation`, que pierden el
+  `?ws=` con que el super admin mira un negocio. Un cliente no lo nota (no tiene `?ws=`): sólo lo ve quien prueba como super admin.
+- **Regla:** en una pantalla de la app, `Link` y `useRouter` salen de `@/app/_ui/Link` (conservan el `?ws=` con `conWs`).
 
 ## Sin hacer (9/11/2026)
 

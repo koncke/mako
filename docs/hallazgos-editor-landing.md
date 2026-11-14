@@ -6,6 +6,21 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## Cerrar «Replicar» para Esencial: se busca por lo que hace, no por el nombre (14/11/2026)
+
+Al hacer de Pro copiar la landing de otro negocio (Martín, 14/11), apareció una CUARTA puerta del servidor que no estaba en la lista:
+`/api/landing-generator/ia` con `{ accion: 'esquema', modo: 'importar' }` baja una página de afuera y arma su esquema (`esquemaDeReplica`).
+La pantalla ya no la usa, pero la ruta la atiende. **La regla:** para cerrar una función se busca lo que HACE (bajar una página ajena y
+convertirla en landing), no la palabra «replicar». El candado quedó en `replicar()` y `leerParaReplicar()` (lib/editor-landing/
+replicar-candado.ts) además de cada ruta, y tests/replicar-solo-pro.test.ts recorre app/ y lib/: otro llamador sin candado, rojo.
+- **En pantalla son más de tres entradas** (la caja, «Copiar su sitio» de Spy, la tarjeta de los outliers, el Diagnóstico, `?extension=`):
+  casi todas terminan en `ReplicarUnaPagina` o `FallaReplicar`, y el candado va ahí, no en cada botón.
+- **Replicar con `auto` lee al montarse, y eso ya paga IA:** la pantalla espera a saber el plan (`usePlanEsencial() === false`) antes de
+  montar; un candado «abierto mientras no se sabe» dispararía la lectura.
+- **El arnés de rutas reales no prueba el candado:** su base de mentira no tiene `cobros`, y `esEsencialDe` cae en «ante la duda, pasa».
+- **Sin hacer:** la tarjeta «Replicar» de los outliers (`OutliersLandings.tsx`) y los botones del Diagnóstico muestran el candado recién
+  cuando el servidor contesta, no antes del clic.
+
 ## Replicar fallaba por la BAJADA DEL SERVIDOR, no por Replicar: la foto sale en la pestaña real (9/11/2026, nube)
 
 **Vive en:** `app/web-generator/crear/ConLaExtension.tsx` (el botón y el estado), `app/web-generator/crear/Replicar.tsx`
@@ -4623,3 +4638,25 @@ lleva esa extensión, y `registrar` comparaba con los bytes y rechazaba cualquie
   una foto HEIC (la del iPhone) con nombre de JPG: expórtala como JPG y vuelve a subirla».
 
 **Sin hacer:** el editor de imágenes tiene el mismo chequeo y el mismo mensaje (lib/image-editor/server.ts, `registrar`).
+
+## Formularios, encuestas y quiz con lógica: tres trampas del modelo (14/11/2026, claude5, llamada con Julio)
+
+- **`htmlDeArbol` tira en silencio la etiqueta que no está en su lista** (`ETIQUETAS`, grafico-svg.ts) y deja los hijos: el primer
+  desplegable salió como el texto «Elige una opciónMXAR», sin `<select>`. Ningún error, ningún log. **Regla: un control nuevo en
+  una spec va con su etiqueta en `ETIQUETAS` y con un test que mire el HTML, no el árbol.**
+- **El id del formulario es DERIVADO cuando falta, como el del HTML personalizado** (`idFormDerivado`, validar.ts: la sección y
+  el orden adentro). Lo pone el editor al insertar (al azar); lo de antes lo recibe al guardar o al publicar, y las dos veces da el
+  mismo (el CRM rutea por él). Un copiar y pegar repite el id: el segundo cambia, el primero no. La IA, al reescribir un
+  formulario, **conserva** el id, el nombre y la clase del original (`nodoFormulario`): si cambiara, los leads de ese formulario
+  dejan de caer en su CRM sin aviso.
+- **Un campo nuevo con su valor por defecto rompe el saneo de lo viejo**: `attrsQuiz` empezó a devolver `multiple: false` y
+  `saltarA: null`, y `attrsConMotivo` comparó contra lo guardado y anotó «preguntas inválido» en CADA guardado (y la IA dejó de
+  devolver el quiz igual). Lo de siempre se OMITE (`...(multiple ? { multiple: true } : {})`). Pero TipTap declara los atributos
+  del nodo con `attrs({})`: lo omitido no se declara y se tira al cargar. Por eso el quiz declara `id` y `nombre` aparte
+  (extensiones/nodos.ts, `Quiz`). **Regla: un atributo opcional nuevo se omite en el normalizador y se declara en el nodo.**
+- **La encuesta es el bloque Formulario con `clase: 'encuesta'`** (catálogo «Encuesta»): escala del 1 al 10, opción única y
+  múltiple y texto, sin puntaje, y pide el contacto. No hay encuesta anónima: el Pixel descarta todo envío sin email ni teléfono.
+- **El quiz con saltos**: `saltarA` por opción, sólo hacia adelante (atrás daría vueltas), y lo que suma es el CAMINO
+  (`caminoDe`): lo elegido en una pregunta que un salto dejó afuera no cuenta. El script de la página (`hist`) y el server
+  (`puntajeDe`) siguen la misma regla. Una múltiple suma todas las marcadas y no salta.
+

@@ -25,6 +25,7 @@ import { firmaDeLaCookie } from '@/lib/alumno-acceso';
 import PortalAlumno from '@/app/compartido/curso/[token]/PortalAlumno';
 import { METADATA_PORTAL, cargarPortal, AvisoPortal } from './portal-comun';
 import { SIN_ACCESO_PORTAL } from '@/lib/curso-portal-aviso';
+import { esEsencialDe } from '@/lib/plan-esencial';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,8 +40,11 @@ export default async function MiCursoPage() {
   const token = firmarAccesoCurso(firma);
   if (!token) redirect('/login');
 
+  // La comunidad es de MaKo Pro (14/11/2026, lib/comunidad-solo-pro.ts): el plan del NEGOCIO de la firma, nunca el del
+  // alumno. En paralelo con la vista; no tira (ante la duda, false: se ofrece).
+  const esencial = esEsencialDe(firma.ws);
   const r = await cargarPortal(token);
   if (r === 'inactivo') return <AvisoPortal titulo={SIN_ACCESO_PORTAL} />;
   if (r === 'fallo') return <AvisoPortal titulo="No pudimos cargar tus clases." detalle="Intenta de nuevo en un rato." />;
-  return <PortalAlumno token={token} vista={r.vista} />;
+  return <PortalAlumno token={token} vista={r.vista} comunidad={!(await esencial)} />;
 }

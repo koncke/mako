@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import Link from 'next/link';
+import Link from '@/app/_ui/Link'; // la de la casa: conserva el ?ws= del super admin mirando un negocio
 import { ConversacionCerebro } from '@/app/_chat/MakoEnLaTab';
 import {
   ETIQUETA_ESTADO_OC, OC, PARTES_OC, estadoDeGrupoOC, grupoParaAbrirOC, nombreCriterioOC, nombreItemOC,

@@ -50,7 +50,7 @@ export type PlanEnTarjeta = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd
 export const TEXTO_PAGOS = 'Desde Argentina pagas en pesos, con Mercado Pago.';
 /** La línea de la prueba, para quien la necesite fuera de las tarjetas (las tarjetas ya no la repiten abajo). */
 export const TEXTO_PRUEBA = PRUEBA_GRATIS_PRENDIDA
-  ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: si te das de baja antes del día ${PRUEBA_DIAS + 1}, no se te cobra nada. Esencial se paga al empezar.`
+  ? `${NOMBRE_PLAN_CON_PRUEBA} empieza con ${PRUEBA_DIAS} días gratis: si te das de baja antes del día ${PRUEBA_DIAS + 1}, no se te cobra nada.`
   : 'Pagas al empezar y te das de baja cuando quieras.';
 
 export const CEJA_SOFTWARE = 'Lo haces tú, con MaKo';
@@ -68,19 +68,24 @@ export function listaCorta(capa: string): { titulo: string; items: string[] } {
   const c = TOPES.completo, a = TOPES.agencia;
   if (capa === 'agencia') {
     return { titulo: 'Todo lo de Esencial, más:', items: [
-      'Contactos, páginas y seguimientos sin tope',
-      'MaKo aplica las mejoras de tus anuncios',
-      'Qué mejorar en cada llamada de venta',
-      'Editor de video y de imágenes',
+      'Leads, landings y automatizaciones sin tope',
+      'Setter con IA',
+      'Piloto automático de ads, Instagram y YouTube',
+      'Competidores sin tope y copiar sus landings',
+      'Edición con IA',
+      'Análisis de llamadas con IA',
+      'Comunidad y dominio propio',
       `${n(a['chats.lineas_whatsapp'])} WhatsApp y ${n(a['equipo.usuarios'])} personas de tu equipo`,
     ] };
   }
   return { titulo: 'Incluye:', items: [
     'Tu asistente con IA',
-    `Hasta ${n(c['crm.leads'])} contactos`,
+    `Hasta ${n(c['crm.leads'])} leads en tu CRM`,
     `${n(c['chats.lineas_whatsapp'])} WhatsApp e Instagram`,
-    `${n(c['automations.activas'])} seguimientos automáticos`,
-    `${n(c['web.landings_publicadas'])} páginas de venta`,
+    `${n(c['automations.activas'])} automatizaciones activas`,
+    `${n(c['web.landings_publicadas'])} ${c['web.landings_publicadas'] === 1 ? 'landing' : 'landings'}`,
+    `${n(c['spy.competidores'])} ${c['spy.competidores'] === 1 ? 'competidor' : 'competidores'} en tu radar`,
+    'Editor de imágenes y de video',
   ] };
 }
 

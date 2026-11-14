@@ -6,9 +6,9 @@ sobre los elementos reales (también los `::before` de la tabla, los estados `:h
 comportamiento de las pestañas de la galería y los anillos de la órbita del cierre).
 **Diseño copiado en:** `app/vsl/_competencia/disenos/whatsapp.tsx`. **Contenido:** `app/vsl/_competencia/whatsapp.ts`.
 
-⚠️ Las pestañas de su galería cambian la captura y la tarjeta que flota encima; el pie de la figura («De la interacción al
-cierre…») no cambia. Su escenario tiene un título oculto, «Así funciona el CRM para WhatsApp de Leadsales»: en MaKo ese
-título («Así funciona Chats») va visible en el pie de la figura.
+⚠️ CORREGIDO el 14/11/2026: el pie de la figura SÍ cambia por pestaña (cada panel trae su `figcaption`: «Organiza tus leads
+por etapa y responsable», «Consulta el historial antes de responder»…) y la tarjeta que flota va SÓLO en la primera. Su título
+«Así funciona el CRM para WhatsApp de Leadsales» está oculto para la vista (`sr-only`), y en MaKo también. Ver «Segunda mirada».
 
 ## Fuentes
 
@@ -123,3 +123,41 @@ Ruido: todas sus superficies llevan la misma textura, un SVG de 160 × 160 (`feT
 Su logo y su nombre, sus insignias de Meta y WhatsApp, su prueba gratis, sus capturas, los números de su tarjeta («Envíos 1.000…»),
 los logos de sus clientes, sus precios, sus testimonios y sus fotos, sus medios (Forbes, Shark Tank), el link a WhatsApp Business
 API, la frase de su pie («Cada conversación, con un siguiente paso.») y su mail de contacto.
+
+## Segunda mirada (14/11/2026): lo que se mueve, las pestañas y las piezas
+
+Medido con Chromium a 1440 × 900 y 390 × 844 (`getAnimations()` en cada paso de la rueda, `MutationObserver`, hovers a los 60 y
+700 ms). El relevo con capturas y videos: notas de la sesión, `referencias-landings/whatsapp/relevo.md`.
+
+- **Lo único que se anima solo**: el brillo de la insignia del hero (UNA vez al cargar: `::before`, `linear-gradient(110deg,
+  transparent 38%, rgba(8,102,255,.35) 49%, rgba(130,193,245,.2) 53%, transparent 64%)` de 250 % de ancho, `background-position`
+  160 % → −60 % en 4,5 s ease-in-out), la pared de logos (JavaScript, +28 px/s; no va) y la órbita. Nada aparece al bajar.
+- **Galería**: grilla `gap: 16px` (12 a ≤1000), `padding: 16px` (10 12 20 a ≤680). La vista (`container-type: inline-size`)
+  mide 601; la captura tiene `height: min(clamp(470px, 60svh, 560px), calc((83cqi - 14px) * 10 / 16))` = 303 desde 681 px, y por
+  debajo, el lienzo 16:10. Primera pestaña: el tablero corrido 17 % (499 de ancho) y la tarjeta de 336 / 42 % con `margin-top: 40px`
+  encima; su pie se esconde (`visibility: hidden`) a ≤1200. Las demás: la captura a lo ancho (589 × 303, cortada abajo).
+- **Pestañas**: sólo la elegida lleva ícono; entre las otras, rayitas de 1 × 18 (`rgba(32,43,55,.12)`) que se apagan junto a la
+  elegida. Desde 1024: 14 px con 11 de costado; la elegida 14,5 px, `padding: 8px 13px 8px 10px`, `gap: 6px`. Debajo de 1024: la
+  elegida 16 px, `8px 22px 8px 18px`; las otras 14 px, `8px 16px` (≤1000). Hover: blanco al 60 % en ,14 s. El cambio es al instante.
+- **Tarjeta de la primera pestaña**: `✓` en un círculo de 36 (`#E8F6EE`, `#287550`, 20 px), título 16/1,4 700, sub 12 gris;
+  cifras en `1.1fr 1.25fr 1fr` con raya a la izquierda, `dt` 11 px y `dd` `clamp(22px, 2.1vw, 28px)` 500 −.04em (las dos últimas en
+  el color de marca). Su conversación de abajo NUNCA se ve en la computadora (`@container (max-width: 960px)`). A ≤680: abajo del
+  tablero, `width: calc(100% - 20px)`, `padding: 14px 16px`.
+- **Composiciones de las piezas** (en % de la composición, 560 × 373, `aspect-ratio: 1.5`; 1,45 a ≤700): (1) ventana `top 6 %,
+  left 6 %, width 88 %`, píldora `bottom 5 %, left 6 %`; (2) barra `top 9 %, left 7 %, width 112 %` + columnas `top 28 %, left 7 %,
+  width 60 %`, píldora `top 44 %, right 6 %`; (3) `top 12 %, left 6 %, width 50 %` + `top 30 %, right 6 %, width 46 %`, píldora
+  `bottom 9 %, left 6 %`; (4) teléfono `top 8 %, right 6 %, width 40 %` + tira `top 36 %, left 6 %, width 56 %`, píldora `bottom 12 %,
+  left 6 %`. Ventanas: borde `rgba(32,43,55,.08)` (en MaKo `#E6E8EE`, opaco), radio 14. Píldora: `padding: 10px 18px 10px 14px`,
+  15 px 500, vidrio con `blur(14px) saturate(160%)`; la de (2) y (4) en lila (`data-tone=lilac`). Link debajo: 14 px 500, flecha
+  de 19 px que sube 2 px en ,18 s.
+- **Testimonios**: la foto crece a 1,03 (,26 s) al pasar el mouse; el play (68 × 48; 52 × 37 a ≤700) pone el reproductor en el lugar:
+  la caja pasa a 16:9 (363 × 204) con `min-height: 200px` y aparece «Cerrar video» (pill de 36, borde blanco al 30 %, 13 px) debajo,
+  a la derecha; en el teléfono esa tarjeta ocupa las dos columnas.
+- **Cierre**: botones con radio 8 (`--radius-sm`); el segundo blanco con borde `#CED2DA` que al pasar el mouse se pinta del violeta
+  (texto, borde) con fondo `#F8FAFC`. Órbita: plataformas de `clamp(30px, 12.5cqi, 50px)` (50 a 400, 38 a 300), radio 16 (12 a
+  ≤480), ícono al 52 %; hub `clamp(94px, 34cqi, 136px)` × `clamp(62px, 21cqi, 84px)`; con el mouse encima, `paused`.
+- **Preguntas**: «Antes del siguiente paso» (14 px) arriba del título; el título con `margin: 22px 0`; el «+» gira 45° en ,18 s.
+
+En MaKo, por el sol y la luna: las rayas de la tabla van opacas (`#DFE1E8`), la columna resaltada (un `::before`, que el script
+no lee) lleva su oscuro escrito, las pestañas van con `data-tema-fijo` y su oscuro aparte, y los testimonios (el caso de Mauricio)
+con `data-tema-fijo`.

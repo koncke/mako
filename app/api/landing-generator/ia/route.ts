@@ -20,6 +20,7 @@ import { tabEnCapa } from '@/lib/capas';
 import { esquema, secciones, editar, texto, disenos, notas, discutir, type ResultadoIA } from '@/lib/editor-landing/ia';
 import type { PedidoIA, RespuestaIA } from '@/lib/editor-landing/api-tipos';
 import type { SeLeeEnNavegador } from '@/lib/editor-landing/lectura-tipos';
+import { candadoDeReplicarEnPantalla } from '@/lib/editor-landing/replicar-candado';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -49,8 +50,15 @@ export async function POST(req: Request) {
 
   try {
     switch (body.accion) {
-      case 'esquema':
+      case 'esquema': {
+        // «Importar» una página de afuera (su `url` o su `lectura`) es copiarla: SÓLO MaKo Pro (14/11/2026, lib/editor-landing/
+        // replicar-candado.ts). La pantalla ya no lo pide (Replicar lo reemplazó), pero esta ruta lo sigue atendiendo.
+        if (body.modo === 'importar') {
+          const pro = await candadoDeReplicarEnPantalla();
+          if (pro) return Response.json({ ok: false, error: pro.error, pasarAPro: pro.pasarAPro }, { status: 403 });
+        }
         return responder(await esquema({ modo: body.modo, prompt: body.prompt, texto: body.texto, url: body.url, lectura: body.lectura, params: body.params }));
+      }
       case 'secciones':
         return responder(await secciones({ esquema: body.esquema, indices: body.indices, params: body.params, temaId: body.temaId }));
       case 'editar':

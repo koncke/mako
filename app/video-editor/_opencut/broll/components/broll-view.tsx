@@ -15,8 +15,12 @@
 //   · «Fotos» o «Videos» (10/11/2026): qué trae de Pexels. Un video es un archivo chico (540p o menos) y sin sonido;
 //   · sin Pexels conectado, el modal de Pexels se abre ACÁ (la regla de las integraciones: nunca se sale de la tab).
 // Las fotos y los videos son de Pexels con su licencia, y cada uno dice quién lo sacó o lo filmó (lo pide su API).
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): que MaKo proponga es editar con IA (la IA elige cada imagen). A un
+// Esencial, el candado en lugar de «Proponer» y de sus avisos. Lo que ya está en el video (dejar, sacar, «Otra») sigue.
 
 import { useMemo } from "react";
+import { useSoloPro } from "@/app/_components/solo-pro";
+import { CandadoSoloPro } from "@/app/_components/CandadoSoloPro";
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
 import { Spinner } from "@/app/video-editor/_opencut/components/ui/spinner";
 import { Switch } from "@/app/video-editor/_opencut/components/ui/switch";
@@ -137,6 +141,7 @@ export function BrollView() {
 		return (p: Pendiente) => ("mediaId" in p.element ? (m.get(p.element.mediaId) ?? null) : null);
 	}, [assets]);
 	const trabajando = fase !== "inactivo";
+	const soloPro = useSoloPro("ia-editores");
 	const proponer = () => void proponerBroll(editor, { ritmo: prefs.ritmo, planos: prefs.planos, medio: prefs.medio });
 
 	return (
@@ -229,12 +234,14 @@ export function BrollView() {
 								<span className="block h-full rounded-full bg-primary transition-[width]" style={{ width: `${progreso || 100}%` }} />
 							</span>
 						</div>
+					) : soloPro ? (
+						<CandadoSoloPro funcion="ia-editores" />
 					) : (
 						<Button type="button" className="w-full" disabled={!hayLinea || cambiando !== null} onClick={proponer}>
 							{pendientes.length ? "Proponer de nuevo" : "Proponer"}
 						</Button>
 					)}
-					{!trabajando && faltaPexels && (
+					{!trabajando && !soloPro && faltaPexels && (
 						<>
 							{/* Sin Pexels: qué falta, cómo se consigue la clave y qué hizo MaKo mientras tanto (12/11/2026). */}
 							<p className="text-[12px] text-(--cc-text-2)">{textoSinPexels(propios)}</p>
@@ -247,12 +254,12 @@ export function BrollView() {
 							</BotonIntegracion>
 						</>
 					)}
-					{!trabajando && mensaje && !error && (
+					{!trabajando && !soloPro && mensaje && !error && (
 						<p className="text-[11px] text-(--cc-text-3)" role="status">
 							{mensaje}
 						</p>
 					)}
-					{!trabajando && mensaje && error && (
+					{!trabajando && !soloPro && mensaje && error && (
 						<p className="text-[11px] text-(--cc-text-2)" role="alert">
 							{mensaje}
 							<ReportarASoporte />

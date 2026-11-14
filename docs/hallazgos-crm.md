@@ -20,6 +20,31 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Hueco del tope de tableros: Classroom crea CRMs sin preguntar (14/11/2026, visto cerrando Classroom)
+
+«Nuevo producto» de Classroom y Clients (`crearServicioAction`, app/customer-success/actions.ts) y «Duplicar» (`duplicarPrograma`,
+lib/curso-duplicar.ts) crean un embudo con `crearProductoConFunnel` SIN preguntar el tope `crm.funnels`: un Esencial puede crear CRMs sin
+límite desde Classroom. No se arregló (es del área CRM). Es el mismo hueco que el relevo del 14/11 vio en `lib/producto-con-funnel.ts`.
+## «Asignar fuentes»: los formularios de Web Generator entran a un funnel desde el CRM (14/11/2026, claude5)
+
+Martín le dijo a Julio que en «Asignar campañas» aparecían los formularios activos, y no aparecía nada: sólo Meta. Ahora el ⋯ de la
+columna de entrada dice «Asignar fuentes» y el modal tiene dos secciones: «Formularios y páginas de Web Generator» (las landings
+PUBLICADAS y, en cada una, formularios, encuestas, quiz, agenda y pago, por nombre) y «Campañas de Meta».
+
+- **Interruptor y no casilla**: en este modal la casilla SELECCIONA (Martín, 06/10: «el checkbox no debería asignar»). Asignar
+  una pieza es un interruptor por fila; lo asignado vive en el ajuste `landing.piezas` (sin migración y sin el tope de 12 URLs
+  de `landing.config`). El funnel del negocio se nombra null en la pantalla y se guarda con su id real (`principal`).
+- **La ficha parte «Lo que contestó» por formulario** («En tu landing · Formulario Regalo») y Tracking dice «Envió el formulario
+  X», con la tabla `lead_formularios` (mig **0415, ESCRITA Y SIN APLICAR**: pide la frase de Martín). Sin la tabla, todo anda
+  igual que antes: `enviosDelLead` da [] y el envío queda en el historial (`lead_audit`).
+- `lead_formularios` va en `TABLAS_DE_INQUILINO` desde ya, aunque la 0415 no esté aplicada: el reset del negocio saltea una tabla
+  que no existe (PGRST205, lib/reset-workspace.ts). **El reparo obvio («borraría una tabla que no existe») era el equivocado.**
+- «Nuevo CRM» ofrece **Newsletter**: arma el CRM de la tab Newsletters (`asegurarCrmNewsletter`, con el nombre pedido); si ya hay
+  uno, abre ése. No está en `TIPOS_CRM`: sus etapas propias sólo se alcanzan moviendo, y `tipos-crm.test.ts` ubica un lead en
+  cada etapa de cada tipo.
+- /email ofrece cualquier CRM y cualquier etapa (`crm:<id>[:<etapa>]`, lib/segmento-crm.ts): casa y agregados. El del negocio
+  guarda su casa como NULL, así que se lee por los dos lados.
+
 ## El retargeting de los funnels sin VSL: lo que había antes de escribirlo (13/11/2026, claude5)
 
 **El pedido:** Martín, 13/11, después de la llamada con Leila. Cada lunes MaKo revisa las charlas de WhatsApp de los leads
@@ -12062,3 +12087,36 @@ un bloque llegaba a 12 botones porque cada ancho era uno. Lo que se hizo es esco
   ella vio la cara vieja, producción no lo tenía todavía.
 
 **Vive en:** lib/tarjeta-kanban.ts, app/_ui/TarjetaKanban.tsx, app/_ui/MenuContextual.tsx, app/crm/menu-contextual-crm.ts, tests/recorrido-crm-tarjeta.test.ts
+
+## La tab Tracking vacía de un lead de Mauricio no era el Pixel del NEGOCIO: era el de SU página (14/11/2026, `punta/mako-en-la-app`)
+
+**Síntoma (la llamada con Julio, 13/11, min 25:20):** un lead de Mauricio con la tab Tracking vacía («Sin datos para mostrar»),
+y Martín adivinando «tal vez porque no instaló el Pixel».
+
+**Por qué la ficha no lo decía:** el único aviso de «falta el Pixel» miraba el negocio ENTERO (`pixelPuesto` =
+`landingRecibioEventos`, el semáforo de /integraciones). Mauricio mide en su funnel principal, así que daba `true`; un lead que entró
+por OTRA página, sin `visitor_id`, tenía el bloque de visitas callado (`sinComportamiento`) y la tab quedaba vacía sin una palabra.
+
+**Ahora (lib/pixel-por-pagina-reglas.ts y lib/pixel-por-pagina.ts):** sin un solo evento, el server revisa SU página en
+`landing_visits` y la ficha lo dice en lugar del vacío genérico, una sola vez, con «Conectar el Pixel».
+- La página es `pagina_registro`; sin ella, y si entró por una página (landing, Calendly, Cal.com o sin origen), las que el negocio
+  asignó a SU funnel en /integraciones (`landing.config`). La primera se dice «por la que entró»; las del funnel, «de su funnel»
+  (es una inferencia), y sólo si NINGUNA mide.
+- Si entró por algo que no es una página (formulario de Meta, WhatsApp, a mano…), lo dice en una línea: no hay nada que conectar.
+
+**Trampas:**
+- `pagina_registro` la escribe SÓLO el opt-in del Pixel (mig 0290): si un lead la tiene, esa página casi siempre mide. El caso real
+  de una página sin el Pixel es el de las páginas del funnel.
+- `www.` y sin `www.` son la misma página para esto (una redirige a la otra); para el mapa de calor no (lib/landing-mapa-server.ts).
+- La lectura trae candidatas con `ilike` (host sin `www.` y camino) y la igualdad la decide la URL normalizada. Con el tope de 500
+  filas lleno no se afirma nada: un «conéctalo» sobre algo conectado manda a desconectar lo que funciona.
+- La ventana es 30 días, o desde una semana antes de que entrara si es más viejo (el Pixel pudo estar y sacarse después).
+
+**Sin hacer:** la lista de páginas del negocio con su estado de Pixel en /integraciones (el 4 opcional del relevo de la llamada).
+
+## La misma plata se escribe de tres formas en la ficha: «$1000», «$1,000» y «US$ 1.000» (14/11/2026, SIN ARREGLAR)
+
+Lo vio la tarea de la landing de Cobranza al grabar la ficha en Pagos (docs/hallazgos-landing.md → «Cobranza como Rebill»): en la
+misma pantalla conviven tres formatos para un monto. Viven en `app/crm/lead-view/ficha/pagos/bloques-cobro.tsx` y
+`app/crm/[id]/CobrarConLink.tsx`, cada uno con su propio formateo. **Lo que queda por hacer:** un solo formateador de montos (moneda +
+separador de miles del idioma) para toda la ficha, y un test que mire que la ficha no mezcle formatos.

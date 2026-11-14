@@ -74,6 +74,7 @@ import {
   borrarClaseAction, moverClaseAction, guardarEstiloCursoAction, renombrarClaseAction,
 } from './actions';
 import { crearClaseAction, renombrarModuloAction } from './modulos-actions';
+import { TextoConPasarAPro } from '@/app/_components/CartelSoloPro';
 import type { ModuloCurso } from '@/lib/curso-modulos';
 import { TOPE_NOMBRE_ETAPA } from '@/lib/servicio-etapas';
 import { leccionDelEditor, precargarLeccion, useLeccionAbierta, type CtxLeccion } from './LeccionEditable';
@@ -419,6 +420,8 @@ export function CursoApp({
     setCreando(true);
     try {
       const r = await crearClaseAction(servicio.productoId, moduloKey);
+      // El tope de cursos del plan (lib/tope-cursos.ts): no es un error, es el plan. El aviso con «Pasar a Pro», sin rojo.
+      if (!r.ok && 'pasarAPro' in r && r.pasarAPro) { show(<TextoConPasarAPro texto={r.error} />, undefined, 'warn'); return; }
       if (!r.ok) { show(r.error, undefined, 'bad'); return; }
       setClases((cs) => [...cs, r.clase]);
       navegar({ mod: moduloKey, clase: r.clase.id });

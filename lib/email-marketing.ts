@@ -25,6 +25,7 @@ import { COLS_RESIDUO, RESIDUO_DIAS, SEGMENTO_RESIDUO, esResiduoFormulario, type
 import { etiquetaDeSegmento, PREFIJO_SEGMENTO_ETIQUETA, TRIGGER_ETIQUETA } from '@/lib/etiquetas-reglas';
 import { SOLO_DESDE_EL_CRON, MOTIVO_SOLO_DESDE_EL_CRON } from '@/lib/disparadores';
 import { repartirVencidas, segmentoNewsletter, segmentoDeNewsletter, ETAPAS_NEWSLETTER, ETAPAS_NEWSLETTER_KEYS, ETAPA_BAJA } from '@/lib/newsletter-reglas';
+import { segmentoCrm, segmentoDeCrm } from '@/lib/segmento-crm';
 
 const ahoraISO = () => new Date().toISOString();
 
@@ -416,6 +417,9 @@ export const TRIGGERS: Opcion[] = [
   // Los pagos de la pasarela (11/10/2026, `TRIGGER_PAGO`): necesitan el evento (`subtipo`), así que se eligen en
   // el CRON y /email los rechaza (`SOLO_DESDE_EL_CRON`).
   { value: 'pago', label: 'Un evento de pago' },
+  // «Envió el formulario» (14/11/2026, `TRIGGER_FORMULARIO`): necesita CUÁL formulario (`pieza`), así que se elige en el CRON
+  // y /email lo rechaza (`SOLO_DESDE_EL_CRON`).
+  { value: 'formulario_enviado', label: 'Envió un formulario' },
   { value: 'grupo_mako', label: 'Recurrente al grupo de MaKo' },
   // «MaKo en WhatsApp» como automatización (11/10/2026, `TRIGGER_AVISO_MAKO`): lo emite el código de cada
   // aviso (lib/aviso-evento.ts), no el motor. Nace de la galería con su evento: /email lo rechaza.
@@ -441,7 +445,7 @@ const SEGMENTO_VALIDO = new Set(SEGMENTOS.map((s) => s.value));
  * (`newsletter:<funnelId>[:<etapa>]`, lib/newsletter-reglas.ts). La FORMA: que la etiqueta o el CRM existan en este
  * negocio lo mira `validarSegmento`, que lee la base.
  */
-export const esSegmentoValido = (s: string): boolean => SEGMENTO_VALIDO.has(s) || etiquetaDeSegmento(s) != null || segmentoNewsletter(s) != null;
+export const esSegmentoValido = (s: string): boolean => SEGMENTO_VALIDO.has(s) || etiquetaDeSegmento(s) != null || segmentoNewsletter(s) != null || segmentoCrm(s) != null;
 
 /**
  * El segmento, validado CONTRA LA BASE, o un error que lo dice.
@@ -468,6 +472,13 @@ export async function validarSegmento(segmento: unknown): Promise<string> {
     const { existeCrm } = await import('@/lib/newsletter');
     if (!(await existeCrm(nl.funnelId))) throw new Error('Ese CRM del newsletter no existe en este negocio (o está archivado).');
   }
+  const crm = segmentoCrm(s);
+  if (crm) {
+    const { productosConEtapas } = await import('@/lib/setting-secuencias');
+    const p = (await productosConEtapas()).find((x) => x.funnelId === crm.funnelId);
+    if (!p) throw new Error('Ese CRM no existe en este negocio (o está archivado).');
+    if (crm.etapa && !p.etapas.some((e) => e.value === crm.etapa)) throw new Error(`«${crm.etapa}» no es una etapa de ${p.nombre}.`);
+  }
   return s;
 }
 
@@ -484,11 +495,64 @@ export async function segmentosDisponibles(): Promise<Segmento[]> {
     const deEtiquetas = ((data ?? []) as Array<{ id: number; nombre: string }>).map((e) => ({
       value: `${PREFIJO_SEGMENTO_ETIQUETA}${Number(e.id)}`, label: `Etiqueta «${e.nombre}»`, descripcion: 'Leads con esa etiqueta',
     }));
-    return [...SEGMENTOS, ...deEtiquetas, ...await segmentosDelNewsletter()];
+    return [...SEGMENTOS, ...deEtiquetas, ...await segmentosDelNewsletter(), ...await segmentosDeLosCrm()];
   } catch (e) {
     console.error(`[email] segmentos de etiquetas: ${e instanceof Error ? e.message : String(e)}`);
-    return [...SEGMENTOS, ...await segmentosDelNewsletter()];
+    return [...SEGMENTOS, ...await segmentosDelNewsletter(), ...await segmentosDeLosCrm()];
   }
+}
+
+/**
+ * CUALQUIER CRM Y CUALQUIER ETAPA (14/11/2026, la llamada con Julio Mazariegos, docs/relevo/llamada-julio-13-11.md): «todos
+ * los de «Regalo»» y «los de «Regalo» en «Lead entrante»». Hasta acá /email sólo ofrecía los fijos, las etiquetas y el CRM del
+ * newsletter. El del newsletter no se repite (ya tiene los suyos, sin la baja). Nunca tira: sin poder leerlos, no se ofrecen.
+ */
+async function segmentosDeLosCrm(): Promise<Segmento[]> {
+  try {
+    const [{ productosConEtapas }, { crmDelNewsletter }] = await Promise.all([import('@/lib/setting-secuencias'), import('@/lib/newsletter')]);
+    const [productos, nl] = await Promise.all([productosConEtapas(), crmDelNewsletter().catch(() => null)]);
+    return productos
+      .filter((p): p is typeof p & { funnelId: number } => p.funnelId != null && p.funnelId !== nl?.id)
+      .flatMap((p) => [
+        { value: segmentoDeCrm(p.funnelId), label: `${p.nombre}: todos`, descripcion: 'Todos los del CRM, en cualquier etapa' },
+        ...p.etapas.map((e) => ({ value: segmentoDeCrm(p.funnelId, e.value), label: `${p.nombre}: ${e.label}`, descripcion: `Los del CRM en «${e.label}»` })),
+      ]);
+  } catch (e) {
+    console.error(`[email] segmentos de los CRM: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  }
+}
+
+/**
+ * Los destinatarios de un segmento de CRM (`crm:<funnelId>[:<etapa>]`): los de CASA y los AGREGADOS (`lead_funnel`), en la etapa
+ * pedida, con el mismo piso que todos (email no vacío y sin baja). El CRM del negocio guarda su casa como NULL (medido el
+ * 30/09/2026 en los 6 negocios): se lee por los dos lados.
+ */
+async function leadsDeCrm(supabase: Awaited<ReturnType<typeof getTenantDb>>, funnelId: number, etapa: string | null): Promise<LeadDestino[]> {
+  const { listarFunnels } = await import('@/lib/funnels');
+  const { pipelineStageOf } = await import('@/lib/pipeline');
+  const f = (await listarFunnels()).find((x) => x.id === funnelId);
+  if (!f) return [];
+  const cols = 'id, nombre, email, empresa, email_opt_out, funnel_id, pipeline_stage, estado_lead, fecha_agenda, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2, nutricion_realizada';
+  type Fila = { id: number; nombre: string | null; email: string | null; empresa: string | null; email_opt_out: boolean | null } & Record<string, unknown>;
+  const piso = (q: ConsultaPaginada) => (q as unknown as LeadFilter).not('email', 'is', null).neq('email', '').eq('email_opt_out', false) as unknown as ConsultaPaginada;
+  const deCasa = await leerTodo<Fila>(supabase, 'leads', cols, {
+    orden: 'id', filtros: (q) => piso(f.esDefault ? (q as unknown as { or: (s: string) => ConsultaPaginada }).or(`funnel_id.is.null,funnel_id.eq.${funnelId}`) : (q as unknown as LeadFilter).eq('funnel_id', funnelId) as unknown as ConsultaPaginada),
+  });
+  const filas = await leerTodo<{ id: number; lead_id: number; etapa: string | null }>(supabase, 'lead_funnel', 'id, lead_id, etapa', { orden: 'id', eq: { funnel_id: funnelId } });
+  const yaEnCasa = new Set(deCasa.map((l) => Number(l.id)));
+  const out: LeadDestino[] = [];
+  for (const l of deCasa) {
+    if (etapa && pipelineStageOf(l as never) !== etapa) continue;
+    if (l.email) out.push({ id: Number(l.id), nombre: l.nombre, email: l.email, empresa: l.empresa });
+  }
+  const etapaDe = new Map(filas.map((x) => [Number(x.lead_id), x.etapa ?? '']));
+  const ids = [...etapaDe.keys()].filter((id) => !yaEnCasa.has(id) && (!etapa || etapaDe.get(id) === etapa));
+  for (const tanda of enTandas(ids, 200)) {
+    const leads = await leerTodo<Fila>(supabase, 'leads', 'id, nombre, email, empresa, email_opt_out', { orden: 'id', filtros: (q) => piso((q as unknown as LeadFilter).in('id', tanda) as unknown as ConsultaPaginada) });
+    for (const l of leads) if (l.email) out.push({ id: Number(l.id), nombre: l.nombre, email: l.email, empresa: l.empresa });
+  }
+  return out.sort((a, b) => a.id - b.id);
 }
 
 /**
@@ -559,6 +623,9 @@ export async function leadsDeSegmento(segmento: string): Promise<LeadDestino[]> 
   // El CRM del newsletter: su casa Y sus agregados, en la etapa pedida y sin las bajas (lib/newsletter.ts).
   const nl = segmentoNewsletter(segmento);
   if (nl) return (await import('@/lib/newsletter')).destinatariosDeNewsletter(nl);
+  // Cualquier CRM y etapa (14/11/2026): su casa y sus agregados.
+  const crm = segmentoCrm(segmento);
+  if (crm) return leadsDeCrm(supabase, crm.funnelId, crm.etapa);
   // Paginado por `id`. Es el destinatario de un envío: el segmento "activos" de
   // ws1 son 1044 leads, el `.select()` suelto devolvía 1000 y el broadcast le
   // llegaba a 1000 — mientras `contarSegmento` (count exact, que sí cuenta bien)
@@ -635,7 +702,7 @@ export async function contarSegmento(segmento: string): Promise<number> {
   // pantalla prometería N y el broadcast le llegaría a menos, sin decir por qué.
   if (segmento === SEGMENTO_RESIDUO) return (await leadsDeSegmento(segmento)).length;
   // Lo mismo una etiqueta y el newsletter: el conteo es el largo de los destinatarios.
-  if (etiquetaDeSegmento(segmento) != null || segmentoNewsletter(segmento) != null) return (await leadsDeSegmento(segmento)).length;
+  if (etiquetaDeSegmento(segmento) != null || segmentoNewsletter(segmento) != null || segmentoCrm(segmento) != null) return (await leadsDeSegmento(segmento)).length;
   const supabase = (await getTenantDb());
   const q = supabase.from('leads').select('id', { count: 'exact', head: true });
   const { count, error } = await filtroSegmento(q as unknown as LeadFilter, segmento) as unknown as { count: number | null; error: { message: string } | null };

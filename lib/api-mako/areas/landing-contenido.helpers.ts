@@ -213,9 +213,12 @@ export function conIdsNuevos(n: JsonNodo): JsonNodo {
   const copia = clonar(n);
   const recorrer = (x: JsonNodo) => {
     if (x.type === NODO.htmlLibre) x.attrs = { ...attrsDe(x), id: null };
+    // El id del formulario y del quiz (14/11/2026) va vacío, como el del HTML: el saneo le pone uno derivado sin motivo. La copia
+    // es OTRO formulario: con el mismo id, el CRM lo rutearía como el original.
     if (x.type === NODO.formulario && Array.isArray(attrsDe(x).campos)) {
-      x.attrs = { ...attrsDe(x), campos: (attrsDe(x).campos as Record<string, unknown>[]).map((cp) => ({ ...cp, id: nuevoId('c') })) };
+      x.attrs = { ...attrsDe(x), id: null, campos: (attrsDe(x).campos as Record<string, unknown>[]).map((cp) => ({ ...cp, id: nuevoId('c') })) };
     }
+    if (x.type === NODO.quiz) x.attrs = { ...attrsDe(x), id: null };
     for (const h of x.content ?? []) recorrer(h);
   };
   recorrer(copia);

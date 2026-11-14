@@ -25,7 +25,7 @@
 // =============================================================================
 
 import { NODO } from './doc';
-import { hrefPermitido, type CtxSpec } from './especificacion';
+import { attrsDeFuente, hrefPermitido, idValido, type CtxSpec } from './especificacion';
 import { cortarSinPartir } from '../unicode-seguro';
 import type { NodoArbol } from './grafico-svg';
 
@@ -51,13 +51,28 @@ export const QUIZ_NUEVO: AttrsQuiz = {
   resultados: [0, 3, 5].map((desde) => ({ desde, titulo: '', texto: '', boton: '', href: '' })),
 };
 
-/** Cuántas respuestas viajan al lead, además del resultado y el puntaje (el Pixel lee hasta 8 campos extra). */
+/**
+ * Cuántas respuestas viajan al lead, además del resultado y el puntaje. El Pixel lee hasta `TOPES.camposFormulario` (10)
+ * campos extra desde la v29 (14/11/2026; hasta ahí, 8): 2 + 6 entra con lugar.
+ */
 export const RESPUESTAS_AL_LEAD = 6;
 
-export type OpcionQuiz = { texto: string; puntos: number };
-export type PreguntaQuiz = { texto: string; opciones: OpcionQuiz[] };
+/** `saltarA` de una opción que termina el quiz: después de elegirla va el contacto (y el resultado). */
+export const SALTO_FIN = -1;
+
+/**
+ * El SALTO de una opción (14/11/2026, llamada con Julio: «quiz con lógica»): `null` = la pregunta siguiente; `SALTO_FIN` = al
+ * contacto; un número = la pregunta con ese índice (de `preguntas`, como las ve el editor: «Pregunta 3» = 2). Sólo hacia
+ * ADELANTE: un salto hacia atrás o a sí misma podría dar vueltas para siempre, y se lee como «la siguiente».
+ * `multiple`: la pregunta se contesta con casillas (todas las que quiera): suma los puntos de cada una y no salta.
+ */
+export type OpcionQuiz = { texto: string; puntos: number; saltarA?: number | null };
+export type PreguntaQuiz = { texto: string; multiple?: boolean; opciones: OpcionQuiz[] };
 export type ResultadoQuiz = { desde: number; titulo: string; texto: string; boton: string; href: string };
+/** `id` y `nombre`: los del formulario (doc.ts, `AttrsFormulario`): el CRM rutea y nombra el quiz por ellos. Van PRIMERO. */
 export type AttrsQuiz = {
+  /** Ausentes en un quiz de antes (el saneo le pone el id: validar.ts); TipTap los declara aparte (extensiones/nodos.ts). */
+  id?: string | null; nombre?: string;
   titulo: string; intro: string; empezar: string; enviar: string; pideTelefono: boolean;
   preguntas: PreguntaQuiz[]; resultados: ResultadoQuiz[];
 };
@@ -84,18 +99,26 @@ export function hrefResultado(v: unknown): string {
 export function attrsQuiz(raw: unknown): AttrsQuiz {
   const a = o(raw);
   return {
+    // Sólo si los trae: un quiz de antes sale idéntico (la IA lo devuelve igual, tests/quiz-landing.test.ts).
+    ...(idValido(a.id) ? { id: idValido(a.id) } : {}),
+    ...(texto(a.nombre, TOPES_QUIZ.titulo) ? { nombre: texto(a.nombre, TOPES_QUIZ.titulo) } : {}),
     titulo: texto(a.titulo, TOPES_QUIZ.titulo),
     intro: texto(a.intro, TOPES_QUIZ.intro),
     empezar: texto(a.empezar, TOPES_QUIZ.boton),
     enviar: texto(a.enviar, TOPES_QUIZ.boton),
     pideTelefono: a.pideTelefono === true,
-    preguntas: lista(a.preguntas, TOPES_QUIZ.preguntas).map((p) => {
+    preguntas: lista(a.preguntas, TOPES_QUIZ.preguntas).map((p, i) => {
       const q = o(p);
+      const multiple = q.multiple === true;
+      // `multiple` y `saltarA` van SÓLO cuando no son lo de siempre: un quiz de antes (sin ellos) sale idéntico del saneo, y
+      // validar.ts no anota un «preguntas inválido» en cada guardado (tests/quiz-landing.test.ts).
       return {
         texto: texto(q.texto, TOPES_QUIZ.pregunta),
+        ...(multiple ? { multiple: true } : {}),
         opciones: lista(q.opciones, TOPES_QUIZ.opciones).map((x) => {
           const op = o(x);
-          return { texto: texto(op.texto, TOPES_QUIZ.opcion), puntos: entero(op.puntos, 0, TOPES_QUIZ.puntos, 0) };
+          const salto = multiple ? null : saltoValido(op.saltarA, i);
+          return { texto: texto(op.texto, TOPES_QUIZ.opcion), puntos: entero(op.puntos, 0, TOPES_QUIZ.puntos, 0), ...(salto != null ? { saltarA: salto } : {}) };
         }),
       };
     }),
@@ -112,11 +135,50 @@ export function attrsQuiz(raw: unknown): AttrsQuiz {
   };
 }
 
-/** Las preguntas que salen: con su texto y al menos dos opciones con texto (las opciones vacías no salen). */
+/** Un salto que se puede cumplir desde la pregunta `desde`: hacia adelante y dentro del tope, o al final; si no, null. */
+function saltoValido(v: unknown, desde: number): number | null {
+  const n = typeof v === 'string' && v.trim() ? Number(v) : v;
+  if (n === SALTO_FIN) return SALTO_FIN;
+  return typeof n === 'number' && Number.isInteger(n) && n > desde && n < TOPES_QUIZ.preguntas ? n : null;
+}
+
+/**
+ * Las preguntas que salen: con su texto y al menos dos opciones con texto (las opciones vacías no salen). Los saltos quedan
+ * con el índice de lo que SALE: un salto a una pregunta que no sale (a medio escribir) va a la primera que sí sale después de
+ * ella, y si no hay ninguna, al final (`SALTO_FIN`).
+ */
 export function preguntasCompletas(a: AttrsQuiz): PreguntaQuiz[] {
-  return a.preguntas
-    .map((p) => ({ texto: p.texto, opciones: p.opciones.filter((x) => x.texto) }))
-    .filter((p) => p.texto && p.opciones.length >= 2);
+  const salen: number[] = [];
+  a.preguntas.forEach((p, i) => { if (p.texto && p.opciones.filter((x) => x.texto).length >= 2) salen.push(i); });
+  const destino = (salto: number | null): number | null => {
+    if (salto == null || salto === SALTO_FIN) return salto;
+    const k = salen.findIndex((i) => i >= salto);
+    return k < 0 ? SALTO_FIN : k;
+  };
+  return salen.map((i) => {
+    const p = a.preguntas[i];
+    return { texto: p.texto, multiple: p.multiple === true, opciones: p.opciones.filter((x) => x.texto).map((x) => ({ ...x, saltarA: destino(x.saltarA ?? null) })) };
+  });
+}
+
+/**
+ * El CAMINO de unas respuestas: las preguntas (de las que salen) por las que pasa la persona, en orden, siguiendo los saltos de
+ * las opciones elegidas. Una pregunta sin respuesta corta el camino ahí (la página no deja seguir sin elegir). La misma regla
+ * que corre el script de la página (`SCRIPT_QUIZ`, `siguienteDe`); tests/web-generator-formularios-julio.test.ts las compara.
+ */
+export function caminoDe(preguntas: PreguntaQuiz[], elegidas: ReadonlyArray<number | readonly number[] | null | undefined>): number[] {
+  const camino: number[] = [];
+  let k = 0;
+  while (k >= 0 && k < preguntas.length && camino.length <= preguntas.length) {
+    camino.push(k);
+    const e = elegidas[k];
+    const p = preguntas[k];
+    if (e == null || (Array.isArray(e) && !e.length)) break;
+    const salto = !p.multiple && typeof e === 'number' ? p.opciones[e]?.saltarA ?? null : null;
+    if (salto === SALTO_FIN) break;
+    k = salto != null && salto > k ? salto : k + 1;
+  }
+  return camino;
 }
 
 /** Los resultados que salen (con título), ordenados por `desde` sin perder el orden de los que empatan. */
@@ -139,13 +201,18 @@ export function puntajeMaximo(a: AttrsQuiz): number {
   return preguntasCompletas(a).reduce((s, p) => s + Math.max(0, ...p.opciones.map((x) => x.puntos)), 0);
 }
 
-/** El puntaje de unas respuestas: `elegidas[i]` es el índice de la opción de la pregunta i (de las que salen). */
-export function puntajeDe(preguntas: PreguntaQuiz[], elegidas: ReadonlyArray<number | null | undefined>): number {
+/**
+ * El puntaje de unas respuestas: `elegidas[i]` es el índice de la opción de la pregunta i (de las que salen), o la lista de
+ * índices en una de selección múltiple. Cuentan sólo las preguntas del CAMINO (`caminoDe`): lo que quedó elegido en una
+ * pregunta que un salto dejó afuera no suma.
+ */
+export function puntajeDe(preguntas: PreguntaQuiz[], elegidas: ReadonlyArray<number | readonly number[] | null | undefined>): number {
   let s = 0;
-  preguntas.forEach((p, i) => {
-    const k = elegidas[i];
-    if (typeof k === 'number' && p.opciones[k]) s += p.opciones[k].puntos;
-  });
+  for (const i of caminoDe(preguntas, elegidas)) {
+    const p = preguntas[i];
+    const e = elegidas[i];
+    for (const k of Array.isArray(e) ? e : typeof e === 'number' ? [e] : []) if (p.opciones[k]) s += p.opciones[k].puntos;
+  }
   return s;
 }
 
@@ -161,7 +228,7 @@ export function indiceDeResultado(desdes: readonly number[], puntaje: number): n
 }
 
 /** El resultado de unas respuestas (lo que ve la persona y lo que le llega al lead). null si el quiz no sale. */
-export function resultadoDe(raw: unknown, elegidas: ReadonlyArray<number | null | undefined>): { resultado: ResultadoQuiz; puntaje: number } | null {
+export function resultadoDe(raw: unknown, elegidas: ReadonlyArray<number | readonly number[] | null | undefined>): { resultado: ResultadoQuiz; puntaje: number } | null {
   const a = attrsQuiz(raw);
   const ps = preguntasCompletas(a);
   const rs = resultadosCompletos(a);
@@ -233,10 +300,15 @@ export function specQuiz(raw: unknown, ctx?: CtxSpec): NodoArbol {
   }
 
   const n = ps.length;
-  const preguntas = ps.map((p, i): NodoArbol => ['fieldset', { class: 'gm-quiz-pregunta', 'data-paso': String(i), hidden: '' },
+  // `data-salta`: a qué paso lleva la opción (el índice de lo que sale, o «fin»); sin el atributo, al siguiente. La selección
+  // múltiple son casillas y no salta.
+  const preguntas = ps.map((p, i): NodoArbol => ['fieldset', { class: 'gm-quiz-pregunta', 'data-paso': String(i), 'data-multiple': p.multiple ? 'si' : undefined, hidden: '' },
     ['legend', { class: 'gm-quiz-enunciado' }, p.texto],
     ['div', { class: 'gm-quiz-opciones' }, ...p.opciones.map((x, j): NodoArbol => ['label', { class: 'gm-quiz-opcion' },
-      ['input', { type: 'radio', name: `gmq-${i}`, value: String(j), 'data-puntos': String(x.puntos) }],
+      ['input', {
+        type: p.multiple ? 'checkbox' : 'radio', name: `gmq-${i}`, value: String(j), 'data-puntos': String(x.puntos),
+        'data-salta': x.saltarA === SALTO_FIN ? 'fin' : x.saltarA != null ? String(x.saltarA) : undefined,
+      }],
       ['span', { class: 'gm-quiz-opcion-texto' }, x.texto]])],
     ['p', { class: 'gm-quiz-falta', hidden: '', role: 'alert' }, TEXTOS_QUIZ.falta],
     ['div', { class: 'gm-quiz-nav' },
@@ -263,7 +335,7 @@ export function specQuiz(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const campo = (rotulo: string, requerido: boolean, attrs: Record<string, string>): NodoArbol => ['label', { class: 'gm-campo' },
     ['span', { class: 'gm-campo-etiqueta', 'data-requerido': requerido ? 'si' : undefined }, rotulo],
     ['input', { ...attrs, maxlength: '200', required: requerido ? '' : undefined }]];
-  const contacto: NodoArbol = ['form', { class: 'gm-quiz-form', method: 'post', hidden: '' },
+  const contacto: NodoArbol = ['form', { class: 'gm-quiz-form', method: 'post', hidden: '', ...attrsDeFuente(a.id ?? null, a.nombre || (a.titulo ? `Quiz ${a.titulo}` : ''), ctx) },
     ['p', { class: 'gm-quiz-pide' }, TEXTOS_QUIZ.pide],
     campo('Nombre', true, { type: 'text', name: 'nombre', autocomplete: 'name' }),
     campo('Correo', true, { type: 'email', name: 'email', autocomplete: 'email', inputmode: 'email' }),
@@ -326,17 +398,36 @@ export const SCRIPT_QUIZ: readonly string[] = [
   "      var res = z.querySelectorAll('.gm-quiz-resultado');",
   '      if (!n || !form || !res.length || !inicio) return;',
   '      for (var i = 0; i < n; i++) {',
-  "        var rs = pasos[i].querySelectorAll('input[type=radio]');",
+  "        var rs = pasos[i].querySelectorAll('input[type=radio], input[type=checkbox]');",
   "        for (var j = 0; j < rs.length; j++) rs[j].name = 'gmq' + q + '-' + i;",
   '      }',
-  '      var actual = -1;',
+  // `hist`: las preguntas por las que pasó, en orden (los saltos hacen que «Anterior» no sea siempre la de al lado). Lo que
+  // suma y lo que viaja al lead es SÓLO el camino: lo elegido en una pregunta que un salto dejó afuera no cuenta (`caminoDe`).
+  '      var actual = -1, hist = [];',
+  '      function elegidas(k) {',
+  "        return pasos[k] ? pasos[k].querySelectorAll('input[type=radio]:checked, input[type=checkbox]:checked') : [];",
+  '      }',
   '      function elegida(k) {',
+  '        var e = elegidas(k);',
+  '        return e.length ? e[0] : null;',
+  '      }',
+  '      function siguienteDe(k) {',
   "        var r = pasos[k] ? pasos[k].querySelector('input[type=radio]:checked') : null;",
-  '        return r;',
+  "        var s = r ? r.getAttribute('data-salta') : null;",
+  "        if (s === 'fin') return n;",
+  '        var v = s ? parseInt(s, 10) : NaN;',
+  '        return isFinite(v) && v > k && v < n ? v : k + 1;',
+  '      }',
+  '      function enCamino(k) {',
+  '        for (var h = 0; h < hist.length; h++) if (hist[h] === k) return true;',
+  '        return false;',
   '      }',
   '      function puntaje() {',
   '        var s = 0;',
-  "        for (var k = 0; k < n; k++) { var r = elegida(k); if (r) { var v = parseInt(r.getAttribute('data-puntos'), 10); if (isFinite(v)) s += v; } }",
+  '        for (var h = 0; h < hist.length; h++) {',
+  '          var e = elegidas(hist[h]);',
+  "          for (var x = 0; x < e.length; x++) { var v = parseInt(e[x].getAttribute('data-puntos'), 10); if (isFinite(v)) s += v; }",
+  '        }',
   '        return s;',
   '      }',
   '      function ganador() {',
@@ -351,9 +442,12 @@ export const SCRIPT_QUIZ: readonly string[] = [
   "        var dp = form.querySelector('[data-quiz-dato=puntaje]'); if (dp) dp.value = String(puntaje());",
   "        var rr = form.querySelectorAll('[data-quiz-respuesta]');",
   '        for (var k = 0; k < rr.length; k++) {',
-  "          var e = elegida(parseInt(rr[k].getAttribute('data-quiz-respuesta'), 10));",
-  "          var lb = e && e.parentNode ? e.parentNode.querySelector('.gm-quiz-opcion-texto') : null;",
-  "          rr[k].value = lb ? lb.textContent : '';",
+  "          var p = parseInt(rr[k].getAttribute('data-quiz-respuesta'), 10), e = enCamino(p) ? elegidas(p) : [], ts = [];",
+  '          for (var x = 0; x < e.length; x++) {',
+  "            var lb = e[x].parentNode ? e[x].parentNode.querySelector('.gm-quiz-opcion-texto') : null;",
+  '            if (lb) ts.push(lb.textContent);',
+  '          }',
+  "          rr[k].value = ts.join(', ');",
   '        }',
   '      }',
   '      function ver(k) {',
@@ -370,25 +464,26 @@ export const SCRIPT_QUIZ: readonly string[] = [
   // El foco va al paso nuevo: el botón que se apretó queda escondido, y sin esto el foco cae al body (el teclado y el lector de
   // pantalla pierden el lugar). La opción elegida (o la primera), el primer campo del contacto, o «Empezar» al volver.
   '      function enfocar(k) {',
-  "        var el = k < 0 ? inicio.querySelector('[data-quiz=empezar]') : k < n ? (elegida(k) || pasos[k].querySelector('input[type=radio]')) : form.querySelector('input:not([readonly])');",
+  "        var el = k < 0 ? inicio.querySelector('[data-quiz=empezar]') : k < n ? (elegida(k) || pasos[k].querySelector('input')) : form.querySelector('input:not([readonly])');",
   '        if (el && el.focus) { try { el.focus(); } catch (e) {} }',
   '      }',
   "      z.addEventListener('click', function (ev) {",
   "        var b = ev.target && ev.target.closest ? ev.target.closest('[data-quiz]') : null;",
   '        if (!b || !z.contains(b)) return;',
   "        var que = b.getAttribute('data-quiz');",
-  "        if (que === 'empezar') { ver(0); return; }",
-  "        if (que === 'atras') { ver(actual > 0 ? actual - 1 : -1); return; }",
+  "        if (que === 'empezar') { hist = []; ver(0); return; }",
+  "        if (que === 'atras') { ver(hist.length ? hist.pop() : -1); return; }",
   "        if (que === 'siguiente') {",
   "          var falta = pasos[actual] ? pasos[actual].querySelector('.gm-quiz-falta') : null;",
   '          if (!elegida(actual)) { if (falta) falta.hidden = false; return; }',
   '          if (falta) falta.hidden = true;',
-  '          ver(actual + 1);',
+  '          hist.push(actual);',
+  '          ver(siguienteDe(actual));',
   '        }',
   '      });',
   "      z.addEventListener('change', function (ev) {",
   "        var f = pasos[actual] ? pasos[actual].querySelector('.gm-quiz-falta') : null;",
-  "        if (f && ev.target && ev.target.type === 'radio') f.hidden = true;",
+  "        if (f && ev.target && (ev.target.type === 'radio' || ev.target.type === 'checkbox')) f.hidden = true;",
   '      });',
   "      form.addEventListener('submit', function (ev) {",
   '        ev.preventDefault();',

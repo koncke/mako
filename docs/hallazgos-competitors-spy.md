@@ -13,6 +13,25 @@ de más, y manda a arreglar algo que estaba bien.**
 
 ---
 
+## El tope del plan (Esencial suma UN competidor) va DESPUÉS de `yaEsta`, no arriba de todo (14/11/2026)
+
+- **Pedido:** Martín, «Tu competencia solamente debería poder scrapear a una persona de la competencia, el de 97 ilimitado»
+  (`'spy.competidores'` en `lib/topes-plan.ts`; regla pura `lib/spy-tope-reglas.ts`, lectura `lib/spy-tope.ts`, test
+  `tests/spy-tope-competidores.test.ts`).
+- **El lugar obvio era el equivocado:** arriba de todo en `agregarCompetidor`. Por esa función pasan también los que le SUMAN UN
+  CANAL al que ya está: «Agregar su YouTube» (`sumarCanalAction`), la búsqueda sola de sus otras redes
+  (`/api/competitor-spy/redes`) y la extensión. Con el freno arriba, un Esencial con su único competidor no podía completarle
+  las redes, y en `/redes` ni se veía: el error se traga y el canal seguro vuelve como «candidato» (`else candidatos.unshift(k)`).
+  Por eso el freno va donde ya estaba el técnico de 60: después de `if (yaEsta)` y antes del `upsert`.
+- **Lo que cuenta:** sólo las filas del negocio (`existentes`, por el proxy del inquilino). Los «Sugeridos» son filas del ws de
+  la plataforma (capa `superadmin`, sin tope) y cuentan recién cuando el negocio suma uno. Lo que el `upsert` junta por su MISMO
+  nombre (un nombre que `nombreComparable` deja vacío) tampoco es nuevo (`nuevo: false`).
+- **Lo que quedó SIN hacer:** el freno llega DESPUÉS de la vista previa: un Esencial con 1 busca, confirma (y paga la lectura del
+  perfil en Apify) y recién ahí lee el cartel. Avisarlo al abrir el «+» es `app/competitor-spy/SpyApp.tsx` (con el estado del
+  tope en `competidoresAction`, `app/competitor-spy/actions.ts`). Igual en la API de MaKo: `sumar_al_radar` lo dice en
+  `ejecutar`, no en `preparar` (`lib/api-mako/areas/spy.run.ts`). En `/m` sale el texto sin botón, a propósito (el teléfono no
+  vende: `app/crm/PasarAPro.tsx`).
+
 ## `postgres` devuelve `vistas` como texto, y la mediana las PEGA: «35.736.643.029 vistas» (14/11/2026)
 
 - **Síntoma:** el número del reel de prueba (`numeroDeSeguidos`, `lib/spy-seguidos-reglas.ts`) calculado en un script con las piezas
@@ -2467,3 +2486,15 @@ La ficha muestra UNA línea con «Revisar la clave». Es la única excepción al
 - los avisos y el guardado por WhatsApp;
 - la transcripción con sub-pestañas;
 - las historias de Instagram, que primero necesitan una decisión de Martín.
+
+## La ficha de una pieza trae el estilo de lo que dibuja: el teléfono no carga la hoja de SpyApp (14/11/2026)
+
+**Síntoma (visto en producción, en las capturas para el Cerebro):** en el teléfono, el guion de un reel con la clave de Apify rechazada decía bien el aviso, pero «Revisar la clave» salía como TEXTO SUELTO, sin forma de botón. En la computadora se veía bien. Les pasaba igual, desde antes, a «Conectar» y «Conectar GPT» del mismo bloque, y al aviso rojo de «Hacer uno así».
+
+**Causa:** la ficha (`app/competitor-spy/DetallePieza.tsx`) es la misma en los dos, y sus botones usaban `.spy-boton` y el error `.spy-aviso.spy-error`. Esas reglas viven en la hoja de `SpyApp.tsx`. En la computadora la ficha se abre dentro de SpyApp y las hereda; en el teléfono va en una `SheetM` de `app/m/competitor-spy/SpyM.tsx`, que NO carga esa hoja. Medido en la página: ninguna regla `.spy-boton` cargada, y el botón con fondo transparente, sin borde y sin relleno.
+
+**⚠️ El diagnóstico obvio era el equivocado:** «falta el botón en el teléfono» o «el estado no llega». El botón estaba y funcionaba (`data-conectar-integracion="apify-instagram"`); lo que faltaba era la hoja.
+
+**La regla que queda:** lo que la ficha pone en pantalla con una clase `spy-…` lleva su regla en la hoja de la ficha (`const CSS` de DetallePieza), con los mismos valores que SpyApp, para que en la computadora se vea igual. Los botones van acotados a `.spyd-nota .spy-boton`, no a `.spyd .spy-boton`: con una regla más ancha, un `spy-boton spy-boton-primario` dentro de la ficha perdería su fondo. Test: `tests/spy-ficha-estilos.test.ts`, que mira que cada clase `spy-…` de la ficha tenga su regla ahí.
+
+**Sin hacer:** `SuOferta` también usa `.spy-boton`, pero hoy no se monta en el teléfono (ver el comentario en `SpyM.tsx`). Si un día se monta, le pasa lo mismo.

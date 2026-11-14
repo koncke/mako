@@ -124,10 +124,10 @@ function Ahorro() {
         <p className="s-ahorro-t">Lo que paga hoy un negocio que vende High Ticket</p>
         <ul>
           {STACK_TIPICO.map((x) => (
-            <li key={x.app.nombre}>
+            <li key={x.app.nombre} title={`${x.app.nombre} ${x.plan}: ${x.trabajo}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={x.app.logo} alt="" width={28} height={28} />
-              <span className="s-ahorro-n">{x.app.nombre} <small>{x.plan} · {x.trabajo}</small></span>
+              <span className="s-ahorro-n">{x.app.nombre}</span>
               <span className="s-ahorro-p">{usd(x.precioUsd)}</span>
             </li>
           ))}

@@ -37,6 +37,10 @@ export type ResumenParaTareas = {
   seguidos: number | null;
   /** Los avisos de la nevera de contenido (./nevera-reglas.ts) y el lunes de esta semana (YYYY-MM-DD): una tarea por formato y semana. */
   nevera?: { lunes: string; avisos: Array<{ formato: 'reel' | 'story' | 'post' | 'video'; titulo: string }> };
+  /** Lo que leyó de su cuenta PROPIA (./redes-propias-reglas.ts): cada punto a tocar es una tarea; uno bien, resuelto. */
+  propias?: Partial<Record<'instagram' | 'youtube', ReadonlyArray<{ clave: string; bien: boolean; tarea?: string; href?: string }>>>;
+  /** Lo que propone el piloto de las redes esta semana (./piloto-redes.ts → propuestasDelPiloto), ya como tareas. */
+  propuestas?: readonly TareaCoPilot[];
 };
 
 const NOMBRE_PARTE: Record<ParteOC, string> = { angulos: 'tus ángulos', voz: 'tu voz', oferta: 'tu oferta' };
@@ -86,6 +90,13 @@ export function tareasDelCoPilot(r: ResumenParaTareas): { tareas: TareaCoPilot[]
   if (r.seguidos == null || r.seguidos === 0) tareas.push({ clave: 'instagram:competidores', tarjeta: 'instagram', titulo: 'Selecciona a tus competidores en Competitor Spy', href: '/competitor-spy?ver=seguidos' });
   else resueltas.push('instagram:competidores');
 
+  for (const red of ['instagram', 'youtube'] as const) {
+    for (const p of r.propias?.[red] ?? []) {
+      if (!p.bien && p.tarea) tareas.push({ clave: p.clave, tarjeta: red, titulo: p.tarea, ...(p.href ? { href: p.href } : {}) });
+      else if (p.bien) resueltas.push(p.clave);
+    }
+  }
+  if (r.propuestas) tareas.push(...r.propuestas);
   if (r.nevera) {
     const n = tareasDeLaNevera(r.nevera);
     tareas.push(...n.tareas);

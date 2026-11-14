@@ -18,9 +18,9 @@ import { WS_PARAM } from './ws-tab';
 /** Las claves de la barra (app/_components/nav.ts) de las tabs de Pro. AI Avatar salió el 29/10/2026: es de los tres planes. */
 // 25/10/2026: el Media Buyer (/ads-manager) ya NO es sólo de Pro: Esencial lo tiene en «propone», 2 recomendaciones por día y sin
 // piloto automático (decisión del Cerebro con la investigación de venta; memoria decisiones-venta-25-10). El cupo lo cumple lib/media-buyer.
-export const NAV_SOLO_PRO: ReadonlySet<string> = new Set([
-  'image-editor', 'video-editor',
-]);
+// 14/11/2026: Image y Video salieron (los editores son de los dos planes; su IA es de Pro: lib/topes-plan.ts, 'ia-editores').
+// Ninguna tab de la barra es sólo de Pro hoy; queda el mecanismo, por si vuelve una.
+export const NAV_SOLO_PRO: ReadonlySet<string> = new Set<string>([]);
 /**
  * Las de `TABS_SOLO_PRO` que NO son una tab de la barra: Closing Analyst es desde el 11/10 la hoja «Closing» del Dashboard
  * (app/closing/page.tsx), y su candado va en el Dashboard (de su chat), no acá.

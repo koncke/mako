@@ -36,9 +36,10 @@
 //     Su primer check («It beats your copy, or I rewrite it myself… get your $47 back») y el último («Pay once») tampoco.
 //   · «What's inside» son los números de lo que Copywriting TRAE, contados del código (lib/copywriter/plantillas.ts, las
 //     estructuras de lib/guion-estructuras.ts y lib/vsl-estructuras.ts, los ángulos de lib/guion-angulos.ts) y los referentes.
-//   · Sus 3 páginas reescritas (antes y después) son, en MaKo, el ejemplo completo que trae cada plantilla, de un negocio
-//     ficticio: el texto sale del ejemplo (`extractoDe`), y se dice que no son clientes ni resultados medidos (como dice
-//     ella de las suyas). No hay antes y después.
+//   · Sus 3 páginas reescritas (el original al lado de su reescritura) son, en MaKo (14/11/2026), DOS piezas reales de Alex
+//     Hormozi replicadas con «Replicar» (REPLICAS, abajo: su short y su anuncio, con lo que escribió MaKo). Antes eran las
+//     plantillas con su ejemplo ficticio, con el recuadro de «falta» en cada pestaña. Se dice que no son clientes ni resultados
+//     medidos (como dice ella de las suyas).
 //   · Sus 11 reseñas son suyas: la prueba de MaKo es el caso de todas las landings. «Who built it» (su fundador) no va.
 //   · «Start with the copy you need next» va por los grupos de plantillas de «Nueva», no por tipo de negocio.
 //   · Su «It catches the weak line before a customer reads it» (el Chief que revisa) es, en MaKo, la propuesta que se
@@ -50,7 +51,7 @@
 // =============================================================================
 
 import { catalogosLite, conVsl } from '@/lib/copywriter/catalogos';
-import { extractoDe, gruposDePlantillas, plantillasDe, plantillasVisibles, type Plantilla } from '@/lib/copywriter/plantillas';
+import { gruposDePlantillas, plantillasDe, plantillasVisibles } from '@/lib/copywriter/plantillas';
 import { ESTRUCTURAS_GUION_DEFAULT } from '@/lib/guion-estructuras';
 import { ANGULOS_GUION_DEFAULT } from '@/lib/guion-angulos';
 import { ASESORES } from '@/lib/asesores/catalogo';
@@ -90,12 +91,61 @@ const enMinuscula = (g: string) => (g === g.toUpperCase() ? g : g.charAt(0).toLo
 const NOMBRES_GRUPOS = GRUPOS.map((g) => enMinuscula(g.grupo));
 const GRUPOS_TXT = NOMBRES_GRUPOS.length > 1 ? `${NOMBRES_GRUPOS.slice(0, -1).join(', ')} y ${NOMBRES_GRUPOS[NOMBRES_GRUPOS.length - 1]}` : NOMBRES_GRUPOS.join('');
 
-/** Las tres que se muestran ya escritas (como las tres páginas de la referencia): un anuncio, un reel y un email. */
-const MUESTRA = ['guion-anuncio', 'reel', 'email']
-  .map((id) => CON_EJEMPLO.find((p) => p.id === id))
-  .filter((p): p is Plantilla => !!p);
-
 const ICONO_GRUPO: Record<string, string[]> = { Anuncios: I.anuncio, 'Redes sociales': I.redes, Email: I.email, VSL: I.vsl, 'Video largo': I.largo };
+
+/**
+ * Las piezas de la banda de ejemplos (14/11/2026), donde la referencia pone «Three real pages and ads, rewritten»: su original a la
+ * izquierda y su reescritura a la derecha. En MaKo son dos piezas REALES de Alex Hormozi que leyó Competitor Spy y lo que escribió
+ * Copywriting con «Replicar» en el negocio de MaKo (ws 9), para dos ofertas de MaKo. Nada se escribió a mano:
+ *   · el short «When someone asks for a discount:» (spy_piezas 6, 105.615 vistas) → el guion de la animación de la portada
+ *     (public/vsl-assets/sitio/copywriting.webm, de C:/dev/bancos-portada/banco-carruseles-replica/salida/copy-reel.html; la corrida,
+ *     en las notas de la sesión: copy-reel-hormozi/). El video muestra el original y lo que escribió, como su comparación;
+ *   · el anuncio «Learn How to Scale Your Business» (spy_piezas 3318, Biblioteca de anuncios de Meta, 19/8/2026) → la página
+ *     g49hpdqrw69 del 13/11/2026, 12:56 («WhatsApp Ads Funnel: Convierte tu tráfico en clientes»), copiada tal cual de las notas
+ *     probar-copy-1311/replicas-lado-a-lado.html (su chat: «Repliqué la estructura y el ritmo del original de Hormozi —gancho
+ *     directo, historia corta de descubrimiento, CTA con objeción—, pero con tu oferta WhatsApp Ads Funnel»).
+ * Hay dos y no tres (la referencia tiene tres): no hay otra réplica de Hormozi limpia; las demás de esa prueba son de otros
+ * creadores o mezclan el voseo.
+ */
+export const REPLICAS: {
+  titulo: string; meta: string; icono: string[]; cambio: string;
+  video?: { src: string; poster: string };
+  original: { rotulo: string; pie: string; titulo?: string; texto?: string[]; destino?: string };
+  mako: { rotulo: string; pie: string; titulo?: string; secciones?: [string, string][] };
+}[] = [
+  {
+    titulo: 'Un short',
+    meta: 'Short de YouTube · @AlexHormozi',
+    icono: I.redes,
+    cambio: 'El original es una escena (alguien que pide un descuento) y su moraleja. MaKo tomó esa estructura, no la idea del descuento, y la llevó a la oferta «MaKo Acelerador».',
+    video: { src: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' },
+    original: { rotulo: 'Original: su short', pie: '@AlexHormozi · 105.615 vistas' },
+    mako: { rotulo: 'Lo que escribió MaKo', pie: 'Reel · 45 s · con «MaKo Acelerador»' },
+  },
+  {
+    titulo: 'Un anuncio',
+    meta: 'Anuncio de Meta · @AlexHormozi',
+    icono: I.anuncio,
+    cambio: 'El original invita a un taller en Las Vegas. MaKo tomó su estructura y su ritmo (un gancho directo, una historia corta y el llamado) y escribió el anuncio de la oferta «WhatsApp Ads Funnel».',
+    original: {
+      rotulo: 'Original: su anuncio',
+      pie: 'Biblioteca de anuncios de Meta · 19/8/2026',
+      titulo: 'Learn How to Scale Your Business',
+      texto: ['We’re hosting a workshop at Acquisition.com’s Las Vegas HQ to show entrepreneurs the exact methods we use to scale businesses. Want to be in the room? Click below to see if you’re a fit.'],
+      destino: 'acquisition.com',
+    },
+    mako: {
+      rotulo: 'Lo que escribió MaKo',
+      pie: 'Anuncio · 45 s · Gancho → Historia → CTA',
+      titulo: 'WhatsApp Ads Funnel: Convierte tu tráfico en clientes',
+      secciones: [
+        ['Gancho', 'La mayoría de tus anuncios genera clics, pero no ventas. ¿Qué pasaría si cada contacto llegara directo a una conversación que vende?'],
+        ['Historia', 'Descubrimos que el problema no es el tráfico. Es que lo mandas a un lugar donde la gente no compra. WhatsApp es donde sí lo hace: conversación directa, sin ruido, con una sola razón de estar ahí. Ese es el funnel que faltaba.'],
+        ['CTA', 'No necesitas más tráfico ni mejores anuncios. Necesitas dónde llevarlos. Mira cómo armar tu WhatsApp Ads Funnel abajo.'],
+      ],
+    },
+  },
+];
 
 export const LANDING_COPYWRITING: LandingCompetencia = {
   slug: 'copywriting',
@@ -129,11 +179,13 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
       ],
     },
     {
+      // Su banda «Three real pages and ads, rewritten» / «See the original next to my rewrite.», que se abre en «See what the Copy
+      // Machine does to a real page.»: las piezas de Hormozi y lo que escribió MaKo (REPLICAS, arriba).
       tipo: 'tarjetas',
-      etiqueta: 'Un anuncio, un reel y un email, de un negocio ficticio.',
-      titulo: 'Tres plantillas, con su ejemplo ya escrito',
-      bajada: 'Cada plantilla de «Nueva» trae un ejemplo completo de un negocio ficticio: muestra la forma, el largo y el tono. Son ejemplos, no clientes ni resultados medidos. Tu página nace con las secciones vacías y una guía en cada una.',
-      items: MUESTRA.map((p) => ({ icono: ICONO_GRUPO[p.grupo] ?? I.copy, titulo: p.nombre, texto: `«${extractoDe(p)}»`, meta: `${p.insignia} · ${p.ejemplo?.negocio ?? ''}` })),
+      etiqueta: 'Mira el original al lado de lo que escribió MaKo.',
+      titulo: 'Dos piezas reales de Alex Hormozi, replicadas',
+      bajada: 'Tomamos dos piezas que le funcionaron a Alex Hormozi, tocamos «Replicar» y MaKo escribió la suya con la misma estructura, para una oferta de MaKo.',
+      items: REPLICAS.map((r) => ({ icono: r.icono, titulo: r.titulo, texto: r.cambio, meta: r.meta })),
     },
     { tipo: 'caso' },
     {
@@ -165,6 +217,8 @@ export const LANDING_COPYWRITING: LandingCompetencia = {
     {
       tipo: 'tarjetas',
       titulo: 'Lo que te llevas',
+      // Su «Seven skills · one copy department», a la derecha del titular.
+      etiqueta: 'Siete cosas que hace · un solo copywriter',
       items: [
         { icono: I.copy, titulo: 'Escribe tus anuncios, tus reels, tus emails y tus VSL.', texto: 'Guiones a cámara, textos de anuncio, 10 ganchos, reels, stories, carruseles, emails, secuencias, VSL y videos de YouTube, cada uno con su estructura y sus secciones.' },
         { icono: I.cita, titulo: 'Tus clientes te dan los ganchos.', texto: 'Si tu negocio no lo dice, te pregunta a quién le hablas y con qué frase te cuenta su problema. El gancho sale de ahí, no de una frase hecha.' },

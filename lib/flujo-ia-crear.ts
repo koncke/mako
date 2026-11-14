@@ -50,6 +50,7 @@ import { KEY_LINK_VIDEO } from '@/lib/audios-paso';
 import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { marcasDeVoseo } from '@/lib/puestas-data';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
+import { guardarSinSetterSiFrena } from '@/lib/setter-ia-reglas';
 import type { QuienContesto } from '@/lib/quien-contesto';
 import {
   FEATURE_CREAR_IA, LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, PROVS_CREAR_IA, PROVS_GRATIS_PIN, MODELOS_CREAR_IA, salidaParaIA, falloDeIA,
@@ -452,7 +453,9 @@ function depsReales(ws: number): DepsCrearIA {
       if (error) throw new Error(error.message);
     },
     pausar: (id) => setSecuenciaActiva(id, false),
-    guardarPasos: (id, pasos) => setSecuenciaPasos(id, pasos as unknown as PasoSecuencia[]),
+    // Con MaKo Esencial, lo que arma la IA nace SIN el setter con IA si la puerta lo frena (14/11/2026, lib/setter-ia-reglas.ts):
+    // cada «Sola» en «Para aprobar», y la automatización se crea igual.
+    guardarPasos: (id, pasos) => guardarSinSetterSiFrena(pasos, (ps) => setSecuenciaPasos(id, ps as unknown as PasoSecuencia[])),
     motivoDePasos: (e) => (e instanceof PasosInvalidosError ? e.message : null),
     // ⚠️ POR LA PUERTA DE LA PANTALLA (duodécima tanda, §1.4): `guardarDisparadores` escribe las COLUMNAS (el 409 de
     // la ruta y los quince lectores de siempre) Y la lista de la 0241, y valida contra el negocio. Con

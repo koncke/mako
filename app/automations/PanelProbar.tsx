@@ -117,7 +117,8 @@ import {
   type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba, type DestinosGuardados, type ContactoPrueba, type EmisorPrueba,
   type EventoSim,
 } from '@/lib/simulador-grafo';
-import { partesDe, sinVistaPrevia, type ParteMensaje } from '@/lib/mensaje-partes';
+import { partesDe, sinVistaPrevia, type ParteMensaje, type PasoConPartes } from '@/lib/mensaje-partes';
+import { adjuntosQueSalen, avisoDeAdjuntos } from '@/lib/adjuntos-que-salen';
 import { botonesDe, puertoDeBoton, type BotonSocial } from '@/lib/botones-social';
 import { ICONOS_MAS, frenoDelFlujo } from '@/lib/flujo-conversacion';
 import { TRIGGER_RECORDATORIO, EJEMPLOS_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
@@ -903,6 +904,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     idDeClave: (clave) => secuencias.find((s) => s.clave === clave)?.id ?? null,
   }).pasos, [pasosVivos, estVivo, secuencias]);
   const firmaViva = useMemo(() => firmaFlujo(flujoVivo), [flujoVivo]);
+  /** ¿Va algún archivo, también adentro de las partes de un mensaje? (14/11/2026: para nombrarlo antes de mandar.) */
+  const conArchivo = useMemo(() => canal === 'whatsapp' && adjuntosQueSalen(flujoVivo as unknown as PasoConPartes[], [], []).some((a) => a.tipo === 'archivo'), [canal, flujoVivo]);
   /** La huella del flujo con el que arrancó esta prueba: si cambia, el panel lo dice. */
   const [firmaProbada, setFirmaProbada] = useState(firmaViva);
   /**
@@ -956,7 +959,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   }, [usaEtiqueta]);
 
   useEffect(() => {
-    if (!usaMedia) return;
+    if (!usaMedia && !conArchivo) return;
     let vivo = true;
     // A la defensiva: si la biblioteca no llega, la burbuja dice el nombre del archivo.
     void fetch('/api/chat-agent/adjuntos', { cache: 'no-store' }).then((r) => r.json()).then((j) => {
@@ -968,7 +971,15 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       })));
     }).catch(() => { /* sin biblioteca */ });
     return () => { vivo = false; };
-  }, [usaMedia]);
+  }, [usaMedia, conArchivo]);
+  /**
+   * LO QUE VA ADJUNTO, CON SU NOMBRE, ANTES DE MANDAR (14/11/2026, la llamada con Julio: al probar salió un archivo que
+   * Martín no reconocía, «¿qué te estoy mandando?»). Lo dice el menú de «Probar en WhatsApp», arriba de a quién mandarlo.
+   */
+  const avisoAdjuntos = useMemo(
+    () => (canal === 'whatsapp' ? avisoDeAdjuntos(adjuntosQueSalen(flujoVivo as unknown as PasoConPartes[], adjuntos, audios)) : null),
+    [canal, flujoVivo, adjuntos, audios],
+  );
 
   // El remitente del workspace, para la bandeja: el MISMO que lee el editor de email. Sin él, la
   // fila dice el nombre del negocio (`remitenteVisible`). Y lo mismo es el EMISOR del email de la
@@ -1921,6 +1932,9 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       </div>
       {menu && rolAdmin && (
         <PopoverWA ancla={btnProbar} etiqueta={def.probarEn} onCerrar={cerrarMenu}>
+          {avisoAdjuntos && (
+            <p data-adjuntos-prueba="" style={{ margin: '0 0 8px', fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)', overflowWrap: 'anywhere' }}>{avisoAdjuntos}</p>
+          )}
           <MenuDestinos
             refCaja={setCajaMenu} esEmail={esEmail} guardados={guardados} onElegir={probarA}
             nuevo={nuevo} onNuevo={() => { setNuevo(true); setErrNuevo(null); }} onProbarNuevo={probarNuevo} error={errNuevo}

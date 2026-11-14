@@ -364,7 +364,8 @@ test('el cuadro del Web Generator usa ESTAS funciones, y el Panel lo monta en su
   assert.match(src, /if \(r\.que === 'accion'\) onAccion\(r\.accion\);/);
   assert.match(src, /const n = borrarAlInicio\(estado\);\s*if \(!n\) return false;\s*setEstado\(n\);\s*return true;/);
   assert.match(src, /onSoltar=\{soltar\}/);
-  assert.match(src, /listo=\{listoParaEnviar\(estado, escritoLink\)\}/);
+  // 14/11/2026: con el candado de Pro de Replicar delante (tests/replicar-solo-pro.test.ts).
+  assert.match(src, /listo=\{!candado && listoParaEnviar\(estado, escritoLink\)\}/);
   assert.match(src, /aria-pressed=\{estado\.modo === o\.id\} onClick=\{\(\) => elegir\(o\.id\)\}/);
   // «Más ajustes» va AFUERA del <form> (un Enter en «Tono» mandaría el pedido): después del cierre de la caja.
   const iCaja = src.indexOf('<CajaPedido');

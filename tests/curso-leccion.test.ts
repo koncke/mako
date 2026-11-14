@@ -284,7 +284,8 @@ test('portal: la comunidad es del CLIENTE — ni en la vista previa del equipo n
   assert.equal(ofreceComunidad({ vistaPrevia: true, area: null }), false, 'la vista previa no tiene token: escribiría con nada');
   assert.equal(ofreceComunidad({ vistaPrevia: false, area: 'Ventas' }), false, 'el líder escribiría con el nombre del cliente');
   const portal = sinComentarios(leer('app/compartido/curso/[token]/PortalAlumno.tsx'));
-  assert.match(portal, /const conComunidad = ofreceComunidad\(\{ vistaPrevia, area: vista\.area \}\);/);
+  // 14/11/2026: y sólo si el plan del NEGOCIO la trae (es de MaKo Pro; tests/classroom-topes-esencial.test.ts).
+  assert.match(portal, /const conComunidad = ofreceComunidad\(\{ vistaPrevia, area: vista\.area, delPlan: comunidad \}\);/);
   assert.match(portal, /if \(conComunidad && pos\.extra === ENTRADA_COMUNIDAD\)/);
   assert.match(portal, /entradasExtra=\{conComunidad \? \[/);
   assert.equal((portal.match(/<ComunidadAlumno\b/g) ?? []).length, 1, 'la comunidad se monta en UN lugar, detrás de la puerta');

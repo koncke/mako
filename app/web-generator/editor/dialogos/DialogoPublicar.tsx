@@ -70,12 +70,15 @@ import { useEditorLanding } from '../contexto';
 import Link from '@/app/_ui/Link';
 import { CtaPasarAPro } from '@/app/_components/CtaPasarAPro';
 import { esTopeDePrueba, RUTA_CAMBIAR_PLAN, RUTA_EMPEZAR_PLAN } from '@/lib/topes-plan';
+import { TEXTO_DOMINIO_SOLO_PRO, pidePasarAPro } from '@/lib/editor-landing/tope-landings';
+import { usePlanEsencial } from '@/app/_components/useClienteDeAgencia';
 
 /** El tope del plan al publicar o conectar un dominio (lib/editor-landing/tope-landings.ts): el cartel lleva «Pasar a Pro». */
 function PasarAPro({ error }: { error: string }) {
   // En la PRUEBA GRATIS (25/10/2026): «Disponible al terminar tu prueba», con el botón para empezar el plan ya.
   if (esTopeDePrueba(error)) return <> <Link href={RUTA_EMPEZAR_PLAN} style={{ fontWeight: 600 }}>Empezar mi plan ya</Link></>;
-  if (!error.startsWith('Llegaste al tope de tu plan')) return null;
+  // El tope lleno, o el dominio propio con el tope en 0 (14/11/2026: Esencial no lo trae, `TEXTO_DOMINIO_SOLO_PRO`).
+  if (!pidePasarAPro(error)) return null;
   // El cliente de una AGENCIA no sube de plan para publicar una landing más (6/11/2026, #494): se lo pide a su agencia.
   return <> <CtaPasarAPro><Link href={RUTA_CAMBIAR_PLAN} style={{ fontWeight: 600 }}>Pasar a Pro</Link></CtaPasarAPro></>;
 }
@@ -629,6 +632,10 @@ function SeccionDominio({ docId, urlMako, prefijo, publicado, confirmar, avisar 
   const [error, setError] = useState<string | null>(null);
   const [escrito, setEscrito] = useState('');
   const [ocupado, setOcupado] = useState<null | 'conectar' | 'verificar' | 'quitar'>(null);
+  // MaKo Esencial no trae dominio propio (14/11/2026, `web.dominios` en 0): en lugar de «Añadir un dominio», el candado con
+  // «Pasar a Pro». Es cosmético (el freno es `frenoDeTope`, lib/editor-landing/tope-landings-server.ts) y mientras no se sabe
+  // el plan se dibuja abierto. El dominio que ya estaba conectado se sigue viendo y se puede verificar o quitar.
+  const esencial = usePlanEsencial();
 
   useEffect(() => {
     let vivo = true;
@@ -755,6 +762,8 @@ function SeccionDominio({ docId, urlMako, prefijo, publicado, confirmar, avisar 
           )}
           {verificado && !publicado && <p className="gmp-ayuda" style={{ marginTop: 8 }}>Publica el sitio para que se vea en tu dominio.</p>}
         </>
+      ) : esencial === true ? (
+        <p className="gmp-ayuda" role="status" data-solo-pro="dominio">{TEXTO_DOMINIO_SOLO_PRO}<PasarAPro error={TEXTO_DOMINIO_SOLO_PRO} /></p>
       ) : (
         <Campo etiqueta="Añadir un dominio" htmlFor="gmp-dominio" ayuda="Un dominio o subdominio que ya tengas.">
           <form className="gmp-dom-nuevo" onSubmit={(e) => { e.preventDefault(); void conectar(escrito); }}>

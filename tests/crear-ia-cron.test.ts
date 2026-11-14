@@ -218,7 +218,8 @@ test('4: `catalogosDe` es UNA función, la importan el editor y `armarContexto`;
   assert.match(crear, /import \{ catalogosDe, etapasDeCondicion \} from '@\/lib\/condiciones-catalogos';/);
   assert.match(crear, /import \{ catalogosRemotos \} from '@\/lib\/condiciones-catalogo-datos';/);
   const ruta = sinComentarios(leer('app/api/chat-agent/condiciones/route.ts'));
-  assert.match(ruta, /const \{ cursos, posts, campanas, reuniones \} = await catalogosRemotos\(\);/);
+  // Con los formularios del Web Generator desde el 14/11/2026 («Envió el formulario»).
+  assert.match(ruta, /const \{ cursos, posts, campanas, reuniones, formularios \} = await catalogosRemotos\(\);/);
   assert.doesNotMatch(ruta, /from\('|leerTodo\(/, 'la ruta volvió a leer por su cuenta');
 
   // Lo que arma: las etapas como las pasa el lienzo, y el catálogo como lo arma el editor.

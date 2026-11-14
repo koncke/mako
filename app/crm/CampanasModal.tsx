@@ -46,6 +46,7 @@ import { IconoFunnel, IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-m
 import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
 import { useVerMas } from '@/app/plan/board/VerMas';
 import { ProductoCelda, type ItemCampana } from '@/app/ads-manager/ProductoCelda';
+import { FuentesWebGenerator } from './FuentesWebGenerator';
 import { funnelsDeAsignada, type CampanaAsignada } from '@/lib/campana-config';
 import { hayQuePreguntar, preguntaAsignar, valorDeProducto, funnelDeValor } from '@/lib/campana-asignar';
 import { etiquetaCuentaMeta, avisoSinCampanasNuevas } from '@/lib/meta-cuenta-leida';
@@ -389,7 +390,17 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
     <>
       {/* `crm-hover`: el portal se escapa del `<main>` del CRM, que es donde vive el velo
           de hover de todos sus botones (app/_ui/ui.css). Sin esto, los de acá no reaccionan. */}
-      <div className="crm-hover" style={{ padding: 0, minWidth: 560 }}>
+      <div className="crm-hover" style={{ padding: 0, minWidth: 0 }}>
+        {/* «ASIGNAR FUENTES» (14/11/2026, la llamada con Julio Mazariegos): primero lo que se arma en Web Generator —sus
+            formularios, encuestas, quizzes, agenda y pago, por nombre—, después las campañas de Meta. Las dos secciones con su
+            título, en el mismo modal (app/crm/FuentesWebGenerator.tsx). */}
+        <h3 style={TITULO_SECCION}>Formularios y páginas de Web Generator</h3>
+        <div style={{ paddingBottom: 22 }}>
+          <FuentesWebGenerator funnelId={funnelId} nombreProducto={nombreProducto} />
+        </div>
+        <h3 style={TITULO_SECCION}>Campañas de Meta</h3>
+        {/* La tabla de Meta conserva su ancho de siempre (sin `overflow`: rompería el `sticky` de su cabecera). */}
+        <div style={{ minWidth: 560 }}>
         {/* La barra, la de lote y la cabecera viajan juntas y quedan pegadas arriba: el
             cuerpo del modal es el que scrollea, así que el sticky se posiciona contra él. */}
         <div style={{ position: 'sticky', top: 0, zIndex: 2, background: fondo, paddingTop: 2 }}>
@@ -532,6 +543,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
         {estado && estado.campanas.length > 0 && filas.length === 0 && <p style={vacio()}>Ninguna con esos filtros.</p>}
         {/* ⚠️ ACÁ IBA «N asignadas a <funnel>» hasta el 12/10/2026 (sexto feedback: «Elimina el texto "2
             asignadas a VSL FUNNEL"»). Cuáles están en este funnel lo dice la columna «Funnel» de cada fila. */}
+        </div>
       </div>
 
       {pide && (
@@ -550,7 +562,7 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
   if (enLinea) return contenido;
 
   const cuerpo = (
-    <Modal titulo="Campañas de Meta" encabezado={<span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{nombreProducto}</span>}
+    <Modal titulo="Asignar fuentes" encabezado={<span style={{ fontSize: 12.5, color: 'var(--faint)' }}>{nombreProducto}</span>}
       onCerrar={onCerrar ?? NADA} ancho={900} alto="min(85vh, 720px)" anidada={anidada} sinFiletes>
       {contenido}
     </Modal>
@@ -559,6 +571,10 @@ export function CampanasModal({ funnelId, nombreProducto, anidada = false, enLin
   if (!montado) return null;
   return createPortal(cuerpo, document.body);
 }
+
+const TITULO_SECCION: CSSProperties = {
+  margin: '0 0 10px', fontFamily: MONO, fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 700,
+};
 
 const vacio = (color = 'var(--dim)'): CSSProperties => ({
   fontFamily: SANS, fontSize: 13.5, color, padding: '28px 12px', margin: 0, textAlign: 'center',

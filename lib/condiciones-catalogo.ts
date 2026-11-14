@@ -132,14 +132,17 @@ export type Fuente =
   | 'reuniones'   // el ORDEN de las reuniones de los embudos que nombran las filas (`reunionesDe`)
   | 'social'      // ig_conversaciones: la conversación que cuenta, por lead y canal (`conversacionesDeLeads`)
   | 'sigue'       // «¿te sigue?» EN VIVO a Zernio, sólo por quien escribió por DM (`siguenEnInstagram`)
-  | 'comprobante'; // comprobantes_leidos: la última lectura de las últimas 48 h (`resultadosDeComprobante`, lib/comprobantes.ts)
+  | 'comprobante' // comprobantes_leidos: la última lectura de las últimas 48 h (`resultadosDeComprobante`, lib/comprobantes.ts)
+  | 'formularios'; // lead_formularios (mig 0415): qué formularios del Web Generator envió (14/11/2026)
 
 /** Los catálogos de los que sale el valor de una condición de lista. */
 export type CatalogoValor =
   | 'etiqueta' | 'etapa' | 'producto' | 'campana'
   | 'origen' | 'estado_lead' | 'estado_cliente'
   | 'curso' | 'modulo' | 'clase' | 'clase_tarea' | 'post' | 'etapa_entrega'
-  | 'reunion';
+  | 'reunion'
+  /** Un formulario, encuesta o quiz del Web Generator (`form:<id>`), o cualquiera de una landing (`landing:<docId>`). */
+  | 'formulario';
 
 export type TipoValor =
   | { t: 'ninguno' }
@@ -268,6 +271,11 @@ export type HechosCatalogo = {
   social?: Partial<Record<CanalSocial, ConversacionSocial | null>>;
   /** «¿Te sigue en Instagram?»: true / false sólo si Meta lo confirmó; `null` = no sé. Ausente = no se leyó. */
   sigueInstagram?: boolean | null;
+  /**
+   * «Envió el formulario» (14/11/2026): las claves de lo que envió (`form:<id>` de cada formulario y `landing:<docId>` de su
+   * landing, lib/editor-landing/piezas.ts). Ausente = no se leyó (sin la mig 0415 aplicada, tampoco): la condición dice «no sé».
+   */
+  formularios?: ReadonlySet<string>;
 };
 
 // ── Ayudas de evaluación ──────────────────────────────────────────────────────────
@@ -537,6 +545,18 @@ export const CONDICIONES: readonly DefCondicion[] = [
       // «Carga manual» son dos valores en la base (`manual` y `carga_manual`).
       const norm = (x: string) => (x === 'carga_manual' ? 'manual' : x);
       return norm(o) === norm(String(f.valor));
+    },
+  },
+  // «Envió el formulario X» (14/11/2026, la llamada con Julio Mazariegos: tres landings, ¿cuál llenó?). Uno o varios: se cumple
+  // con cualquiera. «Cualquier formulario de la landing X» es su propia opción. Lee `lead_formularios` (mig 0415).
+  {
+    id: 'envio_formulario', seccion: 'Origen y tracking', ambito: 'adquisicion', rotulo: ['Envió el formulario', 'No envió el formulario'], negable: true,
+    valor: { t: 'lista', catalogo: 'formulario', varios: true }, fuentes: ['formularios'],
+    evaluar: (f, h) => {
+      const s = h.catalogo?.formularios;
+      const elegidos = valoresDeFila(f);
+      if (s == null || !elegidos.length) return null;
+      return elegidos.some((v) => s.has(v));
     },
   },
   {
@@ -915,7 +935,12 @@ export type CatalogosCondicion = {
   campanas?: ReadonlyArray<string>;
   /** Las etapas de REUNIÓN de cada embudo (`reunionesParaEditor`). null = no se pudo leer. */
   reuniones?: ReadonlyArray<ReunionesDeEmbudo> | null;
+  /** Los formularios de las landings publicadas del Web Generator, por landing (`catalogosRemotos`). */
+  formularios?: ReadonlyArray<FormulariosDeLanding>;
 };
+
+/** Una landing publicada con lo que se llena en ella: formularios, encuestas y quizzes (lib/editor-landing/piezas.ts). */
+export type FormulariosDeLanding = { docId: number; titulo: string; piezas: ReadonlyArray<{ clave: string; nombre: string }> };
 
 /**
  * Las etapas de reunión de UN embudo, en su orden (GET /api/chat-agent/condiciones). `sinLugar`: de la
@@ -1018,6 +1043,15 @@ export function opcionesDe(catalogo: CatalogoValor, cat: CatalogosCondicion): Se
       return (cat.cursos ?? []).map((c) => ({
         title: varios ? c.nombre : '',
         options: c.clases.filter((k) => catalogo === 'clase' || k.tieneTarea).map((k) => ({ value: String(k.id), label: k.titulo })),
+      }));
+    // Una sección por landing: «Cualquiera de esta landing» primero (si tiene más de uno) y cada formulario por su nombre.
+    case 'formulario':
+      return (cat.formularios ?? []).filter((l) => l.piezas.length).map((l) => ({
+        title: l.titulo,
+        options: [
+          ...(l.piezas.length > 1 ? [{ value: `landing:${l.docId}`, label: `Cualquiera de «${l.titulo}»` }] : []),
+          ...l.piezas.map((p) => ({ value: p.clave, label: p.nombre })),
+        ],
       }));
     case 'etapa_entrega':
       return (cat.productos ?? []).filter((p) => p.productoId != null).map((p) => ({
@@ -1266,7 +1300,7 @@ export type NombresCatalogo = (catalogo: CatalogoValor, valor: string) => string
 const GENERICO: Record<CatalogoValor, string> = {
   etiqueta: 'una etiqueta', etapa: 'una etapa', producto: 'un funnel', campana: 'una campaña', origen: 'un origen',
   estado_lead: 'un estado', estado_cliente: 'un estado', curso: 'un curso', modulo: 'un módulo', clase: 'una clase',
-  clase_tarea: 'una clase', post: 'un post', etapa_entrega: 'una etapa', reunion: 'una reunión',
+  clase_tarea: 'una clase', post: 'un post', etapa_entrega: 'una etapa', reunion: 'una reunión', formulario: 'un formulario',
 };
 
 /**

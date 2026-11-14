@@ -27,6 +27,7 @@ import { avisoInvitacion } from '@/lib/invitacion-aviso';
 import type { QuienPaga } from '@/lib/agency-reglas';
 import { abrirCuentaClienteAction, leadParaAgencyAction } from './actions';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { TOPES } from '@/lib/topes-plan';
 
 type Hecho = { clienteWs: number; link: string | null; sinLink: string | null; paga: QuienPaga; aviso: { tono: 'ok' | 'warn'; texto: string } | null };
 
@@ -163,7 +164,7 @@ export function ModalNuevoCliente({ leadId = null, nombre: nombreInicial = '', e
           <legend className="nc-lab">Su plan</legend>
           <label className="nc-op" data-on={plan === 'esencial'}>
             <input type="radio" name="nc-plan" checked={plan === 'esencial'} onChange={() => setPlan('esencial')} />
-            <span><b>MaKo Esencial</b><small>US$ 47 al mes. 1 funnel, 1 WhatsApp, 3 automatizaciones y 3 landings.</small></span>
+            <span><b>MaKo Esencial</b><small>{`US$ 47 al mes. ${TOPES.completo['crm.funnels']} funnel, ${TOPES.completo['chats.lineas_whatsapp']} WhatsApp, ${TOPES.completo['automations.activas']} automatizaciones y ${TOPES.completo['web.landings_publicadas']} ${TOPES.completo['web.landings_publicadas'] === 1 ? 'landing' : 'landings'}.`}</small></span>
           </label>
           <label className="nc-op" data-on={plan === 'pro'}>
             <input type="radio" name="nc-plan" checked={plan === 'pro'} onChange={() => setPlan('pro')} />

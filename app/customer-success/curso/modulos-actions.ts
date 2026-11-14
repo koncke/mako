@@ -36,6 +36,9 @@ import {
 import { crearClase, moverClaseA, guardarCampoClase, guardarLeccion, restaurarClases, type CambioClase, type ResultadoLeccion } from '@/lib/curso-admin';
 import type { CambiosLeccion } from './leccion-reglas';
 import { getUsuarioActual } from '@/lib/auth';
+import { getWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { frenoAlCrearClase } from '@/lib/tope-cursos';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import type { ModuloCurso, PreguntaDestino } from '@/lib/curso-modulos';
 import type { EtapaEntrega } from '@/lib/servicio-etapas';
 import type { Bloqueo } from '@/lib/curso-bloqueo';
@@ -229,11 +232,19 @@ export async function guardarBloqueoAction(
 
 // ── Las clases ────────────────────────────────────────────────────────────────
 
-/** «Nueva clase» AL PRINCIPIO del módulo. Devuelve la clase: la pantalla la abre para editarla. */
-export async function crearClaseAction(productoId: number, moduloClave: string): Promise<{ ok: true; clase: Clase } | Fallo> {
+/**
+ * «Nueva clase» AL PRINCIPIO del módulo. Devuelve la clase: la pantalla la abre para editarla.
+ *
+ * ⚠️ LA PRIMERA CLASE DE UN PROGRAMA CREA UN CURSO, y MaKo Esencial tiene uno (14/11/2026, lib/tope-cursos.ts): pasado el
+ *    tope, el texto del tope y `pasarAPro` (la pantalla dibuja «Pasar a Pro»). Una clase en el curso que ya tiene, siempre.
+ */
+export async function crearClaseAction(productoId: number, moduloClave: string): Promise<{ ok: true; clase: Clase } | (Fallo & { pasarAPro?: string })> {
   try {
     const no = await puertaProducto(productoId);
     if (no) return { ok: false, error: no };
+    const ws = await getWorkspaceActual();
+    const tope = ws == null ? null : await frenoAlCrearClase(ws, Number(productoId));
+    if (tope) return { ok: false, error: tope.texto, pasarAPro: await rutaConWs(RUTA_CAMBIAR_PLAN) };
     return await crearClase(Number(productoId), String(moduloClave ?? ''));
   } catch (e) {
     return fallo(e, 'No se pudo crear la clase.');

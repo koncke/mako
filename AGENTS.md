@@ -2720,6 +2720,10 @@ por el camino que lo escribe. Dos reglas:
 - **Un `disabled` que se alimenta de un estado restaurado se prueba con la clave BORRADA.** Es
   el único modo de ver lo que ve un cliente nuevo. Y si el control que arregla la condición no
   está en esa pantalla, no es un botón deshabilitado: es una pantalla sin salida.
+- **La clave de lo guardado por TARJETA lleva la automatización, no sólo el id de la tarjeta.** Una
+  plantilla crea siempre los mismos ids: el archivo que quedó en la barra de una automatización
+  volvía en otra hecha con la misma plantilla y salía en su prueba (14/11/2026, `claveDeTarjeta`;
+  docs/hallazgos-chatbot.md).
 
 El caso, del 24/08/2026: el botón «Probar» del Pixel nacía apagado para **todo cliente nuevo** —
 detalle completo en [docs/hallazgos-landing.md](docs/hallazgos-landing.md).
@@ -4907,6 +4911,10 @@ ruta de la API la saca de `open` (medido el 11/09/2026). El código hacía `logo
   convierte un callejón sin salida en un «reintenta en unos segundos».
 - Es la regla de la alarma que no viaja por el canal caído (`lib/canal-vigilante.ts`),
   vista del otro lado.
+- **Un aviso que nombra un botón se prueba con la línea en el estado en que sale el aviso** (14/11/2026). El de la voz sorda
+  decía «Conectar por QR», pero el panel lo dibujaba sólo con la línea caída, y una sorda figura conectada: el botón no
+  estaba justo cuando el aviso mandaba a tocarlo. El servidor ya sabía soltarla. La condición del botón es la MISMA con la que
+  el servidor actúa (`motivoParaVolverAVincular` en `estadoCanalMaKo` y en `estadoNumeroPersonal`); tests/volver-a-vincular.test.ts.
 
 # Una sonda se valida en los DOS estados, con reloj
 
@@ -12392,3 +12400,14 @@ deformó un ojo y la foto de la mano.
 
 Se combina con la regla de no encadenar generaciones: cada pieza se perfecciona en su propia cadena
 corta, y la unión es **una sola** edición.
+
+## Lo que /planes vende como de Pro tiene su candado EN EL CÓDIGO y un test que lo encuentra (14/11/2026)
+
+Closing se vendió como de Pro desde el 23/10 y nada lo frenaba; la tabla prometía «subtítulos» de Pro y seguían abiertos. Por eso:
+- Toda fila `soloPro` o tope de lib/planes-comparacion.ts sale de lib/topes-plan.ts (`TOPES`, `TABS_SOLO_PRO`, `FUNCIONES_SOLO_PRO`), y
+  su candado vive en el SERVIDOR (cada ruta y operación de la API de MaKo que haga la cosa) y en la pantalla, con `textoSoloPro`.
+- El candado se busca por lo que la función HACE, no por su nombre (Replicar tenía una cuarta puerta en `/api/landing-generator/ia`).
+- En el navegador, un 403 de Pro se reconoce por `pasarAPro` (`esRespuestaSoloPro`, app/_components/solo-pro.ts), nunca sólo por el status.
+- Lo que le contesta SOLO a un lead con IA (el setter) se pregunta con `tieneSetterIA` / `sumaSetterIA` (lib/setter-ia-reglas.ts), nunca
+  mirando `paso_ia` a mano; lo que crea MaKo pasa por `guardarSinSetterSiFrena`.
+- Un tope en 0 es «no lo trae»: la tabla lo dibuja vacío y el freno dice que es de Pro (`pidePasarAPro`, lib/editor-landing/tope-landings.ts).

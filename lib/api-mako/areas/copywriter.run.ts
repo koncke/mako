@@ -24,6 +24,8 @@ import { crearShare, getShare, listarInvitados, listarShares, revocarShare, RECU
 import { APP_BASE_URL } from '@/lib/app-url';
 import { esFormatoCopy, esIdOutlierCopy, filtrarOutliersCopy, INFO_FORMATO, ROTULO_TEXTO } from '@/lib/copywriter/outliers';
 import { leerOutliersCopy, outlierCopyPorId, replicarOutlier } from '@/lib/copywriter/outliers-servidor';
+import { INFO_PEGADO, TIPOS_PEGADO, esTipoPegado, queEsLoPegado } from '@/lib/copywriter/pegado';
+import { replicarPegado } from '@/lib/copywriter/pegado-servidor';
 
 const str = (o: Record<string, unknown>, k: string): string => (typeof o[k] === 'string' ? (o[k] as string).trim() : '');
 const json = (v: unknown) => JSON.stringify(v, null, 2);
@@ -378,6 +380,27 @@ export const RUNNERS: Runners = {
       const r = await replicarOutlier(str(payload, 'outlierId'));
       if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
       return { ok: true, resumen: `Listo: ${nombreDe(r.pagina)}. Al abrirla, MaKo transcribe el original si es un video, pregunta para qué oferta y la escribe.`, datos: { documentoId: r.pagina.id, link: linkDoc(r.pagina.id) } };
+    },
+  },
+
+  // Lo que TRAE la persona (14/11/2026, lib/copywriter/pegado.ts): el link o el texto se lee recién al ejecutar (bajar una página
+  // antes de que confirme sería gastar su tiempo en algo que puede no querer).
+  replicar_link_o_texto_copywriter: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (await cerrada(ctx)) return { error: CERRADA };
+      const tipo = str(input, 'tipo');
+      const texto = str(input, 'texto');
+      if (!esTipoPegado(tipo)) return { error: `Falta el tipo: ${TIPOS_PEGADO.join(', ')}.`, faltan: ['tipo'] };
+      const lo = queEsLoPegado(texto);
+      if (lo.clase === 'vacio') return { error: 'Falta el link o el texto a replicar.', faltan: ['texto'] };
+      if (lo.clase === 'instagram') return { error: 'De Instagram no puedo traer el video desde el link: pásame su texto.' };
+      const que = lo.clase === 'texto' ? `el texto que pasaste («${lo.texto.slice(0, 60)}…»)` : lo.url;
+      return { payload: { tipo, texto }, resumen: `Crear una página para replicar ${INFO_PEGADO[tipo].rotulo.toLowerCase()}: ${que}.` };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const r = await replicarPegado({ tipo: str(payload, 'tipo'), texto: str(payload, 'texto') });
+      if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
+      return { ok: true, resumen: `Listo: ${nombreDe(r.pagina)}. Al abrirla, MaKo transcribe el video si tiene, pregunta para qué oferta y la escribe.`, datos: { documentoId: r.pagina.id, link: linkDoc(r.pagina.id) } };
     },
   },
 };

@@ -26,13 +26,15 @@
 // en lib/editor-landing/replicar.ts; acá sólo la puerta.
 //
 // La puerta es la de todo /api/landing-generator: admin del workspace y la tab `landing-writer` en su
-// capa (sin el rol, un closer usaría por acá la IA y la red que su pantalla le esconde).
+// capa (sin el rol, un closer usaría por acá la IA y la red que su pantalla le esconde). Y desde el 14/11/2026, MaKo Pro:
+// un Esencial recibe 403 con `pasarAPro` (lib/editor-landing/replicar-candado.ts).
 // maxDuration 300: por bloques corre las tandas de la IA con un plazo total de 240 s.
 // =============================================================================
 
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
 import { replicar } from '@/lib/editor-landing/replicar';
+import { candadoDeReplicarEnPantalla } from '@/lib/editor-landing/replicar-candado';
 import type { FormatoReplicar, RespuestaReplicar } from '@/lib/editor-landing/replicar-reglas';
 import type { SeLeeEnNavegador } from '@/lib/editor-landing/lectura-tipos';
 import { lineaDeEvento, type EventoReplica } from '@/lib/editor-landing/replicar-progreso';
@@ -47,7 +49,7 @@ const soltarBorrador = (url: unknown) => borrarBorradorReplica(url).catch((e: un
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-const falla = (status: number, error: string, extra: Partial<SeLeeEnNavegador> & { probar?: FormatoReplicar } = {}) =>
+const falla = (status: number, error: string, extra: Partial<SeLeeEnNavegador> & { probar?: FormatoReplicar; pasarAPro?: string } = {}) =>
   Response.json({ ok: false, error, ...extra } satisfies RespuestaReplicar, { status });
 
 /** Lo que contesta la ruta, sin el `status` interno: la misma forma con y sin flujo. */
@@ -65,6 +67,9 @@ export async function POST(req: Request) {
   if (rol == null) return falla(401, 'no autenticado');
   if (rol !== 'admin') return falla(403, 'Sólo el admin de la cuenta');
   if (!tabEnCapa('landing-writer', await getCapaActual())) return falla(404, 'No existe');
+  // SÓLO MaKo Pro (14/11/2026, lib/editor-landing/replicar-candado.ts): la puerta, sin flujo, con «Pasar a Pro».
+  const pro = await candadoDeReplicarEnPantalla();
+  if (pro) return falla(403, pro.error, { pasarAPro: pro.pasarAPro });
 
   let body: { url?: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown; adaptar?: unknown; partes?: unknown; tema?: unknown; angulos?: unknown; oferta?: unknown; foto?: unknown; enVivo?: unknown };
   try { body = await req.json(); } catch { return falla(400, 'body inválido'); }

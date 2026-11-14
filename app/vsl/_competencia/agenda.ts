@@ -2,7 +2,7 @@
 // /vsl/agenda — la Agenda de MaKo (tu Calendly o Cal.com conectado al CRM, y Calendar), con la ESTRUCTURA de iClosed
 // =============================================================================
 // REFERENCIA COPIADA ENTERA (el orden de secciones, el storytelling y el DISEÑO):
-//   https://www.iclosed.io/  (leída el 11/11/2026 con Chromium)
+//   https://www.iclosed.io/  (leída el 11/11/2026 con Chromium, y otra vez el 14/11/2026: el hero ahora es una demo)
 // El diseño copiado (barra, hero, secciones, tipografía, espacios, pie) es ./disenos/agenda.tsx; los valores medidos
 // con getComputedStyle a 1440 y 390 px, en docs/diseno/landings-competencia/agenda.md.
 // Su orden, que se respeta acá: hero «Triple your leads using high-converting scheduler» → tres citas cortas → «Keep the
@@ -11,6 +11,13 @@
 // page should've done all along» → «Your whole team, closing in one inbox» → «Coaches, agencies, creators» → «Drops into
 // the stack you already have» → «Proof, in their own words» → «The lift, measured in cold dollars» → «Book a 5-min demo»
 // → el cierre. Por qué ganó: docs/competencia/landings-por-funcion.md → «Agenda».
+//
+// 14/11/2026, la copia FIEL: el orden y los bloques siguen su página de ese día. Las pestañas de «Keep the same funnels» son tres
+// (cada una con su lista que se marca: `puntos`, «título|texto»), «Everything your booking page…» tiene cinco tarjetas en SU orden
+// (la tercera, la de los flujos para quien no vino; la quinta, el tablero), y «Your whole team» es su ventana grande, sin tarjetas
+// (`items: []`): lo que dice va en la bajada. «Drops into the stack…» son las cuatro integraciones que tocan la agenda: Calendly y
+// Cal.com (los webhooks), Meta (el «Schedule» que manda el webhook de Calendly: lib/meta-schedule-pagina.ts) y los grabadores de
+// reuniones (lib/grabadores: Fathom, Zoom, tl;dv, Fireflies y Otter). Las pantallas de cada pieza viven en ./disenos/agenda.tsx.
 //
 // Lo que se cambió de la referencia, y por qué:
 //   · iClosed CALIFICA antes de mostrar horarios, descarta a los que no compran y rutea al mejor closer. MaKo no: no
@@ -46,7 +53,8 @@
 //   · «Keep the same funnels. Change the scheduler, make more profit.» → «Mantén los mismos funnels y tu misma agenda»
 //     (tu agenda no cambia, y la ganancia no está medida); «The money's already in your funnel. Plug in. Take it back.» →
 //     «Las reservas ya están en tu funnel. Conéctalas…», con «One embed on the funnel you already run» y «No rebuild»;
-//   · «Everything your booking page should've done all along.», «The most accurate scheduling tracker» / «Every contact,
+//   · «Everything your booking page should've done all along.» (→ «Todo lo que tu agenda debió hacer desde el principio», en dos
+//     renglones como el suyo), «The most accurate scheduling tracker» / «Every contact,
 //     activity and outcome synced in one place and pushed straight to your CRM» (→ «Todo, directo a tu CRM», sin «el más
 //     preciso»), «SMS & email workflows, reduce no-shows» (→ «Flujos de WhatsApp y email para quien no vino»: MaKo no manda SMS y las inasistencias evitadas no están medidas);
 //   · «Your whole team, closing in one inbox.» → «Todo tu equipo, con sus llamadas en un solo lugar» (la bandeja de
@@ -82,59 +90,95 @@ export const LANDING_AGENDA: LandingCompetencia = {
   slug: 'agenda',
   nombre: 'Agenda',
   icono: I.agenda,
-  referencia: { nombre: 'iClosed — la agenda para equipos de venta high ticket', url: 'https://www.iclosed.io/', leida: '2026-11-11' },
+  referencia: { nombre: 'iClosed — la agenda para equipos de venta high ticket', url: 'https://www.iclosed.io/', leida: '2026-11-14' },
   metaTitle: `Agenda de MaKo: ordena tus leads usando tu misma agenda de ${AGENDAS}`,
   metaDesc: `Conectas tu ${AGENDAS} y quien reserva entra a tu CRM con lo que contestó, en la etapa del funnel que elegiste. Tu equipo ve todas sus llamadas en Calendar.`,
   bloques: [
     {
       tipo: 'hero',
-      etiqueta: 'Tu agenda de ventas, conectada a tu CRM',
+      etiqueta: `Tu ${AGENDAS}, conectado a tu CRM`,
       titulo: 'Ordena tus leads <em>usando tu misma agenda</em>',
       bajada: `MaKo conecta tu <strong>${AGENDAS}</strong> a tu CRM: quien reserva entra con lo que contestó, en la etapa del funnel que elegiste, y con Automations recuperas a los que no terminaron de agendar y les das seguimiento por el canal correcto.`,
-      puntos: ['Tu misma agenda: no cambias de herramienta', 'Con Automations, la reunión se le recuerda al lead'],
       visual: { tipo: 'propio', slug: 'agenda' },
     },
     {
+      // Las tres pestañas de «Keep the same funnels» (cada una con su grabación en ./disenos/agenda.tsx) y su lista que se va marcando.
       tipo: 'tarjetas',
       titulo: 'Mantén los mismos funnels y tu misma agenda. <em>Ahora, conectada a tu CRM.</em>',
-      bajada: `No cambias de ${AGENDAS}: MaKo lee cada reserva y la pone donde va.`,
       items: [
-        { icono: I.etapa, titulo: 'Cada reserva, en su etapa', texto: 'Vinculas cada evento de tu agenda a una etapa de reunión, y quien lo reserva cae ahí, en ese funnel. Si ya era tu lead, MaKo lo suma a ese funnel <strong>sin cambiarle el que ya tenía</strong>.' },
-        { icono: I.campana, titulo: 'El seguimiento, con Automations', texto: `La plantilla «${AGENDO}» confirma la reunión, se la recuerda al lead antes y te avisa en tu grupo de WhatsApp cuando alguien agenda.` },
-        { icono: I.check, titulo: 'Quién vino y quién no', texto: 'En Calendar marcas si asistió o no vino desde la lista de llamadas, y queda en su ficha del CRM.' },
+        {
+          icono: I.etapa, titulo: 'Cada reserva, en su etapa',
+          texto: 'Vinculas cada evento de tu agenda a una etapa de reunión, y quien lo reserva cae ahí, en ese funnel.',
+          puntos: [
+            'Vinculas el evento|Desde el «⋯» de la etapa, eliges el evento de tu agenda.',
+            'Cae en esa etapa|Quien lo reserva entra a ese funnel, en esa etapa.',
+            'Si ya era tu lead|MaKo lo suma a ese funnel sin cambiarle el que ya tenía.',
+          ],
+        },
+        {
+          icono: I.campana, titulo: 'El seguimiento, con Automations',
+          texto: `La plantilla «${AGENDO}» le escribe por WhatsApp a quien agenda, le recuerda la reunión y te avisa en tu grupo.`,
+          puntos: [
+            'Confirma la reunión|Le escribe por WhatsApp apenas agenda.',
+            'Se la recuerda|Un día antes, una hora antes y 15 minutos antes, con el link para entrar.',
+            'Te avisa|En tu grupo de WhatsApp, cuando alguien agenda y si no confirmó.',
+          ],
+        },
+        {
+          icono: I.check, titulo: 'Quién vino y quién no',
+          texto: 'En Calendar, las llamadas de venta de todo tu equipo, y la asistencia se marca en la misma fila.',
+          puntos: [
+            'Las de todo el equipo|Próximas, pasadas y canceladas, con su closer y su setter.',
+            'Filtras por persona|Cada closer o setter arranca en las suyas.',
+            'Marcas si asistió|Y queda en su ficha del CRM.',
+          ],
+        },
       ],
     },
     {
       tipo: 'pasos',
       fondo: true,
+      etiqueta: 'Para vender high ticket',
       titulo: 'Las reservas ya están en tu funnel. <em>Conéctalas y caen en su lugar.</em>',
-      bajada: 'Una conexión sobre el funnel que ya tienes: un evento de tu agenda para cada etapa de reunión, sin rehacer nada ni cambiar tu página de reservas.',
+      bajada: 'Una conexión sobre el funnel que ya tienes, sin rehacer nada ni cambiar tu página de reservas.',
       pasos: [
-        { titulo: 'Conecta tu agenda', texto: `Conectas tu ${AGENDAS} en Integraciones, con el evento de tu llamada. Con Calendly, el aviso de cada reserva pide uno de sus planes pagos.` },
-        { titulo: 'Vincula cada evento a su etapa', texto: 'Desde el menú de la columna de una etapa de reunión, en tu CRM, eliges qué evento cae ahí. También puedes crear el evento desde ahí mismo.' },
-        { titulo: 'Cada reserva entra sola', texto: 'Quien reserva entra a tu CRM en esa etapa, con <strong>lo que contestó al agendar</strong> y el link para entrar a la llamada.' },
+        { titulo: 'Conecta tu agenda', texto: `Conectas tu ${AGENDAS} en Integraciones. Con Calendly, el aviso de cada reserva pide uno de sus planes pagos.` },
+        { titulo: 'Vincula cada evento a su etapa', texto: 'Desde el menú de una etapa de reunión de tu CRM eliges qué evento cae ahí, o lo creas ahí mismo.' },
+        { titulo: 'Cada reserva entra sola', texto: 'Quien reserva entra a tu CRM en esa etapa, con <strong>lo que contestó al agendar</strong> y el link de la llamada.' },
       ],
     },
     {
       tipo: 'tarjetas',
-      titulo: 'Todo lo que tu página de reservas debió hacer <em>desde el principio</em>',
+      etiqueta: 'Lo que hace',
+      titulo: 'Todo lo que tu agenda <em>debió hacer desde el principio</em>',
+      cta: true,
       items: [
-        { icono: I.ficha, titulo: 'Todo, directo a tu CRM', texto: 'Cada contacto, lo que contestó y cómo terminó su llamada, en un solo lugar: las respuestas del formulario de tu agenda quedan en el resumen del lead, para que llegues sabiendo con quién hablas.' },
-        { icono: I.link, titulo: 'El link de la reunión, guardado', texto: 'MaKo guarda el link para entrar a la llamada, y es el que lleva el recordatorio que le llega al lead.' },
-        { icono: I.dos, titulo: 'La primera llamada y la de cierre', texto: 'Distingue tu primera reunión de la segunda: la segunda se suma al lead que ya tienes y nunca crea uno nuevo.' },
-        { icono: I.otra, titulo: 'Cancela o vuelve a agendar', texto: 'Si cancela, la reunión queda cancelada en su ficha. Si vuelve a agendar después de faltar, se limpia su «no asistió».' },
+        { icono: I.dos, titulo: 'La primera llamada y la de cierre', texto: 'Cada evento sabe si es tu R1 o tu R2: la segunda se suma al lead que ya tienes y nunca crea uno nuevo.' },
+        { icono: I.link, titulo: 'El link de la reunión, guardado', texto: 'La tarjeta de la reunión trae lo que contestó al agendar y, minutos antes, «Entrar a la reunión» con su link.' },
         { icono: I.falta, titulo: 'Flujos de WhatsApp y email para quien no vino', texto: `La plantilla «${NO_ASISTIO}» le escribe a quien faltó para buscar otro horario y te avisa en tu grupo.` },
+        { icono: I.otra, titulo: 'Cancela o vuelve a agendar', texto: 'Si cancela, la reunión queda cancelada en su ficha y en Calendar. Si vuelve a agendar después de faltar, se limpia su «no asistió».' },
+        { icono: I.ficha, titulo: 'Todo, directo a tu CRM', texto: 'Cada contacto, su reunión y cómo terminó, en un solo lugar: llegas a la llamada sabiendo con quién hablas.' },
       ],
     },
     {
       tipo: 'tarjetas',
       fondo: true,
       titulo: 'Todo tu equipo, <em>con sus llamadas en un solo lugar</em>',
-      bajada: 'En Calendar, la lista de tus llamadas de venta: próximas, pasadas y canceladas, cada una con su lead y su estado.',
+      bajada: 'En Calendar, las llamadas de venta de todo tu equipo: cada closer o setter arranca en las suyas, tú filtras por persona y marcas quién vino.',
+      items: [],
+    },
+    {
+      // «Drops into the stack you already have»: la marquesina de logos y cuatro destacadas (las que tocan la agenda, con lo que hacen).
+      tipo: 'tarjetas',
+      etiqueta: 'Integraciones',
+      titulo: 'Se conecta con <em>lo que ya usas</em>',
+      bajada: 'Tu agenda, tus anuncios, tu WhatsApp y tu grabador de reuniones, conectados a tu CRM.',
+      cta: true,
       items: [
-        { icono: I.persona, titulo: 'Cada uno ve las suyas', texto: 'Un closer o un setter entra a Calendar y arranca en sus llamadas.' },
-        { icono: I.equipo, titulo: 'Tú ves todas', texto: 'Filtras por persona, o miras las que todavía no tienen a nadie asignado.' },
-        { icono: I.agenda, titulo: 'Con el resto de tu agenda', texto: 'Tus llamadas, tu Google Calendar, las fechas límite del Plan y los cobros que vencen, en el mismo calendario.' },
+        { titulo: 'Calendly', texto: 'Cada reserva entra a tu CRM, en la etapa de su evento.' },
+        { titulo: 'Cal.com', texto: 'Lo mismo con Cal.com: el lead, lo que contestó y el link de la llamada.' },
+        { titulo: 'Meta', texto: 'Cada reserva le llega a Meta como «Schedule».' },
+        { titulo: 'Fathom', texto: 'La grabación de la llamada queda en la ficha del lead.' },
       ],
     },
     { tipo: 'caso' },

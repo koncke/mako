@@ -13,7 +13,6 @@ import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 import { PRUEBA_DIAS } from '@/lib/planes-mako';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { CSS_PLANES } from '../estilo';
-import { BarraGlobal } from '@/app/vsl/_sitio/Barra';
 
 /** Lo que dice el resumen de la izquierda (Stripe Checkout): sólo datos del plan, nada inventado. */
 export type Resumen = {
@@ -48,8 +47,12 @@ export function resumenDelPlan(p: {
   if (!una) return { etiqueta: `Suscribirte a ${p.nombre}`, nombre: p.nombre, precio: p.precio, incluye: p.incluye };
   const mes = formatoMonto(una.monto, una.moneda);
   const primero = p.conPromo ? p.conPrimerMes(una.monto) : una.monto;
-  const otros = resto.map((x) => `o ${formatoMonto(p.conPromo ? p.conPrimerMes(x.monto) : x.monto, x.moneda)}${p.conPromo ? ' el primer mes' : ' por mes'} con ${x.pasarela === 'mercadopago' ? 'Mercado Pago' : 'tarjeta'}`);
-  const totales: NonNullable<Resumen['totales']> = [{ concepto: 'Subtotal', monto: mes }];
+  // Sin «o US$97 por mes con Mercado Pago» debajo del precio (14/11/2026, noche, Martín: «Repetiste lo mismo, no tiene sentido»): el
+  // precio de arriba ya lo dice. Las otras pasarelas no llevan renglón propio.
+  void resto;
+  const otros: string[] = [];
+  // Sin «Subtotal» (14/11/2026, noche, Martín: «No me hace sentido que esté»).
+  const totales: NonNullable<Resumen['totales']> = [];
   if (p.conPromo && primero < una.monto) totales.push({ concepto: 'Descuento del primer mes', monto: `−${formatoMonto(Math.round((una.monto - primero) * 100) / 100, una.moneda)}`, tipo: 'descuento' });
   totales.push({ concepto: 'Total de hoy', monto: formatoMonto(p.conPrueba ? 0 : primero, una.moneda), tipo: 'total' });
   // CUÁNDO EMPIEZA EL COBRO, CON SU FECHA (12/11/2026, Martín: «eso tiene que estar con que se indique que, como toda
@@ -62,14 +65,14 @@ export function resumenDelPlan(p: {
     precio: p.conPrueba ? formatoMonto(0, una.moneda) : formatoMonto(primero, una.moneda),
     periodo: p.conPrueba ? `hoy; después ${mes} por mes` : p.conPromo ? `el primer mes; después ${mes} por mes` : 'por mes',
     otros,
-    detalle: 'Se cobra cada mes',
+    // Martín, 14/11/2026: «no pongas abajo "se cobra por mes luego". Pon "suscripción recurrente"… cuidado con cómo usas las palabras».
+    detalle: 'Suscripción recurrente',
     precioRenglon: mes,
     incluye: p.incluye,
     totales,
-    nota: p.conPrueba
-      // El Cerebro (14/11/2026): «Como toda suscripción…» era falso (Esencial se cobra al empezar). Cada plan dice el suyo.
-      ? `El primer cobro es el día ${PRUEBA_DIAS + 1}, el ${fecha}; si te das de baja antes, no pagas nada.`
-      : 'Se cobra al empezar, y después cada mes hasta que te des de baja.',
+    // Sin nota debajo de los totales (Martín, 14/11/2026: «elimina el texto… "el primer cobro es el día 8…". Se entiende con el texto
+    // de arriba, desde el 20 de noviembre, 97 por mes»): el renglón «Desde el <fecha>» ya lo dice.
+    nota: undefined,
   };
 }
 
@@ -100,10 +103,11 @@ function Detalle({ r }: { r: Resumen }) {
  */
 export function Ficha({ resumen: r, pasarelas = [], children }: { resumen: Resumen; pasarelas?: readonly Pasarela[]; children: ReactNode }) {
   const procesa = [...new Set(pasarelas)].map((x) => NOMBRE_PASARELA[x]);
-  // La barra del sitio también aquí (12/11/2026, Martín: «la top bar jamás debe desaparecer en ningún momento»).
+  // SIN la barra del sitio (14/11/2026, Martín: «es importante que esa página de checkout no tenga la top bar de arriba, porque el
+  // checkout justamente tiene que ser protagonista… y que no haya scroll»). Reemplaza a la del 12/11 («la top bar jamás debe
+  // desaparecer»): la marca y la flecha para volver están en la columna del resumen, como en Stripe Checkout.
   return (
     <>
-    <BarraGlobal claro />
     <main className="planes-root ck-root">
       <style dangerouslySetInnerHTML={{ __html: CSS_PLANES }} />
       <div className="ck">

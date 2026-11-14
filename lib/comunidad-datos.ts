@@ -32,6 +32,8 @@ import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import { fotoDePersonaSegura } from './foto-perfil';
+import { esEsencialDe } from './plan-esencial';
+import { textoCandadoComunidad } from './comunidad-solo-pro';
 import { esDelProducto } from '@/app/customer-success/pertenencia';
 import {
   NIVEL_MAX, nivelDe, puntosParaSubir, nombreDeNivel, sanearNombresNivel, distribucionDeNiveles,
@@ -87,6 +89,16 @@ export type Actor = ActorRegla & {
 };
 
 export const msg = (e: unknown, def: string) => (e instanceof Error && e.message ? e.message : def);
+
+/**
+ * LA COMUNIDAD ES SÓLO DE MaKo Pro (14/11/2026, lib/comunidad-solo-pro.ts): el texto del candado si el NEGOCIO dueño (`a.ws`,
+ * nunca la sesión: el alumno no la tiene) paga el Esencial, o null. Lo preguntan lo que hace NACER algo en la comunidad —un
+ * post (`publicarPost`) y un evento (`guardarEvento`, lib/comunidad-calendario.ts)—, no los comentarios de una clase.
+ * Ante la duda, pasa (`esEsencialDe` devuelve false si no puede leer el plan).
+ */
+export async function candadoDeComunidad(a: Pick<Actor, 'ws' | 'equipo'>): Promise<string | null> {
+  return (await esEsencialDe(a.ws)) ? textoCandadoComunidad(a.equipo) : null;
+}
 
 // ── El acceso a las tablas, con el workspace puesto ──────────────────────────────
 
@@ -992,6 +1004,9 @@ export async function seguirPost(a: Actor, postIdRaw: unknown, si: boolean): Pro
 /** Publica un post. Lo que escribe lo valida `validarPost`; quién puede, las reglas de la comunidad. */
 export async function publicarPost(a: Actor, raw: unknown): Promise<Resultado<{ post: PostVista }>> {
   try {
+    // Sólo de MaKo Pro: el plan del negocio dueño, antes de leer nada (`candadoDeComunidad`).
+    const candado = await candadoDeComunidad(a);
+    if (candado) return { ok: false, error: candado };
     const b = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
     const [ajustes, categorias] = await Promise.all([leerAjustes(a.ws, a.productoId), categoriasDe(a.ws, a.productoId)]);
     if (!a.equipo && ajustes.nivelParaPostear > 1) {

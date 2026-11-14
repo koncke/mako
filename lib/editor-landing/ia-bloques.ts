@@ -40,7 +40,7 @@
 
 import {
   NODO, OPTIMIZADOS, VARIANTES_OPTIMIZADO, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA,
-  SUPERPOSICIONES, TONOS_RECUADRO, VARIANTES_BOTON, ALINEACIONES, TIPOS_GRAFICO, TIPOS_CAMPO,
+  SUPERPOSICIONES, TONOS_RECUADRO, VARIANTES_BOTON, ALINEACIONES, TIPOS_GRAFICO, TIPOS_CAMPO, CAMPOS_CON_OPCIONES,
   ALTOS_ESPACIADOR, DEGRADADOS, MIN_COLUMNAS, MAX_COLUMNAS, MIN_ITEMS_OPTIMIZADO, MAX_ITEMS_OPTIMIZADO,
   TOPES, ATTRS_TARJETA_DEFAULT, nuevoId, esHex, enLista, textoDe,
   type JsonNodo, type JsonMarca, type DisenoTarjeta, type AnchoTarjeta, type AlineacionTarjeta,
@@ -87,7 +87,7 @@ export type ItemOptimizadoIA = {
 };
 
 export type BotonIA = { texto: string; destino: string; estilo?: VarianteBoton };
-export type CampoIA = { tipo: TipoCampo; etiqueta: string; requerido?: boolean; opciones?: string[] };
+export type CampoIA = { tipo: TipoCampo; etiqueta: string; requerido?: boolean; opciones?: string[]; valor?: string };
 export type SerieIA = { nombre: string; valores: number[] };
 
 export type BloqueIA =
@@ -102,7 +102,7 @@ export type BloqueIA =
   | { t: 'desplegables'; items: { titulo: string; texto: string }[] }
   | { t: 'separador' }
   | { t: 'espaciador'; alto?: AltoEspaciador }
-  | { t: 'formulario'; campos: CampoIA[]; boton: string; exito: string; ref?: string }
+  | { t: 'formulario'; campos: CampoIA[]; boton: string; exito: string; clase?: 'encuesta'; ref?: string }
   | { t: 'grafico'; tipo: TipoGrafico; titulo: string; categorias: string[]; series: SerieIA[]; prefijo?: string; sufijo?: string }
   | { t: 'imagen'; busqueda: string; alt: string; src?: string | null; ref?: string }
   | { t: 'etiqueta'; texto: string }
@@ -909,11 +909,13 @@ function nodoFormulario(b: Record<string, unknown>, ctx: Ctx): JsonNodo {
     if ((t === 'nombre' || t === 'email' || t === 'telefono') && unicos.has(t)) { ctx.d?.push(`formulario: «${t}» repetido, queda el primero`); continue; }
     unicos.add(t);
     let opciones = arr(x.opciones).map((o) => texto(o, ctx.d, 'opción', 120).trim()).filter(Boolean).slice(0, 12);
-    if (t === 'opciones' && opciones.length < 2) { ctx.d?.push(`formulario campo ${i + 1}: «opciones» con menos de 2, queda como texto`); t = 'texto'; }
-    if (t !== 'opciones') opciones = [];
+    if (CAMPOS_CON_OPCIONES.has(t) && opciones.length < 2) { ctx.d?.push(`formulario campo ${i + 1}: «${t}» con menos de 2 opciones, queda como texto`); t = 'texto'; }
+    if (!CAMPOS_CON_OPCIONES.has(t)) opciones = [];
     const previo = camposOrig[campos.length];
     const id = previo && previo.tipo === t && typeof previo.id === 'string' ? previo.id : nuevoId('c');
-    campos.push({ id, tipo: t, etiqueta: texto(x.etiqueta, ctx.d, 'campo', 120).trim() || ETIQUETA_CAMPO[t], requerido: x.requerido !== false && (t === 'nombre' || t === 'email' || t === 'telefono' || x.requerido === true), opciones });
+    const campo: CampoFormulario = { id, tipo: t, etiqueta: texto(x.etiqueta, ctx.d, 'campo', 120).trim() || ETIQUETA_CAMPO[t], requerido: t !== 'oculto' && x.requerido !== false && (t === 'nombre' || t === 'email' || t === 'telefono' || x.requerido === true), opciones };
+    if (t === 'oculto') campo.valor = texto(x.valor, ctx.d, 'campo', 120).trim();
+    campos.push(campo);
   }
   // Sin email ni teléfono el formulario no crea un lead: el Pixel captura el opt-in por esos
   // dos campos (D4). Una regla en un prompt no es una regla: acá se completa en código.
@@ -924,9 +926,15 @@ function nodoFormulario(b: Record<string, unknown>, ctx: Ctx): JsonNodo {
   }
   if (campos.length > TOPES.camposFormulario) { ctx.d?.push(`formulario: ${campos.length} campos, quedan ${TOPES.camposFormulario}`); campos.length = TOPES.camposFormulario; }
   const redirigir = orig?.type === NODO.formulario && typeof orig.attrs?.redirigir === 'string' ? orig.attrs.redirigir : null;
+  // ⚠️ EL ID, EL NOMBRE Y LA CLASE DEL ORIGINAL SE CONSERVAN (14/11/2026): el CRM rutea por el id (piezas.ts). Si la IA
+  // reescribe el formulario y el id cambia, los leads de ese formulario dejan de caer en su funnel sin aviso.
+  const deOrig = orig?.type === NODO.formulario ? orig.attrs ?? {} : {};
   return {
     type: NODO.formulario,
     attrs: {
+      id: typeof deOrig.id === 'string' ? deOrig.id : nuevoId('f'),
+      nombre: typeof deOrig.nombre === 'string' ? deOrig.nombre : '',
+      clase: deOrig.clase === 'encuesta' || b.clase === 'encuesta' ? 'encuesta' : 'formulario',
       campos,
       boton: texto(b.boton, ctx.d, 'formulario', 60).trim() || 'Enviar',
       exito: texto(b.exito, ctx.d, 'formulario', 200).trim() || '¡Gracias! Ya recibimos tus datos.',
@@ -1453,11 +1461,12 @@ function bloqueDeNodo(n: JsonNodo, base: JsonNodo, d: string[] | undefined, form
       const campos: CampoIA[] = arr(a.campos).filter(esObj).map((c) => {
         const tipo = enLista<TipoCampo>(TIPOS_CAMPO, c.tipo, 'texto');
         const out: CampoIA = { tipo, etiqueta: strCrudo(c.etiqueta), requerido: c.requerido === true };
-        if (tipo === 'opciones') out.opciones = arr(c.opciones).map(strCrudo);
+        if (CAMPOS_CON_OPCIONES.has(tipo)) out.opciones = arr(c.opciones).map(strCrudo);
+        if (tipo === 'oculto') out.valor = strCrudo(c.valor);
         return out;
       });
       const r = refDeNodo(base, n);
-      return [{ t: 'formulario', campos, boton: strCrudo(a.boton), exito: strCrudo(a.exito), ...(r ? { ref: r } : {}) }];
+      return [{ t: 'formulario', campos, boton: strCrudo(a.boton), exito: strCrudo(a.exito), ...(a.clase === 'encuesta' ? { clase: 'encuesta' as const } : {}), ...(r ? { ref: r } : {}) }];
     }
     case NODO.grafico: {
       const out: BloqueIA = {
@@ -1585,7 +1594,7 @@ function armarGramatica(): string {
     '- {"t":"tabla","filas":[["..."]],"encabezado":true}',
     '- {"t":"desplegables","items":[{"titulo","texto"}]} preguntas frecuentes: el título es la pregunta.',
     '- {"t":"separador"} · {"t":"espaciador"}',
-    '- {"t":"formulario","campos":[{"tipo":"nombre|email|telefono|empresa|texto|textoLargo|opciones","etiqueta","requerido","opciones":[...]}],"boton","exito"} siempre con email o teléfono; los datos entran al CRM.',
+    '- {"t":"formulario","campos":[{"tipo":"nombre|email|telefono|empresa|texto|textoLargo|opciones|multiple|desplegable|numero|fecha|escala|consentimiento|oculto","etiqueta","requerido","opciones":[...],"valor"}],"boton","exito"} siempre con email o teléfono; los datos entran al CRM. «opciones» = elige una; «multiple» = elige varias; «desplegable» = lista; las tres llevan "opciones". «escala» = del 1 al 10. «consentimiento» = una casilla de aceptar. «oculto» = un dato fijo que no se ve ("valor"). Una encuesta es un formulario con "clase":"encuesta".',
     '- {"t":"grafico","tipo":"' + TIPOS_GRAFICO.join('|') + '","titulo","categorias":[...],"series":[{"nombre","valores":[números]}]} sólo con datos que te dieron.',
     '- {"t":"imagen","busqueda","alt"} una foto suelta (búsqueda en inglés).',
     '- {"t":"etiqueta","texto"} una píldora corta: «Más vendido», «Nuevo».',

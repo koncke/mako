@@ -19,21 +19,29 @@ export type Tope =
   | 'web.dominios' | 'cobros.cuentas' | 'equipo.usuarios'
   // El media buyer con IA (25/10/2026, el Cerebro): Esencial lo tiene en modo «propone», con 2 recomendaciones por día y sin
   // piloto automático (el cupo del plan de entrada de AdAmigo). Lo hace cumplir el chat «Media Buyer»; la vitrina lo lee acá.
-  | 'ads.recomendaciones_dia';
+  | 'ads.recomendaciones_dia'
+  // 14/11/2026 (Martín: «Tu competencia solamente debería poder scrapear a una persona de la competencia, el de 97 ilimitado»):
+  // los competidores que un negocio suma a Competitor Spy (lib/spy.ts, `agregarCompetidor`, la única entrada).
+  | 'spy.competidores'
+  // 14/11/2026 (Martín: «no pusiste nada de la parte de Classroom… seas más limitado en el de 47»): los cursos del Classroom.
+  | 'classroom.cursos';
 
 /** null = sin tope. */
 export const TOPES: Readonly<Record<'completo' | 'agencia', Readonly<Record<Tope, number | null>>>> = {
   // MaKo Esencial (US$47)
   completo: {
-    'crm.funnels': 1, 'crm.leads': 2000, 'chats.lineas_whatsapp': 1, 'automations.activas': 3,
-    'web.landings_publicadas': 3, 'web.dominios': 1, 'cobros.cuentas': 1, 'equipo.usuarios': 1,
-    'ads.recomendaciones_dia': 2,
+    // 14/11/2026, noche (Martín, mirando /planes): 2 automatizaciones (eran 3) y SIN dominio propio (era 1; 0 = no se conecta).
+    'crm.funnels': 1, 'crm.leads': 2000, 'chats.lineas_whatsapp': 1, 'automations.activas': 2,
+    // 14/11/2026 (Martín: «landing… para el de 47 solamente puedo hacer una, para el de 97 ilimitado»): de 3 a 1. Quien ya tenía
+    // más las conserva: el tope frena la próxima (lib/editor-landing/tope-landings.ts).
+    'web.landings_publicadas': 1, 'web.dominios': 0, 'cobros.cuentas': 1, 'equipo.usuarios': 1,
+    'ads.recomendaciones_dia': 2, 'spy.competidores': 1, 'classroom.cursos': 1,
   },
   // MaKo Pro (US$97): sin esos topes, con 3 líneas y 5 usuarios.
   agencia: {
     'crm.funnels': null, 'crm.leads': null, 'chats.lineas_whatsapp': 3, 'automations.activas': null,
     'web.landings_publicadas': null, 'web.dominios': null, 'cobros.cuentas': null, 'equipo.usuarios': 5,
-    'ads.recomendaciones_dia': null,
+    'ads.recomendaciones_dia': null, 'spy.competidores': null, 'classroom.cursos': null,
   },
 };
 
@@ -41,7 +49,10 @@ export const TOPES: Readonly<Record<'completo' | 'agencia', Readonly<Record<Tope
 // 25/10/2026: 'ads-manager' salió de acá: el Media Buyer es de los dos planes y lo que separa a Pro es el piloto automático y el
 // cupo (ads.recomendaciones_dia), no la tab.
 // 29/10/2026: 'ai-avatar' salió de acá. Martín: «haz que AI-Avatar esté disponible para todos» (los tres planes).
-export const TABS_SOLO_PRO = ['closing-analyst', 'image-editor', 'video-editor'] as const;
+// 14/11/2026: 'image-editor' y 'video-editor' salieron de acá. Martín: «el editor de imágenes y editor de videos sí deberían estar
+// disponibles para la versión de 47, pero no deberían estar disponibles el tema de editar con inteligencia artificial»: los
+// editores son de los dos planes y lo de Pro es su IA (`FUNCIONES_SOLO_PRO`, 'ia-editores').
+export const TABS_SOLO_PRO = ['closing-analyst'] as const;
 
 /**
  * Lo que es SÓLO de Pro y no es una tab (27/10/2026, Martín en la llamada con Leila, Fathom 876470842-15): traer los contactos
@@ -51,11 +62,21 @@ export const TABS_SOLO_PRO = ['closing-analyst', 'image-editor', 'video-editor']
  */
 // MaKo Partners salió de acá el 29/10/2026: cualquier plan es partner (la llamada con Thiago, «una persona refiere a MaKo», y
 // las landings, que dicen «gratis» y «cualquier plan»).
-export const FUNCIONES_SOLO_PRO = ['scraper-whatsapp'] as const;
+// 14/11/2026 (Martín, el relevo de lo que hace MaKo: «seas más limitado en el de 47»): copiar la landing de un competidor
+// (Replicar del Web Generator y «Copiar su sitio» de Competitor Spy), la IA de los editores de imagen y de video, y la comunidad
+// del Classroom. Cada una la hace cumplir su área con `esEsencialDe` / `esEsencialDeLaSesion` y dice `textoSoloPro`.
+// 14/11/2026, noche (Martín): el setter con IA y los pilotos automáticos de Instagram y de YouTube, tampoco en Esencial (el de los
+// anuncios ya era de Pro: lib/media-buyer/store.ts, `PlanSinPiloto`).
+export const FUNCIONES_SOLO_PRO = ['scraper-whatsapp', 'replicar-landing', 'ia-editores', 'comunidad', 'setter-ia', 'piloto-redes'] as const;
 export type FuncionSoloPro = (typeof FUNCIONES_SOLO_PRO)[number];
 
 const QUE_ES_SOLO_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'scraper-whatsapp': 'Traer los contactos de un grupo de WhatsApp',
+  'replicar-landing': 'Copiar la landing de otro negocio',
+  'ia-editores': 'Editar con IA',
+  'comunidad': 'La comunidad de tus alumnos',
+  'setter-ia': 'El setter con IA',
+  'piloto-redes': 'El piloto automático de Instagram y YouTube',
 };
 /** El texto del candado: qué es, que es de Pro y cómo tenerlo (con el botón a `RUTA_CAMBIAR_PLAN`). */
 export const textoSoloPro = (f: FuncionSoloPro): string => `${QUE_ES_SOLO_PRO[f]} es de MaKo Pro. Pasa a Pro para usarlo.`;

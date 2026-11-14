@@ -1,75 +1,83 @@
 # /vsl/video — los valores medidos de su referencia
 
 **Referencia:** Cherry Studio, editor de reels con IA — https://cherrysweet.app/
-**Medido:** 11/11/2026, con Chromium (Playwright) a 1440 × 900 y a 390 × 900, `getComputedStyle` y `getBoundingClientRect`
-sobre los elementos reales. La portada tiene dos variantes del hero (una con su video amarillo entre el titular y los
-botones, otra con un párrafo en ese lugar): se midieron las dos.
+**Medido:** 11/11/2026 y otra vez el **14/11/2026** (Cherry cambió su portada en el medio), con Chromium (Playwright) a 1440 × 900
+y a 390 × 844: `getComputedStyle`, `getBoundingClientRect`, su script de interacciones y un video de cada animación. El relevo
+sección por sección, con las capturas y los videos, está en la carpeta de notas: `referencias-landings/video-cherry/relevo.md`.
 **Diseño copiado en:** `app/vsl/_competencia/disenos/video.tsx`. **Contenido:** `app/vsl/_competencia/video.ts`.
+
+⚠️ **Cherry tiene tres versiones de su portada en el mismo enlace** (`?ver=a|b|c`: con video de ventas, sin él, sólo el video).
+Desde el 12/11 todos ven la **B** (su script: `PRUEBA = false`), y es la que se midió el 14/11. La del 11/11 era la A (titular de
+60 px con el video entre el titular y los botones). Además esconde secciones con `hidden` (el comparador «Arrastra y mira lo que
+le quita a tu video» sigue en su HTML, escondido): se mira el DOM, no sólo la captura.
+
+## Su orden (versión B, 14/11)
+
+Barra · hero con vitrina · calendario «Tu semana de contenido se publica sola» · fila de dos (Instagram 7fr + «Tres pasos» 5fr) ·
+«Lo que hace» · «Marcas que se hicieron virales» · mosaico «Tu IA puede hacer videos así» · conector con Claude y ChatGPT ·
+simulador · (comparador, escondido) · banda rasgada «Y todo lo que rodea al video» · cinta «trabaja con» · precios · «Lo que más
+nos preguntan» · banda final · pie. En MaKo van: hero, fila de dos (comparador + tres pasos), «Lo que hace», banda, preguntas y
+banda final. Lo que no va y por qué: la cabecera de `video.ts`.
 
 ## Fuentes
 
-| Uso | Familia | Pesos | En MaKo |
-|---|---|---|---|
-| Titulares, números, calcomanías | Outfit | 800, 900 | la misma (Google Fonts, OFL, variable) |
-| Texto, botones, preguntas | Space Grotesk | 400, 500, 700 | la misma (variable 300–700) |
-| Cejillas, chips del comparador | DM Mono | 500 | la misma |
-| Notas a mano («toca cada paso», «arrástrame») | Caveat | 700 | (no va: son pistas de sus controles) |
-
-Viven en `public/vsl-assets/fuentes/{outfit,space-grotesk,dm-mono}/`.
-
-## Colores
-
-| Qué | Cherry | En MaKo |
+| Uso | Familia | Pesos |
 |---|---|---|
-| Fondo de la página | crema `#ECE3DD` | igual |
-| Paneles | `linear-gradient(#FFFFFF, #FBF7F4)` + `radial-gradient(120% 90% at 78% 72%, rgba(20,12,17,.05), transparent 60%)`, borde 1 px `rgba(20,12,17,.09)` | igual |
-| Tinta | `#140C11`; texto secundario `rgba(20,12,17,.68)`; nota `rgba(20,12,17,.48)` | igual |
-| Marca | rosa `#FF2D8A` (pastilla del titular, palabras resaltadas, número abierto, banda rasgada, × y +) | azul `#2F6FED` |
-| Banda rasgada | `radial-gradient(90% 70% at 20% 0%, #FF5AA3, transparent 60%), linear-gradient(160deg, #FF2D8A, #D8156E)` | `radial-gradient(… #6E9BF5 …), linear-gradient(160deg, #2F6FED, #1F57C8)` |
-| Hoja de calcomanías | `#FFF6FA` | `#F6F9FF` |
-| Botón principal | negro `#140C11`, texto crema `#ECE3DD` | igual |
-| Comparador | `#140D12`; lado «con» `linear-gradient(#172019, #0F1511)` y verde `#6ED49C` | igual (el chip del lado «sin», en azul) |
-| Calcomanías («pega») | negra `#0B0709`, crema `#F4ECE7`, verde `#6ED49C`, rosa | negra, crema, azul y dorado `#F2B01E` |
+| Titulares, números, calcomanías | Outfit | 800, 900 |
+| Texto y botones | Space Grotesk | 400–700 |
+| Cejillas, rótulos | DM Mono | 500 |
+| Pistas a mano («toca cada paso», «arrástrame», «tócalas») | Caveat | 700 |
 
-## Contenedores y espacios (1440)
+Viven en `public/vsl-assets/fuentes/{outfit,space-grotesk,dm-mono,caveat}/`.
 
-- **Página:** `body` con padding 0 / 24 / 60; `main` de 1160 px centrado (márgenes de 116 px), en grilla con gap 16.
-- **Barra:** píldora de 1160 × 58, radio 999, padding 9 10 9 18, gap 10, con el mismo fondo y sombra de los paneles;
-  links 14 / 14 500 `rgba(20,12,17,.68)` con padding 10 12 y radio 999; botón negro 14 / 14 500, padding 12 18.
-- **Panel:** radio 30; sombra `inset 0 1px 0 rgba(255,255,255,.9), 0 1px 0 …, 0 26px 50px -26px rgba(70,40,50,.22)`.
-- **Hero:** padding 64 40 0, todo centrado, gap 16. Cejilla DM Mono 10.5 / 12.6 500, 1.47 px, mayúsculas, con una
-  trama de puntos al costado. h1 Outfit 60 / 58.8 900, -2.7 px, 852 px de ancho; la marca dentro de una pastilla rosa
-  inclinada (radio 14, sombra de color). Video de 780 × 439, radio 20, sombra `0 26px 50px -24px rgba(50,20,35,.65)`.
-  Botones: negro (padding 17 26, 16 / 16 700, radio 999) y de línea (borde 1 px `rgba(20,12,17,.22)`). Nota 13 / 17.55.
-  Al pie, tarjetas inclinadas de 245–272 × 299–320 (radio 22) con calcomanías encima (padding 11 15 12, radio 12, anillo
-  blanco de 4 px, sombra `0 10px 18px rgba(70,40,50,.28)`).
-- **«Lo que hace»:** padding 48 48 48 36, grilla de 569 px + el resto, gap 26 / 40. h2 Outfit 58 / 52.2 900, -2.61 px.
-  Lista: botones de 569 px, radio 22, padding 14 14 14 10, gap 14; el activo blanco con borde y sombra
-  `0 14px 28px -20px rgba(70,40,50,.22)`; título Outfit 21 / 22.05 900 -0.42 px; texto 14.5 / 21. A la derecha, el video
-  de 360 × 450, radio 30, con su calcomanía.
-- **Comparador:** panel con padding 40 / 44, gap 12; párrafo 15 / 22.5. Caja oscura de 1070 × 240, radio 22, borde 1 px
-  blanco al 9 %, dividida en dos; chips DM Mono 10.5 500, 1.26 px, padding 7 9, radio 8.
-- **Banda rasgada:** 1160 px, padding 44 40 36, borde de papel rasgado arriba y abajo, trama de lunares; h2 Outfit 66 /
-  59.4 900 -2.97 px negro, 580 px. Hoja: radio 28, padding 22 16 20, sombra `0 30px 60px -24px rgba(90,0,40,.7)`; cuatro
-  calcomanías en fila (gap 16 / 12), rótulo negro Outfit con anillo blanco de 4 px, texto 13.5 / 18.2 500.
-- **Tres pasos:** tarjeta de 477 px, padding 24 / 22, gap 16; h2 Outfit 42 / 39.5 900 -1.89 px; números en cuadros negros
-  (el segundo rosa); título Outfit 18 / 20.7 800; texto 14 / 21; botón negro a todo el ancho (50 px).
-- **Preguntas:** cabecera suelta (padding 28 6 2), h2 62 / 55.8; panel con padding 8 / 32 y dos columnas de `<details>`
-  (527 px, gap 40), abiertas las dos primeras; pregunta 15.5 / 20.9 700 con padding 17 0; respuesta 14.5 / 21.75.
-- **Banda final:** rasgada, padding 70 40 60; cejilla; h2 Outfit 92 / 81 900 -4.6 px, 746 px; texto 16 / 24 500; botón
-  negro; tres tarjetas inclinadas cortadas por el borde de abajo; calcomanías a los costados.
-- **Pie:** centrado, padding 26 8 0, gap 14: logo, fila de links 14 / 21 `rgba(20,12,17,.68)` (gap 6 / 16), textos 12.5 /
-  18.75 `rgba(20,12,17,.48)`.
+## Colores (su tema claro)
+
+`--fondo #ECE3DD`, `--tinta #140C11`, `--tinta-2 rgba(20,12,17,.68)`, `--tinta-3 .48`, `--borde .09`, `--foco .05`, `--pastilla .06`,
+`--sombra rgba(70,40,50,.22)`. Su rosa `#FF2D8A` / `#D8156E` / `#FF5AA3` → el azul de MaKo `#2F6FED` / `#1F57C8` / `#6E9BF5`.
+Verde `#6ED49C`, ámbar `#FFC93C` (el anillo que late), crema `#F4ECE7`, negro de calcomanía `#0B0709`.
+
+## Medidas a 1440
+
+- **Página:** `body` padding 0 24 60; `main` 1160 px, grilla con gap 16. **Panel «vol»:** radio 30, borde 1 px, fondo
+  `radial-gradient(120% 90% at 78% 72%, foco, transparent 60%), linear-gradient(#FFF, #FBF7F4)`, sombra en cuatro capas.
+- **Hero:** padding 64 40 0; cejilla DM Mono 10.5 / 12.6, 0.14em; **h1 Outfit 900 84 / 75.6, −3.78 px** (clamp 44–84, 11.5vw;
+  25ch); la marca en una «caja» de color girada −2.5° y bajada 4 px; bajada 17 / 25.5, 44ch; botones 16 / 700, padding 17 26
+  (negro y de línea); nota 13 px. **Vitrina** de 350 px: tarjetas 230 × 287 (4:5, radio 22) a −9°, −3°, 3° y 9°, calcomanías 16 px
+  (padding 11 15 12, anillo blanco de 4 px) y el disco del logo de 82 px.
+- **Fila de dos:** 7fr / 5fr (667 + 477); tarjetas padding 24 22, gap 16; h2 Outfit 42 / 39.5 −1.89 px; íconos de 42 px
+  (radio 13); números de los pasos 42 px, negro +5° y el del medio de color −6°.
+- **Lo que hace:** padding 48 48 48 36, columnas 1.1fr / .9fr, gap 40; h2 58 / 52.2 −2.61 px; pasos con padding 14 14 14 10 y
+  radio 22, número 44 px a −7° / +6°, título 21 / 22.05; barra de 3 px de **7,5 s**; marco 360 × 450 radio 30; calcomanía
+  arriba a la derecha a 7°.
+- **Comparador:** caja de 240 px (190 en el teléfono), radio 22; mango blanco de 3 px con el círculo de 48 px.
+- **Banda rasgada:** padding 44 40 36; h2 66 / 59.4 −2.97 px, 13ch; hoja girada −1.2°, radio 28, padding 22 16 20, línea
+  punteada a 10 px; cuatro calcomanías (giradas ±6°) con su rótulo negro Outfit 22 (anillo blanco de 4 px) y texto 13.5 / 18.2;
+  chips 14 px; palabra calada 300 px con trazo de 2 px. El borde rasgado es una máscara (tira de 30 px arriba y abajo) y detrás va
+  el papel crema `#F7F1EA` 5 px más alto.
+- **Preguntas:** cabecera suelta (padding 28 6 2, h2 62 / 55.8); panel con dos columnas de 527 px (gap 40), resumen 15.5 / 20.9
+  700 con padding 17 0, + de 24 px que gira 45°; abiertas la 1.ª y la 3.ª.
+- **Banda final:** padding 70 40 60; h2 92 / 81 −4.6 px, 12ch; texto 16 / 24 500; abanico de 260 px con tres tarjetas de 210 px
+  (−10°, 0°, 10°) que corta el borde.
 
 ## A 390
 
-- `body` con padding 16; barra de 54 px sin los links (sólo «Entrar» y el botón 13.5 px).
-- h1 34 / 33.3 -1.53 px; h2 35.1 / 31.6 -1.58 px; h2 de la banda 39 / 35.1; de la tarjeta de pasos 31.2 / 29.3; de las
-  preguntas 37 / 33.3; de la banda final 46.8 / 41.2 -2.34 px.
-- Paneles con padding 26 / 18–20. Todo en una columna; la hoja de calcomanías en dos columnas; preguntas en una.
+`body` padding 0 16 110 (lugar para el botón fijo). h1 44.85 / 40.4; h2 de la fila 31.2; de «Lo que hace» 35.1; de la banda
+39; de las preguntas 37; de la banda final 46.8. Vitrina de 300 px con tarjetas de 150 y sólo dos calcomanías y el disco de
+50 px; todo en una columna; la hoja en dos columnas; el marco `min(74vw, 320px)`.
 
-## Animaciones
+## Animaciones e interacciones (su script, reescrito en el `<script data-visor>` del diseño)
 
-Cherry anima la entrada de los paneles al hacer scroll (con JavaScript) y las calcomanías al pasar el mouse. En MaKo: el
-hero y «Lo que hace» suben 16 px al cargar (nada arranca invisible), las calcomanías se enderezan al pasar el mouse, los
-botones suben 2 px, y el + de cada pregunta gira a ×. Todo apagado con `prefers-reduced-motion`.
+- **Entrada al bajar:** sólo lo que empieza fuera de la pantalla: `opacity 0 → 1` y `translate 0 34px → 0` en 0,8 s
+  `cubic-bezier(.16,1,.3,1)`; las calcomanías caen de `scale 1.45` con un rebote (0,55 s `cubic-bezier(.34,1.56,.64,1)`) y un
+  retraso al azar de 180 a 440 ms.
+- **Vitrina:** sigue al mouse (`--mx`, `--my`: tarjetas ±10 / ±6 px, calcomanías ±16 / ±9 px, `translate .35s ease-out`) y se
+  abre al bajar (`--abre` de 0 a 1 mientras el hero sale: las de afuera ±64 / 26 px).
+- **Lo que hace:** el paso abierto llena su barra en 7,5 s y pasa al siguiente; la escena vuelve a empezar; fuera de la vista
+  se pausa; el siguiente late (anillo ámbar, 1,5 s) hasta que se toca uno; la calcomanía del marco salta (0,55 s).
+- **Comparador:** se pasea solo una vez (1,8 s, ±28 %) al aparecer; «arrástrame» empuja 9 px y se va con el primer arrastre.
+- **Calcomanías:** al pasar el mouse `scale 1.07`; al tocarlas se menean (0,5 s: −6°, 5°, −3°).
+- **Palabra calada:** corre ±120 px con el scroll de su banda.
+- **Botones:** NO se mueven al pasar el mouse; sólo `scale(.98)` al apretar.
+- **Videos:** corren a lo sumo 4 (2 en el teléfono), los que se ven, y se frenan mientras se baja.
+- **Botón fijo (teléfono):** aparece cuando el del hero quedó arriba y antes de la banda final.
+- Con «menos movimiento», nada corre solo.

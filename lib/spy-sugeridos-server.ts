@@ -72,7 +72,7 @@ export function sugeridosDelNegocio(): Promise<Sugerido[]> {
 }
 
 /** Suma un sugerido al negocio que pregunta, sin gastarle nada. Su caricatura, si la plataforma ya la tiene, viene sola. */
-export async function sumarSugeridoAlNegocio(id: number): Promise<{ ok: true; id: number; piezas: number } | { ok: false; error: string }> {
+export async function sumarSugeridoAlNegocio(id: number): Promise<{ ok: true; id: number; piezas: number } | { ok: false; error: string; pasarAPro?: string }> {
   const r = await agregarSugerido(deps, id);
   if (!r.ok) return r;
   const [ws, c] = await Promise.all([getWorkspaceActual(), leerCompetidor(r.id)]);

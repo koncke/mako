@@ -14,6 +14,7 @@ import { useTrabajoBroll } from "@/app/video-editor/_opencut/broll/estado";
 import { frasesDelVideo } from "@/app/video-editor/_opencut/broll/frases-del-video";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { TOPES_CLIPS, type ClipElegido } from "@/lib/editor-video/clips";
+import { esRespuestaSoloPro, esSoloPro, marcarSoloPro } from "@/app/_components/solo-pro";
 import { useTrabajoClips } from "./estado";
 import { esFallaDeClips, textoDeClips, type ResultadoClips, type VigenciaMensaje } from "./resultado";
 
@@ -40,6 +41,10 @@ export async function buscarClips(editor: EditorCore, { cuantos }: { cuantos: nu
 		});
 		return r;
 	};
+	// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts), ANTES de transcribir: la ruta diría que no recién después de escuchar el
+	// video entero. Primero, y es lo único que espera: lo de abajo, hasta `enCurso = true`, es sincrónico. Sin mensaje: el panel
+	// ya dibuja el candado (y el chat lee `textoDeClips`).
+	if (await esSoloPro("ia-editores")) return { ok: false, motivo: "solo-pro" };
 	if (enCurso || trabajo.fase !== "inactivo" || useTrabajoSubtitulos.getState().fase !== "inactivo" || useTrabajoBroll.getState().fase !== "inactivo") {
 		return { ok: false, motivo: "ocupado" };
 	}
@@ -62,6 +67,11 @@ export async function buscarClips(editor: EditorCore, { cuantos }: { cuantos: nu
 				signal: AbortSignal.timeout(200_000),
 			});
 			datos = (await r.json().catch(() => null)) as RespuestaClips | null;
+			if (r.status === 403 && esRespuestaSoloPro(datos)) {
+				marcarSoloPro("ia-editores");
+				trabajo.fijar({ fase: "inactivo", progreso: 0, mensaje: null, error: false });
+				return { ok: false, motivo: "solo-pro" };
+			}
 			if (!r.ok || !datos || datos.ok === false) return terminar({ ok: false, motivo: "red", ...(datos?.error ? { detalle: datos.error } : {}) });
 		} catch {
 			return terminar({ ok: false, motivo: "red" });

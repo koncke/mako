@@ -69,12 +69,13 @@ test('la portada dibuja las tarjetas y la tabla comparativa, que dice lo que NO 
   const { PreciosLanding } = await import('../app/vsl/PreciosLanding');
   const planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => ({ id: x.id, nombre: x.nombre, capa: x.capa, precioUsd: x.precioUsd, resumen: x.resumen, incluye: x.incluye, destacado: !!x.destacado, precioAnualUsd: x.precioAnualUsd ?? null, preciosLocales: x.preciosLocales, cobrable: true }));
   const html = renderToStaticMarkup(React.createElement(PreciosLanding, { planes, sufijo: '' }));
-  assert.match(html, /<table class="planes-tabla">/, 'la portada no tiene la tabla comparativa');
+  assert.match(html, /class="cp-tabla"/, 'la portada no tiene la tabla comparativa');
   for (const f of filasDeComparacion()) assert.ok(html.includes(f.que), `la tabla no dice «${f.que}»`);
   const esencial = planes.find((p) => p.capa === 'completo')!;
   const tarjeta = html.slice(html.indexOf(`<h3>${esencial.nombre}</h3>`), html.indexOf('</section>', html.indexOf(`<h3>${esencial.nombre}</h3>`)));
   assert.doesNotMatch(tarjeta, /class="mkpl-lista mkpl-no"/, 'la tarjeta de Esencial volvió a la lista de ✗');
-  for (const x of noIncluyeDe('completo')) assert.ok(html.includes(`<th scope="row">${x}</th>`), `la tabla no dice «${x}»`);
+  // La tabla como Attio (14/11/2026): cada fila con su nombre corto y la frase entera en el (i).
+  for (const x of noIncluyeDe('completo')) assert.ok(html.includes(`data-info="${x}"`) || html.includes(`role="rowheader">${x}<`), `la tabla no dice «${x}»`);
   assert.ok(html.includes('aria-label="No incluido"'), 'la tabla marca lo que no incluye');
 });
 
@@ -114,6 +115,7 @@ test('la tabla y lo que trae cada plan no prometen videos ni imágenes hechos co
   const A_MEDIAS = /videos?.*armad[oa]s? con IA|im[aá]genes con IA|crear y retocar/i; // «Tu oferta armada con IA» sí anda
   for (const f of filasDeComparacion()) assert.doesNotMatch(f.que, A_MEDIAS, `la tabla promete «${f.que}»`);
   for (const p of PLANES_MAKO_DEFAULT) for (const l of p.incluye) assert.doesNotMatch(l, A_MEDIAS, `${p.id} promete «${l}»`);
-  assert.equal(NOMBRE_TAB_PRO['image-editor'], 'Diseñar tus imágenes sin salir de MaKo');
-  assert.ok(filasDeComparacion().some((f) => f.que === NOMBRE_TAB_PRO['video-editor']), 'la edición de video, que sí anda, sigue');
+  // 14/11/2026: los editores son de los dos planes (Martín) y lo de Pro es editar con IA (subtítulos, cortes, B-roll y diseños).
+  assert.ok(filasDeComparacion().some((f) => f.que === 'Editor de imágenes y carruseles, como Canva' && f.esencial === true), 'el editor de imágenes, en los dos');
+  assert.ok(filasDeComparacion().some((f) => f.que === 'Editor de video, como CapCut' && f.esencial === true), 'la edición de video, que sí anda, sigue');
 });

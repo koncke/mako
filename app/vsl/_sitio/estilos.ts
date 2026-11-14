@@ -392,11 +392,12 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 @media (max-width:900px){.s-caso-arriba{grid-template-columns:1fr;gap:32px}.s-caso-vid{max-width:420px;width:100%;margin:0 auto}.s-caso-h{font-size:32px}.s-caso-comp{grid-template-columns:1fr}.s-caso-fotos{grid-template-columns:1fr 1fr}.s-caso-fotos li:last-child{display:none}.s-caso-tira{margin-bottom:48px}.s-caso-tira-l li{font-size:16px}}
 @media (prefers-reduced-motion:reduce){.s-caso-tira-p{animation:none}}
 /* El ahorro: lo que paga hoy un negocio típico (izquierda) contra MaKo Pro (derecha). */
-.s-ahorro{max-width:980px;margin:40px auto 8px;padding:0 24px;display:grid;grid-template-columns:1.25fr 1fr;gap:20px;text-align:left}
+.s-ahorro{max-width:1040px;margin:40px auto 8px;padding:0 24px;display:grid;grid-template-columns:1.45fr 1fr;gap:20px;text-align:left}
 .s-ahorro-hoy,.s-ahorro-mako{border-radius:18px;padding:24px 26px;background:#fff;border:1px solid rgba(18,21,27,.1)}
 .s-ahorro-mako{background:linear-gradient(140deg,#2F6FED,#1E3FA8);color:#fff;border-color:transparent;display:flex;flex-direction:column;justify-content:center}
 .s-ahorro-t{margin:0 0 14px;font-size:15px;font-weight:700;opacity:.75}
-.s-ahorro-hoy ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+/* La lista en DOS columnas (14/11/2026, noche, Martín: «la lista quedó muy larga»). */
+.s-ahorro-hoy ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:10px 22px}
 .s-ahorro-hoy li{display:flex;align-items:center;gap:12px;font-size:16px}
 .s-ahorro-hoy img{width:28px;height:28px;border-radius:7px;background:#fff;box-shadow:0 0 0 1px rgba(18,21,27,.08)}
 .s-ahorro-n{flex:1;font-weight:600}.s-ahorro-n small{display:block;font-size:13px;font-weight:500;opacity:.6}
@@ -406,7 +407,7 @@ html[data-sitio-modo="claro"] .s-h1 em{background:linear-gradient(to right,#B87A
 .s-ahorro-pro{margin:0;font-size:18px}.s-ahorro-pro strong{font-size:40px;line-height:1.1}
 .s-ahorro-gana{margin:14px 0 0;font-size:18px;line-height:1.4}.s-ahorro-gana strong{color:#FDE68A}
 .s-ahorro-nota{margin:16px 0 0;font-size:12px;line-height:1.5;opacity:.6}
-@media (max-width:760px){.s-ahorro{grid-template-columns:1fr;padding:0 16px}}
+@media (max-width:760px){.s-ahorro{grid-template-columns:1fr;padding:0 16px}.s-ahorro-hoy ul{gap:10px 14px}.s-ahorro-hoy li{font-size:15px}}
 /* Cada función: su prueba gratis y, abajo, «Ver cómo funciona». */
 .s-zz-acc{margin-top:24px;display:flex;flex-direction:column;align-items:flex-start;gap:4px}
 .s-zz-acc .s-zz-a{margin-top:10px}
@@ -671,26 +672,113 @@ export const CSS_COMPARACIONES = `
 .s-tilde{display:inline-flex;align-items:center;gap:10px;font-weight:500}
 .s-tilde-c{flex:none;width:32px;height:32px;border-radius:9999px;background:${AZUL_TINTE};color:${AZUL};display:inline-flex;align-items:center;justify-content:center}
 
+/* LA TABLA CONTRA LA COMPETENCIA (14/11/2026, la de beehiiv): una caja que se desliza hacia los costados y hacia abajo, con la
+   cabecera (logos y botones) fija arriba y las columnas de la función y de MaKo fijas a la izquierda; ✓ en su círculo, la celda
+   vacía si no lo tiene, el valor corto centrado. La cebra va por COLUMNA (MaKo teñida). Las flechas pasan de a tres apps. */
+.s-mx{margin-top:48px;position:relative}
+/* 14/11/2026, noche (Martín): ni scroll de costado ni barras: la tabla va entera a lo alto de la página (overflow: clip no hace una caja
+   con scroll, así la cabecera queda fija contra la página) y las flechas muestran la página siguiente de apps, siempre enteras (el
+   script: --mx-col y data-c). Sin JavaScript, las primeras cuatro. */
+.s-mx-caja{overflow:clip;background:#fff;border:2px solid ${TINTA};border-radius:10px}
+.s-mx:not([data-listo]):not([data-una]) [data-c]:nth-child(n+7){display:none}
+.s-mx-caja:focus-visible{outline:3px solid ${AZUL};outline-offset:3px}
+.s-mx-t{border-collapse:separate;border-spacing:0;table-layout:fixed;width:max-content;min-width:100%}
+.s-mx-t th,.s-mx-t td{box-sizing:border-box}
+.s-mx-t .s-mx-c0{width:240px;min-width:240px;max-width:240px;position:sticky;left:0;z-index:2;background:#F9FAFF;text-align:left}
+.s-mx-t .s-mx-mk{width:164px;min-width:164px;position:sticky;left:240px;z-index:2;background:#EEF3FE;box-shadow:inset -1px 0 0 #CECFD4}
+.s-mx-t thead th{position:sticky;top:var(--s-barra-alto,76px);z-index:3;background:#fff;vertical-align:top;padding:16px 12px 14px;border-bottom:1px solid #CECFD4;font-weight:400;color:${TINTA};text-align:center}
+.s-mx-t thead th.s-mx-c0,.s-mx-t thead th.s-mx-mk{z-index:4}
+.s-mx-t thead th.s-mx-c0{background:#F9FAFF}
+.s-mx-t thead th.s-mx-mk{background:#EEF3FE}
+.s-mx-t thead th.s-mx-app,.s-mx-t tbody td:not(.s-mx-mk){width:var(--mx-col,170px);min-width:var(--mx-col,170px);max-width:var(--mx-col,170px)}
+.s-mx-cab{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:15px;line-height:20px}
+.s-mx-cab b{font-weight:600}
+.s-mx-logo{width:36px;height:36px;border-radius:9px;object-fit:contain;background:#fff;box-shadow:0 0 0 1px rgba(6,4,25,.1)}
+.s-mx-estrella{width:36px;height:36px;border-radius:9px;background:#1A1712;display:inline-flex;align-items:center;justify-content:center}
+.s-mx-btn{display:inline-flex;align-items:center;justify-content:center;margin-top:10px;padding:6px 12px;border-radius:6px;background:${AZUL};color:#fff;font-size:13px;line-height:18px;font-weight:600;white-space:nowrap}
+.s-mx-btn2{background:#fff;color:${TINTA};box-shadow:inset 0 0 0 1.5px #CECFD4}
+.s-mx-btn2:hover{box-shadow:inset 0 0 0 1.5px ${TINTA}}
+.s-mx-flechas{display:flex;gap:10px;justify-content:center;padding-top:28px}
+.s-mx-flechas button{width:40px;height:40px;border-radius:9999px;border:1.5px solid ${TINTA};background:#fff;color:${TINTA};font-size:24px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0 0 3px}
+.s-mx-flechas button:disabled{opacity:.3;cursor:default}
+.s-mx-g th{padding:0;background:rgba(213,226,251,.55);text-align:left;border-bottom:1px solid #CECFD4}
+.s-mx-g th span{position:sticky;left:0;display:inline-block;padding:10px 16px;font-size:18px;line-height:24px;font-weight:600;color:${TINTA}}
+.s-mx-f th,.s-mx-f td{padding:13px 12px;border-bottom:1px solid #E4E5EA;font-size:15px;line-height:20px;color:${TINTA};text-align:center;vertical-align:middle}
+.s-mx-f th{font-weight:500;text-align:left}
+.s-mx-f td:nth-child(2n+3){background:#FCFCFE}
+.s-mx-si{width:28px;height:28px;border-radius:9999px;background:${AZUL_TINTE};color:${AZUL};display:inline-flex;align-items:center;justify-content:center;vertical-align:middle}
+.s-mx-v{font-size:14px;line-height:18px;font-weight:500}
+.s-mx-nd{font-size:12px;line-height:16px;color:${GRIS_CLARO}}
+.s-mx[data-una] .s-mx-caja{max-height:none;overflow:visible}
+.s-mx[data-una] .s-mx-t{width:100%}
+.s-mx[data-una] .s-mx-t .s-mx-mk,.s-mx[data-una] .s-mx-t .s-mx-app{width:auto}
+.s-mx-nota{margin-top:16px;font-size:16px;line-height:24px;color:#4B4A63}
+.s-mx-otras{margin-top:24px;font-size:18px;line-height:28px;font-weight:500}
+.s-mx-otras a{display:inline-flex;align-items:center;gap:8px;color:${AZUL}}
+
+/* La página «MaKo vs X»: los dos logos en el hero, «Elige X si / Elige MaKo si» y el comentario arriba de la tabla. */
+.s-ch-vs{display:flex;align-items:center;justify-content:center;gap:20px}
+.s-ch-vs-mk{width:96px;height:96px;border-radius:22px}
+.s-ch-vs-x{font-size:22px;font-weight:700;color:${GRIS_CLARO}}
+.s-ch-vs-app{width:96px;height:96px;border-radius:22px;background:#fff;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 2px ${TINTA}}
+.s-ch-vs-app .s-mx-logo{box-shadow:none}
+.s-el{background:#fff;padding:80px 0}
+.s-el-dos{display:grid;grid-template-columns:1fr 1fr;gap:32px}
+.s-el-col{border:2px solid ${TINTA};border-radius:10px;padding:32px}
+.s-el-mk{background:${AZUL_TINTE}}
+.s-el-h{${TITULAR};font-size:32px;line-height:36px;color:${TINTA}}
+.s-el-col ul{margin:24px 0 0;padding:0;list-style:none;display:grid;gap:14px}
+.s-el-col li{display:flex;gap:12px;align-items:flex-start;font-size:18px;line-height:26px;font-weight:500;color:${TINTA}}
+.s-el-col:not(.s-el-mk) li::before{content:'';flex:none;width:8px;height:8px;margin-top:9px;border-radius:9999px;background:${TINTA}}
+.s-el-col .s-mx-si{flex:none;width:26px;height:26px}
+.s-vs-dice{font-style:italic}
+/* Las tarjetas «MaKo vs X» con los dos logos y su comentario de una línea. */
+.s-vs-logos{display:flex;align-items:center;gap:10px;margin-bottom:20px}
+.s-vs-mk{width:44px;height:44px;border-radius:11px}
+.s-vs-x{font-size:15px;font-weight:700;color:${GRIS_CLARO}}
+.s-vs-logos .s-mx-logo{width:44px;height:44px;border-radius:11px}
+.s-vs-com{display:block;margin-top:8px;font-size:15.5px;line-height:23px;font-weight:500;color:#4B4A63}
+@media (max-width:767px){
+  .s-mx{margin-top:28px}
+  .s-mx-t thead th{top:var(--s-barra-alto-tel,64px)}
+  .s-mx-t .s-mx-c0{width:124px;min-width:124px;max-width:124px}
+  .s-mx-t .s-mx-mk{width:88px;min-width:88px;left:124px}
+  .s-mx-t thead th{padding:10px 6px}
+  .s-mx-cab{font-size:12px;line-height:16px;gap:6px}
+  .s-mx-logo,.s-mx-estrella{width:28px;height:28px;border-radius:7px}
+  .s-mx-btn{display:none}
+  .s-mx-flechas{padding-top:6px;gap:6px}
+  .s-mx-flechas button{width:32px;height:32px;font-size:20px}
+  .s-mx-g th span{font-size:15px;padding:8px 10px}
+  .s-mx-f th,.s-mx-f td{padding:10px 6px;font-size:12.5px;line-height:17px}
+  .s-mx-v{font-size:12px;line-height:16px}
+  .s-mx-si{width:24px;height:24px}
+  .s-el{padding:48px 0}
+  .s-el-dos{grid-template-columns:minmax(0,1fr);gap:20px}
+  .s-el-col{padding:22px}
+  .s-el-h{font-size:24px;line-height:28px}
+  .s-el-col li{font-size:16px;line-height:24px}
+  .s-ch-vs-mk,.s-ch-vs-app{width:72px;height:72px;border-radius:16px}
+}
+
 /* «beehiiv vs the others»: lavanda, 160 de aire; el título 48/48 y, a 40, la grilla de tres tarjetas de 368 con 40 de separación:
    cara blanca de filete 2 px negro y radio 8, 32 de aire, título 24/32 600 y «Compare →» 20/28 500 a 32; debajo, sus dos capas
    que se separan al pasar el mouse. */
 .s-cv{background:${AZUL_TINTE};padding:160px 0}
 .s-cv-h2{${TITULAR};font-size:48px;line-height:48px;color:${TINTA}}
-.s-cv-grilla{margin-top:40px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:40px}
-.s-vs{position:relative;display:block;transition:transform .125s ease-out}
-.s-vs-cara{position:relative;z-index:10;display:block;height:100%;background:#fff;border:2px solid #000;border-radius:8px;padding:32px;transition:transform .125s ease-out}
-.s-vs-c1,.s-vs-c2{position:absolute;inset:0;border:2px solid #0B0D2A;border-radius:12px;transition:transform .125s ease-out}
-.s-vs-c1{background:${DORADO_CAPA}}
-.s-vs-c2{background:${DORADO}}
-.s-vs:hover .s-vs-cara{transform:translate(-12px,-12px)}
-.s-vs:hover .s-vs-c1{transform:translate(-8px,-8px)}
-.s-vs:hover .s-vs-c2{transform:translate(-4px,-4px)}
-.s-vs-t{display:block;font-size:24px;line-height:32px;font-weight:600;color:#000}
-.s-vs-a{display:flex;align-items:center;gap:8px;padding-top:32px;font-size:20px;line-height:28px;font-weight:500;color:${AZUL}}
+.s-cv-grilla{margin-top:40px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+/* 14/11/2026, noche (Martín: «mejoraría muchísimo el diseño de las tarjetas, y no quiero que tenga ese hover de esa animación rara»):
+   blancas, con borde fino y sombra suave; al pasar el mouse suben 3 px y se marca el borde. */
+.s-vs{position:relative;display:block;border-radius:18px;transition:transform .18s ease,box-shadow .18s ease}
+.s-vs-cara{position:relative;display:flex;flex-direction:column;height:100%;box-sizing:border-box;background:#fff;border:1px solid rgba(6,4,25,.12);border-radius:18px;padding:26px 26px 22px;box-shadow:0 1px 2px rgba(6,4,25,.05),0 10px 30px -18px rgba(6,4,25,.25);transition:border-color .18s ease,box-shadow .18s ease}
+.s-vs:hover{transform:translateY(-3px)}
+.s-vs:hover .s-vs-cara{border-color:${AZUL};box-shadow:0 2px 4px rgba(6,4,25,.06),0 18px 40px -20px rgba(47,111,237,.45)}
+.s-vs-t{display:block;font-size:22px;line-height:28px;font-weight:700;color:${TINTA}}
+.s-vs-a{display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:20px;font-size:16px;line-height:24px;font-weight:600;color:${AZUL}}
 
 @media (prefers-reduced-motion:reduce){
-  .s-vs,.s-vs-cara,.s-vs-c1,.s-vs-c2{transition:none}
-  .s-vs:hover .s-vs-cara,.s-vs:hover .s-vs-c1,.s-vs:hover .s-vs-c2{transform:none}
+  .s-vs,.s-vs-cara{transition:none}
+  .s-vs:hover{transform:none}
 }
 @media (max-width:1023px){
   .s-cv-grilla{grid-template-columns:repeat(2,minmax(0,1fr));gap:32px}
@@ -716,6 +804,5 @@ export const CSS_COMPARACIONES = `
   .s-cv{padding:64px 0}
   .s-cv-h2{font-size:36px;line-height:40px}
   .s-cv-grilla{grid-template-columns:minmax(0,1fr);gap:32px}
-  .s-vs:hover .s-vs-cara,.s-vs:hover .s-vs-c1,.s-vs:hover .s-vs-c2{transform:none}
 }
 `;

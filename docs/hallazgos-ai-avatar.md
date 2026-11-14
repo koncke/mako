@@ -4,6 +4,16 @@
 (`app/video-editor/avatar`) y en el motor del Video Generator (`app/video-generator/video-action.ts`,
 el puente a Flow). Lo de Flow, ElevenLabs y el lip-sync de antes vive en `hallazgos-generativa.md`.
 
+## ⚠️ Las imágenes de las escenas (public/formatos/presets/) parecen de Mauricio, no de Martín (14/11/2026, a verificar)
+
+**Síntoma:** armando el mosaico de la landing de Video con las 31 imágenes de `public/formatos/presets/` (las que muestra la baldosa de
+cada escena y el hero de /vsl/ai-avatar), todas muestran a un hombre de unos 50, con anteojos y pelo canoso, que se parece a la foto de
+Mauricio (`public/vsl-assets/sitio/avatar/mauricio-foto.jpg`) y no a Martín (`martin-foto.jpg`) ni a su personaje (`banco-video/toma.mp4`).
+**Lo que dice el código:** «hechas en Flow con la cara de Martín» (`lib/ai-avatar/plantillas.ts`, `app/vsl/_competencia/Visuales.tsx`,
+`tests/vsl-landings-competencia.test.ts`). **Por qué importa:** Mauricio es cliente, y las landings no muestran datos de clientes.
+**Regla:** antes de poner esas imágenes en una página nueva, Martín confirma de quién es la cara; mientras tanto el mosaico de Video
+no las usa. No se cambió nada de lo que ya las muestra.
+
 ## Fuera de la barra desde el 11/11/2026: se usa desde Video, y la ruta NO redirige
 
 Martín, 11/11/2026: «en Create debería estar la parte de copywriting primero. Luego video, image y web generator… [AI Avatar] no

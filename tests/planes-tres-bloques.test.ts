@@ -28,6 +28,7 @@ const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\
 
 const numero = (celda: unknown): number | null => {
   if (celda === 'Sin tope') return null;
+  if (celda === false) return 0; // un tope en 0 es la celda vacía («no lo trae»: Esencial sin dominio propio, 14/11/2026)
   const m = /([\d.]+)$/.exec(String(celda));
   return m ? Number(m[1].replace(/\./g, '')) : NaN;
 };
@@ -35,11 +36,13 @@ const numero = (celda: unknown): number | null => {
 test('la comparación dice EXACTAMENTE los topes del código, en Esencial (completo) y en Pro y el Acelerador (agencia)', () => {
   const filas = filasDeComparacion();
   const porTope: Array<[string, keyof (typeof TOPES)['completo']]> = [
-    ['Tableros de ventas, para ver en qué paso está cada cliente', 'crm.funnels'], ['Contactos guardados (interesados y clientes)', 'crm.leads'],
-    ['Números de WhatsApp conectados, más tu Instagram', 'chats.lineas_whatsapp'], ['Seguimientos automáticos activos a la vez', 'automations.activas'],
-    ['Páginas web para vender, publicadas', 'web.landings_publicadas'], ['Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'],
-    ['Dominios propios para tus páginas (tunegocio.com)', 'web.dominios'], ['Cuentas para cobrar con Mercado Pago o Stripe', 'cobros.cuentas'],
-    ['Ideas por día para mejorar tus anuncios', 'ads.recomendaciones_dia'],
+    ['Pipelines de venta en tu CRM, con sus etapas', 'crm.funnels'], ['Leads y clientes guardados en tu CRM', 'crm.leads'],
+    ['Números de WhatsApp conectados', 'chats.lineas_whatsapp'], ['Automatizaciones activas a la vez', 'automations.activas'],
+    ['Landings y presentaciones armadas con IA, publicadas', 'web.landings_publicadas'], ['Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'],
+    ['Dominio propio para tus landings (tunegocio.com)', 'web.dominios'], ['Cuentas de cobro conectadas: Mercado Pago o Stripe', 'cobros.cuentas'],
+    ['Recomendaciones por día para tus campañas de Meta', 'ads.recomendaciones_dia'],
+    // 14/11/2026 (Martín): los competidores de Competitor Spy y los cursos del Classroom, topados en Esencial.
+    ['Competidores que MaKo scrapea: web, redes y anuncios', 'spy.competidores'], ['Cursos con módulos y clases para tus alumnos', 'classroom.cursos'],
   ];
   for (const [que, t] of porTope) {
     const f = filas.find((x) => x.que === que);
@@ -69,9 +72,9 @@ test('una tab que todavía no se abrió no se promete; AI Avatar está abierta e
     for (const p of PLANES_MAKO_DEFAULT) for (const r of p.incluye) assert.doesNotMatch(r, /avatar/i, `${p.id} promete el avatar: «${r}»`);
   }
   for (const t of TABS_TODAVIA_CERRADAS) assert.ok(!filas.some((x) => x.que === NOMBRE_TAB_PRO[t]), `${t} está cerrada y la tabla la promete`);
-  // Y Partners dice QUÉ se gana: el primer mes de cada negocio (no «el 100%» suelto, que sonaba a para siempre).
-  // Desde el 29/10/2026 Partners es de TODOS los planes (una fila «en todos»), y sigue diciendo el primer mes.
-  assert.ok(filasDeComparacion().some((x) => /primer mes/.test(x.que) && x.esencial && x.pro), 'Partners en todos los planes, con «primer mes»');
+  // MaKo Partners salió de la tabla el 14/11/2026 (Martín: «elimina cuentas de clientes y MaKo Partner. Eso no hace falta que
+  // esté»): sigue siendo de todos los planes (tests/scraper-partners-solo-pro.test.ts) y /planes lleva a su página.
+  assert.ok(!filasDeComparacion().some((x) => /primer mes|Partners/.test(x.que)), 'MaKo Partners volvió a la tabla');
   // Atado a la puerta de verdad: la tab está abierta (la puerta de toda tab, no «sólo el super admin»); venderla es aparte.
   assert.ok(fuente('app/ai-avatar/acceso.ts').includes("await requireRolWs([], { nav: 'ai-avatar' });"), 'AI Avatar volvió a tener la puerta cerrada');
 });
@@ -93,9 +96,12 @@ test('lo que es sólo de Pro sale de TABS_SOLO_PRO: no en Esencial, sí en Pro y
   }
 });
 
-test('la tabla se entiende sin saber nada de MaKo (Leila, 27/10): ni jerga de marketing, ni filas largas, y todos los grupos', () => {
+// 14/11/2026, Martín: «no tengas problema en utilizar el lenguaje técnico de marketing… No tengas miedo en utilizar lenguaje técnico de
+// marketing, solo de marketing». Landing, leads, CRM, pipelines, setter y scrapear SÍ (lo que sabe quien vende por internet); lo
+// interno de MaKo, NO: «topes», «capa», el nombre de una tab, «scraper» (la herramienta, no lo que hace).
+test('la tabla habla de marketing, no de MaKo por dentro: ni lo interno, ni filas largas, y todos los grupos', () => {
   const filas = filasDeComparacion();
-  const JERGA = /media buyer|piloto autom|\btopes?\b|\bembudos?\b|\bCRM\b|scraper|\bautomatizaci/i;
+  const JERGA = /\btopes?\b|scraper\b|\bcapa\b|workspace/i;
   for (const f of filas.filter((x) => x.esencial !== false || x.pro !== false)) assert.doesNotMatch(f.que, JERGA, f.que);
   for (const f of filas) assert.ok(f.que.length <= 62, `«${f.que}» es largo: una línea en el teléfono`);
   assert.deepEqual([...new Set(filas.map((f) => f.grupo))], [...GRUPOS_COMPARACION], 'cada grupo con sus filas, en orden y seguidas');
@@ -120,10 +126,11 @@ test('/planes: tres bloques, el programa se pide, la comparación, y el link a M
   assert.match(t, /<a className="mkpl-btn" href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador<\/a>/, 'el programa se pide en su página, con el origen y el partner');
   assert.match(t, /\{p\.destacado && <span className="mkpl-insignia">Recomendado<\/span>\}/);
   assert.match(p, /^\s*const filas = filasDeComparacion\(\);/m);
-  assert.match(p, /<h2 id="planes-compara-titulo">Compara los planes<\/h2>/);
+  // La tabla como Attio (14/11/2026): ver app/planes/Vitrina.tsx, `CompararPlanes`.
+  assert.match(p, /<h2 id="cp-titulo" className="cp-titulo">Compara los planes<\/h2>/);
   // La columna de cada plan sale de su CAPA (los topes son de la capa): un plan del setting con otro id no queda vacío.
   // (29/10/2026: la celda por capa pasó a lib/planes-comparacion.ts, `celdaDeCapa`: la usan también los ✗ de cada tarjeta.)
-  assert.match(p, /<CeldaPlan v=\{celdaDeCapa\(f, p\.capa\)\} \/>/);
+  assert.match(p, /celda: \(f: FilaComparacion\) => celdaDeCapa\(f, p\.capa\)/);
   assert.match(fuente('lib/planes-comparacion.ts'), /return capa === 'completo' \? f\.esencial : capa === 'agencia' \? f\.pro : null;/);
   assert.match(p, /<Link href="\/mako-partners">MaKo Partners<\/Link>/, 'desde /planes se llega a MaKo Partners');
   // Los planes cobrables siguen saliendo de la regla de siempre (tests/planes-sin-pasarela.test.ts).
@@ -146,7 +153,8 @@ test('quien da de alta a mano lee que ese negocio NO tiene los topes de la tabla
 // PROMESA de resultados».
 
 /** Nombres que sólo conocemos nosotros: tabs, jerga del CRM y del producto. Ninguno en lo que lee quien no tiene MaKo. */
-const INTERNO = /Ops Center|\bOffer\b|Closing Analyst|Ads Manager|Image Editor|Video Editor|AI Avatar|Web Generator|Automations|\bCalendar\b|\bfunnels?\b|\bleads?\b|\blandings?\b|\bcapa\b|\bDashboard\b/i;
+// 14/11/2026: «landing», «lead» y «funnel» salieron de acá: son marketing (Martín: «utilizar el lenguaje técnico de marketing»).
+const INTERNO = /Ops Center|\bOffer\b|Closing Analyst|Ads Manager|Image Editor|Video Editor|AI Avatar|Web Generator|Automations|\bCalendar\b|\bcapa\b|\bDashboard\b/i;
 /** Las tabs que también son una palabra común («tus cobros» sí): sólo con mayúscula. */
 const TAB_CON_MAYUSCULA = /\bCobros\b|\bCalendar\b/;
 
@@ -179,8 +187,9 @@ test('sin lenguaje interno: ni la vitrina, ni la landing, ni lo que incluye cada
 
 // Lo que quedaba (30/10/2026): Leila la sacó de la tabla el 27/10, y las TARJETAS, lo primero que se lee, seguían con «embudo»,
 // «CRM», «media buyer», «setter» y «cohorte». Ahora se mira la pantalla entera, no sólo las filas.
-test('la pantalla entera se entiende sin saber de marketing: tarjetas, promesa, garantía, comparación y preguntas', async () => {
-  const JERGA = /media buyer|\bsetter\b|piloto autom|\bembudos?\b|\bCRM\b|scraper|\bautomatizaci|cohorte|prospecci|workspace|barredora/i;
+// 14/11/2026: la jerga de marketing ya no es un rojo (Martín); lo que sigue prohibido es lo de NUESTRA cocina.
+test('la pantalla entera no habla de MaKo por dentro: tarjetas, promesa, garantía, comparación y preguntas', async () => {
+  const JERGA = /scraper\b|cohorte|workspace|barredora/i; // («Sin tope» es una celda: «topes» se mira en las filas)
   assert.doesNotMatch(await vitrina(), JERGA, '/planes');
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -194,8 +203,9 @@ test('la pantalla entera se entiende sin saber de marketing: tarjetas, promesa, 
 test('lo que incluye cada plan dice los topes del CÓDIGO, no números escritos a mano', () => {
   const es = PLANES_MAKO_DEFAULT.find((x) => x.id === 'esencial')!.incluye.join(' · ');
   const n = (v: number | null) => (v ?? 0).toLocaleString('es-AR');
-  assert.ok(es.includes(`Hasta ${n(TOPES.completo['crm.leads'])} contactos y ${n(TOPES.completo['crm.funnels'])} tablero`), es);
-  assert.ok(es.includes(`Hasta ${n(TOPES.completo['automations.activas'])} seguimientos automáticos y ${n(TOPES.completo['web.landings_publicadas'])} páginas de venta`), es);
+  assert.ok(es.includes(`Hasta ${n(TOPES.completo['crm.leads'])} leads en tu CRM y ${n(TOPES.completo['crm.funnels'])} pipeline`), es);
+  assert.ok(es.includes(`${n(TOPES.completo['automations.activas'])} automatizaciones activas y ${n(TOPES.completo['web.landings_publicadas'])} landing`), es);
+  assert.ok(es.includes(`${n(TOPES.completo['spy.competidores'])} competidor`), es);
   const pro = PLANES_MAKO_DEFAULT.find((x) => x.id === 'pro')!.incluye.join(' · ');
   assert.ok(pro.includes(`Hasta ${n(TOPES.agencia['chats.lineas_whatsapp'])} WhatsApp y ${n(TOPES.agencia['equipo.usuarios'])} personas de tu equipo`), pro);
   const lib = fuente('lib/planes-mako.ts');
@@ -220,10 +230,11 @@ test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón
   const { promesa } = PROGRAMA_ACELERADOR;
   assert.ok(promesa, 'el personalizado lleva promesa (Martín, 24/10)');
   assert.match(promesa!, /^En \d+ días,/, 'con plazo');
-  assert.doesNotMatch(promesa!, /devolv|reembols|garant/i, 'una promesa no es una garantía: lo que se devuelve va en `garantia`');
-  // Martín, 14/11/2026: atada a un resultado de plata o del funnel, no a la instalación, y que se note que es a la medida.
-  assert.match(promesa!, /ventas|llamadas|factur/i, 'la promesa es un resultado (ventas, llamadas), no la instalación');
-  assert.doesNotMatch(promesa!, /andando|instal|conectad|lista/i, 'la promesa no es dejar cosas instaladas');
+  // Martín, 14/11/2026: atada a un resultado de plata («como mínimo, rentabilizar la inversión… garantizado por contrato»), con
+  // quién la cumple (él) y a la medida de la oferta. Lo que se DEVUELVE sigue en `garantia`, no acá.
+  assert.doesNotMatch(promesa!, /devolv|reembols/i, 'lo que se devuelve va en `garantia`');
+  assert.match(promesa!, /recuper\w* la inversión|ventas|llamadas|factur/i, 'la promesa es un resultado de plata o del funnel');
+  assert.match(promesa!, /Martín Koncke/, 'con quién la cumple');
   assert.match(promesa!, /tu (oferta|negocio)/i, 'se nota que es a la medida');
   const t = await vitrina();
   assert.ok(t.indexOf(`Nuestra promesa: ${promesa}`) > 0 && t.indexOf('Nuestra promesa') < t.indexOf('Quiero el Acelerador'));
@@ -293,13 +304,16 @@ test('el ANUAL: 2 meses gratis, se elige arriba, y SIEMPRE se pide (el checkout 
 test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mismo que el cobro', async () => {
   assert.equal(PRUEBA_DIAS, 7, 'no se borró');
   assert.equal(textoDespuesDeLaPrueba(97, 'mes', true), 'Después US$ 97/mes. Cancela cuando quieras antes del día 8.');
-  // LA PRUEBA, SÓLO EN PRO (12/11/2026, Martín: «7 días gratis en la de 97… para acceder a la de 47 haya que pagar directamente»).
+  // LA PRUEBA EN LOS DOS PLANES (14/11/2026, Martín: «habilita nuevamente la prueba gratuita en el del 47»; del 12/11 al 14/11 fue
+  // sólo de Pro).
   assert.equal(planConPrueba('pro'), PRUEBA_GRATIS_PRENDIDA, 'Pro trae la prueba');
-  assert.equal(planConPrueba('esencial'), false, 'Esencial se paga al empezar');
-  // Debajo del precio, una sola cosa (12/11 noche, menos texto): los días gratis en Pro, «Se paga al empezar» en Esencial.
+  assert.equal(planConPrueba('esencial'), PRUEBA_GRATIS_PRENDIDA, 'Esencial también');
+  // Debajo del precio, una sola cosa (12/11 noche, menos texto): los días gratis.
   const { bajoElPrecio } = await import('../app/planes/Tarjetas');
-  if (PRUEBA_GRATIS_PRENDIDA) assert.equal(bajoElPrecio({ id: 'pro' }), `${PRUEBA_DIAS} días gratis`);
-  assert.equal(bajoElPrecio({ id: 'esencial' }), 'Se paga al empezar');
+  if (PRUEBA_GRATIS_PRENDIDA) for (const id of ['pro', 'esencial']) assert.equal(bajoElPrecio({ id }), `${PRUEBA_DIAS} días gratis`);
+  // «Y evidentemente no la aclares por otro lado»: ningún texto dice cuál plan no la trae.
+  for (const f of ['app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/terminos/page.tsx', 'app/reembolsos/page.tsx', 'lib/partners-recursos.ts'])
+    assert.doesNotMatch(fuente(f), /Esencial (no tiene prueba|se paga al empezar)/, f);
   assert.match(fuente('lib/compra-plan.ts'), /const conPrueba = planConPrueba\(plan\.id\) && !p\.sinPrueba;/, 'el cobro abre la prueba sólo en el plan que la trae');
   assert.match(fuente('app/planes/[plan]/page.tsx'), /const conPrueba = planConPrueba\(plan\.id\) && uno\('sinPrueba'\) !== '1';/, 'y el checkout la dice sólo ahí');
   const t = await vitrina();
@@ -332,7 +346,8 @@ test('la prueba gratis sigue al interruptor: /planes y /reembolsos dicen lo mism
   for (const rel of ['lib/planes-mako.ts', 'app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/reembolsos/page.tsx', 'app/planes/[plan]/page.tsx']) {
     assert.doesNotMatch(fuente(rel), /GARANTIA_DIAS/, rel);
   }
-  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{NOMBRE_PLAN_CON_PRUEBA\}: \{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'prendida vuelve, con los días de la constante y su plan');
+  // Desde el 14/11/2026 los dos planes traen la prueba: /reembolsos ya no nombra un plan, dice los días de la constante.
+  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'prendida vuelve, con los días de la constante');
 });
 
 test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo tiene (nunca con una tasa)', async () => {
@@ -356,9 +371,10 @@ test('el MEDIA BUYER en Esencial: propone, 2 recomendaciones por día, del tope 
   assert.equal(TOPES.completo['ads.recomendaciones_dia'], 2);
   assert.equal(TOPES.agencia['ads.recomendaciones_dia'], null);
   // Dicha sin «media buyer» desde el 27/10/2026 (Leila: «Una persona que no sabe no entiende…»).
-  const f = filasDeComparacion().find((x) => x.que === 'Ideas por día para mejorar tus anuncios');
+  const f = filasDeComparacion().find((x) => x.que === 'Recomendaciones por día para tus campañas de Meta');
   assert.ok(f, 'la fila en la comparación');
-  assert.deepEqual([f!.grupo, f!.esencial, f!.pro, f!.acelerador], ['Anuncios', '2', 'Sin tope', 'Sin tope']);
+  // 14/11/2026: los anuncios van con el contenido (Martín: «eso podrías agruparlo en contenido»).
+  assert.deepEqual([f!.grupo, f!.esencial, f!.pro, f!.acelerador], ['Contenido y anuncios', '2', 'Sin tope', 'Sin tope']);
   const esencial = PLANES_MAKO_DEFAULT.find((x) => x.id === 'esencial')!;
   assert.ok(esencial.incluye.some((x) => x.includes(`${TOPES.completo['ads.recomendaciones_dia']} recomendaciones por día`) && /tú decides si las aplicas/.test(x)),
     'en lo que incluye Esencial, y que no aplica solo');

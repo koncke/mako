@@ -14,6 +14,22 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## Un `enum` que crece deja AFUERA a otra herramienta del turno: el diagnóstico obvio era el equivocado (14/11/2026, claude5)
+
+Al sumar siete tipos de campo al formulario (la llamada con Julio), «cambia el formulario de la landing: agrega el teléfono» dejó
+de traer `configurar_formulario_landing` (tests/ops-center-clasificador-app). Lo primero que se sospechó fueron las dos
+operaciones nuevas (`asignar_formulario_a_funnel`, con «formulario» en el id) y el texto más largo de `listar_landings`: se
+probaron las dos cosas y el rojo siguió. La causa era el `enum: TIPOS_CAMPO` de la propia herramienta: catorce valores en vez
+de siete, ~100 caracteres más de esquema, y el turno no la alcanzaba (el techo de 12.000 no se sube).
+
+- **Regla: una constante que entra a un `enum` de la API es parte del presupuesto.** Si crece, la herramienta pesa más en cada
+  turno. La API ofrece los siete de siempre (`TIPOS_CAMPO_API`, lib/editor-landing/doc.ts); los nuevos se usan desde el editor.
+- La operación nueva va AL FINAL de su área y sin las palabras que comparte el área en id, título y descripción. El id que se
+  pidió, `crear_automatizacion_por_formulario`, quedaba 4.º para «Hacé que la automatización…» y dejaba a `cambiar_crons_secuencia`
+  con −731 de margen: se llama `arrancar_con_formulario` (`tests/ops-center-bateria.test.ts` dice el margen exacto).
+- Para medir quién va antes: `toolsDelRegistro({ vista, areas, incluirAcciones: true, relevanteA })` y `charsDeTools` por
+  herramienta. Importado por `file:///C:/…` desde un script fuera del repo (una ruta de Windows sin esquema no carga).
+
 ## En WhatsApp las herramientas se eligen por PALABRAS CLAVE: «cuánto va a pagar Código» no traía la que lo dice (11/11/2026)
 
 **El síntoma:** Martín preguntó en el grupo de SuperAdmin «cuánto va a pagar codigo inmobiliario el mes entrante», y MaKo contestó
@@ -3269,3 +3285,16 @@ docs/relevo/leandro-0911.md, punto 8).
 
 **Vive en:** lib/api-mako/ejecutar.ts (`registrarAccionMako`) · lib/api-mako/flujo.ts (`aplicarEnElActo`) ·
 lib/api-mako/acciones.ts (`aplicarPropuestaGenerica`, `marcarResultado`)
+
+## Una operación nueva con `http` pide su ruta REST, y su ruta de la app pide su veredicto de revisión (14/11/2026, probar-copy)
+
+Al declarar `replicar_link_o_texto_copywriter` (Copywriting: replicar un link o un texto) el filtro de la punta dio verde
+(36 tests) y GitHub dio rojo en dos que el filtro no considera afectados por `copywriter.def.ts`:
+- **`tests/api-mako-rest.test.ts`**: toda operación que sale por HTTP necesita su fila en `RUTAS_REST` (lib/api-mako/rest.ts),
+  y su recurso (el 2.º tramo de la ruta) un título en lib/api-mako/recursos.ts. Colgarla de un recurso que ya existe
+  (`/contenido/outliers/pegado`) evita el título nuevo.
+- **`tests/cuenta-revision-escrituras.test.ts`**: una ruta NUEVA de la app que escribe (`POST /api/copywriter/pegado`) entra al
+  snapshot con su veredicto para la cuenta de revisión de las tiendas («cortada» por defecto; permitirla es sumarla a
+  `PERMITIDO_EN_REVISION` con su porqué). Se regenera con `MAKO_REGENERAR_SNAPSHOT=1`.
+
+**La regla:** con una operación o una ruta nueva, correr esos dos a mano antes de subir; el filtro de la punta no los ve.

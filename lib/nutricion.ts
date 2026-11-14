@@ -172,6 +172,7 @@ import { ORIGEN_MIGRACION, quitarMigrados } from '@/lib/migracion-leads';
 // Lo que no se arregla reintentando: el teléfono que falta o no tiene dígitos, y los leads de prueba de Meta (23/10/2026).
 import { esLeadDePruebaDeMeta, MOTIVO_PRUEBA_META, telefonoSinArreglo } from '@/lib/lead-sin-arreglo';
 import { pasoConRelleno } from '@/lib/flujo-relleno';
+import { respuestasGuardadas } from '@/lib/optin-respuestas';
 
 export type CanalNutricion = 'email' | 'whatsapp' | CanalSocial;
 
@@ -1026,6 +1027,21 @@ function grafoAGuardar(limpio: PasoSecuencia[]): PasoSecuencia[] {
   return normalizar(junto.cambio ? junto.pasos.map((p, i) => ({ ...p, orden: i + 1 })) : junto.pasos);
 }
 
+/**
+ * EL SETTER CON IA ES DE MaKo PRO (14/11/2026, Martín): un Esencial no guarda uno NUEVO, lo que le contesta SOLO a un lead con IA (la
+ * regla: lib/setter-ia-reglas.ts; el plan: `setterNuevoSoloPro`, lib/tope-automations.ts). Lo llama `setSecuenciaPasos`, la puerta de
+ * todos: el lienzo, el teléfono, la API («agregar caso» con `contestaSolo`) y el hand-off. Lo que ya tenía queda (frena lo nuevo) y, sin
+ * poder leer el plan, pasa. Activar (`soloValidar`) no lo pregunta acá: lo hace `topeAlActivar`. Import dinámico, como el tope: el
+ * motor no carga los planes si no hace falta.
+ */
+async function frenarSetterNuevo(antes: unknown, grafo: unknown, soloValidar: boolean | undefined): Promise<void> {
+  if (!soloValidar) {
+    const { setterNuevoSoloPro } = await import('./tope-automations');
+    const soloPro = await setterNuevoSoloPro(antes, grafo);
+    if (soloPro) throw new TopeDelPlanError(soloPro);
+  }
+}
+
 export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: { soloValidar?: boolean }): Promise<void> {
   const supabase = (await getTenantDb());
 
@@ -1238,6 +1254,8 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
   const triggerDeLaFila = String((previo as { trigger_tipo?: unknown } | null)?.trigger_tipo ?? '');
   const [datoMalo] = problemasDeTokens(grafo, triggerDeLaFila, await subtipoDeFilaEvento(supabase, id, previo));
   if (datoMalo) throw new PasosInvalidosError(`No se guardó: ${datoMalo.motivo}`, datoMalo.tarjeta);
+  // El candado del setter con IA (Pro): `frenarSetterNuevo`, arriba. Fuera de este bloque (tests/nutricion-canal.test.ts lo mide).
+  await frenarSetterNuevo(antes, grafo, o?.soloValidar);
   // Activar valida lo mismo que Publicar, sin escribir (`setSecuenciaActiva`).
   if (o?.soloValidar) return;
   const { error } = await supabase
@@ -2628,6 +2646,9 @@ export type CtxEvento = {
   texto?: string | null;
   /** En qué publicación comentó (`comment.platformPostId`): la publicación del CRON (ticket #25, `disparaPorEvento`). */
   publicacion?: string | null;
+  /** «Envió el formulario» (14/11/2026): la clave del formulario (`form:<id>`) y la de su landing (`landing:<docId>`). */
+  formulario?: string | null;
+  landing?: string | null;
   /**
    * El evento de etapa es de un lead AGREGADO a ese CRM (`lead_funnel`, lib/lead-funnel.ts), no de su casa: entra con la
    * MISMA regla que el barrido de la hora (`agregadosQueEntran`). Ver `enrolarPorEvento`.
@@ -3559,7 +3580,7 @@ async function hechosDeLeads(
     nutricion_realizada: boolean | null; funnel_id: number | string | null;
     respuesta_facturacion?: string | null; respuesta_colaboradores?: string | null; respuesta_objetivo?: string | null;
     respuesta_cuando_empezar?: string | null; respuesta_inversion?: string | null; respuesta_decisor?: string | null;
-    meta_field_data?: unknown;
+    meta_field_data?: unknown; optin_respuestas?: unknown;
   };
   const filasLead: FilaLeadHechos[] = [];
   const productos = new Map<number, Map<number, string>>();
@@ -3584,7 +3605,9 @@ async function hechosDeLeads(
   // si alguna fila las pide — más las respuestas viejas del formulario si se busca en ellas.
   const COLS_BASE = 'id, created_at, telefono, email, fecha_junta_1, junta_1_at, fecha_junta_2, junta_2_at, fecha_primer_pago, cerro, estado_lead, pipeline_stage, fecha_agenda, asistio_j1, asistio_j2, nutricion_realizada, funnel_id';
   const COLS_CATALOGO = 'origen_lead, calificado, meta_lead_id, visitor_id, meta_campaign_name, email_opt_out, venta_tipo, fecha_cierre, fecha_confirmacion';
-  const COLS_RESPUESTAS = 'respuesta_facturacion, respuesta_colaboradores, respuesta_objetivo, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor, meta_field_data';
+  // `optin_respuestas` (14/11/2026): lo que contestó en el formulario o el quiz de una LANDING (mig 0274). Sin esto, «Respuesta
+  // del formulario contiene» no veía nada de lo que entra por el Web Generator (relevo de la llamada con Julio, punto 5).
+  const COLS_RESPUESTAS = 'respuesta_facturacion, respuesta_colaboradores, respuesta_objetivo, respuesta_cuando_empezar, respuesta_inversion, respuesta_decisor, meta_field_data, optin_respuestas';
   const catalogoLead = filas != null;
   const cols = [COLS_BASE, catalogoLead ? COLS_CATALOGO : '', pide('respuestas') ? COLS_RESPUESTAS : ''].filter(Boolean).join(', ');
   for (const tanda of enTandas(ids, 200)) {
@@ -3719,6 +3742,30 @@ async function hechosDelCatalogo(
     }
     return m;
   };
+  // «Envió el formulario» (14/11/2026): las claves de lo que envió cada lead (`lead_formularios`, mig 0415). Sin la tabla (la
+  // migración sin aplicar) no se sabe: null, y la condición dice «no sé» (nunca «no envió»). Otra falla TIRA, como el resto.
+  const leerFormularios = async (): Promise<Map<number, Set<string>> | null> => {
+    if (!pide('formularios')) return null;
+    const m = new Map<number, Set<string>>();
+    try {
+      for (const tanda of enTandas(ids, 200)) {
+        for (const r of await leerTodo<{ id: number; lead_id: number; formulario_id: string | null; landing_doc_id: number | null }>(db, 'lead_formularios', 'id, lead_id, formulario_id, landing_doc_id', {
+          orden: 'id', filtros: (q) => q.in('lead_id', tanda) as ConsultaPaginada,
+        })) {
+          const s = m.get(Number(r.lead_id)) ?? new Set<string>();
+          if (r.formulario_id) s.add(`form:${r.formulario_id}`);
+          if (r.landing_doc_id != null) s.add(`landing:${r.landing_doc_id}`);
+          m.set(Number(r.lead_id), s);
+        }
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!esTablaInexistente({ message: msg })) throw e;
+      console.warn(`[nutricion] condición «Envió el formulario»: la tabla lead_formularios todavía no existe (mig 0415), se evalúa como «no sé» (${msg})`);
+      return null;
+    }
+    return m;
+  };
   // El ORDEN de las reuniones de los embudos que nombran las filas (cuarta tanda, punto 5): UNA lectura
   // por embudo nombrado, no por lead. Es la config, la misma para todo el lote. Un embudo borrado no
   // tiene orden (sus etapas dan «no sé»); una lectura que falla TIRA, como todo lo de acá: con el
@@ -3824,9 +3871,9 @@ async function hechosDelCatalogo(
     return siguenEnInstagram(ws, s, { fresco: o.fresco === true });
   };
 
-  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones, [social, sigue], comprobante] = await Promise.all([
+  const [vsl, clics, respuestas, pagos, curso, acceso, comunidad, entrega, cs, hoy, reuniones, [social, sigue], comprobante, formularios] = await Promise.all([
     leerVsl(), leerClics(), leerRespuestas(), leerPagos(), leerCurso(), leerAcceso(), leerComunidad(), leerEntrega(), leerCs(), leerHoy(),
-    leerReuniones(), leerSocial().then(async (s) => [s, await leerSigue(s)] as const), leerComprobante(),
+    leerReuniones(), leerSocial().then(async (s) => [s, await leerSigue(s)] as const), leerComprobante(), leerFormularios(),
   ]);
 
   return (f, ahoraMs) => {
@@ -3853,7 +3900,9 @@ async function hechosDelCatalogo(
           .flatMap((x) => (Array.isArray(x?.values) ? x.values : []))
           .filter((x): x is string => typeof x === 'string')
         : [];
-      c.respuestas = normalizarTexto([...(respuestas.get(f.id) ?? []), ...viejas, ...meta].join(' · '));
+      // Y lo de la landing (14/11/2026): las respuestas, sin la pregunta, como las demás fuentes.
+      const deLanding = respuestasGuardadas(f.optin_respuestas).map((r) => r.respuesta);
+      c.respuestas = normalizarTexto([...(respuestas.get(f.id) ?? []), ...viejas, ...meta, ...deLanding].join(' · '));
     }
     if (pagos) {
       const suyas = pagos.get(f.id) ?? [];
@@ -3871,6 +3920,8 @@ async function hechosDelCatalogo(
     if (entrega) c.entrega = new Set([...entrega].filter(([, leads]) => leads.has(f.id)).map(([k]) => k));
     if (cs) c.estadoCliente = cs.get(f.id) ?? 'activo';
     if (comprobante) c.comprobante = comprobante.get(f.id) ?? 'no_llego';
+    // Leída la tabla, quien no envió nada tiene el conjunto vacío («no envió» es un dato); sin la tabla, ausente («no sé»).
+    if (formularios) c.formularios = formularios.get(f.id) ?? new Set<string>();
     if (social) {
       const s = social.get(f.id);
       c.social = { instagram: s?.instagram ? conversacionDeFila(s.instagram) : null, messenger: s?.messenger ? conversacionDeFila(s.messenger) : null };
@@ -6770,15 +6821,24 @@ async function seguirCharla(
   if (origen === 'oficial') return false;
   const { emitirDelCatalogo } = await import('@/lib/avisos');
   const quien = charla.nombre?.trim() || `lead ${leadId}`;
+  const wsAviso = (await getWorkspaceActual()) ?? undefined;
+  const textoAviso = `💬 *${quien} te escribió${social ? ` por ${NOMBRE_CANAL[social]}` : ''}.*${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\nNo le preparé respuesta: ${v.motivo}. Contéstale tú.\n\n— MaKo`;
+  // «CONTÉSTALE TÚ» ES PARA SU SETTER (14/11/2026, la llamada con Julio): además del grupo, un push a su teléfono y un
+  // WhatsApp por la puerta de MaKo (lib/aviso-al-setter.ts), con SU freno de 12 h por lead (el mismo plazo que el del grupo).
+  // Antes del aviso al grupo: el aviso es lo último y la charla devuelve `false` (avisar no es contestar). No tira.
+  if (wsAviso != null) {
+    const { avisarAlSetterDelLead } = await import('@/lib/aviso-al-setter');
+    await avisarAlSetterDelLead(wsAviso, leadId, textoAviso.replace(/\n\n— MaKo$/, ''), { freno: { clave: `lead:${leadId}:charla-cerrada`, minutos: 60 * 12 } });
+  }
   await emitirDelCatalogo('wa-mensaje-entrante', {
-    ws: (await getWorkspaceActual()) ?? undefined,
+    ws: wsAviso,
     // El lead (11/10/2026): lo nombran las automatizaciones del evento de MaKo y lo mira su CONDITION.
     lead: { id: leadId, nombre: charla.nombre },
     // LO QUE ESCRIBIÓ, como dato que se cita (`{{lead_escribio}}`, undécima tanda: `{{mensaje_mako}}` «NO existe»).
     datos: valoresDeLoEscrito(texto),
     dedupKey: `lead:${leadId}:charla-cerrada`,
     dedupTtlMin: 60 * 12,
-    texto: `💬 *${quien} te escribió${social ? ` por ${NOMBRE_CANAL[social]}` : ''}.*${texto?.trim() ? `\n\n_"${texto.trim().slice(0, 180)}"_` : ''}\n\nNo le preparé respuesta: ${v.motivo}. Contéstale tú.\n\n— MaKo`,
+    texto: textoAviso,
   });
   return false;
 }
@@ -7435,7 +7495,9 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
   // mensaje que encajara en un caso «sale solo» lo contestaba MaKo encima de la persona.
   // No toca el estado: congelarla en 'handoff' la dejaba sin salida (no hay pantalla que la
   // resuelva) y fuera del reuso cuando el lead reagenda.
+  let aUnaPersona = false;
   if (charlaPasaAUnaPersona({ contesto, siguio, noPudoDecidir })) {
+    aUnaPersona = true;
     const { error: eCierre } = await supabase.from('nutricion_inscripciones')
       .update({ conversacion_cerrada_at: ahoraISO(), conversacion_cierre: null })
       .eq('lead_id', leadId).eq('secuencia_id', secuencia.id);
@@ -7455,13 +7517,22 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
   if (!redacto && !avisoDelFlujo) {
     const { emitirDelCatalogo } = await import('@/lib/avisos');
     const quien = lead?.nombre?.trim() || `lead ${leadId}`;
+    const wsAviso = (await getWorkspaceActual()) ?? undefined;
+    const textoAviso = `💬 *${quien} respondió* a «${secuencia.nombre}».${citaDelLead(c)}\n\n${caso ? `Caso «${caso.titulo}».` : 'No encajó en ningún caso.'}${hecho.length ? `\n${hecho.join('\n')}` : ' No hice nada más.'}\n\n— MaKo`;
     await emitirDelCatalogo('wa-mensaje-entrante', {
-      ws: (await getWorkspaceActual()) ?? undefined,
+      ws: wsAviso,
       lead: { id: leadId, nombre: lead?.nombre ?? null },
       // LO QUE ESCRIBIÓ, como dato que se cita (`{{lead_escribio}}`, undécima tanda), o lo que DIJO (16/10/2026).
       datos: valoresDeLoEscrito(escritoParaElAviso(texto, c.voz)),
-      texto: `💬 *${quien} respondió* a «${secuencia.nombre}».${citaDelLead(c)}\n\n${caso ? `Caso «${caso.titulo}».` : 'No encajó en ningún caso.'}${hecho.length ? `\n${hecho.join('\n')}` : ' No hice nada más.'}\n\n— MaKo`,
+      texto: textoAviso,
     });
+    // EL HAND-OFF TAMBIÉN LE LLEGA AL SETTER DE ESE LEAD (14/11/2026, la llamada con Julio): la charla pasó a una persona y
+    // nadie lo avisó con una tarjeta, así que además del grupo, un push a su teléfono y un WhatsApp por la puerta de MaKo
+    // (lib/aviso-al-setter.ts). Con la tarjeta de avisar en la rama ya le avisó ésa (`avisar_al_equipo`). No tira.
+    if (aUnaPersona && wsAviso != null) {
+      const { avisarAlSetterDelLead } = await import('@/lib/aviso-al-setter');
+      await avisarAlSetterDelLead(wsAviso, leadId, textoAviso.replace(/\n\n— MaKo$/, ''));
+    }
   }
   return true;
 }

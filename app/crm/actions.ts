@@ -8,6 +8,8 @@
 // =============================================================================
 
 import { getVideosLanding, landingRecibioEventos } from '@/lib/landing-token';
+import { sinTrackingDelLead } from '@/lib/pixel-por-pagina';
+import type { SinTracking } from '@/lib/pixel-por-pagina-reglas';
 import { replayDeLead } from '@/lib/replay-leer';
 import type { ReplayEnLaFicha } from '@/lib/replay-ficha';
 import type { VideoLanding } from '@/lib/landing-videos';
@@ -60,6 +62,7 @@ import {
   enriquecerLead,
   valorDelHistorial,
 } from '@/lib/leads';
+import { enviosDelLead } from '@/lib/lead-formularios';
 import { camposPisados } from '@/lib/historial-pisado';
 import {
   fotoDe, fotoDeCuotas, firmarDeshacer, leerDeshacer, planDeshacer,
@@ -177,9 +180,9 @@ async function autorActual(): Promise<string> {
 }
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
-import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, tratosDelLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
+import { savePlanPagos, saveLeadPlanManual, marcarPago, numeroDeCuota, getPagosByLead, tratosDelLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
 import { cobradoDeLaVentaSiHay, faltaDeLaVenta, type TratoCrm } from '@/lib/pagos-crm';
-import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente } from '@/lib/pagos-campo';
+import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente, textoDeVueltaAPendiente } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
 import { verTrackingDeLead } from '@/lib/tracking-ficha-server';
 import { urlGravatar } from '@/lib/gravatar';
@@ -257,6 +260,9 @@ export type LeadFullData = {
   tracking: TrackingEvent[];
   /** El Pixel de MaKo está midiendo. Gobierna el vacío de la tarjeta de tracking. */
   pixelPuesto: boolean;
+  /** Por qué no hay nada en su tab Tracking, cuando se sabe (lib/pixel-por-pagina-reglas.ts): la página por la que entró
+   *  no tiene el Pixel, o no entró por una página. Sólo se calcula sin eventos. null = no se sabe. */
+  sinTracking?: SinTracking | null;
   respuestas: { R1: RespuestaQA[]; R2: RespuestaQA[] };
   /**
    * Lo que contestó en el formulario de Meta (sólo las preguntas propias, ya legibles).
@@ -265,6 +271,8 @@ export type LeadFullData = {
   respuestasForm: Array<{ pregunta: string; respuesta: string }>;
   /** Lo que contestó en el formulario de la landing (mig 0274), ya saneado. */
   respuestasLanding: Array<{ pregunta: string; respuesta: string }>;
+  /** Cada formulario de la landing que llenó, con su nombre (mig 0415; [] sin la tabla). */
+  enviosLanding?: Array<{ nombre: string; respuestas: Array<{ pregunta: string; respuesta: string }> }>;
   /** Qué muestra el Resumen en ESTE negocio (lib/resumen-ficha.ts, 14/10/2026). */
   resumen: ResumenElegido;
   /** La cohorte de la ficha (`cohorteDeLead`, lib/leads.ts), resuelta acá: el panel es 'use client'. */
@@ -355,6 +363,10 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // Los cambios de su suscripción (mig 0401): sólo si es una, y en paralelo con lo demás. `cambiosDeSuscripcion` no tira.
   const suscripcionP = lead.venta_tipo === 'suscripcion' ? cambiosDeSuscripcion(id) : Promise.resolve(undefined);
   const resumenP = temprano(resumenDelNegocio());
+  // Sin un solo evento, POR QUÉ (14/11/2026, la llamada con Julio: el tracking vacío de un lead de Mauricio que entró por
+  // una página sin el Pixel). Detrás de sus eventos y en paralelo con lo demás: con eventos no se lee nada. No tira.
+  const trackingP = getTrackingEvents(lead.visitor_id);
+  const sinTrackingP = trackingP.then((t) => (t.length ? null : sinTrackingDelLead(lead))).catch(() => null);
   // ⚠️ LOS INSUMOS DE «N SIN MARCAR» (el plan, las etapas DEL LEAD, las respuestas de la R2 y si el encuentro
   // se graba) salen de `leerInsumosDatosLead` (lib/datos-del-lead.ts), la MISMA lectura que la ficha del
   // teléfono: con insumos propios, el número volvía a dar distinto en cada pantalla.
@@ -365,7 +377,7 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
     getAdNameMap().catch(() => ({}) as Record<string, string>),
     getVisitasLandingMap([lead.visitor_id]).catch(() => new Map() as VisitasMap),
     getLeadInsights(id),
-    getTrackingEvents(lead.visitor_id),
+    trackingP,
     getVideosLanding(),
   // ¿El Pixel de MaKo está midiendo? Es para el VACÍO de la tarjeta de tracking:
   // sin código pegado, «sin eventos» no es un lead que no interactuó, es un negocio
@@ -404,9 +416,20 @@ export async function getLeadFullAction(id: number): Promise<LeadFullData | null
   // y es el mismo en todos los workspaces (mismo criterio que el selector del tablero).
   const productos = funnels.map((f) => ({ id: f.id, nombre: nombreVisible(f), esDefault: f.esDefault }));
   const fotoEmail = lead.email?.trim() ? urlGravatar(lead.email, 160) : null;
+  const enviosP = enviosDelLead(id);
   const [ficha, rolWs, partners] = await Promise.all([fichaP, rolP, ofrecePartners()]);
+  const envios = await enviosP;
+  // CADA FORMULARIO QUE LLENÓ (14/11/2026, mig 0415): en «Lo que contestó» por formulario y en Tracking con su nombre. Sin la
+  // tabla (la 0415 sin aplicar) `enviosDelLead` da [] y la ficha queda como siempre.
+  const enviosLanding = envios.filter((e) => e.formularioNombre).map((e) => ({ nombre: e.formularioNombre as string, respuestas: e.respuestas }));
+  const trackingConEnvios: TrackingEvent[] = envios.length
+    ? [...tracking, ...envios.map((e): TrackingEvent => ({
+      ts: e.fecha, tipo: 'formulario', porcentaje: null, landing_url: e.pagina, referrer: null, video_id: null,
+      vsl_titulo: e.formularioNombre, detalle: e.respuestas.slice(0, 3).map((r) => `${r.pregunta}: ${r.respuesta}`).join(' · ') || null,
+    }))].sort((a, b) => b.ts.localeCompare(a.ts))
+    : tracking;
   const rol = rolDeFicha(rolWs);
-  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking, pixelPuesto, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
+  return { lead, stages, pagos, vslEng, videos, replay, campana, adNombre, adId: adIdCand, visitas, insights, tracking: trackingConEnvios, pixelPuesto, sinTracking: await sinTrackingP, respuestas, respuestasForm: respuestasPropias(lead.meta_field_data), respuestasLanding: respuestasGuardadas(lead.optin_respuestas), enviosLanding, resumen: await resumenP, cohorte: cohorteDeLead(lead), insightGen, faltantesInsight, faltantes, datos, equipo, closerDetectado, productos, fotoEmail, cobro, verTracking: await verTrackingP,
     ficha, rol, verPrivado: vePrivado(rol, lead.closer, sesion), puedeEditarFicha: rol === 'admin', partners, tratos: await tratosP, suscripcion: await suscripcionP };
 }
 
@@ -1325,7 +1348,8 @@ export async function marcarPagoAction(
   if (!porLink) await logLeadEvent(
     leadId,
     pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado',
-    pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : 'Cuota desmarcada',
+    // Al desmarcar, cuál cuota (14/11/2026): «Cuota desmarcada» no decía cuál.
+    pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : textoDeVueltaAPendiente(await numeroDeCuota(pagoId)),
     await autorActual(),
   );
   bust(TAG.pagos, TAG.leads);

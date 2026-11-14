@@ -26,7 +26,6 @@
 
 import { TOPES, TABS_SOLO_PRO, type FuncionSoloPro, type Tope } from './topes-plan';
 import { ASESORES } from './asesores/catalogo';
-import { planConPrueba, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
 
 /** true = incluido, false = no incluido, texto = el tope. */
 export type Celda = boolean | string;
@@ -35,24 +34,22 @@ export type FilaComparacion = { grupo: string; que: string; esencial: Celda; pro
 const cantidad = (n: number | null, prefijo = ''): string => (n == null ? 'Sin tope' : `${prefijo}${n.toLocaleString('es-AR')}`);
 
 /** Una fila de tope: Esencial es la capa `completo`; Pro y el Acelerador, `agencia`. */
+// Un tope en 0 es «no lo trae» (14/11/2026: Esencial sin dominio propio): la celda va vacía, no «0».
+const celdaDeTope = (n: number | null, prefijo: string): Celda => (n === 0 ? false : cantidad(n, prefijo));
 const filaDeTope = (grupo: string, que: string, t: Tope, prefijo = ''): FilaComparacion => ({
   grupo,
   que,
-  esencial: cantidad(TOPES.completo[t], prefijo),
-  pro: cantidad(TOPES.agencia[t], prefijo),
-  acelerador: cantidad(TOPES.agencia[t], prefijo),
+  esencial: celdaDeTope(TOPES.completo[t], prefijo),
+  pro: celdaDeTope(TOPES.agencia[t], prefijo),
+  acelerador: celdaDeTope(TOPES.agencia[t], prefijo),
 });
 const enTodos = (grupo: string, que: string): FilaComparacion => ({ grupo, que, esencial: true, pro: true, acelerador: true });
 const soloPro = (grupo: string, que: string): FilaComparacion => ({ grupo, que, esencial: false, pro: true, acelerador: true });
 const soloPrograma = (grupo: string, que: string): FilaComparacion => ({ grupo, que, esencial: false, pro: false, acelerador: true });
 
-/** Las tabs que son sólo de Pro, con lo que consigue quien no conoce MaKo (nunca el nombre de la tab). */
+/** Las tabs que son sólo de Pro, dichas como las nombra el marketing (nunca el nombre interno de la tab). */
 export const NOMBRE_TAB_PRO: Readonly<Record<(typeof TABS_SOLO_PRO)[number], string>> = {
-  'closing-analyst': 'Qué mejorar en cada llamada de venta, con IA',
-  // 29/10/2026 (el Cerebro, con el inventario del taller): el editor tipo Canva existe y su chat edita el diseño, pero generar
-  // imágenes con IA NO (lib/image-editor/chat/catalogo.ts, `NO_SE_PUEDE_CHAT_IMAGEN`; Image Generator es «pronto»).
-  'image-editor': 'Diseñar tus imágenes sin salir de MaKo',
-  'video-editor': 'Editar tus videos sin salir de MaKo',
+  'closing-analyst': 'Análisis de tus llamadas de venta con IA',
 };
 
 /**
@@ -73,63 +70,84 @@ export const AI_AVATAR_SE_VENDE = false;
 export const NOMBRE_AI_AVATAR = 'Videos con una persona hecha con IA que habla por ti';
 
 /** Lo demás que es sólo de Pro (lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`), dicho igual. */
-
 export const NOMBRE_FUNCION_PRO: Readonly<Record<FuncionSoloPro, string>> = {
-  'scraper-whatsapp': 'Sumar a tu lista los contactos de tus grupos de WhatsApp',
+  'scraper-whatsapp': 'Scrapear los contactos de tus grupos de WhatsApp',
+  'replicar-landing': 'Copiar la landing de un competidor, con tu oferta',
+  // Lo que el candado cierra de verdad (lib/editores-ia-pro.ts): el chat con IA de cada editor, la edición automática, el B-roll y los
+  // clips. Los subtítulos y quitar el fondo corren en el navegador y siguen en los dos planes: no se dicen acá.
+  'ia-editores': 'Editar con IA: edición automática, B-roll y clips mágicos',
+  'comunidad': 'Comunidad para tus alumnos, como en Skool',
+  'setter-ia': 'Setter con IA que responde y agenda por WhatsApp e IG',
+  'piloto-redes': 'Piloto automático de Instagram: publica y prueba hooks',
 };
 
+/** El piloto de YouTube: la misma función de Pro que el de Instagram ('piloto-redes'), en su propia fila. */
+export const NOMBRE_PILOTO_YOUTUBE = 'Piloto automático de YouTube: Shorts y miniaturas';
+
+/**
+ * LOS GRUPOS (14/11/2026, el relevo de todo lo que hace MaKo; Martín: «hagas un relevo bien profundo de todo lo que hace MaKo…
+ * lo agrupes mejor y seas más limitado en el de 47»). Por ÁREA, como se piensa un negocio: conseguir leads, el contenido y los
+ * anuncios (juntos: «No entiendo la diferenciación con anuncios. Porque eso podrías agruparlo en contenido»), el CRM, los chats,
+ * el área de miembros, la IA, el equipo y el acompañamiento. Cada tope va en su área (ya no hay un grupo «lo que entra»).
+ */
+// 14/11/2026, noche (Martín): sin «Equipo y agencia» (las cuentas de clientes y MaKo Partners no van; las personas del equipo, al
+// CRM, para que no quede un grupo con una sola fila) y «Acompañamiento personalizado», con lo que promete.
 export const GRUPOS_COMPARACION = [
-  'Lo que entra en tu plan', 'Tu asistente con IA', 'Conseguir clientes', 'Anuncios', 'Contenido', 'Vender y cobrar', 'Atender',
-  'Equipo', 'Recomendar MaKo', 'Acompañamiento',
+  'Captación de leads', 'Contenido y anuncios', 'CRM y ventas', 'Chats y automatizaciones', 'Área de miembros', 'IA y reportes',
+  'Acompañamiento personalizado',
 ] as const;
 
-/** Los días gratis de cada plan (`planConPrueba`, lib/planes-mako.ts): desde el 12/11/2026, sólo Pro. */
-const diasGratis = (id: string): Celda => (planConPrueba(id) ? `${PRUEBA_DIAS} días` : false);
-
 export function filasDeComparacion(): FilaComparacion[] {
-  const [entra, asistente, conseguir, anuncios, contenido, vender, atender, equipo, recomendar, acompanamiento] = GRUPOS_COMPARACION;
+  const [captacion, contenido, crm, chats, miembros, ia, acompanamiento] = GRUPOS_COMPARACION;
   return [
-    filaDeTope(entra, 'Contactos guardados (interesados y clientes)', 'crm.leads', 'Hasta '),
-    filaDeTope(entra, 'Tableros de ventas, para ver en qué paso está cada cliente', 'crm.funnels'),
-    filaDeTope(entra, 'Números de WhatsApp conectados, más tu Instagram', 'chats.lineas_whatsapp'),
-    filaDeTope(entra, 'Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'),
-    filaDeTope(entra, 'Seguimientos automáticos activos a la vez', 'automations.activas'),
-    filaDeTope(entra, 'Páginas web para vender, publicadas', 'web.landings_publicadas'),
-    filaDeTope(entra, 'Dominios propios para tus páginas (tunegocio.com)', 'web.dominios'),
-    filaDeTope(entra, 'Cuentas para cobrar con Mercado Pago o Stripe', 'cobros.cuentas'),
-    ...(PRUEBA_GRATIS_PRENDIDA ? [{ grupo: entra, que: 'Días gratis al empezar', esencial: diasGratis('esencial'), pro: diasGratis('pro'), acelerador: false }] : []),
-    enTodos(asistente, 'MaKo, un asistente con IA que conoce tu negocio'),
-    // Los referentes del chat de MaKo (lib/asesores/catalogo.ts), contados.
-    enTodos(asistente, `Chat con ${ASESORES.length} referentes del marketing, con su método`),
-    enTodos(asistente, 'Tus tareas, puntuadas y ordenadas por prioridad'),
-    enTodos(asistente, 'Informes de tus ventas y de tus anuncios'),
-    enTodos(conseguir, 'Páginas de venta y presentaciones armadas con IA'),
-    enTodos(conseguir, 'Copiar una página que ya funciona, con tu oferta'),
-    enTodos(conseguir, 'Tu oferta trabajada con IA, pieza por pieza'),
-    enTodos(conseguir, 'Lo que publica tu competencia, en un solo lugar'),
-    enTodos(conseguir, 'Regalos que piden el contacto: guías, checklists y quiz'),
-    soloPro(conseguir, NOMBRE_FUNCION_PRO['scraper-whatsapp']),
-    // Lo que en Esencial propone y no aplica solo (25/10/2026); cuántas ideas, del tope del plan.
-    filaDeTope(anuncios, 'Ideas por día para mejorar tus anuncios', 'ads.recomendaciones_dia'),
-    soloPro(anuncios, 'MaKo aplica las mejoras solo, sin pasarse de tu presupuesto'),
-    enTodos(anuncios, 'Tus campañas de Meta, cruzadas con tus ventas'),
-    enTodos(anuncios, 'Guiones de anuncios desde lo que compra tu cliente'),
+    // LENGUAJE DE MARKETING (14/11/2026, Martín: «no tengas problema en utilizar el lenguaje técnico de marketing… solo de
+    // marketing»): landing, leads, CRM, pipelines, setter, scrapear. Lo que sigue prohibido es lo INTERNO de MaKo (el nombre de
+    // una tab, «capa», «topes»): tests/planes-tres-bloques.test.ts.
+    filaDeTope(captacion, 'Landings y presentaciones armadas con IA, publicadas', 'web.landings_publicadas'),
+    filaDeTope(captacion, 'Dominio propio para tus landings (tunegocio.com)', 'web.dominios'),
+    soloPro(captacion, NOMBRE_FUNCION_PRO['replicar-landing']),
+    filaDeTope(captacion, 'Competidores que MaKo scrapea: web, redes y anuncios', 'spy.competidores'),
+    soloPro(captacion, NOMBRE_FUNCION_PRO['scraper-whatsapp']),
     // AI Avatar está abierta en los tres planes desde el 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»), pero
     // la tabla no la vende hasta que ande de punta a punta (`AI_AVATAR_SE_VENDE`). Y el Video Generator, tampoco (29/10/2026).
     ...(AI_AVATAR_SE_VENDE ? [enTodos(contenido, NOMBRE_AI_AVATAR)] : []),
-    enTodos(contenido, 'Textos con IA: guiones, emails y posteos'),
-    enTodos(contenido, 'Un día de stories, con su guion cuadro por cuadro'),
-    soloPro(contenido, NOMBRE_TAB_PRO['image-editor']),
-    soloPro(contenido, NOMBRE_TAB_PRO['video-editor']),
-    enTodos(vender, 'Cada contacto con su historia y su etapa de venta'),
-    enTodos(vender, 'Tu agenda, con las reuniones de cada cliente'),
-    enTodos(vender, 'Planes de pago en cuotas, con contrato y comprobantes'),
-    soloPro(vender, NOMBRE_TAB_PRO['closing-analyst']),
-    enTodos(atender, 'Todos tus chats en una sola bandeja'),
-    enTodos(atender, 'Un agente con IA que contesta por WhatsApp e Instagram'),
-    soloPro(equipo, 'Si eres agencia: los negocios de tus clientes'),
-    // MaKo Partners, en todos los planes desde el 29/10/2026 (como lo dicen las landings).
-    enTodos(recomendar, 'Ganar el primer mes de cada negocio que traes a MaKo'),
+    // Los guiones de anuncios y las stories son plantillas de Copywriting (la tab Stories se deprecó el 29/10/2026).
+    enTodos(contenido, 'Copywriting con IA: guiones de reels, anuncios, VSL y emails'),
+    enTodos(contenido, 'Editor de imágenes y carruseles, como Canva'),
+    enTodos(contenido, 'Editor de video, como CapCut'),
+    soloPro(contenido, NOMBRE_FUNCION_PRO['ia-editores']),
+    enTodos(contenido, 'Calendario de contenido y publicación en tus redes'),
+    // Lo que en Esencial propone y no aplica solo (25/10/2026); cuántas, del tope del plan. Los tres pilotos automáticos, cada uno
+    // en su fila y los tres de Pro (14/11/2026, noche, Martín). «ROAS real por campaña» se fue: no se entendía.
+    filaDeTope(contenido, 'Recomendaciones por día para tus campañas de Meta', 'ads.recomendaciones_dia'),
+    soloPro(contenido, 'Piloto automático de tus anuncios de Meta'),
+    soloPro(contenido, NOMBRE_FUNCION_PRO['piloto-redes']),
+    soloPro(contenido, NOMBRE_PILOTO_YOUTUBE),
+    filaDeTope(crm, 'Leads y clientes guardados en tu CRM', 'crm.leads', 'Hasta '),
+    filaDeTope(crm, 'Pipelines de venta en tu CRM, con sus etapas', 'crm.funnels'),
+    enTodos(crm, 'Tracking de cada lead: de qué anuncio vino y qué hizo'),
+    enTodos(crm, 'Agenda de llamadas sincronizada con Google, Calendly o Cal'),
+    filaDeTope(crm, 'Cuentas de cobro conectadas: Mercado Pago o Stripe', 'cobros.cuentas'),
+    enTodos(crm, 'Planes de pago en cuotas, con contrato y comprobantes'),
+    soloPro(crm, NOMBRE_TAB_PRO['closing-analyst']),
+    filaDeTope(crm, 'Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'),
+    enTodos(chats, 'Bandeja única: WhatsApp, Instagram, Messenger y email'),
+    filaDeTope(chats, 'Números de WhatsApp conectados', 'chats.lineas_whatsapp'),
+    filaDeTope(chats, 'Automatizaciones activas a la vez', 'automations.activas'),
+    soloPro(chats, NOMBRE_FUNCION_PRO['setter-ia']),
+    enTodos(chats, 'Email marketing: secuencias y envíos con tu dominio'),
+    filaDeTope(miembros, 'Cursos con módulos y clases para tus alumnos', 'classroom.cursos'),
+    soloPro(miembros, NOMBRE_FUNCION_PRO['comunidad']),
+    enTodos(ia, 'MaKo, un asistente con IA que conoce tu negocio'),
+    // Los referentes del chat de MaKo (lib/asesores/catalogo.ts), contados.
+    enTodos(ia, `Chat con ${ASESORES.length} referentes del marketing, con su método`),
+    enTodos(ia, 'Tu oferta y tu funnel, revisados con IA'),
+    enTodos(ia, 'Reportes de tus ventas, tus anuncios y tu contenido'),
+    enTodos(ia, 'Tus tareas, puntuadas y ordenadas por prioridad'),
+    // Lo que promete el Acelerador (lib/planes-mako.ts, `PROGRAMA_ACELERADOR.promesa`), punto por punto, y lo que trae.
+    soloPrograma(acompanamiento, 'Tu sistema de adquisición de clientes, instalado en 90 días'),
+    soloPrograma(acompanamiento, 'A la medida de tu oferta, armado por Martín Koncke'),
+    soloPrograma(acompanamiento, 'Recuperas como mínimo la inversión, garantizado por contrato'),
     // Sin «anuncios» (30/10/2026): lo que se arma la primera semana es lo de `PROGRAMA_ACELERADOR.incluye` y /reembolsos §2.
     soloPrograma(acompanamiento, 'Tu página, mensajes y seguimientos armados la primera semana'),
     soloPrograma(acompanamiento, 'La asesoría grupal en vivo con Martín, cada semana'),
@@ -137,6 +155,63 @@ export function filasDeComparacion(): FilaComparacion[] {
     soloPrograma(acompanamiento, 'Un grupo de WhatsApp con respuestas de Martín'),
   ];
 }
+
+/**
+ * EL NOMBRE CORTO DE CADA FILA, para la tabla de /planes (14/11/2026, Martín: «se tiene que entender muy simple a qué hace
+ * referencia»). El molde es Attio (notas: referencias-comparar/tablas-de-planes.md): el nombre de la cosa, de una a tres palabras,
+ * en lenguaje de marketing; la frase entera (`que`) queda en el (i) de la fila. `que` no cambia: lo leen las tarjetas
+ * («no incluye»), MaKo Partners y los tests.
+ */
+export function nombreCorto(que: string): string {
+  const k: Record<string, string> = {
+    'Landings y presentaciones armadas con IA, publicadas': 'Landings',
+    'Dominio propio para tus landings (tunegocio.com)': 'Dominios propios',
+    [NOMBRE_FUNCION_PRO['replicar-landing']]: 'Copiar landings de la competencia',
+    'Competidores que MaKo scrapea: web, redes y anuncios': 'Competidores',
+    [NOMBRE_FUNCION_PRO['scraper-whatsapp']]: 'Scrapear grupos de WhatsApp',
+    [NOMBRE_AI_AVATAR]: 'Videos con tu avatar',
+    'Copywriting con IA: guiones de reels, anuncios, VSL y emails': 'Copywriting con IA',
+    'Editor de imágenes y carruseles, como Canva': 'Editor de imágenes',
+    'Editor de video, como CapCut': 'Editor de video',
+    [NOMBRE_FUNCION_PRO['ia-editores']]: 'Edición con IA',
+    'Calendario de contenido y publicación en tus redes': 'Calendario de contenido',
+    'Recomendaciones por día para tus campañas de Meta': 'Recomendaciones de ads',
+    'Piloto automático de tus anuncios de Meta': 'Piloto automático de ads',
+    [NOMBRE_FUNCION_PRO['piloto-redes']]: 'Piloto automático de Instagram',
+    [NOMBRE_PILOTO_YOUTUBE]: 'Piloto automático de YouTube',
+    'Leads y clientes guardados en tu CRM': 'Leads en el CRM',
+    'Pipelines de venta en tu CRM, con sus etapas': 'Pipelines',
+    'Tracking de cada lead: de qué anuncio vino y qué hizo': 'Tracking de leads',
+    'Agenda de llamadas sincronizada con Google, Calendly o Cal': 'Agenda',
+    'Cuentas de cobro conectadas: Mercado Pago o Stripe': 'Cuentas de cobro',
+    'Planes de pago en cuotas, con contrato y comprobantes': 'Planes de pago',
+    [NOMBRE_TAB_PRO['closing-analyst']]: 'Análisis de llamadas',
+    'Bandeja única: WhatsApp, Instagram, Messenger y email': 'Bandeja de chats',
+    'Números de WhatsApp conectados': 'Números de WhatsApp',
+    'Automatizaciones activas a la vez': 'Automatizaciones activas',
+    [NOMBRE_FUNCION_PRO['setter-ia']]: 'Setter con IA',
+    'Email marketing: secuencias y envíos con tu dominio': 'Email marketing',
+    'Cursos con módulos y clases para tus alumnos': 'Cursos',
+    [NOMBRE_FUNCION_PRO['comunidad']]: 'Comunidad',
+    'MaKo, un asistente con IA que conoce tu negocio': 'Asistente con IA',
+    [`Chat con ${ASESORES.length} referentes del marketing, con su método`]: `Chat con ${ASESORES.length} referentes`,
+    'Tu oferta y tu funnel, revisados con IA': 'Oferta y funnel con IA',
+    'Reportes de tus ventas, tus anuncios y tu contenido': 'Reportes',
+    'Tus tareas, puntuadas y ordenadas por prioridad': 'Tareas por prioridad',
+    'Personas de tu equipo, cada una con su acceso': 'Usuarios',
+    'Tu sistema de adquisición de clientes, instalado en 90 días': 'Sistema instalado en 90 días',
+    'A la medida de tu oferta, armado por Martín Koncke': 'A la medida de tu oferta',
+    'Recuperas como mínimo la inversión, garantizado por contrato': 'Garantía por contrato',
+    'Tu página, mensajes y seguimientos armados la primera semana': 'Todo armado la semana 1',
+    'La asesoría grupal en vivo con Martín, cada semana': 'Asesoría semanal con Martín',
+    'Plantillas probadas de páginas, mensajes y guiones': 'Plantillas probadas',
+    'Un grupo de WhatsApp con respuestas de Martín': 'Grupo con Martín',
+  };
+  return k[que] ?? que;
+}
+
+/** Los grupos en la tabla, en el orden de los datos (14/11/2026: uno por área; el título es el del grupo). */
+export const GRUPOS_DE_LA_TABLA: ReadonlyArray<{ titulo: string; de: readonly string[] }> = GRUPOS_COMPARACION.map((g) => ({ titulo: g, de: [g] }));
 
 /**
  * La celda de un plan por su CAPA y no por su id: los números salen de los topes de la capa, así que un plan del setting

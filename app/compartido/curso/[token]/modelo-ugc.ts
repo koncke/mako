@@ -299,5 +299,9 @@ export const ENTRADA_COMUNIDAD = 'comunidad';
  *     token (la vista previa no tiene ninguno).
  *   · Al líder de un área, no: no es un miembro, y con su link escribiría con el nombre del cliente
  *     (`actorDelAlumno`, lib/comunidad-datos.ts, ya le contesta que no; acá ni se ofrece).
+ *   · Al alumno de un negocio que paga MaKo Esencial, no (14/11/2026, lib/comunidad-solo-pro.ts): la comunidad es de Pro.
+ *     `delPlan` lo decide el server con el plan del NEGOCIO dueño (`esEsencialDe(firma.ws)`), nunca con el del alumno, y
+ *     falta = sí (ante la duda, se ofrece). Los comentarios de cada clase siguen: son del curso.
  */
-export const ofreceComunidad = (o: { vistaPrevia: boolean; area: string | null }): boolean => !o.vistaPrevia && o.area == null;
+export const ofreceComunidad = (o: { vistaPrevia: boolean; area: string | null; delPlan?: boolean }): boolean =>
+  !o.vistaPrevia && o.area == null && o.delPlan !== false;

@@ -15,8 +15,12 @@
 //
 // Va detrás de la sesión (NO está en lib/rutas-publicas.ts) y el proxy le exige Origin propio
 // al POST.
+//
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): el editor es de los dos planes, editarlo
+// con IA no. Un Esencial recibe el 403 con `pasarAPro`, antes del rate limit y de leer archivos.
 
 import type { NextRequest } from 'next/server';
+import { candadoIaDeEditores } from '@/lib/editores-ia-pro';
 import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { veEditorVideo } from '@/app/video-editor/acceso';
@@ -52,6 +56,8 @@ const fallo = (error: string, status: number) =>
 export async function POST(req: NextRequest) {
   const p = await puerta();
   if ('error' in p) return fallo(p.error, p.status);
+  const pro = await candadoIaDeEditores();
+  if (pro) return pro;
   if (!rateLimit(`video-editor:ia:${p.ws}`, 30, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);
 
   // Con fotos o PDF (28/10/2026, las cajas unificadas): vienen en multipart (lib/adjuntos-del-chat.ts).

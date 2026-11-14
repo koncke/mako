@@ -99,6 +99,7 @@ import { useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
 import { conWs } from '@/lib/ws-tab';
 import { esHojaClosing, SERVICIO_CLAUDE } from './aviso-closing';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
+import { CartelSoloPro } from '@/app/_components/CartelSoloPro';
 import {
   AREAS, COLS, FUENTES, MAX_ARCHIVADAS, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
   abajoDeTodo, campoDe, definicionDeGrafico, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeComponente, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
@@ -323,8 +324,14 @@ export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
   senales = null, unido = null, plantillasInicial = false, avisoClosing = null, accionClosing = 'Conectar Claude', cabeceraPropia = null, avisoFijo = null,
-  disenos = null,
+  disenos = null, candadoClosing = null,
 }: {
+  /**
+   * EL ANÁLISIS DE LAS LLAMADAS ES SÓLO DE MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): con un texto, la hoja Closing
+   * (`esHojaClosing`) muestra el candado EN LUGAR de sus gráficos y no pide sus datos. Lo pone la página con el plan del
+   * negocio (`esEsencialDeLaSesion`); null = se ve como siempre. Las demás hojas no cambian.
+   */
+  candadoClosing?: string | null;
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
   lecturaFallo: boolean;
@@ -499,6 +506,8 @@ export function EditorInforme({
   const hoja = tablero.hojas.find((h) => h.id === hojaId) ?? tablero.hojas[0];
   const hojaRef = useRef(hoja);
   hojaRef.current = hoja;
+  // La hoja Closing con el candado de Pro (`candadoClosing`, lib/closing-solo-pro.ts): ni se dibuja ni se piden sus datos.
+  const cerradaPorPlan = !!candadoClosing && esHojaClosing(hoja);
   // ── El LIENZO: la hoja, o la mini-hoja del pop-up que se está editando (con la primera fila del gráfico de
   // muestra: sus gráficos se filtran por ella, y las piezas de la ficha la abren).
   const dueno = editando && editPopup ? (hoja.componentes.find((c): c is Grafico => c.id === editPopup && esGrafico(c) && !!c.popup) ?? null) : null;
@@ -588,7 +597,7 @@ export function EditorInforme({
   // El link compartido por el que se entró (o nadie): decide a qué ruta van las LECTURAS (./lectura-compartida.ts).
   const tokenLink = compartido?.token ?? null;
   useEffect(() => {
-    if (enBlanco) return;
+    if (enBlanco || cerradaPorPlan) return;
     const firmas = firmaPedida.current!;
     const p = pedidosDeHoja(lienzo, vista, hoy, version, noSePiden);
     const graficos = p.graficos.filter((x) => firmas[x.g.id] !== x.firma);
@@ -1680,7 +1689,7 @@ export function EditorInforme({
             {/* La hoja Closing sin con qué analizar las llamadas (IA12, ./aviso-closing.ts): fijo, no un toast que se va. Se
                 conecta con EL modal de /integraciones, sin salir de la hoja; el botón sólo para quien puede conectar (el
                 closer mira su hoja en sólo lectura). */}
-            {avisoClosing && !closingConectado && esHojaClosing(hoja) && !dueno && !enBlanco && !compartido && (
+            {avisoClosing && !closingConectado && esHojaClosing(hoja) && !cerradaPorPlan && !dueno && !enBlanco && !compartido && (
               <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" onClick={(e) => e.stopPropagation()}>
                 <span>{avisoClosing}</span>
                 {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>{accionClosing}</BotonIntegracion>}
@@ -1709,6 +1718,10 @@ export function EditorInforme({
               <div className="lk-en-blanco lk-en-blanco-crear" onClick={(e) => e.stopPropagation()}>
                 {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informeGeneralODashboard} senales={senales} conTodas={!!unido} />}
               </div>
+            ) : cerradaPorPlan && candadoClosing ? (
+              // La hoja Closing de un Esencial (14/11/2026, lib/closing-solo-pro.ts): el candado con «Pasar a Pro» EN LUGAR de
+              // sus gráficos. La hoja sigue en el informe, intacta: con Pro vuelve a dibujarse tal cual.
+              <div className="lk-no-arrastrar" onClick={(e) => e.stopPropagation()}><CartelSoloPro texto={candadoClosing} /></div>
             ) : disenoEntero ? (
               // Una hoja con su DISEÑO ENTERO (el modelo de antes del 6/11/2026): sólo la guardada que no entró en bloques
               // (`disenoEntero`). Las demás dibujan cada tarjeta como un BLOQUE de la grilla de abajo, mirando y editando igual.

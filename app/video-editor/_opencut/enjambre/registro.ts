@@ -4,7 +4,8 @@
 // Biblioteca › Multimedia › «Edición automática» (después de «Importar», antes de «B-roll de MaKo»): el panel con los
 // agentes y su registro (./components/enjambre-view.tsx).
 // Barra de la línea de tiempo: «Edición automática» (centena 300, la de la IA, la primera de ella): arranca la
-// edición y abre su panel. Si ya corre, sólo abre el panel.
+// edición y abre su panel. Si ya corre, sólo abre el panel. A un Esencial (es editar con IA: SÓLO MaKo Pro, 14/11/2026), le
+// abre el panel, que muestra el candado (`correrEnjambre` no arranca: ./correr.ts, «solo-pro»).
 //
 // Lo importa ce/extensiones.ts.
 
@@ -38,6 +39,11 @@ herramientasLinea.registrar({
 		}
 		void correrEnjambre(editor)
 			.then((r) => {
+				// Un Esencial (SÓLO MaKo Pro, 14/11/2026): no un error que se va, sino su panel, con el candado y «Pasar a Pro».
+				if (!r.ok && r.motivo === "solo-pro") {
+					useAssetsPanelStore.getState().irA({ categoria: "multimedia", seccion: SECCION_ENJAMBRE });
+					return;
+				}
 				if (!r.ok) toast.error(r.texto);
 			})
 			.catch((error) => {

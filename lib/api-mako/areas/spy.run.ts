@@ -38,6 +38,8 @@ import { DIAS_NOVEDADES, rotuloDelNumero } from '@/lib/spy-seguidos-reglas';
 import { dibujarContador, NOMBRE_CANAL, NOMBRE_ETAPA, NOMBRE_FUENTE, SIN_ANUNCIOS_EN_ESTE_PAIS, adLibraryCubreComercial, type CanalSpy } from '@/lib/spy-reglas';
 
 const json = (o: unknown): string => JSON.stringify(o);
+/** El tope del plan (lib/spy-tope-reglas.ts) es una REGLA, no una falla nuestra: va sin `falla` y con dónde se cambia el plan. */
+const conTuPlan = (r: { error: string; pasarAPro?: string }): string => (r.pasarAPro ? `${r.error} Tu plan: ${r.pasarAPro}.` : r.error);
 
 async function seguro(que: string, fn: () => Promise<Ejecutado>): Promise<Ejecutado> {
   try {
@@ -102,7 +104,7 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async (p) => seguro('sumarlo al radar', async () => {
       const r = await agregarCompetidor(String(p.pegado ?? ''), typeof p.nombre === 'string' ? p.nombre : undefined);
-      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.ok) return { ok: false, resumen: conTuPlan(r) };
       return { ok: true, resumen: `Listo: «${r.competidor.nombre}» quedó en el radar. Dime «revisa qué publicó» cuando quieras la primera lectura.`, datos: { id: r.competidor.id } };
     }),
   },
@@ -317,7 +319,7 @@ export const RUNNERS: Runners = {
       const id = idDe(p.id);
       if (id == null) return { ok: false, resumen: 'No sé cuál sumar.' };
       const r = await sumarSugeridoAlNegocio(id);
-      if (!r.ok) return { ok: false, resumen: r.error };
+      if (!r.ok) return { ok: false, resumen: conTuPlan(r) };
       return { ok: true, resumen: `Listo: quedó en el radar, con ${r.piezas} publicaciones ya leídas.`, datos: { id: r.id } };
     }),
   },

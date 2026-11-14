@@ -3,6 +3,17 @@
 Lo que se aprendió leyendo llamadas grabadas con Fathom y sus análisis en `closing_analyses`.
 Una entrada por tema; lo que quedó sin hacer dice dónde vive.
 
+## Closing se vendía como Pro desde el 23/10 y nada lo frenaba (14/11/2026)
+
+`SOLO_PRO_FUERA_DE_LA_BARRA` decía que su candado «va en el Dashboard» y nadie lo había puesto; además el análisis salía por cuatro caminos:
+la hoja, `/api/closing/*`, `analizar-lead` del CRM y las 19 operaciones de la API. Ahora la hoja muestra el candado sin leer datos, las
+rutas dan 403 y el área `closing` de la API se cierra menos las 3 de grabaciones del CRM (`OPERACIONES_CLOSING_ABIERTAS`,
+lib/closing-solo-pro.ts). **La regla:** lo que /planes vende como de Pro necesita un test que encuentre su candado en el código.
+**Sin hacer:** `/api/graficos` sigue sirviendo los datos de llamadas si un Esencial los mete en otra hoja (`llamadas_venta` lo usan
+Comercial y Focus); el cron sigue analizando las llamadas de un Esencial con SU Claude (gasta en algo que no ve: lib/closing.ts); con
+`?llamada=` la ficha se abre encima del candado. **Trampa:** tests que clavan líneas literales del Dashboard (dashboard-aviso-closing,
+dashboard-en-blanco): cualquier condición nueva en esas líneas los pone en rojo.
+
 ## El prompt del Closing le leía las llamadas de TODOS con el método de un solo rubro (id=530, 6/11/2026)
 
 - **Síntoma:** ninguno visible. `SYSTEM_ANALISIS` (`lib/closing.ts`) le decía al modelo, para todos los

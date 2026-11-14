@@ -57,8 +57,10 @@ export function TablerosCarrusel({ tableros }: { tableros: readonly Tablero[] })
         void v.play().catch(() => {});
       } else v.pause();
     });
-    const sig = videos.current[(i + 1) % n];
-    if (sig && !sig.getAttribute('src')) { sig.preload = 'auto'; sig.src = sig.dataset.src ?? ''; }
+    // TODOS se cargan apenas el carrusel se ve, no sólo el siguiente (Martín, 14/11/2026: «cuando se scrollea uno pasa demasiado
+    // tiempo con la pantalla en blanco antes de la animación»): con el arrastre o los puntos se salta a cualquiera, y ése tenía que
+    // bajar recién ahí. Son ~13 × 130 KB.
+    videos.current.forEach((v) => { if (v && !v.getAttribute('src')) { v.preload = 'auto'; v.src = v.dataset.src ?? ''; } });
   }, [i, visto, n]);
 
   // Pasa solo.

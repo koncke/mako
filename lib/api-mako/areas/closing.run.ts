@@ -17,7 +17,9 @@
 // =============================================================================
 
 import 'server-only';
-import type { Ctx, Falta, Preparado, Runners } from '../tipos';
+import type { AccionRun, Ctx, Falta, Preparado, Run, Runners } from '../tipos';
+import { esEsencialDe } from '@/lib/plan-esencial';
+import { OPERACIONES_CLOSING_ABIERTAS, TEXTO_CLOSING_SOLO_PRO } from '@/lib/closing-solo-pro';
 import { getClosingViewData, reviseAnalysis, analizarLlamadasDeLead, type ClosingAnalysisRow, type Tone } from '@/lib/closing';
 import { estadoDelAnalisis, arrancarAnalisis, cerrarAnalisis } from '@/lib/closing-job';
 import { resumenDeCorrida } from '@/lib/closing-job-estado';
@@ -125,9 +127,37 @@ async function exigirIa(): Promise<FaltaDeConexion | null> {
     : { error: 'El análisis de las llamadas corre con el Claude del negocio por clave, y este negocio no la tiene cargada: fallaría sin hacer nada.', falta: { servicio: 'anthropic' } };
 }
 
+/**
+ * EL ANÁLISIS DE LAS LLAMADAS ES SÓLO DE MaKo Pro (14/11/2026, lib/closing-solo-pro.ts): la tabla de planes lo vendía como
+ * de Pro y nada lo frenaba. Toda operación del área, MENOS las grabaciones (`OPERACIONES_CLOSING_ABIERTAS`), le contesta al
+ * Esencial el texto del candado: la lectura antes de leer, la acción antes de proponer y otra vez al confirmar. El plan es el
+ * del negocio (`ctx.ws`, no hay sesión por la API); ante la duda, pasa (`esEsencialDe`). El molde: `soloDesdeLaApp`
+ * (./video-estudio.run.ts).
+ */
+function conCandadoDePro(rs: Record<string, Run>): Runners {
+  const out: Record<string, Run> = {};
+  const cerrado = async (ctx: Ctx): Promise<boolean> => esEsencialDe(ctx.ws);
+  for (const [id, r] of Object.entries(rs)) {
+    if (OPERACIONES_CLOSING_ABIERTAS.has(id)) { out[id] = r; continue; }
+    if ('leer' in r) {
+      out[id] = { leer: async (i, ctx) => ((await cerrado(ctx)) ? error(TEXTO_CLOSING_SOLO_PRO) : r.leer(i, ctx)) };
+    } else if ('ejecutar' in r) {
+      const a: AccionRun = r;
+      out[id] = {
+        ...a,
+        ...(a.preparar ? { preparar: async (i: Record<string, unknown>, ctx: Ctx): Promise<Preparado> => ((await cerrado(ctx)) ? { error: TEXTO_CLOSING_SOLO_PRO } : a.preparar!(i, ctx)) } : {}),
+        ejecutar: async (p, ctx) => ((await cerrado(ctx)) ? { ok: false, resumen: TEXTO_CLOSING_SOLO_PRO } : a.ejecutar(p, ctx)),
+      };
+    } else {
+      out[id] = r;
+    }
+  }
+  return out;
+}
+
 // ── runners ──────────────────────────────────────────────────────────────────
 
-export const RUNNERS: Runners = {
+export const RUNNERS: Runners = conCandadoDePro({
   // ── Lecturas agregadas ─────────────────────────────────────────────────────
   panorama_closing: {
     leer: async () => {
@@ -686,4 +716,4 @@ export const RUNNERS: Runners = {
       }
     },
   },
-};
+});

@@ -6,8 +6,12 @@
 // Pedido de Leila (30/10/2026): de un video largo a varios cortos. «Buscar los mejores momentos» (../buscar.ts) lista los
 // clips con su título, su puntaje de 0 a 99 (como OpusClip) y lo primero que se dice; «Ver» lleva el cabezal a su
 // arranque, y «Abrir» lo arma en un proyecto NUEVO, vertical y con subtítulos (../abrir.ts). El original no se toca.
+// SÓLO MaKo Pro (14/11/2026, lib/editores-ia-pro.ts): es editar con IA. A un Esencial, el candado en lugar de «Buscar…», ANTES
+// de transcribir el video (la ruta le diría que no recién después de escucharlo entero).
 
 import { Button } from "@/app/video-editor/_opencut/components/ui/button";
+import { useSoloPro } from "@/app/_components/solo-pro";
+import { CandadoSoloPro } from "@/app/_components/CandadoSoloPro";
 import { Spinner } from "@/app/video-editor/_opencut/components/ui/spinner";
 import { SelectCe } from "@/app/video-editor/_opencut/components/editor/panels/properties/components/kit";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
@@ -73,6 +77,7 @@ export function ClipsView() {
 	const actual = useEditor((e) => e.project.getActiveOrNull()?.metadata.id ?? null);
 	const duracion = useEditor((e) => e.timeline.getTotalDuration());
 	const hayLinea = duracion > 0;
+	const soloPro = useSoloPro("ia-editores");
 	const deEste = proyectoId && proyectoId === actual ? clips : [];
 	const trabajando = fase !== "inactivo";
 	// Lo dicho sobre OTRA línea (más corta, de otro proyecto) ya no vale: «ya dura como un clip» se va al sumar video.
@@ -141,6 +146,8 @@ export function ClipsView() {
 								<span className="block h-full rounded-full bg-primary transition-[width]" style={{ width: `${progreso || 100}%` }} />
 							</span>
 						</div>
+					) : soloPro ? (
+						<CandadoSoloPro funcion="ia-editores" />
 					) : (
 						<Button type="button" className="w-full" disabled={!hayLinea} onClick={() => void buscarClips(editor, { cuantos: prefs.cuantos })}>
 							{deEste.length ? "Buscar de nuevo" : "Buscar los mejores momentos"}

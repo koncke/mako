@@ -17,6 +17,13 @@
 //   · Sus precios no van (ninguna landing de /vsl escribe un precio a mano) y la prueba es el caso de Mauricio.
 // Lo que hace hoy, de lib/funciones-mako.ts (keys: ['crm']) y de la landing anterior; el mini-VSL de Panda sigue en el hero.
 //
+// RELEVO FIEL DEL 14/11/2026 (noche; la referencia se volvió a mirar con Chromium a 1440 y 390: notas de la sesión,
+// referencias-landings/crm/): su imagen del hero abre su video en una ventana (aquí, la grabación del CRM abre el mini-VSL de Panda);
+// cada pestaña del ciclo trae su LISTA de herramientas con el tilde (`puntos`: lo que hace MaKo en esa parte, de lib/funciones-mako.ts)
+// y su video; «What's included» es una TABLA de qué apps reemplaza (aquí, app/vsl/_sitio/reemplaza.ts, sin precios); y al final su
+// cinta de logos «Integrates With Your Favorite Tools» (el bloque `logos`). Lo que estaba en «Lo que incluye MaKo» (kanban, ficha,
+// productos, cuotas, acciones en bloque, papelera) pasó a las listas de las pestañas.
+//
 // LOS TEXTOS DE GOHIGHLEVEL, TAL CUAL (12/11/2026, Martín: «hay ciertas cosas que valen la pena copiarlas tal cual»),
 // traducidos a español neutro de tú (las pestañas se leyeron haciendo clic en cada una):
 //   · «Power up your business with AI» → «Potencia tu negocio con IA»; «The AI-powered business operating system» →
@@ -48,10 +55,6 @@ const I = {
   todo: ['M4 4h6v6h-6z', 'M14 4h6v6h-6z', 'M4 14h6v6h-6z', 'M17 17m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0'],
   ia: ['M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3l5.8 1.9l-5.8 1.9a2 2 0 0 0 -1.3 1.3l-1.9 5.8l-1.9 -5.8a2 2 0 0 0 -1.3 -1.3l-5.8 -1.9l5.8 -1.9a2 2 0 0 0 1.3 -1.3z'],
   wa: ['M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9', 'M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1'],
-  tablero: ['M4 4h4v16h-4z', 'M10 4h4v10h-4z', 'M16 4h4v6h-4z'],
-  ficha: ['M14 3v4a1 1 0 0 0 1 1h4', 'M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z', 'M9 9l1 0', 'M9 13l6 0', 'M9 17l6 0'],
-  producto: ['M7.5 7.5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0 -2 0', 'M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592 -5.592a2.41 2.41 0 0 0 0 -3.408l-7.71 -7.71a2 2 0 0 0 -1.414 -.586h-5.172a3 3 0 0 0 -3 3z'],
-  papelera: ['M4 7l16 0', 'M10 11l0 6', 'M14 11l0 6', 'M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12', 'M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3'],
 };
 
 export const LANDING_CRM: LandingCompetencia = {
@@ -65,7 +68,7 @@ export const LANDING_CRM: LandingCompetencia = {
     {
       tipo: 'hero',
       etiqueta: 'Potencia tu negocio con IA',
-      titulo: 'Tu CRM trackea tus leads de forma automática',
+      titulo: 'El CRM trackea tus leads de forma automática',
       bajada: 'Todas las herramientas que necesitas para captar, nutrir y cerrar leads nuevos y convertirlos en reuniones, ventas y cuotas cobradas, <strong>con tu CRM en el centro</strong>.',
       visual: { tipo: 'detalle', slug: 'crm' },
     },
@@ -83,12 +86,19 @@ export const LANDING_CRM: LandingCompetencia = {
       fondo: true,
       titulo: 'Tu solución todo en uno para hacer crecer tu negocio',
       bajada: 'Todas las herramientas que necesitas, en una plataforma con IA.',
+      // `puntos`: su lista de herramientas con el tilde (14/11/2026), sólo lo que hace MaKo hoy (lib/funciones-mako.ts: el CRM, Chats,
+      // Automations, Calendar; lib/topes-plan.ts para lo que es «Con MaKo Pro»).
       items: [
-        { icono: I.entra, meta: 'Captar', titulo: 'Haz que entren más leads', texto: 'Atrae a la gente correcta, convierte el interés en leads y mantén tu pipeline lleno. Cada lead que entra por tu anuncio, tu landing o tu WhatsApp <strong>llega con su ficha creada</strong>, en la etapa que elegiste.' },
-        { icono: I.sigue, meta: 'Nutrir', titulo: 'Construye relaciones que convierten', texto: 'Las herramientas que necesitas para dar seguimiento, seguir presente y generar confianza. La nutrición de cada etapa le escribe sola, en la voz de tu negocio, y le recuerda la reunión.' },
-        { icono: I.cierra, meta: 'Cerrar', titulo: 'Cierra tratos con menos ida y vuelta', texto: 'Quita la fricción y convierte conversaciones en clientes que pagan. Agenda y se mueve a la etapa que toca; termina la reunión y MaKo engancha la grabación, y si no se presentó, también lo sabe.' },
-        { icono: I.cobra, meta: 'Cobrar', titulo: 'Cobra cada cuota desde su ficha', texto: 'El plan de pagos por cuotas vive en la ficha, con el contrato y los comprobantes leídos por IA.' },
-        { icono: I.ordena, meta: 'Reactivar', titulo: 'Vuelve a estar en su radar', texto: 'Reactiva leads pasados con un mensaje a tiempo: eliges una columna entera o los leads que quieras y les mandas una <strong>difusión por WhatsApp, email o Instagram</strong>.' },
+        { icono: I.entra, meta: 'Captar', titulo: 'Haz que entren más leads', texto: 'Atrae a la gente correcta, convierte el interés en leads y mantén tu pipeline lleno. Cada lead que entra por tu anuncio, tu landing o tu WhatsApp <strong>llega con su ficha creada</strong>, en la etapa que elegiste.',
+          puntos: ['Kanban por etapa y tabla de leads', 'La ficha que se crea sola', 'El formulario de tus landings', 'Los formularios de Meta', 'WhatsApp, Instagram, Messenger y email', 'Tus funnels, con su etapa de entrada', 'Los contactos de un grupo de WhatsApp (Con MaKo Pro)'] },
+        { icono: I.sigue, meta: 'Nutrir', titulo: 'Construye relaciones que convierten', texto: 'Las herramientas que necesitas para dar seguimiento, seguir presente y generar confianza. La nutrición de cada etapa le escribe sola, en la voz de tu negocio, y le recuerda la reunión.',
+          puntos: ['La nutrición de cada etapa', 'Automatizaciones en un lienzo', 'El recordatorio de la reunión', 'El setter con IA (Con MaKo Pro)', 'Todas las conversaciones en Chats', 'Emails a tu lista'] },
+        { icono: I.cierra, meta: 'Cerrar', titulo: 'Cierra tratos con menos ida y vuelta', texto: 'Quita la fricción y convierte conversaciones en clientes que pagan. Agenda y se mueve a la etapa que toca; termina la reunión y MaKo engancha la grabación, y si no se presentó, también lo sabe.',
+          puntos: ['Agenda con Calendly o Cal.com', 'Se mueve de etapa cuando agenda', 'La grabación de la reunión en su ficha', 'MaKo Analyst: el diagnóstico de cada lead', 'Productos y ofertas, con su precio', 'Te avisa si no se presentó'] },
+        { icono: I.cobra, meta: 'Cobrar', titulo: 'Cobra cada cuota desde su ficha', texto: 'El plan de pagos por cuotas vive en la ficha, con el contrato y los comprobantes leídos por IA.',
+          puntos: ['Pago único, suscripción o cuotas', 'El plan de cuotas en su ficha', 'Lo que debe y cuándo vence', 'Links de pago de Stripe o Mercado Pago', 'El contrato', 'Los comprobantes, leídos por IA'] },
+        { icono: I.ordena, meta: 'Reactivar', titulo: 'Vuelve a estar en su radar', texto: 'Reactiva leads pasados con un mensaje a tiempo: eliges una columna entera o los leads que quieras y les mandas una <strong>difusión por WhatsApp, email o Instagram</strong>.',
+          puntos: ['Difusión a una columna entera', 'O a los leads que elijas', 'Por WhatsApp, email o Instagram', 'Acciones en bloque: mover, etiquetar y asignar', 'La papelera: 30 días para recuperar'] },
       ],
     },
     {
@@ -104,15 +114,31 @@ export const LANDING_CRM: LandingCompetencia = {
       tipo: 'tarjetas',
       fondo: true,
       titulo: 'Lo que incluye MaKo',
-      items: [
-        { icono: I.tablero, titulo: 'Kanban y tabla', texto: 'Tus leads por etapa, o en una tabla para filtrar y ordenar.' },
-        { icono: I.ficha, titulo: 'La ficha del lead', texto: 'Su historia, sus llamadas y su plan de pagos, en una sola ficha.' },
-        { icono: I.producto, titulo: 'Productos y ofertas', texto: 'Cada producto con su precio, para saber qué compró cada uno.' },
-        { icono: I.cobra, titulo: 'Cobranza por cuotas', texto: 'El plan de cuotas, con el contrato y los comprobantes leídos por IA.' },
-        { icono: I.ordena, titulo: 'Acciones en bloque', texto: 'Mover de etapa, descalificar con motivo, pasar a otro funnel, etiquetar, asignar y eliminar.' },
-        { icono: I.papelera, titulo: 'La papelera', texto: 'Lo que eliminas se recupera tal cual durante 30 días.' },
-      ],
+      // Su «What's included with HighLevel» es una TABLA: cada trabajo, las apps que reemplaza y «Included». La de MaKo sale de
+      // app/vsl/_sitio/reemplaza.ts (STACK_QUE_REEMPLAZA, la misma de la portada) y la dibuja el diseño, sin precios: aquí no van
+      // tarjetas. Lo que estaba acá (kanban, ficha, productos, cuotas, acciones en bloque, papelera) está en las listas del ciclo.
+      items: [],
     },
     { tipo: 'caso' },
+    {
+      tipo: 'logos',
+      titulo: 'Se integra con las apps que ya usas',
+      // Su «Integrates With Your Favorite Tools» (la cinta que corre sola). Lo que llena o mueve tu CRM, del catálogo de integraciones
+      // que un negocio conecta hoy (los logos de la tira de la portada): de dónde entra el lead (Meta, Instagram, WhatsApp, Facebook),
+      // la agenda que lo mueve de etapa (Calendly, Cal.com), la grabación que se engancha a su ficha (Zoom, Fathom: las conectables de
+      // lib/grabadores/catalogo.ts) y los cobros (Stripe, Mercado Pago).
+      items: [
+        { logo: 'integraciones/meta.svg', nombre: 'Meta Ads' },
+        { logo: 'integraciones/instagram.png', nombre: 'Instagram' },
+        { logo: 'integraciones/whatsapp.svg', nombre: 'WhatsApp' },
+        { logo: 'integraciones/facebook.png', nombre: 'Facebook' },
+        { logo: 'integraciones/calendly.png', nombre: 'Calendly' },
+        { logo: 'integraciones/calcom.png', nombre: 'Cal.com' },
+        { logo: 'integraciones/zoom.svg', nombre: 'Zoom' },
+        { logo: 'integraciones/fathom.png', nombre: 'Fathom' },
+        { logo: 'integraciones/stripe.png', nombre: 'Stripe' },
+        { logo: 'integraciones/mercadopago.svg', nombre: 'Mercado Pago' },
+      ],
+    },
   ],
 };
