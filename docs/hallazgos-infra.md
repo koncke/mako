@@ -12501,3 +12501,40 @@ Al corte por cuota se guardó el trabajo a medias de las landings en `punta/land
 terminar). Si hubiera dado verde, lo a medias se integraba a main. **La regla:** un respaldo o un trabajo a medias va bajo `wip/…`
 (o cualquier prefijo que ningún workflow mire), nunca bajo `punta/`. Para guardarlo sin tocar la rama ni el índice: un índice
 temporal (`GIT_INDEX_FILE=… git read-tree HEAD; git add …; git write-tree; git commit-tree`) y `git push origin <sha>:refs/heads/wip/…`.
+
+## El worktree quedó en HEAD suelto y casi se lleva seis horas de trabajo (14/11/2026)
+
+`C:/dev/wt-push-q` apareció en **detached HEAD** (`HEAD detached from 00e3cb8c0`) con cuatro sesiones
+escribiendo encima a la vez: el rediseño del login, la portada nueva, el Second Brain y la vitrina de
+precios, **16 archivos modificados y 4 sin seguir**, más un commit de un agente (`9444be564`) que no
+estaba en ninguna rama.
+
+**El síntoma es que no hay síntoma.** `git status` contesta, `git commit` funciona y el commit se crea;
+nada avisa. Lo único que lo delata es la primera línea de `git status -sb`:
+
+```
+## HEAD (no branch)      ← suelto
+## punta/lo-que-sea      ← normal
+```
+
+Un `git checkout` o un `git switch` de cualquiera de las otras sesiones y todo eso queda sin referencia.
+Con varias sesiones sobre el MISMO clon, la probabilidad no es teórica.
+
+**El rescate no pierde nada y es una línea:**
+
+```bash
+git switch -c punta/lo-que-sea     # ancla HEAD y los commits colgados; NO toca el working tree
+```
+
+Mueve sólo el puntero: los archivos modificados y los sin seguir quedan intactos, y los agentes que
+están escribiendo en ese momento no se enteran.
+
+⚠️ **Lo que lo causó no se pudo determinar** (ningún chat declaró haber hecho checkout de un SHA), así
+que la regla es de detección, no de prevención: **antes de commitear en un worktree compartido, mirar
+`git status -sb` y comprobar que la primera línea nombra una rama.** Es la misma vuelta que ya exige
+`git status` antes de commitear y `git pull --rebase` antes de pushear.
+
+⚠️ Y un agente que commitea en un worktree compartido **no debe asumir que hay rama**: el suyo salió
+«bien» y quedó colgando. El reporte del agente lo avisó —«el commit no está en ninguna rama; si alguien
+hace checkout acá antes de subirlo, queda colgando»— y por eso se rescató. **Un agente que commitea
+reporta el SHA y en qué rama quedó**, no sólo que commiteó.
