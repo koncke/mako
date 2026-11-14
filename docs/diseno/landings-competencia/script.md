@@ -105,10 +105,53 @@ del final, sus `@keyframes` y sus reglas `:hover` / `[open]`.
 
 - Sin la píldora de prueba social del hero, el hero arranca 58 px más arriba.
 - La tira de logos lleva el caso de Mauricio: su nombre y el titular en el rótulo, y sus tres meses en el lugar de los logos
-  (estáticos: tres no llenan un carrusel). El video del caso no tiene lugar en esa tira.
-- Las tarjetas de la demo de «Ask your AI» son las tres preguntas a MaKo (con su respuesta), más anchas que sus anuncios de
-  137 px; sin la fila «Works with your AI» la tarjeta mide ~700 en vez de 820.
-- La imagen de cada tarjeta de la columna de la app es un gráfico de Ads Analyst en un marco blanco sobre una onda azul hecha
-  con CSS (la referencia pone un video de su app). La de los pasos: la conexión con Meta, la caja del chat con la pregunta
-  del paso, y el visual de la portada (el embudo «Del play al cierre»).
-- Las columnas no repiten su título: lo llevan las dos cabezas (en la referencia las cabezas se llaman como las columnas).
+  (estáticos: tres no llenan una cinta). El video del caso no tiene lugar en esa tira.
+- Sin la fila «Works with your AI», la tarjeta de la demo mide lo que piden sus filas (mínimo 590, como la suya).
+- (14/11) Las tarjetas de la columna de la app son grabaciones de MaKo puestas como una ventana sobre el fondo azul (la suya
+  trae el fondo dentro del video); el paso 1 es la conexión dibujada (Meta → MaKo), no un video.
+
+## Segunda mirada (14/11/2026, noche): lo que se mueve, medido
+
+Relevo con Chromium a 1440 × 900 y 390 × 844 (scroll con la rueda de 90 px cada 110 ms, `getAnimations()` en cada paso,
+`MutationObserver` e `IntersectionObserver` espiados, la demo leída cada 250 ms durante 30 s, hovers en una página limpia).
+Capturas, videos y scripts: notas de la sesión, `referencias-landings/script/`. **Su CSS y sus scripts vienen DENTRO del HTML**
+(`curl` lo trae, Cloudflare no frena): los tiempos de abajo son los de su código, y el navegador los confirmó.
+
+- **La página es la variante D de una prueba A/B** (`<html data-ab-arm="variant_d">`, `abTestId: "variant_d_starter_plan"`): su
+  barra y su pie sólo se muestran con ese atributo. La estructura es la del 11/11.
+- **La demo de «Ask your AI» (`[data-agent-interface]`)**: cuatro escenas — «Show me trending wellness ads» (cinco anuncios),
+  «Find brands scaling on Meta this week» (tres marcas con su curva), «What's working for Avera Hair Care right now?» (gancho,
+  formato y ángulo) y «Turn this ad into 3 new statics» (tres anuncios). Escribe a 18 ms por letra (12 el espacio, 55 la coma)
+  después de 260 ms; 120 ms después de la última letra las tarjetas entran de a una cada 115 ms (opacidad y `translateY(26px)
+  scale(.9)` → nada, 0,42 s `cubic-bezier(.2,.75,.2,1)`); 2,86 s después salen al revés cada 70 ms, a los 90 ms el texto se
+  apaga (`opacity 0`, `translateY(5px)`, 0,22 s) y a los 470 ms empieza la siguiente: **≈4,2 s por escena**. Corre sólo con el 25 %
+  a la vista; la flecha (44 px) pasa a la siguiente. Con «menos movimiento», la escena quieta y entera.
+- **Las `.rv`**: `opacity 0` y `translateY(26px)` → nada en 0,7 s `cubic-bezier(.2,.7,.2,1)`, con 0,09 / 0,18 / 0,27 s de demora
+  (`d1`/`d2`/`d3`), al entrar con umbral 0,18 y `rootMargin: 0 0 -8% 0`. 32 en la página: rótulos, titulares, bajadas, las
+  cabezas, el «or», cada tarjeta, la banda del final y las preguntas.
+- **«Two ways to run it»**: cada tarjeta de la app trae su video (`muted loop playsinline preload="none"`, 17,9 / 31,2 / 49 / 13,5 /
+  29,2 s, 1280 de ancho; el paso 1 14 s y el 2 29,4 s; el 3 no es video). Se calientan 600 px antes de llegar y corre SÓLO el que
+  más se ve de cada columna (≥ 35 %): en la computadora dos a la vez (uno por columna), en el teléfono uno. El paso 2 queda
+  `position: sticky; top: 88px` mientras pasan Brand Spy, Shops y Boards (filas 3 a 5). Cuando las cabezas salen por arriba aparece
+  la barra de cada columna (`sticky; top: 16px`, 52 px, `opacity 0 → 1` y `translateY(-10px) → 0` en 0,28 s; sólo desde 861 px).
+  El paso 3 (`.sx-chat`, blanco con grilla de 36 px) corre un ciclo de 9 s sólo con el 35 % a la vista: quieto con el resultado
+  (0–30 %), se borra (34 %), se escribe en `steps(34)` (37–62 %), la flecha se aprieta a `scale(.84)` (65 %) y caen las tres
+  tarjetas, cada una 0,35 s después de la otra (76 %).
+- **Lo que corre siempre**: el degradado del titular (3 s), la cinta de logos (48 s, se frena con el mouse), el cursor (0,72 s) y,
+  en el cierre, dos cintas de anuncios de 150 px de alto (60 s y 75 s al revés) al 42 % debajo de la viñeta.
+- **Hovers** (estilo calculado a los 120 y 900 ms): botones a `#2945E4` y `translateY(-1px)`; chips con el borde al 22 % de azul y
+  `-1px`; «Learn more» a `#E9EDF0` y `-1px`; la flecha de la demo igual que los botones; preguntas a azul (el chevrón queda gris
+  `#8A949D` y se pone azul sólo abierta); links del pie a azul. **Las tarjetas (las cabezas y las de las columnas) NO tienen
+  hover**: la copia de antes subían 2 px y se sacó.
+
+### Lo que va en su lugar en MaKo
+
+- Demo: «¿Qué anuncios tiene activos Alex Hormozi?» (cinco de sus 14 activos con los días de Spy), «¿A dónde manda sus anuncios?»
+  (los tres destinos de «A dónde mandan»), «¿Qué le funciona en sus videos cortos?» (lo que dice «¿Qué formatos le funcionan?»:
+  Storytime 14,6×, su gancho, Tutorial 0,6×) y «Replica su reel con mi oferta» (el guion real de Copywriting). Datos de
+  `C:/dev/bancos-portada/banco-spy-gurus/hormozi-funnel.json` con `lib/spy-detalle.ts`.
+- Columna de la app: «Anuncio ganador» y «Hooks y retención» (las hojas, grabadas con los datos de ejemplo de su plantilla), los
+  anuncios de Hormozi en Spy, su gancho, y su reel replicado. Cada grabación va como una ventana sobre el fondo azul, como las suyas.
+- Paso 3: el pedido «Replica su reel con mi oferta» y las tres partes del guion (gancho, historia, llamado), con su ciclo de 9 s.
+- Cierre: las dos cintas con anuncios de Hormozi que guardó Spy (`public/vsl-assets/script/anuncio-<id>.jpg`).
+- No van: «Works with your AI», las insignias de plan, «Find the store…», los precios, la píldora de prueba social, la letra chica.

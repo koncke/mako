@@ -15,7 +15,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { STACK_QUE_REEMPLAZA, appsQueReemplaza, appsDeLaTira } from '../app/vsl/_sitio/reemplaza';
 import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
-import { STACK_TIPICO } from '../app/vsl/_sitio/reemplaza';
+import { GRUPOS_DEL_AHORRO, STACK_TIPICO } from '../app/vsl/_sitio/reemplaza';
 import { LOGO_INTEGRACION, TARJETAS_PORTADA, filasDeComparacion, nAppsQueReemplaza } from '../app/vsl/_sitio/datos';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -72,4 +72,15 @@ test('el ahorro de la portada es el de un stack típico con su precio, y sale a 
     assert.ok(existsSync(join(RAIZ, 'public', x.app.logo)), `${x.app.nombre}: falta su logo`);
   }
   assert.ok(STACK_TIPICO.reduce((s, x) => s + x.precioUsd, 0) > pro!.precioUsd, 'el ahorro saldría negativo');
+});
+
+// Martín, 14/11/2026, de la lista en dos columnas: «está todo muy junto y no se llega a entender muy bien de quién es el precio». Cada
+// app va en un grupo (para qué sirve), cada fila lleva logo, nombre y precio juntos, y es UNA sección para la portada y Comparaciones.
+test('lo que pagas hoy: cada app en su grupo, una fila por app y la misma sección en la portada y en Comparaciones', () => {
+  for (const x of STACK_TIPICO) assert.ok((GRUPOS_DEL_AHORRO as readonly string[]).includes(x.grupo), `${x.app.nombre}: sin grupo`);
+  for (const g of GRUPOS_DEL_AHORRO) assert.ok(STACK_TIPICO.some((x) => x.grupo === g), `${g}: un grupo vacío`);
+  const lqp = readFileSync(join(RAIZ, 'app/vsl/_sitio/LoQuePagas.tsx'), 'utf8');
+  assert.match(lqp, /<li [^>]*className="s-ah-f"[\s\S]{0,400}<img [\s\S]{0,200}"s-ah-n"[\s\S]{0,120}"s-ah-guia"[\s\S]{0,120}"s-ah-p"/, 'la fila no tiene logo, nombre y precio juntos');
+  assert.match(readFileSync(join(RAIZ, 'app/vsl/_sitio/Portada.tsx'), 'utf8'), /<SeccionReemplaza ver=\{RUTA_COMPARACIONES\} \/>/, 'la portada sin la sección');
+  assert.match(readFileSync(join(RAIZ, 'app/vsl/_sitio/Comparaciones.tsx'), 'utf8'), /<SeccionReemplaza claro \/>/, 'Comparaciones sin la sección');
 });
