@@ -38,6 +38,7 @@ import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
 import type { PlanMako } from '@/lib/planes-mako';
 import { Barra } from './Barra';
 import { AvatarVideos, TablerosCarrusel } from './Interactivos';
+import { BrainVivo } from './BrainVivo';
 import { Pie } from './Pie';
 import { Boton, Flecha } from './Piezas';
 import { CSS_BARRA, CSS_BASE, CSS_PIE, CSS_PORTADA } from './estilos';
@@ -132,8 +133,12 @@ function FilaFuncion({ slug, rotulo, ancla, titulo, texto, visual, inv }: (typeo
           {l ? <a className="s-zz-a" href={`/vsl/${l.slug}`}>Ver cómo funciona <Flecha /></a> : null}
         </div>
       </div>
-      <div className={`s-zz-vis${grabacion ? ' s-zz-video' : visual === 'gurus' ? ' s-zz-gurus' : visual === 'tableros' ? ' s-zz-tableros' : visual === 'avatar' ? ' s-zz-avatar' : falta ? ' s-zz-falta' : ''}`} aria-hidden={falta ? undefined : true}>
-        {grabacion ? (
+      <div className={`s-zz-vis${grabacion || visual === 'brain' ? ' s-zz-video' : visual === 'gurus' ? ' s-zz-gurus' : visual === 'tableros' ? ' s-zz-tableros' : visual === 'avatar' ? ' s-zz-avatar' : falta ? ' s-zz-falta' : ''}`} aria-hidden={falta || visual === 'brain' ? undefined : true}>
+        {visual === 'brain' ? (
+          // El Second Brain de verdad, no una grabación: el mismo componente que corre adentro de la app. Se toca, así que
+          // NO va `aria-hidden` (arriba) y entra diferido, cuando la fila se ve (app/vsl/_sitio/BrainVivo.tsx).
+          <BrainVivo />
+        ) : grabacion ? (
           // Sin sonido y en bucle: arranca sola, como un GIF (el navegador sólo deja eso si está muda).
           <video src={grabacion.video} poster={grabacion.poster} autoPlay muted loop playsInline preload="metadata" />
         ) : visual === 'gurus' ? (

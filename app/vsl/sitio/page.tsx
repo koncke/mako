@@ -1,26 +1,14 @@
+import { permanentRedirect } from 'next/navigation';
+
 // =============================================================================
-// /vsl/sitio — VISTA PREVIA de la portada nueva de MaKo, copiada de https://www.beehiiv.com/ (12/11/2026)
+// /vsl/sitio — la portada nueva SE MUDÓ A LA RAÍZ (app/page.tsx), 14/11/2026
 // =============================================================================
-// Pedido de Martín (12/11/2026): que la portada deje de ser una landing y sea un sitio como el de los grandes SaaS, con la
-// barra de soluciones desplegables (las landings de cada función), Industrias (los avatares), Comparaciones y Precios. Copia
-// la portada de beehiiv sección por sección: el porqué de cada cambio vive en app/vsl/_sitio/Portada.tsx.
-// La portada de hoy (app/page.tsx) NO se toca: esto es una vista previa, fuera de los buscadores hasta que Martín la apruebe.
-// Los planes salen de planesParaLanding() (lib/compra-plan.ts), como en la portada de hoy, con la misma caché de 5 minutos.
+// Acá vivió como vista previa desde el 12/11 mientras Martín la revisaba. La aprobó el 14/11 y pidió
+// que fuera la principal: «está mal la ruta de la landing nueva que hicimos… tendría que estar en la
+// ruta principal». Queda este redirect permanente porque él tiene el link a mano y puede estar pegado
+// en mensajes y material; el componente vive en app/vsl/_sitio/Portada.tsx y lo sirve la raíz.
 // =============================================================================
 
-import type { Metadata } from 'next';
-import { planesParaLanding } from '@/lib/compra-plan';
-import { PortadaSitio } from '../_sitio/Portada';
-
-export const revalidate = 300;
-
-export const metadata: Metadata = {
-  title: 'MaKo · El mejor software para vender High Ticket',
-  description: 'Marketing, ventas y entrega del servicio en una sola app, con una IA que conoce tu negocio.',
-  robots: { index: false, follow: false },
-};
-
-export default async function SitioPage() {
-  const planes = await planesParaLanding();
-  return <PortadaSitio planes={planes} />;
+export default function SitioPage() {
+  permanentRedirect('/');
 }

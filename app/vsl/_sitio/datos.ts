@@ -216,8 +216,11 @@ export const LEGALES: readonly { nombre: string; href: string }[] = [
  *   · competitor-spy → su «Después de MaKo». · web-generator → la bajada de su hero (replicar). · copywriting → su FAQ de los
  *                   referentes; la pared de caricaturas lleva «Inspirado en» (la regla de lib/asesores/catalogo.ts).
  */
-/** Lo que dibuja una fila: el visual de su landing, uno de app/vsl/_detalle/feature-visuals.ts, una grabación de la app o los referentes. */
-export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | { video: string; poster: string } | { falta: string };
+/**
+ * Lo que dibuja una fila: el visual de su landing, uno de app/vsl/_detalle/feature-visuals.ts, una grabación de la app,
+ * los referentes, o `brain`: el Second Brain DE VERDAD, el componente que corre adentro de la app (app/vsl/_sitio/BrainVivo.tsx).
+ */
+export type VisualTarjeta = 'hero' | 'gurus' | 'tableros' | 'avatar' | 'brain' | { video: string; poster: string } | { falta: string };
 
 /**
  * NADA INVENTADO (Martín, 12/11/2026, noche: «identifica la cantidad de cosas que hiciste inventándote cosas. Eso yo no lo quiero…
@@ -240,7 +243,9 @@ export const TARJETAS_PORTADA: readonly { slug?: string; rotulo?: string; ancla?
   // Martín (14/11/2026): «me falta una súper importante que sea el segundo cerebro… se tiene que ver el grafo»; se llama Brain.
   // El grafo REAL (app/second-brain/Grafo.tsx) con el negocio REAL de Alex Hormozi, como lo tiene Competitor Spy (C:/dev/bancos-portada/banco-cerebro).
   // Sin landing propia: va sin `slug` (FilaFuncion no dibuja una tarjeta cuyo slug no tiene landing) y el menú «Producto» lleva a `ancla`.
-  { rotulo: 'Second Brain', ancla: 'brain', titulo: 'Second Brain: todo tu negocio, en un solo mapa.', texto: 'Tu oferta, tu cliente ideal, tus avatares, tu mensaje y tu funnel, conectados en un grafo. MaKo lo arma con los documentos que le subes y con lo que va aprendiendo, y sus chats lo leen para contestarte sobre tu negocio.', visual: { video: '/vsl-assets/sitio/cerebro.webm', poster: '/vsl-assets/sitio/cerebro.jpg' } },
+  // 14/11/2026: era una GRABACIÓN de ese grafo (cerebro.webm). Martín: «no quiero que el second brain sea un video o una animación…
+  // que ahí se renderice un second brain real… que se pueda agarrar un grafo, que se pueda hacer zoom». Ahora es el componente.
+  { rotulo: 'Second Brain', ancla: 'brain', titulo: 'Second Brain: todo tu negocio, en un solo mapa.', texto: 'Tu oferta, tu cliente ideal, tus avatares, tu mensaje y tu funnel, conectados en un grafo. MaKo lo arma con los documentos que le subes y con lo que va aprendiendo, y sus chats lo leen para contestarte sobre tu negocio. Este de acá es de verdad: arrástralo, acércalo y toca un punto.', visual: 'brain' },
   { slug: 'copywriting', rotulo: 'Referentes', titulo: 'Chatea con los referentes del mercado.', texto: 'Alex Hormozi, Iman Gadzhi, Vilma Núñez y muchos referentes más del marketing y las ventas: eliges con quién hablar en el chat de MaKo y te contesta con su método, llevado a tu negocio.', visual: { video: '/vsl-assets/sitio/referentes.webm', poster: '/vsl-assets/sitio/referentes.jpg' } },
   { slug: 'competitor-spy', titulo: 'Mira todo lo que publica tu competencia.', texto: 'Pegas el link de un competidor y MaKo trae sus publicaciones, sus reels, sus videos de YouTube y sus anuncios, los ordena por formato y te muestra cuáles le dieron más vistas.', visual: { video: '/vsl-assets/sitio/spy.webm', poster: '/vsl-assets/sitio/spy.jpg' } },
   { slug: 'copywriting', titulo: 'Replica y adapta un guion de la competencia con IA.', texto: 'Eliges un reel o un video que le funcionó a tu competencia, tocas «Replicar» y MaKo escribe tu guion con su misma estructura, adaptado a tu oferta.', visual: { video: '/vsl-assets/sitio/copywriting.webm', poster: '/vsl-assets/sitio/copywriting.jpg' } },
