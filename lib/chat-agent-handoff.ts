@@ -163,6 +163,12 @@ export async function registrarHandoff(input: {
         '— MaKo',
       ].filter(Boolean).join('\n'),
     });
+    // Y AL SETTER DE ESE LEAD (14/11/2026, la llamada con Julio): el hand-off le llega también a la persona que lo sigue,
+    // con un push a su teléfono y un WhatsApp por la puerta de MaKo (lib/aviso-al-setter.ts). No tira.
+    if (ws != null) {
+      const { avisarAlSetterDelLead } = await import('./aviso-al-setter');
+      await avisarAlSetterDelLead(ws, input.leadId, `${quien} escribió algo que no está previsto: «${input.mensaje.trim().slice(0, 220)}». MaKo no le contestó: contéstale tú.`);
+    }
   } catch { /* el aviso es best-effort: la constancia ya quedó guardada */ }
 }
 
