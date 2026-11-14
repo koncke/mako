@@ -180,7 +180,7 @@ async function autorActual(): Promise<string> {
 }
 import { fmtDDMMYYYY } from '@/lib/date-utils';
 import { getCampaignNameMap, resolverNombreCampana, getAdNameMap, resolverNombreAd, adIdDeLead } from '@/lib/queries';
-import { savePlanPagos, saveLeadPlanManual, marcarPago, getPagosByLead, tratosDelLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
+import { savePlanPagos, saveLeadPlanManual, marcarPago, numeroDeCuota, getPagosByLead, tratosDelLead, leerMarcasDeCobranza, reponerMarcasDeCobranza, type PlanPagos, type Pago } from '@/lib/pagos';
 import { cobradoDeLaVentaSiHay, faltaDeLaVenta, type TratoCrm } from '@/lib/pagos-crm';
 import { avisoDeConservadas, avisoPlanUniforme, pagosPrevios, planDelAsistente, textoDeVueltaAPendiente } from '@/lib/pagos-campo';
 import { senalesDeCobroAction } from './[id]/cobros-actions';
@@ -1339,7 +1339,7 @@ export async function marcarPagoAction(
   fechaPago: string | null,
 ): Promise<{ quitada: boolean; yaEstaba: boolean }> {
   await exigirAccesoAMarcarPago(pagoId, leadId);
-  const { quitada, porLink, yaEstaba, cuota } = await marcarPago(pagoId, pagado, fechaPago);
+  const { quitada, porLink, yaEstaba } = await marcarPago(pagoId, pagado, fechaPago);
   // Ya estaba así (una lista vieja): no se escribió nada, ni el historial. La pantalla lo dice y no ofrece Deshacer.
   if (yaEstaba) return { quitada: false, yaEstaba: true };
   // `quitada`: era un pago que nació cobrado (suelto o mensualidad a mano) y deshacerlo lo quitó (mig 0295).
@@ -1348,8 +1348,8 @@ export async function marcarPagoAction(
   if (!porLink) await logLeadEvent(
     leadId,
     pagado ? 'Pago registrado' : quitada ? 'Pago quitado' : 'Pago desmarcado',
-    // Al desmarcar, cuál cuota y de cuándo era el pago (14/11/2026): «Cuota desmarcada» no decía cuál.
-    pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : textoDeVueltaAPendiente(cuota?.numero, cuota?.fechaPagoAntes),
+    // Al desmarcar, cuál cuota (14/11/2026): «Cuota desmarcada» no decía cuál.
+    pagado ? `Cuota marcada como pagada${fechaPago ? ` (${fechaPago})` : ''}` : quitada ? 'Se quitó un pago registrado a mano' : textoDeVueltaAPendiente(await numeroDeCuota(pagoId)),
     await autorActual(),
   );
   bust(TAG.pagos, TAG.leads);

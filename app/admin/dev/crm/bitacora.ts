@@ -4091,18 +4091,18 @@ export const BITACORA: Hito[] = [
   {
     fecha: '14 nov', hora: '03:40', chat: 'Mauricio: que MaKo le conteste y quede resuelto', sesion: 'local_d73b692a-8916-47ef-b586-9704b6237569', cuenta: 'claude5',
     actor: 'claude', tipo: 'correccion',
-    titulo: 'Una cuota marcada como cobrada por error vuelve a pendiente con «Volver a pendiente», y un pago con fecha futura ya no se guarda',
+    titulo: 'Una cuota marcada como cobrada por error vuelve a pendiente con «Volver a pendiente», y su día de pago ya no se corrige al futuro',
     puntos: [
       '**Mauricio (#98):** marcó cobrada por error la Cuota 2 de Raúl Landeros (vencía el 30/11) y, para devolverla, le cambió la fecha al 30/11. En una cobrada esa fecha es el DÍA DEL PAGO: quedó cobrada en el futuro. El botón para deshacerla existía y decía «Deshacer», y no lo encontró.',
       'La cuota cobrada a mano lleva en su fila el botón **«Volver a pendiente»**.',
-      'Un día de pago después de hoy no se guarda: «¿La cobraste de verdad? … Si todavía no la pagó, vuélvela a pendiente». Vale al corregir una cobrada y al cobrar a mano (la ficha y la API de MaKo).',
-      'El historial dice «cobrada el …» de una cobrada corregida (antes decía «vence …»), y al volver a pendiente dice cuál cuota y de cuándo era el pago, con quién lo hizo.',
+      'El día del pago de una cuota cobrada ya no se corrige a una fecha futura: «¿La cobraste de verdad? … Si todavía no la pagó, vuélvela a pendiente».',
+      'El historial dice «cobrada el …» de una cobrada corregida (antes decía «vence …»), y al volver a pendiente dice cuál cuota, con quién lo hizo.',
     ],
     archivos: [
       'lib/pagos-vistazo.ts — `boton` de `renglonDeCuota` · app/crm/lead-view/ficha/pagos/bloques-cobro.tsx',
       'lib/pagos-campo.ts — `diaDePagoFuturo`, `lineaDeCobradaEditada`, `textoDeVueltaAPendiente`',
-      'lib/pagos.ts — `editarCuotaCobrada` y `cobrarCuota` miran la fecha; `marcarPago` devuelve la cuota',
-      'tests/pagos-volver-a-pendiente.test.ts — 7 roturas, cada una cae',
+      'lib/pagos.ts — `editarCuotaCobrada` mira la fecha; `numeroDeCuota` para el historial',
+      'tests/pagos-volver-a-pendiente.test.ts — 8 roturas, cada una cae',
       'docs/hallazgos-pagos.md',
     ],
     revisar: '/crm',

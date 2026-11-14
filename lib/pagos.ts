@@ -948,8 +948,7 @@ export async function marcarPago(
   pagado: boolean,
   fechaPago: string | null = null,
   opts: { mirarLinks?: boolean } = {},
-  /** `cuota`: cuál era y el día del pago que tenía ANTES (al desmarcar, lo que dice el historial: `textoDeVueltaAPendiente`). */
-): Promise<{ quitada: boolean; porLink: Pasarela | null; yaEstaba: boolean; cuota?: { numero: number; fechaPagoAntes: string | null } }> {
+): Promise<{ quitada: boolean; porLink: Pasarela | null; yaEstaba: boolean }> {
   const supabase = (await getTenantDb());
   const { data: pago, error: getErr } = await supabase
     .from('pagos')
@@ -988,7 +987,19 @@ export async function marcarPago(
 
   // Sólo al marcar PAGADO: desmarcar un pago (un error de carga) no reabre la secuencia (`trasCobrar`).
   if (pagado) await trasCobrar(pagoId, pago.cobro_id ?? null);
-  return { quitada, porLink: null, yaEstaba: false, cuota: { numero: Number(pago.numero), fechaPagoAntes: pago.fecha_pago ? String(pago.fecha_pago).slice(0, 10) : null } };
+  return { quitada, porLink: null, yaEstaba: false };
+}
+
+/**
+ * El número de una cuota, para el historial de quien la desmarca (`textoDeVueltaAPendiente`, 14/11/2026: «Cuota desmarcada» no
+ * decía cuál). Se lee DESPUÉS de desmarcar, a propósito: `marcarPago` devuelve lo mismo de siempre (los tests lo comparan
+ * entero) y la guarda de la action va pegada a la escritura (tests/datos-comercial.test.ts). null: no se pudo leer.
+ */
+export async function numeroDeCuota(pagoId: number): Promise<number | null> {
+  const { data, error } = await (await getTenantDb()).from('pagos').select('numero').eq('id', pagoId).maybeSingle();
+  if (error || !data) return null;
+  const n = Number((data as { numero: unknown }).numero);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
@@ -1013,9 +1024,6 @@ export async function cobrarCuota(
   pendienteEnSuMoneda: { moneda: string; monto: number } | null;
 }> {
   if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
-  // Un cobro con fecha futura no es un cobro (14/11/2026): es la cuota que todavía no pagó (pagos-campo.ts → `diaDePagoFuturo`).
-  const futuro = diaDePagoFuturo(datos.fecha, await hoyEnWorkspace());
-  if (futuro) throw new Error(futuro);
   // La cuota ya se lee con `lead_id`, pero la diferencia de abajo es un INSERT con ese leadId.
   await asegurarLeadDelNegocio(leadId);
   const db = await getTenantDb();
