@@ -250,7 +250,7 @@ function ProductoSitio() {
 // Martín, 13/11/2026: «en realidad son 100 mil dólares, porque a la fecha llevamos más de 100 mil dólares».
 const CASO_TIRA = ['Caso real', 'Mauricio', 'Más de US$100k vendidos', 'US$14k en abril', 'US$20k en mayo', 'Más de US$40k en junio', 'La misma oferta y el mismo funnel'];
 const CASO_MESES = [
-  { mes: 'Antes', valor: 10, rotulo: 'menos de US$10k', antes: true },
+  { mes: 'Antes', valor: 10, rotulo: '<US$10k', antes: true },
   { mes: 'Abril', valor: 14, rotulo: 'US$14k' },
   { mes: 'Mayo', valor: 20, rotulo: 'US$20k' },
   { mes: 'Junio', valor: 40, rotulo: '+US$40k' },
@@ -394,7 +394,7 @@ function CierreSitio() {
     <section className="s-cierre">
       <div className="s-cont">
         <div className="s-cierre-caja">
-          <h2 className="s-h2">¿Lo quieres andando en tu negocio?</h2>
+          <h2 className="s-h2">¿Lo quieres funcionando en tu negocio?</h2>
           <Boton texto={TEXTO_CTA} />
         </div>
       </div>

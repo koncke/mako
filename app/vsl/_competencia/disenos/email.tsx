@@ -226,7 +226,7 @@ function Cierre() {
   return (
     <section className="d-email-cierre">
       <div className="d-email-cont">
-        <div className="d-email-cierre-caja"><h2 className="d-email-h2 d-email-cierre-h">¿Qué estás esperando?</h2><Boton /></div>
+        <div className="d-email-cierre-caja"><h2 className="d-email-h2 d-email-cierre-h">¿Empezamos?</h2><Boton /></div>
       </div>
     </section>
   );
@@ -237,7 +237,7 @@ function PieD({ slug }: { slug: string }) {
     <footer className="d-email-pie">
       <div className="d-email-cont">
         <div className="d-email-pie-in">
-          <p className="d-email-pie-lema">El mejor SaaS para ventas High Ticket, de punta a punta.</p>
+          <p className="d-email-pie-lema">El mejor software para vender High Ticket.</p>
           <div className="d-email-pie-cols">
             <p className="d-email-pie-h">Funciones de MaKo</p>
             <ul>{otrasFunciones(slug).map((x) => <li key={x.href}><a href={x.href}>{x.nombre}</a></li>)}</ul>
