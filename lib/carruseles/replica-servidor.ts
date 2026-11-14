@@ -154,6 +154,11 @@ export type OpcionesReplica = {
    * qué cambia. Sin esto, lo de siempre (la API vieja y el comando de prueba).
    */
   guiado?: PedidoGuiado | null;
+  /**
+   * El nombre del negocio cuando quien pide está INSPECCIONANDO esa cuenta (14/11/2026; la ruta lo saca de lib/vista-de-otro.ts).
+   * La IA que escribe es la de ese negocio (`conSuIADelNegocio(ws)`), y si falla, el aviso la nombra en vez de decir «Tu IA».
+   */
+  negocioAjeno?: string | null;
 };
 
 /** «Editar» el carrusel `id` (o el anuncio) del explorador: lo que llama la API de MaKo. */
@@ -304,7 +309,7 @@ export async function replicarEjemplo(ws: number, quien: string, ej: EjemploARep
     const m = e instanceof Error ? e.message : String(e);
     if (!errores.includes(m)) errores.push(m);
     console.warn(`[carruseles] «Editar» sin la IA del negocio (ws=${ws}, ${ej.que} ${ej.id}): ${m.slice(0, 600)}`);
-    return conGuias(avisoSinIA(m), errores);
+    return conGuias(avisoSinIA(m, o.negocioAjeno ?? null), errores);
   }
   const replica = leerReplica(crudo, { laminas: total, miniatura, vertical, usuario: marca.usuario, nombre: marca.nombre });
   // Lo que leyó la IA TAL CUAL (la plancha le suma y le saca textos a `replica`): en seco viaja esto, para repetir la plancha.

@@ -1338,24 +1338,35 @@ export function esCdnPermitido(url: string): boolean {
  *   · las láminas no le entran → nuestro;
  *   · cualquier otra cosa → contestó con un error, nombrando a quién.
  * No culpa a MaKo si no es de MaKo, ni al negocio si no es del negocio (AGENTS.md, «Un mensaje de error dice DE QUIÉN fue»).
+ *
+ * `negocio` (14/11/2026): el nombre del negocio cuando quien mira está INSPECCIONANDO otra cuenta (lib/vista-de-otro.ts). La IA es
+ * la de ese negocio, así que el aviso la nombra («El Gemini de Mauricio Bustos rechazó la clave…») y dice dónde se arregla (sus
+ * Integraciones, abiertas desde la misma inspección). Con «Tu Gemini», quien inspecciona lee que la falla es de SU IA.
  */
-export function avisoSinIA(error: string): { aviso: string; conectar: string | null } {
+export function avisoSinIA(error: string, negocio: string | null = null): { aviso: string; conectar: string | null } {
   const guia = 'Por ahora, cada lámina trae una guía.';
   const quien = proveedorDelError(error);
-  const tu = quien ? `Tu ${quien}` : 'Tu IA';
+  const ajeno = negocio?.trim() || null;
+  const tu = ajeno ? (quien ? `El ${quien} de ${ajeno}` : `La IA de ${ajeno}`) : quien ? `Tu ${quien}` : 'Tu IA';
+  const su = ajeno ? 'su' : 'tu';
   if (/ninguna IA que pueda mirar|no hay ninguna|con_su_ia_sin_vision|conecta tu (?:claude|gpt|gemini)|sin_keys|sin proveedor de ia/i.test(error) || /las fotos y los PDF escaneados los leo/i.test(error)) {
-    return { aviso: `Conecta tu Claude, tu GPT o tu Gemini y MaKo escribe los textos con lo de tu negocio. ${guia}`, conectar: CONECTAR_IA };
+    return {
+      aviso: ajeno
+        ? `${ajeno} no tiene conectada una IA que mire imágenes (su Claude, su GPT o su Gemini): conéctala en sus Integraciones, desde esta misma vista, y MaKo escribe los textos con lo de su negocio. ${guia}`
+        : `Conecta tu Claude, tu GPT o tu Gemini y MaKo escribe los textos con lo de tu negocio. ${guia}`,
+      conectar: CONECTAR_IA,
+    };
   }
   if (/\b(401|403)\b|invalid[_ ]?api[_ ]?key|api key not valid|incorrect api key|authentication|permission[_ ]?denied|unauthorized/i.test(error)) {
-    return { aviso: `${tu} rechazó la clave: revísala en Integraciones. ${guia}`, conectar: CONECTAR_IA };
+    return { aviso: `${tu} rechazó la clave: revísala en ${ajeno ? 'sus Integraciones' : 'Integraciones'}. ${guia}`, conectar: CONECTAR_IA };
   }
   if (/\b429\b|quota|rate.?limit|resource[_ ]?exhausted|insufficient|billing|credit balance|prepayment/i.test(error)) {
-    return { aviso: `${tu} no tiene cuota o crédito ahora (es de tu cuenta, no de MaKo). ${guia}`, conectar: CONECTAR_IA };
+    return { aviso: `${tu} no tiene cuota o crédito ahora (es de ${su} cuenta, no de MaKo). ${guia}`, conectar: CONECTAR_IA };
   }
-  if (esTopeDeTamano(error)) return { aviso: `Las láminas pesan demasiado para ${tu.replace(/^Tu /, 'tu ')}: es nuestro, ya quedó anotado. ${guia}`, conectar: null };
-  if (esTimeout(error)) return { aviso: `${tu} tardó más de 2 minutos en contestar: no es de tu configuración. ${guia} Vuelve a intentar en un rato.`, conectar: null };
-  if (esSaturacion(error)) return { aviso: `${tu} tiene demasiada demanda ahora mismo: es del proveedor, no de tu configuración. ${guia} Vuelve a intentar en un rato.`, conectar: null };
-  return { aviso: `${tu} contestó con un error y no pudo escribir tu versión. ${guia} Vuelve a intentar en un rato.`, conectar: null };
+  if (esTopeDeTamano(error)) return { aviso: `Las láminas pesan demasiado para ${tu.replace(/^(Tu|El|La) /, (x) => x.toLowerCase())}: es nuestro, ya quedó anotado. ${guia}`, conectar: null };
+  if (esTimeout(error)) return { aviso: `${tu} tardó más de 2 minutos en contestar: no es de ${su} configuración. ${guia} Vuelve a intentar en un rato.`, conectar: null };
+  if (esSaturacion(error)) return { aviso: `${tu} tiene demasiada demanda ahora mismo: es del proveedor, no de ${su} configuración. ${guia} Vuelve a intentar en un rato.`, conectar: null };
+  return { aviso: `${tu} contestó con un error y no pudo escribir ${su} versión. ${guia} Vuelve a intentar en un rato.`, conectar: null };
 }
 
 /**
