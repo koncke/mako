@@ -258,6 +258,16 @@ y el forzado lo frena el clasificador de Claude Code (es destructivo para la ram
 normal. ⚠️ Después de esa unión, **`git pull --rebase` intenta reaplicar el commit viejo** (rebase linealiza y la unión «ours» no
 cuenta como aplicada) y para en conflicto: `git rebase --abort` vuelve a donde estaba, y main se trae con `git merge origin/main`.
 **Regla: si la punta ya se subió, se trae main con merge, no con rebase.**
+## Main en verde y el despliegue roto: un selector sin clase en un `.module.css` (14/11/2026, Cerebro)
+
+**El síntoma:** el despliegue de las 05:53 UTC (`dpl_GQRTqUeJTxuqzeBoRxYiUkhgfc3t`, c01d5dbf5) dio ERROR con GitHub en verde:
+`Selector "[data-origen="codigo"]" is not pure. Pure selectors must contain at least one local class or id` en
+`app/video-editor/desarmar.module.css` (tres selectores, tres errores). **La causa:** en un CSS module, Next exige que cada
+selector tenga una clase o un id PROPIO; uno sólo de atributo o de etiqueta recién se cae en `next build`, y el CI corre `tsc` y
+los tests, no el build. **La regla:** se cuelga de su clase (`.mezcla [data-origen='x']`). `tests/css-modulos-puros.test.ts`
+hace la cuenta sobre todos los `.module.css` (probado rompiéndolo: caza los mismos tres). Antes de dar por bueno un despliegue,
+`scripts/ver-deploy-vercel.mjs` dice si quedó READY y, si no, por qué.
+
 ## Un `todo` que falla cuenta como ROJO en tests-afectados (14/11/2026, run 1356, SIN HACER)
 
 - **Síntoma:** la punta del Marketing CoPilot salió roja con `tests/chats-mako-envio.test.ts` en la lista, y ese archivo, solo,
@@ -8627,6 +8637,11 @@ herramienta y no en el código.
   el diff no muestra nada (git normaliza al commitear) pero `git status` lo da por modificado, y el
   ancla con CR de un script posterior ya no calza. Se edita con node, reemplazando sobre el texto y
   conservando el fin de línea, o con Edit; nunca con `sed -i`. Si ya pasó, se devuelve a CRLF con node.
+- **El banco compila con esbuild, y esbuild acepta un `.module.css` que Next rechaza** (14/11/2026,
+  ticket 97). La caja de «Desarmar» se miró a 1440 y 375 en `scripts/banco-carruseles/` con los colores
+  de la mezcla bien puestos, y el despliegue no compiló por `[data-origen='x']` sin clase propia (la
+  entrada «Main en verde y el despliegue roto»). Una captura del banco prueba cómo se ve, no que
+  `next build` lo acepte: eso lo dice `tests/css-modulos-puros.test.ts`.
 
 **Regla:** un banco o un script de roturas cuenta y reporta cuántas aplicó; un «0 aplicadas» es un
 fallo del banco, no un test sano.
