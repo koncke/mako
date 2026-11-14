@@ -42,6 +42,40 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## Video como Cherry, segunda vuelta: lo que no se ve en la captura (14/11/2026, noche)
+
+**Vive en:** `app/vsl/_competencia/disenos/video.tsx` (diseño y `<script data-visor>`), `app/vsl/_competencia/video.ts`,
+`app/vsl/_competencia/TemaSitio.tsx`, `public/vsl-assets/video/` (las tomas 4:5 salen de `C:/dev/bancos-portada/banco-video/cortar-4x5.sh`).
+El relevo de Cherry con capturas y videos: carpeta de notas, `referencias-landings/video-cherry/`.
+
+- **⚠️ El diagnóstico obvio era el equivocado: «la copia está mal» era «la referencia cambió».** Cherry sirve tres versiones en el
+  mismo enlace (`?ver=a|b|c`, su script) y del 11/11 al 14/11 pasó de la A a la B: otro titular (84 px, no 60), otro orden, y el
+  comparador quedó en el HTML con `hidden`. **Regla:** el relevo dice la fecha y la versión, se mira el DOM (lo escondido también
+  cuenta) y, para comparar dos días, se fija la versión con `?ver=`.
+- **Síntoma: las calcomanías negras, los números de los pasos, el disco y los rótulos salían BLANCOS en el visor (y en producción).**
+  Causa: el sol y la luna «lleva al modo» también el modo de nacimiento (`planDelModo`): en el claro, todo fondo neutro oscuro pasa a
+  casi blanco y todo BORDE oscuro a gris claro, salvo los `a`/`button` y lo que está bajo `[data-tema-fijo]`. Los puntos de fondo
+  (un degradado chico) también desaparecían. **Regla:** en un diseño claro, lo oscuro a propósito (calcomanías, números, discos,
+  comparadores, tramas de puntos, el abanico) lleva `data-tema-fijo=""`; un botón de línea lleva su borde como `box-shadow: inset`
+  (los bordes se aclaran, las sombras no).
+- **`pulir.mjs` guarda el DOM DESPUÉS de correr los `<script data-visor>`**: lo que el script cambia (clases de entrada `-espera`,
+  variables `--abre`, `--x`, el meneo, el botón fijo visible) queda congelado en la página del visor, y al abrirla el script vuelve
+  a correr encima. **Regla:** el script empieza limpiando su propio estado (saca `-espera`, `-menea`, `-ver`, pone las variables
+  en cero) y es idempotente (`R.__listo`).
+- **Un `clip-path: inset(0 0 0 50%)` es el 50 % de la caja de ESE elemento.** En el comparador la imagen es más ancha que la caja
+  (acercada a la línea de tiempo) y el corte no caía en la línea: se recorta un envoltorio del tamaño de la caja, no la imagen.
+- **Un `<button>` sin `onClick` en un server component lo marca `tests/ningun-boton-muerto`.** Los pasos que se tocan son radios
+  con su `<label>`; qué escena, qué calcomanía y qué paso late lo decide `:has(.d-video-rN:checked)` en CSS, y el script sólo
+  marca el siguiente radio cuando termina la barra (`animationend`). Sin JavaScript, igual cambian al tocarlos.
+- **Cherry NO mueve los botones al pasar el mouse** (sólo `scale(.98)` al apretar): la primera copia los subía 2 px. Lo que sí se
+  agranda con el mouse son las calcomanías (`scale 1.07`, sin transición en el hero y con rebote en la hoja) y las tarjetas del mosaico.
+- **En producción la barra y el pie copiados no se ven**: los tapan `BARRA_PROPIA` y la hoja de `PieGlobal`
+  (`footer:not(.s-pie){display:none!important}`). Se dibujan igual porque el test busca el logo y los links de las otras funciones.
+- **Lo que quedó SIN hacer:** las escenas 3 y 4 de «Lo que hace» («Te muestra qué grabar» = la portada de outliers de Video,
+  `app/video-editor/OutliersVideo.tsx`, que se podría grabar en un banco con los reels de Hormozi de `banco-spy-gurus/hormozi.json`;
+  y «Lo cambias con MaKo» = el chat del editor con original y modificado) siguen con «Aquí falta la animación». El mosaico «Tu IA
+  puede hacer videos así» no va: ver hallazgos-ai-avatar, las imágenes de las escenas.
+
 ## Las marcas de un grabador van ~1 s adelantadas al video: se corta midiendo el video (14/11/2026, noche)
 
 **Síntoma.** Al unir las dos tomas de «curso y comunidad» con las marcas del grabador (`MARCA inicio 4946`…), la unión salió de 12 s
