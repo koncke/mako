@@ -639,6 +639,8 @@ function cosasDelPiloto(red: 'instagram' | 'youtube', p: PilotoRedesVista): stri
   if (red === 'instagram') {
     if (p.instagram.proponerHook) out.push(`Cada semana te propongo ${p.instagram.variaciones} variaciones del hook de tu reel más visto.`);
     if (p.instagram.proponerCarrusel) out.push('Te propongo pasar a carrusel el reel que supera tu número.');
+    if (p.instagram.reelDePrueba === 'solo') out.push('Tus reels salen primero como reel de prueba, y los paso al feed si les va bien.');
+    if (p.instagram.reelDePrueba === 'pregunta') out.push('Tus reels salen primero como reel de prueba: tú decides cuándo pasan al feed.');
   } else if (p.youtube.proponerShorts && p.youtube.shortsPorVideo > 0) {
     out.push(`Te propongo sacar ${p.youtube.shortsPorVideo} shorts de cada video largo.`);
   }

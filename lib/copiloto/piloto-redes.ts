@@ -8,6 +8,9 @@
 //     aviso (./nevera.ts, ./nevera-aviso.ts): gana sobre lo que salió de la entrada.
 //   · LO HAGO SOLO: publicar lo que programas (el Calendario por Zernio, como siempre) y avisarte por WhatsApp y email si se acaba el
 //     contenido (el aviso `copiloto-nevera`, que este interruptor prende o apaga).
+//   · EL REEL DE PRUEBA (Trial Reels, 14/11): los reels de Instagram salen primero sólo a quien no te sigue (Zernio:
+//     `trialParams.graduationStrategy`, docs.zernio.com/platforms/instagram/fields). «Lo hago solo» = SS_PERFORMANCE (Instagram lo pasa
+//     al feed si le va bien); «Te pregunto» = MANUAL (lo pasas tú desde Instagram). Apagado de fábrica: cambia cómo sale CADA reel.
 //   · TE PREGUNTO (una tarea en tu Plan, cada semana): variaciones del hook de tu reel más visto, pasar a carrusel el reel que superó
 //     tu número del reel de prueba, sacar shorts de tu video largo. Hacerlas SOLO necesita editar video sin el navegador: no está.
 // Se guarda dentro de marketing-copilot.piloto (./piloto.ts), junto al número del reel de prueba.
@@ -16,7 +19,11 @@
 import type { RitmoNevera } from './nevera-reglas';
 import type { TareaCoPilot } from './tareas';
 
-export type PilotoInstagram = { reelsSemana: number; historiasSemana: number; carruselesSemana: number; variaciones: number; proponerHook: boolean; proponerCarrusel: boolean };
+export type ReelDePrueba = 'no' | 'solo' | 'pregunta';
+export type PilotoInstagram = { reelsSemana: number; historiasSemana: number; carruselesSemana: number; variaciones: number; proponerHook: boolean; proponerCarrusel: boolean; reelDePrueba: ReelDePrueba };
+
+/** Lo que se le manda a Zernio por cada modo del reel de prueba (null = un reel normal). */
+export const GRADUACION_DE_PRUEBA: Record<ReelDePrueba, 'SS_PERFORMANCE' | 'MANUAL' | null> = { no: null, solo: 'SS_PERFORMANCE', pregunta: 'MANUAL' };
 export type PilotoYoutube = { largosMes: number; shortsPorVideo: number; proponerShorts: boolean };
 export type PilotoRedes = { instagram: PilotoInstagram; youtube: PilotoYoutube };
 
@@ -28,7 +35,7 @@ export const TOPES_PILOTO = {
 /** Lo de fábrica, si no hay nada guardado: lo que sale del ritmo de la entrada (o lo de «3 a 5 horas por semana»). */
 export function pilotoDeFabrica(ritmo: RitmoNevera | null): PilotoRedes {
   return {
-    instagram: { reelsSemana: ritmo?.reel ?? 4, historiasSemana: ritmo?.story ?? 4, carruselesSemana: ritmo?.post ?? 1, variaciones: 3, proponerHook: true, proponerCarrusel: true },
+    instagram: { reelsSemana: ritmo?.reel ?? 4, historiasSemana: ritmo?.story ?? 4, carruselesSemana: ritmo?.post ?? 1, variaciones: 3, proponerHook: true, proponerCarrusel: true, reelDePrueba: 'no' },
     youtube: { largosMes: Math.round((ritmo?.video ?? 0.5) * 4) || 2, shortsPorVideo: 3, proponerShorts: true },
   };
 }
@@ -52,6 +59,7 @@ export function sanearPilotoRedes(x: unknown, fabrica: PilotoRedes): PilotoRedes
       variaciones: entero(ig.variaciones, TOPES_PILOTO.variaciones, f.instagram.variaciones),
       proponerHook: typeof ig.proponerHook === 'boolean' ? ig.proponerHook : f.instagram.proponerHook,
       proponerCarrusel: typeof ig.proponerCarrusel === 'boolean' ? ig.proponerCarrusel : f.instagram.proponerCarrusel,
+      reelDePrueba: ig.reelDePrueba === 'solo' || ig.reelDePrueba === 'pregunta' || ig.reelDePrueba === 'no' ? ig.reelDePrueba : f.instagram.reelDePrueba,
     },
     youtube: {
       largosMes: entero(yt.largosMes, TOPES_PILOTO.largosMes, f.youtube.largosMes),

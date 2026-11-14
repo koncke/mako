@@ -232,6 +232,8 @@ export function ConfigurarPiloto({ inicial, pilotoPermitido, reel, canalInicial,
                   <h3>Qué hago solo</h3>
                   <div className="mq-aj"><div><b>Publicar lo que programas en el Calendario</b></div><Interr on fijo si="Lo hago solo" /></div>
                   <div className="mq-aj"><div><b>Avisarte por WhatsApp y email si se acaba el contenido</b></div><Interr on={aviso} set={setAviso} si="Lo hago solo" /></div>
+                  <div className="mq-aj"><div><b>Publicar tus reels primero como reel de prueba, sólo a quien no te sigue</b></div><Interr on={ig.reelDePrueba !== 'no'} set={(v) => setIg({ ...ig, reelDePrueba: v ? 'solo' : 'no' })} si="Sí" /></div>
+                  {ig.reelDePrueba !== 'no' && <div className="mq-aj"><div><b>Pasarlo al feed si le va bien</b></div><Interr on={ig.reelDePrueba === 'solo'} set={(v) => setIg({ ...ig, reelDePrueba: v ? 'solo' : 'pregunta' })} si="Lo hago solo" no="Lo pasas tú" /></div>}
                   <h3>Qué te pregunto</h3>
                   <div className="mq-aj"><div><b>Variaciones del hook de tu reel más visto, cada semana</b></div><div className="mq-cfg__par">{ig.proponerHook && <Paso etiqueta="Cuántas variaciones" valor={ig.variaciones} tope={TOPES_PILOTO.variaciones} set={(n) => setIg({ ...ig, variaciones: n })} />}<Interr on={ig.proponerHook} set={(v) => setIg({ ...ig, proponerHook: v })} si="Te pregunto" /></div></div>
                   <div className="mq-aj"><div><b>Pasar a carrusel el reel que supera tu número</b></div><Interr on={ig.proponerCarrusel} set={(v) => setIg({ ...ig, proponerCarrusel: v })} si="Te pregunto" /></div>
