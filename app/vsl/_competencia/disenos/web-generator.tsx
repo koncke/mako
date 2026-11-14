@@ -27,13 +27,15 @@
 //   · las preguntas en dos columnas (la primera abierta), la caja oscura del cierre con su pedido y el pie.
 // De MaKo: el logo, el azul #2F6FED donde AI Studio pone su violeta, el dorado como detalle, los textos y TODO lo que se ve adentro
 // de los marcos, que es REAL (nada dibujado):
-//   · las landings: lo que arma Web Generator con cada diseño y cada objetivo (`landingDesde`), dibujado con su render público y
-//     fotografiado en el banco C:/dev/bancos-portada/banco-web-generator-landing (generar.mts + capturar.mjs), sin IA ni base;
+//   · las landings: lo que arma Web Generator con cada diseño y cada objetivo (`landingDesde`), llenadas con los textos de un negocio
+//     inventado por objetivo (rellenos.mts, escritos a mano: ningún corchete a la vista), dibujadas con su render público y
+//     fotografiadas en el banco C:/dev/bancos-portada/banco-web-generator-landing (generar.mts + capturar.mjs), sin IA ni base;
+//   · su video de producto: el Panel REAL de Web Generator (Inicio) grabado en ese banco (panel/): diseño → objetivo → la landing;
 //   · la réplica: la grabación de «Replicar» de la portada (public/vsl-assets/sitio/replicar.webm), con su póster en el primer cuadro;
 //   · los pedidos que se escriben: los ejemplos que la caja de MaKo escribe sola (EJEMPLOS_CAJA, app/web-generator/crear/tipo.ts) y
 //     los objetivos de las plantillas (lib/editor-landing/plantillas.ts); los campos del formulario y su botón, los de cada plantilla.
-// Lo que NO va, y por qué: ver la cabecera de ../web-generator.ts y docs/diseno/landings-competencia/web-generator.md (su video de
-// producto, su mascota, sus publicaciones de usuarios, sus barras «3 a 6 semanas / esta noche», sus testimonios y su cadena de cuatro
+// Lo que NO va, y por qué: ver la cabecera de ../web-generator.ts y docs/diseno/landings-competencia/web-generator.md (su mascota,
+// sus publicaciones de usuarios, sus barras «3 a 6 semanas / esta noche», sus testimonios y su cadena de cuatro
 // pasos después del formulario: MaKo sólo afirma que el lead entra a tu CRM).
 // Server component: lo que se mueve va en un <script data-visor> (el visor de Martín borra los demás) que empieza limpiando su propio
 // estado (pulir.mjs guarda el DOM después de correrlo). Sin JavaScript: las pestañas y las pastillas son radios con su <label>, las
@@ -43,7 +45,6 @@
 import type { PropsDiseno } from '.';
 import type { Bloque } from '../tipos';
 import { RUTA_CTA, CASO, LogoMaKo, TEXTO_CTA, TEXTO_CIERRE, html, otrasFunciones } from '../marca';
-import { FaltaAnimacion } from '../FaltaAnimacion';
 import { DISENOS_LANDING } from '@/lib/editor-landing/disenos-landing';
 import { PLANTILLAS } from '@/lib/editor-landing/plantillas';
 import type { CampoFormulario, JsonNodo } from '@/lib/editor-landing/doc';
@@ -54,6 +55,8 @@ type Hero = Extract<Bloque, { tipo: 'hero' }>;
 const A = '/vsl-assets/web-generator';
 /** La grabación de «Replicar» (la de la portada); el póster es su PRIMER cuadro, para que el video empalme al arrancar. */
 export const GRABACION_REPLICA = { video: '/vsl-assets/sitio/replicar.webm', poster: `${A}/replicar-poster.jpg` };
+/** El Panel de Web Generator grabado (banco-web-generator-landing/panel/grabar.mjs), en bucle con codificar-bucle.sh. */
+export const GRABACION_PANEL = { video: `${A}/panel.webm`, poster: `${A}/panel.jpg` };
 
 const nombreDiseno = (id: string) => DISENOS_LANDING.find((d) => d.id === id)?.nombre ?? id;
 const descDiseno = (id: string) => DISENOS_LANDING.find((d) => d.id === id)?.descripcion ?? '';
@@ -209,8 +212,13 @@ function HeroWg({ b }: { b: Hero }) {
           </div>
         </div>
       </div>
-      {/* Su video de producto (1080 × 608, radio 20, corre solo y sin sonido con «Enable sound»): MaKo no tiene uno del Web Generator. */}
-      <div className="d-wg-hero-video"><FaltaAnimacion que="El video de Web Generator: describes la landing, MaKo la arma y la publicas." /></div>
+      {/* Su video de producto (1080 de ancho, radio 20, corre solo y sin sonido): el Panel REAL de Web Generator grabado en el banco
+          (C:/dev/bancos-portada/banco-web-generator-landing/panel): se elige un diseño, sale «¿De qué quieres crearla?», se elige el
+          objetivo y aparece la landing. El póster es su primer cuadro. */}
+      <div className="d-wg-hero-video" data-tema-fijo="">
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video src={GRABACION_PANEL.video} poster={GRABACION_PANEL.poster} muted loop playsInline preload="none" data-a-la-vista="" aria-label="Grabado en MaKo: en el Panel de Web Generator se elige el diseño Cálido, el objetivo «Curso o programa» y aparece la landing" />
+      </div>
     </section>
   );
 }
@@ -664,8 +672,8 @@ html[data-sitio-modo="claro"] .d-wg-h1 { color: #101828; }
 html[data-sitio-modo="claro"] .d-wg-h1 em { background-image: ${GRAD}; }
 html[data-sitio-modo="claro"] .d-wg-sub { color: #475467; }
 html[data-sitio-modo="claro"] .d-wg-sub strong { color: #101828; }
-.d-wg-hero-video { max-width: 1080px; margin: 120px auto 0; border-radius: 20px; box-shadow: 0 30px 60px -30px rgba(7,20,40,.45); }
-.d-wg-hero-video .mk-falta { aspect-ratio: 1080 / 608; border-radius: 20px; }
+.d-wg-hero-video { max-width: 1080px; margin: 120px auto 0; border-radius: 20px; overflow: hidden; background: #0B1220; box-shadow: 0 30px 60px -30px rgba(7,20,40,.45); }
+.d-wg-hero-video video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; }
 .d-wg-ais { max-width: 1140px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 3.5em; align-items: flex-start; }
 .d-wg-ais-head { text-align: start; margin-bottom: 24px; }
 .d-wg-badge { display: inline-block; margin-bottom: 20px; padding: 12px 32px; border-radius: 9999px; border: 1px solid #86CBFA; background: #1C3249; color: #fff; font-size: clamp(14px, 1.7vw, 17px); font-weight: 500; letter-spacing: -0.005em; line-height: 1.3; }
@@ -1184,7 +1192,7 @@ cuidar(function(){
   }
   function diseno(id,nombre){
     empezar();url.textContent='hola-mako.site/'+id;site.setAttribute('data-ver','img');
-    var ref=q('[data-diseno="'+id+'"] img');img.src=ref?ref.getAttribute('src'):'${A}/mini/'+id+'.jpg';img.alt='La landing «Agenda una llamada» con el diseño '+nombre+', tal cual la arma Web Generator';
+    var ref=q('[data-diseno="'+id+'"] img');img.src=ref?ref.getAttribute('src'):'${A}/mini/'+id+'.jpg';img.alt='Una landing de Web Generator con el diseño '+nombre;
     qa('.d-wg-chip',retry).forEach(function(c){c.classList.toggle('is-on',c.getAttribute('data-diseno')===id);});
     progreso(5600);estado('Tomando el diseño '+nombre+'\\u2026');
     if(quieto){site.classList.add('is-armando');terminar('Lista para editar');return;}
@@ -1344,6 +1352,13 @@ cuidar(function(){
   cs.forEach(function(c){c.classList.remove('on');});
   if(quieto||!IO){cs.forEach(function(c){c.classList.add('on');});return;}
   var visto=false;var ob=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&!visto){visto=true;cs.forEach(function(c,i){setTimeout(function(){c.classList.add('on');},i*100);});ob.disconnect();}});},{threshold:.2});ob.observe(root);
+});
+
+/* 8. Los videos marcados corren sólo a la vista (y quietos con «reducir movimiento»). */
+cuidar(function(){
+  var vs=qa('video[data-a-la-vista]');if(quieto||!IO||!vs.length)return;
+  var ob=new IntersectionObserver(function(es){es.forEach(function(e){var v=e.target;if(e.isIntersecting){v.preload='auto';var pr=v.play();if(pr&&pr.catch)pr.catch(function(){});}else if(!v.paused)v.pause();});},{threshold:.25});
+  vs.forEach(function(v){ob.observe(v);});
 });
 
 /* 7. ¿Para quién?: el formulario se llena (25 ms por letra), se aprieta el botón, sale el lead y el cable lo lleva al CRM (9 s cada uno). */

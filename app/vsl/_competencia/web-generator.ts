@@ -40,7 +40,7 @@
 //     (lib/editor-landing/plantillas.ts). Su cadena «After they hit submit» (cita, cuadrilla avisada) se dice sólo hasta
 //     donde llega MaKo: lo que dejan en el formulario entra a tu CRM (lib/funciones-mako.ts → `conecta`, y
 //     app/api/track/optin/route.ts, que recibe el formulario de una página publicada).
-//   · Su video de producto debajo del hero no va (no hay un video del Web Generator). De sus nueve preguntas sale la de
+//   · Su video de producto debajo del hero es, en MaKo, el Panel real grabado (elegir diseño y objetivo, y la landing que sale). De sus nueve preguntas sale la de
 //     agencias: no está medido qué hace el Web Generator para el cliente de una.
 // 14/11/2026, noche (Martín: «que la copia salga muy fiel a todas las animaciones… los videos, los hover, todo»): el DISEÑO se rehízo
 // contra la versión de hoy, con sus movimientos (el constructor del hero que se escribe solo, la galería que se arma con el scroll,

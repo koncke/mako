@@ -7,8 +7,9 @@ así que las medidas, las curvas, las duraciones y los umbrales salen de ahí, n
 14/11: side-session-notes/…/referencias-landings/web-generator/ (relevo.md).
 **Diseño copiado en:** `app/vsl/_competencia/disenos/web-generator.tsx`. **Contenido:** `app/vsl/_competencia/web-generator.ts`.
 **Lo que se ve adentro de los marcos:** el banco `C:/dev/bancos-portada/banco-web-generator-landing` (generar.mts → capturar.mjs →
-recortar.py): las landings que arma Web Generator con cada diseño y objetivo, dibujadas con su render público (`htmlDePagina`,
-`documentoExportable`) y fotografiadas. Sin IA, sin base.
+recortar.py): las landings que arma Web Generator con cada diseño y objetivo, LLENADAS con los textos de un negocio inventado por
+objetivo (rellenos.mts, escritos a mano: ningún corchete a la vista), dibujadas con su render público (`htmlDePagina`,
+`documentoExportable`) y fotografiadas. Sin IA, sin base. El video del hero: `panel/` (el Panel real grabado).
 
 ⚠️ Su HTML trae también «Built with AI Studio» y «Meet your 24/7 AI Team», pero esas dos secciones están escondidas en todos los
 anchos (`desktop-only mobile-only tablet-hide`): no se copian.
@@ -56,8 +57,10 @@ El del cierre es otro: sube 2 px en .3 s con rebote y baja a `scale(.98)` al apr
     estados son los de la app («Leyendo la página…», «Replicando…»). Las cuatro tarjetas y los chips son los **diseños** de Web
     Generator: tocar uno arma, con los mismos tiempos, la landing que sale con ese diseño (su foto real, que se descubre de arriba
     abajo).
-  - Debajo del hero, su **video de producto** (1080 × 608, radio 20, con «Enable sound»): no va (no hay un video del Web Generator).
-    Tampoco su mascota («Highly», abajo a la izquierda de la tarjeta).
+  - Debajo del hero, su **video de producto** (1080 de ancho, radio 20, corre solo y sin sonido, con «Enable sound»). En MaKo: el
+    **Panel real de Web Generator grabado** (banco `banco-web-generator-landing/panel`: el `Inicio` de la app compilado con esbuild):
+    se toca un diseño, sale «¿De qué quieres crearla?», se toca el objetivo y aparece la landing; en bucle, sin sonido, corre sólo a la
+    vista. Sin la mascota («Highly»).
 - **Galería** («They typed a sentence…»): título 42/62,4 600 negro (42 px también en el teléfono: lo fija un `style` en línea), la segunda línea en degradado (119deg);
   debajo una línea en cursiva gris de 18 px. Son las únicas entradas de animate.css que quedan vivas: el título sube desde su alto
   en .6 s lineal y la línea hace fadeInUp en 1 s. La
@@ -117,6 +120,6 @@ El del cierre es otro: sube 2 px en .3 s con rebote y baja a `scale(.98)` al apr
 
 ## Lo que no se copia
 
-Su logo y su barra (en producción, la del sitio), su video de producto, su mascota, las publicaciones de sus usuarios en la galería,
+Su logo y su barra (en producción, la del sitio), su mascota, las publicaciones de sus usuarios en la galería,
 sus contadores de uso (700K, 175K, 85K), sus testimonios, el ejemplo «Jasmine Rivera», sus cuatro pasos después del formulario, sus
 barras de tiempo y su prueba de 14 días.

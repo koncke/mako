@@ -5807,10 +5807,20 @@ El relevo de AI Studio con capturas, videos y su código por sección: carpeta d
   `animation: none !important`. La galería atada al scroll se copió con su script entero; es progresiva (sin JavaScript la sección tiene
   su alto normal: el alto de 3,2 × escenario lo pone la clase `is-vivo`) y el script borra los clones `[data-clone]` antes de armar,
   porque `pulir.mjs` guarda el DOM con ellos.
-- **Qué va en cada marco, sin inventar:** las landings que se ven son las que arma Web Generator al elegir diseño + objetivo
-  (`landingDesde`), dibujadas con el render público y el documento de «Exportar → HTML» (`htmlDePagina` + `documentoExportable`) y
-  fotografiadas: sin base, sin IA, sin sesión. Llevan los corchetes de la plantilla («[resultado concreto]»): es lo que sale de verdad
-  sin la IA. El hero escribe un link y pasa la grabación REAL de Replicar (con «Con MaKo Pro»), no una frase con una landing armada a mano.
+- **Qué va en cada marco, sin inventar:** las landings son las que arma Web Generator al elegir diseño + objetivo (`landingDesde`),
+  dibujadas con el render público y el documento de «Exportar → HTML» (`htmlDePagina` + `documentoExportable`) y fotografiadas: sin base,
+  sin IA, sin sesión. **Sin llenar, sus corchetes («[resultado concreto]») se leen como una página rota** (el coordinador, al verlas): van
+  llenadas con los textos de un negocio INVENTADO por objetivo, escritos a mano (`banco-web-generator-landing/rellenos.mts`). La
+  trampa: `landingDesde` suma bloques del diseño y de las herramientas de MaKo con SUS corchetes, y algunos viven en atributos (el
+  formulario, las opciones del quiz): un inventario de la plantilla sola no los ve. `generar.mts` recorre el árbol entero, texto y
+  atributos, y frena si queda uno en lo dibujado.
+- **El video del hero es el Panel REAL** (`Inicio`, `app/web-generator/Inicio.tsx`) compilado con esbuild en `banco-web-generator-landing/panel`:
+  la galería de diseños, «¿De qué quieres crearla?» y la landing que aparece. Tres trampas: `Inicio` arrastra `app/crm/actions.ts` y el
+  stub del banco del editor de Image buscaba su `ficha-datos.ts` (se apaga); la muestra de la galería (`plantillasDe`) también tenía
+  corchetes y se llena con un `onLoad` de esbuild que envuelve `landingDesde` (el Panel es el mismo, cambian los textos); y **una cámara
+  que corta la lista deja el clic afuera de la ventana sin ningún error**: el diálogo seguía abierto y la landing «no aparecía». El
+  cuadro de la cámara tiene que contener lo que se va a tocar, y `g.caja` ya descuenta la cámara puesta (sacarla para medir se ve como un
+  salto). La capa de la landing va por encima del portal del diálogo (la app navegaría al editor; el banco no).
 - **Una plantilla con agenda EXPORTADA no dibuja la agenda**: el bloque de Calendly/Cal.com entra vacío a propósito y en modo `exportar`
   no sale nada (en el editor dice «Pega el enlace de tu agenda», `app/web-generator/editor/nodos/InsertadoVista.tsx`). La foto de «Agenda»
   es esa sección y el formulario que sigue. Y quiz, venta directa, curso y gracias no tienen bloque `formulario`: «¿Para quién?» dibuja
@@ -5820,8 +5830,9 @@ El relevo de AI Studio con capturas, videos y su código por sección: carpeta d
   sólo como caída. Antes de afirmar en una landing qué pasa con el formulario, se lee el código, no la cabecera: «entra a tu CRM como
   lead» es cierto.
 
-SIN HACER: su video de producto debajo del hero (va «Aquí falta la animación»: no hay un video del Web Generator); su mascota; una landing
-que haya escrito la IA de MaKo desde una frase (para que el hero muestre la frase → la página, como el suyo); la agenda con un Calendly real.
+SIN HACER: su mascota; una landing que haya escrito la IA de MaKo desde una frase (el hero escribe un link y pasa la réplica); la agenda
+con un Calendly real; el editor de landings en el banco (después de crear, la app abre el editor: el banco muestra la landing con el render
+público).
 
 ## Chats como Leadsales: el pie que «no cambiaba» sí cambia, y el sol y la luna no ve los `::before` ni la letra de una caja chica (14/11/2026, noche)
 
